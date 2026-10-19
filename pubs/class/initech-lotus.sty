@@ -251,6 +251,14 @@
 %% NT-12: a named function key, NAME (KEY), in small capitals.
 \newcommand\fkey[2]{\immediate\write\im@mentions{#2|key}\mbox{\key{#1} (\key{#2})}}
 \newcommand\kname[1]{\immediate\write\im@mentions{#1|key}\im@keycap{#1}}
+%% GC-02 for Initech 123: a message as the control panel displays it.
+%% \Msg{Invalid range} prints it in the typed face and writes it to
+%% <job>.msgs; harness/pubs/i123_gate.c messages grades every printed message
+%% against the notice() strings of the shipped application, both directions.
+\newwrite\im@msgsout
+\AtBeginDocument{\immediate\openout\im@msgsout=\jobname.msgs}
+\AtEndDocument{\immediate\closeout\im@msgsout}
+\newcommand\Msg[1]{\immediate\write\im@msgsout{#1}\mbox{\texttt{#1}}}
 
 %% ---- keystroke tables (AN-17) ---------------------------------------------
 %% \begin{Keystrokes} \Do{Type}{\type{123}}{to enter the number} ... \end

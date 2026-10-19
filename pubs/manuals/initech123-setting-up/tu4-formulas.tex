@@ -14,6 +14,9 @@ recalculate by hand, and add a test that marks the expensive quarters.
 Begin by retrieving BUDGET: press \kname{SLASH}, type \type{f} and
 \type{r}, type \type{BUDGET} and press \kname{ENTER}.
 
+\FlairShot[fig:tu4open]{tl15}{The budget with shares and the test of
+Lesson~15}
+
 \section{Lesson 12: Absolute References}
 \ix{absolute reference}
 Each supply's share of the year's spending is its total divided by the
@@ -25,6 +28,13 @@ always refers to the same cell.
 \Do{Press}{\fkey{Goto}{F5}}{and type \type{g4}, then press \kname{ENTER}}
 \Do{Type}{\type{"Share}}{and press \kname{DOWN}}
 \Do{Type}{\type{+f5/\$f\$9}}{and press \kname{ENTER}}
+\end{Keystrokes}
+G5 shows the paper's share of the year as a fraction
+(Figure~\ref{fig:tl12a}).  The control panel shows the formula with the
+dollar signs you typed.
+\FlairShot[fig:tl12a]{tl12a}{The paper's share in G5}
+Now copy the formula down the column, and format the shares:
+\begin{Keystrokes}
 \Do{Press}{\kname{SLASH}}{type \type{c}, press \kname{ENTER}, type
   \type{g6} and press \kname{ENTER}}
 \Do{Press}{\kname{SLASH}}{type \type{c}, type \type{g5..g6} and press
@@ -48,7 +58,14 @@ grand total TOTAL, and use the name in the share formulas.
 \Do{Press}{\fkey{Goto}{F5}}{and type \type{f9}, then press \kname{ENTER}}
 \Do{Press}{\kname{SLASH}}{and type \type{r}, \type{n}, \type{c} to select
   Range Name Create}
-\Do{Type}{\type{total}}{the name, and press \kname{ENTER}}
+\Do{Type}{\type{total}}{the name}
+\end{Keystrokes}
+The prompt \texttt{Enter name:} shows the name as you type it
+(Figure~\ref{fig:tl13a}).  A range name has up to 15 characters; Initech
+123 stores it in capital letters.
+\FlairShot[fig:tl13a]{tl13a}{Naming the grand total}
+\begin{Keystrokes}
+\Do{Press}{\kname{ENTER}}{to accept the name}
 \Do{Press}{\kname{ENTER}}{to name the current cell, F9}
 \Do{Press}{\fkey{Goto}{F5}}{and type \type{g5}, then press \kname{ENTER}}
 \Do{Type}{\type{+f5/\$total}}{and press \kname{ENTER}}

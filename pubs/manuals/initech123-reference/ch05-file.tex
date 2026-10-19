@@ -48,7 +48,7 @@ when you end Initech 123 or erase the worksheet.
 \item ``Worksheet Files'' in Chapter~1
 \item Chapter~9, ``The Quit Command'', on saving your work before you end
   a session
-\item Lesson~3 in the \doctitle{Tutorial}
+\item Lessons~6, 7, 11 and 17 in the \doctitle{Tutorial}
 \end{itemize}
 
 \section{Terms You Need to Know}
@@ -112,22 +112,22 @@ If Initech 123 cannot retrieve the file, the mode indicator changes to
 return to the worksheet.  The messages are:
 \begin{LotTable}{p{44mm}p{84mm}}
 \LotHead{\textbf{Message} & \textbf{Meaning}}
-\texttt{File not found} & There is no file of that name\\
-\texttt{Path not found} & A directory named in the file name does not
+\Msg{File not found} & There is no file of that name\\
+\Msg{Path not found} & A directory named in the file name does not
   exist\\
-\texttt{Not a valid WK1 file} & The file is not a worksheet file, or it is
+\Msg{Not a valid WK1 file} & The file is not a worksheet file, or it is
   damaged\\
-\texttt{File too large} & The file is larger than Initech 123 can read
+\Msg{File too large} & The file is larger than Initech 123 can read
   (64K)\\
-\texttt{Not enough worksheet memory} & The worksheet in the file has more
+\Msg{Not enough worksheet memory} & The worksheet in the file has more
   entries than Initech 123 can hold (Appendix~A)\\
-\texttt{File read incomplete} & The file could not be read to its end\\
-\texttt{File I/O error} & The disk could not be read\\
-\texttt{Enter a file name} & You pressed \kname{ENTER} without typing a
+\Msg{File read incomplete} & The file could not be read to its end\\
+\Msg{File I/O error} & The disk could not be read\\
+\Msg{Enter a file name} & You pressed \kname{ENTER} without typing a
   name\\
-\texttt{Invalid file name} & The name contains a space, \texttt{*} or
+\Msg{Invalid file name} & The name contains a space, \texttt{*} or
   \texttt{?}\\
-\texttt{File name too long} & You typed more than 48 characters\LotEnd
+\Msg{File name too long} & You typed more than 48 characters\LotEnd
 \end{LotTable}
 \end{Note}
 
@@ -164,10 +164,10 @@ return to the worksheet.  The messages are:
 
 \begin{Note}
 Initech 123 checks that the worksheet can be written before it creates or
-replaces the file.  If it cannot (\texttt{Worksheet too large to save}), the
+replaces the file.  If it cannot (\Msg{Worksheet too large to save}), the
 file on disk is not touched.  If the disk fails while a new file is being
 written, Initech 123 removes the incomplete file and displays
-\texttt{File I/O error}.
+\Msg{File I/O error}.
 \end{Note}
 
 \LabelHead{Tip}

@@ -3,7 +3,7 @@
 # window frame is (0,40)..(640,480): the title bar, the three control-panel
 # lines from y 62, the column border y 110, row 1 from y 126, 16 px a line),
 # replication factor (NT-21: 4 = full-block figure, 108.4 mm wide) and the
-# image life (short 500, long 2000, longer 4500 ticks; pubs/screens/
+# image life (short 500, long 2000, longer 12000 ticks; pubs/screens/
 # flair_capture.sh) and, optionally, the screendump marker.  Keystrokes: screens/<name>.k123.  Regenerate with
 # "make pubs-i123-screens"; "make test-pubs-screens" re-captures every
 # figure and compares it pixel for pixel.
@@ -23,6 +23,12 @@ saveprompt|0 40 640 190|4|long
 replace|0 40 640 190|4|long
 quitalert|0 0 640 480|4|long|TENANT-ALERT up
 currency|0 40 640 222|4|long
-nametable|0 40 640 222|4|long
+nametable|0 40 640 222|4|longer
 movedone|0 40 640 222|4|long
 colwidth|0 40 640 222|4|long
+wgmenu|0 40 640 190|4|long
+recalcmenu|0 40 640 190|4|long
+wserase|0 40 640 190|4|long
+labelmenu|0 40 640 190|4|long
+namemenu|0 40 640 190|4|long
+valueto|0 40 640 190|4|long

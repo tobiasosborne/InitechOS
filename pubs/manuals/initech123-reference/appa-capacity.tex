@@ -40,7 +40,7 @@ does after \slashcmd{/Range Erase} or \slashcmd{/Range Format}.
 Every command that changes the worksheet builds the changed worksheet
 first and puts it in place only when it is complete.  When a command would
 need more cells or more space than the limits allow, Initech 123 displays
-\texttt{Not enough worksheet memory}, and the worksheet is left exactly as it
+\Msg{Not enough worksheet memory}, and the worksheet is left exactly as it
 was before the command.  The same message appears, and the worksheet in
 memory is kept, when you retrieve a file that holds more entries than
 Initech 123 can take.
@@ -50,7 +50,7 @@ An entry you type that does not fit is refused: Initech 123 switches to
 \kname{ESC} to abandon it.
 
 If the worksheet in memory cannot be written as a file
-(\texttt{Worksheet too large to save}), /File Save leaves the file on disk
+(\Msg{Worksheet too large to save}), /File Save leaves the file on disk
 untouched.  Erase entries you do not need, or move part of the work to a
 second worksheet, and save again.
 

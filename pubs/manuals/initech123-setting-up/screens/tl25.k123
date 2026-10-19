@@ -1,0 +1,2 @@
+# Lesson 25: the plan of the forecast, saved as FC25
+/wgc10~Sales Forecast 1993~{GOTO}a3~Growth{RIGHT}5%~{GOTO}a5~Region{RIGHT}"Q1{RIGHT}"Q2{RIGHT}"Q3{RIGHT}"Q4{RIGHT}"Year~{GOTO}a6~North{DOWN}South{DOWN}East{DOWN}West{DOWN}Total~/rfp0~b3~/fsFC25~

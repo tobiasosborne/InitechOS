@@ -92,7 +92,7 @@ line.
   with \slashcmd{/Worksheet Global Recalculation Iteration}.
 \end{itemize}
 
-\Problem{Initech 123 displays Cell is protected when I type an entry.}
+\Problem{Initech 123 displays \Msg{Cell is protected} when I type an entry.}
 \Solution Worksheet protection is enabled and the cell is protected.
 \begin{itemize}
 \item Unprotect the cells you want to change with \slashcmd{/Range Unprot}.
@@ -106,64 +106,91 @@ entry in B1 is accepted:
 \LotExample{examples/protect}
 
 \section{Commands}
-\Problem{Initech 123 displays Command not implemented.}
+\Problem{Initech 123 displays \Msg{Command not implemented}.}
 \Solution The command appears in the menus but is not available in this
 version.  Press \kname{ESC} to return to the worksheet; nothing has been
 changed.  The commands of this book marked \DraftSample\ are those
 commands.
 
-\Problem{Initech 123 displays Invalid range.}
+\Problem{Initech 123 displays \Msg{Invalid range}.}
 \Solution The answer to a range prompt is not an address, a range or an
 existing range name.  Press \kname{ESC}, select the command again and type
 the range as two addresses separated by two periods, \type{A1..C5}.
 
-\Problem{Initech 123 displays Illegal number.}
+\Problem{Initech 123 displays \Msg{Illegal number}.}
 \Solution The number you typed at a prompt is not a whole number in the
 range the prompt shows, for example \texttt{(1..240)}.
 
-\Problem{Initech 123 displays Specify the upper left destination cell.}
+\Problem{Initech 123 displays \Msg{Specify the upper left destination cell}.}
 \Solution The TO range of /Copy, /Move, /Range Value or /Range Trans was
 given as a range of several cells.  Give only its upper left cell.
 
-\Problem{Initech 123 displays Command refused.}
+\Problem{Initech 123 displays \Msg{Command refused}.}
 \Solution The command would change a protected cell while protection is
 enabled, or it would move an existing range name to a different range while
 the worksheet contains formulas.  Unprotect the cells, or delete the range
 name and create it again.
 
-\Problem{Initech 123 displays Invalid range name.}
+\Problem{Initech 123 displays \Msg{Invalid range name}.}
 \Solution A range name can have at most 15 characters, and the name prompt
 needs at least one.
 
-\Problem{Initech 123 displays Not enough worksheet memory.}
+\Problem{Initech 123 displays \Msg{Not enough worksheet memory}.}
 \Solution The worksheet is at a limit of Appendix~A.  The command was not
 carried out and the worksheet is unchanged.  Erase entries and formats you do
 not need, then try again.
 
+\Problem{Initech 123 displays \Msg{Not enough memory to recalculate} when I
+press CALC (F9).}
+\Solution Initech 123 could not complete the recalculation for lack of
+working memory, and some formulas may still show the values of an earlier
+recalculation.  Save the worksheet, reduce the number of formulas, and press
+\fkey{Calc}{F9} again.
+
+\Problem{Initech 123 displays \Msg{Menu nesting error}.}
+\Solution The menu file \file{123.MNU} is damaged: a menu leads to more
+levels of menus than Initech 123 can follow.  Copy \file{123.MNU} again
+from your InitechOS diskettes.
+
 \section{Files}
-\Problem{Initech 123 displays File not found.}
+\Problem{Initech 123 displays \Msg{File not found}.}
 \Solution There is no file of the name you typed on drive \file{A:}.  Check
 the spelling.  If you typed an extension other than \file{.WK1}, type it as
 it is on the disk; if you typed none, Initech 123 looked for a \file{.WK1}
 file.
 
-\Problem{Initech 123 displays Not a valid WK1 file.}
+\Problem{Initech 123 displays \Msg{Not a valid WK1 file}.}
 \Solution The file is not an Initech 123 worksheet file, or it is damaged.
 The worksheet in memory has not been changed.
 
-\Problem{Initech 123 displays File too large.}
+\Problem{Initech 123 displays \Msg{File read incomplete}.}
+\Solution The data disk stopped returning the file before its end.  The
+worksheet in memory has not been changed.  Retrieve the file again; if the
+message appears each time, the file is damaged.
+
+\Problem{Initech 123 displays \Msg{File name too long}.}
+\Solution You typed more than 48 characters at a file-name prompt.  A file
+name has at most eight characters and an extension of three; press
+\kname{ESC} and type it again.
+
+\Problem{Initech 123 displays \Msg{Worksheet too large to save}.}
+\Solution The worksheet in memory is larger than a worksheet file can
+hold.  The file on disk has not been touched.  Erase entries you do not
+need, or move part of the work to a second worksheet, and save again.
+
+\Problem{Initech 123 displays \Msg{File too large}.}
 \Solution Initech 123 retrieves files of up to 64K.
 
 \Problem{Backup, in the menu that appears when I save over an existing file,
-displays Command not implemented.}
+displays \Msg{Command not implemented}.}
 \Solution Backup is not available in this version.  To keep the old file,
 select Cancel and save the worksheet under a new name.
 
-\Problem{Initech 123 displays Invalid file name.}
+\Problem{Initech 123 displays \Msg{Invalid file name}.}
 \Solution A file name cannot contain spaces or the characters \texttt{*}
 and \texttt{?}.
 
-\Problem{Initech 123 displays Enter a file name.}
+\Problem{Initech 123 displays \Msg{Enter a file name}.}
 \Solution You pressed \kname{ENTER} at the file-name prompt without typing
 a name, and there is no current file name to use.  Type the name.
 
@@ -173,7 +200,7 @@ with an asterisk in the name:
 
 \LotExample{examples/files}
 
-\Problem{Initech 123 displays Path not found or File I/O error.}
+\Problem{Initech 123 displays \Msg{Path not found} or \Msg{File I/O error}.}
 \Solution The file could not be read or written: the folder you typed does
 not exist, or the data disk could not complete the operation.  Check the
 name and try again.  When a save fails, a file that did not exist before is

@@ -96,9 +96,53 @@ Macros chapter is written (nothing of it ships, and no menu item names it).
   50 ms between keys and refuses any capture whose key count is short.
 - `bd` held by another process all session: no bead was updated.
 
+## Takeover (Opus, 2026-10-17 afternoon)
+
+The first lane stopped after commit 4ee84431; a Fable continuation left
+uncommitted Reference examples (eleven new `.i23` scripts and nine
+@function worked examples without their `.txt`).  This session kept them,
+generated their transcripts from the shipped application, corrected them
+and finished the books:
+
+- Reference: the uncommitted examples wired in (the mixed-reference example
+  rewritten so that no printed formula begins with an absolute reference;
+  film character names in examples replaced by neutral ones, VO-18; the
+  year-like numbers 3750 and 5625 avoided, GC-06); Chapter 1 gains the
+  main-menu table, Messages, How Numbers Are Displayed, Specifying a Range
+  at a Prompt, Range Names in Formulas and What a Worksheet File Holds;
+  Chapter 12 gains procedures and three replayed examples; Chapter 13 nine
+  worked examples by group; Appendix B gains every message the application
+  can display; six more FLAIR figures (menus and prompts); the Tutorial
+  cross-references corrected to the lessons that actually use each command.
+- Setting Up: two new SU chapters (Using the Keyboard, Your Worksheet
+  Files) and a retitled Solving Problems chapter; a seventh Tutorial chapter,
+  Building a Forecast on Your Own (Lessons 25 to 28, six figures, a
+  replayed example, three new sample-disk stages 5-fc25, 6-fc26, 7-fc27);
+  ten intermediate lesson figures and four chapter-opener figures; Quick
+  Start chapters 1 to 4 each gain a worked task section with a figure
+  (stages 8-qs1 and 9-regions); two Sample Applications gain a Changing the
+  Template figure.
+- Gates: `i123_face replay` gains `try KEYS` (a refusal printed as
+  `Message:` / `EDIT:`); `i123_gate messages` is GC-02 for Initech 123 (the
+  catalogue is every string literal inside a `notice(` call of
+  `os/i123/app/face_a.c`; every `\Msg` printed equals one, and the Reference
+  and the Quick Reference print all of them); four new mutants; two
+  existing mutants repaired (SHIFTED_FIGURE moved a full-width crop off the
+  screen; MENU_RESOURCE_MISSPELLED expected a tag the gate never reaches
+  first); `test-pubs-flair-screens` clears its check directory (a re-run
+  read its own `*.committed.png` as figures).
+
+Product findings for the PM (not fixed here, the lane owns no product
+code): General format truncates instead of rounding (`2/3` shows
+`0.666666`; the forecast total shows `18792.14` in General but `18,792.15` in the comma
+format); a formula that begins with an absolute or mixed reference is shown
+without its leading `+` (`+$A$1*2` shows `$A$1*2`); `/Range Name Table`
+writes a one-cell range as `B3..B3`; General shows `0.000012345` as
+`0.000012` where Release 2.2 shows `1.2E-05`.
+
 ## Acceptance
 
-(see the final section, filled at the end of the lane)
+ACCEPTANCE-PLACEHOLDER
 
 ## Pointers
 

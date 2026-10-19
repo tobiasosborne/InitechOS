@@ -1,0 +1,2 @@
+# Quick Start, Chapter 4: the average rounded to cents and the expensive items marked
+Pens{RIGHT}12{RIGHT}.5{RIGHT}+b1*c1~{DOWN}{LEFT}{LEFT}{LEFT}Pads{RIGHT}8{RIGHT}1.25~{DOWN}{LEFT}{LEFT}Tape{RIGHT}6{RIGHT}.75~/cd1~d2~/cd1~d3~{GOTO}d5~@sum(d1..d3)~{DOWN}@avg(d1..d3)~{DOWN}@max(d1..d3)~{GOTO}d6~@round(@avg(d1..d3),2)~{GOTO}e1~@if(d1>8,"High","Low")~/c~e2~/c~e3~

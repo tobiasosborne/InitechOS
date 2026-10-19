@@ -59,7 +59,7 @@ from change, and copy the values of formulas.
 \item ``Ranges'' and ``Formulas'' in Chapter~1
 \item \slashcmd{/Worksheet Global Format} and \slashcmd{/Worksheet Global
   Protection} in Chapter~12
-\item Lessons~3 and 4 in the \doctitle{Tutorial}
+\item Lessons~9, 13, 16, 18 to 21 and 27 in the \doctitle{Tutorial}
 \end{itemize}
 
 \section{Terms You Need to Know}
@@ -183,6 +183,7 @@ serial number as a date.  Use \fn{@DATE} to enter a date.
 /Range Label changes the label prefix, and so the alignment, of every label
 in a range.  Numbers and formulas in the range are not affected, and labels
 you type in the range later get the default prefix.
+\FlairShot[fig:labelmenu]{labelmenu}{The /Range Label menu}
 \BHead{Procedure}
 \begin{Steps123}
 \item Select /Range Label and then Left, Right or Center.
@@ -218,7 +219,9 @@ worksheet before you erase entries you may want back.
 \end{Caution}
 
 \MenuEntry{/Range Name}
-/Range Name gives names to ranges, deletes them and lists them.
+/Range Name gives names to ranges, deletes them and lists them
+(Figure~\ref{fig:namemenu}).
+\FlairShot[fig:namemenu]{namemenu}{The /Range Name menu}
 \FlairShot[fig:nametable]{nametable}{The range name COSTS and its table}
 
 \BHead{Terms You Need to Know}
@@ -262,7 +265,7 @@ label in the range you specify becomes the name of the cell beside it.  At
 A name that is longer than 15 characters displays \texttt{Invalid range
 name}.  While the worksheet contains formulas, you cannot move an existing
 name to a different range with Create: Initech 123 displays
-\texttt{Command refused}.  Delete the name and create it again; formulas
+\Msg{Command refused}.  Delete the name and create it again; formulas
 that used it keep its old range.
 \end{Note}
 
@@ -290,8 +293,8 @@ change them while worksheet protection is enabled.  At
 
 \begin{Note}
 While protection is enabled, typing an entry into a protected cell displays
-\texttt{Cell is protected}, and a command that would change a protected cell
-displays \texttt{Command refused}; nothing is changed.
+\Msg{Cell is protected}, and a command that would change a protected cell
+displays \Msg{Command refused}; nothing is changed.
 \end{Note}
 
 \MenuEntry[I123-P3-04: refuses]{/Range Input}
@@ -308,8 +311,10 @@ produces a string.
 \item At \texttt{Enter range to copy FROM:} specify the range and press
   \kname{ENTER}.
 \item At \texttt{Enter range to copy TO:} specify the upper left cell of the
-  destination and press \kname{ENTER}.
+  destination and press \kname{ENTER}.  The prompt offers the cell the
+  cell pointer is in (Figure~\ref{fig:valueto}).
 \end{Steps123}
+\FlairShot[fig:valueto]{valueto}{The TO prompt of /Range Value}
 \LabelHead{Tip}
 \begin{itemize}
 \item To freeze a block of results, give the same cell for FROM and TO: the

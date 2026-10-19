@@ -1,0 +1,4 @@
+# Setting Up volume sample worksheet, stage 7-fc27: the Tutorial keystrokes of
+# the lesson that builds it (pubs/pubs.mk types this into the shipped
+# application; the next lesson's figures retrieve the file it saves).
+/frFC26~/rnlra3~{GOTO}c6~+b6*(1+$growth)~/c~d6~/c~e6~/cc6..e6~c7~/cc6..e6~c8~/cc6..e6~c9~{GOTO}a12~Best{DOWN}Lowest{DOWN}Average{DOWN}Target?~{GOTO}b12~@max(b10..e10)~{DOWN}@min(b10..e10)~{DOWN}@avg(b10..e10)~{DOWN}@if(f10>=20000,"Met","Not met")~/rf,0~b12..b14~{GOTO}a17~/rnt~/fsFC27~

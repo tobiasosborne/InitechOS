@@ -1,5 +1,7 @@
-% Quick Start, Chapter 2 -- Changing the Look of a Worksheet.  Figure
-% screens/qs2.k123 (the keys of qs1 followed by this chapter's).
+% Quick Start, Chapter 2 -- Changing the Look of a Worksheet.  Figures
+% screens/qs2.k123, qs2b.k123: the table of Chapter 1 (typed by the shipped
+% application from samples/8-qs1.k123 and saved as QS1, data volume stage
+% 8) retrieved, then this chapter's keys.
 % Sources (Law 1): os/i123/app/face_a.c (/Range Format Currency, /Range
 % Label Right, /Worksheet Column Set-Width), os/i123/core/fmt.c.
 % GATES: test-i123-range-menu test-pubs-screens test-pubs-i123
@@ -13,6 +15,7 @@ This chapter formats the sales table of Chapter~1.
 \item Displaying numbers as dollars
 \item Aligning labels
 \item Widening a column
+\item Showing percentages
 \end{itemize}
 
 \section{Formatting and Aligning}
@@ -21,7 +24,7 @@ This chapter formats the sales table of Chapter~1.
 \Do{Press}{\kname{SLASH}}{type \type{r}, \type{f}, \type{c} (Range Format
   Currency)}
 \Do{Type}{\type{0}}{no decimal places, and press \kname{ENTER}}
-\Do{Type}{\type{b2..e5}}{and press \kname{ENTER}}
+\Do{Type}{\type{b2..e6}}{and press \kname{ENTER}}
 \Do{Press}{\kname{SLASH}}{type \type{r}, \type{l}, \type{r} (Range Label
   Right)}
 \Do{Type}{\type{b1..e1}}{and press \kname{ENTER}}
@@ -35,18 +38,40 @@ The headings were already right-aligned; /Range Label sets the alignment
 of every label in a range at once, as you would after typing labels without
 a prefix.
 
+\section{Showing Each Region's Share}
+\ix{percentages}
+Each region's share of the quarter is its total divided by the grand total
+in E6.  The reference to E6 is absolute, \texttt{\$E\$6}, so that every
+copy divides by it.
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{f1} and press \kname{ENTER}}
+\Do{Type}{\type{"Share}}{and press \kname{DOWN}}
+\Do{Type}{\type{+e2/\$e\$6}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, press \kname{ENTER}, type \type{f3}
+  and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{f2..f3} and press
+  \kname{ENTER}, type \type{f4} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{r}, \type{f}, \type{p}
+  (Range Format Percent)}
+\Do{Type}{\type{1}}{one decimal place, and press \kname{ENTER}}
+\Do{Type}{\type{f2..f5}}{and press \kname{ENTER}}
+\end{Keystrokes}
+\FlairShot[fig:qs2b]{qs2b}{Each region's share of the quarter}
+The four shares add up to the whole quarter.
+
 \section{Task Summary}
 \begin{LotTable}{p{58mm}p{70mm}}
 \LotHead{\textbf{To} & \textbf{You used}}
 Display dollars & /Range Format Currency\\
 Align labels & /Range Label Left, Right or Center\\
-Widen a column & /Worksheet Column Set-Width\LotEnd
+Widen a column & /Worksheet Column Set-Width\\
+Show percentages & /Range Format Percent\LotEnd
 \end{LotTable}
 
 \section{Other Tasks to Try}
 \begin{LotTable}{p{58mm}p{70mm}}
 \LotHead{\textbf{To} & \textbf{Use}}
 Format every number at once & /Worksheet Global Format\\
-Show percentages & /Range Format Percent\\
+Center the headings & /Range Label Center\\
 Widen every column & /Worksheet Global Column-Width\LotEnd
 \end{LotTable}

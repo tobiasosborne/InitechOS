@@ -1,0 +1,22 @@
+# Tutorial, Lesson 27: the formulas of the forecast, as the control panel
+# shows them, and their values (comma format, two decimal places) at a
+# growth rate of 5% and then 10%
+do /wgc10~
+A3 Growth
+B3 5%
+B6 1200
+B7 950
+B8 1430
+B9 780
+do /rnlra3~{GOTO}c6~+b6*(1+$growth)~/c~d6~/c~e6~/cc6..e6~c7~/cc6..e6~c8~/cc6..e6~c9~
+do {GOTO}f6~@sum(b6..e6)~/c~f7~/cf6..f7~f8~/cf8~f9~
+do {GOTO}b10~@sum(b6..b9)~/c~c10~/cb10..c10~d10~/cb10..c10~e10~/cb10~f10~
+do {GOTO}b14~@if(f10>=20000,"Met","Not met")~/rf,2~b6..f10~
+show C6
+show D9
+show F6
+show F10
+show B14
+B3 10%
+show F10
+show B14

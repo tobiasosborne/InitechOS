@@ -31,6 +31,15 @@
  *   i123_gate mentions SHIPPED MENTIONS...
  *     every NAME|KIND an inline \slashcmd / \fn / \fkey wrote is shipped
  *     (MENTION-NOT-SHIPPED).
+ *   i123_gate messages APP.c complete=BOOK.msgs... other=BOOK.msgs...
+ *     GC-02: the shipped message catalogue is every string literal inside
+ *     the parentheses of a notice( call of the application source (the
+ *     ONE way 123.EXE puts a message on the control panel; the definition
+ *     "static void notice(const char *s)" is not a call).  Every message a
+ *     book prints with \Msg (initech-lotus.sty, <job>.msgs) equals a
+ *     catalogue entry byte for byte (MESSAGE-NOT-SHIPPED), and every
+ *     catalogue entry is printed by each "complete=" book
+ *     (MESSAGE-UNDOCUMENTED).
  * ASCII-clean (Rule 12).
  */
 #include <stdio.h>
@@ -156,6 +165,48 @@ int main(int argc, char **argv)
         printf(">>> test-pubs-i123-glossary: green (%d defined terms == %d glossary entries)\n", t.n, g.n);
         return 0;
     }
-    red("USAGE", "i123_gate", "glossary TERMS GLOSS | commands SHIPPED REFUSED K+K=book.cmds... other=book.cmds... | mentions SHIPPED FILES...");
+    if (argc >= 4 && !strcmp(argv[1], "messages")) {
+        static set_t cat, doc, one; static char src[262144]; FILE *f; size_t n;
+        if (!(f = fopen(argv[2], "rb"))) red("I123-INPUT", argv[2], "cannot open");
+        n = fread(src, 1, sizeof src - 1, f); fclose(f); src[n] = 0;
+        if (n == sizeof src - 1) red("I123-INPUT", argv[2], "source too large");
+        for (char *p = src; (p = strstr(p, "notice(")); p += 7) {
+            if (p > src && (p[-1] == '_' || (p[-1] >= 'a' && p[-1] <= 'z') || (p[-1] >= 'A' && p[-1] <= 'Z') || (p[-1] >= '0' && p[-1] <= '9'))) continue;
+            if (!strncmp(p + 7, "const", 5)) continue;            /* the definition */
+            int depth = 1; char *q = p + 7;
+            while (*q && depth) {
+                if (*q == '"') {
+                    char lit[MAXL]; int k = 0; q++;
+                    while (*q && *q != '"') { if (*q == '\\') red("I123-SOURCE", argv[2], "escape in a message"); if (k < MAXL - 1) lit[k++] = *q; q++; }
+                    lit[k] = 0; if (*q) q++;
+                    add(&cat, lit, 'G'); continue;
+                }
+                if (*q == '(') depth++; else if (*q == ')') depth--;
+                q++;
+            }
+        }
+        if (cat.n < 10) red("I123-SOURCE", argv[2], "fewer than 10 messages: not the application source");
+        for (int i = 3; i < argc; i++) {
+            char spec[512]; snprintf(spec, sizeof spec, "%s", argv[i]);
+            char *eq = strchr(spec, '=');
+            if (!eq) red("USAGE", argv[i], "want complete=path or other=path");
+            *eq = 0;
+            one.n = 0;
+            if (!(f = fopen(eq + 1, "rb"))) red("I123-INPUT", eq + 1, "cannot open");
+            char line[512];
+            while (fgets(line, sizeof line, f)) {
+                line[strcspn(line, "\r\n")] = 0;
+                if (!line[0]) continue;
+                add(&one, line, 'G'); add(&doc, line, 'G');
+                if (find(&cat, line) < 0) red("MESSAGE-NOT-SHIPPED", eq + 1, line);
+            }
+            fclose(f);
+            if (!strcmp(spec, "complete"))
+                for (int k = 0; k < cat.n; k++) if (find(&one, cat.s[k]) < 0) red("MESSAGE-UNDOCUMENTED", eq + 1, cat.s[k]);
+        }
+        printf(">>> test-pubs-i123-messages: green (%d shipped messages, %d printed, verbatim, both directions)\n", cat.n, doc.n);
+        return 0;
+    }
+    red("USAGE", "i123_gate", "glossary TERMS GLOSS | commands SHIPPED REFUSED K+K=book.cmds... other=book.cmds... | mentions SHIPPED FILES... | messages APP.c complete=MSGS... other=MSGS...");
     return 2;
 }

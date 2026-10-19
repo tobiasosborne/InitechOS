@@ -1,0 +1,2 @@
+# Sample Applications, Chapter 5: a fifth expense added (Changing the Template)
+Item{RIGHT}"Cost~{GOTO}a2~Rent{DOWN}Phone{DOWN}Travel{DOWN}Fuel{DOWN}Total{DOWN}Average~{GOTO}b2~480{DOWN}62{DOWN}240{DOWN}95{DOWN}@sum(b2..b5){DOWN}@avg(b2..b5)~/rfc2~b2..b7~/ma6..b7~a7~{GOTO}a6~Paper{RIGHT}35~/rfc2~b6~{GOTO}b7~{EDIT}{BS}{BS}6)~{DOWN}{EDIT}{BS}{BS}6)~

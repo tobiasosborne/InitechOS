@@ -17,7 +17,10 @@ In this chapter you build a budget for the supply room of Initech Systems
 Corporation: the cost of four supplies in each quarter of the year, with
 totals.  You enter labels and numbers, write formulas, copy them, and save
 the finished worksheet.  Start with an empty worksheet: if you have just
-started Initech 123 you have one.
+started Initech 123 you have one.  Figure~\ref{fig:tu2open} shows the
+worksheet as it is at the end of the chapter.
+\FlairShot[fig:tu2open]{tl6}{The supply room budget you build in this
+chapter}
 
 \section{Lesson 3: Entering Labels}
 \ix{labels}
@@ -40,7 +43,15 @@ prefix.  The cell pointer is in A1.
 \end{Keystrokes}
 An arrow key enters what you typed and moves the cell pointer in one step.
 The title is longer than column A is wide, so it runs on into the empty
-cells to its right.
+cells to its right (Figure~\ref{fig:tl3a}).  The first line of the control
+panel shows the address of the cell pointer, A4, and nothing after the
+colon: A4 is empty.
+\FlairShot[fig:tl3a]{tl3a}{The title and the subtitle}
+
+Whenever the cell pointer is on a label, the first line of the control
+panel shows the label with an apostrophe in front of it.  The apostrophe is
+the label prefix Initech 123 gave the label because you did not type one;
+it means that the label is aligned at the left of its cell.
 
 \subsection{The Column Headings}
 Headings over numbers look best at the right of their cells, where the
@@ -83,6 +94,10 @@ cells.
 \Do{Type}{\type{110}}{and press \kname{RIGHT}}
 \Do{Type}{\type{150}}{and press \kname{ENTER}}
 \end{Keystrokes}
+While you type a number, it appears on the second line of the control
+panel, and the mode indicator shows \ind{VALUE} because the entry begins
+with a digit (Figure~\ref{fig:tl4a}).
+\FlairShot[fig:tl4a]{tl4a}{Typing the last number of the paper row}
 Enter the other three rows in the same way, starting each at column B:
 
 \begin{LotTable}{p{20mm}p{18mm}p{18mm}p{18mm}p{18mm}}
@@ -125,10 +140,21 @@ refers to the cells to its left in its new place.
 
 \begin{Keystrokes}
 \Do{Press}{\kname{SLASH}}{and type \type{c} to select Copy}
+\end{Keystrokes}
+Initech 123 asks for the range to copy FROM.  The mode indicator shows
+\ind{RANGE}, and the prompt offers the cell the cell pointer is in, F5
+(Figure~\ref{fig:tl5c}).
+\FlairShot[fig:tl5c]{tl5c}{The FROM prompt of /Copy}
+\begin{Keystrokes}
 \Do{Press}{\kname{ENTER}}{to copy the current cell, F5}
 \Do{Type}{\type{f6}}{the cell to copy to}
 \Do{Press}{\kname{ENTER}}{}
 \end{Keystrokes}
+F6 now holds the total of the toner row (Figure~\ref{fig:tl5d}).  The
+copy is \texttt{@SUM(B6..E6)}: it adds the four cells to its left, just as
+F5 adds the four cells to its left.  The cell pointer stays in F5 after the
+copy.
+\FlairShot[fig:tl5d]{tl5d}{F5 copied to F6}
 Now copy F5 and F6 together into F7 and F8.  Initech 123 places a copy at
 the upper left cell you name, and the rest of the range follows it.
 
@@ -162,6 +188,13 @@ save it in a file named SUPPLY.
 \Do{Press}{\kname{SLASH}}{and type \type{f} to select File}
 \Do{Type}{\type{s}}{to select Save}
 \Do{Type}{\type{SUPPLY}}{the name of the file}
+\end{Keystrokes}
+The mode indicator shows \ind{FILES}, and the second line of the control
+panel shows the prompt with the name you typed (Figure~\ref{fig:tl6a}).
+The third line reminds you of the keys: \kname{ENTER} accepts the name, and
+\kname{ESC} backs out without saving.
+\FlairShot[fig:tl6a]{tl6a}{The name of the file typed at the Save prompt}
+\begin{Keystrokes}
 \Do{Press}{\kname{ENTER}}{to save the worksheet}
 \end{Keystrokes}
 Initech 123 adds the extension \file{.WK1} and saves the worksheet on drive

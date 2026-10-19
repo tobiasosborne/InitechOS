@@ -1,14 +1,19 @@
-% Setting Up, Chapter 3 -- Problems Starting Initech 123 (AN-17 Problem /
-% Solution, F-LOT).  Sources (Law 1): os/i123/app/face_a.c tbx_app_main
-% (123.MNU is read from A:\APPS; a missing or malformed resource ends the
-% program with EXIT(1)), spec/hardware.json fpu.required_by.
-% GATES: test-flair-i123 test-i123-menu-tree test-pubs-build
-\Gates{test-flair-i123, test-i123-menu-tree, test-pubs-build}
-\chapter{Problems Starting Initech 123}
+% Setting Up, Chapter 5 -- Solving Problems (AN-17 Problem / Solution,
+% F-LOT).  Sources (Law 1): os/i123/app/face_a.c tbx_app_main (123.MNU is
+% read from A:\APPS; a missing or malformed resource ends the program with
+% EXIT(1)), key() (the keys acted on; the probe harness/pubs/i123_face.c
+% keymap finds no others), request_quit / quit_answer (the exit guard: a
+% clean sheet ends at once; Cancel keeps the sheet and the entry),
+% file_name (the .wk1 default extension), spec/hardware.json
+% fpu.required_by.
+% GATES: test-flair-i123 test-i123-menu-tree test-i123-quit test-flair-i123-files test-pubs-i123 test-pubs-build
+\Gates{test-flair-i123, test-i123-menu-tree, test-i123-quit,
+  test-flair-i123-files, test-pubs-i123, test-pubs-build}
+\chapter{Solving Problems}
 \newcommand\Problem[1]{\par\addvspace{8pt}\noindent\textbf{Problem:\ #1}\par\nobreak\vspace{2pt}}
 \newcommand\Solution{\noindent\textbf{Solution:}\ }
 
-If Initech 123 does not start as Chapter~2 describes, look for the problem
+If Initech 123 does not start or end as Chapter~2 describes, look for the problem
 here.  Problems that arise while you work are in Appendix~B of the
 \doctitle{Initech 123 Reference}.
 
@@ -26,3 +31,26 @@ at once.}
 \item Check that your computer has a numeric coprocessor (Chapter~1).
 \end{itemize}
 
+
+\Problem{Pressing \key{PgDn}, \key{Tab}, \key{End} or \key{F1} does
+nothing.}
+\Solution These keys have no function in this version of Initech 123
+(Chapter~3).  Move the cell pointer with the arrow keys, or go straight to a
+cell with \fkey{Goto}{F5}.
+
+\Problem{When I quit, Initech 123 ends at once without asking whether to
+save.}
+\Solution The worksheet has no unsaved changes: you have not changed it
+since you last saved or retrieved it, and you were not typing an entry.
+Initech 123 asks only when there is work to lose.
+
+\Problem{When I quit, Initech 123 asks whether to save, and I do not want
+to end the session after all.}
+\Solution Select \textbf{Cancel}.  The worksheet, and an entry you were
+typing, stay as they were.
+
+\Problem{A worksheet I saved does not appear when I retrieve it by name.}
+\Solution Initech 123 looks for the name on drive \file{A:} with the
+extension \file{.WK1} unless you type another.  Check the spelling, and
+type the extension if you saved the file with one of your own.  Chapter~4
+describes file names.

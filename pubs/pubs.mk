@@ -257,7 +257,11 @@ endif
 # pubs/screens/flair_capture.sh (QEMU, the 123.EXE launch trace of
 # spec/flair_i123_traces.mk) and graded pixel for pixel.
 #   make pubs-i123-inventory      the inventory + the generated menu trees
-#   make test-pubs-i123           GC-01 both directions + state + mentions
+#   make test-pubs-i123           GC-01 both directions + state + mentions;
+#                                 GC-02 the messages (i123_gate messages:
+#                                 every \Msg equals a notice() string of
+#                                 os/i123/app/face_a.c, and the Reference and
+#                                 the Quick Reference print them all)
 #   make test-pubs-i123-examples  GC-03: every printed example replayed
 #   make pubs-i123-examples       (re)write the printed .txt (deliberate)
 #   make pubs-i123-screens        (re)capture the FLAIR figures (deliberate)
@@ -328,6 +332,7 @@ test-pubs-i123: pubs-i123-inventory $(PUBS_I123_GATE) test-pubs-build
 	@$(PUBS_I123_GATE) mentions $(PUBS_CHECK)/i123.shipped $(foreach b,$(PUBS_I123_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.mentions)
 	@cat $(foreach b,$(PUBS_I123_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.terms) > $(PUBS_CHECK)/i123.terms
 	@$(PUBS_I123_GATE) glossary $(PUBS_CHECK)/i123.terms $(PUBS_BUILD)/gate/initech123-reference/main.gloss
+	@$(PUBS_I123_GATE) messages os/i123/app/face_a.c $(foreach b,$(PUBS_I123_BOOKS),$(if $(filter initech123-reference initech123-quick-reference,$(b)),complete=,other=)$(PUBS_BUILD)/gate/$(b)/main.msgs)
 test-pubs-i123-examples: $(PUBS_I123_FACE) $(PUBS_GATE) test-pubs-build
 	@sh harness/pubs/i123_replay.sh check $(PUBS_I123_FACE) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK)
 endif
@@ -335,12 +340,16 @@ pubs-i123-examples: $(PUBS_I123_FACE)
 	@sh harness/pubs/i123_replay.sh write $(PUBS_I123_FACE) - - $(PUBS_CHECK)
 
 # FLAIR figures: the 500-tick gate image (short traces) and publications
-# images living 2000 and 4500 ticks (long and longer traces), all the shipped FLAIR desktop
+# images living 2000 and 12000 ticks (long and longer traces; 12000, two
+# minutes at 100 Hz, since a 235-key lesson trace on a loaded host needed
+# more than the first 4500), all the shipped FLAIR desktop
 # with only the -D tick budget changed; the data volume is the shipped one
 # plus the sample worksheets the samples/*.k123 scripts save when typed
 # into the shipped application (i123_face run: the same code as 123.EXE).
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=2000,pubs_i123))
-$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=4500,pubs_i123x))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=12000,pubs_i123x))
+# The budgets live here: a changed budget rebuilds its kernel.
+$(BUILD)/kmain_flairtenants_mut_pubs_i123.o $(BUILD)/kmain_flairtenants_mut_pubs_i123x.o: $(PUBS_DIR)/pubs.mk
 PUBS_I123_LONG_IMG := $(BUILD)/flair_tenants_mut_pubs_i123.img
 PUBS_I123_XLONG_IMG := $(BUILD)/flair_tenants_mut_pubs_i123x.img
 # The sample worksheets are typed in stages: samples/<N>-<name>.k123 runs

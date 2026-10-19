@@ -1,7 +1,7 @@
 % Sample Applications, Chapter 5 -- Monthly Expense Report (annex Sec 8.3).
 % Values replayed through the shipped application (examples/expenses5.i23);
 % @SUM and @AVG as os/i123/core/eval.c computes them, the Currency display
-% as os/i123/core/fmt.c.  Figure screens/sa5.k123.
+% as os/i123/core/fmt.c.  Figures screens/sa5.k123, sa5b.k123.
 % GATES: test-i123-formula test-pubs-i123-examples test-pubs-screens
 \Gates{test-i123-formula, test-pubs-i123-examples, test-pubs-screens}
 \chapter{Monthly Expense Report}
@@ -44,7 +44,23 @@ thousand dollars or more needs a wider column: if a cell shows a row of
 asterisks, widen the column with \slashcmd{/Worksheet Column Set-Width}.
 
 \section{Changing the Template}
-To add an expense, move A6..B7 down one row with \slashcmd{/Move}, type the
-new expense in row 6, and change the range in the two formulas to
-\texttt{B2..B6} with \fkey{Edit}{F2}.  To change an amount, type the new
-number over the old one.
+To change an amount, type the new number over the old one: the total and
+the average follow it.
+
+To add an expense:
+\begin{Steps123}
+\item Move the total and the average down one row: select
+  \slashcmd{/Move}, type \type{a6..b7} and press \kname{ENTER}, type
+  \type{a7} and press \kname{ENTER}.
+\item Type the new expense in row 6: \type{Paper} in A6 and \type{35} in
+  B6.
+\item Give the new amount the Currency format: select
+  \slashcmd{/Range Format Currency}, type \type{2} and press \kname{ENTER},
+  type \type{b6} and press \kname{ENTER}.  The formats of the moved cells
+  moved with them; the new cell has none of its own.
+\item Move the cell pointer to B7, press \fkey{Edit}{F2}, press
+  \kname{BACKSPACE} twice, type \type{6)} and press \kname{ENTER}.  Do the
+  same in B8.  The moved formulas still added B2..B5; now they include
+  B6.
+\end{Steps123}
+\FlairShot[fig:sa5b]{sa5b}{The report with a fifth expense}

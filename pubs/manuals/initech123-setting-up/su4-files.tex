@@ -1,0 +1,70 @@
+% Setting Up, Chapter 4 -- Your Worksheet Files (annex Sec 1: the SU part's
+% chapters on the disks and files the program uses).
+% Sources (Law 1): os/i123/app/face_a.c file_name (the name rules: no
+% space, * or ?; the default .wk1 extension; a drive or folder may be
+% typed), paint_command (the prompts and the default A:\*.wk1, the current
+% file offered by /File Save), retrieve / save / write_sheet (the
+% transaction; the 64K file buffer; Cancel / Replace / Backup), os/i123/fs/
+% wk1.c (the .WK1 codec and THE CARRY: records the program does not use
+% are written back unchanged; test-i123-wk1-roundtrip over the 44 goldens).
+% GATES: test-i123-wk1-roundtrip test-flair-i123-files test-flair-i123-file-ui test-pubs-i123
+\Gates{test-i123-wk1-roundtrip, test-flair-i123-files,
+  test-flair-i123-file-ui, test-pubs-i123}
+\chapter{Your Worksheet Files}
+
+A worksheet you build exists only in the computer's memory until you save
+it in a file.  This chapter tells you where Initech 123 keeps your
+worksheet files, how to name them, and how to look after them.
+
+\section{Where Your Files Are Kept}
+\ix{data disk}
+Initech 123 saves and retrieves worksheet files on the InitechOS data disk,
+drive \file{A:}.  When it asks for a file name, the control panel shows
+\texttt{A:\textbackslash *.wk1}: a file name you type without a drive or a
+folder is a file in the main folder of the data disk, beside the folder
+\file{APPS} that holds Initech 123 itself.
+
+\section{Naming Your Files}
+\ix{file names}
+A file name has up to eight letters and digits, optionally followed by a period
+and an extension of up to three characters.  You can type it in capital or
+small letters.  A file name cannot contain a space or the characters
+\texttt{*} and \texttt{?}.
+
+Initech 123 gives every worksheet file the extension \file{.WK1} unless you
+type another one, and looks for that extension when you retrieve a file.
+Choose names that say what the worksheet holds:
+\file{BUDGET92}, \file{SALESQ3}, \file{LOAN}.
+
+\section{The Current File}
+\ix{current file}
+After you save or retrieve a worksheet, its file is the \term{current
+file}.  The next time you select \slashcmd{/File Save}, Initech 123 offers
+the name of the current file, so that you need only press \kname{ENTER}
+and then select Replace to save the worksheet again.  The status line
+shows \texttt{Saved} or \texttt{Retrieved} and the name of the file after
+each save or retrieve.
+
+\section{Looking After Your Files}
+\ix{backup}
+\begin{itemize}
+\item Save your work often, and always before you erase the worksheet or
+  retrieve another one: each of these replaces the worksheet in memory.
+\item To keep an earlier version of a worksheet, save the changed worksheet
+  under a new name, such as \file{BUDGET2}.  Saving under the old name
+  and selecting Replace overwrites the earlier version.
+\item Keep copies of your worksheet files on diskettes, as your InitechOS
+  books describe for any file of the data disk.
+\end{itemize}
+
+\section{Worksheet Files from Other Programs}
+\ix{.WK1 files}
+Initech 123 reads and writes worksheet files in the \file{.WK1} format.
+A \file{.WK1} worksheet file made by another program can be retrieved if
+it is not larger than 64K and does not hold more entries than Initech 123
+can (Appendix~A of the \doctitle{Initech 123 Reference}).  Settings in the
+file that Initech 123 does not use, such as print and graph settings, are
+kept and written back unchanged when you save the worksheet.
+
+If a file cannot be retrieved, Initech 123 tells you why on the control
+panel, and the worksheet you were working on stays as it was.

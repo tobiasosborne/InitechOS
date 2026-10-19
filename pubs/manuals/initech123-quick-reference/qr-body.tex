@@ -214,7 +214,7 @@ The commands available in this version, with what each one asks for.
 \QC{/Worksheet Erase}{No or Yes; Yes erases at once, without saving}
 
 \QRSection{Messages}
-\newcommand\QM[2]{\par\addvspace{2pt}{\noindent\texttt{#1}\par}\nobreak{\noindent\hspace*{3mm}#2\par}}
+\newcommand\QM[2]{\par\addvspace{2pt}{\noindent\Msg{#1}\par}\nobreak{\noindent\hspace*{3mm}#2\par}}
 Press \kname{ESC} after any of these to return to the worksheet.
 \QM{Command not implemented}{The command is not available in this version}
 \QM{Invalid range}{Not an address, a range or a range name}
@@ -234,6 +234,8 @@ Press \kname{ESC} after any of these to return to the worksheet.
 \QM{Invalid file name}{A space, * or ? in the name}
 \QM{File name too long}{More than 48 characters}
 \QM{Worksheet too large to save}{The file on disk was not touched}
+\QM{Not enough memory to recalculate}{CALC (F9) could not finish}
+\QM{Menu nesting error}{123.MNU is damaged; copy it again}
 
 \QRSection{Task Reference}
 \begin{LotTable}{p{36mm}p{32mm}}

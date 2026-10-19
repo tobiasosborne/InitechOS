@@ -1,0 +1,122 @@
+% Setting Up, Chapter 3 -- Using the Keyboard (annex Sec 1: the SU part's
+% orientation chapters; Sec 5 Conventions: key names in small capitals,
+% hold-then-press and press-then-press; Sec 10 keyboard figure).
+% Sources (Law 1): os/i123/app/face_a.c key() and command_key() (the keys
+% Initech 123 acts on: the arrows, HOME, F2, F5, F9, ESC, BACKSPACE, ENTER,
+% Ctrl-Break / Ctrl-C, / and <; a key it ignores does nothing), the shipped
+% key map (harness/pubs/i123_face.c keymap: the probe finds exactly these
+% keys acting; every \KeyRow below is graded by test-pubs-i123), the menu
+% bar's File > Quit with its keyboard equivalent Ctrl-Q (face_a.c
+% file_items), the templates (pubs/manuals/initech123-templates).
+% GATES: test-flair-i123 test-i123-range-menu test-pubs-i123
+\Gates{test-flair-i123, test-i123-range-menu, test-pubs-i123}
+\chapter{Using the Keyboard}
+
+You give Initech 123 almost all its instructions from the keyboard: you
+type entries, move the cell pointer, and select commands from menus by
+typing letters.  This chapter shows you which keys Initech 123 uses and how
+the books in this package name them.
+
+\section{The Parts of the Keyboard}
+\ix{keyboard}
+Your keyboard has four groups of keys that Initech 123 uses.
+\begin{itemize}
+\item The \textbf{typewriter keys} in the center: letters, digits and
+  punctuation.  You type labels, numbers and formulas with them, and the
+  first letters of menu commands.
+\item The \textbf{pointer-movement keys}: the four arrow keys and
+  \kname{HOME}.  They move the cell pointer around the worksheet, and the
+  menu pointer along a menu.
+\item The \textbf{function keys}, labelled F1, F2 and so on, across the
+  top of the keyboard (101-key keyboard) or in two columns at its left
+  (84-key keyboard).  Initech 123 gives three of them a function.
+\item The \textbf{special keys}: \kname{ENTER}, \kname{ESC},
+  \kname{BACKSPACE}, and the \key{Ctrl} key used with \key{Break}.
+\end{itemize}
+
+\section{Key Names in This Book}
+\ix{key names}
+This book prints the name of a key in small capitals: \kname{ENTER},
+\kname{ESC}, \kname{HOME}.  A function key is named by what it does in
+Initech 123, followed by the key itself in parentheses: \fkey{Goto}{F5}.
+When you are to hold down one key while you press another, the two names
+are joined by a hyphen: \kname{CTRL-BREAK} means hold down \key{Ctrl} and
+press \key{Break}.  What you type is printed in a different typeface:
+\type{@sum(b5..e5)}.
+
+\section{The Keys Initech 123 Uses}
+\ix{keys}
+Besides the typewriter keys, these are all the keys Initech 123 acts on.
+Any other key, such as \key{PgDn} or \key{F1}, does nothing in this
+version.
+
+\begin{KeyTable}{Key}{Name}
+\KeyRow{UP}{Up arrow}{Moves the cell pointer up one row; in a menu, moves
+  the menu pointer to the previous command.}
+\KeyRow{DOWN}{Down arrow}{Moves the cell pointer down one row; in a menu,
+  moves the menu pointer to the next command.}
+\KeyRow{LEFT}{Left arrow}{Moves the cell pointer one column to the left;
+  in a menu, to the previous command.}
+\KeyRow{RIGHT}{Right arrow}{Moves the cell pointer one column to the
+  right; in a menu, to the next command.}
+\KeyRow{HOME}{Home}{Moves the cell pointer to A1; in a menu, to the first
+  command.}
+\KeyRow{F2}{EDIT}{Places the contents of the current cell on the control
+  panel for changing.}
+\KeyRow{F5}{GOTO}{Moves the cell pointer to the cell you name.}
+\KeyRow{F9}{CALC}{Recalculates the formulas of the worksheet.}
+\KeyRow{SLASH}{/}{Displays the main menu.}
+\KeyRow{LESS-THAN}{<}{Displays the main menu, as \kname{SLASH} does.}
+\KeyRow{ENTER}{Enter}{Completes an entry, selects the highlighted command,
+  or accepts the answer to a prompt.}
+\KeyRow{ESC}{Esc}{Cancels what you are doing and goes back one step.}
+\KeyRow{BACKSPACE}{Backspace}{Erases the last character you typed.}
+\KeyRow{CTRL-BREAK}{Ctrl-Break}{Leaves the menus, or a prompt, and returns
+  to READY mode.}
+\end{KeyTable}
+
+The arrow keys move the cell pointer when the mode indicator shows
+\ind{READY}; while you are typing an entry, an arrow key first completes
+the entry, as \kname{ENTER} does, and then moves the cell pointer; and at
+a prompt for a range they point to the cell you want.  \kname{HOME}
+moves the cell pointer in \ind{READY} mode only, and the function keys
+act in \ind{READY} mode only.
+
+\begin{Note}
+On a keyboard without a \key{Break} key, hold down \key{Ctrl} and press
+\key{C}: it does the same as \kname{CTRL-BREAK}.
+\end{Note}
+
+\section{The Keyboard Templates}
+\ix{keyboard templates}
+Two keyboard templates come with Initech 123: a strip for the row of
+function keys of the 101-key keyboard, and an L-shaped template for the two
+columns of function keys of the 84-key keyboard.  Each template prints the
+Initech 123 name of a function key above it.  A key with no name has no
+function in Initech 123.  Place the template that fits your keyboard around
+its function keys.
+
+\section{The Keyboard and the FLAIR Menu Bar}
+\ix{menu bar}
+While Initech 123 is running, the menu bar at the top of the screen shows
+its File menu, which has one command, \textbf{Quit}.  You can choose it
+with the mouse, or press its keyboard equivalent \key{Ctrl-Q}.  It ends
+Initech 123 in the same way as the worksheet command \slashcmd{/Quit Yes}
+(Chapter~2).  All the other commands of Initech 123 are in its own menus,
+which you display from the keyboard with \kname{SLASH}.
+
+\section{Practicing}
+\ix{practicing}
+To get used to the keys before you begin the \doctitle{Tutorial}, start
+Initech 123 and try these:
+\begin{Keystrokes}
+\Do{Press}{\kname{RIGHT} and \kname{DOWN} a few times}{to move the cell
+  pointer; watch the address on the first line of the control panel}
+\Do{Press}{\kname{HOME}}{to return to A1}
+\Do{Press}{\kname{SLASH}}{to display the main menu; the mode indicator
+  shows MENU}
+\Do{Press}{\kname{RIGHT} several times}{to move the menu pointer along the
+  menu; the third line describes each command}
+\Do{Press}{\kname{ESC}}{to remove the menu}
+\end{Keystrokes}
+Nothing you do in this exercise changes the worksheet.

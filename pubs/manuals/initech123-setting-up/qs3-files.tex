@@ -1,4 +1,6 @@
-% Quick Start, Chapter 3 -- Saving and Retrieving.  Figure screens/qs3.k123.
+% Quick Start, Chapter 3 -- Saving and Retrieving.  Figures screens/qs3
+% (stage 8: QS1 retrieved, Chapter 2's keys, saved as REGIONS), qs3b and
+% qs3c (stage 9: REGIONS on the disk, saved by samples/9-regions.k123).
 % Sources (Law 1): os/i123/app/face_a.c (/File Save, /File Retrieve, the
 % exit guard).
 % GATES: test-flair-i123-files test-i123-quit test-pubs-screens test-pubs-i123
@@ -26,20 +28,43 @@ back.
 \section{Ending and Starting Again}
 Select \slashcmd{/Quit Yes} to end the session; the worksheet is saved, so
 Initech 123 ends at once.  Start Initech 123 again, then retrieve the
-table: press \kname{SLASH}, type \type{f}, \type{r}, type \type{REGIONS} and
-press \kname{ENTER}.
+table:
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{type \type{f}, \type{r} (File Retrieve)}
+\Do{Type}{\type{REGIONS}}{and press \kname{ENTER}}
+\end{Keystrokes}
+The table returns with its formats, its column width and the cell pointer
+where you left it; the status line names the file
+(Figure~\ref{fig:qs3b}).
+\FlairShot[fig:qs3b]{qs3b}{REGIONS retrieved}
+
+\section{Saving Again}
+\ix{Replace}
+Change a number, then save the table under the same name.
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{b2} and press \kname{ENTER}}
+\Do{Type}{\type{1450}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{f}, \type{s}; the prompt offers
+  the current file, REGIONS}
+\Do{Press}{\kname{ENTER}}{}
+\end{Keystrokes}
+A file named REGIONS already exists, so Initech 123 asks what to do with
+it (Figure~\ref{fig:qs3c}).  Select \textbf{Replace} to write the changed
+table over it, or \textbf{Cancel} to keep the file as it is.
+\FlairShot[fig:qs3c]{qs3c}{Saving over REGIONS}
 
 \section{Task Summary}
 \begin{LotTable}{p{58mm}p{70mm}}
 \LotHead{\textbf{To} & \textbf{You used}}
 Save a worksheet & /File Save and a file name\\
 End the session & /Quit Yes\\
-Retrieve a worksheet & /File Retrieve and the file name\LotEnd
+Retrieve a worksheet & /File Retrieve and the file name\\
+Save over the same file & /File Save, \kname{ENTER}, Replace\LotEnd
 \end{LotTable}
 
 \section{Other Tasks to Try}
 \begin{LotTable}{p{58mm}p{70mm}}
 \LotHead{\textbf{To} & \textbf{Use}}
 Save a second version & /File Save with a new name\\
-Replace a saved file & /File Save, the same name, then Replace\LotEnd
+Start a new worksheet & /Worksheet Erase Yes\LotEnd
 \end{LotTable}

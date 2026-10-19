@@ -1,4 +1,5 @@
-% Quick Start, Chapter 4 -- Formulas and @Functions.  Figure screens/qs4.k123.
+% Quick Start, Chapter 4 -- Formulas and @Functions.  Figures screens/qs4.k123
+% and qs4b.k123, typed from an empty worksheet.
 % Values replayed through the shipped application (examples/ops4.i23).
 % Sources (Law 1): os/i123/core/formula.c (operators and their precedence),
 % os/i123/core/eval.c (@SUM, @AVG, @MAX, @MIN, @COUNT, @IF, @ROUND),
@@ -16,6 +17,7 @@ functions.  Start with an empty worksheet.
 \item Writing a formula with operators
 \item Copying a formula down a column
 \item Summarizing a range with \fn{@SUM}, \fn{@AVG} and \fn{@MAX}
+\item Rounding a result and testing a condition
 \end{itemize}
 
 \section{Formulas}
@@ -52,6 +54,25 @@ The copies refer to their own rows: D2 holds \texttt{+B2*C2}.
 \end{Keystrokes}
 \FlairShot[fig:qs4]{qs4}{Costs, with their total, average and largest}
 
+\section{Rounding and Testing}
+\ix{"@ROUND}\ix{"@IF}
+The average in D6 has more decimal places than a price needs.  An @function
+can contain another: round the average to cents with \fn{@ROUND}.  Then
+mark each supply that costs more than 8 with \fn{@IF}.
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{d6} and press \kname{ENTER}}
+\Do{Type}{\type{@round(@avg(d1..d3),2)}}{and press \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{e1} and press \kname{ENTER}}
+\Do{Type}{\type{@if(d1>8,"High","Low")}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, press \kname{ENTER}, type \type{e2}
+  and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, press \kname{ENTER}, type \type{e3}
+  and press \kname{ENTER}}
+\end{Keystrokes}
+The new entry in D6 replaces the old one.  Each copy of the test looks at
+the cost in its own row (Figure~\ref{fig:qs4b}).
+\FlairShot[fig:qs4b]{qs4b}{The rounded average and the test}
+
 \section{Task Summary}
 \begin{LotTable}{p{58mm}p{70mm}}
 \LotHead{\textbf{To} & \textbf{You used}}
@@ -59,7 +80,9 @@ Multiply two cells & \texttt{+b1*c1}\\
 Copy a formula to the next row & /Copy, the cell to copy and the cell below\\
 Add a range & \fn{@SUM}\\
 Find the average & \fn{@AVG}\\
-Find the largest value & \fn{@MAX}\LotEnd
+Find the largest value & \fn{@MAX}\\
+Round a result & \fn{@ROUND}\\
+Choose between two results & \fn{@IF}\LotEnd
 \end{LotTable}
 
 \section{Other Tasks to Try}
@@ -67,6 +90,6 @@ Find the largest value & \fn{@MAX}\LotEnd
 \LotHead{\textbf{To} & \textbf{Use}}
 Find the smallest cost & \texttt{@MIN(D1..D3)}\\
 Count the entries & \texttt{@COUNT(D1..D3)}\\
-Round the average to cents & \texttt{@ROUND(D6,2)}\\
-Mark the expensive items & \texttt{@IF(D1>8,"High","Low")}\LotEnd
+Find the spread of the costs & \texttt{@MAX(D1..D3)-@MIN(D1..D3)}\\
+Show the costs in dollars & /Range Format Currency\LotEnd
 \end{LotTable}

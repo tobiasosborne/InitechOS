@@ -1,7 +1,7 @@
 % Sample Applications, Chapter 7 -- Price List (annex Sec 8.3).
 % Values replayed through the shipped application (examples/prices7.i23);
 % @ROUND as os/i123/core/eval.c computes it, Percent and Currency as
-% os/i123/core/fmt.c.  Figure screens/sa7.k123.
+% os/i123/core/fmt.c.  Figures screens/sa7.k123, sa7b.k123.
 % GATES: test-i123-formula test-pubs-i123-examples test-pubs-screens
 \Gates{test-i123-formula, test-pubs-i123-examples, test-pubs-screens}
 \chapter{Price List}
@@ -44,5 +44,8 @@ extra digits into later formulas.
 
 \section{Changing the Template}
 To try a different increase, type a new rate in B1; the three new prices
-follow at once.  To add an item, type it below Tape and copy the formula in
+follow at once.  Figure~\ref{fig:sa7b} shows the prices at an increase of
+8 percent, typed as \type{.08}.
+\FlairShot[fig:sa7b]{sa7b}{New prices at an increase of 8 percent}
+  To add an item, type it below Tape and copy the formula in
 C6 to the new row.

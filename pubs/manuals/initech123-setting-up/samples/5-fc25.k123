@@ -1,0 +1,4 @@
+# Setting Up volume sample worksheet, stage 5-fc25: the Tutorial keystrokes of
+# the lesson that builds it (pubs/pubs.mk types this into the shipped
+# application; the next lesson's figures retrieve the file it saves).
+/wgc10~Sales Forecast 1993~{GOTO}a3~Growth{RIGHT}5%~{GOTO}a5~Region{RIGHT}"Q1{RIGHT}"Q2{RIGHT}"Q3{RIGHT}"Q4{RIGHT}"Year~{GOTO}a6~North{DOWN}South{DOWN}East{DOWN}West{DOWN}Total~/rfp0~b3~/fsFC25~

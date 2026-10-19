@@ -76,4 +76,11 @@ red CHANGED_MESSAGE TRANSCRIPT-DRIFT "$pgate" same TRANSCRIPT-DRIFT "$m/messages
 #     application accepts (no message, no EDIT)
 printf 'try 5~\n' > "$m/accepted.i23"
 red TRY_ACCEPTED I123-PROBE "$face" replay "$m/accepted.i23"
-printf '>>> test-pubs-i123-mutant: green (12 named mutants rejected by their gate legs)\n'
+# 13. GC-02: a printed message one character off the shipped catalogue
+msgs_ref=$built/initech123-reference/main.msgs
+{ cat "$msgs_ref"; printf 'Invalid ranges\n'; } > "$m/changed.msgs"
+red MESSAGE_NOT_SHIPPED MESSAGE-NOT-SHIPPED "$gate" messages os/i123/app/face_a.c "complete=$m/changed.msgs"
+# 14. GC-02: one shipped message left out of the Reference
+grep -vx 'Menu nesting error' "$msgs_ref" > "$m/dropped.msgs"
+red MESSAGE_UNDOCUMENTED MESSAGE-UNDOCUMENTED "$gate" messages os/i123/app/face_a.c "complete=$m/dropped.msgs"
+printf '>>> test-pubs-i123-mutant: green (14 named mutants rejected by their gate legs)\n'

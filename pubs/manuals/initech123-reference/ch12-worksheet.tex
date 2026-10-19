@@ -60,6 +60,7 @@ recalculated, protection, and erasing the worksheet.
 \begin{itemize}
 \item ``Recalculation'' in Chapter~1
 \item \slashcmd{/Range Format} and \slashcmd{/Range Unprot} in Chapter~10
+\item Lessons~9, 10, 14, 16, 24 and 25 in the \doctitle{Tutorial}
 \end{itemize}
 
 \section{Terms You Need to Know}
@@ -77,7 +78,9 @@ recalculated, protection, and erasing the worksheet.
 
 \MenuEntry{/Worksheet Global}
 /Worksheet Global displays the menu of the global settings.  Every global
-setting is saved with the worksheet.
+setting is saved with the worksheet.  While Format is highlighted, the third
+line of the control panel lists the formats (Figure~\ref{fig:wgmenu}).
+\FlairShot[fig:wgmenu]{wgmenu}{The /Worksheet Global menu}
 
 \BHead{Procedure}
 \begin{Steps123}
@@ -174,9 +177,11 @@ afterwards gets the prefix in force; the control panel shows it:
 \LotExample{examples/prefix}
 
 \SubEntry{/Worksheet Global Recalculation}
-Sets when Initech 123 recalculates formulas and in what order.  While
-recalculation is automatic, selecting a setting recalculates the worksheet
-at once.
+Sets when Initech 123 recalculates formulas and in what order
+(Figure~\ref{fig:recalcmenu}).  While recalculation is automatic, selecting
+a setting recalculates the worksheet at once.
+\FlairShot[fig:recalcmenu]{recalcmenu}{The /Worksheet Global Recalculation
+menu}
 \begin{Options}
 \Option{Natural} Calculates every formula after the formulas it depends
   on (the setting of a new worksheet).
@@ -407,7 +412,7 @@ thousands separator.
 \end{Options}
 \begin{Note}
 A width outside 1 to 240, or anything but a whole number, displays
-\texttt{Illegal number}.
+\Msg{Illegal number}.
 \end{Note}
 
 \section{Widening a Column: An Example}
@@ -420,7 +425,9 @@ returns the column to the global width:
 
 \MenuEntry{/Worksheet Erase}
 /Worksheet Erase clears the worksheet from memory, with every entry and
-setting, and starts a new worksheet.
+setting, and starts a new worksheet.  It first asks No or Yes, with No
+highlighted (Figure~\ref{fig:wserase}).
+\FlairShot[fig:wserase]{wserase}{/Worksheet Erase asks before it erases}
 \begin{Options}
 \Option{No} Returns to \ind{READY} mode; nothing is erased.
 \Option{Yes} Erases the worksheet.

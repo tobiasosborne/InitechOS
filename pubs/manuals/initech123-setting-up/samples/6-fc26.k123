@@ -1,0 +1,4 @@
+# Setting Up volume sample worksheet, stage 6-fc26: the Tutorial keystrokes of
+# the lesson that builds it (pubs/pubs.mk types this into the shipped
+# application; the next lesson's figures retrieve the file it saves).
+/frFC25~{GOTO}b6~1200{DOWN}950{DOWN}1430{DOWN}780~{GOTO}c6~+b6*(1+$b$3)~/c~d6~/c~e6~/cc6..e6~c7~/cc6..e6~c8~/cc6..e6~c9~{GOTO}f6~@sum(b6..e6)~/c~f7~/cf6..f7~f8~/cf8~f9~{GOTO}b10~@sum(b6..b9)~/c~c10~/cb10..c10~d10~/cb10..c10~e10~/cb10~f10~/rf,0~b6..f10~/fsFC26~

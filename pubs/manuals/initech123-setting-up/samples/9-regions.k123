@@ -1,0 +1,4 @@
+# Setting Up volume sample worksheet, stage 9-regions: the Quick Start
+# table formatted, with shares, saved as REGIONS (Chapter 3); the figures of
+# Chapter 3 that retrieve or replace it see it on the disk.
+/frQS1~/rfc0~b2..e6~/rlrb1..e1~{GOTO}a1~/wcs10~{GOTO}f1~"Share{DOWN}+e2/$e$6~/c~f3~/cf2..f3~f4~/rfp1~f2..f5~/fsREGIONS~

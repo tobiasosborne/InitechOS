@@ -1,7 +1,7 @@
 # FLAIR figures of the Setting Up volume (1051-0000-11), bead initech-ipu5.9.
 # name|x0 y0 x1 y1|scale|life|marker|stage -- crop of the 640 x 480 dump,
 # replication factor (NT-21), image life (short 500 / long 2000 / longer
-# 4500 ticks), the screendump marker (empty: FLAIR-LIVE-OK) and the data
+# 12000 ticks), the screendump marker (empty: FLAIR-LIVE-OK) and the data
 # volume stage (pubs/pubs.mk: the shipped volume plus the sample worksheets
 # of samples/<N>-*.k123 up to that stage; a lesson that saves a file sees
 # the disk as the reader's disk is at that lesson).  Keystrokes:
@@ -17,17 +17,17 @@ tl2a|0 40 640 254|4|short||0
 tl2b|0 40 640 254|4|short||0
 tl2c|0 40 640 254|4|short||0
 tl3|0 40 640 270|4|longer||0
-tl4|0 40 640 270|4|long||1
+tl4|0 40 640 270|4|longer||1
 tl5a|0 40 640 270|4|long||1
 tl5b|0 40 640 270|4|longer||1
 tl6|0 40 640 480|4|longer||1
 tl7a|0 40 640 126|4|short||2
 tl7b|0 40 640 270|4|short||2
 tl8|0 40 640 270|4|long||2
-tl9|0 40 640 270|4|long||2
-tl10|0 40 640 270|4|long||2
+tl9|0 40 640 270|4|longer||2
+tl10|0 40 640 270|4|longer||2
 tl11|0 40 640 480|4|longer||2
-tl12|0 40 640 270|4|long||3
+tl12|0 40 640 270|4|longer||3
 tl13|0 40 640 270|4|longer||3
 tl14a|0 40 640 480|4|longer||3
 tl14b|0 40 640 480|4|longer||3
@@ -36,23 +36,46 @@ tl16|0 40 640 270|4|long||4
 tl17a|0 40 640 126|4|long||4
 tl17c|0 0 640 480|4|long||4
 qs1|0 40 640 254|4|longer||4
-qs2|0 40 640 254|4|longer||4
-qs3|0 40 640 480|4|longer||4
+qs2|0 40 640 254|4|long||8
+qs3|0 40 640 480|4|longer||8
 sa1|0 40 640 286|4|longer||4
 sa2|0 40 640 286|4|longer||4
 sa3|0 40 640 286|4|longer||4
 sa4|0 40 640 254|4|longer||4
 tl18a|0 40 640 190|4|long||4
 tl18b|0 40 640 190|4|long||4
-tl19|0 40 640 174|4|long||4
+tl19|0 40 640 174|4|longer||4
 tl20|0 40 640 174|4|long||4
 tl21|0 40 640 222|4|long||4
 tl22a|0 40 640 174|4|long||4
 tl22b|0 40 640 174|4|long||4
-tl23|0 40 640 206|4|long||4
+tl23|0 40 640 206|4|longer||4
 tl24|0 40 640 142|4|short||4
 qs4|0 40 640 238|4|longer||4
-qs5|0 40 640 480|4|long||4
+qs5|0 40 640 480|4|longer||4
 sa5|0 40 640 238|4|longer||4
 sa6|0 40 640 206|4|longer||4
 sa7|0 40 640 222|4|longer||4
+tl25|0 40 640 286|4|longer||4
+tl26a|0 40 640 286|4|longer||5
+tl26b|0 40 640 286|4|longer||5
+tl27|0 40 640 398|4|longer||6
+tl28a|0 40 640 398|4|longer||7
+tl28b|0 40 640 480|4|longer||7
+tl3a|0 40 640 190|4|long||0
+tl4a|0 40 640 270|4|long||1
+tl5c|0 40 640 222|4|long||1
+tl5d|0 40 640 270|4|long||1
+tl6a|0 40 640 270|4|longer||1
+tl8a|0 40 640 270|4|long||2
+tl11a|0 40 640 270|4|longer||2
+tl12a|0 40 640 270|4|long||3
+tl13a|0 40 640 270|4|longer||3
+tl16a|0 40 640 270|4|long||4
+qs1b|0 40 640 254|4|longer||4
+qs2b|0 40 640 254|4|longer||8
+qs3b|0 40 640 480|4|short||9
+qs3c|0 40 640 254|4|long||9
+qs4b|0 40 640 238|4|longer||4
+sa5b|0 40 640 254|4|longer||4
+sa7b|0 40 640 222|4|longer||4

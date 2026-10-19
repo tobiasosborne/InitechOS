@@ -21,7 +21,7 @@
 #   name|x0 y0 x1 y1|scale|life[|marker[|stage]]
 # The keystrokes are <list dir>/name.k123 (i123_face key-script syntax; the
 # ONLY keyboard source).  life is short (the 500-tick gate image), long or
-# longer (the publications images, 2000 and 4500 ticks) -- the image must
+# longer (the publications images, 2000 and 12000 ticks) -- the image must
 # stay alive until
 # every key is in.  marker (default FLAIR-LIVE-OK, the end of the image's
 # life) is the serial line after which the dump is taken: a modal alert is
@@ -70,7 +70,7 @@ while IFS='|' read -r name rect scale life marker stage; do
     rm -f "$out/$name.ppm" "$out/$name.serial"
     "$runner" --disk "$img" --disk2 "$out/$name.data.img" --name "$name" --out "$out" \
         --mouse "$spec" --keys-after FLAIR-LIVE-READY --quit-after FLAIR-LIVE-OK \
-        --timeout-ms 120000 --screendump --screendump-after "$marker" \
+        --timeout-ms 240000 --screendump --screendump-after "$marker" \
         < /dev/null 2> "$out/$name.report" || true
     if grep -q 'triple_fault=1' "$out/$name.report"; then printf '!!! test-pubs RED SCREEN-CAPTURE: %s: triple fault\n' "$name"; exit 1; fi
     s=$out/$name.serial

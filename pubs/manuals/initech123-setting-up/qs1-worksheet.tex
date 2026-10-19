@@ -2,6 +2,7 @@
 % What This Chapter Shows You, task sections with keystroke tables, Task
 % Summary, Other Tasks to Try).  Figure screens/qs1.k123.
 % Sources (Law 1): os/i123/app/face_a.c (entries, GOTO, /Copy), the core.
+% Figures screens/qs1.k123, qs1b.k123, typed from an empty worksheet.
 % GATES: test-flair-i123 test-i123-formula test-pubs-screens test-pubs-i123
 \Gates{test-flair-i123, test-i123-formula, test-pubs-screens, test-pubs-i123}
 \chapter{Creating a Worksheet}
@@ -20,6 +21,7 @@ Start Initech 123 with an empty worksheet, as \doctitle{Setting Up Initech
 \item Entering labels and numbers
 \item Entering a formula
 \item Copying a formula
+\item Copying a range of formulas
 \end{itemize}
 
 \section{Entering the Labels}
@@ -60,6 +62,22 @@ West (row 5) & 1368 & 1354 & 1390\LotEnd
 \end{Keystrokes}
 \FlairShot[fig:qs1]{qs1}{Regional sales with totals}
 
+\section{Totaling the Months}
+A total under each month is the same formula one column further each time.
+Copy two cells at once to fill the last two columns.
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{a6} and press \kname{ENTER}}
+\Do{Type}{\type{Total}}{and press \kname{RIGHT}}
+\Do{Type}{\type{@sum(b2..b5)}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, press \kname{ENTER}, type \type{c6}
+  and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{b6..c6} and press
+  \kname{ENTER}, type \type{d6} and press \kname{ENTER}}
+\end{Keystrokes}
+The second copy fills D6 and E6.  E6 adds the four regional totals above
+it: the total of the quarter (Figure~\ref{fig:qs1b}).
+\FlairShot[fig:qs1b]{qs1b}{The totals of the months}
+
 \section{Task Summary}
 \begin{LotTable}{p{58mm}p{70mm}}
 \LotHead{\textbf{To} & \textbf{You used}}
@@ -67,13 +85,14 @@ Enter a label & Type it; a quotation mark first aligns it at the right\\
 Enter a number & Type it\\
 Go to a cell & GOTO (F5) and the address\\
 Add a row of numbers & \texttt{@SUM} and a range\\
-Copy a formula & /Copy, the FROM range and the upper left TO cell\LotEnd
+Copy a formula & /Copy, the FROM range and the upper left TO cell\\
+Fill two cells with copies & /Copy, a FROM range of two cells\LotEnd
 \end{LotTable}
 
 \section{Other Tasks to Try}
 \begin{LotTable}{p{58mm}p{70mm}}
 \LotHead{\textbf{To} & \textbf{Use}}
-Total the months & \texttt{@SUM(B2..B5)} in B6, copied across\\
+Find the average region & \texttt{@AVG(E2..E5)}\\
 Find the average month & \texttt{@AVG(B2..D2)}\\
 Find the best month & \texttt{@MAX(B2..D2)}\LotEnd
 \end{LotTable}

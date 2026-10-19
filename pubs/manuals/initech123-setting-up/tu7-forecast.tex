@@ -1,0 +1,304 @@
+% Tutorial, Chapter 7 -- Building a Forecast on Your Own: Lessons 25 to 28
+% (AN-17).  A second worksheet, built from an empty worksheet with the
+% skills of Chapters 2 to 6 and tied together: a growth rate referred to
+% absolutely, copies of rows and columns, a range name made from a label,
+% statistical @functions and @IF, and protection.  Figures: screens/tl25
+% .. tl28b.k123 on the data volume of stages 4 to 7 (samples/5-fc25,
+% 6-fc26, 7-fc27: the shipped application typed each lesson's keystrokes
+% and saved FC25, FC26, FC27, the worksheet the next lesson retrieves).
+% Sources (Law 1): os/i123/app/face_a.c (entries; /Copy with a one-cell
+% TO; /Range Name Labels Right; /Range Name Table; /Range Format; /Range
+% Unprot; /Worksheet Global Protection Enable and "Cell is protected";
+% /File Save), os/i123/core/range.c (a name from a label; $NAME absolute),
+% os/i123/core/eval.c (@SUM, @MAX, @MIN, @AVG, @IF), os/i123/core/fmt.c
+% (the comma format; Percent).  Example: examples/forecast27, replayed.
+% GATES: test-i123-formula test-i123-range-menu test-i123-copy-move-model test-flair-i123-files test-pubs-i123-examples test-pubs-screens test-pubs-i123
+\Gates{test-i123-formula, test-i123-range-menu, test-i123-copy-move-model,
+  test-flair-i123-files, test-pubs-i123-examples, test-pubs-screens,
+  test-pubs-i123}
+\chapter{Building a Forecast on Your Own}
+
+In this chapter you build a second worksheet from the beginning: a sales
+forecast for the four sales regions of Initech Systems Corporation.  The
+first quarter's sales are known; the next three quarters are expected to
+grow by a rate you set in one cell.  You use the skills of the earlier
+chapters together, with fewer steps spelled out, and you see the reason
+for building a worksheet this way: when you change the growth rate, the
+whole forecast changes with it.
+
+Start Initech 123, or erase the worksheet in memory with
+\slashcmd{/Worksheet Erase Yes}.  Each lesson ends by saving the forecast,
+and the next lesson begins by retrieving it, so you can stop between
+lessons.
+
+\FlairShot[fig:tu7open]{tl27}{The forecast as Lesson~27 leaves it}
+
+\section{Lesson 25: Planning the Forecast}
+\ix{planning a worksheet}
+In this lesson you learn to:
+\begin{itemize}
+\item plan a worksheet so that its assumptions are in cells of their own
+\item set the width of every column at once
+\item enter a percentage
+\end{itemize}
+
+\subsection{The Plan}
+A worksheet is easiest to change when every number it assumes is typed in
+one place, and every other number is calculated from it.  The forecast has
+three blocks:
+\begin{LotTable}{p{30mm}p{24mm}p{70mm}}
+\LotHead{\textbf{Item} & \textbf{Address} & \textbf{Meaning}}
+Growth & B3 & The growth rate from one quarter to the next\\
+Sales & B6..E9 & The sales of each region in each quarter; only the
+  first quarter, B6..B9, is typed\\
+Totals & F6..F10, B10..E10 & The total of each region for the year and
+  of each quarter for all regions\LotEnd
+\end{LotTable}
+
+\subsection{The Labels and the Growth Rate}
+The numbers of the forecast need columns a little wider than the standard
+9 characters.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{w}, \type{g}, \type{c} to select
+  Worksheet Global Column-Width}
+\Do{Type}{\type{10}}{and press \kname{ENTER}}
+\Do{Type}{\type{Sales Forecast 1993}}{in A1, and press \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{a3} and press \kname{ENTER}}
+\Do{Type}{\type{Growth}}{and press \kname{RIGHT}}
+\Do{Type}{\type{5\%}}{the growth rate, and press \kname{ENTER}}
+\end{Keystrokes}
+Initech 123 stores \type{5\%} as the number 0.05.  Now type the headings
+and the regions:
+
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{a5} and press \kname{ENTER}}
+\Do{Type}{\type{Region}}{and press \kname{RIGHT}}
+\Do{Type}{\type{"Q1}}{and press \kname{RIGHT}; then \type{"Q2},
+  \kname{RIGHT}, \type{"Q3}, \kname{RIGHT}, \type{"Q4}, \kname{RIGHT}}
+\Do{Type}{\type{"Year}}{and press \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{a6} and press \kname{ENTER}}
+\Do{Type}{\type{North}}{and press \kname{DOWN}; then \type{South},
+  \kname{DOWN}, \type{East}, \kname{DOWN}, \type{West}, \kname{DOWN}}
+\Do{Type}{\type{Total}}{and press \kname{ENTER}}
+\end{Keystrokes}
+
+\subsection{Formatting the Rate and Saving}
+B3 shows 0.05.  Give it the Percent format with no decimal places, then
+save the worksheet as FC25.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{f}, \type{p}}
+\Do{Type}{\type{0}}{no decimal places, and press \kname{ENTER}}
+\Do{Type}{\type{b3}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{f}, \type{s}, type \type{FC25}
+  and press \kname{ENTER}}
+\end{Keystrokes}
+\FlairShot[fig:tl25]{tl25}{The plan of the forecast}
+
+\section{Lesson 26: Growing the Numbers}
+\ix{growth formula}
+In this lesson you learn to:
+\begin{itemize}
+\item write a formula that refers to an assumption absolutely
+\item copy a row of formulas down several rows at once
+\item total rows and columns with copies of one formula
+\end{itemize}
+
+\subsection{The First Quarter}
+Retrieve FC25, then type the first quarter's sales.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{type \type{f}, \type{r}, type \type{FC25} and
+  press \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{b6} and press \kname{ENTER}}
+\Do{Type}{\type{1200}}{and press \kname{DOWN}; then \type{950},
+  \kname{DOWN}, \type{1430}, \kname{DOWN}}
+\Do{Type}{\type{780}}{and press \kname{ENTER}}
+\end{Keystrokes}
+
+\subsection{The Growth Formula}
+Each quarter's sales are the quarter before, multiplied by one plus the
+growth rate.  For North in the second quarter that is
+\texttt{+B6*(1+\$B\$3)}: B6 is relative, so that each copy uses the
+quarter to its left, and \texttt{\$B\$3} is absolute, so that every copy
+uses the one growth rate.
+
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{c6} and press \kname{ENTER}}
+\Do{Type}{\type{+b6*(1+\$b\$3)}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, press \kname{ENTER}, type
+  \type{d6} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, press \kname{ENTER}, type
+  \type{e6} and press \kname{ENTER}}
+\end{Keystrokes}
+Row 6 now holds the forecast for North (Figure~\ref{fig:tl26a}).  The
+control panel shows the formula of C6.
+\FlairShot[fig:tl26a]{tl26a}{The growth formula copied across row 6}
+
+\subsection{Copying a Row Down}
+The three formulas of C6..E6 serve every region.  Copy them as a block:
+when you give the upper left cell of the TO range, the whole row arrives.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{c6..e6} and press
+  \kname{ENTER}}
+\Do{Type}{\type{c7}}{and press \kname{ENTER}}
+\end{Keystrokes}
+Copy C6..E6 to C8 and to C9 in the same way.
+
+\subsection{The Totals}
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{f6} and press \kname{ENTER}}
+\Do{Type}{\type{@sum(b6..e6)}}{the year for North, and press
+  \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, press \kname{ENTER}, type
+  \type{f7} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{f6..f7} and press
+  \kname{ENTER}, type \type{f8} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{f8} and press
+  \kname{ENTER}, type \type{f9} and press \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{b10} and press \kname{ENTER}}
+\Do{Type}{\type{@sum(b6..b9)}}{the first quarter for all regions, and
+  press \kname{ENTER}}
+\end{Keystrokes}
+Copy B10 to C10; copy B10..C10 to D10; copy B10..C10 to E10; and copy B10
+to F10, where the formula adds the four yearly totals above it.
+
+\subsection{Formatting and Saving}
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{f}, \type{,} (Range
+  Format with commas)}
+\Do{Type}{\type{0}}{and press \kname{ENTER}}
+\Do{Type}{\type{b6..f10}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{f}, \type{s}, type \type{FC26}
+  and press \kname{ENTER}}
+\end{Keystrokes}
+The forecast is complete (Figure~\ref{fig:tl26b}).  The numbers are
+displayed without decimal places, but each is calculated in full: the
+totals add the full values, not the displayed ones.
+\FlairShot[fig:tl26b]{tl26b}{The finished forecast at 5\% growth}
+
+\section{Lesson 27: Naming the Rate and Summarizing}
+\ix{range names}\ix{"@MAX}\ix{"@MIN}\ix{"@AVG}
+In this lesson you learn to:
+\begin{itemize}
+\item name a cell after the label beside it
+\item use the name in a formula
+\item summarize a row with the statistical @functions
+\item test the result against a target with \fn{@IF}
+\end{itemize}
+
+\subsection{Naming the Growth Rate}
+The label \texttt{Growth} in A3 is just the name the growth rate needs.
+\slashcmd{/Range Name Labels Right} names the cell to the right of each
+label in a range.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{type \type{f}, \type{r}, type \type{FC26} and
+  press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{n}, \type{l}, \type{r}
+  to select Range Name Labels Right}
+\Do{Type}{\type{a3}}{the label, and press \kname{ENTER}}
+\end{Keystrokes}
+B3 is now named GROWTH.  Type the growth formula again with the name, and
+copy it as before:
+
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{c6} and press \kname{ENTER}}
+\Do{Type}{\type{+b6*(1+\$growth)}}{and press \kname{ENTER}}
+\end{Keystrokes}
+Copy C6 to D6 and to E6, and C6..E6 to C7, C8 and C9, exactly as in
+Lesson~26.  The control panel still shows \texttt{+B6*(1+\$B\$3)}: a name
+stands for its range, and the dollar sign before \texttt{GROWTH} makes the
+reference absolute.
+
+\subsection{The Summary}
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{a12} and press \kname{ENTER}}
+\Do{Type}{\type{Best}}{and press \kname{DOWN}; then \type{Lowest},
+  \kname{DOWN}, \type{Average}, \kname{DOWN}}
+\Do{Type}{\type{Target?}}{and press \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{b12} and press \kname{ENTER}}
+\Do{Type}{\type{@max(b10..e10)}}{the best quarter, and press
+  \kname{DOWN}}
+\Do{Type}{\type{@min(b10..e10)}}{the lowest quarter, and press
+  \kname{DOWN}}
+\Do{Type}{\type{@avg(b10..e10)}}{the average quarter, and press
+  \kname{DOWN}}
+\Do{Type}{\type{@if(f10>=20000,"Met","Not met")}}{and press
+  \kname{ENTER}}
+\end{Keystrokes}
+The target of the sales office is 20,000 for the year.  \fn{@IF} shows
+\texttt{Met} when the total in F10 reaches it, and \texttt{Not met}
+otherwise.
+
+\subsection{A Table of the Names}
+Format B12..B14 with commas and no decimal places, as in Lesson~26.  Then
+list the names of the worksheet:
+
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{a17} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{n}, \type{t} to select
+  Range Name Table}
+\Do{Press}{\kname{ENTER}}{to place the table at A17}
+\Do{Press}{\kname{SLASH}}{and type \type{f}, \type{s}, type \type{FC27}
+  and press \kname{ENTER}}
+\end{Keystrokes}
+\FlairShot[fig:tl27]{tl27}{The summary, the target test and the table of
+names}
+
+At 5\% growth the year falls short of the target.  The formulas of the
+forecast, and what they show at 5\% and at 10\% growth:
+
+\LotExample{examples/forecast27}
+
+\section{Lesson 28: Trying Another Rate and Protecting the Forecast}
+\ix{what-if}\ix{protection}
+In this lesson you learn to:
+\begin{itemize}
+\item change an assumption and watch the worksheet follow it
+\item protect a worksheet so that only its assumptions can be changed
+\end{itemize}
+
+\subsection{Another Growth Rate}
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{type \type{f}, \type{r}, type \type{FC27} and
+  press \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{b3} and press \kname{ENTER}}
+\Do{Type}{\type{10\%}}{and press \kname{ENTER}}
+\end{Keystrokes}
+Every forecast cell, every total and the summary change at once.  At 10\%
+growth the year reaches the target, and B15 shows \texttt{Met}.
+
+\subsection{Protecting the Forecast}
+Only the growth rate and the first quarter are typed; everything else is
+calculated.  Unprotect the typed cells and enable protection, so that no
+formula can be typed over by mistake.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{u}; press
+  \kname{ENTER} to unprotect B3}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{u}; type \type{b6..b9}
+  and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{w}, \type{g}, \type{p}, \type{e}
+  to enable protection}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{c6} and press \kname{ENTER}}
+\Do{Type}{\type{5}}{and press \kname{ENTER}}
+\end{Keystrokes}
+Initech 123 refuses the entry, because C6 holds a formula and is protected
+(Figure~\ref{fig:tl28a}).
+\FlairShot[fig:tl28a]{tl28a}{A forecast formula is protected}
+\begin{Keystrokes}
+\Do{Press}{\kname{ESC}}{to return to the worksheet}
+\Do{Press}{\kname{SLASH}}{and type \type{f}, \type{s}, type
+  \type{FORECAST} and press \kname{ENTER}}
+\end{Keystrokes}
+\FlairShot[fig:tl28b]{tl28b}{The protected forecast saved as FORECAST}
+
+You can now try any growth rate, or new first-quarter sales, by typing
+over B3 or B6..B9; nothing else can be changed until you disable
+protection with \slashcmd{/Worksheet Global Protection Disable}.
+
+This completes the \doctitle{Tutorial}.  The \doctitle{Initech 123
+Reference} describes every command you have used, and all the others.
