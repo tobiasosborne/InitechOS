@@ -6,53 +6,6 @@
 % counted).  Shots: ../wordperfect51-decomp mint MINT25, MINT26, MINT30.
 % GATES: test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-format
 \Gates{test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-format}
-% List Files (F5): bead initech-qvgd (IWORD P3 remainder, 2026-10-20). Law 1:
-% WordPerfect 5.1 Reference (initech-manuals-ref/wordperfect51/WPDOS51Reference.pdf)
-% PDF pp. 364-370 (List Files) and 381-384 (Look); the real-WP mint
-% ../wordperfect51-decomp mint/work/LISTF/mint-results-005.md (session LF14,
-% the golden of test-iword-listfiles and test-flair-iword-listfiles);
-% spec/iword/listfiles.h (the locked screen layout, the 80 -> 76 column
-% adaptation), os/iword/core/listfiles.c, face_a.c.
-\begin{Feature}{List Files}
-List Files shows the documents and other files on the data diskette, with
-the size and date of each, and lets you retrieve a document or look at one
-without leaving InitechWord.
-
-To list the files,
-\begin{WPSteps}
-\item Press \FK{List}{F5}.  The status line shows \Scr{Dir A:\textbackslash*.*}.
-\item Press \K{Enter} to list that directory.
-\item The List Files screen shows the directory, its free space and the
-number of files on the top line, and the files in two columns.  Use the
-arrow keys to move the highlight.  \K{Enter} on a directory opens it;
-\Scr{.. Parent} returns to the one above.
-\item Select \Ch{Retrieve}{1} to bring the highlighted document onto the
-editing screen, or \Ch{Look}{6} to read it without retrieving it.  Press
-\K{Esc} to leave Look, and \FK{Exit}{F7} or \K{Esc} to leave the list.
-\end{WPSteps}
-\Documents{wpkey}{F5}
-If a document is already on the editing screen, Retrieve asks \Scr{Retrieve
-into current document? No (Yes)}; answer \Typed{Y} to add the file at the
-cursor, or \Typed{N} to keep the screen as it is.
-
-\Notes
-\Topic{Entries}
-Each entry prints the file name, its size in bytes, and the date and time it
-was last saved, as the operating system's \cmd{DIR} listing prints them.  The
-top line's \Scr{Used} figure is the total of the sizes listed; \Scr{Free} is
-the space left on the diskette.  Directories print \Scr{<Dir>} in place of
-a size.
-
-\Topic{Menu items not yet in this version}
-The List Files menu also names Delete, Move/Rename, Print, Short/Long
-Display, Other Directory, Copy, Find and Name Search.  This version of
-InitechWord prints those items in grey and does nothing when they are
-selected; use the operating system's commands for the same tasks (see the
-\emph{InitechDOS User's Guide}).
-
-\SeeAlso{Exit; Retrieve; Save}
-\end{Feature}
-
 \begin{Feature}{Line Spacing}
 Line spacing sets how far apart the lines of text are: single spacing,
 double spacing for a draft that will be marked up, or any spacing between,
@@ -108,3 +61,51 @@ was; Cancel does the same.
 
 \SeeAlso{Format; Margins, Left and Right; Status Line}
 \end{Feature}
+
+% List Files (F5): bead initech-qvgd (IWORD P3 remainder, 2026-10-20). Law 1:
+% WordPerfect 5.1 Reference (initech-manuals-ref/wordperfect51/WPDOS51Reference.pdf)
+% PDF pp. 364-370 (List Files) and 381-384 (Look); the real-WP mint
+% ../wordperfect51-decomp mint/work/LISTF/mint-results-005.md (session LF14,
+% the golden of test-iword-listfiles and test-flair-iword-listfiles);
+% spec/iword/listfiles.h (the locked screen layout, the 80 -> 76 column
+% adaptation), os/iword/core/listfiles.c, face_a.c.
+\begin{Feature}{List Files}
+List Files shows the documents and other files on the data diskette, with
+the size and date of each, and lets you retrieve a document or look at one
+without leaving InitechWord.
+
+To list the files,
+\begin{WPSteps}
+\item Press \FK{List}{F5}.  The status line shows \Scr{Dir A:\textbackslash*.*}.
+\item Press \K{Enter} to list that directory.
+\item The List Files screen shows the directory, its free space and the
+number of files on the top line, and the files in two columns.  Use the
+arrow keys to move the highlight.  \K{Enter} on a directory opens it;
+\Scr{.. Parent} returns to the one above.
+\item Select \Ch{Retrieve}{1} to bring the highlighted document onto the
+editing screen, or \Ch{Look}{6} to read it without retrieving it.  Press
+\K{Esc} to leave Look, and \FK{Exit}{F7} or \K{Esc} to leave the list.
+\end{WPSteps}
+\Documents{wpkey}{F5}
+If a document is already on the editing screen, Retrieve asks \Scr{Retrieve
+into current document? No (Yes)}; answer \Typed{Y} to add the file at the
+cursor, or \Typed{N} to keep the screen as it is.
+
+\Notes
+\Topic{Entries}
+Each entry prints the file name, its size in bytes, and the date and time it
+was last saved, as the operating system's \cmd{DIR} listing prints them.  The
+top line's \Scr{Used} figure is the total of the sizes listed; \Scr{Free} is
+the space left on the diskette.  Directories print \Scr{<Dir>} in place of
+a size.
+
+\Topic{Menu items not yet in this version}
+The List Files menu also names Delete, Move/Rename, Print, Short/Long
+Display, Other Directory, Copy, Find and Name Search.  This version of
+InitechWord prints those items in grey and does nothing when they are
+selected; use the operating system's commands for the same tasks (see the
+\emph{InitechDOS User's Guide}).
+
+\SeeAlso{Exit; Retrieve; Save}
+\end{Feature}
+
