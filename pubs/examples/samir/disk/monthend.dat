@@ -1,0 +1,10 @@
+# MONTHEND.MEM -- the memory variables of the March month-end close, saved
+# with SAVE TO MONTHEND (Using InitechBase, RESTORE).  The dBASE III PLUS
+# memory file (dbase3-decomp specs/file-formats/mem.md); MRATE has the width
+# and decimals of a literal with two decimal places (CHKBOOK.MEM BALANCE,
+# mem.md Sec 5).
+MEMORY MONTHEND.MEM
+VAR MCLERK C PRUITT
+VAR MRATE N 13 2 1.5
+VAR MCUTOFF D 19920331
+VAR MPOSTED L F

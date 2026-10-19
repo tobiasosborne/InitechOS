@@ -12,6 +12,8 @@ Saves the memory variables in a memory file.
 \cmd{SAVE} writes every memory variable, with its type and value, to the
 file named.  If no extension is given, \file{.MEM} is assumed.  The file can
 be read back with \cmd{RESTORE}, by InitechBase or by dBASE III PLUS.
+\Examples
+\DotExample{examples/c-save}
 \SeeAlso{RELEASE, RESTORE}
 \end{XbaseEntry}
 
@@ -442,6 +444,12 @@ Memo field invalid.}).  A field the database does not have is reported as
 characters as \xmsg{23}{Index is too big (100 char maximum).}  While SET
 SAFETY is ON, a database of the new name is not replaced
 (\xmsg{7}{File already exists.}).
+\Examples
+The ledger in order of due date.  The due dates keyed with the year 00 are
+stored as 1900 (see \cmd{SET CENTURY}), and so come first:
+\DotExample{examples/c-sort}
+\file{STAFF.DBF} has a memo field, \texttt{NOTES}, and cannot be sorted:
+\DotExample{examples/c-sort-2}
 \SeeAlso{INDEX, TOTAL}
 \end{XbaseEntry}
 
@@ -495,6 +503,10 @@ A database with a memo field cannot be totaled (\xmsg{34}{Operation with
 Memo field invalid.}), and a key field it does not have is reported as
 \xmsg{48}{Field not found.}  While SET SAFETY is ON, a database of the new
 name is not replaced (\xmsg{7}{File already exists.}).
+\Examples
+The batch of new invoices, \file{ARBATCH.DBF}, totaled by customer.  The
+two invoices of HARTWELL become one record:
+\DotExample{examples/c-total}
 \SeeAlso{INDEX, SORT}
 \end{XbaseEntry}
 
@@ -511,6 +523,8 @@ Displays the contents of a text file.
 for program files, report output written with \kw{TO FILE}, and other text
 files.  A database that is open cannot be displayed
 (\xmsg{3}{File is already open.}).
+\Examples
+\DotExample{examples/c-type}
 \SeeAlso{ERASE, RENAME}
 \end{XbaseEntry}
 

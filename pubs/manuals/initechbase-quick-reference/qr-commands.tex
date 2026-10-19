@@ -7,9 +7,11 @@
 \QREntry{?}{command}{? [<expression list>]}{Displays values on a new line.}
 \QREntry{??}{command}{?? <expression list>}{Displays values on the same line.}
 \QREntry{ACCEPT}{command}{ACCEPT [<expC>] TO <memvar>}{Reads a typed line into a character memory variable.}
-\QREntry{APPEND}{command}{APPEND BLANK}{Adds a blank record to the end of the database.}
-\QREntry{CLOSE}{command}{CLOSE DATABASES / ALL}{Closes every open database and its index files.}
+\QREntry{APPEND}{command}{APPEND BLANK / FROM <file>}{Adds a blank record, or the records of another database, to the end of the database.}
+\QREntry{CLEAR MEMORY}{compound}{CLEAR MEMORY}{Releases all memory variables, public and private.}\XAlso{CLEAR}{CLEAR}
+\QREntry{CLOSE}{command}{CLOSE ALL / DATABASES / INDEX / ALTERNATE / FORMAT / PROCEDURE}{Closes every open database with its index files (ALL, DATABASES), or the index files only (INDEX).}
 \QREntry{CONTINUE}{command}{CONTINUE}{Moves to the next record that meets the last LOCATE condition.}
+\QREntry{COPY FILE}{compound}{COPY FILE <file> TO <new file>}{Copies a closed file.}\XAlso{COPY}{COPY}
 \QREntry{DELETE}{command}{DELETE [<scope>] [FOR <condition>] [WHILE <condition>]}{Marks records for deletion.}
 \QREntry{DISPLAY}{command}{DISPLAY [<scope>] [<expression list>] [FOR <condition>] [WHILE <condition>]}{Displays the current record, or the records of a scope.}
 \QREntry{DO}{command}{DO <program> / DO <procedure> [WITH <expression list>]}{Runs a program file, or a procedure of the program running.}
@@ -41,6 +43,7 @@
 \QREntry{REPORT FORM}{compound}{REPORT FORM <file> [<scope>] [FOR <condition>] [WHILE <condition>] [PLAIN] [HEADING <expC>] [NOEJECT] [SUMMARY] [TO FILE <file>]}{Prints a report from a report form.}\XAlso{REPORT}{REPORT}
 \QREntry{RESTORE}{command}{RESTORE FROM <file> [ADDITIVE]}{Loads memory variables from a memory file.}
 \QREntry{RETURN}{command}{RETURN}{Ends a procedure or program.}
+\QREntry{RUN}{command}{RUN <command> / ! <command>}{Carries out an InitechDOS command or program, then returns.}\XAlso{!}{!}
 \QREntry{SAVE}{command}{SAVE TO <file>}{Saves the memory variables in a memory file.}
 \QREntry{SEEK}{command}{SEEK <exp>}{Finds a key of the master index.}
 \QREntry{SELECT}{command}{SELECT <n> / <alias>}{Chooses the work area.}

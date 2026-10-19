@@ -27,8 +27,11 @@
  *       DISPLAY, REPORT FORM), which the screen shows exactly as LF; CR LF
  *       is therefore written as LF, and a CR before another CR (REPORT FORM
  *       ends a page with CR, then starts the next line with CR LF) moves
- *       the cursor nowhere and is dropped.  Any other control byte (a CR
- *       before text, a form feed, a tab) is RED: a transcript cannot show
+ *       the cursor nowhere and is dropped, as is a CR at the start of a
+ *       line (LABEL FORM ends each row of labels with CR after its blank
+ *       separating lines, os/samir/cmd/report.c lbl_run: the cursor is
+ *       already in column 0).  Any other control byte (a CR after text on
+ *       its line, a form feed, a tab) is RED: a transcript cannot show
  *       it. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -100,6 +103,7 @@ static int session(const char *dir,const char *file)
     for (size_t r = 0; r < g_outn; r++) {
         unsigned char c = (unsigned char)g_out[r];
         if (c == '\r' && r + 1 < g_outn && (g_out[r + 1] == '\n' || g_out[r + 1] == '\r')) continue;
+        if (c == '\r' && (w == 0 || g_out[w - 1] == '\n')) continue;
         if ((c < 32 && c != '\n') || c > 126) {
             fprintf(stderr, "!!! test-pubs RED SAMIR-REPLAY: %s: byte %u at offset %zu cannot be printed\n", file, c, r);
             return 1;

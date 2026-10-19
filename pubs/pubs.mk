@@ -307,7 +307,8 @@ $(PUBS_REPLAY): harness/pubs/samir_replay.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG)
 # ---- InitechBase (bead initech-ipu5.8; PUB-REF-0001 GC-01/02/03, CP-11/12) ----
 # The shipped InitechBase surface, asked of the shipped dot prompt
 # (harness/pubs/samir_inventory.c): NAME|command, NAME|function, NAME|set for
-# every candidate word of the SAMIR sources the REPL accepts, and the message
+# every candidate word of the SAMIR sources the REPL accepts (a quoted
+# two-word verb such as "CLEAR MEMORY" gives both its words), and the message
 # catalogue n|text.  The Sample Programs and Utilities diskette is minted from
 # pubs/examples/samir/disk through the shipped writers
 # (harness/pubs/samir_sample_disk.c); every InitechBase example replays
@@ -330,7 +331,8 @@ $(PUBS_SAMIR_DISK)/.minted: $(PUBS_SAMIR_DISKTOOL) $(PUBS_SAMIR_DISK_SRC)
 pubs-samir-inventory: $(PUBS_SAMIR_INV)
 	@mkdir -p $(PUBS_CHECK)/samir-probe
 	@{ grep -oh '"[A-Z][A-Z0-9]*"' $(SAMIR_MAIN_SRC) $(SAMIR_CMD_DIR)/*.c $(SAMIR_DIR)/core/*.c | tr -d '"'; \
-	   printf '%s\n' '?' '??' '@' '!' '&&' '*'; } | sort -u > $(PUBS_CHECK)/samir.candidates
+	   grep -oh '"[A-Z][A-Z0-9]* [A-Z][A-Z0-9]*"' $(SAMIR_MAIN_SRC) $(SAMIR_CMD_DIR)/*.c $(SAMIR_DIR)/core/*.c | tr -d '"' | tr ' ' '\n'; \
+	   printf '%s\n' '?' '??' '@' '!' '&' '&&' '*'; } | sort -u > $(PUBS_CHECK)/samir.candidates
 	@cd $(PUBS_CHECK)/samir-probe && $(abspath $(PUBS_SAMIR_INV)) < ../samir.candidates | LC_ALL=C sort > ../samir.shipped
 	@$(PUBS_SAMIR_INV) messages > $(PUBS_CHECK)/samir.catalogue
 	@[ -z "$$(ls -A $(PUBS_CHECK)/samir-probe)" ] || { printf '!!! test-pubs RED SAMIR-INVENTORY: a probe left files behind\n'; exit 1; }

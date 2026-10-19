@@ -96,6 +96,25 @@ red FAKE_XBASE_ENTRY DOC-NOT-SHIPPED "$gate" commands "$out/samir.shipped" harne
 # One shipped command whose entry is removed from Using InitechBase.
 grep -v '^ZAP|' "$v1/main.cmds" > "$m/v1-nozap.cmds"
 red REMOVED_XBASE_ENTRY SHIPPED-NOT-DOCUMENTED "$gate" commands "$out/samir.shipped" harness/pubs/samir.allow "$m/v1-nozap.cmds"
+# Verbs that exist only with their keyword (COPY FILE, CLEAR MEMORY) and the
+# macro & are seen by the inventory probe (two-word pass, '&' candidate):
+# each entry removed from Using InitechBase goes RED (initech-8q0k).
+for v in 'COPY' 'CLEAR' '&' '!'; do
+    grep -v "^$v|" "$v1/main.cmds" > "$m/v1-no-verb.cmds"
+    case $v in '&') n=MACRO;; '!') n=BANG;; *) n=$v;; esac
+    red "REMOVED_${n}_ENTRY" SHIPPED-NOT-DOCUMENTED "$gate" commands "$out/samir.shipped" harness/pubs/samir.allow "$m/v1-no-verb.cmds"
+done
+# One byte of the label form and of the memory file on the sample diskette
+# (harness/pubs/samir_sample_disk.c LABEL / MEMORY recipes): the replayed
+# LABEL FORM and RESTORE examples pin them (initech-8q0k).
+rm -rf "$m/lbl-disk"; cp -r "$sdisk" "$m/lbl-disk"
+printf '\002' | dd of="$m/lbl-disk/STAFFLBL.LBL" bs=1 seek=71 conv=notrunc 2>/dev/null
+"$replay" session "$m/lbl-disk" pubs/manuals/initechbase-volume-one/examples/c-label.dot > "$m/label.actual"
+red CHANGED_LABEL_FORM TRANSCRIPT-DRIFT "$gate" same TRANSCRIPT-DRIFT pubs/manuals/initechbase-volume-one/examples/c-label.txt "$m/label.actual"
+rm -rf "$m/mem-disk"; cp -r "$sdisk" "$m/mem-disk"
+printf 'U' | dd of="$m/mem-disk/MONTHEND.MEM" bs=1 seek=37 conv=notrunc 2>/dev/null
+"$replay" session "$m/mem-disk" pubs/manuals/initechbase-volume-one/examples/c-restore.dot > "$m/restore.actual"
+red CHANGED_MEMORY_FILE TRANSCRIPT-DRIFT "$gate" same TRANSCRIPT-DRIFT pubs/manuals/initechbase-volume-one/examples/c-restore.txt "$m/restore.actual"
 # One printed character of a replayed dot-prompt session.
 rm -rf "$m/session-disk"; cp -r "$sdisk" "$m/session-disk"
 "$replay" session "$m/session-disk" pubs/manuals/initechbase-volume-one/examples/c-list.dot > "$m/session.actual"
@@ -127,4 +146,4 @@ printf 'PUBSFAKE\nLIST\nUPPER\n' | (cd "$m/probe" && "$sinv") > "$m/probe.list"
 grep -qx 'LIST|command' "$m/probe.list" && grep -qx 'UPPER|function' "$m/probe.list" && ! grep -q '^PUBSFAKE|' "$m/probe.list" || {
     cat "$m/probe.list"; printf '!!! test-pubs-mutant FAIL: the inventory probe cannot tell a shipped word from PUBSFAKE\n'; exit 1; }
 printf '>>> test-pubs-mutant: inventory probe refuses PUBSFAKE, accepts LIST and UPPER()\n'
-printf '>>> test-pubs-mutant: green (20 named mutants rejected by their gate legs)\n'
+printf '>>> test-pubs-mutant: green (26 named mutants rejected by their gate legs)\n'

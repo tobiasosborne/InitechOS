@@ -8,7 +8,11 @@
  *   NAME|command   samir_repl (samir_main.c: the REPL-owned verbs, then the
  *                  registered hook chain query/mutate/set/proc/report behind
  *                  the flow.c spine) given the line "NAME" -- or "NAME X" --
- *                  does NOT answer "*** Unrecognized command verb." (#16)
+ *                  does NOT answer "*** Unrecognized command verb." (#16);
+ *                  failing both, "NAME WORD" for every candidate WORD, since
+ *                  a verb may exist only with its keyword (COPY FILE,
+ *                  mutate.c d_file; CLEAR MEMORY, flow.c exec_command:
+ *                  "COPY" and "CLEAR" alone are #16, Using III+ U5-59/U5-51)
  *   NAME|function  the line "? NAME()" does not answer #31
  *                  "Invalid function name." (fn_builtins.c xb_call_builtin
  *                  and the IIF special form of eval.c)
@@ -139,9 +143,16 @@ int main(int argc,char **argv)
         fprintf(stderr, "!!! samir_inventory: probe calibration failed\n");
         return 2;
     }
+    /* Every candidate is also a keyword candidate for the two-word form. */
+    static char words[1024][64]; int nwords = 0;
     while (fgets(word, sizeof word, stdin)) {
         word[strcspn(word, "\r\n")] = '\0';
         if (!word[0]) continue;
+        if (nwords == 1024) { fprintf(stderr, "!!! samir_inventory: too many candidates\n"); return 2; }
+        snprintf(words[nwords++], sizeof words[0], "%s", word);
+    }
+    for (int wi = 0; wi < nwords; wi++) {
+        snprintf(word, sizeof word, "%s", words[wi]);
         /* SET is the verb of the SET <option> entries (NAME|set below); the
          * bare verb has no form of its own to document. */
         if (!strcmp(word, "SET")) goto options;
@@ -150,6 +161,12 @@ int main(int argc,char **argv)
         else {
             snprintf(line, sizeof line, "%s X", word);
             if (!unrecognized(probe(line))) printf("%s|command\n", word);
+            else if (word[0] >= 'A' && word[0] <= 'Z')
+                for (int ki = 0; ki < nwords; ki++) {
+                    if (words[ki][0] < 'A' || words[ki][0] > 'Z') continue;
+                    snprintf(line, sizeof line, "%s %s", word, words[ki]);
+                    if (!unrecognized(probe(line))) { printf("%s|command\n", word); break; }
+                }
         }
     options:
         if (word[0] >= 'A' && word[0] <= 'Z') {

@@ -1,0 +1,5 @@
+USE STAFF
+GO 5
+RUN echo Storage room B > MOVED.TXT
+TYPE MOVED.TXT
+? RECNO()

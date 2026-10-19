@@ -10,13 +10,13 @@ A:\>DIR *.DBF
 
  Directory of A:\
 
+ARBATCH  DBF      264   3-01-92  12:00p
 DEPTS    DBF      337   3-01-92  12:00p
 INVOICE  DBF      334   3-01-92  12:00p
 STAFF    DBF     1167   3-01-92  12:00p
 
-        3 File(s)   1313280 bytes free
+        4 File(s)   1310720 bytes free
 A:\>
-
 
 
 
