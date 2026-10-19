@@ -698,7 +698,23 @@ KERNEL_CC     ?= gcc
 # with its own asm entry. CHKDSK is the one utility that links a KERNEL
 # object ($(KERNEL_MCB_OBJ)), so it keeps KERNEL_CFLAGS (chkdsk_entry(void)).
 # Measured on the flagship (WL-0168 table): 187,788 -> 183,916 B (-3,872 B).
-KERNEL_ABI_FLAGS := -mregparm=3 -mrtd
+# Size round 7 (initech-5qsm): -freg-struct-return joins the convention. GCC
+# manual, Code Gen Options: "Return struct and union values in registers when
+# possible" (1/2/4/8-byte aggregates in EAX / EDX:EAX), binary-incompatible
+# with -fpcc-struct-return code -- so it rides in KERNEL_ABI_FLAGS, i.e. on
+# exactly the objects that already share -mregparm/-mrtd, and the cdecl set
+# keeps the default. Why it pays: the 8-byte rgn_rect_t (spec/region_algebra.h)
+# returned through a hidden pointer made every caller allocate a DImode temp
+# that GCC aligns to 8 even under -mpreferred-stack-boundary=2, i.e. a dynamic
+# stack realignment (and esp,-8 + frame pointer + EDI pinned) in 60 functions.
+# Audit: the kernel's struct-returning functions (every kernel-object compile
+# re-run with -Waggregate-return: region_get_bbox, the Window/Menu/Finder
+# rect helpers, egg_jtc_pad, idt_get_gate, int21_cwd_save, con_bitmap ...)
+# are named in no .asm file and are called only from kernel-flag objects;
+# no asm entry returns an aggregate; the transient COMMAND.COM and CHKDSK's
+# mcb.o compile with KERNEL_CFLAGS on both sides. Flagship 182,892 ->
+# 177,900 B (-4,992 B).
+KERNEL_ABI_FLAGS := -mregparm=3 -mrtd -freg-struct-return
 KERNEL_CFLAGS := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -I$(BUILD) \
                  -fno-pie -std=c11 -Wall -Wextra -Werror $(KERNEL_ABI_FLAGS)
 KERNEL_CFLAGS_CDECL := $(filter-out $(KERNEL_ABI_FLAGS),$(KERNEL_CFLAGS))
@@ -727,9 +743,22 @@ KERNEL_CFLAGS_CDECL := $(filter-out $(KERNEL_ABI_FLAGS),$(KERNEL_CFLAGS))
 #   byte-identical screendump goldens are the proof. Measured on the
 #   flagship: 183,948 -> 179,916 B (-4,032 B). Hold the seam as `?=` so a
 #   trial can still override it from the command line.
+# Size round 7 (initech-5qsm), the same method re-run once on the
+# -freg-struct-return image (two single-switch sweeps, 117 trials, then the
+# kept subset): -fno-if-conversion (-128), -fno-guess-branch-probability
+# (-160; static branch guesses only reorder blocks), -fno-forward-propagate,
+# -fno-ipa-pure-const (stops DISCOVERING pure/const functions -- removes an
+# assumption, never adds one), --param=max-inline-insns-auto=0; together
+# 177,580 -> 177,268 B (-312 B). Rejected by measurement on that image:
+# -fconserve-stack (+1,120 there, -416 before the struct-return change),
+# -mtune=* (every tuning grew), -fno-inline-small-functions, -fno-ipa-cp,
+# -fno-ivopts, -fno-peephole2, -fira-algorithm=priority and the rest of the
+# sweep (round-7 table in the lane report).
 KERNEL_R5_FLAGS ?= -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -fno-tree-sra -fno-tree-dominator-opts \
                    -fno-move-loop-invariants -fno-tree-loop-im -fno-shrink-wrap -fno-tree-tail-merge -fno-partial-inlining \
-                   --param=max-completely-peel-times=0 -fno-code-hoisting -fno-tree-scev-cprop -fno-stack-clash-protection
+                   --param=max-completely-peel-times=0 -fno-code-hoisting -fno-tree-scev-cprop -fno-stack-clash-protection \
+                   -fno-if-conversion -fno-guess-branch-probability -fno-forward-propagate -fno-ipa-pure-const \
+                   --param=max-inline-insns-auto=0
 KERNEL_SECTION_FLAGS := -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-ident $(KERNEL_R5_FLAGS)
 KERNEL_GC_LDFLAGS := --gc-sections
 # Round 3 part 2 (initech-tode): kernel-only link driver seam for selected
@@ -32900,6 +32929,7 @@ include harness/diff/fat_diff/batch2.mk
 include harness/proptest/kernel_size.mk
 include harness/proptest/kernel_size_r4.mk
 include harness/proptest/kernel_size_r5.mk
+include harness/proptest/kernel_size_r7.mk
 include harness/emu/ansi.mk
 
 

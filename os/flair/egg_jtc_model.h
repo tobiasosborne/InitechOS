@@ -1,6 +1,9 @@
 /* Ref: spec/easter/jump_to_conclusions.json; operator brief initech-2ter (a).
- * The factory packs twelve little-endian words, title/heading cells, then
- * twelve label cells. Unused cells are zero. No JSON parser ships in the OS. */
+ * The factory packs twelve little-endian words, then the title, the heading
+ * and the rows*cols labels as consecutive NUL-terminated strings, each at most
+ * JTC_CELL-1 characters (size round 7, initech-5qsm: was fixed 40-byte cells,
+ * 584 B; JTC_BYTES stays the packer's upper bound). No JSON parser ships in
+ * the OS. */
 #ifndef FLAIR_EGG_JTC_MODEL_H
 #define FLAIR_EGG_JTC_MODEL_H
 #include <stdint.h>

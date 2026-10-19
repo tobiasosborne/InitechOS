@@ -104,7 +104,7 @@ $(foreach m,CP_MUT_OK_NOTHING CP_MUT_CANCEL_WRITES CP_MUT_CLOCK_NOT_APPLIED,$(ev
 $(eval $(call fixture-inline-contract,$(BUILD)/ansi_probe_data.img,ANSIPROB.COM AUTOEXEC.BAT))
 $(eval $(call fixture-inline-contract,$(BUILD)/cp_corrupt_data.img,$(FLAIR_FIXTURES) CPANELS.DAT))
 # initech-2gva: the VESA 0x101 boot images (IO.SYS re-copied at the DEC-07a partition offset).
-$(foreach n,scene flagship mut_omit119 mut_omit165 mut_rowcopy mut_dac6,$(eval $(call fixture-inline-contract,$(BUILD)/vesa8/$(n).img,@@32256 IO.SYS=SHR INITDOS.SYS=SHR)))
+$(foreach n,scene flagship mut_omit119 mut_omit165 mut_rowcopy mut_dac6 mut_chan,$(eval $(call fixture-inline-contract,$(BUILD)/vesa8/$(n).img,@@32256 IO.SYS=SHR INITDOS.SYS=SHR)))
 # initech-s25: the panic-screen Bochs data diskette (minted inline by its leg).
 $(eval $(call fixture-inline-contract,$(BUILD)/panic-screen/bochs-data.img,PANIC.COM AUTOEXEC.BAT))
 # initech-e9sx: the corrupted-magic COMMAND.COM boot image (FAT at the DEC-07a partition offset).

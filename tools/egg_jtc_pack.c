@@ -7,6 +7,7 @@
 #include "egg_jtc_model.h"
 static char json[8192];
 static unsigned char packed[JTC_BYTES];
+static size_t used = JTC_WORDS * 2;   /* strings follow the words, packed */
 static void fail(const char *s) { fprintf(stderr, "FAIL JTC JSON: %s\n", s); exit(1); }
 static const char *key(const char *name)
 {
@@ -16,7 +17,9 @@ static const char *key(const char *name)
     if (!p || !(p = strchr(p + strlen(k), ':'))) fail(name);
     return p + 1;
 }
-static const char *string_cell(const char *p, int i)
+/* Appends the next string, NUL-terminated; strings land in call order
+ * (title, heading, labels), which is the order egg_jtc_model.c walks. */
+static const char *string_cell(const char *p)
 {
     while (*p == ' ' || *p == '\n' || *p == '\r' || *p == '\t') p++;
     if (*p++ != '"') fail("expected string");
@@ -24,9 +27,10 @@ static const char *string_cell(const char *p, int i)
     while (*p && *p != '"') {
         unsigned char c = (unsigned char)*p++;
         if (c < 32 || c > 126 || c == '\\' || n >= JTC_CELL - 1) fail("ASCII string cell");
-        packed[JTC_WORDS * 2 + i * JTC_CELL + n++] = c;
+        packed[used + n++] = c;
     }
     if (!n || *p++ != '"') fail("empty or unterminated string");
+    used += (size_t)n + 1u;   /* packed[] is zeroed: the NUL is already there */
     return p;
 }
 int main(int argc, char **argv)
@@ -52,15 +56,15 @@ int main(int argc, char **argv)
         2*v[JTC_MARGIN] + v[JTC_COLS]*v[JTC_PAD_W] + (v[JTC_COLS]-1)*v[JTC_GAP] > v[JTC_W]-27 ||
         2*v[JTC_MARGIN] + v[JTC_HEADING_H] + v[JTC_ROWS]*v[JTC_PAD_H] + (v[JTC_ROWS]-1)*v[JTC_GAP] > v[JTC_H]-43)
         fail("mat does not fit the Platinum content rectangle");
-    (void)string_cell(key("title"), 0); (void)string_cell(key("heading"), 1);
+    (void)string_cell(key("title")); (void)string_cell(key("heading"));
     const char *p = key("labels");
     while (*p == ' ' || *p == '\n') p++;
     if (*p++ != '[') fail("labels array");
     for (unsigned i = 0; i < count; i++) {
         if (i) { while (*p == ' ' || *p == '\n') p++; if (*p++ != ',') fail("missing pad"); }
-        p = string_cell(p, (int)i + 2);
+        p = string_cell(p);
     }
     while (*p == ' ' || *p == '\n') p++;
     if (*p != ']') fail("extra pad");
-    return fwrite(packed, 1, sizeof packed, stdout) != sizeof packed;
+    return fwrite(packed, 1, used, stdout) != used;
 }

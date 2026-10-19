@@ -3,7 +3,7 @@
 VESA8_DIR := $(BUILD)/vesa8
 VESA8_GEN := $(BUILD)/flair_dac_gen
 VESA8_HEADER := $(BUILD)/flair_dac.h
-VESA8_MUTANTS := omit119 omit165 rowcopy dac6
+VESA8_MUTANTS := omit119 omit165 rowcopy dac6 chan
 KERNEL_CFLAGS += -I$(BUILD)
 # Pattern-specific extra prerequisites also cover literal/generated mutant
 # names. private prevents propagating this dependency into unrelated objects.
@@ -101,13 +101,16 @@ $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_DAC_MUT_OMIT119,dac_omit119
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_DAC_MUT_OMIT165,dac_omit165))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_DAC_MUT_ROWCOPY,dac_rowcopy))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_DAC_MUT_6BIT,dac_dac6))
+# Size round 7 (initech-5qsm): the DAC loads through flair_palette_rgb; a
+# channel-order slip in that unpacking must go RED here.
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_DAC_MUT_CHANNEL,dac_chan))
 $(foreach m,$(VESA8_MUTANTS),$(eval $(call vesa8-image,mut_$(m),$(BUILD)/flair_tenants_mut_dac_$(m).img)))
 test-flair-desktop-8bpp-mutant: test-flair-desktop-8bpp $(foreach m,$(VESA8_MUTANTS),$(VESA8_DIR)/mut_$(m).img)
 	@set -eu; for m in $(VESA8_MUTANTS); do \
 	 sh harness/emu/vesa8.sh $(BUILD) pre $(VESA8_DIR)/mut_$$m.img mut_$$m $(FLAIR_DATA_IMG); \
 	 if $(BUILD)/ppm_flair_depth_check $(VESA8_DIR)/vesa8-pre32.ppm $(VESA8_DIR)/vesa8-mut_$$m.ppm > $(VESA8_DIR)/$$m.red 2>&1; then echo "FAIL $$m survived"; exit 1; fi; \
 	 printf '%s: ' "$$m"; grep '^RED flair-depth RGB ' $(VESA8_DIR)/$$m.red; done
-	@echo 'GREEN test-flair-desktop-8bpp-mutant: omissions 119/165, row copy and DAC precision each RED'
+	@echo 'GREEN test-flair-desktop-8bpp-mutant: omissions 119/165, row copy, DAC precision and channel order each RED'
 
 # Boot selection rules have their own real IO.SYS mutants. The first removes
 # 0101h from the fallback; the second wrongly prefers indexed over direct.

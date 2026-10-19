@@ -142,7 +142,7 @@ $(eval $(call bochs-flair-leg,command-file-negative,$(FLAIRTENANTS_IMG),$(FLAIR_
 # under Bochs: the boot leg grades the padded VIDEO handoff; the pixel leg
 # grades the presented desktop against the QEMU 32bpp capture of the SHIPPED
 # flagship image at the tenants-ready line. The mutant twin boots the four
-# FLAIR_DAC_MUT_* kernels (vesa8.mk) under Bochs against the CLEAN golden: a
+# FLAIR_DAC_MUT_* kernels (vesa8.mk; five since size round 7) under Bochs against the CLEAN golden: a
 # Bochs grade that cannot go RED on a wrong DAC/row copy is decoration (Rule 6).
 $(eval $(call bochs-flair-leg,flair-desktop-8bpp,$(VESA8_DIR)/flagship.img,$(FLAIR_DATA_IMG),flair,vbe101pad))
 .PHONY: test-flair-desktop-8bpp-bochs-pixel test-flair-desktop-8bpp-bochs-mutant
@@ -158,7 +158,7 @@ test-flair-desktop-8bpp-bochs-mutant: test-flair-desktop-8bpp-bochs-pixel $(fore
 	 if $(call bochs-pixel-leg,bochs_mut_$$m,$(VESA8_DIR)/mut_$$m.img,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),$(BOCHS_PIXEL_TENANTS_LINE)) > $(BUILD)/bochs-pixel/mut_$$m.red 2>&1; then echo "FAIL $$m survived under Bochs"; cat $(BUILD)/bochs-pixel/mut_$$m.red; exit 1; fi; \
 	 grep -q "^RED bochs-pixel bochs_mut_$$m:" $(BUILD)/bochs-pixel/mut_$$m.red || { cat $(BUILD)/bochs-pixel/mut_$$m.red; echo "FAIL $$m: capture broken, not a pixel RED"; exit 1; }; \
 	 printf '%s: ' "$$m"; grep -m1 '^RED bochs-exact RGB ' $(BUILD)/bochs-pixel/mut_$$m.red; done
-	@echo 'GREEN test-flair-desktop-8bpp-bochs-mutant: omissions 119/165, row copy and DAC precision each RED under Bochs'
+	@echo 'GREEN test-flair-desktop-8bpp-bochs-mutant: omissions 119/165, row copy, DAC precision and channel order each RED under Bochs'
 endif
 test-flair-desktop-8bpp-bochs: test-flair-desktop-8bpp-bochs-pixel
 TEST_EMU_GATES += test-flair-desktop-8bpp-bochs-mutant

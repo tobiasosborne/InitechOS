@@ -21,6 +21,16 @@ test-egg-jtc-mutant: test-egg-jtc $(BUILD)/test_egg_jtc_mutant
 	@grep -x 'FAIL JTC pad count (expected 10)' $(BUILD)/egg_jtc_mutant.log
 	@printf '>>> test-egg-jtc-mutant: EGG_MUT_PAD_MISSING RED (pad count)\n'
 TEST_UNIT_GATES += test-egg-jtc test-egg-jtc-mutant
+# Size round 7 (initech-5qsm): the strings are packed back to back; a walker
+# that skips one string too many must go RED on the literal title.
+$(BUILD)/test_egg_jtc_cell_mutant: $(JTC_HOST_SRC) os/flair/egg_jtc_model.h
+	$(CC) $(CFLAGS) $(JTC_INC) -DEGG_MUT_CELL_WALK -o $@ $(JTC_HOST_SRC)
+.PHONY: test-egg-jtc-cell-mutant
+test-egg-jtc-cell-mutant: test-egg-jtc $(BUILD)/test_egg_jtc_cell_mutant
+	@if $(BUILD)/test_egg_jtc_cell_mutant > $(BUILD)/egg_jtc_cell_mutant.log 2>&1; then printf '!!! EGG_MUT_CELL_WALK survived\n'; exit 1; fi
+	@grep -x 'FAIL JTC title' $(BUILD)/egg_jtc_cell_mutant.log
+	@printf '>>> test-egg-jtc-cell-mutant: EGG_MUT_CELL_WALK RED (title)\n'
+TEST_UNIT_GATES += test-egg-jtc-cell-mutant
 
 .PHONY: test-egg-jtc-pubs
 test-egg-jtc-pubs: pubs-inventory

@@ -1025,7 +1025,18 @@ static void flair_dac_load(void)
 #ifdef FLAIR_DAC_MUT_OMIT165
         if (idx == 165u) continue;
 #endif
-        vga_set_dac((uint8_t)idx, flair_dac[idx][0], flair_dac[idx][1], flair_dac[idx][2]);
+        /* Size round 7 (initech-5qsm): the same 256 RGB triples through the
+         * one colour authority instead of a 768-byte copy of them. Equality
+         * at EVERY index is test-flair-dac's existing oracle (the generated
+         * flair_dac[i] == flair_canon_rgb(i)): slots 0..26 are color_canon
+         * rows, the rest the identity gray ramp. */
+        uint32_t rgb = flair_palette_rgb((uint8_t)idx);
+#ifdef FLAIR_DAC_MUT_CHANNEL
+        /* MUTANT (Rule 6; test-flair-desktop-8bpp-mutant): red and blue
+         * swapped out of the packed accessor. NEVER in a real build. */
+        rgb = (rgb & 0x00FF00u) | ((rgb >> 16) & 0xFFu) | ((rgb & 0xFFu) << 16);
+#endif
+        vga_set_dac((uint8_t)idx, (uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb);
     }
 }
 
@@ -1635,6 +1646,22 @@ static void flair_live_content_phase(flair_live_ctx_t *ctx)
     desktop_validate_all(ctx->wm);
 }
 
+/* Size round 7 (initech-5qsm): the DQ2 pump order -- chrome damage, then the
+ * content phase, then (second form) the present -- as ONE body each instead
+ * of the same three calls open-coded at a dozen sites. Same calls, same
+ * order, same arguments at every site. */
+static __attribute__((noinline)) void flair_live_repaint(flair_live_ctx_t *ctx)
+{
+    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_live_content_phase(ctx);
+}
+static __attribute__((noinline)) void flair_live_repaint_present(flair_live_ctx_t *ctx,
+                                                                 const boot_info_t *bi)
+{
+    flair_live_repaint(ctx);
+    flair_desktop_present(bi, &ctx->off);
+}
+
 /* DQ5 title-click policy for the NON-TENANT pump (bead initech-haaq): Inside
  * Macintosh, Macintosh Toolbox Essentials, Event Manager MTE 6 requires a title
  * mouseDown on a non-head window to SelectWindow BEFORE DragWindow. Tenant
@@ -2008,9 +2035,7 @@ static void flair_live_do_drag(flair_live_ctx_t *ctx, const boot_info_t *bi,
 
     /* DQ2 pump order: chrome (D-5 minimal repaint) -> content (route/validate)
      * -> PRESENT to the live LFB. */
-    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
-    flair_live_content_phase(ctx);
-    flair_desktop_present(bi, &ctx->off);
+    flair_live_repaint_present(ctx, bi);
 
     after = region_get_bbox(w->strucRgn);
     wid   = flair_live_window_index(ctx, w);
@@ -2091,8 +2116,7 @@ static void flair_live_do_modal_drag(flair_live_ctx_t *ctx,
         shell_sync_overlay(ctx->scene);
 #ifndef FLAIR_LIVE_MUTATE_MODAL_NO_RESTORE
         WindowMgr_invalidate_desktop(ctx->wm, old_bounds);
-        desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
-        flair_live_content_phase(ctx);
+        flair_live_repaint(ctx);
 #else
         /* Reverse-survival mutant (Rule 6; re-keyed initech-dc4v after zn61):
          * move/draw the modal but skip restoration of its OLD footprint. The
@@ -2267,9 +2291,7 @@ static void flair_live_scroll_repaint(flair_live_ctx_t *ctx,
     WindowMgr_invalidate(ctx->wm, w, wscroll_bar_rect(f, axis));
     if (content)
         WindowMgr_invalidate(ctx->wm, w, region_get_bbox(w->contRgn));
-    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
-    flair_live_content_phase(ctx);
-    flair_desktop_present(bi, &ctx->off);
+    flair_live_repaint_present(ctx, bi);
 }
 
 static void flair_live_track_scroll(flair_live_ctx_t *ctx,
@@ -2430,8 +2452,7 @@ static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
     HideWindow(ctx->wm, w);
 #endif
     /* DQ2 pump order: chrome -> content -> present (see flair_live_content_phase). */
-    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
-    flair_live_content_phase(ctx);
+    flair_live_repaint(ctx);
 #ifdef FLAIR_LIVE_TENANTS
     /* Teardown promotion changes the foreground outside flair_app_dispatch, so
      * refresh band 2 here. If the final tenant closed, use the existing shell
@@ -2461,9 +2482,7 @@ static void flair_live_do_zoom(flair_live_ctx_t *ctx, const boot_info_t *bi,
 {
     int wid = flair_live_window_index(ctx, w);
     int zoomed = ZoomWindow(ctx->wm, w);
-    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
-    flair_live_content_phase(ctx);
-    flair_desktop_present(bi, &ctx->off);
+    flair_live_repaint_present(ctx, bi);
     serial_puts("FLAIR-ZOOM win ");
     serial_puti((int32_t)wid);
     serial_puts(zoomed ? " in\n" : " out\n");
@@ -2477,9 +2496,7 @@ static void flair_live_do_collapse(flair_live_ctx_t *ctx,
 {
     int wid = flair_live_window_index(ctx, w);
     int collapsed = CollapseWindow(ctx->wm, w);
-    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
-    flair_live_content_phase(ctx);
-    flair_desktop_present(bi, &ctx->off);
+    flair_live_repaint_present(ctx, bi);
     serial_puts("FLAIR-COLLAPSE win ");
     serial_puti((int32_t)wid);
     serial_putc(' ');
@@ -2538,9 +2555,7 @@ static void flair_live_do_grow(flair_live_ctx_t *ctx, const boot_info_t *bi,
     ConstrainWindowSize(ctx->wm, w, &width, &height);
     if (width != old_w || height != old_h)
         SizeWindow(ctx->wm, w, width, height);
-    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
-    flair_live_content_phase(ctx);
-    flair_desktop_present(bi, &ctx->off);
+    flair_live_repaint_present(ctx, bi);
 
     serial_puts("FLAIR-GROW win ");
     serial_puti((int32_t)wid);
@@ -2644,8 +2659,7 @@ static void flair_live_erase_menu_panel(flair_live_ctx_t *ctx,
     (void)panel;
 #else
     WindowMgr_invalidate_desktop(ctx->wm, panel);
-    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
-    flair_live_content_phase(ctx);
+    flair_live_repaint(ctx);
 
     /* The pulled-title accent is temporary menu-layer ink, just like the panel.
      * Repaint the owning bar idle on every switch/end restore. This is required
@@ -3100,8 +3114,7 @@ static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *
         if(reaped<0) (void)finder_notice(ctx,bi,
             reaped==-2?FINDER_WIN_ERR_LAUNCH:FINDER_WIN_ERR_CRASH,"");
     }
-    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
-    flair_live_content_phase(ctx);
+    flair_live_repaint(ctx);
     if (g_ten_barport != (GrafPort *)0)
         DrawMenuBar(g_ten_barport, flair_live_tenant_bar(ctx, ctx->plist), -1,
                     (const region_t *)0);
@@ -3833,9 +3846,7 @@ static void finder_desk_repaint(flair_live_ctx_t *ctx, const boot_info_t *bi)
         serial_puts(g_finder_desk->trash_full ? "DESK-TRASH-ICON full\n"
                                               : "DESK-TRASH-ICON empty\n");
     }
-    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
-    flair_live_content_phase(ctx);
-    flair_desktop_present(bi, &ctx->off);
+    flair_live_repaint_present(ctx, bi);
 }
 
 /* ---------------------------------------------------------------------------
@@ -6199,9 +6210,7 @@ static void flair_live_sync_foreground(flair_live_ctx_t *ctx,
         }
     }
     if (FlairProcess_sync_active(g_ten_plist, ctx->wm)) {
-        desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
-        flair_live_content_phase(ctx);
-        flair_desktop_present(bi, &ctx->off);
+        flair_live_repaint_present(ctx, bi);
     }
 }
 
