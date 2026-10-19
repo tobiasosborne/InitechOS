@@ -10240,14 +10240,20 @@ TENANT_CFLAGS := $(KERNEL_CFLAGS_CDECL) -Os -fno-tree-loop-distribute-patterns \
 # P3: I123-only resource, size optimization and 4-byte cdecl stack alignment.
 # The Toolbox trap uses dword cdecl arguments (spec/toolbox_gate.h Sec 2).
 # Other tenants and the kernel retain their existing compile/link policy.
-I123_LINK0 := $(KERNEL_CC) -m32 -nostdlib -no-pie -flto -Oz -fno-inline -Wl,--gc-sections,--no-warn-rwx-segments,--build-id=none -T $(TENANT_LD) -Wl,--defsym=TBX_BASE=0
-I123_LINK1 := $(KERNEL_CC) -m32 -nostdlib -no-pie -flto -Oz -fno-inline -Wl,--gc-sections,--no-warn-rwx-segments,--build-id=none -T $(TENANT_LD) -Wl,--defsym=TBX_BASE=$(TENANT_PROBE)
+# B11 (initech-69mz): -fomit-frame-pointer, the kernel's Round 4 size lever
+# (KERNEL_COLD_LTO_FLAGS: "Ubuntu's GCC retains frame pointers even at -Oz"),
+# on compile AND LTO link. MEASURED: F2/F5/PgUp/PgDn/Tab put 123.EXE at 66,500
+# B, 964 over the 64 KiB cap; the flag alone takes 1,547 B off the module.
+# The trap shim (tbx_rt.c) builds its own %ebp frame in asm, unaffected.
+I123_SIZE_FLAGS := -fomit-frame-pointer
+I123_LINK0 := $(KERNEL_CC) -m32 -nostdlib -no-pie -flto -Oz -fno-inline $(I123_SIZE_FLAGS) -Wl,--gc-sections,--no-warn-rwx-segments,--build-id=none -T $(TENANT_LD) -Wl,--defsym=TBX_BASE=0
+I123_LINK1 := $(KERNEL_CC) -m32 -nostdlib -no-pie -flto -Oz -fno-inline $(I123_SIZE_FLAGS) -Wl,--gc-sections,--no-warn-rwx-segments,--build-id=none -T $(TENANT_LD) -Wl,--defsym=TBX_BASE=$(TENANT_PROBE)
 define tenant-exe-rules
 $(BUILD)/tenant/$(1).o0.elf: $(2) $(TBX_RT_SRC) $(TBX_HDRS) $(TENANT_LD) $(4) | $(BUILD)
 	@mkdir -p $(BUILD)/tenant/$(1)
 	@set -e; objs=; for s in $(2) $(TBX_RT_SRC); do \
 		o=$(BUILD)/tenant/$(1)/$$$$(basename $$$$s .c).o; \
-		$(KERNEL_CC) $(TENANT_CFLAGS) $(3) $(if $(filter os/i123/app/face_a.c,$(2)),-DI123_MENU_DISK -flto -ffunction-sections -fdata-sections -Oz -fno-jump-tables -fno-inline -fno-ipa-cp-clone -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2,) -c $$$$s -o $$$$o; objs="$$$$objs $$$$o"; \
+		$(KERNEL_CC) $(TENANT_CFLAGS) $(3) $(if $(filter os/i123/app/face_a.c,$(2)),-DI123_MENU_DISK -flto -ffunction-sections -fdata-sections -Oz -fno-jump-tables -fno-inline -fno-ipa-cp-clone -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(I123_SIZE_FLAGS),) -c $$$$s -o $$$$o; objs="$$$$objs $$$$o"; \
 	done; \
 	$(if $(filter os/i123/app/face_a.c,$(2)),$(I123_LINK0),$(LD) -m elf_i386 --no-warn-rwx-segments $(5) -T $(TENANT_LD) --defsym=TBX_BASE=0) -o $$@ $$$$objs; \
 	$(if $(filter os/i123/app/face_a.c,$(2)),$(I123_LINK1),$(LD) -m elf_i386 --no-warn-rwx-segments $(5) -T $(TENANT_LD) --defsym=TBX_BASE=$(TENANT_PROBE)) -o $(BUILD)/tenant/$(1).o1.elf $$$$objs
@@ -32025,6 +32031,31 @@ test-i123-entry-mutant: test-i123-entry $(BUILD)/test_i123_entry_mutant
 	printf '>>> test-i123-entry-mutant: I123_MUT_ENTRY_75 correctly RED (%s)\n' "$$(grep -m1 'FAIL E1 ' $(BUILD)/test_i123_entry_mutant.log)"
 	@printf '>>> test-i123-entry-mutant: green (old 75-character cap caught)\n'
 TEST_UNIT_GATES += test-i123-entry test-i123-entry-mutant
+
+# B11 / initech-69mz: EDIT (F2), GOTO (F5), PgUp/PgDn, Tab/Shift-Tab over the
+# real face_a.c + the recording mock. Expected cells/windows come from the
+# manual pp. 1-8..1-11/1-16/1-22/1-23, 123.RI and the REAL R2.2 driven under
+# DOSBox-X (fixtures/i123-keys/keys*.steps + captures), never from face_a.c.
+# Rule 6: each mutant must go RED on ITS check id, nothing else accepted.
+I123_KEYS_DEPS := harness/proptest/test_i123_keys.c $(I123_QUIT_DEPS)
+I123_KEYS_MUTANTS := I123_MUT_TAB_ONE_CELL:K18 I123_MUT_GOTO_FOLLOW:K8 I123_MUT_EDIT_ESC_CANCELS:K1
+$(BUILD)/test_i123_keys: $(I123_KEYS_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -o $@ $< $(I123_CORE_SRC)
+$(BUILD)/test_i123_keys_mutant_%: $(I123_KEYS_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -D$* -o $@ $< $(I123_CORE_SRC)
+.PHONY: test-i123-keys test-i123-keys-mutant
+test-i123-keys: $(BUILD)/test_i123_keys
+	@mkdir -p $(BUILD)/i123-keys-fs
+	@$< $(BUILD)/i123-keys-fs
+	@printf '>>> test-i123-keys: green (F2 EDIT/Esc/Enter/240, F5 GOTO prompt/top-left/ERROR, PgDn/PgUp one screen, Tab/Shift-Tab one screen; real-R2.2 captures)\n'
+test-i123-keys-mutant: test-i123-keys $(foreach p,$(I123_KEYS_MUTANTS),$(BUILD)/test_i123_keys_mutant_$(firstword $(subst :, ,$(p))))
+	@for p in $(I123_KEYS_MUTANTS); do m=$${p%%:*}; id=$${p##*:}; log=$(BUILD)/test_i123_keys_mutant_$$m.log; \
+	 set +e; $(BUILD)/test_i123_keys_mutant_$$m $(BUILD)/i123-keys-fs > $$log 2>&1; rc=$$?; set -e; \
+	 [ $$rc -eq 1 ] && grep -q '^i123-keys: .* checks,' $$log && grep -q "FAIL $$id " $$log || \
+	 { cat $$log; printf '!!! test-i123-keys-mutant: %s wrong RED (exit %s, want FAIL %s)\n' "$$m" "$$rc" "$$id"; exit 1; }; \
+	 printf '>>> test-i123-keys-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "FAIL $$id " $$log | sed 's/^ *//')"; done
+	@printf '>>> test-i123-keys-mutant: green (all %s mutants caught)\n' "$(words $(I123_KEYS_MUTANTS))"
+TEST_UNIT_GATES += test-i123-keys test-i123-keys-mutant
 
 include spec/flair_i123_entry_traces.mk
 

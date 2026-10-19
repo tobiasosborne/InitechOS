@@ -1,7 +1,8 @@
 /* Initech 123 entry boundary/state oracle, bead initech-twxf (B13).
  * Real face_a.c + worksheet core over the existing recording Toolbox mock.
  * Ref: Lotus 1-2-3 R2.2 Reference Manual printed pp. 1-16/1-17 (PDF 32/33):
- * 240-character entries, Enter stores, Esc cancels; p. 1-22: Backspace.
+ * 240-character entries, Enter stores, Esc cancels; p. 1-22: Backspace;
+ * p. 1-23: Esc in EDIT erases the line first (B11, initech-69mz).
  * p. 1-4 places the current entry on control-panel line two.
  * No long-entry capture exists in the lotus123-decomp mint step files. The PM's
  * B13 brief specifies tail scrolling and beep/ignore on character 241;
@@ -86,8 +87,15 @@ static void value_and_edit(void)
     CHECK(g_mode == M_EDIT && g_elen == 240, "E9", "invalid long formula stays intact in EDIT");
     tk('!'); CHECK(g_elen == 240 && m_beeps == 1, "E9", "EDIT refuses excess input too");
     expect_line(typed, 240, "E9"); tk(27);
+    /* B11 (initech-69mz): in EDIT the first Esc erases the line and stays
+     * in EDIT, the second returns to READY -- manual p. 1-23 ("ESC Erases
+     * all characters in entry") and the real R2.2 after a bad value,
+     * fixtures/i123-keys/50_bad_value.png -> 51_bad_value_esc.png. */
+    CHECK(g_mode == M_EDIT && g_elen == 0 && !g_dirty && !i123_find(&g_sheet, 0, 0),
+          "E9", "Esc erases the invalid entry, stays in EDIT, stores nothing");
+    tk(27);
     CHECK(g_mode == M_READY && !g_dirty && !i123_find(&g_sheet, 0, 0),
-          "E9", "Esc abandons the invalid entry without storing it");
+          "E9", "a second Esc abandons the entry without storing it");
 }
 
 int main(int argc, char **argv)
