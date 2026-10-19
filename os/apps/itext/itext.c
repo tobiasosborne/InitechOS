@@ -10,7 +10,7 @@
  * record (os/flair/textedit.{c,h}, the shared engine: typing, Backspace,
  * arrows, click / shift-click / drag selection, word wrap, the capacity
  * probe), linked into the image. Everything else is the Toolbox Gate:
- * TEXTDRAW in Geneva 9 (spec Sec 7 FONT), the shell's desk Scrap (Sec 12),
+ * TEXTDRAW in Geneva 12 (spec Sec 7 FONT + SIZE), the shell's desk Scrap (Sec 12),
  * Standard File (Sec 13), mouse tracking (Sec 14), the vertical scroll bar +
  * GlobalToLocal (Sec 15), the file verbs (Sec 10) and the alert (Sec 11).
  *
@@ -18,6 +18,10 @@
  * (mint-results-007, Mac OS 8.1 SimpleText under Basilisk II) [MEAS]:
  *   - the window is "untitled", sized nearly to the screen, one vertical
  *     scroll bar; text starts 5 px right of / 4 px below the content corner;
+ *   - the document face is Geneva 12 (Font menu Geneva, Size menu 12 Point),
+ *     a 16-px line (ascent 12, descent 3, leading 1) -- InitechOS's Geneva 12
+ *     strike carries the real Mac OS 8.1 NFNT 12112 metrics (spec/assets/
+ *     geneva12.art; bead initech-uelk);
  *   - the caret is 1 px wide, black, one line tall, one pixel LEFT of the
  *     text position; a range is solid black with white ink, full line
  *     height, carried to the right edge where it continues past a line end;
@@ -27,10 +31,9 @@
  *     Cut/Copy/Clear grayed without a selection, Paste grayed with an empty
  *     scrap.
  *   - Save changes alert: Save (default) / Cancel / Don't Save.
- * DEVIATIONS (stated, never hidden): the document face is Geneva 9 (the
- *   strike InitechOS owns, PRD Sec 6.4; SimpleText's default is Geneva 12 --
- *   no Geneva 12 strike exists in the corpus), so the line is the 11-px cell,
- *   not 16; Undo, Page Setup, Print and Print One Copy are present but grayed
+ * DEVIATIONS (stated, never hidden): the Geneva 12 glyph SHAPES are
+ *   hand-authored clean-room (their metrics and ink extents are the real
+ *   strike's; PRD Sec 6.4 / Sec 12); Undo, Page Setup, Print and Print One Copy are present but grayed
  *   (not built); the Find / page items and Show Clipboard are not in the menu;
  *   Close == Quit (the V1 gate has one window per tenant and no
  *   DISPOSEWINDOW: closing SimpleText's last window leaves it running, here it
@@ -128,13 +131,13 @@ static char    g_alert[96] TBX_IN_IMAGE;
 enum { ACT_NONE, ACT_QUIT, ACT_NEW, ACT_OPEN };
 enum { SF_NONE, SF_OPEN, SF_SAVEAS };
 
-#define FG_TEXT (TBX_COLOR_BLACK | TBX_TEXT_GENEVA9)
-#define FG_HIL  (TBX_COLOR_WHITE | TBX_TEXT_GENEVA9)
+#define FG_TEXT (TBX_COLOR_BLACK | TBX_TEXT_GENEVA12)
+#define FG_HIL  (TBX_COLOR_WHITE | TBX_TEXT_GENEVA12)
 
 static int lh(void) { return FlairTELineHeight(&g_te); }
 
 /* ---- drawing -------------------------------------------------------------- */
-static int adv(char c) { return text_face_advance(FONT_GENEVA9, 0u, (int)(unsigned char)c); }
+static int adv(char c) { return text_face_advance(FONT_GENEVA12, 0u, (int)(unsigned char)c); }
 
 /* Draw [a, b) of line L starting at content-local x, y; returns the x after. */
 static int draw_run(int a, int b, int x, int y, int hil)
@@ -496,7 +499,8 @@ int tbx_app_main(void)
 {
     if (tbx_register() != TBX_OK) return 1;
     FlairTE_init(&g_te, (int16_t)WRAP_W, FLAIR_TE_JUST_LEFT);
-    g_te.txFont = 1;                                /* applFont: Geneva 9 */
+    g_te.txFont = 1;                                /* applFont: Geneva ... */
+    g_te.txSize = 12;                               /* ... 12 (SimpleText) */
     FlairTESetText(&g_te, "", 0);
     (void)tbx_set_mbar(&mbar);
     g_win = tbx_new_window(WIN_L, WIN_T, WIN_R, WIN_B, (int32_t)TBX_GOAWAY_ASK);

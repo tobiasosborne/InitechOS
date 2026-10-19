@@ -405,14 +405,16 @@ static uint32_t color_px(uint32_t tok)
  * txFace (bead initech-tdnl.68), its bg box exactly the styled width and one
  * CHICAGO_CELL_H line tall -- the Font Manager's ONE clipped run. */
 static void draw_text(int32_t gx, int32_t gy, const char *s, unsigned font,
-                      unsigned face, uint32_t fg, uint32_t bg,
+                      unsigned size, unsigned face, uint32_t fg, uint32_t bg,
                       const region_t *clip)
 {
     text_clip_t k = { clip, 0, 0, 0, 0, 0 };
-    /* spec Sec 7 FONT (bead initech-tdnl.16): the txFont of fg bits 16..23,
-     * through the ONE txFont mapping (text.c text_font_from_txfont). */
+    /* spec Sec 7 FONT + SIZE (beads initech-tdnl.16, initech-uelk): the
+     * txFont of fg bits 16..23 and the txSize of bits 24..31, through the ONE
+     * mapping (text.c text_font_from_txfont_size). */
     (void)text_draw_run(g_host.surface, (int)gx, (int)gy, s,
-                        text_font_from_txfont((int)font), face, fg, bg, &k);
+                        text_font_from_txfont_size((int)font, (int)size), face,
+                        fg, bg, &k);
 }
 
 /* ===========================================================================
@@ -618,15 +620,18 @@ static int32_t v_setwtitle(const uint32_t *a)
 static int32_t v_textdraw(const uint32_t *a)
 {
     rgn_rect_t c;
-    uint32_t face, font;
+    uint32_t face, font, size;
     if (!check_win(a[0])) return TBX_ERR_BADARG;
     if (image_str(a[3], 81u) < 0) return TBX_ERR_BADARG;
     /* fg = colour token | txFace << 8 (spec Sec 7, bead initech-tdnl.68)
      *      | txFont << 16 (spec Sec 7 FONT, bead initech-tdnl.16) */
     face = (a[4] >> TBX_TEXT_FACE_SHIFT) & 0xFFu;
     font = (a[4] >> TBX_TEXT_FONT_SHIFT) & 0xFFu;
-    if ((a[4] & 0xFFu) >= TBX_COLOR_COUNT || (a[4] >> 24) != 0u ||
-        font > TBX_TEXT_FONT_MAX ||
+    size = a[4] >> TBX_TEXT_SIZE_SHIFT;
+    /* | txSize << 24 (spec Sec 7 SIZE, bead initech-uelk): 0, or 12 with
+     * applFont (Geneva 12); any other pair is an unowned strike -> BADARG */
+    if ((a[4] & 0xFFu) >= TBX_COLOR_COUNT ||
+        font > TBX_TEXT_FONT_MAX || (size != 0u && (size != 12u || font != 1u)) ||
         (face & ~TBX_TEXT_FACE_OK) != 0u || a[5] >= TBX_COLOR_COUNT)
         return TBX_ERR_BADARG;
     if (g_host.surface == (const bitmap_t *)0) return TBX_OK;
@@ -635,8 +640,8 @@ static int32_t v_textdraw(const uint32_t *a)
     font = 0u; /* Rule 6: claims success but ignores the requested txFont (-> Chicago) */
 #endif
     draw_text((int32_t)c.left + (int32_t)a[1], (int32_t)c.top + (int32_t)a[2],
-              (const char *)(uintptr_t)a[3], (unsigned)font, (unsigned)face,
-              color_px(a[4] & 0xFFu), color_px(a[5]), draw_clip());
+              (const char *)(uintptr_t)a[3], (unsigned)font, (unsigned)size,
+              (unsigned)face, color_px(a[4] & 0xFFu), color_px(a[5]), draw_clip());
     g_slot.drew = 1u;
     return TBX_OK;
 }

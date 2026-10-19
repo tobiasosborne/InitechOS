@@ -54,6 +54,12 @@ uint16_t text_chicago_row(unsigned g,unsigned r)
 {
     return chicago_packed_row(g,r);
 }
+/* Geneva 12 (bead initech-uelk): the same generated-dictionary storage. */
+#include "geneva12_packed.h"
+uint16_t text_geneva12_row(unsigned g,unsigned r)
+{
+    return geneva12_packed_row(g,r);
+}
 #endif
 
 /*
@@ -76,3 +82,4 @@ text_font_t text_font_from_txfont(int txfont)
         return FONT_GENEVA9;
     return FONT_CHICAGO; /* default: systemFont and all unknown values */
 }
+

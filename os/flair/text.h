@@ -9,6 +9,9 @@
  *      spec/assets/chicago12.h (Chicago 12 strike: REAL NFNT 5478 advances +
  *        left bearings, hand-authored art; bead initech-tdnl.33).
  *      spec/assets/geneva9.h (Geneva 9 strike, proportional v0 -- this module).
+ *      spec/assets/geneva12.h (Geneva 12 strike: REAL Mac OS 8.1 NFNT 12112
+ *        advances + left bearings + ascent/descent/leading, hand-authored art;
+ *        bead initech-uelk -- the SimpleText document face).
  *      os/flair/surface.h (bitmap_t; surface_blit -- the ONE glyph-blit primitive).
  *      spec/grafport.h (GrafPort: txFont, txFace, txSize, txMode).
  *      CLAUDE.md Law 1 (ground truth before code), Law 3 (freestanding artifact;
@@ -45,9 +48,15 @@
  *     If the string is wider than rect_w, returns 0 (left-justified fallback).
  *
  * FONT SELECTION:
- *   text_font_t selects Chicago 12 (FONT_CHICAGO) or Geneva 9
- *   (FONT_GENEVA9). Both are backed by hand-authored clean-room strikes
- *   (spec/assets/chicago12.h and spec/assets/geneva9.h respectively).
+ *   text_font_t selects Chicago 12 (FONT_CHICAGO), Geneva 9 (FONT_GENEVA9)
+ *   or Geneva 12 (FONT_GENEVA12). All are backed by hand-authored clean-room
+ *   strikes (spec/assets/chicago12.h, geneva9.h, geneva12.h).
+ *
+ * GENEVA 12 CELL MODEL (bead initech-uelk): exactly the Chicago model with
+ *   the Mac OS 8.1 NFNT 12112 values -- opaque cell [pen, pen + aw) x 16 rows,
+ *   ink image at pen + lb, baseline row GENEVA12_ASCENT (12), descenders on
+ *   rows 12..14, row 15 the leading row (12 + 3 + 1 = the 16-px SimpleText
+ *   line, simpletext-stdfile.md Sec 1.2).
  *
  * CHICAGO CELL MODEL (bead initech-tdnl.33; NFNT owTable semantics, font-
  *   manager.md Sec 1.1): glyph c owns the OPAQUE cell [pen, pen + aw(c)) x
@@ -78,6 +87,7 @@
  * Ref: spec/assets/chicago12.h, spec/assets/geneva9.h (found via -Ispec/assets). */
 #include "chicago12.h"    /* chicago12_aw/_lb/_rows, CHICAGO_CELL_H/_ASCENT    */
 #include "geneva9.h"      /* geneva9_glyph(), geneva9_advance_w(), GENEVA9_CELL_H */
+#include "geneva12.h"     /* geneva12_aw/_lb/_rows, GENEVA12_CELL_H/_ASCENT    */
 
 /* --------------------------------------------------------------------------
  * text_font_t -- font selector (ADR-0004 D-7).
@@ -88,7 +98,9 @@
  * -------------------------------------------------------------------------- */
 typedef enum text_font {
     FONT_CHICAGO  = 0,  /* Chicago 12 (proportional, NFNT 5478 metrics)     */
-    FONT_GENEVA9  = 1   /* Geneva 9 (proportional cell v0); small UI font     */
+    FONT_GENEVA9  = 1,  /* Geneva 9 (proportional cell v0); small UI font     */
+    FONT_GENEVA12 = 2   /* Geneva 12 (NFNT 12112 metrics); the SimpleText face
+                         * -- applFont at txSize 12, never a txFont value   */
 } text_font_t;
 
 /* --------------------------------------------------------------------------
@@ -132,6 +144,26 @@ static inline unsigned int chicago_cell_bits(int c, int r)
     return (unsigned int)text_chicago_row((unsigned)g,(unsigned)r) >> chicago12_lb[g];
 }
 
+/* Geneva 12 (bead initech-uelk): the same storage split as Chicago -- the
+ * kernel decodes a dictionary generated from the locked strike
+ * (os/flair/geneva12_packed.h; test-geneva12-pack compares EVERY row), the
+ * host reads the locked rows. */
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__
+static inline uint16_t text_geneva12_row(unsigned g,unsigned r)
+{
+    return geneva12_rows[g][r];
+}
+#else
+uint16_t text_geneva12_row(unsigned g,unsigned r);
+#endif
+
+/* Row r of glyph c in CELL coordinates (bit 0x8000 >> col = ink at pen + col). */
+static inline unsigned int geneva12_cell_bits(int c, int r)
+{
+    int g = geneva12_index(c);
+    return (unsigned int)text_geneva12_row((unsigned)g,(unsigned)r) >> geneva12_lb[g];
+}
+
 /* --------------------------------------------------------------------------
  * text_cell_height -- return the cell height for a given font (pixels).
  *
@@ -141,6 +173,8 @@ static inline int text_cell_height(text_font_t font)
 {
     if (font == FONT_CHICAGO)
         return (int)CHICAGO_CELL_H;
+    if (font == FONT_GENEVA12)
+        return (int)GENEVA12_CELL_H;
     return (int)GENEVA9_CELL_H;
 }
 
@@ -174,6 +208,8 @@ static inline int text_measure(text_font_t font, const char *str)
 #else
         if (font == FONT_CHICAGO) {
             width += chicago_advance(c);
+        } else if (font == FONT_GENEVA12) {
+            width += geneva12_advance(c);
         } else {
             width += (int)geneva9_advance_w(c);
         }
@@ -231,6 +267,25 @@ static inline void text_draw(const bitmap_t *bm,
                                  hi + r0, aw - 8u, rows, fg, bg);
             }
             adv = aw;
+        } else if (font == FONT_GENEVA12) {
+            /* The Chicago cell model with the NFNT 12112 lb/aw (initech-uelk). */
+            unsigned char lo[GENEVA12_CELL_H], hi[GENEVA12_CELL_H];
+            unsigned int aw = (unsigned int)geneva12_advance(c);
+            int r0 = (y < 0) ? -y : 0;
+            for (int r = 0; r < GENEVA12_CELL_H; r++) {
+                unsigned int bits = geneva12_cell_bits(c, r);
+                lo[r] = (unsigned char)(bits >> 8);
+                hi[r] = (unsigned char)(bits & 0xFFu);
+            }
+            if (r0 < GENEVA12_CELL_H) {
+                uint32_t rows = (uint32_t)(GENEVA12_CELL_H - r0);
+                surface_blit(bm, (uint32_t)x, (uint32_t)(y + r0), lo + r0,
+                             aw < 8u ? aw : 8u, rows, fg, bg);
+                if (aw > 8u)
+                    surface_blit(bm, (uint32_t)(x + 8), (uint32_t)(y + r0),
+                                 hi + r0, aw - 8u, rows, fg, bg);
+            }
+            adv = aw;
         } else {
             /* Geneva bitmaps are packed 8 columns wide; render as 8px cell. */
             surface_blit(bm, (uint32_t)x, (uint32_t)y, geneva9_glyph(c),
@@ -274,6 +329,27 @@ static inline int text_center_in(int rect_w, const char *str, text_font_t font)
  * Implemented in text.c (non-inline, for stable linkage).
  * -------------------------------------------------------------------------- */
 text_font_t text_font_from_txfont(int txfont);
+
+/* --------------------------------------------------------------------------
+ * text_font_from_txfont_size -- the (txFont, txSize) pair to a strike (bead
+ * initech-uelk). QuickDraw picks a family by txFont and a strike by txSize;
+ * InitechOS owns three strikes, so: txSize 0 (the family default) is exactly
+ * text_font_from_txfont; applFont (1) at txSize 12 is FONT_GENEVA12 (the
+ * Mac OS 8.1 SimpleText face); every other pair falls back to
+ * text_font_from_txfont (callers that must reject a pair validate first --
+ * tbxgate.c TEXTDRAW, spec/toolbox_gate.h Sec 7 SIZE). Header-inline: the
+ * kernel gate AND a tenant's own TextEdit (TEXT.EXE does not link text.c)
+ * resolve the pair through this one definition. The txFont half repeats
+ * text.c text_font_from_txfont (1 -> Geneva 9, else Chicago 12).
+ * Ref: IM-I QuickDraw (txFont picks the family, txSize the point size, 0 =
+ * the family's default); simpletext-stdfile.md Sec 1.2 (Geneva, 12 Point).
+ * -------------------------------------------------------------------------- */
+static inline text_font_t text_font_from_txfont_size(int txfont, int txsize)
+{
+    if (txfont == (int)FONT_GENEVA9)
+        return (txsize == 12) ? FONT_GENEVA12 : FONT_GENEVA9;
+    return FONT_CHICAGO;
+}
 
 /* ==========================================================================
  * FONT MANAGER SLICE 2 (bead initech-tdnl.68): txFace synthesis, styled
@@ -329,6 +405,7 @@ text_font_t text_font_from_txfont(int txfont);
  *   Chicago 12  row CHICAGO_ASCENT (12) -- NFNT 5478 ascent 12.
  *   Geneva 9 v0 row GENEVA9_BASELINE_ROW (8) -- the hand-authored v0 strike's
  *               caps / x-height / period end on row 7 (spec/assets/geneva9.h).
+ *   Geneva 12   row GENEVA12_ASCENT (12) -- NFNT 12112 ascent 12.
  * ========================================================================== */
 #define TEXT_FACE_BOLD       0x01u   /* == FLAIR_STYLE_BOLD      (grafport.h) */
 #define TEXT_FACE_ITALIC     0x02u   /* == FLAIR_STYLE_ITALIC                 */
@@ -351,6 +428,8 @@ text_font_t text_font_from_txfont(int txfont);
 /* The first row below the baseline for `font` (the QuickDraw pen v row). */
 static inline int text_baseline_row(text_font_t font)
 {
+    if (font == FONT_GENEVA12)
+        return (int)GENEVA12_ASCENT;
     return (font == FONT_CHICAGO) ? (int)CHICAGO_ASCENT : GENEVA9_BASELINE_ROW;
 }
 
@@ -392,6 +471,11 @@ static inline uint32_t text_plain_row(text_font_t font, int c, int r)
 {
     if (font == FONT_CHICAGO)
         return (uint32_t)chicago_cell_bits(c, r) << (16 - TEXT_OVERHANG);
+    if (font == FONT_GENEVA12) {
+        if (r < 0 || r >= GENEVA12_CELL_H)
+            return 0u;
+        return (uint32_t)geneva12_cell_bits(c, r) << (16 - TEXT_OVERHANG);
+    }
     if (r < 0 || r >= GENEVA9_CELL_H)
         return 0u;
     return (uint32_t)geneva9_glyph(c)[r] << (24 - TEXT_OVERHANG);
@@ -411,8 +495,9 @@ static inline uint32_t text_face_row(text_font_t font, unsigned face, int c,
  * the +1. */
 static inline int text_face_advance(text_font_t font, unsigned face, int c)
 {
-    int aw = (font == FONT_CHICAGO) ? chicago_advance(c)
-                                    : (int)geneva9_advance_w(c);
+    int aw = (font == FONT_CHICAGO)  ? chicago_advance(c)
+           : (font == FONT_GENEVA12) ? geneva12_advance(c)
+                                     : (int)geneva9_advance_w(c);
 #if !defined(TEXT_MUT_BOLD_ADVANCE_PLAIN)
     if (face & TEXT_FACE_BOLD)
         aw += TEXT_BOLD_SMEAR;

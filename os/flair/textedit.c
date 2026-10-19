@@ -108,10 +108,16 @@ static void te_memmove(char *dst, const char *src, int n)
  * lineStarts holds N == nLines entries (each line's START), not the IM
  * nLines+1 sentinel form -- the capped first cut.
  * ------------------------------------------------------------------------- */
+/* The record's strike: (txFont, txSize) through the ONE text.h mapping
+ * (bead initech-uelk: applFont at 12 = Geneva 12). */
+static text_font_t te_font(const FlairTE *te)
+{
+    return text_font_from_txfont_size((int)te->txFont, (int)te->txSize);
+}
+
 static int te_char_w(const FlairTE *te, char ch)
 {
-    text_font_t f = (te->txFont == (int16_t)FONT_GENEVA9) ? FONT_GENEVA9
-                                                          : FONT_CHICAGO;
+    text_font_t f = te_font(te);
     return text_face_advance(f, (unsigned)te->txFace & TEXT_FACE_SYNTH,
                              (int)(unsigned char)ch);
 }
@@ -285,8 +291,7 @@ static void te_insert_at(FlairTE *te, int16_t pos, const char *s, int16_t len)
  * ===========================================================================*/
 static int te_line_h(const FlairTE *te)
 {
-    return text_cell_height(te->txFont == (int16_t)FONT_GENEVA9 ? FONT_GENEVA9
-                                                                : FONT_CHICAGO);
+    return text_cell_height(te_font(te));
 }
 
 /* The line holding boundary `off`: the LAST line whose start is <= off (a
@@ -470,6 +475,7 @@ void FlairTE_init(FlairTE *te, int16_t wrapWidth, int16_t just)
     te->wrapWidth = wrapWidth;
     te->txFont    = 0;                    /* systemFont: Chicago 12 (grafport.h)    */
     te->txFace    = 0;                    /* plain                                  */
+    te->txSize    = 0;                    /* the family's default strike            */
     te->nLines    = 0;
     for (i = 0; i < FLAIR_TE_MAX_LINES; i++)
         te->lineStarts[i] = 0;
