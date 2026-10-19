@@ -23677,6 +23677,14 @@ RECORD_SETTLE_i123_files = 400
 # The existing long recording image: 53 frame captures outlive the 30s image.
 RECORD_IMAGE_i123_files = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_i123_files = $(BUILD)/flair_i123_file_data.img
+# B13: same locked entry trace as the saved-WK1 QEMU gate; Rule-14 capture.
+RECORD_SCRIPTS += i123_entry
+RECORD_SPEC_i123_entry = $(FLAIR_I123_ENTRY)
+RECORD_MARKER_i123_entry = TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="$(I123_ENTRY_TAIL)" fg=1 bg=0 -> 0
+RECORD_SETTLE_i123_entry = 120
+# 147 recorded events (~0.5 s each at a 120 ms settle) outlive the 6000-tick
+# long image; the double-click launch needs a DBL image: the EXTRA-LONG one.
+RECORD_IMAGE_i123_entry = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # initech-fvnj (L008) Rule-14 clip: dirty sheet, Ctrl-Q, the three-button
 # alert, Save q, exit, relaunch, Retrieve q -- the guarded quit end to end.
 # i123_formula (bead initech-94ah; Rule 14): formulas typed into Initech 123
@@ -31857,12 +31865,80 @@ test-i123-range-menu: $(BUILD)/test_i123_range_menu
 	@printf '>>> test-i123-range-menu: green (Copy, Move, names, formats, protection, Value, Trans, Esc/Break)\n'
 TEST_UNIT_GATES += test-i123-range-menu
 
+# B13 / initech-twxf: real entry state + recording screen; manual pp. 1-16/17.
+I123_ENTRY_DEPS := harness/proptest/test_i123_entry.c $(I123_QUIT_DEPS)
+$(BUILD)/test_i123_entry: $(I123_ENTRY_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -o $@ $< $(I123_CORE_SRC)
+$(BUILD)/test_i123_entry_mutant: $(I123_ENTRY_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -DI123_MUT_ENTRY_75 -o $@ $< $(I123_CORE_SRC)
+.PHONY: test-i123-entry test-i123-entry-mutant
+test-i123-entry: $(BUILD)/test_i123_entry
+	@mkdir -p $(BUILD)/i123-entry-fs
+	@$< $(BUILD)/i123-entry-fs
+	@printf '>>> test-i123-entry: green (75/104/240/241, tail viewport, beep/refusal, Backspace, commit, VALUE/EDIT)\n'
+test-i123-entry-mutant: test-i123-entry $(BUILD)/test_i123_entry_mutant
+	@set +e; $(BUILD)/test_i123_entry_mutant $(BUILD)/i123-entry-fs > $(BUILD)/test_i123_entry_mutant.log 2>&1; rc=$$?; set -e; \
+	[ $$rc -eq 1 ] && grep -q '^i123-entry: .* checks,' $(BUILD)/test_i123_entry_mutant.log && \
+	grep -q 'FAIL E1 accept through 240' $(BUILD)/test_i123_entry_mutant.log || { cat $(BUILD)/test_i123_entry_mutant.log; printf '!!! test-i123-entry-mutant: wrong RED (exit %s)\n' "$$rc"; exit 1; }; \
+	printf '>>> test-i123-entry-mutant: I123_MUT_ENTRY_75 correctly RED (%s)\n' "$$(grep -m1 'FAIL E1 ' $(BUILD)/test_i123_entry_mutant.log)"
+	@printf '>>> test-i123-entry-mutant: green (old 75-character cap caught)\n'
+TEST_UNIT_GATES += test-i123-entry test-i123-entry-mutant
+
+include spec/flair_i123_entry_traces.mk
+
 include spec/flair_i123_menu_traces.mk
 # Full DFS uses explicit make/break events so QMP's default 100 ms held-key
 # timer cannot collapse repeated Right/Return presses. Existing image macro,
 # no kernel source changes; extra ticks accommodate the longer trace.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1000,i123_menu_gate))
 FLAIR_I123_MENU_GATE_IMG := $(BUILD)/flair_tenants_mut_i123_menu_gate.img
+# B13 entry gate image: the SAME flair_tenants build with ONLY the bounded pump
+# life widened (-DFLAIR_TEN_TICK_BUDGET=3000, 30 s @100 Hz). Root cause of the
+# first RED (initech-twxf): the 1000-tick menu image's pump expired mid-trace --
+# FLAIR-LIVE-OK (emitted only when the bounded loop ends, kmain.c) followed the
+# 74th typed character, so the remaining keys reached a halted guest (the
+# entry line, ring and app were fine: every keyDown before the halt was drawn).
+# MEASURED (this lane, load ~20-24): FLAIR-LIVE-READY to "Saved entry.wk1" is
+# ~12.7 s for the 147-token trace (~86 ms/token incl. the 40 ms inject drain
+# and the W barrier polls); the Codex run reached only 74 characters in 10 s.
+# 3000 is ~2.4x the measured need (load headroom), as the record/iword images
+# widen theirs. A demo bound only: no oracle string or tolerance changes.
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=3000,i123_entry_gate))
+FLAIR_I123_ENTRY_GATE_IMG := $(BUILD)/flair_tenants_mut_i123_entry_gate.img
+.PHONY: test-flair-i123-entry
+test-flair-i123-entry: export INITECH_QMP_STDIO=1
+test-flair-i123-entry: $(HARNESS_BIN) $(FLAIR_I123_ENTRY_GATE_IMG) $(FLAIR_DATA_IMG)
+	$(call need_lotus_goldens,test-flair-i123-entry)
+	$(call appl-boot,flair_i123_entry,$(FLAIR_I123_ENTRY_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_ENTRY,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_entry.serial) && grep -qx 'TENANT-REGISTER ok app=123' $(BUILD)/flair_i123_entry.serial || { printf '!!! test-flair-i123-entry FAIL: launch/desktop\n'; exit 1; }
+	@! grep -Eq 'KBD-RING-DROP|FLAIR-EVT-DROP' $(BUILD)/flair_i123_entry.serial || { printf '!!! test-flair-i123-entry FAIL: input ring overrun\n'; exit 1; }
+	@grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="$(I123_ENTRY_TAIL)" fg=1 bg=0 -> 0' $(BUILD)/flair_i123_entry.serial || { printf '!!! test-flair-i123-entry FAIL: 104-character entry tail\n'; exit 1; }
+	@mcopy -o -i $(BUILD)/flair_i123_entry_data.img ::ENTRY.WK1 $(BUILD)/i123-entry.WK1 || { printf '!!! test-flair-i123-entry FAIL: ENTRY.WK1 not saved\n'; exit 1; }
+	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(BUILD)/i123-entry.WK1 > $(BUILD)/i123-entry.ref
+	@grep -Eq "LABEL +len=111 +P:Default c0 r0 label=\"'$(I123_ENTRY_LABEL)\"$$" $(BUILD)/i123-entry.ref && grep -q 'consumed=.* OK$$' $(BUILD)/i123-entry.ref || { printf '!!! test-flair-i123-entry FAIL: independent WK1 reader must find all 104 characters in A1\n'; cat $(BUILD)/i123-entry.ref; exit 1; }
+	@printf '>>> test-flair-i123-entry: green (QEMU typed 104 characters, tail shown, A1 committed and saved; wk1_ref.py reads full label)\n'
+# Rule 6 mutant (initech-twxf): a gate-local volume whose 123.EXE keeps the old
+# 75-character cap (-DI123_MUT_ENTRY_75), same trace and image. RED for the
+# right reason: 123 up, the entry line reaches exactly 75 characters plus the
+# cursor, and never shows the scrolled 104-character tail. The three later W
+# barriers wait out their 20 s harness budgets and the pump life then ends, so
+# this leg is slow by construction; nothing in the clean gate is relaxed.
+FLAIR_DATA_I123_ENTRY75_IMG := $(BUILD)/flair_data_i123_entry75.img
+$(eval $(call tenant-exe-rules,i123_entry75,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_ENTRY_75,$(I123_APP_DEP),))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_ENTRY75_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_entry75.exe,$(IWORD_EXE),))
+I123_ENTRY_AT75 := abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvw_
+.PHONY: test-flair-i123-entry-mutant
+test-flair-i123-entry-mutant: export INITECH_QMP_STDIO=1
+test-flair-i123-entry-mutant: test-flair-i123-entry $(HARNESS_BIN) $(FLAIR_I123_ENTRY_GATE_IMG) $(FLAIR_DATA_I123_ENTRY75_IMG)
+	$(call appl-boot,flair_i123_entry_mut,$(FLAIR_I123_ENTRY_GATE_IMG),$(FLAIR_DATA_I123_ENTRY75_IMG),FLAIR_I123_ENTRY,)
+	@f=$(BUILD)/flair_i123_entry_mut.serial; $(call APPL_ALIVE,$$f) && grep -qx 'TENANT-REGISTER ok app=123' $$f && \
+	 grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="$(I123_ENTRY_AT75)" fg=1 bg=0 -> 0' $$f || \
+	 { printf '!!! test-flair-i123-entry-mutant FAIL: ENTRY_75 went RED for the wrong reason (want: 123 up, the line at 75 characters)\n'; exit 1; }
+	@if grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="$(I123_ENTRY_TAIL)" fg=1 bg=0 -> 0' $(BUILD)/flair_i123_entry_mut.serial; then \
+	 printf '!!! test-flair-i123-entry-mutant FAIL: ENTRY_75 PASSED the tail check -- the QEMU leg is decoration\n'; exit 1; fi
+	@printf '>>> test-flair-i123-entry-mutant: I123_MUT_ENTRY_75 correctly RED -- the entry line stopped at "...%s", the 104-character tail never drawn\n' "$$(printf %s '$(I123_ENTRY_AT75)' | tail -c 12)"
+	@printf '>>> test-flair-i123-entry-mutant: green\n'
+TEST_EMU_GATES += test-flair-i123-entry test-flair-i123-entry-mutant
 I123_MENU_ROW := $(I123_E)      10      -20       40                        -80      160       80 $(I123_E)
 # RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the /Range menu line is
 # clipped at the 76-cell face (was 77), so it ends "Trans  Sear" (was "Searc").
