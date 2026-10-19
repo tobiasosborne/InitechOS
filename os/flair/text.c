@@ -54,6 +54,12 @@ uint16_t text_chicago_row(unsigned g,unsigned r)
 {
     return chicago_packed_row(g,r);
 }
+/* Geneva 12 (bead initech-uelk): the same generated-dictionary storage. */
+#include "geneva12_packed.h"
+uint16_t text_geneva12_row(unsigned g,unsigned r)
+{
+    return geneva12_packed_row(g,r);
+}
 #endif
 
 /*
@@ -75,4 +81,20 @@ text_font_t text_font_from_txfont(int txfont)
     if (txfont == (int)FONT_GENEVA9)
         return FONT_GENEVA9;
     return FONT_CHICAGO; /* default: systemFont and all unknown values */
+}
+
+/*
+ * text_font_from_txfont_size -- (txFont, txSize) to a strike (bead
+ * initech-uelk; text.h). Ref: IM-I QuickDraw (txFont picks the family,
+ * txSize the point size; 0 = the family's default); ../system7-decomp
+ * specs/sys8/simpletext-stdfile.md Sec 1.2 (SimpleText: Geneva = applFont,
+ * 12 Point). applFont at 12 is the Geneva 12 strike; txSize 0 keeps the
+ * one-argument mapping (Chicago 12 / Geneva 9); any other pair falls back to
+ * it too -- the gate rejects such pairs before they get here.
+ */
+text_font_t text_font_from_txfont_size(int txfont, int txsize)
+{
+    if (txfont == (int)FONT_GENEVA9 && txsize == 12)
+        return FONT_GENEVA12;
+    return text_font_from_txfont(txfont);
 }

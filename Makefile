@@ -734,6 +734,7 @@ KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-ins
 SERIAL_TRACE_PACK_SRC := tools/serial_trace_pack.c
 SERIAL_TRACE_PACK := $(BUILD)/serial_trace_pack
 CHICAGO_PACK_H := $(BUILD)/chicago_packed_data.h
+GENEVA12_PACK_H := $(BUILD)/geneva12_packed_data.h
 # Each kmain variant is preprocessed with ITS OWN -D flags before packing.
 # This house macro is shared by normal and mutant kernels. No text authority
 # moves: kmain.c remains the original marker source; the host equality gate
@@ -8526,12 +8527,12 @@ $(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h os/flair/atkinson/r
 # The font strike headers + the one-copy linkage rule (bead initech-tdnl.33):
 # every kernel TU that draws text must rebuild when a strike changes, else a
 # stale object keeps a stale (or a second) copy of the tables.
-FLAIR_FONT_HDRS := os/flair/text.h spec/assets/font_linkage.h spec/assets/chicago12.h spec/assets/geneva9.h
+FLAIR_FONT_HDRS := os/flair/text.h spec/assets/font_linkage.h spec/assets/chicago12.h spec/assets/geneva9.h spec/assets/geneva12.h
 
 $(KERNEL_CHROME_OBJ): os/flair/chrome.c os/flair/chrome.h os/flair/winscroll.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $@
 
-$(KERNEL_TEXT_OBJ): os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h os/flair/chicago_packed.h $(CHICAGO_PACK_H) | $(BUILD)
+$(KERNEL_TEXT_OBJ): os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h os/flair/chicago_packed.h $(CHICAGO_PACK_H) os/flair/geneva12_packed.h $(GENEVA12_PACK_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_TEXT_OPT) $(TEXT_INC) -c os/flair/text.c -o $@
 
 # menu/control/dialog: their freestanding compile-checks use a LITERAL include
@@ -10202,7 +10203,7 @@ CTENANT_EXE := $(BUILD)/tenant/ctenant.exe
 # the glyph rows). The knobbed builds are the Rule-6 fixtures of
 # test-itext-route / test-flair-itext-mutant, never shipped on the flagship.
 ITEXT_APP_SRC := os/apps/itext/itext.c os/flair/textedit.c os/apps/itext/te_fonts.c
-ITEXT_APP_DEP := os/flair/textedit.h os/flair/text.h os/flair/scrap.h spec/assets/geneva9.h spec/assets/chicago12.h
+ITEXT_APP_DEP := os/flair/textedit.h os/flair/text.h os/flair/scrap.h spec/assets/geneva9.h spec/assets/chicago12.h spec/assets/geneva12.h
 ITEXT_APP_CF  := -Ios/flair -Ios/flair/atkinson -Ispec/assets -ffunction-sections -fdata-sections
 $(eval $(call tenant-exe-rules,itext,$(ITEXT_APP_SRC),$(ITEXT_APP_CF),$(ITEXT_APP_DEP),--gc-sections))
 $(eval $(call tenant-exe-rules,itext_copy_nothing,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_COPY_NOTHING,$(ITEXT_APP_DEP),--gc-sections))
@@ -12669,7 +12670,7 @@ test-chicago-metrics-mutant: $(TEST_CHIMET_MUT)
 TEST_TEXT     := $(BUILD)/test_text
 TEST_TEXT_MUT := $(BUILD)/test_text_mutant
 TEST_TEXT_SRC := harness/proptest/test_text.c
-TEST_TEXT_DEPS := os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/assets/chicago12.h os/flair/surface.h
+TEST_TEXT_DEPS := os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/assets/chicago12.h spec/assets/geneva12.h os/flair/surface.h
 TEXT_INC := -Ios/flair -Ispec/assets -Ispec -Iseed
 
 $(TEST_TEXT): $(TEST_TEXT_SRC) $(TEST_TEXT_DEPS) | $(BUILD)
@@ -31564,7 +31565,7 @@ endef
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_CURSOR_OBJ),$(BUILD)/cursor_mut_squared_stem.o,cursor_squared))
 # text.c includes the GENERATED chicago_packed_data.h: name it, as $(KERNEL_TEXT_OBJ)
 # does, or a fresh tree's parallel headroom build races it (lane-routing, 2026-10-17).
-$(BUILD)/text_mut_%.o: os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h os/flair/chicago_packed.h $(CHICAGO_PACK_H) | $(BUILD)
+$(BUILD)/text_mut_%.o: os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h os/flair/chicago_packed.h $(CHICAGO_PACK_H) os/flair/geneva12_packed.h $(GENEVA12_PACK_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TEXT_INC) -D$* -c os/flair/text.c -o $@
 $(BUILD)/chrome_mut_trunc_period.o: os/flair/chrome.c os/flair/chrome.h os/flair/winscroll.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DCHROME_MUT_TRUNC_PERIOD -c $(CHROME_DRAWER_C) -o $@
@@ -32631,6 +32632,7 @@ include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
 include harness/proptest/kernel_size_r4.mk
+include harness/proptest/geneva12.mk
 include harness/proptest/kernel_size_r5.mk
 include harness/emu/ansi.mk
 
