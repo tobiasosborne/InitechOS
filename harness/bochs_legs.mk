@@ -82,6 +82,11 @@ $(eval $(call bochs-flair-leg,flair-iword,$(BUILD)/flair_tenants_mut_iword_gate.
 # vector so omissions cannot hide behind another gate's result (Rule 5).
 $(eval $(call bochs-flair-leg,flair-exit-to-dos,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
 $(eval $(call bochs-flair-leg,flair-tps-journey,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
+# initech-tdnl.106 (ADR-0003 DEC-19): on Bochs the flagship boots to
+# COMMAND.COM, AUTOEXEC.BAT runs FLAIR, INT 81h arms the desktop and the
+# 640x480 guard halts it -- the same flair profile. Written, not run, by the
+# lane (the PM runs the Bochs legs).
+$(eval $(call bochs-flair-leg,flair-from-dos,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
 $(eval $(call bochs-flair-leg,flair-file-copy,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
 $(eval $(call bochs-flair-leg,flair-paint,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
 $(eval $(call bochs-flair-leg,flair-itext,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),flair))
