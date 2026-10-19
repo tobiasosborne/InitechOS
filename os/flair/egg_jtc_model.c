@@ -7,7 +7,13 @@ unsigned egg_jtc_value(unsigned f)
 }
 static const char *cell(unsigned i)
 {
-    return (const char *)egg_jtc_data + JTC_WORDS * 2 + i * JTC_CELL;
+    /* Packed strings (egg_jtc_model.h): skip i terminated strings. */
+    const char *p = (const char *)egg_jtc_data + JTC_WORDS * 2;
+#ifdef EGG_MUT_CELL_WALK
+    i++;   /* MUTANT (Rule 6; test-egg-jtc-cell-mutant): one string too far */
+#endif
+    while (i--) while (*p++) { }
+    return p;
 }
 const char *egg_jtc_title(void) { return cell(0); }
 const char *egg_jtc_heading(void) { return cell(1); }
