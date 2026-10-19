@@ -51,7 +51,9 @@ interpreted in flat mode**, by exact analogy to the PSP's Option-B treatment of 
 segment fields (`psp.c` `flat_to_fake_paragraph`). The flat `.COM`-equivalent path
 (DEC-08) is retained unchanged.
 
-**DEC-08a.1 — The container is real; the code inside is flat; the relocations are flat.**
+<!-- Formatting promotion of the existing DEC-08a.1 prose block; content unchanged (initech-0ni0). -->
+### DEC-08a.1 — The container is real; the code inside is flat; the relocations are flat.
+
 An InitechMZ executable carries a real MZ header (`e_magic == 0x5A4D` `'MZ'`; load-module
 size from `e_cp`/`e_cblp`; header paragraphs `e_cparhdr`; `e_minalloc`/`e_maxalloc`;
 `e_ss:e_sp`; `e_cs:e_ip`) followed by the load module and a relocation table. The load
@@ -61,7 +63,10 @@ loader **adds the flat load base** (`PROGRAM_IMAGE`, 0x30100) to the **32-bit dw
 that offset. (An InitechMZ with `e_crlc == 0` is the degenerate position-independent case
 and loads with zero fixups.)
 
-**DEC-08a.2 — Layout.** PSP at `PROGRAM_BASE` (0x30000), built unchanged by `psp_build`;
+<!-- Formatting promotion of the existing DEC-08a.2 prose block; content unchanged (initech-0ni0). -->
+### DEC-08a.2 — Layout.
+
+PSP at `PROGRAM_BASE` (0x30000), built unchanged by `psp_build`;
 the **load module** placed at `PROGRAM_IMAGE` (0x30100). The MZ path reads the header,
 skips `e_cparhdr*16` bytes to the load module, and never copies the header into the image.
 `e_cs:e_ip` and `e_ss:e_sp` are flat offsets from the load base; for the current release
@@ -82,7 +87,10 @@ AH=4Bh path select format on the first two image bytes: `'MZ'` (and the `'ZM'` b
 alias) routes to the InitechMZ path; anything else is the flat `.COM`-equivalent path
 (DEC-08, unchanged).
 
-**DEC-08a.5 — The tag byte and the fail-loud honesty gate.** A reserved header field
+<!-- Formatting promotion of the existing DEC-08a.5 prose block; content unchanged (initech-0ni0). -->
+### DEC-08a.5 — The tag byte and the fail-loud honesty gate.
+
+A reserved header field
 (the `e_res[0]` word at offset 0x1C, which genuine period linkers write as zero) carries a
 nonzero InitechOS sentinel marking "flat-32 relocations." On encountering an **untagged**
 MZ — i.e. a genuine 16-bit DOS `.EXE` whose relocations are paragraph fixups over 16-bit
