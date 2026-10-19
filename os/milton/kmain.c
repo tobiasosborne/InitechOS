@@ -1025,7 +1025,18 @@ static void flair_dac_load(void)
 #ifdef FLAIR_DAC_MUT_OMIT165
         if (idx == 165u) continue;
 #endif
-        vga_set_dac((uint8_t)idx, flair_dac[idx][0], flair_dac[idx][1], flair_dac[idx][2]);
+        /* Size round 7 (initech-5qsm): the same 256 RGB triples through the
+         * one colour authority instead of a 768-byte copy of them. Equality
+         * at EVERY index is test-flair-dac's existing oracle (the generated
+         * flair_dac[i] == flair_canon_rgb(i)): slots 0..26 are color_canon
+         * rows, the rest the identity gray ramp. */
+        uint32_t rgb = flair_palette_rgb((uint8_t)idx);
+#ifdef FLAIR_DAC_MUT_CHANNEL
+        /* MUTANT (Rule 6; test-flair-desktop-8bpp-mutant): red and blue
+         * swapped out of the packed accessor. NEVER in a real build. */
+        rgb = (rgb & 0x00FF00u) | ((rgb >> 16) & 0xFFu) | ((rgb & 0xFFu) << 16);
+#endif
+        vga_set_dac((uint8_t)idx, (uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb);
     }
 }
 
