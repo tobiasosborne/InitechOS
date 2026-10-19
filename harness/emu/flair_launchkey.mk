@@ -9,7 +9,7 @@ $(LAUNCHKEY_DATA): $(FLAIR_DATA_IMG) $(BUILD)/SAMIR.COM
 	@$(call fixture-check,recipe,$@,$(FLAIR_FIXTURES) SAMIR.COM)
 
 # Shared verbatim by the clean gate and its one-branch mutant.
-LAUNCHKEY_IMAGE ?= $(FLAIRTENANTS_IMG)
+LAUNCHKEY_IMAGE ?= $(BUILD)/flair_tenants_mut_launchkey_gate.img
 LAUNCHKEY_TAG ?= launchkey
 LAUNCHKEY_REPEAT = grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 .* fg=1 bg=0 -> 0$$' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="---------                                                               " fg=1 bg=0 -> 0'
 LAUNCHKEY_RECOVERY = ! grep -q '^PANIC' $(1) && \

@@ -11018,7 +11018,13 @@ $(eval $(call flair-tenants-findermenu-mutant-rules,FINDER_MENU_MUT_DEAD_ITEM,me
 # ref_tenant.o). Built behind #ifdef, so the DEFAULT flair_tenants build is
 # byte-identical (Rule 11). Produces build/flair_tenants_mut_no_rebuild.img.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_REBUILD,no_rebuild))
-$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_MUT_PLAIN_BSL_LAUNCH,plain_bsl_launch))
+# initech-rex3 gate image: the flagship build with ONLY the bounded pump life
+# widened (-DFLAIR_TEN_TICK_BUDGET=3000, 30 s @100 Hz), the B13 entry-gate
+# pattern: under host load the default 250-tick window ended (FLAIR-LIVE-OK)
+# before the typed trace reached the sheet (12 of 18 events processed, PM
+# 2026-10-20). The trace strings and every assertion are unchanged.
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=3000,launchkey_gate))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_MUT_PLAIN_BSL_LAUNCH -DFLAIR_TEN_TICK_BUDGET=3000,plain_bsl_launch))
 
 # OMISSION (Rule 6 / Law 2 honesty): the 5th candidate knob FLAIR_LIVE_MUTATE_NO_
 # GROUP_RAISE (raise only the front window instead of raise_group's whole group) does
