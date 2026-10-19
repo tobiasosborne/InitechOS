@@ -214,6 +214,26 @@ $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_MUT_NO_KEYS,finder_key
 $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_MUT_NO_DISK_ALERT,finder_disk_alert))
 $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_MUT_NO_LAUNCH_ALERT,finder_launch_alert))
 $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_MUT_NO_MOVE_ALERT,finder_move_alert))
+# Rule 6 pairing: the move-alert mutant boots the SAME image class as the
+# clean test-flair-finder-refused leg -- the HOLD kernel (kmain built
+# -DFLAIR_TEN_TICK_BUDGET=1500, the existing hold object) -- with the one
+# perturbation FINDER_MUT_NO_MOVE_ALERT in finder_windows.o. On the default
+# 250-tick image the guest's life could end before the injected cycle gesture
+# (seen under host load: FLAIR-LIVE-OK right after the window drag, the
+# screendump-after marker never reached), so the mutant failed for "no dump"
+# instead of "no notice". Nothing the oracle grades is relaxed.
+FINDER_MOVE_ALERT_HOLD_OBJS := $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/finder_windows_mut_finder_move_alert.o
+$(BUILD)/kernel_flairtenants_mut_finder_move_alert_hold.elf: $(FINDER_MOVE_ALERT_HOLD_OBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(FINDER_MOVE_ALERT_HOLD_OBJS) @$(TRANSIENT_IMPORTS_LD)
+$(BUILD)/kernel_flairtenants_mut_finder_move_alert_hold.bin: $(BUILD)/kernel_flairtenants_mut_finder_move_alert_hold.elf | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_mut_finder_move_alert_hold.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
+	$(call kernel-end-guard,$<,flairtenants-mut-finder_move_alert_hold)
+$(BUILD)/flair_tenants_mut_finder_move_alert_hold.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_finder_move_alert_hold.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_finder_move_alert_hold.bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_finder_move_alert_hold.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_finder_move_alert_hold.bin
+	@printf ">>> flair-tenants HOLD + DISK-WINDOW MUTANT image (-DFLAIR_TEN_TICK_BUDGET=1500 -DFINDER_MUT_NO_MOVE_ALERT): %s\n" "$@"
 $(eval $(call flair-tenants-finderops-mutant-rules,FINDER_MUT_ORIGINAL_LOST,finder_origin))
 $(eval $(call flair-tenants-finderops-mutant-rules,FINDER_MUT_REPLACE_CANCEL,finder_replace))
 $(eval $(call flair-tenants-kmain-mutant-rules,FINDER_MUT_DEMO_LIVE,finder_demo))
@@ -257,7 +277,7 @@ $(eval $(call finder-notice-emu-mutant,disk-alert,diskfull,finder_disk_alert,$(B
 $(eval $(call finder-notice-emu-mutant,launch-alert,launch-alerts,finder_launch_alert,$(FLAIR_DATA_TFX_NOREG_IMG),FLAIR_APP_LAUNCH_SPEC,FINDER_MUT_NO_LAUNCH_ALERT,))
 # $(7): the mutant's dump waits for the guest to reach the cycle refusal (the
 # point the clean leg grades), so RED means "no notice there", not a race.
-$(eval $(call finder-notice-emu-mutant,move-alert,refused,finder_move_alert,$(FLAIR_DATA_IMG),FLAIR_FINDER_REFUSED_SPEC,FINDER_MUT_NO_MOVE_ALERT,--screendump-after "FINDER-MOVE-REFUSED reason=cycle"))
+$(eval $(call finder-notice-emu-mutant,move-alert,refused,finder_move_alert_hold,$(FLAIR_DATA_IMG),FLAIR_FINDER_REFUSED_SPEC,FINDER_MUT_NO_MOVE_ALERT,--screendump-after "FINDER-MOVE-REFUSED reason=cycle"))
 test-flair-finder-restore-mutant: test-flair-finder-restore $(BUILD)/flair_tenants_mut_finder_origin.img
 	$(call appl-boot,mut_finder_origin,$(BUILD)/flair_tenants_mut_finder_origin.img,$(FINDER_RESTORE_DATA),FLAIR_FINDER_RESTORE_SPEC,--screendump)
 	@$(call APPL_ALIVE,$(BUILD)/mut_finder_origin.serial) || { printf '!!! mut_finder_origin did not finish alive\n'; exit 1; }
