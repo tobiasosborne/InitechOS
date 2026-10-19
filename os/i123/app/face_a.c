@@ -33,6 +33,9 @@
  *
  * KEYS (the R2.2 READY/LABEL/VALUE/EDIT modes; MINT shots show READY):
  *   arrows move the pointer (scrolling the window); Home goes to A1;
+ *   PgUp/PgDn move a screen of rows, Tab/Shift-Tab a screen of columns; F5
+ *   (GOTO) jumps to a typed address; F2 (EDIT) edits the current cell (bead
+ *   initech-69mz, B11; "moving the pointer" below);
  *   a printable key starts an entry -- 0-9 + - . ( @ # $ make it a VALUE,
  *   anything else a LABEL (' " ^ \ | typed first are its prefix, else the
  *   sheet's default, LABELFMT); Enter stores it; an arrow stores it and
@@ -116,6 +119,13 @@ const char tbx_app_name[] = "123";
 #define VK_RIGHT     0x4D
 #define VK_DOWN      0x50
 #define VK_F9        0x43        /* CALC (manual p. 12-32, PDF 276) */
+/* B11 (initech-69mz): Ref manual pp. 1-9/1-10/1-11 (PDF 25..27). Tab is
+ * cooked '\t' (event.c); PgUp/PgDn arrive E0-prefixed, ascii 0. */
+#define VK_TAB       0x0F
+#define VK_F2        0x3C        /* EDIT */
+#define VK_F5        0x3F        /* GOTO */
+#define VK_PGUP      0x49
+#define VK_PGDN      0x51
 
 /* ---- the menu bar (spec/toolbox_gate.h Sec 9) ---------------------------- */
 static const tbx_menuitem_t file_items[] = {
@@ -160,7 +170,10 @@ static uint32_t g_elen TBX_IN_IMAGE = 0;
 enum { M_READY, M_LABEL, M_VALUE, M_EDIT, M_MAIN, M_FILE, M_GET, M_SAVE, M_REPLACE, M_QUIT, M_NOTICE, M_RANGE };
 static int      g_mode TBX_IN_IMAGE = M_READY;
 static const char *const MODE_TEXT[] = { "READY", "LABEL", "VALUE", " EDIT",
-    "MENU", "MENU", "FILES", "FILES", "MENU", "MENU", "ERROR", "RANGE" };
+    "MENU", "MENU", "FILES", "FILES", "MENU", "MENU", "ERROR", "POINT" };
+/* B11: an error 1-2-3 shows on the STATUS line (manual p. 1-5, PDF 21: "in
+ * place of the date-and-time indicator"; ESC or ENTER clears it). */
+static const char *g_error;
 
 /* THE EXIT GUARD's state (bead initech-fvnj). g_dirty: a committed edit not
  * yet in a file -- set by every successful commit, cleared ONLY by a
@@ -259,7 +272,9 @@ static void paint_command(void)
         panel_line(LINE_PANEL2, line+skip);
         put_line(LINE_PANEL2, (int)(x-skip), nm, slen(nm), TBX_COLOR_WHITE, TBX_COLOR_NAVY);
         panel_line(LINE_PANEL3, i123_menu_string(it->desc));
-    } else if (g_mode == M_RANGE) {
+    } else if (g_mode == M_RANGE || g_error) {
+        /* B11: the GOTO error keeps the prompt and its text on line two
+         * (mint keys 10_f5_bad, fixtures/i123-keys). */
         char line[SCR_COLS+1]; uint32_t n = 0;
         for (uint32_t k = 0; g_prompt[k] && n < SCR_COLS; k++) line[n++] = g_prompt[k];
         if (g_rlen) {
@@ -330,7 +345,9 @@ static void paint_panel(void)
     char buf[SCR_COLS + 1], addr[16], content[I123_FTEXT_MAX];
     const i123_cell_t *c;
     uint32_t n, k;
-    const char *mode = MODE_TEXT[g_mode];
+    /* Prompted for an address, 1-2-3 shows POINT until a character is
+     * typed, then EDIT (manual p. 1-6; mint keys 06/07, COPY01 04_copy_from). */
+    const char *mode = MODE_TEXT[g_mode == M_RANGE && g_rlen ? M_EDIT : g_mode];
     uint32_t mlen = slen(mode);
 
     /* line 1: "A1: 'Hello" ... "READY" (the shots: address, colon, space) */
@@ -392,6 +409,9 @@ static void paint_row(uint32_t vis)
     uint16_t r = (uint16_t)(i123_view_top(&g_sheet) + vis);
     int line = LINE_ROW0 + (int)vis;
     uint32_t n = 0;
+    /* B11: a window placed by GOTO may run past row 8192; those lines show
+     * an empty border and no cells (mint keys 42_a8190). */
+    if (r >= I123_MAX_ROWS) { panel_line(line, ""); put_line(line, 0, "    ", BORDER_W, TBX_COLOR_WHITE, TBX_COLOR_NAVY); return; }
     {
         char a[16];
         uint32_t k = i123_addr_text(0, r, a);   /* "A<row>": skip the letter */
@@ -427,7 +447,7 @@ static void paint_rows(void)
  * the right end (see THE STATUS LINE above). */
 static void paint_status(void)
 {
-    panel_line(LINE_STATUS, g_status);
+    panel_line(LINE_STATUS, g_error ? g_error : g_status);
     if (g_sheet.circ)
         put_line(LINE_STATUS, SCR_COLS - 4, "CIRC", 4, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
     if (g_sheet.calc)
@@ -444,14 +464,53 @@ static int sheet_has_formula(void)
 
 static void paint_all(void)
 {
-    char blank[SCR_COLS + 1];
     (void)tbx_fill_rect(g_win, 0, 0, WIN_R, WIN_B, TBX_COLOR_WHITE);
     paint_panel();
     paint_edit_line();
-    pad_into(blank, SCR_COLS, "");
     paint_border();
     paint_rows();
     paint_status();
+}
+
+/* ---- moving the pointer (B11, initech-69mz) ---------------------------------
+ * THE one viewport path for every pointer-movement key: arrows, Home, GOTO,
+ * PgUp/PgDn, Tab/Shift-Tab. Put the pointer at (c,r) with the window's
+ * upper-left at (left,top), let follow_pointer keep the pointer visible,
+ * and repaint what changed. Ground truth: the real 1-2-3 R2.2 driven under
+ * DOSBox-X, fixtures/i123-keys/ (keys*.steps + the captures). */
+static void place(uint16_t c, uint16_t r, uint16_t left, uint16_t top)
+{
+    uint16_t orow = i123_cursor_row(&g_sheet);
+    uint16_t ol = i123_view_left(&g_sheet), ot = i123_view_top(&g_sheet);
+    i123_set_cursor(&g_sheet, c, r);
+    i123_set_view(&g_sheet, left, top);
+    (void)follow_pointer();
+    if (i123_view_left(&g_sheet) != ol || i123_view_top(&g_sheet) != ot) {
+        paint_border();
+        paint_rows();
+    } else {
+        if (orow >= ot && orow < ot + VIS_ROWS) paint_row((uint32_t)(orow - ot));
+        paint_pointer();
+    }
+    paint_panel();
+}
+static void here(uint16_t c, uint16_t r)
+{ place(c, r, i123_view_left(&g_sheet), i123_view_top(&g_sheet)); }
+
+/* GOTO (F5, manual p. 1-11): a target already on screen only moves the
+ * pointer (COPY01 08_show_C20: C20 from A1, no scroll); one off screen
+ * becomes the window's upper-left cell (mint keys 08_f5_z100, 09, 37_goto_a21,
+ * 60_goto_d21 -- both axes, even one row past the bottom). */
+static void go_to(uint16_t c, uint16_t r)
+{
+    uint16_t left = i123_view_left(&g_sheet), top = i123_view_top(&g_sheet);
+#ifndef I123_MUT_GOTO_FOLLOW
+    if (c < left || c >= left + area_cols() || r < top || r >= top + VIS_ROWS) { left = c; top = r; }
+#else
+    /* MUTANT (Rule 6; test-i123-keys-mutant): GOTO scrolls only as far as
+     * an arrow would. NEVER real. */
+#endif
+    place(c, r, left, top);
 }
 
 static void command_paint(void) { paint_panel(); paint_edit_line(); }
@@ -465,7 +524,10 @@ static void notice(const char *s)
     g_quit_after_save = 0; g_notice = s; g_mode = M_NOTICE; command_paint();
 }
 static void ready(void)
-{ g_quit_after_save = 0; g_mode = M_READY; g_elen = 0; g_edit[0] = 0; g_nlen = 0; command_paint(); }
+{
+    g_quit_after_save = 0; g_mode = M_READY; g_elen = 0; g_edit[0] = 0; g_nlen = 0; command_paint();
+    if (g_error) { g_error = 0; paint_status(); }
+}
 static void file_error(int32_t rc)
 {
     notice(rc == TBX_ERR_DOS(2) ? "File not found" :
@@ -611,8 +673,14 @@ static void range_accept(void)
             if(g_action==A_ITERATION)next.calccount=(uint8_t)x;
         }
     } else {
-        if (i123_range_parse(&g_sheet,input,&r)) { notice("Invalid range"); return; }
-        if(g_action==A_GOTO) {i123_set_cursor(&g_sheet,r.c0,r.r0);follow_pointer();ready();paint_all();return;}
+        if (i123_range_parse(&g_sheet,input,&r)) {
+            /* B11: an unusable GOTO address beeps, shows ERROR and the R2.2
+             * message (123.RI 0x5ece, verbatim) on the status line, and leaves
+             * the pointer where it was (mint keys 10_f5_bad/11_f5_bad_esc). */
+            if(g_action==A_GOTO){(void)tbx_trap(TBX_BEEP,0,0);g_error="Invalid cell or range address";g_mode=M_NOTICE;paint_panel();paint_status();return;}
+            notice("Invalid range"); return;
+        }
+        if(g_action==A_GOTO) {ready();go_to(r.c0,r.r0);return;}
         if(g_action<=A_TRANS && !g_stage) {
             g_from=r;g_stage=1;g_rlen=0;
             g_prompt=g_action==A_MOVE?"Enter range to move TO: ":"Enter range to copy TO: ";
@@ -743,7 +811,7 @@ static void command_key(char ch, uint8_t vk)
         if(g_mode==M_REPLACE){g_mode=M_SAVE;g_nlen=0;command_paint();return;}
         ready();return;
     }
-    if(g_mode==M_NOTICE)return;
+    if(g_mode==M_NOTICE){if(g_error&&(vk==VK_ENTER||ch=='\r'))ready();return;}
     if(g_mode==M_RANGE) {
         if(vk==VK_ENTER||ch=='\r'){range_accept();return;}
         if(vk==VK_BSPC||ch==8){if(g_rlen)g_rlen--;}
@@ -779,22 +847,6 @@ static void command_key(char ch, uint8_t vk)
     command_paint();
 }
 
-/* Repaint after the pointer moved from (oc,or): the old row loses its
- * pointer, the view may have scrolled. */
-static void moved(uint16_t oc, uint16_t orow)
-{
-    (void)oc;
-    if (follow_pointer()) {
-        paint_border();
-        paint_rows();
-    } else {
-        uint16_t top = i123_view_top(&g_sheet);
-        if (orow >= top && orow < top + VIS_ROWS) paint_row((uint32_t)(orow - top));
-        paint_pointer();
-    }
-    paint_panel();
-}
-
 /* ---- entry ----------------------------------------------------------------- */
 static int is_value_start(char ch)
 {
@@ -815,7 +867,9 @@ static int commit(void)
     int rc;
     const i123_cell_t *locked=i123_find(&g_sheet,cc,cr);
     if(g_sheet.protec&&locked&&(locked->fmt&128)) {notice("Cell is protected");return 1;}
-    if (g_mode == M_LABEL) {
+    /* EDIT completes as a label unless the entry starts like a value (p. 1-16:
+     * the first character decides; mint keys 05 "'HelloX", 49 "HelloZ"). */
+    if (g_mode == M_LABEL || (g_mode == M_EDIT && !is_value_start(g_edit[0]))) {
         if (g_elen > 0u && is_prefix(g_edit[0]))
             rc = i123_set_label(&g_sheet, cc, cr, (uint8_t)g_edit[0], g_edit + 1, g_elen - 1u);
         else
@@ -887,44 +941,118 @@ static void move_by(int dc, int dr)
     if (nr < 0) nr = 0;
     if (nc >= (int)I123_MAX_COLS) nc = (int)I123_MAX_COLS - 1;
     if (nr >= (int)I123_MAX_ROWS) nr = (int)I123_MAX_ROWS - 1;
-    i123_set_cursor(&g_sheet, (uint16_t)nc, (uint16_t)nr);
-    moved(oc, orow);
+    here((uint16_t)nc, (uint16_t)nr);
 }
 
-static void key(int32_t message)
+/* PGDN / PGUP (manual p. 1-10: "one screen"): the pointer AND the window move
+ * VIS_ROWS rows, the pointer keeping its place on screen (mint keys 12_pgdn
+ * A1->A21 rows 21-40 on the 20-row DOS screen, 15_pgdn_mid A4->A24, 39 A20->
+ * A40, 65 A25->A5); each clamps at row 1 (66: A7 with top 5 -> A1, top 1).
+ * Near row 8192 the pointer stops on the last row (43_a8190_pgdn: A8190 ->
+ * A8192, window unmoved). */
+static void page_rows(int down)
+{
+    uint16_t c = i123_cursor_col(&g_sheet), r = i123_cursor_row(&g_sheet);
+    uint16_t left = i123_view_left(&g_sheet), top = i123_view_top(&g_sheet);
+    if (down) {
+        if ((uint32_t)r + VIS_ROWS < I123_MAX_ROWS) { r = (uint16_t)(r + VIS_ROWS); top = (uint16_t)(top + VIS_ROWS); }
+        else r = (uint16_t)(I123_MAX_ROWS - 1u);
+    } else {
+        r = (uint16_t)(r >= VIS_ROWS ? r - VIS_ROWS : 0);
+        top = (uint16_t)(top >= VIS_ROWS ? top - VIS_ROWS : 0);
+    }
+    place(c, r, left, top);
+}
+
+/* TAB / SHIFT-TAB in READY (manual pp. 1-9/1-10: "right [left] one screen",
+ * not one cell): the window moves by the columns it shows and the pointer
+ * lands on its FIRST column (mint keys 16 A1->I1, 32 D1->I1, 63 H1->P1;
+ * 18 Q1->I1, 36 K1->C1, 62 H1->A1; at IV, 41: no move). Authored where no
+ * capture reaches: unequal widths count the columns now shown. */
+static void page_cols(int right)
+{
+#ifdef I123_MUT_TAB_ONE_CELL
+    /* MUTANT (Rule 6; test-i123-keys-mutant, test-flair-i123-keys-mutant):
+     * Tab moves one cell. NEVER real. */
+    move_by(right ? 1 : -1, 0);
+#else
+    uint32_t left = i123_view_left(&g_sheet), n = area_cols();
+    if (right) left = left + n < I123_MAX_COLS ? left + n : I123_MAX_COLS - 1u;
+    else left = left > n ? left - n : 0;
+    place((uint16_t)left, i123_cursor_row(&g_sheet), (uint16_t)left, i123_view_top(&g_sheet));
+#endif
+}
+
+/* Complete the entry being typed or edited; 0 = READY now. An EDIT line
+ * emptied (by Esc) completes as no entry: the cell keeps what it had (mint
+ * keys 45/46 F2, Esc, Enter; 48 F2 on an empty cell, Enter). */
+static int finish(void)
+{
+    if (g_mode == M_EDIT && !g_elen) { g_mode = M_READY; paint_panel(); paint_edit_line(); return 0; }
+    return commit();
+}
+
+/* EDIT (F2, manual p. 1-11): from READY, the current cell's contents go on
+ * the edit line in EDIT mode (mint keys 02_f2 "'Hello", 44 "123", 47 empty);
+ * in EDIT it switches to LABEL or VALUE by the entry's first character, and
+ * while typing it switches to EDIT (p. 1-22 "Editing As You Type"). The
+ * in-line cursor keys of EDIT (p. 1-22/1-23: Left/Right/Home/End/Tab/Del/Ins)
+ * are not implemented: the cursor stays at the end (Backspace works). */
+static void edit_key(void)
+{
+    if (g_mode == M_READY) {
+        i123_cell_content(&g_sheet, i123_find(&g_sheet, i123_cursor_col(&g_sheet), i123_cursor_row(&g_sheet)),
+                          g_edit, sizeof g_edit);
+        g_elen = slen(g_edit);
+        g_mode = M_EDIT;
+    } else if (g_mode != M_EDIT) g_mode = M_EDIT;
+    else if (g_elen) g_mode = is_value_start(g_edit[0]) ? M_VALUE : M_LABEL;
+    paint_panel();
+    paint_edit_line();
+}
+
+static void key(int32_t message, int32_t mods)
 {
     char ch = (char)(message & 0xFF);
     uint8_t vk = (uint8_t)((message >> 8) & 0xFF);
-    int dc = 0, dr = 0, arrow = 0;
+    int mv = 0;   /* 1 Up 2 Down 3 Left 4 Right 5 PgUp 6 PgDn 7 Tab 8 Shift-Tab */
 
     if (ch==3 || vk==0x46) {ready();return;}
-    if (vk==0x3f && g_mode==M_READY) {prompt(A_GOTO,"Enter cell address: ");return;}
-    if (vk==0x3c && g_mode==M_READY) {i123_cell_content(&g_sheet,i123_find(&g_sheet,i123_cursor_col(&g_sheet),i123_cursor_row(&g_sheet)),g_edit,sizeof g_edit);g_elen=slen(g_edit);g_mode=g_elen&&is_prefix(g_edit[0])?M_LABEL:M_VALUE;command_paint();return;}
+    /* 123.RI 0x5a5a, verbatim; mint keys 06_f5_prompt (+ current address). */
+    if (vk==VK_F5 && !ch && g_mode==M_READY) {prompt(A_GOTO,"Enter address to go to: ");return;}
     if (g_mode >= M_MAIN) { command_key(ch, vk); return; }
+    if (vk == VK_F2 && !ch) { edit_key(); return; }
 
     if (ch == 0) {
-        if (vk == VK_UP)    { dr = -1; arrow = 1; }
-        if (vk == VK_DOWN)  { dr = 1;  arrow = 1; }
-        if (vk == VK_LEFT)  { dc = -1; arrow = 1; }
-        if (vk == VK_RIGHT) { dc = 1;  arrow = 1; }
+        mv = vk == VK_UP ? 1 : vk == VK_DOWN ? 2 : vk == VK_LEFT ? 3 : vk == VK_RIGHT ? 4 :
+             vk == VK_PGUP ? 5 : vk == VK_PGDN ? 6 : 0;
         if (vk == VK_F9 && g_mode == M_READY) { calc_key(); return; }
-        if (vk == VK_HOME && g_mode == M_READY) {
-            uint16_t oc = i123_cursor_col(&g_sheet), orow = i123_cursor_row(&g_sheet);
-            i123_set_cursor(&g_sheet, 0, 0);
-            moved(oc, orow);
-            return;
-        }
+        if (vk == VK_HOME && g_mode == M_READY) { here(0, 0); return; }
     }
-    if (arrow) {
-        if (g_mode == M_LABEL || g_mode == M_VALUE) {
-            if (commit() != 0) return;   /* a bad value stays in EDIT */
-        }
-        if (g_mode == M_READY) move_by(dc, dr);
+    if (vk == VK_TAB && ch == '\t') mv = (mods & FLAIR_EVT_MOD_SHIFT_KEY) ? 8 : 7;
+    if (mv) {
+        /* Typing, a pointer-movement key completes the entry and moves (p.
+         * 1-16; mint keys 67 "abc" Tab -> I1, 68 "xyz" PgDn -> A21). In EDIT
+         * only Up/Down/PgUp/PgDn complete (pp. 1-8/1-10, mint keys 49);
+         * Left/Right/Tab move its cursor (not implemented, see edit_key). */
+        if (g_mode == M_EDIT && (mv == 3 || mv == 4 || mv > 6)) return;
+        if (g_mode != M_READY && finish() != 0) return;   /* a bad value stays in EDIT */
+        if (mv > 6) page_cols(mv == 7);
+        else if (mv > 4) page_rows(mv == 6);
+        else move_by(mv == 3 ? -1 : mv == 4 ? 1 : 0, mv == 1 ? -1 : mv == 2 ? 1 : 0);
         return;
     }
     if (vk == VK_ESC || ch == 0x1B) {
         if (g_mode != M_READY) {
-            g_mode = M_READY;
+            /* EDIT: Esc "Erases all characters in entry" (p. 1-23); Esc on the
+             * empty line returns to READY, the cell unchanged (mint keys
+             * 03_f2_esc1 / 04_f2_esc2; 51_bad_value_esc after a bad value). */
+#ifndef I123_MUT_EDIT_ESC_CANCELS
+            if (g_mode != M_EDIT || !g_elen)
+#else
+            /* MUTANT (Rule 6; test-i123-keys-mutant): one Esc leaves EDIT. */
+#endif
+                g_mode = M_READY;
             g_elen = 0;
             g_edit[0] = '\0';
             paint_panel();
@@ -944,7 +1072,7 @@ static void key(int32_t message)
         return;
     }
     if (vk == VK_ENTER || ch == '\r') {
-        (void)commit();
+        (void)finish();
         return;
     }
     if (vk == VK_BSPC || ch == 0x08) {
@@ -1015,7 +1143,7 @@ static void quit_answer(int32_t item)
     /* Save. A pending entry is part of the work: store it first, exactly as
      * Enter would; a value that does not parse drops into EDIT (1-2-3's beep)
      * and the quit is off. Authored policy, no local reference. */
-    if (entry_pending() && commit() != 0) return;
+    if (entry_pending() && finish() != 0) return;
     /* THE /File Save flow of initech-tdnl.91, unchanged (the prompt offers the
      * current file; an existing file asks Cancel / Replace / Backup). Its
      * success ends the session (write_sheet); every other way out keeps it. */
@@ -1073,7 +1201,7 @@ void tbx_app_event(const tbx_event_t *ev)
         break;
     case keyDown:
     case autoKey:
-        key(ev->message);
+        key(ev->message, ev->modifiers);
         break;
     case TBX_EVT_MENU:
         if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_QUIT)) request_quit();

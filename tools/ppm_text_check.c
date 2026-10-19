@@ -218,6 +218,9 @@ int main(int argc, char **argv)
     if(samir_status) { argc--;argv++; }
     int i123_menu = argc == 3 && strcmp(argv[1], "--i123-menu") == 0;
     if (i123_menu) { argc = 2; argv++; }
+    /* B11 (initech-69mz): Tab from A1 ends on I1 with I the first column. */
+    int i123_keys = argc == 3 && strcmp(argv[1], "--i123-keys") == 0;
+    if (i123_keys) { argc = 2; argv++; }
     if (argc == 4 && !strcmp(argv[1], "--cells"))
         return check_cells(argv[2], argv[3]);
     if (argc >= 6 && !strcmp(argv[1], "--cursor-cycle"))
@@ -308,6 +311,28 @@ int main(int argc, char **argv)
                 got, npix);
         free(buf);
         return 2;
+    }
+
+    if (i123_keys) {
+        /* Same independent geometry as --i123-menu: Face A cell (col c, line
+         * L) at x 7 + 8c, y 62 + 16L. Row 1 is line 4 (y 126..142); the
+         * worksheet's first column is cols 4..12 (x 39..111). After Tab the
+         * pointer fills that first cell (navy) and the rest of row 1 is empty
+         * (no navy, no black ink): A1's "Hello" is off screen. One cell to the
+         * right (B1) puts the navy at x 111..183 and "Hello" back in A1. */
+        if (w != 640 || h != 480) { free(buf); return 1; }
+        long navy0 = 0, navy_rest = 0, ink_rest = 0;
+        for (int y = 126; y < 142; y++)
+            for (int x = 39; x < 615; x++) {
+                unsigned char *p = buf+3*(y*w+x);
+                int navy = p[0]<8 && p[1]<8 && p[2]>=100 && p[2]<=136;
+                int ink = p[0]<8 && p[1]<8 && p[2]<8;
+                if (x < 111) navy0 += navy; else { navy_rest += navy; ink_rest += ink; }
+            }
+        int ok = navy0 == 72*16 && navy_rest == 0 && ink_rest == 0;
+        printf("ppm_text_check: i123-keys row1 first-cell navy=%ld/1152 rest navy=%ld ink=%ld: %s\n",
+               navy0, navy_rest, ink_rest, ok ? "green" : "RED");
+        free(buf); return ok ? 0 : 1;
     }
 
     if (i123_menu) {
