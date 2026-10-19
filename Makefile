@@ -11629,6 +11629,20 @@ test-harness-progress-mutant: $(BUILD)/test_qemu_progress_mut
 .PHONY: test-bochs-pending
 test-bochs-pending: test-samir-boot-bochs test-samir-boot-bochs-mutant
 
+# initech-ptzy; PRD Sec 6.3/8; spec/event_model.h Sec 5: pace on consumption.
+$(BUILD)/test_qemu_key_ack: harness/emu/test_qemu_key_ack.c $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
+	$(CC) $(CFLAGS) -Iharness/emu -o $@ $<
+$(BUILD)/test_qemu_key_ack_mut: harness/emu/test_qemu_key_ack.c $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
+	$(CC) $(CFLAGS) -DHARNESS_MUTATE_NO_KEY_ACK -Iharness/emu -o $@ $<
+.PHONY: test-harness-key-ack test-harness-key-ack-mutant
+test-harness-key-ack: $(BUILD)/test_qemu_key_ack
+	@$<
+test-harness-key-ack-mutant: test-harness-key-ack $(BUILD)/test_qemu_key_ack_mut
+	@if $(BUILD)/test_qemu_key_ack_mut > $(BUILD)/qemu_key_ack_mut.log 2>&1; then printf '!!! key ack mutant survived\n'; exit 1; fi
+	@grep '^RED qemu-key-ack: --mouse k must wait for each new guest release' $(BUILD)/qemu_key_ack_mut.log
+	@printf '>>> test-harness-key-ack-mutant: green (NO_KEY_ACK correctly RED: next key outruns guest consumption)\n'
+TEST_UNIT_GATES += test-harness-key-ack test-harness-key-ack-mutant
+
 # Bochs oracle harness CLI (beads initech-564): library + main.
 $(BOCHS_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu -o $@ $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC)
@@ -32030,8 +32044,11 @@ include spec/flair_i123_entry_traces.mk
 
 include spec/flair_i123_menu_traces.mk
 # Full DFS uses explicit make/break events so QMP's default 100 ms held-key
-# timer cannot collapse repeated Right/Return presses. Existing image macro,
-# no kernel source changes; extra ticks accommodate the longer trace.
+# timer cannot collapse repeated Right/Return presses. initech-ptzy: BOTH
+# strokes and explicit releases now wait for the guest's keyUp echo. QMP
+# replies/the old 40 ms beat did not bound the 64-record raw-ring occupancy
+# during launch/redraw (spec/event_model.h Sec 5; PRD Sec 6.3/8). Keep the
+# locked input, pump budget and independent pixel/row oracles unchanged.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1000,i123_menu_gate))
 FLAIR_I123_MENU_GATE_IMG := $(BUILD)/flair_tenants_mut_i123_menu_gate.img
 # B13 entry gate image: the SAME flair_tenants build with ONLY the bounded pump
@@ -32081,6 +32098,8 @@ test-flair-i123-entry-mutant: test-flair-i123-entry $(HARNESS_BIN) $(FLAIR_I123_
 	@printf '>>> test-flair-i123-entry-mutant: I123_MUT_ENTRY_75 correctly RED -- the entry line stopped at "...%s", the 104-character tail never drawn\n' "$$(printf %s '$(I123_ENTRY_AT75)' | tail -c 12)"
 	@printf '>>> test-flair-i123-entry-mutant: green\n'
 TEST_EMU_GATES += test-flair-i123-entry test-flair-i123-entry-mutant
+
+FLAIR_I123_MENU_ACK := --keys-ack 'FLAIR-EVT what=4 '
 I123_MENU_ROW := $(I123_E)      10      -20       40                        -80      160       80 $(I123_E)
 # RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the /Range menu line is
 # clipped at the 76-cell face (was 77), so it ends "Trans  Sear" (was "Searc").
@@ -32096,41 +32115,47 @@ $(eval $(call tenant-exe-rules,i123_menu_stale,$(I123_APP_SRC),-Ios/i123/core -D
 $(eval $(call flair-data-rules,$(BUILD)/flair_i123_menu_stale.img,$(TENANTFX_EXE),$(BUILD)/tenant/i123_menu_stale.exe,$(IWORD_EXE),))
 .PHONY: test-flair-i123-menu test-flair-i123-menu-mutant
 test-flair-i123-menu: test-i123-menu-tree $(BUILD)/check_i123_menu_levels $(HARNESS_BIN) $(FLAIR_I123_MENU_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
-	$(call appl-boot,flair_i123_menu_ops,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_OPS,--screendump --screendump-after FLAIR-LIVE-OK)
+	$(call appl-boot,flair_i123_menu_ops,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_OPS,$(FLAIR_I123_MENU_ACK) --screendump --screendump-after FLAIR-LIVE-OK)
+	@! grep -q '^FLAIR-EVT-DROP' $(BUILD)/flair_i123_menu_ops.serial
+	@test "$$(grep -c '^FLAIR-EVT what=3 ' $(BUILD)/flair_i123_menu_ops.serial)" -eq 50
 	@$(call I123_MENU_OPS_OK,$(BUILD)/flair_i123_menu_ops.serial) || { printf '!!! test-flair-i123-menu FAIL: copy/move row, menu text or MENU\n'; exit 1; }
 	$(PPM_TEXT_CHECK_BIN) --i123-menu $(BUILD)/flair_i123_menu_ops.ppm
-	$(call appl-boot,flair_i123_menu_tree,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_TREE,)
+	$(call appl-boot,flair_i123_menu_tree,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_TREE,$(FLAIR_I123_MENU_ACK))
 	@f=$(BUILD)/flair_i123_menu_tree.serial; $(call APPL_ALIVE,$$f) && \
 	 grep -qF 's="Attach  Detach  Invoke  Clear  Quit' $$f && grep -qF 's="No  Yes' $$f && \
 	 grep -qF 's="Command not implemented' $$f || { printf '!!! test-flair-i123-menu FAIL: unavailable leaf / Quit navigation\n'; exit 1; }
-	$(call appl-boot,flair_i123_menu_level_1,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_1,)
+	$(call appl-boot,flair_i123_menu_level_1,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_1,$(FLAIR_I123_MENU_ACK))
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_1.serial)
 	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_1.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 1
-	$(call appl-boot,flair_i123_menu_level_2,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_2,)
+	$(call appl-boot,flair_i123_menu_level_2,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_2,$(FLAIR_I123_MENU_ACK))
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_2.serial)
 	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_2.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 2
-	$(call appl-boot,flair_i123_menu_level_3,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_3,)
+	$(call appl-boot,flair_i123_menu_level_3,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_3,$(FLAIR_I123_MENU_ACK))
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_3.serial)
 	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_3.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 3
-	$(call appl-boot,flair_i123_menu_level_4,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_4,)
+	$(call appl-boot,flair_i123_menu_level_4,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_4,$(FLAIR_I123_MENU_ACK))
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_4.serial)
 	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_4.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 4
-	$(call appl-boot,flair_i123_menu_level_5,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_5,)
+	$(call appl-boot,flair_i123_menu_level_5,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_5,$(FLAIR_I123_MENU_ACK))
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_5.serial)
 	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_5.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 5
-	$(call appl-boot,flair_i123_menu_level_6,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_6,)
+	$(call appl-boot,flair_i123_menu_level_6,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_6,$(FLAIR_I123_MENU_ACK))
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_6.serial)
 	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_6.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 6
-	$(call appl-boot,flair_i123_menu_level_7,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_7,)
+	$(call appl-boot,flair_i123_menu_level_7,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_7,$(FLAIR_I123_MENU_ACK))
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_7.serial)
 	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_7.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 7
-	$(call appl-boot,flair_i123_menu_level_8,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_8,)
+	$(call appl-boot,flair_i123_menu_level_8,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_8,$(FLAIR_I123_MENU_ACK))
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_8.serial)
 	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_8.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 8
 	@printf '>>> test-flair-i123-menu: green (tree, RI descriptions, Copy/Move row and MENU pixel bands)\n'
 test-flair-i123-menu-mutant: test-flair-i123-menu $(BUILD)/flair_i123_menu_stale.img
-	$(call appl-boot,flair_i123_menu_mut,$(FLAIR_I123_MENU_GATE_IMG),$(BUILD)/flair_i123_menu_stale.img,FLAIR_I123_MENU_OPS,)
+	$(call appl-boot,flair_i123_menu_mut,$(FLAIR_I123_MENU_GATE_IMG),$(BUILD)/flair_i123_menu_stale.img,FLAIR_I123_MENU_OPS,$(FLAIR_I123_MENU_ACK))
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_mut.serial) && grep -qx 'TENANT-REGISTER ok app=123' $(BUILD)/flair_i123_menu_mut.serial
+	@! grep -q '^FLAIR-EVT-DROP' $(BUILD)/flair_i123_menu_mut.serial
+	@grep '^FLAIR-EVT what=3 ' $(BUILD)/flair_i123_menu_ops.serial > $(BUILD)/flair_i123_menu_ops.keys
+	@grep '^FLAIR-EVT what=3 ' $(BUILD)/flair_i123_menu_mut.serial > $(BUILD)/flair_i123_menu_mut.keys
+	diff -u $(BUILD)/flair_i123_menu_ops.keys $(BUILD)/flair_i123_menu_mut.keys
 	@if $(call I123_MENU_OPS_OK,$(BUILD)/flair_i123_menu_mut.serial); then printf '!!! Move stale mutant PASSED\n'; exit 1; fi
 	@grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 ' $(BUILD)/flair_i123_menu_mut.serial | tail -1 | grep -q '     -80      160        0 '
 	@printf '>>> test-flair-i123-menu-mutant: green (Move left H1 stale: 0 instead of 80, correctly RED)\n'

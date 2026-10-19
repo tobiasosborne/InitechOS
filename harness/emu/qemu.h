@@ -97,6 +97,16 @@ typedef struct {
      * idle budget, not the ceiling. */
     int keys_after_ms;
 
+    /* initech-ptzy; PRD Sec 6.3/8; spec/event_model.h Sec 5.
+     * Opt-in backpressure: one NEW serial marker per completed keystroke.
+     * Applies to --keys, --mouse k<chord>, and K<key>:0 (explicit release).
+     * The guest must emit exactly one marker per stroke/chord (e.g.
+     * "FLAIR-EVT what=4 " for one nonmodifier key with optional modifiers).
+     * Bare modifiers swallowed by the guest cannot use this option.
+     * Paced strokes use explicit make/break, without send-key's hold timer.
+     * NULL retains the existing injection behaviour. */
+    const char *keys_ack;
+
     /* COMPLETION marker (beads initech-6gkm, --quit-after). By default the
      * harness sends QMP `quit` ~400 ms after the last injected input -- so a
      * guest still working (a long AUTOEXEC batch, a multi-pass compile) is

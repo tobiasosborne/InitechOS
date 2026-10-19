@@ -42,6 +42,11 @@ static void usage(const char *argv0)
         "                     --mouse injection (same trigger)\n"
         "  --keys-after-ms N  QEMU CPU idle budget for --keys-after (4000 ms);\n"
         "                     new serial bytes renew it, with a 120 s ceiling\n"
+        "  --keys-ack MARK    wait for a NEW guest release echo after each\n"
+        "                     --keys stroke, --mouse k stroke or Kkey:0;\n"
+        "                     e.g. 'FLAIR-EVT what=4 ' (no bare modifiers);\n"
+        "                     uses explicit make/break, no QMP hold timer;\n"
+        "                     missing echo stops injection and fails the run\n"
         "  --quit-after MARK  after all input, wait for MARK on serial before\n"
         "                     quitting qemu (the guest's work-complete marker;\n"
         "                     CPU idle budget = timeout-1000, renewed by serial\n"
@@ -143,6 +148,9 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--keys-after-ms") == 0) {
             NEED_ARG();
             cfg.keys_after_ms = atoi(argv[++i]);
+        } else if (strcmp(a, "--keys-ack") == 0) {
+            NEED_ARG();
+            cfg.keys_ack = argv[++i];
         } else if (strcmp(a, "--quit-after") == 0) {
             NEED_ARG();
             cfg.quit_after = argv[++i];
