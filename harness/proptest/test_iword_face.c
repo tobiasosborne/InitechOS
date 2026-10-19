@@ -146,8 +146,28 @@ static int32_t new_handle(FILE *f)
     fclose(f); return TBX_ERR_DOS(4);
 }
 static FILE *fh(int32_t h) { return (h >= 5 && h < 13) ? m_fh[h - 5] : 0; }
+/* CREATE refuses a DOS device name before touching the disk, as the gate does
+ * (os/flair/tbxfile.h tbxf_call: int21_path_is_device -> TBX_ERR_BADARG;
+ * spec/toolbox_gate.h Sec 10). Bead initech-8q6j: WORD.EXE's print to LPT1
+ * meets exactly this. */
+static int m_is_device(const char *path)
+{
+    static const char *const DEV[] = { "CON", "PRN", "AUX", "NUL", "LPT1", "LPT2", "LPT3", "COM1", "COM2",
+                                       "COM3", "COM4", "CLOCK$" };
+    char b[16];
+    size_t i, n = 0;
+    for (i = 0; path[i] && path[i] != '.' && n + 1 < sizeof b; i++) b[n++] = path[i];
+    b[n] = 0;
+    for (i = 0; i < sizeof DEV / sizeof DEV[0]; i++) if (!strcmp(b, DEV[i])) return 1;
+    return 0;
+}
+static char m_created_device[16];
 int32_t tbx_file_create(const char *path)
-{ char hp[300]; FILE *f; host_name(path, hp); f = fopen(hp, "w+b"); return f ? new_handle(f) : TBX_ERR_DOS(5); }
+{
+    char hp[300]; FILE *f;
+    if (m_is_device(path)) { snprintf(m_created_device, sizeof m_created_device, "%s", path); return TBX_ERR_BADARG; }
+    host_name(path, hp); f = fopen(hp, "w+b"); return f ? new_handle(f) : TBX_ERR_DOS(5);
+}
 int32_t tbx_file_open(const char *path, uint32_t mode)
 { char hp[300]; FILE *f; (void)mode; if (!m_dir) return TBX_ERR_DOS(2); host_name(path, hp); f = fopen(hp, "r+b"); return f ? new_handle(f) : TBX_ERR_DOS(2); }
 int32_t tbx_file_read(int32_t h, void *b, uint32_t n)

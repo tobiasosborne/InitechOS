@@ -23,10 +23,14 @@ static void template_test(void)
 {
     int dispatched = 0;
     for (int m = 0; m < 4; m++) for (int k = 0; k < 12; k++) {
+        /* RE-KEYED 2026-10-17 (bead initech-8q6j, IWORD P4, stated): Shift-F7
+         * Print, Alt-F7 Columns/Table and Ctrl-F7 Footnote are live (their
+         * screens: ../wordperfect51-decomp shots_wpPRINT0/01_print_menu,
+         * shots_wpMINT37/01_coltab_menu, shots_wpMINT36/01_footnote_menu) */
         int live = (m == 0 && (k == 0 || k == 1 || k == 3 || k == 5 || k == 6 || k == 7 || k >= 9)) ||
-                   (m == 1 && (k == 0 || k == 1 || k == 7 || k == 9)) ||
-                   (m == 2 && (k == 1 || k == 2 || k == 3)) ||
-                   (m == 3 && (k == 3 || k == 7));
+                   (m == 1 && (k == 0 || k == 1 || k == 6 || k == 7 || k == 9)) ||
+                   (m == 2 && (k == 1 || k == 2 || k == 3 || k == 6)) ||
+                   (m == 3 && (k == 3 || k == 6 || k == 7));
         reset_face();
         CHECK(!strcmp(names[m][k], IW_FKEYS[m][k].name), "template", "all command names equal the independent Reference transcription");
         fkey(vk_at(k), modifiers[m] | FLAIR_EVT_MOD_ACTIVE_FLAG);
@@ -52,6 +56,9 @@ static void template_test(void)
             if (m == 3 && k == 3) ok = g_mode == M_MOVENB;
             if (m == 3 && k == 7) ok = g_mode == M_FONT;
             if (m == 1 && k == 7) ok = g_mode == M_FORMAT;
+            if (m == 1 && k == 6) ok = row_is(0, "Print") && row_is(2, "     1 - Full Document");
+            if (m == 2 && k == 6) ok = row_is(23, "1 Columns; 2 Tables; 3 Math: 0");
+            if (m == 3 && k == 6) ok = row_is(23, "1 Footnote; 2 Endnote; 3 Endnote Placement: 0");
             if (k == 1 && m < 2) ok = strncmp(m_scr[23], m ? "<- Srch:" : "-> Srch:", 8) == 0;
             CHECK(ok, "template", "functional key performs its action");
         }
@@ -80,9 +87,10 @@ static void serial_template(const char *path)
     fclose(f);
     CHECK(up, "template", "WORD registered in emulator");
     CHECK(!seen[1][10], "template", "unmapped keys do not clear the status line");
+    /* (P4, 2026-10-17: the three F7 chords are live, not gray) */
     const unsigned gray[4] = { (1u<<2)|(1u<<4)|(1u<<8),
-        (1u<<2)|(1u<<3)|(1u<<4)|(1u<<5)|(1u<<6)|(1u<<8),
-        0x3FFu ^ ((1u<<1)|(1u<<2)|(1u<<3)), 0x3FFu ^ ((1u<<3)|(1u<<7)) };
+        (1u<<2)|(1u<<3)|(1u<<4)|(1u<<5)|(1u<<8),
+        0x3FFu ^ ((1u<<1)|(1u<<2)|(1u<<3)|(1u<<6)), 0x3FFu ^ ((1u<<3)|(1u<<6)|(1u<<7)) };
     for (int m = 0; m < 4; m++) for (int k = 0; k < 12; k++) if (gray[m] & (1u<<k)) {
         if (!seen[m][k]) fprintf(stderr, "missing gray key row %d F%d '%s'\n", m, k+1, names[m][k]);
         CHECK(seen[m][k], "template", "emulator drew the grayed manual name");

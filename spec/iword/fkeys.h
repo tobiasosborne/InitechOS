@@ -20,6 +20,9 @@ enum {
     IW_FK_replace = 15,
     IW_FK_undelete = 16,
     IW_FK_setup = 17,
+    IW_FK_print = 18,
+    IW_FK_footnote = 19,
+    IW_FK_columns = 20,
 };
 typedef struct { const char *name; unsigned char action; } iw_fkey_t;
 static const iw_fkey_t IW_FKEYS[4][12] = {
@@ -44,7 +47,7 @@ static const iw_fkey_t IW_FKEYS[4][12] = {
         { "Indent", IW_FK_gray },
         { "Date/Outline", IW_FK_gray },
         { "Center", IW_FK_gray },
-        { "Print", IW_FK_gray },
+        { "Print", IW_FK_print },
         { "Format", IW_FK_format },
         { "Merge Codes", IW_FK_gray },
         { "Retrieve", IW_FK_retrieve },
@@ -58,7 +61,7 @@ static const iw_fkey_t IW_FKEYS[4][12] = {
         { "Block", IW_FK_block },
         { "Mark Text", IW_FK_gray },
         { "Flush Right", IW_FK_gray },
-        { "Columns/Table", IW_FK_gray },
+        { "Columns/Table", IW_FK_columns },
         { "Style", IW_FK_gray },
         { "Graphics", IW_FK_gray },
         { "Macro", IW_FK_gray },
@@ -72,7 +75,7 @@ static const iw_fkey_t IW_FKEYS[4][12] = {
         { "Move", IW_FK_move },
         { "Text In/Out", IW_FK_gray },
         { "Tab Align", IW_FK_gray },
-        { "Footnote", IW_FK_gray },
+        { "Footnote", IW_FK_footnote },
         { "Font", IW_FK_font },
         { "Merge/Sort", IW_FK_gray },
         { "Macro Define", IW_FK_gray },

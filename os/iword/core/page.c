@@ -24,6 +24,12 @@
 
 #define NONE 0xFFFFFFFFu
 
+/* One scratch for the code builders and the printer's runs (never two at
+ * once): the tenant's BSS is capped (spec/toolbox_gate.h TBX_TENANT_BSS_MAX). */
+#define HF_MAX   1024u
+#define NOTE_MAX 1024u
+static uint8_t g_scr[IW_WP5_VAR_HDR + IW_HF_HEAD_LEN + HF_MAX + IW_WP5_VAR_TRAILER + 32u];
+
 static uint32_t rd16(const iw_doc_t *d, uint32_t p)
 {
     uint8_t g[2] = { 0, 0 };
@@ -152,10 +158,9 @@ static int put_at_cursor(iw_ed_t *e, const uint8_t *g, uint32_t n)
     return iw_reflow_para(&e->doc, e->cur, e->width);
 }
 
-#define HF_MAX 1024u
 int iw_ed_hf(iw_ed_t *e, uint32_t which, uint32_t occ, const uint8_t *text, uint32_t n)
 {
-    static uint8_t g[IW_WP5_VAR_HDR + IW_HF_HEAD_LEN + HF_MAX + IW_WP5_VAR_TRAILER];
+    uint8_t *g = g_scr;
     static const uint8_t disc[7] = IW_HF_DISC_TAIL_INIT;
     iw_doc_t *d = &e->doc;
     uint32_t p = 0, prev = NONE, seq = 0, i, o, size;
@@ -208,7 +213,7 @@ int iw_ed_hf(iw_ed_t *e, uint32_t which, uint32_t occ, const uint8_t *text, uint
 
 int iw_ed_hf_edit(iw_ed_t *e, uint32_t pos, const uint8_t *text, uint32_t n)
 {
-    static uint8_t g[IW_WP5_VAR_HDR + IW_HF_HEAD_LEN + HF_MAX + IW_WP5_VAR_TRAILER];
+    uint8_t *g = g_scr;
     iw_doc_t *d = &e->doc;
     uint32_t oldlen, o, size, i, which;
     int rc;
@@ -277,10 +282,9 @@ static uint32_t note_wrap(uint8_t *t, uint32_t n, uint32_t first)
     return lines;
 }
 
-#define NOTE_MAX 2048u
 int iw_ed_note(iw_ed_t *e, uint32_t kind, const uint8_t *text, uint32_t n)
 {
-    static uint8_t g[IW_WP5_VAR_HDR + IW_FOOT_HEAD_LEN + 1u + NOTE_MAX + IW_WP5_VAR_TRAILER];
+    uint8_t *g = g_scr;
     iw_doc_t *d = &e->doc;
     uint32_t p = 0, num = 1, o = 0, i, size, lines, head;
     if ((kind != IW_NOTE_FOOT && kind != IW_NOTE_END) || n > NOTE_MAX) return IW_E_RANGE;
@@ -321,7 +325,8 @@ static uint32_t note_text(const iw_doc_t *d, uint32_t p, uint32_t *at)
 /* ---- newspaper columns --------------------------------------------------------- */
 int iw_ed_coldef(iw_ed_t *e, uint32_t ncols)
 {
-    static uint8_t g[IW_WP5_VAR_HDR + IW_COLDEF_PAYLOAD + IW_WP5_VAR_TRAILER];
+    uint8_t *g = g_scr;
+    const uint32_t glen = IW_WP5_VAR_HDR + IW_COLDEF_PAYLOAD + IW_WP5_VAR_TRAILER;
     iw_doc_t *d = &e->doc;
     fmt_t f;
     uint32_t i, o, w, room;
@@ -332,7 +337,7 @@ int iw_ed_coldef(iw_ed_t *e, uint32_t ncols)
     room = f.rm > f.lm + IW_COL_GAP_WPU * (ncols - 1u) ? f.rm - f.lm - IW_COL_GAP_WPU * (ncols - 1u) : 0u;
     w = room / ncols;
     if (w < IW_WP5_WPU_PER_COL) return IW_E_RANGE;
-    for (i = 0; i < sizeof g; i++) g[i] = 0;
+    for (i = 0; i < glen; i++) g[i] = 0;
     g[0] = IW_WP5_COLDEF_GRP;
     g[1] = IW_WP5_COLDEF_SUB;
     put16(g + 2, IW_COLDEF_PAYLOAD + IW_WP5_VAR_TRAILER);
@@ -351,8 +356,8 @@ int iw_ed_coldef(iw_ed_t *e, uint32_t ncols)
     put16(g + o, IW_COLDEF_PAYLOAD + IW_WP5_VAR_TRAILER);
     g[o + 2u] = IW_WP5_COLDEF_SUB;
     g[o + 3u] = IW_WP5_COLDEF_GRP;
-    if (d->len + sizeof g > d->max_len) return IW_E_FULL;
-    return put_at_cursor(e, g, sizeof g);
+    if (d->len + glen > d->max_len) return IW_E_FULL;
+    return put_at_cursor(e, g, glen);
 }
 
 int iw_ed_col_on(iw_ed_t *e)
@@ -401,22 +406,31 @@ static uint32_t tdef_len(uint32_t n)
 
 static uint32_t row_info_len(uint32_t n) { return 4u + 2u * n; }
 
+/* Insert g[0..n) at *at (the table under construction), *at after it. */
+static int tbl_put(iw_doc_t *d, uint32_t *at, const uint8_t *g, uint32_t n)
+{
+    int rc;
+    if (d->len + n > d->max_len) return IW_E_FULL;
+    rc = iw_doc_insert(d, *at, g, n);
+    if (rc == IW_OK) *at += n;
+    return rc;
+}
+
 int iw_ed_table(iw_ed_t *e, uint32_t cols, uint32_t rows)
 {
     static const uint8_t old[] = IW_TBL_OLD_INIT;
-    static uint8_t g[8192];
+    uint8_t *g = g_scr;
     iw_doc_t *d = &e->doc;
     fmt_t f;
-    uint32_t o = 0, i, r, c, size, w, first_cell = 0;
-    int rc;
+    uint32_t o, i, r, c, size, w, at = e->cur, first_cell = 0;
+    int rc = IW_OK;
     if (cols < 1u || cols > IW_TBL_MAX_COLS || rows < 1u) return IW_E_RANGE;
     iw__fmt_at(d, e->cur, &f);
     if (f.tbl || f.colon) return IW_E_RANGE;   /* no tables in tables or columns (p. 643) */
     /* [Tbl Def] (MINT38 / MINT40 / MINT41 @0x147) */
     size = tdef_len(cols) - IW_WP5_VAR_HDR;
-    if (tdef_len(cols) + rows * (IW_WP5_VAR_HDR + 2u * row_info_len(cols) + 2u + IW_WP5_VAR_TRAILER +
-                                 cols * 15u) + 64u > sizeof g) return IW_E_FULL;
-    for (i = 0; i < sizeof g; i++) g[i] = 0;
+    for (i = 0; i < tdef_len(cols); i++) g[i] = 0;
+    o = 0;
     g[o++] = IW_WP5_COLDEF_GRP; g[o++] = IW_WP5_TBL_SUB; put16(g + o, size); o += 2u;
     for (i = 0; i < sizeof old; i++) g[o + i] = old[i];
     o += IW_TBL_OLD_LEN;
@@ -434,31 +448,41 @@ int iw_ed_table(iw_ed_t *e, uint32_t cols, uint32_t rows)
     for (i = 0; i < cols; i++) g[o + 23u + 4u * cols + i] = 0x20;
     o += 23u + 5u * cols + 2u;
     put16(g + o, size); g[o + 2u] = IW_WP5_TBL_SUB; g[o + 3u] = IW_WP5_COLDEF_GRP; o += 4u;
-    /* the rows and cells; their payloads are iw__p4_fixup's */
-    for (r = 0; r < rows; r++) {
+    rc = tbl_put(d, &at, g, o);
+    /* the rows and cells, a row at a time; their payloads are iw__p4_fixup's */
+    for (r = 0; r < rows && rc == IW_OK; r++) {
         uint32_t rs = 2u * row_info_len(cols) + 2u + IW_WP5_VAR_TRAILER;
+        for (i = 0; i < IW_WP5_VAR_HDR + rs; i++) g[i] = 0;
+        o = 0;
         g[o] = IW_WP5_TROW_GRP; g[o + 1u] = IW_WP5_TROW_SUB; put16(g + o + 2u, rs);
         o += IW_WP5_VAR_HDR + rs - IW_WP5_VAR_TRAILER;
         put16(g + o, rs); g[o + 2u] = IW_WP5_TROW_SUB; g[o + 3u] = IW_WP5_TROW_GRP; o += 4u;
         for (c = 0; c < cols; c++) {
+            for (i = 0; i < 19u; i++) g[o + i] = 0;
             g[o] = IW_WP5_TROW_GRP; g[o + 1u] = IW_WP5_TCELL_SUB; put16(g + o + 2u, 15u);
             g[o + 5u] = (uint8_t)c; g[o + 6u] = 1; g[o + 7u] = 1; g[o + 14u] = 0x20;
             put16(g + o + 15u, 15u); g[o + 17u] = IW_WP5_TCELL_SUB; g[o + 18u] = IW_WP5_TROW_GRP;
             o += 19u;
-            if (r == 0u && c == 0u) first_cell = o;
+            if (r == 0u && c == 0u) first_cell = at + o;
         }
+        rc = tbl_put(d, &at, g, o);
     }
-    {
+    if (rc == IW_OK) {
         uint32_t ts = row_info_len(cols) + 7u + IW_WP5_VAR_TRAILER;
+        for (i = 0; i < IW_WP5_VAR_HDR + ts; i++) g[i] = 0;
+        o = 0;
         g[o] = IW_WP5_TROW_GRP; g[o + 1u] = IW_WP5_TOFF_SUB; put16(g + o + 2u, ts);
         o += IW_WP5_VAR_HDR + ts - IW_WP5_VAR_TRAILER;
         put16(g + o, ts); g[o + 2u] = IW_WP5_TOFF_SUB; g[o + 3u] = IW_WP5_TROW_GRP; o += 4u;
+        rc = tbl_put(d, &at, g, o);
     }
-    if (d->len + o > d->max_len) return IW_E_FULL;
-    rc = iw_doc_insert(d, e->cur, g, o);
-    if (rc != IW_OK) return rc;
+    if (rc != IW_OK) {
+        /* a table too large for the document: take back what went in */
+        if (at > e->cur) (void)iw_doc_delete(d, e->cur, at - e->cur);
+        return rc;
+    }
     /* the cursor in cell A1 (shots_wpMINT38/04_table_edit "Cell A1") */
-    e->cur += first_cell;
+    e->cur = first_cell;
     e->dirty = 1;
     e->goal = NONE;
     return IW_OK;
@@ -759,8 +783,8 @@ uint32_t iw_p4_label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap, u
  * spec/iword/wp5_page.h "printing". A page is built as 66 print lines of up
  * to PL layers (a layer prints over the one before it after a "\r": Header
  * A over Header B, PRTMINT33 line 73), then emitted. */
-#define PW     160u                 /* print columns kept                 */
-#define PL     3u                   /* layers a line                      */
+#define PW     96u                  /* print columns kept (75 at 1"/1")   */
+#define PL     2u                   /* layers a line: A over B            */
 typedef struct pline {
     char     t[PL][PW];
     uint16_t len[PL];               /* columns used (0: empty)            */
@@ -917,13 +941,13 @@ static void hf_track(const iw_doc_t *d, uint32_t from, uint32_t to, hfpos_t *h, 
 
 static void print_hf(const iw_doc_t *d, const hfpos_t *h, uint32_t page, uint32_t footer_line0)
 {
-    static uint8_t t[HF_MAX];
+    uint8_t *t = g_scr;
     uint32_t i;
     int odd = (int)(page & 1u);
     for (i = 0; i < 4u; i++) {
         uint32_t at = h->at[i], n, L, s, j;
         if (at == NONE || !hf_applies((uint32_t)byte_at(d, at + IW_WP5_VAR_HDR + IW_HF_OLD_LEN), odd)) continue;
-        n = iw_hf_text(d, at, t, sizeof t);
+        n = iw_hf_text(d, at, t, HF_MAX);
         L = i < 2u ? IW_PG_TOP_LINES + 1u : footer_line0;
         if (i >= 2u) L = IW_PG_TOP_LINES + IW_PG_TEXT_LINES - hf_lines(t, n) + 1u;
         for (s = 0, j = 0; j <= n; j++) {
@@ -990,11 +1014,11 @@ static void print_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t L)
 static uint32_t print_note(const iw_doc_t *d, uint32_t at, uint32_t len, uint32_t x0, const char *lead,
                            uint32_t L0, int draw, uint32_t rm)
 {
-    static uint8_t t[NOTE_MAX + 16u];
+    uint8_t *t = g_scr;
     uint32_t n = 0, i, s, lines = 0, x, ls;
     for (i = 0; lead[i]; i++) t[n++] = (uint8_t)lead[i];
     ls = n;
-    for (i = 0; i < len && n < sizeof t; i++) {
+    for (i = 0; i < len && n < NOTE_MAX + 16u; i++) {
         int c = byte_at(d, at + i);
         t[n++] = (uint8_t)(c == (int)IW_WP5_SRT ? ' ' : c);
     }

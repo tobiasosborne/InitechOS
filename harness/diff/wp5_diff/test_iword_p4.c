@@ -610,11 +610,36 @@ static void part_notes(void)
     printf("  part notes %s: 1..6 footnotes, one more added before each, numbered in order\n", bad ? "RED" : "green");
 }
 
+/* --cmp <file> <MINTnn> [x]: the emulator gates' DISK leg -- a document
+ * WORD.EXE saved == the file the real WP.EXE wrote (x: the stated W-20 mask). */
+static int cmp_mode(const char *file, const char *mint, int mask)
+{
+    char path[1024];
+    uint32_t n, m, plen;
+    (void)iw_wp5_default_prefix(&plen);
+    n = slurp(file, g_out, CAP);
+    mint_path(mint, path, sizeof path);
+    m = slurp(path, g_want, CAP);
+    if (mask) { mask_hf_x(g_out, n, plen); mask_hf_x(g_want, m, plen); }
+    if (!n || n != m || memcmp(g_out, g_want, n)) {
+        uint32_t j = 0;
+        while (j < n && j < m && g_out[j] == g_want[j]) j++;
+        fprintf(stderr, "RED-REASON cmp: %s (%u bytes) != %s (%u bytes), first difference at 0x%X\n", file, n, mint, m, j);
+        return 1;
+    }
+    printf("cmp: %s == %s (%u bytes%s)\n", file, mint, n, mask ? ", W-20 X masked" : "");
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     char ref[1024];
+    if (argc >= 5 && !strcmp(argv[2], "--cmp")) {
+        g_corpus = argv[1];
+        return cmp_mode(argv[3], argv[4], argc > 5 && argv[5][0] == 'x');
+    }
     if (argc != 2) {
-        fprintf(stderr, "usage: %s <WORDPERFECT51_DECOMP>\n", argv[0]);
+        fprintf(stderr, "usage: %s <WORDPERFECT51_DECOMP> [--cmp <file> <MINTnn> [x]]\n", argv[0]);
         return 2;
     }
     g_corpus = argv[1];

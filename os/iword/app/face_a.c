@@ -168,6 +168,8 @@
 #include "iword/wp5_format.h"
 #include "iword/reveal_codes.h"
 #include "iword/settings.h"
+#include "iword/wp5_page.h"     /* P4 (bead initech-8q6j; face_p4.c) */
+#include "iword_int.h"
 
 const char tbx_app_name[] = "WORD";
 
@@ -309,7 +311,20 @@ enum { M_EDIT, M_SAVE_NAME, M_GET_NAME, M_REPLACE, M_SAVEQ, M_EXITQ, M_ERROR, M_
        M_FORMAT, M_FMTLINE, M_FMTJUST, M_FMTMARL, M_FMTMARR,
        M_SIZE, M_FONTBLK, M_MOVENB, M_RETMENU, M_FMTSP, M_GRAY, M_SEARCH,
        M_RCONF, M_RSEARCH, M_RTEXT, M_RASK, M_UNDO,
-       M_SETUP, M_ENV, M_UNITS, M_UNITVALUE, M_BACKUP, M_BACKUPVALUE };
+       M_SETUP, M_ENV, M_UNITS, M_UNITVALUE, M_BACKUP, M_BACKUPVALUE,
+       /* P4 (face_p4.c; contiguous: p4_mode) */
+       M_FMTPAGE, M_HFMENU, M_HFPLACE, M_HFEDIT, M_NOTEMENU, M_NOTESUB, M_NOTEEDIT,
+       M_COLTAB, M_COLMENU, M_COLDEF, M_TBLMENU, M_TBLCOLS, M_TBLROWS, M_TBLEDIT,
+       M_PRINT, M_SELPRN, M_PEDIT, M_PRNERR, M_PRNPORT, M_PRNPORTFILE };
+static uint32_t g_hf_occ;                   /* P4: the placement being defined */
+static int p4_mode(void);
+static int p4_full(void);
+static void p4_paint_full(const iw_where_t *w);
+static const char *p4_status_text(char *buf, uint32_t cap);
+static void p4_key(char ch, uint8_t vk, int32_t mods);
+static void put_cell_name(char *out, uint32_t *n);
+static void tbl_rule(row_t *r, const iw_doc_t *d, uint32_t tdef, uint32_t cols, int kind);
+static void tbl_verticals(row_t *r, const iw_doc_t *d, uint32_t tdef, uint32_t cols);
 static int      g_mode = M_EDIT;
 static int      g_err_return;               /* the prompt an ERROR returns to */
 static const char *g_err;
@@ -604,8 +619,17 @@ static void row_text(const iw_line_t *ln, uint32_t *state, row_t *r, uint32_t bs
                     r->a[sc] = (uint8_t)iw_attr_faces(*state);
                 }
                 c1 = c + 1u;
-            } else if (k == IW_U_TAB || k == IW_U_INDENT) {
+            } else if (k == IW_U_TAB || k == IW_U_INDENT || k == IW_U_CELL) {
                 c1 = iw_line_col(&g_ed.doc, ln, q);      /* blank, plain */
+            } else if (k == IW_U_NOTE) {
+                /* P4: a note shows as its number (MINT36 05_doc "Alpha1") */
+                uint32_t v = iw_note_number(&g_ed.doc, p), dg = iw__digits(v), j;
+                for (j = 0; j < dg; j++) {
+                    uint32_t sc2 = scol(ln, c + dg - 1u - j);
+                    if (sc2 < SCR_COLS) r->t[sc2] = (char)('0' + v % 10u);
+                    v /= 10u;
+                }
+                c1 = c + dg;
             }
             if (p >= bs && p < bt && c1 > c) {
                 if (sc < b0) b0 = sc;
@@ -618,6 +642,10 @@ static void row_text(const iw_line_t *ln, uint32_t *state, row_t *r, uint32_t bs
     }
     if (b1 > SCR_COLS) b1 = SCR_COLS;
     if (b0 < b1) { r->blk_col = (uint8_t)b0; r->blk_len = (uint8_t)(b1 - b0); }
+    /* P4: a table's [Tbl Def] line is its top rule, a row's text row has its
+     * verticals (shots_wpMINT38/07_after) */
+    if (ln->tbl == IW_LT_DEF && ln->tdef != 0xFFFFFFFFu) { row_clear(r); tbl_rule(r, &g_ed.doc, ln->tdef, ln->tcols, 0); }
+    else if (ln->tbl == IW_LT_ROW && ln->tdef != 0xFFFFFFFFu) tbl_verticals(r, &g_ed.doc, ln->tdef, ln->tcols);
 }
 
 /* The screen rows line `ln` takes: its own, the blank rows of its line
@@ -626,13 +654,17 @@ static void row_text(const iw_line_t *ln, uint32_t *state, row_t *r, uint32_t bs
  * 1, 3 -> 3; MINT30 2.25 -> 2) -- and a hard page's bar (MINT09 08_edit_top;
  * the bar after the blank rows is inferred, W-17). `last` = the document's
  * last line, which has nothing below it. */
+/* P4: *bar 1 the hard page's '=', 2 the soft page's '-' (MINT39 01_typed),
+ * 3 the rule under a table row, 4 the table's bottom rule. */
 static uint32_t line_rows(const iw_line_t *ln, int last, uint32_t *bar)
 {
     uint32_t n = 1u;
     *bar = 0;
+    if (ln->tbl == IW_LT_ROW) { *bar = ln->trow_last ? 4u : 3u; return 2u; }
     if (last) return n;
     n += iw_spacing_rows(ln->sp) - 1u;
     if (ln->term == IW_U_HPG) { *bar = 1u; n++; }
+    else if (ln->soft_end) { *bar = 2u; n++; }
     return n;
 }
 
@@ -691,7 +723,7 @@ static void screen_lines(uint32_t rows, uint32_t *first, uint32_t *last)
 
 static void paint_status(const iw_where_t *w, int line)
 {
-    char s[SCR_COLS + 1], num[12], doc[32];
+    char s[SCR_COLS + 1], num[12], doc[48];
     uint32_t n, i, k, query_cursor = 0;
     for (i = 0; i < SCR_COLS; i++) s[i] = ' ';
     s[SCR_COLS] = 0;
@@ -706,8 +738,18 @@ static void paint_status(const iw_where_t *w, int line)
         if (g_mode == M_EDIT) left = g_current;
 #endif
         for (i = 0; left[i] && i < 40u; i++) s[i] = left[i];
-        /* "Doc 1 Pg <p> Ln <ln>" ending at column STATUS_DOC_END */
-        scopy(doc, "Doc 1 Pg ");
+        /* "Doc 1 Pg <p> Ln <ln>" ending at column STATUS_DOC_END; P4: "Col 2 "
+         * in newspaper columns (MINT37 07_col2_typed), "Cell A1 " in a table
+         * (MINT38 05_table_normal) before it */
+        n = 0;
+        if (w->cell) put_cell_name(doc, &n);
+#ifndef IWORD_MUT_COL_STATUS
+        /* (IWORD_MUT_COL_STATUS, Rule 6, test-iword-p4-face-mutant: no "Col
+         * n" in columns. NEVER real.) */
+        else if (w->ncol) { doc[n++] = 'C'; doc[n++] = 'o'; doc[n++] = 'l'; doc[n++] = ' ';
+                            doc[n++] = (char)('0' + w->ncol % 10u); doc[n++] = ' '; }
+#endif
+        scopy(doc + n, "Doc 1 Pg ");
         n = slen(doc);
         {
             uint32_t pg = w->page, t = 0;
@@ -718,7 +760,13 @@ static void paint_status(const iw_where_t *w, int line)
         doc[n++] = ' '; doc[n++] = 'L'; doc[n++] = 'n'; doc[n++] = ' ';
         /* Ln from the line's height down the page (slice 3: the spacing,
          * MINT25 "Ln 2.83""; single spacing gives P1's 1" + lines / 6) */
-        k = iw_fmt_inches(iw_ln_y_hundredths(w->y), num);
+        {
+            /* P4: in a table row WP measures the cell's text: Ln 0.14" below
+             * the row's top, Pos its left edge + 0.12" (MINT38 05 "Cell A1
+             * ... Ln 1.14" Pos 1.12"") [inferred beyond row 1 / cell A] */
+            uint32_t yy = w->y + (w->cell ? IW_WPU_TO_Y(168u) : 0u);
+            k = iw_fmt_inches(iw_ln_y_hundredths(yy), num);
+        }
         for (i = 0; i < k; i++) doc[n++] = num[i];
         {
             /* Pos: the paper position (slice 3, MINT23 "Pos 1.25""; at 1"/1"
@@ -730,7 +778,16 @@ static void paint_status(const iw_where_t *w, int line)
              * its shape and spacing kept (authored adaptation of WP's 80
              * columns, as tdnl.51's one-column move) */
             char pos[12];
-            uint32_t pk = iw_fmt_inches(w->x / 12u, pos);
+            uint32_t xx = w->x, pk;
+            if (w->cell) {
+                iw_line_t tl;
+                if (iw_ed_lines(&g_ed, w->line, 1u, &tl) == 1u && tl.tdef != 0xFFFFFFFFu) {
+                    uint32_t left = iw__cell_left(&g_ed.doc, tl.tdef, w->cell - 1u);
+                    uint32_t cc = (left + IW_TBL_SCREEN_DX - IW_WP5_LEFT_WPU) / IW_WP5_WPU_PER_COL;
+                    xx = left + IW_TBL_SCREEN_DX + IW_WP5_WPU_PER_COL * (w->col > cc ? w->col - cc : 0u);
+                }
+            }
+            pk = iw_fmt_inches(xx / 12u, pos);
             uint32_t sh = STATUS_POS + 4u + pk > SCR_COLS ? STATUS_POS + 4u + pk - SCR_COLS : 0u;
             for (i = 0; i < n; i++) s[STATUS_DOC_END + 1 - sh - n + i] = doc[i];
             s[STATUS_POS - sh] = 'P';
@@ -763,6 +820,7 @@ static void paint_status(const iw_where_t *w, int line)
 #endif
         }
         else if (g_mode == M_RASK) t = "Replace? Yes (No)";
+        else if (p4_mode() && p4_status_text(replace, sizeof replace)) t = p4_status_text(replace, sizeof replace);
         else if (g_mode == M_UNDO) t = "Undelete 1 Restore; 2 Previous Deletion: 0";
         else if (g_mode == M_RTEXT) t = "Replace with:";
         else if (g_mode == M_SEARCH || g_mode == M_RSEARCH) {
@@ -856,8 +914,10 @@ static void paint_doc(const iw_where_t *w, uint32_t rows)
             if (skip) { skip--; continue; }
             if (k == 0) { put_row((int)i++, &r); continue; }
             row_clear(&r);
-            if (bar && k == n - 1u)
-                for (uint32_t c = 0; c < SCR_COLS; c++) r.t[c] = '=';
+            if (bar && k == n - 1u) {
+                if (bar == 3u || bar == 4u) tbl_rule(&r, &g_ed.doc, lines[li].tdef, lines[li].tcols, bar == 3u ? 1 : 2);
+                else for (uint32_t c = 0; c < SCR_COLS; c++) r.t[c] = bar == 2u ? IW_PG_SOFT_BAR : '=';
+            }
             put_row((int)i++, &r);
         }
     }
@@ -1067,6 +1127,10 @@ static void paint(void)
         paint_format(&w);
         return;
     }
+    if (p4_full()) {
+        p4_paint_full(&w);
+        return;
+    }
     if (!g_reveal) {
         paint_doc(&w, EDIT_ROWS);
         paint_status(&w, LINE_STATUS);
@@ -1091,6 +1155,8 @@ static void error(const char *msg, int back)
     g_err_return = back;
     g_mode = M_ERROR;
 }
+
+#include "face_p4.c"                /* P4: Format: Page, notes, columns, tables, print */
 
 static void settings_defaults(void)
 {
@@ -1490,6 +1556,7 @@ static void format_key(char ch, uint8_t vk)
     switch (g_mode) {
     case M_FORMAT:
         if (ch == '1') g_mode = M_FMTLINE;
+        else if (ch == '2') g_mode = M_FMTPAGE;           /* P4: Format: Page (MINT33 01) */
         else if (cancel || enter || ch == '0' || vk == VK_F7) g_mode = M_EDIT;
         break;
     case M_FMTLINE:
@@ -1684,6 +1751,9 @@ static int function_key(uint8_t vk, int32_t mods)
     case IW_FK_format:    g_mode = M_FORMAT; break;
     case IW_FK_move:      g_mode = M_MOVENB; break;
     case IW_FK_font:      g_mode = M_FONT; break;
+    case IW_FK_print:     g_mode = M_PRINT; break;      /* P4: Shift-F7 (PRINT0 01) */
+    case IW_FK_footnote:  g_mode = M_NOTEMENU; break;   /* P4: Ctrl-F7 (MINT36 01)  */
+    case IW_FK_columns:   g_mode = M_COLTAB; break;     /* P4: Alt-F7 (MINT37 01)   */
     case IW_FK_unmapped:
         /* Reference p. 966 note 4: no command is mapped to these keys.
          * Keep the editing screen/status, rather than inventing a blank
@@ -1710,6 +1780,19 @@ static void edit_key(char ch, uint8_t vk, int32_t mods)
         block_key(ch, vk, mods); return;
     }
     if (!ch && function_key(vk, mods)) return;
+#ifndef IWORD_MUT_CELL_TAB
+    /* (IWORD_MUT_CELL_TAB, Rule 6, test-iword-p4-face-mutant: Tab in a table
+     * types a [Tab]. NEVER real.) */
+    if ((ch == '\t' || vk == VK_TAB) && iw_in_table(&g_ed.doc, g_ed.cur)) {
+        /* P4: Tab / Shift-Tab to the next / previous cell (Reference p. 642) */
+        (void)iw_ed_cell(&g_ed, (mods & (int32_t)FLAIR_EVT_MOD_SHIFT_KEY) ? -1 : 1);
+        return;
+    }
+#endif
+    if ((ch == '\r' || ch == '\n' || vk == VK_ENTER) && !ctrl && iw_in_table(&g_ed.doc, g_ed.cur)) {
+        /* P4 reduction (stated, iword.h): a cell keeps one line */
+        return;
+    }
     if (ch == '\t' || vk == VK_TAB) {   /* Tab: [Tab] (MINT09) */
         rc = edit(ED_TAB, 0);
     } else if (ch == 0) {                /* function and cursor keys */
@@ -1987,6 +2070,7 @@ static void key(int32_t message, int32_t mods)
     else if (setup_mode()) setup_key(ch, vk);
     else if (format_mode()) format_key(ch, vk);
     else if (g_mode == M_RETRIEVE) retrieve_key(ch, vk, mods);
+    else if (p4_mode()) p4_key(ch, vk, mods);
     else prompt_key(ch, vk);
     /* Reference p. 697: ANY cursor motion ends a deletion group, including
      * Search. The motion caused by the deletion itself remains in its group. */

@@ -397,8 +397,8 @@
     { 10,  5, "4 - Cartridges/Fonts/Print Wheels" }, \
     { 12,  5, "5 - Initial Base Font" }, \
     { 14,  5, "6 - Path for Downloadable" }, \
-    { 15,  9, "Fonts and Printer" }, \
-    { 16,  9, "Command Files" }, \
+    { 15, 11, "Fonts and Printer" }, \
+    { 16, 11, "Command Files" }, \
     { 18,  5, "7 - Print to Hardware Port" }, \
     {  0,  0, "" } \
 }

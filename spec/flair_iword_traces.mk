@@ -81,7 +81,12 @@ FLAIR_IWORD_FORMAT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10
 FLAIR_IWORD_LAUNCH := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m78:10,m78:10,l1,l0,l1,l0
 # All 48 slots; F1 backs out of prompts, F7 n n clears the document.
 # F11/F12 aliases are also driven with Block on. Final F9: pixel waypoint.
-FLAIR_IWORD_FKEYS_SPEC := $(FLAIR_IWORD_LAUNCH),kf1,kf1,kf2,kf1,kf3,kf4,kf5,kf6,kf7,kn,kn,kf8,kf9,kf10,kf1,kf11,kf11,kf12,kf12,kshift-f1,kf1,kshift-f2,kf1,kshift-f3,kshift-f4,kshift-f5,kshift-f6,kshift-f7,kshift-f8,kf1,kshift-f9,kshift-f10,kf1,kshift-f11,kshift-f12,kalt-f1,kalt-f2,kf1,kalt-f3,kalt-f3,kalt-f4,kf1,kalt-f5,kalt-f6,kalt-f7,kalt-f8,kalt-f9,kalt-f10,kalt-f11,kalt-f12,kctrl-f1,kctrl-f2,kctrl-f3,kctrl-f4,kf1,kctrl-f5,kctrl-f6,kctrl-f7,kctrl-f8,w200,kf1,w150,kctrl-f9,kctrl-f10,kctrl-f11,kctrl-f12,kf9
+# RULE 8, 2026-10-17 (bead initech-8q6j, IWORD P4, deliberate): Shift-F7
+# Print, Alt-F7 Columns/Table and Ctrl-F7 Footnote are live screens / menus
+# now, so each is left with F1 Cancel ("Back out of a WordPerfect menu",
+# Reference p. 55) before the next key --
+# the three "kf1" after them are the only change.
+FLAIR_IWORD_FKEYS_SPEC := $(FLAIR_IWORD_LAUNCH),kf1,kf1,kf2,kf1,kf3,kf4,kf5,kf6,kf7,kn,kn,kf8,kf9,kf10,kf1,kf11,kf11,kf12,kf12,kshift-f1,kf1,kshift-f2,kf1,kshift-f3,kshift-f4,kshift-f5,kshift-f6,kshift-f7,kf1,kshift-f8,kf1,kshift-f9,kshift-f10,kf1,kshift-f11,kshift-f12,kalt-f1,kalt-f2,kf1,kalt-f3,kalt-f3,kalt-f4,kf1,kalt-f5,kalt-f6,kalt-f7,kf1,kalt-f8,kalt-f9,kalt-f10,kalt-f11,kalt-f12,kctrl-f1,kctrl-f2,kctrl-f3,kctrl-f4,kf1,kctrl-f5,kctrl-f6,kctrl-f7,kf1,kctrl-f8,w200,kf1,w150,kctrl-f9,kctrl-f10,kctrl-f11,kctrl-f12,kf9
 
 # P3 search oracle first: Search forward for the Bold On code, backward
 # for 'plain', then fail a search for 'missing'. No Save, no disk writes.
@@ -102,3 +107,28 @@ FLAIR_IWORD_SETUP_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-f1,k3,k8,k1,kc,k2,kp,kf7,
 FLAIR_IWORD_REPLACE_CLIP_SPEC := $(FLAIR_IWORD_LAUNCH),kf6,kf6,kk,ke,ke,kp,khome,khome,khome,kup,kalt-f2,ky,kf6,kf6,kf2,kf2,ky,kf1
 FLAIR_IWORD_UNDO_CLIP_SPEC := $(FLAIR_IWORD_LAUNCH),ka,kb,kc,kd,kbspc,kleft,kright,kbspc,kleft,kright,kbspc,kleft,kright,kbspc,kf1,k2,k2,k1
 FLAIR_IWORD_SETUP_CLIP_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-f1,k3,k1,k2,ky,kf7,k8,k1,kc,k2,kp
+
+# ---- IWORD P4 (bead initech-8q6j; added 2026-10-17, new locked traces, Rule 8)
+# Each types the keys of a real WordPerfect 5.1 mint session (../wordperfect51-
+# decomp mint/wpMINTnn.steps; ledger re/mint-results-005.md) after the launch,
+# saves it with F10 and opens Reveal Codes at the top (Home Home Home Up,
+# Alt-F3). "kctrl-b" is Ctrl-B (the page number), "kshift-tab" Shift-Tab.
+# 1. headers / footers: mint/wpMINT34.steps -- Shift-F8 2 3 1 2 "Initech" F7,
+#    4 1 2 "Page " Ctrl-B F7, F7, "One." Ctrl-Enter "Two." -- F10 "hf".
+FLAIR_IWORD_HF_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-f8,k2,k3,k1,k2,kshift-i,kn,ki,kt,ke,kc,kh,kf7,k4,k1,k2,kshift-p,ka,kg,ke,kspc,kctrl-b,kf7,kf7,kshift-o,kn,ke,kdot,kctrl-ret,kshift-t,kw,ko,kdot,kf10,kh,kf,kret,khome,khome,khome,kup,kalt-f3
+# 2. footnotes / endnotes: mint/wpMINT36.steps -- "Alpha" Ctrl-F7 1 1 "First
+#    note." F7 " beta" Ctrl-F7 1 1 "Second note." F7 " gamma" Ctrl-F7 2 1 "End
+#    note." F7 "." -- F10 "notes".
+FLAIR_IWORD_NOTES_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-a,kl,kp,kh,ka,kctrl-f7,k1,k1,kshift-f,ki,kr,ks,kt,kspc,kn,ko,kt,ke,kdot,kf7,kspc,kb,ke,kt,ka,kctrl-f7,k1,k1,kshift-s,ke,kc,ko,kn,kd,kspc,kn,ko,kt,ke,kdot,kf7,kspc,kg,ka,km,km,ka,kctrl-f7,k2,k1,kshift-e,kn,kd,kspc,kn,ko,kt,ke,kdot,kf7,kdot,kf10,kn,ko,kt,ke,ks,kret,khome,khome,khome,kup,kalt-f3
+# 3. newspaper columns: mint/wpMINT37.steps -- Alt-F7 1 3 F7 1, "The quick
+#    brown fox jumps over the lazy dog." Ctrl-Enter "Second column." Alt-F7 1 2
+#    "After." -- F10 "cols".
+FLAIR_IWORD_COLS_SPEC := $(FLAIR_IWORD_LAUNCH),kalt-f7,k1,k3,kf7,k1,kshift-t,kh,ke,kspc,kq,ku,ki,kc,kk,kspc,kb,kr,ko,kw,kn,kspc,kf,ko,kx,kspc,kj,ku,km,kp,ks,kspc,ko,kv,ke,kr,kspc,kt,kh,ke,kspc,kl,ka,kz,ky,kspc,kd,ko,kg,kdot,kctrl-ret,kshift-s,ke,kc,ko,kn,kd,kspc,kc,ko,kl,ku,km,kn,kdot,kalt-f7,k1,k2,kshift-a,kf,kt,ke,kr,kdot,kf10,kc,ko,kl,ks,kret,khome,khome,khome,kup,kalt-f3
+# 4. tables: mint/wpMINT38.steps -- Alt-F7 2 1 "3" Enter "2" Enter F7, A1 Tab
+#    B1 Tab C1 Tab A2 Tab B2 Tab C2, Home Home Down "After." -- F10 "tbl".
+FLAIR_IWORD_TABLE_SPEC := $(FLAIR_IWORD_LAUNCH),kalt-f7,k2,k1,k3,kret,k2,kret,kf7,kshift-a,k1,ktab,kshift-b,k1,ktab,kshift-c,k1,ktab,kshift-a,k2,ktab,kshift-b,k2,ktab,kshift-c,k2,khome,khome,kdown,kshift-a,kf,kt,ke,kr,kdot,kf10,kt,kb,kl,kret,khome,khome,khome,kup,kalt-f3
+# 5. print: the keys of mint/wpMINT34.steps (the document), then those of
+#    mint/wpPRINT1.steps -- Shift-F7 S 3 2 8 "PRINT.TXT" Enter F7 F7 -- and 1
+#    Full Document (mint/print_one.sh); then the port back to 1 LPT 1 and 1
+#    again: the device -- PC LOAD LETTER.
+FLAIR_IWORD_PRINT_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-f8,k2,k3,k1,k2,kshift-i,kn,ki,kt,ke,kc,kh,kf7,k4,k1,k2,kshift-p,ka,kg,ke,kspc,kctrl-b,kf7,kf7,kshift-o,kn,ke,kdot,kctrl-ret,kshift-t,kw,ko,kdot,kshift-f7,ks,k3,k2,k8,kshift-p,kshift-r,kshift-i,kshift-n,kshift-t,kdot,kshift-t,kshift-x,kshift-t,kret,kf7,kf7,k1,kshift-f7,ks,k3,k2,k1,kf7,kf7,k1

@@ -10067,6 +10067,11 @@ TENANT_CFLAGS := $(KERNEL_CFLAGS) -Os -fno-tree-loop-distribute-patterns \
 # P3: I123-only resource, size optimization and 4-byte cdecl stack alignment.
 # The Toolbox trap uses dword cdecl arguments (spec/toolbox_gate.h Sec 2).
 # Other tenants and the kernel retain their existing compile/link policy.
+# IWORD P4 (bead initech-8q6j, stated): WORD.EXE takes the same size policy
+# (LTO, -Oz, sections + --gc-sections, no inlining) -- the page features and
+# the printer put it past the 64 KiB V1 file cap under plain -Os. I123's own
+# resource define stays I123's.
+SIZE_POLICY_SRC := os/i123/app/face_a.c os/iword/app/face_a.c
 I123_LINK0 := $(KERNEL_CC) -m32 -nostdlib -no-pie -flto -Oz -fno-inline -Wl,--gc-sections,--no-warn-rwx-segments,--build-id=none -T $(TENANT_LD) -Wl,--defsym=TBX_BASE=0
 I123_LINK1 := $(KERNEL_CC) -m32 -nostdlib -no-pie -flto -Oz -fno-inline -Wl,--gc-sections,--no-warn-rwx-segments,--build-id=none -T $(TENANT_LD) -Wl,--defsym=TBX_BASE=$(TENANT_PROBE)
 define tenant-exe-rules
@@ -10074,10 +10079,10 @@ $(BUILD)/tenant/$(1).o0.elf: $(2) $(TBX_RT_SRC) $(TBX_HDRS) $(TENANT_LD) $(4) | 
 	@mkdir -p $(BUILD)/tenant/$(1)
 	@set -e; objs=; for s in $(2) $(TBX_RT_SRC); do \
 		o=$(BUILD)/tenant/$(1)/$$$$(basename $$$$s .c).o; \
-		$(KERNEL_CC) $(TENANT_CFLAGS) $(3) $(if $(filter os/i123/app/face_a.c,$(2)),-DI123_MENU_DISK -flto -ffunction-sections -fdata-sections -Oz -fno-jump-tables -fno-inline -fno-ipa-cp-clone -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2,) -c $$$$s -o $$$$o; objs="$$$$objs $$$$o"; \
+		$(KERNEL_CC) $(TENANT_CFLAGS) $(3) $(if $(filter os/i123/app/face_a.c,$(2)),-DI123_MENU_DISK,) $(if $(filter $(SIZE_POLICY_SRC),$(2)),-flto -ffunction-sections -fdata-sections -Oz -fno-jump-tables -fno-inline -fno-ipa-cp-clone -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2,) -c $$$$s -o $$$$o; objs="$$$$objs $$$$o"; \
 	done; \
-	$(if $(filter os/i123/app/face_a.c,$(2)),$(I123_LINK0),$(LD) -m elf_i386 --no-warn-rwx-segments $(5) -T $(TENANT_LD) --defsym=TBX_BASE=0) -o $$@ $$$$objs; \
-	$(if $(filter os/i123/app/face_a.c,$(2)),$(I123_LINK1),$(LD) -m elf_i386 --no-warn-rwx-segments $(5) -T $(TENANT_LD) --defsym=TBX_BASE=$(TENANT_PROBE)) -o $(BUILD)/tenant/$(1).o1.elf $$$$objs
+	$(if $(filter $(SIZE_POLICY_SRC),$(2)),$(I123_LINK0),$(LD) -m elf_i386 --no-warn-rwx-segments $(5) -T $(TENANT_LD) --defsym=TBX_BASE=0) -o $$@ $$$$objs; \
+	$(if $(filter $(SIZE_POLICY_SRC),$(2)),$(I123_LINK1),$(LD) -m elf_i386 --no-warn-rwx-segments $(5) -T $(TENANT_LD) --defsym=TBX_BASE=$(TENANT_PROBE)) -o $(BUILD)/tenant/$(1).o1.elf $$$$objs
 $(BUILD)/tenant/$(1).exe: $(BUILD)/tenant/$(1).o0.elf $(MZLINK_BIN) | $(BUILD)
 	$(OBJCOPY) -O binary $(BUILD)/tenant/$(1).o0.elf $(BUILD)/tenant/$(1).o0.bin
 	$(OBJCOPY) -O binary $(BUILD)/tenant/$(1).o1.elf $(BUILD)/tenant/$(1).o1.bin
@@ -10166,7 +10171,7 @@ I123_EXE := $(BUILD)/tenant/i123.exe
 # docs/plans/INITECH-WORD-plan.md Sec 4). The _no_wrap / _save_nothing builds
 # are the test-flair-iword-mutant fixtures ONLY, on their own gate volumes.
 IWORD_APP_SRC := os/iword/app/face_a.c os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/core/search.c os/iword/core/page.c os/iword/fs/wp5.c
-IWORD_APP_DEP := os/iword/core/iword.h os/iword/core/iword_int.h spec/iword/wp5_format.h spec/iword/wp5_page.h spec/iword/reveal_codes.h spec/iword/fkeys.h spec/iword/settings.h
+IWORD_APP_DEP := os/iword/app/face_p4.c os/iword/core/iword.h os/iword/core/iword_int.h spec/iword/wp5_format.h spec/iword/wp5_page.h spec/iword/reveal_codes.h spec/iword/fkeys.h spec/iword/settings.h
 $(eval $(call tenant-exe-rules,iword,$(IWORD_APP_SRC),-Ios/iword/core,$(IWORD_APP_DEP),))
 $(eval $(call tenant-exe-rules,iword_no_wrap,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_WRAP,$(IWORD_APP_DEP),))
 $(eval $(call tenant-exe-rules,iword_save_nothing,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_SAVE_NOTHING,$(IWORD_APP_DEP),))
@@ -14500,7 +14505,7 @@ endif
 # IWORD_MUT_NO_BLOCK_ON (leg F8: "Block on" is not shown).
 # ---------------------------------------------------------------------------
 TEST_IWORD_FACE   := $(BUILD)/test_iword_face
-IWORD_FACE_DEPS   := harness/proptest/test_iword_face.c os/iword/app/face_a.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/iword/settings.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR)
+IWORD_FACE_DEPS   := harness/proptest/test_iword_face.c os/iword/app/face_a.c os/iword/app/face_p4.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/iword/settings.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR)
 IWORD_FACE_CFLAGS := $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/apps/tbx $(IWORD_CORE_INC)
 IWORD_FACE_FS     := $(BUILD)/iword_face_fs
 $(TEST_IWORD_FACE): $(IWORD_FACE_DEPS) | $(BUILD)
