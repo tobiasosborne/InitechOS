@@ -191,14 +191,14 @@ and another file both claim the cluster shown.  One of them holds the wrong
 data.  \cmd{CHKDSK} does not correct cross-linked files.}{Copy each file
 to another disk, delete both from this disk, and copy back the one that is
 correct.}
-\MessageDetail{MSG-DOS-0044}{\cmd{CHKDSK} could not enter the directory
-whose path follows: its directory entry is damaged.  The message continues
-with \texttt{, tree past this point not processed}.}{Run \cmd{CHKDSK /F}
-to correct the directory, then check the files beneath it.}
-\MessageDetail{MSG-DOS-0045}{The end of the \texttt{Cannot CHDIR to}
-message above: the subdirectories beneath the directory that could not be
-entered were not checked.}{Run \cmd{CHKDSK /F} to correct the directory,
-then run \cmd{CHKDSK} again.}
+% MSG-DOS-0045 is the tail of MSG-DOS-0044 and is printed with it, as one
+% message (tools/pubs_msgtable.c joins them; chkdsk.c prints them on one
+% line), so it is explained under 0044: CP-06 counts printed messages.
+% An incomplete tree means chkdsk.c does no lost-chain recovery.
+\MessageDetail{MSG-DOS-0044}{\cmd{CHKDSK} could not move into the
+subdirectory \ph{path}, because its directory entry names a cluster that is
+not valid.  The files below it are not checked, and lost clusters are not
+recovered.}{Copy the files you can read to another disk.}
 \MessageDetail{MSG-DOS-0046}{\cmd{CHKDSK /F} could not create a
 \file{FILE}\ph{nnnn}\file{.CHK} file for a lost chain, usually because the
 root directory is full.}{Delete or move files from the root directory and
