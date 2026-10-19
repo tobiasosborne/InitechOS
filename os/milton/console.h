@@ -90,7 +90,22 @@ typedef struct {
     uint32_t cursor_saved[16];
     uint32_t cursor_col, cursor_row;
     int cursor_on;
+    /* The text-page shadow (bead initech-6fdt; spec/tsr_contract.h Sec 3): one
+     * {character, CGA attribute} pair per cell, row-major 80x25, kept in step
+     * by putc / clear / scroll / erase, so a resident can save and restore the
+     * screen it pops up over. cur_attr is the attribute console_set_attr last
+     * set (0x07 at init, the default ink/paper). The page is one static block
+     * (console.c), not part of the struct, so a stack console stays small. */
+    uint8_t  cur_attr;
+    uint8_t *cells;
 } console_t;
+
+/* Save the text page + cursor into buf (CONSOLE_PAGE_BYTES: the cells, then the
+ * cursor row and column byte) / restore it: every cell is redrawn from its
+ * {character, attribute} and the cursor is put back. */
+#define CONSOLE_PAGE_BYTES (CONSOLE_COLS * CONSOLE_ROWS * 2 + 2)
+void console_save_page(const console_t *con, uint8_t *buf);
+void console_restore_page(console_t *con, const uint8_t *buf);
 
 /* Pack an (r,g,b) triple into the framebuffer pixel format for the given bpp.
  * Branches on bpp exactly like the blit (Sec 5 Risk 2). For 24bpp the result

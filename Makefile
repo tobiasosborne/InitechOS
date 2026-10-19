@@ -7527,6 +7527,29 @@ test-tsr-unit-mutant: $(addprefix $(BUILD)/test_tsr_,$(TEST_TSR_MUTANTS))
 	done
 	@printf '>>> test-tsr-unit-mutant: green (TSR_MUT_NO_KEEP, INT21_MUT_INDOS_EXEC, INT21_MUT_SETVECT_TRAP all RED)\n'
 
+# test-tsr-io (bead initech-6fdt): the keyboard flag byte (Alt tracked like
+# Ctrl; Ctrl+Alt -> 0x0C) and the console text-page save/restore graded against
+# a framebuffer PIXEL snapshot. Mutants: KBD_MUT_NO_ALT, CONSOLE_MUT_RESTORE_NO_DRAW.
+TEST_TSR_IO      := $(BUILD)/test_tsr_io
+TEST_TSR_IO_SRCS := $(MILTON_DIR)/test_tsr_io.c $(KERNEL_KBD_C) $(MILTON_DIR)/console.c os/flair/surface.c
+TEST_TSR_IO_HDRS := $(MILTON_DIR)/kbd.h $(MILTON_DIR)/console.h spec/tsr_contract.h
+TEST_TSR_IO_MUTANTS := KBD_MUT_NO_ALT CONSOLE_MUT_RESTORE_NO_DRAW
+$(TEST_TSR_IO): $(TEST_TSR_IO_SRCS) $(TEST_TSR_IO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Ios/flair -o $@ $(TEST_TSR_IO_SRCS)
+$(BUILD)/test_tsr_io_%: $(TEST_TSR_IO_SRCS) $(TEST_TSR_IO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Ispec -I$(MILTON_DIR) -Ios/flair -o $@ $(TEST_TSR_IO_SRCS)
+.PHONY: test-tsr-io test-tsr-io-mutant
+test-tsr-io: $(TEST_TSR_IO)
+	@$(TEST_TSR_IO)
+	@printf '>>> test-tsr-io: green (BIOS flag byte Ctrl+Alt=0Ch; text page save/restore == pixel snapshot + cursor)\n'
+test-tsr-io-mutant: $(addprefix $(BUILD)/test_tsr_io_,$(TEST_TSR_IO_MUTANTS))
+	@for m in $(TEST_TSR_IO_MUTANTS); do \
+		if $(BUILD)/test_tsr_io_$$m > $(BUILD)/test_tsr_io_$$m.log 2>&1; then \
+			printf '!!! test-tsr-io-mutant FAIL: %s survived\n' $$m; exit 1; fi; \
+		printf '    %s RED: %s\n' $$m "$$(grep -m1 FAIL $(BUILD)/test_tsr_io_$$m.log)"; \
+	done
+	@printf '>>> test-tsr-io-mutant: green (KBD_MUT_NO_ALT, CONSOLE_MUT_RESTORE_NO_DRAW both RED)\n'
+
 # ---------------------------------------------------------------------------
 # REAL gate: test-devices (beads initech-509.7 -- DOS character-device chain)
 # ---------------------------------------------------------------------------
@@ -8693,7 +8716,7 @@ $(KERNEL_DESKTOP_DB_MUT_SKIP_OBJ): $(KERNEL_DESKTOP_DB_C) $(KERNEL_DIR)/desktop_
 # kbd.c / pit.c the host oracle (test_kbd.c) exercises for the pure ring/table/
 # divisor logic; freestanding here (the IRQ handlers touch I/O ports), hosted
 # there (pure halves only). io.h only -- no -Ispec needed.
-$(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h | $(BUILD)
+$(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h spec/tsr_contract.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_KBD_C) -o $@
 
 # PS/2 mouse IRQ12 driver (beads initech-5l5z FO-6). io.h only. mouse.o is
@@ -29475,7 +29498,7 @@ TEST_UNIT_GATES := \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-j1lu-con-unit test-j1lu-kbd-mutant test-j1lu-con-mutant test-conin-unit test-int21 test-redir test-er3h test-int24 \
-	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-tsr-unit test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-tsr-unit test-tsr-io test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 		test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-fileio-build test-seed-fileio-fpc test-seed-fpc-diff test-seed-repro test-seed-repro-mutant test-tps-lex-fpc test-tps-lex-build test-tps-lex-mutant test-tps-parse-fpc test-tps-parse-build test-tps-parse-mutant test-tps-type-fpc test-tps-type-build test-tps-type-mutant test-compiler test-assets test-spec test-dosmsg \
@@ -29540,7 +29563,7 @@ TEST_UNIT_GATES := \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-redir-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-redir-parse-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-tsr-unit-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-40oq-mutant test-psp-mutant \
+	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-redir-parse-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-tsr-unit-mutant test-tsr-io-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-40oq-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mz-mutant test-mzload-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant test-fat-move-mutant \

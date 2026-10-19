@@ -80,7 +80,14 @@ typedef struct {
     uint8_t caps_down; /* CapsLock held; repeated makes do not toggle       */
     uint8_t ctrl;   /* bit 0: left Ctrl; bit 1: E0-prefixed right Ctrl        */
     uint8_t e0;     /* the next byte belongs to the extended Set 1 block     */
+    uint8_t alt;    /* bit 0: left Alt; bit 1: E0-prefixed right Alt (6fdt)   */
 } kbd_state_t;
+
+/* The modifier state as the BIOS keyboard flag byte a resident reads at
+ * TSR_KBD_FLAGS_LINEAR (spec/tsr_contract.h Sec 4): bit 0 right Shift, 1 left
+ * Shift, 2 Ctrl, 3 Alt, 6 CapsLock. The IRQ1 handler publishes it after every
+ * scancode (bead initech-6fdt). */
+uint8_t kbd_bios_flags(const kbd_state_t *st);
 
 /* Reset modifier state (no keys held, caps off). */
 void kbd_state_init(kbd_state_t *st);

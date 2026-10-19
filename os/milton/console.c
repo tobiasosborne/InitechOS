@@ -62,6 +62,20 @@ console_color_t console_pack_rgb(uint32_t bpp, uint8_t r, uint8_t g, uint8_t b)
 
 #define CONSOLE_TAB_WIDTH 8
 
+/* The single text-page shadow (bead initech-6fdt). */
+static uint8_t g_console_page[CONSOLE_COLS * CONSOLE_ROWS * 2];
+
+/* Record cells [col0, col1] of `row` as character ch in attribute attr. */
+static void page_fill(console_t *con, uint32_t row, uint32_t col0, uint32_t col1,
+                      uint8_t ch, uint8_t attr)
+{
+    if (!con->cells || row >= CONSOLE_ROWS) return;
+    for (uint32_t c = col0; c <= col1 && c < CONSOLE_COLS; c++) {
+        con->cells[(row * CONSOLE_COLS + c) * 2u]      = ch;
+        con->cells[(row * CONSOLE_COLS + c) * 2u + 1u] = attr;
+    }
+}
+
 /* ---- bitmap_t helper ----------------------------------------------------- */
 /* Bind a bitmap_t from a console_t. Used internally so all surface calls
  * receive the same descriptor (ADR-0004 D-2: one surface, no duplication). */
@@ -156,6 +170,8 @@ void console_clear(console_t *con)
     for (uint32_t y = 0; y < con->height; y++) {
         surface_fill_span(&bm, 0u, y, con->width, con->bg);
     }
+    for (uint32_t r = 0; r < CONSOLE_ROWS; r++)
+        page_fill(con, r, 0u, CONSOLE_COLS - 1u, ' ', 0x07u);
 }
 
 /* ---- scroll -------------------------------------------------------------- */
@@ -192,6 +208,12 @@ void console_scroll(console_t *con)
      * text band) to bg. */
     for (uint32_t y = move_rows; y < text_h; y++) {
         surface_fill_span(&bm, 0u, y, bm.width, con->bg);
+    }
+    if (con->cells && con->rows > 0u) {
+        uint32_t n = (con->rows - 1u) * CONSOLE_COLS * 2u;
+        for (uint32_t i = 0; i < n; i++)
+            con->cells[i] = con->cells[i + CONSOLE_COLS * 2u];
+        page_fill(con, con->rows - 1u, 0u, CONSOLE_COLS - 1u, ' ', 0x07u);
     }
 }
 
@@ -254,6 +276,8 @@ void console_putc(console_t *con, char ch)
      * byte identical to drawing with fg/bg (CLAUDE.md Law 4). */
     console_draw_glyph(con, con->cur_col, con->cur_row, (uint8_t)ch,
                        con->cur_fg, con->cur_bg);
+    page_fill(con, con->cur_row, con->cur_col, con->cur_col, (uint8_t)ch,
+              con->cur_attr);
     con->cur_col++;
     if (con->cur_col >= con->cols) {
         advance_line(con);
@@ -352,6 +376,8 @@ int console_init(console_t *con, const boot_info_t *bi)
      * field existed (CLAUDE.md Law 4). */
     con->cur_fg = con->fg;
     con->cur_bg = con->bg;
+    con->cur_attr = 0x07u;
+    con->cells = g_console_page;
 
     console_clear(con);
     return CONSOLE_OK;
@@ -396,6 +422,7 @@ void console_set_attr(console_t *con, uint8_t cga_attr)
     if (con == 0) {
         return;
     }
+    con->cur_attr = cga_attr;
     /* CGA attribute byte (IBM PC Tech Ref App B):
      *   bit  3:0  foreground colour nibble (0..7) + bit 3 = bright -> 0..15
      *   bit  6:4  background colour nibble (0..7)
@@ -485,6 +512,7 @@ static void console_fill_cells(console_t *con, uint32_t row,
         }
         surface_fill_span(&bm, x0, y, span, con->cur_bg);
     }
+    page_fill(con, row, col0, col1, ' ', con->cur_attr);
 }
 
 void console_erase_line(console_t *con, int mode)
@@ -534,4 +562,39 @@ void console_erase_display(console_t *con, int mode)
             console_fill_cells(con, r, 0u, last_col);
         }
     }
+}
+
+/* ---- text-page save-under (bead initech-6fdt; spec/tsr_contract.h Sec 3) ---
+ * The period resident copied the 4000-byte B800h page and put it back; this
+ * LFB console keeps the same page as a shadow and RESTORE re-renders it. Each
+ * cell goes back through console_set_attr's own attribute map, so a restored
+ * cell is drawn with exactly the ink/paper it was written in. */
+void console_save_page(const console_t *con, uint8_t *buf)
+{
+    if (!con || !con->cells || !buf) return;
+    for (uint32_t i = 0; i < CONSOLE_COLS * CONSOLE_ROWS * 2u; i++)
+        buf[i] = con->cells[i];
+    buf[CONSOLE_PAGE_BYTES - 2] = (uint8_t)con->cur_row;
+    buf[CONSOLE_PAGE_BYTES - 1] = (uint8_t)con->cur_col;
+}
+
+void console_restore_page(console_t *con, const uint8_t *buf)
+{
+    if (!con || !con->cells || !buf) return;
+    uint8_t attr = con->cur_attr;
+    console_color_t fg = con->cur_fg, bg = con->cur_bg;
+    for (uint32_t i = 0; i < CONSOLE_COLS * CONSOLE_ROWS; i++) {
+        uint8_t ch = buf[i * 2u], a = buf[i * 2u + 1u];
+        console_set_attr(con, a);
+        con->cells[i * 2u] = ch;
+        con->cells[i * 2u + 1u] = a;
+#ifndef CONSOLE_MUT_RESTORE_NO_DRAW
+        console_draw_glyph(con, i % CONSOLE_COLS, i / CONSOLE_COLS, ch,
+                           con->cur_fg, con->cur_bg);
+#endif
+    }
+    con->cur_attr = attr;
+    con->cur_fg = fg;
+    con->cur_bg = bg;
+    console_set_cursor(con, buf[CONSOLE_PAGE_BYTES - 2], buf[CONSOLE_PAGE_BYTES - 1]);
 }
