@@ -226,9 +226,13 @@ fallback, asserted on serial.)
 > double-click fix, the SAMIR Bochs leg with RFB key replay; ADR citation gate over every
 > Record; ADR-0013 AC-3. 29 beads closed.
 >
-> **Owed:** Rule-14 clips for the Finder alerts bundle (13 scripts), itext (3), iword_listfiles,
-> and the four that race above load 2 (locked_trash, trashfull_regression, finder_refused,
-> toolbox_hardening) -- record on a quiet box, then close tdnl.61-.88, uelk, qvgd. Operator
+> **Clips (08:15, box quiet):** 22 owed clips recorded + repro-proven on main (Finder bundle,
+> itext, iword_listfiles, the four load-raced ones); closed on that evidence: tdnl.61 .63 .64
+> .65 .66 .84, uelk, qvgd. Still owed (initech-4sny, P1): finder_demo / dialog_pressed /
+> finder_replace miss their marker, finder_diskfull lacks a fixture contract, finder_refused
+> differs between two captures at load < 1.2 (genuine nondeterminism to find) -- blocks
+> tdnl.79 .88 .57 .62 .72. Bochs legs on the final main: boot, desktop, appswitch, 8bpp + the
+> five DAC mutants all green. Operator
 > decisions: f8b1 (back cover), 9222 (teal), bkmv (SAMIR dates), the PM-ratified items in
 > WL-0174 (TSR vectors 0x38/0x39, VERSION.TXT grading, 123.EXE flags, SideKick period facts).
 > Next bugs/features by priority: 13ig, h4bk -> vx9d (SK.COM UI), ioke, hgmx, 7z2z, 2ter (b)/(c),
