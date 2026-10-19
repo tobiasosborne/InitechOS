@@ -55,6 +55,12 @@
  *       GlobalToLocal a tenant needs: a mouseDown's where is GLOBAL, Sec 6,
  *       and a dragged window moves its content). Bits 0..7 keep goAway's
  *       0/1/2 exactly; no old value moved.
+ * bead: initech-qvgd (InitechWord P3, List Files F5; 2026-10-20). Deliberate
+ *       Rule-8 addition: TBX_FILE_FIND 0x0087 and TBX_DISK_FREE 0x0088 + their
+ *       arities and the 22-byte find record (Sec 10a) -- the directory
+ *       enumeration and the free-space figure WordPerfect 5.1's List Files
+ *       screen shows (../wordperfect51-decomp mint/work/LISTF/
+ *       mint-results-005.md). No old value moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -182,6 +188,12 @@
 #define TBX_FILE_SEEK     0x0084u  /* (handle, signed delta, origin) -> pos | err */
 #define TBX_FILE_CLOSE    0x0085u  /* (handle) -> 0 | err */
 #define TBX_FILE_DELETE   0x0086u  /* (path) -> 0 | err */
+/* Deliberate locked ABI extension, initech-qvgd. Sec 10a below. */
+#define TBX_FILE_FIND     0x0087u  /* (patternPath, attr, recBuf, maxRecs)
+                                    * -> records written | err              */
+#define TBX_DISK_FREE     0x0088u  /* () -> free bytes of the data volume | err */
+#define TBX_ARGC_FILE_FIND 4u
+#define TBX_ARGC_DISK_FREE 0u
 /* Deliberate locked ABI extension, initech-fvnj. Sec 11 below. */
 #define TBX_ALERT         0x0090u  /* (textPtr, defPtr, cancelPtr, otherPtr)
                                     * -> 0 | err; the answer is DELIVERED  */
@@ -227,6 +239,32 @@
  * Writes commit synchronously through DOS/FAT; CLOSE returns 0 on success.
  * Existing image-only drawing/registration/menu pointer rules are unchanged.
  */
+
+/* Sec 10a. THE DIRECTORY (initech-qvgd; authored ABI over the sanctioned DOS
+ * surface, ADR-0003 Appendix A: 4Eh FINDFIRST / 4Fh FINDNEXT / 36h GETSPACE).
+ * FILE_FIND runs FINDFIRST(patternPath, attr) then FINDNEXT to exhaustion in
+ * ONE call, under the tenant's shadow PSP with the root CWD (the Sec 10
+ * discipline; the kernel's own DTA is restored), and writes each match as a
+ * TBX_FIND_REC_BYTES record -- the found-entry tail of the locked 43-byte DTA
+ * (spec/find_data.h offsets 0x15..0x2A, byte for byte): attr, DOS packed time,
+ * DOS packed date, 32-bit size, ASCIIZ 8.3 name -- into recBuf (module or BSS,
+ * maxRecs * 22 bytes checked whole). The "." and ".." entries are returned as
+ * DOS returns them. The result is the number of records written; matches past
+ * maxRecs are not written (the caller sizes its buffer). No match (DOS 12h /
+ * 02h) is 0; a bad path is TBX_ERR_DOS(3). attr > 0xFF, maxRecs >
+ * TBX_FIND_MAX_RECS or a bad span/path is BADARG.
+ * DISK_FREE is GETSPACE (AH=36h) on the data volume: sectors-per-cluster *
+ * available clusters * bytes-per-sector, the figure WP 5.1 prints as "Free:"
+ * (mint 005 LF11_06 == mdir's "bytes free"); an unreadable volume is
+ * TBX_ERR_DOS(0x0F). */
+#define TBX_FIND_REC_BYTES      22u
+#define TBX_FIND_REC_ATTR_OFF   0u
+#define TBX_FIND_REC_TIME_OFF   1u
+#define TBX_FIND_REC_DATE_OFF   3u
+#define TBX_FIND_REC_SIZE_OFF   5u
+#define TBX_FIND_REC_NAME_OFF   9u
+#define TBX_FIND_REC_DTA_OFF    0x15u   /* where the record starts in the DTA */
+#define TBX_FIND_MAX_RECS       512u
 
 /* Argument arity per V1 code (the dispatcher reads exactly this many dwords;
  * the per-call TENANT-GATE trace prints exactly this many). */

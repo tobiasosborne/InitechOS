@@ -179,6 +179,15 @@ int32_t tbx_file_close(int32_t h)
 { uint32_t a[] = { (uint32_t)h }; return tbx_trap(TBX_FILE_CLOSE,1,a); }
 int32_t tbx_file_delete(const char *path)
 { uint32_t a[] = { (uint32_t)(uintptr_t)path }; return tbx_trap(TBX_FILE_DELETE,1,a); }
+/* Ref: spec/toolbox_gate.h Sec 10a, deliberately extended in initech-qvgd. */
+int32_t tbx_file_find(const char *pattern, uint32_t attr, void *recs, uint32_t max)
+{
+    uint32_t a[4] = { (uint32_t)(uintptr_t)pattern, attr, (uint32_t)(uintptr_t)recs, max };
+    return tbx_trap(TBX_FILE_FIND, TBX_ARGC_FILE_FIND, a);
+}
+int32_t tbx_disk_free(void) { return tbx_trap(TBX_DISK_FREE, TBX_ARGC_DISK_FREE, 0); }
+int32_t tbx_get_clock(void *t)
+{ uint32_t a[2] = { 0u, (uint32_t)(uintptr_t)t }; return tbx_trap(TBX_CLOCK, 2u, a); }
 
 /* Ref: spec/toolbox_gate.h Sec 11, deliberately extended in initech-fvnj. */
 int32_t tbx_alert(const char *text, const char *def, const char *cancel,

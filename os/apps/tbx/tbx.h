@@ -123,6 +123,16 @@ int32_t tbx_file_write(int32_t handle, const void *buffer, uint32_t count);
 int32_t tbx_file_seek(int32_t handle, int32_t delta, uint32_t origin);
 int32_t tbx_file_close(int32_t handle);
 int32_t tbx_file_delete(const char *path);
+/* The directory: spec Sec 10a (initech-qvgd). FIND writes up to `max`
+ * TBX_FIND_REC_BYTES records (attr, DOS time, DOS date, size, 8.3 name) of the
+ * entries matching `pattern` (e.g. "DOCS\\*.*") under `attr` into `recs`
+ * (static module/BSS storage) and returns how many; DISK_FREE returns the
+ * data volume's free bytes (INT 21h AH=36h). */
+int32_t tbx_file_find(const char *pattern, uint32_t attr, void *recs, uint32_t max);
+int32_t tbx_disk_free(void);
+/* TBX_CLOCK mode 0 (spec/cp_dialog.h, R4.5): the DOS date and time into
+ * `t`, a cp_time_t (spec/cpanels_record.h) in module/BSS storage. */
+int32_t tbx_get_clock(void *t);
 
 /* The alert: spec Sec 11 (initech-fvnj). Lines of `text` are separated by
  * '\r'; `cancel` / `other` may be 0. Returns 0 when the alert is ASKED for;
