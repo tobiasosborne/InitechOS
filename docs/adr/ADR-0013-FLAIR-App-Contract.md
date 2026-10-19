@@ -37,6 +37,7 @@
 | 0.1 | 2026-06-27 | App-Contract Committee (3 seats), Chair-synthesized | Initial draft (ADR-by-committee `wf_42352963-a57`). Mac Process-Manager model as spine, minimal-cooperative mechanics grafted, Win16 dispatch-shape only. All file:line citations verified against HEAD; three drift corrections folded (refCon field at window_record.h:400; desktop_paint_all at desktop.c:149 via shell_render shell.h:239; SHELL_MAX_WINDOWS==2 at shell.h:104; osEvt synthesis not promised by event_model.h:71). | (adversarial verify) |
 | 1.0 | 2026-06-27 | Chair + Adversarial Reviewer | Ratified. Adversarial verifier returned "ratifiable-with-fixes"; the four fixes are folded into the normative text: (1) the refCon demux/activation extracted into a HOST-BUILDABLE Layer-5 dispatcher (`flair_app_dispatch`) called by both kmain and the oracle, so E-D2 single-spine holds and oracle #1 is real (Sec 2, Sec 3.3, BC-2); (2) the teardown/leak oracle reframed to "avail STABLE across cycles >=2 / leak drifts down" to match the bump+free-list heap contract (Sec 7 O-3); (3) a fail-loud launch-budget oracle and a char-tenant suspend/rebuild oracle added (Sec 7 O-4/O-7); (4) citation fixes (FLAIR_CLASS_GENERAL enumerator at heap.h ~108, not heap.h:177; ADR-0001 dangling-path note). | T. Osborne (Operator) |
 | 1.1 | 2026-06-27 | App-Contract Committee (Architecture Review Board) | **Amendment AC-2 -- the SPLIT-ARENA resolution of initech-ubd0** (full text in `ADR-0013-AMENDMENT-AC-2-Split-Arena.md`; summary appended as "Amendment AC-2" below). Resolves the Sec 3.4-vs-3.6 tension AC-1 deferred: Sec 3.4 claims app DEATH survives a corrupted child arena, but Sec 3.6 + the code put each tenant's WindowRecord + region pools IN the child arena, so the DisposeWindow loop reads the dead heap -- the claim was FALSE (BC-6 unsatisfied). Ruling **option (b) split-arena**: a tenant now owns TWO child blocks -- a RECORDS block (`FLAIR_CLASS_HANDLE`; WindowRecord(s) + all region pools, read during teardown) and a DATA block (`FLAIR_CLASS_GENERAL`; per-instance state). New `FlairProcess_kill` (= terminate minus `close()`) is the death path. **BC-6 now SATISFIED** -- oracle-proven (O-3 death-survival sub-test + UBD0_MUT_RECORDS_IN_DATA_ARENA / TEARDOWN_MUT_LEAK_RECORDS mutants). | (ARB; adversarial-verified) |
+| 1.2 | 2026-10-20 | App-Contract Committee (Architecture Review Board) | **Amendment AC-3 -- disk-launched tenants and the locked Toolbox gate** ([full Record](ADR-0013-AMENDMENT-AC-3-Toolbox-Gate-and-Disk-Tenants.md)). Lifts the Sec 6/Sec 8 disk-native deferral; extends DEC-08a placement; records link-synthesized registration, push-callback delivery, admit/activate sequencing, strict four-block carve/free order and tenant-range crash triage. | Implementation reconciliation (initech-t5xs) |
 
 ### Approval & Sign-Off Matrix
 
@@ -320,4 +321,18 @@ This is the initech-ubd0 resolution (architecture-committee ruling, option (b)).
 
 ---
 
-*End of ADR-0013. RATIFIED by ADR-by-committee + adversarial verification, operator-ratified 2026-06-27; Amendment AC-2 (split-arena, initech-ubd0) appended 2026-06-27. Spine: Apple Process Manager model (Seat A); mechanics: minimal-cooperative (Seat C, grafted); Win16 dispatch-shape only (Seat B, noted). All file:line citations verified against HEAD. Controlled Document; verify revision before use.*
+## Amendment AC-3 -- the Toolbox gate and disk-launched tenants
+
+**RATIFIED 2026-10-20** (initech-t5xs). The controlling full Record is
+[ADR-0013 Amendment AC-3](ADR-0013-AMENDMENT-AC-3-Toolbox-Gate-and-Disk-Tenants.md).
+It supersedes the disk-native deferral in Sec 6/Sec 8 and extends the earlier
+in-image-only wording to disk GUI tenants. The canonical class-2 EXEC path
+remains separate. Disk launch adds a code block before the AC-2 trio, freed
+last; registration admits a windowless app, while window creation requests
+foreground affirmation. Push-callback delivery and yield-is-return remain the
+single event model. The full Record pins the locked gate ABI, current-source
+qualifications and the acceptance gates for each decision.
+
+---
+
+*End of ADR-0013. RATIFIED by ADR-by-committee + adversarial verification, operator-ratified 2026-06-27; Amendment AC-2 (split-arena, initech-ubd0) appended 2026-06-27; Amendment AC-3 (disk tenants and Toolbox gate, initech-t5xs) appended 2026-10-20. Spine: Apple Process Manager model (Seat A); mechanics: minimal-cooperative (Seat C, grafted); Win16 dispatch-shape only (Seat B, noted). Historical file:line citations retain their original verification scope; AC-3 cites current file:function seams. Controlled Document; verify revision before use.*

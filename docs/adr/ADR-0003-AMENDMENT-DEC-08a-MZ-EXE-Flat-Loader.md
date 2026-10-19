@@ -15,12 +15,13 @@
 |---|---|
 | Document ID | OEA-ADR-0003-A6 |
 | Title | ADR-0003 Amendment DEC-08a: Relocatable MZ (.EXE) Loader in 32-Bit Flat Mode |
-| Version | 1.0 |
+| Version | 1.1 |
 | Status | **Ratified** (ADR-by-committee; loader-architect + period-authenticity + north-star lenses; no gridlock) |
 | Classification | Internal Use Only |
 | Document Owner | Office of Enterprise Architecture |
 | Primary Author | Architecture Review Board (delegated committee), STAPLER Programme |
 | Effective Date | 2026-06-20 |
+| Last Amended | 2026-10-20 (initech-t5xs; AC-3 parameterized placement and current locked addresses) |
 | Next Scheduled Review | 2026-12-20 (semi-annual) |
 | Supersedes | **Partial** — supersedes the *deferral clause* of ADR-0003 DEC-08 (§5.8); the flat `.COM`-equivalent provision of DEC-08 is **RETAINED, UNCHANGED**. |
 | Related Documents | ADR-0001 (386+, 32-bit flat); ADR-0003 (InitechDOS); ADR-0009 DEC-03 (MZ+overlay authentic SAMIR end-state); CDR-0001 |
@@ -57,12 +58,14 @@ size from `e_cp`/`e_cblp`; header paragraphs `e_cparhdr`; `e_minalloc`/`e_maxall
 `e_ss:e_sp`; `e_cs:e_ip`) followed by the load module and a relocation table. The load
 module is **32-bit flat code** (what the InitechOS toolchain and Turbo Initech emit). The
 relocation table is a list of **`uint32` flat offsets** into the load module; for each, the
-loader **adds the flat load base** (`PROGRAM_IMAGE`, 0x30100) to the **32-bit dword** at
-that offset. (An InitechMZ with `e_crlc == 0` is the degenerate position-independent case
+loader **adds the flat load base** (`load_base`; EXEC default `PROGRAM_IMAGE`,
+0x40100) to the **32-bit dword** at that offset. (An InitechMZ with `e_crlc == 0`
+is the degenerate position-independent case
 and loads with zero fixups.)
 
-**DEC-08a.2 — Layout.** PSP at `PROGRAM_BASE` (0x30000), built unchanged by `psp_build`;
-the **load module** placed at `PROGRAM_IMAGE` (0x30100). The MZ path reads the header,
+**DEC-08a.2 — Layout.** Canonical EXEC placement: PSP at `PROGRAM_BASE` (0x40000),
+built unchanged by `psp_build`; the **load module** placed at `PROGRAM_IMAGE`
+(0x40100). The MZ path reads the header,
 skips `e_cparhdr*16` bytes to the load module, and never copies the header into the image.
 `e_cs:e_ip` and `e_ss:e_sp` are flat offsets from the load base; for the current release
 the canonical emission is `e_ip=0,e_cs=0` (entry == load base, identical to `.COM`) with
@@ -99,6 +102,57 @@ free differential/authenticity goldens (a real period `.EXE` header parses corre
 **DEC-08a.7 — Overlays deferred.** AH=4Bh AL=03h "load overlay" (the `DBASE.OVL` mechanism,
 ADR-0009 DEC-03) remains deferred (bead `initech-dtw.4`); the header and relocation
 machinery are defined so the overlay loader extends, not replaces, this format.
+
+### Amendment note — 2026-10-20: AC-3 parameterized placement and address reconciliation
+
+**Disposition:** **RATIFIED** (Architecture Review Board, App-Contract Committee;
+bead initech-t5xs). This note extends DEC-08a.1/.2 for the disk-GUI-tenant path
+ratified by [ADR-0013 Amendment AC-3](ADR-0013-AMENDMENT-AC-3-Toolbox-Gate-and-Disk-Tenants.md).
+It does not reinterpret the original fixed EXEC placement as though it had
+always authorized heap loading. The current addresses above replace stale
+prose literals; [spec/memory_map.h](../../spec/memory_map.h) remains the locked
+authority.
+
+| Canonical EXEC field | Current value / meaning |
+|---|---|
+| `PROGRAM_BASE` | `0x00040000`: PSP and entry EBX |
+| `PROGRAM_IMAGE` | `0x00040100`: flat load base; entry = this base + `entry_off` |
+| `ENV_BLOCK` / `PROGRAM_ARENA_CEIL` | `0x0006F000`: environment and exclusive DOS heap ceiling |
+| `PROGRAM_STACK_BOT` | `0x00070000` |
+| `PROGRAM_STACK_TOP` | `0x0007FFFC`: initial ESP; `e_ss:e_sp` remain advisory |
+| `PROGRAM_ALLOC_END` | `0x00080000`: allocation-end input to the PSP |
+
+The canonical implementation remains
+[os/milton/loader.c:loader_prepare_mz](../../os/milton/loader.c), using
+[os/milton/loader.c:loader_prepare_core](../../os/milton/loader.c) for the PSP,
+stack and disjoint DOS arena. The shared relocation primitive
+[os/milton/mz.c:mz_apply_relocs](../../os/milton/mz.c) accepts a flat `load_base`;
+it adds bytes to a uint32 dword, never a paragraph count.
+
+The heap path is
+[os/milton/loader.c:loader_load_tenant](../../os/milton/loader.c) followed by
+[os/milton/loader.c:loader_prepare_tenant](../../os/milton/loader.c): explicit
+`psp_addr = block_linear`, `load_base = block_linear + 0x100`, and
+`entry = load_base + entry_off`. The PSP is built at the block head through
+[os/milton/psp.c:psp_build](../../os/milton/psp.c); the call trampoline supplies
+`EBX = psp_addr` ([os/milton/tbx_gate.asm](../../os/milton/tbx_gate.asm),
+`tbx_tenant_call`). The block is carved from the fixed FLAIR window
+`[0x00100000, 0x00500000)`; there is no fixed tenant load address within it.
+Its current size is `256 + roundup16(file_size) + e_minalloc * 16` under
+[spec/toolbox_gate.h Sec 8](../../spec/toolbox_gate.h); the tail is zeroed and
+the tenant's module/BSS must fit. The tenant PSP uses `ENV_BLOCK` (shared,
+initially inherit-empty); this path does not rebind a per-tenant DOS MCB arena.
+Tag validation and the foreign-MZ panic remain in force; a non-MZ flat image
+is refused by this heap path. DEC-08a.4's COM fallback remains the EXEC rule.
+
+**Oracle (Law 2 / Rule 6):** [Makefile](../../Makefile) `test-tenant-load`
+asserts arbitrary-base relocation, PSP address independence, BSS zeroing,
+refusals and the retained EXEC placement; `test-tenant-load-mutant` uses
+`LOADER_MUTATE_TENANT_PROGRAM_IMAGE_BASE` to make the wrong relocation base RED.
+`test-flair-app-launch` LAUNCH/DOUBLE/CYCLE and its `-mutant` counterpart grade
+the actual disk launch, single slot and four-block lifetime. This note cites
+those implementation gates; it does not claim an emulator rerun as part of
+the documentation amendment.
 
 ## 3. Honesty boundary (Law 1)
 
