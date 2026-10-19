@@ -33425,3 +33425,81 @@ test-loader-nested-mutant: $(BUILD)/test_loader_nested_mut test-loader
 	@printf '>>> test-loader-nested-mutant: green (LOADER_MUT_NO_RESTORE RED: nested EXEC restores caller PSP)\n'
 TEST_UNIT_GATES += test-loader-nested-mutant
 TEST_EMU_GATES += test-exec-nested test-exec-nested-mutant
+
+# initech-6fdt sub-deliverable (2): TSR support in InitechDOS (spec/tsr_contract.h).
+# test-tsr boots the COMMAND.COM shell kernel; TSR.COM goes resident (AH=31h)
+# with an IRQ1 hook (Ctrl+Alt, the SideKick 1.5 chord) and an idle hook; DIR
+# and GREET.COM then run normally (GREET above the resident); WAITKEY.COM blocks
+# in AH=08h, the chord is injected, and the pop-up marker must appear BETWEEN
+# WAITKEY-WAITING and WAITKEY-GOT -- the pop-up happens inside the foreground's
+# console wait, from the idle vector, with InDOS == 1, and the page it saved
+# comes back. Mutants: TSR_MUT_NO_KEEP (31h behaves as 4Ch: GREET/WAITKEY load
+# over the resident) and TSR_MUT_NO_IDLE (the console wait never raises the idle
+# vector). Both must lose the pop-up. IBM DOS 3.30 TR pp. 6-26, 6-105/106.
+TSR_KEYS := WSHELL-READY,kt,ks,kr,kret,WSK-INSTALLED,kd,ki,kr,kret,kg,kr,ke,ke,kt,kret,WGREETINGS,kw,ka,ki,kt,kk,ke,ky,kret,WWAITKEY-WAITING,kctrl-alt,WSK-POPUP,kx,WWAITKEY-GOT,ke,kx,ki,kt,kret
+TSR_MAIN_NOIDLE := $(BUILD)/kmain_shell_secondary_noidle.o
+TSR_INT21_NOKEEP := $(BUILD)/int21_tsr_nokeep.o
+TSR_NOKEEP_OBJS := $(filter-out $(KERNEL_INT21_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(TSR_INT21_NOKEEP)
+TSR_NOIDLE_OBJS := $(filter-out $(KERNEL_SECONDARY_SHELL_MAIN_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(TSR_MAIN_NOIDLE)
+$(eval $(call fixture-contract,$(BUILD)/fat_tsr.img,HELLO.TXT GREET.COM TSR.COM WAITKEY.COM))
+$(TSR_MAIN_NOIDLE): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h spec/tsr_contract.h | $(BUILD)
+	$(call kernel-main-compile,-DBOOT_SHELL -DBOOT_SECONDARY_SHELL -DTSR_MUT_NO_IDLE -Ispec -I$(KERNEL_DIR),$@)
+$(TSR_INT21_NOKEEP): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h spec/tsr_contract.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -DTSR_MUT_NO_KEEP -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
+$(BUILD)/kernel_tsr_nokeep.elf: $(TSR_NOKEEP_OBJS) $(KERNEL_LD)
+	$(KERNEL_LINK) -o $@ $(TSR_NOKEEP_OBJS)
+$(BUILD)/kernel_tsr_noidle.elf: $(TSR_NOIDLE_OBJS) $(KERNEL_LD)
+	$(KERNEL_LINK) -o $@ $(TSR_NOIDLE_OBJS)
+$(BUILD)/kernel_tsr_nokeep.bin $(BUILD)/kernel_tsr_noidle.bin: $(BUILD)/%.bin: $(BUILD)/%.elf
+	$(OBJCOPY) -O binary $< $@
+	@test $$(wc -c < $@) -le $$(( $(KERNEL_SECTORS) * 512 ))
+	@truncate -s $$(( $(KERNEL_SECTORS) * 512 )) $@
+$(BUILD)/tsr_nokeep.img $(BUILD)/tsr_noidle.img: $(BUILD)/%.img: $(BUILD)/kernel_%.bin $(MBR_BIN) $(STAGE2_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $< $(BOOT_SYSTEM_TOOL)
+$(BUILD)/tsr_program.bin: os/milton/tsr_program.asm | $(BUILD)
+	$(NASM) -f bin $< -o $@
+$(BUILD)/waitkey_program.bin: os/milton/tsr_program.asm | $(BUILD)
+	$(NASM) -f bin -DTSR_WAITKEY $< -o $@
+$(BUILD)/fat_tsr.img: $(FAT_EXEC_IMG) $(BUILD)/tsr_program.bin $(BUILD)/waitkey_program.bin
+	@cp -f $< $@
+	@mcopy -o -i $@ $(BUILD)/tsr_program.bin ::TSR.COM
+	@mcopy -o -i $@ $(BUILD)/waitkey_program.bin ::WAITKEY.COM
+	@$(call fixture-check,recipe,$@)
+# $(call tsr-boot,<kernel image>,<name>) -- one scripted shell session.
+define tsr-boot
+@$(call fixture-preflight,$(BUILD)/fat_tsr.img)
+@cp -f $(BUILD)/fat_tsr.img $(BUILD)/$(2)_data.img
+@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk "$(1)" --disk2 "$(BUILD)/$(2)_data.img" \
+	--name "$(2)" --out "$(BUILD)" --mouse "$(TSR_KEYS)" --keys-after "SHELL-READY" \
+	--quit-after "SHELL-DONE" --timeout-ms 60000 2> "$(BUILD)/$(2).report" || true
+endef
+.PHONY: test-tsr test-tsr-mutant
+# $(call tsr-popup-ok,<transcript>) -- exit 0 iff the pop-up marker (InDOS=1,
+# page restored) sits strictly between WAITKEY-WAITING and WAITKEY-GOT=x.
+# The gate and both mutants grade with this ONE predicate.
+define tsr-popup-ok
+w=$$(grep -n '^WAITKEY-WAITING$$' $(1) | head -1 | cut -d: -f1); \
+p=$$(grep -n '^SK-POPUP INDOS=1 SCREEN=SAME$$' $(1) | head -1 | cut -d: -f1); \
+g=$$(grep -n '^WAITKEY-GOT=x$$' $(1) | head -1 | cut -d: -f1); \
+[ -n "$$w" ] && [ -n "$$p" ] && [ -n "$$g" ] && [ "$$w" -lt "$$p" ] && [ "$$p" -lt "$$g" ]
+endef
+test-tsr: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/fat_tsr.img
+	$(call tsr-boot,$(SECONDARY_TRACER_IMG),tsr)
+	@! grep -q 'triple_fault=1' $(BUILD)/tsr.report || { cat $(BUILD)/tsr.report; printf '!!! test-tsr RED: triple fault\n'; exit 1; }
+	@sed -n '/^SHELL-READY$$/,$$p' $(BUILD)/tsr.serial | tr -d '\r' > $(BUILD)/tsr.repl
+	@grep -q '^SK-INSTALLED$$' $(BUILD)/tsr.repl || { cat $(BUILD)/tsr.repl; printf '!!! test-tsr RED: TSR.COM did not install\n'; exit 1; }
+	@grep -qF 'TSR      COM' $(BUILD)/tsr.repl && grep -qF 'GREET    COM' $(BUILD)/tsr.repl || { cat $(BUILD)/tsr.repl; printf '!!! test-tsr RED: DIR did not run after the resident\n'; exit 1; }
+	@grep -q '^GREETINGS FROM A:GREET.COM$$' $(BUILD)/tsr.repl || { cat $(BUILD)/tsr.repl; printf '!!! test-tsr RED: GREET.COM did not run above the resident\n'; exit 1; }
+	@$(call tsr-popup-ok,$(BUILD)/tsr.repl) || { cat $(BUILD)/tsr.repl; printf '!!! test-tsr RED: no SK-POPUP INDOS=1 SCREEN=SAME between WAITKEY-WAITING and WAITKEY-GOT=x\n'; exit 1; }
+	@grep -q '^SHELL-DONE$$' $(BUILD)/tsr.serial || { printf '!!! test-tsr RED: the shell did not exit cleanly\n'; exit 1; }
+	@printf '>>> test-tsr: green (TSR.COM resident via AH=31h; DIR + GREET.COM ran above it; Ctrl+Alt popped it up inside WAITKEY'"'"'s AH=08h wait, InDOS=1, page restored; WAITKEY then got x)\n'
+test-tsr-mutant: test-tsr $(BUILD)/tsr_nokeep.img $(BUILD)/tsr_noidle.img
+	$(call tsr-boot,$(BUILD)/tsr_nokeep.img,tsr_nokeep)
+	$(call tsr-boot,$(BUILD)/tsr_noidle.img,tsr_noidle)
+	@tr -d '\r' < $(BUILD)/tsr_nokeep.serial > $(BUILD)/tsr_nokeep.txt; tr -d '\r' < $(BUILD)/tsr_noidle.serial > $(BUILD)/tsr_noidle.txt
+	@grep -q '^SK-INSTALLED$$' $(BUILD)/tsr_nokeep.txt || { cat $(BUILD)/tsr_nokeep.txt; printf '!!! test-tsr-mutant: TSR_MUT_NO_KEEP session never installed (infrastructure)\n'; exit 1; }
+	@if $(call tsr-popup-ok,$(BUILD)/tsr_nokeep.txt); then printf '!!! test-tsr-mutant FAIL: TSR_MUT_NO_KEEP survived\n'; exit 1; fi
+	@grep -q '^WAITKEY-GOT=x$$' $(BUILD)/tsr_noidle.txt || { cat $(BUILD)/tsr_noidle.txt; printf '!!! test-tsr-mutant: TSR_MUT_NO_IDLE session broke (infrastructure)\n'; exit 1; }
+	@if $(call tsr-popup-ok,$(BUILD)/tsr_noidle.txt); then printf '!!! test-tsr-mutant FAIL: TSR_MUT_NO_IDLE survived\n'; exit 1; fi
+	@printf '>>> test-tsr-mutant: green (TSR_MUT_NO_KEEP RED: GREET loaded over the resident, %s; TSR_MUT_NO_IDLE RED: WAITKEY got x with no pop-up)\n' "$$(grep -m1 '^SK-POPUP' $(BUILD)/tsr_nokeep.txt || echo 'no SK-POPUP')"
+TEST_EMU_GATES += test-tsr test-tsr-mutant

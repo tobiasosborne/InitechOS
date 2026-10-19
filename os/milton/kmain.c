@@ -25,6 +25,7 @@
 #include "boot_info.h"
 #include "kmain_cold.h"
 #include "memory_map.h"  /* high kernel runway (tdnl.29) + FLAIR heap contract */
+#include "tsr_contract.h" /* TSR_SCREEN_BYTES (bead initech-6fdt) */
 #include "console.h"
 #include "../flair/surface.h" /* gv2x: shared by every boot variant */
 #include "idt.h"
@@ -486,6 +487,12 @@ static int int21_conin_get_kbd(void)
 {
     int c;
     while ((c = kbd_getchar()) < 0) {
+        /* The DOS idle interrupt (INT 28h-equivalent, spec/tsr_contract.h
+         * Sec 2): raised on every poll of the console wait, so a resident can
+         * pop up while InDOS == 1 (bead initech-6fdt). */
+#ifndef TSR_MUT_NO_IDLE
+        __asm__ __volatile__("int %0" : : "i"(TSR_VEC_IDLE) : "memory");
+#endif
         /* M015: IRQ0 wakes this wait at 100 Hz. Overlay only while waiting;
          * restore before cooked echo (and before returning to FLAIR). */
         console_cursor_wait(g_int21_con, pit_ticks(), 1);
@@ -493,6 +500,27 @@ static int int21_conin_get_kbd(void)
     }
     console_cursor_wait(g_int21_con, pit_ticks(), 0);
     return c;
+}
+
+/* Console page service (TSR_VEC_SCREEN; spec/tsr_contract.h Sec 2/3): AL=00h
+ * SAVE / 01h RESTORE the 80x25 text page + cursor at EDX. A NULL or wrapping
+ * EDX is refused like every DEC-14 user pointer (CF=1, AX=0009h); an unknown
+ * AL or no text console is CF=1, AX=0001h. Bead initech-6fdt. */
+void KERNEL_ASM_ABI tsr_screen_dispatch(int_frame_t *f)
+{
+    uint32_t p = f->edx;
+    uint8_t al = (uint8_t)f->eax;
+    uint16_t err = 0u;
+    if (!g_int21_con || al > 1u) err = 0x0001u;
+    else if (p == 0u || p + TSR_SCREEN_BYTES < p) err = 0x0009u;
+    else if (al == 0u) console_save_page(g_int21_con, (uint8_t *)(uintptr_t)p);
+    else console_restore_page(g_int21_con, (const uint8_t *)(uintptr_t)p);
+    if (err) {
+        f->eax = (f->eax & 0xFFFF0000u) | err;
+        f->eflags |= 1u;
+    } else {
+        f->eflags &= ~1u;
+    }
 }
 
 static int int21_conin_poll_kbd(void)
@@ -548,7 +576,13 @@ static int int21_clock_set_rtc(uint16_t year, uint8_t month, uint8_t day,
  * (idt.h idt_gate_t). */
 static void int21_setvect_idt(uint8_t vec, uint32_t handler)
 {
-    idt_install_trap(vec, (void *)(uintptr_t)handler);
+    /* A hardware IRQ vector keeps an interrupt gate (ADR-0003 DEC-04a.1), so a
+     * resident's INT 09h-equivalent hook runs with IF clear like the kernel's
+     * own handler (bead initech-6fdt; spec/tsr_contract.h Sec 2). */
+    if (int21_vector_gate(vec) == 0x8Eu)
+        idt_install_irq(vec, (void *)(uintptr_t)handler);
+    else
+        idt_install_trap(vec, (void *)(uintptr_t)handler);
 }
 
 static uint32_t int21_getvect_idt(uint8_t vec)
