@@ -27,9 +27,15 @@
  * Toolbox's own highlight pair (spec/toolbox_gate.h Sec 7 tokens), on a WHITE
  * document field with BLACK text -- a Macintosh document window, as plan Sec
  * 3.3 puts it ("what a period Mac 1-2-3-alike would have rendered").
- * The window here is 76 x 24 cells (FLAIR_SCREEN 640 x 480 less the menu
+ * The window opens at 76 x 24 cells (FLAIR_SCREEN 640 x 480 less the menu
  * bands and the window frame), so 19 rows show where the 25-line DOS screen
  * shows 20; the worksheet area keeps the full 72 characters (8 columns of 9).
+ * B12 (bead initech-89rc, audit L018): the window can be grown and shrunk,
+ * so that screen is the LARGEST one; the face lays itself out for the
+ * window's ACTUAL content (THE GEOMETRY below), as the DOS screen is laid
+ * out for the display it has: the status line is the last whole line, the
+ * mode indicator ends at the last whole character, the area shows the whole
+ * columns and rows that fit, and the pointer is always among them.
  *
  * KEYS (the R2.2 READY/LABEL/VALUE/EDIT modes; MINT shots show READY):
  *   arrows move the pointer (scrolling the window); Home goes to A1;
@@ -83,18 +89,39 @@ const char tbx_app_name[] = "123";
  * 77). X0 stays the 1-px left margin (613 - 608 = 5 spare), so every
  * content-local x of the face is unchanged except the right-anchored items
  * (the MODE indicator, CIRC/CALC), which move one cell left. */
-#define SCR_COLS     76          /* 613-px content / 8 */
-#define SCR_LINES    24          /* 397-px content / 16 */
+#define SCR_COLS     76          /* 613-px content / 8: the widest face */
+#define SCR_LINES    24          /* 397-px content / 16: the tallest   */
 #define X0           1           /* content-local left margin (613 - 608 = 5 spare) */
 #define BORDER_W     4           /* the row-number border */
-#define AREA_CHARS   72          /* I123_SCREEN_COLS_CHARS: whole columns */
 #define LINE_PANEL1  0
 #define LINE_PANEL2  1
 #define LINE_PANEL3  2
 #define LINE_BORDER  3
 #define LINE_ROW0    4
-#define VIS_ROWS     (SCR_LINES - LINE_ROW0 - 1)   /* 19 */
-#define LINE_STATUS  (SCR_LINES - 1)
+
+/* ---- THE GEOMETRY (B12, bead initech-89rc) ----------------------------------
+ * ONE geometry for paint, pointer-follow and hit-test: g_cols whole
+ * characters by g_lines whole lines of the window's content NOW, read through
+ * the Toolbox (spec/toolbox_gate.h Sec 3 CONTENT_SIZE -- the tenant's
+ * portRect; the shell grows the window and the updateEvt follows, MTE
+ * Listing 4-13/4-14) on every updateEvt. Character c spans content x 1 + 8c
+ * .. 8 + 8c and line L spans y 16L .. 16L + 15 (the 8 x 16 cells, Sec 7a), so
+ * a W x H content holds (W - X0) / 8 characters and H / 16 lines. From them,
+ * by the R2.2 screen (manual pp. 1-3/1-4): the area is the characters right
+ * of the row border, the rows are the lines between the column border and
+ * the status line, the status line is the last line. Bounds (authored): at
+ * most the 76 x 24 face the buffers hold (the largest content the desktop
+ * allows); at least GEO_MIN_COLS characters -- the smallest frame the Window
+ * Manager allows, FLAIR_CHROME_WINDOW_MIN_W 96 px, has a 69-px content of 8
+ * -- and one row, so the arithmetic below never underflows (line one keeps
+ * room for "A1:" and a 5-letter mode); a smaller window just clips. */
+#define GEO_MIN_COLS 8u
+static uint8_t g_cols = SCR_COLS, g_lines = SCR_LINES;
+static uint32_t cols(void) { return g_cols; }
+static uint32_t vis_rows(void) { return g_lines - (LINE_ROW0 + 1u); }
+#define AREA_CHARS   (cols() - BORDER_W)
+#define VIS_ROWS     vis_rows()
+#define LINE_STATUS  ((int)(LINE_ROW0 + vis_rows()))
 
 /* Ref: Lotus 1-2-3 R2.2 Reference Manual pp. 1-16/1-17 (PDF 32/33):
  * an entry may contain 240 characters, independent of the screen width. */
@@ -230,7 +257,9 @@ static uint32_t slen(const char *s)
 static void put_line(int line, int col, const char *s, uint32_t n, uint32_t fg, uint32_t bg)
 {
     uint32_t i;
-    if (n > SCR_COLS) n = SCR_COLS;
+    /* B12: nothing past the window's last whole character (g_cols <= 76) */
+    if ((uint32_t)col >= cols()) return;
+    if (col + n > cols()) n = cols() - (uint32_t)col;
     for (i = 0; i < n; i++) g_line[i] = s[i];
     g_line[n] = '\0';
     (void)tbx_draw_cells(g_win, X0 + col * CW, line * CH, g_line, fg, bg);
@@ -268,7 +297,7 @@ static void paint_command(void)
         line[n] = 0;
         const i123_menu_item_t *it = &i123_menu_items[lv->first+g_menu_index];
         const char *nm = i123_menu_string(it->name);
-        uint32_t skip = x+slen(nm)>SCR_COLS ? x : 0;
+        uint32_t skip = x+slen(nm)>cols() ? x : 0;
         panel_line(LINE_PANEL2, line+skip);
         put_line(LINE_PANEL2, (int)(x-skip), nm, slen(nm), TBX_COLOR_WHITE, TBX_COLOR_NAVY);
         panel_line(LINE_PANEL3, i123_menu_string(it->desc));
@@ -334,9 +363,34 @@ static int follow_pointer(void)
     if (cr >= nt + VIS_ROWS) nt = (uint16_t)(cr - (VIS_ROWS - 1));
     if (cc < nl) nl = cc;
     while (cc >= nl + i123_cols_fitting(&g_sheet, nl, AREA_CHARS)) nl++;
+    if (nl > cc) nl = cc;   /* B12: a column wider than the window stays first */
     if (nl == left && nt == top) return 0;
     i123_set_view(&g_sheet, nl, nt);
     return 1;
+}
+
+/* B12: THE GEOMETRY from the content size (see above). A refused query keeps
+ * the last geometry; a collapsed window (0) takes the minimum until the
+ * update that comes with its re-expansion. */
+static void geometry(void)
+{
+#ifndef I123_MUT_FIXED_GEOMETRY
+    int32_t sz = tbx_content_size(g_win);
+    uint32_t w = (uint32_t)sz & 0xFFFFu, h = (uint32_t)sz >> 16;
+    if (sz < 0) return;
+    w = w > X0 ? (w - X0) / CW : 0u;
+    h /= CH;
+    if (w < GEO_MIN_COLS) w = GEO_MIN_COLS;
+    if (w > SCR_COLS) w = SCR_COLS;
+    if (h < LINE_ROW0 + 2u) h = LINE_ROW0 + 2u;
+    if (h > SCR_LINES) h = SCR_LINES;
+    g_cols = (uint8_t)w;
+    g_lines = (uint8_t)h;
+#else
+    /* MUTANT (Rule 6; test-i123-resize-mutant, test-flair-i123-resize-
+     * mutant): the face ignores the content and keeps the 76 x 24 screen, so
+     * a resize only clips it (audit L018). NEVER real. */
+#endif
 }
 
 /* ---- painting --------------------------------------------------------------- */
@@ -357,14 +411,14 @@ static void paint_panel(void)
     buf[n++] = ' ';
     c = i123_find(&g_sheet, i123_cursor_col(&g_sheet), i123_cursor_row(&g_sheet));
     i123_cell_content(&g_sheet, c, content, sizeof content);
-    for (k = 0; content[k] && n < SCR_COLS - mlen - 1u; k++) buf[n++] = content[k];
+    for (k = 0; content[k] && n < cols() - mlen - 1u; k++) buf[n++] = content[k];
     buf[n] = '\0';
     {
         char tmp[SCR_COLS + 1];
-        pad_into(tmp, SCR_COLS - mlen, buf);
-        put_line(LINE_PANEL1, 0, tmp, SCR_COLS - mlen, TBX_COLOR_BLACK, TBX_COLOR_WHITE);
+        pad_into(tmp, cols() - mlen, buf);
+        put_line(LINE_PANEL1, 0, tmp, cols() - mlen, TBX_COLOR_BLACK, TBX_COLOR_WHITE);
     }
-    put_line(LINE_PANEL1, (int)(SCR_COLS - mlen), mode, mlen, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
+    put_line(LINE_PANEL1, (int)(cols() - mlen), mode, mlen, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
 }
 
 static void paint_edit_line(void)
@@ -375,7 +429,7 @@ static void paint_edit_line(void)
      * B13 (initech-twxf) requires the tail to follow the typing cursor.
      * No long-entry capture in the Lotus corpus; one-character scrolling
      * is the native viewport policy, not a measured R2.2 scroll increment. */
-    uint32_t i, first = g_elen > SCR_COLS - 1u ? g_elen - (SCR_COLS - 1u) : 0u;
+    uint32_t i, first = g_elen > cols() - 1u ? g_elen - (cols() - 1u) : 0u;
     for (i = first; i < g_elen; i++) src[i - first] = g_edit[i];
     i -= first;
     if (g_mode != M_READY) src[i++] = '_';          /* the edit cursor */
@@ -405,7 +459,7 @@ static void paint_border(void)
 
 static void paint_row(uint32_t vis)
 {
-    char num[8], tmp[SCR_COLS + 1], row[AREA_CHARS + 1];
+    char num[8], tmp[SCR_COLS + 1], row[SCR_COLS + 1];
     uint16_t r = (uint16_t)(i123_view_top(&g_sheet) + vis);
     int line = LINE_ROW0 + (int)vis;
     uint32_t n = 0;
@@ -449,9 +503,9 @@ static void paint_status(void)
 {
     panel_line(LINE_STATUS, g_error ? g_error : g_status);
     if (g_sheet.circ)
-        put_line(LINE_STATUS, SCR_COLS - 4, "CIRC", 4, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
+        put_line(LINE_STATUS, (int)cols() - 4, "CIRC", 4, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
     if (g_sheet.calc)
-        put_line(LINE_STATUS, SCR_COLS - 9, "CALC", 4, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
+        put_line(LINE_STATUS, (int)cols() - 9, "CALC", 4, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
 }
 
 /* After a recalculation every visible value may have moved. */
@@ -1101,9 +1155,10 @@ static void key(int32_t message, int32_t mods)
  * from THE geometry paint uses: the window's first column/row (Tab, PgDn,
  * GOTO and the arrows move it), per-column widths walked over area_cols()'s
  * WHOLE columns (paint_border's walk), VIS_ROWS rows; the blank strip right
- * of the last whole column selects nothing. The resized-geometry contract is
- * bead initech-89rc (B12): today the face keeps these constants and a resize
- * only clips them, so a click maps the same before and after one.
+ * of the last whole column selects nothing. Since B12 (bead initech-89rc)
+ * those are THE GEOMETRY of the window's actual content, the same numbers
+ * paint and pointer-follow use, so after a resize a click maps to what the
+ * window now shows (a click on the moved-up status line selects nothing).
  * A click while an entry is typed or edited completes it first, as a
  * pointer-movement key does (manual p. 1-16, PDF 32: "simultaneously
  * complete the entry and move the cell pointer"); EDIT completes too
@@ -1121,7 +1176,7 @@ static void cell_click(const tbx_event_t *ev)
      * hit maps as if the window sat at A1. NEVER real. */
     c = 0; r = 0;
 #endif
-    if (org < 0 || g_mode >= M_MAIN || ch < 0 || line < 0 || line >= VIS_ROWS) return;
+    if (org < 0 || g_mode >= M_MAIN || ch < 0 || line < 0 || line >= (int)VIS_ROWS) return;
     r = (uint16_t)(r + line);
     if (r >= I123_MAX_ROWS) return;
     for (uint32_t n = area_cols(); n; n--, c++)
@@ -1237,6 +1292,12 @@ void tbx_app_event(const tbx_event_t *ev)
 {
     switch (ev->what) {
     case updateEvt:
+        /* B12: the shell may have grown or shrunk the window since the last
+         * update (MTE Listing 4-14 MyResizeWindow: adjust the contents to the
+         * new size, then draw): re-read the content, keep the pointer in the
+         * view it allows, then paint. */
+        geometry();
+        (void)follow_pointer();
         paint_all();
         break;
     case keyDown:

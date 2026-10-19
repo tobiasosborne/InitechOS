@@ -85,6 +85,14 @@ int32_t tbx_set_wtitle(int32_t w, const char *s) { (void)w; (void)s; return TBX_
 #define M_ORG_H 6
 #define M_ORG_V 62
 int32_t tbx_content_origin(int32_t w) { (void)w; return (M_ORG_V << 16) | M_ORG_H; }
+/* B12 (initech-89rc): the window's content SIZE (spec/toolbox_gate.h Sec 3
+ * CONTENT_SIZE = (height << 16) | width). Default: the 640 x 440 frame's
+ * 613 x 397 content (tdnl.51); test_i123_resize.c sets other sizes. The
+ * vertical bar verb is recorded so an oracle can prove 123 never fakes a
+ * scroll range (the bars stay the Toolbox's DISABLED ones, Sec 15). */
+static int m_cw = 613, m_ch = 397, m_setscroll;
+int32_t tbx_content_size(int32_t w) { (void)w; return (m_ch << 16) | m_cw; }
+int32_t tbx_set_scroll(int32_t w, int32_t len, int32_t v) { (void)w; (void)len; m_setscroll++; return v; }
 int32_t tbx_draw_text(int32_t w, int32_t x, int32_t y, const char *s, uint32_t f, uint32_t b)
 { (void)w; (void)x; (void)y; (void)s; (void)f; (void)b; return TBX_OK; }
 int32_t tbx_fill_rect(int32_t w, int32_t l, int32_t t, int32_t r, int32_t b, uint32_t c)

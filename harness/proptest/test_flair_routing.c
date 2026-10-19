@@ -938,12 +938,13 @@ static void leg_title(void)
  * property suite over the gate dispatcher (AX demux, frame-relative arg reads,
  * negative-error convention) + the TENANT-GATE trace". The callable-code list
  * below is HAND-COPIED from spec/toolbox_gate.h Sec 3/9-16 and spec/
- * cp_dialog.h (the rows marked V1..V4 plus the Sec 10-16 additions); the
+ * cp_dialog.h (the rows marked V1..V4 plus the Sec 10-16 additions, and
+ * CONTENT_SIZE 0x0024 of bead initech-89rc); the
  * RESERVED / DISSOLVED rows (0x0002, 0x0010, 0x0021, 0x0032, 0x0051) are
  * deliberately absent -- Sec 3: "Every other code ... returns TBX_ERR_BADCODE
  * (the demux is total, never a silent no-op)". */
 static const uint16_t k_callable[] = {
-    0x0001u, 0x0020u, 0x0022u, 0x0023u, 0x0030u, 0x0031u, 0x0033u,
+    0x0001u, 0x0020u, 0x0022u, 0x0023u, 0x0024u, 0x0030u, 0x0031u, 0x0033u,
     0x0050u, 0x0052u, 0x0070u,
     0x0080u, 0x0081u, 0x0082u, 0x0083u, 0x0084u, 0x0085u, 0x0086u,
     0x0087u, 0x0088u,   /* Sec 10a FILE_FIND / DISK_FREE (initech-qvgd) */

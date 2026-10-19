@@ -100,6 +100,10 @@ int32_t tbx_set_wtitle(int32_t win, const char *title);
  * NEWWINDOW go_away argument may carry TBX_WDEF_RDOC (the rounded desk-
  * accessory window). Spec Sec 3; bead initech-tdnl.17. */
 int32_t tbx_content_origin(int32_t win);
+/* (height << 16) | width of the window's content in pixels -- its portRect
+ * now; read it on every updateEvt, the shell may have grown or shrunk the
+ * window since (spec Sec 3 CONTENT_SIZE; bead initech-89rc). */
+int32_t tbx_content_size(int32_t win);
 int32_t tbx_draw_text(int32_t win, int32_t x, int32_t y, const char *s,
                       uint32_t fg, uint32_t bg);
 int32_t tbx_fill_rect(int32_t win, int32_t l, int32_t t, int32_t r, int32_t b,
