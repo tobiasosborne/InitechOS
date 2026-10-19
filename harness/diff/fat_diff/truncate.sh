@@ -11,7 +11,7 @@ dd if=/dev/zero of="$out/data.img" bs=512 count=2880 status=none
 mformat -i "$out/data.img" -f 1440 -N 140 ::
 build/truncate --body > "$out/body"
 mmd -i "$out/data.img" ::SUB
-for name in SHRINK BOUND EMPTY GROW GUARD SUB/CHILD EXTEND RONLY; do
+for name in SHRINK BOUND EMPTY GROW GAPIN GAPOUT GUARD SUB/CHILD EXTEND RONLY; do
     mcopy -i "$out/data.img" "$out/body" "::$name.BIN"
 done
 mattrib -i "$out/data.img" +r ::RONLY.BIN
@@ -26,8 +26,10 @@ head -c 600 "$out/body" > "$out/short"
 head -c 512 "$out/body" > "$out/bound"
 : > "$out/empty"
 { cat "$out/short"; head -c 1000 /dev/zero | tr '\000' R; } > "$out/grow"
+{ cat "$out/short"; head -c 100 /dev/zero; head -c 1000 /dev/zero | tr '\000' R; } > "$out/gapin"
+{ cat "$out/short"; head -c 1000 /dev/zero; head -c 1000 /dev/zero | tr '\000' R; } > "$out/gapout"
 { cat "$out/body"; head -c 800 /dev/zero; } > "$out/extend"
-for item in SHRINK:short BOUND:bound EMPTY:empty GROW:grow SUB/CHILD:short EXTEND:extend; do
+for item in SHRINK:short BOUND:bound EMPTY:empty GROW:grow GAPIN:gapin GAPOUT:gapout SUB/CHILD:short EXTEND:extend; do
     mcopy -o -i "$out/reference.img" "$out/${item#*:}" "::${item%:*}.BIN"
 done
 if [ "$mode" = host ]; then
@@ -43,7 +45,7 @@ else
     grep -qx TRUNCATE-DONE "$out/text" || fail 'program did not return'
     grep -qx TRUNCATE-PASS "$out/text" || fail 'AH40 matrix'
 fi
-for name in SHRINK BOUND EMPTY GROW GUARD SUB/CHILD EXTEND RONLY; do
+for name in SHRINK BOUND EMPTY GROW GAPIN GAPOUT GUARD SUB/CHILD EXTEND RONLY; do
     mtype -i "$out/data.img" "::$name.BIN" > "$out/got"
     mtype -i "$out/reference.img" "::$name.BIN" > "$out/want"
     cmp -s "$out/got" "$out/want" || fail "$name bytes != mcopy"

@@ -73,6 +73,29 @@ typedef struct {
     bool allow_reboot;
     const char *quit_after;
     int quit_after_count;
+
+    /* RFB framebuffer capture (initech-u9gf; RFC 6143 Sec 7.6.1). When the
+     * COMPLETE exact serial line screendump_after arrives, the harness asks
+     * the Bochs RFB server for full-window FramebufferUpdates until two
+     * consecutive full frames agree, writes <name>.rfb.pgm (the raw server
+     * pixels: Bochs serves BGR233, rfb.cc BGR233Format) and <name>.rfb.ppm
+     * (the same codes widened to RGB for the Law-4 eyeball), then clicks
+     * Bochs's header-bar snapshot button for the LOSSLESS twin
+     * (<name>.snap.bmp -> <name>.snap.ppm, exact guest RGB) and stops the
+     * run. Bochs runs in output_dir for this (snapshot.bmp is cwd-relative),
+     * so every bochsrc path is made absolute. NULL => no capture (the
+     * original boot-leg behavior). */
+    const char *screendump_after;
+
+    /* Pinned guest RTC (Rule 11; parallel to qemu.h rtc_base): >0 writes
+     * bochsrc `clock: time0=N` and runs Bochs with TZ=UTC, because Bochs
+     * 2.7 cmos.cc localtime()s a numeric time0. 0 => Bochs default (host
+     * local time), the original behavior. */
+    long rtc_time0;
+
+    /* `vga: extension=` value; NULL => "vbe" (the LGPL vgabios VBE path).
+     * "cirrus" with no PCI slot is the ISA CL-GD54xx (Bochs 2.7 svga_cirrus). */
+    const char *vga_extension;
 } BochsConfig;
 
 typedef struct {
@@ -94,9 +117,26 @@ typedef struct {
     bool quit_marker_found;    /* requested completion count reached.        */
     int quit_markers_seen;     /* complete exact quit_after lines captured.  */
 
+    bool screendump_marker_found; /* screendump_after line seen.            */
+    bool screendump_ok;        /* a stable full RFB frame was written.       */
+    unsigned rfb_width, rfb_height;    /* ServerInit window geometry.        */
+    unsigned long rfb_full_frames;     /* full-window raw rects received.     */
+    char rfb_error[160];       /* first RFB protocol violation, or "".       */
+    char rfb_pgm_path[BOCHS_PATH_MAX];
+    char rfb_ppm_path[BOCHS_PATH_MAX];
+    /* Lossless twin of the RFB frame: Bochs's own header-bar "snapshot"
+     * button (gui.cc snapshot_handler) writes the guest's raw indices plus
+     * the emulated DAC palette as an 8bpp BMP; converted to exact RGB P6. */
+    bool snapshot_ok;
+    int snapshot_tries;
+    char snap_bmp_path[BOCHS_PATH_MAX];
+    char snap_ppm_path[BOCHS_PATH_MAX];
+
     bool ok;                   /* launched && rfb_unblocked && !triple_fault
                                   && (expect_marker ? marker_found : true)
-                                  && (quit_after ? quit_marker_found : true).
+                                  && (quit_after ? quit_marker_found : true)
+                                  && (screendump_after ? screendump_ok &&
+                                                         snapshot_ok : true).
                                   NOT gated on timed_out (hlt-loop).         */
 } BochsResult;
 

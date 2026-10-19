@@ -128,7 +128,8 @@ typedef enum {
     XBT_NOT     = 24,   /* .NOT. */
 
     /* --- Argument separator (S3.5, function call lists) --- */
-    XBT_COMMA   = 25    /* , (separates function arguments)               */
+    XBT_COMMA   = 25,   /* , (separates function arguments)               */
+    XBT_ARROW   = 26    /* Using III+ work-area field qualification.     */
                         /* Ref: string-functions.md (SUBSTR(c,n1,n2)...)  */
                         /* + numeric-and-date-functions.md (IIF(l,e1,e2)) */
 
@@ -628,6 +629,9 @@ typedef struct xb_ctx {
     /* Using III+ U5-210/235/259: screen controls. STATUS has no CONFIG.DB.
      * dot_command is set only around a command entered at the dot prompt. */
     uint8_t set_heading, set_console, set_status, dot_command;
+    /* Using III+ U5-193: ALTERNATE records program output even CONSOLE OFF. */
+    void (*mirror_output)(void *, const char *, uint32_t);
+    void *mirror_user;
     int   set_exact;          /* 0 = OFF (III+ default); !=0 = ON */
     /* Programming III+ N5-30 (PDF 418): ERROR() reads the trapped error. */
     int   error_number;
@@ -695,6 +699,8 @@ typedef struct xb_ctx {
     /* Optional filesystem binding for an evaluator with no work-area cursor.
      * Ref: Using III+ U6-33: FILE() has no USE prerequisite; ADR-0008 DEC-02. */
     struct samir_pal *file_pal;
+    /* Using III+ U6-69: includes deletion byte; zero without USE. */
+    uint32_t (*record_size)(void *);
 } xb_ctx;
 
 /*

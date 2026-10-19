@@ -104,6 +104,7 @@ typedef struct sft_entry {
     uint8_t      kind;          /* sft_kind_t                                  */
     uint8_t      open_mode;     /* SFT_MODE_*                                  */
     uint8_t      dev_id;        /* sft_dev_id_t (valid when kind == DEVICE)    */
+    uint8_t      drive;         /* DEC-18: volume retained by an open handle   */
     uint8_t      con_eof;       /* pending final zero read after cooked ^Z    */
     uint16_t     ref_count;     /* JFT references to this slot (DUP semantics) */
     /* --- DEVICE state (valid when kind == SFT_KIND_DEVICE; beads initech-6zd9) -

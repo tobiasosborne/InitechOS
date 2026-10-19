@@ -27,6 +27,25 @@
 
 #include <stdint.h>
 
+/* KERNEL_ASM_ABI -- the calling convention of every C function the kernel's
+ * asm stubs call WITH ARGUMENTS (isr.asm: the INT 13h/20h-26h dispatchers +
+ * isr_dispatch_c; tbx_gate.asm: tbx_gate_dispatch) and of every asm routine C
+ * calls with arguments (tbx_tenant_call). The stubs push the argument and pop
+ * it themselves (`push eax; call X; add esp, 4`), i.e. plain cdecl. Kernel
+ * size round 5 (WL-0168) compiles the kernel image with -mregparm=3 -mrtd
+ * (register arguments, callee pops: the Borland `register`/`pascal`
+ * conventions); these attributes pin the asm boundary to the stack ABI the
+ * stubs were written against, so isr.asm / tbx_gate.asm stay byte-identical.
+ * No-op on the hosted (x86-64) oracle builds. Ref: GCC 13 "x86 Function
+ * Attributes" cdecl / regparm; CLAUDE.md Law 3; PRD Sec 5. */
+#ifndef KERNEL_ASM_ABI
+#if defined(__i386__)
+#define KERNEL_ASM_ABI __attribute__((cdecl, regparm(0)))
+#else
+#define KERNEL_ASM_ABI
+#endif
+#endif
+
 /* Kernel code selector (stage2 GDT: gdt_code - gdt_start == 0x08; the far jump
  * at stage2.asm sets CS=CODE_SEL). All kernel handlers run on this selector. */
 #define IDT_KERNEL_CS  0x08u
@@ -133,14 +152,10 @@ void idt_install_irq(uint8_t vec, void *handler);
 void idt_init(void);
 
 /* The C dispatcher the asm common stub calls. For a CPU exception it FAILS LOUD
- * (serial register dump + one console panic line) then halts forever -- it must
+ * (PC LOAD LETTER full screen; PANIC marker on serial; register dump when
+ * built with PANIC_DEBUG=1) then halts forever -- it must
  * NEVER return into a faulting instruction (would loop). Defined in panic.c. */
-void isr_dispatch_c(int_frame_t *frame);
-
-/* Bind a live console for the one-line panic banner (panic.c). NULL (the
- * default) -> serial-only. kmain.c calls this once the console is up. Typed as
- * void* so idt.h need not include console.h; panic.c casts to console_t*. */
-void panic_set_console(void *con);
+void KERNEL_ASM_ABI isr_dispatch_c(int_frame_t *frame);
 
 /* Install the CPU-exception triage hook (panic.c; bead initech-tdnl.14). The
  * hook runs before the fail-loud dump; it returns for any fault it does not

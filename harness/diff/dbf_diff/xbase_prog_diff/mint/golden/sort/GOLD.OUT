@@ -1,0 +1,8 @@
+[DML-BEGIN]
+         5          4
+Record#  NAME       CITY              BAL
+      1  LUMBERGH   DALLAS        7777.77
+      2  PESTON     HONOLULU      1234.50
+      3  WADDAMS    AUSTIN         -42.00
+      4  WADDAMS    BOSTON           5.00
+[DML-END]

@@ -1,0 +1,157 @@
+% Reference entries, U (AN-11).  Law 1: os/iword/core/codes.c iw_ed_attr
+% (F8: [UND] ... [und], the cursor between them; F8 again moves past the off
+% code), iw_attr_faces (underlined text drawn underlined), face_a.c (F8).
+% Shots: ../wordperfect51-decomp goldens MINT01, mint MINT06.
+% Undelete is P3 (bead initech-qvgd part 2, WL-0146): face_a.c
+% IW_FK_undelete (F1 on the editing screen), edit() (the deletions kept:
+% Backspace, Delete, a code deleted after its question, a block deleted;
+% attribute codes are not kept, Reference p. 697; a run of deletions at one
+% place is one deletion, any cursor movement starts a new one; three kept,
+% the oldest dropped; 32K each, UNDO_CAP, a larger deletion refused with
+% "ERROR: Document too large"), paint (the deletion shown at the cursor in
+% reverse video, the document unchanged), undo_key (1 restores at the
+% cursor, 2 or Up the previous deletion, Down the later one, F1 / Esc
+% cancel).  Units of Measure: Setup records the units (spec/iword/
+% settings.h); the screen goes on in inches (iw_fmt_inches).
+% GATES: test-pubs-iword test-iword-codes test-iword-reveal-codes test-flair-iword-codes test-iword-undo test-flair-iword-undo test-iword-setup
+\Gates{test-pubs-iword test-iword-codes test-iword-reveal-codes test-flair-iword-codes test-iword-undo test-flair-iword-undo test-iword-setup}
+\begin{Feature}{Undelete}
+Undelete puts back text you have deleted.  InitechWord keeps the last three
+deletions, and shows each in turn at the cursor, so that you can choose the
+one to restore.
+
+To restore deleted text,
+\begin{WPSteps}
+\item Move the cursor to where the text is to go back.
+\item Press \FK{Cancel}{F1} on the editing screen, with no menu or prompt
+showing.  The status line shows \Scr{Undelete 1 Restore; 2 Previous
+Deletion: 0}, and the last deletion appears at the cursor in reverse video.
+\item Select \Ch{Restore}{1} to put that text back
+\Or
+Select \Ch{Previous Deletion}{2} to show the deletion before it, then
+select \Ch{Restore}{1}.
+\end{WPSteps}
+\Documents{wpmenu}{F1,1=Restore}
+\Documents{wpmenu}{F1,2=Previous Deletion}
+The text is put back at the cursor, with the codes it held.
+
+\BeginReplay{ref-undelete}
+For example, type \TypeRun{Collate the reports by date and by department.}
+Press \PressKey{Backspace} eleven times\Keys{Backspace Backspace Backspace Backspace Backspace Backspace Backspace Backspace Backspace Backspace}
+to erase \textit{department.}, then press \PressKey{Home, Left} and
+\PressKey{Delete} eight times\Keys{Delete Delete Delete Delete Delete Delete Delete}
+to erase \textit{Collate }.  Press \PressKey{End} and then
+\Press{Cancel}{F1}:
+\WordScreen[rows=1]{ref-undelete-1}{The last deletion, shown at the cursor}
+The deletion shown is the last one, \textit{Collate }.  Select
+\Choose{Previous Deletion}{2}:
+\WordScreen[rows=1]{ref-undelete-2}{The deletion before it}
+Select \Choose{Restore}{1}: \textit{department.} is back at the end of the
+line.
+\EndReplay
+
+\Notes
+\Topic{Canceling}
+Press \FK{Cancel}{F1} or \K{Esc} again to leave Undelete without restoring
+anything.  The document is just as it was: the text shown in reverse video
+was never in it.
+
+\Topic{Codes}
+Codes deleted with the text come back with it, except bold, underline and
+the other appearance and size codes: those deleted with Backspace or Delete
+are not kept.  A block deleted with Block and Delete, or with Move, comes
+back whole, its codes included.
+
+\Topic{Moving Through the Deletions}
+At the Undelete prompt, \Ch{Previous Deletion}{2} and \K{Up} show the
+deletion before the one shown, and \K{Down} the one after it.  Restore puts
+back the one shown.
+
+\Topic{Size of a Deletion}
+A deletion holds up to 32K (32,768 bytes).  If you try to delete more at
+once, as when deleting a very large block, the status line shows
+\Scr{ERROR: Document too large} and nothing is deleted; delete the text in
+smaller parts.
+
+\Topic{What Is a Deletion}
+Each character, code or block you delete becomes part of a deletion.
+Characters deleted one after another at the same place with Backspace or
+Delete make one deletion, so a word erased letter by letter comes back
+whole.  Moving the cursor -- with the cursor keys or by searching -- ends a
+deletion; the next thing you delete begins another.  When there are three
+deletions and you delete more, the oldest is dropped.
+
+\Topic{When Nothing Was Deleted}
+If nothing has been deleted since InitechWord was started, Undelete shows
+nothing at the cursor, and Restore does nothing.
+
+\SeeAlso{Block, Delete; Cancel; Delete; Move}
+\end{Feature}
+
+\begin{Feature}{Underline}
+Underline draws a line under text.  On the editing screen underlined text is
+drawn underlined.
+
+To underline text as you type it,
+\begin{WPSteps}
+\item Press \FK{Underline}{F8}.  InitechWord puts the codes \Code{[UND]} and
+\Code{[und]} in the document, with the cursor between them.
+\item Type the text.
+\item Press \FK{Underline}{F8} again to move past \Code{[und]}.
+\end{WPSteps}
+\Documents{wpkey}{F8}
+\begin{WPNote}To underline text you have already typed, block it and press
+Underline (see \InRef{Block, Attributes}).\end{WPNote}
+
+\BeginReplay{ref-underline}
+For example, type \TypeRun{Please read the } (with the space), press
+\Press{Underline}{F8}, type \TypeRun{attached}, press \Press{Underline}{F8}
+and type \TypeRun{ memo.}:
+\WordScreen[rows=1]{ref-underline}{An underlined word}
+\EndReplay
+
+\Notes
+\Topic{Double Underline}
+For a double line, choose Dbl Und (3) from the Appearance menu of the Font
+key (see \InRef{Appearance}).
+
+\Topic{Spaces}
+On the editing screen, the underline is drawn under everything between the
+two codes, spaces included.
+
+\Topic{Underline From the Font Menu}
+Undln (2) on the Appearance menu of the Font key does what F8 does.
+
+\SeeAlso{Appearance; Block, Attributes; Bold; Codes}
+\end{Feature}
+
+\begin{Feature}{Units of Measure}
+InitechWord measures in inches.  The status line gives Ln and Pos in inches
+from the top and the left edge of the paper, and you type margins in inches
+(see \InRef{Margins, Left and Right}).  Line spacing is given in lines (see
+\InRef{Line Spacing}).
+
+\Notes
+\Topic{Characters and Lines}
+In the standard font, Courier 10 Pitch, a character is a tenth of an inch
+wide, and a single-spaced line is a sixth of an inch high: so Pos grows by
+0.1 inch with each character and Ln by 0.17 inch with each line.
+
+\Topic{Inside the Document File}
+In the document file, positions and margins are kept in WordPerfect units of
+1/1200 inch (see Appendix D).
+
+\Topic{Rounding}
+Ln and Pos are shown to two decimal places at most, without trailing zeros:
+\Scr{1.5"}, \Scr{1.17"}.
+
+\Topic{Setup}
+Setup's Units of Measure screen records a unit for margins and tabs and one
+for the status line: inches, centimeters, points, 1200ths of an inch or
+WordPerfect 4.2 units (see \InRef{Setup}).  InitechWord keeps your choice
+and shows it on that screen, but in this release the status line and the
+Format screens show inches, and margins are typed in inches, whatever the
+choice.
+
+\SeeAlso{Margins, Left and Right; Setup; Status Line}
+\end{Feature}

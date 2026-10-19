@@ -1,0 +1,5 @@
+[DML-BEGIN]
+Record#  NAME       CITY              BAL
+      1  WADDAMS    AUSTIN        7735.77
+      2  PESTON     HONOLULU      1234.50
+[DML-END]

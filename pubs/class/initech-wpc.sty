@@ -1,0 +1,617 @@
+%% initech-wpc.sty -- the F-WPC family of the Initech manual line: the
+%% InitechWord Reference, Workbook and install card (bead initech-ipu5.10).
+%% Binding: PUB-REF-0001 (docs/pubs/DESIGN-REFERENCE.md) PG-15, PG-25, PG-33,
+%% PG-35, TY-03, TY-06, NT-14, NT-17, NT-23, NT-24, NT-31, AN-11, AN-18,
+%% AN-23, AN-24, PK-07; the model annex docs/pubs/originals/wordperfect-51.md
+%% s2-s5.  Loaded by the books after \documentclass[wordperfect]{initech-
+%% manual}; everything here is F-WPC furniture or the InitechWord gates' hooks.
+%%
+%% THE GATES' HOOKS (GC-01, GC-03; harness/pubs/iword_check.sh):
+%%   \Documents{KIND}{NAME}  registers NAME through the ONE mechanism,
+%%       \RegisterCommand (initech-syntax.sty), under the feature entry in
+%%       force.  KIND: wpkey, wpmenu, wppull, wpcode, wpmsg, wpgray -- the
+%%       shipped inventory harness/pubs/iword_probe.c prints (wpgray: a key
+%%       that shows the grey name of a WordPerfect feature InitechWord does
+%%       not carry out, "Shift-F7=Print").  A backslash in a NAME
+%%       is written \wbs (it writes a plain backslash).
+%%   \K{Shift-F8}  a key or key sequence in running text, set as the model
+%%       sets it; written to <job>.wpkeys: every key of it must be a shipped
+%%       key (the gate).
+%%   \Type{text}, \Press{Feature}{Key}, \PressKey{Key}, \Choose{name}{n}:
+%%       the lesson notation (AN-18) -- each ALSO writes its keystrokes to
+%%       <job>.wpreplay, the script the gate replays (iword_probe replay);
+%%       \WordScreen{name}{caption} prints screens/<name>.scr and marks the
+%%       point of the script where the replay must produce that screen.
+%%   \BeginReplay{name} / \EndReplay delimit one launch of InitechWord.
+%% Order checks (Rule 2, AN-11): entries strictly letter-by-letter
+%% alphabetical; Notes topics alphabetical; See Also lists alphabetical;
+%% every See Also and \InRef target is an entry of this book.
+%% ASCII only (Rule 12).
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{initech-wpc}[1992/03/01 Initech F-WPC furniture]
+\RequirePackage{amssymb}
+
+\directlua{
+initech_wpc = { entries = {}, refs = {}, last = nil, topic = nil, letter = nil }
+local function key(s)
+  s = string.lower(s)
+  s = string.gsub(s, "[^a-z0-9]", "")
+  return s
+end
+initech_wpc.key = key
+function initech_wpc.entry(name)
+  local k = key(name)
+  if initech_wpc.last and k <= initech_wpc.last then
+    tex.error("initech-wpc: entry `" .. name .. "' is out of letter-by-letter order (AN-11)")
+  end
+  initech_wpc.last = k
+  initech_wpc.entries[k] = true
+  initech_wpc.topic = nil
+  local first = string.upper(string.sub(k, 1, 1))
+  if first \string~= initech_wpc.letter then
+    initech_wpc.letter = first
+    tex.sprint(first)
+  end
+end
+function initech_wpc.notes_on() initech_wpc.topic = "" end
+function initech_wpc.topic_check(name)
+  local k = key(name)
+  if initech_wpc.topic == nil then return end
+  if k <= initech_wpc.topic then
+    tex.error("initech-wpc: Notes topic `" .. name .. "' is out of alphabetical order (AN-11)")
+  end
+  initech_wpc.topic = k
+end
+function initech_wpc.list_check(list, what)
+  local prev = nil
+  for item in string.gmatch(list, "[^;]+") do
+    item = string.gsub(string.gsub(item, "^\@percentchar s+", ""), "\@percentchar s+$", "")
+    local k = key(item)
+    if prev and k <= prev then
+      tex.error("initech-wpc: " .. what .. " `" .. item .. "' is out of alphabetical order")
+    end
+    prev = k
+    initech_wpc.refs[\string#initech_wpc.refs + 1] = item
+  end
+end
+function initech_wpc.ref(item)
+  initech_wpc.refs[\string#initech_wpc.refs + 1] = item
+end
+function initech_wpc.check_refs()
+  for _, item in ipairs(initech_wpc.refs) do
+    if not initech_wpc.entries[key(item)] then
+      tex.error("initech-wpc: `" .. item .. "' is named as an entry of this book but there is none")
+    end
+  end
+end
+}
+
+%% ---- the backslash a registered name or a message may hold --------------
+\newcommand\wbs{\@backslashchar}
+
+%% ---- running foot (PG-15, TY-06): outer corner only; verso "folio  ENTRY",
+%% recto "ENTRY  folio"; the ENTRY in force at the foot of the page (the
+%% last \markboth on it, \leftmark).
+\newcommand\im@wpcfoot{{\im@condensed\fontsize{8}{10}\selectfont\MakeUppercase{\leftmark}}}
+\newcommand\im@wpcfolio{{\im@condensed\bfseries\fontsize{9}{10}\selectfont\thepage}}
+\fancypagestyle{im@text}{%
+  \fancyhf{}%
+  \renewcommand\headrulewidth{0pt}%
+  \renewcommand\footrulewidth{0pt}%
+  \fancyhfoffset[LO,LE]{\imHang}%
+  \fancyfoot[LE]{\im@wpcfolio\quad\im@wpcfoot}%
+  \fancyfoot[RO]{\im@wpcfoot\quad\im@wpcfolio}%
+  \fancyfoot[C]{\imFootFont\bfseries\im@draftfoot}}
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \renewcommand\headrulewidth{0pt}%
+  \renewcommand\footrulewidth{0pt}%
+  \fancyhfoffset[LO,LE]{\imHang}%
+  \fancyfoot[LE]{\im@wpcfolio\quad\im@wpcfoot}%
+  \fancyfoot[RO]{\im@wpcfoot\quad\im@wpcfolio}%
+  \fancyfoot[C]{\imFootFont\bfseries\im@draftfoot}}
+\pagestyle{im@text}
+\renewcommand\chaptermark[1]{\markboth{#1}{#1}}
+%% A section's \chapter is its divider leaf (PK-07): the bar and the field
+%% name it; nothing is typeset on the leaf (the class draws the bar and
+%% leaves the blank verso), and the section's text begins on the next
+%% recto with its first head.
+\titleformat{\chapter}[block]{}{}{0pt}{\@gobble}
+\titlespacing*{\chapter}{0pt}{0pt}{0pt}
+
+%% ---- contents (PG-35): section names in the side column, entries with
+%% leaders in the text column, a hairline between sections ---------------
+\newcommand\im@tocchap[1]{\hspace*{-\imHang}\makebox[\imHang][l]{\im@condensed\bfseries #1}}
+\newcommand\im@tochair{\addvspace{6pt}\noindent\makebox[0pt][l]{\hspace*{-\imHang}\rule{\imFullWidth}{0.5pt}}\par\nobreak\vspace{2pt}}
+\titlecontents{chapter}[0pt]
+  {\im@tochair}
+  {\im@tocchap}{\im@tocchap}
+  {\hfill\contentspage}
+\titlecontents{section}[0pt]
+  {\normalsize}
+  {}{}
+  {\titlerule*[0.75em]{.}\contentspage}
+\setcounter{tocdepth}{1}
+%% A section's own contents line in the side column (the chapter title).
+\renewcommand\tableofcontents{\im@closeentry\cleardoublepage\FootTitle{Contents}\im@notab
+  \markboth{Contents}{Contents}%
+  \im@origchapter*{Contents}\thispagestyle{plain}%
+  \@starttoc{toc}}
+
+%% ---- section divider leaf (PK-07): the class draws the bar; the triangle
+%% field is drawn here, on the leaf: 6 x 9 small triangles at 10% black, the
+%% middle row solid and pointing to the tab.  \DividerLeaf{Section} BEFORE
+%% the section's \chapter puts the field on the next leaf.
+\directlua{
+function initech_wpc.trifield()
+  local out = {}
+  for r = 0, 8 do
+    for c = 0, 5 do
+      local x, y = 60 + 15 * c, 70 + 10 * r
+      if r == 4 then
+        out[\string#out + 1] = "\string\\put(\string\\dimexpr " .. x .. "mm\string\\relax,-\string\\dimexpr " .. y ..
+          "mm\string\\relax){\string\\rotatebox{-90}{$\string\\blacktriangle$}}"
+      else
+        out[\string#out + 1] = "\string\\put(\string\\dimexpr " .. x .. "mm\string\\relax,-\string\\dimexpr " .. y ..
+          "mm\string\\relax){\string\\textcolor{black!10}{$\string\\blacktriangle$}}"
+      end
+    end
+  end
+  tex.sprint(table.concat(out))
+end
+}
+\newcommand\im@trifield{\directlua{initech_wpc.trifield()}}
+\newcommand\DividerLeaf{\cleardoublepage\AddToHookNext{shipout/foreground}{\im@trifield}}
+
+%% ---- feature entry (AN-11) ----------------------------------------------
+\newcommand\imWPTitleFont{\im@condensed\bfseries\fontsize{14}{16}\selectfont}
+\newcommand\imWPLetterFont{\im@condensed\bfseries\fontsize{24}{24}\selectfont}
+\newcommand\imWPSideFont{\im@condensed\bfseries\fontsize{10}{12}\selectfont}
+\newcommand\im@wpentry{}
+\NewDocumentEnvironment{Feature}{m}
+  {\par\addvspace{24pt}\penalty-200
+   \gdef\im@entryname{#1}\gdef\im@wpentry{#1}%
+   \gdef\im@cmdstate{GATED}%
+   \noindent\hspace*{-\imHang}\rule{\imFullWidth}{3pt}\par\nobreak\vspace{4pt}%
+   \setbox0\hbox{\imWPLetterFont\directlua{initech_wpc.entry("\luaescapestring{#1}")}}%
+   \noindent\hspace*{-\imHang}%
+   \ifdim\wd0>0pt\rlap{\raisebox{-3pt}[0pt][0pt]{\box0}}\hspace*{9mm}\fi
+   {\imWPTitleFont #1}\par\nobreak
+   \markboth{#1}{#1}%
+   \addcontentsline{toc}{section}{#1}%
+   \index{#1}%
+   \immediate\write\im@wpentries{#1}%
+   \vspace{14pt}\nobreak\@afterheading}
+  {\par}
+\newwrite\im@wpentries
+\AtBeginDocument{\immediate\openout\im@wpentries=\jobname.wpentries}
+\AtEndDocument{\immediate\closeout\im@wpentries}
+%% "To use bold," -- the introductory clause of a procedure.
+\newcommand\Proc[1]{\par\addvspace{6pt}\noindent #1\par\nobreak}
+%% Steps: numerals Heros Cn Bold hanging in the gap.
+\newlist{WPSteps}{enumerate}{1}
+\setlist[WPSteps]{label={\im@condensed\bfseries\arabic*}, leftmargin=0pt,
+  labelwidth=6mm, labelsep=2mm, align=right, itemsep=3pt, parsep=3pt,
+  topsep=4pt, partopsep=0pt}
+%% The pull-down alternative after a step: the small menu-bar icon, then the
+%% italic sentence; the menu word and item bold italic (NT-14).
+\newcommand\im@menuicon{\raisebox{0.2ex}{\setlength\fboxsep{0pt}\setlength\fboxrule{0.4pt}%
+  \fbox{\rule{0pt}{1.6mm}\hspace{3.2mm}\rule[1.2mm]{0pt}{0pt}}}}
+\newcommand\PullDown[1]{\par\nobreak\vspace{2pt}\noindent
+  \llap{\im@menuicon\hspace{2mm}}{\itshape\small #1}\par}
+\newcommand\Mi[1]{\textbf{\textit{#1}}}
+%% "or" between two alternatives inside a step (italic, on its own line).
+\newcommand\Or{\par\nobreak{\itshape or}\par\nobreak}
+%% Interstitial note (NT-31: italic, 1 pt smaller, unlabelled) and its
+%% strong form, a bold-italic run-in "Important:".
+\newenvironment{WPNote}{\par\addvspace{4pt}\noindent\itshape\fontsize{9.5}{12}\selectfont}{\par\addvspace{4pt}}
+\renewenvironment{Important}{\par\addvspace{4pt}\noindent\itshape\fontsize{9.5}{12}\selectfont
+  \textbf{Important:}\enspace\ignorespaces}{\par\addvspace{4pt}}
+%% Notes: hairline across the block, "Notes" in the side column, then the
+%% sub-topics (alphabetical; checked).
+\newcommand\Notes{\directlua{initech_wpc.notes_on()}\par\addvspace{10pt}\noindent\hspace*{-\imHang}\rule{\imFullWidth}{0.5pt}\par\nobreak
+  \vspace{4pt}\gdef\im@notesfirst{1}}
+\newcommand\im@notesfirst{}
+\newcommand\Topic[1]{\par\addvspace{6pt}\goodbreak
+  \directlua{initech_wpc.topic_check("\luaescapestring{#1}")}%
+  \noindent\ifx\im@notesfirst\@empty\else
+    \llap{\makebox[\imHang][l]{\imWPSideFont Notes}}\gdef\im@notesfirst{}\fi
+  {\im@condensed\bfseries #1}\par\nobreak\@afterheading}
+%% A side head of the Getting Started section and the lessons (hairline +
+%% Heros Cn Bold in the side column).
+\newcommand\WPSide[1]{\par\addvspace{10pt}\goodbreak\noindent\hspace*{-\imHang}\rule{\imFullWidth}{0.5pt}\par\nobreak
+  \vspace{3pt}\noindent\llap{\smash{\parbox[t]{\imSideCol}{\RaggedRight\imWPSideFont #1}}\hspace{\imSideGap}}%
+  \ignorespaces}
+%% See Also: (alphabetical; every item an entry of this book)
+\newcommand\SeeAlso[1]{\par\addvspace{8pt}\noindent
+  \directlua{initech_wpc.list_check("\luaescapestring{#1}", "See Also item")}%
+  \textbf{See Also:}\enspace #1\par}
+%% Cross-reference: "see *Block* in *Reference*" (NT-32: the book is always
+%% named).  \InRef{Block} prints "Block in Reference" in the model's form.
+\newcommand\InRef[1]{\directlua{initech_wpc.ref("\luaescapestring{#1}")}\textit{#1} in \textit{Reference}}
+%% From another book (the Workbook names Reference entries it cannot check).
+%% (the target is written to <job>.wpfeatures: the gate checks it is an
+%% entry of the Reference)
+\newcommand\RefEntry[1]{\directlua{initech_wpc.write_feats("\luaescapestring{#1}")}\textit{#1} in the \textit{InitechWord Reference}}
+\AtEndDocument{\directlua{initech_wpc.check_refs()}}
+
+%% ---- keys, menu choices, codes, typed text in running text --------------
+%% \K{Shift-F8}: the key as the template names it, roman; recorded.
+\newwrite\im@wpkeys
+\AtBeginDocument{\immediate\openout\im@wpkeys=\jobname.wpkeys}
+\AtEndDocument{\immediate\closeout\im@wpkeys}
+\newcommand\K[1]{\immediate\write\im@wpkeys{#1}\mbox{#1}}
+%% Shift-F8,1: a key, then menu choices typed after it (only the key is a
+%% key: the choices are registered menu entries).
+\newcommand\KC[2]{\K{#1},#2}
+%% **Bold** (F6): the feature in bold, its key roman in parentheses.
+\newcommand\FK[2]{\textbf{#1} (\K{#2})}
+%% A menu choice: select Line (1).
+\newcommand\Ch[2]{\textbf{#1} (#2)}
+%% A hidden code as Reveal Codes shows it: [BOLD].
+\newcommand\Code[1]{\mbox{\texttt{#1}}}
+\newcommand\rarr{\mbox{$\rightarrow$}}
+\newcommand\larr{\mbox{$\leftarrow$}}
+%% Text on the screen (a prompt, a message): Cursor.
+\newcommand\Scr[1]{\texttt{#1}}
+%% A whole status-line menu or message, displayed as the screen shows it:
+%% Cursor 7.5 pt on the full block (80 columns fit), never broken.
+\newcommand\StatusLine[1]{\par\addvspace{3pt}\noindent\hspace*{-\imHang}%
+  \makebox[\imFullWidth][l]{\ttfamily\fontsize{7.5}{9}\selectfont #1}\par\addvspace{3pt}}
+%% Text the reader types, in running text.
+\newcommand\Typed[1]{\mbox{\texttt{\bfseries #1}}}
+%% The one registration mechanism.
+%% Keys and messages are indexed where they are documented (AN-24 F-WPC).
+\newcommand\Documents[2]{\RegisterCommand{#2}{#1}{GATED}{\im@entryname}%
+  \ifnum\pdf@strcmp{#1}{wpkey}=0 \im@indexkey{#2}\fi
+  \ifnum\pdf@strcmp{#1}{wpgray}=0 \im@indexkey{#2}\fi
+  \ifnum\pdf@strcmp{#1}{wpmsg}=0 \directlua{initech_wpc.index_msg("\luaescapestring{#2}")}\fi}
+\directlua{
+function initech_wpc.index_msg(s)
+  local key = string.gsub(s, "\string\\", "")
+  local disp = string.gsub(s, "\string\\", "\string\\textbackslash{}")
+  tex.sprint(luatexbase.registernumber("catcodetable@atletter"), "\string\\index{" .. key .. "@\string\\texttt{" .. disp .. "}}")
+end
+}
+%% A key is indexed by its name before any "=": "Shift-F7=Print" is indexed
+%% as Shift-F7.  The keys of a prompt or of Block ("Srch:F6", "Block:F12")
+%% are indexed under the feature that documents them, not by key.
+\newcommand\im@indexkey[1]{\im@indexkeyx#1=\relax}
+\def\im@indexkeyx#1=#2\relax{\directlua{initech_wpc.index_key("\luaescapestring{#1}")}}
+\directlua{
+function initech_wpc.index_key(k)
+  if string.find(k, ":") then return end
+  tex.sprint(luatexbase.registernumber("catcodetable@atletter"), "\string\\index{" .. k .. "}")
+end
+}
+
+%% ---- replayed keystrokes (lessons and Reference examples; GC-03) ----------
+\newwrite\im@wpreplay
+\AtBeginDocument{\immediate\openout\im@wpreplay=\jobname.wpreplay}
+\AtEndDocument{\immediate\closeout\im@wpreplay}
+\newif\ifim@inreplay
+\newcommand\BeginReplay[1]{\ifim@inreplay\PackageError{initech-wpc}{replay #1 begun inside another}{}\fi
+  \global\im@inreplaytrue\immediate\write\im@wpreplay{BEGIN #1}}
+\newcommand\EndReplay{\ifim@inreplay\else\PackageError{initech-wpc}{\string\EndReplay\space outside a replay}{}\fi
+  \global\im@inreplayfalse\immediate\write\im@wpreplay{END}}
+\newcommand\im@rec[1]{\ifim@inreplay\immediate\write\im@wpreplay{#1}\else
+  \PackageError{initech-wpc}{keystrokes outside \string\BeginReplay}{}\fi}
+%% \Type{Dear Mr. Lumbergh:} -- a passage typed: bold, indented, 1 pt larger
+%% (AN-18); recorded as one "type" line.  \TypeRun{...} is the same set in
+%% running text.
+\newcommand\Type[1]{\im@rec{type #1}\par\nobreak\vspace{2pt}{\leftskip=4mm\noindent\bfseries
+  \fontsize{11.5}{13}\selectfont #1\par}\vspace{2pt}}
+\newcommand\TypeRun[1]{\im@rec{type #1}\textbf{#1}}
+%% Typed into a prompt (a file name, a measurement): Cursor bold.
+\newcommand\TypeName[1]{\im@rec{type #1}\Typed{#1}}
+%% Press a feature key: **Bold** (F6); a plain key: Enter.
+\newcommand\Press[2]{\im@rec{key #2}\FK{#1}{#2}}
+\newcommand\PressKey[1]{\im@rec{key #1}\K{#1}}
+%% A key and the menu choices typed after it, printed "Ctrl-F8,2,3" and
+%% recorded: \PressKC{Ctrl-F8}{2,3}{23}.
+\newcommand\PressKC[3]{\im@rec{key #1}\im@rec{type #3}\KC{#1}{#2}}
+%% Characters typed into a menu or prompt, recorded only (the text names
+%% them already, as in "press Shift-F8,1,3,3").
+\newcommand\Typing[1]{\im@rec{type #1}}
+%% n spaces typed, recorded only (input would collapse them):
+%% \TypeSpaces{30}.
+\newcommand\TypeSpaces[1]{\im@rec{type \directlua{tex.sprint(string.rep("\string\\space ", #1))}}}
+%% Keys recorded but already named in the step text.
+\newcommand\Keys[1]{\im@rec{key #1}}
+%% A menu choice typed by its number: select Line (1).
+\newcommand\Choose[2]{\im@rec{type #2}\Ch{#1}{#2}}
+%% A click on the window's close box (recorded only).
+\newcommand\CloseBox{\im@rec{close}}
+%% Caps Lock on or off for the keys that follow (recorded only).
+\newcommand\CapsLock[1]{\im@rec{caps #1}}
+%% A pull-down menu choice (FLAIR menu bar).
+\newcommand\PullChoose[2]{\im@rec{menu #1,#2}}
+
+%% ---- screens from the replay (NT-23 F-WPC: a 10% black panel, square
+%% corners, no bezel; reverse video as solid black) -----------------------
+%% \WordScreen[rows=N]{name}{caption}: screens/<name>.scr, the screen the
+%% replay produced at this point (recorded "screen <name>").  rows=N prints
+%% the first N rows and the status line; the rows left out must be blank
+%% (cropping can never hide what the screen shows).  rows=24 prints all.
+\directlua{
+function initech_wpc.screen(path, rows)
+  local f = io.open(path, "rb")
+  if not f then
+    texio.write_nl("initech-wpc: MISSING SCREEN " .. path)
+    tex.sprint("\string\\fbox{MISSING SCREEN}")
+    return
+  end
+  local data = f:read("*a")
+  f:close()
+  local lines = {}
+  for line in string.gmatch(data, "([^\string\n]*)\string\n") do lines[\string#lines + 1] = line end
+  if \string#lines \string~= 49 or lines[25] \string~= "--" then
+    tex.error("initech-wpc: " .. path .. " is not a 24-row screen and its attributes") return
+  end
+  for i = 1, 24 do
+    if string.len(lines[i]) \string~= 76 or string.len(lines[25 + i]) \string~= 76 then
+      tex.error("initech-wpc: " .. path .. " row " .. i .. " is not 76 cells") return
+    end
+    if string.find(lines[i], "[^\string\032-\string\126]") then
+      tex.error("initech-wpc: " .. path .. " row " .. i .. " is not printable ASCII") return
+    end
+    if i > rows and i < 24 and (string.find(lines[i], "[^ ]") or string.find(lines[25 + i], "[^.]")) then
+      tex.error("initech-wpc: " .. path .. " rows=" .. rows .. " would hide row " .. i) return
+    end
+  end
+  local out = {}
+  local function cell(c, a)
+    local b = string.byte(c)
+    local g
+    if c == " " then g = "\string\\ "
+    elseif c == "^" then g = "\string\\im@rulertri"
+    elseif c == "`" then g = "\string\\im@scrarrow"
+    elseif (b >= 48 and b <= 57) or (b >= 65 and b <= 90) or (b >= 97 and b <= 122) then g = c
+    else g = "\string\\char" .. b .. "\string\\relax " end
+    if a == "." then return g end
+    if a == "R" then return "\string\\im@rev{" .. g .. "}" end
+    if a == "K" then return "\string\\im@band{" .. g .. "}" end
+    if a == "G" then return "\string\\im@grey{" .. g .. "}" end
+    local n = tonumber(a)
+    if not n then tex.error("initech-wpc: " .. path .. ": attribute " .. a) return g end
+    local s = g
+    if n - 2 * math.floor(n / 2) == 1 then s = "\string\\im@bf{" .. s .. "}" end
+    if math.floor(n / 2) - 2 * math.floor(n / 4) == 1 then s = "\string\\im@it{" .. s .. "}" end
+    if math.floor(n / 4) == 1 then s = "\string\\im@ul{" .. s .. "}" end
+    return s
+  end
+  local function row(i)
+    local t, a, r = lines[i], lines[25 + i], {}
+    for j = 1, 76 do r[\string#r + 1] = cell(string.sub(t, j, j), string.sub(a, j, j)) end
+    return "\string\\hbox{\string\\strut " .. table.concat(r) .. "}"
+  end
+  for i = 1, 24 do
+    if i <= rows or i == 24 then out[\string#out + 1] = row(i) end
+  end
+  tex.sprint(luatexbase.registernumber("catcodetable@atletter"), "\string\\im@wordscreenbox{" .. table.concat(out) .. "}")
+end
+}
+\newcommand\imWordScreenFont{\ttfamily\fontsize{7.2}{8.6}\selectfont}
+\newlength\im@cellw
+\newcommand\im@cell[1]{\makebox[\im@cellw][c]{#1}}
+\newcommand\im@rev[1]{{\setlength\fboxsep{0pt}\colorbox{black}{\textcolor{white}{\strut #1}}}}
+\newcommand\im@band[1]{{\setlength\fboxsep{0pt}\colorbox{black!30}{\strut #1}}}
+%% grey on the blue field (a feature InitechWord names but does not carry
+%% out; Setup's unavailable rows): the character in 55% black
+\newcommand\im@grey[1]{\textcolor{black!55}{#1}}
+\newcommand\im@bf[1]{{\bfseries #1}}
+\newcommand\im@it[1]{{\itshape #1}}
+\newcommand\im@ul[1]{\underline{#1}}
+\newcommand\im@rulertri{\makebox[0.6em][c]{\raisebox{0.1ex}{\scalebox{0.6}{$\blacktriangle$}}}}
+\newcommand\im@scrarrow{\makebox[0.6em][c]{\scalebox{0.7}{$\rightarrow$}}}
+\newcommand\im@wordscreenbox[1]{%
+  \noindent\hspace*{-\imHang}\colorbox{black!10}{\parbox{\dimexpr\imFullWidth-2\fboxsep\relax}{%
+    \centering\vbox{\imWordScreenFont\spaceskip=0.6em\xspaceskip=0.6em\offinterlineskip
+      \baselineskip=8.6pt #1}}}}
+\newwrite\im@wscreens
+\AtBeginDocument{\immediate\openout\im@wscreens=\jobname.wpscreens}
+\AtEndDocument{\immediate\closeout\im@wscreens}
+\ExplSyntaxOn
+\keys_define:nn { initech / wordscreen }
+  { rows .int_set:N = \l__initech_ws_rows_int , rows .initial:n = 24 }
+\NewDocumentCommand \WordScreen { O{} m m }
+  {
+    \group_begin:
+    \keys_set:nn { initech / wordscreen } { #1 }
+    \im@rec{screen~#2}
+    \immediate\write\im@wscreens{#2}
+    \par\addvspace{6pt}
+    \directlua{initech_wpc.screen("screens/\luaescapestring{#2}.scr",
+      \int_use:N \l__initech_ws_rows_int)}
+    \par\nobreak\vspace{3pt}
+    \refstepcounter{figure}
+    {\noindent\imCaptionFont #3\par}
+    \par\addvspace{6pt}
+    \group_end:
+  }
+%% A screen panel the reader compares with (lessons): the same, no caption.
+\NewDocumentCommand \CompareScreen { O{} m }
+  {
+    \group_begin:
+    \keys_set:nn { initech / wordscreen } { #1 }
+    \im@rec{screen~#2}
+    \immediate\write\im@wscreens{#2}
+    \par\addvspace{6pt}
+    \directlua{initech_wpc.screen("screens/\luaescapestring{#2}.scr",
+      \int_use:N \l__initech_ws_rows_int)}
+    \par\addvspace{8pt}
+    \group_end:
+  }
+\ExplSyntaxOff
+
+%% ---- emulator figures (NT-20, NT-21 (b), NT-22): a FLAIR capture of the
+%% booted system, grey through the fixed table, 1:1 pixels placed at 3 x 3
+%% on a 600 dpi grid (0.127 mm a pixel), interpolation off.
+%% \FlairShot{name}{width px}{height px}{caption}: \FlairDir/<name>.png
+%% (fixtures/pubs/<book>/: the figures are binary and pubs/ is ASCII only,
+%% GC-05), made by pubs/screens/flair_capture.sh from the trace
+%% flair/<name>.trace of the book.
+\providecommand\FlairDir{flair}
+\newwrite\im@flairshots
+\AtBeginDocument{\immediate\openout\im@flairshots=\jobname.flairshots}
+\AtEndDocument{\immediate\closeout\im@flairshots}
+\newcommand\FlairShot[4]{%
+  \immediate\write\im@flairshots{#1}%
+  \par\addvspace{8pt}\noindent\hspace*{-\imHang}\begin{minipage}[t]{\imFullWidth}\centering
+    \includegraphics[width=\dimexpr#2\dimexpr0.127mm\relax\relax,
+      height=\dimexpr#3\dimexpr0.127mm\relax\relax,interpolate=false]{\FlairDir/#1.png}\par
+    \vspace{4pt}\refstepcounter{figure}{\imCaptionFont #4\par}%
+  \end{minipage}\par\addvspace{8pt}}
+
+%% ---- glossary (AN-23 F-WPC: term on its own line, definition below) ------
+\newcommand\GlossTerm[1]{\par\addvspace{6pt}\goodbreak\noindent{\im@condensed\bfseries\fontsize{9.5}{12}\selectfont #1}\par\nobreak}
+
+%% ---- appendices of the Reference: lettered, each on a recto -------------
+\newcommand\WPAppendix[2]{\directlua{initech_wpc.topic = nil}\im@closeentry\cleardoublepage
+  \noindent\hspace*{-\imHang}\rule{\imFullWidth}{3pt}\par\nobreak\vspace{4pt}%
+  \noindent\hspace*{-\imHang}{\imWPTitleFont Appendix #1: #2}\par\nobreak
+  \markboth{Appendix #1: #2}{Appendix #1: #2}%
+  \addcontentsline{toc}{section}{Appendix #1: #2}%
+  \gdef\im@entryname{Appendix #1}%
+  \vspace{14pt}\@afterheading}
+%% The Reference section's own contents (single column, leaders), and a
+%% plain heading in the Getting Started section.
+\newcommand\WPHead[1]{\directlua{initech_wpc.topic = nil}\par\addvspace{18pt}\goodbreak
+  \noindent\hspace*{-\imHang}\rule{\imFullWidth}{3pt}\par\nobreak\vspace{4pt}%
+  \noindent\hspace*{-\imHang}{\imWPTitleFont #1}\par\nobreak
+  \markboth{#1}{#1}\addcontentsline{toc}{section}{#1}%
+  \vspace{12pt}\@afterheading}
+
+%% ---- the index: three columns in the Reference, two in the Workbook -----
+\newcommand\im@wpcols{3}
+\newcommand\IndexColumns[1]{\renewcommand\im@wpcols{#1}}
+\renewenvironment{theindex}
+  {\im@closeentry\cleardoublepage
+   \FootTitle{Index}\im@notab\markboth{Index}{Index}%
+   \noindent\hspace*{-\imHang}\rule{\imFullWidth}{3pt}\par\nobreak\vspace{4pt}%
+   \noindent\hspace*{-\imHang}{\imWPTitleFont Index}\par\vspace{12pt}%
+   \addcontentsline{toc}{section}{Index}%
+   \begin{adjustwidth}{-\imHang}{0pt}\begin{multicols}{\im@wpcols}\@setfontsize\im@x{8.5}{10}%
+   \setlength\parskip{0pt}\setlength\parindent{0pt}%
+   \RaggedRight
+   \let\item\im@idxitem}
+  {\end{multicols}\end{adjustwidth}}
+
+%% ---- Workbook lessons (AN-18) --------------------------------------------
+%% \Lesson{N}{Title}: the top of the next page (verso or recto), a 3 pt rule,
+%% "Lesson N: Title" in Heros Cn Bold 14; the foot names the lesson.
+%% \LessonFeatures{Bold; Save}: the features the lesson teaches (each a
+%% Reference entry, checked by the gate); Appendix A and B are built from
+%% them (\FeatureListAlpha, \FeatureListByLesson), so they agree with the
+%% lessons by construction (CP-17).  \Task{Typing the Memo}: a task section
+%% (hairline + gerund side head); its steps restart at 1.
+\newwrite\im@wpfeatures
+\AtBeginDocument{\immediate\openout\im@wpfeatures=\jobname.wpfeatures}
+\AtEndDocument{\immediate\closeout\im@wpfeatures}
+\directlua{
+initech_wpc.lessons = {}
+function initech_wpc.lesson_feats(n, title, list)
+  local t = { n = n, title = title, feats = {} }
+  for item in string.gmatch(list, "[^;]+") do
+    item = string.gsub(string.gsub(item, "^\@percentchar s+", ""), "\@percentchar s+$", "")
+    t.feats[\string#t.feats + 1] = item
+  end
+  initech_wpc.lessons[\string#initech_wpc.lessons + 1] = t
+end
+function initech_wpc.alpha()
+  local by = {}
+  local names = {}
+  for _, l in ipairs(initech_wpc.lessons) do
+    for _, f in ipairs(l.feats) do
+      if not by[f] then by[f] = {} names[\string#names + 1] = f end
+      by[f][\string#by[f] + 1] = l.n
+    end
+  end
+  table.sort(names, function(a, b) return initech_wpc.key(a) < initech_wpc.key(b) end)
+  local out = {}
+  for _, f in ipairs(names) do
+    out[\string#out + 1] = f .. " \string\\dotfill\string\\ " .. table.concat(by[f], ", ") .. "\string\\par "
+  end
+  tex.sprint(table.concat(out))
+end
+function initech_wpc.bylesson()
+  local out = {}
+  for _, l in ipairs(initech_wpc.lessons) do
+    out[\string#out + 1] = "\string\\par\string\\addvspace{6pt}\string\\noindent{\string\\im@condensed\string\\bfseries Lesson " .. l.n .. ": " .. l.title .. "}\string\\par\string\\nobreak "
+    for _, f in ipairs(l.feats) do out[\string#out + 1] = "\string\\noindent\string\\hspace*{4mm}" .. f .. "\string\\par " end
+  end
+  tex.sprint(luatexbase.registernumber("catcodetable@atletter"), table.concat(out))
+end
+}
+\newcommand\imLessonFeats[3]{\directlua{initech_wpc.lesson_feats("\luaescapestring{#1}", "\luaescapestring{#2}", "\luaescapestring{#3}")}}
+\newcommand\im@lessonnum{}
+\newcommand\im@lessontitle{}
+\newcommand\Lesson[2]{\im@closeentry\clearpage
+  \gdef\im@lessonnum{#1}\gdef\im@lessontitle{#2}%
+  \noindent\hspace*{-\imHang}\rule{\imFullWidth}{3pt}\par\nobreak\vspace{4pt}%
+  \noindent\hspace*{-\imHang}{\imWPTitleFont Lesson #1: #2}\par\nobreak
+  \markboth{Lesson #1: #2}{Lesson #1: #2}%
+  \addcontentsline{toc}{section}{Lesson #1: #2}%
+  \index{Lesson #1@\textit{Lesson #1: #2}}%
+  \vspace{12pt}\@afterheading}
+\directlua{
+function initech_wpc.write_feats(list)
+  local out = {}
+  for item in string.gmatch(list, "[^;]+") do
+    item = string.gsub(string.gsub(item, "^\@percentchar s+", ""), "\@percentchar s+$", "")
+    out[\string#out + 1] = "\string\\immediate\string\\write\string\\im@wpfeatures{" .. item .. "}"
+  end
+  tex.sprint(luatexbase.registernumber("catcodetable@atletter"), table.concat(out))
+end
+}
+\directlua{
+function initech_wpc.index_feats(list)
+  local out = {}
+  for item in string.gmatch(list, "[^;]+") do
+    item = string.gsub(string.gsub(item, "^\@percentchar s+", ""), "\@percentchar s+$", "")
+    out[\string#out + 1] = "\string\\index{" .. item .. "}"
+  end
+  tex.sprint(luatexbase.registernumber("catcodetable@atletter"), table.concat(out))
+end
+}
+\newcommand\LessonFeatures[1]{%
+  \protected@write\@auxout{}{\string\imLessonFeats{\im@lessonnum}{\im@lessontitle}{#1}}%
+  \directlua{initech_wpc.write_feats("\luaescapestring{#1}")}%
+  \directlua{initech_wpc.index_feats("\luaescapestring{#1}")}}
+\newcommand\Task[1]{\WPSide{#1}}
+\newcommand\FeatureListAlpha{\begingroup\setlength\parskip{1pt}\directlua{initech_wpc.alpha()}\endgroup}
+\newcommand\FeatureListByLesson{\begingroup\setlength\parskip{1pt}\directlua{initech_wpc.bylesson()}\endgroup}
+%% The closing sentence of a lesson and the asides (AN-18: italic, smaller).
+\newenvironment{Aside}{\par\addvspace{4pt}\noindent\itshape\fontsize{9.5}{12}\selectfont}{\par\addvspace{4pt}}
+
+%% ---- the messages appendix (GC-02): \WPMessage{text}{explanation}{action}
+%% registers the text (wpmsg) and prints it character for character in
+%% Cursor Bold, its placeholders -- the words filename and code -- in
+%% italic; a backslash in the text is written \wbs.
+\directlua{
+function initech_wpc.message(s)
+  s = string.gsub(s, "\string\\", "\string\\textbackslash{}")
+  s = string.gsub(s, "filename", "\string\\textit{filename}")
+  s = string.gsub(s, "\@percentchar[code\@percentchar]", "[\string\\textit{code}]")
+  tex.sprint(s)
+end
+}
+\newcommand\WPMessage[3]{\Documents{wpmsg}{#1}%
+  \par\addvspace{9pt}\goodbreak\noindent\hspace*{-\imHang}%
+  {\ttfamily\bfseries\directlua{initech_wpc.message("\luaescapestring{#1}")}}\par\nobreak
+  \vspace{2pt}\noindent #2\par
+  \ifx\relax#3\relax\else\vspace{2pt}\noindent\textit{What to do:}\enspace #3\par\fi}
+%% A code of the codes appendix: registered (wpcode), printed as Reveal
+%% Codes shows it, with its meaning.  \rarr in a name is written ->.
+\newcommand\WPCode[2]{\Documents{wpcode}{#1}\index{#1@\texttt{#1}}%
+  \par\addvspace{3pt}\noindent\llap{\makebox[\imHang][l]{\texttt{#1}}}#2\par}
+%% A key of the keyboard appendix that acts as another key (wpkey alias).
+\newcommand\WPAlias[2]{\Documents{wpkey}{#1=#2}#1}
+%% The same at a prompt: \WPPromptAlias{Srch:}{Shift-F2}{F2} registers
+%% "Srch:Shift-F2=F2" and prints Shift-F2.
+\newcommand\WPPromptAlias[3]{\Documents{wpkey}{#1#2=#3}#2}
+%% A key that shows a grey name: \WPGray{Shift-F7}{Print} registers
+%% "Shift-F7=Print" (wpgray) and prints the key and the name.
+\newcommand\WPGray[2]{\Documents{wpgray}{#1=#2}#1 & \textcolor{black!55}{#2}}
+
+\endinput

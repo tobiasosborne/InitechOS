@@ -1,0 +1,75 @@
+% Lesson 6 (AN-18): Reveal Codes; [HRt], [Tab], [BOLD]..[bold],
+% [UND]..[und]; deleting a code in Reveal Codes; the "Delete [code]?"
+% question on the editing screen.  Uses MEMO from Lesson 4; nothing saved.
+% Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{6}{Hidden Codes}
+\LessonFeatures{Reveal Codes; Codes; Delete; Cancel}
+Every time you press Enter, Tab, Bold or Underline, InitechWord puts a code
+in the document.  The codes are hidden on the editing screen; Reveal Codes
+shows them.  In this lesson you look at the codes of the memo and practise
+deleting them.  You do not save the memo afterwards, so it stays as Lesson 4
+left it.
+
+\BeginReplay{l06}
+\Task{Revealing the Codes}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{memo} and press
+\PressKey{Enter}.
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\end{WPSteps}
+\CompareScreen[rows=22]{l06-1}
+The screen is divided.  The top part shows the memo as before.  Below the
+status line is the ruler: braces mark the margins and small triangles the tab
+stops.  Below the ruler, the same lines are shown with their codes:
+\Code{[HRt]} at the end of every line that ends with Enter, and \Code{[Tab]}
+for each tab.  The cursor, at the top, is the highlighted \textit{I}.
+
+\Task{Finding the Bold and Underline Codes}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end
+of the memo.
+\end{WPSteps}
+\CompareScreen[rows=16]{l06-2}
+The codes area shows the last lines.  The warning is between
+\Code{[BOLD]} and \Code{[bold]}, and \textit{attached} between \Code{[UND]}
+and \Code{[und]}.  The capital code starts the bold or underline, the small
+one ends it.
+
+\Task{Deleting a Code in Reveal Codes}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Left} to go to the start of the last
+line, then press \PressKey{Right} until the highlight is on \Code{[UND]}:
+press it sixteen times.\Keys{Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right}
+\item Press \PressKey{Delete}.  Both underline codes go, and \textit{attached}
+is no longer underlined.
+\end{WPSteps}
+\CompareScreen[rows=16]{l06-3}
+
+\Task{Deleting a Code on the Editing Screen}
+\begin{WPSteps}
+\item Press \Press{Reveal Codes}{Alt-F3} to return to the full editing
+screen.
+\item Press \PressKey{Up}\Keys{Up} twice to go to the warning line, then
+\PressKey{Home}, \PressKey{Home}, \PressKey{Home}, \PressKey{Left}: three
+Homes put the cursor before the bold code at the start of the line.
+\item Press \PressKey{Delete}.  InitechWord does not delete a code you cannot
+see without asking first:
+\end{WPSteps}
+\CompareScreen[rows=10]{l06-4}
+\begin{WPSteps}[resume]
+\item Type \TypeName{n}.  The code stays, and the cursor moves past it, to the
+\textit{R}.
+\end{WPSteps}
+
+\Task{Clearing the Screen}
+\begin{WPSteps}[resume]
+\item Press \Press{Exit}{F7} and type \TypeName{n} so that the change is not
+saved, then type \TypeName{n} again.
+\end{WPSteps}
+\EndReplay
+\begin{Aside}If you had answered y, the warning would no longer be bold.  The
+memo on the disk is unchanged in any case, because you did not save
+it.\end{Aside}
+In Lesson 7 you indent the steps of a procedure.

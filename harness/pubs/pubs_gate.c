@@ -124,8 +124,12 @@ static void cmdsfile(const char *path,Set *doc,Set *draft)
                 if(*q=='|') q++; else { k++;break; }
             }
             if(k!=4 || *q || !*f[0] || !*f[3]) die("COMMAND-INDEX",path,line);
+            /* InitechWord (harness/pubs/iword_probe.c, bead initech-ipu5.10):
+             * wpkey wpmenu wppull wpcode wpmsg wpgray */
             if(strcmp(f[1],"internal") && strcmp(f[1],"external") && strcmp(f[1],"batch") &&
-               strcmp(f[1],"config") && strcmp(f[1],"int21") &&
+               strcmp(f[1],"config") && strcmp(f[1],"int21") && strcmp(f[1],"wpkey") &&
+               strcmp(f[1],"wpmenu") && strcmp(f[1],"wppull") && strcmp(f[1],"wpcode") &&
+               strcmp(f[1],"wpmsg") && strcmp(f[1],"wpgray") &&
                /* InitechBase (bead initech-ipu5.8): samir_inventory.c kinds */
                strcmp(f[1],"command") && strcmp(f[1],"function") && strcmp(f[1],"set"))
                 die("COMMAND-INDEX",path,line);
@@ -264,7 +268,11 @@ static void lintfile(const char *path)
     FILE *raw=fopen(path,"rb");int c;
     if(!raw) die("INPUT",path,"cannot open");
     int tabok=dot && (!strcmp(dot,".mk") || !strcmp(dot,".sh"));
-    while((c=fgetc(raw))!=EOF) if(c>126 || (c<32 && c!='\n' && !(c=='\t' && tabok)))
+    /* A replayed transcript (.txt) is the shipped program's exact bytes: the
+     * InitechBase dot prompt ends lines CR LF like real dBASE III PLUS (the
+     * samirdml parity fix), so CR is a legitimate byte there. PM 2026-10-17. */
+    int crok=dot && !strcmp(dot,".txt");
+    while((c=fgetc(raw))!=EOF) if(c>126 || (c<32 && c!='\n' && !(c=='\t' && tabok) && !(c=='\r' && crok)))
         die("ASCII",path,"non-printable/non-ASCII byte");
     fclose(raw);
     if(!dot || (strcmp(dot,".tex") && strcmp(dot,".txt") && strcmp(dot,".prg"))) { free(src);return; }
@@ -786,6 +794,30 @@ int main(int argc,char **argv)
             die("DOC-NOT-SHIPPED",argv[3],mentions.item[i]);
         printf(">>> test-pubs-mentions: green (%zu distinct inline commands)\n",mentions.n);
     }
+    else if(argc>=4 && !strcmp(argv[1],"keys")) {
+        /* InitechWord running-text keys (initech-wpc.sty \K -> <job>.wpkeys):
+         * every key of a mention ("Shift-F8", "Home, Home, Up") must be a
+         * single shipped key, NAME|wpkey of the inventory, or a key that acts as
+         * another (NAME=KEY|wpkey), or a key that shows the grey name of a
+         * feature InitechWord does not perform (NAME=Print|wpgray) (GC-01). */
+        Set pairs=list(argv[2],0);size_t n=0;
+        for(int f=3;f<argc;f++) { Set m=list(argv[f],-1); for(size_t i=0;i<m.n;i++) {
+            const char *p=m.item[i];
+            while(*p) {
+                char tok[MAX_NAME],want[MAX_NAME+8];size_t k=strcspn(p,", ");
+                if(k) { memcpy(tok,p,k);tok[k]=0;snprintf(want,sizeof want,"%s|wpkey",tok);
+                    int ok=has(&pairs,want);
+                    /* a key that acts as another key: "Shift-Backspace=Backspace|wpkey" */
+                    if(!ok) { size_t tl=strlen(tok);
+                        for(size_t q=0;q<pairs.n && !ok;q++) { const char *it=pairs.item[q];size_t il=strlen(it);
+                            ok=!strncmp(it,tok,tl) && it[tl]=='=' && ((il>6 && !strcmp(it+il-6,"|wpkey")) ||
+                                (il>7 && !strcmp(it+il-7,"|wpgray"))); } }
+                    if(!ok) die("DOC-NOT-SHIPPED",argv[f],m.item[i]);
+                    n++; }
+                p+=k;while(*p==',' || *p==' ') p++;
+            } } }
+        printf(">>> test-pubs-iword-keys: green (%zu keys named in running text, every one shipped)\n",n);
+    }
     else if(argc==5 && !strcmp(argv[1],"same")) same(argv[2],argv[3],argv[4]);
     else if(argc>=4 && !strcmp(argv[1],"samirmentions")) samirmentions(argc,argv);
     else if(argc>=4 && !strcmp(argv[1],"messages")) messages(argc,argv);
@@ -795,6 +827,6 @@ int main(int argc,char **argv)
         for(int i=3;i<argc;i++) walk(argv[i]);
         puts(">>> test-pubs-lint: green (ASCII, period vocabulary/years, part numbers and print codes)");
     } else if(argc>=7 && !strcmp(argv[1],"inconsistency")) inconsistency(argc,argv);
-    else die("USAGE","pubs_gate","inventory|commands|monotonic|same|lint|samirmentions|messages|inconsistency");
+    else die("USAGE","pubs_gate","inventory|commands|monotonic|keys|same|lint|samirmentions|messages|inconsistency");
     return 0;
 }

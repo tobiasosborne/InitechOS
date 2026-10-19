@@ -21,6 +21,43 @@
 #include "finder_icon.h"        /* finder_icon_draw (clipped, mask-honouring)  */
 #include "desk_icons.h"         /* the LOCKED 32x32 desktop strikes            */
 #include "finder_icons.h"       /* the LOCKED 32x32 disk-window strikes (R3.3) */
+
+/* Kernel size round 5 (WL-0168): the freestanding kernel carries the six
+ * strikes as ONE packed block (os/flair/asset_lz_data.h, generated from the
+ * unchanged locked headers above by tools/asset_lz.c) and unpacks them into
+ * BSS on first use; a hosted build keeps reading the locked tables directly.
+ * test-asset-lz proves decode == locked, byte for byte (the round-4
+ * chicago_packed.h precedent, Rule 8). The painter sees the same bytes. */
+#if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
+#define ASSET_LZ_DESK
+#include "asset_lz.h"
+#include "asset_lz_data.h"
+enum { FD_LZ_VOLUME, FD_LZ_TRASH, FD_LZ_TRASH_FULL, FD_LZ_FOLDER, FD_LZ_DOC, FD_LZ_APP };
+static FLAIRDeskIcon fd_strike_store[6];   /* the packer's order (asset_lz_data.h) */
+_Static_assert(sizeof fd_strike_store == ASSET_LZ_DESK_RAW, "six packed FLAIRDeskIcon records");
+static const FLAIRDeskIcon *fd_strike_at(unsigned i)
+{
+    static uint8_t ready;
+    if (!ready) {
+        asset_lz_unpack((uint8_t *)fd_strike_store, ASSET_LZ_DESK_RAW, asset_lz_desk);
+        ready = 1u;
+    }
+    return &fd_strike_store[i];
+}
+#define FD_STRIKE_VOLUME     fd_strike_at(FD_LZ_VOLUME)
+#define FD_STRIKE_TRASH      fd_strike_at(FD_LZ_TRASH)
+#define FD_STRIKE_TRASH_FULL fd_strike_at(FD_LZ_TRASH_FULL)
+#define FD_STRIKE_FOLDER     fd_strike_at(FD_LZ_FOLDER)
+#define FD_STRIKE_DOC        fd_strike_at(FD_LZ_DOC)
+#define FD_STRIKE_APP        fd_strike_at(FD_LZ_APP)
+#else
+#define FD_STRIKE_VOLUME     (&FLAIR_DESK_ICON_VOLUME)
+#define FD_STRIKE_TRASH      (&FLAIR_DESK_ICON_TRASH)
+#define FD_STRIKE_TRASH_FULL (&FLAIR_DESK_ICON_TRASH_FULL)
+#define FD_STRIKE_FOLDER     (&FLAIR_FINDER_ICON_FOLDER)
+#define FD_STRIKE_DOC        (&FLAIR_FINDER_ICON_DOC)
+#define FD_STRIKE_APP        (&FLAIR_FINDER_ICON_APP)
+#endif
 #include "flair_look.h"         /* flair_look_pixel_depth -- the ONE seam      */
 #include "blitter.h"            /* blitter_fill_rect_clipped (label band)      */
 #include "geneva9.h"            /* geneva9_glyph / geneva9_advance_w           */
@@ -60,7 +97,7 @@ static int16_t fd_max16(int16_t a, int16_t b) { return a > b ? a : b; }
 static int fd_abs(int v) { return v < 0 ? -v : v; }
 
 /* text_measure(FONT_GENEVA9, s) recomputed locally -- see the include note. */
-static int fd_label_width(const char *s)
+int finder_desk_text_width(const char *s)
 {
     int w = 0;
     if (s == (const char *)0) return 0;
@@ -108,7 +145,7 @@ static int fd_valid(const finder_desk_t *fd, int idx)
  * blit (Rule 2). */
 static const FLAIRDeskIcon *fd_strike(uint8_t kind, uint8_t trash_full)
 {
-    if (kind == (uint8_t)FINDER_ICON_VOLUME) return &FLAIR_DESK_ICON_VOLUME;
+    if (kind == (uint8_t)FINDER_ICON_VOLUME) return FD_STRIKE_VOLUME;
     /* bead initech-6k12: the Trash draws FULL while \TRASH holds anything
      * (finder_desk_t.trash_full, kept by finder_shell_recount_trash). */
 #if defined(FINDER_DESK_MUT_TRASH_NEVER_FULL)
@@ -116,14 +153,14 @@ static const FLAIRDeskIcon *fd_strike(uint8_t kind, uint8_t trash_full)
      * ignores the staged-contents count and always draws the EMPTY can -- the
      * audit H04 symptom. NEVER in a real build. */
     (void)trash_full;
-    if (kind == (uint8_t)FINDER_ICON_TRASH) return &FLAIR_DESK_ICON_TRASH;
+    if (kind == (uint8_t)FINDER_ICON_TRASH) return FD_STRIKE_TRASH;
 #else
     if (kind == (uint8_t)FINDER_ICON_TRASH)
-        return trash_full ? &FLAIR_DESK_ICON_TRASH_FULL : &FLAIR_DESK_ICON_TRASH;
+        return trash_full ? FD_STRIKE_TRASH_FULL : FD_STRIKE_TRASH;
 #endif
-    if (kind == (uint8_t)FINDER_ICON_FOLDER) return &FLAIR_FINDER_ICON_FOLDER;
-    if (kind == (uint8_t)FINDER_ICON_FILE)   return &FLAIR_FINDER_ICON_DOC;
-    if (kind == (uint8_t)FINDER_ICON_APP)    return &FLAIR_FINDER_ICON_APP;
+    if (kind == (uint8_t)FINDER_ICON_FOLDER) return FD_STRIKE_FOLDER;
+    if (kind == (uint8_t)FINDER_ICON_FILE)   return FD_STRIKE_DOC;
+    if (kind == (uint8_t)FINDER_ICON_APP)    return FD_STRIKE_APP;
     return (const FLAIRDeskIcon *)0;
 }
 
@@ -243,7 +280,7 @@ rgn_rect_t finder_desk_label_rect(const finder_desk_t *fd, int idx)
 
     if (!fd_valid(fd, idx)) return fd_empty_rect();
 
-    w  = fd_label_width(fd->icons[idx].name) + 2 * FINDER_LABEL_PAD_X;
+    w  = finder_desk_text_width(fd->icons[idx].name) + 2 * FINDER_LABEL_PAD_X;
     cx = (int)fd->icons[idx].x + FINDER_ICON_DIM / 2;
     /* Centered under the sprite; integer division matches text_center_in. */
     left = cx - w / 2;
@@ -757,7 +794,7 @@ finder_db_status_t finder_desk_db_apply(finder_desk_t *fd, const uint8_t *buf,
  * which has no region clip and paints a background cell for every glyph, so it
  * cannot be used at the underlay seam (rule 4 of the header). This is the
  * finder_icon.c per-pixel walk applied to the geneva9 strike. */
-static void fd_label_text(const bitmap_t *dst, int x, int y, const char *s,
+void finder_desk_text(const bitmap_t *dst, int x, int y, const char *s,
                           uint32_t ink, const region_t *clip)
 {
     while (*s != '\0') {
@@ -856,7 +893,7 @@ void finder_desk_paint(const finder_desk_t *fd, const bitmap_t *dst,
 
         lab = finder_desk_label_rect(fd, i);
         blitter_fill_rect_clipped(dst, lab, band_px, clip);
-        fd_label_text(dst, (int)lab.left + FINDER_LABEL_PAD_X,
+        finder_desk_text(dst, (int)lab.left + FINDER_LABEL_PAD_X,
                       (int)lab.top + 1, ic->name, text_px, clip);
     }
 }
@@ -917,3 +954,7 @@ int finder_desk_tenant_build(finder_desk_t *fd, finder_desk_icon_t *storage,
     finder_desk_init(fd, storage, cap, lp->bounds);
     return finder_desk_seed_defaults(fd);
 }
+
+void finder_desk_small_icon(const bitmap_t *dst,int16_t x,int16_t y,uint8_t kind,
+                             const region_t *clip)
+{ finder_icon_draw_small(dst,x,y,kind==FINDER_ICON_APP?0:kind==FINDER_ICON_FOLDER?2:1,clip); }

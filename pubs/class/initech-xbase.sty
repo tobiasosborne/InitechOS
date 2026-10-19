@@ -70,10 +70,23 @@
   \vspace*{-\topskip}{\noindent\hspace*{-\imHang}\im@display\fontsize{24}{28}\selectfont #1\par}%
   \newpage}
 
-%% ---- back cover: the house \MakeBackCover of initech-forms.sty (PK-05 as
-%% revised, AN-27; WL-0132) serves the InitechBase books too.  This file
-%% defined a second one with \newcommand, which made every book fail to
-%% typeset once both were on main ("Command \MakeBackCover already defined").
+%% ---- back cover (PUB-REF-0001 PK-05; operator directive 2026-10-17: the
+%% motto on the back cover) ------------------------------------------------------
+%% Wordmark top left; the motto; the address block bottom left; part number
+%% and print code bottom right; nothing else.
+%% PM 2026-10-17: initech-forms.sty (lane/design, WL-0132) owns \MakeBackCover (the
+%% house back cover: logo + banner + line band) and this package is loaded by the
+%% class for every book, so the F-ATE binder's own back cover has its own name;
+%% the InitechBase cover.tex files call \ATEBackCover. It carries the house
+%% line band (PK-05).
+\newcommand\ATEBackCover{\thispagestyle{empty}%
+  \AtPage{23}{14}{\Wordmark[30mm]}%
+  \AtPage{23}{40}{\parbox[t]{120mm}{\IsThisGoodForTheCompany}}%
+  \AtPage{23}{196}{\parbox[t]{80mm}{\sffamily\fontsize{8}{10}\selectfont\InitechAddress}}%
+  \im@hook{\put(\dimexpr154.8mm\relax,-\dimexpr212mm\relax){%
+    \makebox[0pt][r]{\sffamily\fontsize{8}{10}\selectfont\im@partno\quad\im@printcode}}}%
+  \im@lineband
+  \null\newpage}
 
 %% ---- the Quick Reference booklet (PK-11; annex Sec 11.1; class option
 %% quickref, 88.9 x 228.6 mm) -------------------------------------------------
@@ -553,7 +566,11 @@ end
   {\noindent\llap{\smash{\parbox[t]{\imSideCol}{\RaggedRight
     \sffamily\bfseries\fontsize{12}{14}\selectfont\strut#1\strut}}\hspace{\imSideGap}}\par}%
   \nobreak\vspace{-\baselineskip}\vspace{-\parskip}\@afterheading}
-%% Numbered steps with bold numerals; \Response{...} is the system's reply on
-%% an indented unnumbered line.
-\newcommand\Response[1]{\par\nobreak\vspace{1pt}{\leftskip=0pt #1\par}}
+%% Numbered steps with bold numerals; \ATEResponse{...} is the system's reply
+%% on an indented unnumbered line.  Named for the F-ATE frame, like
+%% \ATEHead and \ATEBackCover: this package is loaded for every book by
+%% initech-manual.cls, so it must not claim the generic \Response, which
+%% the TPS Operating Procedures (initech-ops.sty) define for their own
+%% transcript layout.
+\newcommand\ATEResponse[1]{\par\nobreak\vspace{1pt}{\leftskip=0pt #1\par}}
 \endinput

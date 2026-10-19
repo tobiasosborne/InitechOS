@@ -1,0 +1,51 @@
+% Lesson 32 (AN-18): a last revision of the memo -- a paragraph moved with
+% Move, Paragraph; an underline removed in Reveal Codes; Save under a new
+% name.  Uses MEMO; saves MEMO2.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{32}{Memo (Revision)}
+\LessonFeatures{Move, Sentence/Paragraph/Page; Reveal Codes; Codes; Save; Filenames}
+Bill wants the warning about returned reports to come right after the first
+paragraph of the memo, and the underline taken off \textit{attached}.  He
+also wants the first version kept.  In this lesson you make both changes and
+save the result as a second memo.
+
+\BeginReplay{l32}
+\Task{Moving the Warning}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{memo} and press
+\PressKey{Enter}.
+\item Press \PressKey{Down}\Keys{Down Down Down Down Down Down Down Down Down Down Down Down Down Down}
+fifteen times to go to the warning, \textit{Reports without a cover sheet
+will be returned.}
+\item Press \Press{Move}{Ctrl-F4}, select \Choose{Paragraph}{2} and
+\Choose{Move}{1}.
+\item Press \PressKey{Up}\Keys{Up Up} three times to go to the start of the
+questions paragraph, and press \PressKey{Enter}.  The warning goes in in
+front of it, and the cursor stays at its start.
+\item Press \PressKey{End} and \PressKey{Enter} to leave a blank line between
+the warning and the questions paragraph.
+\end{WPSteps}
+\CompareScreen[rows=19]{l32-1}
+
+\Task{Removing the Underline}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end
+of the memo, then \PressKey{Home}, \PressKey{Left} to the start of the last
+line.
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\item Press \PressKey{Right}\Keys{Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right}
+sixteen times to put the highlight on \Code{[UND]}, and press
+\PressKey{Delete}.
+\end{WPSteps}
+\CompareScreen[rows=16]{l32-2}
+
+\Task{Saving the Revision}
+\begin{WPSteps}
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\item Press \Press{Save}{F10}, type \TypeName{memo2} and press
+\PressKey{Enter}.  The first memo stays on the disk as it was.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 33 you add a second page to the letter of Lesson 23.

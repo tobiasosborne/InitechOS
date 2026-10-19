@@ -1,0 +1,46 @@
+% Lesson 28 (AN-18): a notice -- Center justification and the Large size
+% together, then Full justification for the text.  Saves PARKING.  Replayed
+% by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{28}{Parking Notice}
+\LessonFeatures{Justification; Size; Font; Save}
+A notice for the bulletin board needs a heading that stands out.  In this
+lesson you center a large heading over the text of a parking notice.
+
+\BeginReplay{l28}
+\Task{Typing the Heading}
+\begin{WPSteps}
+\item Press \PressKC{Shift-F8}{1,3,2}{132} for Center justification and press
+\Press{Exit}{F7}.
+\item Press \PressKC{Ctrl-F8}{1,5}{15} for the Large size, type
+\TypeRun{PARKING NOTICE}, and press \PressKC{Ctrl-F8}{1,5}{15} again to end
+the Large size.
+\item Press \PressKey{Enter} twice.\Keys{Enter}
+\end{WPSteps}
+
+\Task{Typing the Text}
+\begin{WPSteps}
+\item Press \PressKC{Shift-F8}{1,3,4}{134} for Full justification and press
+\Press{Exit}{F7}.
+\item Type:
+\Type{From Monday, parking spaces in the front row are reserved for visitors. Staff are asked to park in the lot behind the building.}
+\end{WPSteps}
+\CompareScreen[rows=4]{l28-1}
+The heading is centered; the editing screen draws it in the same cells as
+the text.
+
+\Task{Checking the Codes}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Up}, then
+\Press{Reveal Codes}{Alt-F3}.
+\end{WPSteps}
+\CompareScreen[rows=17]{l28-2}
+\begin{WPSteps}[resume]
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\item Press \Press{Save}{F10}, type \TypeName{parking} and press
+\PressKey{Enter}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 29 you line up a table of figures with tabs.

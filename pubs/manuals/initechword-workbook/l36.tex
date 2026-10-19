@@ -1,0 +1,65 @@
+% Lesson 36 (AN-18, "Special Techniques" anthology): backing out of the
+% Format screens a step at a time; Enter answers a question with its first
+% answer; a name corrected with Backspace; a key that shows a grey name
+% (Ctrl-F10, Macro Define: spec/iword/fkeys.json "gray", P3) and the next
+% key acting as usual.
+% Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{36}{More Special Techniques}
+\LessonFeatures{Format; Cancel; Exit; Save; Filenames; Template}
+Like Lesson 22, this lesson is a set of short exercises to try in any order.
+
+\BeginReplay{l36}
+\Task{Backing Out of the Format Screens}
+\begin{WPSteps}
+\item Press \Press{Format}{Shift-F8} and select \Choose{Line}{1}.
+\item Press \PressKey{Esc}.  You are back on the Format screen, one step
+up.
+\CompareScreen[rows=23]{l36-1}
+\item Press \PressKey{Esc} again.  You are back in the document.
+\end{WPSteps}
+\begin{Aside}From the Format: Line screen, Exit (F7) goes straight back to the
+document.\end{Aside}
+
+\Task{Answering With Enter}
+At a question, Enter gives the answer that is not in parentheses.
+\begin{WPSteps}
+\item Type \TypeRun{Enter practice.}
+\item Press \Press{Exit}{F7}.  At \Scr{Save Document? Yes (No)}, the answer
+outside the parentheses is Yes, so Enter would save.  Type \TypeName{n}.
+\item At \Scr{Exit WP? No (Yes)}, press \PressKey{Enter}: the answer outside
+the parentheses is No, so InitechWord stays, with a clear screen.
+\end{WPSteps}
+
+\Task{Correcting a Name}
+\begin{WPSteps}
+\item Type \TypeRun{Name practice.}
+\item Press \Press{Save}{F10} and type \TypeName{practise}.  It is spelled
+wrongly.
+\item Press \PressKey{Backspace}\Keys{Backspace} twice to erase \Typed{se},
+and type \TypeName{ce}.
+\end{WPSteps}
+\CompareScreen[rows=1]{l36-2}
+\begin{WPSteps}[resume]
+\item Press \PressKey{Enter} to save the document as \Scr{PRACTICE}.
+\end{WPSteps}
+
+\Task{Pressing a Key With a Grey Name}
+Some function keys name a WordPerfect feature that InitechWord does not
+carry out; the template prints their names in grey.  Pressing one by mistake
+does no harm.
+\begin{WPSteps}
+\item Type \TypeRun{ More.} (with the space).
+\item Press \PressKey{Ctrl-F10}, the Macro Define key of WordPerfect.  The
+status line shows the name in grey, and nothing else happens.
+\end{WPSteps}
+\CompareScreen[rows=1]{l36-3}
+\begin{WPSteps}[resume]
+\item Press \Press{Save}{F10}.  The grey name goes, and F10 does what it
+always does: the status line asks for the name, offering \Scr{PRACTICE}.
+\item Press \Press{Cancel}{F1}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+Lesson 37 shows you how to find text in a long document.

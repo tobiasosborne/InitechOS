@@ -29,9 +29,11 @@ static void trim(const char *name,unsigned size,int regrow)
     need(call(0x4201,h,0,0)==(int)size,"position preserved");
     need(call(0x4202,h,0,0)==(int)size,"AH40 size at current position");
     if(regrow) {
+        unsigned position=regrow==2?700u:regrow==3?1600u:size;
+        need(call(0x4200,h,0,position)==(int)position,"seek after truncate");
         memset(buf,'R',1000);
         need(call(0x4000,h,1000,ptr(buf))==1000,"regrow write");
-        need(call(0x4202,h,0,0)==1600,"regrow size");
+        need(call(0x4202,h,0,0)==(int)(position+1000u),"regrow size");
     }
     need(call(0x3e00,h,0,0)>=0,"close");
 }
@@ -53,6 +55,7 @@ int main(int argc,char **argv)
         need(!fileio_fat_bind(&v),"bind");
         trim("SHRINK.BIN",600,0); trim("BOUND.BIN",512,0);
         trim("EMPTY.BIN",0,0); trim("GROW.BIN",600,1);
+        trim("GAPIN.BIN",600,2); trim("GAPOUT.BIN",600,3);
         trim("SUB\\CHILD.BIN",600,0);
         trim("EXTEND.BIN",3000,0); trim("SHRINK.BIN",600,0);
         strcpy((char *)buf,"RONLY.BIN");

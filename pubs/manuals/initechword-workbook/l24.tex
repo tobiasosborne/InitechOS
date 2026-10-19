@@ -1,0 +1,68 @@
+% Lesson 24 (AN-18): meeting minutes -- bold headings typed with F6, indented
+% decisions (F4), a hard page before the action list.  Saves MINUTES.
+% Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{24}{Meeting Minutes}
+\LessonFeatures{Bold; Indent; Page Break, Hard; Status Line; Save}
+Minutes are a record of what was decided, set out so that a reader can find
+each decision quickly.  In this lesson you type the minutes of the staff
+meeting, with a bold heading for each part, the decisions indented, and the
+action list on a page of its own.
+
+% One action line: the name, the tabs, the action, Enter.
+\newcommand\ActionLine[4]{\Typing{#1}\Keys{#2}\Typing{#4}\Keys{Enter}%
+  \noindent\hspace*{4mm}\makebox[42mm][l]{\textbf{#1}}\makebox[18mm][l]{\textit{#3}}\textbf{#4}\par}
+\BeginReplay{l24}
+\Task{Typing the Heading}
+\begin{WPSteps}
+\item Press \Press{Bold}{F6}, type \TypeRun{MINUTES OF THE STAFF MEETING},
+and press \Press{Bold}{F6} again.
+\item Press \PressKey{Enter}, type \TypeRun{Friday, March 13, 1992} and press
+\PressKey{Enter} twice.\Keys{Enter}
+\end{WPSteps}
+
+\Task{Typing the Decisions}
+\begin{WPSteps}
+\item Press \Press{Bold}{F6}, type \TypeRun{Decisions}, press
+\Press{Bold}{F6} and press \PressKey{Enter} twice.\Keys{Enter}
+\item Press \Press{\rarr Indent}{F4} and type:
+\Type{The new cover sheet is required on every TPS report from Monday.}
+\item Press \PressKey{Enter}, then \PressKey{F4} again and type:
+\Type{Reports without a cover sheet will be returned to the sender.}
+\item Press \PressKey{Enter}, \PressKey{F4}, and type:
+\Type{The birthday cake for the third floor will be served at three.}
+\item Press \PressKey{Enter}.
+\end{WPSteps}
+\CompareScreen[rows=11]{l24-1}
+
+\Task{Starting the Action List on a New Page}
+\begin{WPSteps}
+\item Press \PressKey{Ctrl-Enter}.  The bar of equal signs shows the end of
+the first page, and the status line shows \Scr{Pg 2}.
+\item Press \Press{Bold}{F6}, type \TypeRun{Action Items}, press
+\Press{Bold}{F6} and press \PressKey{Enter} twice.\Keys{Enter}
+\item Type each action: the name, \K{Tab} as many times as shown, the action,
+and \K{Enter} at the end of the line.
+\end{WPSteps}
+\par\addvspace{4pt}
+\begingroup\setlength\parskip{1pt}
+\ActionLine{Peter Gibbons}{Tab Tab}{two tabs}{Order more cover sheets.}
+\ActionLine{Milton Waddams}{Tab Tab}{two tabs}{Move the reserve stock to collating.}
+\ActionLine{Samir Nagheenanajar}{Tab}{one tab}{Check the cover sheet form.}
+\ActionLine{Bill Lumbergh}{Tab Tab}{two tabs}{Send the memo to all staff.}
+\endgroup
+\par\addvspace{4pt}
+\CompareScreen[rows=19]{l24-2}
+The status line shows \Scr{Pg 2}: the action list is on the second page,
+below the bar.
+
+\Task{Saving the Minutes}
+\begin{WPSteps}
+\item Press \Press{Save}{F10}, type \TypeName{minutes} and press
+\PressKey{Enter}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 25 you revise the double-spaced draft of Lesson 19 into a final
+copy.

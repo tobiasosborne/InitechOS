@@ -1,0 +1,48 @@
+% Lesson 15 (AN-18): Size (Ctrl-F8,1,n) given to a block (Block, Attributes)
+% and typed (superscript).  Uses NOTICE from Lesson 14; saves it.  Replayed
+% by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{15}{Size}
+\LessonFeatures{Size; Block, Attributes; Reveal Codes; Save}
+The notice needs a large heading, and the approval line at its foot needs a
+small raised reference mark.  Sizes are on the Font key's Size menu.  In
+this lesson you give the heading the Large size by blocking it, and type a
+superscript.
+
+\BeginReplay{l15}
+\Task{Making the Heading Large}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{notice} and press
+\PressKey{Enter}.  The cursor is at the start of the heading.
+\item Press \Press{Block}{Alt-F4}, then \PressKey{End} to block the heading.
+\item Press \Press{Font}{Ctrl-F8}.  With Block on, the status line shows
+\Scr{Attribute: 1 Size; 2 Appearance: 0}.
+\item Select \Choose{Size}{1}, then \Choose{Large}{5}.
+\end{WPSteps}
+The editing screen draws every size in the same cells, so the heading looks
+as before; Reveal Codes will show the change.
+
+\Task{Typing a Superscript}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end
+of the notice, and press \PressKey{Enter} twice.\Keys{Enter}
+\item Type \TypeRun{Approved by the Office of the Vice President}.
+\item Press \PressKC{Ctrl-F8}{1,1}{11} for superscript, type \TypeRun{1}, and
+press \PressKC{Ctrl-F8}{1,1}{11} again.
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\end{WPSteps}
+\CompareScreen[rows=16]{l15-1}
+The last line ends with \Code{[SUPRSCPT]1[suprscpt]}.  Press
+\PressKey{Home}, \PressKey{Home}, \PressKey{Up} to see the codes around the
+heading at the top:
+\CompareScreen[rows=21]{l15-2}
+
+\Task{Saving the Notice}
+\begin{WPSteps}
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\item Press \Press{Save}{F10} and \PressKey{Enter}, and type \TypeName{y}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 16 you end several attributes at once with Normal.

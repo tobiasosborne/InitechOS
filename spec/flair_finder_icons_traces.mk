@@ -26,6 +26,11 @@
 #    The dump (after the README select) shows: the desktop VOLUME and TRASH,
 #    the root window's DOCUMENT (selected) and FOLDER, the APPS window's
 #    APPLICATION -- every captured desktop/window kind on one frame.
+#    lane/trashfull RE-KEY (explicit, Rule 8): DOS-folder commit 157b7d6c
+#    moves LABEL.COM out of APPS cell 7; PAINT.EXE is there now. The seventh
+#    probe is TPSPARM.DAT, cell 10 per spec/dos_folder_apps.txt, DOC at
+#    (274 + 2*68, 206 + 2*52) = (410,310). Cell 4 (123.MNU) is covered by
+#    the raised root window after D. The trace tokens stay unchanged.
 FLAIR_FINDER_ICONS_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m100:-12,m77:0,l1,m100:50,m100:50,m10:0,l0,m-100:-20,m-100:-20,m-100:-20,m-100:-20,m-50:-8,l1,l0,m100:72,m100:72,m100:72,m100:72,m100:70,m60:0
 
 # 2. FLAIR_TRASH_FULL_SPEC -- stage README.TXT, then park clear of the Trash

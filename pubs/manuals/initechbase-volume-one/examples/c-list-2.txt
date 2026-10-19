@@ -1,7 +1,7 @@
 . USE STAFF
 . LIST NEXT 4 TRIM(FIRSTNAME) + ' ' + LASTNAME, SALARY / 52
 Record#  TRIM(FIRSTNAME) + ' ' + LASTNAME SALARY / 52
-      1  BILL LUMBERGH                    1855.77    
-      2  PETER GIBBONS                    793.27     
-      3  MICHAEL BOLTON                   765.38     
-      4  SAMIR NAGHEENANAJAR              765.38     
+      1  BILL LUMBERGH                          1855.77
+      2  PETER GIBBONS                           793.27
+      3  MICHAEL BOLTON                          765.38
+      4  SAMIR NAGHEENANAJAR                     765.38

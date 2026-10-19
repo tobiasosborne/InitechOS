@@ -13,6 +13,7 @@
  * Usage:
  *   bochs_harness --disk IMG [--disk2 IMG] [--expect MARKER] [--bios ROM] [--vgabios ROM]
  *                 [--timeout-ms N] [--name LABEL] [--out DIR] [--serial-stdout]
+ *                 [--screendump-after MARKER] [--rtc-time0 N] [--vga-ext EXT]
  */
 #include "bochs.h"
 
@@ -38,7 +39,14 @@ static void usage(const char *argv0)
         "  --rfb-port N       Bochs RFB port (default %d)\n"
         "  --name LABEL       output filename label (default \"bochs\")\n"
         "  --out DIR          output dir (default \"build\")\n"
-        "  --serial-stdout    echo captured serial to stdout\n",
+        "  --serial-stdout    echo captured serial to stdout\n"
+        "  --screendump-after MARK  after this complete exact serial line,\n"
+        "                     capture a stable full RFB frame to\n"
+        "                     <out>/<name>.rfb.pgm (BGR233) + .rfb.ppm, then\n"
+        "                     click Bochs's snapshot button for the lossless\n"
+        "                     <name>.snap.bmp -> <name>.snap.ppm, then stop\n"
+        "  --rtc-time0 N      pin the guest RTC to Unix time N (UTC)\n"
+        "  --vga-ext EXT      bochsrc vga: extension= (default vbe)\n",
         argv0, BOCHS_DEFAULT_BIOS, BOCHS_DEFAULT_VGABIOS,
         BOCHS_DEFAULT_TIMEOUT_MS, BOCHS_DEFAULT_RFB_PORT);
 }
@@ -81,6 +89,19 @@ int main(int argc, char **argv)
         else if (strcmp(a, "--name") == 0)       { NEED_ARG(); cfg.name = argv[++i]; }
         else if (strcmp(a, "--out") == 0)        { NEED_ARG(); cfg.output_dir = argv[++i]; }
         else if (strcmp(a, "--serial-stdout") == 0) { serial_stdout = 1; }
+        else if (strcmp(a, "--screendump-after") == 0) { NEED_ARG(); cfg.screendump_after = argv[++i]; }
+        else if (strcmp(a, "--vga-ext") == 0)    { NEED_ARG(); cfg.vga_extension = argv[++i]; }
+        else if (strcmp(a, "--rtc-time0") == 0) {
+            NEED_ARG();
+            char *end;
+            errno = 0;
+            long t = strtol(argv[++i], &end, 10);
+            if (errno || *end || t < 1) {
+                fprintf(stderr, "%s: --rtc-time0 needs a positive Unix time\n", argv[0]);
+                return 2;
+            }
+            cfg.rtc_time0 = t;
+        }
         else if (strcmp(a, "-h") == 0 || strcmp(a, "--help") == 0) { usage(argv[0]); return 2; }
         else { fprintf(stderr, "%s: unknown argument: %s\n", argv[0], a); usage(argv[0]); return 2; }
 #undef NEED_ARG
@@ -116,13 +137,23 @@ int main(int argc, char **argv)
         "[bochs] triple_fault=%d\n"
         "[bochs] quit_marker_found=%d quit_markers_seen=%d (want=%d, quit_after=%s)\n"
         "[bochs] serial=%s\n"
+        "[bochs] screendump_after=%s marker_found=%d screendump_ok=%d rfb=%ux%u full_frames=%lu rfb_error=%s\n"
+        "[bochs] rfb_pgm=%s\n"
+        "[bochs] snapshot_ok=%d snapshot_tries=%d snap_ppm=%s\n"
         "[bochs] OK=%d\n",
         res.launched, res.rfb_unblocked, res.timed_out, res.exit_code, res.term_signal,
         res.serial_len, res.marker_found,
         cfg.expect_marker ? cfg.expect_marker : "(none)",
         res.triple_fault, res.quit_marker_found, res.quit_markers_seen,
         cfg.quit_after_count > 0 ? cfg.quit_after_count : 1,
-        cfg.quit_after ? cfg.quit_after : "(none)", res.serial_path, res.ok);
+        cfg.quit_after ? cfg.quit_after : "(none)", res.serial_path,
+        cfg.screendump_after ? cfg.screendump_after : "(none)",
+        res.screendump_marker_found, res.screendump_ok, res.rfb_width,
+        res.rfb_height, res.rfb_full_frames,
+        res.rfb_error[0] ? res.rfb_error : "(none)",
+        res.screendump_ok ? res.rfb_pgm_path : "(none)",
+        res.snapshot_ok, res.snapshot_tries,
+        res.snapshot_ok ? res.snap_ppm_path : "(none)", res.ok);
 
     int rc = res.ok ? 0 : 1;
     bochs_result_free(&res);

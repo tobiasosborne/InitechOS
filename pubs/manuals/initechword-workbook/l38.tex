@@ -1,0 +1,64 @@
+% Lesson 38 (AN-18): Replace with confirmation (case kept: WEEKLY ->
+% MONTHLY, Week -> Month; one occurrence left) and without; Save under a new
+% name.  Retrieves STATUS (Lesson 31); saves MONTHLY.  Law 1:
+% os/iword/app/face_a.c replace_key, replace_match (P3, bead initech-qvgd
+% part 2).  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{38}{Replacing Text}
+\LessonFeatures{Replace; Retrieve; Save; Cursor Movement}
+From next month the status reports go to Bill once a month, and the cover
+sheet is to be called the cover page.  In this lesson you turn the weekly
+status report of Lesson 31 into a monthly one by replacing words throughout
+it, first one at a time and then all at once.
+
+\BeginReplay{l38}
+\Task{Replacing One at a Time}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{status} and press
+\PressKey{Enter}.
+\item Press \Press{Replace}{Alt-F2}.  The status line asks
+\Scr{w/Confirm? No (Yes)}.
+\item Type \TypeName{y}: InitechWord is to ask you at each place.
+\item At \Scr{-> Srch:}, type \TypeName{week} and press \PressKey{F2}.
+\item At \Scr{Replace with:}, type \TypeName{month} and press
+\PressKey{F2}.  InitechWord highlights the first place it finds and asks
+whether to replace it.
+\end{WPSteps}
+\CompareScreen[rows=14]{l38-1}
+\begin{Aside}\textit{week} in lower case finds \textit{WEEK} in capitals as
+well, here inside \textit{WEEKLY}.\end{Aside}
+\begin{WPSteps}[resume]
+\item Type \TypeName{y}.  \textit{WEEKLY} becomes \textit{MONTHLY}: the new
+word is given the capitals of the old.
+\item Type \TypeName{y} again for \textit{Week ending}, and
+\TypeName{y} for \textit{Done this week}.
+\item The next place is \textit{the second week}, which is still right.
+Type \TypeName{n} to leave it.
+\item Type \TypeName{y} for \textit{Next week}.  There are no more, and the
+status line shows \Scr{* Not found *}.
+\end{WPSteps}
+\CompareScreen[rows=14]{l38-2}
+
+\Task{Replacing Everywhere at Once}
+\begin{WPSteps}
+\item Press \PressKey{Enter} to clear the message, then press
+\PressKey{Home, Home, Up}.
+\item Press \Press{Replace}{Alt-F2} and type \TypeName{n}: InitechWord is
+not to ask.
+\item Type \TypeName{cover sheet} and press \PressKey{F2}.
+\item Type \TypeName{cover page} and press \PressKey{F2}.
+\end{WPSteps}
+\CompareScreen[rows=14]{l38-3}
+Both places are changed, \textit{cover sheets} included.
+
+\Task{Saving the Monthly Report}
+\begin{WPSteps}
+\item Press \PressKey{Enter} to clear the message.
+\item Press \Press{Save}{F10}, type \TypeName{monthly} and press
+\PressKey{Enter}.  The weekly report is still on the disk as
+\Scr{STATUS}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+Lesson 39 shows you how to get back text you deleted.

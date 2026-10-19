@@ -2607,26 +2607,34 @@ static void builtin_path(const char *arg)
 static void cwd_display(char *out);
 /* VOL reuses DIR's root-label reader and controlled text. Only the mounted
  * drive A exists (INT21 GETCWD/GETSPACE contract). MS 3.3 p.126 / PDF211. */
+/* UG p26 / Reference pp57-58: explicit paths do not change the default.
+ * The approved catalogue fixes spacing; substitute only the selected letter. */
+static void print_volume_identity(char drive, const char *label)
+{
+    const char *source = label[0] ? MSG_DOS_0021 : MSG_DOS_0022;
+    char text[64]; unsigned i=0;
+    do { text[i]=source[i]; } while(source[i++]);
+    text[17]=drive;
+    dos_puts_raw(text);
+    if(label[0]) dos_puts_raw(label);
+}
+
 static void builtin_vol(const char *arg)
 {
     while (is_space(*arg)) arg++;
-    if (*arg) {
-        if (cmd_upcase_char(arg[0])!='A' || arg[1]!=':') {
-            dos_print(MSG_DOS_0004 "\r\n$");
-            return;
-        }
-        arg+=2;
-        while (is_space(*arg)) arg++;
-        if (*arg) { dos_print(MSG_DOS_0010 "\r\n$"); return; }
-    }
+    if (*arg && arg[1]!=':') { dos_print(MSG_DOS_0004 "\r\n$"); return; }
+    const char *selected=arg;
+    if (int21_select_path(&selected)) { dos_print(MSG_DOS_0004 "\r\n$"); return; }
+    while (is_space(*selected)) selected++;
+    if (*selected) { dos_print(MSG_DOS_0010 "\r\n$"); return; }
+    char drive=(char)('A'+int21_io_drive());
     char label[12];
     if (fileio_fat_volume_label(label)<0) {
         dos_print(MSG_DOS_0009 "\r\n$");
         return;
     }
     dos_print("\r\n$");
-    if (label[0]) { dos_puts_raw(MSG_DOS_0021); dos_puts_raw(label); }
-    else dos_puts_raw(MSG_DOS_0022);
+    print_volume_identity(drive, label);
     dos_print("\r\n$");
 }
 /* e47v: MS-DOS 3.3 Reference pp.57-58 / PDF142-143: one qualified
@@ -2662,10 +2670,11 @@ static void builtin_dir(const char *arg)
         }
     }
     spec[len] = 0;
-    if (len > 1 && spec[1] == ':' && spec[0] != 'A') {
+    const char *selected = spec;
+    if (int21_select_path(&selected)) {
         dos_print(MSG_DOS_0004 "\r\n$"); return;
     }
-    disp[0] = 'A'; disp[1] = ':'; disp[2] = '\\';
+    disp[0] = (char)('A'+int21_io_drive()); disp[1] = ':'; disp[2] = '\\';
     if (int21_directory_path(spec, disp+3, INT21_CWD_MAX)) {
         if (len && spec[len-1] != '\\' && spec[len-1] != ':') spec[len++] = '\\';
         spec[len++] = '*'; spec[len++] = '.'; spec[len++] = '*'; spec[len] = 0;
@@ -2686,6 +2695,7 @@ static void builtin_dir(const char *arg)
         if (!dot) { spec[len++] = '.'; spec[len++] = '*'; spec[len] = 0; }
     }
 
+    dx=(uint32_t)(disp[0]-'A'+1);
     /* AH=36h counts live FAT free clusters; never infer space from file sizes.
      * Technical Reference AH=36h; the host gate compares this backend to mdir. */
     __asm__ __volatile__("int $0x21" : "+a"(ax), "=b"(bx), "=c"(cx), "+d"(dx) : : "cc", "memory");
@@ -2709,10 +2719,7 @@ static void builtin_dir(const char *arg)
     dos_setdta(&g_shell_dta);
     dos_print("\r\n$");
 #ifndef CMD_MUTATE_DIR_NO_VOLUME
-    if (label[0]) {
-        dos_puts_raw(MSG_DOS_0021);
-        dos_puts_raw(label);
-    } else dos_puts_raw(MSG_DOS_0022);
+    print_volume_identity(disp[0], label);
     dos_print("\r\n\r\n$");
 #endif
     dos_puts_raw(MSG_DOS_0023);
@@ -2780,7 +2787,7 @@ static void builtin_type(const char *arg)
 
     handle = dos_open(name);
     if (handle < 0) {
-        dos_print(MSG_DOS_0003 "\r\n$");
+        dos_print(handle == -15 ? MSG_DOS_0004 "\r\n$" : MSG_DOS_0003 "\r\n$");
         return;
     }
     for (;;) {
@@ -2799,7 +2806,11 @@ static void builtin_type(const char *arg)
         dos_write((const char *)chunk, got);
     }
     dos_close(handle);
-    dos_print("\r\n$");     /* ensure a trailing newline after the file body */
+    /* A redirected TYPE is file bytes, without console-only line framing.
+     * MS-DOS 3.3 Reference TYPE/redirection; IOCTL IBM TR pp6-148..149. */
+    uint32_t ax=0x4400u, info;
+    __asm__ __volatile__("int $0x21" : "+a"(ax), "=d"(info) : "b"(1u) : "cc","memory");
+    if(info & 0x80u) dos_print("\r\n$");
 }
 
 /* Compose the displayable CWD ("A:\" + the root-relative path AH=47h reports)
@@ -2815,13 +2826,22 @@ static void cwd_display(char *out)
 
     dos_getcwd(0u, rel);              /* DL=0 -> the default drive (A:) */
 
-    out[n++] = 'A';
+    out[n++] = (char)('A'+int21_current_drive());
     out[n++] = ':';
     out[n++] = '\\';                  /* the drive + root separator -> "A:\" */
     while (rel[i] != '\0' && i < (int)(INT21_CWD_MAX - 1)) {
         out[n++] = rel[i++];          /* append the root-relative subpath */
     }
     out[n] = '\0';
+}
+
+static char prompt_drive(void)
+{
+#ifdef CMD_MUTATE_VOLUME_PROMPT
+    return 'A'; /* Rule 6: a C default must produce a C prompt. */
+#else
+    return (char)('A'+int21_current_drive());
+#endif
 }
 
 /* CD/CHDIR: no arg => print the current directory ("A:\" or "A:\SUB"). A path arg
@@ -2847,9 +2867,8 @@ static void builtin_cd(const char *arg)
         return;
     }
     cmd_upcase_str(tok);              /* DOS upcases 8.3 path components */
-    if (dos_chdir(tok) != 0u) {
-        dos_print(MSG_DOS_0018 "\r\n$");   /* "Invalid directory" */
-    }
+    uint16_t err = dos_chdir(tok);
+    if (err != 0u) dos_print(err == 15u ? MSG_DOS_0004 "\r\n$" : MSG_DOS_0018 "\r\n$");
     /* Success is SILENT -- the new path shows at the next prompt (real DOS 3.3). */
 }
 
@@ -3015,8 +3034,9 @@ static int copy_transfer(const char *source,const char *dest,int ascii,int appen
 {
     uint8_t chunk[128],check[128];
     int src=dos_open(source),dst=-1;
-    if(src<0){dos_print(MSG_DOS_0003 "\r\n$");return 0;}
+    if(src<0){dos_print(src == -15 ? MSG_DOS_0004 "\r\n$" : MSG_DOS_0003 "\r\n$");return 0;}
     int probe=dos_open(dest);
+    if(probe == -15) { dos_close(src); dos_print(MSG_DOS_0004 "\r\n$"); return 0; }
     int same=probe>=0 && int21_same_file((uint16_t)src,(uint16_t)probe);
 #ifdef CMD_MUTATE_NO_SAMEFILE
     same=0;
@@ -3665,6 +3685,28 @@ static int dispatch_line(const char *line)
     if (dispatch_control(line)) return g_shell_exit;
 
     cmd_parse(line, &parsed);
+    const char *drive_line=line;
+    while(is_space(*drive_line)) drive_line++;
+    if (drive_line[0] && drive_line[1]==':') {
+        const char *end=drive_line+2;
+        while(is_space(*end)) end++;
+        unsigned drive=(unsigned char)cmd_upcase_char(drive_line[0])-'A';
+        if(!*end && drive<26u) {
+            /* Real SELDISK/GETDISK, IBM DOS 3.30 TR AH=0Eh/19h. */
+            uint32_t ax=0x0e00u, dx=drive;
+            __asm__ __volatile__("int $0x21" : "+a"(ax) : "d"(dx) : "cc","memory");
+            ax=0x1900u;
+            __asm__ __volatile__("int $0x21" : "+a"(ax) : : "cc","memory");
+            if ((ax&255u)!=drive) {
+#ifdef CMD_MUTATE_VOLUME_MESSAGE
+                dos_print(MSG_DOS_0002 "\r\n$");
+#else
+                dos_print(MSG_DOS_0004 "\r\n$");
+#endif
+            }
+            return 0;
+        }
+    }
 
     switch (parsed.kind) {
         case CMD_EMPTY:
@@ -4240,7 +4282,7 @@ static void batch_echo_line(const char *text)
         templ = "$P$G";
     }
     dos_getcwd(0u, cwd_rel);
-    pctx.drive = 'A';
+    pctx.drive = prompt_drive();
     pctx.cwd   = cwd_rel;
     {
         uint8_t hh = 0, mi = 0, ss = 0, cs = 0;
@@ -4782,7 +4824,7 @@ void command_repl(int permanent)
             dos_getcwd(0u, cwd_rel);    /* DL=0 -> default drive (A:) */
 
             prompt_ctx_t pctx;
-            pctx.drive    = 'A';
+            pctx.drive    = prompt_drive();
             pctx.cwd      = cwd_rel;   /* root-relative, passed to $P expander */
             /* Time and date come from the live INT21 clock seam. */
             {

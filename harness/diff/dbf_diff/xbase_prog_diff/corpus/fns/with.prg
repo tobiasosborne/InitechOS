@@ -1,0 +1,8 @@
+? "[FNS-BEGIN]"
+DO ARGS WITH "alpha, beta", "gamma"
+? "[FNS-END]"
+RETURN
+PROCEDURE ARGS
+PARAMETERS A,B
+? A, B
+RETURN

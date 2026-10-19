@@ -1,0 +1,50 @@
+% Lesson 20 (AN-18): Retrieve into a document (the text goes in at the
+% cursor; the document keeps its own name); Save under a new name.  Uses
+% LETTERHD (Lesson 18) and PROCS (Lesson 9); saves PACKAGE.  Replayed by
+% test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{20}{Combining Documents}
+\LessonFeatures{Retrieve; Save; Filenames}
+Retrieve onto a clear screen brings a document back.  Retrieve with a
+document already on the screen puts the second document into the first, at
+the cursor.  In this lesson you put the cover sheet procedure under the
+letterhead of Lesson 18, and save the result as a new document.
+
+\BeginReplay{l20}
+\Task{Retrieving the Letterhead}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{letterhd} and press
+\PressKey{Enter}.
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end,
+under the salutation.
+\end{WPSteps}
+
+\Task{Retrieving the Procedure Into It}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{procs} and press
+\PressKey{Enter}.
+\end{WPSteps}
+\CompareScreen[rows=17]{l20-1}
+The procedure is now part of the letter, starting at the cursor, which is
+still where it was.  The status line still shows \Scr{A:\wbs LETTERHD}: the
+document on the screen keeps its name, and neither file on the disk has
+changed.
+
+\Task{Saving Under a New Name}
+To keep the letterhead as it is, save the combined document under a new
+name.
+\begin{WPSteps}
+\item Press \Press{Save}{F10}.  The status line offers \Scr{LETTERHD}.
+\item Type \TypeName{package}.  The first character you type replaces the
+name offered.  Press \PressKey{Enter}.
+\end{WPSteps}
+\CompareScreen[rows=17]{l20-2}
+
+\Task{Clearing the Screen}
+\begin{WPSteps}
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 21 you meet the messages InitechWord shows when something cannot
+be done, and the way back from each.

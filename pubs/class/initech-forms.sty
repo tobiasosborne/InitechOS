@@ -125,9 +125,10 @@
    \setlength\parskip{5pt}%
    {\im@condensed\bfseries\fontsize{9}{11}\selectfont\im@edition}\par
    \im@applies\par
-   %% AN-27: the company banner under the edition notice.
-   %% 90 mm, or the measure where a booklet's is narrower (PK-11).
-   \vspace{2pt}\IsThisGoodForTheCompany[\ifdim\linewidth<90mm \linewidth\else 90mm\fi]\vspace{2pt}}
+   %% AN-27: the company banner under the edition notice: 90 mm on the
+   %% house trim, the full measure in a PK-11 booklet (73 mm; a fixed 90 mm
+   %% overfilled the Turbo Initech Quick Reference's verso by 17 mm).
+   \vspace{2pt}\IsThisGoodForTheCompany[\ifdim\imFullWidth<90mm \imFullWidth\else 90mm\fi]\vspace{2pt}}
   {\par
    \copyright\ Copyright Initech Systems Corporation \im@years.
    All rights reserved.\par

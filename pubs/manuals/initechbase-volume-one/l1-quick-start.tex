@@ -40,7 +40,7 @@ of hire, the salary, whether the employee is exempt from overtime, and a note.
 Before you can look at a database, you open it with \cmd{USE}.
 \begin{Steps}
 \item Type \type{USE STAFF} and press \key{Enter}.
-\Response{InitechBase opens \file{STAFF.DBF} and shows the dot prompt again.}
+\ATEResponse{InitechBase opens \file{STAFF.DBF} and shows the dot prompt again.}
 \end{Steps}
 \DotExample{examples/l1-use}
 \cmd{USE} added the extension \file{.DBF} to the name for you.  The database
@@ -49,7 +49,7 @@ stays open until you close it or leave InitechBase.
 \ATEHead{Listing the Records}
 \begin{Steps}[resume]
 \item Type \type{LIST LASTNAME, FIRSTNAME, EXT} and press \key{Enter}.
-\Response{InitechBase lists the names and telephone extensions of all the
+\ATEResponse{InitechBase lists the names and telephone extensions of all the
 employees.}
 \end{Steps}
 \DotExample{examples/l1-list}
@@ -73,7 +73,7 @@ record.  \cmd{DISPLAY} shows it.  \cmd{GO} makes another record current.
 \begin{Steps}[resume]
 \item Type \type{GO 6} and press \key{Enter}.
 \item Type \type{DISPLAY} and press \key{Enter}.
-\Response{InitechBase displays every field of record 6.}
+\ATEResponse{InitechBase displays every field of record 6.}
 \end{Steps}
 \DotExample{examples/l1-display}
 The record of Tom Smykowski of Customer Relations is too wide for the
@@ -86,7 +86,7 @@ heading and the record number.
 \item Type \type{GO 5} and press \key{Enter}.
 \item Type \type{? FIRSTNAME, LASTNAME} and press \key{Enter}.
 \item Type \type{? SALARY / 12} and press \key{Enter}.
-\Response{InitechBase displays the monthly salary of Milton Waddams.}
+\ATEResponse{InitechBase displays the monthly salary of Milton Waddams.}
 \end{Steps}
 \DotExample{examples/l1-question}
 \cmd{?} displays its answer and leaves the cursor at the end of it, so the next
@@ -97,7 +97,7 @@ A \kw{FOR} clause makes \cmd{LIST} list only the records you describe.
 \begin{Steps}[resume]
 \item Type \type{LIST LASTNAME, DEPT, EXT FOR DEPT = 'CUST'} and press
 \key{Enter}.
-\Response{InitechBase lists the employees of Customer Relations.}
+\ATEResponse{InitechBase lists the employees of Customer Relations.}
 \end{Steps}
 \DotExample{examples/l1-for}
 The department code is in quotation marks because it is a character string,
@@ -106,7 +106,7 @@ not the name of a field.  Chapter~2 tells you more about conditions.
 \ATEHead{Leaving InitechBase}
 \begin{Steps}[resume]
 \item Type \type{QUIT} and press \key{Enter}.
-\Response{InitechBase closes the database and returns to InitechDOS.}
+\ATEResponse{InitechBase closes the database and returns to InitechDOS.}
 \end{Steps}
 \DotExample{examples/l1-quit}
 Always leave InitechBase with \cmd{QUIT} before you turn off the computer:

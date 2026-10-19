@@ -1,0 +1,4 @@
+# The editing screen: a heading and a sentence typed into a new document
+# (Getting Started, Starting InitechWord). Short lines: a long trace
+# outruns the desktop's event queue.
+kshift-m,ke,km,ko,kspc,kt,ko,kspc,kshift-a,kl,kl,kspc,kshift-s,kt,ka,kf,kf,kret,kret,kshift-t,kshift-p,kshift-s,kspc,kr,ke,kp,ko,kr,kt,ks,kspc,ka,kr,ke,kspc,kd,ku,ke,kspc,kshift-f,kr,ki,kd,ka,ky,kdot,kret

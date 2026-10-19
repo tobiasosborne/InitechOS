@@ -1,0 +1,4 @@
+# Block: a sentence typed, Home, Left, Alt-F4 (Block), End: the sentence blocked.
+# (One key stretches the block: a run of the same key typed fast can lose
+# presses on the desktop's event path.)
+kshift-c,ko,kv,ke,kr,kspc,ks,kh,ke,ke,kt,ks,kspc,ka,kr,ke,kspc,kr,ke,kq,ku,ki,kr,ke,kd,kdot,khome,kleft,kalt-f4,kend

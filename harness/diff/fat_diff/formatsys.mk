@@ -1,11 +1,11 @@
 # Oracle and emu definitions authored before the implementation (Rule 1).
-DU_FLAGS := -std=c11 -O2 -Wall -Wextra -Werror -Ispec -Ios/milton
+DU_FLAGS := -std=c11 -O2 -Wall -Wextra -Werror -Ispec -Ios/milton -I$(BUILD)
 DU_HOST := harness/diff/fat_diff/formatsys_host.c
 DU_SRC := os/milton/diskutil.c
 DU_MUTANTS := MEDIA FAT0 COMMAND ORDER COMPARE RUNNING RESERVE LABEL
 $(BUILD)/formatsys_check: harness/diff/fat_diff/formatsys_check.c | $(BUILD)
 	$(CC) $(DU_FLAGS) $< -o $@
-$(BUILD)/formatsys_host: $(DU_HOST) $(DU_SRC) os/milton/block_device.c os/milton/diskutil.h spec/drive_letters.h | $(BUILD)
+$(BUILD)/formatsys_host: $(DU_HOST) $(DU_SRC) os/milton/block_device.c os/milton/diskutil.h spec/drive_letters.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(CC) $(DU_FLAGS) -DBLOCK_DEVICE_HOST $(DU_HOST) $(DU_SRC) os/milton/block_device.c -o $@
 .PHONY: test-formatsys test-formatsys-mutant test-formatsys-emu test-formatsys-emu-mutant test-format-system-boot test-diskcopy-emu
 test-formatsys: $(BUILD)/formatsys_host $(BUILD)/formatsys_check $(SECONDARY_TRACER_IMG) $(BUILD)/transient_flairtenants.bin
@@ -15,7 +15,7 @@ define du-mutant
 $(BUILD)/formatsys_host_$(1): $(DU_HOST) $(DU_SRC) os/milton/block_device.c spec/drive_letters.h | $(BUILD)
 	$$(CC) $$(DU_FLAGS) -DBLOCK_DEVICE_HOST -DDU_MUT_$(1) $$(DU_HOST) $$(DU_SRC) os/milton/block_device.c -o $$@
 $(BUILD)/diskutil_$(1).o: $(DU_SRC) os/milton/diskutil.h | $(BUILD)
-	$$(KERNEL_CC) $$(KERNEL_CFLAGS) -Os -DDU_MUT_$(1) -Ispec -Ios/milton -c $$< -o $$@
+	$$(KERNEL_CC) $$(KERNEL_CFLAGS_CDECL) -Os -DDU_MUT_$(1) -Ispec -Ios/milton -c $$< -o $$@
 $(BUILD)/format_$(1).elf: $(BUILD)/diskutil_start.o $(BUILD)/format_adapter.o $(BUILD)/diskutil_$(1).o os/milton/fdisk.ld
 	$$(LD) -m elf_i386 -T os/milton/fdisk.ld -o $$@ $$(filter %.o,$$^)
 $(BUILD)/format_$(1).bin: $(BUILD)/format_$(1).elf
@@ -31,10 +31,10 @@ test-formatsys-mutant: $(BUILD)/formatsys_check $(SECONDARY_TRACER_IMG) $(BUILD)
 $(BUILD)/diskutil_start.o: os/milton/diskutil_start.asm | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 $(BUILD)/diskutil.o: $(DU_SRC) os/milton/diskutil.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -Ispec -Ios/milton -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS_CDECL) -Os -Ispec -Ios/milton -c $< -o $@
 define du-program
 $(BUILD)/$(1)_adapter.o: os/milton/diskutil_program.c os/milton/diskutil.h spec/drive_letters.h | $(BUILD)
-	$$(KERNEL_CC) $$(KERNEL_CFLAGS) -Os -DDU_KIND=$(2) -Ispec -Ios/milton -c $$< -o $$@
+	$$(KERNEL_CC) $$(KERNEL_CFLAGS_CDECL) -Os -DDU_KIND=$(2) -Ispec -Ios/milton -c $$< -o $$@
 $(BUILD)/$(1)_program.elf: $(BUILD)/diskutil_start.o $(BUILD)/$(1)_adapter.o $(BUILD)/diskutil.o os/milton/fdisk.ld
 	$$(LD) -m elf_i386 -T os/milton/fdisk.ld -o $$@ $$(filter %.o,$$^)
 $(BUILD)/$(1)_program.bin: $(BUILD)/$(1)_program.elf
@@ -58,7 +58,10 @@ test-format-system-boot: test-formatsys-emu
 test-diskcopy-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(DISKCOPY_PROG_BIN) $(DISKCOMP_PROG_BIN)
 	@INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/diskcopy_emu.sh $(BUILD) $(SECONDARY_TRACER_IMG)
 TEST_UNIT_GATES += test-formatsys test-formatsys-mutant
-TEST_EMU_GATES += test-formatsys-emu test-formatsys-emu-mutant test-format-system-boot test-diskcopy-emu
+# PM 2026-10-17: test-diskcopy-emu is a named PREFLIGHT until the harness can swap the
+# --disk2 medium through QMP at the 'Insert TARGET diskette' prompt (lane formatsys stopped
+# there honestly); a known-red gate never sits in the certificate vector (gate honesty).
+TEST_EMU_GATES += test-formatsys-emu test-formatsys-emu-mutant test-format-system-boot
 
 $(BUILD)/gen_drive_letters: tools/gen_drive_letters.c | $(BUILD)
 	$(CC) $(DU_FLAGS) $< -o $@

@@ -1,0 +1,62 @@
+% Getting Started, A Brief Lesson (AN-21 F-WPC; model: WordPerfect 5.1
+% Reference pp. 18-21: type, save, exit).  Every keystroke below is
+% replayed on WORD.EXE by `make test-pubs-iword` and every screen panel is
+% the screen that replay produces (GC-03; initech-wpc.sty \BeginReplay).
+% GATES: test-pubs-iword test-iword-face
+\Gates{test-pubs-iword test-iword-face}
+\WPHead{A Brief Lesson}
+In this lesson you type a short letter, make one line bold, save the letter
+and leave InitechWord.  Start InitechWord as described under
+\textit{Starting InitechWord} above, so that you have a new document on the
+screen.
+
+\BeginReplay{gs-brief}
+\WPSide{Typing the Letter}
+\begin{WPSteps}
+\item Type the salutation:
+\Type{Dear Mr. Lumbergh:}
+\item Press \PressKey{Enter} twice to end the line and leave a blank line.\Keys{Enter}
+\item Type the paragraph below.  Do not press Enter at the end of a line:
+InitechWord moves to the next line when the line is full.
+\Type{Here is the summary you asked for. A cover sheet has gone out with every TPS report this week.}
+\item Press \PressKey{Enter} twice.\Keys{Enter}
+\end{WPSteps}
+
+\WPSide{Making a Line Bold}
+\begin{WPSteps}
+\item Press \Press{Bold}{F6}.  Nothing seems to change, but InitechWord has
+put a pair of bold codes in the document, with the cursor between them.
+\item Type the closing:
+\Type{Thank you.}
+\item Press \Press{Bold}{F6} again.  The cursor moves past the code that
+ends the bold, so that what you type next is not bold.
+\end{WPSteps}
+Your screen now looks like this.  The closing is shown in bold, and the
+status line shows that the cursor is on the line 1.83 inches from the top
+of the page, two inches from the left edge.
+\WordScreen[rows=6]{gs-brief-1}{The letter, with the closing in bold}
+
+\WPSide{Saving the Letter}
+\begin{WPSteps}
+\item Press \Press{Save}{F10}.  The status line asks for a name.
+\PullDown{Select \Mi{S}ave from the \Mi{F}ile menu.}
+\item Type \TypeName{letter} as the name and press \PressKey{Enter}.
+\end{WPSteps}
+InitechWord saves the letter on the data volume and shows its name at the
+left of the status line.  Names are always shown in capitals.
+\WordScreen[rows=6]{gs-brief-2}{The saved letter}
+
+\WPSide{Leaving InitechWord}
+\begin{WPSteps}
+\item Press \Press{Exit}{F7}.  InitechWord asks whether to save the
+document.  At the right of the status line it adds that the text has not
+been changed since you saved it.
+\WordScreen[rows=6]{gs-brief-3}{Exit asks whether to save the document}
+\item Type \TypeName{n}.  The letter is already saved.  InitechWord asks
+whether you want to leave the program.
+\item Type \TypeName{y} to leave InitechWord.
+\end{WPSteps}
+\EndReplay
+The InitechWord window closes and you are back at the FLAIR desktop.  The
+letter is in the file \Scr{LETTER} on the data volume.  The
+\textit{Workbook} lessons continue from here.

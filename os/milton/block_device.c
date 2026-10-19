@@ -93,7 +93,7 @@ static void result(int_frame_t *f,unsigned s)
     if(s)f->eflags|=1u;
 #endif
 }
-void int13_dispatch(int_frame_t *f)
+void KERNEL_ASM_ABI int13_dispatch(int_frame_t *f)
 {
     unsigned ah=(f->eax>>8)&255u,drive=f->edx&255u;
     init();

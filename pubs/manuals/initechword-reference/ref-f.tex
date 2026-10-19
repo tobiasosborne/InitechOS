@@ -1,0 +1,139 @@
+% Reference entries, F (AN-11).  Law 1: os/iword/app/face_a.c take_name
+% (DOS 8.3 names: letters, digits, _ - and one period; upper case), name_key
+% (the offered name, a typed character replaces it, Backspace), M_FONT
+% (IW_FONT_MENU; 1 Size, 2 Appearance, 3 Normal; 4 and 5 return to the
+% document), codes.c iw_ed_normal, format_key / paint_format (IW_FMT_INIT,
+% IW_FMT_LINE_INIT: the screens, their values at the cursor, the
+% selections that act).  Shots: ../wordperfect51-decomp mint MINT06, MINT21,
+% MINT28.
+% GATES: test-pubs-iword test-iword-face test-iword-codes test-flair-iword-codes test-flair-iword-format test-pubs-flair-screens
+\Gates{test-pubs-iword test-iword-face test-iword-codes test-flair-iword-codes test-flair-iword-format test-pubs-flair-screens}
+\begin{Feature}{Filenames}
+Each document you save is a file on the data volume, and you give it a
+name when you first save it.  InitechWord uses the file names of
+InitechDOS.
+
+A name has one to eight characters, then, if you like, a period and one to
+three more characters, for example \Scr{MEMO}, \Scr{REPORT92} or
+\Scr{MINUTES.MAR}.  The characters may be letters, digits, the hyphen
+(\Scr{-}) and the underscore (\Scr{\_}).  You may type the letters in
+capitals or small letters; InitechWord shows and saves them in capitals.
+InitechWord does not add a period or an extension of its own: a document
+saved as \Scr{MEMO} is the file \Scr{MEMO}.
+
+To type a name at a prompt,
+\begin{WPSteps}
+\item Type the name.  If the prompt already shows a name, the first
+character you type replaces it.
+\item Press \K{Backspace} to erase the last character, if you need to.
+\item Press \K{Enter}.
+\end{WPSteps}
+
+\Notes
+\Topic{Names That Are Not Allowed}
+An empty name, a name with any other character, with more than eight
+characters before the period or three after it, with nothing before the
+period, or with two periods is refused with \Scr{ERROR: Invalid file name}.  Press any key to
+return to the prompt and correct the name.
+
+\Topic{Where Documents Are Kept}
+Documents are saved in the top level of the data volume, which InitechWord
+shows as drive \Scr{A:}: a document named \Scr{MEMO} is shown on the
+status line as \Scr{A:\wbs MEMO}.  You type only the name, never a drive or
+a folder.
+
+\SeeAlso{Retrieve; Save}
+\end{Feature}
+
+\begin{Feature}{Font}
+The Font key sets how text looks: its size, its appearance, or a return to
+normal text.  Its menu appears on the status line.
+
+To use the Font menu,
+\begin{WPSteps}
+\item Press \FK{Font}{Ctrl-F8}.  The status line shows
+\StatusLine{1 Size; 2 Appearance; 3 Normal; 4 Base Font; 5 Print Color: 0}
+\item Select \Ch{Size}{1} to choose a size (see \InRef{Size})
+\Or
+Select \Ch{Appearance}{2} to choose an appearance (see \InRef{Appearance})
+\Or
+Select \Ch{Normal}{3} to end every size and appearance at the cursor.
+\end{WPSteps}
+\Documents{wpkey}{Ctrl-F8}
+\Documents{wpmenu}{Ctrl-F8,3=Normal}
+\FlairShot{font}{640}{440}{The Font menu on the status line}
+
+\Notes
+\Topic{Base Font and Print Color}
+Selecting Base Font (4) or Print Color (5) returns you to the document
+without a change, as does any key that is not on the menu.
+
+\Topic{Block}
+With Block on, the Font key shows \Scr{Attribute: 1 Size; 2 Appearance: 0}
+and gives the size or appearance to the block (see \InRef{Block,
+Attributes}).
+
+\Topic{Normal}
+Normal moves the cursor past any off codes right at the cursor; then, for
+every size or appearance still in effect at the cursor, it ends it there by
+moving its off code to the cursor, and leaves the cursor after the codes.
+What you type next is normal text.
+
+\BeginReplay{ref-normal}
+For example, press \Press{Bold}{F6} and \Press{Underline}{F8}, type
+\TypeRun{both}, then press \Press{Font}{Ctrl-F8}, select \Choose{Normal}{3}
+and type \TypeRun{ plain}.  In Reveal Codes (\Keys{Alt-F3}\K{Alt-F3}) the
+codes are:
+\WordScreen[rows=13]{ref-normal}{Normal: the text after it is plain}
+\EndReplay
+
+\SeeAlso{Appearance; Block, Attributes; Size}
+\end{Feature}
+
+\begin{Feature}{Format}
+The Format key leads to the settings that shape lines of text: the
+justification, the line spacing and the left and right margins.  Format
+shows a screen of its own instead of the document.
+
+To use Format,
+\begin{WPSteps}
+\item Press \FK{Format}{Shift-F8}.  The Format screen appears.
+\item Select \Ch{Line}{1}.  The Format: Line screen appears.  It shows the
+settings in effect at the cursor.
+\item Select \Ch{Justification}{3}, \Ch{Line Spacing}{6} or
+\Ch{Margins}{7} and make the setting (see \InRef{Justification},
+\InRef{Line Spacing} and \InRef{Margins, Left and Right}).
+\item Press \FK{Exit}{F7} to return to the document.
+\end{WPSteps}
+\Documents{wpkey}{Shift-F8}
+\Documents{wpmenu}{Shift-F8,1=Line}
+\FlairShot{format}{640}{440}{The Format screen}
+\FlairShot{formatline}{640}{440}{The Format: Line screen, with the settings InitechWord starts with}
+
+\Notes
+\Topic{Leaving the Format Screens}
+From Format: Line, \K{F7} returns to the document; \K{Enter}, \Typed{0},
+\K{F1} or \K{Esc} return to the Format screen.  From the Format screen,
+\K{F7}, \K{Enter}, \Typed{0}, \K{F1} or \K{Esc} return to the document.
+
+\Topic{Other Selections}
+The Format screen lists four groups -- Line, Page, Document and Other --
+and Format: Line nine settings, as the screens of WordPerfect 5.1 do.
+InitechWord acts on Line (1) and, on the Format: Line screen, on
+Justification (3), Line Spacing (6) and Margins (7).  Pressing the number of
+any other selection leaves the screen as it is.  The values shown beside
+those selections -- Hyphenation \Scr{No}, Line Height \Scr{Auto}, Tab Set
+\Scr{Rel; -1", every 0.5"} and the others -- are those of a new document,
+and InitechWord does not change them.
+
+\Topic{Settings in Effect}
+Each setting you make goes into the document as a code at the cursor (see
+\InRef{Codes}).  Text before the code is not affected.  The Format: Line
+screen always shows the settings in effect where the cursor is.
+
+\Topic{Several Settings at Once}
+You can make several settings in one visit to the Format: Line screen:
+each goes into the document in the order you make it.
+
+\SeeAlso{Codes; Justification; Line Spacing; Margins, Left and Right}
+\end{Feature}

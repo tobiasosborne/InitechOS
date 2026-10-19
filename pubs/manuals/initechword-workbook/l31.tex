@@ -1,0 +1,59 @@
+% Lesson 31 (AN-18): a weekly status report -- bold side headings, tabbed
+% figures, an underlined total, Save.  Saves STATUS.  Replayed by
+% test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{31}{Weekly Status Report}
+\LessonFeatures{Bold; Tab; Underline; Save}
+Every Friday each group sends Bill a short status report: what was done,
+the reports processed, and what comes next.  In this lesson you type
+Peter's report for the week.
+
+\BeginReplay{l31}
+\Task{Typing the Heading}
+\begin{WPSteps}
+\item Press \Press{Bold}{F6}, type \TypeRun{WEEKLY STATUS REPORT}, press
+\Press{Bold}{F6} and press \PressKey{Enter}.
+\item Type \TypeRun{Week ending March 20, 1992} and press \PressKey{Enter}
+twice.\Keys{Enter}
+\end{WPSteps}
+
+\Task{Typing the Work Done}
+\begin{WPSteps}
+\item Press \Press{Bold}{F6}, type \TypeRun{Done this week}, press
+\Press{Bold}{F6} and press \PressKey{Enter}.
+\item Type
+\Type{Updated the cover sheet procedure and sent it to all departments. Checked the reports of the second week against the new form.}
+\item Press \PressKey{Enter} twice.\Keys{Enter}
+\end{WPSteps}
+
+\Task{Typing the Figures}
+\begin{WPSteps}
+\item Press \Press{Bold}{F6}, type \TypeRun{Reports processed}, press
+\Press{Bold}{F6} and press \PressKey{Enter}.
+\item Type \TypeRun{With cover sheet}, press \PressKey{Tab} twice\Keys{Tab},
+type \TypeRun{41} and press \PressKey{Enter}.
+\item Type \TypeRun{Returned}, press \PressKey{Tab} four times\Keys{Tab Tab Tab},
+type \TypeRun{3} and press \PressKey{Enter}.
+\item Type \TypeRun{Total}, press \PressKey{Tab} four times\Keys{Tab Tab Tab},
+press \Press{Underline}{F8}, type \TypeRun{44}, press \Press{Underline}{F8}
+and press \PressKey{Enter} twice.\Keys{Enter}
+\end{WPSteps}
+\CompareScreen[rows=13]{l31-1}
+
+\Task{Typing the Next Steps}
+\begin{WPSteps}
+\item Press \Press{Bold}{F6}, type \TypeRun{Next week}, press
+\Press{Bold}{F6} and press \PressKey{Enter}.
+\item Type \TypeRun{Order more cover sheets before the stock runs out.}
+\end{WPSteps}
+\CompareScreen[rows=14]{l31-2}
+
+\Task{Saving the Report}
+\begin{WPSteps}
+\item Press \Press{Save}{F10}, type \TypeName{status} and press
+\PressKey{Enter}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 32 you put the memo through one more revision.

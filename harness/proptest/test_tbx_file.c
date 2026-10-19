@@ -78,7 +78,7 @@ int main(void)
     ASSERT_EQ("F3 standard handle", call(&owner, lo, TBX_FILE_CLOSE, 1, 0, 0), TBX_ERR_BADARG);
     ASSERT_EQ("F3 foreign handle", call(&other, lo, TBX_FILE_READ, h, lo+2048, 1), TBX_ERR_BADARG);
     ASSERT_TRUE("F3 caller PSP restored", int21_get_psp() == &other);
-    int21_cwd_snapshot_t cwd = { 7, "OTHER" }; int21_cwd_restore(&cwd);
+    int21_cwd_snapshot_t cwd = { .start_cluster = 7, .path = "OTHER" }; int21_cwd_restore(&cwd);
     ASSERT_EQ("F3 DOS error encoding", call(&owner, lo, TBX_FILE_DELETE, lo, 0, 0), TBX_ERR_DOS(2));
     int21_cwd_snapshot_t now = int21_cwd_save();
     ASSERT_EQ("F3 caller CWD restored", now.start_cluster, 7);

@@ -1,0 +1,42 @@
+% Lesson 34 (AN-18): two attributes on one block -- Block, Bold, then the
+% same block again and Underline; the nested codes in Reveal Codes.  Uses
+% NOTICE (Lesson 15); nothing saved.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{34}{Two Attributes on a Block}
+\LessonFeatures{Block, Attributes; Bold; Underline; Reveal Codes}
+Giving a block an attribute turns Block off.  To give the same text a second
+attribute, block it again.  In this lesson you make the first words of the
+notice both bold and underlined, and look at the codes.
+
+\BeginReplay{l34}
+\Task{Making the Words Bold}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{notice} and press
+\PressKey{Enter}.
+\item Press \PressKey{Down} twice to go to the line that begins
+\textit{Effective immediately}.\Keys{Down}
+\item Press \Press{Block}{Alt-F4}, then \PressKey{Right} twenty-one
+times\Keys{Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right}
+to block \textit{Effective immediately,} with its comma.
+\item Press \Press{Bold}{F6}.
+\end{WPSteps}
+
+\Task{Underlining the Same Words}
+After Bold, the cursor is at the end of the words, after the bold code.
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Left} to go to the start of the line.
+\item Press \Press{Block}{Alt-F4}, then \PressKey{Right} twenty-two times:
+one more, to pass the bold code at the start.\Keys{Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right}
+\item Press \Press{Underline}{F8}.
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\end{WPSteps}
+\CompareScreen[rows=21]{l34-1}
+
+\Task{Clearing the Screen}
+\begin{WPSteps}
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 35 you copy a whole page.
