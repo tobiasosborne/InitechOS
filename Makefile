@@ -10384,6 +10384,7 @@ $(KERNEL_WINDOW_OBJ) $(KERNEL_CHROME_OBJ) $(KERNEL_DESKTOP_OBJ): os/flair/rdoc.h
 
 # obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
 KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_OPS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ) $(KERNEL_TBXGATE_OBJ) $(KERNEL_TBXGATE_ASM_OBJ) $(KERNEL_SCRAP_OBJ) $(KERNEL_STDFILE_OBJ) $(KERNEL_LIST_OBJ) $(KERNEL_APPLE_MENU_OBJ)
+KERNEL_FLAIRTENANTS_OBJS += $(BUILD)/egg_jtc.o $(BUILD)/egg_jtc_model.o $(BUILD)/egg_jtc_data.o
 
 # Interactive film-scene kernel (tdnl.102-.104): the flagship tenants objects with the
 # film-scene kmain; placed after KERNEL_FLAIRTENANTS_OBJS (read-before-definition lint).
@@ -24218,6 +24219,8 @@ RECORD_MARKER_trashfull_regression = FINDER-LOCKED-ALERT
 RECORD_SETTLE_trashfull_regression = 200
 
 include harness/emu/flair_launchkey.mk
+include harness/proptest/egg_jtc.mk
+
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -33625,3 +33628,7 @@ test-loader-nested-mutant: $(BUILD)/test_loader_nested_mut test-loader
 	@printf '>>> test-loader-nested-mutant: green (LOADER_MUT_NO_RESTORE RED: nested EXEC restores caller PSP)\n'
 TEST_UNIT_GATES += test-loader-nested-mutant
 TEST_EMU_GATES += test-exec-nested test-exec-nested-mutant
+
+# JTC Rule-6 fixture: same 1000-tick kmain, one model object perturbed.
+# Expanded here after flair-tenants-objswap-mutant-rules is defined.
+$(eval $(call flair-tenants-objswap-mutant-rules,$(BUILD)/egg_jtc_model.o $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(BUILD)/egg_jtc_model_mutant.o $(BUILD)/kmain_flairtenants_mut_jtc_gate.o,jtc_trigger))

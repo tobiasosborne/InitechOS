@@ -155,6 +155,10 @@ void flair_tick_advance(void);
  * Task-context read; no synchronisation needed (single-CPU cooperative). */
 uint32_t flair_tick_count(void);
 
+/* Authored JTC egg, spec/easter/jump_to_conclusions.json: keep subsequent
+ * relative input anchored at a programmatic Cursor Manager jump. */
+void flair_event_warp(int16_t x, int16_t y);
+
 /* ============================================================
  * 3. COOPERATIVE YIELD HOOK
  * ----------------------------------------------------------

@@ -84,6 +84,7 @@
 #include "process.h"             /* FlairProcessList, FlairProcess_launch,
                                   * flair_app_dispatch, flair_route_updates (-Ios/flair)*/
 #include "system_key.h"          /* system launcher predicate; routing oracle */
+#include "egg_jtc.h"             /* initech-2ter (a), hidden authored mat */
 #ifdef FLAIR_FILM_SCENE
 #include "film_scene.h"
 #endif
@@ -5297,6 +5298,52 @@ static __attribute__((cold,noinline)) void flair_live_about(flair_live_ctx_t *ct
     serial_puts("APPLE-ABOUT closed\n");
 }
 
+/* Ref: operator initech-2ter (a), spec/easter/jump_to_conclusions.json.
+ * Authored hidden gesture, no corpus hidden-About precedent. Do not change
+ * either About menu resource: Option-clicks on the Apple glyph are private. */
+static __attribute__((cold,noinline)) int flair_live_jtc_trigger(
+    flair_live_ctx_t *ctx, const boot_info_t *bi, const EventRecord *ev)
+{
+    static unsigned clicks;
+    int fire = egg_jtc_trigger(&clicks,ev);
+    if (fire) {
+        FlairApp *prev = ctx->plist->head, *a = prev;
+        while (a && a->procs != &egg_jtc_procs) a = a->nextApp;
+        if (a) (void)FlairProcess_activate(ctx->plist,ctx->wm,ev,a);
+        else a = FlairProcess_launch(ctx->plist,ctx->wm,&ctx->off,ctx->master,
+            &egg_jtc_procs,"",fta_rect(0,0,1,1),16384u,16384u);
+        if (!a) {
+            serial_puts("PANIC JTC launch\n");
+            for (;;) { __asm__ __volatile__("cli; hlt"); }
+        }
+        flair_live_finish_tenant_switch(ctx,bi,ctx->plist,prev,g_ten_barport);
+        serial_puts("EGG-JTC-OPEN click="); serial_putu(clicks); serial_putc('\n');
+    }
+    return ev->what == mouseDown && clicks != 0;
+}
+
+static __attribute__((cold,noinline)) int flair_live_jtc_pad(
+    flair_live_ctx_t *ctx, const boot_info_t *bi, EventRecord *ev)
+{
+    int pad = egg_jtc_take_pad();
+    if (pad < 0) return 0;
+    rgn_rect_t r = egg_jtc_pad(region_get_bbox(ctx->plist->head->windows->contRgn),pad);
+    ev->where.h = (int16_t)((r.left+r.right)/2);
+    ev->where.v = (int16_t)((r.top+r.bottom)/2);
+    flair_event_warp(ev->where.h,ev->where.v);
+    flair_live_cursor_track(ev); /* Cursor Manager erases save-under and jumps */
+    serial_puts("EGG-JTC-JUMP pad="); serial_putu((uint32_t)pad);
+    serial_puts(" x="); serial_puti(ev->where.h);
+    serial_puts(" y="); serial_puti(ev->where.v); serial_putc('\n');
+    const char *text[1] = {egg_jtc_label(pad)};
+    static const char *const ok[1] = {"OK"};
+    flair_live_alert_open(ctx,bi,text,1,ok,1,1);
+    serial_puts("EGG-JTC-ALERT up\n");
+    (void)flair_live_alert_run(ctx,bi);
+    serial_puts("EGG-JTC-ALERT closed\n");
+    return 1;
+}
+
 /* Returns 1 when `sel` was an Apple-menu choice (handled here). */
 static int flair_live_apple_result(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                    uint32_t sel)
@@ -7343,6 +7390,8 @@ void kernel_main(void)
                 continue;
             }
 
+            if (flair_live_jtc_trigger(&ctx,&b,&ev)) continue;
+
             /* Resolve the physical chrome target against the original z-order.
              * flair_app_dispatch independently demuxes the same ORIGINAL event;
              * this cached hit is only for the shell verb after switch finishing. */
@@ -7384,6 +7433,8 @@ void kernel_main(void)
              * masking-tape the rqz5 root fix removes. */
             flair_live_finish_tenant_switch(&ctx, &b, &ten_plist,
                                             ten_prev_fg, &ten_barport);
+
+            if (flair_live_jtc_pad(&ctx,&b,&ev)) continue;
 
             /* Shell-owned chrome verbs run only AFTER any DQ5 foreground switch
              * has completed and emitted FLAIR-DISPATCH. */

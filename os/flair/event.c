@@ -126,6 +126,13 @@ uint32_t flair_tick_count(void)
     return g_tick;
 }
 
+void flair_event_warp(int16_t x, int16_t y)
+{
+    /* Ref: event.h screen-coordinate contract; JTC pads are inside the LFB. */
+    g_cursor_h = (int16_t)(x < 0 ? 0 : x >= FLAIR_SCREEN_W ? FLAIR_SCREEN_W-1 : x);
+    g_cursor_v = (int16_t)(y < 0 ? 0 : y >= FLAIR_SCREEN_H ? FLAIR_SCREEN_H-1 : y);
+}
+
 /* ===========================================================================
  * 2. YIELD HOOK
  * ===========================================================================*/
