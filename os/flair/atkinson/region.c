@@ -584,8 +584,9 @@ void region_complement(region_t *out, const region_t *A, rgn_rect_t frame)
  *
  * KERNEL STACK AUDIT (initech-44ab RIDER 3; -m32 sizes: rgn_row_t = 8 B,
  * region_t = 32 B, int16 = 2 B; caps RGN_ROWS_CAP=256, RGN_X_POOL_CAP=2048,
- * RGN_ROW_X_MAX=640). The kernel stack is kstart.asm's esp = 0x0009FFFC,
- * region [0x90000, 0xA0000) = 64 KiB, ONE stack shared with the IRQ handlers.
+ * RGN_ROW_X_MAX=640). The kernel stack is kstart.asm's esp = KERNEL_STACK_TOP,
+ * region [0x5F0000, 0x600000) = 64 KiB since bead initech-xu97 (was
+ * [0x90000, 0xA0000), same size), ONE stack shared with the IRQ handlers.
  * Cap-sized stack arrays, POST-44ab:
  *   region_op        scratch[RGN_ROW_X_MAX] = 1280 B  (stack; small -- stays)
  *   region_normalize tmp[RGN_ROW_X_MAX]     = 1280 B  (stack; small -- stays)

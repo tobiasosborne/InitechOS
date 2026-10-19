@@ -6386,7 +6386,10 @@ void kernel_main(void)
      * KAT reports linker-derived addresses, not duplicated expectations. The
      * boot_info value independently proves stage2 copied/jumped to the agreed
      * base. Any mismatch halts before IDT, heap, loader, or framebuffer state is
-     * initialized, so a LOAD_LOW/stale-handoff relapse cannot limp onward. */
+     * initialized, so a LOAD_LOW/stale-handoff relapse cannot limp onward.
+     * The end bound is KERNEL_IMAGE_CEIL, not KERNEL_CEIL: the transient shell
+     * window and the kernel stack [0x5F0000,0x600000) sit above it (bead
+     * initech-xu97; spec/memory_map.h WINDOW DISJOINTNESS). */
     {
         uint32_t kernel_start = (uint32_t)(uintptr_t)_kernel_start;
         uint32_t kernel_end = (uint32_t)(uintptr_t)_kernel_end;
@@ -6399,14 +6402,14 @@ void kernel_main(void)
 
         if (b.kernel_base != (uint32_t)KERNEL_BASE ||
             kernel_start != (uint32_t)KERNEL_BASE ||
-            kernel_end >= (uint32_t)KERNEL_CEIL) {
+            kernel_end > (uint32_t)KERNEL_IMAGE_CEIL) {
             serial_puts("PANIC kernel-placement: boot/link/runway mismatch\n");
             serial_puts("  boot_base=0x");
             serial_puthex32(b.kernel_base);
             serial_puts(" expected=0x");
             serial_puthex32((uint32_t)KERNEL_BASE);
             serial_puts(" ceil=0x");
-            serial_puthex32((uint32_t)KERNEL_CEIL);
+            serial_puthex32((uint32_t)KERNEL_IMAGE_CEIL);
             serial_putc('\n');
             serial_puts("HALTED\n");
             for (;;) {

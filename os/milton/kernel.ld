@@ -60,8 +60,12 @@ SECTIONS
  * initech-tdnl.29). The first ASSERT is the portable top-level equivalent of
  * ASSERT(. == KERNEL_BASE) immediately after the dot assignment: a stray base
  * or section alignment must fail at link time. The second keeps the entire
- * image, including NOBITS .bss, below the exclusive 0x00600000 ceiling. */
+ * image, including NOBITS .bss, at or below KERNEL_IMAGE_CEIL (0x00580000 ==
+ * TRANSIENT_BASE): above it sit the transient COMMAND.COM window and, at the
+ * runway top [0x005F0000,0x00600000), the kernel stack (bead initech-xu97;
+ * spec/memory_map.h; the Makefile fails at parse time if this literal and the
+ * header's KERNEL_IMAGE_CEIL disagree). */
 ASSERT(_kernel_start == KERNEL_BASE && ADDR(.text) == KERNEL_BASE,
        "kernel floor mismatch -- .text/_kernel_start must equal KERNEL_BASE (0x00500000)")
-ASSERT(_kernel_end < 0x00600000,
-       "kernel image busts KERNEL_CEIL (0x00600000) -- shrink the kernel or extend the ratified runway; bump KERNEL_SECTORS too if loaded bytes grew")
+ASSERT(_kernel_end <= 0x00580000,
+       "kernel image busts KERNEL_IMAGE_CEIL (0x00580000, transient base; kernel stack above) -- shrink the kernel or re-ratify the runway sub-windows; bump KERNEL_SECTORS too if loaded bytes grew")
