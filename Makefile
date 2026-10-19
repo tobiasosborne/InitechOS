@@ -32244,7 +32244,7 @@ $(HARNESS_BIN) --disk "$(2)" --disk2 "$(BUILD)/$(1)_data.img" --name "$(1)" --ou
 @! grep -q '^PANIC' $(BUILD)/$(1).serial
 endef
 .PHONY: test-flair-menu-look test-flair-menu-look-mutant
-$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_FINDER_DESKTOP_OBJ),$(BUILD)/finder_desktop_recorddbl.o,menu_look_gate))
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_EVENT_OBJ),$(BUILD)/event_recorddbl.o,menu_look_gate))
 test-flair-menu-look: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menu_look_gate.img $(FLAIR_DATA_IMG) $(MENU_LOOK_CHECK)
 	$(call menu-look-boot,menu_look_file,$(BUILD)/flair_tenants_mut_menu_look_gate.img,FLAIR-MENU-DROP menu=512)
 	@$(MENU_LOOK_CHECK) file $(BUILD)/menu_look_file.ppm
@@ -32253,10 +32253,10 @@ test-flair-menu-look: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menu_look_gate.i
 	@printf '>>> test-flair-menu-look: green (File dark band/white ink/item20/4/shortcut14/whole divider rows; View NFNT check18)\n'
 $(BUILD)/menu_mut_look_flat.o: os/flair/menu.c $(TEST_MENU_DEPS)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) $(MENU_INC) -DMENU_LOOK_MUT_FLAT_HILITE -c $< -o $@
-$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_MENU_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(BUILD)/menu_mut_look_flat.o $(BUILD)/finder_desktop_recorddbl.o,menu_look_flat))
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_MENU_OBJ) $(KERNEL_EVENT_OBJ),$(BUILD)/menu_mut_look_flat.o $(BUILD)/event_recorddbl.o,menu_look_flat))
 $(BUILD)/menu_mut_old_divider_inset.o: os/flair/menu.c $(TEST_MENU_DEPS)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) $(MENU_INC) -DMENU_LOOK_MUT_OLD_DIVIDER_INSET -c $< -o $@
-$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_MENU_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(BUILD)/menu_mut_old_divider_inset.o $(BUILD)/finder_desktop_recorddbl.o,menu_old_divider_inset))
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_MENU_OBJ) $(KERNEL_EVENT_OBJ),$(BUILD)/menu_mut_old_divider_inset.o $(BUILD)/event_recorddbl.o,menu_old_divider_inset))
 test-flair-menu-look-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menu_look_flat.img $(BUILD)/flair_tenants_mut_menu_old_divider_inset.img $(FLAIR_DATA_IMG) $(MENU_LOOK_CHECK)
 	$(call menu-look-boot,menu_look_mut,$(BUILD)/flair_tenants_mut_menu_look_flat.img,FLAIR-MENU-DROP menu=512)
 	@if $(MENU_LOOK_CHECK) file $(BUILD)/menu_look_mut.ppm > $(BUILD)/menu_look_mut.pixels 2>&1; then printf 'FAIL flat hilite survived\n'; exit 1; fi

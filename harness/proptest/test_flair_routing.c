@@ -669,11 +669,16 @@ static void leg_route(FlairApp *t)
     /* C4: click the background Finder's content. */
     b = g_n;
     pump(mk(mouseDown, 0u, F_PROBE_H, F_PROBE_V));
-    CHECK(g_n == b + 3 && is(b, WHO_T, activateEvt, 0, 0, 0) &&
-          is(b + 1, WHO_F, activateEvt, 1, 0, 0) &&
-          is(b + 2, WHO_F, mouseDown, -1, F_PROBE_H, F_PROBE_V),
+    /* Rule-8 re-key 2026-10-20 (initech-tdnl.65, merged with the Finder alerts
+     * bundle): SelectWindow CONSUMES a document's activating content click
+     * (IM: Macintosh Toolbox Essentials, Window Manager, Activating a window;
+     * process.c tdnl.65). The click used to be delivered after the activate
+     * pair, the audit G11/tdnl.65 defect, so the leg now expects exactly the
+     * deactivate/activate pair and NO mouseDown to the newly active app. */
+    CHECK(g_n == b + 2 && is(b, WHO_T, activateEvt, 0, 0, 0) &&
+          is(b + 1, WHO_F, activateEvt, 1, 0, 0),
           "leg(C4): click-to-activate away from the tenant: deactivate the tenant, "
-          "activate the Finder, THEN the mouseDown to the Finder");
+          "activate the Finder; the activating click is consumed (tdnl.65)");
     CHECK(W.plist.head == &W.finder && !t->windows->hilited && W.fw.rec.hilited,
           "leg(C4b): the Finder is foreground; the tenant's window is drawn inactive");
 
@@ -686,11 +691,10 @@ static void leg_route(FlairApp *t)
     /* C6: click the background tenant's content. */
     b = g_n;
     pump(mk(mouseDown, 0u, T_PROBE_H, T_PROBE_V));
-    CHECK(g_n == b + 3 && is(b, WHO_F, activateEvt, 0, 0, 0) &&
-          is(b + 1, WHO_T, activateEvt, 1, 0, 0) &&
-          is(b + 2, WHO_T, mouseDown, -1, T_PROBE_H, T_PROBE_V),
+    CHECK(g_n == b + 2 && is(b, WHO_F, activateEvt, 0, 0, 0) &&
+          is(b + 1, WHO_T, activateEvt, 1, 0, 0),
           "leg(C6): click-to-activate back: deactivate the Finder, activate the "
-          "tenant, THEN the mouseDown to the tenant");
+          "tenant; the activating click is consumed (tdnl.65)");
     CHECK(W.plist.head == t && t->windows->hilited && !W.fw.rec.hilited,
           "leg(C6b): the tenant is foreground again with the active window");
 }
