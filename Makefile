@@ -11219,13 +11219,13 @@ test-flair-cursor-boot: $(HARNESS_BIN) $(FLAIR_CURSOR_BOOT_IMAGE) $(FLAIR_DATA_I
 	@printf '  bead initech-vzjy; mint-results-009 Sec 1; PRD Sec 6.3; Law 2/4, Rules 6/11/12.\n'
 	@printf '======================================================================\n'
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
-	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
-	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
-	@$(HARNESS_BIN) --disk "$(FLAIR_CURSOR_BOOT_IMAGE)" --disk2 "$(FLAIR_GATE_DATA)" \
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(FLAIR_CURSOR_BOOT_IMAGE)" --disk2 "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_data.img" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_CURSOR_BOOT_NAME)_a" --out "$(BUILD)" \
 		--screendump --screendump-after "FLAIR-LIVE-READY" --timeout-ms 20000 \
 		2> "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.report" || true
-	@$(HARNESS_BIN) --disk "$(FLAIR_CURSOR_BOOT_IMAGE)" --disk2 "$(FLAIR_GATE_DATA)" \
+	@$(HARNESS_BIN) --disk "$(FLAIR_CURSOR_BOOT_IMAGE)" --disk2 "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_data.img" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_CURSOR_BOOT_NAME)_b" --out "$(BUILD)" \
 		--mouse "$(FLAIR_CURSOR_SPEC)" --keys-after "FLAIR-LIVE-READY" --keys-after-ms 15000 \
 		--screendump --screendump-after "FLAIR-CURSOR x=500 y=380" --timeout-ms 20000 \
