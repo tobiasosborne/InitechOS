@@ -21,6 +21,11 @@
 # !!! operator 2026-10-17) shipped after the pilot rows were dated. Real DOS 3.3 left AH=32h
 # !!! undocumented; its entry (AN-02/CP-08 function entries) belongs to the InitechDOS
 # !!! Technical Reference, which does not exist yet -- the row leaves with that book.
+# !!! GROWTH, PM-directed 2026-10-20: INT21:34 (AH=34h InDOS flag address, the TSR
+# !!! mechanics of initech-6fdt part 2, PM-ratified pending operator) shipped after the
+# !!! pilot rows were dated. Real DOS 3.3 lists AH=34h as reserved/undocumented; the
+# !!! entry belongs to the InitechDOS Technical Reference with AH=32h -- the row leaves
+# !!! with that book.
 123|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CALC|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CTENANT|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
@@ -70,6 +75,7 @@ INT21:30|2026-10-16|Pilot covers daily file tasks; Reference entry not yet writt
 INT21:31|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:32|2026-10-20|Undocumented in DOS 3.3; awaits the InitechDOS Technical Reference (function entries)
 INT21:33|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:34|2026-10-20|Undocumented in DOS 3.3; awaits the InitechDOS Technical Reference (function entries)
 INT21:35|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:36|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:39|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
