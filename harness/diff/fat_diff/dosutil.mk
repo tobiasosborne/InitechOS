@@ -7,7 +7,7 @@ LABEL_PROG_BIN := $(BUILD)/label_program.bin
 DOSUTIL_HOST := $(BUILD)/dosutil_host
 DOSUTIL_HOST_DEPS := $(DOSUTIL_SRC) $(DOSUTIL_HDR) harness/diff/fat_diff/dosutil_host.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) $(DOS_MESSAGES_H)
 DOSUTIL_HOST_FLAGS := $(CFLAGS) -Ios/milton -Ispec -Iharness/diff/fat_diff -I$(BUILD)
-DOSUTIL_COM_FLAGS := $(KERNEL_CFLAGS) -Os -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -Ios/milton -Ispec -I$(BUILD)
+DOSUTIL_COM_FLAGS := $(KERNEL_CFLAGS_CDECL) -Os -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -Ios/milton -Ispec -I$(BUILD)
 DOSUTIL_ATTR_MUTANTS := R A PRESERVE WILD RECURSE DISPLAY SYNTAX
 DOSUTIL_LABEL_MUTANTS := ROOT BPB CONFIRM TRUNCATE PROMPT INVALID ROOM
 

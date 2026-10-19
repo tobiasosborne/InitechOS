@@ -15,13 +15,16 @@ database() {
 database Makefile "$work/legs.make-db"
 "$build/test_bochs_legs" "$work/legs.make-db"
 [ "$mode" = mutants ] || exit 0
-for rule in MISSING VECTOR IMAGE BOUNDARY DAC; do
+for rule in MISSING VECTOR IMAGE BOUNDARY VIDEO DAC; do
     case $rule in
     MISSING) sed '/call bochs-flair-leg,command-file-emu,/d' harness/bochs_legs.mk ;;
     VECTOR) sed '/^TEST_EMU_GATES += test-$(1)-bochs$/d' harness/bochs_legs.mk ;;
     IMAGE) sed 's@command-file-emu,$(COMMAND_FILE_IMG)/fragment.img@command-file-emu,$(FLAIRTENANTS_IMG)@' harness/bochs_legs.mk ;;
     BOUNDARY) sed 's/^BOCHS_LEG_END_shell := SHELL-READY$/BOCHS_LEG_END_shell := HALTED/' harness/bochs_legs.mk ;;
-    DAC) sed 's/VIDEO 320x200 bpp=8 pitch=320/VIDEO 640x480 bpp=8 pitch=640/' harness/bochs_legs.mk ;;
+    # The forced mode-13h legs silently fall back to the stock VBE card.
+    VIDEO) sed 's/^BOCHS_LEG_VIDEO_vga13 := .*$/BOCHS_LEG_VIDEO_vga13 :=/' harness/bochs_legs.mk ;;
+    # The VESA8 flagship leg stops grading the 648-pixel padded scanline.
+    DAC) sed 's/,$(FLAIR_DATA_IMG),flair,vbe101pad))$/,$(FLAIR_DATA_IMG),flair))/' harness/bochs_legs.mk ;;
     esac > "$work/$rule.mk"
     sed "s@include harness/bochs_legs.mk@include $work/$rule.mk@" Makefile > "$work/$rule.Makefile"
     database "$work/$rule.Makefile" "$work/$rule.make-db"
@@ -33,4 +36,4 @@ for rule in MISSING VECTOR IMAGE BOUNDARY DAC; do
     printf 'BOCHS_LEGS_%s: ' "$rule"
     cat "$work/$rule.log"
 done
-echo 'GREEN test-bochs-legs-mutant: all five factory wiring mutants caught'
+echo 'GREEN test-bochs-legs-mutant: all six factory wiring mutants caught'

@@ -32,6 +32,17 @@
 
 #include <stdint.h>
 #include "boot_logo.h"
+/* Kernel size round 5 (WL-0168): the freestanding kernel keeps the RLE
+ * stream packed (os/flair/asset_lz_data.h, generated from the unchanged
+ * locked boot_logo.h) and unpacks it into BSS when the panel is rendered;
+ * a hosted build (test-boot-screen) reads the locked table. test-asset-lz
+ * proves decode == locked (Rule 8). */
+#if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
+#define ASSET_LZ_LOGO
+#include "asset_lz.h"        /* -Ios/flair */
+#include "asset_lz_data.h"
+_Static_assert(sizeof boot_logo_rle == ASSET_LZ_LOGO_RAW, "boot_logo_rle[BOOT_LOGO_RLE_BYTES]");
+#endif
 #include "text.h"        /* chicago_cell_bits / chicago_advance: the ONE glyph
                             * row accessor (packed rows in the kernel)       */
 
@@ -90,7 +101,13 @@ static void boot_screen_render(boot_screen_sink_fn sink, void *ctx)
     static const uint8_t role_idx[4] = {0u, BOOT_IDX_TEAL, BOOT_IDX_DARK,
                                         BOOT_IDX_LIGHT};
     uint8_t row[BOOT_SCREEN_W];
+#if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
+    static uint8_t logo_store[BOOT_LOGO_RLE_BYTES];
+    const uint8_t *rle = logo_store;
+    asset_lz_unpack(logo_store, ASSET_LZ_LOGO_RAW, asset_lz_logo);
+#else
     const uint8_t *rle = boot_logo_rle;
+#endif
     int title_w = 0, title_x;
 
     for (const char *s = BOOT_TITLE; *s; s++)

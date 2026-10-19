@@ -20,6 +20,7 @@
  *    launch and after reaping so a killed run does not poison the next.
  */
 #define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700   /* realpath(3) (XSI; glibc gates it on XOPEN_EXTENDED) */
 
 #include "bochs.h"
 
@@ -166,16 +167,18 @@ static int write_bochsrc(const char *path, const BochsConfig *cfg,
     FILE *f = fopen(path, "wb");
     if (!f) return -1;
     /* The WORKING combo (bd memory bochs-boot-solved-initech-6pj). vbe is
-     * enabled so stage2's VBE probe runs (it then ENOMODEs and falls back to
-     * mode 0x13); display_library rfb is the only headless option. */
+     * the default extension: the LGPL vgabios offers 0101h 640x480x8 with an
+     * LFB, which IO.SYS takes since initech-2gva (WL-0170 corrected the old
+     * "ENOMODE" claim). display_library rfb is the only headless option. */
     fprintf(f,
         "romimage: file=%s\n"
         "vgaromimage: file=%s\n"
         "megs: 32\n"
-        "vga: extension=vbe\n"
+        "vga: extension=%s\n"
         "cpu: model=pentium, ips=50000000\n"
         "ata0-master: type=disk, path=\"%s\", mode=flat, cylinders=%ld, heads=%d, spt=%d\n",
-        bios, vga, cfg->disk_path, cylinders, BOCHS_HEADS, BOCHS_SPT);
+        bios, vga, cfg->vga_extension ? cfg->vga_extension : "vbe",
+        cfg->disk_path, cylinders, BOCHS_HEADS, BOCHS_SPT);
     if (cfg->data_disk_path) {
         fprintf(f,
         "ata0-slave: type=disk, path=\"%s\", mode=flat, cylinders=%ld, heads=%d, spt=%d\n",
@@ -183,10 +186,13 @@ static int write_bochsrc(const char *path, const BochsConfig *cfg,
     }
     fprintf(f,
         "boot: disk\n"
-        "com1: enabled=1, mode=file, dev=%s\n"
-        "clock: sync=none\n"
-        "display_library: rfb\n",
+        "com1: enabled=1, mode=file, dev=%s\n",
         serial_path);
+    if (cfg->rtc_time0 > 0)
+        fprintf(f, "clock: sync=none, time0=%ld\n", cfg->rtc_time0);
+    else
+        fputs("clock: sync=none\n", f);
+    fputs("display_library: rfb\n", f);
     /* The RFB port is selected by the BX_RFB display via the 5900+display#
      * default; this build uses 5900. (Bochs 2.7 has no bochsrc knob for it.) */
     (void)port;
@@ -258,15 +264,272 @@ static int rfb_unblock(int port, long long deadline_ms, int *out_handshook)
     return fd;
 }
 
-static void rfb_drain(int fd)
+/* ---- RFB server-message shadow (initech-u9gf) ---------------------------- *
+ * The handshake above leaves the server's ServerInit and every later message
+ * on the socket. Instead of discarding them, parse them (RFC 6143 Sec 7.3.2,
+ * 7.6) into a shadow of the server framebuffer. Bochs 2.7 pushes raw
+ * FramebufferUpdates on its own (rfb.cc flush/SendUpdate) and serves the
+ * fixed 8-bit BGR233 pixel format (rfb.cc BGR233Format, ServerInit); we never
+ * send SetPixelFormat/SetEncodings, so any other format or encoding is a
+ * protocol surprise and fails loud (Rule 2) rather than producing pixels. */
+typedef struct {
+    int fd;
+    unsigned char *rx;
+    size_t len, cap;
+    bool have_init;
+    unsigned w, h;
+    unsigned char *fb;           /* w*h BGR233 codes                          */
+    unsigned long full_frames;   /* raw rects covering the whole window       */
+    bool closed;
+    char err[160];
+} RfbShadow;
+
+static unsigned be16(const unsigned char *p) { return ((unsigned)p[0] << 8) | p[1]; }
+static unsigned long be32(const unsigned char *p)
 {
-    if (fd < 0) return;
-    char buf[4096];
-    for (;;) {
-        ssize_t r = recv(fd, buf, sizeof(buf), 0);
-        if (r > 0) continue;
-        break;   /* 0 (closed) or <0 (EWOULDBLOCK/EINTR/error): stop for now */
+    return ((unsigned long)p[0] << 24) | ((unsigned long)p[1] << 16) |
+           ((unsigned long)p[2] << 8) | p[3];
+}
+
+static void rfb_fail(RfbShadow *r, const char *why)
+{
+    if (!r->err[0]) snprintf(r->err, sizeof(r->err), "%s", why);
+}
+
+/* Parse ONE complete message at p[0..n); returns bytes consumed, 0 if more
+ * bytes are needed, -1 on a protocol violation (r->err set). */
+static long rfb_parse_one(RfbShadow *r, const unsigned char *p, size_t n)
+{
+    if (!r->have_init) {
+        if (n < 24) return 0;
+        size_t need = 24 + (size_t)be32(p + 20);
+        if (n < need) return 0;
+        r->w = be16(p);
+        r->h = be16(p + 2);
+        /* bpp depth bigEndian trueColour rMax gMax bMax rSh gSh bSh */
+        if (p[4] != 8 || p[5] != 8 || p[7] != 1 || be16(p + 8) != 7 ||
+            be16(p + 10) != 7 || be16(p + 12) != 3 || p[14] != 0 ||
+            p[15] != 3 || p[16] != 6) {
+            rfb_fail(r, "ServerInit pixel format is not BGR233");
+            return -1;
+        }
+        if (r->w == 0 || r->h == 0 || r->w > 4096 || r->h > 4096) {
+            rfb_fail(r, "ServerInit geometry out of range");
+            return -1;
+        }
+        r->fb = calloc((size_t)r->w * r->h, 1);
+        if (!r->fb) { rfb_fail(r, "out of memory"); return -1; }
+        r->have_init = true;
+        return (long)need;
     }
+    if (n < 1) return 0;
+    switch (p[0]) {
+    case 0: {                                   /* FramebufferUpdate */
+        if (n < 4) return 0;
+        unsigned rects = be16(p + 2);
+        size_t off = 4;
+        for (unsigned i = 0; i < rects; i++) {   /* size pass: all present? */
+            if (n < off + 12) return 0;
+            unsigned long enc = be32(p + off + 8);
+            if (enc != 0) { rfb_fail(r, "non-raw rectangle encoding"); return -1; }
+            off += 12 + (size_t)be16(p + off + 4) * be16(p + off + 6);
+            if (n < off) return 0;
+        }
+        off = 4;
+        for (unsigned i = 0; i < rects; i++) {   /* apply pass */
+            unsigned x = be16(p + off), y = be16(p + off + 2);
+            unsigned w = be16(p + off + 4), h = be16(p + off + 6);
+            off += 12;
+            if (x + w > r->w || y + h > r->h) {
+                rfb_fail(r, "rectangle outside the ServerInit window");
+                return -1;
+            }
+            for (unsigned row = 0; row < h; row++)
+                memcpy(r->fb + (size_t)(y + row) * r->w + x, p + off + (size_t)row * w, w);
+            off += (size_t)w * h;
+            if (x == 0 && y == 0 && w == r->w && h == r->h) r->full_frames++;
+        }
+        return (long)off;
+    }
+    case 1:                                     /* SetColourMapEntries */
+        if (n < 6) return 0;
+        if (n < 6 + 6 * (size_t)be16(p + 4)) return 0;
+        return (long)(6 + 6 * (size_t)be16(p + 4));
+    case 2:                                     /* Bell */
+        return 1;
+    case 3:                                     /* ServerCutText */
+        if (n < 8) return 0;
+        if (n < 8 + (size_t)be32(p + 4)) return 0;
+        return (long)(8 + (size_t)be32(p + 4));
+    default:
+        rfb_fail(r, "unknown server message type");
+        return -1;
+    }
+}
+
+/* Read everything available (non-blocking) and apply complete messages.
+ * Also the drain that keeps Bochs from blocking on a full send buffer. */
+static void rfb_pump(RfbShadow *r)
+{
+    if (r->fd < 0 || r->closed) return;
+    for (;;) {
+        if (r->cap - r->len < 65536) {
+            size_t ncap = r->cap ? r->cap * 2 : 1u << 20;
+            unsigned char *nb = realloc(r->rx, ncap);
+            if (!nb) { rfb_fail(r, "out of memory"); r->closed = true; return; }
+            r->rx = nb;
+            r->cap = ncap;
+        }
+        ssize_t got = recv(r->fd, r->rx + r->len, r->cap - r->len, 0);
+        if (got > 0) { r->len += (size_t)got; continue; }
+        if (got == 0) r->closed = true;
+        break;   /* EWOULDBLOCK/EINTR/error: stop for now */
+    }
+    if (r->err[0]) { r->len = 0; return; }       /* stream unparseable: drain */
+    size_t used = 0;
+    for (;;) {
+        long c = rfb_parse_one(r, r->rx + used, r->len - used);
+        if (c < 0) { r->len = 0; return; }
+        if (c == 0) break;
+        used += (size_t)c;
+    }
+    memmove(r->rx, r->rx + used, r->len - used);
+    r->len -= used;
+}
+
+/* FramebufferUpdateRequest, non-incremental, the whole window: Bochs then
+ * marks the whole window dirty (rfb.cc rfbFramebufferUpdateRequest) and its
+ * next flush() sends it as ONE raw rectangle. */
+static bool rfb_request_full(RfbShadow *r)
+{
+    if (r->fd < 0 || !r->have_init) return false;
+    unsigned char m[10] = { 3, 0, 0, 0, 0, 0,
+                            (unsigned char)(r->w >> 8), (unsigned char)r->w,
+                            (unsigned char)(r->h >> 8), (unsigned char)r->h };
+    size_t sent = 0;
+    long long until = mono_ms() + 2000;
+    while (sent < sizeof(m) && mono_ms() < until) {
+        ssize_t k = send(r->fd, m + sent, sizeof(m) - sent, 0);
+        if (k > 0) { sent += (size_t)k; continue; }
+        if (k < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) break;
+        rfb_pump(r);
+        sleep_ms(5);
+    }
+    return sent == sizeof(m);
+}
+
+/* <name>.rfb.pgm: the server's BGR233 code per pixel, unchanged (the graded
+ * artifact). <name>.rfb.ppm: each 3/3/2-bit field widened to 0..255 for the
+ * Law-4 eyeball only. */
+static bool rfb_write_capture(const unsigned char *fb, unsigned w, unsigned h,
+                              const char *pgm, const char *ppm)
+{
+    FILE *f = fopen(pgm, "wb");
+    if (!f) return false;
+    fprintf(f, "P5\n%u %u\n255\n", w, h);
+    bool ok = fwrite(fb, 1, (size_t)w * h, f) == (size_t)w * h;
+    ok = (fclose(f) == 0) && ok;
+    f = fopen(ppm, "wb");
+    if (!f) return false;
+    fprintf(f, "P6\n%u %u\n255\n", w, h);
+    for (size_t i = 0; ok && i < (size_t)w * h; i++) {
+        unsigned char c = fb[i];
+        unsigned char rgb[3] = { (unsigned char)((c & 7u) * 255u / 7u),
+                                 (unsigned char)(((c >> 3) & 7u) * 255u / 7u),
+                                 (unsigned char)(((c >> 6) & 3u) * 255u / 3u) };
+        ok = fwrite(rgb, 1, 3, f) == 3;
+    }
+    ok = (fclose(f) == 0) && ok;
+    return ok;
+}
+
+/* PointerEvent (RFC 6143 Sec 7.5.5) press+release on Bochs's header bar.
+ * Bochs 2.7 dispatches a header-bar press by gui.cc headerbar_click(x), whose
+ * right-gravity origin is guest_xres - xorigin (NOT the 720-wide window the
+ * rfb.cc show_headerbar draws in). The right-hand buttons are 32 px wide and
+ * created right-to-left power, save/restore, reset, config, SNAPSHOT
+ * (gui.cc init_signal_handlers order), so snapshot is xorigin 160: for the
+ * 640-wide guest it spans x in [480,512). y=16 is inside the 32-px bar. */
+#define BOCHS_SNAPSHOT_XORIGIN 160
+static bool rfb_click_header(RfbShadow *r, unsigned guest_xres)
+{
+    unsigned x = guest_xres - BOCHS_SNAPSHOT_XORIGIN + 16, y = 16;
+    unsigned char m[12] = { 5, 1, (unsigned char)(x >> 8), (unsigned char)x,
+                            (unsigned char)(y >> 8), (unsigned char)y,
+                            5, 0, (unsigned char)(x >> 8), (unsigned char)x,
+                            (unsigned char)(y >> 8), (unsigned char)y };
+    size_t sent = 0;
+    long long until = mono_ms() + 2000;
+    while (sent < sizeof(m) && mono_ms() < until) {
+        ssize_t k = send(r->fd, m + sent, sizeof(m) - sent, 0);
+        if (k > 0) { sent += (size_t)k; continue; }
+        if (k < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) break;
+        rfb_pump(r);
+        sleep_ms(5);
+    }
+    return sent == sizeof(m);
+}
+
+static unsigned long le32(const unsigned char *p)
+{
+    return (unsigned long)p[0] | ((unsigned long)p[1] << 8) |
+           ((unsigned long)p[2] << 16) | ((unsigned long)p[3] << 24);
+}
+
+/* Is the BMP at path complete (st_size == bfSize, which gui.cc writes
+ * first)? 1 complete, 0 not yet, -1 malformed. */
+static int snapshot_complete(const char *path)
+{
+    size_t len = 0;
+    char *b = read_file(path, &len);
+    int rc = 0;
+    if (!b) return 0;
+    if (len >= 54) {
+        const unsigned char *u = (const unsigned char *)b;
+        if (u[0] != 'B' || u[1] != 'M') rc = -1;
+        else if (len == le32(u + 2)) rc = 1;
+        else if (len > le32(u + 2)) rc = -1;
+    }
+    free(b);
+    return rc;
+}
+
+/* Convert gui.cc's 8bpp bottom-up BMP (54-byte header, 256 BGRx palette,
+ * 4-byte-aligned rows) to a top-down exact-RGB P6. *blank is set when every
+ * index is 0 (vga.cc update() skips a refresh that lands in its emulated
+ * vertical retrace, leaving the zeroed snapshot buffer: retry, never grade). */
+static bool snapshot_to_ppm(const char *bmp, const char *ppm, bool *blank)
+{
+    size_t len = 0;
+    unsigned char *u = (unsigned char *)read_file(bmp, &len);
+    bool ok = false;
+    *blank = false;
+    if (!u || len < 54 + 1024) goto out;
+    unsigned long off = le32(u + 10), w = le32(u + 18), h = le32(u + 22);
+    unsigned bpp = (unsigned)u[28] | ((unsigned)u[29] << 8);
+    if (bpp != 8 || w == 0 || h == 0 || w > 4096 || h > 4096 || off != 54 + 1024)
+        goto out;
+    unsigned long rlen = (w + 3) & ~3ul;
+    if (len < off + rlen * h) goto out;
+    *blank = true;
+    for (unsigned long i = 0; i < rlen * h; i++)
+        if (u[off + i]) { *blank = false; break; }
+    FILE *f = fopen(ppm, "wb");
+    if (!f) goto out;
+    fprintf(f, "P6\n%lu %lu\n255\n", w, h);
+    ok = true;
+    for (unsigned long y = 0; ok && y < h; y++) {
+        const unsigned char *row = u + off + (h - 1 - y) * rlen;
+        for (unsigned long x = 0; ok && x < w; x++) {
+            const unsigned char *pal = u + 54 + 4u * row[x];
+            unsigned char rgb[3] = { pal[2], pal[1], pal[0] };
+            ok = fwrite(rgb, 1, 3, f) == 3;
+        }
+    }
+    ok = (fclose(f) == 0) && ok;
+out:
+    free(u);
+    return ok;
 }
 
 /* ---- the run ------------------------------------------------------------- */
@@ -373,10 +636,61 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     if (join_path(out->serial_path, sizeof(out->serial_path), dir, fn) != 0) return -1;
     snprintf(fn, sizeof(fn), "%s.bochs.log", name);
     if (join_path(out->log_path, sizeof(out->log_path), dir, fn) != 0) return -1;
+    snprintf(fn, sizeof(fn), "%s.rfb.pgm", name);
+    if (join_path(out->rfb_pgm_path, sizeof(out->rfb_pgm_path), dir, fn) != 0) return -1;
+    snprintf(fn, sizeof(fn), "%s.rfb.ppm", name);
+    if (join_path(out->rfb_ppm_path, sizeof(out->rfb_ppm_path), dir, fn) != 0) return -1;
+    snprintf(fn, sizeof(fn), "%s.snap.bmp", name);
+    if (join_path(out->snap_bmp_path, sizeof(out->snap_bmp_path), dir, fn) != 0) return -1;
+    snprintf(fn, sizeof(fn), "%s.snap.ppm", name);
+    if (join_path(out->snap_ppm_path, sizeof(out->snap_ppm_path), dir, fn) != 0) return -1;
+    char bochs_snap[BOCHS_PATH_MAX];     /* where gui.cc writes, cwd=dir */
+    if (join_path(bochs_snap, sizeof(bochs_snap), dir, "snapshot.bmp") != 0) return -1;
+
+    /* Screendump runs Bochs with cwd=dir: every path Bochs sees is absolute
+     * (the report keeps the caller's relative spellings). */
+    BochsConfig rcfg = *cfg;
+    char *abs_dir = NULL, *abs_disk = NULL, *abs_data = NULL, *abs_bios = NULL,
+         *abs_vga = NULL;
+    char abs_serial[BOCHS_PATH_MAX], abs_bochsrc[BOCHS_PATH_MAX], abs_rcfile[BOCHS_PATH_MAX];
+    const char *child_serial = out->serial_path, *child_rc = rc_path,
+               *child_bochsrc = out->bochsrc_path;
+    if (cfg->screendump_after) {
+        abs_dir = realpath(dir, NULL);
+        abs_disk = realpath(cfg->disk_path, NULL);
+        abs_data = cfg->data_disk_path ? realpath(cfg->data_disk_path, NULL) : NULL;
+        abs_bios = realpath(cfg->bios_path ? cfg->bios_path : BOCHS_DEFAULT_BIOS, NULL);
+        abs_vga = realpath(cfg->vgabios_path ? cfg->vgabios_path : BOCHS_DEFAULT_VGABIOS, NULL);
+        bool okp = abs_dir && abs_disk && abs_bios && abs_vga &&
+                   (!cfg->data_disk_path || abs_data);
+        snprintf(fn, sizeof(fn), "%s.serial", name);
+        okp = okp && join_path(abs_serial, sizeof(abs_serial), abs_dir, fn) == 0;
+        snprintf(fn, sizeof(fn), "%s.rc", name);
+        okp = okp && join_path(abs_rcfile, sizeof(abs_rcfile), abs_dir, fn) == 0;
+        snprintf(fn, sizeof(fn), "%s.bochsrc", name);
+        okp = okp && join_path(abs_bochsrc, sizeof(abs_bochsrc), abs_dir, fn) == 0;
+        if (!okp) {
+            fprintf(stderr, "bochs_run: cannot resolve absolute paths for the screendump run\n");
+            free(abs_dir); free(abs_disk); free(abs_data); free(abs_bios); free(abs_vga);
+            return -1;
+        }
+        rcfg.disk_path = abs_disk;
+        rcfg.data_disk_path = abs_data;
+        rcfg.bios_path = abs_bios;
+        rcfg.vgabios_path = abs_vga;
+        child_serial = abs_serial;
+        child_rc = abs_rcfile;
+        child_bochsrc = abs_bochsrc;
+    }
 
     /* Remove a stale serial (so a launch failure cannot show old content) and
      * a stale disk lock (a previous killed run leaves <disk>.lock). */
     remove(out->serial_path);
+    remove(out->rfb_pgm_path);   /* a failed capture must not leave stale pixels */
+    remove(out->rfb_ppm_path);
+    remove(out->snap_bmp_path);
+    remove(out->snap_ppm_path);
+    remove(bochs_snap);
     {
         char lock[BOCHS_PATH_MAX];
         if (snprintf(lock, sizeof(lock), "%s.lock", cfg->disk_path) < (int)sizeof(lock))
@@ -393,8 +707,10 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         fputs("c\n", f);
         fclose(f);
     }
-    if (write_bochsrc(out->bochsrc_path, cfg, out->serial_path, cyl,
-                     data_cyl) != 0) {
+    int wrc = write_bochsrc(out->bochsrc_path, &rcfg, child_serial, cyl, data_cyl);
+    free(abs_disk); free(abs_data); free(abs_bios); free(abs_vga);
+    if (wrc != 0) {
+        free(abs_dir);
         fprintf(stderr, "bochs_run: cannot write %s\n", out->bochsrc_path);
         return -1;
     }
@@ -403,11 +719,12 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     signal(SIGPIPE, SIG_IGN);
 
     int host_lock = bochs_host_lock();
-    if (host_lock < 0) return -1;
+    if (host_lock < 0) { free(abs_dir); return -1; }
 
     pid_t pid = fork();
     if (pid < 0) {
         close(host_lock);
+        free(abs_dir);
         fprintf(stderr, "bochs_run: fork failed: %s\n", strerror(errno));
         return -1;
     }
@@ -417,16 +734,21 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         int nullfd = open("/dev/null", O_RDONLY);
         if (logfd >= 0) { dup2(logfd, 1); dup2(logfd, 2); }
         if (nullfd >= 0) dup2(nullfd, 0);
+        /* A numeric time0 is localtime()d by Bochs 2.7 cmos.cc: pin UTC so
+         * the guest RTC matches qemu -rtc base=<ISO> (UTC). */
+        if (cfg->rtc_time0 > 0) setenv("TZ", "UTC", 1);
+        if (abs_dir && chdir(abs_dir) != 0) _exit(126);
         char *argv[] = {
             (char *)BOCHS_BIN, (char *)"-q",
-            (char *)"-f", out->bochsrc_path,
-            (char *)"-rc", rc_path,
+            (char *)"-f", (char *)child_bochsrc,
+            (char *)"-rc", (char *)child_rc,
             NULL
         };
         execvp(BOCHS_BIN, argv);
         _exit(127);   /* exec failed */
     }
 
+    free(abs_dir);               /* the child has its own copy */
     out->launched = true;
     long long start = mono_ms();
     long long deadline = start + timeout_ms;
@@ -437,31 +759,115 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     long long rfb_deadline = start + (timeout_ms / 2 < 10000 ? 10000 : timeout_ms / 2);
     int rfb_fd = rfb_unblock(port, rfb_deadline, &handshook);
     out->rfb_unblocked = (handshook != 0);
+    RfbShadow rfb;
+    memset(&rfb, 0, sizeof(rfb));
+    rfb.fd = rfb_fd;
 
     /* Poll the SAME capture across guest RESET; never restart Bochs or clear
      * serial at reset. Ref: qemu.c wait_for_serial_marker_live and the locked
      * power traces. Missing completion is RED, even if expect_marker arrived.
-     * Without quit_after the original deadline-driven boot legs are unchanged. */
+     * Without quit_after the original deadline-driven boot legs are unchanged.
+     *
+     * Screendump (initech-u9gf): after the marker, request a full frame; once
+     * one arrives (and a settle interval of guest run time has passed), keep
+     * requesting full frames until two consecutive ones are byte-identical.
+     * Only that stable frame is written: a frame torn by a paint in flight
+     * cannot be graded (Law 2). */
+    enum { SD_WAIT, SD_FIRST, SD_STABLE, SD_SNAP, SD_DONE } sd = SD_WAIT;
+    unsigned long want_full = 0;
+    long long sd_t = 0;
+    unsigned char *snap = NULL;
     int status = 0;
     bool reaped = false;
     for (;;) {
         pid_t w = waitpid(pid, &status, WNOHANG);
         if (w == pid) { reaped = true; break; }
         if (w < 0 && errno != EINTR) break;
-        if (cfg->quit_after) {
+        rfb_pump(&rfb);
+        if (cfg->quit_after || (cfg->screendump_after && sd == SD_WAIT)) {
             char *txt = read_file(out->serial_path, NULL);
-            bool complete = txt && serial_completion(txt, cfg->quit_after,
-                                                       cfg->quit_after_count);
+            bool complete = cfg->quit_after && txt &&
+                            serial_completion(txt, cfg->quit_after,
+                                              cfg->quit_after_count);
+            if (cfg->screendump_after && sd == SD_WAIT && txt &&
+                serial_marker_count(txt, cfg->screendump_after) > 0) {
+                out->screendump_marker_found = true;
+                if (rfb_request_full(&rfb)) {
+                    want_full = rfb.full_frames + 1;
+                    sd_t = mono_ms() + 1000;
+                    sd = SD_FIRST;
+                } else {
+                    rfb_fail(&rfb, "cannot send FramebufferUpdateRequest");
+                }
+            }
             free(txt);
-            if (complete) break;
+            if (complete && !cfg->screendump_after) break;
         }
+        if (sd == SD_FIRST && rfb.full_frames >= want_full && mono_ms() >= sd_t) {
+            free(snap);
+            snap = malloc((size_t)rfb.w * rfb.h);
+            if (!snap) { rfb_fail(&rfb, "out of memory"); break; }
+            memcpy(snap, rfb.fb, (size_t)rfb.w * rfb.h);
+            if (!rfb_request_full(&rfb)) break;
+            want_full = rfb.full_frames + 1;
+            sd_t = mono_ms() + 500;
+            sd = SD_STABLE;
+        } else if (sd == SD_STABLE && rfb.full_frames >= want_full && mono_ms() >= sd_t) {
+            if (memcmp(snap, rfb.fb, (size_t)rfb.w * rfb.h) == 0) {
+                out->screendump_ok =
+                    rfb_write_capture(rfb.fb, rfb.w, rfb.h,
+                                      out->rfb_pgm_path, out->rfb_ppm_path);
+                if (!out->screendump_ok) break;
+                /* The lossless twin, taken while the frame is stable. The
+                 * guest width is the RFB window minus nothing Bochs reports;
+                 * the only VBE geometry the guest may set here is 640. */
+                if (!rfb_click_header(&rfb, 640)) break;
+                out->snapshot_tries = 1;
+                sd_t = mono_ms() + 15000;
+                sd = SD_SNAP;
+                continue;
+            }
+            memcpy(snap, rfb.fb, (size_t)rfb.w * rfb.h);
+            if (!rfb_request_full(&rfb)) break;
+            want_full = rfb.full_frames + 1;
+            sd_t = mono_ms() + 500;
+        }
+        if (sd == SD_SNAP) {
+            int c = snapshot_complete(bochs_snap);
+            if (c < 0) break;                    /* malformed: RED, not graded */
+            if (c > 0) {
+                bool blank = false;
+                if (rename(bochs_snap, out->snap_bmp_path) != 0) break;
+                out->snapshot_ok = snapshot_to_ppm(out->snap_bmp_path,
+                                                   out->snap_ppm_path, &blank);
+                if (out->snapshot_ok && blank && out->snapshot_tries < 3) {
+                    out->snapshot_ok = false;    /* retrace-skipped refresh */
+                    remove(out->snap_ppm_path);
+                    if (!rfb_click_header(&rfb, 640)) break;
+                    out->snapshot_tries++;
+                    sd_t = mono_ms() + 15000;
+                } else {
+                    sd = SD_DONE;
+                    break;
+                }
+            } else if (mono_ms() >= sd_t) {
+                break;
+            }
+        }
+        if (rfb.err[0] && cfg->screendump_after) break;
         if (mono_ms() >= deadline) {
             out->timed_out = true;
             break;
         }
-        rfb_drain(rfb_fd);
-        sleep_ms(100);
+        sleep_ms(sd == SD_WAIT ? 100 : 20);
     }
+    free(snap);
+    out->rfb_width = rfb.w;
+    out->rfb_height = rfb.h;
+    out->rfb_full_frames = rfb.full_frames;
+    snprintf(out->rfb_error, sizeof(out->rfb_error), "%s", rfb.err);
+    free(rfb.rx);
+    free(rfb.fb);
 
     if (!reaped) {
         kill(pid, SIGTERM);
@@ -546,6 +952,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
 
     out->ok = out->launched && out->rfb_unblocked && !out->triple_fault &&
               (cfg->expect_marker ? out->marker_found : true) &&
-              (cfg->quit_after ? out->quit_marker_found : true);
+              (cfg->quit_after ? out->quit_marker_found : true) &&
+              (cfg->screendump_after ? (out->screendump_ok && out->snapshot_ok) : true);
     return 0;
 }

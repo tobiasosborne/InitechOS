@@ -448,7 +448,20 @@ static int draw_titlebar_band(GrafPort *port, const flair_skin_t *skin,
             ink_part = active ? FLAIR_PART_TEXT
                               : FLAIR_PART_PLAT_INACTIVE_TEXT;
 #endif
-#if !defined(CHROME_FID_MUT_TITLE_BLANK) && !defined(CHROME_FID_MUT_NO_TITLE)
+#if defined(CHROME_MUT_TITLE_UNCLIPPED)
+            /* MUTANT CHROME_MUT_TITLE_UNCLIPPED (Rule 6; test-flair-routing-
+             * mutant leg T): the pre-tdnl.14 title run -- text_draw has no
+             * region clip, so a partly covered window's repaint stamps its
+             * whole Chicago cell run over the window in front. NEVER in a real
+             * build. */
+            text_draw(&port->portBits.bm, layout.x, ty, layout.text,
+                      FONT_CHICAGO,
+                      flair_look_pixel_for_skin(port, skin, ink_part),
+                      flair_look_pixel_for_skin(
+                          port, skin,
+                          active ? FLAIR_PART_PLAT_FRAME_FACE
+                                 : FLAIR_PART_PLAT_FACE));
+#elif !defined(CHROME_FID_MUT_TITLE_BLANK) && !defined(CHROME_FID_MUT_NO_TITLE)
             chrome_ctext(port, layout.x, ty, layout.text,
                          flair_look_pixel_for_skin(port, skin, ink_part),
                          flair_look_pixel_for_skin(

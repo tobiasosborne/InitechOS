@@ -480,12 +480,19 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
         serial(" accepted(deferred)\n");
     }
     if (cfg.lastdrive_present) {
+        int21_set_lastdrive((unsigned)(cfg.lastdrive-'A'+1));
         char ld[2];
         ld[0] = cfg.lastdrive;
         ld[1] = '\0';
         serial("SYSINIT: LASTDRIVE=");
         serial(ld);
-        serial(" accepted(deferred)\n");
+        /* LASTDRIVE= has teeth since DEC-18 (int21_set_lastdrive above), so it
+         * reports " applied" like BREAK= below -- the controlled serial
+         * vocabulary is applied / accepted(deferred) / (default) and the
+         * DEC-13 source-purity tooth (test-dosmsg [3/3]) lists exactly those
+         * (fixups 2026-10-17: the dosvolumes merge introduced an unlisted
+         * " accepted" variant; vocabulary fixed, allow-list unchanged). */
+        serial(" applied\n");
     }
 
     /* BREAK= state APPLIED (beads initech-er3h; DEC-16). Unlike DEVICE/INSTALL/

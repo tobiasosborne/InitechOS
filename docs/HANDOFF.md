@@ -203,8 +203,48 @@ fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
 
-> **CURRENT STATE (2026-10-17, WL-0131 -- THE THIRD NIGHT: GOING WIDE. Supersedes every
-> CURRENT STATE block below for "what to do next".)**
+> **CURRENT STATE (2026-10-17 23:00, WL-0172 -- the afternoon/evening PM session. Supersedes
+> every CURRENT STATE block below for "what to do next".)**
+>
+> **Certificate:** NOT run on the final HEAD. FIRST ACTION NEXT SESSION: `df -h /`, then
+> `make clean && make test` in ../initech-os-cert at main HEAD (the last family on main was
+> 46/9 at 4d907b1f; every red since was fixed or moved to a NAMED pending target --
+> test-samir-fns-pending, test-samir-dml-pending). KNOWN RED ON MAIN: `test-tbx-file` does not
+> compile (test_tbx_file.c initialises int21_cwd_snapshot_t without the DEC-18 drive fields;
+> found by the finderalerts lane) -- fix first.
+>
+> **Landed this session (WL-0172 has the merge ledger):** InitechWord books P3; SAMIR SET
+> INDEX/LIST OFF/RECSIZE/TYPE (four real-III+ mints); the FLAIR boot screen (mint-009); DEC-18
+> drive letters as real ATA volumes + FAT16 + the INT 21h coverage register; INT 21h AH=1Fh/32h
+> Get DPB (AH=32h row RATIFIED by the operator); the routing suite; ADR-0002 reconstructed +
+> test-adr-citations; SAMIR.COM -4 KB and the kernel -11 KB (16 KiB floor green, 3.5 KB spare);
+> Bochs legs re-keyed to VESA 0101h and graded pixel-exact vs QEMU + forced-VGA13 legs; all 38
+> books typeset again. 81 lane/* branches are pushed to origin.
+>
+> **Unmerged, finished-or-nearly (merge next, in this order):** `lane/finderalerts` (clone
+> ../initech-os-finderalerts; pressed-OK golden mint-010 green, size round 6 brings the flagship
+> to 178,764 B under the 180,224 floor, four Bochs legs re-keyed -- BUT the QEMU families, the
+> Bochs legs and test-kernel-headroom were NOT re-run on the round-6 tree: run them before
+> merging; WL-0162 parts 1-4); `lane/pubsslips` (VO-30 house register; 3 conflicts vs main:
+> pubs_gate.c keep main's crok + the register code, initech-xbase.sty take main's, pubs.mk both).
+> **Paused with UNVERIFIED wip commits (resume from the bead notes):** finderrobust
+> (tdnl.61/62/xu97), samirfix (ipu5.8.1), mints (tdnl.69 + 7), pascaltbx (tdnl.22/23),
+> dupinfo (p6st), i123p4 (Codex, stopped mid-run), and the Opus book lanes l123man / flairman /
+> flaircmd / pubsrecap / iwordp4 stopped mid-work in .claude/worktrees/lane-*.
+>
+> **Open operator decisions:** initech-bkmv (real III+ blank-DTOC separators / month-end roll
+> vs the existing date references), initech-9222 (desktop teal vs Initech Cyan #57B19F), the
+> ten physical-edition decisions (docs/packaging/MANUALS-AND-BOXES-RESEARCH.md Sec 9), the
+> astra clip fetch. **Known operator-visible bugs:** the mouse cursor in an interactive QEMU
+> window (bead filed with evidence), the record-flair clips with injected interactions missing
+> their markers since the boot-screen merge (lane/bootscreen2, paused). New programme beads:
+> initech-6fdt (Initech SideKick), initech-2ter (Jump to Conclusions egg).
+>
+> **Quota rules in force (operator 2026-10-17):** divide the weekly quota evenly to the reset,
+> Fable equal to Claude (both 37-38% at close), ONE lane at a time when the 5-hour window is
+> high, short Fable lanes sequentially when Fable lags; never merge on main while a family runs.
+
+> **PREVIOUS STATE (2026-10-17, WL-0131 -- THE THIRD NIGHT: GOING WIDE.)**
 >
 > **Certificate:** NOT run tonight. Every lane's family + mutants and the volume re-key gates
 > (finder-service, locked-purge, empty-trash, app-launch) were run first-person on main after

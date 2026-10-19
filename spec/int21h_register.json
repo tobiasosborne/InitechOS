@@ -1,7 +1,10 @@
 {
   "_comment": [
     "InitechDOS INT 21h Function Register -- LOCKED spec-data (CLAUDE.md Rule 8).",
-    "Transcribed VERBATIM from ADR-0003 Appendix A (the controlled scope).",
+    "Machine-readable controlled scope for ADR-0003 Appendix A and ratified amendments.",
+    "Reconciled 2026-10-17: Appendix-A AH=33h row restored per DEC-16 / initech-er3h / test-er3h.",
+    "Admitted 2026-10-17: AH=32h GETDPB, the drive-addressed companion of AH=1Fh (already in 0Fh-24h);",
+    "WL-0167 / initech-dpb1; DOS 3.x DPB layout per docs/research/dpb-ground-truth.md.",
     "Source: docs/adr/ADR-0003-InitechDOS-Base-OS-Personality.md, Appendix A.",
     "DEC-04 (Sec 5.4): INT 21h surface, AH selects function. DEC-13: controlled",
     "vocabulary -- no addition/removal/rewording except by approved change.",
@@ -18,6 +21,7 @@
     { "ah": "2Ah-2Dh", "mnemonic": "DATE / TIME", "description": "Get/set system date and time", "class": "Resident" },
     { "ah": "30h", "mnemonic": "GETVER", "description": "Get operating system version", "class": "Resident" },
     { "ah": "31h", "mnemonic": "KEEP (TSR)", "description": "Terminate and stay resident", "class": "Resident" },
+    { "ah": "32h", "mnemonic": "GETDPB", "description": "Get Drive Parameter Block for drive (DL=0 default, 1=A:)", "class": "Legacy" },
     { "ah": "33h", "mnemonic": "BREAK", "description": "Get/set CTRL-BREAK checking state", "class": "Resident" },
     { "ah": "36h", "mnemonic": "GETSPACE", "description": "Get free disk space", "class": "Core" },
     { "ah": "39h / 3Ah / 3Bh", "mnemonic": "MKDIR / RMDIR / CHDIR", "description": "Directory operations", "class": "Core" },

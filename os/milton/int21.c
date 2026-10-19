@@ -123,8 +123,58 @@ static psp_t *g_cur_psp = 0;
  * (loader.c int21_cwd_reset) and on do_terminate, and saved/restored around the
  * kernel-context PSP rebinds (kmain) so a child's CWD never leaks to the kernel.
  * The 64-byte cap (INT21_CWD_MAX, int21.h) mirrors the DOS AH=47h buffer. */
-static char     g_cwd_path[INT21_CWD_MAX] = { 0 };  /* root-relative, no '\' / drive */
-static uint16_t g_cwd_start_cluster       = 0u;     /* 0 == the fixed root            */
+/* MS-DOS 3.3 UG pp24-26, Reference pp4-11,41-42: per-drive CWD.
+ * DEC-18 selects physical media; I/O selection never changes the default. */
+static char g_cwd_paths[4][INT21_CWD_MAX];
+static uint16_t g_cwd_starts[4];
+static unsigned g_current_drive, g_io_drive;
+static unsigned g_drive_limit = 5u; /* IBM DOS 3.30 TR p6-66 minimum. */
+void int21_set_lastdrive(unsigned count)
+{
+#ifdef DOS_VOLUMES_MUT_LASTDRIVE
+    (void)count;
+#else
+    if (count < 5u) count = 5u;
+    if (count <= 26u) g_drive_limit = count;
+#endif
+}
+static int (*g_select_drive)(unsigned);
+#define g_cwd_path (g_cwd_paths[g_io_drive])
+#define g_cwd_start_cluster (g_cwd_starts[g_io_drive])
+static int select_volume(unsigned drive)
+{
+    if (drive >= 4u || (g_select_drive ? !g_select_drive(drive) : drive != 0u))
+        return 0;
+#ifdef DOS_VOLUMES_MUT_CWD
+    g_io_drive = 0;
+#else
+    g_io_drive = drive;
+#endif
+    return 1;
+}
+void int21_set_drive_selector(int (*select)(unsigned))
+{
+    g_select_drive = select;
+    g_current_drive = g_io_drive = 0;
+    for (unsigned i=0;i<4;i++) { g_cwd_paths[i][0]=0; g_cwd_starts[i]=0; }
+}
+unsigned int21_current_drive(void) { return g_current_drive; }
+unsigned int21_io_drive(void) { return g_io_drive; }
+uint16_t int21_select_path(const char **path)
+{
+    const char *p = *path;
+    unsigned drive = g_current_drive;
+    if (p[0] && p[1] == ':') {
+        unsigned letter = (unsigned char)p[0];
+        if (letter >= 'a' && letter <= 'z') letter -= 'a'-'A';
+        if (letter < 'A' || letter > 'Z') return 15u;
+        drive = letter - 'A';
+        p += 2;
+    }
+    if (!select_volume(drive)) return 15u;
+    *path = p;
+    return 0;
+}
 
 /* The CLOCK source (beads initech-yv9). GET/SET DATE+TIME reach the wall clock
  * through these; NULL until the kernel binds the RTC (or the host oracle binds a
@@ -225,6 +275,7 @@ typedef struct find_state {
     uint8_t  search_attr;   /* attribute mask from FINDFIRST ECX                */
     uint32_t next_index;    /* next backend dir-entry index to check            */
     uint16_t dir_start;     /* directory enumerated (0 == root; beads mzxa)     */
+    uint8_t  drive;         /* DEC-18 search volume */
     uint8_t  active;        /* 1 once FINDFIRST has run                          */
 } find_state_t;
 static find_state_t g_find;
@@ -357,6 +408,12 @@ void int21_cwd_reset(void)
 int21_cwd_snapshot_t int21_cwd_save(void)
 {
     int21_cwd_snapshot_t s;
+    s.current_drive = (uint8_t)g_current_drive;
+    s.io_drive = (uint8_t)g_io_drive;
+    for (unsigned d=0;d<4;d++) {
+        s.starts[d]=g_cwd_starts[d];
+        for(unsigned i=0;i<INT21_CWD_MAX;i++) s.paths[d][i]=g_cwd_paths[d][i];
+    }
     s.start_cluster = g_cwd_start_cluster;
     for (uint32_t i = 0u; i < INT21_CWD_MAX; i++) {
         s.path[i] = g_cwd_path[i];
@@ -369,6 +426,12 @@ void int21_cwd_restore(const int21_cwd_snapshot_t *s)
     if (s == 0) {
         return;
     }
+    g_current_drive=s->current_drive;
+    for(unsigned d=0;d<4;d++) {
+        g_cwd_starts[d]=s->starts[d];
+        for(unsigned i=0;i<INT21_CWD_MAX;i++) g_cwd_paths[d][i]=s->paths[d][i];
+    }
+    (void)select_volume(s->io_drive);
     g_cwd_start_cluster = s->start_cluster;
     for (uint32_t i = 0u; i < INT21_CWD_MAX; i++) {
         g_cwd_path[i] = s->path[i];
@@ -855,6 +918,7 @@ static int ah_is_listed(uint8_t ah)
         case 0x25: case 0x35:            /* SETVECT / GETVECT */
         case 0x30:                       /* GETVER */
         case 0x31:                       /* KEEP (TSR) */
+        case 0x32:                       /* GETDPB (admitted 2026-10-17; WL-0167) */
         case 0x33:                       /* BREAK (Get/Set CTRL-BREAK; DEC-16) */
         case 0x36:                       /* GETSPACE */
         case 0x39: case 0x3A: case 0x3B: /* MKDIR / RMDIR / CHDIR */
@@ -963,6 +1027,9 @@ static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
         }
         uint32_t wrote = 0u;
         dir_entry_t updated = e->dir_entry;
+#ifndef DOS_VOLUMES_MUT_HANDLE
+        (void)select_volume(e->drive);
+#endif
         uint16_t err = g_file->write_at(e->dir_start, e->root_slot,
                                         e->file_offset,
                                         (const uint8_t *)buf, count,
@@ -1945,9 +2012,8 @@ static uint16_t resolve_dir_path(const char *path, const char **out_leaf,
      * letter is ignored; only the path after ':' matters. */
     const char *p = path;
 #ifndef INT21_MUTATE_RESOLVE_NODRIVE
-    if (p[0] != '\0' && p[1] == ':') {
-        p += 2;                              /* skip "X:" */
-    }
+    uint16_t drive_error = int21_select_path(&p);
+    if (drive_error) return drive_error;
 #endif
 
     if (g_file == 0 || g_file->resolve == 0) {
@@ -2291,14 +2357,14 @@ int int21_same_file(uint16_t first, uint16_t second)
      * Cluster alone is insufficient (all empty files have cluster zero).
      * Ref: MS-DOS 3.3 User's Reference p. 50, COPY self refusal; initech-vj28. */
     if (a->kind == SFT_KIND_FILE)
-        return a->dir_start == b->dir_start && a->root_slot == b->root_slot;
+        return a->drive == b->drive && a->dir_start == b->dir_start && a->root_slot == b->root_slot;
     return a->kind == SFT_KIND_DEVICE && a->device == b->device;
 }
 
 int int21_directory_exists(const char *path)
 {
     uint16_t dir;
-    return path != 0 && !path_overlength(path) && g_file != 0 &&
+    return path != 0 && !path_overlength(path) && !int21_select_path(&path) && g_file != 0 &&
         g_file->resolve_dir != 0 &&
         g_file->resolve_dir(path, g_cwd_start_cluster, &dir, 0, 0u) == 0u;
 }
@@ -2308,12 +2374,7 @@ int int21_directory_path(const char *path, char *canon, uint32_t capacity)
     uint16_t dir;
     if (!path || path_overlength(path) || !g_file || !g_file->resolve_dir)
         return 0;
-    /* A: is drive-relative, A:\ is absolute. Only A: is mounted (AH=19h/36h).
-     * Ref: MS-DOS 3.3 Reference p.57 and pp.12-13. */
-    if (path[0] && path[1] == ':') {
-        if (path[0] != 'A' && path[0] != 'a') return 0;
-        path += 2;
-    }
+    if (int21_select_path(&path)) return 0;
     return g_file->resolve_dir(path, g_cwd_start_cluster, &dir, canon, capacity) == 0u;
 }
 
@@ -2435,6 +2496,7 @@ static void do_open(int_frame_t *f)
     e->dir_entry   = de;          /* struct copy of the 32-byte FAT dir entry */
     e->file_offset = 0u;
     e->root_slot   = root_slot;
+    e->drive = (uint8_t)g_io_drive;
     e->dir_start   = dir_start;   /* containing dir for subdir write-back (zs24) */
     g_cur_psp->jft[handle] = sft_idx;
 
@@ -2518,6 +2580,7 @@ static void do_creat(int_frame_t *f)
     e->dir_entry   = de;
     e->file_offset = 0u;
     e->root_slot   = root_slot;        /* dir-entry slot for positioned write-back */
+    e->drive = (uint8_t)g_io_drive;
     e->dir_start   = dir_start;        /* containing dir (0==root; subdir zs24) */
     g_cur_psp->jft[handle] = sft_idx;
 
@@ -2656,6 +2719,7 @@ static void do_creatnew(int_frame_t *f)
     e->dir_entry   = de;
     e->file_offset = 0u;
     e->root_slot   = root_slot;        /* dir-entry slot for positioned write-back */
+    e->drive = (uint8_t)g_io_drive;
     e->dir_start   = dir_start;        /* containing dir (0==root; subdir zs24) */
     g_cur_psp->jft[handle] = sft_idx;
 
@@ -2750,6 +2814,7 @@ static void do_rename(int_frame_t *f)
         cf_set(f);
         return;
     }
+    unsigned old_drive = g_io_drive;
     const char *new_leaf      = new_path;
     uint16_t    new_dir_start = 0u;
     uint16_t    nperr = resolve_dir_path(new_path, &new_leaf, &new_dir_start);
@@ -2774,6 +2839,7 @@ static void do_rename(int_frame_t *f)
      * not-same-device leg goes RED. NEVER in a real build. */
 #endif
 
+    if (old_drive != g_io_drive) { set_ax(f, 17u); cf_set(f); return; }
     if (g_file == 0 || g_file->rename == 0) {
         /* No write backing (read-only volume / no volume) -> access denied
          * (Rule 2: never a silent success). */
@@ -3218,6 +3284,9 @@ static void do_read(int_frame_t *f)
      * backend serves min(count, file_size - file_offset) bytes from the chain. */
     uint32_t take = 0u;
     if (g_file != 0 && g_file->read_at != 0) {
+#ifndef DOS_VOLUMES_MUT_HANDLE
+        (void)select_volume(e->drive);
+#endif
         uint16_t err = g_file->read_at(&e->dir_entry, e->file_offset,
                                        buf, count, &take);
         if (err != 0) {
@@ -3445,6 +3514,7 @@ static void do_filetime(int_frame_t *f)
         return;
 #endif
     }
+    (void)select_volume(e->drive);
     uint16_t err = g_file->set_time(e->dir_start, e->root_slot,
                                     new_mtime, new_mdate);
     if (err != 0) {
@@ -3672,6 +3742,9 @@ static uint16_t emit_find_data(const dir_entry_t *e)
  * skipped UNLESS the search mask requests that class (brief Sec 4.5). */
 static uint16_t find_scan(int_frame_t *f)
 {
+#ifndef DOS_VOLUMES_MUT_SEARCH
+    if (!select_volume(g_find.drive)) return INT21_ERR_NO_MORE_FILES;
+#endif
     if (g_file == 0 || g_file->dir_entry == 0) {
         return INT21_ERR_NO_MORE_FILES;   /* no volume -> empty directory */
     }
@@ -3743,6 +3816,7 @@ static void do_findfirst(int_frame_t *f)
     g_find.next_index  = 0u;
     g_find.dir_start   = dir_start;
     g_find.active      = 1u;
+    g_find.drive       = (uint8_t)g_io_drive;
 
     uint16_t rc = find_scan(f);
     if (rc != 0) {
@@ -3813,6 +3887,82 @@ static void do_findnext(int_frame_t *f)
 static uint8_t g_fcb_media;   /* the 1Bh/1Ch media byte EBX points at */
 void int21_set_media(uint8_t media) { g_fcb_media = media; }
 
+/* ---- AH=1Fh / AH=32h GET DRIVE PARAMETER BLOCK (WL-0167; initech-dpb1) ----
+ * Ref (Law 1): docs/research/dpb-ground-truth.md -- MS-DOS 2.0 GETSET.ASM /
+ * 4.0 MISC.ASM ($GET_DEFAULT_DPB = $GET_DPB with DL=0; AL=0 + DS:BX -> DPB,
+ * AL=FFh on a bad drive, BX untouched), $SETDPB (BPB -> DPB arithmetic),
+ * MSINIT.ASM (chain, last link FFFF:FFFF); RBIL r61 Table 01395 (DOS 3.x).
+ * Layout: ADR-0003 Appendix B.4 / spec/dos_structs.h dpb_t (32 bytes).
+ * One resident DPB per letter A..D; every mounted volume is linked A->C->D.
+ * Each call refreshes the whole chain from the mounted geometry (the FATREAD
+ * media check). Only the requested drive is counted for 1Eh; the others say
+ * FFFFh (unknown) rather than carry a count a later write made stale. */
+static int (*g_dpb_source)(int21_dpb_geometry_t *);
+static dpb_t g_dpb[4];
+void int21_set_dpb_source(int (*geometry)(int21_dpb_geometry_t *out))
+{
+    g_dpb_source = geometry;
+}
+static int dpb_fill(unsigned drive)
+{
+    int21_dpb_geometry_t g;
+    dpb_t *d = &g_dpb[drive];
+    uint8_t shift = 0u;
+    if (!select_volume(drive) || g_dpb_source == 0 || g_dpb_source(&g) != 0)
+        return 0;
+    /* $SETDPB LOG2LOOP; a non-power-of-two cluster has no DOS DPB. */
+    while (shift < 8u && (1u << shift) != g.sectors_per_cluster) shift++;
+    if (shift == 8u) return 0;
+    d->drive = (uint8_t)drive;
+    d->unit = (uint8_t)drive;      /* resident block service: unit = letter */
+    d->bytes_per_sector = g.bytes_per_sector;
+    d->cluster_mask = (uint8_t)(g.sectors_per_cluster - 1u);
+    d->cluster_shift = shift;
+    d->first_fat = g.reserved_sectors;
+    d->fat_count = g.fat_count;
+    d->root_entries = g.root_entries;
+#ifdef INT21_MUTATE_DPB_FIRST_DATA
+    /* MUTANT (Rule 6; make test-int21-dpb-mutant only): the first data sector
+     * forgets the root directory ($SETDPB's ADD AX,CX). NEVER in a build. */
+    d->first_sector = (uint16_t)g.root_dir_sector;
+#else
+    d->first_sector = (uint16_t)g.first_data_sector;
+#endif
+    d->max_cluster = (uint16_t)(g.total_clusters + 1u);
+    d->fat_size = (uint8_t)g.sectors_per_fat;    /* 3.x STOSB; WORD from 4.0 */
+    d->dir_sector = (uint16_t)g.root_dir_sector;
+    d->driver_addr = 0u;           /* DEC-17 block service: no device header */
+    d->media = g.media;
+    d->first_access = 0u;          /* mounted == BPB + FAT already read */
+    d->next_dpb = DPB_NEXT_END;
+    d->next_free = 0u;             /* no rover: allocation scans from the start */
+    d->free_cnt = DPB_FREE_UNKNOWN;
+    return 1;
+}
+static void do_getdpb(int_frame_t *f, uint8_t dl)
+{
+    unsigned want = dl ? (unsigned)dl - 1u : g_current_drive;
+    unsigned io = g_io_drive;
+    dpb_t *last = 0;
+    int found = 0;
+    for (unsigned d = 0u; d < 4u; d++) {
+        if (!dpb_fill(d)) continue;
+        if (last) last->next_dpb = (uint32_t)(uintptr_t)&g_dpb[d];
+        last = &g_dpb[d];
+        if (d == want) {
+            uint16_t spc, bps, tot, fr;
+            found = 1;
+            if (g_file != 0 && g_file->freespace != 0 &&
+                g_file->freespace(&spc, &bps, &tot, &fr) == 0u)
+                g_dpb[d].free_cnt = fr;
+        }
+    }
+    (void)select_volume(io);
+    if (!found) { set_al(f, 0xFFu); return; }
+    f->ebx = (uint32_t)(uintptr_t)&g_dpb[want];
+    set_al(f, 0u);
+}
+
 static uint32_t fcb_rd(const uint8_t *p, int n)
 {
     uint32_t v = 0u;
@@ -3834,7 +3984,7 @@ static uint8_t *fcb_get(const int_frame_t *f, uint8_t *attr)
     *attr = 0u;
     if (!user_buf_ok(f->edx, 44u)) return 0;
     if (p[0] == 0xFFu) { *attr = p[6]; p += 7; }
-    return (p[0] <= 1u) ? p : 0;
+    return select_volume(p[0] ? (unsigned)p[0]-1u : g_current_drive) ? p : 0;
 }
 
 /* Search-attribute rule, p. 6-71 notes 1-3: volume label is exclusive; hidden/
@@ -3906,7 +4056,7 @@ static void fcb_set_pos(uint8_t *p, uint32_t rec)
 /* Fill the opened fields from a directory entry (0Fh/16h, p. 6-67). */
 static void fcb_fill(uint8_t *p, const dir_entry_t *de, uint32_t slot)
 {
-    p[0] = 1u;                                /* default -> actual drive A: */
+    p[0] = (uint8_t)(g_io_drive+1u); /* store the actual opened volume */
     fcb_wr(p + FCB_CURBLK, 0u, 2);
     fcb_wr(p + FCB_RECSZ, 0x80u, 2);
     fcb_wr(p + FCB_FSIZE, de->file_size, 4);
@@ -3954,9 +4104,8 @@ static uint8_t fcb_xfer(uint8_t *p, uint32_t rec, int write)
     return (got == rs) ? 0u : 3u;
 }
 
-/* AH=0Fh..24h. Returns 0 for an AH this layer does not serve (1Fh, the
- * undocumented get-DPB: no DPB is published) so the caller takes the
- * not-yet-impl path; 1 when handled. */
+/* AH=0Fh..24h. Returns 1 when handled (every AH of the range now is; 1Fh
+ * is the default-drive DPB, do_getdpb). */
 static int do_fcb(int_frame_t *f, uint8_t ah)
 {
     uint8_t attr, al = 0xFFu;
@@ -3971,7 +4120,7 @@ static int do_fcb(int_frame_t *f, uint8_t ah)
          * cluster, CX = bytes per sector, DX = clusters, [EBX] = media byte. */
         uint16_t spc, bps, tot, fr;
         uint8_t drv = (ah == 0x1Bu) ? 0u : frame_dl(f);
-        if (drv <= 1u && g_file != 0 && g_file->freespace != 0 &&
+        if (select_volume(drv ? (unsigned)drv-1u : g_current_drive) && g_file != 0 && g_file->freespace != 0 &&
             g_fcb_media != 0u && g_file->freespace(&spc, &bps, &tot, &fr) == 0u) {
             al = (uint8_t)spc;
             set_cx(f, bps);
@@ -3985,7 +4134,7 @@ static int do_fcb(int_frame_t *f, uint8_t ah)
         set_al(f, 0u);   /* reserved no-ops (see the golden note in fcbx.asm) */
         return 1;
     }
-    if (ah == 0x1Fu) return 0;
+    if (ah == 0x1Fu) { do_getdpb(f, 0u); return 1; }   /* DL forced to 0 */
 
     p = fcb_get(f, &attr);
     if (p == 0 || g_file == 0) { set_al(f, al); return 1; }
@@ -4590,21 +4739,26 @@ static uint16_t g_last_error = 0u;   /* 0 = no error */
 void int21_note_error(uint16_t code) { g_last_error = code; }
 
 /* AH=0Eh SELECT DISK: DL = drive (0=A:). Returns AL = number of logical drives.
- * Only A: exists this milestone -> AL=1. DOS has no error path here (an invalid
- * DL is ignored; the default drive is unchanged since only A: exists). Ref: DOS
- * 3.3 PRM AH=0Eh. */
+ * Invalid DL leaves the default unchanged. AL is at least five, extended by
+ * LASTDRIVE. Ref: IBM DOS 3.30 TR p6-66; DEC-18 physical letter map. */
 static void do_seldisk(int_frame_t *f)
 {
-    (void)frame_dl(f);          /* requested drive: ignored (only A: exists) */
-    set_al(f, 1u);              /* number of logical drives = 1 (A:)         */
+#ifndef DOS_VOLUMES_MUT_SELECT
+    if (select_volume(frame_dl(f))) g_current_drive = frame_dl(f);
+#endif
+    unsigned count = g_drive_limit;
+#ifdef DOS_VOLUMES_MUT_LIMIT
+    count = 1u;
+#endif
+    (void)select_volume(g_current_drive);
+    set_al(f, (uint8_t)count);
     cf_clear(f);
 }
 
-/* AH=19h GET CURRENT DISK: returns AL = current drive (0=A:). Always A: this
- * milestone. No error path. Ref: DOS 3.3 PRM AH=19h. */
+/* AH=19h: current default drive, 0=A. IBM DOS 3.30 TR p6-81. */
 static void do_getdisk(int_frame_t *f)
 {
-    set_al(f, 0u);              /* current drive = A: (0)                    */
+    set_al(f, (uint8_t)g_current_drive);
     cf_clear(f);
 }
 
@@ -4685,7 +4839,7 @@ static void do_settime(int_frame_t *f)
 static void do_getspace(int_frame_t *f)
 {
     uint8_t drive = frame_dl(f);
-    if (drive > 1u || g_file == 0 || g_file->freespace == 0) {
+    if (!select_volume(drive ? drive-1u : g_current_drive) || g_file == 0 || g_file->freespace == 0) {
         set_ax(f, 0xFFFFu);     /* invalid drive / no volume                 */
         cf_clear(f);            /* 36h has no CF error path; AX=FFFF signals  */
         return;
@@ -4713,7 +4867,7 @@ static void do_getspace(int_frame_t *f)
 static void do_getcwd(int_frame_t *f)
 {
     uint8_t drive = frame_dl(f);
-    if (drive > 1u) {
+    if (!select_volume(drive ? drive-1u : g_current_drive)) {
         set_ax(f, 0x000Fu);     /* invalid drive */
         int21_note_error(0x000Fu);
         cf_set(f);
@@ -4754,6 +4908,9 @@ static void do_chdir(int_frame_t *f)
         cf_set(f);
         return;
     }
+
+    uint16_t drive_error = int21_select_path(&path);
+    if (drive_error) { set_ax(f, drive_error); cf_set(f); return; }
 
     /* Reference pp.41-42: CD \ selects root even from a subdirectory.
      * ADR-0003 Appendix A: AH=3Bh changes CWD, AH=47h reports it. */
@@ -5120,6 +5277,7 @@ static void int24_dispatch_body(int_frame_t *frame)
 static void int21_dispatch_body(int_frame_t *frame)
 {
     uint8_t ah = (uint8_t)((frame->eax >> 8) & 0xFFu);
+    (void)select_volume(g_current_drive);
 
     /* DEC-16 Sec 3.3 Fork A / C-6; MS-DOS 3.3 Reference p.38 (PDF123):
      * BREAK ON extends Ctrl-C checking to disk reads/writes and other DOS
@@ -5187,7 +5345,11 @@ static void int21_dispatch_body(int_frame_t *frame)
                 cf_clear(frame);
                 return;
             }
-            break;                       /* 1Fh: not-yet-impl (no DPB) */
+            break;                       /* unreachable: do_fcb serves all */
+        case 0x32:                       /* GET DPB FOR DRIVE DL (WL-0167) */
+            do_getdpb(frame, frame_dl(frame));
+            cf_clear(frame);
+            return;
         case 0x25:                       /* SET INTERRUPT VECTOR */
             do_setvect(frame);
             return;
@@ -5381,10 +5543,11 @@ static void int21_dispatch_body(int_frame_t *frame)
     /* Controlled scope (Rule 2 / ADR-0003 DEC-13). The AH is not one of the
      * implemented functions. Two distinct, fail-loud diagnostics: */
     if (ah_is_listed(ah)) {
-        /* RECOGNIZED by the locked register but not yet implemented in this
-         * subset (e.g. FCB ops 0Fh-24h, DATE/TIME 2Ah-2Dh). CON input
-         * 01h/06h/07h/08h/0Ah/0Bh/0Ch are now real (beads initech-n62). A
-         * distinct diagnostic, NOT 'unknown'. */
+        /* RECOGNIZED by the locked register but not yet implemented. Since
+         * AH=1Fh landed (WL-0167) no registered AH reaches here in a real
+         * build; the named dispatch-drop mutants (CERT_MUTATE_DROP_GETVER,
+         * INT21_MUTATE_BREAK_NO_DISPATCH) still do, and must stay distinct
+         * from 'unknown'. */
         con_puts("INT21 not-yet-impl AH=");
         con_hex2(ah);
         con_putc('\n');
@@ -5429,7 +5592,7 @@ static void int21_dispatch_body(int_frame_t *frame)
  *
  * The guard is the FIRST thing each wrapper does (before any state is touched),
  * so a reentry is caught before it can corrupt anything. */
-void int21_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int21_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns (routes to the panic path) */
@@ -5450,7 +5613,7 @@ void int21_dispatch(int_frame_t *frame)
     g_indos--;
 }
 
-void int20_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int20_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5465,7 +5628,7 @@ void int20_dispatch(int_frame_t *frame)
  * corrupt an interrupted syscall's frame/globals); the guard fails loud if one
  * does. 22h/23h normally do not return (terminate); 24h returns the A/R/F action
  * -- its g_indos-- runs because do_terminate is not on its path. */
-void int22_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int22_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5475,7 +5638,7 @@ void int22_dispatch(int_frame_t *frame)
     g_indos--;
 }
 
-void int23_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int23_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5485,7 +5648,7 @@ void int23_dispatch(int_frame_t *frame)
     g_indos--;
 }
 
-void int24_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int24_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5801,7 +5964,7 @@ static void int26_dispatch_body(int_frame_t *frame)
  * an interrupted syscall -- the guard fails loud first (Rule 2). The bodies
  * RETURN a result + CF (do_terminate is not on their path), so each g_indos--
  * runs. MIRRORS int24_dispatch exactly. */
-void int25_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int25_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5811,7 +5974,7 @@ void int25_dispatch(int_frame_t *frame)
     g_indos--;
 }
 
-void int26_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int26_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
