@@ -31,6 +31,7 @@
 #define SC_LSHIFT_BREAK 0xAAu
 #define SC_RSHIFT_BREAK 0xB6u
 #define SC_CAPS_MAKE    0x3Au
+#define SC_CAPS_BREAK   0xBAu
 #define SC_BREAK_FLAG   0x80u   /* bit set in a release (break) scancode      */
 
 /* ---- pure ring buffer ---------------------------------------------------- */
@@ -129,6 +130,7 @@ void kbd_state_init(kbd_state_t *st)
 {
     st->shift = 0u;
     st->caps  = 0u;
+    st->caps_down = 0u;
     st->ctrl  = 0u;
     st->e0    = 0u;
 }
@@ -166,17 +168,34 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
         if (scancode == 0x35u) return '/';
         return 0u;
     }
-    /* Modifier make/break first (these never produce a character). */
+    /* Ref: IBM PS/2 Hardware Interface Technical Reference, "Keyboards
+     * (101- and 102-Key)", pp. 19, 27-30, 45-48. Track physical keys as in
+     * os/flair/event.c (initech-tdnl.58): Shift = left OR right; typematic
+     * makes are not new Caps presses. E0 fake Shifts were consumed above. */
     if (scancode == SC_LSHIFT_MAKE || scancode == SC_RSHIFT_MAKE) {
-        st->shift = 1u;
+        st->shift |= scancode == SC_LSHIFT_MAKE ? 1u : 2u;
         return 0u;
     }
     if (scancode == SC_LSHIFT_BREAK || scancode == SC_RSHIFT_BREAK) {
+#ifdef KBD_MUT_ONE_SHIFT
+        /* Rule 6: restore the single-flag release; either break clears both. */
         st->shift = 0u;
+#else
+        uint8_t side = scancode == SC_LSHIFT_BREAK ? 1u : 2u;
+        st->shift &= (uint8_t)~side;
+#endif
         return 0u;
     }
     if (scancode == SC_CAPS_MAKE) {
-        st->caps ^= 1u;   /* CapsLock latches on each make (we ignore its break) */
+#ifndef KBD_MUT_CAPS_REPEAT
+        if (!st->caps_down)
+#endif
+            st->caps ^= 1u;
+        st->caps_down = 1u;
+        return 0u;
+    }
+    if (scancode == SC_CAPS_BREAK) {
+        st->caps_down = 0u;
         return 0u;
     }
 

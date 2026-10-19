@@ -5061,9 +5061,12 @@ TEST_KBD_DEPS  := $(KERNEL_KBD_C) $(KERNEL_PIT_C)
 TEST_KBD_HDRS  := $(MILTON_DIR)/kbd.h $(MILTON_DIR)/pit.h $(MILTON_DIR)/io.h
 # Mutation builds (CLAUDE.md Rule 6): a single branch/constant perturbed so
 # `make test-kbd-unit-mutant` can prove the oracle BITES. (a) the ring full-test
-# off-by-one (wrap overwrites unread data); (b) the scancode table mis-indexed.
+# off-by-one (wrap overwrites unread data); (b) the scancode table mis-indexed;
+# (c) a Shift break clears both physical keys; (d) Caps repeats toggle the lock.
 TEST_KBD_MUT_RING  := $(BUILD)/test_kbd_mutant_ring
 TEST_KBD_MUT_TABLE := $(BUILD)/test_kbd_mutant_table
+TEST_KBD_MUT_SHIFT := $(BUILD)/test_kbd_mutant_shift
+TEST_KBD_MUT_CAPS  := $(BUILD)/test_kbd_mutant_caps
 
 $(TEST_KBD): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
@@ -5077,15 +5080,23 @@ $(TEST_KBD_MUT_TABLE): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUI
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUTATE_SCANCODE_TABLE -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
 
+$(TEST_KBD_MUT_SHIFT): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_ONE_SHIFT -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
+
+$(TEST_KBD_MUT_CAPS): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_CAPS_REPEAT -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
+
 .PHONY: test-kbd-unit test-kbd-unit-mutant
 test-kbd-unit: $(TEST_KBD)
 	@printf ">>> test-kbd-unit: ring (enqueue/dequeue/empty/full/wrap) + scancode set 1 -> ASCII (+shift/caps) + PIT divisor math\n"
 	@$(TEST_KBD)
 	@printf ">>> test-kbd-unit: green\n"
 
-# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
-test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE)
-	@printf ">>> test-kbd-unit-mutant: confirming both mutants go RED (Rule 6)\n"
+# Mutation-proof: ALL mutant builds MUST fail the oracle (Rule 6).
+test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE) $(TEST_KBD_MUT_SHIFT) $(TEST_KBD_MUT_CAPS)
+	@printf ">>> test-kbd-unit-mutant: confirming all mutants go RED (Rule 6)\n"
 	@if $(TEST_KBD_MUT_RING) >/dev/null 2>&1; then \
 		printf '!!! test-kbd-unit-mutant FAIL: ring off-by-one mutant PASSED -- the full/wrap test is decoration\n'; \
 		exit 1; \
@@ -5097,6 +5108,18 @@ test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE)
 		exit 1; \
 	else \
 		printf '>>> test-kbd-unit-mutant: green (scancode-table mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_KBD_MUT_SHIFT) >/dev/null 2>&1; then \
+		printf '!!! test-kbd-unit-mutant FAIL: one-Shift mutant PASSED -- the overlapping Shift test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-kbd-unit-mutant: green (one-Shift mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_KBD_MUT_CAPS) >/dev/null 2>&1; then \
+		printf '!!! test-kbd-unit-mutant FAIL: Caps-repeat mutant PASSED -- the typematic test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-kbd-unit-mutant: green (Caps-repeat mutant correctly RED)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
