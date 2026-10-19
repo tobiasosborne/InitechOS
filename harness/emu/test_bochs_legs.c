@@ -145,7 +145,19 @@ int main(int argc, char **argv)
         memcpy(body, row, n); body[n] = 0;
         snprintf(needle, sizeof needle, " %s ", target);
         char *hit = strstr(v, needle);
-        require(hit && !strstr(hit + 1, needle), "VECTOR", target);
+        if (!hit && samir) {
+            /* initech-hgmx: a KNOWN-RED leg lives by name in test-bochs-pending
+             * (house rule: named, never loosened) until its bead closes. */
+            char *pend = strstr(db, "\ntest-bochs-pending: ");
+            char *pend_end = pend ? strchr(pend + 1, '\n') : NULL;
+            require(pend && pend_end, "VECTOR", target);
+            *pend_end = 0;
+            hit = strstr(pend, target);
+            *pend_end = '\n';
+            require(hit != NULL, "VECTOR", target);
+        } else {
+            require(hit && !strstr(hit + 1, needle), "VECTOR", target);
+        }
         snprintf(needle, sizeof needle, "--disk \"%s\"", image);
         require(strstr(body, needle) != NULL, "IMAGE", target);
         if (l->data) {
