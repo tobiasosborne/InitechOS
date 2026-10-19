@@ -8,7 +8,7 @@
 . SEEK MDEPT
 . ? DEPTNAME, FLOOR
 
-Customer Relations       2. SELECT STAFF
+Customer Relations        2. SELECT STAFF
 . ? LASTNAME
 
 SMYKOWSKI     

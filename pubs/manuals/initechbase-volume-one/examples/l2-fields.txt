@@ -1,6 +1,6 @@
 . USE STAFF
 . LIST LASTNAME, HIRED, SALARY
-Record#  LASTNAME       HIRED    SALARY
+Record#  LASTNAME       HIRED       SALARY
       1  LUMBERGH       06/04/84  96500.00
       2  GIBBONS        03/14/88  41250.00
       3  BOLTON         09/05/89  39800.00

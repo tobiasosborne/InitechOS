@@ -7,8 +7,8 @@ Record#  LASTNAME       DEPT
 . GO TOP
 . ? RECNO()
 
-7. SET FILTER TO
+         7. SET FILTER TO
 . GO TOP
 . ? RECNO()
 
-1
+         1

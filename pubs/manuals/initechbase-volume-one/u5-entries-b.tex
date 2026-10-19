@@ -1,4 +1,22 @@
-% Using InitechBase Chapter 5, entries FIND .. RETURN (AN-04).
+% Using InitechBase Chapter 5, entries ERASE .. RETURN (AN-04).
+
+% ERASE -- os/samir/cmd/mutate.c d_file (Using III+ U5-121; a file of an
+% open database is refused, 3; absent, 1).  Lane samirdml 14a8fc75.
+% Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{ERASE}{command}
+Deletes a file from the diskette.
+\Syntax
+\SyntaxLine{\kw{ERASE} \xp{file}}
+\Usage
+\cmd{ERASE} deletes the file named.  Give the file name with its extension;
+none is assumed.  The file cannot be recovered.
+
+A database that is open in a work area cannot be erased:
+\cmd{ERASE} reports \xmsg{3}{File is already open.}  Close it with \cmd{USE}
+or \cmd{CLOSE} first.  If the file is not on the diskette, \cmd{ERASE}
+reports \xmsg{1}{File does not exist.}
+\SeeAlso{RENAME, TYPE}
+\end{XbaseEntry}
 
 % FIND -- os/samir/cmd/query.c q_find (unquoted literal through ndx_seek on
 % the master index; SET EXACT; #26 without an index).  Gate: test-ndx-seek,
@@ -94,6 +112,27 @@ the deleted records and to add each salary to one of two totals:
 \SeeAlso{DO CASE, DO WHILE, IIF()}
 \end{XbaseEntry}
 
+% INDEX -- os/samir/cmd/mutate.c d_index (ON <key> TO <file>, default .NDX;
+% key Character, Numeric or Date, 1..220 bytes of text; the new index is
+% attached and becomes the master; SAFETY ON refuses an existing file, 7).
+% Lane samirdml 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{INDEX}{command}
+Creates an index file for the database in USE.
+\Syntax
+\SyntaxLine{\kw{INDEX ON} \xp{key expression} \kw{TO} \xp{index file}}
+\Usage
+\cmd{INDEX} builds an index file of the database in the selected work area,
+ordered by the key expression.  The key must be of type Character, Numeric
+or Date.  If no extension is given, \file{.NDX} is assumed.  The new index is
+opened at once, with the index files already open, as the master index; the
+record pointer goes to the first record in key order.  Up to seven index
+files may be open with one database.
+
+While SET SAFETY is ON, an index file that already exists is not replaced:
+\cmd{INDEX} reports \xmsg{7}{File already exists.}
+\SeeAlso{REINDEX, SET INDEX, SET ORDER, USE}
+\end{XbaseEntry}
+
 % INPUT -- os/samir/cmd/proc.c p_input (prompt, one line, EVALUATED as an
 % expression; the memvar takes its type).  Gate: test-interp-proc.
 \begin{XbaseEntry}{INPUT}{command}
@@ -120,6 +159,31 @@ marks.
 \SeeAlso{ACCEPT, WAIT, STORE, CTOD()}
 \end{XbaseEntry}
 
+% LABEL -- os/samir/cmd/report.c lbl_run (FORM <file>, default .LBL, the
+% 1034-byte dBASE III PLUS label form; TO FILE <file>, default .TXT; every
+% record in master-index order; 54 for an invalid form).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{LABEL}{command}
+Prints labels from a label form file.
+\Syntax
+\SyntaxLine{\kw{LABEL FORM} \xp{label file} \opt{\kw{TO FILE} \xp{file}}}
+\Usage
+\cmd{LABEL FORM} prints one label for every record of the database in USE,
+in the order of the master index, laid out by the label form file named.
+If no extension is given, \file{.LBL} is assumed.  The label form gives the
+height and width of a label, the margin, the space between labels, the
+number of labels across, and the expressions printed on each line of the
+label.
+
+\kw{TO FILE} writes the labels to a text file instead of the screen;
+\file{.TXT} is assumed.
+
+InitechBase prints label forms made with dBASE III PLUS; it does not create
+them.  A form that is not a valid label form is reported as
+\xmsg{54}{Label file invalid.}
+\SeeAlso{REPORT FORM}
+\end{XbaseEntry}
+
 % LIST -- os/samir/cmd/query.c q_list (default scope ALL with an implicit
 % GO TOP; heading per SET HEADING; deleted '*'; SET DELETED, SET FILTER).
 % Gates: test-samir-query, test-samir-list-layout, test-interp-list.
@@ -144,7 +208,7 @@ while a filter is set, only the records that meet it are listed.
 The columns are as wide as the fields or the values, or as the headings when
 these are wider.  Character fields are shown at their full width, numeric
 fields with their decimal places, dates in the form set by SET DATE, logical
-fields as \texttt{T} or \texttt{F}, and memo fields with their text.  The
+fields as \texttt{.T.} or \texttt{.F.}, and memo fields with their text.  The
 screen holds 80 characters: a longer line continues on the next.
 
 \kw{FOR} tests every record of the scope.  \kw{WHILE} stops at the first record
@@ -412,6 +476,20 @@ Record 13 of \file{STAFF.DBF} is marked for deletion on the diskette:
 \SeeAlso{DELETE, PACK, DELETED()}
 \end{XbaseEntry}
 
+% REINDEX -- os/samir/cmd/mutate.c d_index (rebuild every open index of the
+% selected work area from its own key; 114 on failure).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{REINDEX}{command}
+Rebuilds the open index files of the database in USE.
+\Syntax
+\SyntaxLine{\kw{REINDEX}}
+\Usage
+\cmd{REINDEX} rebuilds every index file open in the selected work area from
+its own key expression.  Use it when an index file has been damaged, or
+when the database was changed while the index file was not open.
+\SeeAlso{INDEX, PACK, USE}
+\end{XbaseEntry}
+
 % RELEASE -- os/samir/cmd/flow.c "RELEASE" (a name list, or ALL).  Gate:
 % test-interp-flow.
 \begin{XbaseEntry}{RELEASE}{command}
@@ -428,6 +506,23 @@ gives \xmsg{12}{Variable not found.}
 \DotExample{examples/c-release}
 \DotExample{examples/c-release-2}
 \SeeAlso{STORE, PUBLIC, PRIVATE}
+\end{XbaseEntry}
+
+% RENAME -- os/samir/cmd/mutate.c d_file (<file> TO <file>; open database
+% refused, 3; SAFETY ON refuses an existing target, 7).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{RENAME}{command}
+Changes the name of a file.
+\Syntax
+\SyntaxLine{\kw{RENAME} \xp{file} \kw{TO} \xp{new file}}
+\Usage
+\cmd{RENAME} gives the file a new name.  Give both names with their
+extensions; none is assumed.  A database that is open cannot be renamed
+(\xmsg{3}{File is already open.}), and while SET SAFETY is ON a file of the
+new name is not replaced (\xmsg{7}{File already exists.}).
+
+Rename a database's memo file (\file{.DBT}) with it.
+\SeeAlso{ERASE, TYPE}
 \end{XbaseEntry}
 
 % REPLACE -- os/samir/cmd/mutate.c m_replace (default the current record;
@@ -529,6 +624,25 @@ The whole register, without page headings:
 Subtotals only, with a heading:
 \DotExample{examples/c-report-3}
 \SeeAlso{LIST, SET HEADING, USE}
+\end{XbaseEntry}
+
+% RESTORE -- os/samir/cmd/flow.c fl_memfile (FROM <file>, default .MEM;
+% ADDITIVE keeps the present variables; the whole file is checked before
+% any variable changes, 55).  Lane samirdml 14a8fc75.  Gates:
+% test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{RESTORE}{command}
+Loads memory variables from a memory file.
+\Syntax
+\SyntaxLine{\kw{RESTORE FROM} \xp{file} \opt{\kw{ADDITIVE}}}
+\Usage
+\cmd{RESTORE} reads the memory variables saved with \cmd{SAVE}.  If no
+extension is given, \file{.MEM} is assumed.  Without \kw{ADDITIVE}, all
+present memory variables are released first; with it, they are kept and the
+saved ones are added.
+
+A file that is not a valid memory file is reported as
+\xmsg{55}{Memory Variable file is invalid.} and no variable is changed.
+\SeeAlso{RELEASE, SAVE}
 \end{XbaseEntry}
 
 % RETURN -- os/samir/cmd/proc.c PROC_RC_RETURN (leaves the routine, out of any

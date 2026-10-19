@@ -5,7 +5,7 @@
 MOK = .F.
 DO WHILE .NOT. MOK
   INPUT 'Amount (1 to 999): ' TO MAMOUNT
-  IF TYPE(MAMOUNT) = 'N'
+  IF TYPE("MAMOUNT") = 'N'
     MOK = MAMOUNT >= 1 .AND. MAMOUNT <= 999
   ENDIF
   IF .NOT. MOK

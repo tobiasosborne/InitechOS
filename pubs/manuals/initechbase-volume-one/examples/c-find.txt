@@ -2,7 +2,7 @@
 . FIND PORTER
 . ? RECNO(), LASTNAME, DEPT
 
-7 PORTER         ADMN. FIND SMY
+         7 PORTER         ADMN. FIND SMY
 . ? RECNO(), LASTNAME
 
-6 SMYKOWSKI     
+         6 SMYKOWSKI     

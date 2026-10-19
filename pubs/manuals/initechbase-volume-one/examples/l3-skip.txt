@@ -1,10 +1,10 @@
 . USE STAFF
 . ? RECNO(), LASTNAME
 
-1 LUMBERGH      . SKIP
+         1 LUMBERGH      . SKIP
 . ? RECNO(), LASTNAME
 
-2 GIBBONS       . SKIP 3
+         2 GIBBONS       . SKIP 3
 . ? RECNO(), LASTNAME
 
-5 WADDAMS       
+         5 WADDAMS       

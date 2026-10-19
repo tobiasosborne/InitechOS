@@ -1,4 +1,6 @@
-% Chapter 2 entries ECHO .. REN (AN-01), EDLIN included.
+% Chapter 2 entries ECHO .. REN (AN-01), EDLIN included; FDISK and FORMAT
+% (WL-0141, WL-0147) have prose examples: the capture route has no fixed
+% disk or second diskette to change.
 
 % ECHO -- os/milton/command.c builtin_echo (no arg: "ECHO is on"; else the
 % text as typed).  ECHO ON/OFF in batch files: Chapter 4 (batch.c).
@@ -109,6 +111,50 @@ At the \texttt{A:\bs>} prompt of a freshly started system, type
 the command processor started with the system is permanent.
 \end{DosEntry}
 
+% FDISK -- os/milton/fdisk.c fdisk_run (Disk Options menu of MS-DOS 3.3
+% UG pp.66-71: 1 create primary only, 2 change active, 3 delete primary only,
+% 4 display, 5 next fixed disk when a second exists; ESC returns; a change
+% restarts the system; the loaded volume (81h) is never edited, DEC-17 PM
+% ruling).  WL-0141.  Shipped as DOS\FDISK.COM.  Gates: test-fdisk,
+% test-fdisk-emu.
+\begin{DosEntry}{FDISK}{Fixed Disk}{external}
+\Purpose Creates, deletes, activates and displays the DOS partition of a
+fixed disk.
+\Format \SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\kw{FDISK}}
+\Type{External}
+\Remarks
+\cmd{FDISK} displays the \textbf{Disk Options} menu for the first fixed disk.
+Type the number of an option and press \key{Enter}; \key{Enter} alone takes
+the number shown in brackets.  \key{Esc} returns from any screen to the
+menu, and from the menu to the command prompt.
+
+\Param{1. Create DOS Partition} creates the primary DOS partition, if the
+disk has none: either the largest free space, made active, or a number of
+cylinders you type.  Extended partitions cannot be created in this version.
+
+\Param{2. Change Active Partition} makes the partition whose number you
+type the one the system starts from.
+
+\Param{3. Delete DOS Partition} deletes the primary DOS partition after you
+answer \type{Y} to the warning; the default answer is \type{N}.  Extended
+partitions and logical drives cannot be deleted in this version.
+
+\Param{4. Display Partition Data} lists each partition with its status
+(\texttt{A} for active), type, first and last cylinder and size.
+
+\Param{5. Select Next Fixed Disk Drive} appears only when the system has a
+second fixed disk.
+
+When a partition has been changed, \cmd{FDISK} displays
+\texttt{System will now restart} and asks you to insert the DOS diskette and
+press a key.  The disk that holds the files you are using is never changed:
+\cmd{FDISK} ends at once if it is selected.
+\Example
+Type \type{FDISK} and press \key{Enter}.  Type \type{4} and press
+\key{Enter} to display the partitions, then press \key{Esc} twice to return
+to the command prompt.
+\end{DosEntry}
+
 % initech-2kgh: shipped filters; scope matches the existing m0dc gates.
 % Ref: os/milton/find_program.asm; MS-DOS 3.3 Reference p.72/PDF157.
 \Gates{test-find-filter, test-find-filter-mutant, test-dos-folder}
@@ -123,6 +169,62 @@ compared exactly. \Param{/V} displays lines that do not contain the string;
 Input may also come from a pipe. Use redirection to read a file.
 \Example
 To display lines containing Help, type \type{FIND "Help" < PHONE.TXT}.
+\end{DosEntry}
+
+% FORMAT -- os/milton/diskutil.c format_run (MS-DOS 3.3 UG pp.74-76,
+% 332-337: /S /V /B /1 /4 /8 /T: /N:, /B not with /S or /V; the running
+% volume refused; diskette prompt; fixed disk label check and warning;
+% "Formatting...", "Format complete", "System transferred", the report;
+% "Format another (Y/N)?" for diskettes; one sector per cluster in this
+% version).  System files from drive C (DEC-18).  WL-0147.  Shipped as
+% DOS\FORMAT.COM.  Gates: test-formatsys, test-formatsys-emu,
+% test-format-system-boot.
+\begin{DosEntry}{FORMAT}{}{external}
+\Purpose Prepares a disk for use by InitechDOS, erasing everything on it.
+\Format \SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\kw{FORMAT} \ph{d}\kw{:}
+  \opt{\kw{/S}} \opt{\kw{/V}} \opt{\kw{/B}} \opt{\kw{/1}} \opt{\kw{/4}}
+  \opt{\kw{/8}} \opt{\kw{/T:}\ph{tracks}} \opt{\kw{/N:}\ph{sectors}}}
+\Type{External}
+\Remarks
+\Param{d:} is the drive to format; it is required.  The disk that holds the
+files you are using cannot be formatted: \cmd{FORMAT} displays
+\texttt{Format not supported on drive} \ph{d}\texttt{:}.  Drive~B does not
+exist in this version.
+
+For a diskette, \cmd{FORMAT} asks you to insert a new diskette and press
+\key{Enter}.  For a fixed disk, it first asks for the current volume label
+(type it exactly; a different label ends \cmd{FORMAT} with
+\texttt{Invalid Volume ID Format failure}), then warns that all data will
+be lost and asks \texttt{Proceed with Format (Y/N)?}.
+
+\cmd{FORMAT} writes a new boot record, two empty file allocation tables and
+an empty root directory, and displays \texttt{Format complete} and the
+total and available space.  For a diskette it then asks
+\texttt{Format another (Y/N)?}.  This version uses one sector per cluster;
+a disk too large for that displays \texttt{Format requires more than one
+sector per cluster}.
+
+\Param{/S} copies the system files and \file{COMMAND.COM} from drive~C to
+the new disk and displays \texttt{System transferred}; the disk can then
+start the system.  \Param{/V} asks for a volume label.  \Param{/B} reserves
+room for the system files, which \cmd{SYS} can add later; it cannot be used
+with \kw{/S} or \kw{/V}.
+
+\Param{/1} formats only one side of a diskette.
+
+\Param{/4} formats a 40-track diskette.
+
+\Param{/8} formats eight sectors per track.
+
+\Param{/T:} gives the number of tracks, and \kw{/N:} the number of sectors
+per track.
+
+\kw{/1}, \kw{/4}, \kw{/8}, \kw{/T:}, \kw{/N:} and \kw{/B} are for
+diskettes only.  Any other switch displays \texttt{Invalid parameter}.
+\Example
+Drive~A holds the files you are using, so it cannot be formatted.  Type
+\type{FORMAT A:}; \cmd{FORMAT} displays \texttt{Format not supported on
+drive A:} and nothing is changed.
 \end{DosEntry}
 
 % LABEL -- os/milton/dosutil.c label_main / label_read / label_write
@@ -307,9 +409,12 @@ remove \file{SAMPLES}, which still holds files:
 \Shot{rd}
 \end{DosEntry}
 
-% REN -- os/milton/command.c builtin_ren (AH=56h, same directory; failure
-% MSG-DOS-0002; MSG-DOS-0011; silent success).  Gates: test-command,
-% test-fat12-dir.
+% REN -- os/milton/command.c builtin_ren (AH=56h, same directory; wildcard
+% source enumerated, destination mask substituted position by position,
+% MS-DOS 3.3 p.104; collision or no match MSG-DOS-0062, the other matches
+% still renamed; a path in the new name MSG-DOS-0002; MSG-DOS-0011; silent
+% success; WL-0154).  Gates: test-command, test-fat12-dir,
+% test-shell-files-emu.
 \begin{DosEntry}{REN}{Rename}{internal}
 \AlsoNamed{RENAME}
 \Purpose Changes the name of a file.
@@ -321,10 +426,16 @@ remove \file{SAMPLES}, which still holds files:
 \Remarks
 The first file specification names the file to rename.  The second is the
 new name; do not give it a drive or path.  The file stays in \Slip{VO30-06}{it's} directory.
-Wildcards are not allowed in this version.
 
-\cmd{REN} displays nothing when it succeeds.  If the file does not exist,
-or a file with the new name already exists, \cmd{REN} displays
+You can use wildcards in both names.  Every file that matches the first name
+is renamed; where the new name has a \type{?} or \type{*}, the character in
+that position of the old name is kept.  \texttt{REN *.TXT *.OLD} changes the
+extension of every \file{.TXT} file in the directory.
+
+\cmd{REN} displays nothing when it succeeds.  If no file matches the first
+name, or a file with the new name already exists, \cmd{REN} displays
+\texttt{Duplicate file name}; with wildcards, the other files are still
+renamed.  If the new name has a path, it displays
 \texttt{Bad command or file name}.  With only one name it displays
 \texttt{Required parameter missing}.
 \Example

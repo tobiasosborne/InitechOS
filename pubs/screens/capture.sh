@@ -42,6 +42,11 @@
 # marker may end in #N: the capture is taken once the marker has appeared N
 # times on the serial mirror (typed keys echo there too), so a screen can end
 # on output whose text was already seen earlier in the session.
+# A screen settles on an empty command prompt.  The one other settled state
+# is a program waiting for a key at its own prompt (bead initech-ipu5.14:
+# the TPS cover sheet prompt, whose answer Y scrolls it away with the
+# report): the marker is then written =TEXT[#N], and the last line of the
+# screen must END with TEXT -- nothing printed after it.
 # disk is empty (practice.img) or `noautoexec` (noautoexec.img); anything
 # else is RED, so a line in the old name|marker|keystrokes form cannot pass.
 # disk `flair` (bead initech-ipu5.14, the TPS Report Generator manual) is the
@@ -51,11 +56,11 @@
 # $PUBS_FLAIR_EXIT (spec/flair_exit_dos_traces.mk, ending W SHELL-READY:
 # hold until COMMAND.COM has the console), and only then types the .keys
 # (sent in the same QMP stream as k-tokens, so their order is the guest's).
-# The console is decoded exactly as for the diskette route.  The guest clock
-# is pinned like the diskette route's, but how long the desktop takes to go
-# depends on the host, so the seconds of the startup time prompt are not
-# reproducible: a flair .keys clears the screen (CLS) before anything that
-# is printed, and test-pubs-screens proves the result byte for byte.
+# The console is decoded exactly as for the diskette route.  The flagship
+# volume has an AUTOEXEC.BAT (the \DOS folder, WL-0144), so there are no
+# date and time prompts to answer; a flair .keys starts with CLS, which
+# clears the banner and anything the desktop's exit left, and
+# test-pubs-screens proves the result byte for byte.
 # disk is empty (practice.img), `noautoexec` (noautoexec.img) or `samir`
 # (samir.img); anything else is RED, so a line in the old
 # name|marker|keystrokes form cannot pass.
@@ -156,8 +161,8 @@ while IFS='|' read -r name marker variant; do
     work=$out/$name.img
     cp -f "$img" "$work"
     if [ "$route" = flair ]; then
-        case $keys in '\n\nCLS\n'*) ;; *)
-            printf '!!! test-pubs RED SCREEN-KEYS: %s: a flair screen starts \\n\\nCLS\\n (the startup time prompt is not reproducible)\n' "$keyfile"; exit 1 ;; esac
+        case $keys in 'CLS\n'*) ;; *)
+            printf '!!! test-pubs RED SCREEN-KEYS: %s: a flair screen starts CLS\\n (the flagship AUTOEXEC.BAT skips the startup prompts; WL-0144)\n' "$keyfile"; exit 1 ;; esac
         # \Wtext\W in a flair .keys holds the stream until the guest prints
         # text (the harness W token): keys typed while a program is still
         # writing would overrun the type-ahead buffer.
@@ -188,6 +193,8 @@ while IFS='|' read -r name marker variant; do
     fi
     count=1
     case $marker in *'#'[0-9]*) count=${marker##*#}; marker=${marker%#*} ;; esac
+    waitprompt=
+    case $marker in =?*) marker=${marker#=}; waitprompt=$marker ;; esac
     rm -f "$out/$name.ppm" "$out/$name.serial"
     disk1=$boot; budget=60000
     [ "$route" = flair ] && { disk1=$PUBS_FLAIR_IMG; budget=120000; }
@@ -204,11 +211,18 @@ while IFS='|' read -r name marker variant; do
         printf '!!! capture.sh FAIL: %s: no screendump (marker "%s" never reached serial)\n' "$name" "$marker"; exit 1; }
     "$decode" "$rom" "$out/$name.ppm" > "$out/$name.txt" || {
         printf '!!! capture.sh FAIL: %s: console_text could not decode the screendump\n' "$name"; exit 1; }
-    # A settled capture ends on an empty command prompt (nothing typed after it).
+    # A settled capture ends on an empty command prompt (nothing typed after
+    # it), or, for an =TEXT marker, on the program prompt TEXT.
     last=$(sed '/^$/d' "$out/$name.txt" | tail -n 1)
+    if [ -n "$waitprompt" ]; then
+        case $last in *"$waitprompt") ;; *)
+            cat "$out/$name.txt"
+            printf '!!! capture.sh FAIL: %s: screen did not settle on the program prompt "%s" (last line "%s")\n' "$name" "$waitprompt" "$last"; exit 1 ;; esac
+    else
     printf '%s\n' "$last" | grep -Eq '^A:\\[A-Z0-9.\\]*>$' || {
         cat "$out/$name.txt"
         printf '!!! capture.sh FAIL: %s: screen did not settle on a prompt (last line "%s")\n' "$name" "$last"; exit 1; }
+    fi
     printf '>>> capture.sh: %s (%s lines of text)\n' "$name" "$(sed '/^$/d' "$out/$name.txt" | wc -l)"
 done < "$defs"
 [ "$n" -gt 0 ] || { printf '!!! capture.sh FAIL: %s defines no screens\n' "$defs"; exit 1; }

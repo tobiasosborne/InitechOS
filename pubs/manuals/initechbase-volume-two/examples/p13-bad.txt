@@ -3,4 +3,4 @@
 12  Variable not found.
 . ? MTOTAL, RECNO()
 
-0 1
+         0          1

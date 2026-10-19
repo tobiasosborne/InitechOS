@@ -1,5 +1,5 @@
 A:\>COPY MEMO.TXT MEMO.BAK
-        1 file(s) copied
+        1 File(s) copied
 A:\>DIR
 
  Volume in drive A is INITECH
@@ -14,7 +14,7 @@ APPS            <DIR>   3-01-92  12:00p
 SAMPLES         <DIR>   3-01-92  12:30p
 MEMO     BAK      258   2-28-92  11:42a
 
-        7 File(s)   1417216 bytes free
+        7 File(s)   1416704 bytes free
 A:\>
 
 

@@ -1,7 +1,7 @@
 . USE INVOICE
 . ON ERROR STORE ERROR() TO MERR
 . DO BADTOTAL
+12  Variable not found.
+. ? MERR, RECNO()
 
-LEDGER TOTAL       0.00. ? MERR, RECNO()
-
-        12          5. ON ERROR
+        12          1. ON ERROR

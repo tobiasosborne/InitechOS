@@ -2,8 +2,8 @@
 . SEEK 'NAGH'
 . ? RECNO(), LASTNAME
 
-4 NAGHEENANAJAR . MNAME = 'WADDAMS'
+         4 NAGHEENANAJAR . MNAME = 'WADDAMS'
 . SEEK MNAME
 . ? RECNO(), FOUND()
 
-5 .T.
+         5 .T.

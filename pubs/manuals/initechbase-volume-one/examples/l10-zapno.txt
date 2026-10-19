@@ -1,9 +1,9 @@
 . USE INVOICE
 . ? RECCOUNT()
 
-4. ZAP
+         4. ZAP
 ZAP INVOICE.DBF? (Y/N)N
 
 . ? RECCOUNT()
 
-4
+         4

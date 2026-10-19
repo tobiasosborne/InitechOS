@@ -7,7 +7,7 @@ A:\APPS>DIR TPS*.* /W
 
 TPSREP.COM      TPSPARM.DAT     TPS.DBF
 
-        3 File(s)   1250816 bytes free
+        3 File(s)   1170432 bytes free
 A:\APPS>
 
 

@@ -2,4 +2,4 @@
 . GO 2
 . ? HIRED, DTOC(HIRED), LEN(DTOC(HIRED))
 
-03/14/88 03/14/88 8
+03/14/88 03/14/88          8

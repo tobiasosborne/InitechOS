@@ -1,6 +1,6 @@
 . ? LEN(DBF())
 
-0. USE STAFF
+         0. USE STAFF
 . ? DBF()
 
 STAFF

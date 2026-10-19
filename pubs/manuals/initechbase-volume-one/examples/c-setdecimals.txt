@@ -1,9 +1,9 @@
 . ? 10 / 3
 
-3.33. SET DECIMALS TO 5
+         3.33. SET DECIMALS TO 5
 . ? 10 / 3
 
-3.33333. SET DECIMALS TO 0
+         3.33333. SET DECIMALS TO 0
 . ? 10 / 3
 
-3
+         3

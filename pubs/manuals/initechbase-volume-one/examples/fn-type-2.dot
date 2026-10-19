@@ -1,1 +1,1 @@
-? TYPE(3 + 4), TYPE("3 + 4"), TYPE(DATE()), TYPE(.T.)
+? TYPE("3 + 4"), TYPE("DATE()"), TYPE(".T."), TYPE("NOSUCH")

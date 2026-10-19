@@ -1,1 +1,1 @@
-\n\nCLS\nCD APPS\nDIR TPS*.* /W\n
+CLS\nCD APPS\nDIR TPS*.* /W\n

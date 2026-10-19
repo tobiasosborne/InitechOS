@@ -1,5 +1,6 @@
 . ON ERROR STORE ERROR() TO MERR
 . ? CHR(300)
+57  CHR() : Out of range.
 . ? MERR, ERROR()
 
-        57         57
+        57          0

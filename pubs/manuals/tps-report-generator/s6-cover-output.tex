@@ -9,9 +9,9 @@
 % action line only when a report lacks its cover sheet).  Screens tpsdone,
 % tpsbak: the journey route; test-flair-tps-journey and test-tps-report
 % prove TPSREPT.TXT byte for byte against real MS-DOS 6.22.
-% DRAFT (lane tpsr2, bead initech-5igf): the decided R5 prompt names FORM
-% TPS-1 (REV. 10/89); screens r5cover / r5refuse are hand-written until it
-% ships.
+% The R5 prompt names FORM TPS-1 (REV. 10/89) since lane tpsr2 (77835faa,
+% bead initech-5igf).  Screens r5cover (the run waiting at the prompt: the
+% answer Y scrolls it away with the report) and r5refuse: the journey route.
 % GATES: test-tps-report test-flair-tps-journey test-pubs-screens test-pubs-tps
 \Gates{test-tps-report, test-flair-tps-journey, test-pubs-screens, test-pubs-tps}
 \chapter{The Cover Sheet and the Output}
@@ -32,9 +32,7 @@ sheet, verify the report, and retain the records of the run.
 \section{The Cover Sheet Attestation}
 \index{cover sheet attestation}\index{Form TPS-1}\index{TPS-005@\texttt{TPS-005}}
 The program asks:
-\TpsDraftMsg{R5.prompt}{DID YOU REMEMBER TO ATTACH THE NEW COVER SHEET, FORM TPS-1
-  (REV. 10/89)? (Y/N) }{lane tpsr2, bead initech-5igf: the decided R5 prompt;
-  the shipped prompt does not yet name the form}
+\TpsMsg{R5.prompt}
 The answer is one key, \type{Y} or \type{N}, in capital or small letters;
 \key{Enter} is not pressed.  Any other key is ignored.  The program displays
 the answer as a capital letter.
@@ -60,9 +58,8 @@ written, and \rpt\ and \file{TPSREPT.BAK} are left as they were.
   answer \type{N} and see your supervisor.
 \item Enter on \form{1} the report number from \form{2}, column 2, and the
   date.  Attach it to the front of the report folder.
-\item Press \type{Y}.
-  \DraftShot{r5cover}{lane tpsr2, bead initech-5igf: the decided R5 prompt,
-    hand-written; re-captured after the merge}
+\item At the cover sheet prompt, press \type{Y}.
+  \OpsShot[fromtext={KEY THE NUMBER}]{r5cover}
 \end{ProcSteps}
 \ProcField{Verification}{The report begins to be displayed.}
 \ProcField{Records retained}{\form{1}, in the report folder.}
@@ -70,9 +67,8 @@ written, and \rpt\ and \file{TPSREPT.BAK} are left as they were.
   run the program again from \proc{02}.}
 \end{Procedure}
 
-\DraftShot[caption={The answer N: the report is not written.}]{r5refuse}{lane
-  tpsr2, bead initech-5igf: the decided R5 prompt, hand-written; re-captured
-  after the merge}
+\OpsShot[fromtext={DID YOU REMEMBER},
+  caption={The answer N: the report is not written.}]{r5refuse}
 
 \section{The Report}
 \index{TPSREPT.TXT}\index{TPSREPT.BAK}

@@ -356,7 +356,8 @@
         explained.}\fi
     \global\advance\im@msgused by 1
     \par\addvspace{9pt}\goodbreak\noindent\hspace*{-\imHang}%
-    \texttt{\bfseries #2}\hfill{\imCaptionFont #1}\par\nobreak
+    % a two-line message (CR LF in the catalogue) keeps both lines at the head
+    {\def\\{\newline\hspace*{-\imHang}}\texttt{\bfseries #2}}\hfill{\imCaptionFont #1}\par\nobreak
     \vspace{2pt}\noindent{\bfseries Explanation:}\enspace\csname im@msgx@#1\endcsname\par
     \vspace{2pt}\noindent{\bfseries Action:}\enspace\csname im@msga@#1\endcsname\par
   \else

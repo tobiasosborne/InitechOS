@@ -2,7 +2,7 @@
 Number of copies: 3
 . ? MCOPIES * 2
 
-6. INPUT 'Start date: ' TO MSTART
+           6. INPUT 'Start date: ' TO MSTART
 Start date: CTOD('03/02/92')
 . ? MSTART + 30
 

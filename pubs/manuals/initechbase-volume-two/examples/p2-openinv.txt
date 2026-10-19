@@ -8,4 +8,4 @@ A1002  BRAXTON CO      875.50
 A1004  QUINCY BK        99.99
   3 OPEN INVOICES. ? MCOUNT
 
-3
+         3

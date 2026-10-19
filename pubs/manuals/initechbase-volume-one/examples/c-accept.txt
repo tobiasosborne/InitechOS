@@ -2,4 +2,4 @@
 Department code: SOFT
 . ? MDEPT, LEN(MDEPT)
 
-SOFT 4
+SOFT          4

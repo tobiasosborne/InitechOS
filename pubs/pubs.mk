@@ -255,8 +255,11 @@ PUBS_SCREEN_DEPS := $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_DIR)
 # image and data volume, left through Special > Exit to InitechDOS by the
 # LOCKED trace of test-flair-exit-to-dos leg 3 (spec/flair_exit_dos_traces.mk
 # FLAIR_EXIT_DOS_SPEC) up to its W SHELL-READY; its own DIR keys are cut off
-# here and the screen's .keys are typed instead.
-PUBS_FLAIR_EXIT := $(patsubst %$(comma)kret$(comma)kret$(comma)kd$(comma)ki$(comma)kr$(comma)kret,%,$(FLAIR_EXIT_DOS_SPEC))
+# here and the screen's .keys are typed instead.  Since the \DOS folder
+# (WL-0144) the flagship volume's AUTOEXEC.BAT skips the date and time
+# prompts, so the trace types DIR directly after SHELL-READY; capture.sh
+# fails loud if the cut leaves anything after W SHELL-READY.
+PUBS_FLAIR_EXIT := $(patsubst %$(comma)kd$(comma)ki$(comma)kr$(comma)kret,%,$(FLAIR_EXIT_DOS_SPEC))
 PUBS_FLAIR_ENV  := PUBS_FLAIR_IMG=$(FLAIRTENANTS_IMG) PUBS_FLAIR_DATA=$(FLAIR_DATA_IMG) PUBS_FLAIR_EXIT='$(PUBS_FLAIR_EXIT)'
 
 pubs-screens: $(PUBS_SCREEN_DEPS)

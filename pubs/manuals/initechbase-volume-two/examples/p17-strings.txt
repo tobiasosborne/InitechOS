@@ -1,5 +1,5 @@
 . ? 'TECH' $ 'INITECH', AT('TECH', 'INITECH'), STUFF('INITECH', 1, 2, 'XY')
 
-.T. 4 XYITECH. ? UPPER(LEFT('peter', 1)) + SUBSTR('peter', 2)
+.T.          4 XYITECH. ? UPPER(LEFT('peter', 1)) + SUBSTR('peter', 2)
 
 Peter
