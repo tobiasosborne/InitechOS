@@ -93,6 +93,16 @@ const char tbx_app_name[] = "123";
 #define VIS_ROWS     (SCR_LINES - LINE_ROW0 - 1)   /* 19 */
 #define LINE_STATUS  (SCR_LINES - 1)
 
+/* Ref: Lotus 1-2-3 R2.2 Reference Manual pp. 1-16/1-17 (PDF 32/33):
+ * an entry may contain 240 characters, independent of the screen width. */
+#define ENTRY_MAX    240u
+#ifdef I123_MUT_ENTRY_75
+/* Rule 6 / test-i123-entry-mutant: restore the former 75-character cap. */
+#define ENTRY_LIMIT  75u
+#else
+#define ENTRY_LIMIT  ENTRY_MAX
+#endif
+
 #define MENU_FILE    129
 #define ITEM_QUIT    1
 
@@ -142,7 +152,9 @@ static char         g_status[SCR_COLS + 1];
 
 static int32_t  g_win TBX_IN_IMAGE = 0;
 static char     g_line[SCR_COLS + 1] TBX_IN_IMAGE = { 0 };
-static char     g_edit[SCR_COLS + 1] TBX_IN_IMAGE = { 0 };
+/* Private workspace: put_line copies through g_line before drawing. Ref:
+ * tbx.h memory rule / Toolbox Gate Sec 8: the loader zeroes private .bss. */
+static char     g_edit[ENTRY_MAX + 1];
 static uint32_t g_elen TBX_IN_IMAGE = 0;
 
 enum { M_READY, M_LABEL, M_VALUE, M_EDIT, M_MAIN, M_FILE, M_GET, M_SAVE, M_REPLACE, M_QUIT, M_NOTICE, M_RANGE };
@@ -342,8 +354,13 @@ static void paint_edit_line(void)
 {
     if (g_mode >= M_MAIN) { paint_command(); return; }
     char tmp[SCR_COLS + 1], src[SCR_COLS + 1];
-    uint32_t i;
-    for (i = 0; i < g_elen && i < SCR_COLS - 1u; i++) src[i] = g_edit[i];
+    /* Ref: manual p. 1-4/1-16: the entry occupies control-panel line two.
+     * B13 (initech-twxf) requires the tail to follow the typing cursor.
+     * No long-entry capture in the Lotus corpus; one-character scrolling
+     * is the native viewport policy, not a measured R2.2 scroll increment. */
+    uint32_t i, first = g_elen > SCR_COLS - 1u ? g_elen - (SCR_COLS - 1u) : 0u;
+    for (i = first; i < g_elen; i++) src[i - first] = g_edit[i];
+    i -= first;
     if (g_mode != M_READY) src[i++] = '_';          /* the edit cursor */
     src[i] = '\0';
     pad_into(tmp, SCR_COLS, src);
@@ -921,6 +938,7 @@ static void key(int32_t message)
         g_mode = is_value_start(ch) ? M_VALUE : M_LABEL;
         g_edit[0] = ch;
         g_elen = 1;
+        g_edit[g_elen] = '\0';
         paint_panel();
         paint_edit_line();
         return;
@@ -931,11 +949,16 @@ static void key(int32_t message)
     }
     if (vk == VK_BSPC || ch == 0x08) {
         if (g_elen > 0u) g_elen--;
+        g_edit[g_elen] = '\0';
         paint_edit_line();
         return;
     }
-    if (ch >= ' ' && ch <= '~' && g_elen < SCR_COLS - 2u) {
+    if (ch >= ' ' && ch <= '~') {
+        /* Ref: manual pp. 1-16/1-17 cap; B13 brief specifies beep/ignore
+         * for excess input. spec/cp_dialog.h supplies the speaker gate. */
+        if (g_elen >= ENTRY_LIMIT) { (void)tbx_trap(TBX_BEEP, 0, 0); return; }
         g_edit[g_elen++] = ch;
+        g_edit[g_elen] = '\0';
         paint_edit_line();
     }
 }
