@@ -104,10 +104,10 @@ static uint8_t g_kbd_skip;
 /* The cooperative yield hook (see event.h Sec 3). */
 static flair_event_yield_fn g_yield_fn;
 
-/* PS/2 SET-1 break (key-release) prefix accumulator. The PS/2 stream sends
- * 0xF0 followed by the make code. The ISR sets bit 8 of payload when it
- * consumes the 0xF0 prefix (see spec/event_model.h Sec 5, KEYBOARD payload
- * layout: bit 8 = key-break flag). We re-check it here for synthesis. */
+/* PS/2 SET-1 key state. The ISR posts set-1 bytes verbatim: a break is
+ * make | 0x80 (the 0xF0 prefix is set 2 and never appears here); a
+ * pre-decoding producer may instead set payload bit 8 (spec/event_model.h
+ * Sec 5, KEYBOARD payload layout). Both forms are honoured below. */
 
 /* ===========================================================================
  * 1. TICK COUNTER
