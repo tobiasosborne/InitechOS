@@ -173,6 +173,13 @@ int32_t tbx_file_close(int32_t h)
 { FILE *f = fh(h); if (!f) return TBX_ERR_BADARG; fclose(f); m_fh[h - 5] = 0; return TBX_OK; }
 int32_t tbx_file_delete(const char *path)
 { char hp[600]; host_name(path, hp); return remove(hp) == 0 ? TBX_OK : TBX_ERR_DOS(2); }
+/* The List Files verbs (initech-qvgd) and the clock: the probe replays the
+ * lesson launches only, so an empty directory, a fixed free figure and a
+ * zero clock keep every printed screen as before. */
+int32_t tbx_file_find(const char *pattern, uint32_t attr, void *recs, uint32_t max)
+{ (void)pattern; (void)attr; (void)recs; (void)max; return 0; }
+int32_t tbx_disk_free(void) { return 0; }
+int32_t tbx_get_clock(void *t) { (void)t; return TBX_ERR_BADARG; }
 
 /* ---- driving ---------------------------------------------------------------- */
 static int32_t g_caps_mod;
