@@ -28,8 +28,39 @@
 \newcommand\file[1]{\mbox{\texttt{#1}}}
 %% What the reader types, in running text: Courier Bold.
 \newcommand\type[1]{\mbox{\texttt{\bfseries #1}}}
-%% Document titles.
-\newcommand\doctitle[1]{\textit{#1}}
+%% Document titles.  A title named in running text is a cross-reference
+%% (VO-30 place `cross-reference', NT-32).
+\newcommand\doctitle[1]{\textit{\im@slipat{cross-reference}#1}}
+
+%% ---- the house register of tolerated inconsistencies (PUB-REF-0001 VO-30) --
+%% \Slip{ID}{text} prints text: a slip the house tolerates, one of the LOCKED
+%% entries of spec/pubs_inconsistencies.json (bead initech-ipu5.16, WL-0150).
+%% Every printing of it writes one line to <jobname>.slips at shipout:
+%%     ID|PLACE|PAGE|text
+%% PLACE is where it printed, set by the class, never by the author: cover,
+%% spine, title-page, running-head (running heads and feet, the F-IBM
+%% continuation title), heading (\chapter, \section, \subsection), contents
+%% (the table of contents and the F-IBM chapter mini-contents), index,
+%% cross-reference (a \doctitle) or body.  A slip in a heading prints again
+%% in the contents and the running foot; the gate counts the SOURCE
+%% occurrence once and checks every printed place against the entry
+%% (`pubs_gate inconsistency', make test-pubs-inconsistency).  The text is
+%% plain: no macros, no braces.
+\newwrite\im@slipsout
+\def\im@slipbody{body}
+\def\im@slipplace{body}
+\AtBeginDocument{\ifim@spine\gdef\im@slipbody{spine}\else
+  \ifim@cover\gdef\im@slipbody{cover}\fi\fi
+  \global\let\im@slipplace\im@slipbody
+  \immediate\openout\im@slipsout=\jobname.slips\relax}
+%% The last page ships after \AtEndDocument: close after it.
+\AddToHook{enddocument/afterlastpage}{\immediate\closeout\im@slipsout}
+\newcommand\im@slipat[1]{\def\im@slipplace{#1}}
+\newcommand\im@slipglobal[1]{\gdef\im@slipplace{#1}}
+\newcommand\im@slipreset{\global\let\im@slipplace\im@slipbody}
+\NewDocumentCommand\Slip{mm}{%
+  \edef\im@sliptmp{\noexpand\write\im@slipsout{#1|\im@slipplace|\noexpand\thepage|\detokenize{#2}}}%
+  \im@sliptmp#2}
 
 %% ---- syntax notation -------------------------------------------------------
 %% UPPERCASE keywords upright, placeholders italic, [optional], {a|b}, ...

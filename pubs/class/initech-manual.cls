@@ -219,6 +219,9 @@
 
 %% ---- folios and running foot ----------------------------------------------
 \RequirePackage{fancyhdr}
+%% VO-30 (initech-syntax \Slip): whatever a running head or foot prints is
+%% printed in the place `running-head'.
+\fancyhfinit{\im@slipat{running-head}}
 \newcommand\im@foottitle{}
 \newcommand\im@draftfoot{}
 \newif\ifim@referencepages
@@ -274,6 +277,10 @@
 \newcommand\im@opsshort{\im@product\ \im@doctitle}
 \newcommand\ShortTitle[1]{\gdef\im@opsshort{#1}}
 \newcommand\FootTitle[1]{\gdef\im@foottitle{#1}\gdef\im@footlabel{}}
+%% \RunningTitle{text} after \chapter: the running foot names the unit by a
+%% title of its own instead of the heading (keeps the F-OPS "Session N."
+%% label).  Period books pasted running heads up apart from the openers.
+\newcommand\RunningTitle[1]{\gdef\im@foottitle{#1}}
 %% F-ATE (PG-13): the running foot names the SECTION in force ("USING
 %% INITECHBASE"), set by \BeginSection (initech-xbase.sty); empty = the book.
 \newcommand\im@secttitle{}
@@ -404,7 +411,9 @@
     {\cleardoublepage\FootTitle{#3}\im@notab
      \im@origchapter*{#3}}
     {\im@chapterhook{#3}\im@applytab
-     \IfValueTF{#2}{\im@origchapter[#2\im@drafttoc]{#3}}{\im@origchapter[#3\im@drafttoc]{#3}}}%
+     \im@slipglobal{heading}%
+     \IfValueTF{#2}{\im@origchapter[#2\im@drafttoc]{#3}}{\im@origchapter[#3\im@drafttoc]{#3}}%
+     \im@slipreset}%
   \thispagestyle{plain}%
   \IfBooleanF{#1}{\im@ifmodel{wordperfect}{%
     \thispagestyle{empty}%
@@ -462,7 +471,8 @@
   {\titlerule*[0.75em]{.}\contentspage}
 \renewcommand\tableofcontents{\im@closeentry\cleardoublepage\FootTitle{Contents}\im@notab
   \im@origchapter*{Contents}\thispagestyle{plain}%
-  \begin{adjustwidth}{-\imHang}{0pt}\@starttoc{toc}\end{adjustwidth}}
+  \begin{adjustwidth}{-\imHang}{0pt}\im@slipglobal{contents}\@starttoc{toc}\im@slipreset
+  \end{adjustwidth}}
 \def\contentsname{Contents}
 
 %% ---- figures: chapter-numbered "Figure 2-1." --------------------------------
@@ -482,7 +492,7 @@
    \begin{adjustwidth}{-\imHang}{0pt}\im@indexpreamble
    \begin{multicols}{2}\@setfontsize\im@x{8.5}{10}%
    \setlength\parskip{0pt}\setlength\parindent{0pt}%
-   \RaggedRight
+   \RaggedRight\im@slipat{index}%
    \let\item\im@idxitem}
   {\end{multicols}\end{adjustwidth}}
 \newcommand\im@idxitem{\par\hangindent 1.5em\relax}
@@ -515,14 +525,18 @@
   \gdef\im@entrytitleA{#1}\gdef\im@entrytitleB{#2}%
   \global\im@entrystart=\c@page \global\im@inentrytrue}
 \newcommand\im@closeentry{\ifim@inentry\clearpage\global\im@inentryfalse\fi}
+%% \ContinuationTitle{line 1}{line 2} inside an entry: the continuation pages
+%% repeat these lines instead of the entry's own title (the paste-up of the
+%% period books set them apart).
+\newcommand\ContinuationTitle[2]{\gdef\im@entrytitleA{#1}\gdef\im@entrytitleB{#2}}
 \AddToHook{shipout/foreground}{%
   \ifim@inentry\ifnum\c@page>\im@entrystart
     \ifodd\c@page
       \put(\dimexpr\paperwidth-\imOutside\relax,-15mm){\makebox(0,0)[rb]{%
-        \imContTitleFont\begin{tabular}[b]{@{}r@{}}\im@entrytitleA\\\im@entrytitleB\end{tabular}}}%
+        \im@slipat{running-head}\imContTitleFont\begin{tabular}[b]{@{}r@{}}\im@entrytitleA\\\im@entrytitleB\end{tabular}}}%
     \else
       \put(\imOutside,-15mm){\makebox(0,0)[lb]{%
-        \imContTitleFont\begin{tabular}[b]{@{}l@{}}\im@entrytitleA\\\im@entrytitleB\end{tabular}}}%
+        \im@slipat{running-head}\imContTitleFont\begin{tabular}[b]{@{}l@{}}\im@entrytitleA\\\im@entrytitleB\end{tabular}}}%
     \fi
   \fi\fi}
 
@@ -577,7 +591,7 @@
   \newcommand\im@ibmopener{%
     \startcontents[chapters]%
     \par\noindent\hspace*{-\imHang}%
-    \begin{minipage}[t]{\imFullWidth}\RaggedRight
+    \begin{minipage}[t]{\imFullWidth}\RaggedRight\im@slipat{contents}%
       {\imHeadTwoFont Contents\par}\vspace{4pt}%
       \printcontents[chapters]{l}{1}{\setcounter{tocdepth}{2}}%
     \end{minipage}\par
@@ -597,6 +611,19 @@
 %% ---- the Initech logo (PUB-REF-0001 D-8 revised; pubs/common) -------------
 \RequirePackage{tikz}
 \input{initech-logo.tex}
+
+%% ---- VO-30: section heads print in the place `heading' ---------------------
+%% titlesec sets these block heads at once, inside the command, so the place
+%% holds exactly while the head is typeset (initech-syntax \Slip).
+\AtBeginDocument{%
+  \NewCommandCopy\im@origsection\section
+  \NewCommandCopy\im@origsubsection\subsection
+  \RenewDocumentCommand\section{som}{\im@slipglobal{heading}%
+    \IfBooleanTF{#1}{\im@origsection*{#3}}{\IfValueTF{#2}{\im@origsection[#2]{#3}}{\im@origsection{#3}}}%
+    \im@slipreset}%
+  \RenewDocumentCommand\subsection{som}{\im@slipglobal{heading}%
+    \IfBooleanTF{#1}{\im@origsubsection*{#3}}{\IfValueTF{#2}{\im@origsubsection[#2]{#3}}{\im@origsubsection{#3}}}%
+    \im@slipreset}}
 
 %% ---- helpers -----------------------------------------------------------
 \RequirePackage{initech-syntax}

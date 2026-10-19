@@ -330,3 +330,12 @@ every printed piece, Initech-specific and newly invented.
   same box.
 - Box, registration card, license envelope, keycap sticker sheet (no scans held).
 - What the spaced digit line under each print code encodes.
+
+## 12. Slips the books carried (PUB-REF-0001 VO-30 evidence)
+
+Read as a page image on 2026-10-17 for the house register of tolerated inconsistencies (bead
+`initech-ipu5.16`, worklog WL-0150, `spec/pubs_inconsistencies.json`).
+
+| Book | Page | What the page prints | Register entry |
+|---|---|---|---|
+| WordPerfect 5.1 Reference | PDF 70 [53] | The feature is "Block Protect" in its entry, its side head and the running foot (BLOCK PROTECT), and "a Block Protect code" in the body; the next paragraph reads "without block protect (Alt-F7,1,3,1,2), you can only block protect one column" -- one name, two capitalisations, one page | VO30-02 |
