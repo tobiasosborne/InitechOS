@@ -614,7 +614,7 @@ static int qmp_key_transition(int fd, const char *qcode, int down)
  */
 #define QMP_CHORD_MAX 4
 
-static int qmp_send_key_chord(int fd, const char *tok)
+static int qmp_send_key_chord(int fd, const char *tok, int explicit_release)
 {
     char parts[QMP_CHORD_MAX][24];
     /* COPIED, never aliased: token_to_qcode returns a PER-CALL STATIC buffer for
@@ -654,6 +654,18 @@ static int qmp_send_key_chord(int fd, const char *tok)
         memcpy(qcodes[i], qc, strlen(qc) + 1u);
     }
 
+    if (explicit_release) {
+        /* initech-ptzy; spec/flair_i123_menu_traces.mk's explicit make/break
+         * contract; PRD Sec 8. Guest backpressure replaces both send-key's
+         * implicit 100 ms hold and the fixed inter-stroke drain. Release the
+         * chord in reverse order so modifiers cover the character's break. */
+        for (i = 0; i < n_parts; i++)
+            if (qmp_key_transition(fd, qcodes[i], 1)) return -1;
+        for (i = n_parts - 1; i >= 0; i--)
+            if (qmp_key_transition(fd, qcodes[i], 0)) return -1;
+        return 0;
+    }
+
     used = 0;
     {
         int w = snprintf(cmd, sizeof(cmd),
@@ -681,6 +693,59 @@ static int qmp_send_key_chord(int fd, const char *tok)
     return qmp_send(fd, cmd);
 }
 
+/* initech-ptzy; PRD Sec 6.3/8; spec/event_model.h Sec 5 (64 raw records).
+ * A QMP reply acknowledges injection, not guest consumption. Snapshot BEFORE
+ * sending, then wait for the next release echo: old/repeated markers cannot
+ * release the barrier. Reuse the existing progress/CPU/ceiling mechanism. */
+typedef struct {
+    const char *serial_path;
+    const char *marker;
+    int budget_ms;
+    long long deadline;
+    const clockid_t *guest_clock;
+} KeyAckCtx;
+
+static int key_ack_enabled(const KeyAckCtx *ack)
+{
+    return ack && ack->marker && ack->marker[0];
+}
+
+static int wait_for_serial_marker_live(int, const char *, const char *, int,
+                                       int, long long, const clockid_t *);
+
+static int key_ack_count(const KeyAckCtx *ack)
+{
+    if (!key_ack_enabled(ack)) return 0;
+    size_t len;
+    char *txt = read_file(ack->serial_path, &len);
+    if (!txt) {
+        fprintf(stderr, "[harness] --keys-ack: cannot read serial capture\n");
+        return -1;
+    }
+    int n = count_substr(txt, ack->marker);
+    free(txt);
+    return n;
+}
+
+static int key_ack_wait(int fd, const KeyAckCtx *ack, int before)
+{
+    if (!key_ack_enabled(ack)) return 1;
+#ifndef HARNESS_MUTATE_NO_KEY_ACK
+    if (!wait_for_serial_marker_live(fd, ack->serial_path, ack->marker,
+                                     ack->budget_ms, before + 1,
+                                     ack->deadline, ack->guest_clock)) {
+        fprintf(stderr, "[harness] --keys-ack: new release echo '%s' missing; "
+                "stopping input\n", ack->marker);
+        return 0;
+    }
+#else
+    /* Rule 6: restore the timed burst. The scripted slow consumer must catch
+     * the next stroke arriving before its previous release was consumed. */
+    (void)fd; (void)before;
+#endif
+    return 1;
+}
+
 /*
  * Inject every key in keys_spec (comma-separated tokens) over an already-
  * handshaked QMP fd. Unknown tokens are skipped with a stderr note (Law 2: be
@@ -688,7 +753,7 @@ static int qmp_send_key_chord(int fd, const char *tok)
  * set to the count of unrecognized tokens.
  */
 static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
-                           RecordCtx *rec, CaptureCtx *cap)
+                           RecordCtx *rec, CaptureCtx *cap, KeyAckCtx *ack)
 {
     int sent = 0;
     int unknown = 0;
@@ -726,7 +791,9 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
         record_pre_event(rec);   /* initech-mfrb: is the guest still alive? */
         /* Chord-aware since beads initech-tdnl.10: "n" and "ctrl-n" both go
          * through the same array-of-qcodes send-key. */
-        if (qmp_send_key_chord(fd, tok) != 0) {
+        int before = key_ack_count(ack);
+        if (before < 0) return -1;
+        if (qmp_send_key_chord(fd, tok, key_ack_enabled(ack)) != 0) {
             fprintf(stderr, "[harness] --keys: unknown token '%s' (skipped)\n",
                     tok);
             unknown++;
@@ -736,7 +803,8 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
             sent++;
             /* Drain any QMP reply + give the guest a beat to take the IRQ1
              * before the next key (keeps the injection deterministic). */
-            qmp_drain(fd, 30);
+            if (!key_ack_enabled(ack)) qmp_drain(fd, 30);
+            if (!key_ack_wait(fd, ack, before)) return -1;
             capture_if_seen(cap);
             /* Record mode (initech-l9cd): one frame per injected event. */
             record_frame(rec);
@@ -840,7 +908,8 @@ static int wait_for_serial_marker(const char *serial_path, const char *marker,
 #define HARNESS_W_BUDGET_MS 20000
 
 static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
-                            CaptureCtx *cap, const char *serial_path)
+                            CaptureCtx *cap, const char *serial_path,
+                            KeyAckCtx *ack)
 {
     int sent = 0;
     int left_down = 0;
@@ -870,6 +939,11 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
         int ok = 0;
         int is_move = 0;
         int is_left_down = 0;
+        int is_release = tok[0] == 'k' ||
+                         (tok[0] == 'K' && tl >= 3 &&
+                          tok[tl - 2] == ':' && tok[tl - 1] == '0');
+        int before = is_release ? key_ack_count(ack) : 0;
+        if (before < 0) return -1;
         record_pre_event(rec);   /* initech-mfrb: is the guest still alive? */
         if (tok[0] == 'm') {
             /* "m<dx>:<dy>" -- a relative move. */
@@ -885,7 +959,7 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
             }
         } else if (tok[0] == 'k' && tok[1] != '\0') {
             /* "k<chord>" -- one keystroke/chord, in stream order. */
-            if (qmp_send_key_chord(fd, tok + 1) == 0) {
+            if (qmp_send_key_chord(fd, tok + 1, key_ack_enabled(ack)) == 0) {
                 ok = 1;
             }
         } else if (tok[0] == 'K' && tok[1] != '\0') {
@@ -975,7 +1049,9 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
             /* Drain the QMP reply + give the guest a beat to take the 3 IRQ12s
              * (one per PS/2 packet byte) before the next event, so each event's
              * FLAIR-MOUSE line lands deterministically. */
-            qmp_drain(fd, 40);
+            if (!key_ack_enabled(ack) || (tok[0] != 'k' && tok[0] != 'K'))
+                qmp_drain(fd, 40);
+            if (is_release && !key_ack_wait(fd, ack, before)) return -1;
             /* A DROP is emitted in response to left-button-down; an XDROP is
              * emitted in response to a move while that button remains held.
              * Wait at precisely those event boundaries so the screenshot is
@@ -1166,6 +1242,7 @@ static int wait_for_serial_marker_live(int fd, const char *serial_path,
  */
 static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_path,
                        const char *keys_spec, const char *keys_after,
+                       const char *keys_ack,
                        const char *mouse_spec,
                        const char *screendump_after, int screendump_budget_ms,
                        const char *serial_path, int *keys_sent, int *mouse_sent,
@@ -1302,16 +1379,21 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
             }
             /* Frame 0: the pre-interaction desktop (post ready-marker). */
             record_frame(rec);
+            KeyAckCtx ack = { serial_path, keys_ack,
+                keys_after_ms > 0 ? keys_after_ms : 4000,
+                serial_deadline, guest_clock };
             if (want_keys) {
                 int bad = 0;
-                int sent = qmp_inject_keys(fd, keys_spec, &bad, rec, cap);
+                int sent = qmp_inject_keys(fd, keys_spec, &bad, rec, cap, &ack);
+                if (sent < 0) { close(fd); return -1; }
                 if (keys_sent) {
                     *keys_sent = sent;
                 }
             }
             if (want_mouse) {
                 int msent = qmp_inject_mouse(fd, mouse_spec, rec, cap,
-                                             serial_path);
+                                             serial_path, &ack);
+                if (msent < 0) { close(fd); return -1; }
                 if (mouse_sent) {
                     *mouse_sent = msent;
                 }
@@ -1761,6 +1843,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         if (qmp_session(qmp_pair[0], sock_path, ppm,
                         want_keys ? cfg->keys_spec : NULL,
                         (want_keys || want_mouse) ? cfg->keys_after : NULL,
+                        cfg->keys_ack,
                         want_mouse ? cfg->mouse_spec : NULL,
                         cfg->enable_qmp_screendump ? cfg->screendump_after
                                                    : NULL,
