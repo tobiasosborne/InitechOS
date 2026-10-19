@@ -23,16 +23,16 @@ INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk "$(1)" --disk2 "$(BUILD)/$(2)_data.img
 endef
 
 .PHONY: test-flair-shutdown-cancel test-flair-shutdown-cancel-mutant
-test-flair-shutdown-cancel: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_POWER_CANCEL_IMG)
-	$(call power-cancel-boot,$(FLAIRTENANTS_IMG),flair_shutdown_cancel)
+test-flair-shutdown-cancel: $(HARNESS_BIN) $(FLAIR_SHUTDOWN_GATE_IMG) $(FLAIR_DATA_POWER_CANCEL_IMG)
+	$(call power-cancel-boot,$(FLAIR_SHUTDOWN_GATE_IMG),flair_shutdown_cancel)
 	@sh harness/emu/shutdown_cancel_check.sh $(BUILD)/flair_shutdown_cancel.serial
 	@mcopy -o -i $(BUILD)/flair_shutdown_cancel_data.img ::APPS/CTENANT.EXE $(BUILD)/flair_shutdown_cancel_tenant.exe
 	@cmp $(BUILD)/tenant/ctenant_decline.exe $(BUILD)/flair_shutdown_cancel_tenant.exe
 	@fsck.fat -n $(BUILD)/flair_shutdown_cancel_data.img > $(BUILD)/flair_shutdown_cancel.fsck
 	@printf '>>> test-flair-shutdown-cancel: green (declining fixture retained byte-exact by mtools; fsck.fat clean)\n'
 
-test-flair-shutdown-cancel-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_power_no_ask.img $(FLAIR_DATA_POWER_CANCEL_IMG)
-	$(call power-cancel-boot,$(BUILD)/flair_tenants_mut_power_no_ask.img,flair_shutdown_cancel_mut_noask)
+test-flair-shutdown-cancel-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_shutdown_gate_no_ask.img $(FLAIR_DATA_POWER_CANCEL_IMG)
+	$(call power-cancel-boot,$(BUILD)/flair_tenants_mut_shutdown_gate_no_ask.img,flair_shutdown_cancel_mut_noask)
 	@if sh harness/emu/shutdown_cancel_check.sh $(BUILD)/flair_shutdown_cancel_mut_noask.serial > $(BUILD)/flair_shutdown_cancel_mut_noask.check 2>&1; then printf 'FAIL POWER_NO_ASK survived the cancel leg\n'; exit 1; fi
 	@grep -qxF 'SDC: the application did not cancel Shut Down' $(BUILD)/flair_shutdown_cancel_mut_noask.check
 	@printf '>>> test-flair-shutdown-cancel-mutant: POWER_NO_ASK RED: %s\n' "$$(cat $(BUILD)/flair_shutdown_cancel_mut_noask.check)"
