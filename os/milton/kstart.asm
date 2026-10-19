@@ -4,10 +4,11 @@
 ; Ref:   PRD Sec 5 (flat binary kernel handed off by stage2; ADR-0003 DEC-08);
 ;        docs/research/boot-to-text-ground-truth.md Sec 3.2 (entry stub) +
 ;        docs/design/kernel-runway-relocation.md K2 (bead initech-tdnl.29:
-;        deterministic post-image runway zero). The proposed high stack was
-;        stopped by Step 0.3 because [0x4F0000,0x500000) overlaps the locked
-;        FLAIR heap; the existing conventional stack remains. CLAUDE.md Rule 2
-;        (fail loud), Rule 12 (ASCII).
+;        deterministic post-image runway zero). The design's proposed high
+;        stack [0x4F0000,0x500000) was stopped by Step 0.3 (it overlaps the
+;        locked FLAIR heap); bead initech-xu97 ratified the disjoint home
+;        [0x5F0000,0x600000) instead (docs/adr/ADR-0003-AMENDMENT-DEC-08b-
+;        Kernel-Stack-Window.md). CLAUDE.md Rule 2 (fail loud), Rule 12 (ASCII).
 ;
 ; stage2 far-jumps here (CODE_SEL:0x00500000) in 32-bit flat protected mode:
 ; CR0.PE=1, A20 on, flat GDT loaded, DS/ES/FS/GS/SS = DATA_SEL. We are linked
@@ -23,8 +24,24 @@ bits 32
 KERNEL_BASE       equ 0x00500000
 KERNEL_RUNWAY     equ 0x00100000
 KERNEL_CEIL       equ 0x00600000
-KERNEL_STACK_BOT  equ 0x00090000
-KERNEL_STACK_TOP  equ 0x0009FFFC
+KERNEL_STACK_BOT  equ 0x005F0000
+KERNEL_STACK_TOP  equ 0x005FFFFC
+
+; The stack equates are a duplicate of spec/memory_map.h, so they carry the
+; same drift guard as KERNEL_SECTORS below: the Makefile parses the header's
+; KERNEL_STACK_BOT/TOP and passes them as MK_KERNEL_STACK_BOT/TOP; any
+; disagreement is an assembly error, never a silently-misplaced ESP
+; (bead initech-xu97; CLAUDE.md Rule 2).
+%ifndef MK_KERNEL_STACK_TOP
+  %error "MK_KERNEL_STACK_TOP not defined: kstart.asm must be assembled by the Makefile rule so its stack equates can be checked against spec/memory_map.h."
+%elif MK_KERNEL_STACK_TOP != KERNEL_STACK_TOP
+  %error "KERNEL_STACK_TOP MISMATCH: spec/memory_map.h (MK_KERNEL_STACK_TOP) differs from this kstart.asm equate -- move BOTH."
+%endif
+%ifndef MK_KERNEL_STACK_BOT
+  %error "MK_KERNEL_STACK_BOT not defined: kstart.asm must be assembled by the Makefile rule so its stack equates can be checked against spec/memory_map.h."
+%elif MK_KERNEL_STACK_BOT != KERNEL_STACK_BOT
+  %error "KERNEL_STACK_BOT MISMATCH: spec/memory_map.h (MK_KERNEL_STACK_BOT) differs from this kstart.asm equate -- move BOTH."
+%endif
 
 ; ---------------------------------------------------------------------------
 ; KERNEL_SECTORS -- the padded disk window, and THE THIRD COPY OF IT.
@@ -62,13 +79,13 @@ global _start
 extern kernel_main
 
 _start:
-    ; Kernel-private 64 KiB stack [0x90000,0xA0000), the existing proven home.
-    ; stage2's transient ESP=0x90000 stack is abandoned before this handoff;
-    ; LOAD_STAGING ends at 0x90000 exclusive and the program window ends below
-    ; it. The runway design's proposed [0x4F0000,0x500000) home is unsafe because
-    ; it overlaps the locked FLAIR heap, so the required Step-0.3 contradiction
-    ; rule stops only that sub-element (docs/design/kernel-runway-relocation.md
-    ; K1/K2; bead initech-tdnl.29).
+    ; Kernel-private 64 KiB stack [0x5F0000,0x600000): the top of the RAM-gated
+    ; kernel runway, above the transient COMMAND.COM window and disjoint from
+    ; the FLAIR heap, the kernel image, the program window and the staging
+    ; window (spec/memory_map.h WINDOW DISJOINTNESS asserts; bead initech-xu97).
+    ; stage2's transient ESP=0x90000 stack is abandoned at this handoff. The
+    ; runway zeroing below covers this stack too; it runs BEFORE the first push,
+    ; so no live stack slot is ever cleared.
     mov esp, KERNEL_STACK_TOP
     xor ebp, ebp                ; null frame pointer => top of stack to debugger
 
