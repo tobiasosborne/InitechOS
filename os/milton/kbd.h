@@ -96,6 +96,11 @@ void kbd_state_init(kbd_state_t *st);
  * pp. 132, 158-159 (Ctrl-Z EOF; hold Ctrl while pressing a letter). */
 uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode);
 
+/* Translate and enqueue a Set-1 byte, including atomic 00,scan pairs for
+ * template keys. Ref: IBM DOS 3.30 Technical Reference pp.6-11--6-12;
+ * MS-DOS 3.3 User's Guide pp.154-155 (F3). No port I/O. */
+void kbd_scancode_put(kbd_ring_t *ring, kbd_state_t *state, uint8_t scancode);
+
 /* ---- kernel-only (freestanding; touch I/O ports) ------------------------- */
 
 /* Initialize the keyboard ring + modifier state. Does NOT unmask the PIC line

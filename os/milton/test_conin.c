@@ -89,7 +89,7 @@ static uint8_t *alloc_low_buf(size_t n)
 }
 
 /* --- The capturing CON sink (echo) -------------------------------------- */
-static char   g_sink_buf[256];
+static char   g_sink_buf[512];
 static size_t g_sink_len;
 
 static void sink_capture(char c)
@@ -182,6 +182,76 @@ static int_frame_t fresh_frame(void)
     return f;
 }
 
+/* Ref: MS-DOS 3.3 User's Guide pp.153-155: the returned AH=0Ah line is
+ * the next template, F3 copies its remainder, and Return submits it. The
+ * p.157 overwrite example fixes recall at the current column, not column 0. */
+static void template_line(uint8_t *buf, const char *keys, size_t n,
+                          const char *want)
+{
+    sink_reset();
+    queue_set(keys, n);
+    int_frame_t f = fresh_frame();
+    f.eax = 0x0a00;
+    f.edx = (uint32_t)(uintptr_t)buf;
+    int21_dispatch(&f);
+    size_t len = strlen(want);
+    CHECK(buf[1] == len && memcmp(buf + 2, want, len) == 0,
+          "F3 template: returned command matches manual");
+    CHECK(buf[2 + len] == 13, "F3 template: CR stored after recalled line");
+    CHECK(g_q_pos == n, "F3 template: consumes both extended bytes and Return");
+    CHECK(g_sink_len == len + 2 && memcmp(g_sink_buf, want, len) == 0 &&
+          g_sink_buf[len] == 13 && g_sink_buf[len + 1] == 10,
+          "F3 template: echo contains recalled text and CRLF, no NUL/scan");
+    CHECK(!frame_cf(&f), "F3 template: CF clear");
+}
+
+static void test_f3_template(void)
+{
+    uint8_t *buf = alloc_low_buf(260);
+    memset(buf, 0, 260);
+    buf[0] = 128;
+    template_line(buf, "ECHO REPEAT\r", 12, "ECHO REPEAT");
+    template_line(buf, "\0\075\r", 3, "ECHO REPEAT");
+    /* A DIFFERENT prefix proves F3 reads from column 4 in an independent
+     * snapshot: typed bytes must neither append the whole old line nor
+     * overwrite the unread remainder before it is copied. */
+    template_line(buf, "TYPE\0\075\r", 7, "TYPE REPEAT");
+    template_line(buf, "\0\075\r", 3, "TYPE REPEAT");
+    template_line(buf, "X\r", 2, "X");
+    template_line(buf, "\0\075\r", 3, "X");
+    template_line(buf, "LONGER\0\075\r", 9, "LONGER");
+    buf[1] = 0;
+    template_line(buf, "\0\075Z\r", 4, "Z");
+    buf[1] = 0;
+    /* An extended scan equal to CR is not a literal Return. */
+    template_line(buf, "\0\015Z\r", 4, "Z");
+
+    memset(buf + 2, 'x', 254);
+    buf[0] = 255;
+    buf[1] = 254;
+    buf[256] = 0xa5;
+    char full[255];
+    memset(full, 'x', 254);
+    full[254] = 0;
+    template_line(buf, "\0\075\r", 3, full);
+    CHECK(buf[256] == 13 && buf[257] == 0,
+          "F3 template: maximum line reserves CR and preserves next byte");
+    (void)munmap(buf, 260);
+
+    /* Raw CON input retains the DOS pair (00 is a key byte, not no input).
+     * Ref: IBM DOS 3.30 Technical Reference pp.6-11--6-12. */
+    sink_reset();
+    queue_set("\0\075x", 3);
+    static const unsigned char want[] = {0, 0x3d, 'x'};
+    for (unsigned i = 0; i < sizeof want; i++) {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x0700;
+        int21_dispatch(&f);
+        CHECK((f.eax & 255) == want[i], "F3 transport: AH=07h returns 00,3D then text");
+    }
+    CHECK(g_sink_len == 0, "F3 transport: raw CON input does not echo");
+}
+
 int main(void)
 {
     int21_set_sink(sink_capture);
@@ -195,6 +265,7 @@ int main(void)
     int21_set_exit(exit_observe);
     /* Bind a process so AH=3Fh on handle 0 resolves to the CON read device. */
     bind_standard_process();
+    test_f3_template();
 
     /* --- AH=01h CHAR INPUT WITH ECHO: queue 'A' -> AL='A', echo 'A'. ----- */
     {

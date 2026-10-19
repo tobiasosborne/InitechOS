@@ -1449,8 +1449,15 @@ static void do_buffered_input(int_frame_t *f)
      * -- the editor still reads to the CR but stores nothing). */
     uint8_t cap = (max >= 1u) ? (uint8_t)(max - 1u) : 0u;
     int broke = 0;
+    /* Ref: MS-DOS 3.3 User's Guide pp.154-155,157: recall the remaining
+     * previous line from the current template column. Snapshot before echo
+     * overwrites buf[2..]; the caller retains the returned count and text. */
+    unsigned template_len = buf[1] < max ? buf[1] : cap;
+#ifdef CMD_MUT_NO_TEMPLATE
+    template_len = 0; /* Rule 6: discard the previous AH=0Ah command. */
+#endif
     uint8_t count = conin_cooked_line(&buf[2], cap, &buf[2],
-                                       buf[1] < max ? buf[1] : cap, f, &broke);
+                                       template_len, f, &broke);
 
     /* ^C aborted the line (beads initech-4tw; DEC-16 Sec 3.3 Fork A): INT 23h has
      * already fired. In the kernel int23's default action terminated and never

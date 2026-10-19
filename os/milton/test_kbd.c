@@ -91,6 +91,56 @@ static void test_ring(void)
     }
 }
 
+/* Ref: MS-DOS 3.3 User's Guide pp.154-155; IBM DOS 3.30 Technical
+ * Reference pp.6-11--6-12. Exercise the SAME publication path as IRQ1. */
+static void test_extended_ring(void)
+{
+    kbd_ring_t ring;
+    kbd_state_t state;
+    uint8_t c = 0xff;
+    kbd_ring_init(&ring);
+    kbd_state_init(&state);
+    kbd_scancode_put(&ring, &state, 0x20); /* d */
+    kbd_scancode_put(&ring, &state, 0x3d); /* F3 */
+    kbd_scancode_put(&ring, &state, 0xbd); /* release emits nothing */
+    kbd_scancode_put(&ring, &state, 0x1d); /* Ctrl */
+    kbd_scancode_put(&ring, &state, 0x2e); /* C */
+    kbd_scancode_put(&ring, &state, 0x9d);
+    kbd_scancode_put(&ring, &state, 0x1c); /* Return */
+    static const uint8_t want[] = {'d', 0, 0x3d, 3, 13};
+    for (unsigned i = 0; i < sizeof want; i++) {
+        CHECK(kbd_ring_get(&ring, &c) && c == want[i],
+              "F3 transport: plain d, 00,3D, Ctrl-C, CR in order");
+    }
+    CHECK(kbd_ring_empty(&ring), "F3 transport: no release/modifier bytes");
+
+    /* Put the prefix in the last physical slot, scan in slot zero. */
+    kbd_ring_init(&ring);
+    for (unsigned i = 0; i < KBD_RING_CAP - 1; i++) {
+        (void)kbd_ring_put(&ring, 'x');
+        (void)kbd_ring_get(&ring, &c);
+    }
+    kbd_scancode_put(&ring, &state, 0x3d);
+    CHECK(kbd_ring_get(&ring, &c) && c == 0, "F3 transport: wrapped NUL prefix");
+    CHECK(kbd_ring_get(&ring, &c) && c == 0x3d, "F3 transport: wrapped scan");
+    CHECK(kbd_ring_empty(&ring), "F3 transport: wrap leaves no extra bytes");
+
+    /* One free slot cannot hold a pair: neither byte may be published. */
+    kbd_ring_init(&ring);
+    for (unsigned i = 0; i < KBD_RING_CAP - 2; i++)
+        (void)kbd_ring_put(&ring, 'x');
+    uint16_t head = ring.head;
+    kbd_scancode_put(&ring, &state, 0x3d);
+    CHECK(ring.head == head, "F3 transport: full pair rejected atomically");
+    CHECK(ring.dropped == 1, "F3 transport: rejected pair records drop");
+    EXPECT_MARKER({ (void)kbd_ring_get(&ring, &c); (void)kbd_ring_get(&ring, &c); },
+                  "KBD-RING-DROP\n", "F3 transport: rejected pair reported once");
+    while (kbd_ring_get(&ring, &c))
+        CHECK(c == 'x', "F3 transport: rejected pair leaves no NUL prefix");
+    kbd_scancode_put(&ring, &state, 0x20);
+    CHECK(kbd_ring_get(&ring, &c) && c == 'd', "F3 transport: plain input after drop");
+}
+
 static void test_translate(void)
 {
     kbd_state_t st;
@@ -292,6 +342,7 @@ int main(void)
                       "KBD-RING-DROP\n", "owpg keyboard drop reported exactly once in task context");
     }
     test_ring();
+    test_extended_ring();
     test_translate();
     test_modifier_sequences();
     test_control();

@@ -248,6 +248,32 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
 #ifdef KERNEL_PURE_DECODE_OZ
 #pragma GCC pop_options
 #endif
+
+/* Ref: IBM DOS 3.30 Technical Reference pp.6-11--6-12: CON returns
+ * extended keys as 00,scan. Shared by IRQ1 and the host ring oracle. */
+void kbd_scancode_put(kbd_ring_t *ring, kbd_state_t *state, uint8_t sc)
+{
+    int special = !(sc & SC_BREAK_FLAG) &&
+        ((!state->e0 && sc >= 0x3Bu && sc <= 0x3Fu) ||
+         (sc == 0x52u || sc == 0x53u || sc == 0x4Bu));
+    uint8_t ascii = kbd_translate(state, sc);
+    if (special) {
+#ifdef KBD_MUT_DROP_EXTENDED
+        return; /* Rule 6: restore the pre-template lost-function-key path. */
+#endif
+        uint16_t next = (uint16_t)((ring->head + 1u) & (KBD_RING_CAP - 1u));
+        uint16_t end = (uint16_t)((next + 1u) & (KBD_RING_CAP - 1u));
+        if (next != ring->tail && end != ring->tail) {
+            ring->buf[ring->head] = 0;
+            ring->buf[next] = sc;
+            ring->head = end;
+        } else if (ring->dropped == 0) {
+            ring->dropped = 1; /* Task context reports the lost pair once. */
+        }
+    } else if (ascii != 0u) {
+        (void)kbd_ring_put(ring, ascii);
+    }
+}
 /* ---- kernel-only: state + IRQ1 handler + consumer ------------------------ */
 
 /* The single keyboard ring + modifier state. File scope (BSS) so the IRQ1
@@ -297,21 +323,7 @@ void kbd_irq_handler(void)
      * nearly-full ring cannot leave a dangling extended-key prefix.
      * IBM DOS 3.30 Technical Reference pp.6-11--6-12 (PDF pp.134-135).
      */
-    int special = !(sc & SC_BREAK_FLAG) &&
-        ((!g_kbd_state.e0 && sc >= 0x3Bu && sc <= 0x3Fu) ||
-         (sc == 0x52u || sc == 0x53u || sc == 0x4Bu));
-    uint8_t ascii = kbd_translate(&g_kbd_state, sc);
-    if (special) {
-        uint16_t next = (uint16_t)((g_kbd.head + 1u) & (KBD_RING_CAP - 1u));
-        uint16_t end = (uint16_t)((next + 1u) & (KBD_RING_CAP - 1u));
-        if (next != g_kbd.tail && end != g_kbd.tail) {
-            g_kbd.buf[g_kbd.head] = 0;
-            g_kbd.buf[next] = sc;
-            g_kbd.head = end;
-        }
-    } else if (ascii != 0u) {
-        (void)kbd_ring_put(&g_kbd, ascii);   /* full -> dropped (fail safe) */
-    }
+    kbd_scancode_put(&g_kbd, &g_kbd_state, sc);
 
     /* FLAIR live event loop scancode hook (ADR-0006 E-D3(c) / FO-5): post
      * the RAW scancode byte (the value read from port 0x60 above) into the

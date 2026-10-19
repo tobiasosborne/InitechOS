@@ -5067,6 +5067,7 @@ TEST_KBD_MUT_RING  := $(BUILD)/test_kbd_mutant_ring
 TEST_KBD_MUT_TABLE := $(BUILD)/test_kbd_mutant_table
 TEST_KBD_MUT_SHIFT := $(BUILD)/test_kbd_mutant_shift
 TEST_KBD_MUT_CAPS  := $(BUILD)/test_kbd_mutant_caps
+TEST_KBD_MUT_EXT   := $(BUILD)/test_kbd_mutant_extended
 
 $(TEST_KBD): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
@@ -5088,6 +5089,10 @@ $(TEST_KBD_MUT_CAPS): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUIL
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_CAPS_REPEAT -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
 
+$(TEST_KBD_MUT_EXT): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_DROP_EXTENDED -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
+
 .PHONY: test-kbd-unit test-kbd-unit-mutant
 test-kbd-unit: $(TEST_KBD)
 	@printf ">>> test-kbd-unit: ring (enqueue/dequeue/empty/full/wrap) + scancode set 1 -> ASCII (+shift/caps) + PIT divisor math\n"
@@ -5095,7 +5100,7 @@ test-kbd-unit: $(TEST_KBD)
 	@printf ">>> test-kbd-unit: green\n"
 
 # Mutation-proof: ALL mutant builds MUST fail the oracle (Rule 6).
-test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE) $(TEST_KBD_MUT_SHIFT) $(TEST_KBD_MUT_CAPS)
+test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE) $(TEST_KBD_MUT_SHIFT) $(TEST_KBD_MUT_CAPS) $(TEST_KBD_MUT_EXT)
 	@printf ">>> test-kbd-unit-mutant: confirming all mutants go RED (Rule 6)\n"
 	@if $(TEST_KBD_MUT_RING) >/dev/null 2>&1; then \
 		printf '!!! test-kbd-unit-mutant FAIL: ring off-by-one mutant PASSED -- the full/wrap test is decoration\n'; \
@@ -5121,6 +5126,10 @@ test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE) $(TEST_KBD_MUT_
 	else \
 		printf '>>> test-kbd-unit-mutant: green (Caps-repeat mutant correctly RED)\n'; \
 	fi
+	@if $(TEST_KBD_MUT_EXT) >$(BUILD)/kbd_mut_extended.log 2>&1; then \
+		printf '!!! test-kbd-unit-mutant FAIL: KBD_MUT_DROP_EXTENDED survived\n'; exit 1; fi
+	@grep -q 'FAIL.*F3 transport:' $(BUILD)/kbd_mut_extended.log
+	@printf '>>> test-kbd-unit-mutant: green (KBD_MUT_DROP_EXTENDED correctly RED)\n'
 
 # ---------------------------------------------------------------------------
 # INT 21h dispatch oracle (os/milton, beads initech-509.5)
@@ -32565,6 +32574,7 @@ include harness/emu/vesa8.mk
 
 
 include harness/conkeys/conkeys.mk
+include harness/conkeys/f3template.mk
 # h6y1: DrawGrowIcon on the existing Platinum document path. Reuse the chrome
 # capture oracle, Window Manager routing/limits suite and spatial Finder suite.
 GROW_BOX_CHECK := $(BUILD)/ppm_flair_grow_box_check
