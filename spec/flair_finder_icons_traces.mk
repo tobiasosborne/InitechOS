@@ -1,3 +1,4 @@
+# tdnl.65 re-key: consume root activation before selecting its document.
 # spec/flair_finder_icons_traces.mk -- LOCKED injected traces for the Finder
 # icon-art emulator gates (beads initech-tdnl.53 / tdnl.74 / tdnl.87;
 # docs/worklog/WL-0140). Token grammar: harness/emu/qemu.c (mDX:DY relative
@@ -31,7 +32,10 @@
 #    probe is TPSPARM.DAT, cell 10 per spec/dos_folder_apps.txt, DOC at
 #    (274 + 2*68, 206 + 2*52) = (410,310). Cell 4 (123.MNU) is covered by
 #    the raised root window after D. The trace tokens stay unchanged.
-FLAIR_FINDER_ICONS_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m100:-12,m77:0,l1,m100:50,m100:50,m10:0,l0,m-100:-20,m-100:-20,m-100:-20,m-100:-20,m-50:-8,l1,l0,m100:72,m100:72,m100:72,m100:72,m100:70,m60:0
+#    lane/finderalerts RE-KEY (tdnl.65, explicit, Rule 8): D gains one more
+#    l1,l0 -- the first click on the inactive root window only activates it
+#    (activate-only content click), the second selects README.TXT.
+FLAIR_FINDER_ICONS_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m100:-12,m77:0,l1,m100:50,m100:50,m10:0,l0,m-100:-20,m-100:-20,m-100:-20,m-100:-20,m-50:-8,l1,l0,l1,l0,m100:72,m100:72,m100:72,m100:72,m100:70,m60:0
 
 # 2. FLAIR_TRASH_FULL_SPEC -- stage README.TXT, then park clear of the Trash
 #    The FLAIR_EMPTY_ALERT_SPEC staging prefix (spec/flair_trash_traces.mk

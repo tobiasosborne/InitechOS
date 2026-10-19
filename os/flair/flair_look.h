@@ -147,6 +147,14 @@ typedef enum {
     FLAIR_PART__COUNT         /* sentinel: number of PARTs                       */
 } FLAIR_PART;
 
+/* tdnl.88: the PRESSED push button's outer top/left rim, #666666
+ * (system7-decomp re/mint-results-010.md Sec 2; sys8/controls.md 5.3). It is
+ * the existing icon-ramp role DESK_IC_GRAY_66 (ordinal 11 -> ICON_CLUT + 10,
+ * resolved to CIDX_ICON_GRAY_66 at every depth): no new PART, no new map row
+ * (the WL-0168 part-map transcript is unchanged). finder_icon.c asserts the
+ * ordinal against desk_icons.h. */
+#define FLAIR_PART_PLAT_PRESSED_RIM ((FLAIR_PART)(FLAIR_PART_ICON_CLUT + 10))
+
 /* Platinum composition policy:
  * - Chrome white/highlights reuse FLAIR_PART_CONTENT (window-chrome.md Sec 2.1,
  *   Sec 3.2, Sec 4, Sec 5; scrollbars.md Sec 2.2).

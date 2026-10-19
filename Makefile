@@ -740,7 +740,14 @@ KERNEL_GC_LDFLAGS := --gc-sections
 # Do not apply to the native blitter, ATKINSON, text, loader, event ring or
 # hardware/interrupt drivers. mcb.o also stays native: CHKDSK links that object.
 # Keep each TU's prior aliasing policy, i386 ISA, and all serial markers.
-KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000 -fno-jump-tables
+# Size round 6 (WL-0162 Part 4): ONE aliasing + page-size policy for the whole
+# LTO set. Every TU with these flags already ran without type-based alias
+# analysis (KERNEL_TENANTS_OPT, the SIZE_OPT_R2 set, finder_ops/stdfile/list);
+# the rest (control, chrome, dialog, menu, fat12, tbxgate ...) now join them.
+# -fno-strict-aliasing only REMOVES an optimisation assumption, so no correct
+# program changes meaning; with one option set across the partition the
+# merged code is smaller. Measured flagship: 182,764 -> 181,900 B (-864 B).
+KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000 -fno-jump-tables -fno-strict-aliasing --param=min-pagesize=0
 # Round 4: Ubuntu's GCC retains frame pointers even at -Oz. Only the existing
 # cold/pure C set drops them; the loader transfer and both ring publications
 # retain native -O0 bytes (test-kernel-native-boundaries). Ref: PRD Sec 5/6.1/8;
@@ -8607,7 +8614,7 @@ $(KERNEL_TEXT_OBJ): os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h os/fla
 $(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h os/flair/flair_look.h spec/assets/menu_canon.h spec/assets/apple_glyph.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h spec/assets/geneva9.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
 
-$(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h spec/progress_platinum.h | $(BUILD)
+$(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h spec/progress_platinum.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
 
 $(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h spec/assets/alert_icons.h spec/assets/desk_icons.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
@@ -10421,7 +10428,7 @@ $(FLAIR_DATA_CORRUPT_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 $(DESKTOP_DB_GOLDEN): | $(BUILD)
 	@printf 'IDB1\001\000\000\000' > $@
 
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 # The system APPLE MENU (beads initech-tdnl.47 / initech-tdnl.17): the rows of
@@ -10605,7 +10612,7 @@ KERNEL_FLAIRTENANTS_INT_ELF      := $(BUILD)/kernel_flairtenants_int.elf
 KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
 FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
 
-$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 # R0.1 CursorMgr is included by every FLAIR kmain variant. Keep the common
@@ -10732,7 +10739,7 @@ endef
 # main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$$@)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -13305,7 +13312,7 @@ TEST_FINDER_WIN_MUT_SINGLETON := $(BUILD)/test_finder_windows_mutant_singleton_d
 TEST_FINDER_WIN_MUT_VOLLABEL  := $(BUILD)/test_finder_windows_mutant_vollabel_shown
 TEST_FINDER_WIN_MUT_CLEANUP   := $(BUILD)/test_finder_windows_mutant_cleanup_unsorted
 FINDER_WIN_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
-FINDER_WIN_LINK := os/flair/event.c os/flair/finder_windows.c os/flair/finder_desktop.c \
+FINDER_WIN_LINK := os/flair/event.c os/flair/finder_windows.c os/flair/finder_ops.c os/flair/finder_desktop.c \
                    os/flair/finder_icon.c os/flair/finder_cmd.c \
                    os/flair/window.c os/flair/desktop.c os/flair/blitter.c \
                    os/flair/surface.c os/flair/heap.c \
@@ -13563,7 +13570,7 @@ test-menu-handlers-mutant: $(foreach m,$(MENU_HANDLERS_MUTANTS),$(BUILD)/test_me
 # ---------------------------------------------------------------------------
 TEST_FINDER_OPS      := $(BUILD)/test_finder_ops
 TEST_FINDER_OPS_SRC  := harness/proptest/test_finder_ops.c
-FINDER_OPS_LINK      := os/flair/finder_ops.c $(FINDER_WIN_LINK)
+FINDER_OPS_LINK      := $(FINDER_WIN_LINK)
 FINDER_OPS_DEPS      := $(TEST_FINDER_OPS_SRC) os/flair/finder_ops.h $(FINDER_WIN_DEPS)
 FINDER_OPS_MUTANTS   := TRASH_NO_STAGE NO_CYCLE NO_ORIGIN NO_SERVICE_GUARD COUNT_CELL
 # -DWINDOW_ENABLE_R1_OPS (bead initech-tdnl.34): leg O9 drives ZoomWindow /
@@ -15253,7 +15260,7 @@ test-dialog: $(TEST_DIALOG)
 test-dialog-mutant: $(TEST_DIALOG_MUT_SLAB) $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY) $(TEST_DIALOG_MUT_TITLELESS) $(TEST_DIALOG_MUT_PROGZERO) $(TEST_DIALOG_MUT_NO_DEFAULT_RING) $(TEST_DIALOG_MUT_MODAL_PASS) $(TEST_DIALOG_MUT_LOCAL_HIT)
 	@printf ">>> test-dialog-mutant: confirming all nine mutants go RED (Rule 6; Law 4 for FILECOPY_MSG/TITLELESS_MODAL/PROGRESS_ZERO)\n"
 	@$(TEST_DIALOG_MUT_LOCAL_HIT) > $(TEST_DIALOG_MUT_LOCAL_HIT).log 2>&1; \
-	if grep -q 'FAIL.*mouseDown in enabled ctrlItem' $(TEST_DIALOG_MUT_LOCAL_HIT).log; then printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_LOCAL_HIT correctly RED -- the click on the drawn OK button misses)\n'; \
+	if grep -q 'FAIL.*release inside enabled ctrlItem' $(TEST_DIALOG_MUT_LOCAL_HIT).log; then printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_LOCAL_HIT correctly RED -- the click on the drawn OK button misses)\n'; \
 	else printf '!!! test-dialog-mutant FAIL: LOCAL_HIT mutant did not go RED on the click leg\n'; cat $(TEST_DIALOG_MUT_LOCAL_HIT).log; exit 1; fi
 	@if $(TEST_DIALOG_MUT_BORDER) >/dev/null 2>&1; then \
 		printf '!!! test-dialog-mutant FAIL: BORDER mutant PASSED -- the border-width oracle is decoration\n'; exit 1; \
@@ -20706,86 +20713,8 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@printf 'VERDICT   : PASS -- all three mutants drive their legs RED (the gate bites; Rule 6)\n'
 	@printf '======================================================================\n'
 
-# ---------------------------------------------------------------------------
-# REAL gate: test-flair-disk-windows-bochs (PRD Sec 8 / Rule 5 -- the BOCHS boot
-# leg of the R3.3 disk-window image)
-# ---------------------------------------------------------------------------
-# TRUTHFUL CONSTRAINT (Law 1/Law 2), verbatim the test-flair-desktop-icons-bochs
-# situation -- it is the SAME $(FLAIRTENANTS_IMG): Bochs 2.7's LGPL vgabios
-# ENOMODEs the 640x480 VBE mode and falls back to standard VGA 0x13, so
-# flair_desktop_run FAILS LOUD and HALTS BEFORE the tenants; there is no disk
-# window, no Finder, and no QMP mouse/key injection under Bochs. What this leg
-# proves is the real differential: the SAME kernel -- now carrying
-# finder_windows.o + finder_cmd.o as well -- still runs the boot chain, the
-# FLAIR heap gate and the FAT mount IDENTICALLY to QEMU, and the 640x480 guard
-# still fires with no triple-fault. The window behaviour is graded on QEMU
-# (test-flair-disk-windows). SERIAL MILESTONES ONLY, and it says so.
-FLAIR_DW_BOCHS_NAME   := flair_diskwin_bochs
-FLAIR_DW_BOCHS_REPORT := $(BUILD)/$(FLAIR_DW_BOCHS_NAME).report.txt
-FLAIR_DW_BOCHS_SERIAL := $(BUILD)/$(FLAIR_DW_BOCHS_NAME).serial
-.PHONY: test-flair-disk-windows-bochs
-ifeq ($(SKIP_BOCHS),1)
-test-flair-disk-windows-bochs:
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-disk-windows-bochs : BOCHS leg (R3.3)\n'
-	@printf '======================================================================\n'
-	@printf '!!! test-flair-disk-windows-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
-	@printf '======================================================================\n'
-else
-test-flair-disk-windows-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-disk-windows-bochs : BOCHS leg (R3.3)\n'
-	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). bead initech-tdnl.10.\n'
-	@printf '  SERIAL MILESTONES ONLY: Bochs VBE-ENOMODEs 640x480, so kmain FAILS LOUD\n'
-	@printf '  after MOUNT-OK and BEFORE the Finder tenant -- no disk window can exist.\n'
-	@printf '  The leg proves the disk-window-carrying kernel keeps the shared\n'
-	@printf '  boot/heap/mount milestones + the guard, with no fault.\n'
-	@printf '======================================================================\n'
-	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-disk-windows-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
-	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRTENANTS_IMG)"
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
-	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
-	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
-	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
-		--name "$(FLAIR_DW_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
-		2> "$(FLAIR_DW_BOCHS_REPORT)" || true
-	@cat "$(FLAIR_DW_BOCHS_REPORT)"
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@grep -q 'rfb_unblocked=1' "$(FLAIR_DW_BOCHS_REPORT)" \
-		|| { printf '!!! test-flair-disk-windows-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
-	@if grep -q 'triple_fault=1' "$(FLAIR_DW_BOCHS_REPORT)"; then \
-		printf '!!! test-flair-disk-windows-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
-	fi
-	@if [ ! -s "$(FLAIR_DW_BOCHS_SERIAL)" ]; then \
-		printf '!!! test-flair-disk-windows-bochs FAIL: no serial captured at %s\n' "$(FLAIR_DW_BOCHS_SERIAL)"; exit 1; \
-	fi
-	@printf 'Serial markers captured:\n'
-	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED; do \
-		if grep -q "^$$m$$" "$(FLAIR_DW_BOCHS_SERIAL)"; then printf '  %-18s : present\n' "$$m"; \
-		else printf '  %-18s : MISSING\n' "$$m"; fi; \
-	done
-	@for m in VBE-ENOMODE VGA13; do \
-		grep -q "^$$m$$" "$(FLAIR_DW_BOCHS_SERIAL)" \
-			|| { printf '!!! test-flair-disk-windows-bochs FAIL: fallback marker %s missing\n' "$$m"; exit 1; }; \
-	done
-	@for m in S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK; do \
-		grep -q "^$$m$$" "$(FLAIR_DW_BOCHS_SERIAL)" \
-			|| { printf '!!! test-flair-disk-windows-bochs FAIL: shared kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
-	done
-	@! grep -q '^FINDER-OPEN-VOLUME ' "$(FLAIR_DW_BOCHS_SERIAL)" \
-		|| { printf '!!! test-flair-disk-windows-bochs FAIL: a disk window opened under Bochs, which cannot happen after the 640x480 guard halts -- the halt is not halting\n'; exit 1; }
-	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_DW_BOCHS_SERIAL)" \
-		|| { printf '!!! test-flair-disk-windows-bochs FAIL: the 640x480-required guard did NOT fire under the 320x200 fallback\n'; exit 1; }
-	@grep -q '^HALTED$$' "$(FLAIR_DW_BOCHS_SERIAL)" \
-		|| { printf '!!! test-flair-disk-windows-bochs FAIL: HALTED terminal marker missing\n'; exit 1; }
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- the disk-window-carrying flairtenants kernel booted under Bochs\n'
-	@printf '            through the shared kernel + FLAIR-heap + FAT-mount milestones (== QEMU),\n'
-	@printf '            and the 640x480 fail-loud guard fired correctly under the 320x200\n'
-	@printf '            fallback (no triple-fault). The disk windows themselves are QEMU-only.\n'
-	@printf '======================================================================\n'
-endif
+# test-flair-disk-windows-bochs: the WL-0170 bochs-flair-leg (harness/bochs_legs.mk,
+# profile flairdb, vbe101): the disk-window kernel reaches the live desktop under Bochs.
 
 # ===========================================================================
 # REAL gate: test-flair-file-ops (bead initech-34dh; GUI remediation plan R3.4,
@@ -20869,7 +20798,7 @@ grep -q '^NEWFO001 .*<DIR>' "$(1).trash.lst" || { printf 'FO-TRASH: NEWFO001 <DI
 ! grep -qE '^(README   TXT|NEWFOLD |NEWFO001 )' "$(1).root.lst" || { printf 'FO-TRASH: a staged item is STILL in the root\n'; exit 1; }
 endef
 
-.PHONY: test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs
+.PHONY: test-flair-file-ops test-flair-file-ops-mutant
 test-flair-file-ops: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(TENANTFX_EXE) $(PPM_FLAIR_DROP_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-file-ops : Finder DRAG-MOVE + DRAG-TO-TRASH (R3.4a)\n'
@@ -20913,19 +20842,23 @@ test-flair-file-ops: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(TENA
 	@[ "$$(mcopy -n -i $(BUILD)/$(FLAIR_FO_REFUSE_NAME)_data.img ::/DESKTOP.DB - | wc -c)" = 8 ] || { printf '!!! test-flair-file-ops FAIL: DESKTOP.DB changed on a refused drop\n'; exit 1; }
 	@printf '>>> test-flair-file-ops [4/5]: REFUSE -- reason=samedir + reason=cycle (APPS into its own window), nothing committed (mtools: root intact, ::/TRASH empty, DB untouched)\n'
 	@# ---- leg 5: three drags to the TRASH ----
-	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FO_TRASH_NAME),$(BUILD)/$(FLAIR_FO_TRASH_NAME)_data.img,$(FLAIR_FILEOPS_TRASH_SPEC),DESKTOP-DB-SAVE n=5,0)
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FO_TRASH_NAME),$(BUILD)/$(FLAIR_FO_TRASH_NAME)_data.img,$(FLAIR_FILEOPS_TRASH_SPEC),DESKTOP-DB-SAVE n=6,0)
 	@printf '%s\n' 'FINDER-TRASH name=README.TXT origin=0' 'DESKTOP-DB-SAVE n=3' \
 		'FINDER-NEW-FOLDER name=NEWFOLD parent=0' 'FINDER-TRASH name=NEWFOLD origin=0' 'DESKTOP-DB-SAVE n=4' \
 		'FINDER-NEW-FOLDER name=NEWFOLD parent=0' 'TRASH-RENAME from=NEWFOLD to=NEWFO001' \
-		'FINDER-TRASH name=NEWFO001 origin=0' 'DESKTOP-DB-SAVE n=5' > $(FLAIR_FO_TRASH_CHAIN).want
+		'FINDER-TRASH name=NEWFO001 origin=0' 'DESKTOP-DB-SAVE n=6' > $(FLAIR_FO_TRASH_CHAIN).want
 	@grep -E '^(FINDER-TRASH|FINDER-MOVE|TRASH-RENAME|FINDER-NEW-FOLDER|DESKTOP-DB-SAVE)' "$(BUILD)/$(FLAIR_FO_TRASH_NAME).serial" > $(FLAIR_FO_TRASH_CHAIN).got || true
 	@cmp -s $(FLAIR_FO_TRASH_CHAIN).want $(FLAIR_FO_TRASH_CHAIN).got || { printf '!!! test-flair-file-ops FAIL: the TRASH serial chain differs from the locked one\n'; diff $(FLAIR_FO_TRASH_CHAIN).want $(FLAIR_FO_TRASH_CHAIN).got; exit 1; }
 	@( $(call fo-trash-mtools,$(BUILD)/$(FLAIR_FO_TRASH_NAME)_data.img) ) || { printf '!!! test-flair-file-ops FAIL: the mtools differential of the Trash leg (above)\n'; exit 1; }
-	@{ for r in 0:README.TXT 0:NEWFOLD 1:NEWFO001; do f=$${r%%:*}; n=$${r#*:}; printf "\\005\\00$$f\\000\\000"; printf '%s' "$$n"; head -c $$((20 - $${#n})) /dev/zero; done; } > $(FLAIR_FO_ORIGINS_GOLD)
+	@# lane/finderalerts RE-KEY (tdnl.57, explicit, Rule 8): the renamed NEWFO001
+	@# origin is followed by its kind=6 original-name companion (same origin dir,
+	@# the original 8.3 name, flags/coordinates zero; os/flair/finder_desktop.h
+	@# IDB1 layout), so the third save is n=6 and the file 8 + 6*24 = 152 B.
+	@{ for r in 5:0:README.TXT 5:0:NEWFOLD 5:1:NEWFO001 6:0:NEWFOLD; do k=$${r%%:*}; r=$${r#*:}; f=$${r%%:*}; n=$${r#*:}; printf "\\00$$k\\00$$f\\000\\000"; printf '%s' "$$n"; head -c $$((20 - $${#n})) /dev/zero; done; } > $(FLAIR_FO_ORIGINS_GOLD)
 	@mcopy -n -i $(BUILD)/$(FLAIR_FO_TRASH_NAME)_data.img ::/DESKTOP.DB $(BUILD)/$(FLAIR_FO_TRASH_NAME).db
-	@[ "$$(wc -c < $(BUILD)/$(FLAIR_FO_TRASH_NAME).db)" = 128 ] || { printf '!!! test-flair-file-ops FAIL: DESKTOP.DB is not 8 + 5*24 = 128 bytes\n'; exit 1; }
-	@tail -c 72 $(BUILD)/$(FLAIR_FO_TRASH_NAME).db | cmp -s - $(FLAIR_FO_ORIGINS_GOLD) || { printf '!!! test-flair-file-ops FAIL: the kind=5 origin records differ from the hand-authored three\n'; od -A d -t x1 $(BUILD)/$(FLAIR_FO_TRASH_NAME).db | tail -6; exit 1; }
-	@printf '>>> test-flair-file-ops [5/5]: TRASH -- 3 stagings, TRASH-RENAME NEWFOLD->NEWFO001; mtools: all three in ::/TRASH (README bytes intact), none in ::/; 3 kind=5 origins on disk\n'
+	@[ "$$(wc -c < $(BUILD)/$(FLAIR_FO_TRASH_NAME).db)" = 152 ] || { printf '!!! test-flair-file-ops FAIL: DESKTOP.DB is not 8 + 6*24 = 152 bytes\n'; exit 1; }
+	@tail -c 96 $(BUILD)/$(FLAIR_FO_TRASH_NAME).db | cmp -s - $(FLAIR_FO_ORIGINS_GOLD) || { printf '!!! test-flair-file-ops FAIL: the kind=5 origin records + the kind=6 companion differ from the hand-authored four\n'; od -A d -t x1 $(BUILD)/$(FLAIR_FO_TRASH_NAME).db | tail -6; exit 1; }
+	@printf '>>> test-flair-file-ops [5/5]: TRASH -- 3 stagings, TRASH-RENAME NEWFOLD->NEWFO001; mtools: all three in ::/TRASH (README bytes intact), none in ::/; 3 kind=5 origins + the kind=6 NEWFOLD companion on disk\n'
 	@printf '>>> test-flair-file-ops: green\n'
 
 # Rule 6: the emu oracle must bite. Two kernels, each swapping ONE object:
@@ -21096,48 +21029,8 @@ test-flair-finder-service-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_
 	@printf '>>> test-flair-finder-service-mutant [2/2]: with the filter removed, the H03 move is refused by the identity guard (reason=service; mtools: ::/TRASH stays at the root)\n'
 
 
-# ---------------------------------------------------------------------------
-# test-flair-file-ops-bochs (PRD Sec 8 / Rule 5). TRUTHFUL CONSTRAINT, verbatim
-# test-flair-disk-windows-bochs: Bochs 2.7's LGPL vgabios ENOMODEs the 640x480
-# VBE mode, so the FLAIR desktop FAILS LOUD and HALTS before the Finder tenant
-# -- there is no window, no Finder and no mouse injection under Bochs. What
-# this leg proves is the real differential for THIS slice: the SAME kernel, now
-# carrying finder_ops.o and the extended fat12 binding, still runs the shared
-# boot chain, the FLAIR heap gate and the FAT mount (incl. DESKTOP.DB + \TRASH
-# bootstrap) identically to QEMU, and the 640x480 guard still fires with no
-# triple-fault. The drags themselves are QEMU-graded (test-flair-file-ops).
-# ---------------------------------------------------------------------------
-FLAIR_FO_BOCHS_NAME   := flair_fileops_bochs
-FLAIR_FO_BOCHS_REPORT := $(BUILD)/$(FLAIR_FO_BOCHS_NAME).report.txt
-FLAIR_FO_BOCHS_SERIAL := $(BUILD)/$(FLAIR_FO_BOCHS_NAME).serial
-ifeq ($(SKIP_BOCHS),1)
-test-flair-file-ops-bochs:
-	@printf '!!! test-flair-file-ops-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. A LOUD opt-out, not a pass.\n'
-else
-test-flair-file-ops-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-file-ops-bochs : BOCHS leg (R3.4a, bead initech-34dh)\n'
-	@printf '  SERIAL MILESTONES ONLY (see the comment above this target).\n'
-	@printf '======================================================================\n'
-	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-file-ops-bochs FAIL: bochs not found (a required base tool). Set SKIP_BOCHS=1 to opt out LOUDLY.\n'; exit 1; }
-	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
-	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
-	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
-	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
-		--name "$(FLAIR_FO_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
-		2> "$(FLAIR_FO_BOCHS_REPORT)" || true
-	@cat "$(FLAIR_FO_BOCHS_REPORT)"
-	@grep -q 'rfb_unblocked=1' "$(FLAIR_FO_BOCHS_REPORT)" || { printf '!!! test-flair-file-ops-bochs FAIL: RFB unblock failed -- Bochs did not run the guest (another Bochs on RFB 5900? re-run alone)\n'; exit 1; }
-	@if grep -q 'triple_fault=1' "$(FLAIR_FO_BOCHS_REPORT)"; then printf '!!! test-flair-file-ops-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; fi
-	@[ -s "$(FLAIR_FO_BOCHS_SERIAL)" ] || { printf '!!! test-flair-file-ops-bochs FAIL: no serial captured\n'; exit 1; }
-	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK DESKTOP-DB-CREATE TRASH-CREATE HALTED; do \
-		grep -q "^$$m$$" "$(FLAIR_FO_BOCHS_SERIAL)" || { printf '!!! test-flair-file-ops-bochs FAIL: marker %s missing under Bochs\n' "$$m"; exit 1; }; \
-		printf '  %-18s : present\n' "$$m"; \
-	done
-	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_FO_BOCHS_SERIAL)" || { printf '!!! test-flair-file-ops-bochs FAIL: the 640x480 guard did not fire under the 320x200 fallback\n'; exit 1; }
-	@! grep -qE '^(FINDER-MOVE|FINDER-TRASH|FINDER-OPEN-VOLUME)' "$(FLAIR_FO_BOCHS_SERIAL)" || { printf '!!! test-flair-file-ops-bochs FAIL: a Finder operation ran after the halt -- the halt is not halting\n'; exit 1; }
-	@printf 'VERDICT   : PASS -- the file-ops kernel boots under Bochs through the shared + mount + DB/TRASH bootstrap milestones (== QEMU); the guard fires; no fault.\n'
-endif
+# test-flair-file-ops-bochs: the WL-0170 bochs-flair-leg (harness/bochs_legs.mk,
+# profile flairdb, vbe101): DESKTOP.DB + \TRASH bootstrap, then the live desktop.
 
 # ===========================================================================
 # REAL gate: test-flair-trash-window (bead initech-tdnl.39; audit F04) -- the
@@ -21174,7 +21067,7 @@ tw-trash-entries = mdir -i "$(1)" ::/TRASH | grep -cvE '^( Volume|Directory|\.  
 # $(call tw-trash-cluster,<data img>): \TRASH's first cluster per mshowfat.
 tw-trash-cluster = mshowfat -i "$(1)" ::/TRASH | sed -n 's/.*<\([0-9]*\).*/\1/p'
 
-.PHONY: test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs
+.PHONY: test-flair-trash-window test-flair-trash-window-mutant
 test-flair-trash-window: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-trash-window : the Trash OPENS (bead initech-tdnl.39)\n'
@@ -21218,37 +21111,8 @@ test-flair-trash-window-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_tr
 	@grep -q 'window frame top-left corner' $(BUILD)/flair_trashwin_mut_root.grade || { printf '!!! test-flair-trash-window-mutant FAIL: the grader went RED for the wrong reason\n'; cat $(BUILD)/flair_trashwin_mut_root.grade; exit 1; }
 	@printf '>>> test-flair-trash-window-mutant: TRASH_ROOT correctly RED -- serial "%s"; grader: no Trash window at (40,80)\n' "$$(grep -m1 '^FINDER-OPEN-TRASH' $(BUILD)/flair_trashwin_mut_root.serial)"
 
-# Rule 5 (verbatim the test-flair-file-ops-bochs constraint): Bochs 2.7's
-# vgabios ENOMODEs 640x480, so the desktop fails loud before the Finder -- this
-# leg proves the Trash-window kernel runs the shared boot + FAT mount + DB/TRASH
-# bootstrap identically to QEMU and halts cleanly; the window is QEMU-graded.
-FLAIR_TW_BOCHS_NAME   := flair_trashwin_bochs
-FLAIR_TW_BOCHS_REPORT := $(BUILD)/$(FLAIR_TW_BOCHS_NAME).report.txt
-FLAIR_TW_BOCHS_SERIAL := $(BUILD)/$(FLAIR_TW_BOCHS_NAME).serial
-ifeq ($(SKIP_BOCHS),1)
-test-flair-trash-window-bochs:
-	@printf '!!! test-flair-trash-window-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. A LOUD opt-out, not a pass.\n'
-else
-test-flair-trash-window-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
-	@printf 'InitechOS (STAPLER) -- make test-flair-trash-window-bochs : BOCHS leg (bead initech-tdnl.39), SERIAL MILESTONES ONLY\n'
-	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-trash-window-bochs FAIL: bochs not found (a required base tool). Set SKIP_BOCHS=1 to opt out LOUDLY.\n'; exit 1; }
-	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
-	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
-	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
-	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
-		--name "$(FLAIR_TW_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
-		2> "$(FLAIR_TW_BOCHS_REPORT)" || true
-	@grep -q 'rfb_unblocked=1' "$(FLAIR_TW_BOCHS_REPORT)" || { cat "$(FLAIR_TW_BOCHS_REPORT)"; printf '!!! test-flair-trash-window-bochs FAIL: RFB unblock failed -- Bochs did not run the guest (another Bochs on RFB 5900? re-run alone)\n'; exit 1; }
-	@if grep -q 'triple_fault=1' "$(FLAIR_TW_BOCHS_REPORT)"; then printf '!!! test-flair-trash-window-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; fi
-	@[ -s "$(FLAIR_TW_BOCHS_SERIAL)" ] || { printf '!!! test-flair-trash-window-bochs FAIL: no serial captured\n'; exit 1; }
-	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK DESKTOP-DB-CREATE TRASH-CREATE HALTED; do \
-		grep -q "^$$m$$" "$(FLAIR_TW_BOCHS_SERIAL)" || { printf '!!! test-flair-trash-window-bochs FAIL: marker %s missing under Bochs\n' "$$m"; exit 1; }; \
-		printf '  %-18s : present\n' "$$m"; \
-	done
-	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_TW_BOCHS_SERIAL)" || { printf '!!! test-flair-trash-window-bochs FAIL: the 640x480 guard did not fire under the 320x200 fallback\n'; exit 1; }
-	@! grep -qE '^(FINDER-OPEN-TRASH|FINDER-MOVE|FINDER-TRASH)' "$(FLAIR_TW_BOCHS_SERIAL)" || { printf '!!! test-flair-trash-window-bochs FAIL: a Finder operation ran after the halt\n'; exit 1; }
-	@printf 'VERDICT   : PASS -- the Trash-window kernel boots under Bochs through the shared + mount + DB/TRASH bootstrap milestones (== QEMU); the guard fires; no fault.\n'
-endif
+# test-flair-trash-window-bochs: the WL-0170 bochs-flair-leg (harness/bochs_legs.mk,
+# profile flairdb, vbe101).
 
 # ===========================================================================
 # REAL gate: test-flair-empty-trash (bead initech-6k12; audit F04 "Special >
@@ -23532,7 +23396,7 @@ RECORD_SPEC_drag_move      = $(FLAIR_FILEOPS_INTO_SPEC)
 RECORD_SPEC_trash_drag     = $(FLAIR_FILEOPS_TRASH_SPEC)
 RECORD_SPEC_drag_refused   = $(FLAIR_FILEOPS_REFUSE_SPEC)
 RECORD_MARKER_drag_move    = FINDER-MOVE name=README.TXT from=0 to=3
-RECORD_MARKER_trash_drag   = DESKTOP-DB-SAVE n=5
+RECORD_MARKER_trash_drag   = DESKTOP-DB-SAVE n=6
 RECORD_MARKER_drag_refused = FINDER-MOVE-REFUSED reason=cycle name=APPS
 RECORD_SETTLE_drag_move    = 400
 RECORD_SETTLE_trash_drag   = 150
@@ -24333,6 +24197,59 @@ RECORD_SETTLE_trashfull_regression = 200
 
 include harness/emu/flair_launchkey.mk
 include harness/proptest/egg_jtc.mk
+# Rule 14: PM records after merge; prerequisites are read at parse time.
+include spec/flair_finder_alerts_trace.mk
+RECORD_SCRIPTS += finder_activate dialog_tracking
+RECORD_SPEC_finder_activate = $(FLAIR_ACTIVATE_ONLY_SPEC)
+RECORD_IMAGE_finder_activate = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_finder_activate = $(FLAIR_DATA_IMG)
+RECORD_MARKER_finder_activate = FLAIR-DISPATCH app=TENANTFX
+RECORD_SPEC_dialog_tracking = $(FLAIR_DIALOG_TRACK_SPEC),kesc
+RECORD_IMAGE_dialog_tracking = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_dialog_tracking = $(FLAIR_DATA_IMG)
+RECORD_MARKER_dialog_tracking = FINDER-TRASH-EMPTY-CANCEL
+RECORD_SCRIPTS += dialog_pressed
+RECORD_SPEC_dialog_pressed = $(FLAIR_DIALOG_HELD_SPEC)
+RECORD_IMAGE_dialog_pressed = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_dialog_pressed = $(FLAIR_DATA_IMG)
+RECORD_MARKER_dialog_pressed = FINDER-TRASH-ALERT
+
+# Each bead has a Rule-14 script name; the composite limits trace exercises
+# entries, window exhaustion, Open-all and keyboard selection together.
+FINDER_LIMITS_DATA := $(BUILD)/finder_limits_fixture.img
+FINDER_REPLACE_DATA := $(BUILD)/finder_replace_fixture.img
+FINDER_RESTORE_DATA := $(BUILD)/finder_restore_fixture.img
+RECORD_SCRIPTS += finder_entries finder_windows finder_open_all finder_keys finder_diskfull finder_launch_alerts finder_refused finder_replace finder_restore finder_demo
+RECORD_SPEC_finder_entries = $(FLAIR_FINDER_LIMITS_SPEC)
+RECORD_SPEC_finder_windows = $(FLAIR_FINDER_LIMITS_SPEC)
+RECORD_SPEC_finder_open_all = $(FLAIR_FINDER_LIMITS_SPEC)
+RECORD_SPEC_finder_keys = $(FLAIR_FINDER_LIMITS_SPEC)
+RECORD_SPEC_finder_diskfull = $(FLAIR_FINDER_DISKFULL_SPEC)
+RECORD_SPEC_finder_launch_alerts = $(FLAIR_APP_LAUNCH_SPEC)
+RECORD_SPEC_finder_refused = $(FLAIR_FINDER_REFUSED_SPEC)
+RECORD_SPEC_finder_replace = $(FLAIR_FINDER_REPLACE_OK_SPEC)
+RECORD_SPEC_finder_restore = $(FLAIR_FINDER_RESTORE_SPEC)
+RECORD_SPEC_finder_demo = $(FLAIR_FINDER_DEMO_SPEC)
+$(foreach s,finder_entries finder_windows finder_open_all finder_keys,$(eval RECORD_DATA_$(s) = $$(FINDER_LIMITS_DATA)))
+$(foreach s,finder_entries finder_windows finder_open_all finder_keys finder_diskfull finder_launch_alerts finder_refused finder_replace finder_restore finder_demo,$(eval RECORD_IMAGE_$(s) = $$(FLAIRTENANTS_RECORDLONGDBL_IMG)))
+$(foreach s,finder_entries finder_windows finder_open_all finder_keys,$(eval RECORD_MARKER_$(s) = FINDER-ALERT reason=windows))
+RECORD_DATA_finder_diskfull = $(BUILD)/finder_diskfull_host.img
+RECORD_DATA_finder_launch_alerts = $(FLAIR_DATA_TFX_NOREG_IMG)
+RECORD_DATA_finder_refused = $(FLAIR_DATA_IMG)
+RECORD_DATA_finder_replace = $(FINDER_REPLACE_DATA)
+RECORD_DATA_finder_restore = $(FINDER_RESTORE_DATA)
+RECORD_DATA_finder_demo = $(FLAIR_DATA_IMG)
+RECORD_MARKER_finder_diskfull = FINDER-ALERT reason=disk-full
+RECORD_MARKER_finder_launch_alerts = FINDER-ALERT reason=launch
+RECORD_MARKER_finder_refused = FINDER-ALERT reason=move
+RECORD_MARKER_finder_replace = FINDER-MOVE name=README.TXT
+RECORD_MARKER_finder_restore = FINDER-PUT-AWAY n=1
+RECORD_MARKER_finder_demo = FLAIR-MENU menu=256 item=0
+RECORD_SCRIPTS += finder_crash_alert
+RECORD_SPEC_finder_crash_alert = $(FLAIR_APP_LAUNCH_SPEC)
+RECORD_IMAGE_finder_crash_alert = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_finder_crash_alert = $(FLAIR_DATA_TFX_CRASH_IMG)
+RECORD_MARKER_finder_crash_alert = FINDER-ALERT reason=crash
 
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
@@ -30931,7 +30848,7 @@ TEST_EMU_GATES := \
 	test-flair-menu-crossdrag test-flair-menu-crossdrag-mutant \
 	test-flair-appswitch test-flair-appswitch-mutant test-flair-appswitch-bochs \
 	test-flair-desktop-icons test-flair-desktop-icons-mutant test-flair-desktop-icons-bochs \
-	test-flair-disk-windows test-flair-disk-windows-mutant test-flair-disk-windows-bochs \
+	test-flair-disk-windows test-flair-disk-windows-mutant \
 	test-flair-list-view test-flair-list-view-mutant \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-tenant-menu test-flair-tenant-menu-mutant test-flair-tenant-menu-bochs \
@@ -30943,9 +30860,9 @@ TEST_EMU_GATES := \
 	test-flair-i123-formula test-flair-i123-formula-mutant \
 	test-flair-iword test-flair-iword-mutant \
 	test-flair-fonts test-flair-fonts-mutant \
-	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
+	test-flair-file-ops test-flair-file-ops-mutant \
 	test-flair-finder-service test-flair-finder-service-mutant \
-	test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs \
+	test-flair-trash-window test-flair-trash-window-mutant \
 	test-flair-empty-trash test-flair-empty-trash-mutant \
 	test-flair-finder-icons test-flair-finder-icons-mutant \
 	test-flair-trash-full test-flair-trash-full-mutant \
@@ -32619,69 +32536,12 @@ test-flair-alert-chrome-mutant: test-flair-alert-chrome $(BUILD)/alert_chrome_la
 	$(call alert-chrome-mutant-leg,slab,ALERT-BANDS,DIALOG_MUT_ALERT_SLAB)
 	@printf '>>> test-flair-alert-chrome-mutant: green (all three booted regressions RED)\n'
 
-# ---------------------------------------------------------------------------
-# REAL gate: test-flair-alert-chrome-bochs (Rule 5 -- the BOCHS boot leg of the
-# alert-chrome gate image; owed by initech-tdnl.99 / tdnl.100 / rgz1, filed cqej).
-# Same TRUTHFUL CONSTRAINT as test-flair-appswitch-bochs: Bochs 2.7 ENOMODEs the
-# 640x480 VBE mode, the desktop guard fails loud and HALTS before the dirty-123
-# tenant and its alert come up, so the alert pixels are graded on QEMU only
-# (test-flair-alert-chrome); this leg proves the SAME alert-chrome kernel runs the
-# boot chain + FLAIR heap + FAT mount identically and the guard fires (no triple
-# fault). SKIP_BOCHS=1 is the one documented, shouting opt-out.
+# test-flair-alert-chrome-bochs: the WL-0170 bochs-flair-leg (harness/bochs_legs.mk,
+# profile flair, vbe101) on the alert-chrome gate image + its i123 quit data.
 # GATE HONESTY (PM 2026-10-16 22:45): test-flair-alert-chrome and its mutant were
-# defined by the chrome-controls lane but never appended to TEST_EMU_GATES, so the
-# 2026-10-16 certificate did not run them; appended here together with this leg.
-FLAIR_ALERTCHROME_BOCHS_NAME   := flair_alert_chrome_bochs
-FLAIR_ALERTCHROME_BOCHS_REPORT := $(BUILD)/$(FLAIR_ALERTCHROME_BOCHS_NAME).report.txt
-FLAIR_ALERTCHROME_BOCHS_SERIAL := $(BUILD)/$(FLAIR_ALERTCHROME_BOCHS_NAME).serial
-FLAIR_ALERTCHROME_BOCHS_DATA   := $(BUILD)/$(FLAIR_ALERTCHROME_BOCHS_NAME)_data.img
-.PHONY: test-flair-alert-chrome-bochs
-ifeq ($(SKIP_BOCHS),1)
-test-flair-alert-chrome-bochs:
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-alert-chrome-bochs : BOCHS leg (alert chrome)\n'
-	@printf '======================================================================\n'
-	@printf '!!! test-flair-alert-chrome-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
-	@printf '======================================================================\n'
-else
-test-flair-alert-chrome-bochs: $(BOCHS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123_QUIT_DATA)
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-alert-chrome-bochs : BOCHS leg (alert chrome)\n'
-	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). Beads initech-tdnl.99/.100, rgz1, cqej.\n'
-	@printf '  Bochs 2.7: VBE ENOMODE -> mode-0x13; the desktop guard fails loud before the\n'
-	@printf '  alert; this leg proves the shared boot/heap/mount milestones + the guard.\n'
-	@printf '======================================================================\n'
-	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-alert-chrome-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2); SKIP_BOCHS=1 is the only documented opt-out.\n'; exit 1; }
-	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIR_I123_FILE_GATE_IMG)"
-	@printf 'Expecting : VGA13 fallback + shared kernel markers + the 640x480 fail-loud\n'
-	@printf '            guard (PANIC + HALTED), no triple-fault\n'
-	@printf '%s\n' '----------------------------------------------------------------------'
-	cp -f $(FLAIR_I123_QUIT_DATA) $(FLAIR_ALERTCHROME_BOCHS_DATA)
-	@$(BOCHS_BIN) --disk "$(FLAIR_I123_FILE_GATE_IMG)" --disk2 "$(FLAIR_ALERTCHROME_BOCHS_DATA)" --expect HALTED \
-		--name "$(FLAIR_ALERTCHROME_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
-		2> "$(FLAIR_ALERTCHROME_BOCHS_REPORT)" || true
-	@cat "$(FLAIR_ALERTCHROME_BOCHS_REPORT)"
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@grep -q 'rfb_unblocked=1' "$(FLAIR_ALERTCHROME_BOCHS_REPORT)" \
-		|| { printf '!!! test-flair-alert-chrome-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
-	@if grep -q 'triple_fault=1' "$(FLAIR_ALERTCHROME_BOCHS_REPORT)"; then \
-		printf '!!! test-flair-alert-chrome-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
-	fi
-	@if [ ! -s "$(FLAIR_ALERTCHROME_BOCHS_SERIAL)" ]; then \
-		printf '!!! test-flair-alert-chrome-bochs FAIL: no serial captured at %s\n' "$(FLAIR_ALERTCHROME_BOCHS_SERIAL)"; exit 1; \
-	fi
-	@printf 'Serial markers captured:\n'
-	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED; do \
-		if grep -q "^$$m$$" "$(FLAIR_ALERTCHROME_BOCHS_SERIAL)"; then printf '  %-14s : present\n' "$$m"; \
-		else printf '  %-14s : MISSING\n' "$$m"; fi; \
-	done
-	@for m in VBE-ENOMODE VGA13 S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED; do \
-		grep -q "^$$m$$" "$(FLAIR_ALERTCHROME_BOCHS_SERIAL)" \
-			|| { printf '!!! test-flair-alert-chrome-bochs FAIL: marker %s missing\n' "$$m"; exit 1; }; \
-	done
-	@printf '>>> test-flair-alert-chrome-bochs: green (Bochs boot leg of the alert-chrome image: fallback + shared milestones + guard, no triple fault)\n'
-endif
-TEST_EMU_GATES += test-flair-alert-chrome test-flair-alert-chrome-mutant test-flair-alert-chrome-bochs
+# defined by the chrome-controls lane but never appended to TEST_EMU_GATES; they
+# are appended here (the Bochs leg registers itself through the macro).
+TEST_EMU_GATES += test-flair-alert-chrome test-flair-alert-chrome-mutant
 include harness/diff/fat_diff/chkdsk.mk
 include harness/frameapps.mk
 include harness/film_scene.mk
@@ -33682,6 +33542,7 @@ TEST_UNIT_GATES += samir-fns-goldens
 include harness/diff/dbf_diff/samir_size.mk
 include harness/diff/fat_diff/dos_volumes.mk
 include harness/diff/fat_diff/fat_spc.mk
+include harness/finder_alerts.mk
 include harness/diff/fat_diff/int21_dpb.mk
 
 # ADR citation integrity (bead initech-lk29; WL-0161): every cited ADR-0001 /

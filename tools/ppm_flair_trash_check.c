@@ -249,11 +249,11 @@ int main(int argc, char **argv)
     long w = 0, h = 0, maxv = 0;
     size_t n = (size_t)SCRW * SCRH * 3u;
 
-    if (argc != 3 || (strcmp(argv[1], "alert") && strcmp(argv[1], "emptied") &&
+    if ((argc != 3 && !(argc == 5 && !strcmp(argv[1], "pressed"))) || (strcmp(argv[1], "alert") && strcmp(argv[1], "emptied") &&
                      strcmp(argv[1], "locked") && strcmp(argv[1], "locked-full") &&
                      strcmp(argv[1], "tenant3") && strcmp(argv[1], "tenant3-gone") &&
-                     strcmp(argv[1], "chrome") && strcmp(argv[1], "exitdos"))) {
-        fprintf(stderr, "usage: %s <alert|emptied|locked|locked-full|tenant3|tenant3-gone|chrome|exitdos> <dump.ppm>\n", argv[0]);
+                     strcmp(argv[1], "chrome") && strcmp(argv[1], "notice") && strcmp(argv[1], "pressed") && strcmp(argv[1], "exitdos"))) {
+        fprintf(stderr, "usage: %s <alert|emptied|locked|locked-full|tenant3|tenant3-gone|chrome|notice|exitdos> <dump.ppm> | pressed <dump.ppm> <ok_pressed.png> <ok_pressed_tl.png>\n", argv[0]);
         return 2;
     }
     g_leg = argv[1];
@@ -274,7 +274,60 @@ int main(int argc, char **argv)
     fclose(f);
     printf("ppm_flair_trash_check: leg %s on %s\n", g_leg, argv[2]);
 
-    if (strcmp(g_leg, "chrome") == 0) {
+    if (strcmp(g_leg,"pressed") == 0) {
+        /* tdnl.88: the held default OK against the mint-010 PRESSED pair
+         * (harness/render/alert_capture.h pressed_capture_compose). The
+         * EXPECTED pixels are solely the two native captures, never a
+         * palette or control-drawing table. Graded: the whole button, its
+         * moat and its default ring, x432..496 y155..180 (1690 px), exact,
+         * except the label zone, where each pixel must be one of the two
+         * pressed inks (#878787 face / #FFFFFF label) and both images must
+         * carry white label ink; inside the held pointer's box (A's footprint)
+         * FLAIR's arrow inks are also allowed. A missing capture is a hard
+         * RED. */
+        unsigned char *ga, *gb, *gold;
+        int bad = 0, zone_bad = 0, ink = 0, gink = 0, n = 0, pair;
+        if (argc != 5 || !(ga = alert_capture_load_path(argv[3])) ||
+            !(gb = alert_capture_load_path(argv[4]))) { free(g_buf); return 1; }
+        gold = malloc((size_t)640 * 480 * 3);
+        if (!gold) { free(g_buf); return 1; }
+        pair = pressed_capture_compose(ga, gb, gold);
+        if (pair) { fprintf(stderr, "FAIL PRESSED-PAIR: the two native captures disagree at %d pixels outside the pointer boxes\n", pair); g_fail = 1; }
+        for (int y = PRESSED_Y0; y <= PRESSED_Y1; y++)
+            for (int x = PRESSED_X0; x <= PRESSED_X1; x++) {
+                uint32_t got = alert_capture_rgb(g_buf, x, y);
+                uint32_t exp = alert_capture_rgb(gold, x, y);
+                int in_lbl = pressed_in_box(x, y, PRESSED_LBL_X0, PRESSED_LBL_X1,
+                                            PRESSED_LBL_Y0, PRESSED_LBL_Y1);
+                /* The held pointer: the Mac's own arrow sat here in capture
+                 * A; FLAIR's arrow (black/white inks) may or may not be in
+                 * the dump at the same hotspot (464,168), so in that box a
+                 * pixel is the golden pixel or one of the arrow's two inks. */
+                int in_ptr = pressed_in_box(x, y, PRESSED_A_BOX_X0, PRESSED_A_BOX_X1,
+                                            PRESSED_A_BOX_Y0, PRESSED_A_BOX_Y1);
+                int ok = got == exp ||
+                         (in_lbl && (got == 0x878787u || got == 0xFFFFFFu)) ||
+                         (in_ptr && (got == 0x000000u || got == 0xFFFFFFu));
+                n++;
+                if (in_lbl) {
+                    ink += !in_ptr && got == 0xFFFFFFu;
+                    gink += exp == 0xFFFFFFu;
+                    zone_bad += !ok;
+                    if (exp != 0x878787u && exp != 0xFFFFFFu) { fprintf(stderr, "FAIL PRESSED-PAIR: golden label zone (%d,%d) is %06X\n", x, y, (unsigned)exp); g_fail = 1; }
+                } else if (!ok) {
+                    if (bad < 8) fprintf(stderr, "  PRESSED (%d,%d) got %06X want %06X\n", x, y, (unsigned)got, (unsigned)exp);
+                    bad++;
+                }
+            }
+        free(ga); free(gb); free(gold);
+        if (bad || zone_bad || !ink || !gink) {
+            fprintf(stderr, "FAIL PRESSED-CAPTURE: %d/%d pixels differ from the native pressed OK; %d label-zone pixels outside {878787,FFFFFF}; label ink %d (native %d)\n", bad, n, zone_bad, ink, gink);
+            g_fail = 1;
+        } else
+            printf("PRESSED-CAPTURE: %d/%d pixels matched the native pressed OK (label zone: %d white ink px, native %d)\n", n, n, ink, gink);
+    } else if (strcmp(g_leg, "notice") == 0) {
+        alert_chrome(0);
+    } else if (strcmp(g_leg, "chrome") == 0) {
         alert_chrome(1);
     } else if (strcmp(g_leg, "exitdos") == 0) {
         alert_chrome(1);

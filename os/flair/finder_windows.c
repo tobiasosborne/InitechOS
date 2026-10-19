@@ -40,6 +40,7 @@
  *                                      identity re-resolve (bead initech-uios).
  */
 #include "finder_windows.h"
+#include "finder_ops.h"
 
 #include "flair_look.h"         /* flair_look_pixel_depth -- the ONE seam      */
 #include "blitter.h"            /* blitter_fill_rect_clipped (the content fill)*/
@@ -136,7 +137,27 @@ static void fw_copy83(char *dst, const char *src)
 static int fw_slot_ok(const finder_shell_t *sh, int slot)
 {
     return sh != (const finder_shell_t *)0 &&
-           slot >= 0 && slot < FINDER_WIN_MAX && sh->windows[slot].open;
+           slot >= 0 && slot < sh->window_cap && sh->windows[slot].open;
+}
+
+int finder_shell_storage_init(finder_shell_t *sh, flair_heap_t *records,
+                               flair_heap_t *icons)
+{
+    uint32_t n;
+    if (!sh || !records || !icons) return -1;
+    n = flair_heap_avail(records) / (uint32_t)sizeof(finder_window_t);
+    if (n > FINDER_WIN_MAX) n = FINDER_WIN_MAX;
+    while (n) {
+        sh->windows = flair_alloc(records, FLAIR_CLASS_HANDLE,
+                                  n * (uint32_t)sizeof(finder_window_t));
+        if (sh->windows) break;
+        n--;
+    }
+    if (!n) return -1;
+    sh->window_cap = (uint16_t)n;
+    sh->icon_heap = icons;
+    fw_zero(sh->windows, n * (uint32_t)sizeof(finder_window_t));
+    return 0;
 }
 
 /* Attach one region bundle to its caller-supplied backing (the ref_tenant
@@ -318,7 +339,8 @@ static __attribute__((noinline)) int fw_sync_list(finder_window_t *w, rgn_rect_t
         w->applied_sx=w->scroll.axis[WSCROLL_H].value;
         w->applied_sy=w->scroll.axis[WSCROLL_V].value;
     }
-    finder_list_key_t keys[FINDER_WIN_ICONS_MAX];
+    finder_list_key_t *keys=w->keys;
+    if(!keys) { w->view.bounds=c; return ret; }
     for(int i=0;i<(int)w->view.n;i++) {
         keys[i].name83=w->icons[i].name; keys[i].size=w->meta[i].size;
         keys[i].date=w->meta[i].date; keys[i].time=w->meta[i].time;
@@ -501,7 +523,7 @@ static __attribute__((noinline)) void fw_paint_list(finder_window_t *w,const bit
 rgn_rect_t finder_win_default_frame(int slot)
 {
     rgn_rect_t r;
-    int i = (slot < 0) ? 0 : (slot % FINDER_WIN_MAX);
+    int i = (slot < 0) ? 0 : (slot % 8); /* restart the on-screen cascade */
 
     r.left   = (int16_t)(FINDER_WIN_DEFAULT_L + i * FINDER_WIN_CASCADE_DX);
     r.top    = (int16_t)(FINDER_WIN_DEFAULT_T + i * FINDER_WIN_CASCADE_DY);
@@ -613,7 +635,7 @@ int finder_win_find(const finder_shell_t *sh, uint16_t dir_start)
     return -1;
 #else
     if (sh == (const finder_shell_t *)0) return -1;
-    for (int i = 0; i < FINDER_WIN_MAX; i++)
+    for (int i = 0; i < sh->window_cap; i++)
         if (sh->windows[i].open && sh->windows[i].dir_start == dir_start)
             return i;
     return -1;
@@ -624,7 +646,7 @@ int finder_win_slot_of(const finder_shell_t *sh, const WindowRecord *w)
 {
     if (sh == (const finder_shell_t *)0 || w == (const WindowRecord *)0)
         return -1;
-    for (int i = 0; i < FINDER_WIN_MAX; i++)
+    for (int i = 0; i < sh->window_cap; i++)
         if (sh->windows[i].open && &sh->windows[i].rec == w) return i;
     return -1;
 }
@@ -660,6 +682,8 @@ static void fw_refresh_group_head(finder_shell_t *sh)
 typedef struct fw_enum_ctx {
     finder_window_t *w;
     uint16_t         dropped;
+    uint32_t         count;
+    uint8_t          count_only;
 } fw_enum_ctx_t;
 
 /* THE CALLBACK. Everything it needs is copied out HERE, during the call: the
@@ -703,7 +727,9 @@ static int fw_enum_cb(const finder_dirent_t *e, void *user)
      * DESKTOP.DB are ordinary root icons. NEVER in a real build. */
 #endif
 
-    if (ec->w->view.n >= (uint16_t)FINDER_WIN_ICONS_MAX) {
+    ec->count++;
+    if (ec->count_only) return 0;
+    if (ec->w->view.n >= ec->w->view.cap) {
         /* The cap bit. Keep counting so the caller can report HOW MANY entries
          * the window is not showing -- a silent truncation is the bug (Rule 2). */
         ec->dropped = (uint16_t)(ec->dropped + 1u);
@@ -844,6 +870,38 @@ static int fw_snap(finder_window_t *w, int i, int cell)
     return 1;
 }
 
+finder_win_status_t finder_win_reserve_icons(finder_shell_t *sh, int slot,
+                                             uint16_t count)
+{
+    finder_window_t *w;
+    finder_desk_icon_t *p;
+    uint16_t cap=count?count:1u;
+    if(!fw_slot_ok(sh,slot) || !sh->icon_heap) return FINDER_WIN_ERR_NULL;
+    w=&sh->windows[slot];
+    {
+        rgn_rect_t doc=finder_win_doc_rect(w);
+        int top=doc.top>0?doc.top:0;
+        uint32_t rows=(uint32_t)((32767-top-FINDER_CELL_H)/FINDER_GRID_PITCH_Y+1);
+        if(count>rows*(uint32_t)finder_win_grid_cols(doc)) return FINDER_WIN_ERR_MEMORY;
+    }
+    if(w->icons && cap<=w->view.cap) return FINDER_WIN_OK;
+    {
+        /* ONE block: icons | meta | list-key scratch (tdnl.61 + tdnl.44). */
+        uint32_t mo=((uint32_t)cap*sizeof(finder_desk_icon_t)+3u)&~3u;
+        uint32_t ko=mo+(((uint32_t)cap*sizeof(finder_win_meta_t)+3u)&~3u);
+        uint8_t *b=flair_alloc(sh->icon_heap,FLAIR_CLASS_GENERAL,
+                               ko+(uint32_t)cap*sizeof(finder_list_key_t));
+        if(!b) return FINDER_WIN_ERR_MEMORY;
+        p=(finder_desk_icon_t *)b;
+        finder_win_meta_t *m=(finder_win_meta_t *)(b+mo);
+        for(uint16_t i=0;i<w->view.n;i++) { p[i]=w->icons[i]; m[i]=w->meta[i]; }
+        if(w->icons) flair_free(sh->icon_heap,FLAIR_CLASS_GENERAL,w->icons);
+        w->icons=p; w->view.icons=p; w->view.cap=cap;
+        w->meta=m; w->keys=(finder_list_key_t *)(b+ko);
+    }
+    return FINDER_WIN_OK;
+}
+
 finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
 {
     fw_enum_ctx_t ec;
@@ -855,6 +913,20 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
         return FINDER_WIN_ERR_NULL;
 
     w = &sh->windows[slot];
+    /* tdnl.61: count first, reserve the full listing, then commit it. An
+     * allocation refusal preserves the old view; no unreachable tail. */
+    fw_zero(&ec, sizeof ec);
+    ec.w = w; ec.count_only = 1u;
+    rc = sh->fs.enumerate(sh->fs.user, w->dir_start, fw_enum_cb, &ec);
+    if (rc < 0) return FINDER_WIN_ERR_ENUM;
+#ifdef FINDER_MUT_ICON64
+    if (ec.count > 64u) ec.count = 64u;
+#endif
+    if (ec.count > 65535u) return FINDER_WIN_ERR_MEMORY;
+    {
+        finder_win_status_t reserve=finder_win_reserve_icons(sh,slot,(uint16_t)ec.count);
+        if(reserve!=FINDER_WIN_OK) return reserve;
+    }
     /* Lay the grid over where the content IS now, not where it was at open
      * (bead initech-tdnl.34: a New Folder in a moved window). */
     (void)finder_win_sync_geometry(w);
@@ -863,10 +935,12 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
 
     ec.w = w;
     ec.dropped = 0u;
+    ec.count = 0u; ec.count_only = 0u;
     rc = sh->fs.enumerate(sh->fs.user, w->dir_start, fw_enum_cb, &ec);
     if (rc < 0) return FINDER_WIN_ERR_ENUM;
 
     w->dropped = ec.dropped;
+    if (ec.dropped) return FINDER_WIN_ERR_MEMORY;
 
     /* A freshly populated window is already CLEAN: row-major from the top-left
      * (design F3.3). Clean Up later restores exactly this arrangement. */
@@ -910,9 +984,12 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
         return FINDER_WIN_OK;
     }
 
-    for (slot = 0; slot < FINDER_WIN_MAX; slot++)
+    for (slot = 0; slot < sh->window_cap; slot++)
         if (!sh->windows[slot].open) break;
-    if (slot >= FINDER_WIN_MAX) return FINDER_WIN_ERR_FULL;  /* fail loud       */
+#ifdef FINDER_MUT_WINDOW4
+    if (slot >= 4) return FINDER_WIN_ERR_FULL;
+#endif
+    if (slot >= sh->window_cap) return FINDER_WIN_ERR_FULL;
 
     w = &sh->windows[slot];
 
@@ -955,7 +1032,8 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
     w->parent    = is_root ? 0u : parent;     /* the identity (Sec 10d)     */
     fw_copy83(w->name83, is_root ? "" : name83);
     finder_click_reset(&w->click);
-    finder_desk_init(&w->view, w->icons, (uint16_t)FINDER_WIN_ICONS_MAX, content);
+    w->view.bounds = content; w->view.n = 0u;
+    w->key_prefix[0] = '\0'; w->key_when = 0u;
     w->applied_sx = 0;
     w->applied_sy = 0;
 
@@ -979,6 +1057,9 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
         /* Enumeration failed: tear the window straight back down rather than
          * leaving an empty one claiming to show a directory (Rule 2). */
         DisposeWindow(sh->wm, &w->rec);
+        if (w->icons) flair_free(sh->icon_heap, FLAIR_CLASS_GENERAL, w->icons);
+        w->icons = 0; w->view.icons = 0; w->view.cap = 0u;
+        w->meta = 0; w->keys = 0;
         w->open = 0u;
         fw_refresh_group_head(sh);
         return st;
@@ -1037,6 +1118,9 @@ finder_win_status_t finder_win_close(finder_shell_t *sh, int slot)
      * D1-5 terminate path is for a GUEST tenant's last window; the Finder is
      * always resident and must survive its own window closing. */
     DisposeWindow(sh->wm, &w->rec);
+    if (w->icons) flair_free(sh->icon_heap, FLAIR_CLASS_GENERAL, w->icons);
+    w->icons = 0; w->view.icons = 0; w->view.cap = 0u;
+    w->meta = 0; w->keys = 0;
     w->open   = 0u;
     w->view.n = 0u;
     fw_refresh_group_head(sh);
@@ -1099,7 +1183,12 @@ finder_win_status_t finder_win_new_folder(finder_shell_t *sh, int slot,
     st = fw_taken_next(&t, name);
     if (st != FINDER_WIN_OK) return st;
 
+    if(w->view.n==65535u) return FINDER_WIN_ERR_MEMORY;
+    st=finder_win_reserve_icons(sh,slot,(uint16_t)(w->view.n+1u));
+    if(st!=FINDER_WIN_OK) return st;
+
     rc = sh->fs.mkdir(sh->fs.user, name, w->dir_start);
+    if(rc==FINDER_WIN_ERR_DISKFULL) return FINDER_WIN_ERR_DISKFULL;
     if (rc != (int)FINDER_WIN_OK)
         return (rc == (int)FINDER_WIN_ERR_DIRFULL) ? FINDER_WIN_ERR_DIRFULL
                                                    : FINDER_WIN_ERR_MKDIR;
@@ -1436,7 +1525,7 @@ static int fw_has_item(finder_shell_t *sh, uint16_t dir, const char *name83)
 static unsigned fw_slots_of(const finder_shell_t *sh, uint16_t dir)
 {
     unsigned m = 0u;
-    for (int i = 0; i < FINDER_WIN_MAX; i++)
+    for (int i = 0; i < sh->window_cap; i++)
         if (sh->windows[i].open && sh->windows[i].dir_start == dir)
             m |= 1u << i;
     return m;
@@ -1447,14 +1536,14 @@ static int fw_retire_dir(finder_shell_t *sh, uint16_t dir)
     uint16_t kept = 0u;
     int dropped;
 
-    for (int i = 0; i < FINDER_WIN_MAX; i++) {
+    for (int i = 0; i < sh->window_cap; i++) {
         finder_window_t *w = &sh->windows[i];
         if (!w->open || w->is_root || w->dir_start != dir) continue;
         DisposeWindow(sh->wm, &w->rec);
         w->open   = 0u;
         w->view.n = 0u;
         finder_click_reset(&w->click);
-        sh->purge_closed = (uint8_t)(sh->purge_closed | (1u << i));
+        sh->purge_closed |= 1u << i;
     }
     for (uint16_t i = 0u; i < sh->n_views; i++)
         if (sh->views[i].dir_start != dir) sh->views[kept++] = sh->views[i];
@@ -1566,7 +1655,7 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
      * stay on as icons naming freed clusters). A retired slot is closed and
      * no longer matches. */
     touched |= fw_slots_of(sh, (uint16_t)td);
-    for (int i = 0; i < FINDER_WIN_MAX; i++)
+    for (int i = 0; i < sh->window_cap; i++)
         if ((touched & (1u << i)) != 0u && sh->windows[i].open &&
             finder_win_populate(sh, i) == FINDER_WIN_OK)
             finder_win_invalidate_all(sh, i);
@@ -1629,6 +1718,59 @@ int finder_trash_alert_text(uint16_t items, uint32_t bytes,
 int finder_exit_dos_alert_text(char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
 {
     return fw_alert_wrap("Are you sure you want to exit to InitechDOS?", out);
+}
+
+/* tdnl.61/.63/.62/.66/.72/.57. Wording is the bead/operator wording,
+ * NOT claimed as extracted native strings: no corresponding alert text is
+ * captured locally. Chrome reuses the independently graded Dialog Manager. */
+int finder_error_alert_text(finder_win_status_t st, const char *name,
+                            char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    const char *msg;
+    char replace[208];
+#ifdef FINDER_MUT_NO_MOVE_ALERT
+    if(st==FINDER_WIN_ERR_CYCLE || st==FINDER_WIN_ERR_SAMEDIR ||
+       st==FINDER_WIN_ERR_SERVICE || st==FINDER_WIN_ERR_MOVE) return 0;
+#endif
+    switch(st) {
+    case FINDER_WIN_ERR_DISKFULL:
+#ifdef FINDER_MUT_NO_DISK_ALERT
+        return 0;
+#endif
+        msg="The disk is full."; break;
+    case FINDER_WIN_ERR_FULL:
+        msg="The folder could not be opened because there is not enough memory to open another window."; break;
+    case FINDER_WIN_ERR_MEMORY:
+        msg="The folder could not be opened because there is not enough memory to display its contents."; break;
+    case FINDER_WIN_ERR_ENUM:
+        msg="The folder could not be opened because its contents could not be read."; break;
+    case FINDER_WIN_ERR_STORAGE:
+        msg="The disk could not be updated."; break;
+    case FINDER_WIN_ERR_LAUNCH:
+    case FINDER_WIN_ERR_CRASH:
+#ifdef FINDER_MUT_NO_LAUNCH_ALERT
+        return 0;
+#endif
+        msg=st==FINDER_WIN_ERR_CRASH ? "The application has unexpectedly quit." :
+            "The application could not be opened."; break;
+    case FINDER_WIN_ERR_EXISTS: {
+        int n=fw_cat(replace,0,"An item named ");
+        n=fw_cat(replace,n,name?name:"");
+        n=fw_cat(replace,n," already exists in this location. Do you want to replace it with the one you're moving?");
+        replace[n]='\0'; msg=replace; break;
+    }
+    case FINDER_WIN_ERR_CYCLE:
+#ifdef FINDER_MUT_NO_MOVE_ALERT
+        return 0;
+#endif
+        msg="A folder cannot be moved inside itself."; break;
+    case FINDER_WIN_ERR_SERVICE:
+        msg="This item is used by the Finder and cannot be moved."; break;
+    case FINDER_WIN_ERR_SAMEDIR:
+        msg="The item is already in this folder."; break;
+    default: msg="The item could not be moved. The disk may be full or the folder may no longer be available."; break;
+    }
+    return fw_alert_wrap(msg,out);
 }
 
 /* GREEDY WORD WRAP of an alert message into FINDER_ALERT_TEXT_W columns
@@ -1718,18 +1860,11 @@ static void fw_do_close(finder_shell_t *sh, finder_cmd_id id, int slot)
  * a selected document no longer enables Open at all. */
 static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
 {
-    int chosen = -1;
+    int opened = 0;
     if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
     for (int i = 0; i < (int)sh->windows[slot].view.n; i++) {
         const finder_desk_icon_t *ic = &sh->windows[slot].view.icons[i];
         if (ic->selected && ic->kind == (uint8_t)FINDER_ICON_FOLDER) {
-            chosen = i;
-            break;
-        }
-    }
-    if (chosen < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, slot); return; }
-    {
-        const finder_desk_icon_t *ic = &sh->windows[slot].view.icons[chosen];
         int nslot = -1, singleton = 0;
         finder_win_status_t st = finder_win_open(sh, sh->windows[slot].dir_start,
                                                  ic->dir_start, ic->name,
@@ -1737,7 +1872,15 @@ static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
         fw_outcome(sh, id, st, nslot);
         sh->last.singleton = (uint8_t)(singleton ? 1 : 0);
         fw_copy83(sh->last.name83, ic->name);
+        opened++;
+        sh->last.moved = (int16_t)opened;
+        if (st != FINDER_WIN_OK) return;
+#ifdef FINDER_MUT_OPEN_ONE
+        break;
+#endif
+        }
     }
+    if (!opened) fw_outcome(sh, id, FINDER_WIN_ERR_NULL, slot);
 }
 
 /* Edit > Select All (bead initech-tdnl.36, audit F03): every icon of the
@@ -1846,14 +1989,28 @@ static void fw_do_power(finder_shell_t *sh, finder_cmd_id id, int slot)
 
     (void)slot;
 #if !defined(FINDER_WIN_MUT_POWER_NO_SAVE)
-    for (int i = 0; i < FINDER_WIN_MAX; i++)
+    for (int i = 0; i < sh->window_cap; i++)
         if (sh->windows[i].open) noted += finder_shell_save_view(sh, i);
 #endif
     fw_outcome(sh, id, FINDER_WIN_OK, -1);
     sh->last.moved = (int16_t)noted;
 }
 
+static void fw_do_put_away(finder_shell_t *sh,finder_cmd_id id,int slot)
+{
+    int moved=0;
+    finder_win_status_t st=FINDER_WIN_ERR_MOVE;
+    if(slot>=0) for(int i=sh->windows[slot].view.n-1;i>=0;i--) {
+        if(!sh->windows[slot].view.icons[i].selected) continue;
+        st=finder_ops_put_away(sh,slot,i);
+        if(st!=FINDER_WIN_OK) break;
+        moved++;
+    }
+    fw_outcome(sh,id,st,slot);sh->last.moved=(int16_t)moved;
+}
+
 static const struct { finder_cmd_id id; fw_cmd_fn fn; } FW_EXEC_TABLE[] = {
+    { FCMD_PUT_AWAY, fw_do_put_away },
     { FCMD_NEW_FOLDER,      fw_do_new_folder },
     { FCMD_CLEANUP,         fw_do_cleanup    },
     { FCMD_CLOSE_WINDOW,    fw_do_close      },
@@ -1929,12 +2086,18 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
      * every path that changes \TRASH (drops, New Folder, the purge). */
     sh->ctx->trash_nonempty = (uint8_t)((sh->trash_items != 0u) ? 1 : 0);
     sh->ctx->selection_openable = 0u;
+    sh->ctx->selection_putaway = 0u;
     if (slot >= 0) {
         const finder_desk_t *v = &sh->windows[slot].view;
         for (int i = 0; i < (int)v->n; i++)
             if (v->icons[i].selected &&
                 v->icons[i].kind == (uint8_t)FINDER_ICON_FOLDER)
                 sh->ctx->selection_openable = 1u;
+        if(sh->windows[slot].is_trash)
+            for(int i=0;i<v->n;i++) if(v->icons[i].selected)
+                for(int k=0;k<sh->n_origins;k++)
+                    if(fw_ieq(v->icons[i].name,sh->origins[k].name83))
+                        sh->ctx->selection_putaway=1u;
     }
 }
 
@@ -1964,11 +2127,8 @@ static int finder_shell_open(FlairApp *self, const FlairLaunchParams *lp)
 
     if (self == (FlairApp *)0 || lp == (const FlairLaunchParams *)0) return 1;
 
-    /* ONE allocation, RECORDS arena (FLAIR_CLASS_HANDLE, ADR-0013 AC-2): the
-     * icon arrays, the WindowRecords and every region pool live in the block
-     * the shell reads during teardown, so tenant death survives a scribbled
-     * DATA arena (BC-6). A budget too small to hold it is a LAUNCH FAILURE, not
-     * a half-built Finder (Rule 2 / BC-5). */
+    /* AC-2: shell and window records stay in RECORDS; icons use DATA. A
+     * records budget too small for even one window is a launch failure. */
     sh = (finder_shell_t *)flair_alloc(&self->records_arena, FLAIR_CLASS_HANDLE,
                                        (uint32_t)sizeof(finder_shell_t));
     if (sh == (finder_shell_t *)0) return 1;
@@ -1977,6 +2137,8 @@ static int finder_shell_open(FlairApp *self, const FlairLaunchParams *lp)
     sh->wm      = lp->wm;
     sh->surface = lp->surface;
     sh->app     = self;
+    if (finder_shell_storage_init(sh, &self->records_arena,
+                                   &self->arena) != 0) return 1;
 
     /* The R3.2 desktop model -- the SAME two calls in the SAME order R3.2's
      * open() made, so the seeded icons (and therefore the boot frame) are
@@ -1984,7 +2146,7 @@ static int finder_shell_open(FlairApp *self, const FlairLaunchParams *lp)
     if (finder_desk_tenant_build(&sh->desk, sh->desk_icons,
                                  (uint16_t)FINDER_DESK_MAX_ICONS, lp) != 0)
         return 1;
-    for (int i = 0; i < FINDER_WIN_MAX; i++)
+    for (int i = 0; i < sh->window_cap; i++)
         finder_click_reset(&sh->windows[i].click);
 
     self->userData = (void *)sh;
@@ -1992,6 +2154,69 @@ static int finder_shell_open(FlairApp *self, const FlairLaunchParams *lp)
      * self->windows stays NULL, FlairProcess_launch skips its SelectWindow, and
      * the boot foreground + every locked band-2 gate are exactly as before. */
     return 0;
+}
+
+/* tdnl.64: Finder keyboard focus is the front window. Arrows follow the
+ * icon geometry; a timed name prefix selects the first matching item. Ref:
+ * issue G07 and MTE Event Manager keyDown/autoKey. The one-second prefix
+ * interval is 100 ticks on this port (os/milton/pit.h PIT_TICK_HZ); the
+ * original Macintosh Event Manager's tick unit was 1/60 second. */
+static void fw_key(finder_shell_t *sh, const EventRecord *ev)
+{
+#ifndef FINDER_MUT_NO_KEYS
+    int slot = finder_win_front_slot(sh), old = -1, chosen = -1;
+    int vk = (int)((ev->message >> 8) & 255u);
+    char ch = (char)(ev->message & 255u);
+    finder_window_t *w;
+    finder_desk_t *v;
+    if (slot < 0 || (ev->modifiers & (FLAIR_EVT_MOD_CMD_KEY | FLAIR_EVT_MOD_CONTROL_KEY))) return;
+    w = &sh->windows[slot]; v = finder_win_view(sh, slot);
+    if (!v->n) return;
+    for (int i=0; i<v->n; i++) if (v->icons[i].selected) old=i;
+    if (vk==0x48 || vk==0x50 || vk==0x4b || vk==0x4d) {
+        uint32_t best = 0xffffffffu;
+        w->key_prefix[0]='\0';
+        if (old < 0) chosen=0;
+        else for (int i=0; i<v->n; i++) {
+            int dx=v->icons[i].x-v->icons[old].x;
+            int dy=v->icons[i].y-v->icons[old].y;
+            int along=(vk==0x48)?-dy:(vk==0x50)?dy:(vk==0x4b)?-dx:dx;
+            int cross=(vk==0x48 || vk==0x50)?dx:dy;
+            uint32_t score;
+            if (along<=0) continue;
+            if (cross<0) cross=-cross;
+            score=(uint32_t)cross*4096u+(uint32_t)along;
+            if (score<best) {best=score; chosen=i;}
+        }
+    } else if (ch>=32 && ch<127) {
+        uint32_t n=fw_len(w->key_prefix);
+        if (ev->when-w->key_when > 100u || n>=FINDER_DESK_NAME_MAX-1u) n=0u;
+        w->key_prefix[n++]=fw_upper(ch); w->key_prefix[n]='\0';
+        w->key_when=ev->when;
+        for(int i=0;i<v->n;i++) {
+            uint32_t k=0;
+            while(k<n && fw_upper(v->icons[i].name[k])==w->key_prefix[k]) k++;
+            if(k==n) {chosen=i;break;}
+        }
+    }
+    if (chosen<0) return;
+    if (!(ev->modifiers & FLAIR_EVT_MOD_SHIFT_KEY)) finder_desk_deselect_all(v);
+    v->icons[chosen].selected=1u;
+    /* Scroll the chosen cell into view through the existing range owner. */
+    {
+        rgn_rect_t c=region_get_bbox(w->rec.contRgn);
+        int dy=v->icons[chosen].y-c.top;
+        int value=w->scroll.axis[WSCROLL_V].value;
+        if(dy<0) value+=dy;
+        else if(v->icons[chosen].y+FINDER_CELL_H>c.bottom)
+            value+=v->icons[chosen].y+FINDER_CELL_H-c.bottom;
+        wscroll_set_value(&w->scroll.axis[WSCROLL_V],value);
+    }
+    finder_win_invalidate_all(sh,slot);
+    finder_shell_sync_ctx(sh);
+#else
+    (void)sh; (void)ev;
+#endif
 }
 
 static void finder_shell_event(FlairApp *self, const EventRecord *ev)
@@ -2019,9 +2244,8 @@ static void finder_shell_event(FlairApp *self, const EventRecord *ev)
     }
 
     case keyDown:
-        /* Handled by the live pump's Cmd-chord arm (kmain), which owns the
-         * modifier decode and the serial report. Nothing to do here: a second
-         * handler would be a second dispatch path, which F4-4 forbids. */
+    case autoKey:
+        fw_key(sh, ev);
         return;
 
     case mouseDown:

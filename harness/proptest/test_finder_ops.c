@@ -244,6 +244,8 @@ typedef struct scene {
     WindowMgr      wm;
     rgn_store_t    desk, sa, sb, sc;
     finder_shell_t sh;
+    flair_heap_t records, icons;
+    _Alignas(16) uint8_t record_bytes[65536], icon_bytes[262144];
     mock_t         mock;
     finder_fs_t    fs;
     uint8_t        px[SCRW * SCRH];
@@ -261,6 +263,9 @@ static void scene_init(scene_t *s)
     store_attach(&s->desk); store_attach(&s->sa);
     store_attach(&s->sb);   store_attach(&s->sc);
     WindowMgr_init(&s->wm, frame, &s->desk.r, &s->sa.r, &s->sb.r, &s->sc.r);
+    flair_heap_init(&s->records,s->record_bytes,sizeof s->record_bytes);
+    flair_heap_init(&s->icons,s->icon_bytes,sizeof s->icon_bytes);
+    (void)finder_shell_storage_init(&s->sh,&s->records,&s->icons);
     s->sh.wm = &s->wm;
     finder_desk_init(&s->sh.desk, s->sh.desk_icons,
                      (uint16_t)FINDER_DESK_MAX_ICONS, frame);
@@ -533,6 +538,8 @@ static void leg_service_guard(void)
           "O12 (setup) the root view lists neither TRASH nor DESKTOP.DB");
     /* A path that reaches them anyway: append both to the root model, as the
      * pre-tdnl.56 listing had them (cells 2 and 3). */
+    CHECK(finder_win_reserve_icons(&S.sh,ROOT,4u)==FINDER_WIN_OK,
+          "O12 (setup) reserve storage for the hostile stale model");
     ti = finder_desk_add(rv, FINDER_ICON_FOLDER, "TRASH", 243, 86, 1u);
     finder_desk_set_cluster(rv, ti, CL_TRASH);
     di = finder_desk_add(rv, FINDER_ICON_FILE, "DESKTOP.DB", 175, 86, 1u);
@@ -725,7 +732,7 @@ static void leg_untrash(void)
 static int count_open(void)
 {
     int n = 0;
-    for (int i = 0; i < FINDER_WIN_MAX; i++) n += S.sh.windows[i].open ? 1 : 0;
+    for (int i = 0; i < S.sh.window_cap; i++) n += S.sh.windows[i].open ? 1 : 0;
     return n;
 }
 
@@ -760,7 +767,7 @@ static void leg_trash_window(void)
 
     CHECK(finder_win_open_trash(&S.sh, &slot2, &single) == FINDER_WIN_OK &&
           slot2 == 2 && single == 1, "O13 a second open RAISES the Trash window");
-    for (int i = 0; i < FINDER_WIN_MAX; i++)
+    for (int i = 0; i < S.sh.window_cap; i++)
         if (S.sh.windows[i].open && S.sh.windows[i].dir_start == CL_TRASH) ntrash++;
     CHECK(ntrash == 1 && count_open() == 3, "O13 ... and there is still ONE window over \\TRASH");
 

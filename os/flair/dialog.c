@@ -609,6 +609,8 @@ flair_modal_disposition_t DialogModalDispatch(
     (void)blockUser;
     return FLAIR_MODAL_PASSTHROUGH;
 #else
+    if (dp->trackingItem && (ev->what == mouseUp || ev->what == nullEvent))
+        return FLAIR_MODAL_CAPTURE;
     if (ev->what == (uint16_t)mouseDown ||
         ev->what == (uint16_t)mouseUp) {
         if (!region_contains_point(dp->window.strucRgn,
@@ -784,6 +786,19 @@ void SetDialogItemText(DialogPtr dp, uint16_t itemIndex, const char *text)
     }
 }
 
+/* Redraw ONE control item in place (tdnl.88 press feedback): the control,
+ * then -- for the default push button -- its ring, in DrawDialog's order so
+ * the ring's moat lands over the button's outside corners. */
+static void dialog_draw_ctrl_item(DialogPtr dp, uint16_t idx) __attribute__((unused));
+static void dialog_draw_ctrl_item(DialogPtr dp, uint16_t idx)
+{
+    DialogItem *item = &dp->items[idx - 1u];
+    if (item->type != ctrlItem || !item->ctrl) return;
+    DrawControl(&dp->window.port, item->ctrl);
+    if (idx == dp->defaultItem && item->ctrl->contrlType == pushButton)
+        DrawControlDefaultRing(&dp->window.port, item->ctrl);
+}
+
 /* Handle one event. Kept separate so the shell-owned live pump and the
  * cooperative ModalDialog loop share exactly one modal behavior path. */
 int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
@@ -794,6 +809,38 @@ int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
         return 0;
     }
 
+    /* tdnl.88. The cooked stream supplies mouse motion as nullEvent and the
+     * final mouseUp. Keep the original item through excursions/reentry;
+     * TrackControl grades the two endpoint samples on release. Ref: IM
+     * Control Manager, system7-decomp/specs/toolbox/control-manager.md. */
+#ifndef DIALOG_MUT_ON_PRESS
+    if (dp->trackingItem) {
+        uint16_t idx = dp->trackingItem;
+        DialogItem *item = &dp->items[idx - 1u];
+        ControlRecord *c = item->ctrl;
+        if (ev->what == nullEvent || ev->what == mouseUp) {
+            int16_t part = TestControl(c, ev->where);
+            int16_t hilite = part ? part : 0;
+            if (ev->what == mouseUp) {
+                flair_point_t pts[2];
+                pts[0].h = item->rect.left; pts[0].v = item->rect.top;
+                pts[1] = ev->where;
+                part = TrackControl(c, pts, 2u);
+                hilite = 0;
+                dp->trackingItem = 0u;
+            }
+            if (ev->what == mouseUp || c->contrlHilite != hilite) {
+                c->contrlHilite = hilite;
+                /* tdnl.88: the button draws PRESSED while the held mouse is
+                 * inside it and idle when it leaves or is released
+                 * (mint-010: s8_alert_ok_pressed / _held_outside). */
+                dialog_draw_ctrl_item(dp, idx);
+            }
+            if (ev->what == mouseUp && part) { *itemHit = idx; return 1; }
+        }
+        return 0;
+    }
+#endif
     if (filterProc) {
         uint16_t fitem = 0;
         if (filterProc(dp, ev, &fitem)) {
@@ -828,11 +875,20 @@ int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
         if (item->enabled && item->type != statText) {
 #endif
             if (item->type == ctrlItem && item->ctrl) {
+#ifndef DIALOG_MUT_ON_PRESS
+                if (TestControl(item->ctrl, pt)) {
+                    dp->trackingItem = idx;
+                    item->ctrl->contrlHilite = TestControl(item->ctrl, pt);
+                    /* tdnl.88: pressed feedback at mouseDown (mint-010). */
+                    dialog_draw_ctrl_item(dp, idx);
+                }
+#else
                 int16_t part = TrackControl(item->ctrl, &pt, 1);
                 if (part != 0) {
                     *itemHit = idx;
                     return 1;
                 }
+#endif
             } else {
                 *itemHit = idx;
                 return 1;
@@ -890,7 +946,6 @@ void ModalDialog(DialogPtr dp, flair_raw_ring_t *ring,
         int got = WaitNextEvent(ring, 0xFFFFu, &ev, sleepTicks);
         if (!got) {
             if (sleepTicks == 0) return;
-            continue;
         }
         if (DialogHandleEvent(dp, &ev, filterProc, itemHit)) return;
     }

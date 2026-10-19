@@ -10,7 +10,7 @@
  * WHAT THIS IS
  *   The Finder shell tenant (the FlairAppProcs vtable moved here from
  *   finder_desktop.c, which now owns only the desktop MODEL) plus the
- *   fixed-capacity table of open disk windows. It is where a FAT directory
+ *   arena-sized table of open disk windows. It is where a FAT directory
  *   becomes a grid of icons and a WindowRecord.
  *
  * ---------------------------------------------------------------------------
@@ -144,20 +144,15 @@
  * 1. CAPACITIES  (design F1.1: fixed capacity, FAIL LOUD on overflow, Rule 2)
  * ===========================================================================*/
 
-/* Open disk windows. Four is the deliberate V1 ceiling: a spatial Finder on a
- * 640x480 screen with 360x220 windows has room for a cascade of four before the
- * arrangement stops being legible, and every slot's storage (WindowRecord +
- * four region bundles + the icon array) is carved ONCE at launch so a mid-
- * session open can never fail on a heap condition. A fifth open reports
- * FINDER_WIN_ERR_FULL and kmain says FINDER-WIN-FULL on serial. */
-#define FINDER_WIN_MAX             4
+/* tdnl.63: records are sized to the available RECORDS arena. The 32-slot
+ * constant is the slot-bitset representation bound; the shipped 64 KiB arena
+ * reaches its real allocation limit first. Opens fail loudly at window_cap. */
+#define FINDER_WIN_MAX            32
 
-/* Icons per window (design F1.1: "64 desktop icons + 64 per open window").
- * The volume's root directory holds 224 entries (root_entry_count on the
- * flagship 1.44 MB image), so this cap CAN bite -- and when it does the window
- * keeps the first 64 and reports the remainder as `dropped`, loudly. It never
- * silently shows a partial directory (Rule 2). */
-#define FINDER_WIN_ICONS_MAX      64
+/* tdnl.61: icon storage is sized to the full enumeration from the existing
+ * DATA arena. A failed reservation never publishes a truncated directory.
+ * QuickDraw's signed-16 coordinate plane is also checked before a grid wraps
+ * (system7-decomp/specs/quickdraw/coordinate-system.md). */
 
 /* Region-bundle caps, the os/apps/ref_tenant.c values verbatim: a rectangular
  * document window's strucRgn/contRgn, a rect-damage updateRgn, and their
@@ -417,9 +412,14 @@ typedef enum finder_win_status {
     FINDER_WIN_ERR_SERVICE   = -12, /* move/trash: \TRASH or \DESKTOP.DB (tdnl.73) */
     FINDER_WIN_ERR_NOTRASH   = -13, /* open Trash: the volume has no \TRASH     */
     FINDER_WIN_ERR_LOCKED    = -14, /* locked document: unlock before discard  */
-    FINDER_WIN_ERR_STALE     = -15  /* the view's folder no longer exists as
+    FINDER_WIN_ERR_STALE     = -15, /* the view's folder no longer exists as
                                      * that folder (purged / recycled cluster;
                                      * bead initech-uios, audit L002)          */
+    FINDER_WIN_ERR_MEMORY    = -16,
+    FINDER_WIN_ERR_DISKFULL  = -17,
+    FINDER_WIN_ERR_LAUNCH    = -18,
+    FINDER_WIN_ERR_CRASH     = -19,
+    FINDER_WIN_ERR_STORAGE   = -20
 } finder_win_status_t;
 
 /* ===========================================================================
@@ -432,6 +432,14 @@ typedef struct finder_win_rgn {
     rgn_row_t rows[FINDER_WIN_RGN_ROWS];
     int16_t   pool[FINDER_WIN_RGN_POOL];
 } finder_win_rgn_t;
+
+/* One listed entry's FAT directory metadata (tdnl.44 list view). */
+typedef struct {
+    uint32_t size;
+    uint16_t date, time;
+    uint8_t  attribute;
+} finder_win_meta_t;
+struct finder_list_key;
 
 typedef struct finder_window {
     uint8_t              open;        /* 1 == this slot holds a live window    */
@@ -452,7 +460,9 @@ typedef struct finder_window {
     finder_desk_t        view;        /* the icon model; bounds caches the
                                        * content rect -- read it ONLY through
                                        * finder_win_view (Sec 10b, tdnl.34)    */
-    finder_desk_icon_t   icons[FINDER_WIN_ICONS_MAX];
+    finder_desk_icon_t  *icons;       /* existing DATA arena, sized to listing */
+    char                key_prefix[FINDER_DESK_NAME_MAX];
+    uint32_t            key_when;
     finder_click_track_t click;       /* this surface's double-click tracker   */
     /* THE ICON VIEW SCROLLS (bead initech-tdnl.35; Sec 10c). The window's two
      * standard bars, attached to `rec` through the Window Manager registry
@@ -462,8 +472,12 @@ typedef struct finder_window {
     WindowScroll         scroll;
     int16_t              applied_sx;  /* horizontal offset applied to icons    */
     int16_t              applied_sy;  /* vertical offset applied to icons      */
-    struct { uint32_t size; uint16_t date, time; uint8_t attribute; }
-                         meta[FINDER_WIN_ICONS_MAX]; /* same indices as icons */
+    /* List-view metadata (tdnl.44) and the sort-key scratch, same indices as
+     * icons. Merge with tdnl.61's arena-backed icons: both live in the SAME
+     * DATA-arena block as `icons` (finder_win_reserve_icons), sized to the
+     * listing, freed with it -- no fixed per-window ceiling. */
+    finder_win_meta_t   *meta;
+    struct finder_list_key *keys;
 } finder_window_t;
 
 /* ---------------------------------------------------------------------------
@@ -489,9 +503,8 @@ typedef struct finder_cmd_outcome {
     char                name83[FINDER_DESK_NAME_MAX];  /* New Folder / Open    */
 } finder_cmd_outcome_t;
 
-/* The shell tenant's whole per-instance state; ONE allocation from the tenant's
- * RECORDS arena at launch (ADR-0013 AC-2: the shell reads only records-arena
- * storage during teardown, so tenant death survives a scribbled DATA arena). */
+/* Shell state and window records live in the RECORDS arena (ADR-0013 AC-2).
+ * Icon buffers live in DATA; teardown never follows their pointers. */
 typedef struct finder_shell {
     finder_desk_t        desk;                              /* R3.2 desktop    */
     finder_desk_icon_t   desk_icons[FINDER_DESK_MAX_ICONS];
@@ -500,7 +513,9 @@ typedef struct finder_shell {
      * byte-for-byte the code that is already gated green. Each WINDOW carries
      * its own tracker (below), which is what makes a double-click in one window
      * independent of a click in another. */
-    finder_window_t      windows[FINDER_WIN_MAX];
+    finder_window_t     *windows;
+    uint16_t            window_cap; /* fits the actual RECORDS arena */
+    flair_heap_t       *icon_heap;
     finder_view_rec_t    views[FINDER_DB_MAX_VIEWS];        /* kind=4 records  */
     uint16_t             n_views;
     WindowMgr           *wm;
@@ -526,8 +541,15 @@ typedef struct finder_shell {
     /* bead initech-uios (audit L002): bit s set == window slot s viewed a
      * directory the LAST purge removed and was disposed by it (Sec 12). Read
      * by kmain for the FINDER-TRASH-VIEW-CLOSED markers. */
-    uint8_t              purge_closed;
+    uint32_t             purge_closed;
 } finder_shell_t;
+
+/* tdnl.61/.63: reserve as many window records as this arena can hold; icon
+ * storage comes from the existing DATA arena on enumeration. No new heap. */
+int finder_shell_storage_init(finder_shell_t *sh, flair_heap_t *records,
+                               flair_heap_t *icons);
+finder_win_status_t finder_win_reserve_icons(finder_shell_t *sh, int slot,
+                                             uint16_t count);
 
 /* ===========================================================================
  * 8. THE TENANT  (design F2-1; the vtable R3.2 kept in finder_desktop.c)
@@ -1038,5 +1060,7 @@ int finder_trash_alert_text(uint16_t items, uint32_t bytes,
  * 2026-10-16), wrapped by the SAME greedy Chicago 12 rule into `out`. Returns
  * the line count. Pure. */
 int finder_exit_dos_alert_text(char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
+int finder_error_alert_text(finder_win_status_t status, const char *name,
+                            char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
 
 #endif /* INITECH_OS_FLAIR_FINDER_WINDOWS_H */

@@ -212,6 +212,8 @@ typedef struct scene {
     WindowMgr      wm;
     rgn_store_t    desk, sa, sb, sc;
     finder_shell_t sh;
+    flair_heap_t records, icons;
+    _Alignas(16) uint8_t record_bytes[65536], icon_bytes[262144];
     mock_fs_t      mock;
     finder_fs_t    fs;
 } scene_t;
@@ -225,6 +227,9 @@ static void scene_init(scene_t *s, const mock_dir_t *dirs, int n_dirs)
     store_attach(&s->sb);   store_attach(&s->sc);
     WindowMgr_init(&s->wm, frame, &s->desk.r, &s->sa.r, &s->sb.r, &s->sc.r);
 
+    flair_heap_init(&s->records,s->record_bytes,sizeof s->record_bytes);
+    flair_heap_init(&s->icons,s->icon_bytes,sizeof s->icon_bytes);
+    (void)finder_shell_storage_init(&s->sh,&s->records,&s->icons);
     s->sh.wm      = &s->wm;
     s->sh.surface = NULL;
     s->sh.app     = NULL;
@@ -313,7 +318,7 @@ static void leg_grid(void)
 
     /* The default frames cascade by exactly (20,20) per slot, and their size is
      * constant -- the header's Sec 3 contract, hand-restated. */
-    for (int slot = 0; slot < FINDER_WIN_MAX; slot++) {
+    for (int slot = 0; slot < 8; slot++) {
         rgn_rect_t f = finder_win_default_frame(slot);
         CHECK(f.left == (int16_t)(20 + slot * 20) &&
               f.top  == (int16_t)(60 + slot * 20),
@@ -601,7 +606,7 @@ static void leg_singleton(void)
         CHECK(sc == 1, "L6 ... and reports singleton=1 (a raise, not an open)");
     }
     open_count = 0;
-    for (int i = 0; i < FINDER_WIN_MAX; i++) if (s.sh.windows[i].open) open_count++;
+    for (int i = 0; i < s.sh.window_cap; i++) if (s.sh.windows[i].open) open_count++;
     CHECK(open_count == 2,
           "L6 exactly TWO windows exist after three opens of two directories "
           "(the SPATIAL_DUP mutant makes this three)");
@@ -618,11 +623,11 @@ static void leg_singleton(void)
         CHECK(finder_win_open(&s.sh, 0u, 21u, "SUBA", 0u, &d, NULL) == FINDER_WIN_OK,
               "L6 a third window opens");
         CHECK(finder_win_open(&s.sh, 0u, 23u, "SUBB", 0u, &d, NULL) == FINDER_WIN_OK,
-              "L6 a fourth window opens (the table is full)");
+              "L6 a fourth window opens");
         CHECK(finder_win_open(&s.sh, 0u, 25u, "SUBC", 0u, &d, NULL) ==
-              FINDER_WIN_ERR_FULL,
-              "L6 the FIFTH is FINDER_WIN_ERR_FULL -- fail loud, never a "
-              "silently dropped open (Rule 2)");
+              FINDER_WIN_OK,
+              "L6 the FIFTH opens within the records budget -- no "
+              "silently dropped open (tdnl.63)");
     }
 
     /* The per-window icon cap: 70 entries -> 64 kept, 6 reported. */
@@ -645,10 +650,10 @@ static void leg_singleton(void)
         scene_init(&big, BIG_DIRS, 1);
         CHECK(finder_win_open(&big.sh, 0u, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK,
               "L6 a 70-entry directory still opens");
-        CHECK(big.sh.windows[0].view.n == (uint16_t)FINDER_WIN_ICONS_MAX,
-              "L6 the window keeps exactly FINDER_WIN_ICONS_MAX icons");
-        CHECK(big.sh.windows[0].dropped == 6u,
-              "L6 ... and REPORTS the 6 it could not show (never silent)");
+        CHECK(big.sh.windows[0].view.n == 70u,
+              "L6 the window keeps all 70 icons");
+        CHECK(big.sh.windows[0].dropped == 0u,
+              "L6 ... and drops no entries");
         CHECK(strcmp(big.sh.windows[0].view.icons[0].name, "F00.TXT") == 0 &&
               strcmp(big.sh.windows[0].view.icons[63].name, "F63.TXT") == 0,
               "L6 the kept 64 are the FIRST 64 in on-disk order");
@@ -1144,6 +1149,8 @@ typedef struct pscene {
     WindowMgr      wm;
     rgn_store_t    desk, sa, sb, sc;
     finder_shell_t sh;
+    flair_heap_t records, icons;
+    _Alignas(16) uint8_t record_bytes[65536], icon_bytes[262144];
     pv_t           pv;
     finder_fs_t    fs;
     FinderCtx      ctx;
@@ -1157,6 +1164,9 @@ static void pscene_init(pscene_t *s, int locked_variant)
     store_attach(&s->desk); store_attach(&s->sa);
     store_attach(&s->sb);   store_attach(&s->sc);
     WindowMgr_init(&s->wm, frame, &s->desk.r, &s->sa.r, &s->sb.r, &s->sc.r);
+    flair_heap_init(&s->records,s->record_bytes,sizeof s->record_bytes);
+    flair_heap_init(&s->icons,s->icon_bytes,sizeof s->icon_bytes);
+    (void)finder_shell_storage_init(&s->sh,&s->records,&s->icons);
     s->sh.wm = &s->wm;
     finder_desk_init(&s->sh.desk, s->sh.desk_icons,
                      (uint16_t)FINDER_DESK_MAX_ICONS, frame);

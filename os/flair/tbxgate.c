@@ -570,7 +570,22 @@ static int32_t v_dialog(const uint32_t *a)
         e.when=(uint32_t)v[3];
         if(e.what!=mouseDown && e.what!=keyDown && e.what!=autoKey)return TBX_ERR_BADARG;
         e.where.h=(int16_t)v[4];e.where.v=(int16_t)v[5];
-        return DialogHandleEvent(&d,&e,0,&hit)?(int32_t)hit:0;
+        /* tdnl.88: a control press now TRACKS (draws pressed, fires on the
+         * mouseUp inside). This one-shot transport rebuilds the record per
+         * call, so no later mouseUp can reach it: the tenant's click is a
+         * press + release at one point, completed here through the same
+         * tracking path (pressed, then idle, drawn in the window's port). */
+        d.window.port.portBits.bm=*g_host.surface;
+        d.window.port.visRgn=(region_t *)draw_clip();
+        d.window.port.clipRgn=d.window.port.visRgn;
+        d.window.port.portRect=WindowFrameRect(g_slot.win);
+        d.window.windowDefProcVariant=movableDBoxProc;
+        int r=DialogHandleEvent(&d,&e,0,&hit);
+        if(!r && d.trackingItem && e.what==mouseDown) {
+            e.what=mouseUp;
+            r=DialogHandleEvent(&d,&e,0,&hit);
+        }
+        return r?(int32_t)hit:0;
     }
     d.window.port.portBits.bm=*g_host.surface;
     d.window.port.visRgn=(region_t *)draw_clip();
@@ -1080,37 +1095,43 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
     uint32_t argc = 0u;
     int32_t rc;
 
-    switch (ax) {
-    case TBX_REGISTER:  argc = TBX_ARGC_REGISTER;  break;
-    case TBX_NEWWINDOW: argc = TBX_ARGC_NEWWINDOW; break;
-    case TBX_SETWTITLE: argc = TBX_ARGC_SETWTITLE; break;
-    case TBX_CONTENTORIGIN: argc = TBX_ARGC_CONTENTORIGIN; break;
-    case TBX_TEXTDRAW:  argc = TBX_ARGC_TEXTDRAW;  break;
-    case TBX_FILLRECT:  argc = TBX_ARGC_FILLRECT;  break;
-    case TBX_EXIT:      argc = TBX_ARGC_EXIT;      break;
-    case TBX_SETMBAR:   argc = TBX_ARGC_SETMBAR;   break;
-    case TBX_DRAWMENUBAR: argc = TBX_ARGC_DRAWMENUBAR; break;
-    case TBX_DRAWCELLS: argc = TBX_ARGC_DRAWCELLS; break;
-    case TBX_FILE_CREATE: argc = TBX_ARGC_FILE_CREATE; break;
-    case TBX_FILE_OPEN: argc = TBX_ARGC_FILE_OPEN; break;
-    case TBX_FILE_READ: argc = TBX_ARGC_FILE_READ; break;
-    case TBX_FILE_WRITE: argc = TBX_ARGC_FILE_WRITE; break;
-    case TBX_FILE_SEEK: argc = TBX_ARGC_FILE_SEEK; break;
-    case TBX_FILE_CLOSE: argc = TBX_ARGC_FILE_CLOSE; break;
-    case TBX_FILE_DELETE: argc = TBX_ARGC_FILE_DELETE; break;
-    case TBX_ALERT:     argc = TBX_ARGC_ALERT;     break;
-    case TBX_SCRAP_PUT: argc = TBX_ARGC_SCRAP_PUT; break;
-    case TBX_SCRAP_GET: argc = TBX_ARGC_SCRAP_GET; break;
-    case TBX_SFGETFILE: argc = TBX_ARGC_SFGETFILE; break;
-    case TBX_SFPUTFILE: argc = TBX_ARGC_SFPUTFILE; break;
-    case TBX_SETSCROLL: argc = TBX_ARGC_SETSCROLL; break;
-    case TBX_GETSCROLL: argc = TBX_ARGC_GETSCROLL; break;
-    case TBX_GLOBALTOLOCAL: argc = TBX_ARGC_GLOBALTOLOCAL; break;
-    case TBX_FILECOPY:  argc = TBX_ARGC_FILECOPY;  break;
-    case TBX_DIALOG: argc=6; break;
-    case TBX_SETTINGS: case TBX_CLOCK: argc=2; break;
-    case TBX_MEMORY: argc=1; break;
-    default:            argc = 0u;                 break;
+    /* Size round 6 (WL-0162): the verb -> argument-count map as data (every
+     * code is below 0x100; any other AX, high bits included, has argc 0). */
+    {
+        static const struct { uint8_t ax, argc; } argn[] = {
+        { (uint8_t)TBX_REGISTER, (uint8_t)(TBX_ARGC_REGISTER) },
+        { (uint8_t)TBX_NEWWINDOW, (uint8_t)(TBX_ARGC_NEWWINDOW) },
+        { (uint8_t)TBX_SETWTITLE, (uint8_t)(TBX_ARGC_SETWTITLE) },
+        { (uint8_t)TBX_CONTENTORIGIN, (uint8_t)(TBX_ARGC_CONTENTORIGIN) },
+        { (uint8_t)TBX_TEXTDRAW, (uint8_t)(TBX_ARGC_TEXTDRAW) },
+        { (uint8_t)TBX_FILLRECT, (uint8_t)(TBX_ARGC_FILLRECT) },
+        { (uint8_t)TBX_EXIT, (uint8_t)(TBX_ARGC_EXIT) },
+        { (uint8_t)TBX_SETMBAR, (uint8_t)(TBX_ARGC_SETMBAR) },
+        { (uint8_t)TBX_DRAWMENUBAR, (uint8_t)(TBX_ARGC_DRAWMENUBAR) },
+        { (uint8_t)TBX_DRAWCELLS, (uint8_t)(TBX_ARGC_DRAWCELLS) },
+        { (uint8_t)TBX_FILE_CREATE, (uint8_t)(TBX_ARGC_FILE_CREATE) },
+        { (uint8_t)TBX_FILE_OPEN, (uint8_t)(TBX_ARGC_FILE_OPEN) },
+        { (uint8_t)TBX_FILE_READ, (uint8_t)(TBX_ARGC_FILE_READ) },
+        { (uint8_t)TBX_FILE_WRITE, (uint8_t)(TBX_ARGC_FILE_WRITE) },
+        { (uint8_t)TBX_FILE_SEEK, (uint8_t)(TBX_ARGC_FILE_SEEK) },
+        { (uint8_t)TBX_FILE_CLOSE, (uint8_t)(TBX_ARGC_FILE_CLOSE) },
+        { (uint8_t)TBX_FILE_DELETE, (uint8_t)(TBX_ARGC_FILE_DELETE) },
+        { (uint8_t)TBX_ALERT, (uint8_t)(TBX_ARGC_ALERT) },
+        { (uint8_t)TBX_SCRAP_PUT, (uint8_t)(TBX_ARGC_SCRAP_PUT) },
+        { (uint8_t)TBX_SCRAP_GET, (uint8_t)(TBX_ARGC_SCRAP_GET) },
+        { (uint8_t)TBX_SFGETFILE, (uint8_t)(TBX_ARGC_SFGETFILE) },
+        { (uint8_t)TBX_SFPUTFILE, (uint8_t)(TBX_ARGC_SFPUTFILE) },
+        { (uint8_t)TBX_SETSCROLL, (uint8_t)(TBX_ARGC_SETSCROLL) },
+        { (uint8_t)TBX_GETSCROLL, (uint8_t)(TBX_ARGC_GETSCROLL) },
+        { (uint8_t)TBX_GLOBALTOLOCAL, (uint8_t)(TBX_ARGC_GLOBALTOLOCAL) },
+        { (uint8_t)TBX_FILECOPY, (uint8_t)(TBX_ARGC_FILECOPY) },
+        { (uint8_t)TBX_DIALOG, (uint8_t)(6) },
+        { (uint8_t)TBX_SETTINGS, (uint8_t)(2) },
+        { (uint8_t)TBX_CLOCK, (uint8_t)(2) },
+        { (uint8_t)TBX_MEMORY, (uint8_t)(1) }
+        };
+        for (uint32_t k = 0; k < sizeof argn / sizeof argn[0]; k++)
+            if (argn[k].ax == ax) { argc = argn[k].argc; break; }
     }
 #ifndef TBX_MUT_ARG_OFFSET
     for (uint32_t i = 0; i < argc; i++)
@@ -1174,36 +1195,6 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         tputs(" rec=+0x");
         tputx(a[0] - g_slot.plan.load_base, 4);
         break;
-    case TBX_NEWWINDOW:
-        trace_int(" l=", a[0]); trace_int(" t=", a[1]);
-        trace_int(" r=", a[2]); trace_int(" b=", a[3]);
-        trace_int(" goaway=", a[4]);
-        break;
-    case TBX_SETWTITLE:
-        trace_int(" win=", a[0]); trace_str(" s=", a[1]);
-        break;
-    case TBX_CONTENTORIGIN:
-        trace_int(" win=", a[0]);
-        break;
-    case TBX_TEXTDRAW:
-    case TBX_DRAWCELLS:
-        trace_int(" win=", a[0]); trace_int(" x=", a[1]); trace_int(" y=", a[2]);
-        trace_str(" s=", a[3]); trace_int(" fg=", a[4]); trace_int(" bg=", a[5]);
-        break;
-    case TBX_FILLRECT:
-        trace_int(" win=", a[0]); trace_int(" l=", a[1]); trace_int(" t=", a[2]);
-        trace_int(" r=", a[3]); trace_int(" b=", a[4]); trace_int(" c=", a[5]);
-        break;
-    case TBX_EXIT:
-        trace_int(" rc=", a[0]);
-        break;
-    case TBX_ALERT:
-        trace_str(" def=", a[1]); trace_str(" cancel=", a[2]);
-        trace_str(" other=", a[3]);
-        break;
-    case TBX_FILECOPY:
-        trace_str(" s=", a[0]); trace_str(" src=", a[1]); trace_str(" dst=", a[2]);
-        break;
     case TBX_SETMBAR:
         tputs(" bar=+0x");
         tputx(a[0] - g_slot.plan.load_base, 4);
@@ -1216,23 +1207,46 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         } else tputs("?");
         if (ax == TBX_FILE_OPEN) trace_int(" mode=", a[1]);
         break;
-    case TBX_FILE_READ: case TBX_FILE_WRITE:
-        trace_int(" h=", a[0]); trace_int(" n=", a[2]); break;
-    case TBX_FILE_SEEK:
-        trace_int(" h=", a[0]); trace_int(" delta=", a[1]); trace_int(" origin=", a[2]); break;
-    case TBX_FILE_CLOSE: trace_int(" h=", a[0]); break;
-    case TBX_SCRAP_PUT: case TBX_SCRAP_GET:
-        trace_int(" n=", a[1]); break;
-    case TBX_SFPUTFILE:
-        trace_str(" prompt=", a[0]); trace_str(" name=", a[1]); break;
-    case TBX_SETSCROLL:
-        trace_int(" win=", a[0]); trace_int(" len=", a[1]); trace_int(" value=", a[2]); break;
-    case TBX_GETSCROLL:
-        trace_int(" win=", a[0]); break;
-    case TBX_GLOBALTOLOCAL:
-        trace_int(" win=", a[0]); trace_int(" h=", a[1]); trace_int(" v=", a[2]); break;
-    default:
+    default: {
+        /* Size round 6 (WL-0162): the plain verbs' trace fields as data --
+         * each field is a control byte (1..6 = a[0..5] as an integer,
+         * 0x11..0x16 = a[0..5] as an image string), its label, a NUL; an
+         * empty field (the explicit trailing \0) ends the list. The same
+         * " key=value" bytes trace_int / trace_str always wrote. */
+        static const struct { uint16_t ax; const char *d; } fields[] = {
+            { TBX_NEWWINDOW, "\1 l=\0\2 t=\0\3 r=\0\4 b=\0\5 goaway=\0" },
+            { TBX_SETWTITLE, "\1 win=\0\22 s=\0" },
+            { TBX_CONTENTORIGIN, "\1 win=\0" },
+            { TBX_TEXTDRAW, "\1 win=\0\2 x=\0\3 y=\0\24 s=\0\5 fg=\0\6 bg=\0" },
+            { TBX_DRAWCELLS, "\1 win=\0\2 x=\0\3 y=\0\24 s=\0\5 fg=\0\6 bg=\0" },
+            { TBX_FILLRECT, "\1 win=\0\2 l=\0\3 t=\0\4 r=\0\5 b=\0\6 c=\0" },
+            { TBX_EXIT, "\1 rc=\0" },
+            { TBX_ALERT, "\22 def=\0\23 cancel=\0\24 other=\0" },
+            { TBX_FILECOPY, "\21 s=\0\22 src=\0\23 dst=\0" },
+            { TBX_FILE_READ, "\1 h=\0\3 n=\0" },
+            { TBX_FILE_WRITE, "\1 h=\0\3 n=\0" },
+            { TBX_FILE_SEEK, "\1 h=\0\2 delta=\0\3 origin=\0" },
+            { TBX_FILE_CLOSE, "\1 h=\0" },
+            { TBX_SCRAP_PUT, "\2 n=\0" },
+            { TBX_SCRAP_GET, "\2 n=\0" },
+            { TBX_SFPUTFILE, "\21 prompt=\0\22 name=\0" },
+            { TBX_SETSCROLL, "\1 win=\0\2 len=\0\3 value=\0" },
+            { TBX_GETSCROLL, "\1 win=\0" },
+            { TBX_GLOBALTOLOCAL, "\1 win=\0\2 h=\0\3 v=\0" }
+        };
+        for (uint32_t k = 0; k < sizeof fields / sizeof fields[0]; k++) {
+            if (fields[k].ax != ax) continue;
+            for (const char *p = fields[k].d; *p; ) {
+                unsigned c = (unsigned char)*p++;
+                uint32_t v = a[(c & 0xFu) - 1u];
+                if (c & 0x10u) trace_str(p, v);
+                else           trace_int(p, v);
+                while (*p++) { }
+            }
+            break;
+        }
         break;
+    }
     }
     tputs(" -> ");
     tputi(rc);
@@ -1693,12 +1707,14 @@ int tbx_reap(void)
          * watchdog -- the tenant already gave the CPU back (BC-4). */
         if (g_slot.crashed) {
             finish("crash", -1);
+            return -1;
         } else {
             tputs("TENANT-UNREGISTERED name=");
             tputs(g_slot.file);
             tputs("\n");
             flair_free(g_host.master, FLAIR_CLASS_GENERAL, g_slot.block);
             slot_clear();
+            return -2;
         }
         return 0;
     }
@@ -1709,7 +1725,7 @@ int tbx_reap(void)
     if (g_slot.crashed) {                   /* death: never close(), never re-enter */
         FlairProcess_kill(g_host.list, g_host.wm, g_host.master, g_slot.app);
         finish("crash", -1);
-        return 1;
+        return -1;
     }
     if (g_slot.exit_req) {
         int32_t rc = g_slot.exit_rc;

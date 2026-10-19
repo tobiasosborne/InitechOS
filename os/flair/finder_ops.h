@@ -123,6 +123,7 @@
 #include <stdint.h>
 
 #include "finder_windows.h"
+finder_win_status_t finder_ops_put_away(finder_shell_t *sh, int slot, int idx);
 
 typedef enum finder_tgt_kind {
     FINDER_TGT_NONE       = 0,   /* no target: zoom back, nothing changes      */
@@ -204,4 +205,7 @@ const char *finder_ops_reason(finder_win_status_t st);
 uint16_t finder_shell_load_origins(finder_shell_t *sh, const uint8_t *buf,
                                    uint32_t len);
 
+finder_win_status_t finder_ops_replace(finder_shell_t *sh,int slot,int idx,
+                                      const finder_tgt_t *t,int16_t x,int16_t y,
+                                      finder_move_result_t *out);
 #endif /* INITECH_OS_FLAIR_FINDER_OPS_H */

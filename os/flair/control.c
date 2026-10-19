@@ -103,7 +103,12 @@ enum {
     CTRL_PROG_S     = FLAIR_PART_SB_THUMB_SHADOW,
     CTRL_PROG_R     = FLAIR_PART_SB_THUMB_GRIP,
     CTRL_PROG_CAP   = FLAIR_PART_MENU_TITLE_HILITE_SHADOW,
-    CTRL_PROG_TRACK_EDGE = FLAIR_PART_PLAT_INACTIVE_FRAME /* #777777 */
+    CTRL_PROG_TRACK_EDGE = FLAIR_PART_PLAT_INACTIVE_FRAME, /* #777777 */
+    /* Pressed push button (tdnl.88; mint-010, sys8/controls.md Sec 5.3):
+     * the sunken rims and the darkened face, each an existing ramp row. */
+    CTRL_PRESS_RIM   = FLAIR_PART_PLAT_PRESSED_RIM,    /* #666666 outer TL */
+    CTRL_PRESS_LIGHT = FLAIR_PART_PLAT_INACTIVE_FRAME, /* #777777 inner TL */
+    CTRL_PRESS_FACE  = FLAIR_PART_PLAT_INACTIVE_TEXT   /* #878787 face     */
 };
 
 /* ===========================================================================
@@ -404,13 +409,62 @@ int16_t ctrl_progress_fill_px(const ControlRecord *ctrl)
  * DRAW DISPATCH
  * ===========================================================================*/
 
-/* draw_push_button -- sampled Mac OS 8.1 Platinum unpressed push button.
+/* Run tables (kernel size, WL-0162): one row code, a start (>= 0: x0 + n;
+ * < 0: x1 + n), a length (> 0: n px; <= 0: w + n px) and a PART, painted in
+ * table order over the rect [x0,x1) x [y0,y1). Row codes: y0, y1-1, y0+1,
+ * y0+2, the straight body y0+3..y1-4, y0+3, y1-4, y1-3, y1-2. */
+enum { R_TOP, R_BOT, R_1, R_2, R_BODY, R_3, R_B4, R_B3, R_B2 };
+typedef struct { uint8_t row; int8_t x, n; uint8_t part; } btn_run_t;
+#define BR(r, x, n, p) { (uint8_t)(r), (int8_t)(x), (int8_t)(n), (uint8_t)(p) }
+
+static void ctrl_runs(GrafPort *port, int x0, int y0, int x1, int y1,
+                      const btn_run_t *t, int nt)
+{
+    static const int8_t yoff[] = { 0, -1, 1, 2, 0, 3, -4, -3, -2 };
+    for (int i = 0; i < nt; i++) {
+        int r = t[i].row, ya, yb;
+        if (r == R_BODY) { ya = y0 + 3; yb = y1 - 4; }
+        else ya = yb = (yoff[r] >= 0 ? y0 : y1) + yoff[r];
+        int x = (t[i].x >= 0 ? x0 : x1) + t[i].x;
+        int n = t[i].n > 0 ? t[i].n : (x1 - x0) + t[i].n;
+        for (int y = ya; y <= yb; y++) {
+            cfill_ctrl(port, x, y, n, t[i].part);
+        }
+    }
+}
+
+/* 2-D rect tables (size round 6, WL-0162): each entry is one crect_ctrl
+ * whose edges are offsets from the box's left/top or (CR_*R/B) its
+ * right/bottom edge, painted in table order. */
+typedef struct { int8_t x0, y0, x1, y1; uint8_t f, part; } ctrl_rect_t;
+#define CR_X0R 1u
+#define CR_X1R 2u
+#define CR_Y0B 4u
+#define CR_Y1B 8u
+#define CRX(x0, y0, x1, y1, f, p) { (int8_t)(x0), (int8_t)(y0), (int8_t)(x1), (int8_t)(y1), (uint8_t)(f), (uint8_t)(p) }
+static void ctrl_rects(GrafPort *port, int l, int t, int r, int b,
+                       const ctrl_rect_t *tab, int n)
+{
+    for (int i = 0; i < n; i++) {
+        unsigned f = tab[i].f;
+        crect_ctrl(port, ((f & CR_X0R) ? r : l) + tab[i].x0,
+                   ((f & CR_Y0B) ? b : t) + tab[i].y0,
+                   ((f & CR_X1R) ? r : l) + tab[i].x1,
+                   ((f & CR_Y1B) ? b : t) + tab[i].y1, tab[i].part);
+    }
+}
+
+/* draw_push_button -- sampled Mac OS 8.1 Platinum push button, idle and
+ * PRESSED (contrlHilite == inButton while the mouse is held inside).
  *
  * The 20px class uses the exact asymmetric edge families measured on both
  * s8_alert_modal buttons: E7 inset, white highlight, C0/96 shadow, and the
- * E7/3F/CD rounded corners. Pressed art is a golden GAP, so the
- * pre-existing accent-fill tracking branch is retained and not claimed as
- * Platinum. Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.1/Sec 8. */
+ * E7/3F/CD rounded corners. The pressed state is the mint-010 capture
+ * (s8_alert_ok_pressed.png): the same black frame and 3F corners, the inside
+ * sunk -- 66 outer / 77 inner on the top+left, 87 face, 96 inner / A5 outer
+ * on the bottom+right, white label. Default and plain buttons press alike.
+ * Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.1/5.3;
+ *      ../system7-decomp/re/mint-results-010.md Sec 2. */
 static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
 {
     int x0 = (int)ctrl->contrlRect.left;
@@ -424,88 +478,118 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
     }
 
     int hilited = (ctrl->contrlHilite == inButton);
+#if defined(CTRL_MUT_PRESS_ACCENT) && CTRL_MUT_PRESS_ACCENT
     int face_part = hilited ? CTRL_ACCENT : CTRL_PLAT_FACE;
+#else
+    int face_part = hilited ? CTRL_PRESS_FACE : CTRL_PLAT_FACE;
+#endif
 
+#if defined(CTRL_MUT_PRESS_ACCENT) && CTRL_MUT_PRESS_ACCENT
     if (hilited) {
-        /* controls.md Sec 8: pressed/tracking is unresolved. Preserve the
-         * retained heritage state byte-for-byte; do not invent Platinum art. */
+        /* NAMED MUTANT (Rule 6, tdnl.88): the retired pre-mint heritage
+         * accent fill; test-flair-dialog-pressed-golden must go RED. */
         crect_ctrl(port, x0, y0, x1, y1, CTRL_ACCENT);
         cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
         cfill_ctrl(port, x0,     y0,     1, CTRL_DESKTOP);
         cfill_ctrl(port, x1 - 1, y0,     1, CTRL_DESKTOP);
         cfill_ctrl(port, x0,     y1 - 1, 1, CTRL_DESKTOP);
         cfill_ctrl(port, x1 - 1, y1 - 1, 1, CTRL_DESKTOP);
-    } else {
+    } else
+#endif
+    {
         crect_ctrl(port, x0, y0, x1, y1, CTRL_PLAT_FACE);
 #if defined(CTRL_MUT_BTN_FLAT) && CTRL_MUT_BTN_FLAT
         /* NAMED MUTANT: remove the sampled bevel/corner anatomy. */
         cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
 #else
-        /* M012 / tdnl.100: decoded s8_alert_modal.png four 4x4 patches:
-         * x363..366 / x418..421, y158..161 / y174..177.
+        /* The anatomy as run tables (kernel size, WL-0162): one row code,
+         * a start (>= 0: x0 + n; < 0: x1 + n), a length (> 0: n px;
+         * <= 0: w + n px) and a PART. Both tables are transcriptions of the
+         * captures; the order is the paint order (the two inner corner
+         * steps land after the straight body).
+         *
+         * IDLE -- M012 / tdnl.100: decoded s8_alert_modal.png four 4x4
+         * patches x363..366 / x418..421, y158..161 / y174..177.
          * Legend: e=E7E7E7, k=000000, d=3F3F3F, c=CDCDCD, w=FFFFFF,
          * s=C0C0C0, g=969696. Rows are left-to-right, top-to-bottom:
          * TL eedk ekce dcww keww     TR kdee ecke wecd esgk
          * BL kewe dces ekcg eedk     BR ssgk sggd ggke kdee
-         * The outer two top/bottom corner pixels are FACE, not a gray fringe.
-         * Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.1. */
-        cfill_ctrl(port, x0 + 2, y0, 1, CTRL_PLAT_DARK_RING);
-        cfill_ctrl(port, x0 + 3, y0, w - 6, CTRL_BLACK);
-        cfill_ctrl(port, x1 - 3, y0, 1, CTRL_PLAT_DARK_RING);
-        cfill_ctrl(port, x0 + 2, y1 - 1, 1, CTRL_PLAT_DARK_RING);
-        cfill_ctrl(port, x0 + 3, y1 - 1, w - 6, CTRL_BLACK);
-        cfill_ctrl(port, x1 - 3, y1 - 1, 1, CTRL_PLAT_DARK_RING);
-
-        /* Corner-transition rows, transcribed from the two sampled buttons. */
-        cfill_ctrl(port, x0 + 1, y0 + 1, 1, CTRL_BLACK);
-        cfill_ctrl(port, x0 + 2, y0 + 1, 1, CTRL_PLAT_CORNER);
-        cfill_ctrl(port, x1 - 3, y0 + 1, 1, CTRL_PLAT_CORNER);
-        cfill_ctrl(port, x1 - 2, y0 + 1, 1, CTRL_BLACK);
-
-        cfill_ctrl(port, x0,     y0 + 2, 1, CTRL_PLAT_DARK_RING);
-        cfill_ctrl(port, x0 + 1, y0 + 2, 1, CTRL_PLAT_CORNER);
-        cfill_ctrl(port, x0 + 2, y0 + 2, w - 5, CTRL_WHITE);
-        cfill_ctrl(port, x1 - 3, y0 + 2, 1, CTRL_PLAT_FACE);
-        cfill_ctrl(port, x1 - 2, y0 + 2, 1, CTRL_PLAT_CORNER);
-        cfill_ctrl(port, x1 - 1, y0 + 2, 1, CTRL_PLAT_DARK_RING);
-
-        /* Straight body: black frame, E7 inset, white light, C0/96 dark. */
-        for (int y = y0 + 3; y < y1 - 3; y++) {
-            cfill_ctrl(port, x0,     y, 1, CTRL_BLACK);
-            cfill_ctrl(port, x0 + 1, y, 1, CTRL_PLAT_FACE);
-            cfill_ctrl(port, x0 + 2, y, 1, CTRL_WHITE);
-            cfill_ctrl(port, x1 - 3, y, 1, CTRL_PLAT_SHADOW);
-            cfill_ctrl(port, x1 - 2, y, 1, CTRL_PLAT_DARK_SHADOW);
-            cfill_ctrl(port, x1 - 1, y, 1, CTRL_BLACK);
-        }
-        cfill_ctrl(port, x0 + 3, y0 + 3, 1, CTRL_WHITE);
-        cfill_ctrl(port, x1 - 4, y1 - 4, 1, CTRL_PLAT_SHADOW);
-
-        cfill_ctrl(port, x0,     y1 - 3, 1, CTRL_PLAT_DARK_RING);
-        cfill_ctrl(port, x0 + 1, y1 - 3, 1, CTRL_PLAT_CORNER);
-        cfill_ctrl(port, x0 + 2, y1 - 3, 1, CTRL_PLAT_FACE);
-        cfill_ctrl(port, x0 + 3, y1 - 3, w - 6, CTRL_PLAT_SHADOW);
-        cfill_ctrl(port, x1 - 3, y1 - 3, 2, CTRL_PLAT_DARK_SHADOW);
-        cfill_ctrl(port, x1 - 1, y1 - 3, 1, CTRL_PLAT_DARK_RING);
-
-        cfill_ctrl(port, x0 + 1, y1 - 2, 1, CTRL_BLACK);
-        cfill_ctrl(port, x0 + 2, y1 - 2, 1, CTRL_PLAT_CORNER);
-        cfill_ctrl(port, x0 + 3, y1 - 2, w - 6, CTRL_PLAT_DARK_SHADOW);
-        cfill_ctrl(port, x1 - 3, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
-        cfill_ctrl(port, x1 - 2, y1 - 2, 1, CTRL_BLACK);
+         * The outer two top/bottom corner pixels are FACE, not a gray
+         * fringe. Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.1.
+         *
+         * PRESSED -- mint-010 Sec 2 (s8_alert_ok_pressed.png, OK
+         * x435..493 y158..177): the same black frame and 3F corners, the
+         * inside sunk -- 66 outer / 77 inner on the top+left, 87 face,
+         * 96 inner / A5 outer on the bottom+right. The 12 pixels outside
+         * the rounded frame keep the idle face (the dialog face, or the
+         * default ring's moat drawn after this). Ref: controls.md Sec 5.3;
+         * ../system7-decomp/re/mint-results-010.md Sec 2. */
+        static const btn_run_t idle[] = {
+            BR(R_TOP, 2, 1, CTRL_PLAT_DARK_RING), BR(R_TOP, 3, -6, CTRL_BLACK),
+            BR(R_TOP, -3, 1, CTRL_PLAT_DARK_RING),
+            BR(R_BOT, 2, 1, CTRL_PLAT_DARK_RING), BR(R_BOT, 3, -6, CTRL_BLACK),
+            BR(R_BOT, -3, 1, CTRL_PLAT_DARK_RING),
+            BR(R_1, 1, 1, CTRL_BLACK), BR(R_1, 2, 1, CTRL_PLAT_CORNER),
+            BR(R_1, -3, 1, CTRL_PLAT_CORNER), BR(R_1, -2, 1, CTRL_BLACK),
+            BR(R_2, 0, 1, CTRL_PLAT_DARK_RING), BR(R_2, 1, 1, CTRL_PLAT_CORNER),
+            BR(R_2, 2, -5, CTRL_WHITE), BR(R_2, -3, 1, CTRL_PLAT_FACE),
+            BR(R_2, -2, 1, CTRL_PLAT_CORNER), BR(R_2, -1, 1, CTRL_PLAT_DARK_RING),
+            BR(R_BODY, 0, 1, CTRL_BLACK), BR(R_BODY, 1, 1, CTRL_PLAT_FACE),
+            BR(R_BODY, 2, 1, CTRL_WHITE), BR(R_BODY, -3, 1, CTRL_PLAT_SHADOW),
+            BR(R_BODY, -2, 1, CTRL_PLAT_DARK_SHADOW), BR(R_BODY, -1, 1, CTRL_BLACK),
+            BR(R_3, 3, 1, CTRL_WHITE), BR(R_B4, -4, 1, CTRL_PLAT_SHADOW),
+            BR(R_B3, 0, 1, CTRL_PLAT_DARK_RING), BR(R_B3, 1, 1, CTRL_PLAT_CORNER),
+            BR(R_B3, 2, 1, CTRL_PLAT_FACE), BR(R_B3, 3, -6, CTRL_PLAT_SHADOW),
+            BR(R_B3, -3, 2, CTRL_PLAT_DARK_SHADOW), BR(R_B3, -1, 1, CTRL_PLAT_DARK_RING),
+            BR(R_B2, 1, 1, CTRL_BLACK), BR(R_B2, 2, 1, CTRL_PLAT_CORNER),
+            BR(R_B2, 3, -6, CTRL_PLAT_DARK_SHADOW), BR(R_B2, -3, 1, CTRL_PLAT_DARK_SHADOW),
+            BR(R_B2, -2, 1, CTRL_BLACK)
+        };
+        static const btn_run_t pressed[] = {
+            BR(R_TOP, 2, 1, CTRL_PLAT_DARK_RING), BR(R_TOP, 3, -6, CTRL_BLACK),
+            BR(R_TOP, -3, 1, CTRL_PLAT_DARK_RING),
+            BR(R_BOT, 2, 1, CTRL_PLAT_DARK_RING), BR(R_BOT, 3, -6, CTRL_BLACK),
+            BR(R_BOT, -3, 1, CTRL_PLAT_DARK_RING),
+            /* y0+1: black corner steps around a full 66 rim row. */
+            BR(R_1, 1, 1, CTRL_BLACK), BR(R_1, 2, -4, CTRL_PRESS_RIM),
+            BR(R_1, -2, 1, CTRL_BLACK),
+            /* y0+2: 3F | 66 66 | 77 ... 77 | 87 | 96 | 3F */
+            BR(R_2, 0, 1, CTRL_PLAT_DARK_RING), BR(R_2, 1, 2, CTRL_PRESS_RIM),
+            BR(R_2, 3, -6, CTRL_PRESS_LIGHT), BR(R_2, -3, 1, CTRL_PRESS_FACE),
+            BR(R_2, -2, 1, CTRL_PLAT_DARK_SHADOW), BR(R_2, -1, 1, CTRL_PLAT_DARK_RING),
+            /* body: black, 66 rim, 77 light, 87 face, 96, A5, black */
+            BR(R_BODY, 0, 1, CTRL_BLACK), BR(R_BODY, 1, 1, CTRL_PRESS_RIM),
+            BR(R_BODY, 2, 1, CTRL_PRESS_LIGHT), BR(R_BODY, 3, -6, CTRL_PRESS_FACE),
+            BR(R_BODY, -3, 1, CTRL_PLAT_DARK_SHADOW),
+            BR(R_BODY, -2, 1, CTRL_PLAT_WIDGET_EDGE), BR(R_BODY, -1, 1, CTRL_BLACK),
+            BR(R_3, 3, 1, CTRL_PRESS_LIGHT), BR(R_B4, -4, 1, CTRL_PLAT_DARK_SHADOW),
+            /* y1-3: 3F | 66 | 87 | 96 ... 96 | A5 A5 | 3F */
+            BR(R_B3, 0, 1, CTRL_PLAT_DARK_RING), BR(R_B3, 1, 1, CTRL_PRESS_RIM),
+            BR(R_B3, 2, 1, CTRL_PRESS_FACE), BR(R_B3, 3, -6, CTRL_PLAT_DARK_SHADOW),
+            BR(R_B3, -3, 2, CTRL_PLAT_WIDGET_EDGE), BR(R_B3, -1, 1, CTRL_PLAT_DARK_RING),
+            /* y1-2: black | 96 | A5 ... A5 | black */
+            BR(R_B2, 1, 1, CTRL_BLACK), BR(R_B2, 2, 1, CTRL_PLAT_DARK_SHADOW),
+            BR(R_B2, 3, -5, CTRL_PLAT_WIDGET_EDGE), BR(R_B2, -2, 1, CTRL_BLACK)
+        };
+        const btn_run_t *t = hilited ? pressed : idle;
+        int nt = hilited ? (int)(sizeof pressed / sizeof pressed[0])
+                         : (int)(sizeof idle / sizeof idle[0]);
+        ctrl_runs(port, x0, y0, x1, y1, t, nt);
 #if defined(CTRL_MUT_BTN_FRINGE) && CTRL_MUT_BTN_FRINGE
-        /* Rule 6: restore the thirteen pre-M012 corner errors. */
-        for (int y = y0; y < y1; y += h - 1) {
-            cfill_ctrl(port, x0, y, 1, CTRL_PLAT_SHADOW);
-            cfill_ctrl(port, x0 + 1, y, 1, CTRL_PLAT_DARK_SHADOW);
-            cfill_ctrl(port, x1 - 2, y, 1, CTRL_PLAT_DARK_SHADOW);
-            cfill_ctrl(port, x1 - 1, y, 1, CTRL_PLAT_SHADOW);
+        if (!hilited) {
+            /* Rule 6: restore the thirteen pre-M012 corner errors. */
+            for (int y = y0; y < y1; y += h - 1) {
+                cfill_ctrl(port, x0, y, 1, CTRL_PLAT_SHADOW);
+                cfill_ctrl(port, x0 + 1, y, 1, CTRL_PLAT_DARK_SHADOW);
+                cfill_ctrl(port, x1 - 2, y, 1, CTRL_PLAT_DARK_SHADOW);
+                cfill_ctrl(port, x1 - 1, y, 1, CTRL_PLAT_SHADOW);
+            }
+            cfill_ctrl(port, x0, y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
+            cfill_ctrl(port, x1 - 1, y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
+            cfill_ctrl(port, x0, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
+            cfill_ctrl(port, x1 - 1, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
+            cfill_ctrl(port, x1 - 3, y1 - 2, 1, CTRL_PLAT_FACE);
         }
-        cfill_ctrl(port, x0, y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
-        cfill_ctrl(port, x1 - 1, y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
-        cfill_ctrl(port, x0, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
-        cfill_ctrl(port, x1 - 1, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
-        cfill_ctrl(port, x1 - 3, y1 - 2, 1, CTRL_PLAT_FACE);
 #endif
 #endif
     }
@@ -525,9 +609,12 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
         /* Rule 6: restore the pre-M011 opaque run over the bevel rows. */
         ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
 #else
+#if defined(CTRL_MUT_PRESS_ACCENT) && CTRL_MUT_PRESS_ACCENT
         if (hilited) {
             ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
-        } else if (w > 6 && h > 6) {
+        } else
+#endif
+        if (w > 6 && h > 6) {
             /* M011 / tdnl.99: s8_alert_modal.png x365..418 has 54 white
              * pixels at y160 and 53 C0 + one E7 at y175. The Chicago cell
              * includes blank rows outside its ink; clip its opaque erase to
@@ -679,41 +766,35 @@ static void draw_radio_button(GrafPort *port, const ControlRecord *ctrl)
 }
 
 /* Exact 8x4 Platinum arrow glyphs: widths 2/4/6/8. */
-static void draw_ctrl_up_triangle(GrafPort *port, int cx, int top, int part)
+/* The 4-row arrow glyph: up when `grow` (rows 2,4,6,8 wide), else down. */
+static void draw_ctrl_triangle(GrafPort *port, int cx, int top, int grow, int part)
 {
     for (int row = 0; row < 4; row++) {
-        int width = 2 + 2 * row;
+        int width = grow ? 2 + 2 * row : 8 - 2 * row;
         cfill_ctrl(port, cx - width / 2, top + row, width, part);
     }
 }
-
-static void draw_ctrl_down_triangle(GrafPort *port, int cx, int top, int part)
-{
-    for (int row = 0; row < 4; row++) {
-        int width = 8 - 2 * row;
-        cfill_ctrl(port, cx - width / 2, top + row, width, part);
-    }
-}
+#define draw_ctrl_up_triangle(p, cx, top, part) draw_ctrl_triangle((p), (cx), (top), 1, (part))
+#define draw_ctrl_down_triangle(p, cx, top, part) draw_ctrl_triangle((p), (cx), (top), 0, (part))
 
 static void draw_ctrl_scroll_tile(GrafPort *port,
                                   int x0, int y0, int x1, int y1)
 {
-    crect_ctrl(port, x0, y0, x1, y1, FLAIR_PART_PLAT_FACE);
+    /* The same raised tile as chrome.c draw_scroll_tile, as a rect table. */
+    static const ctrl_rect_t tile[] = {
+        CRX(0, 0, 0, 0, CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FACE),
 #if !defined(SB_MUT_TILE_FLAT)
-    cfill_ctrl(port, x0, y0, x1 - x0 - 1, FLAIR_PART_CONTENT);
-    for (int y = y0; y < y1; y++) {
-        cfill_ctrl(port, x0, y, 1, FLAIR_PART_CONTENT);
-    }
-    cfill_ctrl(port, x0 + 1, y1 - 1, x1 - x0 - 1,
-               FLAIR_PART_PLAT_TILE_SHADOW);
-    for (int y = y0; y < y1; y++) {
-        cfill_ctrl(port, x1 - 1, y, 1, FLAIR_PART_PLAT_TILE_SHADOW);
-    }
+        CRX(0, 0, -1, 1, CR_X1R, FLAIR_PART_CONTENT),
+        CRX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_CONTENT),
+        CRX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
+        CRX(-1, 0, 0, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
 #if !defined(SB_LOOK_MUT_CORNERS_BEVELLED)
-    cfill_ctrl(port, x1 - 1, y0, 1, FLAIR_PART_PLAT_FACE);
-    cfill_ctrl(port, x0, y1 - 1, 1, FLAIR_PART_PLAT_FACE);
+        CRX(-1, 0, 0, 1, CR_X0R | CR_X1R, FLAIR_PART_PLAT_FACE),
+        CRX(0, -1, 1, 0, CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FACE),
 #endif
 #endif
+    };
+    ctrl_rects(port, x0, y0, x1, y1, tile, (int)(sizeof tile / sizeof tile[0]));
 }
 
 static void draw_ctrl_scroll_well(GrafPort *port,
@@ -725,14 +806,14 @@ static void draw_ctrl_scroll_well(GrafPort *port,
 #if defined(SB_MUT_FLAT_WELL)
     crect_ctrl(port, x0, y0, x1, y1, FLAIR_PART_PLAT_WELL);
 #else
-    for (int y = y0; y < y1; y++) {
-        cfill_ctrl(port, x0, y, 1, FLAIR_PART_PLAT_STRIPE_DARK);
-        cfill_ctrl(port, x0 + 1, y, 1, FLAIR_PART_PLAT_WIDGET_EDGE);
-        cfill_ctrl(port, x0 + 2, y, FLAIR_CHROME_SCROLL_WELL_FILL_ROWS,
-                   FLAIR_PART_PLAT_WELL);
-        cfill_ctrl(port, x1 - 2, y, 1, FLAIR_PART_PLAT_TILE_SHADOW);
-        cfill_ctrl(port, x1 - 1, y, 1, FLAIR_PART_PLAT_FRAME_FACE);
-    }
+    static const ctrl_rect_t well[] = {
+        CRX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_PLAT_STRIPE_DARK),
+        CRX(1, 0, 2, 0, CR_Y1B, FLAIR_PART_PLAT_WIDGET_EDGE),
+        CRX(2, 0, 2 + FLAIR_CHROME_SCROLL_WELL_FILL_ROWS, 0, CR_Y1B, FLAIR_PART_PLAT_WELL),
+        CRX(-2, 0, -1, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
+        CRX(-1, 0, 0, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FRAME_FACE)
+    };
+    ctrl_rects(port, x0, y0, x1, y1, well, (int)(sizeof well / sizeof well[0]));
     cfill_ctrl(port, x0, y0, x1 - x0, FLAIR_PART_PLAT_STRIPE_DARK);
     if (y0 + 1 < y1) {
         cfill_ctrl(port, x0, y0 + 1, x1 - x0,
@@ -746,17 +827,17 @@ static void draw_ctrl_scroll_well(GrafPort *port,
 static void draw_ctrl_scroll_thumb(GrafPort *port,
                                    int x0, int x1, int ty, int thumb_h)
 {
-    crect_ctrl(port, x0, ty, x1, ty + thumb_h, CTRL_SB_THUMB_FACE);
-
-    /* Leading/top and left highlight, trailing/bottom and right shadow. */
-    cfill_ctrl(port, x0, ty, 1, FLAIR_PART_PLAT_TROUGH);
-    cfill_ctrl(port, x0 + 1, ty, x1 - x0 - 2, CTRL_SB_THUMB_HL);
-    for (int y = ty + 1; y < ty + thumb_h - 1; y++) {
-        cfill_ctrl(port, x0, y, 1, CTRL_SB_THUMB_HL);
-        cfill_ctrl(port, x1 - 1, y, 1, CTRL_SB_THUMB_SHADOW);
-    }
-    cfill_ctrl(port, x0 + 1, ty + thumb_h - 1, x1 - x0 - 1,
-               CTRL_SB_THUMB_SHADOW);
+    /* Face, then the leading/top and left highlight, trailing/bottom and
+     * right shadow (rect table over x0..x1 x ty..ty+thumb_h). */
+    static const ctrl_rect_t ramp[] = {
+        CRX(0, 0, 0, 0, CR_X1R | CR_Y1B, CTRL_SB_THUMB_FACE),
+        CRX(0, 0, 1, 1, 0u, FLAIR_PART_PLAT_TROUGH),
+        CRX(1, 0, -1, 1, CR_X1R, CTRL_SB_THUMB_HL),
+        CRX(0, 1, 1, -1, CR_Y1B, CTRL_SB_THUMB_HL),
+        CRX(-1, 1, 0, -1, CR_X0R | CR_X1R | CR_Y1B, CTRL_SB_THUMB_SHADOW),
+        CRX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, CTRL_SB_THUMB_SHADOW)
+    };
+    ctrl_rects(port, x0, ty, x1, ty + thumb_h, ramp, (int)(sizeof ramp / sizeof ramp[0]));
 #if defined(SB_LOOK_MUT_RAMP_FLAT)
     crect_ctrl(port, x0, ty, x1, ty + thumb_h, CTRL_SB_THUMB_FACE);
     cfill_ctrl(port, x0, ty, 1, FLAIR_PART_PLAT_TROUGH);
@@ -970,43 +1051,31 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
         return;
     }
 
-    /* Establish the sampled E7 field within the expanded bounds. */
-    crect_ctrl(port,x0,y0,x1,by0,CTRL_PLAT_FACE);
-    crect_ctrl(port,x0,by1,x1,y1,CTRL_PLAT_FACE);
-    crect_ctrl(port,x0,by0,bx0,by1,CTRL_PLAT_FACE);
-    crect_ctrl(port,bx1,by0,x1,by1,CTRL_PLAT_FACE);
-
-    /* One-pixel rounded black ring with sampled 3F smoothing pixels. */
-    cfill_ctrl(port, x0 + 3, y0,     x1 - x0 - 6, CTRL_BLACK);
-    cfill_ctrl(port, x0 + 3, y1 - 1, x1 - x0 - 6, CTRL_BLACK);
-    for (int y = y0 + 3; y < y1 - 3; y++) {
-        cfill_ctrl(port, x0,     y, 1, CTRL_BLACK);
-        cfill_ctrl(port, x1 - 1, y, 1, CTRL_BLACK);
-    }
-    cfill_ctrl(port, x0 + 2, y0,     1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x1 - 3, y0,     1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x0 + 2, y1 - 1, 1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x1 - 3, y1 - 1, 1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x0 + 1, y0 + 1, 1, CTRL_BLACK);
-    cfill_ctrl(port, x1 - 2, y0 + 1, 1, CTRL_BLACK);
-    cfill_ctrl(port, x0 + 1, y1 - 2, 1, CTRL_BLACK);
-    cfill_ctrl(port, x1 - 2, y1 - 2, 1, CTRL_BLACK);
-    cfill_ctrl(port, x0,     y0 + 2, 1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x1 - 1, y0 + 2, 1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x0,     y1 - 3, 1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x1 - 1, y1 - 3, 1, CTRL_PLAT_DARK_RING);
-
-    /* Straight moat legs; DrawControl overlays the central button next. */
-    cfill_ctrl(port, bx0, y0 + 1, bx1 - bx0, CTRL_PLAT_FACE);
-    cfill_ctrl(port, bx0, y0 + 2, bx1 - bx0, CTRL_PLAT_SHADOW);
-    for (int y = by0; y < by1; y++) {
-        cfill_ctrl(port, x0 + 1, y, 1, CTRL_PLAT_FACE);
-        cfill_ctrl(port, x0 + 2, y, 1, CTRL_PLAT_SHADOW);
-        cfill_ctrl(port, x1 - 3, y, 1, CTRL_PLAT_SHADOW);
-        cfill_ctrl(port, x1 - 2, y, 1, CTRL_PLAT_DARK_SHADOW);
-    }
-    cfill_ctrl(port, bx0, by1,     bx1 - bx0, CTRL_PLAT_SHADOW);
-    cfill_ctrl(port, bx0, by1 + 1, bx1 - bx0, CTRL_PLAT_DARK_SHADOW);
+    /* The expanded bounds [x0,x1) x [y0,y1) (x0 = bx0 - 3 ...) as one run
+     * table, in the original paint order: the sampled E7 field, the
+     * one-pixel rounded black ring with its 3F smoothing pixels, then the
+     * straight moat legs (E7/C0 top+left, C0/96 bottom+right); DrawControl
+     * overlays the central button next. */
+    static const btn_run_t ring[] = {
+        BR(R_TOP, 0, 0, CTRL_PLAT_FACE), BR(R_1, 0, 0, CTRL_PLAT_FACE),
+        BR(R_2, 0, 0, CTRL_PLAT_FACE),
+        BR(R_B3, 0, 0, CTRL_PLAT_FACE), BR(R_B2, 0, 0, CTRL_PLAT_FACE),
+        BR(R_BOT, 0, 0, CTRL_PLAT_FACE),
+        BR(R_BODY, 0, 3, CTRL_PLAT_FACE), BR(R_BODY, -3, 3, CTRL_PLAT_FACE),
+        BR(R_TOP, 3, -6, CTRL_BLACK), BR(R_BOT, 3, -6, CTRL_BLACK),
+        BR(R_BODY, 0, 1, CTRL_BLACK), BR(R_BODY, -1, 1, CTRL_BLACK),
+        BR(R_TOP, 2, 1, CTRL_PLAT_DARK_RING), BR(R_TOP, -3, 1, CTRL_PLAT_DARK_RING),
+        BR(R_BOT, 2, 1, CTRL_PLAT_DARK_RING), BR(R_BOT, -3, 1, CTRL_PLAT_DARK_RING),
+        BR(R_1, 1, 1, CTRL_BLACK), BR(R_1, -2, 1, CTRL_BLACK),
+        BR(R_B2, 1, 1, CTRL_BLACK), BR(R_B2, -2, 1, CTRL_BLACK),
+        BR(R_2, 0, 1, CTRL_PLAT_DARK_RING), BR(R_2, -1, 1, CTRL_PLAT_DARK_RING),
+        BR(R_B3, 0, 1, CTRL_PLAT_DARK_RING), BR(R_B3, -1, 1, CTRL_PLAT_DARK_RING),
+        BR(R_1, 3, -6, CTRL_PLAT_FACE), BR(R_2, 3, -6, CTRL_PLAT_SHADOW),
+        BR(R_BODY, 1, 1, CTRL_PLAT_FACE), BR(R_BODY, 2, 1, CTRL_PLAT_SHADOW),
+        BR(R_BODY, -3, 1, CTRL_PLAT_SHADOW), BR(R_BODY, -2, 1, CTRL_PLAT_DARK_SHADOW),
+        BR(R_B3, 3, -6, CTRL_PLAT_SHADOW), BR(R_B2, 3, -6, CTRL_PLAT_DARK_SHADOW)
+    };
+    ctrl_runs(port, x0, y0, x1, y1, ring, (int)(sizeof ring / sizeof ring[0]));
     /* R4.5 independent whole-ring gate exposed the old radius-3 corners.
      * Ref: s8_alert_modal.png x432..496,y155..180: radius4, asymmetric
      * sampled smoothing/moat. These are the four 5x5 corner crops; straight

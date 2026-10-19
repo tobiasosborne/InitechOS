@@ -119,12 +119,8 @@ static MenuInfo finder_apple_menu = {
  *   (grayed) | div | Find F (grayed) | Page Setup (grayed) | Sharing (grayed)
  *   | Label (OMITTED -- no submenu support, D3-46) | Eject (grayed V1)
  *
- * Put Away is authored 0 and is NOT predicate-driven. os/flair/finder_cmd.c
- * says so at its row: "Put Away's V1 rest-graying (F4.2) is a menu-resource
- * enabled byte owned by tdnl.12; the SEMANTIC predicate -- the one dispatch
- * enforces -- is 'there is something selected to put away'." Both halves are
- * therefore true at once: the RESOURCE keeps it dark in V1, and if some future
- * route reaches the command anyway, dispatch still gates it on a selection.
+ * tdnl.57: Put Away stays dark until the selected Trash item has a stored
+ * origin. The shell implements the command; MenuKey and mouse share it.
  * ===========================================================================*/
 static MenuItem finder_file_items[] = {
     FM_ITEM("New Folder",   'N', 1),              /* FCMD_NEW_FOLDER  (always) */
@@ -275,6 +271,7 @@ typedef struct fm_pred_row {
 } fm_pred_row_t;
 
 static const fm_pred_row_t FINDER_MENU_PREDS[] = {
+    { FINDER_MENU_IX_FILE,    8u, finder_pred_selection_putaway }, /* tdnl.57 */
     { FINDER_MENU_IX_FILE,    1u, finder_pred_selection_openable }, /* Open #2 */
     { FINDER_MENU_IX_FILE,    3u, finder_pred_front_is_diskwin   }, /* Close #4 */
     { FINDER_MENU_IX_VIEW,    0u, finder_pred_front_is_diskwin   }, /* Icons #1 */

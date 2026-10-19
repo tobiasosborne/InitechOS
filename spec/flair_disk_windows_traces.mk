@@ -212,7 +212,8 @@
 #      (100*4 + 97 = 497 ; 72*3 + 71 + 71 = 358)
 # This trace is graded on SERIAL only (no screendump), so its intermediate
 # window rects need no probe clearance -- only the park does.
-FLAIR_FOLDER_NAV_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m100:-12,m77:0,l1,m100:85,m100:85,m10:0,l0,m-100:-40,m-100:-40,m-100:-40,m-87:-38,l1,l0,l1,l0,m100:72,m100:72,m100:72,m100:71,m97:71
+# tdnl.65 re-key: root content first consumes activation, then a double-click.
+FLAIR_FOLDER_NAV_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m100:-12,m77:0,l1,m100:85,m100:85,m10:0,l0,m-100:-40,m-100:-40,m-100:-40,m-87:-38,l1,l0,l1,l0,l1,l0,m100:72,m100:72,m100:72,m100:71,m97:71
 
 # ===========================================================================
 # 2. FLAIR_WINDOW_DRAG_PERSIST_SPEC -- open the root window, DRAG it to a new

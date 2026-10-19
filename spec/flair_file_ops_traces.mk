@@ -111,7 +111,8 @@ FLAIR_FILEOPS_BETWEEN_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100
 #    inside the APPS content: a WINDOW target whose directory IS APPS -- the
 #    folder into ITSELF: CYCLE.
 # H. PARK (450,352) -> (620,460): m100:54, m70:54.
-FLAIR_FILEOPS_REFUSE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:-8,m100:-8,m100:-8,m100:-7,m100:-7,m45:0,m0:2,l0,m-100:9,m-100:9,m-100:9,m-100:9,m-77:0,l1,l0,l1,l0,m77:-12,l1,m100:100,m50:50,l0,m-100:-100,m-50:-70,l1,l0,m-77:32,l1,m100:62,m100:62,m100:62,m27:62,m0:2,l0,m100:54,m70:54
+# tdnl.72 re-key: dismiss the first refusal before the cycle gesture.
+FLAIR_FILEOPS_REFUSE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:-8,m100:-8,m100:-8,m100:-7,m100:-7,m45:0,m0:2,l0,kesc,m-100:9,m-100:9,m-100:9,m-100:9,m-77:0,l1,l0,l1,l0,m77:-12,l1,m100:100,m50:50,l0,m-100:-100,m-50:-70,l1,l0,m-77:32,l1,m100:62,m100:62,m100:62,m27:62,m0:2,l0,m100:54,m70:54
 
 # ===========================================================================
 # 4. FLAIR_FILEOPS_TRASH_SPEC -- drag to the Trash three times; the third

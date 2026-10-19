@@ -630,6 +630,8 @@ uint32_t finder_desk_db_encode_full(const finder_desk_t *fd,
         return 0u;
 
     total = (uint32_t)fd->n + (uint32_t)n_views + (uint32_t)n_origins;
+    for(uint16_t o=0;o<n_origins;o++)
+        if((origins[o].flags & FINDER_ORIGIN_FLAG_RENAMED) && origins[o].original83[0]) total++;
     if (total > FINDER_DB_MAX_RECORDS) return 0u;   /* caller fails loud       */
 
     need = FINDER_DB_HEADER_SIZE + total * FINDER_DB_RECORD_SIZE;
@@ -672,6 +674,11 @@ uint32_t finder_desk_db_encode_full(const finder_desk_t *fd,
                       origins[o].dir_start, origins[o].name83, 0u, 0u, 0u);
         buf[off + 1] = (uint8_t)(origins[o].flags & FINDER_ORIGIN_FLAG_RENAMED);
         off += FINDER_DB_RECORD_SIZE;
+        if((origins[o].flags & FINDER_ORIGIN_FLAG_RENAMED) && origins[o].original83[0]) {
+            fd_put_record(buf+off,FINDER_DB_KIND_ORIGINAL,origins[o].dir_start,
+                          origins[o].original83,0u,0u,0u);
+            off+=FINDER_DB_RECORD_SIZE;
+        }
     }
     return need;
 }
@@ -708,6 +715,15 @@ int finder_desk_db_get_origins(const uint8_t *buf, uint32_t len,
         out[took].flags     = (uint8_t)(r[1] & FINDER_ORIGIN_FLAG_RENAMED);
         for (uint32_t k = 0u; k < 13u; k++) out[took].name83[k] = (char)r[4 + k];
         out[took].name83[13] = '\0';
+        for(uint32_t k=0;k<FINDER_DESK_NAME_MAX;k++) out[took].original83[k]='\0';
+        if(!(out[took].flags & FINDER_ORIGIN_FLAG_RENAMED))
+            fd_copy_name(out[took].original83,out[took].name83);
+        else if(i+1u<n && buf[off+FINDER_DB_RECORD_SIZE]==FINDER_DB_KIND_ORIGINAL &&
+                fd_get_le16(buf+off+FINDER_DB_RECORD_SIZE+2)==out[took].dir_start) {
+            for(uint32_t k=0;k<13u;k++)
+                out[took].original83[k]=(char)buf[off+FINDER_DB_RECORD_SIZE+4+k];
+            out[took].original83[13]='\0';
+        }
         took++;
     }
     return took;

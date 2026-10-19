@@ -53,9 +53,13 @@
 #                               32832 = 32808 + the 24-byte block overhead
 #                               (heap.c) -- a heap-layout change upstream,
 #                               surfaced here as this golden says it must be.
+#   RE-KEY initech-tdnl.61/.63: Finder DATA budget 4 KiB -> 256 KiB.
+#   Independent allocation arithmetic: +252*1024 = +258048 = +0x3f000;
+#   load base 0x001a6750 + 0x3f000 = 0x001e5750; tail
+#   3490784 - 258048 = 3232736. Records budget stays 64 KiB.
 # Mutation-proven: NO_REGISTER (test-flair-app-launch-mutant) diverges here.
 FLAIR-DISPATCH app=FINDER
-TENANT-LOAD name=TENANTFX.EXE len=812 base=0x001a6750
+TENANT-LOAD name=TENANTFX.EXE len=812 base=0x001e5750
 TENANT-REGISTER ok app=TENANTFX
 TENANT-GATE ax=0x0001 rec=+0x00e4 -> 0
 TENANT-GATE ax=0x0050 bar=+0x00fc -> 0
@@ -73,4 +77,4 @@ FLAIR-DISPATCH app=TENANTFX
 TENANT-EVT what=1
 TENANT-GATE ax=0x0070 rc=0 -> 0
 TENANT-EXIT rc=0 via=exit
-TENANT-HEAPAVAIL n=3490784
+TENANT-HEAPAVAIL n=3232736

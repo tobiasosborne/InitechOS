@@ -128,6 +128,7 @@ typedef struct FinderCtx {
      * initech-tdnl.38 -- Open on a document with no handler is grayed, not a
      * silent refusal; documents return with initech-tdnl.16). */
     uint8_t  selection_openable;
+    uint8_t  selection_putaway; /* selected item in Trash with a stored origin */
 
     /* --- the trace sink (caller-supplied; see banner) --------------------- */
     void   (*trace)(void *user, const char *line);
@@ -201,6 +202,7 @@ uint8_t finder_pred_front_is_diskwin(const FinderCtx *fx);
  * folder. Replaces HAS_SELECTION on File > Open: the shell opens folders only,
  * so a selected document would otherwise enable Open and do nothing. */
 uint8_t finder_pred_selection_openable(const FinderCtx *fx);
+uint8_t finder_pred_selection_putaway(const FinderCtx *fx);
 
 /* ===========================================================================
  * 5. LOOKUP + DISPATCH

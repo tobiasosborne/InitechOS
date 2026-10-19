@@ -438,6 +438,7 @@ void finder_desk_clamp(const finder_desk_t *fd, int16_t *x, int16_t *y);
 #define FINDER_DB_KIND_ITEM     3u   /* item-pos     (reserved, tdnl.11)       */
 #define FINDER_DB_KIND_VIEW     4u   /* folder-view  (per-folder window state) */
 #define FINDER_DB_KIND_ORIGIN   5u   /* trash-origin (written by R3.4a, F1.5)  */
+#define FINDER_DB_KIND_ORIGINAL 6u   /* tdnl.57: adjacent original-name record */
 
 #define FINDER_DB_MAX_VIEWS     8u
 /* R3.4a (bead initech-34dh): the kind=5 trash-origin records (design F1.5).
@@ -449,7 +450,7 @@ void finder_desk_clamp(const finder_desk_t *fd, int16_t *x, int16_t *y);
  * lost on serial (FINDER-TRASH-ORIGIN-FULL) -- never silently dropped. */
 #define FINDER_DB_MAX_ORIGINS   16u
 #define FINDER_DB_MAX_RECORDS   ((uint32_t)FINDER_DESK_MAX_ICONS + \
-                                 FINDER_DB_MAX_VIEWS + FINDER_DB_MAX_ORIGINS)
+                                 FINDER_DB_MAX_VIEWS + 2u * FINDER_DB_MAX_ORIGINS)
 #define FINDER_DB_MAX_BYTES     (FINDER_DB_HEADER_SIZE + \
                                  FINDER_DB_MAX_RECORDS * \
                                  FINDER_DB_RECORD_SIZE)
@@ -540,11 +541,11 @@ int finder_desk_db_find_view(const uint8_t *buf, uint32_t len,
  *      flags     <- bit0 = 1 when staging had to rename the item
  *                   (TRASH-RENAME); bits 1..7 reserved 0
  *      grid_x/grid_y/view_bits <- 0
- * DEVIATION, STATED: when bit0 is set the item's ORIGINAL 8.3 name is not in
- * the record -- the locked record has one 13-byte name field and the Trash
- * name is the lookup key. The original name is on serial (TRASH-RENAME
- * from=), and widening the record is a Rule 8 act for the Put Away bead, not a
- * silent format change here.
+ * tdnl.57 (Rule 8): a renamed kind=5 record with a known original name is
+ * immediately followed by kind=6, same dir_start, original name in bytes
+ * 4..16, zero coordinates/flags. Unrenamed records are byte-identical.
+ * Legacy renamed records without the companion refuse Put Away, never guess.
+ * Ref: docs/worklog/finder-limits-alerts-input.md.
  * ---------------------------------------------------------------------------*/
 #define FINDER_ORIGIN_FLAG_RENAMED  0x01u
 
@@ -552,6 +553,7 @@ typedef struct finder_origin_rec {
     uint16_t dir_start;                    /* origin directory (0 == root)     */
     uint8_t  flags;                        /* FINDER_ORIGIN_FLAG_*             */
     char     name83[FINDER_DESK_NAME_MAX]; /* the name as staged in \TRASH     */
+    char     original83[FINDER_DESK_NAME_MAX]; /* kind=6; empty for legacy loss */
 } finder_origin_rec_t;
 
 /* encode_all plus `n_origins` kind=5 records, appended AFTER the view records

@@ -48,6 +48,9 @@ static uint8_t finder_small_cell(int small, int idx) { return finder_small_art[s
 _Static_assert((int)FLAIR_PART_ICON_CLUT_LAST - (int)FLAIR_PART_ICON_CLUT + 1 ==
                (int)DESK_IC__COUNT - 1,
                "one FLAIR_PART_ICON_CLUT role per DESK_IC_* colour (desk_icons.h)");
+_Static_assert((int)FLAIR_PART_PLAT_PRESSED_RIM ==
+               (int)FLAIR_PART_ICON_CLUT + (int)DESK_IC_GRAY_66 - 1,
+               "tdnl.88 pressed rim is the DESK_IC_GRAY_66 role (#666666)");
 _Static_assert(FINDER_SMALL_COLORS >= DESK_ICON_TONES,
                "shared tone table must fit both icon cell sizes");
 
