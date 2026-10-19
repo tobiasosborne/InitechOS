@@ -56,6 +56,7 @@ enum {
  *   -19  FAT12_ERR_STALE_DIR  (a directory cluster that is no longer the live
  *                              directory the caller named; lifetime section)
  *   -20  FAT12_ERR_PARTITION (invalid MBR / hidden-sectors conflict; DEC-07a)
+ *   -21  FAT12_ERR_CLUSTER_SIZE (non-power-of-two or >64 sectors)
  * WHY the ledger exists: FAT12_ERR_NOT_EMPTY originally ALIASED
  * FAT12_ERR_ACCESS at -15, so a caller switching on the code could not tell
  * "CHMOD access denied" from "RMDIR non-empty" (found by the R3 Finder design
@@ -87,8 +88,10 @@ typedef enum {
 
 /* DEC-07a proposed -16 before -16..-19 were allocated. Keep codes unique. */
 #define FAT12_ERR_PARTITION (-20)
+#define FAT12_ERR_CLUSTER_SIZE (-21) /* invalid/unsupported BPB allocation unit */
 
 /* The FAT12/16 cluster-count threshold (Microsoft FAT spec). */
+#define FAT12_MAX_SPC 64u       /* streamed clusters: at most 32 KiB */
 #define FAT12_MAX_CLUSTERS 4085u   /* total_clusters < 4085 => FAT12 */
 #define FAT16_MAX_CLUSTERS 65525u  /* total_clusters < 65525 => FAT16 */
 
@@ -176,6 +179,7 @@ typedef struct fat12_dir {
  *   - boot-sector signature must be 0xAA55           -> FAT12_ERR_SIGNATURE
  *   - bytes_per_sector must equal 512                -> FAT12_ERR_SECTOR_SIZE
  *   - geometry must be sane (nonzero divisors etc.)  -> FAT12_ERR_GEOMETRY
+ *   - non-power-of-two spc or spc > 64                -> FAT12_ERR_CLUSTER_SIZE
  *   - any NULL argument                              -> FAT12_ERR_NULL
  *   - a failing device read                          -> FAT12_ERR_READ
  *   - invalid partition / hidden-sector mismatch     -> FAT12_ERR_PARTITION
@@ -568,9 +572,9 @@ int fat12_set_attr(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * e->start_cluster chain is walked INCREMENTALLY -- one fat12_next_cluster step
  * at a time, like fat12_read_partial -- and each cluster's data is copied,
  * sector-by-sector, via `cluster_buf` (a caller scratch buffer of at least
- * sectors_per_cluster * 512 bytes). There is NO on-stack whole-chain array, so
+ * 512 bytes). There is NO on-stack whole-chain array, so
  * an arbitrarily large file (FAT16 HDD geometry included) is served from that
- * single-cluster scratch without a kernel-stack hazard (beads initech-dao).
+ * single-sector scratch without a kernel-stack hazard (beads initech-dao).
  * *out_bytes is set to e->file_size.
  *
  * A zero-length file (file_size == 0; start_cluster may legitimately be 0) is
@@ -613,8 +617,8 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
  *
  * Unlike fat12_read_file, the chain is walked INCREMENTALLY (one
  * fat12_next_cluster step at a time) -- no on-stack chain[] array -- so an
- * arbitrarily large file is served from the caller's single-cluster `cluster_buf`
- * (>= sectors_per_cluster * 512) without a whole-file or whole-chain buffer.
+ * arbitrarily large file is served from the caller's single-sector `cluster_buf`
+ * (>=512) without a whole-file or whole-chain buffer.
  *
  * `out_buf` must hold at least the bytes actually returned (<= len); the caller
  * sizes it to `len`. `fat` / `fat_len` is the whole-FAT buffer from
@@ -710,7 +714,7 @@ int fat12_flush_fats(const fat12_volume_t *vol, const void *fat,
  * subdir is FULL it is GROWN by one cluster (fat12_grow_dir) so the new entry
  * lands in the fresh cluster -- exactly as real FAT12 / mtools grow a directory
  * (the fixed root cannot grow -> FAT12_ERR_DIR_FULL). `cluster_buf`
- * (>= sectors_per_cluster*512) is the directory-grow zero-fill scratch (it is
+ * (>=512) is the directory-grow zero-fill scratch (it is
  * used ONLY on a subdir-full grow; a root create / a non-full subdir never
  * touches it, so it may be the same scratch the caller passes write_at).
  *
@@ -742,7 +746,7 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *
  * Fail loud (Rule 2): no free cluster -> FAT12_ERR_NO_SPACE (and the partial
  * allocation is rolled back so the volume is not corrupted); write error ->
- * FAT12_ERR_WRITE. `cluster_buf` (>= sectors_per_cluster*512) is scratch.
+ * FAT12_ERR_WRITE. `cluster_buf` (>=512) is scratch.
  * Returns FAT12_OK on success. */
 int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                      uint32_t slot, const void *data, uint32_t len,
@@ -775,7 +779,7 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *
  * `fat`/`fat_len` is the whole-FAT buffer (mutated; both on-disk copies flushed).
  * `sector_buf` (>=512) is scratch for the dir-entry RMW; `cluster_buf`
- * (>= sectors_per_cluster*512) is scratch for the cluster RMW + zero-fill.
+ * (>=512) is scratch for the cluster RMW + zero-fill.
  *
  * SUBDIRECTORY PARENT (beads initech-zs24): `parent_dir_start` is the first data
  * cluster of the directory that CONTAINS the file (0 == the fixed root, byte-
@@ -938,9 +942,9 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * moved directory's '..' slot) are not modified.
  *
  * `fat`/`fat_len` is the whole-FAT buffer (READ for the subdir chain walks; only
- * MUTATED when the destination grows). `sector_buf` (>= sectors_per_cluster*512)
- * is scratch for the scans + the dirent RMWs; `cluster_buf` (>= sectors_per_
- * cluster*512, DISTINCT from sector_buf) is the destination-grow zero-fill
+ * MUTATED when the destination grows). `sector_buf` (>=512)
+ * is scratch for the scans + the dirent RMWs; `cluster_buf`
+ * (>=512, DISTINCT from sector_buf) is the destination-grow zero-fill
  * scratch -- only touched when a FULL SUBDIR destination must grow (NULL is fine
  * for a root destination or a non-full subdir; a full subdir destination with a
  * NULL cluster_buf -> FAT12_ERR_NULL, the fat12_mkdir convention).
@@ -994,7 +998,7 @@ int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *
  * `out_name83` must hold at least FAT12_NAME83_MAX (13) bytes. `fat`/`fat_len`
  * decode a subdir destination's chain (NULL/0 is fine for the fixed root);
- * `sector_buf` (>= sectors_per_cluster*512) is scratch. Fail loud (Rule 2): NULL
+ * `sector_buf` (>=512) is scratch. Fail loud (Rule 2): NULL
  * -> FAT12_ERR_NULL; a malformed name -> FAT12_ERR_NOT_FOUND; all 999 counters
  * taken -> FAT12_ERR_EXISTS; read/chain errors propagated. Returns FAT12_OK with
  * *out_name83 NUL-terminated.
@@ -1074,9 +1078,9 @@ int fat12_trash_suffix_name(const fat12_volume_t *vol, const void *fat,
  *     zero-fill write rolls back the same way.
  *
  * `fat`/`fat_len` is the whole-FAT buffer (mutated; both copies flushed);
- * `sector_buf` (>= sectors_per_cluster*512) is scratch for the new cluster's
+ * `sector_buf` (>=512) is scratch for the new cluster's
  * zero-fill + the '.'/'..' write AND the parent dir-entry RMW; `cluster_buf`
- * (>= sectors_per_cluster*512, DISTINCT from sector_buf) is the parent-grow
+ * (>=512, DISTINCT from sector_buf) is the parent-grow
  * zero-fill buffer -- only touched when a SUBDIR parent must grow (NULL is OK
  * for a root parent or a non-full subdir parent; a full subdir parent with a
  * NULL cluster_buf -> FAT12_ERR_NULL). Fail loud (Rule 2): no free cluster ->
@@ -1105,7 +1109,7 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *     mkdir/rmdir asymmetry is deliberate.
  *
  * `fat`/`fat_len` is the whole-FAT buffer (mutated; both copies flushed);
- * `sector_buf` (>= sectors_per_cluster*512) is scratch for the parent scan +
+ * `sector_buf` (>=512) is scratch for the parent scan +
  * the empty-check enumeration + the deleted-mark RMW. Fail loud (Rule 2): NULL
  * -> FAT12_ERR_NULL; no write backend -> FAT12_ERR_WRITE. Returns FAT12_OK on
  * success. */
@@ -1176,7 +1180,7 @@ int fat12_dir_identity(const fat12_volume_t *vol, const void *fat,
  *     same sentinels as the root reader; a non-zero cb return is propagated
  *     verbatim (early stop). A subdir is NOT bounded by root_entry_count.
  *
- * `sector_buf` (>= sectors_per_cluster*512 for the subdir path; >=512 for root)
+ * `sector_buf` (>=512 for the subdir path; >=512 for root)
  * is caller scratch; `fat`/`fat_len` is the whole-FAT buffer (only the subdir
  * path needs it). Fail loud (Rule 2): NULL arg -> FAT12_ERR_NULL; a read error
  * -> FAT12_ERR_READ; a corrupt/cyclic chain -> FAT12_ERR_CHAIN. Returns FAT12_OK
@@ -1204,7 +1208,7 @@ int fat12_read_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
  *     synthesized DIR_ATTR_DIRECTORY marker (start_cluster = the dir's).
  *
  * Component-internal '\\' / ':' stay rejected by parse_name83 (after the
- * top-level split). `sector_buf` (>= sectors_per_cluster*512) + `fat`/`fat_len`
+ * top-level split). `sector_buf` (>=512) + `fat`/`fat_len`
  * (whole-FAT buffer) are scratch/decode inputs. Fail loud (Rule 2): NULL ->
  * FAT12_ERR_NULL; a missing/typed-wrong component -> FAT12_ERR_NOT_FOUND; read
  * errors propagated. Returns FAT12_OK with *out_dir + *out_entry set.
