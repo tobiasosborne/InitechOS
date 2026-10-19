@@ -393,13 +393,40 @@ void DisposeDialog(DialogPtr dp, WindowMgr *wm)
  * ships in kernels that carry no Finder.
  * MUTANT DIALOG_MUT_NO_ICON (Rule 6): the iconItem is a no-op again -- the
  * alert probe's caution cells go RED. NEVER in a real build. */
+/* Kernel size round 5 (WL-0168): the freestanding kernel keeps the CAUTION
+ * strike packed (os/flair/asset_lz_data.h, generated from the unchanged
+ * locked alert_icons.h) and unpacks it into BSS on first use; a hosted build
+ * reads the locked table. test-asset-lz proves decode == locked (Rule 8).
+ * The DIALOG_MUT_NO_ICON mutant stubs the only caller, so the helper is
+ * compiled out with it (-Werror=unused-function). */
+#if !(defined(DIALOG_MUT_NO_ICON) && DIALOG_MUT_NO_ICON)
+#if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
+#define ASSET_LZ_ALERT
+#include "asset_lz.h"
+#include "asset_lz_data.h"
+static const FLAIRDeskIcon *dlg_caution_strike(void)
+{
+    static FLAIRDeskIcon store;
+    static uint8_t ready;
+    _Static_assert(sizeof store == ASSET_LZ_ALERT_RAW, "one packed FLAIRDeskIcon record");
+    if (!ready) {
+        asset_lz_unpack((uint8_t *)&store, ASSET_LZ_ALERT_RAW, asset_lz_alert);
+        ready = 1u;
+    }
+    return &store;
+}
+#else
+static const FLAIRDeskIcon *dlg_caution_strike(void) { return &FLAIR_ALERT_ICON_CAUTION; }
+#endif
+#endif /* !DIALOG_MUT_NO_ICON */
+
 static void dlg_draw_icon(GrafPort *port, int x0, int y0, unsigned id)
 {
 #if defined(DIALOG_MUT_NO_ICON) && DIALOG_MUT_NO_ICON
     (void)port; (void)x0; (void)y0; (void)id;
 #else
     const FLAIRDeskIcon *icon = (const FLAIRDeskIcon *)0;
-    if (id == DIALOG_ICON_ID_CAUTION) icon = &FLAIR_ALERT_ICON_CAUTION;
+    if (id == DIALOG_ICON_ID_CAUTION) icon = dlg_caution_strike();
     if (icon == (const FLAIRDeskIcon *)0) return;
     for (int r = 0; r < DESK_ICON_DIM; r++) {
         for (int c = 0; c < DESK_ICON_DIM; c++) {

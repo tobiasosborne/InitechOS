@@ -742,36 +742,24 @@ static int dir_visit(const dir_entry_t *e, void *user)
  * .COM to completion and maps the loader status onto the DOS EXEC error codes.
  * It lives here, not in int21.c, so int21.c stays free of loader.c (Law 3).
  *
- * After the child returns, restore the kernel-context exit hook + PSP (the
- * loader rebinds both during the run; ground-truth Sec 4.5 / beads initech-509.3)
- * exactly as run_baked does -- otherwise a later kernel-context INT 21h would
- * dispatch through the child's stale hook/PSP. */
+ * loader_run_plan restores the invoking process, whether shell or resident
+ * flat program (IBM DOS 3.30 TR pp. 6-196/200). */
 static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
                                     const char *cmd_tail, uint32_t cmd_tail_len,
                                     uint32_t env_block, uint8_t *out_rc)
 {
     uint8_t rc = 0;
-    /* Save the kernel/shell CWD before the child run (the loader resets the CWD
-     * to root for the child; beads initech-mzxa) and restore it after, in
-     * lockstep with the PSP/exit-hook restore, so the child's CWD never leaks
-     * into kernel-context INT 21h. The CWD is saved/restored AROUND the run, so a
-     * subdir EXEC (dir_start!=0, the leaf resolved relative to the parent's CWD)
-     * cannot corrupt the parent's CWD (beads initech-zs24). env_block (beads
-     * initech-1i0x inc 3) threads the shell's inherited env block through
-     * unchanged (0 = inherit-empty). */
-    int21_cwd_snapshot_t cwd_snap = int21_cwd_save();
+    /* Bind the caller-selected volume; the shared loader now owns all caller
+     * PSP/hook/CWD restoration. env_block=0 inherits a resident caller's env.
+     * Ref: IBM DOS 3.30 TR pp. 6-198/200. */
     uint32_t fat_len;
     const uint8_t *fat = fileio_fat_fat_buffer(&fat_len);
     loader_bind_fat_volume(fileio_fat_current_volume(), fat, fat_len);
     loader_status_t st = load_program_from_fat(name83, dir_start, cmd_tail,
                                                cmd_tail_len, env_block, &rc);
-    /* 4jic: BUSY ran no child. The caller is still the active baked/FAT
-     * program; replacing its hook/PSP here would turn its exit into a halt.
-     * Ref: ADR-0003 DEC-08 single-level EXEC; IBM DOS 3.30 TR p. 6-195. */
-    if (st == LOADER_ERR_BUSY) return INT21_ERR_INSUFFICIENT_MEM;
-    int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
-    int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
-    int21_cwd_restore(&cwd_snap);     /* restore kernel-context CWD */
+    /* loader_run_plan restores the immediate caller, including a resident
+     * program. Never force a nested caller back to the kernel PSP/hook.
+     * Ref: IBM DOS 3.30 TR pp. 6-196/200; spec/dos_structs.h PSP:16h. */
 
     switch (st) {
         case LOADER_OK:
@@ -783,10 +771,12 @@ static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
         case LOADER_ERR_NOT_FOUND:
             return INT21_ERR_FILE_NOT_FOUND;    /* 0x0002 */
         case LOADER_ERR_BUSY:
-            return INT21_ERR_INSUFFICIENT_MEM;  /* 0x0008 -- nested EXEC (deferred) */
+        case LOADER_ERR_NOMEM:
+            return INT21_ERR_INSUFFICIENT_MEM;  /* 0x0008 -- depth/arena exhausted */
         case LOADER_ERR_TOO_BIG:
         case LOADER_ERR_ZERO_LEN:
         case LOADER_ERR_BAD_ENV:
+        case LOADER_ERR_BAD_FORMAT:
             return INT21_ERR_BAD_FORMAT;        /* 0x000B -- bad/oversized image/env */
         case LOADER_ERR_READ:
         default:
@@ -949,6 +939,26 @@ static region_t *flair_desktop_alloc_region(flair_heap_t *h, const char *what)
 #endif
 #endif
 
+/* THE ARROW AT BOOT (bead initech-vzjy; operator-visible P1, third report).
+ * Mac OS 8.1 draws the pointer at its own position from the "Starting Up..."
+ * panel on, at the screen centre: hotspot (320,240) in s8_startup_panel.png,
+ * s8_startup_last.png, s8_startup_after.png and s8_icons_boot.png (arrow crop
+ * origin (319,239) in all four; ../system7-decomp/re/mint-results-009.md Sec 1),
+ * and ABSENT from the "Welcome to Mac OS" panel (s8_startup_welcome.png) --
+ * i.e. NOT on the splash, present on the first desktop frame. (320,240) is
+ * exactly the Event Manager's locked start (spec/event_model.h; FLAIR_SCREEN_W/2,
+ * FLAIR_SCREEN_H/2), so the first packet MOVES the arrow instead of conjuring it.
+ * INTERACTIVE images (the ones a person looks at) draw it at the first desktop
+ * present; gate images keep cursor.h's first-activity DEC so every locked
+ * no-input still stays byte-identical. -DFLAIR_CURSOR_AT_BOOT turns it on for
+ * a bounded twin (the Rule-14 record clip); CURSOR_MUT_HIDE_AT_BOOT is the
+ * Rule-6 mutant knob (test-flair-cursor-boot-mutant). NEVER define it in a
+ * real build. Ref: PRD Sec 6.3; Inside Macintosh Imaging With QuickDraw,
+ * InitCursor ("the standard arrow cursor is displayed"). */
+#if defined(FLAIR_LIVE_INTERACTIVE) && !defined(FLAIR_CURSOR_AT_BOOT)
+#define FLAIR_CURSOR_AT_BOOT 1
+#endif
+
 /* The LFB sink: indices at 8bpp (the DAC holds the FLAIR palette), the one
  * index->RGB accessor at 24/32bpp -- the same split as flair_desktop_present. */
 static void flair_boot_screen_row(void *ctx, int y, const uint8_t *row)
@@ -960,6 +970,31 @@ static void flair_boot_screen_row(void *ctx, int y, const uint8_t *row)
                                    : (flair_palette_rgb(row[x]) & 0x00FFFFFFu));
 }
 
+/* The ONE indexed-LFB DAC programming seam (ADR-0004 OD-2/AM-7;
+ * color_canon.json explicit entries + gray ramp). The generated table covers
+ * ALL 256 indices, including alert slots, named 119/165 hilites, Platinum
+ * chrome and unnamed app grays; the ROM CLUT's index assignments differ, so
+ * never load it verbatim. Both the boot screen and every desktop present load
+ * through HERE, so the FLAIR_DAC_MUT_* mutants reach the DAC the desktop is
+ * actually shown with. WL-0170: when the boot screen (initech-tdnl.105) grew a
+ * second, unmutated copy of this loop it pre-loaded the whole table, and the
+ * presenter-only omit119/omit165 mutants survived on QEMU and Bochs alike. */
+static void flair_dac_load(void)
+{
+#ifdef FLAIR_DAC_MUT_6BIT
+    g_vga_dac_shift = 2;
+#endif
+    for (uint32_t idx = 0; idx < sizeof(flair_dac)/sizeof(flair_dac[0]); idx++) {
+#ifdef FLAIR_DAC_MUT_OMIT119
+        if (idx == 119u) continue;
+#endif
+#ifdef FLAIR_DAC_MUT_OMIT165
+        if (idx == 165u) continue;
+#endif
+        vga_set_dac((uint8_t)idx, flair_dac[idx][0], flair_dac[idx][1], flair_dac[idx][2]);
+    }
+}
+
 static void flair_boot_screen(const boot_info_t *bi)
 {
     bitmap_t lbm;
@@ -967,10 +1002,8 @@ static void flair_boot_screen(const boot_info_t *bi)
         bi->lfb_height != (uint32_t)BOOT_SCREEN_H) {
         return;
     }
-    if (bi->lfb_bpp == 8u) {
-        for (uint32_t idx = 0; idx < sizeof(flair_dac)/sizeof(flair_dac[0]); idx++)
-            vga_set_dac((uint8_t)idx, flair_dac[idx][0], flair_dac[idx][1], flair_dac[idx][2]);
-    }
+    if (bi->lfb_bpp == 8u)
+        flair_dac_load();
     lbm.base            = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
     lbm.pitch           = bi->lfb_pitch;
     lbm.bpp             = bi->lfb_bpp;
@@ -1027,23 +1060,8 @@ static void flair_desktop_present(const boot_info_t *bi, const bitmap_t *off)
     flair_cursor_shield();
 
     if (bi->lfb_bpp == 8u) {
-        /* ADR-0004 OD-2/AM-7; color_canon.json explicit entries + gray ramp.
-         * The generated table covers ALL 256 indices, including alert slots,
-         * named 119/165 hilites, Platinum chrome and unnamed app grays. The
-         * ROM CLUT's index assignments are different: never load it verbatim.
-         * test-flair-desktop-8bpp reaches THIS live DAC+copy wrapper. */
-#ifdef FLAIR_DAC_MUT_6BIT
-        g_vga_dac_shift = 2;
-#endif
-        for (uint32_t idx = 0; idx < sizeof(flair_dac)/sizeof(flair_dac[0]); idx++) {
-#ifdef FLAIR_DAC_MUT_OMIT119
-            if (idx == 119u) continue;
-#endif
-#ifdef FLAIR_DAC_MUT_OMIT165
-            if (idx == 165u) continue;
-#endif
-            vga_set_dac((uint8_t)idx, flair_dac[idx][0], flair_dac[idx][1], flair_dac[idx][2]);
-        }
+        /* test-flair-desktop-8bpp reaches THIS live DAC+copy wrapper. */
+        flair_dac_load();
         volatile uint8_t *lfb = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
         for (uint32_t y = 0; y < H; y++) {
             const uint8_t *srow = (const uint8_t *)off->base + (uint32_t)y * off->pitch;
@@ -6972,7 +6990,7 @@ void kernel_main(void)
      * producer can be running yet. Ref: event.h flair_event_init contract. */
     flair_event_init(&g_flair_kbd_ring);
 
-    /* R0.1 boot-still policy: arm tracking but do not show. Keep these explicit,
+    /* R0.1 boot-still policy (gate images): arm tracking but do not show. Keep these explicit,
      * idempotent stores even though tdnl.29 now guarantees zero BSS: x/y are
      * deliberately non-zero and the block is also the semantic re-arm point.
      * The IRQ hook below flips g_flair_mouse_activity only for a real queued
@@ -6983,6 +7001,24 @@ void kernel_main(void)
     g_flair_cursor_visible = 0;
     g_flair_cursor_x = (int)(FLAIR_SCREEN_W / 2);
     g_flair_cursor_y = (int)(FLAIR_SCREEN_H / 2);
+#if defined(FLAIR_CURSOR_AT_BOOT) && !defined(CURSOR_MUT_HIDE_AT_BOOT)
+    /* bead initech-vzjy: the arrow is on screen BEFORE any packet, at the Mac
+     * OS 8.1 boot position (320,240) (DEC above FLAIR_BOOT_HOLD_TICKS; cite
+     * ../system7-decomp/re/mint-results-009.md Sec 1). Drawn HERE -- after the
+     * splash hold, the first desktop present, the tenant present and the
+     * re-arm stores above -- so no boot-time present can erase it without the
+     * flair_desktop_present shield bracket re-drawing it, and the kernel's
+     * visibility ledger agrees with the CursorMgr's. Marker: the same
+     * FLAIR-CURSOR line flair_live_cursor_track emits, so the harness can gate
+     * a still on it with NO input. IRQs are still masked (LFB writes only). */
+    flair_cursor_show(g_flair_cursor_x, g_flair_cursor_y);
+    g_flair_cursor_visible = 1;
+    serial_puts("FLAIR-CURSOR x=");
+    serial_puti((int32_t)g_flair_cursor_x);
+    serial_puts(" y=");
+    serial_puti((int32_t)g_flair_cursor_y);
+    serial_putc('\n');
+#endif
 
     /* --- FO-4: install the PIT tick hook BEFORE sti (ADR-0006 E-D3a) --------- *
      * pit_set_tick_hook defaults NULL; only THIS kernel installs it, so every
@@ -7915,6 +7951,18 @@ void kernel_main(void)
     serial_puts("DIR-PROG-OUTPUT-END\n");
 #endif
 
+#ifdef BOOT_EXEC_NESTED
+    /* Resident caller and disk child; IBM DOS 3.30 TR AH=4Bh/4Ch/4Dh.
+     * Fixture asserts restored PSP and repeated child reclamation itself. */
+    {
+        uint8_t rc = 255u;
+        uint16_t err = loader_exec_by_name("NEST.COM", 0u, 0, 0u, 0u, &rc);
+        serial_puts("EXEC-NESTED-EXIT rc=");
+        serial_putu(err ? 255u : rc);
+        serial_putc('\n');
+    }
+#endif
+
 #ifdef BOOT_EXEC
     /* FAT-SOURCED LOAD + EXEC self-test (beads initech-saw; make test-exec).
      * Only in the -DBOOT_EXEC image so the normal boot is unchanged. Requires
@@ -7928,10 +7976,7 @@ void kernel_main(void)
      *
      *   2. INT 21h AH=4Bh EXEC of "GREET.COM" from KERNEL/shell context, then
      *      AH=4Dh GET-RETURN-CODE -- proving the EXEC dispatch path + the child
-     *      rc retrieval. (Nested EXEC -- 4Bh from inside a running program -- is
-     *      NOT supported this milestone: g_loader_ctx is single-level; the guard
-     *      returns LOADER_ERR_BUSY -> AX=0x0008. So EXEC-from-kernel is the
-     *      binding oracle, per the brief.) */
+     *      rc retrieval. Resident EXEC has its own test-exec-nested fixture. */
     serial_puts("EXEC-SAW-BEGIN\n");
     {
         uint8_t saw_rc = 0;

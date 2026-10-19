@@ -6,7 +6,8 @@
      park/resume WNE loop violates ADR-0013 Sec 3.4 (yield-is-return; a tenant never
      calls WaitNextEvent) and is REPLACED by push-callback delivery (DEC-AC3-3); the
      launch watchdog violates BC-4 (no shipping watchdogs) and is descoped to oracle-side.
-     Part B carries the final DEC blocks for ADR-0013-AMENDMENT-AC-3 + ADR-0007 DEC-09/10;
+     Part B carries the final proposed AC-3 blocks for ADR-0013 and proposed
+     DEC-09/10 blocks for ADR-0007 (local draft: #tps-binding-draft);
      Part C lists 7 BLOCKING + 7 cosmetic implementation deltas. Ratification = the
      orchestrator/operator wrapping Part B into house-style amendment files at tdnl.14/21
      implementation time. -->
@@ -123,7 +124,11 @@
 >
 > *Oracle:* emu double-click → window-appears → click-inside → clean-exit clip with the menubar-swap assertion (O-5 pattern); a register-without-window mutant leaves the previous foreground undisturbed (RED if affirmed early).
 
-### ADR-0007 Amendment — the TPS Pascal Toolbox binding (next free DEC numbers)
+<!-- Citation repair (initech-0ni0): the header refers to this existing local
+     proposal, not filed decisions; no ratification or decision content changes. -->
+<a id="tps-binding-draft"></a>
+
+### ADR-0007 Amendment — the TPS Pascal Toolbox binding (proposed, next free DEC numbers)
 
 > **DEC-09 — The FLAIR Pascal binding: zero subset growth.**
 > Turbo Initech-compiled applications reach the FLAIR Toolbox exclusively through the Initech Toolbox Gate (AC-3 DEC-AC3-2: vector 0x81, function code in `AX`, cdecl arguments on the trapped stack, result/error in `EAX`; vector and AX map are locked Rule-8 spec-data). The binding surface is expressed **entirely within the ratified DEC-02 subset — zero subset growth**: opaque handles as `LongInt` tokens; the `FlairEvent` record is a flat scalar-field record passed by `var`; strings are `ShortString` converted to ASCIZ in the stub layer; external routines are declared through the existing B8 linkage mechanism (DEC-05's separately-assembled-RTL precedent). No pointers, units, `@`, or nested records are invoked; nothing is pulled from the DEC-02 deferred table (C-2 respected). Trap stubs are hand-assembled NASM in the `start_dos`/`fileio` RTL **lineage** — one regular stub per trap, names `FLAIR_*`, `ebx/esi/edi/ebp` preserved, errors returned not fatal. `flairstub.asm` is a **tenant-link stub object**, not an expansion of the Turbo Initech RTL service boundary (C-5 preserved). Event delivery is push-callback per AC-3 DEC-AC3-3: the tenant's event handler is a named Pascal procedure whose address is resolved into the link-synthesized `FlairTenantRec` by the toolchain — the language never forms a pointer. V1 scrap payloads from Pascal are capped at ShortString length (255) pending an `array [1..8192] of char` var-param overload, which the subset already supports.

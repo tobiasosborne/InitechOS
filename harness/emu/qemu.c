@@ -74,6 +74,19 @@ static long long mono_ms(void)
     return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
+/* initech-7r2; PRD Sec 8: charge a guest's idle allowance only for CPU time
+ * QEMU actually received. Host starvation before the first serial byte must
+ * not spend the whole boot budget. The monotonic ceiling remains separate.
+ * If the process clock is unavailable, retain the wall-clock fallback. */
+static long long guest_ms(const clockid_t *guest_clock)
+{
+    struct timespec ts;
+    if (guest_clock && clock_gettime(*guest_clock, &ts) == 0) {
+        return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+    }
+    return mono_ms();
+}
+
 /* Sleep for ms milliseconds (best-effort, restart-safe). */
 static void sleep_ms(int ms)
 {
@@ -1061,7 +1074,9 @@ static int qmp_peer_closed(int fd)
 
 /*
  * The COMPLETION wait (beads initech-6gkm, --quit-after). Wait until `marker`
- * appears on the growing serial capture, or budget_ms elapses, or qemu exits.
+ * appears on the growing serial capture, or budget_ms passes with NO new
+ * serial bytes (charged in QEMU CPU time), or the session's absolute wall
+ * ceiling expires, or qemu exits.
  * Returns 1 if seen, 0 otherwise.
  *
  * WHY THIS EXISTS (the 6gkm root cause, first-person): qmp_session's step 5
@@ -1074,16 +1089,18 @@ static int qmp_peer_closed(int fd)
  * the harness truncating a healthy guest (the same boot with no keys runs all
  * 17 programs byte-exact). A completion-gated gate names the marker the guest
  * prints when its work is DONE (e.g. SHELL-EXIT after a typed-ahead `exit`),
- * and the harness quits only after seeing it. The budget is tied to the
+ * and the harness quits only after seeing it. The idle budget is tied to the
  * wall-clock timeout; a dead qemu (peer closed) ends the wait at once so a
  * crashing mutant never burns the budget. A marker that never appears leaves
  * quit_marker_found=0 and OK=0 -- fail loud, never a truncated false-green.
  */
 static int wait_for_serial_marker_live(int fd, const char *serial_path,
                                        const char *marker, int budget_ms,
-                                       int count)
+                                       int count, long long absolute_deadline,
+                                       const clockid_t *guest_clock)
 {
-    long long deadline = mono_ms() + budget_ms;
+    long long deadline = guest_ms(guest_clock) + budget_ms;
+    size_t observed = 0;
     /* count (bead initech-tdnl.78, --quit-after-count): the marker must be
      * seen this many times -- a rebooted guest re-prints its boot markers on
      * the same capture. <=1 is the original first-occurrence wait. */
@@ -1091,9 +1108,23 @@ static int wait_for_serial_marker_live(int fd, const char *serial_path,
         count = 1;
     }
     for (;;) {
+        if (mono_ms() >= absolute_deadline) {
+            return 0;
+        }
         size_t len = 0;
         char *txt = read_file(serial_path, &len);
         if (txt) {
+            /* Ref: PRD Sec 8 serial milestones; initech-7r2 lane contract.
+             * Count ONLY guest output (including each echoed key) as progress,
+             * never a QMP reply or another read of the same bytes. Keep the
+             * existing idle budget; a slow, advancing guest earns more time.
+             * The absolute ceiling still bounds a chattering broken guest. */
+            if (len > observed) {
+#ifndef HARNESS_MUTATE_NO_PROGRESS_RESET
+                deadline = guest_ms(guest_clock) + budget_ms;
+#endif
+                observed = len;
+            }
             int hit = count_substr(txt, marker) >= count;
             free(txt);
             if (hit) {
@@ -1111,7 +1142,7 @@ static int wait_for_serial_marker_live(int fd, const char *serial_path,
             }
             return 0;
         }
-        if (mono_ms() >= deadline) {
+        if (guest_ms(guest_clock) >= deadline) {
             return 0;
         }
         sleep_ms(25);
@@ -1143,8 +1174,12 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
                        int keys_after_ms, const char *quit_after,
                        int quit_budget_ms, int quit_count, int *quit_seen,
                        const char *record_end_marker, int *rec_after_end,
-                       int *rec_first_dead)
+                       int *rec_first_dead, const clockid_t *guest_clock)
 {
+    /* initech-7r2; PRD Sec 8 / Rule 2: the ready and completion waits share
+     * one 120 s ceiling. Serial growth renews their existing idle budgets,
+     * but cannot keep a guest with no completion marker alive indefinitely. */
+    long long serial_deadline = mono_ms() + 120000;
     if (rec_after_end) {
         *rec_after_end = 0;
     }
@@ -1250,12 +1285,14 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
         }
         if (want_keys || want_mouse) {
             if (keys_after && keys_after[0] != '\0') {
-                /* Legacy 4000 ms budget unless the gate sized it
-                 * (--keys-after-ms, initech-6gkm): a long boot on a loaded host
-                 * must not inject before the guest is ready. */
+                /* Same idle budget as before (--keys-after-ms, initech-6gkm),
+                 * renewed by boot serial progress instead of expiring while
+                 * a loaded host is still advancing toward the ready marker. */
                 int ka_budget = keys_after_ms > 0 ? keys_after_ms : 4000;
-                if (!wait_for_serial_marker(serial_path, keys_after,
-                                            ka_budget)) {
+                if (!wait_for_serial_marker_live(fd, serial_path, keys_after,
+                                                 ka_budget, 1,
+                                                 serial_deadline,
+                                                 guest_clock)) {
                     fprintf(stderr,
                             "[harness] --keys-after marker '%s' not seen before "
                             "inject deadline; injecting anyway\n", keys_after);
@@ -1355,7 +1392,8 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
         int seen = 1;
 #ifndef HARNESS_MUTATE_NO_QUIT_WAIT
         seen = wait_for_serial_marker_live(fd, serial_path, quit_after,
-                                           quit_budget_ms, quit_count);
+                                           quit_budget_ms, quit_count,
+                                           serial_deadline, guest_clock);
 #else
         /* MUTANT (Rule 6; make test-harness-quit-after-mutant only): restore
          * the 6gkm bug -- quit right after the inputs, never waiting for the
@@ -1689,6 +1727,11 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
 
     if (qmp_pair[1] >= 0) close(qmp_pair[1]);
     out->launched = true;
+    clockid_t cpu_clock;
+    const clockid_t *guest_clock = NULL;
+    if (clock_getcpuclockid(pid, &cpu_clock) == 0) {
+        guest_clock = &cpu_clock;
+    }
 
     /* If we are doing a screendump and/or keystroke and/or mouse injection,
      * drive QMP from the parent while qemu runs: qmp_session retries the connect,
@@ -1729,7 +1772,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
                         cfg->keys_after_ms, cfg->quit_after, sd_budget,
                         cfg->quit_after_count, &qseen,
                         cfg->record_frames ? cfg->record_end_marker : NULL,
-                        &after_end, &first_dead) == 0) {
+                        &after_end, &first_dead, guest_clock) == 0) {
             out->quit_marker_found = qseen != 0;
             out->record_events_after_end = after_end;
             out->record_first_dead_event = first_dead;

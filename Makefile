@@ -662,12 +662,61 @@ KERNEL_CC     ?= gcc
 # (harness/emu/bochs.c) which has NO cmov -> PANIC vec=06 the first time a
 # Bochs-exercised path contained one. ADR-0001 targets 386+; the artifact must
 # never contain >386 instructions. Same pin on SAMIR_COM_PROFILE below.
+# Round 5 (WL-0168, lane ksize5): register-argument + callee-pops calling
+# convention for the WHOLE kernel image, the WL-0171 SAMIR precedent (period
+# precedent: Borland's `register` and `pascal` conventions). Every kernel TU,
+# every kernel mutant object, the transient COMMAND.COM objects (linked by
+# address against the kernel, --just-symbols) and the LTO link carry it, so
+# one ABI spans the image. The asm boundaries are AUDITED, not assumed:
+#   kstart.asm -> kernel_main(void); isr.asm -> pit/kbd/mouse_irq_handler,
+#   irq_enter/leave, selftest_report_c (all void): nothing to pass or pop;
+#   isr.asm -> isr_dispatch_c + the INT 13h/20h-26h dispatchers (one pushed
+#   arg) and tbx_gate.asm -> tbx_gate_dispatch: pinned to cdecl by
+#   KERNEL_ASM_ABI (os/milton/idt.h); tbx_gate.asm's tbx_tenant_call(fn, psp)
+#   reads its args off the stack: its C prototype carries KERNEL_ASM_ABI.
+#   Tenant code is entered via `call eax` with EBX=PSP (no C ABI) and calls
+#   the kernel only through INT 81h (args read from the trapped frame).
+#   No varargs function exists in the image (-mrtd's one documented hazard);
+#   no memcpy/memset libcall symbol exists in the image.
+# Objects that are NOT kernel-linked keep the plain cdecl flags
+# (KERNEL_CFLAGS_CDECL below): the disk tenants (TENANT_CFLAGS), FDISK /
+# FORMAT / SYS / EDLIN / XCOPY / the DOS utilities -- each a separate image
+# with its own asm entry. CHKDSK is the one utility that links a KERNEL
+# object ($(KERNEL_MCB_OBJ)), so it keeps KERNEL_CFLAGS (chkdsk_entry(void)).
+# Measured on the flagship (WL-0168 table): 187,788 -> 183,916 B (-3,872 B).
+KERNEL_ABI_FLAGS := -mregparm=3 -mrtd
 KERNEL_CFLAGS := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -I$(BUILD) \
-                 -fno-pie -std=c11 -Wall -Wextra -Werror
+                 -fno-pie -std=c11 -Wall -Wextra -Werror $(KERNEL_ABI_FLAGS)
+KERNEL_CFLAGS_CDECL := $(filter-out $(KERNEL_ABI_FLAGS),$(KERNEL_CFLAGS))
 # ROUND 3 (initech-tode): kernel-only reachability, not an optimiser change.
 # Ref: docs/design/kernel-size-policy-round2.md Sec 4 lever C; kernel.ld roots.
 # Keep separate from KERNEL_CFLAGS: TENANT_CFLAGS inherits that base policy.
-KERNEL_SECTION_FLAGS := -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-ident
+# Round 5 step 2 (WL-0168): optimiser passes that trade bytes for speed even
+# at -Oz, switched off for every kernel-linked object AND the LTO link
+# (KERNEL_LINK), the WL-0171 method -- each flag measured alone on the
+# flagship, then as the kept subset (the three-round table in the worklog):
+#   -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 (-1376 B): the
+#     4-byte stack of the period's compilers; no stack object in the image
+#     needs more (no SSE on a 386, and GCC realigns any local that asks),
+#     and the I123 tenant + SAMIR already run on it; -fno-tree-sra (-704),
+#   -fno-tree-dominator-opts (-288), -fno-move-loop-invariants (-448),
+#   -fno-tree-loop-im (-416), -fno-shrink-wrap / -fno-tree-tail-merge (-160
+#   each), -fno-partial-inlining (-192), --param=max-completely-peel-times=0
+#   (-160), -fno-code-hoisting (-128), -fno-tree-scev-cprop (-128),
+#   -fno-stack-clash-protection (the Ubuntu default probes; nothing in the
+#   image has a guard page). Rejected by measurement (grew the image):
+#   -mtune=generic +800, -fno-tree-ch +512, -fno-tree-switch-conversion
+#   +256, -fno-forward-propagate +224, -fno-ipa-sra +128, -fno-defer-pop
+#   +96, -fno-tree-sink, -fno-tree-dse, -mstringop-strategy=byte_loop.
+#   Refused on principle, as in WL-0171: -fno-optimize-sibling-calls (-256,
+#   changes stack depth). Pure codegen policy -- the gate families and the
+#   byte-identical screendump goldens are the proof. Measured on the
+#   flagship: 183,948 -> 179,916 B (-4,032 B). Hold the seam as `?=` so a
+#   trial can still override it from the command line.
+KERNEL_R5_FLAGS ?= -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -fno-tree-sra -fno-tree-dominator-opts \
+                   -fno-move-loop-invariants -fno-tree-loop-im -fno-shrink-wrap -fno-tree-tail-merge -fno-partial-inlining \
+                   --param=max-completely-peel-times=0 -fno-code-hoisting -fno-tree-scev-cprop -fno-stack-clash-protection
+KERNEL_SECTION_FLAGS := -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-ident $(KERNEL_R5_FLAGS)
 KERNEL_GC_LDFLAGS := --gc-sections
 # Round 3 part 2 (initech-tode): kernel-only link driver seam for selected
 # cold-object optimisation. Native hot objects remain outside LTO.
@@ -677,7 +726,7 @@ KERNEL_GC_LDFLAGS := --gc-sections
 # Do not apply to the native blitter, ATKINSON, text, loader, event ring or
 # hardware/interrupt drivers. mcb.o also stays native: CHKDSK links that object.
 # Keep each TU's prior aliasing policy, i386 ISA, and all serial markers.
-KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000
+KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000 -fno-jump-tables
 # Round 4: Ubuntu's GCC retains frame pointers even at -Oz. Only the existing
 # cold/pure C set drops them; the loader transfer and both ring publications
 # retain native -O0 bytes (test-kernel-native-boundaries). Ref: PRD Sec 5/6.1/8;
@@ -699,7 +748,13 @@ define kernel-tbx-compile
 	$(SERIAL_TRACE_PACK) $(2).i $(2).c tbx
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(1) -c $(2).c -o $(2)
 endef
-KERNEL_LINK = $(KERNEL_CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz \
+# Round 5 (WL-0168): one LTO partition lets WPA localise every symbol no
+# native object or transient import names (cross-partition calls kept 462
+# functions global, i.e. cdecl ABI and unspecialised); -fno-jump-tables on the
+# LTO set trades the 4-byte-per-case tables for compare trees. Codegen-only:
+# no ABI of a native object, asm entry or transient import changes. Measured
+# on the flagship: 187,988 -> 187,372 (one partition) -> 187,212 B (both).
+KERNEL_LINK = $(KERNEL_CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz -flto-partition=one -fno-jump-tables $(KERNEL_ABI_FLAGS) $(KERNEL_R5_FLAGS) \
               -Wl,--build-id=none $(foreach flag,$(KERNEL_GC_LDFLAGS),-Xlinker $(flag)) -T $(KERNEL_LD)
 FLAIR_FINDER_OPS_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
 FLAIR_STDFILE_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
@@ -5006,9 +5061,13 @@ TEST_KBD_DEPS  := $(KERNEL_KBD_C) $(KERNEL_PIT_C)
 TEST_KBD_HDRS  := $(MILTON_DIR)/kbd.h $(MILTON_DIR)/pit.h $(MILTON_DIR)/io.h
 # Mutation builds (CLAUDE.md Rule 6): a single branch/constant perturbed so
 # `make test-kbd-unit-mutant` can prove the oracle BITES. (a) the ring full-test
-# off-by-one (wrap overwrites unread data); (b) the scancode table mis-indexed.
+# off-by-one (wrap overwrites unread data); (b) the scancode table mis-indexed;
+# (c) a Shift break clears both physical keys; (d) Caps repeats toggle the lock.
 TEST_KBD_MUT_RING  := $(BUILD)/test_kbd_mutant_ring
 TEST_KBD_MUT_TABLE := $(BUILD)/test_kbd_mutant_table
+TEST_KBD_MUT_SHIFT := $(BUILD)/test_kbd_mutant_shift
+TEST_KBD_MUT_CAPS  := $(BUILD)/test_kbd_mutant_caps
+TEST_KBD_MUT_EXT   := $(BUILD)/test_kbd_mutant_extended
 
 $(TEST_KBD): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
@@ -5022,15 +5081,27 @@ $(TEST_KBD_MUT_TABLE): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUI
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUTATE_SCANCODE_TABLE -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
 
+$(TEST_KBD_MUT_SHIFT): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_ONE_SHIFT -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
+
+$(TEST_KBD_MUT_CAPS): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_CAPS_REPEAT -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
+
+$(TEST_KBD_MUT_EXT): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_DROP_EXTENDED -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
+
 .PHONY: test-kbd-unit test-kbd-unit-mutant
 test-kbd-unit: $(TEST_KBD)
 	@printf ">>> test-kbd-unit: ring (enqueue/dequeue/empty/full/wrap) + scancode set 1 -> ASCII (+shift/caps) + PIT divisor math\n"
 	@$(TEST_KBD)
 	@printf ">>> test-kbd-unit: green\n"
 
-# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
-test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE)
-	@printf ">>> test-kbd-unit-mutant: confirming both mutants go RED (Rule 6)\n"
+# Mutation-proof: ALL mutant builds MUST fail the oracle (Rule 6).
+test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE) $(TEST_KBD_MUT_SHIFT) $(TEST_KBD_MUT_CAPS) $(TEST_KBD_MUT_EXT)
+	@printf ">>> test-kbd-unit-mutant: confirming all mutants go RED (Rule 6)\n"
 	@if $(TEST_KBD_MUT_RING) >/dev/null 2>&1; then \
 		printf '!!! test-kbd-unit-mutant FAIL: ring off-by-one mutant PASSED -- the full/wrap test is decoration\n'; \
 		exit 1; \
@@ -5043,6 +5114,22 @@ test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE)
 	else \
 		printf '>>> test-kbd-unit-mutant: green (scancode-table mutant correctly RED -- the oracle bites)\n'; \
 	fi
+	@if $(TEST_KBD_MUT_SHIFT) >/dev/null 2>&1; then \
+		printf '!!! test-kbd-unit-mutant FAIL: one-Shift mutant PASSED -- the overlapping Shift test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-kbd-unit-mutant: green (one-Shift mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_KBD_MUT_CAPS) >/dev/null 2>&1; then \
+		printf '!!! test-kbd-unit-mutant FAIL: Caps-repeat mutant PASSED -- the typematic test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-kbd-unit-mutant: green (Caps-repeat mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_KBD_MUT_EXT) >$(BUILD)/kbd_mut_extended.log 2>&1; then \
+		printf '!!! test-kbd-unit-mutant FAIL: KBD_MUT_DROP_EXTENDED survived\n'; exit 1; fi
+	@grep -q 'FAIL.*F3 transport:' $(BUILD)/kbd_mut_extended.log
+	@printf '>>> test-kbd-unit-mutant: green (KBD_MUT_DROP_EXTENDED correctly RED)\n'
 
 # ---------------------------------------------------------------------------
 # INT 21h dispatch oracle (os/milton, beads initech-509.5)
@@ -8288,7 +8375,7 @@ help:
 	@printf '  test-kbd-unit  PS/2 keyboard + PIT pure logic (initech-3rs): ring (full/wrap) + scancode set 1 -> ASCII (+shift/caps) + PIT divisor math. REAL.\n'
 	@printf '  test-kbd       Keyboard IRQ1 end-to-end (initech-3rs/43b): first sti, QMP --keys "d,i,r" injected, echoed back via IRQ1; triple_fault=0. REAL (QEMU).\n'
 	@printf '  test-kbd-bochs Bochs leg of test-kbd (Rule 5): boots the echo image under Bochs; currently BLOCKED at ERR-VBE (pre-existing boot/VBE gap initech-x0i).\n'
-	@printf '  test-boot-bochs  BOCHS leg of the boot gate (initech-564): boots the tracer under Bochs (legacy BIOS + LGPL vgabios), asserts the stage2 mode-0x13 fallback fired + the SAME kernel markers as QEMU + no triple-fault. SERIAL-only (Bochs RFB cannot display mode 0x13). REAL. ~45s; IN the default `make test` vector (initech-in2g); LOUD FAIL if bochs is missing, SKIP_BOCHS=1 to opt out.\n'
+	@printf '  test-boot-bochs  BOCHS leg of the boot gate (initech-564): boots the tracer under Bochs (legacy BIOS + LGPL vgabios), asserts the VESA 0101h 640x480x8 LFB path (VBE-MODE=0101, 8-bit DAC; WL-0170) + the SAME kernel markers as QEMU + no triple-fault, to SHELL-READY. SERIAL (the FLAIR Bochs legs grade pixels). REAL. ~5s; IN the default `make test` vector (initech-in2g); LOUD FAIL if bochs is missing, SKIP_BOCHS=1 to opt out.\n'
 	@printf '  test           Run the whole gate vector (PRD Sec 8).\n'
 	@printf '\n'
 	@printf 'Self-host certificate (M8 finale):\n'
@@ -10073,7 +10160,7 @@ TBX_RT_SRC    := os/apps/tbx/tbx_rt.c
 TBX_HDRS      := os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/cp_dialog.h
 TENANT_LD     := os/apps/tbx/tenant.ld
 TENANT_PROBE  := 0x01010140
-TENANT_CFLAGS := $(KERNEL_CFLAGS) -Os -fno-tree-loop-distribute-patterns \
+TENANT_CFLAGS := $(KERNEL_CFLAGS_CDECL) -Os -fno-tree-loop-distribute-patterns \
                  -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-common \
                  -Ispec -Ios/apps/tbx
 # P3: I123-only resource, size optimization and 4-byte cdecl stack alignment.
@@ -11106,6 +11193,90 @@ test-flair-cursor-mutant: $(BUILD)/flair_tenants_mut_cursor_squared.img
 		|| { cat $(BUILD)/flair_cursor_mut_squared.log; printf '!!! test-flair-cursor-mutant FAIL: old strike did not fail on the independent crop\n'; exit 1; }; \
 	printf '>>> test-flair-cursor-mutant: green (CURSOR_MUT_SQUARED_STEM RED -- 48/256 cells against Mac capture)\n'
 
+# --- initech-vzjy: THE ARROW AT BOOT (operator-visible P1, third report) -----
+# The interactive desktop showed no pointer until the first PS/2 packet (the
+# first-activity DEC, cursor.h), and every gate trace starts with a mouse move,
+# which hid it. Mac OS 8.1 draws the arrow at (320,240) from the Starting Up
+# panel on (../system7-decomp/re/mint-results-009.md Sec 1; crop origin
+# (319,239) in s8_startup_panel/last/after.png + s8_icons_boot.png). Two boots of
+# the SAME interactive image:
+#   leg A: NO input; still at FLAIR-LIVE-READY -- the arrow must already be at
+#          (320,240), AFTER the splash->desktop repaint (serial order
+#          FLAIR-BOOT-SCREEN < FLAIR-CURSOR x=320 y=240 < FLAIR-LIVE-READY);
+#   leg B: the locked M009 trace moves it to (500,380); that still is graded
+#          as test-flair-cursor does AND is leg A's cursor-free reference for
+#          the clear cells (the boot position lies over composited desktop).
+# Grader: ppm_flair_cursor_check, all 256 cells at zero tolerance vs the
+# independent Mac crop (Law 2). Mutant: CURSOR_MUT_HIDE_AT_BOOT (kmain.c).
+FLAIR_CURSOR_BOOT_NAME  := flair_cursor_boot
+FLAIR_CURSOR_BOOT_IMAGE ?= $(FLAIRTENANTS_INTERACTIVE_IMG)
+.PHONY: test-flair-cursor-boot
+test-flair-cursor-boot: $(HARNESS_BIN) $(FLAIR_CURSOR_BOOT_IMAGE) $(FLAIR_DATA_IMG) $(PPM_FLAIR_CURSOR_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-cursor-boot : the arrow is on screen at boot, NO input\n'
+	@printf '  leg A: still at FLAIR-LIVE-READY, arrow at the Mac OS 8.1 boot position (320,240);\n'
+	@printf '  leg B: M009 trace -> (500,380) (the cursor-free reference for leg A).\n'
+	@printf '  bead initech-vzjy; mint-results-009 Sec 1; PRD Sec 6.3; Law 2/4, Rules 6/11/12.\n'
+	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(FLAIR_CURSOR_BOOT_IMAGE)" --disk2 "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_data.img" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_CURSOR_BOOT_NAME)_a" --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-LIVE-READY" --timeout-ms 20000 \
+		2> "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.report" || true
+	@$(HARNESS_BIN) --disk "$(FLAIR_CURSOR_BOOT_IMAGE)" --disk2 "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_data.img" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_CURSOR_BOOT_NAME)_b" --out "$(BUILD)" \
+		--mouse "$(FLAIR_CURSOR_SPEC)" --keys-after "FLAIR-LIVE-READY" --keys-after-ms 15000 \
+		--screendump --screendump-after "FLAIR-CURSOR x=500 y=380" --timeout-ms 20000 \
+		2> "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.report" || true
+	@cat "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.report" "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.report"
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.report" "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.report"; then \
+		printf '!!! test-flair-cursor-boot FAIL: TRIPLE FAULT\n'; exit 1; \
+	fi
+	@for leg in a b; do \
+		grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_$$leg.serial" \
+			|| { printf '!!! test-flair-cursor-boot FAIL: leg %s FLAIR-LIVE-READY missing\n' "$$leg"; exit 1; }; \
+		grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_$$leg.serial" \
+			|| { printf '!!! test-flair-cursor-boot FAIL: leg %s FLAIR-FAT-MOUNT-OK missing\n' "$$leg"; exit 1; }; \
+		[ -s "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_$$leg.ppm" ] \
+			|| { printf '!!! test-flair-cursor-boot FAIL: leg %s marker-gated screendump missing\n' "$$leg"; exit 1; }; \
+	done
+	@# Leg B first: the M009 arrow at (500,380) on the interactive image (its still
+	@# is then a proven cursor-free reference at the centre: save-under restored).
+	@grep -q '^FLAIR-CURSOR x=500 y=380$$' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.serial" \
+		|| { printf '!!! test-flair-cursor-boot FAIL: leg B position marker missing\n'; grep '^FLAIR-CURSOR ' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.serial" || true; exit 1; }
+	@$(PPM_FLAIR_CURSOR_CHECK_BIN) "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.ppm" $(CURSOR_CAPTURES) \
+		|| { printf '!!! test-flair-cursor-boot FAIL: leg B -- the tracked arrow at (500,380) differs from the Mac crop\n'; exit 1; }
+	@# Leg A: the pixels first (the mutant's RED line), then the serial order.
+	@$(PPM_FLAIR_CURSOR_CHECK_BIN) "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.ppm" $(CURSOR_CAPTURES) 320 240 "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.ppm" \
+		|| { printf '!!! test-flair-cursor-boot FAIL: leg A -- NO arrow at the Mac OS 8.1 boot position (320,240) with no input\n'; exit 1; }
+	@if grep -q '^FLAIR-EVT ' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.serial"; then \
+		printf '!!! test-flair-cursor-boot FAIL: leg A saw input (FLAIR-EVT) -- not a no-input still\n'; exit 1; \
+	fi
+	@bs=$$(grep -n -m1 '^FLAIR-BOOT-SCREEN$$' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.serial" | cut -d: -f1); \
+	 cu=$$(grep -n -m1 '^FLAIR-CURSOR x=320 y=240$$' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.serial" | cut -d: -f1); \
+	 rd=$$(grep -n -m1 '^FLAIR-LIVE-READY$$' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.serial" | cut -d: -f1); \
+	 [ -n "$$bs" ] && [ -n "$$cu" ] && [ "$$bs" -lt "$$cu" ] && [ "$$cu" -lt "$$rd" ] \
+		|| { printf '!!! test-flair-cursor-boot FAIL: leg A serial order (BOOT-SCREEN=%s CURSOR=%s READY=%s): the arrow must be shown AFTER the splash->desktop repaint and BEFORE the pump arms\n' "$$bs" "$$cu" "$$rd"; exit 1; }; \
+	 printf '>>> test-flair-cursor-boot: leg A serial order FLAIR-BOOT-SCREEN(%s) < FLAIR-CURSOR x=320 y=240(%s) < FLAIR-LIVE-READY(%s)\n' "$$bs" "$$cu" "$$rd"
+	@if grep '^FLAIR-CURSOR ' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.serial" | grep -qv '^FLAIR-CURSOR x=320 y=240$$'; then \
+		printf '!!! test-flair-cursor-boot FAIL: leg A moved the arrow without input\n'; grep '^FLAIR-CURSOR ' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.serial"; exit 1; \
+	fi
+	@printf 'VERDICT   : PASS -- the arrow is on the desktop at (320,240) before any input, survives the splash->desktop repaint, and tracks to (500,380)\n'
+	@printf '======================================================================\n'
+
+# Rule-6 twin: the interactive kernel with the boot show compiled out (the
+# pre-fix behaviour); leg A must go RED on the pixels at (320,240).
+$(eval $(call flair-tenants-kmain-mutant-rules,CURSOR_MUT_HIDE_AT_BOOT -DFLAIR_LIVE_INTERACTIVE,cursorhideboot))
+.PHONY: test-flair-cursor-boot-mutant
+test-flair-cursor-boot-mutant: $(BUILD)/flair_tenants_mut_cursorhideboot.img
+	@rc=0; $(MAKE) --no-print-directory test-flair-cursor-boot FLAIR_CURSOR_BOOT_IMAGE=$(BUILD)/flair_tenants_mut_cursorhideboot.img FLAIR_CURSOR_BOOT_NAME=flair_cursor_boot_mut_hide \
+		>$(BUILD)/flair_cursor_boot_mut_hide.log 2>&1 || rc=$$?; \
+	[ "$$rc" -ne 0 ] && grep -qF 'RED M009 hotspot=(320,240)' $(BUILD)/flair_cursor_boot_mut_hide.log \
+		|| { cat $(BUILD)/flair_cursor_boot_mut_hide.log; printf '!!! test-flair-cursor-boot-mutant FAIL: CURSOR_MUT_HIDE_AT_BOOT survived -- the no-input still did not go RED on the pixels\n'; exit 1; }; \
+	printf '>>> test-flair-cursor-boot-mutant: green (CURSOR_MUT_HIDE_AT_BOOT RED -- %s)\n' "$$(grep -m1 'RED M009 hotspot=(320,240)' $(BUILD)/flair_cursor_boot_mut_hide.log | sed 's/^ppm_flair_cursor_check: //')"
+
 .PHONY: test-flair-mouse-mutant
 test-flair-mouse-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MOUSE_IMG) $(FLAIRLIVE_MUT_EOI_IMG)
 	@printf '======================================================================\n'
@@ -11346,6 +11517,25 @@ $(SEED_BIN): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
 # QEMU oracle harness CLI: library + main, one translation unit each.
 $(HARNESS_BIN): $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
+
+# initech-7r2; PRD Sec 8: slow serial progress is not a hung guest.
+$(BUILD)/test_qemu_progress: harness/emu/test_qemu_progress.c $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
+	$(CC) $(CFLAGS) -Iharness/emu -o $@ $<
+
+.PHONY: test-harness-progress
+test-harness-progress: $(BUILD)/test_qemu_progress
+	@$(BUILD)/test_qemu_progress
+
+$(BUILD)/test_qemu_progress_mut: harness/emu/test_qemu_progress.c $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
+	$(CC) $(CFLAGS) -DHARNESS_MUTATE_NO_PROGRESS_RESET -Iharness/emu -o $@ $<
+
+.PHONY: test-harness-progress-mutant
+test-harness-progress-mutant: $(BUILD)/test_qemu_progress_mut
+	@set +e; $(BUILD)/test_qemu_progress_mut > $(BUILD)/qemu_progress_mut.log 2>&1; rc=$$?; set -e; \
+	  cat $(BUILD)/qemu_progress_mut.log; \
+	  test $$rc -eq 1 && grep -q '^RED qemu-progress: echoes must renew the completion deadline' $(BUILD)/qemu_progress_mut.log \
+	  || { printf '!!! test-harness-progress-mutant FAIL: missing expected progress-reset RED\n'; exit 1; }
+	@printf '>>> test-harness-progress-mutant: green (disabled progress-reset branch went RED)\n'
 
 # Bochs oracle harness CLI (beads initech-564): library + main.
 $(BOCHS_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
@@ -13166,6 +13356,9 @@ test-makefile-vars: | $(BUILD)
 
 # Ref: PRD Sec 8/14; CLAUDE.md Rule 2/6; initech-tflp. Expansion only:
 # unlike make -n, the probe cannot execute recursive make recipe commands.
+# Ref: initech-o0cb; PRD Sec 8. Both inventory sub-makes force SKIP_BOCHS=0
+# so Make's parse-time ifeq blocks expose the real Bochs recipes, including
+# their scratch copies. These calls only inventory/expand; no Bochs leg runs.
 FIXTURE_VOLUMES_CHECK := $(BUILD)/check_fixture_volumes
 FIXTURE_VOLUMES_SCAN ?= $(BUILD)/fixture-volumes
 $(FIXTURE_VOLUMES_CHECK): harness/check_fixture_volumes.c | $(BUILD)
@@ -13173,15 +13366,21 @@ $(FIXTURE_VOLUMES_CHECK): harness/check_fixture_volumes.c | $(BUILD)
 .PHONY: test-fixture-volumes test-fixture-volumes-mutant
 test-fixture-volumes: $(FIXTURE_VOLUMES_CHECK)
 	@$(MAKE) --no-print-directory -s fixture-volume-recipe-lint
-	@$(MAKE) --no-print-directory -pn help > $(FIXTURE_VOLUMES_SCAN).db
+	@$(MAKE) --no-print-directory -pn help SKIP_BOCHS=0 > $(FIXTURE_VOLUMES_SCAN).db
 	@$(FIXTURE_VOLUMES_CHECK) --probe $(FIXTURE_VOLUMES_SCAN).db $(FIXTURE_VOLUMES_SCAN).mk $(FIXTURE_VOLUMES_SCAN).expanded
-	@$(MAKE) --no-print-directory -s -f $(firstword $(MAKEFILE_LIST)) -f $(FIXTURE_VOLUMES_SCAN).mk fixture-volume-probe
+	@$(MAKE) --no-print-directory -s -f $(firstword $(MAKEFILE_LIST)) -f $(FIXTURE_VOLUMES_SCAN).mk fixture-volume-probe SKIP_BOCHS=0
 	@$(FIXTURE_VOLUMES_CHECK) --check $(FIXTURE_VOLUMES_SCAN).expanded $(FIXTURE_VOLUMES_SCAN).tsv
 test-fixture-volumes-mutant: test-fixture-volumes
 	@if $(MAKE) --no-print-directory test-fixture-volumes FLAIR_I123_QUIT_DATA=$(BUILD)/flair_i123_quit_data.img FIXTURE_VOLUMES_SCAN=$(BUILD)/fixture-volumes-mutant > $(BUILD)/fixture-volumes-mutant.log 2>&1; then \
 	 printf '!!! test-fixture-volumes-mutant FAIL: QUIT_DATA_COLLISION survived\n'; exit 1; fi
 	@grep -F 'scratch $(BUILD)/flair_i123_quit_data.img (gate test-flair-i123) collides with fixture $(BUILD)/flair_i123_quit_data.img' $(BUILD)/fixture-volumes-mutant.log \
 	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: wrong RED reason\n'; exit 1; }
+	@# Ref: PRD Sec 8; CLAUDE.md Rule 6; initech-o0cb. A Bochs-only
+	@# scratch copy must collide even when execution of Bochs legs is skipped.
+	@if $(MAKE) --no-print-directory test-fixture-volumes SKIP_BOCHS=1 FLAIR_ALERTCHROME_BOCHS_DATA=$(FLAIR_I123_QUIT_DATA) FIXTURE_VOLUMES_SCAN=$(BUILD)/fixture-volumes-mutant > $(BUILD)/fixture-volumes-mutant.log 2>&1; then \
+	 printf '!!! test-fixture-volumes-mutant FAIL: BOCHS_DATA_COLLISION survived with SKIP_BOCHS=1\n'; exit 1; fi
+	@grep -F 'scratch $(FLAIR_I123_QUIT_DATA) (gate test-flair-alert-chrome-bochs) collides with fixture $(FLAIR_I123_QUIT_DATA)' $(BUILD)/fixture-volumes-mutant.log \
+	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: BOCHS_DATA_COLLISION wrong RED reason\n'; exit 1; }
 	@# initech-a5sr mutants. HANDLIST_DRIFT: the pre-8080833 hand list (no
 	@# no-block-on InitechWord volume) -- the exact 2026-10-16 regression.
 	@if $(MAKE) --no-print-directory test-fixture-volumes FIXTURE_MUT_HANDLIST=1 FIXTURE_VOLUMES_SCAN=$(BUILD)/fixture-volumes-mutant > $(BUILD)/fixture-volumes-mutant.log 2>&1; then \
@@ -13216,7 +13415,7 @@ test-fixture-volumes-mutant: test-fixture-volumes
 	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: clean rebuild of %s failed\n' '$(FIXTURE_RMPROOF_IMG)'; exit 1; }
 	@grep -F '>>> fixture_rmproof: minted $(FIXTURE_RMPROOF_IMG)' $(BUILD)/fixture-volumes-mutant.log \
 	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: next make did not rebuild %s\n' '$(FIXTURE_RMPROOF_IMG)'; exit 1; }
-	@printf '>>> test-fixture-volumes-mutant: green (QUIT_DATA_COLLISION, HANDLIST_DRIFT, UNDECLARED_VARIANT, UNSEEDED_MASK, BROKEN_CONTRACT correctly RED; failed image deleted and rebuilt; real Makefile restored)\n'
+	@printf '>>> test-fixture-volumes-mutant: green (QUIT_DATA_COLLISION, BOCHS_DATA_COLLISION, HANDLIST_DRIFT, UNDECLARED_VARIANT, UNSEEDED_MASK, BROKEN_CONTRACT correctly RED; failed image deleted and rebuilt; real Makefile restored)\n'
 
 # Ref: CLAUDE.md Law 2 / Rule 6; initech-iv8c. These run only host gates.
 .PHONY: test-gate-honesty test-gate-honesty-mutant
@@ -14133,6 +14332,72 @@ test-tbx-menu-mutant: $(BUILD)/test_tbx_menu_mutant_TBX_MUT_MENU_KEY_PLAIN $(BUI
 		printf '>>> test-tbx-menu-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
 	done
 	@printf '>>> test-tbx-menu-mutant: green (both mutants RED for the named reason)\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-routing (bead initech-2svz; R3.7 follow-up to
+# initech-tdnl.14) -- the "O-1-style host routing suite over disk_tenant_event"
+# DEC-AC3-3 names (docs/design/GUI-remediation-ADR-reconciliation.md Part B).
+# Links the REAL os/flair/tbxgate.c (disk_tenant_event, tbx_gate_dispatch, the
+# slot lifecycle) over the REAL Layer-5 spine (process.c/window.c/heap.c/region)
+# and the REAL psp.c/sft.c; the loader, the asm trampolines and the tenant
+# program are host stand-ins, and every surface the suite does not grade is a
+# FAIL-LOUD stub (harness/proptest/flair_routing_stubs.c). Hand-authored legs:
+# A windowless REGISTER keeps the Finder foreground (DEC-AC3-4); B the first
+# NEWWINDOW is affirmed after the entry returns (one deactivate THEN one
+# activate, into the tenant's own FlairEvent); C keyDown/content/title/click-
+# to-activate routing; G slot busy; D EXIT inside a handler; E a fault inside
+# the eventProc; H no REGISTER; P the fail-loud wrong-app guard; T the title
+# run of a partly covered window writes no pixel in front (chrome.c, the real
+# chrome drawer over the render skeleton); X the INT 81h dispatcher itself --
+# DEC-AC3-2's "host property suite over the gate dispatcher": every 16-bit AX
+# outside the spec's callable rows is BADCODE, AX is EAX's low word, args are
+# read from frame+68 under a poisoned frame, errors are negative in EAX, a
+# stray int 81h is NOTTENANT, the TENANT-GATE trace is exact. -no-pie:
+# tbxgate.c holds tenant addresses as flat-32 uint32_t; scene check S0 proves
+# they fit. Four artifact mutants (Rule 6), each RED for its named reason:
+#   PROC_MUT_ADMIT_IS_FOREGROUND  process.c links a windowless REGISTER at the
+#                                 head (the pre-tdnl.14 registration)
+#   CHROME_MUT_TITLE_UNCLIPPED    chrome.c draws the title run with text_draw
+#                                 (the pre-tdnl.14 unclipped run)
+#   TBX_MUT_AX_FULL_EAX           tbxgate.c demuxes on all of EAX
+#   TBX_MUT_ARG_OFFSET            tbxgate.c reads the cdecl args one dword low
+# ---------------------------------------------------------------------------
+TEST_FLAIR_ROUTING     := $(BUILD)/test_flair_routing
+TEST_FLAIR_ROUTING_SRC := harness/proptest/test_flair_routing.c
+FLAIR_ROUTING_LINK := harness/proptest/flair_routing_stubs.c os/flair/tbxgate.c \
+                      os/flair/process.c os/flair/window.c os/flair/heap.c \
+                      $(REGION_ENGINE_C) os/milton/psp.c os/milton/sft.c \
+                      $(CHROME_DRAWER_C) os/flair/surface.c $(FLAIRLOOK_C) \
+                      $(RENDER_SKEL_C)
+FLAIR_ROUTING_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson \
+                      -Ios/milton -Iharness/render -Iseed
+FLAIR_ROUTING_DEPS := $(TEST_FLAIR_ROUTING_SRC) $(FLAIR_ROUTING_LINK) \
+                      $(filter-out $(SERIAL_TRACE_PACK),$(TBXGATE_DEPS)) \
+                      $(CHROME_DEPS) $(TEST_PROCESS_DEPS) os/milton/sft.h \
+                      seed/test_assert.h
+$(TEST_FLAIR_ROUTING): $(FLAIR_ROUTING_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -no-pie $(FLAIR_ROUTING_INC) -o $@ $(TEST_FLAIR_ROUTING_SRC) $(FLAIR_ROUTING_LINK)
+$(BUILD)/test_flair_routing_mutant_%: $(FLAIR_ROUTING_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -no-pie -D$* $(FLAIR_ROUTING_INC) -o $@ $(TEST_FLAIR_ROUTING_SRC) $(FLAIR_ROUTING_LINK)
+
+.PHONY: test-flair-routing test-flair-routing-mutant
+test-flair-routing: $(TEST_FLAIR_ROUTING)
+	@printf ">>> test-flair-routing: the R3.7 host routing suite over disk_tenant_event + the clipped title run + the INT 81h dispatcher (initech-2svz)\n"
+	@$(TEST_FLAIR_ROUTING)
+	@printf ">>> test-flair-routing: green\n"
+
+test-flair-routing-mutant: $(BUILD)/test_flair_routing_mutant_PROC_MUT_ADMIT_IS_FOREGROUND $(BUILD)/test_flair_routing_mutant_CHROME_MUT_TITLE_UNCLIPPED \
+                           $(BUILD)/test_flair_routing_mutant_TBX_MUT_AX_FULL_EAX $(BUILD)/test_flair_routing_mutant_TBX_MUT_ARG_OFFSET
+	@for pair in 'PROC_MUT_ADMIT_IS_FOREGROUND:leg(A1): a tenant that REGISTERs without a window does NOT become the foreground' \
+	             'CHROME_MUT_TITLE_UNCLIPPED:leg(T1): the covered title run writes NO pixel inside the front window' \
+	             'TBX_MUT_AX_FULL_EAX:leg(X2): AX is the LOW WORD of EAX' \
+	             'TBX_MUT_ARG_OFFSET:leg(X3): with the frame and the stack above the args POISONED'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_flair_routing_mutant_$$m; \
+		if $$bin > $$bin.log 2>&1; then printf '!!! test-flair-routing-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		line=$$(grep -F "$$why" $$bin.log | grep FAIL) || { printf '!!! test-flair-routing-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
+		printf '>>> test-flair-routing-mutant: %s correctly RED:\n    %s\n' "$$m" "$$line"; \
+	done
+	@printf '>>> test-flair-routing-mutant: green (all four mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-i123-wk1-roundtrip (bead initech-9u8w, I123 P1; plan
@@ -15994,7 +16259,7 @@ $(SEED_TEST_PARSER_MUT): seed/test_parser.c $(SEED_LIB_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSEED_MUT_PARSE_ADD_AS_MUL -Iseed -o $@ seed/test_parser.c $(SEED_LIB_SRC)
 
 .PHONY: test-seed-mutant
-test-seed-mutant: $(SEED_TEST_PARSER_MUT)
+test-seed-mutant: $(SEED_TEST_PARSER_MUT) test-seed-num-range-mutant
 	@printf ">>> test-seed-mutant: confirming the OP_ADD->OP_MUL parser mutant goes RED (Rule 6; initech-znb/initech-tf3c)\n"
 	@$(SEED_TEST_PARSER_MUT) 2>/dev/null | grep -q 'checks,' \
 		|| { printf '!!! test-seed-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
@@ -16002,6 +16267,25 @@ test-seed-mutant: $(SEED_TEST_PARSER_MUT)
 		printf '!!! test-seed-mutant FAIL: mutant PASSED -- the +/* precedence distinction is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-seed-mutant: green (OP_ADD->OP_MUL correctly RED)\n'; \
+	fi
+
+# Ref: ADR-0007 DEC-02 dialect pin 1 (32-bit signed integer), Rule 6;
+# initech-veav / initech-cfc5. Removing scan_number's pre-multiply guard must
+# make the located out-of-range literal checks fail in the real lexer suite.
+SEED_TEST_LEXER_MUT_NUM_RANGE := $(BUILD)/test_lexer_mut_num_range
+
+$(SEED_TEST_LEXER_MUT_NUM_RANGE): seed/test_lexer.c $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSEED_MUT_NUM_RANGE -Iseed -o $@ seed/test_lexer.c $(SEED_LIB_SRC)
+
+.PHONY: test-seed-num-range-mutant
+test-seed-num-range-mutant: $(SEED_TEST_LEXER_MUT_NUM_RANGE)
+	@printf '>>> test-seed-num-range-mutant: confirming SEED_MUT_NUM_RANGE goes RED (Rule 6; initech-veav/initech-cfc5)\n'
+	@$(SEED_TEST_LEXER_MUT_NUM_RANGE) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-seed-num-range-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(SEED_TEST_LEXER_MUT_NUM_RANGE) >/dev/null 2>&1; then \
+		printf '!!! test-seed-num-range-mutant FAIL: mutant PASSED -- integer range checks are decoration\n'; exit 1; \
+	else \
+		printf '>>> test-seed-num-range-mutant: green (SEED_MUT_NUM_RANGE correctly RED)\n'; \
 	fi
 
 # test-seed-codegen-mutant: codegen/emission mutant. -DSEED_MUT_CODEGEN_MUL_AS_ADD
@@ -18255,16 +18539,20 @@ test-tracer-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 # the same milestones as under QEMU -- catching emulator-isms in the boot chain
 # + kernel that a single emulator would hide.
 # ---------------------------------------------------------------------------
-# WHY this differs from the QEMU leg (Law 1, bd memories
-# bochs-boot-solved-initech-6pj + bochs-rfb-display-does-not-render-vga-mode):
-#   * Bochs has no 640x480 VBE LFB, so stage2 falls back to standard VGA mode
-#     0x13 (serial: VBE-ENOMODE then VGA13) instead of the QEMU VBE path (VBE).
-#     The video-setup markers therefore legitimately DIFFER; the KERNEL markers
-#     (BI-OK, PM, KERNEL, CONSOLE, BANNER, ...) must MATCH -- that is the
-#     differential (same kernel behaviour on both emulators).
-#   * Bochs RFB cannot DISPLAY mode 0x13, so this gate asserts on SERIAL +
-#     no-triple-fault ONLY (no screendump). The OS render is proven elsewhere
-#     (test-console host oracle + the QEMU screendump).
+# WHY this differs from the QEMU leg (Law 1, bd memory
+# bochs-boot-solved-initech-6pj; WL-0170 corrected the video-path claim):
+#   * Bochs 2.7's LGPL vgabios offers VESA 0101h 640x480x8 with an LFB at
+#     0xE0000000 and NO 24/32bpp 640x480 mode, so since initech-2gva stage2
+#     takes the 8bpp tier (serial: VBE-MODE=0101, VIDEO ... bpp=8 ... dac=8)
+#     where QEMU takes 32bpp. The video-setup markers therefore legitimately
+#     DIFFER; the KERNEL markers (BI-OK, PM, KERNEL, CONSOLE, BANNER, ...) must
+#     MATCH -- that is the differential (same kernel behaviour on both
+#     emulators). The pre-WL-0170 "ENOMODE -> mode 0x13" claim held only
+#     before the 0101h fallback existed; the mode-13h floor is now graded on
+#     real period cards by test-boot-vga13-bochs / test-boot-novbe-bochs.
+#   * This gate asserts on SERIAL + no-triple-fault (the ONE checker,
+#     harness/emu/bochs_leg_check.sh); the Bochs PIXELS are graded by the
+#     FLAIR legs (test-flair-desktop-bochs / test-flair-appswitch-bochs).
 #   * Needs the env's Bochs (legacy BIOS + LGPL vgabios); promoted into the
 #     default `make test` vector (initech-in2g, ~45s): CLAUDE.md's apt-install
 #     line lists bochs as a required base tool, so a missing binary is a LOUD
@@ -18292,46 +18580,27 @@ test-boot-bochs: $(BOCHS_BIN) $(SECONDARY_TRACER_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-boot-bochs : BOCHS leg of the boot gate\n'
 	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). beads initech-564 / initech-x0i\n'
-	@printf '  Bochs: legacy BIOS + LGPL vgabios + pentium; stage2 mode-0x13 fallback.\n'
+	@printf '  Bochs: legacy BIOS + LGPL vgabios + pentium; VESA 0101h 640x480x8 LFB (WL-0170).\n'
 	@printf '======================================================================\n'
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-boot-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
 	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(SECONDARY_TRACER_IMG)"
-	@printf 'Expecting : VBE-ENOMODE + VGA13 (fallback) then the SAME kernel markers as QEMU\n'
+	@printf 'Expecting : VBE-MODE=0101 + the 8-bit DAC VIDEO handoff, then the SAME kernel markers as QEMU\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@# The guest hlt-loops, so the harness times out by design; OK is driven by
-	@# the RFB unblock + no-triple-fault + the --expect marker, not the exit code.
-	@$(BOCHS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --expect VGA13 \
+	@# The run stops at the complete SHELL-READY line (--quit-after); OK is the
+	@# RFB unblock + no-triple-fault + the --expect marker, not the exit code.
+	@$(BOCHS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --expect SHELL-READY --quit-after SHELL-READY \
 		--name "$(BOCHS_BOOT_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
 		2> "$(BOCHS_BOOT_REPORT)" || true
 	@cat "$(BOCHS_BOOT_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@# 1. The RFB unblock must have succeeded (else Bochs never ran the guest).
-	@grep -q 'rfb_unblocked=1' "$(BOCHS_BOOT_REPORT)" \
-		|| { printf '!!! test-boot-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
-	@# 2. No triple-fault (3rd-13 / IDT.limit=0) in the Bochs log.
-	@if grep -q 'triple_fault=1' "$(BOCHS_BOOT_REPORT)"; then \
-		printf '!!! test-boot-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
-	fi
-	@if [ ! -s "$(BOCHS_BOOT_SERIAL)" ]; then \
-		printf '!!! test-boot-bochs FAIL: no serial captured at %s\n' "$(BOCHS_BOOT_SERIAL)"; exit 1; \
-	fi
-	@printf 'Serial markers captured:\n'
-	@for m in S1 S2 VBE-ENOMODE VGA13 FONT KLOAD A20 GDT PM LFB OK KHI KERNEL INT21 BI-OK CONSOLE BANNER; do \
-		if grep -q "^$$m$$" "$(BOCHS_BOOT_SERIAL)"; then printf '  %-12s : present\n' "$$m"; \
-		else printf '  %-12s : MISSING\n' "$$m"; fi; \
-	done
-	@# 3a. The fallback fired (the Bochs-specific path): VBE-ENOMODE + VGA13.
-	@for m in VBE-ENOMODE VGA13; do \
-		grep -q "^$$m$$" "$(BOCHS_BOOT_SERIAL)" \
-			|| { printf '!!! test-boot-bochs FAIL: fallback marker %s missing (stage2 did not take the mode-0x13 path)\n' "$$m"; exit 1; }; \
-	done
-	@# 3b. The SHARED kernel milestone set -- the differential vs QEMU: the kernel
-	@#     reached the same state on Bochs as on QEMU (test-tracer-boot asserts
-	@#     these on the QEMU leg).
-	@for m in S1 PM OK FONT KLOAD KHI KERNEL INT21 BI-OK CONSOLE BANNER; do \
-		grep -q "^$$m$$" "$(BOCHS_BOOT_SERIAL)" \
-			|| { printf '!!! test-boot-bochs FAIL: required kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
-	done
+	@# 1-3b. The ONE Bochs serial verdict (harness/emu/bochs_leg_check.sh): RFB
+	@#     unblock, no triple fault, the vbe101 video path (VBE-MODE=0101 + the
+	@#     VIDEO 640x480 bpp=8 dac=8 handoff, and NOT the mode-13h markers), the
+	@#     shared S1/PM/KERNEL/CONSOLE/BANNER milestones, then the SHARED kernel
+	@#     milestone set -- the differential vs QEMU (test-tracer-boot asserts
+	@#     these on the QEMU leg) -- through to the shell prompt.
+	@sh harness/emu/bochs_leg_check.sh test-boot-bochs "$(BOCHS_BOOT_REPORT)" "$(BOCHS_BOOT_SERIAL)" vbe101 \
+		S2 FONT E820 KLOAD A20 GDT LFB OK KHI INT21 BI-OK IRQ-LIVE CONIN-LIVE SHELL-READY !PANIC
 	@# 3c. The same high-placement assertion under the strict-transition emulator
 	@#     (kernel-runway-relocation.md K3; bead initech-tdnl.29).
 	@kat=$$(grep -m1 '^KAT 0x' "$(BOCHS_BOOT_SERIAL)" || true); \
@@ -18346,7 +18615,7 @@ test-boot-bochs: $(BOCHS_BIN) $(SECONDARY_TRACER_IMG)
 		fi; \
 		printf '>>> test-boot-bochs: KHI + KAT placement green (%s)\n' "$$range"
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- tracer booted under Bochs via the mode-0x13 fallback,\n'
+	@printf 'VERDICT   : PASS -- tracer booted under Bochs on the VESA 0101h 8bpp path,\n'
 	@printf '            reached the same kernel milestones as QEMU, no triple-fault\n'
 	@printf '======================================================================\n'
 endif
@@ -18577,44 +18846,37 @@ test-flair-desktop-mutant: $(HARNESS_BIN) $(PPM_FLAIR_CHECK_BIN) \
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-desktop-bochs (beads initech-re30.3, LANE 2; Rule 5 --
-# tri-emulator; the BOCHS leg of the live FLAIR desktop boot)
+# tri-emulator; the BOCHS leg of the live FLAIR desktop boot; WL-0170 pixels)
 # ---------------------------------------------------------------------------
 # Boots the SAME flair_desktop image under Bochs and asserts the kernel reached
-# the shared milestones a single emulator would hide. TRUTHFUL CONSTRAINT (Law 1 /
-# Law 2 -- the oracle is the truth, not the wish):
+# the shared milestones a single emulator would hide -- AND grades the pixels.
 #
-#   The lane-1 desktop is rendered at 640x480 (ADR-0004 OD-3) and kmain
-#   (BOOT_FLAIR_SHELL) FAILS LOUD on a smaller LFB (Rule 2 -- a clipped/garbage
-#   desktop is worse than a panic). stage2 only accepts a 640x480 24/32bpp VBE
-#   mode (stage2.asm:388-394); the Bochs 2.7 LGPL vgabios ENOMODEs that mode and
-#   falls back to standard VGA mode 0x13 == 320x200x8. So under Bochs the
-#   framebuffer is 320x200 and the desktop CANNOT be presented: kmain correctly
-#   panics ("PANIC flair-desktop: LFB smaller than 640x480 w=320 h=200"). The
-#   FLAIR-DESKTOP marker therefore genuinely DOES NOT (and should not) appear on
-#   the Bochs leg -- asserting it would be a wish, not a test (and there is no
-#   path in the tree that hands a 640x480x8 LFB to the 8bpp present code).
+# THE FINDING (WL-0170, Law 1 / Law 2): Bochs 2.7's LGPL vgabios offers VESA
+# 0101h 640x480x8 with an LFB at 0xE0000000 (and no 24/32bpp 640x480 mode).
+# Since initech-2gva stage2 takes that 8bpp tier (VBE-MODE=0101; VIDEO 640x480
+# bpp=8 pitch=640 lfb=0xE0000000 dac=8), kmain programs the DAC through
+# flair_dac_load and the desktop PAINTS: the Bochs framebuffer, captured by
+# harness/emu/bochs.c (the RFB FramebufferUpdate shadow + Bochs's own lossless
+# snapshot) and graded by tools/ppm_bochs_check.c against the QEMU 32bpp
+# capture of the SAME image at the SAME serial line, is EXACT on all 307200
+# pixels. The pre-WL-0170 claim ("Bochs ENOMODEs -> 320x200 -> the 640x480
+# guard panics") described the tree BEFORE the 0101h fallback; the guard is
+# now graded on real period cards without an LFB (test-flair-desktop-vga13-
+# bochs: ISA Cirrus VBE-ENOMODE; test-flair-desktop-novbe-bochs: plain VGA
+# VBE-E00; harness/bochs_legs.mk).
 #
-#   What the Bochs leg DOES prove (the real differential): the SAME flair_desktop
-#   kernel runs the boot chain + the FLAIR heap gate IDENTICALLY on Bochs and
-#   QEMU (S1..CONSOLE, BANNER, FLAIR-HEAP-OK all match), then the 640x480-required
-#   guard FIRES CORRECTLY under the 320x200 fallback (the PANIC + HALTED markers)
-#   instead of triple-faulting or silently misrendering. That IS the tri-emulator
-#   signal for this milestone: the desktop subsystem reaches the present decision
-#   point on Bochs and the fail-loud guard is load-bearing. NO triple-fault.
-#
-# The 8bpp DAC present path (kmain flair_desktop_present, lfb_bpp==8) is real but
-# currently UNREACHABLE on any emulator in-tree (QEMU = 32bpp VBE; Bochs = 320x200
-# < 640x480 => guard). Exercising it needs a 640x480x8 LFB -- TRACKED in bead
-# initech-2gva (committee ruling re30.3-chair: KEEP the path; a stage2 0x101
-# (640x480x8) VBE fallback + an oracle leg that REACHES this wrapper land there,
-# sequenced before the M4/86Box period-authenticity sign-off). SERIAL-only (Bochs RFB cannot show
-# mode 0x13 + no QMP screendump). Env-specific (needs Bochs) + ~45s; promoted
-# into the default `make test` vector alongside test-boot-bochs (initech-in2g).
-# Missing bochs is a LOUD FAIL (Law 2); SKIP_BOCHS=1 is the documented,
-# shouting opt-out (CLAUDE.md Build & test).
-FLAIR_BOCHS_NAME   := flair_desktop_bochs
-FLAIR_BOCHS_REPORT := $(BUILD)/$(FLAIR_BOCHS_NAME).report.txt
-FLAIR_BOCHS_SERIAL := $(BUILD)/$(FLAIR_BOCHS_NAME).serial
+# What this leg proves (the real differential): (1) the SAME flair_desktop
+# kernel runs the boot chain + the FLAIR heap gate IDENTICALLY on Bochs and
+# QEMU (S1..CONSOLE, BANNER, FLAIR-HEAP-OK, FLAIR-DESKTOP); (2) the presented
+# desktop on Bochs (8bpp indexed LFB + DAC) equals the QEMU golden (32bpp
+# direct colour) pixel for pixel -- EXACT RGB on the snapshot, and through
+# Bochs's only headless display (RFB, BGR233) as well. NO tolerance (CLAUDE.md
+# stop conditions). ~15s; promoted into the default `make test` vector
+# alongside test-boot-bochs (initech-in2g). Missing bochs is a LOUD FAIL
+# (Law 2); SKIP_BOCHS=1 is the documented, shouting opt-out.
+FLAIR_BOCHS_NAME   := flair_desktop
+FLAIR_BOCHS_REPORT := $(BUILD)/bochs-pixel/$(FLAIR_BOCHS_NAME)-bochs.report
+FLAIR_BOCHS_SERIAL := $(BUILD)/bochs-pixel/$(FLAIR_BOCHS_NAME)-bochs.serial
 .PHONY: test-flair-desktop-bochs
 # See test-boot-bochs above for why SKIP_BOCHS is a Make-level `ifeq`, not a
 # shell-level `if...exit 0` (a shell exit 0 mid-recipe does not skip later
@@ -18627,65 +18889,29 @@ test-flair-desktop-bochs:
 	@printf '!!! test-flair-desktop-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
 	@printf '======================================================================\n'
 else
-test-flair-desktop-bochs: $(BOCHS_BIN) $(FLAIRSHELL_IMG)
+test-flair-desktop-bochs: $(BOCHS_BIN) $(HARNESS_BIN) $(BUILD)/ppm_bochs_check $(FLAIRSHELL_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-desktop-bochs : BOCHS leg (FLAIR desktop)\n'
-	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). beads initech-re30.3 LANE 2.\n'
-	@printf '  Bochs 2.7: legacy BIOS + LGPL vgabios; VBE ENOMODE -> mode-0x13 (320x200).\n'
-	@printf '  The 640x480 desktop cannot fit 320x200, so kmain FAILS LOUD (Rule 2);\n'
-	@printf '  the leg proves the shared boot/heap milestones + that the guard fires.\n'
+	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). beads initech-re30.3 LANE 2; WL-0170.\n'
+	@printf '  Bochs 2.7: legacy BIOS + LGPL vgabios; VESA 0101h 640x480x8 LFB + 8-bit DAC.\n'
+	@printf '  The leg proves the shared boot/heap milestones AND grades the presented\n'
+	@printf '  desktop against the QEMU 32bpp capture of the same image: EXACT RGB.\n'
 	@printf '======================================================================\n'
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-desktop-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
-	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRSHELL_IMG)"
-	@printf 'Expecting : VGA13 (320x200 fallback) + shared kernel markers + the\n'
-	@printf '            "LFB smaller than 640x480" fail-loud guard, no triple-fault\n'
+	@printf 'Booting   : %s under QEMU (32bpp golden) then Bochs (0101h; RFB headless)\n' "$(FLAIRSHELL_IMG)"
+	@printf 'Expecting : VBE-MODE=0101 + shared kernel markers + FLAIR-DESKTOP, then\n'
+	@printf '            Bochs == QEMU on all 307200 pixels (snapshot exact + RFB BGR233)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@# --expect HALTED: the fail-loud guard's terminal marker (the guest then
-	@# cli;hlt loops, so the harness times out by design -- OK is the markers +
-	@# no-triple-fault, not the exit code; mirrors test-boot-bochs).
-	@$(BOCHS_BIN) --disk "$(FLAIRSHELL_IMG)" --expect HALTED \
-		--name "$(FLAIR_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
-		2> "$(FLAIR_BOCHS_REPORT)" || true
+	@$(call bochs-pixel-leg,$(FLAIR_BOCHS_NAME),$(FLAIRSHELL_IMG),$(FLAIRSHELL_IMG),-,FLAIR-DESKTOP)
 	@cat "$(FLAIR_BOCHS_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@grep -q 'rfb_unblocked=1' "$(FLAIR_BOCHS_REPORT)" \
-		|| { printf '!!! test-flair-desktop-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
-	@if grep -q 'triple_fault=1' "$(FLAIR_BOCHS_REPORT)"; then \
-		printf '!!! test-flair-desktop-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
-	fi
-	@if [ ! -s "$(FLAIR_BOCHS_SERIAL)" ]; then \
-		printf '!!! test-flair-desktop-bochs FAIL: no serial captured at %s\n' "$(FLAIR_BOCHS_SERIAL)"; exit 1; \
-	fi
-	@printf 'Serial markers captured:\n'
-	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK HALTED; do \
-		if grep -q "^$$m$$" "$(FLAIR_BOCHS_SERIAL)"; then printf '  %-14s : present\n' "$$m"; \
-		else printf '  %-14s : MISSING\n' "$$m"; fi; \
-	done
-	@# 1. The Bochs-specific 320x200 fallback fired (VBE ENOMODE -> mode 0x13).
-	@for m in VBE-ENOMODE VGA13; do \
-		grep -q "^$$m$$" "$(FLAIR_BOCHS_SERIAL)" \
-			|| { printf '!!! test-flair-desktop-bochs FAIL: fallback marker %s missing (stage2 did not take the mode-0x13 path)\n' "$$m"; exit 1; }; \
-	done
-	@# 2. The SHARED kernel + FLAIR-heap milestones -- the differential vs QEMU:
-	@#    the SAME flair_desktop kernel reached the same state on Bochs as on QEMU.
-	@for m in S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK; do \
-		grep -q "^$$m$$" "$(FLAIR_BOCHS_SERIAL)" \
-			|| { printf '!!! test-flair-desktop-bochs FAIL: shared kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
-	done
-	@# 3. The 640x480-required fail-loud guard FIRED correctly under the 320x200
-	@#    fallback (NOT a triple-fault, NOT a silent misrender): the PANIC line +
-	@#    the HALTED terminal marker. This is the load-bearing tri-emulator tooth.
-	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_BOCHS_SERIAL)" \
-		|| { printf '!!! test-flair-desktop-bochs FAIL: the 640x480-required guard did NOT fire under the 320x200 fallback (silent misrender or wrong path?)\n'; exit 1; }
-	@grep -q '^HALTED$$' "$(FLAIR_BOCHS_SERIAL)" \
-		|| { printf '!!! test-flair-desktop-bochs FAIL: HALTED terminal marker missing -- the guard did not reach its clean halt\n'; exit 1; }
+	@sh harness/emu/bochs_leg_check.sh test-flair-desktop-bochs "$(FLAIR_BOCHS_REPORT)" "$(FLAIR_BOCHS_SERIAL)" vbe101 \
+		FLAIR-HEAP-OK FLAIR-DESKTOP !PANIC
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- the flair_desktop kernel booted under Bochs through the\n'
-	@printf '            shared kernel + FLAIR-heap milestones (== QEMU), and the 640x480\n'
-	@printf '            fail-loud guard FIRED correctly under the 320x200 mode-0x13\n'
-	@printf '            fallback (no triple-fault). NOTE: FLAIR-DESKTOP (the composed\n'
-	@printf '            present) is QEMU-only -- Bochs has no 640x480 LFB; the 8bpp DAC\n'
-	@printf '            present path is unreachable in-tree (tracked: bead initech-2gva).\n'
+	@printf '            shared kernel + FLAIR-heap milestones (== QEMU) on the VESA 0101h\n'
+	@printf '            path and PRESENTED the desktop: Bochs == QEMU pixel for pixel.\n'
+	@printf '            (The mode-13h guard is graded by test-flair-desktop-vga13-bochs.)\n'
 	@printf '======================================================================\n'
 endif
 
@@ -19424,27 +19650,28 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
-# REAL gate: test-flair-appswitch-bochs (ADR-0013; Rule 5 -- the BOCHS boot leg of
-# the FLAIR App Contract tenants image)
+# REAL gate: test-flair-appswitch-bochs (ADR-0013; Rule 5 -- the BOCHS leg of
+# the FLAIR App Contract tenants image; WL-0170 pixels)
 # ---------------------------------------------------------------------------
-# TRUTHFUL CONSTRAINT (Law 1/Law 2, identical to test-flair-desktop-bochs / test-
-# flair-live-bochs): the FLAIRTENANTS image shares the BOOT_FLAIR_LIVE path, which
-# presents the 640x480 desktop FIRST. Bochs 2.7's LGPL vgabios ENOMODEs the 640x480
-# VBE mode and falls back to standard VGA mode 0x13 (320x200x8); flair_desktop_run
-# then FAILS LOUD ("LFB smaller than 640x480") and HALTS BEFORE the tenants are
-# launched -- so FLAIR-TENANTS-READY / FLAIR-DISPATCH genuinely DO NOT (and should
-# not) appear on Bochs, and there is NO mouse injection on the Bochs leg (no QMP).
-# What this leg proves (the real differential): the SAME flairtenants kernel runs the
-# boot chain + the FLAIR heap gate IDENTICALLY to QEMU, then the 640x480 guard fires
-# correctly under the 320x200 fallback (no triple-fault). The app-switch behaviour
-# itself is graded on QEMU (test-flair-appswitch). SERIAL-only; env-specific (needs
-# Bochs); promoted into the default `make test` vector alongside test-boot-bochs
-# (initech-in2g). Missing bochs is a LOUD FAIL (Law 2); SKIP_BOCHS=1 is the
-# documented, shouting opt-out (CLAUDE.md Build & test). (test-flair-live-bochs
-# remains a SEPARATE target, out of scope for this promotion.)
-FLAIR_APPSW_BOCHS_NAME   := flair_appswitch_bochs
-FLAIR_APPSW_BOCHS_REPORT := $(BUILD)/$(FLAIR_APPSW_BOCHS_NAME).report.txt
-FLAIR_APPSW_BOCHS_SERIAL := $(BUILD)/$(FLAIR_APPSW_BOCHS_NAME).serial
+# Same finding as test-flair-desktop-bochs (WL-0170): on Bochs 2.7 the
+# FLAIRTENANTS image takes VESA 0101h (640x480x8 LFB, 8-bit DAC), mounts the
+# data volume, presents the co-resident HELLO+NOTES desktop and arms the pump.
+# What this leg proves (the real differential): the SAME flairtenants kernel
+# runs the boot chain + FLAIR heap + FAT mount IDENTICALLY to QEMU, reaches
+# FLAIR-TENANTS-READY, and the presented tenants desktop on Bochs equals the
+# QEMU 32bpp capture of the same image + same data volume + same pinned RTC at
+# the same serial line, EXACT on all 307200 pixels (snapshot) and through the
+# RFB display (BGR233). There is NO mouse injection on the Bochs leg (no QMP):
+# the app-switch itself is graded on QEMU (test-flair-appswitch); the mode-13h
+# guard on a card without an LFB by test-flair-appswitch-vga13-bochs. The DAC
+# presenter mutants are proven to bite under Bochs by
+# test-flair-desktop-8bpp-bochs-mutant (harness/bochs_legs.mk). Env-specific
+# (needs Bochs); promoted into the default `make test` vector alongside
+# test-boot-bochs (initech-in2g). Missing bochs is a LOUD FAIL (Law 2);
+# SKIP_BOCHS=1 is the documented, shouting opt-out (CLAUDE.md Build & test).
+FLAIR_APPSW_BOCHS_NAME   := flair_appswitch
+FLAIR_APPSW_BOCHS_REPORT := $(BUILD)/bochs-pixel/$(FLAIR_APPSW_BOCHS_NAME)-bochs.report
+FLAIR_APPSW_BOCHS_SERIAL := $(BUILD)/bochs-pixel/$(FLAIR_APPSW_BOCHS_NAME)-bochs.serial
 .PHONY: test-flair-appswitch-bochs
 # See test-boot-bochs above for why SKIP_BOCHS is a Make-level `ifeq`, not a
 # shell-level `if...exit 0` (a shell exit 0 mid-recipe does not skip later
@@ -19457,63 +19684,33 @@ test-flair-appswitch-bochs:
 	@printf '!!! test-flair-appswitch-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
 	@printf '======================================================================\n'
 else
-test-flair-appswitch-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
+test-flair-appswitch-bochs: $(BOCHS_BIN) $(HARNESS_BIN) $(BUILD)/ppm_bochs_check $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-appswitch-bochs : BOCHS leg (App Contract)\n'
-	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). ADR-0013; beads initech-4e35.\n'
-	@printf '  Bochs 2.7: VBE ENOMODE -> mode-0x13 (320x200); the 640x480 desktop cannot\n'
-	@printf '  fit, so kmain FAILS LOUD after MOUNT-OK but BEFORE tenant launch; the leg\n'
-	@printf '  proves the shared boot/heap/mount milestones + the guard, no fault.\n'
-	@printf '  (No mouse injection on Bochs -> boot leg only; the app-switch is graded on\n'
-	@printf '  QEMU by test-flair-appswitch.)\n'
+	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). ADR-0013; beads initech-4e35; WL-0170.\n'
+	@printf '  Bochs 2.7: VESA 0101h 640x480x8 LFB + 8-bit DAC; the tenants desktop is\n'
+	@printf '  presented and graded against the QEMU 32bpp capture at the same line.\n'
+	@printf '  (No mouse injection on Bochs -> the app-switch is graded on QEMU by\n'
+	@printf '  test-flair-appswitch; the boot + present + pixels are graded here.)\n'
 	@printf '======================================================================\n'
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-appswitch-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
-	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRTENANTS_IMG)"
-	@printf 'Expecting : VGA13 fallback + shared kernel markers + the 640x480 fail-loud\n'
-	@printf '            guard (PANIC + HALTED), no triple-fault\n'
+	@printf 'Booting   : %s under QEMU (32bpp golden) then Bochs (0101h; RFB headless)\n' "$(FLAIRTENANTS_IMG)"
+	@printf 'Expecting : VBE-MODE=0101 + shared kernel/heap/mount markers + FLAIR-TENANTS-READY,\n'
+	@printf '            then Bochs == QEMU on all 307200 pixels (snapshot exact + RFB BGR233)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
 	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
-	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
-		--name "$(FLAIR_APPSW_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
-		2> "$(FLAIR_APPSW_BOCHS_REPORT)" || true
+	@$(call bochs-pixel-leg,$(FLAIR_APPSW_BOCHS_NAME),$(FLAIRTENANTS_IMG),$(FLAIRTENANTS_IMG),$(FLAIR_GATE_DATA),$(BOCHS_PIXEL_TENANTS_LINE))
 	@cat "$(FLAIR_APPSW_BOCHS_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@grep -q 'rfb_unblocked=1' "$(FLAIR_APPSW_BOCHS_REPORT)" \
-		|| { printf '!!! test-flair-appswitch-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
-	@if grep -q 'triple_fault=1' "$(FLAIR_APPSW_BOCHS_REPORT)"; then \
-		printf '!!! test-flair-appswitch-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
-	fi
-	@if [ ! -s "$(FLAIR_APPSW_BOCHS_SERIAL)" ]; then \
-		printf '!!! test-flair-appswitch-bochs FAIL: no serial captured at %s\n' "$(FLAIR_APPSW_BOCHS_SERIAL)"; exit 1; \
-	fi
-	@printf 'Serial markers captured:\n'
-	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED; do \
-		if grep -q "^$$m$$" "$(FLAIR_APPSW_BOCHS_SERIAL)"; then printf '  %-14s : present\n' "$$m"; \
-		else printf '  %-14s : MISSING\n' "$$m"; fi; \
-	done
-	@# 1. The Bochs 320x200 fallback fired (VBE ENOMODE -> mode 0x13).
-	@for m in VBE-ENOMODE VGA13; do \
-		grep -q "^$$m$$" "$(FLAIR_APPSW_BOCHS_SERIAL)" \
-			|| { printf '!!! test-flair-appswitch-bochs FAIL: fallback marker %s missing\n' "$$m"; exit 1; }; \
-	done
-	@# 2. The SHARED kernel + FLAIR-heap milestones -- the differential vs QEMU.
-	@for m in S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK; do \
-		grep -q "^$$m$$" "$(FLAIR_APPSW_BOCHS_SERIAL)" \
-			|| { printf '!!! test-flair-appswitch-bochs FAIL: shared kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
-	done
-	@# 3. The 640x480-required fail-loud guard FIRED (PANIC + HALTED), not a reboot.
-	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_APPSW_BOCHS_SERIAL)" \
-		|| { printf '!!! test-flair-appswitch-bochs FAIL: the 640x480-required guard did NOT fire under the 320x200 fallback\n'; exit 1; }
-	@grep -q '^HALTED$$' "$(FLAIR_APPSW_BOCHS_SERIAL)" \
-		|| { printf '!!! test-flair-appswitch-bochs FAIL: HALTED terminal marker missing\n'; exit 1; }
+	@sh harness/emu/bochs_leg_check.sh test-flair-appswitch-bochs "$(FLAIR_APPSW_BOCHS_REPORT)" "$(FLAIR_APPSW_BOCHS_SERIAL)" vbe101 \
+		FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK FLAIR-DESKTOP '$(BOCHS_PIXEL_TENANTS_LINE)' !PANIC
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- the flairtenants kernel booted under Bochs through the shared\n'
-	@printf '            kernel + FLAIR-heap milestones (== QEMU), and the 640x480 fail-loud\n'
-	@printf '            guard fired correctly under the 320x200 fallback (no triple-fault).\n'
-	@printf '            NOTE: FLAIR-TENANTS-READY + the app-switch are QEMU-only (Bochs has\n'
-	@printf '            no 640x480 LFB + no QMP mouse injection); graded by test-flair-appswitch.\n'
+	@printf '            kernel + FLAIR-heap + FAT-mount milestones (== QEMU) on the VESA 0101h\n'
+	@printf '            path, reached FLAIR-TENANTS-READY, and the presented tenants desktop\n'
+	@printf '            equals the QEMU golden pixel for pixel (no triple-fault).\n'
 	@printf '======================================================================\n'
 endif
 
@@ -23850,6 +24047,21 @@ RECORD_MARKER_boot_screen = FLAIR-BOOT-SCREEN
 RECORD_IMAGE_boot_screen = $(FLAIRTENANTS_BOOTHOLD_IMG)
 RECORD_DATA_boot_screen = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_boot_screen = 200
+
+# cursor_boot (bead initech-vzjy; Rule 14): the arrow is on the desktop the
+# moment the splash gives way, with NO input. The record image is the bounded
+# gate kernel with the interactive boot behaviour switched on by its two knobs
+# (the splash hold + FLAIR_CURSOR_AT_BOOT); the record machinery needs the
+# bounded pump's FLAIR-LIVE-OK end marker, which the interactive image never
+# emits. Frame 0 is the splash, the next the desktop with the arrow at (320,240).
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_CURSOR_AT_BOOT -DFLAIR_BOOT_HOLD_TICKS=200,cursorboot))
+RECORD_SCRIPTS += cursor_boot
+RECORD_SPEC_cursor_boot = w300,WFLAIR-LIVE-READY,w800
+RECORD_KEYS_AFTER_cursor_boot = FLAIR-BOOT-SCREEN
+RECORD_MARKER_cursor_boot = FLAIR-CURSOR x=320 y=240
+RECORD_IMAGE_cursor_boot = $(BUILD)/flair_tenants_mut_cursorboot.img
+RECORD_DATA_cursor_boot = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_cursor_boot = 200
 include spec/flair_toolbox_hardening_trace.mk
 # Rule 14: PM records this after merge. Must precede record-flair (parse time).
 RECORD_SCRIPTS += toolbox_hardening
@@ -27643,6 +27855,33 @@ SAMIR_HEADERS := $(wildcard $(SAMIR_INC_DIR)/samir/*.h)
 # ADR-0009 DEC-03: recover loaded bytes without borrowing the BSS/PAL reserves.
 # House policy applies identically to the shipped program and every mutant.
 SAMIR_SIZE_CFLAGS := -fomit-frame-pointer -fcrossjumping -fno-inline-functions-called-once -fno-partial-inlining -fno-jump-tables
+# WL-0171 (size round 2, lane samirsize): register-argument + callee-pops
+# calling convention for the WHOLE image (every TU, every mutant, and the
+# LTO link all carry SAMIR_SIZE_CFLAGS, so libcall helpers in boot/softfp.c
+# and the PAL memcpy/memset family are emitted and called under one ABI).
+# Ref: GCC 13 manual "x86 Options" -mregparm=NUM / -mrtd; the only asm caller
+# is boot/samir_crt0.asm -> samir_milton_entry(void) (no args, nothing to
+# pop) and pal_milton.c's INT 21h wrappers bind registers by constraint, so
+# neither sees the convention. No varargs function exists in os/samir.
+# Period precedent: Borland's register (-pr) and pascal (callee-pops)
+# conventions. Measured: 98587 -> 96699 B (-1888 B).
+SAMIR_SIZE_CFLAGS += -mregparm=3 -mrtd
+# WL-0171 step 2: one LTRANS partition (no cross-partition clone duplication,
+# and one fewer source of nondeterminism), no IPA-SRA parameter clones
+# (.isra.N copies of static helpers), and generic instruction *tuning* --
+# -march=i386 still pins the ISA (no cmov, the WL-0087 Bochs rule; the
+# objdump audit in the worklog). Measured: 96699 -> 96014 B (-685 B).
+SAMIR_SIZE_CFLAGS += -flto-partition=one -fno-ipa-sra -mtune=generic
+# WL-0171 step 3: optimiser passes that trade bytes for speed even at -Oz
+# (forward propagation, shrink-wrapping, deferred arg-pops, DOM jump
+# threading/copy-prop, tail merging, scalar replacement of aggregates), and
+# the Ubuntu-default stack-clash probes (-fstack-clash-protection, large
+# frames only; the image has no guard page to probe). Pure codegen policy,
+# no semantic change -- the SAMIR host/QEMU gates are the proof. Measured:
+# 96014 -> 94510 B (-1504 B). Each flag was measured alone and in
+# combination (worklog table); the set is the subset that kept its saving.
+SAMIR_SIZE_CFLAGS += -fno-forward-propagate -fno-shrink-wrap -fno-defer-pop -fno-stack-clash-protection \
+                     -fno-tree-dominator-opts -fno-tree-tail-merge -fno-tree-sra
 SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
                      -std=c11 -Wall -Wextra -Werror -Oz -flto $(SAMIR_SIZE_CFLAGS) -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
                      -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -I$(SAMIR_INC_DIR) -Ispec
@@ -29228,6 +29467,7 @@ TEST_UNIT_GATES := \
 	test-finder-ops test-finder-ops-mutant \
 	test-menu-handlers test-menu-handlers-mutant \
 	test-tbx-menu test-tbx-menu-mutant \
+	test-flair-routing test-flair-routing-mutant \
 	test-i123-wk1-roundtrip test-i123-wk1-roundtrip-mutant \
 	test-i123-quit test-i123-quit-mutant \
 	test-i123-formula test-i123-formula-mutant \
@@ -30342,6 +30582,7 @@ TEST_EMU_GATES := \
 	test-samir-report-emu test-samir-report-emu-mutant \
 	test-flair-data-volume test-flair-data-volume-mutant \
 	test-flair-cursor test-flair-cursor-mutant \
+	test-flair-cursor-boot test-flair-cursor-boot-mutant \
 	test-flair-close-terminate test-flair-close-terminate-mutant test-flair-modal-block \
 	test-harness test-tracer-boot test-boot-bochs test-bochs-concurrent test-bochs-concurrent-mutant test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \
@@ -31330,7 +31571,9 @@ endef
 # M009 cursor twin (PM 2026-10-17): the hand-written rule named the pre-LTO object list
 # and lost kernel_main after size round 3 part 2; the macro owns the link now.
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_CURSOR_OBJ),$(BUILD)/cursor_mut_squared_stem.o,cursor_squared))
-$(BUILD)/text_mut_%.o: os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h | $(BUILD)
+# text.c includes the GENERATED chicago_packed_data.h: name it, as $(KERNEL_TEXT_OBJ)
+# does, or a fresh tree's parallel headroom build races it (lane-routing, 2026-10-17).
+$(BUILD)/text_mut_%.o: os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h os/flair/chicago_packed.h $(CHICAGO_PACK_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TEXT_INC) -D$* -c os/flair/text.c -o $@
 $(BUILD)/chrome_mut_trunc_period.o: os/flair/chrome.c os/flair/chrome.h os/flair/winscroll.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DCHROME_MUT_TRUNC_PERIOD -c $(CHROME_DRAWER_C) -o $@
@@ -31406,6 +31649,7 @@ test-scrollbar-look-mutant: test-scrollbar-look $(foreach m,$(SCROLLBAR_LOOK_MUT
 
 include spec/flair_scroll_look_traces.mk
 TEST_UNIT_GATES += test-scrollbar-look test-scrollbar-look-mutant
+TEST_UNIT_GATES += test-harness-progress test-harness-progress-mutant
 TEST_EMU_GATES += test-flair-scroll-look test-flair-scroll-look-mutant
 SCROLL_LOOK_CHECK := $(BUILD)/ppm_flair_scroll_look_check
 $(SCROLL_LOOK_CHECK): tools/ppm_flair_scroll_look_check.c $(SCROLLBAR_LOOK_GOLDEN) | $(BUILD)
@@ -32396,6 +32640,7 @@ include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
 include harness/proptest/kernel_size_r4.mk
+include harness/proptest/kernel_size_r5.mk
 include harness/emu/ansi.mk
 
 
@@ -32438,6 +32683,7 @@ include harness/emu/vesa8.mk
 
 
 include harness/conkeys/conkeys.mk
+include harness/conkeys/f3template.mk
 # h6y1: DrawGrowIcon on the existing Platinum document path. Reuse the chrome
 # capture oracle, Window Manager routing/limits suite and spatial Finder suite.
 GROW_BOX_CHECK := $(BUILD)/ppm_flair_grow_box_check
@@ -32869,7 +33115,15 @@ TEST_UNIT_GATES += test-samir-core-diff test-samir-core-diff-mutant
 
 
 # SAMIR DML lane: identical corpus, real III+ mint, host and QEMU gates.
-SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run
+# PM 2026-10-17: RUN needs the PAL EXEC seam (nested EXEC; loader.c rejects
+# it with LOADER_ERR_BUSY) -- bead initech-dmlrun. Until that lands it is
+# test-samir-dml-pending by name, NOT in the default vector (a known-red gate
+# in `make test` is noise, not an oracle). It moves back with the commit that
+# makes it green (Rule 6: mutant too).
+SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label
+SAMIR_DML_PENDING := run
+.PHONY: test-samir-dml-pending
+test-samir-dml-pending: $(addprefix test-samir-dml-, $(SAMIR_DML_PENDING))
 SAMIR_DML_TEST := $(BUILD)/test_samir_dml
 SAMIR_DML_MUTS := $(addprefix $(BUILD)/test_samir_dml_, $(SAMIR_DML_CASES))
 $(SAMIR_DML_TEST): $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
@@ -32977,14 +33231,27 @@ include harness/diff/fat_diff/shell_files.mk
 
 # cqej: evaluate Bochs legs AFTER the lane image variables (CP_GATE_IMG,
 # VESA8_DIR, SAMIR_DML_CASES). The macro expands prerequisites at parse time.
-# Bochs 2.7 has no usable VBE LFB here: the 8bpp leg grades VGA13 + the
-# 640x480 guard ONLY. It cannot grade the desktop DAC/pitch presenter, which
-# is after that guard (os/milton/kmain.c flair_present / flair_desktop_run).
-# Ref: PRD Sec 8; docs/research/vesa8-ground-truth.md; bochs.h RFB limitation.
+# WL-0170: Bochs 2.7's LGPL vgabios DOES offer a VBE LFB -- VESA 0101h
+# 640x480x8 at 0xE0000000 with the 8-bit DAC -- so the stock-ROM legs run on
+# the vbe101 path and the desktop DAC/pitch presenter IS graded under Bochs
+# (test-flair-desktop-8bpp-bochs-pixel + -mutant: EXACT against the QEMU
+# 32bpp capture). The mode-13h floor + the 640x480 guard are graded on an ISA
+# Cirrus (VBE-ENOMODE) and a plain VGA (VBE-E00) by the *-vga13-/-novbe-bochs
+# legs. Ref: PRD Sec 8; docs/research/vesa8-ground-truth.md; WL-0170.
 include harness/bochs_legs.mk
 include harness/emu/panic_screen.mk
 # samir-set-fns-errors: independent III+ corpus, identical host/guest inputs.
-SAMIR_FNS_CASES := alias alternate century console default diskspace index listoff os overflow path procedure recsize relation talk time type unknown version with
+# PM 2026-10-17: SAMIR_FNS_CASES are the cases whose real-III+ capture the
+# interpreter reproduces today (fns-mint/<case>/GOLD.OUT pinned); the PENDING
+# list is the samirfns lane's scaffolding (docs/worklog/samirfns-blocked.md):
+# 11 unimplemented SET/function behaviours + default/diskspace unminted. They
+# are run by name (make test-samir-fns-pending), NOT in the default vector --
+# a known-red gate in `make test` is noise, not an oracle. A case moves from
+# PENDING to CASES with the commit that makes it green (Rule 6: mutant too).
+SAMIR_FNS_CASES := alias alternate console index listoff recsize type
+SAMIR_FNS_PENDING := century default diskspace os overflow path procedure relation talk time unknown version with
+.PHONY: test-samir-fns-pending
+test-samir-fns-pending: $(addprefix test-samir-fns-,$(SAMIR_FNS_PENDING))
 SAMIR_FNS_TEST := $(BUILD)/test_samir_fns
 $(SAMIR_FNS_TEST): $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
@@ -32993,20 +33260,36 @@ $(BUILD)/test_samir_fns_%: $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(
 .PHONY: mint-samir-fns test-samir-fns test-samir-fns-mutants test-samir-fns-emu test-samir-fns-emu-mutants
 mint-samir-fns: $(CLIENTS_DBF)
 	@sh $(DBF_DIFF_DIR)/fns_mint.sh $(abspath $(DBASE3_DECOMP))
+# The real-III+ SET/function captures are COMMITTED under xbase_prog_diff/fns-mint/
+# (the same promotion pattern as SAMIR_MINT_TREE above: only what the gates read --
+# GOLD.OUT, FNSTEST.PRG/LIBRARY.PRG/DATA/*, sha256.txt and the mint.conf/mint.log/
+# MINT.PRG/CONFIG.DB provenance -- never DBASE.EXE/OVL/MSG, which are copyrighted
+# and stay in $(DBASE3_DECOMP)). fns_mint.sh writes build/samirfns/golden/ and the
+# PM promotes into the tree; this rule copies the tree into build/ so a fresh
+# build dir passes fns-accepted.sha256 / samir-size-real.sha256 without dosbox-x
+# (fixups 2026-10-17). default/ has no GOLD.OUT on purpose: its zero-byte capture
+# is NOT a golden (docs/worklog/samirfns-blocked.md); diskspace/ was never minted.
+SAMIR_FNS_MINT_TREE := $(DBF_DIFF_DIR)/xbase_prog_diff/fns-mint
+SAMIR_FNS_MINT_FILES := $(shell find $(SAMIR_FNS_MINT_TREE) -type f 2>/dev/null)
+SAMIR_FNS_PROMOTED := $(BUILD)/samirfns/.promoted
+$(SAMIR_FNS_PROMOTED): $(SAMIR_FNS_MINT_FILES) | $(BUILD)
+	@mkdir -p $(BUILD)/samirfns/golden
+	@cp -rf $(SAMIR_FNS_MINT_TREE)/. $(BUILD)/samirfns/golden/
+	@touch $@
 test-samir-fns: $(addprefix test-samir-fns-,$(SAMIR_FNS_CASES))
 test-samir-fns-mutants: $(addsuffix -mutant,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
 test-samir-fns-emu: $(addsuffix -emu,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
 test-samir-fns-emu-mutants: $(addsuffix -emu-mutant,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
 define samir-fns-gates
 .PHONY: test-samir-fns-$(1) test-samir-fns-$(1)-mutant test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
-test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF)
+test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_FNS_PROMOTED)
 	@$$(SAMIR_FNS_TEST) $(1) host
 	@echo '>>> test-samir-fns-$(1): green'
 test-samir-fns-$(1)-mutant: test-samir-fns-$(1) $$(BUILD)/test_samir_fns_$(1)
 	@set +e; $$(BUILD)/test_samir_fns_$(1) $(1) host > $$(BUILD)/samirfns/mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log || { cat $$(BUILD)/samirfns/mut-$(1).log; exit 1; }; \
 	 printf '>>> SAMIR_FNS_MUTANT_$(1) RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log
-test-samir-fns-$(1)-emu: $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_COM) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG)
+test-samir-fns-$(1)-emu: $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_COM) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_FNS_PROMOTED)
 	@INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu
 	@echo '>>> test-samir-fns-$(1)-emu: green'
 test-samir-fns-$(1)-emu-mutant: test-samir-fns-$(1)-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM
@@ -33021,10 +33304,71 @@ $(foreach rule,$(SAMIR_FNS_CASES),$(eval $(call samir-fns-gates,$(rule))))
 # Real III+ captures for the four currently exercised SF rules. Missing or
 # stale independent bytes fail loudly; this gate never regenerates evidence.
 .PHONY: samir-fns-goldens
-samir-fns-goldens:
+samir-fns-goldens: $(SAMIR_FNS_PROMOTED)
 	@sha256sum -c harness/diff/dbf_diff/xbase_prog_diff/fns-accepted.sha256
 	@echo '>>> samir-fns-goldens: green (SF-index/listoff/recsize/type real III+ captures pinned)'
 TEST_UNIT_GATES += samir-fns-goldens
 
 include harness/diff/dbf_diff/samir_size.mk
 include harness/diff/fat_diff/dos_volumes.mk
+include harness/diff/fat_diff/fat_spc.mk
+include harness/diff/fat_diff/int21_dpb.mk
+
+# ADR citation integrity (bead initech-lk29; WL-0161): every cited ADR-0001 /
+# ADR-0002 DEC resolves to a DEC heading; every cited foundational Record is filed.
+include harness/adr_citations.mk
+
+# initech-n8q8: native resident EXEC, same FAT/transfer path as test-exec.
+# IBM DOS 3.30 TR pp. 6-195..201, 11-4/5; no new golden or timeout policy.
+NEST_MAIN := $(BUILD)/kmain_exec_nested.o
+NEST_OBJS := $(filter-out $(KERNEL_EXEC_MAIN_OBJ),$(KERNEL_EXEC_OBJS)) $(NEST_MAIN)
+NEST_MUT_OBJS := $(filter-out $(KERNEL_LOADER_OBJ),$(NEST_OBJS)) $(BUILD)/loader_nested_mut.o
+$(eval $(call fixture-contract,$(BUILD)/fat_exec_nested.img,HELLO.TXT GREET.COM NEST.COM TERM20.COM DEPTH.COM SUB/KEEP.TXT))
+$(NEST_MAIN): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/loader.h os/milton/int21.h | $(BUILD)
+	$(call kernel-main-compile,-DBOOT_EXEC_NESTED -Ispec -I$(KERNEL_DIR),$@)
+$(BUILD)/loader_nested_mut.o: $(KERNEL_LOADER_C) os/milton/loader.h os/milton/int21.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOADER_VALIDATE_FLAGS) -DLOADER_MUT_NO_RESTORE -Ispec -I$(KERNEL_DIR) -c $< -o $@
+$(BUILD)/kernel_exec_nested.elf: $(NEST_OBJS) $(KERNEL_LD)
+	$(KERNEL_LINK) -o $@ $(NEST_OBJS)
+$(BUILD)/kernel_exec_nested_mut.elf: $(NEST_MUT_OBJS) $(KERNEL_LD)
+	$(KERNEL_LINK) -o $@ $(NEST_MUT_OBJS)
+$(BUILD)/kernel_exec_nested.bin $(BUILD)/kernel_exec_nested_mut.bin: $(BUILD)/%.bin: $(BUILD)/%.elf
+	$(OBJCOPY) -O binary $< $@
+	@test $$(wc -c < $@) -le $$(( $(KERNEL_SECTORS) * 512 ))
+	@truncate -s $$(( $(KERNEL_SECTORS) * 512 )) $@
+	$(call kernel-end-guard,$<,exec-nested)
+$(BUILD)/exec_nested.img $(BUILD)/exec_nested_mut.img: $(BUILD)/%.img: $(BUILD)/kernel_%.bin $(MBR_BIN) $(STAGE2_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $< $(BOOT_SYSTEM_TOOL)
+$(BUILD)/nested_exec_program.bin: os/milton/nested_exec_program.asm | $(BUILD)
+	$(NASM) -f bin $< -o $@
+$(BUILD)/nested_term20.bin: os/milton/nested_exec_program.asm | $(BUILD)
+	$(NASM) -f bin -DNEST_TERM20 $< -o $@
+$(BUILD)/nested_depth.bin: os/milton/nested_exec_program.asm | $(BUILD)
+	$(NASM) -f bin -DNEST_DEPTH $< -o $@
+$(BUILD)/fat_exec_nested.img: $(FAT_EXEC_IMG) $(BUILD)/nested_exec_program.bin $(BUILD)/nested_term20.bin $(BUILD)/nested_depth.bin
+	@cp -f $< $@
+	@mcopy -o -i $@ $(BUILD)/nested_exec_program.bin ::NEST.COM
+	@mcopy -o -i $@ $(BUILD)/nested_term20.bin ::TERM20.COM
+	@mcopy -o -i $@ $(BUILD)/nested_depth.bin ::DEPTH.COM
+	@mmd -i $@ ::SUB
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::SUB/KEEP.TXT
+	@$(call fixture-check,recipe,$@)
+.PHONY: test-exec-nested test-exec-nested-mutant test-loader-nested-mutant
+test-exec-nested: $(HARNESS_BIN) $(BUILD)/exec_nested.img $(BUILD)/fat_exec_nested.img
+	@$(call fixture-preflight,$(BUILD)/fat_exec_nested.img)
+	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk $(BUILD)/exec_nested.img --disk2 $(BUILD)/fat_exec_nested.img --expect 'EXEC-NESTED-EXIT rc=0' --name exec_nested --out $(BUILD) --timeout-ms 6000 2> $(BUILD)/exec_nested.report || true
+	@! grep -q 'triple_fault=1' $(BUILD)/exec_nested.report
+	@grep -q '^EXEC-NESTED-RC=7 PSP-RESTORED INT20-OK' $(BUILD)/exec_nested.serial && grep -q '^EXEC-NESTED-DEPTH-4-BUSY' $(BUILD)/exec_nested.serial && grep -q '^EXEC-NESTED-EXIT rc=0' $(BUILD)/exec_nested.serial || { cat $(BUILD)/exec_nested.serial; printf '!!! test-exec-nested RED: caller did not resume with child rc=7 and restored PSP\n'; exit 1; }
+	@printf '>>> test-exec-nested: green (GREET rc=7 three times; PSP, CWD, heap restored; INT20; depth-4 BUSY)\n'
+test-exec-nested-mutant: test-exec-nested $(BUILD)/exec_nested_mut.img
+	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk $(BUILD)/exec_nested_mut.img --disk2 $(BUILD)/fat_exec_nested.img --expect 'EXEC-NESTED-EXIT rc=1' --name exec_nested_mut --out $(BUILD) --timeout-ms 6000 2> $(BUILD)/exec_nested_mut.report || true
+	@! grep -q 'triple_fault=1' $(BUILD)/exec_nested_mut.report
+	@grep -q '^EXEC-NESTED-FAIL' $(BUILD)/exec_nested_mut.serial && grep -q '^EXEC-NESTED-EXIT rc=1' $(BUILD)/exec_nested_mut.serial || { cat $(BUILD)/exec_nested_mut.serial; printf '!!! test-exec-nested-mutant: mutant survived or failed infrastructure\n'; exit 1; }
+	@printf '>>> test-exec-nested-mutant: green (LOADER_MUT_NO_RESTORE RED: EXEC-NESTED-FAIL, EXEC-NESTED-EXIT rc=1)\n'
+$(BUILD)/test_loader_nested_mut: $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) os/milton/loader.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUT_NO_RESTORE -Ispec -I$(MILTON_DIR) -Iseed -o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+test-loader-nested-mutant: $(BUILD)/test_loader_nested_mut test-loader
+	@set +e; $< > $(BUILD)/loader_nested_mut.log 2>&1; rc=$$?; set -e; test $$rc -eq 1 && grep -q 'FAIL.*nested EXEC restores caller PSP' $(BUILD)/loader_nested_mut.log || { cat $(BUILD)/loader_nested_mut.log; exit 1; }
+	@printf '>>> test-loader-nested-mutant: green (LOADER_MUT_NO_RESTORE RED: nested EXEC restores caller PSP)\n'
+TEST_UNIT_GATES += test-loader-nested-mutant
+TEST_EMU_GATES += test-exec-nested test-exec-nested-mutant

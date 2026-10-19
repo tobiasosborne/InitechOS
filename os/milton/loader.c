@@ -45,6 +45,28 @@
 #endif
 #include "mz.c"
 
+/* Host-visible bookkeeping used by the real transfer path; IBM DOS 3.30 TR
+ * AH=4Bh/4Ch, pp. 6-196, 6-200: child termination resumes its invoking process. */
+loader_status_t loader_nest_enter(loader_state_t *active, loader_state_t *saved,
+                                  uintptr_t psp, void *return_frame)
+{
+    if (active->depth >= LOADER_EXEC_DEPTH) return LOADER_ERR_BUSY;
+    *saved = *active;
+    active->psp = psp;
+    active->return_frame = return_frame;
+    active->depth++;
+    return LOADER_OK;
+}
+
+void loader_nest_leave(loader_state_t *active, const loader_state_t *saved)
+{
+#ifndef LOADER_MUT_NO_RESTORE
+    active->psp = saved->psp;
+#endif
+    active->return_frame = saved->return_frame;
+    active->depth = saved->depth;
+}
+
 /* ------------------------------------------------------------------------ *
  * Pure prep: validate + lay out + compute psp_params (HOST-TESTABLE).
  * ------------------------------------------------------------------------ */
@@ -634,6 +656,7 @@ typedef struct loader_context {
     uint32_t return_eip;   /* address in load_program() to resume after exit    */
     uint32_t saved_ebx;    /* loader's EBX (we clobber EBX to pass the PSP ptr)  */
     uint32_t saved_ebp;    /* loader's EBP (the frame base we return into)       */
+    uint32_t saved_esi, saved_edi; /* callee-saved registers across child code */
     uint8_t  exit_code;    /* filled by loader_exit_hook when 4Ch/INT20 fires   */
     uint8_t  exited;       /* 1 once exit_code is valid                          */
 } loader_context_t;
@@ -649,21 +672,15 @@ _Static_assert(__builtin_offsetof(loader_context_t, saved_ebx)  == 8,
                "loader asm assumes saved_ebx at offset 8");
 _Static_assert(__builtin_offsetof(loader_context_t, saved_ebp)  == 12,
                "loader asm assumes saved_ebp at offset 12");
+_Static_assert(__builtin_offsetof(loader_context_t, saved_esi) == 16,
+               "loader asm assumes saved_esi at offset 16");
+_Static_assert(__builtin_offsetof(loader_context_t, saved_edi) == 20,
+               "loader asm assumes saved_edi at offset 20");
 
-/* The single in-flight loader context. Single program at a time this milestone
- * (Sec 6.2 -- no process table). The exit hook reaches it through this global
- * because the int21 hook signature is void(uint8_t) and cannot carry &ctx. */
-static loader_context_t *g_loader_ctx = 0;
-
-/* Single-level guard (Rule 2): set while a program is running through
- * load_program(). A re-entrant load (nested EXEC from inside a running program)
- * would clobber g_loader_ctx + the program region, so load_program_from_fat
- * REJECTS it (LOADER_ERR_BUSY) rather than corrupt the machine. KERNEL/shell
- * EXEC (the common case, g_load_active == 0) proceeds. Nested EXEC is deferred
- * (a follow-up bead). Both the baked entry and the FAT entry own this guard
- * across their shared transfer. Ref: ADR-0003 DEC-08 (one flat program region),
- * Appendix A 4Bh; IBM DOS 3.30 Technical Reference p. 6-195 (CF/AX errors). */
-static uint8_t g_load_active = 0;
+/* The active frame links to its caller through the saved state on that caller's
+ * stack. The exit hook signature has no context argument. Ref: IBM DOS 3.30
+ * TR pp. 6-196/200; PRD Sec 2 (no scheduler or isolation). */
+static loader_state_t g_load;
 
 /* Tiny freestanding memcpy (loader.c pulls in no libc; Rule 11 deterministic). */
 static void loader_memcpy(uint8_t *dst, const uint8_t *src, uint32_t n)
@@ -683,11 +700,11 @@ static void loader_memcpy(uint8_t *dst, const uint8_t *src, uint32_t n)
 __attribute__((noreturn))
 static void loader_exit_hook(uint8_t code)
 {
-    loader_context_t *ctx = g_loader_ctx;
+    loader_context_t *ctx = (loader_context_t *)g_load.return_frame;
 
     /* If no context is bound we cannot safely unwind -- fail loud rather than
      * jump through a NULL (Rule 2). This should never happen: the hook is only
-     * bound while g_loader_ctx is set. */
+     * bound while g_load.return_frame is set. */
     if (ctx == 0) {
         for (;;) {
             __asm__ __volatile__("cli; hlt");
@@ -708,6 +725,8 @@ static void loader_exit_hook(uint8_t code)
     __asm__ __volatile__(
         "mov 8(%0), %%ebx\n\t"    /* EBX = ctx->saved_ebx (offset 8)             */
         "mov 12(%0), %%ebp\n\t"   /* EBP = ctx->saved_ebp (offset 12)            */
+        "mov 16(%0), %%esi\n\t"
+        "mov 20(%0), %%edi\n\t"
         "mov 0(%0), %%esp\n\t"    /* ESP = ctx->saved_esp (offset 0) -- LAST     */
         "jmp *4(%0)\n\t"          /* jmp ctx->return_eip (offset 4) via memory   */
         :
@@ -753,9 +772,9 @@ static void loader_exit_hook(uint8_t code)
  * IN-PLACE SAFETY PROOF (writing PROGRAM_IMAGE while the kernel/shell runs):
  *   The currently-running code is the KERNEL (the COMMAND.COM shell runs IN the
  *   kernel as a function, NOT as a separately-loaded program at PROGRAM_IMAGE --
- *   there is no second program region). EXEC is single-level (g_load_active guards
- *   re-entry in load_program_from_fat), so no OTHER program occupies
- *   [PROGRAM_IMAGE, ...] when the FAT reader writes there. The child loads at
+ *   there is no resident program at depth zero). A nested FAT load instead
+ *   allocates an MCB ABOVE the resident image and never writes PROGRAM_IMAGE.
+ *   At depth zero the child loads at
  *   PROGRAM_IMAGE (0x40100); the parent (kernel) executes from its own link
  *   region [0x10000,0x40000) and its own stack at 0x90000+, both DISJOINT from
  *   [0x40100, PROGRAM_STACK_BOT). So reading the .COM straight into PROGRAM_IMAGE
@@ -767,6 +786,18 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
 {
     loader_plan_t plan = *plan_in;
 
+    /* The return frame stays on the invoking stack, not in a per-depth image
+     * buffer. IBM DOS 3.30 TR pp. 6-196/200; PRD Sec 2 (cooperative, shared).
+     * Save the actual bound PSP even for a kernel/shell entry. */
+    loader_context_t ctx;
+    loader_state_t saved;
+    g_load.psp = (uintptr_t)int21_get_psp();
+    loader_status_t ns = loader_nest_enter(&g_load, &saved, plan.psp_addr, &ctx);
+    if (ns != LOADER_OK) return ns;
+    int21_exit_fn parent_exit = int21_get_exit();
+    int21_cwd_snapshot_t parent_cwd = int21_cwd_save();
+    uint32_t parent_dta = int21_swap_dta(0u);
+
     /* EXEC env inheritance (beads initech-1i0x Tranche E inc 3): resolve the
      * env-block decision through the pure, host-tested loader_decide_env (so the
      * kernel and the oracle agree by construction). A bad env_block fails loud
@@ -775,6 +806,8 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
     {
         loader_status_t es = loader_decide_env(env_block, &env_dec);
         if (es != LOADER_OK) {
+            loader_nest_leave(&g_load, &saved);
+            (void)int21_swap_dta(parent_dta);
             return es;
         }
     }
@@ -810,7 +843,7 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      *     child PSP env_seg must point at.
      * Either way thread env_dec.env_linear into the PSP params so env_seg =
      * flat_to_fake_paragraph(env_linear) is honest about which block we inherit. */
-    if (env_dec.write_empty) {
+    if (env_dec.write_empty && saved.depth == 0u) {
         uint8_t *env = (uint8_t *)(uintptr_t)ENV_BLOCK;
         env[0] = 0x00;
         env[1] = 0x00;
@@ -828,6 +861,7 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * output redirect (GREET.COM > OUT.TXT) is lost. */
     {
         psp_t *parent = (psp_t *)int21_get_psp();
+        plan.params.parent_psp_linear = (uint32_t)(uintptr_t)parent;
         plan.params.parent_jft = parent ? parent->jft : (const uint8_t *)0;
     }
 
@@ -886,7 +920,11 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * was too large to leave a positive arena (plan.arena_present == 0) the arena
      * is left UNBOUND -- a 48h ALLOC then reports insufficient memory rather than
      * overlapping (fail loud, Rule 2). */
-    if (plan.arena_present) {
+    if (saved.depth != 0u) {
+        /* Child PSP/image/stack already own an MCB in the caller's chain.
+         * Reinitializing that chain would destroy the caller's live heap.
+         * IBM DOS 3.30 TR pp. 11-4/5; ADR-0003 DEC-03. */
+    } else if (plan.arena_present) {
         (void)int21_mcb_bind_program(plan.arena_base, plan.arena_ceil);
     } else {
         int21_set_mcb_arena(0, 0u, 0u);   /* no heap -> 48h insufficient, no overlap */
@@ -906,8 +944,8 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * current directory for data files", MS-DOS_3.3_Users_Guide_198707.pdf
      * PDF p. 114, APPEND). So `CD APPS` then `TPSREP TPS.DBF` must open
      * APPS\TPSPARM.DAT -- with the old reset it opened \TPSPARM.DAT and
-     * failed TPS-001. Nothing is reset here; the kernel still restores its own
-     * snapshot after the child returns (kmain loader_exec_by_name), so a
+     * failed TPS-001. Nothing is reset here; loader_run_plan restores its saved
+     * snapshot after the child returns, so a
      * child's CHDIR does not outlive it (a stated deviation, unchanged).
      * MUTANT LOADER_MUT_CWD_RESET (Rule 6; test-flair-tps-journey-mutant
      * CWDRESET): the pre-3p1a reset-to-root. NEVER in a real build. */
@@ -916,7 +954,6 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
 #endif
 
     /* --- The control transfer + return-to-loader (Sec 4; Risk 1). --- */
-    loader_context_t ctx;
     ctx.exit_code  = 0;
     ctx.exited     = 0;
     ctx.saved_ebx  = 0;
@@ -924,11 +961,8 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
     ctx.saved_esp  = 0;
     ctx.return_eip = 0;
 
-    /* Save the previous exit hook so kernel-context 4Ch (outside a load) keeps
-     * its existing cli;hlt behavior afterward (Sec 4.5 / Risk 3). int21.h has no
-     * getter, so we restore via the kernel's known binder after we return: the
-     * caller (kmain) re-binds int21_exit_hook. We bind our hook + ctx here. */
-    g_loader_ctx = &ctx;
+    /* The active frame is bound above; replace the hook only for this run.
+     * parent_exit is restored on return (IBM DOS 3.30 TR pp. 6-196/200). */
     int21_set_exit(loader_exit_hook);
 
     /* Pin the three transfer targets into plain locals so the asm can reference
@@ -961,26 +995,31 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
         "mov %%ebx, %2\n\t"          /* ctx.saved_ebx = current EBX               */
         "lea 1f, %%eax\n\t"          /* EAX = address of the return label (1:)    */
         "mov %%eax, %3\n\t"          /* ctx.return_eip = &1f                      */
-        "mov %4, %%eax\n\t"          /* EAX = entry_eip, read BEFORE the switch    */
-        "mov %5, %%ebx\n\t"          /* EBX = PSP_ADDR (program's PSP pointer)    */
-        "mov %6, %%esp\n\t"          /* switch to the program stack top (LAST)    */
+        "mov %%esi, %4\n\t"
+        "mov %%edi, %5\n\t"
+        "mov %6, %%eax\n\t"          /* EAX = entry_eip, read BEFORE the switch    */
+        "mov %7, %%ebx\n\t"          /* EBX = PSP_ADDR (program's PSP pointer)    */
+        "mov %8, %%esp\n\t"          /* switch to the program stack top (LAST)    */
         "jmp *%%eax\n\t"             /* JMP via REGISTER (no post-switch mem read) */
         "1:\n\t"                     /* <- loader_exit_hook jumps back here       */
         : "=m"(ctx.saved_esp), "=m"(ctx.saved_ebp), "=m"(ctx.saved_ebx),
-          "=m"(ctx.return_eip)
+          "=m"(ctx.return_eip), "=m"(ctx.saved_esi), "=m"(ctx.saved_edi)
         : "m"(entry_eip), "m"(psp_ptr), "m"(stack_top)
         : "eax", "cc", "memory");
 
-    /* Resumed here via loader_exit_hook's jmp. Unbind our hook + ctx so a later
-     * stray 4Ch from kernel context does not jump through a stale context
-     * (Sec 4.5). The caller (kmain) re-binds its own int21_exit_hook. */
-    g_loader_ctx = 0;
+    /* Resume the immediate caller's frame, PSP, hook and directory state.
+     * Neither nested termination path may force a kernel-context rebind. */
+    loader_nest_leave(&g_load, &saved);
+    int21_set_psp((struct psp *)g_load.psp);
+    int21_set_exit(parent_exit);
+    int21_cwd_restore(&parent_cwd);
+    (void)int21_swap_dta(parent_dta);
 
     /* Restore the parent's INT 22h/23h/24h vectors into the live IDT (beads
      * initech-509.8; ADR-0003 DEC-10). If the child SETVECT'd its own 23h/24h
      * (INT 21h AH=25h) while running, the parent's handlers must be reinstated
      * now that the child has terminated (DOS-authentic). We restore from the
-     * SAME PSP we saved into (plan.psp_addr == PROGRAM_BASE), which is still
+     * SAME PSP we saved into (plan.psp_addr), which is still
      * intact: the child can no longer run (we resumed past its terminating
      * syscall), and do_terminate frees handles only -- it never scribbles the
      * PSP bytes. Runs on EVERY exit path (4Ch and INT 20h both route through
@@ -1008,7 +1047,7 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
      * The image source bytes live in a kernel-owned buffer (e.g. the baked demo
      * program in run_baked); loader_run_plan copies them DOWN to PROGRAM_IMAGE.
      * UNCHANGED by za4m -- only the FAT path goes direct/in-place. */
-    if (g_load_active) return LOADER_ERR_BUSY;
+    if (g_load.depth) return LOADER_ERR_BUSY;
     loader_plan_t plan;
     loader_status_t st = loader_prepare(image, image_len, cmd_tail,
                                         cmd_tail_len, &plan);
@@ -1018,11 +1057,7 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
     /* Baked path inherits an EMPTY env (env_block=0): the baked demos carry no
      * environment, so loader_run_plan synthesizes the 2-byte empty block exactly
      * as before (byte-identical; beads initech-1i0x inc 3). */
-#ifndef LOADER_MUTATE_BAKED_UNGUARDED
-    g_load_active = 1;
-#endif
     st = loader_run_plan(&plan, /*do_copy=*/1, /*env_block=*/0u, out_exit_code);
-    g_load_active = 0;
     return st;
 }
 
@@ -1209,9 +1244,9 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
     if (g_load_vol == 0) {
         return LOADER_ERR_NO_VOLUME;
     }
-    /* Single-level guard (Rule 2 / stop condition): refuse a nested load rather
-     * than clobber g_loader_ctx + the program region. */
-    if (g_load_active) {
+    /* Fail before allocation or writes when the bounded return chain is full.
+     * Ref: LOADER_EXEC_DEPTH, IBM DOS 3.30 TR pp. 6-199, 11-4/5. */
+    if (g_load.depth >= LOADER_EXEC_DEPTH) {
         return LOADER_ERR_BUSY;
     }
 
@@ -1284,14 +1319,26 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
      * 2). Safety (writing PROGRAM_IMAGE while the kernel runs): see the IN-PLACE
      * SAFETY PROOF on loader_run_plan -- the parent is the KERNEL (links at
      * [0x10000,0x40000), stack at 0x90000+, both disjoint from [0x40100,...)),
-     * EXEC is single-level (g_load_active), so nothing else occupies PROGRAM_IMAGE.
+     * At depth zero nothing else occupies PROGRAM_IMAGE; nested loads use an MCB.
      * This is exactly as safe as the OLD copy to 0x40100 -- same region, same
      * running kernel, minus the intermediate staging hop. */
-    uint8_t *image = (uint8_t *)(uintptr_t)PROGRAM_IMAGE;
+    /* DOS EXEC allocates the largest free block for the child's PSP and stack
+     * (IBM DOS 3.30 TR pp. 11-4/5). The existing top-level disjoint arena is
+     * ABOVE the resident image+BSS. Keep its chain, including caller-owned
+     * blocks. Native flat .COM code loaded here must be position independent;
+     * unlike InitechMZ it has no relocation records (DEC-08/DEC-08a.1). */
+    uint32_t child_psp = 0u, child_end = 0u;
+    if (g_load.depth) {
+        if (int21_mcb_exec_alloc(de.file_size, &child_psp, &child_end) != 0u)
+            return LOADER_ERR_NOMEM;
+    }
+    uint8_t *image = (uint8_t *)(uintptr_t)(child_psp ? child_psp + 0x100u : PROGRAM_IMAGE);
     uint32_t got = 0;
     rc = fat12_read_file(g_load_vol, g_load_fat, g_load_fat_len, &de,
-                         image, PROGRAM_IMAGE_MAX, g_load_cluster, &got);
+                         image, child_psp ? child_end - child_psp - 0x100u : PROGRAM_IMAGE_MAX,
+                         g_load_cluster, &got);
     if (rc != FAT12_OK) {
+        if (child_psp) int21_mcb_exec_free(child_psp);
         return LOADER_ERR_READ;
     }
 
@@ -1302,25 +1349,43 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
      * not perturbed: the mz_is_mz probe is a 2-byte read, then the SAME
      * load_program_in_place runs as always.
      *
-     * Run it IN PLACE (beads initech-za4m). Mark the load active across the run so
-     * a nested EXEC issued by the child is rejected (the guard above). The image
-     * is ALREADY at PROGRAM_IMAGE (we just read it there), so the in-place runner
+     * Run it IN PLACE (beads initech-za4m). The image is already at its assigned
+     * base, so the in-place runner
      * does everything EXCEPT the copy -- builds the PSP, env, saves/restores the
      * INT 22/23/24 vectors, binds the disjoint MCB arena, switches the stack, JMPs
      * to PROGRAM_IMAGE, and handles return-to-loader -- via the SAME shared path
      * (loader_run_plan, do_copy=0). For an MZ the runner adds the DEC-08a prologue
      * (parse + move load module over header + apply flat relocs) BEFORE that one
      * transfer; a foreign untagged MZ PANICS fail-loud (DEC-08a.5). */
-    g_load_active = 1;
     uint8_t rcv = 0;
     loader_status_t st;
-    if (mz_is_mz(image, got)) {
+    if (child_psp) {
+        loader_plan_t plan;
+        st = loader_prepare_in_place(got, cmd_tail, cmd_tail_len, &plan);
+        if (mz_is_mz(image, got)) {
+            mz_image_t info;
+            if (mz_parse_header(image, got, &info) == MZ_ERR_FOREIGN)
+                loader_panic_foreign_mz(name83);
+            /* This seam admits native position-independent flat .COM children.
+             * Nested InitechMZ relocation is a separate format extension. */
+            st = LOADER_ERR_BAD_FORMAT;
+        }
+        if (st == LOADER_OK) {
+            plan.psp_addr = child_psp;
+            plan.image_dst = plan.entry = child_psp + 0x100u;
+            plan.stack_top = child_end - 4u;
+            plan.params.alloc_end_linear = child_end;
+            st = loader_run_plan(&plan, 0, env_block, &rcv);
+        }
+        /* Normal termination already frees the owner. Also reclaim a failed
+         * preparation; this is idempotent and does not touch caller blocks. */
+        int21_mcb_exec_free(child_psp);
+    } else if (mz_is_mz(image, got)) {
         st = load_program_mz_in_place(got, name83, cmd_tail, cmd_tail_len,
                                       env_block, &rcv);
     } else {
         st = load_program_in_place(got, cmd_tail, cmd_tail_len, env_block, &rcv);
     }
-    g_load_active = 0;
 
     if (st != LOADER_OK) {
         return st;   /* propagate the in-place loader's fail-loud status (TOO_BIG) */
@@ -1334,7 +1399,7 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
 /* ------------------------------------------------------------------------ *
  * loader_load_tenant -- the disk-tenant sibling of load_program_from_fat (bead
  * initech-tdnl.14; DEC-AC3-1). Locate + carve + read + loader_prepare_tenant.
- * It does NOT run anything and does NOT take g_load_active: a GUI tenant is not
+ * It does NOT run anything and does NOT take an EXEC frame: a GUI tenant is not
  * an EXEC, never touches PROGRAM_BASE, and must be able to coexist with a
  * later class-2 text-tenant EXEC (ADR-0013 Sec 3.2). The carve goes through the
  * caller's callback so this object never learns about the FLAIR heap.

@@ -31,6 +31,7 @@
 #define SC_LSHIFT_BREAK 0xAAu
 #define SC_RSHIFT_BREAK 0xB6u
 #define SC_CAPS_MAKE    0x3Au
+#define SC_CAPS_BREAK   0xBAu
 #define SC_BREAK_FLAG   0x80u   /* bit set in a release (break) scancode      */
 
 /* ---- pure ring buffer ---------------------------------------------------- */
@@ -129,6 +130,7 @@ void kbd_state_init(kbd_state_t *st)
 {
     st->shift = 0u;
     st->caps  = 0u;
+    st->caps_down = 0u;
     st->ctrl  = 0u;
     st->e0    = 0u;
 }
@@ -166,17 +168,34 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
         if (scancode == 0x35u) return '/';
         return 0u;
     }
-    /* Modifier make/break first (these never produce a character). */
+    /* Ref: IBM PS/2 Hardware Interface Technical Reference, "Keyboards
+     * (101- and 102-Key)", pp. 19, 27-30, 45-48. Track physical keys as in
+     * os/flair/event.c (initech-tdnl.58): Shift = left OR right; typematic
+     * makes are not new Caps presses. E0 fake Shifts were consumed above. */
     if (scancode == SC_LSHIFT_MAKE || scancode == SC_RSHIFT_MAKE) {
-        st->shift = 1u;
+        st->shift |= scancode == SC_LSHIFT_MAKE ? 1u : 2u;
         return 0u;
     }
     if (scancode == SC_LSHIFT_BREAK || scancode == SC_RSHIFT_BREAK) {
+#ifdef KBD_MUT_ONE_SHIFT
+        /* Rule 6: restore the single-flag release; either break clears both. */
         st->shift = 0u;
+#else
+        uint8_t side = scancode == SC_LSHIFT_BREAK ? 1u : 2u;
+        st->shift &= (uint8_t)~side;
+#endif
         return 0u;
     }
     if (scancode == SC_CAPS_MAKE) {
-        st->caps ^= 1u;   /* CapsLock latches on each make (we ignore its break) */
+#ifndef KBD_MUT_CAPS_REPEAT
+        if (!st->caps_down)
+#endif
+            st->caps ^= 1u;
+        st->caps_down = 1u;
+        return 0u;
+    }
+    if (scancode == SC_CAPS_BREAK) {
+        st->caps_down = 0u;
         return 0u;
     }
 
@@ -229,6 +248,32 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
 #ifdef KERNEL_PURE_DECODE_OZ
 #pragma GCC pop_options
 #endif
+
+/* Ref: IBM DOS 3.30 Technical Reference pp.6-11--6-12: CON returns
+ * extended keys as 00,scan. Shared by IRQ1 and the host ring oracle. */
+void kbd_scancode_put(kbd_ring_t *ring, kbd_state_t *state, uint8_t sc)
+{
+    int special = !(sc & SC_BREAK_FLAG) &&
+        ((!state->e0 && sc >= 0x3Bu && sc <= 0x3Fu) ||
+         (sc == 0x52u || sc == 0x53u || sc == 0x4Bu));
+    uint8_t ascii = kbd_translate(state, sc);
+    if (special) {
+#ifdef KBD_MUT_DROP_EXTENDED
+        return; /* Rule 6: restore the pre-template lost-function-key path. */
+#endif
+        uint16_t next = (uint16_t)((ring->head + 1u) & (KBD_RING_CAP - 1u));
+        uint16_t end = (uint16_t)((next + 1u) & (KBD_RING_CAP - 1u));
+        if (next != ring->tail && end != ring->tail) {
+            ring->buf[ring->head] = 0;
+            ring->buf[next] = sc;
+            ring->head = end;
+        } else if (ring->dropped == 0) {
+            ring->dropped = 1; /* Task context reports the lost pair once. */
+        }
+    } else if (ascii != 0u) {
+        (void)kbd_ring_put(ring, ascii);
+    }
+}
 /* ---- kernel-only: state + IRQ1 handler + consumer ------------------------ */
 
 /* The single keyboard ring + modifier state. File scope (BSS) so the IRQ1
@@ -278,21 +323,7 @@ void kbd_irq_handler(void)
      * nearly-full ring cannot leave a dangling extended-key prefix.
      * IBM DOS 3.30 Technical Reference pp.6-11--6-12 (PDF pp.134-135).
      */
-    int special = !(sc & SC_BREAK_FLAG) &&
-        ((!g_kbd_state.e0 && sc >= 0x3Bu && sc <= 0x3Fu) ||
-         (sc == 0x52u || sc == 0x53u || sc == 0x4Bu));
-    uint8_t ascii = kbd_translate(&g_kbd_state, sc);
-    if (special) {
-        uint16_t next = (uint16_t)((g_kbd.head + 1u) & (KBD_RING_CAP - 1u));
-        uint16_t end = (uint16_t)((next + 1u) & (KBD_RING_CAP - 1u));
-        if (next != g_kbd.tail && end != g_kbd.tail) {
-            g_kbd.buf[g_kbd.head] = 0;
-            g_kbd.buf[next] = sc;
-            g_kbd.head = end;
-        }
-    } else if (ascii != 0u) {
-        (void)kbd_ring_put(&g_kbd, ascii);   /* full -> dropped (fail safe) */
-    }
+    kbd_scancode_put(&g_kbd, &g_kbd_state, sc);
 
     /* FLAIR live event loop scancode hook (ADR-0006 E-D3(c) / FO-5): post
      * the RAW scancode byte (the value read from port 0x60 above) into the

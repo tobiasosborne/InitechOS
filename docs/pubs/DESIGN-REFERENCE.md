@@ -13,9 +13,9 @@ label and box is typeset and written from)
 | Field | Value |
 |---|---|
 | Document ID | PUB-REF-0001 |
-| Version | 1.1 |
+| Version | 1.2 |
 | Date | 2026-10-17 |
-| Revision history | 1.0 (2026-10-16): first ratified issue. 1.1 (2026-10-17, worklog WL-0132, operator directive 2026-10-17): **D-8 revised** -- the Initech logo replaces the wordmark; **Initech Cyan** added to PK-01 as the line colour; **AN-27** company banner; PK-02..PK-15 logo cells and line band; PN-10 part-number plate; C-17..C-20; O-6..O-9 |
+| Revision history | 1.0 (2026-10-16): first ratified issue. 1.1 (2026-10-17, worklog WL-0132, operator directive 2026-10-17): **D-8 revised** -- the Initech logo replaces the wordmark; **Initech Cyan** added to PK-01 as the line colour; **AN-27** company banner; PK-02..PK-15 logo cells and line band; PN-10 part-number plate; C-17..C-20; O-6..O-9. 1.2 (2026-10-17, worklog WL-0150, bead `initech-ipu5.16`, operator directive 2026-10-17): **VO-30** the house register of tolerated inconsistencies (Sec 9.3, `spec/pubs_inconsistencies.json`), VO-10/VO-14 exceptions, GC-13, C-21 |
 | Status | RATIFIED for D-2, D-3, D-4, D-6, D-8 (revised 2026-10-17), D-10, D-11, D-12, D-14, D-15 (PM decisions 2026-10-16). D-1, D-5, D-7, D-9, D-13 OPEN and non-blocking (Sec 1) |
 | Supersedes | `docs/packaging/DESIGN-SYSTEM.md` (PUB-RES-0001-C) in full; the design rules (not the outlines) of `docs/packaging/INITECH-DOCUMENTATION-SET.md` (PUB-RES-0001-B) |
 | Evidence base | The seven structural annexes in `docs/pubs/originals/` (PUB-ORIG-0001-A/B/C, PUB-ORIG-DB3P, -L123, -WP51, -TP60), and `docs/packaging/` PUB-RES-0001, -A, -B, -D. Where an annex corrects the 2026-10-04 survey, the annex governs |
@@ -108,6 +108,7 @@ type, **NT** notation, **AN** anatomy, **PK** packaging, **PN** part numbers, **
 | (2026-10-17) The manuals carry **the Initech logo correctly** as in the reference frame, not a substitute wordmark | D-8 revised; Sec 7.0 (the logo, measured); PK-02..PK-15 logo cells; `pubs/common/initech-logo.tex`; GC identity leg in `test-pubs-families` |
 | (2026-10-17) The manuals carry **the official cyan** | PK-01 *Initech Cyan* (`#57B19F`, measured on the logo's cube tops [idn]) as the line colour of every colour piece; Sec 7.1 comparison with the desktop teal and the recommendation O-6 |
 | (2026-10-17) The slogan **"Is This Good for the COMPANY?"** appears at strategic places in every manual, in exactly that capitalisation | AN-27; `\IsThisGoodForTheCompany` in `initech-forms.sty` |
+| (2026-10-17) "i want more inconsistent grammar and capitalisation. not too much, like just enough to pass qa" (and: the apostrophe in "User's manual" "made my day") | VO-30 (Sec 9.3): a LOCKED, budgeted register of period slips, `spec/pubs_inconsistencies.json`; GC-13 (`make test-pubs-inconsistency`); the slogan is not a slip |
 
 ## 2. Book families
 
@@ -920,15 +921,41 @@ SAMIR build displays no version.
 
 | ID | Rule | Source |
 |---|---|---|
-| VO-10 | Product names exactly: InitechOS, InitechDOS, FLAIR, InitechBase, Initech 123, InitechWord, Turbo Initech, InitechCalc, InitechPaint, File Manager, FILE COPY, TPS Report Generator. Company: "Initech Systems Corporation" in full on versos, boxes and cards; "Initech" alone only inside product names and "your Initech representative" | `README.md`; [dsy s2] |
+| VO-10 | Product names exactly (the one tolerated split, *Initech OS* / *Initech DOS*, is register entry VO30-03 of VO-30): InitechOS, InitechDOS, FLAIR, InitechBase, Initech 123, InitechWord, Turbo Initech, InitechCalc, InitechPaint, File Manager, FILE COPY, TPS Report Generator. Company: "Initech Systems Corporation" in full on versos, boxes and cards; "Initech" alone only inside product names and "your Initech representative" | `README.md`; [dsy s2] |
 | VO-11 | Trademark mark at first use per book: InitechOS(TM), InitechDOS(TM), FLAIR(TM), InitechBase(TM), InitechCalc(TM), InitechPaint(TM); Turbo Initech(R). Sources write `\tm{}` / `\reg{}`; the class renders the symbol | `README.md` trademark paragraph; [CL Rule 12] |
 | VO-12 | Every sentence is new, boilerplate included; structure and conventions are modelled, prose never copied; no original trade dress | [res s8; set s0.2] |
 | VO-13 | Terms: diskette (never floppy); fixed disk in F-IBM and F-OPS, hard disk in F-MAC (each model's word); file name (two words) in prose, *filename* as a placeholder; on-line (hyphenated); menu bar; dialog box; pointer; click, double-click, drag; directory (F-IBM) and folder (F-MAC) for the same object, each in its own book | [ibm s9 Terms Used; mac s7; wpc s1 On-Line] |
-| VO-14 | Capitalisation: DOS and xBase commands UPPERCASE (COPY, LIST); Pascal reserved words lowercase bold; Initech 123 menu words as on the control panel; menu and dialog text exactly as drawn; heads Title Case except F-BOR and F-MAC (sentence case) | [ibm s9; ate s7; bor s2.2; mac s5.2] |
+| VO-14 | Capitalisation: DOS and xBase commands UPPERCASE (COPY, LIST); Pascal reserved words lowercase bold; Initech 123 menu words as on the control panel; menu and dialog text exactly as drawn; heads Title Case except F-BOR and F-MAC (sentence case). The tolerated exceptions are the VO-30 register entries and nothing else | [ibm s9; ate s7; bor s2.2; mac s5.2] |
 | VO-15 | Numbers: numerals for keys, sizes and counts; sizes in period form 640K, 1.2MB, 360K; dates in examples are whatever the replayed transcript shows (two-digit years included) | [house: period form; GC-03 makes the transcript the authority] |
 | VO-16 | Tense present; never future for shipped behaviour; never mention unbuilt features except inside a DRAFT block | [D-14] |
 | VO-17 | No 2026-isms anywhere except the colophon: no URLs, e-mail addresses, "Internet", "web", "click here", "app" (write "application"), "download", years after 1993, modern product names | [CL Law 3; GC-06] |
 | VO-18 | Canon is never explained, apologised for or winked at (NT-36). The words "joke", "easter egg", "canon", "intentional", "film" and "movie" never appear in pubs sources outside source comments | [set s0.4; CL Law 4] |
+
+### 9.3 The house register of tolerated inconsistencies (VO-30)
+
+| ID | Rule | Source |
+|---|---|---|
+| VO-30 | **The house register of tolerated inconsistencies.** Every book carries a few deliberate slips of the kind real 1985-1992 corporate manuals carried -- and only those listed in the LOCKED register `spec/pubs_inconsistencies.json`. A slip is marked in the source as `\Slip{ID}{text}` (`initech-syntax.sty`), which prints the text unchanged and records where it printed (`<job>.slips`: cover, spine, title-page, running-head, heading, contents, cross-reference, body, index -- the class decides, never the author). **Budget:** per book at least ceil(4 x pages / 100), never fewer than 3, and at most floor(10 x pages / 100), counted as source occurrences against the printed pages of the book; the house places 6 to 8 per 100 pages -- just enough to pass QA. **Placement:** the strategic spots -- the spine against the cover, one head (a chapter title in one book, a running head in another), two or three body sentences, one cross-reference, one index entry -- never in a command name, a syntax line, a message, a replayed example or a screen (GC-01..GC-04 stay exact; registration is by NAME\|KIND and no slip touches it). **Never a slip:** the slogan *Is This Good for the COMPANY?* (AN-27), which keeps exactly that capitalisation; and canon (NT-36), which is not an error. A slip is never corrected in a reprint without a register change (Rule 8) | Operator directive 2026-10-17; the evidence below, each item seen on the page image (worklog WL-0150) |
+
+The register (version 1; `min`/`max` per book):
+
+| Entry | Canonical | Tolerated variant | Places | Min/max | Period evidence (page image read) |
+|---|---|---|---|---|---|
+| VO30-01 | User's Guide | Users Guide, Users' Guide | spine, running-head, cross-reference, body | 0/2 | IBM ZR23-6845-01 p. 1-4 (PDF 12): "found in the DOS 3.3 Users' Guide" [ibm s15] |
+| VO30-02 | diskette | Diskette(s) in running text | body | 0/2 | ZR23 p. 3-5 (PDF 29): "the Master Lab Diskette(s) onto the work diskette(s)" in one sentence [ibm s15]; WordPerfect 5.1 Reference p. 53 (PDF 70): "a Block Protect code" and "without block protect" a paragraph apart [wpc s12] |
+| VO30-03 | InitechOS, InitechDOS | Initech OS, Initech DOS | body, cross-reference | 0/1 | *Programming with dBASE III PLUS* P8-17 (PDF 161): "See *Using dBASE III PLUS*" and "See *Using dBASE III Plus*" on one page [ate s16] |
+| VO30-04 | the family's head case (VO-14) | one head in the other case (Title Case family: a head ending in a lower-case word; sentence-case family: a Title Case head) | heading, contents, running-head | 1/2 | IBM DOS 3.10 Reference p. 7-1, 7-27, 7-28 (PDF 106, 132-133): "Creating a Batch File" beside "Executing a Batch file" and "Creating an AUTOEXEC.BAT file" [ibm s15] |
+| VO30-05 | an imperative step | a passive verb phrase in a procedure | body | 0/1 | ZR23 p. 1-4: "Prepare the hard file using the Fdisk command ... That is accomplished by selecting the appropriate prompt" [ibm s15] |
+| VO30-06 | its | it's | body | 1/1 | *Turbo Vision Guide* (Borland 1990) p. 186 (PDF 201): "check it's immediate ancestor object type" beside "its relationships to its ancestors" [bor s12] |
+| VO30-07 | two sentences | comma splice | body | 0/1 | ZR23 p. 1-4: "... and several extended partitions, however only one will be a DOS partition." [ibm s15] |
+| VO30-08 | the chapter's printed title | an earlier title in a cross-reference | body, cross-reference | 0/1 | MS-DOS 3.3 *User's Reference* p. 94 (PDF 179): "see Chapter 2, 'Using MS-DOS Commands'"; Chapter 2 is "About Commands" (PDF 100, 202) [ibm s15] |
+| VO30-09 | the index term as its head | the head's words in another capitalisation | index | 0/1 | IBM DOS 3.10 Reference Index-2 (PDF 525): "ATTRIB (Attribute) Command" and "ATTRIB command"; "Batch commands" for the head "Batch File Commands" [ibm s15] |
+| VO30-10 | Version n.nn (the cover) | version n.nn on the spine | spine | 0/1 | *Macintosh System Software User's Guide* 6.0 (Apple 1988): cover "Version 6.0" (PDF 1), wrap spine "User's Guide version 6.0" (PDF 296) [mac s13] |
+| VO30-11 | fixed disk (VO-13) | hard disk, F-IBM and F-OPS only | body | 0/1 | ZR23 p. 1-4: "hard file", "hard disk" and "fixed disk" on one page; Contents p. vii: "Installation on Hard File" (Session 1) and "Installation on Fixed Disk" (Session 2) [ibm s15] |
+
+The budget is a house ruling: the models ran far above it (ZR23 p. 1-4 alone carries VO30-01,
+-05, -07 and -11), so the ceiling is the QA bar, not the models' rate; the floor keeps the
+register visible as books grow. `make test-pubs-inconsistency` (GC-13) enforces all of it.
 
 ## 10. Completeness rules
 
@@ -1013,6 +1040,7 @@ desktop teal's build 36/0/0/14) goes RED `COVER-CYAN`.
 | GC-09 | **Gate citations real.** Every `\Gates{}` name is a real Makefile target; a chapter is GATED only if all its gates are green in the same run, else it builds DRAFT | Makefile; the run | cite a non-existent gate |
 | GC-10 | **Completeness.** All mechanised CP rows for the book's type | Sec 10 | delete one entry |
 | GC-11 | **Canon asserted.** The quarterly pie example sums to 116; the accounting format shows `570-`; the busy pointer is documented as the hourglass; the InitechPaint menu bar string equals `spec/assets/menu_canon.h` | canon specs; CL Law 4 | print 100% |
+| GC-13 | **House register (VO-30).** Every slip is a register entry, within the book's budget, in a place the entry allows, printed where the source puts it; no registered variant outside a `\Slip`; every entry carried by at least one book; the slogan exact. `pubs_gate inconsistency` reads `spec/pubs_inconsistencies.json`, the sources and the build's `.slips`/`.toc`/`.log`; `harness/pubs/slip_places.sh` proves the class reports each place against a hand-written list | `spec/pubs_inconsistencies.json`; the class place contract | a book with zero slips (BUDGET-LOW); a book over budget (BUDGET-HIGH); it's reported in a heading (SLIP-PLACE); the running-head place switched off in the class (SLIP-PLACES); and nine more in `harness/pubs/slip_mutants.sh` |
 | GC-12 | **Release has no DRAFT.** `make pubs RELEASE=1` fails if any chapter or entry is DRAFT, any part number carries `0000`, or any check above is red | -- | mark one chapter DRAFT |
 
 ### 11.3 Lockstep (the bead rule)
@@ -1111,6 +1139,7 @@ exchange coupon, companion-products flyer; Reader's Comment Forms in every binde
 | C-18 | The lane brief's assumption "Initech Cyan = the desktop canon `#8DDCDC`" vs the measurement of the identity references (`#57B19F`) | The measurement governs (Law 1): the identity ink is `#57B19F`; the desktop canon is untouched, its future is O-6 | PK-01 |
 | C-19 | Cyan as the band colour vs as the line colour | Line colour; family colours keep the band (IBM line system [pkg s2, s7]; Ashton-Tate title sheets [ate s8.1]); the shelf keeps one stripe per family | PK-01, PK-03 |
 | C-20 | The logotype's face: Eurostile/Microgramma Bold Extended Oblique (operator's reading) vs a Helvetica-class black extended oblique (the measured C: round bowl, horizontal terminals) | The drawing follows the measured outlines; the face is never typeset either way, so the identification changes nothing printed | Sec 7.0, TY table |
+| C-21 | VO-10/VO-14 (names and capitalisation exactly) vs the operator directive 2026-10-17 (inconsistent grammar and capitalisation, "just enough to pass QA") | The directive governs within a LOCKED, budgeted, evidence-grounded register (VO-30); outside the register VO-10 and VO-14 hold unchanged, and GC-13 makes any unregistered variant RED | VO-30, GC-13 |
 
 ### 13.2 Open items (do not block typesetting)
 

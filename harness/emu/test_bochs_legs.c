@@ -1,7 +1,10 @@
-/* Factory inventory oracle, written before the cqej second-half legs.
- * Independent roster: WL-0131 Bochs row, WL-0140..0155 and the lane brief.
- * PRD Sec 8 / Rule 5 require named legs in the executed vector. These are
- * BOOT boundaries, not input/pixel/disk-operation acceptance (bochs.h).
+/* Factory inventory oracle, written before the cqej second-half legs and
+ * re-keyed by WL-0170 to the video path Bochs 2.7 really takes (0101h on the
+ * stock ROM; the forced mode-13h legs on an ISA Cirrus / a plain VGA).
+ * Independent roster: WL-0131 Bochs row, WL-0140..0155, WL-0170 and the lane
+ * brief. PRD Sec 8 / Rule 5 require named legs in the executed vector. These
+ * are BOOT boundaries, not input/disk-operation acceptance (bochs.h); the
+ * pixel grade is a separate named leg (bochs_legs.mk bochs-pixel-leg).
  * IBM DOS 3.30 TR p.1-7 (PDF24) grounds the preserved system-file chain;
  * ADR-0003 Appendix A grounds the existing DOS gates, not this wiring test.
  */
@@ -9,46 +12,66 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct leg { const char *name, *image, *data, *end; };
+struct leg { const char *name, *image, *data, *end, *video, *checks; };
 #define DATA "build/flair_data.img"
-#define FLAIR(n) { n, "build/flair_tenants.img", DATA, "HALTED" }
-#define WORD(n) { n, "build/flair_tenants_mut_iword_gate.img", DATA, "HALTED" }
-#define CP(n) { "flair-cpanels" n, "build/flair_tenants_mut_cpanels_gate.img", DATA, "HALTED" }
-#define DOS(n) { n, "build/tracer_secondary.img", DATA, "SHELL-READY" }
+#define TRACER "build/tracer_secondary.img"
+#define FLAIR_CHECKS "FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK FLAIR-DESKTOP FLAIR-LIVE-READY !PANIC"
+#define SHELL_CHECKS "IRQ-LIVE CONIN-LIVE SHELL-READY !PANIC"
+#define GUARD_LINE "'PANIC flair-desktop: LFB smaller than 640x480 w=320 h=200' HALTED"
+#define FLAIR(n) { n, "build/flair_tenants.img", DATA, "FLAIR-LIVE-READY", "vbe101", FLAIR_CHECKS }
+#define WORD(n) { n, "build/flair_tenants_mut_iword_gate.img", DATA, "FLAIR-LIVE-READY", "vbe101", FLAIR_CHECKS }
+#define CP(n) { "flair-cpanels" n, "build/flair_tenants_mut_cpanels_gate.img", DATA, "FLAIR-LIVE-READY", "vbe101", FLAIR_CHECKS }
+#define DOS(n) { n, TRACER, DATA, "SHELL-READY", "vbe101", SHELL_CHECKS }
 #define DML(n) DOS("samir-dml-" n "-emu")
 static const struct leg legs[] = {
-    { "command-file-emu", "build/command-file/fragment.img", DATA, "HALTED" },
+    { "command-file-emu", "build/command-file/fragment.img", DATA, "FLAIR-LIVE-READY", "vbe101", FLAIR_CHECKS },
     FLAIR("command-file-negative"),
-    { "flair-desktop-8bpp", "build/vesa8/flagship.img", DATA, "HALTED" },
+    /* The DAC row: the FORCE_VBE_101 gate IO.SYS pads the scanline to 648. */
+    { "flair-desktop-8bpp", "build/vesa8/flagship.img", DATA, "FLAIR-LIVE-READY", "vbe101pad", FLAIR_CHECKS },
     WORD("flair-notepad"), WORD("flair-scrapbook"),
     WORD("flair-notepad-itext"), WORD("flair-notepad-restart"),
     { "flair-notepad-corrupt", "build/flair_tenants_mut_iword_gate.img",
-      "build/da_corrupt_source.img", "HALTED" },
+      "build/da_corrupt_source.img", "FLAIR-LIVE-READY", "vbe101", FLAIR_CHECKS },
     CP(""), CP("-date"), CP("-patterns"), CP("-mouse"), CP("-sound"),
     CP("-memory"), CP("-settings"), CP("-persist"),
     { "flair-cpanels-corrupt", "build/flair_tenants_mut_cpanels_gate.img",
-      "build/cp_corrupt_data.img", "HALTED" },
+      "build/cp_corrupt_data.img", "FLAIR-LIVE-READY", "vbe101", FLAIR_CHECKS },
     FLAIR("flair-grow-box"), DOS("block-device-emu"), DOS("fdisk-emu"),
     DOS("formatsys-emu"), DOS("format-system-boot"), FLAIR("dos-folder"),
     DOS("conkeys"), DOS("j1lu-control-emu"),
-    { "ansi-emu", "build/tracer_secondary.img", "build/ansi_probe_data.img", "SHELL-READY" },
+    { "ansi-emu", TRACER, "build/ansi_probe_data.img", "SHELL-READY", "vbe101", SHELL_CHECKS },
     FLAIR("flair-finder-icons"), FLAIR("flair-trash-full"),
     FLAIR("flair-toolbox-hardening"), DOS("fat-hygiene-emu"),
     FLAIR("trash-hidden-emu"),
-    { "ata-no-drive-emu", "build/tracer_secondary.img", NULL, "SHELL-READY" },
-    { "baked-exec-guard", "build/baked_guard.img", "build/fat_exec.img", "EXEC-4B-END" },
-    { "mzload-entry-emu", "build/mzexec_boot.img", "build/fat_mzexec.img", "MZEXEC-END" },
+    { "ata-no-drive-emu", TRACER, NULL, "SHELL-READY", "vbe101",
+      "'FAT-MOUNT-FAIL rc=-1 base_lba=0 hidden_sectors=0' " SHELL_CHECKS },
+    { "baked-exec-guard", "build/baked_guard.img", "build/fat_exec.img", "EXEC-4B-END", "vbe101",
+      "IRQ-LIVE CONIN-LIVE EXEC-4B-END !PANIC" },
+    { "mzload-entry-emu", "build/mzexec_boot.img", "build/fat_mzexec.img", "MZEXEC-END", "vbe101",
+      "IRQ-LIVE CONIN-LIVE MZEXEC-END !PANIC" },
     DOS("samir-core-emu"), DOS("samir-dml-emu"),
     DML("clear"), DML("macro"), DML("close"), DML("index"), DML("reindex"),
     DML("sort"), DML("total"), DML("append"), DML("save"), DML("restore"),
-    DML("copyfile"), DML("type"), DML("rename"), DML("erase"), DML("label"), DML("run"),
+    /* RUN is test-samir-dml-pending by name (3c32c4df: the nested-EXEC seam);
+     * SAMIR_DML_CASES no longer lists it, so it has no Bochs leg to require. */
+    DML("copyfile"), DML("type"), DML("rename"), DML("erase"), DML("label"),
     DOS("samir-print-emu"), DOS("shell-files-emu"), DOS("command-c-emu"),
     DOS("xcopy-cwd-emu"), DOS("fat-truncate-emu"), DOS("dir-match-emu"),
     DOS("shell-dir-look"),
     WORD("flair-iword-codes"), WORD("flair-iword-block"), WORD("flair-iword-format"),
     WORD("flair-iword-fkeys"), WORD("flair-iword-search"),
     WORD("flair-iword-replace"), WORD("flair-iword-undo"), WORD("flair-iword-setup"),
-    FLAIR("kernel-size-r4-emu")
+    FLAIR("kernel-size-r4-emu"),
+    /* WL-0170: the forced mode-13h legs (ISA Cirrus = VBE-ENOMODE, plain VGA =
+     * VBE-E00); the 640x480 guard is the FLAIR tooth there. */
+    { "boot-vga13", TRACER, DATA, "SHELL-READY", "vga13", SHELL_CHECKS },
+    { "boot-novbe", TRACER, DATA, "SHELL-READY", "e00", SHELL_CHECKS },
+    { "flair-desktop-vga13", "build/flair_desktop.img", NULL, "HALTED", "vga13",
+      "FLAIR-HEAP-OK " GUARD_LINE },
+    { "flair-appswitch-vga13", "build/flair_tenants.img", DATA, "HALTED", "vga13",
+      "FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK " GUARD_LINE },
+    { "flair-desktop-novbe", "build/flair_desktop.img", NULL, "HALTED", "e00",
+      "FLAIR-HEAP-OK " GUARD_LINE }
 };
 
 static void require(int ok, const char *rule, const char *name)
@@ -95,7 +118,7 @@ int main(int argc, char **argv)
     v[0] = ' '; memcpy(v + 1, vector, vn); v[vn + 1] = ' '; v[vn + 2] = 0;
     for (size_t i = 0; i < count; i++) {
         const struct leg *l = &legs[i];
-        char target[160], needle[256], *row, *stop, *body;
+        char target[160], needle[512], *row, *stop, *body;
         snprintf(target, sizeof target, "test-%s-bochs", l->name);
         snprintf(needle, sizeof needle, "\n%s: ", target);
         row = strstr(db, needle);
@@ -116,33 +139,41 @@ int main(int argc, char **argv)
             snprintf(needle, sizeof needle, "cp -f %s ", l->data);
             require(strstr(body, needle) != NULL, "IMAGE", target);
         } else {
-            require(strstr(body, "--disk2") == NULL &&
-                    strstr(body, "grep -qxF 'FAT-MOUNT-FAIL rc=-1 base_lba=0 hidden_sectors=0'"),
-                    "IMAGE", target);
+            require(strstr(body, "--disk2") == NULL, "IMAGE", target);
         }
         char *nl = strchr(body, '\n');
         require(nl != NULL, "IMAGE", target);
         *nl = 0;
         require(strstr(body, l->image) && (!l->data || strstr(body, l->data)), "IMAGE", target);
         *nl = '\n';
-        snprintf(needle, sizeof needle, "--expect %s ", l->end);
-        require(strstr(body, needle) != NULL, "BOUNDARY", target);
-        require(strstr(body, "rfb_unblocked=1") && strstr(body, "triple_fault=1") &&
-                strstr(body, "VBE-ENOMODE VGA13 S1 PM KERNEL CONSOLE BANNER"),
-                "BOUNDARY", target);
-        if (strcmp(l->end, "HALTED") == 0)
-            require(strstr(body, "FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED") &&
-                    strstr(body, "grep -qxF 'PANIC flair-desktop: LFB smaller than 640x480 w=320 h=200'"),
-                    "BOUNDARY", target);
-        else
-            require(strstr(body, "! grep -q '^PANIC'") != NULL, "BOUNDARY", target);
-        require(strstr(body, "Bochs BOOT ONLY:") != NULL, "BOUNDARY", target);
+        /* DAC (before BOUNDARY, which would also notice): the VESA8 flagship leg must grade the padded 648 scanline. */
         if (strcmp(l->name, "flair-desktop-8bpp") == 0)
-            require(strstr(body, "grep -qxF 'VIDEO 320x200 bpp=8 pitch=320 lfb=0x000A0000 dac=6'") != NULL,
+            require(strcmp(l->video, "vbe101pad") == 0 && strstr(body, " vbe101pad FLAIR-HEAP-OK"),
                     "DAC", target);
+        /* BOUNDARY: the completion line is both the harness --expect and its
+         * --quit-after, and the ONE checker gets the leg's exact checks. */
+        snprintf(needle, sizeof needle, "--expect %s --quit-after %s ", l->end, l->end);
+        require(strstr(body, needle) != NULL, "BOUNDARY", target);
+        snprintf(needle, sizeof needle, "sh harness/emu/bochs_leg_check.sh %s ", target);
+        char *chk = strstr(body, needle);
+        require(chk != NULL, "BOUNDARY", target);
+        char *chk_end = strchr(chk, '\n');
+        if (chk_end) *chk_end = 0;
+        snprintf(needle, sizeof needle, " %s %s", l->video, l->checks);
+        require(strstr(chk, needle) != NULL && strcmp(strstr(chk, needle), needle) == 0,
+                "BOUNDARY", target);
+        if (chk_end) *chk_end = '\n';
+        /* VIDEO: the forced paths really reconfigure the Bochs card; the 0101h
+         * paths must not (the stock ROM + its VBE extension is the finding). */
+        if (strcmp(l->video, "vga13") == 0)
+            require(strstr(body, "--vga-ext cirrus --vgabios /") != NULL, "VIDEO", target);
+        else if (strcmp(l->video, "e00") == 0)
+            require(strstr(body, "--vga-ext none ") != NULL, "VIDEO", target);
+        else
+            require(strstr(body, "--vga-ext") == NULL, "VIDEO", target);
         free(body);
     }
     free(v); free(db);
-    printf("GREEN test-bochs-legs: %zu named boot legs; vector, images, boundaries, honest VGA13\n", count);
+    printf("GREEN test-bochs-legs: %zu named boot legs; vector, images, boundaries, video paths, the padded DAC row\n", count);
     return 0;
 }

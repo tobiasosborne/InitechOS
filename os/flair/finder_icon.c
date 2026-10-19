@@ -20,6 +20,30 @@
 
 #include "flair_look.h"     /* flair_look_pixel_depth -- the ONE color seam */
 
+/* Kernel size round 5 (WL-0168): the freestanding kernel keeps the three
+ * 16x16 cells packed (os/flair/asset_lz_data.h, generated from the unchanged
+ * locked finder_small_icons.h) and unpacks them into BSS on first use; a
+ * hosted build indexes the locked table. test-asset-lz proves decode ==
+ * locked (Rule 8); the icon-art pixel gates still grade the cells (Law 2). */
+#if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
+#define ASSET_LZ_SMALL
+#include "asset_lz.h"
+#include "asset_lz_data.h"
+static uint8_t finder_small_cell(int small, int idx)
+{
+    static uint8_t store[3][256];
+    static uint8_t ready;
+    _Static_assert(sizeof store == ASSET_LZ_SMALL_RAW, "finder_small_art[3][256]");
+    if (!ready) {
+        asset_lz_unpack(&store[0][0], ASSET_LZ_SMALL_RAW, asset_lz_small);
+        ready = 1u;
+    }
+    return store[small][idx];
+}
+#else
+static uint8_t finder_small_cell(int small, int idx) { return finder_small_art[small][idx]; }
+#endif
+
 /* One policy role per non-clear colour ordinal, in ordinal order. */
 _Static_assert((int)FLAIR_PART_ICON_CLUT_LAST - (int)FLAIR_PART_ICON_CLUT + 1 ==
                (int)DESK_IC__COUNT - 1,
@@ -43,7 +67,7 @@ static uint32_t icon_nibble(const FLAIRDeskIcon *icon, int r, int c, int small)
     int sr = r;
     (void)dim;
 #endif
-    uint32_t n = small >= 0 ? finder_small_art[small][sr * 16 + c] :
+    uint32_t n = small >= 0 ? finder_small_cell(small, sr * 16 + c) :
         (icon->px[sr][c >> 3] >> (28 - 4 * (c & 7))) & 0xFu;
 #if defined(DESK_ICON_MUT_MASK_IGNORED)
     if (n == 0u) n = 1u;

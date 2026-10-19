@@ -37,7 +37,7 @@ $(PANIC_SCREEN_DIR)/IO_vga13.SYS: $(BOOT_DIR)/io_sys.asm | $(PANIC_SCREEN_DIR)
 $(PANIC_SCREEN_DIR)/stage2_vga13.bin: $(STAGE2_ASM) $(PANIC_SCREEN_DIR)/IO_vga13.SYS
 	$(NASM) -f bin -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) -DIO_SYS_PATH='"$(PANIC_SCREEN_DIR)/IO_vga13.SYS"' $< -o $@
 define panic-screen-image
-$(PANIC_SCREEN_DIR)/$(1).img: $(MBR_BIN) $(2) $(3) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+$(PANIC_SCREEN_DIR)/$(1).img: $(MBR_BIN) $(2) $(3) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(PANIC_SCREEN_DIR)
 	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(2) $(4) $(3) $(BOOT_SYSTEM_TOOL)
 endef
 $(eval $(call panic-screen-image,debug32,$(STAGE2_BIN),$(BUILD)/kernel_panic_screen_debug.bin,$(IO_SYS_BIN)))

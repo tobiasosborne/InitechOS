@@ -139,6 +139,14 @@ void int21_set_break_trace(int21_sink_fn sink);
 
 /* Bind the terminate hook (NULL clears it). Called once by the kernel at boot. */
 void int21_set_exit(int21_exit_fn fn);
+int21_exit_fn int21_get_exit(void);
+/* EXEC preserves the caller's DTA, child default = its own PSP:80h.
+ * Ref: IBM DOS 3.30 TR pp. 6-82/103, 11-4; spec/dos_structs.h. */
+uint32_t int21_swap_dta(uint32_t dta);
+/* Allocate a nested native .COM's PSP/image/stack in the existing chain.
+ * The block's owner is its new PSP paragraph (DOS 3.30 TR pp. 11-4/5). */
+uint16_t int21_mcb_exec_alloc(uint32_t image_len, uint32_t *psp, uint32_t *end);
+void int21_mcb_exec_free(uint32_t psp);
 
 /* Resident COMMAND.COM can recover a built-in without terminating its PSP.
  * The scope is owned by one PSP; an EXEC child still takes the default abort.
@@ -529,6 +537,28 @@ void int21_set_file_backend(const int21_file_backend_t *backend);
  * pp. 6-83/6-84). The FAT binder sets it at mount; 0 (unset) -> AL=FFh. */
 void int21_set_media(uint8_t media);
 
+/* AH=1Fh / AH=32h GET DRIVE PARAMETER BLOCK (WL-0167, bead initech-dpb1): the
+ * mounted geometry of the CURRENTLY SELECTED volume (the same selection
+ * freespace() reads), which int21.c publishes as the 32-byte DOS 3.x DPB of
+ * ADR-0003 Appendix B.4 (spec/dos_structs.h dpb_t). Sector numbers are
+ * volume-relative. The source returns 0 on success, non-zero when the
+ * selected drive has no mounted volume. NULL (unbound) -> AL=FFh. int21.c
+ * never includes fat12.h; the FAT binder supplies this. Ref:
+ * docs/research/dpb-ground-truth.md Sec 3/4 ($SETDPB arithmetic). */
+typedef struct int21_dpb_geometry {
+    uint16_t bytes_per_sector;
+    uint8_t  sectors_per_cluster;
+    uint16_t reserved_sectors;    /* = first FAT sector */
+    uint8_t  fat_count;
+    uint16_t root_entries;
+    uint16_t sectors_per_fat;
+    uint32_t root_dir_sector;
+    uint32_t first_data_sector;
+    uint32_t total_clusters;      /* data clusters; DPB 0Dh = this + 1 */
+    uint8_t  media;
+} int21_dpb_geometry_t;
+void int21_set_dpb_source(int (*geometry)(int21_dpb_geometry_t *out));
+
 /* Kernel adapters that expose DATA files must reserve the same device names
  * OPEN resolves first (including drive/path/extension normalization).
  * Ref: int21.c dev_open_lookup; MS-DOS 3.3 Technical Reference Ch. 4.
@@ -776,9 +806,9 @@ void int21_set_devices(device_header_t *chain, const devices_io_t *io);
  *     via crit_error_action (below), writes the action into AL, clears CF, and
  *     RETURNS to the failed caller (DOS contract -- 24h does NOT terminate).
  * Ref: docs/adr/ADR-0003 Sec 5.10 (DEC-10); App C (MSG-DOS-0001). */
-void int22_dispatch(int_frame_t *frame);
-void int23_dispatch(int_frame_t *frame);
-void int24_dispatch(int_frame_t *frame);
+void KERNEL_ASM_ABI int22_dispatch(int_frame_t *frame);
+void KERNEL_ASM_ABI int23_dispatch(int_frame_t *frame);
+void KERNEL_ASM_ABI int24_dispatch(int_frame_t *frame);
 
 /* PURE, host-testable INT 24h Abort/Retry/Fail decision. Maps an operator key to
  * the DOS AL action code: 'R'->0 (Retry), 'A'->1 (Abort), 'F'->2 (Fail), case-
@@ -852,13 +882,13 @@ int dos_in_dos(void);
  * stub's iretd then restores the modified EFLAGS so the caller sees CF. An AH
  * not in the locked register emits a diagnostic and returns CF=1/AX=0x0001 --
  * NEVER a silent no-op (Rule 2 / DEC-13). */
-void int21_dispatch(int_frame_t *frame);
+void KERNEL_ASM_ABI int21_dispatch(int_frame_t *frame);
 
 /* The INT 20h legacy-terminate handler the asm trap stub (int20_entry, isr.asm)
  * invokes. Routes to the SAME terminate path as INT 21h AH=4Ch with exit code 0
  * (DOS legacy termination; ADR-0003 DEC-10, beads initech-509.5). Ref:
  * docs/research/psp-loader-ground-truth.md Sec 2.1 / Sec 4.4. */
-void int20_dispatch(int_frame_t *frame);
+void KERNEL_ASM_ABI int20_dispatch(int_frame_t *frame);
 
 /* ==== INT 25h / 26h ABSOLUTE DISK READ/WRITE VECTORS (ADR-0003 DEC-15) =======
  * beads initech-4mq7. Two NEW separate software-interrupt vectors (NOT INT 21h
@@ -881,8 +911,8 @@ void int20_dispatch(int_frame_t *frame);
  * RETURN: success CF=0; failure CF=1, AX = error (see the SEPARATE AL/AH error
  * space below). Preserves EBX/ECX/EDX/ESI/EDI/EBP (DEC-04a benign superset);
  * writes only EAX-low (AX) + CF. */
-void int25_dispatch(int_frame_t *frame);   /* INT 25h Absolute Disk READ  */
-void int26_dispatch(int_frame_t *frame);   /* INT 26h Absolute Disk WRITE */
+void KERNEL_ASM_ABI int25_dispatch(int_frame_t *frame);   /* INT 25h Absolute Disk READ  */
+void KERNEL_ASM_ABI int26_dispatch(int_frame_t *frame);   /* INT 26h Absolute Disk WRITE */
 
 /* The asm entry stubs (extern; defined in isr.asm), exposed for the sysinit
  * idt_install_trap site (the SAME way int2{0,1,2,3,4}_entry are declared in

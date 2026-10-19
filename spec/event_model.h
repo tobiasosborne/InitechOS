@@ -321,8 +321,13 @@ typedef enum flair_raw_kind {
  *                       (not the tick at pump time, for accuracy).
  *   payload (uint32_t): kind-specific data packed into one word --
  *     KEYBOARD: low byte = raw PS/2 scancode byte (0x00..0xFF).
- *               bit 8 = key-break flag (1 = key released; set by ISR when
- *               0xF0 break prefix consumed from the PS/2 stream).
+ *               bit 8 = key-break flag (1 = key released). The ISR posts
+ *               scan code SET 1 bytes verbatim, where a break is
+ *               make | 0x80 (IBM PC AT Technical Reference, keyboard
+ *               appendix); the 0xF0 prefix belongs to set 2 and never
+ *               reaches this payload. A producer that pre-decodes may set
+ *               bit 8 on a make code; the decoder honours both forms
+ *               (initech-tdnl.58, initech-oby0: Rule-8 wording fix).
  *               bits 9..31 reserved/zero.
  *     MOUSE:    bits  0..7  = raw button byte (bit 0 = left; bit 1 = right;
  *                             bit 2 = middle; from PS/2 mouse data byte 0).

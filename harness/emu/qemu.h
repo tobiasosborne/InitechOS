@@ -90,17 +90,20 @@ typedef struct {
      * captured serial BEFORE injecting keys (the robust trigger: the guest
      * tells us it is ready). If NULL, a fixed startup delay is used instead.  */
     const char *keys_after;    /* serial marker to wait for, or NULL.        */
-    /* Budget for the keys_after wait, in ms; <=0 => the legacy 4000 ms. A gate
-     * whose boot can exceed 4 s on a loaded host sizes it (beads initech-6gkm)
-     * so keys are never injected before the guest's ready marker. */
+    /* No-progress budget for keys_after, in QEMU CPU ms; <=0 => 4000 ms.
+     * Host starvation does not consume it; new guest serial bytes renew it
+     * (initech-7r2). The QMP session's ready/completion
+     * waits share an absolute 120 s ceiling. --keys-after-ms overrides this
+     * idle budget, not the ceiling. */
     int keys_after_ms;
 
     /* COMPLETION marker (beads initech-6gkm, --quit-after). By default the
      * harness sends QMP `quit` ~400 ms after the last injected input -- so a
      * guest still working (a long AUTOEXEC batch, a multi-pass compile) is
      * TRUNCATED mid-run. When non-NULL, the harness instead waits for this
-     * substring on the serial capture (budget = timeout_ms - 1000; ends early
-     * if qemu exits) before quitting. Not seen => quit_marker_found=0, OK=0.
+     * substring on the serial capture (idle budget = timeout_ms - 1000 CPU ms,
+     * renewed by new guest serial bytes, with a shared 120 s ceiling; ends
+     * early if qemu exits) before quitting. Not seen => quit_marker_found=0, OK=0.
      * Requires --keys/--mouse or --screendump (it lives in the QMP session). */
     const char *quit_after;    /* serial marker to wait for, or NULL.        */
     /* How many occurrences of quit_after to wait for (bead initech-tdnl.78,

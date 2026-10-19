@@ -197,8 +197,30 @@ int32_t tbx_fc_step(uint32_t upto);
 void    tbx_fc_close(void);
 void    tbx_filecopy_answer(int32_t result);
 
-/* THE GATE (called by os/milton/tbx_gate.asm with &int_frame_t). */
-void tbx_gate_dispatch(uint8_t *frame);
+/* THE GATE (called by os/milton/tbx_gate.asm with &int_frame_t). The stub
+ * pushes the frame pointer and pops it itself: the cdecl stack ABI, pinned
+ * by KERNEL_ASM_ABI (os/milton/idt.h has the primary definition and the
+ * rationale; repeated here under the same guard because this header does
+ * not include idt.h). */
+/* KERNEL_ASM_ABI -- the calling convention of every C function the kernel's
+ * asm stubs call WITH ARGUMENTS (isr.asm: the INT 13h/20h-26h dispatchers +
+ * isr_dispatch_c; tbx_gate.asm: tbx_gate_dispatch) and of every asm routine C
+ * calls with arguments (tbx_tenant_call). The stubs push the argument and pop
+ * it themselves (`push eax; call X; add esp, 4`), i.e. plain cdecl. Kernel
+ * size round 5 (WL-0168) compiles the kernel image with -mregparm=3 -mrtd
+ * (register arguments, callee pops: the Borland `register`/`pascal`
+ * conventions); these attributes pin the asm boundary to the stack ABI the
+ * stubs were written against, so isr.asm / tbx_gate.asm stay byte-identical.
+ * No-op on the hosted (x86-64) oracle builds. Ref: GCC 13 "x86 Function
+ * Attributes" cdecl / regparm; CLAUDE.md Law 3; PRD Sec 5. */
+#ifndef KERNEL_ASM_ABI
+#if defined(__i386__)
+#define KERNEL_ASM_ABI __attribute__((cdecl, regparm(0)))
+#else
+#define KERNEL_ASM_ABI
+#endif
+#endif
+void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame);
 
 /* Crash triage (DEC-AC3-3 / Part C item 7), installed as the panic path's
  * fault hook. If a CPU exception was taken while tenant code is executing AND

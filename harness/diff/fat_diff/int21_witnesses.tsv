@@ -1,6 +1,6 @@
 # ADR-0003 Appendix A -> actual gate that exercises the function.
-# AH=1F is deliberately absent: do_fcb returns 0 and reaches not-yet-impl.
-# Existing test-40oq records its legacy waiver; a strict certificate must fail.
+# AH=1Fh/32h (DPB, WL-0167): QEMU DPB.COM over ATA A/C/D vs minfo/mdir, plus
+# the host differential over FAT12 and FAT16 A. test-40oq no longer waives 1Fh.
 00h test-int21
 01h-0Ch test-conin-unit
 02h test-int21
@@ -35,3 +35,7 @@
 0Fh-18h test-fcb-api
 1Bh-1Eh test-fcb-api
 20h-24h test-fcb-api
+1Fh test-int21-dpb-emu
+1Fh test-int21-dpb
+32h test-int21-dpb-emu
+32h test-int21-dpb

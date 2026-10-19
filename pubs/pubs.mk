@@ -9,6 +9,10 @@
 #
 #   make pubs                 typeset every pubs/manuals/*/{main,cover,spine}.tex
 #                             into build/pubs/<manual>/<doc>.pdf
+#   make pubs-<manual>        typeset one manual through the same build route
+#   make test-pubs-aux        stale class/style auxiliaries must be discarded;
+#                             an unchanged build must retain its directory
+#   make test-pubs-aux-mutant  disabling that cleanup must go RED (Rule 6)
 #   make test-pubs-build      HOST GATE: every document builds with zero errors;
 #                             overfull boxes <= PUBS_OVERFULL_MAX (0); no
 #                             undefined references, missing glyphs or missing
@@ -21,6 +25,7 @@
 #   make test-pubs-honesty    proves the gate is honest: a missing lualatex is
 #                             RED and names SKIP_PUBS=1; SKIP_PUBS=1 shouts.
 #   make test-pubs-repro      two clean builds must be byte-identical (Rule 11)
+#   make test-pubs-repro-single  the same oracle for the small installation card
 #   make test-pubs-repro-mutant  the same check with a build timestamp
 #                             injected into every page must go RED (Rule 6)
 #   make pubs-screens         re-capture every manual's screens from the
@@ -37,6 +42,9 @@ PUBS_SOURCES      := $(sort $(wildcard $(PUBS_DIR)/*.sh $(PUBS_DIR)/*.mk $(PUBS_
                        $(PUBS_DIR)/class/* $(PUBS_DIR)/common/* $(PUBS_DIR)/screens/*.sh $(PUBS_DIR)/screens/disk/* \
                        $(PUBS_DIR)/manuals/*/*.tex $(PUBS_DIR)/manuals/*/screens/*))
 PUBS_MANUALS      := $(patsubst $(PUBS_DIR)/manuals/%/main.tex,%,$(wildcard $(PUBS_DIR)/manuals/*/main.tex))
+PUBS_BOOK_TARGETS := $(addprefix pubs-,$(PUBS_MANUALS))
+PUBS_STYLE_SOURCES := $(wildcard $(PUBS_DIR)/*.cls $(PUBS_DIR)/*.sty $(PUBS_DIR)/preamble.tex \
+                       $(PUBS_DIR)/class/*.cls $(PUBS_DIR)/class/*.sty $(PUBS_DIR)/common/*.tex)
 LUALATEX          ?= lualatex
 LATEXMK           ?= latexmk
 PUBS_OVERFULL_MAX ?= 0
@@ -93,19 +101,61 @@ $(PUBS_GEN)/samir_coercion.tex: $(PUBS_SAMIR_TABLES) spec/samir/xbase_coercion.j
 	@$(PUBS_SAMIR_TABLES) coercion spec/samir/xbase_coercion.json > $@.tmp && mv -f $@.tmp $@
 PUBS_GENERATED += $(PUBS_SAMIR_GEN)
 
-# Build all documents into $(1) (fresh), optional mode $(2) (mutant).
+# Build into $(1) (fresh), optional mode $(2) (mutant) and manual $(3).
 define pubs-build-into
 	@rm -rf $(1)
-	@sh $(PUBS_DIR)/build.sh $(1) $(PUBS_GEN) $(2)
+	@sh $(PUBS_DIR)/build.sh $(1) $(PUBS_GEN) "$(2)" "$(3)"
+endef
+
+# Ref: initech-46u4 (minitoc -> titletoc leaves incompatible aux/maf),
+# PUB-REF-0001 Sec 11.2 GC-07, and test-pubs-repro's clean-build route.
+# Check timestamps with shell builtins; only inspect latexmk's recorded INPUT
+# dependencies when a source is newer. A missing recorder is conservative.
+# Clean all stale books before typesetting so a partner's master index is not
+# removed after the other volume has already been typeset (build.sh pass 2).
+define pubs-clean-stale
+	@set -e; for m in $(1); do \
+		d="$(PUBS_BUILD)/$$m"; [ -d "$$d" ] || continue; \
+		for style in $(abspath $(PUBS_STYLE_SOURCES)); do \
+			if [ "$(PUBS_MUT_KEEP_AUX)" != 1 ] && [ "$$style" -nt "$$d/main.aux" ]; then \
+				if [ -f "$$d/main.fls" ] && ! grep -qFx "INPUT $$style" "$$d"/*.fls; then continue; fi; \
+				rm -rf "$$d"; \
+				printf '>>> pubs: cleaned %s (newer %s)\n' "$$m" "$$style"; \
+				break; \
+			fi; \
+		done; \
+	done
 endef
 
 .PHONY: pubs test-pubs-build test-pubs-honesty test-pubs-repro test-pubs-repro-mutant \
-	pubs-screens test-pubs-screens
+	pubs-screens test-pubs-screens $(PUBS_BOOK_TARGETS) test-pubs-aux test-pubs-aux-mutant \
+	test-pubs-repro-single
 pubs: $(PUBS_GENERATED)
 pubs: $(PUBS_MSG_TEX) $(PUBS_SAMIR_GEN)
 	@command -v $(LUALATEX) >/dev/null 2>&1 && command -v $(LATEXMK) >/dev/null 2>&1 || { \
 		printf '!!! pubs FAIL: %s / %s not found (TeX Live: apt install texlive-luatex latexmk texlive-fonts-extra)\n' "$(LUALATEX)" "$(LATEXMK)"; exit 1; }
+	$(call pubs-clean-stale,$(PUBS_MANUALS))
 	@sh $(PUBS_DIR)/build.sh $(PUBS_BUILD) $(PUBS_GEN)
+
+# Ref: initech-46u4's single-document oracle; PUB-REF-0001 GC-07.
+$(PUBS_BOOK_TARGETS): $(PUBS_GENERATED) pubs-turbo-gen
+	$(call pubs-clean-stale,$(patsubst pubs-%,%,$@))
+	@sh $(PUBS_DIR)/build.sh $(PUBS_BUILD) $(PUBS_GEN) '' $(patsubst pubs-%,%,$@)
+
+test-pubs-aux:
+	+@MAKE="$(MAKE)" sh harness/pubs/aux_check.sh $(PUBS_BUILD)
+
+# Rule 6: one branch skips the cleanup; the real LuaLaTeX aux reader must bite.
+test-pubs-aux-mutant:
+	@mkdir -p $(PUBS_BUILD)
+	+@if $(MAKE) --no-print-directory -j3 test-pubs-aux PUBS_MUT_KEEP_AUX=1 > $(PUBS_BUILD)/aux-mutant.log 2>&1; then \
+		cat $(PUBS_BUILD)/aux-mutant.log; printf '!!! test-pubs-aux-mutant FAIL: stale-aux mutant survived\n'; exit 1; fi
+	@grep -F 'Undefined control sequence' $(PUBS_BUILD)/aux-mutant.log && \
+		grep -F '!!! test-pubs-aux RED: newer dependency left an incompatible main.aux' $(PUBS_BUILD)/aux-mutant.log || { \
+		cat $(PUBS_BUILD)/aux-mutant.log; printf '!!! test-pubs-aux-mutant FAIL: wrong failure\n'; exit 1; }
+	@rm -rf $(PUBS_BUILD)/initechword-install
+	+@$(MAKE) --no-print-directory -j3 pubs-initechword-install
+	@printf '>>> test-pubs-aux-mutant: green (cleanup-disabled branch rejected by the stale-aux oracle)\n'
 
 ifeq ($(SKIP_PUBS),1)
 test-pubs-build:
@@ -116,7 +166,8 @@ test-pubs-build: $(PUBS_MSG_TEX) $(PUBS_SAMIR_GEN)
 	@printf '>>> test-pubs-build: every manual typesets clean (initech-ipu5.5; D-11 LuaLaTeX)\n'
 	@for t in $(LUALATEX) $(LATEXMK); do command -v $$t >/dev/null 2>&1 || { \
 		printf '!!! test-pubs-build FAIL: %s not found (TeX Live is required to typeset the manuals). A skipped oracle is worse than a red one (Law 2). Set SKIP_PUBS=1 to explicitly (and loudly) opt out.\n' "$$t"; exit 1; }; done
-	@bad=$$(LC_ALL=C grep -l -P '[^\x00-\x7F]' $(PUBS_SOURCES) harness/console_text.c tools/pubs_msgtable.c harness/pubs/tps_inventory.c || true); \
+	@bad=$$(LC_ALL=C grep -l -P '[^\x00-\x7F]' $(PUBS_SOURCES) harness/console_text.c tools/pubs_msgtable.c harness/pubs/tps_inventory.c \
+		harness/pubs/pubs_gate.c harness/pubs/slip_places.sh harness/pubs/slip_mutants.sh spec/pubs_inconsistencies.json || true); \
 	if [ -n "$$bad" ]; then printf '!!! test-pubs-build FAIL: non-ASCII bytes in (Rule 12): %s\n' "$$bad"; exit 1; fi
 	$(call pubs-build-into,$(PUBS_BUILD)/gate)
 	@set -e; for log in $(PUBS_BUILD)/gate/*/*.log; do \
@@ -150,10 +201,14 @@ test-pubs-honesty:
 	@printf '>>> test-pubs-honesty: green (missing lualatex RED and names SKIP_PUBS=1; SKIP_PUBS=1 explicitly SKIPPED)\n'
 
 # Two independent clean builds must agree byte for byte (Rule 11).
+# The single-document route retains the identical cmp oracle (initech-46u4).
+test-pubs-repro-single: PUBS_REPRO_MANUAL = initechword-install
+test-pubs-repro-single: test-pubs-repro
+	@printf '>>> test-pubs-repro-single: green (initechword-install; two clean builds compared byte for byte)\n'
 test-pubs-repro: $(PUBS_GENERATED)
 test-pubs-repro: $(PUBS_MSG_TEX) $(PUBS_SAMIR_GEN)
-	$(call pubs-build-into,$(PUBS_BUILD)/repro-a)
-	$(call pubs-build-into,$(PUBS_BUILD)/repro-b)
+	$(call pubs-build-into,$(PUBS_BUILD)/repro-a,,$(PUBS_REPRO_MANUAL))
+	$(call pubs-build-into,$(PUBS_BUILD)/repro-b,,$(PUBS_REPRO_MANUAL))
 	@set -e; n=0; for a in $(PUBS_BUILD)/repro-a/*/*.pdf; do \
 		b=$(PUBS_BUILD)/repro-b/$${a#$(PUBS_BUILD)/repro-a/}; \
 		cmp "$$a" "$$b" || { printf '!!! test-pubs-repro FAIL: %s differs between two builds\n' "$${a#$(PUBS_BUILD)/repro-a/}"; exit 1; }; \
@@ -299,7 +354,17 @@ test-pubs-samir-disk: $(PUBS_SAMIR_DISK)/.minted
 	done < $(PUBS_DIR)/examples/samir/disk/MANIFEST
 	@printf '>>> test-pubs-samir-disk: green (%s files on the Sample Programs and Utilities diskette)\n' "$$(ls $(PUBS_SAMIR_DISK) | wc -l)"
 
-.PHONY: test-pubs test-pubs-commands test-pubs-tps test-pubs-lint test-pubs-examples test-pubs-mutant pubs-inventory
+.PHONY: test-pubs test-pubs-commands test-pubs-tps test-pubs-lint test-pubs-examples test-pubs-mutant pubs-inventory \
+	test-pubs-inconsistency
+# VO-30 (PUB-REF-0001 Sec 9.3; bead initech-ipu5.16; WL-0150): the house
+# register of tolerated inconsistencies, LOCKED in spec/pubs_inconsistencies.json.
+# Every book listed here carries its budget of \Slip{ID}{text} slips (just
+# enough to pass QA): `pubs_gate inconsistency` reads the register, the
+# books' sources and the .slips/.toc/.log their build wrote; slip_places.sh
+# proves the class reports each printed place.  A book joins the register
+# by being added to PUBS_SLIP_BOOKS with its slips placed.
+PUBS_SLIP_REGISTER := spec/pubs_inconsistencies.json
+PUBS_SLIP_BOOKS    := initechdos-reference initechdos-users-guide $(PUBS_TPS_BOOK)
 # Recursive expansion sees FLAIR_FIXTURES, included after this makefile.
 # The shipped inventory is NAME|KIND (pubs_gate.c): command.c's dispatch
 # table, the INT 21h register, the APPS executables, and the batch
@@ -313,11 +378,15 @@ pubs-inventory: $(PUBS_GATE) $(PUBS_INT21) $(PUBS_SURFACE) $(DOS_MESSAGES_H) pub
 	@$(PUBS_GATE) inventory $(PUBS_CHECK)/command.i $(PUBS_CHECK)/int21.list $(PUBS_CHECK)/surface.list $(filter APPS/% DOS/%,$(FLAIR_FIXTURES)) > $(PUBS_CHECK)/shipped
 
 ifeq ($(SKIP_PUBS),1)
-test-pubs test-pubs-mutant test-pubs-tps:
+test-pubs test-pubs-mutant test-pubs-tps test-pubs-inconsistency:
 	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- publication correctness was NOT checked. This is NOT a pass; unset SKIP_PUBS before trusting this gate.\n'
 else
-test-pubs: test-pubs-build test-pubs-commands test-pubs-tps test-pubs-lint test-pubs-examples test-pubs-screens test-pubs-samir-programs test-pubs-iword
-	@printf '>>> test-pubs: green (command coverage, TPS message inventory, InitechBase programs, InitechWord surface and replay, example replay, source lints, build cap)\n'
+test-pubs: test-pubs-build test-pubs-commands test-pubs-tps test-pubs-lint test-pubs-examples test-pubs-screens test-pubs-samir-programs test-pubs-iword \
+	test-pubs-inconsistency
+	@printf '>>> test-pubs: green (command coverage, TPS message inventory, InitechBase programs, InitechWord surface and replay, example replay, source lints, build cap, house register)\n'
+test-pubs-inconsistency: test-pubs-build $(PUBS_GATE)
+	@$(PUBS_GATE) inconsistency $(PUBS_SLIP_REGISTER) $(PUBS_DIR)/class $(PUBS_DIR)/manuals $(PUBS_BUILD)/gate $(PUBS_SLIP_BOOKS)
+	@sh harness/pubs/slip_places.sh $(PUBS_BUILD)
 # GC-01 over the InitechDOS books together (the Reference documents, the
 # User's Guide teaches): their main.cmds lists (initech-syntax.sty, the one
 # registration mechanism) against the shipped inventory, both directions,
@@ -379,19 +448,24 @@ test-pubs-lint: $(PUBS_GATE)
 	@$(PUBS_GATE) lint pubs/denylist.txt pubs
 	@sha256sum -c pubs/fonts.lock > $(BUILD)/pubs-fonts.log
 	@printf '>>> test-pubs-fonts: green (all font files match fonts.lock)\n'
-test-pubs-examples: test-pubs-build $(PUBS_REPLAY) $(PUBS_GATE)
-	@sh harness/pubs/replay.sh $(PUBS_REPLAY) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK)
-test-pubs-mutant: test-pubs $(PUBS_GATE) $(PUBS_TPS_INV_BIN)
-	@sh harness/pubs/mutants.sh $(PUBS_GATE) $(PUBS_REPLAY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_ALLOW)
-	@sh harness/pubs/tps_mutants.sh $(PUBS_TPS_INV_BIN) $(PUBS_GATE) $(PUBS_CHECK) $(PUBS_BUILD)/gate/$(PUBS_TPS_BOOK) $(PUBS_GEN)
 test-pubs-examples: test-pubs-build $(PUBS_REPLAY) $(PUBS_GATE) test-pubs-samir-disk
 	@sh harness/pubs/replay.sh $(PUBS_REPLAY) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK) $(PUBS_SAMIR_DISK)
 # GC-11 for InitechBase: the month-end programs and their output as the
 # reference programs of harness/diff/dbf_diff run them.
 test-pubs-samir-programs:
 	@sh harness/pubs/samir_programs.sh $(PUBS_DIR)/examples/samir/disk $(CANON_DIR) $(PUBS_DIR)/manuals/initechbase-volume-two
-test-pubs-mutant: test-pubs $(PUBS_GATE) $(PUBS_SAMIR_INV)
+# One recipe (two used to be merged in, and make ran only the last: the TPS
+# manual's mutants were silently skipped).
+test-pubs-mutant: test-pubs $(PUBS_GATE) $(PUBS_SAMIR_INV) $(PUBS_TPS_INV_BIN)
 	@sh harness/pubs/mutants.sh $(PUBS_GATE) $(PUBS_REPLAY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_ALLOW) $(PUBS_SAMIR_DISK) $(PUBS_SAMIR_INV)
+	@sh harness/pubs/tps_mutants.sh $(PUBS_TPS_INV_BIN) $(PUBS_GATE) $(PUBS_CHECK) $(PUBS_BUILD)/gate/$(PUBS_TPS_BOOK) $(PUBS_GEN)
+	@sh harness/pubs/slip_mutants.sh $(PUBS_GATE) $(PUBS_SLIP_REGISTER) $(PUBS_DIR)/class $(PUBS_DIR)/manuals $(PUBS_BUILD)/gate $(PUBS_BUILD) $(PUBS_SLIP_BOOKS)
+	@if sh harness/pubs/slip_places.sh $(PUBS_BUILD) mutant > $(PUBS_BUILD)/slip-places-mutant.log 2>&1; then \
+		cat $(PUBS_BUILD)/slip-places-mutant.log; printf '!!! test-pubs-mutant FAIL: the class place proof stayed green with the running-head place switched off\n'; exit 1; fi
+	@grep -q 'RED SLIP-PLACES: the class reports' $(PUBS_BUILD)/slip-places-mutant.log || { cat $(PUBS_BUILD)/slip-places-mutant.log; \
+		printf '!!! test-pubs-mutant FAIL: the class place mutant went RED for another reason\n'; exit 1; }
+	@printf '>>> test-pubs-mutant: VO-30 class place proof RED as required (running-head place switched off: %s)\n' \
+		"$$(grep '^+VO30' $(PUBS_BUILD)/slip-places-mutant.log | head -1)"
 	@$(MAKE) --no-print-directory test-pubs-iword-mutant
 PUBS_GENERATED += $(PUBS_SAMIR_GEN)
 endif
