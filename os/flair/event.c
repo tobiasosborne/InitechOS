@@ -150,6 +150,14 @@ void flair_event_init(flair_raw_ring_t *ring)
 {
     uint32_t i;
     if (!ring) { FLAIR_PANIC("flair_event_init: NULL ring"); }
+#if defined(FINDER_DBLCLICK_TICKS) && !defined(RECORD_MUT_IGNORE_DBLCLICK_DEFINE)
+    /* Ref: finder_desktop.h F2-5 / Makefile DBL record-image contract.
+     * Preferences load before this init; seed the recording interval here
+     * so their normal slider value cannot undo per-frame capture pacing.
+     * The normal build retains its loaded Mouse setting (20 by default;
+     * spec/cpanels/record.json, ADR-0004 DEC-10 Platinum base era). */
+    flair_double_click_ticks = FINDER_DBLCLICK_TICKS;
+#endif
     ring->head       = 0u;
     ring->tail       = 0u;
     ring->drop_count = 0u;
@@ -344,7 +352,13 @@ static uint8_t kbd_modifier_bit(uint8_t make, int ext)
 /* Apply a signed 8-bit delta (packed as int8_t in a uint8_t slot) to a
  * coordinate and clamp to [0, max-1]. Returns the new clamped position. */
 unsigned flair_mouse_tracking=1;
+#if defined(FINDER_DBLCLICK_TICKS) && !defined(RECORD_MUT_IGNORE_DBLCLICK_DEFINE)
+unsigned flair_double_click_ticks=FINDER_DBLCLICK_TICKS;
+#else
+/* Ref: spec/cpanels/record.json: normal Mouse interval is 20 ticks.
+ * RECORD_MUT_IGNORE_DBLCLICK_DEFINE restores the broken record seed only. */
 unsigned flair_double_click_ticks=20;
+#endif
 
 #ifdef __GNUC__
 __attribute__((unused))
