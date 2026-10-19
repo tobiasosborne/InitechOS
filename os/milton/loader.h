@@ -46,7 +46,7 @@ typedef enum loader_status {
     LOADER_ERR_NO_VOLUME,    /* no FAT volume bound                             */
     LOADER_ERR_NOT_FOUND,    /* named .COM not in the (root) directory          */
     LOADER_ERR_READ,         /* FAT read error pulling the .COM bytes           */
-    LOADER_ERR_BUSY,         /* a load is already active (nested EXEC; deferred) */
+    LOADER_ERR_BUSY,         /* fixed resident EXEC depth limit reached         */
     /* EXEC env inheritance (beads initech-1i0x Tranche E inc 3): a non-zero
      * env_block that is not the locked ENV_BLOCK region -- the caller asked the
      * child to inherit an env block at an address the loader never wrote. Fail
@@ -66,6 +66,20 @@ typedef enum loader_status {
      * caller's heap carve for the code block failed (BC-5 fail-loud budget). */
     LOADER_ERR_NOMEM
 } loader_status_t;
+
+/* Native flat EXEC context, not a scheduler (PRD Sec 2; ADR-0003 DEC-08).
+ * Four resident frames bound the conventional stacks; DOS itself bounds EXEC
+ * by available memory (IBM DOS 3.30 TR pp. 6-199, 11-4/5). This additional
+ * implementation limit fails LOADER_ERR_BUSY before changing caller state. */
+#define LOADER_EXEC_DEPTH 4u
+typedef struct loader_state {
+    uintptr_t psp;
+    void *return_frame;
+    unsigned depth;
+} loader_state_t;
+loader_status_t loader_nest_enter(loader_state_t *active, loader_state_t *saved,
+                                  uintptr_t psp, void *return_frame);
+void loader_nest_leave(loader_state_t *active, const loader_state_t *saved);
 
 /* loader_plan_t -- the fully-computed, deterministic load layout. loader_prepare
  * fills this from the (image, image_len, cmd_tail) inputs and the LOCKED
@@ -268,7 +282,8 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
  *   - leaf resolves to a DIRECTORY (attr)   -> LOADER_ERR_NOT_FOUND (not runnable)
  *   - a FAT/ATA read error                  -> LOADER_ERR_READ
  *   - image too large for staging/program   -> LOADER_ERR_TOO_BIG
- *   - a load is already active (nested)      -> LOADER_ERR_BUSY (deferred; guarded)
+ *   - the resident depth limit is reached   -> LOADER_ERR_BUSY
+ *   - no free child PSP/image/stack block   -> LOADER_ERR_NOMEM
  *   - env_block != 0 and != ENV_BLOCK        -> LOADER_ERR_BAD_ENV (inc 3)
  * On LOADER_OK *out_rc receives the child's exit code.
  *
@@ -279,10 +294,11 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
  * and passes env_block == ENV_BLOCK; the loader then does NOT overwrite that block
  * and points the child PSP env_seg at it. Threaded verbatim to load_program_in_place.
  *
- * REENTRANCY: load_program's return-to-loader context (g_loader_ctx) is
- * single-level (Sec 6.2 -- no process table). A nested call (EXEC from inside a
- * running program) is REJECTED with LOADER_ERR_BUSY rather than corrupting the
- * context; nested EXEC is a follow-up bead. KERNEL/shell-context EXEC is fine.
+ * REENTRANCY: resident native flat .COM callers use a bounded return-frame
+ * chain. Their position-independent children are allocated above the resident
+ * image through its existing MCB arena. The caller's PSP, exit hook, DTA and
+ * CWD are restored after termination (IBM DOS 3.30 TR pp. 6-196/200, 11-4/5;
+ * CWD restoration retains this kernel's existing policy).
  *
  * KERNEL ONLY (pulls fat12.c + the volume + the asm transfer). In a HOSTED build
  * it is a no-op stub returning LOADER_ERR_NO_VOLUME (the host oracle drives the
@@ -363,8 +379,8 @@ typedef void *(*loader_carve_fn)(uint32_t len, void *user);
  * loader_prepare_tenant against the block's real address. *out_block receives
  * the carved block whenever a carve happened (EVEN on a later failure -- the
  * caller owns the free, which keeps the loader out of the heap). A foreign MZ
- * PANICS (DEC-08a.5). The single-level EXEC guard (g_load_active) is
- * deliberately NOT taken: a tenant is not an EXEC and never uses PROGRAM_BASE. */
+ * PANICS (DEC-08a.5). No EXEC frame is taken: a tenant is not an EXEC and never
+ * uses PROGRAM_BASE. */
 loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
                                    loader_carve_fn carve, void *user,
                                    void **out_block, tenant_plan_t *out);
