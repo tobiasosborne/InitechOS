@@ -22,6 +22,77 @@
 
 #include "fat12.h"
 
+/* IBM DOS 3.30 TR pp2-31,4-17,5-8..9; spec/dos_structs.h:
+ * clusters are allocation units, not scratch-buffer units. Stream their
+ * sectors through the kernel's fixed 512-byte buffer (PRD Sec 6.1). */
+static uint32_t cluster_lba(const fat12_volume_t *v, uint16_t cluster)
+{
+#ifdef FAT_MUT_SPC_ONE
+	/* Rule 6: ignore the BPB multiplier; the mtools differential must bite. */
+	return v->first_data_sector + (uint32_t)cluster - 2u;
+#else
+	return BPB_CLUSTER_LBA(&v->bpb, cluster);
+#endif
+}
+
+static int cluster_read(const fat12_volume_t *v, uint32_t lba, uint32_t off,
+                        uint8_t *out, uint32_t len, void *scratch)
+{
+	uint8_t *buf = (uint8_t *)scratch;
+	while (len) {
+		uint32_t pos = off % BLOCKDEV_SECTOR_SIZE;
+		uint32_t n = BLOCKDEV_SECTOR_SIZE - pos;
+		if (n > len) n = len;
+		if (fat12_read_sectors(v, lba + off / BLOCKDEV_SECTOR_SIZE, 1u, buf))
+			return FAT12_ERR_READ;
+		for (uint32_t i = 0u; i < n; i++) out[i] = buf[pos + i];
+		out += n; off += n; len -= n;
+	}
+	return FAT12_OK;
+}
+
+/* Range RMW, including zero-filled holes (src == NULL). Unaffected sectors
+ * stay on disk; only a partly covered sector needs to be read first. */
+static int cluster_splice(const fat12_volume_t *v, uint32_t lba, uint32_t off,
+                          const uint8_t *src, uint32_t len, void *scratch)
+{
+	uint8_t *buf = (uint8_t *)scratch;
+	while (len) {
+		uint32_t pos = off % BLOCKDEV_SECTOR_SIZE;
+		uint32_t n = BLOCKDEV_SECTOR_SIZE - pos;
+		uint32_t sector = lba + off / BLOCKDEV_SECTOR_SIZE;
+		if (n > len) n = len;
+#ifdef FAT12_MUTATE_PARTIAL_NO_RMW
+		for (uint32_t i = 0u; i < BLOCKDEV_SECTOR_SIZE; i++) buf[i] = 0u;
+#else
+		if ((pos || n != BLOCKDEV_SECTOR_SIZE) &&
+		    fat12_read_sectors(v, sector, 1u, buf)) return FAT12_ERR_READ;
+#endif
+		for (uint32_t i = 0u; i < n; i++) buf[pos + i] = src ? src[i] : 0u;
+		if (fat12_write_sectors(v, sector, 1u, buf)) return FAT12_ERR_WRITE;
+		if (src) src += n;
+		off += n; len -= n;
+	}
+	return FAT12_OK;
+}
+
+/* Write every sector of a new cluster, zero-padding after len source bytes.
+ * NULL source clears the cluster. No cluster-sized static or stack buffer. */
+static int cluster_fill(const fat12_volume_t *v, uint32_t lba,
+                        const uint8_t *src, uint32_t len, void *scratch)
+{
+	uint8_t *buf = (uint8_t *)scratch;
+	for (uint32_t s = 0u; s < v->bpb.sectors_per_cluster; s++) {
+		uint32_t n = len < BLOCKDEV_SECTOR_SIZE ? len : BLOCKDEV_SECTOR_SIZE;
+		for (uint32_t i = 0u; i < BLOCKDEV_SECTOR_SIZE; i++)
+			buf[i] = src && i < n ? src[i] : 0u;
+		if (fat12_write_sectors(v, lba + s, 1u, buf)) return FAT12_ERR_WRITE;
+		if (src) src += n;
+		len -= n;
+	}
+	return FAT12_OK;
+}
+
 /* Read a little-endian uint16 from an unaligned byte pointer. The on-disk BPB
  * is little-endian (brief Sec 1 / RISK-4); reading the boot signature this way
  * avoids any host-endianness assumption (Rule 11 reproducibility). */
@@ -224,22 +295,13 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 		return FAT12_ERR_GEOMETRY;
 	}
 
-	/* sectors_per_cluster MUST be 1 (Rule 2 -- fail loud over silent corruption).
-	 * The WRITE path (fat12_grow_dir, fat12_write_partial, fat12_write_file,
-	 * fat12_mkdir) zero-fills / read-modify-writes bytes_per_cluster =
-	 * sectors_per_cluster*512 bytes into the caller's cluster_buf and writes
-	 * sectors_per_cluster sectors per cluster; but the kernel caller
-	 * (os/milton/fileio_fat.c) sizes g_cluster at ONE BLOCKDEV_SECTOR_SIZE (512).
-	 * On a spc>1 volume those writes overrun the buffer -> heap/stack corruption.
-	 * Every period image this artifact targets is a 1.44 MB floppy (mformat
-	 * -f 1440 => spc==1), so this is a never-hit-yet invariant; a loud refusal at
-	 * mount beats a silent overrun if a future image violates it (the spc>1
-	 * cluster-buf-sizing contract is the bead-zs24 caveat). Gated BEFORE the
-	 * total_clusters division below so a spc==0 BPB (caught above by the geometry
-	 * guard in a real build) never even reaches a divide-by-zero. */
-	if (vol->bpb.sectors_per_cluster != 1u) {
-		return FAT12_ERR_UNSUPPORTED;
-	}
+	/* IBM DOS 3.30 TR p2-31: allocation units must be powers of two.
+	 * Lane contract caps them at 64 sectors (32 KiB). Scratch stays one
+	 * sector: all cluster data I/O below is streamed, never buffered whole. */
+	if (vol->bpb.sectors_per_cluster == 0u ||
+	    vol->bpb.sectors_per_cluster > FAT12_MAX_SPC ||
+	    (vol->bpb.sectors_per_cluster & (vol->bpb.sectors_per_cluster - 1u)))
+		return FAT12_ERR_CLUSTER_SIZE;
 
 	/* total_clusters = data_sectors / sectors_per_cluster (brief Sec 2). */
 	data_sectors        = total_sectors - vol->first_data_sector;
@@ -1014,7 +1076,7 @@ int fat12_find(const fat12_volume_t *vol, void *sector_buf,
  * a uint16_t chain[2880] (~5.6 KB) on the stack, sized to the 1.44 MB floppy
  * cluster count -- a kernel-stack hazard that the FAT16 HDD geometry (far more
  * clusters, beads initech-z01) would overflow. The streaming walk below serves
- * an arbitrarily large file from the caller's single-cluster `cluster_buf`,
+ * an arbitrarily large file from the caller's single-sector `cluster_buf`,
  * stepping one fat12_next_cluster link at a time -- the SAME proven pattern as
  * fat12_read_partial (this file).
  *
@@ -1103,8 +1165,6 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 		uint32_t       remaining;
 		uint32_t       take;
 		uint32_t       copy_n;
-		const uint8_t *cbuf;
-		uint32_t       k;
 
 		/* An in-chain link below cluster 2, above the last data cluster, or a
 		 * free/bad cluster is corruption -- never map it to an LBA (bcg.3). */
@@ -1130,10 +1190,9 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 		copy_n = bytes_per_cluster;
 #endif
 
-		/* Read the whole cluster (sectors_per_cluster sectors) into scratch,
-		 * then copy copy_n bytes out. */
+		/* Stream the cluster through one sector of scratch. */
 #ifndef FAT16_MUTATE_NO_CLUSTER2_BIAS
-		lba = BPB_CLUSTER_LBA(&vol->bpb, cur);
+		lba = cluster_lba(vol, cur);
 #else
 		/* MUTANT (Rule 6; test-fat16 mutant M4 only): OMIT the cluster-2 LBA bias
 		 * -- map cluster N to first_data_sector + N*spc instead of (N-2)*spc.
@@ -1143,15 +1202,8 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 		lba = BPB_FIRST_DATA_SECTOR(&vol->bpb) +
 		      (uint32_t)cur * (uint32_t)vol->bpb.sectors_per_cluster;
 #endif
-		if (fat12_read_sectors(vol, lba,
-		                           vol->bpb.sectors_per_cluster,
-		                           cluster_buf) != 0) {
-			return FAT12_ERR_READ;
-		}
-		cbuf = (const uint8_t *)cluster_buf;
-		for (k = 0u; k < copy_n; k++) {
-			out[copied + k] = cbuf[k];
-		}
+		rc = cluster_read(vol, lba, 0u, out + copied, copy_n, cluster_buf);
+		if (rc != FAT12_OK) return rc;
 		copied += copy_n;
 
 		/* Advance to the next link only if more bytes are still wanted. */
@@ -1379,8 +1431,6 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 		uint32_t       in_off;
 		uint32_t       remaining;
 		uint32_t       take;
-		const uint8_t *cbuf;
-		uint32_t       i;
 
 		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
 		    chain_is_bad(vol, cur)) {
@@ -1395,19 +1445,10 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 			take = remaining;
 		}
 
-		/* Read the whole cluster into scratch, then copy the [in_off, in_off+take)
-		 * slice out. Reading the whole cluster keeps the LBA math identical to
-		 * fat12_read_file; only `take` bytes ever reach out_buf. */
-		lba = BPB_CLUSTER_LBA(&vol->bpb, cur);
-		if (fat12_read_sectors(vol, lba,
-		                           vol->bpb.sectors_per_cluster,
-		                           cluster_buf) != 0) {
-			return FAT12_ERR_READ;
-		}
-		cbuf = (const uint8_t *)cluster_buf;
-		for (i = 0u; i < take; i++) {
-			out[copied + i] = cbuf[in_off + i];
-		}
+		/* Stream just the requested cluster slice through sector scratch. */
+		lba = cluster_lba(vol, cur);
+		rc = cluster_read(vol, lba, in_off, out + copied, take, cluster_buf);
+		if (rc != FAT12_OK) return rc;
 		copied += take;
 
 		/* Advance to the next cluster only if more bytes are still wanted. */
@@ -1661,7 +1702,7 @@ static int fat12_free_chain(const fat12_volume_t *vol, void *fat,
  * This is the same allocate-then-commit discipline the file-extend path uses
  * (Rule 2): the new cluster is reserved EOC, zero-filled BEFORE the link is
  * committed, and on a zero-fill write failure the allocation is rolled back so
- * no orphan cluster is left. `cluster_buf` (>= sectors_per_cluster*512) is the
+ * no orphan cluster is left. `cluster_buf` (>=512) is the
  * zero-fill scratch. The new tail cluster is returned in *out_new_cluster (so
  * the caller knows where the new slots live). Anti-hang bounded (Rule 2).
  * Ref (Law 1): Microsoft FAT spec (a directory is a cluster chain that grows
@@ -1671,15 +1712,11 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
                           uint16_t start_cluster, void *cluster_buf,
                           uint16_t *out_new_cluster)
 {
-	uint32_t bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
-	                             (uint32_t)vol->bpb.bytes_per_sector;
 	uint16_t cur   = start_cluster;
 	uint32_t steps = 0u;
 	uint32_t max   = vol->total_clusters + 2u;
 	uint16_t newc;
 	uint32_t lba;
-	uint8_t *cb = (uint8_t *)cluster_buf;
-	uint32_t b;
 	int      rc;
 
 	if (fat == NULL || cluster_buf == NULL || out_new_cluster == NULL) {
@@ -1696,8 +1733,8 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
 	 * differential (mtools/python list the boundary file) goes RED. This proves
 	 * the grow path is actually REACHED + relied upon. NEVER in a real build. */
 	(void)fat_len; (void)start_cluster;
-	(void)bytes_per_cluster; (void)cur; (void)steps; (void)max; (void)newc;
-	(void)lba; (void)cb; (void)b; (void)rc;
+	(void)cur; (void)steps; (void)max; (void)newc;
+	(void)lba; (void)rc;
 	return FAT12_ERR_DIR_FULL;
 #else
 
@@ -1751,12 +1788,8 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
 
 	/* Zero-fill the new cluster on disk BEFORE committing the link (so the new
 	 * slots read as 0x00 end-of-directory; a failure rolls back the alloc). */
-	for (b = 0u; b < bytes_per_cluster; b++) {
-		cb[b] = 0u;
-	}
-	lba = BPB_CLUSTER_LBA(&vol->bpb, newc);
-	if (fat12_write_sectors(vol, lba,
-	                            vol->bpb.sectors_per_cluster, cb) != 0) {
+	lba = cluster_lba(vol, newc);
+	if (cluster_fill(vol, lba, NULL, 0u, cluster_buf) != FAT12_OK) {
 #ifndef FAT12_MUTATE_GROWDIR_NO_ZEROFILL_ROLLBACK
 		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
 		(void)fat12_flush_fats(vol, fat, fat_len);
@@ -1893,7 +1926,7 @@ static int fat12_subdir_slot_lba(const fat12_volume_t *vol, const void *fat,
 	if (!fat12_cluster_in_range(vol, cur)) {
 		return FAT12_ERR_CHAIN;
 	}
-	*out_lba    = BPB_CLUSTER_LBA(&vol->bpb, cur) + sec_in_clus;
+	*out_lba    = cluster_lba(vol, cur) + sec_in_clus;
 	*out_in_sec = (in_cluster % per_sector) * 32u;
 	return FAT12_OK;
 }
@@ -2142,7 +2175,7 @@ static int fat12_scan_dir(const fat12_volume_t *vol, const void *fat,
 			    chain_is_bad(vol, cur)) {
 				return FAT12_ERR_CHAIN;
 			}
-			lba = BPB_CLUSTER_LBA(&vol->bpb, cur);
+			lba = cluster_lba(vol, cur);
 			for (s = 0u; s < spc; s++) {
 				const uint8_t *sb;
 				int r;
@@ -2339,7 +2372,7 @@ static int fat12_dir_live(const fat12_volume_t *vol, const void *fat,
 	if (chain_is_free(vol, v) || chain_is_bad(vol, v) || v == 1u) {
 		return FAT12_ERR_STALE_DIR;   /* freed (or never a chain head) */
 	}
-	if (fat12_read_sectors(vol, BPB_CLUSTER_LBA(&vol->bpb, dir),
+	if (fat12_read_sectors(vol, cluster_lba(vol, dir),
 	                           1u, sector_buf) != 0) {
 		return FAT12_ERR_READ;
 	}
@@ -2872,8 +2905,6 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		uint32_t lba;
 		uint32_t take;
 		uint32_t off;
-		uint8_t *cb = (uint8_t *)cluster_buf;
-		uint32_t b;
 
 		if (cl == 0u) {
 			/* Full volume: roll back the partial allocation and fail loud. */
@@ -2907,19 +2938,10 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 			first_cluster = cl;
 		}
 
-		/* Fill the cluster buffer: the bytes for this cluster, zero-padded. */
 		off  = ci * bytes_per_cluster;
 		take = (len - off < bytes_per_cluster) ? (len - off) : bytes_per_cluster;
-		for (b = 0u; b < take; b++) {
-			cb[b] = src[off + b];
-		}
-		for (b = take; b < bytes_per_cluster; b++) {
-			cb[b] = 0u;   /* zero-pad the slack of the last cluster on disk */
-		}
-
-		lba = BPB_CLUSTER_LBA(&vol->bpb, cl);
-		if (fat12_write_sectors(vol, lba,
-		                            vol->bpb.sectors_per_cluster, cb) != 0) {
+		lba = cluster_lba(vol, cl);
+		if (cluster_fill(vol, lba, src + off, take, cluster_buf) != FAT12_OK) {
 #ifndef FAT12_MUTATE_WRITEFILE_NO_ROLLBACK
 			if (first_cluster != 0u) {
 				(void)fat12_free_chain(vol, fat, fat_len, first_cluster);
@@ -2989,15 +3011,13 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *      THIS call (free + flush) and return FAT12_ERR_NO_SPACE -- *out_written 0.
  *   3. Flush BOTH FAT copies (the chain is fully laid down).
  *   4. Read-modify-write the `data` bytes over [offset, offset+len): for each
- *      cluster the range touches, if the write covers the WHOLE cluster, write
- *      it straight; otherwise READ the existing cluster into cluster_buf, splice
- *      the new bytes in, write it back -- so neighbouring bytes in a shared
- *      cluster are preserved (the load-bearing read-modify-write).
+ *      cluster, stream the affected sectors. Read a partly covered sector
+ *      before splicing; neighbouring bytes and untouched sectors are preserved.
  *   5. Patch the dir entry: start_cluster (if it changed) + file_size = new_size.
  *
  * *out_written is the bytes actually committed (== len on success; 0 on a
  * disk-full rollback). All buffers caller-provided (no malloc): `sector_buf`
- * (>=512) for the dir-entry RMW, `cluster_buf` (>= sectors_per_cluster*512) for
+ * (>=512) for the dir-entry RMW, `cluster_buf` (>=512) for
  * the cluster RMW. `fat`/`fat_len` is the whole-FAT buffer (mutated in place).
  *
  * Fail loud (Rule 2): any required NULL -> FAT12_ERR_NULL; no write backend ->
@@ -3211,12 +3231,6 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		uint32_t to_add = need_clusters - have_clusters;
 		uint32_t i;
 		uint16_t prev = tail;
-		uint8_t *cb   = (uint8_t *)cluster_buf;
-		uint32_t b;
-
-		for (b = 0u; b < bytes_per_cluster; b++) {
-			cb[b] = 0u;   /* zero pattern reused for every new cluster */
-		}
 
 		for (i = 0u; i < to_add; i++) {
 			uint16_t cl;
@@ -3268,9 +3282,8 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 			}
 
 			/* Zero-fill the fresh cluster on disk (hole + slack read as zero). */
-			lba = BPB_CLUSTER_LBA(&vol->bpb, cl);
-			if (fat12_write_sectors(vol, lba,
-			                            vol->bpb.sectors_per_cluster, cb) != 0) {
+			lba = cluster_lba(vol, cl);
+			if (cluster_fill(vol, lba, NULL, 0u, cluster_buf) != FAT12_OK) {
 				if (ext_first != 0u) {
 					(void)fat12_free_chain(vol, fat, fat_len, ext_first);
 				}
@@ -3298,23 +3311,18 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (offset > old_size && old_size % bytes_per_cluster != 0u) {
 		uint32_t first = old_size % bytes_per_cluster;
 		uint32_t count = bytes_per_cluster - first;
-		uint32_t lba = BPB_CLUSTER_LBA(&vol->bpb, tail);
-		uint8_t *cb = (uint8_t *)cluster_buf;
+		uint32_t lba = cluster_lba(vol, tail);
 		if (count > offset - old_size) count = offset - old_size;
-		if (fat12_read_sectors(vol, lba, vol->bpb.sectors_per_cluster, cb))
-			return FAT12_ERR_READ;
-		for (uint32_t i = 0u; i < count; i++) cb[first + i] = 0u;
-		if (fat12_write_sectors(vol, lba, vol->bpb.sectors_per_cluster, cb))
-			return FAT12_ERR_WRITE;
+		rc = cluster_splice(vol, lba, first, NULL, count, cluster_buf);
+		if (rc != FAT12_OK) return rc;
 	}
 #endif
 
 	/* ---- Splice `data` into [offset, offset+len) via read-modify-write. ----
 	 * Walk to the first touched cluster (offset/bpc steps down the chain), then
-	 * for each cluster overwrite [in_off, in_off+take): a whole-cluster write
-	 * goes straight; a partial one reads the cluster, splices, writes back so a
-	 * shared cluster's neighbouring bytes are preserved. The chain is guaranteed
-	 * long enough now (we extended to cover new_size >= offset+len). */
+	 * for each cluster overwrite [in_off, in_off+take) sector by sector, with
+	 * read-modify-write for partly covered sectors to preserve their neighbours.
+	 * The chain is long enough (we extended to cover new_size >= offset+len). */
 	end_cluster = (uint16_t)(offset / bytes_per_cluster);  /* clusters to skip */
 	cur         = new_start;
 	steps       = 0u;
@@ -3342,14 +3350,12 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 
 	{
 		uint32_t  written = 0u;
-		uint8_t  *cb      = (uint8_t *)cluster_buf;
 
 		while (written < len) {
 			uint32_t in_off;
 			uint32_t remaining;
 			uint32_t take;
 			uint32_t lba;
-			uint32_t i;
 
 			if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
 			    chain_is_bad(vol, cur)) {
@@ -3363,39 +3369,10 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 				take = remaining;
 			}
 
-			lba = BPB_CLUSTER_LBA(&vol->bpb, cur);
+			lba = cluster_lba(vol, cur);
 
-#ifdef FAT12_MUTATE_PARTIAL_NO_RMW
-			/* MUTANT (Rule 6; test-fat-write-partial-mutant only): SKIP the
-			 * read-modify-write read for a partial cluster -- write a cluster
-			 * that is zero outside [in_off,in_off+take), clobbering the
-			 * neighbouring bytes that should have been preserved. The differential
-			 * oracle goes RED. NEVER define in a real build. */
-			{
-				uint32_t z;
-				for (z = 0u; z < bytes_per_cluster; z++) {
-					cb[z] = 0u;
-				}
-			}
-#else
-			/* Read-modify-write: when the write does NOT cover the whole cluster,
-			 * read the existing contents first so the splice preserves the rest. */
-			if (in_off != 0u || take != bytes_per_cluster) {
-				if (fat12_read_sectors(vol, lba,
-				                           vol->bpb.sectors_per_cluster,
-				                           cb) != 0) {
-					return FAT12_ERR_READ;
-				}
-			}
-#endif
-			for (i = 0u; i < take; i++) {
-				cb[in_off + i] = data[written + i];
-			}
-
-			if (fat12_write_sectors(vol, lba,
-			                            vol->bpb.sectors_per_cluster, cb) != 0) {
-				return FAT12_ERR_WRITE;
-			}
+			rc = cluster_splice(vol, lba, in_off, data + written, take, cluster_buf);
+			if (rc != FAT12_OK) return rc;
 			written += take;
 
 			/* Advance only if more bytes remain. */
@@ -4191,7 +4168,6 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	int         found = 0;
 	int         rc;
 	uint16_t    newc;
-	uint32_t    bytes_per_cluster;
 	uint32_t    lba;
 	uint8_t    *cb;
 	uint32_t    k;
@@ -4376,12 +4352,8 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	 * EMPIRICAL mtools rule; matches the reader's 0 => root normalization), and a
 	 * SUBDIR parent is its real non-zero first data cluster (beads initech-m0bp;
 	 * fat12_make_dotdir writes parent_dir_start unchanged either way). */
-	bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
-	                    (uint32_t)vol->bpb.bytes_per_sector;
 	cb = (uint8_t *)sector_buf;
-	for (k = 0u; k < bytes_per_cluster; k++) {
-		cb[k] = 0u;
-	}
+	for (k = 0u; k < BLOCKDEV_SECTOR_SIZE; k++) cb[k] = 0u;
 	fat12_make_dotdir(&de, 1, newc);             /* '.'  -> own cluster */
 	for (k = 0u; k < 32u; k++) {
 		cb[k] = ((const uint8_t *)&de)[k];
@@ -4399,9 +4371,13 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		cb[32u + k] = ((const uint8_t *)&de)[k];
 	}
 
-	lba = BPB_CLUSTER_LBA(&vol->bpb, newc);
-	if (fat12_write_sectors(vol, lba,
-	                            vol->bpb.sectors_per_cluster, cb) != 0) {
+	lba = cluster_lba(vol, newc);
+	/* Write the dot sector first, then clear all remaining sectors. */
+	rc = fat12_write_sectors(vol, lba, 1u, cb) ? FAT12_ERR_WRITE : FAT12_OK;
+	for (k = 0u; k < BLOCKDEV_SECTOR_SIZE; k++) cb[k] = 0u;
+	for (k = 1u; rc == FAT12_OK && k < vol->bpb.sectors_per_cluster; k++)
+		if (fat12_write_sectors(vol, lba + k, 1u, cb)) rc = FAT12_ERR_WRITE;
+	if (rc != FAT12_OK) {
 		/* Roll back the allocation so a write failure leaves no orphan cluster
 		 * (Rule 2). If the parent GREW for this MKDIR, also detach + free the
 		 * freshly-appended parent cluster so it does not leak (Rule 3). */
@@ -4645,11 +4621,9 @@ int fat12_read_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
 			return FAT12_ERR_CHAIN;
 		}
 
-		/* Read this cluster's sectors at BPB_CLUSTER_LBA. sectors_per_cluster
-		 * is 1 on the floppy geometry, but read each sector into sector_buf and
-		 * process it so the caller's scratch need only be one sector wide for
-		 * spc==1 (the existing callers pass a 512-byte buffer). */
-		lba = BPB_CLUSTER_LBA(&vol->bpb, cur);
+		/* IBM DOS 3.30 TR p5-8: read every sector in this cluster, reusing
+		 * the caller's single-sector scratch buffer. */
+		lba = cluster_lba(vol, cur);
 		for (s = 0u; s < vol->bpb.sectors_per_cluster; s++) {
 			uint32_t i;
 
