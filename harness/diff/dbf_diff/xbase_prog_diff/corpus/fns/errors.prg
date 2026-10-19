@@ -1,0 +1,26 @@
+? "[FNS-BEGIN]"
+ON ERROR ? "E", ERROR(), MESSAGE()
+SET NOSUCH ON
+SET NEAR ON
+SELECT 11
+SELECT NOALIAS
+STORE 1 TO
+STORE 1 TO 5
+? "unterminated
+? (1
+? 1 ==
+? 1 != 2
+? 5 % 2
+? 1 @ 2
+? 1 +
+? )
+? ()
+? 1 2
+X =
+USE BASE
+SET ORDER TO 9
+? "AFTER", RECNO()
+ON ERROR
+? ERROR(), MESSAGE()
+? "[FNS-END]"
+RETURN

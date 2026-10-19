@@ -1,7 +1,7 @@
 * ERRDEMO.PRG -- An error handler
 * Initech Systems Corporation.  Sample program for Programming with
 * InitechBase, Chapter 12.  The procedure ERRHAND reports the error and
-* the record; the misspelled field AMOUNTS stops the program.
+* the record; the misspelled field AMOUNTS fails on every record.
 ON ERROR DO ERRHAND
 MTOTAL = 0
 GO TOP

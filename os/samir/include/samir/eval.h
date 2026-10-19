@@ -701,6 +701,13 @@ typedef struct xb_ctx {
     struct samir_pal *file_pal;
     /* Using III+ U6-69: includes deletion byte; zero without USE. */
     uint32_t (*record_size)(void *);
+    /* Programming III+ N5-30: ON ERROR runs its command in place of the
+     * failing one and the program resumes at the next line (real III+ 1.1,
+     * SF-errors). Returns 1 when a trap handled `code`. Set by proc.c. */
+    int (*on_error)(void *ip, int code);
+    /* Using III+ U6-62: MESSAGE() reads the catalogue text of the trapped
+     * error. Bound by the dot prompt (samir_main.c); NULL -> "". */
+    unsigned (*message)(unsigned code, char *out, unsigned cap);
 } xb_ctx;
 
 /*

@@ -46,7 +46,7 @@ DBASE MINT
 exit
 EOF
     rm -f "$work/GOLD.OUT"
-    SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout --foreground -k 2 12 dosbox-x -defaultconf -fastlaunch -nopromptfolder -conf "$work/mint.conf" -exit > "$work/mint.log" 2>&1 || :
+    SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout --foreground -k 2 "${FNS_MINT_TIMEOUT:-90}" dosbox-x -defaultconf -fastlaunch -nopromptfolder -conf "$work/mint.conf" -exit > "$work/mint.log" 2>&1 || :
     test -s "$work/GOLD.OUT" || { echo "RED: MINT impossible: $name has no capture; see $work/mint.log"; exit 1; }
     grep -q '\[FNS-END\]' "$work/GOLD.OUT" || { echo "RED: MINT incomplete: $name"; exit 1; }
     test "$(tail -c 1 "$work/GOLD.OUT" | od -An -tu1 | tr -d ' ')" = 26 || { echo "RED: MINT unflushed: $name"; exit 1; }

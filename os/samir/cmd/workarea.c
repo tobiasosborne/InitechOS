@@ -1301,7 +1301,9 @@ xb_interp *xb_interp_make(samir_pal_t *pal)
     /* Initialise the eval ctx: SET EXACT OFF (III+ default), scratch, today. */
     /* Ref: Using dBase III Plus.pdf U5-213; corpus specs/commands/
      * set-commands.md: DECIMALS defaults to 2.
-     * A reused arena cannot inherit uninitialized display state. */
+     * A reused arena cannot inherit uninitialized display state, nor an
+     * uninitialized on_error/message hook (Rule 2: a garbage call target). */
+    rt_memset(&ip->ctx, 0, sizeof(ip->ctx));
     ip->ctx.set_heading = 1;
     ip->ctx.set_console = 1;
     ip->ctx.set_status = 0;
@@ -1384,6 +1386,40 @@ int xb_interp_eval_str(xb_interp *ip, const char *expr, uint32_t len,
         if (err_code) *err_code = ec;
         return -INTERP_ERR_EVAL;
     }
+    return INTERP_OK;
+}
+
+/* The one command-level evaluator (query/mutate/flow/proc/report used five
+ * private copies). An expression that does not lex or parse is reported with
+ * the catalogue ordinal real dBASE III PLUS 1.1 raises for it, never with the
+ * engine's stage code (which collided with catalogue ordinals 1..6: WL-0133
+ * Friction 1). Real ON ERROR captures (SF-errors, real III+ 1.1):
+ *   ? 1 ==  -> 10   ? 1 != 2 / ? 5 % 2 / ? 1 @ 2 -> 36   ? "abc -> 35
+ *   ? (1    -> 8    ? 1 + / ? ) / ? () / X =      -> 10   ? 1 2   -> 36
+ * Pool/buffer exhaustion is the evaluator's work area (#67). */
+#ifndef SAMIR_FNS_MUTANT_errors
+static const uint8_t g_lex_msg[7]   = {10, 10, 36, 36, 35, 36, 67};
+static const uint8_t g_parse_msg[6] = {10, 10, 8, 67, 10, 36};
+#endif
+int xb_interp_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec)
+{
+    int e = 0, rc = xb_interp_eval_str(ip, expr, rt_strlen(expr), out, &e);
+#ifndef SAMIR_FNS_MUTANT_errors
+    if (rc == -INTERP_ERR_LEX) e = g_lex_msg[(unsigned)e < 7u ? e : 0];
+    else if (rc == -INTERP_ERR_PARSE) e = g_parse_msg[(unsigned)e < 6u ? e : 0];
+#endif
+    if (ec) *ec = e;
+    return rc;
+}
+
+/* A FOR/WHILE/IF condition must be Logical: #37, never truthiness. */
+int xb_interp_cond(xb_interp *ip, const char *expr, int *truth, int *ec)
+{
+    xb_val v;
+    int rc = xb_interp_eval(ip, expr, &v, ec);
+    if (rc != INTERP_OK) return rc;
+    if (v.t != XB_L) { if (ec) *ec = XBEE_NOT_LOGICAL; return -INTERP_ERR_EVAL; }
+    *truth = v.u.l ? 1 : 0;
     return INTERP_OK;
 }
 

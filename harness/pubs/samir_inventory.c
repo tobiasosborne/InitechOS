@@ -107,7 +107,9 @@ static const char *run(int nlines, const char *a, const char *b)
     return g_out;
 }
 static int unrecognized(const char *out) { return strstr(out, "16  *** Unrecognized command verb.") != NULL; }
-static int set_refused(const char *out) { return unrecognized(out) || strstr(out, "7  File already exists.") != NULL; }
+/* An unknown SET option is "10  Syntax error." (real III+ 1.1 SF-unknown
+ * capture, fns-mint/unknown); before initech-ipu5.8.1 SAMIR leaked "7". */
+static int set_refused(const char *out) { return unrecognized(out) || strstr(out, "10  Syntax error.") != NULL; }
 static int accepted_cmd(const char *out) { return !unrecognized(out); }
 static int accepted_fn(const char *out) { return !strstr(out, "31  Invalid function name."); }
 static int accepted_set(const char *out) { return !set_refused(out); }

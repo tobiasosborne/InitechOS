@@ -205,57 +205,6 @@ static uint32_t m_parse_uint(const char **s)
 }
 
 /* ===================================================================== */
-/* Expression evaluation through the interp ctx (carries flow's resolver) */
-/* ===================================================================== */
-
-/*
- * m_eval: lex+parse+eval the NUL-terminated `expr` through ip's ctx. On success
- * returns INTERP_OK with *out set; else a negative interp_err with *ec the
- * catalog ordinal / stage detail. Same shape as query.c q_eval / flow.c eval_expr.
- */
-static int m_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec)
-{
-    xb_token toks[M_MAX_TOKS];
-    xb_node  pool[M_MAX_NODES];
-    xb_ctx  *ctx = xb_interp_ctx(ip);
-    int ntok, root, rc, e = 0;
-    uint32_t len = 0u;
-
-    while (expr[len] != '\0') len++;
-
-    ntok = xb_lex(expr, len, toks, (uint32_t)M_MAX_TOKS, &e);
-    if (ntok < 0) { if (ec) *ec = e; return -INTERP_ERR_LEX; }
-
-    root = xb_parse(toks, (uint32_t)ntok, pool, (uint32_t)M_MAX_NODES, &e);
-    if (root < 0) { if (ec) *ec = e; return -INTERP_ERR_PARSE; }
-
-    rc = xb_eval(pool, root, ctx, out, &e);
-    if (rc != 0) { if (ec) *ec = e; return -INTERP_ERR_EVAL; }
-
-    if (ec) *ec = 0;
-    return INTERP_OK;
-}
-
-/*
- * m_eval_cond: evaluate `expr` and REQUIRE a Logical result (*truth gets 0/1).
- * A non-Logical result is fail-loud #37 (XBEE_NOT_LOGICAL) -- no truthiness.
- */
-static int m_eval_cond(xb_interp *ip, const char *expr, int *truth, int *ec)
-{
-    xb_val v;
-    int rc = m_eval(ip, expr, &v, ec);
-    if (rc != INTERP_OK)
-        return rc;
-    if (v.t != XB_L) {
-        if (ec) *ec = XBEE_NOT_LOGICAL;
-        return -INTERP_ERR_EVAL;
-    }
-    *truth = v.u.l ? 1 : 0;
-    if (ec) *ec = 0;
-    return INTERP_OK;
-}
-
-/* ===================================================================== */
 /* On-disk index key encoding (for master-key pointer drift maintenance)  */
 /* ===================================================================== */
 
@@ -276,7 +225,7 @@ static int m_encode_key(xb_interp *ip, const char *key_expr,
     uint32_t i;
     double d;
 
-    rc = m_eval(ip, key_expr, &v, ec);
+    rc = xb_interp_eval(ip, key_expr, &v, ec);
     if (rc != INTERP_OK)
         return rc;
 
@@ -607,7 +556,7 @@ static int m_apply_replace_one(xb_interp *ip, int area, uint32_t recno,
         }
 
         /* evaluate the WITH expression. */
-        rc = m_eval(ip, exprbuf, &v, ec);
+        rc = xb_interp_eval(ip, exprbuf, &v, ec);
         if (rc != INTERP_OK)
             return rc;
 
@@ -726,13 +675,13 @@ static int m_replace_impl(xb_interp *ip, const char *args, int *ec)
 
             if (mc.has_while) {
                 int t = 0;
-                rc = m_eval_cond(ip, mc.whilecond, &t, ec);
+                rc = xb_interp_cond(ip, mc.whilecond, &t, ec);
                 if (rc != INTERP_OK) return rc;
                 if (!t) break;                 /* WHILE false: STOP */
             }
             if (mc.has_for) {
                 int t = 0;
-                rc = m_eval_cond(ip, mc.forcond, &t, ec);
+                rc = xb_interp_cond(ip, mc.forcond, &t, ec);
                 if (rc != INTERP_OK) return rc;
                 if (t) {
                     rc = m_apply_replace_one(ip, area, recno, mc.head, ec);
@@ -877,7 +826,7 @@ static int m_delete_recall_impl(xb_interp *ip, const char *args, int want_delete
 
             if (mc.has_while) {
                 int t = 0;
-                rc = m_eval_cond(ip, mc.whilecond, &t, ec);
+                rc = xb_interp_cond(ip, mc.whilecond, &t, ec);
                 if (rc != INTERP_OK) return rc;
                 if (!t) break;
             }
@@ -885,7 +834,7 @@ static int m_delete_recall_impl(xb_interp *ip, const char *args, int want_delete
                 int do_it = 1;
                 if (mc.has_for) {
                     int t = 0;
-                    rc = m_eval_cond(ip, mc.forcond, &t, ec);
+                    rc = xb_interp_cond(ip, mc.forcond, &t, ec);
                     if (rc != INTERP_OK) return rc;
                     do_it = t;
                 }
@@ -1172,7 +1121,7 @@ static int d_index(xb_interp *ip,const char *args,int rebuild,int *ec)
         rt_memcpy(expr,p,n);expr[n]=0;p=m_skip_ws(to+2);
         if(!d_word(&p,name,sizeof name) || *p || !d_name(name,sizeof name,".NDX"))return d_fail(ec,10);
         if(d_destination(ip,name,ec))return -INTERP_ERR_EVAL;
-        rc=m_eval(ip,expr,&v,ec);if(rc)return rc;
+        rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
         ctx.expr=expr;ctx.type=v.t==XB_C?0:1;
         if(v.t!=XB_C && v.t!=XB_N && v.t!=XB_D)return d_fail(ec,9);
 #ifdef SAMIR_DML_MUTANT_index

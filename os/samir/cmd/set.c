@@ -368,7 +368,8 @@ static int do_set_order(xb_interp *ip, const char *args, int *err_code)
 
     rc = wa_set_order(env, area, (int)n);
     if (rc != WA_OK) {
-        if (err_code) *err_code = 0;
+        /* SET ORDER TO 9 with no ninth index: #106, real III+ SF-errors. */
+        if (err_code) *err_code = 106;
         return -INTERP_ERR_SYNTAX;
     }
 
@@ -728,19 +729,12 @@ static int set_cmd_hook(void *user, xb_interp *ip,
         return CMD_OK;
     }
 
-    if (s_ci_eq(opt, "NEAR")) {
-        /* Fail loud -- this is not a valid III+ SET option. INTERP_ERR_SYNTAX
-         * carries the "unrecognised" signal; the executor surfaces it as #16. */
-        if (err_code) *err_code = 0;
-        return -INTERP_ERR_SYNTAX;
-    }
-
-    /* Unknown SET sub-option: fail loud. Rule 2 -- no silent skip. */
-    /* Using III+ U7 catalogue #16; internal INTERP_ERR_SYNTAX is not #7. */
+    /* An unknown SET option (NEAR is dBASE IV / Clipper, not III+) is a
+     * syntax error, #10: real III+ 1.1 SF-unknown and SF-errors. */
 #ifdef SAMIR_FNS_MUTANT_unknown
-    if (err_code) *err_code = 0;
-#else
     if (err_code) *err_code = 16;
+#else
+    if (err_code) *err_code = 10;
 #endif
     return -INTERP_ERR_SYNTAX;
 }

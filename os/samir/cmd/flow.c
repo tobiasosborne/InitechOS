@@ -375,7 +375,10 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
 
     /* validate the name length (dBASE memvar names are <= 10 chars). */
     for (nlen = 0; name[nlen] != '\0'; nlen++) { }
-    if (nlen == 0u || nlen >= FLOW_MAX_NAME)
+    /* Using III+ U1-2: a name begins with a letter (STORE 1 TO 5 is #10,
+     * real III+ 1.1 SF-errors). */
+    if (nlen == 0u || nlen >= FLOW_MAX_NAME ||
+        (unsigned)((name[0] | 32) - 'a') > 25u)
         return -INTERP_ERR_SYNTAX;
 
     slot = memvar_find(fs, name);
@@ -459,6 +462,14 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
     return INTERP_OK;
 }
 
+/* Using III+ U7 [22] Out of memory variable slots / [21] Out of memory
+ * variable memory; a bad name is a syntax error [10]. */
+static int fl_memvar_fail(int rc, int *ec)
+{
+    if (ec) *ec = rc == -INTERP_ERR_DEPTH ? 22 : rc == -INTERP_ERR_NOMEM ? 21 : 10;
+    return rc;
+}
+
 /* ===================================================================== */
 /* The COMPOSED resolver: memvars first, else the saved work-area resolver */
 /* ===================================================================== */
@@ -502,35 +513,6 @@ static int flow_resolve(void *user, const char *name, uint16_t len, xb_val *out)
 /* ===================================================================== */
 
 /*
- * eval_expr: lex+parse+eval the NUL-terminated expression `expr` through ip's
- * ctx (which carries flow_resolve while samir_do runs). On success returns
- * INTERP_OK with *out set; else a negative interp_err with *ec the stage detail.
- */
-static int eval_expr(xb_interp *ip, const char *expr, xb_val *out, int *ec)
-{
-    xb_token toks[FLOW_MAX_TOKS];
-    xb_node  pool[FLOW_MAX_NODES];
-    xb_ctx  *ctx = xb_interp_ctx(ip);
-    uint32_t len = 0u;
-    int ntok, root, rc, e = 0;
-
-    while (expr[len] != '\0')
-        len++;
-
-    ntok = xb_lex(expr, len, toks, (uint32_t)FLOW_MAX_TOKS, &e);
-    if (ntok < 0) { if (ec) *ec = e; return -INTERP_ERR_LEX; }
-
-    root = xb_parse(toks, (uint32_t)ntok, pool, (uint32_t)FLOW_MAX_NODES, &e);
-    if (root < 0) { if (ec) *ec = e; return -INTERP_ERR_PARSE; }
-
-    rc = xb_eval(pool, root, ctx, out, &e);
-    if (rc != 0) { if (ec) *ec = e; return -INTERP_ERR_EVAL; }
-
-    if (ec) *ec = 0;
-    return INTERP_OK;
-}
-
-/*
  * eval_guard: evaluate `expr` and REQUIRE a Logical result. *truth gets 0/1.
  * A non-Logical result is fail-loud error #37 (XBEE_NOT_LOGICAL): returns
  * -INTERP_ERR_EVAL with *ec = XBEE_NOT_LOGICAL. THE headline S5.3 rule -- no
@@ -538,15 +520,15 @@ static int eval_expr(xb_interp *ip, const char *expr, xb_val *out, int *ec)
  */
 static int eval_guard(xb_interp *ip, const char *expr, int *truth, int *ec)
 {
-    xb_val v;
-    int rc = eval_expr(ip, expr, &v, ec);
-    if (rc != INTERP_OK)
-        return rc;
 #ifdef FLOW_MUTATE_GUARD_TRUTHY
     /* MUTANT (Rule 6 -- -DFLOW_MUTATE_GUARD_TRUTHY): accept a non-Logical guard
      * as truthiness (N != 0, non-empty C) instead of failing loud #37. This
      * breaks the guard-must-be-Logical rule -> the oracle's guard-type-error
      * checks go RED. */
+    xb_val v;
+    int rc = xb_interp_eval(ip, expr, &v, ec);
+    if (rc != INTERP_OK)
+        return rc;
     switch (v.t) {
     case XB_L: *truth = v.u.l ? 1 : 0; break;
     case XB_N: *truth = (v.u.n != 0.0) ? 1 : 0; break;
@@ -556,13 +538,7 @@ static int eval_guard(xb_interp *ip, const char *expr, int *truth, int *ec)
     if (ec) *ec = 0;
     return INTERP_OK;
 #else
-    if (v.t != XB_L) {
-        if (ec) *ec = XBEE_NOT_LOGICAL;     /* #37 "Not a Logical expression." */
-        return -INTERP_ERR_EVAL;
-    }
-    *truth = v.u.l ? 1 : 0;
-    if (ec) *ec = 0;
-    return INTERP_OK;
+    return xb_interp_cond(ip, expr, truth, ec);   /* #37 when not Logical */
 #endif
 }
 
@@ -839,7 +815,7 @@ static int exec_store(xb_interp *ip, flow_state *fs, const char *args, int *ec)
     rt_memcpy(exprbuf, args, elen);
     exprbuf[elen] = '\0';
 
-    rc = eval_expr(ip, exprbuf, &v, ec);
+    rc = xb_interp_eval(ip, exprbuf, &v, ec);
     if (rc != INTERP_OK)
         return rc;
 
@@ -863,7 +839,7 @@ static int exec_store(xb_interp *ip, flow_state *fs, const char *args, int *ec)
         if (n == 0u)
             return -INTERP_ERR_SYNTAX;
         rc = memvar_set(fs, nm, &v);
-        if (rc != INTERP_OK) { if (ec) *ec = 0; return rc; }
+        if (rc != INTERP_OK) return fl_memvar_fail(rc, ec);
         /* skip blanks to a comma or end. */
         while (*namelist != '\0' && fl_isspace(*namelist))
             namelist++;
@@ -1135,11 +1111,11 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
     /* (1) assignment? */
     if (detect_assign(line, name, sizeof(name), &rhs)) {
         xb_val v;
-        rc = eval_expr(ip, rhs, &v, ec);
+        rc = xb_interp_eval(ip, rhs, &v, ec);
         if (rc != INTERP_OK)
             return rc;
         rc = memvar_set(fs, name, &v);
-        if (rc != INTERP_OK) { if (ec) *ec = 0; return rc; }
+        if (rc != INTERP_OK) return fl_memvar_fail(rc, ec);
         return INTERP_OK;
     }
 
@@ -1170,7 +1146,8 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
             (void)split_verb(args, al, sizeof(al), &a2);
             rc = wa_select_alias(env, al);
         }
-        if (rc != WA_OK) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+        /* Real III+ 1.1 (SF-errors): SELECT 11 is #17, an unknown alias #13. */
+        if (rc != WA_OK) { if (ec) *ec = args[0] >= '0' && args[0] <= '9' ? 17 : 13; return -INTERP_ERR_SYNTAX; }
         return INTERP_OK;
     }
 
@@ -1468,6 +1445,51 @@ static int run_dowhile(flow_prog *fp, int start, int enddo, int *next, int *ec)
 }
 
 /*
+ * fl_catalog: the catalogue ordinal a failed statement reports (ERROR(), the
+ * dot prompt). A hook's own ordinal wins; otherwise the engine status maps to
+ * the message real dBASE III PLUS 1.1 gives that class of failure, never to
+ * the bare status number (which collided with catalogue ordinals 1..8:
+ * WL-0133 Friction 1). Real ON ERROR captures (SF-errors): a malformed SET,
+ * STORE or SELECT clause is #10; Using III+ U7-14 [95]: IF/ELSE/ENDDO/LOOP
+ * typed at the dot prompt; U7-12 [96]: a stray terminator in a program
+ * (real III+ 1.1 SF-struct: a lone ENDDO is #96);
+ * U7-4 [103]: DO nesting; U7 [43] memory; [16] unknown verb.
+ */
+static int fl_catalog(xb_interp *ip, int rc, int ec)
+{
+    static const uint8_t m[9] = {0, 43, 10, 10, 10, 96, 16, 10, 103};
+    if (ec != 0) return ec;
+#ifdef SAMIR_FNS_MUTANT_struct
+    if (rc == -INTERP_ERR_STRUCT) return -rc;   /* MUTANT: the status leaks */
+#endif
+#ifndef SAMIR_FNS_MUTANT_errors
+    if (rc == -INTERP_ERR_STRUCT && xb_interp_ctx(ip)->dot_command) return 95;
+    if (rc < 0 && rc >= -INTERP_ERR_DEPTH) return m[-rc];
+#else
+    (void)ip; (void)m;
+#endif
+    return -rc;
+}
+
+/*
+ * fl_trap (Using III+ U5-160): offer a failed statement (engine status rc,
+ * hook ordinal *ec) to
+ * the installed ON ERROR trap. 1 = handled (*ec cleared; the caller resumes
+ * at the next line), 0 = untrapped (the caller fails loud). A RETURN
+ * sentinel (positive rc) is never an error.
+ */
+static int fl_trap(flow_prog *fp, int rc, int *ec)
+{
+    xb_ctx *c = xb_interp_ctx(fp->ip);
+    if (rc < 0 && rc >= -INTERP_ERR_DEPTH && c->on_error &&
+        c->on_error(fp->ip, fl_catalog(fp->ip, rc, ec ? *ec : 0))) {
+        if (ec) *ec = 0;
+        return 1;
+    }
+    return 0;
+}
+
+/*
  * run_block: execute the statement list lines[from..to). On a LOOP/EXIT it sets
  * *sig and returns immediately (the enclosing DO WHILE handles the signal). A
  * structural error or run-time error returns negative.
@@ -1518,9 +1540,14 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
             return INTERP_OK;
 
         /* terminators / mid-block keywords that appear here are unmatched. */
+        case LK_ENDDO:
+            /* Real III+ 1.1 SF-struct: a lone ENDDO raises #96 and an ON
+             * ERROR trap resumes the program at the next line. */
+            if (fl_trap(fp, -INTERP_ERR_STRUCT, ec)) { i++; break; }
+            if (ec) *ec = 0;
+            return -INTERP_ERR_STRUCT;
         case LK_ELSE:
         case LK_ENDIF:
-        case LK_ENDDO:
         case LK_CASE:
         case LK_OTHERWISE:
         case LK_ENDCASE:
@@ -1532,9 +1559,12 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
             if (copy_line(&fp->lines[i], buf, sizeof(buf)) != 0)
                 return -INTERP_ERR_DEPTH;
             rc = flow_expand(fp->ip, buf, ec);
-            if (rc != INTERP_OK) return rc;
-            rc = exec_command(fp, buf, ec);
-            if (rc != INTERP_OK)
+            if (rc == INTERP_OK)
+                rc = exec_command(fp, buf, ec);
+            /* Using III+ U5-160: ON ERROR runs its command in place of the
+             * failing one; the program resumes at the next line (real III+
+             * 1.1, SF-errors). A RETURN sentinel is not an error. */
+            if (rc != INTERP_OK && !fl_trap(fp, rc, ec))
                 return rc;
             i++;
             break;
@@ -1833,7 +1863,7 @@ int samir_do(xb_interp *ip, const char *prg)
 
     n = split_lines(prg, s_lines, FLOW_MAX_LINES);
     if (n < 0) {
-        fs->last_error = INTERP_ERR_DEPTH;
+        fs->last_error = 43;                /* Insufficient memory. */
         return -INTERP_ERR_DEPTH;
     }
 
@@ -1842,7 +1872,7 @@ int samir_do(xb_interp *ip, const char *prg)
         char buf[FLOW_MAX_LINELEN + 1];
         const char *rest;
         if (copy_line(&s_lines[i], buf, sizeof(buf)) != 0) {
-            fs->last_error = INTERP_ERR_DEPTH;
+            fs->last_error = 18;            /* Line exceeds maximum of 254 */
             return -INTERP_ERR_DEPTH;
         }
         s_kind[i] = line_classify(buf, &rest);
@@ -1888,10 +1918,7 @@ int samir_do(xb_interp *ip, const char *prg)
     if (rc != INTERP_OK) {
         /* record the dBASE catalog ordinal where the eval produced one,
          * else the structural/interp code. */
-        if (ec != 0)
-            fs->last_error = ec;
-        else
-            fs->last_error = -rc;   /* the positive interp_err */
+        fs->last_error = fl_catalog(ip, rc, ec);
         return rc;
     }
     /* Programming III+ N5-30: successful handler statements must preserve

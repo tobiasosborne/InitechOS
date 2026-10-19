@@ -1,0 +1,23 @@
+
+[FNS-BEGIN]
+E         10 Syntax error.
+E         10 Syntax error.
+E         17 Cannot select requested database.
+E         13 ALIAS not found.
+E         10 Syntax error.
+E         10 Syntax error.
+E         35 Unterminated string.
+E          8 Unbalanced parenthesis.
+E         10 Syntax error.
+E         36 Unrecognized phrase/keyword in command.
+E         36 Unrecognized phrase/keyword in command.
+E         36 Unrecognized phrase/keyword in command.
+E         10 Syntax error.
+E         10 Syntax error.
+E         10 Syntax error.
+E         36 Unrecognized phrase/keyword in command.
+E         10 Syntax error.
+E        106 Invalid index number.
+AFTER          1
+       106 Invalid index number.
+[FNS-END]
