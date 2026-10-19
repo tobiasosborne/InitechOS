@@ -418,6 +418,43 @@ static bool rfb_request_full(RfbShadow *r)
     return sent == sizeof(m);
 }
 
+/* Ref: docs/research/samir-bochs-rfb.md, RFC 6143 Sec 7.5.4.
+ * Keep the accepted trace vocabulary explicit; an unknown token is never
+ * silently dropped. This is factory input, not an OS keyboard shortcut. */
+static unsigned rfb_key(const char *s, size_t n)
+{
+    if (n == 1 && ((*s >= 'a' && *s <= 'z') || (*s >= '0' && *s <= '9')))
+        return (unsigned char)*s;
+    if (n == 3 && memcmp(s, "ret", 3) == 0) {
+#ifdef BOCHS_KEYS_MUT_RETURN
+        return 0xff08; /* Rule 6: BackSpace instead of Return. */
+#else
+        return 0xff0d;
+#endif
+    }
+    if (n == 3 && memcmp(s, "spc", 3) == 0) return ' ';
+    if (n == 3 && memcmp(s, "dot", 3) == 0) return '.';
+    return 0;
+}
+
+static bool rfb_key_event(RfbShadow *r, unsigned key, bool down)
+{
+    unsigned char m[8] = { 4, down ? 1 : 0, 0, 0,
+        (unsigned char)(key >> 24), (unsigned char)(key >> 16),
+        (unsigned char)(key >> 8), (unsigned char)key };
+    size_t sent = 0;
+    long long until = mono_ms() + 2000;
+    while (sent < sizeof m && mono_ms() < until) {
+        ssize_t k = send(r->fd, m + sent, sizeof m - sent, MSG_NOSIGNAL);
+        if (k > 0) { sent += (size_t)k; continue; }
+        if (k < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) break;
+        rfb_pump(r);
+        sleep_ms(5);
+    }
+    if (sent != sizeof m) rfb_fail(r, "cannot send KeyEvent");
+    return sent == sizeof m;
+}
+
 /* <name>.rfb.pgm: the server's BGR233 code per pixel, unchanged (the graded
  * artifact). <name>.rfb.ppm: each 3/3/2-bit field widened to 0..255 for the
  * Law-4 eyeball only. */
@@ -605,6 +642,20 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         fprintf(stderr, "bochs_run: a repeated boot wait needs --quit-after and --allow-reboot\n");
         return -1;
     }
+    if (!!cfg->keys_script != !!cfg->keys_after ||
+        (cfg->keys_script && !*cfg->keys_script)) {
+        fprintf(stderr, "bochs_run: nonempty --keys requires --keys-after (and conversely)\n");
+        return -1;
+    }
+    for (const char *p = cfg->keys_script; p && *p;) {
+        const char *end = strchr(p, ',');
+        if (!rfb_key(p, end ? (size_t)(end - p) : strlen(p)) ||
+            (end && !end[1])) {
+            fprintf(stderr, "bochs_run: unsupported key script token\n");
+            return -1;
+        }
+        p = end ? end + 1 : NULL;
+    }
 
     const char *dir  = cfg->output_dir ? cfg->output_dir : "build";
     const char *name = cfg->name       ? cfg->name       : "bochs";
@@ -779,17 +830,33 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     unsigned char *snap = NULL;
     int status = 0;
     bool reaped = false;
+    const char *key_next = cfg->keys_script;
+    bool keys_started = false, key_down = false;
+    long long key_at = 0;
     for (;;) {
         pid_t w = waitpid(pid, &status, WNOHANG);
         if (w == pid) { reaped = true; break; }
         if (w < 0 && errno != EINTR) break;
         rfb_pump(&rfb);
+        if (key_next && !keys_started) {
+            char *txt = read_file(out->serial_path, NULL);
+            keys_started = txt && serial_marker_count(txt, cfg->keys_after) > 0;
+            free(txt);
+        }
+        if (key_next && keys_started && rfb.have_init && mono_ms() >= key_at) {
+            const char *end = strchr(key_next, ',');
+            unsigned key = rfb_key(key_next, end ? (size_t)(end - key_next) : strlen(key_next));
+            if (!rfb_key_event(&rfb, key, !key_down)) break;
+            key_down = !key_down;
+            if (!key_down) key_next = end ? end + 1 : NULL;
+            key_at = mono_ms() + 30;
+        }
         if (cfg->quit_after || (cfg->screendump_after && sd == SD_WAIT)) {
             char *txt = read_file(out->serial_path, NULL);
             bool complete = cfg->quit_after && txt &&
                             serial_completion(txt, cfg->quit_after,
                                               cfg->quit_after_count);
-            if (cfg->screendump_after && sd == SD_WAIT && txt &&
+            if (cfg->screendump_after && sd == SD_WAIT && !key_next && txt &&
                 serial_marker_count(txt, cfg->screendump_after) > 0) {
                 out->screendump_marker_found = true;
                 if (rfb_request_full(&rfb)) {
@@ -801,7 +868,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                 }
             }
             free(txt);
-            if (complete && !cfg->screendump_after) break;
+            if (complete && !cfg->screendump_after && !key_next) break;
         }
         if (sd == SD_FIRST && rfb.full_frames >= want_full && mono_ms() >= sd_t) {
             free(snap);
@@ -859,7 +926,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
             out->timed_out = true;
             break;
         }
-        sleep_ms(sd == SD_WAIT ? 100 : 20);
+        sleep_ms(sd == SD_WAIT && !key_next ? 100 : 20);
     }
     free(snap);
     out->rfb_width = rfb.w;
@@ -951,6 +1018,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     }
 
     out->ok = out->launched && out->rfb_unblocked && !out->triple_fault &&
+              (cfg->keys_script ? (!key_next && !rfb.err[0]) : true) &&
               (cfg->expect_marker ? out->marker_found : true) &&
               (cfg->quit_after ? out->quit_marker_found : true) &&
               (cfg->screendump_after ? (out->screendump_ok && out->snapshot_ok) : true);

@@ -40,6 +40,8 @@ static void usage(const char *argv0)
         "  --name LABEL       output filename label (default \"bochs\")\n"
         "  --out DIR          output dir (default \"build\")\n"
         "  --serial-stdout    echo captured serial to stdout\n"
+        "  --keys SCRIPT      comma-separated a-z/0-9, ret, spc, dot\n"
+        "  --keys-after MARK  replay keys after this complete serial line\n"
         "  --screendump-after MARK  after this complete exact serial line,\n"
         "                     capture a stable full RFB frame to\n"
         "                     <out>/<name>.rfb.pgm (BGR233) + .rfb.ppm, then\n"
@@ -90,6 +92,8 @@ int main(int argc, char **argv)
         else if (strcmp(a, "--out") == 0)        { NEED_ARG(); cfg.output_dir = argv[++i]; }
         else if (strcmp(a, "--serial-stdout") == 0) { serial_stdout = 1; }
         else if (strcmp(a, "--screendump-after") == 0) { NEED_ARG(); cfg.screendump_after = argv[++i]; }
+        else if (strcmp(a, "--keys") == 0)       { NEED_ARG(); cfg.keys_script = argv[++i]; }
+        else if (strcmp(a, "--keys-after") == 0) { NEED_ARG(); cfg.keys_after = argv[++i]; }
         else if (strcmp(a, "--vga-ext") == 0)    { NEED_ARG(); cfg.vga_extension = argv[++i]; }
         else if (strcmp(a, "--rtc-time0") == 0) {
             NEED_ARG();

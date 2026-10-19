@@ -30777,7 +30777,7 @@ TEST_EMU_GATES := \
 	test-flair-cursor test-flair-cursor-mutant \
 	test-flair-cursor-boot test-flair-cursor-boot-mutant \
 	test-flair-close-terminate test-flair-close-terminate-mutant test-flair-modal-block \
-	test-harness test-tracer-boot test-boot-bochs test-bochs-concurrent test-bochs-concurrent-mutant test-boot test-program test-fs test-type \
+	test-harness test-tracer-boot test-boot-bochs test-samir-boot-bochs test-samir-boot-bochs-mutant test-bochs-concurrent test-bochs-concurrent-mutant test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
 	test-copy-selfcopy test-copy-selfcopy-mutant \
@@ -33495,6 +33495,7 @@ include harness/diff/fat_diff/shell_files.mk
 # Cirrus (VBE-ENOMODE) and a plain VGA (VBE-E00) by the *-vga13-/-novbe-bochs
 # legs. Ref: PRD Sec 8; docs/research/vesa8-ground-truth.md; WL-0170.
 include harness/bochs_legs.mk
+include harness/samir_boot_bochs.mk
 include harness/emu/panic_screen.mk
 # samir-set-fns-errors: independent III+ corpus, identical host/guest inputs.
 # PM 2026-10-17: SAMIR_FNS_CASES are the cases whose real-III+ capture the
