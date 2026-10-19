@@ -16115,7 +16115,7 @@ $(SEED_TEST_PARSER_MUT): seed/test_parser.c $(SEED_LIB_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSEED_MUT_PARSE_ADD_AS_MUL -Iseed -o $@ seed/test_parser.c $(SEED_LIB_SRC)
 
 .PHONY: test-seed-mutant
-test-seed-mutant: $(SEED_TEST_PARSER_MUT)
+test-seed-mutant: $(SEED_TEST_PARSER_MUT) test-seed-num-range-mutant
 	@printf ">>> test-seed-mutant: confirming the OP_ADD->OP_MUL parser mutant goes RED (Rule 6; initech-znb/initech-tf3c)\n"
 	@$(SEED_TEST_PARSER_MUT) 2>/dev/null | grep -q 'checks,' \
 		|| { printf '!!! test-seed-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
@@ -16123,6 +16123,25 @@ test-seed-mutant: $(SEED_TEST_PARSER_MUT)
 		printf '!!! test-seed-mutant FAIL: mutant PASSED -- the +/* precedence distinction is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-seed-mutant: green (OP_ADD->OP_MUL correctly RED)\n'; \
+	fi
+
+# Ref: ADR-0007 DEC-02 dialect pin 1 (32-bit signed integer), Rule 6;
+# initech-veav / initech-cfc5. Removing scan_number's pre-multiply guard must
+# make the located out-of-range literal checks fail in the real lexer suite.
+SEED_TEST_LEXER_MUT_NUM_RANGE := $(BUILD)/test_lexer_mut_num_range
+
+$(SEED_TEST_LEXER_MUT_NUM_RANGE): seed/test_lexer.c $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSEED_MUT_NUM_RANGE -Iseed -o $@ seed/test_lexer.c $(SEED_LIB_SRC)
+
+.PHONY: test-seed-num-range-mutant
+test-seed-num-range-mutant: $(SEED_TEST_LEXER_MUT_NUM_RANGE)
+	@printf '>>> test-seed-num-range-mutant: confirming SEED_MUT_NUM_RANGE goes RED (Rule 6; initech-veav/initech-cfc5)\n'
+	@$(SEED_TEST_LEXER_MUT_NUM_RANGE) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-seed-num-range-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(SEED_TEST_LEXER_MUT_NUM_RANGE) >/dev/null 2>&1; then \
+		printf '!!! test-seed-num-range-mutant FAIL: mutant PASSED -- integer range checks are decoration\n'; exit 1; \
+	else \
+		printf '>>> test-seed-num-range-mutant: green (SEED_MUT_NUM_RANGE correctly RED)\n'; \
 	fi
 
 # test-seed-codegen-mutant: codegen/emission mutant. -DSEED_MUT_CODEGEN_MUL_AS_ADD

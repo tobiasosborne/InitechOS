@@ -61,6 +61,37 @@ static void test_idents_and_numbers(void)
     CHECK(t[5].kind == TOK_INT && t[5].ivalue == 1000, "int 1000");
 }
 
+/* Ref: ADR-0007 DEC-02, dialect pin 1: integer is 32-bit signed.
+ * Unsigned decimal tokens therefore stop at 2147483647, independently of
+ * the host's long width (initech-veav / initech-cfc5). */
+static void check_number_range_error(const char *src, const char *msg)
+{
+    Token t[2];
+    int n = lex_all(src, t, 2);
+    CHECK(n == 1 && t[0].kind == TOK_ERROR, msg);
+    CHECK(t[0].line == 2 && t[0].col == 3,
+          "number range error locates the first digit at 2:3");
+    CHECK_STR_EQ(t[0].lexeme, "integer literal out of range (0..2147483647)",
+                 "number range error carries a diagnostic");
+}
+
+static void test_number_range(void)
+{
+    Token t[3];
+    int n = lex_all("\n  2147483647;", t, 3);
+    CHECK(n == 3, "maximum integer, semicolon, EOF");
+    CHECK(t[0].kind == TOK_INT && t[0].ivalue == 2147483647L,
+          "2147483647 is the largest accepted unsigned integer literal");
+    CHECK(t[0].length == 10 && t[0].line == 2 && t[0].col == 3,
+          "maximum integer keeps its source span and location");
+    CHECK(t[1].kind == TOK_SEMI && t[2].kind == TOK_EOF,
+          "maximum integer leaves following punctuation intact");
+    check_number_range_error("\n  2147483648", "2147483648 yields ERROR");
+    check_number_range_error("\n  4294967296", "4294967296 yields ERROR");
+    check_number_range_error("\n  1234567890123456789012345",
+                             "25-digit integer yields ERROR");
+}
+
 static void test_operators(void)
 {
     Token t[24];
@@ -287,6 +318,7 @@ int main(void)
 {
     test_keywords_case_insensitive();
     test_idents_and_numbers();
+    test_number_range();
     test_operators();
     test_relational_operators();
     test_eq_not_confused_with_assign();
