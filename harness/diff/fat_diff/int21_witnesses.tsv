@@ -14,6 +14,7 @@
 2Ah-2Dh test-40oq
 30h test-int21
 31h test-keep
+34h test-tsr-unit
 33h test-er3h
 36h test-dos-volumes
 3Bh test-dos-volumes-host

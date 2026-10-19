@@ -7498,6 +7498,36 @@ test-keep-mutant: $(TEST_KEEP_MUT)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-tsr-unit (bead initech-6fdt sub-deliverable 2 -- TSR kernel
+# mechanics; spec/tsr_contract.h). The REAL int21.c + mcb.c HOSTED: top-level
+# and MCB-hosted AH=31h, TR p. 6-105 (files stay open, other blocks resident),
+# the next EXEC above the residents, 31h twice, INT 27h, the PSP floor, AH=34h
+# InDOS (0 / 1 in a console read / 0 while an EXEC child runs) and the AH=25h
+# gate type. Mutants (Rule 6): 31h-as-4Ch, EXEC-keeps-InDOS, trap-gate IRQs.
+TEST_TSR      := $(BUILD)/test_tsr
+TEST_TSR_SRC  := $(MILTON_DIR)/test_tsr.c
+TEST_TSR_DEPS := $(TEST_KEEP_DEPS)
+TEST_TSR_HDRS := $(TEST_KEEP_HDRS) spec/tsr_contract.h $(MILTON_DIR)/test_low_mapping.h
+TEST_TSR_MUTANTS := TSR_MUT_NO_KEEP INT21_MUT_INDOS_EXEC INT21_MUT_SETVECT_TRAP
+$(TEST_TSR): $(TEST_TSR_SRC) $(TEST_TSR_DEPS) $(TEST_TSR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_TSR_SRC) $(TEST_TSR_DEPS)
+$(BUILD)/test_tsr_%: $(TEST_TSR_SRC) $(TEST_TSR_DEPS) $(TEST_TSR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_TSR_SRC) $(TEST_TSR_DEPS)
+.PHONY: test-tsr-unit test-tsr-unit-mutant
+test-tsr-unit: $(TEST_TSR)
+	@$(TEST_TSR)
+	@printf '>>> test-tsr-unit: green (KEEP top-level + MCB-hosted, files/blocks kept, next EXEC above, 31h twice, INT 27h, InDOS, IRQ gate type)\n'
+test-tsr-unit-mutant: $(addprefix $(BUILD)/test_tsr_,$(TEST_TSR_MUTANTS))
+	@for m in $(TEST_TSR_MUTANTS); do \
+		if $(BUILD)/test_tsr_$$m > $(BUILD)/test_tsr_$$m.log 2>&1; then \
+			printf '!!! test-tsr-unit-mutant FAIL: %s survived\n' $$m; exit 1; fi; \
+		printf '    %s RED: %s\n' $$m "$$(grep -m1 FAIL $(BUILD)/test_tsr_$$m.log)"; \
+	done
+	@printf '>>> test-tsr-unit-mutant: green (TSR_MUT_NO_KEEP, INT21_MUT_INDOS_EXEC, INT21_MUT_SETVECT_TRAP all RED)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-devices (beads initech-509.7 -- DOS character-device chain)
 # ---------------------------------------------------------------------------
 # Host unit oracle for the five resident character devices (NUL/CON/AUX/PRN/
@@ -29445,7 +29475,7 @@ TEST_UNIT_GATES := \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-j1lu-con-unit test-j1lu-kbd-mutant test-j1lu-con-mutant test-conin-unit test-int21 test-redir test-er3h test-int24 \
-	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-tsr-unit test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 		test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-fileio-build test-seed-fileio-fpc test-seed-fpc-diff test-seed-repro test-seed-repro-mutant test-tps-lex-fpc test-tps-lex-build test-tps-lex-mutant test-tps-parse-fpc test-tps-parse-build test-tps-parse-mutant test-tps-type-fpc test-tps-type-build test-tps-type-mutant test-compiler test-assets test-spec test-dosmsg \
@@ -29510,7 +29540,7 @@ TEST_UNIT_GATES := \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-redir-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-redir-parse-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-40oq-mutant test-psp-mutant \
+	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-redir-parse-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-tsr-unit-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-40oq-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mz-mutant test-mzload-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant test-fat-move-mutant \
