@@ -1,6 +1,6 @@
 #!/bin/sh
 # build.sh -- typeset every Initech manual (bead initech-ipu5.5).
-# Usage: build.sh <out root> <generated-tex dir> [mutant]
+# Usage: build.sh <out root> <generated-tex dir> [mutant] [manual]
 # For each pubs/manuals/<m>/{main,cover,spine,strip}.tex present (strip: a
 # keyboard template, PK-14; bead initech-ipu5.10), runs latexmk with
 # LuaLaTeX (D-11) into <out root>/<m>/<doc>.pdf.  Reproducible (Rule 11):
@@ -13,7 +13,7 @@
 # error there used to wait for terminal input forever (ipu5.7).
 # Thin shell (Law 3); TeX is an external tool like nasm.
 set -eu
-out=$1; gen=$2; mode=${3:-}
+out=$1; gen=$2; mode=${3:-}; manual=${4:-}
 root=$(cd "$(dirname "$0")" && pwd)
 cache=$root/../build/pubs-tex-cache
 mkdir -p "$cache"
@@ -30,7 +30,9 @@ pretex=
 # each volume sees the other's entries whatever the build order.
 export INITECH_PUBS_OUT="$out" INITECH_PUBS_PASS=1
 n=0
-for dir in "$root"/manuals/*/; do
+# Optional single-manual route for the initech-46u4 stale-aux/repro oracle;
+# the default still builds the complete set (PUB-REF-0001 GC-07).
+for dir in "$root"/manuals/${manual:-*}/; do
     m=$(basename "$dir")
     for doc in main cover spine strip; do
         [ -f "$dir/$doc.tex" ] || continue
@@ -52,7 +54,7 @@ for dir in "$root"/manuals/*/; do
 done
 [ "$n" -gt 0 ] || { printf '!!! pubs FAIL: no pubs/manuals/*/main.tex found\n'; exit 1; }
 INITECH_PUBS_PASS=2
-for dir in "$root"/manuals/*/; do
+for dir in "$root"/manuals/${manual:-*}/; do
     m=$(basename "$dir")
     [ -f "$dir/MASTERINDEX" ] || continue
     log=$out/$m/main.latexmk.out
