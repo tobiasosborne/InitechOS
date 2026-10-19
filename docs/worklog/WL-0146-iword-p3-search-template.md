@@ -388,3 +388,104 @@ mutant's exact line was `FAIL undo emulator Search cursor motion separates
 deletion groups (line 174)`. All four clip repro runs ended with
 `PASS -- two captures byte-identical`. Changes are left uncommitted for PM
 review; the F5 mint described above is still required.
+
+## Part 3 -- List Files (F5), lane iwordp3 (initech-qvgd remainder; 2026-10-20)
+
+Context. List Files was the last P3 acceptance item, blocked on a real WP 5.1
+mint of the directory screen. This lane minted it and implemented it.
+
+The mint (../wordperfect51-decomp mint/work/LISTF/mint-results-005.md; the
+lane may write only under mint/work, so the ledger, steps, shots, grids and
+fixture all live there -- filing into goldens/ and re/ is the operator's).
+Real WP.EXE under DOSBox-X on a byte-reproducible FAT12 fixture volume
+(mkfixture.sh: names, sizes, attributes and stamps fixed; DOS clock pinned to
+03/01/1992 09:00, the InitechOS harness's RTC default). Every shot pair is
+transcribed cell-exactly (decode2.py: glyphs matched exactly against DOSBox-X's
+own font atlas, colours per cell, the blinking cursor resolved). Facts it
+settled that the Reference left open: header row 1 = Document size / Free
+(the volume's free bytes) / Used (sum of the listed FILES' sizes, hidden
+included) / Files (files only); directories first then files, row-major;
+hidden entries listed; the selection bar and the cursor; Right/Left wrap
+between rows; Enter on a directory puts "Dir <path>" under the list and the
+new list opens on ".. Parent"; Esc leaves Look but does nothing on the list;
+F7 leaves the list; "Retrieve into current document? No (Yes)"; a ZERO DOS date
+prints no stamp at all (the kernel-made DESKTOP.DB / TRASH); WP's two-digit
+year is '0' + (year-1900)/10, so a 2026 clock prints "<6". Fixture v3 makes the
+mint volume's root the booted InitechOS data volume's root entry for entry, so
+the gate's root listing is graded too. Document size for a non-empty document
+is NOT resolved (retrieved files show size + 193 in three cases, typed
+documents differ): InitechWord shows 0 for the empty document (minted) and
+size + 193 otherwise [inferred], a GAP in the ledger.
+
+What changed.
+- spec/toolbox_gate.h Sec 10a (Rule 8, deliberate): TBX_FILE_FIND 0x0087 (a
+  whole FINDFIRST/FINDNEXT walk per call, 22-byte records = the DTA's found
+  tail) and TBX_DISK_FREE 0x0088 (AH=36h); os/flair/tbxgate.c implements them
+  over the tenant's shadow PSP / root CWD with the kernel DTA swapped and
+  restored; tbx.h/tbx_rt.c wrappers + tbx_get_clock (the existing TBX_CLOCK);
+  test_flair_routing's callable-code list and stubs updated.
+- spec/iword/listfiles.h (new, locked): every column, label, bright mask and
+  the period-gray item table from the mint grids, and the stated 80->76 /
+  25->24 adaptation (delete WP columns that are blank in every row of that
+  kind: header row 1 59-60; list rows 0, 22, 39, 63; F5 prompt 46-48; Look
+  header 50-53; the list's and Look's last row dropped).
+- spec/iword/fkeys.json (Rule 8 note): F5 gray -> list; FLAIR_IWORD_FKEYS_SPEC
+  gains kf1 after kf5 (F5 now opens a prompt); test_iword_p3 template/serial
+  oracles updated to match.
+- os/iword/core/listfiles.c (new, pure): rows composed at WP's 80 columns and
+  fitted; os/iword/app/face_a.c: F5 prompt, the list, the Dir prompt, Look
+  (a borrowed read-only editor, the M_UNDO pattern; text files as lines),
+  Retrieve (onto an empty document at once, else the question), keys as
+  minted; 2 3 4 5 7 8 9 N drawn GRAY and ignored. take_name accepts DIR\NAME
+  so a document retrieved from a subdirectory saves back there.
+
+Oracles. test-iword-listfiles: the real face over the recording mock serving
+the fixture's directory, 25 keys of the mint session LF14 and 3 host-only
+checks, every screen against the mint grid of the same key -- the test maps
+80x25 to 76x24 with its OWN statement of the deletes and first checks each
+deleted cell is blank on the real screen; colours: red -> BLACK on GRAY,
+bright -> bold, the unperformed items GRAY. test-flair-iword-listfiles: the
+same trace in QEMU on the stock volume + the mint's A:\DOCS (bytes and stamps
+copied out of the md5-pinned mint volume), the TENANT-GATE DRAWCELLS trace
+replayed between delivered keys and graded by the same code; Free is mdir's
+figure of the booted copy, the clock is exact because the RTC is pinned at
+09:00:00 and the run dies at a 30 s wall deadline. The mint inputs are pinned
+by harness/diff/wp5_diff/listfiles_mint005.md5.
+
+TDD. Both oracles were RED before the implementation: the host oracle built
+over the unchanged main face (546e5bc2) failed 343 of 1926 checks, first
+"LF13_01 row 23 == WP row 24" (the gray "List" where WP draws the prompt;
+build/iword_lf_report/initial-host-red.log); the emulator leg replaying a
+boot of main's WORD.EXE failed 312 of 1709 (initial-emu-red.log). Mutants:
+LF_COLUMN (every right-aligned figure one column right) RED on host and in
+QEMU at LF14_02 row 1; LF_ZERO_DATE (a zero date printed) RED on host at
+LF14_02 row 5.
+
+Acceptance (logs: build/iword_lf_report/; INITECH_QMP_STDIO=1; no Bochs, no
+full make test):
+```
+>>> test-iword-listfiles: green          (1926 checks, 28 mint screens)
+>>> test-iword-listfiles-mutant: green   (LF_COLUMN, LF_ZERO_DATE RED)
+>>> test-flair-iword-listfiles: green    (1709 checks, 25 keys, 25 mint screens)
+>>> test-flair-iword-listfiles-mutant: LF_COLUMN correctly RED
+>>> test-kernel-size-r4: green; test-flair-routing(+mutant): green; test-tbx-file: green
+>>> test-fixture-volumes: green; test-makefile-vars: green; test-flair-app-launch: green
+```
+Every test-iword-* host gate and mutant green; test-flair-iword, -codes,
+-format, -fkeys, -search, -replace, -undo, -setup and their mutants green
+(the iword and search mutant aggregates after a re-run alone).
+test-flair-iword-block was green in the sequential batch, then RED twice
+alone at 2/5 KEYS with FLAIR-EVT-DROP (the guest's event ring overran under
+load ~12): the UNCHANGED main tree (546e5bc2, built in a scratch export) fails
+the same gate the same way at the same moment -- environmental, not this
+change; its mutant aggregate is therefore not re-confirmed here.
+
+Not done. The Rule-14 clip (record-flair SCRIPT=iword_listfiles, registered
+with the gate's trace, volume and RTC pin) could not be captured: under the
+current load no InitechWord clip records -- the Finder double-click never
+opens WORD -- and the existing iword_search / iword_setup clips fail the same
+way, also on the unchanged main tree. Typing a path / "=" at the Dir prompt,
+Look's 1 Next / 2 Prev, Retrieve of DOS text files (WP converts them;
+InitechWord says Incompatible File Format) and the List Files items 2-5, 7-9,
+N are not performed. MEMO's centered line (Shift-F6 Center, period-gray) is
+why the gate retrieves LETTER.WP5, not MEMO.

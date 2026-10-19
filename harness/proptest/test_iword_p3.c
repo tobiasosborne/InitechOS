@@ -23,7 +23,7 @@ static void template_test(void)
 {
     int dispatched = 0;
     for (int m = 0; m < 4; m++) for (int k = 0; k < 12; k++) {
-        int live = (m == 0 && (k == 0 || k == 1 || k == 3 || k == 5 || k == 6 || k == 7 || k >= 9)) ||
+        int live = (m == 0 && (k == 0 || k == 1 || k == 3 || k == 4 || k == 5 || k == 6 || k == 7 || k >= 9)) ||
                    (m == 1 && (k == 0 || k == 1 || k == 7 || k == 9)) ||
                    (m == 2 && (k == 1 || k == 2 || k == 3)) ||
                    (m == 3 && (k == 3 || k == 7));
@@ -42,6 +42,12 @@ static void template_test(void)
             if (m == 1 && k == 0) ok = row_is(0, "Setup");
             if (m == 2 && k == 1) ok = row_is(23, "w/Confirm? No (Yes)");
             if (m == 0 && k == 3) ok = g_ed.doc.len == 11;
+            /* F5 List (initech-qvgd, 2026-10-20): the real WP 5.1's prompt,
+             * ../wordperfect51-decomp mint/work/LISTF grids/LF11_01 row 24
+             * "Dir A:\*.*" + the hint at col 49, here three blank cells
+             * nearer (the 76-cell field) */
+            if (m == 0 && k == 4) ok = !strncmp(m_scr[23], "Dir A:\\*.*", 10) &&
+                                     !strncmp(m_scr[23] + 46, "(Type = to change default Dir)", 30);
             if (m == 0 && k == 5) ok = g_ed.doc.len == 6;
             if (m == 0 && k == 7) ok = g_ed.doc.len == 6;
             if (m == 0 && k == 6) ok = g_mode == M_SAVEQ;
@@ -80,7 +86,8 @@ static void serial_template(const char *path)
     fclose(f);
     CHECK(up, "template", "WORD registered in emulator");
     CHECK(!seen[1][10], "template", "unmapped keys do not clear the status line");
-    const unsigned gray[4] = { (1u<<2)|(1u<<4)|(1u<<8),
+    /* F5 List is live since initech-qvgd (List Files): no gray name */
+    const unsigned gray[4] = { (1u<<2)|(1u<<8),
         (1u<<2)|(1u<<3)|(1u<<4)|(1u<<5)|(1u<<6)|(1u<<8),
         0x3FFu ^ ((1u<<1)|(1u<<2)|(1u<<3)), 0x3FFu ^ ((1u<<3)|(1u<<7)) };
     for (int m = 0; m < 4; m++) for (int k = 0; k < 12; k++) if (gray[m] & (1u<<k)) {

@@ -75,6 +75,7 @@
 #include <sys/wait.h>
 
 #include "../../os/iword/app/face_a.c"   /* the application under test */
+#include "cpanels_record.h"              /* cp_time_t: the TBX_CLOCK mock */
 
 static volatile int *g_ctr;            /* [0] checks, [1] failures */
 #define CHECK(cond, id, msg) do { g_ctr[0]++; if (!(cond)) { g_ctr[1]++; \
@@ -112,7 +113,37 @@ int32_t tbx_set_mbar(const tbx_menubar_t *b) { (void)b; return TBX_OK; }
 int32_t tbx_draw_menubar(void) { return TBX_OK; }
 int32_t tbx_alert(const char *t, const char *d, const char *c, const char *o)
 { (void)t; (void)d; (void)c; (void)o; return TBX_ERR_BADCODE; }
+/* TBX_CLOCK (spec/cp_dialog.h) answers m_clock; the List Files directory is
+ * the table a test installs (bead initech-qvgd; test_iword_listfiles.c). */
+static cp_time_t m_clock = { 1992, 3, 1, 9, 0, 0, 0 };
+typedef struct m_dirent { const char *dir; const char *name; uint8_t attr; uint16_t time, date; uint32_t size; } m_dirent_t;
+static const m_dirent_t *m_dirents;
+static int m_ndirents;
+static int32_t m_free = TBX_ERR_DOS(0x0F);
+static int m_find_calls;
 int32_t tbx_trap(uint32_t c, uint32_t n, const uint32_t *a) { (void)c; (void)n; (void)a; return TBX_ERR_BADCODE; }
+int32_t tbx_get_clock(void *t) { memcpy(t, &m_clock, sizeof m_clock); return TBX_OK; }
+int32_t tbx_file_find(const char *pat, uint32_t attr, void *recs, uint32_t max)
+{
+    size_t L = strlen(pat);
+    uint32_t k = 0;
+    m_find_calls++;
+    if (L < 3 || strcmp(pat + L - 3, "*.*") || attr != 0x16u) return TBX_ERR_BADARG;
+    for (int i = 0; i < m_ndirents; i++) {
+        const m_dirent_t *e = &m_dirents[i];
+        uint8_t *r = (uint8_t *)recs + k * TBX_FIND_REC_BYTES;
+        if (strlen(e->dir) != L - 3 || strncmp(e->dir, pat, L - 3)) continue;
+        if (k == max) break;
+        memset(r, 0, TBX_FIND_REC_BYTES);
+        r[0] = e->attr; r[1] = (uint8_t)e->time; r[2] = (uint8_t)(e->time >> 8);
+        r[3] = (uint8_t)e->date; r[4] = (uint8_t)(e->date >> 8);
+        r[5] = (uint8_t)e->size; r[6] = (uint8_t)(e->size >> 8); r[7] = (uint8_t)(e->size >> 16); r[8] = (uint8_t)(e->size >> 24);
+        strncpy((char *)r + 9, e->name, 12);
+        k++;
+    }
+    return k ? (int32_t)k : (L == 3 ? 0 : TBX_ERR_DOS(3));
+}
+int32_t tbx_disk_free(void) { return m_free; }
 
 int32_t tbx_draw_cells(int32_t w, int32_t x, int32_t y, const char *s, uint32_t f, uint32_t b)
 {
@@ -137,7 +168,7 @@ static void host_name(const char *path, char *out)
     char *o;
     snprintf(out, 300, "%s/", m_dir);
     o = out + strlen(out);
-    for (const char *p = path; *p; p++) *o++ = *p;   /* the app hands UPPER names */
+    for (const char *p = path; *p; p++) *o++ = *p == '\\' ? '/' : *p;   /* UPPER names; DIR\NAME */
     *o = 0;
 }
 static int32_t new_handle(FILE *f)

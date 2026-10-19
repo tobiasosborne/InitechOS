@@ -85,6 +85,7 @@
 #include "menu.h"            /* MenuBar/MenuInfo/MenuItem + the Sec 5 layout   */
 #include "tbxmenu.h"         /* the menu route + the flat FlairEvent copy      */
 #include "tbxfile.h"         /* DOS adapter; spec Sec 10, initech-tdnl.91     */
+#include "find_data.h"       /* the 43-byte DTA; spec Sec 10a, initech-qvgd   */
 #include "scrap.h"           /* the shell's desk scrap; spec Sec 12 (tdnl.16) */
 #include "dialog.h"
 #include "cp_dialog.h"
@@ -1029,6 +1030,64 @@ static int32_t v_global_to_local(const uint32_t *a)
     return (int32_t)(((uint32_t)(uint16_t)(int16_t)v << 16) | (uint32_t)(uint16_t)(int16_t)h);
 }
 
+/* One INT 21h call under the tenant's shadow PSP with the root CWD (the
+ * tbxf_call discipline, spec Sec 10); the caller reads the whole frame. */
+static void tenant_dos(int_frame_t *f)
+{
+    psp_t *saved = int21_get_psp();
+    int21_cwd_snapshot_t cwd = int21_cwd_save();
+    int21_set_psp(&g_slot.files); int21_cwd_reset();
+    int21_dispatch(f);
+    int21_set_psp(saved); int21_cwd_restore(&cwd);
+}
+
+/* TBX_FILE_FIND / TBX_DISK_FREE (spec Sec 10a; bead initech-qvgd): the List
+ * Files screen's directory and its "Free:" figure (WordPerfect 5.1, mint 005).
+ * The whole FINDFIRST/FINDNEXT walk runs inside one gate call (a tenant runs
+ * to its RETURN, ADR-0013 Sec 3.4), into a kernel DTA that replaces the
+ * kernel's own for the call only. */
+static find_data_t g_fd_dta;
+static char        g_fd_pat[TBX_FILE_PATH_MAX];
+static int32_t v_file_find(const uint32_t *a)
+{
+    int_frame_t f;
+    uint32_t n = 0u, old, i;
+    const char *p = (const char *)(uintptr_t)a[0];
+    if (!tbxf_path(img_lo(), img_len(), a[0]) || a[1] > 0xFFu || a[3] > TBX_FIND_MAX_RECS ||
+        !tbxf_span(img_lo(), img_len(), a[2], a[3] * TBX_FIND_REC_BYTES))
+        return TBX_ERR_BADARG;
+    for (i = 0u; p[i]; i++) g_fd_pat[i] = p[i];
+    g_fd_pat[i] = 0;
+    old = int21_swap_dta((uint32_t)(uintptr_t)&g_fd_dta);
+    tbx_zero(&f, (uint32_t)sizeof f);
+    f.eax = 0x4E00u; f.ecx = a[1]; f.edx = (uint32_t)(uintptr_t)g_fd_pat;
+    tenant_dos(&f);
+    while (!(f.eflags & 1u)) {
+        if (n < a[3]) {
+            const uint8_t *src = (const uint8_t *)&g_fd_dta + TBX_FIND_REC_DTA_OFF;
+            uint8_t *dst = (uint8_t *)(uintptr_t)(a[2] + n * TBX_FIND_REC_BYTES);
+            for (i = 0u; i < TBX_FIND_REC_BYTES; i++) dst[i] = src[i];
+            n++;
+        }
+        tbx_zero(&f, (uint32_t)sizeof f);
+        f.eax = 0x4F00u;
+        tenant_dos(&f);
+    }
+    (void)int21_swap_dta(old);
+    if (n == 0u && (f.eax & 0xFFFFu) != 0x12u && (f.eax & 0xFFFFu) != 0x02u)
+        return TBX_ERR_DOS(f.eax & 0xFFFFu);
+    return (int32_t)n;
+}
+static int32_t v_disk_free(void)
+{
+    int_frame_t f;
+    tbx_zero(&f, (uint32_t)sizeof f);
+    f.eax = 0x3600u;                      /* DL 0: the default (data) drive */
+    tenant_dos(&f);
+    if ((f.eax & 0xFFFFu) == 0xFFFFu) return TBX_ERR_DOS(0x0Fu);
+    return (int32_t)((f.eax & 0xFFFFu) * (f.ebx & 0xFFFFu) * (f.ecx & 0xFFFFu));
+}
+
 /* TBX_FILECOPY (spec Sec 12; initech-bf2): validate + copy now, run the
  * FILE COPY box when the tenant returns (the TBX_ALERT shape). */
 static int fc_path_copy(char *dst, uint32_t p)
@@ -1121,6 +1180,8 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         { (uint8_t)TBX_FILE_SEEK, (uint8_t)(TBX_ARGC_FILE_SEEK) },
         { (uint8_t)TBX_FILE_CLOSE, (uint8_t)(TBX_ARGC_FILE_CLOSE) },
         { (uint8_t)TBX_FILE_DELETE, (uint8_t)(TBX_ARGC_FILE_DELETE) },
+        { (uint8_t)TBX_FILE_FIND, (uint8_t)(TBX_ARGC_FILE_FIND) },
+        { (uint8_t)TBX_DISK_FREE, (uint8_t)(TBX_ARGC_DISK_FREE) },
         { (uint8_t)TBX_ALERT, (uint8_t)(TBX_ARGC_ALERT) },
         { (uint8_t)TBX_SCRAP_PUT, (uint8_t)(TBX_ARGC_SCRAP_PUT) },
         { (uint8_t)TBX_SCRAP_GET, (uint8_t)(TBX_ARGC_SCRAP_GET) },
@@ -1181,6 +1242,11 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         case TBX_GETSCROLL: rc = v_getscroll(a);   break;
         case TBX_GLOBALTOLOCAL: rc = v_global_to_local(a); break;
         case TBX_FILECOPY:  rc = v_filecopy(a);    break;
+        case TBX_FILE_FIND:
+        case TBX_DISK_FREE:
+            rc = g_slot.app == 0 || g_slot.exit_req || g_slot.crashed || g_slot.torn_down
+                ? TBX_ERR_NOTREG : ax == TBX_FILE_FIND ? v_file_find(a) : v_disk_free();
+            break;
         case TBX_FILE_CREATE: case TBX_FILE_OPEN: case TBX_FILE_READ:
         case TBX_FILE_WRITE: case TBX_FILE_SEEK: case TBX_FILE_CLOSE:
         case TBX_FILE_DELETE:
@@ -1212,6 +1278,13 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         } else tputs("?");
         if (ax == TBX_FILE_OPEN) trace_int(" mode=", a[1]);
         break;
+    case TBX_FILE_FIND:
+        tputs(" path=");
+        if (g_slot.block != 0 && tbxf_path(g_slot.plan.load_base,
+                      g_slot.plan.block_len - TBX_TENANT_PSP_BYTES, a[0])) {
+            tputs("\""); tputs((const char *)(uintptr_t)a[0]); tputs("\"");
+        } else tputs("?");
+        trace_int(" attr=", a[1]); trace_int(" max=", a[3]); break;
     default: {
         /* Size round 6 (WL-0162): the plain verbs' trace fields as data --
          * each field is a control byte (1..6 = a[0..5] as an integer,

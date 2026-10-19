@@ -75,6 +75,8 @@ int21_cwd_snapshot_t int21_cwd_save(void)
 void int21_cwd_restore(const int21_cwd_snapshot_t *s) { (void)s; unreached("int21_cwd_restore"); }
 void int21_dispatch(int_frame_t *frame) { (void)frame; unreached("int21_dispatch"); }
 struct psp *int21_get_psp(void) { unreached("int21_get_psp"); return NULL; }
+/* initech-qvgd: TBX_FILE_FIND's DTA swap (spec Sec 10a); never reached here */
+uint32_t int21_swap_dta(uint32_t dta) { (void)dta; unreached("int21_swap_dta"); return 0; }
 void int21_set_psp(struct psp *psp) { (void)psp; unreached("int21_set_psp"); }
 int int21_mcb_usage(uint32_t *total, uint32_t *free_, uint32_t *largest)
 { (void)total; (void)free_; (void)largest; unreached("int21_mcb_usage"); return 0; }

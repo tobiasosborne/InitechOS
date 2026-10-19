@@ -432,4 +432,33 @@ const uint8_t *iw_wp5_default_prefix(uint32_t *len);
  * most cap bytes). */
 uint32_t iw_wp5_text(const iw_doc_t *d, char *out, uint32_t cap);
 
+/* ---- List Files (os/iword/core/listfiles.c; bead initech-qvgd) -----------
+ * Rows composed at WordPerfect's 80 columns (spec/iword/listfiles.h, mint
+ * 005), then fitted to the face by deleting the locked blank columns. */
+typedef struct iw_lf_ent {
+    char     name[13];               /* "NAME.EXT" as FINDFIRST gives it  */
+    uint8_t  attr;
+    uint16_t time, date;             /* DOS packed                        */
+    uint32_t size;
+} iw_lf_ent_t;
+typedef struct iw_lf_clock { uint32_t year, month, day, hour, minute; } iw_lf_clock_t;
+void     iw_lf_blank(char *row);                       /* 80 blanks + NUL  */
+uint32_t iw_lf_group(uint32_t v, char *out);           /* "1,315,328"      */
+void     iw_lf_put_date(char *at, uint32_t year, uint32_t month, uint32_t day);
+void     iw_lf_put_time(char *at, uint32_t hour, uint32_t minute);
+void     iw_lf_rec(const uint8_t *rec, iw_lf_ent_t *e);
+/* records -> the entries in WP's order without "." / ".."; the files' byte
+ * total and count (the header's Used / Files) */
+uint32_t iw_lf_load(const uint8_t *recs, uint32_t nrec, iw_lf_ent_t *out, uint32_t cap,
+                    uint32_t *used, uint32_t *files);
+void     iw_lf_row_header0(char *row, const iw_lf_clock_t *c, const char *pattern);
+void     iw_lf_row_header1(char *row, uint32_t docsize, uint32_t free_bytes, uint32_t used, uint32_t files);
+void     iw_lf_row_list(char *row, const iw_lf_ent_t *ents, uint32_t nents, uint32_t list_row);
+void     iw_lf_row_prompt(char *row, const char *path, int hint);
+void     iw_lf_row_look(char *row, const char *path, int wp51, uint16_t date, uint16_t time);
+/* row (80 cells) minus the columns `del` names, cut / padded to `width` */
+uint32_t iw_lf_fit(const char *row, const uint8_t *del, uint32_t ndel, char *out, uint32_t width);
+/* the face column of WP column wp_col (not itself deleted) */
+uint32_t iw_lf_face_col(uint32_t wp_col, const uint8_t *del, uint32_t ndel);
+
 #endif /* INITECH_IWORD_H */
