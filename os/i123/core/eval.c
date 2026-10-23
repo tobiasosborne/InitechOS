@@ -44,7 +44,7 @@
 #include "i123/wk1_format.h"
 #include "i123/wk1_formula.h"
 
-extern const wkf_token_t i123_tokens[WKF_NTOKENS];
+extern const i123_token_t i123_tokens[WKF_NTOKENS];
 
 /* ---- x87 primitives (inline asm: the same instructions on the i386 tenant
  * and the x86-64 host oracle) ---------------------------------------------- */
@@ -823,7 +823,7 @@ static void fn_lookup(const ev_t *e, int vertical, const i123_val_t *a, i123_val
 /* ---- @CELL / @CELLPOINTER ([M] p. 13-17..13-19 (PDF 305-307)) ------------------ */
 static void fn_cell(const ev_t *e, const i123_val_t *attr, uint16_t c, uint16_t r, i123_val_t *out)
 {
-    static const char *const ATTR[] = { "address", "col", "contents", "filename", "format",
+    static const char ATTR[10][9] = { "address", "col", "contents", "filename", "format",
                                         "prefix", "protect", "row", "type", "width" };
     const i123_cell_t *cell = i123_find(e->sh, c, r);
     int which = -1;
@@ -860,7 +860,7 @@ static void fn_cell(const ev_t *e, const i123_val_t *attr, uint16_t c, uint16_t 
             ty = WK1_FMT_TYPE(f); d = WK1_FMT_LOW(f);
         }
         if (ty == WK1_FT_SPECIAL) {
-            static const char *const SP[] = { "+", "G", "D1", "D2", "D3", "T", "H", "D4", "D5",
+            static const char SP[13][3] = { "+", "G", "D1", "D2", "D3", "T", "H", "D4", "D5",
                                               "D6", "D7", "D8", "D9" };
             const char *p = d < 13u ? SP[d] : "G";
             while (*p) buf[n++] = (uint8_t)*p++;
@@ -1423,7 +1423,7 @@ int i123_eval(i123_calc_t *cx, const i123_sheet_t *sh, uint16_t col, uint16_t ro
 
     while (i < len) {
         uint8_t t = code[i];
-        const wkf_token_t *tk = &i123_tokens[t];
+        const i123_token_t *tk = &i123_tokens[t];
         uint32_t n = i123_token_size(code, len, i);
         if (t == WKF_RETURN) break;
         if (sp >= I123_EVAL_STACK - 1u) return I123_E_FULL;

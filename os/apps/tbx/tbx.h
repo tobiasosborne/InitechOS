@@ -177,7 +177,19 @@ int32_t tbx_global_to_local(int32_t win, int32_t h, int32_t v);
  * TBX_EVT_FILECOPY event (Message = bytes copied, or a negative error). */
 int32_t tbx_file_copy(const char *caption, const char *src, const char *dst);
 
-/* The raw trap: AX = code, `argc` dwords pushed cdecl (args[0] lowest). */
-int32_t tbx_trap(uint32_t code, uint32_t argc, const uint32_t *args);
+/* The raw trap: AX = code, `argc` dwords pushed cdecl (args[0] lowest).
+ * tbx_rt.c's asm reads its three arguments from the stack and returns with a
+ * plain RET, so the declaration pins cdecl (caller pops) and regparm(0) (no
+ * register arguments) explicitly: a tenant built with the register/callee-
+ * pops convention (123.EXE: -mregparm=3 -mrtd, bead initech-f5wr) still calls
+ * it cdecl. Both are the i386 defaults, so a default-ABI tenant compiles to
+ * the same bytes; the x86-64 host mocks (test-i123-quit, test-itext-route)
+ * see no attribute. */
+#if defined(__i386__)
+#define TBX_TRAP_ABI __attribute__((cdecl, regparm(0)))
+#else
+#define TBX_TRAP_ABI
+#endif
+TBX_TRAP_ABI int32_t tbx_trap(uint32_t code, uint32_t argc, const uint32_t *args);
 
 #endif /* INITECH_APPS_TBX_H */

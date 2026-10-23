@@ -55,7 +55,26 @@
 #include "i123/wk1_format.h"
 #include "i123/wk1_formula.h"
 
-const wkf_token_t i123_tokens[WKF_NTOKENS] = WKF_TOKENS_INIT;
+/* The token table of spec/i123/wk1_formula.h Sec 4 (WKF_TOKENS_INIT, the
+ * locked rows, unchanged) STORED with each name inline (i123_token_t, i123.h)
+ * instead of through wkf_token_t's name pointer: the same rows and fields,
+ * but no pointer per row, i.e. no InitechMZ relocation site per row in
+ * 123.EXE (114 of them; bead initech-f5wr, the 64 KiB TBX_TENANT_IMAGE_MAX
+ * cap). An unassigned row (7, 25..30, 114: { 0, WKF_K_NONE, 0, 0, 0,
+ * WKF_EV_NONE }) then initializes name[0..5] with those zeros by brace
+ * elision -- an all-zero row, i.e. exactly cls WKF_K_NONE, ev WKF_EV_NONE and
+ * an empty name (the first assert pins the zeros); every reader keys on cls
+ * or tests name[0]. I123_TOKEN_NAME holds the longest locked name,
+ * "@CELLPOINTER", with its NUL (the second assert); a name of 14+ characters
+ * would not compile (-Werror), one of exactly 13 would lose its NUL, so a
+ * longer name in the locked table must grow I123_TOKEN_NAME with it. */
+_Static_assert(WKF_K_NONE == 0u && WKF_EV_NONE == 0u, "unassigned rows zero");
+_Static_assert(sizeof "@CELLPOINTER" == I123_TOKEN_NAME, "longest token name + NUL");
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-braces"
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+const i123_token_t i123_tokens[WKF_NTOKENS] = WKF_TOKENS_INIT;
+#pragma GCC diagnostic pop
 
 /* ---- small helpers -------------------------------------------------------- */
 static uint16_t rd16(const uint8_t *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
@@ -140,7 +159,7 @@ int i123_formula_check(const uint8_t *code, uint32_t len)
     while (i < len) {
         uint32_t n = i123_token_size(code, len, i);
         uint8_t t = code[i];
-        const wkf_token_t *tk;
+        const i123_token_t *tk;
         if (n == 0u) return I123_E_FORMAT;
         tk = &i123_tokens[t];
         if (t == WKF_RETURN) {
@@ -313,7 +332,7 @@ static int fn_lookup(const char *s, uint32_t n)
     for (uint32_t t = WKF_FIRST_FN; t <= WKF_LAST_FN; t++) {
         const char *nm = i123_tokens[t].name;
         uint32_t k = 0;
-        if (nm == (const char *)0) continue;
+        if (nm[0] == '\0') continue;
         while (k < n && nm[k] != '\0' && up(s[k]) == nm[k]) k++;
         if (k == n && nm[k] == '\0') return (int)t;
     }
@@ -324,7 +343,7 @@ static void parse_function(cc_t *c)
 {
     uint32_t st = c->p, n;
     int t;
-    const wkf_token_t *tk;
+    const i123_token_t *tk;
     uint32_t argc = 0;
 
     c->p++;                                  /* '@' */
@@ -634,7 +653,7 @@ void i123_number_text(double x, char *out, uint32_t cap)
 static int node_prec(const dc_t *d, int k)
 {
     uint8_t t = d->code[d->nd[k].at];
-    const wkf_token_t *tk = &i123_tokens[t];
+    const i123_token_t *tk = &i123_tokens[t];
     if (tk->cls == WKF_K_UNARY || tk->cls == WKF_K_BINARY) return tk->prec;
     return 0;   /* operands, functions, groups bind tightest */
 }
@@ -654,7 +673,7 @@ static void print_node(dc_t *d, int k)
 {
     uint32_t at = d->nd[k].at;
     uint8_t t = d->code[at];
-    const wkf_token_t *tk = &i123_tokens[t];
+    const i123_token_t *tk = &i123_tokens[t];
     int kid = d->nd[k].kid;
 
     if (d->err) return;
@@ -742,7 +761,7 @@ int i123_formula_text(const uint8_t *code, uint32_t len, uint16_t col, uint16_t 
 
     while (i < len && code[i] != WKF_RETURN) {
         uint8_t t = code[i];
-        const wkf_token_t *tk = &i123_tokens[t];
+        const i123_token_t *tk = &i123_tokens[t];
         uint32_t take = 0;
         int16_t me;
         if (d.nn >= DN_MAX) return I123_E_SPACE;

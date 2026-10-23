@@ -279,7 +279,7 @@ static void fixed_family(double x, uint32_t type, uint32_t decs, uint32_t width,
 }
 
 /* ---- dates (1900 day serial, 1900 a leap year as 1-2-3 counts it) ----------- */
-static const char *const MON[12] = {
+static const char MON[12][4] = {
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
