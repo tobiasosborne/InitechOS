@@ -1,0 +1,727 @@
+[
+  {
+    "id": "L001",
+    "area": "Film boot",
+    "severity": "P1",
+    "title": "The required standalone film boot panics",
+    "steps": "Boot a copy of flair_live_interactive.img alone, -cpu 486 -m 16 -display none. Move to (470,228), wait 15 seconds, press Return, drag (320,210) by (100,100), Escape, Ctrl-Q, and try the upper Special menu. Session film.",
+    "observed": "The initial screen says PC LOAD LETTER (FLAIR heap exhausted). Serial records FAT mount failure, PANIC ... film CALC.EXE launch, then HALTED. None of those inputs changes it. Adding flair_data.img in the independent filmdata session permits boot.",
+    "expected": "BRIEF.md explicitly requires this image alone. A missing secondary disk must not panic a supplied demonstration image; explain the dependency or include its assets. The deliberate panic wording is not the defect.",
+    "evidence": [
+      "shots/180-film-rest.png",
+      "shots/185-film-panic-unresponsive.png",
+      "shots/186-film-data-rest.png",
+      "evidence/film-serial.log",
+      "evidence/filmdata-serial.log"
+    ],
+    "guess": "Guess: os/milton/kmain.c:7086 routes failed film CALC launch through flair_desktop_oom even after the data mount failed."
+  },
+  {
+    "id": "L002",
+    "area": "Scrapbook / DOS boundary",
+    "severity": "P1",
+    "title": "Copy can terminate the desktop through DOS Ctrl-C",
+    "steps": "Boot tenants with images/main-data.img (one saved Scrapbook clip). Apple menu: drag (20,10) to (90,97). Wait for the clip, press Ctrl-C, wait two seconds. Then try Ctrl-V, Escape and a title drag (320,90) by (60,40). Sessions scraplimit and independent copybreak.",
+    "observed": "Immediately after Copy, ^C and Program terminated. overwrite the upper left of the GUI. Serial records the successful Copy menu dispatch and Scrap put, then INT23-BREAK and INT21-EXIT rc=0. The title drag and subsequent keys do not work. The failure already exists before Paste in the isolated replay.",
+    "expected": "Copy must populate the clipboard while leaving the desktop usable. Macintosh System Software User's Guide, printed pp.125,152 (PDF pp.145,172), describes accessories operating alongside documents and copying clips. This is a crash/hang, not an intentional DOS prompt break.",
+    "evidence": [
+      "shots/262-copybreak-before.png",
+      "shots/263-copybreak-after-copy.png",
+      "shots/265-copybreak-unresponsive.png",
+      "evidence/copybreak-serial.log",
+      "evidence/scraplimit-serial.log"
+    ],
+    "guess": "Guess: a GUI Ctrl-C reaches the pending DOS break path; os/milton/int21.c:5319-5343 prints ^C and terminates the current PSP."
+  },
+  {
+    "id": "L003",
+    "area": "InitechText save",
+    "severity": "P1",
+    "title": "A failed full-disk replacement destroys the original file",
+    "steps": "Use evidence/prepare.py's full-data.img, zero free bytes, KEEP.TXT containing 750 bytes. Launch TEXT, Ctrl-O, Down seven times, Return to load K4.TXT (4096 bytes). File > Save As at (50,30)->(100,121); Backspace six times, type KEEP.TXT, Return. Cancel replacement once, then Return twice to accept it. Session fulltest.",
+    "observed": "The editor says the document could not be saved. The stopped image contains KEEP.TXT with length zero; all 750 original bytes are gone. K4.TXT remains 4096 bytes. Cancellation before the second attempt returned to the chooser.",
+    "expected": "Ordinary safe-save expectation: an unsuccessful replacement must retain the old file, or a recoverable backup. Reporting failure does not justify truncating the original.",
+    "evidence": [
+      "shots/122-full-replace-prompt.png",
+      "shots/123-full-replace-cancel.png",
+      "shots/124-full-write-failed.png",
+      "evidence/full-before.txt",
+      "evidence/extracted-full/comparison.json",
+      "evidence/extracted-full/KEEP.TXT",
+      "evidence/fixtures/KEEP.TXT",
+      "evidence/fulltest-serial.log"
+    ],
+    "guess": "Guess: os/apps/itext/itext.c:329 creates/truncates the target before the write is known to fit."
+  },
+  {
+    "id": "L004",
+    "area": "TPS output",
+    "severity": "P1",
+    "title": "TPS reports success for a truncated report on a full disk",
+    "steps": "Boot tracer_boot.img with tps-full-source.img from prepare_full_tps.py. CD APPS; TPSREP TPS.DBF; seven spaces and Return; 004417 twice; 88-114; Y. Session tpsfull.",
+    "observed": "The full report is shown on screen, followed by TPS REPORT WRITTEN TO TPSREPT.TXT and RETURN CODE 0. Extraction finds only 512 bytes of TPSREPT.TXT, ending within the cover sheet; the normal example is 2432 bytes. The previous TXT was retained as BAK.",
+    "expected": "Shipped manual pubs/manuals/tps-report-generator/s1-reference.tex:184 defines return code 0 as \"The report was written\". A short or failed write must be an error and must not claim a complete report.",
+    "evidence": [
+      "shots/161-tps-full-result.png",
+      "evidence/tpsfull-serial.log",
+      "evidence/tps-full-before.txt",
+      "evidence/extracted-tps-full/TPSREPT.TXT",
+      "evidence/extracted-tps/comparison.json"
+    ],
+    "guess": "Guess: os/milton/tpsrep_program.asm:822-831 discards the return status of FCB AH=15h in wrrec."
+  },
+  {
+    "id": "L005",
+    "area": "InitechText line endings",
+    "severity": "P1",
+    "title": "LF-only blank lines disappear and are lost on Save",
+    "steps": "Boot fixture-data.img; launch TEXT. Ctrl-O, Down four times, Return opens LF.TXT containing bytes ONE\\n\\nTHREE\\n. Press Ctrl-S; stop and extract. Control: open CRLF.TXT with Down five times and save it. Session text.",
+    "observed": "LF.TXT displays ONE immediately above THREE. Saved bytes are ONE\\rTHREE\\r (10 bytes), losing the empty line. CRLF input retains its blank line and is correctly normalized to CR (11 bytes).",
+    "expected": "A plain-text editor must preserve the number of lines when normalizing line endings. This follows ordinary text-file fidelity and the editor's documented CR/LF normalization in os/apps/itext/itext.c:33-38.",
+    "evidence": [
+      "shots/076-text-lf.png",
+      "shots/077-text-crlf.png",
+      "evidence/extracted-text/comparison.json",
+      "evidence/fixtures/LF.TXT",
+      "evidence/extracted-text/LF.TXT",
+      "evidence/text-serial.log"
+    ],
+    "guess": "Guess: os/apps/itext/itext.c:308 checks the already-normalized output byte for CR, so a second LF is mistaken for the LF half of CRLF."
+  },
+  {
+    "id": "L006",
+    "area": "InitechCalc save",
+    "severity": "P1",
+    "title": "Save does not save the editable worksheet",
+    "steps": "Launch CALC.EXE at (150,172) in APPS. Type 123, press Down to commit into A1. Ctrl-S; wait six seconds for FILE COPY to finish; Ctrl-Q; relaunch. Session apps.",
+    "observed": "A1 visibly changes from Film Costs to 123. Save finishes successfully, but reopening restores Film Costs. Extracted APPS/TABLES.TXT is byte-for-byte the shipped LEDGER.TXT and contains no 123 edit.",
+    "expected": "An enabled Save in an editable document must preserve its current content. This is an ordinary document contract; the film's caption and deliberately odd numbers do not exempt editable values from persistence.",
+    "evidence": [
+      "shots/102-ledger-committed.png",
+      "shots/104-ledger-save-finished.png",
+      "shots/106-ledger-reopened.png",
+      "evidence/extracted-apps/TABLES.TXT",
+      "evidence/extracted-apps/LEDGER.TXT",
+      "evidence/apps-serial.log"
+    ],
+    "guess": "Guess: os/apps/calc/calc.c:171-175 copies the fixed source path and ignores the in-memory sheet."
+  },
+  {
+    "id": "L007",
+    "area": "InitechCalc quit",
+    "severity": "P1",
+    "title": "Quit discards worksheet edits without an unsaved-work prompt",
+    "steps": "In filmdata dismiss the staged modal with Escape; activate the ledger at (100,90), type 77 and press Down. Ctrl-Q. The same Quit path is available in disk-launched CALC.",
+    "observed": "The edited 77 cell is visible; Ctrl-Q removes both ledger and chart without Save / Cancel / Don't Save. No file dialog or warning appears.",
+    "expected": "My period document-application expectation: guard unsaved edits, as InitechText itself does. This is separate from L006: quitting without first asking for Save also loses edits.",
+    "evidence": [
+      "shots/190-film-ledger-edit.png",
+      "shots/193-film-quit.png",
+      "evidence/filmdata-serial.log"
+    ],
+    "guess": "Guess: os/apps/calc/calc.c:170 exits directly on Quit or GOAWAY, with no dirty state."
+  },
+  {
+    "id": "L008",
+    "area": "Note Pad persistence",
+    "severity": "P1",
+    "title": "A bad checksum silently becomes empty pages and overwrites recoverable notes",
+    "steps": "Prepare corrupt-da-source.img by copying main-data.img and flipping only byte 12 of NOTEPAD.DAT (checksum); all page bytes remain intact. Launch Note Pad through Apple (20,10)->(90,81), close with Ctrl-W, reopen. Session dalife; fixture bytes retained.",
+    "observed": "It opens as empty page 1 of 8, without an alert. Serial alone says DA-CORRUPT ... empty pages. Closing saves empty pages; reopening loads that replacement. The prior First line, Page two sentinel and Last page payloads are lost. Later the new SHUTDOWN SENTINEL is saved in page 1.",
+    "expected": "Ordinary recovery expectation: warn about unreadable storage and preserve it before replacing it. A one-byte checksum error must not silently destroy otherwise recoverable page content.",
+    "evidence": [
+      "shots/233-note-corrupt-open.png",
+      "shots/235-note-corrupt-reopened.png",
+      "evidence/dalife-serial.log",
+      "evidence/fixtures/CORRUPT.DAT",
+      "evidence/extracted-main/decoded.json",
+      "evidence/extracted-dalife/NOTEPAD.DAT",
+      "evidence/extracted-dalife/comparison.json"
+    ],
+    "guess": "Guess: os/apps/notepad/notepad.c:116-118 retains defaults after validation fails; :146 and close_app later recreate the same path unconditionally."
+  },
+  {
+    "id": "L009",
+    "area": "InitechCalc file copy",
+    "severity": "P1",
+    "title": "Save replaces an existing TABLES.TXT without identifying it or asking",
+    "steps": "Boot copy-hundred-source.img, containing an existing APPS/TABLES.TXT with ORIGINAL TABLES MUST SURVIVE FAILED COPY and a 1000-line LEDGER.TXT. Launch CALC and Ctrl-S. Session copy-hundred.",
+    "observed": "Only the Saving tables to disk... progress box appears. There is no destination or replacement confirmation. TABLES.TXT becomes the 17000-byte ledger; the original 42 bytes are gone.",
+    "expected": "BRIEF.md explicitly requires that the report/ledger workflow not overwrite data without saying so. A destination different from the edited worksheet must be identified and existing unrelated content protected.",
+    "evidence": [
+      "shots/172-copy-hundred-start.png",
+      "shots/173-copy-hundred-end.png",
+      "evidence/copy-fixtures/old-table.txt",
+      "evidence/extracted-copy/hundred-TABLES.TXT",
+      "evidence/extracted-copy/summary.json",
+      "evidence/copy-hundred-serial.log"
+    ],
+    "guess": "Guess: os/flair/tbxgate.c:1755-1768 opens the fixed destination with create/truncate and has no replacement question."
+  },
+  {
+    "id": "L010",
+    "area": "InitechText keyboard",
+    "severity": "P2",
+    "title": "Shift-arrow moves the caret instead of extending a selection",
+    "steps": "Type First line, Return, Second line, Return, Third line. Press Shift-Left twice. Repeat on the end of Note Pad's LAST text. Sessions main and text.",
+    "observed": "The caret moves two positions but no text is selected. Note Pad behaves the same way. Ctrl-A is a distinct working path.",
+    "expected": "My period Macintosh text-editing expectation: Shift-arrow extends a selection. The brief explicitly requests this interaction.",
+    "evidence": [
+      "shots/025-text-typed.png",
+      "shots/026-text-shift-select.png",
+      "shots/097-note-long.png",
+      "shots/098-note-shift.png",
+      "evidence/main-serial.log",
+      "evidence/text-serial.log"
+    ],
+    "guess": "Guess: os/apps/itext/itext.c key() passes arrow codes without using the Shift modifier; Note Pad uses the same pattern."
+  },
+  {
+    "id": "L011",
+    "area": "InitechText editing",
+    "severity": "P2",
+    "title": "Undo cannot recover a cut",
+    "steps": "Type the three-line document, Ctrl-A, Ctrl-C, Ctrl-X, then Ctrl-Z. Session main.",
+    "observed": "The document remains empty after Ctrl-Z; Paste restores it. The command has no undo effect.",
+    "expected": "Named reference: goldens/captures/s8_simpletext_editmenu.png, copied to evidence/references, shows the period Undo command. Ordinary text editing requires recovering an accidental destructive edit.",
+    "evidence": [
+      "shots/027-text-cut-undo.png",
+      "shots/028-text-save-dialog.png",
+      "evidence/references/s8_simpletext_editmenu.png",
+      "evidence/main-serial.log"
+    ],
+    "guess": "Guess: os/apps/itext/itext.c declares Undo disabled and implements no undo action."
+  },
+  {
+    "id": "L012",
+    "area": "InitechText geometry",
+    "severity": "P2",
+    "title": "Resizing does not rewrap text or make clipped text reachable",
+    "steps": "Open fixture WRAP.TXT (Ctrl-O, Down ten, Return). Drag grow box (576,466) by (-250,-220). Session text.",
+    "observed": "The original long wrapped lines remain at their original width and are clipped at x=317. The right halves of lines are invisible, while the horizontal scrollbar remains disabled-looking. The smaller window has room for more wrapped lines but does not reflow them.",
+    "expected": "Named reference: system7-decomp/specs/toolbox/textedit.md describes destination/view rectangles and layout. My GUI expectation is reflow or functional horizontal scrolling when the user changes document width.",
+    "evidence": [
+      "shots/083-text-wrap-original.png",
+      "shots/087-text-wrap-shrunk.png",
+      "shots/088-text-caret-offscreen.png",
+      "evidence/text-serial.log"
+    ],
+    "guess": "Guess: os/apps/itext/itext.c uses compile-time CONT_W/CONT_H/WRAP_W rather than current window geometry."
+  },
+  {
+    "id": "L013",
+    "area": "InitechText repaint",
+    "severity": "P2",
+    "title": "Scrolling during typing skips a visible line until a full repaint",
+    "steps": "Open LINES25.TXT (Down eleven in Open), Ctrl-A, Right, Return, type LAST slowly. Capture, then drag title (300,54) by (30,0) and back. Session text.",
+    "observed": "Before the drag the visible sequence jumps from Line 23 to Line 25. After repaint Line 24 reappears in between; the document itself was not changed by moving the window.",
+    "expected": "A scrolled editor must paint every visible line at the right offset. This is ordinary rendering correctness, not a claim of lost file bytes.",
+    "evidence": [
+      "shots/093-text-scroll-before-refresh.png",
+      "shots/094-text-scroll-after-refresh.png",
+      "evidence/fixtures/LINES25.TXT",
+      "evidence/text-serial.log"
+    ],
+    "guess": "Guess: itext.c show_caret() changes g_scroll before comparing the old scroll value, allowing a partial rather than full repaint."
+  },
+  {
+    "id": "L014",
+    "area": "InitechText capacity",
+    "severity": "P2",
+    "title": "Typing at the 4096-byte limit is silently discarded",
+    "steps": "Open K4.TXT (Ctrl-O, Down seven, Return), exactly 4096 bytes. With caret at the start, type ! and Save. Stop and extract. Session text.",
+    "observed": "Nothing is inserted and no full-document alert is shown. The saved file is identical to the original 4096 bytes. 32 KB and 64 KB files, by contrast, get an explicit too-large alert.",
+    "expected": "Ordinary capacity feedback: tell the user that an edit could not be accepted. The brief asks for boundary behavior; the limit itself should also be discoverable.",
+    "evidence": [
+      "shots/081-text-4k.png",
+      "shots/082-text-capacity-silent.png",
+      "shots/079-text-32k.png",
+      "evidence/extracted-text/comparison.json",
+      "evidence/text-serial.log"
+    ],
+    "guess": "Guess: itext.c replace_sel() returns immediately when FlairTECanReplace fails, without calling say()."
+  },
+  {
+    "id": "L015",
+    "area": "InitechText font coverage",
+    "severity": "P2",
+    "title": "Every tested high-bit character is drawn as a box",
+    "steps": "Open EIGHT.TXT (Ctrl-O, Down six, Return), containing ASCII followed by bytes 80h through 9Fh. Save and extract. Session text.",
+    "observed": "The entire 32-character high-bit run renders as identical empty boxes. The bytes survive Save unchanged, so this is rendering loss rather than file-byte corruption.",
+    "expected": "My classic Mac text expectation is a defined MacRoman glyph repertoire including accented letters. These bytes must be decoded and rendered, or the encoding limitation clearly identified.",
+    "evidence": [
+      "shots/078-text-eightbit.png",
+      "evidence/fixtures/EIGHT.TXT",
+      "evidence/extracted-text/comparison.json",
+      "evidence/text-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L016",
+    "area": "Standard File editing",
+    "severity": "P2",
+    "title": "The filename field ignores selection and cursor-editing keys",
+    "steps": "In Text's first Save dialog with UNTITLED, press Ctrl-A and type AUDIT.TXT. Separately try Home, Shift-End and type again. Sessions main, shots 029/035/036.",
+    "observed": "Ctrl-A does not select the name: an A is appended, then the new filename is appended until the field limit. Home and Shift-End do not select or reposition editing. Backspacing the entire existing name is required.",
+    "expected": "Named reference: s8_sf_saveas_default.png shows editable default-name selection; ordinary text-field commands should not insert a printable letter from a command chord.",
+    "evidence": [
+      "shots/029-text-saved.png",
+      "shots/035-save-name.png",
+      "shots/036-save-result.png",
+      "evidence/references/s8_sf_saveas_default.png",
+      "evidence/main-serial.log"
+    ],
+    "guess": "Guess: os/milton/kmain.c:5092-5109 appends printable key bytes without respecting modifiers or a selection/caret."
+  },
+  {
+    "id": "L017",
+    "area": "Standard File validation",
+    "severity": "P2",
+    "title": "An invalid 8.3 name makes Save silently do nothing",
+    "steps": "Reach the filename UNTITLEDAUDI in the prior test (12 letters, no dot). Click Save at (440,292) and press Return. Then clear the field and use valid AUDIT.TXT as control.",
+    "observed": "The invalid-name chooser remains open with an enabled Save button and no error text. The valid name succeeds. The field permits a name which its own confirmation refuses without explanation.",
+    "expected": "Ordinary validation expectation: explain the 8.3 requirement or prevent invalid input visibly. A live default button should not silently ignore confirmation.",
+    "evidence": [
+      "shots/036-save-result.png",
+      "shots/037-save-valid-name.png",
+      "shots/038-saved-quit.png",
+      "evidence/main-serial.log"
+    ],
+    "guess": "Guess: os/milton/kmain.c:5017-5028 and :5140 reject sf_name_ok without an alert or disabled-state update."
+  },
+  {
+    "id": "L018",
+    "area": "InitechCalc keyboard",
+    "severity": "P2",
+    "title": "Return does not commit an entered cell",
+    "steps": "Launch CALC; slowly type 123; press Return; then press Down. Session apps.",
+    "observed": "Return leaves the cell as Film Costs and 123 in the entry area. Down commits 123 into A1. This was slow input, not an unsettled fast-typing screenshot.",
+    "expected": "Ordinary worksheet entry expectation: Return commits the entry. The source itself intends a Return branch, and the brief asks for keyboard behavior.",
+    "evidence": [
+      "shots/101-ledger-return.png",
+      "shots/102-ledger-committed.png",
+      "evidence/apps-serial.log"
+    ],
+    "guess": "Guess: os/apps/calc/calc.c:186 recognizes CR only, while this guest cooks Return to LF (handled explicitly by InitechText)."
+  },
+  {
+    "id": "L019",
+    "area": "InitechCalc error feedback",
+    "severity": "P2",
+    "title": "Save failures caused by configuration or missing input are invisible",
+    "steps": "Run copy-zero, copy-bad, copy-empty, copy-missing and missingledger sessions. Their prepared disks respectively use rate 0, banana, empty MICHAEL.CFG, absent MICHAEL.CFG, and valid config with absent LEDGER.TXT. Launch CALC and Ctrl-S; wait seven seconds.",
+    "observed": "The worksheet stays on screen with no error or notice. Serial says TENANT-FILECOPY-REFUSED (for example -3 or -258). Extracted prior TABLES.TXT remains intact in the config-error cases.",
+    "expected": "A failed Save must give visible failure and identify the affected input or configuration. This is an ordinary named-command contract. Invalid inputs need not be accepted.",
+    "evidence": [
+      "shots/171-copy-zero-end.png",
+      "shots/175-copy-bad-end.png",
+      "shots/177-copy-empty-end.png",
+      "shots/179-copy-missing-end.png",
+      "shots/251-copy-missingledger.png",
+      "evidence/extracted-copy/summary.json",
+      "evidence/copy-zero-serial.log",
+      "evidence/missingledger-serial.log"
+    ],
+    "guess": "Guess: os/apps/calc/calc.c:175 ignores the FILECOPY completion/error event."
+  },
+  {
+    "id": "L020",
+    "area": "InitechCalc file copy",
+    "severity": "P2",
+    "title": "The real copy operation cannot be cancelled from its progress dialog",
+    "steps": "In apps, invoke Ctrl-S a second time and immediately press Escape. Try Ctrl-Q and background clicks while it runs.",
+    "observed": "Escape leaves FILE COPY running. No Cancel button is present. Inputs remain blocked until it completes; serial records a second successful 156-byte copy. This concerns the real copy, not the film's staged saving prop.",
+    "expected": "My period long-operation expectation: a visible Cancel path for a modal copy. BRIEF.md explicitly asks to test Cancel.",
+    "evidence": [
+      "shots/107-ledger-copy-cancel.png",
+      "shots/108-paint.png",
+      "shots/109-paint-draw.png",
+      "evidence/apps-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L021",
+    "area": "Calculator clipboard",
+    "severity": "P2",
+    "title": "Calculator has no usable Copy or Paste",
+    "steps": "Launch CALCULAT, enter a result, pull Edit at (95,30). Session main.",
+    "observed": "Copy and Paste are gray along with every other Edit row. The result cannot be transferred through the expected accessory commands.",
+    "expected": "Named reference: Macintosh System Software User's Guide V6.0, printed p.127 / PDF p.147: \"You can copy the calculation results\" and paste numbers into the display. The inspected page is preserved as a PNG.",
+    "evidence": [
+      "shots/024-calc-edit-settled.png",
+      "evidence/references/mac-calc-147.png",
+      "evidence/main-serial.log"
+    ],
+    "guess": "Guess: os/apps/calcda/calcda.c declares every Edit item disabled."
+  },
+  {
+    "id": "L022",
+    "area": "Calculator lifecycle",
+    "severity": "P2",
+    "title": "An open Calculator silently prevents Shut Down",
+    "steps": "With CALCULAT open, click the disk at (600,64) to make Finder foreground; Special > Shut Down at (195,30)->(215,123). Wait. Session calcdeep.",
+    "observed": "The desktop remains running without an explanatory alert. Serial says FINDER-POWER-CANCEL app=CALCULAT.EXE cannot-ask. Paint, Note Pad and Text provide working shutdown paths in controls.",
+    "expected": "Shut Down should close a calculator with no document to save, or tell the user which accessory must be closed. Source comments at kmain.c:5700 promise cancellation loudly, but the only explanation is serial.",
+    "evidence": [
+      "shots/232-calc-shutdown.png",
+      "evidence/calcdeep-serial.log",
+      "shots/260-paint-shutdown-refusal.png",
+      "shots/243-text-shutdown-completed.png"
+    ],
+    "guess": "Guess: os/milton/kmain.c:5716-5723 relies on tbx_ask_quit; Calculator supplies Close W but no Quit Q or ask-close handler."
+  },
+  {
+    "id": "L023",
+    "area": "InitechPaint tools",
+    "severity": "P2",
+    "title": "The paint application cannot draw",
+    "steps": "Launch PAINT.EXE at (285,172). Drag across the white canvas from (400,220) by (150,100). Inspect the window and all eight menus. Session painttps.",
+    "observed": "The canvas remains blank. There is no toolbox, brush, eraser, fill, selection tool or pattern palette; the corresponding menu commands are all gray.",
+    "expected": "My period paint-program expectation is that a program presented as InitechPaint can create an image. The source calls it a deliberate bar carrier, but BRIEF.md only exempts the stacked bars and specified scene props, not an unusable paint app.",
+    "evidence": [
+      "shots/126-paint-actual.png",
+      "shots/127-paint-draw-actual.png",
+      "shots/129-paint-edit-actual.png",
+      "shots/132-paint-select-actual.png",
+      "shots/134-paint-window-actual.png",
+      "evidence/painttps-serial.log"
+    ],
+    "guess": "Guess: os/apps/paint/paint.c implements only white-fill update and Quit."
+  },
+  {
+    "id": "L024",
+    "area": "InitechPaint files",
+    "severity": "P2",
+    "title": "Paint cannot open an image",
+    "steps": "Launch PAINT and pull File at (20,30) and inspect the Open row. Session painttps.",
+    "observed": "Open is disabled; no image chooser can be reached. New and Close in the same menu are also gray (the window close box does work).",
+    "expected": "My period paint-program expectation: opening an existing picture is a basic file operation. This is separate from the absent drawing tools.",
+    "evidence": [
+      "shots/128-paint-file-actual.png",
+      "evidence/painttps-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L025",
+    "area": "InitechPaint files",
+    "severity": "P2",
+    "title": "Paint provides no image save operation",
+    "steps": "In PAINT pull File and inspect Save. Session painttps.",
+    "observed": "Save is disabled and no save chooser or output is available. The canvas has no persistence route.",
+    "expected": "My period paint-program expectation: preserve an image to disk. This is a distinct missing file operation from Open.",
+    "evidence": [
+      "shots/128-paint-file-actual.png",
+      "evidence/painttps-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L026",
+    "area": "Scrapbook long clips",
+    "severity": "P2",
+    "title": "Long clip text cannot be scrolled with the visible scrollbar",
+    "steps": "Boot text-data.img and open Scrapbook, which holds one 27-line TEXT clip. Click the down arrow at (466,331) three times, then press Down fifteen times. Session lastui.",
+    "observed": "Mouse arrow clicks leave the view at Line 01 through Line 18. The same clip scrolls to its LAST line using Down keys. Its visible scrollbar is disabled-looking because it reflects clip count, not hidden text height.",
+    "expected": "My GUI expectation: content below the visible region must have discoverable mouse scrolling. An available keyboard-only escape does not make the disabled-looking scrollbar truthful.",
+    "evidence": [
+      "shots/257-scrap-long-before-mouse.png",
+      "shots/258-scrap-long-mouse-no-scroll.png",
+      "shots/259-scrap-long-key-scroll.png",
+      "evidence/lastui-serial.log"
+    ],
+    "guess": "Guess: os/apps/notepad/notepad.c bar() uses g_count*DA_VIEW_H in SCRAPBOOK mode while Down changes a separate text scroll value."
+  },
+  {
+    "id": "L027",
+    "area": "Control Panels repaint",
+    "severity": "P2",
+    "title": "Applying preferences erases the upper menu bar",
+    "steps": "Open Control Panels, Desktop Patterns, choose Diagonal at (276,252), OK (465,342). Also change Menu Bar Clock and Mouse settings in cpdeep. Capture immediately after apply and after exiting the panel.",
+    "observed": "The upper strip becomes the desktop pattern, except for the clock; later menu activity restores only pieces. After Mouse/Clock changes the same strip is teal with just the clock. Restart restores the entire bar.",
+    "expected": "Visible system menus must survive applying settings. This is ordinary UI correctness and is separate from the intentional existence of two bars.",
+    "evidence": [
+      "shots/062-pattern-applied.png",
+      "shots/069-special-menu.png",
+      "shots/071-after-restart.png",
+      "shots/249-mouse-fast-motion.png",
+      "evidence/main-serial.log",
+      "evidence/cpdeep-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L028",
+    "area": "TPS numeric parameters",
+    "severity": "P2",
+    "title": "A nonnumeric page length is silently treated as one",
+    "steps": "Run the BADNUM fixture: TPSPARM.DAT contains LINES=banana with all other shipped values. Complete the normal seven-space / 004417 twice / 88-114 / Y ritual. Session tpscases.",
+    "observed": "It prints successfully with 13 one-detail-line pages and return code 0. The output matches the explicit LINES=0 pagination control.",
+    "expected": "Shipped manual s1-reference.tex:122-123 says \"The number of detail lines on each page of the report\" and only documents 0 as 1. My validation expectation is to reject a nonnumeric page length, not silently reinterpret it.",
+    "evidence": [
+      "shots/154-tps-badnum.png",
+      "evidence/tps-fixtures/BADNUM.PAR",
+      "evidence/extracted-tps-cases/BADNUM.TXT",
+      "evidence/extracted-tps-cases/summary.json",
+      "evidence/tpscases-serial.log"
+    ],
+    "guess": "Guess: tpsrep_program.asm:133-139 atoi() returns zero for no digits, then substitutes one."
+  },
+  {
+    "id": "L029",
+    "area": "TPS numeric data",
+    "severity": "P2",
+    "title": "Malformed numeric PAGES data becomes zero without a warning",
+    "steps": "Run BADPAGE, whose first record PAGES field is XYZ instead of 12; all field descriptors and other records are unchanged. Complete the normal ritual. Session tpscases.",
+    "observed": "The report accepts the record and reports 103 pages instead of the normal 115, with return code 0 and no malformed-number warning.",
+    "expected": "The manual identifies PAGES as a numeric field (s1-reference.tex:140, \"PAGES ... Numeric ... 3\"). My data-quality expectation is a clear refusal for invalid numeric bytes, so an apparently authoritative total cannot conceal damaged input.",
+    "evidence": [
+      "shots/157-tps-badpage.png",
+      "evidence/tps-fixtures/BADPAGE.DBF",
+      "evidence/extracted-tps-cases/BADPAGE.TXT",
+      "evidence/extracted-tps-cases/summary.json",
+      "evidence/tpscases-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L030",
+    "area": "Accessory launch feedback",
+    "severity": "P2",
+    "title": "Reopening the running Note Pad produces a generic launch error",
+    "steps": "Open Note Pad through the Apple menu; choose the same Note Pad item again. Session dalife.",
+    "observed": "Instead of activating the existing Note Pad, an alert says The application could not be opened. The same vague message appears when trying Scrapbook while Note Pad is open. It does not explain the one-disk-app limit.",
+    "expected": "Named reference: Macintosh System Software User's Guide, printed p.125 / PDF p.145, says choosing the accessory again makes its window active. Explain the capacity limit for different apps.",
+    "evidence": [
+      "shots/234-note-duplicate-launch.png",
+      "shots/044-scrapbook-second-app.png",
+      "evidence/dalife-serial.log",
+      "evidence/main-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L031",
+    "area": "Film document layout",
+    "severity": "P2",
+    "title": "The default film ledger window clips its own total and has no scroll route",
+    "steps": "Boot film image with flair_data.img (the standalone boot is L001). Escape dismisses the staged modal. Activate the ledger and move the chart aside. Inspect the ledger lower edge at y=279. Session filmdata.",
+    "observed": "The ledger retains a small (60,80)-(360,300) frame while its app content uses the larger CALC layout. Its total is absent below the content bottom and the scrollbar is disabled-looking. The normal disk CALC window visibly shows $112,276.87.",
+    "expected": "A supplied rest-state frame must fit its important content. The photo reference shows the total at x=950..1065,y=627..646; the deliberate amount itself is not challenged.",
+    "evidence": [
+      "shots/187-film-data-escape.png",
+      "shots/190-film-ledger-edit.png",
+      "shots/100-ledger-launch.png",
+      "evidence/references/film-preview.webp",
+      "evidence/filmdata-serial.log"
+    ],
+    "guess": "Guess: kmain.c film scene repositions/resizes the CALC windows without adapting calc.c compile-time content layout."
+  },
+  {
+    "id": "L032",
+    "area": "Calculator feedback",
+    "severity": "P3",
+    "title": "Holding a calculator key gives no pressed-state feedback",
+    "steps": "Press and hold the 7 key at (285,175) for half a second, capture before release. Session main.",
+    "observed": "7 is entered, but the key face stays white and raised while held.",
+    "expected": "Named reference: system7-decomp/goldens/captures/s8_calc_key7_pressed.png shows the real Calculator key inverted during the hold.",
+    "evidence": [
+      "shots/023-calc-held-seven-settled.png",
+      "evidence/references/s8_calc_key7_pressed.png",
+      "evidence/main-serial.log"
+    ],
+    "guess": "Guess: calcda.c command() repaints only the readout and has no key-up/pressed-state path."
+  },
+  {
+    "id": "L033",
+    "area": "InitechText cursor",
+    "severity": "P3",
+    "title": "The text area keeps the arrow instead of an I-beam",
+    "steps": "Open WRAP.TXT, move pointer to (70,110) inside text and wait. Session text.",
+    "observed": "The arrow remains over the text editing surface.",
+    "expected": "My period TeachText/SimpleText expectation, also explicit in BRIEF.md: use an I-beam over editable text.",
+    "evidence": [
+      "shots/084-text-pointer.png",
+      "evidence/text-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L034",
+    "area": "InitechText caret",
+    "severity": "P3",
+    "title": "The insertion caret remains static during idle samples",
+    "steps": "With WRAP.TXT open and caret at the start, capture, wait one second, capture, wait another second and capture. Session text.",
+    "observed": "The black caret at x=14,y=70..85 is unchanged across the sampled idle frames. This is a bounded observation, supported by the source's explicit no-blink limitation.",
+    "expected": "My period Macintosh text-editor expectation: a blinking insertion point communicates focus. The source explicitly acknowledges no idle blink events; this is an observed polish gap, not an inferred implementation-only defect.",
+    "evidence": [
+      "shots/084-text-pointer.png",
+      "shots/085-text-caret1.png",
+      "shots/086-text-caret2.png",
+      "evidence/text-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L035",
+    "area": "Standard File default name",
+    "severity": "P3",
+    "title": "The default filename is not selected for replacement",
+    "steps": "Open a new Text document, type any text, Ctrl-S. Inspect the default UNTITLED name before typing.",
+    "observed": "The name has an insertion caret at its end rather than selected text. Ordinary typing appends to UNTITLED.",
+    "expected": "Named reference: s8_sf_saveas_default.png shows the default name selected. This visual/default-state nit is separate from L016's failure to support selection commands.",
+    "evidence": [
+      "shots/028-text-save-dialog.png",
+      "evidence/references/s8_sf_saveas_default.png"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L036",
+    "area": "Date & Time display",
+    "severity": "P3",
+    "title": "The displayed time freezes while the panel stays open",
+    "steps": "Open Date & Time in main at 12:37. Leave it open through the year/month/day tests until the menu clock advances to 12:38. Cancel and reopen.",
+    "observed": "The panel still says Time: 12:37 while the menu clock says 12:38. Reopening updates it to 12:38.",
+    "expected": "My clock-panel expectation: show the advancing clock, or clearly label a paused value as an edit snapshot. The current label simply says Time.",
+    "evidence": [
+      "shots/055-date-time.png",
+      "shots/056-date-leap2000.png",
+      "shots/059-date-cancel.png",
+      "evidence/main-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L037",
+    "area": "TPS manual",
+    "severity": "P3",
+    "title": "The shipped exit procedure promises startup prompts that never appear",
+    "steps": "From a pristine desktop choose Finder Special > Exit to InitechDOS and confirm. Inspect the first DOS screen and extract AUTOEXEC.BAT. Session painttps.",
+    "observed": "The system goes directly to A:\\>. The shipped data image has AUTOEXEC.BAT containing @ECHO OFF and PATH=A:\\DOS; no date or time question is presented.",
+    "expected": "Manual pubs/manuals/tps-report-generator/s2-leaving-flair.tex:71-73 says \"Because the data volume has no\" AUTOEXEC.BAT, DOS asks for date/time; the numbered procedure repeats those prompts. Update the procedure to the shipped media.",
+    "evidence": [
+      "shots/139-dos-start.png",
+      "evidence/extracted-tps/AUTOEXEC.BAT",
+      "evidence/painttps-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L038",
+    "area": "Film chart geometry",
+    "severity": "P3",
+    "title": "The scene pie is flat and contiguous instead of an exploded perspective chart",
+    "steps": "Boot filmdata and Escape; inspect chart x=328..425,y=170..267. Compare the photo chart x=824..1128,y=211..457.",
+    "observed": "The guest draws a circular flat disk with adjacent wedges. The photo has separated wedges, an elliptical top and a substantial extruded lower face.",
+    "expected": "Named reference: spec/assets/preview.webp, those regions. This is a presence/shape comparison, not an uncalibrated photograph-to-framebuffer pixel error count. The 116% sum is intentional.",
+    "evidence": [
+      "shots/187-film-data-escape.png",
+      "evidence/references/film-preview.webp"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L039",
+    "area": "Film chart color",
+    "severity": "P3",
+    "title": "The chart uses black and gray wedges on white instead of blue on dark",
+    "steps": "Inspect the same guest and photo chart regions as L038.",
+    "observed": "The guest has one dark-blue wedge plus black and gray wedges on white. The photograph shows blue faces and sides against a dark background.",
+    "expected": "Named reference: preview.webp x=824..1128,y=211..457. Relative color roles are visibly different; no claim is made about exact CRT RGB values.",
+    "evidence": [
+      "shots/187-film-data-escape.png",
+      "evidence/references/film-preview.webp"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L040",
+    "area": "Film chart labels",
+    "severity": "P3",
+    "title": "Percentage labels are detached in a right-hand list",
+    "steps": "Inspect filmdata after Escape: guest labels x=426..449,y=162..286; photo labels are within the wedges.",
+    "observed": "40%,35%,18%,14%,9% appear as a vertical list, and an added 116% total appears below. The photo labels are placed on their corresponding slices.",
+    "expected": "Named reference: preview.webp chart region x=824..1128,y=211..457. The numbers and their intentional total are preserved; placement is the nit.",
+    "evidence": [
+      "shots/187-film-data-escape.png",
+      "evidence/references/film-preview.webp"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L041",
+    "area": "Film composition",
+    "severity": "P3",
+    "title": "The Drive A Files window and its folder icons are absent",
+    "steps": "Inspect filmdata rest state, especially the area behind FILE COPY. Compare preview.webp x=356..826,y=228..397.",
+    "observed": "The guest has only a ledger, chart and saving modal. The photo also has a Drive A Files window with two folder icons between the worksheet and modal.",
+    "expected": "Named reference: preview.webp, stated rectangle. This is missing scene content rather than criticism of the deliberate teal desktop.",
+    "evidence": [
+      "shots/186-film-data-rest.png",
+      "evidence/references/film-preview.webp"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L042",
+    "area": "Film progress appearance",
+    "severity": "P3",
+    "title": "The progress fill has the wrong visual treatment",
+    "steps": "Inspect filmdata FILE COPY bar x=155..485,y=250..262. Compare photo x=516..884,y=388..415.",
+    "observed": "The guest fill is a thin pale-cyan beveled strip in a recessed gray trough. The reference is a broad solid blue fill.",
+    "expected": "Named reference: preview.webp, stated regions. Geometry is compared by shape and relative prominence, not direct raw pixels from different resolutions.",
+    "evidence": [
+      "shots/186-film-data-rest.png",
+      "evidence/references/film-preview.webp"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L043",
+    "area": "Film dialog chrome",
+    "severity": "P3",
+    "title": "FILE COPY omits the reference window controls and scroll gutters",
+    "steps": "Inspect guest modal (140,200)-(500,280) and photo FILE COPY (502,307)-(967,443).",
+    "observed": "The guest is a plain title-and-progress box. The reference has a close box, upper-right window widgets, right scrollbar and bottom horizontal scrollbar/gutter.",
+    "expected": "Named reference: preview.webp, stated rectangle. The Saving tables to disk... wording is deliberate and correct; the missing visible furniture is the nit.",
+    "evidence": [
+      "shots/186-film-data-rest.png",
+      "evidence/references/film-preview.webp"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L044",
+    "area": "Film worksheet chrome",
+    "severity": "P3",
+    "title": "The worksheet menu and tool strips visible in the frame are missing",
+    "steps": "Inspect the upper worksheet area of filmdata and photo preview.webp x=319..1183,y=114..212.",
+    "observed": "The reference has worksheet menus (File/Edit/View/Insert/Format/Tools/Data/Window/Help), icon tools, font/size controls and a cell-name/formula strip. The guest ledger begins directly with A/B labels and three rows.",
+    "expected": "Named reference: preview.webp, stated area. This is additional application furniture, separate from the deliberate stacked desktop bars and known M025 worksheet-body gap.",
+    "evidence": [
+      "shots/186-film-data-rest.png",
+      "shots/187-film-data-escape.png",
+      "evidence/references/film-preview.webp"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L045",
+    "area": "Scrapbook capacity",
+    "severity": "P2",
+    "title": "The 33rd clip is refused without its intended full notice",
+    "steps": "Boot main-data.img, open Scrapbook (one saved clip). Choose Edit > Copy by dragging (95,30) to (110,90), then press Ctrl-V 31 times to reach 32 clips. Press Ctrl-V once more. Session scrapcapacity; mouse Copy avoids L002.",
+    "observed": "The display remains 32 of 32 with no explanation. The extra Paste dispatches and reads the clipboard, but the alert gate returns -3. The stopped file retains exactly 32 clips; this refusal does not corrupt them.",
+    "expected": "Ordinary capacity feedback: explain that the Scrapbook is full and how to make space. Silent ignored Paste is misleading.",
+    "evidence": [
+      "shots/272-scrap-32-real.png",
+      "shots/273-scrap-full-real.png",
+      "evidence/scrapcapacity-serial.log",
+      "evidence/extracted-scrapcapacity/SCRAPBK.DAT"
+    ],
+    "guess": "Guess: os/apps/notepad/notepad.c passes the full/too-large notice to tbx_alert without line wrapping; the gate rejects the request. The -3 return is observed; the exact violated argument limit is not proven."
+  }
+]

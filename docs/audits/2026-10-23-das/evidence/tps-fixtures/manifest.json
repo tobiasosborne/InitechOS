@@ -1,0 +1,16 @@
+{
+  "header": 225,
+  "record": 51,
+  "cases": [
+    "MISSING",
+    "EMPTY",
+    "BADNUM",
+    "ZERO",
+    "HUNDRED",
+    "LONGPARM",
+    "EMPTYDB",
+    "THOUSAND",
+    "BADPAGE",
+    "TRUNC"
+  ]
+}

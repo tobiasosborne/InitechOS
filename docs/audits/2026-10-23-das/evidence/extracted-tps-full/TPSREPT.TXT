@@ -1,0 +1,13 @@
+================================================================
+                      T P S   R E P O R T
+                TESTING PROCEDURE SPECIFICATION
+================================================================
+COVER SHEET                                FORM TPS-1 (REV. 10/89)
+
+REPORT NUMBER ........ 004417
+DIVISION ............. SOFTWARE ENGINEERING
+SOURCE TABLE ......... TPS.DBF
+TABLE LAST UPDATED ... 10/16/89
+TABLES ON FILE ....... TPS.DBF
+COVER SHEET MEMO ..... 88-114
+RECORDS IN TAB

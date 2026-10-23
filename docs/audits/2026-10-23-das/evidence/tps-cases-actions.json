@@ -1,0 +1,275 @@
+[
+  [
+    "start",
+    "tpscases",
+    "images/tracer_boot.img",
+    "images/tps-cases.img"
+  ],
+  [
+    "pause",
+    2
+  ],
+  [
+    "shot",
+    "149-tpscases-boot"
+  ],
+  [
+    "slowtype",
+    "CD \\MISSING"
+  ],
+  [
+    "slowtype",
+    "TPSREP TPS.DBF"
+  ],
+  [
+    "shot",
+    "150-tps-missing"
+  ],
+  [
+    "slowtype",
+    "CD \\EMPTY"
+  ],
+  [
+    "slowtype",
+    "TPSREP TPS.DBF"
+  ],
+  [
+    "shot",
+    "151-tps-empty"
+  ],
+  [
+    "slowtype",
+    "CD \\LONGPARM"
+  ],
+  [
+    "slowtype",
+    "TPSREP TPS.DBF"
+  ],
+  [
+    "shot",
+    "152-tps-longparm"
+  ],
+  [
+    "slowtype",
+    "CD \\EMPTYDB"
+  ],
+  [
+    "slowtype",
+    "TPSREP TPS.DBF"
+  ],
+  [
+    "shot",
+    "153-tps-emptydb"
+  ],
+  [
+    "slowtype",
+    "CD \\BADNUM"
+  ],
+  [
+    "slowtype",
+    "TPSREP TPS.DBF"
+  ],
+  [
+    "slowtype",
+    "       "
+  ],
+  [
+    "slowtype",
+    "004417"
+  ],
+  [
+    "slowtype",
+    "004417"
+  ],
+  [
+    "slowtype",
+    "88-114"
+  ],
+  [
+    "key",
+    "y"
+  ],
+  [
+    "pause",
+    4
+  ],
+  [
+    "shot",
+    "154-tps-badnum"
+  ],
+  [
+    "slowtype",
+    "CD \\ZERO"
+  ],
+  [
+    "slowtype",
+    "TPSREP TPS.DBF"
+  ],
+  [
+    "slowtype",
+    "       "
+  ],
+  [
+    "slowtype",
+    "004417"
+  ],
+  [
+    "slowtype",
+    "004417"
+  ],
+  [
+    "slowtype",
+    "88-114"
+  ],
+  [
+    "key",
+    "y"
+  ],
+  [
+    "pause",
+    4
+  ],
+  [
+    "shot",
+    "155-tps-zero"
+  ],
+  [
+    "slowtype",
+    "CD \\HUNDRED"
+  ],
+  [
+    "slowtype",
+    "TPSREP TPS.DBF"
+  ],
+  [
+    "slowtype",
+    "       "
+  ],
+  [
+    "slowtype",
+    "004417"
+  ],
+  [
+    "slowtype",
+    "004417"
+  ],
+  [
+    "slowtype",
+    "88-114"
+  ],
+  [
+    "key",
+    "y"
+  ],
+  [
+    "pause",
+    4
+  ],
+  [
+    "shot",
+    "156-tps-hundred"
+  ],
+  [
+    "slowtype",
+    "CD \\BADPAGE"
+  ],
+  [
+    "slowtype",
+    "TPSREP TPS.DBF"
+  ],
+  [
+    "slowtype",
+    "       "
+  ],
+  [
+    "slowtype",
+    "004417"
+  ],
+  [
+    "slowtype",
+    "004417"
+  ],
+  [
+    "slowtype",
+    "88-114"
+  ],
+  [
+    "key",
+    "y"
+  ],
+  [
+    "pause",
+    4
+  ],
+  [
+    "shot",
+    "157-tps-badpage"
+  ],
+  [
+    "slowtype",
+    "CD \\THOUSAND"
+  ],
+  [
+    "slowtype",
+    "TPSREP TPS.DBF"
+  ],
+  [
+    "slowtype",
+    "       "
+  ],
+  [
+    "slowtype",
+    "004417"
+  ],
+  [
+    "slowtype",
+    "004417"
+  ],
+  [
+    "slowtype",
+    "88-114"
+  ],
+  [
+    "key",
+    "y"
+  ],
+  [
+    "pause",
+    20
+  ],
+  [
+    "shot",
+    "158-tps-thousand"
+  ],
+  [
+    "slowtype",
+    "CD \\TRUNC"
+  ],
+  [
+    "slowtype",
+    "TPSREP TPS.DBF"
+  ],
+  [
+    "pause",
+    5
+  ],
+  [
+    "shot",
+    "159-tps-truncated"
+  ],
+  [
+    "key",
+    "ctrl-c"
+  ],
+  [
+    "pause",
+    2
+  ],
+  [
+    "shot",
+    "160-tps-truncated-break"
+  ],
+  [
+    "quit"
+  ]
+]

@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-23T13:12:43.798870+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 133,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/images/cplife-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/evidence/cplife-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/images/cplife-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/cplife-boot.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/cplife-data.img": {
+      "bytes": 1474560,
+      "sha256": "346940a7f8d0f9ab009f605889c4cf8b0abb073610b0135884026e9e827a320f"
+    }
+  },
+  "stopped_utc": "2026-10-23T13:12:50.641592+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/cplife-boot.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/cplife-data.img": {
+      "bytes": 1474560,
+      "sha256": "d29a083c99b6d0cc954fd7bd372b2471f8ddc3ca4a4c47ba67cf707f487d1361"
+    }
+  }
+}

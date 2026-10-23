@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-23T13:09:45.187456+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 111,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/images/lastui-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/evidence/lastui-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/images/lastui-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/lastui-boot.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/lastui-data.img": {
+      "bytes": 1474560,
+      "sha256": "da9ea5d464efaedeec59f0fa191cd630307d63eaeab6c7ab4eac69f597c9b06e"
+    }
+  },
+  "stopped_utc": "2026-10-23T13:10:02.436882+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/lastui-boot.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/lastui-data.img": {
+      "bytes": 1474560,
+      "sha256": "5861ab850a98737a2037cb5e04c44b2402670cbab87cc5863bcafb4d50d7b372"
+    }
+  }
+}

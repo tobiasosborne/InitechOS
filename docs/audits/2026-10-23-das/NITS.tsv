@@ -1,0 +1,46 @@
+id	area	severity	summary
+L001	Film boot	P1	The required standalone film boot panics
+L002	Scrapbook / DOS boundary	P1	Copy can terminate the desktop through DOS Ctrl-C
+L003	InitechText save	P1	A failed full-disk replacement destroys the original file
+L004	TPS output	P1	TPS reports success for a truncated report on a full disk
+L005	InitechText line endings	P1	LF-only blank lines disappear and are lost on Save
+L006	InitechCalc save	P1	Save does not save the editable worksheet
+L007	InitechCalc quit	P1	Quit discards worksheet edits without an unsaved-work prompt
+L008	Note Pad persistence	P1	A bad checksum silently becomes empty pages and overwrites recoverable notes
+L009	InitechCalc file copy	P1	Save replaces an existing TABLES.TXT without identifying it or asking
+L010	InitechText keyboard	P2	Shift-arrow moves the caret instead of extending a selection
+L011	InitechText editing	P2	Undo cannot recover a cut
+L012	InitechText geometry	P2	Resizing does not rewrap text or make clipped text reachable
+L013	InitechText repaint	P2	Scrolling during typing skips a visible line until a full repaint
+L014	InitechText capacity	P2	Typing at the 4096-byte limit is silently discarded
+L015	InitechText font coverage	P2	Every tested high-bit character is drawn as a box
+L016	Standard File editing	P2	The filename field ignores selection and cursor-editing keys
+L017	Standard File validation	P2	An invalid 8.3 name makes Save silently do nothing
+L018	InitechCalc keyboard	P2	Return does not commit an entered cell
+L019	InitechCalc error feedback	P2	Save failures caused by configuration or missing input are invisible
+L020	InitechCalc file copy	P2	The real copy operation cannot be cancelled from its progress dialog
+L021	Calculator clipboard	P2	Calculator has no usable Copy or Paste
+L022	Calculator lifecycle	P2	An open Calculator silently prevents Shut Down
+L023	InitechPaint tools	P2	The paint application cannot draw
+L024	InitechPaint files	P2	Paint cannot open an image
+L025	InitechPaint files	P2	Paint provides no image save operation
+L026	Scrapbook long clips	P2	Long clip text cannot be scrolled with the visible scrollbar
+L027	Control Panels repaint	P2	Applying preferences erases the upper menu bar
+L028	TPS numeric parameters	P2	A nonnumeric page length is silently treated as one
+L029	TPS numeric data	P2	Malformed numeric PAGES data becomes zero without a warning
+L030	Accessory launch feedback	P2	Reopening the running Note Pad produces a generic launch error
+L031	Film document layout	P2	The default film ledger window clips its own total and has no scroll route
+L032	Calculator feedback	P3	Holding a calculator key gives no pressed-state feedback
+L033	InitechText cursor	P3	The text area keeps the arrow instead of an I-beam
+L034	InitechText caret	P3	The insertion caret remains static during idle samples
+L035	Standard File default name	P3	The default filename is not selected for replacement
+L036	Date & Time display	P3	The displayed time freezes while the panel stays open
+L037	TPS manual	P3	The shipped exit procedure promises startup prompts that never appear
+L038	Film chart geometry	P3	The scene pie is flat and contiguous instead of an exploded perspective chart
+L039	Film chart color	P3	The chart uses black and gray wedges on white instead of blue on dark
+L040	Film chart labels	P3	Percentage labels are detached in a right-hand list
+L041	Film composition	P3	The Drive A Files window and its folder icons are absent
+L042	Film progress appearance	P3	The progress fill has the wrong visual treatment
+L043	Film dialog chrome	P3	FILE COPY omits the reference window controls and scroll gutters
+L044	Film worksheet chrome	P3	The worksheet menu and tool strips visible in the frame are missing
+L045	Scrapbook capacity	P2	The 33rd clip is refused without its intended full notice

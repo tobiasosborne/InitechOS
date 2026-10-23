@@ -1,0 +1,150 @@
+pubs/manuals/tps-report-generator/s1-reference.tex
+
+105: \index{parameter record}\index{TPSPARM.DAT}
+106: The parameter record \file{TPSPARM.DAT} is a text file of four lines.
+107: Each line begins with its name, an equal sign, and the value; the value
+108: runs to the end of the line.  The lines may be in any order.  The
+109: parameter record on the shipped volume is:
+110: 
+111: \ReportLines[label=fig:parm, caption={The parameter record \file{TPSPARM.DAT} on the shipped volume.}]{../../../harness/diff/tps/tpsparm.dat}{1}{4}
+112: 
+113: \SideHead{TITLE=}The report title, printed centred on the cover sheet
+114: under \texttt{T P S\ \ \ R E P O R T}.
+115: 
+116: \SideHead{DIVISION=}The division, printed on the cover sheet.
+117: 
+118: \SideHead{MEMO=}The number of the memo about the new cover sheets.  The
+119: operator keys this number in \proc{05}; it is printed on the cover sheet
+120: and in the totals.
+121: 
+122: \SideHead{LINES=}The number of detail lines on each page of the report.
+123: A value of 0 is taken as 1.
+124: 
+125: A missing line is refused before anything else is done: the program
+126: displays \TpsLine{TPS-002}{1}, with the name of the missing line, and
+127: ends with return code 1.  The parameter record is maintained under
+128: Operating Procedure OP-7.3, which is \proc{02} of this book.
+129: 
+130: \section{The TPS Table}
+131: \index{TPS table}\index{TPS.DBF}
+132: A TPS table is a dBASE III table with these six fields:
+133: 
+134: \begin{center}\small
+135: \begin{tabular}{@{}llrp{46mm}@{}}
+136: \rule{0pt}{10pt}\sffamily\bfseries Field & \sffamily\bfseries Type & \sffamily\bfseries Width & \sffamily\bfseries Contents\\\hline
+137: \texttt{RPT\_NO} & Numeric & 6 & The number of the TPS report on file\\
+138: \texttt{EMPLOYEE} & Character & 20 & The employee who filed it\\
+139: \texttt{DEPT} & Character & 12 & The department\\
+140: \texttt{PAGES} & Numeric & 3 & The number of pages filed\\
+141: \texttt{COVER} & Logical & 1 & Whether the cover sheet was attached\\
+142: \texttt{FILED} & Date & 8 & The date it was filed\\\hline
+143: \end{tabular}\end{center}
+144: 
+145: A table without one of these fields is refused with \TpsLine{TPS-006}{1}
+146: (return code 6).  A record marked for deletion is not listed.  The shipped
+147: table \file{TPS.DBF} holds 14 records, one of them marked for deletion.
+148: 
+149: \section{The Report}
+150: \index{report}\index{cover sheet}
+151: The report has three parts.
+152: 
+153: \SideHead{Cover sheet}The cover sheet, \form{1} (Rev.\ 10/89), comes
+154: first.  It carries the report number, the division, the name of the table,
+155: the date the table was last updated, the tables on file in the current
+156: directory, the memo number and the number of records in the table.
+157: 
+158: \ReportLines[label=fig:cover, caption={The cover sheet, as the program writes it to
+159: \file{TPSREPT.TXT}.}]{../../../harness/diff/tps/tpsrept_expected.txt}{1}{17}
+160: 
+161: \SideHead{Detail pages}Each page begins with the report number and the
+162: page number, then the column heads, then as many detail lines as the
+163: \texttt{LINES=} line of the parameter record allows.  In \rpt\ each page
+164: begins on a new sheet; on the screen a blank line separates the pages.
+165: 
+166: \ReportLines[caption={The first detail page (\texttt{LINES=6}).}]{../../../harness/diff/tps/tpsrept_expected.txt}{18}{26}
+167: 
+168: \SideHead{Totals}The totals give the reports listed, the pages filed and
+169: the number of reports filed without a cover sheet.  When that number is
+170: not zero, the totals end with the instruction to see the memo.
+171: 
+172: \OpsShot[fromtext={REPORTS LISTED}, totext={*** END OF TPS REPORT ***}]{tpsdone}
+173: 
+174: \section{Return Codes}
+175: \index{return codes}\index{ERRORLEVEL}
+176: The program ends with the line
+177: \TpsMsg{END}
+178: where \ph{n} is the return code.
+179: The return code can be tested in a batch file with \cmd{IF ERRORLEVEL}.
+180: 
+181: \begin{center}\small
+182: \begin{tabular}{@{}rp{88mm}@{}}
+183: \rule{0pt}{10pt}\sffamily\bfseries Code & \sffamily\bfseries Meaning\\\hline
+184: 0 & The report was written\\
+185: 1 & The parameter record is missing or incomplete (TPS-001, TPS-002)\\
+186: 5 & The cover sheet was not attached; no report was written (TPS-005)\\
+187: 6 & The table is not a TPS table (TPS-006)\\
+188: 7 & No table was named, or it was not found (TPS-007)\\
+189: 8 & \rpt\ could not be created (TPS-008)\\\hline
+190: \end{tabular}\end{center}
+
+pubs/manuals/tps-report-generator/s2-leaving-flair.tex
+
+61: 
+62: Clicking \textbf{Cancel}, or pressing \key{Esc}, removes the alert; the
+63: desktop remains as it was.  Clicking \textbf{Exit} puts the desktop away as
+64: \textbf{Shut Down} does: each open application is asked to quit, and if one
+65: does not, the desktop remains.  The desktop is then saved, the screen
+66: returns to the text display, and InitechDOS starts on the data volume,
+67: drive A, with this banner:
+68: 
+69: \ReportLines{../../../spec/dos_banner.txt}{1}{2}
+70: 
+71: Because the data volume has no \file{AUTOEXEC.BAT}, InitechDOS asks for the
+72: date and the time.  Pressing \key{Enter} at each prompt keeps the date and
+73: the time shown.
+74: 
+75: \begin{Procedure}{TPS-P-01}{To Leave FLAIR for the InitechDOS Prompt}
+76: \ProcField{Purpose}{To end the FLAIR session and make \file{A:\bs APPS} the
+77:   current directory at the InitechDOS prompt.}
+78: \ProcField{Frequency}{Each run of the TPS Report Generator.}
+79: \ProcField{Performed by}{The operator.}
+80: \ProcField{Prerequisites}{The FLAIR desktop is running with the shipped data
+81:   volume as drive A.  Checklist TPS-C-1 is complete.}
+82: \ProcField{Materials}{This book; Checklist TPS-C-1.}
+83: \begin{ProcSteps}
+84: \item Choose \textbf{Exit to InitechDOS} from the \textbf{Special} menu.
+85:   \Response{Are you sure you want to exit to InitechDOS?}
+86: \item Click \textbf{Exit}.  The desktop is put away and the InitechDOS
+87:   banner is displayed, followed by the date prompt.
+88:   \Response{Enter new date (mm-dd-yy):}
+89: \item Press \key{Enter}.  The time prompt is displayed.
+90:   \Response{Enter new time:}
+91: \item Press \key{Enter}.  The prompt \texttt{A:\bs>} is displayed.
+92: \item Type \type{CLS} and press \key{Enter}.  The screen is cleared and the
+93:   prompt is displayed at the top.
+94: \item Type \type{CD APPS}.  \key{Enter} \Slip{VO30-05}{is then pressed}.
+95:   \Response{A:\bs APPS>}
+96: \item Type \type{DIR TPS*.* /W} and press \key{Enter}.
+97:   \OpsShot[marks={1=TPSREP.COM;2=A:\Bsl APPS>DIR}, label=fig:tpsdir, caption={The
+
+pubs/manuals/tps-report-generator/s5-number-memo.tex
+
+30: \index{report number}\index{report number control log}\index{Form TPS-2}\index{TPS-003@\texttt{TPS-003}}
+31: The report number is assigned before the run and entered in \form{2},
+32: column 1 (Checklist TPS-C-1).  It is one to six digits.  The program asks
+33: for it with:
+34: \TpsMsg{R3.prompt}
+35: The first line is displayed first; when the first entry has been ended with
+36: \key{Enter}, the second line is displayed.  Only the characters accepted are
+37: displayed as they are typed.  After six characters, further keys are
+38: ignored.  \key{Backspace} is ignored.
+39: 
+40: If the two entries do not agree, or are empty, the program displays:
+41: \TpsMsg{TPS-003}
+42: and asks for both entries again.  When they agree, the program continues
+43: with the memo.  On the cover sheet and at the head of each page the report
+44: number is printed with six digits, zeros first: report number 1014 is
+45: printed \texttt{001014}.
+46: 
+47: \begin{Procedure}{TPS-P-04}{To Key the Report Number Twice}
+48: \ProcField{Purpose}{To enter the assigned report number so that the program

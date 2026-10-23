@@ -1,0 +1,659 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-OK
+TRASH-OK
+APPLE-MENU n=6
+FLAIR-DESKTOP
+DESKTOP-DB-VIEWS n=2
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+CPANELS-LOAD pattern=7 tracking=1 double=0
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CURSOR x=160 y=120
+FLAIR-CLOCK 1:11 pm
+FLAIR-TICK n=4
+FLAIR-CURSOR x=0 y=0
+FLAIR-TICK n=9
+FLAIR-TICK n=12
+FLAIR-TICK n=15
+FLAIR-CURSOR x=20 y=10
+FLAIR-EVT what=1 where=20,10 msg=00000000
+APPLE-MENU n=6
+FLAIR-MENU-DROP menu=1
+FLAIR-CURSOR x=90 y=97
+FLAIR-EVT what=2 where=90,97 msg=00000000
+FLAIR-MENU menu=1 item=6 (sel=0x00010006)
+APPLE-LAUNCH name=SCRAPBK.EXE dir=APPS
+TENANT-LOAD name=SCRAPBK.EXE len=5968 base=0x001e5750
+TENANT-REGISTER ok app=SCRAPBK
+TENANT-GATE ax=0x0001 rec=+0x1604 -> 0
+TENANT-GATE ax=0x0081 path="SCRAPBK.DAT" mode=0 -> 5
+TENANT-GATE ax=0x0082 h=5 n=32849 -> 32848
+TENANT-GATE ax=0x0085 h=5 -> 0
+DA-LOADED SCRAPBK.DAT
+TENANT-GATE ax=0x0050 bar=+0x1488 -> 0
+TENANT-GATE ax=0x0020 l=160 t=80 r=480 b=360 goaway=2 -> 1
+TENANT-GATE ax=0x0022 win=1 s="Scrapbook" -> 0
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-EVT what=8
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-DISPATCH app=SCRAPBK
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=48 y=15
+FLAIR-CURSOR x=95 y=30
+FLAIR-EVT what=1 where=95,30 msg=00000000
+FLAIR-MENU-DROP menu=130
+FLAIR-CURSOR x=110 y=105
+FLAIR-EVT what=2 where=110,105 msg=00000000
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-MENU menu=130 item=0 (sel=0x00000000)
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00002F76
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=110,105 msg=00002F76
+FLAIR-EVT what=3 where=110,105 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00001C0A
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-EVT what=3 where=110,105 msg=00004900
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=110,105 msg=00004900
+FLAIR-CURSOR x=30 y=45
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=150 y=16
+FLAIR-CURSOR x=300 y=32
+FLAIR-CURSOR x=450 y=48
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+TENANT-EVT what=8
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-DISPATCH app=FINDER
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-ICON-SELECT name=INITECH count=1
+FLAIR-CURSOR x=520 y=4
+FLAIR-CURSOR x=360 y=0
+FLAIR-CURSOR x=120 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=130 y=20
+FLAIR-CURSOR x=195 y=30
+FLAIR-EVT what=1 where=195,30 msg=00000000
+FLAIR-MENU-DROP menu=515
+FLAIR-CURSOR x=215 y=123
+FLAIR-EVT what=2 where=215,123 msg=00000000
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="First line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=15 s="Second line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=26 s="Third line" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 1" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-MENU menu=515 item=7 (sel=0x02030007)
+FINDER-CMD id=13 name=SHUTDOWN src=mouse sel=1
+FINDER-POWER name=SHUTDOWN views=0
+TENANT-MENU menu=129 item=2 src=quit
+TENANT-EVT what=81
+TENANT-GATE ax=0x0080 path="SCRAPBK.DAT" -> 5
+TENANT-GATE ax=0x0083 h=5 n=32848 -> 32848
+TENANT-GATE ax=0x0085 h=5 -> 0
+DA-SAVED SCRAPBK.DAT
+TENANT-GATE ax=0x0070 rc=0 -> 0
+TENANT-EXIT rc=0 via=exit
+TENANT-HEAPAVAIL n=3148688
+DESKTOP-DB-SAVE n=4
+FLAIR-SHUTDOWN-SAFE

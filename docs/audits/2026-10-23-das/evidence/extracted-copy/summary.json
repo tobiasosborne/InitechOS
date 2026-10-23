@@ -1,0 +1,22 @@
+{
+  "zero": {
+    "bytes": 42,
+    "old_preserved": true
+  },
+  "hundred": {
+    "bytes": 17000,
+    "old_preserved": false
+  },
+  "bad": {
+    "bytes": 42,
+    "old_preserved": true
+  },
+  "empty": {
+    "bytes": 42,
+    "old_preserved": true
+  },
+  "missing": {
+    "bytes": 42,
+    "old_preserved": true
+  }
+}

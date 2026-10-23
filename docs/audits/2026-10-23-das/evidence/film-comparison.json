@@ -1,0 +1,50 @@
+[
+  {
+    "name": "chart",
+    "guest_half_open_rect": [
+      325,
+      158,
+      456,
+      291
+    ],
+    "photo_half_open_rect": [
+      820,
+      210,
+      1131,
+      458
+    ],
+    "method": "native unscaled crops; no registration or exact RGB comparison of photograph"
+  },
+  {
+    "name": "file-copy",
+    "guest_half_open_rect": [
+      140,
+      200,
+      500,
+      280
+    ],
+    "photo_half_open_rect": [
+      502,
+      307,
+      967,
+      443
+    ],
+    "method": "native unscaled crops; no registration or exact RGB comparison of photograph"
+  },
+  {
+    "name": "worksheet",
+    "guest_half_open_rect": [
+      60,
+      80,
+      360,
+      300
+    ],
+    "photo_half_open_rect": [
+      319,
+      114,
+      1183,
+      683
+    ],
+    "method": "native unscaled crops; no registration or exact RGB comparison of photograph"
+  }
+]

@@ -1,0 +1,31 @@
+{
+  "NOTEPAD.DAT": {
+    "bytes": 8224,
+    "magic": "NPAD",
+    "count": 8,
+    "current": 7,
+    "slots": 8,
+    "pages": [
+      "First line\rSecond line\rThird line",
+      "Page two sentinel",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "Last page"
+    ]
+  },
+  "SCRAPBK.DAT": {
+    "bytes": 32848,
+    "magic": "SBK1",
+    "count": 1,
+    "current": 0,
+    "slots": 32,
+    "pages": [
+      "First line\rSecond line\rThird line"
+    ]
+  },
+  "CPANELS.DAT": "43 50 30 31 01 07 01 00 02 02 01 00 00 00 02 01",
+  "AUDIT.TXT": "First line\rSecond line\rThird line more changes"
+}

@@ -1,0 +1,35 @@
+Harness corrections and excluded probes
+
+- audit_driver.py originally captured immediately after some input. Early calculator
+  chain frames 004/011 show 4, but settled slow and fast controls 218/229/230/231
+  all show 20. No arithmetic or fast-input-loss finding is based on those early frames.
+- Escape is not Calculator Clear in the real-Mac vectors. Initial calculator trials
+  were repeated with C. Backspace and repeated equals no-ops match the period oracle.
+- 018 was taken too early to show the Apple menu. 019 is the settled menu. 020 was
+  a release over the separator, not an About invocation. 039 is the actual About box.
+- 029-text-saved was not saved: its chooser contains an invalid appended name. It is
+  evidence of filename editing/validation only. 037/038 and extracted AUDIT.TXT are
+  the successful corrected save. 030 is still that chooser, not an Edit-menu capture.
+- 044-048 attempted a second disk accessory while Note Pad was resident. They show
+  the launch refusal, not reached Scrapbook/Control Panels. Corrected trials start at 049.
+- 108-119 were intended as Paint probes but a second CALC FILE COPY was still modal.
+  108/109 are used ONLY to show that copying continued after Escape. Real Paint menu
+  tests are 126-137. The word paint in the earlier filenames is not the observed app.
+- An attempted session called full with input full-data.img failed before QEMU started
+  because the copy target would equal its source. It was rerun as fulltest. Broken-pipe
+  input after that host error is not a guest defect; no full-session JSON exists.
+- 232-calc-shutdown is a REFUSAL: serial says cannot-ask. The Calculator is behind the
+  Finder. 260-paint-shutdown-refusal actually shows SUCCESS; the prewritten name was
+  wrong. 261 contains inputs sent to the already shut-down machine and does not test
+  Control Panels. Its independent genuine shutdown is 275/276.
+- 239-text-shutdown-guard is already the Save As chooser because Return selected Save
+  in the unsaved-work alert. Escape in 240 cancels the chooser and therefore shutdown.
+- scraplimit froze immediately on Ctrl-C, before the intended capacity/turning tests.
+  252-256 are not successful page-limit tests. copybreak repeats and isolates the crash.
+- scrapmouse used the wrong menu row (Paste instead of Copy), so its 266-268 frames
+  are not 32-clip evidence. scrapcapacity uses (95,30)->(110,90), and 272/273 show
+  the real 32-clip limit. The extra Paste requests an alert, rejected by the gate (-3).
+- The film without a data disk panics; its unchanged frames are not a slow save.
+  Filmdata is a separate diagnostic control with the required app files attached.
+- Original native screenshots are retained even when exploratory names were wrong.
+  All findings were checked against their actual screen contents and raw serial logs.

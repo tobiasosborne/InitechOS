@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-23T12:55:37.032212+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 74,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/images/filmdata-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/evidence/filmdata-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/images/filmdata-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/filmdata-boot.img": {
+      "bytes": 1507328,
+      "sha256": "79bba5b616141d5ecc70f4f640bdcb0d6a9fa888a035866d0a7cb66c68b8822c"
+    },
+    "images/filmdata-data.img": {
+      "bytes": 1474560,
+      "sha256": "346940a7f8d0f9ab009f605889c4cf8b0abb073610b0135884026e9e827a320f"
+    }
+  },
+  "stopped_utc": "2026-10-23T12:56:51.302013+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/filmdata-boot.img": {
+      "bytes": 1507328,
+      "sha256": "79bba5b616141d5ecc70f4f640bdcb0d6a9fa888a035866d0a7cb66c68b8822c"
+    },
+    "images/filmdata-data.img": {
+      "bytes": 1474560,
+      "sha256": "e23c2ff6e72c49f51c3a90c46440ac1d46256be67dc9c890ca948239545c16df"
+    }
+  }
+}

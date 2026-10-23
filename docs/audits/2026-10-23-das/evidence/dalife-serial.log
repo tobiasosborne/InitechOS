@@ -1,0 +1,1453 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-OK
+TRASH-OK
+APPLE-MENU n=6
+FLAIR-DESKTOP
+DESKTOP-DB-VIEWS n=2
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+CPANELS-LOAD pattern=7 tracking=1 double=0
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CURSOR x=160 y=120
+FLAIR-CLOCK 12:59 pm
+FLAIR-TICK n=4
+FLAIR-CURSOR x=0 y=0
+FLAIR-TICK n=8
+FLAIR-TICK n=11
+FLAIR-TICK n=14
+FLAIR-CURSOR x=20 y=10
+FLAIR-EVT what=1 where=20,10 msg=00000000
+APPLE-MENU n=6
+FLAIR-MENU-DROP menu=1
+FLAIR-CURSOR x=90 y=81
+FLAIR-EVT what=2 where=90,81 msg=00000000
+FLAIR-MENU menu=1 item=5 (sel=0x00010005)
+APPLE-LAUNCH name=NOTEPAD.EXE dir=APPS
+TENANT-LOAD name=NOTEPAD.EXE len=7760 base=0x001e5750
+TENANT-REGISTER ok app=NOTEPAD
+TENANT-GATE ax=0x0001 rec=+0x1d04 -> 0
+TENANT-GATE ax=0x0081 path="NOTEPAD.DAT" mode=0 -> 5
+TENANT-GATE ax=0x0082 h=5 n=8225 -> 8224
+TENANT-GATE ax=0x0085 h=5 -> 0
+DA-CORRUPT NOTEPAD.DAT empty pages
+TENANT-GATE ax=0x0050 bar=+0x1b94 -> 0
+TENANT-GATE ax=0x0020 l=160 t=80 r=480 b=360 goaway=2 -> 1
+TENANT-GATE ax=0x0022 win=1 s="Note Pad" -> 0
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-EVT what=8
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=4 r=5 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=4 r=5 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-DISPATCH app=NOTEPAD
+FLAIR-CURSOR x=10 y=21
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=20 y=10
+FLAIR-EVT what=1 where=20,10 msg=00000000
+APPLE-MENU n=6
+FLAIR-MENU-DROP menu=1
+FLAIR-CURSOR x=90 y=81
+FLAIR-EVT what=2 where=90,81 msg=00000000
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=4 r=5 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-MENU menu=1 item=5 (sel=0x00010005)
+APPLE-LAUNCH name=NOTEPAD.EXE dir=APPS
+TENANT-SLOT-BUSY name=NOTEPAD.EXE
+FINDER-ALERT reason=launch
+FINDER-ALERT-LINE The application could not be opened.
+FLAIR-EVT what=3 where=90,81 msg=00001C0A
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=4 r=5 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00001C0A
+FLAIR-EVT what=3 where=90,81 msg=00001177
+TENANT-MENU menu=129 item=1 src=key
+TENANT-EVT what=81
+TENANT-GATE ax=0x0080 path="NOTEPAD.DAT" -> 5
+TENANT-GATE ax=0x0083 h=5 n=8224 -> 8224
+TENANT-GATE ax=0x0085 h=5 -> 0
+DA-SAVED NOTEPAD.DAT
+TENANT-GATE ax=0x0070 rc=0 -> 0
+TENANT-EXIT rc=0 via=exit
+TENANT-HEAPAVAIL n=3196128
+FLAIR-EVT what=4 where=90,81 msg=00001177
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=20 y=10
+FLAIR-EVT what=1 where=20,10 msg=00000000
+APPLE-MENU n=6
+FLAIR-MENU-DROP menu=1
+FLAIR-CURSOR x=90 y=81
+FLAIR-EVT what=2 where=90,81 msg=00000000
+FLAIR-MENU menu=1 item=5 (sel=0x00010005)
+APPLE-LAUNCH name=NOTEPAD.EXE dir=APPS
+TENANT-LOAD name=NOTEPAD.EXE len=7760 base=0x001e5750
+TENANT-REGISTER ok app=NOTEPAD
+TENANT-GATE ax=0x0001 rec=+0x1d04 -> 0
+TENANT-GATE ax=0x0081 path="NOTEPAD.DAT" mode=0 -> 5
+TENANT-GATE ax=0x0082 h=5 n=8225 -> 8224
+TENANT-GATE ax=0x0085 h=5 -> 0
+DA-LOADED NOTEPAD.DAT
+TENANT-GATE ax=0x0050 bar=+0x1b94 -> 0
+TENANT-GATE ax=0x0020 l=160 t=80 r=480 b=360 goaway=2 -> 1
+TENANT-GATE ax=0x0022 win=1 s="Note Pad" -> 0
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-EVT what=8
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=4 r=5 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=4 r=5 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-DISPATCH app=NOTEPAD
+FLAIR-EVT what=3 where=90,81 msg=00001F53
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="S" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=10 t=4 r=11 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00001F53
+FLAIR-EVT what=3 where=90,81 msg=00002348
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SH" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=4 r=18 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00002348
+FLAIR-EVT what=3 where=90,81 msg=00001655
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHU" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=24 t=4 r=25 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00001655
+FLAIR-EVT what=3 where=90,81 msg=00001454
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUT" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=30 t=4 r=31 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00001454
+FLAIR-EVT what=3 where=90,81 msg=00002044
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTD" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=4 r=38 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00002044
+FLAIR-EVT what=3 where=90,81 msg=0000184F
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDO" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=44 t=4 r=45 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=0000184F
+FLAIR-EVT what=3 where=90,81 msg=00001157
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOW" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=53 t=4 r=54 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00001157
+FLAIR-EVT what=3 where=90,81 msg=0000314E
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=60 t=4 r=61 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=0000314E
+FLAIR-EVT what=3 where=90,81 msg=00003920
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN " fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=64 t=4 r=65 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00003920
+FLAIR-EVT what=3 where=90,81 msg=00001F53
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN S" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=70 t=4 r=71 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00001F53
+FLAIR-EVT what=3 where=90,81 msg=00001245
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN SE" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=76 t=4 r=77 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00001245
+FLAIR-EVT what=3 where=90,81 msg=0000314E
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN SEN" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=4 r=84 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=0000314E
+FLAIR-EVT what=3 where=90,81 msg=00001454
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN SENT" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=89 t=4 r=90 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00001454
+FLAIR-EVT what=3 where=90,81 msg=00001749
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN SENTI" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=93 t=4 r=94 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00001749
+FLAIR-EVT what=3 where=90,81 msg=0000314E
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN SENTIN" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=100 t=4 r=101 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=0000314E
+FLAIR-EVT what=3 where=90,81 msg=00001245
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN SENTINE" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=106 t=4 r=107 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=00001245
+FLAIR-EVT what=3 where=90,81 msg=0000264C
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN SENTINEL" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=112 t=4 r=113 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-EVT what=4 where=90,81 msg=0000264C
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=150 y=16
+FLAIR-CURSOR x=300 y=32
+FLAIR-CURSOR x=450 y=48
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+TENANT-EVT what=8
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN SENTINEL" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN SENTINEL" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-DISPATCH app=FINDER
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-ICON-SELECT name=INITECH count=1
+FLAIR-CURSOR x=440 y=0
+FLAIR-CURSOR x=280 y=0
+FLAIR-CURSOR x=40 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=65 y=10
+FLAIR-CURSOR x=195 y=30
+FLAIR-EVT what=1 where=195,30 msg=00000000
+FLAIR-MENU-DROP menu=515
+FLAIR-CURSOR x=205 y=76
+FLAIR-CURSOR x=215 y=123
+FLAIR-EVT what=2 where=215,123 msg=00000000
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN SENTINEL" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-MENU menu=515 item=7 (sel=0x02030007)
+FINDER-CMD id=13 name=SHUTDOWN src=mouse sel=1
+FINDER-POWER name=SHUTDOWN views=0
+TENANT-MENU menu=129 item=2 src=quit
+TENANT-EVT what=81
+TENANT-GATE ax=0x0080 path="NOTEPAD.DAT" -> 5
+TENANT-GATE ax=0x0083 h=5 n=8224 -> 8224
+TENANT-GATE ax=0x0085 h=5 -> 0
+DA-SAVED NOTEPAD.DAT
+TENANT-GATE ax=0x0070 rc=0 -> 0
+TENANT-EXIT rc=0 via=exit
+TENANT-HEAPAVAIL n=3196128
+DESKTOP-DB-SAVE n=4
+FLAIR-SHUTDOWN-SAFE
+FLAIR-EVT what=3 where=215,123 msg=00001C0A
+FLAIR-RESTART
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-OK
+TRASH-OK
+APPLE-MENU n=6
+FLAIR-DESKTOP
+DESKTOP-DB-VIEWS n=2
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+CPANELS-LOAD pattern=7 tracking=1 double=0
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CLOCK 12:59 pm
+FLAIR-TICK n=4
+FLAIR-TICK n=7
+FLAIR-TICK n=10
+FLAIR-TICK n=13
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-OK
+TRASH-OK
+APPLE-MENU n=6
+FLAIR-DESKTOP
+DESKTOP-DB-VIEWS n=2
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+CPANELS-LOAD pattern=7 tracking=1 double=0
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CLOCK 12:59 pm
+FLAIR-TICK n=4
+FLAIR-TICK n=8
+FLAIR-TICK n=11
+FLAIR-TICK n=14
+FLAIR-CURSOR x=80 y=60
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=20 y=10
+FLAIR-EVT what=1 where=20,10 msg=00000000
+APPLE-MENU n=6
+FLAIR-MENU-DROP menu=1
+FLAIR-CURSOR x=90 y=81
+FLAIR-EVT what=2 where=90,81 msg=00000000
+FLAIR-MENU menu=1 item=5 (sel=0x00010005)
+APPLE-LAUNCH name=NOTEPAD.EXE dir=APPS
+TENANT-LOAD name=NOTEPAD.EXE len=7760 base=0x001e5750
+TENANT-REGISTER ok app=NOTEPAD
+TENANT-GATE ax=0x0001 rec=+0x1d04 -> 0
+TENANT-GATE ax=0x0081 path="NOTEPAD.DAT" mode=0 -> 5
+TENANT-GATE ax=0x0082 h=5 n=8225 -> 8224
+TENANT-GATE ax=0x0085 h=5 -> 0
+DA-LOADED NOTEPAD.DAT
+TENANT-GATE ax=0x0050 bar=+0x1b94 -> 0
+TENANT-GATE ax=0x0020 l=160 t=80 r=480 b=360 goaway=2 -> 1
+TENANT-GATE ax=0x0022 win=1 s="Note Pad" -> 0
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-EVT what=8
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN SENTINEL" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=4 r=5 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="SHUTDOWN SENTINEL" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=4 r=5 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-DISPATCH app=NOTEPAD
+FLAIR-EVT what=3 where=90,81 msg=00001177
+TENANT-MENU menu=129 item=1 src=key
+TENANT-EVT what=81
+TENANT-GATE ax=0x0080 path="NOTEPAD.DAT" -> 5
+TENANT-GATE ax=0x0083 h=5 n=8224 -> 8224
+TENANT-GATE ax=0x0085 h=5 -> 0
+DA-SAVED NOTEPAD.DAT
+TENANT-GATE ax=0x0070 rc=0 -> 0
+TENANT-EXIT rc=0 via=exit
+TENANT-HEAPAVAIL n=3196128
+FLAIR-EVT what=4 where=90,81 msg=00001177
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=150 y=16
+FLAIR-CURSOR x=300 y=32
+FLAIR-CURSOR x=450 y=48
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-DISPATCH app=FINDER
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-ICON-SELECT name=INITECH count=1
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-OPEN-VOLUME win=0 n=8
+FLAIR-CURSOR x=360 y=0
+FLAIR-CURSOR x=200 y=0
+FLAIR-CURSOR x=40 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=123 y=101
+FLAIR-EVT what=1 where=123,101 msg=00000000
+FLAIR-EVT what=2 where=123,101 msg=00000000
+FINDER-WIN-SELECT win=0 name=APPS count=1
+FLAIR-EVT what=1 where=123,101 msg=00000000
+FLAIR-EVT what=2 where=123,101 msg=00000000
+FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+FINDER-VIEW-RESTORE win=1 bits=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=143 y=115
+FLAIR-CURSOR x=215 y=172
+FLAIR-EVT what=1 where=215,172 msg=00000000
+FLAIR-EVT what=2 where=215,172 msg=00000000
+FINDER-WIN-SELECT win=1 name=TEXT.EXE count=1
+FLAIR-EVT what=1 where=215,172 msg=00000000
+FLAIR-EVT what=2 where=215,172 msg=00000000
+TENANT-LOAD name=TEXT.EXE len=8336 base=0x001e5750
+TENANT-REGISTER ok app=TEXT
+TENANT-GATE ax=0x0001 rec=+0x1e84 -> 0
+TENANT-GATE ax=0x0050 bar=+0x1d14 -> 0
+TENANT-GATE ax=0x0020 l=4 t=44 r=588 b=476 goaway=2 -> 1
+TENANT-GATE ax=0x0022 win=1 s="untitled" -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-EVT what=8
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=557 b=389 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=4 r=5 b=20 c=1 -> 0
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=557 b=389 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=4 r=5 b=20 c=1 -> 0
+FLAIR-DISPATCH app=TEXT
+FLAIR-EVT what=3 where=215,172 msg=00001655
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="U" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=12 t=4 r=13 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00001655
+FLAIR-EVT what=3 where=215,172 msg=0000314E
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UN" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=20 t=4 r=21 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=0000314E
+FLAIR-EVT what=3 where=215,172 msg=00001F53
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNS" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=28 t=4 r=29 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00001F53
+FLAIR-EVT what=3 where=215,172 msg=00001E41
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSA" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=4 r=38 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00001E41
+FLAIR-EVT what=3 where=215,172 msg=00002F56
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAV" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=46 t=4 r=47 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00002F56
+FLAIR-EVT what=3 where=215,172 msg=00001245
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVE" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=53 t=4 r=54 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00001245
+FLAIR-EVT what=3 where=215,172 msg=00002044
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=61 t=4 r=62 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00002044
+FLAIR-EVT what=3 where=215,172 msg=00003920
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED " fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=65 t=4 r=66 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00003920
+FLAIR-EVT what=3 where=215,172 msg=00001F53
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED S" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=73 t=4 r=74 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00001F53
+FLAIR-EVT what=3 where=215,172 msg=00002348
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SH" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=81 t=4 r=82 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00002348
+FLAIR-EVT what=3 where=215,172 msg=00001655
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHU" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=89 t=4 r=90 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00001655
+FLAIR-EVT what=3 where=215,172 msg=00001454
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUT" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=97 t=4 r=98 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00001454
+FLAIR-EVT what=3 where=215,172 msg=00002044
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTD" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=105 t=4 r=106 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00002044
+FLAIR-EVT what=3 where=215,172 msg=0000184F
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDO" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=113 t=4 r=114 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=0000184F
+FLAIR-EVT what=3 where=215,172 msg=00001157
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOW" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=124 t=4 r=125 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00001157
+FLAIR-EVT what=3 where=215,172 msg=0000314E
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=132 t=4 r=133 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=0000314E
+FLAIR-EVT what=3 where=215,172 msg=00003920
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN " fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=136 t=4 r=137 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00003920
+FLAIR-EVT what=3 where=215,172 msg=00001454
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN T" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=144 t=4 r=145 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00001454
+FLAIR-EVT what=3 where=215,172 msg=00001245
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TE" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=151 t=4 r=152 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00001245
+FLAIR-EVT what=3 where=215,172 msg=00002D58
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEX" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=158 t=4 r=159 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00002D58
+FLAIR-EVT what=3 where=215,172 msg=00001454
+TENANT-EVT what=3
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=166 t=4 r=167 b=20 c=1 -> 0
+FLAIR-EVT what=4 where=215,172 msg=00001454
+FLAIR-CURSOR x=135 y=112
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=150 y=16
+FLAIR-CURSOR x=300 y=32
+FLAIR-CURSOR x=525 y=56
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+TENANT-EVT what=8
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=557 b=389 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=557 b=389 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+FLAIR-DISPATCH app=FINDER
+FLAIR-EVT what=2 where=600,64 msg=00000000
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=557 b=389 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+FINDER-ICON-SELECT name=INITECH count=1
+FLAIR-CURSOR x=440 y=0
+FLAIR-CURSOR x=280 y=0
+FLAIR-CURSOR x=120 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=65 y=10
+FLAIR-CURSOR x=195 y=30
+FLAIR-EVT what=1 where=195,30 msg=00000000
+FLAIR-MENU-DROP menu=515
+FLAIR-CURSOR x=205 y=76
+FLAIR-CURSOR x=215 y=123
+FLAIR-EVT what=2 where=215,123 msg=00000000
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=557 b=389 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+FLAIR-MENU menu=515 item=7 (sel=0x02030007)
+FINDER-CMD id=13 name=SHUTDOWN src=mouse sel=1
+FINDER-POWER name=SHUTDOWN views=0
+TENANT-MENU menu=129 item=12 src=quit
+TENANT-EVT what=81
+TENANT-GATE ax=0x0090 def="Save" cancel="Cancel" other="Don't Save" -> 0
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+TENANT-ALERT-LINE Save changes to the document
+TENANT-ALERT-LINE "untitled" before quitting?
+TENANT-ALERT up lines=2 buttons=3
+FLAIR-EVT what=3 where=215,123 msg=00001C0A
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=557 b=389 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+TENANT-ALERT-HIT item=1
+TENANT-EVT what=144
+TENANT-GATE ax=0x00b1 prompt="Save this document as:" name="UNTITLED" -> 0
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+TENANT-SF put up dir=/ n=8 name=UNTITLED
+FLAIR-EVT what=4 where=215,123 msg=00001C0A
+FLAIR-EVT what=3 where=215,123 msg=00000100
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=557 b=389 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+TENANT-SF-REPLY good=0
+TENANT-EVT what=176
+TENANT-GATE ax=0x0022 win=1 s="untitled" -> 0
+FINDER-POWER-CANCEL app=TEXT.EXE declined
+FLAIR-EVT what=4 where=215,123 msg=00000100
+FLAIR-CURSOR x=135 y=63
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=75 y=8
+FLAIR-CURSOR x=225 y=24
+FLAIR-CURSOR x=375 y=40
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=557 b=389 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+FINDER-ICON-SELECT name=INITECH count=1
+FLAIR-CURSOR x=360 y=0
+FLAIR-CURSOR x=200 y=0
+FLAIR-CURSOR x=40 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=130 y=20
+FLAIR-CURSOR x=195 y=30
+FLAIR-EVT what=1 where=195,30 msg=00000000
+FLAIR-MENU-DROP menu=515
+FLAIR-CURSOR x=205 y=76
+FLAIR-CURSOR x=215 y=123
+FLAIR-EVT what=2 where=215,123 msg=00000000
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=557 b=389 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+FLAIR-MENU menu=515 item=7 (sel=0x02030007)
+FINDER-CMD id=13 name=SHUTDOWN src=mouse sel=1
+FINDER-POWER name=SHUTDOWN views=0
+TENANT-MENU menu=129 item=12 src=quit
+TENANT-EVT what=81
+TENANT-GATE ax=0x0090 def="Save" cancel="Cancel" other="Don't Save" -> 0
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+TENANT-ALERT-LINE Save changes to the document
+TENANT-ALERT-LINE "untitled" before quitting?
+TENANT-ALERT up lines=2 buttons=3
+FLAIR-EVT what=3 where=215,123 msg=00001C0A
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=557 b=389 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+TENANT-ALERT-HIT item=1
+TENANT-EVT what=144
+TENANT-GATE ax=0x00b1 prompt="Save this document as:" name="UNTITLED" -> 0
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+TENANT-SF put up dir=/ n=8 name=UNTITLED
+FLAIR-EVT what=4 where=215,123 msg=00001C0A
+FLAIR-EVT what=3 where=215,123 msg=00001C0A
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=557 b=389 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> 0
+TENANT-SF-REPLY good=1 path=UNTITLED
+TENANT-EVT what=176
+TENANT-GATE ax=0x0022 win=1 s="UNTITLED" -> 0
+TENANT-GATE ax=0x0080 path="UNTITLED" -> 5
+TENANT-GATE ax=0x0083 h=5 n=21 -> 21
+TENANT-GATE ax=0x0085 h=5 -> 0
+TENANT-GATE ax=0x0070 rc=0 -> 0
+TENANT-GATE ax=0x00c1 win=1 len=24 value=0 -> -3
+TENANT-GATE ax=0x0031 win=1 l=0 t=4 r=557 b=20 c=0 -> -3
+TENANT-GATE ax=0x0030 win=1 x=5 y=4 s="UNSAVED SHUTDOWN TEXT" fg=201392129 bg=0 -> -3
+TENANT-EXIT rc=0 via=exit
+TENANT-HEAPAVAIL n=3196128
+DESKTOP-DB-SAVE n=4
+FLAIR-SHUTDOWN-SAFE
+FLAIR-EVT what=4 where=215,123 msg=00001C0A

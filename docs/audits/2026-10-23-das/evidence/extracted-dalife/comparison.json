@@ -1,0 +1,24 @@
+{
+  "before_pages": [
+    "First line\rSecond line\rThird line",
+    "Page two sentinel",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Last page"
+  ],
+  "after_pages": [
+    "SHUTDOWN SENTINEL",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ],
+  "before_sha256": "c99e31935da3ee1bf22dba5873e328887f3a88c15b6a5c875baaf7e8b108b8b0",
+  "after_sha256": "1f1bf5899977269643979e4060d8197549e17cbb4f8b69cf90c7a5087b4858cb"
+}

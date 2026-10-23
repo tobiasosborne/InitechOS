@@ -1,0 +1,90 @@
+================================================================
+                      T P S   R E P O R T
+                TESTING PROCEDURE SPECIFICATION
+================================================================
+COVER SHEET                                FORM TPS-1 (REV. 10/89)
+
+REPORT NUMBER ........ 004417
+DIVISION ............. SOFTWARE ENGINEERING
+SOURCE TABLE ......... TPS.DBF
+TABLE LAST UPDATED ... 10/16/89
+TABLES ON FILE ....... TPS.DBF
+COVER SHEET MEMO ..... 88-114
+RECORDS IN TABLE ..... 14
+
+THIS COVER SHEET MUST ACCOMPANY ALL TPS REPORTS.
+DO NOT FORWARD A TPS REPORT WITHOUT THE NEW COVER SHEET.
+================================================================
+TPS REPORT NO. 004417                                         PAGE 1
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000101  GIBBONS, PETER        SOFTWARE         12  10/02/89  NO
+TPS REPORT NO. 004417                                         PAGE 2
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000102  BOLTON, MICHAEL       SOFTWARE          8  10/03/89  YES
+TPS REPORT NO. 004417                                         PAGE 3
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000103  NAGHEENANAJAR, SAMIR  SOFTWARE         15  10/03/89  YES
+TPS REPORT NO. 004417                                         PAGE 4
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000104  WADDAMS, MILTON       COLLATION         3  10/04/89  NO
+TPS REPORT NO. 004417                                         PAGE 5
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000105  LUMBERGH, BILL        MANAGEMENT        1  10/05/89  YES
+TPS REPORT NO. 004417                                         PAGE 6
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000107  PORTWOOD, DOM         MANAGEMENT        2  10/06/89  YES
+TPS REPORT NO. 004417                                         PAGE 7
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000108  MCNEIL, JOANNA        SOFTWARE          6  10/09/89  YES
+TPS REPORT NO. 004417                                         PAGE 8
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000109  GIBBONS, PETER        SOFTWARE         11  10/10/89  NO
+TPS REPORT NO. 004417                                         PAGE 9
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000110  SLYDELL, BOB          CONSULTING       22  10/11/89  YES
+TPS REPORT NO. 004417                                         PAGE 10
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000111  PORTER, BOB           CONSULTING       19  10/11/89  YES
+TPS REPORT NO. 004417                                         PAGE 11
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000112  WADDAMS, MILTON       COLLATION         2  10/12/89  NO
+TPS REPORT NO. 004417                                         PAGE 12
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000113  DRAKOULIAS, LAWRENCE  FACILITIES        5  10/12/89  YES
+TPS REPORT NO. 004417                                         PAGE 13
+
+RPT NO  EMPLOYEE              DEPARTMENT    PAGES  FILED     COVER
+------  --------------------  ------------  -----  --------  -----
+000114  BOLTON, MICHAEL       SOFTWARE          9  10/13/89  YES
+
+REPORTS LISTED ....... 13
+PAGES FILED .......... 115
+WITHOUT COVER SHEET .. 4
+CORRECTIVE ACTION REQUIRED. SEE MEMO 88-114.
+
+*** END OF TPS REPORT ***
+

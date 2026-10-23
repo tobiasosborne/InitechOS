@@ -1,0 +1,42 @@
+{
+  "MISSING": {
+    "report": "absent"
+  },
+  "EMPTY": {
+    "report": "absent"
+  },
+  "LONGPARM": {
+    "report": "absent"
+  },
+  "EMPTYDB": {
+    "report": "absent"
+  },
+  "BADNUM": {
+    "bytes": 4480,
+    "pages": 13,
+    "totals": "REPORTS LISTED ....... 13\r\nPAGES FILED .......... 115\r\nWITHOUT COVER SHEET .. 4\r\nCORRECTIVE ACTION REQUIRED. SEE MEMO 88-114.\r\n\r\n*** END OF TPS REPORT ***\r\n"
+  },
+  "ZERO": {
+    "bytes": 4480,
+    "pages": 13,
+    "totals": "REPORTS LISTED ....... 13\r\nPAGES FILED .......... 115\r\nWITHOUT COVER SHEET .. 4\r\nCORRECTIVE ACTION REQUIRED. SEE MEMO 88-114.\r\n\r\n*** END OF TPS REPORT ***\r\n"
+  },
+  "HUNDRED": {
+    "bytes": 2048,
+    "pages": 1,
+    "totals": "REPORTS LISTED ....... 13\r\nPAGES FILED .......... 115\r\nWITHOUT COVER SHEET .. 4\r\nCORRECTIVE ACTION REQUIRED. SEE MEMO 88-114.\r\n\r\n*** END OF TPS REPORT ***\r\n"
+  },
+  "BADPAGE": {
+    "bytes": 2432,
+    "pages": 3,
+    "totals": "REPORTS LISTED ....... 13\r\nPAGES FILED .......... 103\r\nWITHOUT COVER SHEET .. 4\r\nCORRECTIVE ACTION REQUIRED. SEE MEMO 88-114.\r\n\r\n*** END OF TPS REPORT ***\r\n"
+  },
+  "THOUSAND": {
+    "bytes": 67968,
+    "pages": 10,
+    "totals": "REPORTS LISTED ....... 1000\r\nPAGES FILED .......... 12000\r\nWITHOUT COVER SHEET .. 1000\r\nCORRECTIVE ACTION REQUIRED. SEE MEMO 88-114.\r\n\r\n*** END OF TPS REPORT ***\r\n"
+  },
+  "TRUNC": {
+    "report": "absent"
+  }
+}

@@ -1,0 +1,1183 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-CREATE
+TRASH-CREATE
+APPLE-MENU n=6
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CURSOR x=160 y=120
+FLAIR-CLOCK 12:53 pm
+FLAIR-TICK n=4
+FLAIR-CURSOR x=0 y=0
+FLAIR-TICK n=8
+FLAIR-TICK n=11
+FLAIR-TICK n=14
+FLAIR-CURSOR x=150 y=16
+FLAIR-CURSOR x=300 y=32
+FLAIR-CURSOR x=525 y=56
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-DISPATCH app=FINDER
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-ICON-SELECT name=INITECH count=1
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-OPEN-VOLUME win=0 n=4
+FLAIR-CURSOR x=520 y=4
+FLAIR-CURSOR x=360 y=0
+FLAIR-CURSOR x=200 y=0
+FLAIR-CURSOR x=40 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=123 y=101
+FLAIR-EVT what=1 where=123,101 msg=00000000
+FLAIR-EVT what=2 where=123,101 msg=00000000
+FINDER-WIN-SELECT win=0 name=APPS count=1
+FLAIR-EVT what=1 where=123,101 msg=00000000
+FLAIR-EVT what=2 where=123,101 msg=00000000
+FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+FINDER-VIEW-RESTORE win=1 bits=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=100 y=115
+FLAIR-CURSOR x=150 y=172
+FLAIR-EVT what=1 where=150,172 msg=00000000
+FLAIR-EVT what=2 where=150,172 msg=00000000
+FINDER-WIN-SELECT win=1 name=CALC.EXE count=1
+FLAIR-EVT what=1 where=150,172 msg=00000000
+FLAIR-EVT what=2 where=150,172 msg=00000000
+TENANT-LOAD name=CALC.EXE len=16656 base=0x001e5750
+TENANT-REGISTER ok app=CALC
+TENANT-GATE ax=0x0001 rec=+0x4038 -> 0
+TENANT-GATE ax=0x0050 bar=+0x365c -> 0
+TENANT-GATE ax=0x0020 l=10 t=65 r=390 b=360 goaway=2 -> 1
+TENANT-GATE ax=0x0022 win=1 s="InitechCalc" -> 0
+TENANT-GATE ax=0x0020 l=400 t=100 r=635 b=360 goaway=2 -> 2
+TENANT-GATE ax=0x0022 win=2 s="Pie Chart" -> 0
+TENANT-EVT what=8
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=353 b=252 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=2 s="A" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=2 s="B" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=18 r=344 b=19 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=42 r=344 b=43 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=66 r=344 b=67 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=90 r=344 b=91 c=2 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=24 s="Film Costs" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=24 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=48 s="Matte Cutters" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=48 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=72 s="Exacto Blades" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=72 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=196 t=18 r=197 b=91 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=20 r=144 b=21 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=104 s="570- format" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=128 s="570-" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=164 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=194 s="$112,276.87" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=2 l=0 t=0 r=208 b=217 c=0 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=27 r=71 b=28 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=28 r=80 b=29 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=29 r=82 b=30 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=29 r=84 b=30 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=30 r=82 b=31 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=30 r=87 b=31 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=31 r=82 b=32 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=31 r=90 b=32 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=32 r=82 b=33 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=32 r=92 b=33 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=33 r=81 b=34 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=33 r=94 b=34 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=34 r=81 b=35 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=34 r=95 b=35 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=35 r=81 b=36 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=35 r=97 b=36 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=43 t=36 r=81 b=37 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=36 r=98 b=37 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=41 t=37 r=44 b=38 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=37 r=80 b=38 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=37 r=100 b=38 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=40 t=38 r=44 b=39 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=38 r=80 b=39 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=38 r=101 b=39 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=39 t=39 r=45 b=40 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=45 t=39 r=80 b=40 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=39 r=102 b=40 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=38 t=40 r=46 b=41 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=40 r=80 b=41 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=40 r=103 b=41 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=37 t=41 r=47 b=42 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=41 r=79 b=42 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=41 r=104 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=36 t=42 r=47 b=43 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=42 r=79 b=43 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=42 r=105 b=43 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=35 t=43 r=48 b=44 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=48 t=43 r=79 b=44 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=43 r=106 b=44 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=34 t=44 r=49 b=45 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=44 r=79 b=45 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=44 r=107 b=45 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=33 t=45 r=49 b=46 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=45 r=78 b=46 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=45 r=108 b=46 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=46 r=50 b=47 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=50 t=46 r=78 b=47 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=46 r=109 b=47 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=47 r=51 b=48 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=47 r=78 b=48 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=47 r=109 b=48 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=31 t=48 r=51 b=49 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=48 r=78 b=49 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=48 r=110 b=49 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=49 r=52 b=50 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=52 t=49 r=77 b=50 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=49 r=111 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=50 r=53 b=51 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=53 t=50 r=77 b=51 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=50 r=111 b=51 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=29 t=51 r=54 b=52 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=51 r=77 b=52 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=51 r=112 b=52 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=52 r=54 b=53 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=52 r=76 b=53 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=52 r=113 b=53 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=53 r=55 b=54 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=55 t=53 r=76 b=54 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=53 r=113 b=54 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=54 r=56 b=55 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=54 r=76 b=55 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=54 r=114 b=55 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=55 r=56 b=56 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=55 r=76 b=56 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=55 r=114 b=56 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=56 r=57 b=57 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=56 r=75 b=57 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=56 r=113 b=57 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=113 t=56 r=115 b=57 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=57 r=58 b=58 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=58 t=57 r=75 b=58 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=57 r=111 b=58 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=111 t=57 r=115 b=58 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=58 r=59 b=59 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=59 t=58 r=75 b=59 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=58 r=108 b=59 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=108 t=58 r=115 b=59 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=59 r=59 b=60 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=59 t=59 r=75 b=60 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=59 r=106 b=60 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=106 t=59 r=116 b=60 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=60 r=60 b=61 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=60 t=60 r=74 b=61 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=60 r=104 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=104 t=60 r=116 b=61 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=61 r=61 b=62 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=61 r=74 b=62 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=61 r=102 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=102 t=61 r=116 b=62 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=62 r=61 b=63 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=62 r=74 b=63 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=62 r=99 b=63 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=99 t=62 r=117 b=63 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=63 r=62 b=64 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=62 t=63 r=74 b=64 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=63 r=97 b=64 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=97 t=63 r=117 b=64 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=64 r=63 b=65 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=64 r=73 b=65 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=64 r=95 b=65 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=95 t=64 r=117 b=65 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=65 r=63 b=66 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=65 r=73 b=66 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=65 r=93 b=66 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=93 t=65 r=117 b=66 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=66 r=64 b=67 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=64 t=66 r=73 b=67 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=66 r=91 b=67 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=91 t=66 r=118 b=67 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=67 r=65 b=68 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=65 t=67 r=73 b=68 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=67 r=88 b=68 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=88 t=67 r=118 b=68 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=68 r=66 b=69 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=68 r=72 b=69 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=68 r=86 b=69 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=86 t=68 r=118 b=69 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=69 r=66 b=70 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=69 r=72 b=70 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=69 r=84 b=70 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=84 t=69 r=118 b=70 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=70 r=67 b=71 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=67 t=70 r=72 b=71 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=70 r=82 b=71 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=70 r=118 b=71 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=71 r=68 b=72 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=68 t=71 r=72 b=72 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=71 r=79 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=71 r=118 b=72 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=72 r=68 b=73 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=68 t=72 r=71 b=73 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=71 t=72 r=77 b=73 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=72 r=118 b=73 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=73 r=69 b=74 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=69 t=73 r=71 b=74 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=71 t=73 r=75 b=74 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=73 r=118 b=74 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=74 r=70 b=75 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=74 r=71 b=75 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=71 t=74 r=73 b=75 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=74 r=118 b=75 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=22 t=75 r=70 b=76 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=75 r=119 b=76 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=76 r=70 b=77 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=76 r=118 b=77 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=77 r=69 b=78 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=69 t=77 r=118 b=78 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=78 r=69 b=79 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=69 t=78 r=118 b=79 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=79 r=68 b=80 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=68 t=79 r=118 b=80 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=80 r=67 b=81 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=67 t=80 r=118 b=81 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=81 r=67 b=82 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=67 t=81 r=118 b=82 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=82 r=66 b=83 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=82 r=118 b=83 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=83 r=66 b=84 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=83 r=118 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=84 r=65 b=85 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=65 t=84 r=118 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=85 r=64 b=86 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=64 t=85 r=117 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=86 r=64 b=87 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=64 t=86 r=117 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=87 r=63 b=88 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=87 r=117 b=88 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=88 r=63 b=89 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=88 r=117 b=89 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=89 r=62 b=90 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=62 t=89 r=116 b=90 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=90 r=61 b=91 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=90 r=116 b=91 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=91 r=61 b=92 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=91 r=116 b=92 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=92 r=60 b=93 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=60 t=92 r=115 b=93 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=93 r=60 b=94 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=60 t=93 r=115 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=94 r=59 b=95 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=59 t=94 r=115 b=95 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=95 r=58 b=96 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=58 t=95 r=114 b=96 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=96 r=58 b=97 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=58 t=96 r=114 b=97 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=97 r=57 b=98 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=97 r=113 b=98 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=98 r=56 b=99 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=98 r=113 b=99 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=29 t=99 r=56 b=100 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=99 r=112 b=100 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=100 r=55 b=101 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=55 t=100 r=111 b=101 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=101 r=55 b=102 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=55 t=101 r=111 b=102 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=31 t=102 r=54 b=103 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=102 r=110 b=103 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=103 r=53 b=104 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=53 t=103 r=109 b=104 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=104 r=53 b=105 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=53 t=104 r=109 b=105 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=33 t=105 r=52 b=106 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=52 t=105 r=108 b=106 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=34 t=106 r=52 b=107 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=52 t=106 r=107 b=107 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=35 t=107 r=51 b=108 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=107 r=106 b=108 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=36 t=108 r=50 b=109 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=50 t=108 r=105 b=109 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=37 t=109 r=50 b=110 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=50 t=109 r=104 b=110 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=38 t=110 r=49 b=111 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=110 r=103 b=111 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=39 t=111 r=49 b=112 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=111 r=102 b=112 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=40 t=112 r=48 b=113 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=48 t=112 r=101 b=113 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=41 t=113 r=47 b=114 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=113 r=100 b=114 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=43 t=114 r=47 b=115 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=114 r=98 b=115 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=115 r=46 b=116 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=115 r=97 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=116 r=95 b=117 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=117 r=94 b=118 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=118 r=92 b=119 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=119 r=90 b=120 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=120 r=87 b=121 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=121 r=84 b=122 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=122 r=80 b=123 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=123 r=71 b=124 c=1 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=20 s="40%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=42 s="35%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=64 s="18%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=86 s="14%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=108 s="9%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=134 s="116%" fg=65537 bg=0 -> 0
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=353 b=252 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=2 s="A" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=2 s="B" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=18 r=344 b=19 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=42 r=344 b=43 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=66 r=344 b=67 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=90 r=344 b=91 c=2 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=24 s="Film Costs" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=24 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=48 s="Matte Cutters" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=48 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=72 s="Exacto Blades" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=72 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=196 t=18 r=197 b=91 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=20 r=144 b=21 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=104 s="570- format" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=128 s="570-" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=164 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=194 s="$112,276.87" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=2 l=0 t=0 r=208 b=217 c=0 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=27 r=71 b=28 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=28 r=80 b=29 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=29 r=82 b=30 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=29 r=84 b=30 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=30 r=82 b=31 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=30 r=87 b=31 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=31 r=82 b=32 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=31 r=90 b=32 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=32 r=82 b=33 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=32 r=92 b=33 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=33 r=81 b=34 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=33 r=94 b=34 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=34 r=81 b=35 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=34 r=95 b=35 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=35 r=81 b=36 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=35 r=97 b=36 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=43 t=36 r=81 b=37 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=36 r=98 b=37 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=41 t=37 r=44 b=38 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=37 r=80 b=38 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=37 r=100 b=38 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=40 t=38 r=44 b=39 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=38 r=80 b=39 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=38 r=101 b=39 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=39 t=39 r=45 b=40 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=45 t=39 r=80 b=40 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=39 r=102 b=40 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=38 t=40 r=46 b=41 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=40 r=80 b=41 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=40 r=103 b=41 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=37 t=41 r=47 b=42 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=41 r=79 b=42 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=41 r=104 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=36 t=42 r=47 b=43 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=42 r=79 b=43 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=42 r=105 b=43 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=35 t=43 r=48 b=44 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=48 t=43 r=79 b=44 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=43 r=106 b=44 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=34 t=44 r=49 b=45 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=44 r=79 b=45 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=44 r=107 b=45 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=33 t=45 r=49 b=46 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=45 r=78 b=46 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=45 r=108 b=46 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=46 r=50 b=47 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=50 t=46 r=78 b=47 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=46 r=109 b=47 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=47 r=51 b=48 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=47 r=78 b=48 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=47 r=109 b=48 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=31 t=48 r=51 b=49 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=48 r=78 b=49 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=48 r=110 b=49 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=49 r=52 b=50 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=52 t=49 r=77 b=50 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=49 r=111 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=50 r=53 b=51 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=53 t=50 r=77 b=51 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=50 r=111 b=51 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=29 t=51 r=54 b=52 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=51 r=77 b=52 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=51 r=112 b=52 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=52 r=54 b=53 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=52 r=76 b=53 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=52 r=113 b=53 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=53 r=55 b=54 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=55 t=53 r=76 b=54 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=53 r=113 b=54 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=54 r=56 b=55 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=54 r=76 b=55 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=54 r=114 b=55 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=55 r=56 b=56 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=55 r=76 b=56 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=55 r=114 b=56 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=56 r=57 b=57 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=56 r=75 b=57 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=56 r=113 b=57 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=113 t=56 r=115 b=57 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=57 r=58 b=58 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=58 t=57 r=75 b=58 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=57 r=111 b=58 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=111 t=57 r=115 b=58 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=58 r=59 b=59 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=59 t=58 r=75 b=59 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=58 r=108 b=59 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=108 t=58 r=115 b=59 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=59 r=59 b=60 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=59 t=59 r=75 b=60 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=59 r=106 b=60 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=106 t=59 r=116 b=60 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=60 r=60 b=61 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=60 t=60 r=74 b=61 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=60 r=104 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=104 t=60 r=116 b=61 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=61 r=61 b=62 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=61 r=74 b=62 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=61 r=102 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=102 t=61 r=116 b=62 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=62 r=61 b=63 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=62 r=74 b=63 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=62 r=99 b=63 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=99 t=62 r=117 b=63 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=63 r=62 b=64 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=62 t=63 r=74 b=64 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=63 r=97 b=64 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=97 t=63 r=117 b=64 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=64 r=63 b=65 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=64 r=73 b=65 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=64 r=95 b=65 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=95 t=64 r=117 b=65 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=65 r=63 b=66 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=65 r=73 b=66 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=65 r=93 b=66 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=93 t=65 r=117 b=66 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=66 r=64 b=67 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=64 t=66 r=73 b=67 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=66 r=91 b=67 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=91 t=66 r=118 b=67 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=67 r=65 b=68 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=65 t=67 r=73 b=68 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=67 r=88 b=68 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=88 t=67 r=118 b=68 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=68 r=66 b=69 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=68 r=72 b=69 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=68 r=86 b=69 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=86 t=68 r=118 b=69 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=69 r=66 b=70 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=69 r=72 b=70 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=69 r=84 b=70 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=84 t=69 r=118 b=70 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=70 r=67 b=71 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=67 t=70 r=72 b=71 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=70 r=82 b=71 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=70 r=118 b=71 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=71 r=68 b=72 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=68 t=71 r=72 b=72 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=71 r=79 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=71 r=118 b=72 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=72 r=68 b=73 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=68 t=72 r=71 b=73 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=71 t=72 r=77 b=73 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=72 r=118 b=73 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=73 r=69 b=74 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=69 t=73 r=71 b=74 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=71 t=73 r=75 b=74 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=73 r=118 b=74 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=74 r=70 b=75 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=74 r=71 b=75 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=71 t=74 r=73 b=75 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=74 r=118 b=75 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=22 t=75 r=70 b=76 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=75 r=119 b=76 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=76 r=70 b=77 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=76 r=118 b=77 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=77 r=69 b=78 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=69 t=77 r=118 b=78 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=78 r=69 b=79 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=69 t=78 r=118 b=79 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=79 r=68 b=80 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=68 t=79 r=118 b=80 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=80 r=67 b=81 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=67 t=80 r=118 b=81 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=81 r=67 b=82 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=67 t=81 r=118 b=82 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=82 r=66 b=83 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=82 r=118 b=83 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=83 r=66 b=84 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=83 r=118 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=84 r=65 b=85 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=65 t=84 r=118 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=85 r=64 b=86 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=64 t=85 r=117 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=86 r=64 b=87 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=64 t=86 r=117 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=87 r=63 b=88 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=87 r=117 b=88 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=88 r=63 b=89 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=88 r=117 b=89 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=89 r=62 b=90 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=62 t=89 r=116 b=90 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=90 r=61 b=91 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=90 r=116 b=91 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=91 r=61 b=92 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=91 r=116 b=92 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=92 r=60 b=93 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=60 t=92 r=115 b=93 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=93 r=60 b=94 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=60 t=93 r=115 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=94 r=59 b=95 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=59 t=94 r=115 b=95 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=95 r=58 b=96 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=58 t=95 r=114 b=96 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=96 r=58 b=97 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=58 t=96 r=114 b=97 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=97 r=57 b=98 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=97 r=113 b=98 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=98 r=56 b=99 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=98 r=113 b=99 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=29 t=99 r=56 b=100 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=99 r=112 b=100 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=100 r=55 b=101 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=55 t=100 r=111 b=101 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=101 r=55 b=102 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=55 t=101 r=111 b=102 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=31 t=102 r=54 b=103 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=102 r=110 b=103 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=103 r=53 b=104 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=53 t=103 r=109 b=104 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=104 r=53 b=105 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=53 t=104 r=109 b=105 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=33 t=105 r=52 b=106 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=52 t=105 r=108 b=106 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=34 t=106 r=52 b=107 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=52 t=106 r=107 b=107 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=35 t=107 r=51 b=108 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=107 r=106 b=108 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=36 t=108 r=50 b=109 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=50 t=108 r=105 b=109 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=37 t=109 r=50 b=110 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=50 t=109 r=104 b=110 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=38 t=110 r=49 b=111 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=110 r=103 b=111 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=39 t=111 r=49 b=112 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=111 r=102 b=112 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=40 t=112 r=48 b=113 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=48 t=112 r=101 b=113 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=41 t=113 r=47 b=114 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=113 r=100 b=114 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=43 t=114 r=47 b=115 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=114 r=98 b=115 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=115 r=46 b=116 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=115 r=97 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=116 r=95 b=117 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=117 r=94 b=118 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=118 r=92 b=119 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=119 r=90 b=120 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=120 r=87 b=121 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=121 r=84 b=122 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=122 r=80 b=123 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=123 r=71 b=124 c=1 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=20 s="40%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=42 s="35%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=64 s="18%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=86 s="14%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=108 s="9%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=134 s="116%" fg=65537 bg=0 -> 0
+FLAIR-DISPATCH app=CALC
+FLAIR-EVT what=3 where=150,172 msg=00001F73
+TENANT-MENU menu=129 item=1 src=key
+TENANT-EVT what=81
+TENANT-GATE ax=0x0091 s="Saving tables to disk..." src="APPS\LEDGER.TXT" dst="APPS\TABLES.TXT" -> 0
+TENANT-FILECOPY s="Saving tables to disk..." src=APPS\LEDGER.TXT dst=APPS\TABLES.TXT rate=100
+TENANT-FILECOPY up bytes=17000
+FLAIR-EVT what=4 where=150,172 msg=00001F73
+TENANT-FILECOPY-MID v=51 ticks=51
+TENANT-FILECOPY-DONE rc=17000 ticks=102
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=353 b=252 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=2 s="A" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=2 s="B" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=18 r=344 b=19 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=42 r=344 b=43 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=66 r=344 b=67 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=90 r=344 b=91 c=2 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=24 s="Film Costs" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=24 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=48 s="Matte Cutters" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=48 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=72 s="Exacto Blades" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=72 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=196 t=18 r=197 b=91 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=20 r=144 b=21 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=104 s="570- format" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=128 s="570-" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=164 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=194 s="$112,276.87" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=2 l=0 t=0 r=208 b=217 c=0 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=27 r=71 b=28 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=28 r=80 b=29 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=29 r=82 b=30 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=29 r=84 b=30 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=30 r=82 b=31 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=30 r=87 b=31 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=31 r=82 b=32 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=31 r=90 b=32 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=32 r=82 b=33 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=32 r=92 b=33 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=33 r=81 b=34 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=33 r=94 b=34 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=34 r=81 b=35 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=34 r=95 b=35 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=35 r=81 b=36 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=35 r=97 b=36 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=43 t=36 r=81 b=37 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=36 r=98 b=37 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=41 t=37 r=44 b=38 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=37 r=80 b=38 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=37 r=100 b=38 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=40 t=38 r=44 b=39 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=38 r=80 b=39 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=38 r=101 b=39 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=39 t=39 r=45 b=40 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=45 t=39 r=80 b=40 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=39 r=102 b=40 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=38 t=40 r=46 b=41 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=40 r=80 b=41 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=40 r=103 b=41 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=37 t=41 r=47 b=42 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=41 r=79 b=42 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=41 r=104 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=36 t=42 r=47 b=43 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=42 r=79 b=43 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=42 r=105 b=43 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=35 t=43 r=48 b=44 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=48 t=43 r=79 b=44 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=43 r=106 b=44 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=34 t=44 r=49 b=45 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=44 r=79 b=45 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=44 r=107 b=45 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=33 t=45 r=49 b=46 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=45 r=78 b=46 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=45 r=108 b=46 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=46 r=50 b=47 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=50 t=46 r=78 b=47 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=46 r=109 b=47 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=47 r=51 b=48 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=47 r=78 b=48 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=47 r=109 b=48 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=31 t=48 r=51 b=49 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=48 r=78 b=49 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=48 r=110 b=49 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=49 r=52 b=50 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=52 t=49 r=77 b=50 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=49 r=111 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=50 r=53 b=51 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=53 t=50 r=77 b=51 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=50 r=111 b=51 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=29 t=51 r=54 b=52 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=51 r=77 b=52 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=51 r=112 b=52 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=52 r=54 b=53 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=52 r=76 b=53 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=52 r=113 b=53 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=53 r=55 b=54 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=55 t=53 r=76 b=54 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=53 r=113 b=54 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=54 r=56 b=55 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=54 r=76 b=55 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=54 r=114 b=55 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=55 r=56 b=56 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=55 r=76 b=56 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=55 r=114 b=56 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=56 r=57 b=57 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=56 r=75 b=57 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=56 r=113 b=57 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=113 t=56 r=115 b=57 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=57 r=58 b=58 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=58 t=57 r=75 b=58 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=57 r=111 b=58 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=111 t=57 r=115 b=58 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=58 r=59 b=59 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=59 t=58 r=75 b=59 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=58 r=108 b=59 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=108 t=58 r=115 b=59 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=59 r=59 b=60 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=59 t=59 r=75 b=60 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=59 r=106 b=60 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=106 t=59 r=116 b=60 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=60 r=60 b=61 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=60 t=60 r=74 b=61 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=60 r=104 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=104 t=60 r=116 b=61 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=61 r=61 b=62 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=61 r=74 b=62 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=61 r=102 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=102 t=61 r=116 b=62 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=62 r=61 b=63 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=62 r=74 b=63 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=62 r=99 b=63 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=99 t=62 r=117 b=63 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=63 r=62 b=64 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=62 t=63 r=74 b=64 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=63 r=97 b=64 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=97 t=63 r=117 b=64 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=64 r=63 b=65 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=64 r=73 b=65 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=64 r=95 b=65 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=95 t=64 r=117 b=65 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=65 r=63 b=66 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=65 r=73 b=66 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=65 r=93 b=66 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=93 t=65 r=117 b=66 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=66 r=64 b=67 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=64 t=66 r=73 b=67 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=66 r=91 b=67 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=91 t=66 r=118 b=67 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=67 r=65 b=68 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=65 t=67 r=73 b=68 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=67 r=88 b=68 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=88 t=67 r=118 b=68 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=68 r=66 b=69 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=68 r=72 b=69 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=68 r=86 b=69 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=86 t=68 r=118 b=69 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=69 r=66 b=70 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=69 r=72 b=70 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=69 r=84 b=70 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=84 t=69 r=118 b=70 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=70 r=67 b=71 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=67 t=70 r=72 b=71 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=70 r=82 b=71 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=70 r=118 b=71 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=71 r=68 b=72 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=68 t=71 r=72 b=72 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=71 r=79 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=71 r=118 b=72 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=72 r=68 b=73 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=68 t=72 r=71 b=73 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=71 t=72 r=77 b=73 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=72 r=118 b=73 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=73 r=69 b=74 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=69 t=73 r=71 b=74 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=71 t=73 r=75 b=74 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=73 r=118 b=74 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=74 r=70 b=75 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=74 r=71 b=75 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=71 t=74 r=73 b=75 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=74 r=118 b=75 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=22 t=75 r=70 b=76 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=75 r=119 b=76 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=76 r=70 b=77 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=76 r=118 b=77 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=77 r=69 b=78 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=69 t=77 r=118 b=78 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=78 r=69 b=79 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=69 t=78 r=118 b=79 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=79 r=68 b=80 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=68 t=79 r=118 b=80 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=80 r=67 b=81 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=67 t=80 r=118 b=81 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=81 r=67 b=82 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=67 t=81 r=118 b=82 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=82 r=66 b=83 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=82 r=118 b=83 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=83 r=66 b=84 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=83 r=118 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=84 r=65 b=85 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=65 t=84 r=118 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=85 r=64 b=86 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=64 t=85 r=117 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=86 r=64 b=87 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=64 t=86 r=117 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=87 r=63 b=88 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=87 r=117 b=88 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=88 r=63 b=89 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=88 r=117 b=89 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=89 r=62 b=90 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=62 t=89 r=116 b=90 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=90 r=61 b=91 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=90 r=116 b=91 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=91 r=61 b=92 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=91 r=116 b=92 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=92 r=60 b=93 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=60 t=92 r=115 b=93 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=93 r=60 b=94 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=60 t=93 r=115 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=94 r=59 b=95 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=59 t=94 r=115 b=95 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=95 r=58 b=96 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=58 t=95 r=114 b=96 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=96 r=58 b=97 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=58 t=96 r=114 b=97 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=97 r=57 b=98 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=97 r=113 b=98 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=98 r=56 b=99 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=98 r=113 b=99 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=29 t=99 r=56 b=100 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=99 r=112 b=100 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=100 r=55 b=101 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=55 t=100 r=111 b=101 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=101 r=55 b=102 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=55 t=101 r=111 b=102 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=31 t=102 r=54 b=103 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=102 r=110 b=103 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=103 r=53 b=104 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=53 t=103 r=109 b=104 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=104 r=53 b=105 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=53 t=104 r=109 b=105 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=33 t=105 r=52 b=106 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=52 t=105 r=108 b=106 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=34 t=106 r=52 b=107 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=52 t=106 r=107 b=107 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=35 t=107 r=51 b=108 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=107 r=106 b=108 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=36 t=108 r=50 b=109 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=50 t=108 r=105 b=109 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=37 t=109 r=50 b=110 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=50 t=109 r=104 b=110 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=38 t=110 r=49 b=111 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=110 r=103 b=111 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=39 t=111 r=49 b=112 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=111 r=102 b=112 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=40 t=112 r=48 b=113 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=48 t=112 r=101 b=113 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=41 t=113 r=47 b=114 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=113 r=100 b=114 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=43 t=114 r=47 b=115 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=114 r=98 b=115 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=115 r=46 b=116 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=115 r=97 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=116 r=95 b=117 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=117 r=94 b=118 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=118 r=92 b=119 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=119 r=90 b=120 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=120 r=87 b=121 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=121 r=84 b=122 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=122 r=80 b=123 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=123 r=71 b=124 c=1 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=20 s="40%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=42 s="35%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=64 s="18%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=86 s="14%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=108 s="9%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=134 s="116%" fg=65537 bg=0 -> 0
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=353 b=252 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=2 s="A" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=2 s="B" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=18 r=344 b=19 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=42 r=344 b=43 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=66 r=344 b=67 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=90 r=344 b=91 c=2 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=24 s="Film Costs" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=24 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=48 s="Matte Cutters" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=48 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=72 s="Exacto Blades" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=72 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=196 t=18 r=197 b=91 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=20 r=144 b=21 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=104 s="570- format" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=128 s="570-" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=164 s="TODO_FRAME" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=204 y=194 s="$112,276.87" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=2 l=0 t=0 r=208 b=217 c=0 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=27 r=71 b=28 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=28 r=80 b=29 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=29 r=82 b=30 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=29 r=84 b=30 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=30 r=82 b=31 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=30 r=87 b=31 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=31 r=82 b=32 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=31 r=90 b=32 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=32 r=82 b=33 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=32 r=92 b=33 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=33 r=81 b=34 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=33 r=94 b=34 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=34 r=81 b=35 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=34 r=95 b=35 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=35 r=81 b=36 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=35 r=97 b=36 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=43 t=36 r=81 b=37 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=81 t=36 r=98 b=37 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=41 t=37 r=44 b=38 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=37 r=80 b=38 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=37 r=100 b=38 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=40 t=38 r=44 b=39 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=38 r=80 b=39 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=38 r=101 b=39 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=39 t=39 r=45 b=40 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=45 t=39 r=80 b=40 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=39 r=102 b=40 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=38 t=40 r=46 b=41 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=40 r=80 b=41 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=80 t=40 r=103 b=41 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=37 t=41 r=47 b=42 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=41 r=79 b=42 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=41 r=104 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=36 t=42 r=47 b=43 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=42 r=79 b=43 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=42 r=105 b=43 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=35 t=43 r=48 b=44 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=48 t=43 r=79 b=44 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=43 r=106 b=44 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=34 t=44 r=49 b=45 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=44 r=79 b=45 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=44 r=107 b=45 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=33 t=45 r=49 b=46 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=45 r=78 b=46 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=45 r=108 b=46 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=46 r=50 b=47 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=50 t=46 r=78 b=47 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=46 r=109 b=47 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=47 r=51 b=48 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=47 r=78 b=48 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=47 r=109 b=48 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=31 t=48 r=51 b=49 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=48 r=78 b=49 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=78 t=48 r=110 b=49 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=49 r=52 b=50 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=52 t=49 r=77 b=50 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=49 r=111 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=50 r=53 b=51 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=53 t=50 r=77 b=51 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=50 r=111 b=51 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=29 t=51 r=54 b=52 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=51 r=77 b=52 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=51 r=112 b=52 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=52 r=54 b=53 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=52 r=76 b=53 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=52 r=113 b=53 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=53 r=55 b=54 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=55 t=53 r=76 b=54 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=53 r=113 b=54 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=54 r=56 b=55 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=54 r=76 b=55 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=54 r=114 b=55 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=55 r=56 b=56 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=55 r=76 b=56 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=76 t=55 r=114 b=56 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=56 r=57 b=57 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=56 r=75 b=57 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=56 r=113 b=57 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=113 t=56 r=115 b=57 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=57 r=58 b=58 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=58 t=57 r=75 b=58 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=57 r=111 b=58 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=111 t=57 r=115 b=58 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=58 r=59 b=59 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=59 t=58 r=75 b=59 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=58 r=108 b=59 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=108 t=58 r=115 b=59 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=59 r=59 b=60 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=59 t=59 r=75 b=60 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=59 r=106 b=60 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=106 t=59 r=116 b=60 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=60 r=60 b=61 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=60 t=60 r=74 b=61 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=60 r=104 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=104 t=60 r=116 b=61 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=61 r=61 b=62 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=61 r=74 b=62 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=61 r=102 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=102 t=61 r=116 b=62 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=62 r=61 b=63 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=62 r=74 b=63 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=62 r=99 b=63 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=99 t=62 r=117 b=63 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=63 r=62 b=64 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=62 t=63 r=74 b=64 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=74 t=63 r=97 b=64 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=97 t=63 r=117 b=64 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=64 r=63 b=65 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=64 r=73 b=65 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=64 r=95 b=65 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=95 t=64 r=117 b=65 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=65 r=63 b=66 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=65 r=73 b=66 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=65 r=93 b=66 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=93 t=65 r=117 b=66 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=66 r=64 b=67 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=64 t=66 r=73 b=67 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=66 r=91 b=67 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=91 t=66 r=118 b=67 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=67 r=65 b=68 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=65 t=67 r=73 b=68 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=67 r=88 b=68 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=88 t=67 r=118 b=68 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=68 r=66 b=69 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=68 r=72 b=69 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=68 r=86 b=69 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=86 t=68 r=118 b=69 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=69 r=66 b=70 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=69 r=72 b=70 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=69 r=84 b=70 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=84 t=69 r=118 b=70 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=70 r=67 b=71 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=67 t=70 r=72 b=71 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=70 r=82 b=71 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=82 t=70 r=118 b=71 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=71 r=68 b=72 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=68 t=71 r=72 b=72 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=72 t=71 r=79 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=79 t=71 r=118 b=72 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=72 r=68 b=73 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=68 t=72 r=71 b=73 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=71 t=72 r=77 b=73 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=77 t=72 r=118 b=73 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=73 r=69 b=74 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=69 t=73 r=71 b=74 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=71 t=73 r=75 b=74 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=75 t=73 r=118 b=74 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=74 r=70 b=75 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=74 r=71 b=75 c=3 -> 0
+TENANT-GATE ax=0x0031 win=2 l=71 t=74 r=73 b=75 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=73 t=74 r=118 b=75 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=22 t=75 r=70 b=76 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=75 r=119 b=76 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=76 r=70 b=77 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=76 r=118 b=77 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=77 r=69 b=78 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=69 t=77 r=118 b=78 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=78 r=69 b=79 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=69 t=78 r=118 b=79 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=79 r=68 b=80 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=68 t=79 r=118 b=80 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=80 r=67 b=81 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=67 t=80 r=118 b=81 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=81 r=67 b=82 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=67 t=81 r=118 b=82 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=82 r=66 b=83 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=82 r=118 b=83 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=83 r=66 b=84 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=66 t=83 r=118 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=23 t=84 r=65 b=85 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=65 t=84 r=118 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=85 r=64 b=86 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=64 t=85 r=117 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=86 r=64 b=87 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=64 t=86 r=117 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=87 r=63 b=88 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=87 r=117 b=88 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=24 t=88 r=63 b=89 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=63 t=88 r=117 b=89 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=89 r=62 b=90 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=62 t=89 r=116 b=90 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=90 r=61 b=91 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=90 r=116 b=91 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=25 t=91 r=61 b=92 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=91 r=116 b=92 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=92 r=60 b=93 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=60 t=92 r=115 b=93 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=93 r=60 b=94 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=60 t=93 r=115 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=26 t=94 r=59 b=95 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=59 t=94 r=115 b=95 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=95 r=58 b=96 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=58 t=95 r=114 b=96 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=27 t=96 r=58 b=97 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=58 t=96 r=114 b=97 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=97 r=57 b=98 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=97 r=113 b=98 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=28 t=98 r=56 b=99 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=98 r=113 b=99 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=29 t=99 r=56 b=100 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=56 t=99 r=112 b=100 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=100 r=55 b=101 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=55 t=100 r=111 b=101 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=30 t=101 r=55 b=102 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=55 t=101 r=111 b=102 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=31 t=102 r=54 b=103 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=102 r=110 b=103 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=103 r=53 b=104 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=53 t=103 r=109 b=104 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=32 t=104 r=53 b=105 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=53 t=104 r=109 b=105 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=33 t=105 r=52 b=106 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=52 t=105 r=108 b=106 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=34 t=106 r=52 b=107 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=52 t=106 r=107 b=107 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=35 t=107 r=51 b=108 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=107 r=106 b=108 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=36 t=108 r=50 b=109 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=50 t=108 r=105 b=109 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=37 t=109 r=50 b=110 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=50 t=109 r=104 b=110 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=38 t=110 r=49 b=111 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=110 r=103 b=111 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=39 t=111 r=49 b=112 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=111 r=102 b=112 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=40 t=112 r=48 b=113 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=48 t=112 r=101 b=113 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=41 t=113 r=47 b=114 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=113 r=100 b=114 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=43 t=114 r=47 b=115 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=114 r=98 b=115 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=44 t=115 r=46 b=116 c=2 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=115 r=97 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=46 t=116 r=95 b=117 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=47 t=117 r=94 b=118 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=49 t=118 r=92 b=119 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=51 t=119 r=90 b=120 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=54 t=120 r=87 b=121 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=57 t=121 r=84 b=122 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=61 t=122 r=80 b=123 c=1 -> 0
+TENANT-GATE ax=0x0031 win=2 l=70 t=123 r=71 b=124 c=1 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=20 s="40%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=42 s="35%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=64 s="18%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=86 s="14%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=108 s="9%" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=2 x=120 y=134 s="116%" fg=65537 bg=0 -> 0
+TENANT-EVT what=145

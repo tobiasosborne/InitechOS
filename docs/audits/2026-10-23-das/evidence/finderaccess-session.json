@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-23T13:29:23.461892+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 138,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/images/finderaccess-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/evidence/finderaccess-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/images/finderaccess-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/finderaccess-boot.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/finderaccess-data.img": {
+      "bytes": 1474560,
+      "sha256": "346940a7f8d0f9ab009f605889c4cf8b0abb073610b0135884026e9e827a320f"
+    }
+  },
+  "stopped_utc": "2026-10-23T13:31:38.570574+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/finderaccess-boot.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/finderaccess-data.img": {
+      "bytes": 1474560,
+      "sha256": "9a614b1950ff9acf561cf38f5c8d2c5080bdc15dbcd366bca8996804f9fd2cb8"
+    }
+  }
+}

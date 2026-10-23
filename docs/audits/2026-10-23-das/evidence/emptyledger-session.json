@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-23T13:02:24.472832+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 96,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/images/emptyledger-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/evidence/emptyledger-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/images/emptyledger-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/emptyledger-boot.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/emptyledger-data.img": {
+      "bytes": 1474560,
+      "sha256": "59f4251402af3655c11ba721618c2342dff054d2cf2d06d1be455cf3bba3c472"
+    }
+  },
+  "stopped_utc": "2026-10-23T13:02:35.041125+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/emptyledger-boot.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/emptyledger-data.img": {
+      "bytes": 1474560,
+      "sha256": "292cbd1943e6b28a9d1c9e9b6df8579624510e374167176e726c73286b0b739a"
+    }
+  }
+}

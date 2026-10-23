@@ -1,0 +1,24 @@
+{
+  "finding_count": 45,
+  "severity_counts": {
+    "P1": 9,
+    "P2": 23,
+    "P3": 13
+  },
+  "sessions": 27,
+  "all_sessions_stopped": true,
+  "maximum_simultaneous_audit_emulators": 1,
+  "missing_report_links": [],
+  "all_byte_checks_pass": true,
+  "replay_validation": {
+    "session": "replay-copybreak",
+    "int23_break_reproduced": true,
+    "normal_qemu_exit": true
+  },
+  "ascii_report": true,
+  "ascii_tsv": true,
+  "native_png_count": 281,
+  "no_unfinished_worktree_mutation": "Read-only source audit; no repository builds, edits or tracker commands",
+  "report_sha256": "67e353126e073e9ea8bd80d0eb94124050e7da02306629e5a1326c97c7fe38e7",
+  "nits_sha256": "fd6f03d155eaa33705dcac70b10f7d45ced1daaa4a42035efd334e850031f8c4"
+}

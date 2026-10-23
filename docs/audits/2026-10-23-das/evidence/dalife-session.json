@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-23T12:59:03.320048+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 84,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/images/dalife-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/evidence/dalife-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/das/images/dalife-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/dalife-boot.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/dalife-data.img": {
+      "bytes": 1474560,
+      "sha256": "0889f27df4c8d2c5ba25948f56628299afa7db50237cbd59e17bf345ab61c972"
+    }
+  },
+  "stopped_utc": "2026-10-23T13:00:04.378093+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/dalife-boot.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/dalife-data.img": {
+      "bytes": 1474560,
+      "sha256": "a75051dd79640c067c3d918aea013f9692bf0499d6d633d6983618879bc796c7"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "tps_normal_matches_golden": true,
+  "full_text_target_empty": true,
+  "full_tps_partial_512": true,
+  "lf_blank_lost": true,
+  "crlf_blank_preserved": true,
+  "eightbit_bytes_preserved": true,
+  "ledger_1000_lines_exact": true,
+  "text_shutdown_bytes": true,
+  "new_save_bytes": true,
+  "report_ascii": true,
+  "nits_ascii": true,
+  "all_finding_evidence_exists": true,
+  "ids_sequential": true,
+  "tsv_rows_match": true
+}

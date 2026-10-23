@@ -1,0 +1,290 @@
+{
+  "images/filmdata-data.img": {
+    "bytes": 1474560,
+    "sha256": "e23c2ff6e72c49f51c3a90c46440ac1d46256be67dc9c890ca948239545c16df"
+  },
+  "images/corrupt-da-source.img": {
+    "bytes": 1474560,
+    "sha256": "0889f27df4c8d2c5ba25948f56628299afa7db50237cbd59e17bf345ab61c972"
+  },
+  "images/emptyledger-data.img": {
+    "bytes": 1474560,
+    "sha256": "292cbd1943e6b28a9d1c9e9b6df8579624510e374167176e726c73286b0b739a"
+  },
+  "images/copy-missing-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/cpdeep-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/emptyledger-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/fat_data.img": {
+    "bytes": 1474560,
+    "sha256": "e9d439efff547f7f941c51ca6d72e6ad4f4dbdc3f2b2edbf675362c059e76a2b"
+  },
+  "images/film-boot.img": {
+    "bytes": 1507328,
+    "sha256": "79bba5b616141d5ecc70f4f640bdcb0d6a9fa888a035866d0a7cb66c68b8822c"
+  },
+  "images/fulltest-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/scrapcapacity-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/text-data.img": {
+    "bytes": 1474560,
+    "sha256": "da9ea5d464efaedeec59f0fa191cd630307d63eaeab6c7ab4eac69f597c9b06e"
+  },
+  "images/tpsfull-boot.img": {
+    "bytes": 1507328,
+    "sha256": "ac5eb48e4d9b21124a568441550ad2415a7d7df908b27932ecd0bb947bd84c85"
+  },
+  "images/calcdeep-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/tracer_boot.img": {
+    "bytes": 1507328,
+    "sha256": "ac5eb48e4d9b21124a568441550ad2415a7d7df908b27932ecd0bb947bd84c85"
+  },
+  "images/copy-empty-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/copy-bad-source.img": {
+    "bytes": 1474560,
+    "sha256": "a53b22d240ffdff6b27c06350d6473157e50b503838528fd6afec26a5b826da2"
+  },
+  "images/fulltest-data.img": {
+    "bytes": 1474560,
+    "sha256": "c2817c44caa71938b79217b2cc000a0fa6d8b36a40bc7a79eac204f179eea015"
+  },
+  "images/painttps-data.img": {
+    "bytes": 1474560,
+    "sha256": "4799f6dd2f2b3193390ebd55cdca25ea8efd8926a9bbcbd0a96508c58b796d1d"
+  },
+  "images/apps-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/fixture-data.img": {
+    "bytes": 1474560,
+    "sha256": "667fc9a8ad49a8af28a659c63d745c0c8b790d592cfd52f5996f8a7e8aff5862"
+  },
+  "images/flair_tenants_interactive.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/painttps-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/replay-copybreak-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/cpdeep-data.img": {
+    "bytes": 1474560,
+    "sha256": "a8619a31e0e085277f2c19ed2907960b468006eed980513670d269d348e98c7d"
+  },
+  "images/dalife-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/scraplimit-data.img": {
+    "bytes": 1474560,
+    "sha256": "630c535c8e77c99d7f188721fb77e6f70c67909eb4a8fc88a8afea1863974090"
+  },
+  "images/copy-bad-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/copy-hundred-source.img": {
+    "bytes": 1474560,
+    "sha256": "b33e6a039e536f6cc57a7cbf67a94cbe64dd12f5b1cfae67c19af505bdf69b94"
+  },
+  "images/full-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/copybreak-data.img": {
+    "bytes": 1474560,
+    "sha256": "630c535c8e77c99d7f188721fb77e6f70c67909eb4a8fc88a8afea1863974090"
+  },
+  "images/tps-cases.img": {
+    "bytes": 1474560,
+    "sha256": "d73687170ae8705ea47545d9c2b0c86737d69afeebaf19477ab279ceda8855c2"
+  },
+  "images/samir_list.img": {
+    "bytes": 1474560,
+    "sha256": "30f54ac8033edaa0f760d467b2ea5156b8d0ff2955dbeee5a8bf366e60921dc8"
+  },
+  "images/copy-missing-data.img": {
+    "bytes": 1474560,
+    "sha256": "30ecbecc4e6d08b7db3d65120b1fbe8d9c21eac75bb51853d002a3e3b0a8c10d"
+  },
+  "images/dalife-data.img": {
+    "bytes": 1474560,
+    "sha256": "a75051dd79640c067c3d918aea013f9692bf0499d6d633d6983618879bc796c7"
+  },
+  "images/full-data.img": {
+    "bytes": 1474560,
+    "sha256": "abc6cb0819e32145be9696e55367060e68410ccca664ac148e2a20e9093b1a52"
+  },
+  "images/lastui-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/flair_live_interactive.img": {
+    "bytes": 1507328,
+    "sha256": "79bba5b616141d5ecc70f4f640bdcb0d6a9fa888a035866d0a7cb66c68b8822c"
+  },
+  "images/copy-zero-data.img": {
+    "bytes": 1474560,
+    "sha256": "f0274bbc690435cd00daf46bda9032e56804f98054850e60b07b906a462342c8"
+  },
+  "images/copy-zero-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/copy-missing-source.img": {
+    "bytes": 1474560,
+    "sha256": "5132012a794e31078ef9023f2d070340c3d012d661728b5f5eba69838367b5fc"
+  },
+  "images/cplife-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/tpscases-data.img": {
+    "bytes": 1474560,
+    "sha256": "97a3f1329c4c7e3ddf5ec78d963b7ebd28609a25cdf8afc8fcd2fc09b85ac04b"
+  },
+  "images/scrapcapacity-data.img": {
+    "bytes": 1474560,
+    "sha256": "41effb636520b9e62a5f972231583cad834bc486c0dfc0d7e2c930e513049bbc"
+  },
+  "images/main-data.img": {
+    "bytes": 1474560,
+    "sha256": "630c535c8e77c99d7f188721fb77e6f70c67909eb4a8fc88a8afea1863974090"
+  },
+  "images/copy-zero-source.img": {
+    "bytes": 1474560,
+    "sha256": "c89cc3687928e693fcc00d6f30f93a4bbf97b2a962d50d45d1508aad4bb5cd90"
+  },
+  "images/replay-copybreak-data.img": {
+    "bytes": 1474560,
+    "sha256": "630c535c8e77c99d7f188721fb77e6f70c67909eb4a8fc88a8afea1863974090"
+  },
+  "images/finderaccess-data.img": {
+    "bytes": 1474560,
+    "sha256": "9a614b1950ff9acf561cf38f5c8d2c5080bdc15dbcd366bca8996804f9fd2cb8"
+  },
+  "images/emptyledger-source.img": {
+    "bytes": 1474560,
+    "sha256": "59f4251402af3655c11ba721618c2342dff054d2cf2d06d1be455cf3bba3c472"
+  },
+  "images/lastui-data.img": {
+    "bytes": 1474560,
+    "sha256": "5861ab850a98737a2037cb5e04c44b2402670cbab87cc5863bcafb4d50d7b372"
+  },
+  "images/copy-hundred-data.img": {
+    "bytes": 1474560,
+    "sha256": "3a10b786a13c4ea59ea85e76b012fe9fe7db680404380faf83d1e6dac80147cc"
+  },
+  "images/tpscases-boot.img": {
+    "bytes": 1507328,
+    "sha256": "ac5eb48e4d9b21124a568441550ad2415a7d7df908b27932ecd0bb947bd84c85"
+  },
+  "images/copy-bad-data.img": {
+    "bytes": 1474560,
+    "sha256": "ab39ac6a66f68febd720afed6d401d9e9726ff71b2927f60ed8b74ddcda4629c"
+  },
+  "images/apps-data.img": {
+    "bytes": 1474560,
+    "sha256": "4485fb1f6c892cb324ad3f8eaf0223a1d708d5ad1ce685c462868cde25311705"
+  },
+  "images/missingledger-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/copy-empty-data.img": {
+    "bytes": 1474560,
+    "sha256": "b8a934b43c1cd335d4e3fe87605103fc57e49a73f150fd61c94650fcd2d59b11"
+  },
+  "images/copybreak-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/main-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/cplife-data.img": {
+    "bytes": 1474560,
+    "sha256": "d29a083c99b6d0cc954fd7bd372b2471f8ddc3ca4a4c47ba67cf707f487d1361"
+  },
+  "images/scrapmouse-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/missingledger-source.img": {
+    "bytes": 1474560,
+    "sha256": "fed9b6432459c9262d777d45686f657de20a91f049cec9fd27b4d3dda38dce8f"
+  },
+  "images/text-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/missingledger-data.img": {
+    "bytes": 1474560,
+    "sha256": "7f7c71c65755566bb890121bf423ee59f4d4ce25e7d34491aed1f5d1baa609ec"
+  },
+  "images/scraplimit-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/finderaccess-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/flair_data.img": {
+    "bytes": 1474560,
+    "sha256": "346940a7f8d0f9ab009f605889c4cf8b0abb073610b0135884026e9e827a320f"
+  },
+  "images/filmdata-boot.img": {
+    "bytes": 1507328,
+    "sha256": "79bba5b616141d5ecc70f4f640bdcb0d6a9fa888a035866d0a7cb66c68b8822c"
+  },
+  "images/scrapmouse-data.img": {
+    "bytes": 1474560,
+    "sha256": "2506b19387abd30f9ddacec1c61e9b918785ec2624a20f2e856019a36d28f477"
+  },
+  "images/copy-empty-source.img": {
+    "bytes": 1474560,
+    "sha256": "b881a2c91df138dcb8602cc31d8733ec90427c7e442042cc6223f148f7cbbe3c"
+  },
+  "images/copy-hundred-boot.img": {
+    "bytes": 1507328,
+    "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+  },
+  "images/tps-full-source.img": {
+    "bytes": 1474560,
+    "sha256": "ab9bbad84c2654922190bbb5f85c0375e3408901719da52153d53baae68b45ba"
+  },
+  "images/tpsfull-data.img": {
+    "bytes": 1474560,
+    "sha256": "810d77aace52e793c8eb46989b2923a57717dbbe71a741c0f03495ff0b6c2bad"
+  },
+  "images/calcdeep-data.img": {
+    "bytes": 1474560,
+    "sha256": "e23c2ff6e72c49f51c3a90c46440ac1d46256be67dc9c890ca948239545c16df"
+  }
+}
