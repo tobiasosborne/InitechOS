@@ -76,3 +76,12 @@ FLAIR_ITEXT_EDIT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m
 # bar (568,425)..(582,440).
 # The same trace drives test-flair-itext-scroll and record-flair itext_scroll.
 FLAIR_ITEXT_SCROLL_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m-68:0,w400,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,w300
+
+# 4. L017 (audit 2026-10-23-das; bead initech-oobx) -- an invalid 8.3 name in
+# the Save As box is refused WITH an alert, and the box stays usable. Launch
+# prefix copied EXACTLY from FLAIR_ITEXT_SPEC through w400; type "x"; Ctrl-S
+# (the Save As box, name UNTITLED); 8 Backspaces; type "toolongname" (11
+# letters, no dot: the field upper-cases it; 11 > the 8-character base);
+# Return -> the bad-name alert (marker TENANT-SF badname TOOLONGNAME); Return
+# (OK); 11 Backspaces; "memo.txt" Return -> the reply MEMO.TXT (good=1).
+FLAIR_ITEXT_BADNAME_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m-68:0,w400,kx,w200,kctrl-s,w600,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kt,ko,ko,kl,ko,kn,kg,kn,ka,km,ke,w200,kret,w800,kret,w600,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,km,ke,km,ko,kdot,kt,kx,kt,kret,w800,w600

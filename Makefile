@@ -14039,7 +14039,7 @@ test-te-surface-mutant: $(foreach m,$(TE_SURFACE_MUTANTS),$(BUILD)/test_te_surfa
 		grep -q "^RED-REASON $$why:" $$bin.log || { printf '!!! test-te-surface-mutant FAIL: %s went RED for the wrong reason (want %s)\n' "$$m" "$$why"; grep '^RED-REASON' $$bin.log; exit 1; }; \
 		printf '>>> test-te-surface-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$bin.log)"; \
 	done
-	@printf '>>> test-te-surface-mutant: green (all five mutants RED for the named reason)\n'
+	@printf '>>> test-te-surface-mutant: green (all seven mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # test-itext-route (bead initech-tdnl.16, R4.2 InitechText): the HOST ROUTING
@@ -14068,7 +14068,7 @@ test-itext-route: $(TEST_ITEXT_ROUTE)
 	@$(TEST_ITEXT_ROUTE)
 	@printf '>>> test-itext-route: green\n'
 
-ITEXT_ROUTE_MUTANTS := ITEXT_MUT_COPY_NOTHING:copy ITEXT_MUT_SAVE_NO_CR:save ITEXT_MUT_QUIT_NO_ASK:quit ITEXT_MUT_SEL_NOT_INVERSE:inverse ITEXT_MUT_SCROLL_NEVER_ENABLED:scroll
+ITEXT_ROUTE_MUTANTS := ITEXT_MUT_COPY_NOTHING:copy ITEXT_MUT_SAVE_NO_CR:save ITEXT_MUT_QUIT_NO_ASK:quit ITEXT_MUT_SEL_NOT_INVERSE:inverse ITEXT_MUT_SCROLL_NEVER_ENABLED:scroll ITEXT_MUT_LF_PAIR_OUTPUT:linefeed ITEXT_MUT_FULL_SILENT:full
 test-itext-route-mutant: $(foreach m,$(ITEXT_ROUTE_MUTANTS),$(BUILD)/test_itext_route_mutant_$(firstword $(subst :, ,$(m))))
 	@for pair in $(ITEXT_ROUTE_MUTANTS); do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_itext_route_mutant_$$m; \
@@ -14077,7 +14077,7 @@ test-itext-route-mutant: $(foreach m,$(ITEXT_ROUTE_MUTANTS),$(BUILD)/test_itext_
 		grep -q "^RED-REASON $$why:" $$bin.log || { printf '!!! test-itext-route-mutant FAIL: %s went RED for the wrong reason (want %s)\n' "$$m" "$$why"; grep '^RED-REASON' $$bin.log; exit 1; }; \
 		printf '>>> test-itext-route-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$bin.log)"; \
 	done
-	@printf '>>> test-itext-route-mutant: green (all five mutants RED for the named reason)\n'
+	@printf '>>> test-itext-route-mutant: green (all seven mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # test-list (ADR-0012 D-2b / FLAIR Phase 4.5 / initech-77dj, List Manager half):
@@ -14568,7 +14568,7 @@ test-flair-routing-mutant: $(BUILD)/test_flair_routing_mutant_PROC_MUT_ADMIT_IS_
 		line=$$(grep -F "$$why" $$bin.log | grep FAIL) || { printf '!!! test-flair-routing-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-flair-routing-mutant: %s correctly RED:\n    %s\n' "$$m" "$$line"; \
 	done
-	@printf '>>> test-flair-routing-mutant: green (all five mutants RED for the named reason)\n'
+	@printf '>>> test-flair-routing-mutant: green (all seven mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-i123-wk1-roundtrip (bead initech-9u8w, I123 P1; plan
@@ -33104,6 +33104,31 @@ test-flair-itext-mutant: test-flair-itext $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG)
 	@printf '>>> test-flair-itext-mutant: green (all four mutants RED for the named reason)\n'
 
 TEST_UNIT_GATES += test-te-surface test-te-surface-mutant test-itext-route test-itext-route-mutant
+# L017 (audit 2026-10-23-das, bead initech-oobx): an invalid 8.3 name in the
+# Standard File Save As box raises an alert with the reason instead of doing
+# nothing. Locked trace FLAIR_ITEXT_BADNAME_SPEC; the gate image is the iword
+# gate kernel (this tree's kmain). Mutant kernel -DSF_MUT_BADNAME_SILENT
+# restores the silent refusal: the alert marker is absent and the reply never
+# comes (Return does nothing), so both greps go RED.
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1500 -DSF_MUT_BADNAME_SILENT,itext_badname))
+ITEXT_BADNAME = grep -qx 'TENANT-SF badname TOOLONGNAME' $(1) && grep -qx 'TENANT-SF-REPLY good=1 path=MEMO.TXT' $(1)
+.PHONY: test-flair-itext-badname test-flair-itext-badname-mutant
+test-flair-itext-badname: $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(FLAIR_DATA_IMG)
+	@printf 'InitechOS (STAPLER) -- make test-flair-itext-badname : an invalid 8.3 name in Save As alerts (initech-oobx L017)\n'
+	$(call appl-boot,flair_itext_badname,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_ITEXT_BADNAME_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_badname.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_badname.serial) || { printf '!!! test-flair-itext-badname FAIL: TEXT did not come up\n'; exit 1; }
+	@$(call ITEXT_BADNAME,$(BUILD)/flair_itext_badname.serial) || { printf '!!! test-flair-itext-badname FAIL: no bad-name alert, or the box did not recover to a valid reply\n'; grep '^TENANT-SF' $(BUILD)/flair_itext_badname.serial; exit 1; }
+	@printf '>>> test-flair-itext-badname: %s; %s\n' "$$(grep -m1 '^TENANT-SF badname' $(BUILD)/flair_itext_badname.serial)" "$$(grep -m1 '^TENANT-SF-REPLY' $(BUILD)/flair_itext_badname.serial)"
+	@printf '>>> test-flair-itext-badname: green\n'
+
+test-flair-itext-badname-mutant: test-flair-itext-badname $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_itext_badname.img $(FLAIR_DATA_IMG)
+	$(call appl-boot,flair_itext_badname_mut,$(BUILD)/flair_tenants_mut_itext_badname.img,$(FLAIR_DATA_IMG),FLAIR_ITEXT_BADNAME_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_badname_mut.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_badname_mut.serial) || { printf '!!! test-flair-itext-badname-mutant FAIL: wrong-reason RED (TEXT did not come up)\n'; exit 1; }
+	@if $(call ITEXT_BADNAME,$(BUILD)/flair_itext_badname_mut.serial); then printf '!!! test-flair-itext-badname-mutant FAIL: the silent refusal PASSED -- the gate is decoration\n'; exit 1; fi
+	@if grep -q '^TENANT-SF badname' $(BUILD)/flair_itext_badname_mut.serial; then printf '!!! test-flair-itext-badname-mutant FAIL: the mutant still alerted\n'; exit 1; fi
+	@printf '>>> test-flair-itext-badname-mutant: SF_MUT_BADNAME_SILENT correctly RED (no alert marker, no reply)\n'
+
+TEST_EMU_GATES += test-flair-itext-badname test-flair-itext-badname-mutant
 TEST_EMU_GATES += test-flair-itext test-flair-itext-mutant
 
 # ehq4: the existing C tenant / SETSCROLL service, driven by forty Returns.

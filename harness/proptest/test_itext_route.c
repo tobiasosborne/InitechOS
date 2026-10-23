@@ -40,8 +40,8 @@
 static long g_checks, g_fails;
 static int  g_said[16];
 static const char *const g_rn[] = { "copy", "save", "quit", "inverse", "route",
-                                    "scrap", "file", "menu", "open", "edit", "scroll" };
-enum { R_COPY, R_SAVE, R_QUIT, R_INV, R_ROUTE, R_SCRAP, R_FILE, R_MENU, R_OPEN, R_EDIT, R_SCROLL };
+                                    "scrap", "file", "menu", "open", "edit", "scroll", "linefeed", "full" };
+enum { R_COPY, R_SAVE, R_QUIT, R_INV, R_ROUTE, R_SCRAP, R_FILE, R_MENU, R_OPEN, R_EDIT, R_SCROLL, R_LF, R_FULL };
 #define CHECK(c, r, ...) do { g_checks++; if (!(c)) { g_fails++; if (!g_said[r]) {    \
     g_said[r] = 1; printf("RED-REASON %s: ", g_rn[r]); printf(__VA_ARGS__);           \
     printf(" (line %d)\n", __LINE__); } else { printf("  FAIL line %d\n", __LINE__); } } } while (0)
@@ -360,6 +360,50 @@ int main(void)
         const op_t *c = &m_ops[m_nops - 1];
         CHECK(c->kind == 1 && c->x == 4 && c->r == 5 && c->y == 369 && c->b == 385 &&
               c->fg == TBX_COLOR_BLACK, R_SCROLL, "caret stays in view at (4,369)..(5,385)");
+    }
+
+    /* L005 (audit 2026-10-23-das): LF-only blank lines must survive Open.
+     * Normalising rule (itext.c header): CR LF -> one CR, a lone LF -> one CR,
+     * a lone CR stays; every line END read is kept, so the line COUNT is
+     * preserved. Expected strings are written out, not derived from itext.c. */
+    {
+        static const struct { const char *in; int n; const char *want; } lf[] = {
+            { "ONE\n\nTHREE\n",      11, "ONE\r\rTHREE\r" },       /* the audit file */
+            { "ONE\r\n\r\nTHREE\r\n", 14, "ONE\r\rTHREE\r" },    /* CRLF control */
+            { "a\n\n\nb",            5, "a\r\r\rb" },
+            { "a\r\rb",              4, "a\r\rb" },                 /* lone CRs stay */
+            { "a\r\n\nb",           5, "a\r\rb" },                 /* CRLF then LF */
+        };
+        for (int i = 0; i < 5; i++) {
+            mfile_t *f = &m_files[5]; f->used = 1; snprintf(f->name, 64, "LF.TXT");
+            memcpy(f->data, lf[i].in, (size_t)lf[i].n); f->len = lf[i].n;
+            launch();
+            menu_hit(MENU_FILE, F_OPEN);
+            sf_answer("LF.TXT");
+            CHECK(doc_is(lf[i].want), R_LF, "case %d: LF/CRLF open gave %d bytes", i, g_te.teLength);
+            menu_hit(MENU_FILE, F_SAVE);
+            f = mfind("LF.TXT");
+            CHECK(f && f->len == (int)strlen(lf[i].want) && memcmp(f->data, lf[i].want, (size_t)f->len) == 0,
+                  R_LF, "case %d: Save of an opened LF file lost line ends", i);
+        }
+    }
+
+    /* L014: typing at the 4096-byte limit must say so (TeachText reports a
+     * full document with a notice; the Toolbox Gate has no beep verb). The
+     * edit is refused and the document is unchanged. */
+    {
+        mfile_t *f = &m_files[4]; f->used = 1; snprintf(f->name, 64, "K4.TXT");
+        memset(f->data, 'k', 4096); f->len = 4096;
+        launch();
+        menu_hit(MENU_FILE, F_OPEN);
+        sf_answer("K4.TXT");
+        CHECK(g_te.teLength == 4096 && m_alerts == 0, R_FULL, "4096-byte file opens silently");
+        type("!");
+        CHECK(g_te.teLength == 4096 && g_te.text[0] == 'k' && !g_dirty, R_FULL, "full document refuses the edit");
+        CHECK(m_alerts == 1 && strstr(m_alert_text, "full") != NULL, R_FULL,
+              "typing at the limit raised %d alerts (%s)", m_alerts, m_alert_text);
+        alert_answer(TBX_ALERT_DEFAULT);
+        CHECK(m_exits == 0 && g_te.teLength == 4096, R_FULL, "OK on the full notice does nothing more");
     }
 
     printf("test_itext_route: %ld checks, %ld failures\n", g_checks, g_fails);
