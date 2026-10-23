@@ -24347,6 +24347,19 @@ RECORD_MARKER_calculator = APPLE-LAUNCH name=CALCULAT.EXE dir=APPS
 RECORD_IMAGE_calculator = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_calculator = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_calculator = 300
+# initech-0xs6: PM records on main per BEAD.txt. Keep image selections
+# before record-flair so its prerequisites include the selected image.
+RECORD_SCRIPTS += calculator_power calculator_refused
+RECORD_SPEC_calculator_power = $(CALC_POWER_SD)
+RECORD_MARKER_calculator_power = APPLE-LAUNCH name=CALCULAT.EXE dir=APPS
+RECORD_IMAGE_calculator_power = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_calculator_power = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_calculator_power = 300
+RECORD_SPEC_calculator_refused = $(CALC_POWER_TEXT_SD)
+RECORD_MARKER_calculator_refused = FINDER-POWER-NOTICE
+RECORD_IMAGE_calculator_refused = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_calculator_refused = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_calculator_refused = 300
 # initech-zc68: the DOS folder is a normal spatial Finder window. PM records
 # after merge. From DOS (191,102), park at (620,460): (+429,+358).
 RECORD_SCRIPTS += dos_folder

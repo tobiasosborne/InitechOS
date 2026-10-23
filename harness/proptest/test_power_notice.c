@@ -11,7 +11,7 @@ int main(void)
     int fails=0;
     for(int asked=0;asked<2;asked++) {
         unsigned n=finder_power_notice(asked,"CALCULAT.EXE",lines);
-        if(n!=3 || strcmp(lines[0],"Shut Down or Restart was cancelled.") ||
+        if(n!=3 || strcmp(lines[0],"The operation was cancelled.") ||
            strcmp(lines[1],"CALCULAT.EXE") ||
            strcmp(lines[2],asked?"The application did not quit.":
                                 "Close this application and try again.")) {

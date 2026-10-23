@@ -11,7 +11,7 @@ static inline unsigned finder_power_notice(int asked, const char *app,
     (void)asked; (void)app; (void)lines;
     return 0;
 #else
-    lines[0] = "Shut Down or Restart was cancelled.";
+    lines[0] = "The operation was cancelled.";
     lines[1] = app;
     lines[2] = asked ? "The application did not quit." :
                        "Close this application and try again.";

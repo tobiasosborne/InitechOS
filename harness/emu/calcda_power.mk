@@ -32,7 +32,7 @@ test-flair-calcda-power: $(HARNESS_BIN) $(FLAIR_CALCDA_GATE_IMG) $(FLAIR_DATA_IM
 	@grep -q 'OK=1' $(BUILD)/calc_power_rs.report
 
 PPM_POWER_NOTICE := $(BUILD)/ppm_flair_power_notice_check
-$(PPM_POWER_NOTICE): tools/ppm_flair_power_notice_check.c tools/ppm_flair_trash_check.c harness/render/alert_capture.h harness/render/icon_capture.h spec/assets/color_canon.h | $(BUILD)
+$(PPM_POWER_NOTICE): tools/ppm_flair_power_notice_check.c tools/ppm_flair_trash_check.c harness/render/alert_capture.h harness/render/icon_capture.h spec/assets/color_canon.h spec/assets/chicago12.h spec/chicago12_nfnt_golden.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec/assets $(ICON_CAPTURES_DEF) -o $@ $< -lpng
 
 # Close-only is the exact pre-fix Calculator, on a private fixture volume.
@@ -103,16 +103,3 @@ test-flair-power-notice-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_power_
 test-calcda-mutant: test-calcda-power-mutant
 TEST_UNIT_GATES += test-calcda-power test-calcda-power-mutant
 TEST_EMU_GATES += test-flair-calcda-power test-flair-calcda-power-mutant test-flair-power-notice test-flair-power-notice-mutant
-
-# PM records on main per BEAD.txt: make record-flair SCRIPT=calculator_power
-RECORD_SCRIPTS += calculator_power calculator_refused
-RECORD_SPEC_calculator_power = $(CALC_POWER_SD)
-RECORD_MARKER_calculator_power = APPLE-LAUNCH name=CALCULAT.EXE dir=APPS
-RECORD_IMAGE_calculator_power = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
-RECORD_DATA_calculator_power = $(FLAIR_DATA_IMG)
-RECORD_SETTLE_calculator_power = 300
-RECORD_SPEC_calculator_refused = $(CALC_POWER_TEXT_SD)
-RECORD_MARKER_calculator_refused = FINDER-POWER-NOTICE
-RECORD_IMAGE_calculator_refused = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
-RECORD_DATA_calculator_refused = $(FLAIR_DATA_IMG)
-RECORD_SETTLE_calculator_refused = 300

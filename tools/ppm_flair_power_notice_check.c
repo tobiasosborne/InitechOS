@@ -1,12 +1,44 @@
 /* initech-0xs6: refused-power notice. Reuse the existing independently
  * captured alert chrome/colors/PPM reader; keep all Trash gates unchanged.
- * Message words are graded by test_power_notice and the emulator transcript;
- * these pixels prove that all three lines, the OK label and default ring
- * are visible. No assumptions about documents behind the modal notice.
+ * Exact heading words are checked below as well as by test_power_notice
+ * and the emulator transcript; all three lines, the OK label and default
+ * ring must be visible. No assumptions about documents behind the notice.
  * Golden: system7-decomp s8_alert_modal.png (see included checker). */
 #define main trash_checker_main
 #include "ppm_flair_trash_check.c"
 #undef main
+#include "chicago12.h"
+#include "../spec/chicago12_nfnt_golden.h"
+
+/* Authored operation-neutral wording (REVIEW.md): the same notice serves
+ * Exit to InitechDOS, Shut Down and Restart. Match the locked Chicago ART
+ * at independent NFNT 5478 metrics, as ppm_flair_app_launch_check does.
+ * The expected literal is independent of power_notice.h. */
+static void notice_heading(void)
+{
+    const char *text = "The operation was cancelled.";
+    int bad = 0;
+    for (int r = 0; r < CHICAGO_CELL_H; r++)
+        for (int x = 0; x < TXT_X1 - TXT_X0; x++) {
+            int pen = 0, set = 0;
+            for (const char *s = text; *s; s++) {
+                int c = (unsigned char)*s, aw = nfnt5478_aw(c);
+                if (x >= pen && x < pen + aw) {
+                    int col = x - pen - nfnt5478_lb(c);
+                    if (col >= 0 && col < 16)
+                        set = !!(chicago12_rows[chicago12_index(c)][r] & (0x8000u >> col));
+                    break;
+                }
+                pen += aw;
+            }
+            uint32_t want = flair_canon_rgb((unsigned char)(set ? CIDX_BLACK : CIDX_PLAT_FACE)) & 0xFFFFFFu;
+            bad += alert_capture_rgb(g_buf, TXT_X0 + x, TXT_Y0 + r) != want;
+        }
+    if (bad) {
+        fprintf(stderr, "FAIL power-notice heading: %d pixels differ from \"%s\"\n", bad, text);
+        g_fail = 1;
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -28,6 +60,7 @@ int main(int argc, char **argv)
     if(!g_buf || fread(g_buf,1,n,f)!=n) {fclose(f);free(g_buf);return 2;}
     fclose(f);
     alert_chrome(0);
+    notice_heading();
     want(300,150,CIDX_PLAT_FACE,"alert face between message and buttons");
     for(int k=0;k<3;k++)
         want_ink(TXT_X0,TXT_Y0+16*k,TXT_X1,TXT_Y0+16*(k+1),1,"message line");

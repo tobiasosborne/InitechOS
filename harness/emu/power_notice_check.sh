@@ -6,7 +6,7 @@ red() { printf 'FAIL power-notice: %s\n' "$*"; exit 1; }
 grep -qxF 'FINDER-POWER-CANCEL app=TEXT.EXE declined' "$s" || red 'dirty Text did not cancel shutdown'
 grep -qxF 'TENANT-ALERT-HIT item=2' "$s" || red 'dirty Text save prompt was not cancelled'
 grep -qxF 'FINDER-POWER-NOTICE' "$s" || red 'no visible explanation'
-grep -qxF 'FINDER-ALERT-LINE Shut Down or Restart was cancelled.' "$s" || red 'missing operation'
+grep -qxF 'FINDER-ALERT-LINE The operation was cancelled.' "$s" || red 'missing operation'
 grep -qxF 'FINDER-ALERT-LINE TEXT.EXE' "$s" || red 'missing app name'
 grep -qxF 'FINDER-ALERT-LINE The application did not quit.' "$s" || red 'missing reason'
 ! grep -qE '^(TENANT-EXIT|TENANT-CRASH|PANIC|FLAIR-SHUTDOWN|FLAIR-RESTART)' "$s" || red 'cancelled app or session ended'
