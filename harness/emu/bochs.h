@@ -125,6 +125,9 @@ typedef struct {
     bool marker_found;         /* expect_marker present (false if NULL).     */
     bool quit_marker_found;    /* requested completion count reached.        */
     int quit_markers_seen;     /* complete exact quit_after lines captured.  */
+    bool trace_late;           /* quit_after completed DURING the replay with
+                                  steps still unsent: the guest finished
+                                  before its input arrived (initech-kxrk).  */
 
     bool screendump_marker_found; /* screendump_after line seen.            */
     bool screendump_ok;        /* a stable full RFB frame was written.       */
@@ -144,6 +147,7 @@ typedef struct {
     bool ok;                   /* launched && rfb_unblocked && !triple_fault
                                   && (expect_marker ? marker_found : true)
                                   && (quit_after ? quit_marker_found : true)
+                                  && !trace_late
                                   && (screendump_after ? screendump_ok &&
                                                          snapshot_ok : true).
                                   NOT gated on timed_out (hlt-loop).         */

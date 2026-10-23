@@ -4,6 +4,9 @@
 COPYBREAK_OPEN := m-100:-100,m-100:-100,m-100:-30,l1,w200,m40:88,l0,w600
 COPYBREAK_SPEC := $(COPYBREAK_OPEN),kctrl-c,w2200,kctrl-v,w400,m100:-8,m100:0,m60:0,l1,m60:40,l0,w300,m-100:0,m-50:0,l1,l0,w400,m-100:-100,m-100:-20,m-10:0,l1,w200,m40:88,l0,w600
 COPYBREAK_IMAGE ?= $(BUILD)/flair_tenants_mut_iword_gate.img
+# The guest budget the replay must fit: that image's -DFLAIR_TEN_TICK_BUDGET
+# (Makefile flair-tenants-kmain-mutant-rules ...,iword_gate), PIT 100 Hz.
+COPYBREAK_TICK_BUDGET := 1500
 COPYBREAK_TAG ?= copybreak
 COPYBREAK_DATA := $(BUILD)/copybreak_seed_data.img
 $(BUILD)/copybreak_seed: harness/emu/copybreak_seed.c | $(BUILD)
@@ -88,19 +91,27 @@ test-event-owner-mutant: $(BUILD)/test_event_owner_mut
 	@if $< >$(BUILD)/event_owner_mut.log 2>&1; then echo 'FAIL missing observer survived'; exit 1; fi
 	@grep 'FAIL.*ownership: observer' $(BUILD)/event_owner_mut.log
 $(BUILD)/test_bochs_trace: harness/emu/test_bochs_trace.c harness/emu/bochs_trace.h harness/emu/copybreak.mk
-	$(CC) $(CFLAGS) -DCOPYBREAK_OPEN='"$(COPYBREAK_OPEN)"' -Iharness/emu $< -o $@
+	$(CC) $(CFLAGS) -DCOPYBREAK_OPEN='"$(COPYBREAK_OPEN)"' -DCOPYBREAK_SPEC='"$(COPYBREAK_SPEC)"' -DCOPYBREAK_TICK_BUDGET=$(COPYBREAK_TICK_BUDGET) -Iharness/emu $< -o $@
 $(BUILD)/test_bochs_trace_mut: harness/emu/test_bochs_trace.c harness/emu/bochs_trace.h harness/emu/copybreak.mk
-	$(CC) $(CFLAGS) -DCOPYBREAK_OPEN='"$(COPYBREAK_OPEN)"' -DBOCHS_KEYS_MUT_RETURN -Iharness/emu $< -o $@
+	$(CC) $(CFLAGS) -DCOPYBREAK_OPEN='"$(COPYBREAK_OPEN)"' -DCOPYBREAK_SPEC='"$(COPYBREAK_SPEC)"' -DCOPYBREAK_TICK_BUDGET=$(COPYBREAK_TICK_BUDGET) -DBOCHS_KEYS_MUT_RETURN -Iharness/emu $< -o $@
 $(BUILD)/test_bochs_trace_origin_mut: harness/emu/test_bochs_trace.c harness/emu/bochs_trace.h harness/emu/copybreak.mk
-	$(CC) $(CFLAGS) -DCOPYBREAK_OPEN='"$(COPYBREAK_OPEN)"' -DBOCHS_TRACE_MUT_ORIGIN -Iharness/emu $< -o $@
+	$(CC) $(CFLAGS) -DCOPYBREAK_OPEN='"$(COPYBREAK_OPEN)"' -DCOPYBREAK_SPEC='"$(COPYBREAK_SPEC)"' -DCOPYBREAK_TICK_BUDGET=$(COPYBREAK_TICK_BUDGET) -DBOCHS_TRACE_MUT_ORIGIN -Iharness/emu $< -o $@
+$(BUILD)/test_bochs_trace_sync_mut: harness/emu/test_bochs_trace.c harness/emu/bochs_trace.h harness/emu/copybreak.mk
+	$(CC) $(CFLAGS) -DCOPYBREAK_OPEN='"$(COPYBREAK_OPEN)"' -DCOPYBREAK_SPEC='"$(COPYBREAK_SPEC)"' -DCOPYBREAK_TICK_BUDGET=$(COPYBREAK_TICK_BUDGET) -DBOCHS_TRACE_MUT_SYNC_NONE -Iharness/emu $< -o $@
+$(BUILD)/test_bochs_trace_capture_mut: harness/emu/test_bochs_trace.c harness/emu/bochs_trace.h harness/emu/copybreak.mk
+	$(CC) $(CFLAGS) -DCOPYBREAK_OPEN='"$(COPYBREAK_OPEN)"' -DCOPYBREAK_SPEC='"$(COPYBREAK_SPEC)"' -DCOPYBREAK_TICK_BUDGET=$(COPYBREAK_TICK_BUDGET) -DBOCHS_TRACE_MUT_NO_CAPTURE -Iharness/emu $< -o $@
 test-bochs-trace: $(BUILD)/test_bochs_trace
 	@$<
-test-bochs-trace-mutant: $(BUILD)/test_bochs_trace_mut $(BUILD)/test_bochs_trace_origin_mut
+test-bochs-trace-mutant: $(BUILD)/test_bochs_trace_mut $(BUILD)/test_bochs_trace_origin_mut $(BUILD)/test_bochs_trace_sync_mut $(BUILD)/test_bochs_trace_capture_mut
 	@if $< >$(BUILD)/bochs_trace_mut.log 2>&1; then echo 'FAIL Return mutant survived'; exit 1; fi
 	@grep -qx 'RED bochs trace parser' $(BUILD)/bochs_trace_mut.log
 	@if $(BUILD)/test_bochs_trace_origin_mut >$(BUILD)/bochs_trace_origin_mut.log 2>&1; then echo 'FAIL pointer origin mutant survived'; exit 1; fi
-	@grep -qx 'RED bochs pointer origin: opening step 0 at 541,413 want 220,140' $(BUILD)/bochs_trace_origin_mut.log
-	@echo 'GREEN bochs trace mutants: Return and unsynchronised pointer origin rejected'
+	@grep -qx 'RED bochs pointer origin: opening step 0 at 574,479 want 220,140' $(BUILD)/bochs_trace_origin_mut.log
+	@if $(BUILD)/test_bochs_trace_sync_mut >$(BUILD)/bochs_trace_sync_mut.log 2>&1; then echo 'FAIL free-running replay clock mutant survived'; exit 1; fi
+	@grep -qx 'RED bochs replay clock: sync=none, [0-9]* ms host-paced trace outlives the 15000 ms guest budget' $(BUILD)/bochs_trace_sync_mut.log
+	@if $(BUILD)/test_bochs_trace_capture_mut >$(BUILD)/bochs_trace_capture_mut.log 2>&1; then echo 'FAIL uncaptured mouse mutant survived'; exit 1; fi
+	@grep -qx 'RED bochs pointer origin: opening step 0 at 320,240 want 220,140' $(BUILD)/bochs_trace_capture_mut.log
+	@echo 'GREEN bochs trace mutants: Return, unsynchronised pointer origin, free-running replay clock and uncaptured mouse rejected'
 
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_INPUT_HANDOFF_GATE -DFLAIR_TEN_TICK_BUDGET=3000,input_handoff))
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_NO_INPUT_REPLAY -DKMAIN_INPUT_HANDOFF_GATE -DFLAIR_TEN_TICK_BUDGET=3000,no_input_replay))

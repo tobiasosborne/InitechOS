@@ -189,10 +189,13 @@ static int write_bochsrc(const char *path, const BochsConfig *cfg,
         "boot: disk\n"
         "com1: enabled=1, mode=file, dev=%s\n",
         serial_path);
-    if (cfg->rtc_time0 > 0)
-        fprintf(f, "clock: sync=none, time0=%ld\n", cfg->rtc_time0);
-    else
-        fputs("clock: sync=none\n", f);
+    {
+        const char *sync = bochs_trace_clock_sync(cfg->keys_script != NULL);
+        if (cfg->rtc_time0 > 0)
+            fprintf(f, "clock: sync=%s, time0=%ld\n", sync, cfg->rtc_time0);
+        else
+            fprintf(f, "clock: sync=%s\n", sync);
+    }
     fputs("display_library: rfb\n", f);
     if (cfg->keys_script && strchr(cfg->keys_script, ':'))
         fputs("mouse: type=ps2, enabled=1\n", f);
@@ -845,7 +848,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     int status = 0;
     bool reaped = false;
     const char *key_next = cfg->keys_script;
-    bool keys_started = false, key_down = false;
+    bool keys_started = false, key_down = false, quit_before_keys = false;
     long long key_at = 0;
     BochsTracePointer pointer = { .x = 320, .y = 240 };
     for (;;) {
@@ -856,24 +859,31 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         if (key_next && !keys_started) {
             char *txt = read_file(out->serial_path, NULL);
             keys_started = txt && serial_marker_count(txt, cfg->keys_after) > 0;
+            /* A leg may quit on the replay's own start marker (SAMIR's
+             * SHELL-READY); only a completion that arrives mid-replay means
+             * the guest ended before its input did. */
+            quit_before_keys = keys_started && cfg->quit_after &&
+                               serial_completion(txt, cfg->quit_after,
+                                                 cfg->quit_after_count);
             free(txt);
         }
         if (key_next && keys_started && rfb.have_init && mono_ms() >= key_at) {
             const char *end = strchr(key_next, ',');
             BochsTraceStep step;
             if (!bochs_trace_parse(key_next, end ? (size_t)(end - key_next) : strlen(key_next), &step)) break;
-            int delay = 80;
+            int delay = BOCHS_TRACE_STEP_MS;
             if (step.kind == BX_KEY) {
                 if (step.ctrl && !key_down && !rfb_key_event(&rfb, 0xffe3, true)) break;
                 if (!rfb_key_event(&rfb, rfb_key(key_next, end ? (size_t)(end - key_next) : strlen(key_next)), !key_down)) break;
                 key_down = !key_down;
                 if (step.ctrl && !key_down && !rfb_key_event(&rfb, 0xffe3, false)) break;
-                delay = 30;
+                delay = BOCHS_TRACE_KEY_MS;
             } else if (step.kind == BX_WAIT) delay = step.delay;
             else {
                 unsigned x, y, buttons;
                 int consumed = bochs_trace_pointer_next(&pointer, &step, &x, &y, &buttons);
                 if (!rfb_pointer_event(&rfb, x, y, buttons)) break;
+                delay = pointer.hold_ms;
                 if (!consumed) { key_at = mono_ms() + delay; continue; }
             }
             if (!key_down) key_next = end ? end + 1 : NULL;
@@ -896,6 +906,15 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                 }
             }
             free(txt);
+            /* Fail loud (Rule 2): under the old free-running Bochs clock the
+             * copybreak guest reached FLAIR-LIVE-OK and halted before the
+             * first RFB packet, and the rest of the trace went to a dead
+             * guest while the driver still said OK=1 (initech-kxrk). */
+            if (complete && key_next && keys_started && !key_down &&
+                !quit_before_keys) {
+                out->trace_late = true;
+                break;
+            }
             if (complete && !cfg->screendump_after && !key_next) break;
         }
         if (sd == SD_FIRST && rfb.full_frames >= want_full && mono_ms() >= sd_t) {
@@ -1046,6 +1065,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     }
 
     out->ok = out->launched && out->rfb_unblocked && !out->triple_fault &&
+              !out->trace_late &&
               (cfg->keys_script ? (!key_next && !rfb.err[0]) : true) &&
               (cfg->expect_marker ? out->marker_found : true) &&
               (cfg->quit_after ? out->quit_marker_found : true) &&
