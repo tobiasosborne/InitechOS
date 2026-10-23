@@ -29,6 +29,9 @@
  *   ITEXT_MUT_SAVE_NO_CR       -> save
  *   ITEXT_MUT_QUIT_NO_ASK      -> quit
  *   ITEXT_MUT_SEL_NOT_INVERSE  -> inverse
+ *   ITEXT_MUT_UNDO_NO_INVERSE  -> undo       (initech-4hkk)
+ *   ITEXT_MUT_UNDO_PER_KEY     -> undorun    (initech-4hkk)
+ *   ITEXT_MUT_UNDO_KEEPS_HISTORY -> undoreset (initech-4hkk)
  *   (and SCROLL_NEVER_ENABLED, LF_PAIR_OUTPUT, FULL_SILENT: Makefile list)
  * The mock volume keeps DOS 3.3 directory semantics -- one entry per name,
  * CREATE_NEW refuses a taken name, DELETE of a missing file is error 2,
@@ -44,10 +47,12 @@
 #include "../../os/apps/itext/itext.c"   /* the application under test */
 
 static long g_checks, g_fails;
-static int  g_said[16];
+static int  g_said[24];
 static const char *const g_rn[] = { "copy", "save", "quit", "inverse", "route",
-                                    "scrap", "file", "menu", "open", "edit", "scroll", "linefeed", "full" };
-enum { R_COPY, R_SAVE, R_QUIT, R_INV, R_ROUTE, R_SCRAP, R_FILE, R_MENU, R_OPEN, R_EDIT, R_SCROLL, R_LF, R_FULL };
+                                    "scrap", "file", "menu", "open", "edit", "scroll", "linefeed", "full",
+                                    "undo", "undorun", "undoreset" };
+enum { R_COPY, R_SAVE, R_QUIT, R_INV, R_ROUTE, R_SCRAP, R_FILE, R_MENU, R_OPEN, R_EDIT, R_SCROLL, R_LF, R_FULL,
+       R_UNDO, R_UNDORUN, R_UNDORESET };
 #define CHECK(c, r, ...) do { g_checks++; if (!(c)) { g_fails++; if (!g_said[r]) {    \
     g_said[r] = 1; printf("RED-REASON %s: ", g_rn[r]); printf(__VA_ARGS__);           \
     printf(" (line %d)\n", __LINE__); } else { printf("  FAIL line %d\n", __LINE__); } } } while (0)
@@ -230,6 +235,7 @@ static void launch(void)
     memset(&g_te, 0, sizeof g_te);
     g_win = 0; g_dirty = 0; g_active = 1; g_scroll = 0; g_anchor = 0;
     g_scrap_has = 0; g_after = 0; g_sf_kind = 0; g_path[0] = 0;
+    g_undo_ok = 0; g_undo_run = 0;           /* a fresh launch's BSS */
     m_exits = m_alerts = m_track = m_sf = 0;
     CHECK(tbx_app_main() == 0, R_ROUTE, "launch");
     hev(updateEvt, 1, 0, 0, 0);
@@ -433,6 +439,119 @@ int main(void)
               "typing at the limit raised %d alerts (%s)", m_alerts, m_alert_text);
         alert_answer(TBX_ALERT_DEFAULT);
         CHECK(m_exits == 0 && g_te.teLength == 4096, R_FULL, "OK on the full notice does nothing more");
+    }
+
+    /* initech-4hkk (audit 2026-10-23-das L011): one-level Undo.
+     * GROUND TRUTH (Law 1): Macintosh System Software User's Guide v6.0
+     * p.118 (initech-manuals-ref/macos): "Undo. This command undoes your
+     * last text-editing action ... type something wrong ... choose Undo to
+     * erase the typing and start fresh" -- ONE level, and a typing run is
+     * undone as a unit; ../system7-decomp goldens/captures/
+     * s8_simpletext_editmenu{,_nosel}.png: after typing, SimpleText's Edit
+     * menu shows "Undo ^Z" ENABLED. Every expected string below is written
+     * out by hand, never read back from itext.c. */
+    {
+        static const char doc[] = "Saving tables to disk\rPC LOAD LETTER";   /* 36 bytes */
+        launch();
+        CHECK(!edit_items[E_UNDO - 1].enabled, R_UNDO, "Undo grayed at launch (nothing to undo)");
+        menu_hit(MENU_EDIT, E_UNDO);                  /* a no-op, not a crash */
+        CHECK(g_te.teLength == 0 && !g_dirty, R_UNDO, "Undo with no history changes nothing");
+        type(doc);
+        CHECK(edit_items[E_UNDO - 1].enabled, R_UNDO, "typing enables Undo (s8_simpletext_editmenu.png)");
+
+        /* Cut -> Undo: the exact bytes, the cut range reselected, still dirty */
+        menu_hit(MENU_EDIT, E_ALL);
+        menu_hit(MENU_EDIT, E_CUT);
+        CHECK(g_te.teLength == 0 && m_scrap_len == 36, R_UNDO, "Select All + Cut empties (len %d)", g_te.teLength);
+        CHECK(edit_items[E_UNDO - 1].enabled, R_UNDO, "Cut leaves Undo enabled");
+        menu_hit(MENU_EDIT, E_UNDO);
+        CHECK(doc_is(doc), R_UNDO, "Cut -> Undo restores the 36 bytes (got %d)", g_te.teLength);
+        CHECK(g_te.selStart == 0 && g_te.selEnd == 36, R_UNDO, "Undo reselects the cut range [%d,%d)", g_te.selStart, g_te.selEnd);
+        CHECK(g_dirty, R_UNDO, "the restored untitled document is still unsaved");
+        CHECK(find_text("Saving tables to disk", TBX_COLOR_WHITE | TBX_TEXT_GENEVA12, TBX_COLOR_BLACK) != NULL &&
+              find_text("PC LOAD LETTER", TBX_COLOR_WHITE | TBX_TEXT_GENEVA12, TBX_COLOR_BLACK) != NULL,
+              R_UNDO, "the restored text is PAINTED, selected (white ink on black)");
+        /* the restored document saves as the restored bytes */
+        menu_hit(MENU_FILE, F_SAVE);
+        sf_answer("UNDO.TXT");
+        {
+            mfile_t *f = mfind("UNDO.TXT");
+            CHECK(f && f->len == 36 && memcmp(f->data, doc, 36) == 0, R_UNDO, "UNDO.TXT bytes (len %d)", f ? f->len : -1);
+        }
+        CHECK(!g_dirty, R_SAVE, "saved clean");
+
+        /* Clear -> Undo over a SAVED document: the dirty state comes back too */
+        press(45, 5, 0); track(84, 5, 1);             /* "tables" [7,13) */
+        CHECK(g_te.selStart == 7 && g_te.selEnd == 13, R_EDIT, "drag [%d,%d)", g_te.selStart, g_te.selEnd);
+        menu_hit(MENU_EDIT, E_CLEAR);
+        CHECK(doc_is("Saving  to disk\rPC LOAD LETTER") && g_dirty, R_UNDO, "Clear");
+        menu_hit(MENU_EDIT, E_UNDO);
+        CHECK(doc_is(doc) && g_te.selStart == 7 && g_te.selEnd == 13, R_UNDO, "Clear -> Undo restores text + [7,13)");
+        CHECK(!g_dirty, R_UNDO, "Undo back to the saved bytes is clean again");
+        /* one level: Undo again undoes the Undo (the classic one-level swap) */
+        menu_hit(MENU_EDIT, E_UNDO);
+        CHECK(doc_is("Saving  to disk\rPC LOAD LETTER") && g_dirty, R_UNDO, "Undo of the Undo re-clears, dirty");
+        menu_hit(MENU_EDIT, E_UNDO);
+        CHECK(doc_is(doc) && !g_dirty, R_UNDO, "and back again, clean");
+
+        /* Paste replacing a range -> Undo (the scrap holds the 36-byte cut) */
+        menu_hit(MENU_EDIT, E_PASTE);
+        CHECK(doc_is("Saving Saving tables to disk\rPC LOAD LETTER to disk\rPC LOAD LETTER"), R_UNDO, "paste over [7,13)");
+        menu_hit(MENU_EDIT, E_UNDO);
+        CHECK(doc_is(doc) && g_te.selStart == 7 && g_te.selEnd == 13 && !g_dirty, R_UNDO,
+              "Paste -> Undo restores \"tables\" selected, clean");
+
+        /* a typing run -- keys and Backspace with no click between -- undoes as ONE */
+        press(300, 20, 0); track(300, 20, 1);         /* caret at the end, 36 */
+        type("!!x");
+        hkey(0x08, 0x0E, 0);                          /* Backspace: "!!" */
+        type("?");
+        CHECK(doc_is("Saving tables to disk\rPC LOAD LETTER!!?"), R_UNDORUN, "typed run");
+        menu_hit(MENU_EDIT, E_UNDO);
+        CHECK(doc_is(doc), R_UNDORUN, "Undo erases the whole typing run (len %d)", g_te.teLength);
+        CHECK(g_te.selStart == 36 && g_te.selEnd == 36 && !g_dirty, R_UNDORUN, "caret back at 36, clean");
+        /* a click ends the run: only the second run is undone */
+        type("a");
+        press(0, 5, 0); track(0, 5, 1);               /* caret at 0 */
+        type("b");
+        menu_hit(MENU_EDIT, E_UNDO);
+        CHECK(doc_is("Saving tables to disk\rPC LOAD LETTERa") && g_te.selStart == 0 && g_te.selEnd == 0,
+              R_UNDORUN, "a click starts a new run; Undo takes back only \"b\"");
+
+        /* New resets the history (Don't Save the edit first) */
+        menu_hit(MENU_FILE, F_NEW);
+        alert_answer(TBX_ALERT_OTHER);
+        CHECK(g_te.teLength == 0, R_ROUTE, "New empties");
+        CHECK(!edit_items[E_UNDO - 1].enabled, R_UNDORESET, "New grays Undo");
+        menu_hit(MENU_EDIT, E_UNDO);
+        CHECK(g_te.teLength == 0 && !g_dirty, R_UNDORESET, "Undo after New brings nothing back (len %d)", g_te.teLength);
+        type("z");
+        /* Open resets it too */
+        menu_hit(MENU_FILE, F_OPEN);
+        alert_answer(TBX_ALERT_OTHER);
+        sf_answer("UNDO.TXT");
+        CHECK(doc_is(doc) && !edit_items[E_UNDO - 1].enabled, R_UNDORESET, "Open grays Undo");
+        menu_hit(MENU_EDIT, E_UNDO);
+        CHECK(doc_is(doc) && !g_dirty, R_UNDORESET, "Undo after Open keeps the opened bytes");
+    }
+    /* capacity: a refused edit records nothing; the last real edit stays undoable */
+    {
+        mfile_t *f = mplant("K4.TXT", NULL, 4096);
+        memset(f->data, 'k', 4096);
+        launch();
+        menu_hit(MENU_FILE, F_OPEN);
+        sf_answer("K4.TXT");
+        menu_hit(MENU_EDIT, E_ALL);
+        menu_hit(MENU_EDIT, E_CUT);                   /* scrap = 4096 'k' */
+        menu_hit(MENU_EDIT, E_PASTE);                 /* the 4096 come back */
+        CHECK(g_te.teLength == 4096, R_UNDO, "paste 4096 (len %d)", g_te.teLength);
+        menu_hit(MENU_EDIT, E_PASTE);                 /* refused: full */
+        CHECK(m_alerts == 1 && g_te.teLength == 4096, R_FULL, "second paste refused");
+        alert_answer(TBX_ALERT_DEFAULT);
+        menu_hit(MENU_EDIT, E_UNDO);
+        CHECK(g_te.teLength == 0 && g_dirty, R_UNDO, "Undo after a refused paste undoes the PASTE that fit (len %d)", g_te.teLength);
+        menu_hit(MENU_EDIT, E_UNDO);
+        CHECK(g_te.teLength == 4096 && g_te.text[4095] == 'k', R_UNDO, "and redoes it");
     }
 
     printf("test_itext_route: %ld checks, %ld failures\n", g_checks, g_fails);
