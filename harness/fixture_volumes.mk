@@ -186,3 +186,8 @@ fixture-preflight = $(if $(call fixture-spec,$(1)),$(call fixture-check,harness,
 FIXTURE_IMAGE ?= $(FLAIR_I123_QUIT_DATA)
 verify-fixture-volume:
 	@$(call fixture-check,recipe,$(FIXTURE_IMAGE))
+
+# initech-qxft: Calc's replace-question legs boot a stock volume that already
+# holds APPS/TABLES.TXT (CALC_SEEDED_DATA, minted + verified by its own rule).
+$(eval $(call fixture-contract,$(CALC_SEEDED_DATA),$(FLAIR_FIXTURES) APPS/TABLES.TXT))
+$(eval $(call fixture-contract,$(CALC_SEEDED_SILENT_DATA),$(FLAIR_FIXTURES) APPS/TABLES.TXT))

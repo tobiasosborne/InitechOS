@@ -52,6 +52,15 @@ int32_t tbx_draw_text(int32_t w,int32_t x,int32_t y,const char *s,uint32_t f,uin
 }
 int32_t tbx_exit(int32_t r) { CHECK(r==0,"exit status"); exits++; return 0; }
 int32_t tbx_file_copy(const char *c,const char *s,const char *d) { (void)c; (void)s; (void)d; return 0; } /* bf2: routed in test_calc_file_copy.c */
+/* initech-qxft: the exit guard's alert and the (absent) data volume. */
+static int alerts, alert_buttons; static char alert_text[160];
+int32_t tbx_alert(const char *t,const char *d,const char *c,const char *o)
+{ alerts++; alert_buttons=1+(c!=0)+(o!=0); snprintf(alert_text,sizeof alert_text,"%s",t); (void)d; return 0; }
+int32_t tbx_file_open(const char *p,uint32_t m) { (void)p;(void)m; return -1; }
+int32_t tbx_file_create(const char *p) { (void)p; return -1; }
+int32_t tbx_file_write(int32_t h,const void *b,uint32_t n) { (void)h;(void)b;(void)n; return -1; }
+int32_t tbx_file_close(int32_t h) { (void)h; return 0; }
+int32_t tbx_file_delete(const char *p) { (void)p; return 0; }
 static void event(int what,int msg)
 { tbx_event_t e={what,msg,0,0,0,0}; tbx_app_event(&e); }
 static void content(int c,int r,char *s)
@@ -83,10 +92,17 @@ int main(void)
     for(int i=0;i<5;i++) CHECK(percent_labels[i]>0,"PIE_LABELS each percentage rendered");
     CHECK(draws[1]>0&&draws[2]>0,"both window tokens painted");
     CHECK(total&&negative,"footer total and trailing-minus specimen actually drawn");
+    /* L007: a CLEAN worksheet quits at once, never asking. */
+    event(TBX_EVT_GOAWAY,2); CHECK(exits==1&&alerts==0,"QUIT_CLEAN a clean close box quits without a question");
     event(keyDown,'7'); event(keyDown,'3'); event(keyDown,'\r');
     content(0,0,s); CHECK(!strcmp(s,"73"),"editing uses i123 model");
-    event(TBX_EVT_MENU,TBX_MENU_WORD(129,2)); CHECK(exits==1,"File Quit routed");
-    event(TBX_EVT_GOAWAY,2); CHECK(exits==2,"chart close routed");
+    /* L007: after an edit File > Quit / the close box ASK (Save / Cancel / Don't Save). */
+    event(TBX_EVT_MENU,TBX_MENU_WORD(129,2));
+    CHECK(exits==1&&alerts==1&&alert_buttons==3,"QUIT_ASKS an edited File > Quit asks, three buttons, no exit");
+    CHECK(strstr(alert_text,"Save changes")!=NULL,"QUIT_ASKS the Macintosh Save-changes wording");
+    event(TBX_EVT_ALERT,TBX_ALERT_CANCEL); CHECK(exits==1,"QUIT_CANCEL Cancel keeps the worksheet open");
+    event(TBX_EVT_GOAWAY,2); CHECK(exits==1&&alerts==2,"QUIT_CLOSE the close box asks again (still dirty)");
+    event(TBX_EVT_ALERT,TBX_ALERT_OTHER); CHECK(exits==2,"QUIT_DONTSAVE Don't Save ends the session");
     printf("test_calc_tenant: %d checks, %d failures\n",checks,failures);
     return failures?1:0;
 }
