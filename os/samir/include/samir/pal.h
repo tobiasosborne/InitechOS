@@ -210,6 +210,21 @@ struct samir_pal {
      * COMSPEC with the tail " /C <cmdline>", then AH=4Dh. Host: system().
      * NULL on a PAL with no processor (the engine fails loud the same way). */
     int32_t (*exec)(samir_pal_t *, const char *cmdline);
+
+    /* ---- program interruption: SET ESCAPE / ON ESCAPE (initech-39e5) ----
+     * conin_escape: NON-BLOCKING. Returns 1 when the operator has pressed Esc
+     * (the key is consumed), else 0. Any other key found waiting is NOT lost:
+     * the binding keeps it, in order, for the next conin_char / conin_line
+     * (III+ type-ahead, Using III+ U5-220 SET ESCAPE / U5-231 SET TYPEAHEAD).
+     * A binding whose standard input is not the console returns 0 without
+     * reading (a redirected stream is commands, not keystrokes). NULL on a PAL
+     * with no keyboard (Esc is then never seen). Milton: AH=0Bh input status
+     * then AH=07h raw read (os/milton/int21.c do_input_status/do_conin_raw).
+     * curdrive: the default drive letter ('A'..'Z') for the interrupt trace
+     * "Called from - C:ESC.prg" (mint samirctl ESC.TXT), or < 0 if the PAL
+     * has no drive notion (the drive is then omitted). Milton: AH=19h. */
+    int     (*conin_escape)(samir_pal_t *);
+    int     (*curdrive)(samir_pal_t *);
 };
 
 /* Owned buffer chains: reclaim ONLY this codec's allocations. */

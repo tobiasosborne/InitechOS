@@ -8,6 +8,7 @@
 \QREntry{??}{command}{?? <expression list>}{Displays values on the same line.}
 \QREntry{ACCEPT}{command}{ACCEPT [<expC>] TO <memvar>}{Reads a typed line into a character memory variable.}
 \QREntry{APPEND}{command}{APPEND BLANK / FROM <file>}{Adds a blank record, or the records of another database, to the end of the database.}
+\QREntry{CANCEL}{command}{CANCEL}{Ends the program and returns to the dot prompt.}
 \QREntry{CLEAR MEMORY}{compound}{CLEAR MEMORY}{Releases all memory variables, public and private.}\XAlso{CLEAR}{CLEAR}
 \QREntry{CLOSE}{command}{CLOSE ALL / DATABASES / INDEX / ALTERNATE / FORMAT / PROCEDURE}{Closes every open database with its index files (ALL, DATABASES), or the index files only (INDEX).}
 \QREntry{CONTINUE}{command}{CONTINUE}{Moves to the next record that meets the last LOCATE condition.}
@@ -28,13 +29,13 @@
 \QREntry{LOCATE}{command}{LOCATE [<scope>] FOR <condition> [WHILE <condition>]}{Moves to the first record that meets the condition.}
 \QREntry{NOTE}{command}{NOTE <text> / * <text> / <command> \&\& <text>}{Comment.}\XAlso{*}{*}\XAlso{&&}{\&\&}
 \QREntry{ON ERROR}{compound}{ON ERROR [<command>]}{Names a command to carry out when an error occurs.}\XAlso{ON}{ON}
-\QREntry[accepted; the trap is not carried out by this version (proc.c)]{ON ESCAPE}{compound}{ON ESCAPE / ON KEY [<command>]}{Name a command for a key pressed while a program runs.}
+\QREntry[the ON KEY trap is accepted, not carried out by this version (proc.c)]{ON ESCAPE}{compound}{ON ESCAPE / ON KEY [<command>]}{Name a command for a key pressed while a program runs.}
 \QREntry{PACK}{command}{PACK}{Removes the records marked for deletion.}
 \QREntry{PARAMETERS}{command}{PARAMETERS <memvar list>}{Receives the values passed by DO ... WITH.}\XAlso{PARAMETER}{PARAMETER}
 \QREntry{PRIVATE}{command}{PRIVATE <memvar list>}{Creates memory variables of the procedure, hiding others of the same names.}
 \QREntry{PROCEDURE}{command}{PROCEDURE <name>}{Begins a procedure in a program file.}
 \QREntry{PUBLIC}{command}{PUBLIC <memvar list>}{Creates memory variables that remain after the program.}
-\QREntry{QUIT}{command}{QUIT}{Closes all files and leaves InitechBase (also EXIT at the dot prompt).}
+\QREntry{QUIT}{command}{QUIT}{Closes all files and leaves InitechBase, also from a program (and EXIT at the dot prompt).}
 \QREntry{RECALL}{command}{RECALL [<scope>] [FOR <condition>] [WHILE <condition>]}{Removes the deletion mark.}
 \QREntry{REINDEX}{command}{REINDEX}{Rebuilds the open index files.}
 \QREntry{RELEASE}{command}{RELEASE <memvar list> / ALL}{Releases memory variables.}
@@ -42,7 +43,9 @@
 \QREntry{REPLACE}{command}{REPLACE [<scope>] <field> WITH <exp> [, <field> WITH <exp> ...] [FOR <condition>] [WHILE <condition>]}{Changes fields.}
 \QREntry{REPORT FORM}{compound}{REPORT FORM <file> [<scope>] [FOR <condition>] [WHILE <condition>] [PLAIN] [HEADING <expC>] [NOEJECT] [SUMMARY] [TO FILE <file>]}{Prints a report from a report form.}\XAlso{REPORT}{REPORT}
 \QREntry{RESTORE}{command}{RESTORE FROM <file> [ADDITIVE]}{Loads memory variables from a memory file.}
-\QREntry{RETURN}{command}{RETURN}{Ends a procedure or program.}
+\QREntry{RESUME}{command}{RESUME}{Continues a program suspended from the Esc prompt.}
+\QREntry{RETRY}{command}{RETRY}{Returns and carries out the calling line, or the failed line after ON ERROR, again.}
+\QREntry{RETURN}{command}{RETURN [TO MASTER]}{Ends a procedure or program; TO MASTER, back to the main program.}
 \QREntry{RUN}{command}{RUN <command> / ! <command>}{Carries out an InitechDOS command or program, then returns.}\XAlso{!}{!}
 \QREntry{SAVE}{command}{SAVE TO <file>}{Saves the memory variables in a memory file.}
 \QREntry{SEEK}{command}{SEEK <exp>}{Finds a key of the master index.}

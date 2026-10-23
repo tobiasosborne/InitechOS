@@ -95,7 +95,16 @@
 #define P_MAX_ARGS     16    /* DO ... WITH arg list / PARAMETERS list cap */
 #define P_MAX_LINEIN   256   /* one cooked input line (ACCEPT/INPUT) */
 #define P_MAX_ONERR    254   /* the installed ON ERROR command text */
-#define P_REGISTRY     16    /* concurrent interpreters with proc state */
+/* Concurrent interpreters with proc state. Pure dimensioning knob, tied to the
+ * flow registry it mirrors: the Milton .COM build passes -DFLOW_MAX_REGISTRY=1
+ * (ADR-0009 DEC-03) -- one interpreter -- and the 16-entry host default would
+ * spend ~4 KiB of the full SAMIR.COM BSS reserve (samir.ld ASSERT) on slots
+ * that can never be used (initech-39e5 added the ON ESCAPE trap text). */
+#ifdef FLOW_MAX_REGISTRY
+# define P_REGISTRY    FLOW_MAX_REGISTRY
+#else
+# define P_REGISTRY    16
+#endif
 
 /* dBASE catalog ordinals (spec/samir/dbase_msg_codes.tsv -- the ENGINE table). */
 #define P_MSG_NO_PARAM      93  /* "No PARAMETER statement found." */
@@ -107,6 +116,26 @@
  * interp_err range (1..8) and the 1..151 dBASE catalog so it can never be
  * mistaken for a real error code recorded by samir_last_error. */
 #define PROC_RC_RETURN  (-20000)
+/* RETURN TO MASTER (Using III+ U5-183): unwinds DO frames until the frame
+ * called FROM the highest-level program, which resumes after its DO. */
+#define PROC_RC_RETURN_MASTER (-20001)
+/* RETRY raised in a routine body (Using III+ U5-182). p_call turns it into
+ * INTERP_RC_RETRY (re-run the caller's DO) or, for the routine an ON ERROR
+ * trap called, PROC_RC_RETRY_TRAP (re-run the failed statement). */
+#define PROC_RC_RETRY         (-20002)
+#define PROC_RC_RETRY_TRAP    (-20004)
+
+/* DO nesting cap. Using III+ U7-4: "DOs nested too deep. [103] You can only
+ * have a maximum of 20 nested DO commands." Real III+ 1.1 (mint samirctl
+ * NEST.TXT, dosbox-x): the top-level program counts as level 1 and the DO
+ * that would open level 21 fails with ERROR()=103, MESSAGE()="DOs nested too
+ * deep." (TRAP 19 103). The cap must also FIT: every level now costs ~2 KiB of
+ * the 64 KiB SAMIR.COM stack (initech-39e5, audit L003). */
+#ifndef P_MAX_DO_NEST
+#define P_MAX_DO_NEST       20
+#endif
+#define P_MSG_DO_DEEP       103 /* "DOs nested too deep." */
+#define P_MAX_PRGNAME       16
 
 /* ===================================================================== */
 /* Per-interpreter proc state (registered source + ON ERROR trap).         */
@@ -121,11 +150,23 @@ typedef struct {
     int         in_handler;      /* 1 = currently running the trap (no re-entry) */
 
     /* the pending DO ... WITH arg vector for the routine CURRENTLY being entered.
-     * A PARAMETERS line in that routine's body binds these positionally. Saved /
-     * restored around each nested p_call so recursion is well-defined. */
-    xb_val      pending_args[P_MAX_ARGS];
+     * A PARAMETERS line in that routine's body binds these positionally. The
+     * vector lives in the calling p_do frame (alive for the whole call); only
+     * the pointer/count are saved/restored around a nested p_call. */
+    xb_val     *pending_args;
     int         pending_nargs;
     int         params_seen;     /* 1 once a PARAMETERS line ran for this call */
+
+    /* initech-39e5 program control. */
+    char        onesc[P_MAX_ONERR + 1]; /* installed ON ESCAPE command */
+    int         has_onesc;
+    int         in_esc;          /* running the ON ESCAPE trap (no re-entry) */
+    int         do_depth;        /* active DO levels (top program = 1) */
+    int         master_depth;    /* do_depth of the highest-level program */
+    int         handler_depth;   /* do_depth when the ON ERROR trap fired */
+    int         run_depth;       /* nested proc_run calls (1 = outermost) */
+    char        prgname[P_MAX_PRGNAME]; /* running program, "" = dot prompt */
+    int       (*suspend)(xb_interp *); /* nested dot prompt for "S" */
 } proc_state;
 
 static xb_interp  *g_key[P_REGISTRY];
@@ -148,8 +189,18 @@ static proc_state *proc_state_for(xb_interp *ip)
     g_val[g_n].onerr[0]      = '\0';
     g_val[g_n].has_onerr     = 0;
     g_val[g_n].in_handler    = 0;
+    g_val[g_n].pending_args  = (xb_val *)0;
     g_val[g_n].pending_nargs = 0;
     g_val[g_n].params_seen   = 0;
+    g_val[g_n].onesc[0]      = '\0';
+    g_val[g_n].has_onesc     = 0;
+    g_val[g_n].in_esc        = 0;
+    g_val[g_n].do_depth      = 0;
+    g_val[g_n].master_depth  = 0;
+    g_val[g_n].handler_depth = 0;
+    g_val[g_n].run_depth     = 0;
+    g_val[g_n].prgname[0]    = '\0';
+    g_val[g_n].suspend       = 0;
     return &g_val[g_n++];
 }
 
@@ -553,43 +604,28 @@ static const char *p_find_procedure(const char *src, const char *name)
 }
 
 /*
- * p_extract_body: copy the procedure body starting at `body` up to (but not
- * including) the next top-level PROCEDURE line, into dst[cap] NUL-terminated.
- * RETURN lines are LEFT IN (the RETURN hook stops the body cleanly). Returns 0,
- * or -1 on overflow (fail loud at the caller).
+ * p_body_len: the length of the routine body starting at `body`: up to (not
+ * including) the next top-level PROCEDURE line, or the end of the source.
+ * RETURN lines are LEFT IN (the RETURN hook stops the body cleanly). The body
+ * is then run IN PLACE (samir_do_n) -- it used to be copied into an 8 KiB
+ * stack buffer per DO level, which overran the 64 KiB SAMIR.COM stack under
+ * recursion (audit 2026-10-23-samir L003, initech-39e5).
  */
-static int p_extract_body(const char *body, char *dst, uint32_t cap)
+static uint32_t p_body_len(const char *body)
 {
     const char *p = body;
-    uint32_t o = 0;
     while (*p != '\0') {
-        const char *ls = p;
-        const char *le = ls;
+        const char *le = p;
         const char *t;
         while (*le != '\0' && *le != '\n') le++;
-        t = p_skip_ws(ls);
+        t = p_skip_ws(p);
         if (le > t && p_up1(t[0]) == 'P' &&
             p_ci_eq_prefix(t, "PROCEDURE", le))
             break;                          /* next PROCEDURE: body ends here */
-        /* copy this physical line + its LF. */
-        while (ls < le) {
-            if (o >= cap - 1u) return -1;
-            dst[o++] = *ls++;
-        }
-        if (*le == '\n') {
-            if (o >= cap - 1u) return -1;
-            dst[o++] = '\n';
-            p = le + 1;
-        } else {
-            p = le;
-        }
+        p = (*le == '\n') ? le + 1 : le;
     }
-    dst[o] = '\0';
-    return 0;
+    return (uint32_t)(p - body);
 }
-
-/* a procedure body can be large; size for a generous routine. */
-#define P_BODY_CAP 8192
 
 /*
  * p_call: run the procedure `name` with the (already evaluated) WITH args.
@@ -600,22 +636,20 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
                   xb_val *args, int nargs, int *ec)
 {
     const char *body;
-    /* The body TEXT is extracted into a STACK buffer (NOT static): a PROCEDURE
-     * that DOes another recurses through p_call, and a single static buffer would
-     * be clobbered by the nested extraction. The stack copy makes p_call
-     * re-entrant to FLOW_MAX_SCOPE depth (each frame ~8 KiB). */
-    char stackbody[P_BODY_CAP];
-    int rc;
+    int rc, depth_before;
 
     body = p_find_procedure(ps->source, name);
     if (!body) {
         if (ec) *ec = P_MSG_NOT_FOUND;      /* unknown DO target */
         return -INTERP_ERR_UNKNOWN_CMD;
     }
-    if (p_extract_body(body, stackbody, sizeof(stackbody)) != 0) {
-        if (ec) *ec = 0;
-        return -INTERP_ERR_DEPTH;           /* procedure body too large */
+    /* Using III+ U7-4 [103] + mint samirctl NEST.TXT: at most 20 DO levels. */
+#ifndef PROC_MUTATE_NO_DO_CAP
+    if (ps->do_depth >= P_MAX_DO_NEST) {
+        if (ec) *ec = P_MSG_DO_DEEP;
+        return -INTERP_ERR_DEPTH;
     }
+#endif
 
     /* push a DO-call scope; bind PARAMETERS happens inside the body via the
      * PARAMETERS verb, which reads the pending arg vector below. */
@@ -626,23 +660,36 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
      * positionally (proc_state-level, since the body runs via a fresh samir_do). */
     {
         int saved_n = ps->pending_nargs;
-        xb_val saved_args[P_MAX_ARGS];
+        xb_val *saved_args = ps->pending_args;
         int saved_seen = ps->params_seen;
-        int i;
-        for (i = 0; i < saved_n && i < P_MAX_ARGS; i++)
-            saved_args[i] = ps->pending_args[i];
 
-        for (i = 0; i < nargs && i < P_MAX_ARGS; i++)
-            ps->pending_args[i] = args[i];
+        ps->pending_args  = args;
         ps->pending_nargs = nargs;
         ps->params_seen   = 0;
 
+        depth_before = ps->do_depth;
+        ps->do_depth++;
         { uint8_t dot=xb_interp_ctx(ip)->dot_command;
           xb_interp_ctx(ip)->dot_command=0;
-          rc = samir_do(ip, stackbody);
+          rc = samir_do_n(ip, body, p_body_len(body));
           xb_interp_ctx(ip)->dot_command=dot; }
+        ps->do_depth = depth_before;
         if (rc == PROC_RC_RETURN)
             rc = INTERP_OK;                 /* a clean RETURN out of the body */
+#ifndef PROC_MUTATE_MASTER_ONE_LEVEL
+        /* RETURN TO MASTER: only the frame called FROM the highest-level
+         * program resumes; deeper frames keep unwinding (U5-183; mint
+         * samirctl MASTER.TXT: MASTER FIRST SECOND MASTER RESUMED). */
+        if (rc == PROC_RC_RETURN_MASTER && depth_before <= ps->master_depth)
+            rc = INTERP_OK;
+#else
+        if (rc == PROC_RC_RETURN_MASTER) rc = INTERP_OK;
+#endif
+        /* RETRY (U5-182): back to the caller, re-running the calling DO; for
+         * the routine an ON ERROR trap called, re-run the failed command. */
+        if (rc == PROC_RC_RETRY)
+            rc = (ps->in_handler && depth_before == ps->handler_depth)
+                 ? PROC_RC_RETRY_TRAP : INTERP_RC_RETRY;
 
         /* DO ... WITH to a routine with NO PARAMETERS line is error #93. */
         if (rc == INTERP_OK && nargs > 0 && !ps->params_seen) {
@@ -651,8 +698,7 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
         }
 
         /* restore the caller's pending-arg context. */
-        for (i = 0; i < saved_n && i < P_MAX_ARGS; i++)
-            ps->pending_args[i] = saved_args[i];
+        ps->pending_args  = saved_args;
         ps->pending_nargs = saved_n;
         ps->params_seen   = saved_seen;
     }
@@ -665,6 +711,11 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
     return rc;                              /* INTERP_OK or a real error */
 }
 
+static void p_release_args(samir_pal_t *pal, char **blk, int n)
+{
+    while (n > 0) pal->release(pal, blk[--n]);
+}
+
 /*
  * p_do: handle DO <name> [WITH <arg expr list>]. Evaluates the WITH args (by
  * value -- by-ref is GATED), then calls the named procedure.
@@ -675,9 +726,13 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
     const char *p = p_skip_ws(args);
     xb_val argv[P_MAX_ARGS];
     /* WITH values outlive each argument's expression buffer and scratch
-     * reset. Using III+ U5-111: arbitrary expressions, including literals. */
-    char argbytes[P_MAX_ARGS][255];
-    int nargs = 0;
+     * reset. Using III+ U5-111: arbitrary expressions, including literals.
+     * Their bytes go to one PAL heap block per call (acquire/release), not a
+     * 4 KiB stack array per DO level (initech-39e5 stack budget). */
+    samir_pal_t *pal = xb_interp_pal(ip);
+    char *argblk[P_MAX_ARGS];               /* one exact-size block per C arg */
+    int nblk = 0;
+    int nargs = 0, crc;
     uint32_t nlen;
 
     nlen = p_take_name(p, name);
@@ -708,23 +763,28 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
                 else if (c == '(') depth++;
                 else if (c == ')') { if (depth > 0) depth--; }
                 else if (c == ',' && depth == 0) break;
-                if (eo >= (uint32_t)P_MAX_EXPR) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+                if (eo >= (uint32_t)P_MAX_EXPR) { if (ec) *ec = 0; p_release_args(pal, argblk, nblk); return -INTERP_ERR_SYNTAX; }
                 ebuf[eo++] = c;
                 p++;
             }
             while (eo > 0u && p_isspace(ebuf[eo - 1])) eo--;
             ebuf[eo] = '\0';
-            if (nargs >= P_MAX_ARGS) { if (ec) *ec = P_MSG_WRONG_PARAM; return -INTERP_ERR_SYNTAX; }
+            if (nargs >= P_MAX_ARGS) { if (ec) *ec = P_MSG_WRONG_PARAM; p_release_args(pal, argblk, nblk); return -INTERP_ERR_SYNTAX; }
             rc = xb_interp_eval(ip, ebuf, &v, ec);
-            if (rc != INTERP_OK)
+            if (rc != INTERP_OK) {
+                p_release_args(pal, argblk, nblk);
                 return rc;
+            }
             if(v.t==XB_C || v.t==XB_M) {
                 uint32_t j;
-                if(v.u.c.len>254){if(ec)*ec=18;return -INTERP_ERR_SYNTAX;}
-                for(j=0;j<v.u.c.len;j++)argbytes[nargs][j]=v.u.c.p[j];
+                if(v.u.c.len>254){if(ec)*ec=18;p_release_args(pal,argblk,nblk);return -INTERP_ERR_SYNTAX;}
+                argblk[nblk]=(pal && pal->acquire)?(char *)pal->acquire(pal,(uint32_t)v.u.c.len+1u):(char *)0;
+                if(!argblk[nblk]){if(ec)*ec=43;p_release_args(pal,argblk,nblk);return -INTERP_ERR_NOMEM;} /* #43 */
+                for(j=0;j<v.u.c.len;j++)argblk[nblk][j]=v.u.c.p[j];
 #ifndef SAMIR_FNS_MUTANT_with
-                v.u.c.p=argbytes[nargs];
+                v.u.c.p=argblk[nblk];
 #endif
+                nblk++;
             }
             argv[nargs++] = v;
             if (*p == ',') { p++; p = p_skip_ws(p); continue; }
@@ -732,7 +792,9 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
         }
     }
 
-    return p_call(ip, ps, name, argv, nargs, ec);
+    crc = p_call(ip, ps, name, argv, nargs, ec);
+    p_release_args(pal, argblk, nblk);
+    return crc;
 }
 
 /* ===================================================================== */
@@ -767,8 +829,24 @@ static int p_on(xb_interp *ip, proc_state *ps, const char *args, int *ec)
         if (ec) *ec = 0;
         return INTERP_OK;
     }
-    if (p_ci_eq(w, "ESCAPE") || p_ci_eq(w, "KEY")) {
-        /* parsed + accepted; ESCAPE/KEY traps never fire in a scripted host run.
+    if (p_ci_eq(w, "ESCAPE")) {
+        /* Using III+ U5-160: ON ESCAPE <command> runs when Esc is pressed
+         * (SET ESCAPE ON); bare ON ESCAPE clears it. Fired by proc_escape
+         * (mint samirctl ESCTRAP.TXT: the trap ends a DO WHILE). */
+        if (*p == '\0') {
+            ps->has_onesc = 0;
+            ps->onesc[0]  = '\0';
+        } else {
+            uint32_t i = 0;
+            while (p[i] != '\0' && i < (uint32_t)P_MAX_ONERR) { ps->onesc[i] = p[i]; i++; }
+            ps->onesc[i]  = '\0';
+            ps->has_onesc = 1;
+        }
+        if (ec) *ec = 0;
+        return INTERP_OK;
+    }
+    if (p_ci_eq(w, "KEY")) {
+        /* parsed + accepted; the ON KEY trap is not modelled.
          * (programming-and-io.md sec 14 -- precedence ERROR>ESCAPE>KEY.) */
         if (ec) *ec = 0;
         return INTERP_OK;
@@ -823,9 +901,36 @@ static int proc_cmd_hook(void *user, xb_interp *ip,
         return CMD_OK;
     }
     if (p_ci_eq(verb, "RETURN")) {
-        /* RETURN [TO MASTER] -- we treat both as a single-frame clean return
-         * (TO MASTER full unwind is not modelled; the body stops either way). */
+        /* RETURN [TO MASTER] (Using III+ U5-183). TO MASTER unwinds to the
+         * highest-level program (audit L041; mint samirctl MASTER.TXT). */
+        const char *a = p_skip_ws(args);
+        if (p_up1(a[0]) == 'T' && p_up1(a[1]) == 'O' && p_isspace(a[2])) {
+            a = p_skip_ws(a + 2);
+            if (p_ci_eq(a, "MASTER"))
+                return PROC_RC_RETURN_MASTER;
+        }
         return PROC_RC_RETURN;
+    }
+    if (p_ci_eq(verb, "RETRY")) {
+        /* Using III+ U5-182; audit L022; mint samirctl RETRYM.TXT. RETRY
+         * clears ERROR(). */
+        xb_interp_ctx(ip)->error_number = 0;
+        return PROC_RC_RETRY;
+    }
+    if (p_ci_eq(verb, "CANCEL")) {
+        /* Using III+ U5-43: CANCEL ends the program, back to the dot prompt
+         * (a no-op typed at the session prompt; it ends a SUSPENDed one). */
+        return INTERP_RC_CANCEL;
+    }
+    if (p_ci_eq(verb, "QUIT")) {
+        /* Using III+ U5-168: QUIT closes all files and leaves dBASE, also
+         * from a program (audit L013; mint samirctl QUITP.TXT: AFTER QUIT is
+         * never printed). The dot prompt does the closing on this code. */
+#ifndef PROC_MUTATE_NO_QUIT
+        return INTERP_RC_QUIT;
+#else
+        return CMD_UNKNOWN;                 /* MUTANT: the pre-fix #16 */
+#endif
     }
     if (p_ci_eq(verb, "PUBLIC")) {
         int rc = p_for_each_name(ip, args, p_each_public, (void *)0, err_code);
@@ -861,19 +966,108 @@ static int proc_cmd_hook(void *user, xb_interp *ip,
 
 int proc_register(xb_interp *ip);
 int proc_run(xb_interp *ip, const char *prg);
+int proc_run_program(xb_interp *ip, const char *prg, const char *name);
+void proc_set_suspend(xb_interp *ip, int (*fn)(xb_interp *));
 int proc_fire_onerror(xb_interp *ip, int err_code);
 
 /* The xb_ctx.on_error trap: run the installed ON ERROR command for `code`
  * and report it handled, so the failing statement is skipped and the
- * program resumes (Using III+ U5-160; real III+ 1.1 SF-errors). */
+ * program resumes (Using III+ U5-160; real III+ 1.1 SF-errors). A handler
+ * that executed RETRY returns 2 (re-run the failed statement, U5-182); a
+ * handler that cancelled / quit / RETURNed TO MASTER returns that negative
+ * code so the executor unwinds. */
 static int proc_trap(void *vip, int code)
 {
     xb_interp *ip = (xb_interp *)vip;
     proc_state *ps = proc_state_for(ip);
+    int rc;
     if (!ps || !ps->has_onerr || ps->in_handler)
         return 0;
-    (void)proc_fire_onerror(ip, code);
+    rc = proc_fire_onerror(ip, code);
+    if (rc == PROC_RC_RETRY_TRAP || rc == PROC_RC_RETRY)
+        return 2;
+    if (rc == INTERP_RC_QUIT || rc == INTERP_RC_CANCEL ||
+        rc == PROC_RC_RETURN_MASTER)
+        return rc;
     return 1;
+}
+
+static void p_out(xb_interp *ip, const char *s)
+{
+    uint32_t n = 0;
+    while (s[n] != '\0') n++;
+    xb_interp_output(ip, s, n);
+}
+
+/*
+ * proc_escape: the xb_ctx.on_escape hook (Esc seen between two program
+ * statements, SET ESCAPE ON). With an ON ESCAPE trap installed, run it and
+ * resume at the next statement (Using III+ U5-160; mint samirctl
+ * ESCTRAP.TXT). Otherwise the real III+ 1.1 interrupt dialogue, byte for byte
+ * from mint samirctl ESC.TXT / ESCS.TXT (dosbox-x, SET ALTERNATE capture):
+ *   *** INTERRUPTED ***
+ *   Called from - C:ESC.prg              (one line per active DO level)
+ *   Cancel, Ignore, or Suspend? (C, I, or S) Cancel|Ignore|Suspend
+ *   Do cancelled | Do suspended
+ * Cancel unwinds to the dot prompt, Ignore resumes, Suspend opens a nested
+ * dot prompt until RESUME (CANCEL / QUIT there unwind instead). Other keys
+ * are ignored (the prompt waits). Audit 2026-10-23-samir L002.
+ */
+static int proc_escape(void *vip)
+{
+    xb_interp *ip = (xb_interp *)vip;
+    proc_state *ps = proc_state_for(ip);
+    samir_pal_t *pal = xb_interp_pal(ip);
+    int rc, lvl;
+    if (!ps)
+        return INTERP_OK;
+    if (ps->has_onesc) {
+        if (ps->in_esc)
+            return INTERP_OK;
+        ps->in_esc = 1;
+        rc = samir_do(ip, ps->onesc);
+        ps->in_esc = 0;
+        if (rc == INTERP_RC_QUIT || rc == INTERP_RC_CANCEL)
+            return rc;
+        return INTERP_OK;                   /* the trap ran; resume */
+    }
+    p_out(ip, "*** INTERRUPTED ***\r\n");
+    for (lvl = ps->do_depth; lvl > 0 && ps->prgname[0]; lvl--) {
+        char d[3];
+        int drv = (pal && pal->curdrive) ? pal->curdrive(pal) : -1;
+        p_out(ip, "Called from - ");
+        if (drv >= 'A' && drv <= 'Z') {
+            d[0] = (char)drv; d[1] = ':'; d[2] = '\0';
+            p_out(ip, d);
+        }
+        p_out(ip, ps->prgname);
+        p_out(ip, ".prg\r\n");
+    }
+    p_out(ip, "Cancel, Ignore, or Suspend? (C, I, or S) ");
+    for (;;) {
+        int32_t k = (pal && pal->conin_char) ? pal->conin_char(pal) : -1;
+        char c = (char)p_up1((char)k);
+        if (k < 0 || c == 'C') {            /* no keyboard left: cancel */
+            p_out(ip, "Cancel\r\nDo cancelled\r\n");
+            return INTERP_RC_CANCEL;
+        }
+        if (c == 'I') {
+            p_out(ip, "Ignore\r\n");
+            return INTERP_OK;
+        }
+        if (c == 'S') {
+            p_out(ip, "Suspend\r\nDo suspended\r\n");
+            if (!ps->suspend)
+                return INTERP_OK;           /* no dot prompt bound: resume */
+            return ps->suspend(ip);         /* RESUME -> OK; CANCEL/QUIT unwind */
+        }
+    }
+}
+
+void proc_set_suspend(xb_interp *ip, int (*fn)(xb_interp *))
+{
+    proc_state *ps = proc_state_for(ip);
+    if (ps) ps->suspend = fn;
 }
 
 int proc_register(xb_interp *ip)
@@ -889,10 +1083,21 @@ int proc_register(xb_interp *ip)
     ps->onerr[0] = '\0';
     ps->has_onerr = 0;
     ps->in_handler = 0;
+    ps->pending_args = (xb_val *)0;
     ps->pending_nargs = 0;
     ps->params_seen = 0;
+    ps->onesc[0] = '\0';
+    ps->has_onesc = 0;
+    ps->in_esc = 0;
+    ps->do_depth = 0;
+    ps->master_depth = 0;
+    ps->handler_depth = 0;
+    ps->run_depth = 0;
+    ps->prgname[0] = '\0';
+    ps->suspend = 0;
 #endif
     xb_interp_ctx(ip)->on_error = proc_trap;
+    xb_interp_ctx(ip)->on_escape = proc_escape;
     return xb_interp_add_cmd_hook(ip, proc_cmd_hook, (void *)0);
 }
 
@@ -906,30 +1111,69 @@ int proc_register(xb_interp *ip)
 int proc_run(xb_interp *ip, const char *prg)
 {
     proc_state *ps = proc_state_for(ip);
-    char mainbody[P_BODY_CAP];
+    const char *saved_source;
     int rc;
 
     if (!ps || !prg)
         return -INTERP_ERR_NOMEM;
     /* The caller registers the hook ONCE (proc_register) after xb_interp_make;
      * proc_run only registers the SOURCE so DO can find PROCEDURE blocks. It does
-     * NOT re-add the hook (that would fill the bounded chain across calls). */
+     * NOT re-add the hook (that would fill the bounded chain across calls).
+     * The previous source is restored on return: a command typed at a
+     * SUSPENDed program's dot prompt must not orphan that program's
+     * PROCEDURE blocks (initech-39e5). */
+    saved_source = ps->source;
     ps->source = prg;
+    ps->run_depth++;
 
-    /* the main body is everything up to the first top-level PROCEDURE line. */
-    if (p_extract_body(prg, mainbody, sizeof(mainbody)) != 0)
-        return -INTERP_ERR_DEPTH;
-
-    rc = samir_do(ip, mainbody);
-    if (rc == PROC_RC_RETURN)
+    /* the main body is everything up to the first top-level PROCEDURE line,
+     * run in place (no 8 KiB stack copy; initech-39e5). */
+    rc = samir_do_n(ip, prg, p_body_len(prg));
+    if (rc == PROC_RC_RETURN || rc == PROC_RC_RETURN_MASTER ||
+        rc == PROC_RC_RETRY || rc == INTERP_RC_RETRY)
         rc = INTERP_OK;                     /* a top-level RETURN is clean */
+    if (rc == INTERP_RC_CANCEL && ps->run_depth == 1)
+        rc = INTERP_OK;                     /* "Do cancelled": back at the dot */
 
     /* ON ERROR: on a runtime error, fire the installed handler once. */
-    if (rc != INTERP_OK && ps->has_onerr && !ps->in_handler) {
+    if (rc != INTERP_OK && rc != INTERP_RC_QUIT && rc != INTERP_RC_CANCEL &&
+        ps->has_onerr && !ps->in_handler) {
         int herr = samir_last_error(ip);
         (void)herr;
         proc_fire_onerror(ip, herr);
     }
+    ps->run_depth--;
+    if (ps->run_depth > 0)
+        ps->source = saved_source;          /* back to the suspended program */
+    return rc;
+}
+
+/*
+ * proc_run_program: DO <name> of a disk program from the dot prompt. Same as
+ * proc_run, but the program is a DO level of its own (the top level: real
+ * III+ 1.1 counts it, mint samirctl NEST.TXT) and its name feeds the Esc
+ * trace "Called from - C:<NAME>.prg" (mint samirctl ESC.TXT).
+ */
+int proc_run_program(xb_interp *ip, const char *prg, const char *name)
+{
+    proc_state *ps = proc_state_for(ip);
+    char saved_name[P_MAX_PRGNAME];
+    int saved_master, rc, i;
+    if (!ps || !prg || !name)
+        return -INTERP_ERR_NOMEM;
+    if (ps->do_depth >= P_MAX_DO_NEST)
+        return -INTERP_ERR_DEPTH;           /* a suspended stack is full */
+    for (i = 0; i < P_MAX_PRGNAME; i++) saved_name[i] = ps->prgname[i];
+    for (i = 0; name[i] != '\0' && i < P_MAX_PRGNAME - 1; i++)
+        ps->prgname[i] = p_up1(name[i]);
+    ps->prgname[i] = '\0';
+    saved_master = ps->master_depth;
+    ps->do_depth++;
+    ps->master_depth = ps->do_depth;
+    rc = proc_run(ip, prg);
+    ps->do_depth--;
+    ps->master_depth = saved_master;
+    for (i = 0; i < P_MAX_PRGNAME; i++) ps->prgname[i] = saved_name[i];
     return rc;
 }
 
@@ -950,13 +1194,16 @@ int proc_fire_onerror(xb_interp *ip, int err_code)
      * handled, even while the handler evaluates a new expression. */
     saved_error = ctx->error_number;
     ctx->error_number = err_code;
+    ps->handler_depth = ps->do_depth;
     rc = samir_do(ip, ps->onerr);           /* almost always "DO <handler>" */
     if (rc == PROC_RC_RETURN)
         rc = INTERP_OK;
     ps->in_handler = 0;
     /* ERROR()/MESSAGE() keep the handled condition after the handler and
-     * later successful commands (real III+ 1.1 SF-errors). */
+     * later successful commands (real III+ 1.1 SF-errors). RETRY clears it
+     * (Using III+ U5-182). */
     (void)saved_error;
-    ctx->error_number = err_code;
+    ctx->error_number = (rc == PROC_RC_RETRY_TRAP || rc == PROC_RC_RETRY)
+                        ? 0 : err_code;
     return rc;
 }

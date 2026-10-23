@@ -205,6 +205,38 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip);
  */
 int samir_do(xb_interp *ip, const char *prg);
 
+/*
+ * samir_do_n: samir_do over the first `len` bytes of `prg` (the slice need not
+ * be NUL-terminated at `len`). DO <procedure> runs the body IN PLACE inside the
+ * registered program source with it, instead of copying the body onto the
+ * stack: the old 8 KiB per-call copy (+ a 6 KiB line pool per samir_do) overran
+ * the 64 KiB SAMIR.COM stack (spec/memory_map.h PROGRAM_STACK_BOT..TOP) after a
+ * handful of recursive DOs -- audit 2026-10-23-samir L003, initech-39e5.
+ */
+int samir_do_n(xb_interp *ip, const char *prg, uint32_t len);
+
+/*
+ * Program-control return codes (initech-39e5). Negative, far outside the
+ * interp_err range (1..8) and the 1..151 dBASE catalogue, so they bubble out
+ * of nested IF / DO WHILE / DO CASE blocks and DO frames like the RETURN
+ * sentinel and are never mistaken for an error ordinal (fl_trap ignores them).
+ *   INTERP_RC_QUIT   -- QUIT executed inside a program: unwind every frame;
+ *                       the dot prompt closes all files and leaves SAMIR
+ *                       (Using III+ U5-168; mint samirctl QUITP.TXT).
+ *   INTERP_RC_CANCEL -- "Cancel" answered at the Esc interrupt prompt: unwind
+ *                       every frame back to the dot prompt ("Do cancelled",
+ *                       Using III+ U5-220; mint samirctl ESC.TXT).
+ */
+/*   INTERP_RC_RETRY  -- returned by a DO statement whose callee executed
+ *                       RETRY: the executor runs THAT statement again (Using
+ *                       III+ U5-182). For a callee entered via ON ERROR the
+ *                       trap (xb_ctx.on_error returning 2) re-runs the failed
+ *                       statement instead (mint samirctl RETRYM.TXT).
+ */
+#define INTERP_RC_RETRY   (-20003)
+#define INTERP_RC_QUIT    (-20005)
+#define INTERP_RC_CANCEL  (-20006)
+
 /* =======================================================================
  * S5.3 -- statement executor + control-flow SPINE (initech-7az.4)
  *

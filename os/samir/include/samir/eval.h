@@ -703,11 +703,20 @@ typedef struct xb_ctx {
     uint32_t (*record_size)(void *);
     /* Programming III+ N5-30: ON ERROR runs its command in place of the
      * failing one and the program resumes at the next line (real III+ 1.1,
-     * SF-errors). Returns 1 when a trap handled `code`. Set by proc.c. */
+     * SF-errors). Returns 1 when a trap handled `code`, 2 when the handler
+     * executed RETRY (re-run the failing statement, Using III+ U5-182),
+     * 0 when untrapped. Set by proc.c. */
     int (*on_error)(void *ip, int code);
     /* Using III+ U6-62: MESSAGE() reads the catalogue text of the trapped
      * error. Bound by the dot prompt (samir_main.c); NULL -> "". */
     unsigned (*message)(unsigned code, char *out, unsigned cap);
+    /* Using III+ U5-220 (SET ESCAPE) / U5-160 (ON ESCAPE): called by the
+     * statement executor when the PAL reports Esc between two program
+     * statements (SET ESCAPE ON). Returns INTERP_OK to resume at the next
+     * statement (Ignore, or an ON ESCAPE trap ran) or a negative program-
+     * control code that unwinds (INTERP_RC_CANCEL / INTERP_RC_QUIT). Set by
+     * proc.c; NULL -> Esc is never polled. initech-39e5 (audit L002). */
+    int (*on_escape)(void *ip);
 } xb_ctx;
 
 /*

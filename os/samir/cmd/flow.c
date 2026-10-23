@@ -574,12 +574,12 @@ static int is_comment_line(const char *p, uint32_t len)
  * inside a string literal is preserved. Returns the line count, or -1 if the
  * program exceeds FLOW_MAX_LINES (fail loud).
  */
-static int split_lines(const char *prg, flow_line *lines, int cap)
+static int split_lines(const char *prg, uint32_t plen, flow_line *lines, int cap)
 {
     int n = 0;
     uint32_t i = 0;
 
-    while (prg[i] != '\0') {
+    while (i < plen && prg[i] != '\0') {
         uint32_t start = i, end;
         int in_squote = 0, in_dquote = 0, in_bracket = 0;
         uint32_t content_end = 0;  /* end before any '&&' inline comment */
@@ -587,7 +587,7 @@ static int split_lines(const char *prg, flow_line *lines, int cap)
         uint32_t j;
 
         /* find the end of this physical line (LF) tracking string state. */
-        while (prg[i] != '\0' && prg[i] != '\n') {
+        while (i < plen && prg[i] != '\0' && prg[i] != '\n') {
             char c = prg[i];
             if (!saw_comment) {
                 if (in_squote) {
@@ -602,7 +602,7 @@ static int split_lines(const char *prg, flow_line *lines, int cap)
                     in_dquote = 1;
                 } else if (c == '[') {
                     in_bracket = 1;
-                } else if (c == '&' && prg[i + 1] == '&') {
+                } else if (c == '&' && i + 1u < plen && prg[i + 1] == '&') {
                     saw_comment = 1;
                     content_end = i;    /* comment starts here */
                 }
@@ -610,7 +610,7 @@ static int split_lines(const char *prg, flow_line *lines, int cap)
             i++;
         }
         end = saw_comment ? content_end : i;
-        if (prg[i] == '\n')
+        if (i < plen && prg[i] == '\n')
             i++;                        /* consume the LF */
 
         /* trim trailing CR + blanks. */
@@ -627,8 +627,10 @@ static int split_lines(const char *prg, flow_line *lines, int cap)
 
         if (n >= cap)
             return -1;                  /* program too large: fail loud */
-        lines[n].p   = prg + j;
-        lines[n].len = end - j;
+        if (lines) {                    /* NULL lines = count-only pass */
+            lines[n].p   = prg + j;
+            lines[n].len = end - j;
+        }
         n++;
     }
     return n;
@@ -921,6 +923,7 @@ typedef struct {
 
 /* Forward decl of the recursive runner. */
 static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec);
+static int fl_escape(flow_prog *fp, int *ec);
 
 /*
  * match_block_end: given an opener at index `start`, return the index of its
@@ -1428,6 +1431,9 @@ static int run_dowhile(flow_prog *fp, int start, int enddo, int *next, int *ec)
     for (;;) {
         int truth = 0;
         flow_signal sig = SIG_NONE;
+        rc = fl_escape(fp, ec);         /* U5-220: an empty loop is stoppable */
+        if (rc != INTERP_OK)
+            return rc;
         rc = eval_guard(fp->ip, rest, &truth, ec);
         if (rc != INTERP_OK)
             return rc;
@@ -1481,12 +1487,43 @@ static int fl_catalog(xb_interp *ip, int rc, int ec)
 static int fl_trap(flow_prog *fp, int rc, int *ec)
 {
     xb_ctx *c = xb_interp_ctx(fp->ip);
+    int t;
     if (rc < 0 && rc >= -INTERP_ERR_DEPTH && c->on_error &&
-        c->on_error(fp->ip, fl_catalog(fp->ip, rc, ec ? *ec : 0))) {
+        (t = c->on_error(fp->ip, fl_catalog(fp->ip, rc, ec ? *ec : 0))) != 0) {
         if (ec) *ec = 0;
-        return 1;
+        return t;
     }
     return 0;
+}
+
+/*
+ * fl_escape (Using III+ U5-220 SET ESCAPE, U5-160 ON ESCAPE): between two
+ * PROGRAM statements, ask the PAL (non-blocking) whether Esc was pressed. If
+ * so the proc layer's on_escape runs the ON ESCAPE trap or the
+ * "*** INTERRUPTED ***" / Cancel-Ignore-Suspend prompt (mint samirctl
+ * ESC.TXT) and returns INTERP_OK (resume) or a sentinel that unwinds. Never
+ * polled for a command typed at the dot prompt (dot_command), with SET ESCAPE
+ * OFF, or on a PAL with no keyboard. Before initech-39e5 nothing polled, so a
+ * DO WHILE .T. could not be stopped (audit 2026-10-23-samir L002).
+ */
+static int fl_escape(flow_prog *fp, int *ec)
+{
+#ifndef FLOW_MUTATE_NO_ESCAPE
+    xb_ctx *c = xb_interp_ctx(fp->ip);
+    samir_pal_t *pal;
+    if (!c->on_escape || c->dot_command)
+        return INTERP_OK;
+    pal = xb_interp_pal(fp->ip);
+    if (!pal || !pal->conin_escape || !set_get_escape(fp->ip))
+        return INTERP_OK;
+    if (!pal->conin_escape(pal))
+        return INTERP_OK;
+    if (ec) *ec = 0;
+    return c->on_escape(fp->ip);
+#else
+    (void)fp; (void)ec;
+    return INTERP_OK;
+#endif
 }
 
 /*
@@ -1501,6 +1538,10 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
 
     while (i < to) {
         line_kind k = fp->kind[i];
+
+        /* Using III+ U5-220: Esc interrupts a program between commands. */
+        rc = fl_escape(fp, ec);
+        if (rc != INTERP_OK) return rc;
 
         switch (k) {
         case LK_IF: {
@@ -1543,7 +1584,9 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
         case LK_ENDDO:
             /* Real III+ 1.1 SF-struct: a lone ENDDO raises #96 and an ON
              * ERROR trap resumes the program at the next line. */
-            if (fl_trap(fp, -INTERP_ERR_STRUCT, ec)) { i++; break; }
+            { int t = fl_trap(fp, -INTERP_ERR_STRUCT, ec);
+              if (t < 0) return t;
+              if (t) { i++; break; } }
             if (ec) *ec = 0;
             return -INTERP_ERR_STRUCT;
         case LK_ELSE:
@@ -1561,11 +1604,24 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
             rc = flow_expand(fp->ip, buf, ec);
             if (rc == INTERP_OK)
                 rc = exec_command(fp, buf, ec);
+            /* Using III+ U5-182: a DO whose callee executed RETRY runs
+             * again (the RETRY loop is cancellable with Esc, U5-220). */
+#ifndef FLOW_MUTATE_NO_RETRY
+            if (rc == INTERP_RC_RETRY) { if (ec) *ec = 0; break; }
+#endif
             /* Using III+ U5-160: ON ERROR runs its command in place of the
              * failing one; the program resumes at the next line (real III+
-             * 1.1, SF-errors). A RETURN sentinel is not an error. */
-            if (rc != INTERP_OK && !fl_trap(fp, rc, ec))
-                return rc;
+             * 1.1, SF-errors). A RETURN sentinel is not an error. A handler
+             * that executed RETRY re-runs the failed statement instead
+             * (U5-182; mint samirctl RETRYM.TXT). */
+            if (rc != INTERP_OK) {
+                int t = fl_trap(fp, rc, ec);
+                if (!t) return rc;
+                if (t < 0) return t;    /* the handler cancelled / quit */
+#ifndef FLOW_MUTATE_NO_RETRY
+                if (t == 2) break;
+#endif
+            }
             i++;
             break;
         }
@@ -1839,19 +1895,41 @@ int samir_last_error(xb_interp *ip)
  * installs the composed (memvar-aware) resolver onto the interp ctx, runs the
  * statement list, then restores the original resolver. Records the last error.
  */
+/*
+ * Line storage. samir_do used to keep a FLOW_MAX_LINES (512) line + kind pool
+ * on EACH call's stack (~6 KiB); with DO <proc>'s 8 KiB body copy a recursive
+ * DO consumed ~20 KiB of the 64 KiB SAMIR.COM stack per level and overran it
+ * after a few levels (audit 2026-10-23-samir L003: EIP/ESP garbage, session
+ * lost). A count-only split_lines pass sizes the tables to the lines actually
+ * present. Up to FLOW_STACK_LINES lines live in a fixed array on this call's
+ * stack (384 bytes: 20 DO levels of it cost 7.5 KiB); a larger body takes its
+ * tables from the PAL owned heap (acquire), released on every return, so a
+ * long recursive procedure cannot run the stack into the program image --
+ * when the heap is exhausted the DO fails with #43 "Insufficient memory." and
+ * the session survives (initech-39e5 review). A static pool would not fit:
+ * the SAMIR.COM BSS reserve is full (samir.ld owned-heap tail ASSERT). One
+ * program is still capped at FLOW_MAX_LINES.
+ */
+#ifndef FLOW_STACK_LINES
+#define FLOW_STACK_LINES 32
+#endif
+static int flow_exec_lines(xb_interp *ip, flow_state *fs, const char *prg,
+                           uint32_t plen, int n, flow_line *s_lines,
+                           line_kind *s_kind);
+static int flow_run_lines(xb_interp *ip, flow_state *fs, const char *prg,
+                          uint32_t plen, int n);
+
 int samir_do(xb_interp *ip, const char *prg)
 {
-    /* Line pools sized for FLOW_MAX_LINES, on THIS call's stack (~8 KiB). Kept on
-     * the stack -- NOT static -- so samir_do is RE-ENTRANT: S5.7's DO <proc> can
-     * recursively run a nested program without clobbering the caller's lines. */
-    flow_line  s_lines[FLOW_MAX_LINES];
-    line_kind  s_kind[FLOW_MAX_LINES];
+    if (!prg)
+        return -INTERP_ERR_EVAL;
+    return samir_do_n(ip, prg, rt_strlen(prg));
+}
 
+int samir_do_n(xb_interp *ip, const char *prg, uint32_t plen)
+{
     flow_state *fs;
-    xb_ctx *ctx;
-    flow_prog fp;
-    flow_signal sig = SIG_NONE;
-    int n, i, rc, ec = 0;
+    int n;
 
     if (!ip || !prg)
         return -INTERP_ERR_EVAL;
@@ -1861,11 +1939,58 @@ int samir_do(xb_interp *ip, const char *prg)
         return -INTERP_ERR_NOMEM;
     fs->last_error = 0;
 
-    n = split_lines(prg, s_lines, FLOW_MAX_LINES);
+    n = split_lines(prg, plen, (flow_line *)0, FLOW_MAX_LINES);
     if (n < 0) {
         fs->last_error = 43;                /* Insufficient memory. */
         return -INTERP_ERR_DEPTH;
     }
+    return flow_run_lines(ip, fs, prg, plen, n);
+}
+
+/* The second half of samir_do_n: the line arrays sized by the count pass. */
+static int flow_run_lines(xb_interp *ip, flow_state *fs, const char *prg,
+                          uint32_t plen, int n)
+{
+#ifndef FLOW_MUTATE_STACK_LINES
+    flow_line  small_lines[FLOW_STACK_LINES];
+    line_kind  small_kind[FLOW_STACK_LINES];
+    samir_pal_t *pal;
+    void *blk;
+    int rc;
+    if (n <= FLOW_STACK_LINES)
+        return flow_exec_lines(ip, fs, prg, plen, n, small_lines, small_kind);
+    pal = xb_interp_pal(ip);
+    blk = (pal && pal->acquire)
+        ? pal->acquire(pal, (uint32_t)n * (uint32_t)(sizeof(flow_line) + sizeof(line_kind)))
+        : (void *)0;
+    if (!blk) {
+        fs->last_error = 43;                /* Insufficient memory. */
+        return -INTERP_ERR_NOMEM;
+    }
+    rc = flow_exec_lines(ip, fs, prg, plen, n, (flow_line *)blk,
+                         (line_kind *)((flow_line *)blk + n));
+    pal->release(pal, blk);
+    return rc;
+#else
+    /* MUTANT (Rule 6): the pre-review per-call stack tables. A 500-line
+     * recursive procedure then overruns the 64 KiB guest stack. */
+    flow_line  vla_lines[n > 0 ? n : 1];
+    line_kind  vla_kind[n > 0 ? n : 1];
+    return flow_exec_lines(ip, fs, prg, plen, n, vla_lines, vla_kind);
+#endif
+}
+
+static int flow_exec_lines(xb_interp *ip, flow_state *fs, const char *prg,
+                           uint32_t plen, int n, flow_line *s_lines,
+                           line_kind *s_kind)
+{
+    xb_ctx *ctx;
+    flow_prog fp;
+    flow_signal sig = SIG_NONE;
+    int i, rc, ec = 0;
+
+    if (split_lines(prg, plen, s_lines, n) != n)
+        return -INTERP_ERR_DEPTH;           /* cannot happen: same text */
 
     /* classify each line (needs a NUL-terminated working copy). */
     for (i = 0; i < n; i++) {

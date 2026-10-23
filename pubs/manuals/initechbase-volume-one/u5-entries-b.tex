@@ -319,10 +319,12 @@ the one before.
 \SeeAlso{ERROR(), ON ESCAPE, ON KEY, RETURN}
 \end{XbaseEntry}
 
-% ON ESCAPE, ON KEY -- os/samir/cmd/proc.c p_on "ESCAPE"/"KEY": parsed and
-% accepted, the trap is not installed.
-\begin{XbaseEntry}[the ON ESCAPE and ON KEY traps are accepted but not
-  carried out by this version (proc.c)]{ON ESCAPE}{compound}
+% ON ESCAPE, ON KEY -- os/samir/cmd/proc.c p_on "ESCAPE" (the trap text,
+% fired by proc_escape between two program lines; real III+ 1.1 mint samirctl
+% ESCTRAP.TXT); "KEY" is parsed and accepted, not installed.  Gate:
+% test-samir-ctl.
+\begin{XbaseEntry}[the ON KEY trap is accepted but not carried out by this
+  version (proc.c)]{ON ESCAPE}{compound}
 Name a command to be carried out when \key{Esc}, or any key, is pressed while
 a program runs.
 \Syntax
@@ -330,10 +332,15 @@ a program runs.
 \par or\par
 \SyntaxLine{\kw{ON KEY} \opt{\xp{command}}}
 \Usage
-InitechBase accepts both commands, with or without a command to carry out,
-and displays no message.  The command named is not carried out when a key is
-pressed.
-\SeeAlso{ON ERROR, WAIT}
+While SET ESCAPE is ON, pressing \key{Esc} as a program runs carries out the
+command named by \cmd{ON ESCAPE} instead of interrupting the program; the
+program then goes on with its next line.  A program can use it to end a loop
+of its own accord.  \cmd{ON ESCAPE} without a command removes the command,
+and \key{Esc} interrupts the program again.
+
+InitechBase accepts \cmd{ON KEY}, with or without a command, and displays no
+message; the command is not carried out when a key is pressed.
+\SeeAlso{ON ERROR, SET ESCAPE, WAIT}
 \end{XbaseEntry}
 
 % PACK -- os/samir/cmd/mutate.c m_pack (dbf_pack removes the 0x2A records and
@@ -462,7 +469,9 @@ Closes all files and leaves InitechBase.
 \Usage
 \cmd{QUIT} closes every open database with its index files and returns to
 InitechDOS, which displays its prompt.  \cmd{EXIT}, typed at the dot prompt,
-does the same.
+does the same.  In a program, \cmd{QUIT} ends the program, and every program
+that called it, and leaves InitechBase in the same way; the lines after it are
+not carried out.
 
 Always leave InitechBase with \cmd{QUIT} before you turn off or restart the
 computer.
@@ -671,13 +680,51 @@ month-end close, one of each type.  With \kw{ADDITIVE} the memory variable
 \SeeAlso{RELEASE, SAVE}
 \end{XbaseEntry}
 
+% RESUME -- os/samir/samir_main.c repl_loop (nested dot prompt of a program
+% suspended from the Esc prompt; 101 when none is; real III+ 1.1 mint
+% samirctl ESCS.TXT).  Gate: test-samir-ctl.
+\begin{XbaseEntry}{RESUME}{command}
+Continues a suspended program.
+\Syntax
+\SyntaxLine{\kw{RESUME}}
+\Usage
+When \key{Esc} interrupts a program and you answer \key{S} (Suspend),
+InitechBase displays \texttt{Do suspended} and the dot prompt, with the
+program, its memory variables and its databases left as they were.  Any
+command may then be typed.  \cmd{RESUME} continues the program at the line
+where it was interrupted; \cmd{CANCEL} ends it instead.
+
+With no program suspended, \cmd{RESUME} displays \xmsg{101}{Not suspended.}
+\SeeAlso{CANCEL, SET ESCAPE}
+\end{XbaseEntry}
+
+% RETRY -- os/samir/cmd/proc.c "RETRY" (PROC_RC_RETRY; the caller runs its DO
+% again, or for the procedure ON ERROR called, the failed line; ERROR() is
+% cleared; real III+ 1.1 mint samirctl RETRYM.TXT).  Gate: test-samir-ctl.
+\begin{XbaseEntry}{RETRY}{command}
+Returns to the calling program and carries out the calling line again.
+\Syntax
+\SyntaxLine{\kw{RETRY}}
+\Usage
+\cmd{RETRY} ends the procedure like \cmd{RETURN}, but the program that
+called it carries out the \cmd{DO} line again instead of going on with the
+next line.  In a procedure called by \cmd{ON ERROR}, the line carried out
+again is the line in which the error occurred: the procedure can correct the
+cause of the error and try once more.  \cmd{RETRY} sets \fn{ERROR()} to 0.
+
+A line that fails every time is tried again without end; press \key{Esc} to
+interrupt the program.
+\SeeAlso{ON ERROR, ERROR(), RETURN}
+\end{XbaseEntry}
+
 % RETURN -- os/samir/cmd/proc.c PROC_RC_RETURN (leaves the routine, out of any
-% IF / DO WHILE; at the main level ends the program).  Gate:
-% test-interp-proc.
+% IF / DO WHILE; at the main level ends the program); TO MASTER,
+% PROC_RC_RETURN_MASTER (real III+ 1.1 mint samirctl MASTER.TXT).  Gates:
+% test-interp-proc, test-samir-ctl.
 \begin{XbaseEntry}{RETURN}{command}
 Ends a procedure or a program and returns to the one that called it.
 \Syntax
-\SyntaxLine{\kw{RETURN}}
+\SyntaxLine{\kw{RETURN} \opt{\kw{TO MASTER}}}
 \Usage
 In a procedure, \cmd{RETURN} ends the procedure at once, even inside an
 \cmd{IF} or a \cmd{DO WHILE}, and the calling program goes on with the line
@@ -687,6 +734,10 @@ and InitechBase returns to the dot prompt.
 
 Every procedure ends with \cmd{RETURN}, and so does the main program of a file
 that contains procedures.  At the dot prompt, \cmd{RETURN} does nothing.
+
+\kw{TO MASTER} returns past every calling procedure to the main program
+started at the dot prompt, which goes on with the line after its own
+\cmd{DO}.
 \Examples
 See \cmd{DO}.
 \SeeAlso{DO, PROCEDURE, PRIVATE}

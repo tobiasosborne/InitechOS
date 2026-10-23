@@ -109,5 +109,11 @@ int main(void)
 	CHECK(p->exec && p->exec(p, "VER") < 0,
 	      "null exec() refuses (negative): engine raises error 92");
 
+	/* program interruption (initech-39e5): no keyboard, no drive. */
+	CHECK(p->conin_escape && p->conin_escape(p) == 0,
+	      "null conin_escape() reports no Esc (a program is never interrupted)");
+	CHECK(p->curdrive && p->curdrive(p) < 0,
+	      "null curdrive() has no drive (the trace omits it)");
+
 	return TEST_SUMMARY("test_samir_pal_contract");
 }

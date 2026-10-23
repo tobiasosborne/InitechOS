@@ -3484,6 +3484,46 @@ test-samir-use: $(TEST_SAMIR_USE) samir-use-goldens
 	@$(TEST_SAMIR_USE) $(abspath $(DBASE3_DECOMP))
 	@printf '>>> test-samir-use: green (incl. mint 005 USE INDEX / NEXT n replays vs real dBASE III PLUS 1.1)\n'
 
+# ---- SAMIR program control (initech-39e5; audit 2026-10-23-samir L002 L003
+# L013 L022 L041). REAL-dBASE DIFFERENTIAL: the programs and the expected
+# transcripts are what real DBASE.EXE 1.1 ran/wrote under dosbox-x in mint
+# session samirctl, COMMITTED with their recipe (README, mint_setup.py,
+# mint_run.py) in $(SAMIR_CTL_MINT); samirctl_mint.md5 there pins them before
+# the replay. NESTBIG pads NEST's recursive procedure to 500 lines and runs
+# on a 192 KiB thread stack (the 64 KiB guest stack's stand-in). Staging
+# rules (mint-harness lines dropped, separate routine files appended as
+# PROCEDURE blocks, autotype keys replayed through the PAL) are documented in
+# test_samir_ctl.c. One mutant per defect, every one must go RED (Rule 6):
+#   NO_ESCAPE   Esc never polled (L002)        NO_DO_CAP  no 20-level cap (L003)
+#   MASTER_ONE  TO MASTER = one level (L041)   NO_QUIT    QUIT #16 in a PRG (L013)
+#   NO_RETRY    RETRY never re-runs (L022)
+#   STACK_LINES per-call line tables back on the stack (L003 review)
+TEST_SAMIR_CTL := $(BUILD)/test_samir_ctl
+SAMIR_CTL_MINT := $(DBF_DIFF_DIR)/xbase_prog_diff/samirctl-mint
+SAMIR_CTL_MD5  := $(SAMIR_CTL_MINT)/samirctl_mint.md5
+SAMIR_CTL_MUTS := $(addprefix $(BUILD)/test_samir_ctl_,FLOW_MUTATE_NO_ESCAPE PROC_MUTATE_NO_DO_CAP PROC_MUTATE_MASTER_ONE_LEVEL PROC_MUTATE_NO_QUIT FLOW_MUTATE_NO_RETRY FLOW_MUTATE_STACK_LINES)
+$(TEST_SAMIR_CTL): $(DBF_DIFF_DIR)/test_samir_ctl.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_ctl.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) -pthread
+$(BUILD)/test_samir_ctl_%: $(DBF_DIFF_DIR)/test_samir_ctl.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_ctl.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) -pthread
+.PHONY: samir-ctl-goldens test-samir-ctl test-samir-ctl-mutant
+samir-ctl-goldens:
+	@cd "$(SAMIR_CTL_MINT)" && md5sum -c --quiet samirctl_mint.md5 || { printf '!!! samir-ctl-goldens FAIL: mint samirctl files changed under %s\n' "$(SAMIR_CTL_MINT)"; exit 1; }
+test-samir-ctl: $(TEST_SAMIR_CTL) samir-ctl-goldens
+	@printf '>>> test-samir-ctl: Esc interrupt / ON ESCAPE / 20-level DO cap / RETURN TO MASTER / QUIT / RETRY vs real dBASE III PLUS 1.1 (mint samirctl)\n'
+	@$(TEST_SAMIR_CTL) $(abspath $(SAMIR_CTL_MINT))
+	@printf '>>> test-samir-ctl: green\n'
+test-samir-ctl-mutant: $(SAMIR_CTL_MUTS) samir-ctl-goldens
+	@for m in $(SAMIR_CTL_MUTS); do \
+		$$m $(abspath $(SAMIR_CTL_MINT)) 2>/dev/null | grep -q 'checks,' \
+			|| { printf '!!! test-samir-ctl-mutant FAIL: %s printed no summary -- RED is meaningless\n' "$$m"; exit 1; }; \
+		if $$m $(abspath $(SAMIR_CTL_MINT)) >/dev/null 2>&1; then \
+			printf '!!! test-samir-ctl-mutant FAIL: %s PASSED -- the oracle does not bite\n' "$$m"; exit 1; \
+		fi; \
+		printf '>>> test-samir-ctl-mutant: %s correctly RED\n' "$$(basename $$m)"; \
+	done
+	@printf '>>> test-samir-ctl-mutant: green (all 6 mutants RED)\n'
+
 # REPORT FORM (initech-airx): REAL-dBASE differential. Every expected byte is
 # a file real DBASE.EXE 1.1 wrote under dosbox-x (mint session 004,
 # $(DBASE3_DECOMP)/re/mint-results-004.md); report_mint004.md5 pins the 111
@@ -28364,6 +28404,82 @@ test-samir-report-emu-mutant: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDAR
 	@grep -q 'triple_fault=0' $(BUILD)/samir-report-emu/files.report
 	@grep -Fq 'G1FLT.TXT  guest file byte-identical' $(BUILD)/samir-report-emu-mut.log
 	@printf '>>> test-samir-report-emu-mutant: green (dropped subtotal band correctly RED in the guest: G8TP.TXT differs, G1FLT.TXT still identical, no crash)\n'
+
+# ---- SAMIR program control IN THE GUEST (initech-39e5; audit 2026-10-23-samir
+# L002 / L003 / L013). Boot the DOS route, EXEC SAMIR.COM and type, as one key
+# stream: DO LOOP (DO WHILE .T.), Esc, C; DO RECINT (the audit's recursive
+# procedure, verbatim); DO AFTER (prints the loop counter); DO QUITPRG (the
+# audit's QUIT program, verbatim); EXIT. Graded on serial against the real
+# III+ 1.1 wording (mint samirctl ESC.TXT / NEST.TXT / QUITP.TXT): the
+# interrupt dialogue, "DOs nested too deep." with the session surviving (the
+# 20-level cap must FIT the 64 KiB SAMIR.COM stack -- the pre-fix build lost
+# the guest here), RECOVERED with N > 0, and QUIT returning to DOS with AFTER
+# QUIT never printed. DO BIGREC (initech-39e5 review) recurses a 500-line
+# procedure: its line tables come from the PAL heap, so the guest stops it
+# with #43 Insufficient memory. (heap) or #103 and the session survives;
+# pal_milton's stack guard (PROGRAM_STACK_BOT) halts loudly on any overrun.
+# Mutants: Esc never polled (the loop never ends -> no dialogue), no 20-level
+# cap (recursion runs to the 64-scope dimension -> the stack overruns) and
+# per-call stack line tables (BIGREC overruns -> STACK OVERFLOW halt). QEMU
+# only (tri-emulator pending initech-x0i).
+SAMIR_CTL_EMU_DIR  := $(DBF_DIFF_DIR)/samirctl_emu
+SAMIR_CTL_EMU_PRGS := LOOP.PRG RECINT.PRG BIGREC.PRG AFTER.PRG QUITPRG.PRG
+SAMIR_CTL_EMU_KEYS := s,a,m,i,r,ret,d,o,spc,l,o,o,p,ret,esc,c,d,o,spc,r,e,c,i,n,t,ret,d,o,spc,b,i,g,r,e,c,ret,d,o,spc,a,f,t,e,r,ret,d,o,spc,q,u,i,t,p,r,g,ret,e,x,i,t,ret
+SAMIR_CTL_EMU_MUTS := $(BUILD)/SAMIR_CTL_FLOW_MUTATE_NO_ESCAPE.COM $(BUILD)/SAMIR_CTL_PROC_MUTATE_NO_DO_CAP.COM $(BUILD)/SAMIR_CTL_FLOW_MUTATE_STACK_LINES.COM
+$(SAMIR_CTL_EMU_MUTS): $(BUILD)/SAMIR_CTL_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+	@set -e; d=$(BUILD)/samir_ctl_$*; mkdir -p $$d; \
+	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
+	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$* -c $$src -o $$obj; done; \
+	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
+# $(call samir_ctl_emu_run,<samir.com>,<name>) -> $(BUILD)/<name>.samir (serial
+# from `A:\>samir` on, CR stripped) + $(BUILD)/<name>.report
+define samir_ctl_emu_run
+	@dd if=/dev/zero of=$(BUILD)/$(2).img bs=512 count=2880 status=none
+	@mformat -i $(BUILD)/$(2).img -f 1440 ::
+	@mcopy -i $(BUILD)/$(2).img $(1) ::SAMIR.COM
+	@set -e; for f in $(SAMIR_CTL_EMU_PRGS); do mcopy -i $(BUILD)/$(2).img $(SAMIR_CTL_EMU_DIR)/$$f ::$$f; done
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BUILD)/$(2).img" \
+		--name "$(2)" --out "$(BUILD)" --timeout-ms 90000 \
+		--keys "$(SAMIR_CTL_EMU_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
+		2> "$(BUILD)/$(2).report" || true
+	@tr -d '\r' < "$(BUILD)/$(2).serial" 2>/dev/null | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(2).samir" || true
+endef
+.PHONY: test-samir-ctl-emu test-samir-ctl-emu-mutant
+test-samir-ctl-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM)
+	@printf '>>> test-samir-ctl-emu: Esc / 20-level DO cap / QUIT in the guest (audit L002 L003 L013; mint samirctl wording)\n'
+	$(call samir_ctl_emu_run,$(SAMIR_COM),samir_ctl_emu)
+	@S=$(BUILD)/samir_ctl_emu.samir; R=$(BUILD)/samir_ctl_emu.report; \
+	fail() { printf '!!! test-samir-ctl-emu FAIL: %s\n' "$$1"; cat "$$S"; exit 1; }; \
+	! grep -q 'triple_fault=1' "$$R" || fail 'TRIPLE FAULT'; \
+	[ -s "$$S" ] || fail 'no SAMIR session on serial'; \
+	grep -qxF '*** INTERRUPTED ***' "$$S" || fail 'L002 Esc did not interrupt DO WHILE .T. (no *** INTERRUPTED ***)'; \
+	grep -qxF 'Called from - A:LOOP.prg' "$$S" || fail 'L002 trace line != real III+ "Called from - <drive>:<NAME>.prg"'; \
+	grep -qxF 'Cancel, Ignore, or Suspend? (C, I, or S) Cancel' "$$S" || fail 'L002 the C/I/S prompt + Cancel echo'; \
+	grep -qxF 'Do cancelled' "$$S" || fail 'L002 Do cancelled'; \
+	! grep -q 'NOTREACHED' "$$S" || fail 'L002 Cancel did not abandon the program'; \
+	grep -qF 'DOs nested too deep.' "$$S" || fail 'L003 recursion did not stop with #103 DOs nested too deep.'; \
+	sed -n '/do bigrec/,/do after/p' "$$S" | grep -qE 'DOs nested too deep\.|Insufficient memory\.' || fail 'L003 500-line recursive BIGREC did not stop with #103 or #43'; \
+	grep -qE 'RECOVERED +[1-9][0-9]*' "$$S" || fail 'L003/L002 session lost after recursion (DO AFTER: RECOVERED with N > 0 absent)'; \
+	grep -qF 'BEFORE QUIT' "$$S" || fail 'L013 QUITPRG did not run'; \
+	! grep -q 'AFTER QUIT' "$$S" || fail 'L013 a command after QUIT ran'; \
+	! grep -q 'Unrecognized command verb' "$$S" || fail 'L013/any: Unrecognized command verb'; \
+	sed -n '/BEFORE QUIT/,$$p' "$$S" | grep -q 'A:.>' || fail 'L013 QUIT did not return to the DOS prompt'; \
+	grep -q 'quit_after_found=1' "$$R" || fail 'the session never reached SHELL-DONE (EXIT after QUIT)'
+	@printf '>>> test-samir-ctl-emu: green (QEMU)\n'
+test-samir-ctl-emu-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_CTL_EMU_MUTS)
+	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_NO_ESCAPE.COM,samir_ctl_emu_mut_esc)
+	@if grep -qxF '*** INTERRUPTED ***' $(BUILD)/samir_ctl_emu_mut_esc.samir; then printf '!!! test-samir-ctl-emu-mutant FAIL: no-Esc-poll mutant still interrupted\n'; exit 1; fi
+	@grep -q 'triple_fault=0' $(BUILD)/samir_ctl_emu_mut_esc.report || { printf '!!! no-Esc mutant run did not complete cleanly (harness)\n'; exit 1; }
+	@printf '>>> test-samir-ctl-emu-mutant: Esc-never-polled correctly RED (the loop cannot be stopped)\n'
+	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_PROC_MUTATE_NO_DO_CAP.COM,samir_ctl_emu_mut_cap)
+	@if grep -qE 'RECOVERED +[1-9][0-9]*' $(BUILD)/samir_ctl_emu_mut_cap.samir && grep -qF 'DOs nested too deep.' $(BUILD)/samir_ctl_emu_mut_cap.samir && grep -q 'quit_after_found=1' $(BUILD)/samir_ctl_emu_mut_cap.report; then printf '!!! test-samir-ctl-emu-mutant FAIL: no-DO-cap mutant survived the recursion\n'; exit 1; fi
+	@printf '>>> test-samir-ctl-emu-mutant: no-20-level-cap correctly RED (recursion past the cap loses the session)\n'
+	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_STACK_LINES.COM,samir_ctl_emu_mut_stk)
+	@if grep -qE 'RECOVERED +[1-9][0-9]*' $(BUILD)/samir_ctl_emu_mut_stk.samir && grep -q 'quit_after_found=1' $(BUILD)/samir_ctl_emu_mut_stk.report; then printf '!!! test-samir-ctl-emu-mutant FAIL: stack-line-table mutant survived BIGREC\n'; exit 1; fi
+	@printf '>>> test-samir-ctl-emu-mutant: per-call stack line tables correctly RED (500-line BIGREC loses the session)\n'
+	@printf '>>> test-samir-ctl-emu-mutant: green\n'
 
 TEST_SAMIR_AUDIT_EMU := $(BUILD)/test_samir_audit_emu
 $(TEST_SAMIR_AUDIT_EMU): $(DBF_DIFF_DIR)/test_samir_audit_emu.c | $(BUILD)

@@ -93,6 +93,7 @@
 #include "samir/interp.h"
 #include "samir/screen.h"
 #include "samir/rt.h"
+#include "memory_map.h"     /* PROGRAM_STACK_BOT: the stack guard below */
 
 /* ---- Arena sizing constants ----------------------------------------------- *
  *
@@ -177,6 +178,12 @@ typedef struct {
     uint8_t     *heap_base;
     uint8_t     *heap_ptr;
     uint8_t     *heap_end;
+    /* initech-39e5: keys read while polling for Esc between program
+     * statements, replayed in order by conin_char / conin_line (III+
+     * type-ahead; Using III+ U5-231 SET TYPEAHEAD default 20). */
+    uint8_t      ta[20];
+    uint8_t      ta_head, ta_n;
+    int8_t       con_in;    /* stdin is CON: -1 unknown, 0 no, 1 yes */
 } pal_milton_state_t;
 
 /* Recover the state block from the vtable pointer (vtable is first). */
@@ -647,9 +654,40 @@ static int32_t milton_input_read(void *user, void *buf, uint32_t cap)
 {
     return milton_read((samir_pal_t *)user,0,buf,cap);
 }
+/* Stack guard (initech-39e5 review; Rule 2). The program stack is the 64 KiB
+ * from PROGRAM_STACK_BOT to PROGRAM_STACK_TOP (spec/memory_map.h); below it
+ * lie the environment and the heap arena, so an overrun corrupts data
+ * silently. The lowest MILTON_GUARD_WORDS words of the stack hold a pattern
+ * set at start-up and verified at every console read: a clobbered guard
+ * stops SAMIR loudly instead of running on with corrupted memory. The
+ * engine's own budget (20 DO levels, heap line tables) keeps the deepest
+ * frame far above it; the guard only proves that. */
+#define MILTON_GUARD_WORDS 64u
+static uint32_t milton_guard_word(uint32_t i) { return 0x53414D49u ^ (i * 0x9E3779B1u); }
+static void milton_guard_set(void)
+{
+    volatile uint32_t *g = (volatile uint32_t *)(uintptr_t)PROGRAM_STACK_BOT;
+    uint32_t i;
+    for (i = 0; i < MILTON_GUARD_WORDS; i++) g[i] = milton_guard_word(i);
+}
+static void milton_guard_check(samir_pal_t *p)
+{
+    volatile uint32_t *g = (volatile uint32_t *)(uintptr_t)PROGRAM_STACK_BOT;
+    uint32_t i;
+    for (i = 0; i < MILTON_GUARD_WORDS; i++)
+        if (g[i] != milton_guard_word(i)) {
+            static const char m[] = "\r\nSTACK OVERFLOW -- InitechBase halted\r\n";
+            milton_rawout(p, m, (uint32_t)(sizeof m - 1u));
+            milton_panic();
+        }
+}
+
 static int32_t milton_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
 {
-    if(state_of(p)->screen.active && milton_is_console(0))
+    milton_guard_check(p);
+    /* Type-ahead captured by the Esc poll must not be lost to the kernel's
+     * cooked editor: replay it through the PAL editor (initech-39e5). */
+    if((state_of(p)->screen.active || state_of(p)->ta_n) && milton_is_console(0))
         return milton_terminal_line(p,buf,cap,1);
     return samir_line_read(&state_of(p)->input,milton_input_read,p,buf,cap);
 }
@@ -670,14 +708,54 @@ static int32_t milton_conin_char(samir_pal_t *p)
 {
     int cf = 0;
     uint32_t result;
-    (void)p;
+    pal_milton_state_t *st = state_of(p);
 
+    milton_guard_check(p);
+    if (st->ta_n) {                     /* type-ahead from the Esc poll first */
+        uint8_t c = st->ta[st->ta_head];
+        st->ta_head = (uint8_t)((st->ta_head + 1u) % sizeof st->ta);
+        st->ta_n--;
+        return (int32_t)c;
+    }
     result = int21(0x07u, 0x00u, 0u, 0u, 0u, 0u, &cf);
     if (cf) {
         return -1;
     }
     /* AL = character (bit 7:0 of EAX). */
     return (int32_t)(result & 0xFFu);
+}
+
+/* pal.h conin_escape (initech-39e5; Using III+ U5-220 SET ESCAPE): between
+ * program statements, drain the keys already typed WITHOUT waiting -- AH=0Bh
+ * input status (no consume), then AH=07h raw read (no echo, no ^C check;
+ * os/milton/int21.c do_input_status / do_conin_raw). Esc (1Bh) reports the
+ * interrupt; any other key is kept in order for the next read. Ctrl-C is an
+ * ordinary key here: III+ binds it to PgDn (Using III+ U6-40 INKEY table:
+ * Ctrl-C = PgDn = 3), not
+ * to an interrupt. A redirected stdin is never read (it carries commands). */
+static int milton_conin_escape(samir_pal_t *p)
+{
+    pal_milton_state_t *st = state_of(p);
+    int cf = 0;
+    if (st->con_in < 0) st->con_in = (int8_t)milton_is_console(0);
+    if (!st->con_in) return 0;
+    while ((int21(0x0Bu, 0x00u, 0u, 0u, 0u, 0u, &cf) & 0xFFu) != 0u) {
+        uint32_t k = int21(0x07u, 0x00u, 0u, 0u, 0u, 0u, &cf) & 0xFFu;
+        if (cf) return 0;
+        if (k == 0x1Bu) return 1;
+        if (st->ta_n < sizeof st->ta) {
+            st->ta[(st->ta_head + st->ta_n) % sizeof st->ta] = (uint8_t)k;
+            st->ta_n++;
+        }                               /* else: full, the key is dropped */
+    }
+    return 0;
+}
+
+/* pal.h curdrive: AH=19h GET DEFAULT DRIVE (AL=0 for A:). */
+static int milton_curdrive(samir_pal_t *p)
+{
+    (void)p;
+    return 'A' + (int)(int21(0x19u, 0u, 0u, 0u, 0u, 0u, (int *)0) & 0xFFu);
 }
 
 /* Terminal slots now bind to the same ANSI transport as STATUS. */
@@ -954,6 +1032,11 @@ samir_pal_t *pal_milton_make(void)
     st->vtable.conout     = milton_conout;
     st->vtable.conin_line = milton_conin_line;
     st->vtable.conin_char = milton_conin_char;
+    st->vtable.conin_escape = milton_conin_escape;
+    milton_guard_set();
+    st->vtable.curdrive   = milton_curdrive;
+    st->ta_head = st->ta_n = 0;
+    st->con_in = -1;
     st->vtable.gotoxy     = milton_gotoxy;
     st->vtable.set_attr   = milton_set_attr;
     st->vtable.today      = milton_today;

@@ -1,0 +1,13 @@
+
+
+
+*** INTERRUPTED ***
+Called from - C:ESCS.prg
+Cancel, Ignore, or Suspend? (C, I, or S) Suspend
+Do suspended
+. resume
+*** INTERRUPTED ***
+Called from - C:ESCS.prg
+Cancel, Ignore, or Suspend? (C, I, or S) Cancel
+Do cancelled
+. quit

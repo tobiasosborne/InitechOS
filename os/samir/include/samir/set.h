@@ -124,6 +124,9 @@ typedef struct {
     int  have_index;         /* 1 if SET INDEX was called   */
     int  have_filter;        /* 1 if SET FILTER was called  */
     int  have_relation;      /* 1 if SET RELATION was called */
+    /* Using III+ U5-220: SET ESCAPE ON (default) lets Esc interrupt a
+     * running program; OFF disables it and ON ESCAPE (initech-39e5). */
+    int  escape;            /* 1 = ON (default), 0 = OFF */
 } set_state;
 
 /* -----------------------------------------------------------------------
@@ -167,6 +170,7 @@ set_date_fmt set_get_date_fmt(xb_interp *ip);
 int          set_get_century (xb_interp *ip);
 int          set_get_talk    (xb_interp *ip);
 int          set_get_safety  (xb_interp *ip);
+int          set_get_escape  (xb_interp *ip);   /* 1 = ON (default) */
 
 /*
  * set_get_state: return a pointer to the set_state for `ip`, or NULL if
