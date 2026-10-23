@@ -33546,11 +33546,13 @@ $(BUILD)/test_cpanels: $(CP_HOST_SRC) $(CP_DEPS) $(TEST_DIALOG_DEPS) | $(BUILD)
 $(BUILD)/test_cpanels_mut_%: $(CP_HOST_SRC) $(CP_DEPS) $(TEST_DIALOG_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(DIALOG_INC) -Ios/apps/cpanels -D$* -o $@ $(CP_HOST_SRC) $(DIALOG_LINK) -lpng
 CP_MUTANTS := CP_MUT_OK_NOTHING CP_MUT_CANCEL_WRITES CP_MUT_CLOCK_NOT_APPLIED
+# Host-only regression: restore the incomplete click that hid all five panels.
+CP_HOST_MUTANTS := $(CP_MUTANTS) CP_TEST_MUT_NO_RELEASE
 .PHONY: test-cpanels test-cpanels-mutant
 test-cpanels: $(BUILD)/test_cpanels
 	@$< "$(SYSTEM7_DECOMP)"
-test-cpanels-mutant: test-cpanels $(addprefix $(BUILD)/test_cpanels_mut_,$(CP_MUTANTS))
-	@set -e; for pair in CP_MUT_OK_NOTHING:OK_WRITES CP_MUT_CANCEL_WRITES:CANCEL_WRITES CP_MUT_CLOCK_NOT_APPLIED:CLOCK_APPLIED; do \
+test-cpanels-mutant: test-cpanels $(addprefix $(BUILD)/test_cpanels_mut_,$(CP_HOST_MUTANTS))
+	@set -e; for pair in CP_MUT_OK_NOTHING:OK_WRITES CP_MUT_CANCEL_WRITES:CANCEL_WRITES CP_MUT_CLOCK_NOT_APPLIED:CLOCK_APPLIED CP_TEST_MUT_NO_RELEASE:CLICK_RELEASE; do \
 	 m=$${pair%:*}; rule=$${pair#*:}; if $(BUILD)/test_cpanels_mut_$$m "$(SYSTEM7_DECOMP)" > $(BUILD)/cp_$$m.log; then printf 'FAIL mutant survived %s\n' $$m; exit 1; fi; \
 	 grep -q "^FAIL $$rule" $(BUILD)/cp_$$m.log; printf '>>> test-cpanels-mutant: %s correctly RED: %s\n' $$m "$$(grep -m1 "^FAIL $$rule" $(BUILD)/cp_$$m.log)"; done
 TEST_UNIT_GATES += test-cpanels test-cpanels-mutant
