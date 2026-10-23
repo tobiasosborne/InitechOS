@@ -43,6 +43,7 @@
 #include <sys/mman.h>
 
 #include "int21.h"
+#include "kbd.h"
 #include "sft.h"
 #include "psp.h"
 #include "test_assert.h"
@@ -250,6 +251,60 @@ static void test_f3_template(void)
         CHECK((f.eax & 255) == want[i], "F3 transport: AH=07h returns 00,3D then text");
     }
     CHECK(g_sink_len == 0, "F3 transport: raw CON input does not echo");
+}
+
+/* Same producer and dispatcher as the guest: do not synthesize a cooked
+ * GUI Ctrl-C in a mock string. DEC-16 remains authoritative for DOS. */
+static kbd_input_t owned_input;
+static int owned_poll(void)
+{
+    uint8_t c;
+    return kbd_ring_get(&owned_input.cooked, &c) ? (int)c : -1;
+}
+static void test_input_ownership(void)
+{
+    int_frame_t f;
+    kbd_input_init(&owned_input);
+    int21_set_conin(owned_poll, owned_poll);
+    int21_conin_handoff();
+    int21_set_break_flag(1);
+    kbd_input_put(&owned_input, 0x20); /* fill DOS lookahead */
+    f = fresh_frame(); f.eax = 0x0b00; int21_dispatch(&f);
+    CHECK((f.eax & 255u) == 255u, "ownership: DOS status parks typeahead");
+    kbd_input_claim(&owned_input, KBD_OWNER_GUI);
+    int21_conin_handoff();
+    f = fresh_frame(); f.eax = 0x0b00; int21_dispatch(&f);
+    CHECK((f.eax & 255u) == 0, "ownership: GUI entry clears DOS lookahead");
+    kbd_input_put(&owned_input, 0x1d);
+    kbd_input_put(&owned_input, 0x2e);
+    kbd_input_put(&owned_input, 0xae);
+    kbd_input_put(&owned_input, 0x9d);
+    g_exit_called = 0;
+    sink_reset();
+    for (unsigned i = 0; i < 3; ++i) {
+        f = fresh_frame(); f.eax = 0x2c00; int21_dispatch(&f);
+    }
+    CHECK(!g_exit_called && !sink_saw_int23(),
+          "ownership: GUI Copy survives DOS clock polls with BREAK ON");
+    CHECK(int21_get_break_flag() == 1,
+          "ownership: GUI does not turn BREAK off");
+    kbd_input_claim(&owned_input, KBD_OWNER_DOS);
+    int21_conin_handoff();
+    kbd_input_put(&owned_input, 0x3d);
+    f = fresh_frame(); f.eax = 0x0b00; int21_dispatch(&f);
+    f = fresh_frame(); f.eax = 0x0700; int21_dispatch(&f);
+    CHECK((f.eax & 255u) == 0, "ownership: DOS lookahead preserves extended prefix");
+    f = fresh_frame(); f.eax = 0x0700; int21_dispatch(&f);
+    CHECK((f.eax & 255u) == 0x3d, "ownership: DOS preserves extended suffix");
+    kbd_input_put(&owned_input, 0x1d);
+    kbd_input_put(&owned_input, 0x2e);
+    f = fresh_frame(); f.eax = 0x2c00; int21_dispatch(&f);
+    CHECK(g_exit_called == 1 && sink_saw_int23(),
+          "ownership: DOS Ctrl-C still breaks a clock call with BREAK ON");
+    kbd_input_put(&owned_input, 0x9d);
+    kbd_input_claim(&owned_input, KBD_OWNER_GUI);
+    int21_conin_handoff();
+    int21_set_conin(mock_get, mock_poll);
 }
 
 int main(void)
@@ -795,5 +850,6 @@ int main(void)
         int21_set_conin(mock_get, mock_poll);  /* restore */
     }
 
+    test_input_ownership();
     return TEST_SUMMARY("test_conin");
 }

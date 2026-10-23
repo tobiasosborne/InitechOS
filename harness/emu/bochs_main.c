@@ -41,6 +41,7 @@ static void usage(const char *argv0)
         "  --out DIR          output dir (default \"build\")\n"
         "  --serial-stdout    echo captured serial to stdout\n"
         "  --keys SCRIPT      comma-separated a-z/0-9, ret, spc, dot\n"
+        "                     or GUI mDX:DY,l0,l1,wMS,kctrl-letter tokens\n"
         "  --keys-after MARK  replay keys after this complete serial line\n"
         "  --screendump-after MARK  after this complete exact serial line,\n"
         "                     capture a stable full RFB frame to\n"

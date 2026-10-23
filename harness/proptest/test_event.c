@@ -993,6 +993,35 @@ static void test_double_click_seed(void)
 #endif
 }
 
+static uint8_t observed_keys[16];
+static unsigned observed_count;
+static void observe_key(uint8_t sc)
+{
+    if (observed_count < sizeof observed_keys) observed_keys[observed_count++] = sc;
+}
+static void test_keyboard_observer(void)
+{
+    flair_raw_ring_t ring;
+    EventRecord ev;
+    fresh_ring(&ring);
+    observed_count = 0;
+    flair_event_set_keyboard_observer(observe_key);
+    static const uint32_t scans[] = {0xe0, 0x1d, 0x2b, 0xab, 0xe0, 0x11d};
+    static const uint8_t want[] = {0xe0, 0x1d, 0x2b, 0xab, 0xe0, 0x9d};
+    for (unsigned i = 0; i < sizeof scans / sizeof scans[0]; ++i) {
+        flair_raw_event_t raw = {FLAIR_RAW_KEYBOARD, 0, scans[i]};
+        (void)flair_raw_post(&ring, &raw);
+    }
+    while (ring.tail != ring.head) (void)GetNextEvent(&ring, 0, &ev);
+    CHECK(observed_count == sizeof want && !memcmp(observed_keys, want, sizeof want),
+          "ownership: observer sees masked keys and modifiers in consumed order");
+    fresh_ring(&ring);
+    flair_raw_event_t raw = {FLAIR_RAW_KEYBOARD, 0, 0x20};
+    (void)flair_raw_post(&ring, &raw);
+    (void)GetNextEvent(&ring, everyEvent, &ev);
+    CHECK(observed_count == sizeof want, "ownership: init detaches keyboard observer");
+}
+
 int main(void)
 {
     test_double_click_seed();
@@ -1008,6 +1037,7 @@ int main(void)
     test_named_mutant_gate();
     test_tick_wrap();
     test_drop_marker();
+    test_keyboard_observer();
 
     return TEST_SUMMARY("test_event");
 }

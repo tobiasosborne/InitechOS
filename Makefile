@@ -5410,8 +5410,8 @@ TEST_CONIN_MUT_DISCARD := $(BUILD)/test_conin_mutant_discard_ring_only
 # test_conin.c drives only the CON-input path, but int21.c (one TU) references
 # the SFT/PSP handle layer (do_write/do_open/...), so the link needs sft.c +
 # psp.c just like test_int21. -Ispec for sft.h -> psp.h -> dos_structs.h.
-TEST_CONIN_DEPS := $(KERNEL_INT21_C) $(KERNEL_DEVICES_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
-TEST_CONIN_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/conedit.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+TEST_CONIN_DEPS := $(KERNEL_INT21_C) $(KERNEL_DEVICES_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C) $(KERNEL_KBD_C)
+TEST_CONIN_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/kbd.h $(MILTON_DIR)/conedit.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                    $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
 
 $(TEST_CONIN): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
@@ -11712,7 +11712,7 @@ test-harness-key-ack-mutant: test-harness-key-ack $(BUILD)/test_qemu_key_ack_mut
 TEST_UNIT_GATES += test-harness-key-ack test-harness-key-ack-mutant
 
 # Bochs oracle harness CLI (beads initech-564): library + main.
-$(BOCHS_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
+$(BOCHS_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h harness/emu/bochs_trace.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu -o $@ $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC)
 
 # ---------------------------------------------------------------------------
@@ -11728,7 +11728,7 @@ $(BOCHS_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
 # collision cannot break anybody else's Bochs gate.
 # ---------------------------------------------------------------------------
 BOCHS_MUT_NOLOCK_BIN := $(BUILD)/bochs_harness_mut_nolock
-$(BOCHS_MUT_NOLOCK_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
+$(BOCHS_MUT_NOLOCK_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h harness/emu/bochs_trace.h | $(BUILD)
 	$(CC) $(CFLAGS) -DBOCHS_MUTATE_NO_HOST_LOCK -Iharness/emu -o $@ $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC)
 
 # $(1) = harness binary, $(2) = name stem. Leaves $$good = runs that reached
@@ -24326,6 +24326,7 @@ RECORD_MARKER_trashfull_regression = FINDER-LOCKED-ALERT
 RECORD_SETTLE_trashfull_regression = 200
 
 include harness/emu/flair_launchkey.mk
+include harness/emu/copybreak.mk
 include harness/proptest/egg_jtc.mk
 # Rule 14: PM records after merge; prerequisites are read at parse time.
 include spec/flair_finder_alerts_trace.mk

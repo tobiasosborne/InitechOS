@@ -151,6 +151,12 @@ int flair_raw_post(flair_raw_ring_t *ring, const flair_raw_event_t *raw);
  * Called from the PIT ISR (IRQ0). Must be ISR-safe (no Toolbox calls). */
 void flair_tick_advance(void);
 
+/* Task-context observer of each consumed Set-1 byte, including modifiers
+ * and masked events. Snapshots a console handoff at the cooked launch event
+ * rather than IRQ1's later producer head. Reset by flair_event_init.
+ * Ref: ADR-0013 O-7; audit DAS L002. No dispatch in this observer. */
+void flair_event_set_keyboard_observer(void (*observer)(uint8_t));
+
 /* flair_tick_count -- read the current tick count (monotonic since boot).
  * Task-context read; no synchronisation needed (single-CPU cooperative). */
 uint32_t flair_tick_count(void);

@@ -52,6 +52,12 @@ int main(void)
     check(rfb_key_event(&r,rfb_key("s",1),false), "ASCII release sent");
     check(used == sizeof expected && !memcmp(wire,expected,sizeof expected),
           "press/release wire bytes after interrupted and partial writes");
+    used = 0;
+    static const unsigned char pointer[] = {5,1,1,64,1,16};
+    interrupt_once = 1;
+    check(rfb_pointer_event(&r, 320, 272, 1), "pointer packet sent");
+    check(used == sizeof pointer && !memcmp(wire,pointer,sizeof pointer),
+          "PointerEvent wire bytes after interrupted and partial writes");
     broken = 1;
     check(!rfb_key_event(&r,115,true) && strstr(r.err,"cannot send KeyEvent"),
           "transport failure is loud");

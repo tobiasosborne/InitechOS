@@ -299,22 +299,47 @@ void kbd_scancode_put(kbd_ring_t *ring, kbd_state_t *state, uint8_t sc)
         (void)kbd_ring_put(ring, ascii);
     }
 }
+void kbd_input_init(kbd_input_t *input)
+{
+    kbd_ring_init(&input->cooked);
+    kbd_state_init(&input->state);
+    input->owner = KBD_OWNER_DOS;
+}
+
+void kbd_input_claim(kbd_input_t *input, kbd_owner_t owner)
+{
+    if (input->owner != owner) {
+        kbd_ring_init(&input->cooked);
+        input->owner = owner;
+    }
+}
+
+void kbd_input_put(kbd_input_t *input, uint8_t sc)
+{
+#ifndef KBD_MUT_DUAL_RING
+    if (input->owner == KBD_OWNER_GUI) {
+        (void)kbd_translate(&input->state, sc);
+        return;
+    }
+#endif
+    kbd_scancode_put(&input->cooked, &input->state, sc);
+}
+
 /* ---- kernel-only: state + IRQ1 handler + consumer ------------------------ */
 
 /* The single keyboard ring + modifier state. File scope (BSS) so the IRQ1
  * handler and the event-loop consumer share exactly one instance and nothing
  * else (the reentrancy invariant in kbd.h). */
-static kbd_ring_t  g_kbd;
-static kbd_state_t g_kbd_state;
+static kbd_input_t g_input;
 
-/* Optional raw-scancode hook for the FLAIR live event loop (ADR-0006
- * E-D3(c) / FO-5 -- beads initech-5l5z). DEFAULT NULL: kbd_irq_handler is
- * byte-for-byte the legacy ASCII-ring-put+EOI for every kernel that never
- * calls kbd_set_scancode_hook() (CLAUDE.md Rule 11 byte-stability of all
- * kbd.o-linking kernels; the NULL branch is simply not taken, never
- * dereferenced). Written once from task context BEFORE `sti`; read in ISR
- * context -- safe on a single-core cooperative system (set while IRQs are
- * masked, never changed after; CLAUDE.md "cooperative not preemptive"). */
+void kbd_console_replay(kbd_state_t *state, uint8_t scancode)
+{
+    kbd_scancode_put(&g_input.cooked, state, scancode);
+}
+
+/* ISR-only observer, installed before sti and detached at exit. While DOS
+ * owns input it records physical releases for GUI resumption; those raw
+ * events are drained without GUI dispatch. The owner controls cooked input. */
 static void (*g_scancode_hook)(uint8_t) = 0;
 
 void kbd_set_scancode_hook(void (*fn)(uint8_t))
@@ -322,10 +347,17 @@ void kbd_set_scancode_hook(void (*fn)(uint8_t))
     g_scancode_hook = fn;
 }
 
+void kbd_set_input_owner(kbd_owner_t owner)
+{
+    unsigned long flags;
+    __asm__ __volatile__("pushf; pop %0; cli" : "=r"(flags) : : "memory");
+    kbd_input_claim(&g_input, owner);
+    __asm__ __volatile__("push %0; popf" : : "r"(flags) : "memory", "cc");
+}
+
 void kbd_init(void)
 {
-    kbd_ring_init(&g_kbd);
-    kbd_state_init(&g_kbd_state);
+    kbd_input_init(&g_input);
 
     /* Drain any stale byte the BIOS/firmware left in the 8042 output buffer so
      * the first real IRQ1 is not preceded by a ghost scancode (8042 datasheet:
@@ -348,7 +380,7 @@ void kbd_irq_handler(void)
      * nearly-full ring cannot leave a dangling extended-key prefix.
      * IBM DOS 3.30 Technical Reference pp.6-11--6-12 (PDF pp.134-135).
      */
-    kbd_scancode_put(&g_kbd, &g_kbd_state, sc);
+    kbd_input_put(&g_input, sc);
     /* Publish the BIOS keyboard flag byte BEFORE returning into a chained
      * resident hook (spec/tsr_contract.h Sec 2/4; bead initech-6fdt). */
     {
@@ -359,17 +391,12 @@ void kbd_irq_handler(void)
          * object at address zero. Same store, same bytes; no flag relaxed. */
         volatile uint8_t *kbd_flags = (volatile uint8_t *)(uintptr_t)TSR_KBD_FLAGS_LINEAR;
         __asm__ __volatile__("" : "+r"(kbd_flags));
-        *kbd_flags = kbd_bios_flags(&g_kbd_state);
+        *kbd_flags = kbd_bios_flags(&g_input.state);
     }
 
-    /* FLAIR live event loop scancode hook (ADR-0006 E-D3(c) / FO-5): post
-     * the RAW scancode byte (the value read from port 0x60 above) into the
-     * FLAIR raw ring AFTER the DOS g_kbd ASCII ring post (above) and BEFORE
-     * the PIC EOI (below). The DOS g_kbd path is 100% unchanged by this hook.
-     * DEFAULT NULL: every kernel that did not call kbd_set_scancode_hook()
-     * runs the identical legacy path (Rule 11 byte-stability). ISR-enqueue-
-     * only minimum (ADR-0004 D-4): the hook posts to a lock-free SPSC ring
-     * and returns; no Toolbox, no alloc, no port I/O in the hook itself. */
+    /* ISR-enqueue-only raw observer (ADR-0004 D-4). GUI keys have not been
+     * published to DOS; while DOS owns input the GUI drains these raw bytes
+     * only for physical state synchronization before it resumes. */
     if (g_scancode_hook) {
         g_scancode_hook(sc);
     }
@@ -386,7 +413,7 @@ int kbd_haschar(void)
      * cooperative model has a single consumer, so this only guards the index
      * read against a torn producer update. */
     __asm__ __volatile__("cli");
-    has = !kbd_ring_empty(&g_kbd);
+    has = !kbd_ring_empty(&g_input.cooked);
     __asm__ __volatile__("sti");
     return has;
 }
@@ -396,7 +423,7 @@ int kbd_getchar(void)
     uint8_t c;
     int got;
     __asm__ __volatile__("cli");
-    got = kbd_ring_get(&g_kbd, &c);
+    got = kbd_ring_get(&g_input.cooked, &c);
     __asm__ __volatile__("sti");
     return got ? (int)c : -1;
 }
