@@ -878,25 +878,25 @@ static line_kind line_classify(const char *line, const char **rest)
     (void)split_verb(line, verb, sizeof(verb), &args);
     *rest = args;
 
-    if (fl_ci_eq(verb, "IF"))        return LK_IF;
-    if (fl_ci_eq(verb, "ELSE"))      return LK_ELSE;
-    if (fl_ci_eq(verb, "ENDIF"))     return LK_ENDIF;
-    if (fl_ci_eq(verb, "ENDDO"))     return LK_ENDDO;
-    if (fl_ci_eq(verb, "CASE"))      return LK_CASE;
-    if (fl_ci_eq(verb, "OTHERWISE")) return LK_OTHERWISE;
-    if (fl_ci_eq(verb, "ENDCASE"))   return LK_ENDCASE;
-    if (fl_ci_eq(verb, "LOOP"))      return LK_LOOP;
-    if (fl_ci_eq(verb, "EXIT"))      return LK_EXIT;
-    if (fl_ci_eq(verb, "DO")) {
+    /* keyword -> kind, one table walk (kinds in table order; DO last). */
+    static const uint8_t kinds[] = {
+        LK_IF, LK_ELSE, LK_ENDIF, LK_ENDDO, LK_CASE, LK_OTHERWISE,
+        LK_ENDCASE, LK_LOOP, LK_EXIT
+    };
+    int k = rt_kw_index(verb, "IF\0ELSE\0ENDIF\0ENDDO\0CASE\0OTHERWISE\0"
+                              "ENDCASE\0LOOP\0EXIT\0DO\0");
+    if (k < 0) return LK_OTHER;
+    if (k < (int)sizeof(kinds)) return (line_kind)kinds[k];
+    {
         /* DO WHILE / DO CASE vs DO <proc> (a hook verb). */
         char w2[16];
         const char *a2;
         (void)split_verb(args, w2, sizeof(w2), &a2);
-        if (fl_ci_eq(w2, "WHILE")) { *rest = a2; return LK_DOWHILE; }
-        if (fl_ci_eq(w2, "CASE"))  { *rest = a2; return LK_DOCASE; }
-        return LK_OTHER;            /* DO <proc> -> S5.7 hook */
+        k = rt_kw_index(w2, "WHILE\0CASE\0");
+        if (k < 0) return LK_OTHER;  /* DO <proc> -> S5.7 hook */
+        *rest = a2;
+        return k == 0 ? LK_DOWHILE : LK_DOCASE;
     }
-    return LK_OTHER;
 }
 
 /*
@@ -1046,9 +1046,11 @@ static int fl_memfile(xb_interp *ip,flow_state *fs,const char *args,int restore,
             rt_memcpy(variable,b+at,10);variable[10]=0;
             if(type=='C')v=xb_c((char *)b+at+32,(uint16_t)(len-1));
             else if(type=='L')v=xb_l(b[at+32]);
-            else { union {double d;uint64_t u;} x;x.u=0;
-                for(unsigned j=0;j<8;j++)x.u|=(uint64_t)b[at+32+j]<<(j*8);
-                v=type=='D'?xb_d(x.d):xb_n(x.d);
+            else { double d;
+                /* the 8 little-endian payload bytes ARE the double (i386 and
+                 * the x86 host are LE; the save path below writes x.b) */
+                rt_memcpy(&d,b+at+32,8u);
+                v=type=='D'?xb_d(d):xb_n(d);
                 if(type=='N'){v.num_width=b[at+16];v.num_dec=b[at+17];}
             }
             if(fs->cur_level==0)xb_interp_declare_public(ip,variable);
@@ -1098,7 +1100,7 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
     char verb[16];
     char name[FLOW_MAX_NAME];
     const char *args, *rhs;
-    int rc;
+    int rc, k;
 
     if (ec) *ec = 0;
 
@@ -1123,16 +1125,17 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
     }
 
     (void)split_verb(line, verb, sizeof(verb), &args);
+    k = rt_kw_index(verb, "SAVE\0RESTORE\0STORE\0SELECT\0RELEASE\0");
 
-    if(fl_ci_eq(verb,"SAVE") || fl_ci_eq(verb,"RESTORE"))
-        return fl_memfile(ip,fs,args,fl_ci_eq(verb,"RESTORE"),ec);
+    if (k == 0 || k == 1)                       /* SAVE RESTORE */
+        return fl_memfile(ip,fs,args,k == 1,ec);
 
     /* (2) STORE */
-    if (fl_ci_eq(verb, "STORE"))
+    if (k == 2)
         return exec_store(ip, fs, args, ec);
 
     /* (3) SELECT n | <alias> -- the spine owns the work-area engine. */
-    if (fl_ci_eq(verb, "SELECT")) {
+    if (k == 3) {
         wa_env *env = xb_interp_env(ip);
         /* numeric area? */
         if (args[0] >= '0' && args[0] <= '9') {
@@ -1155,7 +1158,7 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
     }
 
     /* (4) RELEASE ALL (memvar table owner is this step). */
-    if (fl_ci_eq(verb, "RELEASE")) {
+    if (k == 4) {
         char w2[16];
         const char *a2;
         (void)split_verb(args, w2, sizeof(w2), &a2);

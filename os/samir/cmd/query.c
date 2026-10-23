@@ -420,6 +420,8 @@ typedef struct {
 } query_clauses;
 
 enum { QS_DEFAULT = 0, QS_ALL, QS_REST, QS_NEXT, QS_RECORD };
+/* the scope keywords in QS_ALL.. order (rt_kw_word index + QS_ALL) */
+#define Q_SCOPE_KWS "ALL\0REST\0NEXT\0RECORD\0"
 
 /* match a whole-word keyword at s (case-insensitive); return word length if it
  * is `kw` followed by end-of-string or a blank, else 0. */
@@ -502,8 +504,7 @@ static int q_split_clauses(const char *args, query_clauses *qc)
 #ifdef SAMIR_LIST_MUTATE_SCOPE
                 p == s &&
 #endif
-                (q_match_kw(p,"ALL") || q_match_kw(p,"REST") ||
-                 q_match_kw(p,"NEXT") || q_match_kw(p,"RECORD"))) scope_at=p;
+                rt_kw_word(p, Q_SCOPE_KWS, (int *)0) >= 0) scope_at=p;
             if (!for_at && q_match_kw(p, "FOR"))     for_at = p;
             if (!while_at && q_match_kw(p, "WHILE")) while_at = p;
             if (!off_at && q_match_kw(p, "OFF"))     off_at = p;
@@ -518,10 +519,8 @@ static int q_split_clauses(const char *args, query_clauses *qc)
 
     if (scope_at) {
         int sk;
-        if ((sk=q_match_kw(scope_at,"ALL"))>0) qc->scope_kind=QS_ALL;
-        else if ((sk=q_match_kw(scope_at,"REST"))>0) qc->scope_kind=QS_REST;
-        else if ((sk=q_match_kw(scope_at,"NEXT"))>0) qc->scope_kind=QS_NEXT;
-        else { sk=q_match_kw(scope_at,"RECORD");qc->scope_kind=QS_RECORD; }
+        /* scope_at was set only on a match: the index is 0..3 */
+        qc->scope_kind = QS_ALL + rt_kw_word(scope_at, Q_SCOPE_KWS, &sk);
         scope_end=q_skip_ws(scope_at+sk);
         if(qc->scope_kind==QS_NEXT || qc->scope_kind==QS_RECORD) {
             qc->scope_n=q_parse_uint(&scope_end);scope_end=q_skip_ws(scope_end);
@@ -554,14 +553,9 @@ static int q_split_clauses(const char *args, query_clauses *qc)
         {
             /* the remainder of the head (up to head_end) is the expr list. */
             {
-                uint32_t n = 0;
-                while (h < head_end && *h != '\0') {
-                    if (n >= Q_MAX_EXPR) return -1;
-                    qc->exprlist[n++] = *h++;
-                }
-                while (n > 0u && q_isspace(qc->exprlist[n - 1])) n--;
-                qc->exprlist[n] = '\0';
-                qc->has_exprlist = (n > 0u);
+                int n = rt_copy_span(qc->exprlist, Q_MAX_EXPR, h, head_end);
+                if (n < 0) return -1;
+                qc->has_exprlist = (n > 0);
             }
         }
     }
@@ -570,32 +564,24 @@ static int q_split_clauses(const char *args, query_clauses *qc)
     if (for_at) {
         const char *fs = q_skip_ws(for_at + 3);
         const char *fe = fs + q_strlen(fs);
-        uint32_t n = 0;
+        int n;
         if (while_at && while_at > fs && while_at < fe) fe = while_at;
         if (off_at && off_at > fs && off_at < fe) fe = off_at;
-        while (fs < fe && *fs != '\0') {
-            if (n >= Q_MAX_EXPR) return -1;
-            qc->forcond[n++] = *fs++;
-        }
-        while (n > 0u && q_isspace(qc->forcond[n - 1])) n--;
-        qc->forcond[n] = '\0';
-        qc->has_for = (n > 0u);
+        n = rt_copy_span(qc->forcond, Q_MAX_EXPR, fs, fe);
+        if (n < 0) return -1;
+        qc->has_for = (n > 0);
     }
 
     /* ---- WHILE <cond>: from after "WHILE" to OFF (or end). ---- */
     if (while_at) {
         const char *ws = q_skip_ws(while_at + 5);
         const char *we = ws + q_strlen(ws);
-        uint32_t n = 0;
+        int n;
         if (off_at && off_at > ws && off_at < we) we = off_at;
         if (for_at && for_at > ws && for_at < we) we = for_at;
-        while (ws < we && *ws != '\0') {
-            if (n >= Q_MAX_EXPR) return -1;
-            qc->whilecond[n++] = *ws++;
-        }
-        while (n > 0u && q_isspace(qc->whilecond[n - 1])) n--;
-        qc->whilecond[n] = '\0';
-        qc->has_while = (n > 0u);
+        n = rt_copy_span(qc->whilecond, Q_MAX_EXPR, ws, we);
+        if (n < 0) return -1;
+        qc->has_while = (n > 0);
     }
 
     return 0;
@@ -1428,6 +1414,7 @@ static int query_cmd_hook(void *user, xb_interp *ip,
                           const char *verb, const char *args, int *err_code)
 {
     query_state *qs;
+    int k, rc;
     (void)user;
     if (err_code) *err_code = 0;
     if (!ip || !verb)
@@ -1436,52 +1423,29 @@ static int query_cmd_hook(void *user, xb_interp *ip,
     qs = query_state_for(ip);
     if (!qs) { if (err_code) *err_code = 0; return -INTERP_ERR_NOMEM; }
 
-    if (q_ci_eq(verb, "LIST") || q_ci_eq(verb, "DISPLAY")) {
+    k = rt_kw_index(verb, "LIST\0DISPLAY\0?\0??\0LOCATE\0CONTINUE\0SEEK\0FIND\0"
+                          "GO\0GOTO\0SKIP\0");
+    switch (k) {
+    case 0: case 1: {                           /* LIST DISPLAY */
         query_clauses qc;
         wa_env *env = xb_interp_env(ip);
         int area = wa_selected(env);
-        int is_display = q_ci_eq(verb, "DISPLAY");
-        int rc;
+        int is_display = (k == 1);
         if (q_split_clauses(args, &qc) != 0) { if (err_code) *err_code = 0; return -INTERP_ERR_SYNTAX; }
         rc = q_walk(ip, area, &qc, /*is_display_default=*/is_display, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
+        break;
     }
-
-    if (q_ci_eq(verb, "?")) {
-        int rc = q_question(ip, args, /*leading_nl=*/1, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
+    case 2: rc = q_question(ip, args, /*leading_nl=*/1, err_code); break;  /* ? */
+    case 3: rc = q_question(ip, args, /*leading_nl=*/0, err_code); break;  /* ?? */
+    case 4: rc = q_locate(ip, qs, args, err_code); break;
+    case 5: rc = q_continue(ip, qs, err_code); break;
+    case 6: rc = q_seek(ip, args, err_code); break;
+    case 7: rc = q_find(ip, args, err_code); break;
+    case 8: case 9: rc = q_go(ip, args, err_code); break;               /* GO GOTO */
+    case 10: rc = q_skip(ip, args, err_code); break;
+    default: return CMD_UNKNOWN;                /* not a query verb */
     }
-    if (q_ci_eq(verb, "??")) {
-        int rc = q_question(ip, args, /*leading_nl=*/0, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    if (q_ci_eq(verb, "LOCATE")) {
-        int rc = q_locate(ip, qs, args, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    if (q_ci_eq(verb, "CONTINUE")) {
-        int rc = q_continue(ip, qs, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    if (q_ci_eq(verb, "SEEK")) {
-        int rc = q_seek(ip, args, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    if (q_ci_eq(verb, "FIND")) {
-        int rc = q_find(ip, args, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    if (q_ci_eq(verb, "GO") || q_ci_eq(verb, "GOTO")) {
-        int rc = q_go(ip, args, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    if (q_ci_eq(verb, "SKIP")) {
-        int rc = q_skip(ip, args, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    return CMD_UNKNOWN;                         /* not a query verb */
+    return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
 /* ===================================================================== */
