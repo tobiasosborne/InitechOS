@@ -117,6 +117,48 @@ static int range_text(const char *t,i123_rect_t *rg)
     return !*t&&rg->c0<=rg->c1&&rg->r0<=rg->r1;
 }
 static char sl[4096][256];
+/* Independently minted TO rectangles, fixtures/i123-copy step files. Neither
+ * the expected extent nor the expected cell values come from range.c. */
+static int tiles(const char *dir,const char *build,const char *formula_ref)
+{
+    const char *corpus_dir=getenv("LOTUS123_DECOMP");
+    if(!corpus_dir)return 2;
+    char ref[1024];snprintf(ref,sizeof ref,"%s/tools/wk1_ref.py",corpus_dir);
+    static const struct {const char *name;i123_rect_t from,to;} cases[]={
+        {"SINGLE",{0,0,0,0},{3,0,3,2}}, {"ROW",{0,0,1,0},{5,0,7,2}},
+        {"OVER",{0,0,1,0},{0,0,3,1}}, {"BLOCK",{0,0,1,1},{5,0,8,3}}
+    };
+    i123_calc_t ccx;if(i123_calc_init(&ccx,ccalc,sizeof ccalc,256,0))return 2;
+    unsigned bad=0;
+    for(unsigned i=0;i<sizeof cases/sizeof cases[0];i++) {
+        i123_sheet_t s,d;uint32_t n;
+        if(i123_sheet_init(&s,cbank[0],sizeof cbank[0],256)||i123_sheet_init(&d,cbank[1],sizeof cbank[1],256))return 2;
+        if(i==2) {
+            char path[1024];snprintf(path,sizeof path,"%s/ROW.WK1",dir);
+            FILE *f=fopen(path,"rb");if(!f)return 2;n=(uint32_t)fread(cin_,1,sizeof cin_,f);fclose(f);
+            if(i123_wk1_read(&s,cin_,n))return 2;
+        } else {
+            if(i123_set_number(&s,0,0,i==0?7:i==3?1:11))return 2;
+            if(i&&i123_set_number(&s,1,0,i==3?2:22))return 2;
+            if(i==3&&(i123_set_number(&s,0,1,3)||i123_set_number(&s,1,1,4)))return 2;
+        }
+        const char *name=cases[i].name;
+        if(i123_transfer_rect(&s,&d,cases[i].from,cases[i].to,0)||i123_after_entry(&ccx,&d)||i123_wk1_write(&d,cout_,sizeof cout_,&n)) {
+            fprintf(stderr,"RED-REASON tile %s refused\n",name);bad++;continue;
+        }
+        char golden[1024],out[1024],ga[1024],aa[1024];
+        snprintf(golden,sizeof golden,"%s/%s.WK1",dir,name);
+        snprintf(out,sizeof out,"%s/i123-tile-%s.WK1",build,name);
+        FILE *f=fopen(out,"wb");if(!f||fwrite(cout_,1,n,f)!=n)return 2;fclose(f);
+        snprintf(ga,sizeof ga,"%s/i123-tile-%s.golden.cells",build,name);
+        snprintf(aa,sizeof aa,"%s/i123-tile-%s.artifact.cells",build,name);
+        if(reader(corpus_dir,ref,0,golden,ga)||reader(corpus_dir,ref,0,out,aa))return 2;
+        int ok=same_decode(name,"tile cell records",ga,aa,1);bad+=!ok;
+        printf("tile %s: %s\n",name,ok?"agrees with real R2.2":"RED");
+    }
+    (void)formula_ref;
+    return bad?1:0;
+}
 static int skip(const char *l) { return !strncmp(l,"sleep ",6)||!strncmp(l,"shot ",5)||!l[0]||l[0]=='#'; }
 static unsigned next_line(unsigned i,unsigned n) { while(i<n&&skip(sl[i]))i++; return i; }
 static int corpus(const char *corpus_dir,const char *build,const char *formula_ref)
@@ -199,7 +241,17 @@ static int corpus(const char *corpus_dir,const char *build,const char *formula_r
 }
 int main(int argc,char **argv)
 {
+    if(argc==5&&!strcmp(argv[1],"--saved")) {
+        const char *corpus_dir=getenv("LOTUS123_DECOMP");char ref[1024],a[1024],b[1024];
+        if(!corpus_dir)return 2;
+        snprintf(ref,sizeof ref,"%s/tools/wk1_ref.py",corpus_dir);
+        snprintf(a,sizeof a,"%s/i123-saved.golden.cells",argv[4]);
+        snprintf(b,sizeof b,"%s/i123-saved.artifact.cells",argv[4]);
+        if(reader(corpus_dir,ref,0,argv[2],a)||reader(corpus_dir,ref,0,argv[3],b))return 2;
+        return same_decode(argv[2],"saved cell records",a,b,1)?0:1;
+    }
     if(argc==5&&!strcmp(argv[1],"--corpus"))return corpus(argv[2],argv[3],argv[4]);
+    if(argc==5&&!strcmp(argv[1],"--tile"))return tiles(argv[2],argv[3],argv[4]);
     if(argc!=1)return 2;
     i123_sheet_t sh,dst;
     CHECK(i123_calc_init(&cx,cm,sizeof cm,256,0)==0,"init");
@@ -284,6 +336,27 @@ int main(int argc,char **argv)
     CHECK(i123_transfer(&sh,&dst,rg,0,2,0)==I123_E_FULL,"capacity-refusal");
     i123_cell_value(&sh,0,0,&v);CHECK(v.t==I123_V_NUM&&v.n==3,"source-intact");
     CHECK(i123_transfer(&sh,&sh,rg,0,2,0)==I123_E_ARG,"alias-refusal");
+    CHECK(i123_sheet_init(&sh,mem[0],sizeof mem[0],256)==0&&
+          i123_sheet_init(&dst,mem[1],sizeof mem[1],256)==0,"tile-init");
+    CHECK(i123_set_number(&sh,0,0,7)==0,"tile-source");
+    i123_rect_t one={0,0,0,0},edge={255,8191,255,8191};
+    CHECK(i123_transfer_rect(&sh,&dst,one,edge,0)==0,"tile-last-cell");
+    CHECK(i123_transfer_rect(&sh,&dst,(i123_rect_t){0,0,1,0},edge,0)==I123_E_ARG,"tile-boundary-refusal");
+    sh.protec=255;
+    CHECK(i123_transfer_rect(&sh,&dst,one,(i123_rect_t){3,0,3,2},0)==I123_E_ARG,"tile-protected-absent");
+    for(unsigned r=0;r<3;r++)CHECK(i123_set_cell_format(&sh,3,r,0x7f)==0,"tile-unprotect");
+    CHECK(i123_transfer_rect(&sh,&dst,one,(i123_rect_t){3,0,3,2},0)==0,"tile-unprotected");
+    CHECK(i123_set_cell_format(&sh,3,2,0xff)==0&&
+          i123_transfer_rect(&sh,&dst,one,(i123_rect_t){3,0,3,2},0)==I123_E_ARG,"tile-protected-last");
+    sh.protec=0;
+    const char *mixed="+A1+$A1+A$1+$A$1";
+    CHECK(i123_enter_formula(&cx,&sh,1,1,mixed,(uint32_t)strlen(mixed))==0,"tile-mixed-formula");
+    CHECK(i123_transfer_rect(&sh,&dst,(i123_rect_t){1,1,1,1},(i123_rect_t){4,3,5,5},0)==0,"tile-mixed-copy");
+    const i123_cell_t *source=i123_find(&sh,1,1);
+    for(unsigned r=3;r<6;r++)for(unsigned c=4;c<6;c++) {
+        const i123_cell_t *q=i123_find(&dst,c,r);
+        CHECK(q&&q->len==source->len&&!memcmp(sh.pool+source->off,dst.pool+q->off,q->len),"tile-copy-bytes");
+    }
     printf("i123-copy-move: %u checks, %u failures (4000 random sheets)\n",checks,failures);
     return failures?1:0;
 }

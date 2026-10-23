@@ -6695,12 +6695,16 @@ static void tbx_headless_smoke(void)
      * does; the arrows carry ascii 0. */
     {
         static const uint16_t i123_keys[] = {
+#ifdef TBX_SMOKE_I123_COPY
+#include "../../spec/i123_copy_smoke_keys.h"
+#else
             0x0231, 0x0332, 0x0433, 0x4D00,                 /* 1 2 3 Right  */
             0x0231, 0x342E, 0x0635, 0x4D00,                 /* 1 . 5 Right  */
             0x0C2D, 0x0837, 0x4D00,                         /* - 7 Right    */
             0x0231, 0x342E, 0x0332, 0x0433, 0x0534, 0x0635, 0x0736, 0x0837,
             0x0938, 0x0A39, 0x0B30, 0x0231, 0x0332, 0x0433, 0x0534, 0x0635,
             0x1C0D                                          /* 1.23456789012345 Enter */
+#endif
         };
         (void)tbx_launch("123.EXE", apps.start_cluster);
         app = tbx_take_affirm();

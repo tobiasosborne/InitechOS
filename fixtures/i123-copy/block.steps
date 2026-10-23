@@ -1,0 +1,20 @@
+# Real R2.2: a two-dimensional FROM does not tile in either axis.
+sleep 8
+key Escape
+type 1
+key Right
+type 2
+key Down
+type 4
+key Left
+type 3
+key Return
+type /ca1..b2
+key Return
+type f1..i4
+key Return
+shot block
+type /fsBLOCK
+key Return
+key Return
+end

@@ -121,6 +121,8 @@ typedef struct { uint16_t c0, r0, c1, r1; } i123_rect_t;
 int i123_sheet_clone(const i123_sheet_t *src, i123_sheet_t *dst);
 int i123_transfer(const i123_sheet_t *src, i123_sheet_t *dst, i123_rect_t rg,
                   uint16_t col, uint16_t row, int mode);
+int i123_transfer_rect(const i123_sheet_t *src, i123_sheet_t *dst, i123_rect_t rg,
+                       i123_rect_t to, int mode);
 int i123_range_parse(const i123_sheet_t *sh, const char *text, i123_rect_t *rg);
 int i123_name_find(const i123_sheet_t *sh, const char *name, uint32_t len, i123_rect_t *rg);
 int i123_name_set(i123_sheet_t *sh, const char *name, i123_rect_t rg);

@@ -261,10 +261,28 @@ static uint8_t g_format;
 static i123_rect_t g_from;
 static char g_range_text[77], g_named[16];
 static uint32_t g_rlen;
+static uint16_t g_ac, g_ar, g_pc, g_pr;
+static int g_anchor;
 static const char *g_prompt;
 enum { A_COPY=1, A_MOVE, A_VALUE, A_TRANS, A_ERASE, A_FORMAT, A_LABEL,
        A_PROT, A_UNPROT, A_NAME, A_NAME_DELETE, A_NAME_LABELS, A_NAME_TABLE,
        A_WIDTH, A_GLOBAL_WIDTH, A_ITERATION, A_GOTO };
+
+/* R2.2 Reference p.1-25; fixtures/i123-copy: POINT is separate from typed
+ * range text (EDIT). The real escape.png restores the anchor cell;
+ * Backspace restores POINT entry (backspace.png). */
+static int pointable(void)
+{
+    return g_action<=A_UNPROT ? !(g_action==A_FORMAT&&!g_stage&&g_arg) :
+        (g_action==A_NAME&&g_stage)||g_action==A_NAME_LABELS||g_action==A_NAME_TABLE||g_action==A_GOTO;
+}
+static void point_text(char *s)
+{
+    uint16_t c=i123_cursor_col(&g_sheet),r=i123_cursor_row(&g_sheet);
+    uint32_t n=0;
+    if(g_anchor) {n=i123_addr_text(g_ac,g_ar,s);s[n++]='.';s[n++]='.';}
+    i123_addr_text(c,r,s+n);
+}
 
 /* ---- small helpers ------------------------------------------------------- */
 static uint32_t slen(const char *s)
@@ -329,7 +347,7 @@ static void paint_command(void)
         if (g_rlen) {
             for (uint32_t k = 0; k < g_rlen && n < SCR_COLS; k++) line[n++] = g_range_text[k];
         } else {
-            char addr[16]; uint32_t k = i123_addr_text(i123_cursor_col(&g_sheet), i123_cursor_row(&g_sheet), addr);
+            char addr[32]; point_text(addr); uint32_t k = slen(addr);
             for (uint32_t j = 0; j < k && n < SCR_COLS; j++) line[n++] = addr[j];
         }
         if (n < SCR_COLS) line[n++] = '_';
@@ -523,13 +541,19 @@ static void paint_row(uint32_t vis)
 static void paint_pointer(void)
 {
     uint16_t cc = i123_cursor_col(&g_sheet), cr = i123_cursor_row(&g_sheet);
-    uint32_t w = vis_width(cc), spill;
-    int x = col_x(cc);
+    uint16_t c0=cc,c1=cc,r0=cr,r1=cr;
+    if(g_mode==M_RANGE&&!g_rlen&&g_anchor) {
+        if(g_ac<cc)c0=g_ac;else c1=g_ac;
+        if(g_ar<cr)r0=g_ar;else r1=g_ar;
+    }
     char text[256];
-    if (x < 0 || cr < i123_view_top(&g_sheet)) return;
-    i123_cell_text(&g_sheet, i123_find(&g_sheet, cc, cr), w, text, &spill);
-    put_line(LINE_ROW0 + (int)(cr - i123_view_top(&g_sheet)), BORDER_W + x, text, w,
-             TBX_COLOR_WHITE, TBX_COLOR_NAVY);
+    for(uint32_t r=i123_view_top(&g_sheet);r<=r1&&r<i123_view_top(&g_sheet)+VIS_ROWS;r++)
+        for(uint32_t c=i123_view_left(&g_sheet);c<=c1&&c<i123_view_left(&g_sheet)+area_cols();c++) {
+            if(c<c0||r<r0)continue;
+            uint32_t w=vis_width((uint16_t)c),spill;
+            i123_cell_text(&g_sheet,i123_find(&g_sheet,(uint16_t)c,(uint16_t)r),w,text,&spill);
+            put_line(LINE_ROW0+(int)(r-i123_view_top(&g_sheet)),BORDER_W+col_x((uint16_t)c),text,w,TBX_COLOR_WHITE,TBX_COLOR_NAVY);
+        }
 }
 
 static void paint_rows(void)
@@ -621,6 +645,7 @@ static void notice(const char *s)
 static void ready(void)
 {
     g_quit_after_save = 0; g_mode = M_READY; g_elen = 0; g_edit[0] = 0; g_nlen = 0; command_paint();
+    if(g_anchor){g_anchor=0;paint_rows();}
     if (g_error) { g_error = 0; paint_status(); }
 }
 static void file_error(int32_t rc)
@@ -735,17 +760,24 @@ static void changed(i123_sheet_t *next)
     if (i123_after_entry(&g_cx,next)) { notice("Not enough worksheet memory"); return; }
     g_sheet = *next; g_bank = 1-g_bank; g_dirty = 1; ready(); paint_all();
 }
+static void point_begin(void)
+{
+    g_rlen=0;g_range_text[0]=0;
+    g_ac=g_pc=i123_cursor_col(&g_sheet);g_ar=g_pr=i123_cursor_row(&g_sheet);
+    g_anchor=pointable()&&g_action!=A_GOTO&&!(g_action<=A_TRANS&&g_stage);
+    paint_all();
+}
 static void prompt(int action, const char *text)
-{ g_action=action; g_stage=0; g_prompt=text; g_rlen=0; g_range_text[0]=0; g_mode=M_RANGE; command_paint(); }
+{ g_action=action; g_stage=0; g_prompt=text; g_mode=M_RANGE; point_begin(); }
 static void range_accept(void)
 {
-    char addr[16]; const char *input=g_range_text; i123_rect_t r;
+    char addr[32]; const char *input=g_range_text; i123_rect_t r;
     i123_sheet_t next; int rc=I123_OK;
-    if (!g_rlen) { i123_addr_text(i123_cursor_col(&g_sheet),i123_cursor_row(&g_sheet),addr); input=addr; }
+    if (!g_rlen) { point_text(addr); input=addr; }
     if ((g_action==A_NAME && g_stage==0) || g_action==A_NAME_DELETE) {
         if (!g_rlen || g_rlen>15) { notice("Invalid range name"); return; }
         copy_text(g_named,input);
-        if (g_action==A_NAME) { g_stage=1; g_prompt="Enter range: "; g_rlen=0; command_paint(); return; }
+        if (g_action==A_NAME) { g_stage=1; g_prompt="Enter range: "; point_begin(); return; }
         rc=spare(&next); if (!rc) rc=i123_name_delete(&next,g_named);
     } else if (g_action==A_WIDTH || g_action==A_GLOBAL_WIDTH || g_action==A_ITERATION ||
                (g_action==A_FORMAT && g_stage==0 && g_arg)) {
@@ -753,7 +785,7 @@ static void range_accept(void)
         if (!g_rlen || i123_parse_value(input,g_rlen,&x) || x<0 || x>240 || (int)x!=x ||
             (g_action==A_FORMAT && x>15) || (g_action==A_ITERATION && (x<1||x>50)) ||
             ((g_action==A_WIDTH||g_action==A_GLOBAL_WIDTH)&&x<1)) { notice("Illegal number"); return; }
-        if (g_action==A_FORMAT) { g_format=(uint8_t)(g_format+(uint8_t)x); if(g_top==0){rc=spare(&next);if(!rc){next.win1[WK1_W1_FMT]=g_format;changed(&next);}return;} g_stage=1; g_rlen=0; g_prompt="Enter range to format: "; command_paint(); return; }
+        if (g_action==A_FORMAT) { g_format=(uint8_t)(g_format+(uint8_t)x); if(g_top==0){rc=spare(&next);if(!rc){next.win1[WK1_W1_FMT]=g_format;changed(&next);}return;} g_stage=1; g_prompt="Enter range to format: "; point_begin(); return; }
         rc=spare(&next);
         if (!rc) {
             if(g_action==A_WIDTH) rc=i123_set_colwidth(&next,i123_cursor_col(&g_sheet),(uint8_t)x);
@@ -772,12 +804,11 @@ static void range_accept(void)
         if(g_action<=A_TRANS && !g_stage) {
             g_from=r;g_stage=1;g_rlen=0;
             g_prompt=g_action==A_MOVE?"Enter range to move TO: ":"Enter range to copy TO: ";
-            command_paint();return;
+            point_begin();return;
         }
         rc=spare(&next);
         if(!rc && g_action<=A_TRANS) {
-            if(r.c0!=r.c1||r.r0!=r.r1) {notice("Specify the upper left destination cell");return;}
-            rc=i123_transfer(&g_sheet,&next,g_from,r.c0,r.r0,g_action-1);
+            rc=i123_transfer_rect(&g_sheet,&next,g_from,r,g_action-1);
         } else if(!rc && g_action==A_NAME)rc=i123_name_set(&next,g_named,r);
         else if(!rc && g_action==A_NAME_LABELS)rc=i123_name_labels(&next,r,g_dc,g_dr);
         else if(!rc && g_action==A_NAME_TABLE)rc=i123_name_table(&next,r.c0,r.r0);
@@ -893,6 +924,7 @@ static void command_key(char ch, uint8_t vk)
 {
     if(ch==3 || vk==0x46) {ready();return;} /* Ctrl-Break/Ctrl-C */
     if(vk==VK_ESC||ch==0x1b) {
+        if(g_mode==M_RANGE&&!g_rlen&&g_anchor) {g_anchor=0;i123_set_cursor(&g_sheet,g_ac,g_ar);follow_pointer();paint_all();return;}
         if(g_mode==M_MAIN||g_mode==M_FILE||g_mode==M_QUIT){menu_back();return;}
         if(g_mode==M_SAVE&&g_quit_after_save){ready();return;}
         if(g_mode==M_GET||g_mode==M_SAVE||g_mode==M_RANGE){menu_mode();command_paint();return;}
@@ -902,14 +934,17 @@ static void command_key(char ch, uint8_t vk)
     if(g_mode==M_NOTICE){if(g_error&&(vk==VK_ENTER||ch=='\r'))ready();return;}
     if(g_mode==M_RANGE) {
         if(vk==VK_ENTER||ch=='\r'){range_accept();return;}
-        if(vk==VK_BSPC||ch==8){if(g_rlen)g_rlen--;}
-        else if(ch>=' '&&ch<='~'&&g_rlen<sizeof g_range_text-1)g_range_text[g_rlen++]=ch;
+        if(vk==VK_BSPC||ch==8){if(g_rlen)g_rlen--;else if(pointable()) {g_anchor=0;i123_set_cursor(&g_sheet,g_pc,g_pr);follow_pointer();}}
+#ifndef I123_MUT_PERIOD_TEXT
+        else if(ch=='.'&&!g_rlen&&pointable()) {g_anchor=1;g_ac=i123_cursor_col(&g_sheet);g_ar=i123_cursor_row(&g_sheet);}
+#endif
+        else if(ch>=' '&&ch<='~'&&g_rlen<sizeof g_range_text-1){g_anchor=0;g_range_text[g_rlen++]=ch;}
         else if(vk==VK_UP||vk==VK_DOWN||vk==VK_LEFT||vk==VK_RIGHT) {
             int c=i123_cursor_col(&g_sheet),r=i123_cursor_row(&g_sheet);
             c+=vk==VK_RIGHT?1:vk==VK_LEFT?-1:0;r+=vk==VK_DOWN?1:vk==VK_UP?-1:0;
             if(c>=0&&c<256&&r>=0&&r<8192){i123_set_cursor(&g_sheet,(uint16_t)c,(uint16_t)r);follow_pointer();paint_all();}
         }
-        g_range_text[g_rlen]=0;command_paint();return;
+        g_range_text[g_rlen]=0;paint_all();return;
     }
     if(g_mode==M_GET||g_mode==M_SAVE) {
         if(vk==VK_ENTER||ch=='\r'){if(g_mode==M_GET)retrieve();else save();return;}
