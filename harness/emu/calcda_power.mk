@@ -37,9 +37,10 @@ $(PPM_POWER_NOTICE): tools/ppm_flair_power_notice_check.c tools/ppm_flair_trash_
 
 # Close-only is the exact pre-fix Calculator, on a private fixture volume.
 $(eval $(call tenant-exe-rules,calcda_close_only,$(CALCDA_APP_SRC),-Ios/apps/calcda -Ispec/assets -DCALCDA_MUT_CLOSE_ONLY,$(CALCDA_APP_DEP),))
-$(BUILD)/flair_data_calcda_close_only.img: $(FLAIR_DATA_IMG) $(BUILD)/tenant/calcda_close_only.exe
+$(FLAIR_DATA_CALCDA_CLOSE_ONLY_IMG): $(FLAIR_DATA_IMG) $(BUILD)/tenant/calcda_close_only.exe
 	cp -f $< $@
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/tenant/calcda_close_only.exe ::APPS/CALCULAT.EXE
+	@$(call fixture-check,recipe,$@)
 
 $(BUILD)/test_calcda_close_only: $(CALC_ROUTE_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) -DCALCDA_MUT_CLOSE_ONLY -Ios/apps/tbx -Ios/apps/calcda -Ispec -Ispec/assets -o $@ harness/proptest/test_calcda_route.c os/apps/calcda/calc_core.c os/apps/calcda/calc_view.c
@@ -58,8 +59,8 @@ test-calcda-power-mutant: test-calcda-power $(BUILD)/test_calcda_close_only $(BU
 	@grep -qxF 'FAIL power-notice: cancellation must name the app and reason' $(BUILD)/power_notice_mutant.log
 	@echo 'GREEN calcda-power mutants: Close-only and silent cancellation both RED'
 
-test-flair-calcda-power-mutant: $(HARNESS_BIN) $(FLAIR_CALCDA_GATE_IMG) $(BUILD)/flair_data_calcda_close_only.img $(PPM_POWER_NOTICE)
-	$(call calc-power-boot,calc_power_close_only,$(CALC_POWER_SD),$(BUILD)/flair_data_calcda_close_only.img,FLAIR-EVT what=3 where=)
+test-flair-calcda-power-mutant: $(HARNESS_BIN) $(FLAIR_CALCDA_GATE_IMG) $(FLAIR_DATA_CALCDA_CLOSE_ONLY_IMG) $(PPM_POWER_NOTICE)
+	$(call calc-power-boot,calc_power_close_only,$(CALC_POWER_SD),$(FLAIR_DATA_CALCDA_CLOSE_ONLY_IMG),FLAIR-EVT what=3 where=)
 	@if sh harness/emu/calcda_power_check.sh $(BUILD)/calc_power_close_only.serial SHUTDOWN > $(BUILD)/calc_power_close_only.check; then echo 'FAIL Close-only survived emulator'; exit 1; fi
 	@grep -qxF 'FAIL calcda-power: Calculator was not asked to quit' $(BUILD)/calc_power_close_only.check
 	@grep -qxF 'FINDER-POWER-CANCEL app=CALCULAT.EXE cannot-ask' $(BUILD)/calc_power_close_only.serial

@@ -33730,6 +33730,9 @@ include harness/emu/fullsave.mk
 include harness/diff/wp5_diff/p3.mk
 include harness/diff/wp5_diff/p3_part2.mk
 include harness/diff/wp5_diff/p3_listfiles.mk
+# initech-0xs6: the close-only Calculator volume (harness/emu/calcda_power.mk, included
+# after the contracts) is named here so the derived FLAIR_DATA_%_IMG contract sees it.
+FLAIR_DATA_CALCDA_CLOSE_ONLY_IMG := $(BUILD)/flair_data_calcda_close_only.img
 include harness/fixture_volumes.mk
 $(eval $(call fixture-contract,$(DA_CORRUPT_DATA),$(FLAIR_FIXTURES) NOTEPAD.DAT))
 
