@@ -74,7 +74,9 @@
       "refuse": ["TPS-010 PARAMETER LINES IN TPSPARM.DAT IS NOT A NUMBER.",
                  "REFER TO OPERATING PROCEDURE OP-7.3 (PARAMETER FILES)."], "exit": 1 },
     { "id": "E11", "rule": "The PAGES field of every live record must be blanks, digits, blanks; refused before the ritual and before any file is touched. Audit L029, bead initech-ycvk.",
-      "refuse": ["TPS-011 PAGES IS NOT A NUMBER (RECORD {n})."], "exit": 6 }
+      "refuse": ["TPS-011 PAGES IS NOT A NUMBER (RECORD {n})."], "exit": 6 },
+    { "id": "E12", "rule": "If an existing TPSREPT.TXT cannot be retained as TPSREPT.BAK (FCB AH=13h delete or AH=17h rename fails), refuse before AH=16h can replace it. Bead initech-56ch.",
+      "refuse": ["TPS-012 PREVIOUS REPORT COULD NOT BE RETAINED AS TPSREPT.BAK."], "exit": 10 }
   ],
   "file_rules": [
     "The table named on the command line is read through FCB AH=0Fh/21h (128-byte random records).",

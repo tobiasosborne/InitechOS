@@ -116,6 +116,16 @@ $(eval $(call fixture-inline-contract,$(BUILD)/command-file/magic.img,@@32256 CO
 $(foreach img,$(TPS_IMG_A) $(BUILD)/tps_mut6.img $(BUILD)/tps_mutseq.img $(BUILD)/tps_say7.img,$(eval $(call fixture-inline-contract,$(img),TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK)))
 $(eval $(call fixture-inline-contract,$(TPS_IMG_B),TPSREP.COM TPS.DBF AUTOEXEC.BAT))
 $(eval $(call fixture-inline-contract,$(TPS_IMG_C),TPSREP.COM TPS.DBF TPSPARM.DAT AUTOEXEC.BAT))
+# initech-56ch round 2: register contracts for the merged initech-ycvk fault
+# legs too (fcb_tps.mk tps-flt-d / tps-flt-ef); full-volume legs add FILL.BIN.
+$(foreach n,tps_fd_ok tps_fd_mut,$(eval $(call fixture-inline-contract,$(BUILD)/$(n).img,TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK FILL.BIN)))
+$(foreach n,tps_fe tps_ff tps_fem tps_ffm,$(eval $(call fixture-inline-contract,$(BUILD)/$(n).img,TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK)))
+$(foreach n,tps_backup_ro tps_backup_mut_ro,$(eval $(call fixture-inline-contract,$(BUILD)/$(n).img,$(TPS_BACKUP_BASE) TPSREPT.TXT TPSREPT.BAK=AR)))
+$(foreach n,tps_backup_hidden tps_backup_mut_hidden,$(eval $(call fixture-inline-contract,$(BUILD)/$(n).img,$(TPS_BACKUP_BASE) TPSREPT.TXT TPSREPT.BAK=AH)))
+$(eval $(call fixture-inline-contract,$(BUILD)/tps_backup_hiddentxt.img,$(TPS_BACKUP_BASE) TPSREPT.TXT=AH TPSREPT.BAK=AH))
+$(eval $(call fixture-inline-contract,$(BUILD)/tps_backup_nobak.img,$(TPS_BACKUP_BASE) TPSREPT.TXT))
+$(eval $(call fixture-inline-contract,$(BUILD)/tps_backup_fresh.img,$(TPS_BACKUP_BASE)))
+$(eval $(call fixture-inline-contract,$(BUILD)/tps_backup_orphan.img,$(TPS_BACKUP_BASE) TPSREPT.BAK=AR))
 # initech-tdnl.61/.64/.57 (lane/finderalerts): the Finder limits / Replace /
 # Put Away data volumes, each a FLAIR_DATA_IMG copy plus its seeded leaves.
 $(eval $(call fixture-contract,$(FINDER_LIMITS_DATA),$(FLAIR_FIXTURES) $(foreach n,00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68,F$(n)=)))

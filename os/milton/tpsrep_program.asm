@@ -32,11 +32,14 @@
 ; Fault handling (audit 2026-10-23-das L004/L028/L029, bead initech-ycvk): every
 ; FCB write/close status is checked (TPS-009), LINES= must be a number
 ; (TPS-010), every live record's PAGES must be a number (TPS-011).
+; Backup rotation must succeed before replacing the latest report
+; (spec/tps_ritual.json E12, initech-56ch: TPS-012, return code 10).
 ; Mutants (Rule 6): -DTPS_MUTATE_NOWRCHK ignores the write status;
 ; -DTPS_MUTATE_LINESOK / -DTPS_MUTATE_PAGESOK skip the number checks;
 ; -DTPS_MUTATE_COUNT6 accepts 6 space-bar presses;
 ; -DTPS_MUTATE_SAY7 states the count in the R2 prompt (the tacit rule: the
 ; count and the key are written only in the manual, spec/tps_ritual.json R2).
+; -DTPS_MUTATE_UNCHECKED_BACKUP restores unchecked delete/rename (initech-56ch).
 
 %ifdef REALDOS
 bits 16
@@ -474,9 +477,37 @@ report:
     jmp .ls
 .ls_done:
     ; keep one generation: delete TPSREPT.BAK, rename TPSREPT.TXT -> .BAK
+%ifdef TPS_MUTATE_UNCHECKED_BACKUP
     FCB 0x13, bakfcb
     FCB 0x17, renfcb
     mov [renamed], al
+%else
+    ; Ref: IBM DOS 3.30 TR pp. 6-70/71, 6-74, 6-79/80; FCBX real-DOS
+    ; golden T15/T16: AL=FFh for a rename collision or read-only delete.
+    ; Missing files are normal on the first run, so search before rotating.
+    ; Never create/truncate the latest report unless its rename succeeded.
+    mov byte [renamed], 0xFF
+    FCB 0x11, outsearch        ; hidden/system reports must not look absent
+    test al, al
+    jnz .backup_ready          ; no previous report; leave any .BAK alone
+    FCB 0x11, bakfcb
+    test al, al
+    jnz .backup_rename         ; no visible .BAK to delete
+    FCB 0x13, bakfcb
+    test al, al
+    jnz .backup_failed
+.backup_rename:
+    FCB 0x17, renfcb
+    mov [renamed], al
+    test al, al
+    jz .backup_ready
+.backup_failed:
+    mov edx, m_e12
+    call lineout
+    mov al, 10
+    jmp finish
+.backup_ready:
+%endif
     FCB 0x16, outfcb
     test al, al
     jz .created
@@ -1243,6 +1274,7 @@ m_e9:    db 'TPS-009 TPSREPT.TXT COULD NOT BE WRITTEN. THE DISK MAY BE FULL.$'
 m_r10:   db 'TPS-010 PARAMETER LINES IN TPSPARM.DAT IS NOT A NUMBER.$'
 m_e11a:  db 'TPS-011 PAGES IS NOT A NUMBER (RECORD $'
 m_e11b:  db ').$'
+m_e12:   db 'TPS-012 PREVIOUS REPORT COULD NOT BE RETAINED AS TPSREPT.BAK.$'
 m_done1: db 'TPS REPORT WRITTEN TO TPSREPT.TXT.$'
 m_done2: db 'PREVIOUS REPORT RETAINED AS TPSREPT.BAK.$'
 m_end1:  db 'TPS REPORT GENERATOR TERMINATED. RETURN CODE $'
@@ -1296,6 +1328,9 @@ srchfcb: SFCB '????????DBF'
 bakfcb:  SFCB 'TPSREPT BAK'
 renfcb:  db 0, 'TPSREPT TXT', 0, 0, 0, 0, 0, 'TPSREPT BAK'
          times 30 db 0
+; Extended search includes hidden/system files (IBM DOS 3.30 TR 6-70/71).
+; The create still uses the standard FCB; a failed rename must refuse first.
+outsearch: db 0xFF, 0, 0, 0, 0, 0, 0x06
 outfcb:  SFCB 'TPSREPT TXT'
 tblfcb:  times 48 db 0
 
