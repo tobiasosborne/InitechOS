@@ -29,10 +29,16 @@
  *   ITEXT_MUT_SAVE_NO_CR       -> save
  *   ITEXT_MUT_QUIT_NO_ASK      -> quit
  *   ITEXT_MUT_SEL_NOT_INVERSE  -> inverse
+ *   (and SCROLL_NEVER_ENABLED, LF_PAIR_OUTPUT, FULL_SILENT: Makefile list)
+ * The mock volume keeps DOS 3.3 directory semantics -- one entry per name,
+ * CREATE_NEW refuses a taken name, DELETE of a missing file is error 2,
+ * RENAME moves the entry (name and data) and refuses an existing target --
+ * and the test plants its own fixture files by name (mplant).
  * ASCII-clean (Rule 12). Deterministic (Rule 11).
  */
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "../../os/apps/itext/itext.c"   /* the application under test */
@@ -136,10 +142,27 @@ static mfile_t *mfind(const char *p)
     for (int i = 0; i < 8; i++) if (m_files[i].used && strcmp(m_files[i].name, p) == 0) return &m_files[i];
     return NULL;
 }
+/* The test's own fixture files go onto the volume BY NAME, one directory
+ * entry per name, as DOS 3.3 keeps them: an existing entry is replaced in
+ * place. Planting into a fixed slot made a second "LF.TXT" once the atomic
+ * save (os/apps/tbx/tbx_save.h, initech-mcep) had renamed the first one into
+ * another slot -- a directory no DOS volume can hold, on which the next
+ * save's RENAME was rightly refused (AH=56h, an existing target -> error 5). */
+static mfile_t *mplant(const char *name, const char *data, int len)
+{
+    mfile_t *f = mfind(name);
+    for (int i = 0; i < 8 && !f; i++) if (!m_files[i].used) f = &m_files[i];
+    if (!f) { printf("mock volume full planting %s\n", name); exit(2); }
+    f->used = 1; snprintf(f->name, 64, "%s", name);
+    if (data) memcpy(f->data, data, (size_t)len);
+    f->len = len;
+    return f;
+}
 int32_t tbx_file_create(const char *path)
 {
     mfile_t *f = mfind(path);
     if (!f) for (int i = 0; i < 8 && !f; i++) if (!m_files[i].used) { f = &m_files[i]; f->used = 1; snprintf(f->name, 64, "%s", path); }
+    if (!f) return TBX_ERR_DOS(5);           /* AH=3Ch: no free directory entry */
     f->len = 0;
     for (int h = 0; h < 8; h++) if (!m_h[h].f) { m_h[h].f = (int)(f - m_files) + 1; m_h[h].pos = 0; m_h[h].wr = 1; return 5 + h; }
     return TBX_ERR_BUSY;
@@ -168,7 +191,8 @@ int32_t tbx_file_write(int32_t h, const void *buf, uint32_t n)
 }
 int32_t tbx_file_seek(int32_t h, int32_t d, uint32_t o) { (void)h; (void)d; (void)o; return 0; }
 int32_t tbx_file_close(int32_t h) { m_h[h - 5].f = 0; return TBX_OK; }
-int32_t tbx_file_delete(const char *p) { mfile_t *f = mfind(p); if (f) f->used = 0; return TBX_OK; }
+/* DOS 3.3 AH=41h: a missing file is error 2 (file not found). */
+int32_t tbx_file_delete(const char *p) { mfile_t *f = mfind(p); if (!f) return TBX_ERR_DOS(2); f->used = 0; return TBX_OK; }
 /* Sec 10b CREATE_NEW (initech-mcep): DOS 3.3 AH=5Bh -- never truncates. */
 int32_t tbx_file_create_new(const char *path) { return mfind(path) ? TBX_ERR_DOS(0x50) : tbx_file_create(path); }
 /* Sec 10b RENAME (initech-mcep): DOS 3.3 AH=56h -- an existing target is
@@ -320,13 +344,13 @@ int main(void)
 
     /* -- launch 3: Open reads a DOS file (CR LF / LF -> CR), titles it */
     launch();
-    { mfile_t *f = &m_files[7]; f->used = 1; snprintf(f->name, 64, "APPS\\NOTE.TXT"); memcpy(f->data, "x\r\ny\nz", 6); f->len = 6; }
+    (void)mplant("APPS\\NOTE.TXT", "x\r\ny\nz", 6);
     menu_hit(MENU_FILE, F_OPEN);
     CHECK(m_sf == 1, R_OPEN, "Open asks SFGetFile");
     sf_answer("APPS\\NOTE.TXT");
     CHECK(doc_is("x\ry\rz") && strcmp(m_title, "NOTE.TXT") == 0 && !g_dirty, R_OPEN, "opened");
     /* a too-large file is refused with a notice; the document stays */
-    { mfile_t *f = &m_files[6]; f->used = 1; snprintf(f->name, 64, "BIG.TXT"); memset(f->data, 'a', 5000); f->len = 5000; }
+    { mfile_t *f = mplant("BIG.TXT", NULL, 5000); memset(f->data, 'a', 5000); }
     menu_hit(MENU_FILE, F_OPEN);
     sf_answer("BIG.TXT");
     CHECK(m_alerts == 1 && doc_is("x\ry\rz"), R_OPEN, "too large refused");
@@ -381,8 +405,7 @@ int main(void)
             { "a\r\n\nb",           5, "a\r\rb" },                 /* CRLF then LF */
         };
         for (int i = 0; i < 5; i++) {
-            mfile_t *f = &m_files[5]; f->used = 1; snprintf(f->name, 64, "LF.TXT");
-            memcpy(f->data, lf[i].in, (size_t)lf[i].n); f->len = lf[i].n;
+            mfile_t *f = mplant("LF.TXT", lf[i].in, lf[i].n);
             launch();
             menu_hit(MENU_FILE, F_OPEN);
             sf_answer("LF.TXT");
@@ -398,8 +421,8 @@ int main(void)
      * full document with a notice; the Toolbox Gate has no beep verb). The
      * edit is refused and the document is unchanged. */
     {
-        mfile_t *f = &m_files[4]; f->used = 1; snprintf(f->name, 64, "K4.TXT");
-        memset(f->data, 'k', 4096); f->len = 4096;
+        mfile_t *f = mplant("K4.TXT", NULL, 4096);
+        memset(f->data, 'k', 4096);
         launch();
         menu_hit(MENU_FILE, F_OPEN);
         sf_answer("K4.TXT");
