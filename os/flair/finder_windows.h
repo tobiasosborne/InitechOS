@@ -501,6 +501,20 @@ typedef struct finder_cmd_outcome {
     uint16_t            parent;   /* New Folder: the parent's first cluster    */
     uint8_t             singleton;/* Open: 1 == an existing window was raised  */
     char                name83[FINDER_DESK_NAME_MAX];  /* New Folder / Open    */
+    /* Open on a selected APPLICATION (bead initech-fbo4, audit 2026-10-23
+     * desktop L004). The shell cannot launch -- tbx_launch is the kernel's --
+     * so it NAMES the launch and kmain hands it to the ONE verb a double-click
+     * uses (flair_live_launch_app; design F4.3 "one adapter"). Ground truth:
+     * Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf PDF p. 45 -- the
+     * TeachText APPLICATION opens "either by double-clicking it or by
+     * selecting it and choosing Open from the File menu". launch = selected
+     * applications counted (0 == none; uint16_t -- a listing is dynamic and
+     * 256 selected applications must not wrap to "none", PM review fbo4);
+     * launch83 / launch_dir = the FIRST in listing order, and the directory
+     * of the window it was selected in. */
+    uint16_t            launch;
+    uint16_t            launch_dir;
+    char                launch83[FINDER_DESK_NAME_MAX];
 } finder_cmd_outcome_t;
 
 /* Shell state and window records live in the RECORDS arena (ADR-0013 AC-2).

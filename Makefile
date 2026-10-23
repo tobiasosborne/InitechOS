@@ -634,6 +634,7 @@ include spec/flair_finder_icons_traces.mk
 include spec/flair_app_launch_traces.mk
 # The LOCKED C-tenant trace (bead initech-w96l / initech-8zii): FLAIR_CTENANT_SPEC.
 include spec/flair_ctenant_traces.mk
+include spec/flair_finder_open_traces.mk
 # The LOCKED Initech 123 traces (beads initech-9u8w / initech-w96l):
 # FLAIR_I123_TYPE_SPEC / _QUIT_SPEC / _PRE_SPEC.
 include spec/flair_i123_traces.mk
@@ -13595,6 +13596,15 @@ TEST_FINDER_WIN_MUT_SVC := $(BUILD)/test_finder_windows_mutant_service_shown
 # by cluster number alone.
 TEST_FINDER_WIN_MUT_KEEPVIEWS := $(BUILD)/test_finder_windows_mutant_purge_keeps_views
 TEST_FINDER_WIN_MUT_UNCHECKED := $(BUILD)/test_finder_windows_mutant_view_unchecked
+# bead initech-fbo4 (audit 2026-10-23 desktop L004): File > Open on a selected
+# APPLICATION -- (a) the enablement ignores applications (Open stays dark),
+# (b) the verb ignores them (Open lit, nothing named for launch).
+TEST_FINDER_WIN_MUT_OPENDARK  := $(BUILD)/test_finder_windows_mutant_open_app_dark
+TEST_FINDER_WIN_MUT_OPENNOAPP := $(BUILD)/test_finder_windows_mutant_open_no_app
+$(TEST_FINDER_WIN_MUT_OPENDARK): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_MUT_OPEN_APP_DARK $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
+$(TEST_FINDER_WIN_MUT_OPENNOAPP): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_MUT_OPEN_NO_APP $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 $(TEST_FINDER_WIN_MUT_KEEPVIEWS): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_PURGE_KEEPS_VIEWS $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 $(TEST_FINDER_WIN_MUT_UNCHECKED): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
@@ -13604,7 +13614,13 @@ $(TEST_FINDER_WIN_MUT_SVC): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 $(TEST_FINDER_WIN_MUT_DOTS): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_DOTS_SHOWN $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 
-test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_MUT_VOLLABEL) $(TEST_FINDER_WIN_MUT_CLEANUP) $(TEST_FINDER_WIN_MUT_DOTS) $(TEST_FINDER_WIN_MUT_SVC) $(TEST_FINDER_WIN_MUT_KEEPVIEWS) $(TEST_FINDER_WIN_MUT_UNCHECKED)
+test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_MUT_VOLLABEL) $(TEST_FINDER_WIN_MUT_CLEANUP) $(TEST_FINDER_WIN_MUT_DOTS) $(TEST_FINDER_WIN_MUT_SVC) $(TEST_FINDER_WIN_MUT_KEEPVIEWS) $(TEST_FINDER_WIN_MUT_UNCHECKED) $(TEST_FINDER_WIN_MUT_OPENDARK) $(TEST_FINDER_WIN_MUT_OPENNOAPP)
+	@if $(TEST_FINDER_WIN_MUT_OPENDARK) > $(BUILD)/test_finder_windows_mutant_opendark.log 2>&1; then printf '!!! test-finder-windows-mutant FAIL: OPEN_APP_DARK PASSED -- the L004 application-enablement oracle is decoration\n'; exit 1; fi
+	@grep 'FAIL' $(BUILD)/test_finder_windows_mutant_opendark.log | grep -q 'L13 a selected APPLICATION lights File > Open' || { printf '!!! test-finder-windows-mutant FAIL: OPEN_APP_DARK went RED for the wrong reason\n'; cat $(BUILD)/test_finder_windows_mutant_opendark.log; exit 1; }
+	@printf '>>> test-finder-windows-mutant: green (OPEN_APP_DARK correctly RED -- a selected application leaves File > Open dark, L004)\n'
+	@if $(TEST_FINDER_WIN_MUT_OPENNOAPP) > $(BUILD)/test_finder_windows_mutant_opennoapp.log 2>&1; then printf '!!! test-finder-windows-mutant FAIL: OPEN_NO_APP PASSED -- the L004 Open-launches oracle is decoration\n'; exit 1; fi
+	@grep 'FAIL' $(BUILD)/test_finder_windows_mutant_opennoapp.log | grep -q 'L13 Cmd-O on the application is a successful Open' || { printf '!!! test-finder-windows-mutant FAIL: OPEN_NO_APP went RED for the wrong reason\n'; cat $(BUILD)/test_finder_windows_mutant_opennoapp.log; exit 1; }
+	@printf '>>> test-finder-windows-mutant: green (OPEN_NO_APP correctly RED -- Open lit for an application names no launch, L004)\n'
 	@if $(TEST_FINDER_WIN_MUT_KEEPVIEWS) > $(BUILD)/test_finder_windows_mutant_keepviews.log 2>&1; then printf '!!! test-finder-windows-mutant FAIL: PURGE_KEEPS_VIEWS PASSED -- the L002 view-retirement oracle is decoration\n'; exit 1; fi
 	@grep 'FAIL' $(BUILD)/test_finder_windows_mutant_keepviews.log | grep -q 'L12 every view of a purged folder is CLOSED' || { printf '!!! test-finder-windows-mutant FAIL: PURGE_KEEPS_VIEWS went RED for the wrong reason\n'; cat $(BUILD)/test_finder_windows_mutant_keepviews.log; exit 1; }
 	@printf '>>> test-finder-windows-mutant: green (PURGE_KEEPS_VIEWS correctly RED -- purged folders keep open windows, L002)\n'
@@ -23364,6 +23380,76 @@ test-flair-ctenant-mutant: test-flair-ctenant $(HARNESS_BIN) $(BUILD)/flair_tena
 	done
 	@printf '>>> test-flair-ctenant-mutant: green\n'
 
+# ---------------------------------------------------------------------------
+# test-flair-finder-open (bead initech-fbo4; audit 2026-10-23 desktop L004):
+# Finder File > Open and Ctrl-O LAUNCH a selected application exactly as a
+# double-click does -- ONE launch verb (kmain flair_live_launch_app), ONE
+# command spine (F4.4 finder_dispatch), the launch NAMED by the shell's
+# command outcome (finder_windows.h finder_cmd_outcome_t launch/launch83/
+# launch_dir). Ground truth: Apple_Macintosh_System_Software_Users_Guide_V6.0
+# .pdf PDF p. 45 (the TeachText application opens "either by double-clicking
+# it or by selecting it and choosing Open from the File menu"), PDF p. 38.
+# Traces: spec/flair_finder_open_traces.mk (LOCKED). Host half: test-finder-
+# windows L13 (+ -mutant OPEN_APP_DARK / OPEN_NO_APP).
+#   [1/4] KEY   select CTENANT.EXE, Ctrl-O  -> FINDER-CMD OPEN src=key, launch
+#   [2/4] MENU  select, File > Open by mouse -> FINDER-CMD OPEN src=mouse, launch
+#   [3/4] DBL   double-click                 -> the same launch, no command
+#   each: exactly ONE TENANT-REGISTER, ONE FLAIR-DISPATCH app=CTENANT (one
+#   foreground change), Ctrl-Q quits it (TENANT-MENU ... src=key, TENANT-EXIT)
+#   (TENANT-HEAPAVAIL: teardown done, the Finder promoted) and the RETURN is
+#   PROVED by Ctrl-W closing APPS through the Finder's own chord
+#   (FINDER-CMD id=4 CLOSE_WINDOW src=key); never TENANT-SLOT-BUSY.
+#   [4/4] BUSY  CTENANT resident; Open on it again -> the SECOND launch is
+#   refused out loud (TENANT-SLOT-BUSY + the launch notice), the resident
+#   tenant undisturbed and still quit cleanly.
+# Mutants (Rule 6): OPEN_APP_DARK (finder_windows.o: applications never light
+# Open -> the KEY leg runs no command and launches nothing) and
+# OPEN_NO_LAUNCH (kmain.o: the command runs and is reported, the adapter
+# never calls the launch verb -> no TENANT-REGISTER follows FINDER-OPEN-APP).
+# ---------------------------------------------------------------------------
+.PHONY: test-flair-finder-open test-flair-finder-open-mutant
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_MUT_OPEN_APP_DARK,open_app_dark))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_OPEN_NO_LAUNCH,open_no_launch))
+# One launch, one foreground change, quit by Ctrl-Q, torn down, the Finder
+# back and USABLE (its Ctrl-W closed APPS); no refusal.
+FOPEN_RETURNED = awk 'BEGIN{s=0} s==0&&/^TENANT-EXIT rc=0 via=exit$$/{s=1;next} s==1&&/^TENANT-HEAPAVAIL n=/{s=2;next} s==2&&/^FINDER-CMD id=4 name=CLOSE_WINDOW src=key /{s=3;next} s==3&&/^FINDER-CLOSE-WINDOW win=1$$/{s=4} END{exit !(s==4)}' $(1)
+FOPEN_LAUNCHED = [ "$$(grep -c '^TENANT-REGISTER ok app=CTENANT$$' $(1))" = 1 ] && [ "$$(grep -c '^FLAIR-DISPATCH app=CTENANT$$' $(1))" = 1 ] && [ "$$(grep -c '^TENANT-MENU menu=129 item=1 src=key$$' $(1))" = 1 ] && [ "$$(grep -c '^TENANT-EXIT rc=0 via=exit$$' $(1))" = 1 ] && [ "$$(grep -c '^FINDER-CMD id=4 name=CLOSE_WINDOW src=key ' $(1))" = 1 ] && $(call FOPEN_RETURNED,$(1)) && ! grep -q '^TENANT-SLOT-BUSY' $(1)
+# $(2) = key | mouse: File > Open ran ONCE through the spine, named the launch
+# ONCE, and the launch / dispatch / quit / return followed it IN ORDER.
+FOPEN_VIA_CMD = [ "$$(grep -c '^FINDER-CMD id=3 name=OPEN src=$(2) sel=1$$' $(1))" = 1 ] && [ "$$(grep -c '^FINDER-OPEN-APP name=CTENANT.EXE dir=' $(1))" = 1 ] && awk 'BEGIN{s=0} s==0&&/^FINDER-CMD id=3 name=OPEN src=$(2) /{s=1;next} s==1&&/^FINDER-OPEN-APP name=CTENANT.EXE dir=/{s=2;next} s==2&&/^TENANT-REGISTER ok app=CTENANT$$/{s=3;next} s==3&&/^FLAIR-DISPATCH app=CTENANT$$/{s=4;next} s==4&&/^TENANT-EXIT rc=0 via=exit$$/{s=5;next} s==5&&/^TENANT-HEAPAVAIL n=/{s=6} END{exit !(s==6)}' $(1)
+FOPEN_NO_CMD = ! grep -q '^FINDER-CMD id=3 ' $(1) && ! grep -q '^FINDER-OPEN-APP' $(1)
+FOPEN_BUSY = [ "$$(grep -c '^TENANT-REGISTER ok app=CTENANT$$' $(1))" = 1 ] && [ "$$(grep -c '^FINDER-CMD id=3 name=OPEN src=key sel=1$$' $(1))" = 1 ] && [ "$$(grep -c '^FINDER-OPEN-APP name=CTENANT.EXE dir=' $(1))" = 1 ] && [ "$$(grep -c '^TENANT-SLOT-BUSY name=CTENANT.EXE$$' $(1))" = 1 ] && grep -q '^FINDER-ALERT reason=launch' $(1) && [ "$$(grep -c '^TENANT-EXIT rc=0 via=exit$$' $(1))" = 1 ] && $(call FOPEN_RETURNED,$(1))
+FOPEN_GREP = grep -E '^(FINDER-CMD|FINDER-OPEN|FINDER-CLOSE-WINDOW|FINDER-ICON-SELECT|FINDER-ALERT|TENANT-(LOAD|REGISTER|SLOT|MENU|EXIT|HEAPAVAIL)|FLAIR-DISPATCH|FLAIR-MENU|PANIC)' $(1)
+test-flair-finder-open: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(CTEN_HOLD_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-finder-open : File > Open / Ctrl-O launch a selected application like a double-click\n'
+	@printf '  bead initech-fbo4; audit 2026-10-23 desktop L004; Users Guide V6.0 PDF p. 38, 45\n'
+	@printf '======================================================================\n'
+	$(call appl-boot,flair_fopen_key,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_FINDER_OPEN_KEY_SPEC,)
+	@f=$(BUILD)/flair_fopen_key.serial; $(call APPL_ALIVE,$$f) && $(call FOPEN_VIA_CMD,$$f,key) && $(call FOPEN_LAUNCHED,$$f) || { printf '!!! test-flair-finder-open [1/4] FAIL: KEY -- Ctrl-O on the selected CTENANT.EXE must run File > Open once (src=key), launch it once (one REGISTER, one DISPATCH), and Ctrl-Q must quit it back to the Finder\n'; $(call FOPEN_GREP,$$f); exit 1; }
+	@printf '>>> test-flair-finder-open [1/4] KEY: %s -> %s -> one REGISTER, one DISPATCH, Ctrl-Q quit, the Finder back\n' "$$(grep -m1 '^FINDER-CMD id=3' $(BUILD)/flair_fopen_key.serial)" "$$(grep -m1 '^FINDER-OPEN-APP' $(BUILD)/flair_fopen_key.serial)"
+	$(call appl-boot,flair_fopen_menu,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_FINDER_OPEN_MENU_SPEC,)
+	@f=$(BUILD)/flair_fopen_menu.serial; $(call APPL_ALIVE,$$f) && $(call FOPEN_VIA_CMD,$$f,mouse) && $(call FOPEN_LAUNCHED,$$f) || { printf '!!! test-flair-finder-open [2/4] FAIL: MENU -- File > Open by the mouse on the selected CTENANT.EXE must run the command once (src=mouse), launch it once, and Ctrl-Q must quit it back to the Finder\n'; $(call FOPEN_GREP,$$f); exit 1; }
+	@printf '>>> test-flair-finder-open [2/4] MENU: %s -> the SAME launch, quit and return as the chord\n' "$$(grep -m1 '^FINDER-CMD id=3' $(BUILD)/flair_fopen_menu.serial)"
+	$(call appl-boot,flair_fopen_dbl,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_FINDER_OPEN_DBL_SPEC,)
+	@f=$(BUILD)/flair_fopen_dbl.serial; $(call APPL_ALIVE,$$f) && $(call FOPEN_NO_CMD,$$f) && $(call FOPEN_LAUNCHED,$$f) || { printf '!!! test-flair-finder-open [3/4] FAIL: DBL -- the double-click route must launch CTENANT.EXE once with NO File > Open command, and Ctrl-Q must quit it back to the Finder\n'; $(call FOPEN_GREP,$$f); exit 1; }
+	@printf '>>> test-flair-finder-open [3/4] DBL: the double-click launches the same way (no command line), one REGISTER, one DISPATCH, quit, return\n'
+	$(call cten-hold-boot,flair_fopen_busy,$(FLAIR_DATA_IMG),FLAIR_FINDER_OPEN_BUSY_SPEC)
+	@f=$(BUILD)/flair_fopen_busy.serial; $(call APPL_ALIVE,$$f) && $(call FOPEN_BUSY,$$f) || { printf '!!! test-flair-finder-open [4/4] FAIL: BUSY -- with CTENANT resident, Ctrl-O on it must be refused out loud (one TENANT-SLOT-BUSY + FINDER-ALERT reason=launch) with the resident tenant undisturbed and still quit cleanly\n'; $(call FOPEN_GREP,$$f); exit 1; }
+	@printf '>>> test-flair-finder-open [4/4] BUSY: %s, %s; the resident tenant quit cleanly\n' "$$(grep -m1 '^TENANT-SLOT-BUSY' $(BUILD)/flair_fopen_busy.serial)" "$$(grep -m1 '^FINDER-ALERT reason=launch' $(BUILD)/flair_fopen_busy.serial)"
+	@printf '>>> test-flair-finder-open: green\n'
+
+test-flair-finder-open-mutant: test-flair-finder-open $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_open_app_dark.img $(BUILD)/flair_tenants_mut_open_no_launch.img
+	$(call appl-boot,flair_fopenmut_dark,$(BUILD)/flair_tenants_mut_open_app_dark.img,$(FLAIR_DATA_IMG),FLAIR_FINDER_OPEN_KEY_SPEC,)
+	@f=$(BUILD)/flair_fopenmut_dark.serial; if $(call FOPEN_VIA_CMD,$$f,key) && $(call FOPEN_LAUNCHED,$$f); then printf '!!! test-flair-finder-open-mutant FAIL: OPEN_APP_DARK PASSED the KEY leg -- the enablement oracle is decoration\n'; exit 1; fi
+	@f=$(BUILD)/flair_fopenmut_dark.serial; $(call APPL_ALIVE,$$f) && grep -qx 'FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=1' $$f && $(call FOPEN_NO_CMD,$$f) && ! grep -q '^TENANT-REGISTER' $$f || { printf '!!! test-flair-finder-open-mutant FAIL: OPEN_APP_DARK went RED for the wrong reason (want: Ctrl-O grayed -> no FINDER-CMD id=3, nothing launched, desktop alive; the Finder still foreground with CTENANT.EXE selected, so Ctrl-W closes APPS with sel=1)\n'; $(call FOPEN_GREP,$$f); exit 1; }
+	@printf '>>> test-flair-finder-open-mutant: OPEN_APP_DARK RED for the named reason -- CTENANT.EXE selected, Ctrl-O ran no command and launched nothing\n'
+	$(call appl-boot,flair_fopenmut_nolaunch,$(BUILD)/flair_tenants_mut_open_no_launch.img,$(FLAIR_DATA_IMG),FLAIR_FINDER_OPEN_KEY_SPEC,)
+	@f=$(BUILD)/flair_fopenmut_nolaunch.serial; if $(call FOPEN_VIA_CMD,$$f,key) && $(call FOPEN_LAUNCHED,$$f); then printf '!!! test-flair-finder-open-mutant FAIL: OPEN_NO_LAUNCH PASSED the KEY leg -- the launch oracle is decoration\n'; exit 1; fi
+	@f=$(BUILD)/flair_fopenmut_nolaunch.serial; $(call APPL_ALIVE,$$f) && grep -qx 'FINDER-CMD id=3 name=OPEN src=key sel=1' $$f && grep -q '^FINDER-OPEN-APP name=CTENANT.EXE dir=' $$f && ! grep -q '^TENANT-REGISTER' $$f || { printf '!!! test-flair-finder-open-mutant FAIL: OPEN_NO_LAUNCH went RED for the wrong reason (want: the command ran and named the launch, but no TENANT-REGISTER followed)\n'; $(call FOPEN_GREP,$$f); exit 1; }
+	@printf '>>> test-flair-finder-open-mutant: OPEN_NO_LAUNCH RED for the named reason -- File > Open ran and named CTENANT.EXE, the adapter launched nothing\n'
+	@printf '>>> test-flair-finder-open-mutant: green (both mutants RED for their named reasons)\n'
+
 # ===========================================================================
 # REAL gate: test-flair-i123 (beads initech-9u8w / initech-w96l; epic
 # initech-68iw) -- INITECH 123 OPENS FROM THE FINDER AS A DISK APPLICATION.
@@ -23658,6 +23744,14 @@ RECORD_SETTLE_i123_typing   = 400
 RECORD_SPEC_ctenant_keys    = $(FLAIR_CTENANT_SPEC)
 RECORD_MARKER_ctenant_keys  = TENANT-GATE ax=0x0033 win=1 x=8 y=96 s="Click" fg=0 bg=3 -> 0
 RECORD_SETTLE_ctenant_keys  = 400
+# finder_open_app (bead initech-fbo4; Rule 14): CTENANT.EXE single-clicked in
+# APPS, then Ctrl-O -- File > Open launches it exactly as a double-click would
+# (its window and bar appear), then Ctrl-Q quits it and the Finder's bar comes
+# back. Replays the LOCKED FLAIR_FINDER_OPEN_KEY_SPEC (test-flair-finder-open
+# leg 1); its marker is the quit.
+RECORD_SPEC_finder_open_app   = $(FLAIR_FINDER_OPEN_KEY_SPEC)
+RECORD_MARKER_finder_open_app = TENANT-EXIT rc=0 via=exit
+RECORD_SETTLE_finder_open_app = 400
 # chicago_menus (bead initech-tdnl.33, Rule 14): the proportional Chicago 12
 # acceptance clip -- titled windows (HELLO, NOTES) under band 2's Photoshop bar
 # and TWO held gestures, each a cancel (nothing dispatched): (1) Image dropped
@@ -23862,7 +23956,7 @@ RECORD_SPEC_finder_icons   = $(FLAIR_FINDER_ICONS_SPEC)
 RECORD_MARKER_finder_icons = $(FLAIR_ICONS_SCENE_MARK)
 RECORD_IMAGE_finder_icons  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_finder_icons = 300
-RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash tenant_menu ctenant_keys i123_typing shutdown finder_icons
+RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash tenant_menu ctenant_keys i123_typing shutdown finder_icons finder_open_app
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -23975,6 +24069,9 @@ RECORD_IMAGE_app_launch          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_app_menubar         = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_tenant_menu         = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_ctenant_keys        = $(FLAIRTENANTS_RECORDDBL_IMG)
+# finder_open_app (fbo4): opens the volume and APPS by double-click -> the
+# double-click record image (its interval absorbs the 400 ms settle).
+RECORD_IMAGE_finder_open_app     = $(FLAIRTENANTS_RECORDDBL_IMG)
 # ctenant_repaint (bead initech-6qsk; Rule 14): CTENANT's key and click
 # readouts survive a title drag by (50,50) and an obscure (the APPS window
 # dragged over them) / reveal (a CTENANT title click) -- every updateEvt
@@ -31315,6 +31412,7 @@ TEST_EMU_GATES := \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-tenant-menu test-flair-tenant-menu-mutant test-flair-tenant-menu-bochs \
 	test-flair-ctenant test-flair-ctenant-mutant \
+	test-flair-finder-open test-flair-finder-open-mutant \
 	test-flair-files test-flair-files-mutant test-flair-files-reap test-flair-files-reap-mutant \
 	test-flair-i123 test-flair-i123-mutant test-flair-i123-bochs \
 	test-flair-i123-files test-flair-i123-files-mutant test-flair-i123-file-ui test-flair-i123-file-ui-mutant \

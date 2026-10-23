@@ -1309,6 +1309,163 @@ static void leg_purge_views(void)
           "L12 (partial) the surviving view is still writable (New Folder in A)");
 }
 
+/* ===========================================================================
+ * L13 -- FILE > OPEN LAUNCHES A SELECTED APPLICATION (bead initech-fbo4,
+ * audit 2026-10-23 desktop L004)
+ *
+ * GROUND TRUTH: Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf PDF
+ * p. 45 "Open the TeachText icon, either by double-clicking it or by
+ * selecting it and choosing Open from the File menu" (an APPLICATION); PDF
+ * p. 38 double-clicking is "another way to do the same thing". So a selected
+ * application lights File > Open (SELECTION_OPENABLE) and Open asks for the
+ * launch a double-click asks for. The shell cannot launch (tbx_launch is the
+ * kernel's): it NAMES the launch in the outcome (launch / launch83 /
+ * launch_dir) and kmain hands it to the ONE launch verb (flair_live_launch_app,
+ * graded end to end by test-flair-finder-open). A document still does not
+ * light Open (tdnl.38: nothing opens it).
+ * ===========================================================================*/
+static void leg_open_app(void)
+{
+    static scene_t s;
+    FinderCtx ctx;
+    const finder_cmd_t *c;
+    const finder_cmd_outcome_t *o;
+    finder_desk_t *v;
+    int slot = -1;
+
+    scene_init(&s, MOCK_DIRS, (int)(sizeof MOCK_DIRS / sizeof MOCK_DIRS[0]));
+    memset(&ctx, 0, sizeof ctx);
+    finder_shell_bind_ctx(&s.sh, &ctx);
+    c = finder_cmd_lookup(512, 2);
+    CHECK(c != NULL && c->id == FCMD_OPEN, "L13 File>Open is 512/2");
+
+    CHECK(finder_win_open(&s.sh, 0u, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK && slot == 0,
+          "L13 the root disk window opens in slot 0");
+    v = &s.sh.windows[0].view;
+    CHECK(v->n == 3u && v->icons[0].kind == (uint8_t)FINDER_ICON_FILE &&
+          v->icons[1].kind == (uint8_t)FINDER_ICON_FOLDER &&
+          v->icons[2].kind == (uint8_t)FINDER_ICON_APP,
+          "L13 the root lists README.TXT (document), APPS (folder), SETUP.EXE (application)");
+
+    /* ---- a DOCUMENT alone: Open stays dark (tdnl.38 holds) ---------------- */
+    v->icons[0].selected = 1u;
+    finder_shell_sync_ctx(&s.sh);
+    CHECK(ctx.selection_count == 1u && ctx.selection_openable == 0u,
+          "L13 a selected DOCUMENT does not light Open");
+    finder_dispatch(&ctx, finder_cmd_result(c), "key");
+    CHECK(finder_shell_take_outcome(&s.sh) == NULL,
+          "L13 ... and the predicate refuses the dispatch (no outcome)");
+    v->icons[0].selected = 0u;
+
+    /* ---- an APPLICATION alone: Open lights and NAMES the launch ---------- */
+    v->icons[2].selected = 1u;
+    finder_shell_sync_ctx(&s.sh);
+    CHECK(ctx.selection_count == 1u && ctx.selection_openable == 1u &&
+          finder_pred_selection_openable(&ctx) == 1u,
+          "L13 a selected APPLICATION lights File > Open (SELECTION_OPENABLE)");
+    finder_dispatch(&ctx, finder_cmd_result(c), "key");
+    o = finder_shell_take_outcome(&s.sh);
+    CHECK(o != NULL && o->id == FCMD_OPEN && o->status == FINDER_WIN_OK,
+          "L13 Cmd-O on the application is a successful Open");
+    CHECK(o != NULL && o->launch == 1u && strcmp(o->launch83, "SETUP.EXE") == 0 &&
+          o->launch_dir == 0u,
+          "L13 ... whose outcome names the launch: SETUP.EXE from the window's directory (root, cluster 0)");
+    CHECK(o != NULL && o->moved == 0 && o->slot == 0,
+          "L13 ... opened no folder window (moved=0) and names the front slot");
+    CHECK(wm_count(&s.wm) == 1 && s.sh.windows[1].open == 0u,
+          "L13 ... and no window was opened for the application");
+    CHECK(s.mock.mkdir_calls == 0, "L13 ... and the binding was not written");
+    v->icons[2].selected = 0u;
+
+    /* ---- a FOLDER alone: unchanged -- a window, no launch ---------------- */
+    {
+        static scene_t f;
+        FinderCtx fctx;
+        int fslot = -1;
+        scene_init(&f, MOCK_DIRS, (int)(sizeof MOCK_DIRS / sizeof MOCK_DIRS[0]));
+        memset(&fctx, 0, sizeof fctx);
+        finder_shell_bind_ctx(&f.sh, &fctx);
+        CHECK(finder_win_open(&f.sh, 0u, 0u, "", 1u, &fslot, NULL) == FINDER_WIN_OK,
+              "L13 (folder) the root window opens");
+        f.sh.windows[0].view.icons[1].selected = 1u;
+        finder_shell_sync_ctx(&f.sh);
+        CHECK(fctx.selection_openable == 1u, "L13 (folder) a selected folder lights Open");
+        finder_dispatch(&fctx, finder_cmd_result(c), "key");
+        o = finder_shell_take_outcome(&f.sh);
+        CHECK(o != NULL && o->status == FINDER_WIN_OK && o->slot == 1 &&
+              strcmp(o->name83, "APPS") == 0 && o->moved == 1,
+              "L13 (folder) Open opens APPS in slot 1, as before");
+        CHECK(o != NULL && o->launch == 0u && o->launch83[0] == '\0',
+              "L13 (folder) ... and names NO launch");
+    }
+
+    /* ---- MIXED: a folder AND an application: the window opens AND the
+     *      launch is named, from the ORIGINAL window's directory ----------- */
+    {
+        static scene_t m;
+        FinderCtx mctx;
+        int mslot = -1;
+        scene_init(&m, MOCK_DIRS, (int)(sizeof MOCK_DIRS / sizeof MOCK_DIRS[0]));
+        memset(&mctx, 0, sizeof mctx);
+        finder_shell_bind_ctx(&m.sh, &mctx);
+        CHECK(finder_win_open(&m.sh, 0u, 0u, "", 1u, &mslot, NULL) == FINDER_WIN_OK,
+              "L13 (mixed) the root window opens");
+        m.sh.windows[0].view.icons[1].selected = 1u;   /* APPS      */
+        m.sh.windows[0].view.icons[2].selected = 1u;   /* SETUP.EXE */
+        finder_shell_sync_ctx(&m.sh);
+        CHECK(mctx.selection_count == 2u && mctx.selection_openable == 1u,
+              "L13 (mixed) two selected, Open lit");
+        finder_dispatch(&mctx, finder_cmd_result(c), "mouse");
+        o = finder_shell_take_outcome(&m.sh);
+        CHECK(o != NULL && o->status == FINDER_WIN_OK && o->moved == 1 &&
+              strcmp(o->name83, "APPS") == 0 && wm_count(&m.wm) == 2,
+              "L13 (mixed) the folder window opened");
+        CHECK(o != NULL && o->launch == 1u && strcmp(o->launch83, "SETUP.EXE") == 0 &&
+              o->launch_dir == 0u,
+              "L13 (mixed) ... and the application launch is named, from the root (not the new window)");
+    }
+
+    /* ---- BOUNDARY (PM review, fbo4): a listing is dynamic (finder_win_open
+     *      sizes the icon block from the count), so 256 selected applications
+     *      are possible -- the count must not wrap to 0 (a uint8_t did: Open
+     *      then reported success and kmain launched nothing). ------------- */
+    {
+        enum { NAPP = 256 };
+        static char         names[NAPP][FINDER_DESK_NAME_MAX];
+        static mock_entry_t big[NAPP];
+        static mock_dir_t   dirs[sizeof MOCK_DIRS / sizeof MOCK_DIRS[0] + 1];
+        static scene_t b;
+        FinderCtx bctx;
+        int bslot = -1;
+        for (int i = 0; i < NAPP; i++) {
+            snprintf(names[i], sizeof names[i], "A%03d.EXE", i);
+            big[i].name = names[i]; big[i].attr = 0x20u;
+            big[i].size = 1u; big[i].cluster = (uint16_t)(100 + i);
+        }
+        memcpy(dirs, MOCK_DIRS, sizeof MOCK_DIRS);
+        dirs[sizeof MOCK_DIRS / sizeof MOCK_DIRS[0]].dir_start = 31u;
+        dirs[sizeof MOCK_DIRS / sizeof MOCK_DIRS[0]].ents = big;
+        dirs[sizeof MOCK_DIRS / sizeof MOCK_DIRS[0]].n = NAPP;
+        scene_init(&b, dirs, (int)(sizeof dirs / sizeof dirs[0]));
+        memset(&bctx, 0, sizeof bctx);
+        finder_shell_bind_ctx(&b.sh, &bctx);
+        CHECK(finder_win_open(&b.sh, 0u, 31u, "BIG", 0u, &bslot, NULL) == FINDER_WIN_OK &&
+              b.sh.windows[bslot].view.n == (uint16_t)NAPP,
+              "L13 (256) a folder of 256 applications lists all 256");
+        for (int i = 0; i < NAPP; i++) b.sh.windows[bslot].view.icons[i].selected = 1u;
+        finder_shell_sync_ctx(&b.sh);
+        CHECK(bctx.selection_count == (uint16_t)NAPP && bctx.selection_openable == 1u,
+              "L13 (256) all 256 selected, Open lit");
+        finder_dispatch(&bctx, finder_cmd_result(c), "key");
+        o = finder_shell_take_outcome(&b.sh);
+        CHECK(o != NULL && o->status == FINDER_WIN_OK && o->moved == 0,
+              "L13 (256) Open succeeds and opens no window");
+        CHECK(o != NULL && o->launch == (uint16_t)NAPP &&
+              strcmp(o->launch83, "A000.EXE") == 0 && o->launch_dir == 31u,
+              "L13 (256) ... and names the launch with the FULL count 256 (no uint8_t wrap to 0): A000.EXE from BIG");
+    }
+}
+
 int main(void)
 {
     leg_kind();
@@ -1324,5 +1481,6 @@ int main(void)
     leg_new_folder();
     leg_cmd_spine();
     leg_purge_views();
+    leg_open_app();
     return TEST_SUMMARY("test-finder-windows");
 }
