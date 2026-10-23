@@ -28455,6 +28455,7 @@ define samir_ctl_emu_run
 	@mformat -i $(BUILD)/$(2).img -f 1440 ::
 	@mcopy -i $(BUILD)/$(2).img $(1) ::SAMIR.COM
 	@set -e; for f in $(SAMIR_CTL_EMU_PRGS); do mcopy -i $(BUILD)/$(2).img $(SAMIR_CTL_EMU_DIR)/$$f ::$$f; done
+	@$(call fixture-check,recipe,$(BUILD)/$(2).img)
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BUILD)/$(2).img" \
 		--name "$(2)" --out "$(BUILD)" --timeout-ms 90000 \
 		--keys "$(SAMIR_CTL_EMU_KEYS)" --keys-after "SHELL-READY" \

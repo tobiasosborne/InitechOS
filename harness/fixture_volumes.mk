@@ -89,6 +89,8 @@ $(eval $(call fixture-inline-contract,$(FAT12_MOVE_STRUCT_IMG),FILEA.TXT KEEPA.T
 $(eval $(call fixture-inline-contract,$(OJXN_IMG),TEST.TXT))
 $(foreach img,$(UT6D_IMG) $(UT6D_MUT_IMG) $(UT6D_RDNOOP_IMG),$(eval $(call fixture-inline-contract,$(img),HELLO.TXT)))
 $(foreach img,$(ZS24EXEC_IMG) $(ZS24EXEC_REJECT_IMG) $(ZS24EXEC_ROOTONLY_IMG),$(eval $(call fixture-inline-contract,$(img),HELLO.TXT SUB/GREET.COM)))
+# initech-zoqr: the samirctl emulator volumes (clean + three mutants), SAMIR.COM + the five control-flow PRGs, verified in samir_ctl_emu_run.
+$(foreach n,samir_ctl_emu samir_ctl_emu_mut_esc samir_ctl_emu_mut_cap samir_ctl_emu_mut_stk,$(eval $(call fixture-inline-contract,$(BUILD)/$(n).img,SAMIR.COM $(SAMIR_CTL_EMU_PRGS))))
 $(foreach img,$(SAMIR_WRITE_IMG) $(SAMIR_WRITE_SCRN_IMG) $(SAMIR_WRITE_MUT_IMG),$(eval $(call fixture-inline-contract,$(img),SAMIR.COM CLIENTS.DBF)))
 $(foreach img,$(CY2K_IMG) $(CY2K_SCRN_IMG) $(CY2K_MUT_IMG),$(eval $(call fixture-inline-contract,$(img),SAMIR.COM INVOICE.DBF Y2KACCT.PRG)))
 $(foreach img,$(CSAL_IMG) $(CSAL_SCRN_IMG) $(CSAL_MUT_IMG),$(eval $(call fixture-inline-contract,$(img),SAMIR.COM INVOICE.DBF SALAMI.PRG)))
@@ -114,6 +116,9 @@ $(eval $(call fixture-inline-contract,$(BUILD)/panic-screen/bochs-data.img,PANIC
 # initech-e9sx: the corrupted-magic COMMAND.COM boot image (FAT at the DEC-07a partition offset).
 $(eval $(call fixture-inline-contract,$(BUILD)/command-file/magic.img,@@32256 COMMAND.COM))
 $(foreach img,$(TPS_IMG_A) $(BUILD)/tps_mut6.img $(BUILD)/tps_mutseq.img $(BUILD)/tps_say7.img,$(eval $(call fixture-inline-contract,$(img),TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK)))
+# initech-zoqr: lane tpsbak's six TPS report-fault volumes (verified in tps-run).
+$(foreach n,fd_ok fd_mut,$(eval $(call fixture-inline-contract,$(BUILD)/tps_$(n).img,TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK FILL.BIN)))
+$(foreach n,fe ff fem ffm,$(eval $(call fixture-inline-contract,$(BUILD)/tps_$(n).img,TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK)))
 $(eval $(call fixture-inline-contract,$(TPS_IMG_B),TPSREP.COM TPS.DBF AUTOEXEC.BAT))
 $(eval $(call fixture-inline-contract,$(TPS_IMG_C),TPSREP.COM TPS.DBF TPSPARM.DAT AUTOEXEC.BAT))
 # initech-56ch round 2: register contracts for the merged initech-ycvk fault
