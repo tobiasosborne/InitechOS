@@ -869,7 +869,7 @@ int wa_resolve(void *user, const char *name, uint16_t len, xb_val *out)
         switch (t) {
         case 'N': *out = xb_n(0.0);                break;
         case 'L': *out = xb_l(0);                  break;
-        case 'D': *out = xb_u();                   break;  /* blank date */
+        case 'D': *out = xb_d(0.0);                break;  /* blank date (value.h xb_date_blank) */
         case 'M': *out = xb_m(wa->memo_buf, 0u);   break;  /* empty memo */
         case 'C':
         default:  *out = xb_c(wa->rec_bytes, 0u);  break;  /* empty string */

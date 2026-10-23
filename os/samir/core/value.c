@@ -66,6 +66,20 @@ xb_val xb_d(double jdn)
     return v;
 }
 
+int xb_date_blank(double jdn)
+{
+    return jdn <= 0.0;
+}
+
+double xb_date_key(double jdn)
+{
+#ifndef SAMIR_DT_MUTANT_blankkey
+    if (xb_date_blank(jdn))
+        return 1e100;   /* real III+ BLANKDAT.NDX blank-date key */
+#endif
+    return jdn;
+}
+
 xb_val xb_l(int truth)
 {
     xb_val v = {0};

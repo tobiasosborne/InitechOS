@@ -271,7 +271,8 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
         int century = (ctx != (const xb_ctx *)0) ? (ctx->set_century != 0) : 0;
         char sep;
         int year_first, day_first;
-        ymd_from_jdn((int32_t)v->u.d, &y, &m, &d);
+        if (xb_date_blank(v->u.d)) { y = 0; m = 0; d = 0; }   /* blanked below */
+        else ymd_from_jdn((int32_t)v->u.d, &y, &m, &d);
         switch (fmt) {
         case XB_DATE_ANSI:    sep = '.'; year_first = 1; day_first = 0; break; /* YY.MM.DD */
         case XB_DATE_JAPAN:   sep = '/'; year_first = 1; day_first = 0; break; /* YY/MM/DD */
@@ -311,6 +312,15 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
             }
             dt[k++] = (char)('0' + (y / 10) % 10);
             dt[k++] = (char)('0' + y % 10);
+        }
+        /* The blank date keeps the picture's separators with its digit
+         * positions blank: real III+ LIST WHEN and ? CTOD("  /  /  ") show
+         * "  /  /  " (datatype-mint DT1 D-block LIST, DT3 G8/G11). Before the
+         * codec carried a blank D field as xb_d(0.0) (initech-ylqs) it was
+         * XB_U and printed nothing; JDN 0 must not render as a date. */
+        if (xb_date_blank(v->u.d)) {
+            int j;
+            for (j = 0; j < k; j++) if (dt[j] != sep) dt[j] = ' ';
         }
         q_append(buf, pos, cap, dt, (uint32_t)k);
         break;
@@ -1211,7 +1221,7 @@ static int q_seek_key(xb_interp *ip, const xb_val *key, int *ec)
             for(i=0;i<len;i++) v.key[i]=i<v.sig ? (uint8_t)key->u.c.p[i] : ' ';
             while(v.sig && v.key[v.sig-1]==' ') v.sig--;
         } else {
-            double num=key->t==XB_D ? key->u.d : key->u.n;
+            double num=key->t==XB_D ? xb_date_key(key->u.d) : key->u.n; /* blank -> 1E+100 */
             rt_memcpy(v.key,&num,8u);
         }
         rc=ndx_inorder(ix,q_seek_visible_visit,&v);

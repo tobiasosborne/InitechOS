@@ -2940,6 +2940,24 @@ test-xbase-transform-mutant: $(TEST_XBASE_TRANSFORM_MUT)
 		printf '>>> test-xbase-transform-mutant: green (@( paren correctly RED)\n'; \
 	fi
 
+# L007 (audit 2026-10-23-samir; initech-ylqs): the decimal point takes its own
+# column, so "999.99" holds 123.40 (real III+ datatype-mint DT1 C1..C11).
+# Mutant: no column for '.' -> the exact-fit G cases go RED.
+TEST_XBASE_TRANSFORM_DOT_MUT := $(BUILD)/test_xbase_transform_dotwidth_mut
+$(TEST_XBASE_TRANSFORM_DOT_MUT): $(DBF_DIFF_DIR)/test_xbase_transform.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_TR_DOTWIDTH -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_transform.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+
+.PHONY: test-xbase-transform-dotwidth-mutant
+test-xbase-transform-dotwidth-mutant: $(TEST_XBASE_TRANSFORM_DOT_MUT)
+	@$(TEST_XBASE_TRANSFORM_DOT_MUT) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-xbase-transform-dotwidth-mutant FAIL: no TEST_SUMMARY -- harness dead\n'; exit 1; }
+	@if $(TEST_XBASE_TRANSFORM_DOT_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-xbase-transform-dotwidth-mutant FAIL: mutant PASSED -- the decimal-point column is decoration\n'; exit 1; \
+	elif $(TEST_XBASE_TRANSFORM_DOT_MUT) 2>&1 | grep -q 'FAIL.*L007'; then \
+		printf '>>> test-xbase-transform-dotwidth-mutant: green (L007 exact-fit cases correctly RED)\n'; \
+	else printf '!!! test-xbase-transform-dotwidth-mutant FAIL: RED for the wrong reason\n'; exit 1; fi
+
 # ---- SAMIR Phase-5 interpreter foundation: work-area model + USE/CLOSE (S5.1 / initech-7az.2) ----
 # 10 work areas, SELECT by number/alias, per-area .dbf(+.dbt+.ndx) open, RECNO=1,
 # master order; the xb_ctx.resolve hook binds field names (and M fields via .dbt) to
@@ -33842,6 +33860,39 @@ TEST_UNIT_GATES += test-samir-dml-$(1) test-samir-dml-$(1)-mutant
 TEST_EMU_GATES += test-samir-dml-$(1)-emu test-samir-dml-$(1)-emu-mutant
 endef
 $(foreach verb,$(SAMIR_DML_CASES),$(eval $(call samir-dml-gates,$(verb))))
+
+# ---- SAMIR data typing vs real III+ (initech-ylqs; audit 2026-10-23-samir
+# L001/L006/L016). The dot prompt replays the real III+ mint's commands on the
+# audit's EDGE fixture; .dbf bytes, read-back values and BLANKDAT.NDX (via the
+# independent ndx_ref.py) are graded against the COMMITTED real III+ outputs in
+# xbase_prog_diff/datatype-mint (sha256-pinned; mint-samir-datatype re-runs
+# dosbox-x and proves real III+ still reproduces them). Each mutant re-opens one
+# defect in dbf.c/mutate.c and must turn at least one L0nn check RED.
+SAMIR_DT_CASES := blankdate overflow dateindex dateindex-blank
+SAMIR_DT_MUTANTS := blankwrite starread blankread blankkey
+SAMIR_DT_TEST := $(BUILD)/test_samir_datatype
+SAMIR_DT_MUTS := $(addprefix $(BUILD)/test_samir_datatype_, $(SAMIR_DT_MUTANTS))
+$(SAMIR_DT_TEST): $(DBF_DIFF_DIR)/test_samir_datatype.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+$(SAMIR_DT_MUTS): $(BUILD)/test_samir_datatype_%: $(DBF_DIFF_DIR)/test_samir_datatype.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_DT_MUTANT_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+.PHONY: mint-samir-datatype test-samir-datatype test-samir-datatype-mutants
+mint-samir-datatype:
+	@sh $(DBF_DIFF_DIR)/datatype_mint.sh $(abspath $(DBASE3_DECOMP))
+test-samir-datatype: $(SAMIR_DT_TEST)
+	@for c in $(SAMIR_DT_CASES); do $(SAMIR_DT_TEST) $$c || exit 1; done
+	@printf '>>> test-samir-datatype: green (L001/L006/L016 vs real III+)\n'
+test-samir-datatype-mutants: $(SAMIR_DT_MUTS) test-samir-datatype
+	@for m in $(SAMIR_DT_MUTANTS); do red=0; \
+	  for c in $(SAMIR_DT_CASES); do \
+	    set +e; $(BUILD)/test_samir_datatype_$$m $$c > $(BUILD)/dt-mut-$$m-$$c.log 2>&1; rc=$$?; set -e; \
+	    if [ $$rc -eq 1 ] && grep -q 'FAIL.*L0[0-9][0-9]' $(BUILD)/dt-mut-$$m-$$c.log; then red=1; \
+	    elif [ $$rc -ne 0 ] && [ $$rc -ne 1 ]; then cat $(BUILD)/dt-mut-$$m-$$c.log; echo "mutant $$m: infrastructure failure"; exit 1; fi; \
+	  done; \
+	  if [ $$red -ne 1 ]; then printf '!!! SAMIR_DT_MUTANT_%s survived -- the check is decoration\n' $$m; exit 1; fi; \
+	  printf '>>> SAMIR_DT_MUTANT_%s RED: ' $$m; cat $(BUILD)/dt-mut-$$m-*.log | grep 'FAIL.*L0[0-9][0-9]' | head -1; \
+	done
+TEST_UNIT_GATES += test-samir-datatype test-samir-datatype-mutants test-xbase-transform-dotwidth-mutant
 
 .PHONY: samir-dml-goldens
 # The real-dBASE mint goldens are COMMITTED under xbase_prog_diff/mint/ (only the

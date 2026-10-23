@@ -1,0 +1,44 @@
+
+[A] start
+A1 [03/01/92]
+A2  .F.
+A3 [02/29/92]
+A4 [03/01/92]
+A5 [03/01/92]
+[B] start
+B1 [  1.2 ]
+B2 [     1.200]
+B3  .F.
+Numeric overflow (data was lost).
+B4 [ **** ]
+B5  .F.
+Record#    ID SMALL
+      2     2 *****
+
+Record#    ID SMALL
+      1     1   1.2
+      2     2 *****
+      3     3   0.0
+
+B6 [ **** ]
+[C] start
+C1 [123.40]
+C2 [0.12]
+C3 [ 12.34]
+C4 [***.**]
+C5 [123.46]
+C6 [-12.30]
+C7 [***.**]
+C8 [***.**]
+C9 [5.0]
+C10 [12]
+C11 [1,234.50]
+[D] start
+D1 indexed
+Record#    ID WHEN
+      2     2 01/01/00
+      1     1 02/29/92
+      3     3   /  /  
+
+D2 top           2
+[Z] done

@@ -206,6 +206,36 @@ int main(void)
          " [verified: mint-002 C2.TXT]");
 
     /* ================================================================ */
+    /* G. Decimal pictures that EXACTLY fit (audit 2026-10-23-samir L007; */
+    /*    initech-ylqs). The '.' takes a column of its own, so "999.99"  */
+    /*    holds 123.40. Real III+ lines C1..C11 of                        */
+    /*    xbase_prog_diff/datatype-mint/DT1LOG.TXT (datatype_mint.sh).   */
+    /*    MUTANT TARGET: -DXB_MUTATE_TR_DOTWIDTH (no column for '.').    */
+    /* ================================================================ */
+    ok_c("TRANSFORM(123.4,'999.99')", "123.40", 6,
+         "G1: L007 TRANSFORM(123.4,'999.99')='123.40' [real III+ DT1 C1] [MUTANT TARGET]");
+    ok_c("TRANSFORM(0.12,'9.99')", "0.12", 4,
+         "G2: L007 TRANSFORM(0.12,'9.99')='0.12' [real III+ DT1 C2] [MUTANT TARGET]");
+    ok_c("TRANSFORM(12.34,'999.99')", " 12.34", 6,
+         "G3: TRANSFORM(12.34,'999.99')=' 12.34' [real III+ DT1 C3]");
+    ok_c("TRANSFORM(1234.5,'999.99')", "***.**", 6,
+         "G4: TRANSFORM(1234.5,'999.99')='***.**' (overflow) [real III+ DT1 C4]");
+    ok_c("TRANSFORM(123.456,'999.99')", "123.46", 6,
+         "G5: TRANSFORM(123.456,'999.99')='123.46' (rounds) [real III+ DT1 C5] [MUTANT TARGET]");
+    ok_c("TRANSFORM(-12.3,'999.99')", "-12.30", 6,
+         "G6: TRANSFORM(-12.3,'999.99')='-12.30' [real III+ DT1 C6]");
+    ok_c("TRANSFORM(-123.4,'999.99')", "***.**", 6,
+         "G7: TRANSFORM(-123.4,'999.99')='***.**' (no slot for '-') [real III+ DT1 C7]");
+    ok_c("TRANSFORM(999.995,'999.99')", "***.**", 6,
+         "G8: TRANSFORM(999.995,'999.99')='***.**' (rounds to 1000.00) [real III+ DT1 C8]");
+    ok_c("TRANSFORM(5,'9.9')", "5.0", 3,
+         "G9: L007 TRANSFORM(5,'9.9')='5.0' [real III+ DT1 C9] [MUTANT TARGET]");
+    ok_c("TRANSFORM(1234.5,'9,999.99')", "1,234.50", 8,
+         "G11: TRANSFORM(1234.5,'9,999.99')='1,234.50' [real III+ DT1 C11] [MUTANT TARGET]");
+    /* NOT asserted: DT1 C10 TRANSFORM(12.5,"99") is "12" in real III+, a
+     * half-way rounding rule this lane does not own (follow-up bead). */
+
+    /* ================================================================ */
     /* B. @( flag: parens for negatives                                  */
     /*                                                                   */
     /* Ref: mint-results-002.md C2.TXT [verified: real III+ 1.1]:       */

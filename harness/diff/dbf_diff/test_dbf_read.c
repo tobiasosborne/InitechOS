@@ -61,7 +61,7 @@
  *   - harness/diff/dbf_diff/dbf_ref.py decode_field() + --records output
  *     (independent reference; our typed values are cross-checked against it).
  *   - os/samir/include/samir/dbf.h S1.3 contract (recno 1-based, field decodes,
- *     delete-flag, lifetime, M-boundary decision, blank-date -> xb_u()).
+ *     delete-flag, lifetime, M-boundary decision, blank-date -> xb_d(0.0), initech-ylqs).
  *   - os/samir/include/samir/value.h (xb_val, xb_type, xb_typeof, xb_eq).
  *   - os/samir/include/samir/rt.h (jdn_from_ymd for expected D values).
  *   - docs/plans/SAMIR-implementation-plan.md S1.3 oracle; ARB rider (a)

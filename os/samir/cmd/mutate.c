@@ -241,9 +241,11 @@ static int m_encode_key(xb_interp *ip, const char *key_expr,
             return -INTERP_ERR_EVAL;
         }
     } else {
-        /* numeric/date: 8-byte LE double (JDN for D). */
+        /* numeric/date: 8-byte LE double (JDN for D; the blank date keys as
+         * 1E+100, sorting last -- real III+ BLANKDAT.NDX, datatype-mint;
+         * audit 2026-10-23-samir L016, initech-ylqs). */
         if (v.t == XB_N)      d = v.u.n;
-        else if (v.t == XB_D) d = v.u.d;
+        else if (v.t == XB_D) d = xb_date_key(v.u.d);
         else {
             if (ec) *ec = XBEE_MISMATCH;
             return -INTERP_ERR_EVAL;

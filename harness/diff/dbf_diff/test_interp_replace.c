@@ -118,7 +118,7 @@ static int read_n_field(dbf_table *tbl, uint32_t recno, int fi, double *out)
 }
 
 /* read the RAW field bytes (no typed decode) of field `fi` of `recno` -- used to
- * inspect N-overflow '*'-fill, which dbf_read_rec decodes to 0.0. We re-read the
+ * inspect N-overflow '*'-fill (dbf_read_rec decodes it to 1.79E308). We re-read the
  * record region by reconstructing the offset from the field descriptors. */
 static int read_raw_field(dbf_table *tbl, uint32_t recno, int fi,
                           char *buf, int cap)
@@ -278,8 +278,11 @@ static void test_replace_matrix(samir_pal_t *pal)
     rc = samir_do(ip, "REPLACE AMT WITH 1000000\n");
     snprintf(msg,sizeof msg,"repl-overflow: rc=%d ec=%d",rc,samir_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
-    /* dec_format '*'-fills on overflow; dbf_read_rec decodes "*****" -> 0.0. */
-    CHECK(read_n_field(tbl, 1, 1, &n) == 0 && n == 0.0, "repl-overflow: '*'-fill decodes to 0.0");
+    /* dec_format '*'-fills on overflow; "*****" reads back as the largest
+     * double, as in real III+ (datatype-mint DT5 I1/I2/I7; audit
+     * 2026-10-23-samir L006, initech-ylqs) -- not an ordinary 0.0. */
+    CHECK(read_n_field(tbl, 1, 1, &n) == 0 && n == 1.7976931348623157e308,
+          "repl-overflow: '*'-fill decodes to 1.7976931348623157E308");
 
     /* ---- cross-type assignment -> #9 mismatch (C field <- N expr) ---- */
     wa_nav_goto(env, 1, 1);

@@ -51,19 +51,22 @@
  *               the "blank N" semantic; at the codec level 0.0 is returned).
  *               dec_parse ignores leading/trailing spaces and returns 0.0 for
  *               all-spaces; this is consistent with dbf_ref.py's None mapping.
- *               All-asterisk overflow fields: dec_parse on "*..."  returns 0.0
- *               (non-digit, non-sign, non-space char -> 0.0 per rt.h contract).
+ *               Overflow fields (first non-blank byte '*', the stars_fill of
+ *               xbase_coercion.json): xb_n(1.7976931348623157E308), the value
+ *               real III+ reads "****" back as (? prints ****, = 0 is .F.;
+ *               harness/diff/dbf_diff/xbase_prog_diff/datatype-mint DT1/DT2/
+ *               DT5). Was 0.0 until initech-ylqs (audit L006).
  *
  *   D field  -> Valid 8-char YYYYMMDD with non-space content: xb_d(jdn) where
  *               jdn = jdn_from_ymd(year, month, day) (rt.h). dbf.md sec 5 D.
- *               Blank date (8 spaces, or "00000000"): xb_u() with *deleted
- *               unchanged. dbf.md sec 5 D: "A blank/empty date is 8 spaces.
- *               '00000000' is not a valid date."
- *               Decision: blank date -> xb_u(). Rationale: dbf_ref.py returns
- *               "" (empty string) for blank; our typed model has no "blank date"
- *               sentinel -- xb_u() is the clean equivalent. GATED: no blank-date
- *               fixture in the corpus to force the decision; confirmed via
- *               dbf_ref.py decode_field D logic (strip -> "" -> return "").
+ *               Blank date (8 spaces, or "00000000"): xb_d(0.0) -- the one
+ *               in-memory blank date CTOD("  /  /  ") also yields (value.h
+ *               xb_date_blank) -- with *deleted unchanged. dbf.md sec 5 D: "A
+ *               blank/empty date is 8 spaces. '00000000' is not a valid date."
+ *               Decision (initech-ylqs, replacing the GATED xb_u() choice):
+ *               real III+ keeps a blank D field a Date -- TYPE() is "D", it
+ *               indexes as key 1E+100 (datatype-mint DT3 G8, BLANKDAT.NDX);
+ *               XB_U made INDEX ON <date> fail with #9 (audit L016).
  *
  *   L field  -> T/t/Y/y -> xb_l(1). F/f/N/n -> xb_l(0). '?'/space ->
  *               xb_u() (uninitialised). dbf.md sec 5 L; dbf_ref.py
@@ -345,12 +348,14 @@ const dbf_field_t *dbf_field(const dbf_table *tbl, int i);
  *          lifetime note below). No space-trimming -- that is the evaluator's
  *          responsibility (S3.3). Round-trip safe.
  *   N  -> xb_n(dec_parse(raw, field_len)).  All-spaces -> 0.0 (dec_parse
- *          contract, rt.h). Overflow asterisks -> 0.0 (non-digit input).
+ *          contract, rt.h). Overflow asterisks (first non-blank byte '*')
+ *          -> xb_n(1.7976931348623157E308), the value real III+ reads them
+ *          as (datatype-mint DT5; initech-ylqs).
  *   D  -> Valid non-blank 8-char YYYYMMDD: xb_d(jdn_from_ymd(y, m, d)).
- *          Blank (8 spaces) or "00000000": xb_u().
+ *          Blank (8 spaces) or "00000000": xb_d(0.0), the blank date
+ *          (value.h xb_date_blank; real III+ TYPE() of a blank D field is
+ *          "D", datatype-mint DT3 G8; initech-ylqs).
  *          Ref: dbf.md sec 5 D "blank/empty date is 8 spaces; 00000000 not valid".
- *          dbf_ref.py returns "" for blank -- we use xb_u() as the typed-model
- *          equivalent.
  *   L  -> T/t/Y/y -> xb_l(1); F/f/N/n -> xb_l(0); '?'/space -> xb_u().
  *          Any other byte -> return -DBF_ERR_BAD_REC (fail loud, Rule 2).
  *          Ref: dbf.md sec 5 L; dbf_ref.py decode_field L.

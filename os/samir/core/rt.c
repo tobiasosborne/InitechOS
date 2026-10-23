@@ -247,6 +247,21 @@ int dec_format(double v, int width, int dec, char *out)
     if (dec < 0)  dec = 0;
     if (dec > 18) dec = 18;
 
+    /* A magnitude beyond the int64 scaling range below fits no N field (19
+     * columns hold < 1E19): star-fill instead of an undefined double->int64
+     * conversion. The value an overflowed "****" field reads back as
+     * (1.7976931348623157E308, dbf.c; real III+ datatype-mint DT5) lands
+     * here and prints "****" at any width, as real III+ does (DT1 B4).
+     * initech-ylqs. */
+    {
+        double mag = v < 0.0 ? -v : v;
+        if (!(mag * (double)pow10_tbl[dec] < 9.2e18)) {
+            int i;
+            for (i = 0; i < width; i++) out[i] = '*';
+            return width;
+        }
+    }
+
     /* Round: scale up, add 0.5, floor (= round-half-up = ties toward +inf).
      * Safe for |v| < 2^53 / 10^dec -- well within dBASE N-field range. */
     scaled     = rt_floor64(v * (double)pow10_tbl[dec] + 0.5);

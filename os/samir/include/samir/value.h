@@ -122,6 +122,24 @@ xb_val xb_n(double v);
 xb_val xb_d(double jdn);
 
 /*
+ * xb_date_blank: 1 if a Date's JDN is the blank date. SAMIR has ONE blank date
+ * in memory: xb_d(0.0) -- CTOD("  /  /  "), CTOD(""), a blank D field (dbf.c)
+ * and the EOF phantom all carry it (eval.c date_is_blank uses the same
+ * JDN <= 0 test; a real III+ date 1900..2155 is JDN 2415021..2508911).
+ * On disk it is 8 spaces (xbase_coercion.json D<-D "blank":"8 spaces";
+ * dbf.md sec 5 D); in a .ndx it is the key 1E+100 (real III+ BLANKDAT.NDX,
+ * harness/diff/dbf_diff/xbase_prog_diff/datatype-mint; initech-ylqs).
+ */
+int xb_date_blank(double jdn);
+
+/*
+ * xb_date_key: the .ndx key double (ndx.md sec 4.2) of a Date: its JDN, or
+ * 1E+100 for the blank date, which therefore sorts after every real date
+ * (real III+ BLANKDAT.NDX entry bytes 7D C3 94 25 AD 49 B2 54; datatype-mint).
+ */
+double xb_date_key(double jdn);
+
+/*
  * xb_l: construct a Logical value. Any non-zero `truth` is normalised to 1.
  */
 xb_val xb_l(int truth);
