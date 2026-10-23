@@ -33868,8 +33868,8 @@ $(foreach verb,$(SAMIR_DML_CASES),$(eval $(call samir-dml-gates,$(verb))))
 # xbase_prog_diff/datatype-mint (sha256-pinned; mint-samir-datatype re-runs
 # dosbox-x and proves real III+ still reproduces them). Each mutant re-opens one
 # defect in dbf.c/mutate.c and must turn at least one L0nn check RED.
-SAMIR_DT_CASES := blankdate overflow dateindex dateindex-blank
-SAMIR_DT_MUTANTS := blankwrite starread blankread blankkey
+SAMIR_DT_CASES := blankdate overflow dateindex dateindex-blank boundary
+SAMIR_DT_MUTANTS := blankwrite starread blankread blankkey cutoff
 SAMIR_DT_TEST := $(BUILD)/test_samir_datatype
 SAMIR_DT_MUTS := $(addprefix $(BUILD)/test_samir_datatype_, $(SAMIR_DT_MUTANTS))
 $(SAMIR_DT_TEST): $(DBF_DIFF_DIR)/test_samir_datatype.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)

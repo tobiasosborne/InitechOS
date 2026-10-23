@@ -34,6 +34,7 @@
  *   SAMIR_DT_MUTANT_starread    dbf.c reads "****" as 0.0 again
  *   SAMIR_DT_MUTANT_blankread   dbf.c reads a blank D field as XB_U again
  *   SAMIR_DT_MUTANT_blankkey    mutate.c keys a blank date as 0.0, not 1E+100
+ *   SAMIR_DT_MUTANT_cutoff      rt.c star-fills from 9.2E18, below 2^63
  * ASCII-clean (Rule 12). No timestamps/host paths in the artifact (Rule 11).
  */
 #include <float.h>
@@ -43,6 +44,8 @@
 #include <unistd.h>
 #include "test_assert.h"
 #include "samir/interp.h"
+#include "samir/dbf.h"
+#include "samir/rt.h"
 TEST_HARNESS();
 struct pal_host_cfg { uint8_t date_yy,date_mm,date_dd; uint32_t heap_size; };
 extern samir_pal_t *pal_host_make(struct pal_host_cfg);
@@ -177,6 +180,57 @@ static int valid_d_bytes(const unsigned char *b)
     return 1;
 }
 
+/* "boundary": the overflow star-fill of dec_format (rt.c) must start where the
+ * rounded value stops converting to int64 (2^63), not earlier: doubles up to
+ * 2^63-1024 fit N(19,0) and REPLACE must persist their digits, while DBL_MAX
+ * (what "****" reads back as) still star-fills. Arithmetic boundary, no
+ * III+ golden needed: an N(19,0) field holds any integer below 1E19
+ * (dbf.md sec 5 N). Review finding on initech-ylqs. */
+static void boundary_case(void)
+{
+    static const struct { double v; const char *want; const char *why; } c[] = {
+        { 9200000000000000000.0, "9200000000000000000",
+          "L006 boundary: 9.2E18 fits N(19,0) and REPLACE stores its digits" },
+        { 9223372036854774784.0, "9223372036854774784",
+          "L006 boundary: 2^63-1024 (largest int64-safe double) fits N(19,0)" },
+        { -922337203685477.0, "   -922337203685477",
+          "L006 boundary: an ordinary negative still formats" },
+        { DBL_MAX, "*******************",
+          "L006 boundary: the \"****\" read-back value 1.79E308 star-fills N(19,0)" } };
+    dbf_field_spec fs[1];
+    dbf_table *tbl = NULL;
+    samir_pal_t *pal;
+    unsigned i;
+    char out[32];
+    static unsigned char img[4096];
+    size_t n;
+    for (i = 0; i < sizeof c / sizeof c[0]; i++) {
+        memset(out, 0, sizeof out);
+        dec_format(c[i].v, 19, 0, out);
+        if (memcmp(out, c[i].want, 19)) fprintf(stderr, "  dec_format got [%.19s] want [%s]\n", out, c[i].want);
+        CHECK(!memcmp(out, c[i].want, 19), c[i].why);
+    }
+    pal = pal_host_make((struct pal_host_cfg){86, 7, 24, 2 * 1024 * 1024});
+    if (!pal) { CHECK(0, "L006 boundary: host PAL"); return; }
+    fs[0].name = "AMT"; fs[0].type = 'N'; fs[0].field_len = 19; fs[0].dec = 0;
+    CHECK(dbf_create(pal, "BND.DBF", fs, 1, &tbl) == DBF_OK && tbl, "L006 boundary: dbf_create N(19,0)");
+    if (!tbl) { pal_host_free(pal); return; }
+    for (i = 0; i < sizeof c / sizeof c[0]; i++) {
+        xb_val v = xb_n(c[i].v);
+        CHECK(dbf_append_blank(tbl) == DBF_OK && dbf_replace(tbl, i + 1u, 0, &v) == DBF_OK,
+              "L006 boundary: REPLACE accepted");
+    }
+    CHECK(dbf_flush(tbl) == DBF_OK, "L006 boundary: flush");
+    dbf_close(tbl);
+    pal_host_free(pal);
+    n = readfile("BND.DBF", img, sizeof img);
+    for (i = 0; i < sizeof c / sizeof c[0]; i++) {
+        const unsigned char *b = rec_bytes(img, n, i + 1u, 1u, 19u);
+        if (b && memcmp(b, c[i].want, 19)) fprintf(stderr, "  stored [%.19s] want [%s]\n", (const char *)b, c[i].want);
+        CHECK(b && !memcmp(b, c[i].want, 19), c[i].why);
+    }
+}
+
 int main(int argc, char **argv)
 {
     const char *name = argc > 1 ? argv[1] : "blankdate";
@@ -190,6 +244,14 @@ int main(int argc, char **argv)
     else if (!strcmp(name, "overflow"))        { script = overflow_cmds; table = "E5"; }
     else if (!strcmp(name, "dateindex"))       { script = dateindex_cmds; table = "E3"; }
     else if (!strcmp(name, "dateindex-blank")) { script = dateindex_blank_cmds; table = "E3"; }
+    else if (!strcmp(name, "boundary")) {
+        snprintf(dir, sizeof dir, "build/samirdt/boundary");
+        snprintf(cmd, sizeof cmd, "rm -rf %s && mkdir -p %s", dir, dir);
+        if (command(cmd) || !getcwd(cwd, sizeof cwd) || chdir(dir)) return 2;
+        boundary_case();
+        if (chdir(cwd)) return 2;
+        return TEST_SUMMARY("test-samir-datatype boundary");
+    }
     else return 2;
     state_name = name;
     snprintf(path, sizeof path, GOLD "/sha256.txt");
