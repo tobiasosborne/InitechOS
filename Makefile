@@ -33249,6 +33249,8 @@ include harness/film_scene.mk
 include harness/emu/fcb_tps.mk
 # bead initech-3p1a: Special > Exit to InitechDOS + the TPS journey (reuses fcb_tps.mk).
 include harness/emu/exit_dos.mk
+# bead initech-13ig: EXEC of COMMAND.COM on the flagship (reuses exit_dos.mk).
+include harness/emu/execguard.mk
 
 # ===========================================================================
 # REAL gate: test-flair-itext (bead initech-tdnl.16, GUI-remediation R4.2;

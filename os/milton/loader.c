@@ -26,6 +26,7 @@
 #include "fat12.h"        /* FAT-sourced load (beads initech-saw): find + read file */
 #include "psp.h"          /* psp_save_vectors / psp_load_vectors (beads 509.8)    */
 #include "toolbox_gate.h" /* TBX_TENANT_PSP_BYTES -- the tenant block layout (tdnl.14) */
+#include "transient.h"    /* TRANSIENT_MAGIC -- the COMMAND.COM overlay is not a .COM (13ig) */
 /* InitechMZ parse + flat relocs (beads dtw.1; ADR-0003 DEC-08a). Pulled in via
  * the same-TU INCLUDE (not a separate object) so loader.c carries the mz_* code
  * directly: nothing in the tree links a standalone mz.o (the only other consumer,
@@ -1358,6 +1359,36 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
         if (child_psp) int21_mcb_exec_free(child_psp);
         return LOADER_ERR_READ;
     }
+
+    /* THE TRANSIENT IS NOT A PROGRAM (bead initech-13ig). On the flagship the
+     * boot volume's COMMAND.COM is the transient command interpreter linked at
+     * TRANSIENT_BASE behind a COMMAND3 header (os/milton/transient.h), not a
+     * flat .COM: running it here would JMP into the header bytes. DOS EXEC
+     * reports a file it cannot load as error 11, "Invalid format" (IBM DOS 3.30
+     * TR p. 6-200; the caller -- dBASE RUN -- then raises its error 92). The
+     * guard is by CONTENT like the MZ dispatch below (DEC-08a.4), so a copy of
+     * the overlay under any other name or path is refused the same way; the
+     * resident-interpreter route by NAME lives in kmain.c's EXEC seam. Nothing
+     * has been run yet, so the arena/MCB state is exactly as before the read. */
+#ifndef LOADER_MUT_NO_TRANSIENT_GUARD
+    {
+        uint32_t m = 0u;
+        if (got >= TRANSIENT_MAGIC_LEN) {
+            while (m < TRANSIENT_MAGIC_LEN && image[m] == (uint8_t)TRANSIENT_MAGIC[m])
+                m++;
+        }
+        if (m == TRANSIENT_MAGIC_LEN) {
+            ldr_serial_puts("LOADER-REFUSE-TRANSIENT name=");
+            ldr_serial_puts(name83);
+            ldr_serial_puts("\n");
+            if (child_psp) int21_mcb_exec_free(child_psp);
+            return LOADER_ERR_BAD_FORMAT;    /* -> INT21 000Bh at the EXEC seam */
+        }
+    }
+#else
+    /* MUTANT (Rule 6; make test-flair-execguard-mutant only): the pre-13ig
+     * loader runs the overlay's header as code. NEVER in a real build. */
+#endif
 
     /* DISPATCH BY CONTENT (DEC-08a.4 -- DOS-authentic: format from the first two
      * image bytes, NOT the extension). 'MZ'/'ZM' routes to the InitechMZ (.EXE)

@@ -29,6 +29,15 @@
  * transient was linked against must equal the running kernel's own -- a
  * transient linked against a different kernel build is refused LOUDLY
  * (MSG-DOS-0014 on the console, PANIC on serial), never jumped into.
+ *
+ * THE FILE IS NOT A PROGRAM (initech-13ig). COMMAND.COM on the boot volume is
+ * this overlay, linked at TRANSIENT_BASE -- not a flat .COM. An AH=4Bh EXEC
+ * that reads it (C:\COMMAND.COM, or any copy under another name) must never
+ * run its bytes at PROGRAM_IMAGE: os/milton/loader.c recognises the magic and
+ * refuses with LOADER_ERR_BAD_FORMAT (DOS EXEC error 11, "Invalid format";
+ * IBM DOS 3.30 TR p. 6-200), and a resident program's EXEC of COMMAND.COM by
+ * name is routed to exec_secondary once the transient is resident, exactly as
+ * the shell kernels route it to their resident interpreter (initech-n8q8).
  */
 #ifndef INITECH_TRANSIENT_H
 #define INITECH_TRANSIENT_H
@@ -42,6 +51,12 @@
 typedef struct transient_hdr {
     char     magic[8];       /* TRANSIENT_MAGIC                                */
     uint32_t entry;          /* void command_repl(int permanent)               */
+    uint32_t exec_secondary; /* void command_exec_secondary(const char *tail,
+                              *                             uint32_t len):
+                              * the COMMAND /C secondary processor a resident
+                              * program's EXEC of COMMAND.COM runs once the
+                              * transient is resident (initech-13ig; MS-DOS 3.3
+                              * Reference pp.46-47; ADR-0003 DEC-03/DEC-11).  */
     uint32_t load_end;       /* first byte past .data (the bytes on disk end)  */
     uint32_t bss_end;        /* first byte past .bss (zeroed by the kernel)    */
     uint32_t n_imports;      /* TRANSIENT_N_IMPORTS                            */

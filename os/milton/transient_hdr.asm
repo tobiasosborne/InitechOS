@@ -8,6 +8,7 @@ bits 32
 section .transient_hdr progbits alloc noexec nowrite align=4
 
 extern command_repl
+extern command_exec_secondary
 extern _tr_load_end
 extern _tr_bss_end
 extern fileio_fat_volume_label
@@ -20,6 +21,7 @@ global transient_hdr
 transient_hdr:
     db 'COMMAND3'                    ; TRANSIENT_MAGIC
     dd command_repl                  ; entry
+    dd command_exec_secondary        ; exec_secondary (initech-13ig)
     dd _tr_load_end                  ; load_end
     dd _tr_bss_end                   ; bss_end
     dd 5                             ; n_imports (TRANSIENT_N_IMPORTS)

@@ -47,6 +47,8 @@ endif
 $(foreach img,$(FLAIR_FIXTURE_IMAGES),$(eval $(call fixture-contract,$(img),$(FLAIR_FIXTURES))))
 # initech-mz9w: this derived variant also seeds the full-document input.
 FIXTURE_CONTENTS_$(FLAIR_DATA_ITEXT_FULL_IMG) += K4.TXT
+# initech-13ig: the execguard volume also seeds EXECGD.COM + CMD2.COM (the overlay).
+FIXTURE_CONTENTS_$(FLAIR_DATA_EXECGUARD_IMG) += EXECGD.COM CMD2.COM
 ifdef FIXTURE_MUT_UNDECLARED_VARIANT
 # Mutant (test-fixture-volumes-mutant, UNDECLARED_VARIANT): a flair-data
 # variant volume defined after the derivation above, so it has no contract.

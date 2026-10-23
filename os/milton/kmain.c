@@ -809,6 +809,31 @@ static int dir_visit(const dir_entry_t *e, void *user)
  *
  * loader_run_plan restores the invoking process, whether shell or resident
  * flat program (IBM DOS 3.30 TR pp. 6-196/200). */
+#if defined(BOOT_SHELL) || (defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS))
+/* The leaf an EXEC names is COMSPEC's COMMAND.COM (case-insensitive 8.3,
+ * NUL-terminated as do_exec resolves it). Shared by the shell kernels' resident
+ * route (initech-n8q8) and the flagship's transient route (initech-13ig). */
+static int exec_name_is_comspec(const char *name83)
+{
+    static const char comspec[] = "COMMAND.COM";
+    uint32_t k = 0u;
+    while (comspec[k] != '\0') {
+        char c = name83[k];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+        if (c != comspec[k]) return 0;
+        k++;
+    }
+    return name83[k] == '\0';
+}
+#endif
+#if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
+/* The flagship's command interpreter is the TRANSIENT (os/milton/transient.h):
+ * NULL until Special > Exit to InitechDOS reads + validates it, then its
+ * header's exec_secondary (command_exec_secondary, the COMMAND /C secondary
+ * processor). Set ONLY by exitdos_load_transient (initech-13ig). */
+static void (*g_transient_exec_secondary)(const char *tail, uint32_t len) =
+    (void (*)(const char *, uint32_t))0;
+#endif
 static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
                                     const char *cmd_tail, uint32_t cmd_tail_len,
                                     uint32_t env_block, uint8_t *out_rc)
@@ -822,20 +847,41 @@ static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
      * shell's own COMMAND builtin does (no disk image is loaded; the transient
      * file is a kernel-linked overlay, not a .COM). The processor's AH=4Dh
      * exit code is 0 (AUTHORED: no local source pins COMMAND /C's own code). */
-    {
-        static const char comspec[] = "COMMAND.COM";
-        uint32_t k = 0u;
-        while (comspec[k] != '\0' && cmd_upcase_char(name83[k]) == comspec[k])
-            k++;
-        if (comspec[k] == '\0' && name83[k] == '\0') {
-            (void)dir_start; (void)env_block;
-            command_exec_secondary(cmd_tail, cmd_tail_len);
-            if (out_rc) {
-                *out_rc = 0u;
-            }
-            return 0u;
+    if (exec_name_is_comspec(name83)) {
+        (void)dir_start; (void)env_block;
+        command_exec_secondary(cmd_tail, cmd_tail_len);
+        if (out_rc) {
+            *out_rc = 0u;
         }
+        return 0u;
     }
+#elif defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
+    /* COMSPEC child on the FLAGSHIP (initech-13ig). The interpreter is the
+     * transient overlay, resident from Exit to InitechDOS on: a program's EXEC
+     * of COMMAND.COM (dBASE RUN / !, MS-DOS 3.3 Reference pp.46-47 "COMMAND
+     * /C" -- "loads a second copy of COMMAND.COM") runs the SAME secondary
+     * processor the shell kernels run (initech-n8q8), never a disk image: the
+     * file on the boot volume is the overlay itself, not a .COM. With no
+     * transient resident (the desktop) there is no interpreter to run, so the
+     * EXEC falls through to the loader, where the name either is absent on the
+     * current volume (0002h) or reads the overlay and is refused by its magic
+     * (000Bh, loader.c) -- a loud DOS error either way, never the header run. */
+#ifndef KMAIN_MUT_EXEC_NO_COMSPEC
+    if (g_transient_exec_secondary != (void (*)(const char *, uint32_t))0 &&
+        exec_name_is_comspec(name83)) {
+        (void)dir_start; (void)env_block;
+        g_transient_exec_secondary(cmd_tail, cmd_tail_len);
+        if (out_rc) {
+            *out_rc = 0u;
+        }
+        return 0u;
+    }
+#else
+    /* MUTANT (Rule 6; make test-flair-execguard-mutant only): no route -- the
+     * EXEC of COMMAND.COM goes to the loader as before this bead. NEVER in a
+     * real build. */
+    (void)&exec_name_is_comspec;
+#endif
 #endif
     /* Bind the caller-selected volume; the shared loader now owns all caller
      * PSP/hook/CWD restoration. env_block=0 inherits a resident caller's env.
@@ -6122,12 +6168,19 @@ static void (*exitdos_load_transient(void))(int)
             exitdos_fail("transient linked against another kernel build", k);
     if (h->entry < TRANSIENT_BASE + (uint32_t)sizeof *h || h->entry >= h->load_end)
         exitdos_fail("transient entry outside its text", h->entry);
+    if (h->exec_secondary < TRANSIENT_BASE + (uint32_t)sizeof *h ||
+        h->exec_secondary >= h->load_end)
+        exitdos_fail("transient exec_secondary outside its text", h->exec_secondary);
     for (uint8_t *z = (uint8_t *)(uintptr_t)h->load_end;
          z < (uint8_t *)(uintptr_t)h->bss_end; z++)
         *z = 0u;
     serial_puts("COMMAND-TRANSIENT-OK bytes=");
     serial_putu(h->load_end - TRANSIENT_BASE);
     serial_putc('\n');
+    /* From here COMMAND.COM is resident: a program's EXEC of it runs the
+     * secondary processor (loader_exec_by_name, initech-13ig). */
+    g_transient_exec_secondary =
+        (void (*)(const char *, uint32_t))(uintptr_t)h->exec_secondary;
     return (void (*)(int))(uintptr_t)h->entry;
 }
 
