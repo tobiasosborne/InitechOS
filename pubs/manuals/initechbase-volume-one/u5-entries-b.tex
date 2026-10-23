@@ -242,6 +242,29 @@ Expressions as well as fields may be listed:
 \SeeAlso{DISPLAY, ?, SET DELETED, SET FILTER, SET HEADING, REPORT FORM}
 \end{XbaseEntry}
 
+% Using III+ U5-146/147; inspection mint, byte-exact host and emulator gates.
+\begin{XbaseEntry}{LIST MEMORY}{command}
+Lists the memory variables and their totals without pausing between screens.
+\Syntax
+\SyntaxLine{\kw{LIST MEMORY}}
+\Usage
+The entries and totals are the same as for \cmd{DISPLAY MEMORY}, including
+hidden outer variables and the program names of PRIVATE variables.
+No database need be open.  Variables and work areas are preserved.
+\SeeAlso{DISPLAY MEMORY, PUBLIC, PRIVATE, RELEASE}
+\end{XbaseEntry}
+
+\begin{XbaseEntry}{LIST STATUS}{command}
+Lists the open work areas, files, and working environment without pausing.
+\Syntax
+\SyntaxLine{\kw{LIST STATUS}}
+\Usage
+The report is the same as for \cmd{DISPLAY STATUS}.  It can be requested
+without an open database.  Record pointers, search results, and the selected
+work area are preserved.
+\SeeAlso{DISPLAY STATUS, SELECT, SET INDEX, SET FILTER, SET RELATION}
+\end{XbaseEntry}
+
 % LOCATE -- os/samir/cmd/query.c q_locate (default scope ALL with implicit
 % GO TOP; stores the FOR for CONTINUE; sets FOUND/EOF).  Gate:
 % test-samir-query.

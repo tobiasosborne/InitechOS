@@ -55,8 +55,8 @@
  *   - PARAMETERS by-REFERENCE write-back exactness (a bare WITH name aliasing the
  *     caller's var) -- we pass BY VALUE only (control-flow-and-procedures.md
  *     Open-q 6/7 + memory-variables.md Open-q 5).
- *   - The uninitialized PUBLIC/PRIVATE VALUE (Clipper .F.; III+ 1.1 parity
- *     unconfirmed) -- we init to XB_U (memory-variables.md Open-q 3).
+ *   - An unassigned PRIVATE declaration has no value; it hides the outer
+ *     definition until assigned. PUBLIC starts .F. (real dml/memory mint).
  *   - DO-name precedence (open PROCEDURE vs disk <name>.prg) -- we resolve only
  *     against the registered source's PROCEDURE blocks
  *     (control-flow-and-procedures.md Open-q 1).
@@ -1029,17 +1029,20 @@ void proc_set_suspend(xb_interp *ip, int (*fn)(xb_interp *))
 
 int proc_register(xb_interp *ip)
 {
+    proc_state *ps = proc_state_for(ip);
     /* Registration is per-interpreter construction: drop any state a freed
      * interpreter at the same (reused-arena) address left behind -- its ON
      * ERROR trap must not fire in the new one (initech-x5cc). */
 #ifndef PROC_MUTATE_KEEP_STALE
-    proc_state *ps = proc_state_for(ip);
     if (!ps)
         return -INTERP_ERR_NOMEM;
     rt_memset(ps, 0, (uint32_t)sizeof(*ps));   /* as proc_state_for's fresh slot */
 #endif
     xb_interp_ctx(ip)->on_error = proc_trap;
     xb_interp_ctx(ip)->on_escape = proc_escape;
+    xb_interp_ctx(ip)->program_name = ps->prgname;
+    xb_interp_ctx(ip)->on_error_text = ps->onerr;
+    xb_interp_ctx(ip)->on_escape_text = ps->onesc;
     return xb_interp_add_cmd_hook(ip, proc_cmd_hook, (void *)0);
 }
 

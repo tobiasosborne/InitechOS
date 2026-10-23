@@ -84,6 +84,7 @@
 #include "samir/value.h"
 #include "samir/rt.h"
 #include "samir/pal.h"
+#include "samir/set.h"
 
 /* ===================================================================== */
 /* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)            */
@@ -1401,6 +1402,171 @@ static int q_locate(xb_interp *ip, query_state *qs, const char *args, int *ec)
     wa_include_deleted(env,old);
     return rc;
 }
+
+/* Inspection layout comes from the real III+ 1.1 dml/status and dml/memory
+ * captures, not from the record-expression renderer. Using U5-108/109/146/147.
+ * Every accessor below is read-only: no SELECT, evaluation, or navigation. */
+typedef struct {
+    xb_interp *ip;
+    char line[Q_LINEBUF];
+    uint32_t n;
+    unsigned rows;
+    int display, stopped;
+} q_inspection;
+
+static void qi_text(q_inspection *q, const char *s)
+{ q_append_cstr(q->line,&q->n,sizeof q->line,s); }
+static void qi_pad(q_inspection *q, unsigned width)
+{ while(q->n<width) qi_text(q," "); }
+static void qi_uint(q_inspection *q, unsigned n, int width)
+{ q_append_uint_rj(q->line,&q->n,sizeof q->line,n,width); }
+static void qi_pause(q_inspection *q, int blank)
+{
+    samir_pal_t *pal=xb_interp_pal(q->ip);
+    int key;
+    if(!q->display || q->stopped)return;
+    /* Real III+ includes this prompt in ALTERNATE. MEMORY pages every 17
+     * variables; STATUS pauses after two areas and before its SET grid. */
+    q_putn(q->ip,"\r\nPress any key to continue...",30);
+    key=pal->conin_char?pal->conin_char(pal):-1;
+    q->stopped=key<0 || key==27;
+    if(blank)q_putn(q->ip,"\r\n",2);
+    q->rows=0;
+}
+static void qi_line(q_inspection *q)
+{
+    if(!q->stopped) {
+        if(q->display==2 && q->rows==17)qi_pause(q,0);
+        if(!q->stopped) { q_putn(q->ip,"\r\n",2);q_putn(q->ip,q->line,q->n);q->rows++; }
+    }
+    q->n=0;
+}
+static void qi_file(q_inspection *q, const char *name, const char *extension)
+{
+    samir_pal_t *pal=xb_interp_pal(q->ip);
+    unsigned n=0,end=0;
+    int drive=pal->curdrive?pal->curdrive(pal):-1;
+    if(name[0] && name[1]!=':' && drive>='A' && drive<='Z') {
+        char d[3]={(char)drive,':',0}; qi_text(q,d);
+    }
+    while(name[n]) { if(name[n]=='.')end=n;n++; }
+    if(!extension || !end)end=n;
+    for(n=0;n<end;n++) {
+        char c=q_up1(name[n]);if(c=='/')c='\\';
+        q_append(q->line,&q->n,sizeof q->line,&c,1);
+    }
+    if(extension)qi_text(q,extension);
+}
+static void qi_memory(q_inspection *q)
+{
+    xb_memvar_info mv;
+    unsigned cursor=0,count=0,bytes=0,cap=xb_interp_memvar_capacity();
+    while(xb_interp_memvar_next(q->ip,&cursor,&mv)) {
+        xb_val *v=&mv.value;
+        char type=xb_type_char(v->t);
+        count++;bytes+=v->t==XB_C||v->t==XB_M?v->u.c.len+2u:v->t==XB_L?2u:9u;
+        qi_text(q,mv.name);qi_pad(q,12);
+        qi_text(q,mv.is_public?"pub   ":"priv  ");
+        if(mv.hidden)qi_text(q,"(hidden)  ");
+        q_append(q->line,&q->n,sizeof q->line,&type,1);qi_text(q,"  ");
+        if(v->t==XB_C||v->t==XB_M)qi_text(q,"\"");
+        q_render_val(q->line,&q->n,sizeof q->line,v,xb_interp_ctx(q->ip),1);
+        if(v->t==XB_C||v->t==XB_M)qi_text(q,"\"");
+        if(v->t==XB_N) {
+            char raw[19];dec_format(v->u.n,19,8,raw);
+            qi_text(q,"  (");q_append(q->line,&q->n,sizeof q->line,raw,19);qi_text(q,")");
+        }
+        if(!mv.is_public && mv.program[0]) {
+            qi_pad(q,62);qi_file(q,mv.program,".prg");
+        }
+        qi_line(q);
+        if(q->stopped)return;
+    }
+    qi_uint(q,count,5);qi_text(q," variables defined, ");qi_uint(q,bytes,8);qi_text(q," bytes used");qi_line(q);
+    qi_uint(q,256-count,5);qi_text(q," variables available, ");qi_uint(q,bytes>cap?0:cap-bytes,6);qi_text(q," bytes available");qi_line(q);
+}
+static void qi_status(q_inspection *q)
+{
+    xb_interp *ip=q->ip;
+    wa_env *env=xb_interp_env(ip);
+    xb_ctx *ctx=xb_interp_ctx(ip);
+    const set_state *ss=set_get_state(ip);
+    /* Immutable defaults for options not accepted by this command processor;
+     * live supported options below come from the owning SET/work-area state. */
+    static const char names[]="ALTERNATE\0DELETED\0FIXED\0SAFETY\0"
+        "BELL\0DELIMITERS\0HEADING\0SCOREBOARD\0CARRY\0DEVICE\0HELP\0STATUS\0"
+        "CATALOG\0DOHISTORY\0HISTORY\0STEP\0CENTURY\0ECHO\0INTENSITY\0TALK\0"
+        "CONFIRM\0ESCAPE\0MENU\0TITLE\0CONSOLE\0EXACT\0PRINT\0UNIQUE\0DEBUG\0FIELDS\0";
+    const char *name=names;
+    unsigned areas=0;
+    int values[30]={ss?ss->alternate_on:0,wa_get_deleted(env),0,set_get_safety(ip),
+        0,0,ctx->set_heading,1,0,0,1,ctx->set_status,0,0,1,0,ctx->set_century,0,1,
+        set_get_talk(ip),0,set_get_escape(ip),1,1,ctx->set_console,ctx->set_exact,0,0,0,0};
+    qi_line(q);
+    for(int a=1;a<=WA_NAREAS;a++)if(wa_is_open(env,a)) {
+        const char *filter=wa_filter_text(env,a),*rel=wa_relation_text(env,a);
+#ifdef SAMIR_DML_MUTANT_status
+        if(a==2)continue; /* omit one real open work area */
+#endif
+        if(a==wa_selected(env)) { qi_text(q,"Currently Selected Database: ");qi_line(q); }
+        qi_text(q,"Select area: ");qi_uint(q,(unsigned)a,2);qi_text(q,", Database in Use: ");
+        qi_file(q,dbf_name(wa_table(env,a)),".dbf");qi_text(q,"   Alias: ");qi_text(q,wa_alias(env,a));qi_line(q);
+        for(int i=0;i<wa_index_count(env,a);i++) {
+            ndx_index *ix=wa_index(env,a,i);
+            qi_text(q,i+1==wa_master_order(env,a)?"    Master index file:  ":"           Index file:  ");
+            qi_file(q,ndx_name(ix),".ndx");qi_text(q,"  Key: ");qi_text(q,ndx_key_expr(ix));qi_text(q," ");qi_line(q);
+        }
+        if(wa_memo(env,a)) {
+            qi_text(q,"           Memo file:   ");qi_file(q,dbf_name(wa_table(env,a)),".dbt");qi_line(q);
+        }
+        if(*filter) { qi_text(q,"Filter: ");qi_text(q,filter);qi_line(q); }
+        if(*rel) {
+            const char *into=rel;
+            while(*into && rt_kw_word(into,"INTO\0",(int *)0)!=0)into++;
+            if(*into) {
+                qi_text(q,"    Related into: ");qi_text(q,q_skip_ws(into+4));qi_line(q);
+                qi_text(q,"    Relation: ");
+                q_append(q->line,&q->n,sizeof q->line,rel,(uint32_t)(into-rel));qi_line(q);
+            }
+        }
+        if(++areas%2==0)qi_pause(q,1);
+        qi_line(q);
+    }
+    if(ss && ss->alternate>=0) { qi_text(q,"Alternate file: ");qi_file(q,ss->alternate_name,(const char *)0);qi_line(q); }
+    qi_text(q,"File search path:   ");qi_line(q);
+    qi_text(q,"Default disk drive: ");
+    { samir_pal_t *pal=xb_interp_pal(ip);int d=pal->curdrive?pal->curdrive(pal):-1;
+      if(d>='A'&&d<='Z'){char drive[3]={(char)d,':',0};qi_text(q,drive);} }
+    qi_line(q);
+    qi_text(q,"Print destination:  PRN:");qi_line(q);
+    qi_text(q,"Margin = ");qi_uint(q,0,5);qi_line(q);
+    qi_text(q,"Current work area = ");qi_uint(q,(unsigned)wa_selected(env),4);qi_line(q);
+    qi_line(q);
+    if(ctx->on_error_text && *ctx->on_error_text) { qi_text(q,"On Error:      ");qi_text(q,ctx->on_error_text);qi_line(q); }
+    if(ctx->on_escape_text && *ctx->on_escape_text) { qi_text(q,"On Escape:     ");qi_text(q,ctx->on_escape_text);qi_line(q); }
+    qi_pause(q,1);
+    for(unsigned i=0;i<30;i++) {
+        unsigned col=q->n;
+        qi_text(q,name);qi_pad(q,col+11);qi_text(q,"- ");
+        qi_text(q,i==9?"SCRN":values[i]?"ON":"OFF");qi_pad(q,col+19);
+        name+=rt_strlen(name)+1;
+        if(i%4==3 || i==29)qi_line(q);
+    }
+    qi_line(q);qi_text(q,"Programmable function keys:");qi_line(q);
+    { static const char keys[]="assist;\0list;\0dir;\0display structure;\0display status;\0display memory;\0display;\0append;\0edit;\0";
+      const char *s=keys;
+      for(unsigned i=2;i<=10;i++){qi_text(q,"F");qi_uint(q,i,0);qi_pad(q,4);qi_text(q,"- ");qi_text(q,s);qi_line(q);s+=rt_strlen(s)+1;}}
+}
+
+static int q_inspect(xb_interp *ip, int what, int display, const char *tail, int *ec)
+{
+    q_inspection q;
+    if(*q_skip_ws(tail)) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
+    q.ip=ip;q.n=0;q.rows=0;q.display=display?(what==1?2:1):0;q.stopped=0;
+    if(what==0)qi_status(&q);else qi_memory(&q);
+    q_putn(ip,"\r\n",2);
+    return INTERP_OK;
+}
 static int query_cmd_hook(void *user, xb_interp *ip,
                           const char *verb, const char *args, int *err_code)
 {
@@ -1426,6 +1592,13 @@ static int query_cmd_hook(void *user, xb_interp *ip,
         wa_env *env = xb_interp_env(ip);
         int area = wa_selected(env);
         int is_display = (k == 1);
+        const char *tail=q_skip_ws(args);
+        int inspection=rt_kw_word(tail,"STATUS\0MEMORY\0",(int *)0);
+        if(inspection>=0) {
+            while(*tail && !q_isspace(*tail))tail++;
+            rc=q_inspect(ip,inspection,is_display,tail,err_code);
+            break;
+        }
         if (q_split_clauses(args, &qc) != 0) { if (err_code) *err_code = 0; return -INTERP_ERR_SYNTAX; }
         rc = q_walk(ip, area, &qc, /*is_display_default=*/is_display, err_code);
         break;

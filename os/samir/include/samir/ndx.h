@@ -198,6 +198,7 @@ uint16_t ndx_unique_flag(const ndx_index *idx);
  * lowercased). Capped at 100 bytes. CNAMES="LASTNAME + FIRSTNAME ".
  * [ndx.md ss2.1: piclist "lowercase" refuted by byte-check] */
 const char *ndx_key_expr(const ndx_index *idx);
+const char *ndx_name(const ndx_index *idx);
 
 /* -----------------------------------------------------------------------
  * Node I/O

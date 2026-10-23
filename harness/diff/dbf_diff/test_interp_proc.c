@@ -28,7 +28,7 @@
  *
  * GATED (loud-skip + cite plan Sec 7 -- NOT asserted):
  *   - PARAMETERS by-REFERENCE write-back exactness (we pass by value).
- *   - the uninitialized-PUBLIC VALUE (we init to XB_U / undefined).
+ *   PUBLIC's initial .F. is independently graded by dml/memory.
  *   - DO-name precedence (open PROCEDURE vs disk <name>.prg).
  *
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
@@ -464,10 +464,6 @@ static void test_gated_skips(samir_pal_t *pal)
         "SKIP [GATED plan Sec 7 / corpus Open-q]: PARAMETERS by-REFERENCE "
         "write-back exactness -- proc.c passes WITH args BY VALUE; a bare-name "
         "by-ref alias is corpus-open (memory-variables.md Open-q 5). NOT asserted.\n");
-    fprintf(stdout,
-        "SKIP [GATED plan Sec 7 / corpus Open-q]: uninitialized PUBLIC/PRIVATE "
-        "VALUE (Clipper inits .F.; III+ 1.1 parity unconfirmed) -- proc.c inits "
-        "to XB_U (memory-variables.md Open-q 3). Its VALUE is NOT asserted.\n");
     fprintf(stdout,
         "SKIP [GATED plan Sec 7 / corpus Open-q]: DO-name precedence (an open "
         "PROCEDURE vs a disk <name>.prg) -- proc.c resolves only against the "

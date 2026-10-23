@@ -1,0 +1,259 @@
+
+[DML-BEGIN]
+MEMORY-0
+    0 variables defined,        0 bytes used
+  256 variables available,   6000 bytes available
+
+    0 variables defined,        0 bytes used
+  256 variables available,   6000 bytes available
+
+MEMORY-DECLARED
+UNSET       pub   L  .F.
+    1 variables defined,        2 bytes used
+  255 variables available,   5998 bytes available
+
+UNSET       pub   L  .F.
+    1 variables defined,        2 bytes used
+  255 variables available,   5998 bytes available
+
+MEMORY-5-EACH
+C01         pub   C  ""
+N01         pub   N          -1.25  (        -1.25000000)
+D01         pub   D    /  /  
+L01         pub   L  .F.
+C02         priv  C  "Hi there"                               A:DMLTEST.prg
+N02         priv  N          -2.25  (        -2.25000000)     A:DMLTEST.prg
+D02         priv  D  07/24/86                                 A:DMLTEST.prg
+L02         priv  L  .T.                                      A:DMLTEST.prg
+C03         pub   C  "Hi there"
+N03         pub   N          -3.25  (        -3.25000000)
+D03         pub   D  07/24/86
+L03         pub   L  .T.
+C04         priv  C  "Hi there"                               A:DMLTEST.prg
+N04         priv  N          -4.25  (        -4.25000000)     A:DMLTEST.prg
+D04         priv  D  07/24/86                                 A:DMLTEST.prg
+L04         priv  L  .T.                                      A:DMLTEST.prg
+C05         pub   C  "Hi there"
+N05         pub   N          -5.25  (        -5.25000000)
+D05         pub   D  07/24/86
+L05         pub   L  .T.
+   20 variables defined,      142 bytes used
+  236 variables available,   5858 bytes available
+
+C01         pub   C  ""
+N01         pub   N          -1.25  (        -1.25000000)
+D01         pub   D    /  /  
+L01         pub   L  .F.
+C02         priv  C  "Hi there"                               A:DMLTEST.prg
+N02         priv  N          -2.25  (        -2.25000000)     A:DMLTEST.prg
+D02         priv  D  07/24/86                                 A:DMLTEST.prg
+L02         priv  L  .T.                                      A:DMLTEST.prg
+C03         pub   C  "Hi there"
+N03         pub   N          -3.25  (        -3.25000000)
+D03         pub   D  07/24/86
+L03         pub   L  .T.
+C04         priv  C  "Hi there"                               A:DMLTEST.prg
+N04         priv  N          -4.25  (        -4.25000000)     A:DMLTEST.prg
+D04         priv  D  07/24/86                                 A:DMLTEST.prg
+L04         priv  L  .T.                                      A:DMLTEST.prg
+C05         pub   C  "Hi there"
+Press any key to continue...
+N05         pub   N          -5.25  (        -5.25000000)
+D05         pub   D  07/24/86
+L05         pub   L  .T.
+   20 variables defined,      142 bytes used
+  236 variables available,   5858 bytes available
+
+MEMORY-20-EACH
+C01         pub   C  ""
+N01         pub   N          -1.25  (        -1.25000000)
+D01         pub   D    /  /  
+L01         pub   L  .F.
+C02         priv  C  "Hi there"                               A:DMLTEST.prg
+N02         priv  N          -2.25  (        -2.25000000)     A:DMLTEST.prg
+D02         priv  D  07/24/86                                 A:DMLTEST.prg
+L02         priv  L  .T.                                      A:DMLTEST.prg
+C03         pub   C  "Hi there"
+N03         pub   N          -3.25  (        -3.25000000)
+D03         pub   D  07/24/86
+L03         pub   L  .T.
+C04         priv  C  "Hi there"                               A:DMLTEST.prg
+N04         priv  N          -4.25  (        -4.25000000)     A:DMLTEST.prg
+D04         priv  D  07/24/86                                 A:DMLTEST.prg
+L04         priv  L  .T.                                      A:DMLTEST.prg
+C05         pub   C  "Hi there"
+N05         pub   N          -5.25  (        -5.25000000)
+D05         pub   D  07/24/86
+L05         pub   L  .T.
+C06         priv  C  "Hi there"                               A:DMLTEST.prg
+N06         priv  N          -6.25  (        -6.25000000)     A:DMLTEST.prg
+D06         priv  D  07/24/86                                 A:DMLTEST.prg
+L06         priv  L  .T.                                      A:DMLTEST.prg
+C07         pub   C  "Hi there"
+N07         pub   N          -7.25  (        -7.25000000)
+D07         pub   D  07/24/86
+L07         pub   L  .T.
+C08         priv  C  "Hi there"                               A:DMLTEST.prg
+N08         priv  N          -8.25  (        -8.25000000)     A:DMLTEST.prg
+D08         priv  D  07/24/86                                 A:DMLTEST.prg
+L08         priv  L  .T.                                      A:DMLTEST.prg
+C09         pub   C  "Hi there"
+N09         pub   N          -9.25  (        -9.25000000)
+D09         pub   D  07/24/86
+L09         pub   L  .T.
+C10         priv  C  "Hi there"                               A:DMLTEST.prg
+N10         priv  N         -10.25  (       -10.25000000)     A:DMLTEST.prg
+D10         priv  D  07/24/86                                 A:DMLTEST.prg
+L10         priv  L  .T.                                      A:DMLTEST.prg
+C11         pub   C  "Hi there"
+N11         pub   N         -11.25  (       -11.25000000)
+D11         pub   D  07/24/86
+L11         pub   L  .T.
+C12         priv  C  "Hi there"                               A:DMLTEST.prg
+N12         priv  N         -12.25  (       -12.25000000)     A:DMLTEST.prg
+D12         priv  D  07/24/86                                 A:DMLTEST.prg
+L12         priv  L  .T.                                      A:DMLTEST.prg
+C13         pub   C  "Hi there"
+N13         pub   N         -13.25  (       -13.25000000)
+D13         pub   D  07/24/86
+L13         pub   L  .T.
+C14         priv  C  "Hi there"                               A:DMLTEST.prg
+N14         priv  N         -14.25  (       -14.25000000)     A:DMLTEST.prg
+D14         priv  D  07/24/86                                 A:DMLTEST.prg
+L14         priv  L  .T.                                      A:DMLTEST.prg
+C15         pub   C  "Hi there"
+N15         pub   N         -15.25  (       -15.25000000)
+D15         pub   D  07/24/86
+L15         pub   L  .T.
+C16         priv  C  "Hi there"                               A:DMLTEST.prg
+N16         priv  N         -16.25  (       -16.25000000)     A:DMLTEST.prg
+D16         priv  D  07/24/86                                 A:DMLTEST.prg
+L16         priv  L  .T.                                      A:DMLTEST.prg
+C17         pub   C  "Hi there"
+N17         pub   N         -17.25  (       -17.25000000)
+D17         pub   D  07/24/86
+L17         pub   L  .T.
+C18         priv  C  "Hi there"                               A:DMLTEST.prg
+N18         priv  N         -18.25  (       -18.25000000)     A:DMLTEST.prg
+D18         priv  D  07/24/86                                 A:DMLTEST.prg
+L18         priv  L  .T.                                      A:DMLTEST.prg
+C19         pub   C  "Hi there"
+N19         pub   N         -19.25  (       -19.25000000)
+D19         pub   D  07/24/86
+L19         pub   L  .T.
+C20         priv  C  "Hi there"                               A:DMLTEST.prg
+N20         priv  N         -20.25  (       -20.25000000)     A:DMLTEST.prg
+D20         priv  D  07/24/86                                 A:DMLTEST.prg
+L20         priv  L  .T.                                      A:DMLTEST.prg
+   80 variables defined,      592 bytes used
+  176 variables available,   5408 bytes available
+
+C01         pub   C  ""
+N01         pub   N          -1.25  (        -1.25000000)
+D01         pub   D    /  /  
+L01         pub   L  .F.
+C02         priv  C  "Hi there"                               A:DMLTEST.prg
+N02         priv  N          -2.25  (        -2.25000000)     A:DMLTEST.prg
+D02         priv  D  07/24/86                                 A:DMLTEST.prg
+L02         priv  L  .T.                                      A:DMLTEST.prg
+C03         pub   C  "Hi there"
+N03         pub   N          -3.25  (        -3.25000000)
+D03         pub   D  07/24/86
+L03         pub   L  .T.
+C04         priv  C  "Hi there"                               A:DMLTEST.prg
+N04         priv  N          -4.25  (        -4.25000000)     A:DMLTEST.prg
+D04         priv  D  07/24/86                                 A:DMLTEST.prg
+L04         priv  L  .T.                                      A:DMLTEST.prg
+C05         pub   C  "Hi there"
+Press any key to continue...
+N05         pub   N          -5.25  (        -5.25000000)
+D05         pub   D  07/24/86
+L05         pub   L  .T.
+C06         priv  C  "Hi there"                               A:DMLTEST.prg
+N06         priv  N          -6.25  (        -6.25000000)     A:DMLTEST.prg
+D06         priv  D  07/24/86                                 A:DMLTEST.prg
+L06         priv  L  .T.                                      A:DMLTEST.prg
+C07         pub   C  "Hi there"
+N07         pub   N          -7.25  (        -7.25000000)
+D07         pub   D  07/24/86
+L07         pub   L  .T.
+C08         priv  C  "Hi there"                               A:DMLTEST.prg
+N08         priv  N          -8.25  (        -8.25000000)     A:DMLTEST.prg
+D08         priv  D  07/24/86                                 A:DMLTEST.prg
+L08         priv  L  .T.                                      A:DMLTEST.prg
+C09         pub   C  "Hi there"
+N09         pub   N          -9.25  (        -9.25000000)
+Press any key to continue...
+D09         pub   D  07/24/86
+L09         pub   L  .T.
+C10         priv  C  "Hi there"                               A:DMLTEST.prg
+N10         priv  N         -10.25  (       -10.25000000)     A:DMLTEST.prg
+D10         priv  D  07/24/86                                 A:DMLTEST.prg
+L10         priv  L  .T.                                      A:DMLTEST.prg
+C11         pub   C  "Hi there"
+N11         pub   N         -11.25  (       -11.25000000)
+D11         pub   D  07/24/86
+L11         pub   L  .T.
+C12         priv  C  "Hi there"                               A:DMLTEST.prg
+N12         priv  N         -12.25  (       -12.25000000)     A:DMLTEST.prg
+D12         priv  D  07/24/86                                 A:DMLTEST.prg
+L12         priv  L  .T.                                      A:DMLTEST.prg
+C13         pub   C  "Hi there"
+N13         pub   N         -13.25  (       -13.25000000)
+D13         pub   D  07/24/86
+Press any key to continue...
+L13         pub   L  .T.
+C14         priv  C  "Hi there"                               A:DMLTEST.prg
+N14         priv  N         -14.25  (       -14.25000000)     A:DMLTEST.prg
+D14         priv  D  07/24/86                                 A:DMLTEST.prg
+L14         priv  L  .T.                                      A:DMLTEST.prg
+C15         pub   C  "Hi there"
+N15         pub   N         -15.25  (       -15.25000000)
+D15         pub   D  07/24/86
+L15         pub   L  .T.
+C16         priv  C  "Hi there"                               A:DMLTEST.prg
+N16         priv  N         -16.25  (       -16.25000000)     A:DMLTEST.prg
+D16         priv  D  07/24/86                                 A:DMLTEST.prg
+L16         priv  L  .T.                                      A:DMLTEST.prg
+C17         pub   C  "Hi there"
+N17         pub   N         -17.25  (       -17.25000000)
+D17         pub   D  07/24/86
+L17         pub   L  .T.
+Press any key to continue...
+C18         priv  C  "Hi there"                               A:DMLTEST.prg
+N18         priv  N         -18.25  (       -18.25000000)     A:DMLTEST.prg
+D18         priv  D  07/24/86                                 A:DMLTEST.prg
+L18         priv  L  .T.                                      A:DMLTEST.prg
+C19         pub   C  "Hi there"
+N19         pub   N         -19.25  (       -19.25000000)
+D19         pub   D  07/24/86
+L19         pub   L  .T.
+C20         priv  C  "Hi there"                               A:DMLTEST.prg
+N20         priv  N         -20.25  (       -20.25000000)     A:DMLTEST.prg
+D20         priv  D  07/24/86                                 A:DMLTEST.prg
+L20         priv  L  .T.                                      A:DMLTEST.prg
+   80 variables defined,      592 bytes used
+  176 variables available,   5408 bytes available
+
+MEMORY-SHADOW
+SHADOW      pub   (hidden)  C  "outer"
+SHADOW      priv  N         123.5  (       123.50000000)      A:DMLTEST.prg
+    2 variables defined,       16 bytes used
+  254 variables available,   5984 bytes available
+
+SHADOW      pub   (hidden)  C  "outer"
+SHADOW      priv  N         123.5  (       123.50000000)      A:DMLTEST.prg
+    2 variables defined,       16 bytes used
+  254 variables available,   5984 bytes available
+
+MEMORY-RESTORED
+SHADOW      pub   C  "outer"
+    1 variables defined,        7 bytes used
+  255 variables available,   5993 bytes available
+
+SHADOW      pub   C  "outer"
+    1 variables defined,        7 bytes used
+  255 variables available,   5993 bytes available
+
+outer
+[DML-END]

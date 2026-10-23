@@ -717,6 +717,9 @@ typedef struct xb_ctx {
      * control code that unwinds (INTERP_RC_CANCEL / INTERP_RC_QUIT). Set by
      * proc.c; NULL -> Esc is never polled. initech-39e5 (audit L002). */
     int (*on_escape)(void *ip);
+    /* Read-only procedure metadata for LIST STATUS/MEMORY (Using U5-108/109).
+     * NULL without a procedure module. Buffers belong to that module. */
+    const char *program_name, *on_error_text, *on_escape_text;
 } xb_ctx;
 
 /*

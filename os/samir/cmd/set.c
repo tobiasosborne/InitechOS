@@ -452,13 +452,14 @@ static int do_set_filter(xb_interp *ip, set_state *ss, const char *args, int *er
  * GATED -- relation plumbing not yet present. Stores raw text.
  * Ref: set-commands.md Sec 3.5 (SET RELATION TO <key> INTO <alias>).
  */
-static int do_set_relation(set_state *ss, const char *args, int *err_code)
+static int do_set_relation(xb_interp *ip, set_state *ss, const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
     /* consume "TO" keyword if present */
     s = s_skip_to(s);
     s_copy_trim(ss->relation_text, (uint32_t)SET_GATED_TEXT_CAP, s);
     ss->have_relation = 1;
+    wa_set_relation_text(xb_interp_env(ip),wa_selected(xb_interp_env(ip)),ss->relation_text);
     /* GATED: runtime relation effect deferred -- follow-up bead required. */
     if (err_code) *err_code = 0;
     return INTERP_OK;
@@ -508,6 +509,7 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
 {
     int i;
     ss->alternate=-1;ss->alternate_on=0;
+    ss->alternate_name[0]=0;
     xb_interp_ctx(ip)->mirror_output=alternate_output;
     xb_interp_ctx(ip)->mirror_user=ip;
 
@@ -639,6 +641,7 @@ static int set_cmd_hook(void *user, xb_interp *ip,
              if(!dot && j+4<sizeof name)rt_memcpy(name+j,".TXT",5);}
             ss->alternate=pal->open(pal,name,PAL_WR|PAL_CREATE|PAL_TRUNC);
             if(ss->alternate<0){if(err_code)*err_code=8;return -INTERP_ERR_EVAL;}
+            s_copy_trim(ss->alternate_name,sizeof ss->alternate_name,name);
             return CMD_OK;
         }
         if(err_code)*err_code=10;
@@ -689,7 +692,7 @@ static int set_cmd_hook(void *user, xb_interp *ip,
     }
 
     case 9: { /* RELATION */
-        int rc = do_set_relation(ss, s, err_code);
+        int rc = do_set_relation(ip, ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 

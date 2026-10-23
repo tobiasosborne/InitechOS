@@ -94,6 +94,7 @@
  */
 typedef struct {
     char     name[FLOW_MAX_NAME];  /* upper-cased, NUL-terminated */
+    char     program[16];          /* creating .PRG, memory mint's last column */
     xb_val   val;                  /* C/M bytes live in the memvar arena */
     int      live;                 /* 0 = released slot */
     int      level;                /* DO-call depth at creation (0 = top) */
@@ -108,6 +109,7 @@ typedef struct {
     char     *arena;               /* memvar byte arena (names copies + C/M) */
     uint32_t  arena_cap;
     uint32_t  arena_used;
+    const char *program;
 
     /* scope (S5.7): the current DO-call nesting depth. A new memvar created by
      * STORE/= takes this level UNLESS the name is already visible (then the
@@ -162,6 +164,7 @@ static void flow_reset(flow_state *fs)
     fs->saved_user   = (void *)0;
     fs->last_error   = 0;
     fs->cur_level    = 0;
+    fs->program      = (const char *)0;
     for (i = 0; i < FLOW_MAX_MEMVARS; i++) {
         fs->vars[i].live      = 0;
         fs->vars[i].level     = 0;
@@ -326,6 +329,15 @@ static int memvar_retained(const flow_state *fs, int slot)
     return 0;
 }
 
+static void memvar_program(memvar *v, const char *s)
+{
+    unsigned n = 0;
+    if (s) while (s[n] && n < sizeof(v->program)-1) {
+        v->program[n] = s[n]; n++;
+    }
+    v->program[n] = 0;
+}
+
 #ifndef SAMIR_CORE_MUTATE_MEMVAR_RECLAIM
 static int memvar_reclaim(flow_state *fs, int slot, xb_val *value)
 {
@@ -424,6 +436,7 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
         fs->vars[slot].level     = fs->cur_level;
         fs->vars[slot].is_public = 0;
         fs->vars[slot].shadows   = -1;
+        memvar_program(&fs->vars[slot], fs->program);
     } else {
 #ifndef SAMIR_CORE_MUTATE_MEMVAR_RECLAIM
         if (memvar_reclaim(fs, slot, &value) != INTERP_OK)
@@ -1710,6 +1723,7 @@ int xb_interp_store(xb_interp *ip, const char *name, const xb_val *v)
         ctx->resolve = flow_resolve;
         ctx->user    = fs;
     }
+    fs->program = ctx ? ctx->program_name : (const char *)0;
     return memvar_set(fs, name, v);
 }
 
@@ -1725,6 +1739,30 @@ int xb_interp_get_memvar(xb_interp *ip, const char *name, xb_val *out)
     *out = fs->vars[slot].val;
     return 0;
 }
+
+int xb_interp_memvar_next(xb_interp *ip, unsigned *cursor, xb_memvar_info *out)
+{
+    flow_state *fs = flow_lookup(ip);
+    if (!fs || !cursor || !out) return 0;
+    while (*cursor < (unsigned)fs->nvars) {
+        unsigned slot = (*cursor)++;
+        memvar *v = &fs->vars[slot];
+        if (!memvar_retained(fs, (int)slot) || v->val.t == XB_U) continue;
+        out->name = v->name;
+        out->program = v->program;
+        out->value = v->val;
+        out->is_public = v->is_public;
+        out->hidden = !v->live;
+        out->level = v->level;
+#ifdef SAMIR_DML_MUTANT_memory
+        out->is_public = !out->is_public; /* expose the wrong scope */
+#endif
+        return 1;
+    }
+    return 0;
+}
+
+unsigned xb_interp_memvar_capacity(void) { return FLOW_MEMVAR_ARENA; }
 
 /* ===================================================================== */
 /* S5.7 scope model -- the DO-call level stack over the memvar table       */
@@ -1813,8 +1851,10 @@ int xb_interp_declare_public(xb_interp *ip, const char *name)
     fs->vars[slot].level     = 0;          /* PUBLIC is a level-0 global */
     fs->vars[slot].is_public = 1;
     fs->vars[slot].shadows   = -1;
-    /* Uninitialized PUBLIC value GATED (memory-variables.md Open-q 3): XB_U. */
-    fs->vars[slot].val       = xb_u();
+    fs->vars[slot].program[0] = 0;
+    /* Real III+ memory mint, MEMORY-DECLARED (Using U5-108): PUBLIC starts
+     * Logical false, unlike an unassigned PRIVATE declaration. */
+    fs->vars[slot].val       = xb_l(0);
     return INTERP_OK;
 }
 
@@ -1856,6 +1896,7 @@ int xb_interp_declare_private(xb_interp *ip, const char *name)
     fs->vars[slot].level     = fs->cur_level;
     fs->vars[slot].is_public = 0;
     fs->vars[slot].shadows   = hidden;     /* restore this on scope_leave */
+    memvar_program(&fs->vars[slot], xb_interp_ctx(ip)->program_name);
     /* Uninitialized PRIVATE value GATED: XB_U (memory-variables.md Open-q 3). */
     fs->vars[slot].val       = xb_u();
     return INTERP_OK;
@@ -1944,6 +1985,8 @@ int samir_do_n(xb_interp *ip, const char *prg, uint32_t plen)
     if (!fs)
         return -INTERP_ERR_NOMEM;
     fs->last_error = 0;
+
+    fs->program = xb_interp_ctx(ip)->program_name;
 
     n = split_lines(prg, plen, (flow_line *)0, FLOW_MAX_LINES);
     if (n < 0) {

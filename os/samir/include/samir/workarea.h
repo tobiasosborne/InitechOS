@@ -603,6 +603,11 @@ int wa_attach_index(wa_env *, int area, ndx_index *);
  */
 struct xb_interp;
 int wa_set_filter(struct xb_interp *, int area, const char *, int *ec);
+const char *wa_filter_text(const wa_env *, int area);
+/* SET RELATION's existing stored intent belongs to its work area. Navigation
+ * remains gated in set.c; inspection never evaluates it or moves a cursor. */
+const char *wa_relation_text(const wa_env *, int area);
+void wa_set_relation_text(wa_env *, int area, const char *);
 void wa_set_deleted(wa_env *, int on);
 int wa_get_deleted(const wa_env *);
 int wa_include_deleted(wa_env *, int on);

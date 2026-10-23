@@ -108,6 +108,7 @@ typedef enum {
 typedef struct {
     pal_fd alternate;
     int alternate_on;
+    char alternate_name[128];
     /* --- Stored toggles (non-EXACT) --- */
     int  century;           /* 0 = OFF (default), 1 = ON */
     int  talk;              /* 1 = ON (default), 0 = OFF */
