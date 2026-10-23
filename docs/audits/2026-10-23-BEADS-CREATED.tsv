@@ -1,0 +1,133 @@
+iword	initech-gj7z	IWORD: honor Original Document Backup before replacing a saved version
+iword	initech-10bx	IWORD: reject invalid filename spaces without silently changing the destination
+iword	initech-aucx	IWORD: keep status and modal prompts reachable after window resize
+iword	initech-qv7t	FLAIR/IWORD: deliver Finder power requests to Word Exit and expose the save decision
+iword	initech-tbgk	Toolbox/IWORD: detect or eliminate silent directory enumeration truncation
+iword	initech-hift	IWORD Look: restore cancellation, text scrolling and adjacent-document navigation
+iword	initech-o3py	IWORD Search: translate Ctrl-M from the actual FLAIR key event
+iword	initech-ri4c	IWORD: distinguish zero margins from invalid numeric input
+iword	initech-f4xa	IWORD: consume the selected entry and status measurement units
+iword	initech-qiy0	IWORD: support the verified soft-page code variants in real multipage WP5 files
+iword	initech-q7fu	IWORD: implement inline Center and Flush Right codes and their entry commands
+iword	initech-1zk9	IWORD: add page navigation and a real Go To prompt
+iword	initech-mxv5	IWORD: share word boundaries for Ctrl-arrow movement and Delete Word
+iword	initech-25ak	IWORD: add confirmed delete-to-line and delete-to-page commands
+iword	initech-ej9b	IWORD: connect document hit testing and scrollbars to its viewport
+iword	initech-gycm	IWORD: implement Insert/typeover as an editor mode
+iword	initech-y19x	IWORD: implement Repeat Value and Home-Space prefix actions
+iword	initech-a092	IWORD Block: connect paragraph extension and code-aware Search
+iword	initech-5nnt	IWORD Block: save the selected stream as an independent WP5 file
+iword	initech-bp4s	IWORD Switch: add secondary-document switching and block case conversion
+iword	initech-7bsm	IWORD: add timed document recovery through the save lifecycle
+iword	initech-hiai	IWORD List Files: implement typed, default and Other Directory paths
+iword	initech-7aou	IWORD List Files: add safe Delete, Move/Rename and Copy operations
+iword	initech-1xzf	IWORD List Files: add Short/Long Display mode
+iword	initech-jxn8	IWORD List Files: implement Find and Name Search over the directory model
+iword	initech-eum2	IWORD Setup: add the Display submenu and one verified display consumer
+iword	initech-ppsb	IWORD Setup: add initial document settings and their creation-time consumer
+iword	initech-5vnb	IWORD Setup: implement keyboard layout selection through actual key dispatch
+iword	initech-ndqm	IWORD Setup: connect Location of Files to a shared path resolver
+iword	initech-eo91	IWORD Format: build the Page submenu over the document page model
+iword	initech-nto1	IWORD Format: build the Document submenu with a real document setting
+iword	initech-2lke	IWORD Format: build the Other submenu from independently captured behavior
+iword	initech-xuq9	IWORD Format Line: implement hyphenation and its zone as one line-break policy
+iword	initech-8454	IWORD Format Line: add line-height setting and vertical layout support
+iword	initech-dpvm	IWORD Format Line: implement line numbering with page-aware output
+iword	initech-g5fr	IWORD Format Line: implement widow and orphan pagination policy
+iword	initech-c9v4	IWORD: implement Tab Set and Tab Align through one tab-stop model
+iword	initech-gv6l	IWORD: replace the Help placeholder with reachable context and key help
+iword	initech-5rr7	IWORD: add merge field codes and a bounded Merge/Sort execution path
+iword	initech-yma5	IWORD: implement reverse Indent through the existing paragraph geometry engine
+iword	initech-ht5v	IWORD: implement the Date/Outline menu with a real dated or numbered result
+iword	initech-doxv	IWORD: implement Mark Text with an independently verified marking consumer
+iword	initech-o6vb	IWORD: implement the Face A Style command over persisted style definitions
+iword	initech-z9vj	IWORD: implement Graphics insertion and a bounded native document renderer
+iword	initech-pmz9	IWORD: implement bounded macro definition and playback as one subsystem
+iword	initech-u2to	IWORD: provide a safe Shell command handoff and return
+iword	initech-ctql	IWORD: implement Screen Rewrite and split-view commands
+iword	initech-x6wv	IWORD: implement bounded Text In/Out conversion through the WP5 core
+iword	initech-mpim	IWORD: show unavailable Font and Format choices consistently
+iword	initech-7t9e	IWORD manual: correct Esc instructions for leaving List Files
+desktop	initech-xkr6	Present and reveal Finder keyboard selection
+desktop	initech-fbo4	Add executable launching to Finder File Open and Ctrl-O
+desktop	initech-4nxn	Correct the TPS manual's shipped exit-to-DOS procedure
+das	initech-kxrk	Keep GUI command keys out of the DOS Control-Break input path
+das	initech-ulqb	Use current text-window geometry and repaint every scroll change
+das	initech-hnhy	Commit ledger Return input and display file-copy failures
+das	initech-0xs6	Let Calculator participate in shutdown and explain a refused quit
+das	initech-c8w7	Redraw both menu bars after applying desktop preferences
+das	initech-j2ts	Activate an already-running accessory and report slot capacity clearly
+das	initech-j89c	Keep the film ledger total within its reachable content area
+das	initech-dbp1	Show the actual film startup failure on the panic screen
+das	initech-yhqb	Make Scrapbook capacity notices fit the alert contract
+das	initech-mox1	Give Standard File filename fields caret and selection editing
+das	initech-hjgn	Add anchored Shift-arrow selection to the shared text applications
+das	initech-4hkk	Provide bounded Undo for destructive InitechText edits
+das	initech-fxrq	Connect Calculator Copy and Paste to the shared Scrap
+das	initech-ddyn	Add cancellation to the real modal FILE COPY operation
+das	initech-lclc	Build a bounded usable InitechPaint drawing surface
+das	initech-qutz	Add Paint picture Open and Save through one verified native format
+das	initech-57o4	Define and render the extended MacRoman text repertoire
+das	initech-669c	Offer mouse reading of long Scrapbook text clips
+das	initech-m6v0	Render Calculator held-key feedback through release delivery
+das	initech-c2x5	Provide text-surface I-beam feedback and timed caret blinking
+das	initech-tgt0	Make Date and Time edit-snapshot behavior clear
+das	initech-yvbh	Correct the TPS manual exit procedure for shipped AUTOEXEC media
+dos	initech-c80y	Stop interrupted TYPE and DIR before consuming invalid syscall results
+dos	initech-ijom	Transfer batch control on a plain invocation and reserve return for CALL
+dos	initech-r7gf	Execute complete batch files or reject an oversized script before execution
+dos	initech-hgeq	Resolve qualified executable suffixes and preserve meaningful EXEC failures
+dos	initech-wel7	Expose the child exit status after COMMAND /C
+dos	initech-p00t	Complete FIND file operands, quoted strings, validation and result status
+dos	initech-g8x3	Apply DOS hidden and system attribute filtering in handle searches
+dos	initech-sosa	Preserve the last completed command template after Ctrl-C
+dos	initech-480p	Render the foreign-MZ refusal reason on the panic screen before halting
+dos	initech-xfg8	Use one correct environment-expansion path for prompt and batch input
+dos	initech-z3hr	Provide a secondary interactive COMMAND session with EXIT back to its caller
+dos	initech-tyvt	Keep batch arguments beyond percent-9 and correct the SHIFT manual
+dos	initech-shkp	Honor SORT starting columns and reject unsupported options
+dos	initech-0qw1	Offer the DOS batch-termination question and support continuing with N
+dos	initech-f8f0	Implement DEL directory as confirmed deletion of its contained files
+dos	initech-f6p0	Add DATE and TIME entry prompts and TIME fractional-field parsing
+dos	initech-j97r	Implement prompt-level ECHO state and the blank-line shorthand
+dos	initech-96gj	Expand PROMPT $V using the native DOS version contract
+dos	initech-0xg1	Validate BREAK operands against an independently captured DOS grammar
+dos	initech-07yn	Show and clear the MORE indicator at interactive page waits
+samir	initech-o9l9	SAMIR: remove failed new INDEX, SORT and COPY FILE outputs so retry works
+samir	initech-ywqf	SAMIR: refresh the live memo reader after a successful replacement
+samir	initech-qvpw	SAMIR: infer INDEX key geometry independently of the current record and enforce its limit
+samir	initech-s872	SAMIR: accept complete 254-byte console commands with STATUS both off and on
+samir	initech-aql0	SAMIR: run programs within the advertised byte limit regardless of short-line count
+samir	initech-gmt0	SAMIR: set both BOF and EOF for physically empty work areas
+samir	initech-9uqp	SAMIR desktop launch: provide its terminal controls and consume BEL correctly
+samir	initech-ra46	SAMIR: resolve nested DO calls to disk PRGs
+samir	initech-9t8c	SAMIR: add a bounded SAY, GET and READ form workflow
+samir	initech-oxte	SAMIR: open and edit PRG files through MODIFY COMMAND
+samir	initech-hikn	SAMIR: connect UNIQUE index creation and SET UNIQUE to the NDX engine
+samir	initech-60hn	SAMIR: add a common printer output route for LIST and print settings
+samir	initech-8rrq	SAMIR: support literal TEXT blocks and program command echo in the flow executor
+samir	initech-lo66	SAMIR: apply SET FIXED through the existing numeric formatter
+samir	initech-13d3	SAMIR: recognize four-letter command and keyword abbreviations consistently
+samir	initech-f99h	SAMIR: implement DISPLAY/LIST STATUS and MEMORY inspection subcommands
+samir	initech-pdj1	SAMIR: retain, recall and list command history
+samir	initech-51yc	SAMIR: preserve typed precondition and malformed-index errors at command boundaries
+i123	initech-3s12	I123 B02: Reclaim erased default cells and reuse replacement label storage
+i123	initech-3rqz	I123 B03: Format supported high decimal counts without a scaled-integer ceiling
+i123	initech-li7r	I123 B04: Resume Finder power actions after an asynchronous worksheet Save
+i123	initech-sd7r	I123 B05: Return prompts and ordinary error notices to their proper caller
+i123	initech-3qtt	I123 B06: Render and hit-test the visible part of an oversized active column
+i123	initech-2rj5	I123 B07: Accept the documented leading dollar sign in numeric entry
+i123	initech-6edn	I123 B08: Supply the existing NOW evaluator with the guest clock on recalculation
+i123	initech-bnps	I123 B09: Complete the remaining Worksheet branch and its Undo workflow
+i123	initech-0c0t	I123 B10: Complete inline editing and F4 reference-form cycling
+i123	initech-fyji	I123 B11: Complete Copy destination tiling and interactive range anchoring
+i123	initech-tx41	I123 B12: Complete named-range reassignment, formula display and F3 selection
+i123	initech-rl2g	I123 B13: Complete the remaining Range menu branch
+i123	initech-umts	I123 B14: Complete the remaining File branch and worksheet file context
+i123	initech-s5c8	I123 B15: Connect the worksheet vertical scroll bar to the retained view
+i123	initech-3o9o	I123 B16: Implement END status and block navigation
+i123	initech-suht	I123 B17: Provide the native Add-In branch lifecycle
+i123	initech-q3oh	I123 B18: Keep moved worksheet column-span metadata consistent with Lotus files
+i123	initech-3cl2	I123 B19: Explain invalid 8.3 names and no-space saves accurately
+i123	initech-i4x7	I123 B20: Keep complete selected menu descriptions readable
+i123	initech-j5ob	I123 B21: Expose and repaint CAPS and NUM worksheet status
