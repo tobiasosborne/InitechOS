@@ -269,6 +269,10 @@ typedef struct i123_calc {
 /* Carve `mem` into the per-cell scratch for sheets of up to cell_cap cells. */
 int i123_calc_init(i123_calc_t *cx, void *mem, uint32_t len, uint32_t cell_cap,
                    i123_calc_t *nested);
+/* Supply one real Gregorian clock snapshot (1900..2099). A refused snapshot
+ * clears have_now, so @NOW cannot reuse a stale successful read. */
+int i123_calc_clock(i123_calc_t *cx, uint16_t year, uint8_t month, uint8_t day,
+                    uint8_t hour, uint8_t minute, uint8_t second);
 #define I123_CALC_BYTES(cap) ((uint32_t)(cap) * (1u + (uint32_t)sizeof(i123_frame_t)) + 16u)
 
 /* Evaluate code as the formula of (col,row). The result never references

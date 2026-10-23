@@ -10434,7 +10434,7 @@ CP_EXE := $(BUILD)/tenant/cpanels.exe
 # gate-local volume under the same name.
 I123_APP_SRC := os/i123/app/face_a.c os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c \
                 os/i123/core/formula.c os/i123/core/eval.c os/i123/core/recalc.c os/i123/core/range.c os/i123/core/menu.c
-I123_APP_DEP := os/i123/core/i123.h os/i123/core/menu.h os/i123/core/menu_data.h spec/i123/wk1_format.h spec/i123/wk1_formula.h
+I123_APP_DEP := os/i123/core/i123.h os/i123/core/menu.h os/i123/core/menu_data.h spec/i123/wk1_format.h spec/i123/wk1_formula.h spec/cpanels_record.h
 $(eval $(call tenant-exe-rules,i123,$(I123_APP_SRC),-Ios/i123/core,$(I123_APP_DEP),))
 $(eval $(call tenant-exe-rules,i123_arrows_dead,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_ARROWS_DEAD,$(I123_APP_DEP),))
 I123_EXE := $(BUILD)/tenant/i123.exe
@@ -14814,7 +14814,7 @@ test-i123-recalc-order-mutant: $(BUILD)/test_i123_recalc_mutant_I123_MUT_NO_PREC
 # ---------------------------------------------------------------------------
 TEST_I123_QUIT   := $(BUILD)/test_i123_quit
 I123_QUIT_FS     := $(BUILD)/i123_quit_fs
-I123_QUIT_DEPS   := harness/proptest/test_i123_quit.c os/i123/app/face_a.c os/apps/tbx/tbx.h os/apps/tbx/tbx_save.h spec/toolbox_gate.h spec/event_model.h $(I123_CORE_SRC) $(I123_CORE_HDR)
+I123_QUIT_DEPS   := harness/proptest/test_i123_quit.c os/i123/app/face_a.c os/apps/tbx/tbx.h os/apps/tbx/tbx_save.h spec/toolbox_gate.h spec/event_model.h $(I123_CORE_SRC) $(I123_CORE_HDR) spec/cpanels_record.h
 I123_QUIT_CFLAGS := $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/apps/tbx $(I123_CORE_INC)
 $(TEST_I123_QUIT): $(I123_QUIT_DEPS) | $(BUILD)
 	$(CC) $(I123_QUIT_CFLAGS) -o $@ harness/proptest/test_i123_quit.c $(I123_CORE_SRC)
@@ -23911,6 +23911,7 @@ RECORD_DATA_i123_files = $(BUILD)/flair_i123_file_data.img
 # B13: same locked entry trace as the saved-WK1 QEMU gate; Rule-14 capture.
 RECORD_SCRIPTS += i123_entry
 RECORD_SPEC_i123_entry = $(FLAIR_I123_ENTRY)
+include harness/diff/wk1_diff/i123_numeric.mk
 RECORD_MARKER_i123_entry = TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="$(I123_ENTRY_TAIL)" fg=1 bg=0 -> 0
 RECORD_SETTLE_i123_entry = 120
 # 147 recorded events (~0.5 s each at a 120 ms settle) outlive the 6000-tick
@@ -32311,8 +32312,11 @@ $(BUILD)/test_i123_entry_mutant: $(I123_ENTRY_DEPS) | $(BUILD)
 	$(CC) $(I123_QUIT_CFLAGS) -DI123_MUT_ENTRY_75 -o $@ $< $(I123_CORE_SRC)
 .PHONY: test-i123-entry test-i123-entry-mutant
 test-i123-entry: $(BUILD)/test_i123_entry
+	$(call need_lotus_goldens,test-i123-entry)
 	@mkdir -p $(BUILD)/i123-entry-fs
 	@$< $(BUILD)/i123-entry-fs
+	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(BUILD)/i123-entry-fs/CURRENCY.WK1 > $(BUILD)/i123-entry-fs/CURRENCY.ref
+	@grep -q 'NUMBER.*Currency2 c0 r0 num=12.34' $(BUILD)/i123-entry-fs/CURRENCY.ref && grep -q 'FORMULA.*c1 r0 cached=12.34' $(BUILD)/i123-entry-fs/CURRENCY.ref && grep -q 'consumed=.* OK$$' $(BUILD)/i123-entry-fs/CURRENCY.ref
 	@printf '>>> test-i123-entry: green (75/104/240/241, tail viewport, beep/refusal, Backspace, commit, VALUE/EDIT)\n'
 test-i123-entry-mutant: test-i123-entry $(BUILD)/test_i123_entry_mutant
 	@set +e; $(BUILD)/test_i123_entry_mutant $(BUILD)/i123-entry-fs > $(BUILD)/test_i123_entry_mutant.log 2>&1; rc=$$?; set -e; \
@@ -32321,6 +32325,30 @@ test-i123-entry-mutant: test-i123-entry $(BUILD)/test_i123_entry_mutant
 	printf '>>> test-i123-entry-mutant: I123_MUT_ENTRY_75 correctly RED (%s)\n' "$$(grep -m1 'FAIL E1 ' $(BUILD)/test_i123_entry_mutant.log)"
 	@printf '>>> test-i123-entry-mutant: green (old 75-character cap caught)\n'
 TEST_UNIT_GATES += test-i123-entry test-i123-entry-mutant
+
+# B08: the real application must supply the guest clock at every recalc route.
+$(BUILD)/test_i123_clock: harness/proptest/test_i123_clock.c $(I123_QUIT_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -o $@ $< $(I123_CORE_SRC)
+.PHONY: test-i123-clock
+test-i123-clock: $(BUILD)/test_i123_clock
+	@mkdir -p $(BUILD)/i123-clock-fs
+	@$< $(BUILD)/i123-clock-fs
+TEST_UNIT_GATES += test-i123-clock
+$(BUILD)/test_i123_clock_mutant_%: harness/proptest/test_i123_clock.c $(I123_QUIT_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -D$* -o $@ $< $(I123_CORE_SRC)
+$(BUILD)/test_i123_entry_currency_mutant: $(I123_ENTRY_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -DI123_MUT_CURRENCY_REJECT -o $@ $< $(I123_CORE_SRC)
+.PHONY: test-i123-clock-mutant test-i123-entry-currency-mutant
+test-i123-clock-mutant: test-i123-clock $(BUILD)/test_i123_clock_mutant_I123_MUT_CLOCK_MISSING $(BUILD)/test_i123_clock_mutant_I123_MUT_CLOCK_FROZEN
+	@for pair in I123_MUT_CLOCK_MISSING:N1 I123_MUT_CLOCK_FROZEN:N2; do \
+	 m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_i123_clock_mutant_$$m; \
+	 if $$bin $(BUILD)/i123-clock-fs > $$bin.log 2>&1; then printf '!!! %s survived\n' $$m; exit 1; fi; \
+	 grep -q '^i123-clock: .* checks,' $$bin.log && grep -q "FAIL $$why NOW cache" $$bin.log || { cat $$bin.log; exit 1; }; \
+	 printf '>>> test-i123-clock-mutant: %s correctly RED (%s)\n' $$m $$why; done
+test-i123-entry-currency-mutant: test-i123-entry $(BUILD)/test_i123_entry_currency_mutant
+	@if $(BUILD)/test_i123_entry_currency_mutant $(BUILD)/i123-entry-fs > $(BUILD)/test_i123_entry_currency_mutant.log 2>&1; then printf '!!! currency mutant survived\n'; exit 1; fi
+	@grep -q '^i123-entry: .* checks,' $(BUILD)/test_i123_entry_currency_mutant.log && grep -q 'FAIL E10 leading dollar' $(BUILD)/test_i123_entry_currency_mutant.log
+TEST_UNIT_GATES += test-i123-clock-mutant test-i123-entry-currency-mutant
 
 # B11 / initech-69mz: EDIT (F2), GOTO (F5), PgUp/PgDn, Tab/Shift-Tab over the
 # real face_a.c + the recording mock. Expected cells/windows come from the
