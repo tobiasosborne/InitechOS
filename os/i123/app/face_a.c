@@ -197,7 +197,7 @@ static uint32_t g_elen TBX_IN_IMAGE = 0;
 
 enum { M_READY, M_LABEL, M_VALUE, M_EDIT, M_MAIN, M_FILE, M_GET, M_SAVE, M_REPLACE, M_QUIT, M_NOTICE, M_RANGE };
 static int      g_mode TBX_IN_IMAGE = M_READY;
-static const char *const MODE_TEXT[] = { "READY", "LABEL", "VALUE", " EDIT",
+static const char MODE_TEXT[][6] = { "READY", "LABEL", "VALUE", " EDIT",
     "MENU", "MENU", "FILES", "FILES", "MENU", "MENU", "ERROR", "POINT" };
 /* B11: an error 1-2-3 shows on the STATUS line (manual p. 1-5, PDF 21: "in
  * place of the date-and-time indicator"; ESC or ENTER clears it). */
@@ -233,7 +233,7 @@ static const char REPLACE_LINE[] = "Cancel  Replace  Backup";
  *   Save       == the Mac addition: /File Save now, then end the session. */
 static const char QUIT_TEXT[] =
     "WORKSHEET CHANGES NOT SAVED!\rSave changes to the worksheet\rbefore quitting?";
-static const char *const REPLACE_NAMES[] = { "Cancel", "Replace", "Backup" };
+static const char REPLACE_NAMES[3][8] = { "Cancel", "Replace", "Backup" };
 /* One menu stack, preserving the highlighted item on Esc. */
 static uint16_t g_level, g_levels[12], g_indexes[12];
 static uint32_t g_depth;

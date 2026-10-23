@@ -10348,6 +10348,44 @@ TENANT_CFLAGS := $(KERNEL_CFLAGS_CDECL) -Os -fno-tree-loop-distribute-patterns \
 I123_SIZE_FLAGS := -fomit-frame-pointer -fno-tree-loop-im -fno-tree-sra -fno-tree-dominator-opts \
                    -fno-tree-scev-cprop -fno-move-loop-invariants -fno-shrink-wrap \
                    --param=max-completely-peel-times=0
+# 123.EXE size round (initech-f5wr): main stood at 65,264 B, and the
+# cx-i123num lane (+372 B) crossed the cap. The kernel round-7 / SAMIR round-2
+# levers, each measured ALONE on 123.EXE, then the kept subset:
+#   1. the register-argument + callee-pops convention for the WHOLE image
+#      (-mregparm=3 -mrtd -freg-struct-return: every TU, tbx_rt.c and both
+#      LTO links carry I123_SIZE_FLAGS -- the SAMIR WL-0171 / kernel
+#      KERNEL_ABI_FLAGS rule, one ABI per image). Ref: GCC 13 manual "x86
+#      Options" -mregparm/-mrtd, "Code Gen Options" -freg-struct-return. The
+#      kernel reaches the image only through void(void) entries (tbx_entry,
+#      the record's eventProc: nothing passed, nothing to pop); the one asm
+#      callee, tbx_trap, is declared cdecl + regparm(0) in tbx.h
+#      (TBX_TRAP_ABI); no i123 function is variadic; the x87 inline asm binds
+#      by constraint. -704 B (65,264 -> 64,560).
+#   2. passes that trade bytes for speed even at -Oz: -fno-caller-saves
+#      (-276 alone), -fno-if-conversion (-36), -fno-split-wide-types (-32),
+#      -fno-tree-switch-conversion (-4), -fno-tree-cselim (-16),
+#      -fno-tree-coalesce-vars (-16), -fno-ipa-strict-aliasing (-28; removes
+#      an assumption, as the kernel's -fno-strict-aliasing), -fno-tree-phiprop
+#      (-8), and -mtune=generic (-104; TUNING only -- -march=i386 still pins
+#      the ISA, the WL-0087 no-cmov rule; the objdump mnemonic audit in the
+#      lane report). -malign-data=abi (-176 alone): data objects at their ABI
+#      alignment instead of GCC's 32-byte array padding (no object in the
+#      image asks for more; the record keeps its explicit aligned(4)).
+#      Together with step 1: 64,560 -> 63,892 B.
+#   Rejected by measurement on the step-1 image (grew or did nothing):
+#   -fno-tree-tail-merge +768, -fno-code-hoisting +360, -fno-forward-
+#   propagate +324, -fno-ipa-pure-const +124, -flto-partition=one +100,
+#   -fno-ipa-sra +32, -fno-ipa-cp +680 (760 relocs, larger code),
+#   -fno-guess-branch-probability +224, -fconserve-stack 0, -fno-defer-pop 0,
+#   -fno-partial-inlining 0, -fno-stack-clash-protection 0, -mtune=intel /
+#   pentium, and the rest of the two single-flag sweeps (lane report).
+# Pure codegen policy, no semantic change (no -ffast-math, x87 control word
+# unchanged): every test-i123-* host gate and test-flair-i123-* QEMU/Bochs
+# leg is the proof, before and after. The cap is never lifted.
+I123_SIZE_FLAGS += -mregparm=3 -mrtd -freg-struct-return \
+                   -fno-caller-saves -mtune=generic -fno-if-conversion -fno-split-wide-types \
+                   -fno-tree-switch-conversion -malign-data=abi -fno-tree-cselim -fno-tree-coalesce-vars \
+                   -fno-ipa-strict-aliasing -fno-tree-phiprop
 I123_LINK0 := $(KERNEL_CC) -m32 -nostdlib -no-pie -flto -Oz -fno-inline $(I123_SIZE_FLAGS) -Wl,--gc-sections,--no-warn-rwx-segments,--build-id=none -T $(TENANT_LD) -Wl,--defsym=TBX_BASE=0
 I123_LINK1 := $(KERNEL_CC) -m32 -nostdlib -no-pie -flto -Oz -fno-inline $(I123_SIZE_FLAGS) -Wl,--gc-sections,--no-warn-rwx-segments,--build-id=none -T $(TENANT_LD) -Wl,--defsym=TBX_BASE=$(TENANT_PROBE)
 define tenant-exe-rules

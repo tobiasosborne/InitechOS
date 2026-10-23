@@ -50,6 +50,16 @@
 #define I123_E_VALUE   (-6)   /* typed text is not a value the parser accepts   */
 #define I123_E_SYNTAX  (-7)   /* typed text is not a formula 1-2-3 accepts       */
 
+/* ---- the formula token table as stored (formula.c i123_tokens) ----------
+ * The rows of spec/i123/wk1_formula.h Sec 4, field for field wkf_token_t
+ * (name, cls, arity, prec, rmask, ev), with the name held inline: no pointer
+ * per row, so no relocation site per row in the tenant image. */
+#define I123_TOKEN_NAME 13u   /* "@CELLPOINTER" + NUL, the longest name */
+typedef struct i123_token {
+    char    name[I123_TOKEN_NAME];   /* the typed text; "" for an unassigned row */
+    uint8_t cls, arity, prec, rmask, ev;
+} i123_token_t;
+
 /* ---- cell kinds ---------------------------------------------------------- */
 #define I123_K_BLANK     1u   /* formatted, no content (WK1 BLANK)              */
 #define I123_K_INTEGER   2u   /* WK1 INTEGER: i16 in v[0..1]                    */
