@@ -1,0 +1,66 @@
+{
+  "HELLO.TXT": {
+    "bytes": 22,
+    "sha256": "8d5059c2d13f0a25784e978d4150a21bbf1dbb14fd0172123a7580b13d377137",
+    "crlf": 1,
+    "page_ejects": 0,
+    "ends_ctrl_z": false,
+    "text": "SAMIR AUDIT SENTINEL\r\n"
+  },
+  "NEXT.TXT": {
+    "bytes": 446,
+    "sha256": "126a1246bff55541c1a2f466c2ad878f70a4334fba84e7d7a4547ef24bc18f6d",
+    "crlf": 16,
+    "page_ejects": 0,
+    "ends_ctrl_z": true,
+    "text": "\r\n  Page No.     1\r\n  10/23/26\r\n                           INITECH SYSTEMS CORPORATION\r\n                               STAFF SALARY REPORT\r\n\r\n  Last Name      First Name Hired        Salary\r\n\r\n\r\n ** Department SOFT\r\n  BOLTON         MICHAEL    09/05/89   39800.00\r\n  NAGHEENANAJAR  SAMIR      10/02/89   39800.00\r\n ** Subtotal **\r\n                                       79600.00\r\n *** Total ***\r\n                                       79600.00\r\n\u001a"
+  },
+  "NONE.TXT": {
+    "bytes": 327,
+    "sha256": "c206ce3d6e8e67056a9c55b8830977194ee059e650696eb229520fa5759c9379",
+    "crlf": 13,
+    "page_ejects": 0,
+    "ends_ctrl_z": true,
+    "text": "\r\n  Page No.     1\r\n  10/23/26\r\n                           INITECH SYSTEMS CORPORATION\r\n                               STAFF SALARY REPORT\r\n\r\n  Last Name      First Name Hired        Salary\r\n\r\n\r\n ** Subtotal **\r\n                                           0.00\r\n *** Total ***\r\n                                           0.00\r\n\u001a"
+  },
+  "PLAIN.TXT": {
+    "bytes": 1578,
+    "sha256": "8bf88c5f9a7423b6f9f02f77721dfc324849e871496011e899c9e92e6e70b8d2",
+    "crlf": 53,
+    "page_ejects": 0,
+    "ends_ctrl_z": true,
+    "text": "\r\n                           INITECH SYSTEMS CORPORATION\r\n                               STAFF SALARY REPORT\r\n\r\n  Last Name      First Name Hired        Salary\r\n\r\n\r\n ** Department SOFT\r\n  LUMBERGH       BILL       06/04/84   96500.00\r\n  GIBBONS        PETER      03/14/88   41250.00\r\n  BOLTON         MICHAEL    09/05/89   39800.00\r\n  NAGHEENANAJAR  SAMIR      10/02/89   39800.00\r\n ** Subtotal **\r\n                                      217350.00\r\n\r\n ** Department FACL\r\n  WADDAMS        MILTON     02/12/79   19750.00\r\n ** Subtotal **\r\n                                       19750.00\r\n\r\n ** Department CUST\r\n  SMYKOWSKI      TOM        08/18/75   34200.00\r\n ** Subtotal **\r\n                                       34200.00\r\n\r\n ** Department ADMN\r\n  PORTER         DOM        01/11/82  112000.00\r\n  ALBRIGHT       NINA       05/21/90   18400.00\r\n ** Subtotal **\r\n                                      130400.00\r\n\r\n ** Department SOFT\r\n  DELGADO        ANDREW     11/30/87   44100.00\r\n ** Subtotal **\r\n                                       44100.00\r\n\r\n ** Department CUST\r\n  FENWICK        LAURA      04/07/86   30900.00\r\n ** Subtotal **\r\n                                       30900.00\r\n\r\n ** Department SOFT\r\n  OKAFOR         DANIEL     01/14/91   36750.00\r\n ** Subtotal **\r\n                                       36750.00\r\n\r\n ** Department ACCT\r\n  PRUITT         CAROL      07/25/83   47300.00\r\n  CHEN           ROBERT     08/13/90   33600.00\r\n ** Subtotal **\r\n                                       80900.00\r\n *** Total ***\r\n                                      594350.00\r\n\u001a"
+  },
+  "LABELS.TXT": {
+    "bytes": 828,
+    "sha256": "4a60e98ffe66ac52352171a7ed03bf00964c94ef25f6d3175e32a370aead7c8a",
+    "crlf": 20,
+    "page_ejects": 0,
+    "ends_ctrl_z": true,
+    "text": "\r\nCAROL PRUITT              ROBERT CHEN               DOM PORTER\r\nExt. 1430                 Ext. 1431                 Ext. 1400\r\nDept. ACCT                Dept. ACCT                Dept. ADMN\r\n\r\r\nNINA ALBRIGHT             TOM SMYKOWSKI             LAURA FENWICK\r\nExt. 1403                 Ext. 1425                 Ext. 1426\r\nDept. ADMN                Dept. CUST                Dept. CUST\r\n\r\r\nMILTON WADDAMS            BILL LUMBERGH             PETER GIBBONS\r\nExt. 1402                 Ext. 1401                 Ext. 1417\r\nDept. FACL                Dept. SOFT                Dept. SOFT\r\n\r\r\nMICHAEL BOLTON            SAMIR NAGHEENANAJAR       ANDREW DELGADO\r\nExt. 1418                 Ext. 1419                 Ext. 1420\r\nDept. SOFT                Dept. SOFT                Dept. SOFT\r\n\r\r\nDANIEL OKAFOR\r\nExt. 1421\r\nDept. SOFT\r\n\r\u001a"
+  },
+  "SUMMARY.TXT": {
+    "bytes": 733,
+    "sha256": "4be8064cbbe1344c147d337e3e72a0041a3b827d00a368d3a6eea0eb08d00281",
+    "crlf": 30,
+    "page_ejects": 0,
+    "ends_ctrl_z": true,
+    "text": "\r\n  Page No.     1                   MARCH 1992\r\n  10/23/26\r\n                           INITECH SYSTEMS CORPORATION\r\n                               STAFF SALARY REPORT\r\n\r\n  Last Name      First Name Hired        Salary\r\n\r\n\r\n ** Department ACCT\r\n ** Subtotal **\r\n                                       80900.00\r\n\r\n ** Department ADMN\r\n ** Subtotal **\r\n                                      130400.00\r\n\r\n ** Department CUST\r\n ** Subtotal **\r\n                                       65100.00\r\n\r\n ** Department FACL\r\n ** Subtotal **\r\n                                       19750.00\r\n\r\n ** Department SOFT\r\n ** Subtotal **\r\n                                      298200.00\r\n *** Total ***\r\n                                      594350.00\r\n\u001a"
+  },
+  "NOEJECT.TXT": {
+    "bytes": 1341,
+    "sha256": "ce158cab71420cd0385d3b6abaadee9924ed76193748fec5a99dd1394e807db5",
+    "crlf": 43,
+    "page_ejects": 0,
+    "ends_ctrl_z": true,
+    "text": "\r\n  Page No.     1\r\n  10/23/26\r\n                           INITECH SYSTEMS CORPORATION\r\n                               STAFF SALARY REPORT\r\n\r\n  Last Name      First Name Hired        Salary\r\n\r\n\r\n ** Department ACCT\r\n  PRUITT         CAROL      07/25/83   47300.00\r\n  CHEN           ROBERT     08/13/90   33600.00\r\n ** Subtotal **\r\n                                       80900.00\r\n\r\n ** Department ADMN\r\n  PORTER         DOM        01/11/82  112000.00\r\n  ALBRIGHT       NINA       05/21/90   18400.00\r\n ** Subtotal **\r\n                                      130400.00\r\n\r\n ** Department CUST\r\n  SMYKOWSKI      TOM        08/18/75   34200.00\r\n  FENWICK        LAURA      04/07/86   30900.00\r\n ** Subtotal **\r\n                                       65100.00\r\n\r\n ** Department FACL\r\n  WADDAMS        MILTON     02/12/79   19750.00\r\n ** Subtotal **\r\n                                       19750.00\r\n\r\n ** Department SOFT\r\n  LUMBERGH       BILL       06/04/84   96500.00\r\n  GIBBONS        PETER      03/14/88   41250.00\r\n  BOLTON         MICHAEL    09/05/89   39800.00\r\n  NAGHEENANAJAR  SAMIR      10/02/89   39800.00\r\n  DELGADO        ANDREW     11/30/87   44100.00\r\n  OKAFOR         DANIEL     01/14/91   36750.00\r\n ** Subtotal **\r\n                                      298200.00\r\n *** Total ***\r\n                                      594350.00\r\n\u001a"
+  },
+  "WHILE.TXT": {
+    "bytes": 446,
+    "sha256": "126a1246bff55541c1a2f466c2ad878f70a4334fba84e7d7a4547ef24bc18f6d",
+    "crlf": 16,
+    "page_ejects": 0,
+    "ends_ctrl_z": true,
+    "text": "\r\n  Page No.     1\r\n  10/23/26\r\n                           INITECH SYSTEMS CORPORATION\r\n                               STAFF SALARY REPORT\r\n\r\n  Last Name      First Name Hired        Salary\r\n\r\n\r\n ** Department SOFT\r\n  BOLTON         MICHAEL    09/05/89   39800.00\r\n  NAGHEENANAJAR  SAMIR      10/02/89   39800.00\r\n ** Subtotal **\r\n                                       79600.00\r\n *** Total ***\r\n                                       79600.00\r\n\u001a"
+  }
+}

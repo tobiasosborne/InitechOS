@@ -1,0 +1,48 @@
+L001	DBF dates	P1	Replacing a date with an invalid date writes non-date bytes
+L002	Program interruption	P1	Escape and Ctrl-C cannot stop a running loop
+L003	Procedure stack	P1	Recursive internal procedures destroy the running session
+L004	Status display	P2	Desktop-launched status mode prints ANSI control sequences
+L005	Memo fields	P2	A successful memo replacement reads as empty until USE reopens the table
+L006	Numeric fields	P2	An asterisk-filled numeric overflow is presented as zero
+L007	Numeric picture formatting	P2	TRANSFORM reports overflow for a decimal value that fits its picture
+L008	Indexes	P2	INDEX ON cannot create an index for an empty table
+L009	Command language	P2	Four-letter command abbreviations are rejected
+L010	Inspection	P2	DISPLAY STATUS is parsed as a field expression
+L011	Inspection	P2	DISPLAY MEMORY is parsed as a field expression
+L012	Structure editor	P2	MODIFY STRUCTURE is unavailable
+L013	Program lifecycle	P2	QUIT inside a PRG is rejected rather than exiting
+L014	Indexes and PACK	P2	PACK with two open indexes leaves live index state unusable
+L015	Indexes	P2	INDEX ON fails when the current pointer is at EOF
+L016	Indexes	P2	A valid blank date prevents creation of a date index
+L017	Index bounds	P2	INDEX accepts 101-character keys beyond the III+ maximum
+L018	Index diagnostics	P2	A corrupt existing NDX is reported as nonexistent
+L019	Command input	P2	The ordinary dot prompt truncates commands at 128 bytes
+L020	Program capacity	P2	A 7018-byte, 1000-line program fails with insufficient memory
+L021	Program calls	P2	DO inside a PRG cannot call another existing PRG file
+L022	Error recovery	P2	RETRY in an error handler does not retry the failed statement
+L023	Record boundaries	P2	BOF stays false for a physically empty database
+L024	Report design	P2	CREATE/MODIFY REPORT cannot open a designer
+L025	Label design	P2	CREATE LABEL cannot open a designer
+L026	Program editing	P2	MODIFY COMMAND cannot edit a PRG
+L027	Structure export	P2	COPY STRUCTURE is unavailable
+L028	Structure export	P2	COPY STRUCTURE EXTENDED is unavailable
+L029	Multi-table data	P2	JOIN is not recognized
+L030	Multi-table data	P2	UPDATE is not recognized
+L031	Printed listings	P2	LIST rejects TO PRINT
+L032	Index uniqueness	P2	Neither INDEX UNIQUE nor SET UNIQUE is supported
+L033	Forms	P2	@ SAY and the form entry point are unavailable
+L034	Program output	P2	TEXT/ENDTEXT literal blocks are unavailable
+L035	Program tracing	P2	SET ECHO is unavailable
+L036	Numeric display	P2	SET FIXED is unavailable
+L037	Printing layout	P2	SET MARGIN is unavailable
+L038	Printing	P2	SET PRINT is unavailable
+L039	Output routing	P2	SET DEVICE is unavailable
+L040	Command history	P2	Command-history controls are unavailable
+L041	Program stack	P2	RETURN TO MASTER returns only one level
+L042	Labels	P2	LABEL FORM rejects SAMPLE
+L043	Disk-full recovery	P2	Failed output commands leave invalid destinations that block retry
+L044	Command diagnostics	P2	Mutation commands without an open table report syntax errors
+L045	Related work areas	P2	SET RELATION accepts a link but never moves the child
+L046	Command feedback	P2	SET TALK ON gives no replacement count
+L047	Disk-full diagnostics	P3	Disk-full output errors identify the source or no file at all
+L048	Console polish	P3	Rejected keystrokes draw bell glyphs across the desktop console

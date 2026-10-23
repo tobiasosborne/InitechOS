@@ -1,0 +1,39 @@
+{
+  "name": "escape-loop",
+  "actions": [
+    "DO LOOP",
+    [
+      "pause",
+      2
+    ],
+    [
+      "shot",
+      "escape-loop-running"
+    ],
+    [
+      "key",
+      "esc"
+    ],
+    [
+      "pause",
+      2
+    ],
+    [
+      "key",
+      "ctrl-c"
+    ],
+    [
+      "pause",
+      2
+    ],
+    "? \"RECOVERED\"",
+    [
+      "pause",
+      2
+    ],
+    [
+      "shot",
+      "escape-loop-escape"
+    ]
+  ]
+}

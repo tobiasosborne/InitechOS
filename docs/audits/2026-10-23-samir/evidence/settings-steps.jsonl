@@ -1,0 +1,26 @@
+{"step": 0, "action": "USE CLIENTS", "start": 912, "end": 927}
+{"step": 1, "action": "SET ECHO ON", "start": 927, "end": 960}
+{"step": 2, "action": "DO USEPRG", "start": 960, "end": 985}
+{"step": 3, "action": "SET ECHO OFF", "start": 985, "end": 1019}
+{"step": 4, "action": "SET TALK OFF", "start": 1019, "end": 1035}
+{"step": 5, "action": "DELETE", "start": 1035, "end": 1045}
+{"step": 6, "action": "SET TALK ON", "start": 1045, "end": 1060}
+{"step": 7, "action": "RECALL", "start": 1060, "end": 1070}
+{"step": 8, "action": ["shot", "settings-trace"], "start": 1070, "end": 1070}
+{"step": 9, "action": "SET FIXED ON", "start": 1070, "end": 1104}
+{"step": 10, "action": "SET DECIMALS TO 2", "start": 1104, "end": 1125}
+{"step": 11, "action": "? 3,3.5", "start": 1125, "end": 1143}
+{"step": 12, "action": "SET FIXED OFF", "start": 1143, "end": 1178}
+{"step": 13, "action": "SET MARGIN TO 5", "start": 1178, "end": 1215}
+{"step": 14, "action": "SET PRINT ON", "start": 1215, "end": 1249}
+{"step": 15, "action": "SET PRINT OFF", "start": 1249, "end": 1284}
+{"step": 16, "action": "SET DEVICE TO PRINT", "start": 1284, "end": 1325}
+{"step": 17, "action": "SET DEVICE TO SCREEN", "start": 1325, "end": 1367}
+{"step": 18, "action": ["shot", "settings-format"], "start": 1367, "end": 1367}
+{"step": 19, "action": "USE", "start": 1367, "end": 1374}
+{"step": 20, "action": "DELETE", "start": 1374, "end": 1402}
+{"step": 21, "action": "RECALL", "start": 1402, "end": 1430}
+{"step": 22, "action": "PACK", "start": 1430, "end": 1456}
+{"step": 23, "action": "REPLACE NAME WITH \"x\"", "start": 1456, "end": 1499}
+{"step": 24, "action": "QUIT", "start": 1499, "end": 1610}
+{"step": 25, "action": ["shot", "settings-no-open"], "start": 1610, "end": 1610}

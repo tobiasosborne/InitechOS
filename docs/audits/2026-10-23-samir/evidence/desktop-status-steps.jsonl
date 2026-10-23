@@ -1,0 +1,10 @@
+{"step": 0, "action": "USE CLIENTS", "start": 912, "end": 927}
+{"step": 1, "action": "SET STATUS ON", "start": 927, "end": 1166}
+{"step": 2, "action": ["pause", 2], "start": 1166, "end": 1166}
+{"step": 3, "action": ["shot", "desktop-status-status"], "start": 1166, "end": 1166}
+{"step": 4, "action": "? 2+2", "start": 1166, "end": 1519}
+{"step": 5, "action": ["pause", 1], "start": 1519, "end": 1519}
+{"step": 6, "action": ["shot", "desktop-status-typing"], "start": 1519, "end": 1519}
+{"step": 7, "action": "SET STATUS OFF", "start": 1519, "end": 2036}
+{"step": 8, "action": "QUIT", "start": 2036, "end": 2171}
+{"step": 9, "action": ["shot", "desktop-status-off"], "start": 2171, "end": 2171}

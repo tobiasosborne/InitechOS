@@ -1,0 +1,334 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-CREATE
+TRASH-CREATE
+APPLE-MENU n=1
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CLOCK 12:48 pm
+FLAIR-TICK n=4
+FLAIR-TICK n=5
+FLAIR-EVT what=3 where=320,240 msg=00002B5C
+FLAIR-SUSPEND
+. USE STAFF
+. REPORT FORM STAFFRPT PLAIN
+
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+  WADDAMS        MILTON     02/12/79   19750.00
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+  SMYKOWSKI      TOM        08/18/75   34200.00
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+  ALBRIGHT       NINA       05/21/90   18400.00
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+  DELGADO        ANDREW     11/30/87   44100.00
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+  FENWICK        LAURA      04/07/86   30900.00
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+  CHEN           ROBERT     08/13/90   33600.00
+ ** Subtotal **
+                                       80900.00
+ *** Total ***
+                                      594350.00
+. REPORT FORM STAFFRPT TO FILE PLAIN.TXT PLAIN
+
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+  WADDAMS        MILTON     02/12/79   19750.00
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+  SMYKOWSKI      TOM        08/18/75   34200.00
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+  ALBRIGHT       NINA       05/21/90   18400.00
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+  DELGADO        ANDREW     11/30/87   44100.00
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+  FENWICK        LAURA      04/07/86   30900.00
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+  CHEN           ROBERT     08/13/90   33600.00
+ ** Subtotal **
+                                       80900.00
+ *** Total ***
+                                      594350.00
+. GO 3
+. REPORT FORM STAFFRPT NEXT 2 TO FILE NEXT.TXT
+
+  Page No.     1
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department SOFT
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+ ** Subtotal **
+                                       79600.00
+ *** Total ***
+                                       79600.00
+. ? RECNO(),EOF()
+
+         4 .F.. GO 3
+. REPORT FORM STAFFRPT WHILE EMPNO<"1005" TO FILE WHILE.TXT
+
+  Page No.     1
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department SOFT
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+ ** Subtotal **
+                                       79600.00
+ *** Total ***
+                                       79600.00
+. ? RECNO(),EOF()
+
+         5 .F.. USE STAFF INDEX STAFFDPT
+. REPORT FORM STAFFRPT SUMMARY HEADING "MARCH 1992" TO FILE SUMMARY.TXT
+
+  Page No.     1                   MARCH 1992
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department ACCT
+ ** Subtotal **
+                                       80900.00
+
+ ** Department ADMN
+ ** Subtotal **
+                                      130400.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       65100.00
+
+ ** Department FACL
+ ** Subtotal **
+                                       19750.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                      298200.00
+ *** Total ***
+                                      594350.00
+. REPORT FORM STAFFRPT FOR .F. TO FILE NONE.TXT
+
+  Page No.     1
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Subtotal **
+                                           0.00
+ *** Total ***
+                                           0.00
+. REPORT FORM STAFFRPT NOEJECT TO FILE NOEJECT.TXT
+
+  Page No.     1
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+  CHEN           ROBERT     08/13/90   33600.00
+ ** Subtotal **
+                                       80900.00
+
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+  ALBRIGHT       NINA       05/21/90   18400.00
+ ** Subtotal **
+                                      130400.00
+
+ ** Department CUST
+  SMYKOWSKI      TOM        08/18/75   34200.00
+  FENWICK        LAURA      04/07/86   30900.00
+ ** Subtotal **
+                                       65100.00
+
+ ** Department FACL
+  WADDAMS        MILTON     02/12/79   19750.00
+ ** Subtotal **
+                                       19750.00
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+  DELGADO        ANDREW     11/30/87   44100.00
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                      298200.00
+ *** Total ***
+                                      594350.00
+. LABEL FORM STAFFLBL TO FILE LABELS.TXT
+
+CAROL PRUITT              ROBERT CHEN               DOM PORTER
+Ext. 1430                 Ext. 1431                 Ext. 1400
+Dept. ACCT                Dept. ACCT                Dept. ADMN
+
+NINA ALBRIGHT             TOM SMYKOWSKI             LAURA FENWICK
+Ext. 1403                 Ext. 1425                 Ext. 1426
+Dept. ADMN                Dept. CUST                Dept. CUST
+
+MILTON WADDAMS            BILL LUMBERGH             PETER GIBBONS
+Ext. 1402                 Ext. 1401                 Ext. 1417
+Dept. FACL                Dept. SOFT                Dept. SOFT
+
+MICHAEL BOLTON            SAMIR NAGHEENANAJAR       ANDREW DELGADO
+Ext. 1418                 Ext. 1419                 Ext. 1420
+Dept. SOFT                Dept. SOFT                Dept. SOFT
+
+DANIEL OKAFOR
+Ext. 1421
+Dept. SOFT
+. LABEL FORM STAFFLBL SAMPLE
+36  Unrecognized phrase/keyword in command.
+. REPORT FORM STAFFRPT TO PRINT
+126  Printer is either not connected or turned off.
+. REPORT FORM MISSING
+1  File does not exist.
+. LABEL FORM MISSING
+1  File does not exist.
+. CLOSE ALL
+. QUIT
+FLAIR-TEXT-EXIT rc=0
+FLAIR-EVT-DROP
+FLAIR-RESUME
+FLAIR-CLOCK 12:49 pm
+FLAIR-TICK n=5894
+FLAIR-EVT what=4 where=320,240 msg=00001C0A
+FLAIR-TICK n=5898

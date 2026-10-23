@@ -1,0 +1,29 @@
+{
+  "name": "memo",
+  "actions": [
+    "USE EDGE",
+    "? MEMO",
+    "REPLACE MEMO WITH \"changed memo\"",
+    "? MEMO,LEN(MEMO)",
+    "GO 2",
+    "GO 1",
+    "? MEMO",
+    [
+      "shot",
+      "memo-write"
+    ],
+    "USE",
+    "USE EDGE",
+    "? MEMO,LEN(MEMO)",
+    "REPLACE MEMO WITH \"again\"",
+    "? MEMO",
+    "USE",
+    "USE EDGE",
+    "? MEMO",
+    "QUIT",
+    [
+      "shot",
+      "memo-reopen"
+    ]
+  ]
+}

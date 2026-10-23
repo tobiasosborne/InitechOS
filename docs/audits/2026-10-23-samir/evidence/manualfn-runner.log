@@ -1,0 +1,213 @@
+STARTED manualfn pid 104
+SHOT manualfn-startup
+SET DATE AMERICAN 'SET DATE AMERICAN\r\n. '
+SET CENTURY OFF 'SET CENTURY OFF\r\n. '
+SET DECIMALS TO 2 'SET DECIMALS TO 2\r\n. '
+USE STAFF 'USE STAFF\r\n. '
+GO 3 'GO 3\r\n. '
+? SALARY - 40000, ABS(SALARY - 40000) '? SALARY - 40000, ABS(SALARY - 40000)\r\n\r\n   -200.00        200. '
+SHOT manualfn-fn-abs
+USE STAFF 'USE STAFF\r\n. '
+GO 2 'GO 2\r\n. '
+? CHR(ASC(LASTNAME) + 1) '? CHR(ASC(LASTNAME) + 1)\r\n\r\nH. '
+SHOT manualfn-fn-asc-2
+? ASC("A"), ASC("abc"), ASC("") '? ASC("A"), ASC("abc"), ASC("")\r\n\r\n        65         97          0. '
+SHOT manualfn-fn-asc
+USE STAFF 'USE STAFF\r\n. '
+GO 2 'GO 2\r\n. '
+? AT("ON", LASTNAME), AT("on", LASTNAME) '? AT("ON", LASTNAME), AT("on", LASTNAME)\r\n\r\n         5          0. '
+SHOT manualfn-fn-at-2
+? AT("c", "InitechBase"), AT("e", "InitechBase"), AT("z", "InitechBase") '? AT("c", "InitechBase"), AT("e", "InitechBase"), AT("z", "InitechBase")\r\n\r\n         6          5          0. '
+SHOT manualfn-fn-at
+USE STAFF 'USE STAFF\r\n. '
+GO TOP 'GO TOP\r\n. '
+SKIP -1 'SKIP -1\r\n. '
+? BOF(), RECNO() '? BOF(), RECNO()\r\n\r\n.T.          1. '
+SHOT manualfn-fn-bof
+? CDOW(CTOD("03/01/92")), CDOW(CTOD("03/02/92")) '? CDOW(CTOD("03/01/92")), CDOW(CTOD("03/02/92"))\r\n\r\nSunday Monday. '
+SHOT manualfn-fn-cdow
+? CHR(300) '? CHR(300)\r\n57  CHR() : Out of range.\n. '
+SHOT manualfn-fn-chr-2
+? CHR(65), CHR(97), ASC(CHR(200)) '? CHR(65), CHR(97), ASC(CHR(200))\r\n\r\nA a        200. '
+SHOT manualfn-fn-chr
+? CMONTH(CTOD("03/01/92")), CMONTH(CTOD("12/25/91")) '? CMONTH(CTOD("03/01/92")), CMONTH(CTOD("12/25/91"))\r\n\r\nMarch December. '
+SHOT manualfn-fn-cmonth
+SET DATE BRITISH 'SET DATE BRITISH\r\n. '
+? DTOC(CTOD("01/03/92")), MONTH(CTOD("01/03/92")) '? DTOC(CTOD("01/03/92")), MONTH(CTOD("01/03/92"))\r\n\r\n01/03/92          3. '
+SHOT manualfn-fn-ctod-2
+SET DATE AMERICAN 'SET DATE AMERICAN\r\n. '
+SET CENTURY OFF 'SET CENTURY OFF\r\n. '
+SET DECIMALS TO 2 'SET DECIMALS TO 2\r\n. '
+? DTOC(CTOD("03/01/92")), DAY(CTOD("03/01/92")), YEAR(CTOD("03/01/92")) '? DTOC(CTOD("03/01/92")), DAY(CTOD("03/01/92")), YEAR(CTOD("03/01/92"))\r\n\r\n03/01/92          1  1992. '
+SHOT manualfn-fn-ctod
+USE STAFF 'USE STAFF\r\n. '
+GO 2 'GO 2\r\n. '
+? DATE() - HIRED '? DATE() - HIRED\r\n\r\n    -22423. '
+SHOT manualfn-fn-date-2
+? DATE(), DTOC(DATE()), YEAR(DATE()) '? DATE(), DTOC(DATE()), YEAR(DATE())\r\n\r\n10/23/26 10/23/26  1926. '
+SHOT manualfn-fn-date
+? DAY(CTOD("02/29/92")), DAY(CTOD("  /  /  ")) '? DAY(CTOD("02/29/92")), DAY(CTOD("  /  /  "))\r\n\r\n        29          0. '
+SHOT manualfn-fn-day
+? LEN(DBF()) '? LEN(DBF())\r\n\r\n         5. '
+USE STAFF 'USE STAFF\r\n. '
+? DBF() '? DBF()\r\n\r\nSTAFF. '
+SHOT manualfn-fn-dbf
+USE STAFF 'USE STAFF\r\n. '
+GO 12 'GO 12\r\n. '
+? DELETED() '? DELETED()\r\n\r\n.F.. '
+GO 13 'GO 13\r\n. '
+? DELETED(), LASTNAME '? DELETED(), LASTNAME\r\n\r\n.T. CHEN          . '
+SHOT manualfn-fn-deleted
+? DOW(CTOD("03/01/92")), DOW(CTOD("03/07/92")) '? DOW(CTOD("03/01/92")), DOW(CTOD("03/07/92"))\r\n\r\n         1          7. '
+SHOT manualfn-fn-dow
+SET CENTURY ON 'SET CENTURY ON\r\n. '
+SET DATE ANSI 'SET DATE ANSI\r\n. '
+? DTOC(DATE()) '? DTOC(DATE())\r\n\r\n1926.10.23. '
+SHOT manualfn-fn-dtoc-2
+SET DATE AMERICAN 'SET DATE AMERICAN\r\n. '
+SET CENTURY OFF 'SET CENTURY OFF\r\n. '
+SET DECIMALS TO 2 'SET DECIMALS TO 2\r\n. '
+USE STAFF 'USE STAFF\r\n. '
+GO 2 'GO 2\r\n. '
+? HIRED, DTOC(HIRED), LEN(DTOC(HIRED)) '? HIRED, DTOC(HIRED), LEN(DTOC(HIRED))\r\n\r\n03/14/88 03/14/88          8. '
+SHOT manualfn-fn-dtoc
+USE STAFF 'USE STAFF\r\n. '
+GO BOTTOM 'GO BOTTOM\r\n. '
+SKIP 'SKIP\r\n. '
+? EOF(), RECNO(), RECCOUNT() '? EOF(), RECNO(), RECCOUNT()\r\n\r\n.T.         14         13. '
+SHOT manualfn-fn-eof
+ON ERROR STORE ERROR() TO MERR 'ON ERROR STORE ERROR() TO MERR\r\n. '
+? CHR(300) '? CHR(300)\r\n. '
+? MERR, ERROR() '? MERR, ERROR()\r\n\r\n        57         57. '
+SHOT manualfn-fn-error
+USE STAFF 'USE STAFF\r\n. '
+? FIELD(1), FIELD(7), FIELD(10) '? FIELD(1), FIELD(7), FIELD(10)\r\n\r\nEMPNO SALARY . '
+SHOT manualfn-fn-field
+? FILE("STAFF.DBF"), FILE("STAFF"), FILE("NOFILE.DBF") '? FILE("STAFF.DBF"), FILE("STAFF"), FILE("NOFILE.DBF")\r\n\r\n.T. .F. .F.. '
+SHOT manualfn-fn-file
+USE STAFF INDEX STAFFNAM 'USE STAFF INDEX STAFFNAM\r\n. '
+SEEK "ZZZ" 'SEEK "ZZZ"\r\n. '
+? FOUND(), EOF() '? FOUND(), EOF()\r\n\r\n.F. .T.. '
+SHOT manualfn-fn-found-2
+USE STAFF INDEX STAFFNAM 'USE STAFF INDEX STAFFNAM\r\n. '
+SEEK "GIBBONS" 'SEEK "GIBBONS"\r\n. '
+? FOUND(), RECNO() '? FOUND(), RECNO()\r\n\r\n.T.          2. '
+SHOT manualfn-fn-found
+? IIF(.F., 1/0, 5) '? IIF(.F., 1/0, 5)\r\n\r\n5. '
+? IIF(1, 2, 3) '? IIF(1, 2, 3)\r\n. '
+SHOT manualfn-fn-iif-2
+USE STAFF 'USE STAFF\r\n. '
+GO 2 'GO 2\r\n. '
+? LASTNAME, IIF(EXEMPT, "Exempt", "Hourly") '? LASTNAME, IIF(EXEMPT, "Exempt", "Hourly")\r\n\r\nGIBBONS        Exempt. '
+SHOT manualfn-fn-iif
+? INT(3.99), INT(-3.7), INT(41250/1000) '? INT(3.99), INT(-3.7), INT(41250/1000)\r\n\r\n   3   -3            41. '
+SHOT manualfn-fn-int
+? ISALPHA("Initech"), ISALPHA("1401"), ISALPHA("") '? ISALPHA("Initech"), ISALPHA("1401"), ISALPHA("")\r\n\r\n.T. .F. .F.. '
+SHOT manualfn-fn-isalpha
+? ISLOWER("initech"), ISLOWER("Initech") '? ISLOWER("initech"), ISLOWER("Initech")\r\n\r\n.T. .F.. '
+SHOT manualfn-fn-islower
+? ISUPPER("Initech"), ISUPPER("initech") '? ISUPPER("Initech"), ISUPPER("initech")\r\n\r\n.T. .F.. '
+SHOT manualfn-fn-isupper
+? LEFT("InitechBase", 7), LEFT("abc", 10), LEFT("abc", 0) + "|" '? LEFT("InitechBase", 7), LEFT("abc", 10), LEFT("abc", 0) + "|"\r\n\r\nInitech abc |. '
+SHOT manualfn-fn-left
+USE STAFF 'USE STAFF\r\n. '
+GO 2 'GO 2\r\n. '
+? LEN(LASTNAME), LEN(TRIM(LASTNAME)), LEN("") '? LEN(LASTNAME), LEN(TRIM(LASTNAME)), LEN("")\r\n\r\n        14          7          0. '
+SHOT manualfn-fn-len
+? LOWER("Initech Systems") '? LOWER("Initech Systems")\r\n\r\ninitech systems. '
+SHOT manualfn-fn-lower
+? "[" + LTRIM("   Gibbons  ") + "]" '? "[" + LTRIM("   Gibbons  ") + "]"\r\n\r\n[Gibbons  ]. '
+SHOT manualfn-fn-ltrim
+STORE 'SOFT' TO MDEPT "STORE 'SOFT' TO MDEPT\r\n. "
+STORE 'Department &MDEPT' TO MTITLE "STORE 'Department &MDEPT' TO MTITLE\r\n. "
+? MTITLE '? MTITLE\r\n\r\nDepartment SOFT. '
+STORE 'RECCOUNT' TO MFUNC "STORE 'RECCOUNT' TO MFUNC\r\n. "
+USE STAFF 'USE STAFF\r\n. '
+? &MFUNC.() '? &MFUNC.()\r\n\r\n        13. '
+SHOT manualfn-fn-macro-2
+STORE 'STAFFNAM' TO MINDEX "STORE 'STAFFNAM' TO MINDEX\r\n. "
+USE STAFF INDEX &MINDEX 'USE STAFF INDEX &MINDEX\r\n. '
+STORE 'PORTER' TO MNAME "STORE 'PORTER' TO MNAME\r\n. "
+FIND &MNAME 'FIND &MNAME\r\n. '
+DISPLAY LASTNAME, FIRSTNAME, DEPT 'DISPLAY LASTNAME, FIRSTNAME, DEPT\r\nRecord#  LASTNAME       FIRSTNAME  DEPT\r\n      7  PORTER         DOM        ADMN\r\n. '
+SHOT manualfn-fn-macro
+? MAX(3, 7), MAX(-1, -5), MAX(CTOD("03/01/92"), CTOD("12/25/91")) '? MAX(3, 7), MAX(-1, -5), MAX(CTOD("03/01/92"), CTOD("12/25/91"))\r\n\r\n         7         -1 03/01/92. '
+SHOT manualfn-fn-max
+ON ERROR STORE MESSAGE() TO MMSG 'ON ERROR STORE MESSAGE() TO MMSG\r\n. '
+? CHR(300) '? CHR(300)\r\n. '
+? MMSG '? MMSG\r\n\r\nCHR() : Out of range.. '
+ON ERROR 'ON ERROR\r\n. '
+? MESSAGE() '? MESSAGE()\r\n\r\nCHR() : Out of range.. '
+SHOT manualfn-fn-message
+? MIN(3, 7), MIN(-1, -5), MIN(CTOD("03/01/92"), CTOD("12/25/91")) '? MIN(3, 7), MIN(-1, -5), MIN(CTOD("03/01/92"), CTOD("12/25/91"))\r\n\r\n         3         -5 12/25/91. '
+SHOT manualfn-fn-min
+? MOD(17, 5), MOD(-17, 5), MOD(5, 0) '? MOD(17, 5), MOD(-17, 5), MOD(5, 0)\r\n\r\n  2   -2          5. '
+SHOT manualfn-fn-mod
+? MONTH(CTOD("12/25/91")), MONTH(CTOD("  /  /  ")) '? MONTH(CTOD("12/25/91")), MONTH(CTOD("  /  /  "))\r\n\r\n        12          0. '
+SHOT manualfn-fn-month
+USE STAFF 'USE STAFF\r\n. '
+SKIP 3 'SKIP 3\r\n. '
+? RECNO(), RECCOUNT() '? RECNO(), RECCOUNT()\r\n\r\n         4         13. '
+SHOT manualfn-fn-reccount
+USE STAFF 'USE STAFF\r\n. '
+GO 5 'GO 5\r\n. '
+? RECNO(), LASTNAME '? RECNO(), LASTNAME\r\n\r\n         5 WADDAMS       . '
+SHOT manualfn-fn-recno
+USE STAFF 'USE STAFF\r\n. '
+? RECSIZE() '? RECSIZE()\r\n\r\n        65. '
+USE 'USE\r\n. '
+? RECSIZE() '? RECSIZE()\r\n\r\n         0. '
+SHOT manualfn-fn-recsize
+? REPLICATE("-", 20) '? REPLICATE("-", 20)\r\n\r\n--------------------. '
+? REPLICATE("AB", 3), REPLICATE("AB", 0) + "|" '? REPLICATE("AB", 3), REPLICATE("AB", 0) + "|"\r\n\r\nABABAB |. '
+SHOT manualfn-fn-replicate
+? RIGHT("InitechBase", 4), RIGHT("abc", 10), RIGHT("abc", 0) + "|" '? RIGHT("InitechBase", 4), RIGHT("abc", 10), RIGHT("abc", 0) + "|"\r\n\r\nBase abc |. '
+SHOT manualfn-fn-right
+? ROUND(3.14159, 2), ROUND(2.5, 0), ROUND(1234.5, -2) '? ROUND(3.14159, 2), ROUND(2.5, 0), ROUND(1234.5, -2)\r\n\r\n         3          3       1200. '
+SHOT manualfn-fn-round
+USE STAFF 'USE STAFF\r\n. '
+GO 2 'GO 2\r\n. '
+? RTRIM(LASTNAME) + ", " + RTRIM(FIRSTNAME) '? RTRIM(LASTNAME) + ", " + RTRIM(FIRSTNAME)\r\n\r\nGIBBONS, PETER. '
+SHOT manualfn-fn-rtrim
+? SPACE(255) '? SPACE(255)\r\n59  SPACE() : Too large.\n. '
+SHOT manualfn-fn-space-2
+? "[" + SPACE(5) + "]", LEN(SPACE(254)) '? "[" + SPACE(5) + "]", LEN(SPACE(254))\r\n\r\n[     ]        254. '
+SHOT manualfn-fn-space
+? STR(99999, 3), STR(5, 4, 2) '? STR(99999, 3), STR(5, 4, 2)\r\n\r\n*** 5.00. '
+? STR(5, 3, 2) '? STR(5, 3, 2)\r\n63  STR() : Out of range.\n. '
+SHOT manualfn-fn-str-2
+? STR(123.456), STR(123.456, 8, 2), STR(123.456, 5, 1) '? STR(123.456), STR(123.456, 8, 2), STR(123.456, 5, 1)\r\n\r\n       123   123.46 123.5. '
+SHOT manualfn-fn-str
+? STUFF("ABCDE", 2, 3, "XY"), STUFF("ABCDE", 2, 0, "XY"), STUFF("ABCDE", 2, 3, "") '? STUFF("ABCDE", 2, 3, "XY"), STUFF("ABCDE", 2, 0, "XY"), STUFF("ABCDE", 2, 3, "")\r\n\r\nAXYE AXYBCDE AE. '
+SHOT manualfn-fn-stuff
+? SUBSTR("abc", 0) '? SUBSTR("abc", 0)\r\n62  SUBSTR() : Start point out of range.\n. '
+SHOT manualfn-fn-substr-2
+? SUBSTR("InitechBase", 1, 7), SUBSTR("InitechBase", 8), SUBSTR("abc", 4) + "|" '? SUBSTR("InitechBase", 1, 7), SUBSTR("InitechBase", 8), SUBSTR("abc", 4) + "|"\r\n\r\nInitech Base |. '
+SHOT manualfn-fn-substr
+? TRANSFORM("gibbons", "!!!!!!!"), TRANSFORM(1234567, "99999") '? TRANSFORM("gibbons", "!!!!!!!"), TRANSFORM(1234567, "99999")\r\n\r\nGIBBONS *****. '
+SHOT manualfn-fn-transform-2
+? TRANSFORM(-570, "99999"), TRANSFORM(-570, "@( 99999"), TRANSFORM(570, "@C 99999") '? TRANSFORM(-570, "99999"), TRANSFORM(-570, "@( 99999"), TRANSFORM(570, "@C 99999")\r\n\r\n -570 (  570)   570 CR. '
+? TRANSFORM(96500, "$999,999") '? TRANSFORM(96500, "$999,999")\r\n\r\n$ 96,500. '
+SHOT manualfn-fn-transform
+USE STAFF 'USE STAFF\r\n. '
+GO 2 'GO 2\r\n. '
+? "[" + TRIM(LASTNAME) + "]", "[" + LASTNAME + "]" '? "[" + TRIM(LASTNAME) + "]", "[" + LASTNAME + "]"\r\n\r\n[GIBBONS] [GIBBONS       ]. '
+SHOT manualfn-fn-trim
+? TYPE("3 + 4"), TYPE("DATE()"), TYPE(".T."), TYPE("NOSUCH") '? TYPE("3 + 4"), TYPE("DATE()"), TYPE(".T."), TYPE("NOSUCH")\r\n\r\nN D L U. '
+SHOT manualfn-fn-type-2
+USE STAFF 'USE STAFF\r\n. '
+GO 2 'GO 2\r\n. '
+? TYPE("LASTNAME"), TYPE("SALARY"), TYPE("HIRED"), TYPE("EXEMPT"), TYPE("NOTES") '? TYPE("LASTNAME"), TYPE("SALARY"), TYPE("HIRED"), TYPE("EXEMPT"), TYPE("NOTES")\r\n\r\nC N D L M. '
+SHOT manualfn-fn-type
+? UPPER("Initech Systems") '? UPPER("Initech Systems")\r\n\r\nINITECH SYSTEMS. '
+SHOT manualfn-fn-upper
+USE STAFF 'USE STAFF\r\n. '
+GO 2 'GO 2\r\n. '
+? VAL(EMPNO) + 1 '? VAL(EMPNO) + 1\r\n\r\n 1003.00. '
+SHOT manualfn-fn-val-2
+? VAL("123"), VAL("12.5abc"), VAL("abc"), VAL("  42") '? VAL("123"), VAL("12.5abc"), VAL("abc"), VAL("  42")\r\n\r\n123.00      12.50   0.00   42.00. '
+SHOT manualfn-fn-val
+? YEAR(CTOD("12/25/91")), YEAR(CTOD("12/25/05")) '? YEAR(CTOD("12/25/91")), YEAR(CTOD("12/25/05"))\r\n\r\n 1991  1905. '
+SHOT manualfn-fn-year
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-CLOCK 1:12 pm\nFLAIR-TICK n=40647\nFLAIR-TICK n=40652\n'
+STOPPED 104

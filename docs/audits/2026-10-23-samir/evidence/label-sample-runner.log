@@ -1,0 +1,7 @@
+STARTED label-sample pid 12
+SHOT label-sample-startup
+USE STAFF 'USE STAFF\r\n. '
+LABEL FORM STAFFLBL SAMPLE 'LABEL FORM STAFFLBL SAMPLE\r\n36  Unrecognized phrase/keyword in command.\n. '
+SHOT label-sample-result
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=661\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=664\n'
+STOPPED 12

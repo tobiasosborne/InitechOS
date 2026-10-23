@@ -1,0 +1,4 @@
+{"step": 0, "action": "USE STAFF", "start": 912, "end": 925}
+{"step": 1, "action": "LABEL FORM STAFFLBL SAMPLE", "start": 925, "end": 999}
+{"step": 2, "action": ["shot", "label-sample-result"], "start": 999, "end": 999}
+{"step": 3, "action": "QUIT", "start": 999, "end": 1132}

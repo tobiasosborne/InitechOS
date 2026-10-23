@@ -1,0 +1,36 @@
+{
+  "name": "recursion-alone",
+  "actions": [
+    "DO RECINT",
+    [
+      "pause",
+      3
+    ],
+    [
+      "shot",
+      "recursion-alone-recursive"
+    ],
+    [
+      "key",
+      "esc"
+    ],
+    [
+      "key",
+      "ctrl-c"
+    ],
+    [
+      "pause",
+      2
+    ],
+    "? \"RECOVERED\"",
+    [
+      "pause",
+      2
+    ],
+    [
+      "shot",
+      "recursion-alone-recovery"
+    ]
+  ],
+  "data": "program-fixture.img"
+}

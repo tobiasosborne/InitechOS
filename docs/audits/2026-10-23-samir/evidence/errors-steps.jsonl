@@ -1,0 +1,32 @@
+{"step": 0, "action": "? MISSING", "start": 912, "end": 949}
+{"step": 1, "action": "? ERROR(),MESSAGE()", "start": 949, "end": 985}
+{"step": 2, "action": "? 1+\"x\"", "start": 985, "end": 1019}
+{"step": 3, "action": "? ERROR(),MESSAGE()", "start": 1019, "end": 1055}
+{"step": 4, "action": "? NOSUCH()", "start": 1055, "end": 1096}
+{"step": 5, "action": "? ERROR(),MESSAGE()", "start": 1096, "end": 1132}
+{"step": 6, "action": ["shot", "errors-runtime"], "start": 1132, "end": 1132}
+{"step": 7, "action": "USE MISSING", "start": 1132, "end": 1171}
+{"step": 8, "action": "? ERROR(),MESSAGE()", "start": 1171, "end": 1207}
+{"step": 9, "action": "USE HELLO.TXT", "start": 1207, "end": 1250}
+{"step": 10, "action": "? ERROR(),MESSAGE()", "start": 1250, "end": 1286}
+{"step": 11, "action": "USE CLIENTS", "start": 1286, "end": 1301}
+{"step": 12, "action": "GO 0", "start": 1301, "end": 1336}
+{"step": 13, "action": "? ERROR(),MESSAGE()", "start": 1336, "end": 1372}
+{"step": 14, "action": "SET INDEX TO BAD.NDX", "start": 1372, "end": 1420}
+{"step": 15, "action": "? ERROR(),MESSAGE()", "start": 1420, "end": 1456}
+{"step": 16, "action": ["shot", "errors-files"], "start": 1456, "end": 1456}
+{"step": 17, "action": "REPLACE BAL WITH \"x\"", "start": 1456, "end": 1503}
+{"step": 18, "action": "? ERROR(),MESSAGE()", "start": 1503, "end": 1539}
+{"step": 19, "action": "LOCATE FOR 1", "start": 1539, "end": 1585}
+{"step": 20, "action": "? ERROR(),MESSAGE()", "start": 1585, "end": 1621}
+{"step": 21, "action": "? (1+2", "start": 1621, "end": 1658}
+{"step": 22, "action": "? ERROR(),MESSAGE()", "start": 1658, "end": 1694}
+{"step": 23, "action": "? \"unterminated", "start": 1694, "end": 1738}
+{"step": 24, "action": "? ERROR(),MESSAGE()", "start": 1738, "end": 1774}
+{"step": 25, "action": ["shot", "errors-type"], "start": 1774, "end": 1774}
+{"step": 26, "action": "ON ERROR STORE ERROR() TO LASTERR", "start": 1774, "end": 1811}
+{"step": 27, "action": "? MISSING", "start": 1811, "end": 1824}
+{"step": 28, "action": "? LASTERR,ERROR(),MESSAGE()", "start": 1824, "end": 1898}
+{"step": 29, "action": "ON ERROR", "start": 1898, "end": 1910}
+{"step": 30, "action": "QUIT", "start": 1910, "end": 2065}
+{"step": 31, "action": ["shot", "errors-trap"], "start": 2065, "end": 2065}

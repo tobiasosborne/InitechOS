@@ -1,0 +1,49 @@
+{
+  "name": "errors",
+  "actions": [
+    "? MISSING",
+    "? ERROR(),MESSAGE()",
+    "? 1+\"x\"",
+    "? ERROR(),MESSAGE()",
+    "? NOSUCH()",
+    "? ERROR(),MESSAGE()",
+    [
+      "shot",
+      "errors-runtime"
+    ],
+    "USE MISSING",
+    "? ERROR(),MESSAGE()",
+    "USE HELLO.TXT",
+    "? ERROR(),MESSAGE()",
+    "USE CLIENTS",
+    "GO 0",
+    "? ERROR(),MESSAGE()",
+    "SET INDEX TO BAD.NDX",
+    "? ERROR(),MESSAGE()",
+    [
+      "shot",
+      "errors-files"
+    ],
+    "REPLACE BAL WITH \"x\"",
+    "? ERROR(),MESSAGE()",
+    "LOCATE FOR 1",
+    "? ERROR(),MESSAGE()",
+    "? (1+2",
+    "? ERROR(),MESSAGE()",
+    "? \"unterminated",
+    "? ERROR(),MESSAGE()",
+    [
+      "shot",
+      "errors-type"
+    ],
+    "ON ERROR STORE ERROR() TO LASTERR",
+    "? MISSING",
+    "? LASTERR,ERROR(),MESSAGE()",
+    "ON ERROR",
+    "QUIT",
+    [
+      "shot",
+      "errors-trap"
+    ]
+  ]
+}

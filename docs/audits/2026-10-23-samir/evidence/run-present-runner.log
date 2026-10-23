@@ -1,0 +1,17 @@
+STARTED run-present pid 73
+SHOT run-present-startup
+USE CLIENTS 'USE CLIENTS\r\n. '
+GO 2 'GO 2\r\n. '
+RUN ECHO HELLOFROMDOS 'RUN ECHO HELLOFROMDOS\r\n\r\n92  Unable to load COMMAND.COM.\n. '
+? RECNO(),RECCOUNT() '? RECNO(),RECCOUNT()\r\n\r\n         2          3. '
+! ECHO HELLOBANG '! ECHO HELLOBANG\r\n\r\n92  Unable to load COMMAND.COM.\n. '
+RUN ECHO SAVED > RUNOUT.TXT 'RUN ECHO SAVED > RUNOUT.TXT\r\n\r\n92  Unable to load COMMAND.COM.\n. '
+TYPE RUNOUT.TXT 'TYPE RUNOUT.TXT\r\n1  File does not exist.\n. '
+RUN NOSUCH 'RUN NOSUCH\r\n\r\n92  Unable to load COMMAND.COM.\n. '
+? "AFTER BAD COMMAND" '? "AFTER BAD COMMAND"\r\n\r\nAFTER BAD COMMAND. '
+SHOT run-present-run
+DO DOSRUN 'DO DOSRUN\r\n\r\n92  Unable to load COMMAND.COM.\n. '
+? RECNO(),RECCOUNT() '? RECNO(),RECCOUNT()\r\n\r\n         2          3. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=2449\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=2452\n'
+SHOT run-present-program
+STOPPED 73

@@ -1,0 +1,23 @@
+{"step": 0, "action": "USE CLIENTS", "start": 912, "end": 927}
+{"step": 1, "action": "SET HEADING OFF", "start": 927, "end": 946}
+{"step": 2, "action": "GO TOP", "start": 946, "end": 956}
+{"step": 3, "action": "LIST", "start": 956, "end": 1093}
+{"step": 4, "action": "SET HEADING ON", "start": 1093, "end": 1111}
+{"step": 5, "action": "GO TOP", "start": 1111, "end": 1121}
+{"step": 6, "action": "LIST", "start": 1121, "end": 1301}
+{"step": 7, "action": ["shot", "last-controls-headings"], "start": 1301, "end": 1301}
+{"step": 8, "action": "SET TALK ON", "start": 1301, "end": 1316}
+{"step": 9, "action": "REPLACE ALL BAL WITH BAL+1", "start": 1316, "end": 1346}
+{"step": 10, "action": ["shot", "last-controls-talk"], "start": 1346, "end": 1346}
+{"step": 11, "action": "SELECT 2", "start": 1346, "end": 1358}
+{"step": 12, "action": "USE DEPTS ALIAS D INDEX DEPTS", "start": 1358, "end": 1391}
+{"step": 13, "action": "SELECT 1", "start": 1391, "end": 1403}
+{"step": 14, "action": "USE STAFF", "start": 1403, "end": 1416}
+{"step": 15, "action": "SET RELATION TO DEPT INTO D", "start": 1416, "end": 1447}
+{"step": 16, "action": "GO 1", "start": 1447, "end": 1455}
+{"step": 17, "action": "? DEPT,D->DEPT", "start": 1455, "end": 1484}
+{"step": 18, "action": "GO 5", "start": 1484, "end": 1492}
+{"step": 19, "action": "? DEPT,D->DEPT", "start": 1492, "end": 1521}
+{"step": 20, "action": ["shot", "last-controls-relation"], "start": 1521, "end": 1521}
+{"step": 21, "action": "CLOSE ALL", "start": 1521, "end": 1534}
+{"step": 22, "action": "QUIT", "start": 1534, "end": 1645}

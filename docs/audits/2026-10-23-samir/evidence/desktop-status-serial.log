@@ -1,0 +1,66 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-CREATE
+TRASH-CREATE
+APPLE-MENU n=1
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CLOCK 1:04 pm
+FLAIR-TICK n=4
+FLAIR-TICK n=5
+FLAIR-EVT what=3 where=320,240 msg=00002B5C
+FLAIR-SUSPEND
+. USE CLIENTS
+. SET STATUS ON
+[2J[23;1H[0;7mCommand Line    |(A:>)|CLIENTS               |Rec: 1/3           |      |       [0m[24;1H[0m                        Enter a dBASE III PLUS command.                         [0m[1;1H[1;1H[0m. [0m[1;3H[1;3H[0m?[0m[1;4H[1;4H[0m [0m[1;5H[1;5H[0m2[0m[1;6H[1;6H[0m+[0m[1;7H[1;7H[0m2[0m[1;8H[2;1H[3;1H[0m 4[0m[3;3H[23;1H[0;7mCommand Line    |(A:>)|CLIENTS               |Rec: 1/3           |      |       [0m[24;1H[0m                        Enter a dBASE III PLUS command.                         [0m[3;3H[3;3H[0m. [0m[3;5H[3;5H[0mS[0m[3;6H[3;6H[0mE[0m[3;7H[3;7H[0mT[0m[3;8H[3;8H[0m [0m[3;9H[3;9H[0mS[0m[3;10H[3;10H[0mT[0m[3;11H[3;11H[0mA[0m[3;12H[3;12H[0mT[0m[3;13H[3;13H[0mU[0m[3;14H[3;14H[0mS[0m[3;15H[3;15H[0m [0m[3;16H[3;16H[0mO[0m[3;17H[3;17H[0mF[0m[3;18H[3;18H[0mF[0m[3;19H[4;1H[23;1H[0m                                                                                [0m[24;1H[0m                                                                                [0m[4;1H. QUIT
+FLAIR-TEXT-EXIT rc=0
+FLAIR-EVT-DROP
+FLAIR-RESUME
+FLAIR-TICK n=1320
+FLAIR-EVT what=4 where=320,240 msg=00001C0A
+FLAIR-TICK n=1323

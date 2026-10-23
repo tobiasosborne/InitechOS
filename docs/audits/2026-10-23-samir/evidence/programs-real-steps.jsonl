@@ -1,0 +1,21 @@
+{"step": 0, "action": "DO USEPRG", "start": 2744, "end": 2769}
+{"step": 1, "action": "DO FLOW", "start": 2769, "end": 2826}
+{"step": 2, "action": "? RESULT,I", "start": 2826, "end": 2863}
+{"step": 3, "action": "DO LONG", "start": 2863, "end": 2918}
+{"step": 4, "action": "? SUMX", "start": 2918, "end": 2952}
+{"step": 5, "action": "DO BADLOOP", "start": 2952, "end": 3001}
+{"step": 6, "action": ["shot", "programs-flow"], "start": 3001, "end": 3001}
+{"step": 7, "action": "ON ERROR STORE ERROR() TO ERRNUM", "start": 3001, "end": 3037}
+{"step": 8, "action": "? MISSING", "start": 3037, "end": 3050}
+{"step": 9, "action": "? ERRNUM,MESSAGE()", "start": 3050, "end": 3104}
+{"step": 10, "action": "ON ERROR", "start": 3104, "end": 3116}
+{"step": 11, "action": "DO ONERR", "start": 3116, "end": 3167}
+{"step": 12, "action": "? ERRNO", "start": 3167, "end": 3190}
+{"step": 13, "action": "RETRY", "start": 3190, "end": 3234}
+{"step": 14, "action": "RETURN TO MASTER", "start": 3234, "end": 3254}
+{"step": 15, "action": ["shot", "programs-traps"], "start": 3254, "end": 3254}
+{"step": 16, "action": "ENDIF", "start": 3254, "end": 3291}
+{"step": 17, "action": "ELSE", "start": 3291, "end": 3327}
+{"step": 18, "action": "EXIT", "start": 3327, "end": 3337}
+{"step": 19, "action": "? \"AFTER EXIT\"", "start": 3337, "end": 3383}
+{"step": 20, "action": ["shot", "programs-stray"], "start": 3383, "end": 3383}

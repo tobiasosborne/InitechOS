@@ -1,0 +1,21 @@
+{
+  "name": "run-missing",
+  "boot": "tracer_boot.img",
+  "route": "dos",
+  "shell_commands": [
+    "SET COMSPEC=A:\\MISSING.COM"
+  ],
+  "actions": [
+    "RUN ECHO SHOULDNOTRUN",
+    [
+      "shot",
+      "run-missing-result"
+    ],
+    "? ERROR(),MESSAGE()",
+    [
+      "shot",
+      "run-missing-error"
+    ],
+    "QUIT"
+  ]
+}

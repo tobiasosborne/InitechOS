@@ -1,0 +1,166 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+SAMIR.COM        95514
+CLIENTS.DBF          223
+ACCTMAIN.PRG         1031
+AMTCHECK.PRG          525
+ARBATCH.DBF          264
+BAD.NDX          559
+BADLOOP.PRG           26
+BADTOTAL.PRG          392
+BYORDER.PRG          646
+CLEANUP.PRG          612
+COUNTFOR.PRG          436
+CUSTTOT.PRG          551
+DEPTLIST.PRG          457
+DEPTNAME.PRG          457
+DEPTS.DBF          337
+DEPTS.NDX         1024
+DOSRUN.PRG           44
+DUECLASS.PRG          580
+EDGE.DBF         1229
+EDGE.DBT         1024
+EMPTY.DBF           66
+ERRDEMO.PRG          464
+FINDINV.PRG          523
+FIRSTBIG.PRG          561
+FLOW.PRG          328
+FORM.PRG           80
+HEADCNT.PRG          593
+HELLO.TXT           22
+INTPOST.PRG         1183
+INVCUST.NDX         1024
+INVFMT.PRG          454
+INVNO.NDX         1024
+INVOICE.DBF          334
+INVRPT.FRM         1990
+INVTOTAL.PRG          531
+LATEFEE.PRG          498
+LONG.PRG        13044
+LOOP.PRG           71
+MARKPAID.PRG          682
+MONTHEND.MEM          153
+NAMEFMT.PRG          536
+NEWINV.PRG          710
+NOTES.PRG          371
+ONERR.PRG           90
+OPENINV.PRG          450
+PAGERPT.PRG          647
+PAYTOTAL.PRG          610
+QUITPRG.PRG           47
+RAISE.PRG          406
+RAISEDPT.PRG          721
+RECURSE.PRG           20
+SERVICE.PRG          741
+STAFF.DBF         1167
+STAFF.DBT         4608
+STAFFDEP.PRG          651
+STAFFDPT.NDX         1024
+STAFFLBL.LBL         1034
+STAFFLST.PRG          572
+STAFFNAM.NDX         1024
+STAFFNO.NDX         1024
+STAFFRPT.FRM         1990
+STAFFSAL.NDX         1024
+STATEMNT.PRG          945
+TALLY.PRG          369
+TEXT.PRG           53
+TITLES.PRG          481
+USEPRG.PRG           37
+Y2KACCT.PRG         1077
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+Current date is Fri 10-23-2026
+Enter new date (mm-dd-yy): SAMIR
+Invalid date
+Enter new date (mm-dd-yy): DO USEPRG
+Invalid date
+Enter new date (mm-dd-yy): DO FLOW
+Invalid date
+Enter new date (mm-dd-yy): ? RESULT,I
+Invalid date
+Enter new date (mm-dd-yy): DO LONG
+Invalid date
+Enter new date (mm-dd-yy): ? SUMX
+Invalid date
+Enter new date (mm-dd-yy): DO BADLOOP
+Invalid date
+Enter new date (mm-dd-yy): ON ERROR STORE ERROR() TO ERRNUM
+Invalid date
+Enter new date (mm-dd-yy): ? MISSING
+Invalid date
+Enter new date (mm-dd-yy): ? ERRNUM,MESSAGE()
+Invalid date
+Enter new date (mm-dd-yy): ON ERROR
+Invalid date
+Enter new date (mm-dd-yy): DO ONERR
+Invalid date
+Enter new date (mm-dd-yy): ? ERRNO
+Invalid date
+Enter new date (mm-dd-yy): RETRY
+Invalid date
+Enter new date (mm-dd-yy): RETURN TO MASTER
+Invalid date
+Enter new date (mm-dd-yy): ENDIF
+Invalid date
+Enter new date (mm-dd-yy): ELSE
+Invalid date
+Enter new date (mm-dd-yy): EXIT
+Invalid date
+Enter new date (mm-dd-yy): ? "AFTER EXIT"
+Invalid date
+Enter new date (mm-dd-yy): 

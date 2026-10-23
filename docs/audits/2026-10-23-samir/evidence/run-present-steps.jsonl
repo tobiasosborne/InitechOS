@@ -1,0 +1,14 @@
+{"step": 0, "action": "USE CLIENTS", "start": 912, "end": 927}
+{"step": 1, "action": "GO 2", "start": 927, "end": 935}
+{"step": 2, "action": "RUN ECHO HELLOFROMDOS", "start": 935, "end": 994}
+{"step": 3, "action": "? RECNO(),RECCOUNT()", "start": 994, "end": 1041}
+{"step": 4, "action": "! ECHO HELLOBANG", "start": 1041, "end": 1095}
+{"step": 5, "action": "RUN ECHO SAVED > RUNOUT.TXT", "start": 1095, "end": 1160}
+{"step": 6, "action": "TYPE RUNOUT.TXT", "start": 1160, "end": 1203}
+{"step": 7, "action": "RUN NOSUCH", "start": 1203, "end": 1251}
+{"step": 8, "action": "? \"AFTER BAD COMMAND\"", "start": 1251, "end": 1295}
+{"step": 9, "action": ["shot", "run-present-run"], "start": 1295, "end": 1295}
+{"step": 10, "action": "DO DOSRUN", "start": 1295, "end": 1342}
+{"step": 11, "action": "? RECNO(),RECCOUNT()", "start": 1342, "end": 1389}
+{"step": 12, "action": "QUIT", "start": 1389, "end": 1524}
+{"step": 13, "action": ["shot", "run-present-program"], "start": 1524, "end": 1524}

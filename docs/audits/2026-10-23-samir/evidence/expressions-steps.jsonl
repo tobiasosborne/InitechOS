@@ -1,0 +1,60 @@
+{"step": 0, "action": "? -2^2,2^3^2,2+3*4,MOD(-5,3),MOD(5,-3)", "start": 913, "end": 997}
+{"step": 1, "action": "? ROUND(-1.5,0),ROUND(1.5,0),ROUND(1234,-2)", "start": 997, "end": 1078}
+{"step": 2, "action": "? VAL(\"  -12.34xyz\"),STR(1.999,5,2),STR(9999,3)", "start": 1078, "end": 1155}
+{"step": 3, "action": "? ABS(-3),INT(-1.9),MAX(2,3),MIN(2,3)", "start": 1155, "end": 1235}
+{"step": 4, "action": "? SQRT(-1)", "start": 1235, "end": 1276}
+{"step": 5, "action": "? LOG(0)", "start": 1276, "end": 1315}
+{"step": 6, "action": "? EXP(1000)", "start": 1315, "end": 1357}
+{"step": 7, "action": ["shot", "expressions-math"], "start": 1357, "end": 1357}
+{"step": 8, "action": "? AT(\"a\",\"banana\"),LEFT(\"abc\",2),RIGHT(\"abc\",2)", "start": 1357, "end": 1426}
+{"step": 9, "action": "? SUBSTR(\"abc\",0,2)", "start": 1426, "end": 1490}
+{"step": 10, "action": "? SUBSTR(\"abc\",-1,2)", "start": 1490, "end": 1555}
+{"step": 11, "action": "? LEN(SPACE(254))", "start": 1555, "end": 1588}
+{"step": 12, "action": "? SPACE(255)", "start": 1588, "end": 1629}
+{"step": 13, "action": "? SPACE(-1)", "start": 1629, "end": 1668}
+{"step": 14, "action": "? REPLICATE(\"x\",255)", "start": 1668, "end": 1717}
+{"step": 15, "action": "? STUFF(\"abcd\",2,2,\"XY\")", "start": 1717, "end": 1751}
+{"step": 16, "action": ["shot", "expressions-strings"], "start": 1751, "end": 1751}
+{"step": 17, "action": "SET EXACT OFF", "start": 1751, "end": 1768}
+{"step": 18, "action": "? \"abcdef\"=\"abc\",\"abc\"=\"abcdef\",\"abc\"=\"\",\"\"=\"abc\"", "start": 1768, "end": 1838}
+{"step": 19, "action": "SET EXACT ON", "start": 1838, "end": 1854}
+{"step": 20, "action": "? \"abc\"=\"abc \",\"abc\"=\"ABC\"", "start": 1854, "end": 1893}
+{"step": 21, "action": "? \"abc\"==\"abc\"", "start": 1893, "end": 1929}
+{"step": 22, "action": "? \"b\"$\"abc\",.NOT. .T. .OR. .T.", "start": 1929, "end": 1972}
+{"step": 23, "action": "? \"a\"+1", "start": 1972, "end": 2006}
+{"step": 24, "action": "? .T.+1", "start": 2006, "end": 2040}
+{"step": 25, "action": "? CTOD(\"01/01/00\")+1", "start": 2040, "end": 2074}
+{"step": 26, "action": ["shot", "expressions-compare"], "start": 2074, "end": 2074}
+{"step": 27, "action": "? TYPE(\"NONSENSE\"),TYPE(\"1+2\"),TYPE(\".T.\")", "start": 2074, "end": 2127}
+{"step": 28, "action": "? IIF(.T.,1,MISSING)", "start": 2127, "end": 2154}
+{"step": 29, "action": "? CHR(256)", "start": 2154, "end": 2194}
+{"step": 30, "action": "? ASC(\"\")", "start": 2194, "end": 2219}
+{"step": 31, "action": "? LEN(TRIM(\" abc \")),LOWER(UPPER(\"AbC\"))", "start": 2219, "end": 2279}
+{"step": 32, "action": "? ISALPHA(\"A\"),ISLOWER(\"a\"),ISUPPER(\"A\")", "start": 2279, "end": 2336}
+{"step": 33, "action": "? TRANSFORM(123.4,\"999.99\")", "start": 2336, "end": 2375}
+{"step": 34, "action": ["shot", "expressions-types"], "start": 2375, "end": 2375}
+{"step": 35, "action": "SET DATE GERMAN", "start": 2375, "end": 2394}
+{"step": 36, "action": "? DTOC(CTOD(\"31.12.92\"))", "start": 2394, "end": 2432}
+{"step": 37, "action": "SET DATE ANSI", "start": 2432, "end": 2449}
+{"step": 38, "action": "? DTOC(CTOD(\"92.12.31\"))", "start": 2449, "end": 2487}
+{"step": 39, "action": "SET DATE JAPAN", "start": 2487, "end": 2505}
+{"step": 40, "action": "? DTOC(CTOD(\"92/12/31\"))", "start": 2505, "end": 2543}
+{"step": 41, "action": "SET DATE BRITISH", "start": 2543, "end": 2563}
+{"step": 42, "action": "? DTOC(CTOD(\"31/12/92\"))", "start": 2563, "end": 2601}
+{"step": 43, "action": "SET DATE ITALIAN", "start": 2601, "end": 2621}
+{"step": 44, "action": "? DTOC(CTOD(\"31-12-92\"))", "start": 2621, "end": 2659}
+{"step": 45, "action": "SET DATE USA", "start": 2659, "end": 2675}
+{"step": 46, "action": "? DTOC(CTOD(\"12-31-92\"))", "start": 2675, "end": 2713}
+{"step": 47, "action": ["shot", "expressions-dates"], "start": 2713, "end": 2713}
+{"step": 48, "action": "SET DATE AMERICAN", "start": 2713, "end": 2734}
+{"step": 49, "action": "SET CENTURY ON", "start": 2734, "end": 2752}
+{"step": 50, "action": "? CTOD(\"02/29/2000\"),CTOD(\"02/29/1900\")", "start": 2752, "end": 2818}
+{"step": 51, "action": "? YEAR(CTOD(\"12/31/00\")),DOW(CTOD(\"01/01/1900\"))", "start": 2818, "end": 2888}
+{"step": 52, "action": "? CMONTH(CTOD(\"01/01/92\")),CDOW(CTOD(\"01/01/92\"))", "start": 2888, "end": 2960}
+{"step": 53, "action": "SET DECIMALS TO 15", "start": 2960, "end": 2982}
+{"step": 54, "action": "? 1/3", "start": 2982, "end": 3019}
+{"step": 55, "action": "SET DECIMALS TO 16", "start": 3019, "end": 3041}
+{"step": 56, "action": "SET DECIMALS TO -1", "start": 3041, "end": 3063}
+{"step": 57, "action": "? ERROR(),MESSAGE()", "start": 3063, "end": 3099}
+{"step": 58, "action": "QUIT", "start": 3099, "end": 3257}
+{"step": 59, "action": ["shot", "expressions-decimals"], "start": 3257, "end": 3257}

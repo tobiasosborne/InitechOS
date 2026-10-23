@@ -1,0 +1,24 @@
+{
+  "name": "date-index",
+  "actions": [
+    "USE EDGE",
+    "INDEX ON WHEN TO BLANKDAT",
+    "? ERROR(),MESSAGE()",
+    [
+      "shot",
+      "date-index-blank"
+    ],
+    "REPLACE ALL WHEN WITH CTOD(\"01/01/92\")",
+    "INDEX ON WHEN TO VALIDATE",
+    "GO TOP",
+    "LIST ID,WHEN",
+    "CLOSE INDEX",
+    "REPLACE WHEN WITH CTOD(\"\")",
+    "INDEX ON WHEN TO BLANK2",
+    "QUIT",
+    [
+      "shot",
+      "date-index-valid"
+    ]
+  ]
+}

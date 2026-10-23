@@ -1,0 +1,7 @@
+STARTED escape-loop pid 75
+SHOT escape-loop-startup
+DO LOOP 'DO LOOP\r\n'
+SHOT escape-loop-running
+? "RECOVERED" ''
+SHOT escape-loop-escape
+STOPPED 75

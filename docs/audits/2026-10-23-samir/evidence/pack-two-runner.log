@@ -1,0 +1,23 @@
+STARTED pack-two pid 30
+SHOT pack-two-startup
+USE CLIENTS 'USE CLIENTS\r\n. '
+INDEX ON NAME TO BYNAME 'INDEX ON NAME TO BYNAME\r\n. '
+INDEX ON BAL TO BYBAL 'INDEX ON BAL TO BYBAL\r\n. '
+SET INDEX TO BYNAME,BYBAL 'SET INDEX TO BYNAME,BYBAL\r\n. '
+SET ORDER TO 1 'SET ORDER TO 1\r\n. '
+PACK 'PACK\r\n. '
+SHOT pack-two-before
+REINDEX 'REINDEX\r\n114  Index damaged.  REINDEX should be done before using data.\n. '
+GO TOP 'GO TOP\r\n5  Record is out of range.\n. '
+LIST 'LIST\r\n10  Syntax error.\n. '
+CLOSE INDEX 'CLOSE INDEX\r\n. '
+GO TOP 'GO TOP\r\n. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n      3  LUMBERGH   DALLAS        7777.77\r\n. '
+SHOT pack-two-after
+USE 'USE\r\n. '
+USE CLIENTS INDEX BYNAME,BYBAL 'USE CLIENTS INDEX BYNAME,BYBAL\r\n. '
+GO TOP 'GO TOP\r\n. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n      3  LUMBERGH   DALLAS        7777.77\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=3158\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=3161\n'
+SHOT pack-two-reopen
+STOPPED 30

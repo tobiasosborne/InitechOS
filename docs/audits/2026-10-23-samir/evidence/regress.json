@@ -1,0 +1,130 @@
+{
+  "name": "regress",
+  "actions": [
+    "USE CLIENTS",
+    "LIST",
+    "GO TOP",
+    "DELETE",
+    "DISPLAY",
+    "RECALL",
+    "SET FILTER TO BAL>1000",
+    "LIST",
+    "SET FILTER TO",
+    [
+      "shot",
+      "regress-list"
+    ],
+    "CLOSE INDEX",
+    "? RECCOUNT()",
+    "CLOSE FORMAT",
+    "? RECCOUNT()",
+    "USE CLIENTS ALIAS ONE",
+    "? ONE->NAME",
+    "? TYPE(\"BAL\")",
+    "? 1/0",
+    [
+      "shot",
+      "regress-close"
+    ],
+    "? DATE()",
+    "SET CENTURY ON",
+    "? DATE()",
+    "? CTOD(\"\")",
+    "? CTOD(\"02/30/92\")",
+    "? CTOD(\"02/29/00\")",
+    "? CTOD(\"02/29/1900\")",
+    [
+      "shot",
+      "regress-date"
+    ],
+    "? EXP(1),LOG(1),SQRT(4)",
+    "? TIME(),RECSIZE(),DISKSPACE()",
+    "? VERSION(),OS()",
+    "? PCOL(),PROW(),ROW(),COL()",
+    "MVAR=123",
+    "SAVE TO MEMSAVE",
+    "CLEAR MEMORY",
+    "RESTORE FROM MEMSAVE",
+    "? MVAR",
+    [
+      "shot",
+      "regress-functions"
+    ],
+    "USE CLIENTS",
+    "INDEX ON NAME TO TESTIDX",
+    "GO TOP",
+    "LIST",
+    "REINDEX",
+    "SEEK \"WADDAMS\"",
+    "? FOUND(),RECNO()",
+    "APPEND FROM CLIENTS.DBF",
+    "? RECCOUNT()",
+    [
+      "shot",
+      "regress-index"
+    ],
+    "SORT TO SORTED ON NAME",
+    "TOTAL ON NAME TO TOTALLED",
+    "COPY FILE HELLO.TXT TO COPY.TXT",
+    "TYPE COPY.TXT",
+    "RENAME COPY.TXT TO RENAMED.TXT",
+    "ERASE RENAMED.TXT",
+    "? FILE(\"RENAMED.TXT\")",
+    [
+      "shot",
+      "regress-file"
+    ],
+    "CMD=\"? 88\"",
+    "&CMD",
+    "SET FUNCTION 1 TO \"LIST\"",
+    "SET PROCEDURE TO FLOW",
+    "SET DEFAULT TO A:",
+    "SET PATH TO A:\\",
+    "SET ESCAPE ON",
+    "SET CONFIRM ON",
+    "SET BELL OFF",
+    [
+      "shot",
+      "regress-misc"
+    ],
+    "SET CONSOLE OFF",
+    "? \"HIDDEN\"",
+    "SET CONSOLE ON",
+    "? \"VISIBLE\"",
+    "SET HEADING OFF",
+    "LIST NEXT 2",
+    "SET HEADING ON",
+    "SET ALTERNATE TO OUTPUT",
+    "SET ALTERNATE ON",
+    "? \"AUDIT OUTPUT\"",
+    "SET ALTERNATE OFF",
+    "CLOSE ALTERNATE",
+    [
+      "shot",
+      "regress-settings"
+    ],
+    "USE EMPTY",
+    "APPEND BLANK",
+    "SET SAFETY ON",
+    "ZAP",
+    "N",
+    "? RECCOUNT()",
+    [
+      "shot",
+      "regress-zap-no"
+    ],
+    "ZAP",
+    "Y",
+    "? RECCOUNT()",
+    "CLOSE ALL",
+    "QUIT",
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "regress-zap-yes"
+    ]
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "name": "full-real",
+  "actions": [
+    "USE CLIENTS",
+    "LIST",
+    [
+      "shot",
+      "full-real-before"
+    ],
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "? RECCOUNT()",
+    [
+      "shot",
+      "full-real-append"
+    ],
+    "USE",
+    "USE CLIENTS",
+    "? RECCOUNT()",
+    "LIST",
+    [
+      "shot",
+      "full-real-reopen"
+    ],
+    "INDEX ON NAME TO FULLIDX",
+    "? ERROR(),MESSAGE()",
+    "COPY FILE CLIENTS.DBF TO NEWCOPY.DBF",
+    "SORT TO SORTED ON NAME",
+    "GO TOP",
+    "DELETE",
+    "PACK",
+    "? RECCOUNT()",
+    "USE",
+    "USE CLIENTS",
+    "LIST",
+    "QUIT",
+    [
+      "shot",
+      "full-real-index"
+    ]
+  ],
+  "data": "full-fixture.img",
+  "boot": "tracer_boot.img",
+  "route": "dos"
+}

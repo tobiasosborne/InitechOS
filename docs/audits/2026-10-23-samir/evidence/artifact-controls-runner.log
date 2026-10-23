@@ -1,0 +1,17 @@
+STARTED artifact-controls pid 6
+SHOT artifact-controls-startup
+USE EDGE 'USE EDGE\r\n. '
+GO TOP 'GO TOP\r\n. '
+INDEX ON LEFT(WIDE,100) TO KEY100 'INDEX ON LEFT(WIDE,100) TO KEY100\r\n. '
+GO TOP 'GO TOP\r\n. '
+INDEX ON LEFT(WIDE,101) TO KEY101 'INDEX ON LEFT(WIDE,101) TO KEY101\r\n. '
+? FILE("KEY100.NDX"),FILE("KEY101.NDX") '? FILE("KEY100.NDX"),FILE("KEY101.NDX")\r\n\r\n.T. .T.. '
+SHOT artifact-controls-index-length
+USE 'USE\r\n. '
+DELETE 'DELETE\r\n10  Syntax error.\n. '
+RECALL 'RECALL\r\n10  Syntax error.\n. '
+PACK 'PACK\r\n10  Syntax error.\n. '
+REPLACE NAME WITH "x" 'REPLACE NAME WITH "x"\r\n10  Syntax error.\n. '
+SHOT artifact-controls-no-table
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=2495\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=2498\n'
+STOPPED 6

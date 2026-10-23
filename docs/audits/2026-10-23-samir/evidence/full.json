@@ -1,0 +1,59 @@
+{
+  "name": "full",
+  "actions": [
+    "USE CLIENTS",
+    "LIST",
+    [
+      "shot",
+      "full-before"
+    ],
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "APPEND BLANK",
+    "? RECCOUNT()",
+    [
+      "shot",
+      "full-append"
+    ],
+    "USE",
+    "USE CLIENTS",
+    "? RECCOUNT()",
+    "LIST",
+    [
+      "shot",
+      "full-reopen"
+    ],
+    "INDEX ON NAME TO FULLIDX",
+    "? ERROR(),MESSAGE()",
+    "COPY FILE CLIENTS.DBF TO NEWCOPY.DBF",
+    "SORT TO SORTED ON NAME",
+    "GO TOP",
+    "DELETE",
+    "PACK",
+    "? RECCOUNT()",
+    "USE",
+    "USE CLIENTS",
+    "LIST",
+    "QUIT",
+    [
+      "shot",
+      "full-index"
+    ]
+  ],
+  "data": "full-fixture.img"
+}

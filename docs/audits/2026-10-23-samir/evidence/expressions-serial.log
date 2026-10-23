@@ -1,0 +1,158 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-CREATE
+TRASH-CREATE
+APPLE-MENU n=1
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CLOCK 12:46 pm
+FLAIR-TICK n=4
+FLAIR-TICK n=5
+FLAIR-EVT what=3 where=320,240 msg=00002B5C
+FLAIR-SUSPEND
+. ? -2^2,2^3^2,2+3*4,MOD(-5,3),MOD(5,-3)
+
+         4.00         64.00   14  -2   2. ? ROUND(-1.5,0),ROUND(1.5,0),ROUND(1234,-2)
+
+        -1          2       1200. ? VAL("  -12.34xyz"),STR(1.999,5,2),STR(9999,3)
+
+        -12.34  2.00 ***. ? ABS(-3),INT(-1.9),MAX(2,3),MIN(2,3)
+
+         3   -1          3          2. ? SQRT(-1)
+31  Invalid function name.
+. ? LOG(0)
+31  Invalid function name.
+. ? EXP(1000)
+31  Invalid function name.
+. ? AT("a","banana"),LEFT("abc",2),RIGHT("abc",2)
+
+         2 ab bc. ? SUBSTR("abc",0,2)
+62  SUBSTR() : Start point out of range.
+. ? SUBSTR("abc",-1,2)
+62  SUBSTR() : Start point out of range.
+. ? LEN(SPACE(254))
+
+       254. ? SPACE(255)
+59  SPACE() : Too large.
+. ? SPACE(-1)
+60  SPACE() : Negative.
+. ? REPLICATE("x",255)
+59  SPACE() : Too large.
+. ? STUFF("abcd",2,2,"XY")
+
+aXYd. SET EXACT OFF
+. ? "abcdef"="abc","abc"="abcdef","abc"="",""="abc"
+
+.T. .F. .T. .F.. SET EXACT ON
+. ? "abc"="abc ","abc"="ABC"
+
+.T. .F.. ? "abc"=="abc"
+10  Syntax error.
+. ? "b"$"abc",.NOT. .T. .OR. .T.
+
+.T. .T.. ? "a"+1
+9  Data type mismatch.
+. ? .T.+1
+9  Data type mismatch.
+. ? CTOD("01/01/00")+1
+
+01/02/00. ? TYPE("NONSENSE"),TYPE("1+2"),TYPE(".T.")
+
+U N L. ? IIF(.T.,1,MISSING)
+
+1. ? CHR(256)
+57  CHR() : Out of range.
+. ? ASC("")
+
+         0. ? LEN(TRIM(" abc ")),LOWER(UPPER("AbC"))
+
+         4 abc. ? ISALPHA("A"),ISLOWER("a"),ISUPPER("A")
+
+.T. .T. .T.. ? TRANSFORM(123.4,"999.99")
+
+***.**. SET DATE GERMAN
+. ? DTOC(CTOD("31.12.92"))
+
+31.12.92. SET DATE ANSI
+. ? DTOC(CTOD("92.12.31"))
+
+92.12.31. SET DATE JAPAN
+. ? DTOC(CTOD("92/12/31"))
+
+92/12/31. SET DATE BRITISH
+. ? DTOC(CTOD("31/12/92"))
+
+31/12/92. SET DATE ITALIAN
+. ? DTOC(CTOD("31-12-92"))
+
+31-12-92. SET DATE USA
+. ? DTOC(CTOD("12-31-92"))
+
+12-31-92. SET DATE AMERICAN
+. SET CENTURY ON
+. ? CTOD("02/29/2000"),CTOD("02/29/1900")
+
+02/29/2000 11/24/,)/-. ? YEAR(CTOD("12/31/00")),DOW(CTOD("01/01/1900"))
+
+ 1900          2. ? CMONTH(CTOD("01/01/92")),CDOW(CTOD("01/01/92"))
+
+January Wednesday. SET DECIMALS TO 15
+. ? 1/3
+
+         0.333333333333333. SET DECIMALS TO 16
+. SET DECIMALS TO -1
+. ? ERROR(),MESSAGE()
+
+         0 . QUIT
+FLAIR-TEXT-EXIT rc=0
+FLAIR-EVT-DROP
+FLAIR-RESUME
+FLAIR-CLOCK 12:48 pm
+FLAIR-TICK n=12841
+FLAIR-EVT what=4 where=320,240 msg=00001C0A
+FLAIR-TICK n=12845

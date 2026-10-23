@@ -1,0 +1,37 @@
+{
+  "name": "ui-gaps",
+  "actions": [
+    "USE CLIENTS",
+    "MODIFY STRUCTURE",
+    "CREATE REPORT NEWREP",
+    "MODIFY REPORT STAFFRPT",
+    "CREATE LABEL NEWLAB",
+    "MODIFY COMMAND FLOW",
+    [
+      "shot",
+      "ui-gaps-design"
+    ],
+    "COPY STRUCTURE TO STRUCT",
+    "COPY STRUCTURE EXTENDED TO EXTSTR",
+    "JOIN WITH CLIENTS TO JOINED FOR .T.",
+    "UPDATE ON NAME FROM CLIENTS REPLACE BAL WITH BAL",
+    "LIST NAME TO PRINT",
+    [
+      "shot",
+      "ui-gaps-data"
+    ],
+    "INDEX ON NAME TO UNIQUE1 UNIQUE",
+    "SET UNIQUE ON",
+    "INDEX ON NAME TO UNIQUE2",
+    "SET UNIQUE OFF",
+    [
+      "shot",
+      "ui-gaps-unique"
+    ],
+    "QUIT",
+    [
+      "shot",
+      "ui-gaps-finish"
+    ]
+  ]
+}

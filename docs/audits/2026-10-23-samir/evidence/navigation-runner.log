@@ -1,0 +1,25 @@
+STARTED navigation pid 92
+SHOT navigation-startup
+USE CLIENTS 'USE CLIENTS\r\n. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n      3  LUMBERGH   DALLAS        7777.77\r\n. '
+? RECNO(),EOF() '? RECNO(),EOF()\r\n\r\n         4 .T.. '
+GO 2 'GO 2\r\n. '
+DISPLAY ALL 'DISPLAY ALL\r\nRecord#  NAME       CITY              BAL\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n      3  LUMBERGH   DALLAS        7777.77\r\n. '
+? RECNO(),EOF() '? RECNO(),EOF()\r\n\r\n         4 .T.. '
+GO TOP 'GO TOP\r\n. '
+LIST NEXT 2 NAME 'LIST NEXT 2 NAME\r\nRecord#  NAME\r\n      1  PESTON    \r\n      2  WADDAMS   \r\n. '
+? RECNO(),EOF() '? RECNO(),EOF()\r\n\r\n         2 .F.. '
+SHOT navigation-list
+SET FILTER TO .F. 'SET FILTER TO .F.\r\n. '
+GO TOP 'GO TOP\r\n. '
+? RECNO(),EOF(),BOF() '? RECNO(),EOF(),BOF()\r\n\r\n         4 .T. .F.. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n. '
+? RECNO(),EOF(),BOF() '? RECNO(),EOF(),BOF()\r\n\r\n         4 .T. .F.. '
+SET FILTER TO 'SET FILTER TO\r\n. '
+USE EMPTY 'USE EMPTY\r\n. '
+? RECCOUNT(),RECNO(),EOF(),BOF() '? RECCOUNT(),RECNO(),EOF(),BOF()\r\n\r\n         0          1 .T. .F.. '
+GO TOP 'GO TOP\r\n. '
+? EOF(),BOF() '? EOF(),BOF()\r\n\r\n.T. .F.. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-CLOCK 1:05 pm\nFLAIR-TICK n=3782\nFLAIR-TICK n=3787\n'
+SHOT navigation-hidden
+STOPPED 92

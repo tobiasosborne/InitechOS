@@ -1,0 +1,7 @@
+STARTED retry-control pid 7
+SHOT retry-control-startup
+DO RETRYFIX 'DO RETRYFIX\r\n\r\nDONE          1. '
+? XX,TRYCNT '? XX,TRYCNT\r\n\r\n         6          1. '
+SHOT retry-control-result
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=603\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=606\n'
+STOPPED 7

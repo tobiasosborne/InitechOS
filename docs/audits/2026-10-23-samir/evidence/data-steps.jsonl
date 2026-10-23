@@ -1,0 +1,119 @@
+{"step": 0, "action": "USE EDGE", "start": 913, "end": 925}
+{"step": 1, "action": "? LEN(WIDE),PRECISE,SMALL,WHEN,OK", "start": 925, "end": 956}
+{"step": 2, "action": "? MEMO,LEN(MEMO),TYPE(\"MEMO\")", "start": 956, "end": 1037}
+{"step": 3, "action": "REPLACE SMALL WITH 99999", "start": 1037, "end": 1107}
+{"step": 4, "action": "DISPLAY ID,SMALL", "start": 1107, "end": 1176}
+{"step": 5, "action": "REPLACE WHEN WITH CTOD(\"02/30/92\")", "start": 1176, "end": 1212}
+{"step": 6, "action": "DISPLAY ID,WHEN", "start": 1214, "end": 1277}
+{"step": 7, "action": "REPLACE MEMO WITH \"new memo\"", "start": 1277, "end": 1309}
+{"step": 8, "action": "? MEMO", "start": 1309, "end": 1321}
+{"step": 9, "action": ["shot", "data-wide"], "start": 1321, "end": 1321}
+{"step": 10, "action": "GO 2", "start": 1321, "end": 1329}
+{"step": 11, "action": "REPLACE PRECISE WITH 0.98765432101234567", "start": 1329, "end": 1373}
+{"step": 12, "action": "REPLACE NAME WITH \"abcdefghijklmnopqrst\"", "start": 1373, "end": 1417}
+{"step": 13, "action": "REPLACE OK WITH \"T\"", "start": 1417, "end": 1463}
+{"step": 14, "action": "DISPLAY ID,NAME,PRECISE,OK", "start": 1463, "end": 1596}
+{"step": 15, "action": "USE", "start": 1596, "end": 1603}
+{"step": 16, "action": "USE EDGE", "start": 1603, "end": 1615}
+{"step": 17, "action": "DISPLAY ID,NAME,PRECISE,SMALL,WHEN,OK", "start": 1615, "end": 1648}
+{"step": 18, "action": ["shot", "data-overflow"], "start": 1648, "end": 1649}
+{"step": 19, "action": "GO 0", "start": 1649, "end": 1824}
+{"step": 20, "action": "? RECNO(),BOF(),EOF()", "start": 1824, "end": 1869}
+{"step": 21, "action": "GO 999", "start": 1869, "end": 1906}
+{"step": 22, "action": "? RECNO(),BOF(),EOF()", "start": 1906, "end": 1951}
+{"step": 23, "action": "GO TOP", "start": 1951, "end": 1961}
+{"step": 24, "action": "SKIP -1", "start": 1961, "end": 1972}
+{"step": 25, "action": "? RECNO(),BOF(),EOF()", "start": 1972, "end": 2017}
+{"step": 26, "action": "GO BOTTOM", "start": 2017, "end": 2030}
+{"step": 27, "action": "SKIP", "start": 2030, "end": 2038}
+{"step": 28, "action": "? RECNO(),BOF(),EOF()", "start": 2038, "end": 2083}
+{"step": 29, "action": ["shot", "data-bounds"], "start": 2083, "end": 2083}
+{"step": 30, "action": "USE CLIENTS", "start": 2083, "end": 2098}
+{"step": 31, "action": "SEEK \"PESTON\"", "start": 2098, "end": 2144}
+{"step": 32, "action": "FIND PESTON", "start": 2144, "end": 2188}
+{"step": 33, "action": "CONTINUE", "start": 2188, "end": 2229}
+{"step": 34, "action": "LOCATE FOR BAL>1000", "start": 2229, "end": 2252}
+{"step": 35, "action": "? FOUND(),RECNO()", "start": 2252, "end": 2289}
+{"step": 36, "action": "CONTINUE", "start": 2289, "end": 2301}
+{"step": 37, "action": "? FOUND(),RECNO()", "start": 2301, "end": 2338}
+{"step": 38, "action": "CONTINUE", "start": 2338, "end": 2350}
+{"step": 39, "action": "? FOUND(),RECNO()", "start": 2350, "end": 2387}
+{"step": 40, "action": ["shot", "data-search"], "start": 2387, "end": 2387}
+{"step": 41, "action": "GO TOP", "start": 2387, "end": 2397}
+{"step": 42, "action": "LIST NEXT 2 NAME,BAL OFF", "start": 2397, "end": 2491}
+{"step": 43, "action": "GO 2", "start": 2491, "end": 2499}
+{"step": 44, "action": "LIST REST NAME", "start": 2499, "end": 2574}
+{"step": 45, "action": "GO TOP", "start": 2574, "end": 2584}
+{"step": 46, "action": "LIST NAME WHILE BAL>0", "start": 2584, "end": 2645}
+{"step": 47, "action": "LIST FOR BAL>0", "start": 2645, "end": 2792}
+{"step": 48, "action": "LIST NAME TO PRINT", "start": 2792, "end": 2858}
+{"step": 49, "action": "SUM BAL", "start": 2858, "end": 2904}
+{"step": 50, "action": "AVERAGE BAL", "start": 2904, "end": 2954}
+{"step": 51, "action": "COUNT", "start": 2954, "end": 2998}
+{"step": 52, "action": ["shot", "data-scope"], "start": 2998, "end": 2998}
+{"step": 53, "action": "COPY TO BACKUP", "start": 2998, "end": 3051}
+{"step": 54, "action": "COPY STRUCTURE TO STRUCT", "start": 3051, "end": 3114}
+{"step": 55, "action": "COPY STRUCTURE EXTENDED TO EXTSTR", "start": 3114, "end": 3145}
+{"step": 56, "action": "JOIN WITH CLIENTS TO JOINED FOR .T.", "start": 3145, "end": 3215}
+{"step": 57, "action": "UPDATE ON NAME FROM CLIENTS REPLACE BAL WITH BAL", "start": 3215, "end": 3295}
+{"step": 58, "action": "CREATE REPORT NEWREP", "start": 3295, "end": 3356}
+{"step": 59, "action": "MODIFY REPORT STAFFRPT", "start": 3356, "end": 3418}
+{"step": 60, "action": "CREATE LABEL NEWLAB", "start": 3418, "end": 3477}
+{"step": 61, "action": ["shot", "data-copy"], "start": 3477, "end": 3478}
+{"step": 62, "action": "USE CLIENTS", "start": 3478, "end": 3533}
+{"step": 63, "action": "INDEX ON NAME TO BYNAME", "start": 3533, "end": 3561}
+{"step": 64, "action": "INDEX ON BAL TO BYBAL", "start": 3561, "end": 3588}
+{"step": 65, "action": "SET INDEX TO BYNAME,BYBAL", "start": 3588, "end": 3617}
+{"step": 66, "action": "SET ORDER TO 1", "start": 3617, "end": 3639}
+{"step": 67, "action": "GO TOP", "start": 3639, "end": 3649}
+{"step": 68, "action": "LIST", "start": 3649, "end": 3829}
+{"step": 69, "action": "SET ORDER TO 2", "start": 3829, "end": 3847}
+{"step": 70, "action": "GO TOP", "start": 3847, "end": 3857}
+{"step": 71, "action": "LIST", "start": 3857, "end": 4037}
+{"step": 72, "action": ["shot", "data-indexes"], "start": 4037, "end": 4037}
+{"step": 73, "action": "SET ORDER TO 1", "start": 4037, "end": 4055}
+{"step": 74, "action": "GO 2", "start": 4055, "end": 4063}
+{"step": 75, "action": "REPLACE NAME WITH \"AAAA\"", "start": 4063, "end": 4091}
+{"step": 76, "action": "SEEK \"AAAA\"", "start": 4091, "end": 4106}
+{"step": 77, "action": "? FOUND(),RECNO(),NAME", "start": 4106, "end": 4159}
+{"step": 78, "action": "SEEK \"WADDAMS\"", "start": 4159, "end": 4177}
+{"step": 79, "action": "? FOUND(),RECNO()", "start": 4177, "end": 4214}
+{"step": 80, "action": "APPEND BLANK", "start": 4214, "end": 4230}
+{"step": 81, "action": "REPLACE NAME WITH \"ZZZZ\",BAL WITH 123", "start": 4230, "end": 4263}
+{"step": 82, "action": "SEEK \"ZZZZ\"", "start": 4263, "end": 4286}
+{"step": 83, "action": "? FOUND(),RECNO()", "start": 4286, "end": 4323}
+{"step": 84, "action": ["shot", "data-index-mutate"], "start": 4323, "end": 4323}
+{"step": 85, "action": "GO 1", "start": 4323, "end": 4331}
+{"step": 86, "action": "DELETE", "start": 4331, "end": 4341}
+{"step": 87, "action": "SET DELETED ON", "start": 4341, "end": 4359}
+{"step": 88, "action": "GO TOP", "start": 4359, "end": 4369}
+{"step": 89, "action": "LIST", "start": 4369, "end": 4549}
+{"step": 90, "action": "SET DELETED OFF", "start": 4549, "end": 4568}
+{"step": 91, "action": "RECALL ALL", "start": 4568, "end": 4582}
+{"step": 92, "action": "PACK", "start": 4582, "end": 4590}
+{"step": 93, "action": "REINDEX", "start": 4590, "end": 4664}
+{"step": 94, "action": "GO TOP", "start": 4664, "end": 4701}
+{"step": 95, "action": "LIST", "start": 4701, "end": 4727}
+{"step": 96, "action": ["shot", "data-index-delete"], "start": 4727, "end": 4727}
+{"step": 97, "action": "CLOSE INDEX", "start": 4727, "end": 4742}
+{"step": 98, "action": "USE EDGE", "start": 4742, "end": 4754}
+{"step": 99, "action": "INDEX ON NAME TO DUP UNIQUE", "start": 4754, "end": 4800}
+{"step": 100, "action": "GO TOP", "start": 4800, "end": 4813}
+{"step": 101, "action": "LIST ID,NAME", "start": 4813, "end": 4933}
+{"step": 102, "action": "SET UNIQUE ON", "start": 4933, "end": 4968}
+{"step": 103, "action": "INDEX ON NAME TO DUP2", "start": 4968, "end": 5021}
+{"step": 104, "action": "SET UNIQUE OFF", "start": 5021, "end": 5057}
+{"step": 105, "action": "INDEX ON OK TO LOGIC", "start": 5057, "end": 5104}
+{"step": 106, "action": "INDEX ON WHEN TO DATED", "start": 5104, "end": 5153}
+{"step": 107, "action": "INDEX ON WIDE TO TOO_LONG", "start": 5153, "end": 5210}
+{"step": 108, "action": ["shot", "data-unique"], "start": 5210, "end": 5210}
+{"step": 109, "action": "SET INDEX TO BAD", "start": 5210, "end": 5254}
+{"step": 110, "action": "? RECCOUNT()", "start": 5254, "end": 5282}
+{"step": 111, "action": "USE EMPTY", "start": 5282, "end": 5295}
+{"step": 112, "action": "INDEX ON NAME TO EMPTYIDX", "start": 5295, "end": 5352}
+{"step": 113, "action": "SEEK \"NONE\"", "start": 5352, "end": 5396}
+{"step": 114, "action": "? FOUND(),BOF(),EOF(),RECNO()", "start": 5396, "end": 5424}
+{"step": 115, "action": "SET ORDER TO 9", "start": 5424, "end": 5498}
+{"step": 116, "action": "CLOSE ALL", "start": 5498, "end": 5511}
+{"step": 117, "action": "QUIT", "start": 5511, "end": 5625}
+{"step": 118, "action": ["shot", "data-badindex"], "start": 5625, "end": 5625}

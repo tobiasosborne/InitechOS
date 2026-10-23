@@ -1,0 +1,7 @@
+STARTED recursion-alone pid 12
+SHOT recursion-alone-startup
+DO RECINT 'DO RECINT\r\n'
+SHOT recursion-alone-recursive
+? "RECOVERED" ''
+SHOT recursion-alone-recovery
+STOPPED 12

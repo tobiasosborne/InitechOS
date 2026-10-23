@@ -1,0 +1,11 @@
+{"step": 0, "action": "MVAR=123", "start": 912, "end": 924}
+{"step": 1, "action": "SAVE TO TESTMEM", "start": 924, "end": 943}
+{"step": 2, "action": "MVAR=999", "start": 943, "end": 955}
+{"step": 3, "action": "RESTORE FROM TESTMEM", "start": 955, "end": 979}
+{"step": 4, "action": "? MVAR", "start": 979, "end": 1001}
+{"step": 5, "action": ["shot", "memory-restore"], "start": 1001, "end": 1001}
+{"step": 6, "action": "CLEAR MEMORY", "start": 1001, "end": 1017}
+{"step": 7, "action": "? TYPE(\"MVAR\")", "start": 1017, "end": 1038}
+{"step": 8, "action": "? MVAR", "start": 1038, "end": 1072}
+{"step": 9, "action": ["shot", "memory-cleared"], "start": 1072, "end": 1072}
+{"step": 10, "action": "QUIT", "start": 1072, "end": 1207}

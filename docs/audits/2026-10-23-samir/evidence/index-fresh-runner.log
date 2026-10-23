@@ -1,0 +1,34 @@
+STARTED index-fresh pid 49
+SHOT index-fresh-startup
+USE EMPTY 'USE EMPTY\r\n. '
+INDEX ON NAME TO ZERO 'INDEX ON NAME TO ZERO\r\n29  File is not accessible.\n. '
+? RECCOUNT(),RECNO(),EOF(),BOF() '? RECCOUNT(),RECNO(),EOF(),BOF()\r\n\r\n         0          1 .T. .F.. '
+SEEK "NONE" 'SEEK "NONE"\r\n26  Database is not indexed.\n. '
+? FOUND() '? FOUND()\r\n\r\n.F.. '
+CLOSE INDEX 'CLOSE INDEX\r\n. '
+SHOT index-fresh-empty
+USE EDGE 'USE EDGE\r\n. '
+INDEX ON NAME TO NAMES 'INDEX ON NAME TO NAMES\r\n. '
+SEEK "alpha" 'SEEK "alpha"\r\n. '
+? FOUND(),RECNO() '? FOUND(),RECNO()\r\n\r\n.T.          1. '
+SKIP 'SKIP\r\n. '
+? RECNO() '? RECNO()\r\n\r\n         2. '
+INDEX ON WHEN TO DATES 'INDEX ON WHEN TO DATES\r\n9  Data type mismatch.\n. '
+GO TOP 'GO TOP\r\n. '
+LIST ID,WHEN 'LIST ID,WHEN\r\nRecord#    ID WHEN\r\n      1     1 02/29/92\r\n      2     2 01/01/00\r\n      3     3         \r\n. '
+INDEX ON OK TO LOGICAL 'INDEX ON OK TO LOGICAL\r\n9  Data type mismatch.\n. '
+INDEX ON WIDE TO BIGKEY 'INDEX ON WIDE TO BIGKEY\r\n29  File is not accessible.\n. '
+SHOT index-fresh-types
+INDEX ON UPPER(NAME) TO CAPS 'INDEX ON UPPER(NAME) TO CAPS\r\n. '
+SEEK "ALPHA" 'SEEK "ALPHA"\r\n. '
+? FOUND(),RECNO() '? FOUND(),RECNO()\r\n\r\n.T.          1. '
+INDEX ON ID+1 TO NUMBER 'INDEX ON ID+1 TO NUMBER\r\n. '
+GO TOP 'GO TOP\r\n. '
+LIST ID 'LIST ID\r\nRecord#    ID\r\n      1     1\r\n      2     2\r\n      3     3\r\n. '
+INDEX ON LEFT(WIDE,100) TO KEY100 'INDEX ON LEFT(WIDE,100) TO KEY100\r\n29  File is not accessible.\n. '
+INDEX ON LEFT(WIDE,101) TO KEY101 'INDEX ON LEFT(WIDE,101) TO KEY101\r\n. '
+SET INDEX TO BAD.NDX 'SET INDEX TO BAD.NDX\r\n1  File does not exist.\n. '
+CLOSE ALL 'CLOSE ALL\r\n. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-CLOCK 12:52 pm\nFLAIR-TICK n=5732\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=5736\n'
+SHOT index-fresh-expressions
+STOPPED 49

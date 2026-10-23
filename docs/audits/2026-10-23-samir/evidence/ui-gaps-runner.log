@@ -1,0 +1,23 @@
+STARTED ui-gaps pid 24
+SHOT ui-gaps-startup
+USE CLIENTS 'USE CLIENTS\r\n. '
+MODIFY STRUCTURE 'MODIFY STRUCTURE\r\n16  *** Unrecognized command verb.\n. '
+CREATE REPORT NEWREP 'CREATE REPORT NEWREP\r\n16  *** Unrecognized command verb.\n. '
+MODIFY REPORT STAFFRPT 'MODIFY REPORT STAFFRPT\r\n16  *** Unrecognized command verb.\n. '
+CREATE LABEL NEWLAB 'CREATE LABEL NEWLAB\r\n16  *** Unrecognized command verb.\n. '
+MODIFY COMMAND FLOW 'MODIFY COMMAND FLOW\r\n16  *** Unrecognized command verb.\n. '
+SHOT ui-gaps-design
+COPY STRUCTURE TO STRUCT 'COPY STRUCTURE TO STRUCT\r\n16  *** Unrecognized command verb.\n. '
+COPY STRUCTURE EXTENDED TO EXTSTR 'COPY STRUCTURE EXTENDED TO EXTSTR\r\n16  *** Unrecognized command verb.\n. '
+JOIN WITH CLIENTS TO JOINED FOR .T. 'JOIN WITH CLIENTS TO JOINED FOR .T.\r\n16  *** Unrecognized command verb.\n. '
+UPDATE ON NAME FROM CLIENTS REPLACE BAL WITH BAL 'UPDATE ON NAME FROM CLIENTS REPLACE BAL WITH BAL\r\n16  *** Unrecognized command verb.\n. '
+LIST NAME TO PRINT 'LIST NAME TO PRINT\r\n36  Unrecognized phrase/keyword in command.\n. '
+SHOT ui-gaps-data
+INDEX ON NAME TO UNIQUE1 UNIQUE 'INDEX ON NAME TO UNIQUE1 UNIQUE\r\n10  Syntax error.\n. '
+SET UNIQUE ON 'SET UNIQUE ON\r\n10  Syntax error.\n. '
+INDEX ON NAME TO UNIQUE2 'INDEX ON NAME TO UNIQUE2\r\n. '
+SET UNIQUE OFF 'SET UNIQUE OFF\r\n10  Syntax error.\n. '
+SHOT ui-gaps-unique
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-CLOCK 1:15 pm\nFLAIR-TICK n=4013\nFLAIR-TICK n=4017\n'
+SHOT ui-gaps-finish
+STOPPED 24

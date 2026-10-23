@@ -1,0 +1,252 @@
+[
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/BADTOTAL.PRG",
+    "name": "BADTOTAL.PRG",
+    "sha256": "21129a497223d40b86428d3c123c42d3e321fec8b8db036ee1ef6f263b4990df"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/NAMEFMT.PRG",
+    "name": "NAMEFMT.PRG",
+    "sha256": "61c44fce1878904a79445f7a363d3d357ae749de4a9528b6db9877131f7a6204"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/TALLY.PRG",
+    "name": "TALLY.PRG",
+    "sha256": "4dd03df9008909084ac0f2c07deefe7bdd342c121b3a75e83e6f3e70577c558e"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/INVNO.NDX",
+    "name": "INVNO.NDX",
+    "sha256": "70bc5e41dc2ecf5ca181ffeeb2b60613a5f5475534b2189a39e6b8ac0480902c"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/INTPOST.PRG",
+    "name": "INTPOST.PRG",
+    "sha256": "1fd9cb0ab66f796e4e88b8d71d24a1225a0aa5c23417a41efd439382b10eb252"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/STAFF.DBT",
+    "name": "STAFF.DBT",
+    "sha256": "4b418f280445eb2e10669c42f72ed5588b6949236cbc5752e58ab771136e53d2"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/OPENINV.PRG",
+    "name": "OPENINV.PRG",
+    "sha256": "28adcc126627212af3c7dc868cdc4edd129fc24c8c424979484a07e5e7f6ca2c"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/LATEFEE.PRG",
+    "name": "LATEFEE.PRG",
+    "sha256": "82ded034835436322a9f36ceae5071bb100da9fbe761cf3dffd483b39b0c4f88"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/PAYTOTAL.PRG",
+    "name": "PAYTOTAL.PRG",
+    "sha256": "76fd34a5d5f067f08fc6bc91f6b8dd2c074734dbde7e3c0cdc6225ac2e204e12"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/INVFMT.PRG",
+    "name": "INVFMT.PRG",
+    "sha256": "32fdbbc46af02212ee9296f95b772fb883f45dd96052c035891ec55ab527d144"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/DEPTNAME.PRG",
+    "name": "DEPTNAME.PRG",
+    "sha256": "8d6f010a5b5f38b5293bfbb8d54345dd90ec9294c4da0c67ddbe41761f47c3fd"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/RAISEDPT.PRG",
+    "name": "RAISEDPT.PRG",
+    "sha256": "359c3924b57f3cb9977cec44d3293f83e0d0ddcef842e327ff67372470909b1c"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/NEWINV.PRG",
+    "name": "NEWINV.PRG",
+    "sha256": "bb4e7396f355c549c3249b9378154fc517df8e28feb13ea9af37bc5506f9c9c8"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/CLEANUP.PRG",
+    "name": "CLEANUP.PRG",
+    "sha256": "788c99e9a8de467f725675d3d657035bd18f6f36153a96d4786521ce713ec9c0"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/INVOICE.DBF",
+    "name": "INVOICE.DBF",
+    "sha256": "8d6bccede359879cda9ca86562bb0730ebc35df3f637227ddfd58a335a1f47c3"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/STAFFDEP.PRG",
+    "name": "STAFFDEP.PRG",
+    "sha256": "75237e8102cc2a98b1c1fc27462f38a28d561adad9b974abeddab742154aa60c"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/STAFFNAM.NDX",
+    "name": "STAFFNAM.NDX",
+    "sha256": "e7632e64b7d83bc80b03c3f71589ce8d2bb496ef6f339c6aa457a9de8b9052b9"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/CUSTTOT.PRG",
+    "name": "CUSTTOT.PRG",
+    "sha256": "72a838ecb29606b9a211329fa7c6c576da54d28ee48dfde12be311196eb64c83"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/DEPTLIST.PRG",
+    "name": "DEPTLIST.PRG",
+    "sha256": "9909e8d47c0d9ea38d90c820628c13627ed0b2894b3e944c8f4294d60418bdc6"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/NOTES.PRG",
+    "name": "NOTES.PRG",
+    "sha256": "5e335922f0720fbec808be341f5d8159f2edab412eda26af76a6d92c0696d12e"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/ARBATCH.DBF",
+    "name": "ARBATCH.DBF",
+    "sha256": "21729eae269d7e625f6f4ee3519d9e039c964ac31f0495672039d4da22d0bbbd"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/HEADCNT.PRG",
+    "name": "HEADCNT.PRG",
+    "sha256": "0c6e2e0cc6ad8db3b89128e482fb76d4ca8614561c3cbcc6ac70db1b5a1311dd"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/RAISE.PRG",
+    "name": "RAISE.PRG",
+    "sha256": "a85a91d1e16cfb67b0b8945a27c90c4da8923311016a1b5fd4c2d46328f46916"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/STAFFRPT.FRM",
+    "name": "STAFFRPT.FRM",
+    "sha256": "4b758506e328124e9ac5a110ddf038bc87536bc8b5e35949d43855597000c225"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/STAFFNO.NDX",
+    "name": "STAFFNO.NDX",
+    "sha256": "eee32de678eb42564cb1d245aa892eb790569c399c1953ebde2b7e65ffa40872"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/STAFFLBL.LBL",
+    "name": "STAFFLBL.LBL",
+    "sha256": "301eac3d448590ef71c3b3c4784c2801cc75bec91e820f45f463f889504eb29b"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/DUECLASS.PRG",
+    "name": "DUECLASS.PRG",
+    "sha256": "2c4478d87865de3be21105755da445fa45b59d2e447f7b0c164dd94017dc09f2"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/AMTCHECK.PRG",
+    "name": "AMTCHECK.PRG",
+    "sha256": "6fb7fefac8d2193c2a7dd53594fdf314061aa340dcca27a1ac8ea1f98bcc29de"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/TITLES.PRG",
+    "name": "TITLES.PRG",
+    "sha256": "0c3b11453b8200beca5b5c41d5b986a27cc224ee8533ccba41a2b22d2b046dbb"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/FINDINV.PRG",
+    "name": "FINDINV.PRG",
+    "sha256": "be689ead63cbc06f227ed074caa0dcec50c3905c80daa48800bff4907adb7dd2"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/STATEMNT.PRG",
+    "name": "STATEMNT.PRG",
+    "sha256": "0a89009fdd37ce07b67c7d2346757ca78d4d0511fae12b02f27ea404410d5bf0"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/STAFFLST.PRG",
+    "name": "STAFFLST.PRG",
+    "sha256": "ac6877f2fcaea57e078397d8e7a345e3e7be32b27e6f620d9836f0b312d1c2d0"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/STAFFDPT.NDX",
+    "name": "STAFFDPT.NDX",
+    "sha256": "e2995d06a41f43de13ba355399f35171cbdfe49c16f8f2b8c1c041a328e124b0"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/INVRPT.FRM",
+    "name": "INVRPT.FRM",
+    "sha256": "accdb61c2490ff4c4eab159362bb03ea8256a5793f70d8f4e7bf46dbfe99a969"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/DEPTS.DBF",
+    "name": "DEPTS.DBF",
+    "sha256": "e1d00a4f893031547a9a1c098efa0ea4f4793b4197d70f81068f6adde5265ab4"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/FIRSTBIG.PRG",
+    "name": "FIRSTBIG.PRG",
+    "sha256": "e184fda059a0ca3c4802c5a22ea5075a85af864f786b9cd775c3f53ac50ea96d"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/Y2KACCT.PRG",
+    "name": "Y2KACCT.PRG",
+    "sha256": "24b09c82d8abe6df469284745565010d6387502eb0b7abf970c5804fdc97ac86"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/COUNTFOR.PRG",
+    "name": "COUNTFOR.PRG",
+    "sha256": "4c99888d73810ba73cdfe533b512b4c24119719954680b721be42b3cef8e281a"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/INVTOTAL.PRG",
+    "name": "INVTOTAL.PRG",
+    "sha256": "ef8b7c6ac3f03a6d7336078641a34a1f1d97a3b9b349f6c178b6eb6154302dbd"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/ACCTMAIN.PRG",
+    "name": "ACCTMAIN.PRG",
+    "sha256": "66616bed3edf7e1ecdcadb5448c9095bfff1059ed300b8a7f68a1759684ee06c"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/INVCUST.NDX",
+    "name": "INVCUST.NDX",
+    "sha256": "322f88881adc08535b10c3a2f333a434a28d6dbb3cdb90201de2fa1bc478b599"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/MONTHEND.MEM",
+    "name": "MONTHEND.MEM",
+    "sha256": "e4eeaf1d0782c29cce51d5e6ab9457ab9519156853481db45363915d7629f4c2"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/STAFFSAL.NDX",
+    "name": "STAFFSAL.NDX",
+    "sha256": "5bf968b30aedb688c3e9be2c1921198107b1933b77a5ca03f94ec61bd32ab7d5"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/SERVICE.PRG",
+    "name": "SERVICE.PRG",
+    "sha256": "660fae6e99081b6432fcf3af3291acd188ce9b9db731bc7188855e926e89b1b4"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/ERRDEMO.PRG",
+    "name": "ERRDEMO.PRG",
+    "sha256": "878f6fd0dd4ba53f791ca92fedeb0b57370f85c8275808d7616efa4a1bc7814d"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/BYORDER.PRG",
+    "name": "BYORDER.PRG",
+    "sha256": "c19799756b483fbba90b9fd640c859d7ce13102884a9345c1a0419fdc5498464"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/MARKPAID.PRG",
+    "name": "MARKPAID.PRG",
+    "sha256": "b98b5d5c089d0405cfae5114534f5093cf8c3c66a839d7baca24e681dc02cbef"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/DEPTS.NDX",
+    "name": "DEPTS.NDX",
+    "sha256": "f6441a4152064b690d2ddf3e37cf1525bc2521a4ef020877fb08620ae614d2b8"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/PAGERPT.PRG",
+    "name": "PAGERPT.PRG",
+    "sha256": "5c797fcc4f8e0b7045e8fb17a5be02d7e99a042dff788250a3ff445ba3216e0b"
+  },
+  {
+    "source": "/home/tobias/Projects/initech-os/build/pubs/screens-check/initechbase-volume-one/samir.d/STAFF.DBF",
+    "name": "STAFF.DBF",
+    "sha256": "ac6a435e6dbb7f17f3551188eae7a578866ee5baedf16bb2c0fc19ad45784bf1"
+  }
+]

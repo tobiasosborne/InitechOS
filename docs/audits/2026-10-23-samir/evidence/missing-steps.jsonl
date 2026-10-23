@@ -1,0 +1,41 @@
+{"step": 0, "action": "USE CLIENTS", "start": 913, "end": 928}
+{"step": 1, "action": "DISPLAY STATUS", "start": 928, "end": 970}
+{"step": 2, "action": "DISPLAY MEMORY", "start": 970, "end": 1012}
+{"step": 3, "action": "DISPLAY STRUCTURE", "start": 1012, "end": 1057}
+{"step": 4, "action": "SET", "start": 1057, "end": 1082}
+{"step": 5, "action": "HELP", "start": 1082, "end": 1125}
+{"step": 6, "action": "ASSIST", "start": 1125, "end": 1170}
+{"step": 7, "action": "MODIFY STRUCTURE", "start": 1170, "end": 1225}
+{"step": 8, "action": ["shot", "missing-inspection"], "start": 1225, "end": 1225}
+{"step": 9, "action": "DISP", "start": 1225, "end": 1268}
+{"step": 10, "action": "REPL NAME WITH \"TEST\"", "start": 1268, "end": 1328}
+{"step": 11, "action": "APPE BLANK", "start": 1328, "end": 1377}
+{"step": 12, "action": "LOCA FOR BAL>1000", "start": 1377, "end": 1433}
+{"step": 13, "action": "SELE 2", "start": 1433, "end": 1478}
+{"step": 14, "action": "INDE ON NAME TO TEST", "start": 1478, "end": 1537}
+{"step": 15, "action": "STOR 5 TO X", "start": 1537, "end": 1587}
+{"step": 16, "action": "? X", "start": 1587, "end": 1618}
+{"step": 17, "action": ["shot", "missing-abbrev"], "start": 1618, "end": 1618}
+{"step": 18, "action": "? EXP(1)", "start": 1618, "end": 1657}
+{"step": 19, "action": "? LOG(1)", "start": 1657, "end": 1696}
+{"step": 20, "action": "? SQRT(4)", "start": 1696, "end": 1736}
+{"step": 21, "action": "? TIME()", "start": 1736, "end": 1775}
+{"step": 22, "action": "? RECSIZE()", "start": 1775, "end": 1802}
+{"step": 23, "action": "? DISKSPACE()", "start": 1802, "end": 1846}
+{"step": 24, "action": "? VERSION()", "start": 1846, "end": 1888}
+{"step": 25, "action": "? OS()", "start": 1888, "end": 1925}
+{"step": 26, "action": "? PCOL()", "start": 1925, "end": 1964}
+{"step": 27, "action": "? PROW()", "start": 1964, "end": 2003}
+{"step": 28, "action": "? ROW()", "start": 2003, "end": 2041}
+{"step": 29, "action": "? COL()", "start": 2041, "end": 2079}
+{"step": 30, "action": ["shot", "missing-functions"], "start": 2079, "end": 2079}
+{"step": 31, "action": "CREATE REPORT NEWREP", "start": 2079, "end": 2138}
+{"step": 32, "action": "MODIFY REPORT STAFFRPT", "start": 2138, "end": 2199}
+{"step": 33, "action": "CREATE LABEL NEWLAB", "start": 2199, "end": 2257}
+{"step": 34, "action": "AVERAGE BAL", "start": 2257, "end": 2307}
+{"step": 35, "action": "LIST NAME TO PRINT", "start": 2307, "end": 2373}
+{"step": 36, "action": "COPY STRUCTURE TO STRUCT", "start": 2373, "end": 2436}
+{"step": 37, "action": "JOIN WITH CLIENTS TO JOINED FOR .T.", "start": 2436, "end": 2510}
+{"step": 38, "action": "UPDATE ON NAME FROM CLIENTS REPLACE BAL WITH BAL", "start": 2510, "end": 2597}
+{"step": 39, "action": "QUIT", "start": 2597, "end": 2753}
+{"step": 40, "action": ["shot", "missing-newmissing"], "start": 2753, "end": 2753}

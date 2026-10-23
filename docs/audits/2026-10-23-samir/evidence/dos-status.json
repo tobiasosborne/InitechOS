@@ -1,0 +1,26 @@
+{
+  "name": "dos-status",
+  "actions": [
+    "USE CLIENTS",
+    "LIST",
+    "SET STATUS ON",
+    [
+      "shot",
+      "dos-status-before"
+    ],
+    "? 2+2",
+    [
+      "shot",
+      "dos-status-type"
+    ],
+    "SET STATUS OFF",
+    "? 2+2",
+    "QUIT",
+    [
+      "shot",
+      "dos-status-off"
+    ]
+  ],
+  "boot": "tracer_boot.img",
+  "route": "dos"
+}

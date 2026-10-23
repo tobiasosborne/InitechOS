@@ -1,0 +1,5 @@
+{"step": 0, "action": "DO RECURSE", "start": 913, "end": 962}
+{"step": 1, "action": ["pause", 2], "start": 962, "end": 962}
+{"step": 2, "action": "? \"RECOVERED\"", "start": 962, "end": 990}
+{"step": 3, "action": ["pause", 1], "start": 990, "end": 990}
+{"step": 4, "action": ["shot", "recursion-recursion"], "start": 990, "end": 990}

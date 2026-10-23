@@ -1,0 +1,19 @@
+{
+  "name": "recursion",
+  "actions": [
+    "DO RECURSE",
+    [
+      "pause",
+      2
+    ],
+    "? \"RECOVERED\"",
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "recursion-recursion"
+    ]
+  ]
+}

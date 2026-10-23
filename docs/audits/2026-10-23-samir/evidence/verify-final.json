@@ -1,0 +1,51 @@
+{
+  "name": "verify-final",
+  "actions": [
+    "USE EDGE",
+    "REPLACE ALL WHEN WITH CTOD(\"01/01/92\")",
+    "GO TOP",
+    "INDEX ON WHEN TO VALIDATE",
+    "GO TOP",
+    "LIST ID,WHEN",
+    [
+      "shot",
+      "verify-final-date-control"
+    ],
+    "CLOSE INDEX",
+    "GO 1",
+    "REPLACE WHEN WITH CTOD(\"\")",
+    "GO TOP",
+    "INDEX ON WHEN TO BLANK2",
+    [
+      "shot",
+      "verify-final-date-blank"
+    ],
+    "USE STAFF",
+    "INDEX ON HIRED TO STAFFHIR",
+    "LIST NEXT 4 LASTNAME,FIRSTNAME,HIRED",
+    [
+      "shot",
+      "verify-final-manual-date"
+    ],
+    "? TRANSFORM(123.4,\"999.99\")",
+    "? STR(123.4,6,2)",
+    "? TRANSFORM(0.12,\"9.99\")",
+    [
+      "shot",
+      "verify-final-transform"
+    ],
+    "USE EMPTY",
+    "? RECCOUNT(),EOF(),BOF()",
+    "GO TOP",
+    "? EOF(),BOF()",
+    [
+      "shot",
+      "verify-final-empty"
+    ],
+    "QUIT",
+    [
+      "shot",
+      "verify-final-quit"
+    ]
+  ]
+}

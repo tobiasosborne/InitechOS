@@ -1,0 +1,22 @@
+STARTED index-boundary pid 36
+SHOT index-boundary-startup
+USE CLIENTS 'USE CLIENTS\r\n. '
+GO BOTTOM 'GO BOTTOM\r\n. '
+SKIP 'SKIP\r\n. '
+? EOF(),RECNO() '? EOF(),RECNO()\r\n\r\n.T.          4. '
+INDEX ON NAME TO EOFIDX 'INDEX ON NAME TO EOFIDX\r\n29  File is not accessible.\n. '
+GO TOP 'GO TOP\r\n. '
+INDEX ON NAME TO TOPIDX 'INDEX ON NAME TO TOPIDX\r\n. '
+? EOF(),RECNO() '? EOF(),RECNO()\r\n\r\n.F.          3. '
+SHOT index-boundary-at-eof
+USE EDGE 'USE EDGE\r\n. '
+GO TOP 'GO TOP\r\n. '
+INDEX ON LEFT(WIDE,100) TO KEY100 'INDEX ON LEFT(WIDE,100) TO KEY100\r\n. '
+GO TOP 'GO TOP\r\n. '
+INDEX ON LEFT(WIDE,101) TO KEY101 'INDEX ON LEFT(WIDE,101) TO KEY101\r\n. '
+GO TOP 'GO TOP\r\n. '
+INDEX ON WIDE TO KEY254 'INDEX ON WIDE TO KEY254\r\n29  File is not accessible.\n. '
+SET INDEX TO BAD.NDX 'SET INDEX TO BAD.NDX\r\n1  File does not exist.\n. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-CLOCK 1:00 pm\nFLAIR-TICK n=3351\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=3355\n'
+SHOT index-boundary-width
+STOPPED 36

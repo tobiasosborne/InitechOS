@@ -1,0 +1,210 @@
+{"step": 0, "action": "SET DATE AMERICAN", "start": 912, "end": 933}
+{"step": 1, "action": "SET CENTURY OFF", "start": 933, "end": 952}
+{"step": 2, "action": "SET DECIMALS TO 2", "start": 952, "end": 973}
+{"step": 3, "action": "USE STAFF", "start": 973, "end": 986}
+{"step": 4, "action": "GO 3", "start": 986, "end": 994}
+{"step": 5, "action": "? SALARY - 40000, ABS(SALARY - 40000)", "start": 994, "end": 1058}
+{"step": 6, "action": ["shot", "manualfn-fn-abs"], "start": 1058, "end": 1058}
+{"step": 7, "action": "USE STAFF", "start": 1058, "end": 1071}
+{"step": 8, "action": "GO 2", "start": 1071, "end": 1079}
+{"step": 9, "action": "? CHR(ASC(LASTNAME) + 1)", "start": 1079, "end": 1110}
+{"step": 10, "action": ["shot", "manualfn-fn-asc-2"], "start": 1110, "end": 1110}
+{"step": 11, "action": "? ASC(\"A\"), ASC(\"abc\"), ASC(\"\")", "start": 1110, "end": 1179}
+{"step": 12, "action": ["shot", "manualfn-fn-asc"], "start": 1179, "end": 1179}
+{"step": 13, "action": "USE STAFF", "start": 1179, "end": 1192}
+{"step": 14, "action": "GO 2", "start": 1192, "end": 1200}
+{"step": 15, "action": "? AT(\"ON\", LASTNAME), AT(\"on\", LASTNAME)", "start": 1200, "end": 1267}
+{"step": 16, "action": ["shot", "manualfn-fn-at-2"], "start": 1267, "end": 1267}
+{"step": 17, "action": "? AT(\"c\", \"InitechBase\"), AT(\"e\", \"InitechBase\"), AT(\"z\", \"InitechBase\")", "start": 1267, "end": 1377}
+{"step": 18, "action": ["shot", "manualfn-fn-at"], "start": 1377, "end": 1377}
+{"step": 19, "action": "USE STAFF", "start": 1377, "end": 1390}
+{"step": 20, "action": "GO TOP", "start": 1390, "end": 1400}
+{"step": 21, "action": "SKIP -1", "start": 1400, "end": 1411}
+{"step": 22, "action": "? BOF(), RECNO()", "start": 1411, "end": 1447}
+{"step": 23, "action": ["shot", "manualfn-fn-bof"], "start": 1447, "end": 1447}
+{"step": 24, "action": "? CDOW(CTOD(\"03/01/92\")), CDOW(CTOD(\"03/02/92\"))", "start": 1447, "end": 1514}
+{"step": 25, "action": ["shot", "manualfn-fn-cdow"], "start": 1514, "end": 1514}
+{"step": 26, "action": "? CHR(300)", "start": 1514, "end": 1554}
+{"step": 27, "action": ["shot", "manualfn-fn-chr-2"], "start": 1554, "end": 1554}
+{"step": 28, "action": "? CHR(65), CHR(97), ASC(CHR(200))", "start": 1554, "end": 1607}
+{"step": 29, "action": ["shot", "manualfn-fn-chr"], "start": 1607, "end": 1607}
+{"step": 30, "action": "? CMONTH(CTOD(\"03/01/92\")), CMONTH(CTOD(\"12/25/91\"))", "start": 1607, "end": 1679}
+{"step": 31, "action": ["shot", "manualfn-fn-cmonth"], "start": 1679, "end": 1679}
+{"step": 32, "action": "SET DATE BRITISH", "start": 1679, "end": 1699}
+{"step": 33, "action": "? DTOC(CTOD(\"01/03/92\")), MONTH(CTOD(\"01/03/92\"))", "start": 1699, "end": 1773}
+{"step": 34, "action": ["shot", "manualfn-fn-ctod-2"], "start": 1773, "end": 1773}
+{"step": 35, "action": "SET DATE AMERICAN", "start": 1773, "end": 1794}
+{"step": 36, "action": "SET CENTURY OFF", "start": 1794, "end": 1813}
+{"step": 37, "action": "SET DECIMALS TO 2", "start": 1813, "end": 1834}
+{"step": 38, "action": "? DTOC(CTOD(\"03/01/92\")), DAY(CTOD(\"03/01/92\")), YEAR(CTOD(\"03/01/92\"))", "start": 1834, "end": 1936}
+{"step": 39, "action": ["shot", "manualfn-fn-ctod"], "start": 1936, "end": 1936}
+{"step": 40, "action": "USE STAFF", "start": 1936, "end": 1949}
+{"step": 41, "action": "GO 2", "start": 1949, "end": 1957}
+{"step": 42, "action": "? DATE() - HIRED", "start": 1957, "end": 1989}
+{"step": 43, "action": ["shot", "manualfn-fn-date-2"], "start": 1989, "end": 1989}
+{"step": 44, "action": "? DATE(), DTOC(DATE()), YEAR(DATE())", "start": 1989, "end": 2054}
+{"step": 45, "action": ["shot", "manualfn-fn-date"], "start": 2054, "end": 2054}
+{"step": 46, "action": "? DAY(CTOD(\"02/29/92\")), DAY(CTOD(\"  /  /  \"))", "start": 2054, "end": 2127}
+{"step": 47, "action": ["shot", "manualfn-fn-day"], "start": 2127, "end": 2127}
+{"step": 48, "action": "? LEN(DBF())", "start": 2127, "end": 2155}
+{"step": 49, "action": "USE STAFF", "start": 2155, "end": 2168}
+{"step": 50, "action": "? DBF()", "start": 2168, "end": 2186}
+{"step": 51, "action": ["shot", "manualfn-fn-dbf"], "start": 2186, "end": 2186}
+{"step": 52, "action": "USE STAFF", "start": 2186, "end": 2199}
+{"step": 53, "action": "GO 12", "start": 2199, "end": 2208}
+{"step": 54, "action": "? DELETED()", "start": 2208, "end": 2228}
+{"step": 55, "action": "GO 13", "start": 2228, "end": 2237}
+{"step": 56, "action": "? DELETED(), LASTNAME", "start": 2237, "end": 2282}
+{"step": 57, "action": ["shot", "manualfn-fn-deleted"], "start": 2282, "end": 2282}
+{"step": 58, "action": "? DOW(CTOD(\"03/01/92\")), DOW(CTOD(\"03/07/92\"))", "start": 2282, "end": 2355}
+{"step": 59, "action": ["shot", "manualfn-fn-dow"], "start": 2355, "end": 2355}
+{"step": 60, "action": "SET CENTURY ON", "start": 2355, "end": 2373}
+{"step": 61, "action": "SET DATE ANSI", "start": 2373, "end": 2390}
+{"step": 62, "action": "? DTOC(DATE())", "start": 2390, "end": 2420}
+{"step": 63, "action": ["shot", "manualfn-fn-dtoc-2"], "start": 2420, "end": 2420}
+{"step": 64, "action": "SET DATE AMERICAN", "start": 2420, "end": 2441}
+{"step": 65, "action": "SET CENTURY OFF", "start": 2441, "end": 2460}
+{"step": 66, "action": "SET DECIMALS TO 2", "start": 2460, "end": 2481}
+{"step": 67, "action": "USE STAFF", "start": 2481, "end": 2494}
+{"step": 68, "action": "GO 2", "start": 2494, "end": 2502}
+{"step": 69, "action": "? HIRED, DTOC(HIRED), LEN(DTOC(HIRED))", "start": 2502, "end": 2574}
+{"step": 70, "action": ["shot", "manualfn-fn-dtoc"], "start": 2574, "end": 2574}
+{"step": 71, "action": "USE STAFF", "start": 2574, "end": 2587}
+{"step": 72, "action": "GO BOTTOM", "start": 2587, "end": 2600}
+{"step": 73, "action": "SKIP", "start": 2600, "end": 2608}
+{"step": 74, "action": "? EOF(), RECNO(), RECCOUNT()", "start": 2608, "end": 2667}
+{"step": 75, "action": ["shot", "manualfn-fn-eof"], "start": 2667, "end": 2667}
+{"step": 76, "action": "ON ERROR STORE ERROR() TO MERR", "start": 2667, "end": 2701}
+{"step": 77, "action": "? CHR(300)", "start": 2701, "end": 2715}
+{"step": 78, "action": "? MERR, ERROR()", "start": 2715, "end": 2757}
+{"step": 79, "action": ["shot", "manualfn-fn-error"], "start": 2757, "end": 2757}
+{"step": 80, "action": "USE STAFF", "start": 2757, "end": 2770}
+{"step": 81, "action": "? FIELD(1), FIELD(7), FIELD(10)", "start": 2770, "end": 2820}
+{"step": 82, "action": ["shot", "manualfn-fn-field"], "start": 2820, "end": 2820}
+{"step": 83, "action": "? FILE(\"STAFF.DBF\"), FILE(\"STAFF\"), FILE(\"NOFILE.DBF\")", "start": 2820, "end": 2891}
+{"step": 84, "action": ["shot", "manualfn-fn-file"], "start": 2891, "end": 2891}
+{"step": 85, "action": "USE STAFF INDEX STAFFNAM", "start": 2891, "end": 2919}
+{"step": 86, "action": "SEEK \"ZZZ\"", "start": 2919, "end": 2933}
+{"step": 87, "action": "? FOUND(), EOF()", "start": 2933, "end": 2962}
+{"step": 88, "action": ["shot", "manualfn-fn-found-2"], "start": 2962, "end": 2962}
+{"step": 89, "action": "USE STAFF INDEX STAFFNAM", "start": 2962, "end": 2990}
+{"step": 90, "action": "SEEK \"GIBBONS\"", "start": 2990, "end": 3008}
+{"step": 91, "action": "? FOUND(), RECNO()", "start": 3008, "end": 3046}
+{"step": 92, "action": ["shot", "manualfn-fn-found"], "start": 3046, "end": 3046}
+{"step": 93, "action": "? IIF(.F., 1/0, 5)", "start": 3046, "end": 3071}
+{"step": 94, "action": "? IIF(1, 2, 3)", "start": 3071, "end": 3089}
+{"step": 95, "action": ["shot", "manualfn-fn-iif-2"], "start": 3089, "end": 3089}
+{"step": 96, "action": "USE STAFF", "start": 3089, "end": 3102}
+{"step": 97, "action": "GO 2", "start": 3102, "end": 3110}
+{"step": 98, "action": "? LASTNAME, IIF(EXEMPT, \"Exempt\", \"Hourly\")", "start": 3110, "end": 3180}
+{"step": 99, "action": ["shot", "manualfn-fn-iif"], "start": 3180, "end": 3180}
+{"step": 100, "action": "? INT(3.99), INT(-3.7), INT(41250/1000)", "start": 3180, "end": 3248}
+{"step": 101, "action": ["shot", "manualfn-fn-int"], "start": 3248, "end": 3248}
+{"step": 102, "action": "? ISALPHA(\"Initech\"), ISALPHA(\"1401\"), ISALPHA(\"\")", "start": 3248, "end": 3315}
+{"step": 103, "action": ["shot", "manualfn-fn-isalpha"], "start": 3315, "end": 3315}
+{"step": 104, "action": "? ISLOWER(\"initech\"), ISLOWER(\"Initech\")", "start": 3315, "end": 3368}
+{"step": 105, "action": ["shot", "manualfn-fn-islower"], "start": 3368, "end": 3368}
+{"step": 106, "action": "? ISUPPER(\"Initech\"), ISUPPER(\"initech\")", "start": 3368, "end": 3421}
+{"step": 107, "action": ["shot", "manualfn-fn-isupper"], "start": 3421, "end": 3421}
+{"step": 108, "action": "? LEFT(\"InitechBase\", 7), LEFT(\"abc\", 10), LEFT(\"abc\", 0) + \"|\"", "start": 3421, "end": 3503}
+{"step": 109, "action": ["shot", "manualfn-fn-left"], "start": 3503, "end": 3503}
+{"step": 110, "action": "USE STAFF", "start": 3503, "end": 3516}
+{"step": 111, "action": "GO 2", "start": 3516, "end": 3524}
+{"step": 112, "action": "? LEN(LASTNAME), LEN(TRIM(LASTNAME)), LEN(\"\")", "start": 3524, "end": 3607}
+{"step": 113, "action": ["shot", "manualfn-fn-len"], "start": 3607, "end": 3607}
+{"step": 114, "action": "? LOWER(\"Initech Systems\")", "start": 3607, "end": 3654}
+{"step": 115, "action": ["shot", "manualfn-fn-lower"], "start": 3654, "end": 3654}
+{"step": 116, "action": "? \"[\" + LTRIM(\"   Gibbons  \") + \"]\"", "start": 3654, "end": 3706}
+{"step": 117, "action": ["shot", "manualfn-fn-ltrim"], "start": 3706, "end": 3706}
+{"step": 118, "action": "STORE 'SOFT' TO MDEPT", "start": 3706, "end": 3731}
+{"step": 119, "action": "STORE 'Department &MDEPT' TO MTITLE", "start": 3731, "end": 3770}
+{"step": 120, "action": "? MTITLE", "start": 3770, "end": 3799}
+{"step": 121, "action": "STORE 'RECCOUNT' TO MFUNC", "start": 3799, "end": 3828}
+{"step": 122, "action": "USE STAFF", "start": 3828, "end": 3841}
+{"step": 123, "action": "? &MFUNC.()", "start": 3841, "end": 3868}
+{"step": 124, "action": ["shot", "manualfn-fn-macro-2"], "start": 3868, "end": 3868}
+{"step": 125, "action": "STORE 'STAFFNAM' TO MINDEX", "start": 3868, "end": 3898}
+{"step": 126, "action": "USE STAFF INDEX &MINDEX", "start": 3898, "end": 3925}
+{"step": 127, "action": "STORE 'PORTER' TO MNAME", "start": 3925, "end": 3952}
+{"step": 128, "action": "FIND &MNAME", "start": 3952, "end": 3967}
+{"step": 129, "action": "DISPLAY LASTNAME, FIRSTNAME, DEPT", "start": 3967, "end": 4086}
+{"step": 130, "action": ["shot", "manualfn-fn-macro"], "start": 4086, "end": 4086}
+{"step": 131, "action": "? MAX(3, 7), MAX(-1, -5), MAX(CTOD(\"03/01/92\"), CTOD(\"12/25/91\"))", "start": 4086, "end": 4187}
+{"step": 132, "action": ["shot", "manualfn-fn-max"], "start": 4187, "end": 4187}
+{"step": 133, "action": "ON ERROR STORE MESSAGE() TO MMSG", "start": 4187, "end": 4223}
+{"step": 134, "action": "? CHR(300)", "start": 4223, "end": 4237}
+{"step": 135, "action": "? MMSG", "start": 4237, "end": 4270}
+{"step": 136, "action": "ON ERROR", "start": 4270, "end": 4282}
+{"step": 137, "action": "? MESSAGE()", "start": 4282, "end": 4320}
+{"step": 138, "action": ["shot", "manualfn-fn-message"], "start": 4320, "end": 4320}
+{"step": 139, "action": "? MIN(3, 7), MIN(-1, -5), MIN(CTOD(\"03/01/92\"), CTOD(\"12/25/91\"))", "start": 4320, "end": 4421}
+{"step": 140, "action": ["shot", "manualfn-fn-min"], "start": 4421, "end": 4421}
+{"step": 141, "action": "? MOD(17, 5), MOD(-17, 5), MOD(5, 0)", "start": 4421, "end": 4482}
+{"step": 142, "action": ["shot", "manualfn-fn-mod"], "start": 4482, "end": 4482}
+{"step": 143, "action": "? MONTH(CTOD(\"12/25/91\")), MONTH(CTOD(\"  /  /  \"))", "start": 4482, "end": 4559}
+{"step": 144, "action": ["shot", "manualfn-fn-month"], "start": 4559, "end": 4559}
+{"step": 145, "action": "USE STAFF", "start": 4559, "end": 4572}
+{"step": 146, "action": "SKIP 3", "start": 4572, "end": 4582}
+{"step": 147, "action": "? RECNO(), RECCOUNT()", "start": 4582, "end": 4630}
+{"step": 148, "action": ["shot", "manualfn-fn-reccount"], "start": 4630, "end": 4630}
+{"step": 149, "action": "USE STAFF", "start": 4630, "end": 4643}
+{"step": 150, "action": "GO 5", "start": 4643, "end": 4651}
+{"step": 151, "action": "? RECNO(), LASTNAME", "start": 4651, "end": 4701}
+{"step": 152, "action": ["shot", "manualfn-fn-recno"], "start": 4701, "end": 4701}
+{"step": 153, "action": "USE STAFF", "start": 4701, "end": 4714}
+{"step": 154, "action": "? RECSIZE()", "start": 4714, "end": 4741}
+{"step": 155, "action": "USE", "start": 4741, "end": 4748}
+{"step": 156, "action": "? RECSIZE()", "start": 4748, "end": 4775}
+{"step": 157, "action": ["shot", "manualfn-fn-recsize"], "start": 4775, "end": 4775}
+{"step": 158, "action": "? REPLICATE(\"-\", 20)", "start": 4775, "end": 4821}
+{"step": 159, "action": "? REPLICATE(\"AB\", 3), REPLICATE(\"AB\", 0) + \"|\"", "start": 4821, "end": 4881}
+{"step": 160, "action": ["shot", "manualfn-fn-replicate"], "start": 4881, "end": 4881}
+{"step": 161, "action": "? RIGHT(\"InitechBase\", 4), RIGHT(\"abc\", 10), RIGHT(\"abc\", 0) + \"|\"", "start": 4881, "end": 4963}
+{"step": 162, "action": ["shot", "manualfn-fn-right"], "start": 4963, "end": 4963}
+{"step": 163, "action": "? ROUND(3.14159, 2), ROUND(2.5, 0), ROUND(1234.5, -2)", "start": 4963, "end": 5054}
+{"step": 164, "action": ["shot", "manualfn-fn-round"], "start": 5054, "end": 5054}
+{"step": 165, "action": "USE STAFF", "start": 5054, "end": 5067}
+{"step": 166, "action": "GO 2", "start": 5067, "end": 5075}
+{"step": 167, "action": "? RTRIM(LASTNAME) + \", \" + RTRIM(FIRSTNAME)", "start": 5075, "end": 5138}
+{"step": 168, "action": ["shot", "manualfn-fn-rtrim"], "start": 5138, "end": 5138}
+{"step": 169, "action": "? SPACE(255)", "start": 5138, "end": 5179}
+{"step": 170, "action": ["shot", "manualfn-fn-space-2"], "start": 5179, "end": 5179}
+{"step": 171, "action": "? \"[\" + SPACE(5) + \"]\", LEN(SPACE(254))", "start": 5179, "end": 5242}
+{"step": 172, "action": ["shot", "manualfn-fn-space"], "start": 5242, "end": 5242}
+{"step": 173, "action": "? STR(99999, 3), STR(5, 4, 2)", "start": 5242, "end": 5285}
+{"step": 174, "action": "? STR(5, 3, 2)", "start": 5285, "end": 5329}
+{"step": 175, "action": ["shot", "manualfn-fn-str-2"], "start": 5329, "end": 5329}
+{"step": 176, "action": "? STR(123.456), STR(123.456, 8, 2), STR(123.456, 5, 1)", "start": 5329, "end": 5414}
+{"step": 177, "action": ["shot", "manualfn-fn-str"], "start": 5414, "end": 5414}
+{"step": 178, "action": "? STUFF(\"ABCDE\", 2, 3, \"XY\"), STUFF(\"ABCDE\", 2, 0, \"XY\"), STUFF(\"ABCDE\", 2, 3, \"\")", "start": 5414, "end": 5517}
+{"step": 179, "action": ["shot", "manualfn-fn-stuff"], "start": 5517, "end": 5517}
+{"step": 180, "action": "? SUBSTR(\"abc\", 0)", "start": 5517, "end": 5580}
+{"step": 181, "action": ["shot", "manualfn-fn-substr-2"], "start": 5580, "end": 5580}
+{"step": 182, "action": "? SUBSTR(\"InitechBase\", 1, 7), SUBSTR(\"InitechBase\", 8), SUBSTR(\"abc\", 4) + \"|\"", "start": 5580, "end": 5679}
+{"step": 183, "action": ["shot", "manualfn-fn-substr"], "start": 5679, "end": 5679}
+{"step": 184, "action": "? TRANSFORM(\"gibbons\", \"!!!!!!!\"), TRANSFORM(1234567, \"99999\")", "start": 5679, "end": 5760}
+{"step": 185, "action": ["shot", "manualfn-fn-transform-2"], "start": 5760, "end": 5760}
+{"step": 186, "action": "? TRANSFORM(-570, \"99999\"), TRANSFORM(-570, \"@( 99999\"), TRANSFORM(570, \"@C 99999\")", "start": 5760, "end": 5871}
+{"step": 187, "action": "? TRANSFORM(96500, \"$999,999\")", "start": 5871, "end": 5915}
+{"step": 188, "action": ["shot", "manualfn-fn-transform"], "start": 5915, "end": 5915}
+{"step": 189, "action": "USE STAFF", "start": 5915, "end": 5928}
+{"step": 190, "action": "GO 2", "start": 5928, "end": 5936}
+{"step": 191, "action": "? \"[\" + TRIM(LASTNAME) + \"]\", \"[\" + LASTNAME + \"]\"", "start": 5936, "end": 6018}
+{"step": 192, "action": ["shot", "manualfn-fn-trim"], "start": 6018, "end": 6018}
+{"step": 193, "action": "? TYPE(\"3 + 4\"), TYPE(\"DATE()\"), TYPE(\".T.\"), TYPE(\"NOSUCH\")", "start": 6018, "end": 6091}
+{"step": 194, "action": ["shot", "manualfn-fn-type-2"], "start": 6091, "end": 6091}
+{"step": 195, "action": "USE STAFF", "start": 6091, "end": 6104}
+{"step": 196, "action": "GO 2", "start": 6104, "end": 6112}
+{"step": 197, "action": "? TYPE(\"LASTNAME\"), TYPE(\"SALARY\"), TYPE(\"HIRED\"), TYPE(\"EXEMPT\"), TYPE(\"NOTES\")", "start": 6112, "end": 6207}
+{"step": 198, "action": ["shot", "manualfn-fn-type"], "start": 6207, "end": 6207}
+{"step": 199, "action": "? UPPER(\"Initech Systems\")", "start": 6207, "end": 6254}
+{"step": 200, "action": ["shot", "manualfn-fn-upper"], "start": 6254, "end": 6254}
+{"step": 201, "action": "USE STAFF", "start": 6254, "end": 6267}
+{"step": 202, "action": "GO 2", "start": 6267, "end": 6275}
+{"step": 203, "action": "? VAL(EMPNO) + 1", "start": 6275, "end": 6305}
+{"step": 204, "action": ["shot", "manualfn-fn-val-2"], "start": 6305, "end": 6305}
+{"step": 205, "action": "? VAL(\"123\"), VAL(\"12.5abc\"), VAL(\"abc\"), VAL(\"  42\")", "start": 6305, "end": 6396}
+{"step": 206, "action": ["shot", "manualfn-fn-val"], "start": 6396, "end": 6396}
+{"step": 207, "action": "? YEAR(CTOD(\"12/25/91\")), YEAR(CTOD(\"12/25/05\"))", "start": 6396, "end": 6461}
+{"step": 208, "action": ["shot", "manualfn-fn-year"], "start": 6461, "end": 6461}
+{"step": 209, "action": "QUIT", "start": 6461, "end": 6574}

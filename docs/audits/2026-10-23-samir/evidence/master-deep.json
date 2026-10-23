@@ -1,0 +1,12 @@
+{
+  "name": "master-deep",
+  "data": "master-fixture.img",
+  "actions": [
+    "DO MASTER2",
+    [
+      "shot",
+      "master-deep-result"
+    ],
+    "QUIT"
+  ]
+}

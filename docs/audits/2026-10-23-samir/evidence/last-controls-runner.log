@@ -1,0 +1,26 @@
+STARTED last-controls pid 5
+SHOT last-controls-startup
+USE CLIENTS 'USE CLIENTS\r\n. '
+SET HEADING OFF 'SET HEADING OFF\r\n. '
+GO TOP 'GO TOP\r\n. '
+LIST 'LIST\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n      3  LUMBERGH   DALLAS        7777.77\r\n. '
+SET HEADING ON 'SET HEADING ON\r\n. '
+GO TOP 'GO TOP\r\n. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n      3  LUMBERGH   DALLAS        7777.77\r\n. '
+SHOT last-controls-headings
+SET TALK ON 'SET TALK ON\r\n. '
+REPLACE ALL BAL WITH BAL+1 'REPLACE ALL BAL WITH BAL+1\r\n. '
+SHOT last-controls-talk
+SELECT 2 'SELECT 2\r\n. '
+USE DEPTS ALIAS D INDEX DEPTS 'USE DEPTS ALIAS D INDEX DEPTS\r\n. '
+SELECT 1 'SELECT 1\r\n. '
+USE STAFF 'USE STAFF\r\n. '
+SET RELATION TO DEPT INTO D 'SET RELATION TO DEPT INTO D\r\n. '
+GO 1 'GO 1\r\n. '
+? DEPT,D->DEPT '? DEPT,D->DEPT\r\n\r\nSOFT ACCT. '
+GO 5 'GO 5\r\n. '
+? DEPT,D->DEPT '? DEPT,D->DEPT\r\n\r\nFACL ACCT. '
+SHOT last-controls-relation
+CLOSE ALL 'CLOSE ALL\r\n. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-CLOCK 1:23 pm\nFLAIR-TICK n=3822\nFLAIR-TICK n=3827\n'
+STOPPED 5

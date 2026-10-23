@@ -1,0 +1,35 @@
+{
+  "name": "programedges",
+  "data": "program-fixture.img",
+  "actions": [
+    "DO SHORT1K",
+    [
+      "shot",
+      "programedges-1000"
+    ],
+    "DO CONSOLE",
+    [
+      "shot",
+      "programedges-console"
+    ],
+    "DO CHARARG",
+    [
+      "shot",
+      "programedges-chararg"
+    ],
+    "DO RECINT",
+    [
+      "pause",
+      2
+    ],
+    [
+      "shot",
+      "programedges-recursion"
+    ],
+    "? \"RECOVERED\"",
+    [
+      "shot",
+      "programedges-recovery"
+    ]
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "name": "navigation",
+  "actions": [
+    "USE CLIENTS",
+    "LIST",
+    "? RECNO(),EOF()",
+    "GO 2",
+    "DISPLAY ALL",
+    "? RECNO(),EOF()",
+    "GO TOP",
+    "LIST NEXT 2 NAME",
+    "? RECNO(),EOF()",
+    [
+      "shot",
+      "navigation-list"
+    ],
+    "SET FILTER TO .F.",
+    "GO TOP",
+    "? RECNO(),EOF(),BOF()",
+    "LIST",
+    "? RECNO(),EOF(),BOF()",
+    "SET FILTER TO",
+    "USE EMPTY",
+    "? RECCOUNT(),RECNO(),EOF(),BOF()",
+    "GO TOP",
+    "? EOF(),BOF()",
+    "QUIT",
+    [
+      "shot",
+      "navigation-hidden"
+    ]
+  ]
+}

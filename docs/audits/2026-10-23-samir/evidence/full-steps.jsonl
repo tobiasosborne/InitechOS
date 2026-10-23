@@ -1,0 +1,41 @@
+{"step": 0, "action": "USE CLIENTS", "start": 1021, "end": 2166}
+{"step": 1, "action": "LIST", "start": 2166, "end": 2606}
+{"step": 2, "action": ["shot", "full-before"], "start": 2606, "end": 2606}
+{"step": 3, "action": "APPEND BLANK", "start": 2606, "end": 3750}
+{"step": 4, "action": "APPEND BLANK", "start": 3750, "end": 4894}
+{"step": 5, "action": "APPEND BLANK", "start": 4894, "end": 6038}
+{"step": 6, "action": "APPEND BLANK", "start": 6038, "end": 7182}
+{"step": 7, "action": "APPEND BLANK", "start": 7182, "end": 8326}
+{"step": 8, "action": "APPEND BLANK", "start": 8326, "end": 9470}
+{"step": 9, "action": "APPEND BLANK", "start": 9470, "end": 10614}
+{"step": 10, "action": "APPEND BLANK", "start": 10614, "end": 11758}
+{"step": 11, "action": "APPEND BLANK", "start": 11758, "end": 12902}
+{"step": 12, "action": "APPEND BLANK", "start": 12902, "end": 14046}
+{"step": 13, "action": "APPEND BLANK", "start": 14046, "end": 15190}
+{"step": 14, "action": "APPEND BLANK", "start": 15190, "end": 16334}
+{"step": 15, "action": "APPEND BLANK", "start": 16334, "end": 17478}
+{"step": 16, "action": "APPEND BLANK", "start": 17478, "end": 18622}
+{"step": 17, "action": "APPEND BLANK", "start": 18622, "end": 19766}
+{"step": 18, "action": "APPEND BLANK", "start": 19766, "end": 20910}
+{"step": 19, "action": "APPEND BLANK", "start": 20910, "end": 22054}
+{"step": 20, "action": "APPEND BLANK", "start": 22054, "end": 23198}
+{"step": 21, "action": "? RECCOUNT()", "start": 23198, "end": 24342}
+{"step": 22, "action": ["shot", "full-append"], "start": 24342, "end": 24342}
+{"step": 23, "action": "USE", "start": 24342, "end": 24715}
+{"step": 24, "action": "USE CLIENTS", "start": 24715, "end": 25771}
+{"step": 25, "action": "? RECCOUNT()", "start": 25771, "end": 26915}
+{"step": 26, "action": "LIST", "start": 26915, "end": 27355}
+{"step": 27, "action": ["shot", "full-reopen"], "start": 27355, "end": 27355}
+{"step": 28, "action": "INDEX ON NAME TO FULLIDX", "start": 27355, "end": 29555}
+{"step": 29, "action": "? ERROR(),MESSAGE()", "start": 29555, "end": 31315}
+{"step": 30, "action": "COPY FILE CLIENTS.DBF TO NEWCOPY.DBF", "start": 31315, "end": 34571}
+{"step": 31, "action": "SORT TO SORTED ON NAME", "start": 34571, "end": 36595}
+{"step": 32, "action": "GO TOP", "start": 36595, "end": 37211}
+{"step": 33, "action": "DELETE", "start": 37211, "end": 37827}
+{"step": 34, "action": "PACK", "start": 37827, "end": 38267}
+{"step": 35, "action": "? RECCOUNT()", "start": 38267, "end": 39411}
+{"step": 36, "action": "USE", "start": 39411, "end": 39763}
+{"step": 37, "action": "USE CLIENTS", "start": 39763, "end": 40819}
+{"step": 38, "action": "LIST", "start": 40819, "end": 41259}
+{"step": 39, "action": "QUIT", "start": 41259, "end": 41699}
+{"step": 40, "action": ["shot", "full-index"], "start": 41699, "end": 41699}

@@ -1,0 +1,12 @@
+STARTED transform pid 67
+SHOT transform-startup
+? TRANSFORM(123.4,"999.99") '? TRANSFORM(123.4,"999.99")\r\n\r\n***.**. '
+? TRANSFORM(12.34,"999.99") '? TRANSFORM(12.34,"999.99")\r\n\r\n 12.34. '
+? TRANSFORM(1234.5,"9,999.99") '? TRANSFORM(1234.5,"9,999.99")\r\n\r\n*,***.**. '
+? TRANSFORM(-1234.56,"99,999.99") '? TRANSFORM(-1234.56,"99,999.99")\r\n\r\n-1,234.56. '
+? STR(123.4,6,2) '? STR(123.4,6,2)\r\n\r\n123.40. '
+? TRANSFORM(0.12,"9.99") '? TRANSFORM(0.12,"9.99")\r\n\r\n*.**. '
+? TRANSFORM(9.99,"9.99") '? TRANSFORM(9.99,"9.99")\r\n\r\n*.**. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=1902\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=1906\n'
+SHOT transform-decimal
+STOPPED 67

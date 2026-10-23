@@ -1,0 +1,35 @@
+{
+  "name": "pack-index",
+  "actions": [
+    "USE CLIENTS",
+    "INDEX ON NAME TO NAMES",
+    "GO TOP",
+    "LIST",
+    "PACK",
+    [
+      "shot",
+      "pack-index-before"
+    ],
+    "GO TOP",
+    "LIST",
+    "REINDEX",
+    "GO TOP",
+    "LIST",
+    "CLOSE INDEX",
+    "GO TOP",
+    "LIST",
+    [
+      "shot",
+      "pack-index-after"
+    ],
+    "USE",
+    "USE CLIENTS INDEX NAMES",
+    "GO TOP",
+    "LIST",
+    "QUIT",
+    [
+      "shot",
+      "pack-index-reopen"
+    ]
+  ]
+}

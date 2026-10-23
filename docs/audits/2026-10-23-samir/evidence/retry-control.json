@@ -1,0 +1,13 @@
+{
+  "name": "retry-control",
+  "data": "retry-fixture.img",
+  "actions": [
+    "DO RETRYFIX",
+    "? XX,TRYCNT",
+    [
+      "shot",
+      "retry-control-result"
+    ],
+    "QUIT"
+  ]
+}

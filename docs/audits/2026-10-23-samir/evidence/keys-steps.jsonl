@@ -1,0 +1,28 @@
+{"step": 0, "action": "? \"FIRST\"", "start": 912, "end": 932}
+{"step": 1, "action": ["key", "up"], "start": 932, "end": 932}
+{"step": 2, "action": ["key", "ret"], "start": 932, "end": 936}
+{"step": 3, "action": "LIST HISTORY", "start": 936, "end": 977}
+{"step": 4, "action": "SET HISTORY ON", "start": 977, "end": 1013}
+{"step": 5, "action": ["shot", "keys-history"], "start": 1013, "end": 1013}
+{"step": 6, "action": ["type", "? 123", false], "start": 1013, "end": 1018}
+{"step": 7, "action": ["key", "left"], "start": 1018, "end": 1021}
+{"step": 8, "action": ["key", "backspace"], "start": 1021, "end": 1024}
+{"step": 9, "action": ["type", "4", false], "start": 1024, "end": 1025}
+{"step": 10, "action": ["key", "ret"], "start": 1025, "end": 1033}
+{"step": 11, "action": ["type", "? 56", false], "start": 1033, "end": 1037}
+{"step": 12, "action": ["key", "home"], "start": 1037, "end": 1037}
+{"step": 13, "action": ["key", "delete"], "start": 1037, "end": 1037}
+{"step": 14, "action": ["key", "end"], "start": 1037, "end": 1037}
+{"step": 15, "action": ["key", "ret"], "start": 1037, "end": 1045}
+{"step": 16, "action": ["shot", "keys-edit"], "start": 1045, "end": 1045}
+{"step": 17, "action": "? LEN(\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\")", "start": 1045, "end": 1328}
+{"step": 18, "action": ["shot", "keys-254"], "start": 1328, "end": 1328}
+{"step": 19, "action": "? LEN(\"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\")", "start": 1328, "end": 1612}
+{"step": 20, "action": "? \"AFTER LONG\"", "start": 1612, "end": 1642}
+{"step": 21, "action": ["shot", "keys-255"], "start": 1642, "end": 1642}
+{"step": 22, "action": ["type", "? \"discard\"", false], "start": 1642, "end": 1653}
+{"step": 23, "action": ["key", "esc"], "start": 1653, "end": 1656}
+{"step": 24, "action": ["key", "ret"], "start": 1656, "end": 1660}
+{"step": 25, "action": "? \"AFTER ESC\"", "start": 1660, "end": 1688}
+{"step": 26, "action": "QUIT", "start": 1688, "end": 1823}
+{"step": 27, "action": ["shot", "keys-escape"], "start": 1823, "end": 1823}

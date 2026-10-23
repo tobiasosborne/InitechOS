@@ -1,0 +1,23 @@
+STARTED programs pid 6
+DO USEPRG 'DO USEPRG\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+DO FLOW 'DO FLOW\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+? RESULT,I '? RESULT,I\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+DO LONG 'DO LONG\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+? SUMX '? SUMX\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+DO BADLOOP 'DO BADLOOP\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+SHOT programs-flow
+ON ERROR STORE ERROR() TO ERRNUM 'ON ERROR STORE ERROR() TO ERRNUM\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+? MISSING '? MISSING\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+? ERRNUM,MESSAGE() '? ERRNUM,MESSAGE()\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+ON ERROR 'ON ERROR\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+DO ONERR 'DO ONERR\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+? ERRNO '? ERRNO\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+RETRY 'RETRY\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+RETURN TO MASTER 'RETURN TO MASTER\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+SHOT programs-traps
+ENDIF 'ENDIF\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+ELSE 'ELSE\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+EXIT 'EXIT\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+? "AFTER EXIT" '? "AFTER EXIT"\r\nInvalid date\r\nEnter new date (mm-dd-yy): '
+SHOT programs-stray
+STOPPED 6

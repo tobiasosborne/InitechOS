@@ -1,0 +1,35 @@
+STARTED errors pid 48
+SHOT errors-startup
+? MISSING '? MISSING\r\n12  Variable not found.\n. '
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+? 1+"x" '? 1+"x"\r\n9  Data type mismatch.\n. '
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+? NOSUCH() '? NOSUCH()\r\n31  Invalid function name.\n. '
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+SHOT errors-runtime
+USE MISSING 'USE MISSING\r\n1  File does not exist.\n. '
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+USE HELLO.TXT 'USE HELLO.TXT\r\n15  Not a dBASE database.\n. '
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+USE CLIENTS 'USE CLIENTS\r\n. '
+GO 0 'GO 0\r\n5  Record is out of range.\n. '
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+SET INDEX TO BAD.NDX 'SET INDEX TO BAD.NDX\r\n1  File does not exist.\n. '
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+SHOT errors-files
+REPLACE BAL WITH "x" 'REPLACE BAL WITH "x"\r\n9  Data type mismatch.\n. '
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+LOCATE FOR 1 'LOCATE FOR 1\r\n37  Not a Logical expression.\n. '
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+? (1+2 '? (1+2\r\n8  Unbalanced parenthesis.\n. '
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+? "unterminated '? "unterminated\r\n35  Unterminated string.\n. '
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+SHOT errors-type
+ON ERROR STORE ERROR() TO LASTERR 'ON ERROR STORE ERROR() TO LASTERR\r\n. '
+? MISSING '? MISSING\r\n. '
+? LASTERR,ERROR(),MESSAGE() '? LASTERR,ERROR(),MESSAGE()\r\n\r\n        12         12 Variable not found.. '
+ON ERROR 'ON ERROR\r\n. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-CLOCK 1:02 pm\nFLAIR-TICK n=5733\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=5737\n'
+SHOT errors-trap
+STOPPED 48

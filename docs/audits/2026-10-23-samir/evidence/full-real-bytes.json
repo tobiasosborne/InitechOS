@@ -1,0 +1,10 @@
+{
+  "bytes": 502,
+  "nrec": 11,
+  "header_length": 129,
+  "record_length": 31,
+  "logical_minimum": 470,
+  "fits": true,
+  "header_hex": "035d07130b00000081001f000000000000000000000000000000000000000000",
+  "first_two_records": " WADDAMS   AUSTIN        -42.00 LUMBERGH  DALLAS       7777.77"
+}

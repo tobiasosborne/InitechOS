@@ -1,0 +1,50 @@
+{
+  "name": "reentry",
+  "actions": [
+    "USE CLIENTS",
+    "GO 2",
+    "MARKER=42",
+    [
+      "key",
+      "ctrl-alt-backslash"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "key",
+      "esc"
+    ],
+    [
+      "key",
+      "ret"
+    ],
+    "? RECNO(),MARKER",
+    [
+      "shot",
+      "reentry-state"
+    ],
+    "QUIT",
+    [
+      "pause",
+      1
+    ],
+    [
+      "key",
+      "ctrl-alt-backslash"
+    ],
+    [
+      "pause",
+      1
+    ],
+    "? RECCOUNT()",
+    "USE CLIENTS",
+    "LIST",
+    "QUIT",
+    [
+      "shot",
+      "reentry-quit"
+    ]
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "name": "pack-two",
+  "actions": [
+    "USE CLIENTS",
+    "INDEX ON NAME TO BYNAME",
+    "INDEX ON BAL TO BYBAL",
+    "SET INDEX TO BYNAME,BYBAL",
+    "SET ORDER TO 1",
+    "PACK",
+    [
+      "shot",
+      "pack-two-before"
+    ],
+    "REINDEX",
+    "GO TOP",
+    "LIST",
+    "CLOSE INDEX",
+    "GO TOP",
+    "LIST",
+    [
+      "shot",
+      "pack-two-after"
+    ],
+    "USE",
+    "USE CLIENTS INDEX BYNAME,BYBAL",
+    "GO TOP",
+    "LIST",
+    "QUIT",
+    [
+      "shot",
+      "pack-two-reopen"
+    ]
+  ]
+}

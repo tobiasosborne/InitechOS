@@ -1,0 +1,18 @@
+{"step": 0, "action": "USE CLIENTS", "start": 912, "end": 927}
+{"step": 1, "action": "GO 2", "start": 927, "end": 935}
+{"step": 2, "action": "MARKER=42", "start": 935, "end": 948}
+{"step": 3, "action": ["key", "ctrl-alt-backslash"], "start": 948, "end": 949}
+{"step": 4, "action": ["pause", 1], "start": 949, "end": 949}
+{"step": 5, "action": ["key", "esc"], "start": 949, "end": 952}
+{"step": 6, "action": ["key", "ret"], "start": 952, "end": 956}
+{"step": 7, "action": "? RECNO(),MARKER", "start": 956, "end": 999}
+{"step": 8, "action": ["shot", "reentry-state"], "start": 999, "end": 999}
+{"step": 9, "action": "QUIT", "start": 999, "end": 1134}
+{"step": 10, "action": ["pause", 1], "start": 1134, "end": 1134}
+{"step": 11, "action": ["key", "ctrl-alt-backslash"], "start": 1134, "end": 1192}
+{"step": 12, "action": ["pause", 1], "start": 1192, "end": 1194}
+{"step": 13, "action": "? RECCOUNT()", "start": 1194, "end": 1222}
+{"step": 14, "action": "USE CLIENTS", "start": 1222, "end": 1237}
+{"step": 15, "action": "LIST", "start": 1237, "end": 1417}
+{"step": 16, "action": "QUIT", "start": 1417, "end": 1501}
+{"step": 17, "action": ["shot", "reentry-quit"], "start": 1501, "end": 1501}

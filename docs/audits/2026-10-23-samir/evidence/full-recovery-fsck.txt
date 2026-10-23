@@ -1,0 +1,2 @@
+fsck.fat 4.2 (2021-01-31)
+images/full-recovery-data.img: 5 files, 188/2847 clusters

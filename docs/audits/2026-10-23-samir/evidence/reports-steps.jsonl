@@ -1,0 +1,24 @@
+{"step": 0, "action": "USE STAFF", "start": 913, "end": 926}
+{"step": 1, "action": "REPORT FORM STAFFRPT PLAIN", "start": 926, "end": 2533}
+{"step": 2, "action": "REPORT FORM STAFFRPT TO FILE PLAIN.TXT PLAIN", "start": 2533, "end": 4158}
+{"step": 3, "action": ["shot", "reports-plain"], "start": 4158, "end": 4158}
+{"step": 4, "action": "GO 3", "start": 4158, "end": 4166}
+{"step": 5, "action": "REPORT FORM STAFFRPT NEXT 2 TO FILE NEXT.TXT", "start": 4166, "end": 4659}
+{"step": 6, "action": "? RECNO(),EOF()", "start": 4659, "end": 4694}
+{"step": 7, "action": "GO 3", "start": 4694, "end": 4702}
+{"step": 8, "action": "REPORT FORM STAFFRPT WHILE EMPNO<\"1005\" TO FILE WHILE.TXT", "start": 4702, "end": 5208}
+{"step": 9, "action": "? RECNO(),EOF()", "start": 5208, "end": 5243}
+{"step": 10, "action": ["shot", "reports-scope"], "start": 5243, "end": 5243}
+{"step": 11, "action": "USE STAFF INDEX STAFFDPT", "start": 5243, "end": 5271}
+{"step": 12, "action": "REPORT FORM STAFFRPT SUMMARY HEADING \"MARCH 1992\" TO FILE SUMMARY.TXT", "start": 5271, "end": 6076}
+{"step": 13, "action": "REPORT FORM STAFFRPT FOR .F. TO FILE NONE.TXT", "start": 6076, "end": 6451}
+{"step": 14, "action": "REPORT FORM STAFFRPT NOEJECT TO FILE NOEJECT.TXT", "start": 6451, "end": 7843}
+{"step": 15, "action": ["shot", "reports-summary"], "start": 7843, "end": 7843}
+{"step": 16, "action": "LABEL FORM STAFFLBL TO FILE LABELS.TXT", "start": 7843, "end": 8712}
+{"step": 17, "action": "LABEL FORM STAFFLBL SAMPLE", "start": 8712, "end": 8786}
+{"step": 18, "action": "REPORT FORM STAFFRPT TO PRINT", "start": 8786, "end": 8871}
+{"step": 19, "action": "REPORT FORM MISSING", "start": 8871, "end": 8918}
+{"step": 20, "action": "LABEL FORM MISSING", "start": 8918, "end": 8964}
+{"step": 21, "action": "CLOSE ALL", "start": 8964, "end": 8977}
+{"step": 22, "action": "QUIT", "start": 8977, "end": 9133}
+{"step": 23, "action": ["shot", "reports-label"], "start": 9133, "end": 9133}

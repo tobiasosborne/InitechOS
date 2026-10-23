@@ -1,0 +1,17 @@
+{
+  "name": "transform",
+  "actions": [
+    "? TRANSFORM(123.4,\"999.99\")",
+    "? TRANSFORM(12.34,\"999.99\")",
+    "? TRANSFORM(1234.5,\"9,999.99\")",
+    "? TRANSFORM(-1234.56,\"99,999.99\")",
+    "? STR(123.4,6,2)",
+    "? TRANSFORM(0.12,\"9.99\")",
+    "? TRANSFORM(9.99,\"9.99\")",
+    "QUIT",
+    [
+      "shot",
+      "transform-decimal"
+    ]
+  ]
+}

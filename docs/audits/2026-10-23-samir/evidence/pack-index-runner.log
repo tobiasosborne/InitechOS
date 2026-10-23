@@ -1,0 +1,24 @@
+STARTED pack-index pid 56
+SHOT pack-index-startup
+USE CLIENTS 'USE CLIENTS\r\n. '
+INDEX ON NAME TO NAMES 'INDEX ON NAME TO NAMES\r\n. '
+GO TOP 'GO TOP\r\n. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n      3  LUMBERGH   DALLAS        7777.77\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n. '
+PACK 'PACK\r\n. '
+SHOT pack-index-before
+GO TOP 'GO TOP\r\n. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n      3  LUMBERGH   DALLAS        7777.77\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n. '
+REINDEX 'REINDEX\r\n. '
+GO TOP 'GO TOP\r\n. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n      3  LUMBERGH   DALLAS        7777.77\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n. '
+CLOSE INDEX 'CLOSE INDEX\r\n. '
+GO TOP 'GO TOP\r\n. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n      3  LUMBERGH   DALLAS        7777.77\r\n. '
+SHOT pack-index-after
+USE 'USE\r\n. '
+USE CLIENTS INDEX NAMES 'USE CLIENTS INDEX NAMES\r\n. '
+GO TOP 'GO TOP\r\n. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n      3  LUMBERGH   DALLAS        7777.77\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=3043\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=3046\n'
+SHOT pack-index-reopen
+STOPPED 56

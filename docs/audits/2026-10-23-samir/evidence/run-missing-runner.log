@@ -1,0 +1,8 @@
+STARTED run-missing pid 37
+SHOT run-missing-startup
+RUN ECHO SHOULDNOTRUN 'RUN ECHO SHOULDNOTRUN\r\n\r\n92  Unable to load COMMAND.COM.\n. '
+SHOT run-missing-result
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+SHOT run-missing-error
+QUIT 'QUIT\r\nA:\\>'
+STOPPED 37

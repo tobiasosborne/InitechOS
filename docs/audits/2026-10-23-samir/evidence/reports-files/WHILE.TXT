@@ -1,0 +1,17 @@
+
+  Page No.     1
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department SOFT
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+ ** Subtotal **
+                                       79600.00
+ *** Total ***
+                                       79600.00
+

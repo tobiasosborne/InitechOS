@@ -1,0 +1,11 @@
+STARTED desktop-status pid 80
+SHOT desktop-status-startup
+USE CLIENTS 'USE CLIENTS\r\n. '
+SET STATUS ON 'SET STATUS ON\r\n\x1b[2J\x1b[23;1H\x1b[0;7mCommand Line    |(A:>)|CLIENTS               |Rec: 1/3           |      |       \x1b[0m\x1b[24;1H\x1b[0m                        Enter a dBASE III PLUS command.                         \x1b[0m\x1b[1;1H\x1b[1;1H\x1b[0m. \x1b[0m\x1b[1;3H'
+SHOT desktop-status-status
+? 2+2 '\x1b[1;3H\x1b[0m?\x1b[0m\x1b[1;4H\x1b[1;4H\x1b[0m \x1b[0m\x1b[1;5H\x1b[1;5H\x1b[0m2\x1b[0m\x1b[1;6H\x1b[1;6H\x1b[0m+\x1b[0m\x1b[1;7H\x1b[1;7H\x1b[0m2\x1b[0m\x1b[1;8H\x1b[2;1H\x1b[3;1H\x1b[0m 4\x1b[0m\x1b[3;3H\x1b[23;1H\x1b[0;7mCommand Line    |(A:>)|CLIENTS               |Rec: 1/3           |      |       \x1b[0m\x1b[24;1H\x1b[0m                        Enter a dBASE III PLUS command.                         \x1b[0m\x1b[3;3H\x1b[3;3H\x1b[0m. \x1b[0m\x1b[3;5H'
+SHOT desktop-status-typing
+SET STATUS OFF '\x1b[3;5H\x1b[0mS\x1b[0m\x1b[3;6H\x1b[3;6H\x1b[0mE\x1b[0m\x1b[3;7H\x1b[3;7H\x1b[0mT\x1b[0m\x1b[3;8H\x1b[3;8H\x1b[0m \x1b[0m\x1b[3;9H\x1b[3;9H\x1b[0mS\x1b[0m\x1b[3;10H\x1b[3;10H\x1b[0mT\x1b[0m\x1b[3;11H\x1b[3;11H\x1b[0mA\x1b[0m\x1b[3;12H\x1b[3;12H\x1b[0mT\x1b[0m\x1b[3;13H\x1b[3;13H\x1b[0mU\x1b[0m\x1b[3;14H\x1b[3;14H\x1b[0mS\x1b[0m\x1b[3;15H\x1b[3;15H\x1b[0m \x1b[0m\x1b[3;16H\x1b[3;16H\x1b[0mO\x1b[0m\x1b[3;17H\x1b[3;17H\x1b[0mF\x1b[0m\x1b[3;18H\x1b[3;18H\x1b[0mF\x1b[0m\x1b[3;19H\x1b[4;1H\x1b[23;1H\x1b[0m                                                                                \x1b[0m\x1b[24;1H\x1b[0m                                                                                \x1b[0m\x1b[4;1H. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=1320\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=1323\n'
+SHOT desktop-status-off
+STOPPED 80

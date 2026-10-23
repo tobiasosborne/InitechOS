@@ -1,0 +1,44 @@
+
+  Page No.     1
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+  CHEN           ROBERT     08/13/90   33600.00
+ ** Subtotal **
+                                       80900.00
+
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+  ALBRIGHT       NINA       05/21/90   18400.00
+ ** Subtotal **
+                                      130400.00
+
+ ** Department CUST
+  SMYKOWSKI      TOM        08/18/75   34200.00
+  FENWICK        LAURA      04/07/86   30900.00
+ ** Subtotal **
+                                       65100.00
+
+ ** Department FACL
+  WADDAMS        MILTON     02/12/79   19750.00
+ ** Subtotal **
+                                       19750.00
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+  DELGADO        ANDREW     11/30/87   44100.00
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                      298200.00
+ *** Total ***
+                                      594350.00
+

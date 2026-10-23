@@ -1,0 +1,76 @@
+{
+  "name": "programmore-real",
+  "actions": [
+    "DO FORM",
+    "DO TEXT",
+    "@ 2,3 SAY \"HELLO\"",
+    "WAIT \"Press a key\" TO KEYVAR",
+    [
+      "key",
+      "x"
+    ],
+    "? KEYVAR",
+    "ACCEPT \"Name:\" TO USERNAME",
+    "Samir",
+    "? USERNAME",
+    "INPUT \"Amount:\" TO AMOUNT",
+    "12.5",
+    "? AMOUNT",
+    [
+      "shot",
+      "programmore-real-form"
+    ],
+    "SET ECHO ON",
+    "DO FLOW",
+    "SET ECHO OFF",
+    "SET TALK OFF",
+    "DELETE ALL",
+    "SET TALK ON",
+    "RECALL ALL",
+    "SET FIXED ON",
+    "? 3.5",
+    "SET FIXED OFF",
+    "SET MARGIN TO 5",
+    "SET PRINT ON",
+    "SET PRINT OFF",
+    "SET DEVICE TO SCREEN",
+    [
+      "shot",
+      "programmore-real-settings"
+    ],
+    "SET RELATION TO NAME INTO TWO",
+    "SET ORDER TO 0",
+    "MODIFY COMMAND FLOW",
+    "CREATE SCREEN SCREEN",
+    "MODIFY FILE HELLO.TXT",
+    "SET KEY TO FLOW",
+    "ON KEY LABEL F1 ? \"KEY\"",
+    "ON ESCAPE ? \"ESC\"",
+    "SET PROCEDURE TO FLOW",
+    "DO CHILD WITH 9",
+    [
+      "shot",
+      "programmore-real-newcommands"
+    ],
+    "RUN ECHO FROMDATABASE",
+    "! ECHO BANGWORKED",
+    "RUN NOSUCH",
+    "DO DOSRUN",
+    "? \"STILL LIVE\"",
+    [
+      "shot",
+      "programmore-real-run"
+    ],
+    "DO QUITPRG",
+    [
+      "pause",
+      2
+    ],
+    [
+      "shot",
+      "programmore-real-quitprogram"
+    ]
+  ],
+  "boot": "tracer_boot.img",
+  "route": "dos"
+}

@@ -1,0 +1,14 @@
+STARTED memory pid 5
+SHOT memory-startup
+MVAR=123 'MVAR=123\r\n. '
+SAVE TO TESTMEM 'SAVE TO TESTMEM\r\n. '
+MVAR=999 'MVAR=999\r\n. '
+RESTORE FROM TESTMEM 'RESTORE FROM TESTMEM\r\n. '
+? MVAR '? MVAR\r\n\r\n       123. '
+SHOT memory-restore
+CLEAR MEMORY 'CLEAR MEMORY\r\n. '
+? TYPE("MVAR") '? TYPE("MVAR")\r\n\r\nU. '
+? MVAR '? MVAR\r\n12  Variable not found.\n. '
+SHOT memory-cleared
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=1740\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=1743\n'
+STOPPED 5

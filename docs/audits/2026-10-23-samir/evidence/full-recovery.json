@@ -1,0 +1,29 @@
+{
+  "name": "full-recovery",
+  "actions": [
+    "USE CLIENTS",
+    "INDEX ON NAME TO FULLIDX",
+    "SORT TO SORTED ON NAME",
+    "USE",
+    "COPY FILE CLIENTS.DBF TO COPIED.DBF",
+    [
+      "shot",
+      "full-recovery-failure"
+    ],
+    "ERASE FILLER.BIN",
+    "USE CLIENTS",
+    "INDEX ON NAME TO FULLIDX",
+    "SORT TO SORTED ON NAME",
+    "USE SORTED",
+    "USE CLIENTS",
+    "LIST",
+    "QUIT",
+    [
+      "shot",
+      "full-recovery-retry"
+    ]
+  ],
+  "boot": "tracer_boot.img",
+  "route": "dos",
+  "data": "full-fixture.img"
+}

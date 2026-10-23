@@ -1,0 +1,58 @@
+{
+  "name": "missing",
+  "actions": [
+    "USE CLIENTS",
+    "DISPLAY STATUS",
+    "DISPLAY MEMORY",
+    "DISPLAY STRUCTURE",
+    "SET",
+    "HELP",
+    "ASSIST",
+    "MODIFY STRUCTURE",
+    [
+      "shot",
+      "missing-inspection"
+    ],
+    "DISP",
+    "REPL NAME WITH \"TEST\"",
+    "APPE BLANK",
+    "LOCA FOR BAL>1000",
+    "SELE 2",
+    "INDE ON NAME TO TEST",
+    "STOR 5 TO X",
+    "? X",
+    [
+      "shot",
+      "missing-abbrev"
+    ],
+    "? EXP(1)",
+    "? LOG(1)",
+    "? SQRT(4)",
+    "? TIME()",
+    "? RECSIZE()",
+    "? DISKSPACE()",
+    "? VERSION()",
+    "? OS()",
+    "? PCOL()",
+    "? PROW()",
+    "? ROW()",
+    "? COL()",
+    [
+      "shot",
+      "missing-functions"
+    ],
+    "CREATE REPORT NEWREP",
+    "MODIFY REPORT STAFFRPT",
+    "CREATE LABEL NEWLAB",
+    "AVERAGE BAL",
+    "LIST NAME TO PRINT",
+    "COPY STRUCTURE TO STRUCT",
+    "JOIN WITH CLIENTS TO JOINED FOR .T.",
+    "UPDATE ON NAME FROM CLIENTS REPLACE BAL WITH BAL",
+    "QUIT",
+    [
+      "shot",
+      "missing-newmissing"
+    ]
+  ]
+}

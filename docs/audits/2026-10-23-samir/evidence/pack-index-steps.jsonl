@@ -1,0 +1,21 @@
+{"step": 0, "action": "USE CLIENTS", "start": 913, "end": 928}
+{"step": 1, "action": "INDEX ON NAME TO NAMES", "start": 928, "end": 954}
+{"step": 2, "action": "GO TOP", "start": 954, "end": 964}
+{"step": 3, "action": "LIST", "start": 964, "end": 1144}
+{"step": 4, "action": "PACK", "start": 1144, "end": 1152}
+{"step": 5, "action": ["shot", "pack-index-before"], "start": 1152, "end": 1152}
+{"step": 6, "action": "GO TOP", "start": 1152, "end": 1162}
+{"step": 7, "action": "LIST", "start": 1162, "end": 1342}
+{"step": 8, "action": "REINDEX", "start": 1342, "end": 1353}
+{"step": 9, "action": "GO TOP", "start": 1353, "end": 1363}
+{"step": 10, "action": "LIST", "start": 1363, "end": 1543}
+{"step": 11, "action": "CLOSE INDEX", "start": 1543, "end": 1558}
+{"step": 12, "action": "GO TOP", "start": 1558, "end": 1568}
+{"step": 13, "action": "LIST", "start": 1568, "end": 1748}
+{"step": 14, "action": ["shot", "pack-index-after"], "start": 1748, "end": 1748}
+{"step": 15, "action": "USE", "start": 1748, "end": 1755}
+{"step": 16, "action": "USE CLIENTS INDEX NAMES", "start": 1755, "end": 1782}
+{"step": 17, "action": "GO TOP", "start": 1782, "end": 1792}
+{"step": 18, "action": "LIST", "start": 1792, "end": 1972}
+{"step": 19, "action": "QUIT", "start": 1972, "end": 2107}
+{"step": 20, "action": ["shot", "pack-index-reopen"], "start": 2107, "end": 2107}

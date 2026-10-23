@@ -1,0 +1,97 @@
+{
+  "name": "keys",
+  "actions": [
+    "? \"FIRST\"",
+    [
+      "key",
+      "up"
+    ],
+    [
+      "key",
+      "ret"
+    ],
+    "LIST HISTORY",
+    "SET HISTORY ON",
+    [
+      "shot",
+      "keys-history"
+    ],
+    [
+      "type",
+      "? 123",
+      false
+    ],
+    [
+      "key",
+      "left"
+    ],
+    [
+      "key",
+      "backspace"
+    ],
+    [
+      "type",
+      "4",
+      false
+    ],
+    [
+      "key",
+      "ret"
+    ],
+    [
+      "type",
+      "? 56",
+      false
+    ],
+    [
+      "key",
+      "home"
+    ],
+    [
+      "key",
+      "delete"
+    ],
+    [
+      "key",
+      "end"
+    ],
+    [
+      "key",
+      "ret"
+    ],
+    [
+      "shot",
+      "keys-edit"
+    ],
+    "? LEN(\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\")",
+    [
+      "shot",
+      "keys-254"
+    ],
+    "? LEN(\"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\")",
+    "? \"AFTER LONG\"",
+    [
+      "shot",
+      "keys-255"
+    ],
+    [
+      "type",
+      "? \"discard\"",
+      false
+    ],
+    [
+      "key",
+      "esc"
+    ],
+    [
+      "key",
+      "ret"
+    ],
+    "? \"AFTER ESC\"",
+    "QUIT",
+    [
+      "shot",
+      "keys-escape"
+    ]
+  ]
+}

@@ -1,0 +1,20 @@
+{"step": 0, "action": "USE CLIENTS", "start": 912, "end": 927}
+{"step": 1, "action": "MODIFY STRUCTURE", "start": 927, "end": 982}
+{"step": 2, "action": "CREATE REPORT NEWREP", "start": 982, "end": 1041}
+{"step": 3, "action": "MODIFY REPORT STAFFRPT", "start": 1041, "end": 1102}
+{"step": 4, "action": "CREATE LABEL NEWLAB", "start": 1102, "end": 1160}
+{"step": 5, "action": "MODIFY COMMAND FLOW", "start": 1160, "end": 1218}
+{"step": 6, "action": ["shot", "ui-gaps-design"], "start": 1218, "end": 1218}
+{"step": 7, "action": "COPY STRUCTURE TO STRUCT", "start": 1218, "end": 1281}
+{"step": 8, "action": "COPY STRUCTURE EXTENDED TO EXTSTR", "start": 1281, "end": 1353}
+{"step": 9, "action": "JOIN WITH CLIENTS TO JOINED FOR .T.", "start": 1353, "end": 1427}
+{"step": 10, "action": "UPDATE ON NAME FROM CLIENTS REPLACE BAL WITH BAL", "start": 1427, "end": 1514}
+{"step": 11, "action": "LIST NAME TO PRINT", "start": 1514, "end": 1580}
+{"step": 12, "action": ["shot", "ui-gaps-data"], "start": 1580, "end": 1580}
+{"step": 13, "action": "INDEX ON NAME TO UNIQUE1 UNIQUE", "start": 1580, "end": 1633}
+{"step": 14, "action": "SET UNIQUE ON", "start": 1633, "end": 1668}
+{"step": 15, "action": "INDEX ON NAME TO UNIQUE2", "start": 1668, "end": 1696}
+{"step": 16, "action": "SET UNIQUE OFF", "start": 1696, "end": 1732}
+{"step": 17, "action": ["shot", "ui-gaps-unique"], "start": 1732, "end": 1732}
+{"step": 18, "action": "QUIT", "start": 1732, "end": 1843}
+{"step": 19, "action": ["shot", "ui-gaps-finish"], "start": 1843, "end": 1843}

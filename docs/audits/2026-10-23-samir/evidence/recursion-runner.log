@@ -1,0 +1,6 @@
+STARTED recursion pid 81
+SHOT recursion-startup
+DO RECURSE 'DO RECURSE\r\n16  *** Unrecognized command verb.\n. '
+? "RECOVERED" '? "RECOVERED"\r\n\r\nRECOVERED. '
+SHOT recursion-recursion
+STOPPED 81

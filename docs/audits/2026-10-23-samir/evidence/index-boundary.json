@@ -1,0 +1,30 @@
+{
+  "name": "index-boundary",
+  "actions": [
+    "USE CLIENTS",
+    "GO BOTTOM",
+    "SKIP",
+    "? EOF(),RECNO()",
+    "INDEX ON NAME TO EOFIDX",
+    "GO TOP",
+    "INDEX ON NAME TO TOPIDX",
+    "? EOF(),RECNO()",
+    [
+      "shot",
+      "index-boundary-at-eof"
+    ],
+    "USE EDGE",
+    "GO TOP",
+    "INDEX ON LEFT(WIDE,100) TO KEY100",
+    "GO TOP",
+    "INDEX ON LEFT(WIDE,101) TO KEY101",
+    "GO TOP",
+    "INDEX ON WIDE TO KEY254",
+    "SET INDEX TO BAD.NDX",
+    "QUIT",
+    [
+      "shot",
+      "index-boundary-width"
+    ]
+  ]
+}

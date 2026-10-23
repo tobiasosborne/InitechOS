@@ -1,0 +1,37 @@
+{
+  "name": "programs-real",
+  "actions": [
+    "DO USEPRG",
+    "DO FLOW",
+    "? RESULT,I",
+    "DO LONG",
+    "? SUMX",
+    "DO BADLOOP",
+    [
+      "shot",
+      "programs-real-flow"
+    ],
+    "ON ERROR STORE ERROR() TO ERRNUM",
+    "? MISSING",
+    "? ERRNUM,MESSAGE()",
+    "ON ERROR",
+    "DO ONERR",
+    "? ERRNO",
+    "RETRY",
+    "RETURN TO MASTER",
+    [
+      "shot",
+      "programs-real-traps"
+    ],
+    "ENDIF",
+    "ELSE",
+    "EXIT",
+    "? \"AFTER EXIT\"",
+    [
+      "shot",
+      "programs-real-stray"
+    ]
+  ],
+  "boot": "tracer_boot.img",
+  "route": "dos"
+}

@@ -1,0 +1,9 @@
+{"step": 0, "action": "? LEN(\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\")", "start": 2744, "end": 2901}
+{"step": 1, "action": ["shot", "keys-dos-off"], "start": 2901, "end": 2901}
+{"step": 2, "action": "SET STATUS ON", "start": 2901, "end": 3078}
+{"step": 3, "action": "? LEN(\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\")", "start": 3078, "end": 3504}
+{"step": 4, "action": ["shot", "keys-dos-on"], "start": 3504, "end": 3504}
+{"step": 5, "action": "MARKER=4242", "start": 3504, "end": 3677}
+{"step": 6, "action": "? LEN(\"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\")", "start": 3677, "end": 4137}
+{"step": 7, "action": ["pause", 1], "start": 4137, "end": 4137}
+{"step": 8, "action": ["shot", "keys-dos-overlong"], "start": 4137, "end": 4137}

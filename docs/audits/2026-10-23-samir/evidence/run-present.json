@@ -1,0 +1,26 @@
+{
+  "name": "run-present",
+  "actions": [
+    "USE CLIENTS",
+    "GO 2",
+    "RUN ECHO HELLOFROMDOS",
+    "? RECNO(),RECCOUNT()",
+    "! ECHO HELLOBANG",
+    "RUN ECHO SAVED > RUNOUT.TXT",
+    "TYPE RUNOUT.TXT",
+    "RUN NOSUCH",
+    "? \"AFTER BAD COMMAND\"",
+    [
+      "shot",
+      "run-present-run"
+    ],
+    "DO DOSRUN",
+    "? RECNO(),RECCOUNT()",
+    "QUIT",
+    [
+      "shot",
+      "run-present-program"
+    ]
+  ],
+  "data": "run-fixture.img"
+}

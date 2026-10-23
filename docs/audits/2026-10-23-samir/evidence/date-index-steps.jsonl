@@ -1,0 +1,13 @@
+{"step": 0, "action": "USE EDGE", "start": 912, "end": 924}
+{"step": 1, "action": "INDEX ON WHEN TO BLANKDAT", "start": 924, "end": 976}
+{"step": 2, "action": "? ERROR(),MESSAGE()", "start": 976, "end": 1012}
+{"step": 3, "action": ["shot", "date-index-blank"], "start": 1012, "end": 1012}
+{"step": 4, "action": "REPLACE ALL WHEN WITH CTOD(\"01/01/92\")", "start": 1012, "end": 1054}
+{"step": 5, "action": "INDEX ON WHEN TO VALIDATE", "start": 1054, "end": 1106}
+{"step": 6, "action": "GO TOP", "start": 1106, "end": 1116}
+{"step": 7, "action": "LIST ID,WHEN", "start": 1116, "end": 1224}
+{"step": 8, "action": "CLOSE INDEX", "start": 1224, "end": 1239}
+{"step": 9, "action": "REPLACE WHEN WITH CTOD(\"\")", "start": 1239, "end": 1269}
+{"step": 10, "action": "INDEX ON WHEN TO BLANK2", "start": 1269, "end": 1319}
+{"step": 11, "action": "QUIT", "start": 1319, "end": 1474}
+{"step": 12, "action": ["shot", "date-index-valid"], "start": 1474, "end": 1474}

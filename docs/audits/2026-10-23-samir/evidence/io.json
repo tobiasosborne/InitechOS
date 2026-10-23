@@ -1,0 +1,57 @@
+{
+  "name": "io",
+  "actions": [
+    "COPY FILE HELLO.TXT TO COPIED.TXT",
+    "TYPE HELLO.TXT",
+    "TYPE COPIED.TXT",
+    "COPY FILE CLIENTS.DBF TO CLONE.DBF",
+    "USE CLONE",
+    "LIST",
+    "USE",
+    [
+      "shot",
+      "io-copy"
+    ],
+    "COPY FILE HELLO.TXT TO COPIED.TXT",
+    "SET SAFETY ON",
+    "SORT TO SORTED ON NAME",
+    "USE CLIENTS",
+    "SORT TO EXIST ON NAME",
+    "SORT TO EXIST ON BAL",
+    "USE EXIST",
+    "LIST",
+    [
+      "shot",
+      "io-overwrite"
+    ],
+    "USE CLIENTS",
+    "APPEND FROM CLONE",
+    "? RECCOUNT()",
+    "LIST",
+    "USE",
+    "USE CLIENTS",
+    "? RECCOUNT()",
+    "GO TOP",
+    "DELETE",
+    "PACK",
+    "? RECCOUNT()",
+    "LIST",
+    [
+      "shot",
+      "io-append"
+    ],
+    "SET SAFETY OFF",
+    "ZAP",
+    "? RECCOUNT()",
+    "USE",
+    "USE CLIENTS",
+    "LIST",
+    "COPY FILE HELLO.TXT TO HELLO.TXT",
+    "TYPE HELLO.TXT",
+    "QUIT",
+    [
+      "shot",
+      "io-zap"
+    ]
+  ]
+}

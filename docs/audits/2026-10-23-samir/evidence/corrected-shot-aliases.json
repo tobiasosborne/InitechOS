@@ -1,0 +1,62 @@
+{
+  "programs-real-flow.png": {
+    "from": "programs-flow.png",
+    "corrected_session": "programs-real",
+    "sha256": "38ac816d1c6b1dbfa84a7433e138a5db51c3d11d4b4f168d350564e0fb4c0d89"
+  },
+  "programs-real-traps.png": {
+    "from": "programs-traps.png",
+    "corrected_session": "programs-real",
+    "sha256": "216ef49115e98b9978ee70c15e3141af441c7d6eea243bb0b2368d46a0350974"
+  },
+  "programs-real-stray.png": {
+    "from": "programs-stray.png",
+    "corrected_session": "programs-real",
+    "sha256": "381b89cf1481cc370d764c3f0d6abf9f0d1ccb882bc3916f6928bcc15e7c4864"
+  },
+  "programmore-real-form.png": {
+    "from": "programmore-form.png",
+    "corrected_session": "programmore-real",
+    "sha256": "ec2d4ac70eaf60f70b00ba62e9053e9b82e912e72ef9e8a832cb9fb942585ca4"
+  },
+  "programmore-real-settings.png": {
+    "from": "programmore-settings.png",
+    "corrected_session": "programmore-real",
+    "sha256": "b82851961a4b8c80720d0b62739ffb69de8a52d66022bc9e1d4eac9ff0c0e253"
+  },
+  "programmore-real-newcommands.png": {
+    "from": "programmore-newcommands.png",
+    "corrected_session": "programmore-real",
+    "sha256": "d673567b9bad5fa1a1b8aac096ae41777769b8410f50d25a3ba1f32d32e74265"
+  },
+  "programmore-real-run.png": {
+    "from": "programmore-run.png",
+    "corrected_session": "programmore-real",
+    "sha256": "6992212277de532f67ee6309b0e1018ffa6a1479c581ef037ccf8c956e8dc7b3"
+  },
+  "programmore-real-quitprogram.png": {
+    "from": "programmore-quitprogram.png",
+    "corrected_session": "programmore-real",
+    "sha256": "2cf780d48c6ff8d7e437cdf4bad6e192486f0aefcb53d49bae646e481bccc5ea"
+  },
+  "full-real-before.png": {
+    "from": "full-before.png",
+    "corrected_session": "full-real",
+    "sha256": "45bbfc76e745c1452a32260535d8c50f44c2f77cabd77ff22289f43af8ea26ce"
+  },
+  "full-real-append.png": {
+    "from": "full-append.png",
+    "corrected_session": "full-real",
+    "sha256": "9a87674a190d667b9f49babdf23696f1a795e54ed47afb7f6e5e081996630049"
+  },
+  "full-real-reopen.png": {
+    "from": "full-reopen.png",
+    "corrected_session": "full-real",
+    "sha256": "355cff76cb9023d35087aacb159536c7ce3b824eddb5eac4f704911e4727431c"
+  },
+  "full-real-index.png": {
+    "from": "full-index.png",
+    "corrected_session": "full-real",
+    "sha256": "4ecd218e7cf6bbe4917ab77c33771fc8fd6d05e0c85c1926eee2b30dfde57c37"
+  }
+}

@@ -1,0 +1,22 @@
+{"step": 0, "action": "USE CLIENTS", "start": 912, "end": 927}
+{"step": 1, "action": "LIST", "start": 927, "end": 1107}
+{"step": 2, "action": "? RECNO(),EOF()", "start": 1107, "end": 1142}
+{"step": 3, "action": "GO 2", "start": 1142, "end": 1150}
+{"step": 4, "action": "DISPLAY ALL", "start": 1150, "end": 1337}
+{"step": 5, "action": "? RECNO(),EOF()", "start": 1337, "end": 1372}
+{"step": 6, "action": "GO TOP", "start": 1372, "end": 1382}
+{"step": 7, "action": "LIST NEXT 2 NAME", "start": 1382, "end": 1459}
+{"step": 8, "action": "? RECNO(),EOF()", "start": 1459, "end": 1494}
+{"step": 9, "action": ["shot", "navigation-list"], "start": 1494, "end": 1494}
+{"step": 10, "action": "SET FILTER TO .F.", "start": 1494, "end": 1515}
+{"step": 11, "action": "GO TOP", "start": 1515, "end": 1525}
+{"step": 12, "action": "? RECNO(),EOF(),BOF()", "start": 1525, "end": 1570}
+{"step": 13, "action": "LIST", "start": 1570, "end": 1621}
+{"step": 14, "action": "? RECNO(),EOF(),BOF()", "start": 1621, "end": 1666}
+{"step": 15, "action": "SET FILTER TO", "start": 1666, "end": 1683}
+{"step": 16, "action": "USE EMPTY", "start": 1683, "end": 1696}
+{"step": 17, "action": "? RECCOUNT(),RECNO(),EOF(),BOF()", "start": 1696, "end": 1763}
+{"step": 18, "action": "GO TOP", "start": 1763, "end": 1773}
+{"step": 19, "action": "? EOF(),BOF()", "start": 1773, "end": 1799}
+{"step": 20, "action": "QUIT", "start": 1799, "end": 1910}
+{"step": 21, "action": ["shot", "navigation-hidden"], "start": 1910, "end": 1910}

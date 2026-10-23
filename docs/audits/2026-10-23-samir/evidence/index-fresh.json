@@ -1,0 +1,45 @@
+{
+  "name": "index-fresh",
+  "actions": [
+    "USE EMPTY",
+    "INDEX ON NAME TO ZERO",
+    "? RECCOUNT(),RECNO(),EOF(),BOF()",
+    "SEEK \"NONE\"",
+    "? FOUND()",
+    "CLOSE INDEX",
+    [
+      "shot",
+      "index-fresh-empty"
+    ],
+    "USE EDGE",
+    "INDEX ON NAME TO NAMES",
+    "SEEK \"alpha\"",
+    "? FOUND(),RECNO()",
+    "SKIP",
+    "? RECNO()",
+    "INDEX ON WHEN TO DATES",
+    "GO TOP",
+    "LIST ID,WHEN",
+    "INDEX ON OK TO LOGICAL",
+    "INDEX ON WIDE TO BIGKEY",
+    [
+      "shot",
+      "index-fresh-types"
+    ],
+    "INDEX ON UPPER(NAME) TO CAPS",
+    "SEEK \"ALPHA\"",
+    "? FOUND(),RECNO()",
+    "INDEX ON ID+1 TO NUMBER",
+    "GO TOP",
+    "LIST ID",
+    "INDEX ON LEFT(WIDE,100) TO KEY100",
+    "INDEX ON LEFT(WIDE,101) TO KEY101",
+    "SET INDEX TO BAD.NDX",
+    "CLOSE ALL",
+    "QUIT",
+    [
+      "shot",
+      "index-fresh-expressions"
+    ]
+  ]
+}

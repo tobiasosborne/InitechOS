@@ -1,0 +1,155 @@
+
+  Page No.     1
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department SOFT
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+ ** Subtotal **
+                                       80900.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+  Page No.     2
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+ ** Subtotal **
+                                       80900.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+ ** Subtotal **
+                                       80900.00
+
+ ** Department SOFT
+  Page No.     3
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+ ** Subtotal **
+                                       80900.00
+ *** Total ***
+                                     2377400.00
+

@@ -1,0 +1,37 @@
+{
+  "name": "programs",
+  "actions": [
+    "DO USEPRG",
+    "DO FLOW",
+    "? RESULT,I",
+    "DO LONG",
+    "? SUMX",
+    "DO BADLOOP",
+    [
+      "shot",
+      "programs-flow"
+    ],
+    "ON ERROR STORE ERROR() TO ERRNUM",
+    "? MISSING",
+    "? ERRNUM,MESSAGE()",
+    "ON ERROR",
+    "DO ONERR",
+    "? ERRNO",
+    "RETRY",
+    "RETURN TO MASTER",
+    [
+      "shot",
+      "programs-traps"
+    ],
+    "ENDIF",
+    "ELSE",
+    "EXIT",
+    "? \"AFTER EXIT\"",
+    [
+      "shot",
+      "programs-stray"
+    ]
+  ],
+  "boot": "tracer_boot.img",
+  "route": "dos"
+}

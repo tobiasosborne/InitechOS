@@ -1,0 +1,39 @@
+{
+  "name": "manualcheck",
+  "actions": [
+    "ON ERROR",
+    "USE",
+    "SET EXACT OFF",
+    "SET DATE AMERICAN",
+    "SET CENTURY OFF",
+    "SET DECIMALS TO 2",
+    "? LEN(DBF())",
+    "USE STAFF",
+    "? DBF()",
+    [
+      "shot",
+      "manualcheck-fn-dbf"
+    ],
+    "ON ERROR",
+    "USE",
+    "SET EXACT OFF",
+    "SET DATE AMERICAN",
+    "SET CENTURY OFF",
+    "SET DECIMALS TO 2",
+    "? IIF(.F., 1/0, 5)",
+    "? IIF(1, 2, 3)",
+    [
+      "shot",
+      "manualcheck-fn-iif-2"
+    ],
+    "ON ERROR",
+    "USE STAFF",
+    "INDEX ON HIRED TO STAFFHIR",
+    "LIST NEXT 4 LASTNAME, FIRSTNAME, HIRED",
+    [
+      "shot",
+      "manualcheck-date-index"
+    ],
+    "QUIT"
+  ]
+}

@@ -1,0 +1,20 @@
+{"step": 0, "action": "USE CLIENTS", "start": 913, "end": 928}
+{"step": 1, "action": "INDEX ON NAME TO BYNAME", "start": 928, "end": 955}
+{"step": 2, "action": "INDEX ON BAL TO BYBAL", "start": 955, "end": 980}
+{"step": 3, "action": "SET INDEX TO BYNAME,BYBAL", "start": 980, "end": 1009}
+{"step": 4, "action": "SET ORDER TO 1", "start": 1009, "end": 1027}
+{"step": 5, "action": "PACK", "start": 1027, "end": 1035}
+{"step": 6, "action": ["shot", "pack-two-before"], "start": 1035, "end": 1035}
+{"step": 7, "action": "REINDEX", "start": 1035, "end": 1109}
+{"step": 8, "action": "GO TOP", "start": 1109, "end": 1146}
+{"step": 9, "action": "LIST", "start": 1146, "end": 1172}
+{"step": 10, "action": "CLOSE INDEX", "start": 1172, "end": 1187}
+{"step": 11, "action": "GO TOP", "start": 1187, "end": 1197}
+{"step": 12, "action": "LIST", "start": 1197, "end": 1377}
+{"step": 13, "action": ["shot", "pack-two-after"], "start": 1377, "end": 1377}
+{"step": 14, "action": "USE", "start": 1377, "end": 1384}
+{"step": 15, "action": "USE CLIENTS INDEX BYNAME,BYBAL", "start": 1384, "end": 1418}
+{"step": 16, "action": "GO TOP", "start": 1418, "end": 1428}
+{"step": 17, "action": "LIST", "start": 1428, "end": 1608}
+{"step": 18, "action": "QUIT", "start": 1608, "end": 1743}
+{"step": 19, "action": ["shot", "pack-two-reopen"], "start": 1743, "end": 1743}

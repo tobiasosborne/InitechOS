@@ -1,0 +1,12 @@
+{
+  "name": "label-sample",
+  "actions": [
+    "USE STAFF",
+    "LABEL FORM STAFFLBL SAMPLE",
+    [
+      "shot",
+      "label-sample-result"
+    ],
+    "QUIT"
+  ]
+}

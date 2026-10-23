@@ -1,0 +1,149 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+SAMIR.COM        95514
+CLIENTS.DBF          223
+FILLER.BIN      1361408
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+Current date is Fri 10-23-2026
+Enter new date (mm-dd-yy): 
+Current time is 12:55:39.00
+Enter new time: 
+A:\>SAMIR.COM
+. USE CLIENTS
+. LIST
+Record#  NAME       CITY              BAL
+      1  PESTON     HONOLULU      1234.50
+      2  WADDAMS    AUSTIN         -42.00
+      3  LUMBERGH   DALLAS        7777.77
+. APPEND BLANK
+. APPEND BLANK
+. APPEND BLANK
+. APPEND BLANK
+. APPEND BLANK
+. APPEND BLANK
+. APPEND BLANK
+. APPEND BLANK
+. APPEND BLANK
+. APPEND BLANK
+56  Disk full when writing file: CLIENTS.DBF
+. APPEND BLANK
+56  Disk full when writing file: CLIENTS.DBF
+. APPEND BLANK
+56  Disk full when writing file: CLIENTS.DBF
+. APPEND BLANK
+56  Disk full when writing file: CLIENTS.DBF
+. APPEND BLANK
+56  Disk full when writing file: CLIENTS.DBF
+. APPEND BLANK
+56  Disk full when writing file: CLIENTS.DBF
+. APPEND BLANK
+56  Disk full when writing file: CLIENTS.DBF
+. APPEND BLANK
+56  Disk full when writing file: CLIENTS.DBF
+. APPEND BLANK
+56  Disk full when writing file: CLIENTS.DBF
+. ? RECCOUNT()
+
+        12. USE
+. USE CLIENTS
+. ? RECCOUNT()
+
+        12. LIST
+Record#  NAME       CITY              BAL
+      1  PESTON     HONOLULU      1234.50
+      2  WADDAMS    AUSTIN         -42.00
+      3  LUMBERGH   DALLAS        7777.77
+      4                              0.00
+      5                              0.00
+      6                              0.00
+      7                              0.00
+      8                              0.00
+      9                              0.00
+     10                              0.00
+     11                              0.00
+     12                              0.00
+. INDEX ON NAME TO FULLIDX
+29  File is not accessible.
+. ? ERROR(),MESSAGE()
+
+         0 . COPY FILE CLIENTS.DBF TO NEWCOPY.DBF
+3  File is already open.
+. SORT TO SORTED ON NAME
+56  Disk full when writing file: CLIENTS.DBF
+. GO TOP
+. DELETE
+. PACK
+. ? RECCOUNT()
+
+        11. USE
+. USE CLIENTS
+. LIST
+Record#  NAME       CITY              BAL
+      1  WADDAMS    AUSTIN         -42.00
+      2  LUMBERGH   DALLAS        7777.77
+      3                              0.00
+      4                              0.00
+      5                              0.00
+      6                              0.00
+      7                              0.00
+      8                              0.00
+      9                              0.00
+     10                              0.00
+     11                              0.00
+. QUIT
+A:\>

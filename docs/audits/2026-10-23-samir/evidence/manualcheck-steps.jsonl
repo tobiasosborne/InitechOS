@@ -1,0 +1,25 @@
+{"step": 0, "action": "ON ERROR", "start": 912, "end": 924}
+{"step": 1, "action": "USE", "start": 924, "end": 931}
+{"step": 2, "action": "SET EXACT OFF", "start": 931, "end": 948}
+{"step": 3, "action": "SET DATE AMERICAN", "start": 948, "end": 969}
+{"step": 4, "action": "SET CENTURY OFF", "start": 969, "end": 988}
+{"step": 5, "action": "SET DECIMALS TO 2", "start": 988, "end": 1009}
+{"step": 6, "action": "? LEN(DBF())", "start": 1009, "end": 1037}
+{"step": 7, "action": "USE STAFF", "start": 1037, "end": 1050}
+{"step": 8, "action": "? DBF()", "start": 1050, "end": 1068}
+{"step": 9, "action": ["shot", "manualcheck-fn-dbf"], "start": 1068, "end": 1068}
+{"step": 10, "action": "ON ERROR", "start": 1068, "end": 1080}
+{"step": 11, "action": "USE", "start": 1080, "end": 1087}
+{"step": 12, "action": "SET EXACT OFF", "start": 1087, "end": 1104}
+{"step": 13, "action": "SET DATE AMERICAN", "start": 1104, "end": 1125}
+{"step": 14, "action": "SET CENTURY OFF", "start": 1125, "end": 1144}
+{"step": 15, "action": "SET DECIMALS TO 2", "start": 1144, "end": 1165}
+{"step": 16, "action": "? IIF(.F., 1/0, 5)", "start": 1165, "end": 1190}
+{"step": 17, "action": "? IIF(1, 2, 3)", "start": 1190, "end": 1238}
+{"step": 18, "action": ["shot", "manualcheck-fn-iif-2"], "start": 1238, "end": 1238}
+{"step": 19, "action": "ON ERROR", "start": 1238, "end": 1250}
+{"step": 20, "action": "USE STAFF", "start": 1250, "end": 1263}
+{"step": 21, "action": "INDEX ON HIRED TO STAFFHIR", "start": 1263, "end": 1293}
+{"step": 22, "action": "LIST NEXT 4 LASTNAME, FIRSTNAME, HIRED", "start": 1293, "end": 1557}
+{"step": 23, "action": ["shot", "manualcheck-date-index"], "start": 1557, "end": 1557}
+{"step": 24, "action": "QUIT", "start": 1557, "end": 1668}

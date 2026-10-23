@@ -1,0 +1,28 @@
+{
+  "name": "control",
+  "data": "control-fixture.img",
+  "actions": [
+    "DO MASTER",
+    [
+      "shot",
+      "control-master"
+    ],
+    "DO OUTER",
+    [
+      "shot",
+      "control-nested"
+    ],
+    "DO RETRY",
+    [
+      "shot",
+      "control-retry"
+    ],
+    "ON ERROR",
+    "? \"RECOVERED\"",
+    [
+      "shot",
+      "control-recovery"
+    ],
+    "QUIT"
+  ]
+}

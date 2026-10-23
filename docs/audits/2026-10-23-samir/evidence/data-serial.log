@@ -1,0 +1,254 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-CREATE
+TRASH-CREATE
+APPLE-MENU n=1
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CLOCK 12:38 pm
+FLAIR-TICK n=4
+FLAIR-TICK n=6
+FLAIR-EVT what=3 where=320,240 msg=00002B5C
+FLAIR-SUSPEND
+. USE EDGE
+. ? LEN(WIDE),PRECISE,SMALL,WHEN,OK
+
+       254 0.12345678901234568  1.2 02/29/92 .T.. ? MEMO,LEN(MEMO),TYPE("MEMO")
+
+Original memo
+second line         26 M. REPLACE SMALL WITH 99999
+. DISPLAY ID,SMALL
+Record#    ID SMALL
+      1     1   0.0
+. REPLACE WHEN WITH CTOD("02/30/92")
+. DISPLAY ID,WHEN
+Record#    ID WHEN
+      1     1 11/24/00
+. REPLACE MEMO WITH "new memo"
+. ? MEMO
+
+. GO 2
+. REPLACE PRECISE WITH 0.98765432101234567
+. REPLACE NAME WITH "abcdefghijklmnopqrst"
+. REPLACE OK WITH "T"
+9  Data type mismatch.
+. DISPLAY ID,NAME,PRECISE,OK
+Record#    ID NAME                     PRECISE OK
+      2     2 abcdefghijkl 0.98765432101234544 .F.
+. USE
+. USE EDGE
+. DISPLAY ID,NAME,PRECISE,SMALL,WHEN,OK
+Record#    ID NAME                     PRECISE SMALL WHEN     OK
+      1     1 alpha        0.12345678901234568   0.0 11/24/00 .T.
+. GO 0
+5  Record is out of range.
+. ? RECNO(),BOF(),EOF()
+
+         1 .F. .F.. GO 999
+5  Record is out of range.
+. ? RECNO(),BOF(),EOF()
+
+         1 .F. .F.. GO TOP
+. SKIP -1
+. ? RECNO(),BOF(),EOF()
+
+         1 .T. .F.. GO BOTTOM
+. SKIP
+. ? RECNO(),BOF(),EOF()
+
+         4 .F. .T.. USE CLIENTS
+. SEEK "PESTON"
+26  Database is not indexed.
+. FIND PESTON
+26  Database is not indexed.
+. CONTINUE
+42  CONTINUE without LOCATE.
+. LOCATE FOR BAL>1000
+. ? FOUND(),RECNO()
+
+.T.          1. CONTINUE
+. ? FOUND(),RECNO()
+
+.T.          3. CONTINUE
+. ? FOUND(),RECNO()
+
+.F.          4. GO TOP
+. LIST NEXT 2 NAME,BAL OFF
+ NAME            BAL
+ PESTON      1234.50
+ WADDAMS      -42.00
+. GO 2
+. LIST REST NAME
+Record#  NAME
+      2  WADDAMS   
+      3  LUMBERGH  
+. GO TOP
+. LIST NAME WHILE BAL>0
+Record#  NAME
+      1  PESTON    
+. LIST FOR BAL>0
+Record#  NAME       CITY              BAL
+      1  PESTON     HONOLULU      1234.50
+      3  LUMBERGH   DALLAS        7777.77
+. LIST NAME TO PRINT
+36  Unrecognized phrase/keyword in command.
+. SUM BAL
+16  *** Unrecognized command verb.
+. AVERAGE BAL
+16  *** Unrecognized command verb.
+. COUNT
+16  *** Unrecognized command verb.
+. COPY TO BACKUP
+16  *** Unrecognized command verb.
+. COPY STRUCTURE TO STRUCT
+16  *** Unrecognized command verb.
+. COPY STRUCTURE EXTENDED TO EXTSTR
+16  *** Unrecognized command verb.
+. JOIN WITH CLIENTS TO JOINED FOR .T.
+16  *** Unrecognized command verb.
+. UPDATE ON NAME FROM CLIENTS REPLACE BAL WITH BAL
+16  *** Unrecognized command verb.
+. CREATE REPORT NEWREP
+16  *** Unrecognized command verb.
+. MODIFY REPORT STAFFRPT
+16  *** Unrecognized command verb.
+. CREATE LABEL NEWLAB
+16  *** Unrecognized command verb.
+. USE CLIENTS
+. INDEX ON NAME TO BYNAME
+. INDEX ON BAL TO BYBAL
+. SET INDEX TO BYNAME,BYBAL
+. SET ORDER TO 1
+. GO TOP
+. LIST
+Record#  NAME       CITY              BAL
+      3  LUMBERGH   DALLAS        7777.77
+      1  PESTON     HONOLULU      1234.50
+      2  WADDAMS    AUSTIN         -42.00
+. SET ORDER TO 2
+. GO TOP
+. LIST
+Record#  NAME       CITY              BAL
+      2  WADDAMS    AUSTIN         -42.00
+      1  PESTON     HONOLULU      1234.50
+      3  LUMBERGH   DALLAS        7777.77
+. SET ORDER TO 1
+. GO 2
+. REPLACE NAME WITH "AAAA"
+. SEEK "AAAA"
+. ? FOUND(),RECNO(),NAME
+
+.T.          2 AAAA      . SEEK "WADDAMS"
+. ? FOUND(),RECNO()
+
+.F.          4. APPEND BLANK
+. REPLACE NAME WITH "ZZZZ",BAL WITH 123
+. SEEK "ZZZZ"
+. ? FOUND(),RECNO()
+
+.T.          4. GO 1
+. DELETE
+. SET DELETED ON
+. GO TOP
+. LIST
+Record#  NAME       CITY              BAL
+      2  AAAA       AUSTIN         -42.00
+      3  LUMBERGH   DALLAS        7777.77
+      4  ZZZZ                      123.00
+. SET DELETED OFF
+. RECALL ALL
+. PACK
+. REINDEX
+114  Index damaged.  REINDEX should be done before using data.
+. GO TOP
+5  Record is out of range.
+. LIST
+10  Syntax error.
+. CLOSE INDEX
+. USE EDGE
+. INDEX ON NAME TO DUP UNIQUE
+10  Syntax error.
+. GO TOP
+. LIST ID,NAME
+Record#    ID NAME
+      1     1 alpha       
+      2     2 abcdefghijkl
+      3     3 beta        
+. SET UNIQUE ON
+10  Syntax error.
+. INDEX ON NAME TO DUP2
+29  File is not accessible.
+. SET UNIQUE OFF
+10  Syntax error.
+. INDEX ON OK TO LOGIC
+9  Data type mismatch.
+. INDEX ON WHEN TO DATED
+9  Data type mismatch.
+. INDEX ON WIDE TO TOO_LONG
+29  File is not accessible.
+. SET INDEX TO BAD
+1  File does not exist.
+. ? RECCOUNT()
+
+         3. USE EMPTY
+. INDEX ON NAME TO EMPTYIDX
+29  File is not accessible.
+. SEEK "NONE"
+26  Database is not indexed.
+. ? FOUND(),BOF(),EOF(),RECNO()
+
+.F. .F. .T.          1. SET ORDER TO 9
+106  Invalid index number.
+. CLOSE ALL
+. QUIT
+FLAIR-TEXT-EXIT rc=0
+FLAIR-EVT-DROP
+FLAIR-RESUME
+FLAIR-CLOCK 12:41 pm
+FLAIR-TICK n=15799
+FLAIR-TICK n=15804

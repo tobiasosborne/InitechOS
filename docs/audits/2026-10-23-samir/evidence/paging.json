@@ -1,0 +1,30 @@
+{
+  "name": "paging",
+  "actions": [
+    "USE BIGSTAFF",
+    "REPORT FORM STAFFRPT TO FILE PAGES.TXT",
+    [
+      "shot",
+      "paging-pages"
+    ],
+    "REPORT FORM STAFFRPT PLAIN TO FILE PLAIN.TXT",
+    [
+      "shot",
+      "paging-plain"
+    ],
+    "INDEX ON DEPT TO DEPART",
+    "REPORT FORM STAFFRPT SUMMARY TO FILE GROUPS.TXT",
+    [
+      "shot",
+      "paging-groups"
+    ],
+    "REPORT FORM STAFFRPT NEXT 1 TO PRINT",
+    "LABEL FORM STAFFLBL SAMPLE",
+    "QUIT",
+    [
+      "shot",
+      "paging-print"
+    ]
+  ],
+  "data": "paging-fixture.img"
+}

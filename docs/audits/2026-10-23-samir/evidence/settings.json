@@ -1,0 +1,40 @@
+{
+  "name": "settings",
+  "actions": [
+    "USE CLIENTS",
+    "SET ECHO ON",
+    "DO USEPRG",
+    "SET ECHO OFF",
+    "SET TALK OFF",
+    "DELETE",
+    "SET TALK ON",
+    "RECALL",
+    [
+      "shot",
+      "settings-trace"
+    ],
+    "SET FIXED ON",
+    "SET DECIMALS TO 2",
+    "? 3,3.5",
+    "SET FIXED OFF",
+    "SET MARGIN TO 5",
+    "SET PRINT ON",
+    "SET PRINT OFF",
+    "SET DEVICE TO PRINT",
+    "SET DEVICE TO SCREEN",
+    [
+      "shot",
+      "settings-format"
+    ],
+    "USE",
+    "DELETE",
+    "RECALL",
+    "PACK",
+    "REPLACE NAME WITH \"x\"",
+    "QUIT",
+    [
+      "shot",
+      "settings-no-open"
+    ]
+  ]
+}

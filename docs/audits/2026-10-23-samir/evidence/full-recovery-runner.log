@@ -1,0 +1,18 @@
+STARTED full-recovery pid 44
+SHOT full-recovery-startup
+USE CLIENTS 'USE CLIENTS\r\n. '
+INDEX ON NAME TO FULLIDX 'INDEX ON NAME TO FULLIDX\r\n29  File is not accessible.\n. '
+SORT TO SORTED ON NAME 'SORT TO SORTED ON NAME\r\n56  Disk full when writing file: CLIENTS.DBF\n. '
+USE 'USE\r\n. '
+COPY FILE CLIENTS.DBF TO COPIED.DBF 'COPY FILE CLIENTS.DBF TO COPIED.DBF\r\n56  Disk full when writing file: \n. '
+SHOT full-recovery-failure
+ERASE FILLER.BIN 'ERASE FILLER.BIN\r\n. '
+USE CLIENTS 'USE CLIENTS\r\n. '
+INDEX ON NAME TO FULLIDX 'INDEX ON NAME TO FULLIDX\r\n7  File already exists.\n. '
+SORT TO SORTED ON NAME 'SORT TO SORTED ON NAME\r\n7  File already exists.\n. '
+USE SORTED 'USE SORTED\r\n15  Not a dBASE database.\n. '
+USE CLIENTS 'USE CLIENTS\r\n. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n      3  LUMBERGH   DALLAS        7777.77\r\n. '
+QUIT 'QUIT\r\nA:\\>'
+SHOT full-recovery-retry
+STOPPED 44

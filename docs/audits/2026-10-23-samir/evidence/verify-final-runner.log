@@ -1,0 +1,31 @@
+STARTED verify-final pid 6
+SHOT verify-final-startup
+USE EDGE 'USE EDGE\r\n. '
+REPLACE ALL WHEN WITH CTOD("01/01/92") 'REPLACE ALL WHEN WITH CTOD("01/01/92")\r\n. '
+GO TOP 'GO TOP\r\n. '
+INDEX ON WHEN TO VALIDATE 'INDEX ON WHEN TO VALIDATE\r\n. '
+GO TOP 'GO TOP\r\n. '
+LIST ID,WHEN 'LIST ID,WHEN\r\nRecord#    ID WHEN\r\n      1     1 01/01/92\r\n      2     2 01/01/92\r\n      3     3 01/01/92\r\n. '
+SHOT verify-final-date-control
+CLOSE INDEX 'CLOSE INDEX\r\n. '
+GO 1 'GO 1\r\n. '
+REPLACE WHEN WITH CTOD("") 'REPLACE WHEN WITH CTOD("")\r\n. '
+GO TOP 'GO TOP\r\n. '
+INDEX ON WHEN TO BLANK2 'INDEX ON WHEN TO BLANK2\r\n. '
+SHOT verify-final-date-blank
+USE STAFF 'USE STAFF\r\n. '
+INDEX ON HIRED TO STAFFHIR 'INDEX ON HIRED TO STAFFHIR\r\n. '
+LIST NEXT 4 LASTNAME,FIRSTNAME,HIRED 'LIST NEXT 4 LASTNAME,FIRSTNAME,HIRED\r\nRecord#  LASTNAME       FIRSTNAME  HIRED\r\n      6  SMYKOWSKI      TOM        08/18/75\r\n      5  WADDAMS        MILTON     02/12/79\r\n      7  PORTER         DOM        01/11/82\r\n     12  PRUITT         CAROL      07/25/83\r\n. '
+SHOT verify-final-manual-date
+? TRANSFORM(123.4,"999.99") '? TRANSFORM(123.4,"999.99")\r\n\r\n***.**. '
+? STR(123.4,6,2) '? STR(123.4,6,2)\r\n\r\n123.40. '
+? TRANSFORM(0.12,"9.99") '? TRANSFORM(0.12,"9.99")\r\n\r\n*.**. '
+SHOT verify-final-transform
+USE EMPTY 'USE EMPTY\r\n. '
+? RECCOUNT(),EOF(),BOF() '? RECCOUNT(),EOF(),BOF()\r\n\r\n         0 .T. .F.. '
+GO TOP 'GO TOP\r\n. '
+? EOF(),BOF() '? EOF(),BOF()\r\n\r\n.T. .F.. '
+SHOT verify-final-empty
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-CLOCK 1:14 pm\nFLAIR-TICK n=4920\nFLAIR-TICK n=4924\n'
+SHOT verify-final-quit
+STOPPED 6

@@ -1,0 +1,13 @@
+STARTED control pid 18
+SHOT control-startup
+DO MASTER 'DO MASTER\r\n\r\nOUTER\r\nINNER\r\nOUTER CONTINUED. '
+SHOT control-master
+DO OUTER 'DO OUTER\r\n16  *** Unrecognized command verb.\n. '
+SHOT control-nested
+DO RETRY 'DO RETRY\r\n\r\nDONE          1. '
+SHOT control-retry
+ON ERROR 'ON ERROR\r\n. '
+? "RECOVERED" '? "RECOVERED"\r\n\r\nRECOVERED. '
+SHOT control-recovery
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=1303\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=1306\n'
+STOPPED 18

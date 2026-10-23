@@ -1,0 +1,37 @@
+{
+  "name": "last-controls",
+  "actions": [
+    "USE CLIENTS",
+    "SET HEADING OFF",
+    "GO TOP",
+    "LIST",
+    "SET HEADING ON",
+    "GO TOP",
+    "LIST",
+    [
+      "shot",
+      "last-controls-headings"
+    ],
+    "SET TALK ON",
+    "REPLACE ALL BAL WITH BAL+1",
+    [
+      "shot",
+      "last-controls-talk"
+    ],
+    "SELECT 2",
+    "USE DEPTS ALIAS D INDEX DEPTS",
+    "SELECT 1",
+    "USE STAFF",
+    "SET RELATION TO DEPT INTO D",
+    "GO 1",
+    "? DEPT,D->DEPT",
+    "GO 5",
+    "? DEPT,D->DEPT",
+    [
+      "shot",
+      "last-controls-relation"
+    ],
+    "CLOSE ALL",
+    "QUIT"
+  ]
+}

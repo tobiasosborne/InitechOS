@@ -1,0 +1,29 @@
+STARTED settings pid 31
+SHOT settings-startup
+USE CLIENTS 'USE CLIENTS\r\n. '
+SET ECHO ON 'SET ECHO ON\r\n10  Syntax error.\n. '
+DO USEPRG 'DO USEPRG\r\n\r\nPESTON    . '
+SET ECHO OFF 'SET ECHO OFF\r\n10  Syntax error.\n. '
+SET TALK OFF 'SET TALK OFF\r\n. '
+DELETE 'DELETE\r\n. '
+SET TALK ON 'SET TALK ON\r\n. '
+RECALL 'RECALL\r\n. '
+SHOT settings-trace
+SET FIXED ON 'SET FIXED ON\r\n10  Syntax error.\n. '
+SET DECIMALS TO 2 'SET DECIMALS TO 2\r\n. '
+? 3,3.5 '? 3,3.5\r\n\r\n3 3.5. '
+SET FIXED OFF 'SET FIXED OFF\r\n10  Syntax error.\n. '
+SET MARGIN TO 5 'SET MARGIN TO 5\r\n10  Syntax error.\n. '
+SET PRINT ON 'SET PRINT ON\r\n10  Syntax error.\n. '
+SET PRINT OFF 'SET PRINT OFF\r\n10  Syntax error.\n. '
+SET DEVICE TO PRINT 'SET DEVICE TO PRINT\r\n10  Syntax error.\n. '
+SET DEVICE TO SCREEN 'SET DEVICE TO SCREEN\r\n10  Syntax error.\n. '
+SHOT settings-format
+USE 'USE\r\n. '
+DELETE 'DELETE\r\n10  Syntax error.\n. '
+RECALL 'RECALL\r\n10  Syntax error.\n. '
+PACK 'PACK\r\n10  Syntax error.\n. '
+REPLACE NAME WITH "x" 'REPLACE NAME WITH "x"\r\n10  Syntax error.\n. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-CLOCK 1:16 pm\nFLAIR-TICK n=4235\nFLAIR-TICK n=4240\n'
+SHOT settings-no-open
+STOPPED 31

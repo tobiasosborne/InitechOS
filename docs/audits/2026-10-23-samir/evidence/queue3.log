@@ -1,0 +1,16 @@
+START verify-final
+END verify-final 0
+START recursion-alone
+END recursion-alone 0
+START control
+END control 0
+START ui-gaps
+END ui-gaps 0
+START settings
+END settings 0
+START run-missing
+END run-missing 0
+START full-recovery
+END full-recovery 0
+START manualcheck
+END manualcheck 0

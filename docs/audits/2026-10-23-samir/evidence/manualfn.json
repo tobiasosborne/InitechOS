@@ -1,0 +1,413 @@
+{
+  "name": "manualfn",
+  "actions": [
+    "SET DATE AMERICAN",
+    "SET CENTURY OFF",
+    "SET DECIMALS TO 2",
+    "USE STAFF",
+    "GO 3",
+    "? SALARY - 40000, ABS(SALARY - 40000)",
+    [
+      "shot",
+      "manualfn-fn-abs"
+    ],
+    "USE STAFF",
+    "GO 2",
+    "? CHR(ASC(LASTNAME) + 1)",
+    [
+      "shot",
+      "manualfn-fn-asc-2"
+    ],
+    "? ASC(\"A\"), ASC(\"abc\"), ASC(\"\")",
+    [
+      "shot",
+      "manualfn-fn-asc"
+    ],
+    "USE STAFF",
+    "GO 2",
+    "? AT(\"ON\", LASTNAME), AT(\"on\", LASTNAME)",
+    [
+      "shot",
+      "manualfn-fn-at-2"
+    ],
+    "? AT(\"c\", \"InitechBase\"), AT(\"e\", \"InitechBase\"), AT(\"z\", \"InitechBase\")",
+    [
+      "shot",
+      "manualfn-fn-at"
+    ],
+    "USE STAFF",
+    "GO TOP",
+    "SKIP -1",
+    "? BOF(), RECNO()",
+    [
+      "shot",
+      "manualfn-fn-bof"
+    ],
+    "? CDOW(CTOD(\"03/01/92\")), CDOW(CTOD(\"03/02/92\"))",
+    [
+      "shot",
+      "manualfn-fn-cdow"
+    ],
+    "? CHR(300)",
+    [
+      "shot",
+      "manualfn-fn-chr-2"
+    ],
+    "? CHR(65), CHR(97), ASC(CHR(200))",
+    [
+      "shot",
+      "manualfn-fn-chr"
+    ],
+    "? CMONTH(CTOD(\"03/01/92\")), CMONTH(CTOD(\"12/25/91\"))",
+    [
+      "shot",
+      "manualfn-fn-cmonth"
+    ],
+    "SET DATE BRITISH",
+    "? DTOC(CTOD(\"01/03/92\")), MONTH(CTOD(\"01/03/92\"))",
+    [
+      "shot",
+      "manualfn-fn-ctod-2"
+    ],
+    "SET DATE AMERICAN",
+    "SET CENTURY OFF",
+    "SET DECIMALS TO 2",
+    "? DTOC(CTOD(\"03/01/92\")), DAY(CTOD(\"03/01/92\")), YEAR(CTOD(\"03/01/92\"))",
+    [
+      "shot",
+      "manualfn-fn-ctod"
+    ],
+    "USE STAFF",
+    "GO 2",
+    "? DATE() - HIRED",
+    [
+      "shot",
+      "manualfn-fn-date-2"
+    ],
+    "? DATE(), DTOC(DATE()), YEAR(DATE())",
+    [
+      "shot",
+      "manualfn-fn-date"
+    ],
+    "? DAY(CTOD(\"02/29/92\")), DAY(CTOD(\"  /  /  \"))",
+    [
+      "shot",
+      "manualfn-fn-day"
+    ],
+    "? LEN(DBF())",
+    "USE STAFF",
+    "? DBF()",
+    [
+      "shot",
+      "manualfn-fn-dbf"
+    ],
+    "USE STAFF",
+    "GO 12",
+    "? DELETED()",
+    "GO 13",
+    "? DELETED(), LASTNAME",
+    [
+      "shot",
+      "manualfn-fn-deleted"
+    ],
+    "? DOW(CTOD(\"03/01/92\")), DOW(CTOD(\"03/07/92\"))",
+    [
+      "shot",
+      "manualfn-fn-dow"
+    ],
+    "SET CENTURY ON",
+    "SET DATE ANSI",
+    "? DTOC(DATE())",
+    [
+      "shot",
+      "manualfn-fn-dtoc-2"
+    ],
+    "SET DATE AMERICAN",
+    "SET CENTURY OFF",
+    "SET DECIMALS TO 2",
+    "USE STAFF",
+    "GO 2",
+    "? HIRED, DTOC(HIRED), LEN(DTOC(HIRED))",
+    [
+      "shot",
+      "manualfn-fn-dtoc"
+    ],
+    "USE STAFF",
+    "GO BOTTOM",
+    "SKIP",
+    "? EOF(), RECNO(), RECCOUNT()",
+    [
+      "shot",
+      "manualfn-fn-eof"
+    ],
+    "ON ERROR STORE ERROR() TO MERR",
+    "? CHR(300)",
+    "? MERR, ERROR()",
+    [
+      "shot",
+      "manualfn-fn-error"
+    ],
+    "USE STAFF",
+    "? FIELD(1), FIELD(7), FIELD(10)",
+    [
+      "shot",
+      "manualfn-fn-field"
+    ],
+    "? FILE(\"STAFF.DBF\"), FILE(\"STAFF\"), FILE(\"NOFILE.DBF\")",
+    [
+      "shot",
+      "manualfn-fn-file"
+    ],
+    "USE STAFF INDEX STAFFNAM",
+    "SEEK \"ZZZ\"",
+    "? FOUND(), EOF()",
+    [
+      "shot",
+      "manualfn-fn-found-2"
+    ],
+    "USE STAFF INDEX STAFFNAM",
+    "SEEK \"GIBBONS\"",
+    "? FOUND(), RECNO()",
+    [
+      "shot",
+      "manualfn-fn-found"
+    ],
+    "? IIF(.F., 1/0, 5)",
+    "? IIF(1, 2, 3)",
+    [
+      "shot",
+      "manualfn-fn-iif-2"
+    ],
+    "USE STAFF",
+    "GO 2",
+    "? LASTNAME, IIF(EXEMPT, \"Exempt\", \"Hourly\")",
+    [
+      "shot",
+      "manualfn-fn-iif"
+    ],
+    "? INT(3.99), INT(-3.7), INT(41250/1000)",
+    [
+      "shot",
+      "manualfn-fn-int"
+    ],
+    "? ISALPHA(\"Initech\"), ISALPHA(\"1401\"), ISALPHA(\"\")",
+    [
+      "shot",
+      "manualfn-fn-isalpha"
+    ],
+    "? ISLOWER(\"initech\"), ISLOWER(\"Initech\")",
+    [
+      "shot",
+      "manualfn-fn-islower"
+    ],
+    "? ISUPPER(\"Initech\"), ISUPPER(\"initech\")",
+    [
+      "shot",
+      "manualfn-fn-isupper"
+    ],
+    "? LEFT(\"InitechBase\", 7), LEFT(\"abc\", 10), LEFT(\"abc\", 0) + \"|\"",
+    [
+      "shot",
+      "manualfn-fn-left"
+    ],
+    "USE STAFF",
+    "GO 2",
+    "? LEN(LASTNAME), LEN(TRIM(LASTNAME)), LEN(\"\")",
+    [
+      "shot",
+      "manualfn-fn-len"
+    ],
+    "? LOWER(\"Initech Systems\")",
+    [
+      "shot",
+      "manualfn-fn-lower"
+    ],
+    "? \"[\" + LTRIM(\"   Gibbons  \") + \"]\"",
+    [
+      "shot",
+      "manualfn-fn-ltrim"
+    ],
+    "STORE 'SOFT' TO MDEPT",
+    "STORE 'Department &MDEPT' TO MTITLE",
+    "? MTITLE",
+    "STORE 'RECCOUNT' TO MFUNC",
+    "USE STAFF",
+    "? &MFUNC.()",
+    [
+      "shot",
+      "manualfn-fn-macro-2"
+    ],
+    "STORE 'STAFFNAM' TO MINDEX",
+    "USE STAFF INDEX &MINDEX",
+    "STORE 'PORTER' TO MNAME",
+    "FIND &MNAME",
+    "DISPLAY LASTNAME, FIRSTNAME, DEPT",
+    [
+      "shot",
+      "manualfn-fn-macro"
+    ],
+    "? MAX(3, 7), MAX(-1, -5), MAX(CTOD(\"03/01/92\"), CTOD(\"12/25/91\"))",
+    [
+      "shot",
+      "manualfn-fn-max"
+    ],
+    "ON ERROR STORE MESSAGE() TO MMSG",
+    "? CHR(300)",
+    "? MMSG",
+    "ON ERROR",
+    "? MESSAGE()",
+    [
+      "shot",
+      "manualfn-fn-message"
+    ],
+    "? MIN(3, 7), MIN(-1, -5), MIN(CTOD(\"03/01/92\"), CTOD(\"12/25/91\"))",
+    [
+      "shot",
+      "manualfn-fn-min"
+    ],
+    "? MOD(17, 5), MOD(-17, 5), MOD(5, 0)",
+    [
+      "shot",
+      "manualfn-fn-mod"
+    ],
+    "? MONTH(CTOD(\"12/25/91\")), MONTH(CTOD(\"  /  /  \"))",
+    [
+      "shot",
+      "manualfn-fn-month"
+    ],
+    "USE STAFF",
+    "SKIP 3",
+    "? RECNO(), RECCOUNT()",
+    [
+      "shot",
+      "manualfn-fn-reccount"
+    ],
+    "USE STAFF",
+    "GO 5",
+    "? RECNO(), LASTNAME",
+    [
+      "shot",
+      "manualfn-fn-recno"
+    ],
+    "USE STAFF",
+    "? RECSIZE()",
+    "USE",
+    "? RECSIZE()",
+    [
+      "shot",
+      "manualfn-fn-recsize"
+    ],
+    "? REPLICATE(\"-\", 20)",
+    "? REPLICATE(\"AB\", 3), REPLICATE(\"AB\", 0) + \"|\"",
+    [
+      "shot",
+      "manualfn-fn-replicate"
+    ],
+    "? RIGHT(\"InitechBase\", 4), RIGHT(\"abc\", 10), RIGHT(\"abc\", 0) + \"|\"",
+    [
+      "shot",
+      "manualfn-fn-right"
+    ],
+    "? ROUND(3.14159, 2), ROUND(2.5, 0), ROUND(1234.5, -2)",
+    [
+      "shot",
+      "manualfn-fn-round"
+    ],
+    "USE STAFF",
+    "GO 2",
+    "? RTRIM(LASTNAME) + \", \" + RTRIM(FIRSTNAME)",
+    [
+      "shot",
+      "manualfn-fn-rtrim"
+    ],
+    "? SPACE(255)",
+    [
+      "shot",
+      "manualfn-fn-space-2"
+    ],
+    "? \"[\" + SPACE(5) + \"]\", LEN(SPACE(254))",
+    [
+      "shot",
+      "manualfn-fn-space"
+    ],
+    "? STR(99999, 3), STR(5, 4, 2)",
+    "? STR(5, 3, 2)",
+    [
+      "shot",
+      "manualfn-fn-str-2"
+    ],
+    "? STR(123.456), STR(123.456, 8, 2), STR(123.456, 5, 1)",
+    [
+      "shot",
+      "manualfn-fn-str"
+    ],
+    "? STUFF(\"ABCDE\", 2, 3, \"XY\"), STUFF(\"ABCDE\", 2, 0, \"XY\"), STUFF(\"ABCDE\", 2, 3, \"\")",
+    [
+      "shot",
+      "manualfn-fn-stuff"
+    ],
+    "? SUBSTR(\"abc\", 0)",
+    [
+      "shot",
+      "manualfn-fn-substr-2"
+    ],
+    "? SUBSTR(\"InitechBase\", 1, 7), SUBSTR(\"InitechBase\", 8), SUBSTR(\"abc\", 4) + \"|\"",
+    [
+      "shot",
+      "manualfn-fn-substr"
+    ],
+    "? TRANSFORM(\"gibbons\", \"!!!!!!!\"), TRANSFORM(1234567, \"99999\")",
+    [
+      "shot",
+      "manualfn-fn-transform-2"
+    ],
+    "? TRANSFORM(-570, \"99999\"), TRANSFORM(-570, \"@( 99999\"), TRANSFORM(570, \"@C 99999\")",
+    "? TRANSFORM(96500, \"$999,999\")",
+    [
+      "shot",
+      "manualfn-fn-transform"
+    ],
+    "USE STAFF",
+    "GO 2",
+    "? \"[\" + TRIM(LASTNAME) + \"]\", \"[\" + LASTNAME + \"]\"",
+    [
+      "shot",
+      "manualfn-fn-trim"
+    ],
+    "? TYPE(\"3 + 4\"), TYPE(\"DATE()\"), TYPE(\".T.\"), TYPE(\"NOSUCH\")",
+    [
+      "shot",
+      "manualfn-fn-type-2"
+    ],
+    "USE STAFF",
+    "GO 2",
+    "? TYPE(\"LASTNAME\"), TYPE(\"SALARY\"), TYPE(\"HIRED\"), TYPE(\"EXEMPT\"), TYPE(\"NOTES\")",
+    [
+      "shot",
+      "manualfn-fn-type"
+    ],
+    "? UPPER(\"Initech Systems\")",
+    [
+      "shot",
+      "manualfn-fn-upper"
+    ],
+    "USE STAFF",
+    "GO 2",
+    "? VAL(EMPNO) + 1",
+    [
+      "shot",
+      "manualfn-fn-val-2"
+    ],
+    "? VAL(\"123\"), VAL(\"12.5abc\"), VAL(\"abc\"), VAL(\"  42\")",
+    [
+      "shot",
+      "manualfn-fn-val"
+    ],
+    "? YEAR(CTOD(\"12/25/91\")), YEAR(CTOD(\"12/25/05\"))",
+    [
+      "shot",
+      "manualfn-fn-year"
+    ],
+    "QUIT"
+  ]
+}

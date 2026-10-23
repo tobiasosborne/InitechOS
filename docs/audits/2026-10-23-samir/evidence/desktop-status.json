@@ -1,0 +1,30 @@
+{
+  "name": "desktop-status",
+  "actions": [
+    "USE CLIENTS",
+    "SET STATUS ON",
+    [
+      "pause",
+      2
+    ],
+    [
+      "shot",
+      "desktop-status-status"
+    ],
+    "? 2+2",
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "desktop-status-typing"
+    ],
+    "SET STATUS OFF",
+    "QUIT",
+    [
+      "shot",
+      "desktop-status-off"
+    ]
+  ]
+}

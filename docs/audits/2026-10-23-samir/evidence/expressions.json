@@ -1,0 +1,83 @@
+{
+  "name": "expressions",
+  "actions": [
+    "? -2^2,2^3^2,2+3*4,MOD(-5,3),MOD(5,-3)",
+    "? ROUND(-1.5,0),ROUND(1.5,0),ROUND(1234,-2)",
+    "? VAL(\"  -12.34xyz\"),STR(1.999,5,2),STR(9999,3)",
+    "? ABS(-3),INT(-1.9),MAX(2,3),MIN(2,3)",
+    "? SQRT(-1)",
+    "? LOG(0)",
+    "? EXP(1000)",
+    [
+      "shot",
+      "expressions-math"
+    ],
+    "? AT(\"a\",\"banana\"),LEFT(\"abc\",2),RIGHT(\"abc\",2)",
+    "? SUBSTR(\"abc\",0,2)",
+    "? SUBSTR(\"abc\",-1,2)",
+    "? LEN(SPACE(254))",
+    "? SPACE(255)",
+    "? SPACE(-1)",
+    "? REPLICATE(\"x\",255)",
+    "? STUFF(\"abcd\",2,2,\"XY\")",
+    [
+      "shot",
+      "expressions-strings"
+    ],
+    "SET EXACT OFF",
+    "? \"abcdef\"=\"abc\",\"abc\"=\"abcdef\",\"abc\"=\"\",\"\"=\"abc\"",
+    "SET EXACT ON",
+    "? \"abc\"=\"abc \",\"abc\"=\"ABC\"",
+    "? \"abc\"==\"abc\"",
+    "? \"b\"$\"abc\",.NOT. .T. .OR. .T.",
+    "? \"a\"+1",
+    "? .T.+1",
+    "? CTOD(\"01/01/00\")+1",
+    [
+      "shot",
+      "expressions-compare"
+    ],
+    "? TYPE(\"NONSENSE\"),TYPE(\"1+2\"),TYPE(\".T.\")",
+    "? IIF(.T.,1,MISSING)",
+    "? CHR(256)",
+    "? ASC(\"\")",
+    "? LEN(TRIM(\" abc \")),LOWER(UPPER(\"AbC\"))",
+    "? ISALPHA(\"A\"),ISLOWER(\"a\"),ISUPPER(\"A\")",
+    "? TRANSFORM(123.4,\"999.99\")",
+    [
+      "shot",
+      "expressions-types"
+    ],
+    "SET DATE GERMAN",
+    "? DTOC(CTOD(\"31.12.92\"))",
+    "SET DATE ANSI",
+    "? DTOC(CTOD(\"92.12.31\"))",
+    "SET DATE JAPAN",
+    "? DTOC(CTOD(\"92/12/31\"))",
+    "SET DATE BRITISH",
+    "? DTOC(CTOD(\"31/12/92\"))",
+    "SET DATE ITALIAN",
+    "? DTOC(CTOD(\"31-12-92\"))",
+    "SET DATE USA",
+    "? DTOC(CTOD(\"12-31-92\"))",
+    [
+      "shot",
+      "expressions-dates"
+    ],
+    "SET DATE AMERICAN",
+    "SET CENTURY ON",
+    "? CTOD(\"02/29/2000\"),CTOD(\"02/29/1900\")",
+    "? YEAR(CTOD(\"12/31/00\")),DOW(CTOD(\"01/01/1900\"))",
+    "? CMONTH(CTOD(\"01/01/92\")),CDOW(CTOD(\"01/01/92\"))",
+    "SET DECIMALS TO 15",
+    "? 1/3",
+    "SET DECIMALS TO 16",
+    "SET DECIMALS TO -1",
+    "? ERROR(),MESSAGE()",
+    "QUIT",
+    [
+      "shot",
+      "expressions-decimals"
+    ]
+  ]
+}

@@ -1,0 +1,11 @@
+STARTED exit-two pid 36
+SHOT exit-two-startup
+SELECT 1 'SELECT 1\r\n. '
+USE CLIENTS ALIAS ONE 'USE CLIENTS ALIAS ONE\r\n. '
+SELECT 2 'SELECT 2\r\n. '
+USE CLIENTS ALIAS TWO 'USE CLIENTS ALIAS TWO\r\n3  File is already open.\n. '
+? RECCOUNT() '? RECCOUNT()\r\n\r\n         0. '
+SHOT exit-two-before
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=1138\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=1141\n'
+SHOT exit-two-after
+STOPPED 36

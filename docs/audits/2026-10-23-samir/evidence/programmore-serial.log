@@ -1,0 +1,212 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+SAMIR.COM        95514
+CLIENTS.DBF          223
+ACCTMAIN.PRG         1031
+AMTCHECK.PRG          525
+ARBATCH.DBF          264
+BAD.NDX          559
+BADLOOP.PRG           26
+BADTOTAL.PRG          392
+BYORDER.PRG          646
+CLEANUP.PRG          612
+COUNTFOR.PRG          436
+CUSTTOT.PRG          551
+DEPTLIST.PRG          457
+DEPTNAME.PRG          457
+DEPTS.DBF          337
+DEPTS.NDX         1024
+DOSRUN.PRG           44
+DUECLASS.PRG          580
+EDGE.DBF         1229
+EDGE.DBT         1024
+EMPTY.DBF           66
+ERRDEMO.PRG          464
+FINDINV.PRG          523
+FIRSTBIG.PRG          561
+FLOW.PRG          328
+FORM.PRG           80
+HEADCNT.PRG          593
+HELLO.TXT           22
+INTPOST.PRG         1183
+INVCUST.NDX         1024
+INVFMT.PRG          454
+INVNO.NDX         1024
+INVOICE.DBF          334
+INVRPT.FRM         1990
+INVTOTAL.PRG          531
+LATEFEE.PRG          498
+LONG.PRG        13044
+LOOP.PRG           71
+MARKPAID.PRG          682
+MONTHEND.MEM          153
+NAMEFMT.PRG          536
+NEWINV.PRG          710
+NOTES.PRG          371
+ONERR.PRG           90
+OPENINV.PRG          450
+PAGERPT.PRG          647
+PAYTOTAL.PRG          610
+QUITPRG.PRG           47
+RAISE.PRG          406
+RAISEDPT.PRG          721
+RECURSE.PRG           20
+SERVICE.PRG          741
+STAFF.DBF         1167
+STAFF.DBT         4608
+STAFFDEP.PRG          651
+STAFFDPT.NDX         1024
+STAFFLBL.LBL         1034
+STAFFLST.PRG          572
+STAFFNAM.NDX         1024
+STAFFNO.NDX         1024
+STAFFRPT.FRM         1990
+STAFFSAL.NDX         1024
+STATEMNT.PRG          945
+TALLY.PRG          369
+TEXT.PRG           53
+TITLES.PRG          481
+USEPRG.PRG           37
+Y2KACCT.PRG         1077
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+Current date is Fri 10-23-2026
+Enter new date (mm-dd-yy): SAMIR
+Invalid date
+Enter new date (mm-dd-yy): DO FORM
+Invalid date
+Enter new date (mm-dd-yy): DO TEXT
+Invalid date
+Enter new date (mm-dd-yy): @ 2,3 SAY "HELLO"
+Invalid date
+Enter new date (mm-dd-yy): WAIT "Press a key" TO KEYVAR
+Invalid date
+Enter new date (mm-dd-yy): x? KEYVAR
+Invalid date
+Enter new date (mm-dd-yy): ACCEPT "Name:" TO USERNAME
+Invalid date
+Enter new date (mm-dd-yy): Samir
+Invalid date
+Enter new date (mm-dd-yy): ? USERNAME
+Invalid date
+Enter new date (mm-dd-yy): INPUT "Amount:" TO AMOUNT
+Invalid date
+Enter new date (mm-dd-yy): 12.5
+Invalid date
+Enter new date (mm-dd-yy): ? AMOUNT
+Invalid date
+Enter new date (mm-dd-yy): SET ECHO ON
+Invalid date
+Enter new date (mm-dd-yy): DO FLOW
+Invalid date
+Enter new date (mm-dd-yy): SET ECHO OFF
+Invalid date
+Enter new date (mm-dd-yy): SET TALK OFF
+Invalid date
+Enter new date (mm-dd-yy): DELETE ALL
+Invalid date
+Enter new date (mm-dd-yy): SET TALK ON
+Invalid date
+Enter new date (mm-dd-yy): RECALL ALL
+Invalid date
+Enter new date (mm-dd-yy): SET FIXED ON
+Invalid date
+Enter new date (mm-dd-yy): ? 3.5
+Invalid date
+Enter new date (mm-dd-yy): SET FIXED OFF
+Invalid date
+Enter new date (mm-dd-yy): SET MARGIN TO 5
+Invalid date
+Enter new date (mm-dd-yy): SET PRINT ON
+Invalid date
+Enter new date (mm-dd-yy): SET PRINT OFF
+Invalid date
+Enter new date (mm-dd-yy): SET DEVICE TO SCREEN
+Invalid date
+Enter new date (mm-dd-yy): SET RELATION TO NAME INTO TWO
+Invalid date
+Enter new date (mm-dd-yy): SET ORDER TO 0
+Invalid date
+Enter new date (mm-dd-yy): MODIFY COMMAND FLOW
+Invalid date
+Enter new date (mm-dd-yy): CREATE SCREEN SCREEN
+Invalid date
+Enter new date (mm-dd-yy): MODIFY FILE HELLO.TXT
+Invalid date
+Enter new date (mm-dd-yy): SET KEY TO FLOW
+Invalid date
+Enter new date (mm-dd-yy): ON KEY LABEL F1 ? "KEY"
+Invalid date
+Enter new date (mm-dd-yy): ON ESCAPE ? "ESC"
+Invalid date
+Enter new date (mm-dd-yy): SET PROCEDURE TO FLOW
+Invalid date
+Enter new date (mm-dd-yy): DO CHILD WITH 9
+Invalid date
+Enter new date (mm-dd-yy): RUN ECHO FROMDATABASE
+Invalid date
+Enter new date (mm-dd-yy): ! ECHO BANGWORKED
+Invalid date
+Enter new date (mm-dd-yy): RUN NOSUCH
+Invalid date
+Enter new date (mm-dd-yy): DO DOSRUN
+Invalid date
+Enter new date (mm-dd-yy): ? "STILL LIVE"
+Invalid date
+Enter new date (mm-dd-yy): DO QUITPRG
+Invalid date
+Enter new date (mm-dd-yy): 

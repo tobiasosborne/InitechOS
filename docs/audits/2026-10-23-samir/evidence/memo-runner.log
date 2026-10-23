@@ -1,0 +1,21 @@
+STARTED memo pid 62
+SHOT memo-startup
+USE EDGE 'USE EDGE\r\n. '
+? MEMO '? MEMO\r\n\r\nOriginal memo\r\nsecond line. '
+REPLACE MEMO WITH "changed memo" 'REPLACE MEMO WITH "changed memo"\r\n. '
+? MEMO,LEN(MEMO) '? MEMO,LEN(MEMO)\r\n\r\n          0. '
+GO 2 'GO 2\r\n. '
+GO 1 'GO 1\r\n. '
+? MEMO '? MEMO\r\n\r\n. '
+SHOT memo-write
+USE 'USE\r\n. '
+USE EDGE 'USE EDGE\r\n. '
+? MEMO,LEN(MEMO) '? MEMO,LEN(MEMO)\r\n\r\nchanged memo         12. '
+REPLACE MEMO WITH "again" 'REPLACE MEMO WITH "again"\r\n. '
+? MEMO '? MEMO\r\n\r\n. '
+USE 'USE\r\n. '
+USE EDGE 'USE EDGE\r\n. '
+? MEMO '? MEMO\r\n\r\nagain. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=2814\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=2817\n'
+SHOT memo-reopen
+STOPPED 62

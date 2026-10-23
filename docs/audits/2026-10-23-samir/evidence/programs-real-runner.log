@@ -1,0 +1,24 @@
+STARTED programs-real pid 12
+SHOT programs-real-startup
+DO USEPRG 'DO USEPRG\r\n\r\nPESTON    . '
+DO FLOW 'DO FLOW\r\n\r\nFLOW         35          4\r\nCHILD         42. '
+? RESULT,I '? RESULT,I\r\n\r\n        42          4. '
+DO LONG 'DO LONG\r\n18  Line exceeds maximum of 254 characters.\n. '
+? SUMX '? SUMX\r\n12  Variable not found.\n. '
+DO BADLOOP 'DO BADLOOP\r\n96  Mismatched DO WHILE and ENDDO.\n. '
+SHOT programs-flow
+ON ERROR STORE ERROR() TO ERRNUM 'ON ERROR STORE ERROR() TO ERRNUM\r\n. '
+? MISSING '? MISSING\r\n. '
+? ERRNUM,MESSAGE() '? ERRNUM,MESSAGE()\r\n\r\n        12 Variable not found.. '
+ON ERROR 'ON ERROR\r\n. '
+DO ONERR 'DO ONERR\r\n\r\nCAUGHT         12 Variable not found.. '
+? ERRNO '? ERRNO\r\n\r\n        12. '
+RETRY 'RETRY\r\n16  *** Unrecognized command verb.\n. '
+RETURN TO MASTER 'RETURN TO MASTER\r\n. '
+SHOT programs-traps
+ENDIF 'ENDIF\r\n95  Valid only in programs.\n. '
+ELSE 'ELSE\r\n95  Valid only in programs.\n. '
+EXIT 'EXIT\r\nA:\\>'
+? "AFTER EXIT" '? "AFTER EXIT"\r\nBad command or file name\r\nA:\\>'
+SHOT programs-stray
+STOPPED 12

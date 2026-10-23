@@ -1,0 +1,28 @@
+STARTED manualcheck pid 51
+SHOT manualcheck-startup
+ON ERROR 'ON ERROR\r\n. '
+USE 'USE\r\n. '
+SET EXACT OFF 'SET EXACT OFF\r\n. '
+SET DATE AMERICAN 'SET DATE AMERICAN\r\n. '
+SET CENTURY OFF 'SET CENTURY OFF\r\n. '
+SET DECIMALS TO 2 'SET DECIMALS TO 2\r\n. '
+? LEN(DBF()) '? LEN(DBF())\r\n\r\n         0. '
+USE STAFF 'USE STAFF\r\n. '
+? DBF() '? DBF()\r\n\r\nSTAFF. '
+SHOT manualcheck-fn-dbf
+ON ERROR 'ON ERROR\r\n. '
+USE 'USE\r\n. '
+SET EXACT OFF 'SET EXACT OFF\r\n. '
+SET DATE AMERICAN 'SET DATE AMERICAN\r\n. '
+SET CENTURY OFF 'SET CENTURY OFF\r\n. '
+SET DECIMALS TO 2 'SET DECIMALS TO 2\r\n. '
+? IIF(.F., 1/0, 5) '? IIF(.F., 1/0, 5)\r\n\r\n5. '
+? IIF(1, 2, 3) '? IIF(1, 2, 3)\r\n37  Not a Logical expression.\n. '
+SHOT manualcheck-fn-iif-2
+ON ERROR 'ON ERROR\r\n. '
+USE STAFF 'USE STAFF\r\n. '
+INDEX ON HIRED TO STAFFHIR 'INDEX ON HIRED TO STAFFHIR\r\n. '
+LIST NEXT 4 LASTNAME, FIRSTNAME, HIRED 'LIST NEXT 4 LASTNAME, FIRSTNAME, HIRED\r\nRecord#  LASTNAME       FIRSTNAME  HIRED\r\n      6  SMYKOWSKI      TOM        08/18/75\r\n      5  WADDAMS        MILTON     02/12/79\r\n      7  PORTER         DOM        01/11/82\r\n     12  PRUITT         CAROL      07/25/83\r\n. '
+SHOT manualcheck-date-index
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-CLOCK 1:18 pm\nFLAIR-TICK n=4403\nFLAIR-TICK n=4408\n'
+STOPPED 51

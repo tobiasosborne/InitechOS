@@ -1,0 +1,41 @@
+{
+  "PAGES.TXT": {
+    "size": 6240,
+    "page_ejects": 3,
+    "page_headers": 4,
+    "ends_ctrl_z": true,
+    "total_lines": [
+      " ** Subtotal **",
+      "                                       80900.00",
+      " *** Total ***",
+      "                                     2377400.00",
+      "\u001a"
+    ]
+  },
+  "PLAIN.TXT": {
+    "size": 5629,
+    "page_ejects": 3,
+    "page_headers": 0,
+    "ends_ctrl_z": true,
+    "total_lines": [
+      " ** Subtotal **",
+      "                                       80900.00",
+      " *** Total ***",
+      "                                     2377400.00",
+      "\u001a"
+    ]
+  },
+  "GROUPS.TXT": {
+    "size": 3497,
+    "page_ejects": 2,
+    "page_headers": 3,
+    "ends_ctrl_z": true,
+    "total_lines": [
+      " ** Subtotal **",
+      "                                       80900.00",
+      " *** Total ***",
+      "                                     2377400.00",
+      "\u001a"
+    ]
+  }
+}

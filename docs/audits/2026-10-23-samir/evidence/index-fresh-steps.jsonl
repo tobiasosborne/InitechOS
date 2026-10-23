@@ -1,0 +1,31 @@
+{"step": 0, "action": "USE EMPTY", "start": 913, "end": 926}
+{"step": 1, "action": "INDEX ON NAME TO ZERO", "start": 926, "end": 979}
+{"step": 2, "action": "? RECCOUNT(),RECNO(),EOF(),BOF()", "start": 979, "end": 1046}
+{"step": 3, "action": "SEEK \"NONE\"", "start": 1046, "end": 1090}
+{"step": 4, "action": "? FOUND()", "start": 1090, "end": 1108}
+{"step": 5, "action": "CLOSE INDEX", "start": 1108, "end": 1123}
+{"step": 6, "action": ["shot", "index-fresh-empty"], "start": 1123, "end": 1123}
+{"step": 7, "action": "USE EDGE", "start": 1123, "end": 1135}
+{"step": 8, "action": "INDEX ON NAME TO NAMES", "start": 1135, "end": 1161}
+{"step": 9, "action": "SEEK \"alpha\"", "start": 1161, "end": 1177}
+{"step": 10, "action": "? FOUND(),RECNO()", "start": 1177, "end": 1214}
+{"step": 11, "action": "SKIP", "start": 1214, "end": 1222}
+{"step": 12, "action": "? RECNO()", "start": 1222, "end": 1247}
+{"step": 13, "action": "INDEX ON WHEN TO DATES", "start": 1247, "end": 1296}
+{"step": 14, "action": "GO TOP", "start": 1296, "end": 1306}
+{"step": 15, "action": "LIST ID,WHEN", "start": 1306, "end": 1414}
+{"step": 16, "action": "INDEX ON OK TO LOGICAL", "start": 1414, "end": 1463}
+{"step": 17, "action": "INDEX ON WIDE TO BIGKEY", "start": 1463, "end": 1518}
+{"step": 18, "action": ["shot", "index-fresh-types"], "start": 1518, "end": 1518}
+{"step": 19, "action": "INDEX ON UPPER(NAME) TO CAPS", "start": 1518, "end": 1550}
+{"step": 20, "action": "SEEK \"ALPHA\"", "start": 1550, "end": 1566}
+{"step": 21, "action": "? FOUND(),RECNO()", "start": 1566, "end": 1603}
+{"step": 22, "action": "INDEX ON ID+1 TO NUMBER", "start": 1603, "end": 1630}
+{"step": 23, "action": "GO TOP", "start": 1630, "end": 1640}
+{"step": 24, "action": "LIST ID", "start": 1640, "end": 1711}
+{"step": 25, "action": "INDEX ON LEFT(WIDE,100) TO KEY100", "start": 1711, "end": 1776}
+{"step": 26, "action": "INDEX ON LEFT(WIDE,101) TO KEY101", "start": 1776, "end": 1813}
+{"step": 27, "action": "SET INDEX TO BAD.NDX", "start": 1813, "end": 1861}
+{"step": 28, "action": "CLOSE ALL", "start": 1861, "end": 1874}
+{"step": 29, "action": "QUIT", "start": 1874, "end": 2030}
+{"step": 30, "action": ["shot", "index-fresh-expressions"], "start": 2030, "end": 2030}

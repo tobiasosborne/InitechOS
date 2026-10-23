@@ -1,0 +1,629 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-CREATE
+TRASH-CREATE
+APPLE-MENU n=1
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CLOCK 1:04 pm
+FLAIR-TICK n=4
+FLAIR-TICK n=6
+FLAIR-EVT what=3 where=320,240 msg=00002B5C
+FLAIR-SUSPEND
+. USE BIGSTAFF
+. REPORT FORM STAFFRPT TO FILE PAGES.TXT
+
+  Page No.     1
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+  WADDAMS        MILTON     02/12/79   19750.00
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+  SMYKOWSKI      TOM        08/18/75   34200.00
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+  ALBRIGHT       NINA       05/21/90   18400.00
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+  DELGADO        ANDREW     11/30/87   44100.00
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+  FENWICK        LAURA      04/07/86   30900.00
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+  CHEN           ROBERT     08/13/90   33600.00
+ ** Subtotal **
+                                       80900.00
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+  Page No.     2
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+  WADDAMS        MILTON     02/12/79   19750.00
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+  SMYKOWSKI      TOM        08/18/75   34200.00
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+  ALBRIGHT       NINA       05/21/90   18400.00
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+  DELGADO        ANDREW     11/30/87   44100.00
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+  FENWICK        LAURA      04/07/86   30900.00
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+  CHEN           ROBERT     08/13/90   33600.00
+ ** Subtotal **
+                                       80900.00
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+  WADDAMS        MILTON     02/12/79   19750.00
+  Page No.     3
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+  SMYKOWSKI      TOM        08/18/75   34200.00
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+  ALBRIGHT       NINA       05/21/90   18400.00
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+  DELGADO        ANDREW     11/30/87   44100.00
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+  FENWICK        LAURA      04/07/86   30900.00
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+  CHEN           ROBERT     08/13/90   33600.00
+ ** Subtotal **
+                                       80900.00
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+  WADDAMS        MILTON     02/12/79   19750.00
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+  SMYKOWSKI      TOM        08/18/75   34200.00
+  Page No.     4
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+  ALBRIGHT       NINA       05/21/90   18400.00
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+  DELGADO        ANDREW     11/30/87   44100.00
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+  FENWICK        LAURA      04/07/86   30900.00
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+  CHEN           ROBERT     08/13/90   33600.00
+ ** Subtotal **
+                                       80900.00
+ *** Total ***
+                                     2377400.00
+. REPORT FORM STAFFRPT PLAIN TO FILE PLAIN.TXT
+
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+  WADDAMS        MILTON     02/12/79   19750.00
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+  SMYKOWSKI      TOM        08/18/75   34200.00
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+  ALBRIGHT       NINA       05/21/90   18400.00
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+  DELGADO        ANDREW     11/30/87   44100.00
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+  FENWICK        LAURA      04/07/86   30900.00
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+  CHEN           ROBERT     08/13/90   33600.00
+ ** Subtotal **
+                                       80900.00
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+  WADDAMS        MILTON     02/12/79   19750.00
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+  SMYKOWSKI      TOM        08/18/75   34200.00
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+  ALBRIGHT       NINA       05/21/90   18400.00
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+  DELGADO        ANDREW     11/30/87   44100.00
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+  FENWICK        LAURA      04/07/86   30900.00
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+  CHEN           ROBERT     08/13/90   33600.00
+ ** Subtotal **
+                                       80900.00
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+  WADDAMS        MILTON     02/12/79   19750.00
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+  SMYKOWSKI      TOM        08/18/75   34200.00
+ ** Subtotal **
+                                       34200.00
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+  ALBRIGHT       NINA       05/21/90   18400.00
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+  DELGADO        ANDREW     11/30/87   44100.00
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+  FENWICK        LAURA      04/07/86   30900.00
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+  CHEN           ROBERT     08/13/90   33600.00
+ ** Subtotal **
+                                       80900.00
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+  WADDAMS        MILTON     02/12/79   19750.00
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+  SMYKOWSKI      TOM        08/18/75   34200.00
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+  ALBRIGHT       NINA       05/21/90   18400.00
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+  DELGADO        ANDREW     11/30/87   44100.00
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+  FENWICK        LAURA      04/07/86   30900.00
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+  CHEN           ROBERT     08/13/90   33600.00
+ ** Subtotal **
+                                       80900.00
+ *** Total ***
+                                     2377400.00
+. INDEX ON DEPT TO DEPART
+29  File is not accessible.
+. REPORT FORM STAFFRPT SUMMARY TO FILE GROUPS.TXT
+
+  Page No.     1
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department SOFT
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+ ** Subtotal **
+                                       80900.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+  Page No.     2
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+ ** Subtotal **
+                                       80900.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+ ** Subtotal **
+                                       80900.00
+
+ ** Department SOFT
+  Page No.     3
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Subtotal **
+                                      217350.00
+
+ ** Department FACL
+ ** Subtotal **
+                                       19750.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       34200.00
+
+ ** Department ADMN
+ ** Subtotal **
+                                      130400.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       44100.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       30900.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                       36750.00
+
+ ** Department ACCT
+ ** Subtotal **
+                                       80900.00
+ *** Total ***
+                                     2377400.00
+. REPORT FORM STAFFRPT NEXT 1 TO PRINT
+126  Printer is either not connected or turned off.
+. LABEL FORM STAFFLBL SAMPLE
+36  Unrecognized phrase/keyword in command.
+. QUIT
+FLAIR-TEXT-EXIT rc=0
+FLAIR-EVT-DROP
+FLAIR-RESUME
+FLAIR-TICK n=3164
+FLAIR-EVT what=4 where=320,240 msg=00001C0A
+FLAIR-TICK n=3167

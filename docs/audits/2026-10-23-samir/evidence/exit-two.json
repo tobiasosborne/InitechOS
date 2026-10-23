@@ -1,0 +1,35 @@
+{
+  "name": "exit-two",
+  "actions": [
+    "SELECT 1",
+    "USE CLIENTS ALIAS ONE",
+    "SELECT 2",
+    "USE CLIENTS ALIAS TWO",
+    "? RECCOUNT()",
+    [
+      "shot",
+      "exit-two-before"
+    ],
+    "QUIT",
+    [
+      "pause",
+      5
+    ],
+    [
+      "key",
+      "ctrl-c"
+    ],
+    [
+      "key",
+      "ret"
+    ],
+    [
+      "pause",
+      2
+    ],
+    [
+      "shot",
+      "exit-two-after"
+    ]
+  ]
+}

@@ -1,0 +1,29 @@
+STARTED redirect pid 13
+SHOT redirect-result
+SHOT redirect-shell-return
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+Current date is Fri 10-23-2026
+Enter new date (mm-dd-yy): 
+Current time is 13:26:43.00
+Enter new time: 
+A:\>SAMIR.COM <REDIR.TXT
+. . Record#  NAME       CITY              BAL
+      1  PESTON     HONOLULU      1234.50
+      2  WADDAMS    AUSTIN         -42.00
+      3  LUMBERGH   DALLAS        7777.77
+. A:\>ECHO RETURNED
+RETURNED
+A:\>
+STOPPED 13

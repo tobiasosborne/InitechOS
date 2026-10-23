@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-23T13:02:49.893271+00:00",
+  "driver_pid": 60,
+  "qemu_pid": 61,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/samir/images/programedges-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/samir/evidence/programedges-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/samir/images/programedges-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/programedges-boot.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/programedges-data.img": {
+      "bytes": 1474560,
+      "sha256": "f334f51a9a72d6ff49fc7a03a25937c83378146d9ae4683d679f03b5b88c598d"
+    }
+  },
+  "stopped_utc": "2026-10-23T13:03:07.753068+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/programedges-boot.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/programedges-data.img": {
+      "bytes": 1474560,
+      "sha256": "f08c63445de171b7d66812863001ac0d0472c250a84dc46452a396767ae2dc3a"
+    }
+  }
+}

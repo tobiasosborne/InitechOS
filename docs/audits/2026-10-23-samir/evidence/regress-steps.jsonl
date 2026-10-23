@@ -1,0 +1,92 @@
+{"step": 0, "action": "USE CLIENTS", "start": 913, "end": 928}
+{"step": 1, "action": "LIST", "start": 928, "end": 1108}
+{"step": 2, "action": "GO TOP", "start": 1108, "end": 1118}
+{"step": 3, "action": "DELETE", "start": 1118, "end": 1128}
+{"step": 4, "action": "DISPLAY", "start": 1128, "end": 1226}
+{"step": 5, "action": "RECALL", "start": 1226, "end": 1236}
+{"step": 6, "action": "SET FILTER TO BAL>1000", "start": 1236, "end": 1262}
+{"step": 7, "action": "LIST", "start": 1262, "end": 1399}
+{"step": 8, "action": "SET FILTER TO", "start": 1399, "end": 1416}
+{"step": 9, "action": ["shot", "regress-list"], "start": 1416, "end": 1416}
+{"step": 10, "action": "CLOSE INDEX", "start": 1416, "end": 1431}
+{"step": 11, "action": "? RECCOUNT()", "start": 1431, "end": 1459}
+{"step": 12, "action": "CLOSE FORMAT", "start": 1459, "end": 1475}
+{"step": 13, "action": "? RECCOUNT()", "start": 1475, "end": 1503}
+{"step": 14, "action": "USE CLIENTS ALIAS ONE", "start": 1503, "end": 1528}
+{"step": 15, "action": "? ONE->NAME", "start": 1528, "end": 1555}
+{"step": 16, "action": "? TYPE(\"BAL\")", "start": 1555, "end": 1575}
+{"step": 17, "action": "? 1/0", "start": 1575, "end": 1622}
+{"step": 18, "action": ["shot", "regress-close"], "start": 1622, "end": 1622}
+{"step": 19, "action": "? DATE()", "start": 1622, "end": 1644}
+{"step": 20, "action": "SET CENTURY ON", "start": 1644, "end": 1662}
+{"step": 21, "action": "? DATE()", "start": 1662, "end": 1686}
+{"step": 22, "action": "? CTOD(\"\")", "start": 1686, "end": 1712}
+{"step": 23, "action": "? CTOD(\"02/30/92\")", "start": 1712, "end": 1746}
+{"step": 24, "action": "? CTOD(\"02/29/00\")", "start": 1746, "end": 1780}
+{"step": 25, "action": "? CTOD(\"02/29/1900\")", "start": 1780, "end": 1816}
+{"step": 26, "action": ["shot", "regress-date"], "start": 1816, "end": 1816}
+{"step": 27, "action": "? EXP(1),LOG(1),SQRT(4)", "start": 1816, "end": 1870}
+{"step": 28, "action": "? TIME(),RECSIZE(),DISKSPACE()", "start": 1870, "end": 1898}
+{"step": 29, "action": "? VERSION(),OS()", "start": 1898, "end": 1978}
+{"step": 30, "action": "? PCOL(),PROW(),ROW(),COL()", "start": 1978, "end": 2005}
+{"step": 31, "action": "MVAR=123", "start": 2005, "end": 2048}
+{"step": 32, "action": "SAVE TO MEMSAVE", "start": 2048, "end": 2067}
+{"step": 33, "action": "CLEAR MEMORY", "start": 2067, "end": 2083}
+{"step": 34, "action": "RESTORE FROM MEMSAVE", "start": 2083, "end": 2107}
+{"step": 35, "action": "? MVAR", "start": 2107, "end": 2129}
+{"step": 36, "action": ["shot", "regress-functions"], "start": 2129, "end": 2129}
+{"step": 37, "action": "USE CLIENTS", "start": 2129, "end": 2144}
+{"step": 38, "action": "INDEX ON NAME TO TESTIDX", "start": 2144, "end": 2172}
+{"step": 39, "action": "GO TOP", "start": 2172, "end": 2182}
+{"step": 40, "action": "LIST", "start": 2182, "end": 2362}
+{"step": 41, "action": "REINDEX", "start": 2362, "end": 2373}
+{"step": 42, "action": "SEEK \"WADDAMS\"", "start": 2373, "end": 2391}
+{"step": 43, "action": "? FOUND(),RECNO()", "start": 2391, "end": 2428}
+{"step": 44, "action": "APPEND FROM CLIENTS.DBF", "start": 2428, "end": 2480}
+{"step": 45, "action": "? RECCOUNT()", "start": 2480, "end": 2508}
+{"step": 46, "action": ["shot", "regress-index"], "start": 2508, "end": 2508}
+{"step": 47, "action": "SORT TO SORTED ON NAME", "start": 2508, "end": 2534}
+{"step": 48, "action": "TOTAL ON NAME TO TOTALLED", "start": 2534, "end": 2563}
+{"step": 49, "action": "COPY FILE HELLO.TXT TO COPY.TXT", "start": 2563, "end": 2593}
+{"step": 50, "action": "TYPE COPY.TXT", "start": 2593, "end": 3129}
+{"step": 51, "action": "RENAME COPY.TXT TO RENAMED.TXT", "start": 3129, "end": 3158}
+{"step": 52, "action": "ERASE RENAMED.TXT", "start": 3158, "end": 3184}
+{"step": 53, "action": "? FILE(\"RENAMED.TXT\")", "start": 3184, "end": 3214}
+{"step": 54, "action": ["shot", "regress-file"], "start": 3214, "end": 3214}
+{"step": 55, "action": "CMD=\"? 88\"", "start": 3214, "end": 3228}
+{"step": 56, "action": "&CMD", "start": 3228, "end": 3240}
+{"step": 57, "action": "SET FUNCTION 1 TO \"LIST\"", "start": 3240, "end": 3286}
+{"step": 58, "action": "SET PROCEDURE TO FLOW", "start": 3286, "end": 3329}
+{"step": 59, "action": "SET DEFAULT TO A:", "start": 3329, "end": 3368}
+{"step": 60, "action": "SET PATH TO A:\\", "start": 3368, "end": 3405}
+{"step": 61, "action": "SET ESCAPE ON", "start": 3405, "end": 3440}
+{"step": 62, "action": "SET CONFIRM ON", "start": 3440, "end": 3476}
+{"step": 63, "action": "SET BELL OFF", "start": 3476, "end": 3510}
+{"step": 64, "action": ["shot", "regress-misc"], "start": 3510, "end": 3510}
+{"step": 65, "action": "SET CONSOLE OFF", "start": 3510, "end": 3529}
+{"step": 66, "action": "? \"HIDDEN\"", "start": 3529, "end": 3551}
+{"step": 67, "action": "SET CONSOLE ON", "start": 3551, "end": 3569}
+{"step": 68, "action": "? \"VISIBLE\"", "start": 3569, "end": 3593}
+{"step": 69, "action": "SET HEADING OFF", "start": 3593, "end": 3612}
+{"step": 70, "action": "LIST NEXT 2", "start": 3612, "end": 3627}
+{"step": 71, "action": "SET HEADING ON", "start": 3627, "end": 3645}
+{"step": 72, "action": "SET ALTERNATE TO OUTPUT", "start": 3645, "end": 3672}
+{"step": 73, "action": "SET ALTERNATE ON", "start": 3672, "end": 3692}
+{"step": 74, "action": "? \"AUDIT OUTPUT\"", "start": 3692, "end": 3726}
+{"step": 75, "action": "SET ALTERNATE OFF", "start": 3726, "end": 3747}
+{"step": 76, "action": "CLOSE ALTERNATE", "start": 3747, "end": 3766}
+{"step": 77, "action": ["shot", "regress-settings"], "start": 3766, "end": 3766}
+{"step": 78, "action": "USE EMPTY", "start": 3766, "end": 3779}
+{"step": 79, "action": "APPEND BLANK", "start": 3779, "end": 3795}
+{"step": 80, "action": "SET SAFETY ON", "start": 3795, "end": 3812}
+{"step": 81, "action": "ZAP", "start": 3812, "end": 3837}
+{"step": 82, "action": "N", "start": 3837, "end": 3843}
+{"step": 83, "action": "? RECCOUNT()", "start": 3843, "end": 3871}
+{"step": 84, "action": ["shot", "regress-zap-no"], "start": 3871, "end": 3871}
+{"step": 85, "action": "ZAP", "start": 3871, "end": 3896}
+{"step": 86, "action": "Y", "start": 3896, "end": 3902}
+{"step": 87, "action": "? RECCOUNT()", "start": 3902, "end": 3930}
+{"step": 88, "action": "CLOSE ALL", "start": 3930, "end": 3943}
+{"step": 89, "action": "QUIT", "start": 3943, "end": 4101}
+{"step": 90, "action": ["pause", 1], "start": 4101, "end": 4101}
+{"step": 91, "action": ["shot", "regress-zap-yes"], "start": 4101, "end": 4101}

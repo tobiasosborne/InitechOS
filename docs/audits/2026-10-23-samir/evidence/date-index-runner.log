@@ -1,0 +1,16 @@
+STARTED date-index pid 42
+SHOT date-index-startup
+USE EDGE 'USE EDGE\r\n. '
+INDEX ON WHEN TO BLANKDAT 'INDEX ON WHEN TO BLANKDAT\r\n9  Data type mismatch.\n. '
+? ERROR(),MESSAGE() '? ERROR(),MESSAGE()\r\n\r\n         0 . '
+SHOT date-index-blank
+REPLACE ALL WHEN WITH CTOD("01/01/92") 'REPLACE ALL WHEN WITH CTOD("01/01/92")\r\n. '
+INDEX ON WHEN TO VALIDATE 'INDEX ON WHEN TO VALIDATE\r\n9  Data type mismatch.\n. '
+GO TOP 'GO TOP\r\n. '
+LIST ID,WHEN 'LIST ID,WHEN\r\nRecord#    ID WHEN\r\n      1     1 01/01/92\r\n      2     2 01/01/92\r\n      3     3 01/01/92\r\n. '
+CLOSE INDEX 'CLOSE INDEX\r\n. '
+REPLACE WHEN WITH CTOD("") 'REPLACE WHEN WITH CTOD("")\r\n. '
+INDEX ON WHEN TO BLANK2 'INDEX ON WHEN TO BLANK2\r\n9  Data type mismatch.\n. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-CLOCK 1:01 pm\nFLAIR-TICK n=2410\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=2414\n'
+SHOT date-index-valid
+STOPPED 42

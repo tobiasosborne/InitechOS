@@ -1,0 +1,40 @@
+{"step": 0, "action": "COPY FILE HELLO.TXT TO COPIED.TXT", "start": 913, "end": 950}
+{"step": 1, "action": "TYPE HELLO.TXT", "start": 950, "end": 992}
+{"step": 2, "action": "TYPE COPIED.TXT", "start": 992, "end": 1525}
+{"step": 3, "action": "COPY FILE CLIENTS.DBF TO CLONE.DBF", "start": 1525, "end": 1563}
+{"step": 4, "action": "USE CLONE", "start": 1563, "end": 1576}
+{"step": 5, "action": "LIST", "start": 1576, "end": 1756}
+{"step": 6, "action": "USE", "start": 1756, "end": 1763}
+{"step": 7, "action": ["shot", "io-copy"], "start": 1763, "end": 1763}
+{"step": 8, "action": "COPY FILE HELLO.TXT TO COPIED.TXT", "start": 1763, "end": 1824}
+{"step": 9, "action": "SET SAFETY ON", "start": 1824, "end": 1841}
+{"step": 10, "action": "SORT TO SORTED ON NAME", "start": 1841, "end": 1894}
+{"step": 11, "action": "USE CLIENTS", "start": 1894, "end": 1909}
+{"step": 12, "action": "SORT TO EXIST ON NAME", "start": 1909, "end": 1934}
+{"step": 13, "action": "SORT TO EXIST ON BAL", "start": 1934, "end": 1982}
+{"step": 14, "action": "USE EXIST", "start": 1982, "end": 1995}
+{"step": 15, "action": "LIST", "start": 1995, "end": 2175}
+{"step": 16, "action": ["shot", "io-overwrite"], "start": 2175, "end": 2175}
+{"step": 17, "action": "USE CLIENTS", "start": 2175, "end": 2190}
+{"step": 18, "action": "APPEND FROM CLONE", "start": 2190, "end": 2211}
+{"step": 19, "action": "? RECCOUNT()", "start": 2211, "end": 2239}
+{"step": 20, "action": "LIST", "start": 2239, "end": 2548}
+{"step": 21, "action": "USE", "start": 2548, "end": 2555}
+{"step": 22, "action": "USE CLIENTS", "start": 2555, "end": 2570}
+{"step": 23, "action": "? RECCOUNT()", "start": 2570, "end": 2598}
+{"step": 24, "action": "GO TOP", "start": 2598, "end": 2608}
+{"step": 25, "action": "DELETE", "start": 2608, "end": 2618}
+{"step": 26, "action": "PACK", "start": 2618, "end": 2626}
+{"step": 27, "action": "? RECCOUNT()", "start": 2626, "end": 2654}
+{"step": 28, "action": "LIST", "start": 2654, "end": 2920}
+{"step": 29, "action": ["shot", "io-append"], "start": 2920, "end": 2920}
+{"step": 30, "action": "SET SAFETY OFF", "start": 2920, "end": 2938}
+{"step": 31, "action": "ZAP", "start": 2938, "end": 2945}
+{"step": 32, "action": "? RECCOUNT()", "start": 2945, "end": 2973}
+{"step": 33, "action": "USE", "start": 2973, "end": 2980}
+{"step": 34, "action": "USE CLIENTS", "start": 2980, "end": 2995}
+{"step": 35, "action": "LIST", "start": 2995, "end": 3046}
+{"step": 36, "action": "COPY FILE HELLO.TXT TO HELLO.TXT", "start": 3046, "end": 3082}
+{"step": 37, "action": "TYPE HELLO.TXT", "start": 3082, "end": 3614}
+{"step": 38, "action": "QUIT", "start": 3614, "end": 3770}
+{"step": 39, "action": ["shot", "io-zap"], "start": 3770, "end": 3770}

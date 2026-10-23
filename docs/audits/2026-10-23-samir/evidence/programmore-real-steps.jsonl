@@ -1,0 +1,48 @@
+{"step": 0, "action": "DO FORM", "start": 2744, "end": 2790}
+{"step": 1, "action": "DO TEXT", "start": 2790, "end": 2836}
+{"step": 2, "action": "@ 2,3 SAY \"HELLO\"", "start": 2836, "end": 2892}
+{"step": 3, "action": "WAIT \"Press a key\" TO KEYVAR", "start": 2892, "end": 2933}
+{"step": 4, "action": ["key", "x"], "start": 2933, "end": 2935}
+{"step": 5, "action": "? KEYVAR", "start": 2935, "end": 2950}
+{"step": 6, "action": "ACCEPT \"Name:\" TO USERNAME", "start": 2950, "end": 2983}
+{"step": 7, "action": "Samir", "start": 2983, "end": 2992}
+{"step": 8, "action": "? USERNAME", "start": 2992, "end": 3013}
+{"step": 9, "action": "INPUT \"Amount:\" TO AMOUNT", "start": 3013, "end": 3047}
+{"step": 10, "action": "12.5", "start": 3047, "end": 3055}
+{"step": 11, "action": "? AMOUNT", "start": 3055, "end": 3081}
+{"step": 12, "action": ["shot", "programmore-form"], "start": 3081, "end": 3081}
+{"step": 13, "action": "SET ECHO ON", "start": 3081, "end": 3114}
+{"step": 14, "action": "DO FLOW", "start": 3114, "end": 3171}
+{"step": 15, "action": "SET ECHO OFF", "start": 3171, "end": 3205}
+{"step": 16, "action": "SET TALK OFF", "start": 3205, "end": 3221}
+{"step": 17, "action": "DELETE ALL", "start": 3221, "end": 3253}
+{"step": 18, "action": "SET TALK ON", "start": 3253, "end": 3268}
+{"step": 19, "action": "RECALL ALL", "start": 3268, "end": 3300}
+{"step": 20, "action": "SET FIXED ON", "start": 3300, "end": 3334}
+{"step": 21, "action": "? 3.5", "start": 3334, "end": 3348}
+{"step": 22, "action": "SET FIXED OFF", "start": 3348, "end": 3383}
+{"step": 23, "action": "SET MARGIN TO 5", "start": 3383, "end": 3420}
+{"step": 24, "action": "SET PRINT ON", "start": 3420, "end": 3454}
+{"step": 25, "action": "SET PRINT OFF", "start": 3454, "end": 3489}
+{"step": 26, "action": "SET DEVICE TO SCREEN", "start": 3489, "end": 3531}
+{"step": 27, "action": ["shot", "programmore-settings"], "start": 3531, "end": 3531}
+{"step": 28, "action": "SET RELATION TO NAME INTO TWO", "start": 3531, "end": 3564}
+{"step": 29, "action": "SET ORDER TO 0", "start": 3564, "end": 3609}
+{"step": 30, "action": "MODIFY COMMAND FLOW", "start": 3609, "end": 3667}
+{"step": 31, "action": "CREATE SCREEN SCREEN", "start": 3667, "end": 3726}
+{"step": 32, "action": "MODIFY FILE HELLO.TXT", "start": 3726, "end": 3786}
+{"step": 33, "action": "SET KEY TO FLOW", "start": 3786, "end": 3823}
+{"step": 34, "action": "ON KEY LABEL F1 ? \"KEY\"", "start": 3823, "end": 3850}
+{"step": 35, "action": "ON ESCAPE ? \"ESC\"", "start": 3850, "end": 3871}
+{"step": 36, "action": "SET PROCEDURE TO FLOW", "start": 3871, "end": 3914}
+{"step": 37, "action": "DO CHILD WITH 9", "start": 3914, "end": 3968}
+{"step": 38, "action": ["shot", "programmore-newcommands"], "start": 3968, "end": 3968}
+{"step": 39, "action": "RUN ECHO FROMDATABASE", "start": 3968, "end": 4011}
+{"step": 40, "action": "! ECHO BANGWORKED", "start": 4011, "end": 4048}
+{"step": 41, "action": "RUN NOSUCH", "start": 4048, "end": 4092}
+{"step": 42, "action": "DO DOSRUN", "start": 4092, "end": 4132}
+{"step": 43, "action": "? \"STILL LIVE\"", "start": 4132, "end": 4162}
+{"step": 44, "action": ["shot", "programmore-run"], "start": 4162, "end": 4162}
+{"step": 45, "action": "DO QUITPRG", "start": 4162, "end": 4224}
+{"step": 46, "action": ["pause", 2], "start": 4224, "end": 4224}
+{"step": 47, "action": ["shot", "programmore-quitprogram"], "start": 4224, "end": 4224}

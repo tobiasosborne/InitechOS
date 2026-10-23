@@ -1,0 +1,12 @@
+{"step": 0, "action": "USE BIGSTAFF", "start": 912, "end": 928}
+{"step": 1, "action": "REPORT FORM STAFFRPT TO FILE PAGES.TXT", "start": 928, "end": 7206}
+{"step": 2, "action": ["shot", "paging-pages"], "start": 7206, "end": 7206}
+{"step": 3, "action": "REPORT FORM STAFFRPT PLAIN TO FILE PLAIN.TXT", "start": 7206, "end": 12879}
+{"step": 4, "action": ["shot", "paging-plain"], "start": 12879, "end": 12879}
+{"step": 5, "action": "INDEX ON DEPT TO DEPART", "start": 12879, "end": 12934}
+{"step": 6, "action": "REPORT FORM STAFFRPT SUMMARY TO FILE GROUPS.TXT", "start": 12934, "end": 16479}
+{"step": 7, "action": ["shot", "paging-groups"], "start": 16479, "end": 16479}
+{"step": 8, "action": "REPORT FORM STAFFRPT NEXT 1 TO PRINT", "start": 16479, "end": 16571}
+{"step": 9, "action": "LABEL FORM STAFFLBL SAMPLE", "start": 16571, "end": 16645}
+{"step": 10, "action": "QUIT", "start": 16645, "end": 16780}
+{"step": 11, "action": ["shot", "paging-print"], "start": 16780, "end": 16780}

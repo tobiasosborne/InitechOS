@@ -1,0 +1,25 @@
+{
+  "name": "artifact-controls",
+  "actions": [
+    "USE EDGE",
+    "GO TOP",
+    "INDEX ON LEFT(WIDE,100) TO KEY100",
+    "GO TOP",
+    "INDEX ON LEFT(WIDE,101) TO KEY101",
+    "? FILE(\"KEY100.NDX\"),FILE(\"KEY101.NDX\")",
+    [
+      "shot",
+      "artifact-controls-index-length"
+    ],
+    "USE",
+    "DELETE",
+    "RECALL",
+    "PACK",
+    "REPLACE NAME WITH \"x\"",
+    [
+      "shot",
+      "artifact-controls-no-table"
+    ],
+    "QUIT"
+  ]
+}

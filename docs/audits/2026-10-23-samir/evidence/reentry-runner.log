@@ -1,0 +1,14 @@
+STARTED reentry pid 98
+SHOT reentry-startup
+USE CLIENTS 'USE CLIENTS\r\n. '
+GO 2 'GO 2\r\n. '
+MARKER=42 'MARKER=42\r\n. '
+? RECNO(),MARKER '? RECNO(),MARKER\r\n\r\n         2         42. '
+SHOT reentry-state
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-EVT-DROP\nFLAIR-RESUME\nFLAIR-TICK n=1087\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\nFLAIR-TICK n=1090\n'
+? RECCOUNT() '? RECCOUNT()\r\n\r\n         0. '
+USE CLIENTS 'USE CLIENTS\r\n. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n      3  LUMBERGH   DALLAS        7777.77\r\n. '
+QUIT 'QUIT\r\nFLAIR-TEXT-EXIT rc=0\nFLAIR-RESUME\nFLAIR-EVT what=4 where=320,240 msg=00001C0A\n'
+SHOT reentry-quit
+STOPPED 98

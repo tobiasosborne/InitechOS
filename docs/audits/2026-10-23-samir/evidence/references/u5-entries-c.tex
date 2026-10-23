@@ -1,0 +1,616 @@
+% Using InitechBase Chapter 5, entries SAVE .. ZAP, with the SET options
+% (AN-04; SET options filed under SET, as in the model).
+
+% SAVE -- os/samir/cmd/flow.c fl_memfile (TO <file>, default .MEM; every
+% memory variable; the dBASE III PLUS .MEM layout).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{SAVE}{command}
+Saves the memory variables in a memory file.
+\Syntax
+\SyntaxLine{\kw{SAVE TO} \xp{file}}
+\Usage
+\cmd{SAVE} writes every memory variable, with its type and value, to the
+file named.  If no extension is given, \file{.MEM} is assumed.  The file can
+be read back with \cmd{RESTORE}, by InitechBase or by dBASE III PLUS.
+\Examples
+\DotExample{examples/c-save}
+\SeeAlso{RELEASE, RESTORE}
+\end{XbaseEntry}
+
+% SEEK -- os/samir/cmd/query.c q_seek (expression through ndx_seek on the
+% master index; type must match the key; SET EXACT; #26).  Gates:
+% test-ndx-seek, test-samir-query.
+\begin{XbaseEntry}{SEEK}{command}
+Finds the first record whose index key matches the value of an expression.
+\Syntax
+\SyntaxLine{\kw{SEEK} \xp{exp}}
+\Usage
+\cmd{SEEK} evaluates the expression and searches the master index of the
+database in USE for it.  If the key of a record matches, the record pointer
+moves to the first such record in index order and \fn{FOUND()} is true.  If
+no key matches, the pointer moves to the end of the file: \fn{EOF()} is true
+and \fn{FOUND()} false.
+
+The expression must be of the type of the index key: a character expression
+for an index on a character field, a number for an index on a numeric field.
+For a character key, a key that begins with the value matches while SET EXACT
+is OFF; with SET EXACT ON the key must equal the value, apart from trailing
+blanks.
+
+\cmd{SEEK} needs an open index; without one it displays
+\xmsg{26}{Database is not indexed.}
+\Tips
+In a program, \cmd{SEEK} a memory variable that holds the answer to an
+\cmd{ACCEPT}, then test \fn{FOUND()}.
+\Examples
+\DotExample{examples/c-seek}
+The index \file{STAFFNO.NDX} is on the employee number:
+\DotExample{examples/c-seek-2}
+\SeeAlso{FIND, LOCATE, SET EXACT, SET ORDER, USE, FOUND()}
+\end{XbaseEntry}
+
+% SELECT -- os/samir/cmd/flow.c "SELECT" (a number 1..10 or an alias).
+% Gate: test-interp-use.
+\begin{XbaseEntry}{SELECT}{command}
+Chooses the work area in which the following commands work.
+\Syntax
+\SyntaxLine{\kw{SELECT} \xp{n}/\xp{alias}}
+\Usage
+InitechBase has ten work areas, numbered 1 to 10, and each may hold one
+database with its index files.  Work area 1 is selected when InitechBase
+starts.  \cmd{SELECT} \xp{n} selects work area \xp{n}; \cmd{SELECT} \xp{alias}
+selects the work area of the database with that alias.  The alias of a
+database is its file name without the extension, unless \cmd{USE} gave it
+another.
+
+\cmd{USE} opens a database in the selected work area, and the commands that
+read or change records work on the database of the selected work area.  Each
+work area keeps its own record pointer, so moving in one database does not
+move the others.
+\Examples
+\DotExample{examples/c-select}
+\SeeAlso{USE, CLOSE, DBF()}
+\end{XbaseEntry}
+
+% SET ALTERNATE -- os/samir/cmd/set.c "ALTERNATE" (TO <file>, default .TXT,
+% created afresh; TO alone closes it with an end-of-file mark; ON/OFF
+% switches the copy) and alternate_output (every line InitechBase displays,
+% also with SET CONSOLE OFF: workarea.c xb_interp_output); QUIT closes it
+% (samir_main.c).  Lane samirfns 1016e8c9.  Gates: test-samir-dml,
+% test-samir-dml-emu.
+\begin{XbaseEntry}{ALTERNATE}{set}
+Copies what InitechBase displays to a text file.
+\Syntax
+\SyntaxLine{\kw{SET ALTERNATE TO} \opt{\xp{file}}}
+\SyntaxLine{\kw{SET ALTERNATE} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF, and no file.
+\Usage
+SET ALTERNATE TO creates the text file named, replacing a file of that name;
+if no extension is given, \file{.TXT} is assumed.  SET ALTERNATE ON then
+copies to the file everything InitechBase displays, until SET ALTERNATE OFF.
+The file receives the output even while SET CONSOLE is OFF, so a program can
+write a report to a file without showing it.
+
+SET ALTERNATE TO with no file name closes the file; \cmd{QUIT} closes it
+too.  Display the file with \cmd{TYPE}.
+\SeeAlso{SET CONSOLE, TYPE}
+\end{XbaseEntry}
+
+% SET CENTURY -- os/samir/cmd/set.c do_set_century (ctx->set_century; DTOC
+% and display use four digits; CTOD accepts them).  Gate:
+% test-interp-setfmt.
+\begin{XbaseEntry}{CENTURY}{set}
+Determines whether dates are displayed with the century.
+\Syntax
+\SyntaxLine{\kw{SET CENTURY} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF.
+\Usage
+With SET CENTURY OFF, the year of a date has two digits: \texttt{12/25/91}.
+With SET CENTURY ON, it has four: \texttt{12/25/1991}.  The setting applies to
+dates displayed by \cmd{?}, \cmd{LIST} and \cmd{DISPLAY} and to the result of
+\fn{DTOC()}.
+
+A year typed with two digits is a year of the nineteen hundreds:
+\fn{CTOD()} converts \texttt{12/25/91} to the 25th of December 1991 whatever the
+setting.  With SET CENTURY ON, a four-digit year may also be given.
+\Examples
+\DotExample{examples/c-setcentury}
+\SeeAlso{SET DATE, CTOD(), DTOC()}
+\end{XbaseEntry}
+
+% SET CONSOLE -- os/samir/cmd/set.c (ctx->set_console) read by
+% os/samir/cmd/workarea.c xb_interp_console_visible (initech-vz6z, Using
+% III+ U5-210: output hidden only for commands of a program; dot commands
+% and error messages stay visible; SET ALTERNATE still receives it).
+% Gate: test-interp-set-console-mutant.
+\begin{XbaseEntry}{CONSOLE}{set}
+Turns the display of output on the screen on or off.
+\Syntax
+\SyntaxLine{\kw{SET CONSOLE} \kw{ON}/\kw{OFF}}
+\Defaults
+ON.
+\Usage
+With SET CONSOLE OFF, the output of the commands of a program is not
+displayed, and what is typed in answer to its prompts is not echoed.
+Commands typed at the dot prompt and error messages are displayed whatever
+the setting.  Output that SET ALTERNATE copies to a file is written to the
+file in either case.
+\SeeAlso{SET TALK, REPORT FORM}
+\end{XbaseEntry}
+
+% SET DATE -- os/samir/cmd/set.c do_set_date (eight formats; ctx->set_date_fmt
+% read by DTOC/CTOD and display).  Gate: test-interp-setfmt.
+\begin{XbaseEntry}{DATE}{set}
+Chooses the form in which dates are displayed and typed.
+\Syntax
+\SyntaxLine{\kw{SET DATE} \opt{\kw{TO}} \kw{AMERICAN}/\allowbreak\kw{ANSI}/\allowbreak\kw{BRITISH}/\allowbreak\kw{FRENCH}/\allowbreak\kw{GERMAN}/\allowbreak\kw{ITALIAN}/\allowbreak\kw{JAPAN}/\allowbreak\kw{USA}}
+\Defaults
+AMERICAN.
+\Usage
+The setting determines the order of the month, day and year and the character
+that separates them, both for dates that InitechBase displays and for the
+character strings that \fn{CTOD()} converts:
+
+\begin{tabular}{@{}ll@{}}
+\kw{AMERICAN} & \texttt{mm/dd/yy}\\
+\kw{ANSI} & \texttt{yy.mm.dd}\\
+\kw{BRITISH} & \texttt{dd/mm/yy}\\
+\kw{FRENCH} & \texttt{dd/mm/yy}\\
+\kw{GERMAN} & \texttt{dd.mm.yy}\\
+\kw{ITALIAN} & \texttt{dd-mm-yy}\\
+\kw{JAPAN} & \texttt{yy/mm/dd}\\
+\kw{USA} & \texttt{mm-dd-yy}\\
+\end{tabular}
+
+The year has four digits while SET CENTURY is ON.
+\Examples
+The first of March 1992 in each form:
+\DotExample{examples/c-setdate}
+\DotExample{examples/c-setdate-2}
+\SeeAlso{SET CENTURY, CTOD(), DTOC(), DATE()}
+\end{XbaseEntry}
+
+% SET DECIMALS -- os/samir/cmd/set.c do_set_decimals (0..15, empty = 2;
+% ctx->set_decimals read by display of computed values).  Gate:
+% test-interp-decimals.
+\begin{XbaseEntry}{DECIMALS}{set}
+Sets the number of decimal places displayed for the results of calculations.
+\Syntax
+\SyntaxLine{\kw{SET DECIMALS TO} \opt{\xp{expN}}}
+\Defaults
+2.
+\Usage
+The setting determines how many decimal places \cmd{?}, \cmd{LIST} and
+\cmd{DISPLAY} show for a value that InitechBase has calculated, such as the
+result of a division.  The value itself keeps its full precision; only its
+display is rounded.  Numeric fields keep the decimal places of their
+structure, and whole numbers are displayed without decimal places.
+
+The number of places may be from 0 to 15; a larger number gives 15.  SET
+DECIMALS TO with no number restores 2.
+\Examples
+\DotExample{examples/c-setdecimals}
+\SeeAlso{?, ROUND(), STR()}
+\end{XbaseEntry}
+
+% SET DELETED -- os/samir/cmd/set.c (wa_set_deleted: the walk of
+% LIST/DISPLAY/LOCATE and navigation skips 0x2A records).  Gate:
+% test-interp-set.
+\begin{XbaseEntry}{DELETED}{set}
+Determines whether records marked for deletion are processed.
+\Syntax
+\SyntaxLine{\kw{SET DELETED} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF.
+\Usage
+With SET DELETED ON, the commands that move through the database and process
+records -- \cmd{LIST}, \cmd{DISPLAY}, \cmd{LOCATE}, \cmd{CONTINUE},
+\cmd{SKIP}, \cmd{GO TOP}, \cmd{GO BOTTOM} -- pass over the records marked for
+deletion as if they were not there.  The records remain in the database until
+\cmd{PACK}.  With SET DELETED OFF, marked records are processed like any
+other, and are shown with an asterisk.
+\Examples
+\DotExample{examples/c-setdeleted}
+\SeeAlso{DELETE, PACK, RECALL, DELETED()}
+\end{XbaseEntry}
+
+% SET EXACT -- os/samir/cmd/set.c do_set_exact (ctx->set_exact; eval.c
+% C = C begins-with rule; ndx_seek).  Gates: test-interp-set,
+% test-xbase-eval.
+\begin{XbaseEntry}{EXACT}{set}
+Determines how character strings are compared.
+\Syntax
+\SyntaxLine{\kw{SET EXACT} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF.
+\Usage
+With SET EXACT OFF, the comparison \xp{expC1} \texttt{=} \xp{expC2} is true
+when \xp{expC1} begins with \xp{expC2}: \texttt{'SMYKOWSKI' = 'SMY'} is true.
+The string on the right decides how many characters are compared, so an empty
+string on the right equals every string.  With SET EXACT ON, the two strings
+must be the same, apart from trailing blanks.  \texttt{<>} and \texttt{\#}
+follow the same rule, and so do \cmd{SEEK} and \cmd{FIND}.
+
+The setting does not affect \texttt{<}, \texttt{>}, \texttt{<=}, \texttt{>=} or
+the substring operator \texttt{\$}.  Capital and small letters are always
+different.
+\Examples
+\DotExample{examples/c-setexact}
+\SeeAlso{SEEK, FIND, AT()}
+\end{XbaseEntry}
+
+% SET FILTER -- os/samir/cmd/set.c do_set_filter -> wa_set_filter (the
+% walk of LIST/DISPLAY/GO TOP/SKIP admits matching records only).  Gate:
+% test-interp-set.
+\begin{XbaseEntry}{FILTER}{set}
+Makes InitechBase pass over the records that do not meet a condition.
+\Syntax
+\SyntaxLine{\kw{SET FILTER TO} \opt{\xp{condition}}}
+\Usage
+After SET FILTER TO \xp{condition}, the database of the selected work area
+appears to hold only the records that meet the condition.  \cmd{LIST},
+\cmd{DISPLAY}, \cmd{GO TOP}, \cmd{GO BOTTOM} and \cmd{SKIP} pass over the others.
+\cmd{GO} with a record number still goes to that record.
+
+The filter applies to the database in USE in the selected work area, until it
+is removed with SET FILTER TO and no condition, or the database is closed.
+SET FILTER needs a database in USE; without one it displays
+\xmsg{17}{Cannot select requested database.}
+\Tips
+Move the record pointer with \cmd{GO TOP} after you set a filter, so that the
+current record is one that meets it.
+\Examples
+\DotExample{examples/c-setfilter}
+\SeeAlso{LOCATE, LIST, SET DELETED}
+\end{XbaseEntry}
+
+% SET HEADING -- os/samir/cmd/set.c (ctx->set_heading; query.c leaves out
+% the heading line of LIST / DISPLAY).  Gates: test-interp-set,
+% test-interp-list-heading-mutant.
+\begin{XbaseEntry}{HEADING}{set}
+Determines whether \cmd{LIST} and \cmd{DISPLAY} begin with a heading line.
+\Syntax
+\SyntaxLine{\kw{SET HEADING} \kw{ON}/\kw{OFF}}
+\Defaults
+ON.
+\Usage
+With SET HEADING ON, \cmd{LIST} and \cmd{DISPLAY} begin with a line that names
+the columns.  With SET HEADING OFF, only the records are displayed.  Without
+the headings, a column is as wide as its values only.
+\Examples
+\DotExample{examples/c-setheading}
+\SeeAlso{LIST, DISPLAY}
+\end{XbaseEntry}
+
+% Using III+ U5-239; SF-index host/guest differential and named mutant.
+\begin{XbaseEntry}{INDEX}{set}
+Names the index files to be used with the database in USE.
+\Syntax
+\SyntaxLine{\kw{SET INDEX TO} \opt{\xp{index file list}}}
+\Usage
+Opens the named index files for the database in the selected work area,
+replacing its previous index list.  The extension \file{.NDX} is assumed.
+Up to seven files may be named.  The first becomes the master index, and
+the record pointer moves to its beginning.  SET INDEX TO without a list
+closes the indexes of the selected work area and restores record order.
+\Examples
+\DotExample{examples/c-setindex}
+\SeeAlso{USE, SET ORDER, SEEK}
+\end{XbaseEntry}
+
+% SET ORDER -- os/samir/cmd/set.c do_set_order -> wa_set_order (0 = natural
+% order, n = the n-th index of USE ... INDEX).  Gate: test-interp-set.
+\begin{XbaseEntry}{ORDER}{set}
+Chooses which of the open index files is the master index.
+\Syntax
+\SyntaxLine{\kw{SET ORDER TO} \opt{\xp{n}}}
+\Usage
+When several index files are open with a database, the first named in
+\cmd{USE} is the master index: it gives the order in which the records are
+processed, and it is the index \cmd{SEEK} and \cmd{FIND} search.  SET ORDER
+TO \xp{n} makes the \xp{n}th of the open index files the master index.  SET
+ORDER TO 0, or SET ORDER TO alone, processes the records in record-number
+order; the index files stay open.
+\Tips
+Move to the first record with \cmd{GO TOP} after SET ORDER.
+\Examples
+The open index files are on the name and on the department:
+\DotExample{examples/c-setorder}
+\SeeAlso{USE, SEEK, FIND, GO}
+\end{XbaseEntry}
+
+% SET RELATION -- os/samir/cmd/set.c do_set_relation (text recorded; the
+% runtime effect is deferred: "GATED: runtime relation effect deferred").
+\begin{XbaseEntry}[the relation is recorded but not maintained by this version
+  (set.c)]{RELATION}{set}
+Links the database in USE to a database in another work area.
+\Syntax
+\SyntaxLine{\kw{SET RELATION TO} \opt{\xp{key expression} \kw{INTO} \xp{alias}}}
+\Usage
+InitechBase accepts SET RELATION TO with or without a relation and displays no
+message.  The record pointer of the other database does not move with the
+selected one: select the other work area and use \cmd{SEEK} to find the related
+record.
+\SeeAlso{SELECT, SEEK, USE}
+\end{XbaseEntry}
+
+% SET SAFETY -- os/samir/cmd/set.c do_set_safety; os/samir/cmd/mutate.c
+% m_confirm_file (ZAP asks "ZAP <file>? (Y/N)" while ON).  Gate:
+% test-samir-safety-emu.
+\begin{XbaseEntry}{SAFETY}{set}
+Determines whether InitechBase asks for confirmation before it removes all
+the records of a database.
+\Syntax
+\SyntaxLine{\kw{SET SAFETY} \kw{ON}/\kw{OFF}}
+\Defaults
+ON.
+\Usage
+With SET SAFETY ON, \cmd{ZAP} names the database and asks \texttt{(Y/N)}
+before it removes the records.  Only the answer \type{Y}, in either case,
+lets it go on; any other answer leaves the database as it is.  With SET
+SAFETY OFF, \cmd{ZAP} removes the records without asking.
+\Examples
+See \cmd{ZAP}.
+\SeeAlso{ZAP, PACK}
+\end{XbaseEntry}
+
+% SET STATUS -- os/samir/cmd/set.c (ctx->set_status) ->
+% samir_status_refresh -> pal_milton.c milton_status / core/screen.c
+% samir_screen_status (row 23: "Command Line", drive, database, Rec: n/m;
+% the dot prompt scrolls in rows 1-22).  Gates: test-samir-status,
+% test-samir-screen-emu.
+\begin{XbaseEntry}{STATUS}{set}
+Displays or removes the status bar at the bottom of the screen.
+\Syntax
+\SyntaxLine{\kw{SET STATUS} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF.
+\Usage
+With SET STATUS ON, InitechBase clears the screen and keeps the two bottom
+lines for itself.  The status bar, in reverse video, shows \texttt{Command
+Line}, the current drive, the name of the database in USE in the selected
+work area, and the current record number with the number of records
+(\texttt{Rec: 3/13}).  The line below it is a guidance line.  Commands and their
+output scroll in the lines above.  The status bar is brought up to date after
+every command.
+
+SET STATUS OFF removes the status bar; output then uses the whole screen.
+\cmd{CLOSE} and \cmd{QUIT} also remove it.  The status bar appears only on the
+screen; it is never part of output that is redirected to a file.
+\SeeAlso{RECNO(), RECCOUNT(), DBF()}
+\end{XbaseEntry}
+
+% SET TALK -- os/samir/cmd/set.c do_set_talk (ss->talk stored; no consumer
+% in the shipped engine).
+\begin{XbaseEntry}[the setting is recorded but the shipped version does not
+  act on it (set.c)]{TALK}{set}
+Determines whether InitechBase reports the results of commands on the screen.
+\Syntax
+\SyntaxLine{\kw{SET TALK} \kw{ON}/\kw{OFF}}
+\Defaults
+ON.
+\Usage
+InitechBase accepts SET TALK ON and OFF and records the setting.  The commands
+of this version display no result messages, and their output is the same with
+either setting.  Programs commonly begin with SET TALK OFF.
+\SeeAlso{SET CONSOLE}
+\end{XbaseEntry}
+
+% SKIP -- os/samir/cmd/query.c q_skip (n records in master-index order;
+% stops at EOF/BOF without a message).  Gate: test-interp-nav.
+\begin{XbaseEntry}{SKIP}{command}
+Moves the record pointer forward or back.
+\Syntax
+\SyntaxLine{\kw{SKIP} \opt{\xp{expN}}}
+\Defaults
+1.
+\Usage
+\cmd{SKIP} moves the record pointer \xp{expN} records forward, or back if
+\xp{expN} is negative.  With an index open, the records are counted in index
+order; while a filter is set or SET DELETED is ON, the records passed over do
+not count.
+
+Moving forward past the last record puts the record pointer at the end of the
+file: \fn{RECNO()} is one more than the number of records and \fn{EOF()} is
+true.  Moving back past the first record leaves it on the first record, with
+\fn{BOF()} true.  InitechBase displays no message in either case.
+\Examples
+\DotExample{examples/c-skip}
+\SeeAlso{GO, EOF(), BOF(), RECNO()}
+\end{XbaseEntry}
+
+% SORT -- os/samir/cmd/mutate.c d_sort (TO <file> ON <field>, default .DBF;
+% ascending; Character, Numeric or Date field; a memo field refuses, 34;
+% unknown field 48; character key over 100, 23; SAFETY ON refuses an
+% existing target, 7; records taken in master-index order, equal keys kept
+% in that order).  Lane samirdml 14a8fc75.  Gates: test-samir-dml,
+% test-samir-dml-emu.
+\begin{XbaseEntry}{SORT}{command}
+Copies the database in USE to a new database, in the order of a field.
+\Syntax
+\SyntaxLine{\kw{SORT TO} \xp{file} \kw{ON} \xp{field}}
+\Usage
+\cmd{SORT} writes every record of the database in the selected work area to
+a new database, in ascending order of the field named.  If no extension is
+given, \file{.DBF} is assumed.  The field must be of type Character, Numeric
+or Date; records with equal values keep the order in which they were read.
+The database in USE is not changed.
+
+A database with a memo field cannot be sorted (\xmsg{34}{Operation with
+Memo field invalid.}).  A field the database does not have is reported as
+\xmsg{48}{Field not found.}, and a character field of more than 100
+characters as \xmsg{23}{Index is too big (100 char maximum).}  While SET
+SAFETY is ON, a database of the new name is not replaced
+(\xmsg{7}{File already exists.}).
+\Examples
+The ledger in order of due date.  The due dates keyed with the year 00 are
+stored as 1900 (see \cmd{SET CENTURY}), and so come first:
+\DotExample{examples/c-sort}
+\file{STAFF.DBF} has a memo field, \texttt{NOTES}, and cannot be sorted:
+\DotExample{examples/c-sort-2}
+\SeeAlso{INDEX, TOTAL}
+\end{XbaseEntry}
+
+% STORE and = -- os/samir/cmd/flow.c "STORE" and "<name> = <expr>"
+% (xb_interp_store: create or update, type from the value).  Gate:
+% test-interp-flow.
+\begin{XbaseEntry}{STORE}{command}
+Stores a value in one or more memory variables.
+\Syntax
+\SyntaxLine{\kw{STORE} \xp{exp} \kw{TO} \xp{memvar list}}
+\par or\par
+\SyntaxLine{\xp{memvar} \kw{=} \xp{exp}}
+\Usage
+\cmd{STORE} evaluates the expression and stores its value in each memory
+variable of the list.  A memory variable that does not exist is created; one
+that exists receives the new value, whatever its type was.  The memory
+variable takes the type of the value: character, numeric, date or logical.
+
+The second form stores the value in one memory variable.  It does the same as
+\cmd{STORE}.
+
+A memory variable name has up to 10 letters, digits and underscores, and
+begins with a letter.  Do not give a memory variable the name of a field of the
+database in USE: in an expression the field of the current record is found
+first, and the memory variable cannot be reached.  The programs of this manual
+begin the names of their memory variables with the letter M.
+\Examples
+\DotExample{examples/c-store}
+\SeeAlso{RELEASE, PUBLIC, PRIVATE, ACCEPT, INPUT, REPLACE}
+\end{XbaseEntry}
+
+% TOTAL -- os/samir/cmd/mutate.c d_total (ON <field> TO <file>; one record
+% per run of equal key values in master-index order, numeric fields summed,
+% the others from the first record of the run; memo refuses, 34; unknown
+% field 48; SAFETY 7).  Lane samirdml 14a8fc75.  Gates: test-samir-dml,
+% test-samir-dml-emu.
+\begin{XbaseEntry}{TOTAL}{command}
+Summarizes the numeric fields of the database in USE into a new database.
+\Syntax
+\SyntaxLine{\kw{TOTAL ON} \xp{key field} \kw{TO} \xp{file}}
+\Usage
+\cmd{TOTAL} reads the database in the selected work area in its present
+order and writes one record to the new database for each group of
+consecutive records with the same value in the key field.  The numeric
+fields of the new record hold the sums of the group; the other fields come
+from the first record of the group.  If no extension is given, \file{.DBF}
+is assumed.  Use the database sorted or indexed on the key field, so that
+equal values are together.
+
+A database with a memo field cannot be totaled (\xmsg{34}{Operation with
+Memo field invalid.}), and a key field it does not have is reported as
+\xmsg{48}{Field not found.}  While SET SAFETY is ON, a database of the new
+name is not replaced (\xmsg{7}{File already exists.}).
+\Examples
+The batch of new invoices, \file{ARBATCH.DBF}, totaled by customer.  The
+two invoices of HARTWELL become one record:
+\DotExample{examples/c-total}
+\SeeAlso{INDEX, SORT}
+\end{XbaseEntry}
+
+% TYPE -- os/samir/cmd/mutate.c d_file (the file shown up to the DOS
+% end-of-file mark; open database refused, 3; absent, 1).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{TYPE}{command}
+Displays the contents of a text file.
+\Syntax
+\SyntaxLine{\kw{TYPE} \xp{file}}
+\Usage
+\cmd{TYPE} displays the file named, up to its end-of-file mark
+(\key{Ctrl-Z}).  Give the name with its extension; none is assumed.  Use it
+for program files, report output written with \kw{TO FILE}, and other text
+files.  A database that is open cannot be displayed
+(\xmsg{3}{File is already open.}).
+\Examples
+\DotExample{examples/c-type}
+\SeeAlso{ERASE, RENAME}
+\end{XbaseEntry}
+
+% USE -- os/samir/samir_main.c repl_do_use (default .DBF / .NDX
+% extensions; ALIAS; INDEX up to 7; first index master; first record in
+% index order; #1, #3, #15, #28, #29).  Gates: test-samir-repl,
+% test-interp-use, test-samir-use.
+\begin{XbaseEntry}{USE}{command}
+Opens a database, with its index files, in the selected work area, or closes
+the database there.
+\Syntax
+\SyntaxLine{\kw{USE} \opt{\xp{file} \opt{\kw{ALIAS} \xp{alias}}
+  \opt{\kw{INDEX} \xp{index file list}}}}
+\Usage
+\cmd{USE} \xp{file} closes the database open in the selected work area, if
+there is one, and opens the database \xp{file}.  The extension \file{.DBF} is
+added when none is given.  If the database has memo fields, its memo file, of
+the same name with the extension \file{.DBT}, is opened with it.  The first
+record becomes the current record.
+
+\kw{INDEX} opens up to seven index files with the database.  The extension
+\file{.NDX} is added when none is given.  The first index file of the list is
+the master index: it gives the order of the records, and the first record in
+that order becomes the current record.  The other index files are kept up to
+date when records are added or changed.
+
+\kw{ALIAS} gives the database another name for \cmd{SELECT} and \fn{DBF()}.
+Without it, the alias is the file name without the extension.
+
+\cmd{USE} with no file name closes the database of the selected work area.
+
+\cmd{USE} reports a database that cannot be opened: \xmsg{1}{File does not
+exist.} when there is no such file, \xmsg{3}{File is already open.} when it is
+open in another work area, and \xmsg{15}{Not a dBASE database.} when the file
+is not a database.
+
+\cmd{USE} is a dot prompt command.  A program works on the databases that are
+open when it is run.
+\Examples
+\DotExample{examples/c-use}
+\DotExample{examples/c-use-2}
+\DotExample{examples/c-use-3}
+\SeeAlso{CLOSE, SELECT, SET ORDER, DBF()}
+\end{XbaseEntry}
+
+% WAIT -- os/samir/cmd/proc.c p_wait (prompt, one key via conin_char, a
+% one-character string; Enter alone -> "").  Gate: test-interp-proc.
+\begin{XbaseEntry}{WAIT}{command}
+Waits for one key to be pressed, and can store it in a memory variable.
+\Syntax
+\SyntaxLine{\kw{WAIT} \opt{\xp{expC}} \opt{\kw{TO} \xp{memvar}}}
+\Usage
+\cmd{WAIT} displays the prompt \xp{expC}, if one is given, and waits until a key
+is pressed.  The key is not followed by \key{Enter}.  With \kw{TO}, the key is
+stored in \xp{memvar} as a character string of one character; if the key was
+\key{Enter}, the memory variable is an empty string.  Without a prompt,
+\cmd{WAIT} displays nothing while it waits.
+\Tips
+A program uses \cmd{WAIT} to hold its output on the screen until the operator
+has read it, and to take a single-letter answer to a question.
+\Examples
+\DotExample{examples/c-wait}
+\SeeAlso{ACCEPT, INPUT}
+\end{XbaseEntry}
+
+% ZAP -- os/samir/cmd/mutate.c m_zap (m_confirm_file while SAFETY ON; the
+% table emptied in place, its indexes emptied).  Gates:
+% test-samir-safety-emu, test-interp-replace.
+\begin{XbaseEntry}{ZAP}{command}
+Removes all the records of the database in USE.
+\Syntax
+\SyntaxLine{\kw{ZAP}}
+\Usage
+\cmd{ZAP} removes every record from the database of the selected work area and
+leaves an empty database with the same structure.  The records cannot be
+recovered.  Use \cmd{ZAP} on a database opened without index files.
+
+While SET SAFETY is ON, \cmd{ZAP} first asks \texttt{ZAP} \xp{file}\texttt{? (Y/N)};
+the records are removed only if the answer is \type{Y}.
+\begin{AteWarning}
+\cmd{ZAP} cannot be undone.  Keep a copy of a database before you remove its
+records.
+\end{AteWarning}
+\Examples
+\DotExample{examples/c-zap}
+With SET SAFETY OFF the records are removed at once:
+\DotExample{examples/c-zap-2}
+\SeeAlso{DELETE, PACK, SET SAFETY}
+\end{XbaseEntry}

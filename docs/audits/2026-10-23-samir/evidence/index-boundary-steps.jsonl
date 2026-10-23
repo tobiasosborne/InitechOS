@@ -1,0 +1,19 @@
+{"step": 0, "action": "USE CLIENTS", "start": 913, "end": 928}
+{"step": 1, "action": "GO BOTTOM", "start": 928, "end": 941}
+{"step": 2, "action": "SKIP", "start": 941, "end": 949}
+{"step": 3, "action": "? EOF(),RECNO()", "start": 949, "end": 984}
+{"step": 4, "action": "INDEX ON NAME TO EOFIDX", "start": 984, "end": 1039}
+{"step": 5, "action": "GO TOP", "start": 1039, "end": 1049}
+{"step": 6, "action": "INDEX ON NAME TO TOPIDX", "start": 1049, "end": 1076}
+{"step": 7, "action": "? EOF(),RECNO()", "start": 1076, "end": 1111}
+{"step": 8, "action": ["shot", "index-boundary-at-eof"], "start": 1111, "end": 1111}
+{"step": 9, "action": "USE EDGE", "start": 1111, "end": 1123}
+{"step": 10, "action": "GO TOP", "start": 1123, "end": 1133}
+{"step": 11, "action": "INDEX ON LEFT(WIDE,100) TO KEY100", "start": 1133, "end": 1170}
+{"step": 12, "action": "GO TOP", "start": 1170, "end": 1180}
+{"step": 13, "action": "INDEX ON LEFT(WIDE,101) TO KEY101", "start": 1180, "end": 1217}
+{"step": 14, "action": "GO TOP", "start": 1217, "end": 1227}
+{"step": 15, "action": "INDEX ON WIDE TO KEY254", "start": 1227, "end": 1282}
+{"step": 16, "action": "SET INDEX TO BAD.NDX", "start": 1282, "end": 1330}
+{"step": 17, "action": "QUIT", "start": 1330, "end": 1485}
+{"step": 18, "action": ["shot", "index-boundary-width"], "start": 1485, "end": 1485}

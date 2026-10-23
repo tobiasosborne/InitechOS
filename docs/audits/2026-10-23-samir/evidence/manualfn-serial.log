@@ -1,0 +1,282 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-CREATE
+TRASH-CREATE
+APPLE-MENU n=1
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CLOCK 1:06 pm
+FLAIR-TICK n=4
+FLAIR-TICK n=6
+FLAIR-EVT what=3 where=320,240 msg=00002B5C
+FLAIR-SUSPEND
+. SET DATE AMERICAN
+. SET CENTURY OFF
+. SET DECIMALS TO 2
+. USE STAFF
+. GO 3
+. ? SALARY - 40000, ABS(SALARY - 40000)
+
+   -200.00        200. USE STAFF
+. GO 2
+. ? CHR(ASC(LASTNAME) + 1)
+
+H. ? ASC("A"), ASC("abc"), ASC("")
+
+        65         97          0. USE STAFF
+. GO 2
+. ? AT("ON", LASTNAME), AT("on", LASTNAME)
+
+         5          0. ? AT("c", "InitechBase"), AT("e", "InitechBase"), AT("z", "InitechBase")
+
+         6          5          0. USE STAFF
+. GO TOP
+. SKIP -1
+. ? BOF(), RECNO()
+
+.T.          1. ? CDOW(CTOD("03/01/92")), CDOW(CTOD("03/02/92"))
+
+Sunday Monday. ? CHR(300)
+57  CHR() : Out of range.
+. ? CHR(65), CHR(97), ASC(CHR(200))
+
+A a        200. ? CMONTH(CTOD("03/01/92")), CMONTH(CTOD("12/25/91"))
+
+March December. SET DATE BRITISH
+. ? DTOC(CTOD("01/03/92")), MONTH(CTOD("01/03/92"))
+
+01/03/92          3. SET DATE AMERICAN
+. SET CENTURY OFF
+. SET DECIMALS TO 2
+. ? DTOC(CTOD("03/01/92")), DAY(CTOD("03/01/92")), YEAR(CTOD("03/01/92"))
+
+03/01/92          1  1992. USE STAFF
+. GO 2
+. ? DATE() - HIRED
+
+    -22423. ? DATE(), DTOC(DATE()), YEAR(DATE())
+
+10/23/26 10/23/26  1926. ? DAY(CTOD("02/29/92")), DAY(CTOD("  /  /  "))
+
+        29          0. ? LEN(DBF())
+
+         5. USE STAFF
+. ? DBF()
+
+STAFF. USE STAFF
+. GO 12
+. ? DELETED()
+
+.F.. GO 13
+. ? DELETED(), LASTNAME
+
+.T. CHEN          . ? DOW(CTOD("03/01/92")), DOW(CTOD("03/07/92"))
+
+         1          7. SET CENTURY ON
+. SET DATE ANSI
+. ? DTOC(DATE())
+
+1926.10.23. SET DATE AMERICAN
+. SET CENTURY OFF
+. SET DECIMALS TO 2
+. USE STAFF
+. GO 2
+. ? HIRED, DTOC(HIRED), LEN(DTOC(HIRED))
+
+03/14/88 03/14/88          8. USE STAFF
+. GO BOTTOM
+. SKIP
+. ? EOF(), RECNO(), RECCOUNT()
+
+.T.         14         13. ON ERROR STORE ERROR() TO MERR
+. ? CHR(300)
+. ? MERR, ERROR()
+
+        57         57. USE STAFF
+. ? FIELD(1), FIELD(7), FIELD(10)
+
+EMPNO SALARY . ? FILE("STAFF.DBF"), FILE("STAFF"), FILE("NOFILE.DBF")
+
+.T. .F. .F.. USE STAFF INDEX STAFFNAM
+. SEEK "ZZZ"
+. ? FOUND(), EOF()
+
+.F. .T.. USE STAFF INDEX STAFFNAM
+. SEEK "GIBBONS"
+. ? FOUND(), RECNO()
+
+.T.          2. ? IIF(.F., 1/0, 5)
+
+5. ? IIF(1, 2, 3)
+. USE STAFF
+. GO 2
+. ? LASTNAME, IIF(EXEMPT, "Exempt", "Hourly")
+
+GIBBONS        Exempt. ? INT(3.99), INT(-3.7), INT(41250/1000)
+
+   3   -3            41. ? ISALPHA("Initech"), ISALPHA("1401"), ISALPHA("")
+
+.T. .F. .F.. ? ISLOWER("initech"), ISLOWER("Initech")
+
+.T. .F.. ? ISUPPER("Initech"), ISUPPER("initech")
+
+.T. .F.. ? LEFT("InitechBase", 7), LEFT("abc", 10), LEFT("abc", 0) + "|"
+
+Initech abc |. USE STAFF
+. GO 2
+. ? LEN(LASTNAME), LEN(TRIM(LASTNAME)), LEN("")
+
+        14          7          0. ? LOWER("Initech Systems")
+
+initech systems. ? "[" + LTRIM("   Gibbons  ") + "]"
+
+[Gibbons  ]. STORE 'SOFT' TO MDEPT
+. STORE 'Department &MDEPT' TO MTITLE
+. ? MTITLE
+
+Department SOFT. STORE 'RECCOUNT' TO MFUNC
+. USE STAFF
+. ? &MFUNC.()
+
+        13. STORE 'STAFFNAM' TO MINDEX
+. USE STAFF INDEX &MINDEX
+. STORE 'PORTER' TO MNAME
+. FIND &MNAME
+. DISPLAY LASTNAME, FIRSTNAME, DEPT
+Record#  LASTNAME       FIRSTNAME  DEPT
+      7  PORTER         DOM        ADMN
+. ? MAX(3, 7), MAX(-1, -5), MAX(CTOD("03/01/92"), CTOD("12/25/91"))
+
+         7         -1 03/01/92. ON ERROR STORE MESSAGE() TO MMSG
+. ? CHR(300)
+. ? MMSG
+
+CHR() : Out of range.. ON ERROR
+. ? MESSAGE()
+
+CHR() : Out of range.. ? MIN(3, 7), MIN(-1, -5), MIN(CTOD("03/01/92"), CTOD("12/25/91"))
+
+         3         -5 12/25/91. ? MOD(17, 5), MOD(-17, 5), MOD(5, 0)
+
+  2   -2          5. ? MONTH(CTOD("12/25/91")), MONTH(CTOD("  /  /  "))
+
+        12          0. USE STAFF
+. SKIP 3
+. ? RECNO(), RECCOUNT()
+
+         4         13. USE STAFF
+. GO 5
+. ? RECNO(), LASTNAME
+
+         5 WADDAMS       . USE STAFF
+. ? RECSIZE()
+
+        65. USE
+. ? RECSIZE()
+
+         0. ? REPLICATE("-", 20)
+
+--------------------. ? REPLICATE("AB", 3), REPLICATE("AB", 0) + "|"
+
+ABABAB |. ? RIGHT("InitechBase", 4), RIGHT("abc", 10), RIGHT("abc", 0) + "|"
+
+Base abc |. ? ROUND(3.14159, 2), ROUND(2.5, 0), ROUND(1234.5, -2)
+
+         3          3       1200. USE STAFF
+. GO 2
+. ? RTRIM(LASTNAME) + ", " + RTRIM(FIRSTNAME)
+
+GIBBONS, PETER. ? SPACE(255)
+59  SPACE() : Too large.
+. ? "[" + SPACE(5) + "]", LEN(SPACE(254))
+
+[     ]        254. ? STR(99999, 3), STR(5, 4, 2)
+
+*** 5.00. ? STR(5, 3, 2)
+63  STR() : Out of range.
+. ? STR(123.456), STR(123.456, 8, 2), STR(123.456, 5, 1)
+
+       123   123.46 123.5. ? STUFF("ABCDE", 2, 3, "XY"), STUFF("ABCDE", 2, 0, "XY"), STUFF("ABCDE", 2, 3, "")
+
+AXYE AXYBCDE AE. ? SUBSTR("abc", 0)
+62  SUBSTR() : Start point out of range.
+. ? SUBSTR("InitechBase", 1, 7), SUBSTR("InitechBase", 8), SUBSTR("abc", 4) + "|"
+
+Initech Base |. ? TRANSFORM("gibbons", "!!!!!!!"), TRANSFORM(1234567, "99999")
+
+GIBBONS *****. ? TRANSFORM(-570, "99999"), TRANSFORM(-570, "@( 99999"), TRANSFORM(570, "@C 99999")
+
+ -570 (  570)   570 CR. ? TRANSFORM(96500, "$999,999")
+
+$ 96,500. USE STAFF
+. GO 2
+. ? "[" + TRIM(LASTNAME) + "]", "[" + LASTNAME + "]"
+
+[GIBBONS] [GIBBONS       ]. ? TYPE("3 + 4"), TYPE("DATE()"), TYPE(".T."), TYPE("NOSUCH")
+
+N D L U. USE STAFF
+. GO 2
+. ? TYPE("LASTNAME"), TYPE("SALARY"), TYPE("HIRED"), TYPE("EXEMPT"), TYPE("NOTES")
+
+C N D L M. ? UPPER("Initech Systems")
+
+INITECH SYSTEMS. USE STAFF
+. GO 2
+. ? VAL(EMPNO) + 1
+
+ 1003.00. ? VAL("123"), VAL("12.5abc"), VAL("abc"), VAL("  42")
+
+123.00      12.50   0.00   42.00. ? YEAR(CTOD("12/25/91")), YEAR(CTOD("12/25/05"))
+
+ 1991  1905. QUIT
+FLAIR-TEXT-EXIT rc=0
+FLAIR-EVT-DROP
+FLAIR-RESUME
+FLAIR-CLOCK 1:12 pm
+FLAIR-TICK n=40647
+FLAIR-TICK n=40652

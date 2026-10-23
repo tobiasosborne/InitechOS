@@ -1,0 +1,13 @@
+STARTED programedges pid 61
+SHOT programedges-startup
+DO SHORT1K 'DO SHORT1K\r\n43  Insufficient memory.\n. '
+SHOT programedges-1000
+DO CONSOLE 'DO CONSOLE\r\n\r\nVISIBLEPROGRAM. '
+SHOT programedges-console
+DO CHARARG 'DO CHARARG\r\n\r\nhello. '
+SHOT programedges-chararg
+DO RECINT 'DO RECINT\r\n'
+SHOT programedges-recursion
+? "RECOVERED" ''
+SHOT programedges-recovery
+STOPPED 61

@@ -1,0 +1,13 @@
+STARTED dos-status pid 42
+SHOT dos-status-startup
+USE CLIENTS 'USE CLIENTS\r\n. '
+LIST 'LIST\r\nRecord#  NAME       CITY              BAL\r\n      1  PESTON     HONOLULU      1234.50\r\n      2  WADDAMS    AUSTIN         -42.00\r\n      3  LUMBERGH   DALLAS        7777.77\r\n. '
+SET STATUS ON 'SET STATUS ON\r\nCommand Line    |(A:>)|CLIENTS               |Rec: 3/3           |      |                               Enter a dBASE III PLUS command.                         . '
+SHOT dos-status-before
+? 2+2 '? 2+2 4Command Line    |(A:>)|CLIENTS               |Rec: 3/3           |      |                               Enter a dBASE III PLUS command.                         . '
+SHOT dos-status-type
+SET STATUS OFF 'SET STATUS OFF                                                                                                                                                                . '
+? 2+2 '? 2+2\r\n\r\n 4. '
+QUIT 'QUIT\r\nA:\\>'
+SHOT dos-status-off
+STOPPED 42

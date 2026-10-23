@@ -1,0 +1,31 @@
+
+  Page No.     1                   MARCH 1992
+  10/23/26
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department ACCT
+ ** Subtotal **
+                                       80900.00
+
+ ** Department ADMN
+ ** Subtotal **
+                                      130400.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       65100.00
+
+ ** Department FACL
+ ** Subtotal **
+                                       19750.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                      298200.00
+ *** Total ***
+                                      594350.00
+

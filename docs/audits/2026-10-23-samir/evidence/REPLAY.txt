@@ -1,0 +1,42 @@
+Replay in a writable COPY of the whole audit directory, including supplied images.
+Do not run these output-reusing scripts over the preserved evidence.
+
+1. python3 evidence/rebuild_fixtures.py
+   Recreates all derived input disks from evidence/fixtures and the supplied
+   samir_list.img. It neither builds code nor reads the source repository.
+2. python3 evidence/run_suite.py evidence/pack-two.json
+   Substitute another plan. One emulator is created, driven via QMP stdio and
+   stopped in finally. A command is a JSON string; a key/wait/screenshot is an
+   action array. Every command ends with Enter. The exact boot/data/route are
+   in the plan. DOS date/time prompts are handled before SAMIR.COM.
+3. python3 evidence/run_queue.py regress data io expressions reports ...
+   Runs named plans sequentially. Never start another audit emulator alongside it.
+4. python3 evidence/redirect.py
+   Standalone redirected-input control.
+
+Use corrected programs-real.json, programmore-real.json, full-real.json.
+The original programs.json/programmore.json/full.json preserve early attempts
+that did not reach SAMIR. They are not product-failure repros. Corrected shot
+aliases are byte-identical to the reviewed corrected captures.
+
+Core reproductions:
+  date-write: data.json (EDGE fixture)
+  uninterruptible loop: escape-loop.json
+  recursion hang: recursion-alone.json
+  two-index PACK: pack-two.json
+  memo cache: memo.json
+  EOF/empty/blank date index: index-boundary.json, index-fresh.json,
+      date-index.json, verify-final.json
+  length limit: keys.json, keys-dos.json
+  RETRY: retry-control.json (RETRYFIX uses public repaired variables)
+  RETURN TO MASTER: master-deep.json (three levels)
+  full disk: full-real.json, full-recovery.json
+
+Reports are generated from evidence/findings.json by evidence/write_report.py.
+NITS.tsv intentionally has no header. Do not rerun the intermediate finding
+assembly scripts over the final JSON: final review corrections live in findings.json.
+
+Raw serial logs are authoritative for complete command sequences. Runner stdout
+may display only the last 1200 bytes of long output. The per-plan *-steps.jsonl
+provides serial byte ranges; actions.jsonl records nested driver actions, so do
+not blindly replay every nested journal line (that would double the input).

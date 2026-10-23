@@ -1,0 +1,791 @@
+[
+  {
+    "key": "date-write",
+    "area": "DBF dates",
+    "severity": "P1",
+    "title": "Replacing a date with an invalid date writes non-date bytes",
+    "steps": "Fresh rich-fixture.img, desktop route. USE EDGE; REPLACE WHEN WITH CTOD(\"02/30/92\"); DISPLAY ID,WHEN; USE; USE EDGE. Stop the guest and extract EDGE.DBF with mcopy.",
+    "observed": "Record 1 WHEN becomes the eight ASCII bytes ,)/-1124 (hex 2c292f2d31313234), rather than eight blanks. DISPLAY shows 11/24/00. The invalid bytes survive closing and reopening. This is a persistence defect beyond earlier audit L045, which described display of empty/invalid dates.",
+    "expected": "A blank/invalid CTOD result must leave a valid blank date representation. Named reference: dbase3-decomp/specs/file-formats/dbf.md, section 5: D fields contain YYYYMMDD or blanks. This corrupts the field representation even though the table remains openable.",
+    "evidence": [
+      "shots/data-wide.png",
+      "evidence/data-serial.log",
+      "evidence/data-files/EDGE.DBF",
+      "evidence/data-bytes.json"
+    ],
+    "source_guess": "Guess: os/samir/fs/dbf.c:1654 converts every XB_D through ymd_from_jdn, including the zero/blank sentinel; only XB_U takes the blank branch at line 1675.",
+    "id": "L001"
+  },
+  {
+    "key": "escape-loop",
+    "area": "Program interruption",
+    "severity": "P1",
+    "title": "Escape and Ctrl-C cannot stop a running loop",
+    "steps": "Fresh rich-fixture.img, desktop route. DO LOOP. Wait 2 seconds; press Esc, wait 2 seconds; Ctrl-C, wait 2 seconds; type ? \"RECOVERED\" and Enter; wait 2 seconds. LOOP.PRG installs ON ESCAPE and runs DO WHILE .T. incrementing N.",
+    "observed": "The screen remains at . DO LOOP; no trap output, prompt, or recovery command appears. QMP remains responsive and reports running, HLT=0. Only stopping this audit QEMU ended the session. This is failure to interrupt a program, not a claim that the infinite loop should terminate by itself.",
+    "expected": "A user must be able to interrupt a mistaken loop without destroying the session. Named reference: dbase3-decomp/specs/commands/programming-and-io.md, ON ESCAPE/SET ESCAPE discussion. The shipped quick reference openly calls the trap inert; that documents the limitation but does not make an uncancellable loop dependable.",
+    "evidence": [
+      "shots/escape-loop-running.png",
+      "shots/escape-loop-escape.png",
+      "evidence/escape-loop-serial.log",
+      "evidence/escape-loop-qmp-state.json",
+      "evidence/escape-loop.json",
+      "evidence/fixtures/LOOP.PRG"
+    ],
+    "source_guess": "",
+    "id": "L002"
+  },
+  {
+    "key": "recursion",
+    "area": "Procedure stack",
+    "severity": "P1",
+    "title": "Recursive internal procedures destroy the running session",
+    "steps": "Fresh program-fixture.img, desktop route: DO RECINT. Wait 3 seconds, press Esc and Ctrl-C, wait 2 seconds, type ? \"RECOVERED\", then wait 2 seconds. RECINT.PRG calls procedure REC, whose body calls REC again.",
+    "observed": "No error, return prompt or recovery output appears. This reproduced independently after a longer session and from a fresh boot. QMP still responds; the isolated capture has EIP=dbd6bba7 and ESP=00054871, outside a sensible executable/stack layout. No panic text was printed. This is an observed crash/hang; stack corruption is a diagnosis, not a proven mechanism.",
+    "expected": "Bound recursive calls and report a nesting/space error without losing the session. Shipped Volume One u5-entries-a.tex:336-341 says procedures may call themselves \"to a depth of 64\". Safe handling beyond the supported depth is also my reliability requirement.",
+    "evidence": [
+      "shots/recursion-alone-recursive.png",
+      "shots/recursion-alone-recovery.png",
+      "evidence/recursion-alone-serial.log",
+      "evidence/recursion-alone-qmp-state.json",
+      "evidence/programedges-qmp-state.json",
+      "evidence/fixtures/RECINT.PRG"
+    ],
+    "source_guess": "Guess: os/samir/cmd/proc.c:592-607 allocates an 8192-byte automatic body per call; recursive stack growth may overwrite guest state before the intended nesting limit.",
+    "id": "L003"
+  },
+  {
+    "key": "desktop-status",
+    "area": "Status display",
+    "severity": "P2",
+    "title": "Desktop-launched status mode prints ANSI control sequences",
+    "steps": "Boot flair_tenants_interactive.img with rich-fixture.img, press Ctrl+Alt+backslash, USE CLIENTS, SET STATUS ON, then ? 2+2. Allow output to settle. SET STATUS OFF restores ordinary command output.",
+    "observed": "Escape sequences such as [23;1H and [0;7m fill and scroll the screen instead of positioning a status bar. The same setting works through tracer_boot.img and SAMIR.COM, so this is specific to the desktop route, not the old unrecognized SET STATUS command.",
+    "expected": "SET STATUS ON should draw the status bar. Shipped quick reference qr-set.tex:16 documents \"The status bar\" for STATUS; the real III+ status layout is described in dbase3-decomp/specs/full-screen/assist-ui-and-editors.md section 10. The DOS-route screenshot is the control.",
+    "evidence": [
+      "shots/desktop-status-status.png",
+      "shots/desktop-status-typing.png",
+      "shots/dos-status-type.png",
+      "evidence/desktop-status-serial.log",
+      "evidence/dos-status-serial.log"
+    ],
+    "source_guess": "Guess: os/samir/pal/pal_milton.c:566 and :607 bind the status display to ANSI sequences; the DOS boot logs ANSI-WIRED/ANSI.SYS, whereas the tested desktop boot does not.",
+    "id": "L004"
+  },
+  {
+    "key": "memo-cache",
+    "area": "Memo fields",
+    "severity": "P2",
+    "title": "A successful memo replacement reads as empty until USE reopens the table",
+    "steps": "Fresh rich-fixture.img: USE EDGE; ? MEMO; REPLACE MEMO WITH \"changed memo\"; ? MEMO,LEN(MEMO); GO 2; GO 1; ? MEMO; USE; USE EDGE; ? MEMO,LEN(MEMO). Repeat with \"again\".",
+    "observed": "Immediately after each successful REPLACE, the memo is empty and LEN is 0, even after moving away and back. Closing/reopening returns \"changed memo\" with length 12, then \"again\" on the second cycle. DBF pointers and DBT appended text are persisted correctly.",
+    "expected": "Reads in the same work area should immediately reflect a successful write. Named reference: dbase3-decomp/specs/commands/data-definition-and-manipulation.md, REPLACE; dbt.md section 4 describes the memo pointer. The read-after-write requirement is also my data-consistency expectation.",
+    "evidence": [
+      "shots/memo-write.png",
+      "evidence/memo-serial.log",
+      "evidence/memo-files/EDGE.DBF",
+      "evidence/memo-files/EDGE.DBT",
+      "evidence/memo.json"
+    ],
+    "source_guess": "Guess: os/samir/cmd/workarea.c:63 retains the open memo handle, while os/samir/fs/dbf.c:1763 opens a separate writable handle and appends through it; the existing reader is not refreshed.",
+    "id": "L005"
+  },
+  {
+    "key": "numeric-overflow",
+    "area": "Numeric fields",
+    "severity": "P2",
+    "title": "An asterisk-filled numeric overflow is presented as zero",
+    "steps": "Fresh rich-fixture.img: USE EDGE; REPLACE SMALL WITH 99999; DISPLAY ID,SMALL. Close/reopen EDGE and display again; extract the stopped DBF.",
+    "observed": "SMALL N(4,1) is stored as **** at record offset 290, but DISPLAY prints 0.0. The same false zero appears after reopening.",
+    "expected": "Preserve an unmistakable overflow indication in listings instead of presenting an ordinary zero. The storage rule is in shipped Volume One u5-entries-b.tex:577: \"A number too large for its field is stored as asterisks.\" The expectation that the listing must not conceal that failure is my usability/data-integrity judgment; I did not run a live III+ overflow listing.",
+    "evidence": [
+      "shots/data-wide.png",
+      "evidence/data-serial.log",
+      "evidence/data-files/EDGE.DBF",
+      "evidence/data-bytes.json"
+    ],
+    "source_guess": "Guess: os/samir/fs/dbf.c:847 parses all-asterisk N fields with dec_parse and explicitly falls back to 0.0.",
+    "id": "L006"
+  },
+  {
+    "key": "transform",
+    "area": "Numeric picture formatting",
+    "severity": "P2",
+    "title": "TRANSFORM reports overflow for a decimal value that fits its picture",
+    "steps": "Fresh rich-fixture.img: ? TRANSFORM(123.4,\"999.99\"). Compare ? STR(123.4,6,2) and the adjacent decimal cases in transform.json.",
+    "observed": "The six-character picture produces ***.** for 123.4, despite room for 123.40. Controls: STR(123.4,6,2) gives 123.40, and TRANSFORM(12.34,\"999.99\") gives 12.34; even 0.12 in \"9.99\" incorrectly becomes *.**.",
+    "expected": "The three integer and two fractional digit positions should produce 123.40. Named reference: dbase3-decomp/specs/full-screen/picture-function-templates.md section 3 and its 9,999.99 example; the arithmetic fit of this exact case is independently obvious.",
+    "evidence": [
+      "shots/expressions-types.png",
+      "evidence/expressions-serial.log",
+      "shots/verify-final-transform.png",
+      "evidence/verify-final-serial.log"
+    ],
+    "source_guess": "Guess: os/samir/core/fn_builtins.c:1580 passes the count of digit slots to dec_format as the total width, omitting space for the decimal point.",
+    "id": "L007"
+  },
+  {
+    "key": "empty-index",
+    "area": "Indexes",
+    "severity": "P2",
+    "title": "INDEX ON cannot create an index for an empty table",
+    "steps": "Fresh rich-fixture.img: USE EMPTY; INDEX ON NAME TO ZERO; SEEK \"NONE\".",
+    "observed": "INDEX returns 29 File is not accessible. No ZERO.NDX is created. SEEK then returns 26 Database is not indexed. EMPTY.DBF is a valid zero-record table with NAME C(12).",
+    "expected": "Create a valid empty index that can receive future appends. Named reference: dbase3-decomp/specs/file-formats/ndx.md, empty-root layout, and commands/data-definition-and-manipulation.md, INDEX. This is a common new-table workflow.",
+    "evidence": [
+      "shots/index-fresh-empty.png",
+      "evidence/index-fresh-serial.log",
+      "evidence/fixtures/EMPTY.DBF",
+      "evidence/index-fresh-files/EMPTY.DBF"
+    ],
+    "source_guess": "Guess: os/samir/cmd/mutate.c:1124 infers key width from the current evaluated value, which is empty when there is no record.",
+    "id": "L008"
+  },
+  {
+    "key": "abbreviations",
+    "area": "Command language",
+    "severity": "P2",
+    "title": "Four-letter command abbreviations are rejected",
+    "steps": "USE CLIENTS. Enter DISP; REPL NAME WITH \"TEST\"; APPE BLANK; LOCA FOR BAL>1000; SELE 2; INDE ON NAME TO TEST; STOR 5 TO X.",
+    "observed": "Every abbreviation returns 16 *** Unrecognized command verb. Full spellings work for the corresponding implemented commands.",
+    "expected": "Named reference: dbase3-decomp/specs/runtime/interpreter-and-execution-model.md:188-224 documents first-four-letter recognition. The shipped Volume One u2-commands.tex:26 explicitly instructs full spellings, so this is a historical feature gap, not an undocumented manual contradiction.",
+    "evidence": [
+      "shots/missing-abbrev.png",
+      "evidence/missing-serial.log",
+      "evidence/missing.json"
+    ],
+    "source_guess": "",
+    "id": "L009"
+  },
+  {
+    "key": "display-status",
+    "area": "Inspection",
+    "severity": "P2",
+    "title": "DISPLAY STATUS is parsed as a field expression",
+    "steps": "USE CLIENTS; DISPLAY STATUS.",
+    "observed": "12 Variable not found is returned; no environment/work-area report is shown.",
+    "expected": "Named reference: dbase3-decomp/specs/commands/navigation-query-display.md:713-727 specifies open files and system parameters. This is separate from the fixed command SET STATUS and the old DISPLAY STRUCTURE gap.",
+    "evidence": [
+      "shots/missing-inspection.png",
+      "evidence/missing-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L010"
+  },
+  {
+    "key": "display-memory",
+    "area": "Inspection",
+    "severity": "P2",
+    "title": "DISPLAY MEMORY is parsed as a field expression",
+    "steps": "USE CLIENTS; DISPLAY MEMORY.",
+    "observed": "12 Variable not found is returned; no memory-variable listing is shown.",
+    "expected": "Named reference: dbase3-decomp/specs/commands/navigation-query-display.md:731-743 specifies names, types, sizes, scopes and values of memory variables.",
+    "evidence": [
+      "shots/missing-inspection.png",
+      "evidence/missing-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L011"
+  },
+  {
+    "key": "modify-structure",
+    "area": "Structure editor",
+    "severity": "P2",
+    "title": "MODIFY STRUCTURE is unavailable",
+    "steps": "USE CLIENTS; MODIFY STRUCTURE.",
+    "observed": "16 *** Unrecognized command verb. No field editor opens, so rename/widen/narrow/add/delete with existing data cannot be reached.",
+    "expected": "Named reference: dbase3-decomp/specs/commands/data-definition-and-manipulation.md section 2 and full-screen/assist-ui-and-editors.md section 6. Earlier K08 covers CREATE and record editors, not this reached modification command.",
+    "evidence": [
+      "shots/missing-inspection.png",
+      "evidence/missing-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L012"
+  },
+  {
+    "key": "quit-program",
+    "area": "Program lifecycle",
+    "severity": "P2",
+    "title": "QUIT inside a PRG is rejected rather than exiting",
+    "steps": "Run DO QUITPRG using rich-fixture.img. The file prints BEFORE QUIT, executes QUIT, and would then print AFTER QUIT.",
+    "observed": "BEFORE QUIT is followed by 16 *** Unrecognized command verb and a dot prompt. The database process remains alive; AFTER QUIT is not run because the program aborted.",
+    "expected": "QUIT should close files and end the database session when executed by a program. Named reference: dbase3-decomp/specs/commands/programming-and-io.md, QUIT; shipped Quick Reference qr-commands.tex:37 entry QUIT says \"Closes all files and leaves InitechBase\".",
+    "evidence": [
+      "shots/programmore-real-quitprogram.png",
+      "evidence/programmore-real-serial.log",
+      "evidence/fixtures/QUITPRG.PRG"
+    ],
+    "source_guess": "",
+    "id": "L013"
+  },
+  {
+    "key": "pack-two",
+    "area": "Indexes and PACK",
+    "severity": "P2",
+    "title": "PACK with two open indexes leaves live index state unusable",
+    "steps": "Fresh rich-fixture.img: USE CLIENTS; INDEX ON NAME TO BYNAME; INDEX ON BAL TO BYBAL; SET INDEX TO BYNAME,BYBAL; SET ORDER TO 1; PACK; REINDEX; GO TOP; LIST. Then CLOSE INDEX; GO TOP; LIST. Finally USE; USE CLIENTS INDEX BYNAME,BYBAL; GO TOP; LIST.",
+    "observed": "PACK reports success, but REINDEX returns 114 Index damaged, GO TOP returns 5 Record is out of range, and LIST returns 10 Syntax error. Closing indexes restores physical traversal; reopening both restores sorted traversal. The one-index control passes. This reproduced without any deleted records, so record compaction is not required. The stopped DBF and NDX bytes remain readable; persistent index corruption is not claimed.",
+    "expected": "PACK must preserve usable open indexes, rebuilding them as needed. Named reference: dbase3-decomp/specs/commands/data-definition-and-manipulation.md section 10 (PACK).",
+    "evidence": [
+      "shots/pack-two-after.png",
+      "evidence/pack-two-serial.log",
+      "evidence/pack-two-files/BYNAME.NDX",
+      "evidence/pack-two-files/BYBAL.NDX",
+      "evidence/pack-two-files/CLIENTS.DBF",
+      "evidence/pack-index-serial.log"
+    ],
+    "source_guess": "Guess: inspect the multi-index lifetime across os/samir/cmd/mutate.c:945-959 and fs/ndx.c:2655 (ndx_rebuild). A single-index run does not reproduce it.",
+    "id": "L014"
+  },
+  {
+    "key": "eof-index",
+    "area": "Indexes",
+    "severity": "P2",
+    "title": "INDEX ON fails when the current pointer is at EOF",
+    "steps": "Fresh rich-fixture.img: USE CLIENTS; GO BOTTOM; SKIP; ? EOF(),RECNO(); INDEX ON NAME TO EOFIDX. Then GO TOP; INDEX ON NAME TO TOPIDX.",
+    "observed": "EOF is true at record 4. The first INDEX returns 29 File is not accessible and creates no file; the same expression succeeds after GO TOP.",
+    "expected": "INDEX ON scans the table independently of the incoming current-record position. Named reference: dbase3-decomp/specs/commands/data-definition-and-manipulation.md, INDEX; my equivalent-input expectation is that moving to EOF does not make the output file inaccessible.",
+    "evidence": [
+      "shots/index-boundary-at-eof.png",
+      "evidence/index-boundary-serial.log",
+      "evidence/index-boundary-files/TOPIDX.NDX"
+    ],
+    "source_guess": "Guess: os/samir/cmd/mutate.c:1124-1130 derives key width/type from the current record before scanning. At EOF a character field evaluates as a zero-length value.",
+    "id": "L015"
+  },
+  {
+    "key": "blank-date-index",
+    "area": "Indexes",
+    "severity": "P2",
+    "title": "A valid blank date prevents creation of a date index",
+    "steps": "Fresh rich-fixture.img: USE EDGE; INDEX ON WHEN TO BLANKDAT. EDGE record 3 has eight blank bytes in WHEN. Control on another fresh copy: REPLACE ALL WHEN WITH CTOD(\"01/01/92\"); GO TOP; INDEX ON WHEN TO VALIDATE.",
+    "observed": "The original table returns 9 Data type mismatch. Filling all dates with valid dates and moving to GO TOP succeeds. The shipped STAFF/HIRED date-index example also succeeds. This is specifically the valid blank date case, not missing date indexing generally.",
+    "expected": "Blank dates are legal database values and must be indexable alongside ordinary dates. Named references: dbase3-decomp/specs/file-formats/dbf.md section 5 (blank D fields) and ndx.md section 4.2 (date keys).",
+    "evidence": [
+      "shots/date-index-blank.png",
+      "shots/verify-final-date-control.png",
+      "shots/verify-final-manual-date.png",
+      "evidence/date-index-serial.log",
+      "evidence/verify-final-serial.log",
+      "evidence/fixtures/EDGE.DBF"
+    ],
+    "source_guess": "Guess: os/samir/cmd/mutate.c:244-249 accepts XB_N and XB_D, but not the XB_U representation returned for a blank DBF date.",
+    "id": "L016"
+  },
+  {
+    "key": "index-length",
+    "area": "Index bounds",
+    "severity": "P2",
+    "title": "INDEX accepts 101-character keys beyond the III+ maximum",
+    "steps": "Fresh rich-fixture.img: USE EDGE; GO TOP; INDEX ON LEFT(WIDE,100) TO KEY100; GO TOP; INDEX ON LEFT(WIDE,101) TO KEY101. Extract both NDX files after stopping.",
+    "observed": "Both succeed. KEY101.NDX records key_length=101 in the little-endian word at offset 12. A direct 254-character key is rejected with 29 File is not accessible, rather than the specific key-size diagnostic.",
+    "expected": "Reject keys longer than 100 with the III+ index-too-big diagnostic. Named reference: the III+ message catalog \"Index is too big (100 char maximum)\" and dbase3-decomp/specs/commands/data-definition-and-manipulation.md, INDEX limits. This is a compatibility/boundary defect; I did not feed the generated 101-byte index into a live III+ interpreter.",
+    "evidence": [
+      "evidence/index-boundary-serial.log",
+      "evidence/index-boundary-files/KEY100.NDX",
+      "evidence/index-boundary-files/KEY101.NDX",
+      "shots/artifact-controls-index-length.png",
+      "evidence/artifact-controls-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L017"
+  },
+  {
+    "key": "corrupt-index",
+    "area": "Index diagnostics",
+    "severity": "P2",
+    "title": "A corrupt existing NDX is reported as nonexistent",
+    "steps": "Fresh rich-fixture.img: USE CLIENTS; SET INDEX TO BAD.NDX. BAD.NDX is the 559-byte fixture of repeated \"not an index\" text.",
+    "observed": "The command says 1 File does not exist, although the file is present and extractable from the same image.",
+    "expected": "Distinguish a malformed index from a missing pathname, so the user can take the right repair action. Named reference: dbase3-decomp/specs/file-formats/ndx.md, header validation invariants; the accurate-diagnostic requirement is my usability judgment.",
+    "evidence": [
+      "shots/errors-files.png",
+      "evidence/errors-serial.log",
+      "evidence/fixtures/BAD.NDX",
+      "evidence/index-fresh-files/BAD.NDX"
+    ],
+    "source_guess": "",
+    "id": "L018"
+  },
+  {
+    "key": "line-limit",
+    "area": "Command input",
+    "severity": "P2",
+    "title": "The ordinary dot prompt truncates commands at 128 bytes",
+    "steps": "Use desktop route with default SET STATUS OFF. Type the exact 254-character command in keys.json: ? LEN(\" followed by 245 x characters, then \"). Press Enter. Repeat the 255-character variant with 246 y characters.",
+    "observed": "Only the first 128 bytes are accepted; the remaining 126/127 keystrokes ring the bell. The closing quote/parenthesis is lost and execution reports 35 Unterminated string. This is not a legitimate rejection of a 255-byte command: the documented 254-byte case fails too. DOS-route controls reproduce the 128-byte cap with status off; with status on, the 254-byte command returns 245 and a 255-byte command is cleanly rejected with error 18.",
+    "expected": "Accept the promised 254-character line. Shipped Volume One ua-keys.tex:20-22 says printable characters are taken \"up to 254 characters\"; u2-commands.tex:16 repeats the limit. Reject an overlong line coherently rather than executing its truncated prefix.",
+    "evidence": [
+      "shots/keys-254.png",
+      "shots/keys-255.png",
+      "evidence/keys.json",
+      "evidence/keys-serial.log",
+      "evidence/key-lengths.json",
+      "shots/keys-dos-off.png",
+      "shots/keys-dos-on.png",
+      "shots/keys-dos-overlong.png",
+      "evidence/keys-dos-serial.log"
+    ],
+    "source_guess": "Guess: os/samir/pal/pal_milton.c:650-654 uses the cooked DOS stream when status is off; the observed 128-byte cap occurs below SAMIR line framing.",
+    "id": "L019"
+  },
+  {
+    "key": "program-lines",
+    "area": "Program capacity",
+    "severity": "P2",
+    "title": "A 7018-byte, 1000-line program fails with insufficient memory",
+    "steps": "Fresh program-fixture.img: DO SHORT1K. The fixture sets N=0, repeats N=N+1 1000 times, prints N and returns; its exact CRLF file size is 7018 bytes.",
+    "observed": "43 Insufficient memory is returned without running the program. An ordinary compact program with IF, CASE, LOOP, EXIT and procedures runs successfully in the control session.",
+    "expected": "This small program should fit the advertised file limit and a 16 MiB workstation. Shipped Volume One u5-entries-a.tex:331-333 states a maximum of 8191 characters. The 1000-line case is explicitly requested by this audit brief. This is a capacity limitation, not a crash.",
+    "evidence": [
+      "shots/programedges-1000.png",
+      "evidence/programedges-serial.log",
+      "evidence/fixtures/SHORT1K.PRG",
+      "evidence/programs-real-serial.log"
+    ],
+    "source_guess": "Guess: os/samir/cmd/flow.c:54 fixes FLOW_MAX_LINES at 512, an additional limit not stated with the documented file-size limit.",
+    "id": "L020"
+  },
+  {
+    "key": "nested-file",
+    "area": "Program calls",
+    "severity": "P2",
+    "title": "DO inside a PRG cannot call another existing PRG file",
+    "steps": "Fresh control-fixture.img: DO OUTER. OUTER.PRG contains DO USEPRG, then prints CHILD RETURNED. USEPRG.PRG exists and works when invoked directly at the dot prompt.",
+    "observed": "The nested call returns 16 *** Unrecognized command verb. CHILD RETURNED is never printed. Internal named procedures work in FLOW.PRG.",
+    "expected": "Resolve a DO target to either a procedure or another program file. Named reference: dbase3-decomp/specs/commands/programming-and-io.md:71-85, resolution order. The shipped manual describes only internal procedure calls from a program, so this is a historical capability gap.",
+    "evidence": [
+      "shots/control-nested.png",
+      "evidence/control-serial.log",
+      "evidence/programs-real-serial.log",
+      "evidence/fixtures/OUTER.PRG",
+      "evidence/fixtures/USEPRG.PRG"
+    ],
+    "source_guess": "",
+    "id": "L021"
+  },
+  {
+    "key": "retry",
+    "area": "Error recovery",
+    "severity": "P2",
+    "title": "RETRY in an error handler does not retry the failed statement",
+    "steps": "Fresh retry-fixture.img: DO RETRYFIX. Main code declares public XX and TRYCNT, sets XX=\"bad\", and executes ? XX+1. Its ON ERROR procedure sets the shared XX to 6, increments TRYCNT and executes RETRY. Main code then prints DONE,TRYCNT. Query XX,TRYCNT afterwards.",
+    "observed": "Only DONE 1 appears; the repaired ? XX+1 is never retried, so 7 is missing. The following query proves XX=6 and TRYCNT=1. Public variables make this independent of handler-local variable lifetime. The program returns normally.",
+    "expected": "RETRY must execute the failing command again after the handler fixes its cause. Named reference: dbase3-decomp/specs/commands/programming-and-io.md:232-243 quotes the III+ HELP behavior and the ERRORPRG.PRG usage.",
+    "evidence": [
+      "shots/retry-control-result.png",
+      "evidence/retry-control-serial.log",
+      "evidence/fixtures/RETRYFIX.PRG",
+      "evidence/control-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L022"
+  },
+  {
+    "key": "empty-bof",
+    "area": "Record boundaries",
+    "severity": "P2",
+    "title": "BOF stays false for a physically empty database",
+    "steps": "USE EMPTY; ? RECCOUNT(),EOF(),BOF(); GO TOP; ? EOF(),BOF().",
+    "observed": "The count is 0 and EOF is true, but BOF is false both immediately after USE and after GO TOP.",
+    "expected": "For an empty file, both boundary predicates should be true. Named reference: dbase3-decomp/specs/commands/navigation-query-display.md:999. That local specification includes cross-implementation corroboration; I did not mint this case in a live III+ session.",
+    "evidence": [
+      "shots/verify-final-empty.png",
+      "evidence/verify-final-serial.log",
+      "evidence/fixtures/EMPTY.DBF"
+    ],
+    "source_guess": "",
+    "id": "L023"
+  },
+  {
+    "key": "report-designer",
+    "area": "Report design",
+    "severity": "P2",
+    "title": "CREATE/MODIFY REPORT cannot open a designer",
+    "steps": "USE CLIENTS; CREATE REPORT NEWREP; MODIFY REPORT STAFFRPT.",
+    "observed": "Both return 16 *** Unrecognized command verb. No report designer opens.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/full-screen/assist-ui-and-editors.md section 8.1. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/ui-gaps-design.png",
+      "evidence/ui-gaps-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L024"
+  },
+  {
+    "key": "label-designer",
+    "area": "Label design",
+    "severity": "P2",
+    "title": "CREATE LABEL cannot open a designer",
+    "steps": "USE CLIENTS; CREATE LABEL NEWLAB.",
+    "observed": "16 *** Unrecognized command verb. No label designer opens.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/full-screen/assist-ui-and-editors.md section 8.2. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/ui-gaps-design.png",
+      "evidence/ui-gaps-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L025"
+  },
+  {
+    "key": "program-editor",
+    "area": "Program editing",
+    "severity": "P2",
+    "title": "MODIFY COMMAND cannot edit a PRG",
+    "steps": "MODIFY COMMAND FLOW, with FLOW.PRG on the disk.",
+    "observed": "16 *** Unrecognized command verb. No text editor opens.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/full-screen/assist-ui-and-editors.md section 9. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/ui-gaps-design.png",
+      "evidence/ui-gaps-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L026"
+  },
+  {
+    "key": "structure-copy",
+    "area": "Structure export",
+    "severity": "P2",
+    "title": "COPY STRUCTURE is unavailable",
+    "steps": "USE CLIENTS; COPY STRUCTURE TO STRUCT.",
+    "observed": "16 *** Unrecognized command verb; no structure-only DBF is created.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/data-definition-and-manipulation.md, COPY STRUCTURE. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/ui-gaps-data.png",
+      "evidence/ui-gaps-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L027"
+  },
+  {
+    "key": "extended-copy",
+    "area": "Structure export",
+    "severity": "P2",
+    "title": "COPY STRUCTURE EXTENDED is unavailable",
+    "steps": "USE CLIENTS; COPY STRUCTURE EXTENDED TO EXTSTR.",
+    "observed": "16 *** Unrecognized command verb; no field-definition table is created.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/data-definition-and-manipulation.md, COPY STRUCTURE EXTENDED. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/ui-gaps-data.png",
+      "evidence/ui-gaps-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L028"
+  },
+  {
+    "key": "join",
+    "area": "Multi-table data",
+    "severity": "P2",
+    "title": "JOIN is not recognized",
+    "steps": "USE CLIENTS; JOIN WITH CLIENTS TO JOINED FOR .T.",
+    "observed": "16 *** Unrecognized command verb, rather than entering the JOIN command path or diagnosing the operands. No join is performed.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/data-definition-and-manipulation.md, JOIN. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/ui-gaps-data.png",
+      "evidence/ui-gaps-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L029"
+  },
+  {
+    "key": "update",
+    "area": "Multi-table data",
+    "severity": "P2",
+    "title": "UPDATE is not recognized",
+    "steps": "USE CLIENTS; UPDATE ON NAME FROM CLIENTS REPLACE BAL WITH BAL.",
+    "observed": "16 *** Unrecognized command verb, rather than entering the UPDATE command path or diagnosing the source work area.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/data-definition-and-manipulation.md, UPDATE. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/ui-gaps-data.png",
+      "evidence/ui-gaps-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L030"
+  },
+  {
+    "key": "list-print",
+    "area": "Printed listings",
+    "severity": "P2",
+    "title": "LIST rejects TO PRINT",
+    "steps": "USE CLIENTS; LIST NAME TO PRINT.",
+    "observed": "36 Unrecognized phrase/keyword in command. It never reaches the printer availability check. REPORT FORM TO PRINT reaches error 126 instead.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/navigation-query-display.md, LIST syntax. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/ui-gaps-data.png",
+      "evidence/ui-gaps-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L031"
+  },
+  {
+    "key": "unique",
+    "area": "Index uniqueness",
+    "severity": "P2",
+    "title": "Neither INDEX UNIQUE nor SET UNIQUE is supported",
+    "steps": "USE CLIENTS; INDEX ON NAME TO UNIQUE1 UNIQUE; SET UNIQUE ON; SET UNIQUE OFF.",
+    "observed": "INDEX ... UNIQUE and SET UNIQUE ON/OFF each return 10 Syntax error. The ordinary INDEX ON NAME TO UNIQUE2 control succeeds.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/set-commands.md:165 and data-definition-and-manipulation.md, INDEX UNIQUE. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/ui-gaps-unique.png",
+      "evidence/ui-gaps-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L032"
+  },
+  {
+    "key": "at-form",
+    "area": "Forms",
+    "severity": "P2",
+    "title": "@ SAY and the form entry point are unavailable",
+    "steps": "DO FORM; then @ 2,3 SAY \"HELLO\". FORM.PRG contains @ 2,3 SAY \"Name:\" GET NAMEVAR followed by READ.",
+    "observed": "16 *** Unrecognized command verb at the @ command. No form is drawn; READ and its editing keys cannot be reached through that program.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/full-screen/assist-ui-and-editors.md and dbase3-decomp/specs/full-screen/say-get-read.md. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/programmore-real-form.png",
+      "evidence/programmore-real-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L033"
+  },
+  {
+    "key": "text-block",
+    "area": "Program output",
+    "severity": "P2",
+    "title": "TEXT/ENDTEXT literal blocks are unavailable",
+    "steps": "DO TEXT. TEXT.PRG contains two literal text lines between TEXT and ENDTEXT.",
+    "observed": "16 *** Unrecognized command verb; neither text line appears.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/programming-and-io.md:494-517. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/programmore-real-form.png",
+      "evidence/programmore-real-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L034"
+  },
+  {
+    "key": "echo",
+    "area": "Program tracing",
+    "severity": "P2",
+    "title": "SET ECHO is unavailable",
+    "steps": "SET ECHO ON; DO USEPRG; SET ECHO OFF.",
+    "observed": "Both SET ECHO forms return 10 Syntax error; the program runs without an execution trace.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/set-commands.md:150. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/settings-trace.png",
+      "evidence/settings-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L035"
+  },
+  {
+    "key": "fixed",
+    "area": "Numeric display",
+    "severity": "P2",
+    "title": "SET FIXED is unavailable",
+    "steps": "SET FIXED ON; SET DECIMALS TO 2; ? 3,3.5; SET FIXED OFF.",
+    "observed": "Both SET FIXED forms return 10 Syntax error. The values print as 3 and 3.5.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/set-commands.md:153 and section SET FIXED. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/settings-format.png",
+      "evidence/settings-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L036"
+  },
+  {
+    "key": "margin",
+    "area": "Printing layout",
+    "severity": "P2",
+    "title": "SET MARGIN is unavailable",
+    "steps": "SET MARGIN TO 5.",
+    "observed": "10 Syntax error.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/set-commands.md:225-233. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/settings-format.png",
+      "evidence/settings-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L037"
+  },
+  {
+    "key": "print-toggle",
+    "area": "Printing",
+    "severity": "P2",
+    "title": "SET PRINT is unavailable",
+    "steps": "SET PRINT ON; SET PRINT OFF.",
+    "observed": "Both return 10 Syntax error, independently of printer availability.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/set-commands.md:158. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/settings-format.png",
+      "evidence/settings-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L038"
+  },
+  {
+    "key": "device",
+    "area": "Output routing",
+    "severity": "P2",
+    "title": "SET DEVICE is unavailable",
+    "steps": "SET DEVICE TO PRINT; SET DEVICE TO SCREEN.",
+    "observed": "Both return 10 Syntax error.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/set-commands.md:359-370. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/settings-format.png",
+      "evidence/settings-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L039"
+  },
+  {
+    "key": "history",
+    "area": "Command history",
+    "severity": "P2",
+    "title": "Command-history controls are unavailable",
+    "steps": "? \"FIRST\"; Up; Enter; LIST HISTORY; SET HISTORY ON.",
+    "observed": "Up does not recall the previous command, LIST HISTORY returns 3 File is already open in the no-table state, and SET HISTORY ON returns 10 Syntax error.",
+    "expected": "The named III+ command should be available. Named reference: dbase3-decomp/specs/commands/navigation-query-display.md, LIST/DISPLAY HISTORY; set-commands.md, HISTORY. This finding concerns the reached entry point; deeper workflows are not claimed to have run.",
+    "evidence": [
+      "shots/keys-history.png",
+      "evidence/keys-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L040"
+  },
+  {
+    "key": "master-return",
+    "area": "Program stack",
+    "severity": "P2",
+    "title": "RETURN TO MASTER returns only one level",
+    "steps": "Fresh master-fixture.img: DO MASTER2. The master calls FIRST; FIRST calls SECOND; SECOND executes RETURN TO MASTER.",
+    "observed": "The output is MASTER, FIRST, SECOND, FIRST RESUMED, MASTER RESUMED. FIRST RESUMED should have been skipped.",
+    "expected": "Return directly to the top-level routine, discarding intermediate frames. Named reference: dbase3-decomp/specs/commands/programming-and-io.md:207-225 quotes the III+ HELP definition. A one-level control is intentionally not used as proof, because ordinary RETURN and RETURN TO MASTER are equivalent there.",
+    "evidence": [
+      "shots/master-deep-result.png",
+      "evidence/master-deep-serial.log",
+      "evidence/fixtures/MASTER2.PRG"
+    ],
+    "source_guess": "",
+    "id": "L041"
+  },
+  {
+    "key": "label-sample",
+    "area": "Labels",
+    "severity": "P2",
+    "title": "LABEL FORM rejects SAMPLE",
+    "steps": "Fresh rich-fixture.img: USE STAFF; LABEL FORM STAFFLBL SAMPLE. STAFFLBL.LBL is valid and LABEL FORM ... TO FILE succeeds in reports.json.",
+    "observed": "36 Unrecognized phrase/keyword in command is returned.",
+    "expected": "Offer the label-alignment sample mode. Named reference: dbase3-decomp/specs/full-screen/assist-ui-and-editors.md section 8.2 and its LABEL FORM ... SAMPLE syntax. This is separate from the previously missing LABEL FORM entry point, which now works.",
+    "evidence": [
+      "shots/label-sample-result.png",
+      "evidence/label-sample-serial.log",
+      "evidence/reports-files/LABELS.TXT"
+    ],
+    "source_guess": "",
+    "id": "L042"
+  },
+  {
+    "key": "failed-destinations",
+    "area": "Disk-full recovery",
+    "severity": "P2",
+    "title": "Failed output commands leave invalid destinations that block retry",
+    "steps": "DOS route with full-fixture.img: USE CLIENTS; INDEX ON NAME TO FULLIDX; SORT TO SORTED ON NAME; USE; COPY FILE CLIENTS.DBF TO COPIED.DBF. ERASE FILLER.BIN; USE CLIENTS; repeat INDEX and SORT; USE SORTED.",
+    "observed": "Each failed command leaves a zero-byte destination. After disk space is freed, INDEX and SORT return 7 File already exists, and USE SORTED returns 15 Not a dBASE database. The source CLIENTS remains intact. This is failed-output cleanup, distinct from the fixed old disk-full APPEND corruption.",
+    "expected": "Either remove a new incomplete output on failure or provide a clear recovery path that does not treat the failed placeholder as completed user data. This expectation is my transactional-output/usability judgment; DBF/NDX references establish that these zero-byte files are invalid.",
+    "evidence": [
+      "shots/full-recovery-failure.png",
+      "shots/full-recovery-retry.png",
+      "evidence/full-recovery-serial.log",
+      "evidence/full-recovery-files/FULLIDX.NDX",
+      "evidence/full-recovery-files/SORTED.DBF",
+      "evidence/full-recovery-files/COPIED.DBF",
+      "evidence/full-recovery-bytes.json"
+    ],
+    "source_guess": "",
+    "id": "L043"
+  },
+  {
+    "key": "no-table-error",
+    "area": "Command diagnostics",
+    "severity": "P2",
+    "title": "Mutation commands without an open table report syntax errors",
+    "steps": "USE with no filename closes the table. Then DELETE; RECALL; PACK; REPLACE NAME WITH \"x\".",
+    "observed": "Every command returns 10 Syntax error. These command forms are syntactically valid and work with a table open.",
+    "expected": "Report No database is in USE, rather than asking the user to fix valid syntax. Named reference: the III+ error catalog and dbase3-decomp/specs/commands/data-definition-and-manipulation.md, each command requires an open database. This is a reached precondition error, not the older unsupported-editor diagnostic in K08.",
+    "evidence": [
+      "evidence/settings-serial.log",
+      "shots/artifact-controls-no-table.png",
+      "evidence/artifact-controls-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L044"
+  },
+  {
+    "key": "relation",
+    "area": "Related work areas",
+    "severity": "P2",
+    "title": "SET RELATION accepts a link but never moves the child",
+    "steps": "SELECT 2; USE DEPTS ALIAS D INDEX DEPTS; SELECT 1; USE STAFF; SET RELATION TO DEPT INTO D; GO 1; ? DEPT,D->DEPT; GO 5; ? DEPT,D->DEPT.",
+    "observed": "The two queries print SOFT ACCT and FACL ACCT. The indexed child stays on its first ACCT record instead of following the parent key.",
+    "expected": "Move the child to the matching department as the parent changes. Named reference: dbase3-decomp/specs/commands/set-commands.md, SET RELATION. Shipped Quick Reference qr-set.tex:14 explicitly labels it \"recorded, not maintained by this version\"; this is a tested historical feature gap, not an undisclosed manual promise.",
+    "evidence": [
+      "shots/last-controls-relation.png",
+      "evidence/last-controls-serial.log",
+      "evidence/fixtures/STAFF.DBF",
+      "evidence/fixtures/DEPTS.DBF",
+      "evidence/fixtures/DEPTS.NDX"
+    ],
+    "source_guess": "",
+    "id": "L045"
+  },
+  {
+    "key": "talk",
+    "area": "Command feedback",
+    "severity": "P2",
+    "title": "SET TALK ON gives no replacement count",
+    "steps": "USE CLIENTS; SET TALK ON; REPLACE ALL BAL WITH BAL+1.",
+    "observed": "Three records are changed, but the command returns directly to the dot prompt without a count or other completion feedback.",
+    "expected": "Show the processed-record count under TALK ON. This expectation comes from my memory of dBASE result counts, corroborated by the HELP-derived SET TALK purpose in dbase3-decomp/specs/commands/set-commands.md. Shipped qr-set.tex:17 openly says TALK is \"recorded, not acted on by this version\".",
+    "evidence": [
+      "shots/last-controls-talk.png",
+      "evidence/last-controls-serial.log",
+      "evidence/last-controls-files/CLIENTS.DBF",
+      "evidence/last-controls-bytes.json"
+    ],
+    "source_guess": "",
+    "id": "L046"
+  },
+  {
+    "key": "full-name",
+    "area": "Disk-full diagnostics",
+    "severity": "P3",
+    "title": "Disk-full output errors identify the source or no file at all",
+    "steps": "DOS route with full-fixture.img: USE CLIENTS; SORT TO SORTED ON NAME. Then USE; COPY FILE CLIENTS.DBF TO COPIED.DBF.",
+    "observed": "SORT says \"Disk full when writing file: CLIENTS.DBF\", although the attempted destination is SORTED.DBF. COPY reports the same message with nothing after the colon. This repeated in full-real and full-recovery.",
+    "expected": "Name the output file whose write failed. This is my diagnostic-clarity expectation; the message itself promises a filename. The underlying disk-full condition is correctly detected in these cases.",
+    "evidence": [
+      "shots/full-recovery-failure.png",
+      "evidence/full-recovery-serial.log",
+      "evidence/full-real-serial.log"
+    ],
+    "source_guess": "",
+    "id": "L047"
+  },
+  {
+    "id": "L048",
+    "key": "bell-glyph",
+    "area": "Console polish",
+    "severity": "P3",
+    "title": "Rejected keystrokes draw bell glyphs across the desktop console",
+    "steps": "Desktop route, status off: type the 254-character command in keys.json past the 128-byte input cap.",
+    "observed": "The rejected characters emit 126 BEL bytes (0x07), and the guest screen paints rows of small bullet-like glyphs for those bytes. The DOS-route screenshot suppresses those marks.",
+    "expected": "A bell indication should not paint control-character glyphs into the command transcript. This is my terminal/usability expectation, independently of the wrong input limit in L019.",
+    "evidence": [
+      "shots/keys-254.png",
+      "shots/keys-dos-off.png",
+      "evidence/key-lengths.json",
+      "evidence/keys-serial.log"
+    ],
+    "source_guess": "Guess: the desktop console does not interpret BEL on the same path that lacks ANSI status handling; the DOS route has ANSI.SYS active."
+  }
+]

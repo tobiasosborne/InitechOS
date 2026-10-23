@@ -1,0 +1,530 @@
+[
+  {
+    "name": "manualfn-fn-abs",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-abs.txt",
+    "actual": ". USE STAFF\r\n. GO 3\r\n. ? SALARY - 40000, ABS(SALARY - 40000)\r\n\r\n   -200.00        200",
+    "expected": ". USE STAFF\n. GO 3\n. ? SALARY - 40000, ABS(SALARY - 40000)\n\n   -200.00        200",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-asc-2",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-asc-2.txt",
+    "actual": ". USE STAFF\r\n. GO 2\r\n. ? CHR(ASC(LASTNAME) + 1)\r\n\r\nH",
+    "expected": ". USE STAFF\n. GO 2\n. ? CHR(ASC(LASTNAME) + 1)\n\nH",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-asc",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-asc.txt",
+    "actual": ". ? ASC(\"A\"), ASC(\"abc\"), ASC(\"\")\r\n\r\n        65         97          0",
+    "expected": ". ? ASC(\"A\"), ASC(\"abc\"), ASC(\"\")\n\n        65         97          0",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-at-2",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-at-2.txt",
+    "actual": ". USE STAFF\r\n. GO 2\r\n. ? AT(\"ON\", LASTNAME), AT(\"on\", LASTNAME)\r\n\r\n         5          0",
+    "expected": ". USE STAFF\n. GO 2\n. ? AT(\"ON\", LASTNAME), AT(\"on\", LASTNAME)\n\n         5          0",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-at",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-at.txt",
+    "actual": ". ? AT(\"c\", \"InitechBase\"), AT(\"e\", \"InitechBase\"), AT(\"z\", \"InitechBase\")\r\n\r\n         6          5          0",
+    "expected": ". ? AT(\"c\", \"InitechBase\"), AT(\"e\", \"InitechBase\"), AT(\"z\", \"InitechBase\")\n\n         6          5          0",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-bof",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-bof.txt",
+    "actual": ". USE STAFF\r\n. GO TOP\r\n. SKIP -1\r\n. ? BOF(), RECNO()\r\n\r\n.T.          1",
+    "expected": ". USE STAFF\n. GO TOP\n. SKIP -1\n. ? BOF(), RECNO()\n\n.T.          1",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-cdow",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-cdow.txt",
+    "actual": ". ? CDOW(CTOD(\"03/01/92\")), CDOW(CTOD(\"03/02/92\"))\r\n\r\nSunday Monday",
+    "expected": ". ? CDOW(CTOD(\"03/01/92\")), CDOW(CTOD(\"03/02/92\"))\n\nSunday Monday",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-chr-2",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-chr-2.txt",
+    "actual": ". ? CHR(300)\r\n57  CHR() : Out of range.\n",
+    "expected": ". ? CHR(300)\n57  CHR() : Out of range.\n",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-chr",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-chr.txt",
+    "actual": ". ? CHR(65), CHR(97), ASC(CHR(200))\r\n\r\nA a        200",
+    "expected": ". ? CHR(65), CHR(97), ASC(CHR(200))\n\nA a        200",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-cmonth",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-cmonth.txt",
+    "actual": ". ? CMONTH(CTOD(\"03/01/92\")), CMONTH(CTOD(\"12/25/91\"))\r\n\r\nMarch December",
+    "expected": ". ? CMONTH(CTOD(\"03/01/92\")), CMONTH(CTOD(\"12/25/91\"))\n\nMarch December",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-ctod-2",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-ctod-2.txt",
+    "actual": ". SET DATE BRITISH\r\n. ? DTOC(CTOD(\"01/03/92\")), MONTH(CTOD(\"01/03/92\"))\r\n\r\n01/03/92          3",
+    "expected": ". SET DATE BRITISH\n. ? DTOC(CTOD(\"01/03/92\")), MONTH(CTOD(\"01/03/92\"))\n\n01/03/92          3",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-ctod",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-ctod.txt",
+    "actual": ". ? DTOC(CTOD(\"03/01/92\")), DAY(CTOD(\"03/01/92\")), YEAR(CTOD(\"03/01/92\"))\r\n\r\n03/01/92          1  1992",
+    "expected": ". ? DTOC(CTOD(\"03/01/92\")), DAY(CTOD(\"03/01/92\")), YEAR(CTOD(\"03/01/92\"))\n\n03/01/92          1  1992",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-date-2",
+    "matches": false,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-date-2.txt",
+    "actual": ". USE STAFF\r\n. GO 2\r\n. ? DATE() - HIRED\r\n\r\n    -22423",
+    "expected": ". USE STAFF\n. GO 2\n. ? DATE() - HIRED\n\n      1448",
+    "diff": "--- manual\n+++ guest\n@@ -2,4 +2,4 @@\n . GO 2\n . ? DATE() - HIRED\n \n-      1448\n+    -22423"
+  },
+  {
+    "name": "manualfn-fn-date",
+    "matches": false,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-date.txt",
+    "actual": ". ? DATE(), DTOC(DATE()), YEAR(DATE())\r\n\r\n10/23/26 10/23/26  1926",
+    "expected": ". ? DATE(), DTOC(DATE()), YEAR(DATE())\n\n03/01/92 03/01/92  1992",
+    "diff": "--- manual\n+++ guest\n@@ -1,3 +1,3 @@\n . ? DATE(), DTOC(DATE()), YEAR(DATE())\n \n-03/01/92 03/01/92  1992\n+10/23/26 10/23/26  1926"
+  },
+  {
+    "name": "manualfn-fn-day",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-day.txt",
+    "actual": ". ? DAY(CTOD(\"02/29/92\")), DAY(CTOD(\"  /  /  \"))\r\n\r\n        29          0",
+    "expected": ". ? DAY(CTOD(\"02/29/92\")), DAY(CTOD(\"  /  /  \"))\n\n        29          0",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-dbf",
+    "matches": false,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-dbf.txt",
+    "actual": ". ? LEN(DBF())\r\n\r\n         5. USE STAFF\r\n. ? DBF()\r\n\r\nSTAFF",
+    "expected": ". ? LEN(DBF())\n\n         0. USE STAFF\n. ? DBF()\n\nSTAFF",
+    "diff": "--- manual\n+++ guest\n@@ -1,6 +1,6 @@\n . ? LEN(DBF())\n \n-         0. USE STAFF\n+         5. USE STAFF\n . ? DBF()\n \n STAFF"
+  },
+  {
+    "name": "manualfn-fn-deleted",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-deleted.txt",
+    "actual": ". USE STAFF\r\n. GO 12\r\n. ? DELETED()\r\n\r\n.F.. GO 13\r\n. ? DELETED(), LASTNAME\r\n\r\n.T. CHEN          ",
+    "expected": ". USE STAFF\n. GO 12\n. ? DELETED()\n\n.F.. GO 13\n. ? DELETED(), LASTNAME\n\n.T. CHEN          ",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-dow",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-dow.txt",
+    "actual": ". ? DOW(CTOD(\"03/01/92\")), DOW(CTOD(\"03/07/92\"))\r\n\r\n         1          7",
+    "expected": ". ? DOW(CTOD(\"03/01/92\")), DOW(CTOD(\"03/07/92\"))\n\n         1          7",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-dtoc-2",
+    "matches": false,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-dtoc-2.txt",
+    "actual": ". SET CENTURY ON\r\n. SET DATE ANSI\r\n. ? DTOC(DATE())\r\n\r\n1926.10.23",
+    "expected": ". SET CENTURY ON\n. SET DATE ANSI\n. ? DTOC(DATE())\n\n1992.03.01",
+    "diff": "--- manual\n+++ guest\n@@ -2,4 +2,4 @@\n . SET DATE ANSI\n . ? DTOC(DATE())\n \n-1992.03.01\n+1926.10.23"
+  },
+  {
+    "name": "manualfn-fn-dtoc",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-dtoc.txt",
+    "actual": ". USE STAFF\r\n. GO 2\r\n. ? HIRED, DTOC(HIRED), LEN(DTOC(HIRED))\r\n\r\n03/14/88 03/14/88          8",
+    "expected": ". USE STAFF\n. GO 2\n. ? HIRED, DTOC(HIRED), LEN(DTOC(HIRED))\n\n03/14/88 03/14/88          8",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-eof",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-eof.txt",
+    "actual": ". USE STAFF\r\n. GO BOTTOM\r\n. SKIP\r\n. ? EOF(), RECNO(), RECCOUNT()\r\n\r\n.T.         14         13",
+    "expected": ". USE STAFF\n. GO BOTTOM\n. SKIP\n. ? EOF(), RECNO(), RECCOUNT()\n\n.T.         14         13",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-error",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-error.txt",
+    "actual": ". ON ERROR STORE ERROR() TO MERR\r\n. ? CHR(300)\r\n. ? MERR, ERROR()\r\n\r\n        57         57",
+    "expected": ". ON ERROR STORE ERROR() TO MERR\n. ? CHR(300)\n. ? MERR, ERROR()\n\n        57         57",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-field",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-field.txt",
+    "actual": ". USE STAFF\r\n. ? FIELD(1), FIELD(7), FIELD(10)\r\n\r\nEMPNO SALARY ",
+    "expected": ". USE STAFF\n. ? FIELD(1), FIELD(7), FIELD(10)\n\nEMPNO SALARY ",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-file",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-file.txt",
+    "actual": ". ? FILE(\"STAFF.DBF\"), FILE(\"STAFF\"), FILE(\"NOFILE.DBF\")\r\n\r\n.T. .F. .F.",
+    "expected": ". ? FILE(\"STAFF.DBF\"), FILE(\"STAFF\"), FILE(\"NOFILE.DBF\")\n\n.T. .F. .F.",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-found-2",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-found-2.txt",
+    "actual": ". USE STAFF INDEX STAFFNAM\r\n. SEEK \"ZZZ\"\r\n. ? FOUND(), EOF()\r\n\r\n.F. .T.",
+    "expected": ". USE STAFF INDEX STAFFNAM\n. SEEK \"ZZZ\"\n. ? FOUND(), EOF()\n\n.F. .T.",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-found",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-found.txt",
+    "actual": ". USE STAFF INDEX STAFFNAM\r\n. SEEK \"GIBBONS\"\r\n. ? FOUND(), RECNO()\r\n\r\n.T.          2",
+    "expected": ". USE STAFF INDEX STAFFNAM\n. SEEK \"GIBBONS\"\n. ? FOUND(), RECNO()\n\n.T.          2",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-iif-2",
+    "matches": false,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-iif-2.txt",
+    "actual": ". ? IIF(.F., 1/0, 5)\r\n\r\n5. ? IIF(1, 2, 3)\r\n",
+    "expected": ". ? IIF(.F., 1/0, 5)\n\n5. ? IIF(1, 2, 3)\n37  Not a Logical expression.\n",
+    "diff": "--- manual\n+++ guest\n@@ -1,4 +1,3 @@\n . ? IIF(.F., 1/0, 5)\n \n 5. ? IIF(1, 2, 3)\n-37  Not a Logical expression."
+  },
+  {
+    "name": "manualfn-fn-iif",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-iif.txt",
+    "actual": ". USE STAFF\r\n. GO 2\r\n. ? LASTNAME, IIF(EXEMPT, \"Exempt\", \"Hourly\")\r\n\r\nGIBBONS        Exempt",
+    "expected": ". USE STAFF\n. GO 2\n. ? LASTNAME, IIF(EXEMPT, \"Exempt\", \"Hourly\")\n\nGIBBONS        Exempt",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-int",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-int.txt",
+    "actual": ". ? INT(3.99), INT(-3.7), INT(41250/1000)\r\n\r\n   3   -3            41",
+    "expected": ". ? INT(3.99), INT(-3.7), INT(41250/1000)\n\n   3   -3            41",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-isalpha",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-isalpha.txt",
+    "actual": ". ? ISALPHA(\"Initech\"), ISALPHA(\"1401\"), ISALPHA(\"\")\r\n\r\n.T. .F. .F.",
+    "expected": ". ? ISALPHA(\"Initech\"), ISALPHA(\"1401\"), ISALPHA(\"\")\n\n.T. .F. .F.",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-islower",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-islower.txt",
+    "actual": ". ? ISLOWER(\"initech\"), ISLOWER(\"Initech\")\r\n\r\n.T. .F.",
+    "expected": ". ? ISLOWER(\"initech\"), ISLOWER(\"Initech\")\n\n.T. .F.",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-isupper",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-isupper.txt",
+    "actual": ". ? ISUPPER(\"Initech\"), ISUPPER(\"initech\")\r\n\r\n.T. .F.",
+    "expected": ". ? ISUPPER(\"Initech\"), ISUPPER(\"initech\")\n\n.T. .F.",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-left",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-left.txt",
+    "actual": ". ? LEFT(\"InitechBase\", 7), LEFT(\"abc\", 10), LEFT(\"abc\", 0) + \"|\"\r\n\r\nInitech abc |",
+    "expected": ". ? LEFT(\"InitechBase\", 7), LEFT(\"abc\", 10), LEFT(\"abc\", 0) + \"|\"\n\nInitech abc |",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-len",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-len.txt",
+    "actual": ". USE STAFF\r\n. GO 2\r\n. ? LEN(LASTNAME), LEN(TRIM(LASTNAME)), LEN(\"\")\r\n\r\n        14          7          0",
+    "expected": ". USE STAFF\n. GO 2\n. ? LEN(LASTNAME), LEN(TRIM(LASTNAME)), LEN(\"\")\n\n        14          7          0",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-lower",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-lower.txt",
+    "actual": ". ? LOWER(\"Initech Systems\")\r\n\r\ninitech systems",
+    "expected": ". ? LOWER(\"Initech Systems\")\n\ninitech systems",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-ltrim",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-ltrim.txt",
+    "actual": ". ? \"[\" + LTRIM(\"   Gibbons  \") + \"]\"\r\n\r\n[Gibbons  ]",
+    "expected": ". ? \"[\" + LTRIM(\"   Gibbons  \") + \"]\"\n\n[Gibbons  ]",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-macro-2",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-macro-2.txt",
+    "actual": ". STORE 'SOFT' TO MDEPT\r\n. STORE 'Department &MDEPT' TO MTITLE\r\n. ? MTITLE\r\n\r\nDepartment SOFT. STORE 'RECCOUNT' TO MFUNC\r\n. USE STAFF\r\n. ? &MFUNC.()\r\n\r\n        13",
+    "expected": ". STORE 'SOFT' TO MDEPT\n. STORE 'Department &MDEPT' TO MTITLE\n. ? MTITLE\n\nDepartment SOFT. STORE 'RECCOUNT' TO MFUNC\n. USE STAFF\n. ? &MFUNC.()\n\n        13",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-macro",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-macro.txt",
+    "actual": ". STORE 'STAFFNAM' TO MINDEX\r\n. USE STAFF INDEX &MINDEX\r\n. STORE 'PORTER' TO MNAME\r\n. FIND &MNAME\r\n. DISPLAY LASTNAME, FIRSTNAME, DEPT\r\nRecord#  LASTNAME       FIRSTNAME  DEPT\r\n      7  PORTER         DOM        ADMN\r\n",
+    "expected": ". STORE 'STAFFNAM' TO MINDEX\n. USE STAFF INDEX &MINDEX\n. STORE 'PORTER' TO MNAME\n. FIND &MNAME\n. DISPLAY LASTNAME, FIRSTNAME, DEPT\nRecord#  LASTNAME       FIRSTNAME  DEPT\n      7  PORTER         DOM        ADMN\n",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-max",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-max.txt",
+    "actual": ". ? MAX(3, 7), MAX(-1, -5), MAX(CTOD(\"03/01/92\"), CTOD(\"12/25/91\"))\r\n\r\n         7         -1 03/01/92",
+    "expected": ". ? MAX(3, 7), MAX(-1, -5), MAX(CTOD(\"03/01/92\"), CTOD(\"12/25/91\"))\n\n         7         -1 03/01/92",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-message",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-message.txt",
+    "actual": ". ON ERROR STORE MESSAGE() TO MMSG\r\n. ? CHR(300)\r\n. ? MMSG\r\n\r\nCHR() : Out of range.. ON ERROR\r\n. ? MESSAGE()\r\n\r\nCHR() : Out of range.",
+    "expected": ". ON ERROR STORE MESSAGE() TO MMSG\n. ? CHR(300)\n. ? MMSG\n\nCHR() : Out of range.. ON ERROR\n. ? MESSAGE()\n\nCHR() : Out of range.",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-min",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-min.txt",
+    "actual": ". ? MIN(3, 7), MIN(-1, -5), MIN(CTOD(\"03/01/92\"), CTOD(\"12/25/91\"))\r\n\r\n         3         -5 12/25/91",
+    "expected": ". ? MIN(3, 7), MIN(-1, -5), MIN(CTOD(\"03/01/92\"), CTOD(\"12/25/91\"))\n\n         3         -5 12/25/91",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-mod",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-mod.txt",
+    "actual": ". ? MOD(17, 5), MOD(-17, 5), MOD(5, 0)\r\n\r\n  2   -2          5",
+    "expected": ". ? MOD(17, 5), MOD(-17, 5), MOD(5, 0)\n\n  2   -2          5",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-month",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-month.txt",
+    "actual": ". ? MONTH(CTOD(\"12/25/91\")), MONTH(CTOD(\"  /  /  \"))\r\n\r\n        12          0",
+    "expected": ". ? MONTH(CTOD(\"12/25/91\")), MONTH(CTOD(\"  /  /  \"))\n\n        12          0",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-reccount",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-reccount.txt",
+    "actual": ". USE STAFF\r\n. SKIP 3\r\n. ? RECNO(), RECCOUNT()\r\n\r\n         4         13",
+    "expected": ". USE STAFF\n. SKIP 3\n. ? RECNO(), RECCOUNT()\n\n         4         13",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-recno",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-recno.txt",
+    "actual": ". USE STAFF\r\n. GO 5\r\n. ? RECNO(), LASTNAME\r\n\r\n         5 WADDAMS       ",
+    "expected": ". USE STAFF\n. GO 5\n. ? RECNO(), LASTNAME\n\n         5 WADDAMS       ",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-recsize",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-recsize.txt",
+    "actual": ". USE STAFF\r\n. ? RECSIZE()\r\n\r\n        65. USE\r\n. ? RECSIZE()\r\n\r\n         0",
+    "expected": ". USE STAFF\n. ? RECSIZE()\n\n        65. USE\n. ? RECSIZE()\n\n         0",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-replicate",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-replicate.txt",
+    "actual": ". ? REPLICATE(\"-\", 20)\r\n\r\n--------------------. ? REPLICATE(\"AB\", 3), REPLICATE(\"AB\", 0) + \"|\"\r\n\r\nABABAB |",
+    "expected": ". ? REPLICATE(\"-\", 20)\n\n--------------------. ? REPLICATE(\"AB\", 3), REPLICATE(\"AB\", 0) + \"|\"\n\nABABAB |",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-right",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-right.txt",
+    "actual": ". ? RIGHT(\"InitechBase\", 4), RIGHT(\"abc\", 10), RIGHT(\"abc\", 0) + \"|\"\r\n\r\nBase abc |",
+    "expected": ". ? RIGHT(\"InitechBase\", 4), RIGHT(\"abc\", 10), RIGHT(\"abc\", 0) + \"|\"\n\nBase abc |",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-round",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-round.txt",
+    "actual": ". ? ROUND(3.14159, 2), ROUND(2.5, 0), ROUND(1234.5, -2)\r\n\r\n         3          3       1200",
+    "expected": ". ? ROUND(3.14159, 2), ROUND(2.5, 0), ROUND(1234.5, -2)\n\n         3          3       1200",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-rtrim",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-rtrim.txt",
+    "actual": ". USE STAFF\r\n. GO 2\r\n. ? RTRIM(LASTNAME) + \", \" + RTRIM(FIRSTNAME)\r\n\r\nGIBBONS, PETER",
+    "expected": ". USE STAFF\n. GO 2\n. ? RTRIM(LASTNAME) + \", \" + RTRIM(FIRSTNAME)\n\nGIBBONS, PETER",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-space-2",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-space-2.txt",
+    "actual": ". ? SPACE(255)\r\n59  SPACE() : Too large.\n",
+    "expected": ". ? SPACE(255)\n59  SPACE() : Too large.\n",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-space",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-space.txt",
+    "actual": ". ? \"[\" + SPACE(5) + \"]\", LEN(SPACE(254))\r\n\r\n[     ]        254",
+    "expected": ". ? \"[\" + SPACE(5) + \"]\", LEN(SPACE(254))\n\n[     ]        254",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-str-2",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-str-2.txt",
+    "actual": ". ? STR(99999, 3), STR(5, 4, 2)\r\n\r\n*** 5.00. ? STR(5, 3, 2)\r\n63  STR() : Out of range.\n",
+    "expected": ". ? STR(99999, 3), STR(5, 4, 2)\n\n*** 5.00. ? STR(5, 3, 2)\n63  STR() : Out of range.\n",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-str",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-str.txt",
+    "actual": ". ? STR(123.456), STR(123.456, 8, 2), STR(123.456, 5, 1)\r\n\r\n       123   123.46 123.5",
+    "expected": ". ? STR(123.456), STR(123.456, 8, 2), STR(123.456, 5, 1)\n\n       123   123.46 123.5",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-stuff",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-stuff.txt",
+    "actual": ". ? STUFF(\"ABCDE\", 2, 3, \"XY\"), STUFF(\"ABCDE\", 2, 0, \"XY\"), STUFF(\"ABCDE\", 2, 3, \"\")\r\n\r\nAXYE AXYBCDE AE",
+    "expected": ". ? STUFF(\"ABCDE\", 2, 3, \"XY\"), STUFF(\"ABCDE\", 2, 0, \"XY\"), STUFF(\"ABCDE\", 2, 3, \"\")\n\nAXYE AXYBCDE AE",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-substr-2",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-substr-2.txt",
+    "actual": ". ? SUBSTR(\"abc\", 0)\r\n62  SUBSTR() : Start point out of range.\n",
+    "expected": ". ? SUBSTR(\"abc\", 0)\n62  SUBSTR() : Start point out of range.\n",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-substr",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-substr.txt",
+    "actual": ". ? SUBSTR(\"InitechBase\", 1, 7), SUBSTR(\"InitechBase\", 8), SUBSTR(\"abc\", 4) + \"|\"\r\n\r\nInitech Base |",
+    "expected": ". ? SUBSTR(\"InitechBase\", 1, 7), SUBSTR(\"InitechBase\", 8), SUBSTR(\"abc\", 4) + \"|\"\n\nInitech Base |",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-transform-2",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-transform-2.txt",
+    "actual": ". ? TRANSFORM(\"gibbons\", \"!!!!!!!\"), TRANSFORM(1234567, \"99999\")\r\n\r\nGIBBONS *****",
+    "expected": ". ? TRANSFORM(\"gibbons\", \"!!!!!!!\"), TRANSFORM(1234567, \"99999\")\n\nGIBBONS *****",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-transform",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-transform.txt",
+    "actual": ". ? TRANSFORM(-570, \"99999\"), TRANSFORM(-570, \"@( 99999\"), TRANSFORM(570, \"@C 99999\")\r\n\r\n -570 (  570)   570 CR. ? TRANSFORM(96500, \"$999,999\")\r\n\r\n$ 96,500",
+    "expected": ". ? TRANSFORM(-570, \"99999\"), TRANSFORM(-570, \"@( 99999\"), TRANSFORM(570, \"@C 99999\")\n\n -570 (  570)   570 CR. ? TRANSFORM(96500, \"$999,999\")\n\n$ 96,500",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-trim",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-trim.txt",
+    "actual": ". USE STAFF\r\n. GO 2\r\n. ? \"[\" + TRIM(LASTNAME) + \"]\", \"[\" + LASTNAME + \"]\"\r\n\r\n[GIBBONS] [GIBBONS       ]",
+    "expected": ". USE STAFF\n. GO 2\n. ? \"[\" + TRIM(LASTNAME) + \"]\", \"[\" + LASTNAME + \"]\"\n\n[GIBBONS] [GIBBONS       ]",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-type-2",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-type-2.txt",
+    "actual": ". ? TYPE(\"3 + 4\"), TYPE(\"DATE()\"), TYPE(\".T.\"), TYPE(\"NOSUCH\")\r\n\r\nN D L U",
+    "expected": ". ? TYPE(\"3 + 4\"), TYPE(\"DATE()\"), TYPE(\".T.\"), TYPE(\"NOSUCH\")\n\nN D L U",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-type",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-type.txt",
+    "actual": ". USE STAFF\r\n. GO 2\r\n. ? TYPE(\"LASTNAME\"), TYPE(\"SALARY\"), TYPE(\"HIRED\"), TYPE(\"EXEMPT\"), TYPE(\"NOTES\")\r\n\r\nC N D L M",
+    "expected": ". USE STAFF\n. GO 2\n. ? TYPE(\"LASTNAME\"), TYPE(\"SALARY\"), TYPE(\"HIRED\"), TYPE(\"EXEMPT\"), TYPE(\"NOTES\")\n\nC N D L M",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-upper",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-upper.txt",
+    "actual": ". ? UPPER(\"Initech Systems\")\r\n\r\nINITECH SYSTEMS",
+    "expected": ". ? UPPER(\"Initech Systems\")\n\nINITECH SYSTEMS",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-val-2",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-val-2.txt",
+    "actual": ". USE STAFF\r\n. GO 2\r\n. ? VAL(EMPNO) + 1\r\n\r\n 1003.00",
+    "expected": ". USE STAFF\n. GO 2\n. ? VAL(EMPNO) + 1\n\n 1003.00",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-val",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-val.txt",
+    "actual": ". ? VAL(\"123\"), VAL(\"12.5abc\"), VAL(\"abc\"), VAL(\"  42\")\r\n\r\n123.00      12.50   0.00   42.00",
+    "expected": ". ? VAL(\"123\"), VAL(\"12.5abc\"), VAL(\"abc\"), VAL(\"  42\")\n\n123.00      12.50   0.00   42.00",
+    "diff": ""
+  },
+  {
+    "name": "manualfn-fn-year",
+    "matches": true,
+    "expected_source": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-year.txt",
+    "actual": ". ? YEAR(CTOD(\"12/25/91\")), YEAR(CTOD(\"12/25/05\"))\r\n\r\n 1991  1905",
+    "expected": ". ? YEAR(CTOD(\"12/25/91\")), YEAR(CTOD(\"12/25/05\"))\n\n 1991  1905",
+    "diff": ""
+  }
+]

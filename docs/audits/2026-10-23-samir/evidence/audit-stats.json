@@ -1,0 +1,40 @@
+{
+  "report_ascii": true,
+  "nits_ascii": true,
+  "new_findings": 48,
+  "severities": {
+    "P1": 3,
+    "P2": 43,
+    "P3": 2
+  },
+  "nits_rows": 48,
+  "all_evidence_links_exist": true,
+  "all_pngs_valid": true,
+  "all_driver_python_parses": true,
+  "sessions": 49,
+  "all_qemu_stopped": true,
+  "no_emulator_overlap": true,
+  "cleanup_records": 49,
+  "screenshots": 272,
+  "typed_sequences": 1091,
+  "first_utc": "2026-10-23T12:33:31.434823+00:00",
+  "last_utc": "2026-10-23T13:36:15.859217+00:00",
+  "original_images": {
+    "flair_tenants_interactive.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3",
+      "unchanged_from_first_copy": true
+    },
+    "samir_list.img": {
+      "bytes": 1474560,
+      "sha256": "30f54ac8033edaa0f760d467b2ea5156b8d0ff2955dbeee5a8bf366e60921dc8",
+      "unchanged_from_first_copy": true
+    },
+    "tracer_boot.img": {
+      "bytes": 1507328,
+      "sha256": "ac5eb48e4d9b21124a568441550ad2415a7d7df908b27932ecd0bb947bd84c85",
+      "unchanged_from_first_copy": true
+    }
+  },
+  "all_cited_screenshots_visually_reviewed": true
+}

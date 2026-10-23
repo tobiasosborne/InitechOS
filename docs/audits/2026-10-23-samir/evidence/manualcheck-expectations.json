@@ -1,0 +1,14 @@
+{
+  "manualfn-fn-dbf": {
+    "input": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-dbf.dot",
+    "expected": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-dbf.txt",
+    "input_text": "? LEN(DBF())\nUSE STAFF\n? DBF()\n",
+    "expected_text": ". ? LEN(DBF())\n\n         0. USE STAFF\n. ? DBF()\n\nSTAFF"
+  },
+  "manualfn-fn-iif-2": {
+    "input": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-iif-2.dot",
+    "expected": "/home/tobias/Projects/initech-os/pubs/manuals/initechbase-volume-one/examples/fn-iif-2.txt",
+    "input_text": "? IIF(.F., 1/0, 5)\n? IIF(1, 2, 3)\n",
+    "expected_text": ". ? IIF(.F., 1/0, 5)\n\n5. ? IIF(1, 2, 3)\n37  Not a Logical expression.\n"
+  }
+}

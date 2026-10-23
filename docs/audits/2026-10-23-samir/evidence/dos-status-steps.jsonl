@@ -1,0 +1,10 @@
+{"step": 0, "action": "USE CLIENTS", "start": 2744, "end": 2759}
+{"step": 1, "action": "LIST", "start": 2759, "end": 2939}
+{"step": 2, "action": "SET STATUS ON", "start": 2939, "end": 3116}
+{"step": 3, "action": ["shot", "dos-status-before"], "start": 3116, "end": 3116}
+{"step": 4, "action": "? 2+2", "start": 3116, "end": 3285}
+{"step": 5, "action": ["shot", "dos-status-type"], "start": 3285, "end": 3285}
+{"step": 6, "action": "SET STATUS OFF", "start": 3285, "end": 3461}
+{"step": 7, "action": "? 2+2", "start": 3461, "end": 3474}
+{"step": 8, "action": "QUIT", "start": 3474, "end": 3484}
+{"step": 9, "action": ["shot", "dos-status-off"], "start": 3484, "end": 3484}

@@ -1,0 +1,22 @@
+{
+  "name": "memory",
+  "actions": [
+    "MVAR=123",
+    "SAVE TO TESTMEM",
+    "MVAR=999",
+    "RESTORE FROM TESTMEM",
+    "? MVAR",
+    [
+      "shot",
+      "memory-restore"
+    ],
+    "CLEAR MEMORY",
+    "? TYPE(\"MVAR\")",
+    "? MVAR",
+    [
+      "shot",
+      "memory-cleared"
+    ],
+    "QUIT"
+  ]
+}

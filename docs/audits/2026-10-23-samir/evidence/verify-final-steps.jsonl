@@ -1,0 +1,28 @@
+{"step": 0, "action": "USE EDGE", "start": 912, "end": 924}
+{"step": 1, "action": "REPLACE ALL WHEN WITH CTOD(\"01/01/92\")", "start": 924, "end": 966}
+{"step": 2, "action": "GO TOP", "start": 966, "end": 976}
+{"step": 3, "action": "INDEX ON WHEN TO VALIDATE", "start": 976, "end": 1005}
+{"step": 4, "action": "GO TOP", "start": 1005, "end": 1015}
+{"step": 5, "action": "LIST ID,WHEN", "start": 1015, "end": 1123}
+{"step": 6, "action": ["shot", "verify-final-date-control"], "start": 1123, "end": 1123}
+{"step": 7, "action": "CLOSE INDEX", "start": 1123, "end": 1138}
+{"step": 8, "action": "GO 1", "start": 1138, "end": 1146}
+{"step": 9, "action": "REPLACE WHEN WITH CTOD(\"\")", "start": 1146, "end": 1176}
+{"step": 10, "action": "GO TOP", "start": 1176, "end": 1186}
+{"step": 11, "action": "INDEX ON WHEN TO BLANK2", "start": 1186, "end": 1213}
+{"step": 12, "action": ["shot", "verify-final-date-blank"], "start": 1213, "end": 1213}
+{"step": 13, "action": "USE STAFF", "start": 1213, "end": 1226}
+{"step": 14, "action": "INDEX ON HIRED TO STAFFHIR", "start": 1226, "end": 1256}
+{"step": 15, "action": "LIST NEXT 4 LASTNAME,FIRSTNAME,HIRED", "start": 1256, "end": 1518}
+{"step": 16, "action": ["shot", "verify-final-manual-date"], "start": 1518, "end": 1518}
+{"step": 17, "action": "? TRANSFORM(123.4,\"999.99\")", "start": 1518, "end": 1557}
+{"step": 18, "action": "? STR(123.4,6,2)", "start": 1557, "end": 1585}
+{"step": 19, "action": "? TRANSFORM(0.12,\"9.99\")", "start": 1585, "end": 1619}
+{"step": 20, "action": ["shot", "verify-final-transform"], "start": 1619, "end": 1619}
+{"step": 21, "action": "USE EMPTY", "start": 1619, "end": 1632}
+{"step": 22, "action": "? RECCOUNT(),EOF(),BOF()", "start": 1632, "end": 1680}
+{"step": 23, "action": "GO TOP", "start": 1680, "end": 1690}
+{"step": 24, "action": "? EOF(),BOF()", "start": 1690, "end": 1716}
+{"step": 25, "action": ["shot", "verify-final-empty"], "start": 1716, "end": 1716}
+{"step": 26, "action": "QUIT", "start": 1716, "end": 1827}
+{"step": 27, "action": ["shot", "verify-final-quit"], "start": 1827, "end": 1827}
