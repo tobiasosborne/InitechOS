@@ -114,3 +114,17 @@ FLAIR_IWORD_SETUP_CLIP_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-f1,k3,k1,k2,ky,kf7,k
 # Down x3, 1 ("Retrieve into current document? No (Yes)"), n, 1, y. No disk
 # writes. 25 keys. Locked (Rule 8).
 FLAIR_IWORD_LISTFILES_SPEC := $(FLAIR_IWORD_LAUNCH),kf5,kret,kdown,kright,kret,kret,kdown,kdown,kdown,k6,kesc,k1,kf5,kret,kdown,kright,kret,kret,kdown,kdown,kdown,k1,kn,k1,ky
+
+# initech-1zk9 / initech-10bx (audit 2026-10-23 L024 L025 L015), Rule 14
+# clips. Added 2026-10-23 (Rule 8: new traces, no existing trace changed).
+# FLAIR_IWORD_GOTO_CLIP_SPEC: "One" Ctrl-Enter "Two" Ctrl-Enter "Three" (three
+# hard pages), Home Home Up, PgDn PgDn PgUp PgUp (the first line of the next /
+# previous page at the top of the screen; Reference Manual p. 104), Go To
+# (Ctrl-Home) 3 Enter, Go To 1 2 Enter (past the end: the last page; p. 223,
+# fixtures/iword-goto 15_goto_3_enter / 23_goto_12_enter). No disk writes.
+FLAIR_IWORD_GOTO_CLIP_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-o,kn,ke,kctrl-ret,kshift-t,kw,ko,kctrl-ret,kshift-t,kh,kr,ke,ke,khome,khome,kup,kpgdn,kpgdn,kpgup,kpgup,kctrl-home,k3,kret,kctrl-home,k1,k2,kret
+# FLAIR_IWORD_BADNAME_CLIP_SPEC: "Ok", F10 "bad name" Enter -> "ERROR: Invalid
+# file name" (InitechWord Reference, Filenames), Space back to the prompt,
+# Backspace x5, "name" Enter: saved as BADNAME, the name the user corrected
+# it to -- never silently.
+FLAIR_IWORD_BADNAME_CLIP_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-o,kk,kf10,kb,ka,kd,kspc,kn,ka,km,ke,kret,kspc,kbspc,kbspc,kbspc,kbspc,kbspc,kn,ka,km,ke,kret

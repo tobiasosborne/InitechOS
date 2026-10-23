@@ -171,6 +171,8 @@ up or down.
 \item Press \K{End} to move to the end of the line.
 \item Press \K{Home} before an arrow key to move farther (see the table
 below).
+\item Press \K{PgDn} or \K{PgUp} to move to the first line of the next or
+the previous page.
 \end{WPSteps}
 \Documents{wpkey}{Up}
 \Documents{wpkey}{Down}
@@ -178,6 +180,8 @@ below).
 \Documents{wpkey}{Right}
 \Documents{wpkey}{End}
 \Documents{wpkey}{Home}
+\Documents{wpkey}{PgUp}
+\Documents{wpkey}{PgDn}
 \Documents{wpkey}{Home,Left}
 \Documents{wpkey}{Home,Right}
 \Documents{wpkey}{Home,Up}
@@ -204,6 +208,8 @@ what the next arrow key does.  Press Home, release it, then press the arrow.
 \K{Home, Home, Up} & the top of the document, after the formatting codes there\\
 \K{Home, Home, Home, Up} & the top of the document, before any codes\\
 \K{Home, Home, Down} & the end of the document\\
+\K{PgUp} & the first line of the previous page\\
+\K{PgDn} & the first line of the next page\\
 \end{tabular}
 \par\addvspace{4pt}
 
@@ -229,13 +235,20 @@ Up and Down keep the cursor in the same column as it moves from line to
 line.  On a shorter line the cursor goes to the end of the line, and returns
 to its column on the next line long enough to have one.
 
+\Topic{Pages}
+PgUp and PgDn put the first line of the page at the top of the screen, the
+cursor at its start.  On the first page PgUp goes to the top of the page; on
+the last page PgDn goes to the end of the document.  A page ends at a hard
+page or after 54 lines.  To go to a page by its number, use \InRef{Go To}.
+
 \Topic{Shift, Ctrl and Alt}
-The cursor keys do the same with Shift, Ctrl or Alt held as without
-(Appendix F).
+The arrow keys, End and Home do the same with Shift, Ctrl or Alt held as
+without, except Ctrl-Home, which is Go To.  PgUp and PgDn do nothing with
+Shift, Ctrl or Alt held (Appendix F).
 
 \Topic{The Screen}
 The editing screen shows 23 lines.  When the cursor moves past the top or
 bottom of the screen, the screen moves with it.
 
-\SeeAlso{Block; Codes; Status Line}
+\SeeAlso{Block; Codes; Go To; Status Line}
 \end{Feature}
