@@ -183,8 +183,24 @@ int i123_transfer(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,uint16_
     if(col+w>=256||row+h>=8192)return I123_E_ARG;
     to=(i123_rect_t){col,row,(uint16_t)(col+w),(uint16_t)(row+h)};
     /* Manual: global protection applies to cells marked Prot. */
-    if(s->protec)for(uint32_t i=0;i<s->ncells;i++)if((inside(to,s->cells[i].col,s->cells[i].row)||
-        (mode==1&&inside(from,s->cells[i].col,s->cells[i].row)))&&(s->cells[i].fmt&128))return I123_E_ARG;
+    if(s->protec) {
+        /* B02 review (initech-3s12): an ABSENT cell is the default 0xFF,
+         * protected; only a stored unprotected cell (bit 7 clear, a BLANK
+         * from /Range Unprot) may be written. So every cell of TO (and of
+         * FROM for /Move) must exist unprotected: count them. */
+        uint32_t un_to=0,un_from=0;
+        for(uint32_t i=0;i<s->ncells;i++) {
+            const i123_cell_t *c=&s->cells[i];int t=inside(to,c->col,c->row),f=mode==1&&inside(from,c->col,c->row);
+            if((t||f)&&(c->fmt&128))return I123_E_ARG;
+            un_to+=(uint32_t)t;un_from+=(uint32_t)f;
+        }
+#ifndef I123_MUT_ABSENT_UNPROTECTED
+        if(un_to<(w+1u)*(h+1u)||(mode==1&&un_from<(w+1u)*(h+1u)))return I123_E_ARG;
+#else
+        /* MUTANT (Rule 6; test-i123-cells-mutant C9): absent cells count as
+         * unprotected. NEVER real. */
+#endif
+    }
     rc=i123_sheet_clone(s,d);if(rc)return rc;
     for(uint32_t i=d->ncells;i>0;i--) {
         i123_cell_t *c=&d->cells[i-1];
