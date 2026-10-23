@@ -194,8 +194,9 @@ define tps-run
 	@mformat -i $(1) -f 1440 ::
 	@mcopy -i $(1) $(4) ::TPSREP.COM
 	@mcopy -i $(1) $(TPS_DIR)/tps.dbf ::TPS.DBF
-	@for p in $(6); do mcopy -i $(1) "$${p%%=*}" "::$${p#*=}"; done
-	@$(call fixture-check,recipe,$(1),TPSREP.COM TPS.DBF $(foreach p,$(6),$(lastword $(subst =, ,$(p)))))
+	@for p in $(6); do mcopy -o -i $(1) "$${p%%=*}" "::$${p#*=}"; done
+	$(if $(7),@$(7))
+	@$(call fixture-check,recipe,$(1),TPSREP.COM TPS.DBF $(8) $(foreach p,$(6),$(lastword $(subst =, ,$(p)))))
 	@$(HARNESS_BIN) --disk "$(2)" --disk2 "$(1)" \
 		--name "$(3)" --out "$(BUILD)" --timeout-ms 40000 \
 		--keys "$(5)" --keys-after "SHELL-READY" \
@@ -280,6 +281,88 @@ test-tps-report-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/fcb_seq.
 	@printf '>>> test-tps-report-mutant: SAY7 correctly RED on [tacit]: %s\n' "$$(grep -m1 -E '7|SPACE' $(BUILD)/tps_say7.r2span)"
 	@printf '>>> test-tps-report-mutant: green (3/3 mutants RED)\n'
 
+# ---------------------------------------------------------------------------
+# TPS fault legs (audit 2026-10-23-das L004/L028/L029, bead initech-ycvk).
+# [D] a FULL data volume (the audit's fixture, minted here per the initech-a5sr
+# fixture-contract pattern: FILL.BIN eats every free byte, so the only room the
+# run gets is the one cluster the .BAK delete frees): the FCB write/close
+# status is checked -> TPS-009, RETURN CODE 9, no claim of success, the
+# truncated TPSREPT.TXT dropped and the previous report kept as TPSREPT.BAK
+# (manual Appendix G; s1 return code table: 0 is "the report was written").
+# [E] LINES=banana -> TPS-010 / OP-7.3, code 1 (was: silently 1). [F] PAGES
+# "XYZ" in record 1 -> TPS-011 (RECORD 1), code 6 (was: silently 0). E and F
+# refuse BEFORE the ritual and before any file is touched. The wording is new
+# (no real-DOS golden can exist for it: spec/tps_ritual.json errors E9..E11).
+# Rule 6 mutants: TPS_MUTATE_NOWRCHK (write status ignored) must turn [D] RED,
+# TPS_MUTATE_LINESOK [E] RED, TPS_MUTATE_PAGESOK [F] RED.
+TPS_FLT_FILLHOOK = free=$$(mdir -i $(1) :: | sed -n 's/^ *\([0-9 ]*[0-9]\) bytes free.*/\1/p' | tr -d ' '); \
+	test -n "$$free" && head -c "$$free" /dev/zero > $(1).fill && mcopy -i $(1) $(1).fill ::FILL.BIN && rm -f $(1).fill
+TPSREP_NOWR_BIN   := $(BUILD)/tpsrep_program_nowrchk.bin
+TPSREP_LINESOK_BIN := $(BUILD)/tpsrep_program_linesok.bin
+TPSREP_PAGESOK_BIN := $(BUILD)/tpsrep_program_pagesok.bin
+$(TPSREP_NOWR_BIN): $(TPSREP_ASM) | $(BUILD)
+	$(NASM) -f bin -DTPS_MUTATE_NOWRCHK $< -o $@
+$(TPSREP_LINESOK_BIN): $(TPSREP_ASM) | $(BUILD)
+	$(NASM) -f bin -DTPS_MUTATE_LINESOK $< -o $@
+$(TPSREP_PAGESOK_BIN): $(TPSREP_ASM) | $(BUILD)
+	$(NASM) -f bin -DTPS_MUTATE_PAGESOK $< -o $@
+$(BUILD)/tps_badnum.dat: $(TPS_DIR)/tpsparm.dat | $(BUILD)
+	sed 's/^LINES=.*/LINES=banana/' $< > $@
+$(BUILD)/tps_badpage.dbf: $(TPS_DIR)/tps.dbf | $(BUILD)
+	cp $< $@
+	printf 'XYZ' | dd of=$@ bs=1 seek=264 conv=notrunc status=none
+TPS_FLT_D_KEYS = $(TPS_TYPE_CMD),$(call tps-keys,$(TPS_DIR)/keys_ok.txt),e,x,i,t,ret
+TPS_FLT_EF_KEYS = $(TPS_TYPE_CMD),e,x,i,t,ret
+TPS_FLT_OLD = $(TPS_DIR)/old_tpsrept.txt=TPSREPT.TXT $(TPS_DIR)/old_tpsrept.bak=TPSREPT.BAK
+
+# $(1) bin $(2) run-name suffix. Leg D: the full volume.
+define tps-flt-d
+$(call tps-run,$(BUILD)/tps_fd_$(2).img,$(SECONDARY_TRACER_IMG),tps_fd_$(2),$(1),$(TPS_FLT_D_KEYS),$(TPS_DIR)/tpsparm.dat=TPSPARM.DAT $(TPS_FLT_OLD),$(call TPS_FLT_FILLHOOK,$(BUILD)/tps_fd_$(2).img),FILL.BIN)
+endef
+tps-flt-check-d = grep -q '^TPS-009 TPSREPT.TXT COULD NOT BE WRITTEN\. THE DISK MAY BE FULL\.$$' $(BUILD)/$(1).got && \
+	grep -q 'RETURN CODE 9\.$$' $(BUILD)/$(1).got && ! grep -q 'TPS REPORT WRITTEN TO\|RETURN CODE 0' $(BUILD)/$(1).got && \
+	! test -f $(BUILD)/$(1).rept && cmp -s $(TPS_DIR)/old_tpsrept.txt $(BUILD)/$(1).bak
+tps-flt-check-e = grep -q '^TPS-010 PARAMETER LINES IN TPSPARM\.DAT IS NOT A NUMBER\.$$' $(BUILD)/$(1).got && \
+	grep -q 'RETURN CODE 1\.$$' $(BUILD)/$(1).got && ! grep -q 'ENTER TPS REPORT NUMBER\|TOP OF FORM\|RETURN CODE 0' $(BUILD)/$(1).got && \
+	cmp -s $(TPS_DIR)/old_tpsrept.txt $(BUILD)/$(1).rept
+tps-flt-check-f = grep -q '^TPS-011 PAGES IS NOT A NUMBER (RECORD 1)\.$$' $(BUILD)/$(1).got && \
+	grep -q 'RETURN CODE 6\.$$' $(BUILD)/$(1).got && ! grep -q 'TOP OF FORM\|RETURN CODE 0' $(BUILD)/$(1).got && \
+	cmp -s $(TPS_DIR)/old_tpsrept.txt $(BUILD)/$(1).rept
+# Legs E/F: the previous TPSREPT.TXT must be untouched (no file work before the refusal).
+define tps-flt-ef
+$(call tps-run,$(BUILD)/$(2).img,$(SECONDARY_TRACER_IMG),$(2),$(1),$(TPS_FLT_EF_KEYS),$(3) $(TPS_FLT_OLD))
+endef
+
+.PHONY: test-tps-report-faults test-tps-report-faults-mutant
+test-tps-report-faults: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPSREP_BIN) $(TPS_FIXTURES) $(TPS_DIR)/keys_ok.txt $(BUILD)/tps_badnum.dat $(BUILD)/tps_badpage.dbf
+	@printf '======================================================================\n'
+	@printf 'make test-tps-report-faults : TPS write status, LINES= and PAGES validation (initech-ycvk)\n'
+	@printf '======================================================================\n'
+	$(call tps-flt-d,$(TPSREP_BIN),ok)
+	@grep -q '^SHELL-EXIT' $(BUILD)/tps_fd_ok.serial || { printf '!!! test-tps-report-faults FAIL [D]: the prompt never came back\n'; exit 1; }
+	@$(call tps-flt-check-d,tps_fd_ok) || { printf '!!! test-tps-report-faults FAIL [D]: full volume: no TPS-009 / RETURN CODE 9, or a success claim, or a truncated TPSREPT.TXT left, or .BAK lost (audit L004)\n'; tail -n 6 $(BUILD)/tps_fd_ok.got; exit 1; }
+	@printf '>>> test-tps-report-faults [D]: full volume -> TPS-009, RETURN CODE 9, no success line, truncated report dropped, previous report kept as .BAK\n'
+	$(call tps-flt-ef,$(TPSREP_BIN),tps_fe,$(BUILD)/tps_badnum.dat=TPSPARM.DAT)
+	@$(call tps-flt-check-e,tps_fe) || { printf '!!! test-tps-report-faults FAIL [E]: LINES=banana not refused with TPS-010 / code 1 before the ritual (audit L028)\n'; head -n 12 $(BUILD)/tps_fe.got; exit 1; }
+	@printf '>>> test-tps-report-faults [E]: LINES=banana -> TPS-010 / OP-7.3, code 1, no ritual, previous TPSREPT.TXT untouched\n'
+	$(call tps-flt-ef,$(TPSREP_BIN),tps_ff,$(TPS_DIR)/tpsparm.dat=TPSPARM.DAT $(BUILD)/tps_badpage.dbf=TPS.DBF)
+	@$(call tps-flt-check-f,tps_ff) || { printf '!!! test-tps-report-faults FAIL [F]: PAGES=XYZ not refused with TPS-011 / code 6 before the ritual (audit L029)\n'; head -n 12 $(BUILD)/tps_ff.got; exit 1; }
+	@printf '>>> test-tps-report-faults [F]: PAGES=XYZ in record 1 -> TPS-011 (RECORD 1), code 6, no ritual, previous TPSREPT.TXT untouched\n'
+	@printf 'VERDICT   : PASS -- TPSREP checks its write status and its numeric inputs (QEMU only)\n'
+
+test-tps-report-faults-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPSREP_NOWR_BIN) $(TPSREP_LINESOK_BIN) $(TPSREP_PAGESOK_BIN) $(TPS_FIXTURES) $(TPS_DIR)/keys_ok.txt $(BUILD)/tps_badnum.dat $(BUILD)/tps_badpage.dbf
+	$(call tps-flt-d,$(TPSREP_NOWR_BIN),mut)
+	@grep -q 'TPS REPORT WRITTEN TO' $(BUILD)/tps_fd_mut.got || { printf '!!! test-tps-report-faults-mutant FAIL: NOWRCHK did not run the report (RED for the wrong reason)\n'; exit 1; }
+	@if $(call tps-flt-check-d,tps_fd_mut); then printf '!!! test-tps-report-faults-mutant FAIL: NOWRCHK (write status ignored) passed [D]\n'; exit 1; fi
+	@printf '>>> test-tps-report-faults-mutant: NOWRCHK correctly RED on [D] (claims success on a full volume)\n'
+	$(call tps-flt-ef,$(TPSREP_LINESOK_BIN),tps_fem,$(BUILD)/tps_badnum.dat=TPSPARM.DAT)
+	@if $(call tps-flt-check-e,tps_fem); then printf '!!! test-tps-report-faults-mutant FAIL: LINESOK passed [E]\n'; exit 1; fi
+	@printf '>>> test-tps-report-faults-mutant: LINESOK correctly RED on [E]\n'
+	$(call tps-flt-ef,$(TPSREP_PAGESOK_BIN),tps_ffm,$(TPS_DIR)/tpsparm.dat=TPSPARM.DAT $(BUILD)/tps_badpage.dbf=TPS.DBF)
+	@if $(call tps-flt-check-f,tps_ffm); then printf '!!! test-tps-report-faults-mutant FAIL: PAGESOK passed [F]\n'; exit 1; fi
+	@printf '>>> test-tps-report-faults-mutant: PAGESOK correctly RED on [F]\n'
+	@printf '>>> test-tps-report-faults-mutant: green (3/3 mutants RED)\n'
+
 # Re-mint the TPS goldens under real MS-DOS 6.22 (NOT part of `make test`).
 TPS_MINT_DIR := $(BUILD)/tps_mint
 tps-mint-realdos: $(TPSREP_BIN16) $(TPS_FIXTURES)
@@ -305,4 +388,4 @@ tps-mint-realdos: $(TPSREP_BIN16) $(TPS_FIXTURES)
 	  cmp -s $(TPS_MINT_DIR)/$$f $(TPS_DIR)/$$f && printf '>>> tps-mint-realdos: %s reproduces the committed golden\n' $$f \
 	  || printf '!!! tps-mint-realdos: %s DIFFERS from the committed golden (%s)\n' $$f $(TPS_MINT_DIR)/$$f; done
 
-TEST_EMU_GATES += test-fcb-api test-fcb-api-mutant test-tps-report test-tps-report-mutant
+TEST_EMU_GATES += test-fcb-api test-fcb-api-mutant test-tps-report test-tps-report-mutant test-tps-report-faults test-tps-report-faults-mutant

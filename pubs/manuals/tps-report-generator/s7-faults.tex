@@ -40,13 +40,16 @@ The program checks its input in this order.  The appendix of messages
 \rule{0pt}{10pt}\sffamily\bfseries Message & \sffamily\bfseries When & \sffamily\bfseries Result & \sffamily\bfseries Action\\\hline
 TPS-001 & No parameter record & Ends, code 1 & \proc{01} step 6; else supervisor\\
 TPS-002 & A line of the record missing & Ends, code 1 & Supervisor (OP-7.3)\\
+TPS-010 & \texttt{LINES} is not a number & Ends, code 1 & Supervisor (OP-7.3)\\
 TPS-007 & No table named, or not found & Ends, code 7 & Type the command again\\
 TPS-006 & The table is not a TPS table & Ends, code 6 & Supervisor\\
+TPS-011 & A \texttt{PAGES} value is not a number & Ends, code 6 & Supervisor\\
 \texttt{FORM NOT ALIGNED} & Wrong number of presses & Asks again & \proc{03} step 1\\
 TPS-003 & Report numbers differ & Asks again & \proc{04} step 1\\
 TPS-004 & Not the memo number & Asks again & \proc{05} step 2\\
 TPS-005 & Cover sheet answer N & Ends, code 5 & \proc{06}; run again\\
-TPS-008 & Report file not created & Ends, code 8 & Supervisor\\\hline
+TPS-008 & Report file not created & Ends, code 8 & Supervisor\\
+TPS-009 & Report file not written (disk full) & Ends, code 9 & Supervisor\\\hline
 \end{tabular}\end{center}
 
 \section{Refusals Before the Alignment}

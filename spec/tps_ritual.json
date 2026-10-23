@@ -67,7 +67,14 @@
     { "id": "E7", "rule": "A table must be named on the command line and open through FCB AH=0Fh.",
       "refuse": ["TPS-007 TABLE NOT FOUND.", "USAGE: TPSREP table.DBF"], "exit": 7 },
     { "id": "E8", "rule": "TPSREPT.TXT must be creatable through FCB AH=16h.",
-      "refuse": ["TPS-008 TPSREPT.TXT COULD NOT BE CREATED."], "exit": 8 }
+      "refuse": ["TPS-008 TPSREPT.TXT COULD NOT BE CREATED."], "exit": 8 },
+    { "id": "E9", "rule": "Every FCB write (AH=15h) and the closing AH=10h of TPSREPT.TXT must succeed (AL=0); a failure (disk full) ends the run, the truncated report is dropped, the previous one stays as TPSREPT.BAK. Audit 2026-10-23-das L004, bead initech-ycvk.",
+      "refuse": ["TPS-009 TPSREPT.TXT COULD NOT BE WRITTEN. THE DISK MAY BE FULL."], "exit": 9 },
+    { "id": "E10", "rule": "LINES= of TPSPARM.DAT must be a decimal number (only the documented 0 is taken as 1); refused before the ritual. Audit L028, bead initech-ycvk.",
+      "refuse": ["TPS-010 PARAMETER LINES IN TPSPARM.DAT IS NOT A NUMBER.",
+                 "REFER TO OPERATING PROCEDURE OP-7.3 (PARAMETER FILES)."], "exit": 1 },
+    { "id": "E11", "rule": "The PAGES field of every live record must be blanks, digits, blanks; refused before the ritual and before any file is touched. Audit L029, bead initech-ycvk.",
+      "refuse": ["TPS-011 PAGES IS NOT A NUMBER (RECORD {n})."], "exit": 6 }
   ],
   "file_rules": [
     "The table named on the command line is read through FCB AH=0Fh/21h (128-byte random records).",
