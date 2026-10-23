@@ -4566,7 +4566,11 @@ static void flair_live_alert_open_icon(flair_live_ctx_t *ctx, const boot_info_t 
     g_al_dr.window.port.visRgn  = (region_t *)0;
     g_al_dr.window.port.clipRgn = (region_t *)0;
     g_al_dr.window.port.portRect = region_get_bbox(g_al_dr.window.strucRgn);
-    if (draw) {
+    if (draw
+#ifdef KMAIN_MUT_ALERT_NODRAW
+        && 0   /* MUTANT (Rule 6): the alert is never drawn; markers and replies stay. NEVER real. */
+#endif
+        ) {
         DrawDialog(&g_al_dr);
         flair_desktop_present(bi, &ctx->off);
     }
@@ -5187,6 +5191,27 @@ static int sf_run(flair_live_ctx_t *ctx, const boot_info_t *bi, sf_ui_t *u,
                 sf_dos_path(u->name, out);
                 good = 1;
                 break;
+            } else if (u->put
+#ifdef SF_MUT_BADNAME_SILENT
+                       && 0   /* MUTANT (Rule 6): the refusal is silent again (L017). NEVER real. */
+#endif
+                       ) {
+                /* L017 (audit 2026-10-23-das): an invalid 8.3 name is refused
+                 * WITH the reason (the rule is DOS 8.3, sf_name_ok), not
+                 * silently. */
+                static const char *const nl[2] = {
+                    "That is not a valid DOS file name.",
+                    "Use up to 8 letters, a dot, then 3 more." };
+                static const char *const ok[1] = { "OK" };
+                flair_live_alert_open(ctx, bi, nl, 2, ok, 1, 1);
+                serial_puts("TENANT-SF badname ");
+                serial_puts(u->name);
+                serial_putc('\n');
+                (void)flair_live_alert_run(ctx, bi);
+                sf_draw_static(ctx, u);
+                sf_draw_dynamic(ctx, u);
+                flair_desktop_present(bi, &ctx->off);
+                continue;
             }
         }
         sf_draw_dynamic(ctx, u);

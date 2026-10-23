@@ -252,8 +252,8 @@ int main(int argc, char **argv)
     if ((argc != 3 && !(argc == 5 && !strcmp(argv[1], "pressed"))) || (strcmp(argv[1], "alert") && strcmp(argv[1], "emptied") &&
                      strcmp(argv[1], "locked") && strcmp(argv[1], "locked-full") &&
                      strcmp(argv[1], "tenant3") && strcmp(argv[1], "tenant3-gone") &&
-                     strcmp(argv[1], "chrome") && strcmp(argv[1], "notice") && strcmp(argv[1], "pressed") && strcmp(argv[1], "exitdos"))) {
-        fprintf(stderr, "usage: %s <alert|emptied|locked|locked-full|tenant3|tenant3-gone|chrome|notice|exitdos> <dump.ppm> | pressed <dump.ppm> <ok_pressed.png> <ok_pressed_tl.png>\n", argv[0]);
+                     strcmp(argv[1], "chrome") && strcmp(argv[1], "notice") && strcmp(argv[1], "oknotice") && strcmp(argv[1], "pressed") && strcmp(argv[1], "exitdos"))) {
+        fprintf(stderr, "usage: %s <alert|emptied|locked|locked-full|tenant3|tenant3-gone|chrome|notice|oknotice|exitdos> <dump.ppm> | pressed <dump.ppm> <ok_pressed.png> <ok_pressed_tl.png>\n", argv[0]);
         return 2;
     }
     g_leg = argv[1];
@@ -327,6 +327,26 @@ int main(int argc, char **argv)
             printf("PRESSED-CAPTURE: %d/%d pixels matched the native pressed OK (label zone: %d white ink px, native %d)\n", n, n, ink, gink);
     } else if (strcmp(g_leg, "notice") == 0) {
         alert_chrome(0);
+    } else if (strcmp(g_leg, "oknotice") == 0) {
+        /* bead initech-oobx (audit 2026-10-23-das L014/L017): a ONE-button
+         * OK notice of exactly TWO message lines (InitechText's "This
+         * document is full." and Standard File's bad-name reason). The frame
+         * is compared exactly to the s8_alert_modal capture (alert_chrome);
+         * the message rows, the OK label and the default ring are asserted
+         * structurally, as the exitdos / tenant3 legs do. */
+        alert_chrome(0);
+        want(300, 150, CIDX_PLAT_FACE, "alert face between the message and the buttons");
+        for (int k = 0; k < 2; k++) {
+            char what[64];
+            snprintf(what, sizeof what, "message line %d", k + 1);
+            want_ink(TXT_X0, TXT_Y0 + 16 * k, TXT_X1, TXT_Y0 + 16 * (k + 1), 1, what);
+        }
+        want_ink(TXT_X0, TXT_Y0 + 32, TXT_X1, BT_T - 4, 0, "no third message line");
+        want_ink(AL_L + AL_BORDER + 1, TXT_Y0, TXT_X0 - 2, BT_B, 0,
+                 "nothing left of the text column");
+        want_ink(OK_L + 4, BT_T + 3, OK_R - 4, BT_B - 2, 1, "OK button label");
+        want_ink(CA_L + 4, BT_T + 3, CA_R - 4, BT_B - 2, 0, "no Cancel button");
+        want((OK_L + OK_R) / 2, BT_T - 3, CIDX_BLACK, "OK default ring (InsetRect -3)");
     } else if (strcmp(g_leg, "chrome") == 0) {
         alert_chrome(1);
     } else if (strcmp(g_leg, "exitdos") == 0) {

@@ -51,6 +51,10 @@
  *                            (test-itext-route)
  *   ITEXT_MUT_SEL_NOT_INVERSE  a range is drawn as plain text
  *                            (test-itext-route, test-flair-itext PIXEL leg)
+ *   ITEXT_MUT_LF_PAIR_OUTPUT  Open's CR LF test reads the normalised output
+ *                            (L005; test-itext-route "linefeed")
+ *   ITEXT_MUT_FULL_SILENT    a refused edit at the limit raises no notice
+ *                            (L014; test-itext-route "full")
  *   ITEXT_MUT_SCROLL_NEVER_ENABLED  reports a fitting document forever
  *                            (test-itext-route, test-flair-itext-scroll)
  *
@@ -303,10 +307,24 @@ static int doc_load(const char *path)
     n = tbx_file_read(h, g_io, (uint32_t)sizeof g_io);
     (void)tbx_file_close(h);
     if (n < 0) { say("The document could not be opened.", (const char *)0); return 0; }
-    for (i = 0; i < n; i++) {                       /* CR LF / LF -> CR */
-        char c = g_io[i];
-        if (c == '\n' && k > 0 && g_io[k - 1] == '\r') continue;
-        g_io[k++] = (c == '\n') ? '\r' : c;
+    /* CR LF -> one CR, a lone LF -> one CR, a lone CR stays. The pair test
+     * remembers the previous INPUT byte (`prev`), never the normalised
+     * output (which holds a CR for every LF): reading the output made the
+     * second of two LF-only line ends look like the half of a CR LF (audit
+     * 2026-10-23-das L005: blank lines vanished and were lost on Save). */
+    {
+        char prev = 0;
+        for (i = 0; i < n; i++) {
+            char c = g_io[i];
+            int skip = (c == '\n' && prev == '\r');
+#ifdef ITEXT_MUT_LF_PAIR_OUTPUT
+            /* MUTANT (Rule 6): the pair test reads the normalised output (the
+             * L005 defect). NEVER real. */
+            skip = (c == '\n' && k > 0 && g_io[k - 1] == '\r');
+#endif
+            prev = c;
+            if (!skip) g_io[k++] = (c == '\n') ? '\r' : c;
+        }
     }
     if (n > FLAIR_TE_TEXT_MAX ||
         !FlairTECanReplace(&g_te, 0, g_te.teLength, g_io, (int16_t)k)) {
@@ -411,8 +429,18 @@ static void guarded(int act, const char *why)
 /* ---- editing -------------------------------------------------------------- */
 static void replace_sel(const char *s, int n)
 {
-    if (!FlairTECanReplace(&g_te, g_te.selStart, g_te.selEnd, s, (int16_t)n))
-        return;                                     /* the edit cannot fit */
+    if (!FlairTECanReplace(&g_te, g_te.selStart, g_te.selEnd, s, (int16_t)n)) {
+        /* The edit cannot fit: say so. This is AUTHORED capacity feedback
+         * grounded in audit 2026-10-23-das L014 (a refused edit must be
+         * discoverable); no local TeachText manual page documents the exact
+         * wording, which is from memory of TeachText's full-document notice
+         * (unverified). The Toolbox Gate has no beep verb, so the notice is
+         * the whole signal. */
+#ifndef ITEXT_MUT_FULL_SILENT      /* MUTANT (Rule 6): the refusal is silent (L014). NEVER real. */
+        say("This document is full.", "The edit could not be made.");
+#endif
+        return;
+    }
     FlairTEInsert(&g_te, s, (int16_t)n);
     g_dirty = 1;
 }
