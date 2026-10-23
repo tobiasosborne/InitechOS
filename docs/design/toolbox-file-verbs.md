@@ -38,3 +38,19 @@ reopens, reads and deletes; mtools judges surviving bytes and deleted names,
 fsck.fat judges the disk. Repeated quit/close/crash with open handles must leave
 no live owned SFT entries, including after tenant PSP corruption. Kernel growth
 is measured before/after; stop if it requires more than 4096 bytes.
+
+## Slice 2: RENAME and the atomic save (initech-mcep)
+
+Audits 2026-10-23 (iword L001/L002, das L003/L008, i123 L001) showed a save
+that ran out of disk left a zero-byte file where the last saved version had
+been: CREATE is AH=3Ch and truncates before the first WRITE. The fix is one
+tenant-runtime primitive, `tbx_file_save` (os/apps/tbx/tbx_save.h), over one
+new gate verb, TBX_FILE_RENAME 0x0089 (spec/toolbox_gate.h Sec 10b, AH=56h
+with the new name in EDI). The save writes NAME.$$$ in the same directory,
+closes it, deletes NAME, then renames NAME.$$$ to NAME; every failure before
+the delete removes the temporary and leaves NAME untouched. DOS 3.3 has no
+rename-over-existing (Technical Reference p. 6-206), so delete precedes
+rename: a reset exactly between the two leaves the document as NAME.$$$ (the
+EDLIN precedent, MS-DOS 3.3 User's Reference p. 164). CREATE keeps its
+truncate meaning. Acceptance: test-flair-fullsave (+ -mutant, the pre-fix
+in-place save on the same full volume) and test-tbx-file F5.

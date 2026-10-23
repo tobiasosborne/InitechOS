@@ -1,0 +1,97 @@
+/* tbx_save.h -- the tenant runtime's atomic document save (bead initech-mcep).
+ *
+ * WHY. TBX_FILE_CREATE is DOS AH=3Ch: it truncates an existing file before
+ * the first byte of the new one is written (spec/toolbox_gate.h Sec 10). A
+ * save that then runs out of disk left a zero-byte file where the user's last
+ * saved version had been -- audits 2026-10-23 iword L001/L002 (twice
+ * reproduced), das L003 (InitechText), i123 L001 (Initech 123).
+ *
+ * THE SEQUENCE (authored; the period precedent is DOS 3.3 EDLIN, which writes
+ * the edited file and only then renames the original -- MS-DOS 3.3 User's
+ * Reference p. 164, "How to End Edlin and Save Your Changes"):
+ *   1. CREATE <name>.$$$ in the SAME directory and WRITE every byte; CLOSE.
+ *      Any failure here DELETEs the temporary file: the old file, and the
+ *      directory, are exactly as they were (no zero-byte leftover).
+ *   2. DELETE <name> (DOS error 2, no such file, is a new save, not a
+ *      failure). A refused DELETE (a read-only file: DOS error 5) DELETEs the
+ *      temporary file and returns the error -- the old file is untouched.
+ *   3. RENAME <name>.$$$ -> <name> (AH=56h, spec/toolbox_gate.h Sec 10b).
+ * DOS 3.3 has no rename-over-an-existing-file (Technical Reference p. 6-206;
+ * os/milton/int21.c do_rename refuses an existing target with AX=5), hence
+ * delete-THEN-rename. THE WINDOW: between steps 2 and 3 only <name>.$$$ holds
+ * the document; a machine reset exactly there leaves it under that name (the
+ * EDLIN-style recoverable remnant). Gate calls are synchronous and the
+ * scheduler is cooperative, so no other tenant runs inside the window.
+ * THE COST: the new file is written while the old one still occupies its
+ * clusters, so a replacing save needs free space for the whole new file.
+ * A target whose extension is already $$$ uses the temporary extension $$!.
+ *
+ * RESULT: `n` on success; 0..n-1 is the short count of a WRITE that ran out
+ * of disk (the caller's "Disk Full"); negative is the TBX_ERR_* /
+ * TBX_ERR_DOS(code) of the CREATE, CLOSE, DELETE or RENAME that refused.
+ * `path` and `buf` must be static module/BSS storage (tbx.h Sec 10 rule); the
+ * temporary name is built in this header's own BSS buffer.
+ *
+ * Freestanding, ASCII-only, deterministic (Laws 1-3, Rules 11/12). Included
+ * by each saving tenant (and compiled verbatim by its host oracle); unused
+ * in a tenant that never saves. */
+#ifndef INITECH_TBX_SAVE_H
+#define INITECH_TBX_SAVE_H
+#include "tbx.h"
+
+static char g_tbx_save_tmp[TBX_FILE_PATH_MAX];
+
+static __attribute__((unused)) int32_t tbx_file_save(const char *path, const void *buf, uint32_t n)
+{
+    const unsigned char *b = (const unsigned char *)buf;
+    uint32_t i = 0, dot = 0, pos = 0;
+    int32_t h, rc = 0, cl;
+#ifdef TBX_MUT_SAVE_IN_PLACE
+    /* MUTANT (Rule 6; test-flair-fullsave-mutant): the pre-mcep save --
+     * CREATE truncates the target, then the WRITE runs out of disk. */
+    h = tbx_file_create(path);
+    if (h < 0) return h;
+    while (pos < n && (rc = tbx_file_write(h, b + pos, n - pos)) > 0 && (uint32_t)rc <= n - pos)
+        pos += (uint32_t)rc;
+    cl = tbx_file_close(h);
+    return cl < 0 ? cl : (int32_t)pos;
+#endif
+    /* <name>.$$$: the leaf's extension (after the last '.' of the last
+     * component) replaced, or appended when there is none. */
+    for (; path[i] != '\0'; i++) {
+        if (path[i] == '\\' || path[i] == ':') dot = 0;
+        else if (path[i] == '.') dot = i;
+    }
+    if (dot == 0) dot = i;
+    if (dot + 5u > TBX_FILE_PATH_MAX) return TBX_ERR_BADARG;
+    for (i = 0; i < dot; i++) g_tbx_save_tmp[i] = path[i];
+    g_tbx_save_tmp[i++] = '.'; g_tbx_save_tmp[i++] = '$';
+    g_tbx_save_tmp[i++] = '$';
+    g_tbx_save_tmp[i++] = (path[dot] == '.' && path[dot+1] == '$' && path[dot+2] == '$' &&
+                           path[dot+3] == '$' && path[dot+4] == '\0') ? '!' : '$';
+    g_tbx_save_tmp[i] = '\0';
+
+    h = tbx_file_create(g_tbx_save_tmp);
+    if (h < 0) return h;
+    while (pos < n) {
+        rc = tbx_file_write(h, b + pos, n - pos);
+        if (rc <= 0 || (uint32_t)rc > n - pos) break;
+        pos += (uint32_t)rc;
+#ifdef TBX_MUT_SAVE_ONE_WRITE
+        break;   /* MUTANT (iword IWORD_MUT_SETUP_SHORT): one write only */
+#endif
+    }
+    cl = tbx_file_close(h);
+    if (pos != n || cl < 0) {
+        (void)tbx_file_delete(g_tbx_save_tmp);   /* the old file never moved */
+        return cl < 0 ? cl : rc < 0 ? rc : (int32_t)pos;
+    }
+    rc = tbx_file_delete(path);
+    if (rc < 0 && rc != TBX_ERR_DOS(2)) {
+        (void)tbx_file_delete(g_tbx_save_tmp);   /* e.g. read-only: kept */
+        return rc;
+    }
+    rc = tbx_file_rename(g_tbx_save_tmp, path);
+    return rc < 0 ? rc : (int32_t)n;
+}
+#endif

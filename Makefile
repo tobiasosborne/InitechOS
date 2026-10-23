@@ -10261,7 +10261,7 @@ TENANTFX_EXE := $(BUILD)/tenantfx.exe
 # $(call tenant-exe-rules,<name>,<C sources>,<extra cflags>,<extra deps>,<extra ldflags>)
 #   -> $(BUILD)/tenant/<name>.exe
 TBX_RT_SRC    := os/apps/tbx/tbx_rt.c
-TBX_HDRS      := os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/cp_dialog.h
+TBX_HDRS      := os/apps/tbx/tbx.h os/apps/tbx/tbx_save.h spec/toolbox_gate.h spec/event_model.h spec/cp_dialog.h
 TENANT_LD     := os/apps/tbx/tenant.ld
 TENANT_PROBE  := 0x01010140
 TENANT_CFLAGS := $(KERNEL_CFLAGS_CDECL) -Os -fno-tree-loop-distribute-patterns \
@@ -31054,8 +31054,8 @@ $(BUILD)/test_tbx_file_mutant_%: $(TBX_FILE_DEPS) | $(BUILD)
 test-tbx-file: $(BUILD)/test_tbx_file
 	@$(BUILD)/test_tbx_file
 	@printf '>>> test-tbx-file: green\n'
-test-tbx-file-mutant: $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_BOUNDS $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_OWNER $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_LEAK
-	@for pair in TBX_MUT_FILE_BOUNDS:F2 TBX_MUT_FILE_OWNER:F3 TBX_MUT_FILE_LEAK:F4; do \
+test-tbx-file-mutant: $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_BOUNDS $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_OWNER $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_LEAK $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_RENAME_EDI
+	@for pair in TBX_MUT_FILE_BOUNDS:F2 TBX_MUT_FILE_OWNER:F3 TBX_MUT_FILE_LEAK:F4 TBX_MUT_FILE_RENAME_EDI:F5; do \
 	 m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_tbx_file_mutant_$$m; \
 	 if $$bin > $$bin.log 2>&1; then printf '!!! test-tbx-file-mutant: %s survived\n' $$m; exit 1; fi; \
 	 grep -q "FAIL.*$$why" $$bin.log || { cat $$bin.log; exit 1; }; \
@@ -31288,7 +31288,7 @@ test-flair-i123-quitguard: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I1
 	@fsck.fat -n $(BUILD)/flair_i123_qg_save_data.img > /dev/null || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- fsck.fat\n'; exit 1; }
 	@printf '>>> test-flair-i123-quitguard [5/9] SAVE: Return (Save), q -> Q.WK1 (wk1_ref.py: Hello 123 1.5 -7), EXIT(0); relaunch + /FR q shows the row; fsck clean\n'
 	$(call appl-boot,flair_i123_qg_savefail,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_SAVEFAIL,)
-	@f=$(BUILD)/flair_i123_qg_savefail.serial; $(call APPL_ALIVE,$$f) && [ "$$(grep -c '^TENANT-ALERT up lines=3 buttons=3$$' $$f)" = 2 ] && grep -qF 's="Cancel  Replace  Backup' $$f && grep -q '^TENANT-GATE ax=0x0080 path="ro.wk1" -> -261$$' $$f && grep -q 's="File I/O error' $$f && $(call QG_NO_EXIT,$$f) || { printf '!!! test-flair-i123-quitguard [6/9] FAIL: SAVEFAIL -- a refused Save must keep 123 open and dirty (asked again)\n'; grep -E '^(TENANT-(ALERT|EXIT|GATE ax=008)|PANIC)' $$f; exit 1; }
+	@f=$(BUILD)/flair_i123_qg_savefail.serial; $(call APPL_ALIVE,$$f) && [ "$$(grep -c '^TENANT-ALERT up lines=3 buttons=3$$' $$f)" = 2 ] && grep -qF 's="Cancel  Replace  Backup' $$f && grep -q '^TENANT-GATE ax=0x0086 path="ro.wk1" -> -261$$' $$f && grep -q 's="File I/O error' $$f && $(call QG_NO_EXIT,$$f) || { printf '!!! test-flair-i123-quitguard [6/9] FAIL: SAVEFAIL -- a refused Save must keep 123 open and dirty (asked again)\n'; grep -E '^(TENANT-(ALERT|EXIT|GATE ax=008)|PANIC)' $$f; exit 1; }
 	@mcopy -o -i $(BUILD)/flair_i123_qg_savefail_data.img ::RO.WK1 $(BUILD)/i123-qg-ro.WK1 && cmp -s $(BUILD)/i123-corpus-original.WK1 $(BUILD)/i123-qg-ro.WK1 && mattrib -i $(BUILD)/flair_i123_qg_savefail_data.img ::RO.WK1 | grep -q ' R .*RO.WK1' || { printf '!!! test-flair-i123-quitguard [6/9] FAIL: SAVEFAIL -- RO.WK1 changed or lost its read-only bit (mtools)\n'; exit 1; }
 	@printf '>>> test-flair-i123-quitguard [6/9] SAVEFAIL: Save + Replace onto read-only RO.WK1 -> DOS 5, "File I/O error", no exit, asked again; RO.WK1 byte-identical\n'
 	$(call appl-boot,flair_i123_qg_close,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_CLOSE,)
@@ -33136,6 +33136,7 @@ TEST_EMU_GATES += test-flair-itext-scroll test-flair-itext-scroll-mutant
 
 # Seeded volume contracts are read after every image variable is defined.
 include harness/emu/notepad.mk
+include harness/emu/fullsave.mk
 include harness/diff/wp5_diff/p3.mk
 include harness/diff/wp5_diff/p3_part2.mk
 include harness/diff/wp5_diff/p3_listfiles.mk
@@ -33350,7 +33351,7 @@ test-scrapbook-route: $(BUILD)/test_scrapbook_route
 	@printf '>>> test-scrapbook-route: green\n'
 TEST_UNIT_GATES += test-notepad-route test-scrapbook-route
 
-DA_HOST_MUTANTS := DA_MUT_TURN_OFFBYONE:page-turn DA_MUT_SKIP_CLOSE_SAVE:save-close DA_MUT_PASTE_WRONG_PAGE:paste-page DA_MUT_ACCEPT_CORRUPT:corrupt
+DA_HOST_MUTANTS := DA_MUT_TURN_OFFBYONE:page-turn DA_MUT_SKIP_CLOSE_SAVE:save-close DA_MUT_PASTE_WRONG_PAGE:paste-page DA_MUT_ACCEPT_CORRUPT:corrupt DA_MUT_OVERWRITE_DAMAGED:keep-damaged
 $(BUILD)/test_notepad_mut_%: $(DA_ROUTE_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DA_ROUTE_CF) -D$* -o $@ $< $(DA_ROUTE_LINK)
 $(BUILD)/test_scrapbook_mut_%: $(DA_ROUTE_DEPS) | $(BUILD)

@@ -57,6 +57,7 @@
  * Freestanding C (Law 3). ASCII-clean (Rule 12). Deterministic (Rule 11).
  */
 #include "tbx.h"
+#include "tbx_save.h"   /* initech-mcep: the atomic document save */
 #include "textedit.h"
 #include "text.h"
 
@@ -326,8 +327,7 @@ static int doc_load(const char *path)
 
 static int doc_write(void)
 {
-    int32_t h = tbx_file_create(g_path), n = g_te.teLength, w, i, k = 0;
-    if (h < 0) { say("The document could not be saved.", (const char *)0); return 0; }
+    int32_t n = g_te.teLength, i, k = 0;
     for (i = 0; i < n; i++) {
 #ifdef ITEXT_MUT_SAVE_NO_CR
         /* MUTANT (Rule 6): the line ends are dropped on the way out. */
@@ -335,8 +335,9 @@ static int doc_write(void)
 #endif
         g_io[k++] = g_te.text[i];
     }
-    w = tbx_file_write(h, g_io, (uint32_t)k);
-    if (tbx_file_close(h) < 0 || w != k) {
+    /* initech-mcep (audit 2026-10-23-das L003): the atomic save -- a write
+     * that does not fit leaves the old file exactly as it was. */
+    if (tbx_file_save(g_path, g_io, (uint32_t)k) != k) {
         say("The document could not be saved.", (const char *)0);
         return 0;
     }

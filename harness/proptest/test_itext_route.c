@@ -169,6 +169,10 @@ int32_t tbx_file_write(int32_t h, const void *buf, uint32_t n)
 int32_t tbx_file_seek(int32_t h, int32_t d, uint32_t o) { (void)h; (void)d; (void)o; return 0; }
 int32_t tbx_file_close(int32_t h) { m_h[h - 5].f = 0; return TBX_OK; }
 int32_t tbx_file_delete(const char *p) { mfile_t *f = mfind(p); if (f) f->used = 0; return TBX_OK; }
+/* Sec 10b RENAME (initech-mcep): DOS 3.3 AH=56h -- an existing target is
+ * access denied, a missing source is file not found. */
+int32_t tbx_file_rename(const char *o, const char *n)
+{ mfile_t *f = mfind(o); if (!f) return TBX_ERR_DOS(2); if (mfind(n)) return TBX_ERR_DOS(5); snprintf(f->name, 64, "%s", n); return TBX_OK; }
 
 /* ---- driving ---------------------------------------------------------------- */
 static void hev(int what, int32_t msg, int32_t mods, int h, int v)

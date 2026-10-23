@@ -140,6 +140,10 @@ int32_t tbx_file_write(int32_t h, const void *buf, uint32_t n)
 int32_t tbx_file_seek(int32_t h, int32_t d, uint32_t o) { (void)h; (void)d; (void)o; return 0; }
 int32_t tbx_file_close(int32_t h) { m_h[h - 5].f = 0; return TBX_OK; }
 int32_t tbx_file_delete(const char *p) { mfile_t *f = mfind(p); if (f) f->used = 0; return TBX_OK; }
+/* Sec 10b RENAME (initech-mcep): DOS 3.3 AH=56h -- an existing target is
+ * access denied, a missing source is file not found. */
+int32_t tbx_file_rename(const char *o, const char *n)
+{ mfile_t *f = mfind(o); if (!f) return TBX_ERR_DOS(2); if (mfind(n)) return TBX_ERR_DOS(5); snprintf(f->name, 64, "%s", n); return TBX_OK; }
 
 static void mock_diagnostic(const char *s) { if (strstr(s, "DA-CORRUPT")) diagnostics++; }
 static void event(int what, int msg, int mods, int x, int y)
@@ -218,6 +222,21 @@ int main(void)
     if (file) { file->data[20] ^= 1; launch(); CHECK(diagnostics == 1, "corrupt");
         CHECK(g_te.teLength == 0, "corrupt"); }
     CHECK(m_alerts == 0, "unexpected-alert");
+    /* initech-mcep (audit 2026-10-23-das L008): closing over the damaged store
+     * never writes it -- it warns once and ends on the answer; the bytes are
+     * the damaged bytes. The single-byte leg below then starts from a first
+     * launch (no store), as it must: it no longer rides on the overwrite. */
+    if (file) {
+        static char keep[sizeof file->data]; int kl = file->len, ex = (int)m_exits;
+        memcpy(keep, file->data, (size_t)kl);
+        event(TBX_EVT_GOAWAY, 0, 0, 0, 0);
+        CHECK(m_alerts == 1 && (int)m_exits == ex, "keep-damaged");
+        event(TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0);
+        CHECK((int)m_exits == ex + 1, "keep-damaged");
+        CHECK(file->used && file->len == kl && !memcmp(file->data, keep, (size_t)kl), "keep-damaged");
+        file->used = 0;
+        launch();
+    }
     /* TEXT is single-byte, not ASCII-only data: preserve tabs and an extended
      * MacRoman byte through Scrap, save and reload. Mixed LF/CRLF -> CR. */
     {

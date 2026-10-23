@@ -173,6 +173,15 @@ int32_t tbx_file_close(int32_t h)
 { FILE *f = fh(h); if (!f) return TBX_ERR_BADARG; fclose(f); m_fh[h - 5] = 0; return TBX_OK; }
 int32_t tbx_file_delete(const char *path)
 { char hp[600]; host_name(path, hp); return remove(hp) == 0 ? TBX_OK : TBX_ERR_DOS(2); }
+/* Sec 10b RENAME (initech-mcep): DOS 3.3 AH=56h -- an existing target is
+ * access denied, a missing source is file not found. */
+int32_t tbx_file_rename(const char *o, const char *n)
+{
+    char ho[600], hn[600]; FILE *f;
+    host_name(o, ho); host_name(n, hn);
+    if ((f = fopen(hn, "rb")) != NULL) { fclose(f); return TBX_ERR_DOS(5); }
+    return rename(ho, hn) == 0 ? TBX_OK : TBX_ERR_DOS(2);
+}
 /* The List Files verbs (initech-qvgd) and the clock: the probe replays the
  * lesson launches only, so an empty directory, a fixed free figure and a
  * zero clock keep every printed screen as before. */

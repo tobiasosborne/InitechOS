@@ -3,6 +3,7 @@
  * cp_dialog.h transport; cpanels/record.json persistence; no native layout
  * captures: composed existing controls, not a native pixel replica. */
 #include "tbx.h"
+#include "tbx_save.h"   /* initech-mcep: the atomic document save */
 #include "cpanels.h"
 const char tbx_app_name[]="CPANELS";
 static cp_state_t state TBX_IN_IMAGE={0};
@@ -16,8 +17,8 @@ static const tbx_menubar_t bar={menus,1,1,0};
 static int32_t settings(unsigned mode) {uint32_t a[]={mode,(uint32_t)(uintptr_t)record};return tbx_trap(TBX_SETTINGS,2,a);}
 static int32_t clock(unsigned mode) {uint32_t a[]={mode,(uint32_t)(uintptr_t)&state.time};return tbx_trap(TBX_CLOCK,2,a);}
 static int save(void *u,const cp_settings_t *s) {
- (void)u;cp_encode(s,record);int h=tbx_file_create(CP_PATH);if(h<0)return 0;
- int n=tbx_file_write(h,record,CP_RECORD_BYTES);int c=tbx_file_close(h);return n==CP_RECORD_BYTES && c==0;
+ /* initech-mcep: the atomic save keeps the old record when a write fails. */
+ (void)u;cp_encode(s,record);return tbx_file_save(CP_PATH,record,CP_RECORD_BYTES)==(int32_t)CP_RECORD_BYTES;
 }
 static int apply(void *u,const cp_settings_t *s){(void)u;cp_encode(s,record);return settings(1)==0;}
 static int setclock(void *u,const cp_time_t *t){(void)u;(void)t;return clock(1)==0;}

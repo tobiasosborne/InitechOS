@@ -163,6 +163,12 @@
  * reference. Freestanding C, ASCII-clean (Rule 12), deterministic (Rule 11).
  */
 #include "tbx.h"
+#ifdef IWORD_MUT_SETUP_SHORT
+/* MUTANT (test-iword-setup-mutant): the save loop stops after ONE write --
+ * the loop is the shared atomic save's since initech-mcep. NEVER real. */
+#define TBX_MUT_SAVE_ONE_WRITE
+#endif
+#include "tbx_save.h"   /* initech-mcep: the atomic document save */
 #include "../../../spec/iword/fkeys.h"
 #include "iword.h"
 #include "iword/wp5_format.h"
@@ -1138,24 +1144,15 @@ static void settings_load(void)
 }
 static int settings_save(void)
 {
-    int32_t h, n, cl;
-    uint32_t pos = 0;
+    int32_t n;
     for (uint32_t i = 0; i < IW_SETTINGS_SIZE; i++) g_settings_io[i] = g_settings[i];
 #ifdef IWORD_MUT_SETUP_SAVE
     g_settings_io[4] = 'i';
 #endif
-    h = tbx_file_create(IW_SETTINGS_PATH);
-    if (h < 0) return IW_E_FULL;
-    while (pos < IW_SETTINGS_SIZE) {
-        n = tbx_file_write(h, g_settings_io+pos, IW_SETTINGS_SIZE-pos);
-        if (n <= 0 || (uint32_t)n > IW_SETTINGS_SIZE-pos) break;
-        pos += (uint32_t)n;
-#ifdef IWORD_MUT_SETUP_SHORT
-        break;
-#endif
-    }
-    cl = tbx_file_close(h);
-    return pos == IW_SETTINGS_SIZE && cl >= 0 ? IW_OK : IW_E_FULL;
+    /* initech-mcep: the atomic save -- a settings write that does not fit
+     * keeps the old settings file. */
+    n = tbx_file_save(IW_SETTINGS_PATH, g_settings_io, IW_SETTINGS_SIZE);
+    return n == (int32_t)IW_SETTINGS_SIZE ? IW_OK : IW_E_FULL;
 }
 static void setup_key(char ch, uint8_t vk)
 {
@@ -1235,10 +1232,10 @@ static void after_save(void)
 
 static void write_file(void)
 {
-    uint32_t n = 0, wn, pos = 0;
-    int32_t h, rc = 0, closed;
-    /* Flatten BEFORE create can truncate an existing file (the 123.EXE
-     * preflight, initech-tdnl.91). */
+    uint32_t n = 0, wn;
+    int32_t rc;
+    /* Flatten BEFORE the save touches the disk (the 123.EXE preflight,
+     * initech-tdnl.91). */
     if (flatten(&n) != IW_OK) { error("ERROR: Document too large", M_EDIT); return; }
     wn = n;
 #ifdef IWORD_MUT_SAVE_NOTHING
@@ -1246,15 +1243,13 @@ static void write_file(void)
      * an empty file is left behind. NEVER real. */
     wn = 0;
 #endif
-    h = tbx_file_create(g_path);
-    if (h < 0) { error("ERROR: File I/O error", M_SAVE_NAME); return; }
-    while (pos < wn) {
-        rc = tbx_file_write(h, g_bank[1u - g_live] + pos, wn - pos);
-        if (rc <= 0 || (uint32_t)rc > wn - pos) break;
-        pos += (uint32_t)rc;
-    }
-    closed = tbx_file_close(h);
-    if (pos != wn || closed < 0) {
+    /* initech-mcep (audit 2026-10-23-iword L001/L002): the atomic save -- a
+     * write that does not fit leaves the last saved version (and a failed new
+     * name leaves no file at all). A refused CREATE / DELETE / RENAME is the
+     * I/O error; a write that ran out of room is Disk Full. */
+    rc = tbx_file_save(g_path, g_bank[1u - g_live], wn);
+    if (rc < 0) { error("ERROR: File I/O error", M_SAVE_NAME); return; }
+    if ((uint32_t)rc != wn) {
         /* Appendix E, PDF 763 */
         error("ERROR: Disk Full--Press Any Key to Continue", M_SAVE_NAME);
         return;

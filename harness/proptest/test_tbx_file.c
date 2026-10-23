@@ -35,6 +35,15 @@ static uint16_t write_file(uint16_t dir, uint32_t slot,
 }
 static uint16_t unlink_file(const char *name, uint16_t dir)
 { (void)name; (void)dir; calls++; return 2; }
+/* initech-mcep Sec 10b: the rename backend records the leaves it is handed;
+ * NEW.DAT already exists (the DOS 3.3 dest-exists reject is the backend's). */
+static char ren_old[16], ren_new[16];
+static uint16_t rename_file(const char *o, uint16_t od, const char *n, uint16_t nd)
+{
+    (void)od; (void)nd; calls++;
+    strncpy(ren_old, o, sizeof ren_old - 1); strncpy(ren_new, n, sizeof ren_new - 1);
+    return strcmp(n, "NEW.DAT") == 0 ? 5 : 0;
+}
 static int32_t call(psp_t *p, uint32_t lo, uint32_t code, uint32_t a, uint32_t b, uint32_t c)
 { uint32_t args[3] = { a, b, c }; return tbxf_call(p, lo, 4096, code, args); }
 int main(void)
@@ -49,6 +58,7 @@ int main(void)
     strcpy((char *)mem, "TEST.DAT"); memcpy(mem + 2048, "abcde", 5);
     backend.open = open_file; backend.create = create_file;
     backend.read_at = read_file; backend.write_at = write_file; backend.unlink = unlink_file;
+    backend.rename = rename_file;
     sft_init(); tbxf_init(&owner); tbxf_init(&other);
     int21_set_file_backend(&backend); int21_set_psp(&other);
     int32_t h = call(&owner, lo, TBX_FILE_CREATE, lo, 0, 0);
@@ -94,6 +104,20 @@ int main(void)
     ASSERT_EQ("F3 CREATE refuses device basename",reserved,TBX_ERR_BADARG);
     ASSERT_EQ("F3 CREATE device never touches backend",calls,before);
     if (reserved >= 5) (void)call(&owner,lo,TBX_FILE_CLOSE,reserved,0,0);
+    /* F5 (initech-mcep, Sec 10b): RENAME is AH=56h with the NEW name in EDI;
+     * success is 0, the DOS dest-exists reject is ERR_DOS(5), both paths are
+     * checked before DOS, and a device name never reaches the backend. */
+    strcpy((char *)mem+500,"OLD.$$$"); strcpy((char *)mem+520,"KEEP.DAT");
+    strcpy((char *)mem+540,"NEW.DAT");
+    ASSERT_EQ("F5 rename ok", call(&owner,lo,TBX_FILE_RENAME,lo+500,lo+520,0), TBX_OK);
+    ASSERT_EQ("F5 rename old leaf (EDX)", strcmp(ren_old,"OLD.$$$"), 0);
+    ASSERT_EQ("F5 rename new leaf (EDI)", strcmp(ren_new,"KEEP.DAT"), 0);
+    ASSERT_EQ("F5 rename over existing refused", call(&owner,lo,TBX_FILE_RENAME,lo+500,lo+540,0), TBX_ERR_DOS(5));
+    before = calls;
+    ASSERT_EQ("F5 rename bad new path", call(&owner,lo,TBX_FILE_RENAME,lo+500,lo+3968,0), TBX_ERR_BADARG);
+    ASSERT_EQ("F5 rename bad old path", call(&owner,lo,TBX_FILE_RENAME,lo-1,lo+520,0), TBX_ERR_BADARG);
+    ASSERT_EQ("F5 rename to a device", call(&owner,lo,TBX_FILE_RENAME,lo+500,lo+400,0), TBX_ERR_DOS(5));
+    ASSERT_EQ("F5 refusals never touch backend", calls, before);
     int32_t alien = call(&other,lo,TBX_FILE_OPEN,lo,0,0);
     ASSERT_TRUE("F4 unrelated owner open", alien >= 5);
     tbxf_reap(&owner);
