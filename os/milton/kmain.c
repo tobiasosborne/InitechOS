@@ -6111,13 +6111,11 @@ static void (*exitdos_load_transient(void))(int)
     dir_entry_t command;
     static uint8_t sector[512], fat_cache[1024], cluster[4096];
     transient_hdr_t *h = (transient_hdr_t *)(uintptr_t)TRANSIENT_BASE;
-    const uint32_t want[TRANSIENT_N_IMPORTS] = {
-        (uint32_t)(uintptr_t)&fileio_fat_volume_label,
-        (uint32_t)(uintptr_t)&int21_directory_exists,
-        (uint32_t)(uintptr_t)&int21_get_psp,
-        (uint32_t)(uintptr_t)&int21_same_file,
-        (uint32_t)(uintptr_t)&int21_set_break_recovery
-    };
+    /* EVERY kernel import the transient's code uses, from the GENERATED table
+     * (build/transient_want.asm; os/milton/transient.h). The review of
+     * initech-13ig found the former hand-kept list checked five of ten. */
+    const uint32_t n_want = transient_import_count;
+    const uint32_t hdr_bytes = (uint32_t)sizeof *h + n_want * 4u;
     uint32_t bytes, k;
     int rc;
 
@@ -6154,21 +6152,22 @@ static void (*exitdos_load_transient(void))(int)
         if (h->magic[k] != TRANSIENT_MAGIC[k])
             exitdos_fail("no COMMAND3 transient on the boot disk", k);
 #endif
-    if (h->load_end <= TRANSIENT_BASE + (uint32_t)sizeof *h ||
+    if (h->n_imports != n_want)
+        exitdos_fail("transient import count != the kernel's", h->n_imports);
+    if (h->load_end <= TRANSIENT_BASE + hdr_bytes ||
         h->load_end != TRANSIENT_BASE + command.file_size ||
-        h->bss_end < h->load_end || h->bss_end > TRANSIENT_CEIL ||
-        h->n_imports != TRANSIENT_N_IMPORTS)
+        h->bss_end < h->load_end || h->bss_end > TRANSIENT_CEIL)
         exitdos_fail("transient header extents", h->bss_end);
     rc = fat12_read_file(&boot_vol, 0, 0u, &command, h,
                          TRANSIENT_CEIL - TRANSIENT_BASE, cluster, &bytes);
     if (rc != FAT12_OK || bytes != command.file_size)
         exitdos_fail("boot FAT read of the transient failed", (uint32_t)rc);
-    for (k = 0u; k < TRANSIENT_N_IMPORTS; k++)
-        if (h->imports[k] != want[k])
+    for (k = 0u; k < n_want; k++)
+        if (h->imports[k] != transient_import_want[k])
             exitdos_fail("transient linked against another kernel build", k);
-    if (h->entry < TRANSIENT_BASE + (uint32_t)sizeof *h || h->entry >= h->load_end)
+    if (h->entry < TRANSIENT_BASE + hdr_bytes || h->entry >= h->load_end)
         exitdos_fail("transient entry outside its text", h->entry);
-    if (h->exec_secondary < TRANSIENT_BASE + (uint32_t)sizeof *h ||
+    if (h->exec_secondary < TRANSIENT_BASE + hdr_bytes ||
         h->exec_secondary >= h->load_end)
         exitdos_fail("transient exec_secondary outside its text", h->exec_secondary);
     for (uint8_t *z = (uint8_t *)(uintptr_t)h->load_end;

@@ -32,7 +32,11 @@
 #     COMSPEC: no route, the EXEC goes to the loader; COMMAND.COM is absent on
 #     A:, so 0002h and no child echo) RED; NO_GUARD (-DLOADER_MUT_NO_TRANSIENT_
 #     GUARD: the pre-13ig loader runs the overlay's header) RED -- no
-#     LOADER-REFUSE-TRANSIENT / no OVERLAY-REFUSED.
+#     LOADER-REFUSE-TRANSIENT / no OVERLAY-REFUSED; IMPORT_SKEW (the flagship
+#     kernel + a transient whose LAST generated import address is +16: an
+#     import the old hand-kept five-entry check never saw) RED -- MSG-DOS-0014
+#     + PANIC "transient linked against another kernel build v=<last index>",
+#     no SHELL-READY.
 
 EXECGUARD_NAME     := flair_execguard
 EXECGUARD_DONE     := EXECGUARD-END
@@ -79,6 +83,22 @@ $(EXECGUARD_MUT_NOGUARD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtena
 	$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_mut_noguard.bin,$(BUILD)/transient_noguard.bin)
 	@printf ">>> execguard MUTANT image (-DLOADER_MUT_NO_TRANSIENT_GUARD): %s\n" "$@"
 
+# IMPORT_SKEW: the stock flagship kernel + a transient built with
+# -DTRANSIENT_LAST_IMPORT_SKEW=16 (os/milton/transient_hdr.asm), linked against
+# that same kernel: every other header word is right, only the last import
+# (index transient_import_count-1 >= 5) is wrong.
+TRANSIENT_HDR_MUT_SKEW_OBJ := $(BUILD)/transient_hdr_mut_skew.o
+$(TRANSIENT_HDR_MUT_SKEW_OBJ): $(TRANSIENT_HDR_ASM) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(NASM) -f elf32 -I$(BUILD)/ -DTRANSIENT_LAST_IMPORT_SKEW=16 $< -o $@
+$(BUILD)/transient_mut_skew.elf: $(KERNEL_FLAIRTENANTS_ELF) $(TRANSIENT_HDR_MUT_SKEW_OBJ) $(TRANSIENT_CODE_OBJS) $(TRANSIENT_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(TRANSIENT_LD) --just-symbols=$< -o $@ $(TRANSIENT_HDR_MUT_SKEW_OBJ) $(TRANSIENT_CODE_OBJS)
+$(BUILD)/transient_mut_skew.bin: $(BUILD)/transient_mut_skew.elf
+	$(OBJCOPY) -O binary $< $@
+EXECGUARD_MUT_SKEW_IMG := $(BUILD)/flair_execguard_mut_skew.img
+$(EXECGUARD_MUT_SKEW_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_BIN) $(BUILD)/transient_mut_skew.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	$(call exitdos-image-recipe,$(KERNEL_FLAIRTENANTS_BIN),$(BUILD)/transient_mut_skew.bin)
+	@printf ">>> execguard MUTANT image (transient with its last import skewed): %s\n" "$@"
+
 # $(call execguard-check,<name>) -- the verdict, shared VERBATIM by the gate
 # and its mutants. Exit 0 iff green.
 define execguard-check
@@ -107,7 +127,7 @@ test-flair-execguard: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_EXECGUARD_
 	@printf '>>> test-flair-execguard: EXEC COMMAND.COM " /C ECHO" -> the transient secondary processor echoed, rc 0; EXEC CMD2.COM (the COMMAND3 overlay) -> %s, ax=000B; no PANIC\n' "$$(grep -m1 '^LOADER-REFUSE-TRANSIENT' $(BUILD)/$(EXECGUARD_NAME).sx)"
 	@printf '>>> test-flair-execguard: green (QEMU; Bochs leg owed)\n'
 
-test-flair-execguard-mutant: $(HARNESS_BIN) $(EXECGUARD_MUT_NOCOMSPEC_IMG) $(EXECGUARD_MUT_NOGUARD_IMG) $(FLAIR_DATA_EXECGUARD_IMG)
+test-flair-execguard-mutant: $(HARNESS_BIN) $(EXECGUARD_MUT_NOCOMSPEC_IMG) $(EXECGUARD_MUT_NOGUARD_IMG) $(EXECGUARD_MUT_SKEW_IMG) $(FLAIR_DATA_EXECGUARD_IMG)
 	$(call exitdos-boot,$(EXECGUARD_MUT_NOCOMSPEC_IMG),flair_execguard_mut_nocomspec,$(FLAIR_DATA_EXECGUARD_IMG),$(FLAIR_EXECGUARD_SPEC),$(EXECGUARD_DONE),0,40000)
 	@out=$$( ( $(call execguard-check,flair_execguard_mut_nocomspec) ) 2>&1 ); rc=$$?; \
 	if [ $$rc -eq 0 ]; then printf '!!! test-flair-execguard-mutant FAIL: NO_COMSPEC PASSED -- decoration\n'; exit 1; fi; \
@@ -120,6 +140,16 @@ test-flair-execguard-mutant: $(HARNESS_BIN) $(EXECGUARD_MUT_NOCOMSPEC_IMG) $(EXE
 	printf '%s\n' "$$out" | grep -qE 'did not recognise the COMMAND3 overlay|PANIC|HALTED' || { printf '!!! test-flair-execguard-mutant FAIL: NO_GUARD RED for the wrong reason: %s\n' "$$out"; exit 1; }; \
 	! grep -qxF 'LOADER-REFUSE-TRANSIENT name=CMD2.COM' $(BUILD)/flair_execguard_mut_noguard.sx || { printf '!!! test-flair-execguard-mutant FAIL: NO_GUARD still refused the overlay\n'; exit 1; }; \
 	printf '>>> test-flair-execguard-mutant: NO_GUARD correctly RED (%s)\n' "$$out"
-	@printf '>>> test-flair-execguard-mutant: green (2/2 RED for the named reason)\n'
+	$(call exitdos-boot,$(EXECGUARD_MUT_SKEW_IMG),flair_execguard_mut_skew,$(FLAIR_DATA_EXECGUARD_IMG),$(FLAIR_EXECGUARD_SPEC),HALTED,0,40000)
+	@out=$$( ( $(call execguard-check,flair_execguard_mut_skew) ) 2>&1 ); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-flair-execguard-mutant FAIL: IMPORT_SKEW PASSED -- the import check is decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -qF 'never handed over to the prompt' || { printf '!!! test-flair-execguard-mutant FAIL: IMPORT_SKEW RED for the wrong reason: %s\n' "$$out"; exit 1; }; \
+	s=$(BUILD)/flair_execguard_mut_skew.sx; k=$$(sed -n 's/^PANIC exit-to-dos: transient linked against another kernel build v=//p' $$s | head -1); \
+	[ -n "$$k" ] || { printf '!!! test-flair-execguard-mutant FAIL: IMPORT_SKEW was not refused as linked against another kernel build: %s\n' "$$(grep -m1 '^PANIC' $$s)"; exit 1; }; \
+	last=$$(( $$(wc -l < $(TRANSIENT_IMPORTS_LD).keep) - 1 )); \
+	[ "$$(printf '%d' "0x$$k")" -eq $$last ] && [ $$last -ge 5 ] || { printf '!!! test-flair-execguard-mutant FAIL: IMPORT_SKEW refused on import %s, expected the last (%s, beyond the old five)\n' "$$k" "$$last"; exit 1; }; \
+	grep -qxF 'Bad or missing Command Interpreter' $$s && ! grep -qxF 'SHELL-READY' $$s || { printf '!!! test-flair-execguard-mutant FAIL: IMPORT_SKEW did not halt with MSG-DOS-0014 before the prompt\n'; exit 1; }; \
+	printf '>>> test-flair-execguard-mutant: IMPORT_SKEW correctly RED (refused on import index %s of %s: %s)\n' "$$k" "$$(( last + 1 ))" "$$(sed -n 's/^\(PANIC exit-to-dos: transient linked[^v]*\).*/\1/p' $$s | head -1)"
+	@printf '>>> test-flair-execguard-mutant: green (3/3 RED for the named reason)\n'
 
 TEST_EMU_GATES += test-flair-execguard test-flair-execguard-mutant

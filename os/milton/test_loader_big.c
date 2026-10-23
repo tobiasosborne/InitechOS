@@ -19,7 +19,7 @@
  *      CLAUDE.md Law 2 (oracle is truth), Rule 1 (RED->GREEN), Rule 2 (fail loud),
  *      Rule 6 (mutation-prove), Rule 8 (locked spec), Rule 12 (ASCII).
  *
- * Strategy: loader_prepare_in_place() is the pure, host-testable seam (no image
+ * Strategy: loader_prepare_in_place(k_resident, ) is the pure, host-testable seam (no image
  * pointer -- the bytes are already at PROGRAM_IMAGE; it validates image_len only).
  * We assert the binding size bound is PROGRAM_IMAGE_MAX, NOT LOAD_STAGING_MAX:
  *   - 64 KiB + 1 (was rejected by the old LOAD_STAGING_MAX cap) -> now OK.
@@ -63,12 +63,16 @@ _Static_assert(PROGRAM_IMAGE_MAX > LOAD_STAGING_MAX,
 /* The smallest image the OLD LOAD_STAGING_MAX cap wrongly rejected. */
 #define OVER_OLD_CAP   (LOAD_STAGING_MAX + 1u)   /* 64 KiB + 1 -- e.g. 77 KiB SAMIR */
 
+/* The resident bytes the in-place seam looks at (initech-13ig): an ordinary
+ * program's first bytes, never the COMMAND3 magic. */
+static const uint8_t k_resident[16] = { 0xB4, 0x4C, 0xCD, 0x21 };
+
 int main(void)
 {
     /* ---- Case 1: 64 KiB + 1 -- REJECTED by the old cap, now ACCEPTED. ---- */
     {
         loader_plan_t plan;
-        loader_status_t st = loader_prepare_in_place(OVER_OLD_CAP,
+        loader_status_t st = loader_prepare_in_place(k_resident, OVER_OLD_CAP,
                                                      (const char *)0, 0u, &plan);
         CHECK(st == LOADER_OK,
               "64 KiB + 1 image must now load IN PLACE (old LOAD_STAGING_MAX cap "
@@ -91,7 +95,7 @@ int main(void)
     /* ---- Case 2: PROGRAM_IMAGE_MAX -- the boundary -- ACCEPTED. ---------- */
     {
         loader_plan_t plan;
-        loader_status_t st = loader_prepare_in_place(PROGRAM_IMAGE_MAX,
+        loader_status_t st = loader_prepare_in_place(k_resident, PROGRAM_IMAGE_MAX,
                                                      (const char *)0, 0u, &plan);
         CHECK(st == LOADER_OK,
               "image_len == PROGRAM_IMAGE_MAX must be accepted (the boundary)");
@@ -102,7 +106,7 @@ int main(void)
     /* ---- Case 3: PROGRAM_IMAGE_MAX + 1 -- over the arena -- REJECTED. ---- */
     {
         loader_plan_t plan;
-        loader_status_t st = loader_prepare_in_place(PROGRAM_IMAGE_MAX + 1u,
+        loader_status_t st = loader_prepare_in_place(k_resident, PROGRAM_IMAGE_MAX + 1u,
                                                      (const char *)0, 0u, &plan);
         CHECK(st == LOADER_ERR_TOO_BIG,
               "image_len > PROGRAM_IMAGE_MAX must be rejected (LOADER_ERR_TOO_BIG) "
@@ -112,10 +116,10 @@ int main(void)
     /* ---- Case 4: zero length / NULL out are still rejected (fail loud). -- */
     {
         loader_plan_t plan;
-        CHECK(loader_prepare_in_place(0u, (const char *)0, 0u, &plan)
+        CHECK(loader_prepare_in_place(k_resident, 0u, (const char *)0, 0u, &plan)
                   == LOADER_ERR_ZERO_LEN,
               "zero-length in-place image must be rejected (LOADER_ERR_ZERO_LEN)");
-        CHECK(loader_prepare_in_place(4u, (const char *)0, 0u, (loader_plan_t *)0)
+        CHECK(loader_prepare_in_place(k_resident, 4u, (const char *)0, 0u, (loader_plan_t *)0)
                   == LOADER_ERR_NULL_OUT,
               "NULL out plan must be rejected (LOADER_ERR_NULL_OUT)");
     }
@@ -124,7 +128,7 @@ int main(void)
     {
         loader_plan_t plan;
         const char *tail = "BAR";
-        loader_status_t st = loader_prepare_in_place(OVER_OLD_CAP, tail, 3u, &plan);
+        loader_status_t st = loader_prepare_in_place(k_resident, OVER_OLD_CAP, tail, 3u, &plan);
         CHECK(st == LOADER_OK, "in-place + tail must prepare OK");
         CHECK(plan.params.cmd_tail == tail,
               "in-place params.cmd_tail must point at the caller's tail");

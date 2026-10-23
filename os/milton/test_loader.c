@@ -163,6 +163,41 @@ int main(void)
               "NULL out plan must be rejected (LOADER_ERR_NULL_OUT)");
     }
 
+    /* ---- Case 6: the COMMAND3 transient overlay is NOT a program (bead
+     *      initech-13ig). The flagship's COMMAND.COM is the transient command
+     *      interpreter (os/milton/transient.h), linked at TRANSIENT_BASE behind
+     *      an 8-byte COMMAND3 magic. BOTH flat entries -- loader_prepare (the
+     *      baked copy path) and loader_prepare_in_place (FAT / nested, the
+     *      resident bytes) -- must refuse it LOADER_ERR_BAD_FORMAT (DOS EXEC
+     *      error 11, IBM DOS 3.30 TR p. 6-200) before any plan exists; a
+     *      near-miss magic and a 7-byte image are ordinary programs. Mutant:
+     *      test-loader-mutant's LOADER_MUT_NO_TRANSIENT_GUARD leg. ---------- */
+    {
+        static const uint8_t k_overlay[16] = { 'C','O','M','M','A','N','D','3',
+                                               0x00, 0x00, 0x58, 0x00, 0, 0, 0, 0 };
+        static const uint8_t k_near[16]    = { 'C','O','M','M','A','N','D','4',
+                                               0x00, 0x00, 0x58, 0x00, 0, 0, 0, 0 };
+        loader_plan_t plan;
+        CHECK(loader_image_is_transient(k_overlay, 8u) == 1 &&
+              loader_image_is_transient(k_near, 16u) == 0 &&
+              loader_image_is_transient(k_overlay, 7u) == 0,
+              "loader_image_is_transient: exactly the 8-byte COMMAND3 magic");
+        CHECK(loader_prepare(k_overlay, 16u, (const char *)0, 0u, &plan)
+                  == LOADER_ERR_BAD_FORMAT,
+              "baked entry: a COMMAND3 overlay must be refused LOADER_ERR_BAD_FORMAT");
+        CHECK(loader_prepare_in_place(k_overlay, 16u, (const char *)0, 0u, &plan)
+                  == LOADER_ERR_BAD_FORMAT,
+              "in-place entry: a COMMAND3 overlay must be refused LOADER_ERR_BAD_FORMAT");
+        CHECK(loader_prepare_in_place((const uint8_t *)0, 16u, (const char *)0, 0u, &plan)
+                  == LOADER_ERR_NULL_IMAGE,
+              "in-place entry: NULL resident bytes are a caller bug (LOADER_ERR_NULL_IMAGE)");
+        CHECK(loader_prepare(k_near, 16u, (const char *)0, 0u, &plan) == LOADER_OK &&
+              loader_prepare_in_place(k_near, 16u, (const char *)0, 0u, &plan) == LOADER_OK,
+              "a near-miss magic (COMMAND4) is an ordinary program on both entries");
+        CHECK(loader_prepare(k_overlay, 7u, (const char *)0, 0u, &plan) == LOADER_OK,
+              "seven bytes cannot carry the 8-byte magic: an ordinary program");
+    }
+
     /* ---- Case 5: EXEC env inheritance decision (beads initech-1i0x Tranche E
      *      inc 3). loader_decide_env maps the AH=4Bh env_block (0 = inherit-empty;
      *      ENV_BLOCK = inherit the shell's populated env) to (env_linear,
