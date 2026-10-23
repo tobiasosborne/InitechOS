@@ -66,7 +66,7 @@ int du_call(du_regs *r)
         if (ah == 0x47) strcpy((char *)r->s, (char *)bounce);
         if (ah == 0x3d || ah == 0x3c)
             dest_handle[f.eax & 255] = (unsigned char)(ah == 0x3d && al == 0 &&
-                strncmp((char *)original, "\\DST", 4) == 0);
+                strncmp((char *)original + (((char *)original)[1] == ':' ? 2 : 0), "\\DST", 4) == 0);
         if (ah == 0x3e) dest_handle[r->b & 255] = 0;
     }
     r->a = f.eax; r->b = f.ebx; r->c = f.ecx; r->d = f.edx;
@@ -83,6 +83,7 @@ static void render(const char *path, int files)
 {
     size_t n = strlen(path);
     fprintf(gold, "\r\nPath: ");
+    if (!n) fputc('\\', gold);   /* the root of the named drive (q45q) */
     for (const char *p = path; *p; p++) fputc(*p == '/' ? '\\' : *p, gold);
     fputs("\r\n\r\nSub-directories:", gold);
     int count = 0;
@@ -117,7 +118,9 @@ static void render(const char *path, int files)
 
 int main(int argc, char **argv)
 {
-    if (argc == 6 && !strcmp(argv[1], "--tree-golden")) {
+    /* --tree-golden MDIR PATH FILES OUT [LABEL]: LABEL is the volume the
+     * independent mtools image carries (default TESTVOL, the zuvo seed). */
+    if ((argc == 6 || argc == 7) && !strcmp(argv[1], "--tree-golden")) {
         FILE *in = fopen(argv[2], "r");
         gold = fopen(argv[5], "wb");
         if (!in || !gold) return 91;
@@ -129,7 +132,8 @@ int main(int argc, char **argv)
             strcpy(entries[nentries++], line+2);
         }
         fclose(in);
-        fputs("DIRECTORY PATH LISTING FOR VOLUME TESTVOL\r\n", gold);
+        fprintf(gold, "DIRECTORY PATH LISTING FOR VOLUME %s\r\n",
+                argc == 7 ? argv[6] : "TESTVOL");
         render(argv[3], atoi(argv[4]));
         fclose(gold);
         return 0;

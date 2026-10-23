@@ -13,6 +13,7 @@
  */
 #include "dosutil.h"
 #include "dos_messages.h" /* DEC-13/App C; MS-DOS 3.3 pp.308,340. */
+#include "dospath.h"      /* q45q: drive-qualified operands (DEC-18). */
 #define PATH_CAP 80
 static unsigned slen(const char *s) { unsigned n=0; while (s[n]) n++; return n; }
 static char upper(char c) { return c>='a' && c<='z' ? c-'a'+'A' : c; }
@@ -25,42 +26,17 @@ static int equal(const char *a,const char *b)
 static void copy(char *d,const char *s) { while ((*d++=*s++)) {} }
 static int error(const char *s) { du_puts(s); du_puts("\r\n"); return 1; }
 
-/* DOS path limit: MS 3.3 User's Reference p.8. GETCWD supplies live CWD;
- * normalize dot/parent components before printing a full path. */
+/* DOS path limit: MS 3.3 User's Reference p.8 (66 bytes after "d:").
+ * q45q / audit L012: the named drive's OWN GETCWD supplies a relative
+ * operand's base (Reference pp4-11; ATTRIB [drive:]pathname, p.33), via
+ * the resolver XCOPY/TREE share. Formerly any non-default drive was refused. */
+static int drive_cwd(unsigned drive,char out[64]) { return du_cwd(drive,out); }
 static int fullpath(const char *src,char out[PATH_CAP])
 {
-    char raw[160],cwd[64];
-    unsigned n=0;
-    int drive=du_drive();
-    if (src[0] && src[1]==':') { drive=upper(src[0])-'A'; src+=2; }
-    if (drive!=du_drive()) return -1;
-    out[0]=(char)('A'+drive); out[1]=':'; out[2]='\\'; out[3]=0;
-    if (*src!='\\') {
-        if (du_cwd(cwd)<0) return -1;
-        for (unsigned i=0;cwd[i];i++) raw[n++]=cwd[i];
-        if (n) raw[n++]='\\';
-    }
-    if (n+slen(src)>=sizeof(raw)) return -1;
-    while (*src) raw[n++]=upper(*src++);
-    raw[n]=0;
-    unsigned end=3,pos=0;
-    while (pos<n) {
-        while (raw[pos]=='\\') pos++;
-        unsigned start=pos;
-        while (raw[pos] && raw[pos]!='\\') pos++;
-        unsigned count=pos-start;
-        if (!count || (count==1 && raw[start]=='.')) continue;
-        if (count==2 && raw[start]=='.' && raw[start+1]=='.') {
-            while (end>3 && out[end-1]!='\\') end--;
-            if (end>3) end--;
-            out[end]=0; continue;
-        }
-        if (end>3) out[end++]='\\';
-        if (end+count>=67) return -1;
-        for (unsigned i=0;i<count;i++) out[end++]=raw[start+i];
-        out[end]=0;
-    }
-    return 0;
+#ifdef DU_MUTATE_DRIVE
+    if (src[0] && src[1]==':' && upper(src[0])-'A'!=du_drive()) return -1;
+#endif
+    return dospath_full(src,(unsigned)du_drive(),drive_cwd,out,67) ? -1 : 0;
 }
 
 /* DOS padded 8.3 wildcard template (Appendix A FINDFIRST): '*' fills the

@@ -1,7 +1,7 @@
 # ATTRIB / LABEL / VOL: initech-gyvx + initech-f88h. Standalone COMs,
 # host differential + injected QEMU trace + named implementation mutants.
 DOSUTIL_SRC := os/milton/dosutil.c
-DOSUTIL_HDR := os/milton/dosutil.h
+DOSUTIL_HDR := os/milton/dosutil.h os/milton/dospath.h
 ATTRIB_PROG_BIN := $(BUILD)/attrib_program.bin
 LABEL_PROG_BIN := $(BUILD)/label_program.bin
 DOSUTIL_HOST := $(BUILD)/dosutil_host

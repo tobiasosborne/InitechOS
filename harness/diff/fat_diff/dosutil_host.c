@@ -48,9 +48,10 @@ int du_attr(const char *path, int set, uint8_t *a)
     *a=e.attribute;
     return 0;
 }
-int du_cwd(char out[64])
+int du_cwd(unsigned drive, char out[64])
 {
     const char *cwd=getenv("DOSUTIL_CWD");
+    if (drive) return -1;   /* the host oracle mounts A: only */
     if (!cwd) cwd="";
     if (strlen(cwd)>63) return -1;
     strcpy(out,cwd); return 0;

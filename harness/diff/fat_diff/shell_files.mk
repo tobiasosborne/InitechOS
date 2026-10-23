@@ -60,7 +60,7 @@ test-command-c-emu-mutant: $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_command_c.i
 	 if sh $(SHELL_FILES_DIR)/command_c.sh $(BUILD)/tracer_mut_safety_command_$$m.img $$m >$(BUILD)/command_c_mut_$$m.log 2>&1; then echo "FAIL COMMAND_$$m survived";exit 1;fi; \
 	 grep '^RED command-c:' $(BUILD)/command_c_mut_$$m.log; \
 	 echo "GREEN test-command-c-emu-mutant: COMMAND_$$m caught RED";done
-$(BUILD)/test_xcopy_cwd_mut: $(ZUVO_HOST_SRC) os/milton/xcopy_tree.h $(DOS_MESSAGES_H)
+$(BUILD)/test_xcopy_cwd_mut: $(ZUVO_HOST_SRC) os/milton/xcopy_tree.h os/milton/dospath.h $(DOS_MESSAGES_H)
 	$(CC) $(CFLAGS) -no-pie $(ZUVO_INC) -DDU_MUT_REL_ROOT -o $@ $(ZUVO_HOST_SRC)
 $(eval $(call zuvo-com,xcopy_cwd_mut,-DDU_MUT_REL_ROOT,))
 test-xcopy-cwd-host-mutant: $(BUILD)/test_xcopy_cwd_mut

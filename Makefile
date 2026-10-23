@@ -33996,6 +33996,7 @@ TEST_UNIT_GATES += samir-fns-goldens
 
 include harness/diff/dbf_diff/samir_size.mk
 include harness/diff/fat_diff/dos_volumes.mk
+include harness/diff/fat_diff/drive_operands.mk
 include harness/diff/fat_diff/fat_spc.mk
 include harness/finder_alerts.mk
 include harness/diff/fat_diff/int21_dpb.mk

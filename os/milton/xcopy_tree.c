@@ -21,6 +21,7 @@
 #include "xcopy_tree.h"
 #include "find_data.h"
 #include "dos_messages.h" /* DEC-13/App C; MS-DOS 3.3 pp.29,308,330,361. */
+#include "dospath.h"     /* q45q: drive-qualified operands (DEC-18). */
 
 #define CAP 128
 #define S_RECURSE 1
@@ -31,8 +32,8 @@
 #define V_VERIFY 32
 #define W_WAIT 64
 static find_data_t dta;
-static char cwd[CAP], pattern[13];
-static unsigned flags, copied, date_min;
+static char pattern[13];
+static unsigned flags, copied, date_min, default_drive;
 static int error;
 
 static unsigned length(const char *s) { unsigned n=0; while (s[n]) n++; return n; }
@@ -85,42 +86,30 @@ static void number(unsigned n)
     text(buf+at);
 }
 
-/* Canonical absolute DOS text (no links in FAT). Resolve dot/dotdot before
- * the self/cyclic guard, including aliases through the working directory.
- * CHDIR validates existing directories; file services validate leaf names.
- * Drive selection remains the kernel's one-mounted-volume DOS contract. */
+/* Canonical absolute DOS text "D:\\PATH" (no links in FAT), the dospath.h
+ * resolver ATTRIB also uses. Dot/dotdot resolve before the self/cyclic guard,
+ * including aliases through a drive's working directory. The drive is ALWAYS
+ * explicit: audit L032, a D: target written under A:'s tree, came from the
+ * former drive-stripping resolver. CHDIR validates existing directories;
+ * file services validate leaf names. MS-DOS 3.3 Reference pp4-11, 127. */
+static int drive_cwd(unsigned drive, char out[64])
+{
+#ifdef DU_MUT_REL_ROOT
+    (void)drive; out[0]=0; return 0;
+#else
+    du_regs r={0x4700,0,0,drive+1,(uintptr_t)out};
+    out[0]=0;
+    return du_call(&r) ? -1 : 0;
+#endif
+}
 static int absolute(const char *in, char out[CAP])
 {
-    char combined[CAP]; unsigned pos=0;
-    if (in[0] && in[1] == ':') in+=2;
-    if (*in != '\\') {
-#ifndef DU_MUT_REL_ROOT
-        if (!put(combined,cwd)) return 0;
-        pos=length(combined);
-        if (pos > 1) combined[pos++]='\\';
+#ifdef DU_MUT_DRIVE
+    if (in[0] && in[1] == ':') in+=2;   /* Rule 6: the pre-q45q resolver. */
 #endif
-    }
-    unsigned n=length(in);
-    if (pos+n >= CAP) { error=4; return 0; }
-    for (unsigned i=0; i<=n; i++) combined[pos+i]=upper(in[i]);
-    pos=1; out[0]='\\'; out[1]=0;
-    const char *p=combined;
-    while (*p) {
-        while (*p == '\\') p++;
-        const char *part=p;
-        while (*p && *p != '\\') p++;
-        unsigned len=(unsigned)(p-part);
-        if (!len || (len == 1 && part[0] == '.')) continue;
-        if (len == 2 && part[0] == '.' && part[1] == '.') {
-            while (pos > 1 && out[pos-1] != '\\') pos--;
-            if (pos > 1) pos--;
-            out[pos]=0; continue;
-        }
-        if (pos > 1) out[pos++]='\\';
-        for (unsigned i=0; i<len; i++) out[pos++]=part[i];
-        out[pos]=0;
-    }
-    return 1;
+    int rc=dospath_full(in,default_drive,drive_cwd,out,CAP);
+    if (rc == DOSPATH_TOO_LONG) error=4;
+    return rc == DOSPATH_OK;
 }
 static int join(char out[CAP], const char *dir, const char *leaf)
 {
@@ -131,10 +120,14 @@ static int join(char out[CAP], const char *dir, const char *leaf)
     for (unsigned i=0; i<=k; i++) out[n+i]=leaf[i];
     return 1;
 }
+/* Probe by CHDIR, then restore THAT drive's directory: CHDIR d:path moves
+ * only drive d's working directory (MS-DOS 3.3 Reference p.41). */
 static int directory(const char *p)
 {
+    char back[CAP]={p[0],':',0};
+    if (!absolute(back,back)) return 0;
     int ok=call(0x3b00,0,0,(uintptr_t)p) >= 0;
-    if (ok && call(0x3b00,0,0,(uintptr_t)cwd) < 0) error=4;
+    if (ok && call(0x3b00,0,0,(uintptr_t)back) < 0) error=4;
     return ok;
 }
 static int ensure_dir(const char *p)
@@ -142,9 +135,7 @@ static int ensure_dir(const char *p)
     if (directory(p)) return 1;
     char parent[CAP];
     if (!put(parent,p)) return 0;
-    unsigned n=length(parent);
-    while (n > 1 && parent[n-1] != '\\') n--;
-    if (n > 1) parent[n-1]=0; else parent[1]=0;
+    dospath_parent(parent);
     if (equal(parent,p) || !ensure_dir(parent)) return 0;
     if (call(0x3900,0,0,(uintptr_t)p) < 0) {
         line(MSG_DOS_0017); error=5; return 0;
@@ -224,7 +215,7 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
 #endif
     if (flags & P_PROMPT) {
 #ifndef DU_MUT_P
-        text(src); text(" (Y/N?)");
+        text(src+2); text(" (Y/N?)");
         if (!yes()) return 0;
 #else
         (void)yes;
@@ -232,9 +223,7 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
     }
     char parent[CAP];
     if (!put(parent,dst)) return 0;
-    unsigned pos=length(parent);
-    while (pos > 1 && parent[pos-1] != '\\') pos--;
-    if (pos > 1) parent[pos-1]=0; else parent[1]=0;
+    dospath_parent(parent);
     if (!ensure_dir(parent)) return 0;
     int in=call(0x3d00,0,0,(uintptr_t)src);
     if (in < 0) { error=5; return 0; }
@@ -284,7 +273,7 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
 #endif
     }
     copied++;
-    if (!(flags & P_PROMPT)) line(src);
+    if (!(flags & P_PROMPT)) line(src+2);   /* pre-q45q listing text */
     return 1;
 }
 
@@ -317,7 +306,7 @@ static void tree_dir(const char *path, int files, unsigned depth)
 {
     if (depth > 32) { error=4; return; }
     char spec[CAP], child[CAP]; find_data_t fd; unsigned count=0;
-    text("\r\nPath: "); line(path);
+    text("\r\nPath: "); line(path+2);   /* IBM D-6: no drive in Path: */
 #ifdef DU_MUT_TREE_LAYOUT
     text("\r\nSubdirectories:");
 #else
@@ -343,11 +332,13 @@ static void tree_dir(const char *path, int files, unsigned depth)
         tree_dir(child,files,depth+1);
     }
 }
-static void volume_heading(void)
+static void volume_heading(char drive)
 {
     find_data_t fd;
+    char root[8]={drive,':'};   /* the walked drive's label (L014) */
+    put(root+2,"\\*.*");
     text("DIRECTORY PATH LISTING FOR VOLUME ");
-    for (unsigned n=0; nth("\\*.*",8,n,&fd); n++) {
+    for (unsigned n=0; nth(root,8,n,&fd); n++) {
         if (fd.attr & 8) {
             text(fd.fname);
             break;
@@ -361,9 +352,9 @@ int du_main(int tree, char *tail)
     char source[CAP]="", target[CAP]="", src[CAP], dst[CAP];
     unsigned operands=0; int files=0;
     flags=0; copied=0; date_min=0; error=0;
-    cwd[0]='\\';
-    du_regs r={0x4700,0,0,0,(uintptr_t)(cwd+1)};
-    if (du_call(&r)) return 4;
+    du_regs r={0x1900,0,0,0,0};   /* AH=19h: the default drive (0=A:) */
+    du_call(&r);
+    default_drive=r.a & 255;
     /* Tokenize operands and adjacent switches (/S/E is valid period syntax).
      * Date slashes, if used, are consumed inside /D's token. */
     char *p=tail;
@@ -411,8 +402,15 @@ int du_main(int tree, char *tail)
 #ifdef DU_MUT_TREE_F
         files=0;
 #endif
-        if (!absolute(*source ? source : "\\",src) || !directory(src)) goto path_error;
-        volume_heading(); tree_dir(src,files,0);
+        /* TREE [d:] lists the whole drive (MS-DOS 3.3 Reference p.122):
+         * an empty operand or a bare "d:" names that drive's root. */
+        char root[4]={'\\',0,0,0};
+        if (*source && source[1] == ':' && !source[2]) {
+            root[0]=source[0]; root[1]=':'; root[2]='\\';
+        }
+        if (!absolute(*source && root[1] != ':' ? source : root,src) ||
+            !directory(src)) goto path_error;
+        volume_heading(src[0]); tree_dir(src,files,0);
         return error;
     }
     if (!operands) goto parameters;
@@ -445,7 +443,7 @@ int du_main(int tree, char *tail)
         while (split && src[split-1] != '\\') split--;
         if (n-split >= sizeof(pattern)) goto invalid;
         for (unsigned i=0; i<=n-split; i++) pattern[i]=src[split+i];
-        if (split > 1) src[split-1]=0; else src[1]=0;
+        dospath_parent(src);
         if (!directory(src)) goto path_error;
     }
 #ifdef DU_MUT_WILD
@@ -476,7 +474,7 @@ int du_main(int tree, char *tail)
 #endif
     if ((flags & S_RECURSE) && isdir) {
         unsigned n=length(src);
-        if (equal(src,dst) || (n == 1 && src[0] == '\\') ||
+        if (equal(src,dst) || n == 3 ||   /* the "D:\\" root */
             (length(dst)>n && dst[n] == '\\')) {
             int prefix=1;
             for (unsigned i=0; i<n && dst[i]; i++) if (dst[i] != src[i]) prefix=0;

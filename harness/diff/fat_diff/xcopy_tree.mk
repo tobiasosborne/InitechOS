@@ -6,18 +6,18 @@ ZUVO_INC := -Ispec -Ios/milton -Ibuild -I$(ZUVO_DIR)
 ZUVO_MUTANTS := S E A M D P V W TARGET COUNT TREE_F TREE_LAYOUT DEFAULT WILD DESCEND TIME HIDDEN E_REQUIRES_S CYCLIC SELF LABEL OMIT CTRL_C DATE_RANGE
 ZUVO_HOST := $(BUILD)/test_xcopy_tree
 $(MAKEFILE_STAMP): $(ZUVO_DIR)/xcopy_tree.mk
-$(ZUVO_HOST): $(ZUVO_HOST_SRC) os/milton/xcopy_tree.h $(DOS_MESSAGES_H)
+$(ZUVO_HOST): $(ZUVO_HOST_SRC) os/milton/xcopy_tree.h os/milton/dospath.h $(DOS_MESSAGES_H)
 	$(CC) $(CFLAGS) -no-pie $(ZUVO_INC) -o $@ $(ZUVO_HOST_SRC)
 
 define zuvo-mutant
-$(BUILD)/test_xcopy_tree_mut_$(1): $(ZUVO_HOST_SRC) os/milton/xcopy_tree.h $(DOS_MESSAGES_H)
+$(BUILD)/test_xcopy_tree_mut_$(1): $(ZUVO_HOST_SRC) os/milton/xcopy_tree.h os/milton/dospath.h $(DOS_MESSAGES_H)
 	$(CC) $(CFLAGS) -no-pie $(ZUVO_INC) -DDU_MUT_$(1) -o $$@ $(ZUVO_HOST_SRC)
 endef
 $(foreach m,$(ZUVO_MUTANTS),$(eval $(call zuvo-mutant,$(m))))
 
 ZUVO_COM_FLAGS := $(KERNEL_CFLAGS_CDECL) -Os -fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables -Ios/milton -Ispec -I$(BUILD)
 define zuvo-com
-$(BUILD)/$(1)_program.o: $(ZUVO_SRC) os/milton/xcopy_tree.h $(DOS_MESSAGES_H)
+$(BUILD)/$(1)_program.o: $(ZUVO_SRC) os/milton/xcopy_tree.h os/milton/dospath.h $(DOS_MESSAGES_H)
 	$(KERNEL_CC) $(ZUVO_COM_FLAGS) $(2) -c $$< -o $$@
 $(BUILD)/$(1)_entry.o: os/milton/xcopy_tree_entry.asm
 	$(NASM) -f elf32 $(3) $$< -o $$@
