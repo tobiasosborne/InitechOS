@@ -28038,19 +28038,19 @@ SPEC_STRUCT_BIN := $(BUILD)/spec_dos_structs_check
 # Deterministic codegen: spec/dos_messages.json -> build/dos_messages.h (beads
 # initech-509.1). DEC-13 makes the locked JSON the single source of truth for the
 # Approved Diagnostic Message Catalogue (ADR-0003 Appendix C); this step emits a
-# self-contained C header of MSG_DOS_0001..0062 #defines so command.c never
+# self-contained C header of MSG_DOS_0001..0063 #defines so command.c never
 # hand-copies the controlled vocabulary. Inline python3 is the house pattern
-# (cf. test-spec). The loop iterates i in 1..62 EXPLICITLY (not dict order) so the
+# (cf. test-spec). The loop iterates i in 1..63 EXPLICITLY (not dict order) so the
 # output is byte-deterministic (Rule 11); text is emitted VERBATIM with backslash
 # and double-quote C-escaped; ASCII-only, no timestamps, no host paths.
 $(DOS_MESSAGES_H): $(SPEC_MESSAGES) | $(BUILD)
-	@printf '>>> codegen: %s -> %s (62 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
+	@printf '>>> codegen: %s -> %s (63 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
 	@python3 -c "import json; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
 esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)).replace(chr(13),chr(92)+'r').replace(chr(10),chr(92)+'n'); \
-ids=['MSG-DOS-%04d'%i for i in range(1,63)]; \
+ids=['MSG-DOS-%04d'%i for i in range(1,64)]; \
 missing=[k for k in ids if k not in m]; \
 assert not missing, 'spec missing message id(s) (DEC-13 controlled scope): %r'%missing; \
 [ (_ for _ in ()).throw(AssertionError('non-string/empty text for %s'%k)) for k in ids if not (isinstance(m[k],str) and m[k]) ]; \
@@ -28118,12 +28118,12 @@ print('    parsed %d cc functions; every AH exists in int21h_register.json (%d s
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
-assert len(m)==62, 'expected 62 messages, found %d'%len(m); \
-exp=set('MSG-DOS-%04d'%i for i in range(1,63)); \
-assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0062: %r'%(sorted(set(m)^exp)); \
+assert len(m)==63, 'expected 63 messages, found %d'%len(m); \
+exp=set('MSG-DOS-%04d'%i for i in range(1,64)); \
+assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0063: %r'%(sorted(set(m)^exp)); \
 [ (_ for _ in ()).throw(AssertionError('empty text for %s'%k)) for k,v in m.items() if not (isinstance(v,str) and v.strip()) ]; \
-assert set(d['citations'])==set('MSG-DOS-%04d'%i for i in range(21,63)), 'DIR Rule-8 source citations missing'; \
-print('    parsed 62 messages MSG-DOS-0001..0062; all non-empty; 42 extraction/DIR citations present')" \
+assert set(d['citations'])==set('MSG-DOS-%04d'%i for i in range(21,64)), 'DIR Rule-8 source citations missing'; \
+print('    parsed 63 messages MSG-DOS-0001..0063; all non-empty; 43 extraction/DIR citations present')" \
 		|| { printf '!!! test-spec FAIL: %s invalid (parse/count/IDs/empty)\n' "$(SPEC_MESSAGES)"; exit 1; }
 	@printf '>>> test-spec [4/6]: struct size asserts compile (Appendix B)\n'
 	@printf '#include "dos_structs.h"\nint main(void){return 0;}\n' > "$(SPEC_STRUCT_TU)"
@@ -28204,9 +28204,9 @@ m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 hdr=open('$(DOS_MESSAGES_H)').read(); \
 esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)).replace(chr(13),chr(92)+'r').replace(chr(10),chr(92)+'n'); \
 miss=[]; \
-[ miss.append('MSG-DOS-%04d'%i) for i in range(1,63) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
+[ miss.append('MSG-DOS-%04d'%i) for i in range(1,64) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
 assert not miss, 'header does NOT encode spec verbatim for: %r'%miss; \
-print('    build/dos_messages.h has all 74 #define MSG_DOS_NNNN verbatim from spec')" \
+print('    build/dos_messages.h has all 63 #define MSG_DOS_NNNN verbatim from spec')" \
 		|| { printf '!!! test-dosmsg FAIL: build/dos_messages.h diverges from spec/dos_messages.json (regen + recheck)\n'; exit 1; }
 	@printf '>>> test-dosmsg [2/3]: IMAGE PRESENCE -- referenced messages live in the shipped kernels (shell + flagship; a FLAIR-only path such as exitdos_fail is section-GCed out of the shell kernel; PM 2026-10-17)\n'
 	@python3 -c "import json,re,subprocess; \
@@ -34963,6 +34963,8 @@ test-tsr-mutant: test-tsr $(BUILD)/tsr_nokeep.img $(BUILD)/tsr_noidle.img
 	@if $(call tsr-popup-ok,$(BUILD)/tsr_noidle.txt); then printf '!!! test-tsr-mutant FAIL: TSR_MUT_NO_IDLE survived\n'; exit 1; fi
 	@printf '>>> test-tsr-mutant: green (TSR_MUT_NO_KEEP RED: GREET loaded over the resident, %s; TSR_MUT_NO_IDLE RED: WAITKEY got x with no pop-up)\n' "$$(grep -m1 '^SK-POPUP' $(BUILD)/tsr_nokeep.txt || echo 'no SK-POPUP')"
 TEST_EMU_GATES += test-tsr test-tsr-mutant
+
+include harness/diff/fat_diff/doscmd_round2.mk
 
 # B11 / initech-fyji: new rectangle/POINT trace and real-mint saved-cell gate.
 include spec/flair_i123_copy_traces.mk

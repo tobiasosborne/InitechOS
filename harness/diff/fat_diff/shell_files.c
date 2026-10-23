@@ -10,6 +10,7 @@
 #define COMMAND_FILE_HOST
 #include "command.c"
 static void sink(char c) { putchar(c); }
+static int con_get(void) { int c=getchar(); if(c==EOF)exit(2); return c=='\n'?'\r':c; }
 int main(int argc,char **argv)
 {
     if(argc!=3)return 2;
@@ -17,6 +18,7 @@ int main(int argc,char **argv)
     static psp_t psp; psp_params_t params={0}; params.alloc_end_linear=0x80000;
     if(blockdev_file_open_rw(&bf,argv[1]) || fat12_mount(&vol,&bf.dev,sector) || fileio_fat_bind(&vol))return 2;
     psp_build(&psp,&params); sft_init(); int21_set_psp(&psp); int21_set_sink(sink);
+    int21_set_conin(con_get,NULL);
     devices_init(); int21_set_devices(devices_head(),NULL);
     (void)g_out; (void)g_shell_dta;
     if(!strcmp(argv[2],"--namespace")) {
@@ -57,6 +59,7 @@ int main(int argc,char **argv)
         switch(c.kind) {
         case CMD_COPY: builtin_copy(c.arg);break;
         case CMD_REN: builtin_ren(c.arg);break;
+        case CMD_DEL: builtin_del(c.arg);break;
         case CMD_CD: call_host(0x3b00,0,0,(uintptr_t)c.arg,0);break;
         case CMD_MD: call_host(0x3900,0,0,(uintptr_t)c.arg,0);break;
         default: fprintf(stderr,"RED shell-files: unsupported host command\n");return 2;

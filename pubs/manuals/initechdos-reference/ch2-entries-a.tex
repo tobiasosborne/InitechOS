@@ -289,9 +289,11 @@ If the date is not valid (for example, February~30), \cmd{DATE} displays
 allowed: \type{DEL *.BAK} deletes every file with the extension \file{BAK}
 in the current directory.
 
-To delete every file in a directory, name \file{*.*}.  \cmd{DEL} first asks
+To delete the files in a directory, give its directory name, as
+\type{DEL LETTERS}, or name \file{*.*}.  \cmd{DEL} first asks
 \texttt{Are you sure (Y/N)?}  Type \type{Y} and press \key{Enter} to delete
-the files; any other answer deletes nothing.
+the files; any other answer deletes nothing.  Subdirectories and their
+contents are retained, as are read-only, hidden and system files.
 
 \cmd{DEL} displays nothing when it succeeds.  If no file matches, it
 displays \texttt{File not found}.  A read-only file is not deleted:

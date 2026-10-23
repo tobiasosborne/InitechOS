@@ -1,0 +1,25 @@
+SeaBIOS (version 1.16.3-debian-1.16.3-2)                                        
+                                                                                
+                                                                                
+iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+00F8B120+00ECB120 CA00     
+                                                                                
+                                                                                
+                                                                                
+Booting from Floppy...                                                          
+EXEC-BEGIN                                                                      
+                                                                                
+Terminate batch job (Y/N)? n                                                    
+EXEC_AFTER                                                                      
+Strike a key when ready . . .                                                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                

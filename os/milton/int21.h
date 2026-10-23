@@ -157,6 +157,9 @@ typedef struct {
     uint8_t interrupted;
 } int21_break_recovery_t;
 int21_break_recovery_t *int21_set_break_recovery(int21_break_recovery_t *scope);
+/* Resident batch boundary: detect Ctrl-C without consuming ordinary typeahead.
+ * MS-DOS 3.3 Reference PAUSE p.149; uses the existing INT23 recovery scope. */
+void int21_batch_checkpoint(void);
 
 /* Bind the CURRENT process's PSP (beads initech-509.3). The handle-based
  * functions (40h WRITE, 45h DUP, 46h DUP2, and the file functions to come)

@@ -31,7 +31,9 @@ At the beginning of the line it does nothing. \key{Ctrl-H} does the same.
 
 \SideHead{Ctrl-C}Cancels the line you are typing: InitechDOS discards it
 and displays the command prompt again. If a command or program is waiting
-for you to type a line, \key{Ctrl-C} stops it; a batch file ends.
+for you to type a line, \key{Ctrl-C} stops it.  In a batch job, InitechDOS
+asks \texttt{Terminate batch job (Y/N)?}: type \type{Y} to end the job
+or \type{N} to continue with the next command.
 InitechDOS displays \texttt{\textasciicircum C} after the cancelled line:
 \begin{Steps}
 \item Type \type{CLS} and press \key{Enter}.

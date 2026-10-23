@@ -15,8 +15,14 @@ for mode in on off; do
  mcopy -i "$out/data.img" build/dos_break_program.bin ::BREAKIO.COM
  mcopy -i "$out/data.img" "$out/autoexec" ::AUTOEXEC.BAT
  cp -f "$out/data.img" "$out/reference.img"
+ if [ "$mode" = on ]; then
+   # A broken EXEC child leaves a pending batch decision, answered N here.
+   keys='kctrl-c,WTerminate batch job (Y/N)?,kn,WA:\>,ke,kx,ki,kt,kret'
+ else
+   keys='kctrl-c,WA:\>,ke,kx,ki,kt,kret'
+ fi
  build/qemu_harness --disk "$boot" --disk2 "$out/data.img" --out "$out" --name run \
-   --keys 'ctrl-c,e,x,i,t,ret' --keys-after BREAK-DISK-READY \
+   --mouse "$keys" --keys-after BREAK-DISK-READY \
    --quit-after SHELL-DONE --timeout-ms 14000 --screendump --screendump-after SHELL-DONE \
    > "$out/stdout" 2> "$out/report" || true
  tr -d '\r' < "$out/run.serial" > "$out/text"
@@ -26,8 +32,10 @@ for mode in on off; do
  grep -qx BREAK-RETURNED "$out/screen" || red "$mode console did not return"
  if [ "$mode" = on ]; then
    grep -qx INT23-BREAK "$out/text" || red 'ON disk read never invoked INT23'
+   grep -qF 'Terminate batch job (Y/N)?' "$out/text" || red 'ON child break lost batch decision'
    ! grep -qx BREAK-OFF-RAW-OK "$out/text" || red 'ON delivered raw Ctrl-C'
  else
+   ! grep -qF 'Terminate batch job (Y/N)?' "$out/text" || red 'OFF raw key unexpectedly asked batch question'
    grep -qx BREAK-OFF-RAW-OK "$out/text" || red 'OFF consumed Ctrl-C at disk entry'
    ! grep -qx INT23-BREAK "$out/text" || red 'OFF aborted disk read'
  fi

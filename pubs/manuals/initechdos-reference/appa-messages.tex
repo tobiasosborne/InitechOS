@@ -12,7 +12,8 @@
 % command.c (ECHO, BREAK, SET/PATH/PROMPT, DATE/TIME, GOTO, CALL/FOR/
 % COMMAND /C, REN); 0038..0041 dosutil.c (ATTRIB, LABEL) and xcopy_tree.c
 % (TREE, XCOPY); 0042..0049 chkdsk.c; 0050, 0051 xcopy_tree.c; 0052..0058
-% edlin.c; 0059 find_program.asm; 0060 sort_program.asm.  Each has a
+% edlin.c; 0059 find_program.asm; 0060 sort_program.asm; 0063 command.c
+% (batch termination, MS-DOS 3.3 Reference PAUSE p.149 / PDF234). Each has a
 % \MessageDetail below (CP-06); the wording follows the MS-DOS 3.3 User's
 % Guide Appendix F pages the catalogue cites.  "Other Messages Displayed
 % by Commands" quotes the strings of command.c, chkdsk.c and diskutil.c
@@ -75,7 +76,7 @@ written or read.  \cmd{DEL} and \cmd{COPY} display it for a read-only file;
 display the file's attributes and, if you must change the file, \cmd{ATTRIB
 -R} to make it read-write.}
 \MessageDetail{MSG-DOS-0012}{\cmd{DEL} was asked to delete every file in a
-directory (\file{*.*}).}{Type \type{Y} and press \key{Enter} to delete the
+directory, by its directory name or \file{*.*}.}{Type \type{Y} and press \key{Enter} to delete the
 files, or any other answer to keep them.}
 \MessageDetail{MSG-DOS-0002}{The command name is not an internal command,
 and no program or batch file of that name was found in the current directory
@@ -255,6 +256,10 @@ parts.}
 \MessageDetail{MSG-DOS-0062}{\cmd{REN} could not rename the file: a file of
 the new name already exists, or no file matches the name you gave.}{Choose
 a new name that is not in use, or check the old name with \cmd{DIR}.}
+\MessageDetail{MSG-DOS-0063}{You pressed \key{Ctrl-C} while a batch job
+was running.}{Type \type{Y} to end the batch job, including files nested
+with \cmd{CALL}, or \type{N} to continue with the next command.  You need
+not press \key{Enter}.  Any other key repeats the question.}
 \input{dos_messages_other}
 \CheckMessageDetails
 
@@ -270,4 +275,5 @@ directory is searched for commands.}{Set one with \cmd{PATH} if you need
 it.}
 \OtherMessage{Strike a key when ready . . .}{PAUSE}{A batch file is paused at
 a \cmd{PAUSE} subcommand.}{Do what the batch file asks, then press any key.
-Press \key{Ctrl-C} to end the batch file.}
+Press \key{Ctrl-C} to ask whether to end the batch job; answer \type{Y}
+to end it or \type{N} to continue after the pause.}
