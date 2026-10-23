@@ -148,18 +148,32 @@ loader_status_t loader_prepare(const uint8_t *image, uint32_t image_len,
  * companion to DEC-04). Validates + lays out for an image ALREADY resident at
  * PROGRAM_IMAGE (0x40100) -- e.g. a FAT .COM that load_program_from_fat read
  * DIRECTLY into the program region. Identical layout/params/arena to
- * loader_prepare EXCEPT it takes NO image pointer (there is nothing to copy
- * from): it validates image_len only, sets out->image_src = NULL and leaves
+ * loader_prepare EXCEPT nothing is copied: `resident` is where the bytes
+ * already sit (PROGRAM_IMAGE, or a nested child's PSP+100h) and is read ONLY
+ * for the content refusal (loader_image_is_transient, initech-13ig); it
+ * validates image_len, sets out->image_src = NULL and leaves
  * out->image_dst == out->entry == PROGRAM_IMAGE (the in-place address). The
  * single size bound is PROGRAM_IMAGE_MAX -- the OLD 64 KiB LOAD_STAGING_MAX cap
  * is GONE (the image never transits the 64 KiB staging buffer; it is read
  * straight into the ~188 KiB program arena). Host-testable: the big-.COM oracle
  * (test_loader_big.c) drives this with image_len = 64KiB+1 / PROGRAM_IMAGE_MAX /
  * +1 to prove the new bound. Ref: spec/memory_map.h; ADR-0009 DEC-04. */
-loader_status_t loader_prepare_in_place(uint32_t image_len,
+loader_status_t loader_prepare_in_place(const uint8_t *resident,
+                                        uint32_t image_len,
                                         const char *cmd_tail,
                                         uint32_t cmd_tail_len,
                                         loader_plan_t *out);
+
+/* loader_image_is_transient -- 1 iff the first bytes of `image` are the
+ * COMMAND3 magic of the flagship's transient command interpreter
+ * (os/milton/transient.h): the boot volume's COMMAND.COM is that overlay,
+ * linked at TRANSIENT_BASE, not a flat .COM. PURE, host-testable. Every
+ * flat-image entry (loader_prepare / loader_prepare_in_place, i.e. the baked,
+ * FAT, nested and in-place paths) refuses such an image LOADER_ERR_BAD_FORMAT
+ * (DOS EXEC error 11 "Invalid format", IBM DOS 3.30 TR p. 6-200) inside
+ * loader_prepare_core, the one choke point before loader_run_plan's JMP; an
+ * InitechMZ file begins with 'MZ' and cannot carry it. Bead initech-13ig. */
+int loader_image_is_transient(const uint8_t *image, uint32_t image_len);
 
 /* loader_prepare_mz -- the PURE, host-testable InitechMZ (.EXE) PROLOGUE (beads
  * initech-wczy / dtw.2; ADR-0003 DEC-08a). The dispatch sibling of

@@ -71,3 +71,11 @@ FLAIR_TPS_JOURNEY_SPEC := $(FLAIR_EXIT_DOS_PREFIX),m100:2,m100:2,m94:1,l1,l0,WSH
 #    ALIGNED., so no report may appear.
 FLAIR_TPS_KEYS_SIX := kspc,kspc,kspc,kspc,kspc,kspc,kret,kspc,kspc,kspc,kspc,kspc,kspc,kspc,kspc,kret,kspc,kspc,kspc,kspc,kspc,kspc,kret,k4,k4,k1,k7,kret,k4,k4,k7,k1,kret,k4,k4,k1,k7,kret,k4,k4,k1,k7,kret,k8,k8,kminus,k1,k1,k3,kret,k8,k8,kminus,k1,k1,k4,kret,kx,ky
 FLAIR_TPS_SIX_SPEC := $(FLAIR_EXIT_DOS_PREFIX),m100:2,m100:2,m94:1,l1,l0,WSHELL-READY,$(FLAIR_TPS_KEYS_CD),$(FLAIR_TPS_KEYS_CMD),$(FLAIR_TPS_KEYS_SIX)
+
+# 6. FLAIR_EXECGUARD_SPEC -- EXEC of COMMAND.COM on the flagship (bead
+#    initech-13ig; harness/emu/execguard.mk). The same exit as 3; then at the
+#    prompt EXECGD <Enter> runs os/milton/execguard_program.asm from the gate's
+#    data volume: AH=4Bh COMMAND.COM " /C ECHO ..." (the dBASE RUN tail) must
+#    run the resident transient's secondary processor, and AH=4Bh CMD2.COM (a
+#    byte copy of the boot volume's COMMAND3 overlay) must be refused 000Bh.
+FLAIR_EXECGUARD_SPEC := $(FLAIR_EXIT_DOS_PREFIX),m100:2,m100:2,m94:1,l1,l0,WSHELL-READY,ke,kx,ke,kc,kg,kd,kret

@@ -8249,9 +8249,12 @@ TEST_LOADER_MUT  := $(BUILD)/test_loader_mutant_nooffset
 # Mutation build (Rule 6; beads initech-1i0x inc-3): loader.c compiled to ignore a
 # provided env and always write the empty block, so the EXEC env-inheritance oracle BITES.
 TEST_LOADER_MUT_ENV := $(BUILD)/test_loader_mutant_forceempty
+# Mutation build (Rule 6; initech-13ig): loader.c compiled with the COMMAND3 overlay
+# recogniser inert, so the transient-refusal cases (both entries) go RED.
+TEST_LOADER_MUT_TRANSIENT := $(BUILD)/test_loader_mutant_noguard
 
 $(TEST_LOADER): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
-                $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h $(MILTON_DIR)/fat12.h \
+                $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h $(MILTON_DIR)/fat12.h $(MILTON_DIR)/transient.h \
                 $(MILTON_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
@@ -8268,6 +8271,12 @@ $(TEST_LOADER_MUT_ENV): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUTATE_FORCE_EMPTY_ENV -Ispec -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
 
+$(TEST_LOADER_MUT_TRANSIENT): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
+                    $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h $(MILTON_DIR)/fat12.h $(MILTON_DIR)/transient.h \
+                    $(MILTON_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUT_NO_TRANSIENT_GUARD -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+
 .PHONY: test-loader test-loader-mutant
 test-loader: $(TEST_LOADER)
 	@printf ">>> test-loader: loader_prepare layout (psp/image+0x100/entry/stack) + params + fail-loud validation\n"
@@ -8276,8 +8285,14 @@ test-loader: $(TEST_LOADER)
 
 # Mutation-proof: the no-offset mutant build MUST fail the oracle (Rule 6). A
 # mutant that PASSES means the layout test is decoration.
-test-loader-mutant: $(TEST_LOADER_MUT) $(TEST_LOADER_MUT_ENV)
-	@printf ">>> test-loader-mutant: confirming the no-0x100-offset + force-empty-env mutants go RED (Rule 6)\n"
+test-loader-mutant: $(TEST_LOADER_MUT) $(TEST_LOADER_MUT_ENV) $(TEST_LOADER_MUT_TRANSIENT)
+	@printf ">>> test-loader-mutant: confirming the no-0x100-offset + force-empty-env + no-transient-guard mutants go RED (Rule 6)\n"
+	@if $(TEST_LOADER_MUT_TRANSIENT) >/dev/null 2>&1; then \
+		printf '!!! test-loader-mutant FAIL: no-transient-guard mutant PASSED -- the COMMAND3 refusal cases are decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-loader-mutant: green (no-transient-guard mutant correctly RED -- both entries refusal bites)\n'; \
+	fi
 	@if $(TEST_LOADER_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-loader-mutant FAIL: no-offset mutant PASSED the oracle -- the layout test is decoration\n'; \
 		exit 1; \
@@ -10599,8 +10614,10 @@ $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milto
 
 KERNEL_FLAIRLIVE_INT_OBJS = $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ)
 
-$(KERNEL_FLAIRLIVE_INT_ELF): $(KERNEL_FLAIRLIVE_INT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_INT_OBJS)
+# @$(TRANSIENT_IMPORTS_LD): this kernel compiles the exit-to-DOS path (FLAIR_LIVE_TENANTS),
+# which checks the transient against the generated want table (initech-13ig).
+$(KERNEL_FLAIRLIVE_INT_ELF): $(KERNEL_FLAIRLIVE_INT_OBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_INT_OBJS) @$(TRANSIENT_IMPORTS_LD)
 
 $(KERNEL_FLAIRLIVE_INT_BIN): $(KERNEL_FLAIRLIVE_INT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10627,7 +10644,10 @@ KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h os/flair/scrap.h os/flair/stdfile.h os/flair/list.h os/flair/text.h
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h $(KERNEL_DIR)/transient.h $(DOS_MESSAGES_H)
 
-TRANSIENT_IMPORTS_LD := $(BUILD)/transient_imports.rsp   # gcc response file of -Wl,--undefined= flags; rule below, with the transient
+# gcc response file of -Wl,--undefined= flags (+ the generated want table object);
+# rule below, with the transient. NO trailing comment: make kept the blanks
+# before '#' in the value, so '$(TRANSIENT_IMPORTS_LD).keep' split into two words.
+TRANSIENT_IMPORTS_LD := $(BUILD)/transient_imports.rsp
 $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
 	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_OBJS) @$(TRANSIENT_IMPORTS_LD)
 
@@ -10678,20 +10698,41 @@ endif
 ifneq ($(shell grep -cE '^TRANSIENT_CEIL = $(TRANSIENT_CEIL_HEX);' $(TRANSIENT_LD)),1)
 $(error $(TRANSIENT_LD) TRANSIENT_CEIL != spec/memory_map.h TRANSIENT_CEIL $(TRANSIENT_CEIL_HEX))
 endif
-$(TRANSIENT_HDR_OBJ): $(TRANSIENT_HDR_ASM) | $(BUILD)
-	$(NASM) -f elf32 $< -o $@
+# The header's import table is GENERATED (transient_imports_{ext,dd}.inc, by
+# the TRANSIENT_IMPORTS_LD rule below) -- initech-13ig: no hand-kept list.
+$(TRANSIENT_HDR_OBJ): $(TRANSIENT_HDR_ASM) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(NASM) -f elf32 -I$(BUILD)/ $< -o $@
 
 # $(call exitdos-transient-rules,<label>,<kernel ELF>): build/transient_<label>.bin
 # The flagship kernels that carry a transient must KEEP every kernel symbol the
 # transient objects import (section GC + LTO drop them otherwise): a generated
 # response file of -Wl,--undefined= flags (EXTERN() in a script is invisible to the LTO
 # plugin), derived from the objects, no hand-kept list (PM 2026-10-17).
-$(TRANSIENT_IMPORTS_LD): $(TRANSIENT_OBJS) $(KERNEL_FLAIRTENANTS_OBJS) | $(BUILD)
-	@for o in $(TRANSIENT_OBJS); do gcc-nm -u $$o 2>/dev/null | awk '{print $$NF}'; done | grep -v ':$$' | sort -u > $@.und; \
+# initech-13ig: the SAME derived list also generates (a) the transient header's
+# import table (build/transient_imports_ext.inc + _dd.inc, %included by
+# os/milton/transient_hdr.asm) and (b) the kernel's `transient_import_want[]` /
+# `transient_import_count` (build/transient_want.asm -> .o, appended to this
+# response file so EVERY kernel linked with it carries the table). The kernel
+# refuses a transient whose count or ANY address differs; the transient .bin
+# rule asserts the on-disk count against this list. The hand-kept five-entry
+# list this replaces checked five of ten imports. The C objects only: the
+# header object is generated FROM this rule (no cycle).
+TRANSIENT_CODE_OBJS := $(KERNEL_COMMAND_OBJ) $(KERNEL_ENV_OBJ) $(KERNEL_BATCH_OBJ)
+TRANSIENT_WANT_OBJ  := $(BUILD)/transient_want.o
+$(TRANSIENT_IMPORTS_LD): $(TRANSIENT_CODE_OBJS) $(KERNEL_FLAIRTENANTS_OBJS) | $(BUILD)
+	@for o in $(TRANSIENT_CODE_OBJS); do gcc-nm -u $$o 2>/dev/null | awk '{print $$NF}'; done | grep -v ':$$' | sort -u > $@.und; \
 	for o in $(KERNEL_FLAIRTENANTS_OBJS); do gcc-nm --defined-only $$o 2>/dev/null | awk 'NF==3{print $$3}'; done | sort -u > $@.kdef; \
 	grep -xF -f $@.kdef $@.und > $@.keep || true; \
+	n=$$(wc -l < $@.keep); [ "$$n" -gt 0 ] || { printf '!!! transient imports: no kernel symbol kept -- the derivation is broken\n'; exit 1; }; \
 	sed 's/^/-Wl,--undefined=/' $@.keep > $@; \
-	printf '>>> transient imports: %s kernel symbols kept (%s undefined in the transient)\n' "$$(wc -l < $@.keep)" "$$(wc -l < $@.und)"
+	{ sed 's/^/extern /' $@.keep; printf '%%define TRANSIENT_N_IMPORTS %s\n' "$$n"; } > $(BUILD)/transient_imports_ext.inc; \
+	{ sed '$$d' $@.keep | sed 's/^/    dd /'; printf '    dd %s + TRANSIENT_LAST_IMPORT_SKEW\n' "$$(tail -n 1 $@.keep)"; } > $(BUILD)/transient_imports_dd.inc; \
+	{ printf 'bits 32\n'; sed 's/^/extern /' $@.keep; \
+	  printf 'section .rodata progbits alloc noexec nowrite align=4\nglobal transient_import_want\nglobal transient_import_count\ntransient_import_want:\n'; \
+	  sed 's/^/    dd /' $@.keep; printf 'transient_import_count:\n    dd %s\nsection .note.GNU-stack noalloc noexec nowrite progbits\n' "$$n"; } > $(BUILD)/transient_want.asm; \
+	$(NASM) -f elf32 $(BUILD)/transient_want.asm -o $(TRANSIENT_WANT_OBJ) || exit 1; \
+	printf '%s\n' '$(TRANSIENT_WANT_OBJ)' >> $@; \
+	printf '>>> transient imports: %s kernel symbols kept (%s undefined in the transient); header table + kernel want table generated\n' "$$n" "$$(wc -l < $@.und)"
 define exitdos-transient-rules
 $(BUILD)/transient_$(1).elf: $(2) $(TRANSIENT_OBJS) $(TRANSIENT_LD) | $(BUILD)
 	@end=$$$$($(NM) $$< | awk '$$$$3=="_kernel_end"{print "0x"$$$$1}'); \
@@ -10701,6 +10742,8 @@ $(BUILD)/transient_$(1).bin: $(BUILD)/transient_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@sz=$$$$(wc -c < $$@); max=$$$$(( $(TRANSIENT_CEIL_HEX) - $(TRANSIENT_BASE_HEX) )); \
 	[ "$$$$sz" -le "$$$$max" ] || { printf '!!! transient_$(1).bin (%s B) exceeds its load window\n' "$$$$sz"; exit 1; }; \
+	n=$$$$(od -An -tu4 -j24 -N4 $$@ | tr -d ' '); want=$$$$(wc -l < $(TRANSIENT_IMPORTS_LD).keep); \
+	[ "$$$$n" = "$$$$want" ] || { printf '!!! transient_$(1).bin: header n_imports=%s != %s kernel imports (gcc-nm -u of the transient objects; initech-13ig)\n' "$$$$n" "$$$$want"; exit 1; }; \
 	printf '>>> transient COMMAND.COM (%s): %s B in boot root, linked against %s\n' '$(1)' "$$$$sz" '$(2)'
 endef
 
@@ -21575,8 +21618,8 @@ test-flair-trash-full-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_ICONS
 define icons-obj-mutant-rules
 $(BUILD)/icons_mut_$(2).o: $(3) os/flair/finder_icon.h os/flair/flair_look.h os/flair/dialog.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/alert_icons.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(5) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $(3) -o $$@
-$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $$@ $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
 	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -33394,6 +33437,8 @@ include harness/film_scene.mk
 include harness/emu/fcb_tps.mk
 # bead initech-3p1a: Special > Exit to InitechDOS + the TPS journey (reuses fcb_tps.mk).
 include harness/emu/exit_dos.mk
+# bead initech-13ig: EXEC of COMMAND.COM on the flagship (reuses exit_dos.mk).
+include harness/emu/execguard.mk
 
 # ===========================================================================
 # REAL gate: test-flair-itext (bead initech-tdnl.16, GUI-remediation R4.2;
