@@ -24326,6 +24326,15 @@ RECORD_MARKER_film_scene = FLAIR-DRAG win 0 (300,120)->(360,160)
 RECORD_IMAGE_film_scene = $(FLAIRLIVE_INTERACTIVE_IMG)
 RECORD_DATA_film_scene = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_film_scene = 800
+# dbp1: stable terminal screen after the real missing-CALC boot failure.
+# Mouse packets only pace the recorder; the halted guest remains unchanged.
+RECORD_SCRIPTS += film_panic
+RECORD_SPEC_film_panic = m0:0,m0:0
+RECORD_KEYS_AFTER_film_panic = HALTED
+RECORD_MARKER_film_panic = HALTED
+RECORD_IMAGE_film_panic = $(FLAIRLIVE_INTERACTIVE_IMG)
+RECORD_DATA_film_panic = $(BUILD)/panic-reasons/film-panic-data.img
+RECORD_SETTLE_film_panic = 400
 
 # apple_menu (bead initech-tdnl.47; Rule 14): the band-1 Apple glyph drops
 # the Apple menu (About This Computer..., the divider, Calculator); About
@@ -34337,6 +34346,7 @@ include harness/diff/fat_diff/shell_files.mk
 include harness/bochs_legs.mk
 include harness/samir_boot_bochs.mk
 include harness/emu/panic_screen.mk
+include harness/emu/panic_reasons.mk
 # samir-set-fns-errors: independent III+ corpus, identical host/guest inputs.
 # PM 2026-10-17: SAMIR_FNS_CASES are the cases whose real-III+ capture the
 # interpreter reproduces today (fns-mint/<case>/GOLD.OUT pinned); the PENDING

@@ -31,10 +31,10 @@ static int ink(const unsigned char *font, const char *s, unsigned scale,
 int main(int argc,char **argv)
 {
     unsigned char font[4096], pixel[3];
-    if (argc!=6) { fprintf(stderr,"usage: %s ppm font width height vector\n",argv[0]); return 2; }
+    if (argc!=6 && argc!=7) { fprintf(stderr,"usage: %s ppm font width height vector | reason subject\n",argv[0]); return 2; }
     unsigned w=(unsigned)atoi(argv[3]), h=(unsigned)atoi(argv[4]);
     unsigned vec=(unsigned)atoi(argv[5]);
-    if (w<224 || h<64 || vec>31) return 2;
+    if (w<224 || h<64 || (argc==6 && vec>31) || (argc==7 && h<88)) return 2;
     FILE *f=fopen(argv[2],"rb");
     if (!f || fread(font,1,4096,f)!=4096 || fgetc(f)!=EOF) return 2;
     fclose(f);
@@ -47,10 +47,15 @@ int main(int argc,char **argv)
     if (pw%w || ph%h || pw/w!=ph/h || pw/w<1 || pw/w>2 || max!=255) return 2;
     unsigned zoom=pw/w;
     char status[32]; snprintf(status,sizeof status,"ERROR %02u -- SEE OPERATOR",vec);
+    const char *reason=argc==7 ? argv[5] : status;
+    const char *subject=argc==7 ? argv[6] : "";
+    if (strlen(reason)*8>w || strlen(subject)*8>w) return 2;
     for (unsigned y=0;y<ph;y++) for (unsigned x=0;x<pw;x++) {
         if (fread(pixel,1,3,f)!=3) return 2;
         int expected=ink(font,"PC LOAD LETTER",2,x/zoom,y/zoom,w,h,0) ||
-                     ink(font,status,1,x/zoom,y/zoom,w,h,1);
+                     ink(font,reason,1,x/zoom,y/zoom,w,h,1) ||
+                     (argc==7 && y/zoom>=24 &&
+                      ink(font,subject,1,x/zoom,y/zoom-24,w,h,1));
         for (unsigned ch=0;ch<3;ch++) {
             if ((!expected && pixel[ch]!=0) ||
                 (expected && abs((int)pixel[ch]-192)>3)) {
@@ -62,6 +67,6 @@ int main(int argc,char **argv)
     }
     if (fgetc(f)!=EOF) return 2;
     fclose(f);
-    printf("GREEN panic-pixels: %ux%u full field, VGA ROM 2x message + ERROR %02u, no other ink\n",w,h,vec);
+    printf("GREEN panic-pixels: %ux%u full field, VGA ROM 2x message + %s %s, no other ink\n",w,h,reason,subject);
     return 0;
 }

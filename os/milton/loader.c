@@ -619,6 +619,7 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
 
 #include "idt.h"          /* idt_get_gate / idt_install_trap -- live IDT vectors */
 #include "io.h"           /* inb / outb -- the foreign-MZ panic serial dump (dtw.2) */
+#include "panic.h"        /* typed physical-screen refusal (DEC-08a.5) */
 #include "sft.h"          /* sft_inherit -- bump refcount for inherited handles (bsy.9) */
 
 /* ------------------------------------------------------------------------ *
@@ -1106,10 +1107,9 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
  * (DEC-08a.5). So we PANIC instead of run -- never relocate-and-misexecute.
  *
  * Self-contained serial dump (mirrors panic.c's bounded 16550 poll so a
- * stuck/absent UART can never hang the panic itself) + the "PC LOAD LETTER"
- * canon line is the kernel's job after the console is up; loader.c is below the
- * console layer, so it emits the grep-able "PANIC foreign-mz" serial marker the
- * boot/emu oracle keys on, then halts forever. Marked noreturn: a foreign MZ is
+ * stuck/absent UART can never hang the panic itself). The heap/console-free
+ * physical panic painter shows the typed refusal and program name (Rule 2;
+ * audit DOS L030) before HALTED. Marked noreturn: a foreign MZ is
  * terminal -- control NEVER returns to the EXEC caller. */
 #define LDR_COM1_THR  0x3F8u
 #define LDR_COM1_LSR  0x3FDu
@@ -1145,9 +1145,9 @@ static void loader_panic_foreign_mz(const char *name83)
         ldr_serial_putc('\n');
     }
     ldr_serial_puts("  DEC-08a.5: refusing to relocate-and-misexecute 16-bit code\n");
+    panic_show_reason(PANIC_REASON_FOREIGN_MZ, name83);
     ldr_serial_puts("HALTED\n");
-    /* Terminal: never proceed (Rule 2). cli;hlt forever -- the in-universe
-     * PC LOAD LETTER screen is the kernel's banner; the loader halts here. */
+    /* Terminal: never proceed (Rule 2 / DEC-08a.5). */
     for (;;) {
         __asm__ __volatile__("cli; hlt");
     }

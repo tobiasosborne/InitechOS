@@ -21,7 +21,7 @@
 #include "idt.h"
 #include "io.h"
 #include "boot_info.h"
-#include "panic_screen.h"
+#include "panic.h"
 #include "pic.h"   /* PIC_SLAVE_BASE for the spurious-IRQ EOI discipline (bcg.7) */
 
 /* 8259A master command port + non-specific EOI (OCW2). Ref: 8259A datasheet
@@ -120,7 +120,7 @@ static const char *exc_name(uint32_t vec)
 }
 #endif
 
-static void panic_draw(uint32_t vector)
+static const boot_info_t *panic_video(void)
 {
     const boot_info_t *b=(const boot_info_t *)(uintptr_t)BOOT_INFO_ADDR;
     if (b->lfb_bpp==8u) {
@@ -131,6 +131,25 @@ static void panic_draw(uint32_t vector)
         outb(0x3C8,0); outb(0x3C9,0); outb(0x3C9,0); outb(0x3C9,0);
         outb(0x3C8,15); outb(0x3C9,gray); outb(0x3C9,gray); outb(0x3C9,gray);
     }
+    return b;
+}
+
+void panic_show_reason(panic_reason_t reason, const char *subject)
+{
+#ifndef PANIC_MUTATE_SKIP_REASON
+    const boot_info_t *b=panic_video();
+    panic_screen_reason((volatile uint8_t *)(uintptr_t)b->lfb_addr,
+                        b->lfb_pitch,b->lfb_bpp,b->lfb_width,b->lfb_height,
+                        (const uint8_t *)(uintptr_t)b->font_addr,reason,subject);
+#else
+    /* Rule 6: retain serial PANIC/HALTED while omitting the physical paint. */
+    (void)reason; (void)subject;
+#endif
+}
+
+static void panic_draw(uint32_t vector)
+{
+    const boot_info_t *b=panic_video();
     panic_screen_paint((volatile uint8_t *)(uintptr_t)b->lfb_addr,
                        b->lfb_pitch,b->lfb_bpp,b->lfb_width,b->lfb_height,
                        (const uint8_t *)(uintptr_t)b->font_addr,vector);
