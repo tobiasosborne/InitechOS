@@ -2316,11 +2316,10 @@ static uint16_t dos_exec(const char *path, const char *tail)
 }
 
 /* AH=4Dh GET RETURN CODE (of the last AH=4Bh EXEC child): AL = the child's exit
- * code, AH = the termination type (0 = normal exit; the only kind this
- * milestone). DOS consumes the value on read (a second 4Dh reads 0), so the
- * batch ERRORLEVEL state must latch AL into g_errorlevel right after each EXEC.
+ * code, AH = the termination type (1 = Ctrl-C). DOS consumes both bytes on
+ * read, so retain the type along with ERRORLEVEL immediately after EXEC.
  * Ref: DOS 3.3 PRM AH=4Dh; int21.c do_get_return_code (AL=g_last_child_rc). */
-static uint8_t dos_get_errorlevel(void)
+static uint16_t dos_get_child_status(void)
 {
     uint32_t ax = 0x4D00u;     /* AH=4Dh, AL=00 */
     __asm__ __volatile__(
@@ -2328,7 +2327,7 @@ static uint8_t dos_get_errorlevel(void)
         : "+a"(ax)
         :
         : "cc", "memory");
-    return (uint8_t)(ax & 0xFFu);     /* AL = the child's exit code */
+    return (uint16_t)(ax & 0xFFFFu);
 }
 
 /* AH=08h CHARACTER INPUT, NO ECHO: block for one keystroke, AL=char.  Used by
@@ -3625,6 +3624,8 @@ static void builtin_time(const char *arg)
     dos_print("\r\n$");
 }
 
+#endif /* kernel-only DATE/TIME */
+#ifndef COMMAND_FILE_HOST
 /* Forward declarations for the .BAT execution path (beads initech-xw1).
  * run_external dispatches a .BAT candidate to run_batch_invoke (the argv
  * builder), which frames the command tail into %0..%9 and calls run_batch.
@@ -3711,7 +3712,15 @@ static void run_external(const char *command, const char *tail)
             /* Clean run: control is back.  Latch the child's exit code into the
              * batch ERRORLEVEL (AH=4Dh) so a subsequent IF ERRORLEVEL sees it
              * (DOS sets ERRORLEVEL from the child's exit code). */
-            g_errorlevel = dos_get_errorlevel();
+            uint16_t status = dos_get_child_status();
+            g_errorlevel = (uint8_t)status;
+#ifndef CMD_MUTATE_BATCH_DROP_CHILD_BREAK
+            /* Real DOS 3.30 exec-y/exec-n mint: the child dies first, then
+             * COMMAND.COM asks. Latch only after EXEC's loader cleanup;
+             * run_batch decides at its next boundary after redirection too.
+             * Interactive EXEC shares cleanup but only run_batch asks. */
+            if ((status >> 8) == 1u) g_shell_break.interrupted = 1u;
+#endif
             return;
         }
         /* Non-zero: file not found / bad format / load error -> try next. */
@@ -3721,6 +3730,8 @@ static void run_external(const char *command, const char *tail)
     dos_print(MSG_DOS_0002 "\r\n$");
 }
 
+#endif /* !COMMAND_FILE_HOST */
+#if !defined(COMMAND_FILE_HOST) && !defined(COMMAND_BATCH_HOST)
 /* Read one line from the keyboard via AH=0Ah into `out` (ASCIIZ, CR stripped).
  * The AH=0Ah block: byte0 = max incl CR (we preset it), byte1 = count written,
  * bytes2.. = chars + CR. We copy the `count` chars out and NUL-terminate. */

@@ -40,7 +40,7 @@ static void wait_screen(const char *text)
 }
 int main(int argc,char **argv)
 {
-    if(argc!=4 || !strchr("ynx",argv[3][0]) || argv[3][1])return 2;
+    if((argc!=4 && argc!=5) || !strchr("ynx",argv[3][0]) || argv[3][1])return 2;
     output=argv[1];int channel[2];if(pipe(channel))return 2;
     emulator=fork();if(emulator<0)return 2;
     if(!emulator){
@@ -55,7 +55,7 @@ int main(int argc,char **argv)
         _exit(2);
     }
     atexit(stop);close(channel[0]);monitor=fdopen(channel[1],"w");if(!monitor)return 2;
-    wait_screen("Strike a key");command("sendkey ctrl-c");
+    wait_screen(argc==5 ? argv[4] : "Strike a key");command("sendkey ctrl-c");
     wait_screen("Terminate batch job (Y/N)?");
     char answer[16];snprintf(answer,sizeof answer,"sendkey %c",argv[3][0]);command(answer);
     usleep(700000);screen(NULL);command("quit");waitpid(emulator,NULL,0);emulator=0;

@@ -41,3 +41,22 @@ Optional DOS33_BOOT selects the original DOS 3.30 floppy. mint.c is a C-only
 HMP/VGA driver, and the three CRLF .BAT files are extracted from the actual
 successful yes2 reference run. The re-mint writes only build/batch-break-remint;
 it does not replace these goldens. version.raw records the reference VER output.
+
+EXEC-child extension (review blocking item 1): exec_child.asm is assembled in
+16-bit mode for DOS 3.30 and in flat-32 mode for the InitechDOS emulator gate.
+The batch runs BRKCHILD < INPUT.TXT > OUT.TXT. The child prints READY, opens CON,
+rebinds its own stdin, and waits in AH=08h. An ordinary return would print
+EXEC-CHILD-SURVIVED. Ctrl-C instead kills the child; the batch then asks on CON.
+exec-y.txt and exec-n.txt are the complete 80-column VGA captures after the
+answer. Y returns to A>; N executes EXEC_AFTER and reaches the later PAUSE.
+exec-output.raw contains the exact redirected READY and ^C bytes, with no
+SURVIVED or question. exec-after.raw is the N sentinel including DOS ECHO's
+space before redirection. exec.sha256 records these independent goldens.
+The host and emulator batch-break gates grade their next-line decision against
+the VGA captures. InitechDOS displays ^C on CON under its existing contract;
+this extension grades the batch decision and child termination, not that stream
+difference. All raw DOS/CRLF/VGA fixtures are byte-exact; do not trim whitespace.
+
+The EXEC mint deletes BACKUP.COM only on its disposable boot copy to make room.
+Its fsck diagnostics must match the unchanged original reference media (whose
+root label predates an extended-BPB label); the original media hash is retained.

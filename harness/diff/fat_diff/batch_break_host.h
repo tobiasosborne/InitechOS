@@ -6,7 +6,10 @@ static env_store_t g_master_env;
 static int g_shell_exit;
 static uint8_t g_errorlevel;
 static const char *input;
-static unsigned input_pos, input_count, loop_count, poll_count;
+static unsigned input_pos, input_count, loop_count, poll_count, exec_count;
+static unsigned redirected, child_cleaned;
+static uint16_t child_status;
+static uint16_t exec_status=0x0100u;
 static char output[8192];
 static unsigned output_n;
 static const char *files[3];
@@ -22,7 +25,12 @@ static void dos_print(const char *s)
 static uint32_t str_len(const char *s){return (uint32_t)strlen(s);}
 static int dos_open(const char *s)
 {
-    if(!strcmp(s,"CON"))return 9;
+    if(!strcmp(s,"CON")){
+        if(redirected || (exec_count && !child_cleaned)){
+            fprintf(stderr,"RED batch-break: question before EXEC/redirection cleanup\n");exit(1);
+        }
+        return 9;
+    }
     int n=strstr(s,"CHILD")?1:strstr(s,"PARENT")?2:0;
     offsets[n]=0;return files[n]?n:-1;
 }
@@ -53,4 +61,17 @@ static void del_path(char *p,const char *s,int n,const char *l){memcpy(p,s,(unsi
 void int21_batch_checkpoint(void){poll_count++;if(loop_count)g_shell_break.interrupted=1;}
 static void dos_getcwd(uint8_t d,char *p){(void)d;*p=0;}
 static char prompt_drive(void){return 'A';}
-static int bat_ends_with_bat(const char *p){size_t n=strlen(p);return n>=4 && !strcmp(p+n-4,".BAT");}
+static uint16_t dos_exec(const char *p,const char *tail)
+{
+    (void)tail;
+    if(!strstr(p,"BRKCHILD.COM"))return 2;
+    exec_count++;
+    if(exec_status==0x0100u && (dos_conin()!=0 || !g_shell_break.interrupted))exit(1);
+    /* Child INT23 terminates its own PSP, not the resident recovery scope.
+     * test_dos_break proves this AH=4Dh status with the real dispatcher. */
+    g_shell_break.interrupted=0;
+    child_status=exec_status;child_cleaned=1;
+    return 0;
+}
+static uint16_t dos_get_child_status(void)
+{uint16_t status=child_status;child_status=0;return status;}

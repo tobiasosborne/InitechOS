@@ -98,6 +98,30 @@ static int resident_boundaries(void)
     int21_set_psp(NULL);
     return bad;
 }
+/* DOS 3.30 AH=4Dh: AH=1 identifies Ctrl-C termination. The parent receives
+ * this only after its EXEC backend returns; its own recovery scope stays live. */
+static int child_status(void)
+{
+    static psp_t child;
+    int bad=0;
+    psp_params_t params={0};params.alloc_end_linear=0x80000;
+    psp_build(&resident,&params);sft_init();int21_set_psp(&resident);
+    params.parent_jft=resident.jft;psp_build(&child,&params);sft_inherit(&child);
+    uint8_t before[20];memcpy(before,resident.jft,sizeof before);
+    int21_break_recovery_t scope={&resident,0};
+    int21_break_recovery_t *old=int21_set_break_recovery(&scope);
+    int21_set_psp(&child);int21_set_break_flag(0);pending=3;exits=0;
+    call(0x0800,0,0,NULL);
+    bad+=check(exits==1 && !scope.interrupted,"child break terminates without resident recovery");
+    bad+=check(!memcmp(before,resident.jft,sizeof before),"child break preserves parent JFT");
+    int21_set_psp(&resident);
+    int_frame_t f=call(0x4d00,0,0,NULL);
+    bad+=check((f.eax&0xffff)==0x0100,"child Ctrl-C termination survives as AH=4Dh type 1");
+    f=call(0x4d00,0,0,NULL);
+    bad+=check(!(f.eax&0xffff),"child break status consumed exactly once");
+    int21_set_break_recovery(old);int21_set_psp(NULL);pending=-1;
+    return bad;
+}
 int main(void)
 {
     int bad=0;
@@ -129,6 +153,7 @@ int main(void)
     pending=3; f.eax=0x0700; int21_dispatch(&f);
     bad+=check((f.eax&255)==3 && !exits,"direct AH=07h remains raw");
     bad+=resident_boundaries();
+    bad+=child_status();
     /* 0qw1: ECHO/GOTO has no blocking input; the boundary poll must still
      * detect Ctrl-C with BREAK OFF and preserve ordinary queued input. */
     {

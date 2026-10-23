@@ -11,6 +11,9 @@
 static int run_pipeline_or_redirect(const char *s)
 {
     if(dispatch_control(s))return 0;
+    if(!strcmp(s,"BRKCHILD < INPUT.TXT > OUT.TXT")) {
+        redirected=1;run_external("BRKCHILD","");redirected=0;return 0;
+    }
     if(!strcmp(s,"ECHO LOOPING"))loop_count++;
     dos_puts_raw(s);dos_puts_raw("\r\n");return 0;
 }
@@ -25,12 +28,17 @@ static void reference(const char *leaf,int continued)
     FILE *f=fopen(path,"rb");check(f!=0,"independent DOS 3.30 mint missing");
     size_t n=fread(text,1,sizeof text-1,f);fclose(f);text[n]=0;
     check(strstr(text,"Terminate batch job (Y/N)?")!=0,"mint question bytes");
-    check((strstr(text,"CHILD_AFTER")!=0)==continued,"mint child frame cancellation");
-    check((strstr(text,"PARENT_AFTER")!=0)==continued,"mint parent frame cancellation");
+    if(!strncmp(leaf,"exec-",5)) {
+        check((strstr(text,"EXEC_AFTER")!=0)==continued,"mint EXEC child next-line decision");
+    } else {
+        check((strstr(text,"CHILD_AFTER")!=0)==continued,"mint child frame cancellation");
+        check((strstr(text,"PARENT_AFTER")!=0)==continued,"mint parent frame cancellation");
+    }
 }
 static void run(const char *main,const char *child,const char *parent,const char *keys,unsigned n)
 {
-    memset(output,0,sizeof output);output_n=input_pos=loop_count=poll_count=0;
+    memset(output,0,sizeof output);output_n=input_pos=loop_count=poll_count=exec_count=0;
+    redirected=child_cleaned=child_status=0;
     input=keys;input_count=n;files[0]=main;files[1]=child;files[2]=parent;
     g_shell_break.interrupted=0;g_shell_exit=0;env_init(&g_master_env);
     const char *av[]={"MAIN.BAT"};run_batch("MAIN.BAT",av,1);
@@ -39,6 +47,7 @@ static void run(const char *main,const char *child,const char *parent,const char
 int main(void)
 {
     reference("nested-y.txt",0);reference("nested-n.txt",1);reference("invalid-x.txt",0);
+    reference("exec-y.txt",0);reference("exec-n.txt",1);
     const char *pause="@ECHO OFF\r\nPAUSE\r\nECHO AFTER-PAUSE\r\n";
     run(pause,0,0,"\003n",2);
     check(count("Terminate batch job (Y/N)?")==1,"PAUSE asks catalogue question");
@@ -65,5 +74,26 @@ int main(void)
     run("@ECHO OFF\r\n:again\r\nECHO LOOPING\r\nGOTO again\r\n",0,0,"ny",2);
     check(poll_count && count("Terminate batch job (Y/N)?")==2,"LOOP boundary detects Ctrl-C, N then Y");
     check(loop_count==1,"loop resumes at saved next physical line");
-    puts("GREEN batch-break: PAUSE Y/N, invalid key, LOOP, nested CALL exact-once state");return 0;
+    /* REVIEW blocking 1: actual run_external must preserve child's break
+     * status until run_batch's next boundary, after EXEC and redirection. */
+    const char *external="@ECHO OFF\r\nBRKCHILD < INPUT.TXT > OUT.TXT\r\nECHO EXEC_AFTER\r\n";
+    run(external,0,0,"\003n",2);
+    check(exec_count==1 && child_cleaned,"EXEC child terminates and cleans up");
+    check(count("Terminate batch job (Y/N)?")==1,"EXEC child asks after cleanup");
+    check(count("ECHO EXEC_AFTER")==1 && input_pos==2,"EXEC child N continues next line exactly once");
+    run(external,0,0,"\003y",2);
+    check(count("Terminate batch job (Y/N)?")==1,"EXEC child Y asks once");
+    check(!count("EXEC_AFTER") && input_pos==2,"EXEC child Y cancels next line");
+    exec_status=0x0001u;run(external,0,0,"",0);
+    check(!count("Terminate batch job") && count("ECHO EXEC_AFTER")==1 && g_errorlevel==1,
+          "normal nonzero exit is ERRORLEVEL, not a break");
+    exec_status=0x0300u;run(external,0,0,"",0);
+    check(!count("Terminate batch job") && count("ECHO EXEC_AFTER")==1,
+          "TSR termination is not a break");
+    exec_status=0x0100u;
+    output_n=input_pos=0;output[0]=0;input="\003";input_count=1;
+    g_shell_break.interrupted=0;run_external("BRKCHILD","");
+    check(!g_batch_depth && !count("Terminate batch job") && input_pos==1,
+          "interactive EXEC child never asks a batch-only question");
+    puts("GREEN batch-break: PAUSE Y/N, invalid key, LOOP, nested CALL, EXEC child Y/N after cleanup");return 0;
 }

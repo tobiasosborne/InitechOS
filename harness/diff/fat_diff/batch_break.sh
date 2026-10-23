@@ -6,7 +6,7 @@ boot=$1
 tag=${2:-clean}
 only=${3:-all}
 fail() { echo "RED batch-break-emu: $mode $*" >&2; exit 1; }
-for mode in pause-n pause-y invalid loop-n loop-y nested-n nested-y redirect-n redirect-y; do
+for mode in pause-n pause-y invalid loop-n loop-y nested-n nested-y redirect-n redirect-y exec-n exec-y; do
     [ "$only" = all ] || [ "$only" = "$mode" ] || continue
     out=build/batch-break-$tag-$mode
     mkdir -p "$out"
@@ -30,6 +30,11 @@ for mode in pause-n pause-y invalid loop-n loop-y nested-n nested-y redirect-n r
     redirect-*)
         printf 'CALL PARENT < INPUT.TXT > OUT.TXT\r\n' >> "$out/autoexec"
         trigger=BB-BEGIN;;
+    exec-*)
+        mcopy -i "$img" build/batch_break_child.bin ::BRKCHILD.COM
+        printf '@ECHO OFF\r\nBRKCHILD < INPUT.TXT > OUT.TXT\r\nECHO CHILD_AFTER\r\n' > "$out/child"
+        printf 'CALL CHILD\r\n' >> "$out/autoexec"
+        trigger=BB-BEGIN;;
     *) printf 'CALL CHILD\r\n' >> "$out/autoexec";;
     esac
     printf 'ECHO MAIN_AFTER\r\n' >> "$out/autoexec"
@@ -43,7 +48,7 @@ for mode in pause-n pause-y invalid loop-n loop-y nested-n nested-y redirect-n r
     *) answer='kn';;
     esac
     delay=''
-    case "$mode" in redirect-*) delay='w100,';; esac
+    case "$mode" in redirect-*|exec-*) delay='w100,';; esac
     build/qemu_harness --disk "$boot" --disk2 "$img" --out "$out" --name run \
         --mouse "${delay}kctrl-c,WTerminate batch job (Y/N)?,${answer},WA:\>,ke,kc,kh,ko,kspc,kc,kl,ke,ka,kn,kspc,kshift-dot,kspc,kc,kl,ke,ka,kn,kdot,kt,kx,kt,kret,ke,kc,kh,ko,kspc,kr,ke,ks,ku,km,ke,kd,kret,ke,kx,ki,kt,kret" \
         --keys-after "$trigger" --quit-after SHELL-DONE --timeout-ms 25000 > "$out/stdout" 2> "$out/report" || true
@@ -52,6 +57,20 @@ for mode in pause-n pause-y invalid loop-n loop-y nested-n nested-y redirect-n r
     grep -q SHELL-DONE "$out/text" || fail 'no usable prompt after answer'
     grep -q '^resumed$' "$out/text" || fail 'stdout not restored'
     grep -qF 'Terminate batch job (Y/N)?' "$out/text" || fail 'catalogue question missing'
+    case "$mode" in exec-*)
+        grep -qx INT23-BREAK "$out/text" || fail 'EXEC child never terminated on Ctrl-C'
+        [ "$(grep -cF 'Terminate batch job (Y/N)?' "$out/text")" = 1 ] || fail 'EXEC child question not exactly once'
+        mcopy -i "$img" ::OUT.TXT - > "$out/redirected"
+        printf 'EXEC-CHILD-READY\r\n' > "$out/expected"
+        cmp "$out/expected" "$out/redirected" || fail 'EXEC child survived or question leaked to stdout';;
+    esac
+    case "$mode" in exec-*)
+        ref=harness/diff/fat_diff/batch_break_mint/$mode.txt
+        grep -qF 'Terminate batch job (Y/N)?' "$ref" || fail 'real DOS EXEC golden question missing'
+        continued=0;grep -q EXEC_AFTER "$ref" && continued=1
+        actual=0;grep -qx CHILD_AFTER "$out/text" && actual=1
+        [ "$actual" = "$continued" ] || fail 'EXEC continuation differs from real DOS golden';;
+    esac
     case "$mode" in
     *-y|loop-n)
         if grep -q '_AFTER' "$out/text"; then fail 'Y did not cancel all batch sentinels'; fi;;

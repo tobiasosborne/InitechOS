@@ -243,8 +243,8 @@ static uint8_t g_last_child_rc = 0;
 /* The TERMINATION TYPE the last terminating process reported, retrievable as the
  * AH high byte of AH=4Dh GET RETURN CODE. DOS 3.3 types: 0 = normal (4Ch / INT
  * 20h / 00h), 1 = Ctrl-Break, 2 = critical error, 3 = TSR (terminated via AH=31h
- * KEEP). We produce 0 (normal) and 3 (KEEP); 1/2 have no termination path yet. Set
- * to 3 by do_keep and reset to 0 by do_exec on a normal child run, so a parent's
+ * KEEP). We produce 0 (normal), 1 (Ctrl-C) and 3 (KEEP). Set by INT23/do_keep
+ * and reset to 0 by do_exec on a normal child run, so a parent's
  * 4Dh reports AH=3 exactly when the child KEEP'd. Ref: DOS 3.3 PRM AH=4Dh (AH =
  * exit type); RBIL INT 21/AH=4Dh; RBIL INT 21/AH=31h (KEEP -> 4Dh AH=3). */
 static uint8_t g_last_child_term_type = 0;
@@ -4573,7 +4573,7 @@ static void do_exec(int_frame_t *f)
 /* AH=4Dh GET RETURN CODE (WAIT): return the exit code of the last child run via
  * AH=4Bh EXEC. AL = the exit code; AH = the termination TYPE (0 = normal exit via
  * 4Ch / INT 20h / 00h; 3 = terminated by AH=31h KEEP -- the TSR case, beads
- * initech-bo40). Ctrl-Break(1) / critical-error(2) have no termination path yet.
+ * initech-bo40; 1 = Ctrl-C via the default INT23 handler).
  * DOS "consumes" the value (a second 4Dh reads 0), which we model by clearing the
  * stash after read. CF clear. Ref: DOS 3.3 PRM AH=4Dh; RBIL INT 21/AH=4Dh. */
 static void do_get_return_code(int_frame_t *f)
@@ -4584,7 +4584,7 @@ static void do_get_return_code(int_frame_t *f)
      * that exits rc=7 and asserts AL==7) goes RED. NEVER define in a real build. */
     f->eax = (f->eax & 0xFFFF0000u);          /* AL=0, AH=0 */
 #else
-    /* AL = exit code; AH = termination type (3 == KEEP/TSR, else 0 normal). */
+    /* AL = exit code; AH = termination type (0 normal, 1 Ctrl-C, 3 KEEP). */
     f->eax = (f->eax & 0xFFFF0000u)
            | ((uint32_t)g_last_child_term_type << 8)
            | (uint32_t)g_last_child_rc;
@@ -5383,6 +5383,10 @@ static void int23_dispatch_body(int_frame_t *frame)
         return;
     }
 #endif
+    /* DOS 3.30 AH=4Dh type 1 survives the child's ordinary terminate/EXEC
+     * cleanup. The parent shell consumes it after EXEC, before run_batch's
+     * safe decision boundary (batch_break_mint/exec-{y,n}.txt). */
+    g_last_child_term_type = 1u;
     do_terminate(frame, 0u);
 }
 
