@@ -19,12 +19,45 @@ prepare(){
  cp -f "$w/data.img" "$w/data-before.img"
 }
 run(){
- "$b/qemu_harness" --disk "$w/master.img" --disk2 "$w/data.img" --out "$w" --name "$1" \
+ # Bound a blocked injected-input wait as well as the harness's boot timer.
+ timeout 35s "$b/qemu_harness" --disk "$w/master.img" --disk2 "$w/data.img" --out "$w" --name "$1" \
  --mouse "$2" --keys-after "$3" --quit-after "$4" --screendump --screendump-after "$4" --timeout-ms 25000 > "$w/$1.stdout" 2> "$w/$1.report" || true
  ! grep -q 'triple_fault=1' "$w/$1.report" || red triple-fault
+ # A running-volume mutant erases its own AUTOEXEC, so DU-RETURN need not
+ # survive. Judge the forbidden write first, rather than a missing marker.
+ if [ "$1" = running ]; then
+  cmp -s "$w/data-before.img" "$w/data.img" || red 'running volume not refused'
+ fi
  grep -q 'quit_after_found=1' "$w/$1.report" || red "$1 prompt"
  "$b/console_text" /usr/share/seabios/vgabios-stdvga.bin "$w/$1.ppm" > "$w/$1.screen" || red pixels
 }
+if [ "$only" = all ] || [ "$only" = MISSING ]; then
+ # Audit L041; MS-DOS 3.3 UG printed p336 (PDF421): missing /S source
+ # files require the DOS-diskette prompt, not p337's memory error. DEC-18
+ # fixes the system source at C:. Retry ENTER, then cancel with Ctrl-C.
+ # Keep the boot-critical IO.SYS/INITDOS.SYS files so the real guest reaches
+ # FORMAT. Their missing-file cases and successful recovery run on host.
+ for f in COMMAND.COM; do
+  prepare 'FORMAT D: /S'
+  mattrib -i "$w/master.img@@32256" -r -s -h "::$f"
+  mdel -i "$w/master.img@@32256" "::$f"
+  mformat -i "$w/master.img@@2064384" -T 2880 -c 1 -H 4032 ::
+  printf 'keep destination\r\n' > "$w/keep.txt"
+  mcopy -i "$w/master.img@@2064384" "$w/keep.txt" ::KEEP.TXT
+  cp -f "$w/master.img" "$w/missing-before.img"
+  # The batch echo also precedes the pre-fix error, letting the pixel
+  # assertion expose that error without waiting for the corrected text.
+  printf '@ECHO OFF\r\nECHO MISSING-START\r\nFORMAT D: /S\r\nECHO DU-RETURN\r\n' | mcopy -o -i "$w/data.img" - ::AUTOEXEC.BAT
+  run "missing-$f" 'kret,kctrl-c' MISSING-START DU-RETURN
+  printf 'Insert DOS diskette in drive C:\nand strike ENTER when ready\n\nInsert DOS diskette in drive C:\nand strike ENTER when ready\n' > "$w/missing.want"
+  awk '/^Insert DOS diskette/{p=1} /^DU-RETURN$/{exit} p{print}' "$w/missing-$f.screen" > "$w/missing.got"
+  cmp -s "$w/missing.want" "$w/missing.got" || red 'missing source message'
+  ! grep -qF 'Insufficient memory for system transfer' "$w/missing-$f.screen" || red 'missing source memory message'
+  cmp -s "$w/missing-before.img" "$w/master.img" || red 'missing source wrote disk'
+ done
+ echo 'GREEN test-format-missing-source-emu: absent COMMAND.COM prompts for C:, ENTER retries, Ctrl-C returns, disk unchanged'
+ [ "$only" != MISSING ] || exit 0
+fi
 if [ "$only" = syswrite ]; then
  # L042 (docs/audits/2026-10-23-dos REPORT.md): FORMAT, SYS, then ordinary
  # writes in ONE boot. MS-DOS 3.3 UG p119: SYS does not copy COMMAND.COM --
@@ -164,7 +197,7 @@ if [ "$only" = all ]; then
 fi
 if [ "$only" = all ] || [ "$only" = RUNNING ]; then
  prepare 'FORMAT A:'
- run running 'kret,kn' 'Format not supported' DU-RETURN
+ run running 'kret,kn' SHELL-READY DU-RETURN
  cmp -s "$w/data-before.img" "$w/data.img" || red 'running volume not refused'
  grep -qFx 'Format not supported on drive A:' "$w/running.screen" || red 'running volume not refused'
 fi

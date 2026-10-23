@@ -184,3 +184,47 @@ fsck.fat -n "$w/a.img" > "$w/repeat-fsck" 2>&1 || red '/V repeat label fsck'
 mdir -i "$w/a.img" :: > "$w/repeat-mdir"
 grep -q 'has no label' "$w/repeat-mdir" || red '/V repeat label'
 echo 'GREEN test-formatsys: Format another Y repeats; an empty second /V clears the first label'
+# Audit L041; MS-DOS 3.3 UG p336 (PDF421), DEC-18 source C:. Each missing
+# /S file must prompt/retry/cancel before ANY destination writes.
+for f in COMMAND.COM IO.SYS INITDOS.SYS; do
+ prep
+ cp -f "$w/master.img" "$w/retry.img"
+ mattrib -i "$w/master.img@@32256" -r -s -h "::$f"
+ mdel -i "$w/master.img@@32256" "::$f"
+ cp -f "$w/master.img" "$w/missing-before.img"
+ "$exe" "$w/master.img" "$w/a.img" 0 'D: /S' "$(printf '\n\003')" 3 > "$w/console" 2> "$w/exit" || red 'missing source message'
+ printf 'Insert DOS diskette in drive C:\nand strike ENTER when ready\n\nInsert DOS diskette in drive C:\nand strike ENTER when ready\n' > "$w/missing.want"
+ cmp -s "$w/missing.want" "$w/console" || red 'missing source message'
+ cmp -s "$w/missing-before.img" "$w/master.img" || red 'missing source wrote disk'
+ # Supply an independently copied complete medium on ENTER. Prove the
+ # lookup is repeated and all three files are transferred, not just refused.
+ DU_RETRY_SOURCE="$w/retry.img" run 0 'D: /S' '
+y
+' 0
+ grep -qFx 'System transferred' "$w/console" || red 'source retry transfer'
+ dd if="$w/retry.img" of="$w/retried.img" bs=512 skip=4032 count=2880 status=none
+ fsck.fat -n "$w/retried.img" > "$w/retry-fsck" 2>&1 || red 'source retry filesystem'
+ for file in IO.SYS INITDOS.SYS COMMAND.COM; do
+  mcopy -i "$w/retry.img@@32256" "::$file" - > "$w/retry-ref"
+  mcopy -i "$w/retried.img" "::$file" - > "$w/retry-got"
+  cmp -s "$w/retry-ref" "$w/retry-got" || red 'source retry bytes'
+ done
+done
+echo 'GREEN test-formatsys: each missing /S file prompts/retries/cancels without writes; restored source transfers all bytes'
+# /B needs only the two system files: missing COMMAND is allowed, while
+# a missing system file gets the same source prompt without formatting A:.
+prep
+mdel -i "$w/master.img@@32256" ::COMMAND.COM
+DU_CURRENT_C=1 run 0 'A: /B' '
+N' 0
+for f in IO.SYS INITDOS.SYS; do
+ prep
+ mattrib -i "$w/master.img@@32256" -r -s -h "::$f"
+ mdel -i "$w/master.img@@32256" "::$f"
+ cp -f "$w/a.img" "$w/missing-a-before.img"
+ DU_CURRENT_C=1 run 0 'A: /B' "$(printf '\003')" 3
+ printf 'Insert DOS diskette in drive C:\nand strike ENTER when ready\n' > "$w/missing.want"
+ cmp -s "$w/missing.want" "$w/console" || red '/B missing source message'
+ cmp -s "$w/missing-a-before.img" "$w/a.img" || red '/B missing source wrote disk'
+done
+echo 'GREEN test-formatsys: /B needs two system files and uses missing-source prompt'

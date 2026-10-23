@@ -6,7 +6,7 @@
 #include "diskutil.h"
 #include "block_device.h"
 static FILE *disks[2];
-static const char *input,*source,*target;
+static const char *input,*source,*target,*retry;
 static unsigned swaps;
 static int sector(unsigned d,uint32_t l,void *p,int write) {
  if(d<128||d>129)return -1;
@@ -22,7 +22,12 @@ static int wr(void *c,uint32_t l,uint32_t n,const void *p) {
  return 0;
 }
 static int map(unsigned l,du_map *m){return block_device_map(l,m);}
-static int get(void){return *input?(unsigned char)*input++:'N';}
+static int get(void){
+ int c=*input?(unsigned char)*input++:'N';
+ /* Factory medium replacement at the source prompt, before ENTER's retry. */
+ if(c=='\n'&&retry){fclose(disks[0]);disks[0]=fopen(retry,"r+b");if(!disks[0])exit(2);retry=0;}
+ return c;
+}
 static void put(const char *p){
  for(const char *q=p;*q;q++)if(*q!='\r')putchar(*q);
  /* Real one-drive swap: close the source medium and open a different image.
@@ -45,7 +50,7 @@ int main(int argc,char **argv){
   * Shipped current drive remains A; no application mapping is duplicated. */
  if(getenv("DU_CURRENT_C"))block_device_mounted(128,63,2880,0);
  else block_device_mounted(129,0,2880,0);
- input=argv[5];if(argc==9){source=argv[7];target=argv[8];}
+ input=argv[5];retry=getenv("DU_RETRY_SOURCE");if(argc==9){source=argv[7];target=argv[8];}
  const du_io io={map,sector,get,put};int rc=diskutil_run(&io,(unsigned)atoi(argv[3]),argv[4]);
  fclose(disks[0]);fclose(disks[1]);
  fprintf(stderr,"diskutil exit=%d swaps=%u\n",rc,swaps);
