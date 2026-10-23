@@ -27,12 +27,14 @@ $(FLAIR_DATA_POWER_CANCEL_IMG): $(FLAIR_DATA_IMG) $(BUILD)/tenant/ctenant_declin
 FLAIR_SDC_DONE := FINDER-NEW-FOLDER name=
 
 define power-cancel-boot
+# B04: acknowledge the visible refused-quit notice, then repeat the original
+# Ctrl-N probe. The locked trace and on-volume oracle remain unchanged.
 @$(call fixture-preflight,$(FLAIR_DATA_POWER_CANCEL_IMG))
 cp -f $(FLAIR_DATA_POWER_CANCEL_IMG) $(BUILD)/$(2)_data.img
 @$(call fixture-check,harness,$(BUILD)/$(2)_data.img,$(call fixture-spec,$(FLAIR_DATA_POWER_CANCEL_IMG)))
 INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk "$(1)" --disk2 "$(BUILD)/$(2)_data.img" \
  --name "$(2)" --out "$(BUILD)" --expect FLAIR-FAT-MOUNT-OK \
- --mouse "$(FLAIR_SHUTDOWN_APP_SPEC)" --keys-after FLAIR-LIVE-READY \
+ --mouse "$(FLAIR_SHUTDOWN_APP_SPEC),kret,kctrl-n" --keys-after FLAIR-LIVE-READY \
  --quit-after "$(3)" --timeout-ms 40000 \
  2> $(BUILD)/$(2).report || true
 @grep -q 'OK=1' $(BUILD)/$(2).report && ! grep -q 'triple_fault=1' $(BUILD)/$(2).report || { cat $(BUILD)/$(2).report; exit 1; }
