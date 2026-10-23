@@ -1,0 +1,42 @@
+                                                  Appendix F   MS-DOS Message Directory 359
+
+  Do not use the disk, or try to format the disk with the format
+  command, or run chkdsk on it to determine the problem.
+
+Target disk is Non-removable
+[Backup]
+• This is an informational message that the target disk is a hard
+  disk.
+Target diskette is write protected
+[Diskcopy]
+• The target disk either has a write-protect tab on it, or it does
+  not have a write-protect notch.
+  If you want to destroy any existing information on the disk,
+  remove the write-protect tab and give the command again. If
+  the disk does not have a write-protect notch, you cannot use it
+  as a target disk
+
+Target diskette may be unusable
+(Diskcopy]
+• Either the target disk has an unrecognizable format, or it is
+  bad.
+  Try to format the disk with the format command, or run
+  chkdsk on it to determine the problem.
+Target is a floppy (or hard) disk
+[Backup]
+• This is an informational message only.
+Target is full
+[Restore]
+• There is no more room on the target disk for restored files.
+  You must delete some of the files on the disk to make room for
+  these files, or use another disk
+
+Target is Non-Removable
+[Restore]
+• This is an informational message only.
+Terminate batch job (Y/N)?
+[MS-DOS]
+• If you press coNrROL-C while in batch mode, MS-DOS asks you
+  whether or not you wish to end batch processing.
+  Type Y (for Yes) to end processing, or type N (for No) to
+  continue.

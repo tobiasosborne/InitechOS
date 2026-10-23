@@ -1,0 +1,28 @@
+\CASES\B033.BAT
+CASE B033 sort-basic
+A:\T>SORT < LINES.TXT
+01 omega
+02 aardvark
+Alpha
+ALPHA
+beta
+last
+zebra
+A:\T>SORT /R < LINES.TXT
+zebra
+last
+beta
+Alpha
+ALPHA
+02 aardvark
+01 omega
+A:\T>SORT /+4 < LINES.TXT
+01 omega
+02 aardvark
+Alpha
+ALPHA
+beta
+last
+zebra
+AUDIT-DONE-B033
+A:\T>

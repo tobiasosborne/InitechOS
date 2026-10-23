@@ -1,0 +1,38 @@
+54 MS-DOS User's Reference
+
+
+Date                     Date
+                         Purpose:
+                         Displays or sets the date.
+                         Syntax:
+                         date [ mm-dd-yy]
+
+                         Comments:
+                         You can change the date from your terminal or from a batch file.
+                         (MS-DOS does not automatically display a prompt for the date if
+                         you use an autoexec. bat file, so you may want to include a date
+                         command in that file.) MS-DOS records this date in the directory
+                         when you create or change a file.
+                         Remember to use only numbers when you type the date; allowed
+                         numbers are
+
+                         mm = 1-12
+                         dd = 1-31
+                         yy = 80-79 or 1980-2079
+
+                         The date, month, and year entries may be separated by hyphens
+                         (-)or slashes(/). MS-DOS is programmed to change months and
+                         years correctly, whether the month has 28, 29, 30, or 31 days.
+                         It is possible for you to change the mm-dd-yy format in which
+                         the date is displayed and entered. The country command in the
+                         config.sys file allows you to change the date format to the Euro-
+                         pean standard dd-mm-yy. For more information on the config.sys
+                         file, see Appendix B, "How to Configure Your System."
+                         Notes:
+
+                             • This command sets your computer's internal clock in your
+                               computer, if one exists.
+                             • The format mm-dd-yy may vary if you are using a code page
+                               other than the one for the United States. For more information
+                               about international date formats, see Appendix E, "How to Use
+                               Code Pages."

@@ -1,0 +1,44 @@
+                                                                        MS-DOS Commands 75
+
+It: tracks    Specifies the number of tracks on the disk. This
+              switch formats a 3. 5-inch floppy disk to the number
+              of tracks specified. For 720K-hytc disks and 1.44-
+              megabyte disks, this value is 80 (/t:SO ).
+ln:sectors    Specifics the number of sectors per track. lbis
+              switch formats a 3.5-inch disk to the numhcr of sec-
+              tors specified. For 720K-hyte disks, this value is 9
+              (/n:9).
+/v            Causes format to prompt you for a volume lahel for
+              the disk you are formatting. A volume lahel identifies
+              the disk and can he up to I I characters in length
+              (no tahs allowed). An example of a volume lahel is
+              programs.
+
+
+When you format a hard disk, format prompts you to verify the          Formatting a hard
+volume label:                                                          disk
+
+Enter current Volume Label for drivex:
+
+If your hard disk does not have a volume label, press the RETl IRN
+key. But note that if your hard disk has never been formatted
+before, or if it has a bad hoot sector, format will not prompt you
+for a volume label.
+If the volume label that you enter does not match the label on the
+hard disk, format displays the following message:
+
+Invalid Volume ID Format failure
+
+Otherwise it continues:
+
+WARNING, ALL DATA ON NON-REMOVABLE DISK
+DRIVE X: WILL BE LOST!
+Proceed with Format (YIN)?_
+
+If you want to format your hard disk, type Y (for Ycs) and press
+the RETURN key. If you don't want to format your hard disk, type N
+(for No) and press the RETl.JRN key.
+When formatting is complete, format displays a message showing
+the total disk space, any space marked as defective, the total space
+used by the operating system (when you use the /s switch), and
+the space available for your files.

@@ -1,0 +1,114 @@
+[
+  {
+    "id": "L031",
+    "area": "TYPE cancellation",
+    "severity": "P2",
+    "title": "Ctrl-C during TYPE prints non-file bytes and does not stop output",
+    "steps": "Run python3 evidence/resume_driver.py controlshort. It boots geometry-boot-fixture.img plus resume-fixture.img, CD \\T, TYPE HUGE.TXT, then sends Ctrl-C after HUGE LINE 00005. The fixture has 2000 ASCII-only lines (88000 bytes).",
+    "observed": "The screen fills with non-text characters. The serial capture contains 14863 NUL bytes although the input contains none. Output then reaches HUGE LINE 01999 and the shell accepts ECHO AFTER-CANCEL. The original 10000-line repeat was stopped after 125 seconds, still printing at line 09233. Ctrl-S separately holds the serial byte count steady and resumes correctly.",
+    "expected": "Ctrl-C should stop TYPE and return a clean prompt; no bytes absent from the file should be printed (tester cancellation expectation and the brief; Initech Reference BREAK ch2-entries-a.tex:76 documents output-time break checking).",
+    "evidence": [
+      "shots/resume-controlshort-ctrlc.png",
+      "shots/resume-controlshort-returned.png",
+      "evidence/resume-controlshort-serial.log",
+      "evidence/resume-control-verification.json",
+      "evidence/resume-fixtures/HUGE.TXT",
+      "evidence/resume_driver.py",
+      "evidence/advanced-control-serial.log"
+    ]
+  },
+  {
+    "id": "L032",
+    "area": "XCOPY drives",
+    "severity": "P2",
+    "title": "XCOPY writes to A: when D: is requested",
+    "steps": "Run resume_driver.py xcopy. From A:\\T: XCOPY A:\\T\\ONE.TXT D:\\DHOME\\ /V; DIR D:\\DHOME; DIR A:\\DHOME; TYPE A:\\DHOME\\ONE.TXT; TYPE D:\\DHOME\\ONE.TXT. Stop QEMU and extract both volumes.",
+    "observed": "XCOPY reports 1 File(s) copied. D:\\DHOME still contains only SAME.TXT. It instead creates A:\\DHOME\\ONE.TXT containing 41 4c 50 48 41 0d 0a (ALPHA plus CR/LF). A source qualified with D: also yields zero copies. The stopped-image mcopy return codes are 0 for the A: file and 1 (not found) for the D: file.",
+    "expected": "Resolve source and destination drive letters independently and write only to the requested destination (DOS XCOPY; InitechDOS Reference ch2-entries-c.tex:216-229 accepts drive-qualified source and target).",
+    "evidence": [
+      "shots/resume-xcopy-location.png",
+      "shots/resume-xcopy-wrong-volume.png",
+      "evidence/resume-xcopy-serial.log",
+      "evidence/resume-xcopy-verification.json",
+      "evidence/resume-xcopy-A-ONE.TXT",
+      "evidence/resume-xcopy-D-listing.txt",
+      "evidence/resume_driver.py"
+    ]
+  },
+  {
+    "id": "L033",
+    "area": "Batch chaining",
+    "severity": "P2",
+    "title": "Invoking a batch without CALL returns to the caller anyway",
+    "steps": "Run resume_driver.py batch. From A:\\T run CHAIN.BAT; it prints BEFORE, invokes \\CASES\\CHILD.BAT arg without CALL, then has ECHO SHOULD-NOT-RETURN.",
+    "observed": "CHILD=arg is followed by SHOULD-NOT-RETURN. The older followup run likewise prints CHAIN-AFTER.",
+    "expected": "A plain batch invocation transfers control; only CALL resumes the caller (DOS Reference CALL p.142/PDF227).",
+    "evidence": [
+      "shots/resume-batch-flow.png",
+      "evidence/resume-batch-serial.log",
+      "evidence/resume-fixtures/CHAIN.BAT",
+      "evidence/cases/CHILD.BAT",
+      "evidence/manual-page-227.txt"
+    ]
+  },
+  {
+    "id": "L034",
+    "area": "Batch cancellation",
+    "severity": "P2",
+    "title": "Ctrl-C ends a batch without the DOS termination question",
+    "steps": "Run resume_driver.py batch; \\CASES\\BREAK.BAT waits at PAUSE. Press Ctrl-C. Repeat with LOOP.BAT, which repeatedly uses ECHO and GOTO.",
+    "observed": "Both immediately return to the DOS prompt after ^C. There is no Terminate batch job (Y/N)? and no option to continue. The PAUSE remainder is not executed.",
+    "expected": "Ask Terminate batch job (Y/N)? and allow N to continue (DOS Reference p.149/PDF234). InitechDOS Reference ch4-batch.tex:38-39 documents immediate cancellation, so this is an explicit compatibility gap.",
+    "evidence": [
+      "shots/resume-batch-pause-break.png",
+      "shots/resume-batch-loop-break.png",
+      "evidence/resume-batch-serial.log",
+      "evidence/cases/BREAK.BAT",
+      "evidence/resume-fixtures/LOOP.BAT",
+      "evidence/resume-manual-page-234.txt"
+    ]
+  },
+  {
+    "id": "L035",
+    "area": "DEL directory operand",
+    "severity": "P2",
+    "title": "DEL directory refuses the documented delete-all-files form",
+    "steps": "Boot suite2; run \\CASES\\B023.BAT: MD DELDIR; COPY ONE.TXT DELDIR\\ONE.TXT; DEL DELDIR; DIR DELDIR.",
+    "observed": "DEL reports Access denied; ONE.TXT remains in the directory.",
+    "expected": "Treat the directory name as its contained files and apply the delete-all confirmation, leaving the directory itself (DOS Reference p.56/PDF141 explicitly says to give a directory name to delete its files).",
+    "evidence": [
+      "shots/suite2-B023-del-directory.png",
+      "evidence/suite2-B023.txt",
+      "evidence/extracted/suite2/T/DELDIR/ONE.TXT",
+      "evidence/manual-page-141.txt"
+    ]
+  },
+  {
+    "id": "L036",
+    "area": "DATE",
+    "severity": "P2",
+    "title": "DATE without an argument does not offer date entry",
+    "steps": "Boot suite3; run \\CASES\\B038.BAT or type DATE.",
+    "observed": "Only Current date is ... is displayed; execution proceeds to the next command. Startup without AUTOEXEC does have the date question.",
+    "expected": "Offer Enter new date (mm-dd-yy): and let Enter retain it (DOS Reference p.55/PDF140). The Initech manual describes its display-only behavior, so this is compatibility.",
+    "evidence": [
+      "shots/suite3-B038-date-formats.png",
+      "evidence/suite3-B038.txt",
+      "evidence/manual-page-140.txt"
+    ]
+  },
+  {
+    "id": "L037",
+    "area": "TIME",
+    "severity": "P2",
+    "title": "TIME without an argument does not offer time entry",
+    "steps": "Boot suite3; run \\CASES\\B039.BAT or type TIME.",
+    "observed": "Only Current time is ... is displayed; the shell continues without an entry question. Startup without AUTOEXEC does have a time prompt.",
+    "expected": "Prompt for a new time when no argument is supplied (DOS Reference p.121/PDF206). The Initech manual describes display-only TIME; this is compatibility.",
+    "evidence": [
+      "shots/suite3-B039-time-values.png",
+      "evidence/suite3-B039.txt",
+      "evidence/manual-page-206.txt"
+    ]
+  }
+]

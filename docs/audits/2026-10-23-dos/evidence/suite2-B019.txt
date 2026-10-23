@@ -1,0 +1,32 @@
+\CASES\B019.BAT
+CASE B019 copy-timestamps
+A:\T>COPY OLD.TXT OCOPY.TXT
+        1 File(s) copied
+A:\T>COPY FUTURE.TXT FCOPY.TXT
+        1 File(s) copied
+A:\T>COPY OLD.TXT OASC.TXT /A
+        1 File(s) copied
+A:\T>DIR O*.TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+ONE      TXT        7  10-23-26   2:42p
+OLD      TXT        6  12-31-80  11:59p
+OCOPY    TXT        6  12-31-80  11:59p
+OASC     TXT        7  12-31-80  11:59p
+
+        4 File(s)    784384 bytes free
+A:\T>DIR F*.TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+FUTURE   TXT        6  12-31-99  11:59p
+FCOPY    TXT        6  12-31-99  11:59p
+
+        2 File(s)    784384 bytes free
+AUDIT-DONE-B019
+A:\T>

@@ -1,0 +1,32 @@
+device information:
+===================
+filename="/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/re-root224-data.img"
+sectors per track: 18
+heads: 2
+cylinders: 80
+
+media byte: f0
+
+mformat command line:
+  mformat -t 80 -h 2 -s 18 -i "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/re-root224-data.img" ::
+
+bootsector information
+======================
+banner:"MTOO4043"
+sector size: 512 bytes
+cluster size: 1 sectors
+reserved (boot) sectors: 1
+fats: 2
+max available root directory slots: 224
+small size: 2880 sectors
+media descriptor byte: 0xf0
+sectors per fat: 9
+sectors per track: 18
+heads: 2
+hidden sectors: 0
+physical drive id: 0x0
+reserved=0x0
+dos4=0x29
+serial number: 0BD6A68B
+disk label="NO NAME    "
+disk type="FAT12   "

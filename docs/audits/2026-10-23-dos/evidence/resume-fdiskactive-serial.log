@@ -1,0 +1,149 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          169
+AUTOEXEC.BAT           24
+SAMIR.COM        95514
+CLIENTS.DBF          223
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+DOS-VOLUME-OK D rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>CD \T
+A:\T>CLS
+A:\T>FDISK
+
+Disk Options
+
+Current Fixed Disk Drive: 1
+
+Choose one of the following:
+
+    1. Create DOS Partition
+    2. Change Active Partition
+    3. Delete DOS Partition
+    4. Display Partition Data
+    5. Select Next Fixed Disk Drive
+
+Enter choice:    [1]
+
+Press ESC to return to DOS
+2
+
+Change Active Partition
+
+Current Fixed Disk Drive: 1
+
+Partition  Status   Type  Start  End  Size
+ C:  1       A    PRI DOS     0     2     3
+ C:  2            PRI DOS     4     6     3
+
+Total disk space is 8 cylinders.
+
+Enter the number of the partition you
+want to make active..................: [1]
+Press ESC to return to Fdisk Options
+2
+Press ESC to return to Fdisk Options
+
+Disk Options
+
+Current Fixed Disk Drive: 1
+
+Choose one of the following:
+
+    1. Create DOS Partition
+    2. Change Active Partition
+    3. Delete DOS Partition
+    4. Display Partition Data
+    5. Select Next Fixed Disk Drive
+
+Enter choice:    [1]
+
+Press ESC to return to DOS
+4
+
+Display Partition Information
+
+Current Fixed Disk Drive: 1
+
+Partition  Status   Type  Start  End  Size
+ C:  1            PRI DOS     0     2     3
+ C:  2       A    PRI DOS     4     6     3
+
+Total disk space is 8 cylinders.
+
+Press ESC to return to Fdisk Options
+
+Disk Options
+
+Current Fixed Disk Drive: 1
+
+Choose one of the following:
+
+    1. Create DOS Partition
+    2. Change Active Partition
+    3. Delete DOS Partition
+    4. Display Partition Data
+    5. Select Next Fixed Disk Drive
+
+Enter choice:    [1]
+
+Press ESC to return to DOS
+
+System will now restart
+
+Insert DOS diskette in drive A:
+Press any key when ready . . .

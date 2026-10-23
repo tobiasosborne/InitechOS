@@ -1,0 +1,277 @@
+[
+  {
+    "id": "B047",
+    "name": "xcopy-se",
+    "lines": [
+      "XCOPY SUB DEST\\XC /S /E /V",
+      "DIR DEST\\XC /W",
+      "XCOPY SUB DEST\\XC /E",
+      "XCOPY SUB SUB\\NEST /S",
+      "XCOPY ONE.TXT ONE.TXT"
+    ],
+    "seconds": 1.638,
+    "serial_file": "suite4-B047.txt"
+  },
+  {
+    "id": "B048",
+    "name": "xcopy-readonly",
+    "lines": [
+      "XCOPY READONLY.TXT DEST\\ /V",
+      "ATTRIB DEST\\READONLY.TXT",
+      "XCOPY TWO.TXT DEST\\READONLY.TXT",
+      "TYPE DEST\\READONLY.TXT"
+    ],
+    "seconds": 1.206,
+    "serial_file": "suite4-B048.txt"
+  },
+  {
+    "id": "B049",
+    "name": "xcopy-rootrelative",
+    "lines": [
+      "XCOPY ONE.TXT DEST\\REL.TXT",
+      "IF ERRORLEVEL 1 ECHO RCGE1",
+      "IF ERRORLEVEL 4 ECHO RCGE4"
+    ],
+    "seconds": 1.365,
+    "serial_file": "suite4-B049.txt"
+  },
+  {
+    "id": "B050",
+    "name": "xcopy-absolute",
+    "lines": [
+      "XCOPY A:\\T\\ONE.TXT A:\\T\\DEST\\ /V",
+      "DIR DEST\\ONE.TXT"
+    ],
+    "seconds": 1.203,
+    "serial_file": "suite4-B050.txt"
+  },
+  {
+    "id": "B051",
+    "name": "tree",
+    "lines": [
+      "TREE A:\\T\\SUB /F",
+      "TREE A:\\T\\NOPE",
+      "TREE A:\\T\\ONE.TXT",
+      "TREE /Z"
+    ],
+    "seconds": 1.206,
+    "serial_file": "suite4-B051.txt"
+  },
+  {
+    "id": "B052",
+    "name": "tree-deep",
+    "lines": [
+      "TREE A:\\DEEP /F"
+    ],
+    "seconds": 2.108,
+    "serial_file": "suite4-B052.txt"
+  },
+  {
+    "id": "B053",
+    "name": "chkdsk-file",
+    "lines": [
+      "CHKDSK A:\\T\\LONG.TXT",
+      "CHKDSK A:\\T\\NOPE",
+      "CHKDSK /Z"
+    ],
+    "seconds": 1.715,
+    "serial_file": "suite4-B053.txt"
+  },
+  {
+    "id": "B054",
+    "name": "cross-drive-cwd",
+    "lines": [
+      "CD C:\\CHOME",
+      "CD D:\\DHOME",
+      "CD",
+      "CD C:",
+      "CD D:",
+      "TYPE C:SAME.TXT",
+      "TYPE D:SAME.TXT",
+      "C:",
+      "CD",
+      "D:",
+      "CD",
+      "A:"
+    ],
+    "seconds": 1.21,
+    "serial_file": "suite4-B054.txt"
+  },
+  {
+    "id": "B055",
+    "name": "cross-drive-copy",
+    "lines": [
+      "COPY C:\\CHOME\\SAME.TXT CFILE.TXT",
+      "COPY D:\\DHOME\\SAME.TXT DFILE.TXT",
+      "COPY ONE.TXT D:\\DHOME\\AONE.TXT",
+      "TYPE CFILE.TXT",
+      "TYPE DFILE.TXT",
+      "TYPE D:\\DHOME\\AONE.TXT"
+    ],
+    "seconds": 1.212,
+    "serial_file": "suite4-B055.txt"
+  },
+  {
+    "id": "B056",
+    "name": "cross-drive-vol",
+    "lines": [
+      "VOL A:",
+      "VOL C:",
+      "VOL D:",
+      "DIR D: /W",
+      "DIR B:",
+      "CD B:\\",
+      "B:",
+      "Z:"
+    ],
+    "seconds": 1.214,
+    "serial_file": "suite4-B056.txt"
+  },
+  {
+    "id": "B057",
+    "name": "cross-drive-tools",
+    "lines": [
+      "CHKDSK D:",
+      "ATTRIB D:\\DHOME\\SAME.TXT",
+      "TREE D: /F",
+      "LABEL D: NEWLABEL"
+    ],
+    "seconds": 2.112,
+    "serial_file": "suite4-B057.txt"
+  },
+  {
+    "id": "B058",
+    "name": "missing-program",
+    "lines": [
+      "NOSUCH",
+      "A:\\NOSUCH",
+      "DOS\\NOSUCH",
+      "COMMAND /C ECHO CHILD",
+      "COMMAND /C DIR",
+      "EXIT",
+      "ECHO AFTER-EXIT"
+    ],
+    "seconds": 1.626,
+    "serial_file": "suite4-B058.txt"
+  },
+  {
+    "id": "B059",
+    "name": "known-absent",
+    "lines": [
+      "APPEND",
+      "ASSIGN",
+      "BACKUP",
+      "CHCP",
+      "COMP",
+      "EXE2BIN",
+      "FASTOPEN",
+      "FC",
+      "GRAPHICS",
+      "JOIN",
+      "KEYB",
+      "MODE",
+      "NLSFUNC",
+      "PRINT",
+      "RECOVER",
+      "REPLACE",
+      "RESTORE",
+      "SELECT",
+      "SHARE",
+      "SUBST",
+      "DEBUG"
+    ],
+    "seconds": 1.619,
+    "serial_file": "suite4-B059.txt"
+  },
+  {
+    "id": "B060",
+    "name": "batch-args",
+    "lines": [
+      "CALL \\CASES\\ARGS.BAT one two three four five six seven eight nine ten eleven"
+    ],
+    "seconds": 1.209,
+    "serial_file": "suite4-B060.txt"
+  },
+  {
+    "id": "B061",
+    "name": "batch-flow",
+    "lines": [
+      "CALL \\CASES\\FLOW.BAT hello",
+      "CALL \\CASES\\NEST.BAT",
+      "CALL \\CASES\\GSPACE.BAT"
+    ],
+    "seconds": 1.212,
+    "serial_file": "suite4-B061.txt"
+  },
+  {
+    "id": "B062",
+    "name": "batch-recursion",
+    "lines": [
+      "CALL \\CASES\\SELF.BAT",
+      "ECHO RECURSION-RETURNED"
+    ],
+    "seconds": 1.11,
+    "serial_file": "suite4-B062.txt"
+  },
+  {
+    "id": "B063",
+    "name": "batch-long",
+    "lines": [
+      "CALL \\CASES\\BIG.BAT",
+      "ECHO BIG-RETURNED"
+    ],
+    "seconds": 1.112,
+    "serial_file": "suite4-B063.txt"
+  },
+  {
+    "id": "B064",
+    "name": "batch-errorlevel",
+    "lines": [
+      "FIND \"nonexistent\" < ONE.TXT",
+      "IF ERRORLEVEL 1 ECHO FIND-FAILED",
+      "IF NOT ERRORLEVEL 2 ECHO FIND-LT2",
+      "FIND \"ALPHA\" < ONE.TXT",
+      "IF ERRORLEVEL 1 ECHO WRONG-FIND-SUCCESS",
+      "IF NOT ERRORLEVEL 1 ECHO FIND-SUCCESS"
+    ],
+    "seconds": 1.1,
+    "serial_file": "suite4-B064.txt"
+  },
+  {
+    "id": "B065",
+    "name": "batch-drive",
+    "lines": [
+      "COPY \\CASES\\ARGS.BAT D:\\ARGS.BAT",
+      "CALL D:\\ARGS.BAT first second",
+      "ECHO DRIVE-BATCH-RETURNED"
+    ],
+    "seconds": 1.202,
+    "serial_file": "suite4-B065.txt"
+  },
+  {
+    "id": "B066",
+    "name": "sys-reach",
+    "lines": [
+      "SYS A:",
+      "SYS B:",
+      "SYS D:",
+      "FORMAT A:",
+      "FORMAT B:",
+      "FORMAT D: /BAD",
+      "DISKCOPY C: D:",
+      "DISKCOMP C: D:"
+    ],
+    "seconds": 1.204,
+    "serial_file": "suite4-B066.txt"
+  },
+  {
+    "id": "B067",
+    "name": "del-many",
+    "lines": [
+      "DEL \\MANY\\F*.TXT",
+      "DIR \\MANY /W"
+    ],
+    "seconds": 1.798,
+    "serial_file": "suite4-B067.txt"
+  }
+]

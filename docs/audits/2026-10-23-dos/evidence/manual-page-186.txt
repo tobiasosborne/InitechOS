@@ -1,0 +1,43 @@
+                                                                    MS-DOS Commands 101
+
+
+Prompt                                                              Prompt
+
+Purpose:
+Changes the MS-DOS command prompt.
+
+Syntax:
+prompt ((text)( Scbaracter] ... ]
+Comments:
+1l1is command lets you change the MS-DOS system prompt (for
+example, A>). If, when using the prompt command. you do not
+type a new value, the prompt is set to the default value. which
+includes the default drive name.
+You can use the characters in the prompt command to create
+special prompts:
+
+Type these
+characters          To get this prompt
+$q                  The = character                                 Special prompts
+$$                  The S character
+$t                  The current time
+$d                  The current date
+$p                  The working directory of the default drive
+$v                  The version number
+$n                  The default drive
+$g                  The > character
+$1                  The < character
+$b                  The I character
+$_                  RETl IRN-UNEFEED
+
+$e                  ASCII code X'IB' (escape)
+
+$h                  Backspace (to erase a character that has been
+                    written to the prompt line)
+
+
+Examples:
+The following example sets the drive prompt to drive:current        Setting your prompt
+directory:
+
+prompt Sp

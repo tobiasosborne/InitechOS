@@ -1,0 +1,27 @@
+\CASES\B047.BAT
+CASE B047 xcopy-se
+A:\T>XCOPY SUB DEST\XC /S /E /V
+Does DEST\XC specify a file name or directory name on the target (F = file, D = directory)?
+\T\SUB\ONE.TXT
+\T\SUB\TWO.TXT
+\T\SUB\RO.TXT
+3 File(s) copied
+A:\T>DIR DEST\XC /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T\DEST\XC
+
+[.]             [..]            ONE.TXT         TWO.TXT         RO.TXT
+
+        5 File(s)    789504 bytes free
+A:\T>XCOPY SUB DEST\XC /E
+Invalid parameter(s)
+A:\T>XCOPY SUB SUB\NEST /S
+Does SUB\NEST specify a file name or directory name on the target (F = file, D = directory)?
+Cannot perform a cyclic copy
+A:\T>XCOPY ONE.TXT ONE.TXT
+File cannot be copied onto itself
+0 File(s) copied
+AUDIT-DONE-B047
+A:\T>

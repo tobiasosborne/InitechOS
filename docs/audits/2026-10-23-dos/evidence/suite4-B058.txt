@@ -1,0 +1,45 @@
+\CASES\B058.BAT
+CASE B058 missing-program
+A:\T>NOSUCH
+Bad command or file name
+A:\T>A:\NOSUCH
+Bad command or file name
+A:\T>DOS\NOSUCH
+Bad command or file name
+A:\T>COMMAND /C ECHO CHILD
+CHILD
+A:\T>COMMAND /C DIR
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+.               <DIR>  10-23-26   2:42p
+..              <DIR>  10-23-26   2:42p
+SUB             <DIR>  10-23-26   2:42p
+EMPTY           <DIR>  10-23-26   2:42p
+DEST            <DIR>  10-23-26   2:42p
+ONE      TXT        7  10-23-26   2:42p
+TWO      TXT        6  10-23-26   2:42p
+EOF      TXT       14  10-23-26   2:42p
+ZERO     TXT        0  10-23-26   2:42p
+NOCR     TXT       12  10-23-26   2:42p
+BINARY   BIN     1024  10-23-26   2:42p
+EXACT    BIN      512  10-23-26   2:42p
+SELF     BIN     8192  10-23-26   2:42p
+READONLY TXT       11  10-23-26   2:42p
+HIDDEN   TXT        8  10-23-26   2:42p
+SYSTEM   TXT        8  10-23-26   2:42p
+LINES    TXT       54  10-23-26   2:42p
+LONG     TXT    76800  10-23-26   2:42p
+NOLF     TXT       10  10-23-26   2:42p
+OLD      TXT        6  12-31-80  11:59p
+FUTURE   TXT        6  12-31-99  11:59p
+CFILE    TXT        9  10-23-26   2:42p
+DFILE    TXT        9  10-23-26   2:42p
+
+       23 File(s)    786944 bytes free
+A:\T>EXIT
+AFTER-EXIT
+AUDIT-DONE-B058
+A:\T>

@@ -1,0 +1,25 @@
+\CASES\B009.BAT
+CASE B009 copy-self
+A:\T>COPY SELF.BIN SELF.BIN
+File cannot be copied onto itself
+        0 File(s) copied
+A:\T>COPY SELF.BIN .\SELF.BIN
+File cannot be copied onto itself
+        0 File(s) copied
+A:\T>COPY SELF.BIN A:\T\SELF.BIN
+File cannot be copied onto itself
+        0 File(s) copied
+A:\T>COPY SELF.BIN ..\T\SELF.BIN
+File cannot be copied onto itself
+        0 File(s) copied
+A:\T>DIR SELF.BIN
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+SELF     BIN     8192  10-23-26   2:42p
+
+        1 File(s)    791552 bytes free
+AUDIT-DONE-B009
+A:\T>

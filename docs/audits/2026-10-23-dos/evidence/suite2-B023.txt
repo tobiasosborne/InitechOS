@@ -1,0 +1,20 @@
+\CASES\B023.BAT
+CASE B023 del-directory
+A:\T>MD DELDIR
+A:\T>COPY ONE.TXT DELDIR\ONE.TXT
+        1 File(s) copied
+A:\T>DEL DELDIR
+Access denied
+A:\T>DIR DELDIR
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T\DELDIR
+
+.               <DIR>  10-23-26  12:42p
+..              <DIR>  10-23-26  12:42p
+ONE      TXT        7  10-23-26   2:42p
+
+        3 File(s)    782336 bytes free
+AUDIT-DONE-B023
+A:\T>

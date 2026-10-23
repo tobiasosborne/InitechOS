@@ -1,0 +1,31 @@
+                                                                      MS-DOS Commands 125
+
+
+Verify                                                                Verify
+
+Purpose:
+Turns the verify switch on or off when writing to a disk.
+
+Syntax:
+verify [on)
+   or
+verify [off)
+Comments:
+You can use this command to verify that your files are written
+correctly to the disk (no bad sectors, for example). MS-DOS veri-
+fies the data as it is written to a disk. You will receive an error
+message only if MS-DOS is unable to successfully write your data
+to a disk.
+Notes:
+This command has the same purpose as the Iv switch in the copy
+command.
+Examples:
+If you want to know the current setting of verify, use the verify
+command without an option:
+
+verify
+
+Verify on remains in effect until a program changes it, or until
+you type the following:
+
+verify off

@@ -1,0 +1,71 @@
+\CASES\B057.BAT
+CASE B057 cross-drive-tools
+A:\T>CHKDSK D:
+Disk error reading (or writing) FAT
+A:\T>ATTRIB D:\DHOME\SAME.TXT
+Invalid path (or file not found)
+A:\T>TREE D: /F
+DIRECTORY PATH LISTING FOR VOLUME INITECH
+
+Path: \T
+
+Sub-directories: SUB
+               : EMPTY
+               : DEST
+
+Files:
+        ONE.TXT
+        TWO.TXT
+        EOF.TXT
+        ZERO.TXT
+        NOCR.TXT
+        BINARY.BIN
+        EXACT.BIN
+        SELF.BIN
+        READONLY.TXT
+        LINES.TXT
+        LONG.TXT
+        NOLF.TXT
+        OLD.TXT
+        FUTURE.TXT
+        CFILE.TXT
+        DFILE.TXT
+
+Path: \T\SUB
+
+Sub-directories: None
+
+Files:
+        ONE.TXT
+        TWO.TXT
+        RO.TXT
+
+Path: \T\EMPTY
+
+Sub-directories: None
+
+Files:
+        None
+
+Path: \T\DEST
+
+Sub-directories: XC
+
+Files:
+        KEEP.TXT
+        READONLY.TXT
+        REL.TXT
+        ONE.TXT
+
+Path: \T\DEST\XC
+
+Sub-directories: None
+
+Files:
+        ONE.TXT
+        TWO.TXT
+        RO.TXT
+A:\T>LABEL D: NEWLABEL
+Invalid drive specification
+AUDIT-DONE-B057
+A:\T>

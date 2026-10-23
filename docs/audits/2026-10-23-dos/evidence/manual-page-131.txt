@@ -1,0 +1,41 @@
+46 MS-DOS User's Reference
+
+
+Command                  Command
+                         Purpose:
+                         Starts the command processor.
+                         Syntax:
+                         command [drive: ][path][ ctty-dev] [Je:nnnnn ][/p ][ /c string]
+                         where:
+                         ctty-dev allows you to. specify a different device (such as AUX) for
+                         input and output.
+                         Comments:
+                         This command starts a new command processor (the MS-DOS pro-
+                         gram that contains all internal commands).
+                         When you start a new command processor, you also create a new
+                         command environment. This new environment is a copy of the
+                         old, parent environment. However, you can change the new
+                         environment without affecting the old one.
+                         The command processor is loaded into memory in two parts:
+                         transient and resident. Some applications write over the transient
+                         memory part of command. com when they run. When this hap-
+                         pens, the resident part of the command processor looks for the
+                         command. com file on disk so that it can reload the transient part.
+                         The (jrivepath options tell the command processor where to look
+                         for the command.com file if it needs to reload the transient part
+                         into memory.
+                         The following switches are accepted by command:
+
+                         Switch           Purpose
+The Command              /e:nnnnn         Specifies the environment size, where nnnnn is
+switches                                  the size in bytes, ranging from 160 to 32, 768.
+                                          MS-DOS rounds this number up to the next logi-
+                                          cal paragraph boundary. The default value is 160
+                                          bytes.
+                         /p               Keeps the secondary command processor in
+                                          memory and does not automatically return to
+                                          the primary command processor.
+                         le string        Tells the command processor to perform the
+                                          command or commands specified by string and
+                                          then to return automatically to the primary com-
+                                          mand processor.

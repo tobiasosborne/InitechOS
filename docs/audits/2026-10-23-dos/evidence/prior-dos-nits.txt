@@ -1,0 +1,64 @@
+/home/tobias/Projects/initech-os/docs/audits/2026-10-15-look-pass6/NITS.tsv:4:M003	menu shortcuts	P3	Caret substitutes for the Command glyph
+/home/tobias/Projects/initech-os/docs/audits/2026-10-15-look-pass6/NITS.tsv:15:M014	DOS/database console	P2	Console keeps pale gray text on green
+/home/tobias/Projects/initech-os/docs/audits/2026-10-15-look-pass6/NITS.tsv:16:M015	DOS cursor	P2	Ready prompt has no visible blinking cursor
+/home/tobias/Projects/initech-os/docs/audits/2026-10-15-look-pass6/NITS.tsv:17:M016	DOS CLS	P2	CLS clears pixels but leaves the prompt on row 24
+/home/tobias/Projects/initech-os/docs/audits/2026-10-15-look-pass6/NITS.tsv:18:M017	DOS DIR header	P3	Directory listing omits the volume identity line
+/home/tobias/Projects/initech-os/docs/audits/2026-10-15-look-pass6/NITS.tsv:19:M018	DOS DIR columns	P3	Name and extension are joined with a dot
+/home/tobias/Projects/initech-os/docs/audits/2026-10-15-look-pass6/NITS.tsv:20:M019	DOS DIR columns	P2	DIR rows omit date and time fields
+/home/tobias/Projects/initech-os/docs/audits/2026-10-15-look-pass6/NITS.tsv:21:M020	DOS DIR footer	P3	Footer omits the free-space figure
+/home/tobias/Projects/initech-os/docs/audits/2026-10-15-look-pass6/NITS.tsv:24:M023	DOS DIR footer	P3	File-count label uses lowercase f
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:6:L005	DOS	P1	COPY overwrites a read-only destination
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:7:L006	DOS	P1	DEL removes a read-only file
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:11:L010	Initech 123	P2	The slash command menu does not open
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:26:L025	DOS	P2	CD backslash does not return to the root
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:27:L026	DOS	P2	MD accepts a wildcard character as a literal directory name
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:28:L027	DOS	P2	MD accepts reserved device names as real directories
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:29:L028	DOS	P2	COPY treats /A and /B switches as filenames and ignores the requested destination
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:30:L029	DOS	P2	COPY cannot concatenate explicitly named files with plus
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:31:L030	DOS	P2	New filesystem entries receive an invalid zero month/day timestamp
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:32:L031	DOS	P2	FOR works in a batch but is not recognized at the prompt
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:33:L032	DOS	P2	IF is not recognized at the interactive prompt
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:34:L033	DOS	P2	F3 command recall does nothing
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:35:L034	DOS	P2	COMMAND /C cannot launch a secondary command processor
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:36:L035	DOS	P1	EXIT terminates the permanent primary shell and leaves no usable prompt
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:37:L036	DOS	P2	CHKDSK is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:38:L037	DOS	P2	FORMAT is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:39:L038	DOS	P2	DISKCOPY is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:40:L039	DOS	P2	ATTRIB is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:41:L040	DOS	P2	TREE is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:42:L041	DOS	P2	FIND is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:43:L042	DOS	P2	SORT is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:44:L043	DOS	P2	MORE is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:47:L046	database	P3	The next dot prompt is glued to query output
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:82:L081	DOS	P2	APPEND is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:83:L082	DOS	P2	ASSIGN is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:84:L083	DOS	P2	BACKUP is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:85:L084	DOS	P2	CHCP is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:86:L085	DOS	P2	COMP is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:87:L086	DOS	P2	CTTY is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:88:L087	DOS	P2	DISKCOMP is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:89:L088	DOS	P2	EXE2BIN is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:90:L089	DOS	P2	FASTOPEN is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:91:L090	DOS	P2	FC is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:92:L091	DOS	P2	GRAPHICS is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:93:L092	DOS	P2	JOIN is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:94:L093	DOS	P2	KEYB is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:95:L094	DOS	P2	LABEL is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:96:L095	DOS	P2	MODE is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:97:L096	DOS	P2	NLSFUNC is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:98:L097	DOS	P2	PRINT is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:99:L098	DOS	P2	RECOVER is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:100:L099	DOS	P2	REPLACE is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:101:L100	DOS	P2	RESTORE is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:102:L101	DOS	P2	SELECT is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:103:L102	DOS	P2	SHARE is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:104:L103	DOS	P2	SUBST is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:105:L104	DOS	P2	SYS is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:106:L105	DOS	P2	XCOPY is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:107:L106	DOS	P2	DEBUG is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:108:L107	DOS	P2	EDLIN is unavailable from the supplied DOS installation
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:109:L108	database	P2	A macro variable containing a command is not expanded for execution
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:111:L110	database	P2	TYPE is not recognized at the database prompt
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:112:L111	database	P2	RENAME is not recognized at the database prompt
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:113:L112	database	P2	ERASE is not recognized at the database prompt
+/home/tobias/Projects/initech-os/docs/audits/2026-10-05-astra-full-drive/NITS.tsv:115:L114	database	P2	RUN cannot invoke a DOS command

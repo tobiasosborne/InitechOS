@@ -1,0 +1,38 @@
+                                                                    MS-DOS Commands 97
+
+
+Path                                                               Path
+
+Purpose:
+Sets a command search path.
+Syntax:
+path l drive: )[path It;( drive: l[path )... )
+   or
+path;
+Comments:
+The path command lets you tell MS-DOS which directories to
+search for external commands - after it searches your working
+directory. The default value is no path.
+For instance, to tell MS-DOS to search the \user\pete directory
+for external commands, you would simply type the path com-
+mand followed by the directory name \user\pete. Then, until
+you exit MS-DOS or set another path, MS-DOS searches the
+\user\pete directory for external commands.
+You can tell MS-DOS to search more than one path by specifying
+several paths separated by semicolons. If you use the path com-
+mand without options, it prints the current path. And if you use
+the following command, MS-DOS searches only the working direc-
+tory for external commands:
+
+path ;
+
+This path is also called the NUL path.
+Examples:
+The following command tells MS-DOS to search three directories     Setting a search
+to find external commands (the three paths for these directories   path
+are \user \pete, b: \user\ emily, and \bin):
+
+path \user\pete;b:\user\emily;\bin
+
+MS-DOS searches the paths in the order specified in the path
+command.

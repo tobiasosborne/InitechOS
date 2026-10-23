@@ -1,0 +1,42 @@
+{
+  "advanced-driveutils": {
+    "A": {
+      "rc": 0,
+      "listing": "advanced-driveutils-A-listing.txt"
+    },
+    "C": {
+      "rc": 0,
+      "listing": "advanced-driveutils-C-listing.txt"
+    },
+    "D": {
+      "rc": 0,
+      "listing": "advanced-driveutils-D-listing.txt"
+    }
+  },
+  "advanced-format": {
+    "A": {
+      "rc": 0,
+      "listing": "advanced-format-A-listing.txt"
+    },
+    "C": {
+      "rc": 0,
+      "listing": "advanced-format-C-listing.txt"
+    },
+    "D": {
+      "rc": 0,
+      "listing": "advanced-format-D-listing.txt"
+    }
+  },
+  "app123": {
+    "file": "APPS/123.EXE",
+    "size": 64892,
+    "sha256": "aaa6cc09e4ac3110a2ead21b7ddb7ffdba5872c9957998d61e821145f5dfe3f6",
+    "header_hex": "4d5a900079003b030200d048ffff0000000000000000000090f0000043490000"
+  },
+  "appword": {
+    "file": "APPS/WORD.EXE",
+    "size": 52472,
+    "sha256": "d2de80dd163866c46ffca3ea40b7d55d039ad0b5d38f7dda907ec0cc30b799eb",
+    "header_hex": "4d5a70015c0062050200fd77ffff0000000000000000000070b7000043490000"
+  }
+}

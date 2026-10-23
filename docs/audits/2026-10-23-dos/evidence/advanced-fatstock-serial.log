@@ -1,0 +1,107 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+HELLO.TXT           31
+SECOND.TXT          104
+CHAIN.TXT         1600
+EMPTY.TXT            0
+BLOCK.BIN         1024
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+DOS-VOLUME-OK D rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+Current date is Fri 10-23-2026
+Enter new date (mm-dd-yy): 
+Current time is 12:58:53.00
+Enter new time: 
+A:\>CLS
+A:\>DIR
+
+ Volume in drive A has no label
+
+ Directory of A:\
+
+HELLO    TXT       31  10-23-26   2:28p
+SECOND   TXT      104  10-23-26   2:28p
+CHAIN    TXT     1600  10-23-26   2:28p
+EMPTY    TXT        0  10-23-26   2:28p
+BLOCK    BIN     1024  10-23-26   2:28p
+
+        5 File(s)   1453568 bytes free
+A:\>TYPE HELLO.TXT
+Hello from InitechOS test file
+
+A:\>COPY CHAIN.TXT COPY.TXT /B /V
+        1 File(s) copied
+A:\>TYPE BLOCK.BIN > BLOCK2.BIN
+A:\>COPY EMPTY.TXT EMPTY2.TXT
+        1 File(s) copied
+A:\>DIR
+
+ Volume in drive A has no label
+
+ Directory of A:\
+
+HELLO    TXT       31  10-23-26   2:28p
+SECOND   TXT      104  10-23-26   2:28p
+CHAIN    TXT     1600  10-23-26   2:28p
+EMPTY    TXT        0  10-23-26   2:28p
+BLOCK    BIN     1024  10-23-26   2:28p
+COPY     TXT     1600  10-23-26   2:28p
+BLOCK2   BIN     1024  10-23-26  12:58p
+EMPTY2   TXT        0  10-23-26   2:28p
+
+        8 File(s)   1450496 bytes free
+A:\>

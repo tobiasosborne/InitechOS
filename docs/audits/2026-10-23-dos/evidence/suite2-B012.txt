@@ -1,0 +1,26 @@
+\CASES\B012.BAT
+CASE B012 copy-empty
+A:\T>COPY ZERO.TXT ZCOPY.TXT
+        1 File(s) copied
+A:\T>DIR ZCOPY.TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+ZCOPY    TXT        0  10-23-26   2:42p
+
+        1 File(s)    791040 bytes free
+A:\T>COPY ZERO.TXT ZCOPY2.TXT /A
+        1 File(s) copied
+A:\T>DIR ZCOPY2.TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+ZCOPY2   TXT        1  10-23-26   2:42p
+
+        1 File(s)    790528 bytes free
+AUDIT-DONE-B012
+A:\T>

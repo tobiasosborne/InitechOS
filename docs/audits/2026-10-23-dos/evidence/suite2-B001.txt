@@ -1,0 +1,72 @@
+\CASES\B001.BAT
+CASE B001 dir-paths
+A:\T>DIR .
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+.               <DIR>  10-23-26   2:42p
+..              <DIR>  10-23-26   2:42p
+SUB             <DIR>  10-23-26   2:42p
+EMPTY           <DIR>  10-23-26   2:42p
+DEST            <DIR>  10-23-26   2:42p
+ONE      TXT        7  10-23-26   2:42p
+TWO      TXT        6  10-23-26   2:42p
+EOF      TXT       14  10-23-26   2:42p
+ZERO     TXT        0  10-23-26   2:42p
+NOCR     TXT       12  10-23-26   2:42p
+BINARY   BIN     1024  10-23-26   2:42p
+EXACT    BIN      512  10-23-26   2:42p
+SELF     BIN     8192  10-23-26   2:42p
+READONLY TXT       11  10-23-26   2:42p
+HIDDEN   TXT        8  10-23-26   2:42p
+SYSTEM   TXT        8  10-23-26   2:42p
+LINES    TXT       54  10-23-26   2:42p
+LONG     TXT    76800  10-23-26   2:42p
+NOLF     TXT       10  10-23-26   2:42p
+OLD      TXT        6  12-31-80  11:59p
+FUTURE   TXT        6  12-31-99  11:59p
+
+       21 File(s)    791552 bytes free
+A:\T>DIR ..\T\ONE.TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+ONE      TXT        7  10-23-26   2:42p
+
+        1 File(s)    791552 bytes free
+A:\T>DIR A:ONE
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+ONE      TXT        7  10-23-26   2:42p
+
+        1 File(s)    791552 bytes free
+A:\T>DIR .TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+ONE      TXT        7  10-23-26   2:42p
+TWO      TXT        6  10-23-26   2:42p
+EOF      TXT       14  10-23-26   2:42p
+ZERO     TXT        0  10-23-26   2:42p
+NOCR     TXT       12  10-23-26   2:42p
+READONLY TXT       11  10-23-26   2:42p
+HIDDEN   TXT        8  10-23-26   2:42p
+SYSTEM   TXT        8  10-23-26   2:42p
+LINES    TXT       54  10-23-26   2:42p
+LONG     TXT    76800  10-23-26   2:42p
+NOLF     TXT       10  10-23-26   2:42p
+OLD      TXT        6  12-31-80  11:59p
+FUTURE   TXT        6  12-31-99  11:59p
+
+       13 File(s)    791552 bytes free
+AUDIT-DONE-B001
+A:\T>

@@ -1,0 +1,203 @@
+[
+  {
+    "id": "B033",
+    "name": "sort-basic",
+    "lines": [
+      "SORT < LINES.TXT",
+      "SORT /R < LINES.TXT",
+      "SORT /+4 < LINES.TXT"
+    ],
+    "seconds": 1.197,
+    "serial_file": "suite3-B033.txt"
+  },
+  {
+    "id": "B034",
+    "name": "sort-limits",
+    "lines": [
+      "SORT < LONG.TXT > SORTLONG.TXT",
+      "SORT < BINARY.BIN > SORTBIN.BIN",
+      "DIR SORT*.*"
+    ],
+    "seconds": 1.197,
+    "serial_file": "suite3-B034.txt"
+  },
+  {
+    "id": "B035",
+    "name": "pipes",
+    "lines": [
+      "TYPE LINES.TXT | FIND /N \"a\" | SORT /R",
+      "TYPE ONE.TXT | MORE",
+      "TYPE ZERO.TXT | MORE",
+      "ECHO X | FIND \"X\" > PIPE.TXT",
+      "TYPE PIPE.TXT"
+    ],
+    "seconds": 1.2,
+    "serial_file": "suite3-B035.txt"
+  },
+  {
+    "id": "B036",
+    "name": "echo",
+    "lines": [
+      "ECHO",
+      "ECHO OFF",
+      "ECHO",
+      "ECHO ON",
+      "ECHO.",
+      "ECHO MiXeD $x  spaces",
+      "ECHO ONWARD"
+    ],
+    "seconds": 1.098,
+    "serial_file": "suite3-B036.txt"
+  },
+  {
+    "id": "B037",
+    "name": "date-values",
+    "lines": [
+      "DATE 02-29-2000",
+      "DATE 02-29-1900",
+      "DATE 02-29-2100",
+      "DATE 12-31-2099",
+      "DATE 1/1/80",
+      "DATE 31-12-99",
+      "DATE 0-0-0"
+    ],
+    "seconds": 1.102,
+    "serial_file": "suite3-B037.txt"
+  },
+  {
+    "id": "B038",
+    "name": "date-formats",
+    "lines": [
+      "DATE",
+      "DATE 1.2.99",
+      "DATE 1-2-99 EXTRA",
+      "DATE 01-01-1980",
+      "DATE 12-31-2079",
+      "DATE 01-01-1980"
+    ],
+    "seconds": 1.098,
+    "serial_file": "suite3-B038.txt"
+  },
+  {
+    "id": "B039",
+    "name": "time-values",
+    "lines": [
+      "TIME 23:59:59",
+      "TIME 24:00",
+      "TIME 12:60",
+      "TIME 13:14:15.99",
+      "TIME 1:02p",
+      "TIME 00:00",
+      "TIME"
+    ],
+    "seconds": 1.101,
+    "serial_file": "suite3-B039.txt"
+  },
+  {
+    "id": "B040",
+    "name": "env",
+    "lines": [
+      "SET foo=MiXeD",
+      "SET FOO",
+      "SET missing",
+      "SET FOO=",
+      "SET FOO",
+      "PATH",
+      "PATH ;",
+      "PATH",
+      "PATH A:\\DOS",
+      "PATH"
+    ],
+    "seconds": 1.099,
+    "serial_file": "suite3-B040.txt"
+  },
+  {
+    "id": "B041",
+    "name": "env-capacity",
+    "lines": [
+      "SET V0=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "SET V1=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "SET V2=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "SET V3=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "SET V4=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "SET V5=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "SET",
+      "SET V0=",
+      "SET V1=",
+      "SET V2=",
+      "SET V3=",
+      "SET V4=",
+      "SET V5="
+    ],
+    "seconds": 1.2,
+    "serial_file": "suite3-B041.txt"
+  },
+  {
+    "id": "B042",
+    "name": "builtin-gaps",
+    "lines": [
+      "VERIFY",
+      "VERIFY ON",
+      "VERIFY OFF",
+      "CTTY CON",
+      "IF EXIST ONE.TXT ECHO IF-PROMPT-ONLY-OTHER-TEST",
+      "BREAK INVALID"
+    ],
+    "seconds": 1.097,
+    "serial_file": "suite3-B042.txt"
+  },
+  {
+    "id": "B043",
+    "name": "attrib-flags",
+    "lines": [
+      "ATTRIB +R +A ONE.TXT",
+      "ATTRIB ONE.TXT",
+      "ATTRIB -R -A ONE.TXT",
+      "ATTRIB +H ONE.TXT",
+      "ATTRIB +S ONE.TXT",
+      "ATTRIB ONE.TXT"
+    ],
+    "seconds": 1.299,
+    "serial_file": "suite3-B043.txt"
+  },
+  {
+    "id": "B044",
+    "name": "attrib-subdirs",
+    "lines": [
+      "ATTRIB +R SUB\\*.TXT /S",
+      "ATTRIB SUB\\*.TXT /S",
+      "ATTRIB -R SUB\\*.TXT /S",
+      "ATTRIB EMPTY",
+      "ATTRIB NOFILE.TXT"
+    ],
+    "seconds": 1.196,
+    "serial_file": "suite3-B044.txt"
+  },
+  {
+    "id": "B045",
+    "name": "label",
+    "lines": [
+      "LABEL ABCDEFGHIJK",
+      "VOL",
+      "LABEL BAD.LABEL",
+      "VOL",
+      "LABEL ABCDEFGHIJKL",
+      "VOL",
+      "LABEL INITECH"
+    ],
+    "seconds": 1.2,
+    "serial_file": "suite3-B045.txt"
+  },
+  {
+    "id": "B046",
+    "name": "label-input",
+    "lines": [
+      "ECHO REPORTS > NAME.TXT",
+      "LABEL < NAME.TXT",
+      "VOL",
+      "LABEL INITECH"
+    ],
+    "seconds": 1.198,
+    "serial_file": "suite3-B046.txt"
+  }
+]

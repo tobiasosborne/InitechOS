@@ -1,0 +1,19 @@
+\CASES\B055.BAT
+CASE B055 cross-drive-copy
+A:\T>COPY C:\CHOME\SAME.TXT CFILE.TXT
+        1 File(s) copied
+A:\T>COPY D:\DHOME\SAME.TXT DFILE.TXT
+        1 File(s) copied
+A:\T>COPY ONE.TXT D:\DHOME\AONE.TXT
+        1 File(s) copied
+A:\T>TYPE CFILE.TXT
+C-DRIVE
+
+A:\T>TYPE DFILE.TXT
+D-DRIVE
+
+A:\T>TYPE D:\DHOME\AONE.TXT
+ALPHA
+
+AUDIT-DONE-B055
+A:\T>

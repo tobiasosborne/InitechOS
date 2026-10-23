@@ -1,0 +1,300 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          169
+AUTOEXEC.BAT           24
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+DOS-VOLUME-OK D rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>\CASES\B033.BAT
+CASE B033 sort-basic
+A:\T>SORT < LINES.TXT
+01 omega
+02 aardvark
+Alpha
+ALPHA
+beta
+last
+zebra
+A:\T>SORT /R < LINES.TXT
+zebra
+last
+beta
+Alpha
+ALPHA
+02 aardvark
+01 omega
+A:\T>SORT /+4 < LINES.TXT
+01 omega
+02 aardvark
+Alpha
+ALPHA
+beta
+last
+zebra
+AUDIT-DONE-B033
+A:\T>\CASES\B034.BAT
+CASE B034 sort-limits
+A:\T>SORT < LONG.TXT > SORTLONG.TXT
+A:\T>SORT < BINARY.BIN > SORTBIN.BIN
+A:\T>DIR SORT*.*
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+SORTLONG TXT       21  10-23-26  12:43p
+SORTBIN  BIN     1030  10-23-26  12:43p
+
+        2 File(s)    789504 bytes free
+AUDIT-DONE-B034
+A:\T>\CASES\B035.BAT
+CASE B035 pipes
+A:\T>TYPE LINES.TXT | FIND /N "a" | SORT /R
+[7]last
+[6]02 aardvark
+[5]01 omega
+[3]beta
+[2]Alpha
+[1]zebra
+A:\T>TYPE ONE.TXT | MORE
+ALPHA
+A:\T>TYPE ZERO.TXT | MORE
+A:\T>TYPE PIPE.TXT
+X
+
+AUDIT-DONE-B035
+A:\T>\CASES\B036.BAT
+CASE B036 echo
+ECHO is on
+ECHO is off
+A:\T>ECHO.
+Bad command or file name
+MiXeD $x  spaces
+ONWARD
+AUDIT-DONE-B036
+A:\T>\CASES\B037.BAT
+CASE B037 date-values
+A:\T>DATE 02-29-2000
+Current date is Tue 2-29-2000
+A:\T>DATE 02-29-1900
+Invalid date
+Current date is Tue 2-29-2000
+A:\T>DATE 02-29-2100
+Invalid date
+Current date is Tue 2-29-2000
+A:\T>DATE 12-31-2099
+Current date is Thu 12-31-2099
+A:\T>DATE 1/1/80
+Current date is Tue 1-01-1980
+A:\T>DATE 31-12-99
+Invalid date
+Current date is Tue 1-01-1980
+A:\T>DATE 0-0-0
+Invalid date
+Current date is Tue 1-01-1980
+AUDIT-DONE-B037
+A:\T>\CASES\B038.BAT
+CASE B038 date-formats
+A:\T>DATE
+Current date is Tue 1-01-1980
+A:\T>DATE 1.2.99
+Invalid date
+Current date is Tue 1-01-1980
+A:\T>DATE 1-2-99 EXTRA
+Current date is Sat 1-02-1999
+A:\T>DATE 01-01-1980
+Current date is Tue 1-01-1980
+A:\T>DATE 12-31-2079
+Current date is Sun 12-31-2079
+A:\T>DATE 01-01-1980
+Current date is Tue 1-01-1980
+AUDIT-DONE-B038
+A:\T>\CASES\B039.BAT
+CASE B039 time-values
+A:\T>TIME 23:59:59
+Current time is 23:59:59.00
+A:\T>TIME 24:00
+Invalid time
+Current time is 23:59:59.00
+A:\T>TIME 12:60
+Invalid time
+Current time is 23:59:59.00
+A:\T>TIME 13:14:15.99
+Invalid time
+Current time is 23:59:59.00
+A:\T>TIME 1:02p
+Invalid time
+Current time is 23:59:59.00
+A:\T>TIME 00:00
+Current time is 0:00:00.00
+A:\T>TIME
+Current time is 0:00:00.00
+AUDIT-DONE-B039
+A:\T>\CASES\B040.BAT
+CASE B040 env
+A:\T>SET foo=MiXeD
+A:\T>SET FOO
+FOO=MiXeD
+A:\T>SET missing
+Environment variable not defined
+A:\T>SET FOO=
+A:\T>SET FOO
+Environment variable not defined
+A:\T>PATH
+PATH=A:\DOS
+A:\T>PATH ;
+A:\T>PATH
+No Path
+A:\T>PATH A:\DOS
+A:\T>PATH
+PATH=A:\DOS
+AUDIT-DONE-B040
+A:\T>\CASES\B041.BAT
+CASE B041 env-capacity
+A:\T>SET V0=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+A:\T>SET V1=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+A:\T>SET V2=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+A:\T>SET V3=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+A:\T>SET V4=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Out of environment space
+A:\T>SET V5=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Out of environment space
+A:\T>SET
+COMSPEC=A:\COMMAND.COM
+PROMPT=$P$G
+PATH=A:\DOS
+V0=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+V1=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+V2=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+V3=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+A:\T>SET V0=
+A:\T>SET V1=
+A:\T>SET V2=
+A:\T>SET V3=
+A:\T>SET V4=
+A:\T>SET V5=
+AUDIT-DONE-B041
+A:\T>\CASES\B042.BAT
+CASE B042 builtin-gaps
+A:\T>VERIFY
+Bad command or file name
+A:\T>VERIFY ON
+Bad command or file name
+A:\T>VERIFY OFF
+Bad command or file name
+A:\T>CTTY CON
+Bad command or file name
+IF-PROMPT-ONLY-OTHER-TEST
+A:\T>BREAK INVALID
+BREAK is on
+AUDIT-DONE-B042
+A:\T>\CASES\B043.BAT
+CASE B043 attrib-flags
+A:\T>ATTRIB +R +A ONE.TXT
+A:\T>ATTRIB ONE.TXT
+R  A     A:\T\ONE.TXT
+A:\T>ATTRIB -R -A ONE.TXT
+A:\T>ATTRIB +H ONE.TXT
+Invalid number of parameters
+A:\T>ATTRIB +S ONE.TXT
+Invalid number of parameters
+A:\T>ATTRIB ONE.TXT
+         A:\T\ONE.TXT
+AUDIT-DONE-B043
+A:\T>\CASES\B044.BAT
+CASE B044 attrib-subdirs
+A:\T>ATTRIB +R SUB\*.TXT /S
+A:\T>ATTRIB SUB\*.TXT /S
+R  A     A:\T\SUB\ONE.TXT
+R  A     A:\T\SUB\TWO.TXT
+R  A     A:\T\SUB\RO.TXT
+A:\T>ATTRIB -R SUB\*.TXT /S
+A:\T>ATTRIB EMPTY
+Invalid path (or file not found)
+A:\T>ATTRIB NOFILE.TXT
+Invalid path (or file not found)
+AUDIT-DONE-B044
+A:\T>\CASES\B045.BAT
+CASE B045 label
+A:\T>LABEL ABCDEFGHIJK
+A:\T>VOL
+
+ Volume in drive A is ABCDEFGHIJK
+A:\T>LABEL BAD.LABEL
+Invalid characters in volume label
+A:\T>VOL
+
+ Volume in drive A is ABCDEFGHIJK
+A:\T>LABEL ABCDEFGHIJKL
+A:\T>VOL
+
+ Volume in drive A is ABCDEFGHIJK
+A:\T>LABEL INITECH
+AUDIT-DONE-B045
+A:\T>\CASES\B046.BAT
+CASE B046 label-input
+A:\T>LABEL < NAME.TXT
+Volume in drive A is INITECH
+Volume label (11 characters, ENTER for none)?A:\T>VOL
+
+ Volume in drive A is REPORTS
+A:\T>LABEL INITECH
+AUDIT-DONE-B046
+A:\T>\CASES\B047.BAT
+CASE B047 xcopy-se
+A:\T>XCOPY SUB DEST\XC /S /E /V
+Does DEST\XC specify a file name or directory name on the target (F = file, D = directory)?

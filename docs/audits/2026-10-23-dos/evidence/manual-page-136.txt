@@ -1,0 +1,47 @@
+                                                                           MS-DOS Commands 51
+
+Although recording errors rarely occur with the copy command,
+the /v switch lets you verify that critical data has been correctly
+recorded; it also causes the copy command to run more slowly,
+because MS-DOS must check each entry recorded on the disk.
+
+Notes:
+
+• The copy command switches /a and lb perform differently
+  depending on whether they are placed following the source
+  filename or the target filename.
+  When used with a source filename                                        Using the /a and /b
+                                                                          switches
+   /a       Causes the file to be treated as an ASCII (text) file. Data
+            in the file is copied up to but not including the first
+            end-of-file mark (in Edlin, this is CONTROL-Z ). The
+            remainder of the file is not copied.
+   lb       Causes the entire file to be copied, including any end-
+            of-file marks.
+
+
+   When used with a target filename
+
+   /a       Causes an end-of-file character to be added as the last
+            character of the file; for example:
+
+            copy memo.doc /a letter.doc
+
+   lb       Does not add an end-of-file character; for example:
+
+            copy billing.asm /b billing2.asm
+
+
+   When you are combining files, the default switch is always /a.
+ • Do not try to append files if one of the source filenames has
+   the same name or extension as the target.
+ • If you want to copy all of a directory's files and subdirectories,     Copying files and
+   you should use the xcopy command. Refer to the xcopy com-              subdirectories
+   mand in this chapter for more information.
+
+
+Examples:
+To copy a file called animal. typ from your working drive and
+directory to a directory on drive C called bigcats, type
+
+copy animal . t yp c: \bi gca ts

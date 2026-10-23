@@ -1,0 +1,22 @@
+                                                                     MS-DOS Commands 47
+
+If nnnnn is less than 160 bytes, MS-DOS defaolts to 160 bytes and
+displays the following message:
+
+Invalid environment size specified
+
+If nnnnn is greater than 32,768 bytes, MS-DOS displays the same
+message, but defaults to 32,768 bytes.
+Notes:
+For more information about the ctty-dev option, see the ctty com-
+mand in this chapter.
+Examples:
+The following command tells the MS-DOS command processor to         Starting a new
+do three things:                                                    command processor
+
+ • Start a new command processor under the current program
+ • Run the command chkdsk b:
+ • Return to the first command processor
+
+
+command /c chkdsk b:

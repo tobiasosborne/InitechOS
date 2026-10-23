@@ -1,0 +1,24 @@
+\CASES\B013.BAT
+CASE B013 copy-binary
+A:\T>COPY EOF.TXT EBIN.TXT /B /V
+        1 File(s) copied
+A:\T>COPY EOF.TXT /A EASC.TXT
+        1 File(s) copied
+A:\T>DIR E*.TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+EOF      TXT       14  10-23-26   2:42p
+EBIN     TXT       14  10-23-26   2:42p
+EASC     TXT        7  10-23-26   2:42p
+
+        3 File(s)    789504 bytes free
+A:\T>TYPE EBIN.TXT
+BEFOREAFTER
+
+A:\T>TYPE EASC.TXT
+BEFORE
+AUDIT-DONE-B013
+A:\T>

@@ -1,0 +1,25 @@
+{
+  "IO.SYS": {
+    "rc": 0,
+    "stderr": "",
+    "bytes": 512,
+    "equals_original_C": false,
+    "head_hex": "fa881695958836969531c08ed88ec08ed0bc007cfbbebf95e8a404e87801bec395e89b04b83011b706cd108cc009e874"
+  },
+  "INITDOS.SYS": {
+    "rc": 1,
+    "stderr": "Fat problem while decoding 6 0\nStreamcache allocation problem:: 3\n",
+    "bytes": 0,
+    "equals_original_C": false,
+    "head_hex": ""
+  },
+  "NEW.TXT": {
+    "rc": 0,
+    "stderr": "",
+    "bytes": 10,
+    "equals_original_C": false,
+    "head_hex": "4e45572d444154410d0a"
+  },
+  "listing_rc": 0,
+  "fsck_rc": 1
+}

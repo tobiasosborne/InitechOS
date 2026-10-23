@@ -1,0 +1,205 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          169
+AUTOEXEC.BAT           24
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>dir
+
+ Volume in drive A is INITECH
+
+ Directory of A:\
+
+README   TXT      169   1-01-80  12:00a
+APPS            <DIR>   1-01-80  12:00a
+DOS             <DIR>   1-01-80  12:00a
+AUTOEXEC BAT       24   1-01-80  12:00a
+
+        4 File(s)   1163776 bytes free
+A:\>cls
+A:\>ver
+
+InitechDOS Version 3.30
+A:\>path
+PATH=A:\DOS
+A:\>set
+COMSPEC=A:\COMMAND.COM
+PROMPT=$P$G
+PATH=A:\DOS
+A:\>dir c:\
+
+ Volume in drive C is BOOT
+
+ Directory of C:\
+
+IO       SYS     1647   1-01-80  12:00a
+INITDOS  SYS   196608   1-01-80  12:00a
+
+        2 File(s)   1259008 bytes free
+A:\>cd a:\dos
+A:\DOS>dir /w
+
+ Volume in drive A is INITECH
+
+ Directory of A:\DOS
+
+[.]             [..]            CHKDSK.COM      ATTRIB.COM      LABEL.COM
+XCOPY.COM       TREE.COM        EDLIN.COM       MORE.COM        FIND.COM
+SORT.COM        FDISK.COM       FORMAT.COM      SYS.COM         DISKCOPY.COM
+DISKCOMP.COM    
+
+       16 File(s)   1163776 bytes free
+A:\DOS>cd \
+A:\>dir nonexistent
+
+ Volume in drive A is INITECH
+
+ Directory of A:\
+
+File not found
+A:\>dir readme.txt
+
+ Volume in drive A is INITECH
+
+ Directory of A:\
+
+README   TXT      169   1-01-80  12:00a
+
+        1 File(s)   1163776 bytes free
+A:\>dir /x
+Too many parameters
+A:\>chkdsk
+Volume INITECH      Created JAN  1, 1980  0:00
+
+  1457664 bytes total disk space
+        0 bytes in 1 hidden files
+     1536 bytes in 2 directories
+   292352 bytes in 33 user files
+  1163776 bytes available on disk
+
+   118448 bytes total memory
+   118448 bytes free
+A:\>command /c dir
+
+ Volume in drive A is INITECH
+
+ Directory of A:\
+
+README   TXT      169   1-01-80  12:00a
+APPS            <DIR>   1-01-80  12:00a
+DOS             <DIR>   1-01-80  12:00a
+AUTOEXEC BAT       24   1-01-80  12:00a
+
+        4 File(s)   1163776 bytes free
+A:\>command
+Invalid number of parameters
+A:\>exit
+A:\>echo AFTEREXIT
+AFTEREXIT
+A:\>verify
+Bad command or file name
+A:\>verify on
+Bad command or file name
+A:\>verify
+Bad command or file name
+A:\>break
+BREAK is on
+A:\>break off
+BREAK is off
+A:\>break
+BREAK is off
+A:\>break on
+BREAK is on
+A:\>ctty con
+Bad command or file name
+A:\>format a:
+Format not supported on drive A:
+A:\>sys a:
+No room for system on destination disk
+A:\>diskcopy a: a:
+Insert SOURCE diskette in drive A:
+Press any key when ready . . .
+Insert TARGET diskette into drive A:
+Press any key when ready . . .
+Insert SOURCE diskette in drive A:
+Press any key when ready . . .
+Insert TARGET diskette into drive A:
+Press any key when ready . . .
+Insert SOURCE diskette in drive A:
+Press any key when ready . . .
+Insert TARGET diskette into drive A:
+Press any key when ready . . .
+Insert SOURCE diskette in drive A:
+Press any key when ready . . .
+Insert TARGET diskette into drive A:
+Press any key when ready . . .
+Insert SOURCE diskette in drive A:
+Press any key when ready . . .
+Insert TARGET diskette into drive A:
+Press any key when ready . . .
+Insert SOURCE diskette in drive A:
+Press any key when ready . . .
+Insert TARGET diskette into drive A:
+Press any key when ready . . .
+Insert SOURCE diskette in drive A:
+Press any key when ready . . .
+Insert TARGET diskette into drive A:
+Press any key when ready . . .
+Insert SOURCE diskette in drive A:
+Press any key when ready . . .
+Insert TARGET diskette into drive A:
+Press any key when ready . . .

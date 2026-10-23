@@ -1,0 +1,34 @@
+96 MS-DOS User's Reference
+
+
+Nlsfunc                  Nlsfunc
+                         Purpose:
+                         Loads country-specific information.
+
+                         Syntax:
+                         nlsfunc ((drive: )[path Vilename)
+                         where:
+                         filename specifies the file containing country-specific information.
+                         Comments:
+                         The nlsfunc command supports the use of extended country-
+                         specific information and code page switching.
+                         The default value of filename is defined by the country com-
+                         mand in your config.sys file. If no country command exists in
+                         your config.sys file, MS-DOS uses the country.sys file in your root
+                         directory for country-specific information.
+                         Examples:
+Loading                  Suppose you have a file on your disk called newcdpg.sys that con-
+country-specific         tains country-specific information. If you want to use the informa-
+information              tion from that file rather than the country.sys file, you would type
+                         the following command:
+
+                         nl sfunc newcdp9. sys
+
+                         To use the default country-specific information found in the
+                         country.sys file, simply type this command:
+                         nlsfunc
+
+
+
+
+                                                      /

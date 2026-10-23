@@ -1,0 +1,46 @@
+                                                                    MS-DOS Commands 107
+                                                                                          I
+                                                                                          l
+                                                                                          l
+
+• Upon completion, replace returns one of the following exit
+  codes:
+
+   Code        Function
+   0           Command successful                                   Replace exit codes
+   1           Command line error
+   2           File not found
+   3           Path not found
+   5           Access denied
+   8           Insufficient memory
+   15          Invalid drive
+   Other       Standard MS-DOS error
+
+
+   You can test for these codes by using the errorlevel condition
+   of the batch processing if command.
+
+Examples:
+           '
+Suppose various directories on your hard disk, drive C, contain     Replacing files
+files named phones. cli that contain client names and phone
+numbers. To update these files and replace them with the latest
+version of the phones.cli file on the disk in drive A, you would
+type the following command:
+
+replace a:.\phones.cli c:\ /s
+
+This command replaces every file on drive C that is named
+phones. cli with the file phones. cli from the root directory on
+drive A.
+Suppose you want to add some new printer device drivers to          Adding files
+a directory called c: \mstools, which already contains several
+printer driver files for a word processor. To do this, you would
+type the following:
+
+replacea:*.prdc:\mstools /a
+
+This command searches the default directory of drive A for any
+files that have the extension .prd (that don't currently exist in
+the \mstools directory on drive C) and then adds these files to
+c: \mstools.

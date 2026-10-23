@@ -1,0 +1,20 @@
+\CASES\B028.BAT
+CASE B028 redir-bytes
+A:\T>TYPE BINARY.BIN > BTYP.BIN
+A:\T>TYPE ZERO.TXT > ZTYP.TXT
+A:\T>TYPE NOLF.TXT > NTYP.TXT
+A:\T>TYPE LONG.TXT > LTYP.TXT
+A:\T>DIR ?TYP.*
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+BTYP     BIN     1024  10-23-26  12:42p
+ZTYP     TXT        0  10-23-26  12:42p
+NTYP     TXT       10  10-23-26  12:42p
+LTYP     TXT    76800  10-23-26  12:42p
+
+        4 File(s)    702976 bytes free
+AUDIT-DONE-B028
+A:\T>

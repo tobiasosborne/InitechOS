@@ -1,0 +1,18 @@
+{
+  "findings": 47,
+  "severity_counts": {
+    "P1": 8,
+    "P3": 8,
+    "P2": 31
+  },
+  "ascii_only": true,
+  "tsv_data_rows": 47,
+  "evidence_links": 280,
+  "unique_evidence_links": 191,
+  "resumed_sessions": 25,
+  "emulator_session_overlap": false,
+  "live_auditor_qemu_pids": [],
+  "report_sha256": "9a1a71121131a70e303168bae74e22440c7b91d44ed10379c7159e1fb6a01e50",
+  "nits_sha256": "70441a528b89d8490f2e1de45ca5ce565b31b5ab10e1e218882d0025fdba717d",
+  "errors": []
+}

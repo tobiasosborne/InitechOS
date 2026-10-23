@@ -1,0 +1,30 @@
+142 MS-DOS User's Reference
+
+
+Call                     Call
+                         Purpose:
+                         Calls one batch file from another without ending itself.
+                         Syntax:
+                         call [drive: ](path) batchfile [ar.gumentI
+                         where:
+                         batcbfile is the batch file you want to call.
+                         ar.gument is the command in this batch file that will be run fol-
+                         lowing batcb/ile.
+                         Comments:
+                         The call command is used within one batch file to call another
+                         one. Batcbfile must have a filename extension of. bat.
+                         When batcb/ile terminates, the calling batch file resumes run-
+                         ning at ar.gument. If ar.gument is omitted, the calling batch file
+                         resumes running at the command immediately following the call
+                         command.
+                         Notes:
+                          • Do not use pipes and redirection symbols with the call
+                            command.
+                          • A batch file can make a recursive call to itself, but there
+                            should be a termination condition that is eventually met.
+
+                         Examples:
+                         To run the cbecknew.bat file from another batch file, you would
+                         use the following command within the first batch file:
+
+                         call checknew

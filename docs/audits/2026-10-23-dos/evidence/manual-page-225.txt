@@ -1,0 +1,43 @@
+140 MS-DOS User's Reference
+
+                         The output on the printer should look like this:
+
+                         Kraig, Heidy                       north
+                         Moss, Melissa                      north
+                         Pai, Fernando                      north
+                         Shores, Betty                      north
+
+                         The following table shows how MS-DOS replaces each of the
+                         parameters in the previous example:
+
+                         Batch filename           (%0)      sorter
+                         Parameter1               ( %1)     north
+                         Parameter2               (%2)      a:customer
+                         Parameter3               (%3)      temp.fil
+
+                         The result is the same as if you had typed each of the commands
+                         in sorter with its parameters, as follows:
+
+                         type a:customer I find "north"                >    temp.fil
+                         type temp.fil I sort > prn
+                         del temp. fi 1
+
+                         Using the batch file, however, saves typing time and is much
+                         easier to remember.
+
+
+
+                         How to Use Temporary Files
+Using temporary files    When using batch files, you may often want to use a temporary
+                         file to hold your work. You could use the same name each time
+                         you wanted to use a temporary file.
+                         However, if you are using more than one batch file that uses
+                         the same temporary file, you might lose the contents of this tem-
+                         porary file. To avoid this problem, you should use a replaceable
+                         parameter to specify the name of the temporary file. Then each
+                         time you run the batch file, you'll be able to substitute a unique
+                         filename and you won't have to worry about information from one
+                         batch file getting into another.
+                         It's also a good idea to delete temporary files once you finish
+                         using them. Otherwise, these files would eventually take up all
+                         the space on your disk.

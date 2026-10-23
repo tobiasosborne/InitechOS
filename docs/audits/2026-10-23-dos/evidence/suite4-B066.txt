@@ -1,0 +1,22 @@
+\CASES\B066.BAT
+CASE B066 sys-reach
+A:\T>SYS A:
+No room for system on destination disk
+A:\T>SYS B:
+Invalid drive specification
+A:\T>SYS D:
+No room for system on destination disk
+A:\T>FORMAT A:
+Format not supported on drive A:
+A:\T>FORMAT B:
+Invalid drive specification
+A:\T>FORMAT D: /BAD
+Invalid parameter
+A:\T>DISKCOPY C: D:
+Specified drive does not exist,
+or is non-removable
+A:\T>DISKCOMP C: D:
+Specified drive does not exist,
+or is non-removable
+AUDIT-DONE-B066
+A:\T>

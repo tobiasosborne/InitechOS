@@ -1,0 +1,17 @@
+ Volume in drive U is CLUSTER4   
+ Volume Serial Number is 0BD6-A68B
+Directory for U:/
+
+AUTOEXEC BAT        11 2026-10-23  14:43 
+EXACT    BIN      2048 2026-10-23  14:43 
+PLUS     BIN      2049 2026-10-23  14:43 
+ONE      TXT         5 2026-10-23  14:43 
+RENAMED  BIN      2048 2026-10-23  14:43 
+SUB          <DIR>     2026-10-23  12:54 
+TYPE     BIN      2049 2026-10-23  12:54 
+        7 files               8 210 bytes
+                          1 441 792 bytes free
+
+
+Verifying files on drive u:...
+Disk in drive u: is OK.

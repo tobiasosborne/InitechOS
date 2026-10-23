@@ -1,0 +1,32 @@
+104 MS-DOS User's Reference
+
+
+Ren (Rename)             Ren (Rename)
+                         Purpose:
+                         Changes the name of a file.
+                         Syntax:
+                         rename Idrive: J(patb Vilename I filename2
+                              or
+                         ren Idrifle: lfjJatb Vilename I filename2
+                         where:
+                         filename/ is the old name.
+                         filename2 is the new name.
+                         Comments:
+                         The ren command renames all files matching filename I. How-
+                         ever, because you cannot rename files across disk drives, the ren
+                         command ignores any drive name that you specify with
+                         filename2.
+                         You may use wildcards ( • or?) in either filename option, but if
+                         you use them in filename2, ren will not change the positions of
+                         the corresponding character.
+                         Examples:
+Renaming files           The following command changes the extension of all filenames
+                         ending in .txt to .doc:
+
+                         ren *.txt *.doc
+
+                         In the next example, ren renames a file named cbajJIO (on drive
+                         8) to partlO:
+                         ren b:chap10 part10
+
+                         The newly renamed file /JartlO remains on drive B.

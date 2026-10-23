@@ -1,0 +1,10 @@
+\CASES\B030.BAT
+CASE B030 redir-readonly
+Bad command or file name
+Bad command or file name
+A:\T>TYPE READONLY.TXT
+PROTECTED
+
+A:\T>TYPE ONE.TXT > NUL
+AUDIT-DONE-B030
+A:\T>

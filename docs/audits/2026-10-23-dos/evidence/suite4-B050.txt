@@ -1,0 +1,16 @@
+\CASES\B050.BAT
+CASE B050 xcopy-absolute
+A:\T>XCOPY A:\T\ONE.TXT A:\T\DEST\ /V
+\T\ONE.TXT
+1 File(s) copied
+A:\T>DIR DEST\ONE.TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T\DEST
+
+ONE      TXT        7  10-23-26   2:42p
+
+        1 File(s)    787968 bytes free
+AUDIT-DONE-B050
+A:\T>

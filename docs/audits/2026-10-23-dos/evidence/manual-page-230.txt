@@ -1,0 +1,10 @@
+                                                                  Batch Processing · 145
+
+You must use two percent signs {% % ) so th~t one will remain
+after the batch parameter ( %0- %9) processing is complete. If
+you had only %/, instead of % %/, then the batch parameter pro-
+cessor would see the%, look at/, decide that %/was an error (a
+bad parameter reference), and throw out the %/so that the for
+command would never see it.
+Note that if you are using the for command outside of a batch
+file, you should use only one percent sign.

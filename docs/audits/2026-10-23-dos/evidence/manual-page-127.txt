@@ -1,0 +1,12 @@
+42 MS-DOS User's Reference
+
+                         Type cd \ to return to the "root" directory. The root directory is
+                         the highest-level directory on your computer and is usually the
+                         directory that you see when you start MS-DOS.
+                         Examples:
+Displaying the name      If you use chdir without a path, you can display the name of
+of your working          your working directory. For example, if your working directory
+directory                is \user\pete on drive B, and you type the command, chdir b:,
+                         then press the RETURN key, MS-DOS displays the following:
+
+                         b:\user\pete

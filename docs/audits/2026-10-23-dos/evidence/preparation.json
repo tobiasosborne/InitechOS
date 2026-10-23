@@ -1,0 +1,5867 @@
+[
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::T"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::T/SUB"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::T/EMPTY"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::T/DEST"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::MANY"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::D16"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::D32"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::D64"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_ONE.TXT",
+      "::T/ONE.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_TWO.TXT",
+      "::T/TWO.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_EOF.TXT",
+      "::T/EOF.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_ZERO.TXT",
+      "::T/ZERO.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_NOCR.TXT",
+      "::T/NOCR.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_BINARY.BIN",
+      "::T/BINARY.BIN"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_EXACT.BIN",
+      "::T/EXACT.BIN"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_SELF.BIN",
+      "::T/SELF.BIN"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_READONLY.TXT",
+      "::T/READONLY.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_HIDDEN.TXT",
+      "::T/HIDDEN.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_SYSTEM.TXT",
+      "::T/SYSTEM.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_LINES.TXT",
+      "::T/LINES.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_LONG.TXT",
+      "::T/LONG.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_NOLF.TXT",
+      "::T/NOLF.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_OLD.TXT",
+      "::T/OLD.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_FUTURE.TXT",
+      "::T/FUTURE.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_SUB_ONE.TXT",
+      "::T/SUB/ONE.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_SUB_TWO.TXT",
+      "::T/SUB/TWO.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_SUB_RO.TXT",
+      "::T/SUB/RO.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/T_DEST_KEEP.TXT",
+      "::T/DEST/KEEP.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mattrib",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "+r",
+      "::T/READONLY.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mattrib",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "+r",
+      "::T/SUB/RO.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mattrib",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "+h",
+      "::T/HIDDEN.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mattrib",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "+s",
+      "::T/SYSTEM.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F000.TXT",
+      "::MANY/F000.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F001.TXT",
+      "::MANY/F001.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F002.TXT",
+      "::MANY/F002.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F003.TXT",
+      "::MANY/F003.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F004.TXT",
+      "::MANY/F004.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F005.TXT",
+      "::MANY/F005.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F006.TXT",
+      "::MANY/F006.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F007.TXT",
+      "::MANY/F007.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F008.TXT",
+      "::MANY/F008.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F009.TXT",
+      "::MANY/F009.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F010.TXT",
+      "::MANY/F010.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F011.TXT",
+      "::MANY/F011.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F012.TXT",
+      "::MANY/F012.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F013.TXT",
+      "::MANY/F013.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F014.TXT",
+      "::MANY/F014.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F015.TXT",
+      "::MANY/F015.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F016.TXT",
+      "::MANY/F016.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F017.TXT",
+      "::MANY/F017.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F018.TXT",
+      "::MANY/F018.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F019.TXT",
+      "::MANY/F019.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F020.TXT",
+      "::MANY/F020.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F021.TXT",
+      "::MANY/F021.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F022.TXT",
+      "::MANY/F022.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F023.TXT",
+      "::MANY/F023.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F024.TXT",
+      "::MANY/F024.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F025.TXT",
+      "::MANY/F025.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F026.TXT",
+      "::MANY/F026.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F027.TXT",
+      "::MANY/F027.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F028.TXT",
+      "::MANY/F028.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F029.TXT",
+      "::MANY/F029.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F030.TXT",
+      "::MANY/F030.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F031.TXT",
+      "::MANY/F031.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F032.TXT",
+      "::MANY/F032.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F033.TXT",
+      "::MANY/F033.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F034.TXT",
+      "::MANY/F034.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F035.TXT",
+      "::MANY/F035.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F036.TXT",
+      "::MANY/F036.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F037.TXT",
+      "::MANY/F037.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F038.TXT",
+      "::MANY/F038.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F039.TXT",
+      "::MANY/F039.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F040.TXT",
+      "::MANY/F040.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F041.TXT",
+      "::MANY/F041.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F042.TXT",
+      "::MANY/F042.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F043.TXT",
+      "::MANY/F043.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F044.TXT",
+      "::MANY/F044.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F045.TXT",
+      "::MANY/F045.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F046.TXT",
+      "::MANY/F046.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F047.TXT",
+      "::MANY/F047.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F048.TXT",
+      "::MANY/F048.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F049.TXT",
+      "::MANY/F049.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F050.TXT",
+      "::MANY/F050.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F051.TXT",
+      "::MANY/F051.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F052.TXT",
+      "::MANY/F052.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F053.TXT",
+      "::MANY/F053.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F054.TXT",
+      "::MANY/F054.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F055.TXT",
+      "::MANY/F055.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F056.TXT",
+      "::MANY/F056.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F057.TXT",
+      "::MANY/F057.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F058.TXT",
+      "::MANY/F058.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F059.TXT",
+      "::MANY/F059.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F060.TXT",
+      "::MANY/F060.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F061.TXT",
+      "::MANY/F061.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F062.TXT",
+      "::MANY/F062.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F063.TXT",
+      "::MANY/F063.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F064.TXT",
+      "::MANY/F064.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F065.TXT",
+      "::MANY/F065.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F066.TXT",
+      "::MANY/F066.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F067.TXT",
+      "::MANY/F067.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F068.TXT",
+      "::MANY/F068.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F069.TXT",
+      "::MANY/F069.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F070.TXT",
+      "::MANY/F070.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F071.TXT",
+      "::MANY/F071.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F072.TXT",
+      "::MANY/F072.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F073.TXT",
+      "::MANY/F073.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F074.TXT",
+      "::MANY/F074.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F075.TXT",
+      "::MANY/F075.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F076.TXT",
+      "::MANY/F076.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F077.TXT",
+      "::MANY/F077.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F078.TXT",
+      "::MANY/F078.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F079.TXT",
+      "::MANY/F079.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F080.TXT",
+      "::MANY/F080.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F081.TXT",
+      "::MANY/F081.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F082.TXT",
+      "::MANY/F082.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F083.TXT",
+      "::MANY/F083.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F084.TXT",
+      "::MANY/F084.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F085.TXT",
+      "::MANY/F085.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F086.TXT",
+      "::MANY/F086.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F087.TXT",
+      "::MANY/F087.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F088.TXT",
+      "::MANY/F088.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F089.TXT",
+      "::MANY/F089.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F090.TXT",
+      "::MANY/F090.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F091.TXT",
+      "::MANY/F091.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F092.TXT",
+      "::MANY/F092.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F093.TXT",
+      "::MANY/F093.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F094.TXT",
+      "::MANY/F094.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F095.TXT",
+      "::MANY/F095.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F096.TXT",
+      "::MANY/F096.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F097.TXT",
+      "::MANY/F097.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F098.TXT",
+      "::MANY/F098.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F099.TXT",
+      "::MANY/F099.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F100.TXT",
+      "::MANY/F100.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F101.TXT",
+      "::MANY/F101.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F102.TXT",
+      "::MANY/F102.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F103.TXT",
+      "::MANY/F103.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F104.TXT",
+      "::MANY/F104.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F105.TXT",
+      "::MANY/F105.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F106.TXT",
+      "::MANY/F106.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F107.TXT",
+      "::MANY/F107.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F108.TXT",
+      "::MANY/F108.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F109.TXT",
+      "::MANY/F109.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F110.TXT",
+      "::MANY/F110.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F111.TXT",
+      "::MANY/F111.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F112.TXT",
+      "::MANY/F112.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F113.TXT",
+      "::MANY/F113.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F114.TXT",
+      "::MANY/F114.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F115.TXT",
+      "::MANY/F115.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F116.TXT",
+      "::MANY/F116.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F117.TXT",
+      "::MANY/F117.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F118.TXT",
+      "::MANY/F118.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F119.TXT",
+      "::MANY/F119.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F120.TXT",
+      "::MANY/F120.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F121.TXT",
+      "::MANY/F121.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F122.TXT",
+      "::MANY/F122.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F123.TXT",
+      "::MANY/F123.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F124.TXT",
+      "::MANY/F124.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F125.TXT",
+      "::MANY/F125.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F126.TXT",
+      "::MANY/F126.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F127.TXT",
+      "::MANY/F127.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F128.TXT",
+      "::MANY/F128.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F129.TXT",
+      "::MANY/F129.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F130.TXT",
+      "::MANY/F130.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F131.TXT",
+      "::MANY/F131.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F132.TXT",
+      "::MANY/F132.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F133.TXT",
+      "::MANY/F133.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F134.TXT",
+      "::MANY/F134.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F135.TXT",
+      "::MANY/F135.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F136.TXT",
+      "::MANY/F136.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F137.TXT",
+      "::MANY/F137.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F138.TXT",
+      "::MANY/F138.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F139.TXT",
+      "::MANY/F139.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F140.TXT",
+      "::MANY/F140.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F141.TXT",
+      "::MANY/F141.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F142.TXT",
+      "::MANY/F142.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F143.TXT",
+      "::MANY/F143.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F144.TXT",
+      "::MANY/F144.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F145.TXT",
+      "::MANY/F145.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F146.TXT",
+      "::MANY/F146.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F147.TXT",
+      "::MANY/F147.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F148.TXT",
+      "::MANY/F148.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F149.TXT",
+      "::MANY/F149.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F150.TXT",
+      "::MANY/F150.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F151.TXT",
+      "::MANY/F151.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F152.TXT",
+      "::MANY/F152.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F153.TXT",
+      "::MANY/F153.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F154.TXT",
+      "::MANY/F154.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F155.TXT",
+      "::MANY/F155.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F156.TXT",
+      "::MANY/F156.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F157.TXT",
+      "::MANY/F157.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F158.TXT",
+      "::MANY/F158.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F159.TXT",
+      "::MANY/F159.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F160.TXT",
+      "::MANY/F160.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F161.TXT",
+      "::MANY/F161.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F162.TXT",
+      "::MANY/F162.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F163.TXT",
+      "::MANY/F163.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F164.TXT",
+      "::MANY/F164.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F165.TXT",
+      "::MANY/F165.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F166.TXT",
+      "::MANY/F166.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F167.TXT",
+      "::MANY/F167.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F168.TXT",
+      "::MANY/F168.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F169.TXT",
+      "::MANY/F169.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F170.TXT",
+      "::MANY/F170.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F171.TXT",
+      "::MANY/F171.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F172.TXT",
+      "::MANY/F172.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F173.TXT",
+      "::MANY/F173.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F174.TXT",
+      "::MANY/F174.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F175.TXT",
+      "::MANY/F175.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F176.TXT",
+      "::MANY/F176.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F177.TXT",
+      "::MANY/F177.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F178.TXT",
+      "::MANY/F178.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F179.TXT",
+      "::MANY/F179.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F180.TXT",
+      "::MANY/F180.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F181.TXT",
+      "::MANY/F181.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F182.TXT",
+      "::MANY/F182.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F183.TXT",
+      "::MANY/F183.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F184.TXT",
+      "::MANY/F184.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F185.TXT",
+      "::MANY/F185.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F186.TXT",
+      "::MANY/F186.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F187.TXT",
+      "::MANY/F187.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F188.TXT",
+      "::MANY/F188.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F189.TXT",
+      "::MANY/F189.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F190.TXT",
+      "::MANY/F190.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F191.TXT",
+      "::MANY/F191.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F192.TXT",
+      "::MANY/F192.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F193.TXT",
+      "::MANY/F193.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F194.TXT",
+      "::MANY/F194.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F195.TXT",
+      "::MANY/F195.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F196.TXT",
+      "::MANY/F196.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F197.TXT",
+      "::MANY/F197.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F198.TXT",
+      "::MANY/F198.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F199.TXT",
+      "::MANY/F199.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F200.TXT",
+      "::MANY/F200.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F201.TXT",
+      "::MANY/F201.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F202.TXT",
+      "::MANY/F202.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F203.TXT",
+      "::MANY/F203.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F204.TXT",
+      "::MANY/F204.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F205.TXT",
+      "::MANY/F205.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F206.TXT",
+      "::MANY/F206.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F207.TXT",
+      "::MANY/F207.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F208.TXT",
+      "::MANY/F208.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F209.TXT",
+      "::MANY/F209.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F210.TXT",
+      "::MANY/F210.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F211.TXT",
+      "::MANY/F211.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F212.TXT",
+      "::MANY/F212.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F213.TXT",
+      "::MANY/F213.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F214.TXT",
+      "::MANY/F214.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F215.TXT",
+      "::MANY/F215.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F216.TXT",
+      "::MANY/F216.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F217.TXT",
+      "::MANY/F217.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F218.TXT",
+      "::MANY/F218.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F219.TXT",
+      "::MANY/F219.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F220.TXT",
+      "::MANY/F220.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F221.TXT",
+      "::MANY/F221.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F222.TXT",
+      "::MANY/F222.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F223.TXT",
+      "::MANY/F223.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F224.TXT",
+      "::MANY/F224.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F225.TXT",
+      "::MANY/F225.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F226.TXT",
+      "::MANY/F226.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F227.TXT",
+      "::MANY/F227.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F228.TXT",
+      "::MANY/F228.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F229.TXT",
+      "::MANY/F229.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F230.TXT",
+      "::MANY/F230.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F231.TXT",
+      "::MANY/F231.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F232.TXT",
+      "::MANY/F232.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F233.TXT",
+      "::MANY/F233.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F234.TXT",
+      "::MANY/F234.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F235.TXT",
+      "::MANY/F235.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F236.TXT",
+      "::MANY/F236.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F237.TXT",
+      "::MANY/F237.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F238.TXT",
+      "::MANY/F238.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F239.TXT",
+      "::MANY/F239.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F240.TXT",
+      "::MANY/F240.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F241.TXT",
+      "::MANY/F241.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F242.TXT",
+      "::MANY/F242.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F243.TXT",
+      "::MANY/F243.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F244.TXT",
+      "::MANY/F244.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F245.TXT",
+      "::MANY/F245.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F246.TXT",
+      "::MANY/F246.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F247.TXT",
+      "::MANY/F247.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F248.TXT",
+      "::MANY/F248.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F249.TXT",
+      "::MANY/F249.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F250.TXT",
+      "::MANY/F250.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F251.TXT",
+      "::MANY/F251.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F252.TXT",
+      "::MANY/F252.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F253.TXT",
+      "::MANY/F253.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F254.TXT",
+      "::MANY/F254.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F255.TXT",
+      "::MANY/F255.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F256.TXT",
+      "::MANY/F256.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F257.TXT",
+      "::MANY/F257.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F258.TXT",
+      "::MANY/F258.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F259.TXT",
+      "::MANY/F259.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F260.TXT",
+      "::MANY/F260.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F261.TXT",
+      "::MANY/F261.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F262.TXT",
+      "::MANY/F262.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F263.TXT",
+      "::MANY/F263.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F264.TXT",
+      "::MANY/F264.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F265.TXT",
+      "::MANY/F265.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F266.TXT",
+      "::MANY/F266.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F267.TXT",
+      "::MANY/F267.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F268.TXT",
+      "::MANY/F268.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F269.TXT",
+      "::MANY/F269.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F270.TXT",
+      "::MANY/F270.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F271.TXT",
+      "::MANY/F271.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F272.TXT",
+      "::MANY/F272.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F273.TXT",
+      "::MANY/F273.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F274.TXT",
+      "::MANY/F274.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F275.TXT",
+      "::MANY/F275.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F276.TXT",
+      "::MANY/F276.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F277.TXT",
+      "::MANY/F277.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F278.TXT",
+      "::MANY/F278.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F279.TXT",
+      "::MANY/F279.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F280.TXT",
+      "::MANY/F280.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F281.TXT",
+      "::MANY/F281.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F282.TXT",
+      "::MANY/F282.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F283.TXT",
+      "::MANY/F283.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F284.TXT",
+      "::MANY/F284.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F285.TXT",
+      "::MANY/F285.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F286.TXT",
+      "::MANY/F286.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F287.TXT",
+      "::MANY/F287.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F288.TXT",
+      "::MANY/F288.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F289.TXT",
+      "::MANY/F289.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F290.TXT",
+      "::MANY/F290.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F291.TXT",
+      "::MANY/F291.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F292.TXT",
+      "::MANY/F292.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F293.TXT",
+      "::MANY/F293.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F294.TXT",
+      "::MANY/F294.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F295.TXT",
+      "::MANY/F295.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F296.TXT",
+      "::MANY/F296.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F297.TXT",
+      "::MANY/F297.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F298.TXT",
+      "::MANY/F298.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/MANY_F299.TXT",
+      "::MANY/F299.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F000.TXT",
+      "::D16/F000.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F001.TXT",
+      "::D16/F001.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F002.TXT",
+      "::D16/F002.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F003.TXT",
+      "::D16/F003.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F004.TXT",
+      "::D16/F004.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F005.TXT",
+      "::D16/F005.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F006.TXT",
+      "::D16/F006.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F007.TXT",
+      "::D16/F007.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F008.TXT",
+      "::D16/F008.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F009.TXT",
+      "::D16/F009.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F010.TXT",
+      "::D16/F010.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F011.TXT",
+      "::D16/F011.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F012.TXT",
+      "::D16/F012.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D16_F013.TXT",
+      "::D16/F013.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F000.TXT",
+      "::D32/F000.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F001.TXT",
+      "::D32/F001.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F002.TXT",
+      "::D32/F002.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F003.TXT",
+      "::D32/F003.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F004.TXT",
+      "::D32/F004.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F005.TXT",
+      "::D32/F005.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F006.TXT",
+      "::D32/F006.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F007.TXT",
+      "::D32/F007.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F008.TXT",
+      "::D32/F008.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F009.TXT",
+      "::D32/F009.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F010.TXT",
+      "::D32/F010.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F011.TXT",
+      "::D32/F011.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F012.TXT",
+      "::D32/F012.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F013.TXT",
+      "::D32/F013.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F014.TXT",
+      "::D32/F014.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F015.TXT",
+      "::D32/F015.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F016.TXT",
+      "::D32/F016.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F017.TXT",
+      "::D32/F017.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F018.TXT",
+      "::D32/F018.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F019.TXT",
+      "::D32/F019.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F020.TXT",
+      "::D32/F020.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F021.TXT",
+      "::D32/F021.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F022.TXT",
+      "::D32/F022.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F023.TXT",
+      "::D32/F023.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F024.TXT",
+      "::D32/F024.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F025.TXT",
+      "::D32/F025.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F026.TXT",
+      "::D32/F026.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F027.TXT",
+      "::D32/F027.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F028.TXT",
+      "::D32/F028.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D32_F029.TXT",
+      "::D32/F029.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F000.TXT",
+      "::D64/F000.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F001.TXT",
+      "::D64/F001.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F002.TXT",
+      "::D64/F002.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F003.TXT",
+      "::D64/F003.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F004.TXT",
+      "::D64/F004.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F005.TXT",
+      "::D64/F005.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F006.TXT",
+      "::D64/F006.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F007.TXT",
+      "::D64/F007.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F008.TXT",
+      "::D64/F008.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F009.TXT",
+      "::D64/F009.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F010.TXT",
+      "::D64/F010.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F011.TXT",
+      "::D64/F011.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F012.TXT",
+      "::D64/F012.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F013.TXT",
+      "::D64/F013.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F014.TXT",
+      "::D64/F014.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F015.TXT",
+      "::D64/F015.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F016.TXT",
+      "::D64/F016.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F017.TXT",
+      "::D64/F017.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F018.TXT",
+      "::D64/F018.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F019.TXT",
+      "::D64/F019.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F020.TXT",
+      "::D64/F020.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F021.TXT",
+      "::D64/F021.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F022.TXT",
+      "::D64/F022.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F023.TXT",
+      "::D64/F023.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F024.TXT",
+      "::D64/F024.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F025.TXT",
+      "::D64/F025.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F026.TXT",
+      "::D64/F026.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F027.TXT",
+      "::D64/F027.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F028.TXT",
+      "::D64/F028.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F029.TXT",
+      "::D64/F029.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F030.TXT",
+      "::D64/F030.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F031.TXT",
+      "::D64/F031.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F032.TXT",
+      "::D64/F032.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F033.TXT",
+      "::D64/F033.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F034.TXT",
+      "::D64/F034.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F035.TXT",
+      "::D64/F035.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F036.TXT",
+      "::D64/F036.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F037.TXT",
+      "::D64/F037.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F038.TXT",
+      "::D64/F038.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F039.TXT",
+      "::D64/F039.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F040.TXT",
+      "::D64/F040.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F041.TXT",
+      "::D64/F041.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F042.TXT",
+      "::D64/F042.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F043.TXT",
+      "::D64/F043.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F044.TXT",
+      "::D64/F044.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F045.TXT",
+      "::D64/F045.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F046.TXT",
+      "::D64/F046.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F047.TXT",
+      "::D64/F047.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F048.TXT",
+      "::D64/F048.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F049.TXT",
+      "::D64/F049.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F050.TXT",
+      "::D64/F050.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F051.TXT",
+      "::D64/F051.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F052.TXT",
+      "::D64/F052.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F053.TXT",
+      "::D64/F053.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F054.TXT",
+      "::D64/F054.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F055.TXT",
+      "::D64/F055.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F056.TXT",
+      "::D64/F056.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F057.TXT",
+      "::D64/F057.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F058.TXT",
+      "::D64/F058.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F059.TXT",
+      "::D64/F059.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F060.TXT",
+      "::D64/F060.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/D64_F061.TXT",
+      "::D64/F061.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP/D00"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP/D00/D01"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP/D00/D01/D02"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP/D00/D01/D02/D03"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP/D00/D01/D02/D03/D04"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP/D00/D01/D02/D03/D04/D05"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP/D00/D01/D02/D03/D04/D05/D06"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP/D00/D01/D02/D03/D04/D05/D06/D07"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP/D00/D01/D02/D03/D04/D05/D06/D07/D08"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP/D00/D01/D02/D03/D04/D05/D06/D07/D08/D09"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP/D00/D01/D02/D03/D04/D05/D06/D07/D08/D09/D10"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "::DEEP/D00/D01/D02/D03/D04/D05/D06/D07/D08/D09/D10/D11"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/edge-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/DEEP_D00_D01_D02_D03_D04_D05_D06_D07_D08_D09_D10_D11_LEAF.TXT",
+      "::DEEP/D00/D01/D02/D03/D04/D05/D06/D07/D08/D09/D10/D11/LEAF.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mformat",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/extra-fixture.img",
+      "-f",
+      "1440",
+      "-v",
+      "EXTRA",
+      "::"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/extra-fixture.img",
+      "::DHOME"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/extra-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/DHOME_SAME.TXT",
+      "::DHOME/SAME.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/multi-boot-fixture.img@@32256",
+      "::CHOME"
+    ],
+    "rc": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-m",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/multi-boot-fixture.img@@32256",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/fixtures/CHOME_SAME.TXT",
+      "::CHOME/SAME.TXT"
+    ],
+    "rc": 0,
+    "output": ""
+  }
+]

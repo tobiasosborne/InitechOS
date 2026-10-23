@@ -1,0 +1,11 @@
+\CASES\B020.BAT
+CASE B020 copy-omitted
+A:\T>CD SUB
+A:\T\SUB>COPY ..\ONE.TXT
+        1 File(s) copied
+A:\T\SUB>TYPE ONE.TXT
+ALPHA
+
+A:\T\SUB>CD ..
+AUDIT-DONE-B020
+A:\T>

@@ -1,0 +1,18 @@
+{
+  "edge-fixture.img": {
+    "size": 1474560,
+    "sha256": "d719182c93bebcfc9db7c188f5b87dfdfa4ad5af036879f139f9a092ae72ebf6"
+  },
+  "suite-fixture.img": {
+    "size": 1474560,
+    "sha256": "4d62b5a88ca17a09992fdea5fca419223c574ef5f696b0e97cb6c5d2ef3d1682"
+  },
+  "extra-fixture.img": {
+    "size": 1474560,
+    "sha256": "5ddfe0b8c354a9c0e026ffb75cfe0d0b5fff1a36a5949079e052f74fa11448d1"
+  },
+  "multi-boot-fixture.img": {
+    "size": 4194304,
+    "sha256": "8861e4dfef1b3aa2991e11b02f6070cd71be044d2a2321127c5350bc4259d712"
+  }
+}

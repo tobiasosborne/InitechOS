@@ -1,0 +1,22 @@
+\CASES\B039.BAT
+CASE B039 time-values
+A:\T>TIME 23:59:59
+Current time is 23:59:59.00
+A:\T>TIME 24:00
+Invalid time
+Current time is 23:59:59.00
+A:\T>TIME 12:60
+Invalid time
+Current time is 23:59:59.00
+A:\T>TIME 13:14:15.99
+Invalid time
+Current time is 23:59:59.00
+A:\T>TIME 1:02p
+Invalid time
+Current time is 23:59:59.00
+A:\T>TIME 00:00
+Current time is 0:00:00.00
+A:\T>TIME
+Current time is 0:00:00.00
+AUDIT-DONE-B039
+A:\T>

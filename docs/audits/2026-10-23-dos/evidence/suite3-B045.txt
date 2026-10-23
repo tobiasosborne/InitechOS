@@ -1,0 +1,18 @@
+\CASES\B045.BAT
+CASE B045 label
+A:\T>LABEL ABCDEFGHIJK
+A:\T>VOL
+
+ Volume in drive A is ABCDEFGHIJK
+A:\T>LABEL BAD.LABEL
+Invalid characters in volume label
+A:\T>VOL
+
+ Volume in drive A is ABCDEFGHIJK
+A:\T>LABEL ABCDEFGHIJKL
+A:\T>VOL
+
+ Volume in drive A is ABCDEFGHIJK
+A:\T>LABEL INITECH
+AUDIT-DONE-B045
+A:\T>

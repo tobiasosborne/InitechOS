@@ -1,0 +1,11 @@
+fsck.fat 4.2 (2021-01-31)
+/T/ONE.TXT  and
+/T/TWO.TXT
+  share clusters.
+  Truncating second to 0 bytes.
+/T/TWO.TXT
+  File size is 6 bytes, cluster chain length is 0 bytes.
+  Truncating file to 0 bytes.
+
+Leaving filesystem unchanged.
+/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/re-dirty-data.img: 487 files, 1211/2847 clusters

@@ -1,0 +1,17 @@
+\CASES\B006.BAT
+CASE B006 cd-paths
+A:\T>CD SUB\
+A:\T\SUB>CD
+A:\T\SUB
+A:\T\SUB>CD ..
+A:\T>CHDIR A:\T\SUB
+A:\T\SUB>CD \
+A:\>CD
+A:\
+A:\>CD \T
+A:\T>CD MISSING
+Invalid directory
+A:\T>CD ONE.TXT
+Invalid directory
+AUDIT-DONE-B006
+A:\T>

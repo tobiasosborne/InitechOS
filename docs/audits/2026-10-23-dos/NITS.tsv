@@ -1,0 +1,48 @@
+id	area	severity	summary
+L001	Pipes	P1	A pipeline destroys an existing PIPE1.$$$ file
+L002	Redirection	P1	Output to a full disk silently becomes an empty file
+L003	Pipes	P1	A pipeline on a full disk silently loses its input
+L004	COPY diagnostics	P3	COPY reports Bad command for a disk-full write
+L005	Batch files	P2	A long batch file silently stops before its final command
+L006	Batch SHIFT	P2	SHIFT loses arguments after the ninth
+L007	Batch documentation	P3	SHIFT changes %0 contrary to the shipped manual
+L008	Command lookup	P2	A path-qualified batch name requires the .BAT extension
+L009	COMMAND	P2	COMMAND without /C cannot open a nested prompt
+L010	COMMAND error status	P2	COMMAND /C loses its child program exit status
+L011	CD	P2	CD drive: does not display that drive's current directory
+L012	ATTRIB	P2	ATTRIB cannot find a readable file on D:
+L013	CHKDSK	P2	CHKDSK reports a FAT error on valid C: and D: volumes
+L014	TREE	P2	TREE ignores an explicit other-drive operand
+L015	LABEL	P2	LABEL rejects a valid mounted D: volume
+L016	FIND	P2	FIND ignores filename operands and waits for keyboard input
+L017	FIND status	P2	FIND returns incorrect status for no match and malformed arguments
+L018	FIND quoting	P2	FIND stops its search string at the first embedded quote
+L019	FIND arguments	P3	FIND silently accepts an unknown switch
+L020	SORT	P2	SORT /+n ignores the requested starting column
+L021	TIME	P2	TIME rejects hundredths of a second
+L022	VERIFY	P2	VERIFY is unavailable
+L023	ECHO	P2	ECHO. cannot emit a blank line
+L024	ECHO	P2	ECHO OFF at the prompt prints OFF and leaves echo on
+L025	Environment expansion	P2	Percent-delimited variables are not expanded at the prompt
+L026	DIR	P2	DIR includes hidden and system files in normal listings
+L027	Redirection diagnostics	P3	Protected-file redirection reports Bad command
+L028	FDISK display	P3	FDISK labels both mounted primary partitions C:
+L029	Program error handling	P1	A malformed COM file halts the entire machine
+L030	Program loader	P1	An unsupported 16-bit MZ file halts without a screen diagnostic
+L031	TYPE cancellation	P2	Ctrl-C during TYPE prints non-file bytes and does not stop output
+L032	XCOPY drives	P1	XCOPY targeting D: overwrites files on A:
+L033	Batch chaining	P2	Invoking a batch without CALL returns to the caller anyway
+L034	Batch cancellation	P2	Ctrl-C ends a batch without the DOS termination question
+L035	DEL directory operand	P2	DEL directory refuses the documented delete-all-files form
+L036	DATE	P2	DATE without an argument does not offer date entry
+L037	TIME	P2	TIME without an argument does not offer time entry
+L038	Keyboard template	P2	F3 recalls the line that Ctrl-C cancelled
+L039	MORE display	P3	MORE pauses without displaying --More--
+L040	Native program launch	P1	The shipped 123.EXE and WORD.EXE cannot run from DOS
+L041	FORMAT system install	P2	FORMAT /S cannot transfer the system from the supplied boot volume
+L042	Filesystem after disk utilities	P1	A write after FORMAT and SYS corrupts the transferred system files
+L043	DIR cancellation	P2	Ctrl-C advances DIR /P instead of cancelling the listing
+L044	SORT arguments	P3	SORT silently accepts an unknown switch
+L045	Batch expansion	P2	An undefined batch environment variable is left as literal text
+L046	BREAK arguments	P3	BREAK INVALID is treated as a state query
+L047	PROMPT compatibility	P2	PROMPT $V prints V instead of the DOS version

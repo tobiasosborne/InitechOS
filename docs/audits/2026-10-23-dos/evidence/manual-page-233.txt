@@ -1,0 +1,18 @@
+148 MS-DOS User's Reference
+
+                         Examples:
+Displaying a             The following example prints the message "can't find datafile"
+conditional message      if the file product.dat does not ~xist on the disk:
+
+                         if not exist product.dat echo can't find datafile
+
+Enorlevel processing     The following example sends the program processor to the label
+                         named end- only if no errors occur when you format the disk in
+                         drive A.
+                         :begin
+                         echo off
+                         format a: /s
+                         if errorlevel 0 goto end
+                         echo An error occurred during formatting.
+                         :end
+                         echo End of batch file.

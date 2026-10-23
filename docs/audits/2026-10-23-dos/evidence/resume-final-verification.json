@@ -1,0 +1,299 @@
+{
+  "resume-xcopyoverwrite": {
+    "rc": 0,
+    "bytes": 7,
+    "sha256": "19aa12ca4fb3b4c766db324ce399d8dd2be20c172f76cb7b06c08ab27088ae4f",
+    "hex": "414c5048410d0a",
+    "stderr": ""
+  },
+  "resume-edlineof": {
+    "rc": 0,
+    "bytes": 14,
+    "sha256": "4d2b7ec176bd0cd28a34f98136b8bdc80cdbb8b94f503a8cf7bd20362699eee2",
+    "hex": "696e7365727465640d0a1a0d0a1a",
+    "stderr": ""
+  },
+  "resume-keyboard": {
+    "rc": 0,
+    "bytes": 15,
+    "sha256": "b5afc56abb54ba7344b0399adaaaeb21929adb11452615f5918f2fcad6041e82",
+    "hex": "46495253540d0a5345434f4e440d0a",
+    "stderr": ""
+  },
+  "syscontrol": {
+    "IO.SYS": {
+      "size": 1647,
+      "equals_original": true,
+      "original_sha256": "b468b5b67ccd6aa78bebc28f3174eace892247678fdea61ea7f4c5ff478f06dc"
+    },
+    "INITDOS.SYS": {
+      "size": 196608,
+      "equals_original": true,
+      "original_sha256": "6461a5b7809a39f20c130fd790ad696eaf58323004d44a2a52a5b245964136bc"
+    }
+  },
+  "sessions": {
+    "resume-app123": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 42
+    },
+    "resume-appword": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 48
+    },
+    "resume-attribrecursive": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 10
+    },
+    "resume-batch": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 4
+    },
+    "resume-control": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 11
+    },
+    "resume-controlshort": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 4
+    },
+    "resume-copyedge": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 3
+    },
+    "resume-edlineof": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 13
+    },
+    "resume-external": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 18
+    },
+    "resume-fdisk": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 36
+    },
+    "resume-fdiskactive": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 11
+    },
+    "resume-fdiskcreate": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 5
+    },
+    "resume-fdiskmenus": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 12
+    },
+    "resume-format": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 30
+    },
+    "resume-gaps": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 25
+    },
+    "resume-gaps2": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 18
+    },
+    "resume-keyboard": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 10
+    },
+    "resume-promptcodes": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 4
+    },
+    "resume-promptversion": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 3
+    },
+    "resume-root64real": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 3
+    },
+    "resume-syswrite": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 6
+    },
+    "resume-typeahead": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 24
+    },
+    "resume-typeaheadpaced": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 19
+    },
+    "resume-xcopy": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 3
+    },
+    "resume-xcopyoverwrite": {
+      "fsck_rc": 0,
+      "qemu_exit": 0,
+      "qemu_pid": 7
+    }
+  },
+  "resume-fdiskcreate": {
+    "mbr_unchanged": false,
+    "partitions": [
+      {
+        "active": 128,
+        "type": 4,
+        "lba": 63,
+        "sectors": 8001
+      },
+      {
+        "active": 0,
+        "type": 0,
+        "lba": 0,
+        "sectors": 0
+      },
+      {
+        "active": 0,
+        "type": 0,
+        "lba": 0,
+        "sectors": 0
+      },
+      {
+        "active": 0,
+        "type": 0,
+        "lba": 0,
+        "sectors": 0
+      }
+    ]
+  },
+  "resume-fdiskactive": {
+    "mbr_unchanged": false,
+    "partitions": [
+      {
+        "active": 0,
+        "type": 1,
+        "lba": 63,
+        "sectors": 2880
+      },
+      {
+        "active": 128,
+        "type": 1,
+        "lba": 4096,
+        "sectors": 2880
+      },
+      {
+        "active": 0,
+        "type": 0,
+        "lba": 0,
+        "sectors": 0
+      },
+      {
+        "active": 0,
+        "type": 0,
+        "lba": 0,
+        "sectors": 0
+      }
+    ]
+  },
+  "resume-fdiskmenus": {
+    "mbr_unchanged": true,
+    "partitions": [
+      {
+        "active": 128,
+        "type": 1,
+        "lba": 63,
+        "sectors": 2880
+      },
+      {
+        "active": 0,
+        "type": 1,
+        "lba": 4096,
+        "sectors": 2880
+      },
+      {
+        "active": 0,
+        "type": 0,
+        "lba": 0,
+        "sectors": 0
+      },
+      {
+        "active": 0,
+        "type": 0,
+        "lba": 0,
+        "sectors": 0
+      }
+    ]
+  },
+  "cursor": {
+    "unique_frames": 2,
+    "changed_regions": [
+      [
+        40,
+        14,
+        48,
+        16
+      ],
+      null,
+      [
+        40,
+        14,
+        48,
+        16
+      ],
+      null,
+      null
+    ]
+  },
+  "advanced-disktools-image-change": {
+    "images/advanced-disktools-boot.img": false,
+    "images/advanced-disktools-data.img": false
+  },
+  "resume-fdiskmenus-image-change": {
+    "images/resume-fdiskmenus-boot.img": false,
+    "images/resume-fdiskmenus-data.img": false
+  },
+  "root64real": {
+    "root_entries": 64
+  },
+  "last_cluster_fixture": {
+    "free_cluster_numbers": [
+      2848
+    ]
+  },
+  "copy-prefixes": {
+    "PREFIX.BIN": {
+      "bytes": 14,
+      "hex": "4245464f52451a41465445520d0a"
+    },
+    "PREFIX.TXT": {
+      "bytes": 7,
+      "hex": "4245464f52451a"
+    },
+    "PREFIX2.TXT": {
+      "bytes": 7,
+      "hex": "414c5048410d0a"
+    }
+  }
+}

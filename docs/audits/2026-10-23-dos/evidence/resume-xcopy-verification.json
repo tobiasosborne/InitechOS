@@ -1,0 +1,12 @@
+{
+  "A": {
+    "rc": 0,
+    "hex": "414c5048410d0a",
+    "stderr": ""
+  },
+  "D": {
+    "rc": 1,
+    "hex": "",
+    "stderr": "mcopy: File \"::DHOME/ONE.TXT\" not found\n"
+  }
+}

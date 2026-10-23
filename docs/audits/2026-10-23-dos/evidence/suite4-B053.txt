@@ -1,0 +1,31 @@
+\CASES\B053.BAT
+CASE B053 chkdsk-file
+A:\T>CHKDSK A:\T\LONG.TXT
+Volume INITECH      Created JAN  1, 1980  0:00
+
+All specified file(s) are contiguous
+  1457664 bytes total disk space
+      512 bytes in 2 hidden files
+    27136 bytes in 25 directories
+   642048 bytes in 541 user files
+   787968 bytes available on disk
+
+   118448 bytes total memory
+   118448 bytes free
+A:\T>CHKDSK A:\T\NOPE
+Volume INITECH      Created JAN  1, 1980  0:00
+
+File not found
+Corrections will not be written to disk
+  1457664 bytes total disk space
+      512 bytes in 2 hidden files
+    27136 bytes in 25 directories
+   642048 bytes in 541 user files
+   787968 bytes available on disk
+
+   118448 bytes total memory
+   118448 bytes free
+A:\T>CHKDSK /Z
+Invalid parameter(s)
+AUDIT-DONE-B053
+A:\T>

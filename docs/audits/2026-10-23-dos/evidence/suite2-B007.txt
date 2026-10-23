@@ -1,0 +1,24 @@
+\CASES\B007.BAT
+CASE B007 md-rd-errors
+A:\T>MD EMPTY
+Unable to create directory
+A:\T>MD ONE.TXT
+Unable to create directory
+A:\T>RD SUB
+Invalid path, not directory, or directory not empty
+A:\T>RD \
+Invalid path, not directory, or directory not empty
+A:\T>MD A?B
+Unable to create directory
+A:\T>MD CON
+Unable to create directory
+A:\T>MD NUL
+Unable to create directory
+A:\T>MD AUX
+Unable to create directory
+A:\T>MD COM1
+Unable to create directory
+A:\T>MD PRN
+Unable to create directory
+AUDIT-DONE-B007
+A:\T>

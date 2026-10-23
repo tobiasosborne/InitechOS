@@ -1,0 +1,32 @@
+                                                                      MS-DOS Commands 53
+
+
+Ctty                                                                 Ctty
+
+Purpose:                                                             [I]
+Lets you change the device from which you issue commands.
+Syntax:
+ctty device
+where:
+device specifies the device from which you are giving commands
+to MS-DOS.
+Comments:
+Ctty is useful if you want to change the device on which you are
+working. In this command, the letters tty represent your terminal;
+that is, your computer's screen and keyboard.
+Notes:
+There are many programs that do not use MS-DOS for input, out-
+put, or either. These programs send input directly to the hardware
+on your computer. The ctty command has no effect on these pro-
+grams; it affects only programs that use MS-DOS.
+Examples:
+The following command moves all command 110 (input/output)           Changing the
+from the current device (the console) to an AUX port, such as        command input and
+another terminal:                                                    output device
+
+cttyaux
+
+The next command moves 1/0 back to the console screen and
+keyboard:
+
+cttycon

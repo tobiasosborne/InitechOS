@@ -1,0 +1,18 @@
+ Volume in drive : is EXTRA      
+ Volume Serial Number is 19E0-045B
+Directory for ::/
+
+DHOME        <DIR>     2026-10-23  14:42 
+        1 file                    0 bytes
+
+Directory for ::/DHOME
+
+.            <DIR>     2026-10-23  14:42 
+..           <DIR>     2026-10-23  14:42 
+SAME     TXT         9 2026-10-23  14:42 
+        3 files                   9 bytes
+
+Total files listed:
+        4 files                   9 bytes
+                          1 456 640 bytes free
+

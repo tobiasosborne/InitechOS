@@ -1,0 +1,42 @@
+                                                                         Batch Processing 147
+
+
+If
+Purpose:
+Performs a command based on the result of a condition.
+Syntax:
+if (not] errorlevel number command
+     or
+if (not] stringl = = string2 command
+     or
+if (not Jexist filename command
+Comments:
+The if statement allows conditional execution of commands.
+When the condition is true, MS-DOS executes the command;
+otherwise, it ignores the command.
+The conditions are described as follows:
+
+Condition               Description
+errorlevel number       True if, and only if, the previous program    If conditions
+                        executed by command.com had an exit
+                        code equal to, or greater than, number.
+                        (When a program finishes, it returns an
+                        exit code via MS-DOS.) You can use this
+                        condition to perform other tasks that are
+                        based on the previous program's exit
+                        code.
+stringl = = string2     True if, and only if, stringl and string2
+                        are identical after parameter substitution.
+                        Strings may not contain separators, such
+                        as commas, semicolons, equal signs, or
+                        s~aces.
+
+exist filename          True if, and only if, filename exists.
+
+
+If you specify the not parameter, MS-DOS executes the command
+when the condition is false.
+Notes:
+For more information about exit codes returned by an MS-DOS
+command, see the specific command in Chapter 3, "MS-DOS
+Commands."

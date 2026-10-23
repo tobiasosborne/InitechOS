@@ -1,0 +1,21 @@
+\CASES\B051.BAT
+CASE B051 tree
+A:\T>TREE A:\T\SUB /F
+DIRECTORY PATH LISTING FOR VOLUME INITECH
+
+Path: \T\SUB
+
+Sub-directories: None
+
+Files:
+        ONE.TXT
+        TWO.TXT
+        RO.TXT
+A:\T>TREE A:\T\NOPE
+Invalid path (or file not found)
+A:\T>TREE A:\T\ONE.TXT
+Invalid path (or file not found)
+A:\T>TREE /Z
+Invalid parameter(s)
+AUDIT-DONE-B051
+A:\T>

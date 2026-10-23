@@ -1,0 +1,117 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          169
+AUTOEXEC.BAT           24
+SAMIR.COM        95514
+CLIENTS.DBF          223
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+DOS-VOLUME-OK D rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>CD \T
+A:\T>CLS
+A:\T>TYPE D:\DHOME\SAME.TXT
+D-DRIVE
+
+A:\T>ATTRIB D:\DHOME\SAME.TXT
+Invalid path (or file not found)
+A:\T>ATTRIB +R D:\DHOME\SAME.TXT
+Invalid path (or file not found)
+A:\T>TYPE D:\DHOME\SAME.TXT
+D-DRIVE
+
+A:\T>CHKDSK C:
+Disk error reading (or writing) FAT
+A:\T>CHKDSK D:
+Disk error reading (or writing) FAT
+A:\T>TREE D:\DHOME /F
+Invalid path (or file not found)
+A:\T>XCOPY A:\T\ONE.TXT D:\DHOME\ /V
+\T\ONE.TXT
+1 File(s) copied
+A:\T>DIR D:\DHOME
+
+ Volume in drive D is EXTRA
+
+ Directory of D:\DHOME
+
+.               <DIR>  10-23-26   2:42p
+..              <DIR>  10-23-26   2:42p
+SAME     TXT        9  10-23-26   2:42p
+
+        3 File(s)   1456640 bytes free
+A:\T>D:
+D:\>CHKDSK
+Disk error reading (or writing) FAT
+D:\>ATTRIB SAME.TXT
+Invalid path (or file not found)
+D:\>TREE /F
+DIRECTORY PATH LISTING FOR VOLUME EXTRA
+
+Path: \
+
+Sub-directories: DHOME
+
+Files:
+        None
+
+Path: \DHOME
+
+Sub-directories: None
+
+Files:
+        SAME.TXT
+D:\>

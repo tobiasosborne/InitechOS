@@ -1,0 +1,16 @@
+                                                                      MS-DOS Commands 55
+
+ Examples:
+ If you simply type the date command, MS-DOS displays the fol-       Displaying the current
+ lowing message:                                                     date
+  Cur rent date i 5 weekday mm-dd-yy
+. Enter new date (mm-dd-yy) :_
+
+ where weekday is the day of the week (for example, Tuesday).
+ If you do not want to change the date shown, press the RETURN
+ key. Or you can type a particular date after the date command, as
+ in the following example:
+ date 3-9-88
+
+ In this case, the "Enter new date:" prompt does not appear after
+ you have pressed the RETURN key.

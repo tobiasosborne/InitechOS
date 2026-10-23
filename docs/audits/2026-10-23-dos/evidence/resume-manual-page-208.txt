@@ -1,0 +1,30 @@
+                                                                          MS-DOS Commands 123
+
+
+Type                                                                      Type
+
+Purpose:
+Displays the contents of a text file on the screen.
+Syntax:
+type Idrive: ifilename
+Comments:
+You can use the type command to view a text file without modi-
+fying it. (Use dir to find the name of a file and Edlin to change
+the contents of a file.)
+Note that when you use type to display a file that contains tabs,
+all the tabs are expanded to the current setting for tabs (generally
+eight spaces wide). Also, if you try to display a binary file or a file
+created by an application program, you may see. strange characters
+on the screen, including bells, formfeeds, and escape sequence
+symbols.
+Examples:
+If you want to display the contents of a file called holiday. mar,        Displaying a file
+you would type the following command:
+
+type holiday.mar
+
+If the contents of the file you wish to display are fairly long, you
+could use a command like this to display the file's contents one
+screen at a time:
+
+type holiday.88 l more

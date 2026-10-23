@@ -1,0 +1,97 @@
+\CASES\B052.BAT
+CASE B052 tree-deep
+A:\T>TREE A:\DEEP /F
+DIRECTORY PATH LISTING FOR VOLUME INITECH
+
+Path: \DEEP
+
+Sub-directories: D00
+
+Files:
+        None
+
+Path: \DEEP\D00
+
+Sub-directories: D01
+
+Files:
+        None
+
+Path: \DEEP\D00\D01
+
+Sub-directories: D02
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02
+
+Sub-directories: D03
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03
+
+Sub-directories: D04
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04
+
+Sub-directories: D05
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05
+
+Sub-directories: D06
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05\D06
+
+Sub-directories: D07
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05\D06\D07
+
+Sub-directories: D08
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05\D06\D07\D08
+
+Sub-directories: D09
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05\D06\D07\D08\D09
+
+Sub-directories: D10
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05\D06\D07\D08\D09\D10
+
+Sub-directories: D11
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05\D06\D07\D08\D09\D10\D11
+
+Sub-directories: None
+
+Files:
+        LEAF.TXT
+AUDIT-DONE-B052
+A:\T>

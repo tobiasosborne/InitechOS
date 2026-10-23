@@ -1,0 +1,27 @@
+                                                                                        259
+Appendix B
+How to Configure Your System
+
+
+
+
+What is a Configuration File?
+The configuration file config.sys is a file that contains certain com-
+mands that MS-DOS checks when you start up your computer.
+Each time you start MS-DOS, it searches the root directory of the
+drive in which it was started for a file named config.sys.
+The config.sys file lets you change your system's default config-
+uration settings. For example, you can add installable device
+drivers to your system by including special commands in your
+config.sys file.
+You can use the dir command to see if the config.sys file is             Checking for
+already on your disk. If it is on the disk, you can use the type         config.sys
+command to display it. For more information about the dir and
+type commands, see Chapter 3, "MS-DOS Commands."
+If config.sys already exists, you may want to include other com-
+mands in the file. For example, you may want to configure for a
+new device, such as a mouse or an external drive.
+If your MS-DOS disk does not have a config.sys file, you can use
+the MS-DOS line editor, Edlin, to create one and then save it on
+the MS-DOS disk in your root directory. If config.sys already exists
+and you want to change it, you can use Edlin to edit it.

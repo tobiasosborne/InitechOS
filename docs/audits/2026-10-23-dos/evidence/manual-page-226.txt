@@ -1,0 +1,28 @@
+                                                                       Batch Processing 141
+
+
+Batch Processing Commands
+Now that you have seen some of the capabilities of batch files, in   Using the batch
+this section you'll find out how to add power and flexibility to     processing
+your batch programs by using batch processing commands. The          commands
+following table lists these batch commands and describes what
+they do:
+
+Command            What it does
+call               Calls one batch file from another without end-
+                   ing itself.          •
+echo               Turns the batch file echo feature on or off, or
+                   displays the current setting.
+for                Performs a command for a set of files.
+goto               Processes commands starting with the line
+                   after the specified label.
+if                 Performs a command if a condition is met.
+pause              Suspends execution of a batch file.
+rem                Displays a comment in a batch file.
+shift              Increases the number of replaceable parame-
+                   ters in a batch process.
+
+
+Batch commands are also internal commands, so each one is
+marked with the internal command icon (the boxed letter I) used
+in Chapter 3, "MS-DOS Commands."

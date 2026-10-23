@@ -1,0 +1,40 @@
+156 MS-DOS User's Reference
+
+
+                         How to Use the MS-DOS Template
+                         Examples:
+Creating a template      Suppose you want to see the directory information for a file
+                         named invest. mnt. To get this information you could type the
+                         following command:
+                         dir invest .mnt
+
+                         This command line (dir invest.mnt) is also saved in the template.
+                         If you want to repeat the command, just press two keys: F3 and
+                         REnJRN.
+                         MS-DOS displays the repeated command on the screen when you
+                         press F3, as shown below:
+                         di r invest • mn t
+
+                         Notice that when you press the F3 key, MS-DOS copies the con-
+                         tents of the template to the command line; pressing the REnJRN
+                         key then sends the command line to the command processor for
+                         execution.
+Changing the             If you want to display information about a file named inves4rpt,
+template                 you can use the contents of the template. Pressing F2, follo"fed by
+                         the letter m, copies all characters from the template to the com-
+                         mand line, up to but not including the m. MS-DOS displays•
+                         di r invest.
+
+                         Note that the underline is your cursor. Now type the letters rpt
+                         to get the following result:
+
+                         dir invest. rpt_
+
+                         The command line (dlr investrpt) is now in the template and
+                         ready to be sent to the command processor for execution. To run
+                         the command, press the REnJRN key.
+                         Now, assume that you want to run the following command:
+                         type invest.rpt
+
+                         To do this, type the word type and then press the following
+                         sequence of keys: INS, SPACEBAR, F3, REnJRN.

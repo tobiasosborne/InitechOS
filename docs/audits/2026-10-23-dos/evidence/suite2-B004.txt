@@ -1,0 +1,73 @@
+\CASES\B004.BAT
+CASE B004 dir-300
+A:\T>DIR \MANY /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\MANY
+
+[.]             [..]            F000.TXT        F001.TXT        F002.TXT
+F003.TXT        F004.TXT        F005.TXT        F006.TXT        F007.TXT
+F008.TXT        F009.TXT        F010.TXT        F011.TXT        F012.TXT
+F013.TXT        F014.TXT        F015.TXT        F016.TXT        F017.TXT
+F018.TXT        F019.TXT        F020.TXT        F021.TXT        F022.TXT
+F023.TXT        F024.TXT        F025.TXT        F026.TXT        F027.TXT
+F028.TXT        F029.TXT        F030.TXT        F031.TXT        F032.TXT
+F033.TXT        F034.TXT        F035.TXT        F036.TXT        F037.TXT
+F038.TXT        F039.TXT        F040.TXT        F041.TXT        F042.TXT
+F043.TXT        F044.TXT        F045.TXT        F046.TXT        F047.TXT
+F048.TXT        F049.TXT        F050.TXT        F051.TXT        F052.TXT
+F053.TXT        F054.TXT        F055.TXT        F056.TXT        F057.TXT
+F058.TXT        F059.TXT        F060.TXT        F061.TXT        F062.TXT
+F063.TXT        F064.TXT        F065.TXT        F066.TXT        F067.TXT
+F068.TXT        F069.TXT        F070.TXT        F071.TXT        F072.TXT
+F073.TXT        F074.TXT        F075.TXT        F076.TXT        F077.TXT
+F078.TXT        F079.TXT        F080.TXT        F081.TXT        F082.TXT
+F083.TXT        F084.TXT        F085.TXT        F086.TXT        F087.TXT
+F088.TXT        F089.TXT        F090.TXT        F091.TXT        F092.TXT
+F093.TXT        F094.TXT        F095.TXT        F096.TXT        F097.TXT
+F098.TXT        F099.TXT        F100.TXT        F101.TXT        F102.TXT
+F103.TXT        F104.TXT        F105.TXT        F106.TXT        F107.TXT
+F108.TXT        F109.TXT        F110.TXT        F111.TXT        F112.TXT
+F113.TXT        F114.TXT        F115.TXT        F116.TXT        F117.TXT
+F118.TXT        F119.TXT        F120.TXT        F121.TXT        F122.TXT
+F123.TXT        F124.TXT        F125.TXT        F126.TXT        F127.TXT
+F128.TXT        F129.TXT        F130.TXT        F131.TXT        F132.TXT
+F133.TXT        F134.TXT        F135.TXT        F136.TXT        F137.TXT
+F138.TXT        F139.TXT        F140.TXT        F141.TXT        F142.TXT
+F143.TXT        F144.TXT        F145.TXT        F146.TXT        F147.TXT
+F148.TXT        F149.TXT        F150.TXT        F151.TXT        F152.TXT
+F153.TXT        F154.TXT        F155.TXT        F156.TXT        F157.TXT
+F158.TXT        F159.TXT        F160.TXT        F161.TXT        F162.TXT
+F163.TXT        F164.TXT        F165.TXT        F166.TXT        F167.TXT
+F168.TXT        F169.TXT        F170.TXT        F171.TXT        F172.TXT
+F173.TXT        F174.TXT        F175.TXT        F176.TXT        F177.TXT
+F178.TXT        F179.TXT        F180.TXT        F181.TXT        F182.TXT
+F183.TXT        F184.TXT        F185.TXT        F186.TXT        F187.TXT
+F188.TXT        F189.TXT        F190.TXT        F191.TXT        F192.TXT
+F193.TXT        F194.TXT        F195.TXT        F196.TXT        F197.TXT
+F198.TXT        F199.TXT        F200.TXT        F201.TXT        F202.TXT
+F203.TXT        F204.TXT        F205.TXT        F206.TXT        F207.TXT
+F208.TXT        F209.TXT        F210.TXT        F211.TXT        F212.TXT
+F213.TXT        F214.TXT        F215.TXT        F216.TXT        F217.TXT
+F218.TXT        F219.TXT        F220.TXT        F221.TXT        F222.TXT
+F223.TXT        F224.TXT        F225.TXT        F226.TXT        F227.TXT
+F228.TXT        F229.TXT        F230.TXT        F231.TXT        F232.TXT
+F233.TXT        F234.TXT        F235.TXT        F236.TXT        F237.TXT
+F238.TXT        F239.TXT        F240.TXT        F241.TXT        F242.TXT
+F243.TXT        F244.TXT        F245.TXT        F246.TXT        F247.TXT
+F248.TXT        F249.TXT        F250.TXT        F251.TXT        F252.TXT
+F253.TXT        F254.TXT        F255.TXT        F256.TXT        F257.TXT
+F258.TXT        F259.TXT        F260.TXT        F261.TXT        F262.TXT
+F263.TXT        F264.TXT        F265.TXT        F266.TXT        F267.TXT
+F268.TXT        F269.TXT        F270.TXT        F271.TXT        F272.TXT
+F273.TXT        F274.TXT        F275.TXT        F276.TXT        F277.TXT
+F278.TXT        F279.TXT        F280.TXT        F281.TXT        F282.TXT
+F283.TXT        F284.TXT        F285.TXT        F286.TXT        F287.TXT
+F288.TXT        F289.TXT        F290.TXT        F291.TXT        F292.TXT
+F293.TXT        F294.TXT        F295.TXT        F296.TXT        F297.TXT
+F298.TXT        F299.TXT        
+
+      302 File(s)    791552 bytes free
+AUDIT-DONE-B004
+A:\T>

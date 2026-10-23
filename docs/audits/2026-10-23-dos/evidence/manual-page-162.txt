@@ -1,0 +1,11 @@
+                                                                    MS-DOS Commands 77
+
+Examples:
+To format a floppy disk in drive A and copy the operating system   Formatting a floppy
+to it, type the following command:                                 disk
+
+format a: Is
+
+To format a floppy disk in drive A for use with data, type
+
+format a: /v

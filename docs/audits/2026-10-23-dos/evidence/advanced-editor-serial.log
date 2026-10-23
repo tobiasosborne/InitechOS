@@ -1,0 +1,150 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          169
+AUTOEXEC.BAT           24
+SAMIR.COM        95514
+CLIENTS.DBF          223
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+DOS-VOLUME-OK D rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>CD \T
+A:\T>CLS
+A:\T>EDLIN TINY.TXT
+End of input file
+*1,4L
+    1:*one
+    2: two
+    3: three
+    4: four
+*1,2,5C
+*L
+    1: one
+    2: two
+    3: three
+    4: four
+    5:*one
+    6: two
+*5,6,1M
+*L
+    1:*one
+    2: two
+    3: one
+    4: two
+    5: three
+    6: four
+*1,6Sone
+    1:*one
+*1,6Rone^ZONE
+    1:*ONE
+    3: ONE
+*1TMERGE.TXT
+*L
+    1:*MERGED-A
+    2: MERGED-B
+    3: ONE
+    4: two
+    5: ONE
+    6: two
+    7: three
+    8: four
+*E
+A:\T>TYPE TINY.TXT
+MERGED-A
+MERGED-B
+ONE
+two
+ONE
+two
+three
+four
+
+A:\T>TYPE TINY.BAK
+one
+two
+three
+four
+
+A:\T>EDLIN TINY.TXT
+End of input file
+*1,2P
+    1:*MERGED-A
+    2: MERGED-B
+*99,100D
+Entry error
+*Q
+Abort edit (Y/N)?y
+A:\T>EDLIN TINY.BAK
+Cannot edit .BAK file--rename file
+A:\T>EDLIN ELARGE.TXT
+*1W
+*1A
+*1,3L
+    1:*RECORD 0001 abcdefghijklmnopqrstuvwxyz
+    2: RECORD 0002 abcdefghijklmnopqrstuvwxyz
+    3: RECORD 0003 abcdefghijklmnopqrstuvwxyz
+*E
+A:\T>DIR ELARGE.*
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+ELARGE   BAK    64000  10-23-26   2:55p
+ELARGE   TXT    64001  10-23-26  12:58p
+
+        2 File(s)    495616 bytes free
+A:\T>

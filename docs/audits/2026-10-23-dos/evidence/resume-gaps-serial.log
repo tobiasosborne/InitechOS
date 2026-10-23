@@ -1,0 +1,406 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          169
+AUTOEXEC.BAT           24
+SAMIR.COM        95514
+CLIENTS.DBF          223
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+DOS-VOLUME-OK D rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>CD \T
+A:\T>CLS
+A:\T>CLS
+A:\T>EXIT
+A:\T>VER
+
+InitechDOS Version 3.30
+A:\T>BREAK OFF
+BREAK is off
+A:\T>BREAK
+BREAK is off
+A:\T>BREAK ON
+BREAK is on
+A:\T>BREAK
+BREAK is on
+A:\T>BREAK INVALID
+BREAK is on
+A:\T>DIR \MANY /P
+
+ Volume in drive A is INITECH
+
+ Directory of A:\MANY
+
+.               <DIR>  10-23-26   2:42p
+..              <DIR>  10-23-26   2:42p
+F000     TXT       10  10-23-26   2:42p
+F001     TXT       10  10-23-26   2:42p
+F002     TXT       10  10-23-26   2:42p
+F003     TXT       10  10-23-26   2:42p
+F004     TXT       10  10-23-26   2:42p
+F005     TXT       10  10-23-26   2:42p
+F006     TXT       10  10-23-26   2:42p
+F007     TXT       10  10-23-26   2:42p
+F008     TXT       10  10-23-26   2:42p
+F009     TXT       10  10-23-26   2:42p
+F010     TXT       10  10-23-26   2:42p
+F011     TXT       10  10-23-26   2:42p
+F012     TXT       10  10-23-26   2:42p
+F013     TXT       10  10-23-26   2:42p
+F014     TXT       10  10-23-26   2:42p
+Press any key to continue . . .^C
+INT23-BREAK
+
+F015     TXT       10  10-23-26   2:42p
+F016     TXT       10  10-23-26   2:42p
+F017     TXT       10  10-23-26   2:42p
+F018     TXT       10  10-23-26   2:42p
+F019     TXT       10  10-23-26   2:42p
+F020     TXT       10  10-23-26   2:42p
+F021     TXT       10  10-23-26   2:42p
+F022     TXT       10  10-23-26   2:42p
+F023     TXT       10  10-23-26   2:42p
+F024     TXT       10  10-23-26   2:42p
+F025     TXT       10  10-23-26   2:42p
+F026     TXT       10  10-23-26   2:42p
+F027     TXT       10  10-23-26   2:42p
+F028     TXT       10  10-23-26   2:42p
+F029     TXT       10  10-23-26   2:42p
+F030     TXT       10  10-23-26   2:42p
+F031     TXT       10  10-23-26   2:42p
+F032     TXT       10  10-23-26   2:42p
+F033     TXT       10  10-23-26   2:42p
+F034     TXT       10  10-23-26   2:42p
+F035     TXT       10  10-23-26   2:42p
+F036     TXT       10  10-23-26   2:42p
+F037     TXT       10  10-23-26   2:42p
+Press any key to continue . . .
+F038     TXT       10  10-23-26   2:42p
+F039     TXT       10  10-23-26   2:42p
+F040     TXT       10  10-23-26   2:42p
+F041     TXT       10  10-23-26   2:42p
+F042     TXT       10  10-23-26   2:42p
+F043     TXT       10  10-23-26   2:42p
+F044     TXT       10  10-23-26   2:42p
+F045     TXT       10  10-23-26   2:42p
+F046     TXT       10  10-23-26   2:42p
+F047     TXT       10  10-23-26   2:42p
+F048     TXT       10  10-23-26   2:42p
+F049     TXT       10  10-23-26   2:42p
+F050     TXT       10  10-23-26   2:42p
+F051     TXT       10  10-23-26   2:42p
+F052     TXT       10  10-23-26   2:42p
+F053     TXT       10  10-23-26   2:42p
+F054     TXT       10  10-23-26   2:42p
+F055     TXT       10  10-23-26   2:42p
+F056     TXT       10  10-23-26   2:42p
+F057     TXT       10  10-23-26   2:42p
+F058     TXT       10  10-23-26   2:42p
+F059     TXT       10  10-23-26   2:42p
+F060     TXT       10  10-23-26   2:42p
+Press any key to continue . . .
+F061     TXT       10  10-23-26   2:42p
+F062     TXT       10  10-23-26   2:42p
+F063     TXT       10  10-23-26   2:42p
+F064     TXT       10  10-23-26   2:42p
+F065     TXT       10  10-23-26   2:42p
+F066     TXT       10  10-23-26   2:42p
+F067     TXT       10  10-23-26   2:42p
+F068     TXT       10  10-23-26   2:42p
+F069     TXT       10  10-23-26   2:42p
+F070     TXT       10  10-23-26   2:42p
+F071     TXT       10  10-23-26   2:42p
+F072     TXT       10  10-23-26   2:42p
+F073     TXT       10  10-23-26   2:42p
+F074     TXT       10  10-23-26   2:42p
+F075     TXT       10  10-23-26   2:42p
+F076     TXT       10  10-23-26   2:42p
+F077     TXT       10  10-23-26   2:42p
+F078     TXT       10  10-23-26   2:42p
+F079     TXT       10  10-23-26   2:42p
+F080     TXT       10  10-23-26   2:42p
+F081     TXT       10  10-23-26   2:42p
+F082     TXT       10  10-23-26   2:42p
+F083     TXT       10  10-23-26   2:42p
+Press any key to continue . . .
+F084     TXT       10  10-23-26   2:42p
+F085     TXT       10  10-23-26   2:42p
+F086     TXT       10  10-23-26   2:42p
+F087     TXT       10  10-23-26   2:42p
+F088     TXT       10  10-23-26   2:42p
+F089     TXT       10  10-23-26   2:42p
+F090     TXT       10  10-23-26   2:42p
+F091     TXT       10  10-23-26   2:42p
+F092     TXT       10  10-23-26   2:42p
+F093     TXT       10  10-23-26   2:42p
+F094     TXT       10  10-23-26   2:42p
+F095     TXT       10  10-23-26   2:42p
+F096     TXT       10  10-23-26   2:42p
+F097     TXT       10  10-23-26   2:42p
+F098     TXT       10  10-23-26   2:42p
+F099     TXT       10  10-23-26   2:42p
+F100     TXT       10  10-23-26   2:42p
+F101     TXT       10  10-23-26   2:42p
+F102     TXT       10  10-23-26   2:42p
+F103     TXT       10  10-23-26   2:42p
+F104     TXT       10  10-23-26   2:42p
+F105     TXT       10  10-23-26   2:42p
+F106     TXT       10  10-23-26   2:42p
+Press any key to continue . . .
+F107     TXT       10  10-23-26   2:42p
+F108     TXT       10  10-23-26   2:42p
+F109     TXT       10  10-23-26   2:42p
+F110     TXT       10  10-23-26   2:42p
+F111     TXT       10  10-23-26   2:42p
+F112     TXT       10  10-23-26   2:42p
+F113     TXT       10  10-23-26   2:42p
+F114     TXT       10  10-23-26   2:42p
+F115     TXT       10  10-23-26   2:42p
+F116     TXT       10  10-23-26   2:42p
+F117     TXT       10  10-23-26   2:42p
+F118     TXT       10  10-23-26   2:42p
+F119     TXT       10  10-23-26   2:42p
+F120     TXT       10  10-23-26   2:42p
+F121     TXT       10  10-23-26   2:42p
+F122     TXT       10  10-23-26   2:42p
+F123     TXT       10  10-23-26   2:42p
+F124     TXT       10  10-23-26   2:42p
+F125     TXT       10  10-23-26   2:42p
+F126     TXT       10  10-23-26   2:42p
+F127     TXT       10  10-23-26   2:42p
+F128     TXT       10  10-23-26   2:42p
+F129     TXT       10  10-23-26   2:42p
+Press any key to continue . . .
+F130     TXT       10  10-23-26   2:42p
+F131     TXT       10  10-23-26   2:42p
+F132     TXT       10  10-23-26   2:42p
+F133     TXT       10  10-23-26   2:42p
+F134     TXT       10  10-23-26   2:42p
+F135     TXT       10  10-23-26   2:42p
+F136     TXT       10  10-23-26   2:42p
+F137     TXT       10  10-23-26   2:42p
+F138     TXT       10  10-23-26   2:42p
+F139     TXT       10  10-23-26   2:42p
+F140     TXT       10  10-23-26   2:42p
+F141     TXT       10  10-23-26   2:42p
+F142     TXT       10  10-23-26   2:42p
+F143     TXT       10  10-23-26   2:42p
+F144     TXT       10  10-23-26   2:42p
+F145     TXT       10  10-23-26   2:42p
+F146     TXT       10  10-23-26   2:42p
+F147     TXT       10  10-23-26   2:42p
+F148     TXT       10  10-23-26   2:42p
+F149     TXT       10  10-23-26   2:42p
+F150     TXT       10  10-23-26   2:42p
+F151     TXT       10  10-23-26   2:42p
+F152     TXT       10  10-23-26   2:42p
+Press any key to continue . . .
+F153     TXT       10  10-23-26   2:42p
+F154     TXT       10  10-23-26   2:42p
+F155     TXT       10  10-23-26   2:42p
+F156     TXT       10  10-23-26   2:42p
+F157     TXT       10  10-23-26   2:42p
+F158     TXT       10  10-23-26   2:42p
+F159     TXT       10  10-23-26   2:42p
+F160     TXT       10  10-23-26   2:42p
+F161     TXT       10  10-23-26   2:42p
+F162     TXT       10  10-23-26   2:42p
+F163     TXT       10  10-23-26   2:42p
+F164     TXT       10  10-23-26   2:42p
+F165     TXT       10  10-23-26   2:42p
+F166     TXT       10  10-23-26   2:42p
+F167     TXT       10  10-23-26   2:42p
+F168     TXT       10  10-23-26   2:42p
+F169     TXT       10  10-23-26   2:42p
+F170     TXT       10  10-23-26   2:42p
+F171     TXT       10  10-23-26   2:42p
+F172     TXT       10  10-23-26   2:42p
+F173     TXT       10  10-23-26   2:42p
+F174     TXT       10  10-23-26   2:42p
+F175     TXT       10  10-23-26   2:42p
+Press any key to continue . . .
+F176     TXT       10  10-23-26   2:42p
+F177     TXT       10  10-23-26   2:42p
+F178     TXT       10  10-23-26   2:42p
+F179     TXT       10  10-23-26   2:42p
+F180     TXT       10  10-23-26   2:42p
+F181     TXT       10  10-23-26   2:42p
+F182     TXT       10  10-23-26   2:42p
+F183     TXT       10  10-23-26   2:42p
+F184     TXT       10  10-23-26   2:42p
+F185     TXT       10  10-23-26   2:42p
+F186     TXT       10  10-23-26   2:42p
+F187     TXT       10  10-23-26   2:42p
+F188     TXT       10  10-23-26   2:42p
+F189     TXT       10  10-23-26   2:42p
+F190     TXT       10  10-23-26   2:42p
+F191     TXT       10  10-23-26   2:42p
+F192     TXT       10  10-23-26   2:42p
+F193     TXT       10  10-23-26   2:42p
+F194     TXT       10  10-23-26   2:42p
+F195     TXT       10  10-23-26   2:42p
+F196     TXT       10  10-23-26   2:42p
+F197     TXT       10  10-23-26   2:42p
+F198     TXT       10  10-23-26   2:42p
+Press any key to continue . . .
+F199     TXT       10  10-23-26   2:42p
+F200     TXT       10  10-23-26   2:42p
+F201     TXT       10  10-23-26   2:42p
+F202     TXT       10  10-23-26   2:42p
+F203     TXT       10  10-23-26   2:42p
+F204     TXT       10  10-23-26   2:42p
+F205     TXT       10  10-23-26   2:42p
+F206     TXT       10  10-23-26   2:42p
+F207     TXT       10  10-23-26   2:42p
+F208     TXT       10  10-23-26   2:42p
+F209     TXT       10  10-23-26   2:42p
+F210     TXT       10  10-23-26   2:42p
+F211     TXT       10  10-23-26   2:42p
+F212     TXT       10  10-23-26   2:42p
+F213     TXT       10  10-23-26   2:42p
+F214     TXT       10  10-23-26   2:42p
+F215     TXT       10  10-23-26   2:42p
+F216     TXT       10  10-23-26   2:42p
+F217     TXT       10  10-23-26   2:42p
+F218     TXT       10  10-23-26   2:42p
+F219     TXT       10  10-23-26   2:42p
+F220     TXT       10  10-23-26   2:42p
+F221     TXT       10  10-23-26   2:42p
+Press any key to continue . . .
+F222     TXT       10  10-23-26   2:42p
+F223     TXT       10  10-23-26   2:42p
+F224     TXT       10  10-23-26   2:42p
+F225     TXT       10  10-23-26   2:42p
+F226     TXT       10  10-23-26   2:42p
+F227     TXT       10  10-23-26   2:42p
+F228     TXT       10  10-23-26   2:42p
+F229     TXT       10  10-23-26   2:42p
+F230     TXT       10  10-23-26   2:42p
+F231     TXT       10  10-23-26   2:42p
+F232     TXT       10  10-23-26   2:42p
+F233     TXT       10  10-23-26   2:42p
+F234     TXT       10  10-23-26   2:42p
+F235     TXT       10  10-23-26   2:42p
+F236     TXT       10  10-23-26   2:42p
+F237     TXT       10  10-23-26   2:42p
+F238     TXT       10  10-23-26   2:42p
+F239     TXT       10  10-23-26   2:42p
+F240     TXT       10  10-23-26   2:42p
+F241     TXT       10  10-23-26   2:42p
+F242     TXT       10  10-23-26   2:42p
+F243     TXT       10  10-23-26   2:42p
+F244     TXT       10  10-23-26   2:42p
+Press any key to continue . . .
+F245     TXT       10  10-23-26   2:42p
+F246     TXT       10  10-23-26   2:42p
+F247     TXT       10  10-23-26   2:42p
+F248     TXT       10  10-23-26   2:42p
+F249     TXT       10  10-23-26   2:42p
+F250     TXT       10  10-23-26   2:42p
+F251     TXT       10  10-23-26   2:42p
+F252     TXT       10  10-23-26   2:42p
+F253     TXT       10  10-23-26   2:42p
+F254     TXT       10  10-23-26   2:42p
+F255     TXT       10  10-23-26   2:42p
+F256     TXT       10  10-23-26   2:42p
+F257     TXT       10  10-23-26   2:42p
+F258     TXT       10  10-23-26   2:42p
+F259     TXT       10  10-23-26   2:42p
+F260     TXT       10  10-23-26   2:42p
+F261     TXT       10  10-23-26   2:42p
+F262     TXT       10  10-23-26   2:42p
+F263     TXT       10  10-23-26   2:42p
+F264     TXT       10  10-23-26   2:42p
+F265     TXT       10  10-23-26   2:42p
+F266     TXT       10  10-23-26   2:42p
+F267     TXT       10  10-23-26   2:42p
+Press any key to continue . . .
+F268     TXT       10  10-23-26   2:42p
+F269     TXT       10  10-23-26   2:42p
+F270     TXT       10  10-23-26   2:42p
+F271     TXT       10  10-23-26   2:42p
+F272     TXT       10  10-23-26   2:42p
+F273     TXT       10  10-23-26   2:42p
+F274     TXT       10  10-23-26   2:42p
+F275     TXT       10  10-23-26   2:42p
+F276     TXT       10  10-23-26   2:42p
+F277     TXT       10  10-23-26   2:42p
+F278     TXT       10  10-23-26   2:42p
+F279     TXT       10  10-23-26   2:42p
+F280     TXT       10  10-23-26   2:42p
+F281     TXT       10  10-23-26   2:42p
+F282     TXT       10  10-23-26   2:42p
+F283     TXT       10  10-23-26   2:42p
+F284     TXT       10  10-23-26   2:42p
+F285     TXT       10  10-23-26   2:42p
+F286     TXT       10  10-23-26   2:42p
+F287     TXT       10  10-23-26   2:42p
+F288     TXT       10  10-23-26   2:42p
+F289     TXT       10  10-23-26   2:42p
+F290     TXT       10  10-23-26   2:42p
+Press any key to continue . . .
+F291     TXT       10  10-23-26   2:42p
+F292     TXT       10  10-23-26   2:42p
+F293     TXT       10  10-23-26   2:42p
+F294     TXT       10  10-23-26   2:42p
+F295     TXT       10  10-23-26   2:42p
+F296     TXT       10  10-23-26   2:42p
+F297     TXT       10  10-23-26   2:42p
+F298     TXT       10  10-23-26   2:42p
+F299     TXT       10  10-23-26   2:42p
+
+      302 File(s)    469504 bytes free
+A:\T>    

@@ -1,0 +1,28 @@
+                                                         MS-DOS Editing and Function Keys 157
+
+Notice as you type that the characters appear directly on the com·
+mand line, overwriting their corresponding characters in the tern·
+plate. Before you press the INS key, the word type replaces the
+word dir (and the space following it) in the template. After you
+press the INS key, this automatic replacement feature is turned off.
+To insert a space between the word type and the filename
+invest. rpt, you pressed INS and then the SPACEBAR. Finally, to copy
+the rest of the template to the command line, you pressed F3 and
+then the RETURN key.
+The command line type invest. rpt has been processed by MS-DOS,
+and the template now looks like this:
+
+type invest.rpt.
+
+If you had misspelled type as pyte, for example, a command error       Correcting errors in
+would have occurred. Still, instead of throwing away the whole         the template
+command, you could save the misspelled line before pressing the
+RETURN key. You can do this by pressing the F5 key before the
+RETURN key, creating a new template:
+
+py t e invest . r pt
+
+Then you can use the DEL and INS keys to get the same result,
+as follows:
+
+DEL DEL Fl INS   yp F3

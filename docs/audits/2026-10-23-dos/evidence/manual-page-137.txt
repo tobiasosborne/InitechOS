@@ -1,0 +1,44 @@
+52 MS-DOS User's Reference
+
+
+Appending files          The copy command also lets you append files. To do this, simply
+                         list any number of files as options to copy, each separated by a
+                         plus sign ( + ), and then specify a target file to send the combined
+                         files to; for example:
+
+                         copy intro. rpt +body. rpt + b: sum. rpt report
+
+                         This command combines files named intro.rpt, body.rpt, and
+                         sum.rpt (from drive B), ~nd places them in a file called report on
+                         the default drive. When you are appending files, the target file is
+                         created with the current date and time. If you omit the target file,
+                         MS-DOS combines the files, and stores them under the name of
+                         the first specified file.
+Combining files          You can also combine several files into one by using wildcards;
+                         for example:
+
+                         copy *.txt combin.doc
+
+                         This command takes all files with an extension of. txt and com-
+                         bines them into one file named combin.doc.
+                         In the following example, each file that matches •. txt is combined
+                         with its corresponding . ref file. The result is a file with the same
+                         filename but with the extension .doc. Thus, filel. txt is combined
+                         with file 1. ref to form file 1. doc, xyz. txt with .xyz. ref to form
+                         .xyz. doc, and so on:
+                         copy *.txt +*.ref *.doc
+
+                         The following copy command combines all files matching •. txt
+                         and all files matching •.ref, into one file named combin.doc:
+
+                         copy *.txt +*.ref combin.doc
+
+                         Copy compares the filename of the source file with the filename
+                         of the target. If they are the same, that one input file is skipped,
+                         and MS-DOS prints the error message, "Content of destination lost
+                         before copy." Further joining proceeds normally. For example, the
+                         following command appends all •. txt files (except alltxt) to
+                         alltxt:
+                         copy all. txt + *. txt
+
+                         This command will not produce an error message.

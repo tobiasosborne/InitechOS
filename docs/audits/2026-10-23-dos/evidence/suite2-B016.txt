@@ -1,0 +1,16 @@
+\CASES\B016.BAT
+CASE B016 copy-wild-output
+A:\T>COPY SUB\*.TXT DEST\*.BAK /B
+        3 File(s) copied
+A:\T>DIR DEST /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T\DEST
+
+[.]             [..]            KEEP.TXT        ONE.TXT         ONE.BAK
+TWO.BAK         RO.BAK          
+
+        7 File(s)    786432 bytes free
+AUDIT-DONE-B016
+A:\T>

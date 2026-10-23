@@ -1,0 +1,30 @@
+150 MS-DOS User's Refe1ence
+
+
+Rem                      Rem
+                         Purpose:
+                         During execution of a batch file, rem displays remarks that are on
+                         the same line as the rem command in that batch file.
+                         Syntax:
+                         rem [comment]
+
+                         Comments:
+                         The comment parameter is a line of text that helps you identify
+                        _and remember what your batch file does.
+                        The only separators allowed in the comment are spaces, tabs, and
+                        commas.
+                        In your batch file, you can use rem without a comment to add
+                        spacing for readability.
+
+                         Note   If echo is off, the rem comment is not displayed.
+
+
+                         Examples:
+Using remarks            The following example shows a batch file that uses remarks for
+in a batch file          both explanation and spacing:
+                         rem This file formats and checks new disks
+                         rem It is named checknew.bat
+                         rem
+                         pause Insert new disk in drive B
+                         format B: /v
+                         chkdsk B:

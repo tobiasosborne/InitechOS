@@ -1,0 +1,42 @@
+                                                                         MS-DOS Commands 57
+
+
+Dir                                                                     Dir (Directory)
+
+Purpose:
+Lists the files in a directory.
+
+Syntax:
+dir Idrive: ][pathname][ /p JI /w]
+Comments:
+The dir command, typed by itself, lists all directory entries in
+the working directory on the default drive. If you include a drive
+name, such as b:, with the dir command, all entries in the default
+directory of the disk in the specified drive are listed.
+The dir command accepts the following switches:
+
+Switch         Purpose
+/p             Selects page mode, causing the directory display to      The Dir switches
+               pause once the screen is filled. To resume scrolling
+               the display, press any key.
+/w             Selects wide display and causes MS-DOS to display
+               only filenames and not other file information. The
+               wide display lists up to five files per line.
+
+
+Dir lists all files with their size in bytes and the time and date of
+last modification.
+Note that the following dir commands are equivalent, since you
+can use the wildcards ? and • in the pathname option:
+
+This command                      Is equivalent to
+dir                               dir • .•
+dir filename                      dir filename.•
+dir .ext                          dir •.ext
+
+
+Notes:
+If the country command in the config.sys file is set to a country
+other than the United States, the directory date and time formats
+may differ. For more information on the config.sys file, see Appen-
+dix B, "How to Configure Your System."

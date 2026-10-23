@@ -1,0 +1,15 @@
+                                                         MS-DOS Editing and Function Keys 155
+
+DEL        Skips over (does not copy) a character in the template.
+F4         Skips over (does not copy) the characters in the tem-
+           plate up to the character specified.
+ESC        Voids the current input and leaves the template
+           unchanged.
+INS        Enters/exits insert mode.
+F5         Makes the new line the new template.
+F6         Puts a CONTROL·Z ( IAH) end-of-file character in the
+           new template.
+
+
+You'll use these special editing keys in conjunction with the tem-
+plate, which you'll learn to use in the next section.

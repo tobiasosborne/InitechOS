@@ -1,0 +1,8 @@
+{
+  "start_offset": 3659,
+  "end_offset": 23659,
+  "bytes": 20000,
+  "nul_bytes": 14869,
+  "contains_stack_like_paths": true,
+  "input_fixture_non_ascii_bytes": 0
+}

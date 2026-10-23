@@ -1,0 +1,46 @@
+                                                                        Batch Processing 151
+
+
+Shift                                                                Shift
+
+Purpose:
+Lets you change the position of replaceable parameters in batch
+file processing.
+Syntax:
+shift
+Comments:
+You can use the shift command to change the positions of
+(replaceable) command line parameters.
+Usually, command files are limited to handling ten parameters,
+%0 through %9. But by using the shift command, you can access
+more than ten parameters. This means that if there are more than
+ten parameters given on a command line, those that appear after
+the tenth (%9) will be shifted one at a time into %9.
+You can use the shift command even if you have less than ten
+parameters.
+
+
+Warning There is no backward shift command. Once you have
+executed shift, you cannot recover the first parameter (%0) that
+existed before the shift.
+
+
+Examples:
+The following file, called mycopy. bat, shows how to use the shift   Shifting replaceable
+command with any number of parameters. It copies a list of files     parameters
+to a specific directory.
+
+rem mycopy.bat copies
+rem any number of files
+rem to a directory.
+rem The command is
+rem mycopy dir files
+set todir = %1
+:one
+shift
+if "%1"=="" goto two
+copy %1 %todir%
+goto one
+: two
+set todir=
+echo All done

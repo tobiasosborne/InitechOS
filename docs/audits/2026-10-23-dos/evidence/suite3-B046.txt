@@ -1,0 +1,10 @@
+\CASES\B046.BAT
+CASE B046 label-input
+A:\T>LABEL < NAME.TXT
+Volume in drive A is INITECH
+Volume label (11 characters, ENTER for none)?A:\T>VOL
+
+ Volume in drive A is REPORTS
+A:\T>LABEL INITECH
+AUDIT-DONE-B046
+A:\T>

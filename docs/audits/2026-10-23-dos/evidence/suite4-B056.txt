@@ -1,0 +1,30 @@
+\CASES\B056.BAT
+CASE B056 cross-drive-vol
+A:\T>VOL A:
+
+ Volume in drive A is INITECH
+A:\T>VOL C:
+
+ Volume in drive C is BOOT
+A:\T>VOL D:
+
+ Volume in drive D is EXTRA
+A:\T>DIR D: /W
+
+ Volume in drive D is EXTRA
+
+ Directory of D:\DHOME
+
+[.]             [..]            SAME.TXT        AONE.TXT        
+
+        4 File(s)   1456128 bytes free
+A:\T>DIR B:
+Invalid drive specification
+A:\T>CD B:\
+Invalid drive specification
+A:\T>B:
+Invalid drive specification
+A:\T>Z:
+Invalid drive specification
+AUDIT-DONE-B056
+A:\T>

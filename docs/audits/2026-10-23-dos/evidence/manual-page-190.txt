@@ -1,0 +1,39 @@
+                                                                        MS-DOS Commands 105
+
+
+Replace                                                                 Replace
+
+Purpose:
+Updates previous versions of files.
+
+Syntax:
+replace [drive:) pathname/ (drive:)[.Pathname2) (!aJ!!pJl/rl[/s)[/w)
+where:
+pathname/ is the source path and filename.
+fJathname2 is the target path and filename.
+Comments:
+The replace command performs two functions:
+
+ • It replaces files in the target directory with files in the source
+   directory that have the same name.
+ • When you specify the /a switch, replace adds files that exist in
+   the source directory (but not in the target directory) to the
+   target directory.
+
+
+You may use wildcards in source filenames.
+The replace command accepts the following switches:
+
+Switch        Purpose
+/a            Adds new files to the target directory instead of         The Replace switches
+              replacing existing ones. You may not use this switch
+              with the /s switch.
+/p            Prompts you with the following message before it
+              replaces a target file or adds a source file:
+
+              Replace filename? ( YIN ) _
+
+/r            Replaces read-only files as well as unprotected files.
+              If you do not specify this switch, any attempt to
+              replace a read-only file causes an error and stops the
+              replace process.

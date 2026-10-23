@@ -1,0 +1,37 @@
+72 MS-DOS User's Reference
+
+
+Find                     Find
+                         Purpose:
+                         Searches for a specific string of text in a file or files.
+
+                         Syntax:
+                         find (/v] (/c] (/n] "string" [[drive:][pathname] ... ]
+                         where:
+                         "string" is a group of characters you want to search for.
+                         Comments:
+                         The find command looks for string in one or more files. After
+                         searching the specified files, find displays any lines it has found
+                         that contain the specified string.
+                         String must be enclosed in quotation marks. Uppercase characters
+                         in string will not match lowercase characters.
+                         If string contains quotation marks, you must enclose it in an addi-
+                         tional pair (""string'"').
+                         If you omit pathname, find acts as a filter. It takes input from the
+                         MS-DOS standard input (usually from the keyboard, a pipe, or
+                         redirected file) and displays any lines that contain string.
+                         Wildcards ( • and?) are not allowed in filenames or extensions.
+                         The find command accepts the following switches:
+
+                         Switch         Purpose
+The Find switches        Iv             Displays all lines not containing the specified string.
+                         le             Displays only the number of lines that contain a
+                                        match in each of the files.
+                         In             Precedes each line with its relative line number in
+                                        the file.
+
+
+                         If you specify the le switch with the Iv switch, find displays the
+                         number of lines that do not contain the string you typed. If you
+                         specify the le switch with the /n switch, find ignores the In
+                         switch.

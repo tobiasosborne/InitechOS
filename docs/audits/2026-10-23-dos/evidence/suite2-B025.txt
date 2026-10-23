@@ -1,0 +1,19 @@
+\CASES\B025.BAT
+CASE B025 rename-errors
+A:\T>REN ONE.TXT TWO.TXT
+Duplicate file name
+A:\T>REN ONE.TXT SUB\NEW.TXT
+Bad command or file name
+A:\T>REN ONE.TXT BAD?NAME
+Duplicate file name
+A:\T>DIR ONE.TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+ONE      TXT        7  10-23-26   2:42p
+
+        1 File(s)    781312 bytes free
+AUDIT-DONE-B025
+A:\T>

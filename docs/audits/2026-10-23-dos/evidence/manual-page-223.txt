@@ -1,0 +1,44 @@
+138 MS-DOS User's Reference
+
+                         Notes
+                          • You can specify up to ten replaceable parameters ( % 0 - %9 ).
+                            If you want to specify more than ten, refer to the shift com-
+                            mand later in this chapter.
+                          • If you use the percent sign as part of a filename within a
+                            batch file, you must type it twice. For example, to specify the
+                            file abc%.exe, you must type it as abc% %.exe in the batch file.
+
+
+
+Using named              How to Use Named Parameters
+parameters               in a Batch File
+                         In addition to the ten, numeric replaceable parameters, you can
+                         use named parameters in batch files. Named parameters allow you
+                         to define your replaceable parameters by name instead of by
+                         number. When referenced in a file the name of a replaceable
+                         parameter is placed between two percent signs.
+                         Named parameters differ from replaceable parameters in that
+                         you do not specify their values on the command line. Instead,
+                         MS-DOS retrieves·the value of each named parameter from its
+                         environment.
+                         You can use the MS-DOS set command to set the value of a
+                         named parameter before you run your batch file, or you can
+                         include the set command in your batch file.
+                         For example, suppose that you want to create a batch file called
+                         mydel. bat, that moves a file you want to delete into a separate
+                         directory. You might want to use this method to make sure that
+                         you don't delete files accidentally from an important directory.
+                         The file mydel bat might contain the following lines:
+
+                         echo off
+                         echo Before you use this batch file, you must
+                         echo specify the directory by typing the
+                         echo following command at the MS-DOS prompt:
+                         echo set deldir=directory
+                         echo Press Control-C to exit if you haven't
+                         echo set deldir or if deldir does not exist.
+                          pause
+                         -copy %1 %deldir%
+                          de 1 %1
+                          dir /w %deldir%
+                          echo All done.

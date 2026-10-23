@@ -1,0 +1,13 @@
+                                                                  MS-DOS Commands 121
+
+• The time command sets your computer's internal clock.
+• You cannot specify a drive for this command.
+
+Examples:
+To reset the time of day on your computer's clock, you can type
+the time command by itself and MS-DOS will prompt you for the
+correct time. Or you can include the correct time when you type
+the command. For example, if you want to set your computer's
+clock at 1:36 p.m., you could type the following command:
+
+ti me 1 3: 36

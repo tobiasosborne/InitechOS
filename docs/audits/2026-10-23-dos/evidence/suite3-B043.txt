@@ -1,0 +1,14 @@
+\CASES\B043.BAT
+CASE B043 attrib-flags
+A:\T>ATTRIB +R +A ONE.TXT
+A:\T>ATTRIB ONE.TXT
+R  A     A:\T\ONE.TXT
+A:\T>ATTRIB -R -A ONE.TXT
+A:\T>ATTRIB +H ONE.TXT
+Invalid number of parameters
+A:\T>ATTRIB +S ONE.TXT
+Invalid number of parameters
+A:\T>ATTRIB ONE.TXT
+         A:\T\ONE.TXT
+AUDIT-DONE-B043
+A:\T>

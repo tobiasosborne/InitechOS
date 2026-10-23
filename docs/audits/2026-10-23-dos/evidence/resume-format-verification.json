@@ -1,0 +1,30 @@
+{
+  "C": {
+    "IO.SYS": {
+      "rc": 1,
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr": "mcopy: File \"::IO.SYS\" not found\n"
+    },
+    "INITDOS.SYS": {
+      "rc": 1,
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr": "mcopy: File \"::INITDOS.SYS\" not found\n"
+    }
+  },
+  "D": {
+    "IO.SYS": {
+      "rc": 0,
+      "bytes": 1647,
+      "sha256": "b468b5b67ccd6aa78bebc28f3174eace892247678fdea61ea7f4c5ff478f06dc",
+      "stderr": ""
+    },
+    "INITDOS.SYS": {
+      "rc": 0,
+      "bytes": 196608,
+      "sha256": "6461a5b7809a39f20c130fd790ad696eaf58323004d44a2a52a5b245964136bc",
+      "stderr": ""
+    }
+  }
+}

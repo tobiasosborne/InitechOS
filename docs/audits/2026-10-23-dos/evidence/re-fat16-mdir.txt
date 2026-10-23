@@ -1,0 +1,9 @@
+ Volume in drive : is FAT16TEST  
+ Volume Serial Number is 7A08-069D
+Directory for ::/
+
+AUTOEXEC BAT        11 2026-10-23  14:43 
+CHAIN    TXT     23800 2026-10-23  14:43 
+        2 files              23 811 bytes
+                          8 281 600 bytes free
+

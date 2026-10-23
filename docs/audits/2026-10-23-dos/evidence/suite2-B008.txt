@@ -1,0 +1,27 @@
+\CASES\B008.BAT
+CASE B008 md-rd-normal
+A:\T>MD NEWDIR
+A:\T>DIR NEWDIR
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T\NEWDIR
+
+.               <DIR>  10-23-26  12:42p
+..              <DIR>  10-23-26  12:42p
+
+        2 File(s)    791040 bytes free
+A:\T>CD NEWDIR
+A:\T\NEWDIR>RD .
+Invalid path, not directory, or directory not empty
+A:\T\NEWDIR>CD ..
+A:\T>RD NEWDIR
+A:\T>DIR NEWDIR
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+File not found
+AUDIT-DONE-B008
+A:\T>

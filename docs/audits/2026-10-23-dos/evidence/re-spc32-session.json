@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-23T12:54:58.215931+00:00",
+  "driver_pid": 57,
+  "qemu_pid": 58,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/re-spc32-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/re-spc32-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/re-spc32-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/re-spc32-boot.img": {
+      "bytes": 4194304,
+      "sha256": "8861e4dfef1b3aa2991e11b02f6070cd71be044d2a2321127c5350bc4259d712"
+    },
+    "images/re-spc32-data.img": {
+      "bytes": 1474560,
+      "sha256": "ef435d4276039bce5e5a3fec0b843dc5e40f04c7973f1a891f73303f206b9903"
+    }
+  },
+  "stopped_utc": "2026-10-23T12:55:10.174083+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/re-spc32-boot.img": {
+      "bytes": 4194304,
+      "sha256": "8861e4dfef1b3aa2991e11b02f6070cd71be044d2a2321127c5350bc4259d712"
+    },
+    "images/re-spc32-data.img": {
+      "bytes": 1474560,
+      "sha256": "3c158764f314c4c321ab21c5a243264440d0f202f5a9c702c0d440c9868bd29b"
+    }
+  }
+}

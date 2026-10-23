@@ -1,0 +1,12 @@
+\CASES\B029.BAT
+CASE B029 redir-append
+A:\T>TYPE REDIR.TXT
+FIRST
+SECOND
+
+A:\T>BOGUS > BADOUT.TXT
+A:\T>TYPE BADOUT.TXT
+Bad command or file name
+
+AUDIT-DONE-B029
+A:\T>

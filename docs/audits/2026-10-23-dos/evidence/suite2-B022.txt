@@ -1,0 +1,21 @@
+\CASES\B022.BAT
+CASE B022 del-paths
+A:\T>COPY ONE.TXT KEEP.TXT
+        1 File(s) copied
+A:\T>COPY TWO.TXT SUB\DELME.TMP
+        1 File(s) copied
+A:\T>DEL SUB\*.TMP
+A:\T>TYPE KEEP.TXT
+ALPHA
+
+A:\T>DIR SUB /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T\SUB
+
+[.]             [..]            ONE.TXT         TWO.TXT         RO.TXT
+
+        5 File(s)    783360 bytes free
+AUDIT-DONE-B022
+A:\T>

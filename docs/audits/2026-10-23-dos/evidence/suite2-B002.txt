@@ -1,0 +1,12 @@
+\CASES\B002.BAT
+CASE B002 dir-errors
+A:\T>DIR NOEXIST\*.TXT
+File not found
+A:\T>DIR ONE.TXT\
+File not found
+A:\T>DIR /Z
+Too many parameters
+A:\T>DIR ONE.TXT TWO.TXT
+Too many parameters
+AUDIT-DONE-B002
+A:\T>

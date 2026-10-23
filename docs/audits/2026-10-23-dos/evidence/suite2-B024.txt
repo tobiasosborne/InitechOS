@@ -1,0 +1,19 @@
+\CASES\B024.BAT
+CASE B024 rename-mask
+A:\T>COPY ONE.TXT RENA.TXT
+        1 File(s) copied
+A:\T>COPY TWO.TXT RENB.TXT
+        1 File(s) copied
+A:\T>REN REN?.TXT *.BAK
+A:\T>DIR REN*.*
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+RENA     BAK        7  10-23-26   2:42p
+RENB     BAK        6  10-23-26   2:42p
+
+        2 File(s)    781312 bytes free
+AUDIT-DONE-B024
+A:\T>

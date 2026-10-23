@@ -1,0 +1,35 @@
+106 MS-DOS User's Reference
+
+                         Is           Searches all subdirectories of the target directory
+                                      while it replaces matching files. This switch is
+                                      incompatible with the /a switch. Replace never
+                                      searches subdirectories in the source path.
+                         /w           Waits for you to insert a disk before beginning to
+                                      search for source files. If you do not specify the /w
+                                      switch, replace begins replacing or adding files
+                                      immediately.
+
+
+                         If you specify /w but not /a, replace displays the following
+                         message:
+
+                         Press any key to begin replacing files
+
+                         If you specify both the /w and /a switches, replace display~ the
+                         following message:
+
+                         Press any key to begin adding file(s)
+
+                         As files are replaced or added, replace displays their filenames on
+                         the screen. At the conclusion of the replace operation, it displays
+                         a summary line:
+
+                         nnn file(s) added/replaced
+                                    or
+
+                         No files added/replaced
+
+                         Notes:
+
+                          • You cannot use the replace command to update hidden files
+                            or system files ( io.sys and msdos.sys ).

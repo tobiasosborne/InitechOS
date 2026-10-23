@@ -1,0 +1,10 @@
+\CASES\B021.BAT
+CASE B021 copy-con-output
+A:\T>COPY ONE.TXT CON
+ALPHA
+        1 File(s) copied
+A:\T>COPY EOF.TXT CON /A
+BEFOREAFTER
+        1 File(s) copied
+AUDIT-DONE-B021
+A:\T>

@@ -1,0 +1,23 @@
+                                                                       MS-DOS Commands 73
+
+Examples:
+The following command displays all lines from the file pencil. ad     Finding a string of
+that contain the string "Pencil Sharpener":                           text in a file
+
+find "Pencil Sharpener" pencil.ad
+
+The next command causes MS-DOS to display the names of all
+files on the disk in drive B that do not contain the string "date":
+
+dir b:     I find /v "date"
+
+If you want to find the string, "The dentist said, "Open wide!"",
+in the file story.doc, type the following command:
+
+find- 'The dentist said, ""Open wide!"'" story.doc
+
+Note that in this last example, the entire phrase you were search-
+ing for was set off by single quotation marks rather than double
+quotation marks. When you use unique marks to set off the
+phrase, find will not mistake the quotation marks for part of the
+phrase itself.

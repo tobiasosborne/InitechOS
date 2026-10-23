@@ -1,0 +1,15 @@
+\CASES\B026.BAT
+CASE B026 rename-readonly
+A:\T>REN READONLY.TXT LOCKED.TXT
+A:\T>DIR LOCKED.TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+LOCKED   TXT       11  10-23-26   2:42p
+
+        1 File(s)    781312 bytes free
+A:\T>REN LOCKED.TXT READONLY.TXT
+AUDIT-DONE-B026
+A:\T>

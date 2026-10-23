@@ -1,0 +1,19 @@
+\CASES\B027.BAT
+CASE B027 type-misc
+A:\T>TYPE ZERO.TXT
+
+A:\T>TYPE NOCR.TXT
+one
+two
+last
+A:\T>TYPE NOLF.TXT
+NO-NEWLINE
+A:\T>TYPE *.TXT
+File not found
+A:\T>TYPE MISSING.TXT
+File not found
+A:\T>TYPE ONE.TXT TWO.TXT
+ALPHA
+
+AUDIT-DONE-B027
+A:\T>

@@ -1,0 +1,14 @@
+\CASES\B067.BAT
+CASE B067 del-many
+A:\T>DEL \MANY\F*.TXT
+A:\T>DIR \MANY /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\MANY
+
+[.]             [..]            
+
+        2 File(s)    940544 bytes free
+AUDIT-DONE-B067
+A:\T>

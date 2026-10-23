@@ -1,0 +1,44 @@
+                                                                      MS-DOS Commands 41
+
+
+Chdir                                                                Chdir (change
+                                                                     directory)
+Synonym:
+cd
+Purpose:
+Changes a directory to a different path; displays the working
+directory.
+
+Syntax:
+chdir !path]
+Comments:
+The chdir command changes your working directory to the direc-
+tory you specify. A shorthand notation for the chdir command is
+ed. Thus, either of the following commands will change your
+current directory to the directory called primetim:
+
+chdir \primetim
+
+cd \primetim
+
+To display the name of your working directory, simply type:
+
+cd
+
+There are two shortcuts you can use when you want to change          Shortcuts
+your directory to a parent directory or subdirectory of your work-
+ing directory. To illustrate, suppose you have a directory called
+specials that has a subdirectory called sponsors. So to change
+your working directory to \specials\sponsors, you would type
+
+cd \specials\sponsors
+
+If your working directory is specials, you can type the following
+command to change to the \specials\sponsors directory:
+
+cd sponsors
+
+Then, if you wanted to change your working directory back to the
+parent directory, \s/Jecials, you could type this command:
+
+cd ..

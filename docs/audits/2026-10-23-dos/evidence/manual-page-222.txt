@@ -1,0 +1,39 @@
+                                                                          Batch Processing 137
+
+
+How to Create a Batch File
+with Replaceable Parameters
+There may be times when you want to create a program and run
+it with different sets of data. These data may be stored in various
+MS-DOS files.
+With MS-DOS, you can create a batch (.bat) file with replaceable
+(dummy) parameters, wher•· a parameter is a command option
+that you define. These parameters, named %0-%9, hold the places
+for the values that you supply when you give the batch command.
+Replaceable parameters make batch files more flexible and easy to
+use. For example, you can create a batch file called sorter.bat that
+sorts a file containing a specific sequence of characters or strings.
+Each time you run the sorter batch file, you tell MS-DOS which
+string you want, which file to search to find that string, and which
+temporary file to use for sorting. Sorter would then print the
+resulting list on the primer.
+
+Cil To create the sorter.bat file, type the following command and       Using replaceable
+   then press the RF.'lllRN key:                                        parameters
+
+   copy can sort er.bat
+
+00 Now type the following lines.:
+   type %2   find "%1" > %3
+   type %3 I sort > prn
+   del %3
+
+[!) To save the batch file, press CONTROL-Z and then ~11JRN.
+    The batch file sorter. bat now consists of three command lines
+    and is on the disk in the default drive.
+
+
+When you execute the file, MS-DOS sequentially replaces % I, %2,
+and %3 with the parameters ,you supply. If you ~se the dummy
+parameter %0, MS-DOS always replaces it with the drive name (if
+specified) and the filename of the batch file (for example, sorter).

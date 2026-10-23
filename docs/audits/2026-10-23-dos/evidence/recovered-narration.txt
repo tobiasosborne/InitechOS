@@ -1,0 +1,36 @@
+LOG LINE 15
+I’ll read `BRIEF.md`, carry out the assigned audit, and save the report, findings, screenshots, and evidence in this directory.
+
+LOG LINE 653
+I’ve confirmed the DOS scope and the read-only restriction on the project repository. I’ll use disposable disk copies, review prior DOS findings, and test commands against both the shipped disks and purpose-built edge-case disks. I’m using the PDF skill to consult the original DOS manual.
+
+LOG LINE 3885
+The stock image boots cleanly, and several earlier display defects appear fixed: `DIR` now shows the volume label, timestamps, and free space, and the prompt has a visible cursor. The gray-on-green console colors remain. I also confirmed that A: is the second IDE disk and C: is the boot disk’s first partition.
+
+LOG LINE 4621
+The shipped external commands are on `PATH`, but `COMMAND /C` and `VERIFY` currently return “Bad command or file name.” I’m checking those against the prior reports. The test disks are ready with 300 files, directory-boundary cases, protected files, timestamp extremes, and separate C: and D: volumes.
+ERROR: Reconnecting... 2/5
+ERROR: Reconnecting... 3/5
+
+LOG LINE 7246
+The first pass confirms that same-file COPY protection, read-only protection, concatenation, wildcard renaming, timestamp preservation, and a 300-file listing work in the tested cases. New issues include path-qualified batch names requiring an explicit extension, `DIR` showing hidden/system files, and `FIND "text" filename` waiting for keyboard input instead of reading the file.
+
+LOG LINE 7809
+The cross-drive and batch tests are complete. XCOPY resolves relative paths correctly now, including the case still marked DRAFT in the manual. I’ve also reproduced several DOS compatibility gaps: `ECHO.` is rejected, `SORT /+n` ignores the requested column, and TIME rejects hundredths of a second. Keyboard, cancellation, editor, full-disk, and damaged-FAT tests are next.
+
+LOG LINE 8554
+Correction to my earlier update: `COMMAND /C DIR` does work. The full transcript shows the later error came from `VERIFY`; plain `COMMAND` returns “Invalid number of parameters” instead of opening a nested prompt. Cross-drive testing also found that TREE reads the wrong volume, ATTRIB rejects a readable D: file, and CHKDSK reports a FAT error on the valid D: volume.
+
+LOG LINE 9612
+The full-disk tests have found silent output loss: redirected ECHO creates an empty file without an error, and a pipeline returns no output or disk-space warning. I’m verifying the stopped images now. I also found input-timing contamination in some interactive runs, so I’ll repeat the affected cases with explicit key-down/key-up events and wait for guest completion before using them as evidence.
+
+LOG LINE 10469
+I’ve confirmed a data-loss bug: a pipeline overwrites and deletes an existing user file named `PIPE1.$$$`. Malformed-program tests also produced two machine-wide halts: an invalid-opcode COM file reaches “PC LOAD LETTER,” and an unsupported 16-bit EXE halts after a serial-only diagnostic. FAT12 operations with 2–64 sectors per cluster and FAT16 reads are working so far.
+
+LOG LINE 12883
+The cancellation test found a more serious defect: Ctrl-C during a long TYPE prints non-file binary data, including internal strings, then continues to the end of the file. Ctrl-S pauses output correctly. I’m repeating the Ctrl-C case in isolation and checking a separate XCOPY defect that appears to write to A: when D: was requested.
+ERROR: This content was flagged for possible cybersecurity risk. If this seems wrong, try rephrasing your request. If you’re doing authorized security work that requires more cyber permissive safeguards, apply for Daybreak access via https://platform.openai.com/settings/organization/status-and-access before retrying.
+ERROR: This content was flagged for possible cybersecurity risk. If this seems wrong, try rephrasing your request. If you’re doing authorized security work that requires more cyber permissive safeguards, apply for Daybreak access via https://platform.openai.com/settings/organization/status-and-access before retrying.
+2026-10-23T13:08:51.770248Z ERROR codex_core::session: failed to record rollout items: thread 01a168bf-93e8-7a91-98ff-56e79434eac7 not found
+tokens used
+278,509

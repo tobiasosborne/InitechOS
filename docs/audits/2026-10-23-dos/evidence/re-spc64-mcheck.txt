@@ -1,0 +1,17 @@
+ Volume in drive U is CLUSTER64  
+ Volume Serial Number is 7A08-069D
+Directory for U:/
+
+AUTOEXEC BAT        11 2026-10-23  14:43 
+EXACT    BIN     32768 2026-10-23  14:43 
+PLUS     BIN     32769 2026-10-23  14:43 
+ONE      TXT         5 2026-10-23  14:43 
+RENAMED  BIN     32768 2026-10-23  14:43 
+SUB          <DIR>     2026-10-23  12:55 
+TYPE     BIN     32769 2026-10-23  12:55 
+        7 files             131 090 bytes
+                          1 114 112 bytes free
+
+
+Verifying files on drive u:...
+Disk in drive u: is OK.

@@ -1,0 +1,112 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          169
+AUTOEXEC.BAT           24
+FILLER.BIN       838656
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+DOS-VOLUME-OK D rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>CD \T
+A:\T>CLS
+A:\T>DIR /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+[.]             [..]            [SUB]           [EMPTY]         [DEST]
+ONE.TXT         TWO.TXT         EOF.TXT         ZERO.TXT        NOCR.TXT
+BINARY.BIN      EXACT.BIN       SELF.BIN        READONLY.TXT    HIDDEN.TXT
+SYSTEM.TXT      LINES.TXT       LONG.TXT        NOLF.TXT        OLD.TXT
+FUTURE.TXT      
+
+       21 File(s)         0 bytes free
+A:\T>ECHO TEST > FULL.OUT
+A:\T>DIR FULL.OUT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+FULL     OUT        0  10-23-26  12:48p
+
+        1 File(s)         0 bytes free
+A:\T>TYPE FULL.OUT
+
+A:\T>COPY LONG.TXT FULL.BIN
+Bad command or file name
+A:\T>DIR FULL.BIN
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+FULL     BIN        0  10-23-26  12:48p
+
+        1 File(s)         0 bytes free
+A:\T>TYPE ONE.TXT | SORT
+A:\T>ECHO APPEND >> ONE.TXT
+A:\T>DIR ONE.TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+ONE      TXT       15  10-23-26  12:48p
+
+        1 File(s)         0 bytes free
+A:\T>COPY ZERO.

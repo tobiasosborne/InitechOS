@@ -1,0 +1,14 @@
+\CASES\B044.BAT
+CASE B044 attrib-subdirs
+A:\T>ATTRIB +R SUB\*.TXT /S
+A:\T>ATTRIB SUB\*.TXT /S
+R  A     A:\T\SUB\ONE.TXT
+R  A     A:\T\SUB\TWO.TXT
+R  A     A:\T\SUB\RO.TXT
+A:\T>ATTRIB -R SUB\*.TXT /S
+A:\T>ATTRIB EMPTY
+Invalid path (or file not found)
+A:\T>ATTRIB NOFILE.TXT
+Invalid path (or file not found)
+AUDIT-DONE-B044
+A:\T>

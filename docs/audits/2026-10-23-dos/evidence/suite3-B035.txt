@@ -1,0 +1,17 @@
+\CASES\B035.BAT
+CASE B035 pipes
+A:\T>TYPE LINES.TXT | FIND /N "a" | SORT /R
+[7]last
+[6]02 aardvark
+[5]01 omega
+[3]beta
+[2]Alpha
+[1]zebra
+A:\T>TYPE ONE.TXT | MORE
+ALPHA
+A:\T>TYPE ZERO.TXT | MORE
+A:\T>TYPE PIPE.TXT
+X
+
+AUDIT-DONE-B035
+A:\T>

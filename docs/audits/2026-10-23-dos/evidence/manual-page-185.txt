@@ -1,0 +1,7 @@
+100 MS-DOS User's Reference
+
+                         The next t\vo commands show how to remove the file pencil. tst
+                         from the queue and then add the file pen. tst to the queue:
+
+                         prinA pencil.tst /c
+                         print pen.tst Ip

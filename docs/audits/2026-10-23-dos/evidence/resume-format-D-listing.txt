@@ -1,0 +1,9 @@
+ Volume in drive : has no label
+ Volume Serial Number is 4B4F-4433
+Directory for ::/
+
+IO       SYS      1647 1980-01-01   0:00 
+INITDOS  SYS    196608 1980-01-01   0:00 
+        2 files             198 255 bytes
+                          1 259 008 bytes free
+

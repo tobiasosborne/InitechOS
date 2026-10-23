@@ -1,0 +1,154 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+F000.TXT            0
+F001.TXT            0
+F002.TXT            0
+F003.TXT            0
+F004.TXT            0
+F005.TXT            0
+F006.TXT            0
+F007.TXT            0
+F008.TXT            0
+F009.TXT            0
+F010.TXT            0
+F011.TXT            0
+F012.TXT            0
+F013.TXT            0
+F014.TXT            0
+F015.TXT            0
+F016.TXT            0
+F017.TXT            0
+F018.TXT            0
+F019.TXT            0
+F020.TXT            0
+F021.TXT            0
+F022.TXT            0
+F023.TXT            0
+F024.TXT            0
+F025.TXT            0
+F026.TXT            0
+F027.TXT            0
+F028.TXT            0
+F029.TXT            0
+F030.TXT            0
+F031.TXT            0
+F032.TXT            0
+F033.TXT            0
+F034.TXT            0
+F035.TXT            0
+F036.TXT            0
+F037.TXT            0
+F038.TXT            0
+F039.TXT            0
+F040.TXT            0
+F041.TXT            0
+F042.TXT            0
+F043.TXT            0
+F044.TXT            0
+F045.TXT            0
+F046.TXT            0
+F047.TXT            0
+F048.TXT            0
+F049.TXT            0
+F050.TXT            0
+F051.TXT            0
+F052.TXT            0
+F053.TXT            0
+F054.TXT            0
+F055.TXT            0
+F056.TXT            0
+F057.TXT            0
+F058.TXT            0
+F059.TXT            0
+F060.TXT            0
+F061.TXT            0
+F062.TXT            0
+F063.TXT            0
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+DOS-VOLUME-OK D rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+Current date is Fri 10-23-2026
+Enter new date (mm-dd-yy): 
+Current time is 13:27:24.00
+Enter new time: 
+A:\>CLS
+A:\>ECHO TEST > NEW.TXT
+Bad command or file name
+A:\>MD NEWDIR
+Unable to create directory
+A:\>DIR /W
+
+ Volume in drive A has no label
+
+ Directory of A:\
+
+F000.TXT        F001.TXT        F002.TXT        F003.TXT        F004.TXT
+F005.TXT        F006.TXT        F007.TXT        F008.TXT        F009.TXT
+F010.TXT        F011.TXT        F012.TXT        F013.TXT        F014.TXT
+F015.TXT        F016.TXT        F017.TXT        F018.TXT        F019.TXT
+F020.TXT        F021.TXT        F022.TXT        F023.TXT        F024.TXT
+F025.TXT        F026.TXT        F027.TXT        F028.TXT        F029.TXT
+F030.TXT        F031.TXT        F032.TXT        F033.TXT        F034.TXT
+F035.TXT        F036.TXT        F037.TXT        F038.TXT        F039.TXT
+F040.TXT        F041.TXT        F042.TXT        F043.TXT        F044.TXT
+F045.TXT        F046.TXT        F047.TXT        F048.TXT        F049.TXT
+F050.TXT        F051.TXT        F052.TXT        F053.TXT        F054.TXT
+F055.TXT        F056.TXT        F057.TXT        F058.TXT        F059.TXT
+F060.TXT        F061.TXT        F062.TXT        F063.TXT        
+
+       64 File(s)   1462784 bytes free
+A:\>

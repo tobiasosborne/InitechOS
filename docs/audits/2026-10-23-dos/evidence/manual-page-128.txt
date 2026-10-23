@@ -1,0 +1,44 @@
+                                                                        MS-DOS Commands 43
+
+
+·chkdsk                                                                Chkdsk (check disk)
+
+Purpose:
+Scans the disk in the specified drive and checks it for errors.
+
+Syntax:
+chkdsk (drive:][pathname] [If] [Iv]
+Comments:
+The chkdsk command shows the status of your disk. You should
+run chkdsk occasionally on each disk to check for errors. If you
+do run chkdsk on a disk and any errors are found, chkdsk
+displays the error messages, followed by a status report.
+A typical status report might look like this:                          Chkdsk status report
+160256             bytes    total disk space
+8192               bytes    in 2 hidden files
+512                bytes    in 2 directories
+30720              bytes    in 8 user files
+121344             bytes    available on disk
+65536,bytes total memory
+53152 bytes free
+
+If you type a filename after chkdsk, MS-DOS displays a status
+report for the disk and for the individual file.
+The chk.dsk command accepts the following switches:
+
+Switch        Purpose
+If            Fixes errors on the disk. If you do not specify this     The Chkdsk switches
+              switch, chkdsk does not correct errors that it finds
+              in your directory. However, it does display messages
+              about files that need to be fixed.
+Iv            Displays the name of each file in each directory as it
+              checks the disk.
+
+
+If you specify the If switch, chkdsk will show an error if it finds
+any open files on the disk. If you do not specify the If switch and
+there are open files, chkdsk may give results that make it seem
+like there are lost clusters on the disk. This happens when the File
+Allocation Table has yet to be updated regarding open files. If
+chkdsk reports a large number of clusters as lost, you should
+consider repairing the disk.

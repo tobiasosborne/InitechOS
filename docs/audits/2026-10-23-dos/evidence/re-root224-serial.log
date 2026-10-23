@@ -1,0 +1,300 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+F000.TXT            0
+F001.TXT            0
+F002.TXT            0
+F003.TXT            0
+F004.TXT            0
+F005.TXT            0
+F006.TXT            0
+F007.TXT            0
+F008.TXT            0
+F009.TXT            0
+F010.TXT            0
+F011.TXT            0
+F012.TXT            0
+F013.TXT            0
+F014.TXT            0
+F015.TXT            0
+F016.TXT            0
+F017.TXT            0
+F018.TXT            0
+F019.TXT            0
+F020.TXT            0
+F021.TXT            0
+F022.TXT            0
+F023.TXT            0
+F024.TXT            0
+F025.TXT            0
+F026.TXT            0
+F027.TXT            0
+F028.TXT            0
+F029.TXT            0
+F030.TXT            0
+F031.TXT            0
+F032.TXT            0
+F033.TXT            0
+F034.TXT            0
+F035.TXT            0
+F036.TXT            0
+F037.TXT            0
+F038.TXT            0
+F039.TXT            0
+F040.TXT            0
+F041.TXT            0
+F042.TXT            0
+F043.TXT            0
+F044.TXT            0
+F045.TXT            0
+F046.TXT            0
+F047.TXT            0
+F048.TXT            0
+F049.TXT            0
+F050.TXT            0
+F051.TXT            0
+F052.TXT            0
+F053.TXT            0
+F054.TXT            0
+F055.TXT            0
+F056.TXT            0
+F057.TXT            0
+F058.TXT            0
+F059.TXT            0
+F060.TXT            0
+F061.TXT            0
+F062.TXT            0
+F063.TXT            0
+F064.TXT            0
+F065.TXT            0
+F066.TXT            0
+F067.TXT            0
+F068.TXT            0
+F069.TXT            0
+F070.TXT            0
+F071.TXT            0
+F072.TXT            0
+F073.TXT            0
+F074.TXT            0
+F075.TXT            0
+F076.TXT            0
+F077.TXT            0
+F078.TXT            0
+F079.TXT            0
+F080.TXT            0
+F081.TXT            0
+F082.TXT            0
+F083.TXT            0
+F084.TXT            0
+F085.TXT            0
+F086.TXT            0
+F087.TXT            0
+F088.TXT            0
+F089.TXT            0
+F090.TXT            0
+F091.TXT            0
+F092.TXT            0
+F093.TXT            0
+F094.TXT            0
+F095.TXT            0
+F096.TXT            0
+F097.TXT            0
+F098.TXT            0
+F099.TXT            0
+F100.TXT            0
+F101.TXT            0
+F102.TXT            0
+F103.TXT            0
+F104.TXT            0
+F105.TXT            0
+F106.TXT            0
+F107.TXT            0
+F108.TXT            0
+F109.TXT            0
+F110.TXT            0
+F111.TXT            0
+F112.TXT            0
+F113.TXT            0
+F114.TXT            0
+F115.TXT            0
+F116.TXT            0
+F117.TXT            0
+F118.TXT            0
+F119.TXT            0
+F120.TXT            0
+F121.TXT            0
+F122.TXT            0
+F123.TXT            0
+F124.TXT            0
+F125.TXT            0
+F126.TXT            0
+F127.TXT            0
+F128.TXT            0
+F129.TXT            0
+F130.TXT            0
+F131.TXT            0
+F132.TXT            0
+F133.TXT            0
+F134.TXT            0
+F135.TXT            0
+F136.TXT            0
+F137.TXT            0
+F138.TXT            0
+F139.TXT            0
+F140.TXT            0
+F141.TXT            0
+F142.TXT            0
+F143.TXT            0
+F144.TXT            0
+F145.TXT            0
+F146.TXT            0
+F147.TXT            0
+F148.TXT            0
+F149.TXT            0
+F150.TXT            0
+F151.TXT            0
+F152.TXT            0
+F153.TXT            0
+F154.TXT            0
+F155.TXT            0
+F156.TXT            0
+F157.TXT            0
+F158.TXT            0
+F159.TXT            0
+F160.TXT            0
+F161.TXT            0
+F162.TXT            0
+F163.TXT            0
+F164.TXT            0
+F165.TXT            0
+F166.TXT            0
+F167.TXT            0
+F168.TXT            0
+F169.TXT            0
+F170.TXT            0
+F171.TXT            0
+F172.TXT            0
+F173.TXT            0
+F174.TXT            0
+F175.TXT            0
+F176.TXT            0
+F177.TXT            0
+F178.TXT            0
+F179.TXT            0
+F180.TXT            0
+F181.TXT            0
+F182.TXT            0
+F183.TXT            0
+F184.TXT            0
+F185.TXT            0
+F186.TXT            0
+F187.TXT            0
+F188.TXT            0
+F189.TXT            0
+F190.TXT            0
+F191.TXT            0
+F192.TXT            0
+F193.TXT            0
+F194.TXT            0
+F195.TXT            0
+F196.TXT            0
+F197.TXT            0
+F198.TXT            0
+F199.TXT            0
+F200.TXT            0
+F201.TXT            0
+F202.TXT            0
+F203.TXT            0
+F204.TXT            0
+F205.TXT            0
+F206.TXT            0
+F207.TXT            0
+F208.TXT            0
+F209.TXT            0
+F210.TXT            0
+F211.TXT            0
+F212.TXT            0
+F213.TXT            0
+F214.TXT            0
+F215.TXT            0
+F216.TXT            0
+F217.TXT            0
+F218.TXT            0
+F219.TXT            0
+F220.TXT            0
+F221.TXT            0
+F222.TXT            0
+F223.TXT            0
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+DOS-VOLUME-OK D rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+Current date is Fri 10-23-2026
+Enter new date (mm-dd-yy): 
+Current time is 12:54:09.00
+Enter new time: 
+A:\>CLS
+A:\>ECHO TEST > NEW.TXT
+Bad command or file name
+A:\>MD NEWDIR
+Unable to create directory
+A:\>DIR NEW*.*
+
+ Volume in drive A has no label
+
+ Directory of A:\
+
+File not found
+A:\>

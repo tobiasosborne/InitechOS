@@ -1,0 +1,44 @@
+                                                   Appendix F MS-DOS Message Directory 341
+
+Invalid number of parameters
+[Attrib )[Backup)[ Fe)[ Find )[Recover)[ Restore )[Xcopy]
+• Either you did not specify an option or string, or you specified
+  the wrong number of options in the command line.
+Invalid parameter(s)
+[Backup][ Chkdsk )(Diskcomp )[Diskcopy )[Edlin )[Find]
+[Format )[Join)[ Mode][ Print )[Replace )[Restore)[ Sort]
+[Subst )[Sys ][Tree J[Xcopy]
+• One of the switches you specified is wrong or does not exist.
+  Refer to Chapter 3, "MS-DOS Commands," to make sure you are
+  using the correct switches.
+
+Invalid path, not directory, or directory not empty
+(MS-DOS)
+• You are unable to remove the directory requested for one of
+  the specified reasons.
+Invalid path (or file not found)
+[Attrib ][Backup][ Copy][ Restore)[ Tree )[Xcopy]
+• You have entered a pathname or filename that does not exist.
+  Enter a valid pathname or filename with the command.
+
+Invalid path or parameter
+[Append]
+• You specified a file or directory that does not exist.
+  Enter a valid pathname or filename with the append command.
+
+Invalid signature in COUNTRY.SYS file
+(Select)
+• Select reads the country.sys file to verify the country code.
+  Select quits if it cannot find a proper file header or a specific
+  country code.
+Invalid signature in KEYBOARD.SYS file
+(Select]
+• Select reads the keyboard.sys file to verify the keyboard code.
+  Select quits if it cannot find the proper file header or a
+  specific keyboard code.
+Invalid STACK parameter
+(MS-DOS)
+• The syntax of the Stack command in your config.sys file
+  includes an invalid parameter.
+  See Appendix B, "How to Configure Your System," for the
+  correct syntax of that configuration command.

@@ -1,0 +1,36 @@
+                                                                    153
+5 MS-DOS Editing
+  and Function Keys
+
+
+
+
+In this chapter, you will learn about
+• 1be MS-DOS editing and function keys
+• The editing template
+• 1be MS-DOS control characters
+
+
+
+Special MS-DOS Editing Keys
+Many operating systems handle command input differently than
+MS-DOS does. One difference in particular that sets MS-DOS apart
+is its set of special editing keys. For instance, with MS-DOS you
+don't have to type the same sequences of keys repeatedly, because
+the most recently typed command line is automatically placed in a
+special storage area called a template.
+By using the template and the special editing keys, you can take
+advantage of the following MS-DOS features:
+ • You can repeat a command instantly by pressing two keys.
+ • If you make a mistake in a command line, you can edit and
+   retry it without having to retype the entire line.
+ • With a minimum of typing. you can edit and execute a com-
+   mand line that is similar to a previous one.
+
+
+How MS-DOS Uses the Template
+When you type a command and press the RETURN key, MS-DOS
+automatically sends it to the command processor (command.com)
+for execution. At the same time, MS-DOS also saves a copy of this
+command in the template. You can then recall or modify the com-
+mand by using the MS-DOS special editing keys.

@@ -1,0 +1,31 @@
+146 MS-DOS User's Reference
+
+
+Goto                     Goto
+                         Purpose:
+                         Processes commands starting with the line after the specified
+                         label.
+                         Syntax:
+                         goto (:)label
+                        'Comments:
+                         Goto lets you take commands from the batch file beginning with
+                         the line after the label, where a label is defined as the characters
+                         following goto. This label may include spaces, but not other
+                         separators, such as semicolons or equal signs. If your batch file
+                         does not contain the label, the batch process terminates.
+
+                         Note Any line in a batch file that starts with a colon (:) is
+                         ignored during batch processing.
+
+                         Examples:
+Errorlevel processing    The following example sends the program processor to the label
+                         named end - only if no errors occur when you format the disk in
+                         drive A:
+
+                         :begin
+                         echo off
+                         format a: /s
+                         if errorlevel 0 goto end
+                         echo An error occurred during formatting.
+                         :end
+                         echo End of batch file.

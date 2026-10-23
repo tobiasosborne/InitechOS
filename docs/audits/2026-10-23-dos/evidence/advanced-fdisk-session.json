@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-23T13:00:53.457066+00:00",
+  "driver_pid": 40,
+  "qemu_pid": 41,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/advanced-fdisk-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/advanced-fdisk-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/advanced-fdisk-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/advanced-fdisk-boot.img": {
+      "bytes": 4194304,
+      "sha256": "e9e16477d0a917969aa4202d0d8220b5c5236da781b53dfbcb05068b6b4d7968"
+    },
+    "images/advanced-fdisk-data.img": {
+      "bytes": 1474560,
+      "sha256": "a89e050c316a54664bc6d91d95e46702d8634b6852f4b8e7c1e4d6dbb48b91b1"
+    }
+  },
+  "stopped_utc": "2026-10-23T13:00:55.476587+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/advanced-fdisk-boot.img": {
+      "bytes": 4194304,
+      "sha256": "e9e16477d0a917969aa4202d0d8220b5c5236da781b53dfbcb05068b6b4d7968"
+    },
+    "images/advanced-fdisk-data.img": {
+      "bytes": 1474560,
+      "sha256": "a89e050c316a54664bc6d91d95e46702d8634b6852f4b8e7c1e4d6dbb48b91b1"
+    }
+  }
+}

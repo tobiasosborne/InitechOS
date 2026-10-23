@@ -1,0 +1,50 @@
+136 MS-DOS User's Reference
+
+                         How to Create an Autoexec.bat File
+                         There are many things you can do with an autoexec.bat file to
+                         help you use MS-DOS more efficiently. For instance, you will
+                         probably want to set the time and date, your path, and any other
+                         options that you plan to use on a regular basis.
+
+
+                         Note   When you create your autoexec.bat file, you must put it in
+                         the root directory of your MS-DOS disk.
+
+
+Creating an              If, for example, you want to automatically load GW-BAS!C and run a
+autoexec.bat file        program called menu each time you start MS-DOS, you could
+                         create an autoexec. bat file as follows:
+
+                         [1] Type the following command and then press RETURN:
+
+                              copy con au t oexec. bat
+
+                           This command tells MS-DOS to copy what you type from the
+                           keyboard into the autoexec. bat file. Note that you must put
+                           the autoexec. bat file in the root directory of your MS-DOS
+                           disk.
+                         ~ Now type the following lines:
+
+                              date
+                              time
+                              path=c:\;c:\bin;a:\
+                              prompt [$pl
+                              els
+                              gwbasic menu
+
+                         [fil After the last line, press CONTROL·Z and press RETURN to copy
+                              these lines into the autoexec.bat file.
+                         [1] The menu program will now run automatically whenever you
+                              start MS-DOS.
+
+
+                         Once your autoexecbat file is set up as in this ex:!mple, it will
+                         perform the following actions when you start MS-DOS: it will ask
+                         you to enter the date and time; it will set your command search
+                         path; and it will set your prompt to display the default drive and
+                         directory.
+                         Finally, the autoexec.bat file will clear the screen and tell MS-DOS
+                         to load GW·BASIC and run the menu program. To run your own
+                         GW-BASIC program, type its name in place of menu in the exam-
+                         ple. In addition to GW·BASIC programs, you can also put any
+                         MS-DOS command or series of commands in the autoexec.bat file.

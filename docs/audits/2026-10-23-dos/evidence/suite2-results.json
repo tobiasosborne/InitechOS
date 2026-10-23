@@ -1,0 +1,381 @@
+[
+  {
+    "id": "B001",
+    "name": "dir-paths",
+    "lines": [
+      "DIR .",
+      "DIR ..\\T\\ONE.TXT",
+      "DIR A:ONE",
+      "DIR .TXT"
+    ],
+    "seconds": 1.504,
+    "serial_file": "suite2-B001.txt"
+  },
+  {
+    "id": "B002",
+    "name": "dir-errors",
+    "lines": [
+      "DIR NOEXIST\\*.TXT",
+      "DIR ONE.TXT\\",
+      "DIR /Z",
+      "DIR ONE.TXT TWO.TXT"
+    ],
+    "seconds": 1.198,
+    "serial_file": "suite2-B002.txt"
+  },
+  {
+    "id": "B003",
+    "name": "dir-wide",
+    "lines": [
+      "DIR /W",
+      "DIR SUB\\ /W"
+    ],
+    "seconds": 1.098,
+    "serial_file": "suite2-B003.txt"
+  },
+  {
+    "id": "B004",
+    "name": "dir-300",
+    "lines": [
+      "DIR \\MANY /W"
+    ],
+    "seconds": 1.802,
+    "serial_file": "suite2-B004.txt"
+  },
+  {
+    "id": "B005",
+    "name": "dir-boundaries",
+    "lines": [
+      "DIR \\D16 /W",
+      "DIR \\D32 /W",
+      "DIR \\D64 /W"
+    ],
+    "seconds": 1.504,
+    "serial_file": "suite2-B005.txt"
+  },
+  {
+    "id": "B006",
+    "name": "cd-paths",
+    "lines": [
+      "CD SUB\\",
+      "CD",
+      "CD ..",
+      "CHDIR A:\\T\\SUB",
+      "CD \\",
+      "CD",
+      "CD \\T",
+      "CD MISSING",
+      "CD ONE.TXT"
+    ],
+    "seconds": 1.201,
+    "serial_file": "suite2-B006.txt"
+  },
+  {
+    "id": "B007",
+    "name": "md-rd-errors",
+    "lines": [
+      "MD EMPTY",
+      "MD ONE.TXT",
+      "RD SUB",
+      "RD \\",
+      "MD A?B",
+      "MD CON",
+      "MD NUL",
+      "MD AUX",
+      "MD COM1",
+      "MD PRN"
+    ],
+    "seconds": 1.103,
+    "serial_file": "suite2-B007.txt"
+  },
+  {
+    "id": "B008",
+    "name": "md-rd-normal",
+    "lines": [
+      "MD NEWDIR",
+      "DIR NEWDIR",
+      "CD NEWDIR",
+      "RD .",
+      "CD ..",
+      "RD NEWDIR",
+      "DIR NEWDIR"
+    ],
+    "seconds": 1.202,
+    "serial_file": "suite2-B008.txt"
+  },
+  {
+    "id": "B009",
+    "name": "copy-self",
+    "lines": [
+      "COPY SELF.BIN SELF.BIN",
+      "COPY SELF.BIN .\\SELF.BIN",
+      "COPY SELF.BIN A:\\T\\SELF.BIN",
+      "COPY SELF.BIN ..\\T\\SELF.BIN",
+      "DIR SELF.BIN"
+    ],
+    "seconds": 1.203,
+    "serial_file": "suite2-B009.txt"
+  },
+  {
+    "id": "B010",
+    "name": "copy-protect",
+    "lines": [
+      "COPY ONE.TXT READONLY.TXT",
+      "DEL READONLY.TXT",
+      "TYPE READONLY.TXT",
+      "ATTRIB READONLY.TXT"
+    ],
+    "seconds": 1.201,
+    "serial_file": "suite2-B010.txt"
+  },
+  {
+    "id": "B011",
+    "name": "copy-directory",
+    "lines": [
+      "COPY ONE.TXT DEST",
+      "TYPE DEST\\KEEP.TXT",
+      "TYPE DEST\\ONE.TXT"
+    ],
+    "seconds": 1.201,
+    "serial_file": "suite2-B011.txt"
+  },
+  {
+    "id": "B012",
+    "name": "copy-empty",
+    "lines": [
+      "COPY ZERO.TXT ZCOPY.TXT",
+      "DIR ZCOPY.TXT",
+      "COPY ZERO.TXT ZCOPY2.TXT /A",
+      "DIR ZCOPY2.TXT"
+    ],
+    "seconds": 1.202,
+    "serial_file": "suite2-B012.txt"
+  },
+  {
+    "id": "B013",
+    "name": "copy-binary",
+    "lines": [
+      "COPY EOF.TXT EBIN.TXT /B /V",
+      "COPY EOF.TXT /A EASC.TXT",
+      "DIR E*.TXT",
+      "TYPE EBIN.TXT",
+      "TYPE EASC.TXT"
+    ],
+    "seconds": 1.202,
+    "serial_file": "suite2-B013.txt"
+  },
+  {
+    "id": "B014",
+    "name": "copy-plus",
+    "lines": [
+      "COPY ONE.TXT+TWO.TXT JOIN.TXT",
+      "COPY ONE.TXT /B+TWO.TXT /B JOINB.TXT /B",
+      "TYPE JOIN.TXT",
+      "TYPE JOINB.TXT"
+    ],
+    "seconds": 1.2,
+    "serial_file": "suite2-B014.txt"
+  },
+  {
+    "id": "B015",
+    "name": "copy-plus-implicit",
+    "lines": [
+      "COPY ONE.TXT IMP.TXT",
+      "COPY IMP.TXT+TWO.TXT",
+      "TYPE IMP.TXT"
+    ],
+    "seconds": 1.2,
+    "serial_file": "suite2-B015.txt"
+  },
+  {
+    "id": "B016",
+    "name": "copy-wild-output",
+    "lines": [
+      "COPY SUB\\*.TXT DEST\\*.BAK /B",
+      "DIR DEST /W"
+    ],
+    "seconds": 1.199,
+    "serial_file": "suite2-B016.txt"
+  },
+  {
+    "id": "B017",
+    "name": "copy-wild-combine",
+    "lines": [
+      "COPY SUB\\*.TXT COMBINED.OUT",
+      "TYPE COMBINED.OUT"
+    ],
+    "seconds": 1.201,
+    "serial_file": "suite2-B017.txt"
+  },
+  {
+    "id": "B018",
+    "name": "copy-target-source-later",
+    "lines": [
+      "COPY ONE.TXT+TWO.TXT TWO.TXT",
+      "TYPE TWO.TXT",
+      "COPY ONE.TXT+MISSING.TXT SAFE.TXT",
+      "DIR SAFE.TXT"
+    ],
+    "seconds": 1.101,
+    "serial_file": "suite2-B018.txt"
+  },
+  {
+    "id": "B019",
+    "name": "copy-timestamps",
+    "lines": [
+      "COPY OLD.TXT OCOPY.TXT",
+      "COPY FUTURE.TXT FCOPY.TXT",
+      "COPY OLD.TXT OASC.TXT /A",
+      "DIR O*.TXT",
+      "DIR F*.TXT"
+    ],
+    "seconds": 1.201,
+    "serial_file": "suite2-B019.txt"
+  },
+  {
+    "id": "B020",
+    "name": "copy-omitted",
+    "lines": [
+      "CD SUB",
+      "COPY ..\\ONE.TXT",
+      "TYPE ONE.TXT",
+      "CD .."
+    ],
+    "seconds": 1.199,
+    "serial_file": "suite2-B020.txt"
+  },
+  {
+    "id": "B021",
+    "name": "copy-con-output",
+    "lines": [
+      "COPY ONE.TXT CON",
+      "COPY EOF.TXT CON /A"
+    ],
+    "seconds": 1.098,
+    "serial_file": "suite2-B021.txt"
+  },
+  {
+    "id": "B022",
+    "name": "del-paths",
+    "lines": [
+      "COPY ONE.TXT KEEP.TXT",
+      "COPY TWO.TXT SUB\\DELME.TMP",
+      "DEL SUB\\*.TMP",
+      "TYPE KEEP.TXT",
+      "DIR SUB /W"
+    ],
+    "seconds": 1.201,
+    "serial_file": "suite2-B022.txt"
+  },
+  {
+    "id": "B023",
+    "name": "del-directory",
+    "lines": [
+      "MD DELDIR",
+      "COPY ONE.TXT DELDIR\\ONE.TXT",
+      "DEL DELDIR",
+      "DIR DELDIR"
+    ],
+    "seconds": 1.2,
+    "serial_file": "suite2-B023.txt"
+  },
+  {
+    "id": "B024",
+    "name": "rename-mask",
+    "lines": [
+      "COPY ONE.TXT RENA.TXT",
+      "COPY TWO.TXT RENB.TXT",
+      "REN REN?.TXT *.BAK",
+      "DIR REN*.*"
+    ],
+    "seconds": 1.201,
+    "serial_file": "suite2-B024.txt"
+  },
+  {
+    "id": "B025",
+    "name": "rename-errors",
+    "lines": [
+      "REN ONE.TXT TWO.TXT",
+      "REN ONE.TXT SUB\\NEW.TXT",
+      "REN ONE.TXT BAD?NAME",
+      "DIR ONE.TXT"
+    ],
+    "seconds": 1.1,
+    "serial_file": "suite2-B025.txt"
+  },
+  {
+    "id": "B026",
+    "name": "rename-readonly",
+    "lines": [
+      "REN READONLY.TXT LOCKED.TXT",
+      "DIR LOCKED.TXT",
+      "REN LOCKED.TXT READONLY.TXT"
+    ],
+    "seconds": 1.199,
+    "serial_file": "suite2-B026.txt"
+  },
+  {
+    "id": "B027",
+    "name": "type-misc",
+    "lines": [
+      "TYPE ZERO.TXT",
+      "TYPE NOCR.TXT",
+      "TYPE NOLF.TXT",
+      "TYPE *.TXT",
+      "TYPE MISSING.TXT",
+      "TYPE ONE.TXT TWO.TXT"
+    ],
+    "seconds": 1.1,
+    "serial_file": "suite2-B027.txt"
+  },
+  {
+    "id": "B028",
+    "name": "redir-bytes",
+    "lines": [
+      "TYPE BINARY.BIN > BTYP.BIN",
+      "TYPE ZERO.TXT > ZTYP.TXT",
+      "TYPE NOLF.TXT > NTYP.TXT",
+      "TYPE LONG.TXT > LTYP.TXT",
+      "DIR ?TYP.*"
+    ],
+    "seconds": 2.302,
+    "serial_file": "suite2-B028.txt"
+  },
+  {
+    "id": "B029",
+    "name": "redir-append",
+    "lines": [
+      "ECHO FIRST > REDIR.TXT",
+      "ECHO SECOND >> REDIR.TXT",
+      "TYPE REDIR.TXT",
+      "BOGUS > BADOUT.TXT",
+      "TYPE BADOUT.TXT"
+    ],
+    "seconds": 1.199,
+    "serial_file": "suite2-B029.txt"
+  },
+  {
+    "id": "B030",
+    "name": "redir-readonly",
+    "lines": [
+      "ECHO LOST > READONLY.TXT",
+      "ECHO LOST >> READONLY.TXT",
+      "TYPE READONLY.TXT",
+      "TYPE ONE.TXT > NUL"
+    ],
+    "seconds": 1.099,
+    "serial_file": "suite2-B030.txt"
+  },
+  {
+    "id": "B031",
+    "name": "find-basic",
+    "lines": [
+      "FIND \"Alpha\" < LINES.TXT",
+      "FIND /N \"a\" < LINES.TXT",
+      "FIND /C \"a\" < LINES.TXT",
+      "FIND /V \"a\" < LINES.TXT"
+    ],
+    "seconds": 1.201,
+    "serial_file": "suite2-B031.txt"
+  }
+]

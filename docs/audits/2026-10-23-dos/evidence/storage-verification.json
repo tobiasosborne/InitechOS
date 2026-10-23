@@ -1,0 +1,456 @@
+{
+  "re-full0": {
+    "minfo": {
+      "rc": 0
+    },
+    "mdir": {
+      "rc": 0
+    },
+    "fsck.fat": {
+      "rc": 0
+    },
+    "mcheck_rc": 0,
+    "files": {
+      "T/FULL.OUT": {
+        "rc": 0,
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "hex": ""
+      },
+      "T/FULL.BIN": {
+        "rc": 0,
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "hex": ""
+      },
+      "T/ZERO2.TXT": {
+        "rc": 0,
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "hex": ""
+      },
+      "T/SELF.BIN": {
+        "rc": 0,
+        "size": 8192,
+        "sha256": "dc404a613fedaeb54034514bc6505f56b933caa5250299ba7d094377a51caa46",
+        "hex": null
+      }
+    }
+  },
+  "re-full512": {
+    "minfo": {
+      "rc": 0
+    },
+    "mdir": {
+      "rc": 0
+    },
+    "fsck.fat": {
+      "rc": 0
+    },
+    "mcheck_rc": 0,
+    "files": {
+      "T/FULL.OUT": {
+        "rc": 0,
+        "size": 6,
+        "sha256": "ab97320113e5e735ff9279af0a7132d751bbfebea07258c9e38aabbefe4312b6",
+        "hex": "544553540d0a"
+      },
+      "T/FULL.BIN": {
+        "rc": 0,
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "hex": ""
+      },
+      "T/ZERO2.TXT": {
+        "rc": 0,
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "hex": ""
+      },
+      "T/SELF.BIN": {
+        "rc": 0,
+        "size": 8192,
+        "sha256": "dc404a613fedaeb54034514bc6505f56b933caa5250299ba7d094377a51caa46",
+        "hex": null
+      }
+    }
+  },
+  "re-dirty": {
+    "minfo": {
+      "rc": 0
+    },
+    "mdir": {
+      "rc": 0
+    },
+    "fsck.fat": {
+      "rc": 1
+    },
+    "mcheck_rc": 0,
+    "files": {
+      "FILE0000.CHK": {
+        "rc": 0,
+        "size": 512,
+        "sha256": "78f500e0166695971d8c80aa4efb383766a8cceec812de6d125aaef65e6dc8ef",
+        "hex": null
+      },
+      "FILE0001.CHK": {
+        "rc": 0,
+        "size": 512,
+        "sha256": "61147d0692145b04ebffa9d07cbd3e47ea88cc5e11ae39529d105efee5a71ea5",
+        "hex": null
+      },
+      "POST.TXT": {
+        "rc": 0,
+        "size": 7,
+        "sha256": "9fe2689428564443ae6569ff39407c321e49d6ce2dd6030942b3c57cd9866924",
+        "hex": "41465445520d0a"
+      }
+    }
+  },
+  "re-root64": {
+    "minfo": {
+      "rc": 0
+    },
+    "mdir": {
+      "rc": 0
+    },
+    "fsck.fat": {
+      "rc": 0
+    },
+    "mcheck_rc": 0,
+    "files": {
+      "NEW.TXT": {
+        "rc": 0,
+        "size": 6,
+        "sha256": "ab97320113e5e735ff9279af0a7132d751bbfebea07258c9e38aabbefe4312b6",
+        "hex": "544553540d0a"
+      }
+    }
+  },
+  "re-root224": {
+    "minfo": {
+      "rc": 0
+    },
+    "mdir": {
+      "rc": 0
+    },
+    "fsck.fat": {
+      "rc": 0
+    },
+    "mcheck_rc": 0,
+    "files": {
+      "NEW.TXT": {
+        "rc": 1,
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "hex": ""
+      }
+    }
+  },
+  "re-spc2": {
+    "minfo": {
+      "rc": 0
+    },
+    "mdir": {
+      "rc": 0
+    },
+    "fsck.fat": {
+      "rc": 0
+    },
+    "mcheck_rc": 0,
+    "files": {
+      "EXACT.BIN": {
+        "rc": 0,
+        "size": 1024,
+        "sha256": "785b0751fc2c53dc14a4ce3d800e69ef9ce1009eb327ccf458afe09c242c26c9",
+        "hex": null
+      },
+      "PLUS.BIN": {
+        "rc": 0,
+        "size": 1025,
+        "sha256": "a0436565332dd66f8c0b3816fc1931c41df672764f5d571e1d5397dc0248d61a",
+        "hex": null
+      },
+      "RENAMED.BIN": {
+        "rc": 0,
+        "size": 1024,
+        "sha256": "785b0751fc2c53dc14a4ce3d800e69ef9ce1009eb327ccf458afe09c242c26c9",
+        "hex": null
+      },
+      "TYPE.BIN": {
+        "rc": 0,
+        "size": 1025,
+        "sha256": "a0436565332dd66f8c0b3816fc1931c41df672764f5d571e1d5397dc0248d61a",
+        "hex": null
+      },
+      "SUB/EXACT.BIN": {
+        "rc": 0,
+        "size": 1024,
+        "sha256": "785b0751fc2c53dc14a4ce3d800e69ef9ce1009eb327ccf458afe09c242c26c9",
+        "hex": null
+      }
+    },
+    "copy_equal": true,
+    "type_equal": true
+  },
+  "re-spc4": {
+    "minfo": {
+      "rc": 0
+    },
+    "mdir": {
+      "rc": 0
+    },
+    "fsck.fat": {
+      "rc": 0
+    },
+    "mcheck_rc": 0,
+    "files": {
+      "EXACT.BIN": {
+        "rc": 0,
+        "size": 2048,
+        "sha256": "10fc3c51a152e90e5b90319b601d92ccf37290ef53c35ff92507687d8a911a08",
+        "hex": null
+      },
+      "PLUS.BIN": {
+        "rc": 0,
+        "size": 2049,
+        "sha256": "3c3f855a20cea3215573ad8626369a5a4d41cc992d79e1003afabdfc71f63135",
+        "hex": null
+      },
+      "RENAMED.BIN": {
+        "rc": 0,
+        "size": 2048,
+        "sha256": "10fc3c51a152e90e5b90319b601d92ccf37290ef53c35ff92507687d8a911a08",
+        "hex": null
+      },
+      "TYPE.BIN": {
+        "rc": 0,
+        "size": 2049,
+        "sha256": "3c3f855a20cea3215573ad8626369a5a4d41cc992d79e1003afabdfc71f63135",
+        "hex": null
+      },
+      "SUB/EXACT.BIN": {
+        "rc": 0,
+        "size": 2048,
+        "sha256": "10fc3c51a152e90e5b90319b601d92ccf37290ef53c35ff92507687d8a911a08",
+        "hex": null
+      }
+    },
+    "copy_equal": true,
+    "type_equal": true
+  },
+  "re-spc8": {
+    "minfo": {
+      "rc": 0
+    },
+    "mdir": {
+      "rc": 0
+    },
+    "fsck.fat": {
+      "rc": 0
+    },
+    "mcheck_rc": 0,
+    "files": {
+      "EXACT.BIN": {
+        "rc": 0,
+        "size": 4096,
+        "sha256": "c8f5d0341d54d951a71b136e6e2afcb14d11ed8489a7ae126a8fee0df6ecf193",
+        "hex": null
+      },
+      "PLUS.BIN": {
+        "rc": 0,
+        "size": 4097,
+        "sha256": "6932e72ddc0263338e444b26520e022055edf90b8e9d1b0ef45ebdf436bd7445",
+        "hex": null
+      },
+      "RENAMED.BIN": {
+        "rc": 0,
+        "size": 4096,
+        "sha256": "c8f5d0341d54d951a71b136e6e2afcb14d11ed8489a7ae126a8fee0df6ecf193",
+        "hex": null
+      },
+      "TYPE.BIN": {
+        "rc": 0,
+        "size": 4097,
+        "sha256": "6932e72ddc0263338e444b26520e022055edf90b8e9d1b0ef45ebdf436bd7445",
+        "hex": null
+      },
+      "SUB/EXACT.BIN": {
+        "rc": 0,
+        "size": 4096,
+        "sha256": "c8f5d0341d54d951a71b136e6e2afcb14d11ed8489a7ae126a8fee0df6ecf193",
+        "hex": null
+      }
+    },
+    "copy_equal": true,
+    "type_equal": true
+  },
+  "re-spc16": {
+    "minfo": {
+      "rc": 0
+    },
+    "mdir": {
+      "rc": 0
+    },
+    "fsck.fat": {
+      "rc": 0
+    },
+    "mcheck_rc": 0,
+    "files": {
+      "EXACT.BIN": {
+        "rc": 0,
+        "size": 8192,
+        "sha256": "dc404a613fedaeb54034514bc6505f56b933caa5250299ba7d094377a51caa46",
+        "hex": null
+      },
+      "PLUS.BIN": {
+        "rc": 0,
+        "size": 8193,
+        "sha256": "45b5d4a71815afb033c3faf9aa879114a977cab0d47aa123183a6a1756953474",
+        "hex": null
+      },
+      "RENAMED.BIN": {
+        "rc": 0,
+        "size": 8192,
+        "sha256": "dc404a613fedaeb54034514bc6505f56b933caa5250299ba7d094377a51caa46",
+        "hex": null
+      },
+      "TYPE.BIN": {
+        "rc": 0,
+        "size": 8193,
+        "sha256": "45b5d4a71815afb033c3faf9aa879114a977cab0d47aa123183a6a1756953474",
+        "hex": null
+      },
+      "SUB/EXACT.BIN": {
+        "rc": 0,
+        "size": 8192,
+        "sha256": "dc404a613fedaeb54034514bc6505f56b933caa5250299ba7d094377a51caa46",
+        "hex": null
+      }
+    },
+    "copy_equal": true,
+    "type_equal": true
+  },
+  "re-spc32": {
+    "minfo": {
+      "rc": 0
+    },
+    "mdir": {
+      "rc": 0
+    },
+    "fsck.fat": {
+      "rc": 0
+    },
+    "mcheck_rc": 0,
+    "files": {
+      "EXACT.BIN": {
+        "rc": 0,
+        "size": 16384,
+        "sha256": "a1f259d4365ed4320c377ce26f5c8c56dcdc9a89e7b641bfd8eabfbbeac86654",
+        "hex": null
+      },
+      "PLUS.BIN": {
+        "rc": 0,
+        "size": 16385,
+        "sha256": "4ab10c623a20384c83fd42304e3795ed60912c86cedf4ad5a582c05a7e3aa1c9",
+        "hex": null
+      },
+      "RENAMED.BIN": {
+        "rc": 0,
+        "size": 16384,
+        "sha256": "a1f259d4365ed4320c377ce26f5c8c56dcdc9a89e7b641bfd8eabfbbeac86654",
+        "hex": null
+      },
+      "TYPE.BIN": {
+        "rc": 0,
+        "size": 16385,
+        "sha256": "4ab10c623a20384c83fd42304e3795ed60912c86cedf4ad5a582c05a7e3aa1c9",
+        "hex": null
+      },
+      "SUB/EXACT.BIN": {
+        "rc": 0,
+        "size": 16384,
+        "sha256": "a1f259d4365ed4320c377ce26f5c8c56dcdc9a89e7b641bfd8eabfbbeac86654",
+        "hex": null
+      }
+    },
+    "copy_equal": true,
+    "type_equal": true
+  },
+  "re-spc64": {
+    "minfo": {
+      "rc": 0
+    },
+    "mdir": {
+      "rc": 0
+    },
+    "fsck.fat": {
+      "rc": 0
+    },
+    "mcheck_rc": 0,
+    "files": {
+      "EXACT.BIN": {
+        "rc": 0,
+        "size": 32768,
+        "sha256": "e11360251d1173650cdcd20f111d8f1ca2e412f572e8b36a4dc067121c1799b8",
+        "hex": null
+      },
+      "PLUS.BIN": {
+        "rc": 0,
+        "size": 32769,
+        "sha256": "8e00548981ffac6804e2279b2cf7bd1c3f2db9086d59bb807f7e9f346299f34f",
+        "hex": null
+      },
+      "RENAMED.BIN": {
+        "rc": 0,
+        "size": 32768,
+        "sha256": "e11360251d1173650cdcd20f111d8f1ca2e412f572e8b36a4dc067121c1799b8",
+        "hex": null
+      },
+      "TYPE.BIN": {
+        "rc": 0,
+        "size": 32769,
+        "sha256": "8e00548981ffac6804e2279b2cf7bd1c3f2db9086d59bb807f7e9f346299f34f",
+        "hex": null
+      },
+      "SUB/EXACT.BIN": {
+        "rc": 0,
+        "size": 32768,
+        "sha256": "e11360251d1173650cdcd20f111d8f1ca2e412f572e8b36a4dc067121c1799b8",
+        "hex": null
+      }
+    },
+    "copy_equal": true,
+    "type_equal": true
+  },
+  "re-fat16": {
+    "minfo": {
+      "rc": 0
+    },
+    "mdir": {
+      "rc": 0
+    },
+    "fsck.fat": {
+      "rc": 0
+    },
+    "mcheck_rc": 0,
+    "files": {
+      "NEW.TXT": {
+        "rc": 1,
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "hex": ""
+      }
+    },
+    "FAT16.OUT": {
+      "rc": 0,
+      "size": 23800,
+      "equals_source": true
+    },
+    "FATCOPY.TXT": {
+      "rc": 0,
+      "size": 23800,
+      "equals_source": true
+    }
+  }
+}

@@ -1,0 +1,26 @@
+\CASES\B003.BAT
+CASE B003 dir-wide
+A:\T>DIR /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+[.]             [..]            [SUB]           [EMPTY]         [DEST]
+ONE.TXT         TWO.TXT         EOF.TXT         ZERO.TXT        NOCR.TXT
+BINARY.BIN      EXACT.BIN       SELF.BIN        READONLY.TXT    HIDDEN.TXT
+SYSTEM.TXT      LINES.TXT       LONG.TXT        NOLF.TXT        OLD.TXT
+FUTURE.TXT      
+
+       21 File(s)    791552 bytes free
+A:\T>DIR SUB\ /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T\SUB
+
+[.]             [..]            ONE.TXT         TWO.TXT         RO.TXT
+
+        5 File(s)    791552 bytes free
+AUDIT-DONE-B003
+A:\T>

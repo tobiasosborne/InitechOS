@@ -1,0 +1,98 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          169
+AUTOEXEC.BAT           24
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+DOS-VOLUME-OK D rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>CLS
+A:\>CHKDSK
+Volume INITECH      Created JAN  1, 1980  0:00
+
+A:\T\ONE.TXT
+File is cross-linked:
+on cluster 585
+A:\T\TWO.TXT
+File is cross-linked:
+on cluster 585
+2 lost allocation units found in 2 chains.
+Convert lost chains to files (Y/N)?CHKDSK /F
+y
+
+1024 bytes would be freed
+Corrections will not be written to disk
+  1457664 bytes total disk space
+      512 bytes in 2 hidden files
+    24064 bytes in 23 directories
+   594432 bytes in 459 user files
+   838144 bytes available on disk
+
+   118448 bytes total memory
+   118448 bytes free
+A:\>CHKDSK
+Volume INITECH      Created JAN  1, 1980  0:00
+
+A:\T\ONE.TXT
+File is cross-linked:
+on cluster 585
+A:\T\TWO.TXT
+File is cross-linked:
+on cluster 585
+2 lost allocation units found in 2 chains.
+Convert lost chains to files (Y/N)?DIR *.CHK
+ECHO AFTER > POST.TXT
+TYPE POS

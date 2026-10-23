@@ -1,0 +1,22 @@
+\CASES\B037.BAT
+CASE B037 date-values
+A:\T>DATE 02-29-2000
+Current date is Tue 2-29-2000
+A:\T>DATE 02-29-1900
+Invalid date
+Current date is Tue 2-29-2000
+A:\T>DATE 02-29-2100
+Invalid date
+Current date is Tue 2-29-2000
+A:\T>DATE 12-31-2099
+Current date is Thu 12-31-2099
+A:\T>DATE 1/1/80
+Current date is Tue 1-01-1980
+A:\T>DATE 31-12-99
+Invalid date
+Current date is Tue 1-01-1980
+A:\T>DATE 0-0-0
+Invalid date
+Current date is Tue 1-01-1980
+AUDIT-DONE-B037
+A:\T>

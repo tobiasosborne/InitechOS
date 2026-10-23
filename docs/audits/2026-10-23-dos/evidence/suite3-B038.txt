@@ -1,0 +1,17 @@
+\CASES\B038.BAT
+CASE B038 date-formats
+A:\T>DATE
+Current date is Tue 1-01-1980
+A:\T>DATE 1.2.99
+Invalid date
+Current date is Tue 1-01-1980
+A:\T>DATE 1-2-99 EXTRA
+Current date is Sat 1-02-1999
+A:\T>DATE 01-01-1980
+Current date is Tue 1-01-1980
+A:\T>DATE 12-31-2079
+Current date is Sun 12-31-2079
+A:\T>DATE 01-01-1980
+Current date is Tue 1-01-1980
+AUDIT-DONE-B038
+A:\T>

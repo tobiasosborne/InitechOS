@@ -1,0 +1,718 @@
+[
+  {
+    "id": "L001",
+    "area": "Pipes",
+    "severity": "P1",
+    "title": "A pipeline destroys an existing PIPE1.$$$ file",
+    "steps": "Boot followup with multi-boot-fixture.img and followup-fixture.img. CD \\T; TYPE PIPE1.$$$; TYPE ONE.TXT | SORT; DIR PIPE1.$$$; TYPE PIPE1.$$$.",
+    "observed": "The sentinel USER-OWNED-PIPE-FILE is readable before the pipe. The pipe prints ALPHA, then the sentinel file is gone. The stopped-image extraction also has no PIPE1.$$$.",
+    "expected": "Choose an unused temporary name and preserve existing files (tester expectation for temporary-file handling; original DOS Reference pp.132-135 describes pipes).",
+    "evidence": [
+      "shots/followup-pipe-clobber.png",
+      "evidence/followup-serial.log",
+      "evidence/followup-filesystem.json",
+      "evidence/followup.py"
+    ]
+  },
+  {
+    "id": "L002",
+    "area": "Redirection",
+    "severity": "P1",
+    "title": "Output to a full disk silently becomes an empty file",
+    "steps": "Boot re-full0 with multi-boot-fixture.img and full0-fixture.img. CD \\T; DIR /W; ECHO TEST > FULL.OUT; DIR FULL.OUT; TYPE FULL.OUT.",
+    "observed": "DIR reports 0 bytes free. ECHO returns without an error; FULL.OUT exists with zero bytes instead of TEST plus CR/LF. The source files remain intact.",
+    "expected": "Report a disk-full write error; do not silently discard requested output (tester expectation; DOS Reference redirection pp.132-135).",
+    "evidence": [
+      "shots/re-full0-redirection.png",
+      "evidence/re-full0-serial.log",
+      "evidence/storage-verification.json",
+      "evidence/extracted/re-full0/T_FULL.OUT",
+      "evidence/recheck.py"
+    ]
+  },
+  {
+    "id": "L003",
+    "area": "Pipes",
+    "severity": "P1",
+    "title": "A pipeline on a full disk silently loses its input",
+    "steps": "On the same full0 fixture, CD \\T; TYPE ONE.TXT | SORT; ECHO PIPE-RETURNED.",
+    "observed": "The pipe prints nothing and no error. PIPE-RETURNED appears normally. ONE.TXT contains ALPHA plus CR/LF. Repeated after filling the last 512 bytes in re-full512.",
+    "expected": "Print ALPHA or report failure to create/write the pipe intermediate (tester expectation; DOS Reference pp.132-135).",
+    "evidence": [
+      "shots/re-full0-pipe-empty.png",
+      "evidence/re-full0-serial.log",
+      "evidence/re-full512-serial.log",
+      "evidence/recheck.py"
+    ]
+  },
+  {
+    "id": "L004",
+    "area": "COPY diagnostics",
+    "severity": "P3",
+    "title": "COPY reports Bad command for a disk-full write",
+    "steps": "On full0-fixture.img, CD \\T; COPY LONG.TXT FULL.BIN; DIR FULL.BIN.",
+    "observed": "COPY prints Bad command or file name and leaves a zero-byte FULL.BIN. LONG.TXT exists and is 76800 bytes.",
+    "expected": "A disk-space/write failure diagnostic identifying why COPY failed; command syntax and source are valid (tester expectation).",
+    "evidence": [
+      "shots/re-full0-copy-error.png",
+      "evidence/re-full0-serial.log",
+      "evidence/storage-verification.json"
+    ]
+  },
+  {
+    "id": "L005",
+    "area": "Batch files",
+    "severity": "P2",
+    "title": "A long batch file silently stops before its final command",
+    "steps": "Boot suite4 with multi-boot-fixture.img and suite-fixture.img; run \\CASES\\B063.BAT. It CALLs BIG.BAT, which contains BIG-BEGIN, 65 long REM lines, and BIG-END.",
+    "observed": "BIG-BEGIN and the caller's BIG-RETURNED print, but BIG-END never executes; no limit/error is reported.",
+    "expected": "Run the complete batch or explicitly reject it. pubs/manuals/initechdos-reference/ch4-batch.tex:19-25 describes a batch as a sequence of commands, with no file-size restriction. Suspected cause (guess): os/milton/command.c:4212 BATCH_FILE_MAX=4096. Exact contract, pubs/manuals/initechdos-reference/ch4-batch.tex:20-21: \"InitechDOS carries out the commands in it one after another\".",
+    "evidence": [
+      "shots/suite4-B063-batch-long.png",
+      "evidence/suite4-B063.txt",
+      "evidence/cases/BIG.BAT",
+      "evidence/cases/B063.BAT",
+      "evidence/suite.py"
+    ]
+  },
+  {
+    "id": "L006",
+    "area": "Batch SHIFT",
+    "severity": "P2",
+    "title": "SHIFT loses arguments after the ninth",
+    "steps": "Run \\CASES\\B060.BAT, or TEN one two three four five six seven eight nine ten eleven on more-fixture.img.",
+    "observed": "The original ninth argument is nine. After SHIFT, %9 is empty; ten and eleven never become available.",
+    "expected": "Shift later arguments into %9 (DOS Reference printed p.151, PDF236). The Initech manual explicitly limits initial arguments to nine, but this is a DOS compatibility gap.",
+    "evidence": [
+      "shots/suite4-B060-batch-args.png",
+      "shots/advanced-misc-errorlevel-shift.png",
+      "evidence/suite4-B060.txt",
+      "evidence/advanced-misc-serial.log",
+      "evidence/cases/ARGS.BAT",
+      "evidence/more-fixtures/TEN.BAT",
+      "evidence/manual-page-236.txt"
+    ]
+  },
+  {
+    "id": "L007",
+    "area": "Batch documentation",
+    "severity": "P3",
+    "title": "SHIFT changes %0 contrary to the shipped manual",
+    "steps": "Run \\CASES\\B060.BAT with its eleven arguments.",
+    "observed": "ZERO initially identifies the batch path; after SHIFT, ZERO=one.",
+    "expected": "The shipped Reference ch4-batch.tex:247 says \"%0, the name of the batch file, is not changed.\" Actual shifting of %0 agrees with original DOS p.151; fix the manual contract rather than changing DOS-compatible behavior.",
+    "evidence": [
+      "shots/suite4-B060-batch-args.png",
+      "evidence/suite4-B060.txt",
+      "evidence/cases/ARGS.BAT",
+      "evidence/manual-page-236.txt"
+    ]
+  },
+  {
+    "id": "L008",
+    "area": "Command lookup",
+    "severity": "P2",
+    "title": "A path-qualified batch name requires the .BAT extension",
+    "steps": "Boot followup; CD \\T; A:\\T\\BATCH2; A:\\T\\BATCH2.BAT; BATCH2.",
+    "observed": "The first form says Bad command or file name. Both controls print BATCH2-RAN.",
+    "expected": "Resolve .BAT for a qualified name as for a bare name. pubs/manuals/initechdos-reference/ch4-batch.tex:32 says to type the name without its extension; original DOS batch invocation uses drive/path forms. Exact wording, pubs/manuals/initechdos-reference/ch4-batch.tex:32: \"type its name without the extension\".",
+    "evidence": [
+      "shots/followup-commands-env.png",
+      "evidence/followup-serial.log",
+      "evidence/special-fixtures/BATCH2.BAT"
+    ]
+  },
+  {
+    "id": "L009",
+    "area": "COMMAND",
+    "severity": "P2",
+    "title": "COMMAND without /C cannot open a nested prompt",
+    "steps": "Boot followup; type COMMAND. Then try COMMAND /C COMMAND /C ECHO NESTED.",
+    "observed": "Bare COMMAND says Invalid number of parameters. Nested /C works and prints NESTED.",
+    "expected": "Start a secondary command processor and allow EXIT back to the caller. pubs/manuals/initechdos-reference/ch2-entries-b.tex:102-104 promises typing commands in a second copy; DOS Reference COMMAND pp.46-47. Exact wording, pubs/manuals/initechdos-reference/ch2-entries-b.tex:102-104: \"so that you can type commands without leaving the program\".",
+    "evidence": [
+      "shots/followup-commands-env.png",
+      "evidence/followup-serial.log"
+    ]
+  },
+  {
+    "id": "L010",
+    "area": "COMMAND error status",
+    "severity": "P2",
+    "title": "COMMAND /C loses its child program exit status",
+    "steps": "Boot advanced-misc (geometry-boot-fixture.img, more-fixture.img); CD \\T; ERR0.COM; COMMAND /C ERR7.COM; IF ERRORLEVEL 7 ECHO CHILD-EXIT7; IF NOT ERRORLEVEL 7 ECHO CHILD-STATUS-LOST. Run ERR7.COM directly as a control.",
+    "observed": "The /C form prints CHILD-STATUS-LOST; the direct form prints DIRECT-EXIT7. ERR7.COM exits through INT 21h/AH=4Ch with AL=7.",
+    "expected": "Propagate the child status so ERRORLEVEL can test it (tester DOS command-processor expectation; Reference IF p.147 and Initech ch4-batch.tex:185-186).",
+    "evidence": [
+      "shots/advanced-misc-errorlevel-shift.png",
+      "evidence/advanced-misc-serial.log",
+      "evidence/more-fixtures/ERR7.COM",
+      "evidence/prepare_more.py"
+    ]
+  },
+  {
+    "id": "L011",
+    "area": "CD",
+    "severity": "P2",
+    "title": "CD drive: does not display that drive's current directory",
+    "steps": "Boot followup; CD \\T; CD C:\\CHOME; CD D:\\DHOME; CD C:; CD D:; CD.",
+    "observed": "Both drive-only queries are silent; CD alone still prints A:\\T. Drive-relative file access and switching drive show that per-drive directories were set.",
+    "expected": "Display C:\\CHOME and D:\\DHOME without switching drives (DOS Reference printed p.42/PDF127).",
+    "evidence": [
+      "shots/followup-cd-tree-drive.png",
+      "evidence/followup-serial.log",
+      "evidence/suite4-B054.txt",
+      "evidence/manual-page-127.txt"
+    ]
+  },
+  {
+    "id": "L012",
+    "area": "ATTRIB",
+    "severity": "P2",
+    "title": "ATTRIB cannot find a readable file on D:",
+    "steps": "Boot advanced-driveutils; CD \\T; TYPE D:\\DHOME\\SAME.TXT; ATTRIB D:\\DHOME\\SAME.TXT; ATTRIB +R D:\\DHOME\\SAME.TXT.",
+    "observed": "TYPE prints D-DRIVE. Both ATTRIB forms print Invalid path (or file not found).",
+    "expected": "Read and set attributes on the specified mounted drive. pubs/manuals/initechdos-reference/ch2-entries-a.tex:9-12 accepts a drive-qualified file. The filename syntax at pubs/manuals/initechdos-reference/ch2-entries-a.tex:11 explicitly begins with optional d: and path; line 26 says \"names the files to change or display\".",
+    "evidence": [
+      "shots/advanced-driveutils-failures.png",
+      "evidence/advanced-driveutils-serial.log",
+      "evidence/advanced.py"
+    ]
+  },
+  {
+    "id": "L013",
+    "area": "CHKDSK",
+    "severity": "P2",
+    "title": "CHKDSK reports a FAT error on valid C: and D: volumes",
+    "steps": "Boot advanced-driveutils using the geometry-corrected boot fixture; CHKDSK C:; CHKDSK D:. Compare ordinary DIR/TYPE/COPY operations on those volumes.",
+    "observed": "Both checks say Disk error reading (or writing) FAT. The same volumes support file reads and writes. CHKDSK on A: works.",
+    "expected": "Check the requested mounted FAT12 volume; do not report a disk error simply for its drive letter (DOS CHKDSK and pubs/manuals/initechdos-reference/ch2-entries-a.tex, CHKDSK).",
+    "evidence": [
+      "shots/advanced-driveutils-failures.png",
+      "evidence/advanced-driveutils-serial.log",
+      "evidence/suite4-B055.txt",
+      "evidence/prepare.py",
+      "evidence/prepare_more.py"
+    ]
+  },
+  {
+    "id": "L014",
+    "area": "TREE",
+    "severity": "P2",
+    "title": "TREE ignores an explicit other-drive operand",
+    "steps": "Boot suite4; CD \\T; CD D:\\DHOME; TREE D: /F. Also TREE D:\\DHOME /F in followup.",
+    "observed": "TREE D: lists volume INITECH and A:\\T contents. The absolute D: form says Invalid path despite the directory being readable with TYPE.",
+    "expected": "Walk the specified drive/path and label that volume (pubs/manuals/initechdos-reference/ch2-entries-c.tex:125-140). The TREE syntax at pubs/manuals/initechdos-reference/ch2-entries-c.tex:127-128 includes a drive-qualified path; line 131 says \"names the directory to start from\".",
+    "evidence": [
+      "shots/suite4-B057-cross-drive-tools.png",
+      "shots/followup-cd-tree-drive.png",
+      "evidence/suite4-B057.txt",
+      "evidence/followup-serial.log"
+    ]
+  },
+  {
+    "id": "L015",
+    "area": "LABEL",
+    "severity": "P2",
+    "title": "LABEL rejects a valid mounted D: volume",
+    "steps": "Boot suite4; VOL D:; LABEL D: NEWLABEL.",
+    "observed": "VOL displays EXTRA, but LABEL returns Invalid drive specification.",
+    "expected": "Honor a specified valid drive (original DOS LABEL drive syntax; tester DOS 3.3 expectation). pubs/manuals/initechdos-reference/ch2-entries-b.tex:240-242 explicitly restricts LABEL to the current drive, so this is a compatibility gap, not a broken promise in that manual.",
+    "evidence": [
+      "shots/suite4-B057-cross-drive-tools.png",
+      "evidence/suite4-B056.txt",
+      "evidence/suite4-B057.txt"
+    ]
+  },
+  {
+    "id": "L016",
+    "area": "FIND",
+    "severity": "P2",
+    "title": "FIND ignores filename operands and waits for keyboard input",
+    "steps": "Boot suite2; run \\CASES\\B032.BAT, whose first command is FIND \"Alpha\" LINES.TXT. Wait 12 seconds; or run that command directly from A:\\T.",
+    "observed": "No search results or file header appear; FIND waits for standard input. Ctrl-Z plus Enter returns. FIND \"Alpha\" < LINES.TXT works.",
+    "expected": "Open the named input file (DOS Reference pp.72-73/PDF157-158). Initech documentation only describes redirection; this is a compatibility gap.",
+    "evidence": [
+      "shots/suite2-B032-BLOCKED.png",
+      "evidence/suite2-serial.log",
+      "evidence/interactive-serial.log",
+      "evidence/cases/B032.BAT",
+      "evidence/manual-page-157.txt"
+    ]
+  },
+  {
+    "id": "L017",
+    "area": "FIND status",
+    "severity": "P2",
+    "title": "FIND returns incorrect status for no match and malformed arguments",
+    "steps": "Boot followup; CD \\T; FIND \"absent\" < ONE.TXT; IF ERRORLEVEL 1 ECHO RC1; IF NOT ERRORLEVEL 1 ECHO RC0. Also run FIND bad < ONE.TXT; IF ERRORLEVEL 2 ECHO BAD-ARGS-RC2; IF NOT ERRORLEVEL 2 ECHO BAD-ARGS-LOW.",
+    "observed": "No line matches, but RC0 is printed. The malformed form prints Invalid number of parameters but BAD-ARGS-LOW, not BAD-ARGS-RC2.",
+    "expected": "Return 1 when no matching line exists, 0 when a match exists (tester DOS FIND exit-status memory; distinguish from malformed-argument status).",
+    "evidence": [
+      "shots/followup-find-quotes-exit.png",
+      "evidence/followup-serial.log",
+      "evidence/suite4-B064.txt",
+      "shots/resume-external-filters.png",
+      "evidence/resume-external-serial.log"
+    ]
+  },
+  {
+    "id": "L018",
+    "area": "FIND quoting",
+    "severity": "P2",
+    "title": "FIND stops its search string at the first embedded quote",
+    "steps": "Boot followup; CD \\T; FIND \"He said \"\"yes\"\"\" < QUOTES.TXT.",
+    "observed": "Both He said \"yes\" and He said no are printed, as if searching only for He said .",
+    "expected": "Match the embedded quoted word, returning only the first line (DOS Reference pp.72-73/PDF157-158, quotation-mark handling).",
+    "evidence": [
+      "shots/followup-find-quotes-exit.png",
+      "evidence/followup-serial.log",
+      "evidence/special-fixtures/QUOTES.TXT",
+      "evidence/manual-page-157.txt",
+      "evidence/manual-page-158.txt"
+    ]
+  },
+  {
+    "id": "L019",
+    "area": "FIND arguments",
+    "severity": "P3",
+    "title": "FIND silently accepts an unknown switch",
+    "steps": "Boot followup; CD \\T; FIND /BAD \"ALPHA\" < ONE.TXT.",
+    "observed": "It prints ALPHA with no invalid-switch diagnostic.",
+    "expected": "Reject an unsupported switch with a useful error (tester expectation; valid switches listed on DOS p.72).",
+    "evidence": [
+      "shots/followup-find-quotes-exit.png",
+      "evidence/followup-serial.log",
+      "evidence/manual-page-157.txt"
+    ]
+  },
+  {
+    "id": "L020",
+    "area": "SORT",
+    "severity": "P2",
+    "title": "SORT /+n ignores the requested starting column",
+    "steps": "Boot followup; CD \\T; SORT /+4 < SORTCOL.TXT. The input is 01 zebra then 02 apple.",
+    "observed": "The output remains 01 zebra then 02 apple.",
+    "expected": "Sort apple before zebra starting at column 4 (DOS Reference printed p.116/PDF201).",
+    "evidence": [
+      "shots/followup-sort-column-cap.png",
+      "evidence/followup-serial.log",
+      "evidence/special-fixtures/SORTCOL.TXT",
+      "evidence/manual-page-201.txt"
+    ]
+  },
+  {
+    "id": "L021",
+    "area": "TIME",
+    "severity": "P2",
+    "title": "TIME rejects hundredths of a second",
+    "steps": "Boot suite3; run \\CASES\\B039.BAT, or TIME 13:14:15.99.",
+    "observed": "Invalid time; previous time remains unchanged.",
+    "expected": "Accept the .hundredths field (DOS Reference p.120/PDF205). The narrower shipped Initech syntax does not promise it; this is DOS compatibility.",
+    "evidence": [
+      "shots/suite3-B039-time-values.png",
+      "evidence/suite3-B039.txt",
+      "evidence/manual-page-205.txt"
+    ]
+  },
+  {
+    "id": "L022",
+    "area": "VERIFY",
+    "severity": "P2",
+    "title": "VERIFY is unavailable",
+    "steps": "Boot stock or suite3; VERIFY; VERIFY ON; VERIFY OFF.",
+    "observed": "All forms say Bad command or file name.",
+    "expected": "Provide the DOS write-verification switch and state query (DOS Reference p.125/PDF210). COPY /V is separately implemented.",
+    "evidence": [
+      "shots/suite3-B042-builtin-gaps.png",
+      "evidence/suite3-B042.txt",
+      "evidence/manual-page-210.txt"
+    ]
+  },
+  {
+    "id": "L023",
+    "area": "ECHO",
+    "severity": "P2",
+    "title": "ECHO. cannot emit a blank line",
+    "steps": "Boot suite3; run \\CASES\\B036.BAT, or type ECHO. at the prompt.",
+    "observed": "Bad command or file name.",
+    "expected": "Output a blank line (tester DOS 3.x memory; no claim this shorthand is specified in the shipped manual).",
+    "evidence": [
+      "shots/suite3-B036-echo.png",
+      "evidence/suite3-B036.txt"
+    ]
+  },
+  {
+    "id": "L024",
+    "area": "ECHO",
+    "severity": "P2",
+    "title": "ECHO OFF at the prompt prints OFF and leaves echo on",
+    "steps": "Boot advanced-keyboard; ECHO OFF; ECHO; ECHO ON.",
+    "observed": "OFF is printed as ordinary text; the query still says ECHO is on. The batch form does change state.",
+    "expected": "Change echo state at the prompt too (tester DOS memory; DOS Reference p.143 documents ON/OFF). The Initech manual documents a separate, narrower prompt behavior.",
+    "evidence": [
+      "shots/advanced-keyboard-interactive-expansion.png",
+      "evidence/advanced-keyboard-serial.log",
+      "evidence/manual-page-228.txt"
+    ]
+  },
+  {
+    "id": "L025",
+    "area": "Environment expansion",
+    "severity": "P2",
+    "title": "Percent-delimited variables are not expanded at the prompt",
+    "steps": "Boot advanced-keyboard; SET X=expanded; ECHO %X%.",
+    "observed": "The output is literally %X%.",
+    "expected": "Expand the environment reference to expanded (tester DOS command-line memory). Initech documentation only promises expansion in batch files, so this is compatibility, not a false manual-contract claim.",
+    "evidence": [
+      "shots/advanced-keyboard-interactive-expansion.png",
+      "evidence/advanced-keyboard-serial.log"
+    ]
+  },
+  {
+    "id": "L026",
+    "area": "DIR",
+    "severity": "P2",
+    "title": "DIR includes hidden and system files in normal listings",
+    "steps": "Boot suite2; run \\CASES\\B003.BAT. HIDDEN.TXT has +H and SYSTEM.TXT has +S, set by mattrib during fixture preparation.",
+    "observed": "DIR /W includes HIDDEN.TXT and SYSTEM.TXT; normal and .TXT listings do too.",
+    "expected": "Omit hidden/system files from ordinary DOS 3.3 DIR output (original DOS Reference DIR pp.57-58; tester attribute expectation).",
+    "evidence": [
+      "shots/suite2-B003-dir-wide.png",
+      "shots/suite2-B001-dir-paths.png",
+      "evidence/suite2-B001.txt",
+      "evidence/suite2-B003.txt",
+      "evidence/preparation.json"
+    ]
+  },
+  {
+    "id": "L027",
+    "area": "Redirection diagnostics",
+    "severity": "P3",
+    "title": "Protected-file redirection reports Bad command",
+    "steps": "Boot suite2; CD \\T; ECHO LOST > READONLY.TXT; ECHO LOST >> READONLY.TXT; TYPE READONLY.TXT.",
+    "observed": "Both attempts say Bad command or file name. The protected contents remain PROTECTED.",
+    "expected": "Report Access denied for a protected destination (tester diagnostic expectation; pubs/manuals/initechdos-reference/ch2-entries-a.tex:227-228 uses that wording for COPY protection).",
+    "evidence": [
+      "shots/suite2-B030-redir-readonly.png",
+      "evidence/suite2-B030.txt",
+      "evidence/extracted/suite2/T/READONLY.TXT"
+    ]
+  },
+  {
+    "id": "L028",
+    "area": "FDISK display",
+    "severity": "P3",
+    "title": "FDISK labels both mounted primary partitions C:",
+    "steps": "Boot advanced-fdisk with geometry-boot-fixture.img; FDISK; 4; Enter.",
+    "observed": "Both partition rows start C:, though the second volume is mounted and accessible as D:. The corrected CHS fixture rules out the earlier bad-cylinder display.",
+    "expected": "Show C: for the first and D: for the second mapped volume (tester consistency expectation; FDISK partition display).",
+    "evidence": [
+      "shots/advanced-fdisk-partitions.png",
+      "evidence/advanced-fdisk-serial.log",
+      "evidence/prepare_more.py",
+      "evidence/suite4-B056.txt"
+    ]
+  },
+  {
+    "id": "L029",
+    "area": "Program error handling",
+    "severity": "P1",
+    "title": "A malformed COM file halts the entire machine",
+    "steps": "Boot prog-garbage using program-fixture.img; CD \\T; GARBAGE.COM. Fixture bytes are 0F 0B (invalid opcode). Try ECHO ALIVE afterwards.",
+    "observed": "PC LOAD LETTER / ERROR 06 appears; serial reports PANIC vec=06 and HALTED. No prompt returns.",
+    "expected": "Report the program failure and recover a usable shell (tester robustness expectation for this native hobby OS; not a promise that historical real-mode DOS isolated arbitrary programs). The panic wording itself is deliberate.",
+    "evidence": [
+      "shots/prog-garbage-result.png",
+      "evidence/prog-garbage-serial.log",
+      "evidence/special-fixtures/T_GARBAGE.COM",
+      "evidence/prepare_special.py"
+    ]
+  },
+  {
+    "id": "L030",
+    "area": "Program loader",
+    "severity": "P1",
+    "title": "An unsupported 16-bit MZ file halts without a screen diagnostic",
+    "steps": "Boot prog-mz16 using program-fixture.img; CD \\T; DOS16.EXE. The crafted 32-byte MZ header and tiny 16-bit exit body are in prepare_special.py.",
+    "observed": "The screen stays on DOS16.EXE with no new prompt/message. Serial says foreign-mz: untagged 16-bit DOS .EXE and HALTED.",
+    "expected": "Refuse the unsupported format visibly and return to the shell; the brief explicitly requires a loud failure rather than a hang. Executing 16-bit programs is not demanded.",
+    "evidence": [
+      "shots/prog-mz16-result.png",
+      "evidence/prog-mz16-serial.log",
+      "evidence/special-fixtures/T_DOS16.EXE",
+      "evidence/prepare_special.py"
+    ]
+  },
+  {
+    "id": "L031",
+    "area": "TYPE cancellation",
+    "severity": "P2",
+    "title": "Ctrl-C during TYPE prints non-file bytes and does not stop output",
+    "steps": "Run python3 evidence/resume_driver.py controlshort. It boots geometry-boot-fixture.img plus resume-fixture.img, CD \\T, TYPE HUGE.TXT, then sends Ctrl-C after HUGE LINE 00005. The fixture has 2000 ASCII-only lines (88000 bytes).",
+    "observed": "The screen fills with non-text characters. The serial capture contains 14863 NUL bytes although the input contains none. Output then reaches HUGE LINE 01999 and the shell accepts ECHO AFTER-CANCEL. The original 10000-line repeat was stopped after 125 seconds, still printing at line 09233. Ctrl-S separately holds the serial byte count steady and resumes correctly.",
+    "expected": "Ctrl-C should stop TYPE and return a clean prompt; no bytes absent from the file should be printed (tester cancellation expectation and the brief; Initech Reference BREAK ch2-entries-a.tex:76 documents output-time break checking).",
+    "evidence": [
+      "shots/resume-controlshort-ctrlc.png",
+      "shots/resume-controlshort-returned.png",
+      "evidence/resume-controlshort-serial.log",
+      "evidence/resume-control-verification.json",
+      "evidence/resume-fixtures/HUGE.TXT",
+      "evidence/resume_driver.py",
+      "evidence/advanced-control-serial.log"
+    ]
+  },
+  {
+    "id": "L032",
+    "area": "XCOPY drives",
+    "severity": "P1",
+    "title": "XCOPY targeting D: overwrites files on A:",
+    "steps": "Run resume_driver.py xcopy. From A:\\T: XCOPY A:\\T\\ONE.TXT D:\\DHOME\\ /V; DIR D:\\DHOME; DIR A:\\DHOME; TYPE A:\\DHOME\\ONE.TXT; TYPE D:\\DHOME\\ONE.TXT. Stop QEMU and extract both volumes. For the overwrite repeat, run resume_driver.py xcopyoverwrite: MD A:\\DHOME; ECHO KEEP-A > A:\\DHOME\\ONE.TXT; repeat XCOPY A:\\T\\ONE.TXT D:\\DHOME\\ /V.",
+    "observed": "XCOPY reports 1 File(s) copied. D:\\DHOME still contains only SAME.TXT. It instead creates A:\\DHOME\\ONE.TXT containing 41 4c 50 48 41 0d 0a (ALPHA plus CR/LF). A source qualified with D: also yields zero copies. The stopped-image mcopy return codes are 0 for the A: file and 1 (not found) for the D: file. In the repeat, the unrelated A: sentinel changes from KEEP-A to ALPHA while no requested D: copy appears.",
+    "expected": "Resolve source and destination drive letters independently and write only to the requested destination (DOS XCOPY; pubs/manuals/initechdos-reference/ch2-entries-c.tex:216-229 accepts drive-qualified source and target). Exact target contract, pubs/manuals/initechdos-reference/ch2-entries-c.tex:225: \"The second names the target.\"",
+    "evidence": [
+      "shots/resume-xcopy-location.png",
+      "shots/resume-xcopy-wrong-volume.png",
+      "evidence/resume-xcopy-serial.log",
+      "evidence/resume-xcopy-verification.json",
+      "evidence/resume-xcopy-A-ONE.TXT",
+      "evidence/resume-xcopy-D-listing.txt",
+      "evidence/resume_driver.py",
+      "shots/resume-xcopyoverwrite-overwritten.png",
+      "evidence/resume-xcopyoverwrite-serial.log",
+      "evidence/resume-final-verification.json"
+    ]
+  },
+  {
+    "id": "L033",
+    "area": "Batch chaining",
+    "severity": "P2",
+    "title": "Invoking a batch without CALL returns to the caller anyway",
+    "steps": "Run resume_driver.py batch. From A:\\T run CHAIN.BAT; it prints BEFORE, invokes \\CASES\\CHILD.BAT arg without CALL, then has ECHO SHOULD-NOT-RETURN.",
+    "observed": "CHILD=arg is followed by SHOULD-NOT-RETURN. The older followup run likewise prints CHAIN-AFTER.",
+    "expected": "A plain batch invocation transfers control; only CALL resumes the caller (DOS Reference CALL p.142/PDF227).",
+    "evidence": [
+      "shots/resume-batch-flow.png",
+      "evidence/resume-batch-serial.log",
+      "evidence/resume-fixtures/CHAIN.BAT",
+      "evidence/cases/CHILD.BAT",
+      "evidence/manual-page-227.txt"
+    ]
+  },
+  {
+    "id": "L034",
+    "area": "Batch cancellation",
+    "severity": "P2",
+    "title": "Ctrl-C ends a batch without the DOS termination question",
+    "steps": "Run resume_driver.py batch; \\CASES\\BREAK.BAT waits at PAUSE. Press Ctrl-C. Repeat with LOOP.BAT, which repeatedly uses ECHO and GOTO.",
+    "observed": "Both immediately return to the DOS prompt after ^C. There is no Terminate batch job (Y/N)? and no option to continue. The PAUSE remainder is not executed.",
+    "expected": "Ask Terminate batch job (Y/N)? and allow N to continue (DOS Reference p.149/PDF234). pubs/manuals/initechdos-reference/ch4-batch.tex:38-39 documents immediate cancellation, so this is an explicit compatibility gap.",
+    "evidence": [
+      "shots/resume-batch-pause-break.png",
+      "shots/resume-batch-loop-break.png",
+      "evidence/resume-batch-serial.log",
+      "evidence/cases/BREAK.BAT",
+      "evidence/resume-fixtures/LOOP.BAT",
+      "evidence/resume-manual-page-234.txt"
+    ]
+  },
+  {
+    "id": "L035",
+    "area": "DEL directory operand",
+    "severity": "P2",
+    "title": "DEL directory refuses the documented delete-all-files form",
+    "steps": "Boot suite2; run \\CASES\\B023.BAT: MD DELDIR; COPY ONE.TXT DELDIR\\ONE.TXT; DEL DELDIR; DIR DELDIR.",
+    "observed": "DEL reports Access denied; ONE.TXT remains in the directory.",
+    "expected": "Treat the directory name as its contained files and apply the delete-all confirmation, leaving the directory itself (DOS Reference p.56/PDF141 explicitly says to give a directory name to delete its files).",
+    "evidence": [
+      "shots/suite2-B023-del-directory.png",
+      "evidence/suite2-B023.txt",
+      "evidence/extracted/suite2/T/DELDIR/ONE.TXT",
+      "evidence/manual-page-141.txt"
+    ]
+  },
+  {
+    "id": "L036",
+    "area": "DATE",
+    "severity": "P2",
+    "title": "DATE without an argument does not offer date entry",
+    "steps": "Boot suite3; run \\CASES\\B038.BAT or type DATE.",
+    "observed": "Only Current date is ... is displayed; execution proceeds to the next command. Startup without AUTOEXEC does have the date question.",
+    "expected": "Offer Enter new date (mm-dd-yy): and let Enter retain it (DOS Reference p.55/PDF140). The Initech manual describes its display-only behavior, so this is compatibility.",
+    "evidence": [
+      "shots/suite3-B038-date-formats.png",
+      "evidence/suite3-B038.txt",
+      "evidence/manual-page-140.txt"
+    ]
+  },
+  {
+    "id": "L037",
+    "area": "TIME",
+    "severity": "P2",
+    "title": "TIME without an argument does not offer time entry",
+    "steps": "Boot suite3; run \\CASES\\B039.BAT or type TIME.",
+    "observed": "Only Current time is ... is displayed; the shell continues without an entry question. Startup without AUTOEXEC does have a time prompt.",
+    "expected": "Prompt for a new time when no argument is supplied (DOS Reference p.121/PDF206). The Initech manual describes display-only TIME; this is compatibility.",
+    "evidence": [
+      "shots/suite3-B039-time-values.png",
+      "evidence/suite3-B039.txt",
+      "evidence/manual-page-206.txt"
+    ]
+  },
+  {
+    "id": "L038",
+    "area": "Keyboard template",
+    "severity": "P2",
+    "title": "F3 recalls the line that Ctrl-C cancelled",
+    "steps": "Run resume_driver.py keyboard. ECHO TEMPLATE; then type ECHO CANCELED without Enter. Press Ctrl-C, then F3, Enter.",
+    "observed": "F3 restores ECHO CANCELED and executes it, replacing the preceding completed template.",
+    "expected": "Discard the cancelled line and keep the last completed command as the template. pubs/manuals/initechdos-users-guide/ch8-keys.tex:25 says \"The completed line becomes the template\"; lines 32-33 say InitechDOS \"discards\" the cancelled line. The earlier completed template is ECHO XEMPLATE in the full replay.",
+    "evidence": [
+      "shots/resume-keyboard-cancel-template.png",
+      "evidence/resume-keyboard-serial.log",
+      "evidence/resume_driver.py"
+    ]
+  },
+  {
+    "id": "L039",
+    "area": "MORE display",
+    "severity": "P3",
+    "title": "MORE pauses without displaying --More--",
+    "steps": "Run resume_driver.py external. MORE < PAGES.TXT; wait; press Enter; wait; press Ctrl-C. PAGES.TXT has 65 numbered CR/LF lines.",
+    "observed": "The first pause is after PAGE LINE 023, the second after 047. Both are silent, with no --More-- indicator. The serial byte count stays fixed while paused. Ctrl-C returns to the shell.",
+    "expected": "Show --More-- at a page break (DOS Reference p.20/PDF105 explicitly describes the bottom-of-screen indicator).",
+    "evidence": [
+      "shots/resume-external-more-page1.png",
+      "shots/resume-external-more-page2.png",
+      "evidence/resume-external-serial.log",
+      "evidence/resume-fixtures/PAGES.TXT",
+      "evidence/resume-manual-page-105.txt"
+    ]
+  },
+  {
+    "id": "L040",
+    "area": "Native program launch",
+    "severity": "P1",
+    "title": "The shipped 123.EXE and WORD.EXE cannot run from DOS",
+    "steps": "Run resume_driver.py app123 and appword in separate sessions. CD \\APPS; DIR 123.EXE; 123.EXE; A:\\APPS\\123.EXE. Repeat with WORD.EXE.",
+    "observed": "Both present native InitechMZ files are rejected with Bad command or file name. DIR and stopped-image extraction prove the files exist (64892 and 52472 bytes). The prompt survives. SAMIR.COM, the 65536-byte native COM and the small exit programs run.",
+    "expected": "Run the shipped applications from their explicit DOS paths, or give an accurate unsupported/memory diagnostic (the brief's Programs test and tester workstation expectation). This concerns the supplied native applications, separately from the foreign 16-bit MZ refusal in L030.",
+    "evidence": [
+      "shots/resume-app123-qualified.png",
+      "shots/resume-appword-qualified.png",
+      "evidence/resume-app123-serial.log",
+      "evidence/resume-appword-serial.log",
+      "evidence/recovery-extra-verification.json",
+      "evidence/appsamir-serial.log"
+    ]
+  },
+  {
+    "id": "L041",
+    "area": "FORMAT system install",
+    "severity": "P2",
+    "title": "FORMAT /S cannot transfer the system from the supplied boot volume",
+    "steps": "Run resume_driver.py format: FORMAT D: /S; DIR D:\\. The boot volume C: is the supplied tracer image partition, with IO.SYS and INITDOS.SYS.",
+    "observed": "FORMAT immediately reports Insufficient memory for system transfer. The D: contents remain intact. The source C: root has no COMMAND.COM file. Ordinary FORMAT D: followed by SYS D: succeeds when the target root entries are free.",
+    "expected": "Provide a usable shipped /S installation path or accurately identify the missing source file. pubs/manuals/initechdos-reference/ch2-entries-b.tex:207-209 promises that /S \"copies the system files and COMMAND.COM from drive C\" and the result can start the system. Missing COMMAND.COM is a suspected cause, not a proven exclusive cause.",
+    "evidence": [
+      "shots/resume-format-system-before.png",
+      "evidence/resume-format-serial.log",
+      "evidence/advanced-format-C-listing.txt",
+      "evidence/resume-format-verification.json"
+    ]
+  },
+  {
+    "id": "L042",
+    "area": "Filesystem after disk utilities",
+    "severity": "P1",
+    "title": "A write after FORMAT and SYS corrupts the transferred system files",
+    "steps": "Run resume_driver.py syswrite. FORMAT D:; answer EXTRA, Y. SYS D:; DIR D:\\; ECHO NEW-DATA > D:\\NEW.TXT; TYPE D:\\NEW.TXT; DIR D:\\. Stop QEMU and extract D: from byte 2097152 of resume-syswrite-boot.img.",
+    "observed": "SYS reports System transferred. DIR lists IO.SYS=1647 and INITDOS.SYS=196608 but claims 1456640 bytes free, already wrong. After the ten-byte NEW.TXT write, mcopy can recover only 512 bytes of IO.SYS; INITDOS.SYS cannot be read. fsck.fat -n reports a free cluster in INITDOS.SYS and shortened chains. A separate control stopped after SYS has both files byte-identical to the original C: files and 1259008 bytes free. No error is shown by the guest.",
+    "expected": "Keep filesystem allocation state coherent after raw disk utilities; later ordinary writes must preserve the installed system files (tester filesystem correctness expectation; InitechDOS SYS contract ch2-entries-c.tex:74-77). Stale mounted FAT state is a root-cause guess; corruption is established by the extracted bytes and independent checker.",
+    "evidence": [
+      "shots/resume-syswrite-after-write.png",
+      "evidence/resume-syswrite-serial.log",
+      "evidence/resume-syswrite-verification.json",
+      "evidence/resume-syswrite-fsck.txt",
+      "evidence/resume-syswrite-IO.SYS",
+      "evidence/resume-syswrite-INITDOS.SYS",
+      "evidence/resume-format-verification.json",
+      "evidence/resume-format-D-IO.SYS",
+      "evidence/resume-format-D-INITDOS.SYS",
+      "evidence/resume_driver.py"
+    ]
+  },
+  {
+    "id": "L043",
+    "area": "DIR cancellation",
+    "severity": "P2",
+    "title": "Ctrl-C advances DIR /P instead of cancelling the listing",
+    "steps": "Run resume_driver.py gaps2. DIR \\MANY /P; at the first Press any key to continue prompt, press Ctrl-C. Continue with Space until all 300 files are listed.",
+    "observed": "Ctrl-C advances to the next page and another pause. The listing runs through F299.TXT. A final Ctrl-C at the shell only clears surplus queued spaces.",
+    "expected": "Abort the active command on Ctrl-C (DOS editing-keys Reference p.159/PDF244; tester DIR expectation).",
+    "evidence": [
+      "shots/resume-gaps2-dir-break.png",
+      "shots/resume-gaps2-dir-returned.png",
+      "evidence/resume-gaps2-serial.log",
+      "evidence/manual-page-244.txt"
+    ]
+  },
+  {
+    "id": "L044",
+    "area": "SORT arguments",
+    "severity": "P3",
+    "title": "SORT silently accepts an unknown switch",
+    "steps": "Run resume_driver.py external: SORT /BAD < LINES.TXT; IF NOT ERRORLEVEL 1 ECHO SORT-RC0.",
+    "observed": "It sorts normally and prints SORT-RC0; no invalid-switch diagnostic appears.",
+    "expected": "Reject unknown switches so mistyped options are visible (tester diagnostic expectation; DOS Reference p.116 lists /R and /+n).",
+    "evidence": [
+      "shots/resume-external-filters.png",
+      "evidence/resume-external-serial.log",
+      "evidence/manual-page-201.txt"
+    ]
+  },
+  {
+    "id": "L045",
+    "area": "Batch expansion",
+    "severity": "P2",
+    "title": "An undefined batch environment variable is left as literal text",
+    "steps": "Run resume_driver.py keyboard on a fresh fixture where TEST is unset; run BENV.BAT, which contains ECHO VALUE=%TEST%. As a control, resume_driver.py batch sets TEST=VALUE first.",
+    "observed": "The unset case prints VALUE=%TEST%; the defined case prints VALUE=VALUE.",
+    "expected": "Expand an undefined environment variable to the empty string (tester DOS batch-expansion memory). Preserve the ordinary literal-percent escape %% separately, which passes here.",
+    "evidence": [
+      "shots/resume-keyboard-recall-kinds.png",
+      "shots/resume-batch-flow.png",
+      "evidence/resume-keyboard-serial.log",
+      "evidence/resume-batch-serial.log",
+      "evidence/resume-fixtures/BENV.BAT"
+    ]
+  },
+  {
+    "id": "L046",
+    "area": "BREAK arguments",
+    "severity": "P3",
+    "title": "BREAK INVALID is treated as a state query",
+    "steps": "Run resume_driver.py gaps2: BREAK OFF; BREAK; BREAK ON; BREAK; BREAK INVALID.",
+    "observed": "Valid ON/OFF forms work. INVALID produces BREAK is on rather than an argument error.",
+    "expected": "Reject unsupported settings (tester command-diagnostic expectation; DOS BREAK syntax allows ON/OFF or no operand).",
+    "evidence": [
+      "shots/resume-gaps2-builtins.png",
+      "evidence/resume-gaps2-serial.log",
+      "evidence/suite3-B042.txt"
+    ]
+  },
+  {
+    "id": "L047",
+    "area": "PROMPT compatibility",
+    "severity": "P2",
+    "title": "PROMPT $V prints V instead of the DOS version",
+    "steps": "Run resume_driver.py promptversion; type PROMPT $V$G.",
+    "observed": "The prompt becomes V>, rather than showing the version number.",
+    "expected": "Expand $V to the version number (original DOS Reference printed p.101/PDF186, Special prompts table). The shipped Initech prompt table omits this DOS code, so this is compatibility.",
+    "evidence": [
+      "shots/resume-promptversion-version.png",
+      "evidence/resume-promptversion-serial.log",
+      "evidence/manual-page-186.txt"
+    ]
+  }
+]

@@ -1,0 +1,30 @@
+    44 MS-DOS User's Reference
+
+                             Notes:
+                                 • Chkdsk does not correct errors on a disk unless you specify
+                                   the If switch. For more information on chkdsk errors, refer to
+                                   the specific error message in Appendix F, "MS-DOS Message
+                                   Directory."
+                                 • Chkdsk doesn't work on drives used in the subst or join
+                                   commands.
+
+                             Examples:
+-~4Si'iMffl\AWWW.\\omM~
+
+
+
+    Saving a Chkdsk          If you want to save a chkdsk status report for future use, you can
+    status report            redirect the output from chkdsk to a file, status, by typing the
+                             following:
+
+                             chkdsk a:>status
+
+                             Any errors are then sent to the specified file. Remember, though,
+                             not to use the If switch when you redirect chkdsk output.
+                             If chkdsk finds errors on the disk in drive A and you want to try
+                             to correct them, type the following command:
+
+                             chkdsk a: /f
+
+                             Chkdsk now tries to correct any errors it finds on the disk in
+                             drive A, prompting you for further information when necessary.

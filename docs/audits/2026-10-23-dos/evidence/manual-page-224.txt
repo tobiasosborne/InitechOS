@@ -1,0 +1,45 @@
+                                                                        Batch Processing 139
+
+For this mydel bat file to work, you must create a directory
+named deleted. The following command line sets the directory
+name to deleted:
+set deldir=\deleted
+
+Now, to move the file report23jun to the deleted directory, type
+the following:
+
+mydel report23.jun
+
+The batch file automatically replaces the % deldir'% parameter
+with the directory name deleted.
+You may find named parameters easier to use than replaceable
+parameters because you won't have to include as much informa-
+tion on the command line. For example, with mydel.bat, you
+don't have to type the directory name on the command line, yet
+you can change the name of the directory without having to edit
+the batch file.
+
+
+
+How to Run a Batch File
+To run the batch file sorter.bat, type the batch filename followed    Running a batch file
+by the parameters that you want MS-DOS to substitute for % 1,
+%2, and %3.
+Suppose that on the disk in drive A you have a file that lists your
+customers' names and regions. The file might look something like
+this:
+
+Shores, Betty                       north
+Moynihan, Ann                       south
+Kraig, Heidy                        north
+Martin, Pete                        east
+Lennon, Patrick                     south
+Pai, Fernando                       north
+Evans, Rick                         west
+Moss, Melissa                       north
+
+If you want to print an alphabetical list of the customers in the
+north, you can run the sorter batch file, with the appropriate
+parameters, by typing the following command and then pressing
+the RE11JRN key:
+sorter northa:customer temp.fil

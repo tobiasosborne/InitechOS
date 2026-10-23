@@ -1,0 +1,42 @@
+                      .
+346 MS-DOS User's Reference
+
+                          --More--
+                          [More]
+                          • Press the SPACEBAR to view more of the file or directory.
+                          MORE: Incorrect DOS version
+                          [More]
+                          • The More command does not run on MS-DOS versions before
+                            2.0.
+                          Must specify COM1, COM2, COM3 or COM4
+                          [Mode]
+                          • You mast specify a serial port.
+                          Must specify destination line number
+                          [Edlin)
+                          • You did not specify the destination line number for an Edlin
+                            C (copy) or M (move) command
+                            Retype the command with a destination line number.
+
+                          Must specify ON or OFF
+                          [MS-DOS)
+                          • The command requires either an ON or an OFF argument.
+N                         Name of list device [PRN]:
+                          [Print]
+                          • This prompt appears the first time that Print is run and the Id
+                            switch is not specified
+                            You can specify the name of any valid device, which then
+                            becomes the print output device. If you press the RETURN key,
+                            MS-DOS uses the default list device PRN.
+
+                          New file
+                          [Edlin)
+                          • Edlin prints this message if it does not find a file with the
+                            name you specified
+                            If you are creating a new file, ignore this message. If you do
+                            not intend to create a new file, check to see whether you have
+                            correctly typed the name of the file that you wish to edit.
+
+                          NLSFUNC already installed
+                          [Nlsfunc]
+                          • Nlsfunc stays resident in memory once it is initialized You
+                            have already loaded it into memory.

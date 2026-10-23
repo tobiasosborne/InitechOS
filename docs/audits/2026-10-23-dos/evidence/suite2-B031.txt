@@ -1,0 +1,17 @@
+\CASES\B031.BAT
+CASE B031 find-basic
+A:\T>FIND "Alpha" < LINES.TXT
+Alpha
+A:\T>FIND /N "a" < LINES.TXT
+[1]zebra
+[2]Alpha
+[3]beta
+[5]01 omega
+[6]02 aardvark
+[7]last
+A:\T>FIND /C "a" < LINES.TXT
+6
+A:\T>FIND /V "a" < LINES.TXT
+ALPHA
+AUDIT-DONE-B031
+A:\T>

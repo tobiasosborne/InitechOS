@@ -1,0 +1,2 @@
+fsck.fat 4.2 (2021-01-31)
+/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/suite2-data.img: 587 files, 1476/2847 clusters

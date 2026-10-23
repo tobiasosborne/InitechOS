@@ -1,0 +1,24 @@
+ Volume in drive : is CLUSTER8   
+ Volume Serial Number is 7A08-069D
+Directory for ::/
+
+AUTOEXEC BAT        11 2026-10-23  14:43 
+EXACT    BIN      4096 2026-10-23  14:43 
+PLUS     BIN      4097 2026-10-23  14:43 
+ONE      TXT         5 2026-10-23  14:43 
+RENAMED  BIN      4096 2026-10-23  14:43 
+SUB          <DIR>     2026-10-23  12:54 
+TYPE     BIN      4097 2026-10-23  12:54 
+        7 files              16 402 bytes
+
+Directory for ::/SUB
+
+.            <DIR>     2026-10-23  12:54 
+..           <DIR>     2026-10-23  12:54 
+EXACT    BIN      4096 2026-10-23  14:43 
+        3 files               4 096 bytes
+
+Total files listed:
+       10 files              20 498 bytes
+                          1 421 312 bytes free
+

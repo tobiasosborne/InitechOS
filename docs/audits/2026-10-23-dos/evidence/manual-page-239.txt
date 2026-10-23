@@ -1,0 +1,28 @@
+154 MS-DOS User's Reference
+                         '
+
+                         The following figure shows how the template relates to the
+                         command line:
+
+                                            command line
+
+
+
+
+                         The MS-DOS Editing Keys
+
+Special editing          The MS-DOS editing keys provide you with a set of editing tools
+functions                that can save you time. You can use them to correct typing mis-
+                         takes, repeat frequently used commands, or create similar com-
+                         mand lines. These keys are described briefly in the following table
+                         and more fully later in Chapter 6, "The Line Editor (Edlin)."
+
+                         Key        Editing function
+
+                             Fl     Copies one character from the template to the com-
+                                    mand line.
+                             F2     Copies characters up to the character specified in the
+                                    template and puts these characters on the command
+                                    line.
+                             F3     Copies all remaining characters in the template to the
+                                    command line.

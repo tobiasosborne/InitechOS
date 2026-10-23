@@ -1,0 +1,10 @@
+\CASES\B036.BAT
+CASE B036 echo
+ECHO is on
+ECHO is off
+A:\T>ECHO.
+Bad command or file name
+MiXeD $x  spaces
+ONWARD
+AUDIT-DONE-B036
+A:\T>

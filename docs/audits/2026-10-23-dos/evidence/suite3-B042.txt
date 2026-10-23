@@ -1,0 +1,15 @@
+\CASES\B042.BAT
+CASE B042 builtin-gaps
+A:\T>VERIFY
+Bad command or file name
+A:\T>VERIFY ON
+Bad command or file name
+A:\T>VERIFY OFF
+Bad command or file name
+A:\T>CTTY CON
+Bad command or file name
+IF-PROMPT-ONLY-OTHER-TEST
+A:\T>BREAK INVALID
+BREAK is on
+AUDIT-DONE-B042
+A:\T>

@@ -1,0 +1,31 @@
+20 MS-DOS User's Reference
+
+
+Using redirection        You can also use piping with redirection symbols if you want to
+symbols with pipes       send the output to a file. For example, the following command
+                         creates a file named direct.1st on your default drive:
+
+                         dir I sort> direct .1st
+
+                         The direct.1st file now contains a sorted listing of the directory on
+                         the default drive.
+                         You can also specify a drive other than the default drive. Suppose,
+                         for example, you want to send the sorted data to a file named
+                         direct.1st on drive B. To do this you could simply type the
+                         followi:1g:
+
+                         dir I sort >b:direct.lst
+
+                         You can use more than one pipe on a command line. The follow-
+                         ing command, for instance, sorts your directory, shows it to you
+                         one screen at a time, and puts --More-- at the bottom of your
+                         screen when there is more output to be seen:
+
+                         dir I sort I more
+
+                         Since commands and filters can be piped together in many dif-
+                         ferent ways, you will find many uses for them.
+What comes next?         In this chapter, you've learned about internal and external
+                         MS-DOS commands and how to redirect their input and output.
+                         The next chapter lists each of these commands in alphabetical
+                         order along with their syntax and comments about their use.

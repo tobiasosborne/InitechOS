@@ -1,0 +1,35 @@
+ 116 MS-DOS User's Reference
+
+
+  Sort                    Sort
+                          Purpose:
+                          Reads input, sorts the data, then writes the sorted data to your
+                          screen, to a file, or to another device.
+                          Syntax:
+                          [source]: sort [/r)[/+n]
+                          or
+                          sort [/r][/+n] <source
+                          where:
+                          source is a filename or command.
+                          Comments:
+                          The sort command is a filter program that lets you alphabetize a
+                          file according to the character in a certain column. The sort pro-
+                          gram uses the collating sequence table, based on the country code
+                          and code page settings.
+                          The I and < redirection symbols direct data through the sort util-
+                          ity from source. For example, you may use the dir command or
+                          a filename as a source. You may use the more command or a
+                          filename as a destination.
+                          The sort command accepts the following switches:
+
+                          Switch       Purpose
+· The Sort switches       Ir           Reverses the sort; that is, sorts from Z to A, and then
+                                       from 9 to 0.
+                          I+ n         Sorts the file according to the character in column
+                                       n, where n is some number. If you do not specify
+                                       this switch, the sort command sorts the file accord-
+                                       ing to the character in the first column.
+
+                          Unless you specify a source, sort acts as a filter and accepts input
+                          from the MS-DOS standard input (usually from the keyboard, from
+                          a pipe, or redirected from a file).

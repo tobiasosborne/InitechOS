@@ -1,0 +1,9 @@
+{
+  "fixture_bytes": 88000,
+  "fixture_nuls": 0,
+  "output_nuls": 14863,
+  "output_other_nontext": 15414,
+  "INT23_BREAK_count": 1,
+  "last_input_line_present": true,
+  "returned_marker_present": true
+}

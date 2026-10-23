@@ -1,0 +1,8 @@
+ Volume in drive : is NEWDISK    
+ Volume Serial Number is 4B4F-4433
+Directory for ::/
+
+NEW      TXT         6 2026-10-23  13:00 
+        1 file                    6 bytes
+                          1 456 128 bytes free
+

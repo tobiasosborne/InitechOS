@@ -1,0 +1,8 @@
+\CASES\B049.BAT
+CASE B049 xcopy-rootrelative
+A:\T>XCOPY ONE.TXT DEST\REL.TXT
+Does DEST\REL.TXT specify a file name or directory name on the target (F = file, D = directory)?
+\T\ONE.TXT
+1 File(s) copied
+AUDIT-DONE-B049
+A:\T>

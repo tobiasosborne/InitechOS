@@ -1,0 +1,12 @@
+\CASES\B015.BAT
+CASE B015 copy-plus-implicit
+A:\T>COPY ONE.TXT IMP.TXT
+        1 File(s) copied
+A:\T>COPY IMP.TXT+TWO.TXT
+        1 File(s) copied
+A:\T>TYPE IMP.TXT
+ALPHA
+BETA
+
+AUDIT-DONE-B015
+A:\T>

@@ -1,0 +1,37 @@
+56 MS-DOS User's Refereace
+
+
+Del (Erase)              Del {Erase)
+[]]                      Purpose:
+                         Deletes the specified files.
+
+                         Syntax:
+                         del [drive:] pathname
+                             or
+                         erase [drive:] pathname
+
+                         Comments:
+Using wildcards          The del command lets you use the • and ? wildcards to delete
+with Del                 more than one file at a time. While convenient, this method of
+                         deleting files can be dangerous, so use wildcards cautiously.
+                         If you type del •. *, this tells MS-DOS that you want to delete all
+                         the files in the working directory. MS-DOS displays the prompt
+                         "Are you sure?" If you type Y (for Yes) in response, MS-DOS
+                         deletes all files in the working directory.
+                         To delete all the files in another directory, type the del command
+                         followed by the directory name.
+
+
+                         Warning Once you have deleted a file from your disk, you can-
+                         not recover it.
+
+
+                         Examples:
+Deleting a file          The following command deletes a file named vacation:
+
+                         del vacation
+
+                         If you have two files named vacation.feb and vacation.apr, you
+                         can delete them both with the following command:
+
+                         del vacation.*

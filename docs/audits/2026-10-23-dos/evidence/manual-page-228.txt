@@ -1,0 +1,39 @@
+                                                                            Batch Process,ng 143
+
+
+Echo                                                                      Echo
+
+Purpose:
+Turns the batch echo feature on and off.
+Syntax:
+echo Ion)
+  or
+echo loff]
+  or
+echo [message]
+Comments:
+Normally, commands in a batch file are displayed ("echoed") on
+the screen when they are received by MS-DOS. You can tum off
+this feature by using the off option with the echo command.
+Similarly, you can turn the echo feature back on by using the on
+option with echo.
+If you do not specify on or off, echo displays the current setting.
+The command, echo message (where message is a line of text),
+is only useful if echo is off and if you are using a batch file. If, in
+your batch file, you type the echo command followed by a mes-
+sage, you can print messages on your screen. You can also put
+several echo message commands in your batch file to display a
+message that is several lines in length.
+An "@" character placed in front of a command line in a batch file
+prevents that line from echoing.
+Examples:
+The following is an example of a batch file message of more than          Creating messages
+one line:                                                                 for a batch file
+echo    off
+echo    This batch file
+echo    formats and checks
+echo    new disks.
+
+If you want to turn echo off, and do not want the command itself
+to be echoed, include the @ character before the command line:
+@echo off

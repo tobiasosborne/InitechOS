@@ -1,0 +1,44 @@
+158 MS-DOS User's Reference
+
+                         To illustrate how the keys you type affect the command line, com-
+                         pare the key pressed with its result (shown beneath it along with
+                         a description of the effect).
+
+                         DEL
+                                                     Skips over I st template character
+
+                         DEL
+                                                     Skips over 2nd template character
+
+                         Fl
+                         t                           Copies 3rd template character
+
+                         INS yp
+                         typ_                        Inserts two characters, y and p
+
+                         F3
+                         type invest. rpt_           Copies rest of template
+
+
+                         Notice that DEL does not affect the command line. Instead, it
+                         affects the template by deleting the first character. Similarly, press-
+                         ing the F4 key deletes characters in the template, up to, but not
+                         including, a given character.
+                         These special editing keys do give you more power and flexibility
+                         when you are typing. But in addition to these keys, MS-DOS also
+                         has control characters that help you control the output from a
+                         command, or control the contents of the current command line.
+                         The next section describes how to use the MS-DOS control
+                         characters.
+
+
+
+                         The MS-DOS Control Characters
+Using the MS-DOS         A control character affects the command line in a special way.
+control characters       For example, you use CONTROL-C to stop running the current com-
+                         mand, and you use CONTROL-S to suspend the screen output from
+                         a command.
+
+
+                         Note When you type a control sequence, such as CONTROL-C, you
+                         must hold down the CONTROL key and then press the c key.

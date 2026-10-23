@@ -1,0 +1,42 @@
+                                                                         Batch Processing 149
+
+
+Pause                                                                  Pause
+
+Purpose:
+Suspends execution of a batch file.
+Syntax:
+pause [comment]
+Comments:
+When a batch file is running, you may need to change disks or
+perform some other action. The pause command suspends execu-
+tion of the batch file until you press any key, unless you press the
+CONTROL·C key sequence.
+
+When the command processor encounters pause, it prints the
+following message:
+Strike a key when ready • • .
+
+If you press CONTROL-C, MS-DOS displays the following message:
+
+Terminate batch job (YIN)?
+
+If you type Y (for Yes) in response to this prompt, the batch file
+ends and control returns to the operating system. Therefore, you
+can use pause to divide a batch file into pieces that allow you to
+end the batch command file at any intermediate point.
+The comment parameter is useful when you want to display a
+special message. Unless echo is off, pause displays this comment
+before the "Strike a key" message.
+
+Note The pause and comment line of your batch file will not
+appear if echo is off.
+
+Examples:
+Suppose you want a program to display a message that asks the          Using Pause
+user to change disks in one of the drives. To do this you might        messages in a batch
+use the following command:                                             file
+Pause      Please put a new disk into drive A
+
+If echo is on, this line will precede the "Strike a key" message
+when you run the batch file.

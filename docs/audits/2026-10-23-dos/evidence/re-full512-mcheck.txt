@@ -1,0 +1,21 @@
+ Volume in drive U is INITECH    
+ Volume Serial Number is 494E-4954
+Directory for U:/
+
+README   TXT       169 1980-01-01   0:00 
+APPS         <DIR>     1980-01-01   0:00 
+DOS          <DIR>     1980-01-01   0:00 
+AUTOEXEC BAT        24 1980-01-01   0:00 
+T            <DIR>     2026-10-23  14:42 
+MANY         <DIR>     2026-10-23  14:42 
+D16          <DIR>     2026-10-23  14:42 
+D32          <DIR>     2026-10-23  14:42 
+D64          <DIR>     2026-10-23  14:42 
+DEEP         <DIR>     2026-10-23  14:42 
+FILLER   BIN    838144 2026-10-23  14:43 
+       11 files             838 337 bytes
+                                  0 bytes free
+
+
+Verifying files on drive u:...
+Disk in drive u: is OK.

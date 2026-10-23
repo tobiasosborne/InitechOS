@@ -1,0 +1,16 @@
+124 MS-DOS User's Reference
+
+
+Ver                      Ver
+                         Purpose:
+                         Prints the MS-DOS version number.
+                         Syntax:
+                         ver
+                         Comment:
+                         If you want to know what version of MS-DOS you are using, you
+                         simply type the ver command. The version number will then be
+                         displayed on your screen.
+                         Example:
+Displaying the           When you type the ver command, the following message is
+MS-DOS version           displayed:
+                         MS-DOS Version 3.30

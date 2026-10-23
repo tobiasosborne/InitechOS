@@ -1,0 +1,19 @@
+\CASES\B018.BAT
+CASE B018 copy-target-source-later
+A:\T>COPY ONE.TXT+TWO.TXT TWO.TXT
+File cannot be copied onto itself
+        0 File(s) copied
+A:\T>TYPE TWO.TXT
+BETA
+
+A:\T>COPY ONE.TXT+MISSING.TXT SAFE.TXT
+File not found
+A:\T>DIR SAFE.TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+File not found
+AUDIT-DONE-B018
+A:\T>

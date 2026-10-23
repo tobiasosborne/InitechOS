@@ -1,0 +1,40 @@
+                                                  Appendix F   MS-DOS Message Directory 329
+
+Fastopen already installed
+[Fastopen]
+• Fastopen is already installed on the system.
+Fastopen installed
+[Fastopen]
+• This informational message acknowledges that you have just
+  installed Fastopen.
+FCB unavailable reading (or writing) drive x:
+[MS-DOS device error]
+• An unusual error has occurred This error usually requires an
+  experienced programmer to fix it.
+  Type R (for Retry) or A (for Abort).
+
+fc: cannot open filename - No such file or directory
+[Fe]
+• One of the files that you specified doesn't exist.
+   Check the directory for the correct filename.
+
+fc: filename longer than filename
+[Fe]     ,
+• After reaching the end of one of the files in a file comparison,
+   the other file still has data left that was not yet compared.
+fc: incompatible switches
+[Fe]
+• You have specified switches that are not compatible. (For
+  example, lb and IL.)
+  You should not combine binary and ASCII comparison switches.
+
+fc: no differences encountered
+[Fe]
+• The files are the same.
+fc: out of memory
+[Fe]
+• You do not have enoug_h memory to perform the comparison.
+File allocation table bad
+(MS-DOS]
+• The disk may be defective.
+  Run chkdsk /f to check the disk.

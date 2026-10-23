@@ -1,0 +1,16 @@
+\CASES\B034.BAT
+CASE B034 sort-limits
+A:\T>SORT < LONG.TXT > SORTLONG.TXT
+A:\T>SORT < BINARY.BIN > SORTBIN.BIN
+A:\T>DIR SORT*.*
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+SORTLONG TXT       21  10-23-26  12:43p
+SORTBIN  BIN     1030  10-23-26  12:43p
+
+        2 File(s)    789504 bytes free
+AUDIT-DONE-B034
+A:\T>

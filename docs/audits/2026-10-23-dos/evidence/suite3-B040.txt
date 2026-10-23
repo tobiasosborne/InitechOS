@@ -1,0 +1,20 @@
+\CASES\B040.BAT
+CASE B040 env
+A:\T>SET foo=MiXeD
+A:\T>SET FOO
+FOO=MiXeD
+A:\T>SET missing
+Environment variable not defined
+A:\T>SET FOO=
+A:\T>SET FOO
+Environment variable not defined
+A:\T>PATH
+PATH=A:\DOS
+A:\T>PATH ;
+A:\T>PATH
+No Path
+A:\T>PATH A:\DOS
+A:\T>PATH
+PATH=A:\DOS
+AUDIT-DONE-B040
+A:\T>

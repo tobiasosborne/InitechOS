@@ -1,0 +1,590 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00524BC8
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          169
+AUTOEXEC.BAT           24
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+DOS-VOLUME-OK D rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>\CASES\B047.BAT
+CASE B047 xcopy-se
+A:\T>XCOPY SUB DEST\XC /S /E /V
+Does DEST\XC specify a file name or directory name on the target (F = file, D = directory)?
+\T\SUB\ONE.TXT
+\T\SUB\TWO.TXT
+\T\SUB\RO.TXT
+3 File(s) copied
+A:\T>DIR DEST\XC /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T\DEST\XC
+
+[.]             [..]            ONE.TXT         TWO.TXT         RO.TXT
+
+        5 File(s)    789504 bytes free
+A:\T>XCOPY SUB DEST\XC /E
+Invalid parameter(s)
+A:\T>XCOPY SUB SUB\NEST /S
+Does SUB\NEST specify a file name or directory name on the target (F = file, D = directory)?
+Cannot perform a cyclic copy
+A:\T>XCOPY ONE.TXT ONE.TXT
+File cannot be copied onto itself
+0 File(s) copied
+AUDIT-DONE-B047
+A:\T>\CASES\B048.BAT
+CASE B048 xcopy-readonly
+A:\T>XCOPY READONLY.TXT DEST\ /V
+\T\READONLY.TXT
+1 File(s) copied
+A:\T>ATTRIB DEST\READONLY.TXT
+R  A     A:\T\DEST\READONLY.TXT
+A:\T>XCOPY TWO.TXT DEST\READONLY.TXT
+Access denied
+0 File(s) copied
+A:\T>TYPE DEST\READONLY.TXT
+PROTECTED
+
+AUDIT-DONE-B048
+A:\T>\CASES\B049.BAT
+CASE B049 xcopy-rootrelative
+A:\T>XCOPY ONE.TXT DEST\REL.TXT
+Does DEST\REL.TXT specify a file name or directory name on the target (F = file, D = directory)?
+\T\ONE.TXT
+1 File(s) copied
+AUDIT-DONE-B049
+A:\T>\CASES\B050.BAT
+CASE B050 xcopy-absolute
+A:\T>XCOPY A:\T\ONE.TXT A:\T\DEST\ /V
+\T\ONE.TXT
+1 File(s) copied
+A:\T>DIR DEST\ONE.TXT
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T\DEST
+
+ONE      TXT        7  10-23-26   2:42p
+
+        1 File(s)    787968 bytes free
+AUDIT-DONE-B050
+A:\T>\CASES\B051.BAT
+CASE B051 tree
+A:\T>TREE A:\T\SUB /F
+DIRECTORY PATH LISTING FOR VOLUME INITECH
+
+Path: \T\SUB
+
+Sub-directories: None
+
+Files:
+        ONE.TXT
+        TWO.TXT
+        RO.TXT
+A:\T>TREE A:\T\NOPE
+Invalid path (or file not found)
+A:\T>TREE A:\T\ONE.TXT
+Invalid path (or file not found)
+A:\T>TREE /Z
+Invalid parameter(s)
+AUDIT-DONE-B051
+A:\T>\CASES\B052.BAT
+CASE B052 tree-deep
+A:\T>TREE A:\DEEP /F
+DIRECTORY PATH LISTING FOR VOLUME INITECH
+
+Path: \DEEP
+
+Sub-directories: D00
+
+Files:
+        None
+
+Path: \DEEP\D00
+
+Sub-directories: D01
+
+Files:
+        None
+
+Path: \DEEP\D00\D01
+
+Sub-directories: D02
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02
+
+Sub-directories: D03
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03
+
+Sub-directories: D04
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04
+
+Sub-directories: D05
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05
+
+Sub-directories: D06
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05\D06
+
+Sub-directories: D07
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05\D06\D07
+
+Sub-directories: D08
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05\D06\D07\D08
+
+Sub-directories: D09
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05\D06\D07\D08\D09
+
+Sub-directories: D10
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05\D06\D07\D08\D09\D10
+
+Sub-directories: D11
+
+Files:
+        None
+
+Path: \DEEP\D00\D01\D02\D03\D04\D05\D06\D07\D08\D09\D10\D11
+
+Sub-directories: None
+
+Files:
+        LEAF.TXT
+AUDIT-DONE-B052
+A:\T>\CASES\B053.BAT
+CASE B053 chkdsk-file
+A:\T>CHKDSK A:\T\LONG.TXT
+Volume INITECH      Created JAN  1, 1980  0:00
+
+All specified file(s) are contiguous
+  1457664 bytes total disk space
+      512 bytes in 2 hidden files
+    27136 bytes in 25 directories
+   642048 bytes in 541 user files
+   787968 bytes available on disk
+
+   118448 bytes total memory
+   118448 bytes free
+A:\T>CHKDSK A:\T\NOPE
+Volume INITECH      Created JAN  1, 1980  0:00
+
+File not found
+Corrections will not be written to disk
+  1457664 bytes total disk space
+      512 bytes in 2 hidden files
+    27136 bytes in 25 directories
+   642048 bytes in 541 user files
+   787968 bytes available on disk
+
+   118448 bytes total memory
+   118448 bytes free
+A:\T>CHKDSK /Z
+Invalid parameter(s)
+AUDIT-DONE-B053
+A:\T>\CASES\B054.BAT
+CASE B054 cross-drive-cwd
+A:\T>CD C:\CHOME
+A:\T>CD D:\DHOME
+A:\T>CD
+A:\T
+A:\T>CD C:
+A:\T>CD D:
+A:\T>TYPE C:SAME.TXT
+C-DRIVE
+
+A:\T>TYPE D:SAME.TXT
+D-DRIVE
+
+A:\T>C:
+C:\CHOME>CD
+C:\CHOME
+C:\CHOME>D:
+D:\DHOME>CD
+D:\DHOME
+D:\DHOME>A:
+AUDIT-DONE-B054
+A:\T>\CASES\B055.BAT
+CASE B055 cross-drive-copy
+A:\T>COPY C:\CHOME\SAME.TXT CFILE.TXT
+        1 File(s) copied
+A:\T>COPY D:\DHOME\SAME.TXT DFILE.TXT
+        1 File(s) copied
+A:\T>COPY ONE.TXT D:\DHOME\AONE.TXT
+        1 File(s) copied
+A:\T>TYPE CFILE.TXT
+C-DRIVE
+
+A:\T>TYPE DFILE.TXT
+D-DRIVE
+
+A:\T>TYPE D:\DHOME\AONE.TXT
+ALPHA
+
+AUDIT-DONE-B055
+A:\T>\CASES\B056.BAT
+CASE B056 cross-drive-vol
+A:\T>VOL A:
+
+ Volume in drive A is INITECH
+A:\T>VOL C:
+
+ Volume in drive C is BOOT
+A:\T>VOL D:
+
+ Volume in drive D is EXTRA
+A:\T>DIR D: /W
+
+ Volume in drive D is EXTRA
+
+ Directory of D:\DHOME
+
+[.]             [..]            SAME.TXT        AONE.TXT        
+
+        4 File(s)   1456128 bytes free
+A:\T>DIR B:
+Invalid drive specification
+A:\T>CD B:\
+Invalid drive specification
+A:\T>B:
+Invalid drive specification
+A:\T>Z:
+Invalid drive specification
+AUDIT-DONE-B056
+A:\T>\CASES\B057.BAT
+CASE B057 cross-drive-tools
+A:\T>CHKDSK D:
+Disk error reading (or writing) FAT
+A:\T>ATTRIB D:\DHOME\SAME.TXT
+Invalid path (or file not found)
+A:\T>TREE D: /F
+DIRECTORY PATH LISTING FOR VOLUME INITECH
+
+Path: \T
+
+Sub-directories: SUB
+               : EMPTY
+               : DEST
+
+Files:
+        ONE.TXT
+        TWO.TXT
+        EOF.TXT
+        ZERO.TXT
+        NOCR.TXT
+        BINARY.BIN
+        EXACT.BIN
+        SELF.BIN
+        READONLY.TXT
+        LINES.TXT
+        LONG.TXT
+        NOLF.TXT
+        OLD.TXT
+        FUTURE.TXT
+        CFILE.TXT
+        DFILE.TXT
+
+Path: \T\SUB
+
+Sub-directories: None
+
+Files:
+        ONE.TXT
+        TWO.TXT
+        RO.TXT
+
+Path: \T\EMPTY
+
+Sub-directories: None
+
+Files:
+        None
+
+Path: \T\DEST
+
+Sub-directories: XC
+
+Files:
+        KEEP.TXT
+        READONLY.TXT
+        REL.TXT
+        ONE.TXT
+
+Path: \T\DEST\XC
+
+Sub-directories: None
+
+Files:
+        ONE.TXT
+        TWO.TXT
+        RO.TXT
+A:\T>LABEL D: NEWLABEL
+Invalid drive specification
+AUDIT-DONE-B057
+A:\T>\CASES\B058.BAT
+CASE B058 missing-program
+A:\T>NOSUCH
+Bad command or file name
+A:\T>A:\NOSUCH
+Bad command or file name
+A:\T>DOS\NOSUCH
+Bad command or file name
+A:\T>COMMAND /C ECHO CHILD
+CHILD
+A:\T>COMMAND /C DIR
+
+ Volume in drive A is INITECH
+
+ Directory of A:\T
+
+.               <DIR>  10-23-26   2:42p
+..              <DIR>  10-23-26   2:42p
+SUB             <DIR>  10-23-26   2:42p
+EMPTY           <DIR>  10-23-26   2:42p
+DEST            <DIR>  10-23-26   2:42p
+ONE      TXT        7  10-23-26   2:42p
+TWO      TXT        6  10-23-26   2:42p
+EOF      TXT       14  10-23-26   2:42p
+ZERO     TXT        0  10-23-26   2:42p
+NOCR     TXT       12  10-23-26   2:42p
+BINARY   BIN     1024  10-23-26   2:42p
+EXACT    BIN      512  10-23-26   2:42p
+SELF     BIN     8192  10-23-26   2:42p
+READONLY TXT       11  10-23-26   2:42p
+HIDDEN   TXT        8  10-23-26   2:42p
+SYSTEM   TXT        8  10-23-26   2:42p
+LINES    TXT       54  10-23-26   2:42p
+LONG     TXT    76800  10-23-26   2:42p
+NOLF     TXT       10  10-23-26   2:42p
+OLD      TXT        6  12-31-80  11:59p
+FUTURE   TXT        6  12-31-99  11:59p
+CFILE    TXT        9  10-23-26   2:42p
+DFILE    TXT        9  10-23-26   2:42p
+
+       23 File(s)    786944 bytes free
+A:\T>EXIT
+AFTER-EXIT
+AUDIT-DONE-B058
+A:\T>\CASES\B059.BAT
+CASE B059 known-absent
+A:\T>APPEND
+Bad command or file name
+A:\T>ASSIGN
+Bad command or file name
+A:\T>BACKUP
+Bad command or file name
+A:\T>CHCP
+Bad command or file name
+A:\T>COMP
+Bad command or file name
+A:\T>EXE2BIN
+Bad command or file name
+A:\T>FASTOPEN
+Bad command or file name
+A:\T>FC
+Bad command or file name
+A:\T>GRAPHICS
+Bad command or file name
+A:\T>JOIN
+Bad command or file name
+A:\T>KEYB
+Bad command or file name
+A:\T>MODE
+Bad command or file name
+A:\T>NLSFUNC
+Bad command or file name
+A:\T>PRINT
+Bad command or file name
+A:\T>RECOVER
+Bad command or file name
+A:\T>REPLACE
+Bad command or file name
+A:\T>RESTORE
+Bad command or file name
+A:\T>SELECT
+Bad command or file name
+A:\T>SHARE
+Bad command or file name
+A:\T>SUBST
+Bad command or file name
+A:\T>DEBUG
+Bad command or file name
+AUDIT-DONE-B059
+A:\T>\CASES\B060.BAT
+CASE B060 batch-args
+ZERO=\CASES\ARGS.BAT ONE=one NINE=nine
+SHIFT ZERO=one ONE=two EIGHT=nine NINE=
+SHIFT2 ONE=three NINE=
+AUDIT-DONE-B060
+A:\T>\CASES\B061.BAT
+CASE B061 batch-flow
+STRING-YES
+CASE-SENSITIVE
+EXIST-YES
+NOT-EXIST
+LOOP=A
+LOOP=B
+LOOP=C
+FILE=A:\T\SUB\ONE.TXT
+FILE=A:\T\SUB\TWO.TXT
+FILE=A:\T\SUB\RO.TXT
+FLOW-END
+PARENT-BEFORE
+CHILD=arg
+PARENT-AFTER
+SPACE-OK
+AUDIT-DONE-B061
+A:\T>\CASES\B062.BAT
+CASE B062 batch-recursion
+Insufficient memory
+UNWIND
+UNWIND
+UNWIND
+UNWIND
+UNWIND
+UNWIND
+UNWIND
+RECURSION-RETURNED
+AUDIT-DONE-B062
+A:\T>\CASES\B063.BAT
+CASE B063 batch-long
+BIG-BEGIN
+BIG-RETURNED
+AUDIT-DONE-B063
+A:\T>\CASES\B064.BAT
+CASE B064 batch-errorlevel
+A:\T>FIND "nonexistent" < ONE.TXT
+FIND-LT2
+A:\T>FIND "ALPHA" < ONE.TXT
+ALPHA
+FIND-SUCCESS
+AUDIT-DONE-B064
+A:\T>\CASES\B065.BAT
+CASE B065 batch-drive
+A:\T>COPY \CASES\ARGS.BAT D:\ARGS.BAT
+        1 File(s) copied
+ZERO=D:\ARGS.BAT ONE=first NINE=
+SHIFT ZERO=first ONE=second EIGHT= NINE=
+SHIFT2 ONE= NINE=
+DRIVE-BATCH-RETURNED
+AUDIT-DONE-B065
+A:\T>\CASES\B066.BAT
+CASE B066 sys-reach
+A:\T>SYS A:
+No room for system on destination disk
+A:\T>SYS B:
+Invalid drive specification
+A:\T>SYS D:
+No room for system on destination disk
+A:\T>FORMAT A:
+Format not supported on drive A:
+A:\T>FORMAT B:
+Invalid drive specification
+A:\T>FORMAT D: /BAD
+Invalid parameter
+A:\T>DISKCOPY C: D:
+Specified drive does not exist,
+or is non-removable
+A:\T>DISKCOMP C: D:
+Specified drive does not exist,
+or is non-removable
+AUDIT-DONE-B066
+A:\T>\CASES\B067.BAT
+CASE B067 del-many
+A:\T>DEL \MANY\F*.TXT
+A:\T>DIR \MANY /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\MANY
+
+[.]             [..]            
+
+        2 File(s)    940544 bytes free
+AUDIT-DONE-B067
+A:\T>

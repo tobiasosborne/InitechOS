@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-23T12:58:53.305108+00:00",
+  "driver_pid": 3,
+  "qemu_pid": 4,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/advanced-fatstock-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/evidence/advanced-fatstock-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/45d258b5-93ad-4491-b585-335998527ebb/scratchpad/audits/dos/images/advanced-fatstock-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/advanced-fatstock-boot.img": {
+      "bytes": 4194304,
+      "sha256": "e9e16477d0a917969aa4202d0d8220b5c5236da781b53dfbcb05068b6b4d7968"
+    },
+    "images/advanced-fatstock-data.img": {
+      "bytes": 1474560,
+      "sha256": "e9d439efff547f7f941c51ca6d72e6ad4f4dbdc3f2b2edbf675362c059e76a2b"
+    }
+  },
+  "stopped_utc": "2026-10-23T12:59:01.301777+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/advanced-fatstock-boot.img": {
+      "bytes": 4194304,
+      "sha256": "e9e16477d0a917969aa4202d0d8220b5c5236da781b53dfbcb05068b6b4d7968"
+    },
+    "images/advanced-fatstock-data.img": {
+      "bytes": 1474560,
+      "sha256": "b7a660e8c94e1e594cdddead7c0f298a3c4833d5b9d6d1082406cf049269bf3d"
+    }
+  }
+}

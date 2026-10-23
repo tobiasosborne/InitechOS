@@ -1,0 +1,11 @@
+58 MS-DOS User's Reference
+
+                         Examples:
+                         If your directory contains more files than you can see on the
+                         screen at one time, type the following:
+
+                         di r Ip
+
+                         This command displays the directory one screen at a time. As one
+                         screen fills up, you can press any key to see the next screen of
+                         the directory listing.

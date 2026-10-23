@@ -1,0 +1,16 @@
+\CASES\B014.BAT
+CASE B014 copy-plus
+A:\T>COPY ONE.TXT+TWO.TXT JOIN.TXT
+        1 File(s) copied
+A:\T>COPY ONE.TXT /B+TWO.TXT /B JOINB.TXT /B
+        1 File(s) copied
+A:\T>TYPE JOIN.TXT
+ALPHA
+BETA
+
+A:\T>TYPE JOINB.TXT
+ALPHA
+BETA
+
+AUDIT-DONE-B014
+A:\T>

@@ -1,0 +1,45 @@
+50 MS-DOS User's Reference
+
+
+Copy                     Copy
+                         Purpose:
+                         Copies one or more files to another location. This command also
+                         appends files.
+                         Syntax:
+                         To copy files:
+                            copy [drive:] pathname] [drive: ][pathname2] [ /v][/a ][lb]
+                         or
+                            copy [drive:] pathname1 [Iv )[/a][ lb] [drive: ][pathname2]
+                         To append files:
+                            copy pathname] + pathname2 [ ... ] paihnameN
+                         Comments:
+                         If you do not specify pathname2, the copy is created in the work-
+                         ing directory on the disk in the default drive. This copy has the
+                         same name, creation date, and creation time as the original file
+                         (pathname]). If the original file is on the defaµlt drive and you
+                         do not specify pathname2, the copy command quits (you are not
+                         allowed to copy a file to itself), and MS-DOS displays the follow-
+                         ing error message:
+                         File cannot be ~opied onto itself
+                         0 File(s) copied
+
+                         The copy command accepts the following switches:
+
+                         Switch        Purpose
+The Copy switches        Iv            Causes MS-DOS to verify that the sectors written on
+                                       the target disk'are recorded properly.
+                         /a            Lets you copy ASCII files. This switch applies to the
+                                       filename preceding it, and to all remaining filenames
+                                       in the command, until copy encounters another la
+                                       or lb switch. This switch tells the command proces-
+                                       sor to read until the end-of-file mark.
+                         lb       I
+                                       Lets you copy binary files. This switch applies to the
+                                   \   filename preceding it, and to all remaining filenames
+                                       in the command, until copy encounters another /a
+                                       or lb switch. This switch tells the command proces-
+                                       sor to read the number of bytes specified by the file
+                                       size in the directory.
+
+
+                         If MS-DOS cannot verify a write, it displays an error message.

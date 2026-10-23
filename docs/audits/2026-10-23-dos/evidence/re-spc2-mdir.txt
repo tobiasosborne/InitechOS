@@ -1,0 +1,24 @@
+ Volume in drive : is CLUSTER2   
+ Volume Serial Number is 0BD6-A68B
+Directory for ::/
+
+AUTOEXEC BAT        11 2026-10-23  14:43 
+EXACT    BIN      1024 2026-10-23  14:43 
+PLUS     BIN      1025 2026-10-23  14:43 
+ONE      TXT         5 2026-10-23  14:43 
+RENAMED  BIN      1024 2026-10-23  14:43 
+SUB          <DIR>     2026-10-23  12:54 
+TYPE     BIN      1025 2026-10-23  12:54 
+        7 files               4 114 bytes
+
+Directory for ::/SUB
+
+.            <DIR>     2026-10-23  12:54 
+..           <DIR>     2026-10-23  12:54 
+EXACT    BIN      1024 2026-10-23  14:43 
+        3 files               1 024 bytes
+
+Total files listed:
+       10 files               5 138 bytes
+                          1 451 008 bytes free
+

@@ -1,0 +1,52 @@
+\CASES\B005.BAT
+CASE B005 dir-boundaries
+A:\T>DIR \D16 /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\D16
+
+[.]             [..]            F000.TXT        F001.TXT        F002.TXT
+F003.TXT        F004.TXT        F005.TXT        F006.TXT        F007.TXT
+F008.TXT        F009.TXT        F010.TXT        F011.TXT        F012.TXT
+F013.TXT        
+
+       16 File(s)    791552 bytes free
+A:\T>DIR \D32 /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\D32
+
+[.]             [..]            F000.TXT        F001.TXT        F002.TXT
+F003.TXT        F004.TXT        F005.TXT        F006.TXT        F007.TXT
+F008.TXT        F009.TXT        F010.TXT        F011.TXT        F012.TXT
+F013.TXT        F014.TXT        F015.TXT        F016.TXT        F017.TXT
+F018.TXT        F019.TXT        F020.TXT        F021.TXT        F022.TXT
+F023.TXT        F024.TXT        F025.TXT        F026.TXT        F027.TXT
+F028.TXT        F029.TXT        
+
+       32 File(s)    791552 bytes free
+A:\T>DIR \D64 /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\D64
+
+[.]             [..]            F000.TXT        F001.TXT        F002.TXT
+F003.TXT        F004.TXT        F005.TXT        F006.TXT        F007.TXT
+F008.TXT        F009.TXT        F010.TXT        F011.TXT        F012.TXT
+F013.TXT        F014.TXT        F015.TXT        F016.TXT        F017.TXT
+F018.TXT        F019.TXT        F020.TXT        F021.TXT        F022.TXT
+F023.TXT        F024.TXT        F025.TXT        F026.TXT        F027.TXT
+F028.TXT        F029.TXT        F030.TXT        F031.TXT        F032.TXT
+F033.TXT        F034.TXT        F035.TXT        F036.TXT        F037.TXT
+F038.TXT        F039.TXT        F040.TXT        F041.TXT        F042.TXT
+F043.TXT        F044.TXT        F045.TXT        F046.TXT        F047.TXT
+F048.TXT        F049.TXT        F050.TXT        F051.TXT        F052.TXT
+F053.TXT        F054.TXT        F055.TXT        F056.TXT        F057.TXT
+F058.TXT        F059.TXT        F060.TXT        F061.TXT        
+
+       64 File(s)    791552 bytes free
+AUDIT-DONE-B005
+A:\T>

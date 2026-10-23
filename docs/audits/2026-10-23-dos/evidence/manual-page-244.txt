@@ -1,0 +1,31 @@
+                                                        MS-DOS Editing and Function Keys 159
+
+The following table shows the MS-DOS control characters and
+describes what they do:
+
+Control
+character            What it does
+CONTROi.-<:          Aborts the current command.
+CONTROl.-H           Removes the last character from a command
+                     line, and erases that character from the ter-
+                     minal screen.
+CONTROL-)            Inserts a physical end-of-line, hut does not
+                     empty the command line. Use the l.INEl'EED
+                     key to extend the current logical line
+                     beyond the physical limits of the terminal
+                     screen.
+CONTROL-N            Causes echoing of output to a lineprinter.
+CONTROL-P            Causes terminal output to a lineprinter.
+CONTROl.-S           Suspends output display on the screen. Press
+                     CONTR01.-s again to resume.
+
+CONTROL-X            Cancels the current line, empties the com-
+                     mand line, and then outputs a backslash ( \ ),
+                     RETURN, and LINEFEED. CONTROL·X does not
+                     affect the template used hy the special
+                     editing commands.
+
+
+Now that you have been introduced to the special editing and          What comes next?
+function keys of MS-DOS, in the next chapter you'll learn how to
+use them with Edlin, the MS-DOS line editor.

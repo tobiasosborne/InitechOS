@@ -1,0 +1,44 @@
+120 MS-DOS User's Reference
+
+
+Time                     Time
+                         Purpose:
+                         Allows you to enter or change the time known to the system.
+                         Syntax:
+                         time [hours:minutes[ ":Seconds [.hundredths]]]
+                         Comments:
+                         MS-DOS keeps track of time in a 24-hour format, and uses the
+                         time information to update the directory whenever you create
+                         or change a file.
+Displaying the current   The time command without options displays the current time,
+time                     and gives you an oppot"tunity to change it:
+
+                         Cur rent time is bb: mm :ss. cc
+                         Enter new time:
+
+                         If you do not want to change the time shown simply press the
+                         RETIJRN key.
+
+                         If you do want to change the time, type in a new value in the 24-
+                         hour clock format. The following are valid values:
+
+                         hours = 0-23
+                         minutes = O- 59
+                         seconds = 0 - 59
+                         hundredths = 0 - 99
+
+                         Separate these elements (seconds and hundredths of seconds are
+                         optional) with the separator defined in the country-dependent
+                         information file. For the United States, use a colon (: ).
+                         You can also type the new time directly on the command line.
+                         If you do not type a valid time, MS-DOS displays the following
+                         message and then waits for you to type a valid time:
+
+                         Invalid time
+                         Enter new time:
+
+                         Notes:
+
+                          • You can change the time command format by changing the
+                            country command in the config.sys file. For more information,
+                            see Appendix B, "How to Configure Your System."
