@@ -234,6 +234,25 @@ void     iw_ed_doc_top(iw_ed_t *e, int before_codes);
 void     iw_ed_doc_end(iw_ed_t *e);
 void     iw_ed_to_line(iw_ed_t *e, uint32_t line);
 void     iw_ed_where(const iw_ed_t *e, iw_where_t *w);
+/* Pages (bead initech-1zk9; Reference Manual, Cursor Movement p. 103-104
+ * "First Line on the Next / Previous Page", Go To p. 223-224; the real
+ * WP.EXE in fixtures/iword-goto/goto.steps). A page is the lines iw_ed_where
+ * counts as one: a hard page ends one, and IW_WP5_LINES_PER_PAGE single-
+ * spaced lines fill one (the soft page).
+ * iw_ed_page_top: the first line of page `page` (1-based; 0 is page 1, past
+ * the last page is the last page: mint 16_goto_9, 17_goto_0), the cursor at
+ * its start past the codes in front of its first character (Pos 1", mint
+ * 10_pgdn_col: the column is not kept). Returns the page reached; *line its
+ * first line's index. iw_ed_page_bottom: Go To, Down -- the start of the
+ * cursor's page's last line (26_goto_down "Ln 1.17" Pos 1""); returns that
+ * line. iw_ed_goto_char: Go To, character -- just past the next `ch` from
+ * the cursor within IW_GOTO_SPAN bytes (p. 223 "Not Found": "approximately
+ * the next 2000 characters"; 27_goto_char); IW_E_RANGE (the cursor stays)
+ * when there is none. */
+#define IW_GOTO_SPAN 2000u
+uint32_t iw_ed_page_top(iw_ed_t *e, uint32_t page, uint32_t *line);
+uint32_t iw_ed_page_bottom(iw_ed_t *e);
+int      iw_ed_goto_char(iw_ed_t *e, uint8_t ch);
 /* The position on line `line` (0-based from the top) nearest column `col`. */
 uint32_t iw_ed_pos_at(const iw_ed_t *e, uint32_t line, uint32_t col);
 /* Lines [first, first + n) into out; returns how many exist. */

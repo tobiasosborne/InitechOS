@@ -508,7 +508,9 @@ static int is_field_mode(int m)
            /* P3 (initech-qvgd): the Search / Replace strings, Replace's two
             * questions, Setup's unit letter and backup question */
            m == M_SEARCH || m == M_RSEARCH || m == M_RTEXT || m == M_RCONF || m == M_RASK ||
-           m == M_UNITVALUE || m == M_BACKUPVALUE;
+           m == M_UNITVALUE || m == M_BACKUPVALUE ||
+           /* Go To (initech-1zk9): a page number, not a menu */
+           m == M_GOTO;
 }
 
 /* Explore the menu reached by lines[0..n) (whose state is `at`); `label` is
@@ -921,6 +923,8 @@ static void inventory_messages(const char *face_src)
         const char *c2[] = { "key Shift-F1", "type 381" };      observe((state_t[]){ scenario(1, 0, 0, c2, 2) }, 23, 0, 0);
         const char *d2[] = { "key Shift-F1", "type 312" };      observe((state_t[]){ scenario(1, 0, 0, d2, 2) }, 23, 0, 0);
         const char *e2[] = { "key Shift-F1", "type 381i" };     observe((state_t[]){ scenario(1, 1, 0, e2, 2) }, 23, 0, 0);
+        /* Go To (bead initech-1zk9) */
+        const char *f2[] = { "key Ctrl-Home" };                 observe((state_t[]){ scenario(1, 0, 0, f2, 1) }, 23, 0, 0);
     }
     /* completeness: the literals the source shows on the status line */
     {

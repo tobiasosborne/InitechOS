@@ -15105,6 +15105,15 @@ endif
 # IWORD_MUT_SAVE_NOTHING (MEMO is empty), IWORD_MUT_NO_FACE (leg F7, bead
 # initech-jojk: the attribute codes are kept but drawn plain),
 # IWORD_MUT_NO_BLOCK_ON (leg F8: "Block on" is not shown).
+# Legs F16 / F17 (beads initech-1zk9, initech-10bx; audit docs/audits/
+# 2026-10-23-iword L024 L025 L015): PgUp / PgDn and Go To (Ctrl-Home) against
+# the REAL WP 5.1 shots of fixtures/iword-goto (goto.steps, minted under
+# DOSBox-X), the saved bytes unchanged by navigation; a space in a Save /
+# Retrieve name refused with "ERROR: Invalid file name" (InitechWord
+# Reference ref-f.tex Filenames), BADNAME.WP5 untouched. Mutants:
+# IWORD_MUT_PGDN_IGNORED (PgDn does nothing), IWORD_MUT_GOTO_TYPES (the Go To
+# digits typed into the document), IWORD_MUT_NAME_SPACE_DROP (the old
+# ch > ' ' filter: spaces dropped at the name prompt).
 # ---------------------------------------------------------------------------
 TEST_IWORD_FACE   := $(BUILD)/test_iword_face
 IWORD_FACE_DEPS   := harness/proptest/test_iword_face.c os/iword/app/face_a.c os/apps/tbx/tbx.h os/apps/tbx/tbx_save.h spec/toolbox_gate.h spec/event_model.h spec/iword/settings.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR)
@@ -15148,8 +15157,8 @@ test-iword-face: $(TEST_IWORD_FACE) $(BUILD)/test_iword_face_small
 	@python3 -I $(WORDPERFECT51_DECOMP)/tools/wp5_ref.py $(IWORD_FACE_FS)/TABS | grep -q 'END offset=\([0-9]*\) filesize=\1 trailer-errors=0$$' || { printf '!!! test-iword-face FAIL: TABS does not parse clean\n'; exit 1; }
 	@printf '>>> test-iword-face: green (MEMO byte-identical to the expected file; MEMO/COPY/GUARD/BIG/CODES/TABS read clean by wp5_ref.py; CODES carries bold/underline/italic pairs; the body of TABS == MINT09 (%s bytes))\n' "$$(wc -c < $(BUILD)/iword_face_tabs.body)"
 
-test-iword-face-mutant: $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_WRAP $(BUILD)/test_iword_face_mutant_IWORD_MUT_SAVE_NOTHING $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_FACE $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_BLOCK_ON $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_CENTER $(BUILD)/test_iword_face_mutant_IWORD_MUT_SP_CEIL $(BUILD)/test_iword_face_mutant_IWORD_MUT_LINE_SCROLL
-	@for pair in 'IWORD_MUT_NO_WRAP:FAIL F1 the paragraph wraps' 'IWORD_MUT_SAVE_NOTHING:FAIL F1 MEMO holds' 'IWORD_MUT_NO_FACE:FAIL F7 faces' 'IWORD_MUT_NO_BLOCK_ON:FAIL F8 Alt-F4: Block on' 'IWORD_MUT_NO_CENTER:FAIL F11 a centered line' 'IWORD_MUT_SP_CEIL:FAIL F12 1.33 takes one row' 'IWORD_MUT_LINE_SCROLL:FAIL F12 triple spacing scrolled by rows'; do \
+test-iword-face-mutant: $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_WRAP $(BUILD)/test_iword_face_mutant_IWORD_MUT_SAVE_NOTHING $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_FACE $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_BLOCK_ON $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_CENTER $(BUILD)/test_iword_face_mutant_IWORD_MUT_SP_CEIL $(BUILD)/test_iword_face_mutant_IWORD_MUT_LINE_SCROLL $(BUILD)/test_iword_face_mutant_IWORD_MUT_PGDN_IGNORED $(BUILD)/test_iword_face_mutant_IWORD_MUT_GOTO_TYPES $(BUILD)/test_iword_face_mutant_IWORD_MUT_NAME_SPACE_DROP
+	@for pair in 'IWORD_MUT_NO_WRAP:FAIL F1 the paragraph wraps' 'IWORD_MUT_SAVE_NOTHING:FAIL F1 MEMO holds' 'IWORD_MUT_NO_FACE:FAIL F7 faces' 'IWORD_MUT_NO_BLOCK_ON:FAIL F8 Alt-F4: Block on' 'IWORD_MUT_NO_CENTER:FAIL F11 a centered line' 'IWORD_MUT_SP_CEIL:FAIL F12 1.33 takes one row' 'IWORD_MUT_LINE_SCROLL:FAIL F12 triple spacing scrolled by rows' 'IWORD_MUT_PGDN_IGNORED:FAIL F16 PgDn: the first line of page 2' 'IWORD_MUT_GOTO_TYPES:FAIL F16 Go To digits' 'IWORD_MUT_NAME_SPACE_DROP:FAIL F17 the space shows as typed'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_iword_face_mutant_$$m; dir=$(BUILD)/iword_face_fs_$$m; \
 		rm -rf $$dir && mkdir -p $$dir; \
 		if $$bin $$dir > $$bin.log 2>&1; then printf '!!! test-iword-face-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
@@ -15157,7 +15166,7 @@ test-iword-face-mutant: $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_WRAP $(BUIL
 		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-face-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-iword-face-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 -F "$$why" $$bin.log)"; \
 	done
-	@printf '>>> test-iword-face-mutant: green (all seven mutants RED for the named reason)\n'
+	@printf '>>> test-iword-face-mutant: green (all ten mutants RED for the named reason)\n'
 endif
 
 # ---------------------------------------------------------------------------
@@ -24101,6 +24110,21 @@ RECORD_SPEC_iword_search = $(FLAIR_IWORD_SEARCH_SPEC)
 RECORD_MARKER_iword_search = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="* Not found *                                                               " fg=0 bg=3 -> 0
 RECORD_SETTLE_iword_search = 400
 RECORD_IMAGE_iword_search = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# initech-1zk9 (audit 2026-10-23 L024/L025), Rule 14: PgUp / PgDn and Go To
+# on three hard pages (FLAIR_IWORD_GOTO_CLIP_SPEC); the marker is the Go To
+# prompt with "12" typed, drawn only just before the final Enter.
+RECORD_SCRIPTS += iword_goto
+RECORD_SPEC_iword_goto = $(FLAIR_IWORD_GOTO_CLIP_SPEC)
+RECORD_MARKER_iword_goto = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Go to 12                                                                    " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_goto = 400
+RECORD_IMAGE_iword_goto = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# initech-10bx (audit L015), Rule 14: "bad name" refused at Save, then
+# corrected (FLAIR_IWORD_BADNAME_CLIP_SPEC); the marker is the refusal.
+RECORD_SCRIPTS += iword_badname
+RECORD_SPEC_iword_badname = $(FLAIR_IWORD_BADNAME_CLIP_SPEC)
+RECORD_MARKER_iword_badname = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="ERROR: Invalid file name                                                    " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_badname = 400
+RECORD_IMAGE_iword_badname = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # WL-0146 Part 2, Rule 14: all registrations precede record-flair.
 RECORD_SCRIPTS += iword_replace iword_undo iword_setup
 RECORD_SPEC_iword_replace = $(FLAIR_IWORD_REPLACE_CLIP_SPEC)

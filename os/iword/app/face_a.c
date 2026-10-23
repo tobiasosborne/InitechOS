@@ -239,6 +239,8 @@ const char tbx_app_name[] = "WORD";
 #define VK_END       0x4F
 #define VK_DOWN      0x50
 #define VK_DEL       0x53
+#define VK_PGUP      0x49
+#define VK_PGDN      0x51
 
 /* ---- the menu bar (spec/toolbox_gate.h Sec 9): WP 5.1's File menu
  * (Reference Manual, "Select Save from the File menu" p. 564, "Select
@@ -318,7 +320,7 @@ enum { M_EDIT, M_SAVE_NAME, M_GET_NAME, M_REPLACE, M_SAVEQ, M_EXITQ, M_ERROR, M_
        M_SIZE, M_FONTBLK, M_MOVENB, M_RETMENU, M_FMTSP, M_GRAY, M_SEARCH,
        M_RCONF, M_RSEARCH, M_RTEXT, M_RASK, M_UNDO,
        M_SETUP, M_ENV, M_UNITS, M_UNITVALUE, M_BACKUP, M_BACKUPVALUE,
-       M_LISTDIR, M_LIST, M_LISTSUB, M_LOOK, M_LISTRQ };
+       M_LISTDIR, M_LIST, M_LISTSUB, M_LOOK, M_LISTRQ, M_GOTO };
 static int      g_mode = M_EDIT;
 static int      g_err_return;               /* the prompt an ERROR returns to */
 static const char *g_err;
@@ -370,6 +372,16 @@ static uint8_t  g_home;                     /* Home presses pending: WP's Home
                                              * is a prefix key (slice 3)     */
 static uint8_t  g_sel;                      /* the block is Ctrl-F4 1/2/3's  */
 static uint32_t g_hin;                      /* the Homes pressed before this key */
+/* Go To (Ctrl-Home; bead initech-1zk9, Reference p. 223-224): the page
+ * number typed at "Go to " (fixtures/iword-goto 14_goto_3, 22_goto_12), and
+ * the cursor's place before the last jump, for Go To twice (p. 224
+ * "Previous Position"; 28_goto_twice) -- NO_PREV once the document changes. */
+#define GOTO_DIGITS  5u                       /* authored cap: page 99999 */
+#define NO_PREV      0xFFFFFFFFu
+static char     g_goto[GOTO_DIGITS + 1];
+static uint32_t g_goto_n;
+static uint32_t g_prev = NO_PREV;
+static int32_t  g_kmods;                     /* the modifiers of this key */
 
 /* ---- small helpers --------------------------------------------------------- */
 static uint32_t slen(const char *s) { uint32_t n = 0; while (s[n]) n++; return n; }
@@ -447,6 +459,7 @@ static void doc_reset(void)
     g_top = 0;
     g_skip = 0;
     g_undo_count = 0; g_undo_join = 0;
+    g_prev = NO_PREV;
 }
 
 /* Flatten prefix + body into the spare bank; *n = its length. */
@@ -520,6 +533,7 @@ static int edit(int op, uint8_t ch)
     uint32_t before = g_ed.doc.len;
     uint32_t ds = g_ed.cur, dt = ds, dn = 0;
     int rc, fx;
+    g_prev = NO_PREV;                         /* Go To twice: no place to go back to */
     ensure_room();
     if (op == ED_BACKSPACE && ds) ds = iw_unit_prev(&g_ed.doc, ds);
     else if (op == ED_DELETE && dt < before) dt = iw_unit_next(&g_ed.doc, dt);
@@ -781,6 +795,7 @@ static void paint_status(const iw_where_t *w, int line)
 #endif
         }
         else if (g_mode == M_RASK) t = "Replace? Yes (No)";
+        else if (g_mode == M_GOTO) t = "Go to ";      /* goto.steps 13_goto_prompt */
         else if (g_mode == M_UNDO) t = "Undelete 1 Restore; 2 Previous Deletion: 0";
         else if (g_mode == M_RTEXT) t = "Replace with:";
         else if (g_mode == M_SEARCH || g_mode == M_RSEARCH) {
@@ -822,6 +837,8 @@ static void paint_status(const iw_where_t *w, int line)
             query_cursor = n + query_label(s + n, SCR_COLS - n + 1);
         if (g_mode == M_SAVE_NAME || g_mode == M_GET_NAME)
             for (i = 0; i < g_nlen && n < SCR_COLS; i++) s[n++] = g_name[i];
+        if (g_mode == M_GOTO)
+            for (i = 0; i < g_goto_n && n < SCR_COLS; i++) s[n++] = g_goto[i];
         if (g_mode == M_SAVEQ && !g_ed.dirty) {
             const char *nm = "(Text was not modified)";
             k = slen(nm);
@@ -1717,7 +1734,17 @@ static void name_key(char ch, uint8_t vk)
         return;
     }
     if (vk == VK_BSPC || ch == 8) { g_fresh = 0; if (g_nlen) g_name[--g_nlen] = 0; return; }
-    if (ch > ' ' && ch <= '~') {
+    /* A space is KEPT (bead initech-10bx): the name is judged as typed, so
+     * "BAD NAME.WP5" is refused with "ERROR: Invalid file name" (the
+     * InitechWord Reference, Filenames: "a name with any other character
+     * ... is refused") and is never quietly saved as BADNAME.WP5 (audit
+     * docs/audits/2026-10-23-iword L015). */
+#ifdef IWORD_MUT_NAME_SPACE_DROP
+    /* MUTANT (Rule 6; test-iword-face-mutant): spaces dropped at the
+     * prompt, as before the fix. NEVER real. */
+    if (ch == ' ') return;
+#endif
+    if (ch >= ' ' && ch <= '~') {
         if (g_fresh) { g_nlen = 0; g_fresh = 0; }
         if (g_nlen < sizeof g_name - 1u) { g_name[g_nlen++] = ch; g_name[g_nlen] = 0; }
     }
@@ -1940,6 +1967,39 @@ static void format_key(char ch, uint8_t vk)
     if (g_mode == M_EDIT) paint_all();
 }
 
+/* The top of page `page`, that line at the top of the screen as WP draws it
+ * after PgDn, PgUp and Go To <n> (fixtures/iword-goto 03_pgdn .. 07_pgup,
+ * 15_goto_3_enter, 16_goto_9, 29_goto_4_soft: the page's first line on the
+ * screen's first row, even with room left below the document's end). */
+static uint32_t page_jump(uint32_t page)
+{
+    uint32_t line = 0, got = iw_ed_page_top(&g_ed, page, &line);
+    g_top = line;
+    g_skip = 0;
+    return got;
+}
+
+/* PgUp / PgDn: "First Line on the Previous / Next Page" (Reference Manual,
+ * Cursor Movement p. 104; fixtures/iword-goto 03..05 and 07: Ln 1" Pos 1",
+ * 10_pgdn_col: the column not kept, 12_pgup_mid: from the middle of page 2
+ * to page 1). PgDn on the last page goes to the end of the document
+ * (06_pgdn_last: Ln 1.17" Pos 2.1", after "Four again."); PgUp on page 1 to
+ * its top [inferred: 08_pgup_first starts there]. Alone only: with Shift,
+ * Alt or Ctrl they do nothing (WP's Ctrl-PgDn deletes to the end of the
+ * page, a feature InitechWord does not carry out). */
+static void page_key(uint8_t vk)
+{
+    iw_where_t w;
+#ifdef IWORD_MUT_PGDN_IGNORED
+    /* MUTANT (Rule 6; test-iword-face-mutant): PgDn does nothing, as before
+     * bead initech-1zk9. NEVER real. */
+    if (vk == VK_PGDN) return;
+#endif
+    iw_ed_where(&g_ed, &w);
+    if (vk == VK_PGUP) { (void)page_jump(w.page > 1u ? w.page - 1u : 1u); return; }
+    if (page_jump(w.page + 1u) <= w.page) iw_ed_doc_end(&g_ed);
+}
+
 /* The cursor keys (the editing screen, Block, the Move prompt). HOME IS A
  * PREFIX KEY (slice 3; Reference Manual, Cursor Movement p. 103-104; the
  * real WP.EXE in mint/wpMINT27.steps): the arrow after one, two or three
@@ -1949,6 +2009,13 @@ static int cursor_key(uint8_t vk, uint32_t homes)
     uint32_t rows = g_reveal ? RV_TOP_ROWS : EDIT_ROWS, first, last;
     iw_where_t w;
     if (vk == VK_HOME) { g_home = (uint8_t)(homes < 3u ? homes + 1u : 3u); return 1; }
+    if (vk == VK_PGUP || vk == VK_PGDN) {
+        if (g_kmods & (int32_t)(FLAIR_EVT_MOD_SHIFT_KEY | FLAIR_EVT_MOD_CONTROL_KEY | FLAIR_EVT_MOD_OPTION_KEY)) return 0;
+        g_prev = g_ed.cur;                    /* p. 224: Go To twice comes back */
+        page_key(vk);
+        return 1;
+    }
+    if (homes) g_prev = g_ed.cur;             /* p. 224 "Home, arrow keys" */
     if (homes && (vk == VK_UP || vk == VK_DOWN)) {
         if (homes >= 2u) {
             /* Home, Home, Up: the top after the formatting codes; Home x3,
@@ -2084,6 +2151,67 @@ static int function_key(uint8_t vk, int32_t mods)
     return 1;
 }
 
+/* "Go to " (Ctrl-Home; Reference Manual, Go To p. 223-224 "Go To
+ * Keystrokes"; the real WP.EXE in fixtures/iword-goto/goto.steps): the
+ * status line is the prompt alone (13_goto_prompt), the digits typed show
+ * after it (14_goto_3, 22_goto_12) and Backspace takes one back (20_goto_bs);
+ * Enter goes to the top of that page -- page 0 is page 1, a page past the
+ * end is the last page (15, 16, 17, 23, 29_goto_4_soft) -- and with no
+ * digits leaves the cursor where it is (21_goto_bs_enter); F1 and Esc cancel
+ * (18_goto_2_esc, 19_goto_2_f1). As the FIRST key: Up / Down the top / the
+ * last line of the cursor's page (25_goto_up, 26_goto_down), Ctrl-Home again
+ * the place before the last jump (p. 224 "Previous Position";
+ * 28_goto_twice), any other character just past its next occurrence
+ * (27_goto_char; "Not Found": the cursor stays). Nothing typed here ever
+ * goes into the document. [Not performed: Go To, Enter -- the next [HRt] --
+ * Go To, Alt-F4 and the columns; a letter after digits, which WP echoes
+ * (30_goto_2x), is ignored.] */
+static void goto_key(char ch, uint8_t vk, int32_t mods)
+{
+    int first = g_goto_n == 0u;
+    uint32_t was = g_ed.cur, page = 0, i;
+    if (vk == VK_F1 || vk == VK_ESC || ch == 0x1B) { g_mode = M_EDIT; return; }
+    if (vk == VK_ENTER || ch == '\r') {
+        g_mode = M_EDIT;
+        if (first) return;
+        for (i = 0; i < g_goto_n; i++) page = page * 10u + (uint32_t)(g_goto[i] - '0');
+        (void)page_jump(page);
+        g_prev = was;
+        return;
+    }
+    if (vk == VK_BSPC || ch == 8) { if (g_goto_n) g_goto[--g_goto_n] = 0; return; }
+#ifdef IWORD_MUT_GOTO_TYPES
+    /* MUTANT (Rule 6; test-iword-face-mutant): the digits go into the
+     * document as typing, as before Go To existed. NEVER real. */
+    if (ch >= '0' && ch <= '9') { g_mode = M_EDIT; (void)edit(ED_TYPE, (uint8_t)ch); return; }
+#endif
+    if (ch >= '0' && ch <= '9') {
+        if (g_goto_n < GOTO_DIGITS) { g_goto[g_goto_n++] = ch; g_goto[g_goto_n] = 0; }
+        return;
+    }
+    if (!first) return;
+    if (ch == 0 && (vk == VK_UP || vk == VK_DOWN)) {
+        if (vk == VK_UP) { iw_where_t w; iw_ed_where(&g_ed, &w); (void)iw_ed_page_top(&g_ed, w.page, 0); }
+        else (void)iw_ed_page_bottom(&g_ed);
+        g_prev = was;
+        g_mode = M_EDIT;
+        return;
+    }
+    if (ch == 0 && vk == VK_HOME && (mods & (int32_t)FLAIR_EVT_MOD_CONTROL_KEY)) {
+        g_mode = M_EDIT;
+        if (g_prev != NO_PREV && g_prev <= g_ed.doc.len && iw_is_boundary(&g_ed.doc, g_prev)) {
+            g_ed.cur = g_prev;
+            g_ed.goal = 0xFFFFFFFFu;
+            g_prev = was;
+        }
+        return;
+    }
+    if (ch >= ' ' && ch <= '~') {
+        g_mode = M_EDIT;
+        if (iw_ed_goto_char(&g_ed, (uint8_t)ch) == IW_OK) g_prev = was;
+    }
+}
+
 static void edit_key(char ch, uint8_t vk, int32_t mods)
 {
     int ctrl  = (mods & (int32_t)FLAIR_EVT_MOD_CONTROL_KEY) != 0;
@@ -2096,6 +2224,11 @@ static void edit_key(char ch, uint8_t vk, int32_t mods)
         block_key(ch, vk, mods); return;
     }
     if (!ch && function_key(vk, mods)) return;
+    if (!ch && vk == VK_HOME && ctrl) {   /* Go To (Ctrl-Home), p. 223 */
+        g_goto_n = 0; g_goto[0] = 0;
+        g_mode = M_GOTO;
+        return;
+    }
     if (ch == '\t' || vk == VK_TAB) {   /* Tab: [Tab] (MINT09) */
         rc = edit(ED_TAB, 0);
     } else if (ch == 0) {                /* function and cursor keys */
@@ -2361,6 +2494,7 @@ static void key(int32_t message, int32_t mods)
     int mode_before = g_mode;
     g_caps = (mods & (int32_t)FLAIR_EVT_MOD_ALPHA_LOCK) != 0;
     g_ed.reveal = g_reveal;                       /* a new document resets it */
+    g_kmods = mods;
     g_hin = g_home;                               /* Home is a prefix: it waits */
     g_home = 0;                                   /* for the next key (slice 3) */
     if (vk == VK_LEFT || vk == VK_RIGHT || vk == VK_UP || vk == VK_DOWN || vk == VK_HOME || vk == VK_END)
@@ -2373,6 +2507,7 @@ static void key(int32_t message, int32_t mods)
     else if (setup_mode()) setup_key(ch, vk);
     else if (format_mode()) format_key(ch, vk);
     else if (g_mode == M_RETRIEVE) retrieve_key(ch, vk, mods);
+    else if (g_mode == M_GOTO) goto_key(ch, vk, mods);
     else if (lf_mode()) lf_key(ch, vk);
     else prompt_key(ch, vk);
     /* Reference p. 697: ANY cursor motion ends a deletion group, including

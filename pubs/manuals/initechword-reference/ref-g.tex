@@ -1,0 +1,51 @@
+% Reference entries, G (AN-11).  Law 1: os/iword/app/face_a.c goto_key
+% (M_GOTO, "Go to " and the page number typed), page_jump, page_key,
+% os/iword/core/edit.c iw_ed_page_top / iw_ed_page_bottom / iw_ed_goto_char
+% (bead initech-1zk9).  Shots: the real WordPerfect 5.1 in
+% fixtures/iword-goto (goto.steps); WordPerfect 5.1 Reference, Go To
+% pp. 223-224.
+% GATES: test-pubs-iword test-iword-face
+\Gates{test-pubs-iword test-iword-face}
+\begin{Feature}{Go To}
+Go To moves the cursor quickly to the top of a page, to the top or bottom
+of the page it is on, or just past the next place a character appears.
+
+To go to a page,
+\begin{WPSteps}
+\item Press \FK{Go To}{Ctrl-Home}.  The status line shows
+\StatusLine{Go to}
+\item Type the number of the page.  Press \K{Backspace} to erase the last
+digit, if you need to.
+\item Press \K{Enter}.  The cursor goes to the first line of that page, and
+that line is shown at the top of the screen.
+\end{WPSteps}
+\Documents{wpkey}{Ctrl-Home}
+
+\Notes
+\Topic{Cancel}
+Press \FK{Cancel}{F1} or \K{Esc} to return to the document with the cursor
+where it was.
+
+\Topic{Other Places}
+Instead of a page number, press one of these keys straight after
+\K{Ctrl-Home}:
+\par\addvspace{4pt}
+\noindent\begin{tabular}{@{}lp{70mm}@{}}
+\textbf{Key} & \textbf{Moves the cursor to}\\
+\K{Up} & the top of the page the cursor is on\\
+\K{Down} & the start of the last line of the page the cursor is on\\
+a character & just past the next place that character appears, if it is
+within about 2000 characters; otherwise the cursor stays where it is\\
+\K{Ctrl-Home} & back where the cursor was before the last Go To, PgUp,
+PgDn or Home key moved it\\
+\end{tabular}
+\par\addvspace{4pt}
+
+\Topic{Page Numbers}
+A number larger than the number of pages goes to the top of the last page;
+0 goes to the top of the first page.  Enter with no number returns to the
+document with the cursor where it was.  Only digits are taken; Go To never
+types anything into the document.
+
+\SeeAlso{Cursor Movement; Status Line}
+\end{Feature}

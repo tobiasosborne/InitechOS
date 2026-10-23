@@ -853,6 +853,53 @@ void iw_ed_to_line(iw_ed_t *e, uint32_t line)
     e->cur = pos_in_line(&e->doc, &w.ln, col_of_x(&w.ln, e->goal));
 }
 
+/* ---- pages: PgUp / PgDn and Go To (bead initech-1zk9) ------------------------ *
+ * Reference Manual, Cursor Movement p. 103-104 and Go To p. 223-224; the real
+ * WP.EXE in fixtures/iword-goto (goto.steps; iword.h states each shot). */
+uint32_t iw_ed_page_top(iw_ed_t *e, uint32_t page, uint32_t *line)
+{
+    walk_t w, top;
+    if (page == 0u) page = 1u;               /* 17_goto_0: page 1 */
+    walk_first(e, &w);
+    top = w;
+    /* the first line of each page in turn, up to `page` or the last one
+     * (16_goto_9 / 23_goto_12_enter: the last page's top) */
+    while (w.page < page && walk_next(e, &w)) if (w.page_line == 1u) top = w;
+    e->goal = NONE;
+    e->cur = pos_in_line(&e->doc, &top.ln, top.ln.col0);
+    if (line) *line = top.index;
+    return top.page;
+}
+
+uint32_t iw_ed_page_bottom(iw_ed_t *e)
+{
+    iw_where_t wh;
+    walk_t w, last;
+    iw_ed_where(e, &wh);
+    walk_first(e, &w);
+    while (w.page < wh.page && walk_next(e, &w)) { }
+    last = w;
+    while (walk_next(e, &w) && w.page == wh.page) last = w;
+    e->goal = NONE;
+    e->cur = pos_in_line(&e->doc, &last.ln, last.ln.col0);
+    return last.index;
+}
+
+int iw_ed_goto_char(iw_ed_t *e, uint8_t ch)
+{
+    uint32_t p = e->cur;
+    while (p < e->doc.len && p - e->cur < IW_GOTO_SPAN) {
+        uint32_t q = iw_unit_next(&e->doc, p);
+        if (iw_unit_kind(&e->doc, p) == IW_U_TEXT && iw_doc_byte(&e->doc, p) == (int)ch) {
+            e->goal = NONE;
+            e->cur = q;                       /* "to the immediate right" */
+            return IW_OK;
+        }
+        p = q;
+    }
+    return IW_E_RANGE;                        /* "the cursor remains in place" */
+}
+
 void iw_ed_line_end(iw_ed_t *e)
 {
     iw_where_t wh;
