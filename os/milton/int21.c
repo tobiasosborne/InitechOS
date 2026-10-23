@@ -5411,7 +5411,16 @@ static void int21_dispatch_body(int_frame_t *frame)
      * calls. Nonblocking entry check; preserve ordinary keyboard typeahead.
      * The character family keeps its existing checks and raw 06h/07h rules. */
 #ifndef INT21_MUTATE_DISK_BREAK
-    if ((ah == 0u || ah > 0x0cu) && int21_get_break_flag()) {
+    if ((ah == 0u || ah > 0x0cu) && int21_get_break_flag()
+#ifndef INT21_MUTATE_BREAK_CLEANUP
+        /* A resident command already unwinding INT 23h must finish CLOSE /
+         * DUP2 even with another ^C queued. Its next prompt resets the latch.
+         * Children have another PSP and retain default termination semantics.
+         * Ref: DOS 3.30 TR pp.6-14/15; User's Guide p.159 / PDF244. */
+        && !(g_break_recovery && g_break_recovery->owner == (struct psp *)g_cur_psp
+             && g_break_recovery->interrupted)
+#endif
+        ) {
         int c = conin_poll_pb();
         if (c == 3) {
             int23_dispatch(frame);

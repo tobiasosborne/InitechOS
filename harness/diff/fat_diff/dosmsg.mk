@@ -6,9 +6,9 @@ $(BUILD)/test_qemu_paths: harness/emu/test_qemu_paths.c harness/emu/qemu.c harne
 $(BUILD)/test_qemu_paths_mut: harness/emu/test_qemu_paths.c harness/emu/qemu.c harness/emu/qemu.h | $(BUILD)
 	$(CC) $(CFLAGS) -DQEMU_MUTATE_PATH_PREFLIGHT $< -o $@
 $(BUILD)/test_dos_break: harness/diff/fat_diff/test_dos_break.c $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Ibuild $< $(TEST_CONIN_DEPS) -o $@
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -no-pie -Ispec -I$(MILTON_DIR) -Ibuild $< $(TEST_CONIN_DEPS) -o $@
 $(BUILD)/test_dos_break_mut: harness/diff/fat_diff/test_dos_break.c $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_DISK_BREAK -Ispec -I$(MILTON_DIR) -Ibuild $< $(TEST_CONIN_DEPS) -o $@
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -no-pie -DINT21_MUTATE_DISK_BREAK -Ispec -I$(MILTON_DIR) -Ibuild $< $(TEST_CONIN_DEPS) -o $@
 $(BUILD)/dos_break_program.bin: harness/diff/fat_diff/dos_break_program.asm | $(BUILD)
 	$(NASM) -f bin $< -o $@
 $(BUILD)/int21_dosbreak_mut.o: $(KERNEL_INT21_C) $(TEST_CONIN_HDRS) | $(BUILD)
@@ -115,3 +115,36 @@ test-dir-match-emu-mutant: $(BUILD)/dir_match $(HARNESS_BIN) $(BUILD)/tracer_mut
 	@echo 'GREEN test-dir-match-emu-mutant: CMD_MUTATE_DIR_ARGS caught RED'
 TEST_UNIT_GATES += test-dir-match-host test-dir-match-host-mutant
 TEST_EMU_GATES += test-dir-match-emu test-dir-match-emu-mutant
+
+# initech-c80y: returning resident TYPE/DIR cancellation, independent disk bytes.
+$(BUILD)/dos_resident_break_check: harness/diff/fat_diff/dos_resident_break_check.c | $(BUILD)
+	$(CC) $(CFLAGS) $< -o $@
+.PHONY: test-dos-resident-break-emu test-dos-resident-break-mutant
+test-dos-resident-break-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/console_text $(BUILD)/dos_resident_break_check
+	@sh harness/diff/fat_diff/dos_resident_break.sh $(SECONDARY_TRACER_IMG)
+TEST_EMU_GATES += test-dos-resident-break-emu
+
+$(BUILD)/test_dos_break_cleanup_mut: harness/diff/fat_diff/test_dos_break.c $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) $(MILTON_DIR)/ata.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -no-pie -DINT21_MUTATE_BREAK_CLEANUP -Ispec -I$(MILTON_DIR) -Ibuild $< $(TEST_CONIN_DEPS) -o $@
+RESIDENT_BREAK_KNOB_type := CMD_MUTATE_TYPE_BREAK
+RESIDENT_BREAK_KNOB_dir := CMD_MUTATE_DIR_BREAK
+$(BUILD)/command_resident_break_%.o: $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(TEST_CONIN_HDRS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -D$(RESIDENT_BREAK_KNOB_$*) -Ispec -I$(MILTON_DIR) -Ibuild -c $< -o $@
+$(foreach m,type dir,$(eval $(call j1lu-emu-variant,resident_$(m),$(KERNEL_COMMAND_OBJ),$(BUILD)/command_resident_break_$(m).o)))
+.PHONY: test-dos-break-cleanup-mutant
+test-dos-break-cleanup-mutant: $(BUILD)/test_dos_break_cleanup_mut
+	@rc=0; $< >$(BUILD)/dos_break_cleanup_mut.log 2>&1 || rc=$$?; test $$rc -eq 1
+	@grep '^RED dos-break: cancel cleanup must CLOSE and restore stdin/stdout on every path' $(BUILD)/dos_break_cleanup_mut.log
+	@echo 'GREEN test-dos-break-cleanup-mutant: queued Ctrl-C cleanup regression caught'
+test-dos-resident-break-mutant: $(HARNESS_BIN) $(BUILD)/console_text $(BUILD)/dos_resident_break_check $(BUILD)/j1lu_resident_type.img $(BUILD)/j1lu_resident_dir.img
+	@set -eu; for m in type dir; do \
+	  mode=controlshort; test $$m != dir || mode=gaps2; \
+	  rc=0; sh harness/diff/fat_diff/dos_resident_break.sh $(BUILD)/j1lu_resident_$$m.img mutant-$$m $$mode >$(BUILD)/dos_resident_break_$$m.log 2>&1 || rc=$$?; \
+	  test $$rc -eq 1; \
+	  if test $$m = type; then why='TYPE emitted bytes after cancellation'; else why='gaps2 did not return a usable prompt'; fi; \
+	  grep -E "^RED dos-resident-break: ($$why|listing reached the final line after cancellation)$$" $(BUILD)/dos_resident_break_$$m.log; \
+	  grep -q INT23-BREAK $(BUILD)/dos-resident-break-mutant-$$m/$$mode/run.serial; \
+	  echo "GREEN test-dos-resident-break-mutant: $$m cancellation caught"; \
+	done
+TEST_UNIT_GATES += test-dos-break-cleanup-mutant
+TEST_EMU_GATES += test-dos-resident-break-mutant

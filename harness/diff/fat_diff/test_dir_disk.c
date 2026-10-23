@@ -11,6 +11,10 @@
 static const int21_file_backend_t *backend;
 void int21_set_file_backend(const int21_file_backend_t *b) { backend = b; }
 void int21_set_media(uint8_t media) { (void)media; }   /* AH=1Bh/1Ch seam (509.9) */
+/* fileio_fat_bind also publishes drive/DPB callbacks. This oracle calls the
+ * captured FAT backend directly, without an INT21 dispatcher or drive switch. */
+void int21_set_drive_selector(int (*select)(unsigned)) { (void)select; }
+void int21_set_dpb_source(int (*geometry)(int21_dpb_geometry_t *)) { (void)geometry; }
 /* This read-only oracle binds no clock. The integration stamp oracle binds
  * the real INT21 seam instead (dos_parity_host.c). */
 int int21_file_stamp(uint16_t *t, uint16_t *d) { (void)t; (void)d; return 0; }
