@@ -1550,6 +1550,7 @@ static int tr_format_numeric(xb_ctx *ctx, double v,
     int32_t  i;
     int32_t  n_digit = 0;
     int32_t  n_dec   = 0;
+    int32_t  fmt_w;       /* dec_format width: digit slots + the '.' column */
     int      dot_seen    = 0;
     int      dollar_fill = 0;
     char     fmtbuf[256]; /* abs(v) formatted; n_digit <= 254 */
@@ -1575,9 +1576,20 @@ static int tr_format_numeric(xb_ctx *ctx, double v,
     paren_wrap = (suffix_extra == 2); /* @( negative layout */
     field_off  = paren_wrap ? 1 : 0;
 
+    /* The template's '.' is a column of its own: "999.99" holds 123.40, so
+     * dec_format gets n_digit digits PLUS the point. Formatting into n_digit
+     * columns star-filled every value that exactly fits (real III+
+     * TRANSFORM(123.4,"999.99") = "123.40", (0.12,"9.99") = "0.12",
+     * (5,"9.9") = "5.0": datatype-mint DT1 C1..C11; audit 2026-10-23-samir
+     * L007; initech-ylqs). Mutant XB_MUTATE_TR_DOTWIDTH drops the column. */
+#ifndef XB_MUTATE_TR_DOTWIDTH
+    fmt_w = n_digit + (n_dec > 0 ? 1 : 0);
+#else
+    fmt_w = n_digit;
+#endif
     if (n_digit > 0) {
         double absv = is_neg ? -v : v;
-        dec_format(absv, (int)n_digit, (int)n_dec, fmtbuf);
+        dec_format(absv, (int)fmt_w, (int)n_dec, fmtbuf);
     }
     overflow = (n_digit > 0 && fmtbuf[0] == '*');
 
@@ -1624,7 +1636,7 @@ static int tr_format_numeric(xb_ctx *ctx, double v,
             int32_t  first_filled = -1;
             int      sign_placed  = 0;
 
-            for (fj = 0; fj < n_digit; fj++) {
+            for (fj = 0; fj < fmt_w; fj++) {
                 char fc = fmtbuf[fj];
                 if (fc >= '0' && fc <= '9') digits[nd++] = fc;
             }

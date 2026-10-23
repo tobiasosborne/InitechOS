@@ -853,7 +853,25 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
              * blank/overflow fallback of dbf_ref.py decode_field('N') -> None.
              * Ref: dbf.md sec 5 N; rt.h dec_parse; dbf_ref.py.
              */
-            out[fi] = xb_n(dec_parse((const char *)raw, (int)flen));
+            {
+                uint32_t k = 0u;
+                while (k < (uint32_t)flen && raw[k] == (uint8_t)' ') k++;
+#ifndef SAMIR_DT_MUTANT_starread
+                /* An overflowed field ("****", the stars_fill of
+                 * xbase_coercion.json) reads back in real III+ as the
+                 * largest double, 1.7976931348623157E308: ? SMALL prints
+                 * "****", SMALL = 0 is .F., SMALL/10^300 = 179769313.49, and
+                 * VAL("****") is the same value (datatype-mint DT1 B4-B6,
+                 * DT2 F2, DT5 I1/I2/I7). Decoding it as 0.0 presented an
+                 * overflow as an ordinary zero (audit 2026-10-23-samir L006;
+                 * initech-ylqs). dec_format star-fills it at any width. */
+                if (k < (uint32_t)flen && raw[k] == (uint8_t)'*') {
+                    out[fi] = xb_n(1.7976931348623157e308);
+                    break;
+                }
+#endif
+                out[fi] = xb_n(dec_parse((const char *)raw, (int)flen));
+            }
             break;
 
         case (unsigned char)'D':
@@ -888,7 +906,18 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
                            raw[7] == (uint8_t)'0');
 
                 if (is_blank || is_zero) {
+#ifndef SAMIR_DT_MUTANT_blankread
+                    /* A blank D field is still a Date in real III+:
+                     * TYPE("WHEN") = "D", DTOC() and date arithmetic work,
+                     * and INDEX ON WHEN keys it (datatype-mint DT3 G8-G10,
+                     * BLANKDAT.NDX). It is the interpreter's one blank date,
+                     * xb_d(0.0) (value.h xb_date_blank). XB_U here made
+                     * INDEX ON <date> fail with #9 (audit 2026-10-23-samir
+                     * L016; initech-ylqs). */
+                    out[fi] = xb_d(0.0);
+#else
                     out[fi] = xb_u();
+#endif
                 } else {
                     /* Parse YYYYMMDD from ASCII digits. dec_parse on 4-char
                      * slice gives the integer year; same for month and day. */
@@ -1026,9 +1055,16 @@ static void fmt_field(uint8_t *dst, uint8_t flen, char ftype, uint8_t dec,
     }
 
     case (unsigned char)'D': {
-        /* 8-char YYYYMMDD from the JDN; blank (8 spaces) for xb_u/wrong type.
-         * dbf.md sec 5 D. flen is 8 (create-asserted). */
+        /* 8-char YYYYMMDD from the JDN; blank (8 spaces) for the blank date
+         * (xb_d(0.0), value.h xb_date_blank -- what a blank D field now reads
+         * as, so SORT/TOTAL/COPY rows carry it here), xb_u or a wrong type.
+         * dbf.md sec 5 D; xbase_coercion.json D "blank":"8 spaces".
+         * flen is 8 (create-asserted). initech-ylqs. */
+#ifndef SAMIR_DT_MUTANT_blankwrite
+        if (v && v->t == XB_D && !xb_date_blank(v->u.d)) {
+#else
         if (v && v->t == XB_D) {
+#endif
             int32_t y, m, d;
             char    buf[8];
             ymd_from_jdn((int32_t)v->u.d, &y, &m, &d);
@@ -1647,11 +1683,19 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
     }
 
     case (unsigned char)'D': {
-        /* D <- D: ok. xb_u -> 8 spaces (blank date).
-         * Ref: xbase_coercion.json target:D, expr:D. dbf.md sec 5 D. */
+        /* D <- D: ok. The blank date (xb_d(0.0), see xb_date_blank) and xb_u
+         * -> 8 spaces. Ref: xbase_coercion.json target:D, expr:D,
+         * "blank":"8 spaces"; dbf.md sec 5 D. Real III+ REPLACE WHEN WITH
+         * CTOD("  /  /  ") / CTOD("") stores 8 spaces (datatype-mint E4.DBF
+         * rec 1-2). Formatting JDN 0 as a date wrote ",)/-1124" (audit
+         * 2026-10-23-samir L001; initech-ylqs). */
         if (!v || (v->t != XB_D && v->t != XB_U))
             return -DBF_ERR_MISMATCH;
-        if (v->t == XB_D) {
+#ifndef SAMIR_DT_MUTANT_blankwrite
+        if (v->t == XB_D && !xb_date_blank(v->u.d)) {
+#else
+        if (v->t == XB_D) {   /* mutant: the blank date is formatted as a date */
+#endif
             int32_t y, m, d;
             uint8_t digits[8];
             ymd_from_jdn((int32_t)v->u.d, &y, &m, &d);
@@ -1673,7 +1717,7 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
             rt_memcpy(dst, digits, flen < 8u ? flen : 8u);
 #endif
         } else {
-            /* xb_u -> blank date (8 spaces). flen is 8 (asserted at create). */
+            /* blank date / xb_u -> 8 spaces. flen is 8 (asserted at create). */
             rt_memset(dst, ' ', (uint32_t)flen);
         }
         return DBF_OK;

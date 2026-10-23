@@ -1026,7 +1026,7 @@ static int build_search_key(const ndx_index *idx, const xb_val *key,
     if (idx->key_type == (uint16_t)NDX_KEY_TYPE_NUMERIC) {
         double v;
         if (key->t == XB_N)      v = key->u.n;
-        else if (key->t == XB_D) v = key->u.d;
+        else if (key->t == XB_D) v = xb_date_key(key->u.d);   /* blank -> 1E+100 */
         else                     return -NDX_ERR_BAD_KEYTYPE;
 
         if (kl != 8u)

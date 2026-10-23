@@ -1,0 +1,13 @@
+
+G1 [************]
+  ->ERR#36 Unrecognized phrase/keyword in command.
+  ->ERR#36 Unrecognized phrase/keyword in command.
+G4 [************]
+G5 [       1.000]
+G6 [************]
+G7  N
+G8  D   /  /  
+G9  .F.     0   0
+G10 [  /  /  ]
+G11 [   /  /   ]
+  ->ERR#11 Invalid function argument.

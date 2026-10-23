@@ -187,7 +187,7 @@ static void append_rec(dbf_table *tbl,
  *
  * Create a table, append_blank, flush, re-open, read back.
  * Assert: delete flag 0x20 (live), C=spaces, N=blank (dec_parse -> 0.0),
- * D=xb_u (blank date), L=xb_u ('?' on disk).
+ * D=xb_d(0.0) (the blank date), L=xb_u ('?' on disk).
  * ============================================================ */
 static void test_append_blank(samir_pal_t *pal)
 {
@@ -241,10 +241,11 @@ static void test_append_blank(samir_pal_t *pal)
         CHECK(out[1].t == XB_N && out[1].u.n == 0.0,
               "append_blank: SCORE is 0.0 (blank N -> dec_parse -> 0.0)");
 
-        /* JOINED D(8): 8 spaces -> blank date -> xb_u().
-         * Ref: dbf.md sec 5 D; dbf.h S1.3 D-decode note. */
-        CHECK(out[2].t == XB_U,
-              "append_blank: JOINED is xb_u (blank D -> 8 spaces on disk)");
+        /* JOINED D(8): 8 spaces -> the blank DATE xb_d(0.0) (real III+:
+         * TYPE() of a blank D field is "D", datatype-mint DT3 G8;
+         * initech-ylqs). Ref: dbf.md sec 5 D; dbf.h S1.3 D-decode note. */
+        CHECK(out[2].t == XB_D && xb_date_blank(out[2].u.d),
+              "append_blank: JOINED is the blank date (blank D -> 8 spaces on disk)");
 
         /* ACTIVE L(1): '?' on disk -> xb_u() (uninitialised logical).
          * Ref: dbf.md sec 5 L; dbf_read_rec L-decode '?' -> xb_u. */
@@ -348,7 +349,7 @@ static void test_replace_ok(samir_pal_t *pal)
 
     /* --- Overflow test: replace SCORE with 999999.99 into a N(6,2) field ---
      * 999999.99 needs 9 chars; field is 6; dec_format '*'-fills -> DBF_OK.
-     * Re-read: dec_parse on "******" -> 0.0.
+     * Re-read: "******" -> 1.7976931348623157E308 (real III+; initech-ylqs).
      * Ref: xbase_coercion.json assignment_coercion target:N on_overflow:stars_fill.
      * Ref: rt.h dec_format "Width overflow: fills with '*'". */
     tbl = make_table(pal, MUT_PATH_REPL);
@@ -374,9 +375,11 @@ static void test_replace_ok(samir_pal_t *pal)
     rc = dbf_read_rec(tbl, 1u, out, &deleted);
     CHECK(rc == DBF_OK, "replace-overflow: read rec1");
     if (rc == DBF_OK) {
-        /* dec_parse on '***...' returns 0.0 (non-digit -> 0.0 per rt.h). */
-        CHECK(out[1].t == XB_N && out[1].u.n == 0.0,
-              "replace-overflow: SCORE reads back as 0.0 after *-fill");
+        /* "******" reads back as the largest double, as in real III+
+         * (datatype-mint DT5 I1/I2/I7; audit 2026-10-23-samir L006,
+         * initech-ylqs) -- not an ordinary 0.0. */
+        CHECK(out[1].t == XB_N && out[1].u.n == 1.7976931348623157e308,
+              "replace-overflow: SCORE reads back as 1.7976931348623157E308 after *-fill");
     }
     dbf_close(tbl);
 

@@ -247,6 +247,28 @@ int dec_format(double v, int width, int dec, char *out)
     if (dec < 0)  dec = 0;
     if (dec > 18) dec = 18;
 
+    /* A rounded, scaled magnitude that cannot convert to int64 below
+     * (>= 2^63 = 9223372036854775808) is star-filled instead of hitting an
+     * undefined double->int64 conversion. Doubles near 2^63 are 1024 apart,
+     * so "< 2^63" admits exactly the values up to 2^63-1024 that DO convert
+     * (9.2E18 and 9223372036854774784 still print in N(19,0): regression in
+     * test-samir-datatype "boundary"). NaN also star-fills. The value an
+     * overflowed "****" field reads back as (1.7976931348623157E308, dbf.c;
+     * real III+ datatype-mint DT5) lands here and prints "****" at any
+     * width, as real III+ does (DT1 B4). initech-ylqs. */
+    {
+        double mag = v < 0.0 ? -v : v;
+#ifndef SAMIR_DT_MUTANT_cutoff
+        if (!(mag * (double)pow10_tbl[dec] + 0.5 < 9223372036854775808.0)) {
+#else
+        if (!(mag * (double)pow10_tbl[dec] < 9.2e18)) {   /* mutant: early cutoff */
+#endif
+            int i;
+            for (i = 0; i < width; i++) out[i] = '*';
+            return width;
+        }
+    }
+
     /* Round: scale up, add 0.5, floor (= round-half-up = ties toward +inf).
      * Safe for |v| < 2^53 / 10^dec -- well within dBASE N-field range. */
     scaled     = rt_floor64(v * (double)pow10_tbl[dec] + 0.5);
