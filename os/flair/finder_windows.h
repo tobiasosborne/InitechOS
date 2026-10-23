@@ -508,9 +508,11 @@ typedef struct finder_cmd_outcome {
      * Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf PDF p. 45 -- the
      * TeachText APPLICATION opens "either by double-clicking it or by
      * selecting it and choosing Open from the File menu". launch = selected
-     * applications counted (0 == none); launch83 / launch_dir = the FIRST in
-     * listing order, and the directory of the window it was selected in. */
-    uint8_t             launch;
+     * applications counted (0 == none; uint16_t -- a listing is dynamic and
+     * 256 selected applications must not wrap to "none", PM review fbo4);
+     * launch83 / launch_dir = the FIRST in listing order, and the directory
+     * of the window it was selected in. */
+    uint16_t            launch;
     uint16_t            launch_dir;
     char                launch83[FINDER_DESK_NAME_MAX];
 } finder_cmd_outcome_t;

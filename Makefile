@@ -24013,6 +24013,9 @@ RECORD_IMAGE_app_launch          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_app_menubar         = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_tenant_menu         = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_ctenant_keys        = $(FLAIRTENANTS_RECORDDBL_IMG)
+# finder_open_app (fbo4): opens the volume and APPS by double-click -> the
+# double-click record image (its interval absorbs the 400 ms settle).
+RECORD_IMAGE_finder_open_app     = $(FLAIRTENANTS_RECORDDBL_IMG)
 # ctenant_repaint (bead initech-6qsk; Rule 14): CTENANT's key and click
 # readouts survive a title drag by (50,50) and an obscure (the APPS window
 # dragged over them) / reveal (a CTENANT title click) -- every updateEvt

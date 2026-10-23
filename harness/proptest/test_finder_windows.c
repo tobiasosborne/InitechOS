@@ -1424,6 +1424,46 @@ static void leg_open_app(void)
               o->launch_dir == 0u,
               "L13 (mixed) ... and the application launch is named, from the root (not the new window)");
     }
+
+    /* ---- BOUNDARY (PM review, fbo4): a listing is dynamic (finder_win_open
+     *      sizes the icon block from the count), so 256 selected applications
+     *      are possible -- the count must not wrap to 0 (a uint8_t did: Open
+     *      then reported success and kmain launched nothing). ------------- */
+    {
+        enum { NAPP = 256 };
+        static char         names[NAPP][FINDER_DESK_NAME_MAX];
+        static mock_entry_t big[NAPP];
+        static mock_dir_t   dirs[sizeof MOCK_DIRS / sizeof MOCK_DIRS[0] + 1];
+        static scene_t b;
+        FinderCtx bctx;
+        int bslot = -1;
+        for (int i = 0; i < NAPP; i++) {
+            snprintf(names[i], sizeof names[i], "A%03d.EXE", i);
+            big[i].name = names[i]; big[i].attr = 0x20u;
+            big[i].size = 1u; big[i].cluster = (uint16_t)(100 + i);
+        }
+        memcpy(dirs, MOCK_DIRS, sizeof MOCK_DIRS);
+        dirs[sizeof MOCK_DIRS / sizeof MOCK_DIRS[0]].dir_start = 31u;
+        dirs[sizeof MOCK_DIRS / sizeof MOCK_DIRS[0]].ents = big;
+        dirs[sizeof MOCK_DIRS / sizeof MOCK_DIRS[0]].n = NAPP;
+        scene_init(&b, dirs, (int)(sizeof dirs / sizeof dirs[0]));
+        memset(&bctx, 0, sizeof bctx);
+        finder_shell_bind_ctx(&b.sh, &bctx);
+        CHECK(finder_win_open(&b.sh, 0u, 31u, "BIG", 0u, &bslot, NULL) == FINDER_WIN_OK &&
+              b.sh.windows[bslot].view.n == (uint16_t)NAPP,
+              "L13 (256) a folder of 256 applications lists all 256");
+        for (int i = 0; i < NAPP; i++) b.sh.windows[bslot].view.icons[i].selected = 1u;
+        finder_shell_sync_ctx(&b.sh);
+        CHECK(bctx.selection_count == (uint16_t)NAPP && bctx.selection_openable == 1u,
+              "L13 (256) all 256 selected, Open lit");
+        finder_dispatch(&bctx, finder_cmd_result(c), "key");
+        o = finder_shell_take_outcome(&b.sh);
+        CHECK(o != NULL && o->status == FINDER_WIN_OK && o->moved == 0,
+              "L13 (256) Open succeeds and opens no window");
+        CHECK(o != NULL && o->launch == (uint16_t)NAPP &&
+              strcmp(o->launch83, "A000.EXE") == 0 && o->launch_dir == 31u,
+              "L13 (256) ... and names the launch with the FULL count 256 (no uint8_t wrap to 0): A000.EXE from BIG");
+    }
 }
 
 int main(void)

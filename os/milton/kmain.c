@@ -6383,7 +6383,7 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
         /* bead initech-fbo4 (audit 2026-10-23 desktop L004): the outcome may
          * NAME an application to launch. Copy it out first -- the launch verb
          * services the tenant, and the shell's `last` is not ours after that. */
-        uint8_t  launch = o->launch;
+        uint16_t launch = o->launch;
         uint16_t ldir   = o->launch_dir;
         char     l83[FINDER_DESK_NAME_MAX];
         for (int i = 0; i < FINDER_DESK_NAME_MAX; i++) l83[i] = o->launch83[i];

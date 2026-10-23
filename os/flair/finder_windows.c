@@ -2042,7 +2042,7 @@ static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
     if (!opened && !apps) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, slot); return; }
     if (!opened) fw_outcome(sh, id, FINDER_WIN_OK, slot);
     if (app != (const finder_desk_icon_t *)0) {
-        sh->last.launch     = (uint8_t)apps;
+        sh->last.launch     = (uint16_t)apps;
         sh->last.launch_dir = dir;
         fw_copy83(sh->last.launch83, app->name);
     }
