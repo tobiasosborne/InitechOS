@@ -10429,6 +10429,7 @@ $(eval $(call tenant-exe-rules,itext_copy_nothing,$(ITEXT_APP_SRC),$(ITEXT_APP_C
 $(eval $(call tenant-exe-rules,itext_save_no_cr,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_SAVE_NO_CR,$(ITEXT_APP_DEP),--gc-sections))
 $(eval $(call tenant-exe-rules,itext_sel_plain,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_SEL_NOT_INVERSE,$(ITEXT_APP_DEP),--gc-sections))
 $(eval $(call tenant-exe-rules,itext_no_scroll,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_SCROLL_NEVER_ENABLED,$(ITEXT_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,itext_undo_none,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_UNDO_NO_INVERSE,$(ITEXT_APP_DEP),--gc-sections))
 ITEXT_EXE := $(BUILD)/tenant/itext.exe
 
 # R4.4: two disk tenants share TextEdit, font metrics and the paged DA code.
@@ -14161,7 +14162,9 @@ test-te-surface-mutant: $(foreach m,$(TE_SURFACE_MUTANTS),$(BUILD)/test_te_surfa
 # 8.1 SimpleText mint + IM (harness/proptest/test_itext_route.c header).
 # Mutants (test-itext-route-mutant), each RED for its named reason:
 # ITEXT_MUT_COPY_NOTHING (copy), ITEXT_MUT_SAVE_NO_CR (save),
-# ITEXT_MUT_QUIT_NO_ASK (quit), ITEXT_MUT_SEL_NOT_INVERSE (inverse).
+# ITEXT_MUT_QUIT_NO_ASK (quit), ITEXT_MUT_SEL_NOT_INVERSE (inverse);
+# initech-4hkk (audit L011, one-level Undo): ITEXT_MUT_UNDO_NO_INVERSE (undo),
+# ITEXT_MUT_UNDO_PER_KEY (undorun), ITEXT_MUT_UNDO_KEEPS_HISTORY (undoreset).
 # ---------------------------------------------------------------------------
 TEST_ITEXT_ROUTE      := $(BUILD)/test_itext_route
 TEST_ITEXT_ROUTE_SRC  := harness/proptest/test_itext_route.c
@@ -14179,7 +14182,7 @@ test-itext-route: $(TEST_ITEXT_ROUTE)
 	@$(TEST_ITEXT_ROUTE)
 	@printf '>>> test-itext-route: green\n'
 
-ITEXT_ROUTE_MUTANTS := ITEXT_MUT_COPY_NOTHING:copy ITEXT_MUT_SAVE_NO_CR:save ITEXT_MUT_QUIT_NO_ASK:quit ITEXT_MUT_SEL_NOT_INVERSE:inverse ITEXT_MUT_SCROLL_NEVER_ENABLED:scroll ITEXT_MUT_LF_PAIR_OUTPUT:linefeed ITEXT_MUT_FULL_SILENT:full
+ITEXT_ROUTE_MUTANTS := ITEXT_MUT_COPY_NOTHING:copy ITEXT_MUT_SAVE_NO_CR:save ITEXT_MUT_QUIT_NO_ASK:quit ITEXT_MUT_SEL_NOT_INVERSE:inverse ITEXT_MUT_SCROLL_NEVER_ENABLED:scroll ITEXT_MUT_LF_PAIR_OUTPUT:linefeed ITEXT_MUT_FULL_SILENT:full ITEXT_MUT_UNDO_NO_INVERSE:undo ITEXT_MUT_UNDO_PER_KEY:undorun ITEXT_MUT_UNDO_KEEPS_HISTORY:undoreset
 test-itext-route-mutant: $(foreach m,$(ITEXT_ROUTE_MUTANTS),$(BUILD)/test_itext_route_mutant_$(firstword $(subst :, ,$(m))))
 	@for pair in $(ITEXT_ROUTE_MUTANTS); do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_itext_route_mutant_$$m; \
@@ -14188,7 +14191,7 @@ test-itext-route-mutant: $(foreach m,$(ITEXT_ROUTE_MUTANTS),$(BUILD)/test_itext_
 		grep -q "^RED-REASON $$why:" $$bin.log || { printf '!!! test-itext-route-mutant FAIL: %s went RED for the wrong reason (want %s)\n' "$$m" "$$why"; grep '^RED-REASON' $$bin.log; exit 1; }; \
 		printf '>>> test-itext-route-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$bin.log)"; \
 	done
-	@printf '>>> test-itext-route-mutant: green (all seven mutants RED for the named reason)\n'
+	@printf '>>> test-itext-route-mutant: green (all ten mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # test-list (ADR-0012 D-2b / FLAIR Phase 4.5 / initech-77dj, List Manager half):
@@ -24171,6 +24174,17 @@ RECORD_MARKER_itext_scroll = TENANT-GATE ax=0x00c1 win=1 len=664 value=275 -> 27
 RECORD_SETTLE_itext_scroll = 400
 RECORD_IMAGE_itext_scroll = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 RECORD_DATA_itext_scroll = $(FLAIR_DATA_IMG)
+# itext_undo (bead initech-4hkk, audit L011; Rule 14): the audit's own steps --
+# "Saving tables to disk" / "PC LOAD LETTER" typed, Ctrl-A, Ctrl-X (the window
+# empties), Ctrl-Z (the text comes back, all selected), Ctrl-S saves it as
+# UNDO.TXT. Replays the LOCKED FLAIR_ITEXT_UNDO_SPEC (test-flair-itext-undo);
+# its marker is the Save As reply. PM records on main after merge.
+RECORD_SCRIPTS += itext_undo
+RECORD_SPEC_itext_undo = $(FLAIR_ITEXT_UNDO_SPEC)
+RECORD_MARKER_itext_undo = TENANT-SF-REPLY good=1 path=UNDO.TXT
+RECORD_SETTLE_itext_undo = 400
+RECORD_IMAGE_itext_undo = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_DATA_itext_undo = $(FLAIR_DATA_IMG)
 # fonts_styles (bead initech-tdnl.68, Font Manager slice 2; Rule 14): the FONTS
 # specimen opens from the Finder -- its narrow window titled "Font Manager
 # Styl" + the Chicago ellipsis, plain / bold / italic / underline / combined
@@ -33486,6 +33500,47 @@ test-flair-itext-scroll-mutant: test-flair-itext-scroll $(FLAIR_DATA_ITEXT_NOSCR
 	@grep -q 'FAIL scroll-look crop thumb-v' $(BUILD)/flair_itext_scroll_mut.pixels
 	@printf '>>> test-flair-itext-scroll-mutant: ITEXT_MUT_SCROLL_NEVER_ENABLED correctly RED (range0; independent thumb-v crop)\n'
 TEST_EMU_GATES += test-flair-itext-scroll test-flair-itext-scroll-mutant
+
+# initech-4hkk (audit 2026-10-23-das L011): Cut -> Undo in the emulator, the
+# audit's own steps (locked FLAIR_ITEXT_UNDO_SPEC). Ctrl-Z reaches Undo through
+# MenuKey, which takes only an ENABLED item (os/flair/menu.c), so the restored
+# document proves the Edit menu's Undo item came alive. Legs: [1/3] the last
+# paint draws both lines restored and selected (white ink on black -- the
+# visible text, TEXTDRAW records); [2/3] the Save As reply; [3/3] UNDO.TXT on
+# the FAT volume == the typed 36 bytes (mtools, independent of the app).
+# Mutant: a gate-local volume whose TEXT.EXE is -DITEXT_MUT_UNDO_NO_INVERSE --
+# the save still answers (right-reason guard), the paint and the bytes go RED.
+FLAIR_DATA_ITEXT_UNDONONE_IMG := $(BUILD)/flair_data_itext_undonone.img
+$(eval $(call flair-data-rules,$(FLAIR_DATA_ITEXT_UNDONONE_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),$(BUILD)/tenant/itext_undo_none.exe))
+ITEXT_UNDO_EXPECT := $(BUILD)/itext_undo.expect
+$(ITEXT_UNDO_EXPECT): spec/flair_itext_traces.mk | $(BUILD)
+	@printf 'Saving tables to disk\rPC LOAD LETTER' > $@
+# PAINT: AFTER the Cut's scrap put (the 36 bytes leave the document) both
+# lines are drawn again, selected -- the Select All paint before the Cut draws
+# the same runs, so only a draw after the put proves the restore -- and they
+# are also the last paint of each line.
+ITEXT_UNDO_PAINT = awk '/^TENANT-SCRAP put n=36 count=1$$/{c=1} c&&$$0=="TENANT-GATE ax=0x0030 win=1 x=5 y=4 s=\"Saving tables to disk\" fg=201392128 bg=1 -> 0"{a=1} c&&$$0=="TENANT-GATE ax=0x0030 win=1 x=5 y=20 s=\"PC LOAD LETTER\" fg=201392128 bg=1 -> 0"{b=1} END{exit !(a&&b)}' $(1) && \
+	$(call ITEXT_LAST,$(1),5,4,Saving tables to disk,201392128,1) && $(call ITEXT_LAST,$(1),5,20,PC LOAD LETTER,201392128,1)
+ITEXT_UNDO_SAVE = grep -qx 'TENANT-SF-REPLY good=1 path=UNDO.TXT' $(1)
+ITEXT_UNDO_DISK = mcopy -o -i $(1) ::UNDO.TXT $(1).undo 2>/dev/null && cmp -s $(ITEXT_UNDO_EXPECT) $(1).undo && fsck.fat -n $(1) >/dev/null
+.PHONY: test-flair-itext-undo test-flair-itext-undo-mutant
+test-flair-itext-undo: $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(FLAIR_DATA_IMG) $(ITEXT_UNDO_EXPECT)
+	@printf 'InitechOS (STAPLER) -- make test-flair-itext-undo : Ctrl-A, Ctrl-X, Ctrl-Z brings the cut text back; saved bytes exact (initech-4hkk L011)\n'
+	$(call appl-boot,flair_itext_undo,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_ITEXT_UNDO_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_undo.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_undo.serial) || { printf '!!! test-flair-itext-undo FAIL: TEXT did not come up\n'; exit 1; }
+	@$(call ITEXT_UNDO_PAINT,$(BUILD)/flair_itext_undo.serial) || { printf '!!! test-flair-itext-undo FAIL [1/3] PAINT: the restored lines are not the last paint\n'; grep '^TENANT-GATE ax=0x0030 win=1 ' $(BUILD)/flair_itext_undo.serial | tail -6; exit 1; }
+	@printf '>>> test-flair-itext-undo [1/3] PAINT: after Ctrl-Z the last paint is "Saving tables to disk" / "PC LOAD LETTER", selected (white ink on black)\n'
+	@$(call ITEXT_UNDO_SAVE,$(BUILD)/flair_itext_undo.serial) || { printf '!!! test-flair-itext-undo FAIL [2/3] SAVE: no Save As reply UNDO.TXT\n'; grep '^TENANT-SF' $(BUILD)/flair_itext_undo.serial; exit 1; }
+	@printf '>>> test-flair-itext-undo [2/3] SAVE: %s\n' "$$(grep -m1 '^TENANT-SF-REPLY' $(BUILD)/flair_itext_undo.serial)"
+	@$(call ITEXT_UNDO_DISK,$(BUILD)/flair_itext_undo_data.img) || { printf '!!! test-flair-itext-undo FAIL [3/3] DISK: UNDO.TXT is not the restored 36 bytes\n'; xxd $(BUILD)/flair_itext_undo_data.img.undo 2>/dev/null | head -4; exit 1; }
+	@printf '>>> test-flair-itext-undo [3/3] DISK: UNDO.TXT (%s bytes) == "Saving tables to disk" CR "PC LOAD LETTER" (mtools); fsck.fat clean\n>>> test-flair-itext-undo: green\n' "$$(wc -c < $(BUILD)/flair_itext_undo_data.img.undo)"
+test-flair-itext-undo-mutant: test-flair-itext-undo $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(FLAIR_DATA_ITEXT_UNDONONE_IMG) $(ITEXT_UNDO_EXPECT)
+	$(call appl-boot,flair_itext_undonone,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_ITEXT_UNDONONE_IMG),FLAIR_ITEXT_UNDO_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_undonone.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_undonone.serial) && $(call ITEXT_UNDO_SAVE,$(BUILD)/flair_itext_undonone.serial) || { printf '!!! test-flair-itext-undo-mutant FAIL: UNDO_NO_INVERSE went RED for the wrong reason (want: TEXT up, Save As answered)\n'; exit 1; }
+	@if $(call ITEXT_UNDO_PAINT,$(BUILD)/flair_itext_undonone.serial); then printf '!!! test-flair-itext-undo-mutant FAIL: UNDO_NO_INVERSE PASSED the PAINT leg -- decoration\n'; exit 1; fi
+	@if $(call ITEXT_UNDO_DISK,$(BUILD)/flair_itext_undonone_data.img); then printf '!!! test-flair-itext-undo-mutant FAIL: UNDO_NO_INVERSE PASSED the DISK leg -- decoration\n'; exit 1; fi
+	@printf '>>> test-flair-itext-undo-mutant: ITEXT_MUT_UNDO_NO_INVERSE correctly RED -- no restored paint; UNDO.TXT is %s bytes, not the locked 36\n' "$$(wc -c < $(BUILD)/flair_itext_undonone_data.img.undo 2>/dev/null || echo 0)"
+TEST_EMU_GATES += test-flair-itext-undo test-flair-itext-undo-mutant
 
 # Seeded volume contracts are read after every image variable is defined.
 include harness/emu/notepad.mk
