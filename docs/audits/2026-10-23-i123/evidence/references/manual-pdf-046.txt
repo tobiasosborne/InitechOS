@@ -1,0 +1,50 @@
+Operator _ Operation Precedence number
+
+. Exponentiation 1
+-or + Identification of value as negative or 2
+positive
+*or/ Multiplication or division 3
++ or— Addition or subtraction 4
+=or<> Equal-to or not-equal-to tests 5
+<or> Less-than or greater-than tests 5
+<= Less-than-or-equal-to test 5
+>= Greater-than-or-equal-to test 5
+#NOT# Logical-NOT test 6
+#AND# or FOR# Logical-AND or logical-OR tests 7
+& String concatenation 7
+
+Overriding Order of Precedence
+
+You can override the order of precedence by enclosing an operation in
+parentheses. 1-2-3 performs operations inside parentheses first. Within each set
+of parentheses, precedence numbers apply. You can nest one set of parentheses
+inside another set and create as many nesting levels as you want.
+
+Figure 1-17 shows the order in which 1-2-3 performs the operations in a formula
+that contains nested parentheses.
+
+450+ ((5000+A20)+.1 45) i" 2-430
+
+ath (st 2nd 3rd 5th
+Figure 1-17 Order 1-2-3 performs operations in a formula
+
+Using Cell and Range References in Formulas
+
+The primary reason for using formulas in 1-2-3 is to perform calculations with
+worksheet data. Use either of the following methods to include a cell or range
+reference in a formula:
+
+¢ Type the cell address, range address, or range name in the formula. If the cell
+you are referencing is in another file, precede the cell’s address or range name
+with a file reference (see “Linking Files” later in this chapter).
+
+For example, to add the values in cells B1 and Cl, you can enter +B1+C1 or
+@SUM(B1..C1). If Bl and C1 have the range names INSTOCK and
+ONORDER, you can also enter +INSTOCK +ONORDER.
+
+To create a formula in the current worksheet that uses the value in D25 ina
+worksheet named BALANCES.WK1, you enter
++<<BALANCES.WK1>>D25.
+
+1-30 Using 1-2-3
+

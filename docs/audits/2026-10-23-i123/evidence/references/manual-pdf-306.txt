@@ -1,0 +1,73 @@
+Attribute Result
+
+format The cell format:
+
+CO to C15 if Currency, 0 to 15 decimal places
+
+FO to F15 if Fixed, 0 to 15 decimal places
+
+G if General
+
+PO to P15 if Percent, 0 to 15 decimal places
+
+SO to S15 if Sci (Scientific), 0 to 15 decimal places
+
+,0 to ,15 if , (Comma), 0 to 15 decimal places
+
++ if +/- format
+
+D1 if DD-MMM-YY
+
+D2 if DD-MMM
+
+D3 if MMM-YY
+
+D4 if MM/DD/YY, DD/MM/YY, DD.MM.YY, or YY-MM-DD
+
+D5 if MM/DD, DD/MM, DD.MM, or MM-DD
+
+D6 if HH:MM:SS AM/PM
+
+D7 if HH:MM AM/PM
+
+D8 if HH:MM:SS (24 hour), HH.MM.SS (24 hour), HH,MM,SS (24 hour), or
+HAAMMmSSs.
+
+D9 if HH:MM (24 hour), HH.MM (24 hour), HH,MM, or HHAMMm
+
+T if Text format
+H if Hidden format
+
+prefix The label prefix:
+
+' if the cell contains a left-aligned label
+* if the cell contains a right-aligned label
+if the cell contains a centered label
+\ if the cell contains a repeating label
+\ if the cell contains a nonprinting label
+Blank (no symbol) if the cell is empty or contains a value
+protect The protection status:
+1 if the cell is protected
+0 if the cell is not protected
+row The row number, from 1 to 8192
+type The type of data in the cell:
+b if the cell is blank (that is, has no entry)
+v if the cell contains a numeric value or a formula
+1 if the cell contains a label
+
+width The column width
+
+Example
+
+You can use @CELL to check input during a macro to guard against certain types
+of entries; you can also use it to check whether a particular cell contains data,
+with the result directing a macro subroutine.
+
+For example, in the macro instructions
+{IF @CELL(‘type’’,C5) = ““b’} {BEEP} {INDICATE “Do Not Leave Blank!"}
+
+if C5 is blank, @CELL(“type’’,C5) returns B; 1-2-3 then beeps and the mode
+indicator changes to Do Not Leave Blank!
+
+13-18 1-2-3 @Functions
+

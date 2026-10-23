@@ -1,0 +1,55 @@
+Example
+Figure 5-13 shows a list of all files in the current directory with information about
+the highlighted file.
+
+Drive and
+
+directory Time File size
+- Fr a re eee aE
+Names of files to List: C:\FINANCE\*.* '
+
+12-Mar-89 B07 An 7%
+BUDGETB?.WKT ‘DIV=T.MKT DIV2.WKT DIV-3.MKT
+EXPENSES .PRN- EXPENSES WK? SALES PRN ‘SALES.WKT
+Sa | xi Banas act BASALES WK
+B9-F EBM BIA BGT .at 89-42.
+File name Date
+
+Figure 5-13 Example of listing files
+
+Tip
+
+¢ To create a table of file-related information in the worksheet rather than
+displaying a temporary list, use /File Admin Table.
+
+/File Retrieve
+
+/File Retrieve lets you read a file from disk into memory. The retrieved worksheet
+file replaces the worksheet that was current when you selected /File Retrieve. Use
+/File Retrieve when you want to replace the current worksheet with a different
+worksheet file.
+
+If you are sharing files on a network, 1-2-3 automatically gets the reservation for a
+file when you retrieve the file. The reservation for the previous worksheet file is
+released.
+
+When you use /File Retrieve, 1-2-3 uses the recalculation and worksheet window
+settings in the newly retrieved file. These settings may be different from the
+recalculation and worksheet window settings you were using.
+
+CAUTION If you want to save the current worksheet, use /File Save before you
+select /File Retrieve. /File Retrieve replaces the current worksheet without saving
+it. If the undo feature is on, however, you can press UNDO (ALT-F4) immediately
+to restore the worksheet that was in memory when you selected /File Retrieve.
+
+Procedure
+
+1. If you have a two-diskette system, make sure the disk that contains the file
+you want to retrieve is in one of the diskette drives.
+
+2. Select /File Retrieve.
+
+1-2-3 displays files with .WKS, .WK1, and .WK3 extensions in the current
+directory. (You cannot retrieve files saved in the .WK3 worksheet file format.)
+
+/File Retrieve 5-19

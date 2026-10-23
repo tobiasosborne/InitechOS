@@ -1,0 +1,126 @@
+Format
+
+Result
+
+Data as entered
+
+Data as displayed
+
+Fixed
+
+General
+
+Hidden
+
+Percent
+
+th
+
+Reset
+
+Displays numbers with up to
+15 decimal places, a minus
+sign for negatives, and a
+leading zero for decimal
+values.
+
+Displays numbers with a
+minus sign for negatives, no
+thousands separators, and no
+trailing zeros to the right of
+the decimal point.
+
+When the number of digits to
+the left of the decimal point
+exceeds the column width
+minus one, uses scientific
+notation. When the number of
+digits to the right of the
+decimal point exceeds the
+column width, 1-2-3 displays
+as many digits as it can.
+
+Makes data in the range
+invisible, though the data still
+exists. The data appears in
+the control panel unless the
+cells are protected and global
+protection is on.
+
+Displays numbers as
+percentages (that is, multiplied
+by 100), with up to 15 decimal
+places and a percent sign.
+
+Displays a bar of plus or
+minus signs or a period. The
+number of plus or minus signs
+in the bar equals the
+whole-number value of the
+entry (rounded to the nearest
+integer). Plus signs indicate a
+positive value, minus signs
+indicate a negative value, and
+a period indicates a number
+between —1 and 1. if the
+whole-number value of the
+entry is wider than the width
+of the column the entry is in,
+1-2-3 displays asterisks
+instead of a bar.
+
+Resets the range to the global
+
+cell format (specified with
+/Worksheet Global Format).
+
+12.389
+8152
+56745
+
+1650.00
+—12.42700
+
+130000000000
+
+123.876876
+
++C€22/4.2°B2
+12.42738
+
+12.42738
+~.0425
+
+5.3
+-3
+-.024
+
+10-6 The Range Commands
+
+(FO) 12
+(F2) -8152.00
+(F1) -0.6
+
+(G) 1650
+(G) -12.427
+
+(G) 1.3000E +11
+(when column width
+is 12)
+
+(G) 123.8768
+(when column width
+is 9)
+
+(H)
+(H)
+
+(P1) 1242.7%
+(P2) -4.25%
+
+(+) t4+4+44
+(+) ===
+(+).
+
+~ (Continued)
+

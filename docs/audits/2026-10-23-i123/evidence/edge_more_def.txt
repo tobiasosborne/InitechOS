@@ -1,0 +1,9 @@
+def edge_more(a):
+ cases=['@VLOOKUP(1,A300..B302,1)','@HLOOKUP(1,A300..B302,1)','@NPV(.1,A300..A302)','@IRR(.1,A300..A302)','@INDEX(A300..B302,0,0)','@COLS(A300..B302)','@ROWS(A300..B302)','@S(A300)','@N(A300)','@CELL("width",A300)','@DSUM(A300..B302,1,D300..D301)','@DAVG(A300..B302,1,D300..D301)','@DCOUNT(A300..B302,1,D300..D301)','@DMIN(A300..B302,1,D300..D301)','@DMAX(A300..B302,1,D300..D301)','@DVAR(A300..B302,1,D300..D301)','@DSTD(A300..B302,1,D300..D301)']
+ for i,f in enumerate(cases):a.cell('A'+str(i+1),f);a.shot('empty-extra-%02d'%i)
+ a.saveas('EMPTY');a.state('empty-extra-saved')
+ a.cell('IV8192','17');a.cell('B300','1');a.cell('C1','@SUM(B1..IV8192)');a.state('whole-sheet-sum')
+ a.saveas('WHOLE')
+ # Probe the minimum-scale resized geometry and formula text editing.
+ a.cell('D1','123.5');a.cell('E1','+D1*2');a.goto('E1');a.key('f2');a.key('home');a.key('right');a.type('0',False);a.state('edit-formula-cursor');a.key('esc');a.key('esc')
+ a.goto('D1');a.type('pending',False);a.key('ctrl-c');a.state('ctrl-c-literal');a.key('ctrl-scroll_lock')

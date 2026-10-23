@@ -1,0 +1,59 @@
+10.
+
+tl.
+
+. Select one of the following options:
+
+Formulas Copies a range of data in the current worksheet to a file on
+disk, including labels, numbers, formulas, and all worksheet
+settings.
+
+Values Copies a range of data in the current worksheet to a file on
+disk, including labels, numbers, the values of formulas, and all
+worksheet settings.
+
+1-2-3 displays files with a .WK1 extension in the current directory.
+
+. If you want to save the extracted data in a different drive and/or directory,
+
+press ESC to clear the file names, edit the drive and/or directory, and then
+press ENTER.
+
+. Specify the file name for the extracted data and press ENTER.
+. Press the space bar.
+. Type p and then press ENTER.
+
+1-2-3 prompts you to enter the password.
+
+. Type a password and press ENTER.
+
+A password can include any combination of up to 15 characters. 1-2-3
+displays blanks as you type the password, You must remember the exact
+combination of uppercase or lowercase letters you type.
+
+. Type the same password again at the ‘Verify password’ prompt and press
+
+ENTER.
+
+. Specify the range of data you want to extract and press ENTER.
+
+1-2-3 enters the extracted range in the file beginning in cell Al. If you
+extracted formulas, 1-2-3 adjusts the cell references in formulas to reflect their
+new location in the extracted file.
+
+Tf you specified a file name that does not already exist on disk, 1-2-3 saves the
+extracted range in a password-protected file.
+
+If you specified a file name that already exists, select one of the following
+options:
+
+Cancel Returns 1-2-3 to READY mode without extracting the range or
+writing over the existing file on disk.
+
+Replace Writes over the file on disk with the range you are extracting.
+
+Backup Renames the previously extracted file on disk with the
+extension .BAK and saves the extracted range with the existing
+file name and the extension .WK1.
+
+[File Xtract 5-25

@@ -1,0 +1,60 @@
+3. If you want to display files in a different drive and/or directory or with a
+different extension, do one of the following:
+
+¢ To display files with a different extension, type *. followed by another
+extension and press ENTER.
+
+* To display all files in the current directory, type *.* and press ENTER.
+
+* To display files in a different drive and/or directory, press ESC to clear the
+file names, edit the drive and/or directory, and then press ENTER.
+
+4. Specify the name of the file you want to retrieve and press ENTER.
+
+5. If you are trying to retrieve a file shared on a network and someone else has
+the file reservation or it is a read-only file, select one of the following options:
+
+Yes Retrieves the file without the reservation; changes cannot be
+saved to the same file name.
+
+No Cancels the command without retrieving the file.
+
+6. If the file on disk is password-protected, type the password and press ENTER.
+
+You must type the same combination of uppercase and lowercase letters that
+you used when you created the password.
+
+CAUTION If you do not have the reservation for the file, 1-2-3 displays the
+RO indicator at the bottom of the screen. Do not change or add data to the
+worksheet because 1-2-3 will not let you save the file to the same file name
+without the reservation. Use /File Admin Reservation Get to try to get the
+reservation if it is available. For further information on file reservations, see
+Appendix D.
+
+Tips
+¢ If 1-2-3 does not have enough memory to read the file when you select /File
+
+Retrieve, 1-2-3 cannot retrieve the file. For information on memory
+management and regaining memory for 1-2-3, see Appendix C.
+
+¢ if you make a mistake in the worksheet and want to start again with the
+version of the file on disk, do not save the file. Retrieve the file again, and
+1-2-3 will replace the worksheet with a copy of the file on disk.
+
+Retrieving a File Automatically
+
+Normally, when you start 1-2-3, the program displays a blank worksheet on the
+screen, You can, however, have 1-2-3 read a particular worksheet into memory
+automatically every time you start the program.
+
+To specify a worksheet for automatic file retrieval, use /File Save to save the
+worksheet in a file named AUTO123.WK1 in the default directory (the directory
+specified with /Worksheet Global Default Directory). The file must be saved in
+the default directory so 1-2-3 can retrieve it at the beginning of each new session.
+
+You can also retrieve a file when you start 1-2-3 by including a -w and the name
+of the file on the operating system command line. For example, to retrieve a file
+called JANUARY.WK1 in the current directory, you would type 123 -wjanuary.
+
+5-20 The File Commands
+

@@ -1,0 +1,25 @@
+{
+  "M011": {
+    "top_white_pixels": 54,
+    "bottom_shadow_pixels": 53,
+    "expected_top_white": 54,
+    "expected_bottom_shadow": 53
+  },
+  "M012": {
+    "corner_363_158": [
+      231,
+      231,
+      231
+    ],
+    "corner_364_158": [
+      231,
+      231,
+      231
+    ],
+    "expected_background": [
+      231,
+      231,
+      231
+    ]
+  }
+}

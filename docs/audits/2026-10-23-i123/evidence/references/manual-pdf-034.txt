@@ -1,0 +1,62 @@
+row of data, the | tells 1-2-3 not to print the row. If, however, the label is
+located elsewhere in a row (such as between other labels), the label will be
+left-aligned and will print.
+
+Figure 1-8 shows the label Total entered five times in column C, each time using
+a different label prefix.
+
+* prefix ™ prefix
+
+c5i £036) {Total | READY
+
+A B " c D —
+Total
+totat—
+
+Totat-
+‘Total Total Total Total Total Total Total
+
+i
+
+1 prefix \ prefix prefix
+Figure 1-8 A label entered with different label prefixes
+
+ousuns
+
+Long Labels
+
+When a label is longer than the cell’s column width, it is called a long label and
+1-2-3 displays as much of the label as it can.
+
+* If cells to the right of the label are blank, 1-2-3 displays the part of the label
+that overlaps those cells.
+
+¢ If cells to the right of the label contain data, 1-2-3 does not display the
+overlapping part of the label.
+
+In Figure 1-9, cell Al contains a long label that overlaps B1, 1-2-3 displays the
+entire label because B1 is blank. Cell A6 also contains a long label, but because B6
+contains an entry, 1-2-3 truncates the label so that it fits in A6. You can see that
+A6 still contains the complete label by looking in the control panel.
+
+‘ “ Complete text of
+Ab: [WISI ‘etectric Skillet READY truncated label displayed
+in control panel
+
+sa Long label displayed
+
+ae Long label truncated
+
+a eeeyousuns
+
+a3
+
+Figure 1-9 Long labels in a worksheet
+
+Values
+
+A value is an entry that begins with a number (0 through 9) or one of the
+numeric symbols + — @ . ( # or $ is a value. The entry can be a number ora
+formula.
+
+1-18 Using 1-2-3

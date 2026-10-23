@@ -1,0 +1,20 @@
+_ File Edit View Special al4pm
+File Y
+Al: *quit-ctrig-1 iF ILES|oS
+[Enter name of file to save: A:\*.wk1
+(Type a file name: Enter accepts, Esc backs up
+A B Cc D E F G H
+h  quit-ctr17ay
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+if
+|

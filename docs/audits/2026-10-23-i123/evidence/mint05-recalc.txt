@@ -1,0 +1,30 @@
+_ File Edit View Special 12:46pm
+File Y
+JA15: IREAD YE
+
+A B Cc D E F G H
+j. 1.0E+10
+2 8.00000
+18] 1.2E+11
+E 1.234567
+5 0.3
+6 32767
+
+32768
+B -32768
+9 -32769
+ptm 9.0E+15
+fla 1.0E+99
+(12
+13 1.0E-99
+(14 1.0E+20
+15
+(16
+(1?
+18
+19
+Retrieved MINTOS .wk1
+
+if
+
+|

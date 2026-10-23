@@ -1,0 +1,359 @@
+{
+  "checked_utc": "2026-10-23T13:47:20.048089+00:00",
+  "sessions": [
+    {
+      "session": "capacity",
+      "recorded_qemu_pid": 75,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/capacity-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/capacity-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "edge_more",
+      "recorded_qemu_pid": 34,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/edge_more-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/edge_more-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "entry",
+      "recorded_qemu_pid": 26,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/entry-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/entry-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "files",
+      "recorded_qemu_pid": 5,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/files-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/files-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "formats",
+      "recorded_qemu_pid": 6,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/formats-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/formats-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "formats_wide",
+      "recorded_qemu_pid": 29,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/formats_wide-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/formats_wide-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "full",
+      "recorded_qemu_pid": 7,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/full-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/full-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "full2",
+      "recorded_qemu_pid": 13,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/full2-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/full2-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "full_repeat",
+      "recorded_qemu_pid": 7,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/full_repeat-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/full_repeat-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "function_errors",
+      "recorded_qemu_pid": 9,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/function_errors-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/function_errors-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "functions",
+      "recorded_qemu_pid": 279,
+      "normal_quit_recorded": false,
+      "exit_code": null,
+      "image_locks": [
+        {
+          "image": "images/functions-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/functions-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "heavy",
+      "recorded_qemu_pid": 60,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/heavy-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/heavy-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "hotkeys",
+      "recorded_qemu_pid": 7,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/hotkeys-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/hotkeys-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "keyslook",
+      "recorded_qemu_pid": 7,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/keyslook-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/keyslook-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "long",
+      "recorded_qemu_pid": 5,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/long-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/long-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "menus",
+      "recorded_qemu_pid": 4,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/menus-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/menus-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "operations",
+      "recorded_qemu_pid": 6,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/operations-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/operations-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "pool",
+      "recorded_qemu_pid": 4,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/pool-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/pool-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "power",
+      "recorded_qemu_pid": 7,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/power-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/power-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "quits",
+      "recorded_qemu_pid": 7,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/quits-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/quits-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "transfers",
+      "recorded_qemu_pid": 128,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/transfers-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/transfers-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    },
+    {
+      "session": "typeerrors",
+      "recorded_qemu_pid": 7,
+      "normal_quit_recorded": true,
+      "exit_code": 0,
+      "image_locks": [
+        {
+          "image": "images/typeerrors-boot.img",
+          "exclusive_lock_available": true
+        },
+        {
+          "image": "images/typeerrors-data.img",
+          "exclusive_lock_available": true
+        }
+      ]
+    }
+  ],
+  "all_image_locks_released": true,
+  "host_interruption": "functions was terminated with host runner status 143; see functions-host-interruption.json. It had no normal quit footer. Its image locks were verified released before reuse and again here."
+}

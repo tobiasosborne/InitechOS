@@ -1,0 +1,49 @@
+Name Description
+
+PGDN READY and POINT modes: Moves cell pointer down one
+screen.
+
+FILES and NAMES modes: Moves menu pointer down one
+line; or moves it down one screen in a full-screen menu.
+
+EDIT mode: Completes editing and moves cell pointer down
+one screen.
+
+PGUP READY and POINT modes: Moves ceil pointer up one screen.
+
+FILES and NAMES modes: Moves menu pointer up one line;
+or moves it up one screen in a full-screen menu.
+
+EDIT mode: Completes editing and moves cell pointer up one
+screen.
+
+TAB READY mode: Moves cell pointer right one screen.
+
+FILES and NAMES modes: Moves menu pointer to last name
+in the current line.
+
+EDIT mode: Moves cursor right five characters.
+
+Function Keys
+
+You use the function keys on your keyboard to perform special operations. Each
+function key, except Fé, performs two operations: one when you press only the
+function key, and another when you hold down ALT and then press the function
+key. 1-2-3 functions keys are listed in the following table.
+
+NOTE Although the documentation recommends using ALT in combination with
+a function key to perform its second operation, you can use SHIFT instead. For
+example, pressing SHIFT-F3 produces the same result as pressing ALT-F3 — it runs
+a macro.
+
+HELP GOTO WINDOW QUERY TABLE CALC GRAPH
+
+(=) () (5) () (=) () (7) Cn) ( FO } (Fe)
+eae eal () er) f ( ar) ca al (ar
+fi) (ro) Les F6 Fe} Uro
+
+COMPOSE = STEP. RUN UNDO LEARN APP2 APPS: APP4
+
+Figure 1-6 1-2-3 function keys
+
+1-10 Using 1-2-3

@@ -1,0 +1,17 @@
+def hotkeys(a):
+ rows=json.loads((ROOT/'evidence/menu-plan.json').read_text())
+ out=[]
+ for n,(inds,names,it) in enumerate(rows):
+  if it['child']!=65535 or names==['Quit','Yes']:continue
+  a.key('ctrl-scroll_lock');a.key('slash');lev=0;unique=True
+  for idx in inds:
+   row=MENU[lev];ch=row[idx]['name'][0]
+   if sum(x['name'][0]==ch for x in row)!=1:
+    unique=False;a.key('home')
+    for _ in range(idx):a.key('right')
+    a.key('ret')
+   else:a.type(ch,False)
+   lev=row[idx]['child']
+  a.shot('hotkey-%03d'%n);a.key('esc');out.append({'n':n,'path':names,'all_initials_unique':unique})
+  (ROOT/'evidence/hotkey-results.json').write_text(json.dumps(out,indent=2))
+  print('HOTKEY',n,'/'.join(names),flush=True)

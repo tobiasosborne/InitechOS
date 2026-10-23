@@ -1,0 +1,788 @@
+STARTED transfers pid 128
+SHOT COPY-loaded
+_ File Edit View Special 12:46pm
+File Y
+[c6: @SUMCSAST. .B52) FREAD YES
+A B c D E F Gg H
+lu 10 3 13
+iz 20 4 20
+i 13
+Hs 40
+5 3?
+b
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+Retrieved COPYOIA.uki
+[=|
+|
+
+SHOT COPYB
+_ File Edit View Special 12:46pm
+File Y
+[c6: @SUMCSAST. .B52) FREAD YES
+A B c D E F Gg H
+lu 10 3 13 13
+iz 20 4 20 20
+i 13 10
+Hs 40 52
+5 3? 33
+b 70
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+Retrieved COPYOIA.uki
+[=|
+|
+
+SHOT COPYC
+_ File Edit View Special 12:46pm
+File Y
+[c6: @SUMCSAST. .B52) FREAD YES
+A B c D E F Gg H
+lu 10 3 13 13
+iz 20 4 20 20
+i 13 10
+Hs 40 52
+5 3? 33
+b 70
+B °
+B 20
+Ho 13
+aa °
+az °
+a3 70
+a4
+Ms
+6
+ue
+us
+49
+[Saved COPYB.wk1
+[=|
+|
+
+SHOT COPYD
+_ File Edit View Special 12:46pm
+File Y
+[c6: @SUMCSAST. .B52) FREAD YES
+A B c D E F Gg H
+lu 10 3 13 13
+iz 20 4 20 20
+i 13 10
+Hs 40 52
+5 3? 33
+b 70
+B °
+B 20
+Ho 13
+aa °
+az °
+a3 70
+a4
+Ms
+6
+ue
+us
+49
+[Saved COPYC. wiki
+[=|
+|
+
+SHOT MOVE-loaded
+_ File Edit View Special 12:46pm
+File Y
+Hi: @SUM(DL. .D2) FREAD YES
+A B c D E F Gg H
+lu Fy 10 109 101, 12 109
+iz 7 12 100
+i 1
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+Retrieved MIVEOIA.uki
+[=|
+|
+
+SHOT MOVEB
+_ File Edit View Special 12:46pm
+File Y
+Hi: @SUMCERR) FREAD YES
+A B c D E F Gg H
+lu 10 Fi ERR 12 ERR
+iz 7 12 ERR
+i 34
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+Retrieved MIVEOIA.uki
+[=|
+|
+
+SHOT MOVEC
+_ File Edit View Special 12:46pm
+File Y
+Hi: @SUMCERR) FREAD YES
+A B c D E F Gg H
+lu 10 Fi ERR 12 ERR
+iz 7 ERR
+i 22
+5 1
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved MOVEB wiki
+[=|
+|
+
+SHOT MOVED
+_ File Edit View Special 12:46pm
+File Y
+Hi: @SUMCERR) FREAD YES
+A B c D E F Gg H
+lu 10 Fi ERR 12 ERR
+iz ERR
+i 22
+5 1
+B 7
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved MOVEC wiki
+[=|
+|
+
+SHOT copy-overlap
+_ File Edit View Special 12:46pm
+File Y
+[B3: $aZ FREAD YES
+A B c D E F Gg H
+lu 1 1
+iz 1 1
+B 2
+Hs 3 3
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved MOVED wiki
+[=|
+|
+
+SHOT move-overlap
+_ File Edit View Special 12:47pm
+File Y
+B3: +A FREAD YES
+A B c D E F Gg H
+lu 1 1
+iz 2 1
+B 3
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved OUERCP .uki.
+[=|
+|
+
+SHOT copy-target-range-refused
+_ File Edit View Special 12:47pm
+File Y
+[B3: +A3 Be |=]
+Specify the upper left destination cell
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+j. 1 1
+2 2 1
+b 3
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved OUERMV.wk1
+if
+|
+
+SHOT point-dot-range
+_& File Edit View Special 12:47pm
+& file
+[B2: SAS1 EDIT) ES]
+lEnter range to copy FROM: ._
+a B c D E F 5 H
+i 1 1
+z 2
+i 3 3
+lo
+a
+lz
+a3
+14
+Hs
+6
+lz
+le
+49
+[Saved OUERMY.uk1
+[=|
+|
+
+SHOT point-dot-result
+_ File Edit View Special 12:47pm
+File Y
+[B2: SASL Be |=]
+mvalid range
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+j. 1 1
+e 2
+18] 3 3
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved OUERMV.wk1
+if
+|
+
+SHOT width-1
+_ File Edit View Special 12:47pm
+File Y
+jal: 1 FREAD YES
+A__B Cc D E F Gg H
+lu 1
+iz 4
+iB 3
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved OUERMJ.uki.
+[=|
+|
+
+SHOT width-240
+_ File Edit View Special 12:47pm
+File Y
+jal: 1 FREAD YES
+lu
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved OUERMJ.uki.
+[=|
+|
+
+SHOT width-240-right
+_ File Edit View Special 12:47pm
+File Y
+B1: +AL FREAD YES
+B Cc D E F Gg H I
+lu 1
+iz 1
+iB 3
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved OUERMJ.uki.
+[=|
+|
+
+SHOT width-0-refused
+_ File Edit View Special 12:47pm
+File Y
+JA1: 1 Be |=]
+T1legal number
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+j. 1 1
+2 2 1
+18] 3 3
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved OUERMV.wk1
+if
+|
+
+SHOT width-241-refused
+_ File Edit View Special 12:47pm
+File Y
+JA1: 1 Be |=]
+T1legal number
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+j. 1 1
+2 2 1
+18] 3 3
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved OUERMV.wk1
+if
+|
+
+SHOT name-goto
+_ File Edit View Special 12:47pm
+File Y
+Bi: 5 FREAD YES
+A B c D E F Gg H
+TaRate 5
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved OUERMJ.uki.
+[=|
+|
+
+SHOT name-redefine
+_ File Edit View Special 12:47pm
+File Y
+IC: +Bixz JERROR]ES|
+IConmand refused
+Press Esc to return to the worksheet
+A B c D E F Gg H
+HeeRate 5 Me
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved OUERMJ.uki.
+[=|
+|
+
+SHOT name-delete-formula
+_ File Edit View Special 12:47pm
+File Y
+Cl: *Bixz FREAD YES
+A B c D E F Gg H
+HeeRate 5 Me
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved OUERMJ.uki.
+[=|
+|
+
+SHOT name-labels
+_ File Edit View Special 12:47pm
+File Y
+Bi: 7 FREAD YES
+A B c D E F Gg H
+item 2
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMES wiki
+[=|
+|
+
+SHOT manual-stale
+_ File Edit View Special 12:47pm
+File Y
+fl: 20 FREAD YES
+A B c D E F Gg H
+lu 20 20
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LABELNAM. uk
+[=|
+|
+
+SHOT manual-recalc
+_ File Edit View Special 12:47pm
+File Y
+fl: 20 FREAD YES
+A B c D E F Gg H
+lu 20 40
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LABELNAM. uk
+[=|
+|
+
+SHOT recalc-order-c
+_ File Edit View Special 12:47pm
+File Y
+fl: 20 FREAD YES
+A B c D E F Gg H
+lu 20 40
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LABELNAM. uk
+[=|
+|
+
+SHOT recalc-order-r
+_ File Edit View Special 12:47pm
+File Y
+fl: 20 FREAD YES
+A B c D E F Gg H
+lu 20 40
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LABELNAM. uk
+[=|
+|
+
+SHOT recalc-order-n
+_ File Edit View Special 12:47pm
+File Y
+fl: 20 FREAD YES
+A B c D E F Gg H
+lu 20 40
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LABELNAM. uk
+[=|
+|
+
+SHOT automatic-recalc
+_ File Edit View Special 12:47pm
+File Y
+Al: 30 FREAD YES
+A B c D E F Gg H
+lu 30 60
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LABELNAM. uk
+[=|
+|
+
+SHOT circular
+_ File Edit View Special 12:47pm
+File Y
+cl: +Ci+1 FREAD YES
+A B c D E F Gg H
+ny 30 co aed
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LABELNAM. uk
+[=|
+|
+
+SHOT circular-50
+_ File Edit View Special 12:47pm
+File Y
+cl: +Ci+1 FREAD YES
+A B c D E F Gg H
+ny 30 my 101
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LABELNAM. uk
+[=|
+|
+
+SHOT worksheet-erase-no
+_ File Edit View Special 12:47pm
+File Y
+Al: “erase-no FREAD YES
+A B c D E F Gg H
+ll erase-no
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved CIRCOUT.uki
+[=|
+|
+
+SHOT worksheet-erase-yes
+_ File Edit View Special 12:47pm
+File Y
+jal: FREAD YES
+A B c D E F Gg H
+lu
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved CIRCOUT.uki
+[=|
+|
+
+SHOT protected-entry
+_ File Edit View Special 12:47pm
+File Y
+al: ‘protected JERROR}ES
+[Cell is protected
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+It protected]
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved CIRCOUT.wk1
+if
+|
+
+SHOT protected-erase
+_ File Edit View Special 12:47pm
+File Y
+al: ‘protected JERROR}ES
+[Command refused
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+It protected]
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved CIRCOUT.wk1
+if
+|
+
+SHOT range-erase
+_ File Edit View Special 12:47pm
+File Y
+jal: FREAD YES
+A B c D E F Gg H
+lu
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved CIRCOUT.uki
+[=|
+|
+
+STOPPED 128

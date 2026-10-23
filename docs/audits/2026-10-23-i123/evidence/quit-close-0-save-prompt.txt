@@ -1,0 +1,24 @@
+_ File Edit View Special WS pm
+File Y
+
+intern 8
+al: “quit-close-0 IF ILES|eS
+lEnter name of file to save: A:\*.uk1
+Type a file name; Enter accepts, Esc backs up
+
+Aa B C D E F G H
+Hk  quit-closimy
+i
+lo
+a
+hz
+M3
+4
+M5
+he
+ia
+he
+re
+[=|
+
+|

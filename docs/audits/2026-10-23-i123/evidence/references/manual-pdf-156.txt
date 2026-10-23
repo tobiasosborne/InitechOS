@@ -1,0 +1,54 @@
+Procedure
+
+1. If you have a two-diskette system, make sure the disk you want to extract the
+range to is in one of the diskette drives.
+
+2. Select /File Xtract.
+3. Select one of the following options:
+
+Formulas Copies a range of data in the current worksheet to a file on disk,
+including labels, numbers, formulas, and all worksheet settings.
+
+Values Copies a range of data in the current worksheet to a file on disk,
+including labels, numbers, the values of formulas, and all
+worksheet settings.
+
+1-2-3 displays files with a .WK1 extension in the current directory.
+
+4. If you want to save the extracted data in a different drive and/or directory,
+press ESC to clear the file names, edit the drive and/or directory, and then
+press ENTER.
+
+5. Specify a file name for the extracted data and press ENTER.
+
+6. Specify the range of data you want to extract and press ENTER.
+
+1-2-3 enters the extracted range in the file beginning in cell A1. If you
+extracted formulas, 1-2-3 adjusts the cell references in formulas to reflect their
+new location in the extracted file.
+
+7. If you specified a file name that already exists, select one of the following
+options:
+
+Cancel Returns 1-2-3 to READY mode without extracting the range.
+Replace Writes over the file on disk with the extracted range.
+Backup Renames the previously extracted file on disk with the extension
+
+-BAK and saves the extracted range with the existing file name
+and the extension .WK1.
+
+Extracting a File with a Password
+
+You can limit access to a current worksheet by extracting it with a password.
+When you extract a file with a password, no one can read the file without
+knowing and specifying the password. During the /File Xtract procedure, you can
+create a password-protected current worksheet when you name the file.
+
+CAUTION Remember your password. When you extract a file with a password,
+you can read the file into memory again only if you enter the exact password.
+
+Procedure
+1. Select /File Xtract.
+
+5-24 The File Commands
+

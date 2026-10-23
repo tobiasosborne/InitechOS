@@ -1,0 +1,65 @@
+ANT: #A165, READY
+
+ry B c P E F & 4.
+4 5 2 s ma
+
+5 denne ner Numeric formulas
+4 SUNCAT. AS)
+
+5
+
+é #'New"S" Balance” ;
+
+4 eran, f= ee String formulas
+
+8 GSTRING(AG,5)
+
+9
+
+# et Sa eeeenaE IETS Logical formulas
+
+oA:
+
+Figure 1-16 Types of formulas
+
+Entering Formulas
+Use the following guidelines when entering a formula:
+
+¢ A formula can begin with a number or one of the numeric symbols + - @ . (
+or $. In addition, the # symbol can be used to begin a logical formula.
+
+¢ When the first element in a formula is a cell address, range name, or file
+reference, begin the formula with + - ( or $. For example, +B7/B8, -B7*B8,
+$SALES/12, and (SALES-EXPENSES), and + <<BUDGET.WK1>>B7 are all
+valid formulas.
+
+« When a string formula starts with a literal string, begin the formula with + or
+(. For example, +‘Ms.*”&LAST and (’Ms.¢”&LAST) are both valid formulas.
+(Each ¢ represents one space.)
+
+¢ A formula can contain up to 240 characters.
+
+¢ A formula cannot contain spaces, except within literal strings in string
+formulas.
+
+You can use the following types of data in a formula:
+
+« Numbers (for example 450, -92, 7.1E12, date numbers, and time numbers)
+
+¢ Literal strings (for example, “Budget for” or “TOTAL”)
+
+* @Functions (for example, @SUM(A4..A8))
+
+* Cell and range addresses (for example, B12, FF23..FH35)
+
+¢ Range names (for example, JANSALES, BUDGET _90)
+
+Order of Precedence
+
+The following table shows the arithmetic, string, and logical operators you can
+use in formulas and their order of precedence. Precedence numbers represent the
+order in which 1-2-3 performs operations in a formula. The lower the precedence
+number, the earlier 1-2-3 performs the operation, Operations with the same
+precedence number are performed sequentially from left to right.
+
+Working with Formulas 1-29

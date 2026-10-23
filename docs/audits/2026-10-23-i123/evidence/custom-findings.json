@@ -1,0 +1,588 @@
+[
+  {
+    "title": "Failed replacement on a full disk destroys the previously saved worksheet",
+    "area": "Files/Save atomicity",
+    "severity": "P1",
+    "steps": "Boot full-fixture2.img (created from the stopped long image with existing Finder metadata; FULL.WK1 is real MINT01.WK1; FILLER.BIN consumes every free cluster). Retrieve FULL. Change A1 to replacement; enter 220 x characters plus the row number in A2 through A13. /File Save NEWFULL fails. Escape; /File Save FULL Return; choose Replace. Escape; /File Retrieve FULL Return.",
+    "observed": "Replace reports File I/O error. The original 1609-byte FULL.WK1 becomes a zero-byte file. Retrieve then says Not a valid WK1 file. NEWFULL is removed after its failure. The in-memory sheet remains dirty and Quit asks about saving. A second trial replacing the same original file after entering three 240-character labels also leaves a zero-byte FULL.WK1.",
+    "expected": "A failed save must preserve the last successful file, leaving the edited worksheet open for recovery.",
+    "basis": "Own data-integrity expectation. Lotus Reference p. 5-22 defines Replace as writing the current worksheet over the old file; an I/O failure must not silently destroy the only saved copy.",
+    "shots": [
+      "full2-full-replace-failed",
+      "full2-full-retrieve-after-fail",
+      "full2-full-quit-protection",
+      "repeat-full-replace"
+    ],
+    "session": "full2",
+    "files": [
+      "evidence/full2-before.txt",
+      "evidence/extracted/full2/FULL.WK1",
+      "evidence/extracted/full2/directory.txt",
+      "evidence/full-replace-byte-proof.json",
+      "evidence/extracted/full_repeat/FULL.WK1",
+      "evidence/full_repeat-serial.log"
+    ],
+    "guess": "Guess: os/i123/app/face_a.c:646 calls tbx_file_create on the existing path before writes succeed; lines 657-659 do not roll back a replacement on failure."
+  },
+  {
+    "title": "F2 followed by Return truncates a full-length label",
+    "area": "Entry/edit",
+    "severity": "P1",
+    "steps": "At A1 type 239 lowercase x characters followed by Z (240 characters), Return. /File Save LONG0. Press F2, Return without changing anything. /File Save LONGEDIT.",
+    "observed": "LONG0.WK1 stores a label prefix plus all 240 characters. LONGEDIT.WK1 stores the prefix plus only 239 x characters; the final Z is gone. A no-op edit changes the data.",
+    "expected": "Preserve the complete accepted label through an unmodified edit.",
+    "basis": "Lotus R2.2 Reference pp. 1-16, 1-17, 1-22 (PDF 32, 33, 38); byte equality is the audit data-integrity expectation.",
+    "shots": [
+      "long-edit-data"
+    ],
+    "session": "files",
+    "files": [
+      "evidence/extracted/files/LONG0.WK1",
+      "evidence/extracted/files/LONGEDIT.WK1",
+      "evidence/long-edit-byte-proof.json"
+    ],
+    "guess": "Guess: os/i123/app/face_a.c:1064 passes the 241-byte g_edit buffer to i123_cell_content; os/i123/core/fmt.c:614 copies the stored prefix into that same capacity, leaving room for only 239 label characters."
+  },
+  {
+    "title": "Shutdown Save closes 123 but does not finish shutting down",
+    "area": "Quit/Finder integration",
+    "severity": "P2",
+    "steps": "Make an unsaved worksheet. Shrink 123 by dragging (632,472) by (-288,-194). Activate the exposed APPS title at (380,90). Choose Finder Special > Shut Down with menu gesture (170,30) to (170,125). In the 123 save question choose Save (Return). Activate the worksheet title (150,50), enter SD0, Return. Repeat on a fresh app with SD1.",
+    "observed": "Both saves succeed and 123 exits, but the desktop remains running. The serial log says FINDER-POWER-CANCEL app=123.EXE declined before filename entry completes. No safe-shutdown marker occurs in either Save trial.",
+    "expected": "After the Save flow succeeds, resume the pending shutdown. Cancel should cancel it, as it does in the separate Cancel trials.",
+    "basis": "Own native application shutdown workflow expectation; os/milton/kmain.c:5690 documents that shutdown asks each app through its normal save/quit routine and only user cancellation cancels shutdown, citing Inside Macintosh Vol VI PDF 345.",
+    "shots": [
+      "power-save-0-prompt",
+      "power-save-0-result",
+      "power-save-1-result"
+    ],
+    "session": "power",
+    "files": [],
+    "guess": "Guess: os/milton/kmain.c:5719 checks whether the application is still resident immediately after the alert callback. Save has only started an asynchronous filename prompt, so the resident app is misclassified as a cancellation."
+  },
+  {
+    "title": "A leading dollar sign is rejected in numeric entry",
+    "area": "Entry/numbers",
+    "severity": "P2",
+    "steps": "F5, B4, Return; type $12.34, Return.",
+    "observed": "The cell stays blank and the rejected $12.34 remains in EDIT.",
+    "expected": "Accept numeric 12.34; the dollar sign need not display until a currency format is chosen.",
+    "basis": "Lotus Reference p. 1-19 (PDF 35), Numbers: \"If you begin a number with a $ (dollar sign), 1-2-3 will enter the number\".",
+    "shots": [
+      "011-currency"
+    ],
+    "session": "entry",
+    "files": [],
+    "guess": "Guess: os/i123/core/fmt.c:638 accepts a sign but does not consume a leading dollar sign."
+  },
+  {
+    "title": "F2 cannot move the insertion point into existing text",
+    "area": "Entry/edit",
+    "severity": "P2",
+    "steps": "Enter abcdef in A6. F2, Left, X; then Home, Y.",
+    "observed": "The edit buffer becomes apostrophe-abcdefX and then apostrophe-abcdefXY. Both keys leave insertion at the end.",
+    "expected": "Left moves one character left and Home moves to the first character, allowing edits inside the entry.",
+    "basis": "Lotus Reference pp. 1-22/1-23 (PDF 38/39), editing-key table.",
+    "shots": [
+      "017-edit-left",
+      "018-edit-home"
+    ],
+    "session": "entry",
+    "files": [],
+    "guess": "Guess: os/i123/app/face_a.c:1106 returns for EDIT Left/Right/Tab; no edit-cursor index is maintained."
+  },
+  {
+    "title": "Copy refuses a multi-cell destination range",
+    "area": "Worksheet/Copy",
+    "severity": "P2",
+    "steps": "Populate A1 with 1. /Copy; FROM A1, Return; TO D1..D3, Return.",
+    "observed": "ERROR says \"Specify the upper left destination cell\"; the target is not filled.",
+    "expected": "Copy a single source cell over the specified destination range.",
+    "basis": "Lotus Reference chapter 3, /Copy pp. 3-4/3-5; local spec/i123/era_shortfalls.md I123-P3-07 also records the missing tiling behavior.",
+    "shots": [
+      "copy-target-range-refused"
+    ],
+    "session": "transfers",
+    "files": [],
+    "guess": "Guess: os/i123/app/face_a.c:742 explicitly rejects destinations with different corners."
+  },
+  {
+    "title": "Period does not anchor an interactively pointed range",
+    "area": "Range picking",
+    "severity": "P2",
+    "steps": "F5 A1 Return; /Copy; press period, Down, Right, Return at the FROM prompt.",
+    "observed": "The pointer reaches B2 but the prompt contains a literal period. Return produces Invalid range.",
+    "expected": "Period anchors the starting corner so arrows extend a range; Escape or Backspace removes the anchor.",
+    "basis": "Lotus Reference chapter 1, Specifying a Range (PDF 40/41); this is the period anchor operation called out in the brief.",
+    "shots": [
+      "point-dot-range",
+      "point-dot-result"
+    ],
+    "session": "transfers",
+    "files": [],
+    "guess": "Guess: os/i123/app/face_a.c:873 treats period as ordinary prompt text and arrows only move the cell cursor."
+  },
+  {
+    "title": "A permitted 240-character column width makes its cell disappear",
+    "area": "Worksheet/width",
+    "severity": "P2",
+    "steps": "Put 1 in A1. At A1 choose /Worksheet Column Set-Width, enter 240. Then press Right.",
+    "observed": "At A1 the A heading, value, and cell pointer disappear; the worksheet body is blank. Right reveals B and later columns again.",
+    "expected": "Show the visible portion of the wide active column and its pointer, or refuse a width the viewport cannot render.",
+    "basis": "Own native-spreadsheet usability expectation; the application explicitly accepts widths 1..240.",
+    "shots": [
+      "width-240",
+      "width-240-right"
+    ],
+    "session": "transfers",
+    "files": [],
+    "guess": "Guess: os/i123/app/face_a.c:341 uses whole-column i123_cols_fitting; col_x:351 then rejects the active column when none fits."
+  },
+  {
+    "title": "Range names cannot be redefined while formulas exist",
+    "area": "Range names",
+    "severity": "P2",
+    "steps": "Put 5 in B1. /Range Name Create rates Return B1 Return. In C1 enter +rates*2. Repeat Name Create rates with range B2.",
+    "observed": "The redefinition fails with the nonspecific \"Command refused\". The original binding remains B1.",
+    "expected": "Permit a range name to be reassigned through Name Create without refusing the operation merely because formulas exist.",
+    "basis": "Lotus Reference chapter 10, /Range Name Create pp. 10-14..10-18; restriction independently listed in spec/i123/era_shortfalls.md I123-P3-06.",
+    "shots": [
+      "name-redefine"
+    ],
+    "session": "transfers",
+    "files": [],
+    "guess": null
+  },
+  {
+    "title": "Erasing an ordinary cell does not recover capacity",
+    "area": "Capacity/recovery",
+    "severity": "P2",
+    "steps": "Retrieve supplied CAP2047.WK1. Enter 8 in A2048. At capacity, /Range Erase A1 Return; then enter 9 in A2049.",
+    "observed": "A2049 still fails in EDIT. CAPERA.WK1 still has 2048 cell records, including a default-format BLANK at A1.",
+    "expected": "Erasing an unformatted cell should free a slot, or offer a reachable way to release it without erasing the entire sheet.",
+    "basis": "Own capacity-recovery expectation; distinct from earlier L080, which covers the unexplained full-store error itself.",
+    "shots": [
+      "capacity-after-erase"
+    ],
+    "session": "capacity",
+    "files": [
+      "evidence/extracted/capacity/CAPERA.json",
+      "evidence/extracted/capacity/CAPERA.WK1"
+    ],
+    "guess": "Guess: os/i123/app/face_a.c:752 erases the cell and then recreates its default format as an allocated BLANK."
+  },
+  {
+    "title": "@NOW returns ERR",
+    "area": "Formula/date-time",
+    "severity": "P2",
+    "steps": "F5 A25 Return; type @NOW, Return. The function sweep then makes further edits, triggering automatic recalculation.",
+    "observed": "The formula evaluates to ERR. The saved result is positive infinity, the WK1 ERR sentinel; the desktop clock remains visible.",
+    "expected": "Return the current date-and-time serial number and update it on recalculation.",
+    "basis": "Lotus Reference p. 13-46 (PDF 334), @NOW.",
+    "shots": [
+      "func-25"
+    ],
+    "session": "functions",
+    "files": [
+      "evidence/extracted/functions/FUNCS.json"
+    ],
+    "guess": "Guess: os/i123/core/eval.c:916 returns ERR when have_now is unset; the native application does not supply a clock value."
+  },
+  {
+    "title": "Save Backup is offered but cannot create a backup",
+    "area": "Files/Save",
+    "severity": "P2",
+    "steps": "Save A1=original as SAVE. Change A1 to changed. /File Save SAVE Return, choose Backup.",
+    "observed": "ERROR says Command not implemented. No SAVE.BAK is created.",
+    "expected": "Copy the previous SAVE.WK1 to SAVE.BAK and write the new worksheet to SAVE.WK1.",
+    "basis": "Lotus Reference p. 5-22 (PDF 154), Backup.",
+    "shots": [
+      "backup-refused"
+    ],
+    "session": "files",
+    "files": [
+      "evidence/extracted/files/directory.txt"
+    ],
+    "guess": "Guess: os/i123/app/face_a.c:780 routes the third replace-menu choice to unsupported()."
+  },
+  {
+    "title": "The documented password-save syntax is rejected",
+    "area": "Files/password",
+    "severity": "P2",
+    "steps": "Enter a value, then /File Save; type PASS p, Return.",
+    "observed": "ERROR says Invalid file name. No password prompt appears.",
+    "expected": "A space followed by p requests password entry and confirmation.",
+    "basis": "Lotus Reference pp. 5-22/5-23 (PDF 154/155), Saving a File with a Password.",
+    "shots": [
+      "password-refused"
+    ],
+    "session": "files",
+    "files": [],
+    "guess": "Guess: os/i123/app/face_a.c:603 rejects every space before recognizing a password suffix."
+  },
+  {
+    "title": "Invalid 8.3 names are diagnosed as generic I/O failures",
+    "area": "Files/errors",
+    "severity": "P3",
+    "steps": "Attempt /File Save with TOOLONGNAME, then 12345678.1234. Clear each notice with Escape.",
+    "observed": "Both malformed DOS names produce File I/O error; the notice gives no name or length correction.",
+    "expected": "Identify invalid filename syntax or the 8.3 length limit, as the separate space/wildcard cases already identify invalid file names.",
+    "basis": "Own error-message usability expectation, supported by the contrasting observed Invalid file name response to A B and BAD?.",
+    "shots": [
+      "filename-0",
+      "filename-5",
+      "filename-1"
+    ],
+    "session": "files",
+    "files": [],
+    "guess": null
+  },
+  {
+    "title": "Three menu descriptions are clipped at the right edge",
+    "area": "Menu/polish",
+    "severity": "P3",
+    "steps": "Press slash, highlight Range (Right once). Also navigate /Worksheet Global Default Other International Punctuation and highlight B (,..) and D (,;.).",
+    "observed": "The Range description ends with Sear instead of Search. Each indicated punctuation description loses its last character. All other 378 displayed descriptions match their full reference text.",
+    "expected": "Keep the full selected-item description readable, for example by scrolling or wrapping it.",
+    "basis": "Real Lotus installed 123.RI strings at the offsets in evidence/menu-verified.json; exact screen crops y=94..109. Native geometry is four characters narrower than the 80-column reference.",
+    "shots": [
+      "menu-143-selected",
+      "menu-062-selected",
+      "menu-064-selected"
+    ],
+    "session": "menus",
+    "files": [
+      "evidence/menu-verified.json"
+    ],
+    "guess": null
+  },
+  {
+    "title": "Named ranges are displayed as raw cell addresses in formulas",
+    "area": "Range names/display",
+    "severity": "P3",
+    "steps": "Name B1 rates using /Range Name Create. Enter +rates*2 in C1 and inspect its control-panel contents before deleting the name.",
+    "observed": "C1 displays +B1*2 while rates is still defined.",
+    "expected": "Substitute a matching range name into the displayed formula.",
+    "basis": "Lotus Reference p. 10-15 (PDF 233): the first tip describes automatic substitution of an address by its range name.",
+    "shots": [
+      "name-redefine"
+    ],
+    "session": "transfers",
+    "files": [],
+    "guess": "Guess: name resolution is compiled to coordinates, but i123_cell_content/decompilation does not substitute the name table."
+  },
+  {
+    "title": "A full disk is reported only as File I/O error",
+    "area": "Files/errors",
+    "severity": "P3",
+    "steps": "On full-fixture2.img retrieve FULL, make the edits above, and attempt /File Save NEWFULL.",
+    "observed": "ERROR reports only File I/O error. It does not identify exhaustion of disk space.",
+    "expected": "Identify disk full so the user can free space or choose another volume.",
+    "basis": "Own error-message usability expectation. Finder already gives a specific disk-full alert on the uninitialized full fixture; the 123 file layer obscures the same cause.",
+    "shots": [
+      "full2-full-new-refused"
+    ],
+    "session": "full2",
+    "files": [
+      "evidence/full2-before.txt"
+    ],
+    "guess": "Guess: os/i123/app/face_a.c:585 maps every file error except missing file/path to the same generic message."
+  },
+  {
+    "title": "Escape from GOTO enters the slash menu",
+    "area": "Navigation/GOTO",
+    "severity": "P2",
+    "steps": "From READY press F5, then Escape.",
+    "observed": "The Worksheet/Range/... menu appears instead of READY.",
+    "expected": "Cancel the GOTO prompt and return to the unchanged worksheet.",
+    "basis": "Lotus Reference chapter 1 cancellation convention; own expectation that cancelling a prompt restores its caller.",
+    "shots": [
+      "goto-escape-menu"
+    ],
+    "session": "keyslook",
+    "files": [],
+    "guess": "Guess: os/i123/app/face_a.c:861 calls menu_mode for every range prompt, including the non-menu A_GOTO action."
+  },
+  {
+    "title": "@CELL filename is blank even after saving",
+    "area": "Formula/file attributes",
+    "severity": "P2",
+    "steps": "Save the fresh sheet as LOOK. In C2 enter @CELL(\"filename\",A1).",
+    "observed": "The formula returns an empty string despite Saved LOOK.wk1 in the status line.",
+    "expected": "Return the current file name including its path.",
+    "basis": "Lotus Reference p. 13-17 (PDF 305), filename attribute.",
+    "shots": [
+      "cell-filename-saved"
+    ],
+    "session": "keyslook",
+    "files": [],
+    "guess": "Guess: os/i123/core/eval.c:854 unconditionally returns an empty string for filename."
+  },
+  {
+    "title": "F3 cannot list defined names in a range prompt",
+    "area": "Range names/keys",
+    "severity": "P2",
+    "steps": "Create name rates for B1. Press F5, then F3.",
+    "observed": "The POINT prompt remains; no list containing rates is displayed.",
+    "expected": "Display the named-range menu and allow selection.",
+    "basis": "Lotus Reference pp. 1-24 and 10-15 (PDF 40, 233) explicitly specify NAME (F3) in a range prompt.",
+    "shots": [
+      "f3-named-range"
+    ],
+    "session": "keyslook",
+    "files": [],
+    "guess": null
+  },
+  {
+    "title": "End plus an arrow does not perform a block jump",
+    "area": "Navigation/End",
+    "severity": "P2",
+    "steps": "Populate consecutive A1..F1 cells as in keyslook. F5 A1 Return; End, Right.",
+    "observed": "No END indicator appears; Right moves just to B1.",
+    "expected": "End followed by Right moves to the end of the contiguous block, F1 in this fixture.",
+    "basis": "Lotus Reference pp. 1-9/1-10 (PDF 25/26), End movement; named real screen status reference PDF 22.",
+    "shots": [
+      "end-indicator",
+      "end-right"
+    ],
+    "session": "keyslook",
+    "files": [],
+    "guess": null
+  },
+  {
+    "title": "Caps Lock has no CAPS status indicator",
+    "area": "Status line",
+    "severity": "P3",
+    "steps": "In READY press Caps Lock once.",
+    "observed": "No CAPS indicator appears along the worksheet status line.",
+    "expected": "Display CAPS while Caps Lock is enabled.",
+    "basis": "Lotus Reference p. 1-6 (PDF 22), status indicator table.",
+    "shots": [
+      "caps-indicator"
+    ],
+    "session": "keyslook",
+    "files": [],
+    "guess": null
+  },
+  {
+    "title": "Num Lock has no NUM status indicator",
+    "area": "Status line",
+    "severity": "P3",
+    "steps": "In READY press Num Lock once.",
+    "observed": "No NUM indicator appears along the worksheet status line.",
+    "expected": "Display NUM while Num Lock is enabled.",
+    "basis": "Lotus Reference p. 1-5 figure and status indicator table, PDF 21/23.",
+    "shots": [
+      "num-indicator"
+    ],
+    "session": "keyslook",
+    "files": [],
+    "guess": null
+  },
+  {
+    "title": "Alt-F4 does not undo the last cell change",
+    "area": "Recovery/Undo",
+    "severity": "P2",
+    "steps": "Set A1 to a, then overwrite it with undo. Press Alt-F4.",
+    "observed": "A1 remains undo, with no UNDO indicator or restoration.",
+    "expected": "Restore the prior edit when the undo feature is enabled; provide the documented undo workflow.",
+    "basis": "Lotus Reference p. 1-5 (PDF 21) defines UNDO (Alt-F4); real MINT01 initial screen has UNDO enabled. The menu to enable Undo also refuses in this build.",
+    "shots": [
+      "undo-absent"
+    ],
+    "session": "keyslook",
+    "files": [],
+    "guess": null
+  },
+  {
+    "title": "F4 does not toggle an entered reference to absolute",
+    "area": "Formula/keys",
+    "severity": "P2",
+    "steps": "At B3 type +A1 without Return; press F4.",
+    "observed": "The entry remains +A1; no dollar signs appear.",
+    "expected": "Cycle the cell reference through absolute/mixed/relative forms.",
+    "basis": "Lotus Reference chapter 1 function-key description for ABS (F4), PDF 27.",
+    "shots": [
+      "f4-absolute"
+    ],
+    "session": "keyslook",
+    "files": [],
+    "guess": null
+  },
+  {
+    "title": "Return does not dismiss ordinary ERROR notices",
+    "area": "Errors/navigation",
+    "severity": "P2",
+    "steps": "Choose /System to get Command not implemented; press Return.",
+    "observed": "The same ERROR notice remains. Escape does dismiss it.",
+    "expected": "Return and Escape should both clear an error notice.",
+    "basis": "Lotus Reference p. 1-5 (PDF 21): press ESC or ENTER to clear an error and continue.",
+    "shots": [
+      "unsupported-before-enter",
+      "unsupported-after-enter"
+    ],
+    "session": "keyslook",
+    "files": [],
+    "guess": "Guess: os/i123/app/face_a.c:870 only lets Return clear M_NOTICE when g_error is set; ordinary notice() uses g_notice instead."
+  },
+  {
+    "title": "Native worksheet scroll controls do nothing",
+    "area": "Window/scrolling",
+    "severity": "P2",
+    "steps": "F5 A100 Return. Click vertical up arrow (627,69). Drag the vertical track from (627,120) to (627,270).",
+    "observed": "The top row remains 100 and no scrolling occurs. The track has no useful thumb reflecting the viewport.",
+    "expected": "Make the native scroll controls move the worksheet view.",
+    "basis": "Own native-window usability expectation, as distinct from DOS Lotus keyboard navigation.",
+    "shots": [
+      "scroll-before",
+      "scroll-arrow",
+      "scroll-thumb"
+    ],
+    "session": "keyslook",
+    "files": [],
+    "guess": null
+  },
+  {
+    "title": "Plain Scroll Lock cancels a pending cell entry",
+    "area": "Entry/keyboard routing",
+    "severity": "P2",
+    "steps": "With an existing cell selected, type pending without Return, then press unmodified Scroll Lock.",
+    "observed": "READY returns and the pending text disappears, leaving the old cell value.",
+    "expected": "A plain lock key should not silently execute Ctrl-Break cancellation.",
+    "basis": "Own keyboard safety expectation; the app source labels this handler Ctrl-Break/Ctrl-C, so the unmodified key is outside its stated intent.",
+    "shots": [
+      "scroll-lock-cancels"
+    ],
+    "session": "keyslook",
+    "files": [],
+    "guess": "Guess: os/i123/app/face_a.c:1076 tests vk==0x46 without checking modifiers or the extended Break key identity."
+  },
+  {
+    "title": "Retrieve provides no file-name list",
+    "area": "Files/browsing",
+    "severity": "P2",
+    "steps": "Boot the fixture containing MINT01.WK1 and the other sample files. Choose /File Retrieve.",
+    "observed": "Only a text name prompt and Type a file name guidance are shown. The prompt has no selectable file list; File List itself is separately unavailable.",
+    "expected": "Show matching .WKS/.WK1 files in the current directory and permit file-name selection.",
+    "basis": "Lotus Reference p. 5-19 (PDF 151), File Retrieve procedure step 2; p. 1-6 FILES description (PDF 22).",
+    "shots": [
+      "menu-196-result"
+    ],
+    "session": "menus",
+    "files": [
+      "evidence/menu-verified.json"
+    ],
+    "guess": "Guess: os/i123/app/face_a.c:328-333 paints a typed-name-only prompt and the M_GET handler has no directory enumeration."
+  },
+  {
+    "title": "High decimal counts display overflow stars despite ample column width",
+    "area": "Range Format/numeric display",
+    "severity": "P2",
+    "steps": "Set A to width 30 with /Worksheet Column Set-Width. Enter 1234.5678912345 in A1. Apply Fixed decimals 12 then 13; Currency and Comma decimals 12 then 13; Percent decimals 10 then 11. The complete sweep also tries through 15.",
+    "observed": "The lower precision displays the number. Fixed/Currency/Comma 13..15 and Percent 11..15 produce 30 asterisks although their formatted text would fit within the 30-character column. Scientific format at 15 decimals still displays a number.",
+    "expected": "Display the selected supported decimal precision whenever the formatted number plus its reserved trailing character fits the column.",
+    "basis": "Lotus Reference pp. 10-4..10-6 (PDF 222..224) supports up to 15 decimal places and explains that widening the column removes width-related stars.",
+    "shots": [
+      "wide-format-fixed-12",
+      "wide-format-fixed-13",
+      "wide-format-currency-13",
+      "wide-format-comma-13",
+      "wide-format-percent-11",
+      "wide-format-sci-15"
+    ],
+    "session": "formats_wide",
+    "files": [
+      "evidence/rendered-case-lines.json"
+    ],
+    "guess": "Guess: os/i123/core/fmt.c:245-246 scales the value by 10^decimals then refuses values >=9e15, independently of display width."
+  },
+  {
+    "title": "The control panel omits the active cell format code",
+    "area": "Control panel/polish",
+    "severity": "P3",
+    "steps": "At A1=1234.5678912345 apply /Range Format Fixed 0 to A1, then Currency 2. Inspect the first control-panel row.",
+    "observed": "It continues to show A1: 1234.5678912345 with no (F0) or (C2) descriptor, even though the cell display changes.",
+    "expected": "Show the selected format and decimal count next to the current-cell contents.",
+    "basis": "Lotus Reference p. 10-4 (PDF 222) explicitly describes the (C0)/(P2) control-panel notations.",
+    "shots": [
+      "wide-format-fixed-0",
+      "wide-format-currency-2"
+    ],
+    "session": "formats_wide",
+    "files": [],
+    "guess": "Guess: os/i123/app/face_a.c:402-421 paints address and content but no format descriptor."
+  },
+  {
+    "title": "A same-length label replacement fails near the string-pool limit",
+    "area": "Capacity/edit allocation",
+    "severity": "P2",
+    "steps": "Retrieve POOL135.WK1: A1..A135 each contain a 240-character label, using 32535 bytes including prefixes. Try to replace A1 with 240 y characters and Return. Cancel with Ctrl-Break, then replace A1 with one y.",
+    "observed": "The same-length replacement fails into unexplained EDIT; the existing label remains. A one-character replacement succeeds. The sheet has only 135 populated cells, far below its 2048-cell count limit.",
+    "expected": "Reuse the old label storage, or transact the replacement without requiring a second complete label allocation when the final live-data size is unchanged.",
+    "basis": "Own storage and edit correctness expectation; the local implementation documents a 32768-byte cell pool. The lack of a useful exhaustion message is already earlier L080, not renumbered here.",
+    "shots": [
+      "pool-replace-full",
+      "pool-old-preserved",
+      "pool-small-replace"
+    ],
+    "session": "pool",
+    "files": [
+      "evidence/POOL135.WK1",
+      "evidence/extracted/pool/POOLOUT.json"
+    ],
+    "guess": "Guess: os/i123/core/sheet.c:250 allocates the new blob before the old blob is released at line 259."
+  },
+  {
+    "title": "@STRING returns ERR for a valid high-precision conversion",
+    "area": "Formula/string conversion",
+    "severity": "P2",
+    "steps": "Enter @STRING(1234.5678912345,15) in A1. As a control enter @STRING(0,15) in A2. Save EMPTY.",
+    "observed": "A1 is ERR; A2 produces the expected string with fifteen decimal zeros. The A1 saved result is the positive-infinity ERR sentinel.",
+    "expected": "Return the decimal text of the supplied number with fifteen decimal places.",
+    "basis": "Lotus Reference p. 13-56 (PDF 344) says x can be any value and n can be any integer 0..15.",
+    "shots": [
+      "empty-extra-00",
+      "empty-extra-01"
+    ],
+    "session": "edge_more",
+    "files": [
+      "evidence/extracted/edge_more/EMPTY.json"
+    ],
+    "guess": "Guess: os/i123/core/fmt.c:784-785 rejects the scaled value in i123_fixed_text; the @STRING evaluator then converts failure to ERR. This is a formula-result failure as well as the separately observed cell-format display failure."
+  },
+  {
+    "title": "Ctrl-C appends a literal c to a pending entry",
+    "area": "Entry/keyboard routing",
+    "severity": "P2",
+    "steps": "At D1=123.5, type pending without Return. Press Ctrl-C.",
+    "observed": "The input line becomes pendingc and remains in LABEL mode. The first entry session also reproduced this while in EDIT.",
+    "expected": "Honor the application cancellation handler for Ctrl-C, or at minimum do not insert its unmodified character.",
+    "basis": "Own modified-key expectation and the explicit Ctrl-C/Ctrl-Break cancellation intent in os/i123/app/face_a.c:1076; this is not claimed as a Lotus-manual Ctrl-C shortcut.",
+    "shots": [
+      "ctrl-c-literal"
+    ],
+    "session": "edge_more",
+    "files": [
+      "evidence/entry-serial.log"
+    ],
+    "guess": "Guess: the event reaches the application as printable c plus modifier flags, while key() checks ch==3 and ignores mods for this shortcut."
+  },
+  {
+    "title": "Move leaves WK1 per-column metadata unlike the real-Lotus result",
+    "area": "Files/Move metadata",
+    "severity": "P2",
+    "steps": "Retrieve real MOVE01A. Move A1 to D1 and save MOVEB. Move B2 to F5 and save MOVEC. Move A2..C2 to A8 and save MOVED. Compare record 0x0096 with real MOVE01B/C/D from the same recorded operations.",
+    "observed": "All cell records match the real files byte-for-byte. Record 0x0096 does not. MOVED retains the A-column triple (0,0,1), while real MOVE01D records (0,7,7); A8 is the remaining A-column value. MOVEC also retains the old B-column last row. Screen values remain correct.",
+    "expected": "Update the saved per-column metadata consistently with the move, as the command-minted real-Lotus files do.",
+    "basis": "Named originals goldens/minted/MOVE01B.WK1, MOVE01C.WK1, MOVE01D.WK1 and mint/MOVE01.steps. lotus123-decomp/specs/file-formats/wk1-format.md section 3.6 verifies the triples but labels their extent purpose inferred. Native-file loading by real Lotus was not performed, so no resulting compatibility failure or data loss is claimed.",
+    "shots": [
+      "MOVED"
+    ],
+    "session": "transfers",
+    "files": [
+      "evidence/move-metadata-comparison.json",
+      "evidence/extracted/transfers/MOVED.WK1"
+    ],
+    "guess": "Guess: the transfer erases/moves cells without rebuilding hid_first/hid_last; os/i123/fs/wk1.c:326-334 writes those stored arrays unchanged."
+  }
+]

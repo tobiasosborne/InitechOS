@@ -1,0 +1,55 @@
+def transfers(a):
+ for case,steps in [('COPY',[('C1..C6','E1','COPYB'),('C1..C6','D8','COPYC'),('C3','C20','COPYD')]),('MOVE',[('A1','D1','MOVEB'),('B2','F5','MOVEC'),('A2..C2','A8','MOVED')])]:
+  a.get(case+'01A');a.state(case+'-loaded')
+  for src,dst,out in steps:
+   a.slash('c' if case=='COPY' else 'm');a.type(src);a.type(dst);a.state(out);a.saveas(out)
+ a.clear()
+ for c,v in {'A1':'1','A2':'2','A3':'3','B1':'+A1','B2':'+$A$2','B3':'+A3'}.items():a.cell(c,v)
+ a.slash('c');a.type('A1..B3');a.type('A2');a.state('copy-overlap');a.saveas('OVERCP')
+ a.slash('m');a.type('A2..B4');a.type('A1');a.state('move-overlap');a.saveas('OVERMV')
+ a.slash('c');a.type('A1');a.type('D1..D3');a.state('copy-target-range-refused');a.key('esc')
+ a.goto('A1');a.slash('c');a.key('dot');a.key('down');a.key('right');a.state('point-dot-range');a.key('ret');a.state('point-dot-result');a.key('esc')
+ a.goto('A1');a.slash('wcs');a.type('1');a.state('width-1')
+ a.slash('wcs');a.type('240');a.state('width-240');a.key('right');a.state('width-240-right')
+ a.goto('A1');a.slash('wcr');a.slash('wcs');a.type('0');a.state('width-0-refused');a.key('esc')
+ a.slash('wcs');a.type('241');a.state('width-241-refused');a.key('esc')
+ a.clear();a.cell('A1','Rate');a.cell('B1','5');a.slash('rncrates');a.key('ret');a.type('B1');a.goto('rates');a.state('name-goto')
+ a.cell('C1','+rates*2');a.slash('rncrates');a.key('ret');a.type('B2');a.state('name-redefine');a.key('esc')
+ a.slash('rnd');a.type('rates');a.goto('C1');a.state('name-delete-formula');a.saveas('NAMES')
+ a.clear();a.cell('A1','Item');a.cell('B1','7');a.slash('rnlr');a.type('A1');a.goto('Item');a.state('name-labels');a.saveas('LABELNAM')
+ a.clear();a.cell('A1','10');a.cell('B1','+A1*2');a.slash('wgrm');a.cell('A1','20');a.state('manual-stale');a.key('f9');a.state('manual-recalc')
+ for order in ['c','r','n']:
+  a.slash('wgr'+order);a.state('recalc-order-'+order)
+ a.slash('wgra');a.cell('A1','30');a.state('automatic-recalc')
+ a.cell('C1','+C1+1');a.state('circular');a.slash('wgri');a.type('50');a.key('f9');a.state('circular-50');a.saveas('CIRCOUT')
+ a.clear();a.cell('A1','erase-no');a.slash('wen');a.state('worksheet-erase-no');a.slash('wey');a.state('worksheet-erase-yes')
+ a.cell('A1','protected');a.slash('rp');a.type('A1');a.slash('wgpe');a.cell('A1','changed');a.state('protected-entry');a.key('ctrl-scroll_lock');a.slash('re');a.type('A1');a.state('protected-erase');a.key('esc');a.slash('wgpd');a.slash('re');a.type('A1');a.state('range-erase');a.saveas('ERASE')
+
+def capacity(a):
+ a.get('CAP2047');a.state('capacity-2047');a.cell('A2048','8');a.state('capacity-2048');a.cell('A2049','9');a.state('capacity-2049');a.key('ctrl-scroll_lock');a.cell('A1','2');a.state('capacity-replace');a.saveas('CAPOUT')
+ a.slash('re');a.type('A1');a.cell('A2049','9');a.state('capacity-after-erase');a.key('ctrl-scroll_lock');a.get('CAP2049');a.state('capacity-oversize-get');a.key('esc');a.goto('A2048');a.state('capacity-preserved');a.saveas('CAPERA')
+ a.clear();a.get('MINT03');a.state('mint03-loaded');a.key('f9');a.state('mint03-recalc');a.saveas('M3ROUND')
+ a.get('MINT04');a.key('f9');a.state('mint04-recalc');a.saveas('M4ROUND');a.get('MINT05');a.key('f9');a.state('mint05-recalc');a.saveas('M5ROUND')
+
+def files(a):
+ a.cell('A1','original');a.saveas('SAVE');a.cell('A1','changed');a.saveas('SAVE');a.state('replace-menu');a.type('c',False);a.state('replace-cancel');a.saveas('SAVE');a.type('b',False);a.state('backup-refused');a.key('esc');a.saveas('SAVE');a.type('r',False);a.state('replace-success')
+ for name in ['TOOLONGNAME','A B','BAD?','..','A:/SUB/TEST','12345678.1234','\\','C:TEST']:
+  a.key('ctrl-scroll_lock');a.saveas(name);a.state('filename-'+str(['TOOLONGNAME','A B','BAD?','..','A:/SUB/TEST','12345678.1234','\\','C:TEST'].index(name)))
+ a.key('ctrl-scroll_lock');a.saveas('PASS p');a.state('password-refused');a.key('esc')
+ a.clear();a.cell('A1','x'*239+'Z');a.saveas('LONG0');a.key('f2');a.key('ret');a.saveas('LONGEDIT');a.state('long-edit-data');a.cell('A2','+1.23456789012345');a.saveas('NUM0');a.key('f2');a.key('ret');a.saveas('NUMEDIT');a.state('numeric-edit-data')
+
+def full(a):
+ a.get('FULL');a.cell('A1','replacement')
+ for i in range(2,14):a.cell('A'+str(i),'x'*220+str(i))
+ a.saveas('NEWFULL');a.state('full-new-refused');a.key('esc');a.saveas('FULL');a.type('r',False);a.state('full-replace-failed');a.key('esc');a.get('FULL');a.state('full-retrieve-after-fail');a.key('esc');a.key('ctrl-q');a.state('full-quit-protection')
+
+def formats(a):
+ a.cell('A1','1234.5678912345')
+ for code in ['f','s','c',',','p']:
+  for dec in range(16):
+   a.slash('rf'+code);a.type(str(dec));a.type('A1');a.state('format-'+{'f':'fixed','s':'sci','c':'currency',',':'comma','p':'percent'}[code]+'-'+str(dec))
+ for code,tag in [('g','general'),('+','plusminus'),('t','text'),('h','hidden'),('r','reset'),('d1','date1'),('d2','date2'),('d3','date3'),('d4','date4'),('d5','date5'),('dt1','time1'),('dt2','time2'),('dt3','time3'),('dt4','time4')]:
+  a.key('ctrl-scroll_lock');a.slash('rf'+code)
+  if tag not in ['date4','date5','time1','time2','time3','time4']:a.type('A1')
+  a.state('format-'+tag)
+ a.key('ctrl-scroll_lock');a.slash('rff');a.type('16');a.state('format-16-refused');a.key('esc');a.slash('rff');a.type('-1');a.state('format-minus-refused');a.key('esc');a.saveas('FORMATS')

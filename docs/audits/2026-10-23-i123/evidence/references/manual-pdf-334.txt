@@ -1,0 +1,66 @@
+NOTE You cannot substitute the label NA for the value NA in formulas. For
+example, the formula +A2+34 = NA when A? contains @NA, but equals 34
+when A2 contains the label NA.
+
+Example
+@IF(@CELL(“‘type’’,B14) =““b’),@NA,B14) returns the value NA when B14 is
+blank.
+
+@NOW
+
+@NOW calculates the value that corresponds to the current date and time on the
+computer's clock. This includes both a date number (integer portion) and a time
+number (decimal portion). For an explanation of date numbers and time
+numbers, see “Date and Time @Functions” earlier in this chapter.
+
+You can format the value of @NOW in any of the 1-2-3 Date or Time formats. If
+you format @NOW as a date, 1-2-3 displays only the date (integer) portion of the
+date and time number; if you format @NOW as a time, 1-2-3 displays only the
+time (decimal) portion of the date and time number. In both cases, 1-2-3
+continues to calculate with the entire date-and-time number.
+
+@NOW trecalculates each time you recalculate your work. If you set recalculation
+to Automatic, 1-2-3 recalculates @NOW whenever it recalculates another value.
+
+Example
+
+In Figure 13-30, column E contains dates of employees’ last reviews as a date
+numbers (produced with @DATE and formatted with /Range Format Date 3). The
+formula
+
+@IF((@NOW-E6)> = 180,“"Yes”,""No”)
+
+in F6, which subtracts the date of an employee’s last review from the current
+date, is copied down column F. This formula calculates whether the employee is
+due for a review.
+
+F6: @IF(C@NOW-E6)>=180," Yes," No") READY
+o i F
+
+1
+
+2
+
+3
+
+r date Last
+
+5 Wired Review Review?
+
+6 dur 8? Jun-88 Yes
+
+a Jar87— JaneBS Yes
+
+3 Oct-87 Oct-88
+
+9 Mar-87 —Mar-B83— Yes.
+
+} hess ke
+
+i
+i
+
+Date numbers formatted as Date 3
+Figure 13-30 = @NOW
+
+13-46 1-2-3 @Functions

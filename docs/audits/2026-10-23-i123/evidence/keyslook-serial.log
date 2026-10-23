@@ -1,0 +1,2272 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-CREATE
+TRASH-CREATE
+APPLE-MENU n=6
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CURSOR x=160 y=120
+FLAIR-CLOCK 1:12 pm
+FLAIR-TICK n=4
+FLAIR-CURSOR x=0 y=0
+FLAIR-TICK n=9
+FLAIR-TICK n=12
+FLAIR-TICK n=15
+FLAIR-CURSOR x=150 y=16
+FLAIR-CURSOR x=300 y=32
+FLAIR-CURSOR x=450 y=48
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-DISPATCH app=FINDER
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-ICON-SELECT name=INITECH count=1
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-OPEN-VOLUME win=0 n=26
+FLAIR-CURSOR x=440 y=0
+FLAIR-CURSOR x=200 y=0
+FLAIR-CURSOR x=40 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=71 y=54
+FLAIR-CURSOR x=286 y=217
+FLAIR-CURSOR x=429 y=326
+FLAIR-CURSOR x=500 y=380
+FLAIR-CURSOR x=340 y=260
+FLAIR-CURSOR x=180 y=140
+FLAIR-CURSOR x=20 y=20
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=62 y=50
+FLAIR-CURSOR x=123 y=101
+FLAIR-EVT what=1 where=123,101 msg=00000000
+FLAIR-EVT what=2 where=123,101 msg=00000000
+FINDER-WIN-SELECT win=0 name=APPS count=1
+FLAIR-EVT what=1 where=123,101 msg=00000000
+FLAIR-EVT what=2 where=123,101 msg=00000000
+FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+FINDER-VIEW-RESTORE win=1 bits=0
+FLAIR-CURSOR x=43 y=41
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=211 y=124
+FLAIR-EVT what=1 where=211,124 msg=00000000
+FLAIR-EVT what=2 where=211,124 msg=00000000
+FINDER-WIN-SELECT win=1 name=123.EXE count=1
+FLAIR-EVT what=1 where=211,124 msg=00000000
+FLAIR-EVT what=2 where=211,124 msg=00000000
+TENANT-LOAD name=123.EXE len=61552 base=0x001e5750
+TENANT-REGISTER ok app=123
+TENANT-GATE ax=0x0001 rec=+0xe46c -> 0
+TENANT-GATE ax=0x0081 path="A:\APPS\123.MNU" mode=0 -> 5
+TENANT-GATE ax=0x0082 h=5 n=65536 -> 17746
+TENANT-GATE ax=0x0082 h=5 n=47790 -> 0
+TENANT-GATE ax=0x0085 h=5 -> 0
+TENANT-GATE ax=0x0050 bar=+0xefd0 -> 0
+TENANT-GATE ax=0x0020 l=0 t=40 r=640 b=480 goaway=2 -> 1
+TENANT-GATE ax=0x0022 win=1 s="Initech 123" -> 0
+TENANT-EVT what=8
+TENANT-EVT what=6
+TENANT-GATE ax=0x0024 win=1 -> 26018405
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=640 b=480 c=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=48 s="        A        B        C        D        E        F        G        H    " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-DISPATCH app=123
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00000100
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                     " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=577 y=0 s="MENU" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Worksheet  Range  Copy  Move  File  Print  Graph  Data  System  Add-In  Quit" fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Worksheet" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Global  Insert  Delete  Column  Erase  Titles  Window  Status  Page  Learn  " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000100
+FLAIR-EVT what=3 where=211,124 msg=00004600
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00004600
+FLAIR-EVT what=3 where=211,124 msg=0000352F
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                     " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=577 y=0 s="MENU" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Worksheet  Range  Copy  Move  File  Print  Graph  Data  System  Add-In  Quit" fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Worksheet" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Global  Insert  Delete  Column  Erase  Titles  Window  Status  Page  Learn  " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000352F
+FLAIR-EVT what=3 where=211,124 msg=00002166
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                     " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=577 y=0 s="MENU" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Retrieve  Save  Combine  Xtract  Erase  List  Import  Directory  Admin      " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Retrieve" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Erase the current worksheet from memory and display the selected worksheet  " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002166
+FLAIR-EVT what=3 where=211,124 msg=00001F73
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="FILES" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter name of file to save: A:\*.wk1                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Type a file name; Enter accepts, Esc backs up                               " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001F73
+FLAIR-EVT what=3 where=211,124 msg=0000264C
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="FILES" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter name of file to save: L_                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Type a file name; Enter accepts, Esc backs up                               " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000264C
+FLAIR-EVT what=3 where=211,124 msg=0000184F
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="FILES" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter name of file to save: LO_                                             " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Type a file name; Enter accepts, Esc backs up                               " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000184F
+FLAIR-EVT what=3 where=211,124 msg=0000184F
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="FILES" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter name of file to save: LOO_                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Type a file name; Enter accepts, Esc backs up                               " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000184F
+FLAIR-EVT what=3 where=211,124 msg=0000254B
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="FILES" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter name of file to save: LOOK_                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Type a file name; Enter accepts, Esc backs up                               " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000254B
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0081 path="LOOK.wk1" mode=0 -> -258
+TENANT-GATE ax=0x0080 path="LOOK.wk1" -> 5
+TENANT-GATE ax=0x0083 h=5 n=1384 -> 1384
+TENANT-GATE ax=0x0085 h=5 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=640 b=480 c=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=48 s="        A        B        C        D        E        F        G        H    " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00002E43
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: C_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002E43
+FLAIR-EVT what=3 where=211,124 msg=00000332
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: C2_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000332
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=177 y=80 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00000340
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="VALUE" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000340
+FLAIR-EVT what=3 where=211,124 msg=00002E43
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@C_                                                                         " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002E43
+FLAIR-EVT what=3 where=211,124 msg=00001245
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CE_                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001245
+FLAIR-EVT what=3 where=211,124 msg=0000264C
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CEL_                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000264C
+FLAIR-EVT what=3 where=211,124 msg=0000264C
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL_                                                                      " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000264C
+FLAIR-EVT what=3 where=211,124 msg=00000A28
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL(_                                                                     " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000A28
+FLAIR-EVT what=3 where=211,124 msg=00002822
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("_                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002822
+FLAIR-EVT what=3 where=211,124 msg=00002166
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("f_                                                                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002166
+FLAIR-EVT what=3 where=211,124 msg=00001769
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("fi_                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001769
+FLAIR-EVT what=3 where=211,124 msg=0000266C
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("fil_                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000266C
+FLAIR-EVT what=3 where=211,124 msg=00001265
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("file_                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001265
+FLAIR-EVT what=3 where=211,124 msg=0000316E
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("filen_                                                               " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000316E
+FLAIR-EVT what=3 where=211,124 msg=00001E61
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("filena_                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E61
+FLAIR-EVT what=3 where=211,124 msg=0000326D
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("filenam_                                                             " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000326D
+FLAIR-EVT what=3 where=211,124 msg=00001265
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("filename_                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001265
+FLAIR-EVT what=3 where=211,124 msg=00002822
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("filename"_                                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002822
+FLAIR-EVT what=3 where=211,124 msg=0000332C
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("filename",_                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000332C
+FLAIR-EVT what=3 where=211,124 msg=00001E41
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("filename",A_                                                         " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E41
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("filename",A1_                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00000B29
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="@CELL("filename",A1)_                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000B29
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=177 y=80 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=177 y=80 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=0000352F
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=577 y=0 s="MENU" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Worksheet  Range  Copy  Move  File  Print  Graph  Data  System  Add-In  Quit" fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Worksheet" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Global  Insert  Delete  Column  Erase  Titles  Window  Status  Page  Learn  " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000352F
+FLAIR-EVT what=3 where=211,124 msg=00001372
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=577 y=0 s="MENU" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Format  Label  Erase  Name  Justify  Prot  Unprot  Input  Value  Trans  Sear" fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Format" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden  Reset   " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001372
+FLAIR-EVT what=3 where=211,124 msg=0000316E
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=577 y=0 s="MENU" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Create  Delete  Labels  Reset  Table                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Create" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Create or modify a range name                                               " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000316E
+FLAIR-EVT what=3 where=211,124 msg=00002E63
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter name: C2_                                                             " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002E63
+FLAIR-EVT what=3 where=211,124 msg=00001372
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter name: r_                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001372
+FLAIR-EVT what=3 where=211,124 msg=00001E61
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter name: ra_                                                             " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E61
+FLAIR-EVT what=3 where=211,124 msg=00001474
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter name: rat_                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001474
+FLAIR-EVT what=3 where=211,124 msg=00001265
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter name: rate_                                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001265
+FLAIR-EVT what=3 where=211,124 msg=00001F73
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter name: rates_                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001F73
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter range: C2_                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003042
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter range: B_                                                             " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003042
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter range: B1_                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=640 b=480 c=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=48 s="        A        B        C        D        E        F        G        H    " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=177 y=80 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: C2_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00003D00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: C2_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003D00
+FLAIR-EVT what=3 where=211,124 msg=00004600
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00004600
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: C2_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00002146
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: F_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002146
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: F1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C2: @CELL("filename",A1..A1)                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=393 y=64 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="F1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00000D2B
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="F1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="VALUE" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="+_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000D2B
+FLAIR-EVT what=3 where=211,124 msg=00001245
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="+E_                                                                         " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001245
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="+E1_                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="                                                    0                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=393 y=64 s="       0 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=393 y=64 s="       0 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="F1: +E1                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="F1: +E1                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: F1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00001245
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="F1: +E1                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: E_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001245
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="F1: +E1                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: E1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="F1: +E1                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="                                                    0                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=321 y=64 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00000D2B
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="VALUE" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="+_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000D2B
+FLAIR-EVT what=3 where=211,124 msg=00002044
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="+D_                                                                         " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002044
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="+D1_                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="                                           0        0                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=321 y=64 s="       0 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=321 y=64 s="       0 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E1: +D1                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E1: +D1                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: E1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00002044
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E1: +D1                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: D_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002044
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E1: +D1                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: D1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E1: +D1                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="                                           0        0                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=249 y=64 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00000A39
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="VALUE" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="9_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000A39
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="                                  9        9        9                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=249 y=64 s="       9 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=249 y=64 s="       9 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 9                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00001970
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 9                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="LABEL" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="p_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001970
+FLAIR-EVT what=3 where=211,124 msg=00001265
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="pe_                                                                         " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001265
+FLAIR-EVT what=3 where=211,124 msg=0000316E
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="pen_                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000316E
+FLAIR-EVT what=3 where=211,124 msg=00002064
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="pend_                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002064
+FLAIR-EVT what=3 where=211,124 msg=00001769
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="pendi_                                                                      " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001769
+FLAIR-EVT what=3 where=211,124 msg=0000316E
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="pendin_                                                                     " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000316E
+FLAIR-EVT what=3 where=211,124 msg=00002267
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="pending_                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002267
+FLAIR-EVT what=3 where=211,124 msg=00004600
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 9                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00004600
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 9                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: D1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00001E41
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 9                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E41
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 9                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 9                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="                                  9        9        9                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00001E61
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="LABEL" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="a_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E61
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a                                 9        9        9                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00003042
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: B_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003042
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: B1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a                                 9        9        9                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=105 y=64 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003062
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="LABEL" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="b_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003062
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        b                        9        9        9                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=105 y=64 s="b        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=105 y=64 s="b        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1: 'b                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1: 'b                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: B1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00002E43
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1: 'b                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: C_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002E43
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1: 'b                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: C1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1: 'b                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        b                        9        9        9                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=177 y=64 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00002E63
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C1:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="LABEL" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="c_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002E63
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        b        c               9        9        9                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=177 y=64 s="c        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=177 y=64 s="c        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C1: 'c                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C1: 'c                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: C1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00002044
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C1: 'c                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: D_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002044
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C1: 'c                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: D1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="C1: 'c                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        b        c               9        9        9                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=249 y=64 s="       9 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 9                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00002064
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 9                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="LABEL" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="d_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002064
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        b        c        d        d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=249 y=64 s="d        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=249 y=64 s="d        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 'd                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 'd                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: D1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00001E41
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 'd                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E41
+FLAIR-EVT what=3 where=211,124 msg=00000332
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 'd                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A2_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000332
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: 'd                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        b        c        d        d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A2:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00000332
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A2:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="VALUE" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="2_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000332
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        b        c        d        d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="       2                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="       2 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="       2 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A2: 2                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A2: 2                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A2_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00001E41
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A2: 2                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E41
+FLAIR-EVT what=3 where=211,124 msg=00000433
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A2: 2                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A3_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000433
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A2: 2                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="       2                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A3:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00000433
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A3:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="VALUE" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="3_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000433
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        b        c        d        d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="       2                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="       3                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="       3 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="       3 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A3: 3                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A3: 3                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A3_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00001E41
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A3: 3                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E41
+FLAIR-EVT what=3 where=211,124 msg=00000534
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A3: 3                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A4_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000534
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A3: 3                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="       3                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A4:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00000534
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A4:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="VALUE" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="4_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000534
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        b        c        d        d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="       2                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="       3                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="       4                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="       4 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="       4 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A4: 4                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A4: 4                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A4_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00001E41
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A4: 4                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E41
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A4: 4                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A4: 4                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="       4                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00004F00
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00004F00
+FLAIR-EVT what=3 where=211,124 msg=00004D00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        b        c        d        d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=105 y=64 s="b        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1: 'b                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00004D00
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1: 'b                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: B1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00001E41
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1: 'b                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E41
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1: 'b                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1: 'b                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        b        c        d        d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00004500
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00004500
+FLAIR-EVT what=3 where=211,124 msg=00004500
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00004500
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00001E41
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E41
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        b        c        d        d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="a        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00001675
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'a                                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="LABEL" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="u_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001675
+FLAIR-EVT what=3 where=211,124 msg=0000316E
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="un_                                                                         " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000316E
+FLAIR-EVT what=3 where=211,124 msg=00002064
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="und_                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002064
+FLAIR-EVT what=3 where=211,124 msg=0000186F
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="undo_                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000186F
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="undo     b        c        d        d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="       2                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="       3                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="       4                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="undo     " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="undo     " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                              " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003E00
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00003E00
+FLAIR-EVT what=3 where=211,124 msg=00003B00
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00003B00
+FLAIR-EVT what=3 where=211,124 msg=00003D00
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00003D00
+FLAIR-EVT what=3 where=211,124 msg=00003E00
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00003E00
+FLAIR-EVT what=3 where=211,124 msg=00004000
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00004000
+FLAIR-EVT what=3 where=211,124 msg=00004100
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00004100
+FLAIR-EVT what=3 where=211,124 msg=00004200
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00004200
+FLAIR-EVT what=3 where=211,124 msg=00004400
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00004400
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00003042
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: B_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003042
+FLAIR-EVT what=3 where=211,124 msg=00000433
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: B3_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000433
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="undo     b        c        d        d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=105 y=96 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B3:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00000D2B
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B3:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="VALUE" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="+_                                                                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000D2B
+FLAIR-EVT what=3 where=211,124 msg=00001E41
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="+A_                                                                         " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E41
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="+A1_                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00003E00
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00003E00
+FLAIR-EVT what=3 where=211,124 msg=00000100
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B3:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000100
+FLAIR-EVT what=3 where=211,124 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B3:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: B3_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003F00
+FLAIR-EVT what=3 where=211,124 msg=00001E41
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B3:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001E41
+FLAIR-EVT what=3 where=211,124 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B3:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000231
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B3:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="       3                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="undo     " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00003C00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="'undo_                                                                      " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00003C00
+FLAIR-EVT what=3 where=211,124 msg=00004700
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00004700
+FLAIR-CLOCK 1:13 pm
+FLAIR-EVT what=3 where=211,124 msg=00002D58
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="'undoX_                                                                     " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00002D58
+FLAIR-EVT what=3 where=211,124 msg=00004B00
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00004B00
+FLAIR-EVT what=3 where=211,124 msg=00005300
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00005300
+FLAIR-EVT what=3 where=211,124 msg=00000100
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="_                                                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000100
+FLAIR-EVT what=3 where=211,124 msg=00000100
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000100
+FLAIR-EVT what=3 where=211,124 msg=0000352F
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                               " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=577 y=0 s="MENU" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Worksheet  Range  Copy  Move  File  Print  Graph  Data  System  Add-In  Quit" fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Worksheet" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Global  Insert  Delete  Column  Erase  Titles  Window  Status  Page  Learn  " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=0000352F
+FLAIR-EVT what=3 where=211,124 msg=00001F73
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="ERROR" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Command not implemented                                                     " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Press Esc to return to the worksheet                                        " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00001F73
+FLAIR-EVT what=3 where=211,124 msg=00001C0A
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=211,124 msg=00001C0A
+FLAIR-EVT what=3 where=211,124 msg=00000100
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=211,124 msg=00000100
+FLAIR-CURSOR x=51 y=4
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=144 y=72
+FLAIR-CURSOR x=288 y=145
+FLAIR-CURSOR x=360 y=181
+FLAIR-EVT what=1 where=360,181 msg=00000000
+TENANT-EVT what=1
+TENANT-GATE ax=0x0023 win=1 -> 4063238
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="undo     b        c        d        d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=321 y=112 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E4:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=2 where=360,181 msg=00000000
+FLAIR-EVT what=3 where=360,181 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E4:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: E4_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=360,181 msg=00003F00
+FLAIR-EVT what=3 where=360,181 msg=00001E41
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E4:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A_                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=360,181 msg=00001E41
+FLAIR-EVT what=3 where=360,181 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E4:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A1_                                                 " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=360,181 msg=00000231
+FLAIR-EVT what=3 where=360,181 msg=00000B30
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E4:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A10_                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=360,181 msg=00000B30
+FLAIR-EVT what=3 where=360,181 msg=00000B30
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E4:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A100_                                               " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=360,181 msg=00000B30
+FLAIR-EVT what=3 where=360,181 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E4:                                                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=48 s="        A        B        C        D        E        F        G        H    " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="100 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="101 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="102 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="103 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="104 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="105 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="106 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="107 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="108 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="109 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="110 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="111 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="112 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="113 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="114 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="115 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="116 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="117 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="118 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A100:                                                                  " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=360,181 msg=00001C0A
+FLAIR-CURSOR x=280 y=121
+FLAIR-CURSOR x=120 y=1
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=78 y=9
+FLAIR-CURSOR x=235 y=26
+FLAIR-CURSOR x=392 y=43
+FLAIR-CURSOR x=549 y=60
+FLAIR-CURSOR x=627 y=69
+FLAIR-EVT what=1 where=627,69 msg=00000000
+FLAIR-SCROLL-IGNORED win 0 v
+FLAIR-EVT what=2 where=627,69 msg=00000000
+FLAIR-CURSOR x=467 y=0
+FLAIR-CURSOR x=307 y=0
+FLAIR-CURSOR x=147 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=157 y=30
+FLAIR-CURSOR x=314 y=60
+FLAIR-CURSOR x=470 y=90
+FLAIR-CURSOR x=627 y=120
+FLAIR-EVT what=1 where=627,120 msg=00000000
+FLAIR-SCROLL-IGNORED win 0 v
+FLAIR-CURSOR x=627 y=195
+FLAIR-CURSOR x=627 y=270
+FLAIR-EVT what=2 where=627,270 msg=00000000
+FLAIR-EVT what=3 where=627,270 msg=00004700
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=48 s="        A        B        C        D        E        F        G        H    " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="undo     b        c        d        d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="       2                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="       3                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="       4                                                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="undo     " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                                                              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=627,270 msg=00004700
+FLAIR-CURSOR x=547 y=210
+FLAIR-CURSOR x=387 y=90
+FLAIR-CURSOR x=227 y=0
+FLAIR-CURSOR x=67 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=79 y=59
+FLAIR-CURSOR x=237 y=177
+FLAIR-CURSOR x=395 y=295
+FLAIR-CURSOR x=553 y=413
+FLAIR-CURSOR x=632 y=472
+FLAIR-EVT what=1 where=632,472 msg=00000000
+FLAIR-CURSOR x=488 y=375
+FLAIR-CURSOR x=344 y=278
+FLAIR-EVT what=2 where=344,278 msg=00000000
+TENANT-EVT what=6
+TENANT-GATE ax=0x0024 win=1 -> 13304133
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=640 b=480 c=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=281 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=48 s="        A        B        C        D    " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="undo     b        c        d        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="       2                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="       3                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="       4                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="undo     " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="Saved LOOK.wk1                          " fg=1 bg=0 -> 0
+FLAIR-GROW win 0 (640,440)->(352,246)
+FLAIR-EVT what=3 where=344,278 msg=00003F00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=281 y=0 s="POINT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: A1_             " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                        " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=344,278 msg=00003F00
+FLAIR-EVT what=3 where=344,278 msg=00001245
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=281 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: E_              " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                        " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=344,278 msg=00001245
+FLAIR-EVT what=3 where=344,278 msg=00000231
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=281 y=0 s=" EDIT" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Enter address to go to: E1_             " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                        " fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=344,278 msg=00000231
+FLAIR-EVT what=3 where=344,278 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="A1: 'undo                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=281 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                        " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=48 s="        E        F        G        H    " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                    " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="d        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E1: +D1                            " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=281 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=344,278 msg=00001C0A
+FLAIR-CURSOR x=184 y=158
+FLAIR-CURSOR x=24 y=38
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=140 y=166
+FLAIR-EVT what=1 where=140,166 msg=00000000
+TENANT-EVT what=1
+TENANT-GATE ax=0x0023 win=1 -> 4063238
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="d        d                          " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=105 y=96 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="F3:                                " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=281 y=0 s="READY" fg=0 bg=3 -> 0
+FLAIR-EVT what=2 where=140,166 msg=00000000
+FLAIR-CURSOR x=60 y=106
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=65 y=10
+FLAIR-CURSOR x=195 y=30
+FLAIR-CURSOR x=325 y=50
+FLAIR-EVT what=1 where=325,50 msg=00000000
+FLAIR-EVT what=2 where=325,50 msg=00000000
+FLAIR-TRACKBOX win 0 part 7 in=1
+TENANT-EVT what=6
+TENANT-GATE ax=0x0024 win=1 -> 25756253
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=640 b=480 c=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="F3:                                                                   " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=561 y=0 s="READY" fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                           " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=48 s="        E        F        G        H        I        J        K            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="1   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="d        d                                                             " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="2   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="3   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=96 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="4   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=112 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="5   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=128 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="6   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=144 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="7   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=160 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="8   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=176 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="9   " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=192 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="10  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=208 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="11  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=224 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="12  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=240 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="13  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=256 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="14  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=272 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="15  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=288 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="16  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=304 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="17  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=320 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="18  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=336 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="19  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=33 y=352 s="                                                                       " fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=105 y=96 s="         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Saved LOOK.wk1                                                             " fg=1 bg=0 -> 0
+FLAIR-ZOOM win 0 in
+FLAIR-EVT what=3 where=325,50 msg=00001071
+TENANT-MENU menu=129 item=1 src=key
+TENANT-EVT what=81
+TENANT-GATE ax=0x0090 def="Save" cancel="Cancel" other="Don't Save" -> 0
+TENANT-ALERT-LINE WORKSHEET CHANGES NOT SAVED!
+TENANT-ALERT-LINE Save changes to the worksheet
+TENANT-ALERT-LINE before quitting?
+TENANT-ALERT up lines=3 buttons=3
+FLAIR-EVT what=4 where=325,50 msg=00001071

@@ -1,0 +1,3050 @@
+[
+  {
+    "finding": "L001",
+    "screenshot": "shots/full2-full-replace-failed.png",
+    "sha256": "01df49eb2d22ab7c3717a84301b851a95e4352fecd68c5081a0ab88c1115955e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L001",
+    "screenshot": "shots/full2-full-retrieve-after-fail.png",
+    "sha256": "82b2da6e315a19b6de8c72174fbab3fbe09ed49773e8e9bd43e9573a4082f8ab",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L001",
+    "screenshot": "shots/full2-full-quit-protection.png",
+    "sha256": "ae2f53d41e13224f7218161451791dc3758da7994432b2618e5df81dc6400920",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L001",
+    "screenshot": "shots/repeat-full-replace.png",
+    "sha256": "3e3d1009474a206d9e867ef3739dc861ab90c9c2fcfa3cb6a3ab93e071b7809b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L002",
+    "screenshot": "shots/long-edit-data.png",
+    "sha256": "0586bda983042bc8a7d021dc413ec9b139ab7f2ed74d4f08d2b1a39b956fa97b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L003",
+    "screenshot": "shots/power-save-0-prompt.png",
+    "sha256": "b6c937acbae4dce965bc879f3d8c855b42413b3a317db75f68ebecc59cec6b45",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L003",
+    "screenshot": "shots/power-save-0-result.png",
+    "sha256": "d55c924471975c2e1c1dac120633110d84af92291bfa8ecca1bdf1169f4bd0af",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L003",
+    "screenshot": "shots/power-save-1-result.png",
+    "sha256": "d55c924471975c2e1c1dac120633110d84af92291bfa8ecca1bdf1169f4bd0af",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L004",
+    "screenshot": "shots/011-currency.png",
+    "sha256": "535ca9ff5b031edade7c60186547a0bc91532307b1bb1a82ef3169a51249b60c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L005",
+    "screenshot": "shots/017-edit-left.png",
+    "sha256": "b7bd572af3854a4d8d14383dfc1d4b587c8f7264bbdb6e52415c5c60c854593e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L005",
+    "screenshot": "shots/018-edit-home.png",
+    "sha256": "c543cd0977cc16571cf7e80d698c9bdd0f6988b537088fb302b98b26be93bab7",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L006",
+    "screenshot": "shots/copy-target-range-refused.png",
+    "sha256": "3d10d5718f49659349d2aacfee7f770067272744744e40be6084678c7ae19010",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L007",
+    "screenshot": "shots/point-dot-range.png",
+    "sha256": "30771ab044fe6a297b00d020b4ef0567876dd9d6908300772f2688cc6c25649e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L007",
+    "screenshot": "shots/point-dot-result.png",
+    "sha256": "f4a319dc0a5e31ee3a7e5615c83cae6d40bb628fbcb7f75b2ddf4289bfcbeb26",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L008",
+    "screenshot": "shots/width-240.png",
+    "sha256": "561660e886fbbdb877d37e63854e68bed35626c0ed2cdcabf6c699c894da1bf2",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L008",
+    "screenshot": "shots/width-240-right.png",
+    "sha256": "7c3759140225ecd1e27643f439292318d120d5d9887664f5c15b4af1201c8c3e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L009",
+    "screenshot": "shots/name-redefine.png",
+    "sha256": "e7f6d6032c72d13fe0d2901994139446604d42b48611589845ec7931ac32c941",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L010",
+    "screenshot": "shots/capacity-after-erase.png",
+    "sha256": "e0538ac771ececa61e1c0b88609b54340c7493f307b533badfeaf4ae5a0c879e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L011",
+    "screenshot": "shots/func-25.png",
+    "sha256": "c25ceeb265aaf21105f1a489cfb2d130c14535d9101fd801da550b4b63ce84da",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L012",
+    "screenshot": "shots/backup-refused.png",
+    "sha256": "8f9812ea236c3495f9d4da65e7051645d6fae9ea60438c5ed325df4fb3d574f6",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L013",
+    "screenshot": "shots/password-refused.png",
+    "sha256": "e765ca90f81972795df3cf455cd739ba9818f27ea0b0355c3801bd3313487e32",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L014",
+    "screenshot": "shots/filename-0.png",
+    "sha256": "de603a3b44e437fea2b838b8d7076f084c5f2963b13e3f82f170d24d694d3e6d",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L014",
+    "screenshot": "shots/filename-5.png",
+    "sha256": "de603a3b44e437fea2b838b8d7076f084c5f2963b13e3f82f170d24d694d3e6d",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L014",
+    "screenshot": "shots/filename-1.png",
+    "sha256": "93da8502ff7e13070726486b1d96d140ce808fd292de0ccec45794b0b0ce5bac",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L015",
+    "screenshot": "shots/menu-143-selected.png",
+    "sha256": "8dc9ed71d3e534cb53a74ed1c17f9b321a778c887677b8d1cbfcf1b037975f6e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L015",
+    "screenshot": "shots/menu-062-selected.png",
+    "sha256": "af595639bcb3bdb80368cbc818a0272c8c2dba832a13d82f5421f6b268e28ce2",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L015",
+    "screenshot": "shots/menu-064-selected.png",
+    "sha256": "43eb08399e3ff02c02115fe0c518c5bab0290dfb518956e93e3e0ac923ed7259",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L016",
+    "screenshot": "shots/name-redefine.png",
+    "sha256": "e7f6d6032c72d13fe0d2901994139446604d42b48611589845ec7931ac32c941",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L017",
+    "screenshot": "shots/full2-full-new-refused.png",
+    "sha256": "01df49eb2d22ab7c3717a84301b851a95e4352fecd68c5081a0ab88c1115955e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L018",
+    "screenshot": "shots/goto-escape-menu.png",
+    "sha256": "898951e06a298684ca0198f35e698cb33ef0a56571fa7be0809f6ee513a0dcd3",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L019",
+    "screenshot": "shots/cell-filename-saved.png",
+    "sha256": "b46332abefc4192ebbe2851193f81717f1eec7f01f6d6a1877244e1e90cc84ba",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L020",
+    "screenshot": "shots/f3-named-range.png",
+    "sha256": "5e9b26c37666bfca2863f679e26dc1f20ecec8d53dd59680f0e239ca2a404d21",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L021",
+    "screenshot": "shots/end-indicator.png",
+    "sha256": "6bd7daeb79e6d2d250f426d2c6e8b9ff1a8e825a71334519c368da8889cabc4c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L021",
+    "screenshot": "shots/end-right.png",
+    "sha256": "2f2e1f0fde9e850c4e4732fe8c99c156a3c82822772365cdbc746fe4f5338c3d",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L022",
+    "screenshot": "shots/caps-indicator.png",
+    "sha256": "6bd7daeb79e6d2d250f426d2c6e8b9ff1a8e825a71334519c368da8889cabc4c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L023",
+    "screenshot": "shots/num-indicator.png",
+    "sha256": "6bd7daeb79e6d2d250f426d2c6e8b9ff1a8e825a71334519c368da8889cabc4c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L024",
+    "screenshot": "shots/undo-absent.png",
+    "sha256": "890a7932de1e6f7d8081c967241af82cd8a513dc4a6d1b2a9170f3026a3cfb0c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L025",
+    "screenshot": "shots/f4-absolute.png",
+    "sha256": "8e8df85d8ff3128fca9cc9c64a7233130333d0943b087b48d53ab5c446865e97",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L026",
+    "screenshot": "shots/unsupported-before-enter.png",
+    "sha256": "3c2104008b6c4e2b2e0e24f61d5d30c3f297f1aefe89558a9cf36edfc29d4e44",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L026",
+    "screenshot": "shots/unsupported-after-enter.png",
+    "sha256": "3c2104008b6c4e2b2e0e24f61d5d30c3f297f1aefe89558a9cf36edfc29d4e44",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L027",
+    "screenshot": "shots/scroll-before.png",
+    "sha256": "d84f45e3a19bab5420bdd4fc75a896d0e2846830f750d687e53d33096aacfb57",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L027",
+    "screenshot": "shots/scroll-arrow.png",
+    "sha256": "45e7db48838f5c0b59d5bc817a1cf612a1bfad4ebe46647ea11c2deacf2aee00",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L027",
+    "screenshot": "shots/scroll-thumb.png",
+    "sha256": "1de5515914372a249004ae8799bc453a6e171b3800830b54a78c9449cfde4453",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L028",
+    "screenshot": "shots/scroll-lock-cancels.png",
+    "sha256": "3187a03432cf83c244ef9500728ccc453a812fedab2d6ee9998835794b952cb1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L029",
+    "screenshot": "shots/menu-196-result.png",
+    "sha256": "5abea5e3d9016ce2eafab8d598a576de90772a5631a5a1f038d0f1ac03009cae",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L030",
+    "screenshot": "shots/wide-format-fixed-12.png",
+    "sha256": "af45d1c2d009050fe4c2ddc31d2e14dfd97cf65e47c278e342141325c470b57e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L030",
+    "screenshot": "shots/wide-format-fixed-13.png",
+    "sha256": "4d708af4d3f7d9130b5dd738a75f3c20360b33d41419892d3c69da8d0fef4a5f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L030",
+    "screenshot": "shots/wide-format-currency-13.png",
+    "sha256": "621065c78a4203e8ff8ca569e44de1c9341164cd06e602eb0b57296e264928ef",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L030",
+    "screenshot": "shots/wide-format-comma-13.png",
+    "sha256": "621065c78a4203e8ff8ca569e44de1c9341164cd06e602eb0b57296e264928ef",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L030",
+    "screenshot": "shots/wide-format-percent-11.png",
+    "sha256": "99540e0dc82c687116f46a3548988bfe32ef43aab96515bd8c190ef02c2ad588",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L030",
+    "screenshot": "shots/wide-format-sci-15.png",
+    "sha256": "27df08d1326c76fdb51355e260e94ccf368e7aedd3710dfb231d99e423a0c4f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L031",
+    "screenshot": "shots/wide-format-fixed-0.png",
+    "sha256": "1195685e6b6e29e0541d5e9ed75c986ecdca279742eab7b3ef2f8f1678f5403a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L031",
+    "screenshot": "shots/wide-format-currency-2.png",
+    "sha256": "638c7c957d0f7719f0a7a465c4dc15a49df98c970a095c22f87c29df6e2e1e76",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L032",
+    "screenshot": "shots/pool-replace-full.png",
+    "sha256": "bb9078f754b0274a59ce110121856ae9aa3414b9662ac7057c6fd9a90ce33b89",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L032",
+    "screenshot": "shots/pool-old-preserved.png",
+    "sha256": "704f3021b48bbb6f8544062f6b33426b0575a4e9ae63010f0800c5201bf634f5",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L032",
+    "screenshot": "shots/pool-small-replace.png",
+    "sha256": "8ef236b4063a23d33f4d8d267837691f39468c599e82ed2e097e92aec41549a8",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L033",
+    "screenshot": "shots/empty-extra-00.png",
+    "sha256": "36a2afc9ad072c916259adee5d2dcaa83c4af42c3923ba7087b60d583bb9bdc6",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L033",
+    "screenshot": "shots/empty-extra-01.png",
+    "sha256": "037b66f84506d4dbef71e250bbf3e441c2047700084639adacca1163cca6c0a2",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L034",
+    "screenshot": "shots/ctrl-c-literal.png",
+    "sha256": "f9951197c9ba06a5a0b01ac0487c97fa71ba68e19f00de434f6bc8d402790754",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L035",
+    "screenshot": "shots/MOVED.png",
+    "sha256": "c447724e0d567e827a43632c0540b1fc97244be78fefa476131321b6900e524e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L036",
+    "screenshot": "shots/menu-014-selected.png",
+    "sha256": "3cc9e9d7ba119ae233322cc8329771cad0002ad3974540163efe4bc11f5891f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L036",
+    "screenshot": "shots/menu-014-result.png",
+    "sha256": "429f98f1bea4832ece989dbc23a66ee7773e4ecc586c0760d26521085eac1bc1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L037",
+    "screenshot": "shots/menu-015-selected.png",
+    "sha256": "c3821185f90a71597b9c3f6cf61a1e37ca2f203933a4b1ea239c230cce30d23c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L037",
+    "screenshot": "shots/menu-015-result.png",
+    "sha256": "429f98f1bea4832ece989dbc23a66ee7773e4ecc586c0760d26521085eac1bc1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L038",
+    "screenshot": "shots/menu-017-selected.png",
+    "sha256": "0cc3395882ae1cb7ddef75f5bb26f093fbab5c2ff90f9cd1c742d2c1af262ea3",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L038",
+    "screenshot": "shots/menu-017-result.png",
+    "sha256": "429f98f1bea4832ece989dbc23a66ee7773e4ecc586c0760d26521085eac1bc1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L039",
+    "screenshot": "shots/menu-018-selected.png",
+    "sha256": "b0f2695675fe57c1b2a8f8626f6d5bdf246f7789f31aceb6d0a92d44ab4c4bd3",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L039",
+    "screenshot": "shots/menu-018-result.png",
+    "sha256": "429f98f1bea4832ece989dbc23a66ee7773e4ecc586c0760d26521085eac1bc1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L040",
+    "screenshot": "shots/menu-019-selected.png",
+    "sha256": "13cd519629df08bf660fb6b5484db258f5f99b28dfd249ac4e17f10bfd458a91",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L040",
+    "screenshot": "shots/menu-019-result.png",
+    "sha256": "429f98f1bea4832ece989dbc23a66ee7773e4ecc586c0760d26521085eac1bc1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L041",
+    "screenshot": "shots/menu-020-selected.png",
+    "sha256": "59a8d5afb9b704ca6401162f1cb078b7e06b8b69872ee5d7ec88ccd4c3bfd148",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L041",
+    "screenshot": "shots/menu-020-result.png",
+    "sha256": "429f98f1bea4832ece989dbc23a66ee7773e4ecc586c0760d26521085eac1bc1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L042",
+    "screenshot": "shots/menu-040-selected.png",
+    "sha256": "946535299cf1d08ce1bd0a60432cb4be96ce400f134d6ae09755c16d64e49865",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L042",
+    "screenshot": "shots/menu-040-result.png",
+    "sha256": "693758a4e75242ee5adefe2cd7e7fb8d2c20409656b6e6757a9e6dab2190749f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L043",
+    "screenshot": "shots/menu-042-selected.png",
+    "sha256": "320b5580c1bafcfa12d5f22d4b5c5134905a8f139a1255c135e051017fcb0ba2",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L043",
+    "screenshot": "shots/menu-042-result.png",
+    "sha256": "693758a4e75242ee5adefe2cd7e7fb8d2c20409656b6e6757a9e6dab2190749f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L044",
+    "screenshot": "shots/menu-043-selected.png",
+    "sha256": "c195e492ca49c044608164e58463615bfa4e4614b621e4fa30804aeb7fb5cc30",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L044",
+    "screenshot": "shots/menu-043-result.png",
+    "sha256": "693758a4e75242ee5adefe2cd7e7fb8d2c20409656b6e6757a9e6dab2190749f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L045",
+    "screenshot": "shots/menu-044-selected.png",
+    "sha256": "171b7f648087932aca1f89a0a72923e4898a6ccab0e4752609a549fdfaf8fa6c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L045",
+    "screenshot": "shots/menu-044-result.png",
+    "sha256": "693758a4e75242ee5adefe2cd7e7fb8d2c20409656b6e6757a9e6dab2190749f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L046",
+    "screenshot": "shots/menu-045-selected.png",
+    "sha256": "a9b1525a103970384eaa6abe4c216125f30b688e3b2cc328f5f89663de882c43",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L046",
+    "screenshot": "shots/menu-045-result.png",
+    "sha256": "693758a4e75242ee5adefe2cd7e7fb8d2c20409656b6e6757a9e6dab2190749f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L047",
+    "screenshot": "shots/menu-046-selected.png",
+    "sha256": "f88fce9cb766a12721b49cf977e6c9df03a9e59d887b0ed984df3f56b0288892",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L047",
+    "screenshot": "shots/menu-046-result.png",
+    "sha256": "693758a4e75242ee5adefe2cd7e7fb8d2c20409656b6e6757a9e6dab2190749f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L048",
+    "screenshot": "shots/menu-047-selected.png",
+    "sha256": "cd76b3755fa3f1459cc3df71f8bc8901a847886f07f6954a3e753ded15e578b4",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L048",
+    "screenshot": "shots/menu-047-result.png",
+    "sha256": "693758a4e75242ee5adefe2cd7e7fb8d2c20409656b6e6757a9e6dab2190749f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L049",
+    "screenshot": "shots/menu-048-selected.png",
+    "sha256": "afb8662aab92ce05ebdfe23ec9a373bdd917df23fb13ee6419588c790fc76868",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L049",
+    "screenshot": "shots/menu-048-result.png",
+    "sha256": "693758a4e75242ee5adefe2cd7e7fb8d2c20409656b6e6757a9e6dab2190749f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L050",
+    "screenshot": "shots/menu-050-selected.png",
+    "sha256": "048de9dbcc1def39440023e0feb390b3e518c5c55103b5a19f65cda5cf14052e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L050",
+    "screenshot": "shots/menu-050-result.png",
+    "sha256": "693758a4e75242ee5adefe2cd7e7fb8d2c20409656b6e6757a9e6dab2190749f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L051",
+    "screenshot": "shots/menu-051-selected.png",
+    "sha256": "afce86ac49420f0698eb61f69261c36d7807d0353e71a858dd69b8d7094eab68",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L051",
+    "screenshot": "shots/menu-051-result.png",
+    "sha256": "693758a4e75242ee5adefe2cd7e7fb8d2c20409656b6e6757a9e6dab2190749f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L052",
+    "screenshot": "shots/menu-052-selected.png",
+    "sha256": "a7a06f59251593e538ceb541d129a5a1b84c3e5ad9cc4f701620bd46edaca55d",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L052",
+    "screenshot": "shots/menu-052-result.png",
+    "sha256": "693758a4e75242ee5adefe2cd7e7fb8d2c20409656b6e6757a9e6dab2190749f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L053",
+    "screenshot": "shots/menu-053-selected.png",
+    "sha256": "7b17f23c398cc2e425d60f854db6c19d5d872f227d6cdd38bcbea16dac4f2f39",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L053",
+    "screenshot": "shots/menu-053-result.png",
+    "sha256": "693758a4e75242ee5adefe2cd7e7fb8d2c20409656b6e6757a9e6dab2190749f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L054",
+    "screenshot": "shots/menu-055-selected.png",
+    "sha256": "d910ad82b335943fea62cc953781a08d23eb0f0603de3c9cc72f44b422cb5ad4",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L054",
+    "screenshot": "shots/menu-055-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L055",
+    "screenshot": "shots/menu-056-selected.png",
+    "sha256": "7b9fd35649e93b789f1cf1eae9a023ada7bf9c20451e812c9a4c48f8b73399a7",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L055",
+    "screenshot": "shots/menu-056-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L056",
+    "screenshot": "shots/menu-057-selected.png",
+    "sha256": "acc32e60002eea773f16f0c26f0974aebebaac6fc9c9af4e042b3836481c68fb",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L056",
+    "screenshot": "shots/menu-057-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L057",
+    "screenshot": "shots/menu-061-selected.png",
+    "sha256": "bd8cbe6e6732811243cf23e96fda969f68ef29c71bfbabeacb23859da74c0db0",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L057",
+    "screenshot": "shots/menu-061-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L058",
+    "screenshot": "shots/menu-062-selected.png",
+    "sha256": "af595639bcb3bdb80368cbc818a0272c8c2dba832a13d82f5421f6b268e28ce2",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L058",
+    "screenshot": "shots/menu-062-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L059",
+    "screenshot": "shots/menu-063-selected.png",
+    "sha256": "a1d010247e21dbe397c57d45fdb9b8b74c2aaf0e756bc96a230ed79e1606cd9d",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L059",
+    "screenshot": "shots/menu-063-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L060",
+    "screenshot": "shots/menu-064-selected.png",
+    "sha256": "43eb08399e3ff02c02115fe0c518c5bab0290dfb518956e93e3e0ac923ed7259",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L060",
+    "screenshot": "shots/menu-064-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L061",
+    "screenshot": "shots/menu-065-selected.png",
+    "sha256": "e8cdec9fb1f6d9871378ffc83c6ce19a5e49ac88d61bc7731eca63fd502bd21c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L061",
+    "screenshot": "shots/menu-065-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L062",
+    "screenshot": "shots/menu-066-selected.png",
+    "sha256": "f925d62f618467ffe9d38d7f59e668a2529de936cb2ce88bd5be04d8a061e11a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L062",
+    "screenshot": "shots/menu-066-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L063",
+    "screenshot": "shots/menu-067-selected.png",
+    "sha256": "aeb4233040cb5867b8ec9a169828e36a222ab44c33f11389311da439c551a101",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L063",
+    "screenshot": "shots/menu-067-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L064",
+    "screenshot": "shots/menu-068-selected.png",
+    "sha256": "4d634ce8eec65993fbe3a411b1c41e7e3bbb309d12295c40ed5e2bad2766c0ff",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L064",
+    "screenshot": "shots/menu-068-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L065",
+    "screenshot": "shots/menu-070-selected.png",
+    "sha256": "6f8763cb0adbd469743daf4aef13816a150cde705c82dd7251062bba9f9f43d3",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L065",
+    "screenshot": "shots/menu-070-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L066",
+    "screenshot": "shots/menu-071-selected.png",
+    "sha256": "9eeca8637e5b5e24f9225da80737f2ae081a620e285bda146d399b028424349f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L066",
+    "screenshot": "shots/menu-071-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L067",
+    "screenshot": "shots/menu-073-selected.png",
+    "sha256": "31c92cb3713c425a23d237dce037d901889b963dbcbb19cdd5e33c62ec27db27",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L067",
+    "screenshot": "shots/menu-073-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L068",
+    "screenshot": "shots/menu-074-selected.png",
+    "sha256": "67e6d4d5f94bb4901455379f24893950a5af4d28439f9df20c5c5d9dd1e0808b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L068",
+    "screenshot": "shots/menu-074-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L069",
+    "screenshot": "shots/menu-075-selected.png",
+    "sha256": "67448576e5e41476904e2164976201e3bd91eec69a466dff5e21617d5d4c955a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L069",
+    "screenshot": "shots/menu-075-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L070",
+    "screenshot": "shots/menu-076-selected.png",
+    "sha256": "cbdd0f5c7b887718780019c98567e2025a36e99fe208fd54ed16dbbb55d6d86a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L070",
+    "screenshot": "shots/menu-076-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L071",
+    "screenshot": "shots/menu-078-selected.png",
+    "sha256": "67690b4aa7361cca42af2b1b712c87c2121c956d651448a3143e9f5af9b20a0a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L071",
+    "screenshot": "shots/menu-078-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L072",
+    "screenshot": "shots/menu-079-selected.png",
+    "sha256": "0942c9700f4fa857d7e75ea52f17e3a30b041e12faf254ee9e5d781333dfa068",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L072",
+    "screenshot": "shots/menu-079-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L073",
+    "screenshot": "shots/menu-080-selected.png",
+    "sha256": "6c3a3eb417f049ca055256409c99eebcbe2a3e92cbcd715cfdc1ffe580211aaa",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L073",
+    "screenshot": "shots/menu-080-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L074",
+    "screenshot": "shots/menu-081-selected.png",
+    "sha256": "b78bac83a7c7b4850abb2dc1773372e9f3fb3efe2d44c4f1177bc4fd175cf0b2",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L074",
+    "screenshot": "shots/menu-081-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L075",
+    "screenshot": "shots/menu-083-selected.png",
+    "sha256": "e763d2069b7f9998b5a55c3faefe50618fa94243679ec213c660f077b1df33e0",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L075",
+    "screenshot": "shots/menu-083-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L076",
+    "screenshot": "shots/menu-084-selected.png",
+    "sha256": "d1b3b040b85e44f164ca5a3bffcd19517a3ba8ac81f7f979268f660f713682bc",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L076",
+    "screenshot": "shots/menu-084-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L077",
+    "screenshot": "shots/menu-087-selected.png",
+    "sha256": "9ae3eb757ee8ce3183a873302b8a9cc040b5571310eabd704cadb472b72880ed",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L077",
+    "screenshot": "shots/menu-087-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L078",
+    "screenshot": "shots/menu-088-selected.png",
+    "sha256": "704d302c9b52058cde3b341dc1b6d9889050c73ffaedc141fe210ab4fdddea01",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L078",
+    "screenshot": "shots/menu-088-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L079",
+    "screenshot": "shots/menu-090-selected.png",
+    "sha256": "39b7d3b994a819234c1381fef09d9fe2bbf02533084123ed8fbbe5cc4dd5bee7",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L079",
+    "screenshot": "shots/menu-090-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L080",
+    "screenshot": "shots/menu-091-selected.png",
+    "sha256": "36100235784898b7cd3d09aeee0f0a6f340b2a1a7215ea8e57d30b9f23aeba56",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L080",
+    "screenshot": "shots/menu-091-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L081",
+    "screenshot": "shots/menu-092-selected.png",
+    "sha256": "3333cc3065b74fb78ae168293cb0d5f1b92fa65180b7ddb1b4050b7735f8f967",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L081",
+    "screenshot": "shots/menu-092-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L082",
+    "screenshot": "shots/menu-093-selected.png",
+    "sha256": "e18f926cd0e8f8315b2fdd02a370391d6dbb02484dd82762621d264bf625f6bf",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L082",
+    "screenshot": "shots/menu-093-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L083",
+    "screenshot": "shots/menu-094-selected.png",
+    "sha256": "5c10ded2004c91accae8066c2f057d4e894c9a6285a3cd95fa9552da6b31a08c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L083",
+    "screenshot": "shots/menu-094-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L084",
+    "screenshot": "shots/menu-096-selected.png",
+    "sha256": "bda30a75dce0f85995023c35d988487cf611fc54d437f6d44dd7a46f7cbcf0c2",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L084",
+    "screenshot": "shots/menu-096-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L085",
+    "screenshot": "shots/menu-097-selected.png",
+    "sha256": "df3a5f831c1f50e071be3fcb42dbb53d2c3c1c7c19ec4243f26c83d14a0ce0a9",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L085",
+    "screenshot": "shots/menu-097-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L086",
+    "screenshot": "shots/menu-099-selected.png",
+    "sha256": "4557cafac3576617c1f3462b0a847909fdea19f3ad3f7ec40e660d7ebabd002e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L086",
+    "screenshot": "shots/menu-099-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L087",
+    "screenshot": "shots/menu-100-selected.png",
+    "sha256": "22e90071d131497d0828d29bf27e3df870b616cde645f83df7926be560ad5583",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L087",
+    "screenshot": "shots/menu-100-result.png",
+    "sha256": "19e469fc12d665a1db33c166a083029c547ca0cef3d7c770169e25270002678f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L088",
+    "screenshot": "shots/menu-102-selected.png",
+    "sha256": "f66910ae44c8b194263b66eee2722e4067b7fe893d461376ef2fc4ccff008a37",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L088",
+    "screenshot": "shots/menu-102-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L089",
+    "screenshot": "shots/menu-103-selected.png",
+    "sha256": "0dc2b6c59fed9121388de33d9bdd49514fb6ad2230e17f595a31b6c6190d3c85",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L089",
+    "screenshot": "shots/menu-103-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L090",
+    "screenshot": "shots/menu-105-selected.png",
+    "sha256": "6b5b5e73c38ac5ec12e4ac5c996ebc32114214b78cdc7cb5cdbc07d84395b50b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L090",
+    "screenshot": "shots/menu-105-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L091",
+    "screenshot": "shots/menu-106-selected.png",
+    "sha256": "2a83e6c6d48611cd4180708f39308a5c6328cedffb40d2f6e92febeb80b9561e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L091",
+    "screenshot": "shots/menu-106-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L092",
+    "screenshot": "shots/menu-108-selected.png",
+    "sha256": "72c42aa9fb888c01d040a2358f5575c560f0c20e1799cdc08c13f1068725831a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L092",
+    "screenshot": "shots/menu-108-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L093",
+    "screenshot": "shots/menu-110-selected.png",
+    "sha256": "1c5e8f7121fd1b35fd8cb40f9478c3b0e112c2949ddb4f035553115b01b04093",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L093",
+    "screenshot": "shots/menu-110-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L094",
+    "screenshot": "shots/menu-111-selected.png",
+    "sha256": "fd7c3b7126f31f8e5e51448a879ebacd1e431044fc2896d751843ac354ae221b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L094",
+    "screenshot": "shots/menu-111-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L095",
+    "screenshot": "shots/menu-113-selected.png",
+    "sha256": "0df0362908c7c26976d304efe23c266c0ed34af002b19fc986e016e2e826ce7b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L095",
+    "screenshot": "shots/menu-113-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L096",
+    "screenshot": "shots/menu-114-selected.png",
+    "sha256": "de335ce2edd6f69e09e30b11156abcc4ca8faabb6ff39d049a145bbcf5fff2c8",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L096",
+    "screenshot": "shots/menu-114-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L097",
+    "screenshot": "shots/menu-118-selected.png",
+    "sha256": "bd87ea7ff3c9086c72e2fa0f3332180fc0846539112e564b26ef54918b2ec316",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L097",
+    "screenshot": "shots/menu-118-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L098",
+    "screenshot": "shots/menu-119-selected.png",
+    "sha256": "bec38c43a804ddbadc1f6915e0f3febdae3b6f3198e66aab8e945b67f9981ba3",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L098",
+    "screenshot": "shots/menu-119-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L099",
+    "screenshot": "shots/menu-121-selected.png",
+    "sha256": "de945356bbb68e5f5b56ef4d167580f3082bed1fab25a5ec1d14b5c7577577f8",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L099",
+    "screenshot": "shots/menu-121-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L100",
+    "screenshot": "shots/menu-122-selected.png",
+    "sha256": "100dbb14050d6634e18effb77278d22536d0f40f7c26296af278250ba7e2ffa6",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L100",
+    "screenshot": "shots/menu-122-result.png",
+    "sha256": "1d42795fcbf7a5b14de423475cd3d82fcc84aa19f5b3e7e2776a1665be715b6a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L101",
+    "screenshot": "shots/menu-127-selected.png",
+    "sha256": "3b0ca8004c270ff92c286161be95e92686957b7f216a24fb3f963b68bf722faf",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L101",
+    "screenshot": "shots/menu-127-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L102",
+    "screenshot": "shots/menu-128-selected.png",
+    "sha256": "30d4d78013a47efc7e23a453b5e08942a45a243c16b3f74288b1d38ebb9a87c9",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L102",
+    "screenshot": "shots/menu-128-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L103",
+    "screenshot": "shots/menu-129-selected.png",
+    "sha256": "05ee5b69da86d2b6a978810e395d880dd11c92e2b328a0b36a13591aaeb3ba8c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L103",
+    "screenshot": "shots/menu-129-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L104",
+    "screenshot": "shots/menu-130-selected.png",
+    "sha256": "0c56eef41ab2746e4e7477b95c4feb0219c61c52e385f6e71e08f729e503842b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L104",
+    "screenshot": "shots/menu-130-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L105",
+    "screenshot": "shots/menu-132-selected.png",
+    "sha256": "6a66e6bd31fb172e7c8a002dc8e2f2d55da57558c09dad247555d1c67e64a8b8",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L105",
+    "screenshot": "shots/menu-132-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L106",
+    "screenshot": "shots/menu-133-selected.png",
+    "sha256": "d20edda7ca98a58450e09d3b650ac2c24eebeaef0cc5fb8fc880c40a36e9a336",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L106",
+    "screenshot": "shots/menu-133-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L107",
+    "screenshot": "shots/menu-134-selected.png",
+    "sha256": "e6955a10b4510257cd2775079f108b4d039ededf4cd617f2b85b72de1763c711",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L107",
+    "screenshot": "shots/menu-134-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L108",
+    "screenshot": "shots/menu-135-selected.png",
+    "sha256": "13de8cc2b08b64e6ba0496e6258d4466a091ac8f2d6daed820a7e49e5d64055e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L108",
+    "screenshot": "shots/menu-135-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L109",
+    "screenshot": "shots/menu-136-selected.png",
+    "sha256": "49831b6aa42fe625ce78d94eb4460f715013cf1f9bf8752316f6de472ae8657c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L109",
+    "screenshot": "shots/menu-136-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L110",
+    "screenshot": "shots/menu-137-selected.png",
+    "sha256": "d85e335d33f37a4bdafa4c8ef42a7b799299433bff752b9451cdedbc782239ed",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L110",
+    "screenshot": "shots/menu-137-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L111",
+    "screenshot": "shots/menu-138-selected.png",
+    "sha256": "e7991e8e04371f1ba578517f7cd1e94f610ddd270bf850b9eaaadc38eeae397e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L111",
+    "screenshot": "shots/menu-138-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L112",
+    "screenshot": "shots/menu-140-selected.png",
+    "sha256": "266cc43ae620052f7379d3c001906351e87c46f123a53405f4ab644461b739ae",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L112",
+    "screenshot": "shots/menu-140-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L113",
+    "screenshot": "shots/menu-141-selected.png",
+    "sha256": "4e129856884387ffed11cae83f165d9683e35aab495710c6a298e1f130d00d83",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L113",
+    "screenshot": "shots/menu-141-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L114",
+    "screenshot": "shots/menu-142-selected.png",
+    "sha256": "eaf7e38f161e3488f00f7d7e42bd8938a294cc2a5270a0991bc72760283aef37",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L114",
+    "screenshot": "shots/menu-142-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L115",
+    "screenshot": "shots/menu-156-selected.png",
+    "sha256": "aa5f8a7805d1eabc79ad87aa89c3e3122fd8299bde1692d8abb6fea89c94573e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L115",
+    "screenshot": "shots/menu-156-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L116",
+    "screenshot": "shots/menu-157-selected.png",
+    "sha256": "7ab558f1663a0c1d3d7d65e9e5511b36f407ea2e182d0aba148c7e1dfc5f8a01",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L116",
+    "screenshot": "shots/menu-157-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L117",
+    "screenshot": "shots/menu-159-selected.png",
+    "sha256": "221a761e6e594e35f184e18c6431972a1594dbde7d2729dfb09f60fcfd07e378",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L117",
+    "screenshot": "shots/menu-159-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L118",
+    "screenshot": "shots/menu-160-selected.png",
+    "sha256": "9bd7f9d3f3d6784da9cbd87aa1e56733a33f6c5a23dc526c8a473b78a1d86bad",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L118",
+    "screenshot": "shots/menu-160-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L119",
+    "screenshot": "shots/menu-161-selected.png",
+    "sha256": "9c9332711da31615d5ca5c14b9fe3b0dbec079ef0f5731d363cf441dcaca97a4",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L119",
+    "screenshot": "shots/menu-161-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L120",
+    "screenshot": "shots/menu-162-selected.png",
+    "sha256": "af37a1cf2a8fa54dc67355f924c75b4c7e24bd73fbbdd8a08ec214c79a454253",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L120",
+    "screenshot": "shots/menu-162-result.png",
+    "sha256": "f2fb34dd4977681eaac01bd439ae4e06127d2397f07af42801b323748a86d36f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L121",
+    "screenshot": "shots/menu-181-selected.png",
+    "sha256": "f84d1dee2615c5c70920c3c3b8bd65127072f517c16a907b869be1fe287cd014",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L121",
+    "screenshot": "shots/menu-181-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L122",
+    "screenshot": "shots/menu-184-selected.png",
+    "sha256": "d58b58e0109680ed748baead960704157279a989050b6e20ebf92d1d893a6bde",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L122",
+    "screenshot": "shots/menu-184-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L123",
+    "screenshot": "shots/menu-189-selected.png",
+    "sha256": "95ac1a95b87ee9c1ed17f109f697d10826884df1a442157198fc7edab7f2946f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L123",
+    "screenshot": "shots/menu-189-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L124",
+    "screenshot": "shots/menu-190-selected.png",
+    "sha256": "1c4e6321ced582f8a51f27255bc16081883cbcc13f1be5497efcf9855432394c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L124",
+    "screenshot": "shots/menu-190-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L125",
+    "screenshot": "shots/menu-191-selected.png",
+    "sha256": "f26bc2d2d428a6ff0f8ca97745d6f01b5c2561d2fee07e5c1fe7d76aaee48aeb",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L125",
+    "screenshot": "shots/menu-191-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L126",
+    "screenshot": "shots/menu-192-selected.png",
+    "sha256": "51a2da26714a50c67922ee1126f8275e66c91f2eaa59c1118c4971b9ecbbf9ce",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L126",
+    "screenshot": "shots/menu-192-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L127",
+    "screenshot": "shots/menu-200-selected.png",
+    "sha256": "344b458481dc52a545ee4385df34544d5c1472c8df3bc56628f2b76839480860",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L127",
+    "screenshot": "shots/menu-200-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L128",
+    "screenshot": "shots/menu-201-selected.png",
+    "sha256": "2401eabdcdf301974e68a12c856ef8360ea52277376971df89ef79e017818b5b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L128",
+    "screenshot": "shots/menu-201-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L129",
+    "screenshot": "shots/menu-203-selected.png",
+    "sha256": "344b458481dc52a545ee4385df34544d5c1472c8df3bc56628f2b76839480860",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L129",
+    "screenshot": "shots/menu-203-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L130",
+    "screenshot": "shots/menu-204-selected.png",
+    "sha256": "2401eabdcdf301974e68a12c856ef8360ea52277376971df89ef79e017818b5b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L130",
+    "screenshot": "shots/menu-204-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L131",
+    "screenshot": "shots/menu-206-selected.png",
+    "sha256": "344b458481dc52a545ee4385df34544d5c1472c8df3bc56628f2b76839480860",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L131",
+    "screenshot": "shots/menu-206-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L132",
+    "screenshot": "shots/menu-207-selected.png",
+    "sha256": "2401eabdcdf301974e68a12c856ef8360ea52277376971df89ef79e017818b5b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L132",
+    "screenshot": "shots/menu-207-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L133",
+    "screenshot": "shots/menu-209-selected.png",
+    "sha256": "9b955c7740ae31bfebfa1e9315e7b39dfee9c4d77145dc046676e2612717a40e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L133",
+    "screenshot": "shots/menu-209-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L134",
+    "screenshot": "shots/menu-210-selected.png",
+    "sha256": "a40708285c889f856995d685556e14c1ca85f813c5cf011bf7afe3939ccf0bb4",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L134",
+    "screenshot": "shots/menu-210-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L135",
+    "screenshot": "shots/menu-212-selected.png",
+    "sha256": "2136f275a6044c11ff1d82355ea28c1bb05b447f974be157a93a34db9a9527e3",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L135",
+    "screenshot": "shots/menu-212-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L136",
+    "screenshot": "shots/menu-213-selected.png",
+    "sha256": "8af486e8a0328bdaabf9037fba7b5b92c0f06e74f4e1d40efa4b53da14e8480f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L136",
+    "screenshot": "shots/menu-213-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L137",
+    "screenshot": "shots/menu-214-selected.png",
+    "sha256": "b5f45d499a403c1c6609e327ff48481251818de231dd4742940a7cbdb2667cbd",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L137",
+    "screenshot": "shots/menu-214-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L138",
+    "screenshot": "shots/menu-215-selected.png",
+    "sha256": "a96744faed962475988301b8595dbbe69a35ab7fa7bdfdf309a973c510aeac59",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L138",
+    "screenshot": "shots/menu-215-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L139",
+    "screenshot": "shots/menu-217-selected.png",
+    "sha256": "574cc4088b51a54cf1a64ea87c21df7be5a72dbdb2db7e3d1f1237d8ee2ffc79",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L139",
+    "screenshot": "shots/menu-217-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L140",
+    "screenshot": "shots/menu-218-selected.png",
+    "sha256": "268451d5021b14e58f8db3c3bf36593694ed7af25e8c9393eed7fac06c9b0ac9",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L140",
+    "screenshot": "shots/menu-218-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L141",
+    "screenshot": "shots/menu-219-selected.png",
+    "sha256": "9c409c79bef414f6cd6af57b58de0c3de2f872c7b3bf6e7c841d3b4076917a8d",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L141",
+    "screenshot": "shots/menu-219-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L142",
+    "screenshot": "shots/menu-220-selected.png",
+    "sha256": "6a2358e43067dd633544c9a90b382021d1ad0b7b8ac4c9afc2291a70dd4ec74f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L142",
+    "screenshot": "shots/menu-220-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L143",
+    "screenshot": "shots/menu-221-selected.png",
+    "sha256": "5f74d3454230d10419eb3d046472134990def4357e8f6c77acc5a8f1a0d963b5",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L143",
+    "screenshot": "shots/menu-221-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L144",
+    "screenshot": "shots/menu-223-selected.png",
+    "sha256": "126ab252e846a9f1ba06baa05cbb534ad20f9cd801edaf81cc53a91d6b2d4002",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L144",
+    "screenshot": "shots/menu-223-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L145",
+    "screenshot": "shots/menu-224-selected.png",
+    "sha256": "b6f40e47985b1fc4b486c26d5714940422beba3e9f9b0905031c95f490302f9c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L145",
+    "screenshot": "shots/menu-224-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L146",
+    "screenshot": "shots/menu-225-selected.png",
+    "sha256": "fedcccb454a2fabfb8b026c74baa77e61f54746aea32b4a9afc16dc886a490f4",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L146",
+    "screenshot": "shots/menu-225-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L147",
+    "screenshot": "shots/menu-228-selected.png",
+    "sha256": "af1e0b8e30988f6a0cade4357fa3797c1b388f12feb18457fd0a744a8fed52e5",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L147",
+    "screenshot": "shots/menu-228-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L148",
+    "screenshot": "shots/menu-229-selected.png",
+    "sha256": "a09be6a98ee944bbc5dbecb0d32a38a1933fb37b63fc2cef1e2c9ceaf247a061",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L148",
+    "screenshot": "shots/menu-229-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L149",
+    "screenshot": "shots/menu-230-selected.png",
+    "sha256": "fc52ef8d575a7c607158f52753a8003b5ba5594c90144ec43d30f91c20f6e8d7",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L149",
+    "screenshot": "shots/menu-230-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L150",
+    "screenshot": "shots/menu-231-selected.png",
+    "sha256": "b12dcff11498180cda22d2c3f45630d51a232ac6c8bf491fbd468a54e061aaff",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L150",
+    "screenshot": "shots/menu-231-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L151",
+    "screenshot": "shots/menu-234-selected.png",
+    "sha256": "3d3dcf7c2bef171d485902c69ef8ec1d381658b1fa0d6a6b404f51da046f6eba",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L151",
+    "screenshot": "shots/menu-234-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L152",
+    "screenshot": "shots/menu-235-selected.png",
+    "sha256": "3d3148f7cf6367ce0a053f812af11a3d05a419ce3cf8f5aae7863ce1c38d3dcc",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L152",
+    "screenshot": "shots/menu-235-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L153",
+    "screenshot": "shots/menu-236-selected.png",
+    "sha256": "872fca37b8440f9480d48ec0c23598e5e226625eabfeb3e0d8d9545d3bba8a66",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L153",
+    "screenshot": "shots/menu-236-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L154",
+    "screenshot": "shots/menu-238-selected.png",
+    "sha256": "a3945b4426dc8f3e15ff24bd433ec1a194e7f67629e91c513126491795ead166",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L154",
+    "screenshot": "shots/menu-238-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L155",
+    "screenshot": "shots/menu-239-selected.png",
+    "sha256": "45c42c5552b97107c3e1e02dfefc3622919bc460ae09a19c0480a1c9b81752ad",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L155",
+    "screenshot": "shots/menu-239-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L156",
+    "screenshot": "shots/menu-241-selected.png",
+    "sha256": "e2294e7c162ee96733deadf72d769dceb161c0c16dfb295806e5ea2ea27664c3",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L156",
+    "screenshot": "shots/menu-241-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L157",
+    "screenshot": "shots/menu-242-selected.png",
+    "sha256": "505a82822629fc29f9786758c399a8d88073c2eb7ace6f8306424acda3f22773",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L157",
+    "screenshot": "shots/menu-242-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L158",
+    "screenshot": "shots/menu-243-selected.png",
+    "sha256": "6779a1756d3e409f00171b480c82f433480707e9facc95a7206f8079858f7a97",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L158",
+    "screenshot": "shots/menu-243-result.png",
+    "sha256": "d8f6510bfccaf9d37ad55264ec26f85bfb256f22bfcad6b59c672a8b544329f1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L159",
+    "screenshot": "shots/menu-244-selected.png",
+    "sha256": "c7239a8c479bce75460450b5e8aa477a4aa3dbf6d4a48dd16f9f983276c44d10",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L159",
+    "screenshot": "shots/menu-244-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L160",
+    "screenshot": "shots/menu-245-selected.png",
+    "sha256": "8ddc95b465b4e8d2649d1fab6415ad756c651dba94331a0da04066634e08f5ef",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L160",
+    "screenshot": "shots/menu-245-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L161",
+    "screenshot": "shots/menu-247-selected.png",
+    "sha256": "c8deb05ce9a16731ac538471f2857cc212acfec6ca5c1d4c8ed2e80b8efd3712",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L161",
+    "screenshot": "shots/menu-247-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L162",
+    "screenshot": "shots/menu-248-selected.png",
+    "sha256": "a76d5bd46a7882bf4aaf1a430ab77199d26e37821f43aa18470f7bed0dc3d31c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L162",
+    "screenshot": "shots/menu-248-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L163",
+    "screenshot": "shots/menu-249-selected.png",
+    "sha256": "53af50101db22f72e5aad87c3d33c7f62a4163c037785e1395bbd82f85abb598",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L163",
+    "screenshot": "shots/menu-249-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L164",
+    "screenshot": "shots/menu-250-selected.png",
+    "sha256": "7da1877be8436dbed8871c6cc82f4ce998c0d005c2d57e9088f905f92805fec7",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L164",
+    "screenshot": "shots/menu-250-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L165",
+    "screenshot": "shots/menu-252-selected.png",
+    "sha256": "b5d567d036199f42129f5c603ca24f0c5592a005e92e0912cbae897f13eb34bd",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L165",
+    "screenshot": "shots/menu-252-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L166",
+    "screenshot": "shots/menu-253-selected.png",
+    "sha256": "b4305f965bd9af40e3befee6ebdd5bf6056a41dc1d2d50a8b3fff2a3a770156e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L166",
+    "screenshot": "shots/menu-253-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L167",
+    "screenshot": "shots/menu-254-selected.png",
+    "sha256": "80d5faa6bc304570f60259c182f8f621f2f00a4e21e557151b7a517f6bd8cebd",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L167",
+    "screenshot": "shots/menu-254-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L168",
+    "screenshot": "shots/menu-255-selected.png",
+    "sha256": "bd49fd646815151c71541e403a177638ed8b680a27b5cc503caac35f4bc07543",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L168",
+    "screenshot": "shots/menu-255-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L169",
+    "screenshot": "shots/menu-258-selected.png",
+    "sha256": "568fcdaed1f780b4656414b7b269ea990969095cc0fd6fc9584dff8862cea3ad",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L169",
+    "screenshot": "shots/menu-258-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L170",
+    "screenshot": "shots/menu-259-selected.png",
+    "sha256": "cd7adec5b54e582c6c3876d9e37b7a3b2739f808f29c46233eec9d52e916add7",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L170",
+    "screenshot": "shots/menu-259-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L171",
+    "screenshot": "shots/menu-260-selected.png",
+    "sha256": "8a26122a2fedb5e52e390781e6da0a8ea471e61315c6042ffc63349602f4389d",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L171",
+    "screenshot": "shots/menu-260-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L172",
+    "screenshot": "shots/menu-261-selected.png",
+    "sha256": "002b7d0d7a4e6823ea8ca0789481ce68269637df0ebfaf18dee8520c0c820ba1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L172",
+    "screenshot": "shots/menu-261-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L173",
+    "screenshot": "shots/menu-262-selected.png",
+    "sha256": "2653505cdc6a2f9bac809c869076abb5b955be4c4075c3816f03f8cd26c15b93",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L173",
+    "screenshot": "shots/menu-262-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L174",
+    "screenshot": "shots/menu-263-selected.png",
+    "sha256": "e9a78be3982c26a0b01b7f3dc3a494a88ae55a624abfb73ce18862c0067e8226",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L174",
+    "screenshot": "shots/menu-263-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L175",
+    "screenshot": "shots/menu-266-selected.png",
+    "sha256": "b37476afb2c7cd017b911c97ea2843324e5988aaf8ecb269df04d0bc9a6dcab2",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L175",
+    "screenshot": "shots/menu-266-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L176",
+    "screenshot": "shots/menu-267-selected.png",
+    "sha256": "f046632dc894fa8d173f4f3cb570d745b87ef020ea39d12bc63d2f583e48469c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L176",
+    "screenshot": "shots/menu-267-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L177",
+    "screenshot": "shots/menu-268-selected.png",
+    "sha256": "112a6d7a870ad8ccc4872d4128707772dab5ebabcc1c64f455cfbe8139abfd26",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L177",
+    "screenshot": "shots/menu-268-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L178",
+    "screenshot": "shots/menu-270-selected.png",
+    "sha256": "2104aca920af1d1a696829eec4e288ac54532b376a7fb9e322a36e5ae8971be4",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L178",
+    "screenshot": "shots/menu-270-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L179",
+    "screenshot": "shots/menu-271-selected.png",
+    "sha256": "75062ef16dfb825af48a0350d84342b3af38bcf28731f2520352c32dff271c1b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L179",
+    "screenshot": "shots/menu-271-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L180",
+    "screenshot": "shots/menu-273-selected.png",
+    "sha256": "d62eeb27584b9647653329261d9a0318399202386fba9b2387eee698abdf2e1c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L180",
+    "screenshot": "shots/menu-273-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L181",
+    "screenshot": "shots/menu-274-selected.png",
+    "sha256": "5926e995e01143b4648fc4c3e5d31a455138e40708e51693c83ddf3e5f5cd77d",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L181",
+    "screenshot": "shots/menu-274-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L182",
+    "screenshot": "shots/menu-275-selected.png",
+    "sha256": "dd730831a24be8fb9d25ae59728a8ea532750b75a5fad3269c1dfb1d0db3db2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L182",
+    "screenshot": "shots/menu-275-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L183",
+    "screenshot": "shots/menu-276-selected.png",
+    "sha256": "c7239a8c479bce75460450b5e8aa477a4aa3dbf6d4a48dd16f9f983276c44d10",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L183",
+    "screenshot": "shots/menu-276-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L184",
+    "screenshot": "shots/menu-277-selected.png",
+    "sha256": "8ddc95b465b4e8d2649d1fab6415ad756c651dba94331a0da04066634e08f5ef",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L184",
+    "screenshot": "shots/menu-277-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L185",
+    "screenshot": "shots/menu-279-selected.png",
+    "sha256": "c8deb05ce9a16731ac538471f2857cc212acfec6ca5c1d4c8ed2e80b8efd3712",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L185",
+    "screenshot": "shots/menu-279-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L186",
+    "screenshot": "shots/menu-280-selected.png",
+    "sha256": "a76d5bd46a7882bf4aaf1a430ab77199d26e37821f43aa18470f7bed0dc3d31c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L186",
+    "screenshot": "shots/menu-280-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L187",
+    "screenshot": "shots/menu-281-selected.png",
+    "sha256": "53af50101db22f72e5aad87c3d33c7f62a4163c037785e1395bbd82f85abb598",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L187",
+    "screenshot": "shots/menu-281-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L188",
+    "screenshot": "shots/menu-282-selected.png",
+    "sha256": "7da1877be8436dbed8871c6cc82f4ce998c0d005c2d57e9088f905f92805fec7",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L188",
+    "screenshot": "shots/menu-282-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L189",
+    "screenshot": "shots/menu-284-selected.png",
+    "sha256": "b5d567d036199f42129f5c603ca24f0c5592a005e92e0912cbae897f13eb34bd",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L189",
+    "screenshot": "shots/menu-284-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L190",
+    "screenshot": "shots/menu-285-selected.png",
+    "sha256": "b4305f965bd9af40e3befee6ebdd5bf6056a41dc1d2d50a8b3fff2a3a770156e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L190",
+    "screenshot": "shots/menu-285-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L191",
+    "screenshot": "shots/menu-286-selected.png",
+    "sha256": "80d5faa6bc304570f60259c182f8f621f2f00a4e21e557151b7a517f6bd8cebd",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L191",
+    "screenshot": "shots/menu-286-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L192",
+    "screenshot": "shots/menu-287-selected.png",
+    "sha256": "bd49fd646815151c71541e403a177638ed8b680a27b5cc503caac35f4bc07543",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L192",
+    "screenshot": "shots/menu-287-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L193",
+    "screenshot": "shots/menu-290-selected.png",
+    "sha256": "568fcdaed1f780b4656414b7b269ea990969095cc0fd6fc9584dff8862cea3ad",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L193",
+    "screenshot": "shots/menu-290-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L194",
+    "screenshot": "shots/menu-291-selected.png",
+    "sha256": "cd7adec5b54e582c6c3876d9e37b7a3b2739f808f29c46233eec9d52e916add7",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L194",
+    "screenshot": "shots/menu-291-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L195",
+    "screenshot": "shots/menu-292-selected.png",
+    "sha256": "8a26122a2fedb5e52e390781e6da0a8ea471e61315c6042ffc63349602f4389d",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L195",
+    "screenshot": "shots/menu-292-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L196",
+    "screenshot": "shots/menu-293-selected.png",
+    "sha256": "002b7d0d7a4e6823ea8ca0789481ce68269637df0ebfaf18dee8520c0c820ba1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L196",
+    "screenshot": "shots/menu-293-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L197",
+    "screenshot": "shots/menu-294-selected.png",
+    "sha256": "2653505cdc6a2f9bac809c869076abb5b955be4c4075c3816f03f8cd26c15b93",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L197",
+    "screenshot": "shots/menu-294-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L198",
+    "screenshot": "shots/menu-295-selected.png",
+    "sha256": "e9a78be3982c26a0b01b7f3dc3a494a88ae55a624abfb73ce18862c0067e8226",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L198",
+    "screenshot": "shots/menu-295-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L199",
+    "screenshot": "shots/menu-299-selected.png",
+    "sha256": "464fc8c46cbc96a919a372f77684c95c876a6180ec85c42a3d13d77afab3c76b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L199",
+    "screenshot": "shots/menu-299-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L200",
+    "screenshot": "shots/menu-300-selected.png",
+    "sha256": "6b260ae9043523d993b7660126474649dce68733ae555930f8bf85731790ae73",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L200",
+    "screenshot": "shots/menu-300-result.png",
+    "sha256": "3f130ff17dbb28ff8597537e3f0b38610dcb1fde228b96ed9ce1daa946209c2f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L201",
+    "screenshot": "shots/menu-301-selected.png",
+    "sha256": "31bb269457b81090f28786fc505148ee67a33696d805679532006be67757a723",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L201",
+    "screenshot": "shots/menu-301-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L202",
+    "screenshot": "shots/menu-302-selected.png",
+    "sha256": "cb8692a496effe7976d7e871ec751ef5e5b5bd55fa69f684617a175fe5e3f67a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L202",
+    "screenshot": "shots/menu-302-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L203",
+    "screenshot": "shots/menu-303-selected.png",
+    "sha256": "6e10f46d6a3b529af87380af6a3b1c249f010bce05713bfd4c3012af13c28b11",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L203",
+    "screenshot": "shots/menu-303-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L204",
+    "screenshot": "shots/menu-304-selected.png",
+    "sha256": "888b9e3642539a57c07cab7ec685a425c260276e0d0e641a2014faa657327676",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L204",
+    "screenshot": "shots/menu-304-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L205",
+    "screenshot": "shots/menu-305-selected.png",
+    "sha256": "37603a6926e53dd508d87db6b2476ca9fc15d3a91e94efbf8bce03b25f3bffd9",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L205",
+    "screenshot": "shots/menu-305-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L206",
+    "screenshot": "shots/menu-306-selected.png",
+    "sha256": "15a1ea32c4107310e63fc56c9d4ded71891953da9d871d0be7be64f4b5e62d85",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L206",
+    "screenshot": "shots/menu-306-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L207",
+    "screenshot": "shots/menu-307-selected.png",
+    "sha256": "d97ec2a99a5051b6153ca74572203deb8f393b8e29dda160a463992663687b38",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L207",
+    "screenshot": "shots/menu-307-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L208",
+    "screenshot": "shots/menu-308-selected.png",
+    "sha256": "fb7754c4aacd753bf91c3d0b0bc8d17afa59d8203b9f1d5f4ba3854cb9b532bd",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L208",
+    "screenshot": "shots/menu-308-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L209",
+    "screenshot": "shots/menu-309-selected.png",
+    "sha256": "c79fc3b05fe85a86b65ab555274f9d8cae3e1a232e636621038eac438e4c3d02",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L209",
+    "screenshot": "shots/menu-309-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L210",
+    "screenshot": "shots/menu-310-selected.png",
+    "sha256": "108547ab95759adbc5e9ac04d30cb69b8bc2d46f36a68ee4cc0a29853d0172a8",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L210",
+    "screenshot": "shots/menu-310-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L211",
+    "screenshot": "shots/menu-311-selected.png",
+    "sha256": "07818ea83f38478de2f25a8196a65e41088a6d601b1d193b9620d9c4be73350e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L211",
+    "screenshot": "shots/menu-311-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L212",
+    "screenshot": "shots/menu-312-selected.png",
+    "sha256": "50ab72fd07358242a8930c80ce58165c6829584fd9df019d716e76a6b230ee75",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L212",
+    "screenshot": "shots/menu-312-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L213",
+    "screenshot": "shots/menu-313-selected.png",
+    "sha256": "cb5c52e0f40a8ba88de7e38c1f0826effdc9906c86952f3e4bfd579a71f49878",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L213",
+    "screenshot": "shots/menu-313-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L214",
+    "screenshot": "shots/menu-314-selected.png",
+    "sha256": "f695068fdff60b68fd968e13d2a559d85333fa943cf5f340ed8f9b5e088368aa",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L214",
+    "screenshot": "shots/menu-314-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L215",
+    "screenshot": "shots/menu-316-selected.png",
+    "sha256": "777b3ef47c946d0eaa9a542e5765ec0b1c3538e1c458d592428bcdd07b2b76bc",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L215",
+    "screenshot": "shots/menu-316-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L216",
+    "screenshot": "shots/menu-317-selected.png",
+    "sha256": "7f46c643e27002d62ad61596baabe0cc8c7fc183ca009eb20e27373a062b8a09",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L216",
+    "screenshot": "shots/menu-317-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L217",
+    "screenshot": "shots/menu-318-selected.png",
+    "sha256": "ce521ba12204d7bff5734b35485a8683a5cd0a9fbc21ddd157e10366acb61365",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L217",
+    "screenshot": "shots/menu-318-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L218",
+    "screenshot": "shots/menu-319-selected.png",
+    "sha256": "deb9aa43e4d23882c234ed30313a3febe178a4babe2a03936a56c082705b2da2",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L218",
+    "screenshot": "shots/menu-319-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L219",
+    "screenshot": "shots/menu-320-selected.png",
+    "sha256": "f6feaffb71fbaf00753ec394cfcab85f4761b87de6f11364c536c84e8555352c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L219",
+    "screenshot": "shots/menu-320-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L220",
+    "screenshot": "shots/menu-322-selected.png",
+    "sha256": "97fad1864afb3cf8ca0f467670c116c41761f1fe8986cbe531ac33494d4302f4",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L220",
+    "screenshot": "shots/menu-322-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L221",
+    "screenshot": "shots/menu-323-selected.png",
+    "sha256": "e2f0c8ebb07ab2055f9cb1d332d936d93d35e386ab0758441c3438bb1ba92361",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L221",
+    "screenshot": "shots/menu-323-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L222",
+    "screenshot": "shots/menu-326-selected.png",
+    "sha256": "03270322cc4a0a4a8ce8fe4e303a837b0dcbc1dd23ac49d7f1385c51bb2fa432",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L222",
+    "screenshot": "shots/menu-326-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L223",
+    "screenshot": "shots/menu-328-selected.png",
+    "sha256": "793f1a8cdd28282d0ed66850526e9f4198b2e132e86751ad4f24c23d53ec02a1",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L223",
+    "screenshot": "shots/menu-328-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L224",
+    "screenshot": "shots/menu-329-selected.png",
+    "sha256": "9480c46766ab31457a502ea2b806d5228aed38d97a202ac786f92a9e37049f41",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L224",
+    "screenshot": "shots/menu-329-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L225",
+    "screenshot": "shots/menu-330-selected.png",
+    "sha256": "4786b7f53f9253c3270654697f1364cea64e491d36bd0d4b6425eb40a3430acd",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L225",
+    "screenshot": "shots/menu-330-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L226",
+    "screenshot": "shots/menu-332-selected.png",
+    "sha256": "f81414dd4e8c237f4a6c23acc47b6288f4f14074e4b89d9e7553d26f085603c8",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L226",
+    "screenshot": "shots/menu-332-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L227",
+    "screenshot": "shots/menu-333-selected.png",
+    "sha256": "264959b00fc11a6d84656ffa100d9843d4b9c8b7af6635fcd522cee86168821c",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L227",
+    "screenshot": "shots/menu-333-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L228",
+    "screenshot": "shots/menu-334-selected.png",
+    "sha256": "e49822d1b39145c5aab9c1da7c4683cee9da2eef86641b5e0c21566917f76cce",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L228",
+    "screenshot": "shots/menu-334-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L229",
+    "screenshot": "shots/menu-335-selected.png",
+    "sha256": "0335737fbde1e9c46dae81e9a0c810165415f7544e395fb0fafd5369f308d910",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L229",
+    "screenshot": "shots/menu-335-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L230",
+    "screenshot": "shots/menu-336-selected.png",
+    "sha256": "7911fb7a5d9aeee3a5f2890f91a63e5daa92675eea257bb37d8db6448eab3e2b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L230",
+    "screenshot": "shots/menu-336-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L231",
+    "screenshot": "shots/menu-339-selected.png",
+    "sha256": "d5d279c295a661b5e00f54dc058a70a88ddbc6c42112cb3c944592bd56dea35b",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L231",
+    "screenshot": "shots/menu-339-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L232",
+    "screenshot": "shots/menu-340-selected.png",
+    "sha256": "eec07bf786844e649cf27f6ce813e28db095bcce201e73459f0683fee177fdb3",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L232",
+    "screenshot": "shots/menu-340-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L233",
+    "screenshot": "shots/menu-341-selected.png",
+    "sha256": "250c8636ac9d3b3664382c4aa5044f9bf4ee4e46c2ce2f29eb60a631e20a897d",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L233",
+    "screenshot": "shots/menu-341-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L234",
+    "screenshot": "shots/menu-342-selected.png",
+    "sha256": "e783857ca3c30d2d51ba75d0621d2161b8a1e009d3034549a15998e6353b0b61",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L234",
+    "screenshot": "shots/menu-342-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L235",
+    "screenshot": "shots/menu-343-selected.png",
+    "sha256": "c9e53d3229a0c252d64b0da91f79bb107b2df222e17362d727bb82fbb2b5e471",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L235",
+    "screenshot": "shots/menu-343-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L236",
+    "screenshot": "shots/menu-344-selected.png",
+    "sha256": "2b1aa9384c073958707e7528ff981ba57473127e7e3190b9803855cf857361d7",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L236",
+    "screenshot": "shots/menu-344-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L237",
+    "screenshot": "shots/menu-345-selected.png",
+    "sha256": "c5b899957d9805a596a5e5430ed233a6b945931c448ce892d6eb62e723c2b2b5",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L237",
+    "screenshot": "shots/menu-345-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L238",
+    "screenshot": "shots/menu-346-selected.png",
+    "sha256": "9a8feb8f40277a4c222c0b23152edff9f778c3bcfef4fd32c0e4a15ec8993eda",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L238",
+    "screenshot": "shots/menu-346-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L239",
+    "screenshot": "shots/menu-348-selected.png",
+    "sha256": "d12ce8f7719d799ee6627866530f1f55991df7991654fea1a24e162f03eed97d",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L239",
+    "screenshot": "shots/menu-348-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L240",
+    "screenshot": "shots/menu-350-selected.png",
+    "sha256": "f25638c7f4769c76429f2a2ecd301954b6306300432f12ae4981dd767e9f94f8",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L240",
+    "screenshot": "shots/menu-350-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L241",
+    "screenshot": "shots/menu-351-selected.png",
+    "sha256": "7eecd8f99573df3a6090bfe890990abff71dccf6df2830e87b961f544e7f19a0",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L241",
+    "screenshot": "shots/menu-351-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L242",
+    "screenshot": "shots/menu-353-selected.png",
+    "sha256": "6acc05c58eb744b21625af22aa816c885f680fdeb306afcafc142ae56ec954d6",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L242",
+    "screenshot": "shots/menu-353-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L243",
+    "screenshot": "shots/menu-354-selected.png",
+    "sha256": "0db8d69f99a96ba4c29b0c504b5ae94cddcf3ea6ec7686ed8e1ba503936fa5ab",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L243",
+    "screenshot": "shots/menu-354-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L244",
+    "screenshot": "shots/menu-355-selected.png",
+    "sha256": "39172799cb0d06ce63fed09d091adf948cc59a4ccd57596c95bf12518518ebaa",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L244",
+    "screenshot": "shots/menu-355-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L245",
+    "screenshot": "shots/menu-357-selected.png",
+    "sha256": "feebb18160df1c602422e94aabe4a64d5d683a4f2791bd18e5dbddb5c82c5d12",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L245",
+    "screenshot": "shots/menu-357-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L246",
+    "screenshot": "shots/menu-358-selected.png",
+    "sha256": "919ffc6f85759d46d175b1e03ab5d30cc8ab835f9006547a47d485cf67f72165",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L246",
+    "screenshot": "shots/menu-358-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L247",
+    "screenshot": "shots/menu-359-selected.png",
+    "sha256": "c99113c3380a548adce9aefcde98f3f83239550ce76bb36f5540a32bd730081d",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L247",
+    "screenshot": "shots/menu-359-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L248",
+    "screenshot": "shots/menu-360-selected.png",
+    "sha256": "5a16b32d345c758eabb2ea9c81f2fe656a83e387ba9570338b1543f939935cbf",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L248",
+    "screenshot": "shots/menu-360-result.png",
+    "sha256": "59d29880321636f24eafd0018c20735101d5dccc46c6fe4bf253d85e2da3049f",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L249",
+    "screenshot": "shots/menu-364-selected.png",
+    "sha256": "cf2ebf3bdc9377569e425447229a7a9fbe230d4f0fe6ad043d2adebb38d64ca0",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L249",
+    "screenshot": "shots/menu-364-result.png",
+    "sha256": "9f9ef4dbcbb55ec2695a6ff6abb51d6c9b93acb6e25fdfce42bb073b3270e9fe",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L250",
+    "screenshot": "shots/menu-365-selected.png",
+    "sha256": "f6578acfed919f3848a18ad41cdf847f32455b63670b738bab0fed4883c27742",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L250",
+    "screenshot": "shots/menu-365-result.png",
+    "sha256": "9f9ef4dbcbb55ec2695a6ff6abb51d6c9b93acb6e25fdfce42bb073b3270e9fe",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L251",
+    "screenshot": "shots/menu-366-selected.png",
+    "sha256": "a6bea5855481f7f2cf4135ff8786ee0d2eaf879135334b288382fb1a991ca8d5",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L251",
+    "screenshot": "shots/menu-366-result.png",
+    "sha256": "9f9ef4dbcbb55ec2695a6ff6abb51d6c9b93acb6e25fdfce42bb073b3270e9fe",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L252",
+    "screenshot": "shots/menu-367-selected.png",
+    "sha256": "7b6abf08dee48d98eb5d7be757f73dfcb36215dbbe8985adc5ee60bf1202306a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L252",
+    "screenshot": "shots/menu-367-result.png",
+    "sha256": "9f9ef4dbcbb55ec2695a6ff6abb51d6c9b93acb6e25fdfce42bb073b3270e9fe",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L253",
+    "screenshot": "shots/menu-368-selected.png",
+    "sha256": "6288b46ec3cfe936054f4a8c40970c1186e7a9229717501a893407c4b667b56e",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L253",
+    "screenshot": "shots/menu-368-result.png",
+    "sha256": "9f9ef4dbcbb55ec2695a6ff6abb51d6c9b93acb6e25fdfce42bb073b3270e9fe",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L254",
+    "screenshot": "shots/menu-369-selected.png",
+    "sha256": "5f3db85da0e9030b4aa8601f0df4bae3bf90534e904916d9507ed231c0cc905a",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L254",
+    "screenshot": "shots/menu-369-result.png",
+    "sha256": "9f9ef4dbcbb55ec2695a6ff6abb51d6c9b93acb6e25fdfce42bb073b3270e9fe",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L255",
+    "screenshot": "shots/menu-371-selected.png",
+    "sha256": "382752d0c0401270e2a7b560538920252023dba290e013882a60fd4d4794d955",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L255",
+    "screenshot": "shots/menu-371-result.png",
+    "sha256": "9f9ef4dbcbb55ec2695a6ff6abb51d6c9b93acb6e25fdfce42bb073b3270e9fe",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L256",
+    "screenshot": "shots/menu-373-selected.png",
+    "sha256": "c768f74dc9880a54cdec51a4050c4658b1efeca80e765068acc59ef73ab354fb",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L256",
+    "screenshot": "shots/menu-373-result.png",
+    "sha256": "9f9ef4dbcbb55ec2695a6ff6abb51d6c9b93acb6e25fdfce42bb073b3270e9fe",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L257",
+    "screenshot": "shots/menu-374-selected.png",
+    "sha256": "fb3973ec8a4e0851d8682042edfd736b865bce6191f4bfefa5b59b40ad64cc03",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L257",
+    "screenshot": "shots/menu-374-result.png",
+    "sha256": "9f9ef4dbcbb55ec2695a6ff6abb51d6c9b93acb6e25fdfce42bb073b3270e9fe",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L258",
+    "screenshot": "shots/menu-375-selected.png",
+    "sha256": "86988b7e8ae918a9b743c8509a89ece7c9102da41e17624edee07352e85caa77",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L258",
+    "screenshot": "shots/menu-375-result.png",
+    "sha256": "9f9ef4dbcbb55ec2695a6ff6abb51d6c9b93acb6e25fdfce42bb073b3270e9fe",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L259",
+    "screenshot": "shots/menu-376-selected.png",
+    "sha256": "2c57d741597f9ff1cc1ed26e4d5549851e5c0266fb3315637ac83a627716d1fa",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  },
+  {
+    "finding": "L259",
+    "screenshot": "shots/menu-376-result.png",
+    "sha256": "9f9ef4dbcbb55ec2695a6ff6abb51d6c9b93acb6e25fdfce42bb073b3270e9fe",
+    "check": "PNG decoded; observation validation is in menu-verified.json or manual screenshot review"
+  }
+]

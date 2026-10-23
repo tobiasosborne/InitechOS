@@ -1,0 +1,19 @@
+& File Edit View Special 1:16 pm 2
+SH file _fait_view _Speeiat _t¢pm__
+& file
+Jal: *quit-slash-1 JREADY|ES|
+fA ees changes to the worksheet i H
+quit-slasii efore quitting?
+5
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+[|
+|

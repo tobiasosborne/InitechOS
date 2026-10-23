@@ -1,0 +1,104 @@
+## Still present
+
+These refer to the 2026-10-05-astra-full-drive audit, not this report's new IDs.
+
+| Earlier ID | Observed retest |
+| --- | --- |
+| L012 | F1 still does not open help. shots/027-f1.png and shots/key-f1.png; entry and keyslook serial logs. |
+| L021 | The period date/time status display is still absent. shots/001-launch.png. CALC and CIRC now exist, so the earlier wholly blank-status observation does not apply to those states. |
+| L080 | Entry of the 2049th populated cell still produces unexplained EDIT. Replacing an existing numeric cell works. shots/capacity-2048.png, capacity-2049.png, capacity-replace.png; CAPOUT.WK1 contains 2048 cells. The string-pool exhaustion path also lacks a specific explanation. |
+| L022, shared alert appearance | The reserved caution-icon area is blank in the reached 123 save question, shots/quit-ctrlq-0-guard.png. This is the same appearance omission seen in the earlier Empty Trash dialog; the Empty Trash action itself was outside this subsystem and was not replayed. |
+
+## Now fixed
+
+"Fixed" here means the earlier exact symptom did not reproduce in these tests;
+it does not certify the entire feature. The new findings above qualify current
+editor, file, range, and quit behavior.
+
+| Earlier audit ID | Positive evidence |
+| --- | --- |
+| 2026-10-05 L008 | Ctrl-Q, File > Quit, close box, and /Quit all guard unsaved work. Save, Cancel, Don't Save, and cancellation of the Save filename prompt ran twice per route. Eight saved files match the intended labels; pending valid input survives Cancel and saves, while invalid pending input leaves EDIT. See evidence/quit-roundtrip-check.json and shots/quit-*.png. |
+| 2026-10-05 L009 | Ordinary formulas, arithmetic, ranges, and most listed functions calculate. The real MINT01, MINT03 and MINT05 controls round-trip byte-for-byte; function-specific failures have new findings. |
+| 2026-10-05 L010 | Slash menus now work; 381 items were traversed, with all 300 leaves reached. Execution gaps are individually listed above. |
+| 2026-10-05 L011 | /File Save and Retrieve persist and restore worksheets. The original "no reached Save" symptom is fixed; full-disk replacement safety is not. |
+| 2026-10-05 L013 | F2 loads existing contents and Backspace edits them. The missing F2 entry point is fixed; cursor movement and full-length no-op edits remain defective. |
+| 2026-10-05 L014 | F5 accepts valid addresses and names, including IV8192. Invalid IV8193 and BAD! are refused without moving the pointer. GOTO cancellation has a new finding. |
+| 2026-10-05 L015 | PgDn moves A1 to A20 in the 19-row native view, and PgUp returns. shots/024-page-down.png. |
+| 2026-10-05 L016 | Tab moves A1 to I1; Shift-Tab returns to the previous horizontal page. shots/025-tab.png and entry serial. |
+| 2026-10-05 L017 | Clicking selects the visible cell, including after resizing. shots/cell-click.png, resize-hit.png; keyslook serial. |
+| 2026-10-05 L018 | After shrinking by 288x194, GOTO E1 retains a visible pointer, and a click maps to F3. shots/resize-pointer.png and resize-hit.png. The separate 240-column-width problem remains. |
+| 2026-10-05 L019 | A typed 240-character label is accepted intact; the 241st character is not stored. LONG.WK1 contains the 240 characters plus the implicit label prefix. A subsequent F2 edit is a separate new data-loss defect. |
+| 2026-10-05 L020 | Unmodified backslash reaches the label editor; backslash-xy repeats across D1 instead of suspending the desktop. shots/002-prefix-values.png and entry serial. |
+| 2026-10-15 M011 | The Cancel button's upper bevel is 54 uninterrupted white pixels, and its lower bevel has the expected 53 shadow pixels. The prior label overpaint is absent. |
+| 2026-10-15 M012 | The two previously wrong outer corner pixels now match the dialog background, RGB (231,231,231). The inspected prior corner-fringe symptom is gone. See evidence/known-alert-pixels.json and shots/quit-dialog-look.png. |
+
+## Coverage and things not reached
+
+| Area | What was actually exercised |
+| --- | --- |
+| Entry | All four requested label prefixes, implicit labels, signed/decimal/exponent values, percent, comma and dollar entry, 1e308/1e-308, long digits, 0.1+0.2, A1 as label versus +A1 as formula; Return and movement commits; F2, Backspace, Escape, attempted cursor keys; 240/241 characters with byte extraction. Commas correctly refuse under the manual's numeric-entry rules; 1e308 is outside the documented +/-99 exponent range. |
+| Navigation | F5 valid/bad/named/max addresses, boundary arrows, Home, PgUp/PgDn, Tab/Shift-Tab, End/arrow, F1/F3/F4/F6/F7/F8/F10 attempts, clicks, native scroll controls, grow/shrink/zoom and current-cell visibility. |
+| Functions | All 90 names from the engine token table entered; all 90 wrong argument counts refused without committing cells. 100 additional type/domain cases cover all 83 functions with arguments, empty ranges, NA/ERR, huge arguments, date boundaries, and a valid @@ indirection. Additional empty-range database/lookup/financial probes are saved in EMPTY.WK1. This is broad execution coverage, not an independent numerical proof for every function and input. |
+| Recalculation | Forward chain, automatic update, Manual stale result plus CALC, F9 update, Natural/Columnwise/Rowwise, circular self-reference and CIRC, iteration counts including 0/51 refusals and 1/50 acceptance. A 2048-formula fixture loaded, calculated, received Ctrl-Break 30 ms after F9, and saved. The screenshot was taken about 1.7 seconds after F9; this does not establish that Break interrupted rather than followed completion. |
+| Menus | 381 entries/82 menus; arrow navigation, unique initial-letter navigation for 299 leaves, Escape at every visited level; Quit/Yes separately repeated. All third-line descriptions checked against 123.RI. 224 visible refusals are individual findings, not claims that their downstream workflows ran. |
+| Worksheet | Real-Lotus Copy and Move sequences, overlap, mixed and absolute references, refused replicated destination, typed and attempted anchored pointing ranges, widths 1/240 and invalid 0/241, all format families and decimal counts 0..15, invalid decimals -1/16, narrow and 30-character-wide views, erase Y/N, Range Erase, names create/delete/redefine/labels/table/reset, value conversion, transpose, label alignment, global format/width, and protection/unprotection. |
+| Files | Save/Retrieve; byte-identical MINT01/03/05 round trips; six Copy/Move cell-record comparisons; malformed, missing, and too-large-cell-count retrieval preserving the current sheet; Cancel/Replace/Backup; long names, bad names, space/wildcard/path failures; C: save; password syntax; two full-disk replacement failures with extracted zero-byte files. |
+| Capacity/recovery | Imported 2047 cells then entered cells 2048 and 2049; existing numeric replacement; erase/retry; 2049-cell retrieval refusal; 135 maximum-length labels near the 32 KiB pool boundary, a 136th-label attempt, same-length replacement, shorter replacement; Undo attempt and its unavailable enabling command. |
+| Quit/power | Every application exit route, each choice twice, pending input and invalid input, Save filename cancellation, full-disk Save cancellation. Finder shutdown Cancel/Save/Don't Save each ran twice; Discard reached the safe screen, Cancel retained the sheet, Save exposed the continuation defect. |
+| Look | Native control panel, modes READY/LABEL/VALUE/EDIT/POINT/MENU/ERROR/FILES, headings, borders, pointer, status indicators, resize geometry, and save-question buttons. Normalized real VGA ninth columns for pixel comparisons: column A heading 0/1152 differing ink pixels; READY 12/640; row border 20/9728. The small inherited glyph differences are documented in evidence/look-metrics.json, not newly recast as rendering regressions. |
+
+The unavailable Insert/Delete, titles, split/synchronized windows, hide/display,
+printing, graph rendering/options, data processing, external System programs,
+add-ins, and many global defaults cannot be tested beyond their visible refusals.
+No physical printer, real-Lotus execution of native-produced files, original
+Lotus command replay in a second emulator, or exhaustive arithmetic oracle for
+all possible values was performed. The raw Move metadata mismatch is qualified
+accordingly. HELP is unavailable; a distinct WAIT frame was not captured. No
+audible-beep assessment, video-rate flicker measurement, or overnight soak is
+claimed. No general "all bugs found" or production-readiness claim is made.
+
+`M4ROUND.WK1` was explicitly recalculated after retrieval, whereas the original
+MINT04 capture was saved before that F9. Its three circular cached results change
+from 1 to 8; this is not treated as a like-for-like round-trip failure. Copy
+outputs differ only in WINDOW1 from the corresponding real files. Move outputs
+have the separately reported record-0x0096 differences, and some WINDOW1 changes.
+All six Copy/Move cell record sets are byte-identical to their real references.
+
+Excluded attempts: entry shots 004..009 were contaminated by the discovery that
+Ctrl-C inserted c. Initial shots 029..033 were taken while fast sendkey input had
+not drained; they do not establish a hang, truncation limit, or file operation.
+The synchronized long phase supersedes them. The first full phase never reached
+123 because Finder's initial full-disk alert intercepted launch input; full2,
+using preexisting Finder metadata, is the valid full-disk test. The host runner
+ended with status 143 after the functions Save screenshot; its image lock was
+verified released before extraction, and function_errors resumed from the saved
+file. No guest finding is based on that host interruption.
+
+
+## The fifteen things to fix first
+
+This ranking is the auditor's judgment about data safety and period-workstation credibility.
+
+1. Make failed Save/Replace preserve the last good file (L001).
+2. Make an unchanged F2 edit preserve every accepted character (L002).
+3. Complete the in-line editor and reference-key behavior (L005, L025).
+4. Provide working Undo and a visible undo state (L024).
+5. Implement insertion/deletion of rows and columns, including reference adjustment.
+6. Support Copy to destination ranges and anchored range selection (L006, L007).
+7. Make high-precision numeric formats and @STRING work across their documented ranges (L030, L033).
+8. Make Backup and file selection usable before users entrust a workbook to the disk (L012, L029).
+9. Continue Finder shutdown after a successful asynchronous Save (L003).
+10. Keep wide columns visible and make the native scroll controls operate (L008, L027).
+11. Recover storage after erasure and permit same-size replacements at capacity (L010, L032; earlier L080).
+12. Finish range-name reassignment, display, and name selection (L009, L016, L020).
+13. Complete the remaining basic value/attribute behavior: leading $, @NOW, and current filename (L004, L011, L019).
+14. Deliver worksheet titles and split/synchronized windows, which the menus already promise.
+15. Make the advertised Print and Graph workflows produce real output, then tackle the Data command backlog.
+
+## Deliverable and cleanup checks
+
+This report contains 259 new findings: 2 P1, 250 P2, and 7 P3. NITS.tsv has one matching row per finding. Of these, 224 are the individually observed unavailable menu leaves. The remaining 35 findings concern behavior or presentation beyond those refusals.
+
+22 emulator image sessions were recorded. All normal sessions have explicit QMP quit/exit records. The host-interrupted functions session is separately documented, and all copied-image locks are released. No other emulator or process was killed. See evidence/cleanup-audit.json, cleanup.jsonl, and the per-session manifests.
+
+Evidence validation includes PNG decoding and SHA256 for every cited screenshot, observed pixel-panel matching for every menu refusal, serial-render checks for every selected menu description, independent WK1 parsing, and raw-file comparisons. evidence/validation.json summarizes link, row-count, and ASCII checks.

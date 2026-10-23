@@ -1,0 +1,5 @@
+{
+  "session": "functions",
+  "host_runner_exit": 143,
+  "note": "Host execution session ended while OCR was starting after saved FUNCS screenshot; no guest panic/hang inferred. QEMU image locks verified released before extraction and next emulator."
+}

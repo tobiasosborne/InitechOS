@@ -1,0 +1,64 @@
+B11: CW?) asuMcas. 29) READY
+
+a 8 ¢ > E
+Projected Company Growth
+1909-1990 1991 1992
+
+Production = 34RD
+Marketing = 1517 OH
+Documentat fon 9
+Finance 8
+Sales OO BS B
+‘0
+11 Total rumber of employees: 84
+
+ovonnuns
+
+Figure 13-37 @SUM
+
+@SYD
+
+@SYD(cost, salvage, life,period) calculates the sum-of-the-years’-digits depreciation
+allowance of an asset for a specified period.
+
+Cost represents the amount paid for the asset. Cost can be any value.
+
+Salvage represents the value of the asset at the end of its life. Salvage can be any
+value.
+
+Life represents the number of periods (typically years) it will take to depreciate
+the asset to its salvage value. Life can be any value greater than or equal to 1.
+
+Period represents the time period for which you want to find the depreciation
+allowance. Period can be any value greater than or equal to 1.
+
+The sum-of-the-years’-digits method accelerates the rate of depreciation, so that
+more depreciation expense occurs in earlier periods than in later ones. The
+depreciable cost is the actual cost minus the salvage value.
+
+@SYD uses the following formula to calculate depreciation using the
+sum-of-the-years’-digits method:
+
+cost of the asset
+
+salvage value of the asset
+
+calculated useful life of the asset
+period for which depreciation is being
+calculated
+
+(c-s*(n-p + 1) where:
+(n*(n + 1)/2)
+
+waeo
+nyt
+
+Example
+
+You have an office machine worth $10,000. The useful life of the machine is 10
+years, and the salvage value in 10 years will be $1200. You want to calculate
+depreciation expense for the fifth year, using the sum-of-the-years’-digits method.
+In Figure 13-38, @SYD(D2,D3,D4,5) entered in D6 returns $960, the depreciation
+allowance for the fifth year.
+
+@Function Descriptions 13-57

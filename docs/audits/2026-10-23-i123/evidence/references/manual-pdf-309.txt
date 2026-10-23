@@ -1,0 +1,57 @@
+Examples
+@CODE(“A”) = 65
+
+@CODE(C5) = 77 if C5 contains the label Ms. Jones, because 77 is the LICS code
+for M
+
+@COLS
+
+@COLS(range) counts the number of columns in range.
+
+Range can be any range name or address.
+
+Examples
+
+@COLS(EMPLOYEES) = 20 if EMPLOYEES is the range name for B3..U75
+
+Use @COLS to determine the width of a range in order to set appropriate
+margins when printing a report. For example, if you set the global column width
+to 10, the formula @COLS(COST) * 10 tells you the width of the range cost
+(including blanks and spaces).
+
+@cos
+
+@COS(x) calculates the cosine of angle x measured in radians. The result of
+@COS is a value from -1 to 1.
+
+X can be any value.
+
+NOTE To convert degrees to radians, multiply by @PI/180.
+Examples
+
+@COS(.523598) = 0.866025
+
+@COS(45*@PI1/180) = 0.707106
+
+@COUNT
+
+@COUNTilist) counts the nonblank cells in a Jist of ranges.
+
+List can be any combination of ranges. Keep the following in mind about the list
+
+argument for @COUNT:
+
+¢ If list contains only blank ranges, @COUNT evaluates to 0.
+
+¢ If you enter a single cell address in list it will increase the count by one, even
+if the cell is blank. For example, if A2 is blank, @COUNT(A2) = 1.
+
+¢ @COUNT considers cells that contain labels, as well as those that contain
+values, to be nonblank. If you want to keep an accurate count of values in a
+range, make sure the range does not contain any labels, such as column
+headings.
+
+* @COUNT does not ignore cells that evaluate to ERR or NA.
+
+@Function Descriptions 13-21
+

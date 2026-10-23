@@ -1,0 +1,30 @@
+_ File Edit View Special 1:31pm
+File Y
+|A19: @DSTD(A300. .B30Z,1,D300. .D301) IREAD YE
+A B Cc D E F G H
+
+j. ERR
+("4 0 . CODOBOOOBOBO00
+IB coy
+E coy
+ia] cy
+6 ERR
+
+coy
+B 2
+9 3
+(10
+fla coy
+(12 9
+13 cy
+(14 ERR
+15 coy
+(16 coy
+(1? cy
+18 ERR
+19 ERR
+Saved EMPTY .wk1
+
+if
+
+|

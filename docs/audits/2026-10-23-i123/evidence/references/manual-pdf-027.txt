@@ -1,0 +1,95 @@
+Description
+
+ABS (F4)
+
+APPI (ALT-F7)
+APP2 (ALT-F8)
+APP3 (ALT-F9)
+APP4 (ALT-F10)
+CALC (F9)
+
+COMPOSE (ALT-F1)
+
+EDIT (F2)
+
+GOTO (F5)
+
+GRAPH (F10)
+HELP (F1)
+
+LEARN (ALT-F5)
+
+NAME (F3)
+
+QUERY (F7)
+
+RUN (ALT-F3)
+
+STEP (ALT-F2)
+
+POINT and EDIT modes: Cycles a cell or range address
+between relative, absolute, and mixed.
+
+READY mode: Activates add-in program assigned to key, if any.
+READY mode: Activates add-in program assigned to key, if any.
+READY mode: Activates add-in program assigned to key, if any.
+READY mode: If no add-in program is assigned to key, displays
+the Add-In menu. Otherwise, activates add-in assigned to key.
+READY mode: Recalculates all formulas in worksheet.
+
+vane and EDIT modes: Converts a formula to its current
+value.
+
+READY, EDIT, and LABEL modes: When used in combination
+with alphanumeric keys, creates international characters and
+other characters you cannot enter directly from keyboard. For a
+list of compose sequences, see Appendix A.
+
+READY mode: Puts 1-2-3 in EDIT mode and displays contents
+of the current cell in control panel, so you can edit entry.
+
+EDIT mode: Switches between EDIT mode and LABEL mode, if
+entry displayed in control panel is a label, or VALUE mode, if
+entry displayed in control panel is a value.
+
+READY mode: Moves cell pointer directly to cell or named
+range you specify.
+
+READY mode: Displays current graph.
+
+Displays a 1-2-3 Help screen related to task you are performing.
+HELP mode: Displays first Help screen you viewed.
+
+ERROR mode: Displays a Help screen that explains error
+message 1-2-3 is displaying.
+
+Turns on learn feature and records subsequent keystrokes in
+learn range. Press LEARN (ALT-Fs) again to turn off learn
+feature.
+
+POINT mode: Displays a menu of named ranges.
+
+FILES and NAMES modes: Switches between displaying a
+menu of names in third line of control panel and displaying a
+full-screen menu of names.
+
+VALUE mode: When pressed after typing + —/*(or* ina
+formula, displays a menu of named ranges.
+
+READY mode: Repeats last /Data Query you specified.
+
+FIND mode: Switches 1-2-3 between FIND mode and READY
+mode.
+
+READY mode: Displays a list of range names so you can select
+the name of the macro you want to run. If you press ESC after
+pressing RUN (ALT-F3), 1-2-3 switches to POINT mode so you
+can highlight the first cell of the macro you want to run.
+
+Turns on STEP mode, which executes macros one step at a
+time for debugging. Press STEP (ALT-F2) again to turn off STEP
+mode.
+
+(Continued)
+
+1-2-3 Keys 1-11

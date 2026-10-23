@@ -1,0 +1,101 @@
+Mode indicator
+
+Meaning
+
+EDIT
+
+ERROR
+
+FILES
+FIND
+
+FRMT
+HELP
+
+LABEL
+MENU
+
+NAMES
+
+POINT
+
+READY
+STAT
+
+VALUE
+WAIT
+
+You pressed EDIT (F2) to edit an entry or you entered a formula
+incorrectly.
+
+1-2-3 is displaying an error message. Press HELP (F1) to display a Heip
+screen that describes the error; or press ESC or ENTER to clear the
+error message.
+
+1-2-3 is displaying a menu of file names in the control panel. Press
+NAME (F3) to display a full-screen menu of file names.
+
+You selected /Data Query Find, or pressed QUERY (E7) to repeat the
+last /Data Query Find you specified, and 1-2-3 is highlighting a
+database record that matches your criteria.
+
+You selected /Data Parse Format-Line Edit to edit a format line.
+You pressed HELP (F1) and 1-2-3 is displaying a Help screen.
+You are entering a label.
+
+You pressed / (slash) or < (less-than symbol) and 1-2-3 is displaying a
+menu of commands.
+
+1-2-3 is displaying a menu of range names, graph names, or attached
+add-in names.
+
+1-2-3 is prompting you to specify a range or you are creating a formula
+by highlighting a range.
+
+1-2-3 is ready for you to enter data or select a command.
+
+You selected /Worksheet Status or /Worksheet Global Default Status
+and 1-2-3 is displaying the corresponding status screen.
+
+You are entering a value (a number or formula).
+1-2-3 is completing a command or process.
+
+Status Indicators
+
+Status indicators appear in the status line at the bottom of your screen, They
+appear when you use certain 1-2-3 keys and when a particular program condition
+exists. The following table describes the various 1-2-3 status indicators.
+
+Status indicator
+
+CALC
+CAPS
+CIRC
+
+CMD
+END
+LEARN
+
+MEM
+
+Formulas in the worksheet need to be recalculated; press CALC (F9).
+The CAPS LOCK key is on.
+
+The worksheet contains a formula that refers to itself (occurs only when
+the recalculation order is Natural, which is the default setting). You can
+use /Worksheet Status to get information about the circular reference.
+
+1-2-3 is pausing during a macro.
+The END key is on.
+
+You pressed LEARN (ALT-F5) to turn on the learn feature and 1-2-3 is
+recording your keystrokes in the learn range.
+
+The amount of computer memory available for entering new data has
+fallen below 4096 bytes. If you continue to enter data without first
+increasing the amount of available memory, you may get a ‘Memory full’
+ertor. For ways to increase available memory, see Appendix C.
+
+1-6 Using 1-2-3
+
+(Continued)

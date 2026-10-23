@@ -1,0 +1,16 @@
+def typeerrors(a):
+ import re
+ spec=(pathlib.Path('/home/tobias/Projects/initech-os/spec/i123/wk1_formula.h')).read_text()
+ rows=re.findall(r'\{ "(@[^"]+)"\s*,WKF_K_(FIXED|COUNTED),\s*(\d+),\s*0,\s*(0x[0-9A-Fa-f]+|0),',spec.replace('WKF_K_','WKF_K_'))
+ # Whitespace differs before the class token in the source.
+ rows=re.findall(r'\{ "(@[^"]+)"\s*,\s*WKF_K_(FIXED|COUNTED),\s*(\d+),\s*0,\s*(0x[0-9A-Fa-f]+|0),',spec)
+ cases=[]
+ for name,cl,arity,mask in rows:
+  if not int(arity):continue
+  args=['A300..B302' if int(mask,0)&(1<<i) else '"x"' for i in range(int(arity))]
+  cases.append(name+'('+','.join(args)+')')
+ cases+=['@SUM(A300..IV8192)','@AVG(A300..IV8192)','@MIN(A300..IV8192)','@MAX(A300..IV8192)','@COUNT(A300..IV8192)','@VAR(A300..IV8192)','@STD(A300..IV8192)','@REPEAT("x",10000)','@ROUND(1,1E99)','@DATE(0,2,29)','@SQRT(-1)','@LN(0)','@ASIN(2)','@INDEX(A300..B302,100,100)','@CHAR(0)','@CHAR(256)']
+ (ROOT/'evidence/typeerror-cases.json').write_text(json.dumps(cases,indent=2))
+ for i,f in enumerate(cases):
+  a.key('ctrl-scroll_lock');a.cell('A'+str(i+1),f);a.shot('typeerror-%03d'%i);print('TYPE',i,f,flush=True)
+ a.key('ctrl-scroll_lock');a.saveas('TYPES');a.state('typeerrors-saved')

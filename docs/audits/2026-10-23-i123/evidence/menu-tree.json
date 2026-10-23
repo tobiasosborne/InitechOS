@@ -1,0 +1,2071 @@
+[
+  [
+    {
+      "name": "Worksheet",
+      "description": "Global  Insert  Delete  Column  Erase  Titles  Window  Status  Page  Learn",
+      "child": 1
+    },
+    {
+      "name": "Range",
+      "description": "Format  Label  Erase  Name  Justify  Prot  Unprot  Input  Value  Trans  Search",
+      "child": 32
+    },
+    {
+      "name": "Copy",
+      "description": "Copy a cell or range of cells",
+      "child": 65535
+    },
+    {
+      "name": "Move",
+      "description": "Move a cell or range of cells",
+      "child": 65535
+    },
+    {
+      "name": "File",
+      "description": "Retrieve  Save  Combine  Xtract  Erase  List  Import  Directory  Admin",
+      "child": 43
+    },
+    {
+      "name": "Print",
+      "description": "Print a range on a printer or to a print file",
+      "child": 54
+    },
+    {
+      "name": "Graph",
+      "description": "Type  X  A  B  C  D  E  F  Reset  View  Save  Options  Name  Group  Quit",
+      "child": 67
+    },
+    {
+      "name": "Data",
+      "description": "Fill  Table  Sort  Query  Distribution  Matrix  Regression  Parse",
+      "child": 71
+    },
+    {
+      "name": "System",
+      "description": "Leave 1-2-3 temporarily and use operating system",
+      "child": 65535
+    },
+    {
+      "name": "Add-In",
+      "description": "Attach, Detach, Invoke or Clear 1-2-3 add-in programs",
+      "child": 80
+    },
+    {
+      "name": "Quit",
+      "description": "End the 1-2-3 session",
+      "child": 81
+    }
+  ],
+  [
+    {
+      "name": "Global",
+      "description": "Format  Label-Prefix  Column-Width  Recalculation  Protection  Default  Zero",
+      "child": 2
+    },
+    {
+      "name": "Insert",
+      "description": "Insert blank column(s) or row(s)",
+      "child": 7
+    },
+    {
+      "name": "Delete",
+      "description": "Delete entire column(s) or row(s)",
+      "child": 8
+    },
+    {
+      "name": "Column",
+      "description": "Set-Width  Reset-Width  Hide  Display  Column-Range",
+      "child": 9
+    },
+    {
+      "name": "Erase",
+      "description": "Erase the entire worksheet from memory",
+      "child": 11
+    },
+    {
+      "name": "Titles",
+      "description": "Set horizontal or vertical titles",
+      "child": 12
+    },
+    {
+      "name": "Window",
+      "description": "Set split screen and synchronized scrolling",
+      "child": 13
+    },
+    {
+      "name": "Status",
+      "description": "Display worksheet settings",
+      "child": 65535
+    },
+    {
+      "name": "Page",
+      "description": "Insert a row containing a page-break symbol above the cell pointer",
+      "child": 65535
+    },
+    {
+      "name": "Learn",
+      "description": "Record keystrokes in the worksheet",
+      "child": 14
+    }
+  ],
+  [
+    {
+      "name": "Format",
+      "description": "Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden",
+      "child": 3
+    },
+    {
+      "name": "Label-Prefix",
+      "description": "Set global label alignment",
+      "child": 4
+    },
+    {
+      "name": "Column-Width",
+      "description": "Set global column width",
+      "child": 65535
+    },
+    {
+      "name": "Recalculation",
+      "description": "Natural  Columnwise  Rowwise  Automatic  Manual  Iteration",
+      "child": 5
+    },
+    {
+      "name": "Protection",
+      "description": "Turn worksheet protection on or off",
+      "child": 6
+    },
+    {
+      "name": "Default",
+      "description": "Printer  Directory  Status  Update  Other  Autoexec  Quit",
+      "child": 15
+    },
+    {
+      "name": "Zero",
+      "description": "Change the way cells with a value of zero appear on the screen",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Fixed",
+      "description": "Fixed number of decimal places (x.xx)",
+      "child": 65535
+    },
+    {
+      "name": "Sci",
+      "description": "Exponential format (x.xxE+xx)",
+      "child": 65535
+    },
+    {
+      "name": "Currency",
+      "description": "Currency format ($x,xxx.xx)",
+      "child": 65535
+    },
+    {
+      "name": ",",
+      "description": "Comma format (x,xxx.xx)",
+      "child": 65535
+    },
+    {
+      "name": "General",
+      "description": "Standard format (x.xx or x.xxExx)",
+      "child": 65535
+    },
+    {
+      "name": "+/-",
+      "description": "Horizontal bar graph format (+++ or ---)",
+      "child": 65535
+    },
+    {
+      "name": "Percent",
+      "description": "Percent format (x.xx%)",
+      "child": 65535
+    },
+    {
+      "name": "Date",
+      "description": "Date and time formats",
+      "child": 36
+    },
+    {
+      "name": "Text",
+      "description": "Display formula instead of value",
+      "child": 65535
+    },
+    {
+      "name": "Hidden",
+      "description": "Do not display cell contents",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Left",
+      "description": "Left-align labels in cells",
+      "child": 65535
+    },
+    {
+      "name": "Right",
+      "description": "Right-align labels in cells",
+      "child": 65535
+    },
+    {
+      "name": "Center",
+      "description": "Center labels in cells",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Natural",
+      "description": "Recalculate in natural order",
+      "child": 65535
+    },
+    {
+      "name": "Columnwise",
+      "description": "Recalculate column by column",
+      "child": 65535
+    },
+    {
+      "name": "Rowwise",
+      "description": "Recalculate row by row",
+      "child": 65535
+    },
+    {
+      "name": "Automatic",
+      "description": "Recalculate every time entries change",
+      "child": 65535
+    },
+    {
+      "name": "Manual",
+      "description": "Press CALC (F9) to recalculate formulas",
+      "child": 65535
+    },
+    {
+      "name": "Iteration",
+      "description": "Specify number of recalculation passes",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Enable",
+      "description": "Turn worksheet protection on",
+      "child": 65535
+    },
+    {
+      "name": "Disable",
+      "description": "Turn worksheet protection off",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Column",
+      "description": "Insert one or more blank columns to the left of the cell pointer",
+      "child": 65535
+    },
+    {
+      "name": "Row",
+      "description": "Insert one or more blank rows above the cell pointer",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Column",
+      "description": "Delete one or more columns",
+      "child": 65535
+    },
+    {
+      "name": "Row",
+      "description": "Delete one or more rows",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Set-Width",
+      "description": "Specify width for current column",
+      "child": 65535
+    },
+    {
+      "name": "Reset-Width",
+      "description": "Return current column to global column width",
+      "child": 65535
+    },
+    {
+      "name": "Hide",
+      "description": "Hide a range of columns",
+      "child": 65535
+    },
+    {
+      "name": "Display",
+      "description": "Display a range of hidden columns",
+      "child": 65535
+    },
+    {
+      "name": "Column-Range",
+      "description": "Change the width of a range of columns",
+      "child": 10
+    }
+  ],
+  [
+    {
+      "name": "Set-Width",
+      "description": "Specify the width of a range of columns",
+      "child": 65535
+    },
+    {
+      "name": "Reset-Width",
+      "description": "Return a range of columns to global column width",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "No",
+      "description": "Do not erase the worksheet; return to READY mode",
+      "child": 65535
+    },
+    {
+      "name": "Yes",
+      "description": "Erase the entire worksheet from memory",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Both",
+      "description": "Freeze all rows and columns above and to the left of the cell pointer",
+      "child": 65535
+    },
+    {
+      "name": "Horizontal",
+      "description": "Freeze all rows above the cell pointer",
+      "child": 65535
+    },
+    {
+      "name": "Vertical",
+      "description": "Freeze all columns to the left of the cell pointer",
+      "child": 65535
+    },
+    {
+      "name": "Clear",
+      "description": "Unfreeze all title columns and rows",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Horizontal",
+      "description": "Split the screen horizontally at the current row",
+      "child": 65535
+    },
+    {
+      "name": "Vertical",
+      "description": "Split the screen vertically at the current column",
+      "child": 65535
+    },
+    {
+      "name": "Sync",
+      "description": "Synchronize scrolling in windows",
+      "child": 65535
+    },
+    {
+      "name": "Unsync",
+      "description": "Scroll windows independently",
+      "child": 65535
+    },
+    {
+      "name": "Clear",
+      "description": "Return to full-screen display",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Range",
+      "description": "Specify a learn range in which to store keystrokes",
+      "child": 65535
+    },
+    {
+      "name": "Cancel",
+      "description": "Cancel the currently specified learn range",
+      "child": 65535
+    },
+    {
+      "name": "Erase",
+      "description": "Erase the contents of the learn range",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Printer",
+      "description": "Specify printer interface and default settings",
+      "child": 16
+    },
+    {
+      "name": "Directory",
+      "description": "Specify default directory",
+      "child": 65535
+    },
+    {
+      "name": "Status",
+      "description": "Display all default settings",
+      "child": 65535
+    },
+    {
+      "name": "Update",
+      "description": "Save new default settings in configuration file",
+      "child": 65535
+    },
+    {
+      "name": "Other",
+      "description": "International  Help  Clock  Undo  Beep  Add-In",
+      "child": 17
+    },
+    {
+      "name": "Autoexec",
+      "description": "Run autoexecute macros when files are retrieved",
+      "child": 29
+    },
+    {
+      "name": "Quit",
+      "description": "Return to READY mode",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Interface",
+      "description": "Specify printer interface",
+      "child": 65535
+    },
+    {
+      "name": "AutoLF",
+      "description": "Automatic linefeed at end of line",
+      "child": 30
+    },
+    {
+      "name": "Left",
+      "description": "Set default left margin",
+      "child": 65535
+    },
+    {
+      "name": "Right",
+      "description": "Set default right margin",
+      "child": 65535
+    },
+    {
+      "name": "Top",
+      "description": "Set default top margin",
+      "child": 65535
+    },
+    {
+      "name": "Bot",
+      "description": "Set default bottom margin",
+      "child": 65535
+    },
+    {
+      "name": "Pg-Length",
+      "description": "Set default number of lines per page",
+      "child": 65535
+    },
+    {
+      "name": "Wait",
+      "description": "Wait for paper change at end of each page",
+      "child": 31
+    },
+    {
+      "name": "Setup",
+      "description": "Specify default setup string",
+      "child": 65535
+    },
+    {
+      "name": "Name",
+      "description": "Change current printer device",
+      "child": 65535
+    },
+    {
+      "name": "Quit",
+      "description": "Return to previous menu",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "International",
+      "description": "Punctuation  Currency  Date  Time  Negative  Quit",
+      "child": 18
+    },
+    {
+      "name": "Help",
+      "description": "Select Help access method",
+      "child": 24
+    },
+    {
+      "name": "Clock",
+      "description": "Standard  International  None  Clock  Filename",
+      "child": 25
+    },
+    {
+      "name": "Undo",
+      "description": "Turn undo feature on or off",
+      "child": 26
+    },
+    {
+      "name": "Beep",
+      "description": "Determine if computer bell will sound when error occurs",
+      "child": 27
+    },
+    {
+      "name": "Add-In",
+      "description": "Specify add-ins to be loaded automatically whenever you start 1-2-3",
+      "child": 28
+    }
+  ],
+  [
+    {
+      "name": "Punctuation",
+      "description": "Specify numeric punctuation",
+      "child": 19
+    },
+    {
+      "name": "Currency",
+      "description": "Specify currency sign",
+      "child": 20
+    },
+    {
+      "name": "Date",
+      "description": "Specify date formats D4 and D5",
+      "child": 21
+    },
+    {
+      "name": "Time",
+      "description": "Specify time formats D8 and D9",
+      "child": 22
+    },
+    {
+      "name": "Negative",
+      "description": "Specify display of negative numbers in , (Comma) and Currency formats",
+      "child": 23
+    },
+    {
+      "name": "Quit",
+      "description": "Return to /Worksheet Global Default menu",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "A (.,,)",
+      "description": "Decimal: Period   Argument separator: Comma       Thousands separator: Comma",
+      "child": 65535
+    },
+    {
+      "name": "B (,..)",
+      "description": "Decimal: Comma    Argument separator: Period      Thousands separator: Period",
+      "child": 65535
+    },
+    {
+      "name": "C (.;,)",
+      "description": "Decimal: Period   Argument separator: Semicolon   Thousands separator: Comma",
+      "child": 65535
+    },
+    {
+      "name": "D (,;.)",
+      "description": "Decimal: Comma    Argument separator: Semicolon   Thousands separator: Period",
+      "child": 65535
+    },
+    {
+      "name": "E (., )",
+      "description": "Decimal: Period   Argument separator: Comma       Thousands separator: Space",
+      "child": 65535
+    },
+    {
+      "name": "F (,. )",
+      "description": "Decimal: Comma    Argument separator: Period      Thousands separator: Space",
+      "child": 65535
+    },
+    {
+      "name": "G (.; )",
+      "description": "Decimal: Period   Argument separator: Semicolon   Thousands separator: Space",
+      "child": 65535
+    },
+    {
+      "name": "H (,; )",
+      "description": "Decimal: Comma    Argument separator: Semicolon   Thousands separator: Space",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Prefix",
+      "description": "Currency sign precedes value",
+      "child": 65535
+    },
+    {
+      "name": "Suffix",
+      "description": "Currency sign follows value",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "A (MM/DD/YY)",
+      "description": "Format D4 will be MM/DD/YY     Format D5 will be MM/DD",
+      "child": 65535
+    },
+    {
+      "name": "B (DD/MM/YY)",
+      "description": "Format D4 will be DD/MM/YY     Format D5 will be DD/MM",
+      "child": 65535
+    },
+    {
+      "name": "C (DD.MM.YY)",
+      "description": "Format D4 will be DD.MM.YY     Format D5 will be DD.MM",
+      "child": 65535
+    },
+    {
+      "name": "D (YY-MM-DD)",
+      "description": "Format D4 will be YY-MM-DD     Format D5 will be MM-DD",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "A (HH:MM:SS)",
+      "description": "Format D8 will be HH:MM:SS     Format D9 will be HH:MM",
+      "child": 65535
+    },
+    {
+      "name": "B (HH.MM.SS)",
+      "description": "Format D8 will be HH.MM.SS     Format D9 will be HH.MM",
+      "child": 65535
+    },
+    {
+      "name": "C (HH,MM,SS)",
+      "description": "Format D8 will be HH,MM,SS     Format D9 will be HH,MM",
+      "child": 65535
+    },
+    {
+      "name": "D (HHhMMmSSs)",
+      "description": "Format D8 will be HHhMMmSSs    Format D9 will be HHhMMm",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Parentheses",
+      "description": "Display parentheses around negative numbers",
+      "child": 65535
+    },
+    {
+      "name": "Sign",
+      "description": "Display minus sign in front of negative numbers",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Instant",
+      "description": "Instant access; do not remove Help Disk",
+      "child": 65535
+    },
+    {
+      "name": "Removable",
+      "description": "Help Disk can be removed when Help is not in use",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Standard",
+      "description": "Use Lotus standard date and time: DD-MMM-YY  HH:MM AM/PM",
+      "child": 65535
+    },
+    {
+      "name": "International",
+      "description": "Use current International settings for date (D4) and time (D9)",
+      "child": 65535
+    },
+    {
+      "name": "None",
+      "description": "Hide date-and-time indicator",
+      "child": 65535
+    },
+    {
+      "name": "Clock",
+      "description": "Display the date-and-time indicator",
+      "child": 65535
+    },
+    {
+      "name": "Filename",
+      "description": "Display current file name instead of date-and-time indicator",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Enable",
+      "description": "Turn undo on",
+      "child": 65535
+    },
+    {
+      "name": "Disable",
+      "description": "Turn undo off",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Enable",
+      "description": "Computer bell will sound when an error occurs",
+      "child": 65535
+    },
+    {
+      "name": "Disable",
+      "description": "Computer bell will not sound when an error occurs",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Set",
+      "description": "Specify an add-in to be attached automatically, and attach it",
+      "child": 65535
+    },
+    {
+      "name": "Cancel",
+      "description": "Cancel setting for an auto-attach add-in, and detach it",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Enable",
+      "description": "Run autoexecute macro when file is retrieved",
+      "child": 65535
+    },
+    {
+      "name": "Disable",
+      "description": "Do not run autoexecute macro when file is retrieved",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Yes",
+      "description": "Printer automatically issues a line feed after a carriage return",
+      "child": 65535
+    },
+    {
+      "name": "No",
+      "description": "Printer does not automatically issue a line feed after a carriage return",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "No",
+      "description": "Do not wait at the end of a page for paper change",
+      "child": 65535
+    },
+    {
+      "name": "Yes",
+      "description": "Wait at the end of a page for paper change",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Format",
+      "description": "Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden  Reset",
+      "child": 33
+    },
+    {
+      "name": "Label",
+      "description": "Select alignment for a label or range of labels",
+      "child": 38
+    },
+    {
+      "name": "Erase",
+      "description": "Erase a cell or range of cells",
+      "child": 65535
+    },
+    {
+      "name": "Name",
+      "description": "Create  Delete  Labels  Reset  Table",
+      "child": 39
+    },
+    {
+      "name": "Justify",
+      "description": "Adjust a column of labels to a specified width",
+      "child": 65535
+    },
+    {
+      "name": "Prot",
+      "description": "Prevent changes to a range if global protection is on",
+      "child": 65535
+    },
+    {
+      "name": "Unprot",
+      "description": "Allow change to a range when global protection is on",
+      "child": 65535
+    },
+    {
+      "name": "Input",
+      "description": "Restrict data entry to unprotected cells",
+      "child": 65535
+    },
+    {
+      "name": "Value",
+      "description": "Copy a range, converting formulas to values",
+      "child": 65535
+    },
+    {
+      "name": "Trans",
+      "description": "Copy a range, switching columns and rows",
+      "child": 65535
+    },
+    {
+      "name": "Search",
+      "description": "Find or replace a specified string in a range",
+      "child": 41
+    }
+  ],
+  [
+    {
+      "name": "Fixed",
+      "description": "Fixed number of decimal places (x.xx)",
+      "child": 65535
+    },
+    {
+      "name": "Sci",
+      "description": "Exponential format (x.xxE+xx)",
+      "child": 65535
+    },
+    {
+      "name": "Currency",
+      "description": "Currency format ($x,xxx.xx)",
+      "child": 65535
+    },
+    {
+      "name": ",",
+      "description": "Comma format (x,xxx.xx)",
+      "child": 65535
+    },
+    {
+      "name": "General",
+      "description": "Standard format (x.xx or x.xxExx)",
+      "child": 65535
+    },
+    {
+      "name": "+/-",
+      "description": "Horizontal bar graph format (+++ or ---)",
+      "child": 65535
+    },
+    {
+      "name": "Percent",
+      "description": "Percent format (x.xx%)",
+      "child": 65535
+    },
+    {
+      "name": "Date",
+      "description": "Date and time formats",
+      "child": 34
+    },
+    {
+      "name": "Text",
+      "description": "Display formula instead of value",
+      "child": 65535
+    },
+    {
+      "name": "Hidden",
+      "description": "Do not display cell contents",
+      "child": 65535
+    },
+    {
+      "name": "Reset",
+      "description": "Return specified cells to global cell format",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "1 (DD-MMM-YY)",
+      "description": "Lotus standard long form",
+      "child": 65535
+    },
+    {
+      "name": "2 (DD-MMM)",
+      "description": "Lotus standard short form",
+      "child": 65535
+    },
+    {
+      "name": "3 (MMM-YY)",
+      "description": "",
+      "child": 65535
+    },
+    {
+      "name": "4 (Long Intn'l)",
+      "description": "Currently configured: MM/DD/YY",
+      "child": 65535
+    },
+    {
+      "name": "5 (Short Intn'l)",
+      "description": "Currently configured: MM/DD",
+      "child": 65535
+    },
+    {
+      "name": "Time",
+      "description": "Time formats",
+      "child": 35
+    }
+  ],
+  [
+    {
+      "name": "1 (HH:MM:SS AM/PM)",
+      "description": "",
+      "child": 65535
+    },
+    {
+      "name": "2 (HH:MM AM/PM)",
+      "description": "",
+      "child": 65535
+    },
+    {
+      "name": "3 (Long Intn'l)",
+      "description": "Currently configured: HH:MM:SS (24 hour)",
+      "child": 65535
+    },
+    {
+      "name": "4 (Short Intn'l)",
+      "description": "Currently configured: HH:MM (24 hour)",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "1 (DD-MMM-YY)",
+      "description": "Lotus standard long form",
+      "child": 65535
+    },
+    {
+      "name": "2 (DD-MMM)",
+      "description": "Lotus standard short form",
+      "child": 65535
+    },
+    {
+      "name": "3 (MMM-YY)",
+      "description": "",
+      "child": 65535
+    },
+    {
+      "name": "4 (Long Intn'l)",
+      "description": "Currently configured: MM/DD/YY",
+      "child": 65535
+    },
+    {
+      "name": "5 (Short Intn'l)",
+      "description": "Currently configured: MM/DD",
+      "child": 65535
+    },
+    {
+      "name": "Time",
+      "description": "Time formats",
+      "child": 37
+    }
+  ],
+  [
+    {
+      "name": "1 (HH:MM:SS AM/PM)",
+      "description": "",
+      "child": 65535
+    },
+    {
+      "name": "2 (HH:MM AM/PM)",
+      "description": "",
+      "child": 65535
+    },
+    {
+      "name": "3 (Long Intn'l)",
+      "description": "Currently configured: HH:MM:SS (24 hour)",
+      "child": 65535
+    },
+    {
+      "name": "4 (Short Intn'l)",
+      "description": "Currently configured: HH:MM (24 hour)",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Left",
+      "description": "Left-align labels in cells",
+      "child": 65535
+    },
+    {
+      "name": "Right",
+      "description": "Right-align labels in cells",
+      "child": 65535
+    },
+    {
+      "name": "Center",
+      "description": "Center labels in cells",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Create",
+      "description": "Create or modify a range name",
+      "child": 65535
+    },
+    {
+      "name": "Delete",
+      "description": "Delete a range name",
+      "child": 65535
+    },
+    {
+      "name": "Labels",
+      "description": "Create range names from a range of labels",
+      "child": 40
+    },
+    {
+      "name": "Reset",
+      "description": "Delete all range names",
+      "child": 65535
+    },
+    {
+      "name": "Table",
+      "description": "Create a table of range names",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Right",
+      "description": "Each label in range names cell to its right",
+      "child": 65535
+    },
+    {
+      "name": "Down",
+      "description": "Each label in range names cell below it",
+      "child": 65535
+    },
+    {
+      "name": "Left",
+      "description": "Each label in range names cell to its left",
+      "child": 65535
+    },
+    {
+      "name": "Up",
+      "description": "Each label in range names cell above it",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Formulas",
+      "description": "Search for string in formulas only",
+      "child": 42
+    },
+    {
+      "name": "Label",
+      "description": "Search for string in labels only",
+      "child": 65535
+    },
+    {
+      "name": "Both",
+      "description": "Search for string in formulas and labels",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Find",
+      "description": "Highlight search string in the search range",
+      "child": 65535
+    },
+    {
+      "name": "Replace",
+      "description": "Replace each occurrence of search string with specified text",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Retrieve",
+      "description": "Erase the current worksheet from memory and display the selected worksheet",
+      "child": 65535
+    },
+    {
+      "name": "Save",
+      "description": "Store the entire worksheet in a worksheet file",
+      "child": 65535
+    },
+    {
+      "name": "Combine",
+      "description": "Incorporate all or part of a worksheet file into the current worksheet",
+      "child": 44
+    },
+    {
+      "name": "Xtract",
+      "description": "Save a specified range in a worksheet file",
+      "child": 48
+    },
+    {
+      "name": "Erase",
+      "description": "Erase a file from disk",
+      "child": 49
+    },
+    {
+      "name": "List",
+      "description": "Display the names of files in the current directory",
+      "child": 50
+    },
+    {
+      "name": "Import",
+      "description": "Read text or numbers from a text file into the worksheet",
+      "child": 51
+    },
+    {
+      "name": "Directory",
+      "description": "Display and/or change the current directory",
+      "child": 65535
+    },
+    {
+      "name": "Admin",
+      "description": "Reservation  Table  Link-Refresh",
+      "child": 52
+    }
+  ],
+  [
+    {
+      "name": "Copy",
+      "description": "Copy data from a file on disk to the worksheet",
+      "child": 45
+    },
+    {
+      "name": "Add",
+      "description": "Add values from a file on disk to values in the worksheet",
+      "child": 46
+    },
+    {
+      "name": "Subtract",
+      "description": "Subtract values from a file on disk from values in the worksheet",
+      "child": 47
+    }
+  ],
+  [
+    {
+      "name": "Entire-File",
+      "description": "Incorporate entire file into worksheet",
+      "child": 65535
+    },
+    {
+      "name": "Named/Specified-Range",
+      "description": "Incorporate a range from a file into the worksheet",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Entire-File",
+      "description": "Incorporate entire file into worksheet",
+      "child": 65535
+    },
+    {
+      "name": "Named/Specified-Range",
+      "description": "Incorporate a range from a file into the worksheet",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Entire-File",
+      "description": "Incorporate entire file into worksheet",
+      "child": 65535
+    },
+    {
+      "name": "Named/Specified-Range",
+      "description": "Incorporate a range from a file into the worksheet",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Formulas",
+      "description": "Save data including formulas",
+      "child": 65535
+    },
+    {
+      "name": "Values",
+      "description": "Save current values and labels",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Worksheet",
+      "description": "Erase a worksheet file",
+      "child": 65535
+    },
+    {
+      "name": "Print",
+      "description": "Erase a print file",
+      "child": 65535
+    },
+    {
+      "name": "Graph",
+      "description": "Erase a graph file",
+      "child": 65535
+    },
+    {
+      "name": "Other",
+      "description": "Erase any file",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Worksheet",
+      "description": "List worksheet files",
+      "child": 65535
+    },
+    {
+      "name": "Print",
+      "description": "List print files",
+      "child": 65535
+    },
+    {
+      "name": "Graph",
+      "description": "List graph files",
+      "child": 65535
+    },
+    {
+      "name": "Other",
+      "description": "List all files",
+      "child": 65535
+    },
+    {
+      "name": "Linked",
+      "description": "List all files linked to worksheet",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Text",
+      "description": "Import each line of data as a single label",
+      "child": 65535
+    },
+    {
+      "name": "Numbers",
+      "description": "Import numbers and quoted text into separate columns",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Reservation",
+      "description": "Get or release the current file's reservation",
+      "child": 53
+    },
+    {
+      "name": "Table",
+      "description": "Enter a table of file information in the worksheet",
+      "child": 65535
+    },
+    {
+      "name": "Link-Refresh",
+      "description": "Update linked cells",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Get",
+      "description": "Secure a reservation for saving the file",
+      "child": 65535
+    },
+    {
+      "name": "Release",
+      "description": "Release a reservation for saving the file",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Printer",
+      "description": "Send print output directly to a printer",
+      "child": 55
+    },
+    {
+      "name": "File",
+      "description": "Send print output to a text file",
+      "child": 61
+    }
+  ],
+  [
+    {
+      "name": "Range",
+      "description": "Specify a range to print",
+      "child": 65535
+    },
+    {
+      "name": "Line",
+      "description": "Advance paper one line",
+      "child": 65535
+    },
+    {
+      "name": "Page",
+      "description": "Advance paper to top of next page",
+      "child": 65535
+    },
+    {
+      "name": "Options",
+      "description": "Header  Footer  Margins  Borders  Setup  Pg-Length  Other  Quit",
+      "child": 56
+    },
+    {
+      "name": "Clear",
+      "description": "All  Range  Borders  Format",
+      "child": 60
+    },
+    {
+      "name": "Align",
+      "description": "Reset to top of page (after adjusting paper)",
+      "child": 65535
+    },
+    {
+      "name": "Go",
+      "description": "Print the specified range",
+      "child": 65535
+    },
+    {
+      "name": "Quit",
+      "description": "Return to READY mode",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Header",
+      "description": "Create a header",
+      "child": 65535
+    },
+    {
+      "name": "Footer",
+      "description": "Create a footer",
+      "child": 65535
+    },
+    {
+      "name": "Margins",
+      "description": "Left  Right  Top  Bottom  None",
+      "child": 57
+    },
+    {
+      "name": "Borders",
+      "description": "Print border columns and/or rows",
+      "child": 58
+    },
+    {
+      "name": "Setup",
+      "description": "Enter printer setup string",
+      "child": 65535
+    },
+    {
+      "name": "Pg-Length",
+      "description": "Specify number of lines per page",
+      "child": 65535
+    },
+    {
+      "name": "Other",
+      "description": "As-Displayed  Cell-Formulas  Formatted  Unformatted",
+      "child": 59
+    },
+    {
+      "name": "Quit",
+      "description": "Return to previous menu",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Left",
+      "description": "Set left margin",
+      "child": 65535
+    },
+    {
+      "name": "Right",
+      "description": "Set right margin",
+      "child": 65535
+    },
+    {
+      "name": "Top",
+      "description": "Set top margin",
+      "child": 65535
+    },
+    {
+      "name": "Bottom",
+      "description": "Set bottom margin",
+      "child": 65535
+    },
+    {
+      "name": "None",
+      "description": "Clear all margin settings",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Columns",
+      "description": "Print border columns to the left of each print range",
+      "child": 65535
+    },
+    {
+      "name": "Rows",
+      "description": "Print border rows above each print range",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "As-Displayed",
+      "description": "Print range as displayed",
+      "child": 65535
+    },
+    {
+      "name": "Cell-Formulas",
+      "description": "List entries, one per line",
+      "child": 65535
+    },
+    {
+      "name": "Formatted",
+      "description": "Print headers, footers, and page breaks",
+      "child": 65535
+    },
+    {
+      "name": "Unformatted",
+      "description": "Do not print headers, footers, and page breaks",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "All",
+      "description": "Return all print settings to defaults",
+      "child": 65535
+    },
+    {
+      "name": "Range",
+      "description": "Clear current print range",
+      "child": 65535
+    },
+    {
+      "name": "Borders",
+      "description": "Clear border column and row ranges",
+      "child": 65535
+    },
+    {
+      "name": "Format",
+      "description": "Return margins, page length, and setup string to defaults",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Range",
+      "description": "Specify a range to print",
+      "child": 65535
+    },
+    {
+      "name": "Line",
+      "description": "Advance paper one line",
+      "child": 65535
+    },
+    {
+      "name": "Page",
+      "description": "Advance paper to top of next page",
+      "child": 65535
+    },
+    {
+      "name": "Options",
+      "description": "Header  Footer  Margins  Borders  Setup  Pg-Length  Other  Quit",
+      "child": 62
+    },
+    {
+      "name": "Clear",
+      "description": "All  Range  Borders  Format",
+      "child": 66
+    },
+    {
+      "name": "Align",
+      "description": "Reset to top of page (after adjusting paper)",
+      "child": 65535
+    },
+    {
+      "name": "Go",
+      "description": "Print the specified range",
+      "child": 65535
+    },
+    {
+      "name": "Quit",
+      "description": "Return to READY mode",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Header",
+      "description": "Create a header",
+      "child": 65535
+    },
+    {
+      "name": "Footer",
+      "description": "Create a footer",
+      "child": 65535
+    },
+    {
+      "name": "Margins",
+      "description": "Left  Right  Top  Bottom  None",
+      "child": 63
+    },
+    {
+      "name": "Borders",
+      "description": "Print border columns and/or rows",
+      "child": 64
+    },
+    {
+      "name": "Setup",
+      "description": "Enter printer setup string",
+      "child": 65535
+    },
+    {
+      "name": "Pg-Length",
+      "description": "Specify number of lines per page",
+      "child": 65535
+    },
+    {
+      "name": "Other",
+      "description": "As-Displayed  Cell-Formulas  Formatted  Unformatted",
+      "child": 65
+    },
+    {
+      "name": "Quit",
+      "description": "Return to previous menu",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Left",
+      "description": "Set left margin",
+      "child": 65535
+    },
+    {
+      "name": "Right",
+      "description": "Set right margin",
+      "child": 65535
+    },
+    {
+      "name": "Top",
+      "description": "Set top margin",
+      "child": 65535
+    },
+    {
+      "name": "Bottom",
+      "description": "Set bottom margin",
+      "child": 65535
+    },
+    {
+      "name": "None",
+      "description": "Clear all margin settings",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Columns",
+      "description": "Print border columns to the left of each print range",
+      "child": 65535
+    },
+    {
+      "name": "Rows",
+      "description": "Print border rows above each print range",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "As-Displayed",
+      "description": "Print range as displayed",
+      "child": 65535
+    },
+    {
+      "name": "Cell-Formulas",
+      "description": "List entries, one per line",
+      "child": 65535
+    },
+    {
+      "name": "Formatted",
+      "description": "Print headers, footers, and page breaks",
+      "child": 65535
+    },
+    {
+      "name": "Unformatted",
+      "description": "Do not print headers, footers, and page breaks",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "All",
+      "description": "Return all print settings to defaults",
+      "child": 65535
+    },
+    {
+      "name": "Range",
+      "description": "Clear current print range",
+      "child": 65535
+    },
+    {
+      "name": "Borders",
+      "description": "Clear border column and row ranges",
+      "child": 65535
+    },
+    {
+      "name": "Format",
+      "description": "Return margins, page length, and setup string to defaults",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Type",
+      "description": "Line  Bar  XY  Stack-Bar  Pie",
+      "child": 68
+    },
+    {
+      "name": "X",
+      "description": "Set X data range",
+      "child": 65535
+    },
+    {
+      "name": "A",
+      "description": "Set first data range",
+      "child": 65535
+    },
+    {
+      "name": "B",
+      "description": "Set second data range",
+      "child": 65535
+    },
+    {
+      "name": "C",
+      "description": "Set third data range",
+      "child": 65535
+    },
+    {
+      "name": "D",
+      "description": "Set fourth data range",
+      "child": 65535
+    },
+    {
+      "name": "E",
+      "description": "Set fifth data range",
+      "child": 65535
+    },
+    {
+      "name": "F",
+      "description": "Set sixth data range",
+      "child": 65535
+    },
+    {
+      "name": "Reset",
+      "description": "Graph  X  A  B  C  D  E  F  Ranges  Options  Quit",
+      "child": 65535
+    },
+    {
+      "name": "View",
+      "description": "View the current graph",
+      "child": 65535
+    },
+    {
+      "name": "Save",
+      "description": "Save the current graph in a file for printing",
+      "child": 65535
+    },
+    {
+      "name": "Options",
+      "description": "Legend  Format  Titles  Grid  Scale  Color  B&W  Data-Labels  Quit",
+      "child": 65535
+    },
+    {
+      "name": "Name",
+      "description": "Use  Create  Delete  Reset  Table",
+      "child": 69
+    },
+    {
+      "name": "Group",
+      "description": "Set all data ranges at once",
+      "child": 70
+    },
+    {
+      "name": "Quit",
+      "description": "Return to READY mode",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Line",
+      "description": "Line graph",
+      "child": 65535
+    },
+    {
+      "name": "Bar",
+      "description": "Bar graph",
+      "child": 65535
+    },
+    {
+      "name": "XY",
+      "description": "XY graph",
+      "child": 65535
+    },
+    {
+      "name": "Stack-Bar",
+      "description": "Stacked bar graph",
+      "child": 65535
+    },
+    {
+      "name": "Pie",
+      "description": "Pie chart",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Use",
+      "description": "Make a named graph current",
+      "child": 65535
+    },
+    {
+      "name": "Create",
+      "description": "Name the current graph",
+      "child": 65535
+    },
+    {
+      "name": "Delete",
+      "description": "Delete a named graph",
+      "child": 65535
+    },
+    {
+      "name": "Reset",
+      "description": "Delete all named graphs",
+      "child": 65535
+    },
+    {
+      "name": "Table",
+      "description": "Create a table of named graphs",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Columnwise",
+      "description": "Use columns as data ranges",
+      "child": 65535
+    },
+    {
+      "name": "Rowwise",
+      "description": "Use rows as data ranges",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Fill",
+      "description": "Fill a range with a sequence of values",
+      "child": 65535
+    },
+    {
+      "name": "Table",
+      "description": "Create a table of values",
+      "child": 72
+    },
+    {
+      "name": "Sort",
+      "description": "Sort database records",
+      "child": 73
+    },
+    {
+      "name": "Query",
+      "description": "Find all records that satisfy given criteria",
+      "child": 74
+    },
+    {
+      "name": "Distribution",
+      "description": "Calculate frequency distribution of the values in a range",
+      "child": 65535
+    },
+    {
+      "name": "Matrix",
+      "description": "Multiply and invert matrices",
+      "child": 75
+    },
+    {
+      "name": "Regression",
+      "description": "Calculate linear regression",
+      "child": 76
+    },
+    {
+      "name": "Parse",
+      "description": "Convert a column of long labels into a range of labels or numbers",
+      "child": 78
+    }
+  ],
+  [
+    {
+      "name": "1",
+      "description": "One input cell, one or more dependent formulas",
+      "child": 65535
+    },
+    {
+      "name": "2",
+      "description": "Two input cells, one dependent formula",
+      "child": 65535
+    },
+    {
+      "name": "Reset",
+      "description": "Clear table ranges and input cells for all data tables",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Data-Range",
+      "description": "Select records to be sorted",
+      "child": 65535
+    },
+    {
+      "name": "Primary-Key",
+      "description": "Specify primary order for records",
+      "child": 65535
+    },
+    {
+      "name": "Secondary-Key",
+      "description": "Specify order for records with same primary key",
+      "child": 65535
+    },
+    {
+      "name": "Reset",
+      "description": "Clear data range and sort keys",
+      "child": 65535
+    },
+    {
+      "name": "Go",
+      "description": "Sort data and return to READY mode",
+      "child": 65535
+    },
+    {
+      "name": "Quit",
+      "description": "Return to READY mode",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Input",
+      "description": "Specify range that contains records to search",
+      "child": 65535
+    },
+    {
+      "name": "Criteria",
+      "description": "Specify the range that contains criteria",
+      "child": 65535
+    },
+    {
+      "name": "Output",
+      "description": "Specify the range to which extracted records are copied",
+      "child": 65535
+    },
+    {
+      "name": "Find",
+      "description": "Highlight each record that matches criteria",
+      "child": 65535
+    },
+    {
+      "name": "Extract",
+      "description": "Copy all records that match criteria to output range",
+      "child": 65535
+    },
+    {
+      "name": "Unique",
+      "description": "Copy records that match criteria to output range, eliminating duplicates",
+      "child": 65535
+    },
+    {
+      "name": "Delete",
+      "description": "Delete all records that match criteria",
+      "child": 65535
+    },
+    {
+      "name": "Reset",
+      "description": "Clear input, criteria, and output ranges",
+      "child": 65535
+    },
+    {
+      "name": "Quit",
+      "description": "Return to READY mode",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Invert",
+      "description": "Create the inverse of a matrix",
+      "child": 65535
+    },
+    {
+      "name": "Multiply",
+      "description": "Multiply two ranges as matrices",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "X-Range",
+      "description": "Specify independent variables (X range)",
+      "child": 65535
+    },
+    {
+      "name": "Y-Range",
+      "description": "Specify dependent variable (Y range)",
+      "child": 65535
+    },
+    {
+      "name": "Output-Range",
+      "description": "Specify the output range",
+      "child": 65535
+    },
+    {
+      "name": "Intercept",
+      "description": "Compute  Zero",
+      "child": 77
+    },
+    {
+      "name": "Reset",
+      "description": "Clear the X range, Y range, output range, and reset Intercept to Compute",
+      "child": 65535
+    },
+    {
+      "name": "Go",
+      "description": "Calculate a data regression on specified ranges",
+      "child": 65535
+    },
+    {
+      "name": "Quit",
+      "description": "Return to READY mode",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Compute",
+      "description": "Calculate the y-axis intercept automatically",
+      "child": 65535
+    },
+    {
+      "name": "Zero",
+      "description": "Use zero as the y-axis intercept",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Format-Line",
+      "description": "Create or edit a format line at the current cell",
+      "child": 79
+    },
+    {
+      "name": "Input-Column",
+      "description": "Specify a column of labels to parse",
+      "child": 65535
+    },
+    {
+      "name": "Output-Range",
+      "description": "Specify the range in which parsed data is placed",
+      "child": 65535
+    },
+    {
+      "name": "Reset",
+      "description": "Clear input column and output range",
+      "child": 65535
+    },
+    {
+      "name": "Go",
+      "description": "Parse labels in the input column and place them in the output range",
+      "child": 65535
+    },
+    {
+      "name": "Quit",
+      "description": "Return to READY mode",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Create",
+      "description": "Create a format line at the current cell",
+      "child": 65535
+    },
+    {
+      "name": "Edit",
+      "description": "Edit a format line at the current cell",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "Attach",
+      "description": "Load an add-in program into memory",
+      "child": 65535
+    },
+    {
+      "name": "Detach",
+      "description": "Remove an attached add-in program from memory",
+      "child": 65535
+    },
+    {
+      "name": "Invoke",
+      "description": "Activate an attached add-in program",
+      "child": 65535
+    },
+    {
+      "name": "Clear",
+      "description": "Remove all attached add-in programs from memory",
+      "child": 65535
+    },
+    {
+      "name": "Quit",
+      "description": "Return to READY mode",
+      "child": 65535
+    }
+  ],
+  [
+    {
+      "name": "No",
+      "description": "Do not end 1-2-3 session; return to READY mode",
+      "child": 65535
+    },
+    {
+      "name": "Yes",
+      "description": "End 1-2-3 session (Remember to save your worksheet first)",
+      "child": 65535
+    }
+  ]
+]

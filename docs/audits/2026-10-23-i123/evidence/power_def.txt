@@ -1,0 +1,17 @@
+def power(a):
+ for branch in ['cancel','save','discard']:
+  for rep in range(2):
+   if branch!='cancel' or rep:a.open123()
+   a.cell('A1','POWER-'+branch+'-'+str(rep))
+   a.drag(632,472,-288,-194);a.click(380,90)
+   before=a.serial.stat().st_size
+   a.menu(170,30,170,125);a.state('power-'+branch+'-'+str(rep)+'-guard')
+   if branch=='cancel':
+    a.key('esc');a.click(150,50);a.state('power-'+branch+'-'+str(rep)+'-result');a.key('ctrl-q');a.click(252,168)
+   elif branch=='save':
+    a.key('ret');a.state('power-'+branch+'-'+str(rep)+'-prompt');a.click(150,50);a.type('SD'+str(rep));a.pause(.5);a.state('power-'+branch+'-'+str(rep)+'-result')
+   else:
+    a.click(252,168);a.pause(.5);a.state('power-'+branch+'-'+str(rep)+'-result')
+   data=a.serial.read_bytes()[before:]
+   if b'FLAIR-SHUTDOWN-SAFE' in data:a.key('ret');a.pause(3)
+   else:a.note('No FLAIR-SHUTDOWN-SAFE during this power trial: '+branch+' '+str(rep))

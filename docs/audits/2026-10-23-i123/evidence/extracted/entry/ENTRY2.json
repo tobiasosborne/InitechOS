@@ -1,0 +1,393 @@
+{
+  "path": "evidence/extracted/entry/ENTRY2.WK1",
+  "sha256": "fd2b9bac37a415a7aa5337a887ccf16b19fdaf0f0881fc454f83ad22d460fe0d",
+  "bytes": 1682,
+  "consumed": 1682,
+  "records": [
+    {
+      "offset": 0,
+      "opcode": 0,
+      "length": 2,
+      "body_hex": "0604"
+    },
+    {
+      "offset": 6,
+      "opcode": 6,
+      "length": 8,
+      "body_hex": "0000000005000500"
+    },
+    {
+      "offset": 18,
+      "opcode": 150,
+      "length": 36,
+      "body_hex": "000000000500010000000200020000000300030000000100040003000300050003000300"
+    },
+    {
+      "offset": 58,
+      "opcode": 47,
+      "length": 1,
+      "body_hex": "01"
+    },
+    {
+      "offset": 63,
+      "opcode": 2,
+      "length": 1,
+      "body_hex": "ff"
+    },
+    {
+      "offset": 68,
+      "opcode": 3,
+      "length": 1,
+      "body_hex": "00"
+    },
+    {
+      "offset": 73,
+      "opcode": 4,
+      "length": 1,
+      "body_hex": "00"
+    },
+    {
+      "offset": 78,
+      "opcode": 5,
+      "length": 1,
+      "body_hex": "ff"
+    },
+    {
+      "offset": 83,
+      "opcode": 7,
+      "length": 32,
+      "body_hex": "0000000071000900080014000000000000000000000000000400040048000000"
+    },
+    {
+      "offset": 119,
+      "opcode": 100,
+      "length": 32,
+      "body_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "offset": 155,
+      "opcode": 24,
+      "length": 25,
+      "body_hex": "00ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000"
+    },
+    {
+      "offset": 184,
+      "opcode": 25,
+      "length": 25,
+      "body_hex": "ffff0000ffff0000ffff0000ffff0000ffff0000ffff000000"
+    },
+    {
+      "offset": 213,
+      "opcode": 26,
+      "length": 8,
+      "body_hex": "ffff0000ffff0000"
+    },
+    {
+      "offset": 225,
+      "opcode": 48,
+      "length": 1,
+      "body_hex": "00"
+    },
+    {
+      "offset": 230,
+      "opcode": 28,
+      "length": 8,
+      "body_hex": "ffff0000ffff0000"
+    },
+    {
+      "offset": 242,
+      "opcode": 27,
+      "length": 8,
+      "body_hex": "ffff0000ffff0000"
+    },
+    {
+      "offset": 254,
+      "opcode": 29,
+      "length": 9,
+      "body_hex": "ffff0000ffff000000"
+    },
+    {
+      "offset": 267,
+      "opcode": 35,
+      "length": 9,
+      "body_hex": "ffff0000ffff000000"
+    },
+    {
+      "offset": 280,
+      "opcode": 103,
+      "length": 25,
+      "body_hex": "ffff0000ffff0000ffff0000ffff0000ffff0000ffff000000"
+    },
+    {
+      "offset": 309,
+      "opcode": 105,
+      "length": 40,
+      "body_hex": "ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000"
+    },
+    {
+      "offset": 353,
+      "opcode": 32,
+      "length": 16,
+      "body_hex": "ffff0000ffff0000ffff0000ffff0000"
+    },
+    {
+      "offset": 373,
+      "opcode": 102,
+      "length": 16,
+      "body_hex": "ffff0000ffff0000ffff0000ffff0000"
+    },
+    {
+      "offset": 393,
+      "opcode": 36,
+      "length": 1,
+      "body_hex": "00"
+    },
+    {
+      "offset": 398,
+      "opcode": 37,
+      "length": 242,
+      "body_hex": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "offset": 644,
+      "opcode": 38,
+      "length": 242,
+      "body_hex": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "offset": 890,
+      "opcode": 39,
+      "length": 40,
+      "body_hex": "00000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "offset": 934,
+      "opcode": 40,
+      "length": 10,
+      "body_hex": "04004c00420002000200"
+    },
+    {
+      "offset": 948,
+      "opcode": 41,
+      "length": 1,
+      "body_hex": "27"
+    },
+    {
+      "offset": 953,
+      "opcode": 42,
+      "length": 16,
+      "body_hex": "ffff0000ffff0000ffff0000ffff0000"
+    },
+    {
+      "offset": 973,
+      "opcode": 45,
+      "length": 439,
+      "body_hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0400000303030303030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000717101000000"
+    },
+    {
+      "offset": 1416,
+      "opcode": 15,
+      "length": 11,
+      "body_hex": "ff00000000274c65667400"
+    },
+    {
+      "offset": 1431,
+      "opcode": 15,
+      "length": 12,
+      "body_hex": "ff0100000022526967687400"
+    },
+    {
+      "offset": 1447,
+      "opcode": 15,
+      "length": 13,
+      "body_hex": "ff020000005e43656e74657200"
+    },
+    {
+      "offset": 1464,
+      "opcode": 15,
+      "length": 9,
+      "body_hex": "ff030000005c787900"
+    },
+    {
+      "offset": 1477,
+      "opcode": 13,
+      "length": 7,
+      "body_hex": "ff000001000c00"
+    },
+    {
+      "offset": 1488,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff01000100000000000000e0bf"
+    },
+    {
+      "offset": 1505,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff02000100000000000000e03f"
+    },
+    {
+      "offset": 1522,
+      "opcode": 13,
+      "length": 7,
+      "body_hex": "ff03000100e803"
+    },
+    {
+      "offset": 1533,
+      "opcode": 15,
+      "length": 9,
+      "body_hex": "ff0000020027413200"
+    },
+    {
+      "offset": 1546,
+      "opcode": 16,
+      "length": 21,
+      "body_hex": "ff010002000000000000002840060001ffbfffbf03"
+    },
+    {
+      "offset": 1571,
+      "opcode": 16,
+      "length": 35,
+      "body_hex": "ff02000200343333333333d33f1400009a9999999999b93f009a9999999999c93f0903"
+    },
+    {
+      "offset": 1610,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff02000300b81e85eb51b8be3f"
+    },
+    {
+      "offset": 1627,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff04000300d2e81978d6300700"
+    },
+    {
+      "offset": 1644,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff0500030062a0e0c478f5a648"
+    },
+    {
+      "offset": 1661,
+      "opcode": 15,
+      "length": 13,
+      "body_hex": "ff000005002761626364656600"
+    },
+    {
+      "offset": 1678,
+      "opcode": 1,
+      "length": 0,
+      "body_hex": ""
+    }
+  ],
+  "cells": [
+    {
+      "cell": "A1",
+      "format": 255,
+      "opcode": 15,
+      "body_hex": "ff00000000274c65667400",
+      "text": "'Left"
+    },
+    {
+      "cell": "B1",
+      "format": 255,
+      "opcode": 15,
+      "body_hex": "ff0100000022526967687400",
+      "text": "\"Right"
+    },
+    {
+      "cell": "C1",
+      "format": 255,
+      "opcode": 15,
+      "body_hex": "ff020000005e43656e74657200",
+      "text": "^Center"
+    },
+    {
+      "cell": "D1",
+      "format": 255,
+      "opcode": 15,
+      "body_hex": "ff030000005c787900",
+      "text": "\\xy"
+    },
+    {
+      "cell": "A2",
+      "format": 255,
+      "opcode": 13,
+      "body_hex": "ff000001000c00",
+      "value": 12
+    },
+    {
+      "cell": "B2",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff01000100000000000000e0bf",
+      "value": -0.5
+    },
+    {
+      "cell": "C2",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff02000100000000000000e03f",
+      "value": 0.5
+    },
+    {
+      "cell": "D2",
+      "format": 255,
+      "opcode": 13,
+      "body_hex": "ff03000100e803",
+      "value": 1000
+    },
+    {
+      "cell": "A3",
+      "format": 255,
+      "opcode": 15,
+      "body_hex": "ff0000020027413200",
+      "text": "'A2"
+    },
+    {
+      "cell": "B3",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff010002000000000000002840060001ffbfffbf03",
+      "value": 12.0,
+      "formula_hex": "01ffbfffbf03"
+    },
+    {
+      "cell": "C3",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff02000200343333333333d33f1400009a9999999999b93f009a9999999999c93f0903",
+      "value": 0.30000000000000004,
+      "formula_hex": "009a9999999999b93f009a9999999999c93f0903"
+    },
+    {
+      "cell": "C4",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff02000300b81e85eb51b8be3f",
+      "value": 0.12
+    },
+    {
+      "cell": "E4",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff04000300d2e81978d6300700",
+      "value": 1e-308
+    },
+    {
+      "cell": "F4",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff0500030062a0e0c478f5a648",
+      "value": 1.0000000000000002e+42
+    },
+    {
+      "cell": "A6",
+      "format": 255,
+      "opcode": 15,
+      "body_hex": "ff000005002761626364656600",
+      "text": "'abcdef"
+    }
+  ]
+}

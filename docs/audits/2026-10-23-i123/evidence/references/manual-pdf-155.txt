@@ -1,0 +1,56 @@
+5. Type a password and press ENTER.
+
+A password can include any combination of up to 15 characters. 1-2-3 displays
+blanks as you type the password. You must remember the exact combination
+of uppercase and lowercase letters you type.
+
+6. Type the same password again at the ‘Verify password’ prompt and press
+ENTER.
+
+7. If you are updating the file, select Replace to save the file with the password.
+
+Changing a Password
+
+1. Select /File Save.
+
+2. Press BACKSPACE once to clear the [PASSWORD PROTECTED] prompt.
+3. Press the space bar once.
+
+4. Follow steps 3 through 6 in the preceding procedure.
+
+Deleting a Password
+1. Select /File Save.
+
+2. Press BACKSPACE once to clear the [PASSWORD PROTECTED] prompt and
+press ENTER.
+
+3. Select Replace to update the file without a password.
+
+/File Xtract
+
+/File Xtract lets you save a range of data from the current worksheet to a new
+worksheet file on disk. /File Xtract also saves all settings associated with the
+worksheet in the extracted file. Use /File Xtract to create a smaller file from one
+large file. This command does not change the current worksheet.
+
+Before you use /File Xtract, note the following:
+
+¢ If you extract a formula, be certain that you extract all the data that is referred
+to by the formula. If all the data is not in the extracted file, then the formula
+will not produce the results you intended.
+
+¢ If you extract data in a named range, be certain that you extract the entire
+named range. If you extract only part of a named range, the range name will
+appear in the extracted file but it will no longer refer to the correct range of
+data.
+
+«If the CALC indicator appears at the bottom of the screen, press CALC (F9) to
+update formulas before you use /File Xtract Values.
+
+¢ 1-2-3 assigns a .WKI1 extension to files you create with /File Xtract unless you
+enter a different extension when you name the file.
+
+* Do not use /File Xtract if you are working with shared files on a network.
+
+/File Xtract 5-23
+

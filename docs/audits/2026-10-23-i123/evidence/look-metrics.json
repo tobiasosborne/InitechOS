@@ -1,0 +1,53 @@
+[
+  {
+    "region": "READY",
+    "native_crop": [
+      575,
+      62,
+      615,
+      78
+    ],
+    "real_after_ninth_column_removal": [
+      600,
+      0,
+      640,
+      16
+    ],
+    "pixel_count": 640,
+    "differing_ink_pixels": 12
+  },
+  {
+    "region": "column-A",
+    "native_crop": [
+      39,
+      110,
+      111,
+      126
+    ],
+    "real_after_ninth_column_removal": [
+      32,
+      48,
+      104,
+      64
+    ],
+    "pixel_count": 1152,
+    "differing_ink_pixels": 0
+  },
+  {
+    "region": "row-border",
+    "native_crop": [
+      7,
+      126,
+      39,
+      430
+    ],
+    "real_after_ninth_column_removal": [
+      0,
+      64,
+      32,
+      368
+    ],
+    "pixel_count": 9728,
+    "differing_ink_pixels": 20
+  }
+]

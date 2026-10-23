@@ -1,0 +1,60 @@
+Specifying a Range
+
+You can specify a range in three ways:
+* Type the range address.
+
+¢ Use a range name.
+
+¢ Highlight the range.
+
+Typing a Range Address
+
+You can specify a range by typing its address. A range address consists of the cell
+addresses of the two most distant cells in the range, separated by one or two
+periods. This address tells 1-2-3 where the range begins and ends and follows
+these guidelines:
+
+¢ Ifa range is a group of adjoining cells in a single column or row, the range
+address consists of the cell addresses of the two opposite ends of the range,
+for example, B3..B9 or A1..D1.
+
+¢ Ifa range is a group of adjoining cells that spans several columns or rows, the
+range address consists of the cell addresses of two diagonally opposite corners
+of the range. For example, to specify the range whose corner cells are B3, B9,
+D3, and D9, you could type b3..d9, b9.d3, d9..b3, or d3.b9 and then press
+ENTER.
+
+¢ Ifa range is a single cell, the range address consists of that cell address as
+both the starting and ending point of the range, for example, B3..B3. To
+specify a single cell range, however, you only need to type the cell address
+once. For example, to specify the range B3..B3, you could type B3 and press
+ENTER.
+
+You can use either uppercase or lowercase letters when typing the range address,
+but after you enter the range address 1-2-3 always displays it in uppercase letters.
+Also, regardless of which set of corner cells you use and whether you type one or
+two periods, 1-2-3 displays the range address as the range’s upper left and lower
+
+right corner cells (except in a formula), separated by two periods. For example, if
+
+you select /Data Sort Data-Range and specify either B3..H90, H3.B90, H90..B3, or
+
+B90.H3 as the range to sort, 1-2-3 displays B3..H90 in the settings sheet.
+
+Using a Range Name
+
+/Range Name Create and /Range Name Labels assign a name to a specified range,
+creating a range name (see /Range Name in Chapter 10). You can use range
+names in place of range addresses in commands and formulas. For example, if
+you want to move the data in A54,.B98 and you have assigned the name SALES
+to that range, you can specify SALES instead of A54..B98 as the range to move,
+You can also use SALES in any @function that takes a range name or address as
+an argument, for example, @SUM(SALES).
+
+Whenever a command prompts you for a range, you can specify a range name
+by typing the range name and pressing ENTER. Alternatively, you can press
+NAME (£3) to display a menu of range names that exist in the current worksheet,
+and then select a range name by highlighting it and pressing ENTER.
+
+1-24 Using 1-2-3
+

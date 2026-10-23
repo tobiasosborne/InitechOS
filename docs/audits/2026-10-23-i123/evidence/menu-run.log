@@ -1,0 +1,1144 @@
+STARTED menus pid 4
+SHOT menu-000-selected
+SHOT menu-000-result
+MENU 0 Worksheet
+SHOT menu-001-selected
+SHOT menu-001-result
+MENU 1 Worksheet/Global
+SHOT menu-002-selected
+SHOT menu-002-result
+MENU 2 Worksheet/Global/Format
+SHOT menu-003-selected
+SHOT menu-003-result
+MENU 3 Worksheet/Global/Format/Fixed
+SHOT menu-004-selected
+SHOT menu-004-result
+MENU 4 Worksheet/Global/Format/Sci
+SHOT menu-005-selected
+SHOT menu-005-result
+MENU 5 Worksheet/Global/Format/Currency
+SHOT menu-006-selected
+SHOT menu-006-result
+MENU 6 Worksheet/Global/Format/,
+SHOT menu-007-selected
+SHOT menu-007-result
+MENU 7 Worksheet/Global/Format/General
+SHOT menu-008-selected
+SHOT menu-008-result
+MENU 8 Worksheet/Global/Format/+/-
+SHOT menu-009-selected
+SHOT menu-009-result
+MENU 9 Worksheet/Global/Format/Percent
+SHOT menu-010-selected
+SHOT menu-010-result
+MENU 10 Worksheet/Global/Format/Date
+SHOT menu-011-selected
+SHOT menu-011-result
+MENU 11 Worksheet/Global/Format/Date/1 (DD-MMM-YY)
+SHOT menu-012-selected
+SHOT menu-012-result
+MENU 12 Worksheet/Global/Format/Date/2 (DD-MMM)
+SHOT menu-013-selected
+SHOT menu-013-result
+MENU 13 Worksheet/Global/Format/Date/3 (MMM-YY)
+SHOT menu-014-selected
+SHOT menu-014-result
+MENU 14 Worksheet/Global/Format/Date/4 (Long Intn'l)
+SHOT menu-015-selected
+SHOT menu-015-result
+MENU 15 Worksheet/Global/Format/Date/5 (Short Intn'l)
+SHOT menu-016-selected
+SHOT menu-016-result
+MENU 16 Worksheet/Global/Format/Date/Time
+SHOT menu-017-selected
+SHOT menu-017-result
+MENU 17 Worksheet/Global/Format/Date/Time/1 (HH:MM:SS AM/PM)
+SHOT menu-018-selected
+SHOT menu-018-result
+MENU 18 Worksheet/Global/Format/Date/Time/2 (HH:MM AM/PM)
+SHOT menu-019-selected
+SHOT menu-019-result
+MENU 19 Worksheet/Global/Format/Date/Time/3 (Long Intn'l)
+SHOT menu-020-selected
+SHOT menu-020-result
+MENU 20 Worksheet/Global/Format/Date/Time/4 (Short Intn'l)
+SHOT menu-021-selected
+SHOT menu-021-result
+MENU 21 Worksheet/Global/Format/Text
+SHOT menu-022-selected
+SHOT menu-022-result
+MENU 22 Worksheet/Global/Format/Hidden
+SHOT menu-023-selected
+SHOT menu-023-result
+MENU 23 Worksheet/Global/Label-Prefix
+SHOT menu-024-selected
+SHOT menu-024-result
+MENU 24 Worksheet/Global/Label-Prefix/Left
+SHOT menu-025-selected
+SHOT menu-025-result
+MENU 25 Worksheet/Global/Label-Prefix/Right
+SHOT menu-026-selected
+SHOT menu-026-result
+MENU 26 Worksheet/Global/Label-Prefix/Center
+SHOT menu-027-selected
+SHOT menu-027-result
+MENU 27 Worksheet/Global/Column-Width
+SHOT menu-028-selected
+SHOT menu-028-result
+MENU 28 Worksheet/Global/Recalculation
+SHOT menu-029-selected
+SHOT menu-029-result
+MENU 29 Worksheet/Global/Recalculation/Natural
+SHOT menu-030-selected
+SHOT menu-030-result
+MENU 30 Worksheet/Global/Recalculation/Columnwise
+SHOT menu-031-selected
+SHOT menu-031-result
+MENU 31 Worksheet/Global/Recalculation/Rowwise
+SHOT menu-032-selected
+SHOT menu-032-result
+MENU 32 Worksheet/Global/Recalculation/Automatic
+SHOT menu-033-selected
+SHOT menu-033-result
+MENU 33 Worksheet/Global/Recalculation/Manual
+SHOT menu-034-selected
+SHOT menu-034-result
+MENU 34 Worksheet/Global/Recalculation/Iteration
+SHOT menu-035-selected
+SHOT menu-035-result
+MENU 35 Worksheet/Global/Protection
+SHOT menu-036-selected
+SHOT menu-036-result
+MENU 36 Worksheet/Global/Protection/Enable
+SHOT menu-037-selected
+SHOT menu-037-result
+MENU 37 Worksheet/Global/Protection/Disable
+SHOT menu-038-selected
+SHOT menu-038-result
+MENU 38 Worksheet/Global/Default
+SHOT menu-039-selected
+SHOT menu-039-result
+MENU 39 Worksheet/Global/Default/Printer
+SHOT menu-040-selected
+SHOT menu-040-result
+MENU 40 Worksheet/Global/Default/Printer/Interface
+SHOT menu-041-selected
+SHOT menu-041-result
+MENU 41 Worksheet/Global/Default/Printer/AutoLF
+SHOT menu-042-selected
+SHOT menu-042-result
+MENU 42 Worksheet/Global/Default/Printer/AutoLF/Yes
+SHOT menu-043-selected
+SHOT menu-043-result
+MENU 43 Worksheet/Global/Default/Printer/AutoLF/No
+SHOT menu-044-selected
+SHOT menu-044-result
+MENU 44 Worksheet/Global/Default/Printer/Left
+SHOT menu-045-selected
+SHOT menu-045-result
+MENU 45 Worksheet/Global/Default/Printer/Right
+SHOT menu-046-selected
+SHOT menu-046-result
+MENU 46 Worksheet/Global/Default/Printer/Top
+SHOT menu-047-selected
+SHOT menu-047-result
+MENU 47 Worksheet/Global/Default/Printer/Bot
+SHOT menu-048-selected
+SHOT menu-048-result
+MENU 48 Worksheet/Global/Default/Printer/Pg-Length
+SHOT menu-049-selected
+SHOT menu-049-result
+MENU 49 Worksheet/Global/Default/Printer/Wait
+SHOT menu-050-selected
+SHOT menu-050-result
+MENU 50 Worksheet/Global/Default/Printer/Wait/No
+SHOT menu-051-selected
+SHOT menu-051-result
+MENU 51 Worksheet/Global/Default/Printer/Wait/Yes
+SHOT menu-052-selected
+SHOT menu-052-result
+MENU 52 Worksheet/Global/Default/Printer/Setup
+SHOT menu-053-selected
+SHOT menu-053-result
+MENU 53 Worksheet/Global/Default/Printer/Name
+SHOT menu-054-selected
+SHOT menu-054-result
+MENU 54 Worksheet/Global/Default/Printer/Quit
+SHOT menu-055-selected
+SHOT menu-055-result
+MENU 55 Worksheet/Global/Default/Directory
+SHOT menu-056-selected
+SHOT menu-056-result
+MENU 56 Worksheet/Global/Default/Status
+SHOT menu-057-selected
+SHOT menu-057-result
+MENU 57 Worksheet/Global/Default/Update
+SHOT menu-058-selected
+SHOT menu-058-result
+MENU 58 Worksheet/Global/Default/Other
+SHOT menu-059-selected
+SHOT menu-059-result
+MENU 59 Worksheet/Global/Default/Other/International
+SHOT menu-060-selected
+SHOT menu-060-result
+MENU 60 Worksheet/Global/Default/Other/International/Punctuation
+SHOT menu-061-selected
+SHOT menu-061-result
+MENU 61 Worksheet/Global/Default/Other/International/Punctuation/A (.,,)
+SHOT menu-062-selected
+SHOT menu-062-result
+MENU 62 Worksheet/Global/Default/Other/International/Punctuation/B (,..)
+SHOT menu-063-selected
+SHOT menu-063-result
+MENU 63 Worksheet/Global/Default/Other/International/Punctuation/C (.;,)
+SHOT menu-064-selected
+SHOT menu-064-result
+MENU 64 Worksheet/Global/Default/Other/International/Punctuation/D (,;.)
+SHOT menu-065-selected
+SHOT menu-065-result
+MENU 65 Worksheet/Global/Default/Other/International/Punctuation/E (., )
+SHOT menu-066-selected
+SHOT menu-066-result
+MENU 66 Worksheet/Global/Default/Other/International/Punctuation/F (,. )
+SHOT menu-067-selected
+SHOT menu-067-result
+MENU 67 Worksheet/Global/Default/Other/International/Punctuation/G (.; )
+SHOT menu-068-selected
+SHOT menu-068-result
+MENU 68 Worksheet/Global/Default/Other/International/Punctuation/H (,; )
+SHOT menu-069-selected
+SHOT menu-069-result
+MENU 69 Worksheet/Global/Default/Other/International/Currency
+SHOT menu-070-selected
+SHOT menu-070-result
+MENU 70 Worksheet/Global/Default/Other/International/Currency/Prefix
+SHOT menu-071-selected
+SHOT menu-071-result
+MENU 71 Worksheet/Global/Default/Other/International/Currency/Suffix
+SHOT menu-072-selected
+SHOT menu-072-result
+MENU 72 Worksheet/Global/Default/Other/International/Date
+SHOT menu-073-selected
+SHOT menu-073-result
+MENU 73 Worksheet/Global/Default/Other/International/Date/A (MM/DD/YY)
+SHOT menu-074-selected
+SHOT menu-074-result
+MENU 74 Worksheet/Global/Default/Other/International/Date/B (DD/MM/YY)
+SHOT menu-075-selected
+SHOT menu-075-result
+MENU 75 Worksheet/Global/Default/Other/International/Date/C (DD.MM.YY)
+SHOT menu-076-selected
+SHOT menu-076-result
+MENU 76 Worksheet/Global/Default/Other/International/Date/D (YY-MM-DD)
+SHOT menu-077-selected
+SHOT menu-077-result
+MENU 77 Worksheet/Global/Default/Other/International/Time
+SHOT menu-078-selected
+SHOT menu-078-result
+MENU 78 Worksheet/Global/Default/Other/International/Time/A (HH:MM:SS)
+SHOT menu-079-selected
+SHOT menu-079-result
+MENU 79 Worksheet/Global/Default/Other/International/Time/B (HH.MM.SS)
+SHOT menu-080-selected
+SHOT menu-080-result
+MENU 80 Worksheet/Global/Default/Other/International/Time/C (HH,MM,SS)
+SHOT menu-081-selected
+SHOT menu-081-result
+MENU 81 Worksheet/Global/Default/Other/International/Time/D (HHhMMmSSs)
+SHOT menu-082-selected
+SHOT menu-082-result
+MENU 82 Worksheet/Global/Default/Other/International/Negative
+SHOT menu-083-selected
+SHOT menu-083-result
+MENU 83 Worksheet/Global/Default/Other/International/Negative/Parentheses
+SHOT menu-084-selected
+SHOT menu-084-result
+MENU 84 Worksheet/Global/Default/Other/International/Negative/Sign
+SHOT menu-085-selected
+SHOT menu-085-result
+MENU 85 Worksheet/Global/Default/Other/International/Quit
+SHOT menu-086-selected
+SHOT menu-086-result
+MENU 86 Worksheet/Global/Default/Other/Help
+SHOT menu-087-selected
+SHOT menu-087-result
+MENU 87 Worksheet/Global/Default/Other/Help/Instant
+SHOT menu-088-selected
+SHOT menu-088-result
+MENU 88 Worksheet/Global/Default/Other/Help/Removable
+SHOT menu-089-selected
+SHOT menu-089-result
+MENU 89 Worksheet/Global/Default/Other/Clock
+SHOT menu-090-selected
+SHOT menu-090-result
+MENU 90 Worksheet/Global/Default/Other/Clock/Standard
+SHOT menu-091-selected
+SHOT menu-091-result
+MENU 91 Worksheet/Global/Default/Other/Clock/International
+SHOT menu-092-selected
+SHOT menu-092-result
+MENU 92 Worksheet/Global/Default/Other/Clock/None
+SHOT menu-093-selected
+SHOT menu-093-result
+MENU 93 Worksheet/Global/Default/Other/Clock/Clock
+SHOT menu-094-selected
+SHOT menu-094-result
+MENU 94 Worksheet/Global/Default/Other/Clock/Filename
+SHOT menu-095-selected
+SHOT menu-095-result
+MENU 95 Worksheet/Global/Default/Other/Undo
+SHOT menu-096-selected
+SHOT menu-096-result
+MENU 96 Worksheet/Global/Default/Other/Undo/Enable
+SHOT menu-097-selected
+SHOT menu-097-result
+MENU 97 Worksheet/Global/Default/Other/Undo/Disable
+SHOT menu-098-selected
+SHOT menu-098-result
+MENU 98 Worksheet/Global/Default/Other/Beep
+SHOT menu-099-selected
+SHOT menu-099-result
+MENU 99 Worksheet/Global/Default/Other/Beep/Enable
+SHOT menu-100-selected
+SHOT menu-100-result
+MENU 100 Worksheet/Global/Default/Other/Beep/Disable
+SHOT menu-101-selected
+SHOT menu-101-result
+MENU 101 Worksheet/Global/Default/Other/Add-In
+SHOT menu-102-selected
+SHOT menu-102-result
+MENU 102 Worksheet/Global/Default/Other/Add-In/Set
+SHOT menu-103-selected
+SHOT menu-103-result
+MENU 103 Worksheet/Global/Default/Other/Add-In/Cancel
+SHOT menu-104-selected
+SHOT menu-104-result
+MENU 104 Worksheet/Global/Default/Autoexec
+SHOT menu-105-selected
+SHOT menu-105-result
+MENU 105 Worksheet/Global/Default/Autoexec/Enable
+SHOT menu-106-selected
+SHOT menu-106-result
+MENU 106 Worksheet/Global/Default/Autoexec/Disable
+SHOT menu-107-selected
+SHOT menu-107-result
+MENU 107 Worksheet/Global/Default/Quit
+SHOT menu-108-selected
+SHOT menu-108-result
+MENU 108 Worksheet/Global/Zero
+SHOT menu-109-selected
+SHOT menu-109-result
+MENU 109 Worksheet/Insert
+SHOT menu-110-selected
+SHOT menu-110-result
+MENU 110 Worksheet/Insert/Column
+SHOT menu-111-selected
+SHOT menu-111-result
+MENU 111 Worksheet/Insert/Row
+SHOT menu-112-selected
+SHOT menu-112-result
+MENU 112 Worksheet/Delete
+SHOT menu-113-selected
+SHOT menu-113-result
+MENU 113 Worksheet/Delete/Column
+SHOT menu-114-selected
+SHOT menu-114-result
+MENU 114 Worksheet/Delete/Row
+SHOT menu-115-selected
+SHOT menu-115-result
+MENU 115 Worksheet/Column
+SHOT menu-116-selected
+SHOT menu-116-result
+MENU 116 Worksheet/Column/Set-Width
+SHOT menu-117-selected
+SHOT menu-117-result
+MENU 117 Worksheet/Column/Reset-Width
+SHOT menu-118-selected
+SHOT menu-118-result
+MENU 118 Worksheet/Column/Hide
+SHOT menu-119-selected
+SHOT menu-119-result
+MENU 119 Worksheet/Column/Display
+SHOT menu-120-selected
+SHOT menu-120-result
+MENU 120 Worksheet/Column/Column-Range
+SHOT menu-121-selected
+SHOT menu-121-result
+MENU 121 Worksheet/Column/Column-Range/Set-Width
+SHOT menu-122-selected
+SHOT menu-122-result
+MENU 122 Worksheet/Column/Column-Range/Reset-Width
+SHOT menu-123-selected
+SHOT menu-123-result
+MENU 123 Worksheet/Erase
+SHOT menu-124-selected
+SHOT menu-124-result
+MENU 124 Worksheet/Erase/No
+SHOT menu-125-selected
+SHOT menu-125-result
+MENU 125 Worksheet/Erase/Yes
+SHOT menu-126-selected
+SHOT menu-126-result
+MENU 126 Worksheet/Titles
+SHOT menu-127-selected
+SHOT menu-127-result
+MENU 127 Worksheet/Titles/Both
+SHOT menu-128-selected
+SHOT menu-128-result
+MENU 128 Worksheet/Titles/Horizontal
+SHOT menu-129-selected
+SHOT menu-129-result
+MENU 129 Worksheet/Titles/Vertical
+SHOT menu-130-selected
+SHOT menu-130-result
+MENU 130 Worksheet/Titles/Clear
+SHOT menu-131-selected
+SHOT menu-131-result
+MENU 131 Worksheet/Window
+SHOT menu-132-selected
+SHOT menu-132-result
+MENU 132 Worksheet/Window/Horizontal
+SHOT menu-133-selected
+SHOT menu-133-result
+MENU 133 Worksheet/Window/Vertical
+SHOT menu-134-selected
+SHOT menu-134-result
+MENU 134 Worksheet/Window/Sync
+SHOT menu-135-selected
+SHOT menu-135-result
+MENU 135 Worksheet/Window/Unsync
+SHOT menu-136-selected
+SHOT menu-136-result
+MENU 136 Worksheet/Window/Clear
+SHOT menu-137-selected
+SHOT menu-137-result
+MENU 137 Worksheet/Status
+SHOT menu-138-selected
+SHOT menu-138-result
+MENU 138 Worksheet/Page
+SHOT menu-139-selected
+SHOT menu-139-result
+MENU 139 Worksheet/Learn
+SHOT menu-140-selected
+SHOT menu-140-result
+MENU 140 Worksheet/Learn/Range
+SHOT menu-141-selected
+SHOT menu-141-result
+MENU 141 Worksheet/Learn/Cancel
+SHOT menu-142-selected
+SHOT menu-142-result
+MENU 142 Worksheet/Learn/Erase
+SHOT menu-143-selected
+SHOT menu-143-result
+MENU 143 Range
+SHOT menu-144-selected
+SHOT menu-144-result
+MENU 144 Range/Format
+SHOT menu-145-selected
+SHOT menu-145-result
+MENU 145 Range/Format/Fixed
+SHOT menu-146-selected
+SHOT menu-146-result
+MENU 146 Range/Format/Sci
+SHOT menu-147-selected
+SHOT menu-147-result
+MENU 147 Range/Format/Currency
+SHOT menu-148-selected
+SHOT menu-148-result
+MENU 148 Range/Format/,
+SHOT menu-149-selected
+SHOT menu-149-result
+MENU 149 Range/Format/General
+SHOT menu-150-selected
+SHOT menu-150-result
+MENU 150 Range/Format/+/-
+SHOT menu-151-selected
+SHOT menu-151-result
+MENU 151 Range/Format/Percent
+SHOT menu-152-selected
+SHOT menu-152-result
+MENU 152 Range/Format/Date
+SHOT menu-153-selected
+SHOT menu-153-result
+MENU 153 Range/Format/Date/1 (DD-MMM-YY)
+SHOT menu-154-selected
+SHOT menu-154-result
+MENU 154 Range/Format/Date/2 (DD-MMM)
+SHOT menu-155-selected
+SHOT menu-155-result
+MENU 155 Range/Format/Date/3 (MMM-YY)
+SHOT menu-156-selected
+SHOT menu-156-result
+MENU 156 Range/Format/Date/4 (Long Intn'l)
+SHOT menu-157-selected
+SHOT menu-157-result
+MENU 157 Range/Format/Date/5 (Short Intn'l)
+SHOT menu-158-selected
+SHOT menu-158-result
+MENU 158 Range/Format/Date/Time
+SHOT menu-159-selected
+SHOT menu-159-result
+MENU 159 Range/Format/Date/Time/1 (HH:MM:SS AM/PM)
+SHOT menu-160-selected
+SHOT menu-160-result
+MENU 160 Range/Format/Date/Time/2 (HH:MM AM/PM)
+SHOT menu-161-selected
+SHOT menu-161-result
+MENU 161 Range/Format/Date/Time/3 (Long Intn'l)
+SHOT menu-162-selected
+SHOT menu-162-result
+MENU 162 Range/Format/Date/Time/4 (Short Intn'l)
+SHOT menu-163-selected
+SHOT menu-163-result
+MENU 163 Range/Format/Text
+SHOT menu-164-selected
+SHOT menu-164-result
+MENU 164 Range/Format/Hidden
+SHOT menu-165-selected
+SHOT menu-165-result
+MENU 165 Range/Format/Reset
+SHOT menu-166-selected
+SHOT menu-166-result
+MENU 166 Range/Label
+SHOT menu-167-selected
+SHOT menu-167-result
+MENU 167 Range/Label/Left
+SHOT menu-168-selected
+SHOT menu-168-result
+MENU 168 Range/Label/Right
+SHOT menu-169-selected
+SHOT menu-169-result
+MENU 169 Range/Label/Center
+SHOT menu-170-selected
+SHOT menu-170-result
+MENU 170 Range/Erase
+SHOT menu-171-selected
+SHOT menu-171-result
+MENU 171 Range/Name
+SHOT menu-172-selected
+SHOT menu-172-result
+MENU 172 Range/Name/Create
+SHOT menu-173-selected
+SHOT menu-173-result
+MENU 173 Range/Name/Delete
+SHOT menu-174-selected
+SHOT menu-174-result
+MENU 174 Range/Name/Labels
+SHOT menu-175-selected
+SHOT menu-175-result
+MENU 175 Range/Name/Labels/Right
+SHOT menu-176-selected
+SHOT menu-176-result
+MENU 176 Range/Name/Labels/Down
+SHOT menu-177-selected
+SHOT menu-177-result
+MENU 177 Range/Name/Labels/Left
+SHOT menu-178-selected
+SHOT menu-178-result
+MENU 178 Range/Name/Labels/Up
+SHOT menu-179-selected
+SHOT menu-179-result
+MENU 179 Range/Name/Reset
+SHOT menu-180-selected
+SHOT menu-180-result
+MENU 180 Range/Name/Table
+SHOT menu-181-selected
+SHOT menu-181-result
+MENU 181 Range/Justify
+SHOT menu-182-selected
+SHOT menu-182-result
+MENU 182 Range/Prot
+SHOT menu-183-selected
+SHOT menu-183-result
+MENU 183 Range/Unprot
+SHOT menu-184-selected
+SHOT menu-184-result
+MENU 184 Range/Input
+SHOT menu-185-selected
+SHOT menu-185-result
+MENU 185 Range/Value
+SHOT menu-186-selected
+SHOT menu-186-result
+MENU 186 Range/Trans
+SHOT menu-187-selected
+SHOT menu-187-result
+MENU 187 Range/Search
+SHOT menu-188-selected
+SHOT menu-188-result
+MENU 188 Range/Search/Formulas
+SHOT menu-189-selected
+SHOT menu-189-result
+MENU 189 Range/Search/Formulas/Find
+SHOT menu-190-selected
+SHOT menu-190-result
+MENU 190 Range/Search/Formulas/Replace
+SHOT menu-191-selected
+SHOT menu-191-result
+MENU 191 Range/Search/Label
+SHOT menu-192-selected
+SHOT menu-192-result
+MENU 192 Range/Search/Both
+SHOT menu-193-selected
+SHOT menu-193-result
+MENU 193 Copy
+SHOT menu-194-selected
+SHOT menu-194-result
+MENU 194 Move
+SHOT menu-195-selected
+SHOT menu-195-result
+MENU 195 File
+SHOT menu-196-selected
+SHOT menu-196-result
+MENU 196 File/Retrieve
+SHOT menu-197-selected
+SHOT menu-197-result
+MENU 197 File/Save
+SHOT menu-198-selected
+SHOT menu-198-result
+MENU 198 File/Combine
+SHOT menu-199-selected
+SHOT menu-199-result
+MENU 199 File/Combine/Copy
+SHOT menu-200-selected
+SHOT menu-200-result
+MENU 200 File/Combine/Copy/Entire-File
+SHOT menu-201-selected
+SHOT menu-201-result
+MENU 201 File/Combine/Copy/Named/Specified-Range
+SHOT menu-202-selected
+SHOT menu-202-result
+MENU 202 File/Combine/Add
+SHOT menu-203-selected
+SHOT menu-203-result
+MENU 203 File/Combine/Add/Entire-File
+SHOT menu-204-selected
+SHOT menu-204-result
+MENU 204 File/Combine/Add/Named/Specified-Range
+SHOT menu-205-selected
+SHOT menu-205-result
+MENU 205 File/Combine/Subtract
+SHOT menu-206-selected
+SHOT menu-206-result
+MENU 206 File/Combine/Subtract/Entire-File
+SHOT menu-207-selected
+SHOT menu-207-result
+MENU 207 File/Combine/Subtract/Named/Specified-Range
+SHOT menu-208-selected
+SHOT menu-208-result
+MENU 208 File/Xtract
+SHOT menu-209-selected
+SHOT menu-209-result
+MENU 209 File/Xtract/Formulas
+SHOT menu-210-selected
+SHOT menu-210-result
+MENU 210 File/Xtract/Values
+SHOT menu-211-selected
+SHOT menu-211-result
+MENU 211 File/Erase
+SHOT menu-212-selected
+SHOT menu-212-result
+MENU 212 File/Erase/Worksheet
+SHOT menu-213-selected
+SHOT menu-213-result
+MENU 213 File/Erase/Print
+SHOT menu-214-selected
+SHOT menu-214-result
+MENU 214 File/Erase/Graph
+SHOT menu-215-selected
+SHOT menu-215-result
+MENU 215 File/Erase/Other
+SHOT menu-216-selected
+SHOT menu-216-result
+MENU 216 File/List
+SHOT menu-217-selected
+SHOT menu-217-result
+MENU 217 File/List/Worksheet
+SHOT menu-218-selected
+SHOT menu-218-result
+MENU 218 File/List/Print
+SHOT menu-219-selected
+SHOT menu-219-result
+MENU 219 File/List/Graph
+SHOT menu-220-selected
+SHOT menu-220-result
+MENU 220 File/List/Other
+SHOT menu-221-selected
+SHOT menu-221-result
+MENU 221 File/List/Linked
+SHOT menu-222-selected
+SHOT menu-222-result
+MENU 222 File/Import
+SHOT menu-223-selected
+SHOT menu-223-result
+MENU 223 File/Import/Text
+SHOT menu-224-selected
+SHOT menu-224-result
+MENU 224 File/Import/Numbers
+SHOT menu-225-selected
+SHOT menu-225-result
+MENU 225 File/Directory
+SHOT menu-226-selected
+SHOT menu-226-result
+MENU 226 File/Admin
+SHOT menu-227-selected
+SHOT menu-227-result
+MENU 227 File/Admin/Reservation
+SHOT menu-228-selected
+SHOT menu-228-result
+MENU 228 File/Admin/Reservation/Get
+SHOT menu-229-selected
+SHOT menu-229-result
+MENU 229 File/Admin/Reservation/Release
+SHOT menu-230-selected
+SHOT menu-230-result
+MENU 230 File/Admin/Table
+SHOT menu-231-selected
+SHOT menu-231-result
+MENU 231 File/Admin/Link-Refresh
+SHOT menu-232-selected
+SHOT menu-232-result
+MENU 232 Print
+SHOT menu-233-selected
+SHOT menu-233-result
+MENU 233 Print/Printer
+SHOT menu-234-selected
+SHOT menu-234-result
+MENU 234 Print/Printer/Range
+SHOT menu-235-selected
+SHOT menu-235-result
+MENU 235 Print/Printer/Line
+SHOT menu-236-selected
+SHOT menu-236-result
+MENU 236 Print/Printer/Page
+SHOT menu-237-selected
+SHOT menu-237-result
+MENU 237 Print/Printer/Options
+SHOT menu-238-selected
+SHOT menu-238-result
+MENU 238 Print/Printer/Options/Header
+SHOT menu-239-selected
+SHOT menu-239-result
+MENU 239 Print/Printer/Options/Footer
+SHOT menu-240-selected
+SHOT menu-240-result
+MENU 240 Print/Printer/Options/Margins
+SHOT menu-241-selected
+SHOT menu-241-result
+MENU 241 Print/Printer/Options/Margins/Left
+SHOT menu-242-selected
+SHOT menu-242-result
+MENU 242 Print/Printer/Options/Margins/Right
+SHOT menu-243-selected
+SHOT menu-243-result
+MENU 243 Print/Printer/Options/Margins/Top
+SHOT menu-244-selected
+SHOT menu-244-result
+MENU 244 Print/Printer/Options/Margins/Bottom
+SHOT menu-245-selected
+SHOT menu-245-result
+MENU 245 Print/Printer/Options/Margins/None
+SHOT menu-246-selected
+SHOT menu-246-result
+MENU 246 Print/Printer/Options/Borders
+SHOT menu-247-selected
+SHOT menu-247-result
+MENU 247 Print/Printer/Options/Borders/Columns
+SHOT menu-248-selected
+SHOT menu-248-result
+MENU 248 Print/Printer/Options/Borders/Rows
+SHOT menu-249-selected
+SHOT menu-249-result
+MENU 249 Print/Printer/Options/Setup
+SHOT menu-250-selected
+SHOT menu-250-result
+MENU 250 Print/Printer/Options/Pg-Length
+SHOT menu-251-selected
+SHOT menu-251-result
+MENU 251 Print/Printer/Options/Other
+SHOT menu-252-selected
+SHOT menu-252-result
+MENU 252 Print/Printer/Options/Other/As-Displayed
+SHOT menu-253-selected
+SHOT menu-253-result
+MENU 253 Print/Printer/Options/Other/Cell-Formulas
+SHOT menu-254-selected
+SHOT menu-254-result
+MENU 254 Print/Printer/Options/Other/Formatted
+SHOT menu-255-selected
+SHOT menu-255-result
+MENU 255 Print/Printer/Options/Other/Unformatted
+SHOT menu-256-selected
+SHOT menu-256-result
+MENU 256 Print/Printer/Options/Quit
+SHOT menu-257-selected
+SHOT menu-257-result
+MENU 257 Print/Printer/Clear
+SHOT menu-258-selected
+SHOT menu-258-result
+MENU 258 Print/Printer/Clear/All
+SHOT menu-259-selected
+SHOT menu-259-result
+MENU 259 Print/Printer/Clear/Range
+SHOT menu-260-selected
+SHOT menu-260-result
+MENU 260 Print/Printer/Clear/Borders
+SHOT menu-261-selected
+SHOT menu-261-result
+MENU 261 Print/Printer/Clear/Format
+SHOT menu-262-selected
+SHOT menu-262-result
+MENU 262 Print/Printer/Align
+SHOT menu-263-selected
+SHOT menu-263-result
+MENU 263 Print/Printer/Go
+SHOT menu-264-selected
+SHOT menu-264-result
+MENU 264 Print/Printer/Quit
+SHOT menu-265-selected
+SHOT menu-265-result
+MENU 265 Print/File
+SHOT menu-266-selected
+SHOT menu-266-result
+MENU 266 Print/File/Range
+SHOT menu-267-selected
+SHOT menu-267-result
+MENU 267 Print/File/Line
+SHOT menu-268-selected
+SHOT menu-268-result
+MENU 268 Print/File/Page
+SHOT menu-269-selected
+SHOT menu-269-result
+MENU 269 Print/File/Options
+SHOT menu-270-selected
+SHOT menu-270-result
+MENU 270 Print/File/Options/Header
+SHOT menu-271-selected
+SHOT menu-271-result
+MENU 271 Print/File/Options/Footer
+SHOT menu-272-selected
+SHOT menu-272-result
+MENU 272 Print/File/Options/Margins
+SHOT menu-273-selected
+SHOT menu-273-result
+MENU 273 Print/File/Options/Margins/Left
+SHOT menu-274-selected
+SHOT menu-274-result
+MENU 274 Print/File/Options/Margins/Right
+SHOT menu-275-selected
+SHOT menu-275-result
+MENU 275 Print/File/Options/Margins/Top
+SHOT menu-276-selected
+SHOT menu-276-result
+MENU 276 Print/File/Options/Margins/Bottom
+SHOT menu-277-selected
+SHOT menu-277-result
+MENU 277 Print/File/Options/Margins/None
+SHOT menu-278-selected
+SHOT menu-278-result
+MENU 278 Print/File/Options/Borders
+SHOT menu-279-selected
+SHOT menu-279-result
+MENU 279 Print/File/Options/Borders/Columns
+SHOT menu-280-selected
+SHOT menu-280-result
+MENU 280 Print/File/Options/Borders/Rows
+SHOT menu-281-selected
+SHOT menu-281-result
+MENU 281 Print/File/Options/Setup
+SHOT menu-282-selected
+SHOT menu-282-result
+MENU 282 Print/File/Options/Pg-Length
+SHOT menu-283-selected
+SHOT menu-283-result
+MENU 283 Print/File/Options/Other
+SHOT menu-284-selected
+SHOT menu-284-result
+MENU 284 Print/File/Options/Other/As-Displayed
+SHOT menu-285-selected
+SHOT menu-285-result
+MENU 285 Print/File/Options/Other/Cell-Formulas
+SHOT menu-286-selected
+SHOT menu-286-result
+MENU 286 Print/File/Options/Other/Formatted
+SHOT menu-287-selected
+SHOT menu-287-result
+MENU 287 Print/File/Options/Other/Unformatted
+SHOT menu-288-selected
+SHOT menu-288-result
+MENU 288 Print/File/Options/Quit
+SHOT menu-289-selected
+SHOT menu-289-result
+MENU 289 Print/File/Clear
+SHOT menu-290-selected
+SHOT menu-290-result
+MENU 290 Print/File/Clear/All
+SHOT menu-291-selected
+SHOT menu-291-result
+MENU 291 Print/File/Clear/Range
+SHOT menu-292-selected
+SHOT menu-292-result
+MENU 292 Print/File/Clear/Borders
+SHOT menu-293-selected
+SHOT menu-293-result
+MENU 293 Print/File/Clear/Format
+SHOT menu-294-selected
+SHOT menu-294-result
+MENU 294 Print/File/Align
+SHOT menu-295-selected
+SHOT menu-295-result
+MENU 295 Print/File/Go
+SHOT menu-296-selected
+SHOT menu-296-result
+MENU 296 Print/File/Quit
+SHOT menu-297-selected
+SHOT menu-297-result
+MENU 297 Graph
+SHOT menu-298-selected
+SHOT menu-298-result
+MENU 298 Graph/Type
+SHOT menu-299-selected
+SHOT menu-299-result
+MENU 299 Graph/Type/Line
+SHOT menu-300-selected
+SHOT menu-300-result
+MENU 300 Graph/Type/Bar
+SHOT menu-301-selected
+SHOT menu-301-result
+MENU 301 Graph/Type/XY
+SHOT menu-302-selected
+SHOT menu-302-result
+MENU 302 Graph/Type/Stack-Bar
+SHOT menu-303-selected
+SHOT menu-303-result
+MENU 303 Graph/Type/Pie
+SHOT menu-304-selected
+SHOT menu-304-result
+MENU 304 Graph/X
+SHOT menu-305-selected
+SHOT menu-305-result
+MENU 305 Graph/A
+SHOT menu-306-selected
+SHOT menu-306-result
+MENU 306 Graph/B
+SHOT menu-307-selected
+SHOT menu-307-result
+MENU 307 Graph/C
+SHOT menu-308-selected
+SHOT menu-308-result
+MENU 308 Graph/D
+SHOT menu-309-selected
+SHOT menu-309-result
+MENU 309 Graph/E
+SHOT menu-310-selected
+SHOT menu-310-result
+MENU 310 Graph/F
+SHOT menu-311-selected
+SHOT menu-311-result
+MENU 311 Graph/Reset
+SHOT menu-312-selected
+SHOT menu-312-result
+MENU 312 Graph/View
+SHOT menu-313-selected
+SHOT menu-313-result
+MENU 313 Graph/Save
+SHOT menu-314-selected
+SHOT menu-314-result
+MENU 314 Graph/Options
+SHOT menu-315-selected
+SHOT menu-315-result
+MENU 315 Graph/Name
+SHOT menu-316-selected
+SHOT menu-316-result
+MENU 316 Graph/Name/Use
+SHOT menu-317-selected
+SHOT menu-317-result
+MENU 317 Graph/Name/Create
+SHOT menu-318-selected
+SHOT menu-318-result
+MENU 318 Graph/Name/Delete
+SHOT menu-319-selected
+SHOT menu-319-result
+MENU 319 Graph/Name/Reset
+SHOT menu-320-selected
+SHOT menu-320-result
+MENU 320 Graph/Name/Table
+SHOT menu-321-selected
+SHOT menu-321-result
+MENU 321 Graph/Group
+SHOT menu-322-selected
+SHOT menu-322-result
+MENU 322 Graph/Group/Columnwise
+SHOT menu-323-selected
+SHOT menu-323-result
+MENU 323 Graph/Group/Rowwise
+SHOT menu-324-selected
+SHOT menu-324-result
+MENU 324 Graph/Quit
+SHOT menu-325-selected
+SHOT menu-325-result
+MENU 325 Data
+SHOT menu-326-selected
+SHOT menu-326-result
+MENU 326 Data/Fill
+SHOT menu-327-selected
+SHOT menu-327-result
+MENU 327 Data/Table
+SHOT menu-328-selected
+SHOT menu-328-result
+MENU 328 Data/Table/1
+SHOT menu-329-selected
+SHOT menu-329-result
+MENU 329 Data/Table/2
+SHOT menu-330-selected
+SHOT menu-330-result
+MENU 330 Data/Table/Reset
+SHOT menu-331-selected
+SHOT menu-331-result
+MENU 331 Data/Sort
+SHOT menu-332-selected
+SHOT menu-332-result
+MENU 332 Data/Sort/Data-Range
+SHOT menu-333-selected
+SHOT menu-333-result
+MENU 333 Data/Sort/Primary-Key
+SHOT menu-334-selected
+SHOT menu-334-result
+MENU 334 Data/Sort/Secondary-Key
+SHOT menu-335-selected
+SHOT menu-335-result
+MENU 335 Data/Sort/Reset
+SHOT menu-336-selected
+SHOT menu-336-result
+MENU 336 Data/Sort/Go
+SHOT menu-337-selected
+SHOT menu-337-result
+MENU 337 Data/Sort/Quit
+SHOT menu-338-selected
+SHOT menu-338-result
+MENU 338 Data/Query
+SHOT menu-339-selected
+SHOT menu-339-result
+MENU 339 Data/Query/Input
+SHOT menu-340-selected
+SHOT menu-340-result
+MENU 340 Data/Query/Criteria
+SHOT menu-341-selected
+SHOT menu-341-result
+MENU 341 Data/Query/Output
+SHOT menu-342-selected
+SHOT menu-342-result
+MENU 342 Data/Query/Find
+SHOT menu-343-selected
+SHOT menu-343-result
+MENU 343 Data/Query/Extract
+SHOT menu-344-selected
+SHOT menu-344-result
+MENU 344 Data/Query/Unique
+SHOT menu-345-selected
+SHOT menu-345-result
+MENU 345 Data/Query/Delete
+SHOT menu-346-selected
+SHOT menu-346-result
+MENU 346 Data/Query/Reset
+SHOT menu-347-selected
+SHOT menu-347-result
+MENU 347 Data/Query/Quit
+SHOT menu-348-selected
+SHOT menu-348-result
+MENU 348 Data/Distribution
+SHOT menu-349-selected
+SHOT menu-349-result
+MENU 349 Data/Matrix
+SHOT menu-350-selected
+SHOT menu-350-result
+MENU 350 Data/Matrix/Invert
+SHOT menu-351-selected
+SHOT menu-351-result
+MENU 351 Data/Matrix/Multiply
+SHOT menu-352-selected
+SHOT menu-352-result
+MENU 352 Data/Regression
+SHOT menu-353-selected
+SHOT menu-353-result
+MENU 353 Data/Regression/X-Range
+SHOT menu-354-selected
+SHOT menu-354-result
+MENU 354 Data/Regression/Y-Range
+SHOT menu-355-selected
+SHOT menu-355-result
+MENU 355 Data/Regression/Output-Range
+SHOT menu-356-selected
+SHOT menu-356-result
+MENU 356 Data/Regression/Intercept
+SHOT menu-357-selected
+SHOT menu-357-result
+MENU 357 Data/Regression/Intercept/Compute
+SHOT menu-358-selected
+SHOT menu-358-result
+MENU 358 Data/Regression/Intercept/Zero
+SHOT menu-359-selected
+SHOT menu-359-result
+MENU 359 Data/Regression/Reset
+SHOT menu-360-selected
+SHOT menu-360-result
+MENU 360 Data/Regression/Go
+SHOT menu-361-selected
+SHOT menu-361-result
+MENU 361 Data/Regression/Quit
+SHOT menu-362-selected
+SHOT menu-362-result
+MENU 362 Data/Parse
+SHOT menu-363-selected
+SHOT menu-363-result
+MENU 363 Data/Parse/Format-Line
+SHOT menu-364-selected
+SHOT menu-364-result
+MENU 364 Data/Parse/Format-Line/Create
+SHOT menu-365-selected
+SHOT menu-365-result
+MENU 365 Data/Parse/Format-Line/Edit
+SHOT menu-366-selected
+SHOT menu-366-result
+MENU 366 Data/Parse/Input-Column
+SHOT menu-367-selected
+SHOT menu-367-result
+MENU 367 Data/Parse/Output-Range
+SHOT menu-368-selected
+SHOT menu-368-result
+MENU 368 Data/Parse/Reset
+SHOT menu-369-selected
+SHOT menu-369-result
+MENU 369 Data/Parse/Go
+SHOT menu-370-selected
+SHOT menu-370-result
+MENU 370 Data/Parse/Quit
+SHOT menu-371-selected
+SHOT menu-371-result
+MENU 371 System
+SHOT menu-372-selected
+SHOT menu-372-result
+MENU 372 Add-In
+SHOT menu-373-selected
+SHOT menu-373-result
+MENU 373 Add-In/Attach
+SHOT menu-374-selected
+SHOT menu-374-result
+MENU 374 Add-In/Detach
+SHOT menu-375-selected
+SHOT menu-375-result
+MENU 375 Add-In/Invoke
+SHOT menu-376-selected
+SHOT menu-376-result
+MENU 376 Add-In/Clear
+SHOT menu-377-selected
+SHOT menu-377-result
+MENU 377 Add-In/Quit
+SHOT menu-378-selected
+SHOT menu-378-result
+MENU 378 Quit
+SHOT menu-379-selected
+SHOT menu-379-result
+MENU 379 Quit/No
+SHOT menu-380-selected
+MENU 380 Quit/Yes
+STOPPED 4

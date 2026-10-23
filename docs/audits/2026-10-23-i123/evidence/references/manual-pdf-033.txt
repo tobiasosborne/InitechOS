@@ -1,0 +1,60 @@
+entry is valid, 1-2-3 enters the data in the current cell. If the entry is not valid,
+1-2-3 switches to EDIT mode and displays the data in the second line of the
+control panel for editing. For information on editing data, see “Editing an Entry”
+later in this section.
+
+Labels
+
+A label is a text entry. It can include any combination of characters in the Lotus
+International Character Set (LICS), including numbers and numeric symbols. For
+example, Caroline Wilson, 1620 Hill Road, 606-999-0001, and $19,803 can all be
+entered as labels.
+
+Use the following guidelines when entering labels:
+
+* To create a label that begins with a number (0 through 9) or one of the
+numeric symbols + - @ . ( # or $, precede the entry with one of the label
+prefixes described in the next section, “Label Prefixes.’’
+
+For example, to enter the label 1620 Hill Road or $19,803, you must type a
+label prefix before typing the actual entry. Otherwise, 1-2-3 will assume you
+are entering a value (the mode indicator will display VALUE),
+
+« Even if an entry does not begin with a number or numeric symbol, you may
+
+want to precede the entry with a label prefix to change the way 1-2-3 positions
+the label in the cell or to control whether 1-2-3 prints the label.
+For example, to center the label Wilson in the cell, you must type the label
+prefix * before typing the actual entry. Otherwise, 1-2-3 will automatically use
+the default label prefix (see /Worksheet Global Label-Prefix in Chapter 12.)
+
+¢ The entry cannot be longer than 240 characters.
+
+NOTE 1-2-3 does not display the label prefix in the cell but does display it in the
+control panel when you highlight that cell.
+
+Label Prefixes
+
+Besides allowing you to enter labels that 1-2-3 would usually recognize as values,
+label prefixes also allow you to control the way 1-2-3 aligns labels in cells and to
+
+control whether or not 1-2-3 prints a label. Each label prefix produces a different
+
+result.
+
+The following table lists the label prefixes and their effects on labels.
+
+Prefix Result __
+, “ Aligns the label with the left edge of the cell (default alignment for labels). _
+" Aligns the label with the right edge of the cell.
+
+Centers the label in the cell.
+
+\ Repeats the characters in the label to fill the cell.
+
+NOTE The | (split vertical bar) is also a label prefix. It is used primarily for
+embedded setup strings (see Appendix B) and /Data Parse format lines (see
+Chapter 4). If used as a label prefix for a label that is located at the beginning of a
+
+Entering and Editing Data 1-17
+

@@ -1,0 +1,55 @@
+@CELLPOINTER
+
+@CELLPOINTER (attribute) returns information about an attribute for the current
+cell.
+
+Attribute can be any of the 10 valid attribute arguments for @CELL. See the
+description of the @CELL function for a list of attributes. Aftribute can be entered
+as a literal string, a string formula, or a reference to a cell that contains a label.
+
+1-2-3 automatically updates @CELLPOINTER only when you make an entry. To
+make @CELLPOINTER return information about the current cell if you have
+simply moved the cell pointer to it, you must recalculate the worksheet.
+
+Example
+
+@CELLPOINTER is useful in macros when you need to test the cell pointer’s
+current location or when you need to evaluate a formula based on the contents of
+the current cell.
+
+For example, in the macro instructions
+{IF @CELLPOINTER(‘type’’) = ““b’’} {BEEP 2} {QUIT}
+
+@CELLPOINTER is used to evaluate the contents of the current cell. If the
+current cell is blank, 1-2-3 beeps and ends the macro.
+
+@CHAR
+@CHAR(x) returns the character that the Lotus International Character Set (LICS)
+code x produces. For information on LICS, see Appendix A.
+
+X can be any integer from 1 to 255. Values outside this range yield ERR.
+
+If your computer monitor cannot display the character that corresponds to x,
+1-2-3 displays a character that resembles the desired character when possible. If
+no displayable character approximates the character, 1-2-3 displays nothing.
+
+@CHAR is useful for entering foreign language characters and mathematical
+symbols. Whether a character prints depends on the capabilities of your printer.
+
+Examples
+@CHAR(244) = 6
+
+The formula
++“Champs-"&@CHAR(20D) &‘lys”&@CHAR(233)&“es”
+
+returns Champs-Elysées
+
+@CHOOSE
+@CHOOSE(offset, list) finds the value or string in list that is specified by offset.
+
+Offset represents an offset number. An offset number corresponds to the position
+an item occupies in list. The first item has an offset number of 0, the second item
+has an offset number of 1, and so on. Offset can be zero or any positive integer
+
+@Function Descriptions 13-19
+

@@ -1,0 +1,230 @@
+STARTED typeerrors pid 7
+SHOT typeerror-000
+TYPE 0 @ABS("x")
+SHOT typeerror-001
+TYPE 1 @INT("x")
+SHOT typeerror-002
+TYPE 2 @SQRT("x")
+SHOT typeerror-003
+TYPE 3 @LOG("x")
+SHOT typeerror-004
+TYPE 4 @LN("x")
+SHOT typeerror-005
+TYPE 5 @SIN("x")
+SHOT typeerror-006
+TYPE 6 @COS("x")
+SHOT typeerror-007
+TYPE 7 @TAN("x")
+SHOT typeerror-008
+TYPE 8 @ATAN2("x","x")
+SHOT typeerror-009
+TYPE 9 @ATAN("x")
+SHOT typeerror-010
+TYPE 10 @ASIN("x")
+SHOT typeerror-011
+TYPE 11 @ACOS("x")
+SHOT typeerror-012
+TYPE 12 @EXP("x")
+SHOT typeerror-013
+TYPE 13 @MOD("x","x")
+SHOT typeerror-014
+TYPE 14 @CHOOSE("x","x")
+SHOT typeerror-015
+TYPE 15 @ISNA("x")
+SHOT typeerror-016
+TYPE 16 @ISERR("x")
+SHOT typeerror-017
+TYPE 17 @DATE("x","x","x")
+SHOT typeerror-018
+TYPE 18 @PMT("x","x","x")
+SHOT typeerror-019
+TYPE 19 @PV("x","x","x")
+SHOT typeerror-020
+TYPE 20 @FV("x","x","x")
+SHOT typeerror-021
+TYPE 21 @IF("x","x","x")
+SHOT typeerror-022
+TYPE 22 @DAY("x")
+SHOT typeerror-023
+TYPE 23 @MONTH("x")
+SHOT typeerror-024
+TYPE 24 @YEAR("x")
+SHOT typeerror-025
+TYPE 25 @ROUND("x","x")
+SHOT typeerror-026
+TYPE 26 @TIME("x","x","x")
+SHOT typeerror-027
+TYPE 27 @HOUR("x")
+SHOT typeerror-028
+TYPE 28 @MINUTE("x")
+SHOT typeerror-029
+TYPE 29 @SECOND("x")
+SHOT typeerror-030
+TYPE 30 @ISNUMBER("x")
+SHOT typeerror-031
+TYPE 31 @ISSTRING("x")
+SHOT typeerror-032
+TYPE 32 @LENGTH("x")
+SHOT typeerror-033
+TYPE 33 @VALUE("x")
+SHOT typeerror-034
+TYPE 34 @STRING("x","x")
+SHOT typeerror-035
+TYPE 35 @MID("x","x","x")
+SHOT typeerror-036
+TYPE 36 @CHAR("x")
+SHOT typeerror-037
+TYPE 37 @CODE("x")
+SHOT typeerror-038
+TYPE 38 @FIND("x","x","x")
+SHOT typeerror-039
+TYPE 39 @DATEVALUE("x")
+SHOT typeerror-040
+TYPE 40 @TIMEVALUE("x")
+SHOT typeerror-041
+TYPE 41 @CELLPOINTER("x")
+SHOT typeerror-042
+TYPE 42 @SUM("x")
+SHOT typeerror-043
+TYPE 43 @AVG("x")
+SHOT typeerror-044
+TYPE 44 @COUNT("x")
+SHOT typeerror-045
+TYPE 45 @MIN("x")
+SHOT typeerror-046
+TYPE 46 @MAX("x")
+SHOT typeerror-047
+TYPE 47 @VLOOKUP("x",A300..B302,"x")
+SHOT typeerror-048
+TYPE 48 @NPV("x",A300..B302)
+SHOT typeerror-049
+TYPE 49 @VAR("x")
+SHOT typeerror-050
+TYPE 50 @STD("x")
+SHOT typeerror-051
+TYPE 51 @IRR("x",A300..B302)
+SHOT typeerror-052
+TYPE 52 @HLOOKUP("x",A300..B302,"x")
+SHOT typeerror-053
+TYPE 53 @DSUM(A300..B302,"x",A300..B302)
+SHOT typeerror-054
+TYPE 54 @DAVG(A300..B302,"x",A300..B302)
+SHOT typeerror-055
+TYPE 55 @DCOUNT(A300..B302,"x",A300..B302)
+SHOT typeerror-056
+TYPE 56 @DMIN(A300..B302,"x",A300..B302)
+SHOT typeerror-057
+TYPE 57 @DMAX(A300..B302,"x",A300..B302)
+SHOT typeerror-058
+TYPE 58 @DVAR(A300..B302,"x",A300..B302)
+SHOT typeerror-059
+TYPE 59 @DSTD(A300..B302,"x",A300..B302)
+SHOT typeerror-060
+TYPE 60 @INDEX(A300..B302,"x","x")
+SHOT typeerror-061
+TYPE 61 @COLS(A300..B302)
+SHOT typeerror-062
+TYPE 62 @ROWS(A300..B302)
+SHOT typeerror-063
+TYPE 63 @REPEAT("x","x")
+SHOT typeerror-064
+TYPE 64 @UPPER("x")
+SHOT typeerror-065
+TYPE 65 @LOWER("x")
+SHOT typeerror-066
+TYPE 66 @LEFT("x","x")
+SHOT typeerror-067
+TYPE 67 @RIGHT("x","x")
+SHOT typeerror-068
+TYPE 68 @REPLACE("x","x","x","x")
+SHOT typeerror-069
+TYPE 69 @PROPER("x")
+SHOT typeerror-070
+TYPE 70 @CELL("x",A300..B302)
+SHOT typeerror-071
+TYPE 71 @TRIM("x")
+SHOT typeerror-072
+TYPE 72 @CLEAN("x")
+SHOT typeerror-073
+TYPE 73 @S(A300..B302)
+SHOT typeerror-074
+TYPE 74 @N(A300..B302)
+SHOT typeerror-075
+TYPE 75 @EXACT("x","x")
+SHOT typeerror-076
+TYPE 76 @@("x")
+SHOT typeerror-077
+TYPE 77 @RATE("x","x","x")
+SHOT typeerror-078
+TYPE 78 @TERM("x","x","x")
+SHOT typeerror-079
+TYPE 79 @CTERM("x","x","x")
+SHOT typeerror-080
+TYPE 80 @SLN("x","x","x")
+SHOT typeerror-081
+TYPE 81 @SYD("x","x","x","x")
+SHOT typeerror-082
+TYPE 82 @DDB("x","x","x","x")
+SHOT typeerror-083
+TYPE 83 @@(D5)
+SHOT typeerror-084
+TYPE 84 @SUM(A300..IV8192)
+SHOT typeerror-085
+TYPE 85 @AVG(A300..IV8192)
+SHOT typeerror-086
+TYPE 86 @MIN(A300..IV8192)
+SHOT typeerror-087
+TYPE 87 @MAX(A300..IV8192)
+SHOT typeerror-088
+TYPE 88 @COUNT(A300..IV8192)
+SHOT typeerror-089
+TYPE 89 @VAR(A300..IV8192)
+SHOT typeerror-090
+TYPE 90 @STD(A300..IV8192)
+SHOT typeerror-091
+TYPE 91 @REPEAT("x",10000)
+SHOT typeerror-092
+TYPE 92 @ROUND(1,1E99)
+SHOT typeerror-093
+TYPE 93 @DATE(0,2,29)
+SHOT typeerror-094
+TYPE 94 @SQRT(-1)
+SHOT typeerror-095
+TYPE 95 @LN(0)
+SHOT typeerror-096
+TYPE 96 @ASIN(2)
+SHOT typeerror-097
+TYPE 97 @INDEX(A300..B302,100,100)
+SHOT typeerror-098
+TYPE 98 @CHAR(0)
+SHOT typeerror-099
+TYPE 99 @CHAR(256)
+SHOT typeerrors-saved
+_ File Edit View Special 1:23pm
+File Y
+A100: @CHAR(Z56) FREAD YES
+A B c D E F Gg H
+Bo ERR
+B? ERR
+b8 ERR
+B9 ERR
+1o9 ERR
+Ho.
+ez
+es
+os
+Hes
+106
+or
+es
+409
+410
+ait
+wiz
+M13
+14
+[Saved TYPES .wk1
+[=|
+|
+
+STOPPED 7

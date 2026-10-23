@@ -1,0 +1,34 @@
+Highlighting a Range
+
+When 1-2-3 is in POINT mode, you can specify a range by highlighting it. To
+highlight a range, you must first anchor the cell pointer by moving it to a corner
+cell in the range and pressing . (period). This cell is now the anchor cell.
+
+Some commands that prompt you for ranges (such as /Copy, /Move, and /Range
+Format) automatically anchor the cell pointer in the current cell. When 1-2-3 asks
+you to specify a range, you can tell if the cell pointer is anchored by looking at
+the prompt in the control panel. A single cell address (such as B3) means the cell
+pointer is not anchored, while a range address (B3..B3) means it is anchored.
+
+If 1-2-3 automatically anchors the cell pointer and you want to highlight a range
+that starts somewhere else, press ESC to unanchor the cell pointer, move the cell
+pointer to the appropriate cell, and press . (period) to anchor the cell pointer
+there.
+
+Once a corner of the range you want to highlight is anchored, use the
+pointer-movement keys to expand the highlight until it covers the range. As you
+expand the highlight, 1-2-3 displays the address of the highlighted area in the
+control panel. When you have highlighted the entire range, press ENTER to
+complete the range specification.
+
+NOTE If you change your mind and want to highlight a different range,
+press BACKSPACE to remove highlighting from the range, unanchor the cell
+pointer, and return the cell pointer to wherever it was before 1-2-3 entered
+POINT mode; or, press ESC to remove highlighting and unanchor the cell
+pointer without moving it.
+
+Figure 1-13 shows an example of highlighting a range after selecting /Range
+Format Currency.
+
+Working with Ranges 1-25
+

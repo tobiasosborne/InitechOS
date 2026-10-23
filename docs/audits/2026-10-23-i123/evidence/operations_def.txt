@@ -1,0 +1,18 @@
+def operations(a):
+ for c,v in {'A1':'1','B1':'2','A2':'+A1+B1','B2':'4'}.items():a.cell(c,v)
+ a.slash('rv');a.type('A1..B2');a.type('D1');a.state('range-value')
+ a.slash('rt');a.type('A1..B2');a.type('G1');a.state('range-transpose');a.saveas('RANGES')
+ a.clear();a.cell('B2','RightName');a.cell('C2','12');a.slash('rnlr');a.type('B2');a.goto('RightName');a.state('names-label-right')
+ a.cell('B4','DownName');a.cell('B5','15');a.slash('rnld');a.type('B4');a.goto('DownName');a.state('names-label-down')
+ a.cell('D2','LeftName');a.slash('rnll');a.type('D2');a.goto('LeftName');a.state('names-label-left')
+ a.cell('D4','UpName');a.cell('D3','13');a.slash('rnlu');a.type('D4');a.goto('UpName');a.state('names-label-up')
+ a.slash('rnt');a.type('F1');a.state('names-table');a.saveas('NAMETAB');a.slash('rnr');a.goto('RightName');a.state('names-reset');a.key('esc')
+ a.clear();a.cell('A1','label');
+ for k in ['r','c','l']:
+  a.slash('rl'+k);a.type('A1');a.state('range-label-'+k)
+ a.cell('B1','123.45');a.slash('wgff');a.type('2');a.state('global-format');a.slash('wgc');a.type('15');a.state('global-width')
+ a.slash('ru');a.type('A1');a.slash('wgpe');a.cell('A1','allowed');a.state('range-unprotect');a.slash('wgpd')
+ a.slash('rfh');a.type('B1');a.goto('B1');a.state('hidden-unprotected');a.slash('rp');a.type('B1');a.slash('wgpe');a.state('hidden-protected');a.slash('wgpd')
+ for v in ['0','51','1','50']:
+  a.key('ctrl-scroll_lock');a.slash('wgri');a.type(v);a.state('iteration-'+v)
+ a.key('ctrl-scroll_lock');a.saveas('SETTINGS')

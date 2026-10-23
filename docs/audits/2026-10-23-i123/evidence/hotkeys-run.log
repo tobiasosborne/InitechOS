@@ -1,0 +1,600 @@
+STARTED hotkeys pid 7
+SHOT hotkey-003
+HOTKEY 3 Worksheet/Global/Format/Fixed
+SHOT hotkey-004
+HOTKEY 4 Worksheet/Global/Format/Sci
+SHOT hotkey-005
+HOTKEY 5 Worksheet/Global/Format/Currency
+SHOT hotkey-006
+HOTKEY 6 Worksheet/Global/Format/,
+SHOT hotkey-007
+HOTKEY 7 Worksheet/Global/Format/General
+SHOT hotkey-008
+HOTKEY 8 Worksheet/Global/Format/+/-
+SHOT hotkey-009
+HOTKEY 9 Worksheet/Global/Format/Percent
+SHOT hotkey-011
+HOTKEY 11 Worksheet/Global/Format/Date/1 (DD-MMM-YY)
+SHOT hotkey-012
+HOTKEY 12 Worksheet/Global/Format/Date/2 (DD-MMM)
+SHOT hotkey-013
+HOTKEY 13 Worksheet/Global/Format/Date/3 (MMM-YY)
+SHOT hotkey-014
+HOTKEY 14 Worksheet/Global/Format/Date/4 (Long Intn'l)
+SHOT hotkey-015
+HOTKEY 15 Worksheet/Global/Format/Date/5 (Short Intn'l)
+SHOT hotkey-017
+HOTKEY 17 Worksheet/Global/Format/Date/Time/1 (HH:MM:SS AM/PM)
+SHOT hotkey-018
+HOTKEY 18 Worksheet/Global/Format/Date/Time/2 (HH:MM AM/PM)
+SHOT hotkey-019
+HOTKEY 19 Worksheet/Global/Format/Date/Time/3 (Long Intn'l)
+SHOT hotkey-020
+HOTKEY 20 Worksheet/Global/Format/Date/Time/4 (Short Intn'l)
+SHOT hotkey-021
+HOTKEY 21 Worksheet/Global/Format/Text
+SHOT hotkey-022
+HOTKEY 22 Worksheet/Global/Format/Hidden
+SHOT hotkey-024
+HOTKEY 24 Worksheet/Global/Label-Prefix/Left
+SHOT hotkey-025
+HOTKEY 25 Worksheet/Global/Label-Prefix/Right
+SHOT hotkey-026
+HOTKEY 26 Worksheet/Global/Label-Prefix/Center
+SHOT hotkey-027
+HOTKEY 27 Worksheet/Global/Column-Width
+SHOT hotkey-029
+HOTKEY 29 Worksheet/Global/Recalculation/Natural
+SHOT hotkey-030
+HOTKEY 30 Worksheet/Global/Recalculation/Columnwise
+SHOT hotkey-031
+HOTKEY 31 Worksheet/Global/Recalculation/Rowwise
+SHOT hotkey-032
+HOTKEY 32 Worksheet/Global/Recalculation/Automatic
+SHOT hotkey-033
+HOTKEY 33 Worksheet/Global/Recalculation/Manual
+SHOT hotkey-034
+HOTKEY 34 Worksheet/Global/Recalculation/Iteration
+SHOT hotkey-036
+HOTKEY 36 Worksheet/Global/Protection/Enable
+SHOT hotkey-037
+HOTKEY 37 Worksheet/Global/Protection/Disable
+SHOT hotkey-040
+HOTKEY 40 Worksheet/Global/Default/Printer/Interface
+SHOT hotkey-042
+HOTKEY 42 Worksheet/Global/Default/Printer/AutoLF/Yes
+SHOT hotkey-043
+HOTKEY 43 Worksheet/Global/Default/Printer/AutoLF/No
+SHOT hotkey-044
+HOTKEY 44 Worksheet/Global/Default/Printer/Left
+SHOT hotkey-045
+HOTKEY 45 Worksheet/Global/Default/Printer/Right
+SHOT hotkey-046
+HOTKEY 46 Worksheet/Global/Default/Printer/Top
+SHOT hotkey-047
+HOTKEY 47 Worksheet/Global/Default/Printer/Bot
+SHOT hotkey-048
+HOTKEY 48 Worksheet/Global/Default/Printer/Pg-Length
+SHOT hotkey-050
+HOTKEY 50 Worksheet/Global/Default/Printer/Wait/No
+SHOT hotkey-051
+HOTKEY 51 Worksheet/Global/Default/Printer/Wait/Yes
+SHOT hotkey-052
+HOTKEY 52 Worksheet/Global/Default/Printer/Setup
+SHOT hotkey-053
+HOTKEY 53 Worksheet/Global/Default/Printer/Name
+SHOT hotkey-054
+HOTKEY 54 Worksheet/Global/Default/Printer/Quit
+SHOT hotkey-055
+HOTKEY 55 Worksheet/Global/Default/Directory
+SHOT hotkey-056
+HOTKEY 56 Worksheet/Global/Default/Status
+SHOT hotkey-057
+HOTKEY 57 Worksheet/Global/Default/Update
+SHOT hotkey-061
+HOTKEY 61 Worksheet/Global/Default/Other/International/Punctuation/A (.,,)
+SHOT hotkey-062
+HOTKEY 62 Worksheet/Global/Default/Other/International/Punctuation/B (,..)
+SHOT hotkey-063
+HOTKEY 63 Worksheet/Global/Default/Other/International/Punctuation/C (.;,)
+SHOT hotkey-064
+HOTKEY 64 Worksheet/Global/Default/Other/International/Punctuation/D (,;.)
+SHOT hotkey-065
+HOTKEY 65 Worksheet/Global/Default/Other/International/Punctuation/E (., )
+SHOT hotkey-066
+HOTKEY 66 Worksheet/Global/Default/Other/International/Punctuation/F (,. )
+SHOT hotkey-067
+HOTKEY 67 Worksheet/Global/Default/Other/International/Punctuation/G (.; )
+SHOT hotkey-068
+HOTKEY 68 Worksheet/Global/Default/Other/International/Punctuation/H (,; )
+SHOT hotkey-070
+HOTKEY 70 Worksheet/Global/Default/Other/International/Currency/Prefix
+SHOT hotkey-071
+HOTKEY 71 Worksheet/Global/Default/Other/International/Currency/Suffix
+SHOT hotkey-073
+HOTKEY 73 Worksheet/Global/Default/Other/International/Date/A (MM/DD/YY)
+SHOT hotkey-074
+HOTKEY 74 Worksheet/Global/Default/Other/International/Date/B (DD/MM/YY)
+SHOT hotkey-075
+HOTKEY 75 Worksheet/Global/Default/Other/International/Date/C (DD.MM.YY)
+SHOT hotkey-076
+HOTKEY 76 Worksheet/Global/Default/Other/International/Date/D (YY-MM-DD)
+SHOT hotkey-078
+HOTKEY 78 Worksheet/Global/Default/Other/International/Time/A (HH:MM:SS)
+SHOT hotkey-079
+HOTKEY 79 Worksheet/Global/Default/Other/International/Time/B (HH.MM.SS)
+SHOT hotkey-080
+HOTKEY 80 Worksheet/Global/Default/Other/International/Time/C (HH,MM,SS)
+SHOT hotkey-081
+HOTKEY 81 Worksheet/Global/Default/Other/International/Time/D (HHhMMmSSs)
+SHOT hotkey-083
+HOTKEY 83 Worksheet/Global/Default/Other/International/Negative/Parentheses
+SHOT hotkey-084
+HOTKEY 84 Worksheet/Global/Default/Other/International/Negative/Sign
+SHOT hotkey-085
+HOTKEY 85 Worksheet/Global/Default/Other/International/Quit
+SHOT hotkey-087
+HOTKEY 87 Worksheet/Global/Default/Other/Help/Instant
+SHOT hotkey-088
+HOTKEY 88 Worksheet/Global/Default/Other/Help/Removable
+SHOT hotkey-090
+HOTKEY 90 Worksheet/Global/Default/Other/Clock/Standard
+SHOT hotkey-091
+HOTKEY 91 Worksheet/Global/Default/Other/Clock/International
+SHOT hotkey-092
+HOTKEY 92 Worksheet/Global/Default/Other/Clock/None
+SHOT hotkey-093
+HOTKEY 93 Worksheet/Global/Default/Other/Clock/Clock
+SHOT hotkey-094
+HOTKEY 94 Worksheet/Global/Default/Other/Clock/Filename
+SHOT hotkey-096
+HOTKEY 96 Worksheet/Global/Default/Other/Undo/Enable
+SHOT hotkey-097
+HOTKEY 97 Worksheet/Global/Default/Other/Undo/Disable
+SHOT hotkey-099
+HOTKEY 99 Worksheet/Global/Default/Other/Beep/Enable
+SHOT hotkey-100
+HOTKEY 100 Worksheet/Global/Default/Other/Beep/Disable
+SHOT hotkey-102
+HOTKEY 102 Worksheet/Global/Default/Other/Add-In/Set
+SHOT hotkey-103
+HOTKEY 103 Worksheet/Global/Default/Other/Add-In/Cancel
+SHOT hotkey-105
+HOTKEY 105 Worksheet/Global/Default/Autoexec/Enable
+SHOT hotkey-106
+HOTKEY 106 Worksheet/Global/Default/Autoexec/Disable
+SHOT hotkey-107
+HOTKEY 107 Worksheet/Global/Default/Quit
+SHOT hotkey-108
+HOTKEY 108 Worksheet/Global/Zero
+SHOT hotkey-110
+HOTKEY 110 Worksheet/Insert/Column
+SHOT hotkey-111
+HOTKEY 111 Worksheet/Insert/Row
+SHOT hotkey-113
+HOTKEY 113 Worksheet/Delete/Column
+SHOT hotkey-114
+HOTKEY 114 Worksheet/Delete/Row
+SHOT hotkey-116
+HOTKEY 116 Worksheet/Column/Set-Width
+SHOT hotkey-117
+HOTKEY 117 Worksheet/Column/Reset-Width
+SHOT hotkey-118
+HOTKEY 118 Worksheet/Column/Hide
+SHOT hotkey-119
+HOTKEY 119 Worksheet/Column/Display
+SHOT hotkey-121
+HOTKEY 121 Worksheet/Column/Column-Range/Set-Width
+SHOT hotkey-122
+HOTKEY 122 Worksheet/Column/Column-Range/Reset-Width
+SHOT hotkey-124
+HOTKEY 124 Worksheet/Erase/No
+SHOT hotkey-125
+HOTKEY 125 Worksheet/Erase/Yes
+SHOT hotkey-127
+HOTKEY 127 Worksheet/Titles/Both
+SHOT hotkey-128
+HOTKEY 128 Worksheet/Titles/Horizontal
+SHOT hotkey-129
+HOTKEY 129 Worksheet/Titles/Vertical
+SHOT hotkey-130
+HOTKEY 130 Worksheet/Titles/Clear
+SHOT hotkey-132
+HOTKEY 132 Worksheet/Window/Horizontal
+SHOT hotkey-133
+HOTKEY 133 Worksheet/Window/Vertical
+SHOT hotkey-134
+HOTKEY 134 Worksheet/Window/Sync
+SHOT hotkey-135
+HOTKEY 135 Worksheet/Window/Unsync
+SHOT hotkey-136
+HOTKEY 136 Worksheet/Window/Clear
+SHOT hotkey-137
+HOTKEY 137 Worksheet/Status
+SHOT hotkey-138
+HOTKEY 138 Worksheet/Page
+SHOT hotkey-140
+HOTKEY 140 Worksheet/Learn/Range
+SHOT hotkey-141
+HOTKEY 141 Worksheet/Learn/Cancel
+SHOT hotkey-142
+HOTKEY 142 Worksheet/Learn/Erase
+SHOT hotkey-145
+HOTKEY 145 Range/Format/Fixed
+SHOT hotkey-146
+HOTKEY 146 Range/Format/Sci
+SHOT hotkey-147
+HOTKEY 147 Range/Format/Currency
+SHOT hotkey-148
+HOTKEY 148 Range/Format/,
+SHOT hotkey-149
+HOTKEY 149 Range/Format/General
+SHOT hotkey-150
+HOTKEY 150 Range/Format/+/-
+SHOT hotkey-151
+HOTKEY 151 Range/Format/Percent
+SHOT hotkey-153
+HOTKEY 153 Range/Format/Date/1 (DD-MMM-YY)
+SHOT hotkey-154
+HOTKEY 154 Range/Format/Date/2 (DD-MMM)
+SHOT hotkey-155
+HOTKEY 155 Range/Format/Date/3 (MMM-YY)
+SHOT hotkey-156
+HOTKEY 156 Range/Format/Date/4 (Long Intn'l)
+SHOT hotkey-157
+HOTKEY 157 Range/Format/Date/5 (Short Intn'l)
+SHOT hotkey-159
+HOTKEY 159 Range/Format/Date/Time/1 (HH:MM:SS AM/PM)
+SHOT hotkey-160
+HOTKEY 160 Range/Format/Date/Time/2 (HH:MM AM/PM)
+SHOT hotkey-161
+HOTKEY 161 Range/Format/Date/Time/3 (Long Intn'l)
+SHOT hotkey-162
+HOTKEY 162 Range/Format/Date/Time/4 (Short Intn'l)
+SHOT hotkey-163
+HOTKEY 163 Range/Format/Text
+SHOT hotkey-164
+HOTKEY 164 Range/Format/Hidden
+SHOT hotkey-165
+HOTKEY 165 Range/Format/Reset
+SHOT hotkey-167
+HOTKEY 167 Range/Label/Left
+SHOT hotkey-168
+HOTKEY 168 Range/Label/Right
+SHOT hotkey-169
+HOTKEY 169 Range/Label/Center
+SHOT hotkey-170
+HOTKEY 170 Range/Erase
+SHOT hotkey-172
+HOTKEY 172 Range/Name/Create
+SHOT hotkey-173
+HOTKEY 173 Range/Name/Delete
+SHOT hotkey-175
+HOTKEY 175 Range/Name/Labels/Right
+SHOT hotkey-176
+HOTKEY 176 Range/Name/Labels/Down
+SHOT hotkey-177
+HOTKEY 177 Range/Name/Labels/Left
+SHOT hotkey-178
+HOTKEY 178 Range/Name/Labels/Up
+SHOT hotkey-179
+HOTKEY 179 Range/Name/Reset
+SHOT hotkey-180
+HOTKEY 180 Range/Name/Table
+SHOT hotkey-181
+HOTKEY 181 Range/Justify
+SHOT hotkey-182
+HOTKEY 182 Range/Prot
+SHOT hotkey-183
+HOTKEY 183 Range/Unprot
+SHOT hotkey-184
+HOTKEY 184 Range/Input
+SHOT hotkey-185
+HOTKEY 185 Range/Value
+SHOT hotkey-186
+HOTKEY 186 Range/Trans
+SHOT hotkey-189
+HOTKEY 189 Range/Search/Formulas/Find
+SHOT hotkey-190
+HOTKEY 190 Range/Search/Formulas/Replace
+SHOT hotkey-191
+HOTKEY 191 Range/Search/Label
+SHOT hotkey-192
+HOTKEY 192 Range/Search/Both
+SHOT hotkey-193
+HOTKEY 193 Copy
+SHOT hotkey-194
+HOTKEY 194 Move
+SHOT hotkey-196
+HOTKEY 196 File/Retrieve
+SHOT hotkey-197
+HOTKEY 197 File/Save
+SHOT hotkey-200
+HOTKEY 200 File/Combine/Copy/Entire-File
+SHOT hotkey-201
+HOTKEY 201 File/Combine/Copy/Named/Specified-Range
+SHOT hotkey-203
+HOTKEY 203 File/Combine/Add/Entire-File
+SHOT hotkey-204
+HOTKEY 204 File/Combine/Add/Named/Specified-Range
+SHOT hotkey-206
+HOTKEY 206 File/Combine/Subtract/Entire-File
+SHOT hotkey-207
+HOTKEY 207 File/Combine/Subtract/Named/Specified-Range
+SHOT hotkey-209
+HOTKEY 209 File/Xtract/Formulas
+SHOT hotkey-210
+HOTKEY 210 File/Xtract/Values
+SHOT hotkey-212
+HOTKEY 212 File/Erase/Worksheet
+SHOT hotkey-213
+HOTKEY 213 File/Erase/Print
+SHOT hotkey-214
+HOTKEY 214 File/Erase/Graph
+SHOT hotkey-215
+HOTKEY 215 File/Erase/Other
+SHOT hotkey-217
+HOTKEY 217 File/List/Worksheet
+SHOT hotkey-218
+HOTKEY 218 File/List/Print
+SHOT hotkey-219
+HOTKEY 219 File/List/Graph
+SHOT hotkey-220
+HOTKEY 220 File/List/Other
+SHOT hotkey-221
+HOTKEY 221 File/List/Linked
+SHOT hotkey-223
+HOTKEY 223 File/Import/Text
+SHOT hotkey-224
+HOTKEY 224 File/Import/Numbers
+SHOT hotkey-225
+HOTKEY 225 File/Directory
+SHOT hotkey-228
+HOTKEY 228 File/Admin/Reservation/Get
+SHOT hotkey-229
+HOTKEY 229 File/Admin/Reservation/Release
+SHOT hotkey-230
+HOTKEY 230 File/Admin/Table
+SHOT hotkey-231
+HOTKEY 231 File/Admin/Link-Refresh
+SHOT hotkey-234
+HOTKEY 234 Print/Printer/Range
+SHOT hotkey-235
+HOTKEY 235 Print/Printer/Line
+SHOT hotkey-236
+HOTKEY 236 Print/Printer/Page
+SHOT hotkey-238
+HOTKEY 238 Print/Printer/Options/Header
+SHOT hotkey-239
+HOTKEY 239 Print/Printer/Options/Footer
+SHOT hotkey-241
+HOTKEY 241 Print/Printer/Options/Margins/Left
+SHOT hotkey-242
+HOTKEY 242 Print/Printer/Options/Margins/Right
+SHOT hotkey-243
+HOTKEY 243 Print/Printer/Options/Margins/Top
+SHOT hotkey-244
+HOTKEY 244 Print/Printer/Options/Margins/Bottom
+SHOT hotkey-245
+HOTKEY 245 Print/Printer/Options/Margins/None
+SHOT hotkey-247
+HOTKEY 247 Print/Printer/Options/Borders/Columns
+SHOT hotkey-248
+HOTKEY 248 Print/Printer/Options/Borders/Rows
+SHOT hotkey-249
+HOTKEY 249 Print/Printer/Options/Setup
+SHOT hotkey-250
+HOTKEY 250 Print/Printer/Options/Pg-Length
+SHOT hotkey-252
+HOTKEY 252 Print/Printer/Options/Other/As-Displayed
+SHOT hotkey-253
+HOTKEY 253 Print/Printer/Options/Other/Cell-Formulas
+SHOT hotkey-254
+HOTKEY 254 Print/Printer/Options/Other/Formatted
+SHOT hotkey-255
+HOTKEY 255 Print/Printer/Options/Other/Unformatted
+SHOT hotkey-256
+HOTKEY 256 Print/Printer/Options/Quit
+SHOT hotkey-258
+HOTKEY 258 Print/Printer/Clear/All
+SHOT hotkey-259
+HOTKEY 259 Print/Printer/Clear/Range
+SHOT hotkey-260
+HOTKEY 260 Print/Printer/Clear/Borders
+SHOT hotkey-261
+HOTKEY 261 Print/Printer/Clear/Format
+SHOT hotkey-262
+HOTKEY 262 Print/Printer/Align
+SHOT hotkey-263
+HOTKEY 263 Print/Printer/Go
+SHOT hotkey-264
+HOTKEY 264 Print/Printer/Quit
+SHOT hotkey-266
+HOTKEY 266 Print/File/Range
+SHOT hotkey-267
+HOTKEY 267 Print/File/Line
+SHOT hotkey-268
+HOTKEY 268 Print/File/Page
+SHOT hotkey-270
+HOTKEY 270 Print/File/Options/Header
+SHOT hotkey-271
+HOTKEY 271 Print/File/Options/Footer
+SHOT hotkey-273
+HOTKEY 273 Print/File/Options/Margins/Left
+SHOT hotkey-274
+HOTKEY 274 Print/File/Options/Margins/Right
+SHOT hotkey-275
+HOTKEY 275 Print/File/Options/Margins/Top
+SHOT hotkey-276
+HOTKEY 276 Print/File/Options/Margins/Bottom
+SHOT hotkey-277
+HOTKEY 277 Print/File/Options/Margins/None
+SHOT hotkey-279
+HOTKEY 279 Print/File/Options/Borders/Columns
+SHOT hotkey-280
+HOTKEY 280 Print/File/Options/Borders/Rows
+SHOT hotkey-281
+HOTKEY 281 Print/File/Options/Setup
+SHOT hotkey-282
+HOTKEY 282 Print/File/Options/Pg-Length
+SHOT hotkey-284
+HOTKEY 284 Print/File/Options/Other/As-Displayed
+SHOT hotkey-285
+HOTKEY 285 Print/File/Options/Other/Cell-Formulas
+SHOT hotkey-286
+HOTKEY 286 Print/File/Options/Other/Formatted
+SHOT hotkey-287
+HOTKEY 287 Print/File/Options/Other/Unformatted
+SHOT hotkey-288
+HOTKEY 288 Print/File/Options/Quit
+SHOT hotkey-290
+HOTKEY 290 Print/File/Clear/All
+SHOT hotkey-291
+HOTKEY 291 Print/File/Clear/Range
+SHOT hotkey-292
+HOTKEY 292 Print/File/Clear/Borders
+SHOT hotkey-293
+HOTKEY 293 Print/File/Clear/Format
+SHOT hotkey-294
+HOTKEY 294 Print/File/Align
+SHOT hotkey-295
+HOTKEY 295 Print/File/Go
+SHOT hotkey-296
+HOTKEY 296 Print/File/Quit
+SHOT hotkey-299
+HOTKEY 299 Graph/Type/Line
+SHOT hotkey-300
+HOTKEY 300 Graph/Type/Bar
+SHOT hotkey-301
+HOTKEY 301 Graph/Type/XY
+SHOT hotkey-302
+HOTKEY 302 Graph/Type/Stack-Bar
+SHOT hotkey-303
+HOTKEY 303 Graph/Type/Pie
+SHOT hotkey-304
+HOTKEY 304 Graph/X
+SHOT hotkey-305
+HOTKEY 305 Graph/A
+SHOT hotkey-306
+HOTKEY 306 Graph/B
+SHOT hotkey-307
+HOTKEY 307 Graph/C
+SHOT hotkey-308
+HOTKEY 308 Graph/D
+SHOT hotkey-309
+HOTKEY 309 Graph/E
+SHOT hotkey-310
+HOTKEY 310 Graph/F
+SHOT hotkey-311
+HOTKEY 311 Graph/Reset
+SHOT hotkey-312
+HOTKEY 312 Graph/View
+SHOT hotkey-313
+HOTKEY 313 Graph/Save
+SHOT hotkey-314
+HOTKEY 314 Graph/Options
+SHOT hotkey-316
+HOTKEY 316 Graph/Name/Use
+SHOT hotkey-317
+HOTKEY 317 Graph/Name/Create
+SHOT hotkey-318
+HOTKEY 318 Graph/Name/Delete
+SHOT hotkey-319
+HOTKEY 319 Graph/Name/Reset
+SHOT hotkey-320
+HOTKEY 320 Graph/Name/Table
+SHOT hotkey-322
+HOTKEY 322 Graph/Group/Columnwise
+SHOT hotkey-323
+HOTKEY 323 Graph/Group/Rowwise
+SHOT hotkey-324
+HOTKEY 324 Graph/Quit
+SHOT hotkey-326
+HOTKEY 326 Data/Fill
+SHOT hotkey-328
+HOTKEY 328 Data/Table/1
+SHOT hotkey-329
+HOTKEY 329 Data/Table/2
+SHOT hotkey-330
+HOTKEY 330 Data/Table/Reset
+SHOT hotkey-332
+HOTKEY 332 Data/Sort/Data-Range
+SHOT hotkey-333
+HOTKEY 333 Data/Sort/Primary-Key
+SHOT hotkey-334
+HOTKEY 334 Data/Sort/Secondary-Key
+SHOT hotkey-335
+HOTKEY 335 Data/Sort/Reset
+SHOT hotkey-336
+HOTKEY 336 Data/Sort/Go
+SHOT hotkey-337
+HOTKEY 337 Data/Sort/Quit
+SHOT hotkey-339
+HOTKEY 339 Data/Query/Input
+SHOT hotkey-340
+HOTKEY 340 Data/Query/Criteria
+SHOT hotkey-341
+HOTKEY 341 Data/Query/Output
+SHOT hotkey-342
+HOTKEY 342 Data/Query/Find
+SHOT hotkey-343
+HOTKEY 343 Data/Query/Extract
+SHOT hotkey-344
+HOTKEY 344 Data/Query/Unique
+SHOT hotkey-345
+HOTKEY 345 Data/Query/Delete
+SHOT hotkey-346
+HOTKEY 346 Data/Query/Reset
+SHOT hotkey-347
+HOTKEY 347 Data/Query/Quit
+SHOT hotkey-348
+HOTKEY 348 Data/Distribution
+SHOT hotkey-350
+HOTKEY 350 Data/Matrix/Invert
+SHOT hotkey-351
+HOTKEY 351 Data/Matrix/Multiply
+SHOT hotkey-353
+HOTKEY 353 Data/Regression/X-Range
+SHOT hotkey-354
+HOTKEY 354 Data/Regression/Y-Range
+SHOT hotkey-355
+HOTKEY 355 Data/Regression/Output-Range
+SHOT hotkey-357
+HOTKEY 357 Data/Regression/Intercept/Compute
+SHOT hotkey-358
+HOTKEY 358 Data/Regression/Intercept/Zero
+SHOT hotkey-359
+HOTKEY 359 Data/Regression/Reset
+SHOT hotkey-360
+HOTKEY 360 Data/Regression/Go
+SHOT hotkey-361
+HOTKEY 361 Data/Regression/Quit
+SHOT hotkey-364
+HOTKEY 364 Data/Parse/Format-Line/Create
+SHOT hotkey-365
+HOTKEY 365 Data/Parse/Format-Line/Edit
+SHOT hotkey-366
+HOTKEY 366 Data/Parse/Input-Column
+SHOT hotkey-367
+HOTKEY 367 Data/Parse/Output-Range
+SHOT hotkey-368
+HOTKEY 368 Data/Parse/Reset
+SHOT hotkey-369
+HOTKEY 369 Data/Parse/Go
+SHOT hotkey-370
+HOTKEY 370 Data/Parse/Quit
+SHOT hotkey-371
+HOTKEY 371 System
+SHOT hotkey-373
+HOTKEY 373 Add-In/Attach
+SHOT hotkey-374
+HOTKEY 374 Add-In/Detach
+SHOT hotkey-375
+HOTKEY 375 Add-In/Invoke
+SHOT hotkey-376
+HOTKEY 376 Add-In/Clear
+SHOT hotkey-377
+HOTKEY 377 Add-In/Quit
+SHOT hotkey-379
+HOTKEY 379 Quit/No
+STOPPED 7

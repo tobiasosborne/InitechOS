@@ -1,0 +1,3251 @@
+[
+  {
+    "n": 3,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Fixed"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 4,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Sci"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 5,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Currency"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 6,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      ","
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 7,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "General"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 8,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "+/-"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 9,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Percent"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 11,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "1 (DD-MMM-YY)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 12,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "2 (DD-MMM)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 13,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "3 (MMM-YY)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 14,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "4 (Long Intn'l)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 15,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "5 (Short Intn'l)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 17,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "Time",
+      "1 (HH:MM:SS AM/PM)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 18,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "Time",
+      "2 (HH:MM AM/PM)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 19,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "Time",
+      "3 (Long Intn'l)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 20,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "Time",
+      "4 (Short Intn'l)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 21,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Text"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 22,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Hidden"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 24,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Label-Prefix",
+      "Left"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 25,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Label-Prefix",
+      "Right"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 26,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Label-Prefix",
+      "Center"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 27,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Column-Width"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 29,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation",
+      "Natural"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 30,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation",
+      "Columnwise"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 31,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation",
+      "Rowwise"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 32,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation",
+      "Automatic"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 33,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation",
+      "Manual"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 34,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation",
+      "Iteration"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 36,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Protection",
+      "Enable"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 37,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Protection",
+      "Disable"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 40,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Interface"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 42,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "AutoLF",
+      "Yes"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 43,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "AutoLF",
+      "No"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 44,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Left"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 45,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Right"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 46,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Top"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 47,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Bot"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 48,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Pg-Length"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 50,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Wait",
+      "No"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 51,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Wait",
+      "Yes"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 52,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Setup"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 53,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Name"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 54,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 55,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Directory"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 56,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Status"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 57,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Update"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 61,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "A (.,,)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 62,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "B (,..)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 63,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "C (.;,)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 64,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "D (,;.)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 65,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "E (., )"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 66,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "F (,. )"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 67,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "G (.; )"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 68,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "H (,; )"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 70,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Currency",
+      "Prefix"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 71,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Currency",
+      "Suffix"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 73,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Date",
+      "A (MM/DD/YY)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 74,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Date",
+      "B (DD/MM/YY)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 75,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Date",
+      "C (DD.MM.YY)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 76,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Date",
+      "D (YY-MM-DD)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 78,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Time",
+      "A (HH:MM:SS)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 79,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Time",
+      "B (HH.MM.SS)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 80,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Time",
+      "C (HH,MM,SS)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 81,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Time",
+      "D (HHhMMmSSs)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 83,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Negative",
+      "Parentheses"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 84,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Negative",
+      "Sign"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 85,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 87,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Help",
+      "Instant"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 88,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Help",
+      "Removable"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 90,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Clock",
+      "Standard"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 91,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Clock",
+      "International"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 92,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Clock",
+      "None"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 93,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Clock",
+      "Clock"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 94,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Clock",
+      "Filename"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 96,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Undo",
+      "Enable"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 97,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Undo",
+      "Disable"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 99,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Beep",
+      "Enable"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 100,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Beep",
+      "Disable"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 102,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Add-In",
+      "Set"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 103,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Add-In",
+      "Cancel"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 105,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Autoexec",
+      "Enable"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 106,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Autoexec",
+      "Disable"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 107,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 108,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Zero"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 110,
+    "path": [
+      "Worksheet",
+      "Insert",
+      "Column"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 111,
+    "path": [
+      "Worksheet",
+      "Insert",
+      "Row"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 113,
+    "path": [
+      "Worksheet",
+      "Delete",
+      "Column"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 114,
+    "path": [
+      "Worksheet",
+      "Delete",
+      "Row"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 116,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Set-Width"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 117,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Reset-Width"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 118,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Hide"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 119,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Display"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 121,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Column-Range",
+      "Set-Width"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 122,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Column-Range",
+      "Reset-Width"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 124,
+    "path": [
+      "Worksheet",
+      "Erase",
+      "No"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 125,
+    "path": [
+      "Worksheet",
+      "Erase",
+      "Yes"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 127,
+    "path": [
+      "Worksheet",
+      "Titles",
+      "Both"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 128,
+    "path": [
+      "Worksheet",
+      "Titles",
+      "Horizontal"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 129,
+    "path": [
+      "Worksheet",
+      "Titles",
+      "Vertical"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 130,
+    "path": [
+      "Worksheet",
+      "Titles",
+      "Clear"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 132,
+    "path": [
+      "Worksheet",
+      "Window",
+      "Horizontal"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 133,
+    "path": [
+      "Worksheet",
+      "Window",
+      "Vertical"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 134,
+    "path": [
+      "Worksheet",
+      "Window",
+      "Sync"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 135,
+    "path": [
+      "Worksheet",
+      "Window",
+      "Unsync"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 136,
+    "path": [
+      "Worksheet",
+      "Window",
+      "Clear"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 137,
+    "path": [
+      "Worksheet",
+      "Status"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 138,
+    "path": [
+      "Worksheet",
+      "Page"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 140,
+    "path": [
+      "Worksheet",
+      "Learn",
+      "Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 141,
+    "path": [
+      "Worksheet",
+      "Learn",
+      "Cancel"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 142,
+    "path": [
+      "Worksheet",
+      "Learn",
+      "Erase"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 145,
+    "path": [
+      "Range",
+      "Format",
+      "Fixed"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 146,
+    "path": [
+      "Range",
+      "Format",
+      "Sci"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 147,
+    "path": [
+      "Range",
+      "Format",
+      "Currency"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 148,
+    "path": [
+      "Range",
+      "Format",
+      ","
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 149,
+    "path": [
+      "Range",
+      "Format",
+      "General"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 150,
+    "path": [
+      "Range",
+      "Format",
+      "+/-"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 151,
+    "path": [
+      "Range",
+      "Format",
+      "Percent"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 153,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "1 (DD-MMM-YY)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 154,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "2 (DD-MMM)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 155,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "3 (MMM-YY)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 156,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "4 (Long Intn'l)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 157,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "5 (Short Intn'l)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 159,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "Time",
+      "1 (HH:MM:SS AM/PM)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 160,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "Time",
+      "2 (HH:MM AM/PM)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 161,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "Time",
+      "3 (Long Intn'l)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 162,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "Time",
+      "4 (Short Intn'l)"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 163,
+    "path": [
+      "Range",
+      "Format",
+      "Text"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 164,
+    "path": [
+      "Range",
+      "Format",
+      "Hidden"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 165,
+    "path": [
+      "Range",
+      "Format",
+      "Reset"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 167,
+    "path": [
+      "Range",
+      "Label",
+      "Left"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 168,
+    "path": [
+      "Range",
+      "Label",
+      "Right"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 169,
+    "path": [
+      "Range",
+      "Label",
+      "Center"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 170,
+    "path": [
+      "Range",
+      "Erase"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 172,
+    "path": [
+      "Range",
+      "Name",
+      "Create"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 173,
+    "path": [
+      "Range",
+      "Name",
+      "Delete"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 175,
+    "path": [
+      "Range",
+      "Name",
+      "Labels",
+      "Right"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 176,
+    "path": [
+      "Range",
+      "Name",
+      "Labels",
+      "Down"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 177,
+    "path": [
+      "Range",
+      "Name",
+      "Labels",
+      "Left"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 178,
+    "path": [
+      "Range",
+      "Name",
+      "Labels",
+      "Up"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 179,
+    "path": [
+      "Range",
+      "Name",
+      "Reset"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 180,
+    "path": [
+      "Range",
+      "Name",
+      "Table"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 181,
+    "path": [
+      "Range",
+      "Justify"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 182,
+    "path": [
+      "Range",
+      "Prot"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 183,
+    "path": [
+      "Range",
+      "Unprot"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 184,
+    "path": [
+      "Range",
+      "Input"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 185,
+    "path": [
+      "Range",
+      "Value"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 186,
+    "path": [
+      "Range",
+      "Trans"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 189,
+    "path": [
+      "Range",
+      "Search",
+      "Formulas",
+      "Find"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 190,
+    "path": [
+      "Range",
+      "Search",
+      "Formulas",
+      "Replace"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 191,
+    "path": [
+      "Range",
+      "Search",
+      "Label"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 192,
+    "path": [
+      "Range",
+      "Search",
+      "Both"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 193,
+    "path": [
+      "Copy"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 194,
+    "path": [
+      "Move"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 196,
+    "path": [
+      "File",
+      "Retrieve"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 197,
+    "path": [
+      "File",
+      "Save"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 200,
+    "path": [
+      "File",
+      "Combine",
+      "Copy",
+      "Entire-File"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 201,
+    "path": [
+      "File",
+      "Combine",
+      "Copy",
+      "Named/Specified-Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 203,
+    "path": [
+      "File",
+      "Combine",
+      "Add",
+      "Entire-File"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 204,
+    "path": [
+      "File",
+      "Combine",
+      "Add",
+      "Named/Specified-Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 206,
+    "path": [
+      "File",
+      "Combine",
+      "Subtract",
+      "Entire-File"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 207,
+    "path": [
+      "File",
+      "Combine",
+      "Subtract",
+      "Named/Specified-Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 209,
+    "path": [
+      "File",
+      "Xtract",
+      "Formulas"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 210,
+    "path": [
+      "File",
+      "Xtract",
+      "Values"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 212,
+    "path": [
+      "File",
+      "Erase",
+      "Worksheet"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 213,
+    "path": [
+      "File",
+      "Erase",
+      "Print"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 214,
+    "path": [
+      "File",
+      "Erase",
+      "Graph"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 215,
+    "path": [
+      "File",
+      "Erase",
+      "Other"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 217,
+    "path": [
+      "File",
+      "List",
+      "Worksheet"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 218,
+    "path": [
+      "File",
+      "List",
+      "Print"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 219,
+    "path": [
+      "File",
+      "List",
+      "Graph"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 220,
+    "path": [
+      "File",
+      "List",
+      "Other"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 221,
+    "path": [
+      "File",
+      "List",
+      "Linked"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 223,
+    "path": [
+      "File",
+      "Import",
+      "Text"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 224,
+    "path": [
+      "File",
+      "Import",
+      "Numbers"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 225,
+    "path": [
+      "File",
+      "Directory"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 228,
+    "path": [
+      "File",
+      "Admin",
+      "Reservation",
+      "Get"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 229,
+    "path": [
+      "File",
+      "Admin",
+      "Reservation",
+      "Release"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 230,
+    "path": [
+      "File",
+      "Admin",
+      "Table"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 231,
+    "path": [
+      "File",
+      "Admin",
+      "Link-Refresh"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 234,
+    "path": [
+      "Print",
+      "Printer",
+      "Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 235,
+    "path": [
+      "Print",
+      "Printer",
+      "Line"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 236,
+    "path": [
+      "Print",
+      "Printer",
+      "Page"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 238,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Header"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 239,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Footer"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 241,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Margins",
+      "Left"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 242,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Margins",
+      "Right"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 243,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Margins",
+      "Top"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 244,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Margins",
+      "Bottom"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 245,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Margins",
+      "None"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 247,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Borders",
+      "Columns"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 248,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Borders",
+      "Rows"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 249,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Setup"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 250,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Pg-Length"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 252,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Other",
+      "As-Displayed"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 253,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Other",
+      "Cell-Formulas"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 254,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Other",
+      "Formatted"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 255,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Other",
+      "Unformatted"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 256,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 258,
+    "path": [
+      "Print",
+      "Printer",
+      "Clear",
+      "All"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 259,
+    "path": [
+      "Print",
+      "Printer",
+      "Clear",
+      "Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 260,
+    "path": [
+      "Print",
+      "Printer",
+      "Clear",
+      "Borders"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 261,
+    "path": [
+      "Print",
+      "Printer",
+      "Clear",
+      "Format"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 262,
+    "path": [
+      "Print",
+      "Printer",
+      "Align"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 263,
+    "path": [
+      "Print",
+      "Printer",
+      "Go"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 264,
+    "path": [
+      "Print",
+      "Printer",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 266,
+    "path": [
+      "Print",
+      "File",
+      "Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 267,
+    "path": [
+      "Print",
+      "File",
+      "Line"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 268,
+    "path": [
+      "Print",
+      "File",
+      "Page"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 270,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Header"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 271,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Footer"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 273,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Margins",
+      "Left"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 274,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Margins",
+      "Right"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 275,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Margins",
+      "Top"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 276,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Margins",
+      "Bottom"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 277,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Margins",
+      "None"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 279,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Borders",
+      "Columns"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 280,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Borders",
+      "Rows"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 281,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Setup"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 282,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Pg-Length"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 284,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Other",
+      "As-Displayed"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 285,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Other",
+      "Cell-Formulas"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 286,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Other",
+      "Formatted"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 287,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Other",
+      "Unformatted"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 288,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 290,
+    "path": [
+      "Print",
+      "File",
+      "Clear",
+      "All"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 291,
+    "path": [
+      "Print",
+      "File",
+      "Clear",
+      "Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 292,
+    "path": [
+      "Print",
+      "File",
+      "Clear",
+      "Borders"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 293,
+    "path": [
+      "Print",
+      "File",
+      "Clear",
+      "Format"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 294,
+    "path": [
+      "Print",
+      "File",
+      "Align"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 295,
+    "path": [
+      "Print",
+      "File",
+      "Go"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 296,
+    "path": [
+      "Print",
+      "File",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 299,
+    "path": [
+      "Graph",
+      "Type",
+      "Line"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 300,
+    "path": [
+      "Graph",
+      "Type",
+      "Bar"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 301,
+    "path": [
+      "Graph",
+      "Type",
+      "XY"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 302,
+    "path": [
+      "Graph",
+      "Type",
+      "Stack-Bar"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 303,
+    "path": [
+      "Graph",
+      "Type",
+      "Pie"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 304,
+    "path": [
+      "Graph",
+      "X"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 305,
+    "path": [
+      "Graph",
+      "A"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 306,
+    "path": [
+      "Graph",
+      "B"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 307,
+    "path": [
+      "Graph",
+      "C"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 308,
+    "path": [
+      "Graph",
+      "D"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 309,
+    "path": [
+      "Graph",
+      "E"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 310,
+    "path": [
+      "Graph",
+      "F"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 311,
+    "path": [
+      "Graph",
+      "Reset"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 312,
+    "path": [
+      "Graph",
+      "View"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 313,
+    "path": [
+      "Graph",
+      "Save"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 314,
+    "path": [
+      "Graph",
+      "Options"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 316,
+    "path": [
+      "Graph",
+      "Name",
+      "Use"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 317,
+    "path": [
+      "Graph",
+      "Name",
+      "Create"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 318,
+    "path": [
+      "Graph",
+      "Name",
+      "Delete"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 319,
+    "path": [
+      "Graph",
+      "Name",
+      "Reset"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 320,
+    "path": [
+      "Graph",
+      "Name",
+      "Table"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 322,
+    "path": [
+      "Graph",
+      "Group",
+      "Columnwise"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 323,
+    "path": [
+      "Graph",
+      "Group",
+      "Rowwise"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 324,
+    "path": [
+      "Graph",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 326,
+    "path": [
+      "Data",
+      "Fill"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 328,
+    "path": [
+      "Data",
+      "Table",
+      "1"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 329,
+    "path": [
+      "Data",
+      "Table",
+      "2"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 330,
+    "path": [
+      "Data",
+      "Table",
+      "Reset"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 332,
+    "path": [
+      "Data",
+      "Sort",
+      "Data-Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 333,
+    "path": [
+      "Data",
+      "Sort",
+      "Primary-Key"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 334,
+    "path": [
+      "Data",
+      "Sort",
+      "Secondary-Key"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 335,
+    "path": [
+      "Data",
+      "Sort",
+      "Reset"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 336,
+    "path": [
+      "Data",
+      "Sort",
+      "Go"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 337,
+    "path": [
+      "Data",
+      "Sort",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 339,
+    "path": [
+      "Data",
+      "Query",
+      "Input"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 340,
+    "path": [
+      "Data",
+      "Query",
+      "Criteria"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 341,
+    "path": [
+      "Data",
+      "Query",
+      "Output"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 342,
+    "path": [
+      "Data",
+      "Query",
+      "Find"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 343,
+    "path": [
+      "Data",
+      "Query",
+      "Extract"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 344,
+    "path": [
+      "Data",
+      "Query",
+      "Unique"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 345,
+    "path": [
+      "Data",
+      "Query",
+      "Delete"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 346,
+    "path": [
+      "Data",
+      "Query",
+      "Reset"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 347,
+    "path": [
+      "Data",
+      "Query",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 348,
+    "path": [
+      "Data",
+      "Distribution"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 350,
+    "path": [
+      "Data",
+      "Matrix",
+      "Invert"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 351,
+    "path": [
+      "Data",
+      "Matrix",
+      "Multiply"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 353,
+    "path": [
+      "Data",
+      "Regression",
+      "X-Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 354,
+    "path": [
+      "Data",
+      "Regression",
+      "Y-Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 355,
+    "path": [
+      "Data",
+      "Regression",
+      "Output-Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 357,
+    "path": [
+      "Data",
+      "Regression",
+      "Intercept",
+      "Compute"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 358,
+    "path": [
+      "Data",
+      "Regression",
+      "Intercept",
+      "Zero"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 359,
+    "path": [
+      "Data",
+      "Regression",
+      "Reset"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 360,
+    "path": [
+      "Data",
+      "Regression",
+      "Go"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 361,
+    "path": [
+      "Data",
+      "Regression",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 364,
+    "path": [
+      "Data",
+      "Parse",
+      "Format-Line",
+      "Create"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 365,
+    "path": [
+      "Data",
+      "Parse",
+      "Format-Line",
+      "Edit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 366,
+    "path": [
+      "Data",
+      "Parse",
+      "Input-Column"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 367,
+    "path": [
+      "Data",
+      "Parse",
+      "Output-Range"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 368,
+    "path": [
+      "Data",
+      "Parse",
+      "Reset"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 369,
+    "path": [
+      "Data",
+      "Parse",
+      "Go"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 370,
+    "path": [
+      "Data",
+      "Parse",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 371,
+    "path": [
+      "System"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 373,
+    "path": [
+      "Add-In",
+      "Attach"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 374,
+    "path": [
+      "Add-In",
+      "Detach"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 375,
+    "path": [
+      "Add-In",
+      "Invoke"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 376,
+    "path": [
+      "Add-In",
+      "Clear"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": true
+  },
+  {
+    "n": 377,
+    "path": [
+      "Add-In",
+      "Quit"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  },
+  {
+    "n": 379,
+    "path": [
+      "Quit",
+      "No"
+    ],
+    "all_initials_unique": true,
+    "unsupported_pixel_match": false
+  }
+]

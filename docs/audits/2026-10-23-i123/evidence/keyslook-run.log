@@ -1,0 +1,688 @@
+STARTED keyslook pid 7
+SHOT goto-escape-menu
+_ File Edit View Special Wi2pm
+File Y
+Al: NUE
+Range Copy Move File Print Graph Data System Add-In Quit
+Global Insert Delete Colum Erase Titles Window Status Page Learn
+A B Cc D E F G H
+j.
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+if
+|
+
+SHOT cell-filename-saved
+& File Edit View Special Vi2pm |
+<a
+file
+[c2: @CELLC’F ilename”,A1. .A1) READY
+A B c D E F Gg H
+lu
+F —
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT f3-named-range
+& File Edit View Special Vi2pm |
+<a
+file
+[C2: @CELLC’F ilename”,A1. .A1) JPO IN TES
+lEnter address to go to: CZ_
+A B c D E F Gg H
+lu
+F —
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT forward-chain
+_ File Edit View Special Wi2pm
+File Y
+pi: 9 FREAD YES
+A B c D E F Gg H
+lu 9 5) 5)
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT scroll-lock-cancels
+_ File Edit View Special Wi2pm
+File Y
+pi: 9 FREAD YES
+A B c D E F Gg H
+lu 9 5) 5)
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT end-indicator
+_ File Edit View Special Wi2pm
+File Y
+fal: 7a FREAD YES
+A B c D E F Gg H
+oa b c a a a
+iz 2
+iB 3
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT end-right
+_ File Edit View Special Wi2pm
+File Y
+B1: “b FREAD YES
+A B c D E F Gg H
+H 3 b a a a
+iz 2
+iB 3
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT caps-indicator
+_ File Edit View Special Wi2pm
+File Y
+fal: 7a FREAD YES
+A B c D E F Gg H
+oa b c a a a
+iz 2
+iB 3
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT num-indicator
+_ File Edit View Special Wi2pm
+File Y
+fal: 7a FREAD YES
+A B c D E F Gg H
+oa b c a a a
+iz 2
+iB 3
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT undo-absent
+_ File Edit View Special Wi2pm
+File Y
+Al: “undo FREAD YES
+A B c D E F Gg H
+4 undo b c a a a
+iz 2
+iB 3
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT key-f1
+_ File Edit View Special Wi2pm
+File Y
+Al: “undo FREAD YES
+A B c D E F Gg H
+4 undo b c a a a
+iz 2
+iB 3
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT key-f3
+_ File Edit View Special Wi2pm
+File Y
+Al: “undo FREAD YES
+A B c D E F Gg H
+4 undo b c a a a
+iz 2
+iB 3
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT key-f4
+_ File Edit View Special Wi2pm
+File Y
+Al: “undo FREAD YES
+A B c D E F Gg H
+4 undo b c a a a
+iz 2
+iB 3
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT key-f6
+_ File Edit View Special Wi2pm
+File Y
+Al: “undo FREAD YES
+A B c D E F Gg H
+4 undo b c a a a
+iz 2
+iB 3
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT key-f7
+_ File Edit View Special Wi2pm
+File Y
+Al: “undo FREAD YES
+A B c D E F Gg H
+4 undo b c a a a
+iz 2
+iB 3
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT key-f8
+_ File Edit View Special Wi2pm
+File Y
+Al: “undo FREAD YES
+A B c D E F Gg H
+4 undo b c a a a
+iz 2
+iB 3
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT key-f10
+_ File Edit View Special Wi2pm
+File Y
+Al: “undo FREAD YES
+A B c D E F Gg H
+4 undo b c a a a
+iz 2
+iB 3
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT f4-absolute
+_ File Edit View Special Wi2pm
+File Y
+[B3: ALUE|ES|
+Ad
+A B c D E F Gg H
+endo} c a a a
+iz 2
+B 3]
+Hs 4
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT edit-cursor-delete
+_ File Edit View Special 13pm
+File Y
+Jal: “undo EDIT}
+|’ undoX_
+A B Cc D E F G H
+2 2
+IB 3
+E 4
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved LOOK .wk1
+if
+|
+
+SHOT unsupported-before-enter
+_ File Edit View Special 13pm
+File Y
+jA1: ’undo Be |=]
+[Command not implemented
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+2 2
+IB 3
+E 4
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved LOOK .wk1
+if
+|
+
+SHOT unsupported-after-enter
+_ File Edit View Special 13pm
+File Y
+jA1: ’undo Be |=]
+[Command not implemented
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+2 2
+IB 3
+E 4
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved LOOK .wk1
+if
+|
+
+SHOT cell-click
+_ File Edit View Special 13pm
+File Y
+[E4: FREAD YES
+A B Cc D E F Gg H
+endo} c a a a
+iz 2
+iB 3
+i 4 nwa
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved LOOK.wk1
+[=|
+|
+
+SHOT scroll-before
+_ File Edit View Special 13pm
+File Y
+jA100: IREAD YE
+A B Cc D E F G H
+[100
+(101
+(loz
+(103
+(104 x
+(105,
+(106
+107
+(108°
+(169
+(110
+fli.
+liz
+(113
+(114
+(115.
+(116
+(li?
+(118
+Saved LOOK .wk1
+if
+|
+
+SHOT scroll-arrow
+_ File Edit View Special 13pm
+File Y
+A B Cc D E F G H
+
+[100
+
+(101
+
+(loz
+
+(103
+
+(104
+
+(105,
+
+(106
+
+107
+
+(108°
+
+(169
+
+(110
+
+fli.
+
+liz
+
+(113
+
+(114
+
+(115.
+
+(116
+
+(li?
+
+(118
+
+Saved LOOK .wk1
+
+if
+
+|
+
+SHOT scroll-thumb
+_ File Edit View Special 13pm
+File Y
+jA100: IREAD YE
+A B Cc D E F G H
+[100
+(101
+(loz
+(103
+(104
+(105,
+(106
+107
+(108°
+(169
+(110
+fli.
+liz
+(113
+(114
+(115.
+(116
+(li?
+(118
+Saved LOOK .wk1
+if
+|
+
+SHOT resize-pointer
+& File Edit View Special Vi3pm |
+ee
+file
+
+Et: +D1 JREADY|ES| fa
+
+=
+|
+i
+[Saved LOOK.wk1
+
+FI
+a
+{id
+Traeh
+
+SHOT resize-hit
+& File Edit View Special Vi3pm |
+File Y
+F3: READY] ES fa
+
+=
+
+7
+i na
+[Saved LOOK.wk1
+FI
+a
+———
+{id
+Traeh
+
+SHOT resize-zoom
+_& File Edit View Special Li3pm
+File _
+SSS _—_$—_— |
+le FREADY]ES
+E F G H T J K
+h a
+B Le
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved LOOK .wk1
+[=|
+A |
+
+SHOT quit-dialog-look
+& File Edit View Special 1:13 pm. 2
+-H_fite _fait_view _Speeiat __t3 pm ___
+& file
+Sass SS
+IFS: JREADY|ES|
+is Save changes to the worksheet IK
+h a a before quitting?
+5
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved LOOK .wk1
+[|
+(s_______C*@
+
+STOPPED 7

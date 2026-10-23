@@ -1,0 +1,23 @@
+_ File Edit View Special 1:40pm
+File Y
+D3: 13 Be |=]
+Inter address to go to: RightName_
+A B Cc D E F G H
+j. DOWNNAME BS. .BS
+2 RightName 12 LeftName LEFTNAME CZ. .CZ2
+i RIGHTNAMECZ.. .C2
+E DoumName UpName UPNAME D3. .D3
+5 15
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Invalid cell or range address
+if
+|

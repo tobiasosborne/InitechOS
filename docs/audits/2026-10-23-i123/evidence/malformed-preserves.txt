@@ -1,0 +1,22 @@
+_ File Edit View Special 12:38pm
+File Y
+|A3: *KEEPME Be |=]
+Not a valid WK1 file
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+j. lello 123 1.5 a
+2 246 117.5 39.16666 big
+18] KEEPME
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved M1ROUND .wk1
+if
+|

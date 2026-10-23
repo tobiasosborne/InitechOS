@@ -1,0 +1,49 @@
+REDDY
+
+—— Same entry and format,
+different column widths
+
+‘Same entry and column width, different formats
+
+Figure 1-11 Long values in a worksheet
+
+Entering Dates
+
+- Entering a date in 1-2-3 requires two steps:
+¢ Entering a date number (a value that corresponds to the date)
+¢ Assigning the cell a date format
+
+1-2-3 assigns an integer to each of the 73,050 days from January 1, 1900 to
+December 31, 2099, inclusive. These integers (1 through 73050, consecutively) are
+called date numbers. For example, the integer 5 corresponds to January 5, 1900;
+the integer 32774 corresponds to September 23, 1989.
+
+You can enter a date number using a date @function, which calculates the date
+number for a date you specify as the argument for the @function. For example,
+to enter the date number for September 23, 1989, you could enter
+@DATE(89,9,23) in the worksheet. 1-2-3 calculates the date number
+automatically, in this case, 32774. For information on date @functions, see
+“Date and Time @Functions” in Chapter 13.
+
+To display the date rather than the date number, use /Range Format Date to
+change the cell’s format to one of the five date formats. For example, if you
+format the cell as Date 1, 1-2-3 displays the date number 32774 as 23-Sep-89. Or,
+if you format the cell as Date 3, 1-2-3 displays Sep-89.
+
+NOTE The advantage of using a date @function to enter a date is that you can
+change the format in which the date is displayed at any time, and you can use
+date arithmetic to calculate differences between dates.
+
+Entering Times
+
+Entering a time in 1-2-3 requires two steps:
+
+¢ Entering a time number (a value that corresponds to the time)
+* Assigning the cell in a time format
+
+1-2-3 assigns a decimal number to each second from midnight to 11:59:59 PM,
+inclusive. These decimal numbers are called time numbers. For example, the
+decimal number .5 corresponds to 12:00:00 PM; the decimal number .999305
+corresponds to 11:59:00 PM.
+
+Entering and Editing Data 1-21

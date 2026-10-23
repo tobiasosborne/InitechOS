@@ -1,0 +1,56 @@
+2. Select one of the following options:
+Left _Aligns labels with left edge of cells.
+Right Aligns labels with right edge of cells.
+Center Centers labels in cells.
+
+3. Specify the range of labels whose alignment you want to change and
+press ENTER.
+
+Tips
+
+* Labels that exceed the width of a column appear left-aligned no matter what
+label prefix they have.
+
+« Right-aligned labels leave a blank space to the right if there is enough room.
+
+/Range Name
+
+Range names are names of up to 15 characters that you use in commands and
+formulas instead of cell or range addresses. For example, if you assign the name
+SALES to A5..D9, you can move the cell pointer to A5 by pressing GOTO (5),
+typing sales, and pressing ENTER; total the numbers in A5..D9 with the formula
+@SUM(SALES); and print the data in A5..D9 by specifying SALES as the print
+range. Range names are generally easier to remember and can be selected more
+quickly than the range addresses to which they correspond.
+
+Use the /Range Name commands to perform the following tasks:
+
+Command Task
+
+Create — "Creates or modifies a range name. 7 - a
+
+Delete Deletes a range name.
+
+Labels Creates range names for single cell ranges, using labels in adjacent cells
+as the range names.
+
+Reset Deletes all range names in the worksheet.
+
+Table Creates a table in the worksheet of range names and their corresponding
+
+range addresses.
+
+/Range Name Create
+
+/Range Name Create lets you assign a name to a range or redefine which cells an
+existing range name refers to. The number of range names you can create is
+limited only by available memory.
+
+To prevent confusion when using range names in formulas and advanced macro
+commands, follow these guidelines when you create range names:
+
+* Do not include spaces, commas, semicolons, or the characters + *-/ & > < {
+@ and # in range names because they may appear to be formulas to 1-2-3,
+
+10-14. The Range Commands
+

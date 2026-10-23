@@ -1,0 +1,18 @@
+_& File Edit View Special 1:28pm
+& Fite
+fal: 1234.5678912345 FREAD YES
+A B Cc D E
+lu $1)234.568
+iB
+(10
+fl.
+jz
+13
+(14
+js
+(16
+jl?
+18
+(19
+[=|
+|

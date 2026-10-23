@@ -1,0 +1,16 @@
+{
+  "path": "evidence/extracted/heavy/BAD.WK1",
+  "sha256": "a2cac41ebebf48b2456628f13cd5b0ee6eb9471b6d0838fdd04bb076ea628db1",
+  "bytes": 16,
+  "consumed": 8312,
+  "records": [
+    {
+      "offset": 0,
+      "opcode": 28526,
+      "length": 8308,
+      "body_hex": "6120776f726b736865657400",
+      "error": "truncated"
+    }
+  ],
+  "cells": []
+}

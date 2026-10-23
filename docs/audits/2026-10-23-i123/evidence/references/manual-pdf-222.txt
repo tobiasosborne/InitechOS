@@ -1,0 +1,57 @@
+« Changing a cell’s format changes the way 1-2-3 displays data in the cell but
+not the data itself. You can, for example, choose a cell format that displays
+45.123 as $45, but 1-2-3 still stores the value as 45.123 and uses the decimal
+places when calculating.
+
+¢ Whenever the cell pointer is on a cell in the formatted range, 1-2-3 displays in
+the control panel the first character of the cell format name and (if applicable)
+the number of decimal places. For example, the notation (CO) means Currency
+format with 0 decimal places; (P2) means Percent format with 2 decimal places.
+
+Procedure
+1. Select /Range Format.
+
+2. Select the cell format you want from the series of menus and prompts 1-2-3
+displays. (The table that follows this procedure explains each cell format.)
+
+3. Specify the range you want to format and press ENTER.
+
+If 1-2-3 displays a cell filled with asterisks, it usually means the column is not
+wide enough to display the entire number in the selected cell format. The
+column must be one character wider than the width of the number as
+formatted. To remove the asterisks and redisplay the number, widen the
+column with /Worksheet Column Set-Width or /Worksheet Global
+Column-Width.
+
+The following table describes the /Range Format menu and includes examples of
+data in each cell format. The third column of the table shows the data as you
+would enter it and the fourth column shows the way 1-2-3 displays the data
+(preceded by the control panel notation for that format). For instance, in the
+description of Currency format, the example
+
+12 (C2) $12.00
+
+shows that when you enter 12 in a cell formatted as Currency, 2 decimal places,
+1-2-3 displays $12.00 in the cell and displays (C2) $12.00 in the control panel
+when the cell pointer is positioned on the cell.
+
+Examples
+Format —_——=Result ee ___ Data as entered Data as displayed
+, (Comma) Displays numbers with 8999 (,2) 8,999.00
+thousands separators, up to -15000 (,0) (15,000)
+15 decimal places, 5532765 (1) 0.6
+
+parentheses or a minus sign
+(depending on the /Worksheet
+Global Default Other
+International Negative setting)
+for negatives, and a leading
+zero for decimal values.
+Comma format is the same as
+Currency format without the
+currency symbol.
+
+~~ (Continued)
+
+10-4 The Range Commands
+

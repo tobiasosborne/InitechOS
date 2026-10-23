@@ -1,0 +1,21 @@
+_& File Edit View Special 12:47pm
+& file
+[B2: SAS1 EDIT) ES]
+lEnter range to copy FROM: ._
+a B c D E F 5 H
+i 1 1
+z 2
+i 3 3
+lo
+a
+lz
+a3
+14
+Hs
+6
+lz
+le
+49
+[Saved OUERMY.uk1
+[=|
+|

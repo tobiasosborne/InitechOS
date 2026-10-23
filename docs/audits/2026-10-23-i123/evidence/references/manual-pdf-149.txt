@@ -1,0 +1,66 @@
+Example of Importing a Delimited Text File
+Figure 5-11 shows a delimited text file with commas as delimiters.
+
+Quotation marks around text
+
+me Pye Mae dhs ws
+
+cS
+ton",
+
+ToL ing a0, 600,85"
+Lice", $250,-260,55
+“Janet "/ "Shel Ly" 650, 120,40
+
+Commas as delimiters
+Figure 5-11 A delimited text file on disk
+Figure 5-12 shows the result of using /File Import Numbers to import a delimited
+
+text file. 1-2-3 enters numbers and labels in separate cells. In this example, the
+cell pointer was located in Al when 1-2-3 imported the file.
+
+Data imported into separate cells
+
+ess
+
+AZAN: | First READY
+a TA 8 c > E F 6 4
+
+1 First hast Travel Food Mise.
+
+2 Beth — Read 350
+
+3 Merry Mitton 400 500 ca
+
+4 Stew — Kipling 850 6-200 3
+
+5 Tracy Rilke 260 55
+
+6 danet Shelly co 120 0
+
+Figure 5-12 A delimited text file imported with /File Import Numbers.
+
+Tips
+¢ To create a nondelimited text file with 1-2-3, use /Print File.
+
+* Some word processing programs produce files that contain special non-ASCII
+characters. 1-2-3 cannot import these characters properly with /File Import.
+
+¢ You can view or print data imported with /File Import Text, but you cannot
+use the numbers in calculations unless you use /Data Parse to place the labels
+and numbers in separate cells in the worksheet.
+
+/File List
+
+/File List lets you display a temporary list of files that overlays the current
+worksheet. When you highlight a file name in the list, 1-2-3 displays specific
+information about that file.
+
+Procedure
+
+1. If you have a two-diskette system, make sure the disk that contains the files
+you want to list is in one of the diskette drives.
+
+2. Select /File List.
+
+/File List 5-17

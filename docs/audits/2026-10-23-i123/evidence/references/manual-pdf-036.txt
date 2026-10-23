@@ -1,0 +1,53 @@
+‘ANS (6) CWI4] 2,47 READY
+
+A a R D E F 6
+2.47 <t— General
+2 ~+— Fixed, 0 decimal places
+2.47 ~<t-— Fixed, 2 decimal places
+2.4700 <t-— Fixed, 4 decimal places
+ST Currency, 0 decimal places
+$2.47 ~t—— Currency, 2 decimal places
+2s(h—t-— Percent, 0 decimal places
+267.0i~<—— Percent, 1 decimal piace
+247 00%“ Percent, 2 decimal places
+26400 <t— Scientific, 0 decimal places
+2.470000 “e-—~. Scientific, 4 decimal places
+
+Wovens
+
+Figure 1-10 Examples of different cell formats
+
+For details on formatting values and cell-format choices, see /Range Format in
+Chapter 10 or /Worksheet Global Format in Chapter 12.
+
+Long Values
+
+A long value is a value, which when displayed in a particular format, is wider
+than the cell’s column width minus 1. For example, in a cell with a column width
+of 9 that has been formatted as Currency with 2 decimal places, 1500 is a long
+value because it contains nine characters — $1,500.00 — which is one more
+character than the cell’s column width minus 1.
+
+1-2-3 treats long values differently from the way it treats long labels. Unlike long
+labels, 1-2-3 does not overlap long values into adjacent blank cells, nor does it
+display only a part of the value when adjacent cells contain data. Instead, 1-2-3
+handles long values as follows:
+
+¢ If the cell in which you enter a long value is formatted as General and the
+integer part of the value exceeds the cell’s column width, 1-2-3 displays the
+value in scientific notation. For example, in a nine-character-wide cell, the
+value 123456789.99 appears as 1.2E+08.
+
+* If the cell is formatted as anything other than General or is not wide enough
+to display the value in scientific notation, 1-2-3 displays asterisks across the
+cell instead of the value. To display the value, widen the column with
+/Worksheet Column Set-Width or /Worksheet Global Column-Width.
+
+In Figure 1-11, cells B2, B4, and C2 all contain the value 12300. Cells B2 and C2
+are both formatted as Currency with 2 decimal places. 1-2-3 displays asterisks in
+cell B2 because the value as formatted — $12,300.00 — exceeds column B’s width.
+Column C, on the other hand, is wide enough to display the value as formatted.
+Cell B4 is formatted as Fixed with 2 decimal places. In this case, the value as
+formatted — 12300.00 — fits within column B’s width.
+
+1-20 Using 1-2-3

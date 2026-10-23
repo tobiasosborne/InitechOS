@@ -1,0 +1,13 @@
+def keyslook(a):
+ for c,v in {'A1':'a','B1':'b','C1':'c','D1':'d','A2':'2','A3':'3','A4':'4'}.items():a.cell(c,v)
+ a.goto('A1');a.key('end');a.state('end-indicator');a.key('right');a.state('end-right')
+ a.goto('A1');a.key('caps_lock');a.state('caps-indicator');a.key('caps_lock');a.key('num_lock');a.state('num-indicator');a.key('num_lock')
+ a.cell('A1','undo');a.key('alt-f4');a.state('undo-absent')
+ for k in ['f1','f3','f4','f6','f7','f8','f10']:
+  a.key(k);a.state('key-'+k)
+ a.goto('B3');a.type('+A1',False);a.key('f4');a.state('f4-absolute');a.key('esc')
+ a.goto('A1');a.key('f2');a.key('home');a.type('X',False);a.key('left');a.key('delete');a.state('edit-cursor-delete');a.key('esc');a.key('esc')
+ a.slash('s');a.state('unsupported-before-enter');a.key('ret');a.state('unsupported-after-enter');a.key('esc')
+ a.click(360,181);a.state('cell-click');a.goto('A100');a.state('scroll-before');a.click(627,69);a.state('scroll-arrow');a.drag(627,120,0,150);a.state('scroll-thumb')
+ a.key('home');a.drag(632,472,-288,-194);a.goto('E1');a.state('resize-pointer');a.click(140,166);a.state('resize-hit');a.click(325,50);a.state('resize-zoom')
+ a.key('ctrl-q');a.state('quit-dialog-look')

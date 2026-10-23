@@ -1,0 +1,56 @@
+4. If saving to an existing file, select one of the following options:
+
+Cancel Returns 1-2-3 to READY mode without saving the worksheet.
+
+Replace Writes over the worksheet file on disk with a copy of the current
+worksheet.
+
+Backup Copies the worksheet file on disk to a backup file with the same
+
+file name but the extension .BAK, and saves the current
+worksheet with the existing fi file name a and the extension .WK1.
+
+Tips
+¢ If you need to keep a copy of the last version of a file on disk and do not want
+to rename the file, use /File Save Backup.
+
+¢ Ifyou want 1-2-3 to read the same worksheet into memory automatically every
+time you start the program, use /File Save to save the worksheet in a file
+named AUTO123.WK1 in the default directory. See “Retrieving a File
+Automatically” earlier in this chapter.
+
+¢ To print the current worksheet as a text file in ASCII format, use /Print File.
+
+Saving a File with a Password
+
+You can limit access to a worksheet file by saving it with a password. When you
+save a file with a password, no one can read the file without the password.
+During the /File Save procedure, you can create, change, and delete a password
+as described below.
+
+CAUTION Remember your password. When you save a file with a password,
+you can read the file into memory again only if you enter the exact password.
+
+Procedure
+
+1. If you have a two-diskette system, make sure the disk you want to save the
+file on is in one of the diskette drives.
+
+2. Select /File Save.
+
+3. 1-2-3 displays the current directory and the default file extension. If the file
+has been saved before, the program also displays the current file name. Do
+one of the following:
+
+¢ If you are updating the file, press the space bar once to enter a space after
+the current file name or edit the file name and then press the space bar
+once. Do not press ENTER.
+
+¢ If the file is new, enter the file name and press the space bar once. Do not
+press ENTER.
+
+4. Type p and then press ENTER.
+1-2-3 prompts you to enter the password.
+
+5-22 The File Commands
+

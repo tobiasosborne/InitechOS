@@ -1,0 +1,46 @@
+@Function Descriptions
+
+This section contains descriptions and examples of the 1-2-3 @functions.
+
+How to Use This Section
+
+As you read through the @function descriptions, keep in mind the following
+conventions:
+
+* Each @function is listed alphabetically.
+
+¢ @Functions, advanced macro command keywords, cell addresses, and range
+names appear in uppercase letters, but they need not be entered that way.
+1-2-3 does not distinguish between uppercase and lowercase letters in these
+cases,
+
+¢ Argument names appear in italics but actual arguments used in examples are
+not italicized.
+
+@@
+@@(location) returns the contents of the cell whose name or address is specified
+
+in location. The location you provide as an argument acts as a pointer to another
+cell, whose contents @@ returns.
+
+Location must be the name or address of a single cell range that contains a valid
+cell reference. If you specify a multiple cell range for location, @@ evaluates to
+ERR.
+
+NOTE Any file linking formulas in the worksheet, such as
++<<SALES.WK1>>A1, are stored in the worksheet file as special @@
+functions whenever you save the file. If you retrieve a 1-2-3 Release 2.2
+worksheet that contains linking formulas with 1-2-3 Release 2 or 2.01, these @@
+formulas will evaluate to the value ERR. For more information, see Chapter 4 of
+Upgrader’s Handbook.
+
+Example
+
+Figure 13-7 shows a simple sales commission chart. The @@(A11) formula
+entered in C4 returns the contents of C8, which is the cell specified in A11. Cell
+All contains an @IF formula that enters one of two cell addresses, depending on
+which product code you enter in C3. If you enter anything in C3 other than one
+of the two product codes, both the @IF and @@ functions will evaluate to ERR.
+
+13-14 1-2-3 @Functions
+

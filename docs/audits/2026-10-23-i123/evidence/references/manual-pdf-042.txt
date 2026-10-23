@@ -1,0 +1,80 @@
+82: 20
+Enter range to format: 62. .62 —
+
+a
+
+4
+2
+3
+va
+5
+6
+
+bl Prompt for range
+
+Range you want to format
+
+Cell pointer anchored
+
+in comer of range
+
+Address of highlighted
+POINT range
+
+Range after using ¥ and
+> to expand the highlight
+
+READY
+
+Range after pressing ENTER
+
+Original cell pointer
+‘ocation
+
+The following table lists the keys you can use to highlight a range when 1-2-3 is
+
+When range is anchored
+
+Moves anchor cell clockwise from
+‘one corner of highlighted range to
+next.
+
+Removes highlighting, unanchors
+cell pointer, and returns cell pointer
+to wherever it was before 1-2-3
+entered POINT mode.
+
+Bz (C2) 20
+A c > e G 6
+1
+2
+3
+4
+3
+6
+Figure 1-13 Highlighting a range in the Range Format command
+in POINT mode:
+Key When range is unanchored
+« (period) Makes current cell the anchor cell.
+BACKSPACE Returns cell pointer to wherever it
+was before 1-2-3 entered POINT
+mode (current cell).
+ESC If you are using a command,
+
+returns you to previous menu or
+prompt. If you are entering a
+formula, returns 1-2-3 to EDIT
+mode.
+
+Removes highlighting and
+unanchors cell pointer.
+
+Remembered Ranges
+With some commands, such as /Print [Printer or File] Range and /Data Fill, 1-2-3
+“remembers” the most recent range you specified. The next time you select the
+same command, 1-2-3 automatically highlights the range you last specified and
+displays its address in the control panel. Press ENTER to accept that range, or
+press ESC or BACKSPACE to clear the remembered range and specify a different
+range using one of the three ways previously described.
+
+1-26 Using 1-2-3

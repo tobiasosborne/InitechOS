@@ -1,0 +1,55 @@
+/Range Name Delete
+/Range Name Delete lets you delete a range name but leave the data in the range
+unchanged.
+
+Procedure
+
+1. Select /Range Name Delete.
+
+2. Specify the range name you want to delete and press ENTER.
+
+Tip
+
+¢ Inany formulas that use the deleted range name, 1-2-3 replaces the range
+name with the corresponding range address.
+
+/Range Name Labels
+
+/Range Name Labels lets you assign range names to single cell ranges, using
+existing adjacent labels as the range names.
+
+To prevent confusion when using range names in formulas and advanced macro
+commands, make sure that the labels you are going to use to create range names
+meet these guidelines:
+
+* Do not include spaces, commas, semicolons, or the characters + *-/& > <{
+@ and # because they may appear to be formulas to 1-2-3.
+
+* Do not look like cell addresses, such as Q2 or EX100.
+
+* Do not use @function names, advanced macro command keywords, or 1-2-3
+key names.
+
+* Do not begin with a number, such as 20DEC, or consist entirely of numbers,
+such as 1989.
+
+CAUTION If a label you use as a range name (or the first 15 characters of the
+label) duplicates an existing range name, 1-2-3 reassigns the range name to the
+new range. Formulas that refer to the named range as it was previously defined
+now refer to the new range.
+
+Procedure
+
+1. Select /Range Name Labels.
+
+2. Select one of the following options:
+Right Cell to name is to the right ofthe label.
+
+Down Cell to name is below the label.
+
+Left Cell to name is to the left of the label.
+
+Up Cell to name is above the label.
+
+10-16 The Range Commands
+

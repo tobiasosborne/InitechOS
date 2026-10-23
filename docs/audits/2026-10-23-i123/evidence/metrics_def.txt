@@ -1,0 +1,5 @@
+def heavy(a):
+ a.get('HEAVY');a.state('heavy-loaded')
+ before=time.monotonic();a.cmd('human-monitor-command',{'command-line':'sendkey f9 20'});time.sleep(.03);a.cmd('human-monitor-command',{'command-line':'sendkey ctrl-scroll_lock 20'});a.pause(1);a.state('heavy-break');duration=time.monotonic()-before
+ (ROOT/'evidence/heavy-timing.json').write_text(json.dumps({'seconds_until_capture':duration,'note':'F9 and Ctrl-Break 30 ms apart; screenshot after 1 s. This does not prove Break interrupted rather than followed completion.'},indent=2))
+ a.saveas('HEAVYOUT');a.state('heavy-saved')

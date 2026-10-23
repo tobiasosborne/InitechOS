@@ -1,0 +1,160 @@
+[
+  {
+    "session": "long",
+    "native": "M1ROUND",
+    "real": "MINT01",
+    "native_bytes": 1609,
+    "real_bytes": 1609,
+    "file_identical": true,
+    "cell_records_identical": true,
+    "cell_differences": []
+  },
+  {
+    "session": "capacity",
+    "native": "M3ROUND",
+    "real": "MINT03",
+    "native_bytes": 1946,
+    "real_bytes": 1946,
+    "file_identical": true,
+    "cell_records_identical": true,
+    "cell_differences": []
+  },
+  {
+    "session": "capacity",
+    "native": "M4ROUND",
+    "real": "MINT04",
+    "native_bytes": 1578,
+    "real_bytes": 1578,
+    "file_identical": false,
+    "cell_records_identical": false,
+    "cell_differences": [
+      {
+        "cell": "A2",
+        "native": {
+          "cell": "A2",
+          "format": 255,
+          "opcode": 16,
+          "body_hex": "ff0000010000000000000020400a0001028000800501000903",
+          "value": 8.0,
+          "formula_hex": "01028000800501000903"
+        },
+        "real": {
+          "cell": "A2",
+          "format": 255,
+          "opcode": 16,
+          "body_hex": "ff00000100000000000000f03f0a0001028000800501000903",
+          "value": 1.0,
+          "formula_hex": "01028000800501000903"
+        }
+      },
+      {
+        "cell": "B2",
+        "native": {
+          "cell": "B2",
+          "format": 255,
+          "opcode": 16,
+          "body_hex": "ff010001000000000000002040060001ffbf008003",
+          "value": 8.0,
+          "formula_hex": "01ffbf008003"
+        },
+        "real": {
+          "cell": "B2",
+          "format": 255,
+          "opcode": 16,
+          "body_hex": "ff01000100000000000000f03f060001ffbf008003",
+          "value": 1.0,
+          "formula_hex": "01ffbf008003"
+        }
+      },
+      {
+        "cell": "C2",
+        "native": {
+          "cell": "C2",
+          "format": 255,
+          "opcode": 16,
+          "body_hex": "ff020001000000000000002040060001ffbf008003",
+          "value": 8.0,
+          "formula_hex": "01ffbf008003"
+        },
+        "real": {
+          "cell": "C2",
+          "format": 255,
+          "opcode": 16,
+          "body_hex": "ff02000100000000000000f03f060001ffbf008003",
+          "value": 1.0,
+          "formula_hex": "01ffbf008003"
+        }
+      }
+    ]
+  },
+  {
+    "session": "capacity",
+    "native": "M5ROUND",
+    "real": "MINT05",
+    "native_bytes": 1670,
+    "real_bytes": 1670,
+    "file_identical": true,
+    "cell_records_identical": true,
+    "cell_differences": []
+  },
+  {
+    "session": "transfers",
+    "native": "COPYB",
+    "real": "COPY01B",
+    "native_bytes": 1820,
+    "real_bytes": 1820,
+    "file_identical": false,
+    "cell_records_identical": true,
+    "cell_differences": []
+  },
+  {
+    "session": "transfers",
+    "native": "COPYC",
+    "real": "COPY01C",
+    "native_bytes": 2010,
+    "real_bytes": 2010,
+    "file_identical": false,
+    "cell_records_identical": true,
+    "cell_differences": []
+  },
+  {
+    "session": "transfers",
+    "native": "COPYD",
+    "real": "COPY01D",
+    "native_bytes": 2041,
+    "real_bytes": 2041,
+    "file_identical": false,
+    "cell_records_identical": true,
+    "cell_differences": []
+  },
+  {
+    "session": "transfers",
+    "native": "MOVEB",
+    "real": "MOVE01B",
+    "native_bytes": 1655,
+    "real_bytes": 1655,
+    "file_identical": false,
+    "cell_records_identical": true,
+    "cell_differences": []
+  },
+  {
+    "session": "transfers",
+    "native": "MOVEC",
+    "real": "MOVE01C",
+    "native_bytes": 1655,
+    "real_bytes": 1655,
+    "file_identical": false,
+    "cell_records_identical": true,
+    "cell_differences": []
+  },
+  {
+    "session": "transfers",
+    "native": "MOVED",
+    "real": "MOVE01D",
+    "native_bytes": 1655,
+    "real_bytes": 1655,
+    "file_identical": false,
+    "cell_records_identical": true,
+    "cell_differences": []
+  }
+]

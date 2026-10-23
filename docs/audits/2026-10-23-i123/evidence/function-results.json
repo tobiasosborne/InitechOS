@@ -1,0 +1,1246 @@
+[
+  {
+    "cell": "A1",
+    "input": "@NA",
+    "number": "-inf",
+    "text": null,
+    "raw": {
+      "cell": "A1",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000000000000000000f0ff02001f03",
+      "value": "-inf",
+      "formula_hex": "1f03"
+    }
+  },
+  {
+    "cell": "A2",
+    "input": "@ERR",
+    "number": "inf",
+    "text": null,
+    "raw": {
+      "cell": "A2",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000100000000000000f07f02002003",
+      "value": "inf",
+      "formula_hex": "2003"
+    }
+  },
+  {
+    "cell": "A3",
+    "input": "@ABS(-3)",
+    "number": 3.0,
+    "text": null,
+    "raw": {
+      "cell": "A3",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000020000000000000008400600050300082103",
+      "value": 3.0,
+      "formula_hex": "050300082103"
+    }
+  },
+  {
+    "cell": "A4",
+    "input": "@INT(-7.5)",
+    "number": -7.0,
+    "text": null,
+    "raw": {
+      "cell": "A4",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff000003000000000000001cc00c00000000000000001e40082203",
+      "value": -7.0,
+      "formula_hex": "000000000000001e40082203"
+    }
+  },
+  {
+    "cell": "A5",
+    "input": "@SQRT(2)",
+    "number": 1.4142135623730951,
+    "text": null,
+    "raw": {
+      "cell": "A5",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000400cd3b7f669ea0f63f05000502002303",
+      "value": 1.4142135623730951,
+      "formula_hex": "0502002303"
+    }
+  },
+  {
+    "cell": "A6",
+    "input": "@LOG(100)",
+    "number": 2.0,
+    "text": null,
+    "raw": {
+      "cell": "A6",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000500000000000000004005000564002403",
+      "value": 2.0,
+      "formula_hex": "0564002403"
+    }
+  },
+  {
+    "cell": "A7",
+    "input": "@LN(1)",
+    "number": 0.0,
+    "text": null,
+    "raw": {
+      "cell": "A7",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000600000000000000000005000501002503",
+      "value": 0.0,
+      "formula_hex": "0501002503"
+    }
+  },
+  {
+    "cell": "A8",
+    "input": "@PI",
+    "number": 3.141592653589793,
+    "text": null,
+    "raw": {
+      "cell": "A8",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000700182d4454fb21094002002603",
+      "value": 3.141592653589793,
+      "formula_hex": "2603"
+    }
+  },
+  {
+    "cell": "A9",
+    "input": "@SIN(0)",
+    "number": 0.0,
+    "text": null,
+    "raw": {
+      "cell": "A9",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000800000000000000000005000500002703",
+      "value": 0.0,
+      "formula_hex": "0500002703"
+    }
+  },
+  {
+    "cell": "A10",
+    "input": "@COS(0)",
+    "number": 1.0,
+    "text": null,
+    "raw": {
+      "cell": "A10",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000900000000000000f03f05000500002803",
+      "value": 1.0,
+      "formula_hex": "0500002803"
+    }
+  },
+  {
+    "cell": "A11",
+    "input": "@TAN(0)",
+    "number": 0.0,
+    "text": null,
+    "raw": {
+      "cell": "A11",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000a00000000000000000005000500002903",
+      "value": 0.0,
+      "formula_hex": "0500002903"
+    }
+  },
+  {
+    "cell": "A12",
+    "input": "@ATAN2(1,1)",
+    "number": 0.7853981633974483,
+    "text": null,
+    "raw": {
+      "cell": "A12",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000b00182d4454fb21e93f08000501000501002a03",
+      "value": 0.7853981633974483,
+      "formula_hex": "0501000501002a03"
+    }
+  },
+  {
+    "cell": "A13",
+    "input": "@ATAN(0)",
+    "number": 0.0,
+    "text": null,
+    "raw": {
+      "cell": "A13",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000c00000000000000000005000500002b03",
+      "value": 0.0,
+      "formula_hex": "0500002b03"
+    }
+  },
+  {
+    "cell": "A14",
+    "input": "@ASIN(0)",
+    "number": 0.0,
+    "text": null,
+    "raw": {
+      "cell": "A14",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000d00000000000000000005000500002c03",
+      "value": 0.0,
+      "formula_hex": "0500002c03"
+    }
+  },
+  {
+    "cell": "A15",
+    "input": "@ACOS(1)",
+    "number": 0.0,
+    "text": null,
+    "raw": {
+      "cell": "A15",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000e00000000000000000005000501002d03",
+      "value": 0.0,
+      "formula_hex": "0501002d03"
+    }
+  },
+  {
+    "cell": "A16",
+    "input": "@EXP(1)",
+    "number": 2.718281828459045,
+    "text": null,
+    "raw": {
+      "cell": "A16",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000f006957148b0abf054005000501002e03",
+      "value": 2.718281828459045,
+      "formula_hex": "0501002e03"
+    }
+  },
+  {
+    "cell": "A17",
+    "input": "@MOD(-7,3)",
+    "number": -1.0,
+    "text": null,
+    "raw": {
+      "cell": "A17",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001000000000000000f0bf0900050700080503002f03",
+      "value": -1.0,
+      "formula_hex": "050700080503002f03"
+    }
+  },
+  {
+    "cell": "A18",
+    "input": "@CHOOSE(1,\"a\",\"b\",\"c\")",
+    "number": null,
+    "text": "b",
+    "raw": {
+      "cell": "A18",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff000011006200",
+      "text": "b"
+    }
+  },
+  {
+    "cell": "A19",
+    "input": "@ISNA(@NA)",
+    "number": 1.0,
+    "text": null,
+    "raw": {
+      "cell": "A19",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001200000000000000f03f03001f3103",
+      "value": 1.0,
+      "formula_hex": "1f3103"
+    }
+  },
+  {
+    "cell": "A20",
+    "input": "@ISERR(1/0)",
+    "number": 1.0,
+    "text": null,
+    "raw": {
+      "cell": "A20",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001300000000000000f03f09000501000500000c3203",
+      "value": 1.0,
+      "formula_hex": "0501000500000c3203"
+    }
+  },
+  {
+    "cell": "A21",
+    "input": "@FALSE",
+    "number": 0.0,
+    "text": null,
+    "raw": {
+      "cell": "A21",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001400000000000000000002003303",
+      "value": 0.0,
+      "formula_hex": "3303"
+    }
+  },
+  {
+    "cell": "A22",
+    "input": "@TRUE",
+    "number": 1.0,
+    "text": null,
+    "raw": {
+      "cell": "A22",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001500000000000000f03f02003403",
+      "value": 1.0,
+      "formula_hex": "3403"
+    }
+  },
+  {
+    "cell": "A23",
+    "input": "@RAND",
+    "number": 0.6501312295440584,
+    "text": null,
+    "raw": {
+      "cell": "A23",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000160000002002e0cde43f02003503",
+      "value": 0.6501312295440584,
+      "formula_hex": "3503"
+    }
+  },
+  {
+    "cell": "A24",
+    "input": "@DATE(89,12,31)",
+    "number": 32873.0,
+    "text": null,
+    "raw": {
+      "cell": "A24",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000170000000000200de0400b00055900050c00051f003603",
+      "value": 32873.0,
+      "formula_hex": "055900050c00051f003603"
+    }
+  },
+  {
+    "cell": "A25",
+    "input": "@NOW",
+    "number": "inf",
+    "text": null,
+    "raw": {
+      "cell": "A25",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001800000000000000f07f02003703",
+      "value": "inf",
+      "formula_hex": "3703"
+    }
+  },
+  {
+    "cell": "A26",
+    "input": "@PMT(1000,.1,10)",
+    "number": 162.74539488251153,
+    "text": null,
+    "raw": {
+      "cell": "A26",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001900c55f5e46da576440110005e803009a9999999999b93f050a003803",
+      "value": 162.74539488251153,
+      "formula_hex": "05e803009a9999999999b93f050a003803"
+    }
+  },
+  {
+    "cell": "A27",
+    "input": "@PV(100,.1,10)",
+    "number": 614.4567105704685,
+    "text": null,
+    "raw": {
+      "cell": "A27",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001a00331fdf57a73383401100056400009a9999999999b93f050a003903",
+      "value": 614.4567105704685,
+      "formula_hex": "056400009a9999999999b93f050a003903"
+    }
+  },
+  {
+    "cell": "A28",
+    "input": "@FV(100,.1,10)",
+    "number": 1593.7424601000023,
+    "text": null,
+    "raw": {
+      "cell": "A28",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001b0061e07547f8e698401100056400009a9999999999b93f050a003a03",
+      "value": 1593.7424601000023,
+      "formula_hex": "056400009a9999999999b93f050a003a03"
+    }
+  },
+  {
+    "cell": "A29",
+    "input": "@IF(1,2,1/0)",
+    "number": 2.0,
+    "text": null,
+    "raw": {
+      "cell": "A29",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001c0000000000000000400f000501000502000501000500000c3b03",
+      "value": 2.0,
+      "formula_hex": "0501000502000501000500000c3b03"
+    }
+  },
+  {
+    "cell": "A30",
+    "input": "@DAY(32873)",
+    "number": 31.0,
+    "text": null,
+    "raw": {
+      "cell": "A30",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001d000000000000003f400b000000000000200de0403c03",
+      "value": 31.0,
+      "formula_hex": "0000000000200de0403c03"
+    }
+  },
+  {
+    "cell": "A31",
+    "input": "@MONTH(32873)",
+    "number": 12.0,
+    "text": null,
+    "raw": {
+      "cell": "A31",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001e0000000000000028400b000000000000200de0403d03",
+      "value": 12.0,
+      "formula_hex": "0000000000200de0403d03"
+    }
+  },
+  {
+    "cell": "A32",
+    "input": "@YEAR(32873)",
+    "number": 89.0,
+    "text": null,
+    "raw": {
+      "cell": "A32",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00001f0000000000004056400b000000000000200de0403e03",
+      "value": 89.0,
+      "formula_hex": "0000000000200de0403e03"
+    }
+  },
+  {
+    "cell": "A33",
+    "input": "@ROUND(-2.5,0)",
+    "number": -3.0,
+    "text": null,
+    "raw": {
+      "cell": "A33",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000200000000000000008c00f00000000000000000440080500003f03",
+      "value": -3.0,
+      "formula_hex": "000000000000000440080500003f03"
+    }
+  },
+  {
+    "cell": "A34",
+    "input": "@TIME(12,30,15)",
+    "number": 0.5210069444444444,
+    "text": null,
+    "raw": {
+      "cell": "A34",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00002100c1166cc116ace03f0b00050c00051e00050f004003",
+      "value": 0.5210069444444444,
+      "formula_hex": "050c00051e00050f004003"
+    }
+  },
+  {
+    "cell": "A35",
+    "input": "@HOUR(.5)",
+    "number": 12.0,
+    "text": null,
+    "raw": {
+      "cell": "A35",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000220000000000000028400b0000000000000000e03f4103",
+      "value": 12.0,
+      "formula_hex": "00000000000000e03f4103"
+    }
+  },
+  {
+    "cell": "A36",
+    "input": "@MINUTE(.5)",
+    "number": 0.0,
+    "text": null,
+    "raw": {
+      "cell": "A36",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000230000000000000000000b0000000000000000e03f4203",
+      "value": 0.0,
+      "formula_hex": "00000000000000e03f4203"
+    }
+  },
+  {
+    "cell": "A37",
+    "input": "@SECOND(.5)",
+    "number": 0.0,
+    "text": null,
+    "raw": {
+      "cell": "A37",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000240000000000000000000b0000000000000000e03f4303",
+      "value": 0.0,
+      "formula_hex": "00000000000000e03f4303"
+    }
+  },
+  {
+    "cell": "A38",
+    "input": "@ISNUMBER(\"x\")",
+    "number": 0.0,
+    "text": null,
+    "raw": {
+      "cell": "A38",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00002500000000000000000005000678004403",
+      "value": 0.0,
+      "formula_hex": "0678004403"
+    }
+  },
+  {
+    "cell": "A39",
+    "input": "@ISSTRING(\"x\")",
+    "number": 1.0,
+    "text": null,
+    "raw": {
+      "cell": "A39",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00002600000000000000f03f05000678004503",
+      "value": 1.0,
+      "formula_hex": "0678004503"
+    }
+  },
+  {
+    "cell": "A40",
+    "input": "@LENGTH(\"abc\")",
+    "number": 3.0,
+    "text": null,
+    "raw": {
+      "cell": "A40",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff000027000000000000000840070006616263004603",
+      "value": 3.0,
+      "formula_hex": "06616263004603"
+    }
+  },
+  {
+    "cell": "A41",
+    "input": "@VALUE(\"12.5\")",
+    "number": 12.5,
+    "text": null,
+    "raw": {
+      "cell": "A41",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00002800000000000000294008000631322e35004703",
+      "value": 12.5,
+      "formula_hex": "0631322e35004703"
+    }
+  },
+  {
+    "cell": "A42",
+    "input": "@STRING(1/3,5)",
+    "number": null,
+    "text": "0.33333",
+    "raw": {
+      "cell": "A42",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00002900302e333333333300",
+      "text": "0.33333"
+    }
+  },
+  {
+    "cell": "A43",
+    "input": "@MID(\"abcd\",1,2)",
+    "number": null,
+    "text": "bc",
+    "raw": {
+      "cell": "A43",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00002a00626300",
+      "text": "bc"
+    }
+  },
+  {
+    "cell": "A44",
+    "input": "@CHAR(65)",
+    "number": null,
+    "text": "A",
+    "raw": {
+      "cell": "A44",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00002b004100",
+      "text": "A"
+    }
+  },
+  {
+    "cell": "A45",
+    "input": "@CODE(\"A\")",
+    "number": 65.0,
+    "text": null,
+    "raw": {
+      "cell": "A45",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00002c00000000000040504005000641004b03",
+      "value": 65.0,
+      "formula_hex": "0641004b03"
+    }
+  },
+  {
+    "cell": "A46",
+    "input": "@FIND(\"b\",\"abc\",0)",
+    "number": 1.0,
+    "text": null,
+    "raw": {
+      "cell": "A46",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00002d00000000000000f03f0d0006620006616263000500004c03",
+      "value": 1.0,
+      "formula_hex": "06620006616263000500004c03"
+    }
+  },
+  {
+    "cell": "A47",
+    "input": "@DATEVALUE(\"31-DEC-89\")",
+    "number": 32873.0,
+    "text": null,
+    "raw": {
+      "cell": "A47",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00002e0000000000200de0400d000633312d4445432d3839004d03",
+      "value": 32873.0,
+      "formula_hex": "0633312d4445432d3839004d03"
+    }
+  },
+  {
+    "cell": "A48",
+    "input": "@TIMEVALUE(\"12:30:15\")",
+    "number": 0.5210069444444444,
+    "text": null,
+    "raw": {
+      "cell": "A48",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00002f00c1166cc116ace03f0c000631323a33303a3135004e03",
+      "value": 0.5210069444444444,
+      "formula_hex": "0631323a33303a3135004e03"
+    }
+  },
+  {
+    "cell": "A49",
+    "input": "@CELLPOINTER(\"address\")",
+    "number": null,
+    "text": "$A$90",
+    "raw": {
+      "cell": "A49",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00003000244124393000",
+      "text": "$A$90"
+    }
+  },
+  {
+    "cell": "A50",
+    "input": "@SUM(1,2,3)",
+    "number": 6.0,
+    "text": null,
+    "raw": {
+      "cell": "A50",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000310000000000000018400c00050100050200050300500303",
+      "value": 6.0,
+      "formula_hex": "050100050200050300500303"
+    }
+  },
+  {
+    "cell": "A51",
+    "input": "@AVG(1,2,3)",
+    "number": 2.0,
+    "text": null,
+    "raw": {
+      "cell": "A51",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000320000000000000000400c00050100050200050300510303",
+      "value": 2.0,
+      "formula_hex": "050100050200050300510303"
+    }
+  },
+  {
+    "cell": "A52",
+    "input": "@COUNT(1,\"x\",3)",
+    "number": 3.0,
+    "text": null,
+    "raw": {
+      "cell": "A52",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000330000000000000008400c00050100067800050300520303",
+      "value": 3.0,
+      "formula_hex": "050100067800050300520303"
+    }
+  },
+  {
+    "cell": "A53",
+    "input": "@MIN(1,2,3)",
+    "number": 1.0,
+    "text": null,
+    "raw": {
+      "cell": "A53",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00003400000000000000f03f0c00050100050200050300530303",
+      "value": 1.0,
+      "formula_hex": "050100050200050300530303"
+    }
+  },
+  {
+    "cell": "A54",
+    "input": "@MAX(1,2,3)",
+    "number": 3.0,
+    "text": null,
+    "raw": {
+      "cell": "A54",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000350000000000000008400c00050100050200050300540303",
+      "value": 3.0,
+      "formula_hex": "050100050200050300540303"
+    }
+  },
+  {
+    "cell": "A55",
+    "input": "@VLOOKUP(2,D1..E3,1)",
+    "number": 20.0,
+    "text": null,
+    "raw": {
+      "cell": "A55",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000360000000000000034401100050200020380cabf0480ccbf0501005503",
+      "value": 20.0,
+      "formula_hex": "050200020380cabf0480ccbf0501005503"
+    }
+  },
+  {
+    "cell": "A56",
+    "input": "@NPV(.1,G1..G3)",
+    "number": 3.75657400450788,
+    "text": null,
+    "raw": {
+      "cell": "A56",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00003700baebf2ab760d0e401400009a9999999999b93f020680c9bf0680cbbf5603",
+      "value": 3.75657400450788,
+      "formula_hex": "009a9999999999b93f020680c9bf0680cbbf5603"
+    }
+  },
+  {
+    "cell": "A57",
+    "input": "@VAR(1,2,3)",
+    "number": 0.6666666666666666,
+    "text": null,
+    "raw": {
+      "cell": "A57",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00003800555555555555e53f0c00050100050200050300570303",
+      "value": 0.6666666666666666,
+      "formula_hex": "050100050200050300570303"
+    }
+  },
+  {
+    "cell": "A58",
+    "input": "@STD(1,2,3)",
+    "number": 0.816496580927726,
+    "text": null,
+    "raw": {
+      "cell": "A58",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff000039003e2c0c70bd20ea3f0c00050100050200050300580303",
+      "value": 0.816496580927726,
+      "formula_hex": "050100050200050300580303"
+    }
+  },
+  {
+    "cell": "A59",
+    "input": "@IRR(.1,G1..G3)",
+    "number": 0.13066238629180751,
+    "text": null,
+    "raw": {
+      "cell": "A59",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00003a00a166f8898bb9c03f1400009a9999999999b93f020680c6bf0680c8bf5903",
+      "value": 0.13066238629180751,
+      "formula_hex": "009a9999999999b93f020680c6bf0680c8bf5903"
+    }
+  },
+  {
+    "cell": "A60",
+    "input": "@HLOOKUP(2,D1..F2,1)",
+    "number": 2.0,
+    "text": null,
+    "raw": {
+      "cell": "A60",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00003b0000000000000000401100050200020380c5bf0580c6bf0501005a03",
+      "value": 2.0,
+      "formula_hex": "050200020380c5bf0580c6bf0501005a03"
+    }
+  },
+  {
+    "cell": "A61",
+    "input": "@DSUM(J1..K4,1,M1..M2)",
+    "number": 30.0,
+    "text": null,
+    "raw": {
+      "cell": "A61",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00003c000000000000003e401700020980c4bf0a80c7bf050100020c80c4bf0c80c5bf5b03",
+      "value": 30.0,
+      "formula_hex": "020980c4bf0a80c7bf050100020c80c4bf0c80c5bf5b03"
+    }
+  },
+  {
+    "cell": "A62",
+    "input": "@DAVG(J1..K4,1,M1..M2)",
+    "number": 15.0,
+    "text": null,
+    "raw": {
+      "cell": "A62",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00003d000000000000002e401700020980c3bf0a80c6bf050100020c80c3bf0c80c4bf5c03",
+      "value": 15.0,
+      "formula_hex": "020980c3bf0a80c6bf050100020c80c3bf0c80c4bf5c03"
+    }
+  },
+  {
+    "cell": "A63",
+    "input": "@DCOUNT(J1..K4,1,M1..M2)",
+    "number": 2.0,
+    "text": null,
+    "raw": {
+      "cell": "A63",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00003e0000000000000000401700020980c2bf0a80c5bf050100020c80c2bf0c80c3bf5d03",
+      "value": 2.0,
+      "formula_hex": "020980c2bf0a80c5bf050100020c80c2bf0c80c3bf5d03"
+    }
+  },
+  {
+    "cell": "A64",
+    "input": "@DMIN(J1..K4,1,M1..M2)",
+    "number": 10.0,
+    "text": null,
+    "raw": {
+      "cell": "A64",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00003f0000000000000024401700020980c1bf0a80c4bf050100020c80c1bf0c80c2bf5e03",
+      "value": 10.0,
+      "formula_hex": "020980c1bf0a80c4bf050100020c80c1bf0c80c2bf5e03"
+    }
+  },
+  {
+    "cell": "A65",
+    "input": "@DMAX(J1..K4,1,M1..M2)",
+    "number": 20.0,
+    "text": null,
+    "raw": {
+      "cell": "A65",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000400000000000000034401700020980c0bf0a80c3bf050100020c80c0bf0c80c1bf5f03",
+      "value": 20.0,
+      "formula_hex": "020980c0bf0a80c3bf050100020c80c0bf0c80c1bf5f03"
+    }
+  },
+  {
+    "cell": "A66",
+    "input": "@DVAR(J1..K4,1,M1..M2)",
+    "number": 25.0,
+    "text": null,
+    "raw": {
+      "cell": "A66",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000410000000000000039401700020980bfbf0a80c2bf050100020c80bfbf0c80c0bf6003",
+      "value": 25.0,
+      "formula_hex": "020980bfbf0a80c2bf050100020c80bfbf0c80c0bf6003"
+    }
+  },
+  {
+    "cell": "A67",
+    "input": "@DSTD(J1..K4,1,M1..M2)",
+    "number": 5.0,
+    "text": null,
+    "raw": {
+      "cell": "A67",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000420000000000000014401700020980bebf0a80c1bf050100020c80bebf0c80bfbf6103",
+      "value": 5.0,
+      "formula_hex": "020980bebf0a80c1bf050100020c80bebf0c80bfbf6103"
+    }
+  },
+  {
+    "cell": "A68",
+    "input": "@INDEX(D1..F3,1,1)",
+    "number": 20.0,
+    "text": null,
+    "raw": {
+      "cell": "A68",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000430000000000000034401100020380bdbf0580bfbf0501000501006203",
+      "value": 20.0,
+      "formula_hex": "020380bdbf0580bfbf0501000501006203"
+    }
+  },
+  {
+    "cell": "A69",
+    "input": "@COLS(A200..IV8192)",
+    "number": 256.0,
+    "text": null,
+    "raw": {
+      "cell": "A69",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000440000000000000070400b000200808380ff80bb9f6303",
+      "value": 256.0,
+      "formula_hex": "0200808380ff80bb9f6303"
+    }
+  },
+  {
+    "cell": "A70",
+    "input": "@ROWS(A200..IV8192)",
+    "number": 7993.0,
+    "text": null,
+    "raw": {
+      "cell": "A70",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00004500000000000039bf400b000200808280ff80ba9f6403",
+      "value": 7993.0,
+      "formula_hex": "0200808280ff80ba9f6403"
+    }
+  },
+  {
+    "cell": "A71",
+    "input": "@REPEAT(\"ab\",3)",
+    "number": null,
+    "text": "ababab",
+    "raw": {
+      "cell": "A71",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff0000460061626162616200",
+      "text": "ababab"
+    }
+  },
+  {
+    "cell": "A72",
+    "input": "@UPPER(\"ab\")",
+    "number": null,
+    "text": "AB",
+    "raw": {
+      "cell": "A72",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00004700414200",
+      "text": "AB"
+    }
+  },
+  {
+    "cell": "A73",
+    "input": "@LOWER(\"AB\")",
+    "number": null,
+    "text": "ab",
+    "raw": {
+      "cell": "A73",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00004800616200",
+      "text": "ab"
+    }
+  },
+  {
+    "cell": "A74",
+    "input": "@LEFT(\"abcd\",2)",
+    "number": null,
+    "text": "ab",
+    "raw": {
+      "cell": "A74",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00004900616200",
+      "text": "ab"
+    }
+  },
+  {
+    "cell": "A75",
+    "input": "@RIGHT(\"abcd\",2)",
+    "number": null,
+    "text": "cd",
+    "raw": {
+      "cell": "A75",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00004a00636400",
+      "text": "cd"
+    }
+  },
+  {
+    "cell": "A76",
+    "input": "@REPLACE(\"abcd\",1,2,\"X\")",
+    "number": null,
+    "text": "aXd",
+    "raw": {
+      "cell": "A76",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00004b0061586400",
+      "text": "aXd"
+    }
+  },
+  {
+    "cell": "A77",
+    "input": "@PROPER(\"hello WORLD\")",
+    "number": null,
+    "text": "Hello World",
+    "raw": {
+      "cell": "A77",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00004c0048656c6c6f20576f726c6400",
+      "text": "Hello World"
+    }
+  },
+  {
+    "cell": "A78",
+    "input": "@CELL(\"filename\",D1)",
+    "number": null,
+    "text": "",
+    "raw": {
+      "cell": "A78",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00004d0000",
+      "text": ""
+    }
+  },
+  {
+    "cell": "A79",
+    "input": "@TRIM(\" a  b \" )",
+    "number": null,
+    "text": "a b",
+    "raw": {
+      "cell": "A79",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00004e0061206200",
+      "text": "a b"
+    }
+  },
+  {
+    "cell": "A80",
+    "input": "@CLEAN(\"abc\")",
+    "number": null,
+    "text": "abc",
+    "raw": {
+      "cell": "A80",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff00004f0061626300",
+      "text": "abc"
+    }
+  },
+  {
+    "cell": "A81",
+    "input": "@S(J1)",
+    "number": null,
+    "text": "Name",
+    "raw": {
+      "cell": "A81",
+      "format": 255,
+      "opcode": 51,
+      "body_hex": "ff000050004e616d6500",
+      "text": "Name"
+    }
+  },
+  {
+    "cell": "A82",
+    "input": "@N(D1)",
+    "number": 1.0,
+    "text": null,
+    "raw": {
+      "cell": "A82",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00005100000000000000f03f0b00020380afbf0380afbf7003",
+      "value": 1.0,
+      "formula_hex": "020380afbf0380afbf7003"
+    }
+  },
+  {
+    "cell": "A83",
+    "input": "@EXACT(\"A\",\"a\")",
+    "number": 0.0,
+    "text": null,
+    "raw": {
+      "cell": "A83",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00005200000000000000000008000641000661007103",
+      "value": 0.0,
+      "formula_hex": "0641000661007103"
+    }
+  },
+  {
+    "cell": "A84",
+    "input": "@@(\"D1\")",
+    "number": "inf",
+    "text": null,
+    "raw": {
+      "cell": "A84",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00005300000000000000f07f0600064431007303",
+      "value": "inf",
+      "formula_hex": "064431007303"
+    }
+  },
+  {
+    "cell": "A85",
+    "input": "@RATE(2000,1000,10)",
+    "number": 0.07177346253629313,
+    "text": null,
+    "raw": {
+      "cell": "A85",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00005400406650e2be5fb23f0b0005d00705e803050a007403",
+      "value": 0.07177346253629313,
+      "formula_hex": "05d00705e803050a007403"
+    }
+  },
+  {
+    "cell": "A86",
+    "input": "@TERM(100,.1,1000)",
+    "number": 7.272540897341713,
+    "text": null,
+    "raw": {
+      "cell": "A86",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00005500e09e03f614171d401100056400009a9999999999b93f05e8037503",
+      "value": 7.272540897341713,
+      "formula_hex": "056400009a9999999999b93f05e8037503"
+    }
+  },
+  {
+    "cell": "A87",
+    "input": "@CTERM(.1,2000,1000)",
+    "number": 7.2725408973417185,
+    "text": null,
+    "raw": {
+      "cell": "A87",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00005600e69e03f614171d401100009a9999999999b93f05d00705e8037603",
+      "value": 7.2725408973417185,
+      "formula_hex": "009a9999999999b93f05d00705e8037603"
+    }
+  },
+  {
+    "cell": "A88",
+    "input": "@SLN(1000,100,5)",
+    "number": 180.0,
+    "text": null,
+    "raw": {
+      "cell": "A88",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000570000000000008066400b0005e8030564000505007703",
+      "value": 180.0,
+      "formula_hex": "05e8030564000505007703"
+    }
+  },
+  {
+    "cell": "A89",
+    "input": "@SYD(1000,100,5,1)",
+    "number": 300.0,
+    "text": null,
+    "raw": {
+      "cell": "A89",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff000058000000000000c072400e0005e8030564000505000501007803",
+      "value": 300.0,
+      "formula_hex": "05e8030564000505000501007803"
+    }
+  },
+  {
+    "cell": "A90",
+    "input": "@DDB(1000,100,5,1)",
+    "number": 400.0,
+    "text": null,
+    "raw": {
+      "cell": "A90",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff0000590000000000000079400e0005e8030564000505000501007903",
+      "value": 400.0,
+      "formula_hex": "05e8030564000505000501007903"
+    }
+  }
+]

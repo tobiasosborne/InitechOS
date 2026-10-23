@@ -1,0 +1,51 @@
+Example
+In Figure 13-36, @STD(C3..C43) = 40.03, the population standard deviation of
+the test scores in C3..C43.
+
+45: CF2) CWI4] @STDCC3. .c43) READY
+
+A
+
+ESB
+
+a
+42
+
+BE
+
+45. Standard deviation of ‘teat scores:
+
+Figure 13-36 @STD
+
+@STRING
+
+@STRING(x,n) converts the value x into a string with n decimal places.
+X can be any value.
+N can be any integer from 0 to 15.
+
+NOTE @STRING ignores any formatting characters included in x. For example,
+if A7 contains the formatted value $45.23, @STRING(A7,2) returns the string
+45.23.
+
+Examples
+
+NOTE In the following examples, each ¢ (bullet) represents one space.
+@STRING(1.23587,0) = the string 1
+
+@STRING(20%,1) = the string 0.2
+
+@STRING(B3,0)é&‘’e’” &B4 returns the string 100 Kilsyth Road if B3 contains the
+value 100 and B4 contains the label Kilsyth Road.
+
+@SUM
+@SUM(list) adds the values in list.
+List can contain one or more numbers, numeric formulas, references to ranges
+
+that contain numbers or numeric formulas, or any combination of numbers,
+formulas, and references to ranges.
+
+Example
+In Figure 13-37, @SUM(B5..B9) entered in B11 = 86, the sum of the values in
+B5..B9.
+
+13-56 1-2-3 @Functions

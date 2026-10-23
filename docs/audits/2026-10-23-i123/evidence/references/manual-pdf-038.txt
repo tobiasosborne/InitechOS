@@ -1,0 +1,59 @@
+You can enter a time number using a time @function, which calculates the time
+number for a time you specify as the argument for the @function. For example,
+to enter the time number for 11:59 PM, you could enter @TIME(23,59,0) in the
+worksheet. 1-2-3 calculates the time number automatically, in this case, .999305.
+For information on date @functions, see ‘Date and Time @Functions” in
+Chapter 13.
+
+To display the time rather than the time number, use /Range Format Date Time
+to change the cell’s format to one of the four time formats. For example, if you
+format the cell as Time 1, 1-2-3 displays the time number .999305 as 11:59:00 PM.
+Or, if you format the cell as Time 2, 1-2-3 displays 11:59 PM.
+
+Editing an Entry
+
+Editing an entry means altering existing data rather than replacing it with entirely
+new data. You can edit an entry either as you type it or after you have entered it
+ina cell.
+
+Editing As You Type
+
+You can edit an entry in three ways as you type it:
+
+¢ To erase characters to the left of the cursor, press BACKSPACE. For example, if
+you typed Quarter 3 but meant to type Quarter 4, press BACKSPACE to erase 3
+and then type 4.
+
+* To erase everything you typed and start again, press ESC. For example, if you
+typed Quarter 3 but meant to type Q3, press ESC to erase Quarter 3 and type
+Qs.
+
+* To change part of what you typed, press EDIT (F2) to enter EDIT mode and use
+the editing keys in the table that follows. For example, if you typed Quarter 3
+but meant to type Qtr. 3, press EDIT (F2). Then press BIG LEFT(CTRL-~) to move
+the cursor to the t in Quarter; press BACKSPACE three times to delete the r, a,
+and u; press — and DEL to delete the e; press — to move to the end of the
+entry; and type . (period).
+
+Editing a Completed Entry
+
+To edit a completed entry, move the cell pointer to the cell and press EDIT (F2) to
+put 1-2-3 in EDIT mode. Use the editing keys to change the entry, and then press
+ENTER, ¢, |, PGUP, or PGDN to enter the edited data in the worksheet.
+
+The table below lists the keys you can use in EDIT mode.
+
+Name Description
+
+Moves cursor right one character.
+
+Moves cursor left one character.
+
+Completes editing and moves cell pointer up one row.
+Completes editing and moves cell pointer down one row.
+
+-_-o> td
+
+(Continued)
+
+1-22 Using 1-2-3

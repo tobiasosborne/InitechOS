@@ -1,0 +1,47 @@
+Cost
+
+Salvage
+Life
+‘DG: (00) BSLN{D2,D3,,D4) READY
+A 8 c bs c
+3 200
+3 $1,200...
+3 8
+& Yearly depreciation allowance: $880
+Figure 13-35 @SLN
+@SQRT
+
+@SQRT(x) calculates the positive square root of x.
+
+X can be any positive value or 0.
+
+Examples
+
+@SQRT(@INT(25.768)) = 5 because @INT(25.768) = 25
+@SQRT(-2) = ERR because x is negative
+
+@STD
+
+@STD(list) calculates the population standard deviation of the values in list.
+
+List can contain one or more numbers, numeric formulas, references to ranges
+that contain numbers or numeric formulas, or any combination of numbers,
+formulas, and references to ranges.
+
+Standard deviation measures the degree to which individual values in a list vary
+from the mean (average) of all values in the list. The lower the standard
+deviation, the less individual values vary from the mean, and the more reliable
+the mean. A standard deviation of 0 indicates that all values in the list are equal.
+Population standard deviation is most accurate when the number of observations
+is large.
+
+NOTE Standard deviation is the square root of variance (@VAR).
+
+@STD uses the n (biased) method to calculate standard deviation of population
+data, with the following formula:
+
+3 where: n = number of items in list
+2 (vj — ang)" 2, = the ith item in list
+q avg = average of values in list
+
+@Function Descriptions 13-55

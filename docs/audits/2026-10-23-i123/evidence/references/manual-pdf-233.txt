@@ -1,0 +1,56 @@
+¢ Do not create names that look like cell addresses, such as Q2 or EX100.
+
+* Do not use @function names, advanced macro command keywords, or 1-2-3
+key names as range names.
+
+¢ Do not create range names that begin with a number, such as 20DEC, or
+consist entirely of numbers, such as 1989. You cannot include such range
+names in a formula.
+
+CAUTION If you enter a range name identical to an existing range name, 1-2-3
+reassigns the range name to the new range.
+
+Procedure
+1. Select /Range Name Create.
+2. Specify a range name of up to 15 characters and press ENTER.
+
+1-2-3 does not distinguish between uppercase and lowercase letters in range
+names.
+
+3. Specify the range to name and press ENTER.
+
+Tips
+
+¢ In formulas that refer by address to the range you named, 1-2-3 automatically
+replaces the address with the range name. For example, suppose the formula
+
+@SUM(A1..A5) exists when you assign the name TOTALS to A1..A5. 1-2-3
+automatically changes @SUM(A1..A5) to @SUM(TOTALS).
+
+* When /Move, /Worksheet Delete, /Worksheet Insert, or /Worksheet Page
+moves the upper left or lower right cell of a named range, 1-2-3 adjusts the
+range name’s definition.
+
+¢ If, when using /Move, you move data into the upper left or lower right cell of
+a named range, the range name becomes undefined. Formulas that used that
+range evaluate to ERR.
+
+* When you copy formulas that contain range names, 1-2-3 treats the range
+names as relative references and replaces the names with addresses in
+the copied formulas. For example, suppose you enter the formula
+@SUM(TOTALS) in A10, where TOTALS is the name for A1..A5, and then
+copy the formula to C10. The copied formula in C10 reads @SUM(C1..C5).
+
+¢ To have 1-2-3 treat a range name in a formula as an absolute cell reference,
+precede the range name with $ (dollar sign). For example, if you enter
+@SUM(STOTALS) in A10 and then copy it to C10, the formula in C10 reads
+@SUM(STOTALS), where TOTALS still refers to A1..A5.
+
+* Use /Range Name Create to edit a range name by selecting an existing name,
+pressing EDIT (F2) and editing it.
+
+* Use NAME (F3) to specify a named range when completing a command or
+writing a formula.
+
+/Range Name 10-15
+

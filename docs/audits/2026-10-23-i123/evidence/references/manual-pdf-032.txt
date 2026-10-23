@@ -1,0 +1,34 @@
+Figure 1-7 The /Graph settings sheet
+
+Entering and Editing Data
+
+When you enter data in a cell, 1-2-3 classifies every entry as one of two types:
+labels or values. Labels are text entries. Values are number and formula entries.
+
+To enter data in a cell, follow this procedure:
+1. Move the cell pointer to the cell in which you want to enter data.
+2. Type the data you want to enter in the cell, up to 240 characters.
+3. Do one of the following:
+* Press ENTER to complete the entry (the cell pointer remains in the same
+cell).
+¢ Press one of the pointer-movement keys to simultaneously complete the
+entry and move the cell pointer. The cell pointer moves to another cell, just
+as it does when you use the pointer-movement key in READY mode.
+
+¢ Press ESC if you want to cancel the entry.
+
+When you start typing an entry, 1-2-3 determines whether the entry is a label or
+value based on the first character you type and changes the mode indicator to
+LABEL or VALUE accordingly. For example, if the first character you type is a
+letter, one of the label prefixes’ ” * \ or |, or a special character such as { } & !
+or *, 1-2-3 displays LABEL in the mode indicator. If the first character is a number
+(0 through 9) or one of the numeric symbols + - @ . ( # or $, 1-2-3 changes the
+mode indicator to VALUE.
+
+As you type an entry, 1-2-3 displays the characters in the second line of the
+control panel. When you press ENTER or one of the pointer-movement keys to
+complete the entry, 1-2-3 checks the data before entering it in the worksheet to
+make sure you typed a valid label or value. (Guidelines for entering labels and
+values are discussed in the following sections, “Labels” and ‘Values.”) If the
+
+1-16 Using 1-2-3

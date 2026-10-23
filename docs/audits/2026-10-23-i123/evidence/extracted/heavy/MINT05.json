@@ -1,0 +1,381 @@
+{
+  "path": "evidence/extracted/heavy/MINT05.WK1",
+  "sha256": "0354f151d05b98f48bc47cf5b43eb72949c4dc7d33d3dc3367f3993878b3779a",
+  "bytes": 1670,
+  "consumed": 1670,
+  "records": [
+    {
+      "offset": 0,
+      "opcode": 0,
+      "length": 2,
+      "body_hex": "0604"
+    },
+    {
+      "offset": 6,
+      "opcode": 6,
+      "length": 8,
+      "body_hex": "0000000000000d00"
+    },
+    {
+      "offset": 18,
+      "opcode": 150,
+      "length": 6,
+      "body_hex": "000000000d00"
+    },
+    {
+      "offset": 28,
+      "opcode": 47,
+      "length": 1,
+      "body_hex": "01"
+    },
+    {
+      "offset": 33,
+      "opcode": 2,
+      "length": 1,
+      "body_hex": "ff"
+    },
+    {
+      "offset": 38,
+      "opcode": 3,
+      "length": 1,
+      "body_hex": "00"
+    },
+    {
+      "offset": 43,
+      "opcode": 4,
+      "length": 1,
+      "body_hex": "00"
+    },
+    {
+      "offset": 48,
+      "opcode": 5,
+      "length": 1,
+      "body_hex": "ff"
+    },
+    {
+      "offset": 53,
+      "opcode": 7,
+      "length": 32,
+      "body_hex": "00000e0071000900080014000000000000000000000000000400040048000000"
+    },
+    {
+      "offset": 89,
+      "opcode": 100,
+      "length": 32,
+      "body_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "offset": 125,
+      "opcode": 24,
+      "length": 25,
+      "body_hex": "00ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000"
+    },
+    {
+      "offset": 154,
+      "opcode": 25,
+      "length": 25,
+      "body_hex": "ffff0000ffff0000ffff0000ffff0000ffff0000ffff000000"
+    },
+    {
+      "offset": 183,
+      "opcode": 26,
+      "length": 8,
+      "body_hex": "ffff0000ffff0000"
+    },
+    {
+      "offset": 195,
+      "opcode": 48,
+      "length": 1,
+      "body_hex": "00"
+    },
+    {
+      "offset": 200,
+      "opcode": 28,
+      "length": 8,
+      "body_hex": "ffff0000ffff0000"
+    },
+    {
+      "offset": 212,
+      "opcode": 27,
+      "length": 8,
+      "body_hex": "ffff0000ffff0000"
+    },
+    {
+      "offset": 224,
+      "opcode": 29,
+      "length": 9,
+      "body_hex": "ffff0000ffff000000"
+    },
+    {
+      "offset": 237,
+      "opcode": 35,
+      "length": 9,
+      "body_hex": "ffff0000ffff000000"
+    },
+    {
+      "offset": 250,
+      "opcode": 103,
+      "length": 25,
+      "body_hex": "ffff0000ffff0000ffff0000ffff0000ffff0000ffff000000"
+    },
+    {
+      "offset": 279,
+      "opcode": 105,
+      "length": 40,
+      "body_hex": "ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000"
+    },
+    {
+      "offset": 323,
+      "opcode": 32,
+      "length": 16,
+      "body_hex": "ffff0000ffff0000ffff0000ffff0000"
+    },
+    {
+      "offset": 343,
+      "opcode": 102,
+      "length": 16,
+      "body_hex": "ffff0000ffff0000ffff0000ffff0000"
+    },
+    {
+      "offset": 363,
+      "opcode": 36,
+      "length": 1,
+      "body_hex": "00"
+    },
+    {
+      "offset": 368,
+      "opcode": 37,
+      "length": 242,
+      "body_hex": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "offset": 614,
+      "opcode": 38,
+      "length": 242,
+      "body_hex": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "offset": 860,
+      "opcode": 39,
+      "length": 40,
+      "body_hex": "00000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "offset": 904,
+      "opcode": 40,
+      "length": 10,
+      "body_hex": "04004c00420002000200"
+    },
+    {
+      "offset": 918,
+      "opcode": 41,
+      "length": 1,
+      "body_hex": "27"
+    },
+    {
+      "offset": 923,
+      "opcode": 42,
+      "length": 16,
+      "body_hex": "ffff0000ffff0000ffff0000ffff0000"
+    },
+    {
+      "offset": 943,
+      "opcode": 45,
+      "length": 439,
+      "body_hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0400000303030303030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000717101000000"
+    },
+    {
+      "offset": 1386,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff00000000000000205fa00242"
+    },
+    {
+      "offset": 1403,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff000001008dedb5a0f7c6b0be"
+    },
+    {
+      "offset": 1420,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff000002000000141a99be3c42"
+    },
+    {
+      "offset": 1437,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff00000300dd598c42cac0f33f"
+    },
+    {
+      "offset": 1454,
+      "opcode": 16,
+      "length": 35,
+      "body_hex": "ff00000400343333333333d33f1400009a9999999999b93f009a9999999999c93f0903"
+    },
+    {
+      "offset": 1493,
+      "opcode": 13,
+      "length": 7,
+      "body_hex": "ff00000500ff7f"
+    },
+    {
+      "offset": 1504,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff00000600000000000000e040"
+    },
+    {
+      "offset": 1521,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff00000700000000000000e0c0"
+    },
+    {
+      "offset": 1538,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff00000800000000002000e0c0"
+    },
+    {
+      "offset": 1555,
+      "opcode": 16,
+      "length": 23,
+      "body_hex": "ff00000900000000000000404308000502000535000d03"
+    },
+    {
+      "offset": 1582,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff00000a002e9f87a2ae427d54"
+    },
+    {
+      "offset": 1599,
+      "opcode": 16,
+      "length": 29,
+      "body_hex": "ff00000b007dc39425ad49b2540e00002e9f87a2ae427d54050a000b03"
+    },
+    {
+      "offset": 1632,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff00000c003ec3d84e7d7f612b"
+    },
+    {
+      "offset": 1649,
+      "opcode": 14,
+      "length": 13,
+      "body_hex": "ff00000d00408cb5781daf1544"
+    },
+    {
+      "offset": 1666,
+      "opcode": 1,
+      "length": 0,
+      "body_hex": ""
+    }
+  ],
+  "cells": [
+    {
+      "cell": "A1",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff00000000000000205fa00242",
+      "value": 10000000000.0
+    },
+    {
+      "cell": "A2",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff000001008dedb5a0f7c6b0be",
+      "value": -1e-06
+    },
+    {
+      "cell": "A3",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff000002000000141a99be3c42",
+      "value": 123456789012.0
+    },
+    {
+      "cell": "A4",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff00000300dd598c42cac0f33f",
+      "value": 1.23456789012345
+    },
+    {
+      "cell": "A5",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000400343333333333d33f1400009a9999999999b93f009a9999999999c93f0903",
+      "value": 0.30000000000000004,
+      "formula_hex": "009a9999999999b93f009a9999999999c93f0903"
+    },
+    {
+      "cell": "A6",
+      "format": 255,
+      "opcode": 13,
+      "body_hex": "ff00000500ff7f",
+      "value": 32767
+    },
+    {
+      "cell": "A7",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff00000600000000000000e040",
+      "value": 32768.0
+    },
+    {
+      "cell": "A8",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff00000700000000000000e0c0",
+      "value": -32768.0
+    },
+    {
+      "cell": "A9",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff00000800000000002000e0c0",
+      "value": -32769.0
+    },
+    {
+      "cell": "A10",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000900000000000000404308000502000535000d03",
+      "value": 9007199254740992.0,
+      "formula_hex": "0502000535000d03"
+    },
+    {
+      "cell": "A11",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff00000a002e9f87a2ae427d54",
+      "value": 1e+99
+    },
+    {
+      "cell": "A12",
+      "format": 255,
+      "opcode": 16,
+      "body_hex": "ff00000b007dc39425ad49b2540e00002e9f87a2ae427d54050a000b03",
+      "value": 1e+100,
+      "formula_hex": "002e9f87a2ae427d54050a000b03"
+    },
+    {
+      "cell": "A13",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff00000c003ec3d84e7d7f612b",
+      "value": 1e-99
+    },
+    {
+      "cell": "A14",
+      "format": 255,
+      "opcode": 14,
+      "body_hex": "ff00000d00408cb5781daf1544",
+      "value": 1e+20
+    }
+  ]
+}

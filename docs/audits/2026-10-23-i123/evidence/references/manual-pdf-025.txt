@@ -1,0 +1,90 @@
+__ Description -
+
+BACKTAB (SHIFT-TAB)
+
+BIG LEFT (CTRL-—)
+
+BIG RIGHT (CTRL-—)
+
+END
+
+END —
+
+END —
+
+END
+
+END |
+
+END HOME
+
+HOME
+
+READY mode: Moves celi pointer left one screen.
+
+FILES and NAMES modes: Moves menu pointer to first name
+in current line.
+
+EDIT mode: Moves cursor left five characters.
+
+READY and POINT modes: Moves cell pointer left one
+screen.
+
+FILES and NAMES modes: Moves menu pointer to first name
+in current line.
+
+EDIT mode: Moves cursor left five characters.
+
+READY and POINT modes: Moves cell pointer right one
+screen,
+
+FILES and NAMES modes: Moves menu pointer to last name
+in current fine.
+
+EDIT mode: Moves cursor right five characters.
+
+READY and POINT modes: Must be used in combination with
+another pointer-movement key.
+
+MENU mode: Moves menu pointer to last item.
+
+HELP mode: Moves menu pointer to last topic.
+
+FILES and NAMES modes: Moves menu pointer to last name.
+EDIT mode: Moves cursor to end of entry.
+
+FIND mode: Moves cell pointer to last record that meets
+criteria.
+
+READY and POINT modes: Moves cell painter left to
+intersection of a blank and a nonbiank cell. (A nonblank cell is
+a cell that contains data, a label prefix, and/or formatting.)
+
+READY and POINT modes: Moves cell pointer right to
+intersection of a blank and a nonblank cell.
+
+READY and POINT modes: Moves cell pointer up to
+intersection of a blank and a nonblank cell.
+
+READY and POINT modes: Moves cell pointer down to
+intersection of a blank and a nonblank cell.
+
+READY and POINT modes: Moves cell pointer to lower right
+corner of active area (the rectangular area between cell A1 and
+the lowest and rightmost nonblank cell in the worksheet).
+
+READY and POINT modes: Moves cell pointer to cell A1.
+MENU mode: Moves menu pointer ta first item.
+
+HELP mode: Moves menu pointer to first topic.
+
+FILES and NAMES modes: Moves menu pointer to first name.
+EDIT mode: Moves cursor to first character of entry.
+
+FIND mode: Moves cell pointer to first record that meets
+criteria.
+
+(Continued)
+
+1-2-3 Keys 1-9
+

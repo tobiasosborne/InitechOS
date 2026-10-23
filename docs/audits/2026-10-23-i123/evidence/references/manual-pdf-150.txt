@@ -1,0 +1,53 @@
+3. Select one of the following options:
+
+6.
+
+Worksheet Lists worksheet files (*. WKS, *WK1, and *WK3) in the
+current directory.
+
+Print Lists print files (*.PRN) in the current directory.
+
+Graph Lists graph files (*.PIC) in the current directory.
+
+Other Lists all files (*.*) in the current directory.
+
+Linked Lists all files on disk that are linked to the current worksheet
+
+by formula references.
+
+. If 1-2-3 cannot find any files of the specified type, it displays a prompt and
+
+enters EDIT mode. Do one of the following:
+
+* To list text files with a different extension, type *. followed by another
+extension and press ENTER.
+
+¢ To list all files in the current directory, type *.* and press ENTER.
+
+. If you want to list files in a different drive and/or directory or with a different
+
+extension, press ESC to clear the file names, edit the drive and/or directory or
+type a new extension, and then press ENTER.
+
+Use t | —<—¥OME, END, PGUP, PGDN, or any other pointer-movement keys
+to highlight different file names and display specific information about each
+file. The information listed for each file depends on what option you selected
+in step 3.
+
+If you selected Worksheet, Print, Graph, or Other, 1-2-3 displays the name of
+the highlighted file, the date and time the file was last saved, and the file size
+in bytes.
+
+If you selected Linked, 1-2-3 displays the names of all files on disk that are
+linked to the current worksheet. When you highlight a file name, 1-2-3
+displays the full path in the control panel. Characters that you typed when
+you linked the file are displayed in color or a brighter intensity; 1-2-3
+completes the path if necessary with characters displayed in normal color or
+intensity.
+
+. Press ENTER to return 1-2-3 to READY mode and redisplay the current
+
+worksheet.
+
+5-18 The File Commands
+

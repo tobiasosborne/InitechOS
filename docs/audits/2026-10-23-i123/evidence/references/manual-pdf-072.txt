@@ -1,0 +1,29 @@
+/Copy
+
+Procedure
+
+1. Select /Copy.
+
+2. Specify the range you want to copy FROM and press ENTER.
+
+3. Specify the range you want to copy TO and press ENTER.
+Keep these things in mind when you specify a TO range:
+
+¢ If you are copying a range from one location to another, you need to
+specify only the upper left cell in the TO range.
+
+¢ If your TO and FROM ranges overlap, you may get unexpected results.
+
+* If the FROM range is one cell and the TO range is larger than one cell,
+1-2-3 makes multiple copies of the same data.
+
+CAUTION The TO range can be any unprotected area of the worksheet.
+Make sure, however, that the worksheet location is blank or contains
+unimportant data; 1-2-3 writes over existing data when it copies data to the
+range you specify. To avoid possible data loss from writing over existing data,
+save the worksheet before using /Copy. If you make a mistake when copying
+data and the undo feature is on, press UNDO (ALT-F4) immediately to restore
+the worksheet to its original state.
+
+3-4 The Copy Command
+

@@ -1,0 +1,59 @@
+Format Result Data as entered Data as displayed
+
+Sci Displays numbers in scientific -4.3 (S0) -4E+00
+(exponential) notation, with up 12.245 (S1) 1.2E+01
+to 15 decimal places in the 124600000000 (S2) 1.25E+11
+
+mantissa and an exponent
+from —99 to +99.
+
+Text Displays formulas as entered +C22/4.2°B2 (T) +C22/4.2*B2
+rather than their computed +FIRST&LAST (T) +FIRST&LAST
+values; displays numbers in 165.00 (T) 165.
+General format. 165.03 (T) 165.03
+Example
+
+In Figure 10-2, the global cell format is General, but cells D9 and D11 have been
+formatted differently with /Range Format.
+
+Dit €29 0.09 © READY
+Beata ie Cell D9 formatted as
+AB rer q E F 6 4 Currency, 0 decimal places
+a | Cell D10 global cell format
+9 AMOUNT TO BORROW: . $50,000 (General)
+10 PERIOD IK YEARS: SaaS
+at ‘ANNUAL INTEREST RATE: Ue creer ia acceso acre aie: PRUETT rT Cell D11 formatted as
+
+Percent, 2 decimal places
+Figure 10-2 Individual cells formatted with /Range Format
+
+Tips
+¢ The /Worksheet Global Default Other International menu includes several
+commands that affect the display of numbers, dates, and times.
+
+* When you format a range as Hidden, you can avoid accidentally writing over
+data in the range by protecting the worksheet with /Worksheet Global
+Protection Enable. If users need to enter data in the protected worksheet, they
+can unprotect specific ranges with /Range Unprot.
+
+¢ To redisplay a range of hidden data, select /Range Format Reset or format the
+range as any format other than Hidden.
+
+* When you move data from a formatted range, 1-2-3 moves the cell format with
+the data. The original range reverts to the global cell format.
+
+¢ When you copy data in a formatted range, 1-2-3 copies cell formats with the
+data.
+
+¢ Depending on the number of decimal places you specify when you format a
+range as Comma, Currency, Fixed, Percent, or Sci, or the column width when
+you format a range as General, 1-2-3 may display entries in a rounded-off
+form. 1-2-3 continues to use the full value of those entries in calculations. To
+use a rounded-off value in a calculation, use @ROUND.
+
+¢ Using /Range Format requires additional memory. If you are concerned about
+the amount of memory a worksheet is using, format only those ranges that
+you need to format or use /Worksheet Global Format, which does not require
+additional memory.
+
+/Range Format 10-7

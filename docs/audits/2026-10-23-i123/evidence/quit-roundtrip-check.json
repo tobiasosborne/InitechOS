@@ -1,0 +1,66 @@
+[
+  {
+    "route": "ctrlq",
+    "repeat": 0,
+    "file": "evidence/extracted/quits/Q00.json",
+    "expected_label": "'quit-ctrlq-0",
+    "actual": "'quit-ctrlq-0",
+    "matches": true
+  },
+  {
+    "route": "ctrlq",
+    "repeat": 1,
+    "file": "evidence/extracted/quits/Q01.json",
+    "expected_label": "'quit-ctrlq-1",
+    "actual": "'quit-ctrlq-1",
+    "matches": true
+  },
+  {
+    "route": "file",
+    "repeat": 0,
+    "file": "evidence/extracted/quits/Q10.json",
+    "expected_label": "'quit-file-0",
+    "actual": "'quit-file-0",
+    "matches": true
+  },
+  {
+    "route": "file",
+    "repeat": 1,
+    "file": "evidence/extracted/quits/Q11.json",
+    "expected_label": "'quit-file-1",
+    "actual": "'quit-file-1",
+    "matches": true
+  },
+  {
+    "route": "close",
+    "repeat": 0,
+    "file": "evidence/extracted/quits/Q20.json",
+    "expected_label": "'quit-close-0",
+    "actual": "'quit-close-0",
+    "matches": true
+  },
+  {
+    "route": "close",
+    "repeat": 1,
+    "file": "evidence/extracted/quits/Q21.json",
+    "expected_label": "'quit-close-1",
+    "actual": "'quit-close-1",
+    "matches": true
+  },
+  {
+    "route": "slash",
+    "repeat": 0,
+    "file": "evidence/extracted/quits/Q30.json",
+    "expected_label": "'quit-slash-0",
+    "actual": "'quit-slash-0",
+    "matches": true
+  },
+  {
+    "route": "slash",
+    "repeat": 1,
+    "file": "evidence/extracted/quits/Q31.json",
+    "expected_label": "'quit-slash-1",
+    "actual": "'quit-slash-1",
+    "matches": true
+  }
+]

@@ -1,0 +1,66 @@
+Name
+
+Description
+
+BACKSPACE
+CTRL-— or TAB
+
+CTRL-< or
+SHIFT-TAB
+
+DEL
+END
+ENTER
+ESC
+HOME
+INS
+
+PGUP
+PGDN
+
+Erases character to left of cursor.
+Moves cursor right five characters.
+Moves cursor left five characters.
+
+Erases current character.
+Moves to last character in entry.
+Completes editing.
+
+Erases all characters in entry.
+Moves to first character in entry.
+
+Switches between inserting text by moving existing text to right
+(INS mode), and writing over existing text (OVR mode).
+
+Completes editing and moves cell pointer up one screen.
+Completes editing and moves cell pointer down one screen.
+
+Working with Ranges
+
+A range is a rectangular block of adjacent cells. It can be a single cell, a row, a
+column, or several rows and columns, as long as all the cells are adjacent to one
+another. Figure 1-12 shows several examples of ranges.
+
+Single cell range
+
+Ranges
+als Efri[elu[1r]s[k[ tcf min
+1
+2
+3
+4
+5
+ad
+xs
+8B
+9
+10
+WW
+12
+Figure 1-12 Ranges
+
+You use ranges in commands and formulas to perform operations on more than
+one cell at the same time. To use a range in a command or formula, you need to
+identify, or specify, the range.
+
+Working with Ranges 1-23

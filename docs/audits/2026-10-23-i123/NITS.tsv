@@ -1,0 +1,259 @@
+L001	Files/Save atomicity	P1	Failed replacement on a full disk destroys the previously saved worksheet
+L002	Entry/edit	P1	F2 followed by Return truncates a full-length label
+L003	Quit/Finder integration	P2	Shutdown Save closes 123 but does not finish shutting down
+L004	Entry/numbers	P2	A leading dollar sign is rejected in numeric entry
+L005	Entry/edit	P2	F2 cannot move the insertion point into existing text
+L006	Worksheet/Copy	P2	Copy refuses a multi-cell destination range
+L007	Range picking	P2	Period does not anchor an interactively pointed range
+L008	Worksheet/width	P2	A permitted 240-character column width makes its cell disappear
+L009	Range names	P2	Range names cannot be redefined while formulas exist
+L010	Capacity/recovery	P2	Erasing an ordinary cell does not recover capacity
+L011	Formula/date-time	P2	@NOW returns ERR
+L012	Files/Save	P2	Save Backup is offered but cannot create a backup
+L013	Files/password	P2	The documented password-save syntax is rejected
+L014	Files/errors	P3	Invalid 8.3 names are diagnosed as generic I/O failures
+L015	Menu/polish	P3	Three menu descriptions are clipped at the right edge
+L016	Range names/display	P3	Named ranges are displayed as raw cell addresses in formulas
+L017	Files/errors	P3	A full disk is reported only as File I/O error
+L018	Navigation/GOTO	P2	Escape from GOTO enters the slash menu
+L019	Formula/file attributes	P2	@CELL filename is blank even after saving
+L020	Range names/keys	P2	F3 cannot list defined names in a range prompt
+L021	Navigation/End	P2	End plus an arrow does not perform a block jump
+L022	Status line	P3	Caps Lock has no CAPS status indicator
+L023	Status line	P3	Num Lock has no NUM status indicator
+L024	Recovery/Undo	P2	Alt-F4 does not undo the last cell change
+L025	Formula/keys	P2	F4 does not toggle an entered reference to absolute
+L026	Errors/navigation	P2	Return does not dismiss ordinary ERROR notices
+L027	Window/scrolling	P2	Native worksheet scroll controls do nothing
+L028	Entry/keyboard routing	P2	Plain Scroll Lock cancels a pending cell entry
+L029	Files/browsing	P2	Retrieve provides no file-name list
+L030	Range Format/numeric display	P2	High decimal counts display overflow stars despite ample column width
+L031	Control panel/polish	P3	The control panel omits the active cell format code
+L032	Capacity/edit allocation	P2	A same-length label replacement fails near the string-pool limit
+L033	Formula/string conversion	P2	@STRING returns ERR for a valid high-precision conversion
+L034	Entry/keyboard routing	P2	Ctrl-C appends a literal c to a pending entry
+L035	Files/Move metadata	P2	Move leaves WK1 per-column metadata unlike the real-Lotus result
+L036	Menu/Worksheet	P2	/Worksheet/Global/Format/Date/4 (Long Intn'l) is unavailable
+L037	Menu/Worksheet	P2	/Worksheet/Global/Format/Date/5 (Short Intn'l) is unavailable
+L038	Menu/Worksheet	P2	/Worksheet/Global/Format/Date/Time/1 (HH:MM:SS AM/PM) is unavailable
+L039	Menu/Worksheet	P2	/Worksheet/Global/Format/Date/Time/2 (HH:MM AM/PM) is unavailable
+L040	Menu/Worksheet	P2	/Worksheet/Global/Format/Date/Time/3 (Long Intn'l) is unavailable
+L041	Menu/Worksheet	P2	/Worksheet/Global/Format/Date/Time/4 (Short Intn'l) is unavailable
+L042	Menu/Worksheet	P2	/Worksheet/Global/Default/Printer/Interface is unavailable
+L043	Menu/Worksheet	P2	/Worksheet/Global/Default/Printer/AutoLF/Yes is unavailable
+L044	Menu/Worksheet	P2	/Worksheet/Global/Default/Printer/AutoLF/No is unavailable
+L045	Menu/Worksheet	P2	/Worksheet/Global/Default/Printer/Left is unavailable
+L046	Menu/Worksheet	P2	/Worksheet/Global/Default/Printer/Right is unavailable
+L047	Menu/Worksheet	P2	/Worksheet/Global/Default/Printer/Top is unavailable
+L048	Menu/Worksheet	P2	/Worksheet/Global/Default/Printer/Bot is unavailable
+L049	Menu/Worksheet	P2	/Worksheet/Global/Default/Printer/Pg-Length is unavailable
+L050	Menu/Worksheet	P2	/Worksheet/Global/Default/Printer/Wait/No is unavailable
+L051	Menu/Worksheet	P2	/Worksheet/Global/Default/Printer/Wait/Yes is unavailable
+L052	Menu/Worksheet	P2	/Worksheet/Global/Default/Printer/Setup is unavailable
+L053	Menu/Worksheet	P2	/Worksheet/Global/Default/Printer/Name is unavailable
+L054	Menu/Worksheet	P2	/Worksheet/Global/Default/Directory is unavailable
+L055	Menu/Worksheet	P2	/Worksheet/Global/Default/Status is unavailable
+L056	Menu/Worksheet	P2	/Worksheet/Global/Default/Update is unavailable
+L057	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Punctuation/A (.,,) is unavailable
+L058	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Punctuation/B (,..) is unavailable
+L059	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Punctuation/C (.;,) is unavailable
+L060	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Punctuation/D (,;.) is unavailable
+L061	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Punctuation/E (., ) is unavailable
+L062	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Punctuation/F (,. ) is unavailable
+L063	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Punctuation/G (.; ) is unavailable
+L064	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Punctuation/H (,; ) is unavailable
+L065	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Currency/Prefix is unavailable
+L066	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Currency/Suffix is unavailable
+L067	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Date/A (MM/DD/YY) is unavailable
+L068	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Date/B (DD/MM/YY) is unavailable
+L069	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Date/C (DD.MM.YY) is unavailable
+L070	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Date/D (YY-MM-DD) is unavailable
+L071	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Time/A (HH:MM:SS) is unavailable
+L072	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Time/B (HH.MM.SS) is unavailable
+L073	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Time/C (HH,MM,SS) is unavailable
+L074	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Time/D (HHhMMmSSs) is unavailable
+L075	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Negative/Parentheses is unavailable
+L076	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/International/Negative/Sign is unavailable
+L077	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Help/Instant is unavailable
+L078	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Help/Removable is unavailable
+L079	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Clock/Standard is unavailable
+L080	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Clock/International is unavailable
+L081	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Clock/None is unavailable
+L082	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Clock/Clock is unavailable
+L083	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Clock/Filename is unavailable
+L084	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Undo/Enable is unavailable
+L085	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Undo/Disable is unavailable
+L086	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Beep/Enable is unavailable
+L087	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Beep/Disable is unavailable
+L088	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Add-In/Set is unavailable
+L089	Menu/Worksheet	P2	/Worksheet/Global/Default/Other/Add-In/Cancel is unavailable
+L090	Menu/Worksheet	P2	/Worksheet/Global/Default/Autoexec/Enable is unavailable
+L091	Menu/Worksheet	P2	/Worksheet/Global/Default/Autoexec/Disable is unavailable
+L092	Menu/Worksheet	P2	/Worksheet/Global/Zero is unavailable
+L093	Menu/Worksheet	P2	/Worksheet/Insert/Column is unavailable
+L094	Menu/Worksheet	P2	/Worksheet/Insert/Row is unavailable
+L095	Menu/Worksheet	P2	/Worksheet/Delete/Column is unavailable
+L096	Menu/Worksheet	P2	/Worksheet/Delete/Row is unavailable
+L097	Menu/Worksheet	P2	/Worksheet/Column/Hide is unavailable
+L098	Menu/Worksheet	P2	/Worksheet/Column/Display is unavailable
+L099	Menu/Worksheet	P2	/Worksheet/Column/Column-Range/Set-Width is unavailable
+L100	Menu/Worksheet	P2	/Worksheet/Column/Column-Range/Reset-Width is unavailable
+L101	Menu/Worksheet	P2	/Worksheet/Titles/Both is unavailable
+L102	Menu/Worksheet	P2	/Worksheet/Titles/Horizontal is unavailable
+L103	Menu/Worksheet	P2	/Worksheet/Titles/Vertical is unavailable
+L104	Menu/Worksheet	P2	/Worksheet/Titles/Clear is unavailable
+L105	Menu/Worksheet	P2	/Worksheet/Window/Horizontal is unavailable
+L106	Menu/Worksheet	P2	/Worksheet/Window/Vertical is unavailable
+L107	Menu/Worksheet	P2	/Worksheet/Window/Sync is unavailable
+L108	Menu/Worksheet	P2	/Worksheet/Window/Unsync is unavailable
+L109	Menu/Worksheet	P2	/Worksheet/Window/Clear is unavailable
+L110	Menu/Worksheet	P2	/Worksheet/Status is unavailable
+L111	Menu/Worksheet	P2	/Worksheet/Page is unavailable
+L112	Menu/Worksheet	P2	/Worksheet/Learn/Range is unavailable
+L113	Menu/Worksheet	P2	/Worksheet/Learn/Cancel is unavailable
+L114	Menu/Worksheet	P2	/Worksheet/Learn/Erase is unavailable
+L115	Menu/Range	P2	/Range/Format/Date/4 (Long Intn'l) is unavailable
+L116	Menu/Range	P2	/Range/Format/Date/5 (Short Intn'l) is unavailable
+L117	Menu/Range	P2	/Range/Format/Date/Time/1 (HH:MM:SS AM/PM) is unavailable
+L118	Menu/Range	P2	/Range/Format/Date/Time/2 (HH:MM AM/PM) is unavailable
+L119	Menu/Range	P2	/Range/Format/Date/Time/3 (Long Intn'l) is unavailable
+L120	Menu/Range	P2	/Range/Format/Date/Time/4 (Short Intn'l) is unavailable
+L121	Menu/Range	P2	/Range/Justify is unavailable
+L122	Menu/Range	P2	/Range/Input is unavailable
+L123	Menu/Range	P2	/Range/Search/Formulas/Find is unavailable
+L124	Menu/Range	P2	/Range/Search/Formulas/Replace is unavailable
+L125	Menu/Range	P2	/Range/Search/Label is unavailable
+L126	Menu/Range	P2	/Range/Search/Both is unavailable
+L127	Menu/File	P2	/File/Combine/Copy/Entire-File is unavailable
+L128	Menu/File	P2	/File/Combine/Copy/Named/Specified-Range is unavailable
+L129	Menu/File	P2	/File/Combine/Add/Entire-File is unavailable
+L130	Menu/File	P2	/File/Combine/Add/Named/Specified-Range is unavailable
+L131	Menu/File	P2	/File/Combine/Subtract/Entire-File is unavailable
+L132	Menu/File	P2	/File/Combine/Subtract/Named/Specified-Range is unavailable
+L133	Menu/File	P2	/File/Xtract/Formulas is unavailable
+L134	Menu/File	P2	/File/Xtract/Values is unavailable
+L135	Menu/File	P2	/File/Erase/Worksheet is unavailable
+L136	Menu/File	P2	/File/Erase/Print is unavailable
+L137	Menu/File	P2	/File/Erase/Graph is unavailable
+L138	Menu/File	P2	/File/Erase/Other is unavailable
+L139	Menu/File	P2	/File/List/Worksheet is unavailable
+L140	Menu/File	P2	/File/List/Print is unavailable
+L141	Menu/File	P2	/File/List/Graph is unavailable
+L142	Menu/File	P2	/File/List/Other is unavailable
+L143	Menu/File	P2	/File/List/Linked is unavailable
+L144	Menu/File	P2	/File/Import/Text is unavailable
+L145	Menu/File	P2	/File/Import/Numbers is unavailable
+L146	Menu/File	P2	/File/Directory is unavailable
+L147	Menu/File	P2	/File/Admin/Reservation/Get is unavailable
+L148	Menu/File	P2	/File/Admin/Reservation/Release is unavailable
+L149	Menu/File	P2	/File/Admin/Table is unavailable
+L150	Menu/File	P2	/File/Admin/Link-Refresh is unavailable
+L151	Menu/Print	P2	/Print/Printer/Range is unavailable
+L152	Menu/Print	P2	/Print/Printer/Line is unavailable
+L153	Menu/Print	P2	/Print/Printer/Page is unavailable
+L154	Menu/Print	P2	/Print/Printer/Options/Header is unavailable
+L155	Menu/Print	P2	/Print/Printer/Options/Footer is unavailable
+L156	Menu/Print	P2	/Print/Printer/Options/Margins/Left is unavailable
+L157	Menu/Print	P2	/Print/Printer/Options/Margins/Right is unavailable
+L158	Menu/Print	P2	/Print/Printer/Options/Margins/Top is unavailable
+L159	Menu/Print	P2	/Print/Printer/Options/Margins/Bottom is unavailable
+L160	Menu/Print	P2	/Print/Printer/Options/Margins/None is unavailable
+L161	Menu/Print	P2	/Print/Printer/Options/Borders/Columns is unavailable
+L162	Menu/Print	P2	/Print/Printer/Options/Borders/Rows is unavailable
+L163	Menu/Print	P2	/Print/Printer/Options/Setup is unavailable
+L164	Menu/Print	P2	/Print/Printer/Options/Pg-Length is unavailable
+L165	Menu/Print	P2	/Print/Printer/Options/Other/As-Displayed is unavailable
+L166	Menu/Print	P2	/Print/Printer/Options/Other/Cell-Formulas is unavailable
+L167	Menu/Print	P2	/Print/Printer/Options/Other/Formatted is unavailable
+L168	Menu/Print	P2	/Print/Printer/Options/Other/Unformatted is unavailable
+L169	Menu/Print	P2	/Print/Printer/Clear/All is unavailable
+L170	Menu/Print	P2	/Print/Printer/Clear/Range is unavailable
+L171	Menu/Print	P2	/Print/Printer/Clear/Borders is unavailable
+L172	Menu/Print	P2	/Print/Printer/Clear/Format is unavailable
+L173	Menu/Print	P2	/Print/Printer/Align is unavailable
+L174	Menu/Print	P2	/Print/Printer/Go is unavailable
+L175	Menu/Print	P2	/Print/File/Range is unavailable
+L176	Menu/Print	P2	/Print/File/Line is unavailable
+L177	Menu/Print	P2	/Print/File/Page is unavailable
+L178	Menu/Print	P2	/Print/File/Options/Header is unavailable
+L179	Menu/Print	P2	/Print/File/Options/Footer is unavailable
+L180	Menu/Print	P2	/Print/File/Options/Margins/Left is unavailable
+L181	Menu/Print	P2	/Print/File/Options/Margins/Right is unavailable
+L182	Menu/Print	P2	/Print/File/Options/Margins/Top is unavailable
+L183	Menu/Print	P2	/Print/File/Options/Margins/Bottom is unavailable
+L184	Menu/Print	P2	/Print/File/Options/Margins/None is unavailable
+L185	Menu/Print	P2	/Print/File/Options/Borders/Columns is unavailable
+L186	Menu/Print	P2	/Print/File/Options/Borders/Rows is unavailable
+L187	Menu/Print	P2	/Print/File/Options/Setup is unavailable
+L188	Menu/Print	P2	/Print/File/Options/Pg-Length is unavailable
+L189	Menu/Print	P2	/Print/File/Options/Other/As-Displayed is unavailable
+L190	Menu/Print	P2	/Print/File/Options/Other/Cell-Formulas is unavailable
+L191	Menu/Print	P2	/Print/File/Options/Other/Formatted is unavailable
+L192	Menu/Print	P2	/Print/File/Options/Other/Unformatted is unavailable
+L193	Menu/Print	P2	/Print/File/Clear/All is unavailable
+L194	Menu/Print	P2	/Print/File/Clear/Range is unavailable
+L195	Menu/Print	P2	/Print/File/Clear/Borders is unavailable
+L196	Menu/Print	P2	/Print/File/Clear/Format is unavailable
+L197	Menu/Print	P2	/Print/File/Align is unavailable
+L198	Menu/Print	P2	/Print/File/Go is unavailable
+L199	Menu/Graph	P2	/Graph/Type/Line is unavailable
+L200	Menu/Graph	P2	/Graph/Type/Bar is unavailable
+L201	Menu/Graph	P2	/Graph/Type/XY is unavailable
+L202	Menu/Graph	P2	/Graph/Type/Stack-Bar is unavailable
+L203	Menu/Graph	P2	/Graph/Type/Pie is unavailable
+L204	Menu/Graph	P2	/Graph/X is unavailable
+L205	Menu/Graph	P2	/Graph/A is unavailable
+L206	Menu/Graph	P2	/Graph/B is unavailable
+L207	Menu/Graph	P2	/Graph/C is unavailable
+L208	Menu/Graph	P2	/Graph/D is unavailable
+L209	Menu/Graph	P2	/Graph/E is unavailable
+L210	Menu/Graph	P2	/Graph/F is unavailable
+L211	Menu/Graph	P2	/Graph/Reset is unavailable
+L212	Menu/Graph	P2	/Graph/View is unavailable
+L213	Menu/Graph	P2	/Graph/Save is unavailable
+L214	Menu/Graph	P2	/Graph/Options is unavailable
+L215	Menu/Graph	P2	/Graph/Name/Use is unavailable
+L216	Menu/Graph	P2	/Graph/Name/Create is unavailable
+L217	Menu/Graph	P2	/Graph/Name/Delete is unavailable
+L218	Menu/Graph	P2	/Graph/Name/Reset is unavailable
+L219	Menu/Graph	P2	/Graph/Name/Table is unavailable
+L220	Menu/Graph	P2	/Graph/Group/Columnwise is unavailable
+L221	Menu/Graph	P2	/Graph/Group/Rowwise is unavailable
+L222	Menu/Data	P2	/Data/Fill is unavailable
+L223	Menu/Data	P2	/Data/Table/1 is unavailable
+L224	Menu/Data	P2	/Data/Table/2 is unavailable
+L225	Menu/Data	P2	/Data/Table/Reset is unavailable
+L226	Menu/Data	P2	/Data/Sort/Data-Range is unavailable
+L227	Menu/Data	P2	/Data/Sort/Primary-Key is unavailable
+L228	Menu/Data	P2	/Data/Sort/Secondary-Key is unavailable
+L229	Menu/Data	P2	/Data/Sort/Reset is unavailable
+L230	Menu/Data	P2	/Data/Sort/Go is unavailable
+L231	Menu/Data	P2	/Data/Query/Input is unavailable
+L232	Menu/Data	P2	/Data/Query/Criteria is unavailable
+L233	Menu/Data	P2	/Data/Query/Output is unavailable
+L234	Menu/Data	P2	/Data/Query/Find is unavailable
+L235	Menu/Data	P2	/Data/Query/Extract is unavailable
+L236	Menu/Data	P2	/Data/Query/Unique is unavailable
+L237	Menu/Data	P2	/Data/Query/Delete is unavailable
+L238	Menu/Data	P2	/Data/Query/Reset is unavailable
+L239	Menu/Data	P2	/Data/Distribution is unavailable
+L240	Menu/Data	P2	/Data/Matrix/Invert is unavailable
+L241	Menu/Data	P2	/Data/Matrix/Multiply is unavailable
+L242	Menu/Data	P2	/Data/Regression/X-Range is unavailable
+L243	Menu/Data	P2	/Data/Regression/Y-Range is unavailable
+L244	Menu/Data	P2	/Data/Regression/Output-Range is unavailable
+L245	Menu/Data	P2	/Data/Regression/Intercept/Compute is unavailable
+L246	Menu/Data	P2	/Data/Regression/Intercept/Zero is unavailable
+L247	Menu/Data	P2	/Data/Regression/Reset is unavailable
+L248	Menu/Data	P2	/Data/Regression/Go is unavailable
+L249	Menu/Data	P2	/Data/Parse/Format-Line/Create is unavailable
+L250	Menu/Data	P2	/Data/Parse/Format-Line/Edit is unavailable
+L251	Menu/Data	P2	/Data/Parse/Input-Column is unavailable
+L252	Menu/Data	P2	/Data/Parse/Output-Range is unavailable
+L253	Menu/Data	P2	/Data/Parse/Reset is unavailable
+L254	Menu/Data	P2	/Data/Parse/Go is unavailable
+L255	Menu/System	P2	/System is unavailable
+L256	Menu/Add-In	P2	/Add-In/Attach is unavailable
+L257	Menu/Add-In	P2	/Add-In/Detach is unavailable
+L258	Menu/Add-In	P2	/Add-In/Invoke is unavailable
+L259	Menu/Add-In	P2	/Add-In/Clear is unavailable

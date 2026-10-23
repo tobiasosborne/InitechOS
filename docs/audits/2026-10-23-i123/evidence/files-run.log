@@ -1,0 +1,335 @@
+STARTED files pid 5
+SHOT replace-menu
+_ File Edit View Special 12:45pm
+File Y
+Ai: ‘changed ‘ENU ES
+Replace Backup
+Cancel command -- Leave existing file on disk intact
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved SAVE .wk1
+if
+|
+
+SHOT replace-cancel
+_ File Edit View Special 12:45pm
+File Y
+Al: “changed READY |B
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved SAVE .wk1
+if
+|
+
+SHOT backup-refused
+_ File Edit View Special 12:45pm
+File Y
+Al: “changed ERROR]
+[Command not implemented
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved SAVE .wk1
+if
+|
+
+SHOT replace-success
+_ File Edit View Special 12:45pm
+File Y
+Al: “changed READY |B
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved SAVE .wk1
+if
+|
+
+SHOT filename-0
+_ File Edit View Special 12:45pm
+File Y
+Al: "changed ERROR]
+[File 1/0 error
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved SAVE .wk1
+if
+|
+
+SHOT filename-1
+_ File Edit View Special 12:45pm
+File Y
+Al: “changed ERROR]
+Invalid file name
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved SAVE .wk1
+if
+|
+
+SHOT filename-2
+_ File Edit View Special 12:45pm
+File Y
+Al: “changed ERROR]
+Invalid file name
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved SAVE .wk1
+if
+|
+
+SHOT filename-3
+_ File Edit View Special 12:45pm
+File Y
+Al: "changed ERROR]
+[File 1/0 error
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved SAVE .wk1
+if
+|
+
+SHOT filename-4
+_ File Edit View Special 12:45pm
+File Y
+Al: "changed ERROR]
+[File 1/0 error
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved SAVE .wk1
+if
+|
+
+SHOT filename-5
+_ File Edit View Special 12:45pm
+File Y
+Al: "changed ERROR]
+[File 1/0 error
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved SAVE .wk1
+if
+|
+
+SHOT filename-6
+_ File Edit View Special 12:45pm
+File Y
+Al: "changed ERROR]
+[File 1/0 error
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved SAVE .wk1
+if
+|
+
+SHOT filename-7
+_ File Edit View Special 12:45pm
+File Y
+Al: “changed READY |B
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+if
+|
+
+SHOT password-refused
+_ File Edit View Special 12:45pm
+File Y
+Al: “changed ERROR]
+Invalid file name
+[Press Esc to return to the worksheet
+A B Cc D E F G H
+changed
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+if
+|
+
+SHOT long-edit-data
+_ File Edit View Special 12:46pm
+File Y
+JA1: “ x:00p 00s a0 a0 c CO CCOOCOOCOOTOOTHOOHOOTOO TOO TOOOHOOTOOTOOHOOHHOOSO TAN |=]
+A B Cc D E F G H
+:
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Saved LONGEDIT.wk1
+if
+|
+
+SHOT numeric-edit-data
+_ File Edit View Special 12:46pm
+File Y
+a2: 1.23456789012345 FREAD YES
+A B c D E F Gg H
+FIP200000000000000000000 ROO 0OOOOOOOODOOO OOO DOODOODOOOOOHOOOIOOIOOIOOOOOOON
+2 1.234567
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NUMEDIT uk
+[=|
+|
+
+STOPPED 5

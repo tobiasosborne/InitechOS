@@ -1,0 +1,21 @@
+_ File Edit View Special WS pm
+File Y
+_——— EEE —————t
+Al: “quit-file-1 IF ILES|eS
+lEnter name of file to save: A:\*.uk1
+Type a file name; Enter accepts, Esc backs up
+Aa B C D E F G H
+ quit-filesy
+i
+lo
+a
+hz
+M3
+4
+M5
+he
+ia
+he
+re
+[=|
+|

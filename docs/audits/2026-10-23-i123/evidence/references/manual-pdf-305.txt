@@ -1,0 +1,62 @@
+Examples
+@ATAN2(1,5,2) = 0.927295 (radians)
+
+@ATAN2(-1.5,2)*180/@PI = 126.8698 (degrees)
+
+@AVG
+
+@AVG(list) averages the values in list.
+
+List can contain one or more numbers, numeric formulas, references to ranges
+that contain numbers or numeric formulas, or any combination of numbers,
+formulas, and references to ranges.
+
+Example
+In Figure 13-9, @AVG(C1..C3) entered in E5 returns 48 and
+@AVG(C1..C3,D1..D3) entered in E6 returns 38.
+
+£6: GAVG(C?. .C3,01..03) READY
+A 8 ¢ 2 E
+- !
+56 an
+Be 2
+yee e
+herae wae a
+Average value m ESIC ond td 3%
+
+Figure 13-9 @AVG
+
+@CELL
+@CELL (attribute,range) returns information about an attribute for the first cell in
+range.
+
+NOTE @CELL evaluates the first cell in range at the point when that cell was
+last recalculated; be sure you recalculate your work before you use @CELL.
+
+a
+
+1
+2
+3
+ra
+5
+rs
+
+Altribute can be any of the 10 strings in the following table. Attribute can be
+entered as a literal string, a string formula, or a reference to a cell that contains
+a label.
+
+Range can be any range name or address.
+
+Attribute Result
+address The absolute cell address (for example, $A$1)
+
+col The column letter, as a value from 1 to 256 (1 for column A, 5 for column E,
+and so on)
+
+contents The contents of the cell
+filename The name of the current file including the path
+
+(Continued)
+
+@Function Descriptions 13-17

@@ -1,0 +1,16 @@
+def quits(a):
+ def trigger(route):
+  if route=='ctrlq':a.key('ctrl-q')
+  elif route=='file':a.menu(53,30,64,53)
+  elif route=='close':a.click(10,50)
+  else:a.slash('qy')
+ def reopen():a.click(211,124,2);a.pause(.4)
+ for ri,route in enumerate(['ctrlq','file','close','slash']):
+  for rep in range(2):
+   tag='quit-'+route+'-'+str(rep);name='Q'+str(ri)+str(rep)
+   a.cell('A1',tag);trigger(route);a.state(tag+'-guard');a.key('esc');a.state(tag+'-cancel')
+   trigger(route);a.key('ret');a.state(tag+'-save-prompt');a.key('esc');a.state(tag+'-save-cancel')
+   trigger(route);a.key('ret');a.type(name);a.pause(.3);a.state(tag+'-saved-exit');reopen();a.get(name);a.state(tag+'-reloaded')
+   a.cell('A1','discard');trigger(route);a.click(252,168);a.pause(.3);a.state(tag+'-discard-exit');reopen();a.get(name);a.state(tag+'-discard-reloaded');a.key('ctrl-q');reopen()
+ a.type('1+',False);a.key('ctrl-q');a.key('ret');a.state('quit-invalid-entry');a.key('esc');a.key('esc')
+ a.type('pending',False);a.key('ctrl-q');a.key('esc');a.state('quit-pending-cancel');a.key('ctrl-q');a.key('ret');a.type('QPEND');a.state('quit-pending-saved')

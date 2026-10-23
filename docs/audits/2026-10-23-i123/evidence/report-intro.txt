@@ -1,0 +1,107 @@
+# Initech 123 audit - 2026-10-23
+
+Scope: APPS\123.EXE and its interactions with Finder, copied FAT volumes, and
+real Lotus 1-2-3 Release 2.2 worksheet files. Image/source commit:
+`e67b8311092873fe16e6c6d62ad82f894bfb8d7d` (images/COMMIT and read-only
+repository HEAD agreed). No repository edits, builds, make, tracker actions,
+or input/capture on the owner's X display were performed.
+
+The two P1 findings are actual data loss: a failed full-disk replacement
+zeroes the previous saved worksheet; an unchanged F2/Return edit truncates a
+240-character label. The large finding count includes 224 individually
+exercised menu leaves which visibly refuse with "Command not implemented".
+Those are acknowledged implementation gaps, not claims of 224 new regressions.
+Other findings cover implemented behavior, formula results, storage recovery,
+keyboard handling, shutdown integration, and presentation.
+
+All new L-numbers below belong to THIS report. Identical-looking L-numbers
+from 2026-10-05 are explicitly qualified in the retest tables at the end.
+Severity: P1 data loss/corruption/crash/hang/blocked core task; P2 broken or
+missing behavior; P3 presentation or polish. No guest panic or confirmed
+hang was observed. One host-runner interruption is documented separately;
+it is not counted as a guest defect.
+
+## How to replay and read the evidence
+
+The standard launch used copied `flair_tenants_interactive.img` plus copied
+`flair_data.img`, QEMU `-cpu 486 -m 16 -display none -qmp stdio`, with serial
+output to a file. Unless a finding specifies otherwise, start in READY after
+these double-clicks in guest pixels: disk (600,64), APPS (123,101), 123.EXE
+(211,124). The driver moves the pointer clear between opening disk and APPS.
+A fresh-sheet replay does not depend on any files from other findings.
+
+`F5 A1 Return` means press F5, type A1, and press Return. Slash paths use the
+period product's initial-letter commands without Return between menu letters;
+Return accepts typed arguments. The menu inventory additionally lists exact
+Home/Right-count/Return sequences, so every deep or punctuation item can be
+reached without guessing initials. Coordinates are measured from the guest's
+upper-left corner. Screenshots are unmodified QMP captures converted to PNG;
+contact sheets and comparison crops live in evidence/, not shots/.
+
+Replay in a copy of this audit directory to retain the original captures:
+
+1. `python3 evidence/prepare_fixtures.py base`
+2. `python3 evidence/phases.py long`
+3. `python3 evidence/prepare_fixtures.py full`
+4. Run individual phases with `python3 evidence/phases.py PHASE`.
+   Available phases: menus, hotkeys, files, capacity, transfers, functions,
+   function_errors, formats, formats_wide, full2, full_repeat, keyslook,
+   quits, power, typeerrors, pool, edge_more, heavy, operations.
+   function_errors uses the stopped functions-data.img; the other ordinary
+   phases start from fixture.img. full2/full_repeat use full-fixture2.img.
+   Each phase starts one emulator and stops it in a finally block.
+5. After a phase stops: `python3 evidence/extract.py PHASE` extracts and
+   independently parses WK1 records. `python3 evidence/replay_entry.py`
+   reproduces the valid entry/edit cases from the first interactive session.
+
+The original supplied driver is copied as evidence/audit_driver_original.py;
+evidence/drive123.py extends it. evidence/actions.jsonl records actual
+keystrokes, coordinates, timing, session, and serial byte offsets. It contains
+both high-level operations and their constituent events, so it is an audit
+log, not a sequence to execute naively twice. Phase scripts are the executable
+replays. Each *-session.json records image hashes and the exact QEMU command.
+
+Menu verification: evidence/menu-plan.json, menu-results.json, menu-verified.json,
+and hotkey-verified.json cover 381 entries in 82 menus. All 300 leaves were
+reached: 299 were additionally invoked with their unique first-letter key;
+Quit/Yes was exercised separately in the quit matrix. Every selected third-line
+render was compared with the installed real 123.RI bytes at named offsets.
+Every cited unavailable-command screenshot was checked against the inspected
+pixel-identical ERROR panel. Three descriptions are clipped, reported below.
+
+Byte evidence: evidence/extracted/ contains stopped-image mtools extractions,
+directory listings, original WK1 bytes, record hex, cell types, values, formula
+bytecode, and string records. extract.py is an independent Python record parser,
+not a call into the Initech engine. Positive infinity is the WK1 ERR sentinel;
+negative infinity is NA; the string-result NaN sentinel has a following STRING
+record and is not by itself a numerical corruption. The C:TEST save was also
+extracted from the boot partition at byte offset 32256 into
+`evidence/extracted/files-boot/`.
+
+## Reference basis and limitations of the comparison
+
+- "Lotus Reference" means
+  `/home/tobias/Projects/initech-manuals-ref/lotus123/Lotus 1-2-3 2.2 Manuals (1989)/Lotus 1-2-3 Release 2.2 - Reference Manual.pdf`.
+  Both printed and PDF page numbers are supplied. Rendered pages and OCR
+  transcriptions are in evidence/references/manual-pdf-NNN.*; the image is
+  authoritative when OCR loses a symbol or exponent.
+- Real files/screens/commands are under
+  `/home/tobias/Projects/lotus123-decomp/goldens/minted/` and `mint/`.
+  The original installed menu resource is
+  `goldens/lotus-123-2.2-installed-ref/extracted/installed/123.RI`.
+  Its SHA256 is saved in evidence/references/123.RI.sha256. Menu reference
+  offsets were independently read from that binary, not merely trusted from
+  the native menu source.
+- Mac alert comparisons use
+  `/home/tobias/Projects/system7-decomp/goldens/captures/s8_alert_modal.png`
+  and the previous look audit's measured regions. Native white/navy coloring,
+  the two menu bars, and the resulting 19-row viewport are accepted adaptations.
+- Project manuals under pubs/manuals were searched. No Initech 123 user manual
+  or operational promise for these spreadsheet commands was found; the
+  InitechWord frontmatter merely names Initech 123. No shipped-manual violation
+  is invented. The named Lotus manual supplies the period-product expectations.
+- Where a rule is an auditor usability/data-integrity expectation rather than
+  a named reference, the finding explicitly says so. Source explanations are
+  guesses and are not substitutes for observed screen/byte evidence. Source
+  snapshots for the main guesses are in evidence/source-context/.
+

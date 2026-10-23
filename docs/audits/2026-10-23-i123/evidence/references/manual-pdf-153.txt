@@ -1,0 +1,51 @@
+For more information see “Retrieving a Worksheet File When You Start 1-2-3” in
+Chapter 5 of Setting Up 1-2-3.
+
+/File Save
+
+/File Save lets you save worksheet data and settings in a file on disk. You use
+/File Save to both create new files on disk and to update existing files. You can
+change the file name or extension when you save it.
+
+Because 1-2-3 does not automatically save your work, you must use /File Save to
+make a permanent copy of your work on disk before you erase the worksheet,
+end the 1-2-3 session, or turn off the computer. Also, you should save your files
+frequently so you do not lose work in the case of a power failure or a problem
+with your computer system.
+
+NOTE 1-2-3 assigns a .WK1 extension to files you create with /File Save unless
+you enter a different extension when you name the file.
+
+Procedure
+
+1. If you have a two-diskette system, make sure the disk you want to save the
+file on is in one of the diskette drives. Be sure to specify the full drive and/or
+directory.
+
+2. Select /File Save.
+
+3. 1-2-3 displays the current directory and the default file extension. If the file
+has been saved before, the program also displays the current file name. Do
+one of the following:
+
+« If the current worksheet is unnamed, type a file name and press ENTER. To
+save the file in a different drive and/or directory, press ESC, edit the drive
+and/or directory, type a file name, and then press ENTER.
+
+¢ If the current worksheet has been saved previously and you want to use
+the same file name, press ENTER. To save the file with a different name in
+the same directory, type a new file name, and press ENTER.
+
+¢ Ifthe current worksheet has been saved previously and you want to save
+the file in a different drive and/or directory, press ESC twice, edit the drive
+and/or directory, specify a file name, and then press ENTER.
+
+If the file exists on disk and it is a file shared on a network, you need a
+reservation to save it if saving to the same file name. If the RO, or
+read-only, indicator appears at the bottom of the screen, use /File Admin
+Reservation Get to see if the reservation is available. If it is not and you
+want to save changes you have made to the file, you must save it under a
+different file name.
+
+/File Save 5-21
+

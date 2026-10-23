@@ -1,0 +1,5 @@
+def full_repeat(a):
+ a.get('FULL');a.cell('A1','REPEAT')
+ for i in [3,4,5]:a.cell('A'+str(i),'z'*239+str(i))
+ a.saveas('FULL');a.type('r',False);a.state('repeat-full-replace');a.key('esc')
+ a.key('ctrl-q');a.key('ret');a.key('ret');a.type('c',False);a.state('repeat-full-save-cancel');a.key('ctrl-q');a.key('esc');a.state('repeat-full-dirty-preserved')

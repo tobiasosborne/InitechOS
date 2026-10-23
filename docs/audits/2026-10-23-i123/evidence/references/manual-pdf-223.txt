@@ -1,0 +1,117 @@
+Format
+
+Result
+
+Data as entered
+
+Data as displayed
+
+Currency
+
+Date
+
+(Date)
+Time
+
+Displays numbers with a
+currency symbol, thousands
+separators, up to 15 decimal
+places, parentheses or a
+minus sign (depending on the
+Worksheet Global Default
+Other International Negative
+setting) for negatives, anda
+leading zero for decimal
+values. The currency symbol
+1-2-3 uses depends on the
+current /Worksheet Global
+Default Other International
+Currency setting.
+
+Displays numbers from 1 (the
+date number for 1 January
+1900) to 73050 (the date
+number for 31 December
+2099) as dates, in the Date
+format you select, 1-2-3 uses
+the integer part of a number
+to determine the date the
+number represents, and
+ignores the decimat part of the
+number.
+
+There are five Date formats
+(D1 — D5): DD-MMM-YY,
+DD-MMM, MMM-YY, Long
+Intnl, and Short Intn’l.
+
+For numbers less than 1 or
+more than 73050, displays
+asterisks.
+
+Displays numbers as times, in
+the Time format you select.
+1-2-3 uses the decimal part of
+a number to determine the
+time the number represents.
+For positive numbers, 1-2-3
+calculates the time number by
+adding the decimal part of the
+number to 0.
+
+There are four Time formats
+(D6 — D9): HH:MM:SS
+(AM/PM), HH:MM (AM/PM),
+Long Intn’l (24 hour), and
+Short Intn’l (24 hour).
+
+12
+—.256
+1149.99
+
+32734.11
+32734,99
+@DATE(89,8,14)
+@NOW
+
+@NOW
+
+-2
+73052
+
+5855
+
+—.5855
+@TIME(14,3,7)
+@NOW
+
+(C2) $12.00
+(C1) ($0.3)
+(CO) $1,150
+
+(D1) 14-Aug-89
+(D2) 14-Aug
+
+(D3) Aug-89
+
+(D4) 08/14/89
+
+(if today is 8/14/89)
+(D5) 08/14
+
+(if today is 8/14)
+
+(D1) te
+(D4) sree
+
+(D6) 02:03:07 PM
+(D7) et
+(D8) 14:03:07
+(D9) 14:03
+
+(if it is 2:03 PM)
+
+(Continued)
+
+/Range Format 10-5
+

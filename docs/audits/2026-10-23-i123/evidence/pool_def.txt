@@ -1,0 +1,4 @@
+def pool(a):
+ a.get('POOL135');a.state('pool-loaded');a.cell('A136','y'*240);a.state('pool-new-full');a.key('ctrl-scroll_lock')
+ a.cell('A1','y'*240);a.state('pool-replace-full');a.key('ctrl-scroll_lock');a.goto('A1');a.state('pool-old-preserved')
+ a.cell('A1','y');a.state('pool-small-replace');a.saveas('POOLOUT')

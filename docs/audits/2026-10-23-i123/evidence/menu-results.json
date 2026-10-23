@@ -1,0 +1,6612 @@
+[
+  {
+    "n": 0,
+    "path": [
+      "Worksheet"
+    ],
+    "indices": [
+      0
+    ],
+    "description": "Global  Insert  Delete  Column  Erase  Titles  Window  Status  Page  Learn",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 1,
+    "path": [
+      "Worksheet",
+      "Global"
+    ],
+    "indices": [
+      0,
+      0
+    ],
+    "description": "Format  Label-Prefix  Column-Width  Recalculation  Protection  Default  Zero",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 2,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format"
+    ],
+    "indices": [
+      0,
+      0,
+      0
+    ],
+    "description": "Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 3,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Fixed"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "description": "Fixed number of decimal places (x.xx)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 4,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Sci"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "description": "Exponential format (x.xxE+xx)",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 5,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Currency"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      2
+    ],
+    "description": "Currency format ($x,xxx.xx)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 6,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      ","
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      3
+    ],
+    "description": "Comma format (x,xxx.xx)",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 7,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "General"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      4
+    ],
+    "description": "Standard format (x.xx or x.xxExx)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 8,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "+/-"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      5
+    ],
+    "description": "Horizontal bar graph format (+++ or ---)",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 9,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Percent"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      6
+    ],
+    "description": "Percent format (x.xx%)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 10,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      7
+    ],
+    "description": "Date and time formats",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 11,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "1 (DD-MMM-YY)"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      7,
+      0
+    ],
+    "description": "Lotus standard long form",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 12,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "2 (DD-MMM)"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      7,
+      1
+    ],
+    "description": "Lotus standard short form",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 13,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "3 (MMM-YY)"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      7,
+      2
+    ],
+    "description": "",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 14,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "4 (Long Intn'l)"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      7,
+      3
+    ],
+    "description": "Currently configured: MM/DD/YY",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 15,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "5 (Short Intn'l)"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      7,
+      4
+    ],
+    "description": "Currently configured: MM/DD",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 16,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "Time"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      7,
+      5
+    ],
+    "description": "Time formats",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 17,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "Time",
+      "1 (HH:MM:SS AM/PM)"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      7,
+      5,
+      0
+    ],
+    "description": "",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 18,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "Time",
+      "2 (HH:MM AM/PM)"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      7,
+      5,
+      1
+    ],
+    "description": "",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 19,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "Time",
+      "3 (Long Intn'l)"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      7,
+      5,
+      2
+    ],
+    "description": "Currently configured: HH:MM:SS (24 hour)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 20,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Date",
+      "Time",
+      "4 (Short Intn'l)"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      7,
+      5,
+      3
+    ],
+    "description": "Currently configured: HH:MM (24 hour)",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 21,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Text"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      8
+    ],
+    "description": "Display formula instead of value",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 22,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Format",
+      "Hidden"
+    ],
+    "indices": [
+      0,
+      0,
+      0,
+      9
+    ],
+    "description": "Do not display cell contents",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 23,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Label-Prefix"
+    ],
+    "indices": [
+      0,
+      0,
+      1
+    ],
+    "description": "Set global label alignment",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 24,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Label-Prefix",
+      "Left"
+    ],
+    "indices": [
+      0,
+      0,
+      1,
+      0
+    ],
+    "description": "Left-align labels in cells",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 25,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Label-Prefix",
+      "Right"
+    ],
+    "indices": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "description": "Right-align labels in cells",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 26,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Label-Prefix",
+      "Center"
+    ],
+    "indices": [
+      0,
+      0,
+      1,
+      2
+    ],
+    "description": "Center labels in cells",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 27,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Column-Width"
+    ],
+    "indices": [
+      0,
+      0,
+      2
+    ],
+    "description": "Set global column width",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 28,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation"
+    ],
+    "indices": [
+      0,
+      0,
+      3
+    ],
+    "description": "Natural  Columnwise  Rowwise  Automatic  Manual  Iteration",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 29,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation",
+      "Natural"
+    ],
+    "indices": [
+      0,
+      0,
+      3,
+      0
+    ],
+    "description": "Recalculate in natural order",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 30,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation",
+      "Columnwise"
+    ],
+    "indices": [
+      0,
+      0,
+      3,
+      1
+    ],
+    "description": "Recalculate column by column",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 31,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation",
+      "Rowwise"
+    ],
+    "indices": [
+      0,
+      0,
+      3,
+      2
+    ],
+    "description": "Recalculate row by row",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 32,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation",
+      "Automatic"
+    ],
+    "indices": [
+      0,
+      0,
+      3,
+      3
+    ],
+    "description": "Recalculate every time entries change",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 33,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation",
+      "Manual"
+    ],
+    "indices": [
+      0,
+      0,
+      3,
+      4
+    ],
+    "description": "Press CALC (F9) to recalculate formulas",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 34,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Recalculation",
+      "Iteration"
+    ],
+    "indices": [
+      0,
+      0,
+      3,
+      5
+    ],
+    "description": "Specify number of recalculation passes",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 35,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Protection"
+    ],
+    "indices": [
+      0,
+      0,
+      4
+    ],
+    "description": "Turn worksheet protection on or off",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 36,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Protection",
+      "Enable"
+    ],
+    "indices": [
+      0,
+      0,
+      4,
+      0
+    ],
+    "description": "Turn worksheet protection on",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 37,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Protection",
+      "Disable"
+    ],
+    "indices": [
+      0,
+      0,
+      4,
+      1
+    ],
+    "description": "Turn worksheet protection off",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 38,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default"
+    ],
+    "indices": [
+      0,
+      0,
+      5
+    ],
+    "description": "Printer  Directory  Status  Update  Other  Autoexec  Quit",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 39,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0
+    ],
+    "description": "Specify printer interface and default settings",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 40,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Interface"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      0
+    ],
+    "description": "Specify printer interface",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 41,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "AutoLF"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      1
+    ],
+    "description": "Automatic linefeed at end of line",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 42,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "AutoLF",
+      "Yes"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      1,
+      0
+    ],
+    "description": "Printer automatically issues a line feed after a carriage return",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 43,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "AutoLF",
+      "No"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      1,
+      1
+    ],
+    "description": "Printer does not automatically issue a line feed after a carriage return",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 44,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Left"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      2
+    ],
+    "description": "Set default left margin",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 45,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Right"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      3
+    ],
+    "description": "Set default right margin",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 46,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Top"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      4
+    ],
+    "description": "Set default top margin",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 47,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Bot"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      5
+    ],
+    "description": "Set default bottom margin",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 48,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Pg-Length"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      6
+    ],
+    "description": "Set default number of lines per page",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 49,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Wait"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      7
+    ],
+    "description": "Wait for paper change at end of each page",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 50,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Wait",
+      "No"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      7,
+      0
+    ],
+    "description": "Do not wait at the end of a page for paper change",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 51,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Wait",
+      "Yes"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      7,
+      1
+    ],
+    "description": "Wait at the end of a page for paper change",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 52,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Setup"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      8
+    ],
+    "description": "Specify default setup string",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 53,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Name"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      9
+    ],
+    "description": "Change current printer device",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 54,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Printer",
+      "Quit"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      0,
+      10
+    ],
+    "description": "Return to previous menu",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 55,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Directory"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      1
+    ],
+    "description": "Specify default directory",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 56,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Status"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      2
+    ],
+    "description": "Display all default settings",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 57,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Update"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      3
+    ],
+    "description": "Save new default settings in configuration file",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 58,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4
+    ],
+    "description": "International  Help  Clock  Undo  Beep  Add-In",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 59,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0
+    ],
+    "description": "Punctuation  Currency  Date  Time  Negative  Quit",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 60,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      0
+    ],
+    "description": "Specify numeric punctuation",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 61,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "A (.,,)"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      0,
+      0
+    ],
+    "description": "Decimal: Period   Argument separator: Comma       Thousands separator: Comma",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 62,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "B (,..)"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      0,
+      1
+    ],
+    "description": "Decimal: Comma    Argument separator: Period      Thousands separator: Period",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 63,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "C (.;,)"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      0,
+      2
+    ],
+    "description": "Decimal: Period   Argument separator: Semicolon   Thousands separator: Comma",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 64,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "D (,;.)"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      0,
+      3
+    ],
+    "description": "Decimal: Comma    Argument separator: Semicolon   Thousands separator: Period",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 65,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "E (., )"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      0,
+      4
+    ],
+    "description": "Decimal: Period   Argument separator: Comma       Thousands separator: Space",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 66,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "F (,. )"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      0,
+      5
+    ],
+    "description": "Decimal: Comma    Argument separator: Period      Thousands separator: Space",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 67,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "G (.; )"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      0,
+      6
+    ],
+    "description": "Decimal: Period   Argument separator: Semicolon   Thousands separator: Space",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 68,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Punctuation",
+      "H (,; )"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      0,
+      7
+    ],
+    "description": "Decimal: Comma    Argument separator: Semicolon   Thousands separator: Space",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 69,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Currency"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      1
+    ],
+    "description": "Specify currency sign",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 70,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Currency",
+      "Prefix"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      1,
+      0
+    ],
+    "description": "Currency sign precedes value",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 71,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Currency",
+      "Suffix"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      1,
+      1
+    ],
+    "description": "Currency sign follows value",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 72,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Date"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      2
+    ],
+    "description": "Specify date formats D4 and D5",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 73,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Date",
+      "A (MM/DD/YY)"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      2,
+      0
+    ],
+    "description": "Format D4 will be MM/DD/YY     Format D5 will be MM/DD",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 74,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Date",
+      "B (DD/MM/YY)"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      2,
+      1
+    ],
+    "description": "Format D4 will be DD/MM/YY     Format D5 will be DD/MM",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 75,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Date",
+      "C (DD.MM.YY)"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      2,
+      2
+    ],
+    "description": "Format D4 will be DD.MM.YY     Format D5 will be DD.MM",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 76,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Date",
+      "D (YY-MM-DD)"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      2,
+      3
+    ],
+    "description": "Format D4 will be YY-MM-DD     Format D5 will be MM-DD",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 77,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Time"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      3
+    ],
+    "description": "Specify time formats D8 and D9",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 78,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Time",
+      "A (HH:MM:SS)"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      3,
+      0
+    ],
+    "description": "Format D8 will be HH:MM:SS     Format D9 will be HH:MM",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 79,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Time",
+      "B (HH.MM.SS)"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      3,
+      1
+    ],
+    "description": "Format D8 will be HH.MM.SS     Format D9 will be HH.MM",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 80,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Time",
+      "C (HH,MM,SS)"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      3,
+      2
+    ],
+    "description": "Format D8 will be HH,MM,SS     Format D9 will be HH,MM",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 81,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Time",
+      "D (HHhMMmSSs)"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      3,
+      3
+    ],
+    "description": "Format D8 will be HHhMMmSSs    Format D9 will be HHhMMm",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 82,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Negative"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      4
+    ],
+    "description": "Specify display of negative numbers in , (Comma) and Currency formats",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 83,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Negative",
+      "Parentheses"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      4,
+      0
+    ],
+    "description": "Display parentheses around negative numbers",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 84,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Negative",
+      "Sign"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      4,
+      1
+    ],
+    "description": "Display minus sign in front of negative numbers",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 85,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "International",
+      "Quit"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      0,
+      5
+    ],
+    "description": "Return to /Worksheet Global Default menu",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 86,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Help"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      1
+    ],
+    "description": "Select Help access method",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 87,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Help",
+      "Instant"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      1,
+      0
+    ],
+    "description": "Instant access; do not remove Help Disk",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 88,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Help",
+      "Removable"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      1,
+      1
+    ],
+    "description": "Help Disk can be removed when Help is not in use",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 89,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Clock"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      2
+    ],
+    "description": "Standard  International  None  Clock  Filename",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 90,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Clock",
+      "Standard"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      2,
+      0
+    ],
+    "description": "Use Lotus standard date and time: DD-MMM-YY  HH:MM AM/PM",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 91,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Clock",
+      "International"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      2,
+      1
+    ],
+    "description": "Use current International settings for date (D4) and time (D9)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 92,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Clock",
+      "None"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      2,
+      2
+    ],
+    "description": "Hide date-and-time indicator",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 93,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Clock",
+      "Clock"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      2,
+      3
+    ],
+    "description": "Display the date-and-time indicator",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 94,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Clock",
+      "Filename"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      2,
+      4
+    ],
+    "description": "Display current file name instead of date-and-time indicator",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 95,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Undo"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      3
+    ],
+    "description": "Turn undo feature on or off",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 96,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Undo",
+      "Enable"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      3,
+      0
+    ],
+    "description": "Turn undo on",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 97,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Undo",
+      "Disable"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      3,
+      1
+    ],
+    "description": "Turn undo off",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 98,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Beep"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      4
+    ],
+    "description": "Determine if computer bell will sound when error occurs",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 99,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Beep",
+      "Enable"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      4,
+      0
+    ],
+    "description": "Computer bell will sound when an error occurs",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 100,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Beep",
+      "Disable"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      4,
+      1
+    ],
+    "description": "Computer bell will not sound when an error occurs",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 101,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Add-In"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      5
+    ],
+    "description": "Specify add-ins to be loaded automatically whenever you start 1-2-3",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 102,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Add-In",
+      "Set"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      5,
+      0
+    ],
+    "description": "Specify an add-in to be attached automatically, and attach it",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 103,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Other",
+      "Add-In",
+      "Cancel"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      4,
+      5,
+      1
+    ],
+    "description": "Cancel setting for an auto-attach add-in, and detach it",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 104,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Autoexec"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      5
+    ],
+    "description": "Run autoexecute macros when files are retrieved",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 105,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Autoexec",
+      "Enable"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      5,
+      0
+    ],
+    "description": "Run autoexecute macro when file is retrieved",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 106,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Autoexec",
+      "Disable"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      5,
+      1
+    ],
+    "description": "Do not run autoexecute macro when file is retrieved",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 107,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Default",
+      "Quit"
+    ],
+    "indices": [
+      0,
+      0,
+      5,
+      6
+    ],
+    "description": "Return to READY mode",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 108,
+    "path": [
+      "Worksheet",
+      "Global",
+      "Zero"
+    ],
+    "indices": [
+      0,
+      0,
+      6
+    ],
+    "description": "Change the way cells with a value of zero appear on the screen",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 109,
+    "path": [
+      "Worksheet",
+      "Insert"
+    ],
+    "indices": [
+      0,
+      1
+    ],
+    "description": "Insert blank column(s) or row(s)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 110,
+    "path": [
+      "Worksheet",
+      "Insert",
+      "Column"
+    ],
+    "indices": [
+      0,
+      1,
+      0
+    ],
+    "description": "Insert one or more blank columns to the left of the cell pointer",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 111,
+    "path": [
+      "Worksheet",
+      "Insert",
+      "Row"
+    ],
+    "indices": [
+      0,
+      1,
+      1
+    ],
+    "description": "Insert one or more blank rows above the cell pointer",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 112,
+    "path": [
+      "Worksheet",
+      "Delete"
+    ],
+    "indices": [
+      0,
+      2
+    ],
+    "description": "Delete entire column(s) or row(s)",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 113,
+    "path": [
+      "Worksheet",
+      "Delete",
+      "Column"
+    ],
+    "indices": [
+      0,
+      2,
+      0
+    ],
+    "description": "Delete one or more columns",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 114,
+    "path": [
+      "Worksheet",
+      "Delete",
+      "Row"
+    ],
+    "indices": [
+      0,
+      2,
+      1
+    ],
+    "description": "Delete one or more rows",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 115,
+    "path": [
+      "Worksheet",
+      "Column"
+    ],
+    "indices": [
+      0,
+      3
+    ],
+    "description": "Set-Width  Reset-Width  Hide  Display  Column-Range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 116,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Set-Width"
+    ],
+    "indices": [
+      0,
+      3,
+      0
+    ],
+    "description": "Specify width for current column",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 117,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Reset-Width"
+    ],
+    "indices": [
+      0,
+      3,
+      1
+    ],
+    "description": "Return current column to global column width",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 118,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Hide"
+    ],
+    "indices": [
+      0,
+      3,
+      2
+    ],
+    "description": "Hide a range of columns",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 119,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Display"
+    ],
+    "indices": [
+      0,
+      3,
+      3
+    ],
+    "description": "Display a range of hidden columns",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 120,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Column-Range"
+    ],
+    "indices": [
+      0,
+      3,
+      4
+    ],
+    "description": "Change the width of a range of columns",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 121,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Column-Range",
+      "Set-Width"
+    ],
+    "indices": [
+      0,
+      3,
+      4,
+      0
+    ],
+    "description": "Specify the width of a range of columns",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 122,
+    "path": [
+      "Worksheet",
+      "Column",
+      "Column-Range",
+      "Reset-Width"
+    ],
+    "indices": [
+      0,
+      3,
+      4,
+      1
+    ],
+    "description": "Return a range of columns to global column width",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 123,
+    "path": [
+      "Worksheet",
+      "Erase"
+    ],
+    "indices": [
+      0,
+      4
+    ],
+    "description": "Erase the entire worksheet from memory",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 124,
+    "path": [
+      "Worksheet",
+      "Erase",
+      "No"
+    ],
+    "indices": [
+      0,
+      4,
+      0
+    ],
+    "description": "Do not erase the worksheet; return to READY mode",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 125,
+    "path": [
+      "Worksheet",
+      "Erase",
+      "Yes"
+    ],
+    "indices": [
+      0,
+      4,
+      1
+    ],
+    "description": "Erase the entire worksheet from memory",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 126,
+    "path": [
+      "Worksheet",
+      "Titles"
+    ],
+    "indices": [
+      0,
+      5
+    ],
+    "description": "Set horizontal or vertical titles",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 127,
+    "path": [
+      "Worksheet",
+      "Titles",
+      "Both"
+    ],
+    "indices": [
+      0,
+      5,
+      0
+    ],
+    "description": "Freeze all rows and columns above and to the left of the cell pointer",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 128,
+    "path": [
+      "Worksheet",
+      "Titles",
+      "Horizontal"
+    ],
+    "indices": [
+      0,
+      5,
+      1
+    ],
+    "description": "Freeze all rows above the cell pointer",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 129,
+    "path": [
+      "Worksheet",
+      "Titles",
+      "Vertical"
+    ],
+    "indices": [
+      0,
+      5,
+      2
+    ],
+    "description": "Freeze all columns to the left of the cell pointer",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 130,
+    "path": [
+      "Worksheet",
+      "Titles",
+      "Clear"
+    ],
+    "indices": [
+      0,
+      5,
+      3
+    ],
+    "description": "Unfreeze all title columns and rows",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 131,
+    "path": [
+      "Worksheet",
+      "Window"
+    ],
+    "indices": [
+      0,
+      6
+    ],
+    "description": "Set split screen and synchronized scrolling",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 132,
+    "path": [
+      "Worksheet",
+      "Window",
+      "Horizontal"
+    ],
+    "indices": [
+      0,
+      6,
+      0
+    ],
+    "description": "Split the screen horizontally at the current row",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 133,
+    "path": [
+      "Worksheet",
+      "Window",
+      "Vertical"
+    ],
+    "indices": [
+      0,
+      6,
+      1
+    ],
+    "description": "Split the screen vertically at the current column",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 134,
+    "path": [
+      "Worksheet",
+      "Window",
+      "Sync"
+    ],
+    "indices": [
+      0,
+      6,
+      2
+    ],
+    "description": "Synchronize scrolling in windows",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 135,
+    "path": [
+      "Worksheet",
+      "Window",
+      "Unsync"
+    ],
+    "indices": [
+      0,
+      6,
+      3
+    ],
+    "description": "Scroll windows independently",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 136,
+    "path": [
+      "Worksheet",
+      "Window",
+      "Clear"
+    ],
+    "indices": [
+      0,
+      6,
+      4
+    ],
+    "description": "Return to full-screen display",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 137,
+    "path": [
+      "Worksheet",
+      "Status"
+    ],
+    "indices": [
+      0,
+      7
+    ],
+    "description": "Display worksheet settings",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 138,
+    "path": [
+      "Worksheet",
+      "Page"
+    ],
+    "indices": [
+      0,
+      8
+    ],
+    "description": "Insert a row containing a page-break symbol above the cell pointer",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 139,
+    "path": [
+      "Worksheet",
+      "Learn"
+    ],
+    "indices": [
+      0,
+      9
+    ],
+    "description": "Record keystrokes in the worksheet",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 140,
+    "path": [
+      "Worksheet",
+      "Learn",
+      "Range"
+    ],
+    "indices": [
+      0,
+      9,
+      0
+    ],
+    "description": "Specify a learn range in which to store keystrokes",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 141,
+    "path": [
+      "Worksheet",
+      "Learn",
+      "Cancel"
+    ],
+    "indices": [
+      0,
+      9,
+      1
+    ],
+    "description": "Cancel the currently specified learn range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 142,
+    "path": [
+      "Worksheet",
+      "Learn",
+      "Erase"
+    ],
+    "indices": [
+      0,
+      9,
+      2
+    ],
+    "description": "Erase the contents of the learn range",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 143,
+    "path": [
+      "Range"
+    ],
+    "indices": [
+      1
+    ],
+    "description": "Format  Label  Erase  Name  Justify  Prot  Unprot  Input  Value  Trans  Search",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 144,
+    "path": [
+      "Range",
+      "Format"
+    ],
+    "indices": [
+      1,
+      0
+    ],
+    "description": "Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden  Reset",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 145,
+    "path": [
+      "Range",
+      "Format",
+      "Fixed"
+    ],
+    "indices": [
+      1,
+      0,
+      0
+    ],
+    "description": "Fixed number of decimal places (x.xx)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 146,
+    "path": [
+      "Range",
+      "Format",
+      "Sci"
+    ],
+    "indices": [
+      1,
+      0,
+      1
+    ],
+    "description": "Exponential format (x.xxE+xx)",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 147,
+    "path": [
+      "Range",
+      "Format",
+      "Currency"
+    ],
+    "indices": [
+      1,
+      0,
+      2
+    ],
+    "description": "Currency format ($x,xxx.xx)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 148,
+    "path": [
+      "Range",
+      "Format",
+      ","
+    ],
+    "indices": [
+      1,
+      0,
+      3
+    ],
+    "description": "Comma format (x,xxx.xx)",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 149,
+    "path": [
+      "Range",
+      "Format",
+      "General"
+    ],
+    "indices": [
+      1,
+      0,
+      4
+    ],
+    "description": "Standard format (x.xx or x.xxExx)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 150,
+    "path": [
+      "Range",
+      "Format",
+      "+/-"
+    ],
+    "indices": [
+      1,
+      0,
+      5
+    ],
+    "description": "Horizontal bar graph format (+++ or ---)",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 151,
+    "path": [
+      "Range",
+      "Format",
+      "Percent"
+    ],
+    "indices": [
+      1,
+      0,
+      6
+    ],
+    "description": "Percent format (x.xx%)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 152,
+    "path": [
+      "Range",
+      "Format",
+      "Date"
+    ],
+    "indices": [
+      1,
+      0,
+      7
+    ],
+    "description": "Date and time formats",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 153,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "1 (DD-MMM-YY)"
+    ],
+    "indices": [
+      1,
+      0,
+      7,
+      0
+    ],
+    "description": "Lotus standard long form",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 154,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "2 (DD-MMM)"
+    ],
+    "indices": [
+      1,
+      0,
+      7,
+      1
+    ],
+    "description": "Lotus standard short form",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 155,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "3 (MMM-YY)"
+    ],
+    "indices": [
+      1,
+      0,
+      7,
+      2
+    ],
+    "description": "",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 156,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "4 (Long Intn'l)"
+    ],
+    "indices": [
+      1,
+      0,
+      7,
+      3
+    ],
+    "description": "Currently configured: MM/DD/YY",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 157,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "5 (Short Intn'l)"
+    ],
+    "indices": [
+      1,
+      0,
+      7,
+      4
+    ],
+    "description": "Currently configured: MM/DD",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 158,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "Time"
+    ],
+    "indices": [
+      1,
+      0,
+      7,
+      5
+    ],
+    "description": "Time formats",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 159,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "Time",
+      "1 (HH:MM:SS AM/PM)"
+    ],
+    "indices": [
+      1,
+      0,
+      7,
+      5,
+      0
+    ],
+    "description": "",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 160,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "Time",
+      "2 (HH:MM AM/PM)"
+    ],
+    "indices": [
+      1,
+      0,
+      7,
+      5,
+      1
+    ],
+    "description": "",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 161,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "Time",
+      "3 (Long Intn'l)"
+    ],
+    "indices": [
+      1,
+      0,
+      7,
+      5,
+      2
+    ],
+    "description": "Currently configured: HH:MM:SS (24 hour)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 162,
+    "path": [
+      "Range",
+      "Format",
+      "Date",
+      "Time",
+      "4 (Short Intn'l)"
+    ],
+    "indices": [
+      1,
+      0,
+      7,
+      5,
+      3
+    ],
+    "description": "Currently configured: HH:MM (24 hour)",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 163,
+    "path": [
+      "Range",
+      "Format",
+      "Text"
+    ],
+    "indices": [
+      1,
+      0,
+      8
+    ],
+    "description": "Display formula instead of value",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 164,
+    "path": [
+      "Range",
+      "Format",
+      "Hidden"
+    ],
+    "indices": [
+      1,
+      0,
+      9
+    ],
+    "description": "Do not display cell contents",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 165,
+    "path": [
+      "Range",
+      "Format",
+      "Reset"
+    ],
+    "indices": [
+      1,
+      0,
+      10
+    ],
+    "description": "Return specified cells to global cell format",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 166,
+    "path": [
+      "Range",
+      "Label"
+    ],
+    "indices": [
+      1,
+      1
+    ],
+    "description": "Select alignment for a label or range of labels",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 167,
+    "path": [
+      "Range",
+      "Label",
+      "Left"
+    ],
+    "indices": [
+      1,
+      1,
+      0
+    ],
+    "description": "Left-align labels in cells",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 168,
+    "path": [
+      "Range",
+      "Label",
+      "Right"
+    ],
+    "indices": [
+      1,
+      1,
+      1
+    ],
+    "description": "Right-align labels in cells",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 169,
+    "path": [
+      "Range",
+      "Label",
+      "Center"
+    ],
+    "indices": [
+      1,
+      1,
+      2
+    ],
+    "description": "Center labels in cells",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 170,
+    "path": [
+      "Range",
+      "Erase"
+    ],
+    "indices": [
+      1,
+      2
+    ],
+    "description": "Erase a cell or range of cells",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 171,
+    "path": [
+      "Range",
+      "Name"
+    ],
+    "indices": [
+      1,
+      3
+    ],
+    "description": "Create  Delete  Labels  Reset  Table",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 172,
+    "path": [
+      "Range",
+      "Name",
+      "Create"
+    ],
+    "indices": [
+      1,
+      3,
+      0
+    ],
+    "description": "Create or modify a range name",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 173,
+    "path": [
+      "Range",
+      "Name",
+      "Delete"
+    ],
+    "indices": [
+      1,
+      3,
+      1
+    ],
+    "description": "Delete a range name",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 174,
+    "path": [
+      "Range",
+      "Name",
+      "Labels"
+    ],
+    "indices": [
+      1,
+      3,
+      2
+    ],
+    "description": "Create range names from a range of labels",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 175,
+    "path": [
+      "Range",
+      "Name",
+      "Labels",
+      "Right"
+    ],
+    "indices": [
+      1,
+      3,
+      2,
+      0
+    ],
+    "description": "Each label in range names cell to its right",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 176,
+    "path": [
+      "Range",
+      "Name",
+      "Labels",
+      "Down"
+    ],
+    "indices": [
+      1,
+      3,
+      2,
+      1
+    ],
+    "description": "Each label in range names cell below it",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 177,
+    "path": [
+      "Range",
+      "Name",
+      "Labels",
+      "Left"
+    ],
+    "indices": [
+      1,
+      3,
+      2,
+      2
+    ],
+    "description": "Each label in range names cell to its left",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 178,
+    "path": [
+      "Range",
+      "Name",
+      "Labels",
+      "Up"
+    ],
+    "indices": [
+      1,
+      3,
+      2,
+      3
+    ],
+    "description": "Each label in range names cell above it",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 179,
+    "path": [
+      "Range",
+      "Name",
+      "Reset"
+    ],
+    "indices": [
+      1,
+      3,
+      3
+    ],
+    "description": "Delete all range names",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 180,
+    "path": [
+      "Range",
+      "Name",
+      "Table"
+    ],
+    "indices": [
+      1,
+      3,
+      4
+    ],
+    "description": "Create a table of range names",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 181,
+    "path": [
+      "Range",
+      "Justify"
+    ],
+    "indices": [
+      1,
+      4
+    ],
+    "description": "Adjust a column of labels to a specified width",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 182,
+    "path": [
+      "Range",
+      "Prot"
+    ],
+    "indices": [
+      1,
+      5
+    ],
+    "description": "Prevent changes to a range if global protection is on",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 183,
+    "path": [
+      "Range",
+      "Unprot"
+    ],
+    "indices": [
+      1,
+      6
+    ],
+    "description": "Allow change to a range when global protection is on",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 184,
+    "path": [
+      "Range",
+      "Input"
+    ],
+    "indices": [
+      1,
+      7
+    ],
+    "description": "Restrict data entry to unprotected cells",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 185,
+    "path": [
+      "Range",
+      "Value"
+    ],
+    "indices": [
+      1,
+      8
+    ],
+    "description": "Copy a range, converting formulas to values",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 186,
+    "path": [
+      "Range",
+      "Trans"
+    ],
+    "indices": [
+      1,
+      9
+    ],
+    "description": "Copy a range, switching columns and rows",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 187,
+    "path": [
+      "Range",
+      "Search"
+    ],
+    "indices": [
+      1,
+      10
+    ],
+    "description": "Find or replace a specified string in a range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 188,
+    "path": [
+      "Range",
+      "Search",
+      "Formulas"
+    ],
+    "indices": [
+      1,
+      10,
+      0
+    ],
+    "description": "Search for string in formulas only",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 189,
+    "path": [
+      "Range",
+      "Search",
+      "Formulas",
+      "Find"
+    ],
+    "indices": [
+      1,
+      10,
+      0,
+      0
+    ],
+    "description": "Highlight search string in the search range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 190,
+    "path": [
+      "Range",
+      "Search",
+      "Formulas",
+      "Replace"
+    ],
+    "indices": [
+      1,
+      10,
+      0,
+      1
+    ],
+    "description": "Replace each occurrence of search string with specified text",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 191,
+    "path": [
+      "Range",
+      "Search",
+      "Label"
+    ],
+    "indices": [
+      1,
+      10,
+      1
+    ],
+    "description": "Search for string in labels only",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 192,
+    "path": [
+      "Range",
+      "Search",
+      "Both"
+    ],
+    "indices": [
+      1,
+      10,
+      2
+    ],
+    "description": "Search for string in formulas and labels",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 193,
+    "path": [
+      "Copy"
+    ],
+    "indices": [
+      2
+    ],
+    "description": "Copy a cell or range of cells",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 194,
+    "path": [
+      "Move"
+    ],
+    "indices": [
+      3
+    ],
+    "description": "Move a cell or range of cells",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 195,
+    "path": [
+      "File"
+    ],
+    "indices": [
+      4
+    ],
+    "description": "Retrieve  Save  Combine  Xtract  Erase  List  Import  Directory  Admin",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 196,
+    "path": [
+      "File",
+      "Retrieve"
+    ],
+    "indices": [
+      4,
+      0
+    ],
+    "description": "Erase the current worksheet from memory and display the selected worksheet",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 197,
+    "path": [
+      "File",
+      "Save"
+    ],
+    "indices": [
+      4,
+      1
+    ],
+    "description": "Store the entire worksheet in a worksheet file",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 198,
+    "path": [
+      "File",
+      "Combine"
+    ],
+    "indices": [
+      4,
+      2
+    ],
+    "description": "Incorporate all or part of a worksheet file into the current worksheet",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 199,
+    "path": [
+      "File",
+      "Combine",
+      "Copy"
+    ],
+    "indices": [
+      4,
+      2,
+      0
+    ],
+    "description": "Copy data from a file on disk to the worksheet",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 200,
+    "path": [
+      "File",
+      "Combine",
+      "Copy",
+      "Entire-File"
+    ],
+    "indices": [
+      4,
+      2,
+      0,
+      0
+    ],
+    "description": "Incorporate entire file into worksheet",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 201,
+    "path": [
+      "File",
+      "Combine",
+      "Copy",
+      "Named/Specified-Range"
+    ],
+    "indices": [
+      4,
+      2,
+      0,
+      1
+    ],
+    "description": "Incorporate a range from a file into the worksheet",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 202,
+    "path": [
+      "File",
+      "Combine",
+      "Add"
+    ],
+    "indices": [
+      4,
+      2,
+      1
+    ],
+    "description": "Add values from a file on disk to values in the worksheet",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 203,
+    "path": [
+      "File",
+      "Combine",
+      "Add",
+      "Entire-File"
+    ],
+    "indices": [
+      4,
+      2,
+      1,
+      0
+    ],
+    "description": "Incorporate entire file into worksheet",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 204,
+    "path": [
+      "File",
+      "Combine",
+      "Add",
+      "Named/Specified-Range"
+    ],
+    "indices": [
+      4,
+      2,
+      1,
+      1
+    ],
+    "description": "Incorporate a range from a file into the worksheet",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 205,
+    "path": [
+      "File",
+      "Combine",
+      "Subtract"
+    ],
+    "indices": [
+      4,
+      2,
+      2
+    ],
+    "description": "Subtract values from a file on disk from values in the worksheet",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 206,
+    "path": [
+      "File",
+      "Combine",
+      "Subtract",
+      "Entire-File"
+    ],
+    "indices": [
+      4,
+      2,
+      2,
+      0
+    ],
+    "description": "Incorporate entire file into worksheet",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 207,
+    "path": [
+      "File",
+      "Combine",
+      "Subtract",
+      "Named/Specified-Range"
+    ],
+    "indices": [
+      4,
+      2,
+      2,
+      1
+    ],
+    "description": "Incorporate a range from a file into the worksheet",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 208,
+    "path": [
+      "File",
+      "Xtract"
+    ],
+    "indices": [
+      4,
+      3
+    ],
+    "description": "Save a specified range in a worksheet file",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 209,
+    "path": [
+      "File",
+      "Xtract",
+      "Formulas"
+    ],
+    "indices": [
+      4,
+      3,
+      0
+    ],
+    "description": "Save data including formulas",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 210,
+    "path": [
+      "File",
+      "Xtract",
+      "Values"
+    ],
+    "indices": [
+      4,
+      3,
+      1
+    ],
+    "description": "Save current values and labels",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 211,
+    "path": [
+      "File",
+      "Erase"
+    ],
+    "indices": [
+      4,
+      4
+    ],
+    "description": "Erase a file from disk",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 212,
+    "path": [
+      "File",
+      "Erase",
+      "Worksheet"
+    ],
+    "indices": [
+      4,
+      4,
+      0
+    ],
+    "description": "Erase a worksheet file",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 213,
+    "path": [
+      "File",
+      "Erase",
+      "Print"
+    ],
+    "indices": [
+      4,
+      4,
+      1
+    ],
+    "description": "Erase a print file",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 214,
+    "path": [
+      "File",
+      "Erase",
+      "Graph"
+    ],
+    "indices": [
+      4,
+      4,
+      2
+    ],
+    "description": "Erase a graph file",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 215,
+    "path": [
+      "File",
+      "Erase",
+      "Other"
+    ],
+    "indices": [
+      4,
+      4,
+      3
+    ],
+    "description": "Erase any file",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 216,
+    "path": [
+      "File",
+      "List"
+    ],
+    "indices": [
+      4,
+      5
+    ],
+    "description": "Display the names of files in the current directory",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 217,
+    "path": [
+      "File",
+      "List",
+      "Worksheet"
+    ],
+    "indices": [
+      4,
+      5,
+      0
+    ],
+    "description": "List worksheet files",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 218,
+    "path": [
+      "File",
+      "List",
+      "Print"
+    ],
+    "indices": [
+      4,
+      5,
+      1
+    ],
+    "description": "List print files",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 219,
+    "path": [
+      "File",
+      "List",
+      "Graph"
+    ],
+    "indices": [
+      4,
+      5,
+      2
+    ],
+    "description": "List graph files",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 220,
+    "path": [
+      "File",
+      "List",
+      "Other"
+    ],
+    "indices": [
+      4,
+      5,
+      3
+    ],
+    "description": "List all files",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 221,
+    "path": [
+      "File",
+      "List",
+      "Linked"
+    ],
+    "indices": [
+      4,
+      5,
+      4
+    ],
+    "description": "List all files linked to worksheet",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 222,
+    "path": [
+      "File",
+      "Import"
+    ],
+    "indices": [
+      4,
+      6
+    ],
+    "description": "Read text or numbers from a text file into the worksheet",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 223,
+    "path": [
+      "File",
+      "Import",
+      "Text"
+    ],
+    "indices": [
+      4,
+      6,
+      0
+    ],
+    "description": "Import each line of data as a single label",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 224,
+    "path": [
+      "File",
+      "Import",
+      "Numbers"
+    ],
+    "indices": [
+      4,
+      6,
+      1
+    ],
+    "description": "Import numbers and quoted text into separate columns",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 225,
+    "path": [
+      "File",
+      "Directory"
+    ],
+    "indices": [
+      4,
+      7
+    ],
+    "description": "Display and/or change the current directory",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 226,
+    "path": [
+      "File",
+      "Admin"
+    ],
+    "indices": [
+      4,
+      8
+    ],
+    "description": "Reservation  Table  Link-Refresh",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 227,
+    "path": [
+      "File",
+      "Admin",
+      "Reservation"
+    ],
+    "indices": [
+      4,
+      8,
+      0
+    ],
+    "description": "Get or release the current file's reservation",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 228,
+    "path": [
+      "File",
+      "Admin",
+      "Reservation",
+      "Get"
+    ],
+    "indices": [
+      4,
+      8,
+      0,
+      0
+    ],
+    "description": "Secure a reservation for saving the file",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 229,
+    "path": [
+      "File",
+      "Admin",
+      "Reservation",
+      "Release"
+    ],
+    "indices": [
+      4,
+      8,
+      0,
+      1
+    ],
+    "description": "Release a reservation for saving the file",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 230,
+    "path": [
+      "File",
+      "Admin",
+      "Table"
+    ],
+    "indices": [
+      4,
+      8,
+      1
+    ],
+    "description": "Enter a table of file information in the worksheet",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 231,
+    "path": [
+      "File",
+      "Admin",
+      "Link-Refresh"
+    ],
+    "indices": [
+      4,
+      8,
+      2
+    ],
+    "description": "Update linked cells",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 232,
+    "path": [
+      "Print"
+    ],
+    "indices": [
+      5
+    ],
+    "description": "Print a range on a printer or to a print file",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 233,
+    "path": [
+      "Print",
+      "Printer"
+    ],
+    "indices": [
+      5,
+      0
+    ],
+    "description": "Send print output directly to a printer",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 234,
+    "path": [
+      "Print",
+      "Printer",
+      "Range"
+    ],
+    "indices": [
+      5,
+      0,
+      0
+    ],
+    "description": "Specify a range to print",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 235,
+    "path": [
+      "Print",
+      "Printer",
+      "Line"
+    ],
+    "indices": [
+      5,
+      0,
+      1
+    ],
+    "description": "Advance paper one line",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 236,
+    "path": [
+      "Print",
+      "Printer",
+      "Page"
+    ],
+    "indices": [
+      5,
+      0,
+      2
+    ],
+    "description": "Advance paper to top of next page",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 237,
+    "path": [
+      "Print",
+      "Printer",
+      "Options"
+    ],
+    "indices": [
+      5,
+      0,
+      3
+    ],
+    "description": "Header  Footer  Margins  Borders  Setup  Pg-Length  Other  Quit",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 238,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Header"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      0
+    ],
+    "description": "Create a header",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 239,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Footer"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      1
+    ],
+    "description": "Create a footer",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 240,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Margins"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      2
+    ],
+    "description": "Left  Right  Top  Bottom  None",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 241,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Margins",
+      "Left"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      2,
+      0
+    ],
+    "description": "Set left margin",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 242,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Margins",
+      "Right"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      2,
+      1
+    ],
+    "description": "Set right margin",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 243,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Margins",
+      "Top"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      2,
+      2
+    ],
+    "description": "Set top margin",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 244,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Margins",
+      "Bottom"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      2,
+      3
+    ],
+    "description": "Set bottom margin",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 245,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Margins",
+      "None"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      2,
+      4
+    ],
+    "description": "Clear all margin settings",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 246,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Borders"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      3
+    ],
+    "description": "Print border columns and/or rows",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 247,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Borders",
+      "Columns"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      3,
+      0
+    ],
+    "description": "Print border columns to the left of each print range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 248,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Borders",
+      "Rows"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      3,
+      1
+    ],
+    "description": "Print border rows above each print range",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 249,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Setup"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      4
+    ],
+    "description": "Enter printer setup string",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 250,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Pg-Length"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      5
+    ],
+    "description": "Specify number of lines per page",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 251,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Other"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      6
+    ],
+    "description": "As-Displayed  Cell-Formulas  Formatted  Unformatted",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 252,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Other",
+      "As-Displayed"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      6,
+      0
+    ],
+    "description": "Print range as displayed",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 253,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Other",
+      "Cell-Formulas"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      6,
+      1
+    ],
+    "description": "List entries, one per line",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 254,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Other",
+      "Formatted"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      6,
+      2
+    ],
+    "description": "Print headers, footers, and page breaks",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 255,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Other",
+      "Unformatted"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      6,
+      3
+    ],
+    "description": "Do not print headers, footers, and page breaks",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 256,
+    "path": [
+      "Print",
+      "Printer",
+      "Options",
+      "Quit"
+    ],
+    "indices": [
+      5,
+      0,
+      3,
+      7
+    ],
+    "description": "Return to previous menu",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 257,
+    "path": [
+      "Print",
+      "Printer",
+      "Clear"
+    ],
+    "indices": [
+      5,
+      0,
+      4
+    ],
+    "description": "All  Range  Borders  Format",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 258,
+    "path": [
+      "Print",
+      "Printer",
+      "Clear",
+      "All"
+    ],
+    "indices": [
+      5,
+      0,
+      4,
+      0
+    ],
+    "description": "Return all print settings to defaults",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 259,
+    "path": [
+      "Print",
+      "Printer",
+      "Clear",
+      "Range"
+    ],
+    "indices": [
+      5,
+      0,
+      4,
+      1
+    ],
+    "description": "Clear current print range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 260,
+    "path": [
+      "Print",
+      "Printer",
+      "Clear",
+      "Borders"
+    ],
+    "indices": [
+      5,
+      0,
+      4,
+      2
+    ],
+    "description": "Clear border column and row ranges",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 261,
+    "path": [
+      "Print",
+      "Printer",
+      "Clear",
+      "Format"
+    ],
+    "indices": [
+      5,
+      0,
+      4,
+      3
+    ],
+    "description": "Return margins, page length, and setup string to defaults",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 262,
+    "path": [
+      "Print",
+      "Printer",
+      "Align"
+    ],
+    "indices": [
+      5,
+      0,
+      5
+    ],
+    "description": "Reset to top of page (after adjusting paper)",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 263,
+    "path": [
+      "Print",
+      "Printer",
+      "Go"
+    ],
+    "indices": [
+      5,
+      0,
+      6
+    ],
+    "description": "Print the specified range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 264,
+    "path": [
+      "Print",
+      "Printer",
+      "Quit"
+    ],
+    "indices": [
+      5,
+      0,
+      7
+    ],
+    "description": "Return to READY mode",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 265,
+    "path": [
+      "Print",
+      "File"
+    ],
+    "indices": [
+      5,
+      1
+    ],
+    "description": "Send print output to a text file",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 266,
+    "path": [
+      "Print",
+      "File",
+      "Range"
+    ],
+    "indices": [
+      5,
+      1,
+      0
+    ],
+    "description": "Specify a range to print",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 267,
+    "path": [
+      "Print",
+      "File",
+      "Line"
+    ],
+    "indices": [
+      5,
+      1,
+      1
+    ],
+    "description": "Advance paper one line",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 268,
+    "path": [
+      "Print",
+      "File",
+      "Page"
+    ],
+    "indices": [
+      5,
+      1,
+      2
+    ],
+    "description": "Advance paper to top of next page",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 269,
+    "path": [
+      "Print",
+      "File",
+      "Options"
+    ],
+    "indices": [
+      5,
+      1,
+      3
+    ],
+    "description": "Header  Footer  Margins  Borders  Setup  Pg-Length  Other  Quit",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 270,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Header"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      0
+    ],
+    "description": "Create a header",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 271,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Footer"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      1
+    ],
+    "description": "Create a footer",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 272,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Margins"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      2
+    ],
+    "description": "Left  Right  Top  Bottom  None",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 273,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Margins",
+      "Left"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      2,
+      0
+    ],
+    "description": "Set left margin",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 274,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Margins",
+      "Right"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      2,
+      1
+    ],
+    "description": "Set right margin",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 275,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Margins",
+      "Top"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      2,
+      2
+    ],
+    "description": "Set top margin",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 276,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Margins",
+      "Bottom"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      2,
+      3
+    ],
+    "description": "Set bottom margin",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 277,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Margins",
+      "None"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      2,
+      4
+    ],
+    "description": "Clear all margin settings",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 278,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Borders"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      3
+    ],
+    "description": "Print border columns and/or rows",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 279,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Borders",
+      "Columns"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      3,
+      0
+    ],
+    "description": "Print border columns to the left of each print range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 280,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Borders",
+      "Rows"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      3,
+      1
+    ],
+    "description": "Print border rows above each print range",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 281,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Setup"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      4
+    ],
+    "description": "Enter printer setup string",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 282,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Pg-Length"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      5
+    ],
+    "description": "Specify number of lines per page",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 283,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Other"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      6
+    ],
+    "description": "As-Displayed  Cell-Formulas  Formatted  Unformatted",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 284,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Other",
+      "As-Displayed"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      6,
+      0
+    ],
+    "description": "Print range as displayed",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 285,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Other",
+      "Cell-Formulas"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      6,
+      1
+    ],
+    "description": "List entries, one per line",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 286,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Other",
+      "Formatted"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      6,
+      2
+    ],
+    "description": "Print headers, footers, and page breaks",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 287,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Other",
+      "Unformatted"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      6,
+      3
+    ],
+    "description": "Do not print headers, footers, and page breaks",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 288,
+    "path": [
+      "Print",
+      "File",
+      "Options",
+      "Quit"
+    ],
+    "indices": [
+      5,
+      1,
+      3,
+      7
+    ],
+    "description": "Return to previous menu",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 289,
+    "path": [
+      "Print",
+      "File",
+      "Clear"
+    ],
+    "indices": [
+      5,
+      1,
+      4
+    ],
+    "description": "All  Range  Borders  Format",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 290,
+    "path": [
+      "Print",
+      "File",
+      "Clear",
+      "All"
+    ],
+    "indices": [
+      5,
+      1,
+      4,
+      0
+    ],
+    "description": "Return all print settings to defaults",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 291,
+    "path": [
+      "Print",
+      "File",
+      "Clear",
+      "Range"
+    ],
+    "indices": [
+      5,
+      1,
+      4,
+      1
+    ],
+    "description": "Clear current print range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 292,
+    "path": [
+      "Print",
+      "File",
+      "Clear",
+      "Borders"
+    ],
+    "indices": [
+      5,
+      1,
+      4,
+      2
+    ],
+    "description": "Clear border column and row ranges",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 293,
+    "path": [
+      "Print",
+      "File",
+      "Clear",
+      "Format"
+    ],
+    "indices": [
+      5,
+      1,
+      4,
+      3
+    ],
+    "description": "Return margins, page length, and setup string to defaults",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 294,
+    "path": [
+      "Print",
+      "File",
+      "Align"
+    ],
+    "indices": [
+      5,
+      1,
+      5
+    ],
+    "description": "Reset to top of page (after adjusting paper)",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 295,
+    "path": [
+      "Print",
+      "File",
+      "Go"
+    ],
+    "indices": [
+      5,
+      1,
+      6
+    ],
+    "description": "Print the specified range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 296,
+    "path": [
+      "Print",
+      "File",
+      "Quit"
+    ],
+    "indices": [
+      5,
+      1,
+      7
+    ],
+    "description": "Return to READY mode",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 297,
+    "path": [
+      "Graph"
+    ],
+    "indices": [
+      6
+    ],
+    "description": "Type  X  A  B  C  D  E  F  Reset  View  Save  Options  Name  Group  Quit",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 298,
+    "path": [
+      "Graph",
+      "Type"
+    ],
+    "indices": [
+      6,
+      0
+    ],
+    "description": "Line  Bar  XY  Stack-Bar  Pie",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 299,
+    "path": [
+      "Graph",
+      "Type",
+      "Line"
+    ],
+    "indices": [
+      6,
+      0,
+      0
+    ],
+    "description": "Line graph",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 300,
+    "path": [
+      "Graph",
+      "Type",
+      "Bar"
+    ],
+    "indices": [
+      6,
+      0,
+      1
+    ],
+    "description": "Bar graph",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 301,
+    "path": [
+      "Graph",
+      "Type",
+      "XY"
+    ],
+    "indices": [
+      6,
+      0,
+      2
+    ],
+    "description": "XY graph",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 302,
+    "path": [
+      "Graph",
+      "Type",
+      "Stack-Bar"
+    ],
+    "indices": [
+      6,
+      0,
+      3
+    ],
+    "description": "Stacked bar graph",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 303,
+    "path": [
+      "Graph",
+      "Type",
+      "Pie"
+    ],
+    "indices": [
+      6,
+      0,
+      4
+    ],
+    "description": "Pie chart",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 304,
+    "path": [
+      "Graph",
+      "X"
+    ],
+    "indices": [
+      6,
+      1
+    ],
+    "description": "Set X data range",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 305,
+    "path": [
+      "Graph",
+      "A"
+    ],
+    "indices": [
+      6,
+      2
+    ],
+    "description": "Set first data range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 306,
+    "path": [
+      "Graph",
+      "B"
+    ],
+    "indices": [
+      6,
+      3
+    ],
+    "description": "Set second data range",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 307,
+    "path": [
+      "Graph",
+      "C"
+    ],
+    "indices": [
+      6,
+      4
+    ],
+    "description": "Set third data range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 308,
+    "path": [
+      "Graph",
+      "D"
+    ],
+    "indices": [
+      6,
+      5
+    ],
+    "description": "Set fourth data range",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 309,
+    "path": [
+      "Graph",
+      "E"
+    ],
+    "indices": [
+      6,
+      6
+    ],
+    "description": "Set fifth data range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 310,
+    "path": [
+      "Graph",
+      "F"
+    ],
+    "indices": [
+      6,
+      7
+    ],
+    "description": "Set sixth data range",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 311,
+    "path": [
+      "Graph",
+      "Reset"
+    ],
+    "indices": [
+      6,
+      8
+    ],
+    "description": "Graph  X  A  B  C  D  E  F  Ranges  Options  Quit",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 312,
+    "path": [
+      "Graph",
+      "View"
+    ],
+    "indices": [
+      6,
+      9
+    ],
+    "description": "View the current graph",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 313,
+    "path": [
+      "Graph",
+      "Save"
+    ],
+    "indices": [
+      6,
+      10
+    ],
+    "description": "Save the current graph in a file for printing",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 314,
+    "path": [
+      "Graph",
+      "Options"
+    ],
+    "indices": [
+      6,
+      11
+    ],
+    "description": "Legend  Format  Titles  Grid  Scale  Color  B&W  Data-Labels  Quit",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 315,
+    "path": [
+      "Graph",
+      "Name"
+    ],
+    "indices": [
+      6,
+      12
+    ],
+    "description": "Use  Create  Delete  Reset  Table",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 316,
+    "path": [
+      "Graph",
+      "Name",
+      "Use"
+    ],
+    "indices": [
+      6,
+      12,
+      0
+    ],
+    "description": "Make a named graph current",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 317,
+    "path": [
+      "Graph",
+      "Name",
+      "Create"
+    ],
+    "indices": [
+      6,
+      12,
+      1
+    ],
+    "description": "Name the current graph",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 318,
+    "path": [
+      "Graph",
+      "Name",
+      "Delete"
+    ],
+    "indices": [
+      6,
+      12,
+      2
+    ],
+    "description": "Delete a named graph",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 319,
+    "path": [
+      "Graph",
+      "Name",
+      "Reset"
+    ],
+    "indices": [
+      6,
+      12,
+      3
+    ],
+    "description": "Delete all named graphs",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 320,
+    "path": [
+      "Graph",
+      "Name",
+      "Table"
+    ],
+    "indices": [
+      6,
+      12,
+      4
+    ],
+    "description": "Create a table of named graphs",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 321,
+    "path": [
+      "Graph",
+      "Group"
+    ],
+    "indices": [
+      6,
+      13
+    ],
+    "description": "Set all data ranges at once",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 322,
+    "path": [
+      "Graph",
+      "Group",
+      "Columnwise"
+    ],
+    "indices": [
+      6,
+      13,
+      0
+    ],
+    "description": "Use columns as data ranges",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 323,
+    "path": [
+      "Graph",
+      "Group",
+      "Rowwise"
+    ],
+    "indices": [
+      6,
+      13,
+      1
+    ],
+    "description": "Use rows as data ranges",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 324,
+    "path": [
+      "Graph",
+      "Quit"
+    ],
+    "indices": [
+      6,
+      14
+    ],
+    "description": "Return to READY mode",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 325,
+    "path": [
+      "Data"
+    ],
+    "indices": [
+      7
+    ],
+    "description": "Fill  Table  Sort  Query  Distribution  Matrix  Regression  Parse",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 326,
+    "path": [
+      "Data",
+      "Fill"
+    ],
+    "indices": [
+      7,
+      0
+    ],
+    "description": "Fill a range with a sequence of values",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 327,
+    "path": [
+      "Data",
+      "Table"
+    ],
+    "indices": [
+      7,
+      1
+    ],
+    "description": "Create a table of values",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 328,
+    "path": [
+      "Data",
+      "Table",
+      "1"
+    ],
+    "indices": [
+      7,
+      1,
+      0
+    ],
+    "description": "One input cell, one or more dependent formulas",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 329,
+    "path": [
+      "Data",
+      "Table",
+      "2"
+    ],
+    "indices": [
+      7,
+      1,
+      1
+    ],
+    "description": "Two input cells, one dependent formula",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 330,
+    "path": [
+      "Data",
+      "Table",
+      "Reset"
+    ],
+    "indices": [
+      7,
+      1,
+      2
+    ],
+    "description": "Clear table ranges and input cells for all data tables",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 331,
+    "path": [
+      "Data",
+      "Sort"
+    ],
+    "indices": [
+      7,
+      2
+    ],
+    "description": "Sort database records",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 332,
+    "path": [
+      "Data",
+      "Sort",
+      "Data-Range"
+    ],
+    "indices": [
+      7,
+      2,
+      0
+    ],
+    "description": "Select records to be sorted",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 333,
+    "path": [
+      "Data",
+      "Sort",
+      "Primary-Key"
+    ],
+    "indices": [
+      7,
+      2,
+      1
+    ],
+    "description": "Specify primary order for records",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 334,
+    "path": [
+      "Data",
+      "Sort",
+      "Secondary-Key"
+    ],
+    "indices": [
+      7,
+      2,
+      2
+    ],
+    "description": "Specify order for records with same primary key",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 335,
+    "path": [
+      "Data",
+      "Sort",
+      "Reset"
+    ],
+    "indices": [
+      7,
+      2,
+      3
+    ],
+    "description": "Clear data range and sort keys",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 336,
+    "path": [
+      "Data",
+      "Sort",
+      "Go"
+    ],
+    "indices": [
+      7,
+      2,
+      4
+    ],
+    "description": "Sort data and return to READY mode",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 337,
+    "path": [
+      "Data",
+      "Sort",
+      "Quit"
+    ],
+    "indices": [
+      7,
+      2,
+      5
+    ],
+    "description": "Return to READY mode",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 338,
+    "path": [
+      "Data",
+      "Query"
+    ],
+    "indices": [
+      7,
+      3
+    ],
+    "description": "Find all records that satisfy given criteria",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 339,
+    "path": [
+      "Data",
+      "Query",
+      "Input"
+    ],
+    "indices": [
+      7,
+      3,
+      0
+    ],
+    "description": "Specify range that contains records to search",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 340,
+    "path": [
+      "Data",
+      "Query",
+      "Criteria"
+    ],
+    "indices": [
+      7,
+      3,
+      1
+    ],
+    "description": "Specify the range that contains criteria",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 341,
+    "path": [
+      "Data",
+      "Query",
+      "Output"
+    ],
+    "indices": [
+      7,
+      3,
+      2
+    ],
+    "description": "Specify the range to which extracted records are copied",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 342,
+    "path": [
+      "Data",
+      "Query",
+      "Find"
+    ],
+    "indices": [
+      7,
+      3,
+      3
+    ],
+    "description": "Highlight each record that matches criteria",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 343,
+    "path": [
+      "Data",
+      "Query",
+      "Extract"
+    ],
+    "indices": [
+      7,
+      3,
+      4
+    ],
+    "description": "Copy all records that match criteria to output range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 344,
+    "path": [
+      "Data",
+      "Query",
+      "Unique"
+    ],
+    "indices": [
+      7,
+      3,
+      5
+    ],
+    "description": "Copy records that match criteria to output range, eliminating duplicates",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 345,
+    "path": [
+      "Data",
+      "Query",
+      "Delete"
+    ],
+    "indices": [
+      7,
+      3,
+      6
+    ],
+    "description": "Delete all records that match criteria",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 346,
+    "path": [
+      "Data",
+      "Query",
+      "Reset"
+    ],
+    "indices": [
+      7,
+      3,
+      7
+    ],
+    "description": "Clear input, criteria, and output ranges",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 347,
+    "path": [
+      "Data",
+      "Query",
+      "Quit"
+    ],
+    "indices": [
+      7,
+      3,
+      8
+    ],
+    "description": "Return to READY mode",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 348,
+    "path": [
+      "Data",
+      "Distribution"
+    ],
+    "indices": [
+      7,
+      4
+    ],
+    "description": "Calculate frequency distribution of the values in a range",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 349,
+    "path": [
+      "Data",
+      "Matrix"
+    ],
+    "indices": [
+      7,
+      5
+    ],
+    "description": "Multiply and invert matrices",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 350,
+    "path": [
+      "Data",
+      "Matrix",
+      "Invert"
+    ],
+    "indices": [
+      7,
+      5,
+      0
+    ],
+    "description": "Create the inverse of a matrix",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 351,
+    "path": [
+      "Data",
+      "Matrix",
+      "Multiply"
+    ],
+    "indices": [
+      7,
+      5,
+      1
+    ],
+    "description": "Multiply two ranges as matrices",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 352,
+    "path": [
+      "Data",
+      "Regression"
+    ],
+    "indices": [
+      7,
+      6
+    ],
+    "description": "Calculate linear regression",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 353,
+    "path": [
+      "Data",
+      "Regression",
+      "X-Range"
+    ],
+    "indices": [
+      7,
+      6,
+      0
+    ],
+    "description": "Specify independent variables (X range)",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 354,
+    "path": [
+      "Data",
+      "Regression",
+      "Y-Range"
+    ],
+    "indices": [
+      7,
+      6,
+      1
+    ],
+    "description": "Specify dependent variable (Y range)",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 355,
+    "path": [
+      "Data",
+      "Regression",
+      "Output-Range"
+    ],
+    "indices": [
+      7,
+      6,
+      2
+    ],
+    "description": "Specify the output range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 356,
+    "path": [
+      "Data",
+      "Regression",
+      "Intercept"
+    ],
+    "indices": [
+      7,
+      6,
+      3
+    ],
+    "description": "Compute  Zero",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 357,
+    "path": [
+      "Data",
+      "Regression",
+      "Intercept",
+      "Compute"
+    ],
+    "indices": [
+      7,
+      6,
+      3,
+      0
+    ],
+    "description": "Calculate the y-axis intercept automatically",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 358,
+    "path": [
+      "Data",
+      "Regression",
+      "Intercept",
+      "Zero"
+    ],
+    "indices": [
+      7,
+      6,
+      3,
+      1
+    ],
+    "description": "Use zero as the y-axis intercept",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 359,
+    "path": [
+      "Data",
+      "Regression",
+      "Reset"
+    ],
+    "indices": [
+      7,
+      6,
+      4
+    ],
+    "description": "Clear the X range, Y range, output range, and reset Intercept to Compute",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 360,
+    "path": [
+      "Data",
+      "Regression",
+      "Go"
+    ],
+    "indices": [
+      7,
+      6,
+      5
+    ],
+    "description": "Calculate a data regression on specified ranges",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 361,
+    "path": [
+      "Data",
+      "Regression",
+      "Quit"
+    ],
+    "indices": [
+      7,
+      6,
+      6
+    ],
+    "description": "Return to READY mode",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 362,
+    "path": [
+      "Data",
+      "Parse"
+    ],
+    "indices": [
+      7,
+      7
+    ],
+    "description": "Convert a column of long labels into a range of labels or numbers",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 363,
+    "path": [
+      "Data",
+      "Parse",
+      "Format-Line"
+    ],
+    "indices": [
+      7,
+      7,
+      0
+    ],
+    "description": "Create or edit a format line at the current cell",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 364,
+    "path": [
+      "Data",
+      "Parse",
+      "Format-Line",
+      "Create"
+    ],
+    "indices": [
+      7,
+      7,
+      0,
+      0
+    ],
+    "description": "Create a format line at the current cell",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 365,
+    "path": [
+      "Data",
+      "Parse",
+      "Format-Line",
+      "Edit"
+    ],
+    "indices": [
+      7,
+      7,
+      0,
+      1
+    ],
+    "description": "Edit a format line at the current cell",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 366,
+    "path": [
+      "Data",
+      "Parse",
+      "Input-Column"
+    ],
+    "indices": [
+      7,
+      7,
+      1
+    ],
+    "description": "Specify a column of labels to parse",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 367,
+    "path": [
+      "Data",
+      "Parse",
+      "Output-Range"
+    ],
+    "indices": [
+      7,
+      7,
+      2
+    ],
+    "description": "Specify the range in which parsed data is placed",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 368,
+    "path": [
+      "Data",
+      "Parse",
+      "Reset"
+    ],
+    "indices": [
+      7,
+      7,
+      3
+    ],
+    "description": "Clear input column and output range",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 369,
+    "path": [
+      "Data",
+      "Parse",
+      "Go"
+    ],
+    "indices": [
+      7,
+      7,
+      4
+    ],
+    "description": "Parse labels in the input column and place them in the output range",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 370,
+    "path": [
+      "Data",
+      "Parse",
+      "Quit"
+    ],
+    "indices": [
+      7,
+      7,
+      5
+    ],
+    "description": "Return to READY mode",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 371,
+    "path": [
+      "System"
+    ],
+    "indices": [
+      8
+    ],
+    "description": "Leave 1-2-3 temporarily and use operating system",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 372,
+    "path": [
+      "Add-In"
+    ],
+    "indices": [
+      9
+    ],
+    "description": "Attach, Detach, Invoke or Clear 1-2-3 add-in programs",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 373,
+    "path": [
+      "Add-In",
+      "Attach"
+    ],
+    "indices": [
+      9,
+      0
+    ],
+    "description": "Load an add-in program into memory",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 374,
+    "path": [
+      "Add-In",
+      "Detach"
+    ],
+    "indices": [
+      9,
+      1
+    ],
+    "description": "Remove an attached add-in program from memory",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 375,
+    "path": [
+      "Add-In",
+      "Invoke"
+    ],
+    "indices": [
+      9,
+      2
+    ],
+    "description": "Activate an attached add-in program",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 376,
+    "path": [
+      "Add-In",
+      "Clear"
+    ],
+    "indices": [
+      9,
+      3
+    ],
+    "description": "Remove all attached add-in programs from memory",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 377,
+    "path": [
+      "Add-In",
+      "Quit"
+    ],
+    "indices": [
+      9,
+      4
+    ],
+    "description": "Return to READY mode",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 378,
+    "path": [
+      "Quit"
+    ],
+    "indices": [
+      10
+    ],
+    "description": "End the 1-2-3 session",
+    "navigation": "initial",
+    "outcome": "activated"
+  },
+  {
+    "n": 379,
+    "path": [
+      "Quit",
+      "No"
+    ],
+    "indices": [
+      10,
+      0
+    ],
+    "description": "Do not end 1-2-3 session; return to READY mode",
+    "navigation": "arrows",
+    "outcome": "activated"
+  },
+  {
+    "n": 380,
+    "path": [
+      "Quit",
+      "Yes"
+    ],
+    "indices": [
+      10,
+      1
+    ],
+    "description": "End 1-2-3 session (Remember to save your worksheet first)",
+    "navigation": "initial",
+    "outcome": "exit-avoided-in-inventory; exercised in quit phase"
+  }
+]

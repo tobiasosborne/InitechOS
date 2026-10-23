@@ -1,0 +1,446 @@
+STARTED operations pid 6
+SHOT range-value
+_ File Edit View Special 1:39pm
+File Y
+BZ: 4 FREAD YES
+A B c D E F Gg H
+lu 1 z 1 2
+z 3 3 4
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[=|
+|
+
+SHOT range-transpose
+_ File Edit View Special 1:40pm
+File Y
+BZ: 4 FREAD YES
+A B c D E F Gg H
+lu 1 z 1 2 1 3
+z 3 3 4 2 4
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[=|
+|
+
+SHOT names-label-right
+& File Edit View Special 1:40pm
+ea
+file
+jez: 12 FREAD YES
+A B c D E F Gg H
+lu
+z RightNane EE
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved RANGES .uki.
+[=|
+|
+
+SHOT names-label-down
+& File Edit View Special 1:40pm
+ea
+file
+Bs: 15 FREAD YES
+A B c D E F Gg H
+lu
+iz RightName 12
+iB
+Hs DowmName
+ia
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved RANGES .uki.
+[=|
+|
+
+SHOT names-label-left
+& File Edit View Special 1:40pm
+ea
+file
+jez: 12 FREAD YES
+A B c D E F Gg H
+lu
+iz RightNaneEEPAILef tName
+iB
+Hs DownName
+5 15
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved RANGES .uki.
+[=|
+|
+
+SHOT names-label-up
+_ File Edit View Special 1:40pm
+File Y
+p3: 13 FREAD YES
+A B c D E F Gg H
+lu
+iz RightName 12 Lef tName
+B
+Hs DownName UpName
+5 15
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved RANGES .uki.
+[=|
+|
+
+SHOT names-table
+_ File Edit View Special 1:40pm
+File Y
+p3: 13 FREAD YES
+A B c D E F Gg H
+lu DOWNNAME BS. .B5
+iz RightName 12 Lef tName LEFTNAME (2. .CZ
+i RIGHTNAMECZ.. .C2
+Hs DownName UpName UPNAME D3. .D3
+5 15
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved RANGES .uki.
+[=|
+|
+
+SHOT names-reset
+_ File Edit View Special 1:40pm
+File Y
+D3: 13 Be |=]
+Inter address to go to: RightName_
+A B Cc D E F G H
+j. DOWNNAME BS. .BS
+2 RightName 12 LeftName LEFTNAME CZ. .CZ2
+i RIGHTNAMECZ.. .C2
+E DoumName UpName UPNAME D3. .D3
+5 15
+(10
+fla
+(12
+13
+(14
+15
+(16
+(1?
+18
+19
+Invalid cell or range address
+if
+|
+
+SHOT range-label-r
+_ File Edit View Special 1:40pm
+File Y
+fal: “label FREAD YES
+A B c D E F Gg H
+lu label
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMETAB.uk
+[=|
+|
+
+SHOT range-label-c
+_ File Edit View Special 1:40pm
+File Y
+Al: “label FREAD YES
+A B c D E F Gg H
+label
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMETAB.uk
+[=|
+|
+
+SHOT range-label-l
+_ File Edit View Special 1:40pm
+File Y
+fal: “label FREAD YES
+A B c D E F Gg H
+label
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMETAB.uk
+[=|
+|
+
+SHOT global-format
+_ File Edit View Special 1:40pm
+File Y
+Bi: 123.45 FREAD YES
+A B c D E F Gg H
+Tamlabel 123.45
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMETAB.uk
+[=|
+|
+
+SHOT global-width
+_ File Edit View Special 1:40pm
+File Y
+Bi: 123.45 FREAD YES
+A B Cc D
+1 Too [3123.45
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMETAB.uk
+[=|
+|
+
+SHOT range-unprotect
+_ File Edit View Special 1:40pm
+File Y
+Al: “allowed FREAD YES
+A B Cc D
+Hallowed 123.45
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMETAB.uk
+[=|
+|
+
+SHOT hidden-unprotected
+_ File Edit View Special 1:40pm
+File Y
+Bi: 123.45 FREAD YES
+A B Cc D
+We | lowed DS
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMETAB.uk
+[=|
+|
+
+SHOT hidden-protected
+_ File Edit View Special 1:40pm
+File Y
+[B1: FREAD YES
+A B Cc D
+We | lowed DS
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMETAB.uk
+[=|
+|
+
+SHOT iteration-0
+_ File Edit View Special 1:40pm
+File Y
+Bi: 123.45 JERROR]ES|
+Tegal number
+Press Esc to return to the worksheet
+A B Cc D
+We | lowed DS
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMETAB.uk
+[=|
+|
+
+SHOT iteration-51
+_ File Edit View Special 1:40pm
+File Y
+Bi: 123.45 JERROR]ES|
+Tegal number
+Press Esc to return to the worksheet
+A B Cc D
+We | lowed DS
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMETAB.uk
+[=|
+|
+
+SHOT iteration-1
+_ File Edit View Special 1:40pm
+File Y
+Bi: 123.45 FREAD YES
+A B Cc D
+We | lowed DS
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMETAB.uk
+[=|
+|
+
+SHOT iteration-50
+_ File Edit View Special 1:40pm
+File Y
+Bi: 123.45 FREAD YES
+A B Cc D
+We | lowed DS
+iB
+Ho
+aa
+az
+a3
+a4
+Ms
+6
+ue
+us
+49
+[Saved NAMETAB.uk
+[=|
+|
+
+STOPPED 6

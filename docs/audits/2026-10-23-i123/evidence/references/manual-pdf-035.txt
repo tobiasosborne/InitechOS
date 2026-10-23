@@ -1,0 +1,54 @@
+Numbers
+
+You can enter any number from 10° to 10°. The number of significant digits
+1-2-3 displays in a cell depends on the cell format, column width, and the
+magnitude of the number. If you enter a number with more digits than 1-2-3 can
+display, 1-2-3 rounds the number.
+
+Use the following guidelines when entering numbers:
+
+¢ Begin the entry with a number (0 through 9) or one of the numeric symbols +
+-@.(# ors
+If you begin a number with a $ (dollar sign), 1-2-3 will enter the number but
+will not display the $. You must change the format of the cell to include a
+currency symbol. See “Displaying Values in the Worksheet’ later in this
+chapter.
+
+¢ Do not include spaces or commas in the entry.
+
+Later you can change the format of the cell to include commas. See
+“Displaying Values in the Worksheet’ later in this chapter.
+
+* Do not type more than one decimal point.
+* The entry cannot be longer than 240 characters.
+
+NOTE It is possible to enter numbers in scientific notation. For example to enter
+602000 you can type 6.02E05. The correct format for entering a number in
+scientific notation is to type a positive or negative number followed by an e or E,
+and an exponent from —99 to 99.
+
+Formulas
+
+A formula is an entry that performs a calculation. You can enter several types of
+formulas in 1-2-3: numeric formulas, string formulas, and logical formulas. These
+types of formulas and methods for entering formulas are described in detail in
+“Working with Formulas” later in this chapter.
+
+NOTE The number of decimal places 1-2-3 displays for a calculated value
+depends on the cell format. Regardless of how many decimal places 1-2-3
+displays for the value, however, 1-2-3 calculates the value to a precision of 15
+decimal places unless you use @ROUND to specify a different precision. For
+more information, see @ROUND in Chapter 13.
+
+Displaying Values in the Worksheet
+
+1-2-3 always right aligns numeric values in cells. Unlike labels, you cannot change
+their alignment. You can, however, control the way 1-2-3 displays values by
+setting the cell format with /Worksheet Global Format or /Range Format. For
+example, 1-2-3 can display the value 2.47 as $2, $2.47, 247%, or 2.47E+00,
+depending on the cell format you specify. Figure 1-10 shows several different
+
+cell formats with varying numbers of decimal places.
+
+Entering and Editing Data 1-19
+

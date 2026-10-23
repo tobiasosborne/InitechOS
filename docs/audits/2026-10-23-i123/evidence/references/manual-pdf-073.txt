@@ -1,0 +1,37 @@
+Example
+
+Figure 3-5 illustrates how you can copy one formula to several cells. The formula
+is relative, and therefore performs the same calculation, multiplying the two cells
+to the left, in the subsequent rows that it is copied to.
+
+POINT
+iy E GoW
+— Range to copy FROM (C2)
+POINT
+D E F 6 4
+Range to copy TO (C3..05)
+C5: (CO) #B54A5 READY
+A 8 c > E F 6 H
+: piety
+i ge 8 ee
+5 8 BM 2400
+
+Figure 3-5 Making multiple copies of the same formula
+
+Tips
+
+¢ If /Worksheet Global Recalculation is set to Manual, use /Copy to recalculate a
+range when you have a worksheet containing many formulas and don’t want
+to wait for 1-2-3 to recalculate the entire worksheet. If you copy a range to
+itself (specify that range as both the TO and FROM range), 1-2-3 will
+recalculate just the formulas in that range.
+
+* To copy a range from another file to the current location of the cell pointer,
+use /File Combine Copy.
+
+* To copy a range and convert formulas to values, use /Range Value.
+
+* To copy a column to a row or a row to a column, and convert formulas to
+values, use /Range Trans.
+
+/Copy 3-5

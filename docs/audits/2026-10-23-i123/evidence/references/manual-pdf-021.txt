@@ -1,0 +1,52 @@
+The Status Line
+
+The status line (Figure 1-5) is the last line of the screen. 1-2-3 uses the status line
+to display the date-and-time indicator, the status indicators, and error messages.
+
+UNDO indicator NUM LOCK indicator
+19
+20 j
+Dr-Aer-89 09:00 An,
+
+cure cul
+
+Date-andtime indicator Circular reference indicator
+Figure 1-5 The status line and various indicators
+
+NOTE When you debug a macro in STEP mode, 1-2-3 suppresses the display of
+the status line so it can display the macro instructions currently being executed
+and the address of the cell containing those instructions.
+
+The date-and-time indicator appears in the left corner of the status line. (See
+Figure 1-5.) The default setting is for 1-2-3 to display the current date and time in
+the indicator. You can, however, use /Worksheet Global Default Other Clock to
+change the display of the date-and-time indicator (for example, use an
+international format), set it so it displays the current file name, or suppress
+
+the indicator display entirely.
+
+An error message appears in place of the date-and-time indicator when 1-2-3
+detects a mistake or cannot perform a task. If an error message appears, press
+HELP (F1) for a description of the error message and why it occurs; or press ESC or
+ENTER to clear the error and continue work.
+
+A status indicator appears on the screen when you use certain 1-2-3 keys and
+when a particular program condition exists. For example, the CALC indicator tells
+you that the worksheet formulas need to be recalculated and the UNDO indicator
+tells you that you can press UNDO (ALT-F4) to undo your Jast action. For a
+complete list of indicators 1-2-3 displays on the status line, see “Status Indicators’”
+later in this chapter.
+
+1-2-3 Indicators
+
+An indicator is a highlighted word that 1-2-3 displays to provide you with
+information about the program or special keys. 1-2-3 has two types of indicators:
+mode and status.
+
+Mode Indicators
+
+During a 1-2-3 work session, a mode indicator is always visible at the far right
+of the first line of the control panel. It tells you what mode, or state, 1-2-3 is
+currently in. The following table describes the various 1-2-3 modes.
+
+1-2-3 Indicators 1-5
