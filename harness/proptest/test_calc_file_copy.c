@@ -30,9 +30,30 @@ int32_t tbx_fill_rect(int32_t w, int32_t l, int32_t t, int32_t r, int32_t b,
                       uint32_t c)
 { (void)w; (void)l; (void)t; (void)r; (void)b; (void)c; return TBX_OK; }
 int32_t tbx_exit(int32_t rc) { (void)rc; exits++; return TBX_OK; }
+static char alert_text[200];
+static unsigned alert_buttons;
 int32_t tbx_alert(const char *text, const char *def,
                   const char *cancel, const char *other)
-{ (void)text; (void)def; (void)cancel; (void)other; alerts++; return TBX_OK; }
+{
+    (void)def; alerts++; alert_buttons = 1u + (cancel != 0) + (other != 0);
+    snprintf(alert_text, sizeof alert_text, "%s", text);
+    return TBX_OK;
+}
+/* initech-qxft: a one-file data volume. tables_exists models APPS\TABLES.TXT. */
+static int tables_exists, stage_open;
+static char stage_name[80], stage_data[1024];
+static unsigned stage_len, stage_deletes;
+int32_t tbx_file_open(const char *p, uint32_t m)
+{ (void)m; return (tables_exists && !strcmp(p, "APPS\\TABLES.TXT")) ? 7 : -1; }
+int32_t tbx_file_create(const char *p)
+{ snprintf(stage_name, sizeof stage_name, "%s", p); stage_len = 0; stage_open = 1; return 9; }
+int32_t tbx_file_write(int32_t h, const void *b, uint32_t n)
+{
+    if (h != 9 || stage_len + n >= sizeof stage_data) return -1;
+    memcpy(stage_data + stage_len, b, n); stage_len += n; stage_data[stage_len] = 0; return (int32_t)n;
+}
+int32_t tbx_file_close(int32_t h) { (void)h; stage_open = 0; return 0; }
+int32_t tbx_file_delete(const char *p) { if (!strcmp(p, stage_name)) stage_deletes++; return 0; }
 int32_t tbx_file_copy(const char *c, const char *s, const char *d)
 {
     copies++;
@@ -80,6 +101,53 @@ int main(void)
     }
     CHECK(copies == 2, "SAVE_AGAIN a second Save asks again after the answer");
     CHECK(exits == 0 && windows == 2, "Save retains both Calc windows");
+    /* ---- initech-qxft ---- */
+    {
+        tbx_event_t k;
+        unsigned c0;
+        { tbx_event_t done = { (int32_t)TBX_EVT_FILECOPY, 123, 0, 0, 0, 0 }; tbx_app_event(&done); } /* the 2nd clean Save lands */
+        CHECK(stage_name[0] == 0, "CLEAN_NO_STAGE a clean Save copies the shipped ledger, stages nothing");
+        /* L006: an edit reaches the saved file. A1 := 73. */
+        k = (tbx_event_t){ keyDown, '7', 0, 0, 0, 0 }; tbx_app_event(&k);
+        k.message = '3'; tbx_app_event(&k);
+        k.message = '\r'; tbx_app_event(&k);
+        c0 = copies;
+        { tbx_event_t sv = { TBX_EVT_MENU, TBX_MENU_WORD(menu_id, item), 0, 0, 0, 0 }; tbx_app_event(&sv); }
+        CHECK(copies == c0 + 1, "SAVE_EDIT a dirty Save asks the FILE COPY box");
+        CHECK(!strcmp(src, "APPS\\TABLES.TMP") && !strcmp(dst, "APPS\\TABLES.TXT"),
+              "SAVE_EDIT the edited model is staged, then copied to APPS\\TABLES.TXT");
+        CHECK(strstr(stage_data, "\r\n73               TODO_FRAME\r\n") != NULL,
+              "SAVE_EDIT the staged file holds the edited A1 (73), not Film Costs");
+        CHECK(strstr(stage_data, "Film Costs") == NULL, "SAVE_EDIT the replaced label is gone from the saved file");
+        CHECK(strstr(stage_data, "570- format      570-\r\n") && strstr(stage_data, "TOTAL            $112,276.87\r\n"),
+              "SAVE_EDIT the untouched PRD rows (570-, the 116% total line) are saved");
+        { tbx_event_t done = { (int32_t)TBX_EVT_FILECOPY, 50, 0, 0, 0, 0 }; tbx_app_event(&done); tables_exists = 1; }
+        CHECK(stage_deletes == 1, "STAGE_CLEANED the stage file is deleted after the copy");
+        /* L009: a second Save onto the existing TABLES.TXT asks before replacing. */
+        alerts = 0; c0 = copies;
+        { tbx_event_t sv = { TBX_EVT_MENU, TBX_MENU_WORD(menu_id, item), 0, 0, 0, 0 }; tbx_app_event(&sv); }
+        CHECK(alerts == 1 && copies == c0 && alert_buttons == 2, "REPLACE_ASKS Save onto an existing TABLES.TXT asks (Yes / No) and copies nothing yet");
+        CHECK(strstr(alert_text, "TABLES.TXT") != NULL && strstr(alert_text, "replace") != NULL, "REPLACE_NAMES the alert names TABLES.TXT and says replace");
+        { tbx_event_t a = { (int32_t)TBX_EVT_ALERT, TBX_ALERT_CANCEL, 0, 0, 0, 0 }; tbx_app_event(&a); }
+        CHECK(copies == c0, "REPLACE_CANCEL Cancel leaves the existing file alone");
+        { tbx_event_t sv = { TBX_EVT_MENU, TBX_MENU_WORD(menu_id, item), 0, 0, 0, 0 }; tbx_app_event(&sv); }
+        { tbx_event_t a = { (int32_t)TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0, 0 }; tbx_app_event(&a); }
+        CHECK(copies == c0 + 1, "REPLACE_YES Replace performs the copy");
+        { tbx_event_t done = { (int32_t)TBX_EVT_FILECOPY, 50, 0, 0, 0, 0 }; tbx_app_event(&done); }
+        /* L007 + L006: Quit on a dirty sheet, answer Save: saved (after the replace question), then the session ends. */
+        k = (tbx_event_t){ keyDown, '9', 0, 0, 0, 0 }; tbx_app_event(&k);
+        k.message = '\r'; tbx_app_event(&k);
+        alerts = 0; c0 = copies;
+        { tbx_event_t q = { TBX_EVT_MENU, TBX_MENU_WORD(menu_id, 2), 0, 0, 0, 0 }; tbx_app_event(&q); }
+        CHECK(alerts == 1 && alert_buttons == 3 && exits == 0, "QUITSAVE Quit on an edited sheet asks first");
+        { tbx_event_t a = { (int32_t)TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0, 0 }; tbx_app_event(&a); }
+        CHECK(alerts == 2 && exits == 0, "QUITSAVE Save over an existing TABLES.TXT asks the replace question");
+        { tbx_event_t a = { (int32_t)TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0, 0 }; tbx_app_event(&a); }
+        CHECK(copies == c0 + 1 && exits == 0, "QUITSAVE Replace copies, and the session is still open until the copy lands");
+        CHECK(strstr(stage_data, "\r\n9 ") != NULL, "QUITSAVE the saved file holds the second edit (9)");
+        { tbx_event_t done = { (int32_t)TBX_EVT_FILECOPY, 50, 0, 0, 0, 0 }; tbx_app_event(&done); }
+        CHECK(exits == 1, "QUITSAVE a successful Save ends the session");
+    }
     printf("test_calc_file_copy: %u checks, %u failures\n", checks, failures);
     return failures ? 1 : 0;
 }

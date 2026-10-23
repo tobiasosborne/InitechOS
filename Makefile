@@ -24168,6 +24168,14 @@ RECORD_MARKER_calc_ledger = FLAIR-DISPATCH app=CALC
 RECORD_SETTLE_calc_ledger = 800
 # PM 2026-10-17: 400 ms raced a frame under a 12-lane host load (record-flair-repro differed once); 800 keeps the clip repro-stable.
 RECORD_IMAGE_calc_ledger = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# Rule 14 (initech-qxft): Calc's exit guard. Edit A1 to 73, Ctrl-Q raises the
+# Save / Cancel / Don't Save alert (nudges hold it on screen for frames), then
+# the Don't Save click ends Calc. Trace: spec/flair_calc_traces.mk.
+RECORD_SCRIPTS += calc_quit_guard
+RECORD_SPEC_calc_quit_guard = $(FLAIR_CALC_EDIT_A1),kctrl-q,WTENANT-ALERT up,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,$(FLAIR_CALC_DONTSAVE_CLICK)
+RECORD_MARKER_calc_quit_guard = TENANT-EXIT rc=0 via=exit
+RECORD_SETTLE_calc_quit_guard = 800
+RECORD_IMAGE_calc_quit_guard = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # Rule 14 (initech-bf2): the FILE COPY box. Calc launches, Ctrl-S asks the box;
 # sixteen 1-px cursor nudges (the box is modal: absorbed) give the recorder a
 # frame every settle while the Platinum bar fills at PROGRESS_BAR_RATE=20
