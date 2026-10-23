@@ -18,19 +18,13 @@ static int32_t samir_line_read(samir_line_state *st, samir_input_read read,
                               void *user, char *buf, uint32_t cap)
 {
 #ifdef SAMIR_MUTATE_STDIN_LINES
-    int32_t got;
-    uint32_t len,i;
-    (void)st;
-    if(!buf || !cap) return -PAL_EACCES;
-    got=read(user,st->bytes,SAMIR_INPUT_CHUNK);
-    if(got<=0) return got<0 ? got : -1;
-    len=(uint32_t)got;
-    while(len && (st->bytes[len-1]=='\r' || st->bytes[len-1]=='\n')) len--;
-    if(len>=cap) len=cap-1;
-    for(i=0;i<len;i++) buf[i]=(char)st->bytes[i];
-    buf[len]='\0';
-    return (int32_t)len;
-#else
+    /* Ref: pal.h conin_line; audit K13's USE/LIST/QUIT input. Drop the
+     * unread suffix between calls: LIST and QUIT must not disappear after
+     * USE. Since 14a8fc75 routes USE through proc_run, returning the entire
+     * chunk lets it execute as a program, masking the missing-rows failure
+     * (initech-6ljt). Keep this mutation at the PAL framing boundary. */
+    st->pos=st->len;
+#endif
     uint32_t used=0;
     int overflow=0;
     if(!buf || !cap) return -PAL_EACCES;
@@ -62,6 +56,5 @@ static int32_t samir_line_read(samir_line_state *st, samir_input_read read,
         if(used+1u<cap) buf[used++]=(char)ch;
         else overflow=1; /* Drain this line; never return a partial command. */
     }
-#endif
 }
 #endif
