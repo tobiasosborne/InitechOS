@@ -351,7 +351,16 @@ void kbd_irq_handler(void)
     kbd_scancode_put(&g_kbd, &g_kbd_state, sc);
     /* Publish the BIOS keyboard flag byte BEFORE returning into a chained
      * resident hook (spec/tsr_contract.h Sec 2/4; bead initech-6fdt). */
-    *(volatile uint8_t *)(uintptr_t)TSR_KBD_FLAGS_LINEAR = kbd_bios_flags(&g_kbd_state);
+    {
+        /* 0x417 is the BIOS data area flag byte -- a real, fixed, mapped
+         * address in the flat model (spec/tsr_contract.h Sec 4), not a null
+         * dereference. Launder the pointer through an empty asm so GCC's
+         * -Warray-bounds (whole-TU -Oz) cannot treat the low constant as an
+         * object at address zero. Same store, same bytes; no flag relaxed. */
+        volatile uint8_t *kbd_flags = (volatile uint8_t *)(uintptr_t)TSR_KBD_FLAGS_LINEAR;
+        __asm__ __volatile__("" : "+r"(kbd_flags));
+        *kbd_flags = kbd_bios_flags(&g_kbd_state);
+    }
 
     /* FLAIR live event loop scancode hook (ADR-0006 E-D3(c) / FO-5): post
      * the RAW scancode byte (the value read from port 0x60 above) into the
