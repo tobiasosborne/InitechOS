@@ -108,7 +108,10 @@ static void store_attach(rgn_store_t *s)
 enum { MV_DIRS = 4, MV_ENTS = 26 };   /* 26: leg O11 root, 24 shown + 2 hidden */
 enum { CL_ROOT = 0, CL_APPS = 2, CL_TRASH = 3, CL_NEWFOLD = 9 };
 
-typedef struct mv_ent { char name[14]; uint8_t attr; uint16_t cluster; uint32_t size; } mv_ent_t;
+typedef struct mv_ent {
+    char name[14]; uint8_t attr; uint16_t cluster; uint32_t size;
+    uint16_t date, time;
+} mv_ent_t;
 typedef struct mv_dir { uint16_t cl; int n; mv_ent_t e[MV_ENTS]; } mv_dir_t;
 
 typedef struct mock {
@@ -158,6 +161,7 @@ static int m_enum(void *u, uint16_t cl, finder_enum_cb cb, void *cu)
         memset(m->scratch, 0, sizeof m->scratch);
         strncpy(m->scratch, d->e[i].name, sizeof m->scratch - 1);
         e.name83 = m->scratch; e.attribute = d->e[i].attr; e.size = d->e[i].size;
+        e.date = d->e[i].date; e.time = d->e[i].time;
         e.start_cluster = d->e[i].cluster;
         rc = cb(&e, cu);
         memset(m->scratch, 'Z', sizeof m->scratch - 1);
@@ -181,6 +185,8 @@ static int m_move(void *u, const char *src, uint16_t sd, const char *dst, uint16
     if (mv_find(d, nn) >= 0) return (int)FINDER_WIN_ERR_EXISTS;
     mv_add(d, nn, s->e[i].attr, s->e[i].cluster);
     d->e[d->n - 1].size = s->e[i].size;      /* a move keeps the bytes      */
+    d->e[d->n - 1].date = s->e[i].date;
+    d->e[d->n - 1].time = s->e[i].time;
     mv_del(s, i);
     return 0;
 }
@@ -1368,6 +1374,153 @@ static void leg_putaway_meta(void)
           "O16 ... B.TXT and C.TXT are home, the Trash window is empty, no origin left");
 }
 
+/* O17 -- initech-iebt. Design F3.1: a move transplants the directory entry,
+ * preserving size/attributes/timestamps. finder_window_t.meta is the parallel
+ * list-column/sort-key array (finder_windows.h). These literals are independent
+ * of the source window: change the binding AFTER populate, then poison the
+ * unused destination slot. Cover folder, body, volume and renamed Trash drops.
+ * The callback's scratch name is destroyed on return, as in every other leg. */
+static void leg_drop_meta(void)
+{
+    static const uint8_t kinds[] = {
+        FINDER_TGT_FOLDER, FINDER_TGT_WINDOW, FINDER_TGT_VOLUME, FINDER_TGT_TRASH
+    };
+    for (unsigned c = 0; c < sizeof kinds / sizeof kinds[0]; c++) {
+        finder_move_result_t r;
+        finder_tgt_t t = {0};
+        int src = (c == 1 || c == 2) ? APPW : ROOT;
+        int dst = (c == 0) ? APPW : ROOT;
+        const char *name = (c == 3) ? "NEWFOLD" :
+                           (src == ROOT) ? "README.TXT" : "TENANTFX.EXE";
+        const char *arrival = (c == 3) ? "NEWFO001" : name;
+        uint32_t size = (c == 3) ? 0u : 34567u;
+        uint8_t attr = (c == 3) ? 0x30u : 0x21u;
+        finder_window_t *dw;
+        mv_dir_t *sd;
+        int k, n;
+
+        scene_init(&S);
+        if (c == 3) {
+            mv_add(&S.mock.d[0], name, 0x10u, CL_NEWFOLD);
+            mv_add(&S.mock.d[2], name, 0x20u, 19u);
+            CHECK(finder_win_populate(&S.sh, ROOT) == FINDER_WIN_OK &&
+                  finder_win_open_trash(&S.sh, &dst, NULL) == FINDER_WIN_OK,
+                  "O17 (setup) the folder and colliding Trash entry are visible");
+            if (dst < 0) return;
+        }
+        sd = mv_dir(&S.mock, S.sh.windows[src].dir_start);
+        k = mv_find(sd, name);
+        sd->e[k].size = size;
+        sd->e[k].date = 0x2421u; sd->e[k].time = 0x5260u;
+        sd->e[k].attr = attr;
+        dw = &S.sh.windows[dst]; n = dw->view.n;
+        CHECK(finder_win_reserve_icons(&S.sh, dst, (uint16_t)(n + 1)) == FINDER_WIN_OK,
+              "O17 (setup) reserve the destination metadata slot");
+        memset(&dw->meta[n], 0xA5, sizeof dw->meta[n]);
+        t.kind = kinds[c]; t.slot = (int8_t)dst; t.dir = dw->dir_start;
+        k = idx_of(&S.sh.windows[src].view, name);
+        CHECK(k >= 0 && finder_ops_drop(&S.sh, src, k, &t, 284, 214, &r) == FINDER_WIN_OK,
+              "O17 each target commits the directory-entry move");
+        k = idx_of(&dw->view, arrival);
+        CHECK(k == n && r.dst_slot == dst && dw->view.n == n + 1,
+              "O17 the arrival is appended to the already-open destination");
+        if (k < 0) continue;
+        CHECK(dw->meta[k].size == size && dw->meta[k].date == 0x2421u &&
+              dw->meta[k].time == 0x5260u && dw->meta[k].attribute == attr,
+              "O17 arrival metadata matches the LIVE directory record (size/date/time/attributes)");
+        CHECK((c != 3) || (r.renamed && dw->view.icons[k].dir_start == CL_NEWFOLD),
+              "O17 a renamed folder retains its directory cluster and metadata");
+        CHECK(dw->meta[0].size == 0u && dw->meta[0].date == 0u &&
+              dw->meta[0].time == 0u && dw->meta[0].attribute == 0x20u,
+              "O17 existing destination metadata is preserved");
+    }
+}
+
+/* O18 -- initech-0f9v. Delete Now's contract is finder_windows.h Sec 12 and
+ * audit 2026-10-23-desktop L001; folder discard/lock ground truth is the local
+ * Apple Macintosh System Software User's Guide V6.0, printed pp. 88, 112, 262.
+ * Hand-authored tree: APPS/{TENANTFX.EXE, NEWFOLD/{FREE.TXT, LOCKED.TXT}}.
+ * The mock does NOT enforce read-only: only the Finder can protect the file.
+ * No Trash is available. Existing folder windows and kind=4 records exercise
+ * both the shared descendant retirement and Delete Now's own root retirement.
+ * Refused descendants leave a partial purge: unlocked siblings go, all live
+ * folder views are re-listed, the protected branch and its records survive. */
+static void leg_delete_folder(void)
+{
+    for (int mode = 0; mode < 4; mode++) {
+        FinderCtx ctx = {0};
+        finder_window_t *rw, *aw, *cw;
+        uint16_t purged = 99u;
+        uint8_t dirty = 99u;
+        int child = -1, k;
+
+        scene_init(&S);
+        S.mock.no_trash = 1;
+        mv_del(&S.mock.d[0], mv_find(&S.mock.d[0], "TRASH"));
+        mv_add(&S.mock.d[1], "NEWFOLD", 0x10u, CL_NEWFOLD);
+        mv_add(&S.mock.d[3], "FREE.TXT", 0x20u, 11u);
+        mv_add(&S.mock.d[3], "LOCKED.TXT", 0x20u, 12u);
+        CHECK(finder_win_populate(&S.sh, APPW) == FINDER_WIN_OK &&
+              finder_win_open(&S.sh, CL_APPS, CL_NEWFOLD, "NEWFOLD", 0u,
+                              &child, NULL) == FINDER_WIN_OK,
+              "O18 (setup) the nested folder has an open window");
+        if (child < 0) return;
+        rw = &S.sh.windows[ROOT]; aw = &S.sh.windows[APPW];
+        cw = &S.sh.windows[child];
+        (void)finder_shell_save_view(&S.sh, ROOT);
+        (void)finder_shell_save_view(&S.sh, APPW);
+        (void)finder_shell_save_view(&S.sh, child);
+        cw->view.icons[0].selected = 1u;
+        finder_shell_bind_ctx(&S.sh, &ctx);
+        CHECK(S.sh.n_views == 3u && ctx.selection_count == 1u,
+              "O18 (setup) three saved views and a child selection");
+        /* Late locks deliberately leave the source icons/metadata stale. */
+        if (mode == 1) S.mock.d[3].e[1].attr |= 1u;
+        if (mode == 2) S.mock.refuse = "LOCKED.TXT";
+        if (mode == 3) S.mock.d[0].e[mv_find(&S.mock.d[0], "APPS")].attr |= 1u;
+        k = idx_of(&rw->view, "APPS");
+        CHECK(finder_shell_delete_item(&S.sh, ROOT, k, &purged, &dirty) ==
+              ((mode == 1 || mode == 3) ? FINDER_WIN_ERR_LOCKED :
+               (mode == 2) ? FINDER_WIN_ERR_MOVE : FINDER_WIN_OK),
+              "O18 Delete Now reports clean, locked or backend-refused folder status");
+        if (mode == 0) {
+            CHECK(purged == 5u && dirty == 1u &&
+                  strcmp(S.mock.log, "U:TENANTFX.EXE@2 U:FREE.TXT@9 U:LOCKED.TXT@9 R:NEWFOLD@2 R:APPS@0 ") == 0,
+                  "O18 Delete Now purges the folder DEPTH-FIRST, counting children and root");
+            CHECK(!mv_has(&S.mock, CL_ROOT, "APPS") && S.mock.d[1].n == 0 &&
+                  S.mock.d[3].n == 0 && rw->view.n == 1u &&
+                  strcmp(rw->view.icons[0].name, "README.TXT") == 0,
+                  "O18 the deleted tree is absent from disk and the parent window");
+            CHECK(!aw->open && !cw->open && aw->view.n == 0u && cw->view.n == 0u &&
+                  S.sh.purge_closed == ((1u << APPW) | (1u << child)) && count_open() == 1,
+                  "O18 Delete Now retires BOTH the root folder view and its descendant");
+            CHECK(S.sh.n_views == 1u && finder_shell_find_view(&S.sh, CL_ROOT) != NULL &&
+                  finder_shell_find_view(&S.sh, CL_APPS) == NULL &&
+                  finder_shell_find_view(&S.sh, CL_NEWFOLD) == NULL && ctx.selection_count == 0u,
+                  "O18 deleted folders lose saved views and command selection");
+        } else if (mode != 3) {
+            CHECK(purged == 2u && dirty == 0u &&
+                  strcmp(S.mock.log, "U:TENANTFX.EXE@2 U:FREE.TXT@9 ") == 0 &&
+                  mv_has(&S.mock, CL_NEWFOLD, "LOCKED.TXT"),
+                  "O18 a refused descendant survives; unlocked siblings are purged");
+            CHECK(aw->open && cw->open && S.sh.purge_closed == 0u && S.sh.n_views == 3u &&
+                  rw->view.n == 2u && aw->view.n == 1u && cw->view.n == 1u &&
+                  strcmp(aw->view.icons[0].name, "NEWFOLD") == 0 &&
+                  strcmp(cw->view.icons[0].name, "LOCKED.TXT") == 0 &&
+                  cw->meta[0].attribute == ((mode == 1) ? 0x21u : 0x20u),
+                  "O18 surviving folder windows and records remain, listings refresh after partial purge");
+        } else {
+            CHECK(purged == 0u && dirty == 0u && S.mock.log[0] == '\0' &&
+                  S.mock.unlink_calls == 0 && aw->view.n == 2u && cw->view.n == 2u &&
+                  S.sh.n_views == 3u && S.sh.purge_closed == 0u,
+                  "O18 a late lock on the root folder prevents the entire walk");
+        }
+        CHECK(mv_has(&S.mock, CL_ROOT, "README.TXT") && S.mock.move_calls == 0 &&
+              S.mock.d[2].n == 0 && S.sh.n_origins == 0u,
+              "O18 Delete Now leaves the sibling alone and never stages into Trash");
+    }
+}
+
 int main(void)
 {
     leg_scroll();
@@ -1387,5 +1540,7 @@ int main(void)
     leg_locked_trash();
     leg_power();
     leg_putaway_meta();
+    leg_drop_meta();
+    leg_delete_folder();
     return TEST_SUMMARY("test_finder_ops");
 }
