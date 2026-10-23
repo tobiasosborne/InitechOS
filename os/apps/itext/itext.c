@@ -430,9 +430,12 @@ static void guarded(int act, const char *why)
 static void replace_sel(const char *s, int n)
 {
     if (!FlairTECanReplace(&g_te, g_te.selStart, g_te.selEnd, s, (int16_t)n)) {
-        /* The edit cannot fit: say so (audit 2026-10-23-das L014; TeachText
-         * tells the user the document is full). The Toolbox Gate has no beep
-         * verb, so the notice is the whole signal. */
+        /* The edit cannot fit: say so. This is AUTHORED capacity feedback
+         * grounded in audit 2026-10-23-das L014 (a refused edit must be
+         * discoverable); no local TeachText manual page documents the exact
+         * wording, which is from memory of TeachText's full-document notice
+         * (unverified). The Toolbox Gate has no beep verb, so the notice is
+         * the whole signal. */
 #ifndef ITEXT_MUT_FULL_SILENT      /* MUTANT (Rule 6): the refusal is silent (L014). NEVER real. */
         say("This document is full.", "The edit could not be made.");
 #endif

@@ -4544,7 +4544,11 @@ static void flair_live_alert_open_icon(flair_live_ctx_t *ctx, const boot_info_t 
     g_al_dr.window.port.visRgn  = (region_t *)0;
     g_al_dr.window.port.clipRgn = (region_t *)0;
     g_al_dr.window.port.portRect = region_get_bbox(g_al_dr.window.strucRgn);
-    if (draw) {
+    if (draw
+#ifdef KMAIN_MUT_ALERT_NODRAW
+        && 0   /* MUTANT (Rule 6): the alert is never drawn; markers and replies stay. NEVER real. */
+#endif
+        ) {
         DrawDialog(&g_al_dr);
         flair_desktop_present(bi, &ctx->off);
     }

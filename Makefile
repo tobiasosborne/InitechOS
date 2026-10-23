@@ -14039,7 +14039,7 @@ test-te-surface-mutant: $(foreach m,$(TE_SURFACE_MUTANTS),$(BUILD)/test_te_surfa
 		grep -q "^RED-REASON $$why:" $$bin.log || { printf '!!! test-te-surface-mutant FAIL: %s went RED for the wrong reason (want %s)\n' "$$m" "$$why"; grep '^RED-REASON' $$bin.log; exit 1; }; \
 		printf '>>> test-te-surface-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$bin.log)"; \
 	done
-	@printf '>>> test-te-surface-mutant: green (all seven mutants RED for the named reason)\n'
+	@printf '>>> test-te-surface-mutant: green (all five mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # test-itext-route (bead initech-tdnl.16, R4.2 InitechText): the HOST ROUTING
@@ -14568,7 +14568,7 @@ test-flair-routing-mutant: $(BUILD)/test_flair_routing_mutant_PROC_MUT_ADMIT_IS_
 		line=$$(grep -F "$$why" $$bin.log | grep FAIL) || { printf '!!! test-flair-routing-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-flair-routing-mutant: %s correctly RED:\n    %s\n' "$$m" "$$line"; \
 	done
-	@printf '>>> test-flair-routing-mutant: green (all seven mutants RED for the named reason)\n'
+	@printf '>>> test-flair-routing-mutant: green (all five mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-i123-wk1-roundtrip (bead initech-9u8w, I123 P1; plan
@@ -33104,31 +33104,67 @@ test-flair-itext-mutant: test-flair-itext $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG)
 	@printf '>>> test-flair-itext-mutant: green (all four mutants RED for the named reason)\n'
 
 TEST_UNIT_GATES += test-te-surface test-te-surface-mutant test-itext-route test-itext-route-mutant
-# L017 (audit 2026-10-23-das, bead initech-oobx): an invalid 8.3 name in the
-# Standard File Save As box raises an alert with the reason instead of doing
-# nothing. Locked trace FLAIR_ITEXT_BADNAME_SPEC; the gate image is the iword
-# gate kernel (this tree's kmain). Mutant kernel -DSF_MUT_BADNAME_SILENT
-# restores the silent refusal: the alert marker is absent and the reply never
-# comes (Return does nothing), so both greps go RED.
+# L017 + L014 (audit 2026-10-23-das, bead initech-oobx): an invalid 8.3 name in
+# the Standard File Save As box, and a refused edit at the 4096-byte limit, each
+# raise a one-button OK notice instead of doing nothing. Locked traces
+# FLAIR_ITEXT_BADNAME_SPEC / FLAIR_ITEXT_FULL_SPEC; the gate image is the iword
+# gate kernel (this tree's kmain). Each gate asserts the serial marker AND grades
+# the screendump taken while the notice is up (tools/ppm_flair_trash_check.c leg
+# oknotice: frame exact vs the s8_alert_modal capture, two inked message rows,
+# OK label + default ring). Mutants (kernel built from the same kmain):
+#   -DSF_MUT_BADNAME_SILENT   the bad name is refused silently again: the alert
+#       marker is absent. (The reply TENANT-SF-REPLY good=1 path=MEMO.TXT still
+#       comes, because the trace's later valid name is accepted either way; the
+#       RED is the missing marker, not a missing reply.)
+#   -DKMAIN_MUT_ALERT_NODRAW  every alert is opened but never DRAWN: the
+#       markers and the replies stay, ONLY the pixel leg goes RED.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1500 -DSF_MUT_BADNAME_SILENT,itext_badname))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1500 -DKMAIN_MUT_ALERT_NODRAW,alert_nodraw))
 ITEXT_BADNAME = grep -qx 'TENANT-SF badname TOOLONGNAME' $(1) && grep -qx 'TENANT-SF-REPLY good=1 path=MEMO.TXT' $(1)
-.PHONY: test-flair-itext-badname test-flair-itext-badname-mutant
-test-flair-itext-badname: $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(FLAIR_DATA_IMG)
+ITEXT_FULL = grep -qx 'TENANT-ALERT-LINE This document is full.' $(1) && grep -qx 'TENANT-ALERT up lines=2 buttons=1' $(1)
+FLAIR_DATA_ITEXT_FULL_IMG := $(BUILD)/flair_data_itext_full.img
+$(FLAIR_DATA_ITEXT_FULL_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
+	cp -f $(FLAIR_DATA_IMG) $@
+	head -c 4096 /dev/zero | tr '\0' 'k' > $@.k4
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $@.k4 ::K4.TXT
+.PHONY: test-flair-itext-badname test-flair-itext-badname-mutant test-flair-itext-full test-flair-itext-full-mutant
+test-flair-itext-badname: $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
 	@printf 'InitechOS (STAPLER) -- make test-flair-itext-badname : an invalid 8.3 name in Save As alerts (initech-oobx L017)\n'
 	$(call appl-boot,flair_itext_badname,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_ITEXT_BADNAME_SPEC,)
+	$(call appl-boot,flair_itext_badname_up,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_ITEXT_BADNAME_UP_SPEC,--screendump --screendump-after "TENANT-SF badname")
 	@$(call APPL_ALIVE,$(BUILD)/flair_itext_badname.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_badname.serial) || { printf '!!! test-flair-itext-badname FAIL: TEXT did not come up\n'; exit 1; }
 	@$(call ITEXT_BADNAME,$(BUILD)/flair_itext_badname.serial) || { printf '!!! test-flair-itext-badname FAIL: no bad-name alert, or the box did not recover to a valid reply\n'; grep '^TENANT-SF' $(BUILD)/flair_itext_badname.serial; exit 1; }
-	@printf '>>> test-flair-itext-badname: %s; %s\n' "$$(grep -m1 '^TENANT-SF badname' $(BUILD)/flair_itext_badname.serial)" "$$(grep -m1 '^TENANT-SF-REPLY' $(BUILD)/flair_itext_badname.serial)"
+	@$(PPM_FLAIR_TRASH_CHECK_BIN) oknotice $(BUILD)/flair_itext_badname_up.ppm > $(BUILD)/flair_itext_badname.pixels 2>&1 || { cat $(BUILD)/flair_itext_badname.pixels; printf '!!! test-flair-itext-badname FAIL: the bad-name alert is not DRAWN as graded\n'; exit 1; }
+	@printf '>>> test-flair-itext-badname: %s; %s; alert pixel-graded (oknotice)\n' "$$(grep -m1 '^TENANT-SF badname' $(BUILD)/flair_itext_badname.serial)" "$$(grep -m1 '^TENANT-SF-REPLY' $(BUILD)/flair_itext_badname.serial)"
 	@printf '>>> test-flair-itext-badname: green\n'
 
-test-flair-itext-badname-mutant: test-flair-itext-badname $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_itext_badname.img $(FLAIR_DATA_IMG)
+test-flair-itext-badname-mutant: test-flair-itext-badname $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_itext_badname.img $(BUILD)/flair_tenants_mut_alert_nodraw.img $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
 	$(call appl-boot,flair_itext_badname_mut,$(BUILD)/flair_tenants_mut_itext_badname.img,$(FLAIR_DATA_IMG),FLAIR_ITEXT_BADNAME_SPEC,)
 	@$(call APPL_ALIVE,$(BUILD)/flair_itext_badname_mut.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_badname_mut.serial) || { printf '!!! test-flair-itext-badname-mutant FAIL: wrong-reason RED (TEXT did not come up)\n'; exit 1; }
-	@if $(call ITEXT_BADNAME,$(BUILD)/flair_itext_badname_mut.serial); then printf '!!! test-flair-itext-badname-mutant FAIL: the silent refusal PASSED -- the gate is decoration\n'; exit 1; fi
 	@if grep -q '^TENANT-SF badname' $(BUILD)/flair_itext_badname_mut.serial; then printf '!!! test-flair-itext-badname-mutant FAIL: the mutant still alerted\n'; exit 1; fi
-	@printf '>>> test-flair-itext-badname-mutant: SF_MUT_BADNAME_SILENT correctly RED (no alert marker, no reply)\n'
+	@if $(call ITEXT_BADNAME,$(BUILD)/flair_itext_badname_mut.serial); then printf '!!! test-flair-itext-badname-mutant FAIL: the silent refusal PASSED the marker leg -- decoration\n'; exit 1; fi
+	@printf '>>> test-flair-itext-badname-mutant: SF_MUT_BADNAME_SILENT correctly RED (the alert marker is absent from the log)\n'
+	$(call appl-boot,flair_itext_badname_nodraw,$(BUILD)/flair_tenants_mut_alert_nodraw.img,$(FLAIR_DATA_IMG),FLAIR_ITEXT_BADNAME_SPEC,)
+	$(call appl-boot,flair_itext_badname_nodraw_up,$(BUILD)/flair_tenants_mut_alert_nodraw.img,$(FLAIR_DATA_IMG),FLAIR_ITEXT_BADNAME_UP_SPEC,--screendump --screendump-after "TENANT-SF badname")
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_badname_nodraw.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_badname_nodraw.serial) && $(call ITEXT_BADNAME,$(BUILD)/flair_itext_badname_nodraw.serial) || { printf '!!! test-flair-itext-badname-mutant FAIL: ALERT_NODRAW must keep the marker AND the reply (wrong-reason RED)\n'; exit 1; }
+	@if $(PPM_FLAIR_TRASH_CHECK_BIN) oknotice $(BUILD)/flair_itext_badname_nodraw_up.ppm > $(BUILD)/flair_itext_badname_nodraw.pixels 2>&1; then printf '!!! test-flair-itext-badname-mutant FAIL: the undrawn alert PASSED the pixel leg -- decoration\n'; exit 1; fi
+	@printf '>>> test-flair-itext-badname-mutant: KMAIN_MUT_ALERT_NODRAW correctly RED -- markers + reply present, pixel leg: %s\n' "$$(grep -m1 'FAIL' $(BUILD)/flair_itext_badname_nodraw.pixels | cut -c1-120)"
 
-TEST_EMU_GATES += test-flair-itext-badname test-flair-itext-badname-mutant
+test-flair-itext-full: $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(FLAIR_DATA_ITEXT_FULL_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
+	@printf 'InitechOS (STAPLER) -- make test-flair-itext-full : typing into a full document raises the notice (initech-oobx L014)\n'
+	$(call appl-boot,flair_itext_full,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_ITEXT_FULL_IMG),FLAIR_ITEXT_FULL_SPEC,--screendump --screendump-after "TENANT-ALERT up")
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_full.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_full.serial) || { printf '!!! test-flair-itext-full FAIL: TEXT did not come up\n'; exit 1; }
+	@$(call ITEXT_FULL,$(BUILD)/flair_itext_full.serial) || { printf '!!! test-flair-itext-full FAIL: no full-document notice\n'; grep -E '^(TENANT-(ALERT|SF)|PANIC)' $(BUILD)/flair_itext_full.serial; exit 1; }
+	@$(PPM_FLAIR_TRASH_CHECK_BIN) oknotice $(BUILD)/flair_itext_full.ppm > $(BUILD)/flair_itext_full.pixels 2>&1 || { cat $(BUILD)/flair_itext_full.pixels; printf '!!! test-flair-itext-full FAIL: the notice is not DRAWN as graded\n'; exit 1; }
+	@printf '>>> test-flair-itext-full: %s; notice pixel-graded (oknotice)\n>>> test-flair-itext-full: green\n' "$$(grep -m1 '^TENANT-ALERT up' $(BUILD)/flair_itext_full.serial)"
+
+test-flair-itext-full-mutant: test-flair-itext-full $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_alert_nodraw.img $(FLAIR_DATA_ITEXT_FULL_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
+	$(call appl-boot,flair_itext_full_nodraw,$(BUILD)/flair_tenants_mut_alert_nodraw.img,$(FLAIR_DATA_ITEXT_FULL_IMG),FLAIR_ITEXT_FULL_SPEC,--screendump --screendump-after "TENANT-ALERT up")
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_full_nodraw.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_full_nodraw.serial) && $(call ITEXT_FULL,$(BUILD)/flair_itext_full_nodraw.serial) || { printf '!!! test-flair-itext-full-mutant FAIL: ALERT_NODRAW must keep the markers and the reply (wrong-reason RED)\n'; exit 1; }
+	@if $(PPM_FLAIR_TRASH_CHECK_BIN) oknotice $(BUILD)/flair_itext_full_nodraw.ppm > $(BUILD)/flair_itext_full_nodraw.pixels 2>&1; then printf '!!! test-flair-itext-full-mutant FAIL: the undrawn notice PASSED the pixel leg -- decoration\n'; exit 1; fi
+	@printf '>>> test-flair-itext-full-mutant: KMAIN_MUT_ALERT_NODRAW correctly RED -- markers + reply present, pixel leg: %s\n' "$$(grep -m1 'FAIL' $(BUILD)/flair_itext_full_nodraw.pixels | cut -c1-120)"
+
+TEST_EMU_GATES += test-flair-itext-badname test-flair-itext-badname-mutant test-flair-itext-full test-flair-itext-full-mutant
 TEST_EMU_GATES += test-flair-itext test-flair-itext-mutant
 
 # ehq4: the existing C tenant / SETSCROLL service, driven by forty Returns.
