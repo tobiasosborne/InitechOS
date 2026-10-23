@@ -1,0 +1,42 @@
+=== fixtures/i123-copy/OVER.WK1  size=1518 consumed=1518 OK
+  BOF         len=2   version=0x0406
+  RANGE       len=8   i16s=[0, 0, 6, 2]
+  HIDVEC1     len=24  000000000100010000000100050000000200060000000200
+  CALCCOUNT   len=1   u8=0x01
+  CALCMODE    len=1   u8=0xff
+  CALCORDER   len=1   u8=0x00
+  SPLIT       len=1   u8=0x00
+  SYNC        len=1   u8=0xff
+  WINDOW1     len=32  cur(col=1,row=0) fmt=General colw=9 ncols=8 nrows=20 left=0 top=0
+  PRINTRANGE  len=32  0000000000000000000000000000000000000000000000000000000000000000
+  TABLE       len=25  00ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000
+  ORANGE      len=25  i16s=[-1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0] odd-tail=00
+  PRANGE      len=8   i16s=[-1, 0, -1, 0]
+  UNFORMATTED len=1   u8=0x00
+  FRANGE      len=8   i16s=[-1, 0, -1, 0]
+  SRANGE      len=8   i16s=[-1, 0, -1, 0]
+  KRANGE1     len=9   i16s=[-1, 0, -1, 0] odd-tail=00
+  KRANGE2     len=9   i16s=[-1, 0, -1, 0] odd-tail=00
+  FONTSTYLE   len=25  ffff0000ffff0000ffff0000ffff0000ffff0000ffff000000
+  FONTCOLOR   len=40  ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000
+  HRANGE      len=16  i16s=[-1, 0, -1, 0, -1, 0, -1, 0]
+  FONTFACE    len=16  ffff0000ffff0000ffff0000ffff0000
+  PROTEC      len=1   u8=0x00
+  FOOTER      len=242 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000...
+  HEADER      len=242 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000...
+  SETUP       len=40  00000000000000000000000000000000000000000000000000000000000000000000000000000000
+  MARGINS     len=10  margins=(4, 76, 66, 2, 2)
+  LABELFMT    len=1   u8=0x27
+  TITLES      len=16  i16s=[-1, 0, -1, 0, -1, 0, -1, 0]
+  NGRAPH      len=439 ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff...
+  INTEGER     len=7   P:Default c0 r0 int=11
+  INTEGER     len=7   P:Default c1 r0 int=22
+  INTEGER     len=7   P:Default c5 r0 int=11
+  INTEGER     len=7   P:Default c6 r0 int=22
+  INTEGER     len=7   P:Default c0 r1 int=11
+  INTEGER     len=7   P:Default c1 r1 int=22
+  INTEGER     len=7   P:Default c5 r1 int=11
+  INTEGER     len=7   P:Default c6 r1 int=22
+  INTEGER     len=7   P:Default c5 r2 int=11
+  INTEGER     len=7   P:Default c6 r2 int=22
+  EOF         len=0   

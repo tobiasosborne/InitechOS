@@ -1,0 +1,14 @@
+# Real R2.2, fresh sheet: a single-cell FROM fills every cell of TO.
+sleep 8
+key Escape
+type 7
+key Return
+type /ca1
+key Return
+type d1..d3
+key Return
+shot single
+type /fsSINGLE
+key Return
+key Return
+end

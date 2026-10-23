@@ -44,6 +44,63 @@ static void ranges(void)
     tk(27);CHECK(line_has(1,"Format  Label-Prefix"),"R8","Esc returns one level");tk(3);
     CHECK(line_has(0,"READY"),"R8","Ctrl-Break returns READY");
 }
+/* B11: Reference pp.3-4/5, pp.1-24/25; real screens in fixtures/i123-copy.
+ * Check the public draws and saved cells, not the selection implementation. */
+static void copy_point(void)
+{
+    i123_val_t v;
+    tks("7\r/ca1\rd1..d3\r");
+    CHECK(g_mode==M_READY,"T1","Copy accepts destination rectangle");
+    for(unsigned r=0;r<3;r++) {
+        i123_cell_value(&g_sheet,3,r,&v);
+        CHECK(v.t==I123_V_NUM&&v.n==7,"T1","single source fills D1..D3");
+    }
+    tks("/c\r");right();right();right();tk('.');
+    ev(keyDown,VK_DOWN<<8);ev(keyDown,VK_DOWN<<8);
+    CHECK(line_has(1,"TO: D1..D3_"),"T3","TO also supports POINT rectangle");
+    tk('\r');CHECK(g_mode==M_READY,"T3","pointed TO rectangle commits");
+}
+static void pointing(void)
+{
+    tks("/c");
+    CHECK(line_has(1,"A1..A1"),"P1","Copy automatically anchors FROM");
+    tk(27);
+    CHECK(g_mode==M_RANGE&&line_has(1,"FROM: A1_"),"P2","Esc removes automatic anchor");
+    right();tk('.');ev(keyDown,VK_DOWN<<8);right();
+    CHECK(line_has(1,"B1..C2"),"P3","period and arrows extend POINT range");
+    CHECK(m_bg[LINE_ROW0][BORDER_W+9]=='N',"P3","anchor remains highlighted");
+    tk(27);
+    CHECK(g_mode==M_RANGE&&i123_cursor_col(&g_sheet)==1&&i123_cursor_row(&g_sheet)==0&&
+          line_has(1,"FROM: B1_"),"P4","real escape.png unanchors at B1");
+    tk('.');ev(keyDown,VK_DOWN<<8);right();tk(8);
+    CHECK(g_mode==M_RANGE&&i123_cursor_col(&g_sheet)==0&&i123_cursor_row(&g_sheet)==0&&
+          line_has(1,"FROM: A1_"),"P5","Backspace restores POINT entry position");
+    tk(27);CHECK(g_mode==M_MAIN,"P6","Esc without anchor returns to menu");tk(27);
+    ev(keyDown,VK_F5<<8);tk('.');ev(keyDown,VK_DOWN<<8);right();tk('\r');
+    CHECK(g_mode==M_READY&&i123_cursor_col(&g_sheet)==0&&i123_cursor_row(&g_sheet)==0,
+          "P7","GOTO accepts pointed rectangle upper left");
+    tks("/m");tk(27);tk('.');right();tk('\r');
+    CHECK(g_mode==M_RANGE&&line_has(1,"move TO:"),"P8","Move shares POINT source selection");
+}
+static void tile_failure(void)
+{
+    static uint8_t before[65536],after[65536];uint32_t n,m;
+    /* One free slot lets D1 be written to scratch before D2 refuses. */
+    for(unsigned r=0;r<SHEET_CELLS-1;r++)CHECK(!i123_set_number(&g_sheet,0,r,7),"T2","populate near-full store");
+    CHECK(!i123_wk1_write(&g_sheet,before,sizeof before,&n),"T2","snapshot near-full store");
+    tks("/ca1\rd1..d3\r");
+    CHECK(g_mode==M_NOTICE&&!g_dirty,"T2","failed rectangle copy keeps dirty flag");
+    CHECK(!i123_wk1_write(&g_sheet,after,sizeof after,&m)&&n==m&&!memcmp(before,after,n),
+          "T2","capacity failure keeps every saved byte");
+}
+static void format_point(void)
+{
+    tks("/rff2\r");
+    CHECK(line_has(1,"format: A1..A1_"),"P9","Format anchors after decimals");
+    right();ev(keyDown,VK_DOWN<<8);tk('\r');
+    const i123_cell_t *c=i123_find(&g_sheet,1,1);
+    CHECK(g_mode==M_READY&&c&&c->fmt==0x82,"P9","shared range selection formats B2");
+}
 int main(int argc,char **argv)
 {
     if(argc!=2)return 2;
@@ -51,5 +108,9 @@ int main(int argc,char **argv)
     g_ctr=mmap(0,4096,PROT_READ|PROT_WRITE,MAP_SHARED|MAP_ANONYMOUS,-1,0);
     if(g_ctr==MAP_FAILED)return 2;
     launch("range commands",ranges);
+    launch("Copy rectangle",copy_point);
+    launch("POINT range keys",pointing);
+    launch("Copy capacity transaction",tile_failure);
+    launch("Format POINT range",format_point);
     printf("i123-range-menu: %d checks, %d failures\n",g_ctr[0],g_ctr[1]);return g_ctr[1]?1:0;
 }

@@ -230,6 +230,8 @@ int main(int argc, char **argv)
     /* B06 (initech-3qtt): A 240 wide, the click selected A2 in the clipped A. */
     int i123_wide = argc == 3 && strcmp(argv[1], "--i123-wide") == 0;
     if (i123_wide) { argc = 2; argv++; }
+    int i123_copy = argc == 3 && strcmp(argv[1], "--i123-copy") == 0;
+    if (i123_copy) { argc = 2; argv++; }
     if (argc == 4 && !strcmp(argv[1], "--cells"))
         return check_cells(argv[2], argv[3]);
     if (argc >= 6 && !strcmp(argv[1], "--cursor-cycle"))
@@ -394,6 +396,22 @@ int main(int argc, char **argv)
         free(buf); return ok ? 0 : 1;
     }
 
+    if (i123_copy) {
+        /* Real point_range.png highlights B1..C2. Our trace ends A1..B2;
+         * independent native geometry (6,62), 8x16, columns nine cells.
+         * A1 contains 7; the other three cells are empty, solid navy. */
+        if(w!=640||h!=480){free(buf);return 1;}
+        long selected=0,outside=0;
+        for(int y=126;y<158;y++)for(int x=39;x<255;x++) {
+            unsigned char *p=buf+3*(y*w+x);
+            int navy=p[0]<8&&p[1]<8&&p[2]>=100&&p[2]<=136;
+            if(x<183&&(y>=142||x>=111))selected+=navy;
+            if(x>=183)outside+=navy;
+        }
+        int ok=selected==3*72*16&&outside==0;
+        printf("ppm_text_check: i123-copy three empty selected cells navy=%ld/3456 outside=%ld: %s\n",selected,outside,ok?"green":"RED");
+        free(buf);return ok?0:1;
+    }
     if (i123_wide) {
         /* Same independent geometry as --i123-resize: Face A cell (char c,
          * line L) at x 7 + 8c, y 62 + 16L. The 640 x 440 window: 76

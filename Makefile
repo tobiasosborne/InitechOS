@@ -10493,6 +10493,8 @@ I123_APP_DEP := os/i123/core/i123.h os/i123/core/menu.h os/i123/core/menu_data.h
 $(eval $(call tenant-exe-rules,i123,$(I123_APP_SRC),-Ios/i123/core,$(I123_APP_DEP),))
 $(eval $(call tenant-exe-rules,i123_arrows_dead,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_ARROWS_DEAD,$(I123_APP_DEP),))
 I123_EXE := $(BUILD)/tenant/i123.exe
+# B11 variant name must precede fixture_volumes.mk's contract derivation.
+FLAIR_DATA_I123_PERIOD_TEXT_IMG := $(BUILD)/flair_data_i123_period_text.img
 
 # WORD.EXE -- InitechWord, Face A (os/iword/app/face_a.c over the document
 # core os/iword/core + the .WP5 codec os/iword/fs; bead initech-l4tj, IWORD
@@ -24166,6 +24168,13 @@ RECORD_SPEC_i123_wide = $(FLAIR_I123_WIDE)
 RECORD_MARKER_i123_wide = TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=0 bg=3 -> 0
 RECORD_SETTLE_i123_wide = 400
 RECORD_IMAGE_i123_wide = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+# B11 / initech-fyji: Rule-14 clip registered here, before record-flair.
+# PM records on main. Same locked trace as test-flair-i123-copy.
+RECORD_SCRIPTS += i123_copy_tile
+RECORD_SPEC_i123_copy_tile = $(FLAIR_I123_COPY)
+RECORD_MARKER_i123_copy_tile = TENANT-GATE ax=0x0033 win=1 x=105 y=80 s="         " fg=0 bg=3 -> 0
+RECORD_SETTLE_i123_copy_tile = 400
+RECORD_IMAGE_i123_copy_tile = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # The EXTRA-LONG double-click record image (bead initech-mfrb): the long
 # double-click record image with the pump life doubled again
 # (-DFLAIR_TEN_TICK_BUDGET=12000, ~120 s). MEASURED (iword_typing, 99 recorded
@@ -32537,6 +32546,15 @@ test-i123-copy-move-model: $(BUILD)/test_i123_copy_move
 test-i123-copy-move: test-i123-copy-move-model $(I123_FORMULA_REF)
 	@$(BUILD)/test_i123_copy_move --corpus $(LOTUS123_DECOMP) $(BUILD) $(I123_FORMULA_REF)
 	@printf '>>> test-i123-copy-move: green (8 real 1-2-3 R2.2 /Copy and /Move before/after pairs, independent readers)\n'
+test-i123-copy-move: test-i123-copy-tile
+.PHONY: test-i123-copy-tile test-i123-copy-tile-mutant test-i123-range-menu-mutant
+test-i123-copy-tile: $(BUILD)/test_i123_copy_move $(wildcard fixtures/i123-copy/*.WK1)
+	@LOTUS123_DECOMP=$(LOTUS123_DECOMP) $< --tile fixtures/i123-copy $(BUILD) $(I123_FORMULA_REF)
+test-i123-copy-tile-mutant: test-i123-copy-tile $(BUILD)/test_i123_copy_move_mutant_I123_MUT_COPY_RECT_REFUSED
+	@rc=0; LOTUS123_DECOMP=$(LOTUS123_DECOMP) $(BUILD)/test_i123_copy_move_mutant_I123_MUT_COPY_RECT_REFUSED --tile fixtures/i123-copy $(BUILD) $(I123_FORMULA_REF) > $(BUILD)/i123-copy-tile-mutant.log 2>&1 || rc=$$?; \
+	[ $$rc -eq 1 ] && grep -q 'RED-REASON tile SINGLE refused' $(BUILD)/i123-copy-tile-mutant.log
+	@printf '>>> test-i123-copy-tile-mutant: green (destination rectangle refusal caught)\n'
+TEST_UNIT_GATES += test-i123-copy-tile test-i123-copy-tile-mutant
 I123_MOVE_MODEL_MUTANTS := I123_MUT_COPY_ABSOLUTE:absolute-relative I123_MUT_MOVE_STALE:move-referrers \
 	I123_MUT_MOVE_COL14:move-encoding I123_MUT_ERR_WORD:move-encoding
 test-i123-copy-move-mutant: test-i123-copy-move-model $(foreach p,$(I123_MOVE_MODEL_MUTANTS),$(BUILD)/test_i123_copy_move_mutant_$(firstword $(subst :, ,$(p))))
@@ -32590,6 +32608,13 @@ test-i123-range-menu: $(BUILD)/test_i123_range_menu
 	@$< $(BUILD)/i123-range-menu-fs
 	@printf '>>> test-i123-range-menu: green (Copy, Move, names, formats, protection, Value, Trans, Esc/Break)\n'
 TEST_UNIT_GATES += test-i123-range-menu
+$(BUILD)/test_i123_range_menu_mutant: harness/proptest/test_i123_range_menu.c $(I123_QUIT_DEPS)
+	$(CC) $(I123_QUIT_CFLAGS) -DI123_MUT_PERIOD_TEXT -o $@ $< $(I123_CORE_SRC)
+test-i123-range-menu-mutant: test-i123-range-menu $(BUILD)/test_i123_range_menu_mutant
+	@rc=0; $(BUILD)/test_i123_range_menu_mutant $(BUILD)/i123-range-menu-fs > $(BUILD)/i123-point-mutant.log 2>&1 || rc=$$?; \
+	[ $$rc -eq 1 ] && grep -q 'FAIL P3 period and arrows extend POINT range' $(BUILD)/i123-point-mutant.log
+	@printf '>>> test-i123-range-menu-mutant: green (period-as-text caught)\n'
+TEST_UNIT_GATES += test-i123-range-menu-mutant
 
 # B13 / initech-twxf: real entry state + recording screen; manual pp. 1-16/17.
 I123_ENTRY_DEPS := harness/proptest/test_i123_entry.c $(I123_QUIT_DEPS)
@@ -34938,6 +34963,58 @@ test-tsr-mutant: test-tsr $(BUILD)/tsr_nokeep.img $(BUILD)/tsr_noidle.img
 	@if $(call tsr-popup-ok,$(BUILD)/tsr_noidle.txt); then printf '!!! test-tsr-mutant FAIL: TSR_MUT_NO_IDLE survived\n'; exit 1; fi
 	@printf '>>> test-tsr-mutant: green (TSR_MUT_NO_KEEP RED: GREET loaded over the resident, %s; TSR_MUT_NO_IDLE RED: WAITKEY got x with no pop-up)\n' "$$(grep -m1 '^SK-POPUP' $(BUILD)/tsr_nokeep.txt || echo 'no SK-POPUP')"
 TEST_EMU_GATES += test-tsr test-tsr-mutant
+
+# B11 / initech-fyji: new rectangle/POINT trace and real-mint saved-cell gate.
+include spec/flair_i123_copy_traces.mk
+$(eval $(call flair-tenants-kmain-mutant-rules,TBX_HEADLESS_SMOKE -DTBX_SMOKE_I123 -DTBX_SMOKE_I123_COPY,tbx_smoke_i123_copy))
+$(BUILD)/kmain_flairtenants_mut_tbx_smoke_i123_copy.o: spec/i123_copy_smoke_keys.h
+FLAIR_I123_COPY_SMOKE_IMG := $(BUILD)/flair_tenants_mut_tbx_smoke_i123_copy.img
+.PHONY: test-flair-i123-copy test-flair-i123-copy-cpu test-flair-i123-copy-bochs test-flair-i123-copy-mutant
+# Shared serial POINT assertion: source anchor A1..B2 and all four pointer
+# cells have actually been drawn. Saved data is graded separately below.
+I123_COPY_POINT_OK = grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=16 ' $(1) | tail -1 | grep -qF 's="Enter range to copy FROM: A1..B2_' && \
+ grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=105 y=80 s="         " fg=0 bg=3 -> 0' $(1)
+test-flair-i123-copy: export INITECH_QMP_STDIO=1
+test-flair-i123-copy: $(HARNESS_BIN) $(FLAIR_I123_KEYS_GATE_IMG) $(FLAIR_DATA_IMG) $(BUILD)/test_i123_copy_move $(PPM_TEXT_CHECK_BIN)
+	$(call appl-boot,flair_i123_copy,$(FLAIR_I123_KEYS_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_COPY,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_copy.serial) && $(call I123_COPY_POINT_OK,$(BUILD)/flair_i123_copy.serial)
+	@! grep -Eq 'KBD-RING-DROP|FLAIR-EVT-DROP' $(BUILD)/flair_i123_copy.serial
+	@mcopy -o -i $(BUILD)/flair_i123_copy_data.img ::SINGLE.WK1 $(BUILD)/i123-copy-guest.WK1
+	@LOTUS123_DECOMP=$(LOTUS123_DECOMP) $(BUILD)/test_i123_copy_move --saved fixtures/i123-copy/SINGLE.WK1 $(BUILD)/i123-copy-guest.WK1 $(BUILD)
+	$(PPM_TEXT_CHECK_BIN) --i123-copy $(BUILD)/flair_i123_copy.ppm
+	@printf '>>> test-flair-i123-copy: green (QEMU rectangle save vs real Lotus; POINT key replay and pixels)\n'
+
+test-flair-i123-copy-cpu: $(HARNESS_BIN) $(FLAIR_I123_COPY_SMOKE_IMG) $(FLAIR_DATA_IMG) $(BUILD)/test_i123_copy_move
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/i123_copy_cpu_qemu_data.img
+	@$(HARNESS_BIN) --disk $(FLAIR_I123_COPY_SMOKE_IMG) --disk2 $(BUILD)/i123_copy_cpu_qemu_data.img --expect HALTED --name i123_copy_cpu_qemu --out $(BUILD) --timeout-ms 30000 2> $(BUILD)/i123_copy_cpu_qemu.report || true
+	@$(call I123_COPY_CPU_OK,qemu)
+	@printf '>>> test-flair-i123-copy-cpu: green (QEMU SINGLE/ROW/OVER/BLOCK vs real R2.2; POINT replay)\n'
+define I123_COPY_CPU_OK
+f=$(BUILD)/i123_copy_cpu_$(1).serial; \
+test -f $$f && ! grep -q '^PANIC' $$f && grep -qx 'TBX-SMOKE-OK list-empty' $$f && $(call I123_COPY_POINT_OK,$$f) || { cat $(BUILD)/i123_copy_cpu_$(1).report; exit 1; }; \
+for g in SINGLE ROW OVER BLOCK; do \
+ mcopy -o -i $(BUILD)/i123_copy_cpu_$(1)_data.img ::$$g.WK1 $(BUILD)/i123-copy-$(1)-$$g.WK1 || exit 1; \
+ LOTUS123_DECOMP=$(LOTUS123_DECOMP) $(BUILD)/test_i123_copy_move --saved fixtures/i123-copy/$$g.WK1 $(BUILD)/i123-copy-$(1)-$$g.WK1 $(BUILD) || exit 1; \
+done
+endef
+test-flair-i123-copy-bochs: test-flair-i123-copy-cpu $(BOCHS_BIN)
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/i123_copy_cpu_bochs_data.img
+	@$(BOCHS_BIN) --disk $(FLAIR_I123_COPY_SMOKE_IMG) --disk2 $(BUILD)/i123_copy_cpu_bochs_data.img --expect HALTED --name i123_copy_cpu_bochs --out $(BUILD) --timeout-ms 240000 2> $(BUILD)/i123_copy_cpu_bochs.report || true
+	@$(call I123_COPY_CPU_OK,bochs)
+	@printf '>>> test-flair-i123-copy-bochs: green (SINGLE/ROW/OVER/BLOCK saved cells match real R2.2 on both CPUs; POINT replay)\n'
+$(eval $(call tenant-exe-rules,i123_period_text,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_PERIOD_TEXT,$(I123_APP_DEP),))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_PERIOD_TEXT_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_period_text.exe,$(IWORD_EXE),))
+test-flair-i123-copy-mutant: export INITECH_QMP_STDIO=1
+test-flair-i123-copy-mutant: test-flair-i123-copy $(FLAIR_DATA_I123_PERIOD_TEXT_IMG)
+	$(call appl-boot,flair_i123_copy_mut,$(FLAIR_I123_KEYS_GATE_IMG),$(FLAIR_DATA_I123_PERIOD_TEXT_IMG),FLAIR_I123_COPY,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_copy_mut.serial) && grep -qx 'TENANT-REGISTER ok app=123' $(BUILD)/flair_i123_copy_mut.serial
+	@mcopy -o -i $(BUILD)/flair_i123_copy_mut_data.img ::SINGLE.WK1 $(BUILD)/i123-copy-mut.WK1
+	@LOTUS123_DECOMP=$(LOTUS123_DECOMP) $(BUILD)/test_i123_copy_move --saved fixtures/i123-copy/SINGLE.WK1 $(BUILD)/i123-copy-mut.WK1 $(BUILD)
+	@if $(call I123_COPY_POINT_OK,$(BUILD)/flair_i123_copy_mut.serial); then printf '!!! period-as-text passed POINT serial oracle\n'; exit 1; fi
+	@if $(PPM_TEXT_CHECK_BIN) --i123-copy $(BUILD)/flair_i123_copy_mut.ppm; then printf '!!! period-as-text passed POINT pixel oracle\n'; exit 1; fi
+	@printf '>>> test-flair-i123-copy-mutant: green (rectangle save passes; period-as-text fails serial and pixels)\n'
+TEST_EMU_GATES += test-flair-i123-copy test-flair-i123-copy-cpu test-flair-i123-copy-bochs test-flair-i123-copy-mutant
 
 # Calculator desk accessory lifecycle (initech-0xs6).
 include harness/emu/calcda_power.mk

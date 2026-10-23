@@ -176,12 +176,25 @@ static int adjust(const i123_cell_t *cell,const uint8_t *in,uint8_t *out,uint32_
 }
 int i123_transfer(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,uint16_t col,uint16_t row,int mode)
 {
-    i123_rect_t to;int rc;
-    if(!valid(from)||mode<0||mode>3)return I123_E_ARG;
+    return i123_transfer_rect(s,d,from,(i123_rect_t){col,row,col,row},mode);
+}
+int i123_transfer_rect(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,i123_rect_t to,int mode)
+{
+    int rc;uint16_t col=to.c0,row=to.r0;
+    if(!valid(from)||!valid(to)||mode<0||mode>3)return I123_E_ARG;
+    if(mode&&((to.c0!=to.c1)||(to.r0!=to.r1)))return I123_E_ARG;
+#ifdef I123_MUT_COPY_RECT_REFUSED
+    if(to.c0!=to.c1||to.r0!=to.r1)return I123_E_ARG;
+#endif
     uint32_t w=from.c1-from.c0,h=from.r1-from.r0;
     if(mode==3){uint32_t t=w;w=h;h=t;}
     if(col+w>=256||row+h>=8192)return I123_E_ARG;
-    to=(i123_rect_t){col,row,(uint16_t)(col+w),(uint16_t)(row+h)};
+    /* Real R2.2 fixtures/i123-copy/{ROW,BLOCK,OVER}.WK1: replicate ONLY
+     * singleton source axes. A1..B1 -> F1..H3 writes F/G, leaves H alone;
+     * a 2x2 source is copied once even into a larger TO. Manual pp.3-4/5.
+     * The original bank remains the snapshot, including overlap. */
+    if(w||mode)to.c1=(uint16_t)(col+w);
+    if(h||mode)to.r1=(uint16_t)(row+h);
     /* Manual: global protection applies to cells marked Prot. */
     if(s->protec) {
         /* B02 review (initech-3s12): an ABSENT cell is the default 0xFF,
@@ -195,7 +208,7 @@ int i123_transfer(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,uint16_
             un_to+=(uint32_t)t;un_from+=(uint32_t)f;
         }
 #ifndef I123_MUT_ABSENT_UNPROTECTED
-        if(un_to<(w+1u)*(h+1u)||(mode==1&&un_from<(w+1u)*(h+1u)))return I123_E_ARG;
+        if(un_to<(uint32_t)(to.c1-col+1)*(to.r1-row+1)||(mode==1&&un_from<(w+1u)*(h+1u)))return I123_E_ARG;
 #else
         /* MUTANT (Rule 6; test-i123-cells-mutant C9): absent cells count as
          * unprotected. NEVER real. */
@@ -209,8 +222,8 @@ int i123_transfer(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,uint16_
     for(uint32_t i=0;i<s->ncells;i++) {
         const i123_cell_t *c=&s->cells[i];int selected=inside(from,c->col,c->row);
         if(!selected)continue;
-        uint16_t nc=(uint16_t)(col+(mode==3?c->row-from.r0:c->col-from.c0));
-        uint16_t nr=(uint16_t)(row+(mode==3?c->col-from.c0:c->row-from.r0));
+        for(uint32_t nr=row+(mode==3?c->col-from.c0:c->row-from.r0);nr<=to.r1;nr+=h+1)
+        for(uint32_t nc=col+(mode==3?c->row-from.r0:c->col-from.c0);nc<=to.c1;nc+=w+1) {
         uint8_t code[I123_CODE_MAX];uint32_t n=c->len;
         if(c->kind==I123_K_FORMULA&&mode<2) {
             if(n>sizeof code)return I123_E_FULL;
@@ -226,6 +239,7 @@ int i123_transfer(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,uint16_
             if(!rc)rc=i123_put_cell(d,nc,nr,c->kind,c->fmt,c->v,s->pool+c->off,c->len,c->has_str,c->str_fmt,s->pool+c->off+c->len,c->slen);
         }
         if(rc)return rc;
+        }
     }
     if(mode==1) {
 #ifndef I123_MUT_MOVE_STALE

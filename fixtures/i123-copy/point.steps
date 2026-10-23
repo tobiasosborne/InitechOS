@@ -1,0 +1,22 @@
+# Real R2.2: automatic anchor; period; Esc keeps current; Backspace restores.
+sleep 8
+key Escape
+type /c
+shot auto_anchor
+key Escape
+shot unanchor
+key Right
+key period
+key Down
+key Right
+shot point_range
+key Escape
+shot escape_keeps_pointer
+key period
+key Down
+key Right
+key BackSpace
+shot backspace_restores_entry
+key Escape
+key Escape
+end
