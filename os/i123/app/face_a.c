@@ -70,6 +70,7 @@
  * Freestanding C; x87 doubles (ADR-0009 Amendment DEC-01a). ASCII-clean.
  */
 #include "tbx.h"
+#include "tbx_save.h"   /* initech-mcep: the atomic document save */
 #include "i123.h"
 #include "menu.h"
 #include "i123/wk1_format.h"
@@ -644,19 +645,11 @@ static void retrieve(void)
 }
 static void write_sheet(void)
 {
-    int32_t h = tbx_file_create(g_path);
-    if (h < 0) { file_error(h); return; }
-    uint32_t pos = 0; int32_t rc = 0;
-    while (pos < g_wk_len) {
-        rc = tbx_file_write(h, g_wk + pos, g_wk_len-pos);
-        if (rc <= 0 || (uint32_t)rc > g_wk_len-pos) break;
-        pos += (uint32_t)rc;
-    }
-    int32_t closed = tbx_file_close(h);
-    if (pos != g_wk_len || closed < 0) {
-        if (!g_replacing) (void)tbx_file_delete(g_path);
-        file_error(rc < 0 ? rc : closed); return;
-    }
+    /* initech-mcep (audit 2026-10-23-i123 L001): the atomic save -- a failed
+     * Replace keeps the previously saved worksheet, a failed new name leaves
+     * no file (tbx_save.h removes its temporary). */
+    int32_t rc = tbx_file_save(g_path, g_wk, g_wk_len);
+    if (rc != (int32_t)g_wk_len) { file_error(rc < 0 ? rc : 0); return; }
     copy_text(g_current, g_path); file_status("Saved ");
     g_dirty = 0;   /* initech-fvnj: only a successful Save (or Retrieve) cleans */
     if (g_quit_after_save) { (void)tbx_exit(0); return; }   /* the alert's Save */

@@ -1,5 +1,5 @@
 /* Toolbox file adapter; initech-tdnl.91. Authored, no local reference for ABI.
- * Ref: spec/toolbox_gate.h Sec 10; docs/design/toolbox-file-verbs.md.
+ * Ref: spec/toolbox_gate.h Sec 10/10b; docs/design/toolbox-file-verbs.md.
  * Shared artifact logic compiled verbatim by the host oracle. Kernel-owned
  * shadow PSP only: never read the image PSP's JFT, including at death. */
 #ifndef INITECH_TBXFILE_H
@@ -35,19 +35,36 @@ static int32_t tbxf_call(psp_t *p, uint32_t lo, uint32_t len,
     int_frame_t f = { 0 };
     sft_entry_t *e = 0;
     uint32_t h = a[0];
-    if (code == TBX_FILE_CREATE || code == TBX_FILE_OPEN || code == TBX_FILE_DELETE) {
+    /* Sec 10b: CREATE_NEW is CREATE's checks over AH=5Bh (never truncates). */
+    int creat = code == TBX_FILE_CREATE || code == TBX_FILE_CREATE_NEW;
+    if (creat || code == TBX_FILE_OPEN || code == TBX_FILE_DELETE ||
+        code == TBX_FILE_RENAME) {
         if (!tbxf_path(lo,len,a[0])) return TBX_ERR_BADARG;
+        /* Sec 10b (initech-mcep): RENAME is AH=56h, the new name in EDI (the
+         * flat form of ES:DI, int21.c do_rename); it refuses an existing
+         * target exactly as DOS 3.3 does (Tech Ref 6-206; AX=5). */
+        if (code == TBX_FILE_RENAME && !tbxf_path(lo,len,a[1])) return TBX_ERR_BADARG;
+#ifndef TBX_MUT_FILE_RENAME_EDI
+        f.edi = a[1];   /* MUTANT (test-tbx-file-mutant F5) drops the new name */
+#endif
 #ifndef TBX_MUT_FILE_OWNER
         /* Ref: DOS OPEN's device precedence, int21.c dev_open_lookup.
          * Authored file-only gate policy: never CREATE an unreadable disk file
          * whose basename OPEN resolves as a character device. */
-        if (code == TBX_FILE_CREATE && int21_path_is_device((const char *)(uintptr_t)a[0]))
+        if (creat && int21_path_is_device((const char *)(uintptr_t)a[0]))
             return TBX_ERR_BADARG;
 #endif
         if (code == TBX_FILE_OPEN && a[1] > TBX_FILE_READ_WRITE) return TBX_ERR_BADARG;
         f.edx = a[0];
         f.eax = code == TBX_FILE_CREATE ? 0x3c00u :
-                 code == TBX_FILE_DELETE ? 0x4100u : 0x3d00u+a[1];
+#ifndef TBX_MUT_FILE_CREATE_NEW_TRUNC
+                 code == TBX_FILE_CREATE_NEW ? 0x5b00u :
+#else
+                 /* MUTANT (test-tbx-file-mutant F6): CREATE_NEW truncates. */
+                 code == TBX_FILE_CREATE_NEW ? 0x3c00u :
+#endif
+                 code == TBX_FILE_DELETE ? 0x4100u :
+                 code == TBX_FILE_RENAME ? 0x5600u : 0x3d00u+a[1];
     } else {
 #ifndef TBX_MUT_FILE_OWNER
         if (h < 5 || h >= JFT_MAX_ENTRIES || p->jft[h] == JFT_CLOSED) return TBX_ERR_BADARG;
@@ -94,14 +111,15 @@ static int32_t tbxf_call(psp_t *p, uint32_t lo, uint32_t len,
     int21_dispatch(&f);
     int32_t result = (f.eflags & 1u) ? TBX_ERR_DOS(f.eax & 0xffffu) : (int32_t)f.eax;
     if (!(f.eflags & 1u)) {
-        if (code == TBX_FILE_OPEN || code == TBX_FILE_CREATE) {
+        if (code == TBX_FILE_OPEN || creat) {
             result = (int32_t)(f.eax & 0xffffu);
             e = sft_from_handle(p,(uint8_t)result);
             if (e == 0 || e->kind != SFT_KIND_FILE) {
                 f.ebx = (uint32_t)result; f.eax = 0x3e00u;
                 int21_dispatch(&f); result = TBX_ERR_BADARG;
             }
-        } else if (code == TBX_FILE_CLOSE || code == TBX_FILE_DELETE) result = TBX_OK;
+        } else if (code == TBX_FILE_CLOSE || code == TBX_FILE_DELETE ||
+                   code == TBX_FILE_RENAME) result = TBX_OK;
     }
     int21_set_psp(saved); int21_cwd_restore(&cwd);
     return result;

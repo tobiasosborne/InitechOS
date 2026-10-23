@@ -118,6 +118,10 @@ $(eval $(call fixture-inline-contract,$(TPS_IMG_C),TPSREP.COM TPS.DBF TPSPARM.DA
 # Put Away data volumes, each a FLAIR_DATA_IMG copy plus its seeded leaves.
 $(eval $(call fixture-contract,$(FINDER_LIMITS_DATA),$(FLAIR_FIXTURES) $(foreach n,00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68,F$(n)=)))
 $(eval $(call fixture-contract,$(FINDER_REPLACE_DATA),$(FLAIR_FIXTURES) APPS/README.TXT))
+# initech-mcep: the full-disk save volumes (harness/emu/fullsave.mk) and the
+# bad-checksum Note Pad store (harness/emu/notepad.mk).
+$(foreach img,$(FLAIR_FULLSAVE_DATA) $(FLAIR_FULLSAVE_MUT_DATA) $(FLAIR_FULLSAVE_COLLIDE_DATA),$(eval $(call fixture-contract,$(img),$(FLAIR_FIXTURES) ORIGINAL.WP5 LONG.WP5 KEEP.TXT KEEP.WK1 MINT01.WK1 FILLER.BIN)))
+$(foreach img,$(DA_BADSUM_DATA) $(DA_BADSUM_MUT_DATA),$(eval $(call fixture-contract,$(img),$(FLAIR_FIXTURES) NOTEPAD.DAT)))
 $(eval $(call fixture-contract,$(FINDER_RESTORE_DATA),$(FLAIR_FIXTURES) TRASH= TRASH/README.TXT))
 
 # Ref: bead initech-a5sr, rm-on-failure proof. A tiny dedicated fixture no

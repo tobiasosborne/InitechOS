@@ -99,3 +99,44 @@ test-flair-notepad-corrupt: $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(DA_CORRUPT_
 	@$(call DA_PIXEL_CHECK,pad,flair_note_corrupt)
 	@printf '>>> test-flair-notepad-corrupt: green (malformed FAT file -> empty pages + DA-CORRUPT serial line)\n'
 TEST_EMU_GATES += test-flair-notepad-corrupt
+
+# initech-mcep (audit 2026-10-23-das L008): a store whose ONLY defect is its
+# checksum is KEPT -- Note Pad opens empty pages, never writes over it, and
+# closing says so. Fixture: an authored NOTEPAD.DAT (spec/notepad/store.h
+# layout: NPAD, version 1, 8 pages, page 0 "KEEP THIS NOTE") with a zero
+# checksum; da_store_check proves the checksum is its one and only defect.
+# Traces: spec/flair_fullsave_traces.mk (included here, before fullsave.mk).
+include spec/flair_fullsave_traces.mk
+$(eval $(call tenant-exe-rules,notepad_overwrite,$(DA_APP_SRC),$(ITEXT_APP_CF) -DDA_MUT_OVERWRITE_DAMAGED,$(DA_APP_DEP),--gc-sections))
+DA_BADSUM_DAT := $(BUILD)/da_badsum.dat
+$(DA_BADSUM_DAT): $(DA_DISK) harness/emu/notepad.mk | $(BUILD)
+	@{ printf 'NPAD\001\000\010\000\000\000\010\000\000\000\000\000\016\000KEEP THIS NOTE'; head -c 1010 /dev/zero; head -c 7182 /dev/zero; } > $@
+	@test "$$(wc -c < $@)" = 8224 || { printf '!!! da_badsum.dat: not 8224 bytes\n'; rm -f $@; exit 1; }
+	@if $(DA_DISK) pad $@ 0 'KEEP THIS NOTE' > $@.why; then printf '!!! da_badsum.dat: the checksum is not bad\n'; rm -f $@; exit 1; fi
+	@grep -qx 'RED-REASON disk: pad count/current/pages/checksum differ (1)' $@.why || { cat $@.why; printf '!!! da_badsum.dat: more than the checksum is wrong\n'; rm -f $@; exit 1; }
+DA_BADSUM_DATA := $(BUILD)/da_badsum_source.img
+DA_BADSUM_MUT_DATA := $(BUILD)/da_badsum_mut_source.img
+$(DA_BADSUM_DATA) $(DA_BADSUM_MUT_DATA): $(FLAIR_DATA_IMG) $(DA_BADSUM_DAT) $(BUILD)/tenant/notepad_overwrite.exe
+	cp -f $(FLAIR_DATA_IMG) $@
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(DA_BADSUM_DAT) ::NOTEPAD.DAT
+	@$(if $(filter $(DA_BADSUM_MUT_DATA),$@),SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/tenant/notepad_overwrite.exe ::APPS/NOTEPAD.EXE,:)
+	@$(call fixture-check,recipe,$@)
+DA_KEEP_UP = $(call DA_UP,$(1),NOTEPAD) && grep -q '^DA-CORRUPT NOTEPAD.DAT empty pages' $(1) && \
+	grep -qx 'TENANT-EXIT rc=0 via=exit' $(1)
+DA_KEEP_KEPT = grep -q '^DA-KEPT NOTEPAD.DAT damaged, not replaced' $(1) && \
+	grep -qx 'TENANT-ALERT-LINE The Note Pad file is damaged.' $(1) && \
+	mcopy -o -i $(2) ::NOTEPAD.DAT $(2).dat && cmp -s $(DA_BADSUM_DAT) $(2).dat
+.PHONY: test-flair-notepad-keep test-flair-notepad-keep-mutant
+test-flair-notepad-keep: $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(DA_BADSUM_DATA)
+	$(call appl-boot,flair_note_keep,$(FLAIR_ITEXT_GATE_IMG),$(DA_BADSUM_DATA),FLAIR_NOTEPAD_KEEP_SPEC,)
+	@$(call DA_KEEP_UP,$(BUILD)/flair_note_keep.serial) || { printf '!!! test-flair-notepad-keep FAIL: UP -- Note Pad up, the store refused (DA-CORRUPT), closed (EXIT 0)\n'; grep -E '^(DA-|TENANT-(REG|EXIT|ALERT|CRASH)|PANIC)' $(BUILD)/flair_note_keep.serial; exit 1; }
+	@$(call DA_KEEP_KEPT,$(BUILD)/flair_note_keep.serial,$(BUILD)/flair_note_keep_data.img) || { printf '!!! test-flair-notepad-keep FAIL: KEPT -- the damaged store was written over / no warning\n'; grep -E '^(DA-|TENANT-ALERT)' $(BUILD)/flair_note_keep.serial; exit 1; }
+	@fsck.fat -n $(BUILD)/flair_note_keep_data.img > /dev/null
+	@printf '>>> test-flair-notepad-keep: green (bad-checksum store: empty pages, Close warns "damaged", NOTEPAD.DAT byte-identical (mtools); fsck clean)\n'
+test-flair-notepad-keep-mutant: test-flair-notepad-keep $(DA_BADSUM_MUT_DATA)
+	$(call appl-boot,flair_note_keep_mut,$(FLAIR_ITEXT_GATE_IMG),$(DA_BADSUM_MUT_DATA),FLAIR_NOTEPAD_KEEP_SPEC,)
+	@$(call DA_KEEP_UP,$(BUILD)/flair_note_keep_mut.serial) || { printf '!!! test-flair-notepad-keep-mutant FAIL: OVERWRITE_DAMAGED went RED for the wrong reason (want: Note Pad up, DA-CORRUPT, EXIT 0)\n'; exit 1; }
+	@if $(call DA_KEEP_KEPT,$(BUILD)/flair_note_keep_mut.serial,$(BUILD)/flair_note_keep_mut_data.img); then printf '!!! test-flair-notepad-keep-mutant FAIL: OVERWRITE_DAMAGED kept the store -- the leg is decoration\n'; exit 1; fi
+	@mcopy -o -i $(BUILD)/flair_note_keep_mut_data.img ::NOTEPAD.DAT $(BUILD)/flair_note_keep_mut.dat && ! cmp -s $(DA_BADSUM_DAT) $(BUILD)/flair_note_keep_mut.dat || { printf '!!! test-flair-notepad-keep-mutant FAIL: wrong RED reason (the store survived)\n'; exit 1; }
+	@printf '>>> test-flair-notepad-keep-mutant: DA_MUT_OVERWRITE_DAMAGED correctly RED (the bad-checksum store was written over)\n'
+TEST_EMU_GATES += test-flair-notepad-keep test-flair-notepad-keep-mutant

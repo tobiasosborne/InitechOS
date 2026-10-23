@@ -127,6 +127,13 @@ int32_t tbx_file_write(int32_t handle, const void *buffer, uint32_t count);
 int32_t tbx_file_seek(int32_t handle, int32_t delta, uint32_t origin);
 int32_t tbx_file_close(int32_t handle);
 int32_t tbx_file_delete(const char *path);
+/* RENAME: spec Sec 10b (initech-mcep), DOS 3.3 AH=56h -- refuses an existing
+ * target (TBX_ERR_DOS(5)). A document save uses tbx_file_save (tbx_save.h),
+ * never CREATE over the old file. */
+int32_t tbx_file_rename(const char *old_path, const char *new_path);
+/* CREATE_NEW: spec Sec 10b, DOS 3.3 AH=5Bh -- an existing file is
+ * TBX_ERR_DOS(0x50) and is never truncated. */
+int32_t tbx_file_create_new(const char *path);
 /* The directory: spec Sec 10a (initech-qvgd). FIND writes up to `max`
  * TBX_FIND_REC_BYTES records (attr, DOS time, DOS date, size, 8.3 name) of the
  * entries matching `pattern` (e.g. "DOCS\\*.*") under `attr` into `recs`

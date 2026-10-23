@@ -14,6 +14,7 @@
  * ASCII-only, deterministic, freestanding C (Laws 1-3, Rules 8/11/12).
  */
 #include "tbx.h"
+#include "tbx_save.h"   /* initech-mcep: the atomic document save */
 #include "textedit.h"
 #include "text.h"
 #include "notepad/store.h"
@@ -107,13 +108,22 @@ static int valid(void)
     }
     return 1;
 }
+/* initech-mcep (audit 2026-10-23-das L008): a store that exists but cannot
+ * be read back -- a bad checksum, a wrong length, a read error -- is KEPT:
+ * this session runs on empty pages and never writes over it (save() below),
+ * and closing says so. Only a missing store (first launch) is created. */
+static int g_keep, g_closing;
 static void load(void)
 {
     int32_t fd=tbx_file_open(DA_PATH,TBX_FILE_READ_ONLY), n;
+    g_keep=0; g_closing=0;                     /* each launch judges afresh */
     if(fd==TBX_ERR_DOS(2)) return;             /* first launch */
-    if(fd<0) { DA_AUX("DA-READ-ERROR " DA_PATH "\r\n"); return; }
+    if(fd<0) { g_keep=1; DA_AUX("DA-READ-ERROR " DA_PATH "\r\n"); return; }
     n=tbx_file_read(fd,g_disk,sizeof g_disk);
     if(tbx_file_close(fd)<0 || n!=DA_FILE_BYTES || !valid()) {
+#ifndef DA_MUT_OVERWRITE_DAMAGED
+        g_keep=1;
+#endif
         DA_AUX("DA-CORRUPT " DA_PATH " empty pages\r\n");
         return;                              /* defaults remain intact */
     }
@@ -134,7 +144,8 @@ static void stash(void)
 }
 static int save(void)
 {
-    int32_t fd,n,rc; uint32_t h; const char *magic=DA_MAGIC;
+    uint32_t h; const char *magic=DA_MAGIC;
+    if(g_keep) { DA_AUX("DA-KEPT " DA_PATH " damaged, not replaced\r\n"); return 1; }
     for(int i=0;i<DA_FILE_BYTES;i++) g_disk[i]=0;
     for(int i=0;i<4;i++) g_disk[i]=(unsigned char)magic[i];
     putword(4,1); putword(6,g_count); putword(8,g_page); putword(10,DA_SLOTS);
@@ -143,10 +154,8 @@ static int save(void)
         putword(off,g_len[p]); bytes(g_disk+off+2,g_pages[p],g_len[p]);
     }
     h=hash(); for(int i=0;i<4;i++) g_disk[12+i]=(unsigned char)(h>>(8*i));
-    fd=tbx_file_create(DA_PATH);
-    if(fd<0) { notice("The pages could not be saved."); return 0; }
-    n=tbx_file_write(fd,g_disk,DA_FILE_BYTES); rc=tbx_file_close(fd);
-    if(n!=DA_FILE_BYTES || rc<0) { notice("The pages could not be saved."); return 0; }
+    /* initech-mcep: the atomic save -- a full disk keeps the old pages. */
+    if(tbx_file_save(DA_PATH,g_disk,DA_FILE_BYTES)!=DA_FILE_BYTES) { notice("The pages could not be saved."); return 0; }
     DA_AUX("DA-SAVED " DA_PATH "\r\n");
     return 1;
 }
@@ -320,6 +329,11 @@ static void close_app(void)
     stash();
     if(!save()) return;
 #endif
+    /* A kept (damaged) store: say so once, and close on the answer. */
+    if(g_keep && !g_closing &&
+       tbx_alert("The " DA_TITLE " file is damaged.\rIt was kept as it is; these\rpages were not saved.","OK",0,0)==TBX_OK) {
+        g_closing=1; return;
+    }
     (void)tbx_exit(0);
 }
 int tbx_app_main(void)
@@ -347,6 +361,7 @@ void tbx_app_event(const tbx_event_t *ev)
     }
     case activateEvt: g_active=(ev->modifiers&FLAIR_EVT_MOD_ACTIVE_FLAG)!=0;menus_sync();paint();break;
     case TBX_EVT_GOAWAY: close_app();break;
+    case TBX_EVT_ALERT: if(g_closing) (void)tbx_exit(0);break;
     case TBX_EVT_MENU:
         if(((uint32_t)ev->message>>16)==129) {close_app();break;}
         if(((uint32_t)ev->message>>16)!=130) break;

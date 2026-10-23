@@ -1194,6 +1194,8 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         { (uint8_t)TBX_FILE_SEEK, (uint8_t)(TBX_ARGC_FILE_SEEK) },
         { (uint8_t)TBX_FILE_CLOSE, (uint8_t)(TBX_ARGC_FILE_CLOSE) },
         { (uint8_t)TBX_FILE_DELETE, (uint8_t)(TBX_ARGC_FILE_DELETE) },
+        { (uint8_t)TBX_FILE_RENAME, (uint8_t)(TBX_ARGC_FILE_RENAME) },
+        { (uint8_t)TBX_FILE_CREATE_NEW, (uint8_t)(TBX_ARGC_FILE_CREATE_NEW) },
         { (uint8_t)TBX_FILE_FIND, (uint8_t)(TBX_ARGC_FILE_FIND) },
         { (uint8_t)TBX_DISK_FREE, (uint8_t)(TBX_ARGC_DISK_FREE) },
         { (uint8_t)TBX_ALERT, (uint8_t)(TBX_ARGC_ALERT) },
@@ -1264,7 +1266,7 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
             break;
         case TBX_FILE_CREATE: case TBX_FILE_OPEN: case TBX_FILE_READ:
         case TBX_FILE_WRITE: case TBX_FILE_SEEK: case TBX_FILE_CLOSE:
-        case TBX_FILE_DELETE:
+        case TBX_FILE_DELETE: case TBX_FILE_RENAME: case TBX_FILE_CREATE_NEW:
             rc = g_slot.app == 0 || g_slot.exit_req || g_slot.crashed || g_slot.torn_down
                 ? TBX_ERR_NOTREG
                 : tbxf_call(&g_slot.files, g_slot.plan.load_base,
@@ -1286,11 +1288,14 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         tputx(a[0] - g_slot.plan.load_base, 4);
         break;
     case TBX_FILE_CREATE: case TBX_FILE_OPEN: case TBX_FILE_DELETE:
-        tputs(" path=");
-        if (g_slot.block != 0 && tbxf_path(g_slot.plan.load_base,
-                      g_slot.plan.block_len - TBX_TENANT_PSP_BYTES, a[0])) {
-            tputs("\""); tputs((const char *)(uintptr_t)a[0]); tputs("\"");
-        } else tputs("?");
+    case TBX_FILE_RENAME: case TBX_FILE_CREATE_NEW:
+        for (uint32_t k = 0; k <= (ax == TBX_FILE_RENAME); k++) {
+            tputs(k ? " new=" : " path=");
+            if (g_slot.block != 0 && tbxf_path(g_slot.plan.load_base,
+                          g_slot.plan.block_len - TBX_TENANT_PSP_BYTES, a[k])) {
+                tputs("\""); tputs((const char *)(uintptr_t)a[k]); tputs("\"");
+            } else tputs("?");
+        }
         if (ax == TBX_FILE_OPEN) trace_int(" mode=", a[1]);
         break;
     case TBX_FILE_FIND:
