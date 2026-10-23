@@ -1,0 +1,75 @@
+1: % Reference entries, T (AN-11).  Law 1: os/iword/core/edit.c iw_ed_tab
+2: % ([Tab] C1/02: to the next stop, every 0.5" relative to the left margin;
+3: % WP recomputes the stop when the text before the tab changes, iw_ed_fixup;
+4: % deleted without a question), spec/iword/wp5_format.h "tabs, indents and
+5: % hard pages", face_a.c (Tab; Shift-, Ctrl- and Alt-Tab act as Tab).
+6: % Shots: ../wordperfect51-decomp mint MINT09, MINT10, MINT21, MINT23.
+7: % GATES: test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block
+8: \Gates{test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block}
+9: \begin{Feature}{Tab}
+10: Tab moves the text that follows to the next tab stop.  Use it to indent the
+11: first line of a paragraph and to line up short items in columns, such as
+12: the entries of a form.
+13: 
+14: To tab,
+15: \begin{WPSteps}
+16: \item Press \K{Tab}.  The cursor moves to the next tab stop.
+17: \item Type the text.
+18: \end{WPSteps}
+19: \Documents{wpkey}{Tab}
+20: 
+21: \BeginReplay{ref-tab}
+22: For example, type \TypeRun{Name:}, press \PressKey{Tab}, type
+23: \TypeRun{Peter Gibbons} and press \PressKey{Enter}; type \TypeRun{Dept:},
+24: press \PressKey{Tab} twice\Keys{Tab} and type \TypeRun{Software}.  Press
+25: \Press{Reveal Codes}{Alt-F3} to see the tab codes:
+26: \WordScreen[rows=14]{ref-tab}{Tabs on the editing screen and in Reveal Codes}
+27: \EndReplay
+28: 
+29: \Notes
+30: \Topic{Code}
+31: Each Tab puts a \Code{[Tab]} code in the document.  Delete it to remove the
+32: tab; InitechWord deletes it without asking.
+33: 
+34: \Topic{Shift-Tab, Ctrl-Tab and Alt-Tab}
+35: These act as Tab does.
+36: 
+37: \Topic{Tab Stops}
+38: The tab stops are every half inch, measured from the left margin: under the
+39: standard margins, every five columns of the editing screen.  You cannot set
+40: other tab stops.  When you change the left margin the stops move with it.
+41: Reveal Codes shows the stops on its ruler.
+42: 
+43: \Topic{Text Before a Tab}
+44: If you add or delete text before a tab on the same line, the tab moves the
+45: text after it to the next stop after the text, so tabbed columns stay lined
+46: up as long as the text before them fits.
+47: 
+48: \SeeAlso{Indent; Margins, Left and Right; Reveal Codes}
+49: \end{Feature}
+50: 
+51: \begin{Feature}{Template}
+52: The function-key template lies above the function keys of your keyboard and
+53: names the feature each key starts.  Each key has four lines on the template:
+54: Ctrl and the key in red, Alt and the key in blue, Shift and the key in
+55: green, the key alone in black.  The key's name is printed under its lines,
+56: and the keys are in groups of four, as on the keyboard, with a legend of the
+57: colors between the groups.
+58: 
+59: A line printed in grey names a WordPerfect feature that InitechWord does
+60: not carry out.  Pressing that combination shows the same name in grey on the
+61: status line and does nothing else; the next key you press clears it and acts
+62: as usual (Appendix F lists these keys).  A line is blank where the
+63: combination does nothing at all: Shift, Alt and Ctrl with F11 and F12.
+64: 
+65: The panel at the left of the template is a quick list of the keys you use
+66: most that are not function keys: the hard page, hard return, tab, Cancel,
+67: and the Home combinations for the top and end of the document, the start and
+68: end of a line, and the place before the codes.
+69: 
+70: \Notes
+71: \Topic{Ordering a Template}
+72: Ask your Initech representative for part number 1062-0000-20.
+73: 
+74: \SeeAlso{Cursor Movement; Status Line}
+75: \end{Feature}

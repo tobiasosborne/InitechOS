@@ -1,0 +1,91 @@
+1: % Reference entries, W (AN-11).  Law 1: os/iword/core/edit.c
+2: % iw_reflow_para (the space that ends a full line becomes the soft return;
+3: % a line holds (10200 - R - L) / 120 + 1 characters, 66 at the standard
+4: % margins: spec/iword/wp5_format.h WRAP, MINT01, MINT22; a word longer than
+5: % the line is broken by the layout only), face_a.c (insertion: every
+6: % character typed goes in at the cursor; Ins does nothing).
+7: % GATES: test-pubs-iword test-iword-core test-iword-wp5-roundtrip test-iword-face test-flair-iword
+8: \Gates{test-pubs-iword test-iword-core test-iword-wp5-roundtrip test-iword-face test-flair-iword}
+9: \begin{Feature}{Window}
+10: InitechWord runs in a window of its own on the FLAIR desktop, titled
+11: \Scr{InitechWord}.  The window fills the screen below the menu bar.  While
+12: InitechWord is the application in front, the menu bar shows its File menu
+13: in a second row (see \InRef{Pull-Down Menus}).
+14: 
+15: \Notes
+16: \Topic{Close Box}
+17: Clicking the close box at the left of the title bar does what Exit from the
+18: File menu does: if you have not changed the document since you last saved
+19: or retrieved it, InitechWord ends at once; otherwise it asks whether to save
+20: the document, as Exit (F7) does (see \InRef{Exit}).
+21: 
+22: \BeginReplay{ref-closebox}
+23: For example, type \TypeRun{Unsaved text} and click the close
+24: box\CloseBox:
+25: \WordScreen[rows=1]{ref-closebox}{The close box with an unsaved document}
+26: \EndReplay
+27: 
+28: \Topic{Keys}
+29: The keys you press go to the window in front.  When InitechWord's window is
+30: in front, every key of this book acts in it.
+31: 
+32: \SeeAlso{Exit; Pull-Down Menus; Screen}
+33: \end{Feature}
+34: 
+35: \begin{Feature}{WordPerfect 5.1 Documents}
+36: InitechWord documents are WordPerfect 5.1 documents.  InitechWord writes a
+37: document as WordPerfect 5.1 writes it -- the settings area WordPerfect 5.1
+38: writes for a new document, then the text and its codes byte for byte as
+39: WordPerfect 5.1 stores them -- and it retrieves documents saved by
+40: WordPerfect 5.1.
+41: 
+42: \Notes
+43: \Topic{Codes InitechWord Does Not Make}
+44: A WordPerfect document can hold codes InitechWord does not put in documents:
+45: centered and flush-right lines and hard spaces.  InitechWord keeps them and
+46: saves them unchanged (see \InRef{Codes}).  A document with a code
+47: InitechWord cannot read is refused with \Scr{ERROR: Incompatible File
+48: Format}, so that it is never changed by mistake.
+49: 
+50: \Topic{Saving a Retrieved Document}
+51: A document retrieved onto a clear screen keeps the settings area it came
+52: with, so saving it again writes those settings back as they were.
+53: 
+54: \Topic{The File}
+55: Appendix D describes the file for programmers.
+56: 
+57: \SeeAlso{Codes; Retrieve; Save}
+58: \end{Feature}
+59: 
+60: \begin{Feature}{Word Wrap}
+61: When the line you are typing is full, InitechWord moves the word that does
+62: not fit to the start of the next line.  You keep typing and press Enter only
+63: at the end of a paragraph.
+64: 
+65: Under the standard one inch margins a line holds 66 characters.  The space
+66: before the word that moves down becomes a soft return (see \InRef{Return,
+67: Soft}).
+68: 
+69: \BeginReplay{ref-wrap}
+70: For example, type this paragraph without pressing Enter:
+71: \Type{Initech word processing is here. The quick brown fox jumps over the lazy dog.}
+72: The paragraph wraps after \textit{over}:
+73: \WordScreen[rows=2]{ref-wrap}{A paragraph that wraps}
+74: \EndReplay
+75: 
+76: \Notes
+77: \Topic{Inserting and Deleting}
+78: Text you type goes in at the cursor, in front of what is there; nothing is
+79: typed over.  After every change InitechWord wraps the paragraph again, so
+80: its lines always end where they should.
+81: 
+82: \Topic{Long Words}
+83: A word longer than a whole line is broken where the line ends; the rest of
+84: it continues on the next line.
+85: 
+86: \Topic{Margins}
+87: The line length follows the margins in effect (see \InRef{Margins, Left and
+88: Right}).  Indented lines wrap at the indent (see \InRef{Indent}).
+89: 
+90: \SeeAlso{Margins, Left and Right; Return, Hard; Return, Soft}
+91: \end{Feature}

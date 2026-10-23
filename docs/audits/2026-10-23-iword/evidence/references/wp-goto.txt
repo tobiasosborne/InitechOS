@@ -1,0 +1,87 @@
+Source: WPDOS51Reference.pdf; pdftotext -layout, source text line numbers follow.
+17410:                                            Linc Spacing
+17411:                 • Hyphenation Zone       • Margins Left/Right
+17412:                 • Justification          • Tab Set
+17413:                 • Line Height            • Widow/Orphan Protection
+17414:                 • Line Numbering
+17415:                For more information,          Formm in Reference.
+17416:                         information. see Line Format
+17417: 
+17418:                Other
+17419:                                                                                     are :
+17420:                The Other submenu contains several advanced formatting options. They are:
+17421:                 • Advance                         • End Centering/Alignment
+17422:                 • Border Options                  • Language
+17423:                 • Conditional End of Page         • Overstrike
+17424:                 • Decimal Align Character/        • Printer Functions
+17425:                   Thousands’
+17426:                   Thousands· Separator            • Underline Spaces/Tahs
+17427:                                                                Spaces/Tabs
+17428:                                                          Reference .
+17429:                For more information, see Other Format in Reference.
+17430: 
+17431:                Page
+17432:                                                                                    page. and
+17433:                The Page submenu options deal with the way text is arranged on a page,
+17434:                from page to page throughout a document. For example, you can use Page
+17435:                options to center the text vertically on the page. The Page options also let you
+17436:                have WordPerfect add page numbers and special headings to pages. Page
+17437:                submenu options are:
+17438:                 • Center Page                     • Page Numbering
+17439:                 • Force Odd/Even Page             • Paper Size/Type/Labels
+17440:                 • Headers and Footers             • Suppress
+17441:                 • Margins Top/Bottom
+17442:                Generally, these codes should be placed at the top of the page.
+17443:                Generally.                                                page. For more
+17444:                information,
+17445:                inf'ormation, see Page Format in Reference.
+17446: 
+17447:                See Also: Document Format; Line Format; Other Format; Page Format;
+17448:                Appendix G
+17449: 
+17450: 
+17451: 
+17452: 
+17453: 220   FORMAT
+17454: 
+17455: G
+17456: G Generate
+17457: 
+17458:              Generating is the final step in creating a table of contents, table of authorities,
+17459:              list(s), and index(es). Generating also updates cross-references and the space
+17460:              being used for endnotes (if you are using Endnote Placement),
+17461:                                                                     Placement). Before
+17462:              generating, you should have marked the text you want, inserted any Endnote
+17463:              Placement codes.
+17464:                           codes, and defined your table, list, or index. For more information,
+17465:              see the appropriate Define heading for each in Reference (e.g., Index,
+17466:                                                                                 Index. Define).
+17467:              Also see Cross-Reference, Mark Text, or Footnotes and   und Endnotes.
+17468:              To generate,
+17469:              1   Press Mark Text (Alt-FS
+17470:                                  (Alt-F5),), and select Generate (6).
+17471:              CB
+17472:              US Select Generate from the Mark menu.
+17473:              2   Select Generate Tables, Indexes, Cross-References, etc. (5).
+17474:              A message appears asking if you want to replace any existing tables, lists, and
+17475:              indexes.
+17476:              3   Type y to generate cross-references, endnotes, tables, lists, or indexes,
+17477:                  replacing any previously existing ones.
+17478:                  or
+17479:                  Type n
+17480:                       n if you want to return to your document without generating.
+17481: 
+17482:              Generating begins, and a counter at the bottom of the screen indicates the
+17483:              progress of generation. All tables, lists, and indexes in the document are
+17484:              generated, and cross-references and endnote placement are updated—all
+17485:                                                                           updated-all in one
+17486:              generating process.
+17487:              Depending on the number and length of the items you are generating, generating
+17488:              may be time consuming. Also, don't
+17489:                                               don’t be concerned if the counter on the status
+17490:              line indicates WordPerfect is passing through the document multiple times. That
+17491:              is a necessary part of the generating process.
+17492:              You can use generate as many times as you want. Each time, cross-references
+17493:              and endnote placement are updated, and the previous versions of tables, lists, and
+17494:              indexes are deleted before the new ones are created—provided
+17495:                                                           created-provided you have not

@@ -1,0 +1,112 @@
+1: % Reference entries, P (AN-11).  Law 1: os/iword/core/edit.c iw_ed_hpage
+2: % (Ctrl-Enter: the hard page code 0x0C, WP's D4/00 group kept before it by
+3: % iw_ed_fixup; deleted without a question), face_a.c line_rows / paint_doc
+4: % (the bar of = on a row of its own below the line), iw_ed_where (54 lines
+5: % to a page; Pg), the File menu (face_a.c file_items: Retrieve, Save, Exit
+6: % with ^Q; the TBX_EVT_MENU handler).
+7: % GATES: test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block
+8: \Gates{test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block}
+9: \begin{Feature}{Page Break, Hard}
+10: A hard page ends a page where you choose: the text after it starts on a new
+11: page whatever room is left on this one.  Use it to start a new section, or
+12: to keep a table or a signature block on a page of its own.
+13: 
+14: To insert a hard page,
+15: \begin{WPSteps}
+16: \item Move the cursor to where the new page is to begin.
+17: \item Press \K{Ctrl-Enter}.
+18: \end{WPSteps}
+19: \Documents{wpkey}{Ctrl-Enter}
+20: 
+21: \BeginReplay{ref-hpage}
+22: On the editing screen a hard page shows as a line of equal signs across
+23: the screen below the line it ends.  For example, type
+24: \TypeRun{Page one ends here.}, press \PressKey{Ctrl-Enter} and type
+25: \TypeRun{Page two.}  The status line shows \Scr{Pg 2}:
+26: \WordScreen[rows=3]{ref-hpage}{A hard page on the editing screen}
+27: \EndReplay
+28: 
+29: \Notes
+30: \Topic{Code}
+31: A hard page is the code \Code{[HPg]}.  To remove a hard page, delete the
+32: code: put the cursor at the start of the line after the bar and press
+33: Backspace, or use Reveal Codes.  InitechWord deletes it without asking.
+34: 
+35: \Topic{Pages Without Hard Pages}
+36: A page holds 54 lines of single-spaced text.  After 54 lines the status line
+37: counts the next line as the first line of the next page, \Scr{Ln 1"}; the
+38: editing screen shows no line between the pages.  A hard page starts a new
+39: page before that.
+40: 
+41: \Topic{The Bar}
+42: The bar of equal signs is not part of the text.  The cursor never rests on
+43: it, and it is not saved.
+44: 
+45: \SeeAlso{Move, Sentence/Paragraph/Page; Return, Hard; Status Line}
+46: \end{Feature}
+47: 
+48: \begin{Feature}{Page Break, Soft}
+49: InitechWord counts the lines of a document into pages of 54 single-spaced
+50: lines, the lines that fit between the one inch top and bottom margins of an
+51: 11 inch page.  The status line shows the page and line the cursor is on;
+52: there is no code for the end of such a page, and the editing screen draws no
+53: line between the pages.
+54: 
+55: \BeginReplay{ref-softpage}
+56: \Typing{Line 1}\Keys{Enter}%
+57: For example, in a document of 56 short lines, the 55th line is the first
+58: line of page 2:
+59: \directlua{for i = 2, 55 do tex.sprint("\string\\Typing{Line " .. i .. "}\string\\Keys{Enter}") end}%
+60: \Typing{Line 56}\Keys{Up}%
+61: \WordScreen[rows=23]{ref-softpage}{Line 55 is on page 2, at Ln 1"}
+62: \EndReplay
+63: 
+64: \Notes
+65: \Topic{Hard Pages}
+66: To end a page sooner, put in a hard page (see \InRef{Page Break, Hard}).
+67: A hard page starts the count of the next page again.
+68: 
+69: \Topic{Move, Page}
+70: Move's Page selection uses these pages (see \InRef{Move,
+71: Sentence/Paragraph/Page}).
+72: 
+73: \SeeAlso{Move, Sentence/Paragraph/Page; Page Break, Hard; Status Line}
+74: \end{Feature}
+75: 
+76: \begin{Feature}{Pull-Down Menus}
+77: InitechWord's pull-down menu is the \textbf{File} menu, in the second row
+78: of the menu bar while InitechWord is the application in front.  It holds
+79: three items, each of which starts the same feature as a function key.
+80: 
+81: To choose an item from the File menu,
+82: \begin{WPSteps}
+83: \item Point to \textbf{File} in the menu bar and hold down the mouse button.
+84: The menu drops down.
+85: \item Drag down to the item you want and release the button.
+86: \end{WPSteps}
+87: \Documents{wppull}{File,Retrieve}
+88: \Documents{wppull}{File,Save}
+89: \Documents{wppull}{File,Exit}
+90: \par\addvspace{4pt}
+91: \noindent\begin{tabular}{@{}lll@{}}
+92: \textbf{Item} & \textbf{Same as} & \textbf{See}\\
+93: Retrieve & \FK{Retrieve}{Shift-F10} & \InRef{Retrieve}\\
+94: Save & \FK{Save}{F10} & \InRef{Save}\\
+95: Exit & \FK{Exit}{F7} & \InRef{Exit}\\
+96: \end{tabular}
+97: \par\addvspace{4pt}
+98: 
+99: \Notes
+100: \Topic{Exit and Its Keyboard Equivalent}
+101: The menu shows Exit with the command key and Q.  On your keyboard the
+102: command key is Ctrl: hold down Ctrl and press Q.  Exit from the menu ends
+103: a document you have not changed since you last saved or retrieved it
+104: without asking; otherwise it asks the questions of Exit (F7).
+105: 
+106: \Topic{When the Menu Is Not Available}
+107: The File menu items act only while the editing screen is shown.  While a
+108: prompt or a menu of InitechWord is on the status line, or a Format screen is
+109: shown, choosing them does nothing; answer or cancel the prompt first.
+110: 
+111: \SeeAlso{Exit; Retrieve; Save}
+112: \end{Feature}

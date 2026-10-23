@@ -1,0 +1,195 @@
+=== evidence/s01-extracted/ADJ.WP5 size=331 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=00237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'bbbb'
+  CODES: T'bbbb'
+  END offset=331 filesize=331 trailer-errors=0
+=== evidence/s01-extracted/BLOCK.WP5 size=344 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=08237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'ABCDE'
+  CODES: [AttrOn Bold] T'AB' [AttrOff Bold] T'C' [AttrOn Underline] T'DE' [AttrOff Underline]
+  END offset=344 filesize=344 trailer-errors=0
+=== evidence/s01-extracted/EDGE.WP5 size=482 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=00237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxZxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxZ'
+  CODES: T'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' [Tab 02802580255000] T'Z' [HRt] T'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' [Indent 005802802580255000] T'Z'
+  END offset=482 filesize=482 trailer-errors=0
+=== evidence/s01-extracted/FONT.WP5 size=519 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=00237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'Size1Size2Size3Size4Size5Size6Size7Attr1Attr2Attr3Attr4Attr5Attr6Attr7Attr8Attr9'
+  CODES: [AttrOn Superscript] T'Size1' [AttrOff Superscript] [HRt] [AttrOn Subscript] T'Size2' [AttrOff Subscript] [HRt] [AttrOn Fine] T'Size3' [AttrOff Fine] [HRt] [AttrOn Small] T'Size4' [AttrOff Small] [HRt] [AttrOn Large] T'Size5' [AttrOff Large] [HRt] [AttrOn VeryLarge] T'Size6' [AttrOff VeryLarge] [HRt] [AttrOn ExtraLarge] T'Size7' [AttrOff ExtraLarge] [HRt] [AttrOn Bold] T'Attr1' [AttrOff Bold] [HRt] [AttrOn Underline] T'Attr2' [AttrOff Underline] [HRt] [AttrOn DoubleUnd] T'Attr3' [AttrOff DoubleUnd] [HRt] [AttrOn Italic] T'Attr4' [AttrOff Italic] [HRt] [AttrOn Outline] T'Attr5' [AttrOff Outline] [HRt] [AttrOn Shadow] T'Attr6' [AttrOff Shadow] [HRt] [AttrOn SmallCaps] T'Attr7' [AttrOff SmallCaps] [HRt] [AttrOn Redline] T'Attr8' [AttrOff Redline] [HRt] [AttrOn Strikeout] T'Attr9' [AttrOff Strikeout] [HRt]
+  END offset=519 filesize=519 trailer-errors=0
+=== evidence/s01-extracted/FORMAT.WP5 size=452 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=00237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'Inches?doublecenteredright'
+  CODES: T'Inches?' [var0xd0/0x02 size=8 conv=size=after-hdr 00010002] T'double' [HRt] [Justification size=6 conv=size=after-hdr 0102] [var0xd4/0x05 size=8 conv=size=after-hdr 26000c12] T'centered' [HRt] [var0xd4/0x05 size=8 conv=size=after-hdr 2a00ec13] [Justification size=6 conv=size=after-hdr 0203] [var0xd4/0x05 size=8 conv=size=after-hdr 4600d020] T'right' [HRt] [var0xd4/0x05 size=8 conv=size=after-hdr 4b002823] [LRMargin size=12 conv=size=after-hdr b004b004b004b004]
+  END offset=452 filesize=452 trailer-errors=0
+=== evidence/s01-extracted/ROUND01.WP5 size=495 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=00237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'Hello from InitechWord. This is a plain paragraph typed into realWordPerfect 5.1.Bold and underlined words.Centered lineTabbed line'
+  CODES: T'Hello from InitechWord. This is a plain paragraph typed into real' [SRt] T'WordPerfect 5.1.' [HRt] [HRt] [AttrOn Bold] T'Bold' [AttrOff Bold] T' and ' [AttrOn Underline] T'underlined' [AttrOff Underline] T' words.' [HRt] [Center e0e010ec132400] T'Centered line' [EndCenter/FlushRt] [HRt] [Tab 02080708070f00] T'Tabbed line' [HRt]
+  END offset=495 filesize=495 trailer-errors=0
+=== evidence/s03-extracted/CHARS.WP5 size=333 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=00237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: "a b2e'"
+  CODES: T"a b2e'"
+  END offset=333 filesize=333 trailer-errors=0
+=== evidence/s03-extracted/COPY.WP5 size=343 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=08237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'COPY ME.COPY ME.'
+  CODES: T'COPY ME.COPY ME.'
+  END offset=343 filesize=343 trailer-errors=0
+=== evidence/s03-extracted/CROSS.WP5 size=335 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=08237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'CD'
+  CODES: [AttrOn Bold] [AttrOff Bold] T'CD'
+  END offset=335 filesize=335 trailer-errors=0
+=== evidence/s03-extracted/NEST.WP5 size=342 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=00237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'ABC'
+  CODES: [AttrOn Bold] [AttrOn Underline] T'A' [AttrOff Bold] T'B' [AttrOff Underline] T'C'
+  END offset=342 filesize=342 trailer-errors=0
+=== evidence/s03-extracted/PAGES.WP5 size=389 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=08237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'Page one.Page two.Last line.'
+  CODES: T'Page one.' [var0xd4/0x00 size=28 conv=size=after-hdr 0016000001000000000000000000302a302a302ab004b004] [HPg] T'Page two.' [HRt] T'Last line.'
+  END offset=389 filesize=389 trailer-errors=0
+=== evidence/s03-extracted/REPCODE.WP5 size=356 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=08237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'find BOLD then under'
+  CODES: T'find BOLD' [AttrOff Bold] T' then ' [AttrOn Underline] T'under' [AttrOff Underline]
+  END offset=356 filesize=356 trailer-errors=0
+=== evidence/s03-extracted/INDENT.WP5 size=422 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=00237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxABCDEFGHIJKLMNOP'
+  CODES: T'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' [Indent 005802802580255000] T'ABCDEFGH' [SRt] T'IJKL' [SRt] T'MNOP'
+  END offset=422 filesize=422 trailer-errors=0

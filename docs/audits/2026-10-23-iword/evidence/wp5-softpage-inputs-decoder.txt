@@ -1,0 +1,30 @@
+=== evidence/fixtures/MINT39.WP5 size=591 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=00237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'L01L02L03L04L05L06L07L08L09L10L11L12L13L14L15L16L17L18L19L20L21L22L23L24L25L26L27L28L29L30L31L32L33L34L35L36L37L38L39L40L41L42L43L44L45L46L47L48L49L50L51L52L53L54L55L56L57L58'
+  CODES: T'L01' [HRt] T'L02' [HRt] T'L03' [HRt] T'L04' [HRt] T'L05' [HRt] T'L06' [HRt] T'L07' [HRt] T'L08' [HRt] T'L09' [HRt] T'L10' [HRt] T'L11' [HRt] T'L12' [HRt] T'L13' [HRt] T'L14' [HRt] T'L15' [HRt] T'L16' [HRt] T'L17' [HRt] T'L18' [HRt] T'L19' [HRt] T'L20' [HRt] T'L21' [HRt] T'L22' [HRt] T'L23' [HRt] T'L24' [HRt] T'L25' [HRt] T'L26' [HRt] T'L27' [HRt] T'L28' [HRt] T'L29' [HRt] T'L30' [HRt] T'L31' [HRt] T'L32' [HRt] T'L33' [HRt] T'L34' [HRt] T'L35' [HRt] T'L36' [HRt] T'L37' [HRt] T'L38' [HRt] T'L39' [HRt] T'L40' [HRt] T'L41' [HRt] T'L42' [HRt] T'L43' [HRt] T'L44' [HRt] T'L45' [HRt] T'L46' [HRt] T'L47' [HRt] T'L48' [HRt] T'L49' [HRt] T'L50' [HRt] T'L51' [HRt] T'L52' [HRt] T'L53' [HRt] T'L54' [var0xd4/0x00 size=28 conv=size=after-hdr 0016682901000000000000000000302a302a302ab004b004] [1B:0x8c] T'L55' [HRt] T'L56' [HRt] T'L57' [HRt] T'L58' [HRt]
+  END offset=591 filesize=591 trailer-errors=0
+=== evidence/fixtures/MINT44.WP5 size=720 docstart=0x147 product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x113
+    packet type=0x0f len=86 off=0x42 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x07 len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x06 len=16 off=0x103 data=00237c00780000000100000000000000
+    packet type=0x00 len=8060927 off=0x78004e data=
+  index@0x113 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x145 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'L01L02L03L04L05L06L07L08L09L10L11L12L13L14L15L16L17L18L19L20L21L22L23L24L25L26L27L28L29L30L31L32L33L34L35L36L37L38L39L40L41L42L43L44L45L46L47L48L49L50L51L52A long paragraph that wraps over the page break so the soft returnat the end of the page shows how it is stored by WordPerfect whenit falls there.End.'
+  CODES: T'L01' [HRt] T'L02' [HRt] T'L03' [HRt] T'L04' [HRt] T'L05' [HRt] T'L06' [HRt] T'L07' [HRt] T'L08' [HRt] T'L09' [HRt] T'L10' [HRt] T'L11' [HRt] T'L12' [HRt] T'L13' [HRt] T'L14' [HRt] T'L15' [HRt] T'L16' [HRt] T'L17' [HRt] T'L18' [HRt] T'L19' [HRt] T'L20' [HRt] T'L21' [HRt] T'L22' [HRt] T'L23' [HRt] T'L24' [HRt] T'L25' [HRt] T'L26' [HRt] T'L27' [HRt] T'L28' [HRt] T'L29' [HRt] T'L30' [HRt] T'L31' [HRt] T'L32' [HRt] T'L33' [HRt] T'L34' [HRt] T'L35' [HRt] T'L36' [HRt] T'L37' [HRt] T'L38' [HRt] T'L39' [HRt] T'L40' [HRt] T'L41' [HRt] T'L42' [HRt] T'L43' [HRt] T'L44' [HRt] T'L45' [HRt] T'L46' [HRt] T'L47' [HRt] T'L48' [HRt] T'L49' [HRt] T'L50' [HRt] T'L51' [HRt] T'L52' [HRt] T'A long paragraph that wraps over the page break so the soft return' [SRt] T'at the end of the page shows how it is stored by WordPerfect when' [var0xd4/0x00 size=28 conv=size=after-hdr 0016682901000000000002000000302a302a302ab004b004] [SPg] T'it falls there.' [HRt] T'End.'
+  END offset=720 filesize=720 trailer-errors=0

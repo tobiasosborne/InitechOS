@@ -1,0 +1,87 @@
+1: % Reference entries, I (AN-11).  Law 1: os/iword/core/edit.c iw_ed_indent
+2: % ([->Indent] C2: to the next tab stop; the rest of the paragraph wraps at
+3: % that stop; WP's C6 kept before the paragraph's [HRt] by iw_ed_fixup),
+4: % spec/iword/wp5_format.h "tabs, indents and hard pages", face_a.c (F4).
+5: % Shots: ../wordperfect51-decomp mint MINT09, MINT10.
+6: % GATES: test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block
+7: \Gates{test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block}
+8: \begin{Feature}{Indent}
+9: Indent moves the left edge of a whole paragraph in to the next tab stop.
+10: The first line starts at the stop, and every line after it wraps back to
+11: the same stop, not to the left margin.  Use it for numbered lists, quoted
+12: passages and notes.
+13: 
+14: To indent a paragraph,
+15: \begin{WPSteps}
+16: \item Move the cursor to the start of the paragraph, or to where you want
+17: the indented text to start (after a number, for example).
+18: \item Press \FK{\rarr Indent}{F4}.  The cursor moves to the next tab stop.
+19: \item Type the paragraph.  Press \K{Enter} at its end; the indent ends with
+20: the paragraph.
+21: \end{WPSteps}
+22: \Documents{wpkey}{F4}
+23: 
+24: \BeginReplay{ref-indent}
+25: For example, type \TypeRun{1.}, press \Press{\rarr Indent}{F4} and type
+26: \TypeRun{Every TPS report must carry the new cover sheet, which is available from the supply room.}
+27: \WordScreen[rows=2]{ref-indent}{An indented paragraph after a number}
+28: \EndReplay
+29: 
+30: \Notes
+31: \Topic{Code}
+32: Indent puts the code \Code{[\rarr Indent]} in the document.  Delete it to
+33: undo the indent; InitechWord deletes it without asking.
+34: 
+35: \Topic{Indenting Farther}
+36: Press Indent again to indent to the next tab stop after that: two Indents at
+37: the start of a paragraph indent it one inch.
+38: 
+39: \Topic{Tab Stops}
+40: The tab stops are every half inch from the left margin.  If you change the
+41: margins, the stops move with the left margin (see \InRef{Tab}).
+42: 
+43: \SeeAlso{Margins, Left and Right; Tab}
+44: \end{Feature}
+45: 
+46: \begin{Feature}{Insert}
+47: Everything you type goes into the document at the cursor, in front of the
+48: character the cursor is on.  The text after the cursor moves along to make
+49: room, and the paragraph is wrapped again.  Nothing you type replaces what is
+50: already there; to replace text, delete it and type the new text (see
+51: \InRef{Delete}).
+52: 
+53: \BeginReplay{ref-insert}
+54: For example, type \TypeRun{Old text}, press \PressKey{Home}, \PressKey{Left}
+55: and type \TypeRun{New } (with the space):
+56: \WordScreen[rows=1]{ref-insert}{Text typed at the start of a line goes in front of what is there}
+57: \EndReplay
+58: 
+59: \Notes
+60: \Topic{Inserting Codes}
+61: Codes go in at the cursor in the same way: a hard return, a tab, the start
+62: of bold.
+63: 
+64: \Topic{The Ins Key}
+65: The Ins key does nothing in InitechWord: typing always inserts.
+66: 
+67: \SeeAlso{Delete; Word Wrap}
+68: \end{Feature}
+69: 
+70: \begin{Feature}{Italics}
+71: Italic text slants to the right.  It is one of the appearances on the Font
+72: key's Appearance menu, Italc (4); InitechWord draws italic text in italic on
+73: the editing screen.
+74: 
+75: To type italic text,
+76: \begin{WPSteps}
+77: \item Press \FK{Font}{Ctrl-F8}, select \Ch{Appearance}{2}, then select
+78: \Ch{Italc}{4}.
+79: \item Type the text.
+80: \item Press \KC{Ctrl-F8}{2,4} again to move past the end of the italic.
+81: \end{WPSteps}
+82: The codes are \Code{[ITALC]} and \Code{[italc]}.  To make text you have
+83: already typed italic, block it, press \FK{Font}{Ctrl-F8}, select
+84: \Ch{Appearance}{2} and \Ch{Italc}{4} (see \InRef{Block, Attributes}).
+85: 
+86: \SeeAlso{Appearance; Block, Attributes; Font}
+87: \end{Feature}

@@ -1,0 +1,82 @@
+{
+  "MINT09.WP5": {
+    "size": 627,
+    "sha256": "647cbbf54713ddbce294aaee94f0c44260f3bdc94800b4927df9087c5776389c"
+  },
+  "MINT39.WP5": {
+    "size": 591,
+    "sha256": "fa489539864c628ac47a3c09336ea23f5affc5c06f6b1ee51c07ff4a53f3e517"
+  },
+  "MINT45.WP5": {
+    "size": 1110,
+    "sha256": "a09194b29d6e300808a3a9ce6d73c8170df64ef2ac317479ae68c8e3dc8f8d71"
+  },
+  "MINT38.WP5": {
+    "size": 632,
+    "sha256": "abad03db92ce0cc16ce6398d7ddbc93496a27d7330153ab74dff3e49ef61e36f"
+  },
+  "BROKEN.WP5": {
+    "size": 68,
+    "sha256": "fcef255073d8c5ef02f85beed60832579a09c9b973e0ac94df4d40fccd1d555e"
+  },
+  "EMPTY.WP5": {
+    "size": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "MINT33.WP5": {
+    "size": 560,
+    "sha256": "d7cea243ece62cb5a0a2c8fcb5216ea7165b1bd69501ffa6f391b68795553bb1"
+  },
+  "MINT25.WP5": {
+    "size": 492,
+    "sha256": "868d35d54712c127e0342247e243f3cf693181d98371c28befb828a3748477ea"
+  },
+  "MINT14.WP5": {
+    "size": 382,
+    "sha256": "e0e3171272f8ae4f2c2d8c5259b07fd0f0f1cf4091e6f4f09b9dec82c369fdc1"
+  },
+  "MINT20.WP5": {
+    "size": 401,
+    "sha256": "d67fd0f5aa7341116ee54e6b20a18ad501a4fc3ff5c9d46f585156960b41fd74"
+  },
+  "MINT21.WP5": {
+    "size": 645,
+    "sha256": "005026f386a697d6bc1272fcf2d81124cb44f26b4a8d2fe5047b7f4a40d9245d"
+  },
+  "MINT28.WP5": {
+    "size": 491,
+    "sha256": "91b2d996c6644324ae563d2fdaf6d4adc3c71828c703c2c17d3678ade0d3bc08"
+  },
+  "LONG.WP5": {
+    "size": 8727,
+    "sha256": "b68f05989c60d59987072b268f18d87612fcfca0ce8ffd5cf31353343d6507c3"
+  },
+  "MINT04.WP5": {
+    "size": 420,
+    "sha256": "aebb076355230e4ec5e5225318af9c419831d43461015b712f7fe193b7845226"
+  },
+  "MINT44.WP5": {
+    "size": 720,
+    "sha256": "0d2c13e6b931354c5a7e9c4296f89cca4a6c1120bd17a466d79a06448523119a"
+  },
+  "PLAIN.TXT": {
+    "size": 34,
+    "sha256": "ed9c948a5fcb282ad8addec5454dfed1a61873e1a28a2a37e436aa04f565d0ca"
+  },
+  "MINT03.WP5": {
+    "size": 445,
+    "sha256": "f4ad615b897c0d66f5eb8c15898bd795696008036e9f5c6828bce98e52bd361a"
+  },
+  "MINT01.WP5": {
+    "size": 495,
+    "sha256": "b2b9df5cd68aee170538d21c36a405ea03dc7aa0d374fc9a26dba6d3002a2ab4"
+  },
+  "MINT12.WP5": {
+    "size": 405,
+    "sha256": "531ff9e4b4b99d803e9f384aa4448ae08d01403cbc5aa03768b4a6ef8c5c8b9b"
+  },
+  "CODES.WP5": {
+    "size": 333,
+    "sha256": "7bf8186f4a57bd73853c1fc8d607ce91c87be9a62e8c1d7339d2d50c78269e4c"
+  }
+}

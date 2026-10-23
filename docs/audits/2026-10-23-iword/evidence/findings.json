@@ -1,0 +1,1479 @@
+[
+  {
+    "id": "L001",
+    "area": "Save",
+    "severity": "P1",
+    "title": "Full-disk overwrite destroys the previous document",
+    "kind": "Defect",
+    "steps": "S02: retrieve LONG.WP5; F10, ORIGINAL.WP5, Enter, Y. Repeat on fresh full-input.img in S04 via F7, Y, ORIGINAL.WP5, Enter, Y.",
+    "observed": "Both attempts report Disk Full. ORIGINAL.WP5 changes from 373 bytes to ZERO bytes. The new 8,727-byte document remains in memory, but the previously saved version is gone. Serial: create succeeds, write(n=8727) returns 0, close returns 0.",
+    "expected": "A failed save must preserve the last saved version (data-integrity expectation, not a claimed historical WP atomic-save measurement).",
+    "evidence": [
+      "shots/s02-real-full-original-error.png",
+      "shots/s04-exit-save-full.png",
+      "shots/s04-cancel-retains-long.png",
+      "evidence/fixtures/ORIGINAL.WP5",
+      "evidence/s02-extracted/ORIGINAL.WP5",
+      "evidence/s04-extracted/ORIGINAL.WP5",
+      "evidence/s02-bytes.json",
+      "evidence/s04-bytes.json",
+      "evidence/prepare_full.py",
+      "evidence/s02-serial.log",
+      "evidence/s04-serial.log"
+    ],
+    "guess": "os/iword/app/face_a.c:1247-1258 creates/truncates the destination before the failing write; no rollback is visible (guess)."
+  },
+  {
+    "id": "L002",
+    "area": "Save",
+    "severity": "P2",
+    "title": "Failed new saves leave zero-byte document files",
+    "kind": "Defect",
+    "steps": "S02, after L001: F1 twice; F10 NEW.WP5 Enter. Later fill the released cluster by changing Setup, then F10 SMALL.WP5 Enter.",
+    "observed": "Both saves fail and leave named zero-byte files. NEW.WP5 and SMALL.WP5 are not usable WP documents.",
+    "expected": "A failed new save should remove its incomplete destination or clearly identify it as incomplete (auditor expectation).",
+    "evidence": [
+      "shots/s02-real-full-new-error.png",
+      "shots/s02-full-small.png",
+      "evidence/s02-extracted/NEW.WP5",
+      "evidence/s02-extracted/SMALL.WP5",
+      "evidence/s02-directory.txt",
+      "evidence/s02-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L003",
+    "area": "Window",
+    "severity": "P2",
+    "title": "Resizing hides the status line and every prompt",
+    "kind": "Defect",
+    "steps": "S03: type Visible prompt test. Drag grow box (632,472) by (-160,-130). Press F10. Grow back from (472,342) by (160,130).",
+    "observed": "The smaller window has no status line. F10 enters a name prompt that cannot be seen. Enlarging reveals the pending prompt.",
+    "expected": "An enabled grow control must preserve access to document status and prompts; classic Mac window behavior from memory.",
+    "evidence": [
+      "shots/s03-resize.png",
+      "shots/s03-resize-save-prompt.png",
+      "shots/s03-resize-prompt-restored.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": "os/iword/app/face_a.c:843 uses fixed editing geometry and the event handler at 2412 has no resize adaptation (guess)."
+  },
+  {
+    "id": "L004",
+    "area": "List Files",
+    "severity": "P2",
+    "title": "Directories silently lose all entries after file 254",
+    "kind": "Defect",
+    "steps": "S03 input contains MANY/F000.WP5 through F269.WP5. F5 Enter, Down Right Right Right Enter Enter. Down 140 times, Right, Down. F1; Shift-F10 MANY\\F269.WP5 Enter.",
+    "observed": "List Files reports 254 files and 86,868 used bytes; the list ends at F253. F269 retrieves successfully by name. Sixteen existing documents are omitted without a warning.",
+    "expected": "Project contract pubs/manuals/initechword-reference/ref-l.tex:73: \"List Files shows the documents and other files on the data diskette\". The fixture actually contains 270 files, 92,340 bytes.",
+    "evidence": [
+      "shots/s03-many-first.png",
+      "shots/s03-many-last.png",
+      "shots/s03-many-hidden-retrieve.png",
+      "evidence/stress-before-directory.txt",
+      "evidence/prepare_stress.py",
+      "evidence/s03-serial.log"
+    ],
+    "guess": "os/iword/app/face_a.c:1369 LF_MAX=256 and :1412 bounded find; dot entries consume two slots (guess)."
+  },
+  {
+    "id": "L005",
+    "area": "Quit / Finder",
+    "severity": "P2",
+    "title": "Shut Down silently cancels while Word has unsaved work",
+    "kind": "Defect",
+    "steps": "S01: append unsaved shutdown to EXITTEST.WP5. Drag Word title (320,50) by (0,150). Activate APPS at (210,90). Hold Special (201,30), release (216,123).",
+    "observed": "No save question or explanation appears; the desktop remains running. Serial says FINDER-POWER-CANCEL app=WORD.EXE cannot-ask. The unsaved document is preserved.",
+    "expected": "Finder should bring the document forward for its save decision, or visibly explain the refusal (classic Mac shutdown expectation from memory). This is a blocked shutdown, not demonstrated data loss.",
+    "evidence": [
+      "shots/s01-before-shutdown.png",
+      "shots/s01-finder-special.png",
+      "shots/s01-shutdown-unsaved.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L006",
+    "area": "WP5 import",
+    "severity": "P2",
+    "title": "Real WP soft-page documents cannot be retrieved",
+    "kind": "Documented compatibility gap",
+    "steps": "S01, clear screen separately for each file: Shift-F10 MINT39.WP5 Enter; repeat with MINT44.WP5.",
+    "observed": "Both real WP 5.1 files are rejected as Incompatible File Format. MINT39 has a multi-page line list; MINT44 wraps a paragraph across a page break.",
+    "expected": "The supplied real files and their captures are valid WP documents: /home/tobias/Projects/wordperfect51-decomp/mint/wpMINT39.steps, wpMINT44.steps and corresponding 01_typed.png. Refusing an ordinary multi-page document is an interoperability gap. The project documents refusal of unknown codes in ref-w.tex:48.",
+    "evidence": [
+      "shots/s01-import-mint39.png",
+      "shots/s01-import-mint44.png",
+      "evidence/fixtures/MINT39.WP5",
+      "evidence/fixtures/MINT44.WP5",
+      "evidence/references/real-mint39.png",
+      "evidence/references/real-mint44.png",
+      "evidence/wp5-softpage-inputs-decoder.txt",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L007",
+    "area": "WP5 import",
+    "severity": "P2",
+    "title": "Table cells render as one concatenated line",
+    "kind": "Defect",
+    "steps": "S01: clear document; Shift-F10 MINT38.WP5 Enter; F11.",
+    "observed": "A1 B1 C1 / A2 B2 C2 render as A1B1C1A2B2C2After. with no table grid or cell separation.",
+    "expected": "Real capture /home/tobias/Projects/wordperfect51-decomp/mint/shots_wpMINT38/06_cells_typed.png, region (0,0)-(584,73), shows three columns and two rows. The import should preserve readable cell structure.",
+    "evidence": [
+      "shots/s01-import-mint38.png",
+      "shots/s01-import-mint38-reveal.png",
+      "evidence/fixtures/MINT38.WP5",
+      "evidence/references/real-mint38.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L008",
+    "area": "WP5 import",
+    "severity": "P2",
+    "title": "Imported centered lines appear at the left margin",
+    "kind": "Documented compatibility gap",
+    "steps": "S01: clear document; Shift-F10 MINT01.WP5 Enter.",
+    "observed": "The centered line starts at x=7, regardless of its alignment code.",
+    "expected": "Real MINT01.shots/02_typed.png in the supplied corpus shows the intended alignment. Project ref-c.tex:118-124 explicitly acknowledges the limitation.",
+    "evidence": [
+      "shots/s01-real-mint01.png",
+      "evidence/references/real-mint01.png",
+      "evidence/fixtures/MINT01.WP5",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L009",
+    "area": "WP5 import",
+    "severity": "P2",
+    "title": "Imported flush-right lines appear at the left margin",
+    "kind": "Documented compatibility gap",
+    "steps": "S01: clear document; Shift-F10 MINT03.WP5 Enter.",
+    "observed": "The flush-right line starts at x=7, regardless of its alignment code.",
+    "expected": "Real MINT03.shots/02_typed.png in the supplied corpus shows the intended alignment. Project ref-c.tex:118-124 explicitly acknowledges the limitation.",
+    "evidence": [
+      "shots/s01-import-mint03.png",
+      "evidence/references/real-mint03.png",
+      "evidence/fixtures/MINT03.WP5",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L010",
+    "area": "WP5 import",
+    "severity": "P2",
+    "title": "Extended characters disappear from imported text",
+    "kind": "Defect",
+    "steps": "S03: clear document; Shift-F10 MINT05.WP5 Enter; F11.",
+    "observed": "The accented e in Cafe is missing: the line reads Caf and ...; Reveal substitutes [?].",
+    "expected": "Real MINT05.shots/02_typed.png shows the accented e; the bytes are C0 29 01 C0, documented in specs/file-formats/wp5-body-codes.md section 3. A character must remain visible.",
+    "evidence": [
+      "shots/s03-mint05.png",
+      "shots/s03-mint05-reveal.png",
+      "evidence/stress-fixtures/MINT05.WP5",
+      "evidence/references/real-mint05.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L011",
+    "area": "WP5 import",
+    "severity": "P2",
+    "title": "Imported footnote references are invisible",
+    "kind": "Defect",
+    "steps": "S03: retrieve MINT05.WP5 on a clear screen.",
+    "observed": "The superscript/reference 1 after Footnote host. is absent. Reveal shows [?] for the footnote group.",
+    "expected": "Real MINT05.shots/02_typed.png, first text line, has a highlighted 1 at that position. The user needs to see that a note exists.",
+    "evidence": [
+      "shots/s03-mint05.png",
+      "shots/s03-mint05-reveal.png",
+      "evidence/references/real-mint05.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L012",
+    "area": "Search",
+    "severity": "P2",
+    "title": "Ctrl-M inserts m instead of a searchable Soft Return",
+    "kind": "Defect",
+    "steps": "S03: type ten copies of \"alpha \" then \"target phrase tail\". Home Home Up, F2, target, Ctrl-M, phrase, F2.",
+    "observed": "The query is targetmphrase, not target[SRt]phrase, and fails. A literal-space query also failed in S01.",
+    "expected": "WP Reference printed p.573 explicitly says Ctrl-M includes a Soft Return in a search string. See evidence/references/wp-search.txt.",
+    "evidence": [
+      "shots/s03-search-srt-query.png",
+      "shots/s03-search-srt-result.png",
+      "shots/s01-search-wrap-fails.png",
+      "evidence/s01-serial.log",
+      "evidence/s03-serial.log"
+    ],
+    "guess": "os/iword/app/face_a.c:2313 expects ch=13, but the guest delivers message 0000326D for Ctrl-M; control translation/dispatch mismatch (guess)."
+  },
+  {
+    "id": "L013",
+    "area": "Wrap / Indent",
+    "severity": "P2",
+    "title": "Indent at the right edge produces a vertical column outside the margin",
+    "kind": "Defect",
+    "steps": "S03: new document; type 66 x characters, F4, \"ABCDEFGH IJKL MNOP\". F11; save INDENT.WP5.",
+    "observed": "Letters appear one per line at approximately x=570, beyond the default right margin. The status reaches Pos 8.1 inches although the right margin position is 7.5 inches.",
+    "expected": "The project promises paragraph wrapping at the indent (ref-i.tex:9-11) and lines ending at their margins (ref-w.tex:86-91). Expected refusal or a usable next-line indent is auditor judgment; no real-WP edge mint establishes the exact desired rule.",
+    "evidence": [
+      "shots/s03-indent-edge-long.png",
+      "shots/s03-indent-edge-reveal.png",
+      "evidence/s03-extracted/INDENT.WP5",
+      "evidence/s03-bytes.json",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L014",
+    "area": "Wrap / Tab",
+    "severity": "P2",
+    "title": "Tab at the long-word boundary disagrees between screen and saved coordinates",
+    "kind": "Defect",
+    "steps": "S01: new document; type 66 x characters, Tab, Z. Save as part of EDGE.WP5.",
+    "observed": "Z displays at the next line left edge (Pos 1.1 after it), but the Tab payload stores 9600 WPU, 8 inches (C1 02 80 25 80 25 50 00 C1).",
+    "expected": "spec/iword/wp5_format.h: tabs payload is the tab-stop position. The displayed and saved destination should agree (auditor consistency expectation); exact WP boundary behavior remains unminted.",
+    "evidence": [
+      "shots/s01-66x-tab.png",
+      "shots/s01-66x-reveal.png",
+      "evidence/s01-extracted/EDGE.WP5",
+      "evidence/wp5-independent-decoder.txt",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L015",
+    "area": "Filenames",
+    "severity": "P2",
+    "title": "Spaces in a filename are silently removed",
+    "kind": "Defect",
+    "steps": "S01: F10; type BAD NAME.WP5; Enter.",
+    "observed": "The prompt silently becomes BADNAME.WP5 and that file is saved, without invalid-name feedback.",
+    "expected": "Project contract pubs/manuals/initechword-reference/ref-f.tex:34: \"a name with any other character\". is refused, according to lines 34-37. Spaces are not among the allowed characters in lines 17-21.",
+    "evidence": [
+      "shots/s01-space-name.png",
+      "shots/s01-space-name-saved.png",
+      "evidence/s01-extracted/BADNAME.WP5",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "os/iword/app/face_a.c:1725 accepts only ch > space, silently discarding spaces before validation (guess)."
+  },
+  {
+    "id": "L016",
+    "area": "Manual / List Files",
+    "severity": "P2",
+    "title": "Esc does not leave List Files as the manual promises",
+    "kind": "Defect",
+    "steps": "S01: F5 Enter Esc.",
+    "observed": "The directory stays open; F1/F7 work.",
+    "expected": "Project contract pubs/manuals/initechword-reference/ref-l.tex:87: \"F7 or Esc to leave the list\". NOTE: the real WP mint LF03_16 also ignores Esc, so correcting the manual is a valid fix.",
+    "evidence": [
+      "shots/s01-list-root.png",
+      "shots/s01-list-esc.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L017",
+    "area": "Cancel / Look",
+    "severity": "P2",
+    "title": "F1 does not cancel the Look menu",
+    "kind": "Defect",
+    "steps": "S03: Look at TEXTLONG.TXT; press F1.",
+    "observed": "The Look screen remains. Esc exits.",
+    "expected": "Project contract pubs/manuals/initechword-reference/ref-c.tex:12: \"Cancel backs out of a menu, prompt or question without doing anything\". Lines 13-14 say it can be used whenever the status line shows a menu; Look has a menu.",
+    "evidence": [
+      "shots/s03-look-cancel-f1.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L018",
+    "area": "Look",
+    "severity": "P2",
+    "title": "Text-file Look cannot scroll past its first 20 lines",
+    "kind": "Defect",
+    "steps": "S03: F5 Enter; select TEXTLONG.TXT (Down 17, Right), 6. Down 25 times; PgDn.",
+    "observed": "Only Text line 001 through 020 remain visible; lines 021-080 cannot be read. The same Down test scrolls a WP file successfully.",
+    "expected": "Look should allow reading the selected file. Project ref-l.tex:85-87 offers Look to read a document; real WP Reference Look, printed p.363 (PDF p.381), permits cursor movement.",
+    "evidence": [
+      "shots/s03-look-text-top.png",
+      "shots/s03-look-text-stuck.png",
+      "shots/s03-look-wp-scroll.png",
+      "evidence/stress-fixtures/TEXTLONG.TXT",
+      "evidence/s03-serial.log"
+    ],
+    "guess": "os/iword/app/face_a.c:1504 gates scrolling on g_look_wp; :1614 always starts text rendering at byte zero (guess)."
+  },
+  {
+    "id": "L019",
+    "area": "Look",
+    "severity": "P2",
+    "title": "Next Doc and Prev Doc are inert enabled choices",
+    "kind": "Defect",
+    "steps": "S03: late in session F5 Enter Down x6, 6 opens CROSS.WP5; press 1, then 2.",
+    "observed": "Both keep CROSS.WP5 on screen, although COPY.WP5 and other files exist. The menu offers 1 Next Doc; 2 Prev Doc in normal bright text.",
+    "expected": "The actual WP Look menu in spec/iword/listfiles.h:154-158 names document navigation. Either implement these choices or accurately disable them.",
+    "evidence": [
+      "shots/s03-look-long-before-next.png",
+      "shots/s03-look-long-next.png",
+      "shots/s03-look-long-prev.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": "os/iword/app/face_a.c:1502 M_LOOK does not dispatch 1 or 2 (guess)."
+  },
+  {
+    "id": "L020",
+    "area": "List Files",
+    "severity": "P2",
+    "title": "Directory prompt ignores typed paths",
+    "kind": "Documented feature gap",
+    "steps": "S01: F5; type APPS.",
+    "observed": "Dir A:\\*.* remains unchanged and Enter lists the root.",
+    "expected": "The editable-looking path should accept a directory; real WP List Files, Reference PDF pp.364-370. This is an acknowledged source limitation (face_a.c:1347-1350).",
+    "evidence": [
+      "shots/s01-list-path-typing.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L021",
+    "area": "List Files",
+    "severity": "P3",
+    "title": "Change-default-directory hint advertises a dead key",
+    "kind": "Defect",
+    "steps": "S01: F5; press =.",
+    "observed": "The hint \"Type = to change default Dir\" remains, but no default-directory prompt opens.",
+    "expected": "The displayed instruction itself promises an action.",
+    "evidence": [
+      "shots/s01-list-default-dir.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L022",
+    "area": "Mouse",
+    "severity": "P2",
+    "title": "Clicking document text does not position the insertion point",
+    "kind": "Defect",
+    "steps": "S01: retrieve LONG.WP5; Home Down puts cursor on line 23. Click (85,70), in line 1; type MOUSE.",
+    "observed": "MOUSE is inserted at line 23, not the clicked line.",
+    "expected": "WP Reference, Mouse Support, and ordinary native document interaction; location selection is expected from memory as well.",
+    "evidence": [
+      "shots/s01-home-down.png",
+      "shots/s01-mouse-hit.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "os/iword/app/face_a.c:2412 dispatches keys/menu/update/close but not content mouse positioning (guess)."
+  },
+  {
+    "id": "L023",
+    "area": "Window",
+    "severity": "P2",
+    "title": "Visible scroll arrows do not scroll the document",
+    "kind": "Defect",
+    "steps": "S01: LONG.WP5 at first screen; click down arrow (627,451) three times.",
+    "observed": "No movement. Serial logs FLAIR-SCROLL-IGNORED win 0 v each time.",
+    "expected": "An enabled-looking scrollbar should scroll its document (classic Mac convention, memory). This is Word with no scroll behavior, not the earlier Finder post-resize J01 case.",
+    "evidence": [
+      "shots/s01-home-down.png",
+      "shots/s01-scroll-arrow.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L024",
+    "area": "Navigation",
+    "severity": "P2",
+    "title": "Page Up and Page Down do nothing",
+    "kind": "Defect",
+    "steps": "S01: retrieve LONG.WP5; PgDn at top. Home Home Down; PgUp at end.",
+    "observed": "Both leave cursor and viewport unchanged. Home Home Up/Down do work.",
+    "expected": "WP Reference printed p.104: PgDn/PgUp go to first line of next/previous page.",
+    "evidence": [
+      "shots/s01-long-open.png",
+      "shots/s01-pgdn.png",
+      "shots/s01-long-end.png",
+      "shots/s01-pgup.png",
+      "evidence/references/wp-cursor.txt",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L025",
+    "area": "Navigation",
+    "severity": "P2",
+    "title": "Go To becomes ordinary document typing",
+    "kind": "Defect",
+    "steps": "S01: retrieve LONG.WP5, Ctrl-Home, 6.",
+    "observed": "A literal 6 is inserted before Line 001; no Go To prompt/state is entered.",
+    "expected": "WP Reference p.224: Ctrl-Home, page number, Enter navigates to a page.",
+    "evidence": [
+      "shots/s01-goto-six.png",
+      "evidence/references/wp-goto.txt",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L026",
+    "area": "Navigation",
+    "severity": "P2",
+    "title": "Ctrl-Right moves a character instead of a word",
+    "kind": "Documented feature gap",
+    "steps": "S01: type one two three; Home Home Up; Ctrl-Right.",
+    "observed": "Cursor advances to Pos 1.1, one character.",
+    "expected": "WP Reference p.104 specifies Word Right; project ref-c.tex:241 explicitly documents its reduced modifier behavior.",
+    "evidence": [
+      "shots/s01-ctrl-right.png",
+      "evidence/references/wp-cursor.txt",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L027",
+    "area": "Deletion",
+    "severity": "P2",
+    "title": "Delete Word deletes only one character",
+    "kind": "Documented feature gap",
+    "steps": "S03: type one two three; Home Home Up; Ctrl-Delete.",
+    "observed": "Only o is removed, leaving ne two three.",
+    "expected": "WP Reference p.116: Ctrl-Del deletes the word at the cursor. Project ref-d.tex:57-59 documents character-only behavior.",
+    "evidence": [
+      "shots/s03-delete-word.png",
+      "evidence/references/wp-delete.txt",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L028",
+    "area": "Deletion",
+    "severity": "P2",
+    "title": "Delete to End of Line only moves the cursor",
+    "kind": "Defect",
+    "steps": "S03, after Ctrl-Delete above: Ctrl-End.",
+    "observed": "ne two three stays intact; cursor moves to its end.",
+    "expected": "WP Reference p.116 defines Ctrl-End as deletion, not End navigation.",
+    "evidence": [
+      "shots/s03-delete-end-line.png",
+      "evidence/references/wp-delete.txt",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L029",
+    "area": "Deletion",
+    "severity": "P2",
+    "title": "Delete to End of Page never asks or deletes",
+    "kind": "Defect",
+    "steps": "S05: new document one two three; Home Home Up; Ctrl-PgDn.",
+    "observed": "The whole line remains with cursor at its start and no confirmation prompt.",
+    "expected": "WP Reference p.116: Ctrl-PgDn then Y deletes to end of page.",
+    "evidence": [
+      "shots/s05-delete-page-at-start.png",
+      "evidence/references/wp-delete.txt",
+      "evidence/s05-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L030",
+    "area": "Typing",
+    "severity": "P2",
+    "title": "Insert cannot switch to typeover",
+    "kind": "Documented feature gap",
+    "steps": "S03: after word-deletion test, Home Home Up, Insert, Z.",
+    "observed": "Z is inserted before ne two three; n is not overwritten.",
+    "expected": "WP 5.1 Insert/typeover convention (memory); the project explicitly states \"Ins key does nothing\" in ref-i.tex:73-74.",
+    "evidence": [
+      "shots/s03-typeover.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L031",
+    "area": "Keyboard",
+    "severity": "P2",
+    "title": "Repeat Value inserts its count into the document",
+    "kind": "Defect",
+    "steps": "S03: at position after Z, press Esc, 3, Right.",
+    "observed": "A literal 3 is inserted; Right moves only once.",
+    "expected": "WP Reference p.105: Escape, number, movement key repeats cursor movement.",
+    "evidence": [
+      "shots/s03-repeat-value.png",
+      "evidence/references/wp-cursor.txt",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L032",
+    "area": "Block",
+    "severity": "P2",
+    "title": "Enter cannot extend a block through the paragraph",
+    "kind": "Defect",
+    "steps": "S03: new word word; Home Home Up, F12, Enter.",
+    "observed": "Block stays zero length at the first character.",
+    "expected": "WP Reference p.50: Enter blocks to the next Hard Return.",
+    "evidence": [
+      "shots/s03-block-enter-at-start.png",
+      "evidence/references/wp-block.txt",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L033",
+    "area": "Block",
+    "severity": "P2",
+    "title": "A block cannot be saved as a file",
+    "kind": "Documented feature gap",
+    "steps": "S03: type lower Case; Home Home Up, F12, End, F10.",
+    "observed": "The selected text and Block on status remain; the command never opens.",
+    "expected": "WP Reference pp.49-51 explicitly permits Save on a block. Project ref-b.tex:50-60 acknowledges the limited command set.",
+    "evidence": [
+      "shots/s03-block-save.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L034",
+    "area": "Block",
+    "severity": "P2",
+    "title": "Case conversion is absent for selected text",
+    "kind": "Documented feature gap",
+    "steps": "S03: type lower Case; Home Home Up, F12, End, Shift-F3.",
+    "observed": "The selected text and Block on status remain; the command never opens.",
+    "expected": "WP Reference p.57: block, Switch, Uppercase/Lowercase. Project ref-b.tex:50-60 acknowledges the limited command set.",
+    "evidence": [
+      "shots/s03-block-case.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L035",
+    "area": "Block",
+    "severity": "P2",
+    "title": "Search cannot extend or contract a block",
+    "kind": "Documented feature gap",
+    "steps": "S03: type lower Case; Home Home Up, F12, End, F2.",
+    "observed": "The selected text and Block on status remain; the command never opens.",
+    "expected": "WP Reference p.573 describes searching with Block on. Project ref-b.tex:50-60 acknowledges the limited command set.",
+    "evidence": [
+      "shots/s03-block-search.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L036",
+    "area": "Block",
+    "severity": "P2",
+    "title": "Append returns without offering a file",
+    "kind": "Documented feature gap",
+    "steps": "S01: block text; Ctrl-F4, 1, 4.",
+    "observed": "The Append menu vanishes; Block stays on.",
+    "expected": "WP Reference Block p.49 includes Append. Project ref-m.tex:138-139 documents this omission.",
+    "evidence": [
+      "shots/s01-block-move-menu.png",
+      "shots/s01-block-append.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L037",
+    "area": "Block",
+    "severity": "P2",
+    "title": "Tabular Column movement is absent",
+    "kind": "Documented feature gap",
+    "steps": "S05: block one two three; Ctrl-F4, 2.",
+    "observed": "The Move menu returns to the document without performing the chosen operation.",
+    "expected": "Real WP Block/Move menu includes this operation; project ref-m.tex:138-139 explicitly lists it as unimplemented.",
+    "evidence": [
+      "shots/s05-block-move-menu.png",
+      "shots/s05-block-tabular.png",
+      "evidence/s05-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L038",
+    "area": "Block",
+    "severity": "P2",
+    "title": "Rectangle movement is absent",
+    "kind": "Documented feature gap",
+    "steps": "S05: block one two three; Ctrl-F4, 3.",
+    "observed": "The Move menu returns to the document without performing the chosen operation.",
+    "expected": "Real WP Block/Move menu includes this operation; project ref-m.tex:138-139 explicitly lists it as unimplemented.",
+    "evidence": [
+      "shots/s05-block-move-menu.png",
+      "shots/s05-block-rectangle.png",
+      "evidence/s05-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L039",
+    "area": "Codes",
+    "severity": "P2",
+    "title": "Home-Space inserts an ordinary breakable space",
+    "kind": "Defect",
+    "steps": "S03: new document; a, Home, Space, b; later save CHARS.WP5.",
+    "observed": "Reveal shows an ordinary blank. Saved body starts 61 20 62, not 61 A0 62.",
+    "expected": "Real MINT05 was typed with Home-Space and stores A0; specs/file-formats/wp5-body-codes.md section 2.",
+    "evidence": [
+      "shots/s03-hardspace-compose.png",
+      "evidence/s03-extracted/CHARS.WP5",
+      "evidence/wp5-independent-decoder.txt",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L040",
+    "area": "Codes",
+    "severity": "P2",
+    "title": "Compose inserts literal keystrokes instead of an extended character",
+    "kind": "Defect",
+    "steps": "S03: after a b, Ctrl-2, e, apostrophe. Save CHARS.WP5.",
+    "observed": "The document contains a b2e' (hex 61 20 62 32 65 27). No Compose prompt appears.",
+    "expected": "Real mint/wpMINT05.steps uses Ctrl-2, e, apostrophe to create C0 29 01 C0 (accented e).",
+    "evidence": [
+      "shots/s03-hardspace-compose.png",
+      "evidence/s03-extracted/CHARS.WP5",
+      "evidence/references/real-mint05.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L041",
+    "area": "Setup",
+    "severity": "P2",
+    "title": "Chosen measurement units do not affect measurements",
+    "kind": "Documented feature gap",
+    "steps": "S01: Shift-F1, 3, 8, 2, c; F1; type Inches?.",
+    "observed": "Setup says Centimeters, but the status still uses inch marks and values. S03 also cycles p/w/u/c/i for entry and status preferences.",
+    "expected": "A selected unit should govern its labeled field. Project ref-s.tex:360-362 explicitly acknowledges that all measurements remain inches.",
+    "evidence": [
+      "shots/s01-units-cm.png",
+      "shots/s01-units-still-inches.png",
+      "shots/s03-units-cycle.png",
+      "evidence/s01-extracted/IWORD.SET",
+      "evidence/s01-serial.log",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L042",
+    "area": "Setup / Save",
+    "severity": "P2",
+    "title": "Original Document Backup Yes never creates a backup",
+    "kind": "Documented feature gap",
+    "steps": "S01: Shift-F1,3,1,2,Y,F1. Save Original version as BACKUP.WP5. Append changed; F10 Enter Y.",
+    "observed": "Setup shows Yes; the directory has only the new BACKUP.WP5, with no backup of Original version.",
+    "expected": "The setting should protect the old version. Project ref-s.tex:314-315 explicitly admits the answer is recorded but no copy is kept.",
+    "evidence": [
+      "shots/s01-backup-yes.png",
+      "shots/s01-backup-replaced.png",
+      "evidence/s01-directory.txt",
+      "evidence/s01-extracted/BACKUP.WP5",
+      "evidence/s01-extracted/IWORD.SET",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L043",
+    "area": "Setup",
+    "severity": "P2",
+    "title": "Timed backup is unavailable",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F1,3,1,1.",
+    "observed": "The gray Timed Document Backup choice does nothing.",
+    "expected": "A dependable period word processor should offer timed recovery (memory); the omission is explicit in ref-s.tex:308-310.",
+    "evidence": [
+      "shots/s03-timed-backup.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L044",
+    "area": "Font",
+    "severity": "P2",
+    "title": "Base Font selection immediately returns to editing",
+    "kind": "Documented feature gap",
+    "steps": "S01: Ctrl-F8, 4.",
+    "observed": "No selection screen or change appears.",
+    "expected": "Real mint/shots_wpMINT28/25_base_font.png shows the screen. Project ref-f.tex:69-71 documents the omission.",
+    "evidence": [
+      "shots/s01-font-menu.png",
+      "shots/s01-base-font.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L045",
+    "area": "Font",
+    "severity": "P2",
+    "title": "Print Color selection immediately returns to editing",
+    "kind": "Documented feature gap",
+    "steps": "S01: Ctrl-F8, 5.",
+    "observed": "No selection screen or change appears.",
+    "expected": "Real mint/shots_wpMINT28/27_print_color.png shows the screen. Project ref-f.tex:69-71 documents the omission.",
+    "evidence": [
+      "shots/s01-font-menu.png",
+      "shots/s01-print-color.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L046",
+    "area": "Menu polish",
+    "severity": "P3",
+    "title": "Unimplemented Font choices look enabled",
+    "kind": "Defect",
+    "steps": "S01: Ctrl-F8.",
+    "observed": "Base Font and Print Color are shown in normal white even though selecting them does nothing.",
+    "expected": "Use the same gray convention already used for unavailable List Files and Setup choices (internal UI consistency expectation).",
+    "evidence": [
+      "shots/s01-font-menu.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L047",
+    "area": "Menu polish",
+    "severity": "P3",
+    "title": "Unavailable Format choices look enabled",
+    "kind": "Defect",
+    "steps": "S03: Shift-F8, then 1.",
+    "observed": "Page/Document/Other and the six inactive Line settings look like working white choices. Their numbers leave the menu unchanged.",
+    "expected": "Inactive options should be gray as they are in List Files and Setup (internal consistency expectation).",
+    "evidence": [
+      "shots/s03-format-main.png",
+      "shots/s03-format-line-1.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L048",
+    "area": "Setup",
+    "severity": "P2",
+    "title": "Display setup is unavailable",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F1, 2.",
+    "observed": "The gray Display row does not open.",
+    "expected": "The named WP setup capability is unavailable. Project ref-s.tex:295-297 documents the gray options; expectation is the requested full period-workstation feature set, not a claim that the project promised implementation.",
+    "evidence": [
+      "shots/s03-setup-2.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L049",
+    "area": "Setup",
+    "severity": "P2",
+    "title": "Initial Settings setup is unavailable",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F1, 4.",
+    "observed": "The gray Initial Settings row does not open.",
+    "expected": "The named WP setup capability is unavailable. Project ref-s.tex:295-297 documents the gray options; expectation is the requested full period-workstation feature set, not a claim that the project promised implementation.",
+    "evidence": [
+      "shots/s03-setup-4.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L050",
+    "area": "Setup",
+    "severity": "P2",
+    "title": "Keyboard Layout setup is unavailable",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F1, 5.",
+    "observed": "The gray Keyboard Layout row does not open.",
+    "expected": "The named WP setup capability is unavailable. Project ref-s.tex:295-297 documents the gray options; expectation is the requested full period-workstation feature set, not a claim that the project promised implementation.",
+    "evidence": [
+      "shots/s03-setup-5.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L051",
+    "area": "Setup",
+    "severity": "P2",
+    "title": "Location of Files setup is unavailable",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F1, 6.",
+    "observed": "The gray Location of Files row does not open.",
+    "expected": "The named WP setup capability is unavailable. Project ref-s.tex:295-297 documents the gray options; expectation is the requested full period-workstation feature set, not a claim that the project promised implementation.",
+    "evidence": [
+      "shots/s03-setup-6.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L052",
+    "area": "Format",
+    "severity": "P2",
+    "title": "Format Page group cannot be entered",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F8, 2.",
+    "observed": "The Format menu remains; none of this group can be reached.",
+    "expected": "Real mint/shots_wpMINT21/01_format_menu.png names the group. Project ref-f.tex:130-141 documents its absence. Child settings were not independently tested because this entry point is blocked.",
+    "evidence": [
+      "shots/s03-format-main-2.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L053",
+    "area": "Format",
+    "severity": "P2",
+    "title": "Format Document group cannot be entered",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F8, 3.",
+    "observed": "The Format menu remains; none of this group can be reached.",
+    "expected": "Real mint/shots_wpMINT21/01_format_menu.png names the group. Project ref-f.tex:130-141 documents its absence. Child settings were not independently tested because this entry point is blocked.",
+    "evidence": [
+      "shots/s03-format-main-3.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L054",
+    "area": "Format",
+    "severity": "P2",
+    "title": "Format Other group cannot be entered",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F8, 4.",
+    "observed": "The Format menu remains; none of this group can be reached.",
+    "expected": "Real mint/shots_wpMINT21/01_format_menu.png names the group. Project ref-f.tex:130-141 documents its absence. Child settings were not independently tested because this entry point is blocked.",
+    "evidence": [
+      "shots/s03-format-main-4.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L055",
+    "area": "Format",
+    "severity": "P2",
+    "title": "Hyphenation cannot be configured",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F8,1,1.",
+    "observed": "The Line menu stays unchanged at its default value.",
+    "expected": "Real mint/shots_wpMINT21/02_format_line.png shows this setting. Project ref-f.tex:135-141 acknowledges it is inactive.",
+    "evidence": [
+      "shots/s03-format-line-1.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L056",
+    "area": "Format",
+    "severity": "P2",
+    "title": "Hyphenation Zone cannot be configured",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F8,1,2.",
+    "observed": "The Line menu stays unchanged at its default value.",
+    "expected": "Real mint/shots_wpMINT21/02_format_line.png shows this setting. Project ref-f.tex:135-141 acknowledges it is inactive.",
+    "evidence": [
+      "shots/s03-format-line-2.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L057",
+    "area": "Format",
+    "severity": "P2",
+    "title": "Line Height cannot be configured",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F8,1,4.",
+    "observed": "The Line menu stays unchanged at its default value.",
+    "expected": "Real mint/shots_wpMINT21/02_format_line.png shows this setting. Project ref-f.tex:135-141 acknowledges it is inactive.",
+    "evidence": [
+      "shots/s03-format-line-4.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L058",
+    "area": "Format",
+    "severity": "P2",
+    "title": "Line Numbering cannot be configured",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F8,1,5.",
+    "observed": "The Line menu stays unchanged at its default value.",
+    "expected": "Real mint/shots_wpMINT21/02_format_line.png shows this setting. Project ref-f.tex:135-141 acknowledges it is inactive.",
+    "evidence": [
+      "shots/s03-format-line-5.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L059",
+    "area": "Format",
+    "severity": "P2",
+    "title": "Tab Set cannot be configured",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F8,1,8.",
+    "observed": "The Line menu stays unchanged at its default value.",
+    "expected": "Real mint/shots_wpMINT21/02_format_line.png shows this setting. Project ref-f.tex:135-141 acknowledges it is inactive.",
+    "evidence": [
+      "shots/s03-format-line-8.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L060",
+    "area": "Format",
+    "severity": "P2",
+    "title": "Widow/Orphan Protection cannot be configured",
+    "kind": "Documented feature gap",
+    "steps": "S03: Shift-F8,1,9.",
+    "observed": "The Line menu stays unchanged at its default value.",
+    "expected": "Real mint/shots_wpMINT21/02_format_line.png shows this setting. Project ref-f.tex:135-141 acknowledges it is inactive.",
+    "evidence": [
+      "shots/s03-format-line-9.png",
+      "evidence/s03-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L061",
+    "area": "Margins",
+    "severity": "P2",
+    "title": "Zero-inch margins are silently ignored",
+    "kind": "Defect",
+    "steps": "S01: Shift-F8,1,7; type 0 Enter for left, 0 Enter for right.",
+    "observed": "The menu still shows 1 inch for each margin, without explaining a refusal.",
+    "expected": "Project contract pubs/manuals/initechword-reference/ref-m.tex:64: \"Type a margin in inches\". Lines 65-66 only require it to be less than 9 inches. Zero is a valid numeric input under that stated rule.",
+    "evidence": [
+      "shots/s01-zero-margins.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "os/iword/app/face_a.c:1924 uses if(v), conflating zero with invalid input (guess)."
+  },
+  {
+    "id": "L062",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Help is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press f3.",
+    "observed": "Only the gray command name appears on the status line. No Help operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-help.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L063",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "End Field is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press f9.",
+    "observed": "Only the gray command name appears on the status line. No End Field operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-end-field.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L064",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Switch is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press shift-f3.",
+    "observed": "Only the gray command name appears on the status line. No Switch operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-switch.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L065",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "reverse Indent is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press shift-f4.",
+    "observed": "Only the gray command name appears on the status line. No reverse Indent operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-left-indent.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L066",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Date/Outline is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press shift-f5.",
+    "observed": "Only the gray command name appears on the status line. No Date/Outline operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-date.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L067",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Center is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press shift-f6.",
+    "observed": "Only the gray command name appears on the status line. No Center operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-center.png",
+      "shots/s01-block-center.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L068",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Print is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press shift-f7.",
+    "observed": "Only the gray command name appears on the status line. No Print operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-print.png",
+      "shots/s05-list-file-print.png",
+      "evidence/s01-serial.log",
+      "evidence/s05-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L069",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Merge Codes is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press shift-f9.",
+    "observed": "Only the gray command name appears on the status line. No Merge Codes operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-merge-codes.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L070",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Thesaurus is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press alt-f1.",
+    "observed": "Only the gray command name appears on the status line. No Thesaurus operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-thesaurus.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L071",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Mark Text is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press alt-f5.",
+    "observed": "Only the gray command name appears on the status line. No Mark Text operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-mark-text.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L072",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Flush Right is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press alt-f6.",
+    "observed": "Only the gray command name appears on the status line. No Flush Right operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-flush-right.png",
+      "shots/s01-block-flush.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L073",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Columns/Table is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press alt-f7.",
+    "observed": "Only the gray command name appears on the status line. No Columns/Table operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-columns-table.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L074",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Style is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press alt-f8.",
+    "observed": "Only the gray command name appears on the status line. No Style operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-style.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L075",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Graphics is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press alt-f9.",
+    "observed": "Only the gray command name appears on the status line. No Graphics operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-graphics.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L076",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Macro playback is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press alt-f10.",
+    "observed": "Only the gray command name appears on the status line. No Macro playback operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-macro.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L077",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Shell is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press ctrl-f1.",
+    "observed": "Only the gray command name appears on the status line. No Shell operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-shell.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L078",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Spell is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press ctrl-f2.",
+    "observed": "Only the gray command name appears on the status line. No Spell operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-spell.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L079",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Screen rewrite/split is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press ctrl-f3.",
+    "observed": "Only the gray command name appears on the status line. No Screen rewrite/split operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-screen.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L080",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Text In/Out is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press ctrl-f5.",
+    "observed": "Only the gray command name appears on the status line. No Text In/Out operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-text-in-out.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L081",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Tab Align is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press ctrl-f6.",
+    "observed": "Only the gray command name appears on the status line. No Tab Align operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-tab-align.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L082",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Footnote is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press ctrl-f7.",
+    "observed": "Only the gray command name appears on the status line. No Footnote operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-footnote.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L083",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Merge/Sort is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press ctrl-f9.",
+    "observed": "Only the gray command name appears on the status line. No Merge/Sort operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-merge-sort.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L084",
+    "area": "WP command",
+    "severity": "P2",
+    "title": "Macro Define is only a placeholder",
+    "kind": "Documented feature gap",
+    "steps": "S01: on a clear editing screen press ctrl-f10.",
+    "observed": "Only the gray command name appears on the status line. No Macro Define operation or menu opens.",
+    "expected": "WP 5.1 Reference printed pp.963-964/966 key table; spec/iword/fkeys.json carries that mapping. The project template pubs/manuals/initechword-install/strip.tex:86-99 explicitly marks this command unavailable. This is a feature-completeness finding, not a broken manual promise.",
+    "evidence": [
+      "shots/s01-key-macro-define.png",
+      "evidence/s01-serial.log"
+    ],
+    "guess": "spec/iword/fkeys.h maps this slot to IW_FK_gray (guess for dispatch cause)."
+  },
+  {
+    "id": "L085",
+    "area": "List Files",
+    "severity": "P2",
+    "title": "Delete is unavailable in the file list",
+    "kind": "Documented feature gap",
+    "steps": "S05: F5 Enter, Down three times, Right selects CODES.WP5; press 2.",
+    "observed": "The selected file and listing stay unchanged; no operation or prompt opens.",
+    "expected": "Real WP List Files menu in spec/iword/listfiles.h:128-143 includes Delete. Project ref-l.tex:103-107 explicitly acknowledges it is disabled.",
+    "evidence": [
+      "shots/s05-list-file-selected.png",
+      "shots/s05-list-file-delete.png",
+      "evidence/s05-file-ops.json",
+      "evidence/s05-extracted/CODES.WP5",
+      "evidence/s05-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L086",
+    "area": "List Files",
+    "severity": "P2",
+    "title": "Move/Rename is unavailable in the file list",
+    "kind": "Documented feature gap",
+    "steps": "S05: F5 Enter, Down three times, Right selects CODES.WP5; press 3.",
+    "observed": "The selected file and listing stay unchanged; no operation or prompt opens.",
+    "expected": "Real WP List Files menu in spec/iword/listfiles.h:128-143 includes Move/Rename. Project ref-l.tex:103-107 explicitly acknowledges it is disabled.",
+    "evidence": [
+      "shots/s05-list-file-selected.png",
+      "shots/s05-list-file-rename.png",
+      "evidence/s05-file-ops.json",
+      "evidence/s05-extracted/CODES.WP5",
+      "evidence/s05-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L087",
+    "area": "List Files",
+    "severity": "P2",
+    "title": "Short/Long Display is unavailable in the file list",
+    "kind": "Documented feature gap",
+    "steps": "S05: F5 Enter, Down three times, Right selects CODES.WP5; press 5.",
+    "observed": "The selected file and listing stay unchanged; no operation or prompt opens.",
+    "expected": "Real WP List Files menu in spec/iword/listfiles.h:128-143 includes Short/Long Display. Project ref-l.tex:103-107 explicitly acknowledges it is disabled.",
+    "evidence": [
+      "shots/s05-list-file-selected.png",
+      "shots/s05-list-file-display.png",
+      "evidence/s05-file-ops.json",
+      "evidence/s05-extracted/CODES.WP5",
+      "evidence/s05-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L088",
+    "area": "List Files",
+    "severity": "P2",
+    "title": "Other Directory is unavailable in the file list",
+    "kind": "Documented feature gap",
+    "steps": "S05: F5 Enter, Down three times, Right selects CODES.WP5; press 7.",
+    "observed": "The selected file and listing stay unchanged; no operation or prompt opens.",
+    "expected": "Real WP List Files menu in spec/iword/listfiles.h:128-143 includes Other Directory. Project ref-l.tex:103-107 explicitly acknowledges it is disabled.",
+    "evidence": [
+      "shots/s05-list-file-selected.png",
+      "shots/s05-list-file-other-dir.png",
+      "evidence/s05-file-ops.json",
+      "evidence/s05-extracted/CODES.WP5",
+      "evidence/s05-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L089",
+    "area": "List Files",
+    "severity": "P2",
+    "title": "Copy is unavailable in the file list",
+    "kind": "Documented feature gap",
+    "steps": "S05: F5 Enter, Down three times, Right selects CODES.WP5; press 8.",
+    "observed": "The selected file and listing stay unchanged; no operation or prompt opens.",
+    "expected": "Real WP List Files menu in spec/iword/listfiles.h:128-143 includes Copy. Project ref-l.tex:103-107 explicitly acknowledges it is disabled.",
+    "evidence": [
+      "shots/s05-list-file-selected.png",
+      "shots/s05-list-file-copy.png",
+      "evidence/s05-file-ops.json",
+      "evidence/s05-extracted/CODES.WP5",
+      "evidence/s05-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L090",
+    "area": "List Files",
+    "severity": "P2",
+    "title": "Find is unavailable in the file list",
+    "kind": "Documented feature gap",
+    "steps": "S05: F5 Enter, Down three times, Right selects CODES.WP5; press 9.",
+    "observed": "The selected file and listing stay unchanged; no operation or prompt opens.",
+    "expected": "Real WP List Files menu in spec/iword/listfiles.h:128-143 includes Find. Project ref-l.tex:103-107 explicitly acknowledges it is disabled.",
+    "evidence": [
+      "shots/s05-list-file-selected.png",
+      "shots/s05-list-file-find.png",
+      "evidence/s05-file-ops.json",
+      "evidence/s05-extracted/CODES.WP5",
+      "evidence/s05-serial.log"
+    ],
+    "guess": ""
+  },
+  {
+    "id": "L091",
+    "area": "List Files",
+    "severity": "P2",
+    "title": "Name Search is unavailable in the file list",
+    "kind": "Documented feature gap",
+    "steps": "S05: F5 Enter, Down three times, Right selects CODES.WP5; press n.",
+    "observed": "The selected file and listing stay unchanged; no operation or prompt opens.",
+    "expected": "Real WP List Files menu in spec/iword/listfiles.h:128-143 includes Name Search. Project ref-l.tex:103-107 explicitly acknowledges it is disabled.",
+    "evidence": [
+      "shots/s05-list-file-selected.png",
+      "shots/s05-list-file-name-search.png",
+      "evidence/s05-file-ops.json",
+      "evidence/s05-extracted/CODES.WP5",
+      "evidence/s05-serial.log"
+    ],
+    "guess": ""
+  }
+]

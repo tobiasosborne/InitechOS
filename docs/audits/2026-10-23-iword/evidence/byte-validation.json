@@ -1,0 +1,212 @@
+{
+  "real_MINT01_round_trip": {
+    "pass": true,
+    "detail": null
+  },
+  "adjacent_replace": {
+    "pass": true,
+    "detail": null
+  },
+  "forward_backward_block_attributes": {
+    "pass": true,
+    "detail": null
+  },
+  "crossing_attributes": {
+    "pass": true,
+    "detail": null
+  },
+  "copy_duplicates_text": {
+    "pass": true,
+    "detail": null
+  },
+  "cross_code_block_preserves_plain_CD": {
+    "pass": true,
+    "detail": null
+  },
+  "code_only_roundtrip_body": {
+    "pass": true,
+    "detail": null
+  },
+  "hardpage_after_undelete": {
+    "pass": true,
+    "detail": null
+  },
+  "max_file_size": {
+    "pass": true,
+    "detail": null
+  },
+  "max_cursor_flag": {
+    "pass": true,
+    "detail": null
+  },
+  "max_unchanged_after_refused_edits": {
+    "pass": true,
+    "detail": null
+  },
+  "original_before_has_373_bytes": {
+    "pass": true,
+    "detail": null
+  },
+  "full_disk_overwrite_loses_original_twice": {
+    "pass": true,
+    "detail": null
+  },
+  "readonly_preserved": {
+    "pass": true,
+    "detail": null
+  },
+  "bad_name_was_mangled": {
+    "pass": true,
+    "detail": null
+  },
+  "compose_and_hardspace_bytes": {
+    "pass": true,
+    "detail": null
+  },
+  "saved_tab_targets_8_inches": {
+    "pass": true,
+    "detail": null
+  },
+  "indent_targets_8_inches": {
+    "pass": true,
+    "detail": null
+  },
+  "original_backup_enabled_on_disk": {
+    "pass": true,
+    "detail": null
+  },
+  "save_then_stay_saved_content": {
+    "pass": true,
+    "detail": null
+  },
+  "save_then_quit_saved_content": {
+    "pass": true,
+    "detail": null
+  },
+  "independent_decoder_13_files": {
+    "pass": true,
+    "detail": [
+      [
+        "331",
+        "331",
+        "0"
+      ],
+      [
+        "344",
+        "344",
+        "0"
+      ],
+      [
+        "482",
+        "482",
+        "0"
+      ],
+      [
+        "519",
+        "519",
+        "0"
+      ],
+      [
+        "452",
+        "452",
+        "0"
+      ],
+      [
+        "495",
+        "495",
+        "0"
+      ],
+      [
+        "333",
+        "333",
+        "0"
+      ],
+      [
+        "343",
+        "343",
+        "0"
+      ],
+      [
+        "335",
+        "335",
+        "0"
+      ],
+      [
+        "342",
+        "342",
+        "0"
+      ],
+      [
+        "389",
+        "389",
+        "0"
+      ],
+      [
+        "356",
+        "356",
+        "0"
+      ],
+      [
+        "422",
+        "422",
+        "0"
+      ]
+    ]
+  },
+  "s01_ADJ.WP5_header": {
+    "pass": true,
+    "detail": null
+  },
+  "s01_ADJ.WP5_default_prefix": {
+    "pass": true,
+    "detail": null
+  },
+  "s01_BLOCK.WP5_header": {
+    "pass": true,
+    "detail": null
+  },
+  "s01_BLOCK.WP5_default_prefix": {
+    "pass": true,
+    "detail": null
+  },
+  "s01_FONT.WP5_header": {
+    "pass": true,
+    "detail": null
+  },
+  "s01_FONT.WP5_default_prefix": {
+    "pass": true,
+    "detail": null
+  },
+  "s01_FORMAT.WP5_header": {
+    "pass": true,
+    "detail": null
+  },
+  "s01_FORMAT.WP5_default_prefix": {
+    "pass": true,
+    "detail": null
+  },
+  "s03_COPY.WP5_header": {
+    "pass": true,
+    "detail": null
+  },
+  "s03_COPY.WP5_default_prefix": {
+    "pass": true,
+    "detail": null
+  },
+  "s03_NEST.WP5_header": {
+    "pass": true,
+    "detail": null
+  },
+  "s03_NEST.WP5_default_prefix": {
+    "pass": true,
+    "detail": null
+  },
+  "s03_PAGES.WP5_header": {
+    "pass": true,
+    "detail": null
+  },
+  "s03_PAGES.WP5_default_prefix": {
+    "pass": true,
+    "detail": null
+  }
+}

@@ -1,0 +1,111 @@
+1: % Reference entries, L (AN-11).  Law 1: os/iword/core/edit.c iw_ed_spacing
+2: % ([Ln Spacing:] D0/02 at the cursor, no return before it; 8.8 fixed,
+3: % iw_spacing_from_hundredths rounds up), iw_spacing_rows (a line takes its
+4: % spacing rounded to the nearest whole screen row), face_a.c M_FMTSP and
+5: % follow() (the screen scrolls by rows), the status line's Ln (the spacing
+6: % counted).  Shots: ../wordperfect51-decomp mint MINT25, MINT26, MINT30.
+7: % GATES: test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-format
+8: \Gates{test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-format}
+9: \begin{Feature}{Line Spacing}
+10: Line spacing sets how far apart the lines of text are: single spacing,
+11: double spacing for a draft that will be marked up, or any spacing between,
+12: such as one and a half.  It applies from the place you set it to the end of
+13: the document, or to the next Line Spacing code.
+14: 
+15: To set the line spacing,
+16: \begin{WPSteps}
+17: \item Move the cursor to where the new spacing is to begin.
+18: \item Press \FK{Format}{Shift-F8}, then select \Ch{Line}{1}.
+19: \item Select \Ch{Line Spacing}{6}.
+20: \item Type the spacing: \Typed{2} for double spacing, \Typed{1.5} for one and
+21: a half, \Typed{1} for single spacing.
+22: \item Press \K{Enter}.  The Format: Line screen shows the new spacing.
+23: \item Press \FK{Exit}{F7} to return to the document.
+24: \end{WPSteps}
+25: \Documents{wpmenu}{Shift-F8,1,6=Line Spacing}
+26: 
+27: \BeginReplay{ref-spacing}
+28: For example, press \Press{Format}{Shift-F8}, select \Choose{Line}{1} and
+29: \Choose{Line Spacing}{6}, type \TypeName{2}, press \PressKey{Enter} and
+30: \Press{Exit}{F7}.  Type \TypeRun{Line one of a double-spaced draft.}, press
+31: \PressKey{Enter}, type \TypeRun{Line two.} and press \PressKey{Enter}:
+32: \WordScreen[rows=5]{ref-spacing}{Double spacing on the editing screen}
+33: \EndReplay
+34: 
+35: \Notes
+36: \Topic{Code}
+37: Line Spacing puts a \Code{[Ln Spacing:\textit{n}]} code at the cursor, for
+38: example \Code{[Ln Spacing:2]}.  InitechWord asks before deleting one on the
+39: editing screen (see \InRef{Codes}).
+40: 
+41: \Topic{Hundredths}
+42: You can type a spacing to two decimal places, for example \Typed{1.33}.
+43: InitechWord keeps spacings in steps of 1/256 of a line, and stores a typed
+44: spacing as the nearest step at or above it.
+45: 
+46: \Topic{In the Middle of a Line}
+47: Line Spacing goes in exactly at the cursor; it does not end the line there.
+48: The line the code is on is spaced by the spacing in effect at its end.
+49: 
+50: \Topic{On the Screen}
+51: On the editing screen each line takes its spacing rounded to the nearest
+52: whole line: double spacing leaves one blank row under each line, one and a
+53: half spacing also leaves one, and 1.33 leaves none.  The status line's Ln
+54: counts the exact spacing, so it shows where the line falls on the page.
+55: 
+56: \Topic{Typing a Spacing}
+57: At the spacing prompt you may type digits and a period.  Backspace erases
+58: the last character.  Pressing Enter without typing anything, or after typing
+59: something that is not a number of lines up to 8, leaves the spacing as it
+60: was; Cancel does the same.
+61: 
+62: \SeeAlso{Format; Margins, Left and Right; Status Line}
+63: \end{Feature}
+64: 
+65: % List Files (F5): bead initech-qvgd (IWORD P3 remainder, 2026-10-20). Law 1:
+66: % WordPerfect 5.1 Reference (initech-manuals-ref/wordperfect51/WPDOS51Reference.pdf)
+67: % PDF pp. 364-370 (List Files) and 381-384 (Look); the real-WP mint
+68: % ../wordperfect51-decomp mint/work/LISTF/mint-results-005.md (session LF14,
+69: % the golden of test-iword-listfiles and test-flair-iword-listfiles);
+70: % spec/iword/listfiles.h (the locked screen layout, the 80 -> 76 column
+71: % adaptation), os/iword/core/listfiles.c, face_a.c.
+72: \begin{Feature}{List Files}
+73: List Files shows the documents and other files on the data diskette, with
+74: the size and date of each, and lets you retrieve a document or look at one
+75: without leaving InitechWord.
+76: 
+77: To list the files,
+78: \begin{WPSteps}
+79: \item Press \FK{List}{F5}.  The status line shows \Scr{Dir A:\textbackslash*.*}.
+80: \item Press \K{Enter} to list that directory.
+81: \item The List Files screen shows the directory, its free space and the
+82: number of files on the top line, and the files in two columns.  Use the
+83: arrow keys to move the highlight.  \K{Enter} on a directory opens it;
+84: \Scr{.. Parent} returns to the one above.
+85: \item Select \Ch{Retrieve}{1} to bring the highlighted document onto the
+86: editing screen, or \Ch{Look}{6} to read it without retrieving it.  Press
+87: \K{Esc} to leave Look, and \FK{Exit}{F7} or \K{Esc} to leave the list.
+88: \end{WPSteps}
+89: \Documents{wpkey}{F5}
+90: If a document is already on the editing screen, Retrieve asks \Scr{Retrieve
+91: into current document? No (Yes)}; answer \Typed{Y} to add the file at the
+92: cursor, or \Typed{N} to keep the screen as it is.
+93: 
+94: \Notes
+95: \Topic{Entries}
+96: Each entry prints the file name, its size in bytes, and the date and time it
+97: was last saved, as the operating system's directory listing prints them.  The
+98: top line's \Scr{Used} figure is the total of the sizes listed; \Scr{Free} is
+99: the space left on the diskette.  Directories print \Scr{<Dir>} in place of
+100: a size.
+101: 
+102: \Topic{Menu items not yet in this version}
+103: The List Files menu also names Delete, Move/Rename, Print, Short/Long
+104: Display, Other Directory, Copy, Find and Name Search.  This version of
+105: InitechWord prints those items in grey and does nothing when they are
+106: selected; use the operating system's commands for the same tasks (see the
+107: \emph{InitechDOS User's Guide}).
+108: 
+109: \SeeAlso{Exit; Retrieve; Save}
+110: \end{Feature}
+111: 

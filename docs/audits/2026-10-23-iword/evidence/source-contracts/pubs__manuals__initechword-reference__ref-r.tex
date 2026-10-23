@@ -1,0 +1,320 @@
+1: % Reference entries, R (AN-11).  Law 1: os/iword/app/face_a.c
+2: % retrieve_named (a missing file, a file that is not a WordPerfect 5.1
+3: % document, a file larger than 64K; onto a clear screen the file becomes the
+4: % document, into a document its text goes in at the cursor), os/iword/fs/
+5: % wp5.c iw_wp5_read (only codes the corpus verified are accepted),
+6: % spec/iword/wp5_format.h (HRt 0x0A, SRt 0x0D, DSRt 0x90), edit.c (wrap,
+7: % the DSRt of Justification), codes.c iw_reveal_pane and face_a.c
+8: % paint_reveal (the Reveal Codes screen: 10 document rows, the status line,
+9: % the ruler, the 10-row codes area, the restore message; spec/iword/
+10: % reveal_codes.h).  Shots: ../wordperfect51-decomp goldens MINT01..05,
+11: % mint MINT06..32.
+12: % Replace (Alt-F2) is P3 (bead initech-qvgd part 2, WL-0146): face_a.c
+13: % IW_FK_replace, replace_key (w/Confirm? No (Yes): y confirms, n or Enter
+14: % does not, other keys ignored, F1 cancels; Replace? Yes (No): y or Enter
+15: % replaces, n skips, F1 stops), search_key in M_RSEARCH (the Srch: keys; F2
+16: % / Esc go on to Replace with:, an empty string returns to the document) and
+17: % M_RTEXT (no F6 / F8, no Up / Down), replace_next (every match from the
+18: % cursor in the direction shown, then "* Not found *"), replace_match (a
+19: % lower-case replacement takes the capitals of the text found: all capitals,
+20: % or the first letter; an empty replacement deletes; Tab, Indent and Hard
+21: % Page codes in the replacement get their positions fixed up).  F11 is
+22: % Reveal Codes (spec/iword/fkeys.json; Reference p. 966 note 3).
+23: % GATES: test-pubs-iword test-iword-face test-iword-wp5-roundtrip test-iword-reveal-codes test-flair-iword test-flair-iword-codes test-pubs-flair-screens test-iword-replace test-flair-iword-replace test-iword-fkeys
+24: \Gates{test-pubs-iword test-iword-face test-iword-wp5-roundtrip test-iword-reveal-codes test-flair-iword test-flair-iword-codes test-pubs-flair-screens test-iword-replace test-flair-iword-replace test-iword-fkeys}
+25: \begin{Feature}{Replace}
+26: Replace finds text or codes, as Search does, and puts other text in their
+27: place.  It can replace every occurrence at once, or stop at each one and ask
+28: you.
+29: 
+30: To replace,
+31: \begin{WPSteps}
+32: \item Move the cursor to where the replacing is to begin: Replace works from
+33: the cursor to the end of the document.  (To go to the top of the document,
+34: press \K{Home, Home, Up}.)
+35: \item Press \FK{Replace}{Alt-F2}.  The status line asks
+36: \Scr{w/Confirm? No (Yes)}.
+37: \item Type \Typed{y} to be asked at each occurrence
+38: \Or
+39: Type \Typed{n} or press \K{Enter} to replace every occurrence without
+40: asking.
+41: \item At \Scr{-> Srch:}, type the text to be replaced and press \K{F2}.
+42: \item At \Scr{Replace with:}, type the new text and press \K{F2}.
+43: \end{WPSteps}
+44: \Documents{wpkey}{Alt-F2}
+45: \Documents{wpkey}{Rplc:F2}
+46: \Documents{wpkey}{Rplc:Esc}
+47: InitechWord replaces the text wherever it finds it, from the cursor to the
+48: end of the document, and leaves the cursor after the last replacement.  When
+49: there is nothing more to find, the status line shows \Scr{* Not found *};
+50: press any key to go on.
+51: 
+52: \BeginReplay{ref-replace}
+53: For example, type
+54: \Type{The memo of Friday replaces the memo of Monday.  File the MEMO.}
+55: press \PressKey{Home, Home, Up} and \Press{Replace}{Alt-F2}, type
+56: \TypeName{n}, type \TypeName{memo} and press \PressKey{F2}:
+57: \WordScreen[rows=1]{ref-replace-1}{The replacement prompt}
+58: Type \TypeName{notice} and press \PressKey{F2}:
+59: \WordScreen[rows=2]{ref-replace-2}{Every memo replaced}
+60: Each \textit{memo} is now \textit{notice}, and the capitals of \textit{MEMO}
+61: are kept: \textit{NOTICE}.
+62: \EndReplay
+63: 
+64: \Notes
+65: \Topic{Canceling}
+66: Press \FK{Cancel}{F1} at \Scr{w/Confirm? No (Yes)}, at the search string or
+67: at \Scr{Replace with:} to leave Replace without replacing anything.  At
+68: \Scr{Replace? Yes (No)}, Cancel stops the replacing; what was replaced
+69: before it stays replaced.
+70: \Documents{wpkey}{Rplc:F1}
+71: 
+72: \Topic{Capital Letters}
+73: The search string finds capitals as described under \InRef{Search}.  When
+74: the new text is all in lower case, InitechWord gives it the capitals of the
+75: text it replaces: replacing \Typed{memo} with \Typed{notice} gives
+76: \Scr{notice} for \Scr{memo}, \Scr{Notice} for \Scr{Memo} and \Scr{NOTICE}
+77: for \Scr{MEMO}.  New text with any capital is put in exactly as you typed
+78: it.
+79: 
+80: \Topic{Codes}
+81: The search string can hold the codes Search can find (see \InRef{Search}).
+82: Replacing \Code{[BOLD]} with nothing, for example, deletes every bold on
+83: code; the \Code{[bold]} codes stay where they are, as Reveal Codes shows,
+84: and change nothing.  To delete them too, replace \Code{[bold]} with
+85: nothing: at the \Scr{-> Srch:} prompt press F6 twice, which gives
+86: \Code{[BOLD][bold]}, then \K{Left} twice and \K{Delete}, which leaves
+87: \Code{[bold]}.  The new text can hold \Code{[Tab]}
+88: (\K{Tab}), \Code{[\rarr Indent]} (\K{F4}), \Code{[HRt]} (\K{Enter}) and
+89: \Code{[HPg]} (\K{Ctrl-Enter}), but no appearance codes: F6 and F8 do nothing
+90: at \Scr{Replace with:}.
+91: \Documents{wpkey}{Rplc:Tab}
+92: \Documents{wpkey}{Rplc:F4}
+93: \Documents{wpkey}{Rplc:Enter}
+94: \Documents{wpkey}{Rplc:Ctrl-Enter}
+95: 
+96: \Topic{Confirming Each Replacement}
+97: If you answered \Typed{y} to \Scr{w/Confirm? No (Yes)}, InitechWord stops
+98: at each occurrence, highlights it as a block and asks
+99: \Scr{Replace? Yes (No)}.  Type \Typed{y} or press \K{Enter} to replace it, or
+100: type \Typed{n} to leave it; InitechWord then goes on to the next.  Other
+101: keys are ignored.
+102: 
+103: \BeginReplay{ref-replace-confirm}
+104: For example, type
+105: \Type{Send the report to Bill.  The report is due today.  Report early.}
+106: press \PressKey{Home, Home, Up} and \Press{Replace}{Alt-F2}, type
+107: \TypeName{y}, type \TypeName{report}, press \PressKey{F2}, type
+108: \TypeName{memo} and press \PressKey{F2}:
+109: \WordScreen[rows=1]{ref-replace-confirm-1}{Replace asks at each occurrence}
+110: Type \TypeName{y} for the first, \TypeName{n} for the second and
+111: \TypeName{y} for the third:
+112: \WordScreen[rows=1]{ref-replace-confirm-2}{The first and third replaced}
+113: \EndReplay
+114: 
+115: \Topic{Deleting Text Throughout}
+116: To delete every occurrence of a word, replace it with nothing: at
+117: \Scr{Replace with:} press F2 without typing anything.
+118: 
+119: \Topic{Direction}
+120: Replace works forward, from the cursor to the end of the document.  To
+121: replace backward, from the cursor to the beginning, press \K{Up} at the
+122: \Scr{-> Srch:} prompt: it becomes \Scr{<- Srch:}.  \K{Down} turns it forward
+123: again.
+124: 
+125: \Topic{Editing the Strings}
+126: The search string and the new text are typed and corrected with the keys of
+127: the \Scr{Srch:} prompt (see \InRef{Search}): \K{Left}, \K{Right},
+128: \K{Backspace} and \K{Delete}, a whole code at a time.  \K{F2} or \K{Esc}
+129: ends each string.  At \Scr{Replace with:} InitechWord does not look at
+130: Shift, Alt or Ctrl on these keys:
+131: \Documents{wpkey}{Rplc:Left}
+132: \Documents{wpkey}{Rplc:Right}
+133: \Documents{wpkey}{Rplc:Backspace}
+134: \Documents{wpkey}{Rplc:Delete}
+135: \par\addvspace{4pt}
+136: \noindent{\small\begin{tabular}{@{}lll@{}}
+137: \WPPromptAlias{Rplc:}{Shift-F1}{F1}, & \WPPromptAlias{Rplc:}{Alt-F1}{F1}, & \WPPromptAlias{Rplc:}{Ctrl-F1}{F1}\\
+138: \WPPromptAlias{Rplc:}{Shift-F2}{F2}, & \WPPromptAlias{Rplc:}{Alt-F2}{F2}, & \WPPromptAlias{Rplc:}{Ctrl-F2}{F2}\\
+139: \WPPromptAlias{Rplc:}{Shift-Esc}{Esc}, & \WPPromptAlias{Rplc:}{Alt-Esc}{Esc}, & \WPPromptAlias{Rplc:}{Ctrl-Esc}{Esc}\\
+140: \WPPromptAlias{Rplc:}{Shift-Left}{Left}, & \WPPromptAlias{Rplc:}{Alt-Left}{Left}, & \WPPromptAlias{Rplc:}{Ctrl-Left}{Left}\\
+141: \WPPromptAlias{Rplc:}{Shift-Right}{Right}, & \WPPromptAlias{Rplc:}{Alt-Right}{Right}, & \WPPromptAlias{Rplc:}{Ctrl-Right}{Right}\\
+142: \WPPromptAlias{Rplc:}{Shift-Backspace}{Backspace}, & \WPPromptAlias{Rplc:}{Alt-Backspace}{Backspace}, & \WPPromptAlias{Rplc:}{Ctrl-Backspace}{Backspace}\\
+143: \WPPromptAlias{Rplc:}{Shift-Delete}{Delete}, & \WPPromptAlias{Rplc:}{Alt-Delete}{Delete}, & \WPPromptAlias{Rplc:}{Ctrl-Delete}{Delete}\\
+144: \WPPromptAlias{Rplc:}{Shift-Tab}{Tab}, & \WPPromptAlias{Rplc:}{Alt-Tab}{Tab}, & \WPPromptAlias{Rplc:}{Ctrl-Tab}{Tab}\\
+145: \WPPromptAlias{Rplc:}{Shift-Enter}{Enter}, & \WPPromptAlias{Rplc:}{Alt-Enter}{Enter} & \\
+146: \end{tabular}}
+147: \par\addvspace{4pt}
+148: 
+149: \Topic{Repeating}
+150: Replace starts with an empty search string.  Afterwards, the search string
+151: of Replace is offered by the next Search (F2), so that you can look for any
+152: occurrence you chose not to replace.
+153: 
+154: \Topic{Undoing a Replacement}
+155: Replace does not keep what it replaced.  To go back, retrieve the document
+156: as you last saved it, or replace the new text with the old.
+157: 
+158: \SeeAlso{Block; Codes; Search; Undelete}
+159: \end{Feature}
+160: 
+161: \begin{Feature}{Retrieve}
+162: Retrieve brings a document you have saved back onto the screen, so that you
+163: can read it or change it.  You can also
+164: retrieve a document into the one on the screen, to combine the two.
+165: 
+166: To retrieve a document,
+167: \begin{WPSteps}
+168: \item Clear the screen if it holds a document you do not want to combine
+169: with the one you retrieve (see \InRef{Exit}).
+170: \item Press \FK{Retrieve}{Shift-F10}.  The status line shows
+171: \Scr{Document to be Retrieved:}.
+172: \PullDown{Select \Mi{R}etrieve from the \Mi{F}ile menu.}
+173: \item Type the name of the document and press \K{Enter}.
+174: \end{WPSteps}
+175: \Documents{wpkey}{Shift-F10}
+176: On a clear screen the document you retrieve becomes the document you are
+177: working on: its name is shown on the status line and the cursor is at its
+178: top.
+179: 
+180: \Notes
+181: \Topic{Into Another Document}
+182: If the screen already holds text, the retrieved document's text is put into
+183: it at the cursor, and the document on the screen keeps its own name.  The
+184: two documents are now one; the file you retrieved is not changed.
+185: 
+186: \BeginReplay{ref-retrieve}
+187: For example, with a new document on the screen, type
+188: \TypeRun{Attached is the letter: } (with the space), press
+189: \Press{Retrieve}{Shift-F10}, type \TypeName{letter} -- the letter saved in
+190: \textit{A Brief Lesson} -- and press \PressKey{Enter}:
+191: \WordScreen[rows=6]{ref-retrieve}{A document retrieved into another, at the cursor}
+192: \EndReplay
+193: The text of the letter follows the text you typed, and the status line shows
+194: no name: the document on the screen has not been saved.
+195: 
+196: \Topic{Messages}
+197: \Scr{ERROR: File Not Found} means there is no document by that name on the
+198: data volume: check the name and type it again.
+199: \Scr{ERROR: Incompatible File Format} means the file is not a WordPerfect
+200: 5.1 document that InitechWord can read.
+201: \Scr{ERROR: Document too large} means the file is larger than InitechWord
+202: can hold (see Appendix H).  Press any key to return to the prompt.
+203: 
+204: \Topic{WordPerfect 5.1 Documents}
+205: InitechWord's documents are WordPerfect 5.1 documents, and InitechWord
+206: retrieves documents written by WordPerfect 5.1 itself, keeping every code
+207: it holds (see \InRef{Codes}).  A WordPerfect document that holds a code
+208: InitechWord does not know is refused with \Scr{ERROR: Incompatible File
+209: Format}, rather than changed.
+210: 
+211: \SeeAlso{Exit; Filenames; Save}
+212: \end{Feature}
+213: 
+214: \begin{Feature}{Return, Deletable Soft}
+215: A deletable soft return ends a line without ending the paragraph.
+216: InitechWord puts one in when you set the justification with the cursor in
+217: the middle of a line, so that the text after the cursor starts a new line
+218: in the new justification (see \InRef{Justification}).
+219: 
+220: Reveal Codes shows it as \Code{[DSRt]}.  To join the two lines again, delete
+221: the code: InitechWord deletes it without asking.
+222: 
+223: \SeeAlso{Justification; Return, Hard; Return, Soft}
+224: \end{Feature}
+225: 
+226: \begin{Feature}{Return, Hard}
+227: A hard return ends a line where you choose, and ends the paragraph.  You put
+228: one in by pressing \K{Enter}.  Use it at the end of a paragraph, after each
+229: line of an address or a list, and to make blank lines.
+230: 
+231: To insert a hard return,
+232: \begin{WPSteps}
+233: \item Press \K{Enter}.
+234: \end{WPSteps}
+235: \Documents{wpkey}{Enter}
+236: 
+237: \Notes
+238: \Topic{Code}
+239: A hard return is the code \Code{[HRt]}.  Delete it to join a line to the
+240: line after it (see \InRef{Delete}).
+241: 
+242: \Topic{Shift-Enter and Alt-Enter}
+243: Shift-Enter and Alt-Enter put in a hard return as Enter does.  Ctrl-Enter
+244: puts in a hard page (see \InRef{Page Break, Hard}).
+245: 
+246: \SeeAlso{Page Break, Hard; Return, Soft; Word Wrap}
+247: \end{Feature}
+248: 
+249: \begin{Feature}{Return, Soft}
+250: A soft return is the end of a line that InitechWord makes for you when a
+251: line is full (see \InRef{Word Wrap}).  It takes the place of the space
+252: between the last word that fits on the line and the word that goes to the
+253: next line.  Reveal Codes shows it as \Code{[SRt]}.
+254: 
+255: You never type a soft return and you need not delete one: whenever you
+256: change a paragraph, InitechWord wraps it again and moves its soft returns to
+257: where the lines now end.
+258: 
+259: \SeeAlso{Return, Deletable Soft; Return, Hard; Word Wrap}
+260: \end{Feature}
+261: 
+262: \begin{Feature}{Reveal Codes}
+263: Reveal Codes shows the hidden codes of the document.  The screen divides:
+264: the upper part shows the document as usual, and the lower part shows the
+265: same lines with every code in square brackets.  Use it to see why text
+266: looks as it does, and to delete a code.
+267: 
+268: To reveal codes,
+269: \begin{WPSteps}
+270: \item Press \FK{Reveal Codes}{Alt-F3}.
+271: \item Move the cursor as usual.  It moves in both parts of the screen; in
+272: the codes area it is the highlighted character or code.
+273: \item Press \FK{Reveal Codes}{Alt-F3} again to return to the full editing
+274: screen.
+275: \end{WPSteps}
+276: \Documents{wpkey}{Alt-F3}
+277: \Documents{wpkey}{F11}
+278: \K{F11} does what Alt-F3 does, with Block on or off.
+279: \FlairShot{reveal}{640}{440}{Reveal Codes: the bold codes around a word}
+280: 
+281: The Reveal Codes screen has five parts, from the top:
+282: \begin{description}
+283: \item[The document] ten lines of the document, as on the editing screen.
+284: \item[The status line] as on the editing screen.
+285: \item[The ruler] the margins and tab stops in effect at the cursor.
+286: \item[The codes area] ten rows: the text of the lines around the cursor,
+287: starting three lines above it, with the codes shown.  A line longer than the
+288: screen runs on into the next row.
+289: \item[The message] \Scr{Press Reveal Codes to restore screen}.
+290: \end{description}
+291: 
+292: \Notes
+293: \Topic{Deleting Codes}
+294: In Reveal Codes, Backspace and Delete delete codes without asking, as they
+295: delete characters.  Deleting either code of an appearance or size deletes
+296: its partner too.  See \InRef{Codes}.
+297: 
+298: \Topic{Editing in Reveal Codes}
+299: Everything you can do on the editing screen you can do in Reveal Codes:
+300: type, block, move, format.  Both parts of the screen change as you work.
+301: 
+302: \Topic{The Cursor in the Codes Area}
+303: The highlight covers the character or the whole code the cursor is on.  At
+304: the very end of the document it is one empty cell after the last code.
+305: 
+306: \Topic{The End of the Document}
+307: \BeginReplay{ref-reveal-end}At the end of the document the highlight is one empty cell after the
+308: last character or code.  For example, type \TypeRun{Total:}, press
+309: \PressKey{Tab}, type \TypeRun{570} and press \Press{Reveal Codes}{Alt-F3}:
+310: \WordScreen[rows=13]{ref-reveal-end}{The cursor at the end of the document, in Reveal Codes}
+311: \EndReplay
+312: 
+313: \Topic{The Ruler}
+314: The left margin is shown by \Scr{\{} and the right margin by \Scr{\}}; a
+315: margin that does not fall on a tab stop is shown by \Scr{[} or \Scr{]}
+316: instead.  The small triangles are the tab stops, every half inch from the
+317: left margin.
+318: 
+319: \SeeAlso{Codes; Margins, Left and Right; Tab}
+320: \end{Feature}

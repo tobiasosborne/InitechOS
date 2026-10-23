@@ -1,0 +1,172 @@
+Source: WPDOS51Reference.pdf; pdftotext -layout, source text line numbers follow.
+3630:                                               Sizeffype in Reference). If you select Top (I),
+3631:                                                                                           (1), the binding
+3632:                       offset you enter in step 2 above will move the text up or down on the page
+3633:                       rather
+3634:                       ra ther than left or right.
+3635: 
+3636:                       See Also: Print, Document on Disk; Print,
+3637:                                                          Print. Document on Screen; Print Options;
+3638:                       Printing—General Information
+3639:                       Printing-General
+3640: 
+3641: 
+3642: 
+3643: Block, Define
+3644: 
+3645:                       Block is used to highlight (usually in reverse video) any portion of the on-screen
+3646:                       document file.
+3647:                                  tile. You can then use the block of text with many other WordPerfect
+3648:                       features (see Associated Features below).
+3649:                                                          below ).
+3650:                       To define a block,
+3651:                                   block.
+3652:                       1   Move the cursor to one edge of the text you want to block.
+3653:                       2   Press Block (Alt-F4) to turn on the Block feature.
+3654:                       CO Select Block from the Edit menu to tum
+3655:                       [8)                                   turn on Block (see Mouse below).
+3656:                                                                                      below).
+3657: 
+3658: 
+3659: 
+3660: 
+3661: 448
+3662:   8   BLOCK, DEFINE
+3663:       BLOCK.
+3664: 
+3665:         3         Highlight the text by moving the cursor to the opposite edge of the text.
+3666: 
+3667: 
+3668: 
+3669:              •·
+3670:              4.         em pl oyees should
+3671:                     All employees   s nould come
+3672:                                             c:0111e to
+3673:                                                     tc work at llB a.n.
+3674:                                                                    ,11 111.
+3675: 
+3676:              5.
+3677:              5.    f" OO d may
+3678:                    Food       111ay be
+3679:                                     bill eaten
+3680:                                          11eten at an employee's desk
+3681:                                                                   deslc os
+3682:                                                                         as long as any
+3683:                                                                                    11ny trash
+3684:              is
+3685:              I• di
+3686:                 dJ a  p o s o d of ""
+3687:                    OQe"od            as soon
+3688:                                           1100n as
+3689:                                                 "S possible.
+3690:                                                    p09:!l .ibll!.
+3691: 
+3692: 
+3693: 
+3694: 
+3695:                                                                    There should
+3696:                                                                    'ftler• Ol'loul d be
+3697:                                                                                       ba no need
+3698:                  ..,
+3699:              to wring  ,111ny supplies
+3700:                        any    sulfp iu: or equipment
+3701:                                                OQutpwent of your own for for work related
+3702:                                                                                       re la ted
+3703:              pr o,ecr~
+3704:              projects.   If        don ' t find
+3705:                           l f you don't    f i "'d what you reed
+3706:                                                             r,eed contact your department
+3707:                                                                                     tte011 r tmen t
+3708:              rec:ept1on1sts and they should be able to order it.
+3709:              receptionists                                               H
+3710:                                                                               ooc 1
+3711:                                                                               Doc l Pg 1    7.53 " Pas
+3712:                                                                                        J Ln 7.53"      ~
+3713:                                                                                                    Pos S UM
+3714: 
+3715: 
+3716: 
+3717: 
+3718:         4         Select the feature you want to use.*•
+3719: 
+3720: Notes
+3721: Notes   Associated Features
+3722:         You can use Block with Move (Ctrl-F4) to move any part of your text from
+3723:         place to place in your file,
+3724:                                file . and even from file to file (see Move,
+3725:                                                                       Move. Block in
+3726:         Reference).
+3727:         Reference) .
+3728:         However, moving text is just one of the many uses of the Block feature. Once a
+3729:         block is defined, you can do a variety of things with it. For example, pressing
+3730:         Bold (F6) or Underline (F8) bolds or underlines the block of text. Pressing
+3731:         Font (Ctrl-F8) and selecting an attribute gives the block the attribute. Pressing
+3732:         Save (FIO),
+3733:              (F10), and entering a filenam
+3734:                                     filenamee saves the block as a file.
+3735:         The following features work with Block:
+3736:             • Append                                                                             • Print
+3737:             • Attributes (Appearance, Size)                                                      • Replace
+3738:             • Block Protect                                                                      • Save
+3739:             • Bold                                                                               • Search
+3740:             • Capitalization (Case Conversion)                                                   • Shell (Append to Clipboard,
+3741:             • Center                                                                               Save to Clipboard)
+3742:             • Comment                                                                            • Sort
+3743:             • Delete                                                                             • Spell
+3744:             • Flush Right                                                                        • Styles
+3745:             • Justification (Center, Flush Right)                                                • Switch
+3746:             • Mark Text (Index, List, Table of                                                   • Underline
+3747:               Authorities, Table of Contents)
+3748:             • Move (Block.
+3749:                       (Block, Rectangle, Tabular
+3750:               Column)
+3751: 
+3752:         Often. you are given the chance to confirm that you want to use a feature with
+3753:         Often,
+3754:         the block. For example, when you press Backspace or Delete (Del) to delete a
+3755: 
+3756: 
+3757: 
+3758:                                                                                                                     BLOCK.
+3759:                                                                                                                     BLOCK, DEFINE   49
+3760:                                                                                                                                     49
+3761: 
+3762: block. you are asked to confirm that you really want the block deleted. You can
+3763: block,
+3764: then type y to delete the block or n to cancel the command.
+3765:                                                                 Rl'ference.
+3766: For more information on a specific feature, see that section in Reference.
+3767: 
+3768: Canceling Block
+3769: Block turns off after you perform a function. To cancel a block without
+3770:                                                                          (Fl).
+3771: performing a function, either press Block (Alt-F4) again or press Cancel (FI).
+3772: You can also cancel a block using the mouse (see Mouse below).
+3773: 
+3774: Codes
+3775: Codes
+3776: Since WordPerfect codes can be included in a block, you may want to press
+3777: Reveal Codes (Alt-F3) before defining a block to be sure of the cursor's
+3778: locati,)n in relation to existing codes. When Block is on, a Block code I[Block]
+3779: location                                                                  Block]
+3780: in the codes portion of the screen pinpoints the location where the block begins.
+3781: 
+3782: Cursoi Movement
+3783: Cursor
+3784: When
+3785: \1/hen Block is on, typing any character moves the cursor forward to the next
+3786: occurrence of that character. If the character is not found within approximately
+3787: 2000 characters, the cursor remains in place and a beep sounds.
+3788: Pressing Enter blocks the text from the cursor to the end of that paragraph (the
+3789: next Hard Return code [HRt)).
+3790:                        [HRt]).
+3791: Whik:
+3792: Whik Block is on, you can block text in either a forward or reverse direction by
+3793: using the arrow keys, or by using ♦Search            •Search (Shift-F2) to search
+3794:                                    •Search (F2) or ♦Search
+3795: for arid
+3796:     and highlight to the end of the search string (see Search in Reference).
+3797: 
+3798: Mouse
+3799: MOUSI!
+3800:     block text with the mouse, position the mouse pointer on one end of the text

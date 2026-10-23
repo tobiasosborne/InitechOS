@@ -1,0 +1,83 @@
+Source: WPDOS51Reference.pdf; pdftotext -layout, source text line numbers follow.
+9399: 
+9400: 
+9401: 
+9402:                                                                              DELETE CODES   1113
+9403:                                                                                               13
+9404: 
+9405: _________________________.,~--
+9406:                        ,_,..
+9407: 
+9408: 
+9409: Delete Files
+9410:                                                                                                --------·-·
+9411:                        When
+9412:                        Whe11 you delete files, keep in mind that once you delete a file it is gone. You
+9413:                        cannot use WordPerfect to get it back.
+9414:                        To help keep close track of the files you are deleting, WordPerfect lets you
+9415:                        display an alphabetical list of all the files (or documents) in a directory. You
+9416:                        can then move the cursor through the filenames on the list and delete one file at
+9417:                        a time, mark certain files and delete them, or mark all the files in a directory and
+9418:                        delete them all at once.
+9419:                        delet~
+9420:                        Once a file has been deleted, its name disappears from the file list, and the
+9421:                        remaining files are displayed in alphabetical order.
+9422:                        To delete files,
+9423:                        1       Use List (F5) to display an on-screen listing of the files in a directory (see
+9424:                                List
+9425:                                L is t F ile s in R
+9426:                                       Files      Reference).
+9427:                                                    e fe re n c e ).
+9428: 
+9429:                         81I SSelect
+9430:                        1H              Li.H
+9431:                               e le c t L     FileI
+9432:                                          ist F       from
+9433:                                                ile s fro       File
+9434:                                                          m the F     menu.
+9435:                                                                  ile m enu.
+9436: 
+9437:                        2       Use one of the Delete features as described in NNotes
+9438:                                                                                 o t e s below.
+9439:                                                                                         below.
+9440: 
+9441: Notes                           a Single File
+9442:                        Deleting a
+9443:                        To delete any file on a displayed file list, use the cursor keys or Name Search to
+9444:                        move
+9445:                        mme to the file, select Delete (2), then type y.
+9446: 
+9447:                        Deleting All the Files in aa Directory
+9448:                        Files are divided into groups called ddirectories.            h en a list ooff file
+9449:                                                                                    When
+9450:                                                                 ir e c to r ie s . W                            displayed
+9451:                                                                                                       filess is d isp la y e d
+9452:                        on-screen,
+9453:                        on-i.creen, the name of the directory being listed is displayed at the top center of
+9454:                        the screen. The names of any subdirectories within that directory appear
+9455:                        alphabetically at the first of the list, with a <Dir> to the right of each directory
+9456:                        name.
+9457:                        When a list of the files in a directory is displayed, you can delete all the files in
+9458:                        that
+9459:                        thal directory by pressing Mark Text (Alt-F5) or Home,* to mark all the files
+9460:                        with an asterisk (*), selecting Delete (2), then typing y twice. Because the
+9461:                        deleted files will be lost, you are asked twice to confirm that you want to delete
+9462:                        all the marked files.
+9463:                        You cannot delete a directory until all the files in it have been deleted. Once a
+9464:                        directory is empty, you can highlight the empty directory,       directory. select Delete (2), and
+9465:                        type y to delete it (see D i r e c t o r i e s in R
+9466:                                                 Directories              Reference).
+9467:                                                                            e feren ce ).
+9468: 
+9469: 
+9470:                                                    Directory
+9471:                        Deleting Several Files in a Directory
+9472:                        To delete several files at once.
+9473:                                                    once, move the cursor to each file you want to delete,
+9474:                        type
+9475:                        tYre an asterisk (*) to mark each file, then select Delete (2). Type y twice, and
+9476:                        the marked files are deleted.
+9477:                        After pressing Delete (Del) or selecting Delete (2) to delete the marked files,
+9478:                                                                                                 tiles, if
+9479:                        you answer No by typing n, you are asked if you want to delete the file on
+9480: 

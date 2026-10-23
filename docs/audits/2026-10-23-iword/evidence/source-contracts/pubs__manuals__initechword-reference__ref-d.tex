@@ -1,0 +1,77 @@
+1: % Reference entries, D (AN-11).  Law 1: os/iword/core/edit.c
+2: % iw_ed_backspace / iw_ed_delete (whole units; a hard return deleted joins
+3: % two paragraphs and the joined paragraph is wrapped again), codes.c (the
+4: % question for codes), os/iword/app/face_a.c edit_key (Backspace / Delete
+5: % with any modifier act alone; harness/pubs/iword_probe.c lists them).
+6: % GATES: test-pubs-iword test-iword-core test-iword-codes test-iword-face
+7: \Gates{test-pubs-iword test-iword-core test-iword-codes test-iword-face}
+8: \begin{Feature}{Delete}
+9: You erase text with two keys: \K{Backspace} erases the character to the
+10: left of the cursor, and \K{Delete} erases the character at the cursor.
+11: Text after the cursor moves up to close the gap, and the paragraph is
+12: wrapped again.
+13: 
+14: To delete text,
+15: \begin{WPSteps}
+16: \item Move the cursor just after the character you want to erase and press
+17: \K{Backspace}
+18: \Or
+19: Move the cursor onto the character and press \K{Delete}.
+20: \item Hold the key down to erase several characters in a row.
+21: \end{WPSteps}
+22: \Documents{wpkey}{Backspace}
+23: \Documents{wpkey}{Delete}
+24: \begin{WPNote}To delete more than a few characters, block them and press
+25: Delete (see \InRef{Block, Delete}), or have Move delete the sentence,
+26: paragraph or page (see \InRef{Move, Sentence/Paragraph/Page}).\end{WPNote}
+27: 
+28: \Notes
+29: \Topic{Codes}
+30: Backspace and Delete erase codes as they erase characters, one at a time.
+31: Some codes are not erased at once on the editing screen: InitechWord asks
+32: first (see \InRef{Codes}).
+33: 
+34: \Topic{Joining Paragraphs}
+35: A hard return is erased like a character.  Erase the hard return at the end
+36: of a paragraph -- with Delete at the end of its last line, or with
+37: Backspace at the start of the next paragraph -- and the two paragraphs
+38: become one.
+39: 
+40: \BeginReplay{ref-delete}
+41: For example, type \TypeRun{First paragraph.}, press \PressKey{Enter}, type
+42: \TypeRun{Second paragraph.}, press \PressKey{Home}, \PressKey{Left} and then
+43: \PressKey{Backspace}:
+44: \WordScreen[rows=1]{ref-delete}{Backspace at the start of a paragraph joins it to the one above}
+45: \EndReplay
+46: 
+47: \Topic{Shift, Ctrl and Alt}
+48: Backspace and Delete erase one character whatever Shift, Ctrl or Alt you
+49: hold with them.
+50: 
+51: \Topic{The Start and End of the Document}
+52: Backspace at the very start of the document and Delete at its very end do
+53: nothing.
+54: 
+55: \SeeAlso{Block, Delete; Codes; Move, Sentence/Paragraph/Page}
+56: \end{Feature}
+57: 
+58: \begin{Feature}{Directories}
+59: InitechWord keeps your documents in one place: the top level of the
+60: InitechOS data volume, the disk on which InitechWord itself is supplied.
+61: InitechWord shows that place as \Scr{A:\wbs}, so that a document named
+62: \Scr{MEMO} is \Scr{A:\wbs MEMO} on the status line and in its questions.
+63: 
+64: You do not type a drive or a directory when you save or retrieve: type the
+65: name alone.  A name with a colon or a backslash is not a valid name (see
+66: \InRef{Filenames}).
+67: 
+68: \Notes
+69: \Topic{The Setup File}
+70: InitechWord keeps its own settings in the same place, in the file
+71: \Scr{IWORD.SET}, once you change one with Setup (see \InRef{Setup}).  Do
+72: not save a document under that name: InitechWord would read it as its
+73: settings, find it not in their form, and start with the standard ones; and
+74: the next change you make in Setup would write over the document.
+75: 
+76: \SeeAlso{Filenames; Retrieve; Save; Setup}
+77: \end{Feature}

@@ -1,0 +1,139 @@
+1: % Reference entries, F (AN-11).  Law 1: os/iword/app/face_a.c take_name
+2: % (DOS 8.3 names: letters, digits, _ - and one period; upper case), name_key
+3: % (the offered name, a typed character replaces it, Backspace), M_FONT
+4: % (IW_FONT_MENU; 1 Size, 2 Appearance, 3 Normal; 4 and 5 return to the
+5: % document), codes.c iw_ed_normal, format_key / paint_format (IW_FMT_INIT,
+6: % IW_FMT_LINE_INIT: the screens, their values at the cursor, the
+7: % selections that act).  Shots: ../wordperfect51-decomp mint MINT06, MINT21,
+8: % MINT28.
+9: % GATES: test-pubs-iword test-iword-face test-iword-codes test-flair-iword-codes test-flair-iword-format test-pubs-flair-screens
+10: \Gates{test-pubs-iword test-iword-face test-iword-codes test-flair-iword-codes test-flair-iword-format test-pubs-flair-screens}
+11: \begin{Feature}{Filenames}
+12: Each document you save is a file on the data volume, and you give it a
+13: name when you first save it.  InitechWord uses the file names of
+14: InitechDOS.
+15: 
+16: A name has one to eight characters, then, if you like, a period and one to
+17: three more characters, for example \Scr{MEMO}, \Scr{REPORT92} or
+18: \Scr{MINUTES.MAR}.  The characters may be letters, digits, the hyphen
+19: (\Scr{-}) and the underscore (\Scr{\_}).  You may type the letters in
+20: capitals or small letters; InitechWord shows and saves them in capitals.
+21: InitechWord does not add a period or an extension of its own: a document
+22: saved as \Scr{MEMO} is the file \Scr{MEMO}.
+23: 
+24: To type a name at a prompt,
+25: \begin{WPSteps}
+26: \item Type the name.  If the prompt already shows a name, the first
+27: character you type replaces it.
+28: \item Press \K{Backspace} to erase the last character, if you need to.
+29: \item Press \K{Enter}.
+30: \end{WPSteps}
+31: 
+32: \Notes
+33: \Topic{Names That Are Not Allowed}
+34: An empty name, a name with any other character, with more than eight
+35: characters before the period or three after it, with nothing before the
+36: period, or with two periods is refused with \Scr{ERROR: Invalid file name}.  Press any key to
+37: return to the prompt and correct the name.
+38: 
+39: \Topic{Where Documents Are Kept}
+40: Documents are saved in the top level of the data volume, which InitechWord
+41: shows as drive \Scr{A:}: a document named \Scr{MEMO} is shown on the
+42: status line as \Scr{A:\wbs MEMO}.  You type only the name, never a drive or
+43: a folder.
+44: 
+45: \SeeAlso{Retrieve; Save}
+46: \end{Feature}
+47: 
+48: \begin{Feature}{Font}
+49: The Font key sets how text looks: its size, its appearance, or a return to
+50: normal text.  Its menu appears on the status line.
+51: 
+52: To use the Font menu,
+53: \begin{WPSteps}
+54: \item Press \FK{Font}{Ctrl-F8}.  The status line shows
+55: \StatusLine{1 Size; 2 Appearance; 3 Normal; 4 Base Font; 5 Print Color: 0}
+56: \item Select \Ch{Size}{1} to choose a size (see \InRef{Size})
+57: \Or
+58: Select \Ch{Appearance}{2} to choose an appearance (see \InRef{Appearance})
+59: \Or
+60: Select \Ch{Normal}{3} to end every size and appearance at the cursor.
+61: \end{WPSteps}
+62: \Documents{wpkey}{Ctrl-F8}
+63: \Documents{wpmenu}{Ctrl-F8,3=Normal}
+64: \FlairShot{font}{640}{440}{The Font menu on the status line}
+65: 
+66: \Notes
+67: \Topic{Base Font and Print Color}
+68: Selecting Base Font (4) or Print Color (5) returns you to the document
+69: without a change, as does any key that is not on the menu.
+70: 
+71: \Topic{Block}
+72: With Block on, the Font key shows \Scr{Attribute: 1 Size; 2 Appearance: 0}
+73: and gives the size or appearance to the block (see \InRef{Block,
+74: Attributes}).
+75: 
+76: \Topic{Normal}
+77: Normal moves the cursor past any off codes right at the cursor; then, for
+78: every size or appearance still in effect at the cursor, it ends it there by
+79: moving its off code to the cursor, and leaves the cursor after the codes.
+80: What you type next is normal text.
+81: 
+82: \BeginReplay{ref-normal}
+83: For example, press \Press{Bold}{F6} and \Press{Underline}{F8}, type
+84: \TypeRun{both}, then press \Press{Font}{Ctrl-F8}, select \Choose{Normal}{3}
+85: and type \TypeRun{ plain}.  In Reveal Codes (\Keys{Alt-F3}\K{Alt-F3}) the
+86: codes are:
+87: \WordScreen[rows=13]{ref-normal}{Normal: the text after it is plain}
+88: \EndReplay
+89: 
+90: \SeeAlso{Appearance; Block, Attributes; Size}
+91: \end{Feature}
+92: 
+93: \begin{Feature}{Format}
+94: The Format key leads to the settings that shape lines of text: the
+95: justification, the line spacing and the left and right margins.  Format
+96: shows a screen of its own instead of the document.
+97: 
+98: To use Format,
+99: \begin{WPSteps}
+100: \item Press \FK{Format}{Shift-F8}.  The Format screen appears.
+101: \item Select \Ch{Line}{1}.  The Format: Line screen appears.  It shows the
+102: settings in effect at the cursor.
+103: \item Select \Ch{Justification}{3}, \Ch{Line Spacing}{6} or
+104: \Ch{Margins}{7} and make the setting (see \InRef{Justification},
+105: \InRef{Line Spacing} and \InRef{Margins, Left and Right}).
+106: \item Press \FK{Exit}{F7} to return to the document.
+107: \end{WPSteps}
+108: \Documents{wpkey}{Shift-F8}
+109: \Documents{wpmenu}{Shift-F8,1=Line}
+110: \FlairShot{format}{640}{440}{The Format screen}
+111: \FlairShot{formatline}{640}{440}{The Format: Line screen, with the settings InitechWord starts with}
+112: 
+113: \Notes
+114: \Topic{Leaving the Format Screens}
+115: From Format: Line, \K{F7} returns to the document; \K{Enter}, \Typed{0},
+116: \K{F1} or \K{Esc} return to the Format screen.  From the Format screen,
+117: \K{F7}, \K{Enter}, \Typed{0}, \K{F1} or \K{Esc} return to the document.
+118: 
+119: \Topic{Other Selections}
+120: The Format screen lists four groups -- Line, Page, Document and Other --
+121: and Format: Line nine settings, as the screens of WordPerfect 5.1 do.
+122: InitechWord acts on Line (1) and, on the Format: Line screen, on
+123: Justification (3), Line Spacing (6) and Margins (7).  Pressing the number of
+124: any other selection leaves the screen as it is.  The values shown beside
+125: those selections -- Hyphenation \Scr{No}, Line Height \Scr{Auto}, Tab Set
+126: \Scr{Rel; -1", every 0.5"} and the others -- are those of a new document,
+127: and InitechWord does not change them.
+128: 
+129: \Topic{Settings in Effect}
+130: Each setting you make goes into the document as a code at the cursor (see
+131: \InRef{Codes}).  Text before the code is not affected.  The Format: Line
+132: screen always shows the settings in effect where the cursor is.
+133: 
+134: \Topic{Several Settings at Once}
+135: You can make several settings in one visit to the Format: Line screen:
+136: each goes into the document in the order you make it.
+137: 
+138: \SeeAlso{Codes; Justification; Line Spacing; Margins, Left and Right}
+139: \end{Feature}

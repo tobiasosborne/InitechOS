@@ -1,0 +1,463 @@
+1: % Reference entries, S (AN-11).  Law 1: os/iword/app/face_a.c F10 (the
+2: % offered name, a typed character replaces it; save_named: an existing file
+3: % asks "Replace A:\NAME? No (Yes)", y replaces, any other key asks for a
+4: % name again; write_file: flatten first, "ERROR: File I/O error", "ERROR:
+5: % Disk Full--Press Any Key to Continue"), wp5.c iw_wp5_write (the 327-byte
+6: % prefix of WordPerfect 5.1 and the body), M_SIZE (IW_SIZE_MENU,
+7: % IW_SIZE_ATTRS), paint_status (the status line: the name, Block on, Doc Pg
+8: % Ln Pos, POS with Caps Lock; iw_fmt_inches).  Gated byte for byte against
+9: % the real WordPerfect 5.1 by test-iword-face and test-flair-iword (MEMO ==
+10: % MINT02's prefix + the body).
+11: % Search (F2, Shift-F2) and Setup (Shift-F1) are P3 (bead initech-qvgd,
+12: % WL-0146): face_a.c function_key (IW_FK_search_forward / _backward,
+13: % IW_FK_setup from spec/iword/fkeys.json), search_key (the string kept for
+14: % the next Search and replaced by the first key typed; F2 / Shift-F2 / Esc
+15: % search, F1 cancels with the cursor kept, Up / Down the direction, Left /
+16: % Right / Backspace / Delete by whole codes, F6 / F8 an attribute's on or
+17: % off code by the state at that point of the string, Tab [Tab], F4
+18: % [->Indent], Enter [HRt], Ctrl-Enter [HPg]; 256 bytes, QUERY_CAP),
+19: % os/iword/core/search.c iw_search (a lower-case letter finds either case,
+20: % a capital only a capital; the cursor after the match forward, at its
+21: % start backward; "* Not found *"), paint_setup / setup_key / settings_save
+22: % (the Setup screens, the grey rows, Environment 3, Backup 1 / 2, Units 8
+23: % with i c p w u; F7 one level up, F1 / Esc to the document; IWORD.SET,
+24: % spec/iword/settings.h, eight bytes; the units and the backup choice are
+25: % recorded and shown, nothing else reads them).
+26: % GATES: test-pubs-iword test-iword-face test-flair-iword test-iword-wp5-roundtrip test-iword-codes test-iword-reveal-codes test-iword-search test-iword-setup test-flair-iword-search test-flair-iword-setup
+27: \Gates{test-pubs-iword test-iword-face test-flair-iword test-iword-wp5-roundtrip test-iword-codes test-iword-reveal-codes test-iword-search test-iword-setup test-flair-iword-search test-flair-iword-setup}
+28: \begin{Feature}{Save}
+29: Save writes the document on the screen to the data volume as a file, and
+30: leaves it on the screen so that you can go on working.  Save often: a
+31: document that is only on the screen is lost if the computer is switched off.
+32: 
+33: To save a document,
+34: \begin{WPSteps}
+35: \item Press \FK{Save}{F10}.  The status line shows \Scr{Document to be
+36: Saved:} and, if the document has a name, that name.
+37: \PullDown{Select \Mi{S}ave from the \Mi{F}ile menu.}
+38: \item To save under the name shown, press \K{Enter}.
+39: \Or
+40: Type a new name (the first character you type replaces the name shown) and
+41: press \K{Enter}.
+42: \item If a document with that name is already on the data volume, the status
+43: line asks \Scr{Replace A:\wbs\textit{name}? No (Yes)}.  Type \Typed{y} to
+44: replace it with the document on the screen.  Any other key asks you for a
+45: name again, so that you can choose another.
+46: \end{WPSteps}
+47: \Documents{wpkey}{F10}
+48: When the document is saved, its name appears at the left of the status line.
+49: 
+50: \BeginReplay{ref-save}
+51: For example, type \TypeRun{Budget memo}, press \Press{Save}{F10}, type
+52: \TypeName{budget} and press \PressKey{Enter}.  Press \Press{Save}{F10}
+53: again: InitechWord offers the name.
+54: \WordScreen[rows=1]{ref-save-1}{Save offers the document's name}
+55: Press \PressKey{Enter}.  The file \Scr{BUDGET} exists, so InitechWord asks:
+56: \WordScreen[rows=1]{ref-save-2}{Saving over a document that is already on the data volume}
+57: Type \TypeName{y}: the document is saved again.
+58: \EndReplay
+59: 
+60: \Notes
+61: \Topic{File Format}
+62: InitechWord saves documents in the format of WordPerfect 5.1, writing the
+63: text and codes as WordPerfect 5.1 does (see \InRef{WordPerfect 5.1
+64: Documents} and Appendix D).
+65: 
+66: \Topic{Messages}
+67: \Scr{ERROR: Invalid file name} means the name breaks the rules for names
+68: (see \InRef{Filenames}).  \Scr{ERROR: File I/O error} means the file could not
+69: be made on the data volume.  \Scr{ERROR: Disk Full--Press Any Key to
+70: Continue} means the data volume has no room for the document; the document
+71: is still on the screen.  After each of these, press any key to return to
+72: the name prompt.  \Scr{ERROR: Document too large} means the document is
+73: larger than a file InitechWord can write (see Appendix H); press any key to
+74: return to the document.
+75: 
+76: \Topic{Saving When You Exit}
+77: Exit (F7) asks whether to save the document before you leave it, and saves
+78: it as Save does (see \InRef{Exit}).
+79: 
+80: \SeeAlso{Exit; Filenames; Retrieve}
+81: \end{Feature}
+82: 
+83: \begin{Feature}{Screen}
+84: The editing screen is the InitechWord window as you type.  It shows 23
+85: lines of the document, 76 characters across, and the status line under
+86: them.  The first column of the screen is the left margin of a new document,
+87: one inch from the left edge of the paper.
+88: 
+89: \Notes
+90: \Topic{Colors}
+91: Text is white on a blue field.  The cursor is the cell drawn in reverse,
+92: blue on white.  A block is black on grey; so is the ruler of Reveal Codes.
+93: 
+94: \Topic{Faces}
+95: Bold, italic and underlined text is drawn in that face.  Text with any other
+96: appearance or size is drawn as ordinary text (see \InRef{Appearance} and
+97: \InRef{Size}).
+98: 
+99: \Topic{Hard Pages and Spacing}
+100: A hard page is drawn as a row of equal signs below the line it ends.  With
+101: line spacing of more than one, blank rows are drawn under each line (see
+102: \InRef{Line Spacing}).
+103: 
+104: \Topic{Margins Under One Inch}
+105: The first column of the screen is always one inch from the edge of the
+106: paper.  With a left margin of less than one inch, the start of each line
+107: lies to the left of the window and is not shown; the status line's Pos still
+108: tells where the cursor is.
+109: 
+110: \Topic{Scrolling}
+111: When the cursor moves above the top line or below the bottom line, the
+112: screen moves to keep it in view.
+113: 
+114: \SeeAlso{Reveal Codes; Status Line; Window}
+115: \end{Feature}
+116: 
+117: \begin{Feature}{Search}
+118: Search finds text, codes or both in the document.  It searches forward,
+119: from the cursor toward the end of the document, or backward, from the
+120: cursor toward the beginning, and stops at the first place where it finds
+121: what you typed.
+122: 
+123: To search,
+124: \begin{WPSteps}
+125: \item Press \FK{\rarr Search}{F2} to search forward
+126: \Or
+127: Press \FK{\larr Search}{Shift-F2} to search backward.
+128: \item The status line shows \Scr{-> Srch:} (forward) or \Scr{<- Srch:}
+129: (backward), followed by what you last searched for, if anything.  Type the
+130: text you want to find.  The first character you type replaces the text
+131: shown.
+132: \item Press \K{F2} to start the search.
+133: \end{WPSteps}
+134: \FlairShot{search}{640}{440}{The search string typed at the \Scr{-> Srch:} prompt}
+135: \Documents{wpkey}{F2}
+136: \Documents{wpkey}{Shift-F2}
+137: \Documents{wpkey}{Srch:F2}
+138: \Documents{wpkey}{Srch:Esc}
+139: If InitechWord finds the text, the cursor stops just after it when you
+140: search forward, and on its first character when you search backward.  If it
+141: does not, the status line shows \Scr{* Not found *} and the cursor stays
+142: where it was; press any key to go on.
+143: 
+144: \BeginReplay{ref-search}
+145: For example, type
+146: \Type{Every report needs a cover sheet.  The cover sheets are in the supply room.}
+147: press \PressKey{Enter} and type
+148: \Type{Ask Milton for Cover Sheets if the room is empty.}
+149: Press \PressKey{Home, Home, Up} to go to the top of the document.  Press
+150: \Press{\rarr Search}{F2} and type \TypeName{cover sheet}:
+151: \WordScreen[rows=3]{ref-search-1}{The search string on the status line}
+152: Press \PressKey{F2}.  The cursor stops after the first \textit{cover sheet}:
+153: \WordScreen[rows=3]{ref-search-2}{The cursor after the text found}
+154: Press \PressKey{F2} twice.  The first F2 shows \Scr{-> Srch:cover sheet}
+155: again; the second searches for it, and the cursor stops after the
+156: \textit{cover sheet} of \textit{cover sheets}.  Press \PressKey{F2} twice
+157: more:\Keys{F2 F2}
+158: \WordScreen[rows=3]{ref-search-3}{A string in lower case finds capitals as well}
+159: Search found \textit{Cover Sheet}: a lower-case letter in the search string
+160: finds the letter in either case.
+161: \EndReplay
+162: 
+163: \Notes
+164: \Topic{Block}
+165: While Block is on, F2 and Shift-F2 do nothing.  Turn Block off to search.
+166: 
+167: \Topic{Canceling a Search}
+168: Press \FK{Cancel}{F1} at the \Scr{Srch:} prompt to leave without searching.
+169: The cursor stays where it was, and the search string is kept for the next
+170: search.
+171: \Documents{wpkey}{Srch:F1}
+172: 
+173: \Topic{Capital Letters}
+174: A lower-case letter in the search string finds the same letter in upper or
+175: lower case: \Typed{memo} finds \Scr{memo}, \Scr{Memo} and \Scr{MEMO}.  A
+176: capital letter finds only a capital: \Typed{Memo} finds \Scr{Memo} and
+177: \Scr{MEMO}, but not \Scr{memo}.
+178: 
+179: \Topic{Codes in the Search String}
+180: To search for a code, press its key at the \Scr{Srch:} prompt.  The code is
+181: put in the string as Reveal Codes shows it:
+182: \par\addvspace{4pt}
+183: \noindent\begin{tabular}{@{}ll@{}}
+184: \textbf{Key} & \textbf{Code in the string}\\
+185: \K{F6} & \Code{[BOLD]}, or \Code{[bold]} after a \Code{[BOLD]} not yet ended\\
+186: \K{F8} & \Code{[UND]}, or \Code{[und]} after an \Code{[UND]} not yet ended\\
+187: \K{Tab} & \Code{[Tab]}\\
+188: \K{F4} & \Code{[\rarr Indent]}\\
+189: \K{Enter} & \Code{[HRt]}\\
+190: \K{Ctrl-Enter} & \Code{[HPg]}\\
+191: \end{tabular}
+192: \par\addvspace{4pt}
+193: \Documents{wpkey}{Srch:F6}
+194: \Documents{wpkey}{Srch:F8}
+195: \Documents{wpkey}{Srch:Tab}
+196: \Documents{wpkey}{Srch:F4}
+197: \Documents{wpkey}{Srch:Enter}
+198: \Documents{wpkey}{Srch:Ctrl-Enter}
+199: A string can hold codes and text together: \Code{[BOLD]}\Typed{Note} finds
+200: the word \textit{Note} only where bold begins just before it.  Codes of other
+201: kinds cannot be put in the search string.
+202: 
+203: \BeginReplay{ref-search-code}
+204: For example, type \TypeRun{Read the }, press \Press{Bold}{F6}, type
+205: \TypeRun{first}, press \Press{Bold}{F6} again and type
+206: \TypeRun{ page.  The first page is the summary.}  Press
+207: \PressKey{Home, Home, Up}, press \Press{\rarr Search}{F2}, press
+208: \PressKey{F6} and type \TypeName{first}:
+209: \WordScreen[rows=1]{ref-search-code-1}{A code in the search string}
+210: Press \PressKey{F2}.  The cursor stops after the bold \textit{first}, not
+211: after the second one, which has no code before it.
+212: \WordScreen[rows=1]{ref-search-code-2}{The bold word found}
+213: \EndReplay
+214: 
+215: \Topic{Direction}
+216: At the \Scr{Srch:} prompt, \K{Up} changes the search to backward
+217: (\Scr{<- Srch:}) and \K{Down} to forward (\Scr{-> Srch:}).  \K{F2},
+218: \K{Shift-F2} and \K{Esc} all start the search in the direction the prompt
+219: shows.
+220: \Documents{wpkey}{Srch:Up}
+221: \Documents{wpkey}{Srch:Down}
+222: 
+223: \Topic{Editing the Search String}
+224: \K{Left} and \K{Right} move the cursor through the search string, and
+225: \K{Backspace} and \K{Delete} erase, as on the editing screen; each moves
+226: past or erases a whole code at a time.  Once you have pressed one of them,
+227: typing no longer replaces the string: what you type goes in at the cursor.
+228: \Documents{wpkey}{Srch:Left}
+229: \Documents{wpkey}{Srch:Right}
+230: \Documents{wpkey}{Srch:Backspace}
+231: \Documents{wpkey}{Srch:Delete}
+232: 
+233: \Topic{Keys That Act as Other Keys}
+234: At the \Scr{Srch:} prompt InitechWord does not look at Shift, Alt or Ctrl on
+235: these keys: each combination does what the key alone does.
+236: \par\addvspace{4pt}
+237: \noindent{\small\begin{tabular}{@{}lll@{}}
+238: \WPPromptAlias{Srch:}{Shift-F1}{F1}, & \WPPromptAlias{Srch:}{Alt-F1}{F1}, & \WPPromptAlias{Srch:}{Ctrl-F1}{F1}\\
+239: \WPPromptAlias{Srch:}{Shift-F2}{F2}, & \WPPromptAlias{Srch:}{Alt-F2}{F2}, & \WPPromptAlias{Srch:}{Ctrl-F2}{F2}\\
+240: \WPPromptAlias{Srch:}{Shift-Esc}{Esc}, & \WPPromptAlias{Srch:}{Alt-Esc}{Esc}, & \WPPromptAlias{Srch:}{Ctrl-Esc}{Esc}\\
+241: \WPPromptAlias{Srch:}{Shift-Up}{Up}, & \WPPromptAlias{Srch:}{Alt-Up}{Up}, & \WPPromptAlias{Srch:}{Ctrl-Up}{Up}\\
+242: \WPPromptAlias{Srch:}{Shift-Down}{Down}, & \WPPromptAlias{Srch:}{Alt-Down}{Down}, & \WPPromptAlias{Srch:}{Ctrl-Down}{Down}\\
+243: \WPPromptAlias{Srch:}{Shift-Left}{Left}, & \WPPromptAlias{Srch:}{Alt-Left}{Left}, & \WPPromptAlias{Srch:}{Ctrl-Left}{Left}\\
+244: \WPPromptAlias{Srch:}{Shift-Right}{Right}, & \WPPromptAlias{Srch:}{Alt-Right}{Right}, & \WPPromptAlias{Srch:}{Ctrl-Right}{Right}\\
+245: \WPPromptAlias{Srch:}{Shift-Backspace}{Backspace}, & \WPPromptAlias{Srch:}{Alt-Backspace}{Backspace}, & \WPPromptAlias{Srch:}{Ctrl-Backspace}{Backspace}\\
+246: \WPPromptAlias{Srch:}{Shift-Delete}{Delete}, & \WPPromptAlias{Srch:}{Alt-Delete}{Delete}, & \WPPromptAlias{Srch:}{Ctrl-Delete}{Delete}\\
+247: \WPPromptAlias{Srch:}{Shift-Tab}{Tab}, & \WPPromptAlias{Srch:}{Alt-Tab}{Tab}, & \WPPromptAlias{Srch:}{Ctrl-Tab}{Tab}\\
+248: \WPPromptAlias{Srch:}{Shift-Enter}{Enter}, & \WPPromptAlias{Srch:}{Alt-Enter}{Enter} & \\
+249: \end{tabular}}
+250: \par\addvspace{4pt}
+251: (Ctrl-Enter is the hard page code, as above.)
+252: 
+253: \Topic{Length of the String}
+254: The search string holds up to 256 bytes of the document file: one for each
+255: character, \Code{[HRt]} or \Code{[HPg]}, and the length given in Appendix D
+256: for each other code.  Keys typed after the string is full are ignored.
+257: 
+258: \Topic{Repeating a Search}
+259: InitechWord keeps the search string until you leave InitechWord.  To find the next
+260: place, press F2 twice: once to show the string, once to search.
+261: 
+262: \Topic{The Document Is Not Changed}
+263: Searching moves only the cursor.  It does not change the document, and a
+264: document that was saved is still saved after a search.
+265: 
+266: \Topic{Words Within Words}
+267: Search finds the string wherever it occurs, also inside a longer word:
+268: \Typed{form} finds \Scr{form}, \Scr{forms} and \Scr{platform}.  To find a
+269: whole word, put a space before or after it in the string.
+270: 
+271: \SeeAlso{Block; Codes; Cursor Movement; Replace}
+272: \end{Feature}
+273: 
+274: \begin{Feature}{Setup}
+275: Setup records two preferences of InitechWord: the units in which
+276: measurements are to be shown, and whether a copy of a document is to be kept
+277: when it is saved over.  InitechWord keeps them in a file on the data volume,
+278: so that they are the same each time you start it.
+279: 
+280: To change a setting,
+281: \begin{WPSteps}
+282: \item Press \FK{Setup}{Shift-F1}.  The Setup screen appears.
+283: \item Select \Ch{Environment}{3}.
+284: \item Select \Ch{Backup Options}{1} or \Ch{Units of Measure}{8}, then the
+285: setting, and give its value (see the Notes below).
+286: \item Press \FK{Exit}{F7} to go back one screen at a time, or \FK{Cancel}{F1}
+287: to return to the document at once.
+288: \end{WPSteps}
+289: \Documents{wpkey}{Shift-F1}
+290: \Documents{wpmenu}{Shift-F1,3=Environment}
+291: \Documents{wpmenu}{Shift-F1,3,1=Backup Options}
+292: \Documents{wpmenu}{Shift-F1,3,8=Units of Measure}
+293: 
+294: \FlairShot{setup}{640}{440}{The Setup screen}
+295: The choices printed in grey are WordPerfect settings InitechWord does not
+296: have; typing their numbers does nothing.
+297: 
+298: \BeginReplay{ref-setup}
+299: For example, press \Press{Setup}{Shift-F1} and select
+300: \Choose{Environment}{3} and \Choose{Units of Measure}{8}:
+301: \WordScreen[rows=13]{ref-setup-2}{Setup: Units of Measure}
+302: Press \FK{Exit}{F7}\Keys{F7} twice\Keys{F7} and \FK{Cancel}{F1}\Keys{F1} to
+303: return to the document.
+304: \EndReplay
+305: 
+306: \Notes
+307: \Topic{Backup Options}
+308: Select \Ch{Backup Options}{1} on the Environment screen.  Timed Document
+309: Backup (1) is printed in grey: InitechWord has none.  Select
+310: \Ch{Original Document Backup}{2}; the status line asks
+311: \Scr{Original Document Backup? No (Yes)}.  Type \Typed{y} or \Typed{n}.
+312: The screen shows the new value.
+313: \Documents{wpmenu}{Shift-F1,3,1,2=Original Document Backup}
+314: InitechWord records the answer, but in this release it keeps no backup copy
+315: either way: Save replaces a document as described under \InRef{Save}.
+316: 
+317: \Topic{Exit and Cancel}
+318: On every Setup screen \FK{Exit}{F7} goes back one screen: from Units of
+319: Measure or Backup Options to Environment, from Environment to Setup, and
+320: from Setup to the document.  \FK{Cancel}{F1} and \K{Esc} return to the
+321: document from any Setup screen.
+322: 
+323: \Topic{The Setup File}
+324: InitechWord keeps the settings in the file \Scr{IWORD.SET} in the top level
+325: of the data volume, and writes it each time you change a setting.  The file
+326: is eight bytes long: the letters \Scr{IWS1}, the letter of the unit for
+327: margins and tabs, the letter of the unit for the status line, 1 if Original
+328: Document Backup is Yes (otherwise 0), and a 0.  If the file is missing or
+329: not in this form, InitechWord starts with Inches and No.  If the file cannot
+330: be written, the status line shows \Scr{ERROR: File I/O error} and the setting
+331: is not changed.
+332: 
+333: \Topic{Units of Measure}
+334: Select \Ch{Units of Measure}{8} on the Environment screen, then
+335: \Ch{Display and Entry of Numbers for Margins, Tabs, etc.}{1} or
+336: \Ch{Status Line Display}{2}.  The status line shows
+337: \Scr{Units of Measure:}; type the letter of a unit:
+338: \par\addvspace{4pt}
+339: \noindent\begin{tabular}{@{}ll@{}}
+340: \textbf{Letter} & \textbf{Unit}\\
+341: \Typed{i} & Inches\\
+342: \Typed{c} & Centimeters\\
+343: \Typed{p} & Points\\
+344: \Typed{w} & 1200ths of an inch\\
+345: \Typed{u} & WordPerfect 4.2 units\\
+346: \end{tabular}
+347: \par\addvspace{4pt}
+348: \Documents{wpmenu}{Shift-F1,3,8,1=Display and Entry of Numbers for Margins, Tabs, etc.}
+349: \Documents{wpmenu}{Shift-F1,3,8,1,i=Inches}
+350: \Documents{wpmenu}{Shift-F1,3,8,1,c=Centimeters}
+351: \Documents{wpmenu}{Shift-F1,3,8,1,p=Points}
+352: \Documents{wpmenu}{Shift-F1,3,8,1,w=1200ths of an inch}
+353: \Documents{wpmenu}{Shift-F1,3,8,1,u=WordPerfect 4.2 units}
+354: \Documents{wpmenu}{Shift-F1,3,8,2=Status Line Display}
+355: \Documents{wpmenu}{Shift-F1,3,8,2,i=Inches}
+356: \Documents{wpmenu}{Shift-F1,3,8,2,c=Centimeters}
+357: \Documents{wpmenu}{Shift-F1,3,8,2,p=Points}
+358: \Documents{wpmenu}{Shift-F1,3,8,2,w=1200ths of an inch}
+359: \Documents{wpmenu}{Shift-F1,3,8,2,u=WordPerfect 4.2 units}
+360: Any other key is ignored.  The Units of Measure screen shows the unit
+361: chosen.  In this release InitechWord records the units but goes on showing
+362: and taking every measurement in inches (see \InRef{Units of Measure}).
+363: 
+364: \SeeAlso{Save; Units of Measure}
+365: \end{Feature}
+366: 
+367: \begin{Feature}{Size}
+368: Size changes the size of text: superscript and subscript, and the sizes from
+369: fine to extra large.  Like the appearances, each size is a pair of codes
+370: around the text.
+371: 
+372: To give text a size as you type it,
+373: \begin{WPSteps}
+374: \item Press \FK{Font}{Ctrl-F8}, then select \Ch{Size}{1}.  The Size menu
+375: appears on the status line:
+376: \StatusLine{1 Suprscpt; 2 Subscpt; 3 Fine; 4 Small; 5 Large; 6 Vry Large; 7 Ext Large: 0}
+377: \item Select the size by its number.
+378: \item Type the text.
+379: \item Press \KC{Ctrl-F8}{1} and select the same size again to move past its
+380: off code
+381: \Or
+382: Press \FK{Font}{Ctrl-F8} and select \Ch{Normal}{3}.
+383: \end{WPSteps}
+384: \Documents{wpmenu}{Ctrl-F8,1=Size}
+385: \Documents{wpmenu}{Ctrl-F8,1,1=Suprscpt}
+386: \Documents{wpmenu}{Ctrl-F8,1,2=Subscpt}
+387: \Documents{wpmenu}{Ctrl-F8,1,3=Fine}
+388: \Documents{wpmenu}{Ctrl-F8,1,4=Small}
+389: \Documents{wpmenu}{Ctrl-F8,1,5=Large}
+390: \Documents{wpmenu}{Ctrl-F8,1,6=Vry Large}
+391: \Documents{wpmenu}{Ctrl-F8,1,7=Ext Large}
+392: \par\addvspace{6pt}
+393: \noindent\begin{tabular}{@{}lll@{}}
+394: \textbf{Selection} & \textbf{Size} & \textbf{Codes}\\
+395: Suprscpt (1) & superscript & \Code{[SUPRSCPT]} \Code{[suprscpt]}\\
+396: Subscpt (2) & subscript & \Code{[SUBSCPT]} \Code{[subscpt]}\\
+397: Fine (3) & fine & \Code{[FINE]} \Code{[fine]}\\
+398: Small (4) & small & \Code{[SMALL]} \Code{[small]}\\
+399: Large (5) & large & \Code{[LARGE]} \Code{[large]}\\
+400: Vry Large (6) & very large & \Code{[VRY LARGE]} \Code{[vry large]}\\
+401: Ext Large (7) & extra large & \Code{[EXT LARGE]} \Code{[ext large]}\\
+402: \end{tabular}
+403: \par\addvspace{4pt}
+404: 
+405: \Notes
+406: \Topic{On the Screen}
+407: The editing screen draws text of every size in the same cells as ordinary
+408: text.  Press Reveal Codes to see which size text has.
+409: 
+410: \Topic{Size and Appearance Together}
+411: Text can have a size and appearances at once; each is its own pair of codes
+412: (see \InRef{Appearance}).
+413: 
+414: \SeeAlso{Appearance; Block, Attributes; Font}
+415: \end{Feature}
+416: 
+417: \begin{Feature}{Status Line}
+418: The status line is the bottom line of the InitechWord window.  While you
+419: edit, it shows the name of the document at its left and where the cursor is
+420: at its right.  InitechWord also uses it for menus, prompts, questions and
+421: messages.
+422: 
+423: To read the status line,
+424: \begin{WPSteps}
+425: \item Look at the left end: the document's name once it has one, as
+426: \Scr{A:\wbs MEMO}; or \Scr{Block on} while Block is on; or
+427: \Scr{Move cursor; press Enter to retrieve.} while moved text waits.
+428: \item Look at the right end: \Scr{Doc 1 Pg 1 Ln 1" Pos 1"}.
+429: \end{WPSteps}
+430: 
+431: \BeginReplay{ref-status}
+432: For example, type
+433: \Type{Each line of a single-spaced paragraph is one sixth of an inch below the line before it, so Ln grows by 0.17 inch a line.}
+434: The cursor is on the second line, after the period:
+435: \WordScreen[rows=2]{ref-status}{Ln and Pos at the end of a two-line paragraph}
+436: \EndReplay
+437: 
+438: \Notes
+439: \Topic{Doc}
+440: The document number is always 1.
+441: 
+442: \Topic{Ln}
+443: Ln is the distance from the top edge of the page to the line the cursor is
+444: on, in inches: \Scr{1"} for the first line under the one inch top margin,
+445: then a sixth of an inch for each single-spaced line (\Scr{1.17"},
+446: \Scr{1.33"}, \ldots).  With other line spacings, each line adds its own
+447: spacing (see \InRef{Line Spacing}).
+448: 
+449: \Topic{Measurements}
+450: Ln and Pos are shown in inches, to two decimal places at most, without
+451: trailing zeros: \Scr{1"}, \Scr{1.5"}, \Scr{2.17"}.
+452: 
+453: \Topic{Pg}
+454: Pg is the page the cursor is on (see \InRef{Page Break, Hard}).
+455: 
+456: \Topic{Pos}
+457: Pos is the distance from the left edge of the paper to the cursor, in
+458: inches: \Scr{1"} at the standard left margin, then a tenth of an inch for
+459: each character.  While Caps Lock is on, Pos is shown as \Scr{POS} (see
+460: \InRef{Caps Lock}).
+461: 
+462: \SeeAlso{Caps Lock; Cursor Movement; Line Spacing; Page Break, Hard}
+463: \end{Feature}

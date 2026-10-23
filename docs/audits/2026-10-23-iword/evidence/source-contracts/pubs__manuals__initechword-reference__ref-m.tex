@@ -1,0 +1,277 @@
+1: % Reference entries, M (AN-11).  Law 1: os/iword/core/edit.c iw_ed_margins
+2: % ([L/R Mar] D0/01 at the cursor, a [HRt] first when the cursor is not at
+3: % the left margin; every paragraph after it re-wrapped; a line holds
+4: % (10200 - R - L) / 120 + 1 characters), face_a.c M_FMTMARL / M_FMTMARR /
+5: % parse_inches (inches to two decimals, an optional ", at most 8, ten input
+6: % characters), os/iword/core/block.c (copy, cut, retrieve; iw_ed_select:
+7: % sentence, paragraph, page), face_a.c M_MOVE / M_MOVEBLK / M_MOVENB /
+8: % M_RETMENU / M_RETRIEVE.  Shots: ../wordperfect51-decomp mint MINT12..15,
+9: % MINT21, MINT23, MINT29, MINT31.
+10: % GATES: test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block test-flair-iword-format
+11: \Gates{test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block test-flair-iword-format}
+12: \begin{Feature}{Margins, Left and Right}
+13: The left and right margins are the space between the edges of the paper
+14: and the text.  A new document has a one inch margin on each side of an 8.5
+15: inch page, so a line holds 66 characters.  You can change the margins from
+16: any point in the document; the change applies from there to the end of the
+17: document, or to the next margin setting.
+18: 
+19: To change the left and right margins,
+20: \begin{WPSteps}
+21: \item Move the cursor to where the new margins are to begin.
+22: \item Press \FK{Format}{Shift-F8}, then select \Ch{Line}{1}.
+23: \item Select \Ch{Margins}{7}.  The cursor moves to the left margin setting.
+24: \item Type the left margin in inches, for example \Typed{1.5}, and press
+25: \K{Enter}.  To keep the left margin as it is, press \K{Enter} alone.
+26: \item Type the right margin in inches and press \K{Enter}, or press
+27: \K{Enter} alone to keep it.
+28: \item Press \FK{Exit}{F7} to return to the document.
+29: \end{WPSteps}
+30: \Documents{wpmenu}{Shift-F8,1,7=Margins}
+31: 
+32: \BeginReplay{ref-margins}
+33: For example, type \TypeRun{Normal margins here.} and press \PressKey{Enter};
+34: then press \Press{Format}{Shift-F8}, select \Choose{Line}{1} and
+35: \Choose{Margins}{7}, type \TypeName{1.5}, press \PressKey{Enter}, type
+36: \TypeName{2}, press \PressKey{Enter} and \Press{Exit}{F7}, and type
+37: \TypeRun{Narrow text now begins here and wraps at the new right margin of two inches.}
+38: \WordScreen[rows=3]{ref-margins}{Text after a margin setting of 1.5 inches left and 2 inches right}
+39: \EndReplay
+40: 
+41: \Notes
+42: \Topic{Code}
+43: The margins go into the document as a \Code{[L/R Mar:\textit{left},\textit{right}]}
+44: code, for example \Code{[L/R Mar:1.5",2"]}.  On the editing screen
+45: InitechWord asks before deleting one (see \InRef{Codes}); deleting it
+46: returns the text after it to the margins in effect before it.
+47: 
+48: \Topic{In the Middle of a Line}
+49: New margins take effect at the start of a line.  If the cursor is not at the
+50: left margin when you set them, InitechWord puts a hard return in front of
+51: the margin code, so that the text after the cursor begins a new line under
+52: the new margins.
+53: 
+54: \BeginReplay{ref-margins-mid}
+55: For example, type \TypeRun{Middle}, press \PressKey{Left} three
+56: times\Keys{Left Left}, press \PressKC{Shift-F8}{1,7}{17}, type
+57: \TypeName{2}, press \PressKey{Enter}, type \TypeName{2}, press
+58: \PressKey{Enter} and \Press{Exit}{F7}, and press
+59: \Press{Reveal Codes}{Alt-F3}:
+60: \WordScreen[rows=14]{ref-margins-mid}{Margins set in the middle of a word: a hard return goes in first}
+61: \EndReplay
+62: 
+63: \Topic{Measurements}
+64: Type a margin in inches, with up to two decimal places, and if you like an
+65: inch mark (\Typed{1.25"}).  A margin must be less than 9 inches.  A setting
+66: InitechWord cannot read leaves that margin as it was.
+67: 
+68: \Topic{On the Screen}
+69: The left edge of the editing screen is always one inch from the left edge
+70: of the paper.  With a left margin of 1.5 inches, text starts five columns in;
+71: the status line's Pos shows the cursor's place on the paper.  In Reveal
+72: Codes the ruler marks the margins in effect at the cursor (see \InRef{Reveal
+73: Codes}).
+74: 
+75: \Topic{Tabs and Indents}
+76: The tab stops are measured from the left margin, so they move with it (see
+77: \InRef{Tab}).
+78: 
+79: \SeeAlso{Format; Indent; Justification; Reveal Codes; Tab; Word Wrap}
+80: \end{Feature}
+81: 
+82: \begin{Feature}{Messages}
+83: InitechWord tells you on the status line when it cannot do what you ask,
+84: and asks you questions there before it does something you might not mean.
+85: A message that begins \Scr{ERROR:} waits for a key; press any key to return
+86: to where you were.  Appendix C lists every message and question, with what
+87: it means and what to do.
+88: 
+89: \Notes
+90: \Topic{Answering a Question}
+91: A question shows two answers, one of them in parentheses, as
+92: \Scr{Exit WP? No (Yes)}.  Type the first letter of the answer in parentheses
+93: to choose it; Enter or any other key gives the other answer.  Cancel (F1)
+94: backs out of the question.
+95: 
+96: \Topic{Messages in Prompts}
+97: When an error happens at a name prompt -- a name not found, a name not
+98: allowed -- the key you press returns you to the prompt, with the name you
+99: typed, so that you can correct it.
+100: 
+101: \Topic{Questions That Wait for an Answer}
+102: Three questions take only their answers: \Scr{w/Confirm? No (Yes)} and
+103: \Scr{Replace? Yes (No)} of Replace take \Typed{y}, \Typed{n} and Enter, and
+104: \Scr{Original Document Backup? No (Yes)} of Setup takes \Typed{y} and
+105: \Typed{n}.  Other keys are ignored, except Cancel.
+106: 
+107: \Topic{Search}
+108: \Scr{* Not found *} is not an error: Search or Replace found nothing more.
+109: Press any key; the key only clears the message.
+110: 
+111: \SeeAlso{Cancel; Exit; Replace; Retrieve; Save; Search; Setup}
+112: \end{Feature}
+113: 
+114: \begin{Feature}{Move}
+115: Move takes text out of one place and puts it in another, copies text, or
+116: deletes it.  It works on a block you have made, or on a sentence, a
+117: paragraph or a page that InitechWord selects for you.
+118: 
+119: To use Move,
+120: \begin{WPSteps}
+121: \item Block the text first (see \InRef{Block}), then press
+122: \FK{Move}{Ctrl-F4}.  The status line shows
+123: \StatusLine{Move: 1 Block; 2 Tabular Column; 3 Rectangle: 0}
+124: \par Select \Ch{Block}{1} and go on as described in \InRef{Move, Block}.
+125: \Or
+126: With Block off, press \FK{Move}{Ctrl-F4}.  The status line shows
+127: \StatusLine{Move: 1 Sentence; 2 Paragraph; 3 Page; 4 Retrieve: 0}
+128: \par Select what to move (see \InRef{Move, Sentence/Paragraph/Page}), or
+129: select \Ch{Retrieve}{4} to put back the text you last moved or copied (see
+130: \InRef{Move, Retrieve}).
+131: \end{WPSteps}
+132: \Documents{wpkey}{Ctrl-F4}
+133: \Documents{wpkey}{Block:Ctrl-F4}
+134: \Documents{wpmenu}{Block:Ctrl-F4,1=Block}
+135: 
+136: \Notes
+137: \Topic{Other Selections}
+138: Tabular Column (2) and Rectangle (3) on the first menu, and Append (4) on
+139: the second, return you to the document as Cancel does.
+140: 
+141: \Topic{The Move Buffer}
+142: The text you move or copy is kept, so that you can put it in the document
+143: again with Move, Retrieve.  It stays until you move or copy other text, even
+144: across a new document.
+145: 
+146: \SeeAlso{Block; Move, Block; Move, Retrieve; Move, Sentence/Paragraph/Page}
+147: \end{Feature}
+148: 
+149: \begin{Feature}{Move, Block}
+150: After you block text and choose Block from the Move menu, InitechWord asks
+151: what to do with it:
+152: \StatusLine{1 Move; 2 Copy; 3 Delete; 4 Append: 0}
+153: 
+154: To move or copy a block,
+155: \begin{WPSteps}
+156: \item Block the text and press \FK{Move}{Ctrl-F4}; select \Ch{Block}{1}.
+157: \item Select \Ch{Move}{1} to take the block out of the document
+158: \Or
+159: Select \Ch{Copy}{2} to leave it where it is.
+160: \item The status line shows \Scr{Move cursor; press Enter to retrieve.}
+161: Move the cursor to where the text is to go.
+162: \item Press \K{Enter}.  The text is put in front of the cursor.
+163: \end{WPSteps}
+164: \Documents{wpmenu}{Block:Ctrl-F4,1,1=Move}
+165: \Documents{wpmenu}{Block:Ctrl-F4,1,2=Copy}
+166: \Documents{wpmenu}{Block:Ctrl-F4,1,3=Delete}
+167: To delete the block instead, select \Ch{Delete}{3} at the second step.
+168: Move deletes it without asking (compare \InRef{Block, Delete}).
+169: 
+170: \BeginReplay{ref-moveblock}
+171: For example, type \TypeRun{Alpha Beta Gamma.}, press \PressKey{Home},
+172: \PressKey{Left}, press \PressKey{Right} six times to move to \textit{Beta}\Keys{Right Right Right Right Right},
+173: press \Press{Block}{Alt-F4} and \PressKey{Right} five times to block
+174: \textit{Beta} and the space after it\Keys{Right Right Right Right}, press
+175: \Press{Move}{Ctrl-F4} and select \Choose{Block}{1} and \Choose{Move}{1}:
+176: \WordScreen[rows=1]{ref-moveblock-1}{The block is out of the document; InitechWord waits for Enter}
+177: Press \PressKey{End} and \PressKey{Enter}:
+178: \WordScreen[rows=1]{ref-moveblock-2}{The block moved to the end of the line}
+179: \EndReplay
+180: 
+181: \Notes
+182: \Topic{Attributes}
+183: A block keeps its appearance and size when it is moved or copied: if it is
+184: bold where it starts, its bold goes with it.  The text around the place it
+185: came from keeps its own attributes.  Where the block is put, codes that
+186: would change nothing are left out.
+187: 
+188: \Topic{Cursor Keys}
+189: At \Scr{Move cursor; press Enter to retrieve.} every cursor key works, and
+190: so does Reveal Codes.  Cancel leaves the text unretrieved (see
+191: \InRef{Cancel}).
+192: 
+193: \SeeAlso{Block; Block, Delete; Move; Move, Retrieve}
+194: \end{Feature}
+195: 
+196: \begin{Feature}{Move, Retrieve}
+197: Retrieve on the Move menu puts the text you last moved or copied into the
+198: document again, at the cursor.  Use it to put the same text in several
+199: places, or to bring back text you left unretrieved.
+200: 
+201: To retrieve the moved or copied text,
+202: \begin{WPSteps}
+203: \item Move the cursor to where the text is to go.
+204: \item With Block off, press \FK{Move}{Ctrl-F4}, then select
+205: \Ch{Retrieve}{4}.  The status line shows
+206: \StatusLine{Retrieve: 1 Block; 2 Tabular Column; 3 Rectangle: 0}
+207: \item Select \Ch{Block}{1}.  The text is put in front of the cursor.
+208: \end{WPSteps}
+209: \Documents{wpmenu}{Ctrl-F4,4=Retrieve}
+210: \Documents{wpmenu}{Ctrl-F4,4,1=Block}
+211: 
+212: \Notes
+213: \Topic{Nothing to Retrieve}
+214: If you have not moved or copied any text since InitechWord started, Block
+215: (1) returns you to the document with nothing changed.  Tabular Column (2)
+216: and Rectangle (3) also return you to the document.
+217: 
+218: \SeeAlso{Move; Move, Block}
+219: \end{Feature}
+220: 
+221: \begin{Feature}{Move, Sentence/Paragraph/Page}
+222: With Block off, Move can select the sentence, the paragraph or the page the
+223: cursor is in, so that you need not block it yourself.
+224: 
+225: To move, copy or delete a sentence, paragraph or page,
+226: \begin{WPSteps}
+227: \item Put the cursor anywhere in the sentence, paragraph or page.
+228: \item Press \FK{Move}{Ctrl-F4}.
+229: \item Select \Ch{Sentence}{1}, \Ch{Paragraph}{2} or \Ch{Page}{3}.
+230: InitechWord highlights it and shows \Scr{1 Move; 2 Copy; 3 Delete; 4 Append: 0}.
+231: \item Select \Ch{Move}{1} or \Ch{Copy}{2}, move the cursor to where the
+232: text is to go, and press \K{Enter}
+233: \Or
+234: Select \Ch{Delete}{3} to delete it.
+235: \end{WPSteps}
+236: \Documents{wpmenu}{Ctrl-F4,1=Sentence}
+237: \Documents{wpmenu}{Ctrl-F4,1,1=Move}
+238: \Documents{wpmenu}{Ctrl-F4,1,2=Copy}
+239: \Documents{wpmenu}{Ctrl-F4,1,3=Delete}
+240: \Documents{wpmenu}{Ctrl-F4,2=Paragraph}
+241: \Documents{wpmenu}{Ctrl-F4,2,1=Move}
+242: \Documents{wpmenu}{Ctrl-F4,2,2=Copy}
+243: \Documents{wpmenu}{Ctrl-F4,2,3=Delete}
+244: \Documents{wpmenu}{Ctrl-F4,3=Page}
+245: \Documents{wpmenu}{Ctrl-F4,3,1=Move}
+246: \Documents{wpmenu}{Ctrl-F4,3,2=Copy}
+247: \Documents{wpmenu}{Ctrl-F4,3,3=Delete}
+248: 
+249: \BeginReplay{ref-movesent}
+250: For example, type
+251: \TypeRun{First sentence here. Second sentence follows.  Third one.},
+252: put the cursor in the second sentence\Keys{Home Left Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right},
+253: press \Press{Move}{Ctrl-F4} and select \Choose{Sentence}{1}:
+254: \WordScreen[rows=1]{ref-movesent}{Move highlights the sentence the cursor is in}
+255: \Keys{F1}\EndReplay
+256: 
+257: \Notes
+258: \Topic{Cancel}
+259: Press \FK{Cancel}{F1} while the text is highlighted to leave it where it is.
+260: The highlight goes and the cursor stays at the end of the text.
+261: 
+262: \Topic{Page}
+263: A page is the page the status line counts as Pg: its lines from the first
+264: to the last.  A page ends after 54 lines, or at a hard page, whose code goes
+265: with it (see \InRef{Page Break, Hard}).
+266: 
+267: \Topic{Paragraph}
+268: A paragraph runs from after the hard return (or hard page) before it
+269: through its own hard return.
+270: 
+271: \Topic{Sentence}
+272: A sentence runs from the start of the sentence through the period,
+273: question mark or exclamation mark that ends it and up to three spaces after
+274: it.  A hard return also ends a sentence.
+275: 
+276: \SeeAlso{Block; Move; Move, Block; Move, Retrieve}
+277: \end{Feature}

@@ -1,0 +1,23 @@
+Source: WPDOS51Reference.pdf; pdftotext -layout, source text line numbers follow.
+4103:            screen for the Cancel feature.
+4104: 
+4105:            Macros
+4106:            While pressing Cancel (FI) cancels a macro in operation, it does not cancel a
+4107:            macro definition
+4108:                   definition.. To end a macro definition, press Macro Define (Ctrl-FlO).
+4109:                                                                                (Ctrl-FI 0).
+4110:            Pressing Ca  ncel in a macro definition simply inserts the Cancel keystroke into
+4111:                      Cancel
+4112:            the definition (see Macros in Reference).
+4113:                                          Reference) .
+4114: 
+4115: 
+4116: 
+4117: 
+4118:                                                                                      CANCEL   55
+4119: 
+4120:                       Pull-Down Menus
+4121:                       Wher you are using the pull-down menus, pressing Cancel (Fl) (FI) or Escape (Esc)
+4122:                       takes you back one level. Pressing Exit (F7), takes you all the way out of the
+4123:                       menus. Clicking the center button on a three-button mouse takes you back one
+4124:                       level. Holding down either mouse button,

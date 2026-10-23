@@ -1,0 +1,163 @@
+Source: WPDOS51Reference.pdf; pdftotext -layout, source text line numbers follow.
+44464:                                  double.
+44465:                                  doubl<i!      This
+44466:                                                T his is        importa nt c
+44467:                                                       1s an important      congideratton
+44468:                                                                             o n s i d eration since many insur 1nsurance     (Sllt]
+44469:                                                                                                                      a n c e [SRt]
+44470:                                  c                    limit•d in
+44471:                                    o m p anies are limited
+44472:                                  companies                           the amount of medical
+44473:                                                                  in the                    mediceil coverage they     ca n(SRt]
+44474:                                                                                                                 they can[SRt]
+44475: 
+44476:                                        Re.,.••l Codes to
+44477:                                Pre!!!! Reveal
+44478:                                Press                               scr<l!en
+44479:                                                           resitore screen
+44480:                                                       t:o restore
+44481: 
+44482: 
+44483: 
+44484: 
+44485:                             In the ruler line
+44486:                                          hne which splits the screen,
+44487:                                                                screen. a triangle (A
+44488:                                                                                    (")) represents each tab. A left
+44489:                             bracket ([) represents the left margin: a right bracket (]) represents the right
+44490:                                                                       selling. it is displayed as a left brace
+44491:                                                              tah stop setting,
+44492:                             margin. If a margin falls on a tab                                                 ( l)
+44493:                                                                                                          brnce ({)
+44494:                             or a right brace (}).
+44495:                                               () ).
+44496:                             If you are editing a table in the normal editing screen.
+44497:                                                                              screen, the ruler line indicates
+44498:                             where the table columns are found.
+44499:                                                            found . The table columns are shown in braces (e.g.,
+44500:                             { })
+44501:                                }) unless they match a tab stop setting, in which case they are shown in
+44502:                             brackets (e.g., [f ]).
+44503: 
+44504: 
+44505: 
+44506: 
+44507:                                                                                                                                                          REVEAL CODES   561
+44508:                                                                                                                                                                         561
+44509: 
+44510:                       Normally, 11   Jines appear above the ruler line, and 12 lines below. You can
+44511:                                   11 lines
+44512:                       adjust this while in Reveal Codes by using Screen (Ctrl-F3,1,)
+44513:                                                                            (Ctrl-F3, I,) (see Window
+44514:                                                                                               W indow in
+44515:                       Reference).
+44516: 
+44517:                       You can also change the Reveal Codes window size permanently in Setup
+44518:                       (Shift-Fl.2.6,6)      Edit-Screen
+44519:                       (Shift-Fl,2,6,6) (see E dit-Screen Options
+44520:                                                          O ptions in R eference ). If you use a 1
+44521:                                                                      Reference).                I line
+44522:                       Reveal Codes screen, you will be prompted for confirmation when you delete
+44523:                       codes.
+44524:                       The cursor appears at the same location in both parts of the screen. In the normal
+44525:                       editing screen it is usually displayed as a dash. In the Reveal Codes part of the
+44526:                       screen, the cursor is displayed in the same way you have chosen to display
+44527:                       blocked text. This selection is made on the Attributes menu in Colors/Fonts/
+44528:                       Attributes in Setup (Shift-F 1,2, I, I) (see Colors/Fonts/Attributes in Reference).
+44529:                                                    1,2,1,1)
+44530:                       Normally, the cursor is displayed in the Reveal Codes part of the screen as a
+44531:                       horizontal rectangle which highlights in reverse video any character on which it is
+44532:                       resting.
+44533:                       You can use the cursor keys or the mouse to move through text in the normal
+44534:                       editing screen. Moving the cursor changes its position in both parts of the
+44535:                       screen.
+44536:                       As you move through text, WordPerfect attempts to keep about live               five lines of text
+44537:                       below the cursor in the Reveal Codes part of the screen at all times.
+44538:                       Consequently, the llarger
+44539:                                           a r g e r tthe
+44540:                                                       h e RReveal
+44541:                                                             eveal C o d e s part
+44542:                                                                   Codes     p,ut ooff the  screen is, !he
+44543:                                                                                       tht: scret:n    the more lines
+44544:                       that can remain above the cursor.
+44545:                       Although WordPerfect attempts to display the same text in both parts of the
+44546:                       screen, the text in the Reveal Codes window has to include codes and
+44547:                       consequently it takes up more space. Therefore.
+44548:                                                             Therefore, it does not always exactly
+44549:                       match the text displayed in the normal editing screen.
+44550: 
+44551:                       Editing in Reveal Codes
+44552:                       When in Reveal Codes, you can use all WordPerfect features and edit text just as
+44553:                       you normally do in the normal editing screen. However,
+44554:                                                                     However. when you delete codes,
+44555:                       you are not asked to confirm the deletion.
+44556:                       If you are having trouble highlighting a particular code with the Up and Down
+44557:                       Arrow keys,
+44558:                              keys. you may need to use the Left or Right Arrow key.
+44559:                       Status line messages and prompts continue to appear on the bottom line of the
+44560:                       normal editing part of the screen. The screen remains split even when you
+44561:                       switch screens or use full-screen menus. The only way to return to the normal
+44562:                       editing screen is by pressing Reveal Codes (Alt-F3). Reveal Codes is also
+44563:                       turned off when you exit WordPerfect.
+44564:                       For a list of all the codes used in WordPerfect and the function of each code, see
+44565:                       Appendix
+44566:                       A ppendix C: Codes.
+44567: 
+44568:                       See Also: Delete Codes
+44569: 
+44570: 
+44571: 
+44572: 
+44573: 562 R~fVf
+44574:       lV fA It lCOL
+44575:                   l
+44576: 
+44577: Rewrite
+44578:                                                        document. WordPerfect rewrites the
+44579:           As you move the cursor through text in your document,
+44580:           text from the cursor to the end of the document.
+44581:           When you need to be certain that the text in a document is correctly formatted,
+44582:                                                                                formatted.
+44583:           use Rewrite to completely reformat the text on your screen at any time, without
+44584:           moving the cursor. Should the text on your screen become jumbled for any
+44585:           reason, you can quickly use Rewrite to correct the problem.
+44586:           Rewrite is particularly useful when you are editing graphics images. Each time
+44587:           you edit an existing graphics image (e.g., change the horizontal or vertical
+44588:           position of a graphics box), you will want to rewrite your screen when you
+44589:                                                                               Reference) .
+44590:           return to the normal editing screen (see Graphics, Define a Box in Reference).
+44591:           To rewrite the screen,
+44592:           1    Press Screen (Ctrl-F3), then select Rewrite (3) or press Enter.
+44593: 
+44594: Notes     Automatic Formatting
+44595:            At times you may not want to wait for the text in a document to be continually
+44596:           rreformatted                   u r n off tthis
+44597:                                      o tturn
+44598:             e f o r m a t t e d .. TTo               h i s feature,
+44599:                                                            feature. press Setup (Shift-Fl). select Display (2),
+44600:            select Edit-Screen Options (6), select Automatically Format and Rewrite (I)                  (1),, type
+44601:            n. then press Exit (F7) to return to your document.
+44602:           When Automatic Formatting is off, text is not rewritten until you use a cursor
+44603:           key to scroll through it. Also, the screen is only rewritten one line at a time
+44604:           when you rewrite the screen.
+44605: 
+44606:           See Also: Graphics, Define a Box; Screen
+44607: 
+44608: 
+44609: 
+44610: 
+44611:                                                                                                     REWRITE   5563
+44612:                                                                                                                 63
+44613: 
+44614: 
+44615: S Save
+44616: S
+44617: 
+44618:          While creating or editing a document, any changes you make are only stored
+44619:          temporarily in your computer’s
+44620:                              computer's active memory. Should a power failure occur, or
+44621:          should your computer crash, the work you have done would be lost.
+44622:          A document is not stored permanently until you save it to a disk. Consequently,
+44623:          it is a good idea to save the document you are working on from time to time.
+44624:          You can save a document without losing your place on the screen and then
+44625:          continue creating or editing it.

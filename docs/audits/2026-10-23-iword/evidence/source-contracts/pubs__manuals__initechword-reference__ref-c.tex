@@ -1,0 +1,241 @@
+1: % Reference entries, C (AN-11).  Law 1: os/iword/app/face_a.c prompt_key,
+2: % format_key, block_key, retrieve_key (Cancel F1 / Esc in every prompt),
+3: % paint_status (POS with Caps Lock), cursor_key (the arrows, End and the
+4: % Home prefix), os/iword/core/edit.c (the unit walk: a code is a cursor
+5: % position of its own; iw_ed_line_home / line_start / doc_top / doc_end /
+6: % to_line), codes.c (the "Delete [code]? No (Yes)" question, the partner
+7: % deleted with an attribute code; codes InitechWord does not create are
+8: % stepped over).  Shots: ../wordperfect51-decomp mint MINT11, MINT27.
+9: % GATES: test-pubs-iword test-iword-codes test-iword-core test-iword-face test-iword-reveal-codes
+10: \Gates{test-pubs-iword test-iword-codes test-iword-core test-iword-face test-iword-reveal-codes}
+11: \begin{Feature}{Cancel}
+12: Cancel backs out of a menu, prompt or question without doing anything.  You
+13: can press it whenever the status line shows a menu or asks you something.
+14: On the editing screen, with nothing to cancel, the same key restores
+15: deleted text (see \InRef{Undelete}).
+16: 
+17: To cancel,
+18: \begin{WPSteps}
+19: \item Press \FK{Cancel}{F1}
+20: \Or
+21: Press \K{Esc}.
+22: \end{WPSteps}
+23: \Documents{wpkey}{F1}
+24: \Documents{wpkey}{Esc}
+25: 
+26: \Notes
+27: \Topic{Block}
+28: While Block is on, Cancel turns Block off and leaves the text as it was.
+29: 
+30: \Topic{Error Messages}
+31: When the status line shows a message that begins \Scr{ERROR:}, any key --
+32: Cancel included -- takes you back to the prompt where the error happened,
+33: so that you can try again.  Press Cancel once more to return to the
+34: document.
+35: 
+36: \Topic{Exit and Save}
+37: Cancel at any of the questions of Exit (\Scr{Save Document?},
+38: \Scr{Exit WP?}) or at the name prompt of Save or Retrieve returns you to the
+39: document as it was.
+40: 
+41: \Topic{Format Screens}
+42: On the Format screens Cancel goes back one screen at a time: from a
+43: measurement you are typing to the Format: Line screen (leaving the setting
+44: as it was), from Format: Line to Format, and from Format to the document.
+45: \FK{Exit}{F7} on the Format: Line screen returns straight to the document.
+46: 
+47: \Topic{Moving Text}
+48: At \Scr{Move cursor; press Enter to retrieve.} Cancel leaves the text where
+49: it is now: text you moved stays out of the document, but you can still put
+50: it back with Move's Retrieve (see \InRef{Move, Retrieve}).  When InitechWord
+51: has highlighted a sentence, paragraph or page for Move, Cancel removes the
+52: highlight.
+53: 
+54: \Topic{On the Editing Screen}
+55: With no menu or prompt on the screen, \FK{Cancel}{F1} starts Undelete: it
+56: shows the last text you deleted and offers to restore it (see
+57: \InRef{Undelete}).  \K{Esc} does nothing on the editing screen.
+58: 
+59: \Topic{Search and Replace}
+60: Cancel at the \Scr{Srch:} prompt leaves the cursor where it was.  At the
+61: questions and strings of Replace it leaves Replace; at
+62: \Scr{Replace? Yes (No)} it stops replacing.  See \InRef{Search} and
+63: \InRef{Replace}.
+64: 
+65: \Topic{Setup}
+66: Cancel (or Esc) on any Setup screen returns to the document; Exit (F7)
+67: goes back one screen.  See \InRef{Setup}.
+68: 
+69: \SeeAlso{Block; Exit; Format; Move, Retrieve; Undelete}
+70: \end{Feature}
+71: 
+72: \begin{Feature}{Caps Lock}
+73: The Caps Lock key of your keyboard works in InitechWord as in every FLAIR
+74: application.  While Caps Lock is on, the status line shows the word
+75: \Scr{Pos} in capitals, \Scr{POS}, as a reminder.
+76: 
+77: To see whether Caps Lock is on,
+78: \begin{WPSteps}
+79: \item Look at the status line: \Scr{POS} means Caps Lock is on, \Scr{Pos}
+80: that it is off.
+81: \end{WPSteps}
+82: 
+83: \BeginReplay{ref-caps}
+84: \CapsLock{on}\Keys{End}%
+85: With Caps Lock on, a new document shows this status line:
+86: \WordScreen[rows=1]{ref-caps}{The status line with Caps Lock on}
+87: \CapsLock{off}%
+88: \EndReplay
+89: 
+90: \SeeAlso{Status Line}
+91: \end{Feature}
+92: 
+93: \begin{Feature}{Codes}
+94: InitechWord keeps everything that formats a document as hidden codes in the
+95: text.  When you press Bold, a hard return, a tab or a margin setting, a code
+96: goes into the document at the cursor.  The editing screen shows what the
+97: codes do, but not the codes; Reveal Codes shows them (see \InRef{Reveal
+98: Codes}).  Appendix B lists every code and its meaning.
+99: 
+100: Most features put one code in the document.  Appearances and sizes put a
+101: pair of codes, one where the attribute begins and one where it ends: the
+102: \emph{on} code is named in capitals (\Code{[BOLD]}), the \emph{off} code in
+103: lower case (\Code{[bold]}).
+104: 
+105: To delete a code,
+106: \begin{WPSteps}
+107: \item Press \FK{Reveal Codes}{Alt-F3} so that you can see the code.
+108: \item Move the cursor onto the code (the code is highlighted) and press
+109: \K{Delete}
+110: \Or
+111: Move the cursor just after the code and press \K{Backspace}.
+112: \item Press \FK{Reveal Codes}{Alt-F3} again to return to the editing screen.
+113: \end{WPSteps}
+114: \begin{WPNote}Deleting either code of a pair deletes both.\end{WPNote}
+115: 
+116: \Notes
+117: \Topic{Codes InitechWord Keeps but Does Not Make}
+118: A document written by WordPerfect 5.1 can hold codes that InitechWord does
+119: not put in documents itself: \Code{[Center]}, \Code{[Flsh Rgt]} and
+120: \Code{[ ]} (a hard space), and codes Reveal Codes shows as \Code{[?]}.
+121: InitechWord keeps them where they are and saves them unchanged.  Backspace
+122: and Delete step over them instead of deleting them, in Reveal Codes as on
+123: the editing screen.  The editing screen draws the text after a
+124: \Code{[Center]} or \Code{[Flsh Rgt]} at the left margin.
+125: 
+126: \Topic{Cursor on a Code}
+127: Each code is a place the cursor can stop.  On the editing screen a code takes
+128: no room, so pressing \K{Right} across one may seem to leave the cursor where
+129: it was; in Reveal Codes you see it move onto the code.
+130: 
+131: \Topic{Deleting Codes on the Editing Screen}
+132: If Backspace or Delete reaches a code of an appearance or size, a margin
+133: setting, a justification or a line spacing while Reveal Codes is off,
+134: InitechWord does not delete it at once.  It asks, naming the code as Reveal
+135: Codes shows it:
+136: \StatusLine{Delete [BOLD]? No (Yes)}
+137: Type \Typed{y} to delete the code (and, for a pair, its partner).  Any other
+138: key answers No: nothing is deleted, and the cursor moves past the code -- to
+139: before it for Backspace, after it for Delete -- so that the next Backspace
+140: or Delete reaches the text.  Tabs, indents, hard returns and hard pages are
+141: deleted without a question.
+142: 
+143: \BeginReplay{ref-codes}
+144: For example, type \TypeRun{Read the }(with the space), press \Press{Bold}{F6}
+145: and type \TypeRun{new}.  The cursor is just before \Code{[bold]}.  Press
+146: \PressKey{Delete}:
+147: \WordScreen[rows=1]{ref-codes-1}{Delete meets the off code of bold}
+148: Type \TypeName{y}: both bold codes are deleted and \textit{new} is ordinary
+149: text again.
+150: \WordScreen[rows=1]{ref-codes-2}{The bold codes deleted}
+151: \EndReplay
+152: 
+153: \Topic{Order of Codes}
+154: When you choose a format at the cursor, InitechWord puts its code there.
+155: Margin settings and justification take effect at the start of a line, so if
+156: the cursor is not at the left margin InitechWord first ends the line there
+157: (see \InRef{Margins, Left and Right} and \InRef{Justification}).
+158: 
+159: \SeeAlso{Appearance; Delete; Reveal Codes; Size}
+160: \end{Feature}
+161: 
+162: \begin{Feature}{Cursor Movement}
+163: The cursor keys move the cursor through the text without changing it.  The
+164: cursor marks where the next character you type goes; it is the cell drawn
+165: in reverse video on the editing screen.
+166: 
+167: To move the cursor,
+168: \begin{WPSteps}
+169: \item Press an arrow key to move one character left or right, or one line
+170: up or down.
+171: \item Press \K{End} to move to the end of the line.
+172: \item Press \K{Home} before an arrow key to move farther (see the table
+173: below).
+174: \end{WPSteps}
+175: \Documents{wpkey}{Up}
+176: \Documents{wpkey}{Down}
+177: \Documents{wpkey}{Left}
+178: \Documents{wpkey}{Right}
+179: \Documents{wpkey}{End}
+180: \Documents{wpkey}{Home}
+181: \Documents{wpkey}{Home,Left}
+182: \Documents{wpkey}{Home,Right}
+183: \Documents{wpkey}{Home,Up}
+184: \Documents{wpkey}{Home,Down}
+185: \Documents{wpkey}{Home,Home,Up}
+186: \Documents{wpkey}{Home,Home,Down}
+187: \Documents{wpkey}{Home,Home,Home,Left}
+188: \Documents{wpkey}{Home,Home,Home,Up}
+189: 
+190: \K{Home} is a prefix key: pressing it does nothing by itself, but changes
+191: what the next arrow key does.  Press Home, release it, then press the arrow.
+192: \par\addvspace{4pt}
+193: \noindent\begin{tabular}{@{}lp{50mm}@{}}
+194: \textbf{Keys} & \textbf{Moves the cursor to}\\
+195: \K{Left}, \K{Right} & the next character to the left or right\\
+196: \K{Up}, \K{Down} & the line above or below\\
+197: \K{End} & the end of the line\\
+198: \K{Home, Left} & the start of the line (after any codes there)\\
+199: \K{Home, Home, Left} & the start of the line (after any codes there)\\
+200: \K{Home, Home, Home, Left} & the start of the line, before any codes there\\
+201: \K{Home, Right} & the end of the line\\
+202: \K{Home, Up} & the top line on the screen\\
+203: \K{Home, Down} & the bottom line on the screen\\
+204: \K{Home, Home, Up} & the top of the document, after the formatting codes there\\
+205: \K{Home, Home, Home, Up} & the top of the document, before any codes\\
+206: \K{Home, Home, Down} & the end of the document\\
+207: \end{tabular}
+208: \par\addvspace{4pt}
+209: 
+210: \Notes
+211: \Topic{Codes}
+212: The cursor stops on each code as it does on each character.  On the editing
+213: screen a code takes no room, so a press of Left or Right that moves onto or
+214: off a code seems to do nothing; with Reveal Codes on you can see where the
+215: cursor is (see \InRef{Codes}).
+216: 
+217: \Topic{Home Twice}
+218: Two Homes before Left do what one does, and so do two Homes before Right:
+219: there is no farther left or right than the start and end of a line.  With Up and Down, two Homes go to the top or end of
+220: the whole document.
+221: 
+222: \Topic{Home, Up and Home, Down at the Edge of the Screen}
+223: If the cursor is already on the top line of the screen, \K{Home, Up} moves
+224: it up one screen; on the bottom line, \K{Home, Down} moves it down one
+225: screen.
+226: 
+227: \Topic{Moving Up and Down}
+228: Up and Down keep the cursor in the same column as it moves from line to
+229: line.  On a shorter line the cursor goes to the end of the line, and returns
+230: to its column on the next line long enough to have one.
+231: 
+232: \Topic{Shift, Ctrl and Alt}
+233: The cursor keys do the same with Shift, Ctrl or Alt held as without
+234: (Appendix F).
+235: 
+236: \Topic{The Screen}
+237: The editing screen shows 23 lines.  When the cursor moves past the top or
+238: bottom of the screen, the screen moves with it.
+239: 
+240: \SeeAlso{Block; Codes; Status Line}
+241: \end{Feature}

@@ -1,0 +1,221 @@
+       " fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00001157
+FLAIR-EVT what=3 where=70,47 msg=00001950
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Document to be Saved: EXITTEST.WP                                           " fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00001950
+FLAIR-EVT what=3 where=70,47 msg=00000635
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Document to be Saved: EXITTEST.WP5                                          " fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00000635
+FLAIR-EVT what=3 where=70,47 msg=00001C0A
+TENANT-EVT what=3
+TENANT-GATE ax=0x0081 path="EXITTEST.WP5" mode=0 -> -258
+TENANT-GATE ax=0x0080 path="EXITTEST.WP5" -> 5
+TENANT-GATE ax=0x0083 h=5 n=359 -> 359
+TENANT-GATE ax=0x0085 h=5 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Exit WP? No (Yes)                                                           " fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00001C0A
+FLAIR-EVT what=3 where=70,47 msg=00003B00
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 4.2"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00003B00
+FLAIR-EVT what=3 where=70,47 msg=00003920
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=265 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 4.3"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00003920
+FLAIR-EVT what=3 where=70,47 msg=00001675
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED u                                          " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=273 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 4.4"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00001675
+FLAIR-EVT what=3 where=70,47 msg=0000316E
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED un                                         " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=281 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 4.5"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=0000316E
+FLAIR-EVT what=3 where=70,47 msg=00001F73
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED uns                                        " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=289 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 4.6"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00001F73
+FLAIR-EVT what=3 where=70,47 msg=00001E61
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsa                                       " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=297 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 4.7"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00001E61
+FLAIR-EVT what=3 where=70,47 msg=00002F76
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsav                                      " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=305 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 4.8"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00002F76
+FLAIR-EVT what=3 where=70,47 msg=00001265
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsave                                     " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=313 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 4.9"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00001265
+FLAIR-EVT what=3 where=70,47 msg=00002064
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved                                    " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=321 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 5"  " fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00002064
+FLAIR-EVT what=3 where=70,47 msg=00003920
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved                                    " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=329 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 5.1"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00003920
+FLAIR-EVT what=3 where=70,47 msg=00001F73
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved s                                  " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=337 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 5.2"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00001F73
+FLAIR-EVT what=3 where=70,47 msg=00002368
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved sh                                 " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=345 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 5.3"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00002368
+FLAIR-CLOCK 12:44 pm
+FLAIR-EVT what=3 where=70,47 msg=00001675
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved shu                                " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=353 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 5.4"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00001675
+FLAIR-EVT what=3 where=70,47 msg=00001474
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved shut                               " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=361 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 5.5"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00001474
+FLAIR-EVT what=3 where=70,47 msg=00002064
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved shutd                              " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=369 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 5.6"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00002064
+FLAIR-EVT what=3 where=70,47 msg=0000186F
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved shutdo                             " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=377 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 5.7"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=0000186F
+FLAIR-EVT what=3 where=70,47 msg=00001177
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved shutdow                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=385 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 5.8"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=00001177
+FLAIR-EVT what=3 where=70,47 msg=0000316E
+TENANT-EVT what=3
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved shutdown                           " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=393 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 5.9"" fg=0 bg=3 -> 0
+FLAIR-EVT what=4 where=70,47 msg=0000316E
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=195 y=10
+FLAIR-EVT what=1 where=195,10 msg=00000000
+FLAIR-MENU-DROP menu=131
+FLAIR-CURSOR x=345 y=110
+FLAIR-EVT what=2 where=345,110 msg=00000000
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=640 b=480 c=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved shutdown                           " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=393 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=48 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 5.9"" fg=0 bg=3 -> 0
+FLAIR-MENU menu=131 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=240 y=38
+FLAIR-CURSOR x=320 y=50
+FLAIR-EVT what=1 where=320,50 msg=00000000
+FLAIR-CURSOR x=320 y=200
+FLAIR-EVT what=2 where=320,200 msg=00000000
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=640 b=480 c=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved shutdown                           " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=393 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=48 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=304 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=320 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=336 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=352 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="A:\EXITTEST.WP5                                    Doc 1 Pg 1 Ln 1" Pos 5.9"" fg=0 bg=3 -> 0
+FLAIR-DRAG win 0 (0,40)->(0,190)
+FLAIR-CURSOR x=160 y=80
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=70 y=30
+FLAIR-CURSOR x=210 y=90
+FLAIR-EVT what=1 where=210,90 msg=00000000
+TENANT-EVT what=8
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=640 b=480 c=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="Original version changed UNSAVED unsaved shutdown                           " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=393 y=0 s=" " fg=3 bg=0 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=48 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=64 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=112 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=128 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=144 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=160 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=176 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=192 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=208 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=224 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=240 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=256 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=272 s="                                                                            " fg=0 bg=3 -> 0
+TENANT-GATE ax=0x0033 win=1 x=1 y=288 s="                                                                            " fg

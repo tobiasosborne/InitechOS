@@ -1,0 +1,92 @@
+id	area	severity	summary
+L001	Save	P1	Full-disk overwrite destroys the previous document
+L002	Save	P2	Failed new saves leave zero-byte document files
+L003	Window	P2	Resizing hides the status line and every prompt
+L004	List Files	P2	Directories silently lose all entries after file 254
+L005	Quit / Finder	P2	Shut Down silently cancels while Word has unsaved work
+L006	WP5 import	P2	Real WP soft-page documents cannot be retrieved
+L007	WP5 import	P2	Table cells render as one concatenated line
+L008	WP5 import	P2	Imported centered lines appear at the left margin
+L009	WP5 import	P2	Imported flush-right lines appear at the left margin
+L010	WP5 import	P2	Extended characters disappear from imported text
+L011	WP5 import	P2	Imported footnote references are invisible
+L012	Search	P2	Ctrl-M inserts m instead of a searchable Soft Return
+L013	Wrap / Indent	P2	Indent at the right edge produces a vertical column outside the margin
+L014	Wrap / Tab	P2	Tab at the long-word boundary disagrees between screen and saved coordinates
+L015	Filenames	P2	Spaces in a filename are silently removed
+L016	Manual / List Files	P2	Esc does not leave List Files as the manual promises
+L017	Cancel / Look	P2	F1 does not cancel the Look menu
+L018	Look	P2	Text-file Look cannot scroll past its first 20 lines
+L019	Look	P2	Next Doc and Prev Doc are inert enabled choices
+L020	List Files	P2	Directory prompt ignores typed paths
+L021	List Files	P3	Change-default-directory hint advertises a dead key
+L022	Mouse	P2	Clicking document text does not position the insertion point
+L023	Window	P2	Visible scroll arrows do not scroll the document
+L024	Navigation	P2	Page Up and Page Down do nothing
+L025	Navigation	P2	Go To becomes ordinary document typing
+L026	Navigation	P2	Ctrl-Right moves a character instead of a word
+L027	Deletion	P2	Delete Word deletes only one character
+L028	Deletion	P2	Delete to End of Line only moves the cursor
+L029	Deletion	P2	Delete to End of Page never asks or deletes
+L030	Typing	P2	Insert cannot switch to typeover
+L031	Keyboard	P2	Repeat Value inserts its count into the document
+L032	Block	P2	Enter cannot extend a block through the paragraph
+L033	Block	P2	A block cannot be saved as a file
+L034	Block	P2	Case conversion is absent for selected text
+L035	Block	P2	Search cannot extend or contract a block
+L036	Block	P2	Append returns without offering a file
+L037	Block	P2	Tabular Column movement is absent
+L038	Block	P2	Rectangle movement is absent
+L039	Codes	P2	Home-Space inserts an ordinary breakable space
+L040	Codes	P2	Compose inserts literal keystrokes instead of an extended character
+L041	Setup	P2	Chosen measurement units do not affect measurements
+L042	Setup / Save	P2	Original Document Backup Yes never creates a backup
+L043	Setup	P2	Timed backup is unavailable
+L044	Font	P2	Base Font selection immediately returns to editing
+L045	Font	P2	Print Color selection immediately returns to editing
+L046	Menu polish	P3	Unimplemented Font choices look enabled
+L047	Menu polish	P3	Unavailable Format choices look enabled
+L048	Setup	P2	Display setup is unavailable
+L049	Setup	P2	Initial Settings setup is unavailable
+L050	Setup	P2	Keyboard Layout setup is unavailable
+L051	Setup	P2	Location of Files setup is unavailable
+L052	Format	P2	Format Page group cannot be entered
+L053	Format	P2	Format Document group cannot be entered
+L054	Format	P2	Format Other group cannot be entered
+L055	Format	P2	Hyphenation cannot be configured
+L056	Format	P2	Hyphenation Zone cannot be configured
+L057	Format	P2	Line Height cannot be configured
+L058	Format	P2	Line Numbering cannot be configured
+L059	Format	P2	Tab Set cannot be configured
+L060	Format	P2	Widow/Orphan Protection cannot be configured
+L061	Margins	P2	Zero-inch margins are silently ignored
+L062	WP command	P2	Help is only a placeholder
+L063	WP command	P2	End Field is only a placeholder
+L064	WP command	P2	Switch is only a placeholder
+L065	WP command	P2	reverse Indent is only a placeholder
+L066	WP command	P2	Date/Outline is only a placeholder
+L067	WP command	P2	Center is only a placeholder
+L068	WP command	P2	Print is only a placeholder
+L069	WP command	P2	Merge Codes is only a placeholder
+L070	WP command	P2	Thesaurus is only a placeholder
+L071	WP command	P2	Mark Text is only a placeholder
+L072	WP command	P2	Flush Right is only a placeholder
+L073	WP command	P2	Columns/Table is only a placeholder
+L074	WP command	P2	Style is only a placeholder
+L075	WP command	P2	Graphics is only a placeholder
+L076	WP command	P2	Macro playback is only a placeholder
+L077	WP command	P2	Shell is only a placeholder
+L078	WP command	P2	Spell is only a placeholder
+L079	WP command	P2	Screen rewrite/split is only a placeholder
+L080	WP command	P2	Text In/Out is only a placeholder
+L081	WP command	P2	Tab Align is only a placeholder
+L082	WP command	P2	Footnote is only a placeholder
+L083	WP command	P2	Merge/Sort is only a placeholder
+L084	WP command	P2	Macro Define is only a placeholder
+L085	List Files	P2	Delete is unavailable in the file list
+L086	List Files	P2	Move/Rename is unavailable in the file list
+L087	List Files	P2	Short/Long Display is unavailable in the file list
+L088	List Files	P2	Other Directory is unavailable in the file list
+L089	List Files	P2	Copy is unavailable in the file list
+L090	List Files	P2	Find is unavailable in the file list
+L091	List Files	P2	Name Search is unavailable in the file list

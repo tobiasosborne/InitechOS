@@ -1,0 +1,208 @@
+1: % Reference entries, B (AN-11).  Law 1: os/iword/app/face_a.c block_key
+2: % (the keys that act while Block is on; "Block on", "Delete Block? No (Yes)",
+3: % M_FONTBLK "Attribute: 1 Size; 2 Appearance: 0"), os/iword/core/block.c
+4: % (the block from the anchor to the cursor; iw_ed_block_attr), codes.c
+5: % iw_ed_attr (F6: the pair of codes, the cursor between them; F6 again moves
+6: % past the off code).  Shots: ../wordperfect51-decomp mint MINT12, MINT28.
+7: % GATES: test-pubs-iword test-iword-codes test-iword-face test-flair-iword-block test-flair-iword-format
+8: \Gates{test-pubs-iword test-iword-codes test-iword-face test-flair-iword-block test-flair-iword-format}
+9: \begin{Feature}{Block}
+10: Block marks a stretch of text so that you can act on all of it at once:
+11: make it bold or underlined, give it a size or an appearance, move it, copy
+12: it or delete it.
+13: 
+14: You turn Block on with the cursor at one end of the text and move the
+15: cursor to the other end.  The text between the place where you turned Block
+16: on and the cursor is the block.  It is shown highlighted, and \Scr{Block on}
+17: is shown at the left of the status line while Block is on.
+18: 
+19: To block text,
+20: \begin{WPSteps}
+21: \item Move the cursor to the first (or the last) character of the text.
+22: \item Press \FK{Block}{Alt-F4}.  \Scr{Block on} appears on the status line.
+23: \item Move the cursor to the other end of the text with the cursor keys.
+24: The highlight follows the cursor.
+25: \item Press the key of the feature you want to use on the block: Bold
+26: (\K{F6}), Underline (\K{F8}), Font (\K{Ctrl-F8}), Move (\K{Ctrl-F4}), or
+27: \K{Delete}.
+28: \end{WPSteps}
+29: \FlairShot{block}{640}{440}{Block on: the sentence blocked from its start to the cursor}
+30: 
+31: \Documents{wpkey}{Alt-F4}
+32: \Documents{wpkey}{F12}
+33: \Documents{wpkey}{Block:Alt-F4}
+34: \Documents{wpkey}{Block:F12}
+35: \Documents{wpkey}{Block:F1}
+36: \Documents{wpkey}{Block:Esc}
+37: \Documents{wpkey}{Block:Alt-F3}
+38: \Documents{wpkey}{Block:F11}
+39: \K{F12} does what Alt-F4 does: it turns Block on, and off again.  To turn
+40: Block off without using it, press \FK{Block}{Alt-F4} or \K{F12} again, or
+41: press \FK{Cancel}{F1} or \K{Esc}.  The text stays as it was.
+42: 
+43: \Notes
+44: \Topic{Cursor Keys While Block Is On}
+45: Every cursor key works while Block is on, including the Home combinations
+46: (see \InRef{Cursor Movement}): \K{Home, Right} or \K{End} stretches the
+47: block to the end of the line, \K{Home, Home, Down} to the end of the
+48: document.  The block may run backward from where you turned Block on as
+49: well as forward.
+50: 
+51: \Topic{Features That Use a Block}
+52: While Block is on, InitechWord acts only on these keys: the cursor keys,
+53: \K{Alt-F4}, \K{F12}, \K{F1} and \K{Esc} (Block off), \K{F6} and \K{F8} (see
+54: \InRef{Bold} and \InRef{Underline}), \K{Ctrl-F8} (see \InRef{Block,
+55: Attributes}), \K{Ctrl-F4} (see \InRef{Move, Block}), \K{Delete} and
+56: \K{Backspace} (see \InRef{Block, Delete}), and \K{Alt-F3} or \K{F11}
+57: (Reveal Codes).  Search, Replace and the other function keys do nothing
+58: while Block is on.
+59: Typing a character does nothing while Block is on.
+60: 
+61: \Topic{Highlight}
+62: The block is drawn in black on grey.  The cell under the cursor is drawn in
+63: reverse video, as always, and is not part of the highlight: the block ends
+64: just before the cursor when the cursor is past its end.
+65: 
+66: \Topic{Reveal Codes}
+67: With Reveal Codes on, the codes area shows \Code{[Block]} where you turned
+68: Block on.  \Code{[Block]} is not a code in the document; it goes away when
+69: Block is turned off.
+70: 
+71: \Topic{Selecting a Sentence, Paragraph or Page}
+72: Instead of blocking by hand, you can have InitechWord block the sentence,
+73: paragraph or page the cursor is in (see \InRef{Move, Sentence/Paragraph/Page}).
+74: 
+75: \SeeAlso{Block, Attributes; Block, Delete; Cancel; Move, Block; Reveal Codes}
+76: \end{Feature}
+77: 
+78: \begin{Feature}{Block, Attributes}
+79: You can give a block any appearance or size: InitechWord puts the
+80: attribute's on code at the start of the block and its off code at the end,
+81: and turns Block off.
+82: 
+83: To give a block an attribute,
+84: \begin{WPSteps}
+85: \item Block the text (see \InRef{Block}).
+86: \item Press \FK{Bold}{F6} to make the block bold
+87: \Or
+88: Press \FK{Underline}{F8} to underline it
+89: \Or
+90: Press \FK{Font}{Ctrl-F8}.  The status line shows
+91: \Scr{Attribute: 1 Size; 2 Appearance: 0}.  Select \Ch{Size}{1} or
+92: \Ch{Appearance}{2}, then the size or appearance by its number, as on the
+93: Size and Appearance menus.
+94: \end{WPSteps}
+95: \Documents{wpkey}{Block:F6}
+96: \Documents{wpkey}{Block:F8}
+97: \Documents{wpkey}{Block:Ctrl-F8}
+98: \Documents{wpmenu}{Block:Ctrl-F8,1=Size}
+99: \Documents{wpmenu}{Block:Ctrl-F8,1,1=Suprscpt}
+100: \Documents{wpmenu}{Block:Ctrl-F8,1,2=Subscpt}
+101: \Documents{wpmenu}{Block:Ctrl-F8,1,3=Fine}
+102: \Documents{wpmenu}{Block:Ctrl-F8,1,4=Small}
+103: \Documents{wpmenu}{Block:Ctrl-F8,1,5=Large}
+104: \Documents{wpmenu}{Block:Ctrl-F8,1,6=Vry Large}
+105: \Documents{wpmenu}{Block:Ctrl-F8,1,7=Ext Large}
+106: \Documents{wpmenu}{Block:Ctrl-F8,2=Appearance}
+107: \Documents{wpmenu}{Block:Ctrl-F8,2,1=Bold}
+108: \Documents{wpmenu}{Block:Ctrl-F8,2,2=Undln}
+109: \Documents{wpmenu}{Block:Ctrl-F8,2,3=Dbl Und}
+110: \Documents{wpmenu}{Block:Ctrl-F8,2,4=Italc}
+111: \Documents{wpmenu}{Block:Ctrl-F8,2,5=Outln}
+112: \Documents{wpmenu}{Block:Ctrl-F8,2,6=Shadw}
+113: \Documents{wpmenu}{Block:Ctrl-F8,2,7=Sm Cap}
+114: \Documents{wpmenu}{Block:Ctrl-F8,2,8=Redln}
+115: \Documents{wpmenu}{Block:Ctrl-F8,2,9=Stkout}
+116: 
+117: For example, to make the first word of a sentence bold after you have
+118: typed it,
+119: \BeginReplay{ref-blockattr}
+120: \begin{WPSteps}
+121: \item Type \TypeRun{The report is late.}
+122: \item Press \PressKey{Home}, \PressKey{Left} to move to the start of the line.
+123: \item Press \Press{Block}{Alt-F4}, then press \PressKey{Right} three times.\Keys{Right Right}
+124: \WordScreen[rows=1]{ref-blockattr-1}{The first word blocked}
+125: \item Press \Press{Bold}{F6}.  The word is bold and Block is off.
+126: \item Press \Press{Reveal Codes}{Alt-F3}.
+127: \end{WPSteps}
+128: \WordScreen[rows=13]{ref-blockattr-2}{The block made bold: the codes at its two ends}
+129: \EndReplay
+130: 
+131: \Notes
+132: \Topic{The Cursor}
+133: After the attribute is given, the cursor is at the same end of the text it
+134: was on: after the off code if it was at the end of the block, after the on
+135: code if it was at the start.
+136: 
+137: \Topic{The Font Menu With Block On}
+138: With Block on, the Font menu offers only Size and Appearance.  Normal is not
+139: offered.
+140: 
+141: \SeeAlso{Appearance; Block; Bold; Size; Underline}
+142: \end{Feature}
+143: 
+144: \begin{Feature}{Block, Delete}
+145: You can delete a whole block of text at once.
+146: 
+147: To delete a block,
+148: \begin{WPSteps}
+149: \item Block the text (see \InRef{Block}).
+150: \item Press \K{Delete} or \K{Backspace}.  The status line asks
+151: \Scr{Delete Block? No (Yes)}.
+152: \item Type \Typed{y} to delete the block.  Any other key leaves the block as
+153: it is, with Block still on.
+154: \end{WPSteps}
+155: \Documents{wpkey}{Block:Delete}
+156: \Documents{wpkey}{Block:Backspace}
+157: 
+158: \Notes
+159: \Topic{Codes in the Block}
+160: Text outside the block keeps the appearance and size it had.  If the block
+161: held the start or the end of an attribute, InitechWord puts the codes needed
+162: for that where the block was.
+163: 
+164: \Topic{Delete With Move}
+165: You can also delete a block with \FK{Move}{Ctrl-F4}: select \Ch{Block}{1},
+166: then \Ch{Delete}{3} (see \InRef{Move, Block}).  Move deletes without asking.
+167: 
+168: \SeeAlso{Block; Delete; Move, Block}
+169: \end{Feature}
+170: 
+171: \begin{Feature}{Bold}
+172: Bold makes text stand out by printing it darker.  On the editing screen
+173: bold text is drawn in bold.
+174: 
+175: To make text bold as you type it,
+176: \begin{WPSteps}
+177: \item Press \FK{Bold}{F6}.  InitechWord puts the codes \Code{[BOLD]} and
+178: \Code{[bold]} in the document, with the cursor between them.
+179: \item Type the text.
+180: \item Press \FK{Bold}{F6} again.  The cursor moves past \Code{[bold]}, so
+181: that what you type next is not bold.
+182: \end{WPSteps}
+183: \Documents{wpkey}{F6}
+184: \begin{WPNote}To make text bold after you have typed it, block it and press
+185: Bold (see \InRef{Block, Attributes}).\end{WPNote}
+186: 
+187: \BeginReplay{ref-bold}
+188: For example, type \TypeRun{Please read the }(with the space), press
+189: \Press{Bold}{F6}, type \TypeRun{new}, press \Press{Bold}{F6} again and type
+190: \TypeRun{ policy.}  The screen shows:
+191: \WordScreen[rows=1]{ref-bold}{A bold word typed with Bold (F6)}
+192: \EndReplay
+193: 
+194: \Notes
+195: \Topic{Bold From the Font Menu}
+196: Bold is also Bold (1) on the Appearance menu of the Font key: \KC{Ctrl-F8}{2,1}
+197: does what \K{F6} does.
+198: 
+199: \Topic{Bold in Bold Text}
+200: Pressing Bold with the cursor in bold text ends the bold at the cursor: the
+201: \Code{[bold]} code is moved to the cursor and the cursor goes past it.
+202: 
+203: \Topic{Removing Bold}
+204: Delete the \Code{[BOLD]} or the \Code{[bold]} code; the other one goes with
+205: it (see \InRef{Codes}).
+206: 
+207: \SeeAlso{Appearance; Block, Attributes; Codes; Underline}
+208: \end{Feature}

@@ -1,0 +1,97 @@
+Source: WPDOS51Reference.pdf; pdftotext -layout, source text line numbers follow.
+8420:                            nc te number) before marking the target.
+8421: 
+8422:                             To
+8423:                             To mark a page number fo   forr an endnote.
+8424:                                                                endnote, _vou
+8425:                                                                         you must generate endnotes fo
+8426:                                                                                                    forr the page
+8427:                             lllt'11ber to appear correctly (see Generate in Reference).
+8428:                             number                                           Reference ).
+8429: 
+8430:                            To mark a page number for a graphics box,
+8431:                          • Tc-                                   box. place the target in the graphics
+8432:                            box caption. If the box "bumps,"
+8433:                                                    “bumps,” the correct page number is still referenced.
+8434:                          • If your reference is located in a graphics box caption,
+8435:                                                                           caption. a header, or a footer,
+8436:                            you cannot mark both the reference and the target in the same operation.
+8437:                            You
+8438:                            Yc,u must mark the reference and target separately (see Mark Reference Only
+8439:                            and Mark Tarier
+8440:                                       Target Only above).
+8441: 
+8442:                         Target Name
+8443:                         The T1rget
+8444:                              Target Name "ties"
+8445:                                            “ties” the reference and target together. When WordPerfect
+8446:                         generates cross-references, it looks for matching target names, then creates the
+8447:                         generues
+8448:                         cross-reference.
+8449:                         The target
+8450:                              t.irget names must be an exact match. For example, if you type .."Bird"
+8451:                                                                                                    Bird" at
+8452:                         the rel'erence
+8453:                             reference and mistakenly type "Birds"
+8454:                                                              “Birds” at the target, the two will not match,
+8455:                                                                                                      match.
+8456:                         and WordPerfect
+8457:                              \\ ordPerfect will not be able to create the correct cross-reference.
+8458: 
+8459: 
+8460: 
+8461: 
+8462: 102   CROSS-REHRENCE
+8463:       CROSS-REFERENCE
+8464: 
+8465:                   Target names are not case specific, however. "BIRD"
+8466:                                                                “BIRD” and "bird"
+8467:                                                                           “bird” are considered
+8468:                   the same
+8469:                       same..
+8470: 
+8471:                   Update Cross-References
+8472:                   The last cross-references generated are the cross-references that are printed.
+8473:                   Therefore, you should generate your cross-references just before you plan to
+8474:                   print the document to ensure that cross-references will be correct. For a more
+8475:                   detailed explanation of Generate,
+8476:                                           Generate , see Generate in Reference.
+8477:                                                                      Reference.
+8478: 
+8479:                   See Also: Generate
+8480: 
+8481: 
+8482: 
+8483: Cursor Movement
+8484: 
+8485:                   The cursor is the on-screen dash that tells you where you are in your document
+8486:                   (see Cursor Appearance below).
+8487:                   You can use the cursor movement keys to move through text a character, a
+8488:                   word. a screen, or a page at a time
+8489:                   word,                           time.. You can also quickly move to either edge
+8490:                   of the screen or to either end of your document.
+8491:                   If your computer supports a mouse, you can move the cursor by placing the
+8492:                   mouse pointer on the text and clicking the left mouse button (see Mouse Support
+8493:                      Reference ).
+8494:                   in Reference).
+8495: 
+8496: Notes             Codes
+8497:                   When you move the cursor through text on the screen, it also moves through any
+8498:                   codes in that text. When editing text, it is often
+8499:                   1:odes                                         uflen important to know where the
+8500:                   cursor is positioned in relation to the existing codes in your text. If you press
+8501:                   Left Arrow ((<-)
+8502:                                  ,- ) and Right
+8503:                                           Righ t Arrow ((->)
+8504:                                                          -4 ) and the cursor does not appear to move,
+8505:                                                                                                 move.
+8506:                   it is probably moving through codes. You can use Reveal Codes (Alt-F3) to
+8507:                   display the codes on the screen as you move the cursor through them (see Reveal
+8508:                   Codes in Reference).
+8509:                              Reference).
+8510: 
+8511:                   Cursor Appearance
+8512:                   Normally, the cursor is displayed on the screen in WordPerfect as a small
+8513:                   blinking line.      CURSOR.COM
+8514:                            line . The C URSOR.COM program provided with WordPerfect lets you
+8515:                   change the size and appearance of the cursor (see Cursor Program in Reference).
