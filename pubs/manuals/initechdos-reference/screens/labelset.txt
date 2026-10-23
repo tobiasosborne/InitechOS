@@ -1,15 +1,15 @@
-A:\>LABEL A:INITECH
+A:\>C:
+C:\>LABEL A:REPORTS
+C:\>VOL A:
+
+ Volume in drive A is REPORTS
+C:\>A:
 A:\>LABEL BAD.NAME
 Invalid characters in volume label
+A:\>VOL
+
+ Volume in drive A is REPORTS
 A:\>
-
-
-
-
-
-
-
-
 
 
 

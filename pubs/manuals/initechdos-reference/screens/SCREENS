@@ -25,7 +25,7 @@ del|File not found|
 dir|bytes free|
 echo|The report is ready.#2|
 label|Volume in drive A is REPORTS|
-labelset|Invalid characters in volume label|
+labelset|Volume in drive A is REPORTS#2|
 md|bytes free|
 prompt|A:\>#3|
 rd|Invalid path, not directory, or directory not empty|

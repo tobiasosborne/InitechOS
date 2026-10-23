@@ -358,6 +358,15 @@ test-pubs-samir-disk: $(PUBS_SAMIR_DISK)/.minted
 
 .PHONY: test-pubs test-pubs-commands test-pubs-tps test-pubs-lint test-pubs-examples test-pubs-mutant pubs-inventory \
 	test-pubs-inconsistency
+# initech-77am; MS-DOS 3.3 LABEL pp.86-87, GC-01/03/04. The normal screen
+# gate also replays labelset on the shipped OS and compares every byte.
+PUBS_LABEL_ENTRY := $(PUBS_DIR)/manuals/initechdos-reference/ch2-entries-b.tex
+PUBS_LABEL_SCREEN := $(PUBS_DIR)/manuals/initechdos-reference/screens/labelset
+.PHONY: test-pubs-label test-pubs-label-mutant
+test-pubs-label:
+	@sh harness/pubs/label_check.sh $(PUBS_LABEL_ENTRY) $(PUBS_LABEL_SCREEN).keys $(PUBS_LABEL_SCREEN).txt
+test-pubs-label-mutant: test-pubs-label
+	@sh harness/pubs/label_mutants.sh harness/pubs/label_check.sh $(PUBS_LABEL_ENTRY) $(PUBS_LABEL_SCREEN).keys $(PUBS_LABEL_SCREEN).txt $(PUBS_CHECK)/label-mutants
 # VO-30 (PUB-REF-0001 Sec 9.3; bead initech-ipu5.16; WL-0150): the house
 # register of tolerated inconsistencies, LOCKED in spec/pubs_inconsistencies.json.
 # Every book listed here carries its budget of \Slip{ID}{text} slips (just
@@ -384,7 +393,7 @@ test-pubs test-pubs-mutant test-pubs-tps test-pubs-inconsistency:
 	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- publication correctness was NOT checked. This is NOT a pass; unset SKIP_PUBS before trusting this gate.\n'
 else
 test-pubs: test-pubs-build test-pubs-commands test-pubs-tps test-pubs-lint test-pubs-examples test-pubs-screens test-pubs-samir-programs test-pubs-iword \
-	test-pubs-inconsistency
+	test-pubs-inconsistency test-pubs-label
 	@printf '>>> test-pubs: green (command coverage, TPS message inventory, InitechBase programs, InitechWord surface and replay, example replay, source lints, build cap, house register)\n'
 test-pubs-inconsistency: test-pubs-build $(PUBS_GATE)
 	@$(PUBS_GATE) inconsistency $(PUBS_SLIP_REGISTER) $(PUBS_DIR)/class $(PUBS_DIR)/manuals $(PUBS_BUILD)/gate $(PUBS_SLIP_BOOKS)
@@ -458,7 +467,7 @@ test-pubs-samir-programs:
 	@sh harness/pubs/samir_programs.sh $(PUBS_DIR)/examples/samir/disk $(CANON_DIR) $(PUBS_DIR)/manuals/initechbase-volume-two
 # One recipe (two used to be merged in, and make ran only the last: the TPS
 # manual's mutants were silently skipped).
-test-pubs-mutant: test-pubs $(PUBS_GATE) $(PUBS_SAMIR_INV) $(PUBS_TPS_INV_BIN)
+test-pubs-mutant: test-pubs test-pubs-label-mutant $(PUBS_GATE) $(PUBS_SAMIR_INV) $(PUBS_TPS_INV_BIN)
 	@sh harness/pubs/mutants.sh $(PUBS_GATE) $(PUBS_REPLAY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_ALLOW) $(PUBS_SAMIR_DISK) $(PUBS_SAMIR_INV)
 	@sh harness/pubs/tps_mutants.sh $(PUBS_TPS_INV_BIN) $(PUBS_GATE) $(PUBS_CHECK) $(PUBS_BUILD)/gate/$(PUBS_TPS_BOOK) $(PUBS_GEN)
 	@sh harness/pubs/slip_mutants.sh $(PUBS_GATE) $(PUBS_SLIP_REGISTER) $(PUBS_DIR)/class $(PUBS_DIR)/manuals $(PUBS_BUILD)/gate $(PUBS_BUILD) $(PUBS_SLIP_BOOKS)
