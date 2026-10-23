@@ -29802,6 +29802,7 @@ test-dos-safety-copy-ro test-dos-safety-del-ro: $(DOS_SAFETY_FIXTURE) $(HARNESS_
 	@sh harness/diff/fat_diff/dos_safety.sh $(patsubst test-dos-safety-%,%,$@) $(SECONDARY_TRACER_IMG)
 
 TEST_UNIT_GATES := \
+	test-bochs-trace test-bochs-trace-mutant \
 	test-samir-append-safe test-samir-append-safe-mutant test-samir-lifetime test-samir-lifetime-mutant test-samir-safety test-samir-safety-mutant \
 	test-finder-lock-mutant \
 	test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro \
@@ -30946,6 +30947,7 @@ test-more-filter-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(MORE_PROG_MUT_
 # (record-flair-repro byte-identical), and confirmed ppm_flair_cursor_check
 # green. Host mutants (NO_ERASE trail / HOTSPOT+3) carry the Rule-6 teeth.
 TEST_EMU_GATES := \
+	test-flair-copybreak test-flair-copybreak-mutant \
 	test-samir-full-emu test-samir-full-emu-mutant test-samir-lifetime-emu test-samir-lifetime-emu-mutant test-samir-safety-emu test-samir-safety-emu-mutant test-samir-lifetime-desktop test-samir-lifetime-desktop-mutant \
 	test-flair-locked-trash test-flair-locked-purge test-flair-locked-trash-mutant \
 	test-shell-permanent test-shell-permanent-mutant \

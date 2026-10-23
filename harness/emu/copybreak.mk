@@ -69,12 +69,17 @@ test-flair-copybreak-record:
 	@sh harness/emu/copybreak_check.sh $(RECORD_CLIPS_DIR)/rec_copybreak.serial
 
 .PHONY: test-flair-copybreak-bochs
+ifeq ($(SKIP_BOCHS),1)
+test-flair-copybreak-bochs:
+	@printf '!!! test-flair-copybreak-bochs SKIPPED (SKIP_BOCHS=1 opt-out): mixed input replay NOT run\n'
+else
 test-flair-copybreak-bochs: $(BOCHS_BIN) $(COPYBREAK_IMAGE) $(COPYBREAK_DATA) $(BUILD)/da_store_check
 	cp -f $(COPYBREAK_DATA) $(BUILD)/copybreak_bochs_data.img
 	@$(BOCHS_BIN) --disk $(COPYBREAK_IMAGE) --disk2 $(BUILD)/copybreak_bochs_data.img --name copybreak_bochs --out $(BUILD) --keys '$(COPYBREAK_SPEC)' --keys-after FLAIR-LIVE-READY --quit-after FLAIR-LIVE-OK --timeout-ms 180000 2>$(BUILD)/copybreak_bochs.report
 	@sh harness/emu/copybreak_check.sh $(BUILD)/copybreak_bochs.serial
 	@mcopy -o -i $(BUILD)/copybreak_bochs_data.img ::SCRAPBK.DAT $(BUILD)/copybreak_bochs.dat
 	@$(DA_DISK) scrapbook $(BUILD)/copybreak_bochs.dat 1 alpha alpha
+endif
 
 $(BUILD)/test_event_owner_mut: $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUT_NO_KEY_OBSERVER $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
@@ -82,15 +87,20 @@ $(BUILD)/test_event_owner_mut: $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS)
 test-event-owner-mutant: $(BUILD)/test_event_owner_mut
 	@if $< >$(BUILD)/event_owner_mut.log 2>&1; then echo 'FAIL missing observer survived'; exit 1; fi
 	@grep 'FAIL.*ownership: observer' $(BUILD)/event_owner_mut.log
-$(BUILD)/test_bochs_trace: harness/emu/test_bochs_trace.c harness/emu/bochs_trace.h
-	$(CC) $(CFLAGS) -Iharness/emu $< -o $@
-$(BUILD)/test_bochs_trace_mut: harness/emu/test_bochs_trace.c harness/emu/bochs_trace.h
-	$(CC) $(CFLAGS) -DBOCHS_KEYS_MUT_RETURN -Iharness/emu $< -o $@
+$(BUILD)/test_bochs_trace: harness/emu/test_bochs_trace.c harness/emu/bochs_trace.h harness/emu/copybreak.mk
+	$(CC) $(CFLAGS) -DCOPYBREAK_OPEN='"$(COPYBREAK_OPEN)"' -Iharness/emu $< -o $@
+$(BUILD)/test_bochs_trace_mut: harness/emu/test_bochs_trace.c harness/emu/bochs_trace.h harness/emu/copybreak.mk
+	$(CC) $(CFLAGS) -DCOPYBREAK_OPEN='"$(COPYBREAK_OPEN)"' -DBOCHS_KEYS_MUT_RETURN -Iharness/emu $< -o $@
+$(BUILD)/test_bochs_trace_origin_mut: harness/emu/test_bochs_trace.c harness/emu/bochs_trace.h harness/emu/copybreak.mk
+	$(CC) $(CFLAGS) -DCOPYBREAK_OPEN='"$(COPYBREAK_OPEN)"' -DBOCHS_TRACE_MUT_ORIGIN -Iharness/emu $< -o $@
 test-bochs-trace: $(BUILD)/test_bochs_trace
 	@$<
-test-bochs-trace-mutant: $(BUILD)/test_bochs_trace_mut
+test-bochs-trace-mutant: $(BUILD)/test_bochs_trace_mut $(BUILD)/test_bochs_trace_origin_mut
 	@if $< >$(BUILD)/bochs_trace_mut.log 2>&1; then echo 'FAIL Return mutant survived'; exit 1; fi
 	@grep -qx 'RED bochs trace parser' $(BUILD)/bochs_trace_mut.log
+	@if $(BUILD)/test_bochs_trace_origin_mut >$(BUILD)/bochs_trace_origin_mut.log 2>&1; then echo 'FAIL pointer origin mutant survived'; exit 1; fi
+	@grep -qx 'RED bochs pointer origin: opening step 0 at 541,413 want 220,140' $(BUILD)/bochs_trace_origin_mut.log
+	@echo 'GREEN bochs trace mutants: Return and unsynchronised pointer origin rejected'
 
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_INPUT_HANDOFF_GATE -DFLAIR_TEN_TICK_BUDGET=3000,input_handoff))
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_NO_INPUT_REPLAY -DKMAIN_INPUT_HANDOFF_GATE -DFLAIR_TEN_TICK_BUDGET=3000,no_input_replay))

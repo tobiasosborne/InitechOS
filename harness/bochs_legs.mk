@@ -297,3 +297,5 @@ endif
 test-flair-restart-bochs: test-bochs-reboot
 TEST_EMU_GATES += test-bochs-reboot test-bochs-reboot-mutant
 TEST_EMU_GATES += test-flair-shutdown-cancel test-flair-shutdown-cancel-mutant
+# Mixed mouse/keyboard acceptance, defined in emu/copybreak.mk (not a boot-only leg).
+TEST_EMU_GATES += test-flair-copybreak-bochs

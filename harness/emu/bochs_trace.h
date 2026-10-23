@@ -11,6 +11,55 @@ typedef struct {
     unsigned key;
     int x, y, ctrl, delay;
 } BochsTraceStep;
+typedef struct {
+    int x, y;
+    unsigned buttons;
+    int phase;
+} BochsTracePointer;
+/* Bochs 2.7 rfb.cc:636-667 starts oldx/oldy at (-1,-1), converts absolute
+ * packets to relative motion, and ignores y <= its 32-pixel header. Seed
+ * inside the guest at (0,1), then walk to the bottom-right: clipping brings
+ * guest and server coordinates into agreement. Return to the locked trace's
+ * boot cursor (320,240) before consuming any step. Every delta is <=100,
+ * buttons stay up, and the caller paces each packet like ordinary motion.
+ * Ref: REL_2_7_FINAL bochs/gui/rfb.cc; PM round 2 / initech-kxrk.
+ * Return one RFB packet; 1 means the scripted step was consumed. */
+static inline int bochs_trace_pointer_next(BochsTracePointer *p,
+                                          const BochsTraceStep *step,
+                                          unsigned *x, unsigned *y,
+                                          unsigned *buttons)
+{
+    int consumed = 0;
+#ifdef BOCHS_TRACE_MUT_ORIGIN
+    p->phase = 3;                 /* Restore the unsynchronised dual origin. */
+#endif
+    if (p->phase == 0) {
+        p->x = 0; p->y = 1; p->phase = 1;
+    } else if (p->phase == 1) {
+        p->x += 100; p->y += 100;
+        if (p->x > 639) p->x = 639;
+        if (p->y > 479) p->y = 479;
+        if (p->x == 639 && p->y == 479) p->phase = 2;
+    } else if (p->phase == 2) {
+        p->x -= 100; p->y -= 100;
+        if (p->x < 320) p->x = 320;
+        if (p->y < 240) p->y = 240;
+        if (p->x == 320 && p->y == 240) p->phase = 3;
+    } else if (step->kind == BX_MOVE) {
+        consumed = 1;
+        p->x += step->x; p->y += step->y;
+        if (p->x < 0) p->x = 0;
+        if (p->x > 639) p->x = 639;
+        if (p->y < 0) p->y = 0;
+        if (p->y > 479) p->y = 479;
+    } else {
+        consumed = 1;
+        p->buttons = (unsigned)step->x;
+    }
+    *x = (unsigned)p->x; *y = (unsigned)p->y + 32u;
+    *buttons = p->buttons;
+    return consumed;
+}
 static inline int bochs_trace_number(const char *s, const char **end,
                                      int low, int high, int *out)
 {

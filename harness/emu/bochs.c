@@ -847,8 +847,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     const char *key_next = cfg->keys_script;
     bool keys_started = false, key_down = false;
     long long key_at = 0;
-    int pointer_x = 320, pointer_y = 240;
-    unsigned pointer_buttons = 0;
+    BochsTracePointer pointer = { .x = 320, .y = 240 };
     for (;;) {
         pid_t w = waitpid(pid, &status, WNOHANG);
         if (w == pid) { reaped = true; break; }
@@ -872,16 +871,10 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                 delay = 30;
             } else if (step.kind == BX_WAIT) delay = step.delay;
             else {
-                if (step.kind == BX_MOVE) {
-                    pointer_x += step.x; pointer_y += step.y;
-                    if (pointer_x < 0) pointer_x = 0;
-                    if (pointer_x > 639) pointer_x = 639;
-                    if (pointer_y < 0) pointer_y = 0;
-                    if (pointer_y > 479) pointer_y = 479;
-                } else pointer_buttons = (unsigned)step.x;
-                /* RFB's 32-pixel Bochs header is outside guest coordinates. */
-                unsigned y = (unsigned)pointer_y + 32u, x = (unsigned)pointer_x;
-                if (!rfb_pointer_event(&rfb, x, y, pointer_buttons)) break;
+                unsigned x, y, buttons;
+                int consumed = bochs_trace_pointer_next(&pointer, &step, &x, &y, &buttons);
+                if (!rfb_pointer_event(&rfb, x, y, buttons)) break;
+                if (!consumed) { key_at = mono_ms() + delay; continue; }
             }
             if (!key_down) key_next = end ? end + 1 : NULL;
             key_at = mono_ms() + delay;
