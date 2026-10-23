@@ -22,8 +22,13 @@ red() {
 # The real book is green against the real inventory (the baseline).
 "$inv" check "$m/tps.inventory" "$book/main.cmds" "$out/shipped" > /dev/null
 # 1. A documented message the program lacks: the spec (the program's locked
-#    table) renames TPS-008; the book still documents TPS-008.
-sed 's/"TPS-008 TPSREPT.TXT/"TPS-009 TPSREPT.TXT/' spec/tps_ritual.json > "$m/renamed.json"
+#    table) renames TPS-008; the book still documents TPS-008. TPS-009 is
+#    shipped since tpsrepfull (spec/tps_ritual.json E9); colliding with it
+#    rejects malformed spec input before the coverage oracle can run.
+if grep -q '^TPS-099|tps|' "$m/tps.inventory"; then
+    printf '!!! test-pubs-mutant FAIL: TPS-099 fixture id is now shipped\n'; exit 1
+fi
+sed 's/"TPS-008 TPSREPT.TXT/"TPS-099 TPSREPT.TXT/' spec/tps_ritual.json > "$m/renamed.json"
 "$inv" inventory "$m/renamed.json" > "$m/renamed.inventory"
 red PROGRAM_LACKS_MESSAGE DOC-NOT-SHIPPED "$inv" check "$m/renamed.inventory" "$book/main.cmds" "$out/shipped"
 # 2. A message typeset in a page the program does not have (the real class,

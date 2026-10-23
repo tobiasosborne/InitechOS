@@ -1,0 +1,6 @@
+
+  1457664 bytes total disk space
+  1457664 bytes available on disk
+
+   654336 bytes total memory
+   600144 bytes free

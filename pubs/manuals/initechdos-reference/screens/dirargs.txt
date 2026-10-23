@@ -8,7 +8,7 @@ README   TXT      395   2-17-92   4:05p
 MEMO     TXT      258   2-28-92  11:42a
 PHONE    TXT      263   3-02-92   8:51a
 
-        3 File(s)   1416704 bytes free
+        3 File(s)   1415680 bytes free
 A:\>DIR SAMPLES /W
 
  Volume in drive A is INITECH
@@ -18,7 +18,7 @@ A:\>DIR SAMPLES /W
 [.]             [..]            GREET.BAT       SHOWALL.BAT     CHECK.BAT
 WEEK.BAT        COVER.BAT       SAVE.BAT        JUMP.BAT
 
-        9 File(s)   1416704 bytes free
+        9 File(s)   1415680 bytes free
 A:\>
 
 
