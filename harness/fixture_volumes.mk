@@ -45,6 +45,8 @@ ifdef FIXTURE_MUT_HANDLIST
 FLAIR_FIXTURE_IMAGES := $(FLAIR_DATA_IMG) $(FLAIR_DATA_TFX_NOREG_IMG) $(FLAIR_DATA_TFX_CRASH_IMG) $(FLAIR_DATA_TFX_BADMBAR_IMG) $(FLAIR_DATA_I123_ARROWS_IMG) $(FLAIR_DATA_I123_NORECALC_IMG) $(FLAIR_DATA_IWORD_NOWRAP_IMG) $(FLAIR_DATA_IWORD_NOSAVE_IMG) $(FLAIR_DATA_FONTS_IMG) $(BUILD)/flair_i123_menu_stale.img $(FLAIR_DATA_IWORD_NOFACE_IMG) $(FLAIR_DATA_IWORD_NOD4_IMG)
 endif
 $(foreach img,$(FLAIR_FIXTURE_IMAGES),$(eval $(call fixture-contract,$(img),$(FLAIR_FIXTURES))))
+# initech-mz9w: this derived variant also seeds the full-document input.
+FIXTURE_CONTENTS_$(FLAIR_DATA_ITEXT_FULL_IMG) += K4.TXT
 ifdef FIXTURE_MUT_UNDECLARED_VARIANT
 # Mutant (test-fixture-volumes-mutant, UNDECLARED_VARIANT): a flair-data
 # variant volume defined after the derivation above, so it has no contract.

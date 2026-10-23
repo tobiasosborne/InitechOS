@@ -1,4 +1,5 @@
 # Frozen 2026-10-17 keys: exceptions may shrink, not grow. Never regenerate from sources.
+# initech-gzf1 authorizes only the COMMAND dispatch token (Reference pp.46-47).
 os/milton/batch.c	""
 os/milton/batch.c	"CALL"
 os/milton/batch.c	"DO"
@@ -75,6 +76,7 @@ os/milton/command.c	"CD"
 os/milton/command.c	"CHDIR"
 os/milton/command.c	"CLS"
 os/milton/command.c	"COMSPEC"
+os/milton/command.c	"COMMAND"
 os/milton/command.c	"COPY"
 os/milton/command.c	"Current date is "
 os/milton/command.c	"Current time is "
