@@ -225,8 +225,9 @@ If the source and target are the same file, \cmd{COPY} displays
 \texttt{File cannot be copied onto itself} and \texttt{0 File(s) copied},
 and the file is not changed.  If the source does not exist, it displays
 \texttt{File not found}.  If the target is read-only, it displays
-\texttt{Access denied}; if the target cannot be created for another reason,
-such as a full disk, it displays \texttt{Bad command or file name}.
+\texttt{Access denied}; if the target disk fills, it displays
+\texttt{Insufficient disk space}; if the target cannot be created for
+another reason, it displays \texttt{Bad command or file name}.
 
 \draft{bead needed (follow-up of initech-dwbl): the shipped COPY stamps the
 copy with the current date and time; DOS 3.3 keeps the source's date and

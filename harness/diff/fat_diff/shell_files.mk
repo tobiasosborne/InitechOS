@@ -107,3 +107,21 @@ test-fat-truncate-emu-mutant: $(BUILD)/truncate $(BUILD)/truncate_program.bin $(
 	@echo 'GREEN test-fat-truncate-emu-mutant: FAT12_MUTATE_TRUNCATE_NO_FREE booted and caught RED'
 TEST_UNIT_GATES += test-fat-truncate-host test-fat-truncate-host-mutant
 TEST_EMU_GATES += test-fat-truncate-emu test-fat-truncate-emu-mutant
+
+# initech-66oc: redirection and pipes on a full or protected volume (audit
+# 2026-10-23-dos L001/L002/L003/L004/L027). Two inline-minted A: volumes, each
+# checked against its declared contract before boot (initech-a5sr pattern).
+# MS-DOS 3.3 User's Guide pp.18-20 + App. F pp.334/337; IBM DOS 3.30 TR
+# pp.6-139/6-140 (AH=40h short count) and p.6-215 (AH=5Bh).
+REDIR_FULL_MUTANTS := clobber:CMD_MUTATE_PIPE_CLOBBER:L001 badcreate:CMD_MUTATE_REDIR_CREATE_BADCMD:L027 ignorefull:CMD_MUTATE_REDIR_IGNORE_FULL:L002 pipefull:CMD_MUTATE_PIPE_IGNORE_FULL:L003 copyfull:CMD_MUTATE_COPY_FULL_BADCMD:L004
+$(foreach m,$(REDIR_FULL_MUTANTS),$(eval $(call dos-safety-shell-mutant,redirfull_$(word 1,$(subst :, ,$(m))),$(word 2,$(subst :, ,$(m))))))
+.PHONY: test-redir-full-emu test-redir-full-emu-mutant
+test-redir-full-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SORT_PROG_BIN) $(SHELL_FILES_DIR)/redir_full.sh
+	@sh $(SHELL_FILES_DIR)/redir_full.sh $(SECONDARY_TRACER_IMG) $(SORT_PROG_BIN)
+test-redir-full-emu-mutant: $(HARNESS_BIN) $(SORT_PROG_BIN) $(SHELL_FILES_DIR)/redir_full.sh $(foreach m,$(REDIR_FULL_MUTANTS),$(BUILD)/tracer_mut_safety_redirfull_$(word 1,$(subst :, ,$(m))).img)
+	@set -eu; for m in $(REDIR_FULL_MUTANTS); do \
+	 tag=$${m%%:*}; rest=$${m#*:}; macro=$${rest%%:*}; finding=$${rest#*:}; \
+	 if sh $(SHELL_FILES_DIR)/redir_full.sh $(BUILD)/tracer_mut_safety_redirfull_$$tag.img $(SORT_PROG_BIN) $$tag >$(BUILD)/redir_full_mut_$$tag.log 2>&1; then echo "FAIL $$macro survived QEMU";exit 1;fi; \
+	 grep "^RED redir-full: $$finding " $(BUILD)/redir_full_mut_$$tag.log; \
+	 echo "GREEN test-redir-full-emu-mutant: $$macro booted and caught RED ($$finding)";done
+TEST_EMU_GATES += test-redir-full-emu test-redir-full-emu-mutant

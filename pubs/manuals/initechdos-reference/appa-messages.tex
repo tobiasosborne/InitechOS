@@ -98,7 +98,10 @@ path of this version: COMMAND.COM is never reloaded}}{Put the InitechDOS
 disk in the drive and press any key.}
 \MessageDetail{MSG-DOS-0005}{There is not enough room on the disk.  When you
 use a pipe (\texttt{|}), InitechDOS displays this message if it cannot
-create the temporary file that joins the two commands.}{Delete files you no
+create or fill the temporary file that joins the two commands; the command
+after the bar is not run.  It also follows a command whose redirected output
+(\texttt{>} or \texttt{>>}) did not fit on the disk, and \cmd{COPY}
+displays it when the target disk fills.}{Delete files you no
 longer need, then try again.}
 \MessageDetail{MSG-DOS-0018}{\cmd{CD} could not find the directory you
 named.}{Check the path.  Use \cmd{DIR} or \cmd{TREE} to see the
@@ -201,8 +204,12 @@ not valid.  The files below it are not checked, and lost clusters are not
 recovered.}{Copy the files you can read to another disk.}
 \MessageDetail{MSG-DOS-0046}{\cmd{CHKDSK /F} could not create a
 \file{FILE}\ph{nnnn}\file{.CHK} file for a lost chain, usually because the
-root directory is full.}{Delete or move files from the root directory and
-run \cmd{CHKDSK /F} again.}
+root directory is full.  InitechDOS also displays it when it cannot create
+the file named after \texttt{>} or \texttt{>>}: the file is read-only, the
+name is a directory, or there is no room for it.  The command is not
+run.}{Delete or move files from the root directory and
+run \cmd{CHKDSK /F} again.  For redirection, use \cmd{ATTRIB} to check the
+file, or name another file.}
 \MessageDetail{MSG-DOS-0047}{\cmd{CHKDSK} found errors, but you did not give
 \kw{/F}, so nothing was changed.}{Run \cmd{CHKDSK /F} to correct the
 errors.}

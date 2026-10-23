@@ -1990,10 +1990,32 @@ static int dos_creat(const char *path)
     return (int)(ax & 0xFFFFu);
 }
 
+/* AH=5Bh CREATE NEW FILE: CREAT that refuses an existing name (CF set, AX=50h
+ * file exists) instead of truncating it. Same return shape as dos_creat.
+ * Ref: IBM DOS 3.30 Technical Reference p.6-215; the pipe temporaries
+ * (initech-66oc, audit L001) must never clobber a user file. */
+static int dos_creatnew(const char *path)
+{
+    uint32_t ax = 0x5B00u;
+    uint32_t carry = 0;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "c"(0u), "d"((uint32_t)(uintptr_t)path)
+        : "cc", "memory");
+    if (carry != 0u) {
+        return -(int)(ax & 0xFFFFu);
+    }
+    return (int)(ax & 0xFFFFu);
+}
+
 /* AH=40h WRITE TO FILE/DEVICE: EBX=handle, ECX=count, EDX=flat ptr. Returns the
- * bytes written (EAX) on success, or 0 on a CF error (the COPY loop treats a
- * short/zero write as a failure). This is the FILE-handle counterpart of the
- * console dos_write above (which pins handle 1). */
+ * bytes written (EAX) on success, or DOS_WRITE_ERROR on a CF error. A count
+ * below the request with CF clear is the full-disk answer (IBM DOS 3.30 TR
+ * pp.6-139/6-140); COPY reports the two differently (initech-66oc). This is the
+ * FILE-handle counterpart of the console dos_write above (which pins handle 1). */
+#define DOS_WRITE_ERROR 0xFFFFFFFFu
 static uint32_t dos_write_h(int handle, const uint8_t *buf, uint32_t count)
 {
     uint32_t ax = 0x4000u;
@@ -2005,7 +2027,7 @@ static uint32_t dos_write_h(int handle, const uint8_t *buf, uint32_t count)
         : "b"((uint32_t)handle), "c"(count), "d"((uint32_t)(uintptr_t)buf)
         : "cc", "memory");
     if (carry != 0u) {
-        return 0u;       /* CF set -> treat as a failed write */
+        return DOS_WRITE_ERROR;   /* CF set -- not a byte count */
     }
     return ax;           /* EAX = bytes written */
 }
@@ -3066,7 +3088,11 @@ static int copy_transfer(const char *source,const char *dest,int ascii,int appen
 #else
         (void)ascii;
 #endif
-        if(dos_write_h(dst,chunk,take)!=take)goto failed;
+        /* A short count is the full-disk answer (TR pp.6-139/6-140): say so
+         * with the [MS-DOS] message, Guide App. F p.337 (initech-66oc, L004). */
+        uint32_t put=dos_write_h(dst,chunk,take);
+        if(put==DOS_WRITE_ERROR)goto failed;
+        if(put!=take)goto full;
         if(verify && take) {
             /* READ back the just-written extent through a separate read
              * handle. /V checks recorded data, Reference pp.50-51. */
@@ -3108,6 +3134,12 @@ static int copy_transfer(const char *source,const char *dest,int ascii,int appen
 denied:
     dos_print(MSG_DOS_0009 "\r\n$");
     dos_close(src);if(dst>=0)dos_close(dst);return 0;
+full:
+#ifndef CMD_MUTATE_COPY_FULL_BADCMD
+    dos_close(src);dos_close(dst);
+    dos_print(MSG_DOS_0005 "\r\n$");   /* "Insufficient disk space" */
+    return 0;
+#endif
 failed:
     dos_close(src);if(dst>=0)dos_close(dst);
     if(!g_shell_break.interrupted)dos_print(MSG_DOS_0002 "\r\n$");
@@ -3820,6 +3852,20 @@ static int dispatch_line(const char *line)
  *   CMD_MUTATE_REDIR_BYPASS     -- restore CON *before* dispatching + dispatch the
  *     RAW line, so `ECHO X > FILE` runs UNREDIRECTED (test-hsct-redir goes RED).
  * Both NEVER in a real build. */
+/* 1 iff a write through the redirect/pipe file handle `h` (shared with the
+ * command's handle 1, builtin or EXEC child) came up short or failed.
+ * MUTATION hook (Rule 6): CMD_MUTATE_REDIR_IGNORE_FULL never sees a fault, so a
+ * full-disk redirect or pipe is silent again (test-redir-full-emu RED). */
+static int redir_write_failed(int h)
+{
+#ifdef CMD_MUTATE_REDIR_IGNORE_FULL
+    (void)h;
+    return 0;
+#else
+    return int21_write_fault((uint16_t)h);
+#endif
+}
+
 static int run_output_and_dispatch(const char *raw_line, const char *clean,
                                    const char *target, int append, int out_has)
 {
@@ -3859,8 +3905,15 @@ static int run_output_and_dispatch(const char *raw_line, const char *clean,
 
     if (file_h < 0) {
         /* Could not open/create the redirection target.  Authentic DOS prints an
-         * error and does NOT run the command. */
-        dos_print(MSG_DOS_0002 "\r\n$");           /* "Bad command or file name" */
+         * error and does NOT run the command.  The [MS-DOS] message for this is
+         * "File creation error": the name is a read-only file, a directory, or
+         * there is no room for it (MS-DOS 3.3 User's Guide App. F, printed
+         * p.334; initech-66oc, audit L027). */
+#ifdef CMD_MUTATE_REDIR_CREATE_BADCMD
+        dos_print(MSG_DOS_0002 "\r\n$");   /* MUTANT: the pre-66oc catch-all */
+#else
+        dos_print(MSG_DOS_0046 "\r\n$");           /* "File creation error" */
+#endif
         return 0;
     }
 
@@ -3907,6 +3960,14 @@ static int run_output_and_dispatch(const char *raw_line, const char *clean,
     dos_dup2(saved, 1);
 #endif
     dos_close(saved);
+    /* A redirected write that the full disk refused (AH=40h short count, IBM
+     * DOS 3.30 TR pp.6-139/6-140) must not pass as an empty success: report
+     * it on CON, now that handle 1 is CON again.  "Insufficient disk space"
+     * is the [MS-DOS] full-disk message (User's Guide App. F, printed p.337;
+     * initech-66oc, audit L002). */
+    if (redir_write_failed(file_h)) {
+        dos_print(MSG_DOS_0005 "\r\n$");           /* "Insufficient disk space" */
+    }
     dos_close(file_h);
 
     return rc;
@@ -4046,38 +4107,70 @@ static int run_with_redirect(const char *line)
  * intermediates PIPE1.$$$ .. PIPE7.$$$.
  *   CITED : the ".$$$" temporary extension + current-drive-root placement.
  *   ASSUMED: the exact "PIPEn" stem (the real 3.3 stem is not byte-documented).
+ * A temporary is created with AH=5Bh CREATE NEW FILE, never AH=3Ch: when a user
+ * file already owns PIPEn.$$$ the call fails (TR p.6-215) and the next name
+ * PIPEnkkk.$$$ (kkk = 001..999) is tried, so a pipe never truncates or deletes
+ * a file it did not create (TR p.6-213 "unique filenames" for temporaries;
+ * initech-66oc, audit L001).  Only names this pipeline created are deleted.
  *
  * FAIL-LOUD (Rule 2): a temp-file CREATE failure (disk full) prints the DOS
  * "Insufficient disk space" diagnostic (MSG-DOS-0005), deletes any temps already
- * made, and aborts the pipeline -- never runs a stage with a bogus stdout.
+ * made, and aborts the pipeline -- never runs a stage with a bogus stdout.  A
+ * producer whose writes into the temporary came up short (a full disk; AH=40h
+ * short count, TR pp.6-139/6-140) is the same failure: the message is printed
+ * and the consumer is NOT handed the truncated intermediate (initech-66oc,
+ * audit L003).  The [MS-DOS] wording "Intermediate file error during pipe"
+ * (User's Guide App. F, printed p.337) is not in the locked DEC-13 catalogue,
+ * so the catalogue's full-disk message stands in for it.
  *
  * MUTATION hook (Rule 6): CMD_MUTATE_PIPE_NO_STDIN drops the OUTER stdin repoint
  * for stages 2..n, so a consumer reads the KEYBOARD instead of the pipe -- the
  * GREET|GOBBLE emu gate goes RED (GREETINGS never flows through the temp).
  * NEVER in a real build. */
 
-/* Fill `buf` (>= 10 bytes) with the pipe-temp name for intermediate `idx`
- * (0-based): "PIPE" <1..8> ".$$$".  idx is bounded by CMD_PIPE_MAX_STAGES-2, so
- * the digit is always a single character. */
-static void pipe_temp_name(int idx, char *buf)
+/* Create the pipe temporary for intermediate `idx` (0-based) with AH=5Bh,
+ * writing its name into `buf` (>= 13 bytes).  Candidate 0 is "PIPE<idx+1>.$$$";
+ * when that name exists, candidates k = 1..999 are "PIPE<idx+1><kkk>.$$$".
+ * Returns the handle, or <0 (the DOS error) when no name could be created.
+ * MUTATION hook (Rule 6): CMD_MUTATE_PIPE_CLOBBER creates candidate 0 with
+ * AH=3Ch (the pre-66oc truncate), so a user PIPE1.$$$ is destroyed again. */
+static int pipe_temp_create(int idx, char *buf)
 {
-    buf[0] = 'P';
-    buf[1] = 'I';
-    buf[2] = 'P';
-    buf[3] = 'E';
-    buf[4] = (char)('1' + idx);   /* PIPE1.. (idx 0-based) */
-    buf[5] = '.';
-    buf[6] = '$';
-    buf[7] = '$';
-    buf[8] = '$';
-    buf[9] = '\0';
+    for (int k = 0; k <= 999; k++) {
+        int n = 0;
+        buf[n++] = 'P';
+        buf[n++] = 'I';
+        buf[n++] = 'P';
+        buf[n++] = 'E';
+        buf[n++] = (char)('1' + idx);   /* PIPE1.. (idx 0-based, <= 7) */
+        if (k > 0) {
+            buf[n++] = (char)('0' + k / 100);
+            buf[n++] = (char)('0' + (k / 10) % 10);
+            buf[n++] = (char)('0' + k % 10);
+        }
+        buf[n++] = '.';
+        buf[n++] = '$';
+        buf[n++] = '$';
+        buf[n++] = '$';
+        buf[n] = '\0';
+#ifdef CMD_MUTATE_PIPE_CLOBBER
+        (void)&dos_creatnew;   /* keep it "used" under the mutant (-Werror) */
+        return dos_creat(buf);
+#else
+        int h = dos_creatnew(buf);
+        if (h != -(int)INT21_ERR_FILE_EXISTS) {
+            return h;   /* created, or a failure no other name can cure */
+        }
+#endif
+    }
+    return -(int)INT21_ERR_FILE_EXISTS;
 }
 
 /* Execute a multi-stage pipeline.  Returns 1 iff a stage issued EXIT (tear the
  * REPL down), else 0.  Deletes every temp on EVERY path (Rule 2). */
 static int run_pipeline(cmd_pipeline_t *pl)
 {
-    char tname[CMD_PIPE_MAX_STAGES][12];   /* tname[i] = temp AFTER stage i     */
+    char tname[CMD_PIPE_MAX_STAGES][13];   /* tname[i] = temp AFTER stage i     */
     int  created[CMD_PIPE_MAX_STAGES];     /* 1 iff we created (must delete) it  */
     int  rc = 0;
     int  i;
@@ -4095,8 +4188,7 @@ static int run_pipeline(cmd_pipeline_t *pl)
 
         /* ---- OUTER stdout: an interior/producer stage writes to temp[i] ---- */
         if (!is_last) {
-            pipe_temp_name(i, tname[i]);
-            out_h = dos_creat(tname[i]);
+            out_h = pipe_temp_create(i, tname[i]);
             if (out_h < 0) {
                 /* Disk full / cannot create the intermediate -> fail loud. */
                 dos_print(MSG_DOS_0005 "\r\n$");   /* "Insufficient disk space" */
@@ -4157,12 +4249,23 @@ static int run_pipeline(cmd_pipeline_t *pl)
             dos_dup2(out_saved, 1);
             dos_close(out_saved);
         }
+#ifdef CMD_MUTATE_PIPE_IGNORE_FULL
+        int lost = 0;   /* MUTANT (Rule 6): a short intermediate passes silently */
+#else
+        int lost = out_h >= 0 && redir_write_failed(out_h);
+#endif
         if (out_h >= 0) {
             dos_close(out_h);
         }
 
         if (rc == 1 || g_shell_break.interrupted) {
             /* EXIT or ^C stops later stages AFTER handle restoration. */
+            break;
+        }
+        if (lost) {
+            /* The intermediate is short: report it on CON and stop, never
+             * feed the consumer a truncated pipe (audit L003). */
+            dos_print(MSG_DOS_0005 "\r\n$");   /* "Insufficient disk space" */
             break;
         }
     }
