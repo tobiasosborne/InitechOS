@@ -3,13 +3,15 @@
 # Never read expected output from SAMIR; never modify the sister corpus.
 set -eu
 corpus=${1:-../dbase3-decomp}
+if [ "$#" -gt 0 ]; then shift; fi
 root=$(pwd)
-dest="$root/build/samirdml/golden"
+dest=${SAMIR_DML_MINT_DEST:-"$root/build/samirdml/golden"}
 source="$root/harness/diff/dbf_diff/xbase_prog_diff/corpus/dml"
 command -v dosbox-x >/dev/null || { echo 'RED: MINT required: dosbox-x missing'; exit 1; }
 mkdir -p "$dest"
-for name in clear macro close index reindex sort total append save restore copyfile type rename erase label run; do
+for name in ${*:-clear macro close index reindex sort total append save restore copyfile type rename erase label run abbrev abbrfull}; do
     work="$dest/$name"
+    rm -rf "$work"
     mkdir -p "$work"
     for file in DBASE.EXE DBASE.OVL DBASEINL.OVL DBASE.MSG; do
         cp -f "$corpus/mint/work/$file" "$work/$file"
@@ -30,7 +32,7 @@ for name in clear macro close index reindex sort total append save restore copyf
     if [ "$name" = append ]; then
         printf 'USE BASE\r\nCOPY TO IMPORT FIELDS CITY,BAL,NAME\r\nUSE\r\n' >> "$work/MINT.PRG"
     fi
-    if [ "$name" = clear ]; then printf 'SET PROCEDURE TO DMLTEST\r\n' >> "$work/MINT.PRG"; fi
+    case "$name" in clear|abbrev|abbrfull) printf 'SET PROCEDURE TO DMLTEST\r\n' >> "$work/MINT.PRG";; esac
     printf 'SET ALTERNATE TO GOLD.OUT\r\nSET ALTERNATE ON\r\nDO DMLTEST\r\nSET ALTERNATE TO\r\nQUIT\r\n' >> "$work/MINT.PRG"
     cat > "$work/mint.conf" <<EOF
 [sdl]

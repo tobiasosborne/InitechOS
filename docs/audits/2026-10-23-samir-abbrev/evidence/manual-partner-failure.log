@@ -1,0 +1,40 @@
+Makefile:8837: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8835: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8846: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8844: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+cc -std=c11 -Wall -Wextra -Werror -o build/pubs_msgtable tools/pubs_msgtable.c
+pubs_msgtable: 54 of 54 messages, 8 display fragments left out
+pubs_msgtable: 4 of 54 messages, 8 display fragments left out
+pubs_msgtable: 50 of 54 messages, 8 display fragments left out
+cc -std=c11 -Wall -Wextra -Werror -o build/pubs_tps_inventory harness/pubs/tps_inventory.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec -Ispec/samir -o build/pubs_samir_tables harness/pubs/samir_tables.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -Wno-format-truncation -Iseed -o build/pubs_tps_gate harness/pubs/turbo_gate.c seed/lexer.c seed/token.c
+>>> pubs-turbo-gen: shipped inventory 238 items (build/pubs/tps/shipped)
+cc -std=c11 -Wall -Wextra -Werror -Wno-format-truncation -o build/pubs_railroad harness/pubs/railroad.c
+>>> pubs: initechbase-volume-one/main.pdf
+>>> pubs: initechbase-volume-one/cover.pdf
+>>> pubs: initechbase-volume-one/spine.pdf
+./main.tex:100: initech-xbase: master index partner /home/tobias/Projects/initec
+./main.tex:100:  ==> Fatal error occurred, no output PDF file produced!
+   3 hlist, 1 rule, 1 dir, 3 kern, 1 glyph, 3 attribute, 90 glue_spec, 3 attrib
+ute_list nodes
+   avail lists: 2:2161,3:723,4:542,5:829,6:358,7:8573,8:2,9:2529,10:24,11:801
+./main.tex:100:  ==> Fatal error occurred, no output PDF file produced!
+Transcript written on main.log.
+Latexmk: Sometimes, the -f option can be used to get latexmk
+  to try to force complete processing.
+  But normally, you will need to correct the file(s) that caused the
+  error, and then rerun latexmk.
+  In some cases, it is best to clean out generated files before rerunning
+  latexmk after you've corrected the files.
+Latexmk: Getting log file '/home/tobias/Projects/initech-os-cx-samirabbr/build/pubs/initechbase-volume-one/main.log'
+Latexmk: Examining '/home/tobias/Projects/initech-os-cx-samirabbr/build/pubs/initechbase-volume-one/main.fls'
+Latexmk: Examining '/home/tobias/Projects/initech-os-cx-samirabbr/build/pubs/initechbase-volume-one/main.log'
+Latexmk: Index file '/home/tobias/Projects/initech-os-cx-samirabbr/build/pubs/initechbase-volume-one/main.idx' was written
+Latexmk: Errors, so I did not complete making targets
+Collected error summary (may duplicate other messages):
+  lualatex: Command for 'lualatex' gave return code 1
+      Refer to '/home/tobias/Projects/initech-os-cx-samirabbr/build/pubs/initechbase-volume-one/main.log' and/or above output for details
+
+!!! pubs FAIL: initechbase-volume-one/main.tex did not build on the master-index pass (log /home/tobias/Projects/initech-os-cx-samirabbr/build/pubs/initechbase-volume-one/main.latexmk.out)
+make: *** [pubs/pubs.mk:143: pubs-initechbase-volume-one] Error 1

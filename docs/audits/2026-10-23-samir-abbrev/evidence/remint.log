@@ -1,0 +1,16 @@
+Makefile:8837: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8835: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8846: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8844: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+cc -std=c11 -Wall -Wextra -Werror -O2 tools/flair_dac_gen.c -o build/flair_dac_gen
+Makefile:8837: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8835: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8846: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8844: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/mint_clients_dbf harness/diff/dbf_diff/mint_clients_dbf.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/core/value.c os/samir/core/rt.c os/samir/pal/pal_host.c
+>>> mint_clients_dbf: wrote build/CLIENTS.DBF (3 fields, 3 records, date 07-19-93)
+>>> CLIENTS.DBF: minted build/CLIENTS.DBF (NAME/C CITY/C BAL/N; 3 records; deterministic; bead hdlb)
+MINT samirdml/abbrev: /home/tobias/Projects/initech-os-cx-samirabbr/build/samir-abbrev-mint/abbrev/GOLD.OUT
+MINT samirdml/abbrfull: /home/tobias/Projects/initech-os-cx-samirabbr/build/samir-abbrev-mint/abbrfull/GOLD.OUT
+>>> mint-samir-abbrev: green (isolated real III+ rerun reproduces committed goldens)

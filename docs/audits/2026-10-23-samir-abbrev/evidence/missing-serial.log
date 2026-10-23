@@ -1,0 +1,135 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00544154
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-CREATE
+TRASH-CREATE
+APPLE-MENU n=1
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CLOCK-POLL
+FLAIR-CLOCK 7:19 pm
+FLAIR-TICK n=4
+FLAIR-TICK n=7
+FLAIR-EVT what=3 where=320,240 msg=00002B5C
+FLAIR-SUSPEND
+. USE CLIENTS
+. DISPLAY STATUS
+12  Variable not found.
+. DISPLAY MEMORY
+12  Variable not found.
+. DISPLAY STRUCTURE
+12  Variable not found.
+. SET
+10  Syntax error.
+. HELP
+16  *** Unrecognized command verb.
+. ASSIST
+16  *** Unrecognized command verb.
+. MODIFY STRUCTURE
+16  *** Unrecognized command verb.
+. DISP
+Record#  NAME       CITY              BAL
+      1  PESTON     HONOLULU      1234.50
+. REPL NAME WITH "TEST"
+. APPE BLANK
+. LOCA FOR BAL>1000
+. SELE 2
+. INDE ON NAME TO TEST
+52  No database is in USE.
+. STOR 5 TO X
+. ? X
+
+         5. ? EXP(1)
+31  Invalid function name.
+. ? LOG(1)
+31  Invalid function name.
+. ? SQRT(4)
+31  Invalid function name.
+. ? TIME()
+31  Invalid function name.
+. ? RECSIZE()
+
+         0. ? DISKSPACE()
+31  Invalid function name.
+. ? VERSION()
+31  Invalid function name.
+. ? OS()
+31  Invalid function name.
+. ? PCOL()
+31  Invalid function name.
+. ? PROW()
+31  Invalid function name.
+. ? ROW()
+31  Invalid function name.
+. ? COL()
+31  Invalid function name.
+. CREATE REPORT NEWREP
+16  *** Unrecognized command verb.
+. MODIFY REPORT STAFFRPT
+16  *** Unrecognized command verb.
+. CREATE LABEL NEWLAB
+16  *** Unrecognized command verb.
+. AVERAGE BAL
+16  *** Unrecognized command verb.
+. LIST NAME TO PRINT
+3  File is already open.
+. COPY STRUCTURE TO STRUCT
+16  *** Unrecognized command verb.
+. JOIN WITH CLIENTS TO JOINED FOR .T.
+16  *** Unrecognized command verb.
+. UPDATE ON NAME FROM CLIENTS REPLACE BAL WITH BAL
+16  *** Unrecognized command verb.
+. QUIT
+FLAIR-TEXT-EXIT rc=0
+FLAIR-EVT-DROP
+FLAIR-RESUME
+FLAIR-CLOCK-POLL
+FLAIR-CLOCK 7:20 pm
+FLAIR-TICK n=7224
+FLAIR-TICK n=7231
+FLAIR-CLOCK-POLL
+FLAIR-CLOCK-POLL

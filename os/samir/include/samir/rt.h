@@ -73,16 +73,21 @@ int rt_strncmp(const char *a, const char *b, uint32_t n);
 /*
  * rt_kw_index: the 0-based position of `s` (NUL-terminated, ASCII a-z folded
  * to upper case) in `list`, a run of NUL-terminated UPPER-CASE keywords ended
- * by an empty entry ("ON\0OFF\0"), or -1 when no entry equals it. Exactly
- * the per-file x_ci_eq(s, "KW") whole-string match, one table walk for a
- * keyword chain (SAMIR size round 3, initech-vn4i).
+ * by an empty entry ("ON\0OFF\0"), or -1. Recognition uses rt_kw_match;
+ * s must contain exactly one token, without trailing whitespace.
  */
 int rt_kw_index(const char *s, const char *list);
 
+/* III+ command/clause recognition only: a case-insensitive prefix of UPPER-CASE kw
+ * of at least four letters, or the full keyword if shorter. Invalid suffixes
+ * fail. Return the TYPED word length (NUL/whitespace delimited), or 0.
+ * Never apply to identifiers, filenames, expressions, or string contents. */
+int rt_kw_match(const char *s, const char *kw);
+
 /*
  * rt_kw_word: like rt_kw_index, but the keyword need only begin `s` as a
- * whole word (followed by NUL, ' ' or '\t') -- the per-file x_match_kw(s,
- * "KW") test over a list. Returns the entry's index and stores its length in
+ * word (followed by NUL or whitespace). Returns the entry's index and stores
+ * the typed word's length in
  * *len (when len is non-NULL), or -1.
  */
 int rt_kw_word(const char *s, const char *list, int *len);

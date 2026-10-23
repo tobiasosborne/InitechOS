@@ -423,19 +423,10 @@ enum { QS_DEFAULT = 0, QS_ALL, QS_REST, QS_NEXT, QS_RECORD };
 /* the scope keywords in QS_ALL.. order (rt_kw_word index + QS_ALL) */
 #define Q_SCOPE_KWS "ALL\0REST\0NEXT\0RECORD\0"
 
-/* match a whole-word keyword at s (case-insensitive); return word length if it
- * is `kw` followed by end-of-string or a blank, else 0. */
+/* Recognize a grammar keyword, returning the typed word length. */
 static int q_match_kw(const char *s, const char *kw)
 {
-    int i = 0;
-    while (kw[i] != '\0') {
-        if (q_up1(s[i]) != q_up1(kw[i]))
-            return 0;
-        i++;
-    }
-    if (s[i] != '\0' && !q_isspace(s[i]))
-        return 0;
-    return i;
+    return rt_kw_match(s, kw);
 }
 
 /* parse an unsigned integer at *s; advance *s past it; return the value. */
@@ -574,7 +565,7 @@ static int q_split_clauses(const char *args, query_clauses *qc)
 
     /* ---- WHILE <cond>: from after "WHILE" to OFF (or end). ---- */
     if (while_at) {
-        const char *ws = q_skip_ws(while_at + 5);
+        const char *ws = q_skip_ws(while_at + q_match_kw(while_at, "WHILE"));
         const char *we = ws + q_strlen(ws);
         int n;
         if (off_at && off_at > ws && off_at < we) we = off_at;
@@ -1425,6 +1416,10 @@ static int query_cmd_hook(void *user, xb_interp *ip,
 
     k = rt_kw_index(verb, "LIST\0DISPLAY\0?\0??\0LOCATE\0CONTINUE\0SEEK\0FIND\0"
                           "GO\0GOTO\0SKIP\0");
+#ifdef SAMIR_DML_MUTANT_abbrev
+    /* Disable recognition at one hook only: real DISP differential must bite. */
+    if (k == 1 && rt_strlen(verb) != 7) return CMD_UNKNOWN;
+#endif
     switch (k) {
     case 0: case 1: {                           /* LIST DISPLAY */
         query_clauses qc;

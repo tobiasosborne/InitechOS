@@ -176,19 +176,10 @@ static const char *m_skip_ws(const char *s)
     return s;
 }
 
-/* match a whole-word keyword at s (case-insensitive); return word length if it
- * is `kw` followed by end-of-string or a blank, else 0. */
+/* Recognize a grammar keyword, returning the typed word length. */
 static int m_match_kw(const char *s, const char *kw)
 {
-    int i = 0;
-    while (kw[i] != '\0') {
-        if (m_up1(s[i]) != m_up1(kw[i]))
-            return 0;
-        i++;
-    }
-    if (s[i] != '\0' && !m_isspace(s[i]))
-        return 0;
-    return i;
+    return rt_kw_match(s, kw);
 }
 
 /* parse an unsigned integer at *s; advance *s past it; return the value. */
@@ -293,6 +284,7 @@ static int m_split_clauses(const char *args, m_clauses *mc)
     int in_s = 0, in_d = 0, in_b = 0;
     const char *for_at = (const char *)0;
     const char *while_at = (const char *)0;
+    const char *scope_at = (const char *)0;
     const char *p = s;
     char prev = ' ';
 
@@ -314,6 +306,12 @@ static int m_split_clauses(const char *args, m_clauses *mc)
         if (c == '"')  { in_d = 1; prev = c; p++; continue; }
         if (c == '[')  { in_b = 1; prev = c; p++; continue; }
         if (m_isspace(prev)) {
+            /* Real abbrev/abbrfull mint: REPLACE ... RECORD 1 WHILE ... .
+             * Scope is a clause after the replacement list as well as a
+             * prefix; keep it out of the WITH expression in either spelling. */
+            if (!scope_at && !for_at && !while_at &&
+                rt_kw_word(p, "ALL\0REST\0NEXT\0RECORD\0", (int *)0) >= 0)
+                scope_at = p;
             if (!for_at && m_match_kw(p, "FOR"))     for_at = p;
             if (!while_at && m_match_kw(p, "WHILE")) while_at = p;
         }
@@ -328,17 +326,20 @@ static int m_split_clauses(const char *args, m_clauses *mc)
         if (while_at && (!head_end || while_at < head_end)) head_end = while_at;
         if (!head_end) head_end = s + m_strlen(s);
 
-        /* parse the optional leading scope, then the remainder is the head. */
+        /* Consume a leading scope or bound the head at a trailing scope. */
         {
             const char *h = m_skip_ws(s);
             int sk;
             /* ALL REST NEXT RECORD in MS_ALL.. order; NEXT/RECORD take n */
-            int k = rt_kw_word(h, "ALL\0REST\0NEXT\0RECORD\0", &sk);
+            int k = scope_at ? rt_kw_word(scope_at, "ALL\0REST\0NEXT\0RECORD\0", &sk) : -1;
             if (k >= 0) {
-                mc->scope_kind = MS_ALL + k; h = m_skip_ws(h + sk);
+                const char *end = m_skip_ws(scope_at + sk);
+                mc->scope_kind = MS_ALL + k;
                 if (mc->scope_kind >= MS_NEXT) {
-                    mc->scope_n = m_parse_uint(&h); h = m_skip_ws(h);
+                    mc->scope_n = m_parse_uint(&end); end = m_skip_ws(end);
                 }
+                if (scope_at == h) h = end;
+                else if (scope_at < head_end) head_end = scope_at;
             }
             if (rt_copy_span(mc->head, M_MAX_EXPR, h, head_end) < 0)
                 return -1;
@@ -358,7 +359,7 @@ static int m_split_clauses(const char *args, m_clauses *mc)
 
     /* WHILE <cond>: from after "WHILE" to FOR (or end). */
     if (while_at) {
-        const char *ws = m_skip_ws(while_at + 5);
+        const char *ws = m_skip_ws(while_at + m_match_kw(while_at, "WHILE"));
         const char *we = ws + m_strlen(ws);
         int n;
         if (for_at && for_at > ws && for_at < we) we = for_at;
@@ -701,7 +702,7 @@ static int m_append(xb_interp *ip, const char *args, int *ec)
 
     /* III+ programmatic insert is APPEND BLANK; bare APPEND drops into the
      * full-screen editor (no terminal here) -- we accept BLANK only. */
-    if (m_match_kw(s, "BLANK") <= 0) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+    if (m_match_kw(s, "BLANK") <= 0) { if (ec) *ec = *s ? 36 : 0; return -INTERP_ERR_SYNTAX; }
 
     rc = dbf_append_blank_commit(tbl);
     if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }

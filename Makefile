@@ -3543,9 +3543,9 @@ samir-report-goldens:
 	@cd "$(DBASE3_DECOMP)/mint/work" && md5sum -c --quiet "$(CURDIR)/$(SAMIR_REPORT_MD5)" || { printf '!!! samir-report-goldens FAIL: mint 004 files absent or changed under %s/mint/work\n' "$(DBASE3_DECOMP)"; exit 1; }
 test-samir-report: $(TEST_SAMIR_REPORT) samir-report-goldens
 	@$(TEST_SAMIR_REPORT) $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-report.log 2>&1 || { cat $(BUILD)/samir-report.log; exit 1; }
-	@grep -c 'byte-identical to real dBASE' $(BUILD)/samir-report.log | grep -qx 111
+	@grep -c 'byte-identical to real dBASE' $(BUILD)/samir-report.log | grep -qx 124
 	@tail -1 $(BUILD)/samir-report.log
-	@printf '>>> test-samir-report: green (111 REPORT FORM files byte-identical to real dBASE III PLUS 1.1)\n'
+	@printf '>>> test-samir-report: green (111 real III+ files; 13 repeated with abbreviated commands)\n'
 test-samir-report-mutant: $(SAMIR_REPORT_MUTS) samir-report-goldens
 	@set -e; for kind in subtotal column page; do \
 	  case $$kind in subtotal) reason='REPORT G8TP.TXT: differs';; column) reason='REPORT G1FLT.TXT: differs';; page) reason='REPORT G2TRV.TXT: differs';; esac; \
@@ -34162,7 +34162,7 @@ TEST_UNIT_GATES += test-samir-core-diff test-samir-core-diff-mutant
 # RUN (DML-16) is back in the vector (initech-n8q8): the PAL exec seam runs
 # COMMAND.COM /C through the nested EXEC; its mutant SAMIR_DML_MUTANT_run is
 # the RUN_NOEXEC bite (no CR LFs, no child, no VERSION.TXT).
-SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run
+SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run abbrev
 SAMIR_DML_TEST := $(BUILD)/test_samir_dml
 SAMIR_DML_MUTS := $(addprefix $(BUILD)/test_samir_dml_, $(SAMIR_DML_CASES))
 $(SAMIR_DML_TEST): $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
@@ -34197,6 +34197,27 @@ TEST_UNIT_GATES += test-samir-dml-$(1) test-samir-dml-$(1)-mutant
 TEST_EMU_GATES += test-samir-dml-$(1)-emu test-samir-dml-$(1)-emu-mutant
 endef
 $(foreach verb,$(SAMIR_DML_CASES),$(eval $(call samir-dml-gates,$(verb))))
+
+# Audit L009 / initech-13d3: both spellings were independently run by DBASE.EXE.
+# The hook mutant rejects DISP only; full DISPLAY must still match its golden.
+.PHONY: mint-samir-abbrev test-samir-abbrev test-samir-abbrev-mutant test-samir-abbrev-emu
+mint-samir-abbrev: $(CLIENTS_DBF)
+	@SAMIR_DML_MINT_DEST="$(abspath $(BUILD)/samir-abbrev-mint)" sh $(DBF_DIFF_DIR)/dml_mint.sh $(abspath $(DBASE3_DECOMP)) abbrev abbrfull
+	@for name in abbrev abbrfull; do for f in DMLTEST.PRG GOLD.OUT BASE.DBF NAMES.NDX VALUES.MEM; do \
+	 cmp $(BUILD)/samir-abbrev-mint/$$name/$$f $(SAMIR_MINT_TREE)/golden/$$name/$$f || exit 1; done; done
+	@printf '>>> mint-samir-abbrev: green (isolated real III+ rerun reproduces committed goldens)\n'
+test-samir-abbrev: test-samir-dml-abbrev
+	@$(SAMIR_DML_TEST) abbrfull host
+	@for f in GOLD.OUT BASE.DBF NAMES.NDX VALUES.MEM; do cmp $(BUILD)/samirdml/golden/abbrev/$$f $(BUILD)/samirdml/golden/abbrfull/$$f || exit 1; done
+	@printf '>>> test-samir-abbrev: green (both spellings vs real III+ output and DBF/NDX)\n'
+test-samir-abbrev-mutant: test-samir-abbrev test-samir-dml-abbrev-mutant
+	@$(BUILD)/test_samir_dml_abbrev abbrfull host
+	@printf '>>> test-samir-abbrev-mutant: green (DISP RED; full DISPLAY control green)\n'
+test-samir-abbrev-emu: test-samir-dml-abbrev-emu
+	@INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) abbrfull emu $(SAMIR_COM)
+	@printf '>>> test-samir-abbrev-emu: green\n'
+TEST_UNIT_GATES += test-samir-abbrev test-samir-abbrev-mutant
+TEST_EMU_GATES += test-samir-abbrev-emu
 
 # ---- SAMIR data typing vs real III+ (initech-ylqs; audit 2026-10-23-samir
 # L001/L006/L016). The dot prompt replays the real III+ mint's commands on the
@@ -34269,7 +34290,8 @@ $(BUILD)/samirdml/.promoted: $(SAMIR_MINT_FILES) | $(BUILD)
 	@touch $@
 samir-dml-goldens: $(BUILD)/samirdml/.promoted
 	@sha256sum --quiet -c $(DBF_DIFF_DIR)/xbase_prog_diff/dml-goldens.sha256 || { printf 'RED: MINT required or changed: see docs/worklog/samirdml-mint.md\n'; exit 1; }
-	@printf '>>> samir-dml-goldens: green (16 real III+ ledger rows pinned)\n'
+	@sha256sum --quiet -c $(PROG_DIFF_DIR)/abbrev-goldens.sha256
+	@printf '>>> samir-dml-goldens: green (real III+ ledger rows pinned)\n'
 $(addprefix test-samir-dml-, $(SAMIR_DML_CASES)): samir-dml-goldens
 $(addsuffix -emu, $(addprefix test-samir-dml-, $(SAMIR_DML_CASES))): samir-dml-goldens
 

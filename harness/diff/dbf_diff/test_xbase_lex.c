@@ -108,6 +108,15 @@ static int lex_err(const char *s, int *err_out)
 int main(void)
 {
     xb_token buf[TBUF];
+    {
+        const char *s = "STORED+STORENO+'REPL WHIL'";
+        int n = lex_ok(s, buf, TBUF);
+        CHECK(n == 6 && buf[0].type == XBT_IDENT && buf[0].len == 6 &&
+              buf[2].type == XBT_IDENT && buf[2].len == 7 &&
+              buf[4].type == XBT_LIT_C && buf[4].u.c.len == 9 &&
+              !memcmp(buf[4].u.c.p, "REPL WHIL", 9),
+              "abbrev: lexer preserves identifiers and string bytes");
+    }
 
     /* ------------------------------------------------------------------ */
     /* 1. Single-quoted string literal                                      */
