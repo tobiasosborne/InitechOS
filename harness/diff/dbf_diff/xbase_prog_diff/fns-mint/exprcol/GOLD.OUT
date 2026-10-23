@@ -1,0 +1,18 @@
+
+[FNS-BEGIN]
+Record#  NAME       BAL / (52 + 0 + 0)
+      1  PESTON                  23.74
+      2  WADDAMS                 -0.81
+
+Record#  BAL / (52 + 0 + 0) NAME
+      1               23.74 PESTON    
+
+Record#     BAL * 2 NAME
+      1     2469.00 PESTON    
+
+     3
+       41
+             6
+   3   -3        41
+ 3.50          8.00       1024.00    7    9
+[FNS-END]

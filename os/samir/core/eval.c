@@ -796,6 +796,17 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
             unsigned ai=a.num_width-(ad?ad+1:0),bi=b.num_width-(bd?bd+1:0);
             unsigned d=ad>bd?ad:bd,w=(ai>bi?ai:bi)+1+(d?d+1:0);
             if(n->op==XBT_STAR) { d=ad+bd;w=a.num_width+b.num_width+1; }
+#ifndef SAMIR_FNS_MUTANT_division
+            /* Division, real III+ 1.1 SF-division (fns-mint/division):
+             * dec = max(DECIMALS, da, db); integer room
+             * max(ia+db, ib+da)+1 -- 1/3 is " 0.33", 10/30 "  0.33",
+             * BAL N(8,2)/3 "   411.50", 1/0 "*****" (C1.TXT, C2.TXT). */
+            if(n->op==XBT_SLASH) {
+                unsigned p=(ai+bd>bi+ad?ai+bd:bi+ad)+1;
+                d=ctx->set_decimals;if(ad>d)d=ad;if(bd>d)d=bd;
+                w=p+(d?d+1:0);
+            } else
+#endif
             if(n->op==XBT_SLASH || n->op==XBT_CARET || n->op==XBT_STARSTAR) {
                 d=ctx->set_decimals;w=10+(d?d+1:0);
             }

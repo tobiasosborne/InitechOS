@@ -614,6 +614,18 @@ static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
 #endif
         q_append(buf,pos,cap,cell,(uint32_t)width);
     } else {
+#ifndef SAMIR_FNS_MUTANT_exprcol
+        /* A numeric expression column right-justifies under a wider heading:
+         * real III+ 1.1 SF-exprcol, "LIST NAME, BAL / (52 + 0 + 0)" prints
+         * "PESTON                  23.74" under the 18-byte heading. */
+        if(v->t==XB_N) {
+            char cell[256];uint32_t n=0;
+            q_render_val(cell,&n,sizeof(cell),v,ctx,0);
+            while(*pos-start+n<width && *pos<cap) buf[(*pos)++]=' ';
+            q_append(buf,pos,cap,cell,n);
+            return;
+        }
+#endif
         q_render_val(buf,pos,cap,v,ctx,v->t==XB_L);
         while(*pos-start<width && *pos<cap) buf[(*pos)++]=' ';
     }
@@ -653,7 +665,13 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
         n=rt_strlen(expr);
         /* Real III+ PROG-query: numeric headings align at the right edge
          * of their column, just like their numeric data (minted QTY N5). */
-        if(f && f->type=='N') {
+        /* SF-exprcol: a numeric EXPRESSION heading right-aligns too
+         * ("Record#     BAL * 2 NAME" over "2469.00"). */
+        if((f && f->type=='N')
+#ifndef SAMIR_FNS_MUTANT_exprcol
+           || (!f && v.t==XB_N)
+#endif
+          ) {
             for(uint32_t j=n;j<width;j++) q_append_cstr(line,&pos,sizeof(line)," ");
             q_append(line,&pos,sizeof(line),expr,n);
         } else {
@@ -706,7 +724,10 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
         q_append_cstr(line, &pos, sizeof(line), "  ");
 #endif
     }
+#ifndef SAMIR_FNS_MUTANT_numlist
+    /* OFF keeps the one-column deletion field: real SF-listoff/SF-numlist. */
     else if(!pos) q_append_cstr(line,&pos,sizeof(line)," ");
+#endif
 
     if (qc->has_exprlist) {
         const char *p = qc->exprlist;

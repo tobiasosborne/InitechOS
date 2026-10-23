@@ -207,7 +207,9 @@ static void safety_case(const char *answer,int off,unsigned expected){
     CHECK((strstr(c.out,"ZAP build/dbsafe/FAULT.DBF? (Y/N)")!=NULL)==(off!=1),"L007 manual ZAP prompt including filename");
     n=readbytes(path);CHECK(n>=65 && extracted[4]==expected,"L007 only affirmative destroys records");
     if(expected)CHECK(n==olen && !memcmp(extracted,original,olen),"L007 declined ZAP byte-identical");
-    if(answer || off==1)CHECK(strstr(c.out,expected?"\n3. ":"\n0. ")!=NULL,"L007 following command remains framed");
+    /* initech-ioke: ? RECCOUNT() is a 10-wide numeric in real III+ 1.1
+     * (xbase_prog_diff/mint/golden/append/GOLD.OUT "         6"). */
+    if(answer || off==1)CHECK(strstr(c.out,expected?"\n         3. ":"\n         0. ")!=NULL,"L007 following command remains framed");
 }
 static void safety_tests(void){safety_case("N",0,3);safety_case("N",2,3);safety_case("Y",2,0);safety_case("\033",0,3);safety_case("",0,3);safety_case(NULL,0,3);safety_case("#INPUT_ERROR",0,3);safety_case("Y",0,0);safety_case("y",0,0);safety_case(NULL,1,0);}
 int main(int argc,char **argv){

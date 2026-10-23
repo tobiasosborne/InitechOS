@@ -332,8 +332,17 @@ static int run_set_tests(const char *corpus_path)
     {
         const set_state *ss;
 
+        /* initech-ioke: SET INDEX is no longer storage-only (samirfns run 4,
+         * real III+ SF-index capture). Using III+ U5-239 opens the index
+         * files OF THE ACTIVE DATABASE, so with no USE it must not succeed,
+         * as SET FILTER below (U5-229). The error NUMBER is deliberately not
+         * pinned: a dosbox-x run of real III+ 1.1 on "SET INDEX TO MYIDX"
+         * with no USE and an ON ERROR trap wrote nothing and did not return
+         * (an interactive "No database is in USE." prompt, not a trappable
+         * error), so SAMIR's #52 is not golden-backed. The text is still
+         * retained for the old accessors. Runtime: test-samir-fns-index. */
         rc = samir_do(ip, "SET INDEX TO MYIDX");
-        CHECK(rc == 0, "samir_do('SET INDEX TO MYIDX') returned 0 (parsed+stored)");
+        CHECK(rc != 0, "SET INDEX without active database does not succeed");
 
         ss = set_get_state(ip);
         CHECK(ss != (const set_state *)0, "set_get_state returns non-NULL");

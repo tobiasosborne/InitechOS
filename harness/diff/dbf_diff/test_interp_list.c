@@ -277,15 +277,19 @@ static void test_tier0(samir_pal_t *pal)
     CHECK(set_register(ip)==INTERP_OK,"screen: SET registered");
     cap_clear();
     CHECK(samir_do(ip,"LIST OFF\n")==INTERP_OK,"screen: default headings");
-    CHECK(strncmp(cap_text(),"\r\nCODE AMT   OK\r\nAAA    100 T \r\n",
-                  sizeof("\r\nCODE AMT   OK\r\nAAA    100 T \r\n")-1)==0,
+    /* initech-ioke: re-keyed to the real III+ PROG-query capture
+     * (xbase_prog_diff/golden/query.out, prog-real.sha256): LIST OFF keeps the
+     * one-column deletion field, numeric headings right-justify, and a Logical
+     * cell is the dotted .T./.F. ("CODE   QTY OK" / " AAA    100 .T."). */
+    CHECK(strncmp(cap_text(),"\r\n CODE   AMT OK\r\n AAA    100 .T.\r\n",
+                  sizeof("\r\n CODE   AMT OK\r\n AAA    100 .T.\r\n")-1)==0,
           "screen: headings and widened columns align");
     cap_clear();
     CHECK(samir_do(ip,"LIST 100/AMT\n")==INTERP_OK,"screen: expression heading uses TOP, not stale EOF value");
     CHECK(cap_has("100/AMT"),"screen: expression title present");
     cap_clear();
     CHECK(samir_do(ip,"GO 2\nDISPLAY AMT\n")==INTERP_OK,"screen: explicit numeric DISPLAY heading");
-    CHECK_STR_EQ(cap_text(),"\r\nRecord#  AMT\r\n      2    200\r\n","screen: explicit DISPLAY heading aligns numeric field");
+    CHECK_STR_EQ(cap_text(),"\r\nRecord#    AMT\r\n      2    200\r\n","screen: explicit DISPLAY heading aligns numeric field");
     CHECK(samir_do(ip,"SET HEADING OFF\n")==INTERP_OK,"screen: HEADING OFF");
     cap_clear();
     CHECK(samir_do(ip,"SET CONSOLE OFF\nLIST OFF\n? 'HIDDEN'\n")==INTERP_OK,"screen: program output suppressed");
@@ -325,7 +329,8 @@ static void test_tier0(samir_pal_t *pal)
     rc = samir_do(ip, "LIST OFF\n");
     CHECK(rc == INTERP_OK, "list-off: rc");
     /* Program-opening CR LF remains when OFF suppresses the record column. */
-    CHECK(strncmp(cap_text(), "\r\nAAA", 5) == 0, "list-off: first data line starts with CODE (no recno col)");
+    /* Real III+ LIST OFF: a leading deletion-flag column (fns-mint/listoff). */
+    CHECK(strncmp(cap_text(), "\r\n AAA", 6) == 0, "list-off: first data line starts with CODE (no recno col)");
     CHECK(!cap_has("      1  AAA"), "list-off: recno column suppressed");
 
     /* ---- LIST FIELDS subset (CODE only) ---- */
@@ -333,7 +338,7 @@ static void test_tier0(samir_pal_t *pal)
     rc = samir_do(ip, "LIST CODE OFF\n");
     CHECK(rc == INTERP_OK, "list-field: rc");
     CHECK(cap_count("\n") == 7, "list-field: opening CR LF + 6 lines");
-    CHECK(strncmp(cap_text(), "\r\nAAA\r\n", 7) == 0, "list-field: CODE-only line 'AAA'");
+    CHECK(strncmp(cap_text(), "\r\n AAA\r\n", 8) == 0, "list-field: CODE-only line 'AAA'");
 
     /* ---- LIST FOR <cond>: AMT = 100 -> recnos 1,3,5 (3 rows) ---- */
     cap_clear();
@@ -376,7 +381,7 @@ static void test_tier0(samir_pal_t *pal)
     rc = samir_do(ip, "GO 2\nLIST NEXT 3 CODE OFF\n");
     CHECK(rc == INTERP_OK, "list-next: rc");
     CHECK(cap_count("\n") == 4, "list-next: opening CR LF + 3 records");
-    CHECK_STR_EQ(cap_text(), "\r\nBBB\r\nCCC\r\nDDD\r\n", "list-next: BBB,CCC,DDD (CODE field list)");
+    CHECK_STR_EQ(cap_text(), "\r\n BBB\r\n CCC\r\n DDD\r\n", "list-next: BBB,CCC,DDD (CODE field list)");
 
     /* ---- scope RECORD n: LIST RECORD 5 -> just recno 5 ---- */
     cap_clear();
@@ -390,7 +395,7 @@ static void test_tier0(samir_pal_t *pal)
     rc = samir_do(ip, "GO 5\nLIST REST CODE OFF\n");
     CHECK(rc == INTERP_OK, "list-rest: rc");
     CHECK(cap_count("\n") == 3, "list-rest: opening CR LF + 2 records");
-    CHECK_STR_EQ(cap_text(), "\r\nEEE\r\nFFF\r\n", "list-rest: EEE,FFF (CODE field list)");
+    CHECK_STR_EQ(cap_text(), "\r\n EEE\r\n FFF\r\n", "list-rest: EEE,FFF (CODE field list)");
 
     /* ---- ? <expr>: a string literal + a field + a function call ---- */
     cap_clear();
@@ -398,8 +403,8 @@ static void test_tier0(samir_pal_t *pal)
     snprintf(msg,sizeof msg,"q-expr: rc=%d ec=%d",rc,samir_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(cap_has("CODE=AAA"), "q-expr: ? 'CODE=' + CODE -> CODE=AAA");
-    /* ? prints a leading newline then the value. */
-    CHECK(cap_text()[0] == '\n', "q-expr: ? emits a leading newline");
+    /* ? prints a leading CR LF then the value (real III+ query.out). */
+    CHECK(cap_text()[0] == '\r' && cap_text()[1] == '\n', "q-expr: ? emits a leading CR LF");
 
     /* ? of a numeric field (AMT=100 at recno 1) + a function (LEN). */
     cap_clear();

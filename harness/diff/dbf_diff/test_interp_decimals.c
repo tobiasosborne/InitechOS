@@ -203,8 +203,9 @@ static const char *cap_line(void)
 {
     char *p = g_cap.buf;
     char *nl;
-    /* Skip the leading newline that "?" always emits. */
-    if (*p == '\n') p++;
+    /* Skip the leading CR LF that "?" always emits (real III+ C2.TXT:
+     * every ? line opens with CR LF; initech-ioke re-key). */
+    if (p[0] == '\r' && p[1] == '\n') p += 2;
     /* Trim trailing newline. */
     nl = strchr(p, '\n');
     if (nl) *nl = '\0';
@@ -245,7 +246,8 @@ static int run_decimals_tests(const char *corpus_path)
           "fresh interp: set_decimals default == 2 [verified: mint-results-002.md]");
 
     /* ------------------------------------------------------------------ */
-    /* 1. ? 1/3 at DEFAULT DECIMALS=2 -> "0.33"                           */
+    /* 1. ? 1/3 at DEFAULT DECIMALS=2 -> " 0.33" (width 5: C2.TXT shows   */
+    /*    "disp 1/3 =" + " 0.33"; fns-mint/division pins the width rule) */
     /*                                                                     */
     /* THE HEADLINE VERIFIED CASE.                                         */
     /* Ref: mint-results-002.md "? 1/3 -> 0.33 (SET DECIMALS default=2)"  */
@@ -255,8 +257,8 @@ static int run_decimals_tests(const char *corpus_path)
     rc = samir_do(ip, "? 1/3");
     CHECK(rc == 0, "? 1/3 (default DECIMALS=2): samir_do returned 0");
     got = cap_line();
-    CHECK(strcmp(got, "0.33") == 0,
-          "? 1/3 (default DECIMALS=2): output == '0.33' [verified: mint-002 C2.TXT] [MUTANT]");
+    CHECK(strcmp(got, " 0.33") == 0,
+          "? 1/3 (default DECIMALS=2): output == ' 0.33' [verified: C2.TXT + fns-mint/division] [MUTANT]");
 
     /* ------------------------------------------------------------------ */
     /* 2. ? 5 (integer literal) -> "5"                                    */
@@ -274,7 +276,9 @@ static int run_decimals_tests(const char *corpus_path)
           "? 5 (integer literal, DECIMALS=2): output == '5' (integral -> dec=0)");
 
     /* ------------------------------------------------------------------ */
-    /* 3. ? VAL("42") -> "42" (VAL of an integer string = integral)       */
+    /* 3. ? VAL("42") -> "42.00": a real III+ 1.1 capture (dosbox-x,       */
+    /*    initech-ioke) prints VAL() at DECIMALS places, width len+3; the  */
+    /*    integral-heuristic reading below was the pre-capture guess.      */
     /*                                                                     */
     /* VAL is in the SET DECIMALS scope (verified scope list), but        */
     /* VAL("42") parses to 42.0 -- the fractional part is 0, so the       */
@@ -286,8 +290,8 @@ static int run_decimals_tests(const char *corpus_path)
     rc = samir_do(ip, "? VAL('42')");
     CHECK(rc == 0, "? VAL('42') (DECIMALS=2): samir_do returned 0");
     got = cap_line();
-    CHECK(strcmp(got, "42") == 0,
-          "? VAL('42') (DECIMALS=2): output == '42' (integral -> dec=0)");
+    CHECK(strcmp(got, "42.00") == 0,
+          "? VAL('42') (DECIMALS=2): output == '42.00' (real III+ 1.1 capture, initech-ioke)");
 
     /* ------------------------------------------------------------------ */
     /* 4. SET DECIMALS TO 4, then ? 1/3 -> "0.3333"                       */
@@ -304,8 +308,8 @@ static int run_decimals_tests(const char *corpus_path)
     rc = samir_do(ip, "? 1/3");
     CHECK(rc == 0, "? 1/3 (DECIMALS=4): samir_do returned 0");
     got = cap_line();
-    CHECK(strcmp(got, "0.3333") == 0,
-          "? 1/3 (DECIMALS=4): output == '0.3333' [MUTANT]");
+    CHECK(strcmp(got, " 0.3333") == 0,
+          "? 1/3 (DECIMALS=4): output == ' 0.3333' [fns-mint/division D4] [MUTANT]");
 
     /* Integer literal still unaffected. */
     cap_clear();
@@ -331,8 +335,8 @@ static int run_decimals_tests(const char *corpus_path)
     rc = samir_do(ip, "? 1/3");
     CHECK(rc == 0, "? 1/3 (DECIMALS=0): samir_do returned 0");
     got = cap_line();
-    CHECK(strcmp(got, "0") == 0,
-          "? 1/3 (DECIMALS=0): output == '0' [MUTANT]");
+    CHECK(strcmp(got, " 0") == 0,
+          "? 1/3 (DECIMALS=0): output == ' 0' [fns-mint/division D0] [MUTANT]");
 
     /* ------------------------------------------------------------------ */
     /* 6. Restore to default (SET DECIMALS TO 2), re-check ? 1/3 -> "0.33"*/
@@ -345,8 +349,8 @@ static int run_decimals_tests(const char *corpus_path)
     rc = samir_do(ip, "? 1/3");
     CHECK(rc == 0, "? 1/3 (DECIMALS=2 restored): samir_do returned 0");
     got = cap_line();
-    CHECK(strcmp(got, "0.33") == 0,
-          "? 1/3 (DECIMALS=2 restored): output == '0.33' (round-trip)");
+    CHECK(strcmp(got, " 0.33") == 0,
+          "? 1/3 (DECIMALS=2 restored): output == ' 0.33' (round-trip)");
 
     /* ------------------------------------------------------------------ */
     /* GATED BEHAVIORS -- loud-skip (not asserted; [oracle-resolves])      */
