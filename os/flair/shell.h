@@ -269,6 +269,11 @@ void shell_sync_overlay(shell_scene_t *s);
  * a NULL/zero dst, or an unattached compositor scratch.
  * ------------------------------------------------------------------------- */
 void shell_render(shell_scene_t *s, const bitmap_t *dst);
+/* Same composition order, with the live foreground's band-2 menu installed.
+ * NULL uses the authored Photoshop bar. System bar/clock and modal stay owned
+ * by the compositor (PRD 6.3; preference redraw, initech-c8w7 / DAS L027). */
+void shell_render_with_menubar(shell_scene_t *s, const bitmap_t *dst,
+                               const MenuBar *foreground);
 
 /* ===========================================================================
  * 5. make_offset_view -- the second-bar offset-bitmap trick (EXPORTED)

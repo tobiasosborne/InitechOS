@@ -742,6 +742,41 @@ int main(int argc, char **argv)
         }
     }
 
+    /* B05 / PRD 6.3 / shell.h: a preference composite keeps the foreground
+     * menu in band 2 and still draws a moved modal above BOTH menu bands. */
+    {
+        static shell_store_t live;
+        static snap_t before, after;
+        build_shell(&live, 1, 1);
+        render_ctx_t lc;
+        int live_rc = init_ctx(&lc);
+        CHECK(live_rc == 0, "(9) live-menu render context init");
+        if (live_rc == 0) {
+            shell_render(&live.scene, &lc.fb.bm);
+            snapshot(&lc, &before);
+            shell_render_with_menubar(&live.scene, &lc.fb.bm, &live.scene.bar_sys);
+            int top_bad = 0, lower_bad = 0;
+            for (int y = 0; y < 20; y++) for (int x = 0; x < 640; x++) {
+                int want = before.px[y * 640 + x];
+                top_bad += idx_at(&lc, x, y) != want;
+                lower_bad += idx_at(&lc, x, y + 20) != want;
+            }
+            CHECK(top_bad == 0, "(9) live menu does not replace the system band");
+            CHECK(lower_bad == 0, "(9) foreground menu installed in complete second band");
+            shell_render(&live.scene, &lc.fb.bm);
+            snapshot(&lc, &after);
+            CHECK(memcmp(before.px, after.px, sizeof before.px) == 0,
+                  "(9) live override leaves the authored scene unchanged");
+            MoveDialog(live.scene.dlg, 0, -190);
+            shell_sync_overlay(&live.scene);
+            shell_render_with_menubar(&live.scene, &lc.fb.bm, &live.scene.bar_sys);
+            CHECK(idx_at(&lc, 499, 15) == CIDX_BLACK &&
+                  idx_at(&lc, 499, 30) == CIDX_BLACK,
+                  "(9) moved modal frame occludes both live menu bands");
+            render_ctx_free(&lc);
+        }
+    }
+
     /* ======================================================================
      * WRITE the composed scene PPM for the orchestrator's visual audit (Law 4 --
      * "yes, that's it" against the Office Space frame).
