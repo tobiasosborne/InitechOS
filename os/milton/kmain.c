@@ -47,6 +47,10 @@
 #include "command.h"     /* COMMAND.COM REPL (initech-7pc); BOOT_SHELL only */
 #include "sysinit.h"     /* SYSINIT named bring-up phases (beads initech-509.2) */
 #include "power.h"       /* kernel_reset / kernel_halt (bead initech-tdnl.78) */
+#include "panic.h"       /* physical typed startup diagnostics (Rule 2) */
+#ifdef FLAIR_FILM_SCENE
+#include "film_startup.h"
+#endif
 
 #if defined(BOOT_FLAIR_SHELL) || defined(BOOT_FLAIR_LIVE)
 /* The LIVE FLAIR desktop demo kernels (beads initech-re30.3 LANE 1; initech-5l5z
@@ -969,11 +973,8 @@ static void flair_desktop_oom(const char *what)
     serial_puts("PANIC flair-desktop: flair_alloc returned NULL for ");
     serial_puts(what);
     serial_putc('\n');
+    panic_show_reason(PANIC_REASON_HEAP, what);
     serial_puts("HALTED\n");
-    if (g_int21_con) {
-        console_puts(g_int21_con,
-            "\nPC LOAD LETTER  (FLAIR heap exhausted)\n");
-    }
     for (;;) {
         __asm__ __volatile__("cli; hlt");
     }
@@ -3700,6 +3701,9 @@ static void __attribute__((unused)) finder_desk_load_positions(void)
  * ordering makes storage a desktop-init prerequisite (R3 F1-2/F1-3) and lets
  * the Bochs 320x200 fail-loud leg prove MOUNT-OK before its later size guard.
  * Static device/volume storage outlives the bounded pump and loader binding. */
+#ifdef FLAIR_FILM_SCENE
+static int g_film_volume_status;
+#endif
 static void flair_tenant_mount_volume(void)
 {
     static ata_ctx_t       ften_ata;
@@ -3718,6 +3722,9 @@ static void flair_tenant_mount_volume(void)
     ata_blockdev_init(&ften_fatdev, &ften_ata);
     crit_blockdev_init(&ften_crit, &ften_fatdev);
     mount_rc = mount_dos_volume(0, &ften_vol, &ften_crit.dev, ften_secbuf);
+#ifdef FLAIR_FILM_SCENE
+    g_film_volume_status=mount_rc;
+#endif
     if (mount_rc == FAT12_OK) {
         int bind_rc;
 
@@ -3725,6 +3732,9 @@ static void flair_tenant_mount_volume(void)
         /* The INT 25h/26h volume is bound below (bind_absdisk_volume, DEC-07a partition
          * base); the exit-to-DOS hand-off (bead initech-3p1a) connects the vectors to it. */
         bind_rc = fileio_fat_bind(&ften_vol);
+#ifdef FLAIR_FILM_SCENE
+        g_film_volume_status=bind_rc;
+#endif
         if (bind_rc == FAT12_OK) {
             bind_absdisk_volume(&ften_vol, &ften_fatdev);
             uint32_t fat_len = 0u;
@@ -7336,12 +7346,31 @@ void kernel_main(void)
      * The scene authors placement; Calc alone paints its live content. */
     {
         dir_entry_t apps;
-        if (!g_finder_vol || fat12_find(g_finder_vol,g_finder_secbuf,"APPS",&apps)!=FAT12_OK ||
-            tbx_launch("CALC.EXE",apps.start_cluster)!=TBX_OK)
-            flair_desktop_oom("film CALC.EXE launch");
+        int apps_rc=FAT12_ERR_NOT_FOUND, load_rc=TBX_OK;
+        if (g_finder_vol)
+            apps_rc=fat12_find(g_finder_vol,g_finder_secbuf,"APPS",&apps);
+        if (apps_rc==FAT12_OK && !(apps.attribute & DIR_ATTR_DIRECTORY))
+            apps_rc=FAT12_ERR_NOT_FOUND;
+        if (g_film_volume_status==FAT12_OK && apps_rc==FAT12_OK)
+            load_rc=tbx_launch("CALC.EXE",apps.start_cluster);
+        panic_reason_t reason=film_startup_reason(g_film_volume_status,apps_rc,load_rc);
+        if (reason!=PANIC_REASON_NONE) {
+            /* DAS L001: carry the actual mount/find/launch statuses to serial;
+             * show a short accurate cause before the terminal HALTED marker. */
+            serial_puts("PANIC film-startup volume="); serial_puti(g_film_volume_status);
+            serial_puts(" apps="); serial_puti(apps_rc);
+            serial_puts(" load="); serial_puti(load_rc); serial_putc('\n');
+            panic_show_reason(reason,reason==PANIC_REASON_DATA_VOLUME ? "DATA DISK" :
+                                     reason==PANIC_REASON_APPS ? "APPS" : "CALC.EXE");
+            serial_puts("HALTED\n");
+            for (;;) { __asm__ __volatile__("cli; hlt"); }
+        }
         FlairApp *calc=tbx_take_affirm();
-        if (!calc || !calc->windows || !calc->windows->nextWindow)
-            flair_desktop_oom("film Calc two windows");
+        if (!calc || !calc->windows || !calc->windows->nextWindow) {
+            panic_show_reason(PANIC_REASON_CALC_WINDOWS,"CALC.EXE");
+            serial_puts("PANIC film-startup CALC windows\nHALTED\n");
+            for (;;) { __asm__ __volatile__("cli; hlt"); }
+        }
         EventRecord ev0 = {0};
         (void)FlairProcess_activate(&ten_plist,ctx.wm,&ev0,calc);
         flair_film_arrange(ctx.wm,calc->windows->nextWindow,calc->windows);

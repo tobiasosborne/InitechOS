@@ -99,6 +99,19 @@ make run-bochs    # start the system under Bochs
 make test         # run the full conformance and verification suite
 ```
 
+The graphical distribution uses two images: `build/initech.img` is the boot
+disk and `build/flair_data.img` is the required application/data disk on the
+IDE primary slave. `make run` attaches both. The film scene also requires both:
+
+```sh
+make build/flair_live_interactive.img build/flair_data.img
+qemu-system-i386 -m 16 -drive file=build/flair_live_interactive.img,format=raw,index=0 \
+  -drive file=build/flair_data.img,format=raw,index=1 -serial stdio
+```
+
+The film scene halts with `PC LOAD LETTER` and the failed startup requirement
+if its data disk, `APPS` folder, or `CALC.EXE` cannot be loaded.
+
 The build is freestanding (`gcc -m32 -ffreestanding -nostdlib` + `nasm` + `ld`
 on the interim toolchain; `i686-elf` cross-compilation on the target toolchain).
 See [`CLAUDE.md`](CLAUDE.md) and [`InitechOS-PRD.md`](InitechOS-PRD.md) for the
