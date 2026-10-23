@@ -24,7 +24,20 @@ static unsigned route(cp_state_t *s,unsigned item) {
     if (item) { e.what=mouseDown; e.where.h=(flat[item-1].left+flat[item-1].right)/2;
         e.where.v=(flat[item-1].top+flat[item-1].bottom)/2; }
     else { e.what=keyDown; e.message=13; }
-    (void)DialogHandleEvent(&d,&e,0,&hit);
+    int handled=DialogHandleEvent(&d,&e,0,&hit);
+    if (item) {
+        /* Ref: system7-decomp/re/mint-results-010.md sec 2: holding a
+         * button tracks it; release inside completes the click. Keep the
+         * same DialogRecord for both events, as the live TBX_DIALOG adapter
+         * does. A bare mouseDown is not a completed control interaction. */
+        unsigned expected=flat[item-1].type?item:0;
+        CHECK("CLICK_PRESS",!handled && !hit && d.trackingItem==expected);
+#ifndef CP_TEST_MUT_NO_RELEASE
+        e.what=mouseUp;
+        handled=DialogHandleEvent(&d,&e,0,&hit);
+#endif
+        CHECK("CLICK_RELEASE",handled==(expected!=0) && hit==expected && !d.trackingItem);
+    }
     if (hit) cp_hit(s,hit,&ops);
     return hit;
 }
