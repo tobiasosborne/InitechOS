@@ -1,0 +1,23 @@
+Makefile:8837: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8835: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8846: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8844: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+/usr/bin/ld: warning: build/samir_com/SAMIR.elf has a LOAD segment with RWX permissions
+>>> SAMIR.COM: 95497 bytes (flat .COM @0x40100, soft-float, x87=0)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -Iharness/emu -o build/qemu_harness harness/emu/qemu_main.c harness/emu/qemu.c
+gcc -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -Ibuild -fno-pie -std=c11 -Wall -Wextra -Werror -mregparm=3 -mrtd -freg-struct-return -Ibuild -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-ident -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -fno-tree-sra -fno-tree-dominator-opts -fno-move-loop-invariants -fno-tree-loop-im -fno-shrink-wrap -fno-tree-tail-merge -fno-partial-inlining --param=max-completely-peel-times=0 -fno-code-hoisting -fno-tree-scev-cprop -fno-stack-clash-protection -fno-if-conversion -fno-guess-branch-probability -fno-forward-propagate -fno-ipa-pure-const --param=max-inline-insns-auto=0 -DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -Ios/milton -E os/milton/kmain.c -o build/kmain_shell_secondary.o.i
+build/serial_trace_pack build/kmain_shell_secondary.o.i build/kmain_shell_secondary.o.c
+serial_trace_pack: 41 records, 597 packed bytes, 40 pairs
+gcc -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -Ibuild -fno-pie -std=c11 -Wall -Wextra -Werror -mregparm=3 -mrtd -freg-struct-return -Ibuild -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-ident -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -fno-tree-sra -fno-tree-dominator-opts -fno-move-loop-invariants -fno-tree-loop-im -fno-shrink-wrap -fno-tree-tail-merge -fno-partial-inlining --param=max-completely-peel-times=0 -fno-code-hoisting -fno-tree-scev-cprop -fno-stack-clash-protection -fno-if-conversion -fno-guess-branch-probability -fno-forward-propagate -fno-ipa-pure-const --param=max-inline-insns-auto=0 -DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -Ios/milton -c build/kmain_shell_secondary.o.c -o build/kmain_shell_secondary.o
+gcc -m32 -march=i386 -nostdlib -no-pie -flto -Oz -flto-partition=one -fno-jump-tables -mregparm=3 -mrtd -freg-struct-return -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -fno-tree-sra -fno-tree-dominator-opts -fno-move-loop-invariants -fno-tree-loop-im -fno-shrink-wrap -fno-tree-tail-merge -fno-partial-inlining --param=max-completely-peel-times=0 -fno-code-hoisting -fno-tree-scev-cprop -fno-stack-clash-protection -fno-if-conversion -fno-guess-branch-probability -fno-forward-propagate -fno-ipa-pure-const --param=max-inline-insns-auto=0 -Wl,--build-id=none -Xlinker --gc-sections -T os/milton/kernel.ld -o build/kernel_shell_secondary.elf build/kstart.o build/console.o build/kmain_cold.o build/surface.o build/idt.o build/pic.o build/panic.o build/int21.o build/devices.o build/mcb.o build/psp.o build/sft.o build/config_sys.o build/sysinit.o build/loader.o build/ata.o build/block_device.o build/fat12.o build/fileio_fat.o build/kbd.o build/pit.o build/rtc.o build/irq.o build/command.o build/env.o build/batch.o build/test_prog_blob.o build/type_prog_blob.o build/dir_prog_blob.o build/isr.o build/kmain_shell_secondary.o
+/usr/bin/ld: warning: build/kernel_shell_secondary.elf has a LOAD segment with RWX permissions
+objcopy -O binary build/kernel_shell_secondary.elf build/kernel_shell_secondary.bin
+>>> boot-system image: build/tracer_secondary.img (BOOT FAT12@63; root[0]=IO.SYS, root[1]=INITDOS.SYS; HSR)
+>>> samir-dml-goldens: green (real III+ ledger rows pinned)
+test-samir-dml: 14 checks, 0 failures
+>>> test-samir-dml-abbrev-emu: green
+test-samir-dml: 14 checks, 0 failures
+>>> test-samir-abbrev-emu: green
+/usr/bin/ld: warning: build/samir_screen_SAMIR_DML_MUTANT_abbrev/SAMIR.elf has a LOAD segment with RWX permissions
+>>> SAMIR_DML_MUTANT_abbrev emu RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:210: DML transcript byte-identical to real III+

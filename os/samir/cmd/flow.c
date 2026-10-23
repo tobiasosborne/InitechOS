@@ -1013,7 +1013,7 @@ static int fl_memfile(xb_interp *ip,flow_state *fs,const char *args,int restore,
     if(!n)return fl_memfail(ec,10);
     if(!dot) {rt_memcpy(name+n,".MEM",5);}
     while(fl_isspace(*s))s++;
-    if(*s) {if(!restore || !fl_ci_eq(s,"ADDITIVE"))return fl_memfail(ec,10);add=1;}
+    if(*s) {if(!restore || rt_kw_index(s,"ADDITIVE\0")<0)return fl_memfail(ec,10);add=1;}
     if(restore) {
         unsigned char *b;int32_t size;unsigned at=0;
         fd=p->open(p,name,PAL_RD);if(fd<0)return fl_memfail(ec,fd==-PAL_ENOENT?1:29);
@@ -1106,7 +1106,10 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
 
     /* Ref: Using III+ U5-51; mint samirdml/clear. Unlike RELEASE,
      * CLEAR MEMORY also drops hidden callers and PUBLIC variables. */
-    if (fl_ci_eq(line, "CLEAR MEMORY")) {
+    int clear_len = rt_kw_match(line, "CLEAR");
+    const char *clear_args = line + clear_len;
+    while (fl_isspace(*clear_args)) clear_args++;
+    if (clear_len && rt_kw_index(clear_args, "MEMORY\0") == 0) {
 #ifndef SAMIR_DML_MUTANT_clear
         xb_interp_release_all(ip);
 #endif

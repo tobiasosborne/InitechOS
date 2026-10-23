@@ -171,6 +171,8 @@ static void diff(const char *out)
         con = malloc((size_t)nw + 1u);
         for (i = 0; i < nw - 1; i++) if (want[i] != '\f') con[k++] = want[i];
         con[k] = 0;
+        if (want[nw - 1] != 0x1a || strstr(C.buf, con) == NULL)
+            fprintf(stderr, "REPORT %s: console differs from real screen stream\n", out);
         CHECK(want[nw - 1] == 0x1a && strstr(C.buf, con) != NULL,
               "console stream carries the same report without FF (real screen R4S*)");
         free(con);
@@ -227,6 +229,16 @@ int main(int argc, char **argv)
             "GBFB.TXT", "GCFH.TXT", "GDFP.TXT" };
         printf("session R4G (shipped FLT_INFO / TRAVELER / TRIP forms):\n");
         session(host, "r4g", base, cmd, N(cmd)); no_errors("r4g");
+        for (i = 0; i < N(out); i++) diff(out[i]);
+        /* Same R4G session and independent real-software goldens; change
+         * grammar words only, preserving the pagination context. */
+        const char *abbr[N(cmd)];
+        for (i = 0; i < N(cmd); i++) abbr[i] = cmd[i];
+        abbr[2] = "USE TRAVEL INDE TRIPS";
+        abbr[4] = "REPO FORM TRAVELER PLAI TO FILE G3TRVP";
+        abbr[5] = "REPO FORM TRAVELER SUMM TO FILE G4TRVS";
+        abbr[6] = "REPO FORM TRAVELER HEAD \"Mint session 004\" NOEJ TO FILE G5TRVH";
+        session(host, "r4g-abbrev", base, abbr, N(abbr)); no_errors("abbreviated report");
         for (i = 0; i < N(out); i++) diff(out[i]);
     }
     {   /* R4D.PRG: wrap / ';' / overflow / long HEADING / scope probes. */

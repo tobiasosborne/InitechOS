@@ -1,0 +1,227 @@
+Makefile:8837: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8835: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8846: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8844: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+cc -std=c11 -Wall -Wextra -Werror -O2 tools/flair_dac_gen.c -o build/flair_dac_gen
+Makefile:8837: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8835: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8846: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8844: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/mint_clients_dbf harness/diff/dbf_diff/mint_clients_dbf.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/core/value.c os/samir/core/rt.c os/samir/pal/pal_host.c
+>>> mint_clients_dbf: wrote build/CLIENTS.DBF (3 fields, 3 records, date 07-19-93)
+>>> CLIENTS.DBF: minted build/CLIENTS.DBF (NAME/C CITY/C BAL/N; 3 records; deterministic; bead hdlb)
+>>> samir-dml-goldens: green (real III+ ledger rows pinned)
+test-samir-dml: 6 checks, 0 failures
+>>> test-samir-dml-abbrev: green
+test-samir-dml: 6 checks, 0 failures
+>>> test-samir-abbrev: green (both spellings vs real III+ output and DBF/NDX)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_abbrev -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_abbrev harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_abbrev RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:210: DML transcript byte-identical to real III+
+test-samir-dml: 6 checks, 0 failures
+>>> test-samir-abbrev-mutant: green (DISP RED; full DISPLAY control green)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec -o build/test_samir_report harness/diff/dbf_diff/test_samir_report.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+r4g: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4g: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4g: REPL error: 36  Unrecognized phrase/keyword in command.
+. . 
+     Page
+r4g: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4g: REPL error: 36  Unrecognized phrase/keyword in command.
+. . 
+        Pa
+r4g: REPL error: 36  Unrecognized phrase/keyword in command.
+. 
+  FAIL harness/diff/dbf_diff/test_samir_report.c:148: golden session ran without a REPL error
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+abbreviated report: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+abbreviated report: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+abbreviated report: REPL error: 36  Unrecognized phrase/keyword in command.
+. . 
+     Page
+abbreviated report: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+abbreviated report: REPL error: 36  Unrecognized phrase/keyword in command.
+. . 
+        Pa
+abbreviated report: REPL error: 36  Unrecognized phrase/keyword in command.
+. 
+  FAIL harness/diff/dbf_diff/test_samir_report.c:148: golden session ran without a REPL error
+  FAIL harness/diff/dbf_diff/test_samir_report.c:174: console stream carries the same report without FF (real screen R4S*)
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+r4ct: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4ct: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4ct: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4ct: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4ct: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4ct: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4ct: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4ct: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4ct: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4ct: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4ct: REPL error: 36  Unrecognized phrase/keyword in command.
+. 
+  FAIL harness/diff/dbf_diff/test_samir_report.c:148: golden session ran without a REPL error
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+r4cv: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4cv: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4cv: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4cv: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4cv: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4cv: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4cv: REPL error: 36  Unrecognized phrase/keyword in command.
+. 36  Unrecogniz
+r4cv: REPL error: 36  Unrecognized phrase/keyword in command.
+. 
+  FAIL harness/diff/dbf_diff/test_samir_report.c:148: golden session ran without a REPL error
+session R4G (shipped FLT_INFO / TRAVELER / TRIP forms):
+  G1FLT.TXT  byte-identical to real dBASE III PLUS 1.1
+  G2TRV.TXT  byte-identical to real dBASE III PLUS 1.1
+  G6TRVN.TXT byte-identical to real dBASE III PLUS 1.1
+  G7TRVU.TXT byte-identical to real dBASE III PLUS 1.1
+  G8TP.TXT   byte-identical to real dBASE III PLUS 1.1
+  GBFB.TXT   byte-identical to real dBASE III PLUS 1.1
+  GCFH.TXT   byte-identical to real dBASE III PLUS 1.1
+  G1FLT.TXT  byte-identical to real dBASE III PLUS 1.1
+  G2TRV.TXT  byte-identical to real dBASE III PLUS 1.1
+  G6TRVN.TXT byte-identical to real dBASE III PLUS 1.1
+  G7TRVU.TXT byte-identical to real dBASE III PLUS 1.1
+  G8TP.TXT   byte-identical to real dBASE III PLUS 1.1
+  GBFB.TXT   byte-identical to real dBASE III PLUS 1.1
+  GCFH.TXT   byte-identical to real dBASE III PLUS 1.1
+session R4D (content probes):
+  R4DT.TXT   byte-identical to real dBASE III PLUS 1.1
+  R4DH.TXT   byte-identical to real dBASE III PLUS 1.1
+  R4DE.TXT   byte-identical to real dBASE III PLUS 1.1
+  R4DW.TXT   byte-identical to real dBASE III PLUS 1.1
+  R4DF.TXT   byte-identical to real dBASE III PLUS 1.1
+session R4H (empty totals, heading ';', century):
+  R4HT.TXT   byte-identical to real dBASE III PLUS 1.1
+  R4HS.TXT   byte-identical to real dBASE III PLUS 1.1
+  R4HC.TXT   byte-identical to real dBASE III PLUS 1.1
+sessions R4E1..R4E4 (line count starts fresh without ALTERNATE):
+  E1.TXT     byte-identical to real dBASE III PLUS 1.1
+  E2.TXT     byte-identical to real dBASE III PLUS 1.1
+  E3A.TXT    byte-identical to real dBASE III PLUS 1.1
+  E3B.TXT    byte-identical to real dBASE III PLUS 1.1
+  E4A.TXT    byte-identical to real dBASE III PLUS 1.1
+  E4B.TXT    byte-identical to real dBASE III PLUS 1.1
+sessions R4CT/R4CV/R4CF (lines-per-page sweeps):
+  CTP14.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP15.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP16.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP17.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP18.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP19.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP20.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP21.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP22.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP23.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP24.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP25.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP26.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP27.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP28.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP29.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP30.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP31.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP32.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP33.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP34.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP35.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP36.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP37.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP38.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP39.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTP40.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV18.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV19.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV20.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV21.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV22.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV23.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV24.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV25.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV26.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV27.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV28.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV29.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV30.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV31.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV32.TXT  byte-identical to real dBASE III PLUS   FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+  FAIL harness/diff/dbf_diff/test_samir_report.c:160: SAMIR wrote the TO FILE output
+1.1
+  CTV33.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV34.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV35.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV36.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV37.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV38.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV39.TXT  byte-identical to real dBASE III PLUS 1.1
+  CTV40.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL11.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL12.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL13.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL14.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL15.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL16.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL17.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL18.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL19.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL20.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL21.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL22.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL23.TXT  byte-identical to real dBASE III PLUS 1.1
+  CFL24.TXT  byte-identical to real dBASE III PLUS 1.1
+refusals (catalog / manual grounded, no golden):
+test-samir-report: 1074 checks, 37 failures
+make: *** [Makefile:3545: test-samir-report] Error 1

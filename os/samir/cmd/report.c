@@ -94,12 +94,10 @@ static struct {
 } R;
 
 static int rp_u16(int o) { return R.frm[o] | (R.frm[o + 1] << 8); }
-static int rp_up(int c) { return (c >= 'a' && c <= 'z') ? c - 32 : c; }
-/* Does s start with the upper-case word w, ending at blank or NUL? */
+/* Shared III+ keyword policy; length is the typed spelling, not the canon. */
 static int rp_word(const char *s, const char *w)
 {
-    while (*w) if (rp_up(*s++) != *w++) return 0;
-    return *s == ' ' || !*s;
+    return rt_kw_match(s, w);
 }
 
 /* ---- sinks: the TO FILE handle gets every byte, the console no FF ---- */
@@ -441,13 +439,14 @@ static int rp_run(const char *args, int *ec)
         if (!q && !depth && (e == s || e[-1] == ' '))
             for (i = 0; i < K_N && kw < 0; i++) if (rp_word(e, g_kw[i])) kw = i;
         if (kw >= 0 || !*e) {
+            int kwlen = kw >= 0 ? rp_word(e, g_kw[kw]) : 0;
             char *t = last ? last : s, *z = e;
             while (*t == ' ') t++;
             while (z > t && z[-1] == ' ') z--;
             if (k < 0 ? (z > t) : (k >= K_PLAIN && z > t)) { *ec = 36; return -1; }
             if (!*e) { if (k >= 0) { *z = 0; cl[k] = t; } break; }
             if (k >= 0) { *z = 0; cl[k] = t; }
-            k = kw; e += rt_strlen(g_kw[kw]); last = e; e--;
+            k = kw; e += kwlen; last = e; e--;
             continue;
         }
         if (q) { if (*e == q) q = 0; }
@@ -457,7 +456,8 @@ static int rp_run(const char *args, int *ec)
         else if (*e == ')' && depth) depth--;
     }
     if ((s = cl[K_TO]) != 0) {
-        if (rp_word(s, "PRINT") && !s[5]) { *ec = 126; return -1; }   /* U7-16 */
+        int print_len = rp_word(s, "PRINT");
+        if (print_len && !s[print_len]) { *ec = 126; return -1; }   /* U7-16 */
         if (!rp_word(s, "FILE")) { *ec = 36; return -1; }
         for (s += 4; *s == ' '; s++) ;
         cl[K_TO] = s;

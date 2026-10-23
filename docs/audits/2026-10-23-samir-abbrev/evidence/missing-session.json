@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-23T19:19:13.225165+00:00",
+  "driver_pid": 9,
+  "qemu_pid": 10,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/home/tobias/Projects/initech-os-cx-samirabbr/build/abbr-replay/images/missing-boot.img",
+    "-serial",
+    "file:/home/tobias/Projects/initech-os-cx-samirabbr/build/abbr-replay/evidence/missing-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/home/tobias/Projects/initech-os-cx-samirabbr/build/abbr-replay/images/missing-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/missing-boot.img": {
+      "bytes": 1507328,
+      "sha256": "7c4b643d7ab7e8272499cec8fe99c4254ecc92654540eade226441ace83b7f35"
+    },
+    "images/missing-data.img": {
+      "bytes": 1474560,
+      "sha256": "bc72207b9652583e99b749da80bcdcc923222b11c1d226787e322336e42d3ac9"
+    }
+  },
+  "stopped_utc": "2026-10-23T19:20:30.254505+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/missing-boot.img": {
+      "bytes": 1507328,
+      "sha256": "7c4b643d7ab7e8272499cec8fe99c4254ecc92654540eade226441ace83b7f35"
+    },
+    "images/missing-data.img": {
+      "bytes": 1474560,
+      "sha256": "d05ddbacd0dbf80f6d7c988bdb87fc55a5ee065e4a3e75d504adaf70ebae086c"
+    }
+  }
+}
