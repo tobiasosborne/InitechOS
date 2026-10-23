@@ -15,7 +15,7 @@ DEPTS    DBF      337   3-01-92  12:00p
 INVOICE  DBF      334   3-01-92  12:00p
 STAFF    DBF     1167   3-01-92  12:00p
 
-        4 File(s)   1307648 bytes free
+        4 File(s)   1310720 bytes free
 A:\>
 
 
