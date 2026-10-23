@@ -5,7 +5,7 @@
  * double-click in APPS.
  *
  * Behaviour (ground truth: calc_core.h, the real Mac OS 8.1 Calculator):
- *   entry      REGISTER, SETMBAR (File: Close ^W), the rounded rDocProc
+ *   entry      REGISTER, SETMBAR (File: Close ^W / Quit ^Q), the rounded rDocProc
  *              window at the capture's own place (spec/calcda/calcda_layout.h)
  *              titled "Calculator", return.
  *   updateEvt  the whole face (calc_view_paint).
@@ -13,7 +13,7 @@
  *   keyDown    the key map's command (calc_cmd_from_key).
  *              BOTH routes end in the ONE calc_press + readout repaint --
  *              click/key parity is structural (and graded, test_calcda C4).
- *   close box / File > Close: EXIT(0).
+ *   close box / File > Close / Quit (including shutdown request): EXIT(0).
  * Every repaint is FILLRECTs of calc_view's rects; no string reaches the
  * gate, so the engine's state may live in .bss.
  *
@@ -39,9 +39,16 @@ const char tbx_app_name[] = "CALCULAT";
 #define MENU_FILE  129
 #define MENU_EDIT  130
 #define ITEM_CLOSE 1
+#define ITEM_QUIT  2
 
 static const tbx_menuitem_t file_items[] = {
     { "Close", 0, 'W', 0, 1, 0, { 0, 0, 0 } },
+    /* initech-0xs6: opt into tbx_ask_quit's existing explicit Quit contract.
+     * Same documentless close action (Mac guide printed p.125), retaining W.
+     * Never infer permission to terminate document tenants from a close box. */
+#ifndef CALCDA_MUT_CLOSE_ONLY
+    { "Quit", 0, 'Q', 0, 1, 0, { 0, 0, 0 } },
+#endif
 };
 /* The DA's Edit menu: present (the capture's bar is File Edit Help), every
  * row dimmed until a tenant Scrap call exists (recorded gap). */
@@ -54,7 +61,7 @@ static const tbx_menuitem_t edit_items[] = {
     { "Clear", 0, 0,   0, 0, 0, { 0, 0, 0 } },
 };
 static const tbx_menuinfo_t menus[] = {
-    { MENU_FILE, 0, "File", file_items, 1, 0 },
+    { MENU_FILE, 0, "File", file_items, sizeof file_items / sizeof file_items[0], 0 },
     { MENU_EDIT, 0, "Edit", edit_items, 6, 0 },
 };
 static const tbx_menubar_t mbar = { menus, 2, 1, 0 };
@@ -107,7 +114,8 @@ void tbx_app_event(const tbx_event_t *ev)
         command(calc_cmd_from_key((uint32_t)ev->message));
         break;
     case TBX_EVT_MENU:
-        if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_CLOSE)) (void)tbx_exit(0);
+        if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_CLOSE) ||
+            ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_QUIT)) (void)tbx_exit(0);
         break;
     default:
         break;

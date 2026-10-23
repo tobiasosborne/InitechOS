@@ -1,0 +1,7 @@
+[harness] launched=1 timed_out=0 exit=0 signal=0
+[harness] serial_len=2969 marker_found=0 (expect=(none))
+[harness] triple_fault=0 cpu_reset=2 guest_errors=0
+[harness] keys_sent=9 mouse_events_sent=0 screendump_taken=0 path=(none)
+[harness] frames_taken=0
+[harness] quit_after_found=1 (quit_after=SHELL-DONE)
+[harness] OK=1

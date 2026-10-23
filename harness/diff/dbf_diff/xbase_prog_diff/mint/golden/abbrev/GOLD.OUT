@@ -1,0 +1,19 @@
+[DML-BEGIN]
+ PESTON    
+
+         1 .T.
+         5          6 WITH WHILE RECORD DISPLAY          2
+         5
+ TEST      
+
+ABBR-ERROR         16
+ABBR-ERROR         16
+ABBR-ERROR         16
+ABBR-ERROR         16
+ABBR-ERROR         16
+ABBR-ERROR         16
+ABBR-ERROR         16
+ABBR-ERROR         16
+ABBR-ERROR         36
+         5
+         4          8[DML-END]

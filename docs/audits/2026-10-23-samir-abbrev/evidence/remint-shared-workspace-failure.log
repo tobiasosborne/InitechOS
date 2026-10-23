@@ -1,0 +1,15 @@
+Makefile:8837: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8835: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8846: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8844: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/mint_clients_dbf harness/diff/dbf_diff/mint_clients_dbf.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/core/value.c os/samir/core/rt.c os/samir/pal/pal_host.c
+>>> mint_clients_dbf: wrote build/CLIENTS.DBF (3 fields, 3 records, date 07-19-93)
+>>> CLIENTS.DBF: minted build/CLIENTS.DBF (NAME/C CITY/C BAL/N; 3 records; deterministic; bead hdlb)
+MINT samirdml/abbrev: /home/tobias/Projects/initech-os-cx-samirabbr/build/samirdml/golden/abbrev/GOLD.OUT
+MINT samirdml/abbrfull: /home/tobias/Projects/initech-os-cx-samirabbr/build/samirdml/golden/abbrfull/GOLD.OUT
+build/samirdml/golden/abbrfull/BASE.DBF: FAILED
+build/samirdml/golden/abbrfull/GOLD.OUT: FAILED
+build/samirdml/golden/abbrfull/NAMES.NDX: FAILED
+sha256sum: WARNING: 3 computed checksums did NOT match
+make: *** [Makefile:34206: mint-samir-abbrev] Error 1

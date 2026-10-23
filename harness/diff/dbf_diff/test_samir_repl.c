@@ -698,6 +698,41 @@ static void test_session_eof(samir_pal_t *pal)
 /* ===================================================================== */
 /* main                                                                   */
 /* ===================================================================== */
+static void test_session_abbreviations(samir_pal_t *pal)
+{
+    const char *path = "/tmp/test_samir_abbr.dbf";
+    char use[160]; xb_val v;
+    xb_interp *ip = xb_interp_make(pal);
+    CHECK(ip && write_ro_dbf(path) == 0, "abbrev prompt: fixture");
+    if (!ip) return;
+    snprintf(use,sizeof use,"USE %s ALIA FIRST",path);
+    script_reset(); cap_clear();
+    script_push(use);
+    script_push("DISP OFF CODE RECO 1");
+    script_push("REPL CODE WITH 'XYZ' RECO 1");
+    script_push("APPE BLAN");
+    script_push("LOCA FOR CODE='XYZ' WHIL .T.");
+    script_push("SELE 2");
+    script_push("STOR 7 TO STORED");
+    script_push("SELE FIRST");
+    script_push("INDE ON CODE TO /tmp/test_samir_abbr.ndx");
+    script_push("CLOS INDE");
+    script_push("SET DECI TO 2");
+    script_push("CLOS DATA");
+    script_push("STOR 8 TO STORENO");
+    script_push("? STORED,STORENO");
+    script_push("QUIT");
+    CHECK(samir_repl(pal,ip) == INTERP_OK, "abbrev prompt: session returned");
+    CHECK(!cap_has("Unrecognized") && !cap_has("Syntax error") && !cap_has("Variable not found"),
+          "abbrev prompt: commands and clauses recognized");
+    CHECK(xb_interp_get_memvar(ip,"STORED",&v) == 0 && v.t == XB_N && v.u.n == 7,
+          "abbrev prompt: STORED preserved");
+    CHECK(xb_interp_get_memvar(ip,"STORENO",&v) == 0 && v.t == XB_N && v.u.n == 8,
+          "abbrev prompt: STORENO distinct");
+    CHECK(!wa_is_open(xb_interp_env(ip),1), "abbrev prompt: CLOS DATA dispatched");
+    xb_interp_free(ip); remove(path); remove("/tmp/test_samir_abbr.ndx");
+}
+
 int main(int argc, char **argv)
 {
     struct pal_host_cfg cfg;
@@ -721,6 +756,7 @@ int main(int argc, char **argv)
     test_session_eof(pal);
     test_session_plain_use_rw(pal);  /* 7az.19: plain USE opens rw -> REPLACE persists */
     test_session_do_file(pal);       /* 9a0f: DO <file> runs a .PRG off disk via the PAL */
+    test_session_abbreviations(pal);
 
     pal_host_free(host);
     return TEST_SUMMARY("test-samir-repl");

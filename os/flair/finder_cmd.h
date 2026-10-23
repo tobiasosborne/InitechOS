@@ -203,8 +203,10 @@ uint8_t finder_pred_has_selection(const FinderCtx *fx);
 uint8_t finder_pred_trash_nonempty(const FinderCtx *fx);
 uint8_t finder_pred_front_is_diskwin(const FinderCtx *fx);
 /* SELECTION_OPENABLE -- Open (bead initech-tdnl.38): the selection holds a
- * folder. Replaces HAS_SELECTION on File > Open: the shell opens folders only,
- * so a selected document would otherwise enable Open and do nothing. */
+ * folder, or (bead initech-fbo4, audit L004) an APPLICATION -- the two things
+ * Open really opens (a window; a launch through the double-click verb).
+ * Replaces HAS_SELECTION on File > Open: a selected document would otherwise
+ * enable Open and do nothing. */
 uint8_t finder_pred_selection_openable(const FinderCtx *fx);
 uint8_t finder_pred_selection_putaway(const FinderCtx *fx);
 /* NEW_FOLDER_HERE -- New Folder (bead initech-vnl4, audit 2026-10-23 desktop

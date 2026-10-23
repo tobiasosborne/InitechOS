@@ -634,6 +634,7 @@ include spec/flair_finder_icons_traces.mk
 include spec/flair_app_launch_traces.mk
 # The LOCKED C-tenant trace (bead initech-w96l / initech-8zii): FLAIR_CTENANT_SPEC.
 include spec/flair_ctenant_traces.mk
+include spec/flair_finder_open_traces.mk
 # The LOCKED Initech 123 traces (beads initech-9u8w / initech-w96l):
 # FLAIR_I123_TYPE_SPEC / _QUIT_SPEC / _PRE_SPEC.
 include spec/flair_i123_traces.mk
@@ -3543,9 +3544,9 @@ samir-report-goldens:
 	@cd "$(DBASE3_DECOMP)/mint/work" && md5sum -c --quiet "$(CURDIR)/$(SAMIR_REPORT_MD5)" || { printf '!!! samir-report-goldens FAIL: mint 004 files absent or changed under %s/mint/work\n' "$(DBASE3_DECOMP)"; exit 1; }
 test-samir-report: $(TEST_SAMIR_REPORT) samir-report-goldens
 	@$(TEST_SAMIR_REPORT) $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-report.log 2>&1 || { cat $(BUILD)/samir-report.log; exit 1; }
-	@grep -c 'byte-identical to real dBASE' $(BUILD)/samir-report.log | grep -qx 111
+	@grep -c 'byte-identical to real dBASE' $(BUILD)/samir-report.log | grep -qx 124
 	@tail -1 $(BUILD)/samir-report.log
-	@printf '>>> test-samir-report: green (111 REPORT FORM files byte-identical to real dBASE III PLUS 1.1)\n'
+	@printf '>>> test-samir-report: green (111 real III+ files; 13 repeated with abbreviated commands)\n'
 test-samir-report-mutant: $(SAMIR_REPORT_MUTS) samir-report-goldens
 	@set -e; for kind in subtotal column page; do \
 	  case $$kind in subtotal) reason='REPORT G8TP.TXT: differs';; column) reason='REPORT G1FLT.TXT: differs';; page) reason='REPORT G2TRV.TXT: differs';; esac; \
@@ -8249,9 +8250,12 @@ TEST_LOADER_MUT  := $(BUILD)/test_loader_mutant_nooffset
 # Mutation build (Rule 6; beads initech-1i0x inc-3): loader.c compiled to ignore a
 # provided env and always write the empty block, so the EXEC env-inheritance oracle BITES.
 TEST_LOADER_MUT_ENV := $(BUILD)/test_loader_mutant_forceempty
+# Mutation build (Rule 6; initech-13ig): loader.c compiled with the COMMAND3 overlay
+# recogniser inert, so the transient-refusal cases (both entries) go RED.
+TEST_LOADER_MUT_TRANSIENT := $(BUILD)/test_loader_mutant_noguard
 
 $(TEST_LOADER): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
-                $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h $(MILTON_DIR)/fat12.h \
+                $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h $(MILTON_DIR)/fat12.h $(MILTON_DIR)/transient.h \
                 $(MILTON_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
@@ -8268,6 +8272,12 @@ $(TEST_LOADER_MUT_ENV): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUTATE_FORCE_EMPTY_ENV -Ispec -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
 
+$(TEST_LOADER_MUT_TRANSIENT): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
+                    $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h $(MILTON_DIR)/fat12.h $(MILTON_DIR)/transient.h \
+                    $(MILTON_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUT_NO_TRANSIENT_GUARD -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+
 .PHONY: test-loader test-loader-mutant
 test-loader: $(TEST_LOADER)
 	@printf ">>> test-loader: loader_prepare layout (psp/image+0x100/entry/stack) + params + fail-loud validation\n"
@@ -8276,8 +8286,14 @@ test-loader: $(TEST_LOADER)
 
 # Mutation-proof: the no-offset mutant build MUST fail the oracle (Rule 6). A
 # mutant that PASSES means the layout test is decoration.
-test-loader-mutant: $(TEST_LOADER_MUT) $(TEST_LOADER_MUT_ENV)
-	@printf ">>> test-loader-mutant: confirming the no-0x100-offset + force-empty-env mutants go RED (Rule 6)\n"
+test-loader-mutant: $(TEST_LOADER_MUT) $(TEST_LOADER_MUT_ENV) $(TEST_LOADER_MUT_TRANSIENT)
+	@printf ">>> test-loader-mutant: confirming the no-0x100-offset + force-empty-env + no-transient-guard mutants go RED (Rule 6)\n"
+	@if $(TEST_LOADER_MUT_TRANSIENT) >/dev/null 2>&1; then \
+		printf '!!! test-loader-mutant FAIL: no-transient-guard mutant PASSED -- the COMMAND3 refusal cases are decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-loader-mutant: green (no-transient-guard mutant correctly RED -- both entries refusal bites)\n'; \
+	fi
 	@if $(TEST_LOADER_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-loader-mutant FAIL: no-offset mutant PASSED the oracle -- the layout test is decoration\n'; \
 		exit 1; \
@@ -10429,6 +10445,7 @@ $(eval $(call tenant-exe-rules,itext_copy_nothing,$(ITEXT_APP_SRC),$(ITEXT_APP_C
 $(eval $(call tenant-exe-rules,itext_save_no_cr,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_SAVE_NO_CR,$(ITEXT_APP_DEP),--gc-sections))
 $(eval $(call tenant-exe-rules,itext_sel_plain,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_SEL_NOT_INVERSE,$(ITEXT_APP_DEP),--gc-sections))
 $(eval $(call tenant-exe-rules,itext_no_scroll,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_SCROLL_NEVER_ENABLED,$(ITEXT_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,itext_undo_none,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_UNDO_NO_INVERSE,$(ITEXT_APP_DEP),--gc-sections))
 ITEXT_EXE := $(BUILD)/tenant/itext.exe
 
 # R4.4: two disk tenants share TextEdit, font metrics and the paged DA code.
@@ -10576,7 +10593,7 @@ $(FLAIR_DATA_CORRUPT_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 $(DESKTOP_DB_GOLDEN): | $(BUILD)
 	@printf 'IDB1\001\000\000\000' > $@
 
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/power_notice.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 # The system APPLE MENU (beads initech-tdnl.47 / initech-tdnl.17): the rows of
@@ -10601,8 +10618,15 @@ $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milto
 
 KERNEL_FLAIRLIVE_INT_OBJS = $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ)
 
-$(KERNEL_FLAIRLIVE_INT_ELF): $(KERNEL_FLAIRLIVE_INT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_INT_OBJS)
+# gcc response file of -Wl,--undefined= flags (+ the generated want table object);
+# rule below, with the transient. NO trailing comment: make kept the blanks
+# before '#' in the value, so '$(TRANSIENT_IMPORTS_LD).keep' split into two words.
+TRANSIENT_IMPORTS_LD := $(BUILD)/transient_imports.rsp
+
+# @$(TRANSIENT_IMPORTS_LD): this kernel compiles the exit-to-DOS path (FLAIR_LIVE_TENANTS),
+# which checks the transient against the generated want table (initech-13ig).
+$(KERNEL_FLAIRLIVE_INT_ELF): $(KERNEL_FLAIRLIVE_INT_OBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_INT_OBJS) @$(TRANSIENT_IMPORTS_LD)
 
 $(KERNEL_FLAIRLIVE_INT_BIN): $(KERNEL_FLAIRLIVE_INT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10629,7 +10653,6 @@ KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h os/flair/scrap.h os/flair/stdfile.h os/flair/list.h os/flair/text.h
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h $(KERNEL_DIR)/transient.h $(DOS_MESSAGES_H)
 
-TRANSIENT_IMPORTS_LD := $(BUILD)/transient_imports.rsp   # gcc response file of -Wl,--undefined= flags; rule below, with the transient
 $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
 	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_OBJS) @$(TRANSIENT_IMPORTS_LD)
 
@@ -10680,20 +10703,41 @@ endif
 ifneq ($(shell grep -cE '^TRANSIENT_CEIL = $(TRANSIENT_CEIL_HEX);' $(TRANSIENT_LD)),1)
 $(error $(TRANSIENT_LD) TRANSIENT_CEIL != spec/memory_map.h TRANSIENT_CEIL $(TRANSIENT_CEIL_HEX))
 endif
-$(TRANSIENT_HDR_OBJ): $(TRANSIENT_HDR_ASM) | $(BUILD)
-	$(NASM) -f elf32 $< -o $@
+# The header's import table is GENERATED (transient_imports_{ext,dd}.inc, by
+# the TRANSIENT_IMPORTS_LD rule below) -- initech-13ig: no hand-kept list.
+$(TRANSIENT_HDR_OBJ): $(TRANSIENT_HDR_ASM) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(NASM) -f elf32 -I$(BUILD)/ $< -o $@
 
 # $(call exitdos-transient-rules,<label>,<kernel ELF>): build/transient_<label>.bin
 # The flagship kernels that carry a transient must KEEP every kernel symbol the
 # transient objects import (section GC + LTO drop them otherwise): a generated
 # response file of -Wl,--undefined= flags (EXTERN() in a script is invisible to the LTO
 # plugin), derived from the objects, no hand-kept list (PM 2026-10-17).
-$(TRANSIENT_IMPORTS_LD): $(TRANSIENT_OBJS) $(KERNEL_FLAIRTENANTS_OBJS) | $(BUILD)
-	@for o in $(TRANSIENT_OBJS); do gcc-nm -u $$o 2>/dev/null | awk '{print $$NF}'; done | grep -v ':$$' | sort -u > $@.und; \
+# initech-13ig: the SAME derived list also generates (a) the transient header's
+# import table (build/transient_imports_ext.inc + _dd.inc, %included by
+# os/milton/transient_hdr.asm) and (b) the kernel's `transient_import_want[]` /
+# `transient_import_count` (build/transient_want.asm -> .o, appended to this
+# response file so EVERY kernel linked with it carries the table). The kernel
+# refuses a transient whose count or ANY address differs; the transient .bin
+# rule asserts the on-disk count against this list. The hand-kept five-entry
+# list this replaces checked five of ten imports. The C objects only: the
+# header object is generated FROM this rule (no cycle).
+TRANSIENT_CODE_OBJS := $(KERNEL_COMMAND_OBJ) $(KERNEL_ENV_OBJ) $(KERNEL_BATCH_OBJ)
+TRANSIENT_WANT_OBJ  := $(BUILD)/transient_want.o
+$(TRANSIENT_IMPORTS_LD): $(TRANSIENT_CODE_OBJS) $(KERNEL_FLAIRTENANTS_OBJS) | $(BUILD)
+	@for o in $(TRANSIENT_CODE_OBJS); do gcc-nm -u $$o 2>/dev/null | awk '{print $$NF}'; done | grep -v ':$$' | sort -u > $@.und; \
 	for o in $(KERNEL_FLAIRTENANTS_OBJS); do gcc-nm --defined-only $$o 2>/dev/null | awk 'NF==3{print $$3}'; done | sort -u > $@.kdef; \
 	grep -xF -f $@.kdef $@.und > $@.keep || true; \
+	n=$$(wc -l < $@.keep); [ "$$n" -gt 0 ] || { printf '!!! transient imports: no kernel symbol kept -- the derivation is broken\n'; exit 1; }; \
 	sed 's/^/-Wl,--undefined=/' $@.keep > $@; \
-	printf '>>> transient imports: %s kernel symbols kept (%s undefined in the transient)\n' "$$(wc -l < $@.keep)" "$$(wc -l < $@.und)"
+	{ sed 's/^/extern /' $@.keep; printf '%%define TRANSIENT_N_IMPORTS %s\n' "$$n"; } > $(BUILD)/transient_imports_ext.inc; \
+	{ sed '$$d' $@.keep | sed 's/^/    dd /'; printf '    dd %s + TRANSIENT_LAST_IMPORT_SKEW\n' "$$(tail -n 1 $@.keep)"; } > $(BUILD)/transient_imports_dd.inc; \
+	{ printf 'bits 32\n'; sed 's/^/extern /' $@.keep; \
+	  printf 'section .rodata progbits alloc noexec nowrite align=4\nglobal transient_import_want\nglobal transient_import_count\ntransient_import_want:\n'; \
+	  sed 's/^/    dd /' $@.keep; printf 'transient_import_count:\n    dd %s\nsection .note.GNU-stack noalloc noexec nowrite progbits\n' "$$n"; } > $(BUILD)/transient_want.asm; \
+	$(NASM) -f elf32 $(BUILD)/transient_want.asm -o $(TRANSIENT_WANT_OBJ) || exit 1; \
+	printf '%s\n' '$(TRANSIENT_WANT_OBJ)' >> $@; \
+	printf '>>> transient imports: %s kernel symbols kept (%s undefined in the transient); header table + kernel want table generated\n' "$$n" "$$(wc -l < $@.und)"
 define exitdos-transient-rules
 $(BUILD)/transient_$(1).elf: $(2) $(TRANSIENT_OBJS) $(TRANSIENT_LD) | $(BUILD)
 	@end=$$$$($(NM) $$< | awk '$$$$3=="_kernel_end"{print "0x"$$$$1}'); \
@@ -10703,6 +10747,8 @@ $(BUILD)/transient_$(1).bin: $(BUILD)/transient_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@sz=$$$$(wc -c < $$@); max=$$$$(( $(TRANSIENT_CEIL_HEX) - $(TRANSIENT_BASE_HEX) )); \
 	[ "$$$$sz" -le "$$$$max" ] || { printf '!!! transient_$(1).bin (%s B) exceeds its load window\n' "$$$$sz"; exit 1; }; \
+	n=$$$$(od -An -tu4 -j24 -N4 $$@ | tr -d ' '); want=$$$$(wc -l < $(TRANSIENT_IMPORTS_LD).keep); \
+	[ "$$$$n" = "$$$$want" ] || { printf '!!! transient_$(1).bin: header n_imports=%s != %s kernel imports (gcc-nm -u of the transient objects; initech-13ig)\n' "$$$$n" "$$$$want"; exit 1; }; \
 	printf '>>> transient COMMAND.COM (%s): %s B in boot root, linked against %s\n' '$(1)' "$$$$sz" '$(2)'
 endef
 
@@ -10760,7 +10806,7 @@ KERNEL_FLAIRTENANTS_INT_ELF      := $(BUILD)/kernel_flairtenants_int.elf
 KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
 FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
 
-$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/power_notice.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 # R0.1 CursorMgr is included by every FLAIR kmain variant. Keep the common
@@ -10887,7 +10933,7 @@ endef
 # main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/power_notice.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$$@)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -13552,6 +13598,15 @@ TEST_FINDER_WIN_MUT_SVC := $(BUILD)/test_finder_windows_mutant_service_shown
 # by cluster number alone.
 TEST_FINDER_WIN_MUT_KEEPVIEWS := $(BUILD)/test_finder_windows_mutant_purge_keeps_views
 TEST_FINDER_WIN_MUT_UNCHECKED := $(BUILD)/test_finder_windows_mutant_view_unchecked
+# bead initech-fbo4 (audit 2026-10-23 desktop L004): File > Open on a selected
+# APPLICATION -- (a) the enablement ignores applications (Open stays dark),
+# (b) the verb ignores them (Open lit, nothing named for launch).
+TEST_FINDER_WIN_MUT_OPENDARK  := $(BUILD)/test_finder_windows_mutant_open_app_dark
+TEST_FINDER_WIN_MUT_OPENNOAPP := $(BUILD)/test_finder_windows_mutant_open_no_app
+$(TEST_FINDER_WIN_MUT_OPENDARK): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_MUT_OPEN_APP_DARK $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
+$(TEST_FINDER_WIN_MUT_OPENNOAPP): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_MUT_OPEN_NO_APP $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 $(TEST_FINDER_WIN_MUT_KEEPVIEWS): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_PURGE_KEEPS_VIEWS $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 $(TEST_FINDER_WIN_MUT_UNCHECKED): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
@@ -13561,7 +13616,13 @@ $(TEST_FINDER_WIN_MUT_SVC): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 $(TEST_FINDER_WIN_MUT_DOTS): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_DOTS_SHOWN $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 
-test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_MUT_VOLLABEL) $(TEST_FINDER_WIN_MUT_CLEANUP) $(TEST_FINDER_WIN_MUT_DOTS) $(TEST_FINDER_WIN_MUT_SVC) $(TEST_FINDER_WIN_MUT_KEEPVIEWS) $(TEST_FINDER_WIN_MUT_UNCHECKED)
+test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_MUT_VOLLABEL) $(TEST_FINDER_WIN_MUT_CLEANUP) $(TEST_FINDER_WIN_MUT_DOTS) $(TEST_FINDER_WIN_MUT_SVC) $(TEST_FINDER_WIN_MUT_KEEPVIEWS) $(TEST_FINDER_WIN_MUT_UNCHECKED) $(TEST_FINDER_WIN_MUT_OPENDARK) $(TEST_FINDER_WIN_MUT_OPENNOAPP)
+	@if $(TEST_FINDER_WIN_MUT_OPENDARK) > $(BUILD)/test_finder_windows_mutant_opendark.log 2>&1; then printf '!!! test-finder-windows-mutant FAIL: OPEN_APP_DARK PASSED -- the L004 application-enablement oracle is decoration\n'; exit 1; fi
+	@grep 'FAIL' $(BUILD)/test_finder_windows_mutant_opendark.log | grep -q 'L13 a selected APPLICATION lights File > Open' || { printf '!!! test-finder-windows-mutant FAIL: OPEN_APP_DARK went RED for the wrong reason\n'; cat $(BUILD)/test_finder_windows_mutant_opendark.log; exit 1; }
+	@printf '>>> test-finder-windows-mutant: green (OPEN_APP_DARK correctly RED -- a selected application leaves File > Open dark, L004)\n'
+	@if $(TEST_FINDER_WIN_MUT_OPENNOAPP) > $(BUILD)/test_finder_windows_mutant_opennoapp.log 2>&1; then printf '!!! test-finder-windows-mutant FAIL: OPEN_NO_APP PASSED -- the L004 Open-launches oracle is decoration\n'; exit 1; fi
+	@grep 'FAIL' $(BUILD)/test_finder_windows_mutant_opennoapp.log | grep -q 'L13 Cmd-O on the application is a successful Open' || { printf '!!! test-finder-windows-mutant FAIL: OPEN_NO_APP went RED for the wrong reason\n'; cat $(BUILD)/test_finder_windows_mutant_opennoapp.log; exit 1; }
+	@printf '>>> test-finder-windows-mutant: green (OPEN_NO_APP correctly RED -- Open lit for an application names no launch, L004)\n'
 	@if $(TEST_FINDER_WIN_MUT_KEEPVIEWS) > $(BUILD)/test_finder_windows_mutant_keepviews.log 2>&1; then printf '!!! test-finder-windows-mutant FAIL: PURGE_KEEPS_VIEWS PASSED -- the L002 view-retirement oracle is decoration\n'; exit 1; fi
 	@grep 'FAIL' $(BUILD)/test_finder_windows_mutant_keepviews.log | grep -q 'L12 every view of a purged folder is CLOSED' || { printf '!!! test-finder-windows-mutant FAIL: PURGE_KEEPS_VIEWS went RED for the wrong reason\n'; cat $(BUILD)/test_finder_windows_mutant_keepviews.log; exit 1; }
 	@printf '>>> test-finder-windows-mutant: green (PURGE_KEEPS_VIEWS correctly RED -- purged folders keep open windows, L002)\n'
@@ -14163,7 +14224,9 @@ test-te-surface-mutant: $(foreach m,$(TE_SURFACE_MUTANTS),$(BUILD)/test_te_surfa
 # 8.1 SimpleText mint + IM (harness/proptest/test_itext_route.c header).
 # Mutants (test-itext-route-mutant), each RED for its named reason:
 # ITEXT_MUT_COPY_NOTHING (copy), ITEXT_MUT_SAVE_NO_CR (save),
-# ITEXT_MUT_QUIT_NO_ASK (quit), ITEXT_MUT_SEL_NOT_INVERSE (inverse).
+# ITEXT_MUT_QUIT_NO_ASK (quit), ITEXT_MUT_SEL_NOT_INVERSE (inverse);
+# initech-4hkk (audit L011, one-level Undo): ITEXT_MUT_UNDO_NO_INVERSE (undo),
+# ITEXT_MUT_UNDO_PER_KEY (undorun), ITEXT_MUT_UNDO_KEEPS_HISTORY (undoreset).
 # ---------------------------------------------------------------------------
 TEST_ITEXT_ROUTE      := $(BUILD)/test_itext_route
 TEST_ITEXT_ROUTE_SRC  := harness/proptest/test_itext_route.c
@@ -14181,7 +14244,7 @@ test-itext-route: $(TEST_ITEXT_ROUTE)
 	@$(TEST_ITEXT_ROUTE)
 	@printf '>>> test-itext-route: green\n'
 
-ITEXT_ROUTE_MUTANTS := ITEXT_MUT_COPY_NOTHING:copy ITEXT_MUT_SAVE_NO_CR:save ITEXT_MUT_QUIT_NO_ASK:quit ITEXT_MUT_SEL_NOT_INVERSE:inverse ITEXT_MUT_SCROLL_NEVER_ENABLED:scroll ITEXT_MUT_LF_PAIR_OUTPUT:linefeed ITEXT_MUT_FULL_SILENT:full
+ITEXT_ROUTE_MUTANTS := ITEXT_MUT_COPY_NOTHING:copy ITEXT_MUT_SAVE_NO_CR:save ITEXT_MUT_QUIT_NO_ASK:quit ITEXT_MUT_SEL_NOT_INVERSE:inverse ITEXT_MUT_SCROLL_NEVER_ENABLED:scroll ITEXT_MUT_LF_PAIR_OUTPUT:linefeed ITEXT_MUT_FULL_SILENT:full ITEXT_MUT_UNDO_NO_INVERSE:undo ITEXT_MUT_UNDO_PER_KEY:undorun ITEXT_MUT_UNDO_KEEPS_HISTORY:undoreset
 test-itext-route-mutant: $(foreach m,$(ITEXT_ROUTE_MUTANTS),$(BUILD)/test_itext_route_mutant_$(firstword $(subst :, ,$(m))))
 	@for pair in $(ITEXT_ROUTE_MUTANTS); do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_itext_route_mutant_$$m; \
@@ -14190,7 +14253,7 @@ test-itext-route-mutant: $(foreach m,$(ITEXT_ROUTE_MUTANTS),$(BUILD)/test_itext_
 		grep -q "^RED-REASON $$why:" $$bin.log || { printf '!!! test-itext-route-mutant FAIL: %s went RED for the wrong reason (want %s)\n' "$$m" "$$why"; grep '^RED-REASON' $$bin.log; exit 1; }; \
 		printf '>>> test-itext-route-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$bin.log)"; \
 	done
-	@printf '>>> test-itext-route-mutant: green (all seven mutants RED for the named reason)\n'
+	@printf '>>> test-itext-route-mutant: green (all ten mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # test-list (ADR-0012 D-2b / FLAIR Phase 4.5 / initech-77dj, List Manager half):
@@ -21577,8 +21640,8 @@ test-flair-trash-full-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_ICONS
 define icons-obj-mutant-rules
 $(BUILD)/icons_mut_$(2).o: $(3) os/flair/finder_icon.h os/flair/flair_look.h os/flair/dialog.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/alert_icons.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(5) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $(3) -o $$@
-$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $$@ $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
 	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -23319,6 +23382,76 @@ test-flair-ctenant-mutant: test-flair-ctenant $(HARNESS_BIN) $(BUILD)/flair_tena
 	done
 	@printf '>>> test-flair-ctenant-mutant: green\n'
 
+# ---------------------------------------------------------------------------
+# test-flair-finder-open (bead initech-fbo4; audit 2026-10-23 desktop L004):
+# Finder File > Open and Ctrl-O LAUNCH a selected application exactly as a
+# double-click does -- ONE launch verb (kmain flair_live_launch_app), ONE
+# command spine (F4.4 finder_dispatch), the launch NAMED by the shell's
+# command outcome (finder_windows.h finder_cmd_outcome_t launch/launch83/
+# launch_dir). Ground truth: Apple_Macintosh_System_Software_Users_Guide_V6.0
+# .pdf PDF p. 45 (the TeachText application opens "either by double-clicking
+# it or by selecting it and choosing Open from the File menu"), PDF p. 38.
+# Traces: spec/flair_finder_open_traces.mk (LOCKED). Host half: test-finder-
+# windows L13 (+ -mutant OPEN_APP_DARK / OPEN_NO_APP).
+#   [1/4] KEY   select CTENANT.EXE, Ctrl-O  -> FINDER-CMD OPEN src=key, launch
+#   [2/4] MENU  select, File > Open by mouse -> FINDER-CMD OPEN src=mouse, launch
+#   [3/4] DBL   double-click                 -> the same launch, no command
+#   each: exactly ONE TENANT-REGISTER, ONE FLAIR-DISPATCH app=CTENANT (one
+#   foreground change), Ctrl-Q quits it (TENANT-MENU ... src=key, TENANT-EXIT)
+#   (TENANT-HEAPAVAIL: teardown done, the Finder promoted) and the RETURN is
+#   PROVED by Ctrl-W closing APPS through the Finder's own chord
+#   (FINDER-CMD id=4 CLOSE_WINDOW src=key); never TENANT-SLOT-BUSY.
+#   [4/4] BUSY  CTENANT resident; Open on it again -> the SECOND launch is
+#   refused out loud (TENANT-SLOT-BUSY + the launch notice), the resident
+#   tenant undisturbed and still quit cleanly.
+# Mutants (Rule 6): OPEN_APP_DARK (finder_windows.o: applications never light
+# Open -> the KEY leg runs no command and launches nothing) and
+# OPEN_NO_LAUNCH (kmain.o: the command runs and is reported, the adapter
+# never calls the launch verb -> no TENANT-REGISTER follows FINDER-OPEN-APP).
+# ---------------------------------------------------------------------------
+.PHONY: test-flair-finder-open test-flair-finder-open-mutant
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_MUT_OPEN_APP_DARK,open_app_dark))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_OPEN_NO_LAUNCH,open_no_launch))
+# One launch, one foreground change, quit by Ctrl-Q, torn down, the Finder
+# back and USABLE (its Ctrl-W closed APPS); no refusal.
+FOPEN_RETURNED = awk 'BEGIN{s=0} s==0&&/^TENANT-EXIT rc=0 via=exit$$/{s=1;next} s==1&&/^TENANT-HEAPAVAIL n=/{s=2;next} s==2&&/^FINDER-CMD id=4 name=CLOSE_WINDOW src=key /{s=3;next} s==3&&/^FINDER-CLOSE-WINDOW win=1$$/{s=4} END{exit !(s==4)}' $(1)
+FOPEN_LAUNCHED = [ "$$(grep -c '^TENANT-REGISTER ok app=CTENANT$$' $(1))" = 1 ] && [ "$$(grep -c '^FLAIR-DISPATCH app=CTENANT$$' $(1))" = 1 ] && [ "$$(grep -c '^TENANT-MENU menu=129 item=1 src=key$$' $(1))" = 1 ] && [ "$$(grep -c '^TENANT-EXIT rc=0 via=exit$$' $(1))" = 1 ] && [ "$$(grep -c '^FINDER-CMD id=4 name=CLOSE_WINDOW src=key ' $(1))" = 1 ] && $(call FOPEN_RETURNED,$(1)) && ! grep -q '^TENANT-SLOT-BUSY' $(1)
+# $(2) = key | mouse: File > Open ran ONCE through the spine, named the launch
+# ONCE, and the launch / dispatch / quit / return followed it IN ORDER.
+FOPEN_VIA_CMD = [ "$$(grep -c '^FINDER-CMD id=3 name=OPEN src=$(2) sel=1$$' $(1))" = 1 ] && [ "$$(grep -c '^FINDER-OPEN-APP name=CTENANT.EXE dir=' $(1))" = 1 ] && awk 'BEGIN{s=0} s==0&&/^FINDER-CMD id=3 name=OPEN src=$(2) /{s=1;next} s==1&&/^FINDER-OPEN-APP name=CTENANT.EXE dir=/{s=2;next} s==2&&/^TENANT-REGISTER ok app=CTENANT$$/{s=3;next} s==3&&/^FLAIR-DISPATCH app=CTENANT$$/{s=4;next} s==4&&/^TENANT-EXIT rc=0 via=exit$$/{s=5;next} s==5&&/^TENANT-HEAPAVAIL n=/{s=6} END{exit !(s==6)}' $(1)
+FOPEN_NO_CMD = ! grep -q '^FINDER-CMD id=3 ' $(1) && ! grep -q '^FINDER-OPEN-APP' $(1)
+FOPEN_BUSY = [ "$$(grep -c '^TENANT-REGISTER ok app=CTENANT$$' $(1))" = 1 ] && [ "$$(grep -c '^FINDER-CMD id=3 name=OPEN src=key sel=1$$' $(1))" = 1 ] && [ "$$(grep -c '^FINDER-OPEN-APP name=CTENANT.EXE dir=' $(1))" = 1 ] && [ "$$(grep -c '^TENANT-SLOT-BUSY name=CTENANT.EXE$$' $(1))" = 1 ] && grep -q '^FINDER-ALERT reason=launch' $(1) && [ "$$(grep -c '^TENANT-EXIT rc=0 via=exit$$' $(1))" = 1 ] && $(call FOPEN_RETURNED,$(1))
+FOPEN_GREP = grep -E '^(FINDER-CMD|FINDER-OPEN|FINDER-CLOSE-WINDOW|FINDER-ICON-SELECT|FINDER-ALERT|TENANT-(LOAD|REGISTER|SLOT|MENU|EXIT|HEAPAVAIL)|FLAIR-DISPATCH|FLAIR-MENU|PANIC)' $(1)
+test-flair-finder-open: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(CTEN_HOLD_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-finder-open : File > Open / Ctrl-O launch a selected application like a double-click\n'
+	@printf '  bead initech-fbo4; audit 2026-10-23 desktop L004; Users Guide V6.0 PDF p. 38, 45\n'
+	@printf '======================================================================\n'
+	$(call appl-boot,flair_fopen_key,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_FINDER_OPEN_KEY_SPEC,)
+	@f=$(BUILD)/flair_fopen_key.serial; $(call APPL_ALIVE,$$f) && $(call FOPEN_VIA_CMD,$$f,key) && $(call FOPEN_LAUNCHED,$$f) || { printf '!!! test-flair-finder-open [1/4] FAIL: KEY -- Ctrl-O on the selected CTENANT.EXE must run File > Open once (src=key), launch it once (one REGISTER, one DISPATCH), and Ctrl-Q must quit it back to the Finder\n'; $(call FOPEN_GREP,$$f); exit 1; }
+	@printf '>>> test-flair-finder-open [1/4] KEY: %s -> %s -> one REGISTER, one DISPATCH, Ctrl-Q quit, the Finder back\n' "$$(grep -m1 '^FINDER-CMD id=3' $(BUILD)/flair_fopen_key.serial)" "$$(grep -m1 '^FINDER-OPEN-APP' $(BUILD)/flair_fopen_key.serial)"
+	$(call appl-boot,flair_fopen_menu,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_FINDER_OPEN_MENU_SPEC,)
+	@f=$(BUILD)/flair_fopen_menu.serial; $(call APPL_ALIVE,$$f) && $(call FOPEN_VIA_CMD,$$f,mouse) && $(call FOPEN_LAUNCHED,$$f) || { printf '!!! test-flair-finder-open [2/4] FAIL: MENU -- File > Open by the mouse on the selected CTENANT.EXE must run the command once (src=mouse), launch it once, and Ctrl-Q must quit it back to the Finder\n'; $(call FOPEN_GREP,$$f); exit 1; }
+	@printf '>>> test-flair-finder-open [2/4] MENU: %s -> the SAME launch, quit and return as the chord\n' "$$(grep -m1 '^FINDER-CMD id=3' $(BUILD)/flair_fopen_menu.serial)"
+	$(call appl-boot,flair_fopen_dbl,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_FINDER_OPEN_DBL_SPEC,)
+	@f=$(BUILD)/flair_fopen_dbl.serial; $(call APPL_ALIVE,$$f) && $(call FOPEN_NO_CMD,$$f) && $(call FOPEN_LAUNCHED,$$f) || { printf '!!! test-flair-finder-open [3/4] FAIL: DBL -- the double-click route must launch CTENANT.EXE once with NO File > Open command, and Ctrl-Q must quit it back to the Finder\n'; $(call FOPEN_GREP,$$f); exit 1; }
+	@printf '>>> test-flair-finder-open [3/4] DBL: the double-click launches the same way (no command line), one REGISTER, one DISPATCH, quit, return\n'
+	$(call cten-hold-boot,flair_fopen_busy,$(FLAIR_DATA_IMG),FLAIR_FINDER_OPEN_BUSY_SPEC)
+	@f=$(BUILD)/flair_fopen_busy.serial; $(call APPL_ALIVE,$$f) && $(call FOPEN_BUSY,$$f) || { printf '!!! test-flair-finder-open [4/4] FAIL: BUSY -- with CTENANT resident, Ctrl-O on it must be refused out loud (one TENANT-SLOT-BUSY + FINDER-ALERT reason=launch) with the resident tenant undisturbed and still quit cleanly\n'; $(call FOPEN_GREP,$$f); exit 1; }
+	@printf '>>> test-flair-finder-open [4/4] BUSY: %s, %s; the resident tenant quit cleanly\n' "$$(grep -m1 '^TENANT-SLOT-BUSY' $(BUILD)/flair_fopen_busy.serial)" "$$(grep -m1 '^FINDER-ALERT reason=launch' $(BUILD)/flair_fopen_busy.serial)"
+	@printf '>>> test-flair-finder-open: green\n'
+
+test-flair-finder-open-mutant: test-flair-finder-open $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_open_app_dark.img $(BUILD)/flair_tenants_mut_open_no_launch.img
+	$(call appl-boot,flair_fopenmut_dark,$(BUILD)/flair_tenants_mut_open_app_dark.img,$(FLAIR_DATA_IMG),FLAIR_FINDER_OPEN_KEY_SPEC,)
+	@f=$(BUILD)/flair_fopenmut_dark.serial; if $(call FOPEN_VIA_CMD,$$f,key) && $(call FOPEN_LAUNCHED,$$f); then printf '!!! test-flair-finder-open-mutant FAIL: OPEN_APP_DARK PASSED the KEY leg -- the enablement oracle is decoration\n'; exit 1; fi
+	@f=$(BUILD)/flair_fopenmut_dark.serial; $(call APPL_ALIVE,$$f) && grep -qx 'FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=1' $$f && $(call FOPEN_NO_CMD,$$f) && ! grep -q '^TENANT-REGISTER' $$f || { printf '!!! test-flair-finder-open-mutant FAIL: OPEN_APP_DARK went RED for the wrong reason (want: Ctrl-O grayed -> no FINDER-CMD id=3, nothing launched, desktop alive; the Finder still foreground with CTENANT.EXE selected, so Ctrl-W closes APPS with sel=1)\n'; $(call FOPEN_GREP,$$f); exit 1; }
+	@printf '>>> test-flair-finder-open-mutant: OPEN_APP_DARK RED for the named reason -- CTENANT.EXE selected, Ctrl-O ran no command and launched nothing\n'
+	$(call appl-boot,flair_fopenmut_nolaunch,$(BUILD)/flair_tenants_mut_open_no_launch.img,$(FLAIR_DATA_IMG),FLAIR_FINDER_OPEN_KEY_SPEC,)
+	@f=$(BUILD)/flair_fopenmut_nolaunch.serial; if $(call FOPEN_VIA_CMD,$$f,key) && $(call FOPEN_LAUNCHED,$$f); then printf '!!! test-flair-finder-open-mutant FAIL: OPEN_NO_LAUNCH PASSED the KEY leg -- the launch oracle is decoration\n'; exit 1; fi
+	@f=$(BUILD)/flair_fopenmut_nolaunch.serial; $(call APPL_ALIVE,$$f) && grep -qx 'FINDER-CMD id=3 name=OPEN src=key sel=1' $$f && grep -q '^FINDER-OPEN-APP name=CTENANT.EXE dir=' $$f && ! grep -q '^TENANT-REGISTER' $$f || { printf '!!! test-flair-finder-open-mutant FAIL: OPEN_NO_LAUNCH went RED for the wrong reason (want: the command ran and named the launch, but no TENANT-REGISTER followed)\n'; $(call FOPEN_GREP,$$f); exit 1; }
+	@printf '>>> test-flair-finder-open-mutant: OPEN_NO_LAUNCH RED for the named reason -- File > Open ran and named CTENANT.EXE, the adapter launched nothing\n'
+	@printf '>>> test-flair-finder-open-mutant: green (both mutants RED for their named reasons)\n'
+
 # ===========================================================================
 # REAL gate: test-flair-i123 (beads initech-9u8w / initech-w96l; epic
 # initech-68iw) -- INITECH 123 OPENS FROM THE FINDER AS A DISK APPLICATION.
@@ -23613,6 +23746,14 @@ RECORD_SETTLE_i123_typing   = 400
 RECORD_SPEC_ctenant_keys    = $(FLAIR_CTENANT_SPEC)
 RECORD_MARKER_ctenant_keys  = TENANT-GATE ax=0x0033 win=1 x=8 y=96 s="Click" fg=0 bg=3 -> 0
 RECORD_SETTLE_ctenant_keys  = 400
+# finder_open_app (bead initech-fbo4; Rule 14): CTENANT.EXE single-clicked in
+# APPS, then Ctrl-O -- File > Open launches it exactly as a double-click would
+# (its window and bar appear), then Ctrl-Q quits it and the Finder's bar comes
+# back. Replays the LOCKED FLAIR_FINDER_OPEN_KEY_SPEC (test-flair-finder-open
+# leg 1); its marker is the quit.
+RECORD_SPEC_finder_open_app   = $(FLAIR_FINDER_OPEN_KEY_SPEC)
+RECORD_MARKER_finder_open_app = TENANT-EXIT rc=0 via=exit
+RECORD_SETTLE_finder_open_app = 400
 # chicago_menus (bead initech-tdnl.33, Rule 14): the proportional Chicago 12
 # acceptance clip -- titled windows (HELLO, NOTES) under band 2's Photoshop bar
 # and TWO held gestures, each a cancel (nothing dispatched): (1) Image dropped
@@ -23817,7 +23958,7 @@ RECORD_SPEC_finder_icons   = $(FLAIR_FINDER_ICONS_SPEC)
 RECORD_MARKER_finder_icons = $(FLAIR_ICONS_SCENE_MARK)
 RECORD_IMAGE_finder_icons  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_finder_icons = 300
-RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash tenant_menu ctenant_keys i123_typing shutdown finder_icons
+RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash tenant_menu ctenant_keys i123_typing shutdown finder_icons finder_open_app
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -23930,6 +24071,9 @@ RECORD_IMAGE_app_launch          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_app_menubar         = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_tenant_menu         = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_ctenant_keys        = $(FLAIRTENANTS_RECORDDBL_IMG)
+# finder_open_app (fbo4): opens the volume and APPS by double-click -> the
+# double-click record image (its interval absorbs the 400 ms settle).
+RECORD_IMAGE_finder_open_app     = $(FLAIRTENANTS_RECORDDBL_IMG)
 # ctenant_repaint (bead initech-6qsk; Rule 14): CTENANT's key and click
 # readouts survive a title drag by (50,50) and an obscure (the APPS window
 # dragged over them) / reveal (a CTENANT title click) -- every updateEvt
@@ -24202,6 +24346,15 @@ RECORD_SPEC_control_panels = $(CP_CLIP_SPEC)
 RECORD_MARKER_control_panels = APPLE-LAUNCH name=CPANELS.EXE dir=APPS
 RECORD_IMAGE_control_panels = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_control_panels = $(FLAIR_DATA_IMG)
+# B05 Rule 14: PM records this locked preference/apply/menu-exit trace on main.
+# Keep this block before record-flair's parse-time prerequisites.
+RECORD_SCRIPTS += cpanels_pattern_bars
+RECORD_SPEC_cpanels_pattern_bars = $(CP_BARS_PATTERN_EXIT)
+RECORD_MARKER_cpanels_pattern_bars = TENANT-MENU menu=129 item=1 src=mouse
+RECORD_IMAGE_cpanels_pattern_bars = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_cpanels_pattern_bars = $(FLAIR_DATA_IMG)
+RECORD_RTC_BASE_cpanels_pattern_bars = 1980-01-01T00:56:00
+RECORD_SETTLE_cpanels_pattern_bars = 400
 # Volume re-key: README + APPS + its21 leaves; stranded TRASH stays cell0.
 RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=23 refused=0
 
@@ -24212,6 +24365,17 @@ RECORD_MARKER_itext_scroll = TENANT-GATE ax=0x00c1 win=1 len=664 value=275 -> 27
 RECORD_SETTLE_itext_scroll = 400
 RECORD_IMAGE_itext_scroll = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 RECORD_DATA_itext_scroll = $(FLAIR_DATA_IMG)
+# itext_undo (bead initech-4hkk, audit L011; Rule 14): the audit's own steps --
+# "Saving tables to disk" / "PC LOAD LETTER" typed, Ctrl-A, Ctrl-X (the window
+# empties), Ctrl-Z (the text comes back, all selected), Ctrl-S saves it as
+# UNDO.TXT. Replays the LOCKED FLAIR_ITEXT_UNDO_SPEC (test-flair-itext-undo);
+# its marker is the Save As reply. PM records on main after merge.
+RECORD_SCRIPTS += itext_undo
+RECORD_SPEC_itext_undo = $(FLAIR_ITEXT_UNDO_SPEC)
+RECORD_MARKER_itext_undo = TENANT-SF-REPLY good=1 path=UNDO.TXT
+RECORD_SETTLE_itext_undo = 400
+RECORD_IMAGE_itext_undo = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_DATA_itext_undo = $(FLAIR_DATA_IMG)
 # fonts_styles (bead initech-tdnl.68, Font Manager slice 2; Rule 14): the FONTS
 # specimen opens from the Finder -- its narrow window titled "Font Manager
 # Styl" + the Chicago ellipsis, plain / bold / italic / underline / combined
@@ -24397,6 +24561,19 @@ RECORD_MARKER_calculator = APPLE-LAUNCH name=CALCULAT.EXE dir=APPS
 RECORD_IMAGE_calculator = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_calculator = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_calculator = 300
+# initech-0xs6: PM records on main per BEAD.txt. Keep image selections
+# before record-flair so its prerequisites include the selected image.
+RECORD_SCRIPTS += calculator_power calculator_refused
+RECORD_SPEC_calculator_power = $(CALC_POWER_SD)
+RECORD_MARKER_calculator_power = APPLE-LAUNCH name=CALCULAT.EXE dir=APPS
+RECORD_IMAGE_calculator_power = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_calculator_power = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_calculator_power = 300
+RECORD_SPEC_calculator_refused = $(CALC_POWER_TEXT_SD)
+RECORD_MARKER_calculator_refused = FINDER-POWER-NOTICE
+RECORD_IMAGE_calculator_refused = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_calculator_refused = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_calculator_refused = 300
 # initech-zc68: the DOS folder is a normal spatial Finder window. PM records
 # after merge. From DOS (191,102), park at (620,460): (+429,+358).
 RECORD_SCRIPTS += dos_folder
@@ -31253,6 +31430,7 @@ TEST_EMU_GATES := \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-tenant-menu test-flair-tenant-menu-mutant test-flair-tenant-menu-bochs \
 	test-flair-ctenant test-flair-ctenant-mutant \
+	test-flair-finder-open test-flair-finder-open-mutant \
 	test-flair-files test-flair-files-mutant test-flair-files-reap test-flair-files-reap-mutant \
 	test-flair-i123 test-flair-i123-mutant test-flair-i123-bochs \
 	test-flair-i123-files test-flair-i123-files-mutant test-flair-i123-file-ui test-flair-i123-file-ui-mutant \
@@ -33406,6 +33584,8 @@ include harness/film_scene.mk
 include harness/emu/fcb_tps.mk
 # bead initech-3p1a: Special > Exit to InitechDOS + the TPS journey (reuses fcb_tps.mk).
 include harness/emu/exit_dos.mk
+# bead initech-13ig: EXEC of COMMAND.COM on the flagship (reuses exit_dos.mk).
+include harness/emu/execguard.mk
 
 # ===========================================================================
 # REAL gate: test-flair-itext (bead initech-tdnl.16, GUI-remediation R4.2;
@@ -33635,12 +33815,56 @@ test-flair-itext-scroll-mutant: test-flair-itext-scroll $(FLAIR_DATA_ITEXT_NOSCR
 	@printf '>>> test-flair-itext-scroll-mutant: ITEXT_MUT_SCROLL_NEVER_ENABLED correctly RED (range0; independent thumb-v crop)\n'
 TEST_EMU_GATES += test-flair-itext-scroll test-flair-itext-scroll-mutant
 
+# initech-4hkk (audit 2026-10-23-das L011): Cut -> Undo in the emulator, the
+# audit's own steps (locked FLAIR_ITEXT_UNDO_SPEC). Ctrl-Z reaches Undo through
+# MenuKey, which takes only an ENABLED item (os/flair/menu.c), so the restored
+# document proves the Edit menu's Undo item came alive. Legs: [1/3] the last
+# paint draws both lines restored and selected (white ink on black -- the
+# visible text, TEXTDRAW records); [2/3] the Save As reply; [3/3] UNDO.TXT on
+# the FAT volume == the typed 36 bytes (mtools, independent of the app).
+# Mutant: a gate-local volume whose TEXT.EXE is -DITEXT_MUT_UNDO_NO_INVERSE --
+# the save still answers (right-reason guard), the paint and the bytes go RED.
+FLAIR_DATA_ITEXT_UNDONONE_IMG := $(BUILD)/flair_data_itext_undonone.img
+$(eval $(call flair-data-rules,$(FLAIR_DATA_ITEXT_UNDONONE_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),$(BUILD)/tenant/itext_undo_none.exe))
+ITEXT_UNDO_EXPECT := $(BUILD)/itext_undo.expect
+$(ITEXT_UNDO_EXPECT): spec/flair_itext_traces.mk | $(BUILD)
+	@printf 'Saving tables to disk\rPC LOAD LETTER' > $@
+# PAINT: AFTER the Cut's scrap put (the 36 bytes leave the document) both
+# lines are drawn again, selected -- the Select All paint before the Cut draws
+# the same runs, so only a draw after the put proves the restore -- and they
+# are also the last paint of each line.
+ITEXT_UNDO_PAINT = awk '/^TENANT-SCRAP put n=36 count=1$$/{c=1} c&&$$0=="TENANT-GATE ax=0x0030 win=1 x=5 y=4 s=\"Saving tables to disk\" fg=201392128 bg=1 -> 0"{a=1} c&&$$0=="TENANT-GATE ax=0x0030 win=1 x=5 y=20 s=\"PC LOAD LETTER\" fg=201392128 bg=1 -> 0"{b=1} END{exit !(a&&b)}' $(1) && \
+	$(call ITEXT_LAST,$(1),5,4,Saving tables to disk,201392128,1) && $(call ITEXT_LAST,$(1),5,20,PC LOAD LETTER,201392128,1)
+ITEXT_UNDO_SAVE = grep -qx 'TENANT-SF-REPLY good=1 path=UNDO.TXT' $(1)
+ITEXT_UNDO_DISK = mcopy -o -i $(1) ::UNDO.TXT $(1).undo 2>/dev/null && cmp -s $(ITEXT_UNDO_EXPECT) $(1).undo && fsck.fat -n $(1) >/dev/null
+.PHONY: test-flair-itext-undo test-flair-itext-undo-mutant
+test-flair-itext-undo: $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(FLAIR_DATA_IMG) $(ITEXT_UNDO_EXPECT)
+	@printf 'InitechOS (STAPLER) -- make test-flair-itext-undo : Ctrl-A, Ctrl-X, Ctrl-Z brings the cut text back; saved bytes exact (initech-4hkk L011)\n'
+	$(call appl-boot,flair_itext_undo,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_ITEXT_UNDO_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_undo.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_undo.serial) || { printf '!!! test-flair-itext-undo FAIL: TEXT did not come up\n'; exit 1; }
+	@$(call ITEXT_UNDO_PAINT,$(BUILD)/flair_itext_undo.serial) || { printf '!!! test-flair-itext-undo FAIL [1/3] PAINT: the restored lines are not the last paint\n'; grep '^TENANT-GATE ax=0x0030 win=1 ' $(BUILD)/flair_itext_undo.serial | tail -6; exit 1; }
+	@printf '>>> test-flair-itext-undo [1/3] PAINT: after Ctrl-Z the last paint is "Saving tables to disk" / "PC LOAD LETTER", selected (white ink on black)\n'
+	@$(call ITEXT_UNDO_SAVE,$(BUILD)/flair_itext_undo.serial) || { printf '!!! test-flair-itext-undo FAIL [2/3] SAVE: no Save As reply UNDO.TXT\n'; grep '^TENANT-SF' $(BUILD)/flair_itext_undo.serial; exit 1; }
+	@printf '>>> test-flair-itext-undo [2/3] SAVE: %s\n' "$$(grep -m1 '^TENANT-SF-REPLY' $(BUILD)/flair_itext_undo.serial)"
+	@$(call ITEXT_UNDO_DISK,$(BUILD)/flair_itext_undo_data.img) || { printf '!!! test-flair-itext-undo FAIL [3/3] DISK: UNDO.TXT is not the restored 36 bytes\n'; xxd $(BUILD)/flair_itext_undo_data.img.undo 2>/dev/null | head -4; exit 1; }
+	@printf '>>> test-flair-itext-undo [3/3] DISK: UNDO.TXT (%s bytes) == "Saving tables to disk" CR "PC LOAD LETTER" (mtools); fsck.fat clean\n>>> test-flair-itext-undo: green\n' "$$(wc -c < $(BUILD)/flair_itext_undo_data.img.undo)"
+test-flair-itext-undo-mutant: test-flair-itext-undo $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(FLAIR_DATA_ITEXT_UNDONONE_IMG) $(ITEXT_UNDO_EXPECT)
+	$(call appl-boot,flair_itext_undonone,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_ITEXT_UNDONONE_IMG),FLAIR_ITEXT_UNDO_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_undonone.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_undonone.serial) && $(call ITEXT_UNDO_SAVE,$(BUILD)/flair_itext_undonone.serial) || { printf '!!! test-flair-itext-undo-mutant FAIL: UNDO_NO_INVERSE went RED for the wrong reason (want: TEXT up, Save As answered)\n'; exit 1; }
+	@if $(call ITEXT_UNDO_PAINT,$(BUILD)/flair_itext_undonone.serial); then printf '!!! test-flair-itext-undo-mutant FAIL: UNDO_NO_INVERSE PASSED the PAINT leg -- decoration\n'; exit 1; fi
+	@if $(call ITEXT_UNDO_DISK,$(BUILD)/flair_itext_undonone_data.img); then printf '!!! test-flair-itext-undo-mutant FAIL: UNDO_NO_INVERSE PASSED the DISK leg -- decoration\n'; exit 1; fi
+	@printf '>>> test-flair-itext-undo-mutant: ITEXT_MUT_UNDO_NO_INVERSE correctly RED -- no restored paint; UNDO.TXT is %s bytes, not the locked 36\n' "$$(wc -c < $(BUILD)/flair_itext_undonone_data.img.undo 2>/dev/null || echo 0)"
+TEST_EMU_GATES += test-flair-itext-undo test-flair-itext-undo-mutant
+
 # Seeded volume contracts are read after every image variable is defined.
 include harness/emu/notepad.mk
 include harness/emu/fullsave.mk
 include harness/diff/wp5_diff/p3.mk
 include harness/diff/wp5_diff/p3_part2.mk
 include harness/diff/wp5_diff/p3_listfiles.mk
+# initech-0xs6: the close-only Calculator volume (harness/emu/calcda_power.mk, included
+# after the contracts) is named here so the derived FLAIR_DATA_%_IMG contract sees it.
+FLAIR_DATA_CALCDA_CLOSE_ONLY_IMG := $(BUILD)/flair_data_calcda_close_only.img
 include harness/fixture_volumes.mk
 $(eval $(call fixture-contract,$(DA_CORRUPT_DATA),$(FLAIR_FIXTURES) NOTEPAD.DAT))
 
@@ -34104,6 +34328,8 @@ test-flair-cpanels-mutant: test-flair-cpanels-radio-mutant
 # New locked header consumers must rebuild when the contract changes.
 $(KERNEL_DESKTOP_OBJ): spec/cpanels_record.h
 
+include harness/emu/cpanels_bars.mk
+
 # ---------------------------------------------------------------------------
 # THE FLAIR BOOT SCREEN (bead initech-tdnl.105; operator directive 2026-10-17)
 # ---------------------------------------------------------------------------
@@ -34319,7 +34545,7 @@ TEST_UNIT_GATES += test-samir-core-diff test-samir-core-diff-mutant
 # RUN (DML-16) is back in the vector (initech-n8q8): the PAL exec seam runs
 # COMMAND.COM /C through the nested EXEC; its mutant SAMIR_DML_MUTANT_run is
 # the RUN_NOEXEC bite (no CR LFs, no child, no VERSION.TXT).
-SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run
+SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run abbrev abbrscope
 SAMIR_DML_TEST := $(BUILD)/test_samir_dml
 SAMIR_DML_MUTS := $(addprefix $(BUILD)/test_samir_dml_, $(SAMIR_DML_CASES))
 $(SAMIR_DML_TEST): $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
@@ -34354,6 +34580,30 @@ TEST_UNIT_GATES += test-samir-dml-$(1) test-samir-dml-$(1)-mutant
 TEST_EMU_GATES += test-samir-dml-$(1)-emu test-samir-dml-$(1)-emu-mutant
 endef
 $(foreach verb,$(SAMIR_DML_CASES),$(eval $(call samir-dml-gates,$(verb))))
+
+# Audit L009 / initech-13d3: both spellings were independently run by DBASE.EXE.
+# DISP's hook mutant leaves full DISPLAY intact; abbrscope restores the bad
+# REPLACE scope scan. Both must lose the independent real-III+ differential.
+.PHONY: mint-samir-abbrev test-samir-abbrev test-samir-abbrev-mutant test-samir-abbrev-emu
+mint-samir-abbrev: $(CLIENTS_DBF)
+	@SAMIR_DML_MINT_DEST="$(abspath $(BUILD)/samir-abbrev-mint)" sh $(DBF_DIFF_DIR)/dml_mint.sh $(abspath $(DBASE3_DECOMP)) abbrev abbrfull abbrscope
+	@for name in abbrev abbrfull; do for f in DMLTEST.PRG GOLD.OUT BASE.DBF NAMES.NDX VALUES.MEM; do \
+	 cmp $(BUILD)/samir-abbrev-mint/$$name/$$f $(SAMIR_MINT_TREE)/golden/$$name/$$f || exit 1; done; done
+	@for f in DMLTEST.PRG GOLD.OUT INPUT.DBF BASE.DBF MINT.PRG CONFIG.DB; do \
+	 cmp $(BUILD)/samir-abbrev-mint/abbrscope/$$f $(SAMIR_MINT_TREE)/golden/abbrscope/$$f || exit 1; done
+	@printf '>>> mint-samir-abbrev: green (isolated real III+ rerun reproduces committed goldens)\n'
+test-samir-abbrev: test-samir-dml-abbrev test-samir-dml-abbrscope
+	@$(SAMIR_DML_TEST) abbrfull host
+	@for f in GOLD.OUT BASE.DBF NAMES.NDX VALUES.MEM; do cmp $(BUILD)/samirdml/golden/abbrev/$$f $(BUILD)/samirdml/golden/abbrfull/$$f || exit 1; done
+	@printf '>>> test-samir-abbrev: green (both spellings and replacement scopes vs real III+ output and files)\n'
+test-samir-abbrev-mutant: test-samir-abbrev test-samir-dml-abbrev-mutant test-samir-dml-abbrscope-mutant
+	@$(BUILD)/test_samir_dml_abbrev abbrfull host
+	@printf '>>> test-samir-abbrev-mutant: green (DISP and replacement-scope mutants RED; full DISPLAY control green)\n'
+test-samir-abbrev-emu: test-samir-dml-abbrev-emu test-samir-dml-abbrscope-emu
+	@INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) abbrfull emu $(SAMIR_COM)
+	@printf '>>> test-samir-abbrev-emu: green\n'
+TEST_UNIT_GATES += test-samir-abbrev test-samir-abbrev-mutant
+TEST_EMU_GATES += test-samir-abbrev-emu
 
 # ---- SAMIR data typing vs real III+ (initech-ylqs; audit 2026-10-23-samir
 # L001/L006/L016). The dot prompt replays the real III+ mint's commands on the
@@ -34426,7 +34676,8 @@ $(BUILD)/samirdml/.promoted: $(SAMIR_MINT_FILES) | $(BUILD)
 	@touch $@
 samir-dml-goldens: $(BUILD)/samirdml/.promoted
 	@sha256sum --quiet -c $(DBF_DIFF_DIR)/xbase_prog_diff/dml-goldens.sha256 || { printf 'RED: MINT required or changed: see docs/worklog/samirdml-mint.md\n'; exit 1; }
-	@printf '>>> samir-dml-goldens: green (16 real III+ ledger rows pinned)\n'
+	@sha256sum --quiet -c $(PROG_DIFF_DIR)/abbrev-goldens.sha256
+	@printf '>>> samir-dml-goldens: green (real III+ ledger rows pinned)\n'
 $(addprefix test-samir-dml-, $(SAMIR_DML_CASES)): samir-dml-goldens
 $(addsuffix -emu, $(addprefix test-samir-dml-, $(SAMIR_DML_CASES))): samir-dml-goldens
 
@@ -34764,3 +35015,6 @@ test-flair-i123-copy-mutant: test-flair-i123-copy $(FLAIR_DATA_I123_PERIOD_TEXT_
 	@if $(PPM_TEXT_CHECK_BIN) --i123-copy $(BUILD)/flair_i123_copy_mut.ppm; then printf '!!! period-as-text passed POINT pixel oracle\n'; exit 1; fi
 	@printf '>>> test-flair-i123-copy-mutant: green (rectangle save passes; period-as-text fails serial and pixels)\n'
 TEST_EMU_GATES += test-flair-i123-copy test-flair-i123-copy-cpu test-flair-i123-copy-bochs test-flair-i123-copy-mutant
+
+# Calculator desk accessory lifecycle (initech-0xs6).
+include harness/emu/calcda_power.mk

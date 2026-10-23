@@ -1,0 +1,8 @@
+3f7ba1f55c89286bb16b4cdfd8758264823c7823ac9741c3b73f6895f2113c46  build/samir-abbrev-scope-mint/abbrscope/DBASE.EXE
+05b5722fb14dc937813e034547393ab97d326a38be2b9511796aa7ad42c7cb27  build/samir-abbrev-scope-mint/abbrscope/DBASE.OVL
+73fe8c03e369e1d5117bbd83746fc39227b2456b20c0ff60b6bf86be95f730fe  build/samir-abbrev-scope-mint/abbrscope/DBASEINL.OVL
+cc4eb64d9a1bcc74d2814d9e45d1707d883ad27ff2f9b5ef95eececaccb640be  build/samir-abbrev-scope-mint/abbrscope/DBASE.MSG
+3f7ba1f55c89286bb16b4cdfd8758264823c7823ac9741c3b73f6895f2113c46  /home/tobias/Projects/dbase3-decomp/mint/work/DBASE.EXE
+05b5722fb14dc937813e034547393ab97d326a38be2b9511796aa7ad42c7cb27  /home/tobias/Projects/dbase3-decomp/mint/work/DBASE.OVL
+73fe8c03e369e1d5117bbd83746fc39227b2456b20c0ff60b6bf86be95f730fe  /home/tobias/Projects/dbase3-decomp/mint/work/DBASEINL.OVL
+cc4eb64d9a1bcc74d2814d9e45d1707d883ad27ff2f9b5ef95eececaccb640be  /home/tobias/Projects/dbase3-decomp/mint/work/DBASE.MSG

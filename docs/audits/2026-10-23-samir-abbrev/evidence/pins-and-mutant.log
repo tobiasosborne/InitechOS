@@ -1,0 +1,18 @@
+Makefile:8837: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8835: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8846: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8844: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+>>> samir-dml-goldens: green (real III+ ledger rows pinned)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/mint_clients_dbf harness/diff/dbf_diff/mint_clients_dbf.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/core/value.c os/samir/core/rt.c os/samir/pal/pal_host.c
+>>> mint_clients_dbf: wrote build/CLIENTS.DBF (3 fields, 3 records, date 07-19-93)
+>>> CLIENTS.DBF: minted build/CLIENTS.DBF (NAME/C CITY/C BAL/N; 3 records; deterministic; bead hdlb)
+test-samir-dml: 6 checks, 0 failures
+>>> test-samir-dml-abbrev: green
+test-samir-dml: 6 checks, 0 failures
+>>> test-samir-abbrev: green (both spellings vs real III+ output and DBF/NDX)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_abbrev -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_abbrev harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_abbrev RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:210: DML transcript byte-identical to real III+
+test-samir-dml: 6 checks, 0 failures
+>>> test-samir-abbrev-mutant: green (DISP RED; full DISPLAY control green)

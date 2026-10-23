@@ -597,6 +597,25 @@ static void test_field_memvar(samir_pal_t *pal)
 /* =====================================================================
  * main
  * ===================================================================== */
+static void test_abbreviations(samir_pal_t *pal)
+{
+    xb_interp *ip = xb_interp_make(pal);
+    double v = 0;
+    CHECK(ip != NULL, "abbrev: interpreter allocated");
+    if (!ip) return;
+    CHECK(samir_do(ip, "STOR 0 TO STORED\nSTORENO=7\n"
+                      "DO WHIL STORED<2\nSTORED=STORED+1\nENDD\n"
+                      "IF STORENO=7\nSTORENO=8\nENDI\n"
+                      "DO CASE\nCASE .F.\nSTORENO=99\n"
+                      "OTHE\nSTORENO=STORENO+1\nENDC\n") == INTERP_OK,
+          "abbrev: STORE/WHILE/ENDDO/ENDIF/OTHERWISE/ENDCASE classify");
+    CHECK(memvar_num(ip,"STORED",&v) && v == 2, "abbrev: loop executed");
+    CHECK(memvar_num(ip,"STORENO",&v) && v == 9, "abbrev: same-prefix names distinct");
+    CHECK(samir_do(ip,"STORX 9 TO STORED\n") != INTERP_OK && samir_last_error(ip) == 16,
+          "abbrev: invalid suffix is unrecognized");
+    xb_interp_free(ip);
+}
+
 int main(int argc, char **argv)
 {
     struct pal_host_cfg cfg;
@@ -624,6 +643,7 @@ int main(int argc, char **argv)
     test_guard_type(pal);
     test_malformed(pal);
     test_field_memvar(pal);
+    test_abbreviations(pal);
 
     pal_host_free(pal);
     return TEST_SUMMARY("test-interp-flow");

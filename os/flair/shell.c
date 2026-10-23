@@ -329,6 +329,13 @@ void shell_sync_overlay(shell_scene_t *s)
  * ===========================================================================*/
 void shell_render(shell_scene_t *s, const bitmap_t *dst)
 {
+    shell_render_with_menubar(s, dst, (const MenuBar *)0);
+}
+
+void shell_render_with_menubar(shell_scene_t *s, const bitmap_t *dst,
+                               const MenuBar *foreground)
+{
+    (void)foreground; /* also built with the one-menubar mutation */
 #ifndef SHELL_MUT_SHORT_SURFACE
     if (dst != 0 && dst->height < SHELL_MENUBARS_H)
         SHELL_PANIC("shell_render: both menu bars must fit (mqsn)");
@@ -385,7 +392,8 @@ void shell_render(shell_scene_t *s, const bitmap_t *dst)
         make_offset_view(&view2, dst, (uint32_t)SHELL_MENUBAR2_TOP);
         GrafPort p2;
         make_bar_port(&p2, &view2);
-        DrawMenuBar(&p2, &s->bar_photoshop, -1, (const region_t *)0);
+        DrawMenuBar(&p2, foreground ? foreground : &s->bar_photoshop,
+                     -1, (const region_t *)0);
 #endif
     }
 

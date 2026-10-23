@@ -26,6 +26,7 @@
 #include "fat12.h"        /* FAT-sourced load (beads initech-saw): find + read file */
 #include "psp.h"          /* psp_save_vectors / psp_load_vectors (beads 509.8)    */
 #include "toolbox_gate.h" /* TBX_TENANT_PSP_BYTES -- the tenant block layout (tdnl.14) */
+#include "transient.h"    /* TRANSIENT_MAGIC -- the COMMAND.COM overlay is not a .COM (13ig) */
 /* InitechMZ parse + flat relocs (beads dtw.1; ADR-0003 DEC-08a). Pulled in via
  * the same-TU INCLUDE (not a separate object) so loader.c carries the mz_* code
  * directly: nothing in the tree links a standalone mz.o (the only other consumer,
@@ -86,6 +87,26 @@ void loader_nest_leave(loader_state_t *active, const loader_state_t *saved)
  * (64 KiB), because it staged the .COM through [0x80000,0x90000) before copying
  * down; za4m reads straight into PROGRAM_IMAGE, so that 64 KiB cap is GONE and
  * a 77 KiB SAMIR.COM now loads (it used to fail LOADER_ERR_TOO_BIG). */
+int loader_image_is_transient(const uint8_t *image, uint32_t image_len)
+{
+#ifndef LOADER_MUT_NO_TRANSIENT_GUARD
+    uint32_t m = 0u;
+    if (image == 0 || image_len < TRANSIENT_MAGIC_LEN) {
+        return 0;
+    }
+    while (m < TRANSIENT_MAGIC_LEN && image[m] == (uint8_t)TRANSIENT_MAGIC[m]) {
+        m++;
+    }
+    return m == TRANSIENT_MAGIC_LEN;
+#else
+    /* MUTANT (Rule 6; make test-flair-execguard-mutant / test-loader-mutant
+     * only): the pre-13ig loader never recognises the overlay and runs its
+     * header as code. NEVER in a real build. */
+    (void)image; (void)image_len;
+    return 0;
+#endif
+}
+
 static loader_status_t loader_prepare_core(const uint8_t *image,
                                            uint32_t image_len,
                                            const char *cmd_tail,
@@ -98,10 +119,10 @@ static loader_status_t loader_prepare_core(const uint8_t *image,
     if (out == 0) {
         return LOADER_ERR_NULL_OUT;
     }
-    /* The baked path needs source bytes to copy FROM; the in-place path does
-     * not (the image is already resident at PROGRAM_IMAGE -- there is nothing to
-     * copy, so NULL is correct, not an error). */
-    if (!in_place && image == 0) {
+    /* The baked path needs source bytes to copy FROM; the in-place path needs
+     * the resident bytes to LOOK AT (the content refusal below) -- a NULL in
+     * either mode is a caller bug, never a program (initech-13ig). */
+    if (image == 0) {
         return LOADER_ERR_NULL_IMAGE;
     }
     if (image_len == 0) {
@@ -123,6 +144,19 @@ static loader_status_t loader_prepare_core(const uint8_t *image,
         return LOADER_ERR_TOO_BIG;
     }
 #endif
+
+    /* THE TRANSIENT IS NOT A PROGRAM (bead initech-13ig). This is the ONE
+     * choke point every flat image passes before loader_run_plan's JMP --
+     * baked (load_program), FAT top-level and nested (load_program_from_fat ->
+     * load_program_in_place / loader_prepare_in_place) -- so the flagship's
+     * COMMAND.COM overlay (os/milton/transient.h: a COMMAND3 header linked at
+     * TRANSIENT_BASE, not a .COM), under its own name or any copy, is refused
+     * here: DOS EXEC error 11 "Invalid format" (IBM DOS 3.30 TR p. 6-200) at
+     * the EXEC seam, dBASE error 92 above it. The kernel's EXEC-by-name route
+     * to the RESIDENT interpreter lives in kmain.c and never reaches here. */
+    if (loader_image_is_transient(image, image_len)) {
+        return LOADER_ERR_BAD_FORMAT;
+    }
 
     /* Layout from the LOCKED spec (spec/memory_map.h; Sec 3.2). */
     out->psp_addr  = PROGRAM_BASE;
@@ -209,13 +243,15 @@ loader_status_t loader_prepare(const uint8_t *image, uint32_t image_len,
                                /*in_place=*/0, out);
 }
 
-loader_status_t loader_prepare_in_place(uint32_t image_len, const char *cmd_tail,
-                                        uint32_t cmd_tail_len, loader_plan_t *out)
+loader_status_t loader_prepare_in_place(const uint8_t *resident, uint32_t image_len,
+                                        const char *cmd_tail, uint32_t cmd_tail_len,
+                                        loader_plan_t *out)
 {
-    /* FAT path (beads initech-za4m): the .COM is ALREADY at PROGRAM_IMAGE
-     * (load_program_from_fat read it there directly). No source image; the only
+    /* FAT path (beads initech-za4m): the .COM is ALREADY resident (at
+     * PROGRAM_IMAGE, or a nested child's PSP+100h). Nothing is copied; the
+     * bytes are looked at only for the content refusal (initech-13ig); the only
      * size bound is PROGRAM_IMAGE_MAX. */
-    return loader_prepare_core(/*image=*/(const uint8_t *)0, image_len, cmd_tail,
+    return loader_prepare_core(resident, image_len, cmd_tail,
                                cmd_tail_len, /*in_place=*/1, out);
 }
 
@@ -578,8 +614,11 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
                                       uint8_t *out_exit_code)
 {
     loader_plan_t plan;
-    loader_status_t st = loader_prepare_in_place(image_len, cmd_tail,
-                                                 cmd_tail_len, &plan);
+    /* The host has no PROGRAM_IMAGE to look at: the resident bytes are NULL,
+     * so this stub reports LOADER_ERR_NULL_IMAGE (the content refusal is
+     * host-tested through loader_prepare_in_place directly, test_loader.c). */
+    loader_status_t st = loader_prepare_in_place((const uint8_t *)0, image_len,
+                                                 cmd_tail, cmd_tail_len, &plan);
     (void)env_block;
     (void)out_exit_code;
     return st;
@@ -1084,7 +1123,8 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
      * (beads initech-1i0x inc 3) selects inherit-empty (0) vs inherit the shell's
      * populated env block (ENV_BLOCK); it threads to loader_run_plan unchanged. */
     loader_plan_t plan;
-    loader_status_t st = loader_prepare_in_place(image_len, cmd_tail,
+    loader_status_t st = loader_prepare_in_place((const uint8_t *)(uintptr_t)PROGRAM_IMAGE,
+                                                 image_len, cmd_tail,
                                                  cmd_tail_len, &plan);
     if (st != LOADER_OK) {
         return st;   /* fail loud: the program is NOT run (Rule 2) */
@@ -1359,6 +1399,16 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
         return LOADER_ERR_READ;
     }
 
+    /* The overlay by name on serial (bead initech-13ig): the REFUSAL itself is
+     * loader_prepare_core's (the one choke point every entry below passes);
+     * this only names the file for the emu oracle. With the loader mutant the
+     * recogniser is inert, so the line vanishes with the refusal. */
+    if (loader_image_is_transient(image, got)) {
+        ldr_serial_puts("LOADER-REFUSE-TRANSIENT name=");
+        ldr_serial_puts(name83);
+        ldr_serial_puts("\n");
+    }
+
     /* DISPATCH BY CONTENT (DEC-08a.4 -- DOS-authentic: format from the first two
      * image bytes, NOT the extension). 'MZ'/'ZM' routes to the InitechMZ (.EXE)
      * path; anything else is the flat .COM-equivalent path (DEC-08, UNCHANGED --
@@ -1378,7 +1428,7 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
     loader_status_t st;
     if (child_psp) {
         loader_plan_t plan;
-        st = loader_prepare_in_place(got, cmd_tail, cmd_tail_len, &plan);
+        st = loader_prepare_in_place(image, got, cmd_tail, cmd_tail_len, &plan);
         if (mz_is_mz(image, got)) {
             mz_image_t info;
             if (mz_parse_header(image, got, &info) == MZ_ERR_FOREIGN)

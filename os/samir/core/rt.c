@@ -95,18 +95,27 @@ int rt_strncmp(const char *a, const char *b, uint32_t n)
     return 0;
 }
 
+/* III+ interpreter-and-execution-model Sec 3; real abbrev/abbrfull DML
+ * mints: >=4 matching prefix letters, short keywords whole, bad suffixes
+ * rejected. Only call at grammar keyword positions, never for names/data. */
+int rt_kw_match(const char *s, const char *kw)
+{
+    int i = 0;
+    while (s[i] && s[i] != ' ' && s[i] != '\t' && s[i] != '\r' && s[i] != '\n') {
+        char c = s[i];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+        if (!kw[i] || c != kw[i]) return 0;
+        i++;
+    }
+    return i && (!kw[i] || i >= 4) ? i : 0;
+}
+
 int rt_kw_index(const char *s, const char *list)
 {
     int k = 0;
     while (*list != '\0') {
-        uint32_t i = 0;
-        for (;;) {
-            char c = s[i];
-            if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
-            if (c != list[i]) break;
-            if (c == '\0') return k;
-            i++;
-        }
+        int n = rt_kw_match(s, list);
+        if (n && !s[n]) return k;
         while (*list++ != '\0') { }
         k++;
     }
@@ -117,15 +126,9 @@ int rt_kw_word(const char *s, const char *list, int *len)
 {
     int k = 0;
     while (*list != '\0') {
-        int i = 0;
-        for (;;) {
-            char c = s[i];
-            if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
-            if (list[i] == '\0' || c != list[i]) break;
-            i++;
-        }
-        if (list[i] == '\0' && (s[i] == '\0' || s[i] == ' ' || s[i] == '\t')) {
-            if (len) *len = i;
+        int n = rt_kw_match(s, list);
+        if (n) {
+            if (len) *len = n;
             return k;
         }
         while (*list++ != '\0') { }
