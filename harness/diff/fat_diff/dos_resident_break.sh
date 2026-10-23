@@ -35,7 +35,7 @@ for mode in controlshort gaps2 redirect; do
  # Wait for the returned prompt BEFORE typing a command: buffered input is
  # not evidence of a usable prompt. No spaces to advance a broken DIR pager.
  build/qemu_harness --disk "$out/boot.img" --disk2 "$out/data.img" --out "$out" --name run \
-   --mouse "${delay}kctrl-c,WA:\\T>,ke,kc,kh,ko,kspc,ka,kf,kt,ke,kr,kminus,kc,ka,kn,kc,ke,kl,kret,ke,kx,ki,kt,kret" \
+   --mouse "${delay}kctrl-c,WTerminate batch job (Y/N)?,ky,WA:\\T>,ke,kc,kh,ko,kspc,ka,kf,kt,ke,kr,kminus,kc,ka,kn,kc,ke,kl,kret,ke,kx,ki,kt,kret" \
    --keys-after "$trigger" --quit-after SHELL-DONE --timeout-ms 20000 \
    --screendump --screendump-after SHELL-DONE > "$out/stdout" 2> "$out/report" || true
  grep -q 'OK=1' "$out/report" || red "$mode did not return a usable prompt"

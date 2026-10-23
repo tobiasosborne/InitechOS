@@ -485,6 +485,7 @@ No entry shall be modified except by an approved change to this Record (§5.13).
 | MSG-DOS-0060 | `Insufficient memory` |
 | MSG-DOS-0061 | ` File(s) copied` (COPY footer suffix; User's Reference p.50) |
 | MSG-DOS-0062 | `Duplicate file name` (Rename collision/missing source; User's Reference p.325) |
+| MSG-DOS-0063 | `Terminate batch job (Y/N)?` (PAUSE; MS-DOS 3.3 Reference printed p.149 / PDF234; initech-0qw1, approved PM ruling) |
 
 > Catalogue extraction amendment (initech-bcg.13, 2026-10-17): the lane instruction
 > explicitly authorizes catalogue coverage of all diagnostic TUs. Entries 0027 onward

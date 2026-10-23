@@ -1,0 +1,43 @@
+Independent real MS-DOS 3.30 batch interruption mint (read-only reference media).
+Reference media:
+/home/tobias/Projects/initech-manuals-ref/sidekick/dosboot/PB_MSDOS33_Sys_and_Util.img
+Existing mint pattern: harness/diff/fat_diff/chkdsk_label_mint.sh.
+Hashes: media.sha256, command.sha256. DOS VER output: version.raw.
+
+Fixtures AUTOEXEC.BAT, PARENT.BAT, CHILD.BAT use CRLF.
+AUTOEXEC CALLs PARENT, PARENT CALLs CHILD, CHILD PAUSEs.
+Every returning batch writes a distinct output file; AUTOEXEC ends with PAUSE.
+Copies yes2/boot.img, no2/boot.img, invalid/boot.img are disposable.
+Reference media was never modified.
+
+Built with:
+cc -std=c99 -O2 build/cx_doscmd_reference/drive.c -o build/cx_doscmd_reference/drive
+QEMU 8.2.2, -cpu 486 -m 16, deterministic 1992-03-02 RTC, boot floppy.
+The C driver uses HMP sendkey and pmemsave of physical VGA text memory.
+Use absolute output directory and boot image arguments, then 'sendkey y',
+'sendkey n' or 'sendkey x'. Each run first waits for PAUSE, sends Ctrl-C,
+then waits for the exact termination question before sending the answer.
+
+Observed results:
+yes2/screen-00.txt: CHILD's PAUSE.
+yes2/screen-01.txt: Ctrl-C produces Terminate batch job (Y/N)?
+yes2/screen-02.txt: lowercase y returns directly to A>.
+  No CHILD.OUT, PARENT.OUT or AUTO.OUT; every active batch frame cancelled.
+no2/screen-02.txt: lowercase n executes CHILD_AFTER then PARENT_AFTER,
+  writes all three outputs, and reaches AUTOEXEC's later PAUSE.
+  no2/CHILD.OUT, no2/PARENT.OUT and no2/AUTO.OUT are the extracted files.
+invalid/screen-02.txt: lowercase x echoes, then prints the question again;
+  no output sentinel is executed before a valid answer.
+
+Manual scan:
+pause-pdf234.png is the full PAUSE page, MS-DOS 3.3 User's Guide,
+printed Reference p.149 / PDF p.234. Direct visual inspection confirms:
+Terminate batch job (Y/N)?
+The OCR artifact '(YIN)' is not the printed text.
+
+Durable reproduction (from repository root):
+  sh harness/diff/fat_diff/batch_break_mint/mint.sh
+Optional DOS33_BOOT selects the original DOS 3.30 floppy. mint.c is a C-only
+HMP/VGA driver, and the three CRLF .BAT files are extracted from the actual
+successful yes2 reference run. The re-mint writes only build/batch-break-remint;
+it does not replace these goldens. version.raw records the reference VER output.

@@ -35,8 +35,11 @@ any external command (Chapter~2): in the current directory and then in the
 directories named in \texttt{PATH}.  A program file with the same name and
 the extension \file{.COM} or \file{.EXE} is found first.
 
-To stop a batch file, press \key{Ctrl-C}.  The batch file ends and the
-command prompt is displayed.
+To interrupt a batch file, press \key{Ctrl-C}.  InitechDOS asks
+\texttt{Terminate batch job (Y/N)?}  Type \type{Y} to end the batch job
+and return to the command prompt, or \type{N} to continue with its next
+command.  Other keys repeat the question.  If files are nested with
+\cmd{CALL}, \type{Y} ends all the active batch files.
 
 \section{The AUTOEXEC.BAT File}
 \index{AUTOEXEC.BAT@\texttt{AUTOEXEC.BAT}}
@@ -215,13 +218,22 @@ second run finds nothing to copy:
 \Format \SyntaxLine{\kw{PAUSE}}
 \Remarks
 \cmd{PAUSE} displays \texttt{Strike a key when ready . . .} and waits.
-Press any key to continue the batch file, or \key{Ctrl-C} to end it.
+Press any key to continue the batch file.  If you press \key{Ctrl-C},
+InitechDOS asks \texttt{Terminate batch job (Y/N)?}  Type \type{Y} to end
+the batch job, or \type{N} to continue after this \cmd{PAUSE}.
 
 Use \cmd{PAUSE} before a step that needs the operator, such as putting
 paper in the printer; display the instruction with \cmd{ECHO} first.
 \Example
 See the example of \cmd{CALL}: \file{COVER.BAT} displays an instruction
-and pauses for a key.
+and pauses for a key.  To continue after interrupting that pause:
+\begin{TypeIn}
+Strike a key when ready . . .
+^C
+Terminate batch job (Y/N)? N
+\end{TypeIn}
+\file{COVER.BAT} continues by calling \file{GREET.BAT}.  Answering
+\type{Y} would end \file{COVER.BAT} before that call.
 \end{DosEntry}
 
 % REM -- batch.c BL_REM (never carried out, never displayed).

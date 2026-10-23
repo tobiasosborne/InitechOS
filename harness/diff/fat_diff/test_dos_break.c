@@ -129,6 +129,23 @@ int main(void)
     pending=3; f.eax=0x0700; int21_dispatch(&f);
     bad+=check((f.eax&255)==3 && !exits,"direct AH=07h remains raw");
     bad+=resident_boundaries();
+    /* 0qw1: ECHO/GOTO has no blocking input; the boundary poll must still
+     * detect Ctrl-C with BREAK OFF and preserve ordinary queued input. */
+    {
+        psp_params_t params={0};params.alloc_end_linear=0x80000;
+        psp_build(&resident,&params);sft_init();int21_set_psp(&resident);
+        int21_break_recovery_t scope={&resident,0};
+        int21_break_recovery_t *old=int21_set_break_recovery(&scope);
+        int21_set_break_flag(0);pending='q';exits=0;
+        int21_batch_checkpoint();
+        f=call(0x0700,0,0,NULL);
+        bad+=check(!scope.interrupted && (f.eax&255)=='q',"batch checkpoint must preserve ordinary typeahead");
+        pending=3;int21_batch_checkpoint();
+        bad+=check(scope.interrupted && !exits,"batch checkpoint must recover Ctrl-C with BREAK OFF");
+        pending=3;polls=0;int21_batch_checkpoint();
+        bad+=check(!polls && pending==3,"batch checkpoint must protect an unwinding scope");
+        int21_set_break_recovery(old);int21_set_psp(NULL);pending=-1;
+    }
     if (bad) return 1;
     puts("GREEN test-dos-break: ON/OFF/raw/typeahead; resident read/write/pause; CLOSE, stdin/stdout and SFT cleanup");
     return 0;

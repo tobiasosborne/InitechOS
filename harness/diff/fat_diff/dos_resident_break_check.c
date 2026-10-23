@@ -22,16 +22,19 @@ int main(int argc,char **argv)
     if(strstr(s,"HUGE LINE 01999") || strstr(s,"F299"))red("listing reached the final line after cancellation");
     if(strstr(s,"C80Y-MUST-NOT-RUN"))red("cancelled batch continued");
     if(!strstr(prompt,"A:\\T>echo after-cancel\r\nafter-cancel\r\n"))red("restored prompt did not execute ECHO");
+    /* 0qw1 approved PAUSE behavior: AUTOEXEC is a batch job. Still require
+     * byte-exact adjacency so leaked command output cannot hide in this gap. */
+    const char *question="Terminate batch job (Y/N)? y\r\n";
     start+=strlen("C80Y-BEGIN\r\n");
     if(!strcmp(argv[3],"controlshort")) {
         size_t prefix=(size_t)(stop-start);
         if(!prefix || prefix>=f || memcmp(start,file,prefix))red("TYPE emitted non-file bytes before cancellation");
         stop+=strlen("^C\r\nINT23-BREAK\n");
-        if(stop!=prompt)red("TYPE emitted bytes after cancellation");
+        if((size_t)(prompt-stop)!=strlen(question) || memcmp(stop,question,strlen(question)))red("TYPE emitted bytes after cancellation");
     }
     if(!strcmp(argv[3],"gaps2")) {
         stop+=strlen("^C\r\nINT23-BREAK\n");
-        if(stop!=prompt)red("DIR emitted rows after the cancelled pause");
+        if((size_t)(prompt-stop)!=strlen(question) || memcmp(stop,question,strlen(question)))red("DIR emitted rows after the cancelled pause");
     }
     puts("GREEN dos-resident-break byte oracle");return 0;
 }

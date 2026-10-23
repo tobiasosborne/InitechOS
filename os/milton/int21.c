@@ -1358,6 +1358,20 @@ static int conin_check_ctrlc(int c, int_frame_t *f)
 #endif
 }
 
+/* Resident COMMAND boundary for buffered batch commands (PAUSE Reference
+ * p.149 / PDF234). Reuse CON's always-on Ctrl-C check without taking a normal
+ * typeahead byte from the eventual reader or interrupting resident cleanup. */
+void int21_batch_checkpoint(void)
+{
+    if (!g_break_recovery || g_break_recovery->owner != (struct psp *)g_cur_psp ||
+        g_break_recovery->interrupted) return;
+    int c = conin_poll_pb();
+    if (c == 3) {
+        int_frame_t f = {0};
+        (void)conin_check_ctrlc(c, &f);
+    } else g_conin_pushback = c;
+}
+
 /* AH=01h CHARACTER INPUT WITH ECHO: block for one char, echo it to CON, AL=char.
  * (Ctrl-C check deferred -- see header note.) CF is not part of this function's
  * contract; success leaves it clear. Ref: DOS 3.3 PRM AH=01h.

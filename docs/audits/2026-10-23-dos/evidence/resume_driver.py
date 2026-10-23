@@ -33,9 +33,18 @@ try:
   cmds('MD A:\\DHOME','ECHO KEEP-A > A:\\DHOME\\ONE.TXT','TYPE A:\\DHOME\\ONE.TXT','XCOPY A:\\T\\ONE.TXT D:\\DHOME\\ /V','TYPE A:\\DHOME\\ONE.TXT','DIR D:\\DHOME');shot('overwritten')
  elif mode=='batch':
   cmds('CALL \\CASES\\FLOW.BAT hello','\\CASES\\FLOW.BAT hello','SET TEST=VALUE','BENV.BAT','CHAIN.BAT','GOMISS.BAT','FOR %F IN (ONE TWO) DO IF EXIST ONE.TXT ECHO %F');shot('flow')
-  d.enter('\\CASES\\BREAK.BAT',b'Strike a key');shot('pause-before');d.key('ctrl-c');d.waitfor(prompt);shot('pause-break');cmds('ECHO AFTER-BATCH');shot('pause-return')
-  d.enter('LOOP.BAT',b'LOOPING');d.key('ctrl-c');time.sleep(.5);shot('loop-break')
-  if not d.serial.read_bytes().endswith(b'>'):raise RuntimeError('batch break did not return')
+  # MS-DOS 3.3 PAUSE p.149 / PDF234; independent nested mint in the FAT harness.
+  question=rb'Terminate batch job \(Y/N\)\?'
+  d.enter('\\CASES\\BREAK.BAT',b'Strike a key');shot('pause-before')
+  d.keywait('ctrl-c',question);d.keywait('x',question);tail=d.keywait('n',prompt)
+  if tail.count(b'AFTER-PAUSE')!=1:raise RuntimeError('N must continue PAUSE once')
+  shot('pause-continue')
+  d.enter('\\CASES\\BREAK.BAT',b'Strike a key');d.keywait('ctrl-c',question)
+  tail=d.keywait('y',prompt)
+  if b'AFTER-PAUSE' in tail:raise RuntimeError('Y must end PAUSE batch')
+  shot('pause-break');cmds('ECHO AFTER-BATCH');shot('pause-return')
+  d.enter('LOOP.BAT',b'LOOPING');d.keywait('ctrl-c',question)
+  d.keywait('n',b'LOOPING');d.keywait('ctrl-c',question);d.keywait('y',prompt);shot('loop-break')
   cmds('ERR7.COM','IF ERRORLEVEL 7 ECHO STATUS7','IF ERRORLEVEL 8 ECHO WRONG8','IF NOT ERRORLEVEL 8 ECHO BELOW8','REM COMMENT');
  elif mode=='keyboard':
   cmds('ECHO Quarter');d.key('f3');d.keywait('ret',prompt);d.key('f2');d.key('shift-q');d.type('Month');d.waitfor(prompt);d.type('ECHO Friday',False);d.key('f5');d.key('f3');d.keywait('ret',prompt);d.type('WRONG',False);d.key('esc');d.key('f3');d.keywait('ret',prompt);shot('template')

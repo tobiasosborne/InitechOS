@@ -13,7 +13,7 @@ static int call_host(unsigned a,unsigned b,unsigned c,uintptr_t d,uintptr_t di)
     if(ah==0x40 && c==0 && getenv("SHELL_REFUSE_TRUNCATE"))return -0x1d;
     f.eax=a; f.ebx=b; f.ecx=c; f.edx=(uint32_t)d; f.edi=(uint32_t)di;
     f.eflags=0x202;
-    int path=ah==0x39 || ah==0x3b || ah==0x3c || ah==0x3d || ah==0x4e || ah==0x56 || ah==0x5b;
+    int path=ah==0x39 || ah==0x3b || ah==0x3c || ah==0x3d || ah==0x41 || ah==0x4e || ah==0x56 || ah==0x5b;
     if(path) { strcpy((char *)bounce,(const char *)d); f.edx=(uint32_t)(uintptr_t)bounce; }
     if(ah==0x56) { strcpy((char *)second_path,(const char *)di); f.edi=(uint32_t)(uintptr_t)second_path; }
     if(ah==0x40) { memcpy(bounce,(const void *)d,c); f.edx=(uint32_t)(uintptr_t)bounce; }
@@ -61,3 +61,11 @@ static int dos_findfirst(const char *s,uint16_t a) { return !dos_findfirst_resul
 static int dos_findnext(void) { return call_host(0x4f00,0,0,0,0)>=0; }
 static uint16_t dos_rename(const char *a,const char *b)
 { int r=call_host(0x5600,0,0,(uintptr_t)a,(uintptr_t)b);return r<0 ? (uint16_t)-r:0; }
+static uint16_t dos_unlink(const char *s)
+{ int r=call_host(0x4100,0,0,(uintptr_t)s,0);return r<0 ? (uint16_t)-r:0; }
+static void dos_getline(uint8_t *p)
+{
+    /* Drive the real cooked CON input, with a low-address ABI buffer. */
+    memcpy(bounce,p,2); call_host(0x0a00,0,0,(uintptr_t)bounce,0);
+    memcpy(p,bounce,(unsigned)bounce[1]+3);
+}

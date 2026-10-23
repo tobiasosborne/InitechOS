@@ -114,8 +114,11 @@ then carries on with the next line.  \file{COVER.BAT} does both:
 \Screen[rows=8, label=fig:cover]{screens/cover.txt}{A batch file that pauses and calls another}
 
 \section{Stopping a Batch File}
-To stop a batch file before it has finished, press \key{Ctrl-C}.  The batch
-file ends and the command prompt is displayed.
+To interrupt a batch file before it has finished, press \key{Ctrl-C}.
+InitechDOS asks \texttt{Terminate batch job (Y/N)?}  Type \type{Y} to end
+the batch job and return to the command prompt, or \type{N} to continue
+with the next command.  Other keys repeat the question.  If batch files
+are nested with \cmd{CALL}, \type{Y} ends all the active files.
 
 \section{Batch Subcommands}
 These subcommands are used in batch files.  The \doctitle{InitechDOS

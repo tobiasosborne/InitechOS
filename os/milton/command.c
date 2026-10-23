@@ -1762,7 +1762,7 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
  * build (test_command.c never defines COMMAND_KERNEL_REPL) so the pure logic
  * above stays asm-free + host-testable (Law 3).
  * ===========================================================================*/
-#if defined(COMMAND_KERNEL_REPL) || defined(COMMAND_FILE_HOST)
+#if defined(COMMAND_KERNEL_REPL) || defined(COMMAND_FILE_HOST) || defined(COMMAND_BATCH_HOST)
 
 #include "find_data.h"   /* find_data_t (43-byte DTA record; offsets DIR reads) */
 #include "int21.h"       /* INT21_CWD_MAX -- the AH=47h root-relative CWD bound */
@@ -1776,7 +1776,7 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
  * the SAME path a real DOS COMMAND.COM uses (it is itself a .COM that calls the
  * INT 21h services). We capture CF with `sbb` (carry -> 0xFFFFFFFF/0). */
 
-#ifndef COMMAND_FILE_HOST
+#if !defined(COMMAND_FILE_HOST) && !defined(COMMAND_BATCH_HOST)
 /* AH=09h DISPLAY STRING: EDX -> '$'-terminated string -> CON. */
 static void dos_print(const char *dollar_terminated)
 {
@@ -3062,12 +3062,16 @@ static void builtin_break(const char *arg)
     }
 }
 
-#else
+#elif defined(COMMAND_FILE_HOST)
 /* Factory adapter issues the same calls to the actual INT21/FAT backend.
  * PRD 6.1: mtools on identical images is the independent oracle. */
 #include "shell_files_host.h"
+#else
+/* Factory I/O seam; the batch execution driver below is shared verbatim. */
+#include "batch_break_host.h"
 #endif
 
+#ifndef COMMAND_BATCH_HOST
 static uint32_t copy_verify_offset;
 /* COPY execution. Law 1: MS-DOS 3.3 Reference pp.50-52; ADR-0003 App A.
  * Resolve identity before CREAT; enumerate by ordinal and restart after file
@@ -3336,7 +3340,6 @@ static void builtin_copy(const char *arg)
     }
 }
 
-#ifndef COMMAND_FILE_HOST
 /* Preserve the operand's parent (including drive/CWD/dots) when substituting
  * the DTA's matched leaf. Both components are bounded: 63 + 12 < 128 bytes.
  * Ref: MS-DOS 3.3 User's Reference pp. 13, 56; audit K03 / initech-8uad. */
@@ -3374,7 +3377,7 @@ static void del_remaining(const char *spec, int prefix)
  * Ref: MS-DOS 3.3 User's Reference pp. 13, 56; K03/K04, 8uad/p4h7. */
 static void builtin_del(const char *arg)
 {
-    char name[CMD_TOKEN_MAX];
+    char name[CMD_LINE_MAX];
 
     if (cmd_first_token(arg, name) == 0) {
         dos_print(MSG_DOS_0011 "\r\n$");        /* "Required parameter missing" */
@@ -3382,6 +3385,19 @@ static void builtin_del(const char *arg)
     }
     cmd_upcase_str(name);                       /* DOS upcases 8.3 names */
 
+    /* Reference DEL, printed p.56 / PDF141: a directory operand means its
+     * immediate files. Resolve BEFORE appending the mask, preserving the
+     * original drive, CWD and dots. UNLINK must still reject directories. */
+#ifndef CMD_MUTATE_DEL_DIRECTORY_UNLINK
+    if (!cmd_has_wildcard(name) && int21_directory_exists(name)) {
+        unsigned n = str_len(name);
+        if (n + 4u >= sizeof(name)) {
+            dos_print(MSG_DOS_0009 "\r\n$"); return;
+        }
+        if (n && name[n-1] != '\\' && name[n-1] != ':') name[n++] = '\\';
+        name[n++] = '*'; name[n++] = '.'; name[n++] = '*'; name[n] = 0;
+    }
+#endif
     int prefix = 0;
     for (int i = 0; name[i]; i++)
         if (name[i] == '\\' || name[i] == ':') prefix = i + 1;
@@ -3408,6 +3424,26 @@ static void builtin_del(const char *arg)
 #endif
         if (!yes) return;
     }
+#endif
+
+#ifdef CMD_MUTATE_DEL_DIRECTORY_RECURSE
+    /* Rule 6: deliberately enter a child directory. The independent nested
+     * file sentinel must catch recursion, even though the child itself stays. */
+    dos_setdta(&g_shell_dta);
+    if (dos_findfirst(name, DIR_ATTR_DIRECTORY)) do {
+        if ((g_shell_dta.attr & DIR_ATTR_DIRECTORY) && g_shell_dta.fname[0]!='.') {
+            char child[CMD_LINE_MAX];
+            del_path(child, name, prefix, g_shell_dta.fname);
+            unsigned n = str_len(child);
+            if (n + 6u < sizeof(child)) {
+                const char mask[] = {'\\','?','*','.','*',0};
+                for (unsigned k=0; mask[k]; k++) child[n++]=mask[k];
+                child[n]=0;
+                builtin_del(child);
+            }
+            break;
+        }
+    } while (dos_findnext());
 #endif
 
     if (!cmd_has_wildcard(name)) {
@@ -3438,7 +3474,8 @@ static void builtin_del(const char *arg)
              * MS-DOS_3.3_Users_Guide_198707.pdf, Reference pp. 33, 56.
              * Once only protected entries remain, report them once. */
 #ifndef CMD_MUTATE_DEL_STOP_PROTECTED
-            while (result == 0u && (g_shell_dta.attr & DIR_ATTR_READONLY) != 0u) {
+            while (result == 0u && (g_shell_dta.attr &
+                    (DIR_ATTR_READONLY | DIR_ATTR_HIDDEN | DIR_ATTR_SYSTEM)) != 0u) {
                 protected = 1;
                 result = dos_findnext() ? 0u : INT21_ERR_NO_MORE_FILES;
             }
@@ -3486,7 +3523,6 @@ static void builtin_del(const char *arg)
     }
 }
 
-#endif
 /* REN / RENAME <old> <new> (beads initech-fyox, Tranche F). AH=56h same-dir
  * dir-entry rename. DOS prints NOTHING on success; a missing operand ->
  * "Required parameter missing" (MSG-DOS-0011); collision/missing source ->
@@ -3528,7 +3564,8 @@ static void builtin_ren(const char *arg)
 #endif
 }
 
-#ifndef COMMAND_FILE_HOST
+#endif /* !COMMAND_BATCH_HOST */
+#if !defined(COMMAND_FILE_HOST) && !defined(COMMAND_BATCH_HOST)
 /* DATE [MM-DD-YY[YY]] (beads initech-uy4l, Tranche F).
  *   no arg -> AH=2Ah GET, print "Current date is Day MM-DD-YYYY".
  *   arg    -> AH=2Bh SET after validating the date (DOS rejects a bad date and
@@ -4333,6 +4370,8 @@ static int run_pipeline_or_redirect(const char *line)
     return run_pipeline(&pl);
 }
 
+#endif /* kernel-only command I/O */
+#ifndef COMMAND_FILE_HOST
 /* ---- the .BAT interpreter (beads initech-xw1) ----------------------------
  * run_batch reads a whole .BAT file into a buffer, splits it on CR/LF, and
  * interprets each line per DOS 3.3 batch semantics (MS-DOS 3.3 Tech Ref Ch.3):
@@ -4581,7 +4620,7 @@ static int resolve_bat_path(const char *word, char *out)
 typedef struct batch_frame {
     const char *path;
     const char *view[10];
-    int count, pos, len, echo_on;
+    int count, pos, len, echo_on, cancelled;
     unsigned branch;
     struct batch_frame *previous;
 } batch_frame_t;
@@ -4741,6 +4780,42 @@ static int dispatch_control(const char *line)
     }
 }
 
+/* Reference PAUSE p.149 / PDF234, MSG-DOS-0063; real DOS 3.30 capture in
+ * harness/diff/fat_diff/batch_break_mint: invalid keys ask again; Y cancels
+ * ALL active CALL frames; N resumes after the interrupted physical line.
+ * Called only after command/pipe cleanup. A surrounding CALL can still have
+ * redirected handles: ask on an explicit CON handle, never redirected stdout.
+ * Keep the recovery latch set through OPEN/WRITE/CLOSE (DEC-16 cleanup rule). */
+static int batch_terminate_question(void)
+{
+    /* Device-name bytes and framing are protocol data, not UI diagnostics.
+     * The question itself comes exclusively from the DEC-13 catalogue. */
+    const char con_name[] = {'C','O','N',0};
+    const uint8_t newline[] = {'\r','\n'};
+    int con = dos_open_mode(con_name, 2u);
+    if (con < 0) { dos_print(MSG_DOS_0009 "\r\n$"); return 1; }
+    int yes;
+    for (;;) {
+        const char *question = MSG_DOS_0063;
+        dos_write_h(con, (const uint8_t *)question, str_len(question));
+        uint8_t space = ' ';
+        dos_write_h(con, &space, 1u);
+        uint8_t answer = dos_conin();
+        if (answer) dos_write_h(con, &answer, 1u);
+        dos_write_h(con, newline, sizeof(newline));
+        answer = (uint8_t)cmd_upcase_char((char)answer);
+        if (answer == 'Y' || answer == 'N') { yes = answer == 'Y'; break; }
+    }
+    dos_close(con);
+#ifdef CMD_MUTATE_BATCH_ALWAYS_TERMINATE
+    yes = 1;
+#endif
+#ifdef CMD_MUTATE_BATCH_ALWAYS_RESUME
+    yes = 0;
+#endif
+    return yes;
+}
+
 static void run_batch(const char *path, const char *const argv[], int argc)
 {
     batch_frame_t frame;
@@ -4749,12 +4824,27 @@ static void run_batch(const char *path, const char *const argv[], int argc)
     }
     frame.path=path; frame.count=argc>10 ? 10 : argc;
     for (int k=0;k<frame.count;k++) frame.view[k]=argv[k];
-    frame.pos=0; frame.echo_on=1; frame.branch=0;
+    frame.pos=0; frame.echo_on=1; frame.branch=0; frame.cancelled=0;
     frame.len=batch_load_file(path,g_batch_buf);
     frame.previous=g_batch_frame;
     g_batch_frame=&frame;
     g_batch_depth++;
-    while (frame.pos<frame.len && !g_shell_exit && !g_shell_break.interrupted) {
+    while (!g_shell_exit && !frame.cancelled) {
+        /* ECHO/GOTO need a checkpoint even with BREAK OFF; neither buffered
+         * GOTO nor redirected ECHO necessarily reads the keyboard. Poll only
+         * at a safe command boundary and preserve ordinary typeahead. */
+        int21_batch_checkpoint();
+        if (g_shell_break.interrupted) {
+            if (batch_terminate_question()) {
+                for (batch_frame_t *f=&frame; f; f=f->previous) {
+                    f->cancelled=1; f->branch++;
+                }
+                /* Keep cleanup protected until the outermost CALL/redirect
+                 * unwinds to the REPL. A queued second ^C must not abort its
+                 * saved-handle restoration (DEC-16; resident B01 contract). */
+            } else g_shell_break.interrupted=0u;
+        }
+        if (frame.cancelled || frame.pos>=frame.len) break;
         char line[BATCH_LINE_MAX], expanded[BATCH_LINE_MAX];
         batch_parsed_t bp;
         if (!batch_next_line(g_batch_buf,frame.len,&frame.pos,line)) break;
@@ -4834,6 +4924,7 @@ static void run_batch_invoke(const char *path, const char *tail)
     run_batch(path, argv, argc);
 }
 
+#ifndef COMMAND_BATCH_HOST
 /* Reference pp.46-47: /C creates a private environment, executes one command
  * and returns automatically. Existing redirect/pipe scopes save and restore
  * the parent's handles; EXIT and batch control are isolated as well. */
@@ -5030,5 +5121,6 @@ void command_repl(int permanent)
     }
 }
 
+#endif /* !COMMAND_BATCH_HOST */
 #endif /* !COMMAND_FILE_HOST */
-#endif /* COMMAND_KERNEL_REPL || COMMAND_FILE_HOST */
+#endif /* COMMAND_KERNEL_REPL || factory I/O seam */
