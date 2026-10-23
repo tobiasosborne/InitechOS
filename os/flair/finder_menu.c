@@ -123,7 +123,10 @@ static MenuInfo finder_apple_menu = {
  * origin. The shell implements the command; MenuKey and mouse share it.
  * ===========================================================================*/
 static MenuItem finder_file_items[] = {
-    FM_ITEM("New Folder",   'N', 1),              /* FCMD_NEW_FOLDER  (always) */
+    /* Authored 1: the honest boot value (no Trash window front). Refreshed by
+     * NEW_FOLDER_HERE -- dark with the Trash window front (bead initech-vnl4,
+     * audit 2026-10-23 desktop L008). */
+    FM_ITEM("New Folder",   'N', 1),              /* FCMD_NEW_FOLDER  not Trash */
 #ifndef FINDER_MENU_MUT_CMDCHAR_DUP
     FM_ITEM("Open",         'O', FM_PRED_REST),   /* FCMD_OPEN  openable (.38) */
 #else
@@ -271,6 +274,7 @@ typedef struct fm_pred_row {
 } fm_pred_row_t;
 
 static const fm_pred_row_t FINDER_MENU_PREDS[] = {
+    { FINDER_MENU_IX_FILE,    0u, finder_pred_new_folder_here    }, /* NewF #1 */
     { FINDER_MENU_IX_FILE,    8u, finder_pred_selection_putaway }, /* tdnl.57 */
     { FINDER_MENU_IX_FILE,    1u, finder_pred_selection_openable }, /* Open #2 */
     { FINDER_MENU_IX_FILE,    3u, finder_pred_front_is_diskwin   }, /* Close #4 */

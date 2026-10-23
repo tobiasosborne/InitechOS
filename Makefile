@@ -21491,10 +21491,12 @@ $(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_TRASH_NEVER_
 #          the closed windows shows NOTES / the desktop beneath); mtools: no
 #          purged item anywhere, ::/TRASH empty; fsck.fat -n clean with exactly
 #          pristine + 1 (DESKTOP.DB) - 5 clusters in use.
-#   ctrln  the same, then Ctrl-N (the audit's step): New Folder lands in the
-#          only window left, the Trash -- FINDER-NEW-FOLDER parent=<\TRASH per
-#          mshowfat>; mtools: ::/TRASH/NEWFOLD the one reachable copy;
-#          fsck.fat -n: no unreachable cluster, pristine + 1 - 5 + 1 in use.
+#   ctrln  the same, then Ctrl-N (the audit's step). RE-KEY (bead
+#          initech-vnl4, audit 2026-10-23 desktop L008): the only window left
+#          is the Trash, where New Folder is DARK -- nothing is made: no
+#          FINDER-CMD / FINDER-NEW-FOLDER, ::/TRASH empty, no NEWFOLD anywhere,
+#          fsck.fat -n clean with pristine + 1 - 5 in use (was: NEWFOLD made in
+#          \TRASH, + 1). The boot ends on the chord's release echo.
 # Mutation-proven by test-flair-trash-purge-views-mutant: (a) FINDER_WIN_MUT_
 # PURGE_KEEPS_VIEWS -- the purge leg's pixel grader goes RED (the windows are
 # still drawn); (b) the L002 defect RESTORED (that knob + FINDER_WIN_MUT_VIEW_
@@ -21549,7 +21551,7 @@ test-flair-trash-purge-views-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_p
 	@if sh $(FLAIR_PURGE_VIEWS_SH) $(BUILD)/flair_tenants_mut_purge_keeps_views.img $(FLAIR_PURGE_VIEWS_DATA) '$(FLAIR_TRASH_PURGE_VIEWS_SPEC)' purge _mut_keep > $(BUILD)/flair_purge_views_mut_keep.log 2>&1; then printf '!!! test-flair-trash-purge-views-mutant FAIL: PURGE_KEEPS_VIEWS PASSED -- decoration\n'; exit 1; fi
 	@grep -q "FAIL trash-purge-views purge: a purged folder's window is still drawn" $(BUILD)/flair_purge_views_mut_keep.log || { printf '!!! test-flair-trash-purge-views-mutant FAIL: PURGE_KEEPS_VIEWS went RED for the wrong reason\n'; cat $(BUILD)/flair_purge_views_mut_keep.log; exit 1; }
 	@printf ">>> test-flair-trash-purge-views-mutant: PURGE_KEEPS_VIEWS correctly RED (the purged folders' windows are still drawn)\n"
-	@if sh $(FLAIR_PURGE_VIEWS_SH) $(BUILD)/flair_tenants_mut_l002.img $(FLAIR_PURGE_VIEWS_DATA) '$(FLAIR_TRASH_PURGE_CTRLN_SPEC)' ctrln _mut_l002 > $(BUILD)/flair_purge_views_mut_l002.log 2>&1; then printf '!!! test-flair-trash-purge-views-mutant FAIL: the restored L002 defect PASSED -- decoration\n'; exit 1; fi
+	@if sh $(FLAIR_PURGE_VIEWS_SH) $(BUILD)/flair_tenants_mut_l002.img $(FLAIR_PURGE_VIEWS_DATA) '$(FLAIR_TRASH_PURGE_CTRLN_SPEC)' ctrln _mut_l002 FINDER-NEW-FOLDER > $(BUILD)/flair_purge_views_mut_l002.log 2>&1; then printf '!!! test-flair-trash-purge-views-mutant FAIL: the restored L002 defect PASSED -- decoration\n'; exit 1; fi
 	@grep -q 'FAIL trash-purge-views ctrln: fsck.fat -n: an allocated cluster is unreachable (orphan)' $(BUILD)/flair_purge_views_mut_l002.log || { printf '!!! test-flair-trash-purge-views-mutant FAIL: the restored L002 defect went RED for the wrong reason\n'; cat $(BUILD)/flair_purge_views_mut_l002.log; exit 1; }
 	@grep -m1 '^FINDER-NEW-FOLDER' $(BUILD)/flair_purge_views_ctrln_mut_l002.serial | sed 's/^/    mutant serial: /' || true
 	@printf ">>> test-flair-trash-purge-views-mutant: L002 RESTORED correctly RED (Ctrl-N wrote into the purged folder's freed cluster; fsck.fat finds the orphan)\n"
@@ -24360,6 +24362,26 @@ RECORD_SPEC_finder_crash_alert = $(FLAIR_APP_LAUNCH_SPEC)
 RECORD_IMAGE_finder_crash_alert = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_finder_crash_alert = $(FLAIR_DATA_TFX_CRASH_IMG)
 RECORD_MARKER_finder_crash_alert = FINDER-ALERT reason=crash
+# Bead initech-vnl4 (audit 2026-10-23 desktop L001/L006/L007/L008): the Trash
+# edge traces; the gate lives in harness/finder_trash_edges.mk (included after
+# the fixture contracts). Rule 14 clips, registered here because record-flair
+# reads its prerequisites at parse time.
+include spec/flair_trash_edges_traces.mk
+FINDER_FULL_DATA := $(BUILD)/finder_full_fixture.img
+RECORD_SCRIPTS += trash_delete_now trash_notrash_open trash_putaway_multi
+RECORD_SPEC_trash_delete_now = $(FLAIR_TRASH_EDGE_FULL_DELETE_SPEC)
+RECORD_SPEC_trash_notrash_open = $(FLAIR_TRASH_EDGE_NOTRASH_OPEN_SPEC)
+RECORD_SPEC_trash_putaway_multi = $(FLAIR_TRASH_EDGE_PUTAWAY_SPEC)
+$(foreach s,trash_delete_now trash_notrash_open trash_putaway_multi,$(eval RECORD_IMAGE_$(s) = $$(FLAIRTENANTS_RECORDLONGDBL_IMG)))
+RECORD_DATA_trash_delete_now = $(FINDER_FULL_DATA)
+RECORD_DATA_trash_notrash_open = $(FINDER_FULL_DATA)
+RECORD_DATA_trash_putaway_multi = $(FLAIR_DATA_IMG)
+RECORD_MARKER_trash_delete_now = FINDER-DELETE-NOW name=README.TXT purged=1
+RECORD_MARKER_trash_notrash_open = FINDER-ALERT reason=notrash
+RECORD_MARKER_trash_putaway_multi = FINDER-PUT-AWAY n=2
+# The drop's zoom-back animation (8 one-tick steps) and the alert paint
+# outlast the default settle: a 120 ms grab raced it (record-flair-repro).
+$(foreach s,trash_delete_now trash_notrash_open trash_putaway_multi,$(eval RECORD_SETTLE_$(s) = 1000))
 
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
@@ -33998,6 +34020,7 @@ include harness/diff/dbf_diff/samir_size.mk
 include harness/diff/fat_diff/dos_volumes.mk
 include harness/diff/fat_diff/fat_spc.mk
 include harness/finder_alerts.mk
+include harness/finder_trash_edges.mk
 include harness/diff/fat_diff/int21_dpb.mk
 
 # ADR citation integrity (bead initech-lk29; WL-0161): every cited ADR-0001 /

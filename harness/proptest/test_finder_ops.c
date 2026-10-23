@@ -510,10 +510,14 @@ static void leg_ladder(void)
     refused(&t, ROOT, 0, FINDER_WIN_ERR_MOVE, "err", "O5 any other backend refusal is ERR");
     S.mock.force_move_rc = 0;
 
-    /* err: a volume with no \TRASH refuses the Trash drop loudly */
+    /* notrash: a volume with no \TRASH refuses the Trash drop loudly, AS
+     * ITSELF (RE-KEY, bead initech-vnl4 / audit 2026-10-23 desktop L001: the
+     * kernel needs the reason to try to make \TRASH or offer Delete Now;
+     * before, it was the generic ERR and the user was told "could not be
+     * moved" with no way out). */
     S.mock.no_trash = 1;
     t = finder_ops_resolve(&S.sh, ROOT, 0, 600, 420);
-    refused(&t, ROOT, 0, FINDER_WIN_ERR_MOVE, "err", "O5 no \\TRASH -> the Trash drop is ERR, never a guess");
+    refused(&t, ROOT, 0, FINDER_WIN_ERR_NOTRASH, "notrash", "O5 no \\TRASH -> the Trash drop is NOTRASH, never a guess");
     S.mock.no_trash = 0;
 }
 

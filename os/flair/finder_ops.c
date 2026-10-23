@@ -205,6 +205,7 @@ const char *finder_ops_reason(finder_win_status_t st)
     if (st == FINDER_WIN_ERR_SERVICE) return "service";
     if (st == FINDER_WIN_ERR_LOCKED)  return "locked";
     if (st == FINDER_WIN_ERR_STALE)   return "stale";
+    if (st == FINDER_WIN_ERR_NOTRASH) return "notrash";
     return "err";
 }
 
@@ -364,7 +365,10 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
     if (sh->fs.trash_dir != (int (*)(void *))0) td = sh->fs.trash_dir(sh->fs.user);
     if (t->kind == (uint8_t)FINDER_TGT_TRASH) {
         out->op = (uint8_t)FINDER_OP_TRASH;
-        if (td < 0) return fo_refuse(out, FINDER_WIN_ERR_MOVE); /* no \TRASH  */
+        /* No \TRASH (bead initech-vnl4, audit 2026-10-23 desktop L001): said
+         * as itself, so the kernel can try to make it and -- on a full disk --
+         * offer Delete Now instead of a dead-end "could not be moved". */
+        if (td < 0) return fo_refuse(out, FINDER_WIN_ERR_NOTRASH);
         dst = (uint16_t)td;
     } else {
         dst = t->dir;
@@ -591,7 +595,24 @@ finder_win_status_t finder_ops_put_away(finder_shell_t *sh,int slot,int idx)
     fo_follow(sh,&w->view.icons[idx],origin.dir_start,origin.original83);
     fo_zero(&result,sizeof result);
     fo_origin_drop(sh,origin.name83,&result);
+#if defined(FINDER_MUT_PUTAWAY_REPOPULATE)
+    /* MUTANT (Rule 6; test-flair-trash-edges): the pre-fix re-enumeration --
+     * a fresh listing has NO selection, so a multiple Put Away stops after
+     * the first item (audit L006). NEVER in a real build. */
     (void)finder_win_populate(sh,slot);
+#else
+    /* bead initech-vnl4 (audit docs/audits/2026-10-23-desktop REPORT.md L006):
+     * the item LEAVES the Trash window -- remove just its icon, the way a
+     * drag out does (fo_remove_icon: a period window does not re-flow). A
+     * re-enumeration here cleared every OTHER selected icon, so Put Away of
+     * a multiple selection restored one item and silently stopped. "Put Away
+     * returns any selected documents, folders, or applications ... in the
+     * Trash window back to the folders and disks they belong to"
+     * (Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf printed p. 117).
+     * fw_do_put_away walks the selection from the END, so removing index idx
+     * shifts no icon it has yet to visit. */
+    fo_remove_icon(w,idx);
+#endif
     finder_win_invalidate_all(sh,slot);
     if(dest>=0) { (void)finder_win_populate(sh,dest);finder_win_invalidate_all(sh,dest); }
     (void)finder_shell_recount_trash(sh);

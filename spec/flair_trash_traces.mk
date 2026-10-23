@@ -149,8 +149,9 @@ FLAIR_TRASHFULL_REGRESSION_SPEC := $(FLAIR_EMPTY_OK_SPEC)
 FLAIR_TRASH_PURGE_VIEWS_SPEC := m100:61,m100:61,m80:60,l1,l0,l1,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-45:0,l1,l0,l1,l0,m20:20,l1,l0,l1,l0,m20:20,l1,l0,l1,l0,m75:-56,m0:-56,l1,m0:35,l0,m98:51,m98:52,m98:0,l1,l0,m52:97,m52:97,m52:98
 
 # 4b. FLAIR_TRASH_PURGE_CTRLN_SPEC -- the same, then Ctrl-N (the audit's
-#     L002 step): the only window left is the Trash, so New Folder lands in
-#     \TRASH (FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0 ; FINDER-NEW-FOLDER
-#     name=NEWFOLD parent=<T>, T = \TRASH's cluster per mshowfat), reachable
-#     and fsck-clean -- never into a purged folder's freed cluster.
+#     L002 step): the only window left is the Trash. The trace is unchanged;
+#     its EXPECTED outcome was re-keyed by bead initech-vnl4 (audit 2026-10-23
+#     desktop L008): New Folder is dark with the Trash front, so nothing is
+#     made at all (before: FINDER-NEW-FOLDER name=NEWFOLD parent=<\TRASH>) --
+#     and never into a purged folder's freed cluster.
 FLAIR_TRASH_PURGE_CTRLN_SPEC := $(FLAIR_TRASH_PURGE_VIEWS_SPEC),kctrl-n

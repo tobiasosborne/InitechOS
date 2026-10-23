@@ -3,13 +3,21 @@
 # initech-uios (audit L002): Empty Trash retires EVERY view of a removed folder,
 # and a New Folder afterwards can only land in a live directory.
 #
-# Usage: trash_purge_views.sh <boot img> <prepared data img> <trace> <purge|ctrln> [suffix]
+# Usage: trash_purge_views.sh <boot img> <prepared data img> <trace> <purge|ctrln> [suffix] [quit marker]
 #
 # The prepared volume (Makefile $(FLAIR_PURGE_VIEWS_DATA), built by mtools, never
 # by our FAT code) holds \TRASH\A\CHILD\GRAND\NOTE.TXT and \TRASH\A\KEEP.TXT. The
 # locked trace (spec/flair_trash_traces.mk Sec 4) opens the Trash, A, CHILD and
 # GRAND windows (slots 0..3), chooses Special > Empty Trash and clicks OK;
-# `ctrln` then presses Ctrl-N.
+# `ctrln` then presses Ctrl-N. RE-KEY (bead initech-vnl4, audit 2026-10-23
+# desktop L008): the only window left is the Trash, where New Folder is now
+# DARK -- MenuKey hands the chord to nobody, so nothing is written anywhere:
+# no FINDER-CMD line, no NEWFOLD, the cluster count is the purge leg's. The
+# boot ends on the chord's own release echo (FLAIR-EVT what=4: the keyDown has
+# been fully handled by then). The L002-RESTORED mutant still keeps GRAND
+# (not the Trash) front, so its Ctrl-N still writes into the freed cluster
+# and fsck still finds the orphan; it passes its own quit marker
+# FINDER-NEW-FOLDER as the optional 6th argument.
 #
 # The judges are INDEPENDENT of the Finder's model (Law 2): the serial chain is
 # hand-derived (sizes and the \TRASH cluster read with mtools); the disk is
@@ -46,7 +54,7 @@ if [ "$mode" = purge ]; then
     quit=FINDER-TRASH-EMPTIED
     shot="--screendump --screendump-after FINDER-TRASH-EMPTIED"
 else
-    quit=FINDER-NEW-FOLDER
+    quit=${6:-'FLAIR-EVT what=4 '}
     shot=
 fi
 # shellcheck disable=SC2086
@@ -72,24 +80,17 @@ if [ "$rc" -ne 0 ] || printf '%s' "$fsck_out" | grep -qiE 'reclaim|unused|lost|o
     fail 'fsck.fat -n: an allocated cluster is unreachable (orphan) or the volume is damaged'
 fi
 # in use = pristine + DESKTOP.DB (created at boot, 1 cluster) - 5 purged
-# (A, CHILD, GRAND, KEEP.TXT, NOTE.TXT) [+ 1 NEWFOLD]
+# (A, CHILD, GRAND, KEEP.TXT, NOTE.TXT); Ctrl-N in the Trash makes nothing
+# (bead initech-vnl4, L008), so both legs count the same.
 want=$(( used0 + 1 - 5 ))
-[ "$mode" = purge ] || want=$(( want + 1 ))
 used=$(printf '%s' "$fsck_out" | tail -1 | sed -n 's/.* \([0-9][0-9]*\)\/[0-9]* clusters$/\1/p')
 [ "$used" = "$want" ] || fail "fsck.fat counts $used clusters in use, want $want (pristine $used0 + DB 1 - 5 purged)"
 all=$(mdir -/ -a -b -i "$img" ::)
 if printf '%s\n' "$all" | grep -qE '/(A|CHILD|GRAND|KEEP\.TXT|NOTE\.TXT)/?$'; then
     printf '%s\n' "$all" >&2; fail 'a purged item is still on the volume'
 fi
-if [ "$mode" = purge ]; then
-    [ -z "$(mdir -b -i "$img" ::/TRASH 2>/dev/null)" ] || fail '::/TRASH is not empty after the purge'
-    ! printf '%s\n' "$all" | grep -q NEWFOLD || fail 'a NEWFOLD appeared without Ctrl-N'
-else
-    [ "$(mdir -b -i "$img" ::/TRASH)" = '::/TRASH/NEWFOLD/' ] \
-        || { mdir -/ -a -i "$img" :: >&2; fail 'NEWFOLD is not the one reachable entry of ::/TRASH'; }
-    [ "$(printf '%s\n' "$all" | grep -c NEWFOLD)" = 1 ] || fail 'NEWFOLD is not exactly once on the volume'
-    mdir -a -i "$img" ::/TRASH/NEWFOLD >/dev/null 2>&1 || fail 'mtools cannot read ::/TRASH/NEWFOLD'
-fi
+[ -z "$(mdir -b -i "$img" ::/TRASH 2>/dev/null)" ] || fail '::/TRASH is not empty after the purge'
+! printf '%s\n' "$all" | grep -q NEWFOLD || fail 'a NEWFOLD appeared (New Folder is dark with the Trash front, L008)'
 
 # ---- the serial chain (hand-derived; n=5, k from mtools) ---------------------
 {
@@ -102,10 +103,6 @@ fi
         'FINDER-TRASH-EMPTIED purged=5 refused=0' \
         'FINDER-TRASH-VIEW-CLOSED win=1' 'FINDER-TRASH-VIEW-CLOSED win=2' \
         'FINDER-TRASH-VIEW-CLOSED win=3'
-    if [ "$mode" = ctrln ]; then
-        printf '%s\n' 'FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0' \
-            'DESK-TRASH-ICON full' "FINDER-NEW-FOLDER name=NEWFOLD parent=$t"
-    fi
 } > "build/$name.chain.want"
 grep -E '^(FINDER-OPEN|FINDER-CMD|FINDER-TRASH|FINDER-NEW|DESK-TRASH-ICON)' "$serial" > "build/$name.chain.got" || true
 cmp -s "build/$name.chain.want" "build/$name.chain.got" \
@@ -113,4 +110,4 @@ cmp -s "build/$name.chain.want" "build/$name.chain.got" \
 grep -q 'OK=1' "build/$name.report" || fail 'the emulator run did not complete (OK=1 missing)'
 
 printf 'VERDICT: PASS -- trash-purge-views %s (views of the purged A/CHILD/GRAND closed; mtools + fsck.fat: %s clusters, no orphan%s)\n' \
-    "$mode" "$used" "$( [ "$mode" = ctrln ] && printf '; NEWFOLD only in ::/TRASH (cluster %s parent)' "$t" )"
+    "$mode" "$used" "$( [ "$mode" = ctrln ] && printf '; Ctrl-N with the Trash front made nothing (L008)' )"
