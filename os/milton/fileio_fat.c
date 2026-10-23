@@ -1110,7 +1110,8 @@ static void mount_raw_written(fileio_mount_t *m, uint32_t lba, uint32_t count,
     }
 }
 
-/* The raw-vector backend remains bound to A (ADR-0003 DEC-15). */
+/* INT 26h on A (ADR-0003 DEC-15); C/D INT 26h repairs share the INT 13h
+ * path below, one per-drive FAT refresh (DEC-15a, initech-q45q). */
 void fileio_fat_absdisk_written(uint32_t lba, uint32_t count, const void *buf)
 {
     mount_raw_written(&g_mounts[0], lba, count, buf);

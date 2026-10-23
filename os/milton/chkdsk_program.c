@@ -27,15 +27,19 @@ static int get(void*ctx) {
     __asm__ volatile("int $0x21; setc %0":"=qm"(cf),"+a"(a):"b"(0),"c"(1),"d"(&c):"memory","cc");
     return cf||!a?-1:(unsigned char)c;
 }
+/* AH=47h DL=drive+1 (IBM DOS 3.30 TR p6-188): the named drive's CWD. */
+static int cwd_of(unsigned drive,char out[64]) {
+    uint32_t a=0x4700,d=drive+1;uint8_t cf;out[0]=0;
+    __asm__ volatile("int $0x21; setc %0":"=qm"(cf),"+a"(a),"+d"(d):"S"(out):"memory","cc");
+    return cf?-1:0;
+}
 int chkdsk_entry(void) {
-    char tail[128],cwd[128];uint32_t a=0x1900;
+    char tail[128];uint32_t a=0x1900;
     volatile uint8_t *psp=(volatile uint8_t*)PROGRAM_BASE;
     unsigned n=psp[0x80];if(n>126)n=126;for(unsigned i=0;i<n;i++)tail[i]=(char)psp[0x81+i];tail[n]=0;
     __asm__ volatile("int $0x21":"+a"(a)::"memory","cc");
     io.drive=(uint8_t)a;
-    cwd[0]='\\';cwd[1]=0;a=0x4700;uint32_t d=0;
-    __asm__ volatile("int $0x21":"+a"(a),"+d"(d):"S"(cwd+1):"memory","cc");
-    io.cwd=cwd;io.disk.read_sectors=disk_read;io.disk.write_sectors=disk_write;io.put=put;io.get=get;
+    io.cwd=cwd_of;io.disk.read_sectors=disk_read;io.disk.write_sectors=disk_write;io.put=put;io.get=get;
     uintptr_t base=((uintptr_t)__load_end+PROGRAM_BSS_RESERVE+15u)&~(uintptr_t)15u;
     io.arena.base=(uint8_t*)base;io.arena.total_paras=(PROGRAM_ARENA_CEIL-base)/16;
     return chkdsk_run(&io,tail);

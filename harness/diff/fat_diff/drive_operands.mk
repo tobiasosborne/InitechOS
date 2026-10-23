@@ -16,9 +16,12 @@ $(eval $(call zuvo-com,tree_drive_mut,-DDU_MUT_DRIVE,-DTREE_PROGRAM))
 $(eval $(call dosutil-com,attrib_drive_mut,-DDOSUTIL_ATTRIB,-DDU_MUTATE_DRIVE))
 $(eval $(call fdisk-emu-mutant,LETTER))
 $(eval $(call dos-safety-shell-mutant,cd_drive,CMD_MUTATE_CD_DRIVE))
-DRIVE_OPS_MUTANTS := xcopy tree attrib fdisk cd
+$(eval $(call dosutil-com,label_drive_mut,,-DDU_MUTATE_LABEL_DRIVE))
+J1LU_CON_KNOB_absdrive := ABSDISK_MUTATE_DRIVE_A_ONLY
+$(eval $(call j1lu-emu-variant,absdrive,$(KERNEL_INT21_OBJ),$(BUILD)/int21_j1lu_absdrive.o))
+DRIVE_OPS_MUTANTS := xcopy tree attrib fdisk cd label absdisk
 .PHONY: test-drive-operands-mutant
-test-drive-operands-mutant: $(DRIVE_OPS_DEPS) $(BUILD)/xcopy_drive_mut_program.bin $(BUILD)/tree_drive_mut_program.bin $(BUILD)/attrib_drive_mut_program.bin $(BUILD)/fdisk_LETTER.bin $(BUILD)/tracer_mut_safety_cd_drive.img
+test-drive-operands-mutant: $(DRIVE_OPS_DEPS) $(BUILD)/xcopy_drive_mut_program.bin $(BUILD)/tree_drive_mut_program.bin $(BUILD)/attrib_drive_mut_program.bin $(BUILD)/fdisk_LETTER.bin $(BUILD)/tracer_mut_safety_cd_drive.img $(BUILD)/label_drive_mut_program.bin $(BUILD)/j1lu_absdrive.img
 	@set -eu; mkdir -p $(BUILD)/drive-operands; for m in $(DRIVE_OPS_MUTANTS); do \
 	 x=$(XCOPY_PROG_BIN); t=$(TREE_PROG_BIN); a=$(ATTRIB_PROG_BIN); l=$(LABEL_PROG_BIN); c=$(CHKDSK_PROG_BIN); f=$(FDISK_PROG_BIN); \
 	 boot=$(SECONDARY_TRACER_IMG); mode=emu; \
@@ -28,6 +31,8 @@ test-drive-operands-mutant: $(DRIVE_OPS_DEPS) $(BUILD)/xcopy_drive_mut_program.b
 	  attrib) a=$(BUILD)/attrib_drive_mut_program.bin; why='L012 ATTRIB +R did not reach D: (mattrib)';; \
 	  fdisk) f=$(BUILD)/fdisk_LETTER.bin; mode=fdisk; why='L028 FDISK second primary not D:';; \
 	  cd) boot=$(BUILD)/tracer_mut_safety_cd_drive.img; why='L011 CD D: did not display D:\DHOME';; \
+	  label) l=$(BUILD)/label_drive_mut_program.bin; why='L015 LABEL D: label not on D:';; \
+	  absdisk) boot=$(BUILD)/j1lu_absdrive.img; why='L013 CHKDSK C: reported a disk error';; \
 	 esac; log=$(BUILD)/drive-operands/mut-$$m.log; \
 	 if sh $(DRIVE_OPS) $$mode $$boot mut-$$m $$x $$t $$a $$l $$c $$f > $$log 2>&1; then echo "FAIL drive-operands $$m mutant survived"; exit 1; fi; \
 	 grep -Fx "RED drive-operands $$why" $$log || { cat $$log; exit 1; }; \

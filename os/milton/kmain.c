@@ -621,6 +621,7 @@ static ata_ctx_t fixed_master;
 static blockdev_t fixed_dev;
 static fat12_volume_t fixed_volumes[2];
 static uint8_t fixed_sector[512];
+static void bind_fixed_absdisk(unsigned letter, int mounted);
 
 static void mount_fixed_volume(unsigned letter)
 {
@@ -628,6 +629,7 @@ static void mount_fixed_volume(unsigned letter)
                               fixed_sector);
     if (!rc) rc = fileio_fat_add_drive(letter, &fixed_volumes[letter-2]);
     if (rc) fileio_fat_drop_drive(letter);
+    bind_fixed_absdisk(letter, !rc);
     serial_puts(rc ? "DOS-VOLUME-FAIL " : "DOS-VOLUME-OK ");
     serial_putc((char)('A'+letter));
     serial_puts(" rc="); serial_puti(rc); serial_putc('\n');
@@ -637,12 +639,42 @@ static void mount_fixed_volume(unsigned letter)
  * SYS write C:/D: through INT 13h. A new boot record (FORMAT, SYS) may carry
  * new geometry, so the volume is mounted afresh, FAT re-read; any other
  * write's FAT bytes are mirrored, so a later DOS write never allocates over,
- * or flushes a stale FAT across, the transferred system files. */
+ * or flushes a stale FAT across, the transferred system files. INT 26h on
+ * C:/D: (DEC-15a) takes this same ONE per-drive refresh path. */
 static void fixed_volume_written(unsigned letter, uint32_t lba, uint32_t count,
                                  const void *buf)
 {
     if (lba == 0u) mount_fixed_volume(letter);
     else fileio_fat_raw_written(letter, lba, count, buf);
+}
+
+/* INT 25h/26h for the DEC-18 fixed letters (ADR-0003 DEC-15a, initech-yyi2;
+ * initech-q45q, audit L013/L015: CHKDSK C:/D:, LABEL D:). Same DEC-07a
+ * partition origin as the FAT mount, bounds = that volume's own total. A
+ * seam exists exactly while the letter is mounted. FAT16 stays read-only
+ * (WL-0156): its seam has no writer, so INT 26h reports write-protect. */
+static int fixed_write(unsigned letter, uint32_t lba, uint32_t count, const void *buf)
+{
+    int rc = fat12_write_sectors(&fixed_volumes[letter-2], lba, count, buf);
+    if (rc == 0) fixed_volume_written(letter, lba, count, buf);
+    return rc;
+}
+static int abs_read_c(uint32_t l, uint32_t n, void *b)
+{ return fat12_read_sectors(&fixed_volumes[0], l, n, b); }
+static int abs_read_d(uint32_t l, uint32_t n, void *b)
+{ return fat12_read_sectors(&fixed_volumes[1], l, n, b); }
+static int abs_write_c(uint32_t l, uint32_t n, const void *b) { return fixed_write(2u, l, n, b); }
+static int abs_write_d(uint32_t l, uint32_t n, const void *b) { return fixed_write(3u, l, n, b); }
+static void bind_fixed_absdisk(unsigned letter, int mounted)
+{
+    const fat12_volume_t *v = &fixed_volumes[letter-2];
+    int21_absdisk_backend_t backend;
+    if (!mounted) { int21_set_absdisk_drive(letter, 0); return; }
+    backend.read = letter == 2u ? abs_read_c : abs_read_d;
+    backend.write = v->fat_type == FAT_TYPE_FAT12 && fixed_dev.write_sectors
+        ? (letter == 2u ? abs_write_c : abs_write_d) : 0;
+    backend.total_sectors = v->total_sectors;
+    int21_set_absdisk_drive(letter, &backend);
 }
 
 static void mount_fixed_volumes(void)

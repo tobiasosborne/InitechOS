@@ -10,6 +10,7 @@
  */
 #include "chkdsk.h"
 #include "dos_messages.h" /* DEC-13/App C; MS-DOS 3.3 pp.43,330. */
+#include "dospath.h"     /* q45q: drive-qualified operands (DEC-18). */
 
 #define MAP 8192u
 typedef struct scan {
@@ -288,14 +289,15 @@ static int parse(const char*t) {
     if(!n)return 0;
     const char*p=raw;if(n>=2&&p[1]==':'){if(p[0]<'A'||p[0]>'Z')return -1;s.io->drive=(uint8_t)(p[0]-'A');p+=2;}
     if(!*p)return 0;
-    char *d=s.operand;*d++=(char)('A'+s.io->drive);*d++=':';
-    if(*p!='\\'){const char*c=s.io->cwd;while(*c){if(d>=s.operand+110)return -1;*d++=upper(*c++);}if(d[-1]!='\\')*d++='\\';}
-    while(*p){if(d>=s.operand+127)return -1;*d++=*p++;}*d=0;
-    return 0;
+    /* CHKDSK [drive:][pathname] (MS-DOS 3.3 Reference p.43): a relative
+     * pathname starts in THAT drive's directory, not the default's. */
+    int rc=dospath_full(raw,s.io->drive,s.io->cwd,s.operand,sizeof s.operand);
+    return rc==DOSPATH_BAD_DRIVE?-2:rc?-1:0;
 }
 int chkdsk_run(chkdsk_io_t *io,const char*tail) {
     zero(&s,sizeof(s));s.io=io;s.cache_lba=0xffffffffu;s.total=1;
-    if(parse(tail)){put(MSG_DOS_0048 "\r\n");return -1;}
+    int bad=parse(tail);
+    if(bad){put(bad==-2?MSG_DOS_0004 "\r\n":MSG_DOS_0048 "\r\n");return -1;}
     uint8_t b[512];if(read_sector(0,b))goto failed;
     s.spc=b[13];s.fat=u16(b+14);s.fats=b[16];s.roots=u16(b+17);s.spf=u16(b+22);
     s.total=u16(b+19)?u16(b+19):u32(b+32);s.root=s.fat+s.fats*s.spf;

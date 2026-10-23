@@ -997,5 +997,8 @@ typedef struct int21_absdisk_backend {
  * host oracle binds a mock file-backed blockdev. The struct is COPIED, so the
  * caller need not keep it alive. */
 void int21_set_blockdev(const int21_absdisk_backend_t *backend);
+/* The same seam for a DEC-18 letter (0=A: == int21_set_blockdev, 2=C:, 3=D:):
+ * the kernel binds C/D only when they mounted (initech-q45q). */
+void int21_set_absdisk_drive(unsigned drive, const int21_absdisk_backend_t *backend);
 
 #endif /* INITECH_INT21_H */

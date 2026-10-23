@@ -223,8 +223,10 @@ static const int21_file_backend_t *g_file = 0;
  * includes fat12.h/blockdev.h or references the volume (Law 3). g_absdisk_bound
  * gates it: with NO seam bound INT 25h/26h fail loud (CF=1), never fault. The
  * copy keeps the seam alive independent of the caller's struct lifetime. */
-static int21_absdisk_backend_t g_absdisk = { 0, 0, 0u };
-static int                     g_absdisk_bound = 0;
+/* q45q: one seam per DEC-18 letter AL (0=A:, 2=C:, 3=D:; B is never bound).
+ * spec/absdisk_int2526.json "invalid_drive: AL != mounted volume". */
+static int21_absdisk_backend_t g_absdisk[4];
+static int                     g_absdisk_bound[4];
 
 /* The EXEC backend (beads initech-saw / AH=4Bh). NULL until the kernel binds the
  * FAT-sourced loader (load_program_from_fat) or the host oracle binds a mock.
@@ -388,17 +390,22 @@ void int21_set_file_backend(const int21_file_backend_t *backend) { g_file = back
  * struct; NULL clears it -> every absolute I/O fails loud (CF=1). The kernel
  * binds it from the mounted volume's blockdev only on the mounted==1 path; the
  * host oracle binds a mock file-backed blockdev. */
-void int21_set_blockdev(const int21_absdisk_backend_t *backend)
+void int21_set_absdisk_drive(unsigned drive, const int21_absdisk_backend_t *backend)
 {
+    if (drive >= 4u) return;
     if (backend == 0) {
-        g_absdisk.read = 0;
-        g_absdisk.write = 0;
-        g_absdisk.total_sectors = 0u;
-        g_absdisk_bound = 0;
+        g_absdisk[drive].read = 0;
+        g_absdisk[drive].write = 0;
+        g_absdisk[drive].total_sectors = 0u;
+        g_absdisk_bound[drive] = 0;
         return;
     }
-    g_absdisk = *backend;
-    g_absdisk_bound = 1;
+    g_absdisk[drive] = *backend;
+    g_absdisk_bound[drive] = 1;
+}
+void int21_set_blockdev(const int21_absdisk_backend_t *backend)
+{
+    int21_set_absdisk_drive(0u, backend);
 }
 
 /* ---- CWD seam (beads initech-mzxa; ti8 Layer 2, READ side) ----
@@ -5964,17 +5971,24 @@ static void absdisk_body(int_frame_t *frame, int op_write)
     }
 #endif
 
-    /* [2] Drive: AL is ZERO-BASED EXPLICIT (0=A:). This single-volume milestone
-     * mounts one volume, so the only valid drive is 0; anything else fails loud
-     * with invalid-drive (never a silent success, never a fault -- DEC-15.2). */
-    if (drive != 0u) {
+    /* [2] Drive: AL is ZERO-BASED EXPLICIT (0=A:). A is always a seam slot;
+     * C/D are valid exactly when DEC-18 mounted them (kmain binds their seams,
+     * initech-q45q: CHKDSK C:, LABEL D:, MS-DOS 3.3 Reference pp43,86). Any
+     * other AL fails loud with invalid-drive (never a silent success, never a
+     * fault, never another volume's sectors -- DEC-15.2). */
+#if defined(ABSDISK_MUTATE_DRIVE_A_ONLY)
+    if (drive != 0u) {   /* Rule 6: the pre-q45q single-volume vector */
+#else
+    if (drive >= 4u || (drive != 0u && !g_absdisk_bound[drive])) {
+#endif
         absdisk_fail(frame, ABSDISK_AL_INVALID_DRIVE, ABSDISK_AH_INVALID_DRIVE);
         return;
     }
+    const int21_absdisk_backend_t *bk = &g_absdisk[drive];
 
     /* [3] No seam bound -> fail loud, never fault (Rule 2 / DEC-15 C-4). Map to
      * general failure (the device is unreachable). */
-    if (!g_absdisk_bound) {
+    if (!g_absdisk_bound[drive]) {
         absdisk_fail(frame, ABSDISK_AL_GENERAL_FAILURE,
                      ABSDISK_AH_GENERAL_FAILURE);
         return;
@@ -6006,9 +6020,9 @@ static void absdisk_body(int_frame_t *frame, int op_write)
      * CF=1 + sector-not-found, not a CF=0 pass-through). */
     if (0) {
 #else
-    if (lba >= g_absdisk.total_sectors ||
+    if (lba >= bk->total_sectors ||
         (lba + count) < lba ||                 /* DX+CX 32-bit wrap            */
-        (lba + count) > g_absdisk.total_sectors) {
+        (lba + count) > bk->total_sectors) {
 #endif
         absdisk_fail(frame, ABSDISK_AL_SECTOR_NOT_FOUND,
                      ABSDISK_AH_SECTOR_NOT_FOUND);
@@ -6018,7 +6032,7 @@ static void absdisk_body(int_frame_t *frame, int op_write)
     if (op_write) {
         /* [7] Read-only backend (write member NULL) -> write-protect (DEC-15.2;
          * ties to MSG-DOS-0008). */
-        if (g_absdisk.write == 0) {
+        if (bk->write == 0) {
             absdisk_fail(frame, ABSDISK_AL_WRITE_PROTECT,
                          ABSDISK_AH_WRITE_PROTECT);
             return;
@@ -6033,17 +6047,17 @@ static void absdisk_body(int_frame_t *frame, int op_write)
          * scribbles the ADJACENT sector. The non-corruption snapshot [7] of the
          * neighbor (and the boot/FAT/root snapshot if scratch-1 is in range) goes
          * RED. */
-        rc = g_absdisk.write(lba, count + 1u, (const void *)(uintptr_t)buf);
+        rc = bk->write(lba, count + 1u, (const void *)(uintptr_t)buf);
 #else
-        rc = g_absdisk.write(lba, count, (const void *)(uintptr_t)buf);
+        rc = bk->write(lba, count, (const void *)(uintptr_t)buf);
 #endif
     } else {
-        if (g_absdisk.read == 0) {
+        if (bk->read == 0) {
             absdisk_fail(frame, ABSDISK_AL_GENERAL_FAILURE,
                          ABSDISK_AH_GENERAL_FAILURE);
             return;
         }
-        rc = g_absdisk.read(lba, count, (void *)(uintptr_t)buf);
+        rc = bk->read(lba, count, (void *)(uintptr_t)buf);
     }
 
     /* [8] A negative seam return -> general failure (the single honest mapping;

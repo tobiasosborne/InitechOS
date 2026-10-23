@@ -70,14 +70,15 @@ if [ "$mode" = fdisk ]; then
     echo "GREEN test-drive-operands fdisk: partition rows C: 1 and D: 2 per DEC-18"
     exit 0
 fi
-# L011 CD d:, L032 XCOPY, L014 TREE, L012 ATTRIB.
+# L011 CD d:, L032 XCOPY, L014 TREE, L012 ATTRIB, L015 LABEL, L013 CHKDSK.
 printf '%s\r\n' '@ECHO ON' 'PATH=A:\DOS' 'CD \T' 'CD C:\CHOME' 'CD D:\DHOME' \
     'CD C:' 'CD D:' 'CD' \
     'XCOPY A:\T\ONE.TXT D:\DHOME\ /V' 'XCOPY D:SAME.TXT A:\FROMD\' \
     'XCOPY C:\CHOME\SAME.TXT D:\FROMC\' \
     'TREE D: /F > A:\TREED.TXT' 'TREE D:\DHOME /F > A:\TREEDH.TXT' \
     'ATTRIB +R D:\DHOME\SAME.TXT' 'ATTRIB D:SAME.TXT > A:\ATTRD.TXT' \
-    'ECHO OPERANDS-DONE' > "$w/ops.bat"
+    'LABEL D:NEWLABEL' 'VOL D:' \
+    'CHKDSK C: > A:\CHKC.TXT' 'CHKDSK D: > A:\CHKD.TXT' 'ECHO OPERANDS-DONE' > "$w/ops.bat"
 run ops 'e,x,i,t,ret' OPERANDS-DONE SHELL-DONE
 grep -qx SHELL-EXIT "$w/ops.txt" || die 'EMU did not finish shell'
 # L011: CHDIR d: displays that drive's directory, the default stays A:\T.
@@ -112,8 +113,26 @@ cmp -s "$w/got" "$w/exp" || red 'L012 ATTRIB +R did not reach D: (mattrib)'
 mtype -i "$w/a.img" ::ATTRD.TXT > "$w/got" || red 'L012 ATTRIB output missing'
 printf 'R  A     D:\\DHOME\\SAME.TXT\r\n' > "$w/exp"
 cmp -s "$w/got" "$w/exp" || red 'L012 ATTRIB D: display'
+# L015: LABEL d: writes d:'s volume label only (mlabel reads it back).
+mlabel -s -i "$D" :: | grep -q 'NEWLABEL' || red 'L015 LABEL D: label not on D:'
+mlabel -s -i "$w/a.img" :: | grep -q 'USERDATA' || red 'L015 LABEL D: changed A:'
+grep -qx ' Volume in drive D is NEWLABEL' "$w/ops.txt" || red 'L015 VOL D: after LABEL D:'
+# L013: CHKDSK d: checks d:'s FAT; totals from the mtools-minted BPB, free
+# bytes from mdir on the same image (independent of the artifact).
+for v in C D; do
+    if [ $v = C ]; then img=$C; else img=$D; fi
+    mtype -i "$w/a.img" ::CHK$v.TXT > "$w/chk$v" || red "L013 CHKDSK $v: output missing"
+    if grep -q 'Disk error' "$w/chk$v"; then red "L013 CHKDSK $v: reported a disk error"; fi
+    if [ $v = C ]; then off=32256; else off=$((D_BASE*512)); fi
+    bpb() { od -An -tu$2 -j $((off+$1)) -N $2 "$w/c.img" | tr -d ' '; }
+    tot=$(bpb 19 2); rsv=$(bpb 14 2); fats=$(bpb 16 1); spf=$(bpb 22 2); roots=$(bpb 17 2); spc=$(bpb 13 1)
+    bytes=$(( (tot-rsv-fats*spf-(roots*32+511)/512)/spc*spc*512 ))
+    tr -d '\r' < "$w/chk$v" | grep -Eq "^ *$bytes bytes total disk space$" || red "L013 CHKDSK $v: total disk space"
+    free=$(mdir -i "$img" :: | grep 'bytes free$' | tr -cd '0-9')
+    tr -d '\r' < "$w/chk$v" | grep -Eq "^ *$free bytes available on disk$" || red "L013 CHKDSK $v: bytes available vs mdir"
+done
 dd if="$w/c.img" of="$w/c-vol.img" bs=512 skip=63 count=2880 status=none
 dd if="$w/c.img" of="$w/d-vol.img" bs=512 skip=$D_BASE count=$D_SIZE status=none
 for v in a c-vol d-vol; do fsck.fat -n "$w/$v.img" > "$w/fsck-$v" 2>&1 || red "FSCK $v"; done
 [ $failed = 0 ] || exit 1
-echo "GREEN test-drive-operands emu: CD d:, XCOPY/TREE/ATTRIB on C: and D: vs mtools; fsck.fat clean"
+echo "GREEN test-drive-operands emu: CD d:, XCOPY/TREE/ATTRIB/LABEL/CHKDSK on C: and D: vs mtools; fsck.fat clean"

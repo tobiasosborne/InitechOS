@@ -15,7 +15,8 @@ typedef struct chkdsk_io {
     int (*get)(void *);
     mcb_arena_t arena;
     uint8_t drive;
-    const char *cwd;
+    /* GETCWD of a zero-based drive (dospath.h contract; q45q). */
+    int (*cwd)(unsigned drive, char out[64]);
 } chkdsk_io_t;
 int chkdsk_run(chkdsk_io_t *io, const char *tail);
 #endif

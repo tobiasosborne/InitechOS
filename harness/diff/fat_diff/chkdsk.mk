@@ -12,11 +12,11 @@ CHKDSK_HOST_SRC := $(CHKDSK_DIR)/chkdsk_host.c $(CHKDSK_SRC) os/milton/mcb.c $(C
 
 $(CHKDSK_FIXTURE): $(CHKDSK_DIR)/chkdsk_fixture.c | $(BUILD)
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Wno-misleading-indentation $< -o $@
-$(CHKDSK_HOST): $(CHKDSK_HOST_SRC) os/milton/chkdsk.h $(DOS_MESSAGES_H) | $(BUILD)
+$(CHKDSK_HOST): $(CHKDSK_HOST_SRC) os/milton/chkdsk.h os/milton/dospath.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror $(CHKDSK_INC) $(CHKDSK_HOST_SRC) -o $@
 $(BUILD)/chkdsk_start.o: os/milton/chkdsk_start.asm | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
-$(BUILD)/chkdsk_core.o: $(CHKDSK_SRC) os/milton/chkdsk.h $(DOS_MESSAGES_H) | $(BUILD)
+$(BUILD)/chkdsk_core.o: $(CHKDSK_SRC) os/milton/chkdsk.h os/milton/dospath.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(CHKDSK_INC) -c $< -o $@
 $(BUILD)/chkdsk_program.o: $(CHKDSK_ADAPTER) os/milton/chkdsk.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(CHKDSK_INC) -c $< -o $@
@@ -26,9 +26,9 @@ $(CHKDSK_PROG_BIN): $(BUILD)/chkdsk.elf
 	$(OBJCOPY) -O binary $< $@
 
 define chkdsk-mutant
-$(BUILD)/chkdsk_host_$(1): $(CHKDSK_HOST_SRC) os/milton/chkdsk.h $(DOS_MESSAGES_H) | $(BUILD)
+$(BUILD)/chkdsk_host_$(1): $(CHKDSK_HOST_SRC) os/milton/chkdsk.h os/milton/dospath.h $(DOS_MESSAGES_H) | $(BUILD)
 	$$(CC) -std=c11 -O2 -Wall -Wextra -Werror -DCHKDSK_MUT_$(1) $$(CHKDSK_INC) $$(CHKDSK_HOST_SRC) -o $$@
-$(BUILD)/chkdsk_core_$(1).o: $(CHKDSK_SRC) os/milton/chkdsk.h $(DOS_MESSAGES_H) | $(BUILD)
+$(BUILD)/chkdsk_core_$(1).o: $(CHKDSK_SRC) os/milton/chkdsk.h os/milton/dospath.h $(DOS_MESSAGES_H) | $(BUILD)
 	$$(KERNEL_CC) $$(KERNEL_CFLAGS) -Os -DCHKDSK_MUT_$(1) $$(CHKDSK_INC) -c $$< -o $$@
 $(BUILD)/chkdsk_$(1).elf: $(BUILD)/chkdsk_start.o $(BUILD)/chkdsk_core_$(1).o $(BUILD)/chkdsk_program.o $(KERNEL_MCB_OBJ) os/milton/chkdsk.ld
 	$$(LD) -m elf_i386 -T os/milton/chkdsk.ld -o $$@ $$(filter %.o,$$^)

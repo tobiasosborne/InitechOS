@@ -263,7 +263,15 @@ int label_main(const char *tail)
     while (space(*tail)) tail++;
     disk.drive=(unsigned)du_drive();
     if (tail[0] && tail[1]==':') { disk.drive=(unsigned)(upper(tail[0])-'A'); tail+=2; }
+    /* LABEL [drive:][label] (MS-DOS 3.3 Reference p.86 / PDF171; audit
+     * L015): any mounted DEC-18 letter, judged by that drive's own GETCWD
+     * (AX=000Fh for an absent letter) -- formerly every non-default drive
+     * was refused. Its sectors then come from INT 25h/26h AL=drive. */
+    char probe[64];
+#ifdef DU_MUTATE_LABEL_DRIVE
     if (disk.drive!=(unsigned)du_drive()) return error(MSG_DOS_0004);
+#endif
+    if (disk.drive>25u || du_cwd(disk.drive,probe)<0) return error(MSG_DOS_0004);
     if (label_read(&disk)<0) return error(MSG_DOS_0009);
     while (*tail==' ') tail++;
     if (!*tail) {
