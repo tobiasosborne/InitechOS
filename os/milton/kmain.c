@@ -7389,7 +7389,7 @@ void kernel_main(void)
     /* (3) Each tenant's OWN menu is its menubar; the live app-switch loop swaps the
      * FOREGROUND tenant's menu into the SECOND (Photoshop-chimera) band (ref beads
      * initech-4w15 / initech-7tjp: band 1 == the SHELL-OWNED static System-7 bar,
-     * drawn ONCE by shell_render below, never repainted by the live loop). HELLO's
+     * retained by shell_render, never replaced by a foreground switch). HELLO's
      * menu IS the Photoshop bar; NOTES owns the no-Apple File/Edit/Notes fixture
      * above. Because HELLO is the boot FOREGROUND (2), shell_render's fixed band-2
      * composition (bar_photoshop) ALREADY equals the foreground's menu at boot --
@@ -7626,7 +7626,7 @@ void kernel_main(void)
 
         /* Ref: bead initech-4w15. The TOP System-7 shell bar (bar_sys, rows
          * [0, FLAIR_MENUBAR_H)) is SHELL-OWNED and STATIC -- shell_render draws
-         * it ONCE when the scene is built and it must NEVER be repainted again
+         * it when the scene is composed; foreground switches must NEVER replace it
          * (shell.h Sec 1 "TWO STACKED MENU BARS"). The foreground-tenant menubar
          * swap below must land ONLY on the SECOND (Photoshop-band) bar at rows
          * [SHELL_MENUBAR2_TOP, SHELL_MENUBAR2_TOP + FLAIR_MENUBAR_H). A whole-
@@ -7640,7 +7640,7 @@ void kernel_main(void)
          * (shell.h; ADR-0004 D-2 one surface module -- reused, not duplicated).
          * DrawMenuBar into a port over this view can then ONLY land on rows
          * [SHELL_MENUBAR2_TOP, SHELL_MENUBAR2_TOP + FLAIR_MENUBAR_H) of the real
-         * offscreen; row 0 (bar_sys) is never touched by the live loop again. */
+         * offscreen; a foreground switch never replaces row 0 (bar_sys). */
         bitmap_t ten_bar2_view;
         GrafPort ten_barport;
         {
@@ -7689,10 +7689,24 @@ void kernel_main(void)
             if(tbx_preferences_dirty()) {
                 for(WindowPtr w=ctx.wm->front;w;w=w->nextWindow)
                     WindowMgr_invalidate(ctx.wm,w,region_get_bbox(w->contRgn));
+#ifdef KMAIN_MUT_CP_NO_SYSTEM_BAR
+                /* Rule 6 / B05: omit only the system-bar pass on preference
+                 * redraw. The foreground bar and clock still get repainted. */
                 desktop_paint_all(ctx.wm,&ctx.off,ctx.comp);
-                flair_live_content_phase(&ctx);
+                DrawMenuBar(&ten_barport,flair_live_tenant_bar(&ctx,&ten_plist),-1,
+                            (const region_t *)0);
                 GrafPort cpbar=ten_barport;cpbar.portBits.bm=ctx.off;
                 MenuClock_draw(&cpbar,(const region_t *)0);
+#else
+                /* PRD 6.3 / shell.h painter order; DAS audit L027 (B05).
+                 * A full desktop paint erases the menu overlays too. Compose
+                 * both installed bars/clock and the modal in the normal order,
+                 * then route visible tenant content before the shielded present.
+                 * This also covers temporary Sound preview if it dirties prefs. */
+                shell_render_with_menubar(ctx.scene,&ctx.off,
+                                          flair_live_tenant_bar(&ctx,&ten_plist));
+#endif
+                flair_live_content_phase(&ctx);
                 flair_desktop_present(&b,&ctx.off);
             }
 

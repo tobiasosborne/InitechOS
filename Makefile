@@ -24193,6 +24193,15 @@ RECORD_SPEC_control_panels = $(CP_CLIP_SPEC)
 RECORD_MARKER_control_panels = APPLE-LAUNCH name=CPANELS.EXE dir=APPS
 RECORD_IMAGE_control_panels = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_control_panels = $(FLAIR_DATA_IMG)
+# B05 Rule 14: PM records this locked preference/apply/menu-exit trace on main.
+# Keep this block before record-flair's parse-time prerequisites.
+RECORD_SCRIPTS += cpanels_pattern_bars
+RECORD_SPEC_cpanels_pattern_bars = $(CP_BARS_PATTERN_EXIT)
+RECORD_MARKER_cpanels_pattern_bars = TENANT-MENU menu=129 item=1 src=mouse
+RECORD_IMAGE_cpanels_pattern_bars = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_cpanels_pattern_bars = $(FLAIR_DATA_IMG)
+RECORD_RTC_BASE_cpanels_pattern_bars = 1980-01-01T00:56:00
+RECORD_SETTLE_cpanels_pattern_bars = 400
 # Volume re-key: README + APPS + its21 leaves; stranded TRASH stays cell0.
 RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=23 refused=0
 
@@ -34078,6 +34087,8 @@ test-flair-cpanels-mutant: test-flair-cpanels-radio-mutant
 
 # New locked header consumers must rebuild when the contract changes.
 $(KERNEL_DESKTOP_OBJ): spec/cpanels_record.h
+
+include harness/emu/cpanels_bars.mk
 
 # ---------------------------------------------------------------------------
 # THE FLAIR BOOT SCREEN (bead initech-tdnl.105; operator directive 2026-10-17)
