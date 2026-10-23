@@ -120,7 +120,7 @@ $(eval $(call fixture-contract,$(FINDER_LIMITS_DATA),$(FLAIR_FIXTURES) $(foreach
 $(eval $(call fixture-contract,$(FINDER_REPLACE_DATA),$(FLAIR_FIXTURES) APPS/README.TXT))
 # initech-mcep: the full-disk save volumes (harness/emu/fullsave.mk) and the
 # bad-checksum Note Pad store (harness/emu/notepad.mk).
-$(foreach img,$(FLAIR_FULLSAVE_DATA) $(FLAIR_FULLSAVE_MUT_DATA),$(eval $(call fixture-contract,$(img),$(FLAIR_FIXTURES) ORIGINAL.WP5 LONG.WP5 KEEP.TXT KEEP.WK1 MINT01.WK1 FILLER.BIN)))
+$(foreach img,$(FLAIR_FULLSAVE_DATA) $(FLAIR_FULLSAVE_MUT_DATA) $(FLAIR_FULLSAVE_COLLIDE_DATA),$(eval $(call fixture-contract,$(img),$(FLAIR_FIXTURES) ORIGINAL.WP5 LONG.WP5 KEEP.TXT KEEP.WK1 MINT01.WK1 FILLER.BIN)))
 $(foreach img,$(DA_BADSUM_DATA) $(DA_BADSUM_MUT_DATA),$(eval $(call fixture-contract,$(img),$(FLAIR_FIXTURES) NOTEPAD.DAT)))
 $(eval $(call fixture-contract,$(FINDER_RESTORE_DATA),$(FLAIR_FIXTURES) TRASH= TRASH/README.TXT))
 

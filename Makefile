@@ -14055,7 +14055,7 @@ test-te-surface-mutant: $(foreach m,$(TE_SURFACE_MUTANTS),$(BUILD)/test_te_surfa
 TEST_ITEXT_ROUTE      := $(BUILD)/test_itext_route
 TEST_ITEXT_ROUTE_SRC  := harness/proptest/test_itext_route.c
 TEST_ITEXT_ROUTE_LINK := os/flair/textedit.c os/flair/scrap.c
-TEST_ITEXT_ROUTE_DEPS := $(TEST_ITEXT_ROUTE_SRC) os/apps/itext/itext.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h $(TEST_TEXTEDIT_DEPS)
+TEST_ITEXT_ROUTE_DEPS := $(TEST_ITEXT_ROUTE_SRC) os/apps/itext/itext.c os/apps/tbx/tbx.h os/apps/tbx/tbx_save.h spec/toolbox_gate.h spec/event_model.h $(TEST_TEXTEDIT_DEPS)
 TEST_ITEXT_ROUTE_CF   := -Ios/apps/tbx -Ispec -Ios/flair -Ios/flair/atkinson -Ispec/assets
 $(TEST_ITEXT_ROUTE): $(TEST_ITEXT_ROUTE_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEST_ITEXT_ROUTE_CF) -o $@ $(TEST_ITEXT_ROUTE_SRC) $(TEST_ITEXT_ROUTE_LINK)
@@ -14741,7 +14741,7 @@ test-i123-recalc-order-mutant: $(BUILD)/test_i123_recalc_mutant_I123_MUT_NO_PREC
 # ---------------------------------------------------------------------------
 TEST_I123_QUIT   := $(BUILD)/test_i123_quit
 I123_QUIT_FS     := $(BUILD)/i123_quit_fs
-I123_QUIT_DEPS   := harness/proptest/test_i123_quit.c os/i123/app/face_a.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h $(I123_CORE_SRC) $(I123_CORE_HDR)
+I123_QUIT_DEPS   := harness/proptest/test_i123_quit.c os/i123/app/face_a.c os/apps/tbx/tbx.h os/apps/tbx/tbx_save.h spec/toolbox_gate.h spec/event_model.h $(I123_CORE_SRC) $(I123_CORE_HDR)
 I123_QUIT_CFLAGS := $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/apps/tbx $(I123_CORE_INC)
 $(TEST_I123_QUIT): $(I123_QUIT_DEPS) | $(BUILD)
 	$(CC) $(I123_QUIT_CFLAGS) -o $@ harness/proptest/test_i123_quit.c $(I123_CORE_SRC)
@@ -14996,7 +14996,7 @@ endif
 # IWORD_MUT_NO_BLOCK_ON (leg F8: "Block on" is not shown).
 # ---------------------------------------------------------------------------
 TEST_IWORD_FACE   := $(BUILD)/test_iword_face
-IWORD_FACE_DEPS   := harness/proptest/test_iword_face.c os/iword/app/face_a.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/iword/settings.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR)
+IWORD_FACE_DEPS   := harness/proptest/test_iword_face.c os/iword/app/face_a.c os/apps/tbx/tbx.h os/apps/tbx/tbx_save.h spec/toolbox_gate.h spec/event_model.h spec/iword/settings.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR)
 IWORD_FACE_CFLAGS := $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/apps/tbx $(IWORD_CORE_INC)
 IWORD_FACE_FS     := $(BUILD)/iword_face_fs
 $(TEST_IWORD_FACE): $(IWORD_FACE_DEPS) | $(BUILD)
@@ -31054,8 +31054,8 @@ $(BUILD)/test_tbx_file_mutant_%: $(TBX_FILE_DEPS) | $(BUILD)
 test-tbx-file: $(BUILD)/test_tbx_file
 	@$(BUILD)/test_tbx_file
 	@printf '>>> test-tbx-file: green\n'
-test-tbx-file-mutant: $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_BOUNDS $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_OWNER $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_LEAK $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_RENAME_EDI
-	@for pair in TBX_MUT_FILE_BOUNDS:F2 TBX_MUT_FILE_OWNER:F3 TBX_MUT_FILE_LEAK:F4 TBX_MUT_FILE_RENAME_EDI:F5; do \
+test-tbx-file-mutant: $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_BOUNDS $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_OWNER $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_LEAK $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_RENAME_EDI $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_CREATE_NEW_TRUNC
+	@for pair in TBX_MUT_FILE_BOUNDS:F2 TBX_MUT_FILE_OWNER:F3 TBX_MUT_FILE_LEAK:F4 TBX_MUT_FILE_RENAME_EDI:F5 TBX_MUT_FILE_CREATE_NEW_TRUNC:F6; do \
 	 m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_tbx_file_mutant_$$m; \
 	 if $$bin > $$bin.log 2>&1; then printf '!!! test-tbx-file-mutant: %s survived\n' $$m; exit 1; fi; \
 	 grep -q "FAIL.*$$why" $$bin.log || { cat $$bin.log; exit 1; }; \

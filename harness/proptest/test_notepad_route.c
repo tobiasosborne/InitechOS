@@ -140,6 +140,8 @@ int32_t tbx_file_write(int32_t h, const void *buf, uint32_t n)
 int32_t tbx_file_seek(int32_t h, int32_t d, uint32_t o) { (void)h; (void)d; (void)o; return 0; }
 int32_t tbx_file_close(int32_t h) { m_h[h - 5].f = 0; return TBX_OK; }
 int32_t tbx_file_delete(const char *p) { mfile_t *f = mfind(p); if (f) f->used = 0; return TBX_OK; }
+/* Sec 10b CREATE_NEW (initech-mcep): DOS 3.3 AH=5Bh -- never truncates. */
+int32_t tbx_file_create_new(const char *path) { return mfind(path) ? TBX_ERR_DOS(0x50) : tbx_file_create(path); }
 /* Sec 10b RENAME (initech-mcep): DOS 3.3 AH=56h -- an existing target is
  * access denied, a missing source is file not found. */
 int32_t tbx_file_rename(const char *o, const char *n)

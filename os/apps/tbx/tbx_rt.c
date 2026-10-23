@@ -191,6 +191,8 @@ int32_t tbx_file_rename(const char *old_path, const char *new_path)
     uint32_t a[] = { (uint32_t)(uintptr_t)old_path, (uint32_t)(uintptr_t)new_path };
     return tbx_trap(TBX_FILE_RENAME, TBX_ARGC_FILE_RENAME, a);
 }
+int32_t tbx_file_create_new(const char *path)
+{ uint32_t a[] = { (uint32_t)(uintptr_t)path }; return tbx_trap(TBX_FILE_CREATE_NEW, TBX_ARGC_FILE_CREATE_NEW, a); }
 /* Ref: spec/toolbox_gate.h Sec 10a, deliberately extended in initech-qvgd. */
 int32_t tbx_file_find(const char *pattern, uint32_t attr, void *recs, uint32_t max)
 {

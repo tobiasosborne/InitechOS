@@ -69,10 +69,11 @@
  * bead: initech-mcep (audits 2026-10-23 iword L001/L002, das L003/L008,
  *       i123 L001: a failed save on a full disk destroyed the saved file,
  *       because CREATE truncates before the first WRITE). Deliberate Rule-8
- *       addition: TBX_FILE_RENAME 0x0089 + its arity (Sec 10b) -- the DOS 3.3
- *       AH=56h the tenant runtime's atomic save (os/apps/tbx/tbx_save.h)
- *       needs to put a fully written temporary file in the old one's place.
- *       CREATE keeps its Sec 10 truncate meaning; no old value moved.
+ *       addition: TBX_FILE_RENAME 0x0089 and TBX_FILE_CREATE_NEW 0x008A +
+ *       their arities (Sec 10b) -- the DOS 3.3 AH=56h and AH=5Bh the tenant
+ *       runtime's atomic save (os/apps/tbx/tbx_save.h) needs: a temporary
+ *       name proven unused, then the fully written file put in the old one's
+ *       place. CREATE keeps its Sec 10 truncate meaning; no old value moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -233,7 +234,9 @@
 #define TBX_ARGC_DISK_FREE 0u
 /* Deliberate locked ABI extension, initech-mcep. Sec 10b below. */
 #define TBX_FILE_RENAME   0x0089u  /* (oldPath, newPath) -> 0 | err */
+#define TBX_FILE_CREATE_NEW 0x008Au /* (path) -> handle | err; never truncates */
 #define TBX_ARGC_FILE_RENAME 2u
+#define TBX_ARGC_FILE_CREATE_NEW 1u
 /* Deliberate locked ABI extension, initech-fvnj. Sec 11 below. */
 #define TBX_ALERT         0x0090u  /* (textPtr, defPtr, cancelPtr, otherPtr)
                                     * -> 0 | err; the answer is DELIVERED  */
@@ -298,17 +301,22 @@
  * (mint 005 LF11_06 == mdir's "bytes free"); an unreadable volume is
  * TBX_ERR_DOS(0x0F). */
 
-/* Sec 10b. RENAME (initech-mcep; the sanctioned DOS surface, ADR-0003
- * Appendix A: 56h RENAME). FILE_RENAME(oldPath, newPath) is AH=56h under the
- * Sec 10 discipline (shadow PSP, root CWD, both paths checked exactly like a
- * Sec 10 path, module or BSS). DOS 3.3 semantics are kept, not improved
- * (Technical Reference p. 6-206; os/milton/int21.c do_rename): a missing
- * source is TBX_ERR_DOS(2); an existing target, a directory source or a
- * device name on either side is TBX_ERR_DOS(5); a cross-directory pair is
- * TBX_ERR_DOS(0x11). There is no rename-over: the replacing save is the
- * tenant runtime's tbx_file_save (os/apps/tbx/tbx_save.h), which writes
- * <name>.$$$ in the same directory, closes it, DELETEs the old file and then
- * RENAMEs -- the old file survives every failure before the DELETE. */
+/* Sec 10b. RENAME and CREATE_NEW (initech-mcep; the sanctioned DOS surface,
+ * ADR-0003 Appendix A: 56h RENAME, 5Bh CREATNEW), both under the Sec 10
+ * discipline (shadow PSP, root CWD, paths checked exactly like a Sec 10 path,
+ * module or BSS). FILE_RENAME(oldPath, newPath) is AH=56h (Technical
+ * Reference p. 6-206; os/milton/int21.c do_rename): a missing source is
+ * TBX_ERR_DOS(2); an existing target or a device name on either side is
+ * TBX_ERR_DOS(5). A cross-directory pair is TBX_ERR_DOS(0x11) -- a local
+ * same-directory restriction of this kernel (do_rename; beads initech-ycb3),
+ * not DOS 3.3's rule, which permits a same-drive move. There is no
+ * rename-over-an-existing-file. FILE_CREATE_NEW(path) is AH=5Bh: CREATE's
+ * checks, but an existing file is TBX_ERR_DOS(0x50) and is never truncated.
+ * The replacing save is the tenant runtime's tbx_file_save (os/apps/tbx/
+ * tbx_save.h): it CREATE_NEWs an unused <name>.$$$ (or .$$0 .. .$$9) in the
+ * same directory, writes and closes it, DELETEs the old file and then
+ * RENAMEs -- the old file, and any file already under a temporary name,
+ * survive every failure before the DELETE. */
 #define TBX_FIND_REC_BYTES      22u
 #define TBX_FIND_REC_ATTR_OFF   0u
 #define TBX_FIND_REC_TIME_OFF   1u

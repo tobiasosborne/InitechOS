@@ -14,12 +14,13 @@ static uint8_t bytes[64];
 static uint32_t size, calls;
 static uint16_t open_file(const char *name, uint16_t dir, dir_entry_t *e, uint32_t *slot)
 {
-    (void)name; calls++;
+    calls++;
     if (dir != 0) return 3;
+    if (strcmp(name, "FRESH.DAT") == 0) return 2;   /* F6: the one absent name */
     memset(e, 0, sizeof *e); e->file_size = size; *slot = 0; return 0;
 }
 static uint16_t create_file(const char *name, uint16_t dir, dir_entry_t *e, uint32_t *slot)
-{ size = 0; return open_file(name, dir, e, slot); }
+{ (void)name; calls++; if (dir != 0) return 3; size = 0; memset(e, 0, sizeof *e); *slot = 0; return 0; }
 static uint16_t read_file(const dir_entry_t *e, uint32_t off, uint8_t *b, uint32_t n, uint32_t *got)
 {
     (void)e; calls++; *got = off < size ? size - off : 0;
@@ -118,6 +119,20 @@ int main(void)
     ASSERT_EQ("F5 rename bad old path", call(&owner,lo,TBX_FILE_RENAME,lo-1,lo+520,0), TBX_ERR_BADARG);
     ASSERT_EQ("F5 rename to a device", call(&owner,lo,TBX_FILE_RENAME,lo+500,lo+400,0), TBX_ERR_DOS(5));
     ASSERT_EQ("F5 refusals never touch backend", calls, before);
+    /* F6 (initech-mcep, Sec 10b): CREATE_NEW is AH=5Bh -- an existing file is
+     * ERR_DOS(0x50) and keeps its bytes; an absent one is created. */
+    uint32_t had = size;
+    ASSERT_TRUE("F6 existing file has bytes", had > 0);
+    ASSERT_EQ("F6 create-new over existing refused", call(&owner,lo,TBX_FILE_CREATE_NEW,lo,0,0), TBX_ERR_DOS(0x50));
+    ASSERT_EQ("F6 existing file not truncated", size, had);
+    strcpy((char *)mem+600,"FRESH.DAT");
+    int32_t fresh = call(&owner,lo,TBX_FILE_CREATE_NEW,lo+600,0,0);
+    ASSERT_TRUE("F6 create-new of an absent name", fresh >= 5);
+    if (fresh >= 5) ASSERT_EQ("F6 close", call(&owner,lo,TBX_FILE_CLOSE,fresh,0,0), 0);
+    before = calls;
+    ASSERT_EQ("F6 create-new device refused", call(&owner,lo,TBX_FILE_CREATE_NEW,lo+400,0,0), TBX_ERR_BADARG);
+    ASSERT_EQ("F6 device never touches backend", calls, before);
+    size = had;                       /* the one mock file is TEST.DAT again */
     int32_t alien = call(&other,lo,TBX_FILE_OPEN,lo,0,0);
     ASSERT_TRUE("F4 unrelated owner open", alien >= 5);
     tbxf_reap(&owner);

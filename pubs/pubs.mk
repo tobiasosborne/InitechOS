@@ -518,7 +518,7 @@ PUBS_IWORD_PROBE := $(BUILD)/pubs_iword_probe
 PUBS_IWORD_ALLOW := harness/pubs/iword.allow
 PUBS_PPM_GREY    := $(BUILD)/pubs_ppm_grey_png
 PUBS_IWORD_SRC    = harness/pubs/iword_probe.c os/iword/app/face_a.c $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) \
-                    os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/iword/settings.h
+                    os/apps/tbx/tbx.h os/apps/tbx/tbx_save.h spec/toolbox_gate.h spec/event_model.h spec/iword/settings.h
 PUBS_IWORD_CC     = $(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/apps/tbx $(IWORD_CORE_INC)
 $(PUBS_IWORD_PROBE): $(PUBS_IWORD_SRC) | $(BUILD)
 	$(PUBS_IWORD_CC) -o $@ harness/pubs/iword_probe.c $(IWORD_CORE_SRC)

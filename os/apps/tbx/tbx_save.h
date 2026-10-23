@@ -9,9 +9,12 @@
  * THE SEQUENCE (authored; the period precedent is DOS 3.3 EDLIN, which writes
  * the edited file and only then renames the original -- MS-DOS 3.3 User's
  * Reference p. 164, "How to End Edlin and Save Your Changes"):
- *   1. CREATE <name>.$$$ in the SAME directory and WRITE every byte; CLOSE.
- *      Any failure here DELETEs the temporary file: the old file, and the
- *      directory, are exactly as they were (no zero-byte leftover).
+ *   1. CREATE_NEW (AH=5Bh, never truncates) <name>.$$$ in the SAME
+ *      directory -- or, when that name is taken (a user's file, a remnant of
+ *      an interrupted save), the first free of <name>.$$0 .. <name>.$$9 --
+ *      and WRITE every byte; CLOSE. Any failure here DELETEs only the file
+ *      this call created: the old file, any file already under a temporary
+ *      name, and the directory are exactly as they were.
  *   2. DELETE <name> (DOS error 2, no such file, is a new save, not a
  *      failure). A refused DELETE (a read-only file: DOS error 5) DELETEs the
  *      temporary file and returns the error -- the old file is untouched.
@@ -24,7 +27,8 @@
  * scheduler is cooperative, so no other tenant runs inside the window.
  * THE COST: the new file is written while the old one still occupies its
  * clusters, so a replacing save needs free space for the whole new file.
- * A target whose extension is already $$$ uses the temporary extension $$!.
+ * A candidate equal to the target's own name is skipped; eleven taken names
+ * refuse the save with TBX_ERR_DOS(0x50) (file exists) before any write.
  *
  * RESULT: `n` on success; 0..n-1 is the short count of a WRITE that ran out
  * of disk (the caller's "Disk Full"); negative is the TBX_ERR_* /
@@ -44,8 +48,8 @@ static char g_tbx_save_tmp[TBX_FILE_PATH_MAX];
 static __attribute__((unused)) int32_t tbx_file_save(const char *path, const void *buf, uint32_t n)
 {
     const unsigned char *b = (const unsigned char *)buf;
-    uint32_t i = 0, dot = 0, pos = 0;
-    int32_t h, rc = 0, cl;
+    uint32_t i = 0, dot = 0, pos = 0, k;
+    int32_t h = TBX_ERR_DOS(0x50), rc = 0, cl;
 #ifdef TBX_MUT_SAVE_IN_PLACE
     /* MUTANT (Rule 6; test-flair-fullsave-mutant): the pre-mcep save --
      * CREATE truncates the target, then the WRITE runs out of disk. */
@@ -65,13 +69,22 @@ static __attribute__((unused)) int32_t tbx_file_save(const char *path, const voi
     if (dot == 0) dot = i;
     if (dot + 5u > TBX_FILE_PATH_MAX) return TBX_ERR_BADARG;
     for (i = 0; i < dot; i++) g_tbx_save_tmp[i] = path[i];
-    g_tbx_save_tmp[i++] = '.'; g_tbx_save_tmp[i++] = '$';
-    g_tbx_save_tmp[i++] = '$';
-    g_tbx_save_tmp[i++] = (path[dot] == '.' && path[dot+1] == '$' && path[dot+2] == '$' &&
-                           path[dot+3] == '$' && path[dot+4] == '\0') ? '!' : '$';
-    g_tbx_save_tmp[i] = '\0';
-
-    h = tbx_file_create(g_tbx_save_tmp);
+    g_tbx_save_tmp[dot] = '.'; g_tbx_save_tmp[dot+1] = '$';
+    g_tbx_save_tmp[dot+2] = '$'; g_tbx_save_tmp[dot+4] = '\0';
+    for (k = 0; k < 11u && h == TBX_ERR_DOS(0x50); k++) {
+        g_tbx_save_tmp[dot+3] = k == 0 ? '$' : (char)('0' + k - 1u);
+        if (path[dot] == '.' && path[dot+1] == '$' && path[dot+2] == '$' &&
+            path[dot+3] == g_tbx_save_tmp[dot+3] && path[dot+4] == '\0')
+            continue;                            /* never the target itself */
+#ifndef TBX_MUT_SAVE_TEMP_CREATE
+        h = tbx_file_create_new(g_tbx_save_tmp); /* proven unused, or 0x50 */
+#else
+        /* MUTANT (Rule 6; test-flair-fullsave-mutant COLLIDE): the temporary
+         * is a plain CREATE -- a file already under that name is truncated
+         * and then deleted on failure. NEVER real. */
+        h = tbx_file_create(g_tbx_save_tmp);
+#endif
+    }
     if (h < 0) return h;
     while (pos < n) {
         rc = tbx_file_write(h, b + pos, n - pos);
