@@ -235,18 +235,22 @@ drive A:} and nothing is changed.
 \end{DosEntry}
 
 % LABEL -- os/milton/dosutil.c label_main / label_read / label_write
-% (current drive only; prompts; the invalid characters; 11 characters,
+% MS-DOS 3.3 User's Guide LABEL, pp.86-87 / PDF171-172; DEC-15a;
+% initech-q45q drive operands (any mounted drive; default unchanged);
+% (prompts; the invalid characters; 11 characters,
 % capitals; root VOLLABEL entry + extended BPB label field; messages).
-% Shipped as APPS\LABEL.COM.  Gates: test-label-vol, test-dosutil-emu.
+% Shipped as APPS\LABEL.COM. Gates: test-label-vol, test-drive-operands,
+% test-dosutil-emu, test-pubs-label, test-pubs-screens.
 \begin{DosEntry}{LABEL}{Volume Label}{external}
 \Purpose Creates, changes or deletes the volume label of a disk.
 \Format \SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\kw{LABEL}
   \opt{\ph{d}\kw{:}}\opt{\ph{label}}}
 \Type{External}
 \Remarks
-\Param{d:} is the drive of the disk.  Only the current drive can be
-labeled; another drive letter displays \texttt{Invalid drive
-specification}.
+\Param{d:} is the drive of the disk.  You can specify any mounted drive.
+If you omit it, the current drive is used.  Selecting a drive here does
+not change the current drive.  An invalid drive letter displays
+\texttt{Invalid drive specification}.
 
 \Param{label} is the new volume label, up to 11 characters.  Letters are
 changed to capitals; characters after the eleventh are ignored.  A label
@@ -272,7 +276,9 @@ If the root directory has no room for the label, \cmd{LABEL} displays
 To give the practice diskette the label \file{REPORTS}, answering the
 question, and display it:
 \Shot{label}
-To set the label in one command, and an attempt with a period in it:
+From drive~C, give the diskette in drive~A the label \file{REPORTS} and
+display it.  Then return to drive~A and try a label containing a period;
+the label remains \file{REPORTS}:
 \Shot{labelset}
 \end{DosEntry}
 
