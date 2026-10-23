@@ -1,13 +1,15 @@
 % Chapter 7 -- Redirecting Input and Output.
 % Sources (Law 1): os/milton/command.c (cmd_redir_parse, run_with_redirect,
-% run_output_and_dispatch: '>' create, '>>' append, '<' input; cmd_pipe_split
-% and run_pipeline: '|' through temporary files, MSG-DOS-0005 when one
-% cannot be created); devices.c NUL.  The filters MORE, FIND and SORT are
+% run_output_and_dispatch: '>' create, '>>' append, '<' input, MSG-DOS-0046
+% when the target cannot be created, MSG-DOS-0005 when its writes do not fit;
+% cmd_pipe_split and run_pipeline: '|' through AH=5Bh temporary files,
+% MSG-DOS-0005 when one cannot be created or filled; initech-66oc,
+% test-redir-full-emu); devices.c NUL.  The filters MORE, FIND and SORT are
 % built and gated (os/milton/{more,find,sort}_program.asm; test-more-filter,
 % test-find-filter, test-sort-filter) and ship in DOS (initech-2kgh/zc68,
 % Makefile FLAIR_DOS_EXTERNALS, test-dos-folder).
-% GATES: test-redir test-redir-parse test-hsct-redir test-bsy7-redir test-bsy8-pipe test-bsy9-redir test-pubs-screens
-\Gates{test-redir, test-redir-parse, test-hsct-redir, test-bsy7-redir, test-bsy8-pipe, test-bsy9-redir, test-pubs-screens}
+% GATES: test-redir test-redir-parse test-hsct-redir test-bsy7-redir test-bsy8-pipe test-bsy9-redir test-redir-full-emu test-pubs-screens
+\Gates{test-redir, test-redir-parse, test-hsct-redir, test-bsy7-redir, test-bsy8-pipe, test-bsy9-redir, test-redir-full-emu, test-pubs-screens}
 \chapter{Redirecting Input and Output}
 
 \section{Standard Input and Standard Output}
@@ -23,7 +25,10 @@ This is called \term{redirection}.
 \index{redirection}
 Put \type{>} and a file name after a command to send its output to that file
 instead of the display.  If the file exists, it is replaced.  Use \type{>>}
-to add the output to the end of an existing file instead.
+to add the output to the end of an existing file instead.  If the file is
+read-only, InitechDOS displays \texttt{File creation error} and does not run
+the command; if the output does not fit on the disk, it displays
+\texttt{Insufficient disk space}.
 \begin{Steps}
 \item Type \type{CLS} and press \key{Enter}.
 \item Type \type{VER > LIST.TXT} and press \key{Enter}.  Nothing is
@@ -61,8 +66,10 @@ label back with \type{LABEL INITECH}.
 \index{pipes}\index{filters}
 A \term{pipe}, the character \type{|} between two commands, sends the output
 of the first command to the second as its input.  InitechDOS keeps the text
-in a temporary file on the disk while it passes it on; if there is no room
-for the file, it displays \texttt{Insufficient disk space}.
+in a temporary file on the disk while it passes it on, under a name no other
+file is using, and deletes it afterward; if there is no room for the file,
+it displays \texttt{Insufficient disk space} and does not run the second
+command.
 
 A \term{filter} is a program that reads its standard input, changes it, and
 writes the result to its standard output.  Filters are most useful in

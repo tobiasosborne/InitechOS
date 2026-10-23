@@ -41,8 +41,9 @@ static int dos_creat(const char *s) { return call_host(0x3c00,0,0,(uintptr_t)s,0
 #define DOS_READ_ERROR 0xffffffffu
 static uint32_t dos_read(int h,uint8_t *p,uint32_t n)
 { int r=call_host(0x3f00,(unsigned)h,n,(uintptr_t)p,0); return r<0 ? DOS_READ_ERROR:(uint32_t)r; }
+#define DOS_WRITE_ERROR 0xffffffffu
 static uint32_t dos_write_h(int h,const uint8_t *p,uint32_t n)
-{ int r=call_host(0x4000,(unsigned)h,n,(uintptr_t)p,0); return r<0 ? 0:(uint32_t)r; }
+{ int r=call_host(0x4000,(unsigned)h,n,(uintptr_t)p,0); return r<0 ? DOS_WRITE_ERROR:(uint32_t)r; }
 static int dos_seteof(int h) { return call_host(0x4000,(unsigned)h,0,0,0)<0 ? -1:0; }
 static void dos_close(int h) { call_host(0x3e00,(unsigned)h,0,0,0); }
 static int dos_lseek_end(int h) { return call_host(0x4202,(unsigned)h,0,0,0)<0 ? -1:0; }

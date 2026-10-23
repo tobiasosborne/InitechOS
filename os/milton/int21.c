@@ -1111,6 +1111,12 @@ static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
                                         e->file_offset,
                                         (const uint8_t *)buf, count,
                                         &wrote, &updated);
+        /* A short write is the TR pp.6-139/6-140 disk-full answer (CF clear,
+         * fewer bytes). AH=02h/09h report no status at all, so remember it
+         * on the slot for the shell that owns a redirect (initech-66oc). */
+        if (err != 0 || wrote < count) {
+            e->write_fault = 1u;
+        }
         if (err != 0) {
             return err;
         }
@@ -2443,6 +2449,18 @@ int int21_same_file(uint16_t first, uint16_t second)
     if (a->kind == SFT_KIND_FILE)
         return a->drive == b->drive && a->dir_start == b->dir_start && a->root_slot == b->root_slot;
     return a->kind == SFT_KIND_DEVICE && a->device == b->device;
+}
+
+/* Kernel-resident COMMAND.COM redirect guard (initech-66oc): 1 iff a FILE
+ * write through the OPEN handle `handle` (or any DUP of its SFT slot) came up
+ * short or failed. AH=02h/09h carry no error status, so a builtin's output
+ * to a full disk is otherwise invisible to the shell; AH=40h's own short
+ * count is the TR pp.6-139/6-140 disk-full contract. Invalid handle -> 0. */
+int int21_write_fault(uint16_t handle)
+{
+    sft_entry_t *e = handle <= 0xFFu
+        ? sft_from_handle(g_cur_psp, (uint8_t)handle) : 0;
+    return e != 0 && e->kind == SFT_KIND_FILE && e->write_fault != 0u;
 }
 
 int int21_directory_exists(const char *path)

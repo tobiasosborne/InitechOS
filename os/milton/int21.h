@@ -570,6 +570,11 @@ int int21_path_is_device(const char *path);
  * No path-text heuristics; invalid handles and distinct devices are different.
  * Ref: MS-DOS 3.3 User's Reference p. 50; audit K01 / initech-vj28. */
 int int21_same_file(uint16_t first, uint16_t second);
+/* Kernel-resident COMMAND.COM redirect guard: 1 iff a FILE write through
+ * `handle`'s SFT slot came up short or failed (a full disk; IBM DOS 3.30 TR
+ * pp.6-139/6-140). Lets the shell report a redirected write it could not see
+ * through AH=09h. Ref: initech-66oc; audit 2026-10-23-dos L002/L003. */
+int int21_write_fault(uint16_t handle);
 /* Read-only full-directory resolution for COPY destination operands, including
  * root, CWD, dot/parent and trailing separator spellings. Never changes CWD.
  * Ref: MS-DOS 3.3 User's Reference p. 51; audit K02 / initech-wdzq. */
