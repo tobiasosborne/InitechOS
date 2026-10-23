@@ -64,7 +64,7 @@
  *     Sec 2 (CENTURY default OFF).
  *   - ../dbase3-decomp/re/mint-results-003.md (DATE=AMERICAN, CENTURY=OFF [verified]).
  *   - ../dbase3-decomp/specs/runtime/dates-and-century.md (format table; base-1900;
- *     blank-date = spaces; CENTURY ON width 10).
+ *     CENTURY ON width 10; blank dates retain separators, per the III+ mint).
  *   - os/samir/include/samir/eval.h  (xb_ctx.set_decimals/set_date_fmt/set_century;
  *     XB_DATE_* constants).
  *   - os/samir/include/samir/set.h   (set_register; set_date_fmt enum).
@@ -203,11 +203,10 @@ static int run_setfmt_tests(const char *corpus_path)
     CHECK(jdn == jdn_850805,
           "default: CTOD('08/05/85') == JDN 2446283 (1985-08-05)");
 
-    /* 1c. DTOC(blank) -> 8 spaces.
-     * Ref: dates-and-century.md "blank date -> (width) spaces". */
+    /* Real III+ datatype-mint DT2 E1/E2: a blank date keeps separators. */
     len = eval_char(ip, "DTOC(CTOD('  /  /  '))", buf, (int)sizeof(buf));
-    CHECK(len == 8 && memcmp(buf, "        ", 8) == 0,
-          "default: DTOC(blank) -> 8 spaces (CENTURY OFF width=8)");
+    CHECK(len == 8 && memcmp(buf, "  /  /  ", 8) == 0,
+          "default: DTOC(blank) -> '  /  /  ' [real III+ DT2 E1/E2]");
 
     /* 1d. STR(3.14159) 1-arg: dec=0 ALWAYS (STR is NOT governed by SET DECIMALS).
      * Result: "         3" (width=10, 0 decimals, right-justified).
@@ -280,11 +279,10 @@ static int run_setfmt_tests(const char *corpus_path)
     CHECK(len == 10 && strcmp(buf, "08/05/1985") == 0,
           "SET CENTURY ON: DTOC(date) == '08/05/1985' (AMERICAN 10-char) [MUTANT]");
 
-    /* 4b. DTOC(blank) after CENTURY ON -> 10 spaces.
-     * Ref: dates-and-century.md "blank date -> (width) spaces". */
+    /* Real III+ datatype-mint DT6 D02: year digits blank, slashes retained. */
     len = eval_char(ip, "DTOC(CTOD('  /  /  '))", buf, (int)sizeof(buf));
-    CHECK(len == 10 && memcmp(buf, "          ", 10) == 0,
-          "SET CENTURY ON: DTOC(blank) -> 10 spaces (CENTURY ON width=10)");
+    CHECK(len == 10 && memcmp(buf, "  /  /    ", 10) == 0,
+          "SET CENTURY ON: DTOC(blank) -> '  /  /    ' [real III+ DT6 D02]");
 
     /* 4c. SET CENTURY OFF restores 8-char output. */
     rc = do_set(ip, "SET CENTURY OFF");
@@ -342,9 +340,15 @@ static int run_setfmt_tests(const char *corpus_path)
     len = eval_char(ip, "DTOC(CTOD('1985.08.05'))", buf, (int)sizeof(buf));
     CHECK(len == 10 && strcmp(buf, "1985.08.05") == 0,
           "SET DATE ANSI + CENTURY ON: DTOC(CTOD('1985.08.05')) == '1985.08.05' [MUTANT]");
+    len = eval_char(ip, "DTOC(CTOD(''))", buf, (int)sizeof(buf));
+    CHECK(len == 10 && !memcmp(buf, "    .  .  ", 10),
+          "ANSI + CENTURY ON: DTOC(blank) retains year-first separators [real III+ DT6 D03]");
 
     rc = do_set(ip, "SET CENTURY OFF");
     CHECK(rc == 0, "restore SET CENTURY OFF");
+    len = eval_char(ip, "DTOC(CTOD(''))", buf, (int)sizeof(buf));
+    CHECK(len == 8 && !memcmp(buf, "  .  .  ", 8),
+          "ANSI + CENTURY OFF: DTOC(blank) retains separators [real III+ DT6 D04]");
 
     /* ------------------------------------------------------------------ */
     /* 6. SET DATE BRITISH -> DD/MM/YY                                     */

@@ -85,6 +85,7 @@ TEST_HARNESS();
 
 /* Scratch: 2 KB -- large enough for @( paren-wrap + @X/@C 3-byte suffixes.   */
 static char g_scratch[2048];
+static uint8_t g_decimals = 2;
 
 /*
  * eval_expr -- lex + parse + eval with EXACT OFF, no work area, injected today.
@@ -104,7 +105,7 @@ static int eval_expr(const char *s, xb_val *out, int *err)
 
     ctx.set_exact    = 0;
     /* III+ defaults for formatter context fields (eval.h xb_ctx). */
-    ctx.set_decimals = 2;
+    ctx.set_decimals = g_decimals;
     ctx.set_date_fmt = 0; /* XB_DATE_AMERICAN */
     ctx.set_century  = 0; /* OFF */
     ctx.resolve      = NULL;
@@ -230,10 +231,30 @@ int main(void)
          "G8: TRANSFORM(999.995,'999.99')='***.**' (rounds to 1000.00) [real III+ DT1 C8]");
     ok_c("TRANSFORM(5,'9.9')", "5.0", 3,
          "G9: L007 TRANSFORM(5,'9.9')='5.0' [real III+ DT1 C9] [MUTANT TARGET]");
+    ok_c("TRANSFORM(12.5,'99')", "12", 2,
+         "G10: TRANSFORM converts before picture truncation [real III+ DT1 C10] [MUTANT TARGET]");
+    /* Additional real III+ probes in datatype-mint DT6LOG.TXT. These reject
+     * both direct picture rounding and blind truncation of the input. */
+    ok_c("TRANSFORM(1.5,'99')", " 1", 2, "T02: default precision before integer picture [DT6]");
+    ok_c("TRANSFORM(-3.5,'999')", " -3", 3, "T06: negative integer picture [DT6]");
+    ok_c("TRANSFORM(12.75,'99.9')", "12.7", 4, "T08: picture truncates the converted fraction [DT6]");
+    ok_c("TRANSFORM(12.51,'99')", "12", 2, "T09: picture does not round at its own precision [DT6]");
+    ok_c("TRANSFORM(1.23456,'9.9999')", "1.2300", 6, "A1: picture zero-pads conversion [DT6]");
+    ok_c("TRANSFORM(1.235,'9.99')", "1.24", 4, "A3: conversion rounds before picture [DT6]");
+    ok_c("TRANSFORM(1.245,'9.99')", "1.25", 4, "A4: binary value above halfway [DT6]");
+    ok_c("TRANSFORM(0.125,'9.99')", "0.12", 4, "T12: exact halfway converts to even [DT6]");
+    ok_c("TRANSFORM(2.999,'99')", " 3", 2, "T13: conversion carry precedes picture truncation [DT6]");
+    g_decimals = 0;
+    ok_c("TRANSFORM(12.99,'99')", "13", 2, "B1: DECIMALS 0 rounds before integer picture [DT6]");
+    ok_c("TRANSFORM(1.23456,'9.9999')", "1.0000", 6, "B2: DECIMALS 0 zero-pads picture [DT6]");
+    g_decimals = 1;
+    ok_c("TRANSFORM(1.29,'9.9')", "1.3", 3, "C2: DECIMALS 1 rounds before picture [DT6]");
+    g_decimals = 3;
+    ok_c("TRANSFORM(2.999,'99')", " 2", 2, "D1: DECIMALS 3 retains fraction until picture [DT6]");
+    ok_c("TRANSFORM(1.23456,'9.9999')", "1.2350", 6, "D2: DECIMALS 3 pads picture [DT6]");
+    g_decimals = 2;
     ok_c("TRANSFORM(1234.5,'9,999.99')", "1,234.50", 8,
          "G11: TRANSFORM(1234.5,'9,999.99')='1,234.50' [real III+ DT1 C11] [MUTANT TARGET]");
-    /* NOT asserted: DT1 C10 TRANSFORM(12.5,"99") is "12" in real III+, a
-     * half-way rounding rule this lane does not own (follow-up bead). */
 
     /* ================================================================ */
     /* B. @( flag: parens for negatives                                  */

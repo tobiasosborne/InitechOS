@@ -248,7 +248,7 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
         if(dec)dec=2;
 #endif
         if(width>255)width=255;
-        int n=dec_format(v->u.n,width,dec,cell);
+        int n=dec_format_fit(v->u.n,width,dec,cell,0);
         q_append(buf,pos,cap,cell,(uint32_t)n);
         break;
     }
@@ -630,7 +630,7 @@ static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
 #ifdef SAMIR_NUMERIC_MUTATE_FRACTION
         if(v->u.n==(double)(int64_t)v->u.n) dec=0;
 #endif
-        dec_format(v->u.n,width,dec,cell);
+        dec_format_fit(v->u.n,width,dec,cell,0);
 #ifdef SAMIR_NUMERIC_MUTATE_LEFT
         { uint32_t lead=0,i; while(lead<width && cell[lead]==' ') lead++;
           for(i=0;i<width-lead;i++) cell[i]=cell[i+lead];

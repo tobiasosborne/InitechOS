@@ -34053,7 +34053,7 @@ test-samir-dml-emu: $(addsuffix -emu, $(addprefix test-samir-dml-, $(SAMIR_DML_C
 test-samir-dml-emu-mutants: $(addsuffix -emu-mutant, $(addprefix test-samir-dml-, $(SAMIR_DML_CASES)))
 define samir-dml-gates
 .PHONY: test-samir-dml-$(1) test-samir-dml-$(1)-mutant test-samir-dml-$(1)-emu test-samir-dml-$(1)-emu-mutant
-test-samir-dml-$(1): $$(SAMIR_DML_TEST)
+test-samir-dml-$(1): $$(SAMIR_DML_TEST) $$(CLIENTS_DBF)
 	@$$< $(1) host
 	@printf '>>> test-samir-dml-$(1): green\n'
 test-samir-dml-$(1)-mutant: $$(BUILD)/test_samir_dml_$(1) test-samir-dml-$(1)
@@ -34079,7 +34079,7 @@ $(foreach verb,$(SAMIR_DML_CASES),$(eval $(call samir-dml-gates,$(verb))))
 # xbase_prog_diff/datatype-mint (sha256-pinned; mint-samir-datatype re-runs
 # dosbox-x and proves real III+ still reproduces them). Each mutant re-opens one
 # defect in dbf.c/mutate.c and must turn at least one L0nn check RED.
-SAMIR_DT_CASES := blankdate overflow dateindex dateindex-blank boundary
+SAMIR_DT_CASES := blankdate overflow dateindex dateindex-blank boundary blankdtoc numericfit valstar
 SAMIR_DT_MUTANTS := blankwrite starread blankread blankkey cutoff
 SAMIR_DT_TEST := $(BUILD)/test_samir_datatype
 SAMIR_DT_MUTS := $(addprefix $(BUILD)/test_samir_datatype_, $(SAMIR_DT_MUTANTS))
@@ -34104,6 +34104,30 @@ test-samir-datatype-mutants: $(SAMIR_DT_MUTS) test-samir-datatype
 	  printf '>>> SAMIR_DT_MUTANT_%s RED: ' $$m; cat $(BUILD)/dt-mut-$$m-*.log | grep 'FAIL.*L0[0-9][0-9]' | head -1; \
 	done
 TEST_UNIT_GATES += test-samir-datatype test-samir-datatype-mutants test-xbase-transform-dotwidth-mutant
+
+# Formatting regressions against the real III+ datatype mint (ljjz/wquu/0ryd/2g1f).
+# Each mutant must finish the harness and fail its own named regression.
+SAMIR_FMT_MUTANTS := blankdtoc numericfit valstar
+.PHONY: test-samir-format-mutants test-xbase-transform-rounding-mutant
+test-samir-format-mutants: $(addprefix $(BUILD)/test_samir_datatype_, $(SAMIR_FMT_MUTANTS)) test-xbase-transform-rounding-mutant
+	@for m in $(SAMIR_FMT_MUTANTS); do \
+	  case $$m in blankdtoc) tag=DTOC;; numericfit) tag=NFIT;; valstar) tag=VALSTAR;; esac; \
+	  log=$(BUILD)/dt-mut-$$m.log; \
+	  set +e; $(BUILD)/test_samir_datatype_$$m $$m > $$log 2>&1; rc=$$?; set -e; \
+	  if [ $$rc -ne 1 ] || ! grep -q 'checks,' $$log || ! grep -q "FAIL.*FMT-$$tag" $$log; then \
+	    cat $$log; printf '!!! %s mutant did not fail its named check\n' $$m; exit 1; fi; \
+	  printf '>>> %s correctly RED: ' $$m; grep -m1 "FAIL.*FMT-$$tag" $$log; \
+	done
+$(addprefix $(BUILD)/test_samir_datatype_, $(SAMIR_FMT_MUTANTS)): $(BUILD)/test_samir_datatype_%: $(DBF_DIFF_DIR)/test_samir_datatype.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_DT_MUTANT_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+$(BUILD)/test_xbase_transform_rounding_mut: $(DBF_DIFF_DIR)/test_xbase_transform.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_TR_ROUNDING -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+test-xbase-transform-rounding-mutant: $(BUILD)/test_xbase_transform_rounding_mut
+	@log=$(BUILD)/tr-rounding-mut.log; set +e; $< > $$log 2>&1; rc=$$?; set -e; \
+	 if [ $$rc -ne 1 ] || ! grep -q 'checks,' $$log || ! grep -q 'FAIL.*G10:' $$log; then \
+	   cat $$log; printf '!!! TRANSFORM rounding mutant did not fail G10\n'; exit 1; fi; \
+	 printf '>>> TRANSFORM rounding correctly RED: '; grep -m1 'FAIL.*G10:' $$log
+TEST_UNIT_GATES += test-samir-format-mutants
 
 .PHONY: samir-dml-goldens
 # The real-dBASE mint goldens are COMMITTED under xbase_prog_diff/mint/ (only the

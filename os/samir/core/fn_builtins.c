@@ -392,13 +392,19 @@ static int fn_str(xb_ctx *ctx, const xb_val *args, int nargs,
     return 0;
 }
 
-/* VAL(<expC>) -> N: leading numeric portion (rt.h dec_parse). Non-numeric /
- * empty -> 0 (string-functions.md Open Q6 conservative choice). */
+/* VAL(<expC>) -> N: leading numeric portion (rt.h dec_parse). A first-byte
+ * '*' is the overflow sentinel, DBL_MAX (real III+ datatype-mint DT5 I7).
+ * Other non-numeric / empty strings -> 0. */
 static int fn_val(const xb_val *args, int nargs, xb_val *out, int *err)
 {
     if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
     if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
     *out = xb_n(dec_parse(args[0].u.c.p, (int)args[0].u.c.len));
+#ifndef SAMIR_DT_MUTANT_valstar
+    /* Do not trim: real III+ distinguishes "*" from " *" (DT6 V01/V03). */
+    if (args[0].u.c.len && args[0].u.c.p[0] == '*')
+        *out = xb_n(1.7976931348623157e308);
+#endif
     /* PROG-funcs real III+ mint: VAL('42') prints 42.00 (five columns). */
     out->num_dec=2; out->num_width=args[0].u.c.len+3;
     *err = XBEE_OK;
@@ -600,8 +606,8 @@ static void fn_dtoc_write4(char *dst, int *pos, int v)
 }
 
 /* DTOC(<expD>) -> C. Renders a Date using ctx->set_date_fmt and ctx->set_century.
- * Blank date -> (width) spaces (8 or 10 depending on CENTURY ON/OFF).
- * [verified: dates-and-century.md blank-date -> spaces rule]
+ * Blank date -> blank digits with the picture's separators retained.
+ * [real III+ datatype-mint DT2 E1/E2, DT3 G10; DT6 D01..D05]
  *
  * CENTURY OFF (default): 2-digit year, width=8.
  * CENTURY ON:            4-digit year, width=10 (extra 2 chars for full year).
@@ -619,7 +625,8 @@ static void fn_dtoc_write4(char *dst, int *pos, int v)
  *
  * Ref (Law 1):
  *   - ../dbase3-decomp/specs/commands/set-commands.md Sec 3.2 (format table).
- *   - ../dbase3-decomp/specs/runtime/dates-and-century.md (widths; blank rule).
+ *   - ../dbase3-decomp/specs/runtime/dates-and-century.md (widths).
+ *     Its inferred blank-spaces rule is superseded by the real III+ mint.
  *   - ../dbase3-decomp/re/mint-results-003.md (AMERICAN + CENTURY OFF default
  *     [verified]).
  *
@@ -656,15 +663,6 @@ static int fn_dtoc_impl(xb_ctx *ctx, const xb_val *args, int nargs,
     dst = fn_scratch(ctx, width);
     if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
 
-    if (fn_date_blank(args[0].u.d)) {
-        /* Blank date -> (width) spaces. [verified: dates-and-century.md] */
-        for (i = 0; i < (int)width; i++) dst[i] = ' ';
-        *out = xb_c(dst, (uint16_t)width); *err = XBEE_OK; return 0;
-    }
-
-    ymd_from_jdn((int32_t)args[0].u.d, &y, &m, &d);
-    yy_display = century ? (int)y : (int)(y % 100);  /* 2- or 4-digit year */
-
     /* Determine separator and field order. */
     switch (fmt) {
     case XB_DATE_AMERICAN: sep = '/'; year_first = 0; break; /* MM/DD/YY[YY] */
@@ -677,6 +675,20 @@ static int fn_dtoc_impl(xb_ctx *ctx, const xb_val *args, int nargs,
     case XB_DATE_USA:      sep = '-'; year_first = 0; break; /* MM-DD-YY[YY] */
     default:               sep = '/'; year_first = 0; break; /* fallback=AMERICAN */
     }
+
+    if (fn_date_blank(args[0].u.d)) {
+        for (i = 0; i < (int)width; i++) dst[i] = ' ';
+#ifndef SAMIR_DT_MUTANT_blankdtoc
+        /* The year-first CENTURY picture has its separators two columns
+         * later. Stored blank D fields remain eight spaces (DT2 E4.DBF). */
+        pos = year_first && century ? 4 : 2;
+        dst[pos] = dst[pos + 3] = sep;
+#endif
+        *out = xb_c(dst, (uint16_t)width); *err = XBEE_OK; return 0;
+    }
+
+    ymd_from_jdn((int32_t)args[0].u.d, &y, &m, &d);
+    yy_display = century ? (int)y : (int)(y % 100);  /* 2- or 4-digit year */
 
     pos = 0;
     if (year_first) {
@@ -1506,7 +1518,8 @@ static int tr_parse_at_flags(const char *pic, uint16_t plen,
  * Algorithm (grounded on mint-002 C2.TXT + string-functions.md):
  *
  * 1. Scan template: count digit slots (9, #, $), find decimal '.', dollar mode.
- * 2. Format abs(v) with dec_format(|v|, n_digit, n_dec, fmtbuf).
+ * 2. Convert abs(v) at SET DECIMALS precision, then truncate/pad to n_dec.
+ *    Ref: real III+ datatype-mint DT6 T01..T13/A1..D2.
  *    If fmtbuf[0]=='*': overflow. All digit slots -> '*'; literals pass through.
  *    [verified: mint-002 "999-" + -570 -> "***-"]
  * 3. No overflow: extract digit chars from fmtbuf (skip spaces and '.').
@@ -1589,7 +1602,36 @@ static int tr_format_numeric(xb_ctx *ctx, double v,
 #endif
     if (n_digit > 0) {
         double absv = is_neg ? -v : v;
+#ifndef XB_MUTATE_TR_ROUNDING
+        char full[256];
+        int dec = ctx->set_decimals, start = 0, end, digits, need, at;
+        if (dec > 18) dec = 18;
+        /* III+ converts at SET DECIMALS precision FIRST, then copies the
+         * picture's fractional slots (truncating or zero-padding). DT1 C10
+         * and DT6 T01..T11/A1..D2 distinguish this from direct rounding at
+         * n_dec, truncation of the original value, and nearest-even at n_dec.
+         * E.g. 12.5 -> "12", 2.999 -> "3", and 1.23456 -> "1.2300" at
+         * DECIMALS 2, but "1.2350" at DECIMALS 3. */
+        dec_format_even(absv, 255, dec, full);
+        while (start < 255 && full[start] == ' ') start++;
+        end = 255 - (dec ? dec + 1 : 0);
+        digits = end - start;
+        need = digits + (n_dec ? n_dec + 1 : 0);
+        if (full[0] == '*' || need > fmt_w) {
+            for (i = 0; i < fmt_w; i++) fmtbuf[i] = '*';
+        } else {
+            at = fmt_w - need;
+            for (i = 0; i < at; i++) fmtbuf[i] = ' ';
+            for (i = start; i < end; i++) fmtbuf[at++] = full[i];
+            if (n_dec) {
+                fmtbuf[at++] = '.';
+                for (i = 0; i < n_dec; i++)
+                    fmtbuf[at++] = i < dec ? full[end + 1 + i] : '0';
+            }
+        }
+#else
         dec_format(absv, (int)fmt_w, (int)n_dec, fmtbuf);
+#endif
     }
     overflow = (n_digit > 0 && fmtbuf[0] == '*');
 

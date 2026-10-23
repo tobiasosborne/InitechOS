@@ -1011,8 +1011,8 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
  *
  *   C : raw bytes of an xb_c/xb_m payload, left-justified, space-padded to flen
  *       (truncated if longer). xb_u / wrong type -> all spaces.
- *   N : right-justified ASCII via dec_format(value, flen, dec) (overflow ->
- *       dec_format fills '*'). xb_u / wrong type -> all spaces (blank N).
+ *   N : right-justified ASCII via dec_format_fit(value, flen, dec); sacrifice
+ *       decimals before '*'-fill (real III+ DT2 F12/F13). Wrong type -> blanks.
  *   D : 8-char YYYYMMDD from the JDN in an xb_d. xb_u / wrong type -> 8 spaces
  *       (blank date). (flen is always 8 for D, asserted at create.)
  *   L : 'T' for a true xb_l, 'F' for false. xb_u -> '?'. (flen is always 1.)
@@ -1044,10 +1044,10 @@ static void fmt_field(uint8_t *dst, uint8_t flen, char ftype, uint8_t dec,
     }
 
     case (unsigned char)'N': {
-        /* Right-justified ASCII; dec_format writes exactly flen bytes and
-         * '*'-fills on overflow (rt.h; dbf.md sec 5 N). Blank/wrong -> spaces. */
+        /* Shared APPEND/REPLACE precision-reducing codec (DT2 F12/F13).
+         * Blank/wrong -> spaces. */
         if (v && v->t == XB_N) {
-            (void)dec_format(v->u.n, (int)flen, (int)dec, (char *)dst);
+            (void)dec_format_fit(v->u.n, (int)flen, (int)dec, (char *)dst, 1);
         } else {
             rt_memset(dst, ' ', (uint32_t)flen);   /* blank numeric */
         }
@@ -1643,7 +1643,7 @@ refused:
  * Assignment coercion contract (xbase_coercion.json assignment_coercion; self-
  * contained per plan S1.5 -- no eval.c):
  *   C <- C : truncate to flen if too long; space-pad if too short.
- *   N <- N : dec_format(v->u.n, flen, dec, dst). Overflow -> '*'-fill; DBF_OK.
+ *   N <- N : dec_format_fit(v->u.n, flen, dec, dst); DBF_OK even on '*'-fill.
  *   D <- D : write YYYYMMDD; xb_u -> blank (8 spaces).
  *   L <- L : 'T' for 1, 'F' for 0; xb_u -> '?'.
  *   M <- C : dbf_replace appends text to the companion before publishing
@@ -1674,11 +1674,11 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
     }
 
     case (unsigned char)'N': {
-        /* N <- N: ok; dec_format handles overflow by '*'-fill.
+        /* N <- N: reduce decimals before '*'-fill (real III+ DT2 F12/F13).
          * Ref: xbase_coercion.json target:N, expr:N, on_overflow:stars_fill. */
         if (!v || v->t != XB_N)
             return -DBF_ERR_MISMATCH;
-        (void)dec_format(v->u.n, (int)flen, (int)dec, (char *)dst);
+        (void)dec_format_fit(v->u.n, (int)flen, (int)dec, (char *)dst, 1);
         return DBF_OK;
     }
 

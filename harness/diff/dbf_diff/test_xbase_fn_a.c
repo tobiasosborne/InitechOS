@@ -57,6 +57,7 @@
  *   - seed/test_assert.h (harness idiom)
  */
 
+#include <float.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -236,6 +237,12 @@ int main(void)
     ok_n("VAL('ABC')",     0.0,     "H3: VAL('ABC') -> 0");
     ok_n("VAL('')",        0.0,     "H4: VAL('') -> 0");
     ok_n("VAL(STR(99,5))", 99.0,    "H5: VAL(STR(99,5))=99 (STR/VAL inverse)");
+    ok_n("VAL('****')", DBL_MAX,
+         "H6: VAL leading stars -> DBL_MAX [real III+ datatype-mint DT5 I7]");
+    ok_n("VAL('*123')", DBL_MAX, "H7: first-byte '*' is sentinel [real III+ DT6 V02]");
+    ok_n("VAL(' *')", 0.0, "H8: a space before '*' is not sentinel [real III+ DT6 V03]");
+    ok_n("VAL('-*')", 0.0, "H9: a sign before '*' is not sentinel [real III+ DT6 V04]");
+    ok_n("VAL('1*')", 1.0, "H10: a digit before '*' parses normally [real III+ DT6 V05]");
 
     /* =================================================================== */
     /* I. CTOD / DTOC -- date<->char (default mm/dd/yy, base-1900)          */
@@ -249,7 +256,8 @@ int main(void)
         ok_d("CTOD('garbage')",  0.0,     "I4: CTOD unparseable -> blank date");
         ok_d("CTOD('13/40/85')", 0.0,     "I5: CTOD invalid m/d -> blank date");
         ok_c("DTOC(CTOD('08/05/85'))", "08/05/85", 8, "I6: DTOC mm/dd/yy 8-char");
-        ok_c("DTOC(CTOD('  /  /  '))", "        ", 8, "I7: DTOC(blank) -> 8 spaces");
+        ok_c("DTOC(CTOD('  /  /  '))", "  /  /  ", 8,
+             "I7: DTOC(blank) retains separators [real III+ datatype-mint DT2 E1/E2]");
 
         /*
          * I8-I11: calendar-validity cap (initech-9u0f). The mm in [1..12] /

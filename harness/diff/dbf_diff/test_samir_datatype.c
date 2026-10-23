@@ -35,6 +35,9 @@
  *   SAMIR_DT_MUTANT_blankread   dbf.c reads a blank D field as XB_U again
  *   SAMIR_DT_MUTANT_blankkey    mutate.c keys a blank date as 0.0, not 1E+100
  *   SAMIR_DT_MUTANT_cutoff      rt.c star-fills from 9.2E18, below 2^63
+ *   SAMIR_DT_MUTANT_blankdtoc   fn_builtins.c drops blank-date separators
+ *   SAMIR_DT_MUTANT_numericfit  rt.c star-fills before reducing decimals
+ *   SAMIR_DT_MUTANT_valstar     fn_builtins.c parses first-byte '*' as zero
  * ASCII-clean (Rule 12). No timestamps/host paths in the artifact (Rule 11).
  */
 #include <float.h>
@@ -83,6 +86,18 @@ static const char *const dateindex_cmds[] = {
  * Date type whichever record is current; graded against the same golden. */
 static const char *const dateindex_blank_cmds[] = {
     "USE E3", "GO 3", "INDEX ON WHEN TO BLANKDAT", "USE", NULL };
+/* Replay DT2 F12/F13. Both the stored bytes and the reopened values matter:
+ * a display-only workaround would still destroy these numbers on disk. */
+static const char *const numericfit_cmds[] = {
+    "USE E5", "GO 2", "REPLACE SMALL WITH -999", "? \"F12 [\", SMALL, \"]\"",
+    "GO 3", "REPLACE SMALL WITH 999.95", "? \"F13 [\", SMALL, \"]\"",
+    "USE", "USE E5", "GO 2", "X = SMALL", "GO 3", "Y = SMALL", "USE", NULL };
+static const char *const blankdtoc_cmds[] = {
+    "USE E4", "GO 1", "REPLACE WHEN WITH CTOD(\"  /  /  \")",
+    "? \"E1 [\" + DTOC(WHEN) + \"]\"", "GO 2", "REPLACE WHEN WITH CTOD(\"\")",
+    "? \"E2 [\" + DTOC(WHEN) + \"]\"", "USE", NULL };
+static const char *const valstar_cmds[] = {
+    "X = VAL(\"****\")", "? \"F8 [\", VAL(\"****\"), \"]\"", NULL };
 
 static int32_t input(samir_pal_t *p, char *s, uint32_t n)
 {
@@ -98,6 +113,15 @@ static int32_t input(samir_pal_t *p, char *s, uint32_t n)
         xb_val x;
         CHECK(xb_interp_get_memvar(state_ip, "X", &x) == 0 && x.t == XB_N && x.u.n == DBL_MAX,
               "L006 \"****\" N field reads as 1.7976931348623157E308 (real III+ DT5 I1/I2/I7)");
+    } else if (!strcmp(state_name, "numericfit")) {
+        xb_val x, y;
+        CHECK(xb_interp_get_memvar(state_ip, "X", &x) == 0 && x.t == XB_N && x.u.n == -999.0 &&
+              xb_interp_get_memvar(state_ip, "Y", &y) == 0 && y.t == XB_N && y.u.n == 1000.0,
+              "FMT-NFIT decimal overflow preserves -999 and 1000 after reopen [DT2 F12/F13]");
+    } else if (!strcmp(state_name, "valstar")) {
+        xb_val x;
+        CHECK(xb_interp_get_memvar(state_ip, "X", &x) == 0 && x.t == XB_N && x.u.n == DBL_MAX,
+              "FMT-VALSTAR VAL(****) returns DBL_MAX [real III+ DT5 I7]");
     }
     return -1;
 }
@@ -231,21 +255,60 @@ static void boundary_case(void)
     }
 }
 
+static void append_fit_case(void)
+{
+    /* Same N(4,1) as EDGE.SMALL; expected bytes are the numeric cells in
+     * real III+ DT6LOG.TXT N01..N07. Exercise fmt_field (APPEND), as well as
+     * coerce_and_write_field (REPLACE in numericfit_cmds). */
+    static const struct { double v; const char *want; } c[] = {
+        {-999.0, "-999"}, {999.95, "1000"}, {99.95, " 100"},
+        {-99.5, "-100"}, {999.4, " 999"}, {9999.4, "9999"}, {9999.5, "****"}
+    };
+    dbf_field_spec fs = {0};
+    dbf_table *tbl = NULL;
+    samir_pal_t *pal = pal_host_make((struct pal_host_cfg){86, 7, 24, 2 * 1024 * 1024});
+    unsigned i;
+    unsigned char img[1024];
+    size_t n;
+    CHECK(pal != NULL, "FMT-NFIT APPEND: host PAL");
+    if (!pal) return;
+    fs.name = "SMALL"; fs.type = 'N'; fs.field_len = 4; fs.dec = 1;
+    CHECK(dbf_create(pal, "FITAPP.DBF", &fs, 1, &tbl) == DBF_OK && tbl,
+          "FMT-NFIT APPEND: create N(4,1)");
+    if (!tbl) { pal_host_free(pal); return; }
+    for (i = 0; i < sizeof c / sizeof c[0]; i++) {
+        xb_val v = xb_n(c[i].v);
+        CHECK(dbf_append_rec(tbl, &v, 0) == DBF_OK, "FMT-NFIT APPEND accepted");
+    }
+    CHECK(dbf_flush(tbl) == DBF_OK, "FMT-NFIT APPEND flush");
+    dbf_close(tbl); pal_host_free(pal);
+    n = readfile("FITAPP.DBF", img, sizeof img);
+    for (i = 0; i < sizeof c / sizeof c[0]; i++) {
+        const unsigned char *p = rec_bytes(img, n, i + 1, 1, 4);
+        CHECK(p && !memcmp(p, c[i].want, 4), "FMT-NFIT APPEND bytes match real III+ DT6 N01..N07");
+    }
+}
+
 int main(int argc, char **argv)
 {
     const char *name = argc > 1 ? argv[1] : "blankdate";
+    const char *variant = strrchr(argv[0], '/');
     const char *table;
     char dir[512], cmd[4096], path[1024], cwd[2048];
     static unsigned char got[65536], want[65536];
     size_t gn, wn;
     samir_pal_t *pal; xb_interp *ip;
+    variant = variant ? variant + 1 : argv[0];
 
     if (!strcmp(name, "blankdate"))            { script = blankdate_cmds; table = "E4"; }
     else if (!strcmp(name, "overflow"))        { script = overflow_cmds; table = "E5"; }
     else if (!strcmp(name, "dateindex"))       { script = dateindex_cmds; table = "E3"; }
     else if (!strcmp(name, "dateindex-blank")) { script = dateindex_blank_cmds; table = "E3"; }
+    else if (!strcmp(name, "numericfit"))      { script = numericfit_cmds; table = "E5"; }
+    else if (!strcmp(name, "blankdtoc"))       { script = blankdtoc_cmds; table = "E4"; }
+    else if (!strcmp(name, "valstar"))         { script = valstar_cmds; table = "E5"; }
     else if (!strcmp(name, "boundary")) {
-        snprintf(dir, sizeof dir, "build/samirdt/boundary");
+        snprintf(dir, sizeof dir, "build/samirdt/%s/boundary", variant);
         snprintf(cmd, sizeof cmd, "rm -rf %s && mkdir -p %s", dir, dir);
         if (command(cmd) || !getcwd(cwd, sizeof cwd) || chdir(dir)) return 2;
         boundary_case();
@@ -259,7 +322,7 @@ int main(int argc, char **argv)
     snprintf(cmd, sizeof cmd, "cd " GOLD " && sha256sum --quiet -c sha256.txt");
     if (command(cmd)) { fprintf(stderr, "RED: committed real III+ goldens do not match sha256.txt\n"); return 2; }
 
-    snprintf(dir, sizeof dir, "build/samirdt/%s", name);
+    snprintf(dir, sizeof dir, "build/samirdt/%s/%s", variant, name);
     snprintf(cmd, sizeof cmd, "rm -rf %s && mkdir -p %s && cp -f " GOLD "/EDGE.DBF %s/%s.DBF && cp -f " GOLD "/EDGE.DBT %s/%s.DBT",
              dir, dir, dir, table, dir, table);
     if (command(cmd)) return 2;
@@ -272,6 +335,7 @@ int main(int argc, char **argv)
     CHECK(ip && samir_repl(pal, ip) == 0, "dot-prompt session returned");
     if (ip) xb_interp_free(ip);
     pal_host_free(pal);
+    if (!strcmp(name, "numericfit")) append_fit_case();
     if (chdir(cwd)) return 2;
     snprintf(path, sizeof path, "%s/captured.out", dir);
     { FILE *f = fopen(path, "wb"); if (f) { fwrite(captured, 1, strlen(captured), f); fclose(f); } }
@@ -303,6 +367,21 @@ int main(int argc, char **argv)
         same_line("DT1LOG.TXT", "B5 ", "L006 SMALL = 0 is .F. (real III+ DT1 B5)");
         same_line("DT2LOG.TXT", "F2 ", "L006 SMALL > 1000000 is .T. (real III+ DT2 F2)");
         same_line("DT1LOG.TXT", "B1 [", "control: an ordinary N(4,1) still prints 1.2 (real III+ DT1 B1)");
+    } else if (!strcmp(name, "numericfit")) {
+        unsigned rec;
+        wn = readfile(GOLD "/E5.DBF", want, sizeof want);
+        for (rec = 2; rec <= 3; rec++) {
+            const unsigned char *g = rec_bytes(got, gn, rec, REC_SMALL, 4);
+            const unsigned char *w = rec_bytes(want, wn, rec, REC_SMALL, 4);
+            CHECK(g && w && !memcmp(g, w, 4), "FMT-NFIT stored N(4,1) matches real III+ E5.DBF");
+        }
+        same_line("DT2LOG.TXT", "F12 [", "FMT-NFIT -999 fits N(4,1) [real III+ DT2 F12]");
+        same_line("DT2LOG.TXT", "F13 [", "FMT-NFIT 999.95 rounds to 1000 in N(4,1) [real III+ DT2 F13]");
+    } else if (!strcmp(name, "blankdtoc")) {
+        same_line("DT2LOG.TXT", "E1 [", "FMT-DTOC blank field retains separators [real III+ DT2 E1]");
+        same_line("DT2LOG.TXT", "E2 [", "FMT-DTOC empty CTOD retains separators [real III+ DT2 E2]");
+    } else if (!strcmp(name, "valstar")) {
+        same_line("DT2LOG.TXT", "F8 [", "FMT-VALSTAR VAL overflow prints stars [real III+ DT2 F8]");
     } else {
         snprintf(path, sizeof path, "%s/BLANKDAT.NDX", dir); gn = readfile(path, got, sizeof got);
         wn = readfile(GOLD "/BLANKDAT.NDX", want, sizeof want);
