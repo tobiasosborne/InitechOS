@@ -10615,6 +10615,11 @@ $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milto
 
 KERNEL_FLAIRLIVE_INT_OBJS = $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ)
 
+# gcc response file of -Wl,--undefined= flags (+ the generated want table object);
+# rule below, with the transient. NO trailing comment: make kept the blanks
+# before '#' in the value, so '$(TRANSIENT_IMPORTS_LD).keep' split into two words.
+TRANSIENT_IMPORTS_LD := $(BUILD)/transient_imports.rsp
+
 # @$(TRANSIENT_IMPORTS_LD): this kernel compiles the exit-to-DOS path (FLAIR_LIVE_TENANTS),
 # which checks the transient against the generated want table (initech-13ig).
 $(KERNEL_FLAIRLIVE_INT_ELF): $(KERNEL_FLAIRLIVE_INT_OBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -10645,10 +10650,6 @@ KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h os/flair/scrap.h os/flair/stdfile.h os/flair/list.h os/flair/text.h
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h $(KERNEL_DIR)/transient.h $(DOS_MESSAGES_H)
 
-# gcc response file of -Wl,--undefined= flags (+ the generated want table object);
-# rule below, with the transient. NO trailing comment: make kept the blanks
-# before '#' in the value, so '$(TRANSIENT_IMPORTS_LD).keep' split into two words.
-TRANSIENT_IMPORTS_LD := $(BUILD)/transient_imports.rsp
 $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
 	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_OBJS) @$(TRANSIENT_IMPORTS_LD)
 
