@@ -231,7 +231,7 @@ int64_t rt_floor64(double x)
  * Width overflow -> '*'-fill.
  * [verified: minted OTEST.DBF, mint-results-001.md]
  */
-int dec_format(double v, int width, int dec, char *out)
+static int dec_format_core(double v, int width, int dec, char *out, int even)
 {
     int      neg;
     int64_t  scaled;
@@ -271,7 +271,18 @@ int dec_format(double v, int width, int dec, char *out)
 
     /* Round: scale up, add 0.5, floor (= round-half-up = ties toward +inf).
      * Safe for |v| < 2^53 / 10^dec -- well within dBASE N-field range. */
-    scaled     = rt_floor64(v * (double)pow10_tbl[dec] + 0.5);
+    if (even) {
+        /* The DBF/picture conversion uses nearest-even, unlike STR.
+         * Real III+ datatype-mint DT6: N1..N4 (+/-1.25 -> +/-1.2),
+         * T01/T03 and A3/A4 (binary-exact ties vs values above a tie). */
+        double x = v * (double)pow10_tbl[dec];
+        double fraction;
+        scaled = rt_floor64(x);
+        fraction = x - (double)scaled;
+        if (fraction > 0.5 || (fraction == 0.5 && scaled % 2 != 0)) scaled++;
+    } else {
+        scaled = rt_floor64(v * (double)pow10_tbl[dec] + 0.5);
+    }
     neg        = (scaled < 0);
     abs_scaled = (uint64_t)(neg ? -scaled : scaled);
 
@@ -344,6 +355,33 @@ int dec_format(double v, int width, int dec, char *out)
 
     (void)pos; /* all bytes written */
     return width;
+}
+
+int dec_format(double v, int width, int dec, char *out)
+{
+    return dec_format_core(v, width, dec, out, 0);
+}
+
+int dec_format_even(double v, int width, int dec, char *out)
+{
+    return dec_format_core(v, width, dec, out, 1);
+}
+
+int dec_format_fit(double v, int width, int dec, char *out, int ties_even)
+{
+    /* Real III+ DT2 F12/F13 and E5.DBF: sacrifice fractional precision
+     * before star-filling. Retry the original value so a carry can consume
+     * another integer column; both APPEND and REPLACE use this codec. */
+    if (dec < 0) dec = 0;
+    if (dec > 18) dec = 18;
+    for (;;) {
+        dec_format_core(v, width, dec, out, ties_even);
+        if (width <= 0 || out[0] != '*' || dec == 0) return width;
+#ifdef SAMIR_DT_MUTANT_numericfit
+        return width; /* mutant: discard a number whose integer part fits */
+#endif
+        dec--;
+    }
 }
 
 /*

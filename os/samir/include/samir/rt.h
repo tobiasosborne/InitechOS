@@ -142,6 +142,14 @@ int64_t rt_floor64(double x);
  */
 int dec_format(double v, int width, int dec, char *out);
 
+/* Real III+ datatype-mint DT6: DBF and TRANSFORM conversion round ties to
+ * even; STR retains dec_format's ties-to-+infinity contract. */
+int dec_format_even(double v, int width, int dec, char *out);
+/* Reduce decimals until the number fits, then star-fill (DT2 F12/F13).
+ * ties_even selects DBF storage rounding (1); expression display keeps its
+ * independently minted ties-to-+infinity rule (0, SF-division). */
+int dec_format_fit(double v, int width, int dec, char *out, int ties_even);
+
 /*
  * dec_parse: parse an ASCII decimal string `s` of `len` bytes into a double.
  *
