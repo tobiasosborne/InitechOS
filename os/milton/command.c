@@ -3908,7 +3908,7 @@ static int run_output_and_dispatch(const char *raw_line, const char *clean,
          * error and does NOT run the command.  The [MS-DOS] message for this is
          * "File creation error": the name is a read-only file, a directory, or
          * there is no room for it (MS-DOS 3.3 User's Guide App. F, printed
-         * p.334; initech-66oc, audit L027). */
+         * p.330; initech-66oc, audit L027). */
 #ifdef CMD_MUTATE_REDIR_CREATE_BADCMD
         dos_print(MSG_DOS_0002 "\r\n$");   /* MUTANT: the pre-66oc catch-all */
 #else

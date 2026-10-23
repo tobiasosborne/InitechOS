@@ -3,7 +3,7 @@
 # volume, driven on the emulated machine. Every expectation below comes from
 # mtools on the same seed or from the MS-DOS 3.3 User's Guide, never from the
 # artifact. Audit 2026-10-23-dos L001/L002/L003/L004/L027 are the steps.
-#   Guide pp.18-20 (redirection and pipes); App. F printed p.334 ("File
+#   Guide pp.18-20 (redirection and pipes); App. F printed p.330 ("File
 #   creation error" [MS-DOS]: the file exists and is read-only) and p.337
 #   ("Insufficient disk space" [MS-DOS]: the disk is full); IBM DOS 3.30
 #   Technical Reference pp.6-139/6-140 (AH=40h on a full disk writes fewer
@@ -95,7 +95,7 @@ section L001 "$out/room.text" > "$out/l001"
 grep -qx ALPHA "$out/l001" || fail 'L001 pipe did not deliver ALPHA'
 mtype -i "$out/room.img" '::PIPE1.$$$' > "$out/got" 2>/dev/null || fail 'L001 pipe deleted the user file PIPE1.$$$'
 cmp -s "$out/got" "$out/sentinel" || fail 'L001 pipe overwrote the user file PIPE1.$$$'
-# ---- L027: a read-only target is refused with the [MS-DOS] App. F p.334
+# ---- L027: a read-only target is refused with the [MS-DOS] App. F p.330
 # message, for > and >> alike, and the file keeps its contents.
 section L027 "$out/room.text" > "$out/l027"
 [ "$(grep -cx 'File creation error' "$out/l027")" = 2 ] || fail 'L027 read-only redirect did not report File creation error twice'
