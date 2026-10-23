@@ -98,6 +98,8 @@
  *                                    TRASH_NO_STAGE).
  *   FINDER_OPS_MUT_NO_CYCLE       -- the folder-into-itself rung is gone.
  *   FINDER_OPS_MUT_NO_ORIGIN      -- staging records no kind=5 origin.
+ *   FINDER_OPS_MUT_DROP_NO_META   -- the arriving icon has no FAT metadata
+ *                                    (initech-iebt; test-finder-ops O17).
  *   FINDER_OPS_MUT_COUNT_CELL     -- an item dropped on a folder / the volume
  *                                    / the Trash whose window is open lands in
  *                                    cell n (the icon COUNT) instead of the

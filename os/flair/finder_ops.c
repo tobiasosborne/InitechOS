@@ -219,18 +219,21 @@ static finder_win_status_t fo_refuse(finder_move_result_t *out,
 /* The icon can predate a lock. Query the binding at the destructive boundary.
  * Ref: Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf pp. 88, 112
  * (unlock before discarding); audit L118. No local Finder message reference. */
-typedef struct fo_attr_probe {
+typedef struct fo_entry_probe {
     const char *name;
-    uint8_t attr;
+    finder_win_meta_t meta;
     uint16_t cluster;
     int found;
-} fo_attr_probe_t;
+} fo_entry_probe_t;
 
-static int fo_attr_cb(const finder_dirent_t *e, void *u)
+static int fo_entry_cb(const finder_dirent_t *e, void *u)
 {
-    fo_attr_probe_t *p = (fo_attr_probe_t *)u;
+    fo_entry_probe_t *p = (fo_entry_probe_t *)u;
     if (!fo_ieq(e->name83, p->name)) return 0;
-    p->attr = e->attribute;
+    p->meta.attribute = e->attribute;
+    p->meta.size = e->size;
+    p->meta.date = e->date;
+    p->meta.time = e->time;
     p->cluster=e->start_cluster;
     p->found = 1;
     return 1;
@@ -333,6 +336,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
 {
     finder_window_t *w;
     finder_desk_icon_t ic;
+    fo_entry_probe_t probe;
     int td = -1;
     int is_trash;
     uint16_t dst;
@@ -412,19 +416,21 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
         return fo_refuse(out, FINDER_WIN_ERR_CYCLE);
 #endif
 
+    /* Design F3.1: a move preserves the live directory entry's metadata.
+     * Copy it while the callback is valid, before storage or icon compaction
+     * changes the source. The cached source view may predate a write/lock.
+     * Ref: finder_windows.h callback lifetime + meta contract; initech-iebt. */
+    probe.name = ic.name; probe.found = 0;
+    if (sh->fs.enumerate == (int (*)(void *, uint16_t, finder_enum_cb, void *))0 ||
+        sh->fs.enumerate(sh->fs.user, out->from_dir, fo_entry_cb, &probe) < 0 ||
+        !probe.found)
+        return fo_refuse(out, FINDER_WIN_ERR_ENUM);
+
     if (is_trash) {
         char as[FINDER_DESK_NAME_MAX];
 #ifndef FINDER_OPS_MUT_LOCKED_STAGE
-        fo_attr_probe_t probe;
-        probe.name = ic.name; probe.attr = 0u; probe.found = 0;
-        if (sh->fs.enumerate == (int (*)(void *, uint16_t, finder_enum_cb, void *))0 ||
-            sh->fs.enumerate(sh->fs.user, out->from_dir, fo_attr_cb, &probe) < 0 ||
-            !probe.found)
-            return fo_refuse(out, FINDER_WIN_ERR_ENUM);
-        if ((probe.attr & FINDER_ATTR_READONLY) != 0u)
+        if ((probe.meta.attribute & FINDER_ATTR_READONLY) != 0u)
             return fo_refuse(out, FINDER_WIN_ERR_LOCKED);
-#else
-        (void)fo_attr_cb; /* Rule 6: permit the old staging regression. */
 #endif
         if (sh->fs.trash_name == (int (*)(void *, const char *, uint16_t,
                                           char *))0)
@@ -497,8 +503,12 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
                                out->as, x, y, 1u);
         if (nidx < 0) {
             dw->dropped = (uint16_t)(dw->dropped + 1u);   /* the cap bit      */
-        } else if (ic.kind == (uint8_t)FINDER_ICON_FOLDER) {
-            finder_desk_set_cluster(&dw->view, nidx, ic.dir_start);
+        } else {
+#ifndef FINDER_OPS_MUT_DROP_NO_META
+            dw->meta[nidx] = probe.meta;
+#endif
+            if (ic.kind == (uint8_t)FINDER_ICON_FOLDER)
+                finder_desk_set_cluster(&dw->view, nidx, ic.dir_start);
         }
         finder_win_invalidate_all(sh, dslot);
         out->dst_slot = (int16_t)dslot;
@@ -525,7 +535,7 @@ finder_win_status_t finder_ops_replace(finder_shell_t *sh,int slot,int idx,
 {
     finder_move_result_t backup;
     finder_desk_icon_t displaced;
-    fo_attr_probe_t probe;
+    fo_entry_probe_t probe;
     finder_win_status_t st;
     char name[FINDER_DESK_NAME_MAX];
     int td, rc, dw, tw;
@@ -538,12 +548,12 @@ finder_win_status_t finder_ops_replace(finder_shell_t *sh,int slot,int idx,
     if(idx<0 || idx>=sh->windows[slot].view.n) return fo_refuse(out,FINDER_WIN_ERR_NULL);
     if(sh->n_origins>=FINDER_DB_MAX_ORIGINS) return fo_refuse(out,FINDER_WIN_ERR_MEMORY);
     fo_copy83(name,sh->windows[slot].view.icons[idx].name);
-    probe.name=name;probe.found=0;probe.attr=0;
-    if(sh->fs.enumerate(sh->fs.user,t->dir,fo_attr_cb,&probe)<0 || !probe.found)
+    probe.name=name;probe.found=0;
+    if(sh->fs.enumerate(sh->fs.user,t->dir,fo_entry_cb,&probe)<0 || !probe.found)
         return fo_refuse(out,FINDER_WIN_ERR_MOVE);
-    if(probe.attr & FINDER_ATTR_READONLY) return fo_refuse(out,FINDER_WIN_ERR_LOCKED);
+    if(probe.meta.attribute & FINDER_ATTR_READONLY) return fo_refuse(out,FINDER_WIN_ERR_LOCKED);
     fo_zero(&displaced,sizeof displaced);
-    displaced.kind=(probe.attr & FINDER_ATTR_DIRECTORY)?FINDER_ICON_FOLDER:FINDER_ICON_FILE;
+    displaced.kind=(probe.meta.attribute & FINDER_ATTR_DIRECTORY)?FINDER_ICON_FOLDER:FINDER_ICON_FILE;
     displaced.dir_start=probe.cluster;
     td=sh->fs.trash_dir(sh->fs.user);
     if(td<0 || (uint16_t)td==t->dir) return fo_refuse(out,FINDER_WIN_ERR_MOVE);

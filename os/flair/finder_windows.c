@@ -1741,11 +1741,17 @@ finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
 
     fw_zero(&p, (uint32_t)sizeof p);
     if ((it.attr & (uint8_t)FINDER_ATTR_DIRECTORY) != 0u) {
+#ifndef FINDER_WIN_MUT_DELETE_NO_WALK
+        /* Rule 6, test-finder-ops O18: skipping the walk cannot delete a tree. */
         fw_purge_tree(sh, it.cl, &p);
+#endif
         if (!p.locked && p.refused == 0u) {
             if (sh->fs.rmdir(sh->fs.user, name, dir) == (int)FINDER_WIN_OK) {
                 p.purged = (uint16_t)(p.purged + 1u);
+#ifndef FINDER_WIN_MUT_DELETE_KEEP_VIEW
+                /* O18 also grades this root retirement, outside the walk. */
                 p.views_dropped |= fw_retire_dir(sh, it.cl);
+#endif
             } else {
                 p.refused = (uint16_t)(p.refused + 1u);
             }
