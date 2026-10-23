@@ -357,10 +357,31 @@ static void paint_command(void)
     }
 }
 
-/* ---- the view ------------------------------------------------------------- */
+/* ---- the view -------------------------------------------------------------
+ * B06 (bead initech-3qtt, audit L008): a first column wider than the area is
+ * SHOWN, clipped to the area -- heading centred, value aligned, pointer drawn
+ * over the visible part only -- as the real 1-2-3 R2.2 shows a 76- or 240-
+ * wide column in its 72-character area (fixtures/i123-width 03_w76, 05_w240,
+ * 13_w240_labels, 15_back_a1); a later column that does not fit WHOLE is not
+ * shown (11_w67: B is absent beside a 67-wide A). The ONE visible width,
+ * i123_colwidth clipped to the area, is what border, rows, pointer and the
+ * hit-test walk; only the view's first column can ever be clipped. */
 static uint32_t area_cols(void)
 {
-    return i123_cols_fitting(&g_sheet, i123_view_left(&g_sheet), AREA_CHARS);
+    uint32_t n = i123_cols_fitting(&g_sheet, i123_view_left(&g_sheet), AREA_CHARS);
+#ifndef I123_MUT_WIDE_HIDDEN
+    if (!n) n = 1u;
+#else
+    /* MUTANT (Rule 6; test-i123-resize-mutant W1, test-i123-wk1-roundtrip-
+     * mutant display, test-flair-i123-wide-mutant): an oversized first
+     * column shows as nothing at all (audit L008). NEVER real. */
+#endif
+    return n;
+}
+static uint32_t vis_width(uint16_t col)
+{
+    uint32_t w = i123_colwidth(&g_sheet, col);
+    return w < AREA_CHARS ? w : AREA_CHARS;
 }
 
 /* Character offset of column `col` in the worksheet area, or -1 off-view. */
@@ -468,7 +489,7 @@ static void paint_border(void)
     tmp[SCR_COLS] = '\0';
     for (uint32_t k = 0; k < n; k++) {
         char name[4];
-        uint32_t w = i123_colwidth(&g_sheet, (uint16_t)(left + k));
+        uint32_t w = vis_width((uint16_t)(left + k));
         uint32_t nl = i123_col_name((uint16_t)(left + k), name);
         uint32_t at = x + (w > nl ? (w - nl) / 2u : 0u);
         for (uint32_t j = 0; j < nl && at + j < SCR_COLS; j++) tmp[at + j] = name[j];
@@ -502,7 +523,7 @@ static void paint_row(uint32_t vis)
 static void paint_pointer(void)
 {
     uint16_t cc = i123_cursor_col(&g_sheet), cr = i123_cursor_row(&g_sheet);
-    uint32_t w = i123_colwidth(&g_sheet, cc), spill;
+    uint32_t w = vis_width(cc), spill;
     int x = col_x(cc);
     char text[256];
     if (x < 0 || cr < i123_view_top(&g_sheet)) return;
@@ -1178,7 +1199,8 @@ static void key(int32_t message, int32_t mods)
  * border, the status line -- none of these selects anything. The cell comes
  * from THE geometry paint uses: the window's first column/row (Tab, PgDn,
  * GOTO and the arrows move it), per-column widths walked over area_cols()'s
- * WHOLE columns (paint_border's walk), VIS_ROWS rows; the blank strip right
+ * WHOLE columns (paint_border's walk; B06: an oversized first column at its
+ * visible width), VIS_ROWS rows; the blank strip right
  * of the last whole column selects nothing. Since B12 (bead initech-89rc)
  * those are THE GEOMETRY of the window's actual content, the same numbers
  * paint and pointer-follow use, so after a resize a click maps to what the
@@ -1204,7 +1226,7 @@ static void cell_click(const tbx_event_t *ev)
     r = (uint16_t)(r + line);
     if (r >= I123_MAX_ROWS) return;
     for (uint32_t n = area_cols(); n; n--, c++)
-        if ((ch -= (int)i123_colwidth(&g_sheet, c)) < 0) {
+        if ((ch -= (int)vis_width(c)) < 0) {
             if (g_mode == M_READY || !finish()) here(c, r);
             return;
         }

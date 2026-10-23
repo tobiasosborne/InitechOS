@@ -183,7 +183,8 @@ int  i123_wk1_write(const i123_sheet_t *sh, uint8_t *out, uint32_t cap,
 void i123_cell_text(const i123_sheet_t *sh, const i123_cell_t *c,
                     uint32_t width, char *out, uint32_t *spill);
 /* One worksheet row as the screen shows it: `nchars` characters from column
- * `left` (whole columns only; a left label spills into empty neighbours),
+ * `left` (whole columns only, except that a first column wider than
+ * `nchars` shows clipped to it -- B06; a left label spills into empty neighbours),
  * + NUL in line[]. */
 void i123_render_row(const i123_sheet_t *sh, uint16_t row, uint16_t left,
                      uint32_t nchars, char *line);

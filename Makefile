@@ -14726,16 +14726,16 @@ test-i123-wk1-roundtrip: $(TEST_I123_WK1) $(I123_WK1_CANON)
 	@$(TEST_I123_WK1) $(LOTUS123_DECOMP) $(BUILD) $(I123_WK1_CANON)
 	@printf ">>> test-i123-wk1-roundtrip: green\n"
 
-test-i123-wk1-roundtrip-mutant: $(BUILD)/test_i123_wk1_mutant_I123_MUT_LABEL_OPCODE $(BUILD)/test_i123_wk1_mutant_I123_MUT_GENERAL_ROUNDS $(I123_WK1_CANON)
+test-i123-wk1-roundtrip-mutant: $(BUILD)/test_i123_wk1_mutant_I123_MUT_LABEL_OPCODE $(BUILD)/test_i123_wk1_mutant_I123_MUT_GENERAL_ROUNDS $(BUILD)/test_i123_wk1_mutant_I123_MUT_WIDE_HIDDEN $(I123_WK1_CANON)
 	$(call need_lotus_goldens,test-i123-wk1-roundtrip-mutant)
-	@for pair in 'I123_MUT_LABEL_OPCODE:RED-REASON golden-rewrite' 'I123_MUT_GENERAL_ROUNDS:RED-REASON display'; do \
+	@for pair in 'I123_MUT_LABEL_OPCODE:RED-REASON golden-rewrite' 'I123_MUT_GENERAL_ROUNDS:RED-REASON display' 'I123_MUT_WIDE_HIDDEN:RED-REASON display'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_i123_wk1_mutant_$$m; \
 		if $$bin $(LOTUS123_DECOMP) $(BUILD) $(I123_WK1_CANON) > $$bin.log 2>&1; then printf '!!! test-i123-wk1-roundtrip-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -q 'checks,' $$bin.log || { printf '!!! test-i123-wk1-roundtrip-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; cat $$bin.log; exit 1; }; \
 		grep -qF "$$why" $$bin.log || { printf '!!! test-i123-wk1-roundtrip-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-i123-wk1-roundtrip-mutant: %s correctly RED (%s: %s)\n' "$$m" "$$why" "$$(grep -F "$$why" $$bin.log)"; \
 	done
-	@printf '>>> test-i123-wk1-roundtrip-mutant: green (both mutants RED for the named reason)\n'
+	@printf '>>> test-i123-wk1-roundtrip-mutant: green (all three mutants RED for the named reason)\n'
 endif
 
 # ---------------------------------------------------------------------------
@@ -24005,6 +24005,14 @@ RECORD_SPEC_i123_resize = $(FLAIR_I123_RESIZE)
 RECORD_MARKER_i123_resize = TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E1:                       " fg=1 bg=0 -> 0
 RECORD_SETTLE_i123_resize = 400
 RECORD_IMAGE_i123_resize = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+# i123_wide (bead initech-3qtt, B06; Rule 14): the LOCKED FLAIR_I123_WIDE --
+# A1 1, Set-Width 240, Right, Left, a click deep in the clipped A. The marker
+# is the click's pointer over the visible 72 of A2 (test-flair-i123-wide WD4).
+RECORD_SCRIPTS += i123_wide
+RECORD_SPEC_i123_wide = $(FLAIR_I123_WIDE)
+RECORD_MARKER_i123_wide = TENANT-GATE ax=0x0033 win=1 x=33 y=80 s="                                                                        " fg=0 bg=3 -> 0
+RECORD_SETTLE_i123_wide = 400
+RECORD_IMAGE_i123_wide = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 # The EXTRA-LONG double-click record image (bead initech-mfrb): the long
 # double-click record image with the pump life doubled again
 # (-DFLAIR_TEN_TICK_BUDGET=12000, ~120 s). MEASURED (iword_typing, 99 recorded
@@ -32477,7 +32485,7 @@ TEST_UNIT_GATES += test-i123-hit test-i123-hit-mutant
 # R2.2 screen pp. 1-3/1-4 on the 8x16 cell grid), never from face_a.c.
 # Rule 6: the mutant (the old 76 x 24 constants) must go RED on R3.
 I123_RESIZE_DEPS := harness/proptest/test_i123_resize.c $(I123_QUIT_DEPS)
-I123_RESIZE_MUTANTS := I123_MUT_FIXED_GEOMETRY:R3
+I123_RESIZE_MUTANTS := I123_MUT_FIXED_GEOMETRY:R3 I123_MUT_WIDE_HIDDEN:W1
 $(BUILD)/test_i123_resize: $(I123_RESIZE_DEPS) | $(BUILD)
 	$(CC) $(I123_QUIT_CFLAGS) -o $@ $< $(I123_CORE_SRC)
 $(BUILD)/test_i123_resize_mutant_%: $(I123_RESIZE_DEPS) | $(BUILD)
@@ -32486,7 +32494,7 @@ $(BUILD)/test_i123_resize_mutant_%: $(I123_RESIZE_DEPS) | $(BUILD)
 test-i123-resize: $(BUILD)/test_i123_resize
 	@mkdir -p $(BUILD)/i123-resize-fs
 	@$< $(BUILD)/i123-resize-fs
-	@printf '>>> test-i123-resize: green (640x440 / 352x246 / 440x340 / 200x150 / 96x64 / collapsed content: reflowed border, rows, READY + status at the edges; L018 Right to E1 follows; shrink/grow keep the pointer visible; click, Tab, PgDn, GOTO by the window now; bars never faked)\n'
+	@printf '>>> test-i123-resize: green (640x440 / 352x246 / 440x340 / 200x150 / 96x64 / collapsed content: reflowed border, rows, READY + status at the edges; L018 Right to E1 follows; shrink/grow keep the pointer visible; click, Tab, PgDn, GOTO by the window now; bars never faked; B06 a 240-wide A clipped to the area as the real R2.2 shows it)\n'
 test-i123-resize-mutant: test-i123-resize $(foreach p,$(I123_RESIZE_MUTANTS),$(BUILD)/test_i123_resize_mutant_$(firstword $(subst :, ,$(p))))
 	@for p in $(I123_RESIZE_MUTANTS); do m=$${p%%:*}; id=$${p##*:}; log=$(BUILD)/test_i123_resize_mutant_$$m.log; \
 	 set +e; $(BUILD)/test_i123_resize_mutant_$$m $(BUILD)/i123-resize-fs > $$log 2>&1; rc=$$?; set -e; \
@@ -32495,6 +32503,33 @@ test-i123-resize-mutant: test-i123-resize $(foreach p,$(I123_RESIZE_MUTANTS),$(B
 	 printf '>>> test-i123-resize-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "FAIL $$id " $$log | sed 's/^ *//')"; done
 	@printf '>>> test-i123-resize-mutant: green (all %s mutants caught)\n' "$(words $(I123_RESIZE_MUTANTS))"
 TEST_UNIT_GATES += test-i123-resize test-i123-resize-mutant
+
+# B02 / initech-3s12: the cell store recovers capacity (audit L010, L032) --
+# erasing an ordinary cell frees its slot (no default-format BLANK; wk1-
+# format.md Sec 4.1, manual p. 10-3), formatted/unprotected erases stay
+# BLANKs, and a label replacement needs only its FINAL live size (equal,
+# shorter, longer-after-reclaim; a genuine overflow keeps the old bytes).
+# Over the real face_a.c + the recording mock; expected bytes are the test's.
+# Rule 6: each mutant restores one half of the old store, RED on its id.
+I123_CELLS_DEPS := harness/proptest/test_i123_cells.c $(I123_QUIT_DEPS)
+I123_CELLS_MUTANTS := I123_MUT_DEFAULT_BLANK:C1 I123_MUT_ALLOC_BEFORE_RECLAIM:C5
+$(BUILD)/test_i123_cells: $(I123_CELLS_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -o $@ $< $(I123_CORE_SRC)
+$(BUILD)/test_i123_cells_mutant_%: $(I123_CELLS_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -D$* -o $@ $< $(I123_CORE_SRC)
+.PHONY: test-i123-cells test-i123-cells-mutant
+test-i123-cells: $(BUILD)/test_i123_cells
+	@mkdir -p $(BUILD)/i123-cells-fs
+	@$< $(BUILD)/i123-cells-fs
+	@printf '>>> test-i123-cells: green (L010 erase frees a full store slot, A2049 enters; Fixed-2/unprotected erases stay BLANKs; L032 equal/shorter/grow-after-reclaim replacements, genuine overflow keeps the old bytes)\n'
+test-i123-cells-mutant: test-i123-cells $(foreach p,$(I123_CELLS_MUTANTS),$(BUILD)/test_i123_cells_mutant_$(firstword $(subst :, ,$(p))))
+	@for p in $(I123_CELLS_MUTANTS); do m=$${p%%:*}; id=$${p##*:}; log=$(BUILD)/test_i123_cells_mutant_$$m.log; \
+	 set +e; $(BUILD)/test_i123_cells_mutant_$$m $(BUILD)/i123-cells-fs > $$log 2>&1; rc=$$?; set -e; \
+	 [ $$rc -eq 1 ] && grep -q '^i123-cells: .* checks,' $$log && grep -q "FAIL $$id " $$log || \
+	 { cat $$log; printf '!!! test-i123-cells-mutant: %s wrong RED (exit %s, want FAIL %s)\n' "$$m" "$$rc" "$$id"; exit 1; }; \
+	 printf '>>> test-i123-cells-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "FAIL $$id " $$log | sed 's/^ *//')"; done
+	@printf '>>> test-i123-cells-mutant: green (all %s mutants caught)\n' "$(words $(I123_CELLS_MUTANTS))"
+TEST_UNIT_GATES += test-i123-cells test-i123-cells-mutant
 
 include spec/flair_i123_entry_traces.mk
 
@@ -32775,6 +32810,70 @@ test-flair-i123-resize-mutant: test-flair-i123-resize $(HARNESS_BIN) $(FLAIR_I12
 	@printf '>>> test-flair-i123-resize-mutant: I123_MUT_FIXED_GEOMETRY correctly RED -- E1 drawn at x=321 on the 76-character face, never reflowed (RS1..RS4 and the screendump all RED)\n'
 	@printf '>>> test-flair-i123-resize-mutant: green\n'
 TEST_EMU_GATES += test-flair-i123-resize test-flair-i123-resize-mutant
+
+# B06 / initech-3qtt QEMU leg: the LOCKED FLAIR_I123_WIDE trace (spec/
+# flair_i123_wide_traces.mk) -- A1 1, /Worksheet Column Set-Width 240 (audit
+# L008), Right, Left, a click deep inside the clipped A. Image: the B11 keys
+# gate image (the SAME flair_tenants build, ONLY the bounded pump life).
+# Expected draws (Face A cell (char c, line L) -> TENANT-GATE x = 1 + 8c,
+# y = 16L, the 640x440 window's 76 characters / 72-character area), from the
+# REAL R2.2 screens fixtures/i123-width (never read from face_a.c):
+#   WD1 after 240: the border with A alone, centred in the visible 72 (area
+#       offset 35 = char 39: " {39}A {36}", 05_w240), then the pointer over
+#       all 72 with 1 right-aligned (x=33 y=64 " {70}1 ", 13_w240_labels);
+#   WD2 Right: the border B..I (06_w240_right), "B1:", the pointer on B
+#       (x=33 " {9}");
+#   WD3 Left: the clipped A border and its 72-wide pointer again (15_back_a1);
+#   WD4 the click at area char 60 of line 5: "A2:", the pointer over the
+#       visible 72 of A2 (x=33 y=80 " {72}");
+#   and the screendump (ppm_text_check --i123-wide) shows the last state.
+include spec/flair_i123_wide_traces.mk
+FLAIR_I123_WIDE_GATE_IMG := $(FLAIR_I123_KEYS_GATE_IMG)
+I123_WD_A = $(call I123_RS_G,1,48, {39}A {36},0,3)
+I123_WD_P1 = $(call I123_RS_G,33,64, {70}1 ,0,3)
+I123_WD_NX = nx() { grep -n -E "$$2" $$f | awk -F: -v a="$$1" 'a!="" && $$1>a{print $$1; exit}'; }
+I123_WD1_OK = f=$(1); $(I123_WD_NX); a=$$(nx 0 '$(I123_WD_A)'); p=$$(nx "$$a" '$(I123_WD_P1)'); [ -n "$$p" ]
+I123_WD2_OK = f=$(1); $(I123_WD_NX); a=$$(nx 0 '$(I123_WD_A)'); p=$$(nx "$$a" '$(I123_WD_P1)'); \
+	b=$$(nx "$$p" '$(call I123_RS_G,1,48, {8}B {8}C {8}D {8}E {8}F {8}G {8}H {8}I {4},0,3)'); \
+	q=$$(nx "$$b" '$(call I123_RS_G,33,64, {9},0,3)'); e=$$(nx "$$b" '$(call I123_RS_G,1,0,B1: {68},1,0)'); [ -n "$$q" ] && [ -n "$$e" ]
+I123_WD3_OK = f=$(1); $(I123_WD_NX); b=$$(nx 0 '$(call I123_RS_G,1,0,B1: {68},1,0)'); \
+	a=$$(nx "$$b" '$(I123_WD_A)'); p=$$(nx "$$a" '$(I123_WD_P1)'); [ -n "$$b" ] && [ -n "$$p" ]
+I123_WD4_OK = f=$(1); $(I123_WD_NX); b=$$(nx 0 '$(call I123_RS_G,1,0,B1: {68},1,0)'); a=$$(nx "$$b" '$(I123_WD_A)'); \
+	e=$$(nx "$$a" '$(call I123_RS_G,1,0,A2: {68},1,0)'); p=$$(nx "$$a" '$(call I123_RS_G,33,80, {72},0,3)'); [ -n "$$e" ] && [ -n "$$p" ]
+.PHONY: test-flair-i123-wide test-flair-i123-wide-mutant
+test-flair-i123-wide: export INITECH_QMP_STDIO=1
+test-flair-i123-wide: $(HARNESS_BIN) $(FLAIR_I123_WIDE_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
+	$(call appl-boot,flair_i123_wide,$(FLAIR_I123_WIDE_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_WIDE,--screendump --screendump-after FLAIR-LIVE-OK)
+	@f=$(BUILD)/flair_i123_wide.serial; $(call APPL_ALIVE,$$f) && grep -qx 'TENANT-REGISTER ok app=123' $$f || { printf '!!! test-flair-i123-wide FAIL: launch/desktop\n'; exit 1; }
+	@! grep -Eq 'KBD-RING-DROP|FLAIR-EVT-DROP' $(BUILD)/flair_i123_wide.serial || { printf '!!! test-flair-i123-wide FAIL: input ring overrun\n'; exit 1; }
+	@$(call I123_WD1_OK,$(BUILD)/flair_i123_wide.serial) || { printf '!!! test-flair-i123-wide FAIL: WD1 (L008) width 240 -- the border A at char 39 and the 72-wide pointer with 1 at its right were not drawn\n'; exit 1; }
+	@$(call I123_WD2_OK,$(BUILD)/flair_i123_wide.serial) || { printf '!!! test-flair-i123-wide FAIL: WD2 Right -- border B..I, "B1:", the pointer on B\n'; exit 1; }
+	@$(call I123_WD3_OK,$(BUILD)/flair_i123_wide.serial) || { printf '!!! test-flair-i123-wide FAIL: WD3 Left -- the clipped A and its 72-wide pointer were not drawn again\n'; exit 1; }
+	@$(call I123_WD4_OK,$(BUILD)/flair_i123_wide.serial) || { printf '!!! test-flair-i123-wide FAIL: WD4 the click inside the clipped A -- "A2:" and the 72-wide pointer on row 2\n'; exit 1; }
+	$(PPM_TEXT_CHECK_BIN) --i123-wide $(BUILD)/flair_i123_wide.ppm
+	@printf '>>> test-flair-i123-wide: green (QEMU: A set to 240 shows clipped to the 72-character area as the real R2.2 does -- A centred, the 72-wide pointer, 1 right-aligned; Right B..I; Left back; a click at area char 60 selects A2; TENANT-GATE draws + screendump)\n'
+# Rule 6 mutant: a gate-local volume whose 123.EXE shows an oversized first
+# column as nothing (-DI123_MUT_WIDE_HIDDEN), same image and trace. RED for the
+# right reason: 123 up, B1 reached by Right (the view logic is untouched), but
+# the clipped A is never drawn (WD1/WD3/WD4 and the screendump RED).
+FLAIR_DATA_I123_WIDEHIDDEN_IMG := $(BUILD)/flair_data_i123_widehidden.img
+$(eval $(call tenant-exe-rules,i123_widehidden,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_WIDE_HIDDEN,$(I123_APP_DEP),))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_WIDEHIDDEN_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_widehidden.exe,$(IWORD_EXE),))
+test-flair-i123-wide-mutant: export INITECH_QMP_STDIO=1
+test-flair-i123-wide-mutant: test-flair-i123-wide $(HARNESS_BIN) $(FLAIR_I123_WIDE_GATE_IMG) $(FLAIR_DATA_I123_WIDEHIDDEN_IMG) $(PPM_TEXT_CHECK_BIN)
+	$(call appl-boot,flair_i123_wide_mut,$(FLAIR_I123_WIDE_GATE_IMG),$(FLAIR_DATA_I123_WIDEHIDDEN_IMG),FLAIR_I123_WIDE,--screendump --screendump-after FLAIR-LIVE-OK)
+	@f=$(BUILD)/flair_i123_wide_mut.serial; $(call APPL_ALIVE,$$f) && grep -qx 'TENANT-REGISTER ok app=123' $$f && \
+	 grep -qE '$(call I123_RS_G,1,0,B1: {68},1,0)' $$f || \
+	 { printf '!!! test-flair-i123-wide-mutant FAIL: WIDE_HIDDEN went RED for the wrong reason (want: 123 up, Right reached B1)\n'; exit 1; }
+	@for leg in 1 3 4; do \
+	 case $$leg in 1) $(call I123_WD1_OK,$(BUILD)/flair_i123_wide_mut.serial) ;; 3) $(call I123_WD3_OK,$(BUILD)/flair_i123_wide_mut.serial) ;; \
+	  4) $(call I123_WD4_OK,$(BUILD)/flair_i123_wide_mut.serial) ;; esac && \
+	 { printf '!!! test-flair-i123-wide-mutant FAIL: WIDE_HIDDEN PASSED leg WD%s -- the QEMU leg is decoration\n' $$leg; exit 1; }; done; true
+	@if $(PPM_TEXT_CHECK_BIN) --i123-wide $(BUILD)/flair_i123_wide_mut.ppm; then \
+	 printf '!!! test-flair-i123-wide-mutant FAIL: WIDE_HIDDEN PASSED the screendump check\n'; exit 1; fi
+	@printf '>>> test-flair-i123-wide-mutant: I123_MUT_WIDE_HIDDEN correctly RED -- B1 reached, but the 240-wide A never drawn (WD1, WD3, WD4 and the screendump all RED)\n'
+	@printf '>>> test-flair-i123-wide-mutant: green\n'
+TEST_EMU_GATES += test-flair-i123-wide test-flair-i123-wide-mutant
 I123_MENU_ROW := $(I123_E)      10      -20       40                        -80      160       80 $(I123_E)
 # RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the /Range menu line is
 # clipped at the 76-cell face (was 77), so it ends "Trans  Sear" (was "Searc").

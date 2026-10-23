@@ -507,7 +507,16 @@ void i123_render_row(const i123_sheet_t *sh, uint16_t row, uint16_t left,
         uint32_t w = i123_colwidth(sh, (uint16_t)col);
         const i123_cell_t *c;
         uint32_t spill = 0;
-        if (w == 0u || x + w > nchars || w > 240u) break;
+        if (w == 0u || w > 240u) break;
+#ifndef I123_MUT_WIDE_HIDDEN
+        /* B06 (bead initech-3qtt): the FIRST column, wider than the area, is
+         * drawn clipped to it and aligned within what shows -- the real R2.2
+         * 240-wide A (fixtures/i123-width/13_w240_labels: the number right-
+         * aligned in the visible 72, ^Mid centred in 72, a 96-character
+         * label cut at 72). A later column shows only whole (11_w67). */
+        if (x == 0u && w > nchars) w = nchars;
+#endif
+        if (x + w > nchars) break;
         c = i123_find(sh, (uint16_t)col, row);
         if (c != (const i123_cell_t *)0) {
             i123_cell_text(sh, c, w, cell, &spill);

@@ -663,8 +663,26 @@ static void part_d(void)
             " 1.0E+99 ", "*********", " 1.0E-99 ", " 1.0E+20 " };
         for (uint16_t r = 0; r < 14; r++) { const char *x[] = { a[r] }; expect_row(&sh, r, x, 1, 72, "MINT05"); }
     }
+    /* fixtures/i123-width/13_w240_labels.png (bead initech-3qtt, B06): the
+     * real R2.2 with A set to 240 wide shows A clipped to its 72-character
+     * area -- "1" right-aligned with one blank after it, ^Mid centred, a
+     * 96-character label cut at the 72nd character. */
+    {
+        static const char lab[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz0123456789";
+        static char r1[73], r2[73], r3[73];
+        CHECK(i123_sheet_init(&sh, g_mem, SHEET_MEM, 512u) == I123_OK, "init");
+        CHECK(i123_set_number(&sh, 0, 0, 1.0) == I123_OK && i123_set_label(&sh, 0, 1, '^', "Mid", 3) == I123_OK &&
+              i123_set_label(&sh, 0, 2, '\'', lab, 96) == I123_OK && i123_set_colwidth(&sh, 0, 240) == I123_OK,
+              "W240 sheet");
+        memset(r1, ' ', 72); r1[70] = '1';
+        memset(r2, ' ', 72); memcpy(r2 + 34, "Mid", 3);
+        memcpy(r3, lab, 72);
+        { const char *x[] = { r1 }; expect_row(&sh, 0, x, 1, 72, "W240"); }
+        { const char *x[] = { r2 }; expect_row(&sh, 1, x, 1, 72, "W240"); }
+        { const char *x[] = { r3 }; expect_row(&sh, 2, x, 1, 72, "W240"); }
+    }
     printf("  part D: %d displayed-value rows checked against the minted screenshots (%d wrong)\n",
-           2 + 6 + 19 + 14, g_display_fail - before);
+           2 + 6 + 19 + 14 + 3, g_display_fail - before);
 
     /* the control panel and the address helpers */
     {
