@@ -36,7 +36,9 @@ static const char copy_dst[]="APPS\\TABLES.TXT";
  * precedent. L006: a dirty worksheet is WRITTEN (staged, then the FILE COPY box
  * copies the stage to TABLES.TXT); a clean one copies the shipped ledger as
  * before (the initech-bf2 canon, byte-exact). */
-static const char copy_stage[]="APPS\\TABLES.TMP";
+/* Stage names, tried in DOS order; an occupied name is never touched. */
+static const char *const stage_names[]={"APPS\\TABLES.TMP","APPS\\TABLE~1.TMP","APPS\\TABLE~2.TMP","APPS\\TABLE~3.TMP"};
+static const char *copy_stage;
 static const char quit_text[]="Save changes to the worksheet\r\"TABLES.TXT\"\rbefore quitting?";
 static const char __attribute__((unused)) replace_text[]="\"TABLES.TXT\" already exists.\rDo you want to replace it with the\rworksheet you are saving?";
 static const char fail_text[]="The worksheet could not be saved.";
@@ -49,7 +51,7 @@ static int32_t ledger TBX_IN_IMAGE=0, chart TBX_IN_IMAGE=0;
 static char line[80] TBX_IN_IMAGE={0};
 static char entry[64] TBX_IN_IMAGE={0};
 static unsigned entered;
-static uint8_t g_dirty, g_ask, g_quit_after_save, g_copying, g_staged;
+static uint8_t g_edited, g_dirty, g_ask, g_quit_after_save, g_copying, g_staged;
 static char stage[512] TBX_IN_IMAGE={0};
 static unsigned length(const char *s) { unsigned n=0; while(s[n]) n++; return n; }
 static void copy(char *d,const char *s) { do { *d++=*s; } while(*s++); }
@@ -179,6 +181,7 @@ static void commit(void)
     entered=0; entry[0]=0;
 #ifndef CALC_MUT_NEVER_DIRTY
     g_dirty=1;  /* a committed edit is unsaved work */
+    g_edited=1; /* ...and the model now differs from the shipped ledger for good */
 #endif
 }
 /* Serialise the model in the shipped LEDGER.TXT layout (label to column 17,
@@ -205,27 +208,40 @@ static unsigned __attribute__((unused)) serialise(void)
     stage[n]=0; return n;
 }
 static void notice(void) { g_ask=ASK_NOTICE; if(tbx_alert(fail_text,"OK",0,0)!=TBX_OK) g_ask=ASK_NONE; }
+static int exists(const char *path)
+{
+    int32_t h=tbx_file_open(path,TBX_FILE_READ_ONLY);
+    if(h<0) return 0;
+    (void)tbx_file_close(h); return 1;
+}
 /* Start the FILE COPY box: the edited model through a stage file, or (clean)
  * the shipped ledger itself. The caption/box are the initech-bf2 canon. */
 static void do_save(void)
 {
     const char *from=copy_src;
-#ifndef CALC_MUT_SAVE_STALE
+#ifdef CALC_MUT_ONE_FLAG
     if(g_dirty) {
-        unsigned n=serialise(); int32_t h=tbx_file_create(copy_stage);
-        if(h<0||tbx_file_write(h,stage,n)!=(int32_t)n) { if(h>=0) (void)tbx_file_close(h); g_quit_after_save=0; notice(); return; }
-        if(tbx_file_close(h)<0) { g_quit_after_save=0; notice(); return; }
-        from=copy_stage; g_staged=1;
-    }
+#elif !defined(CALC_MUT_SAVE_STALE)
+    if(g_edited) {   /* an edited sheet ALWAYS saves the model, even after a save */
+#else
+    if(0) {
 #endif
+        unsigned n=serialise(); int32_t h;
+        copy_stage=0;
+#ifdef CALC_MUT_STAGE_CLOBBER
+        copy_stage=stage_names[0];
+#else
+        for(unsigned i=0;i<sizeof stage_names/sizeof stage_names[0]&&!copy_stage;i++) if(!exists(stage_names[i])) copy_stage=stage_names[i];
+#endif
+        if(!copy_stage) { g_quit_after_save=0; notice(); return; }   /* never destroy a stranger's file */
+        h=tbx_file_create(copy_stage);
+        if(h<0) { g_quit_after_save=0; notice(); return; }
+        g_staged=1;   /* from here on the stage is OURS (it did not exist) */
+        if(tbx_file_write(h,stage,n)!=(int32_t)n||tbx_file_close(h)<0) { g_staged=0; (void)tbx_file_delete(copy_stage); g_quit_after_save=0; notice(); return; }
+        from=copy_stage;
+    }
     g_copying=1;
     if(tbx_file_copy(copy_caption,from,copy_dst)!=TBX_OK) { g_copying=0; g_quit_after_save=0; notice(); }
-}
-static int __attribute__((unused)) exists(const char *path)
-{
-    int32_t h=tbx_file_open(path,TBX_FILE_READ_ONLY);
-    if(h<0) return 0;
-    (void)tbx_file_close(h); return 1;
 }
 static void begin_save(void)
 {

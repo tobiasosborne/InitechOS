@@ -40,20 +40,22 @@ int32_t tbx_alert(const char *text, const char *def,
     return TBX_OK;
 }
 /* initech-qxft: a one-file data volume. tables_exists models APPS\TABLES.TXT. */
-static int tables_exists, stage_open;
+static int tables_exists, stage_open, tmp_exists, tmp_clobbered;
 static char stage_name[80], stage_data[1024];
 static unsigned stage_len, stage_deletes;
 int32_t tbx_file_open(const char *p, uint32_t m)
-{ (void)m; return (tables_exists && !strcmp(p, "APPS\\TABLES.TXT")) ? 7 : -1; }
+{ (void)m; if (tmp_exists && !strcmp(p, "APPS\\TABLES.TMP")) return 8;
+  return (tables_exists && !strcmp(p, "APPS\\TABLES.TXT")) ? 7 : -1; }
 int32_t tbx_file_create(const char *p)
-{ snprintf(stage_name, sizeof stage_name, "%s", p); stage_len = 0; stage_open = 1; return 9; }
+{ if (tmp_exists && !strcmp(p, "APPS\\TABLES.TMP")) tmp_clobbered = 1; /* CREATE truncates */
+  snprintf(stage_name, sizeof stage_name, "%s", p); stage_len = 0; stage_open = 1; return 9; }
 int32_t tbx_file_write(int32_t h, const void *b, uint32_t n)
 {
     if (h != 9 || stage_len + n >= sizeof stage_data) return -1;
     memcpy(stage_data + stage_len, b, n); stage_len += n; stage_data[stage_len] = 0; return (int32_t)n;
 }
 int32_t tbx_file_close(int32_t h) { (void)h; stage_open = 0; return 0; }
-int32_t tbx_file_delete(const char *p) { if (!strcmp(p, stage_name)) stage_deletes++; return 0; }
+int32_t tbx_file_delete(const char *p) { if (tmp_exists && !strcmp(p, "APPS\\TABLES.TMP")) tmp_clobbered = 1; if (!strcmp(p, stage_name)) stage_deletes++; return 0; }
 int32_t tbx_file_copy(const char *c, const char *s, const char *d)
 {
     copies++;
@@ -147,6 +149,27 @@ int main(void)
         CHECK(strstr(stage_data, "\r\n9 ") != NULL, "QUITSAVE the saved file holds the second edit (9)");
         { tbx_event_t done = { (int32_t)TBX_EVT_FILECOPY, 50, 0, 0, 0, 0 }; tbx_app_event(&done); }
         CHECK(exits == 1, "QUITSAVE a successful Save ends the session");
+    }
+    /* Review fixes: the model is saved EVERY time once edited. A fresh Calc
+     * instance state is not possible here, so use the live one: no new edit,
+     * Save again (TABLES.TXT exists -> Yes): the source is still the stage
+     * holding the edited model, never the shipped LEDGER.TXT. */
+    {
+        unsigned c0 = copies;
+        tbx_event_t sv = { TBX_EVT_MENU, TBX_MENU_WORD(menu_id, item), 0, 0, 0, 0 };
+        tbx_event_t yes = { (int32_t)TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0, 0 };
+        tbx_event_t done = { (int32_t)TBX_EVT_FILECOPY, 50, 0, 0, 0, 0 };
+        exits = 0; tbx_app_event(&sv); tbx_app_event(&yes);
+        CHECK(copies == c0 + 1 && strcmp(src, "APPS\\LEDGER.TXT") != 0 && strstr(stage_data, "\r\n9 ") != NULL,
+              "SAVE_REPEAT a second Save with no new edit still saves the edited model, not the stale ledger");
+        tbx_app_event(&done);
+        /* A stranger's APPS\TABLES.TMP must survive. */
+        tmp_exists = 1; tmp_clobbered = 0; c0 = copies; stage_name[0] = 0;
+        tbx_app_event(&sv); tbx_app_event(&yes);
+        CHECK(copies == c0 + 1 && !tmp_clobbered && strcmp(src, "APPS\\TABLES.TMP") != 0,
+              "STAGE_CLOBBER an existing APPS\\TABLES.TMP is neither truncated nor used as the stage");
+        tbx_app_event(&done);
+        CHECK(!tmp_clobbered, "STAGE_CLOBBER completion deletes only the stage this Save created");
     }
     printf("test_calc_file_copy: %u checks, %u failures\n", checks, failures);
     return failures ? 1 : 0;

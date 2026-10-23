@@ -4,7 +4,7 @@ CALC_SRC := os/apps/calc/calc.c os/i123/core/sheet.c os/i123/core/fmt.c os/i123/
 CALC_DEP := spec/assets/calc_ledger.h os/i123/core/i123.h spec/i123/wk1_format.h
 CALC_INC := -Ios/apps/tbx -Ios/i123/core -Ispec -Ispec/assets -ffunction-sections -fdata-sections
 CALC_MUTANTS := CALC_MUT_PIE100 CALC_MUT_LEADING_MINUS CALC_MUT_NEVER_DIRTY CALC_MUT_CANCEL_QUITS
-CALC_SAVE_MUTANTS := CALC_MUT_SAVE_STALE CALC_MUT_REPLACE_SILENT
+CALC_SAVE_MUTANTS := CALC_MUT_SAVE_STALE CALC_MUT_REPLACE_SILENT CALC_MUT_ONE_FLAG CALC_MUT_STAGE_CLOBBER
 CALC_PIXEL_MUTANT := CALC_MUT_MERGE_SLICES
 $(eval $(call tenant-exe-rules,calc,$(CALC_SRC),$(CALC_INC),$(CALC_DEP),--gc-sections))
 $(foreach m,$(CALC_MUTANTS),$(eval $(call tenant-exe-rules,calc_$(m),$(CALC_SRC),$(CALC_INC) -D$(m),$(CALC_DEP),--gc-sections)))
@@ -131,7 +131,7 @@ $$(BUILD)/test_calc_file_copy_mut_$(1): harness/proptest/test_calc_file_copy.c $
 endef
 $(foreach m,$(CALC_SAVE_MUTANTS),$(eval $(call calc-save-host-mutant,$(m))))
 test-calc-file-copy-routing-mutant: test-calc-file-copy-routing $(BUILD)/test_calc_file_copy_mut_caption $(foreach m,$(CALC_SAVE_MUTANTS),$(BUILD)/test_calc_file_copy_mut_$(m))
-	@set -e; for pair in CALC_MUT_SAVE_STALE:SAVE_EDIT CALC_MUT_REPLACE_SILENT:REPLACE_ASKS; do m=$${pair%%:*}; why=$${pair#*:}; \
+	@set -e; for pair in CALC_MUT_SAVE_STALE:SAVE_EDIT CALC_MUT_REPLACE_SILENT:REPLACE_ASKS CALC_MUT_ONE_FLAG:SAVE_REPEAT CALC_MUT_STAGE_CLOBBER:STAGE_CLOBBER; do m=$${pair%%:*}; why=$${pair#*:}; \
 		if $(BUILD)/test_calc_file_copy_mut_$$m > $(BUILD)/test_calc_file_copy_mut_$$m.log 2>&1; then printf 'FAIL file-copy routing mutant %s survived\n' "$$m"; exit 1; fi; \
 		grep -q "FAIL file-copy routing: $$why" $(BUILD)/test_calc_file_copy_mut_$$m.log || { printf 'FAIL %s RED for the wrong reason\n' "$$m"; exit 1; }; \
 		printf '>>> test-calc-file-copy-routing-mutant: %s RED: %s\n' "$$m" "$$(grep -m1 "FAIL file-copy routing: $$why" $(BUILD)/test_calc_file_copy_mut_$$m.log)"; done
