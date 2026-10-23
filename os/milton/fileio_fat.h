@@ -43,6 +43,14 @@ void *fileio_fat_fat_buffer(uint32_t *out_len);
  * DEC-07 (one filesystem); CHKDSK's post-/F DIR/mdir differential. */
 void fileio_fat_absdisk_written(uint32_t lba, uint32_t count, const void *buf);
 
+/* The same mirror for a raw INT 13h write to fixed C (2) or D (3), e.g.
+ * SYS allocating the system files' chains (L042, docs/audits/2026-10-23-dos).
+ * A rewritten boot record is the caller's remount; drop_drive unbinds a
+ * volume that no longer mounts. */
+void fileio_fat_raw_written(unsigned letter, uint32_t lba, uint32_t count,
+                            const void *buf);
+void fileio_fat_drop_drive(unsigned letter);
+
 /* DIR volume identity, root label preferred over the extended BPB fallback.
  * out holds 12 bytes, no dot separator (label is one 11-byte field).
  * Empty string means no label. Errors are negative FAT12_ERR_* values. */

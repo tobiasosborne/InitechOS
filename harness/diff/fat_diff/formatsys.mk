@@ -55,6 +55,21 @@ test-formatsys-emu-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(CONSOLE_TEXT
 	@echo 'GREEN test-formatsys-emu-mutant: MEDIA FAT0 COMMAND ORDER RUNNING rejected'
 test-format-system-boot: test-formatsys-emu
 	@INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/formatsys_emu.sh $(BUILD) $(SECONDARY_TRACER_IMG) $(FORMAT_PROG_BIN) boot
+# L042 (docs/audits/2026-10-23-dos): FORMAT, SYS and ordinary writes in one
+# boot, judged by fsck.fat/mtools on the stopped image, then booted.
+.PHONY: test-formatsys-syswrite-emu test-formatsys-syswrite-emu-mutant
+test-formatsys-syswrite-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(CONSOLE_TEXT_BIN) $(DU_BINS) $(BUILD)/transient_flairtenants.bin
+	@INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/formatsys_emu.sh $(BUILD) $(SECONDARY_TRACER_IMG) $(FORMAT_PROG_BIN) syswrite
+# Rule 6: the shipped secondary shell with ONLY the fixed-volume write watch
+# removed (block_device.c BLOCK_DEVICE_MUT_WATCH) -- the pre-fix L042 kernel.
+$(BUILD)/block_device_mut_watch.o: $(BLOCK_DEVICE_SRC) os/milton/block_device.h spec/block_device_contract.h spec/drive_letters.h os/milton/diskutil.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_BLOCK_DEVICE_OPT) -DBLOCK_DEVICE_MUT_WATCH -Ispec -Ios/milton -c $< -o $@
+$(eval $(call j1lu-emu-variant,syswrite_watch,$(KERNEL_BLOCK_DEVICE_OBJ),$(BUILD)/block_device_mut_watch.o))
+test-formatsys-syswrite-emu-mutant: $(HARNESS_BIN) $(BUILD)/j1lu_syswrite_watch.img $(CONSOLE_TEXT_BIN) $(DU_BINS) $(BUILD)/transient_flairtenants.bin
+	@if INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/formatsys_emu.sh $(BUILD) $(BUILD)/j1lu_syswrite_watch.img $(FORMAT_PROG_BIN) syswrite > $(BUILD)/formatsys-syswrite-mut.log 2>&1; then echo 'FAIL formatsys syswrite WATCH survived'; exit 1; fi
+	@grep -Fx 'RED formatsys-emu syswrite filesystem' $(BUILD)/formatsys-syswrite-mut.log || { cat $(BUILD)/formatsys-syswrite-mut.log; exit 1; }
+	@echo 'GREEN test-formatsys-syswrite-emu-mutant: WATCH (stale mounted D: FAT after SYS) rejected by fsck.fat'
+TEST_EMU_GATES += test-formatsys-syswrite-emu test-formatsys-syswrite-emu-mutant
 test-diskcopy-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(DISKCOPY_PROG_BIN) $(DISKCOMP_PROG_BIN)
 	@INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/diskcopy_emu.sh $(BUILD) $(SECONDARY_TRACER_IMG)
 TEST_UNIT_GATES += test-formatsys test-formatsys-mutant

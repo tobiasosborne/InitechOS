@@ -1090,10 +1090,10 @@ void *fileio_fat_fat_buffer(uint32_t *out_len)
     return g_fat;
 }
 
-/* The raw-vector backend remains bound to A (ADR-0003 DEC-15). */
-void fileio_fat_absdisk_written(uint32_t lba, uint32_t count, const void *buf)
+/* Mirror a raw write's primary-FAT bytes into one mount's cache. */
+static void mount_raw_written(fileio_mount_t *m, uint32_t lba, uint32_t count,
+                              const void *buf)
 {
-    fileio_mount_t *m = &g_mounts[0];
     const fat12_volume_t *vol = m->vol;
     if (!vol || !buf || !count) return;
     uint32_t first = vol->first_fat_sector;
@@ -1108,4 +1108,29 @@ void fileio_fat_absdisk_written(uint32_t lba, uint32_t count, const void *buf)
         uint32_t n = (hi - lo) * 512u;
         while (n--) *dst++ = *src++;
     }
+}
+
+/* The raw-vector backend remains bound to A (ADR-0003 DEC-15). */
+void fileio_fat_absdisk_written(uint32_t lba, uint32_t count, const void *buf)
+{
+    mount_raw_written(&g_mounts[0], lba, count, buf);
+}
+
+/* L042: SYS/FORMAT INT 13h writes to fixed C (2) / D (3). */
+void fileio_fat_raw_written(unsigned letter, uint32_t lba, uint32_t count,
+                            const void *buf)
+{
+    if (letter == 2u || letter == 3u)
+        mount_raw_written(&g_mounts[letter - 1u], lba, count, buf);
+}
+
+/* Rule 2: a volume whose rewritten boot record no longer mounts is no
+ * longer a drive; never keep serving its stale geometry and FAT. */
+void fileio_fat_drop_drive(unsigned letter)
+{
+    if (letter != 2u && letter != 3u) return;
+    fileio_mount_t *m = &g_mounts[letter - 1u];
+    m->vol = 0;
+    m->fat_len = 0;
+    if (g_mount == m) g_mount = &g_mounts[0];
 }

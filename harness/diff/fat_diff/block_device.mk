@@ -26,16 +26,16 @@ define block-device-mutant
 $(BUILD)/test_block_device_$(1): $(BLOCK_DEVICE_TEST) $(BLOCK_DEVICE_SRC) spec/block_device_contract.h | $(BUILD)
 	$$(CC) $$(BLOCK_DEVICE_FLAGS) -DBLOCK_DEVICE_MUT_$(1) $$(BLOCK_DEVICE_TEST) $$(BLOCK_DEVICE_SRC) -o $$@
 endef
-$(foreach m,HEADS CARRY,$(eval $(call block-device-mutant,$(m))))
+$(foreach m,HEADS CARRY WATCH,$(eval $(call block-device-mutant,$(m))))
 .PHONY: test-block-device test-block-device-mutant test-block-device-emu test-block-device-emu-mutant
 test-block-device: $(BUILD)/test_block_device
 	@$<
-test-block-device-mutant: $(BUILD)/test_block_device_HEADS $(BUILD)/test_block_device_CARRY
-	@set -eu; for m in HEADS CARRY; do \
+test-block-device-mutant: $(BUILD)/test_block_device_HEADS $(BUILD)/test_block_device_CARRY $(BUILD)/test_block_device_WATCH
+	@set -eu; for m in HEADS CARRY WATCH; do \
 	 log=$(BUILD)/block-device-$$m.log; \
 	 if $(BUILD)/test_block_device_$$m > $$log 2>&1; then echo "FAIL block-device $$m survived"; exit 1; fi; \
 	 grep '^RED block-device ' $$log; done
-	@echo 'GREEN test-block-device-mutant: HEADS and CARRY rejected'
+	@echo 'GREEN test-block-device-mutant: HEADS, CARRY and WATCH rejected'
 test-block-device-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/test_partition $(BUILD)/block_device_probe.bin
 	@INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/block_device.sh $(BUILD) $(SECONDARY_TRACER_IMG)
 $(BUILD)/block_device_relative.o: $(BLOCK_DEVICE_SRC) spec/block_device_contract.h | $(BUILD)

@@ -17,6 +17,10 @@ static int wr(void *ctx, uint32_t l, uint32_t n, const void *p)
 { writes++; return rd(ctx,l,n,(void *)p); }
 static void notice(uint32_t l, uint32_t n, const void *p)
 { require(l==0 && n==1 && p==buffer,"cache volume-relative overlap"); notices++; }
+static unsigned watch_letter, watch_n;
+static uint32_t watch_lba;
+static void watched(unsigned letter, uint32_t l, uint32_t n, const void *p)
+{ require(p==buffer+512,"fixed watch buffer offset"); watch_letter=letter; watch_lba=l; watch_n=n; }
 static int_frame_t frame(unsigned ax, unsigned cx, unsigned dx)
 { int_frame_t f={0}; f.eax=ax;f.ecx=cx;f.edx=dx;f.ebx=(uint32_t)(uintptr_t)buffer;f.eflags=0x202;return f; }
 int main(void)
@@ -62,6 +66,13 @@ int main(void)
     require(!(f.eflags&1) && last==63 && writes==1 && notices==1,"raw write coherence at volume origin");
     f=frame(0x0301,33,0x81);int13_dispatch(&f);
     require(!(f.eflags&1) && last==32 && notices==1,"prefix write device relative");
+    /* L042: D (BIOS 80h primary 2 at LBA 4032) hears a two-sector write
+     * straddling its first sector, volume-relative, with its letter. */
+    du_map dmap={0x80,2,4032,2880,0};block_device_watch(3,&dmap,watched);
+    f=frame(0x0302,0x033f,0x0f80);int13_dispatch(&f); /* C3 H15 S63 = 4031 */
+    require(!(f.eflags&1) && last==4031 && watch_letter==3 && watch_lba==0 && watch_n==1,"fixed volume raw write watch");
+    watch_letter=0;f=frame(0x0301,1,0x81);int13_dispatch(&f);
+    require(watch_letter==0,"watch is per physical disk");
     puts("GREEN test-block-device: CHS grid, BIOS statuses/CF, drive map, geometry, raw origin, coherence");
     return 0;
 }
