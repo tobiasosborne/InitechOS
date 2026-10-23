@@ -206,7 +206,14 @@ sector per cluster}.
 
 \Param{/S} copies the system files and \file{COMMAND.COM} from drive~C to
 the new disk and displays \texttt{System transferred}; the disk can then
-start the system.  \Param{/V} asks for a volume label.  \Param{/B} reserves
+start the system.  If drive~C lacks a required file, \cmd{FORMAT} displays
+\texttt{Insert DOS diskette in drive C:}, then
+\texttt{and strike ENTER when ready}.  Supply the system disk and press
+\key{Enter} to try again, or press \key{Ctrl-C} to cancel.  The destination
+is not changed while \cmd{FORMAT} waits for the source files.
+% MS-DOS 3.3 User's Guide, printed p336 (PDF421); DEC-18 source drive C.
+% The memory-transfer error on printed p337 is not a missing-file error.
+\Param{/V} asks for a volume label.  \Param{/B} reserves
 room for the system files, which \cmd{SYS} can add later; it cannot be used
 with \kw{/S} or \kw{/V}.
 

@@ -161,8 +161,20 @@ static int format_run(const options *o,const du_map *m){
  if(m->flags&DU_RUNNING){drive_text("Format not supported on drive ",letter,":\r\n");return 4;}
 #endif
  volume src,dst;uint8_t files[3][32],template[512];du_map cm;
- if(io->map(2,&cm)||sec(&cm,0,template,0))return error("Format failure",4);
- if((o->s||o->b)&&source(&src,files,o->s?3:2))return error("Insufficient memory for system transfer",4);
+ if(o->s||o->b){
+  /* MS-DOS 3.3 UG p336 (PDF421), audit L041: unavailable source files
+   * prompt for a DOS disk; p337's memory error is a different condition.
+   * DEC-18 fixes the source at C:. Retry the lookup before ANY writes. */
+  while(source(&src,files,o->s?3:2)){
+#ifdef DU_MUT_MISSING
+   return error("Insufficient memory for system transfer",4);
+#else
+   char answer[1];drive_text("Insert DOS diskette in drive ",2,":\r\nand strike ENTER when ready\r\n");
+   if(input(answer,0)<0)return 3;
+#endif
+  }
+  cp(template,src.boot,512);
+ }else if(io->map(2,&cm)||sec(&cm,0,template,0))return error("Format failure",4);
  dst.m=*m;int rc=layout(&dst,o,template);
  if(rc)return error(rc==-2?"Format requires more than one sector per cluster":"Format failure",4);
  if(o->s||o->b){unsigned count=o->s?3:2,need=0;for(unsigned i=0;i<count;i++){if(chain(&src,files[i],0))return error("Format failure",4);need+=(u32(files[i]+28)+511)/512;}if(need>dst.clusters)return error("No room for system on destination disk",4);

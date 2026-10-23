@@ -2,7 +2,7 @@
 DU_FLAGS := -std=c11 -O2 -Wall -Wextra -Werror -Ispec -Ios/milton -I$(BUILD)
 DU_HOST := harness/diff/fat_diff/formatsys_host.c
 DU_SRC := os/milton/diskutil.c
-DU_MUTANTS := MEDIA FAT0 COMMAND ORDER COMPARE RUNNING RESERVE LABEL
+DU_MUTANTS := MEDIA FAT0 COMMAND ORDER COMPARE RUNNING RESERVE LABEL MISSING
 $(BUILD)/formatsys_check: harness/diff/fat_diff/formatsys_check.c | $(BUILD)
 	$(CC) $(DU_FLAGS) $< -o $@
 $(BUILD)/formatsys_host: $(DU_HOST) $(DU_SRC) os/milton/block_device.c os/milton/diskutil.h spec/drive_letters.h $(DOS_MESSAGES_H) | $(BUILD)
@@ -24,10 +24,10 @@ endef
 $(foreach m,$(DU_MUTANTS),$(eval $(call du-mutant,$(m))))
 test-formatsys-mutant: $(BUILD)/formatsys_check $(SECONDARY_TRACER_IMG) $(BUILD)/transient_flairtenants.bin $(foreach m,$(DU_MUTANTS),$(BUILD)/formatsys_host_$(m))
 	@set -eu; for m in $(DU_MUTANTS); do \
-	 case $$m in MEDIA) why='RED formatsys BPB media byte';; FAT0) why='RED formatsys FAT[0] media/EOC';; COMMAND) why='RED formatsys /S COMMAND.COM';; ORDER) why='RED formatsys root entry order';; COMPARE) why='RED formatsys DISKCOMP missing differing sector';; RUNNING) why='RED formatsys running volume not refused';; RESERVE) why='RED formatsys /B reserve bytes';; LABEL) why='RED formatsys /V repeat label fsck';; esac; \
+	 case $$m in MEDIA) why='RED formatsys BPB media byte';; FAT0) why='RED formatsys FAT[0] media/EOC';; COMMAND) why='RED formatsys /S COMMAND.COM';; ORDER) why='RED formatsys root entry order';; COMPARE) why='RED formatsys DISKCOMP missing differing sector';; RUNNING) why='RED formatsys running volume not refused';; RESERVE) why='RED formatsys /B reserve bytes';; LABEL) why='RED formatsys /V repeat label fsck';; MISSING) why='RED formatsys missing source message';; esac; \
 	 if sh harness/diff/fat_diff/formatsys.sh $(BUILD) $(SECONDARY_TRACER_IMG) $(BUILD)/formatsys_host_$$m > $(BUILD)/formatsys-mut-$$m.log 2>&1; then echo "FAIL $$m survived"; exit 1; fi; \
 	 grep -Fx "$$why" $(BUILD)/formatsys-mut-$$m.log || { cat $(BUILD)/formatsys-mut-$$m.log; exit 1; }; done
-	@echo 'GREEN test-formatsys-mutant: MEDIA FAT0 COMMAND ORDER COMPARE RUNNING RESERVE LABEL rejected'
+	@echo 'GREEN test-formatsys-mutant: MEDIA FAT0 COMMAND ORDER COMPARE RUNNING RESERVE LABEL MISSING rejected'
 $(BUILD)/diskutil_start.o: os/milton/diskutil_start.asm | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 $(BUILD)/diskutil.o: $(DU_SRC) os/milton/diskutil.h | $(BUILD)
@@ -45,14 +45,17 @@ $(eval $(call du-program,sys,1))
 $(eval $(call du-program,diskcopy,2))
 $(eval $(call du-program,diskcomp,3))
 DU_BINS = $(FORMAT_PROG_BIN) $(SYS_PROG_BIN) $(DISKCOPY_PROG_BIN) $(DISKCOMP_PROG_BIN)
-test-formatsys-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(CONSOLE_TEXT_BIN) $(DU_BINS) $(BUILD)/formatsys_check
+test-formatsys-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(CONSOLE_TEXT_BIN) $(DU_BINS) $(BUILD)/formatsys_check $(BUILD)/transient_flairtenants.bin
 	@INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/formatsys_emu.sh $(BUILD) $(SECONDARY_TRACER_IMG) $(FORMAT_PROG_BIN)
-test-formatsys-emu-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(CONSOLE_TEXT_BIN) $(DU_BINS) $(BUILD)/formatsys_check $(foreach m,MEDIA FAT0 COMMAND ORDER RUNNING,$(BUILD)/format_$(m).bin)
-	@set -eu; for m in MEDIA FAT0 COMMAND ORDER RUNNING; do \
-	 case $$m in MEDIA) why='RED formatsys BPB media byte';; FAT0) why='RED formatsys FAT[0] media/EOC';; COMMAND) why='RED formatsys /S COMMAND.COM';; ORDER) why='RED formatsys root entry order';; RUNNING) why='RED formatsys-emu running volume not refused';; esac; \
+test-formatsys-emu-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(CONSOLE_TEXT_BIN) $(DU_BINS) $(BUILD)/formatsys_check $(BUILD)/transient_flairtenants.bin $(foreach m,MEDIA FAT0 COMMAND ORDER RUNNING MISSING,$(BUILD)/format_$(m).bin)
+	@set -eu; for m in MEDIA FAT0 COMMAND ORDER RUNNING MISSING; do \
+	 case $$m in MEDIA) why='RED formatsys BPB media byte';; FAT0) why='RED formatsys FAT[0] media/EOC';; COMMAND) why='RED formatsys /S COMMAND.COM';; ORDER) why='RED formatsys root entry order';; RUNNING) why='RED formatsys-emu running volume not refused';; MISSING) why='RED formatsys-emu missing source message';; esac; \
 	 if INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/formatsys_emu.sh $(BUILD) $(SECONDARY_TRACER_IMG) $(BUILD)/format_$$m.bin $$m > $(BUILD)/formatsys-emu-mut-$$m.log 2>&1; then echo "FAIL emu $$m survived"; exit 1; fi; \
 	 grep -Fx "$$why" $(BUILD)/formatsys-emu-mut-$$m.log || { cat $(BUILD)/formatsys-emu-mut-$$m.log; exit 1; }; done
-	@echo 'GREEN test-formatsys-emu-mutant: MEDIA FAT0 COMMAND ORDER RUNNING rejected'
+	@echo 'GREEN test-formatsys-emu-mutant: MEDIA FAT0 COMMAND ORDER RUNNING MISSING rejected'
+.PHONY: test-format-missing-source-emu
+test-format-missing-source-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(CONSOLE_TEXT_BIN) $(DU_BINS) $(BUILD)/transient_flairtenants.bin
+	@INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/formatsys_emu.sh $(BUILD) $(SECONDARY_TRACER_IMG) $(FORMAT_PROG_BIN) MISSING
 test-format-system-boot: test-formatsys-emu
 	@INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/formatsys_emu.sh $(BUILD) $(SECONDARY_TRACER_IMG) $(FORMAT_PROG_BIN) boot
 # L042 (docs/audits/2026-10-23-dos): FORMAT, SYS and ordinary writes in one
