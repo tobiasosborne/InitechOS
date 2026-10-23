@@ -332,26 +332,16 @@ static int m_split_clauses(const char *args, m_clauses *mc)
         {
             const char *h = m_skip_ws(s);
             int sk;
-            if ((sk = m_match_kw(h, "ALL")) > 0) {
-                mc->scope_kind = MS_ALL; h = m_skip_ws(h + sk);
-            } else if ((sk = m_match_kw(h, "REST")) > 0) {
-                mc->scope_kind = MS_REST; h = m_skip_ws(h + sk);
-            } else if ((sk = m_match_kw(h, "NEXT")) > 0) {
-                mc->scope_kind = MS_NEXT; h = m_skip_ws(h + sk);
-                mc->scope_n = m_parse_uint(&h); h = m_skip_ws(h);
-            } else if ((sk = m_match_kw(h, "RECORD")) > 0) {
-                mc->scope_kind = MS_RECORD; h = m_skip_ws(h + sk);
-                mc->scope_n = m_parse_uint(&h); h = m_skip_ws(h);
-            }
-            {
-                uint32_t n = 0;
-                while (h < head_end && *h != '\0') {
-                    if (n >= M_MAX_EXPR) return -1;
-                    mc->head[n++] = *h++;
+            /* ALL REST NEXT RECORD in MS_ALL.. order; NEXT/RECORD take n */
+            int k = rt_kw_word(h, "ALL\0REST\0NEXT\0RECORD\0", &sk);
+            if (k >= 0) {
+                mc->scope_kind = MS_ALL + k; h = m_skip_ws(h + sk);
+                if (mc->scope_kind >= MS_NEXT) {
+                    mc->scope_n = m_parse_uint(&h); h = m_skip_ws(h);
                 }
-                while (n > 0u && m_isspace(mc->head[n - 1])) n--;
-                mc->head[n] = '\0';
             }
+            if (rt_copy_span(mc->head, M_MAX_EXPR, h, head_end) < 0)
+                return -1;
         }
     }
 
@@ -359,30 +349,22 @@ static int m_split_clauses(const char *args, m_clauses *mc)
     if (for_at) {
         const char *fs = m_skip_ws(for_at + 3);
         const char *fe = fs + m_strlen(fs);
-        uint32_t n = 0;
+        int n;
         if (while_at && while_at > fs && while_at < fe) fe = while_at;
-        while (fs < fe && *fs != '\0') {
-            if (n >= M_MAX_EXPR) return -1;
-            mc->forcond[n++] = *fs++;
-        }
-        while (n > 0u && m_isspace(mc->forcond[n - 1])) n--;
-        mc->forcond[n] = '\0';
-        mc->has_for = (n > 0u);
+        n = rt_copy_span(mc->forcond, M_MAX_EXPR, fs, fe);
+        if (n < 0) return -1;
+        mc->has_for = (n > 0);
     }
 
     /* WHILE <cond>: from after "WHILE" to FOR (or end). */
     if (while_at) {
         const char *ws = m_skip_ws(while_at + 5);
         const char *we = ws + m_strlen(ws);
-        uint32_t n = 0;
+        int n;
         if (for_at && for_at > ws && for_at < we) we = for_at;
-        while (ws < we && *ws != '\0') {
-            if (n >= M_MAX_EXPR) return -1;
-            mc->whilecond[n++] = *ws++;
-        }
-        while (n > 0u && m_isspace(mc->whilecond[n - 1])) n--;
-        mc->whilecond[n] = '\0';
-        mc->has_while = (n > 0u);
+        n = rt_copy_span(mc->whilecond, M_MAX_EXPR, ws, we);
+        if (n < 0) return -1;
+        mc->has_while = (n > 0);
     }
 
     return 0;
@@ -1258,10 +1240,11 @@ static int d_total(xb_interp *ip,const char *args,int *ec)
 
 /* Closed ASCII file verbs. Using III+ U5-59/121/175/278;
  * real DML-11..14: TYPE stops at DOS EOF, COPY FILE preserves every byte. */
-static int d_file(xb_interp *ip,const char *verb,const char *args,int *ec)
+/* kind: 0 TYPE, 1 RENAME, 2 ERASE, 3 COPY (mutate_cmd_hook's table order). */
+static int d_file(xb_interp *ip,int kind,const char *args,int *ec)
 {
-    const char *p=m_skip_ws(args);char src[128],dst[128],buf[512];int copy=m_ci_eq(verb,"COPY");
-    int type=m_ci_eq(verb,"TYPE"),erase=m_ci_eq(verb,"ERASE"),rc=0;
+    const char *p=m_skip_ws(args);char src[128],dst[128],buf[512];int copy=kind==3;
+    int type=kind==0,erase=kind==2,rc=0;
     samir_pal_t *pal=xb_interp_pal(ip);pal_fd in,out=-1;int32_t n;uint32_t total=0;
     if(copy) {if(!m_match_kw(p,"FILE"))return CMD_UNKNOWN;p=m_skip_ws(p+4);}
     if(!d_word(&p,src,sizeof src) || !d_name(src,sizeof src,""))return d_fail(ec,10);
@@ -1426,44 +1409,34 @@ static int m_delete_recall(xb_interp *ip, const char *args, int want_delete, int
 static int mutate_cmd_hook(void *user, xb_interp *ip,
                            const char *verb, const char *args, int *err_code)
 {
+    int k, rc;
     (void)user;
     if (err_code) *err_code = 0;
     if (!ip || !verb)
         return CMD_UNKNOWN;
 
-    if(m_ci_eq(verb,"TYPE") || m_ci_eq(verb,"RENAME") || m_ci_eq(verb,"ERASE") || m_ci_eq(verb,"COPY"))
-        return d_file(ip,verb,args,err_code);
-    if(m_ci_eq(verb,"RUN") || m_ci_eq(verb,"!"))return d_run(ip,args,err_code);
-    if(m_ci_eq(verb,"SORT"))return d_sort(ip,args,err_code);
-    if(m_ci_eq(verb,"TOTAL"))return d_total(ip,args,err_code);
-    if (m_ci_eq(verb,"INDEX") || m_ci_eq(verb,"REINDEX"))
-        return d_index(ip,args,m_ci_eq(verb,"REINDEX"),err_code);
-    if (m_ci_eq(verb, "REPLACE")) {
-        int rc = m_replace(ip, args, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
+    k = rt_kw_index(verb, "TYPE\0RENAME\0ERASE\0COPY\0RUN\0!\0SORT\0TOTAL\0INDEX\0"
+                          "REINDEX\0REPLACE\0APPEND\0DELETE\0RECALL\0PACK\0ZAP\0");
+    switch (k) {
+    case 0: case 1: case 2: case 3:             /* TYPE RENAME ERASE COPY */
+        return d_file(ip,k,args,err_code);
+    case 4: case 5:                             /* RUN ! */
+        return d_run(ip,args,err_code);
+    case 6:  return d_sort(ip,args,err_code);
+    case 7:  return d_total(ip,args,err_code);
+    case 8: case 9:                             /* INDEX REINDEX */
+        return d_index(ip,args,k==9,err_code);
+    case 10: rc = m_replace(ip, args, err_code); break;
+    case 11:
+        rc = m_match_kw(m_skip_ws(args),"FROM")?d_append_from(ip,args,err_code):m_append(ip, args, err_code);
+        break;
+    case 12: rc = m_delete_recall(ip, args, /*want_delete=*/1, err_code); break;
+    case 13: rc = m_delete_recall(ip, args, /*want_delete=*/0, err_code); break;
+    case 14: rc = m_pack(ip, err_code); break;
+    case 15: rc = m_zap(ip, err_code); break;
+    default: return CMD_UNKNOWN;                /* not a mutation verb */
     }
-    if (m_ci_eq(verb, "APPEND")) {
-        int rc = m_match_kw(m_skip_ws(args),"FROM")?d_append_from(ip,args,err_code):m_append(ip, args, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    if (m_ci_eq(verb, "DELETE")) {
-        int rc = m_delete_recall(ip, args, /*want_delete=*/1, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    if (m_ci_eq(verb, "RECALL")) {
-        int rc = m_delete_recall(ip, args, /*want_delete=*/0, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    if (m_ci_eq(verb, "PACK")) {
-        int rc = m_pack(ip, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    if (m_ci_eq(verb, "ZAP")) {
-        int rc = m_zap(ip, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    return CMD_UNKNOWN;                         /* not a mutation verb */
+    return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
 /* ===================================================================== */

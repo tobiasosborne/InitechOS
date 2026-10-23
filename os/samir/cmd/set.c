@@ -171,6 +171,14 @@ static const char *s_skip_ws(const char *s)
     return s;
 }
 
+/* skip an optional whole-word "TO" (any case) and the blanks after it. */
+static const char *s_skip_to(const char *s)
+{
+    if (rt_kw_word(s, "TO\0", (int *)0) == 0)
+        s = s_skip_ws(s + 2);
+    return s;
+}
+
 /* parse an unsigned integer at *s; advance *s past it. */
 static uint32_t s_parse_uint(const char **s)
 {
@@ -203,10 +211,11 @@ static void s_copy_trim(char *dst, uint32_t cap, const char *src)
 
 static int parse_on_off(const char *args, int *val)
 {
-    const char *s = s_skip_ws(args);
-    if (s_ci_eq(s, "ON"))  { *val = 1; return 0; }
-    if (s_ci_eq(s, "OFF")) { *val = 0; return 0; }
-    return -1;
+    /* "OFF" is entry 0 and "ON" entry 1: the index is the value. */
+    int k = rt_kw_index(s_skip_ws(args), "OFF\0ON\0");
+    if (k < 0) return -1;
+    *val = k;
+    return 0;
 }
 
 /* ===================================================================== */
@@ -250,12 +259,7 @@ static int do_set_decimals(xb_interp *ip, set_state *ss,
     uint8_t v;
 
     /* consume optional "TO" keyword */
-    if (s_ci_eq(s, "TO") ||
-            ((s[0]=='T'||s[0]=='t') && (s[1]=='O'||s[1]=='o')
-             && (s[2]=='\0' || s_isspace(s[2])))) {
-        /* move past "TO" */
-        s = s_skip_ws(s + 2);
-    }
+    s = s_skip_to(s);
     if (*s == '\0') {
         /* SET DECIMALS TO (no value) -> reset to default 2 */
         v = 2;
@@ -283,25 +287,20 @@ static int do_set_date(xb_interp *ip, set_state *ss,
                        const char *args, int *err_code)
 {
     set_date_fmt fmt;
+    int k;
     const char *s = s_skip_ws(args);
 
     /* consume optional "TO" keyword */
-    if ((s[0]=='T'||s[0]=='t') && (s[1]=='O'||s[1]=='o')
-            && (s[2]=='\0' || s_isspace(s[2]))) {
-        s = s_skip_ws(s + 2);
-    }
-    if      (s_ci_eq(s, "AMERICAN")) { fmt = SET_DATE_AMERICAN; }
-    else if (s_ci_eq(s, "ANSI"))     { fmt = SET_DATE_ANSI; }
-    else if (s_ci_eq(s, "BRITISH"))  { fmt = SET_DATE_BRITISH; }
-    else if (s_ci_eq(s, "ITALIAN"))  { fmt = SET_DATE_ITALIAN; }
-    else if (s_ci_eq(s, "FRENCH"))   { fmt = SET_DATE_FRENCH; }
-    else if (s_ci_eq(s, "GERMAN"))   { fmt = SET_DATE_GERMAN; }
-    else if (s_ci_eq(s, "JAPAN"))    { fmt = SET_DATE_JAPAN; }
-    else if (s_ci_eq(s, "USA"))      { fmt = SET_DATE_USA; }
-    else {
+    s = s_skip_to(s);
+    /* The keyword's table position IS its set_date_fmt (set.h: AMERICAN=0
+     * .. USA=7, in this order). */
+    k = rt_kw_index(s, "AMERICAN\0ANSI\0BRITISH\0ITALIAN\0FRENCH\0GERMAN\0"
+                       "JAPAN\0USA\0");
+    if (k < 0) {
         if (err_code) *err_code = 0;
         return -INTERP_ERR_SYNTAX;
     }
+    fmt = (set_date_fmt)k;
     ss->date_fmt = fmt;
     /* Wire into ctx so fn_builtins.c DTOC/CTOD reads the updated format.
      * Ref: eval.h xb_ctx.set_date_fmt; fn_builtins.c fn_dtoc_impl/fn_ctod_impl. */
@@ -349,10 +348,7 @@ static int do_set_order(xb_interp *ip, const char *args, int *err_code)
     const char *s = s_skip_ws(args);
 
     /* consume "TO" keyword if present */
-    if ((s[0]=='T'||s[0]=='t') && (s[1]=='O'||s[1]=='o')
-            && (s[2]=='\0' || s_isspace(s[2]))) {
-        s = s_skip_ws(s + 2);
-    }
+    s = s_skip_to(s);
 
     if (*s != '\0') {
         n = s_parse_uint(&s);
@@ -386,10 +382,7 @@ static int do_set_index(xb_interp *ip, set_state *ss, const char *args, int *err
 {
     const char *s = s_skip_ws(args);
     /* consume "TO" keyword if present */
-    if ((s[0]=='T'||s[0]=='t') && (s[1]=='O'||s[1]=='o')
-            && (s[2]=='\0' || s_isspace(s[2]))) {
-        s = s_skip_ws(s + 2);
-    }
+    s = s_skip_to(s);
     s_copy_trim(ss->index_text, (uint32_t)SET_GATED_TEXT_CAP, s);
     ss->have_index = 1;
     /* Using III+ U5-239; SF-index: replace this area's list, first is master,
@@ -441,10 +434,7 @@ static int do_set_filter(xb_interp *ip, set_state *ss, const char *args, int *er
 {
     const char *s = s_skip_ws(args);
     /* consume "TO" keyword if present */
-    if ((s[0]=='T'||s[0]=='t') && (s[1]=='O'||s[1]=='o')
-            && (s[2]=='\0' || s_isspace(s[2]))) {
-        s = s_skip_ws(s + 2);
-    }
+    s = s_skip_to(s);
     /* Ref: Using dBase III Plus.pdf U5-229: selected work area, lazy movement. */
     {
         int rc=wa_set_filter(ip, wa_selected(xb_interp_env(ip)), s, err_code);
@@ -466,10 +456,7 @@ static int do_set_relation(set_state *ss, const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
     /* consume "TO" keyword if present */
-    if ((s[0]=='T'||s[0]=='t') && (s[1]=='O'||s[1]=='o')
-            && (s[2]=='\0' || s_isspace(s[2]))) {
-        s = s_skip_ws(s + 2);
-    }
+    s = s_skip_to(s);
     s_copy_trim(ss->relation_text, (uint32_t)SET_GATED_TEXT_CAP, s);
     ss->have_relation = 1;
     /* GATED: runtime relation effect deferred -- follow-up bead required. */
@@ -592,7 +579,7 @@ static int set_cmd_hook(void *user, xb_interp *ip,
     set_state  *ss;
     const char *s, *opt_start;
     char        opt[32];
-    int         i, opt_len;
+    int         i, k, opt_len;
 
     (void)user;
     if (err_code) *err_code = 0;
@@ -633,10 +620,14 @@ static int set_cmd_hook(void *user, xb_interp *ip,
     /* Dispatch on the sub-option.                                         */
     /* ------------------------------------------------------------------ */
 
-    if(s_ci_eq(opt,"ALTERNATE")) {
+    k = rt_kw_index(opt, "ALTERNATE\0EXACT\0DECIMALS\0DATE\0CENTURY\0ORDER\0"
+                         "INDEX\0DELETED\0FILTER\0RELATION\0TALK\0SAFETY\0"
+                         "ESCAPE\0HEADING\0CONSOLE\0STATUS\0");
+    switch (k) {
+    case 0: { /* ALTERNATE */
         int on;
         if(!parse_on_off(s,&on)) { ss->alternate_on=on;return CMD_OK; }
-        if((s[0]=='T'||s[0]=='t') && (s[1]=='O'||s[1]=='o') && (!s[2]||s_isspace(s[2]))) {
+        if(rt_kw_word(s,"TO\0",(int *)0)==0) {
             char name[128];uint32_t n;samir_pal_t *pal=xb_interp_pal(ip);
             s=s_skip_ws(s+2);set_close_alternate(ip);
             if(!*s)return CMD_OK;
@@ -654,70 +645,67 @@ static int set_cmd_hook(void *user, xb_interp *ip,
         return -INTERP_ERR_SYNTAX;
     }
 
-    if (s_ci_eq(opt, "EXACT")) {
+    case 1: { /* EXACT */
         int rc = do_set_exact(ip, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
-    if (s_ci_eq(opt, "DECIMALS")) {
+    case 2: { /* DECIMALS */
         int rc = do_set_decimals(ip, ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
-    if (s_ci_eq(opt, "DATE")) {
+    case 3: { /* DATE */
         int rc = do_set_date(ip, ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
-    if (s_ci_eq(opt, "CENTURY")) {
+    case 4: { /* CENTURY */
         int rc = do_set_century(ip, ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
-    if (s_ci_eq(opt, "ORDER")) {
+    case 5: { /* ORDER */
         int rc = do_set_order(ip, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
-    if (s_ci_eq(opt, "INDEX")) {
+    case 6: { /* INDEX */
         int rc = do_set_index(ip, ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
-    if (s_ci_eq(opt, "DELETED")) {
+    case 7: { /* DELETED */
         int on;
-        s=s_skip_ws(s);
-        if (s_ci_eq(s,"ON")) on=1;
-        else if (s_ci_eq(s,"OFF")) on=0;
-        else { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+        if (parse_on_off(s, &on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
         wa_set_deleted(xb_interp_env(ip),on);
         if(err_code) *err_code=0;
         return CMD_OK;
     }
 
-    if (s_ci_eq(opt, "FILTER")) {
+    case 8: { /* FILTER */
         int rc = do_set_filter(ip, ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
-    if (s_ci_eq(opt, "RELATION")) {
+    case 9: { /* RELATION */
         int rc = do_set_relation(ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
-    if (s_ci_eq(opt, "TALK")) {
+    case 10: { /* TALK */
         int rc = do_set_talk(ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
-    if (s_ci_eq(opt, "SAFETY")) {
+    case 11: { /* SAFETY */
         int rc = do_set_safety(ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
     /* SET ESCAPE ON|OFF (Using III+ U5-220): OFF disables the Esc program
      * interrupt and ON ESCAPE (U5-160). Before initech-39e5 it was #10. */
-    if (s_ci_eq(opt, "ESCAPE")) {
+    case 12: { /* ESCAPE */
         int on;
         if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
         ss->escape = on;
@@ -730,14 +718,17 @@ static int set_cmd_hook(void *user, xb_interp *ip,
      *  III+ index; it is a Clipper/dBASE IV addition.]
      */
     /* Using III+ U5-210/PDF 322, U5-235/PDF 347, U5-259/PDF 371. */
-    if(s_ci_eq(opt,"HEADING") || s_ci_eq(opt,"CONSOLE") || s_ci_eq(opt,"STATUS")) {
+    case 13: case 14: case 15: { /* HEADING CONSOLE STATUS */
         int on;
         xb_ctx *ctx=xb_interp_ctx(ip);
         if(parse_on_off(s,&on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
-        if(s_ci_eq(opt,"HEADING")) ctx->set_heading=(uint8_t)on;
-        else if(s_ci_eq(opt,"CONSOLE")) ctx->set_console=(uint8_t)on;
+        if(k==13) ctx->set_heading=(uint8_t)on;
+        else if(k==14) ctx->set_console=(uint8_t)on;
         else ctx->set_status=(uint8_t)on;
         return CMD_OK;
+    }
+    default:
+        break;
     }
 
     /* An unknown SET option (NEAR is dBASE IV / Clipper, not III+) is a

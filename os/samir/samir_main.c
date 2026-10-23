@@ -404,22 +404,22 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
 extern void wa_close_indexes(wa_env *, int);
 static int repl_do_close(xb_interp *ip, const char *args, int *ec)
 {
-    char type[REPL_TOK_CAP],extra[REPL_TOK_CAP];const char *p=args;int area;
+    char type[REPL_TOK_CAP],extra[REPL_TOK_CAP];const char *p=args;int area,k;
     if (!repl_word(&p,type,sizeof type) || repl_word(&p,extra,sizeof extra)) {
         *ec=10;return -INTERP_ERR_SYNTAX;
     }
 #ifdef SAMIR_DML_MUTANT_close
     wa_close_all(xb_interp_env(ip));return INTERP_OK;
 #endif
-    if (repl_verb_eq(type,"ALL",(const char **)0) ||
-        repl_verb_eq(type,"DATABASES",(const char **)0)) {
+    /* `type` is one repl_word token (no blank inside), so the leading-word
+     * match repl_verb_eq made is the whole-token match of rt_kw_index. */
+    k=rt_kw_index(type,"ALL\0DATABASES\0INDEX\0FORMAT\0PROCEDURE\0ALTERNATE\0");
+    if (k == 0 || k == 1) {                     /* ALL DATABASES */
         for(area=1;area<=WA_NAREAS;area++)wa_nav_reset(area);
         wa_close_all(xb_interp_env(ip));
-    } else if (repl_verb_eq(type,"INDEX",(const char **)0)) {
+    } else if (k == 2) {                        /* INDEX */
         for(area=1;area<=WA_NAREAS;area++) { wa_close_indexes(xb_interp_env(ip),area);wa_nav_reset(area); }
-    } else if (!repl_verb_eq(type,"FORMAT",(const char **)0) &&
-               !repl_verb_eq(type,"PROCEDURE",(const char **)0) &&
-               !repl_verb_eq(type,"ALTERNATE",(const char **)0)) {
+    } else if (k < 0) {                         /* not FORMAT/PROCEDURE/ALTERNATE */
         *ec=10;return -INTERP_ERR_SYNTAX;
     }
     return INTERP_OK;

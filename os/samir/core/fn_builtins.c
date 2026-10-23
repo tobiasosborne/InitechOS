@@ -2170,34 +2170,77 @@ static int fn_file(xb_ctx *ctx, const xb_val *args, int nargs,
 /* The dispatch table (case-insensitive name -> handler)                     */
 /* ======================================================================== */
 
+/*
+ * The built-in names, one NUL-terminated entry each, in FN_* order; an empty
+ * entry ends the table. One lookup loop over the table replaces a chain of
+ * per-name compare calls (SAMIR size round 3, initech-vn4i): the lookup is the
+ * same exact case-insensitive name_is match, and since every name is distinct
+ * the first-match order of the old chain cannot change which handler runs.
+ */
+enum {
+    FN_RECSIZE, FN_ERROR, FN_MESSAGE,
+    FN_UPPER, FN_LOWER, FN_TRIM, FN_RTRIM, FN_LTRIM, FN_SUBSTR, FN_LEN,
+    FN_SPACE, FN_CHR, FN_ASC,
+    FN_STR, FN_VAL, FN_CTOD, FN_DTOC,
+    FN_DATE, FN_DAY, FN_MONTH, FN_YEAR,
+    FN_TYPE,
+    FN_ABS, FN_INT, FN_MOD, FN_ROUND, FN_MAX, FN_MIN,
+    FN_CDOW, FN_CMONTH, FN_DOW,
+    FN_RECNO, FN_RECCOUNT, FN_EOF, FN_BOF, FN_FOUND, FN_DELETED, FN_FIELD,
+    FN_DBF, FN_FILE,
+    FN_LEFT, FN_RIGHT, FN_STUFF, FN_REPLICATE, FN_AT, FN_ISALPHA, FN_ISUPPER,
+    FN_ISLOWER, FN_TRANSFORM
+};
+static const char fn_names[] =
+    "RECSIZE\0ERROR\0MESSAGE\0"
+    "UPPER\0LOWER\0TRIM\0RTRIM\0LTRIM\0SUBSTR\0LEN\0"
+    "SPACE\0CHR\0ASC\0"
+    "STR\0VAL\0CTOD\0DTOC\0"
+    "DATE\0DAY\0MONTH\0YEAR\0"
+    "TYPE\0"
+    "ABS\0INT\0MOD\0ROUND\0MAX\0MIN\0"
+    "CDOW\0CMONTH\0DOW\0"
+    "RECNO\0RECCOUNT\0EOF\0BOF\0FOUND\0DELETED\0FIELD\0"
+    "DBF\0FILE\0"
+    "LEFT\0RIGHT\0STUFF\0REPLICATE\0AT\0ISALPHA\0ISUPPER\0"
+    "ISLOWER\0TRANSFORM\0";
+
 int xb_call_builtin(const char *name, uint16_t namelen,
                     const xb_val *args, int nargs,
                     xb_ctx *ctx, xb_val *out, int *err_code)
 {
+    const char *kw = fn_names;
+    int k = 0;
+
     *err_code = XBEE_OK;
     *out = xb_u();
 
     if (name == 0 || namelen == 0) return fn_fail(err_code, XBEE_INVALID_FN);
 
+    while (*kw != '\0' && !name_is(name, namelen, kw)) {
+        while (*kw++ != '\0') { }
+        k++;
+    }
+    if (*kw == '\0') k = -1;                    /* no such built-in -> #31 */
+
+    switch (k) {
     /* Using III+ U6-69; SF-recsize pins the deletion-byte inclusion and
      * the documented zero when no table is in use. */
 #ifndef SAMIR_FNS_MUTANT_recsize
-    if(name_is(name,namelen,"RECSIZE")) {
+    case FN_RECSIZE:
         if(nargs) return fn_fail(err_code,XBEE_INVALID_ARG);
         *out=xb_n(ctx->record_size?(double)ctx->record_size(ctx->dbcur_user):0.0);
         return 0;
-    }
 #endif
 
     /* Programming III+ N5-30 (PDF 418): number of the ON ERROR condition. */
-    if (name_is(name, namelen, "ERROR")) {
+    case FN_ERROR:
         if (nargs != 0) return fn_fail(err_code, XBEE_INVALID_ARG);
         *out = xb_n(ctx ? (double)ctx->error_number : 0.0);
         return 0;
-    }
     /* Using III+ U6-54: MESSAGE() is the catalogue text of the error
      * ERROR() reports (SF-errors, real III+ 1.1). */
-    if (name_is(name, namelen, "MESSAGE")) {
+    case FN_MESSAGE: {
         char *m = fn_scratch(ctx, 128u);
         unsigned n = 0;
         if (nargs != 0) return fn_fail(err_code, XBEE_INVALID_ARG);
@@ -2209,44 +2252,44 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     }
 
     /* String functions */
-    if (name_is(name, namelen, "UPPER"))  return fn_case(ctx, args, nargs, 1, out, err_code);
-    if (name_is(name, namelen, "LOWER"))  return fn_case(ctx, args, nargs, 0, out, err_code);
-    if (name_is(name, namelen, "TRIM"))   return fn_trim(args, nargs, 0, out, err_code);
-    if (name_is(name, namelen, "RTRIM"))  return fn_trim(args, nargs, 0, out, err_code); /* synonym */
-    if (name_is(name, namelen, "LTRIM"))  return fn_trim(args, nargs, 1, out, err_code);
-    if (name_is(name, namelen, "SUBSTR")) return fn_substr(args, nargs, out, err_code);
-    if (name_is(name, namelen, "LEN"))    return fn_len(args, nargs, out, err_code);
-    if (name_is(name, namelen, "SPACE"))  return fn_space(ctx, args, nargs, out, err_code);
-    if (name_is(name, namelen, "CHR"))    return fn_chr(ctx, args, nargs, out, err_code);
-    if (name_is(name, namelen, "ASC"))    return fn_asc(args, nargs, out, err_code);
+    case FN_UPPER:  return fn_case(ctx, args, nargs, 1, out, err_code);
+    case FN_LOWER:  return fn_case(ctx, args, nargs, 0, out, err_code);
+    case FN_TRIM:   return fn_trim(args, nargs, 0, out, err_code);
+    case FN_RTRIM:  return fn_trim(args, nargs, 0, out, err_code); /* synonym */
+    case FN_LTRIM:  return fn_trim(args, nargs, 1, out, err_code);
+    case FN_SUBSTR: return fn_substr(args, nargs, out, err_code);
+    case FN_LEN:    return fn_len(args, nargs, out, err_code);
+    case FN_SPACE:  return fn_space(ctx, args, nargs, out, err_code);
+    case FN_CHR:    return fn_chr(ctx, args, nargs, out, err_code);
+    case FN_ASC:    return fn_asc(args, nargs, out, err_code);
 
     /* Conversion bridges */
-    if (name_is(name, namelen, "STR"))    return fn_str(ctx, args, nargs, out, err_code);
-    if (name_is(name, namelen, "VAL"))    return fn_val(args, nargs, out, err_code);
-    if (name_is(name, namelen, "CTOD"))   return fn_ctod_impl(args, nargs, ctx, out, err_code);
-    if (name_is(name, namelen, "DTOC"))   return fn_dtoc_impl(ctx, args, nargs, out, err_code);
+    case FN_STR:    return fn_str(ctx, args, nargs, out, err_code);
+    case FN_VAL:    return fn_val(args, nargs, out, err_code);
+    case FN_CTOD:   return fn_ctod_impl(args, nargs, ctx, out, err_code);
+    case FN_DTOC:   return fn_dtoc_impl(ctx, args, nargs, out, err_code);
 
     /* Date functions */
-    if (name_is(name, namelen, "DATE"))   return fn_date(ctx, nargs, out, err_code);
-    if (name_is(name, namelen, "DAY"))    return fn_dmy(args, nargs, 0, out, err_code);
-    if (name_is(name, namelen, "MONTH"))  return fn_dmy(args, nargs, 1, out, err_code);
-    if (name_is(name, namelen, "YEAR"))   return fn_dmy(args, nargs, 2, out, err_code);
+    case FN_DATE:   return fn_date(ctx, nargs, out, err_code);
+    case FN_DAY:    return fn_dmy(args, nargs, 0, out, err_code);
+    case FN_MONTH:  return fn_dmy(args, nargs, 1, out, err_code);
+    case FN_YEAR:   return fn_dmy(args, nargs, 2, out, err_code);
 
     /* Generic */
-    if (name_is(name, namelen, "TYPE"))   return fn_type(args, nargs, ctx, out, err_code);
+    case FN_TYPE:   return fn_type(args, nargs, ctx, out, err_code);
 
     /* Numeric functions (S3.6a freestanding half) */
-    if (name_is(name, namelen, "ABS"))    return fn_abs(args, nargs, out, err_code);
-    if (name_is(name, namelen, "INT"))    return fn_int(args, nargs, out, err_code);
-    if (name_is(name, namelen, "MOD"))    return fn_mod(args, nargs, out, err_code);
-    if (name_is(name, namelen, "ROUND"))  return fn_round(args, nargs, out, err_code);
-    if (name_is(name, namelen, "MAX"))    return fn_maxmin(args, nargs, 1, out, err_code);
-    if (name_is(name, namelen, "MIN"))    return fn_maxmin(args, nargs, 0, out, err_code);
+    case FN_ABS:    return fn_abs(args, nargs, out, err_code);
+    case FN_INT:    return fn_int(args, nargs, out, err_code);
+    case FN_MOD:    return fn_mod(args, nargs, out, err_code);
+    case FN_ROUND:  return fn_round(args, nargs, out, err_code);
+    case FN_MAX:    return fn_maxmin(args, nargs, 1, out, err_code);
+    case FN_MIN:    return fn_maxmin(args, nargs, 0, out, err_code);
 
     /* Date name functions (S3.6a freestanding half) */
-    if (name_is(name, namelen, "CDOW"))   return fn_cdow(ctx, args, nargs, out, err_code);
-    if (name_is(name, namelen, "CMONTH")) return fn_cmonth(ctx, args, nargs, out, err_code);
-    if (name_is(name, namelen, "DOW"))    return fn_dow(args, nargs, out, err_code);
+    case FN_CDOW:   return fn_cdow(ctx, args, nargs, out, err_code);
+    case FN_CMONTH: return fn_cmonth(ctx, args, nargs, out, err_code);
+    case FN_DOW:    return fn_dow(args, nargs, out, err_code);
 
     /* Database / work-area functions (S3.6b, initech-7az.10). These reach the
      * SELECTED work area's cursor through ctx->dbcur (eval.h xb_dbcursor) -- NOT
@@ -2254,32 +2297,35 @@ int xb_call_builtin(const char *name, uint16_t namelen,
      * core. ctx->dbcur == NULL (no work area) -> XBEE_NO_DATABASE (#52) fail loud.
      * Refs: system-and-database-functions.md sec 2 (RECNO/RECCOUNT/EOF/BOF/FOUND/
      *   DELETED/FIELD/DBF) + sec 3 (FILE); dbase_msg_codes.tsv #52. */
-    if (name_is(name, namelen, "RECNO"))    return fn_recno(ctx, nargs, out, err_code);
-    if (name_is(name, namelen, "RECCOUNT")) return fn_reccount(ctx, nargs, out, err_code);
-    if (name_is(name, namelen, "EOF"))      return fn_eofbof(ctx, nargs, 1, out, err_code);
-    if (name_is(name, namelen, "BOF"))      return fn_eofbof(ctx, nargs, 0, out, err_code);
-    if (name_is(name, namelen, "FOUND"))    return fn_found(ctx, nargs, out, err_code);
-    if (name_is(name, namelen, "DELETED"))  return fn_deleted(ctx, nargs, out, err_code);
-    if (name_is(name, namelen, "FIELD"))    return fn_field(ctx, args, nargs, out, err_code);
-    if (name_is(name, namelen, "DBF"))      return fn_dbf(ctx, nargs, out, err_code);
-    if (name_is(name, namelen, "FILE"))     return fn_file(ctx, args, nargs, out, err_code);
+    case FN_RECNO:    return fn_recno(ctx, nargs, out, err_code);
+    case FN_RECCOUNT: return fn_reccount(ctx, nargs, out, err_code);
+    case FN_EOF:      return fn_eofbof(ctx, nargs, 1, out, err_code);
+    case FN_BOF:      return fn_eofbof(ctx, nargs, 0, out, err_code);
+    case FN_FOUND:    return fn_found(ctx, nargs, out, err_code);
+    case FN_DELETED:  return fn_deleted(ctx, nargs, out, err_code);
+    case FN_FIELD:    return fn_field(ctx, args, nargs, out, err_code);
+    case FN_DBF:      return fn_dbf(ctx, nargs, out, err_code);
+    case FN_FILE:     return fn_file(ctx, args, nargs, out, err_code);
 
     /* String functions C (initech-7az.12): LEFT RIGHT STUFF REPLICATE AT
      * ISALPHA ISUPPER ISLOWER TRANSFORM.
      * Refs: HELP.DBS.strings.txt @STRING FUNCTIONS + @STR FUNC 2/3 (lines
      *   1326-1358); mint-results-002.md (TRANSFORM exists, "9999" picture). */
-    if (name_is(name, namelen, "LEFT"))      return fn_left(args, nargs, out, err_code);
-    if (name_is(name, namelen, "RIGHT"))     return fn_right(args, nargs, out, err_code);
-    if (name_is(name, namelen, "STUFF"))     return fn_stuff(ctx, args, nargs, out, err_code);
-    if (name_is(name, namelen, "REPLICATE")) return fn_replicate(ctx, args, nargs, out, err_code);
-    if (name_is(name, namelen, "AT"))        return fn_at(args, nargs, out, err_code);
-    if (name_is(name, namelen, "ISALPHA"))   return fn_isalpha(args, nargs, out, err_code);
-    if (name_is(name, namelen, "ISUPPER"))   return fn_isupper(args, nargs, out, err_code);
-    if (name_is(name, namelen, "ISLOWER"))   return fn_islower(args, nargs, out, err_code);
-    if (name_is(name, namelen, "TRANSFORM")) return fn_transform(ctx, args, nargs, out, err_code);
+    case FN_LEFT:      return fn_left(args, nargs, out, err_code);
+    case FN_RIGHT:     return fn_right(args, nargs, out, err_code);
+    case FN_STUFF:     return fn_stuff(ctx, args, nargs, out, err_code);
+    case FN_REPLICATE: return fn_replicate(ctx, args, nargs, out, err_code);
+    case FN_AT:        return fn_at(args, nargs, out, err_code);
+    case FN_ISALPHA:   return fn_isalpha(args, nargs, out, err_code);
+    case FN_ISUPPER:   return fn_isupper(args, nargs, out, err_code);
+    case FN_ISLOWER:   return fn_islower(args, nargs, out, err_code);
+    case FN_TRANSFORM: return fn_transform(ctx, args, nargs, out, err_code);
+    default:           break;
+    }
 
     /* DTOS exists in dBASE IV / Clipper but NOT in III+ 1.1 -> #31 (the same
      * path as any unknown name; the test asserts DTOS specifically).
-     * (numeric-and-date-functions.md: DTOS absent from @DATE FUNCTIONS.) */
+     * (numeric-and-date-functions.md: DTOS absent from @DATE FUNCTIONS.)
+     * Under SAMIR_FNS_MUTANT_recsize RECSIZE lands here too, as before. */
     return fn_fail(err_code, XBEE_INVALID_FN);   /* #31 "Invalid function name." */
 }

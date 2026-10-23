@@ -95,6 +95,57 @@ int rt_strncmp(const char *a, const char *b, uint32_t n)
     return 0;
 }
 
+int rt_kw_index(const char *s, const char *list)
+{
+    int k = 0;
+    while (*list != '\0') {
+        uint32_t i = 0;
+        for (;;) {
+            char c = s[i];
+            if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+            if (c != list[i]) break;
+            if (c == '\0') return k;
+            i++;
+        }
+        while (*list++ != '\0') { }
+        k++;
+    }
+    return -1;
+}
+
+int rt_kw_word(const char *s, const char *list, int *len)
+{
+    int k = 0;
+    while (*list != '\0') {
+        int i = 0;
+        for (;;) {
+            char c = s[i];
+            if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+            if (list[i] == '\0' || c != list[i]) break;
+            i++;
+        }
+        if (list[i] == '\0' && (s[i] == '\0' || s[i] == ' ' || s[i] == '\t')) {
+            if (len) *len = i;
+            return k;
+        }
+        while (*list++ != '\0') { }
+        k++;
+    }
+    return -1;
+}
+
+int rt_copy_span(char *dst, uint32_t cap, const char *from, const char *to)
+{
+    uint32_t n = 0;
+    while (from < to && *from != '\0') {
+        if (n >= cap) return -1;
+        dst[n++] = *from++;
+    }
+    while (n > 0u && (dst[n - 1] == ' ' || dst[n - 1] == '\t')) n--;
+    dst[n] = '\0';
+    return (int)n;
+}
+
 /* ======================================================================== */
 /* 2. Julian Day Number -- Gregorian calendar (valid 1900-2155)             */
 /* ======================================================================== */

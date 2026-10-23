@@ -70,6 +70,32 @@ uint32_t rt_strlen(const char *s);
  */
 int rt_strncmp(const char *a, const char *b, uint32_t n);
 
+/*
+ * rt_kw_index: the 0-based position of `s` (NUL-terminated, ASCII a-z folded
+ * to upper case) in `list`, a run of NUL-terminated UPPER-CASE keywords ended
+ * by an empty entry ("ON\0OFF\0"), or -1 when no entry equals it. Exactly
+ * the per-file x_ci_eq(s, "KW") whole-string match, one table walk for a
+ * keyword chain (SAMIR size round 3, initech-vn4i).
+ */
+int rt_kw_index(const char *s, const char *list);
+
+/*
+ * rt_kw_word: like rt_kw_index, but the keyword need only begin `s` as a
+ * whole word (followed by NUL, ' ' or '\t') -- the per-file x_match_kw(s,
+ * "KW") test over a list. Returns the entry's index and stores its length in
+ * *len (when len is non-NULL), or -1.
+ */
+int rt_kw_word(const char *s, const char *list, int *len);
+
+/*
+ * rt_copy_span: copy the bytes of [from, to) -- stopping early at a NUL --
+ * into dst, drop trailing blanks (' ', '\t') and NUL-terminate; dst holds
+ * cap + 1 bytes. Returns the kept length, or -1 (dst unterminated) when more
+ * than cap bytes would be copied: the clause splitters' FOR / WHILE / head
+ * copy, one routine (SAMIR size round 3, initech-vn4i).
+ */
+int rt_copy_span(char *dst, uint32_t cap, const char *from, const char *to);
+
 /* ---- 2. Julian Day Number (Gregorian calendar, 1900-2155) ---- */
 
 /*

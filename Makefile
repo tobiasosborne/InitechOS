@@ -28310,6 +28310,24 @@ SAMIR_SIZE_CFLAGS += -flto-partition=one -fno-ipa-sra -mtune=generic
 # combination (worklog table); the set is the subset that kept its saving.
 SAMIR_SIZE_CFLAGS += -fno-forward-propagate -fno-shrink-wrap -fno-defer-pop -fno-stack-clash-protection \
                      -fno-tree-dominator-opts -fno-tree-tail-merge -fno-tree-sra
+# Size round 3 (initech-vn4i): the kernel's proven pass policy (initech-5qsm
+# KERNEL_R5_FLAGS) re-swept one switch at a time on the 99,738 B image, then
+# the kept subset: -fno-tree-loop-im (-192), -fno-tree-scev-cprop (-128),
+# -fno-guess-branch-probability (-128; static branch guesses only reorder
+# blocks), -fno-code-hoisting (-96), -fno-move-loop-invariants (-32); together
+# 99738 -> 99226 B. Then -fno-caller-saves (-128: no value is kept in a
+# call-clobbered register across a call, so no save/restore pairs) and
+# --param=max-inline-insns-single=200 (-868: functions DECLARED inline are
+# inlined up to 200 insns; 175..225 is a plateau, 60 and 300 grow the image).
+# Rejected by measurement on this image: -freg-struct-return (0: no SAMIR
+# aggregate fits EAX/EDX), --param=max-inline-insns-auto=0 / -fno-strict-
+# aliasing (+224), -fno-if-conversion, -fno-ipa-pure-const and
+# --param=max-completely-peel-times=0 (+32), -fconserve-stack (+192),
+# -fno-tree-ch, -fno-ipa-cp, -fno-ivopts, -fno-tree-vrp, -fipa-pta. Pure
+# codegen policy, no semantic change; the SAMIR host + QEMU families are the
+# proof. Measured: 99738 -> 98230 B (-1508 B).
+SAMIR_SIZE_CFLAGS += -fno-tree-loop-im -fno-tree-scev-cprop -fno-guess-branch-probability -fno-code-hoisting \
+                     -fno-move-loop-invariants -fno-caller-saves --param=max-inline-insns-single=200
 SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
                      -std=c11 -Wall -Wextra -Werror -Oz -flto $(SAMIR_SIZE_CFLAGS) -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
                      -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -I$(SAMIR_INC_DIR) -Ispec

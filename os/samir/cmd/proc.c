@@ -185,22 +185,10 @@ static proc_state *proc_state_for(xb_interp *ip)
     if (g_n >= P_REGISTRY)
         return (proc_state *)0;          /* too many live interpreters: fail loud */
     g_key[g_n] = ip;
-    g_val[g_n].source        = (const char *)0;
-    g_val[g_n].onerr[0]      = '\0';
-    g_val[g_n].has_onerr     = 0;
-    g_val[g_n].in_handler    = 0;
-    g_val[g_n].pending_args  = (xb_val *)0;
-    g_val[g_n].pending_nargs = 0;
-    g_val[g_n].params_seen   = 0;
-    g_val[g_n].onesc[0]      = '\0';
-    g_val[g_n].has_onesc     = 0;
-    g_val[g_n].in_esc        = 0;
-    g_val[g_n].do_depth      = 0;
-    g_val[g_n].master_depth  = 0;
-    g_val[g_n].handler_depth = 0;
-    g_val[g_n].run_depth     = 0;
-    g_val[g_n].prgname[0]    = '\0';
-    g_val[g_n].suspend       = 0;
+    /* every field starts empty/zero: no source, no ON ERROR / ON ESCAPE
+     * trap, no pending WITH args, depth 0, dot prompt (prgname ""), no
+     * suspend hook -- one fill instead of a store per field. */
+    rt_memset(&g_val[g_n], 0, (uint32_t)sizeof(g_val[0]));
     return &g_val[g_n++];
 }
 
@@ -217,18 +205,7 @@ static char p_up1(char c)
 
 static int p_isspace(char c) { return c == ' ' || c == '\t'; }
 
-/* case-insensitive equality of two NUL-terminated strings. */
-static int p_ci_eq(const char *a, const char *b)
-{
-    int i = 0;
-    for (;;) {
-        char ca = p_up1(a[i]);
-        char cb = p_up1(b[i]);
-        if (ca != cb) return 0;
-        if (ca == '\0') return 1;
-        i++;
-    }
-}
+/* (case-insensitive keyword equality is rt_kw_index -- samir/rt.h) */
 
 /* skip leading blanks; return pointer past them. */
 static const char *p_skip_ws(const char *s)
@@ -732,7 +709,7 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
     samir_pal_t *pal = xb_interp_pal(ip);
     char *argblk[P_MAX_ARGS];               /* one exact-size block per C arg */
     int nblk = 0;
-    int nargs = 0, crc;
+    int nargs = 0, crc, ecode;
     uint32_t nlen;
 
     nlen = p_take_name(p, name);
@@ -741,8 +718,7 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
     p = p_skip_ws(p);
 
     /* optional WITH <expr>[, <expr>...] */
-    if (p_up1(p[0]) == 'W' && p_up1(p[1]) == 'I' && p_up1(p[2]) == 'T' &&
-        p_up1(p[3]) == 'H' && (p[4] == '\0' || p_isspace(p[4]))) {
+    if (rt_kw_word(p, "WITH\0", (int *)0) == 0) {
         p = p_skip_ws(p + 4);
         /* split the comma list at the top level (outside string literals/parens)
          * and evaluate each argument expression by value. */
@@ -751,7 +727,6 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
             uint32_t eo = 0;
             int in_s = 0, in_d = 0, in_b = 0, depth = 0;
             xb_val v;
-            int rc;
             while (*p != '\0') {
                 char c = *p;
                 if (in_s) { if (c == '\'') in_s = 0; }
@@ -763,24 +738,21 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
                 else if (c == '(') depth++;
                 else if (c == ')') { if (depth > 0) depth--; }
                 else if (c == ',' && depth == 0) break;
-                if (eo >= (uint32_t)P_MAX_EXPR) { if (ec) *ec = 0; p_release_args(pal, argblk, nblk); return -INTERP_ERR_SYNTAX; }
+                if (eo >= (uint32_t)P_MAX_EXPR) { ecode = 0; goto syntax; }
                 ebuf[eo++] = c;
                 p++;
             }
             while (eo > 0u && p_isspace(ebuf[eo - 1])) eo--;
             ebuf[eo] = '\0';
-            if (nargs >= P_MAX_ARGS) { if (ec) *ec = P_MSG_WRONG_PARAM; p_release_args(pal, argblk, nblk); return -INTERP_ERR_SYNTAX; }
-            rc = xb_interp_eval(ip, ebuf, &v, ec);
-            if (rc != INTERP_OK) {
-                p_release_args(pal, argblk, nblk);
-                return rc;
-            }
+            if (nargs >= P_MAX_ARGS) { ecode = P_MSG_WRONG_PARAM; goto syntax; }
+            crc = xb_interp_eval(ip, ebuf, &v, ec);
+            if (crc != INTERP_OK)
+                goto out;
             if(v.t==XB_C || v.t==XB_M) {
-                uint32_t j;
-                if(v.u.c.len>254){if(ec)*ec=18;p_release_args(pal,argblk,nblk);return -INTERP_ERR_SYNTAX;}
+                if(v.u.c.len>254){ecode=18;goto syntax;}
                 argblk[nblk]=(pal && pal->acquire)?(char *)pal->acquire(pal,(uint32_t)v.u.c.len+1u):(char *)0;
-                if(!argblk[nblk]){if(ec)*ec=43;p_release_args(pal,argblk,nblk);return -INTERP_ERR_NOMEM;} /* #43 */
-                for(j=0;j<v.u.c.len;j++)argblk[nblk][j]=v.u.c.p[j];
+                if(!argblk[nblk]){ecode=43;crc=-INTERP_ERR_NOMEM;goto fail;} /* #43 */
+                rt_memcpy(argblk[nblk],v.u.c.p,(uint32_t)v.u.c.len);
 #ifndef SAMIR_FNS_MUTANT_with
                 v.u.c.p=argblk[nblk];
 #endif
@@ -793,8 +765,14 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
     }
 
     crc = p_call(ip, ps, name, argv, nargs, ec);
-    p_release_args(pal, argblk, nblk);
+out:
+    p_release_args(pal, argblk, nblk);  /* every exit frees the WITH blocks */
     return crc;
+syntax:
+    crc = -INTERP_ERR_SYNTAX;
+fail:
+    if (ec) *ec = ecode;
+    goto out;
 }
 
 /* ===================================================================== */
@@ -806,6 +784,7 @@ static int p_on(xb_interp *ip, proc_state *ps, const char *args, int *ec)
     const char *p = p_skip_ws(args);
     char w[16];
     uint32_t n = 0;
+    int k;
     (void)ip;
 
     /* the ON option keyword: ERROR / ESCAPE / KEY. We implement ERROR; ESCAPE /
@@ -816,43 +795,24 @@ static int p_on(xb_interp *ip, proc_state *ps, const char *args, int *ec)
     w[n] = '\0';
     p = p_skip_ws(p + n);
 
-    if (p_ci_eq(w, "ERROR")) {
-        if (*p == '\0') {
-            ps->has_onerr = 0;              /* ON ERROR (bare) clears the trap */
-            ps->onerr[0]  = '\0';
-        } else {
-            uint32_t i = 0;
-            while (p[i] != '\0' && i < (uint32_t)P_MAX_ONERR) { ps->onerr[i] = p[i]; i++; }
-            ps->onerr[i]  = '\0';
-            ps->has_onerr = 1;
-        }
-        if (ec) *ec = 0;
-        return INTERP_OK;
-    }
-    if (p_ci_eq(w, "ESCAPE")) {
-        /* Using III+ U5-160: ON ESCAPE <command> runs when Esc is pressed
-         * (SET ESCAPE ON); bare ON ESCAPE clears it. Fired by proc_escape
-         * (mint samirctl ESCTRAP.TXT: the trap ends a DO WHILE). */
-        if (*p == '\0') {
-            ps->has_onesc = 0;
-            ps->onesc[0]  = '\0';
-        } else {
-            uint32_t i = 0;
-            while (p[i] != '\0' && i < (uint32_t)P_MAX_ONERR) { ps->onesc[i] = p[i]; i++; }
-            ps->onesc[i]  = '\0';
-            ps->has_onesc = 1;
-        }
-        if (ec) *ec = 0;
-        return INTERP_OK;
-    }
-    if (p_ci_eq(w, "KEY")) {
-        /* parsed + accepted; the ON KEY trap is not modelled.
-         * (programming-and-io.md sec 14 -- precedence ERROR>ESCAPE>KEY.) */
-        if (ec) *ec = 0;
-        return INTERP_OK;
-    }
+    k = rt_kw_index(w, "ERROR\0ESCAPE\0KEY\0");
     if (ec) *ec = 0;
-    return -INTERP_ERR_SYNTAX;              /* unknown ON option */
+    if (k < 0)
+        return -INTERP_ERR_SYNTAX;          /* unknown ON option */
+    if (k < 2) {
+        /* ON ERROR <command> installs the error trap; ON ESCAPE <command>
+         * (Using III+ U5-160) runs when Esc is pressed (SET ESCAPE ON) and
+         * is fired by proc_escape (mint samirctl ESCTRAP.TXT: the trap ends
+         * a DO WHILE). The bare form clears either trap. */
+        char *dst = k ? ps->onesc : ps->onerr;
+        uint32_t i = 0;
+        while (p[i] != '\0' && i < (uint32_t)P_MAX_ONERR) { dst[i] = p[i]; i++; }
+        dst[i] = '\0';
+        *(k ? &ps->has_onesc : &ps->has_onerr) = (*p != '\0');
+    }
+    /* ON KEY: parsed + accepted; the ON KEY trap is not modelled.
+     * (programming-and-io.md sec 14 -- precedence ERROR>ESCAPE>KEY.) */
+    return INTERP_OK;
 }
 
 /* ===================================================================== */
@@ -871,19 +831,21 @@ static int proc_cmd_hook(void *user, xb_interp *ip,
     ps = proc_state_for(ip);
     if (!ps) { if (err_code) *err_code = 0; return -INTERP_ERR_NOMEM; }
 
-    if (p_ci_eq(verb, "DO")) {
+    switch (rt_kw_index(verb, "DO\0PROCEDURE\0PARAMETERS\0PARAMETER\0RETURN\0RETRY\0"
+                              "CANCEL\0QUIT\0PUBLIC\0PRIVATE\0ACCEPT\0INPUT\0WAIT\0ON\0")) {
+    case 0: { /* DO */
         /* DO WHILE / DO CASE are the flow spine's (handled before the hook); only
          * DO <name> reaches here. */
         int rc = p_do(ip, ps, args, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
-    if (p_ci_eq(verb, "PROCEDURE")) {
+    case 1: { /* PROCEDURE */
         /* A PROCEDURE line reached during execution (e.g. trailing the main body
          * if proc_run is bypassed) ENDS the current routine -- treat it as a
          * clean RETURN so we never fall into the next routine's body. */
         return PROC_RC_RETURN;
     }
-    if (p_ci_eq(verb, "PARAMETERS") || p_ci_eq(verb, "PARAMETER")) {
+    case 2: case 3: { /* PARAMETERS, PARAMETER */
         param_bind pb;
         int rc;
         ps->params_seen = 1;
@@ -900,29 +862,28 @@ static int proc_cmd_hook(void *user, xb_interp *ip,
         }
         return CMD_OK;
     }
-    if (p_ci_eq(verb, "RETURN")) {
+    case 4: { /* RETURN */
         /* RETURN [TO MASTER] (Using III+ U5-183). TO MASTER unwinds to the
          * highest-level program (audit L041; mint samirctl MASTER.TXT). */
         const char *a = p_skip_ws(args);
-        if (p_up1(a[0]) == 'T' && p_up1(a[1]) == 'O' && p_isspace(a[2])) {
-            a = p_skip_ws(a + 2);
-            if (p_ci_eq(a, "MASTER"))
-                return PROC_RC_RETURN_MASTER;
-        }
+        /* (a bare "RETURN TO" leaves "" -- not MASTER -- either way) */
+        if (rt_kw_word(a, "TO\0", (int *)0) == 0 &&
+            rt_kw_index(p_skip_ws(a + 2), "MASTER\0") == 0)
+            return PROC_RC_RETURN_MASTER;
         return PROC_RC_RETURN;
     }
-    if (p_ci_eq(verb, "RETRY")) {
+    case 5: { /* RETRY */
         /* Using III+ U5-182; audit L022; mint samirctl RETRYM.TXT. RETRY
          * clears ERROR(). */
         xb_interp_ctx(ip)->error_number = 0;
         return PROC_RC_RETRY;
     }
-    if (p_ci_eq(verb, "CANCEL")) {
+    case 6: { /* CANCEL */
         /* Using III+ U5-43: CANCEL ends the program, back to the dot prompt
          * (a no-op typed at the session prompt; it ends a SUSPENDed one). */
         return INTERP_RC_CANCEL;
     }
-    if (p_ci_eq(verb, "QUIT")) {
+    case 7: { /* QUIT */
         /* Using III+ U5-168: QUIT closes all files and leaves dBASE, also
          * from a program (audit L013; mint samirctl QUITP.TXT: AFTER QUIT is
          * never printed). The dot prompt does the closing on this code. */
@@ -932,29 +893,32 @@ static int proc_cmd_hook(void *user, xb_interp *ip,
         return CMD_UNKNOWN;                 /* MUTANT: the pre-fix #16 */
 #endif
     }
-    if (p_ci_eq(verb, "PUBLIC")) {
+    case 8: { /* PUBLIC */
         int rc = p_for_each_name(ip, args, p_each_public, (void *)0, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
-    if (p_ci_eq(verb, "PRIVATE")) {
+    case 9: { /* PRIVATE */
         int rc = p_for_each_name(ip, args, p_each_private, (void *)0, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
-    if (p_ci_eq(verb, "ACCEPT")) {
+    case 10: { /* ACCEPT */
         int rc = p_accept(ip, args, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
-    if (p_ci_eq(verb, "INPUT")) {
+    case 11: { /* INPUT */
         int rc = p_input(ip, args, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
-    if (p_ci_eq(verb, "WAIT")) {
+    case 12: { /* WAIT */
         int rc = p_wait(ip, args, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
-    if (p_ci_eq(verb, "ON")) {
+    case 13: { /* ON */
         int rc = p_on(ip, ps, args, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
+    }
+    default:
+        break;
     }
 
     return CMD_UNKNOWN;                      /* not a proc/IO verb */
@@ -1079,22 +1043,7 @@ int proc_register(xb_interp *ip)
     proc_state *ps = proc_state_for(ip);
     if (!ps)
         return -INTERP_ERR_NOMEM;
-    ps->source = (const char *)0;
-    ps->onerr[0] = '\0';
-    ps->has_onerr = 0;
-    ps->in_handler = 0;
-    ps->pending_args = (xb_val *)0;
-    ps->pending_nargs = 0;
-    ps->params_seen = 0;
-    ps->onesc[0] = '\0';
-    ps->has_onesc = 0;
-    ps->in_esc = 0;
-    ps->do_depth = 0;
-    ps->master_depth = 0;
-    ps->handler_depth = 0;
-    ps->run_depth = 0;
-    ps->prgname[0] = '\0';
-    ps->suspend = 0;
+    rt_memset(ps, 0, (uint32_t)sizeof(*ps));   /* as proc_state_for's fresh slot */
 #endif
     xb_interp_ctx(ip)->on_error = proc_trap;
     xb_interp_ctx(ip)->on_escape = proc_escape;
