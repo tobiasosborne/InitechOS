@@ -622,6 +622,22 @@ static int date_serial(int32_t y, int32_t m, int32_t d, double *out)
     return 1;
 }
 
+/* Reference p. 13-46: @NOW is the computer clock's date plus time.
+ * Reuse @DATE's Lotus serial convention, including the phantom day 60;
+ * the guest clock itself must describe a real Gregorian date. */
+int i123_calc_clock(i123_calc_t *cx, uint16_t year, uint8_t month, uint8_t day,
+                    uint8_t hour, uint8_t minute, uint8_t second)
+{
+    double date;
+    cx->have_now = 0;
+    if (hour > 23 || minute > 59 || second > 59 ||
+        (year == 1900 && month == 2 && day == 29) ||
+        !date_serial((int32_t)year - 1900, month, day, &date)) return I123_E_VALUE;
+    cx->now = date + (double)((uint32_t)hour * 3600u + (uint32_t)minute * 60u + second) / 86400.0;
+    cx->have_now = 1;
+    return I123_OK;
+}
+
 static int serial_parts(double x, int32_t *y, int32_t *m, int32_t *d)
 {
     int32_t n;

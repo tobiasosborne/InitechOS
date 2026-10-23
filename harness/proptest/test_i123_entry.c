@@ -98,6 +98,69 @@ static void value_and_edit(void)
           "E9", "a second Esc abandons the entry without storing it");
 }
 
+/* B07: Reference p. 1-19 (audit manual-pdf-035.txt). Currency is an
+ * entry prefix; formatting is a separate operation, and $ in an absolute
+ * reference must still reach the formula compiler. */
+static void currency_entry(void)
+{
+    i123_val_t v;
+    char out[32];
+    uint32_t spill;
+    tks("$12.34\r");
+    i123_cell_value(&g_sheet, 0, 0, &v);
+    CHECK(g_mode == M_READY && v.t == I123_V_NUM && v.n == 12.34,
+          "E10", "leading dollar enters numeric 12.34");
+    const i123_cell_t *c = i123_find(&g_sheet, 0, 0);
+    CHECK(c && c->kind == I123_K_NUMBER && c->fmt == 0xff,
+          "E10", "currency entry retains the default format");
+    if (!c) return;
+    i123_cell_text(&g_sheet, c, 16, out, &spill);
+    CHECK(!strchr(out, '$'), "E10", "dollar is absent until currency format is selected");
+    i123_set_cell_format(&g_sheet, 0, 0, 0xa2);
+    i123_cell_text(&g_sheet, i123_find(&g_sheet, 0, 0), 16, out, &spill);
+    CHECK(!strcmp(out, "         $12.34 "), "E10", "currency display is a separate choice");
+    right(); tks("+$A$1\r");
+    c = i123_find(&g_sheet, 1, 0);
+    i123_cell_value(&g_sheet, 1, 0, &v);
+    CHECK(c && c->kind == I123_K_FORMULA && v.t == I123_V_NUM && v.n == 12.34,
+          "E11", "absolute reference remains a formula");
+    right(); tks("12$34\r");
+    CHECK(g_mode == M_EDIT && !i123_find(&g_sheet, 2, 0),
+          "E11", "embedded dollar is refused without creating a cell");
+    tk(27); tk(27); tks("/fsCURRENCY\r");
+}
+
+static void currency_grammar(void)
+{
+    /* Independently captured by real R2.2: fixtures/i123-numeric/NUMENTRY.WK1.
+     * No currency grammar is added to the core formula/@VALUE parser. */
+    static const struct { const char *s; int kind; double value; } cases[] = {
+        {"$12.34", I123_K_NUMBER, 12.34}, {"-$12.34", 0, 0}, {"+$12.34", 0, 0},
+        {"$-12.34", I123_K_NUMBER, -12.34}, {"$+12.34", I123_K_NUMBER, 12.34},
+        {"$12.5%", I123_K_NUMBER, .125}, {"$1.25E2", I123_K_INTEGER, 125},
+        {"$$12", 0, 0}, {"12$34", 0, 0}, {"$", 0, 0},
+        {"$A$1", I123_K_FORMULA, 12.34}, {"+$A$1", I123_K_FORMULA, 12.34},
+        {"$0", I123_K_INTEGER, 0}, {"$.5", I123_K_NUMBER, .5}
+    };
+    for (unsigned i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        i123_set_cursor(&g_sheet, 0, (uint16_t)i);
+        tks(cases[i].s); tk('\r');
+        const i123_cell_t *c = i123_find(&g_sheet, 0, (uint16_t)i);
+        if (!cases[i].kind) {
+            CHECK(g_mode == M_EDIT && !c, "E12", "invalid currency grammar is refused");
+            tk(27); tk(27);
+        } else {
+            i123_val_t v; i123_cell_value(&g_sheet, 0, (uint16_t)i, &v);
+            CHECK(g_mode == M_READY && c && c->kind == cases[i].kind &&
+                  v.t == I123_V_NUM && v.n == cases[i].value, "E12", cases[i].s);
+        }
+    }
+    double x;
+    CHECK(i123_parse_value("$12.34", 6, &x) == I123_E_VALUE, "E12", "currency prefix belongs only to entry boundary");
+    CHECK(i123_parse_value("-1.25E2", 7, &x) == I123_OK && x == -125, "E12", "existing signed exponent is preserved");
+    CHECK(i123_parse_value("12.5%", 5, &x) == I123_OK && x == .125, "E12", "existing percent is preserved");
+}
+
 int main(int argc, char **argv)
 {
     const unsigned lengths[] = {75, 104, 240, 241};
@@ -110,6 +173,8 @@ int main(int argc, char **argv)
     }
     launch("overflow recovery", recovery);
     launch("VALUE and EDIT", value_and_edit);
+    launch("currency entry", currency_entry);
+    launch("currency grammar", currency_grammar);
     printf("i123-entry: %d checks, %d failures\n", g_ctr[0], g_ctr[1]);
     return g_ctr[1] ? 1 : 0;
 }

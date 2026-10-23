@@ -813,6 +813,51 @@ static void part_f(void)
     printf("  part F: %d/%d R2.2 Reference examples and stated rules (Chapter 13 worked examples; list, label, blank and @D criteria rules applied by hand) evaluate as the manual says\n", ok, n + ns);
 }
 
+/* B08: the clock snapshot is an input, not a fixed @NOW result. Reference
+ * p. 13-46; MINT02 pins 09-Mar-1992 = 33672; the manual date range is
+ * 1-Jan-1900..31-Dec-2099 (PDF 223). */
+static void part_g(void)
+{
+    static const struct { uint16_t y; uint8_t m, d, h, min, sec; double want; } dates[] = {
+        {1900, 1, 1, 0, 0, 0, 1}, {1900, 2, 28, 0, 0, 0, 59},
+        {1900, 3, 1, 0, 0, 0, 61}, {1992, 3, 9, 12, 0, 0, 33672.5},
+        {2000, 2, 29, 6, 0, 0, 36585.25}, {2099, 12, 31, 0, 0, 30, 73050 + 30.0 / 86400.0}
+    };
+    i123_sheet_t sh;
+    uint8_t code[I123_CODE_MAX], zero[8] = {0}; uint32_t n;
+    i123_val_t v;
+    CHECK(i123_sheet_init(&sh, g_mem, sizeof g_mem, 8192) == I123_OK, "clock sheet");
+    CHECK(i123_formula_compile("@NOW", 4, 0, 0, code, sizeof code, &n) == I123_OK, "NOW compile");
+    for (unsigned i = 0; i < sizeof dates / sizeof dates[0]; i++) {
+        CHECK(i123_calc_clock(&g_cx, dates[i].y, dates[i].m, dates[i].d,
+              dates[i].h, dates[i].min, dates[i].sec) == I123_OK, "guest clock accepted");
+        CHECK(i123_eval(&g_cx, &sh, 0, 0, code, n, &v) == I123_OK &&
+              v.t == I123_V_NUM && v.n == dates[i].want, "NOW equals independent date/time serial");
+    }
+    CHECK(i123_calc_clock(&g_cx, 2100, 1, 1, 0, 0, 0) == I123_E_VALUE && !g_cx.have_now,
+          "out-of-range clock clears stale success");
+    CHECK(i123_calc_clock(&g_cx, 1900, 2, 29, 0, 0, 0) == I123_E_VALUE, "clock rejects phantom Gregorian day");
+    CHECK(i123_calc_clock(&g_cx, 2001, 2, 29, 0, 0, 0) == I123_E_VALUE, "clock rejects nonleap February 29");
+    CHECK(i123_calc_clock(&g_cx, 2000, 1, 1, 24, 0, 0) == I123_E_VALUE, "clock rejects hour 24");
+    CHECK(i123_calc_clock(&g_cx, 2000, 1, 1, 0, 60, 0) == I123_E_VALUE, "clock rejects minute 60");
+    CHECK(i123_calc_clock(&g_cx, 2000, 1, 1, 0, 0, 60) == I123_E_VALUE, "clock rejects second 60");
+    CHECK(i123_eval(&g_cx, &sh, 0, 0, code, n, &v) == I123_OK && v.t == I123_V_ERR, "unavailable clock remains ERR");
+    CHECK(i123_set_label(&sh, 7, 0, '\'', "Amt", 3) == I123_OK, "clock database header");
+    CHECK(i123_set_number(&sh, 7, 1, 7) == I123_OK, "clock database value");
+    CHECK(i123_set_label(&sh, 11, 0, '\'', "Amt", 3) == I123_OK, "clock criteria header");
+    const char *criteria = "@NOW=33672.5";
+    CHECK(i123_formula_compile(criteria, (uint32_t)strlen(criteria), 11, 1, code, sizeof code, &n) == I123_OK, "clock criteria compile");
+    CHECK(i123_set_formula_raw(&sh, 11, 1, 0xff, zero, code, n, 0, 0) == I123_OK, "clock criteria store");
+    const char *sum = "@DSUM(H1..H2,0,L1..L2)";
+    CHECK(i123_formula_compile(sum, (uint32_t)strlen(sum), 0, 0, code, sizeof code, &n) == I123_OK, "clock DSUM compile");
+    for (unsigned i = 0; i < 2; i++) {
+        CHECK(i123_calc_clock(&g_cx, 1992, 3, 9, (uint8_t)(12 + i * 6), 0, 0) == I123_OK, "nested clock snapshot");
+        CHECK(i123_eval(&g_cx, &sh, 0, 0, code, n, &v) == I123_OK && v.t == I123_V_NUM &&
+              v.n == (i ? 0 : 7), "nested criteria receives the current coherent clock snapshot");
+    }
+    puts("  part G: guest clock serials, failures and nested NOW criteria");
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4) {
@@ -842,6 +887,7 @@ int main(int argc, char **argv)
     part_d();
     part_e();
     part_f();
+    part_g();
     if (g_typed_fail) fprintf(stderr, "  RED-REASON typed: %d typed formulas differ from 123.EXE\n", g_typed_fail);
     if (g_rt_fail) fprintf(stderr, "  RED-REASON round-trip: %d golden formulas do not round-trip\n", g_rt_fail);
     if (g_val_fail) fprintf(stderr, "  RED-REASON values: %d formulas differ from the real 1-2-3 cache\n", g_val_fail);
