@@ -114,6 +114,10 @@ $(eval $(call fixture-inline-contract,$(BUILD)/command-file/magic.img,@@32256 CO
 $(foreach img,$(TPS_IMG_A) $(BUILD)/tps_mut6.img $(BUILD)/tps_mutseq.img $(BUILD)/tps_say7.img,$(eval $(call fixture-inline-contract,$(img),TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK)))
 $(eval $(call fixture-inline-contract,$(TPS_IMG_B),TPSREP.COM TPS.DBF AUTOEXEC.BAT))
 $(eval $(call fixture-inline-contract,$(TPS_IMG_C),TPSREP.COM TPS.DBF TPSPARM.DAT AUTOEXEC.BAT))
+# initech-56ch round 2: register contracts for the merged initech-ycvk fault
+# legs too (fcb_tps.mk tps-flt-d / tps-flt-ef); full-volume legs add FILL.BIN.
+$(foreach n,tps_fd_ok tps_fd_mut,$(eval $(call fixture-inline-contract,$(BUILD)/$(n).img,TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK FILL.BIN)))
+$(foreach n,tps_fe tps_ff tps_fem tps_ffm,$(eval $(call fixture-inline-contract,$(BUILD)/$(n).img,TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK)))
 $(foreach n,tps_backup_ro tps_backup_mut_ro,$(eval $(call fixture-inline-contract,$(BUILD)/$(n).img,$(TPS_BACKUP_BASE) TPSREPT.TXT TPSREPT.BAK=AR)))
 $(foreach n,tps_backup_hidden tps_backup_mut_hidden,$(eval $(call fixture-inline-contract,$(BUILD)/$(n).img,$(TPS_BACKUP_BASE) TPSREPT.TXT TPSREPT.BAK=AH)))
 $(eval $(call fixture-inline-contract,$(BUILD)/tps_backup_hiddentxt.img,$(TPS_BACKUP_BASE) TPSREPT.TXT=AH TPSREPT.BAK=AH))
