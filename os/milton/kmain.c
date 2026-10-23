@@ -3399,6 +3399,31 @@ static int finder_fat_trash_dir(void *fs_user)
     return (int)e.start_cluster;
 }
 
+/* RESERVE \TRASH (bead initech-vnl4; audit 2026-10-23 desktop L001). \TRASH
+ * is made at volume init while there is room (desktop_trash_ensure above, at
+ * FLAIR-FAT-MOUNT -- design F1.4); a volume that was ALREADY full at mount has
+ * none (TRASH-INIT-FAIL). The Finder asks again at the two moments the Trash
+ * is wanted -- a drop on it, a double-click on it -- and right after Delete
+ * Now has freed space, so the Trash comes back the moment a cluster exists.
+ * The SAME ensure the mount runs (the same mkdir, the same hidden bit). */
+static int finder_trash_reserve(void)
+{
+    desktop_trash_state_t state = DESKTOP_TRASH_OK;
+    int rc;
+
+    if (!finder_fat_geometry_ok()) return FAT12_ERR_NULL;
+    rc = desktop_trash_ensure(g_finder_vol, g_finder_fat, g_finder_fat_len,
+                              g_finder_dirbuf, g_finder_clusbuf, &state);
+    if (rc == FAT12_OK) {
+        if (state == DESKTOP_TRASH_CREATE) serial_puts("TRASH-CREATE\n");
+    } else {
+        serial_puts("TRASH-RESERVE-FAIL rc=");
+        serial_puti((int32_t)rc);
+        serial_putc('\n');
+    }
+    return rc;
+}
+
 static int finder_fat_unlink(void *fs_user, const char *name83, uint16_t dir)
 {
     (void)fs_user;
@@ -3794,6 +3819,8 @@ typedef struct finder_surface {
 } finder_surface_t;
 static int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                 uint16_t items);
+static int finder_delete_now_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                     const char *name);
 
 static void finder_surface_desktop(finder_surface_t *s)
 {
@@ -3964,6 +3991,14 @@ static void finder_open_trash(flair_live_ctx_t *ctx, const boot_info_t *bi)
 
     if (g_finder_shell == (finder_shell_t *)0) return;
     st = finder_win_open_trash(g_finder_shell, &slot, &singleton);
+    /* bead initech-vnl4: no \TRASH yet -- make it now if there is room. */
+    if (st == FINDER_WIN_ERR_NOTRASH) {
+        int rrc = finder_trash_reserve();
+        if (rrc == FAT12_OK)
+            st = finder_win_open_trash(g_finder_shell, &slot, &singleton);
+        else if (rrc != FAT12_ERR_NO_SPACE && rrc != FAT12_ERR_DIR_FULL)
+            st = FINDER_WIN_ERR_STORAGE;   /* not "no room": say so (Rule 2) */
+    }
     if (st != FINDER_WIN_OK) { finder_report_open_fail(ctx,bi,st); return; }
 
     finder_desk_repaint(ctx, bi);
@@ -4051,6 +4086,52 @@ static void finder_zoom_back(flair_live_ctx_t *ctx, const boot_info_t *bi,
     flair_desktop_present(bi, &ctx->off);
 }
 
+/* DELETE NOW (bead initech-vnl4; audit docs/audits/2026-10-23-desktop
+ * REPORT.md L001, P1): a drop on the Trash of a FULL volume that has no
+ * \TRASH (and no cluster to make one). Ask; on OK remove the item in place
+ * (finder_shell_delete_item), then reserve \TRASH in the space just freed so
+ * the next discard stages normally. Cancel changes nothing. A locked item gets
+ * the locked notice, as a staging attempt would. */
+static void finder_delete_now(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                              const finder_surface_t *s, int idx)
+{
+    char name[FINDER_DESK_NAME_MAX];
+    uint16_t purged = 0u;
+    uint8_t dirty = 0u;
+    finder_win_status_t st;
+    int k;
+
+    for (k = 0; k + 1 < FINDER_DESK_NAME_MAX && s->fd->icons[idx].name[k]; k++)
+        name[k] = s->fd->icons[idx].name[k];
+    name[k] = '\0';
+    if (!finder_delete_now_confirm(ctx, bi, name)) {
+        serial_puts("FINDER-DELETE-CANCEL name=");
+        serial_puts(name);
+        serial_putc('\n');
+        return;
+    }
+    st = finder_shell_delete_item(g_finder_shell, s->slot, idx, &purged, &dirty);
+    finder_desk_repaint(ctx, bi);
+    if (st != FINDER_WIN_OK) {
+        serial_puts("FINDER-DELETE-FAIL rc=");
+        serial_puti((int32_t)st);
+        serial_puts(" name=");
+        serial_puts(name);
+        serial_putc('\n');
+        if (st == FINDER_WIN_ERR_LOCKED) (void)finder_trash_confirm(ctx, bi, 0u);
+        else (void)finder_notice(ctx, bi, st, name);
+    } else {
+        serial_puts("FINDER-DELETE-NOW name=");
+        serial_puts(name);
+        serial_puts(" purged=");
+        serial_putu((uint32_t)purged);
+        serial_putc('\n');
+    }
+    if (purged != 0u) (void)finder_trash_reserve();
+    (void)finder_shell_recount_trash(g_finder_shell);
+    if (dirty) { g_finder_db_dirty = 1; finder_desk_persist(); }
+}
+
 /* R3.4a: a window icon dropped on something OTHER than its own window body.
  * `hl` is the drop-target highlight the drag left lit (cleared here first, so
  * the icon arrays may shift safely), `out_rect` the last drag outline.
@@ -4089,6 +4170,33 @@ static int finder_surface_drop(flair_live_ctx_t *ctx, const boot_info_t *bi,
     status=finder_ops_drop(g_finder_shell, s->slot, idx, &t,
                         (int16_t)(s->fd->icons[idx].x + dh),
                         (int16_t)(s->fd->icons[idx].y + dv), &r);
+    /* bead initech-vnl4 (audit 2026-10-23 desktop L001): no \TRASH. Make it
+     * if a cluster is free and stage as usual; on a FULL volume offer Delete
+     * Now -- the only Finder route that frees space there. */
+    if (status == FINDER_WIN_ERR_NOTRASH) {
+        int rrc = finder_trash_reserve();
+        if (rrc == FAT12_OK) {
+            status=finder_ops_drop(g_finder_shell, s->slot, idx, &t,
+                                (int16_t)(s->fd->icons[idx].x + dh),
+                                (int16_t)(s->fd->icons[idx].y + dv), &r);
+        } else if (rrc == FAT12_ERR_NO_SPACE || rrc == FAT12_ERR_DIR_FULL) {
+#if !defined(KMAIN_MUT_NO_DELETE_NOW)
+            if (dirty) finder_desk_repaint(ctx, bi);
+            finder_zoom_back(ctx, bi, out_rect,
+                             finder_desk_cell_rect(s->fd, idx));
+            finder_delete_now(ctx, bi, s, idx);
+            return 1;
+#else
+            /* MUTANT KMAIN_MUT_NO_DELETE_NOW (Rule 6; test-flair-trash-
+             * edges): the pre-fix dead end -- "could not be moved" and
+             * nothing else. NEVER in a real build. */
+            (void)finder_delete_now;
+            r.status = status = FINDER_WIN_ERR_MOVE;
+#endif
+        } else {
+            r.status = status = FINDER_WIN_ERR_STORAGE;  /* not "no room" */
+        }
+    }
     if(status==FINDER_WIN_ERR_EXISTS && finder_notice(ctx,bi,status,r.name)==1u)
         status=finder_ops_replace(g_finder_shell,s->slot,idx,&t,
                                   (int16_t)(s->fd->icons[idx].x+dh),
@@ -4632,7 +4740,8 @@ static uint16_t finder_notice(flair_live_ctx_t *ctx, const boot_info_t *bi,
                 st==FINDER_WIN_ERR_DISKFULL?"disk-full":
                 st==FINDER_WIN_ERR_LAUNCH?"launch":
                 st==FINDER_WIN_ERR_CRASH?"crash":
-                st==FINDER_WIN_ERR_EXISTS?"replace":"move");
+                st==FINDER_WIN_ERR_EXISTS?"replace":
+                st==FINDER_WIN_ERR_NOTRASH?"notrash":"move");
     serial_putc('\n');
     for(int i=0;i<n;i++) {serial_puts("FINDER-ALERT-LINE "); serial_puts(text[i]);serial_putc('\n');}
     return flair_live_alert_run(ctx,bi);
@@ -4675,6 +4784,33 @@ static int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
         serial_putu((g_finder_shell->trash_bytes + 1023u) / 1024u);
         serial_putc('\n');
     }
+    return flair_live_alert_run(ctx, bi) == 1u;
+}
+
+/* DELETE NOW's confirm (bead initech-vnl4, audit 2026-10-23 desktop L001):
+ * the Empty Trash confirm's chrome exactly -- the captured CAUTION alert
+ * (tdnl.87), OK default / Cancel -- since it asks the same question ("remove
+ * ... permanently?") about one item. Wording: finder_delete_now_alert_text.
+ * Returns 1 on OK. */
+static int finder_delete_now_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                     const char *name)
+{
+    static const char *const labels[2] = { "OK", "Cancel" };
+    static char lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
+    const char *text[FINDER_ALERT_LINES];
+    int n = finder_delete_now_alert_text(name, lines);
+
+    for (int k = 0; k < n; k++) text[k] = lines[k];
+    flair_live_alert_open_icon(ctx, bi, text, n, labels, 2, 1,
+                               DIALOG_ICON_ID_CAUTION);
+    for (int k = 0; k < n; k++) {
+        serial_puts("FINDER-ALERT-LINE ");
+        serial_puts(text[k]);
+        serial_putc('\n');
+    }
+    serial_puts("FINDER-DELETE-ALERT name=");
+    serial_puts(name);
+    serial_putc('\n');
     return flair_live_alert_run(ctx, bi) == 1u;
 }
 

@@ -1049,6 +1049,19 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
                                              uint16_t *out_refused,
                                              uint8_t *out_db_dirty);
 
+/* DELETE NOW (bead initech-vnl4, audit 2026-10-23 desktop L001): remove item
+ * `idx` of window `slot` IN PLACE -- the full-volume route when no \TRASH can
+ * be made. The kernel calls it ONLY after the user OKs the CAUTION alert. A
+ * document is unlinked; a folder is purged by the Empty Trash walk and then
+ * removed. Returns FINDER_WIN_OK, FINDER_WIN_ERR_LOCKED (the item or a
+ * descendant is locked; nothing locked is removed), FINDER_WIN_ERR_SERVICE,
+ * FINDER_WIN_ERR_STALE, FINDER_WIN_ERR_ENUM, FINDER_WIN_ERR_MOVE (an entry
+ * the backend refused) or FINDER_WIN_ERR_NULL. *out_purged counts the
+ * entries removed; *out_db_dirty is 1 when view records were dropped. */
+finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
+                                             int idx, uint16_t *out_purged,
+                                             uint8_t *out_db_dirty);
+
 /* The alert's message for `items` / `bytes`, word-wrapped greedily into lines
  * no wider than FINDER_ALERT_TEXT_W Chicago 12 pixels. Returns the line count
  * (1..FINDER_ALERT_LINES). Pure. */
@@ -1060,6 +1073,10 @@ int finder_trash_alert_text(uint16_t items, uint32_t bytes,
  * 2026-10-16), wrapped by the SAME greedy Chicago 12 rule into `out`. Returns
  * the line count. Pure. */
 int finder_exit_dos_alert_text(char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
+/* The Delete Now confirm's message for `name` (bead initech-vnl4), wrapped by
+ * the SAME greedy Chicago 12 rule. Returns the line count. Pure. */
+int finder_delete_now_alert_text(const char *name,
+                                 char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
 int finder_error_alert_text(finder_win_status_t status, const char *name,
                             char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
 

@@ -164,6 +164,28 @@ uint8_t finder_pred_selection_putaway(const FinderCtx *fx)
     return fx && fx->selection_putaway;
 }
 
+/* NEW_FOLDER_HERE (bead initech-vnl4; audit docs/audits/2026-10-23-desktop
+ * REPORT.md L008: Ctrl-N with the Trash window front made \TRASH\NEWFOLD,
+ * which the next Empty Trash then offered to destroy). The Trash is the
+ * container of what is being discarded -- "You can recover an item as long as
+ * you can see its icon in the Trash window" and Put Away "returns ... items
+ * ... in the Trash window back to the folders and disks they belong to"
+ * (Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf printed pp. 112, 117):
+ * nothing in the period manuals makes it a place to create work, so the
+ * command that would is dark there. Live on the desktop and in every other
+ * disk window, exactly as before.
+ * MUTANT FINDER_CMD_MUT_NEWFOLDER_IN_TRASH (Rule 6; test-flair-trash-edges):
+ * the pre-fix ALWAYS. NEVER in a real build. */
+uint8_t finder_pred_new_folder_here(const FinderCtx *fx)
+{
+#if defined(FINDER_CMD_MUT_NEWFOLDER_IN_TRASH)
+    (void)fx;
+    return 1u;
+#else
+    return (fx != 0 && fx->front_is_trash == 0u) ? 1u : 0u;
+#endif
+}
+
 static void fcmd_nyi(FinderCtx *fx, const finder_cmd_t *c)
 {
     fcmd_line_t l;
@@ -232,7 +254,7 @@ const finder_cmd_t FINDER_COMMANDS[] = {
     { FCMD_LAUNCH_APPLE,    0,  4,  0,  0,                            fcmd_nyi, "LAUNCH_APPLE_NOTEPAD" },
 
     /* --- File (512) ------------------------------------------------------ */
-    { FCMD_NEW_FOLDER,    512,  1, 'N', 0,                            fcmd_nyi, "NEW_FOLDER" },
+    { FCMD_NEW_FOLDER,    512,  1, 'N', finder_pred_new_folder_here,  fcmd_nyi, "NEW_FOLDER" },
     { FCMD_OPEN,          512,  2, 'O', finder_pred_selection_openable, fcmd_nyi, "OPEN" },
     { FCMD_CLOSE_WINDOW,  512,  4, 'W', finder_pred_front_is_diskwin, fcmd_nyi, "CLOSE_WINDOW" },
     { FCMD_GET_INFO,      512,  6, 'I', finder_pred_has_selection,    fcmd_nyi, "GET_INFO" },

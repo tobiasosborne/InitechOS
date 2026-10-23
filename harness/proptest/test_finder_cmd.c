@@ -29,7 +29,7 @@
  * THE SCRIPT (both sources; enabled, disabled and unknown cases; the
  * predicates flipped by mutating FinderCtx mid-script -- exactly the state the
  * DesktopMgr slice will drive):
- *   1  File/New Folder, mouse       -- ALWAYS, no selection needed
+ *   1  File/New Folder, mouse       -- NEW_FOLDER_HERE, no Trash front: runs
  *   2  File/Get Info, mouse         -- HAS_SELECTION with sel=0  -> DISABLED
  *   3  (selection_count = 2) File/Get Info, key   -> runs; sel=2 on the line
  *   4  Special/Empty Trash, mouse   -- TRASH_NONEMPTY, empty     -> DISABLED
@@ -393,9 +393,19 @@ static void leg_lookup_and_predicates(void)
     CHECK(finder_cmd_lookup(512, 0) == NULL, "lookup with item 0 should be unknown");
     CHECK(finder_cmd_lookup(999, 1) == NULL, "lookup of an unknown menu should be unknown");
 
-    /* ALWAYS (NULL predicate) is live with an empty context. */
+    /* RE-KEY (bead initech-vnl4; audit 2026-10-23 desktop L008): New Folder
+     * carries NEW_FOLDER_HERE -- live on an empty context (no Trash window
+     * front), DARK with the Trash window front. */
     c = finder_cmd_lookup(512, 1);
-    CHECK(c != NULL && c->enabled == NULL, "New Folder should carry the ALWAYS predicate");
+    CHECK(c != NULL && c->enabled == finder_pred_new_folder_here,
+          "New Folder should carry the NEW_FOLDER_HERE predicate");
+    CHECK(finder_cmd_enabled(c, &fx) == 1, "New Folder should be live on an empty context");
+    fx.front_is_trash = 1;
+    CHECK(finder_cmd_enabled(c, &fx) == 0, "New Folder should be DARK with the Trash window front");
+    fx.front_is_trash = 0;
+    /* ALWAYS (NULL predicate) is live with an empty context. */
+    c = finder_cmd_lookup(513, 6);
+    CHECK(c != NULL && c->enabled == NULL, "Select All should carry the ALWAYS predicate");
     CHECK(finder_cmd_enabled(c, &fx) == 1, "ALWAYS should be live on an empty context");
 
     /* The three real predicates against both states. */

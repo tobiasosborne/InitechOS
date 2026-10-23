@@ -13654,7 +13654,7 @@ TEST_FINDER_OPS      := $(BUILD)/test_finder_ops
 TEST_FINDER_OPS_SRC  := harness/proptest/test_finder_ops.c
 FINDER_OPS_LINK      := $(FINDER_WIN_LINK)
 FINDER_OPS_DEPS      := $(TEST_FINDER_OPS_SRC) os/flair/finder_ops.h $(FINDER_WIN_DEPS)
-FINDER_OPS_MUTANTS   := TRASH_NO_STAGE NO_CYCLE NO_ORIGIN NO_SERVICE_GUARD COUNT_CELL
+FINDER_OPS_MUTANTS   := TRASH_NO_STAGE NO_CYCLE NO_ORIGIN NO_SERVICE_GUARD COUNT_CELL REMOVE_NO_META
 # -DWINDOW_ENABLE_R1_OPS (bead initech-tdnl.34): leg O9 drives ZoomWindow /
 # SizeWindow / CollapseWindow -- the SAME window.c verbs the kernel links
 # (window.o is built with it) -- so the re-base is graded against every
@@ -13694,14 +13694,14 @@ test-finder-ops: $(TEST_FINDER_OPS)
 
 # Each mutant must go RED for its NAMED reason (the CHECK text is grepped).
 test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite $(BUILD)/test_finder_ops_mutant_abs $(BUILD)/test_finder_ops_mutant_arrange $(BUILD)/test_finder_ops_mutant_scrollpaint $(BUILD)/test_finder_ops_mutant_trashroot $(BUILD)/test_finder_ops_mutant_noconfirm $(BUILD)/test_finder_ops_mutant_powernosave
-	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_SERVICE_GUARD:O12 the root TRASH dropped on APPS is refused SERVICE' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell' 'arrange:O10 View > Arrange (by Name) ran' 'scrollpaint:O11 hit: a click on F18 where it is DRAWN' 'trashroot:O13 the Trash window lists exactly the staged README.TXT' 'COUNT_CELL:O13 the root window shows it in the lowest FREE cell' 'noconfirm:O14 dispatch alone deletes nothing' 'powernosave:O15 Special > Shut Down runs in the shell and notes 2'; do \
+	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_SERVICE_GUARD:O12 the root TRASH dropped on APPS is refused SERVICE' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell' 'arrange:O10 View > Arrange (by Name) ran' 'scrollpaint:O11 hit: a click on F18 where it is DRAWN' 'trashroot:O13 the Trash window lists exactly the staged README.TXT' 'COUNT_CELL:O13 the root window shows it in the lowest FREE cell' 'noconfirm:O14 dispatch alone deletes nothing' 'powernosave:O15 Special > Shut Down runs in the shell and notes 2' 'REMOVE_NO_META:O16 every SURVIVOR keeps its own metadata'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; \
 		bin=$(BUILD)/test_finder_ops_mutant_$$m; \
 		if $$bin > $$bin.log 2>&1; then printf '!!! test-finder-ops-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -F "$$why" $$bin.log | grep -q FAIL || { printf '!!! test-finder-ops-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-finder-ops-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
 	done
-	@printf '>>> test-finder-ops-mutant: green (all twelve mutants RED for the named reason)\n'
+	@printf '>>> test-finder-ops-mutant: green (all thirteen mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
@@ -14897,7 +14897,7 @@ test-iword-wp5-roundtrip-mutant: $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_DROP_C
 		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-wp5-roundtrip-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-iword-wp5-roundtrip-mutant: %s correctly RED (%s; %s)\n' "$$m" "$$(grep -F "$$why" $$bin.log)" "$$(grep -m1 'FAIL typed' $$bin.log | sed 's/^ *//')"; \
 	done
-	@printf '>>> test-iword-wp5-roundtrip-mutant: green (all twelve mutants RED for the named reason)\n'
+	@printf '>>> test-iword-wp5-roundtrip-mutant: green (all thirteen mutants RED for the named reason)\n'
 endif
 
 # ---------------------------------------------------------------------------
@@ -14959,7 +14959,7 @@ test-iword-codes-mutant: $(foreach m,$(IWORD_CODES_MUTANTS),$(BUILD)/test_iword_
 		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-codes-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-iword-codes-mutant: %s correctly RED (%s; %s)\n' "$$m" "$$(grep -m1 'FAIL' $$bin.log | sed 's/^ *//')" "$$(grep -m1 '      C' $$bin.log | sed 's/^ *//')"; \
 	done
-	@printf '>>> test-iword-codes-mutant: green (all twelve mutants RED for the named reason)\n'
+	@printf '>>> test-iword-codes-mutant: green (all thirteen mutants RED for the named reason)\n'
 
 TEST_IWORD_REVEAL := $(BUILD)/test_iword_reveal_codes
 IWORD_REVEAL_DEPS := $(IWORD_WP5_DIR)/test_iword_reveal_codes.c $(IWORD_WP5_DIR)/iword_keys.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h
@@ -21509,10 +21509,12 @@ $(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_TRASH_NEVER_
 #          the closed windows shows NOTES / the desktop beneath); mtools: no
 #          purged item anywhere, ::/TRASH empty; fsck.fat -n clean with exactly
 #          pristine + 1 (DESKTOP.DB) - 5 clusters in use.
-#   ctrln  the same, then Ctrl-N (the audit's step): New Folder lands in the
-#          only window left, the Trash -- FINDER-NEW-FOLDER parent=<\TRASH per
-#          mshowfat>; mtools: ::/TRASH/NEWFOLD the one reachable copy;
-#          fsck.fat -n: no unreachable cluster, pristine + 1 - 5 + 1 in use.
+#   ctrln  the same, then Ctrl-N (the audit's step). RE-KEY (bead
+#          initech-vnl4, audit 2026-10-23 desktop L008): the only window left
+#          is the Trash, where New Folder is DARK -- nothing is made: no
+#          FINDER-CMD / FINDER-NEW-FOLDER, ::/TRASH empty, no NEWFOLD anywhere,
+#          fsck.fat -n clean with pristine + 1 - 5 in use (was: NEWFOLD made in
+#          \TRASH, + 1). The boot ends on the chord's release echo.
 # Mutation-proven by test-flair-trash-purge-views-mutant: (a) FINDER_WIN_MUT_
 # PURGE_KEEPS_VIEWS -- the purge leg's pixel grader goes RED (the windows are
 # still drawn); (b) the L002 defect RESTORED (that knob + FINDER_WIN_MUT_VIEW_
@@ -21567,7 +21569,7 @@ test-flair-trash-purge-views-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_p
 	@if sh $(FLAIR_PURGE_VIEWS_SH) $(BUILD)/flair_tenants_mut_purge_keeps_views.img $(FLAIR_PURGE_VIEWS_DATA) '$(FLAIR_TRASH_PURGE_VIEWS_SPEC)' purge _mut_keep > $(BUILD)/flair_purge_views_mut_keep.log 2>&1; then printf '!!! test-flair-trash-purge-views-mutant FAIL: PURGE_KEEPS_VIEWS PASSED -- decoration\n'; exit 1; fi
 	@grep -q "FAIL trash-purge-views purge: a purged folder's window is still drawn" $(BUILD)/flair_purge_views_mut_keep.log || { printf '!!! test-flair-trash-purge-views-mutant FAIL: PURGE_KEEPS_VIEWS went RED for the wrong reason\n'; cat $(BUILD)/flair_purge_views_mut_keep.log; exit 1; }
 	@printf ">>> test-flair-trash-purge-views-mutant: PURGE_KEEPS_VIEWS correctly RED (the purged folders' windows are still drawn)\n"
-	@if sh $(FLAIR_PURGE_VIEWS_SH) $(BUILD)/flair_tenants_mut_l002.img $(FLAIR_PURGE_VIEWS_DATA) '$(FLAIR_TRASH_PURGE_CTRLN_SPEC)' ctrln _mut_l002 > $(BUILD)/flair_purge_views_mut_l002.log 2>&1; then printf '!!! test-flair-trash-purge-views-mutant FAIL: the restored L002 defect PASSED -- decoration\n'; exit 1; fi
+	@if sh $(FLAIR_PURGE_VIEWS_SH) $(BUILD)/flair_tenants_mut_l002.img $(FLAIR_PURGE_VIEWS_DATA) '$(FLAIR_TRASH_PURGE_CTRLN_SPEC)' ctrln _mut_l002 FINDER-NEW-FOLDER > $(BUILD)/flair_purge_views_mut_l002.log 2>&1; then printf '!!! test-flair-trash-purge-views-mutant FAIL: the restored L002 defect PASSED -- decoration\n'; exit 1; fi
 	@grep -q 'FAIL trash-purge-views ctrln: fsck.fat -n: an allocated cluster is unreachable (orphan)' $(BUILD)/flair_purge_views_mut_l002.log || { printf '!!! test-flair-trash-purge-views-mutant FAIL: the restored L002 defect went RED for the wrong reason\n'; cat $(BUILD)/flair_purge_views_mut_l002.log; exit 1; }
 	@grep -m1 '^FINDER-NEW-FOLDER' $(BUILD)/flair_purge_views_ctrln_mut_l002.serial | sed 's/^/    mutant serial: /' || true
 	@printf ">>> test-flair-trash-purge-views-mutant: L002 RESTORED correctly RED (Ctrl-N wrote into the purged folder's freed cluster; fsck.fat finds the orphan)\n"
@@ -24378,6 +24380,26 @@ RECORD_SPEC_finder_crash_alert = $(FLAIR_APP_LAUNCH_SPEC)
 RECORD_IMAGE_finder_crash_alert = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_finder_crash_alert = $(FLAIR_DATA_TFX_CRASH_IMG)
 RECORD_MARKER_finder_crash_alert = FINDER-ALERT reason=crash
+# Bead initech-vnl4 (audit 2026-10-23 desktop L001/L006/L007/L008): the Trash
+# edge traces; the gate lives in harness/finder_trash_edges.mk (included after
+# the fixture contracts). Rule 14 clips, registered here because record-flair
+# reads its prerequisites at parse time.
+include spec/flair_trash_edges_traces.mk
+FINDER_FULL_DATA := $(BUILD)/finder_full_fixture.img
+RECORD_SCRIPTS += trash_delete_now trash_notrash_open trash_putaway_multi
+RECORD_SPEC_trash_delete_now = $(FLAIR_TRASH_EDGE_FULL_DELETE_SPEC)
+RECORD_SPEC_trash_notrash_open = $(FLAIR_TRASH_EDGE_NOTRASH_OPEN_SPEC)
+RECORD_SPEC_trash_putaway_multi = $(FLAIR_TRASH_EDGE_PUTAWAY_SPEC)
+$(foreach s,trash_delete_now trash_notrash_open trash_putaway_multi,$(eval RECORD_IMAGE_$(s) = $$(FLAIRTENANTS_RECORDLONGDBL_IMG)))
+RECORD_DATA_trash_delete_now = $(FINDER_FULL_DATA)
+RECORD_DATA_trash_notrash_open = $(FINDER_FULL_DATA)
+RECORD_DATA_trash_putaway_multi = $(FLAIR_DATA_IMG)
+RECORD_MARKER_trash_delete_now = FINDER-DELETE-NOW name=README.TXT purged=1
+RECORD_MARKER_trash_notrash_open = FINDER-ALERT reason=notrash
+RECORD_MARKER_trash_putaway_multi = FINDER-PUT-AWAY n=2
+# The drop's zoom-back animation (8 one-tick steps) and the alert paint
+# outlast the default settle: a 120 ms grab raced it (record-flair-repro).
+$(foreach s,trash_delete_now trash_notrash_open trash_putaway_multi,$(eval RECORD_SETTLE_$(s) = 1000))
 
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
@@ -34110,6 +34132,7 @@ include harness/diff/dbf_diff/samir_size.mk
 include harness/diff/fat_diff/dos_volumes.mk
 include harness/diff/fat_diff/fat_spc.mk
 include harness/finder_alerts.mk
+include harness/finder_trash_edges.mk
 include harness/diff/fat_diff/int21_dpb.mk
 
 # ADR citation integrity (bead initech-lk29; WL-0161): every cited ADR-0001 /

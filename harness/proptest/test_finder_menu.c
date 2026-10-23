@@ -360,7 +360,8 @@ static const want_state_t WANT_STATES[] = {
 typedef struct want_fixed { int mi, ix, en; const char *text; } want_fixed_t;
 
 static const want_fixed_t WANT_FIXED[] = {
-    { FINDER_MENU_IX_FILE,     0, 1, "New Folder" },
+    /* New Folder left this list (bead initech-vnl4): it is predicate-driven
+     * now -- NEW_FOLDER_HERE, graded in leg_refresh's Trash-front state. */
     { FINDER_MENU_IX_FILE,     2, 0, "Print" },
     { FINDER_MENU_IX_FILE,     8, 0, "Put Away" },
     { FINDER_MENU_IX_FILE,    10, 0, "Find" },
@@ -427,10 +428,34 @@ static void leg_refresh(void)
         }
     }
 
+    /* NEW_FOLDER_HERE (bead initech-vnl4; audit 2026-10-23 desktop L008):
+     * live in every state above (no Trash window front) ... */
+    for (si = 0; si < WN(WANT_STATES); si++) {
+        FinderCtx fx = mk_ctx(&WANT_STATES[si]);
+        finder_menu_refresh_enables(&fx);
+        CHECK(item_en(FINDER_MENU_IX_FILE, 0) == 1,
+              "C New Folder is live whenever the Trash window is not front");
+    }
+    /* ... and DARK with the Trash window front, nothing else changed by it. */
+    {
+        const want_state_t tw = { 2, 1, 1, 0,1,0,0,1, "C the Trash window front", 0 };
+        FinderCtx fx = mk_ctx(&tw);
+        fx.front_is_trash = 1u;
+        finder_menu_refresh_enables(&fx);
+        CHECK(item_en(FINDER_MENU_IX_FILE, 0) == 0,
+              "C New Folder is DARK with the Trash window front (L008)");
+        CHECK(item_en(FINDER_MENU_IX_FILE, 3) == 1 &&
+              item_en(FINDER_MENU_IX_SPECIAL, 1) == 1,
+              "C ... while Close Window and Empty Trash stay lit");
+        CHECK(MenuKey(finder_menu_bar(), 'N') == 0u,
+              "D Cmd-N routes NOWHERE with the Trash window front (L008)");
+    }
+
     /* A NULL context is answered "nothing live" by the finder_cmd predicates,
      * which is the safe direction (Rule 2) -- never a stuck-enabled bar. */
     finder_menu_refresh_enables(NULL);
-    CHECK(item_en(FINDER_MENU_IX_FILE, 1) == 0 &&
+    CHECK(item_en(FINDER_MENU_IX_FILE, 0) == 0 &&
+          item_en(FINDER_MENU_IX_FILE, 1) == 0 &&
           item_en(FINDER_MENU_IX_FILE, 3) == 0 &&
           item_en(FINDER_MENU_IX_FILE, 5) == 0 &&
           item_en(FINDER_MENU_IX_FILE, 6) == 0 &&

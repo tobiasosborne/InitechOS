@@ -1552,21 +1552,97 @@ static int fw_retire_dir(finder_shell_t *sh, uint16_t dir)
     return dropped;
 }
 
-finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
-                                             uint16_t *out_purged,
-                                             uint16_t *out_refused,
-                                             uint8_t *out_db_dirty)
+/* THE DEPTH-FIRST PURGE of everything UNDER directory `root` (Sec 12). Shared
+ * verbatim by Empty Trash (root = \TRASH) and by Delete Now (root = the folder
+ * being deleted; bead initech-vnl4), so the two destructive paths cannot drift:
+ * the same locked-descendant refusal, the same depth limit, the same retirement
+ * of every view of a removed folder. `root` itself is never removed here. */
+typedef struct fw_purge {
+    uint16_t purged, refused;
+    int      locked, views_dropped;
+    unsigned touched;               /* surviving views whose listing changed */
+} fw_purge_t;
+
+static void fw_purge_tree(finder_shell_t *sh, uint16_t root, fw_purge_t *p)
 {
     struct {
         uint16_t dir, skip;
         char     name[FINDER_DESK_NAME_MAX];   /* this folder's name in its parent */
     } st[FINDER_TRASH_DEPTH];
-    uint16_t purged = 0u, refused = 0u, kept = 0u;
-    int d = 0, td, rc;
-    int locked = 0;
-    int views_dropped = 0;
-    unsigned touched = 0u;          /* surviving views whose listing changed */
+    int d = 0, rc;
     fw_item_t it;
+
+    /* DEPTH-FIRST. Each level remembers how many leading items it had to
+     * REFUSE (`skip`), so the walk always takes the first item it has not
+     * given up on: delete it, or descend into it; an emptied level is
+     * removed from its parent on the way back up. Every step deletes an
+     * entry, refuses one (skip grows), descends or ascends, so it ends. */
+    st[0].dir  = root;
+    st[0].skip = 0u;
+    for (;;) {
+        rc = fw_item(sh, st[d].dir, (int)st[d].skip, &it);
+        if (rc <= 0) {
+            if (d == 0) break;
+            /* The level is as empty as it will get: remove the folder. */
+            rc = sh->fs.rmdir(sh->fs.user, st[d].name, st[d - 1].dir);
+            d--;
+            if (rc == (int)FINDER_WIN_OK) {
+                p->purged = (uint16_t)(p->purged + 1u);
+                p->touched |= fw_slots_of(sh, st[d].dir);
+#if !defined(FINDER_WIN_MUT_PURGE_KEEPS_VIEWS)
+                /* The folder is GONE: so is every view of it (audit L002). */
+                p->views_dropped |= fw_retire_dir(sh, st[d + 1].dir);
+#else
+                (void)fw_retire_dir;
+#endif
+            } else {
+                p->refused = (uint16_t)(p->refused + 1u);
+                st[d].skip = (uint16_t)(st[d].skip + 1u);
+            }
+            continue;
+        }
+        /* Recheck each live entry, including descendants locked after staging.
+         * Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf pp. 88, 112.
+         * L118: protection has its own result, retained origins and feedback. */
+#ifndef FINDER_WIN_MUT_LOCKED_PURGE
+        if ((it.attr & FINDER_ATTR_READONLY) != 0u) {
+            p->locked = 1;
+            p->refused = (uint16_t)(p->refused + 1u);
+            st[d].skip = (uint16_t)(st[d].skip + 1u);
+            continue;
+        }
+#endif
+        if ((it.attr & (uint8_t)FINDER_ATTR_DIRECTORY) != 0u) {
+            if (d + 1 >= FINDER_TRASH_DEPTH) {          /* too deep: refuse loud */
+                p->refused = (uint16_t)(p->refused + 1u);
+                st[d].skip = (uint16_t)(st[d].skip + 1u);
+                continue;
+            }
+            d++;
+            st[d].dir  = it.cl;
+            st[d].skip = 0u;
+            fw_copy83(st[d].name, it.name);
+            continue;
+        }
+        if (sh->fs.unlink(sh->fs.user, it.name, st[d].dir) == (int)FINDER_WIN_OK) {
+            p->purged = (uint16_t)(p->purged + 1u);
+            p->touched |= fw_slots_of(sh, st[d].dir);
+        } else {
+            p->refused = (uint16_t)(p->refused + 1u);
+            st[d].skip = (uint16_t)(st[d].skip + 1u);
+        }
+    }
+
+}
+
+finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
+                                             uint16_t *out_purged,
+                                             uint16_t *out_refused,
+                                             uint8_t *out_db_dirty)
+{
+    uint16_t kept = 0u;
+    int td;
+    fw_purge_t p;
 
     if (out_purged != (uint16_t *)0)   *out_purged = 0u;
     if (out_refused != (uint16_t *)0)  *out_refused = 0u;
@@ -1579,73 +1655,15 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
     td = sh->fs.trash_dir(sh->fs.user);
     if (td < 0) return FINDER_WIN_ERR_NOTRASH;
 
-    /* DEPTH-FIRST. Each level remembers how many leading items it had to
-     * REFUSE (`skip`), so the walk always takes the first item it has not
-     * given up on: delete it, or descend into it; an emptied level is
-     * removed from its parent on the way back up. Every step deletes an
-     * entry, refuses one (skip grows), descends or ascends, so it ends. */
-    st[0].dir  = (uint16_t)td;
-    st[0].skip = 0u;
-    for (;;) {
-        rc = fw_item(sh, st[d].dir, (int)st[d].skip, &it);
-        if (rc <= 0) {
-            if (d == 0) break;
-            /* The level is as empty as it will get: remove the folder. */
-            rc = sh->fs.rmdir(sh->fs.user, st[d].name, st[d - 1].dir);
-            d--;
-            if (rc == (int)FINDER_WIN_OK) {
-                purged = (uint16_t)(purged + 1u);
-                touched |= fw_slots_of(sh, st[d].dir);
-#if !defined(FINDER_WIN_MUT_PURGE_KEEPS_VIEWS)
-                /* The folder is GONE: so is every view of it (audit L002). */
-                views_dropped |= fw_retire_dir(sh, st[d + 1].dir);
-#else
-                (void)fw_retire_dir;
-#endif
-            } else {
-                refused = (uint16_t)(refused + 1u);
-                st[d].skip = (uint16_t)(st[d].skip + 1u);
-            }
-            continue;
-        }
-        /* Recheck each live entry, including descendants locked after staging.
-         * Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf pp. 88, 112.
-         * L118: protection has its own result, retained origins and feedback. */
-#ifndef FINDER_WIN_MUT_LOCKED_PURGE
-        if ((it.attr & FINDER_ATTR_READONLY) != 0u) {
-            locked = 1;
-            refused = (uint16_t)(refused + 1u);
-            st[d].skip = (uint16_t)(st[d].skip + 1u);
-            continue;
-        }
-#endif
-        if ((it.attr & (uint8_t)FINDER_ATTR_DIRECTORY) != 0u) {
-            if (d + 1 >= FINDER_TRASH_DEPTH) {          /* too deep: refuse loud */
-                refused = (uint16_t)(refused + 1u);
-                st[d].skip = (uint16_t)(st[d].skip + 1u);
-                continue;
-            }
-            d++;
-            st[d].dir  = it.cl;
-            st[d].skip = 0u;
-            fw_copy83(st[d].name, it.name);
-            continue;
-        }
-        if (sh->fs.unlink(sh->fs.user, it.name, st[d].dir) == (int)FINDER_WIN_OK) {
-            purged = (uint16_t)(purged + 1u);
-            touched |= fw_slots_of(sh, st[d].dir);
-        } else {
-            refused = (uint16_t)(refused + 1u);
-            st[d].skip = (uint16_t)(st[d].skip + 1u);
-        }
-    }
+    fw_zero(&p, (uint32_t)sizeof p);
+    fw_purge_tree(sh, (uint16_t)td, &p);
 
     /* The kind=5 origins of purged items are stale; a refused item keeps its
      * own (it is still in \TRASH and can still be put back). */
     for (uint16_t i = 0u; i < sh->n_origins; i++)
         if (fw_has_item(sh, (uint16_t)td, sh->origins[i].name83))
             sh->origins[kept++] = sh->origins[i];
-    if ((kept != sh->n_origins || views_dropped) && out_db_dirty != (uint8_t *)0)
+    if ((kept != sh->n_origins || p.views_dropped) && out_db_dirty != (uint8_t *)0)
         *out_db_dirty = 1u;
     sh->n_origins = kept;
 
@@ -1654,9 +1672,9 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
      * folder stayed for a locked descendant, its removed children must not
      * stay on as icons naming freed clusters). A retired slot is closed and
      * no longer matches. */
-    touched |= fw_slots_of(sh, (uint16_t)td);
+    p.touched |= fw_slots_of(sh, (uint16_t)td);
     for (int i = 0; i < sh->window_cap; i++)
-        if ((touched & (1u << i)) != 0u && sh->windows[i].open &&
+        if ((p.touched & (1u << i)) != 0u && sh->windows[i].open &&
             finder_win_populate(sh, i) == FINDER_WIN_OK)
             finder_win_invalidate_all(sh, i);
     (void)finder_shell_recount_trash(sh);
@@ -1667,9 +1685,90 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
         fw_refresh_group_head(sh);
         finder_shell_sync_ctx(sh);
     }
-    if (out_purged != (uint16_t *)0)  *out_purged = purged;
-    if (out_refused != (uint16_t *)0) *out_refused = refused;
-    return locked ? FINDER_WIN_ERR_LOCKED : FINDER_WIN_OK;
+    if (out_purged != (uint16_t *)0)  *out_purged = p.purged;
+    if (out_refused != (uint16_t *)0) *out_refused = p.refused;
+    return p.locked ? FINDER_WIN_ERR_LOCKED : FINDER_WIN_OK;
+}
+
+/* DELETE NOW (bead initech-vnl4; audit docs/audits/2026-10-23-desktop
+ * REPORT.md L001, P1): a volume that is FULL and has no \TRASH cannot stage
+ * anything -- staging needs the Trash directory, and making it needs a free
+ * cluster -- so without this verb the Finder offers no way at all to free
+ * space. The period guidance for a full disk is "You can remove items from
+ * the disk to free up more space" (Apple_Macintosh_System_Software_Users_
+ * Guide_V6.0.pdf printed p. 262); the kernel asks first (the CAUTION alert,
+ * "remove ... permanently", the Empty Trash confirm's own words, Sec 12) and
+ * calls this ONLY on OK. Removes item `idx` of window `slot` IN PLACE: a
+ * document by unlink, a folder by the SAME depth-first walk Empty Trash uses
+ * (fw_purge_tree) and then rmdir. A locked item, or a locked descendant,
+ * refuses FINDER_WIN_ERR_LOCKED and the folder stays (pp. 88, 112: unlock
+ * before discarding). The window, and any view the walk touched, is
+ * re-listed; every view of a removed folder is retired (audit L002). */
+finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
+                                             int idx, uint16_t *out_purged,
+                                             uint8_t *out_db_dirty)
+{
+    finder_window_t *w;
+    fw_item_t it;
+    fw_purge_t p;
+    finder_win_status_t st;
+    char name[FINDER_DESK_NAME_MAX];
+    uint16_t dir;
+    int n, rc, found = 0;
+
+    if (out_purged != (uint16_t *)0)   *out_purged = 0u;
+    if (out_db_dirty != (uint8_t *)0)  *out_db_dirty = 0u;
+    if (!fw_slot_ok(sh, slot) || !sh->have_fs ||
+        sh->fs.enumerate == (int (*)(void *, uint16_t, finder_enum_cb, void *))0 ||
+        sh->fs.unlink == (int (*)(void *, const char *, uint16_t))0 ||
+        sh->fs.rmdir == (int (*)(void *, const char *, uint16_t))0)
+        return FINDER_WIN_ERR_NULL;
+    w = &sh->windows[slot];
+    if (idx < 0 || idx >= (int)w->view.n) return FINDER_WIN_ERR_NULL;
+    sh->purge_closed = 0u;
+    /* The view must still BE its folder (Sec 10d). */
+    st = finder_win_check_live(sh, slot);
+    if (st != FINDER_WIN_OK) return st;
+    dir = w->dir_start;
+    fw_copy83(name, w->view.icons[idx].name);
+    if (finder_win_is_service(dir, name)) return FINDER_WIN_ERR_SERVICE;
+    /* The DISK says what the item is, not the icon (it may predate a lock). */
+    for (n = 0; (rc = fw_item(sh, dir, n, &it)) > 0; n++)
+        if (fw_ieq(it.name, name)) { found = 1; break; }
+    if (rc < 0) return FINDER_WIN_ERR_ENUM;
+    if (!found) return FINDER_WIN_ERR_MOVE;
+    if ((it.attr & FINDER_ATTR_READONLY) != 0u) return FINDER_WIN_ERR_LOCKED;
+
+    fw_zero(&p, (uint32_t)sizeof p);
+    if ((it.attr & (uint8_t)FINDER_ATTR_DIRECTORY) != 0u) {
+        fw_purge_tree(sh, it.cl, &p);
+        if (!p.locked && p.refused == 0u) {
+            if (sh->fs.rmdir(sh->fs.user, name, dir) == (int)FINDER_WIN_OK) {
+                p.purged = (uint16_t)(p.purged + 1u);
+                p.views_dropped |= fw_retire_dir(sh, it.cl);
+            } else {
+                p.refused = (uint16_t)(p.refused + 1u);
+            }
+        }
+    } else if (sh->fs.unlink(sh->fs.user, name, dir) == (int)FINDER_WIN_OK) {
+        p.purged = (uint16_t)(p.purged + 1u);
+    } else {
+        p.refused = (uint16_t)(p.refused + 1u);
+    }
+
+    p.touched |= fw_slots_of(sh, dir);
+    for (int i = 0; i < sh->window_cap; i++)
+        if ((p.touched & (1u << i)) != 0u && sh->windows[i].open &&
+            finder_win_populate(sh, i) == FINDER_WIN_OK)
+            finder_win_invalidate_all(sh, i);
+    if (sh->purge_closed != 0u) {
+        fw_refresh_group_head(sh);
+        finder_shell_sync_ctx(sh);
+    }
+    if (out_purged != (uint16_t *)0)  *out_purged = p.purged;
+    if (out_db_dirty != (uint8_t *)0) *out_db_dirty = (uint8_t)(p.views_dropped ? 1u : 0u);
+    if (p.locked) return FINDER_WIN_ERR_LOCKED;
+    return (p.refused != 0u) ? FINDER_WIN_ERR_MOVE : FINDER_WIN_OK;
 }
 
 /* libc-free decimal (Law 3); returns the digit count written. */
@@ -1720,6 +1819,24 @@ int finder_exit_dos_alert_text(char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MA
     return fw_alert_wrap("Are you sure you want to exit to InitechDOS?", out);
 }
 
+/* Delete Now (bead initech-vnl4, audit 2026-10-23 desktop L001): the confirm
+ * a full volume with no \TRASH puts up instead of a dead-end refusal. The
+ * question is the Empty Trash confirm's own ("Are you sure you want to remove
+ * ... permanently?", Sec 12); the first sentence, naming why the Trash cannot
+ * take the item, is authored -- no local Finder string exists for it. */
+int finder_delete_now_alert_text(const char *name,
+                                 char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    char msg[208];
+    int  n = 0;
+
+    n = fw_cat(msg, n, "There is no room on the disk for the Trash. Are you sure you want to remove ");
+    n = fw_cat(msg, n, name != (const char *)0 ? name : "");
+    n = fw_cat(msg, n, " permanently?");
+    msg[n] = '\0';
+    return fw_alert_wrap(msg, out);
+}
+
 /* tdnl.61/.63/.62/.66/.72/.57. Wording is the bead/operator wording,
  * NOT claimed as extracted native strings: no corresponding alert text is
  * captured locally. Chrome reuses the independently graded Dialog Manager. */
@@ -1768,6 +1885,21 @@ int finder_error_alert_text(finder_win_status_t st, const char *name,
         msg="This item is used by the Finder and cannot be moved."; break;
     case FINDER_WIN_ERR_SAMEDIR:
         msg="The item is already in this folder."; break;
+    case FINDER_WIN_ERR_NOTRASH:
+        /* bead initech-vnl4 (audit 2026-10-23 desktop L007): opening the
+         * Trash on a volume with no \TRASH (it could not be made: the disk
+         * is full) names the operation that failed, never the generic "could
+         * not be moved" -- no move was asked for. Wording authored (no local
+         * Finder string for it); the System 6 guide's own advice for a full
+         * disk is "remove items from the disk to free up more space"
+         * (Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf printed
+         * p. 262), which the Delete Now route (finder_shell_delete_item)
+         * makes possible.
+         * MUTANT FINDER_MUT_NOTRASH_GENERIC (Rule 6): the pre-fix fall-through
+         * to the move wording. NEVER in a real build. */
+#ifndef FINDER_MUT_NOTRASH_GENERIC
+        msg="The Trash could not be opened because there is no room for it on the disk."; break;
+#endif
     default: msg="The item could not be moved. The disk may be full or the folder may no longer be available."; break;
     }
     return fw_alert_wrap(msg,out);
@@ -2077,6 +2209,9 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
     slot = finder_win_front_slot(sh);
     sh->ctx->view_bits = slot >= 0 ? sh->windows[slot].view_bits : 0;
     sh->ctx->front_is_diskwin = (uint8_t)((slot >= 0) ? 1 : 0);
+    /* NEW_FOLDER_HERE (bead initech-vnl4, audit L008). */
+    sh->ctx->front_is_trash =
+        (uint8_t)((slot >= 0 && sh->windows[slot].is_trash) ? 1 : 0);
     sh->ctx->selection_count  =
         (slot >= 0) ? finder_desk_selection_count(&sh->windows[slot].view)
                     : finder_desk_selection_count(&sh->desk);

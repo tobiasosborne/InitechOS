@@ -129,6 +129,10 @@ typedef struct FinderCtx {
      * silent refusal; documents return with initech-tdnl.16). */
     uint8_t  selection_openable;
     uint8_t  selection_putaway; /* selected item in Trash with a stored origin */
+    /* 1 == the frontmost disk window is THE TRASH window (bead initech-vnl4,
+     * audit 2026-10-23 desktop L008): New Folder is dark there -- the Trash
+     * holds what is being thrown away, it is not a place new work is made. */
+    uint8_t  front_is_trash;
 
     /* --- the trace sink (caller-supplied; see banner) --------------------- */
     void   (*trace)(void *user, const char *line);
@@ -203,6 +207,9 @@ uint8_t finder_pred_front_is_diskwin(const FinderCtx *fx);
  * so a selected document would otherwise enable Open and do nothing. */
 uint8_t finder_pred_selection_openable(const FinderCtx *fx);
 uint8_t finder_pred_selection_putaway(const FinderCtx *fx);
+/* NEW_FOLDER_HERE -- New Folder (bead initech-vnl4, audit 2026-10-23 desktop
+ * L008): live everywhere EXCEPT with the Trash window front. */
+uint8_t finder_pred_new_folder_here(const FinderCtx *fx);
 
 /* ===========================================================================
  * 5. LOOKUP + DISPATCH
