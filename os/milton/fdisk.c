@@ -122,7 +122,16 @@ static void table(void)
         uint8_t *p=entry(mbr,i);if(!p[4])continue;
         char b[46];for(unsigned j=0;j<43;j++)b[j]=' ';
         b[43]='\r';b[44]='\n';b[45]=0;
-        if(dos(p[4])){b[1]='C';b[2]=':';}
+        /* q45q / audit L028: the letter DOS actually mounts the entry as,
+         * per DEC-18 (C = 80h primary 1, D = 80h primary 2), never a fixed
+         * C: for every DOS row. MS-DOS UG p295 shows the letter column. */
+        char l=0;
+#ifdef FDISK_MUT_LETTER
+        l='C';
+#else
+        if(io->letter)l=io->letter(drive,i+1);
+#endif
+        if(dos(p[4]) && l){b[1]=l;b[2]=':';}
         b[5]=(char)('1'+i);if(p[0]==0x80)b[13]='A';
         const char *type=dos(p[4])?"PRI DOS":p[4]==5?"EXT DOS":"non DOS";
         for(unsigned j=0;j<7;j++)b[18+j]=type[j];

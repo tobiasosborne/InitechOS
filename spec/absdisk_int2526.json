@@ -1,6 +1,6 @@
 {
   "_comment": "INT 25h / 26h ABSOLUTE-DISK VECTOR contract (the CPU software-interrupt vectors int 0x25 = Absolute Disk Read and int 0x26 = Absolute Disk Write). This is NOT INT 21h function AH=25h SETVECT / AH=35h GETVECT -- those are AH-selected INT 21h functions already listed in spec/int21h_register.json and are entirely distinct from these vectors. Ratified by ADR-0003 Amendment DEC-15 (OEA-ADR-0003-A3). This file is a NEW locked sibling spec (CLAUDE.md Rule 8) and is EXPLICITLY EXCLUDED from the test-spec INT-21h AH-consistency walk: these are vectors, not AH functions, so they do NOT appear in int21h_register.json and must NOT be added there or to spec/int21h_calling_convention.json. The INT 21h INT21_ERR_* extended-error enum (os/milton/int21.h) is a SEPARATE code space and must NOT be reused for the AL hardware byte below.",
-  "status": "ratified -- ADR-0003 amendment DEC-15 (OEA-ADR-0003-A3), ARB sign-off 2026-06-15 (beads initech-4mq7)",
+  "status": "ratified -- ADR-0003 amendment DEC-15 (OEA-ADR-0003-A3), ARB sign-off 2026-06-15 (beads initech-4mq7); multi-volume drive resolution per ADR-0003 amendment DEC-15a (OEA-ADR-0003-A7, beads initech-yyi2)",
   "vectors": {
     "0x25": {
       "name": "INT 25h Absolute Disk Read",
@@ -17,7 +17,7 @@
   },
   "abi": {
     "_comment": "DELIBERATE register-role SWAP relative to the DEC-04a INT 21h default (EDX=pointer / EBX=handle). INT 25h/26h are a different vector family: the buffer is in EBX (DOS DS:BX), and the start sector is in DX/EDX -- NOT the DEC-04a handle/pointer roles. Stated here to prevent the field-transposition class of bug DEC-04a Appendix E.3 warns of.",
-    "drive": "AL (0=A:, 1=B:, 2=C:; zero-based explicit -- NOT the AH=0Eh/19h/36h 0=default convention; there is no default-drive sentinel)",
+    "drive": "AL (0=A:, 1=B:, 2=C:, 3=D:; zero-based explicit -- NOT the AH=0Eh/19h/36h 0=default convention; there is no default-drive sentinel). Valid exactly for a letter DEC-18 currently mounts (DEC-15a); B is never mounted",
     "sector_count": "CX/ECX (0=no-op success CF=0; 0xFFFF=DOS4+ packet sentinel, REJECTED -- never a literal count)",
     "start_sector": "DX/EDX (absolute volume-relative logical sector; boot sector=LBA 0; maps 1:1 onto blockdev_t lba)",
     "buffer": "EBX (flat 32-bit linear -- DOS DS:BX; the buffer is in EBX, NOT the DEC-04a handle register; the start sector is in DX/EDX, NOT the DEC-04a EDX-pointer role)",
@@ -35,7 +35,7 @@
     "invalid_drive": {
       "al": "0x0F",
       "ah": "0x0C",
-      "when": "AL != mounted volume"
+      "when": "AL is not a mounted volume"
     },
     "bad_buffer": {
       "al": "0x0F",

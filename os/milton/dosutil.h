@@ -6,7 +6,7 @@
 typedef struct du_entry { char name[13]; uint8_t attr; } du_entry;
 int du_list(const char *dir, unsigned index, du_entry *out);
 int du_attr(const char *path, int set, uint8_t *attr);
-int du_cwd(char out[64]);
+int du_cwd(unsigned drive, char out[64]); /* 0=A:, AH=47h DL=drive+1 */
 int du_drive(void);
 int du_sector(int write, unsigned drive, unsigned lba, uint8_t buf[512]);
 int du_line(char out[128]);

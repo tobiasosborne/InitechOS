@@ -12,9 +12,10 @@ static int call21(unsigned ax, unsigned bx, unsigned cx, unsigned dx)
     return cf ? -(int)(ax&65535u) : (int)ax;
 }
 int du_drive(void) { return call21(0x1900,0,0,0)&255; }
-int du_cwd(char out[64])
+int du_cwd(unsigned drive, char out[64])
 {
-    unsigned ax=0x4700, dx=0, si=(unsigned)out;
+    unsigned ax=0x4700, dx=drive+1, si=(unsigned)out;
+    out[0]=0;
     unsigned char cf;
     __asm__ volatile("int $0x21" : "=@ccc"(cf), "+a"(ax),
         "+d"(dx), "+S"(si) : : "memory","cc");

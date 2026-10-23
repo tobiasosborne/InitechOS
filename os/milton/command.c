@@ -2468,14 +2468,17 @@ static uint16_t dos_chdir(const char *path)
  * leading '\', NO drive; the root is the empty string). `buf` must hold >=
  * INT21_CWD_MAX (64) bytes. The buffer is left a valid ASCIIZ string on entry so
  * a failing call (invalid drive) leaves it empty rather than uninitialized. */
-static void dos_getcwd(uint8_t drive, char *buf)
+static uint32_t dos_getcwd(uint8_t drive, char *buf)
 {
+    uint32_t ax = 0x4700u, carry;
     buf[0] = '\0';
     __asm__ __volatile__(
-        "int $0x21"
-        :
-        : "a"(0x4700u), "d"((uint32_t)drive), "S"((uint32_t)(uintptr_t)buf)
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "d"((uint32_t)drive), "S"((uint32_t)(uintptr_t)buf)
         : "cc", "memory");
+    return carry;   /* nonzero: invalid drive (AX=000Fh) */
 }
 
 /* The shell's DTA: a dedicated 43-byte find-record buffer FINDFIRST/NEXT write
@@ -2892,6 +2895,23 @@ static void builtin_cd(const char *arg)
         return;
     }
     cmd_upcase_str(tok);              /* DOS upcases 8.3 path components */
+#ifndef CMD_MUTATE_CD_DRIVE
+    if (len == 2 && tok[1] == ':') {
+        /* "CHDIR b: ... MS-DOS displays b:\user\pete" -- drive d's own
+         * directory; the default drive is unchanged (MS-DOS 3.3 Reference
+         * p.42 / PDF127; audit 2026-10-23-dos L011). AH=47h DL=1 is A:. */
+        char disp[3 + INT21_CWD_MAX + 4];
+        uint8_t d = (uint8_t)(tok[0] - 'A');
+        if (d > 25u || dos_getcwd((uint8_t)(d + 1u), disp + 3) != 0u) {
+            dos_print(MSG_DOS_0004 "\r\n$");
+            return;
+        }
+        disp[0] = tok[0]; disp[1] = ':'; disp[2] = '\\';
+        dos_puts_raw(disp);
+        dos_print("\r\n$");
+        return;
+    }
+#endif
     uint16_t err = dos_chdir(tok);
     if (err != 0u) dos_print(err == 15u ? MSG_DOS_0004 "\r\n$" : MSG_DOS_0018 "\r\n$");
     /* Success is SILENT -- the new path shows at the next prompt (real DOS 3.3). */

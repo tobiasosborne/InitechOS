@@ -20,7 +20,7 @@ test-fdisk-mutant: $(FAT_DUMP_BIN) $(foreach m,CHS SIGNATURE ACTIVE CONFIRM,$(BU
 TEST_UNIT_GATES += test-fdisk test-fdisk-mutant
 $(BUILD)/fdisk_start.o: os/milton/fdisk_start.asm | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
-$(BUILD)/fdisk_program.o: os/milton/fdisk_program.c os/milton/fdisk.h os/milton/power.h | $(BUILD)
+$(BUILD)/fdisk_program.o: os/milton/fdisk_program.c os/milton/fdisk.h os/milton/power.h os/milton/diskutil.h spec/drive_letters.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS_CDECL) -Os -Ispec -Ios/milton -c $< -o $@
 $(BUILD)/fdisk.o: $(FDISK_SRC) os/milton/fdisk.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS_CDECL) -Os -Ispec -Ios/milton -c $< -o $@

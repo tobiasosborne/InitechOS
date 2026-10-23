@@ -3,6 +3,8 @@
  * All current FAT-sourced externals load from primary slave (kmain.c).
  * No host paths, clock reads or host runtime. */
 #include "fdisk.h"
+#include "diskutil.h"      /* du_map: DEC-17 AH60h map record */
+#include "drive_letters.h" /* spec/drive_letters.json (DEC-18) */
 #include "power.h" /* existing period AT 8042 reset mechanism */
 static int sector(unsigned drive,uint8_t *p,int write)
 {
@@ -18,6 +20,17 @@ static uint32_t capacity(unsigned drive)
     __asm__ volatile("int $0x13":"=@ccc"(cf),"+a"(a),"+c"(c),"+d"(d)::"memory","cc");
     return cf || ((a>>8)&255)!=3?0:((c&65535)<<16)|(d&65535);
 }
+/* Ask the kernel's DEC-18 resolver (INT13 AH60h, AL = zero-based letter)
+ * which letter owns this primary entry; FDISK never decides it itself. */
+static char letter(unsigned drive,unsigned partition)
+{
+    for(unsigned l=0;l<4;l++) {
+        du_map m;uint32_t a=(DL_function<<8)|l,b=(uint32_t)&m;unsigned char cf;
+        __asm__ volatile("int $0x13":"=@ccc"(cf),"+a"(a),"+b"(b)::"memory","cc");
+        if(!cf && m.disk==drive && m.partition==partition)return (char)('A'+l);
+    }
+    return 0;
+}
 static int get(void)
 {
     unsigned a=0x0700;
@@ -32,7 +45,7 @@ static void put(const char *p)
 int fdisk_entry(void)
 {
     extern void fdisk_restart(void);
-    const fdisk_io io={read_disk,write_disk,capacity,get,put,0x81,fdisk_restart};
+    const fdisk_io io={read_disk,write_disk,capacity,get,put,0x81,fdisk_restart,letter};
     return fdisk_run(&io);
 }
 void fdisk_restart(void)
