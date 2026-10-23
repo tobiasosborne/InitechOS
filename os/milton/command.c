@@ -2761,6 +2761,11 @@ static void builtin_dir(const char *arg)
         if (page && rows >= 23) {
             dos_print(MSG_DOS_0016 "$" );
             (void)dos_conin();
+#ifndef CMD_MUTATE_DIR_BREAK
+            /* User's Guide p.159 / PDF244: ^C aborts the current command,
+             * rather than satisfying DIR /P's request for the next page. */
+            if (g_shell_break.interrupted) return;
+#endif
             dos_print("\r\n$"); rows = 0;
         }
         if (wide) {
@@ -2817,7 +2822,14 @@ static void builtin_type(const char *arg)
     }
     for (;;) {
         got = dos_read(handle, chunk, sizeof(chunk));
-        if (got == DOS_READ_ERROR) {
+#ifndef CMD_MUTATE_TYPE_BREAK
+        /* INT 23h resident recovery returns before the service completes:
+         * EAX can still be the 3F00h request, not a byte count. Unwind through
+         * CLOSE and the redirect epilogue without emitting any buffer bytes.
+         * Ref: User's Guide p.159 / PDF244; ADR-0003 DEC-16 Fork A. */
+        if (g_shell_break.interrupted) break;
+#endif
+        if (got == DOS_READ_ERROR || got > sizeof(chunk)) {
             /* initech-winh: a read failure is NOT a byte count -- abort
              * rather than flush `chunk` (possibly never written this call)
              * to stdout as if it were real file content. */
@@ -2829,8 +2841,12 @@ static void builtin_type(const char *arg)
             break;          /* EOF */
         }
         dos_write((const char *)chunk, got);
+#ifndef CMD_MUTATE_TYPE_BREAK
+        if (g_shell_break.interrupted) break;
+#endif
     }
     dos_close(handle);
+    if (g_shell_break.interrupted) return;
     /* A redirected TYPE is file bytes, without console-only line framing.
      * MS-DOS 3.3 Reference TYPE/redirection; IOCTL IBM TR pp6-148..149. */
     uint32_t ax=0x4400u, info;
