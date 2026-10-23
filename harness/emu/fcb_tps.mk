@@ -389,3 +389,5 @@ tps-mint-realdos: $(TPSREP_BIN16) $(TPS_FIXTURES)
 	  || printf '!!! tps-mint-realdos: %s DIFFERS from the committed golden (%s)\n' $$f $(TPS_MINT_DIR)/$$f; done
 
 TEST_EMU_GATES += test-fcb-api test-fcb-api-mutant test-tps-report test-tps-report-mutant test-tps-report-faults test-tps-report-faults-mutant
+
+include harness/emu/tps_backup.mk

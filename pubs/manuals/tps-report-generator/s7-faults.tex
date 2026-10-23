@@ -1,7 +1,8 @@
 % Session 7 -- Refusals and Faults: Procedure TPS-P-08, Checklist TPS-C-3.
 % Law 1 sources: spec/tps_ritual.json (every refusal and its exit code:
 % TPS-001/002 exit 1, TPS-003/004 ask again, TPS-005 exit 5, TPS-006 exit
-% 6, TPS-007 exit 7, TPS-008 exit 8); os/milton/tpsrep_program.asm (the
+% 6, TPS-007 exit 7, TPS-008 exit 8, TPS-009 exit 9, TPS-010 exit 1,
+% TPS-011 exit 6, TPS-012 exit 10); os/milton/tpsrep_program.asm (the
 % table is opened after the parameter record and before the alignment, so
 % TPS-006/007 come before any ritual; TPS-006 names the first required field
 % missing, or SIGNATURE when the file is not a dBASE III table; TPS-008 after
@@ -48,6 +49,7 @@ TPS-011 & A \texttt{PAGES} value is not a number & Ends, code 6 & Supervisor\\
 TPS-003 & Report numbers differ & Asks again & \proc{04} step 1\\
 TPS-004 & Not the memo number & Asks again & \proc{05} step 2\\
 TPS-005 & Cover sheet answer N & Ends, code 5 & \proc{06}; run again\\
+TPS-012 & Previous report not retained as \file{TPSREPT.BAK} & Ends, code 10 & Supervisor\\
 TPS-008 & Report file not created & Ends, code 8 & Supervisor\\
 TPS-009 & Report file not written (disk full) & Ends, code 9 & Supervisor\\\hline
 \end{tabular}\end{center}
