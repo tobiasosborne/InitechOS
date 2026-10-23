@@ -217,19 +217,12 @@ static const char *p_skip_ws(const char *s)
 /*
  * p_ci_eq_prefix: does the text at `s` (bounded above by `le`) begin with the
  * keyword `kw` as a WHOLE WORD (kw matched case-insensitively, then end-of-line
- * or a blank)? Used to spot a "PROCEDURE <name>" line. Returns 1/0.
+ * or a blank)? Used to spot a "PROCEDURE <name>" line. Returns typed length/0.
  */
 static int p_ci_eq_prefix(const char *s, const char *kw, const char *le)
 {
-    int i = 0;
-    while (kw[i] != '\0') {
-        if (s + i >= le) return 0;
-        if (p_up1(s[i]) != p_up1(kw[i])) return 0;
-        i++;
-    }
-    /* the char after the keyword must be end-of-line or a blank. */
-    if (s + i >= le) return 1;
-    return p_isspace(s[i]);
+    int n = rt_kw_match(s, kw);
+    return s + n <= le ? n : 0;
 }
 
 /* ===================================================================== */
@@ -559,7 +552,7 @@ static const char *p_find_procedure(const char *src, const char *name)
         t = p_skip_ws(ls);
         if (le > t && (p_up1(t[0]) == 'P') &&
             p_ci_eq_prefix(t, "PROCEDURE", le)) {
-            const char *nm = p_skip_ws(t + 9);   /* past "PROCEDURE" */
+            const char *nm = p_skip_ws(t + rt_kw_match(t, "PROCEDURE"));
             /* compare the name token (whole word) against `name`. */
             int i = 0;
             while (nm + i < le && name[i] != '\0' &&

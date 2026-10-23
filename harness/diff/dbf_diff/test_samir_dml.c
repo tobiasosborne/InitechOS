@@ -138,7 +138,7 @@ int main(int argc,char **argv)
 {
     const char *name=argc>1?argv[1]:"clear",*mode=argc>2?argv[2]:"host";
     const char *com=argc>3?argv[3]:"build/SAMIR.COM";
-    static const char *const names[]={"clear","macro","close","index","reindex","sort","total","append","save","restore","copyfile","type","rename","erase","label","run"};
+    static const char *const names[]={"clear","macro","close","index","reindex","sort","total","append","save","restore","copyfile","type","rename","erase","label","run","abbrev","abbrfull","abbrscope"};
     char gold[1024],dir[1024],cmd[16384],path[2048];
     static unsigned char expected[65536];FILE *f;
     int emu=!strcmp(mode,"emu"),state=!strcmp(mode,"state"),valid=0;unsigned ni;
@@ -158,6 +158,10 @@ int main(int argc,char **argv)
     }
     snprintf(dir,sizeof dir,"build/samirdml/%s-%s",mode,name);
     snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s && cp -f build/CLIENTS.DBF %s/BASE.DBF && cp -f harness/diff/dbf_diff/xbase_prog_diff/corpus/dml/%s.prg %s/DMLTEST.PRG",dir,dir,dir,name,dir);command(cmd);
+    /* abbrscope's schema and blank rows were created by real DBASE.EXE. */
+    if(!strcmp(name,"abbrscope")) {
+        snprintf(cmd,sizeof cmd,"cp -f %s/INPUT.DBF %s/BASE.DBF",gold,dir);command(cmd);
+    }
     snprintf(path,sizeof path,"%s/INPUT.TXT",dir);f=fopen(path,"wb");if(!f)return 2;fputs("ASCII first\r\nsecond line\r\n\032IGNORED\r\n",f);fclose(f);
     if(!strcmp(name,"reindex")||!strcmp(name,"restore")||!strcmp(name,"append")||!strcmp(name,"label")) {
         const char *files=!strcmp(name,"reindex")?"NAMES.NDX":!strcmp(name,"restore")?"VALUES.MEM":!strcmp(name,"append")?"IMPORT.DBF":"CLIENTS.DBF ADDRESS.LBL";
@@ -209,7 +213,7 @@ int main(int argc,char **argv)
     }
     CHECK(equal_text(captured,(char *)expected),"DML transcript byte-identical to real III+");
     {
-        const char *artifact=!strcmp(name,"index")||!strcmp(name,"reindex")?"NAMES.NDX":!strcmp(name,"sort")?"SORTED.DBF":!strcmp(name,"total")?"TOTALS.DBF":!strcmp(name,"save")?"VALUES.MEM":!strcmp(name,"copyfile")?"COPIED.TXT":!strcmp(name,"rename")?"RENAMED.TXT":!strcmp(name,"label")?"LABELS.TXT":!strcmp(name,"run")?"VERSION.TXT":NULL;
+        const char *artifact=!strcmp(name,"index")||!strcmp(name,"reindex")||!strcmp(name,"abbrev")||!strcmp(name,"abbrfull")?"NAMES.NDX":!strcmp(name,"sort")?"SORTED.DBF":!strcmp(name,"total")?"TOTALS.DBF":!strcmp(name,"save")?"VALUES.MEM":!strcmp(name,"copyfile")?"COPIED.TXT":!strcmp(name,"rename")?"RENAMED.TXT":!strcmp(name,"label")?"LABELS.TXT":!strcmp(name,"run")?"VERSION.TXT":NULL;
         if(emu) {
             snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::BASE.DBF %s/BASE.DBF",dir,dir);command(cmd);
             if(artifact) { snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::%s %s/%s",dir,artifact,dir,artifact);command(cmd); }

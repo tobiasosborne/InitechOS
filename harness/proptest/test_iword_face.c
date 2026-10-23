@@ -925,6 +925,178 @@ static void t_move_nb(void)
     CHECK(m_exit_calls == 0, "F15", "still running");
 }
 
+/* ---- F16 PAGES: PgUp / PgDn and Go To (bead initech-1zk9; audit
+ * docs/audits/2026-10-23-iword L024 / L025). Every expected status line and
+ * row is typed by hand from the REAL WordPerfect 5.1 driven by fixtures/
+ * iword-goto/goto.steps (the shots beside it) -- never from face_a.c or
+ * edit.c. The document is the mint's: its first key (Return) left a blank
+ * first line, then two hard pages, "Page three." and 54 Returns (the soft
+ * page after IW_WP5_LINES_PER_PAGE lines), "Page four soft." / "Four
+ * again.". Reference Manual, Cursor Movement p. 104; Go To p. 223-224. */
+#define PGUP  0x49
+#define PGDN  0x51
+/* the status line with the page: as status_line_is, "Doc 1 Pg <pg> Ln .." */
+static int status_pg(int pg, const char *ln, const char *pos)
+{
+    char w[SCR_W + 1], doc[40];
+    memset(w, ' ', SCR_W); w[SCR_W] = 0;
+    memcpy(w, "A:\\NAV1", 7);                /* saved before the navigation */
+    snprintf(doc, sizeof doc, "Doc 1 Pg %d Ln %s", pg, ln);
+    memcpy(w + 67 - strlen(doc), doc, strlen(doc));
+    memcpy(w + 68, "Pos ", 4);
+    memcpy(w + 72, pos, strlen(pos));
+    return row_is(23, w);
+}
+static void ctrl_home(void) { fkey(HOME, CTRL); }
+static int same_file(const char *a, const char *b)
+{
+    char ha[300], hb[300];
+    FILE *fa, *fb;
+    int ca, cb, same = 1;
+    host_name(a, ha); host_name(b, hb);
+    fa = fopen(ha, "rb"); fb = fopen(hb, "rb");
+    if (!fa || !fb) { if (fa) fclose(fa); if (fb) fclose(fb); return 0; }
+    do { ca = fgetc(fa); cb = fgetc(fb); if (ca != cb) same = 0; } while (same && ca != EOF);
+    fclose(fa); fclose(fb);
+    return same;
+}
+static void t_pages(void)
+{
+    tk('\r');
+    tks("Page one line one.\rPage one line two.");
+    ev(keyDown, (0x1C << 8) | '\r', CTRL);
+    tks("Page two line one.\rPage two second line here.");
+    ev(keyDown, (0x1C << 8) | '\r', CTRL);
+    tks("Page three.");
+    for (int i = 0; i < 54; i++) tk('\r');
+    tks("Page four soft.\rFour again.");
+    fkey(F10, 0); tks("nav1\r");
+    CHECK(status_pg(4, "1.17\"", "2.1\""), "F16", "typed: Pg 4 Ln 1.17\" Pos 2.1\" (01_typed: the soft page after 54 lines)");
+    fkey(HOME, 0); fkey(HOME, 0); fkey(UP, 0);
+    CHECK(status_pg(1, "1\"", "1\""), "F16", "Home, Home, Up (02_top)");
+    fkey(PGDN, 0);
+    CHECK(status_pg(2, "1\"", "1\"") && row_is(0, "Page two line one.") && cursor_at(0, 0), "F16",
+          "PgDn: the first line of page 2, at the top of the screen (03_pgdn)");
+    fkey(PGDN, 0);
+    CHECK(status_pg(3, "1\"", "1\"") && row_is(0, "Page three.") && cursor_at(0, 0), "F16", "PgDn: page 3 (04_pgdn2)");
+    fkey(PGDN, 0);
+    CHECK(status_pg(4, "1\"", "1\"") && row_is(0, "Page four soft.") && row_is(1, "Four again.") && row_is(2, "") &&
+          cursor_at(0, 0), "F16", "PgDn: the soft page 4 (05_pgdn3)");
+    fkey(PGDN, 0);
+    CHECK(status_pg(4, "1.17\"", "2.1\""), "F16", "PgDn on the last page: the end of the document (06_pgdn_last)");
+    fkey(PGUP, 0);
+    CHECK(status_pg(3, "1\"", "1\"") && row_is(0, "Page three.") && cursor_at(0, 0), "F16", "PgUp: page 3 (07_pgup)");
+    fkey(HOME, 0); fkey(HOME, 0); fkey(UP, 0);
+    fkey(PGUP, 0);
+    CHECK(status_pg(1, "1\"", "1\""), "F16", "PgUp on page 1 stays at its top (08_pgup_first)");
+    for (int i = 0; i < 5; i++) fkey(RIGHT, 0);
+    fkey(DOWN, 0);
+    CHECK(status_pg(1, "1.33\"", "1.4\""), "F16", "Right x5, Down (09_col5_line2)");
+    fkey(PGDN, 0);
+    CHECK(status_pg(2, "1\"", "1\""), "F16", "PgDn: the column is not kept (10_pgdn_col)");
+    fkey(DOWN, 0);
+    for (int i = 0; i < 10; i++) fkey(RIGHT, 0);
+    CHECK(status_pg(2, "1.17\"", "2\""), "F16", "Down, Right x10 (11_p2_line2)");
+    fkey(PGUP, 0);
+    CHECK(status_pg(1, "1\"", "1\"") && row_is(1, "Page one line one."), "F16", "PgUp from mid page 2: page 1 (12_pgup_mid)");
+    fkey(PGDN, CTRL); fkey(PGDN, SHIFT); fkey(PGUP, ALT);
+    CHECK(status_pg(1, "1\"", "1\""), "F16", "Ctrl-PgDn, Shift-PgDn, Alt-PgUp do nothing");
+    fkey(HOME, 0); fkey(HOME, 0); fkey(UP, 0);
+    ctrl_home();
+    CHECK(row_is(23, "Go to "), "F16", "Ctrl-Home: \"Go to \" alone on the status line (13_goto_prompt)");
+    tk('3');
+    CHECK(row_is(23, "Go to 3"), "F16", "Go To digits: the 3 shows on the prompt (14_goto_3)");
+    tk('\r');
+    CHECK(status_pg(3, "1\"", "1\"") && row_is(0, "Page three.") && cursor_at(0, 0), "F16",
+          "Go To 3 Enter: the top of page 3 (15_goto_3_enter)");
+    ctrl_home(); tk('9'); tk('\r');
+    CHECK(status_pg(4, "1\"", "1\"") && row_is(0, "Page four soft."), "F16", "Go To 9: past the end, the last page (16_goto_9)");
+    ctrl_home(); tk('0'); tk('\r');
+    CHECK(status_pg(1, "1\"", "1\""), "F16", "Go To 0: page 1 (17_goto_0)");
+    ctrl_home(); tk('2'); fkey(ESC, 0);
+    CHECK(status_pg(1, "1\"", "1\"") && row_is(1, "Page one line one."), "F16", "Go To 2, Esc: cancelled, nothing typed (18_goto_2_esc)");
+    ctrl_home(); tk('2'); fkey(F1, 0);
+    CHECK(status_pg(1, "1\"", "1\"") && row_is(1, "Page one line one."), "F16", "Go To 2, F1: cancelled (19_goto_2_f1)");
+    fkey(HOME, 0); fkey(HOME, 0); fkey(UP, 0);
+    ctrl_home(); tk('2'); tk(8);
+    CHECK(row_is(23, "Go to "), "F16", "Go To 2, Backspace: the 2 is gone (20_goto_bs)");
+    tk('\r');
+    CHECK(status_pg(1, "1\"", "1\"") && row_is(0, ""), "F16", "Enter with no number: the cursor stays (21_goto_bs_enter)");
+    ctrl_home(); tk('1'); tk('2');
+    CHECK(row_is(23, "Go to 12"), "F16", "Go To 12 (22_goto_12)");
+    tk('\r');
+    CHECK(status_pg(4, "1\"", "1\""), "F16", "Go To 12 Enter: the last page (23_goto_12_enter)");
+    ctrl_home(); tk('2'); tk('\r');
+    fkey(DOWN, 0); fkey(RIGHT, 0); fkey(RIGHT, 0); fkey(RIGHT, 0);
+    CHECK(status_pg(2, "1.17\"", "1.3\""), "F16", "Go To 2, Down, Right x3 (24_p2_mid)");
+    ctrl_home(); fkey(UP, 0);
+    CHECK(status_pg(2, "1\"", "1\""), "F16", "Go To, Up: the top of the page (25_goto_up)");
+    ctrl_home(); fkey(DOWN, 0);
+    CHECK(status_pg(2, "1.17\"", "1\""), "F16", "Go To, Down: the page's last line (26_goto_down)");
+    fkey(HOME, 0); fkey(HOME, 0); fkey(UP, 0);
+    ctrl_home(); tk('w');
+    CHECK(status_pg(1, "1.33\"", "2.6\""), "F16", "Go To, w: just past the next w (27_goto_char)");
+    ctrl_home(); ctrl_home();
+    CHECK(status_pg(1, "1\"", "1\""), "F16", "Go To twice: back where the cursor was (28_goto_twice)");
+    ctrl_home(); tk('4'); tk('\r');
+    CHECK(status_pg(4, "1\"", "1\"") && row_is(0, "Page four soft."), "F16", "Go To 4: the soft page (29_goto_4_soft)");
+    ctrl_home(); tk('Z');
+    CHECK(status_pg(4, "1\"", "1\"") && row_is(0, "Page four soft."), "F16", "Go To, Z: not found, the cursor stays (p. 223 Not Found)");
+    ctrl_home(); tk('7'); tk('7'); fkey(ESC, 0);
+    fkey(F7, 0);
+    CHECK(row_is(23, "Save Document? Yes (No)                              (Text was not modified)"), "F16",
+          "Go To digits never went into the document: (Text was not modified)");
+    fkey(F1, 0);
+    fkey(HOME, 0); fkey(HOME, 0); fkey(DOWN, 0);   /* where NAV1 was saved from */
+    fkey(F10, 0); tks("nav2\r");
+    CHECK(same_file("NAV1", "NAV2"), "F16", "NAV2 saved after the navigation is NAV1 byte for byte");
+    CHECK(m_exit_calls == 0, "F16", "still running");
+}
+
+/* ---- F17 FILE NAMES WITH SPACES (bead initech-10bx; audit L015): a space
+ * typed at "Document to be Saved:" / "Document to be Retrieved:" stays in the
+ * name, so the name is refused -- pubs/manuals/initechword-reference/
+ * ref-f.tex "Filenames": letters, digits, - and _ only; "a name with any
+ * other character ... is refused with ERROR: Invalid file name" -- and is
+ * never quietly turned into another, existing, name. */
+static void t_names(void)
+{
+    long before;
+    tks("Sentinel text");
+    fkey(F10, 0); tks("badname.wp5\r");
+    CHECK(status_is("A:\\BADNAME.WP5", "1\"", "2.3\"", 0), "F17", "the sentinel BADNAME.WP5 saved");
+    fkey(F10, 0); tks("keep\r");
+    before = file_size("BADNAME.WP5");
+    fkey(F7, 0); tk('n'); tk('n');
+    tks("Other");
+    fkey(F10, 0); tks("bad name.wp5");
+    CHECK(row_is(23, "Document to be Saved: bad name.wp5"), "F17", "the space shows as typed");
+    tk('\r');
+    CHECK(row_is(23, "ERROR: Invalid file name"), "F17", "Save \"bad name.wp5\": ERROR: Invalid file name");
+    tk(' ');
+    CHECK(row_is(23, "Document to be Saved: bad name.wp5"), "F17", "a key returns to the prompt, the name kept for correcting");
+    CHECK(file_size("BADNAME.WP5") == before && same_file("BADNAME.WP5", "KEEP"), "F17",
+          "BADNAME.WP5 (the name without the space) is untouched");
+    for (int i = 0; i < 9; i++) tk(8);
+    tks("name");
+    CHECK(row_is(23, "Document to be Saved: badname"), "F17", "Backspace corrects the name");
+    tk('\r');
+    CHECK(status_is("A:\\BADNAME", "1\"", "1.5\"", 0) && file_size("BADNAME") > 0, "F17", "the corrected name saves");
+    fkey(F10, 0); tks(" lead\r");
+    CHECK(row_is(23, "ERROR: Invalid file name"), "F17", "a leading space is refused");
+    tk(' '); fkey(F1, 0);
+    fkey(F10, 0); tks("trail \r");
+    CHECK(row_is(23, "ERROR: Invalid file name") && file_size("TRAIL") < 0, "F17", "a trailing space is refused, TRAIL not written");
+    tk(' '); fkey(F1, 0);
+    fkey(F7, 0); tk('n'); tk('n');
+    fkey(F10, SHIFT); tks("bad name.wp5\r");
+    CHECK(row_is(23, "ERROR: Invalid file name"), "F17", "Retrieve \"bad name.wp5\": ERROR: Invalid file name");
+    tk(' ');
+    CHECK(row_is(23, "Document to be Retrieved: bad name.wp5") && row_is(0, ""), "F17",
+          "Retrieve did not bring in BADNAME.WP5's text");
+    CHECK(m_exit_calls == 0, "F17", "still running");
+}
+
 #else
 /* F6 SMALL BUFFERS: thousands of keys through compaction to the size limit;
  * the saved text is the typed text (judged here by the model: SRt = ' '). */
@@ -995,6 +1167,8 @@ int main(int argc, char **argv)
     launch("home", t_home);
     launch("block_attr", t_block_attr);
     launch("move_nb", t_move_nb);
+    launch("pages", t_pages);
+    launch("names", t_names);
 #endif
     printf("test_iword_face: %d checks, %d failures\n", g_ctr[0], g_ctr[1]);
     return g_ctr[1] == 0 ? 0 : 1;

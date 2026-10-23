@@ -124,13 +124,7 @@ extern void proc_set_suspend(xb_interp *ip, int (*fn)(xb_interp *));
 /* Small freestanding helpers (no libc).                                   */
 /* ===================================================================== */
 
-/* fold one byte to upper-case (ASCII letters only). */
-static char repl_up1(char c)
-{
-    if (c >= 'a' && c <= 'z') return (char)(c - 'a' + 'A');
-    return c;
-}
-
+/* Console whitespace. */
 static int repl_isspace(char c)
 {
     return c == ' ' || c == '\t' || c == '\r' || c == '\n';
@@ -203,20 +197,14 @@ static char *repl_trim(char *line)
 }
 
 /*
- * repl_verb_eq: does the leading word of `line` equal the upper-cased `kw`
- * (case-insensitive)? The word ends at the first whitespace or NUL. `*rest`
+ * repl_verb_eq: recognize the leading word using the shared III+ policy.
+ * The word ends at the first whitespace or NUL. `*rest`
  * (may be NULL) receives the trimmed remainder after the word.
  */
 static int repl_verb_eq(const char *line, const char *kw, const char **rest)
 {
-    uint32_t i = 0;
-    while (line[i] != '\0' && !repl_isspace(line[i])) {
-        if (kw[i] == '\0') break;                       /* line word is longer */
-        if (repl_up1(line[i]) != kw[i]) break;          /* mismatch */
-        i++;
-    }
-    if (kw[i] != '\0') return 0;                        /* kw not consumed */
-    if (line[i] != '\0' && !repl_isspace(line[i])) return 0; /* line word longer */
+    uint32_t i = (uint32_t)rt_kw_match(line, kw);
+    if (!i) return 0;
     if (rest) {
         while (line[i] != '\0' && repl_isspace(line[i])) i++;
         *rest = line + i;

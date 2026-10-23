@@ -35,9 +35,20 @@
  *   - the scroll bars: 123 never gives them a range (spec Sec 15: a tenant's
  *     bars are DISABLED until it does), so they show as unavailable
  *     controls, never as a fake bar over a 256 x 8192 sheet.
- * Mutant (Rule 6; -D on the app build, test-i123-resize-mutant):
+ *   - B06 (bead initech-3qtt, audit L008): a column wider than the area.
+ *     The REAL 1-2-3 R2.2 (fixtures/i123-width, minted under DOSBox-X: an
+ *     80-column screen whose worksheet area is 72 characters, the same 72
+ *     this face has at 640x440) shows a 76- or 240-wide A clipped to the
+ *     area: the letter at area offset (72 - 1) / 2 = 35 (char 39), the
+ *     pointer over all 72, a number right-aligned with one blank after it
+ *     (char 74), ^Mid centred (chars 38..40), a 96-character label cut at
+ *     72 (05_w240, 13_w240_labels, 15_back_a1); Right moves to B with B..I
+ *     shown (06_w240_right), Left brings A back first. The same rule at a
+ *     smaller window (an area of 17) is the rule restated, not a capture.
+ * Mutants (Rule 6; -D on the app build, test-i123-resize-mutant):
  *   I123_MUT_FIXED_GEOMETRY  the face ignores the content size and keeps
  *                            the 76 x 24 constants                    -> R3
+ *   I123_MUT_WIDE_HIDDEN     an oversized first column shows nothing -> W1
  * ASCII-clean (Rule 12). Deterministic (Rule 11).
  */
 #define main i123_quit_oracle_main
@@ -251,6 +262,54 @@ static void t_min(void)
     CHECK(at(1, 1, 1, 1) && border_is("BCDEFGHI") && pointer_only(4, 4, 9) && ready_at_edge(), "R12", "640x440 again: B..I, the pointer on B2");
 }
 
+/* W1..W9: B06 -- the 240-wide column A (fixtures/i123-width). */
+static int lt(void) { kev(0x4B, 0, 0); return 1; }
+/* Line `line`, chars 4 .. chars-1: exactly `s` at char `a`, blanks elsewhere. */
+static int only_at(int line, int a, const char *s)
+{
+    int n = (int)strlen(s);
+    for (int c = 4; c < g_now.chars; c++) {
+        int want = c >= a && c < a + n ? s[c - a] : ' ';
+        if (m_scr[line][c] != want) return 0;
+    }
+    return 1;
+}
+static void t_wide(void)
+{
+    static const char lab[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz0123456789";
+    char cut[80];
+    tks("1"); dn(1); tks("^Mid"); dn(1); tks(lab); tks("\r");
+    home();
+    tks("/wcs240\r");
+    CHECK(i123_colwidth(&g_sheet, 0) == 240 && at(0, 0, 0, 0), "R0", "setup: A is 240 wide, the pointer on A1");
+    resize(Z_FULL);
+    CHECK(only_at(3, 39, "A"), "W1", "640x440: the border shows A centred in the visible 72 (char 39), nothing else (05_w240)");
+    CHECK(pointer_only(4, 4, 72), "W2", "640x440: the pointer covers the visible 72 characters of A1");
+    CHECK(only_at(4, 74, "1") && only_at(5, 38, "Mid"), "W3", "640x440: 1 right-aligned (char 74), ^Mid centred (chars 38..40) (13_w240_labels)");
+    memcpy(cut, lab, 72); cut[72] = 0;
+    CHECK(only_at(6, 4, cut), "W4", "640x440: the 96-character label cut at the visible 72");
+    CHECK(starts(0, "A1: ") && ready_at_edge() && nothing_outside(), "W4", "640x440: line one A1, READY, nothing past the content");
+    rt(1);
+    CHECK(at(1, 0, 1, 0) && border_is("BCDEFGHI") && pointer_only(4, 4, 9), "W5", "Right: B1 with B..I shown (06_w240_right)");
+    lt();
+    CHECK(at(0, 0, 0, 0) && only_at(3, 39, "A") && pointer_only(4, 4, 72), "W6", "Left: A1 back, A first and clipped (15_back_a1)");
+    click(PX(4 + 60), PY(4 + 2) + 8);
+    CHECK(at(0, 2, 0, 0) && starts(0, "A3: ") && pointer_only(6, 4, 72), "W7", "a click inside the visible part of A selects A3");
+    click(PX(4), PY(4));
+    CHECK(at(0, 0, 0, 0), "W7", "a click at the first area character selects A1");
+    tab();
+    CHECK(at(1, 0, 1, 0) && border_is("BCDEFGHI"), "W8", "Tab from the clipped A: one screen is A itself, so B1 first");
+    kev(0x0F, '\t', 0x0200);   /* Shift-Tab: shiftKey, MTE 2-2 */
+    CHECK(at(0, 0, 0, 0) && pointer_only(4, 4, 72), "W8", "Shift-Tab back to A1, clipped");
+    resize(Z_NARROW);
+    CHECK(at(0, 0, 0, 0) && only_at(3, 12, "A") && pointer_only(4, 4, 17), "W9", "200x150: A clipped to the area of 17, letter at char 12, the pointer over 17");
+    CHECK(only_at(4, 19, "1") && nothing_outside(), "W9", "200x150: 1 right-aligned at char 19; nothing past 21 x 6");
+    resize(Z_MIN);
+    CHECK(nothing_outside_cols(), "W9", "96x64: nothing drawn past character 8");
+    resize(Z_FULL);
+    CHECK(at(0, 0, 0, 0) && pointer_only(4, 4, 72) && only_at(3, 39, "A"), "W9", "640x440 again: A clipped to 72");
+}
+
 /* R10: no fake bars -- through resizes, moves, pages and clicks 123 never
  * calls SETSCROLL, so the Toolbox keeps both bars DISABLED (spec Sec 15). */
 static void t_bars(void)
@@ -277,6 +336,7 @@ int main(int argc, char **argv)
     launch("PAGES", t_pages);
     launch("MIN", t_min);
     launch("BARS", t_bars);
+    launch("WIDE", t_wide);
     printf("i123-resize: %d checks, %d failures\n", g_ctr[0], g_ctr[1]);
     return g_ctr[1] ? 1 : 0;
 }

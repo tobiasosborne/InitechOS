@@ -343,6 +343,21 @@ static void test_dec_parse(void)
 
 int main(void)
 {
+    /* Real III+ abbrev mint: invalid continuations and short verbs reject;
+     * REST is RESTORE in a verb table, REST in a scope table. */
+    int len = -1;
+    CHECK(rt_kw_index("repl", "REPLACE\0") == 0, "abbrev: four letters");
+    CHECK(rt_kw_index("repla", "REPLACE\0") == 0, "abbrev: five letters");
+    CHECK(rt_kw_index("REPLACE", "REPLACE\0") == 0, "abbrev: full spelling");
+    CHECK(rt_kw_index("REPLX", "REPLACE\0") < 0, "abbrev: invalid suffix");
+    CHECK(rt_kw_index("REPLACEX", "REPLACE\0") < 0, "abbrev: overlong suffix");
+    CHECK(rt_kw_index("REP", "REPLACE\0") < 0, "abbrev: three letters reject");
+    CHECK(rt_kw_index("US", "USE\0") < 0 && rt_kw_index("USEX", "USE\0") < 0,
+          "abbrev: short verbs require full matching");
+    CHECK(rt_kw_word("whil X", "WHILE\0", &len) == 0 && len == 4,
+          "abbrev: clause consumes typed length");
+    CHECK(rt_kw_index("REST", "RESTORE\0") == 0 && rt_kw_index("REST", "REST\0") == 0,
+          "abbrev: context resolves shared prefix");
     test_mem_str();
     test_jdn_points();
     test_jdn_roundtrip();

@@ -189,6 +189,9 @@ InitechWord document.}
 \WPMessage{Exit WP? No (Yes)}{The second question of Exit.}{Type \Typed{y}
 to leave InitechWord; \Typed{n} or Enter clears the screen for a new
 document; Cancel returns to the document.}
+\WPMessage{Go to}{The prompt of Go To (Ctrl-Home), with the page number
+typed (see \InRef{Go To}).}{Type a page number and press Enter, or press
+Cancel.}
 \WPMessage{Move cursor; press Enter to retrieve.}{Text moved or copied with
 Move waits to be put in the document.}{Move the cursor where the text is to
 go and press Enter.}
@@ -405,7 +408,8 @@ it always does.  The template prints the same names in grey.
 While Block is on, these keys do nothing (see below).
 
 \WPSide{Keys That Do Nothing}
-Ins, PgUp and PgDn do nothing, alone or with Shift, Alt or Ctrl.  Shift,
+Ins does nothing, alone or with Shift, Alt or Ctrl; PgUp and PgDn do
+nothing with Shift, Alt or Ctrl.  Shift,
 Alt and Ctrl with F11 or F12 do nothing, and neither does a function key
 pressed with two or three of Shift, Alt and Ctrl.
 
@@ -423,7 +427,7 @@ combination below does exactly what the key alone does.
 \WPAlias{Shift-Left}{Left}, & \WPAlias{Alt-Left}{Left}, & \WPAlias{Ctrl-Left}{Left}\\
 \WPAlias{Shift-Right}{Right}, & \WPAlias{Alt-Right}{Right}, & \WPAlias{Ctrl-Right}{Right}\\
 \WPAlias{Shift-End}{End}, & \WPAlias{Alt-End}{End}, & \WPAlias{Ctrl-End}{End}\\
-\WPAlias{Shift-Home}{Home}, & \WPAlias{Alt-Home}{Home}, & \WPAlias{Ctrl-Home}{Home}\\
+\WPAlias{Shift-Home}{Home}, & \WPAlias{Alt-Home}{Home} & \\
 \end{tabular}
 \par\addvspace{4pt}
 At the \Scr{Srch:} prompt and at \Scr{Replace with:} some keys act as other

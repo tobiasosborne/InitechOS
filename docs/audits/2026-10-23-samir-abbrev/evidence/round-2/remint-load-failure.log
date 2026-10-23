@@ -1,0 +1,6 @@
+Makefile:8837: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8835: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8846: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8844: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+RED: MINT required: abbrev produced no GOLD.OUT (/home/tobias/Projects/initech-os-cx-samirabbr/build/samir-abbrev-mint/abbrev/mint.log)
+make: *** [Makefile:34205: mint-samir-abbrev] Error 1

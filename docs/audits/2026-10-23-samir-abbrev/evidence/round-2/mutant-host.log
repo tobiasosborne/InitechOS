@@ -1,0 +1,4 @@
+DML transcript differs at byte 22 (got 0x34, real 0x32; lengths 1834/1834)
+  FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+  FAIL harness/diff/dbf_diff/test_samir_dml.c:109: DML BASE.DBF bytes match real III+
+test-samir-dml: 5 checks, 2 failures

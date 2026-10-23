@@ -236,7 +236,7 @@ int i123_put_cell(i123_sheet_t *sh, uint16_t col, uint16_t row, uint8_t kind,
                   uint8_t fmt, const uint8_t v[8], const uint8_t *b1, uint32_t n1,
                   int has_str, uint8_t str_fmt, const uint8_t *b2, uint32_t n2)
 {
-    uint32_t k, i, off = 0;
+    uint32_t k, i, n, old, off = 0;
     int exists, rc;
     i123_cell_t *c;
 
@@ -246,9 +246,38 @@ int i123_put_cell(i123_sheet_t *sh, uint16_t col, uint16_t row, uint8_t kind,
     i = lower_bound(sh, k);
     exists = (i < sh->ncells && key_of(sh->cells[i].col, sh->cells[i].row) == k);
     if (!exists && sh->ncells >= sh->cap) return I123_E_FULL;
+    n = n1 + n2;
+    old = exists ? (uint32_t)sh->cells[i].len + (uint32_t)sh->cells[i].slen : 0u;
 
-    rc = pool_alloc(sh, n1 + n2, &off);
+#ifndef I123_MUT_ALLOC_BEFORE_RECLAIM
+    /* B02 (bead initech-3s12, audit L032): a replacement never needs the old
+     * and the new blob live at once. One that fits the old blob reuses it in
+     * place; a longer one is refused up front ONLY when the final live data
+     * (live - old + new) overflows the pool -- the cell is then untouched --
+     * and otherwise drops the old blob before the compaction that makes room
+     * (the caller's bytes never point into this pool: a local buffer, a
+     * file buffer or the OTHER bank). */
+    if (exists && n <= old) {
+        off = sh->cells[i].off;
+        sh->pool_live -= old - n;
+        old = 0;
+    } else {
+        if (sh->pool_live - old + n > sh->pool_cap) return I123_E_FULL;
+        if (old && sh->pool_used + n > sh->pool_cap) {
+            sh->cells[i].len = 0;
+            sh->cells[i].slen = 0;
+            sh->pool_live -= old;
+            old = 0;
+        }
+        rc = pool_alloc(sh, n, &off);
+        if (rc != I123_OK) return rc;
+    }
+#else
+    /* MUTANT (Rule 6; test-i123-cells-mutant C5): the replacement blob is
+     * allocated while the old one is still live (audit L032). NEVER real. */
+    rc = pool_alloc(sh, n, &off);
     if (rc != I123_OK) return rc;
+#endif
     /* pool_alloc may have compacted: re-derive nothing -- indices are stable,
      * only blob offsets moved. */
     if (n1) bcopy_up(sh->pool + off, b1, n1);
@@ -256,7 +285,7 @@ int i123_put_cell(i123_sheet_t *sh, uint16_t col, uint16_t row, uint8_t kind,
 
     if (exists) {
         c = &sh->cells[i];
-        sh->pool_live -= (uint32_t)c->len + (uint32_t)c->slen;
+        sh->pool_live -= old;
     } else {
         for (uint32_t j = sh->ncells; j > i; j--) sh->cells[j] = sh->cells[j - 1u];
         sh->ncells++;
@@ -385,6 +414,20 @@ int i123_set_cell_format(i123_sheet_t *sh, uint16_t col, uint16_t row, uint8_t f
         ((i123_cell_t *)c)->fmt = fmt;
         return I123_OK;
     }
+#ifndef I123_MUT_DEFAULT_BLANK
+    /* B02 (bead initech-3s12, audit L010): an absent cell already IS the
+     * default format with default protection -- every reader takes it as
+     * WK1_FMT_FRESH_CELL (entry_fmt above, eval.c @CELL, the Face A
+     * erase), and 1-2-3 writes no record for a content-free default cell
+     * (../lotus123-decomp/specs/file-formats/wk1-format.md Sec 4.1). So the
+     * default is never stored as a BLANK: /Range Erase of an ordinary cell
+     * frees its slot (manual p. 10-3 keeps the EFFECTIVE format/protection,
+     * which absence keeps). Any other format or protection is a BLANK. */
+    if (fmt == (uint8_t)WK1_FMT_FRESH_CELL) return I123_OK;
+#else
+    /* MUTANT (Rule 6; test-i123-cells-mutant C1): the default format is
+     * stored as an allocated BLANK (audit L010). NEVER real. */
+#endif
     rc = i123_put_cell(sh, col, row, I123_K_BLANK, fmt, (const uint8_t *)0,
                        (const uint8_t *)0, 0, 0, 0, (const uint8_t *)0, 0);
     if (rc == I123_OK) grow_extents(sh, col, row, I123_K_BLANK);

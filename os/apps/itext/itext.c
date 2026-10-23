@@ -33,7 +33,7 @@
  *   - Save changes alert: Save (default) / Cancel / Don't Save.
  * DEVIATIONS (stated, never hidden): the Geneva 12 glyph SHAPES are
  *   hand-authored clean-room (their metrics and ink extents are the real
- *   strike's; PRD Sec 6.4 / Sec 12); Undo, Page Setup, Print and Print One Copy are present but grayed
+ *   strike's; PRD Sec 6.4 / Sec 12); Page Setup, Print and Print One Copy are present but grayed
  *   (not built); the Find / page items and Show Clipboard are not in the menu;
  *   Close == Quit (the V1 gate has one window per tenant and no
  *   DISPOSEWINDOW: closing SimpleText's last window leaves it running, here it
@@ -57,6 +57,12 @@
  *                            (L014; test-itext-route "full")
  *   ITEXT_MUT_SCROLL_NEVER_ENABLED  reports a fitting document forever
  *                            (test-itext-route, test-flair-itext-scroll)
+ *   ITEXT_MUT_UNDO_NO_INVERSE  no edit keeps its inverse: Undo stays grayed
+ *                            (L011; test-itext-route "undo", test-flair-itext-undo)
+ *   ITEXT_MUT_UNDO_PER_KEY   every keystroke is its own undo step
+ *                            (test-itext-route "undorun")
+ *   ITEXT_MUT_UNDO_KEEPS_HISTORY  New / Open keep the old document's undo
+ *                            (test-itext-route "undoreset")
  *
  * Freestanding C (Law 3). ASCII-clean (Rule 12). Deterministic (Rule 11).
  */
@@ -132,6 +138,27 @@ static char    g_clip[8192];
 static char    g_run[84] TBX_IN_IMAGE;     /* a TEXTDRAW run (image-resident) */
 static char    g_title[16] TBX_IN_IMAGE;
 static char    g_alert[96] TBX_IN_IMAGE;
+
+/* ---- Undo (bead initech-4hkk; audit 2026-10-23-das L011) ----------------
+ * GROUND TRUTH (Law 1): Macintosh System Software User's Guide v6.0 p.118
+ * (initech-manuals-ref/macos): "Undo. This command undoes your last
+ * text-editing action ... if you ... type something wrong ... you can choose
+ * Undo to erase the typing and start fresh" -- ONE level, and a run of
+ * typing goes as a unit; ../system7-decomp goldens/captures/
+ * s8_simpletext_editmenu{,_nosel}.png: Mac OS 8.1 SimpleText with typed text
+ * shows "Undo ^Z" enabled. One snapshot of the document BEFORE the last edit
+ * (text, selection, saved-or-not) -- the shared TextEdit record is restored
+ * through FlairTESetText / FlairTESetSelect, no second editor core. Undo
+ * SWAPS the snapshot with the document, so a second Undo takes the Undo
+ * back (the one-level toggle). CHOSEN, not measured (no local capture shows
+ * the menu AFTER an Undo): the item keeps the word "Undo" (no "Redo" text);
+ * a typing run = printable keys, Return and Backspace with no click, arrow
+ * key or menu command between them; Copy / Select All / Save end a run but
+ * keep the snapshot; a refused edit (L014 capacity) records nothing. */
+static char    g_undo[FLAIR_TE_TEXT_MAX];
+static int     g_undo_len, g_undo_ss, g_undo_se, g_undo_dirty;
+static int     g_undo_ok;                  /* a snapshot to go back to       */
+static int     g_undo_run;                 /* inside a typing run            */
 
 enum { ACT_NONE, ACT_QUIT, ACT_NEW, ACT_OPEN };
 enum { SF_NONE, SF_OPEN, SF_SAVEAS };
@@ -251,6 +278,7 @@ static void menus_sync(void)
     edit_items[E_COPY - 1].enabled = (uint8_t)range;
     edit_items[E_CLEAR - 1].enabled = (uint8_t)range;
     edit_items[E_PASTE - 1].enabled = (uint8_t)(g_scrap_has > 0);
+    edit_items[E_UNDO - 1].enabled = (uint8_t)(g_undo_ok != 0);
 }
 
 static void refresh(void)
@@ -278,8 +306,17 @@ static void set_title(void)
     (void)tbx_set_wtitle(g_win, g_title);
 }
 
+static void undo_forget(void)
+{
+#ifndef ITEXT_MUT_UNDO_KEEPS_HISTORY  /* MUTANT (Rule 6): New / Open keep the old undo. NEVER real. */
+    g_undo_ok = 0;
+#endif
+    g_undo_run = 0;
+}
+
 static void doc_new(void)
 {
+    undo_forget();
     FlairTESetText(&g_te, "", 0);
     FlairTESetSelect(&g_te, 0, 0);
     g_path[0] = '\0';
@@ -332,6 +369,7 @@ static int doc_load(const char *path)
         say("This document is too large to be", "opened by InitechText.");
         return 0;
     }
+    undo_forget();
     FlairTESetText(&g_te, g_io, (int16_t)k);
     FlairTESetSelect(&g_te, 0, 0);
     for (i = 0; path[i] != '\0' && i < (int32_t)sizeof g_path - 1; i++) g_path[i] = path[i];
@@ -360,6 +398,7 @@ static int doc_write(void)
         return 0;
     }
     g_dirty = 0;
+    if (g_undo_ok) g_undo_dirty = 1;   /* the snapshot is no longer what is on disk */
     return 1;
 }
 
@@ -428,7 +467,50 @@ static void guarded(int act, const char *why)
 }
 
 /* ---- editing -------------------------------------------------------------- */
-static void replace_sel(const char *s, int n)
+/* Keep the document as it is NOW as the one undo step -- called once an edit
+ * is known to fit, before it is made; a key edit inside a typing run keeps the
+ * run's first snapshot. */
+static void undo_note(int typing)
+{
+    int i;
+#ifdef ITEXT_MUT_UNDO_PER_KEY
+    /* MUTANT (Rule 6): every keystroke is its own step. NEVER real. */
+    g_undo_run = 0;
+#endif
+    if (!(typing && g_undo_run)) {
+#ifndef ITEXT_MUT_UNDO_NO_INVERSE   /* MUTANT (Rule 6): no inverse is kept (L011). NEVER real. */
+        for (i = 0; i < g_te.teLength; i++) g_undo[i] = g_te.text[i];
+        g_undo_len = g_te.teLength;
+        g_undo_ss = g_te.selStart;
+        g_undo_se = g_te.selEnd;
+        g_undo_dirty = g_dirty;
+        g_undo_ok = 1;
+#else
+        (void)i;
+#endif
+    }
+    g_undo_run = typing;
+}
+
+/* Edit > Undo: swap the document with the snapshot (text, selection, dirty). */
+static void undo(void)
+{
+    int i, n = g_te.teLength, ss = g_te.selStart, se = g_te.selEnd, d = g_dirty;
+    if (!g_undo_ok) return;                  /* grayed: nothing to undo */
+    for (i = 0; i < n; i++) g_io[i] = g_te.text[i];
+    FlairTESetText(&g_te, g_undo, (int16_t)g_undo_len);
+    FlairTESetSelect(&g_te, (int16_t)g_undo_ss, (int16_t)g_undo_se);
+    g_dirty = g_undo_dirty;
+    for (i = 0; i < n; i++) g_undo[i] = g_io[i];
+    g_undo_len = n;
+    g_undo_ss = ss;
+    g_undo_se = se;
+    g_undo_dirty = d;
+    g_undo_run = 0;
+    g_full = 1;
+}
+
+static void replace_sel(const char *s, int n, int typing)
 {
     if (!FlairTECanReplace(&g_te, g_te.selStart, g_te.selEnd, s, (int16_t)n)) {
         /* The edit cannot fit: say so. This is AUTHORED capacity feedback
@@ -442,6 +524,7 @@ static void replace_sel(const char *s, int n)
 #endif
         return;
     }
+    undo_note(typing);
     FlairTEInsert(&g_te, s, (int16_t)n);
     g_dirty = 1;
 }
@@ -461,7 +544,7 @@ static void paste(void)
 {
     int32_t n = tbx_scrap_get(g_clip, (uint32_t)sizeof g_clip);
     if (n < 0) return;
-    replace_sel(g_clip, (int)n);
+    replace_sel(g_clip, (int)n, 0);
 }
 
 static void key(int32_t msg, int32_t mods)
@@ -474,9 +557,10 @@ static void key(int32_t msg, int32_t mods)
         else if (vk == 0x4D) a = FLAIR_TE_CH_RIGHT;
         else if (vk == 0x48) a = FLAIR_TE_CH_UP;
         else if (vk == 0x50) a = FLAIR_TE_CH_DOWN;
-        if (a != 0) FlairTEKey(&g_te, a);
+        if (a != 0) { g_undo_run = 0; FlairTEKey(&g_te, a); }
     } else if (ch == 0x08) {
         if (g_te.selStart < g_te.selEnd || g_te.selStart > 0) {
+            undo_note(1);
             FlairTEKey(&g_te, 0x08);
             g_dirty = 1;
         }
@@ -484,7 +568,7 @@ static void key(int32_t msg, int32_t mods)
         /* Return cooks to LF on the PS/2 table (os/flair/event.c, the
          * Dialog Manager accepts both); the document's line end is CR. */
         char c = (ch == 0x0A) ? '\r' : (char)ch;
-        replace_sel(&c, 1);
+        replace_sel(&c, 1, 1);
     } else {
         return;
     }
@@ -501,6 +585,7 @@ static void local(const tbx_event_t *ev, int *h, int *v)
 static void menu(int32_t word)
 {
     int id = (int)((uint32_t)word >> 16), item = (int)(word & 0xFFFF);
+    g_undo_run = 0;                              /* a command ends a typing run */
     if (id == MENU_FILE) {
         switch (item) {
         case F_NEW:    guarded(ACT_NEW, " before closing?"); break;
@@ -513,10 +598,11 @@ static void menu(int32_t word)
         }
     } else if (id == MENU_EDIT) {
         switch (item) {
-        case E_CUT:   copy_sel(); replace_sel("", 0); break;
+        case E_UNDO:  undo(); break;
+        case E_CUT:   copy_sel(); replace_sel("", 0, 0); break;
         case E_COPY:  copy_sel(); break;
         case E_PASTE: paste(); break;
-        case E_CLEAR: replace_sel("", 0); break;
+        case E_CLEAR: replace_sel("", 0, 0); break;
         case E_ALL:   FlairTESetSelect(&g_te, 0, g_te.teLength); break;
         default: break;
         }
@@ -562,6 +648,7 @@ void tbx_app_event(const tbx_event_t *ev)
         paint();
         break;
     case mouseDown:
+        g_undo_run = 0;                         /* a click ends a typing run */
         local(ev, &h, &v);
         g_anchor = FlairTEClick(&g_te, (int16_t)h, (int16_t)v,
                                 (ev->modifiers & FLAIR_EVT_MOD_SHIFT_KEY) != 0);

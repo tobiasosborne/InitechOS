@@ -227,6 +227,11 @@ int main(int argc, char **argv)
     /* B12 (initech-89rc): shrunk to 280 x 246, the pointer on E1 shows. */
     int i123_resize = argc == 3 && strcmp(argv[1], "--i123-resize") == 0;
     if (i123_resize) { argc = 2; argv++; }
+    /* B06 (initech-3qtt): A 240 wide, the click selected A2 in the clipped A. */
+    int i123_wide = argc == 3 && strcmp(argv[1], "--i123-wide") == 0;
+    if (i123_wide) { argc = 2; argv++; }
+    int i123_copy = argc == 3 && strcmp(argv[1], "--i123-copy") == 0;
+    if (i123_copy) { argc = 2; argv++; }
     if (argc == 4 && !strcmp(argv[1], "--cells"))
         return check_cells(argv[2], argv[3]);
     if (argc >= 6 && !strcmp(argv[1], "--cursor-cycle"))
@@ -388,6 +393,47 @@ int main(int argc, char **argv)
         int ok = navy_e1 == 72*16 && navy_row == 0 && mode > 0 && line0_left == 0 && border_in > 0 && border_out == 0;
         printf("ppm_text_check: i123-resize E1 navy=%ld/1152 rest-of-row1 navy=%ld mode navy=%ld line0-left navy=%ld border navy in=%ld past-x259=%ld: %s\n",
                navy_e1, navy_row, mode, line0_left, border_in, border_out, ok ? "green" : "RED");
+        free(buf); return ok ? 0 : 1;
+    }
+
+    if (i123_copy) {
+        /* Real point_range.png highlights B1..C2. Our trace ends A1..B2;
+         * independent native geometry (6,62), 8x16, columns nine cells.
+         * A1 contains 7; the other three cells are empty, solid navy. */
+        if(w!=640||h!=480){free(buf);return 1;}
+        long selected=0,outside=0;
+        for(int y=126;y<158;y++)for(int x=39;x<255;x++) {
+            unsigned char *p=buf+3*(y*w+x);
+            int navy=p[0]<8&&p[1]<8&&p[2]>=100&&p[2]<=136;
+            if(x<183&&(y>=142||x>=111))selected+=navy;
+            if(x>=183)outside+=navy;
+        }
+        int ok=selected==3*72*16&&outside==0;
+        printf("ppm_text_check: i123-copy three empty selected cells navy=%ld/3456 outside=%ld: %s\n",selected,outside,ok?"green":"RED");
+        free(buf);return ok?0:1;
+    }
+    if (i123_wide) {
+        /* Same independent geometry as --i123-resize: Face A cell (char c,
+         * line L) at x 7 + 8c, y 62 + 16L. The 640 x 440 window: 76
+         * characters, the area chars 4..75 (x 39..614). Column A is 240 wide;
+         * the real R2.2 shows it clipped to the area (fixtures/i123-width/
+         * 05_w240), so the pointer on the EMPTY A2 (line 5, y 142..157) is
+         * navy across all 72 area characters (72 x 8 x 16 = 9216 px); row 1
+         * (line 4) holds no navy (the pointer left A1); the navy column
+         * border (line 3, y 110..125) is drawn. */
+        if (w != 640 || h != 480) { free(buf); return 1; }
+        long navy_a2 = 0, navy_row1 = 0, border = 0;
+        for (int y = 110; y < 158; y++)
+            for (int x = 39; x < 615; x++) {
+                unsigned char *p = buf+3*(y*w+x);
+                int navy = p[0]<8 && p[1]<8 && p[2]>=100 && p[2]<=136;
+                if (y < 126) border += navy;
+                else if (y < 142) navy_row1 += navy;
+                else navy_a2 += navy;
+            }
+        int ok = navy_a2 == 576*16 && navy_row1 == 0 && border > 0;
+        printf("ppm_text_check: i123-wide A2 navy=%ld/9216 row1 navy=%ld border navy=%ld: %s\n",
+               navy_a2, navy_row1, border, ok ? "green" : "RED");
         free(buf); return ok ? 0 : 1;
     }
 

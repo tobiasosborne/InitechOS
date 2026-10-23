@@ -1,0 +1,24 @@
+# Real R2.2, fresh sheet: row -> nonmultiple block and overlap.
+sleep 8
+key Escape
+type 11
+key Right
+type 22
+key Return
+type /ca1..b1
+key Return
+type f1..h3
+key Return
+shot row_nonmultiple
+type /fsROW
+key Return
+key Return
+type /ca1..b1
+key Return
+type a1..d2
+key Return
+shot overlap
+type /fsOVER
+key Return
+key Return
+end

@@ -47,6 +47,10 @@
 #include "command.h"     /* COMMAND.COM REPL (initech-7pc); BOOT_SHELL only */
 #include "sysinit.h"     /* SYSINIT named bring-up phases (beads initech-509.2) */
 #include "power.h"       /* kernel_reset / kernel_halt (bead initech-tdnl.78) */
+#include "panic.h"       /* physical typed startup diagnostics (Rule 2) */
+#ifdef FLAIR_FILM_SCENE
+#include "film_startup.h"
+#endif
 
 #if defined(BOOT_FLAIR_SHELL) || defined(BOOT_FLAIR_LIVE)
 /* The LIVE FLAIR desktop demo kernels (beads initech-re30.3 LANE 1; initech-5l5z
@@ -85,6 +89,7 @@
 #include "process.h"             /* FlairProcessList, FlairProcess_launch,
                                   * flair_app_dispatch, flair_route_updates (-Ios/flair)*/
 #include "system_key.h"          /* system launcher predicate; routing oracle */
+#include "power_notice.h"        /* visible explanation of a refused quit */
 #include "egg_jtc.h"             /* initech-2ter (a), hidden authored mat */
 #ifdef FLAIR_FILM_SCENE
 #include "film_scene.h"
@@ -809,6 +814,31 @@ static int dir_visit(const dir_entry_t *e, void *user)
  *
  * loader_run_plan restores the invoking process, whether shell or resident
  * flat program (IBM DOS 3.30 TR pp. 6-196/200). */
+#if defined(BOOT_SHELL) || (defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS))
+/* The leaf an EXEC names is COMSPEC's COMMAND.COM (case-insensitive 8.3,
+ * NUL-terminated as do_exec resolves it). Shared by the shell kernels' resident
+ * route (initech-n8q8) and the flagship's transient route (initech-13ig). */
+static int exec_name_is_comspec(const char *name83)
+{
+    static const char comspec[] = "COMMAND.COM";
+    uint32_t k = 0u;
+    while (comspec[k] != '\0') {
+        char c = name83[k];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+        if (c != comspec[k]) return 0;
+        k++;
+    }
+    return name83[k] == '\0';
+}
+#endif
+#if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
+/* The flagship's command interpreter is the TRANSIENT (os/milton/transient.h):
+ * NULL until Special > Exit to InitechDOS reads + validates it, then its
+ * header's exec_secondary (command_exec_secondary, the COMMAND /C secondary
+ * processor). Set ONLY by exitdos_load_transient (initech-13ig). */
+static void (*g_transient_exec_secondary)(const char *tail, uint32_t len) =
+    (void (*)(const char *, uint32_t))0;
+#endif
 static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
                                     const char *cmd_tail, uint32_t cmd_tail_len,
                                     uint32_t env_block, uint8_t *out_rc)
@@ -822,20 +852,41 @@ static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
      * shell's own COMMAND builtin does (no disk image is loaded; the transient
      * file is a kernel-linked overlay, not a .COM). The processor's AH=4Dh
      * exit code is 0 (AUTHORED: no local source pins COMMAND /C's own code). */
-    {
-        static const char comspec[] = "COMMAND.COM";
-        uint32_t k = 0u;
-        while (comspec[k] != '\0' && cmd_upcase_char(name83[k]) == comspec[k])
-            k++;
-        if (comspec[k] == '\0' && name83[k] == '\0') {
-            (void)dir_start; (void)env_block;
-            command_exec_secondary(cmd_tail, cmd_tail_len);
-            if (out_rc) {
-                *out_rc = 0u;
-            }
-            return 0u;
+    if (exec_name_is_comspec(name83)) {
+        (void)dir_start; (void)env_block;
+        command_exec_secondary(cmd_tail, cmd_tail_len);
+        if (out_rc) {
+            *out_rc = 0u;
         }
+        return 0u;
     }
+#elif defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
+    /* COMSPEC child on the FLAGSHIP (initech-13ig). The interpreter is the
+     * transient overlay, resident from Exit to InitechDOS on: a program's EXEC
+     * of COMMAND.COM (dBASE RUN / !, MS-DOS 3.3 Reference pp.46-47 "COMMAND
+     * /C" -- "loads a second copy of COMMAND.COM") runs the SAME secondary
+     * processor the shell kernels run (initech-n8q8), never a disk image: the
+     * file on the boot volume is the overlay itself, not a .COM. With no
+     * transient resident (the desktop) there is no interpreter to run, so the
+     * EXEC falls through to the loader, where the name either is absent on the
+     * current volume (0002h) or reads the overlay and is refused by its magic
+     * (000Bh, loader.c) -- a loud DOS error either way, never the header run. */
+#ifndef KMAIN_MUT_EXEC_NO_COMSPEC
+    if (g_transient_exec_secondary != (void (*)(const char *, uint32_t))0 &&
+        exec_name_is_comspec(name83)) {
+        (void)dir_start; (void)env_block;
+        g_transient_exec_secondary(cmd_tail, cmd_tail_len);
+        if (out_rc) {
+            *out_rc = 0u;
+        }
+        return 0u;
+    }
+#else
+    /* MUTANT (Rule 6; make test-flair-execguard-mutant only): no route -- the
+     * EXEC of COMMAND.COM goes to the loader as before this bead. NEVER in a
+     * real build. */
+    (void)&exec_name_is_comspec;
+#endif
 #endif
     /* Bind the caller-selected volume; the shared loader now owns all caller
      * PSP/hook/CWD restoration. env_block=0 inherits a resident caller's env.
@@ -969,11 +1020,8 @@ static void flair_desktop_oom(const char *what)
     serial_puts("PANIC flair-desktop: flair_alloc returned NULL for ");
     serial_puts(what);
     serial_putc('\n');
+    panic_show_reason(PANIC_REASON_HEAP, what);
     serial_puts("HALTED\n");
-    if (g_int21_con) {
-        console_puts(g_int21_con,
-            "\nPC LOAD LETTER  (FLAIR heap exhausted)\n");
-    }
     for (;;) {
         __asm__ __volatile__("cli; hlt");
     }
@@ -3700,6 +3748,9 @@ static void __attribute__((unused)) finder_desk_load_positions(void)
  * ordering makes storage a desktop-init prerequisite (R3 F1-2/F1-3) and lets
  * the Bochs 320x200 fail-loud leg prove MOUNT-OK before its later size guard.
  * Static device/volume storage outlives the bounded pump and loader binding. */
+#ifdef FLAIR_FILM_SCENE
+static int g_film_volume_status;
+#endif
 static void flair_tenant_mount_volume(void)
 {
     static ata_ctx_t       ften_ata;
@@ -3718,6 +3769,9 @@ static void flair_tenant_mount_volume(void)
     ata_blockdev_init(&ften_fatdev, &ften_ata);
     crit_blockdev_init(&ften_crit, &ften_fatdev);
     mount_rc = mount_dos_volume(0, &ften_vol, &ften_crit.dev, ften_secbuf);
+#ifdef FLAIR_FILM_SCENE
+    g_film_volume_status=mount_rc;
+#endif
     if (mount_rc == FAT12_OK) {
         int bind_rc;
 
@@ -3725,6 +3779,9 @@ static void flair_tenant_mount_volume(void)
         /* The INT 25h/26h volume is bound below (bind_absdisk_volume, DEC-07a partition
          * base); the exit-to-DOS hand-off (bead initech-3p1a) connects the vectors to it. */
         bind_rc = fileio_fat_bind(&ften_vol);
+#ifdef FLAIR_FILM_SCENE
+        g_film_volume_status=bind_rc;
+#endif
         if (bind_rc == FAT12_OK) {
             bind_absdisk_volume(&ften_vol, &ften_fatdev);
             uint32_t fat_len = 0u;
@@ -5972,6 +6029,22 @@ static __attribute__((cold,noinline)) int finder_power_ask_apps(flair_live_ctx_t
     serial_puts("FINDER-POWER-CANCEL app=");
     serial_puts(still);
     serial_puts(r > 0 ? " declined\n" : " cannot-ask\n");
+    /* B04 / audit DAS L022: serial alone leaves the user guessing. The
+     * notice is modal, restores the desktop, and never terminates the app. */
+    {
+        static const char *const ok[] = { "OK" };
+        const char *lines[3];
+        unsigned n = finder_power_notice(r > 0, still, lines);
+        if (n) {
+            flair_live_alert_open(ctx, bi, lines, (int)n, ok, 1, 1);
+            serial_puts("FINDER-POWER-NOTICE\n");
+            for (unsigned i = 0; i < n; i++) {
+                serial_puts("FINDER-ALERT-LINE ");
+                serial_puts(lines[i]); serial_putc('\n');
+            }
+            (void)flair_live_alert_run(ctx, bi);
+        }
+    }
     return 0;
 }
 
@@ -6065,13 +6138,11 @@ static void (*exitdos_load_transient(void))(int)
     dir_entry_t command;
     static uint8_t sector[512], fat_cache[1024], cluster[4096];
     transient_hdr_t *h = (transient_hdr_t *)(uintptr_t)TRANSIENT_BASE;
-    const uint32_t want[TRANSIENT_N_IMPORTS] = {
-        (uint32_t)(uintptr_t)&fileio_fat_volume_label,
-        (uint32_t)(uintptr_t)&int21_directory_exists,
-        (uint32_t)(uintptr_t)&int21_get_psp,
-        (uint32_t)(uintptr_t)&int21_same_file,
-        (uint32_t)(uintptr_t)&int21_set_break_recovery
-    };
+    /* EVERY kernel import the transient's code uses, from the GENERATED table
+     * (build/transient_want.asm; os/milton/transient.h). The review of
+     * initech-13ig found the former hand-kept list checked five of ten. */
+    const uint32_t n_want = transient_import_count;
+    const uint32_t hdr_bytes = (uint32_t)sizeof *h + n_want * 4u;
     uint32_t bytes, k;
     int rc;
 
@@ -6108,26 +6179,34 @@ static void (*exitdos_load_transient(void))(int)
         if (h->magic[k] != TRANSIENT_MAGIC[k])
             exitdos_fail("no COMMAND3 transient on the boot disk", k);
 #endif
-    if (h->load_end <= TRANSIENT_BASE + (uint32_t)sizeof *h ||
+    if (h->n_imports != n_want)
+        exitdos_fail("transient import count != the kernel's", h->n_imports);
+    if (h->load_end <= TRANSIENT_BASE + hdr_bytes ||
         h->load_end != TRANSIENT_BASE + command.file_size ||
-        h->bss_end < h->load_end || h->bss_end > TRANSIENT_CEIL ||
-        h->n_imports != TRANSIENT_N_IMPORTS)
+        h->bss_end < h->load_end || h->bss_end > TRANSIENT_CEIL)
         exitdos_fail("transient header extents", h->bss_end);
     rc = fat12_read_file(&boot_vol, 0, 0u, &command, h,
                          TRANSIENT_CEIL - TRANSIENT_BASE, cluster, &bytes);
     if (rc != FAT12_OK || bytes != command.file_size)
         exitdos_fail("boot FAT read of the transient failed", (uint32_t)rc);
-    for (k = 0u; k < TRANSIENT_N_IMPORTS; k++)
-        if (h->imports[k] != want[k])
+    for (k = 0u; k < n_want; k++)
+        if (h->imports[k] != transient_import_want[k])
             exitdos_fail("transient linked against another kernel build", k);
-    if (h->entry < TRANSIENT_BASE + (uint32_t)sizeof *h || h->entry >= h->load_end)
+    if (h->entry < TRANSIENT_BASE + hdr_bytes || h->entry >= h->load_end)
         exitdos_fail("transient entry outside its text", h->entry);
+    if (h->exec_secondary < TRANSIENT_BASE + hdr_bytes ||
+        h->exec_secondary >= h->load_end)
+        exitdos_fail("transient exec_secondary outside its text", h->exec_secondary);
     for (uint8_t *z = (uint8_t *)(uintptr_t)h->load_end;
          z < (uint8_t *)(uintptr_t)h->bss_end; z++)
         *z = 0u;
     serial_puts("COMMAND-TRANSIENT-OK bytes=");
     serial_putu(h->load_end - TRANSIENT_BASE);
     serial_putc('\n');
+    /* From here COMMAND.COM is resident: a program's EXEC of it runs the
+     * secondary processor (loader_exec_by_name, initech-13ig). */
+    g_transient_exec_secondary =
+        (void (*)(const char *, uint32_t))(uintptr_t)h->exec_secondary;
     return (void (*)(int))(uintptr_t)h->entry;
 }
 
@@ -6369,7 +6448,15 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
         finder_exit_dos(ctx, bi, o->moved);
         return;
 
-    case FCMD_OPEN:
+    case FCMD_OPEN: {
+        /* bead initech-fbo4 (audit 2026-10-23 desktop L004): the outcome may
+         * NAME an application to launch. Copy it out first -- the launch verb
+         * services the tenant, and the shell's `last` is not ours after that. */
+        uint16_t launch = o->launch;
+        uint16_t ldir   = o->launch_dir;
+        char     l83[FINDER_DESK_NAME_MAX];
+        for (int i = 0; i < FINDER_DESK_NAME_MAX; i++) l83[i] = o->launch83[i];
+        l83[FINDER_DESK_NAME_MAX - 1] = '\0';
         serial_puts("FINDER-OPEN-COUNT n=");serial_puti(o->moved);serial_putc('\n');
         if (o->status != FINDER_WIN_OK) {
             finder_desk_repaint(ctx,bi);
@@ -6377,14 +6464,35 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
             return;
         }
         finder_desk_repaint(ctx, bi);
-        serial_puts("FINDER-OPEN-FOLDER name=");
-        serial_puts(o->name83);
-        serial_puts(" win=");
-        serial_puti((int32_t)o->slot);
-        serial_puts(" singleton=");
-        serial_puti((int32_t)o->singleton);
-        serial_putc('\n');
+        if (o->moved > 0) {
+            serial_puts("FINDER-OPEN-FOLDER name=");
+            serial_puts(o->name83);
+            serial_puts(" win=");
+            serial_puti((int32_t)o->slot);
+            serial_puts(" singleton=");
+            serial_puti((int32_t)o->singleton);
+            serial_putc('\n');
+        }
+        if (launch) {
+            /* THE ADAPTER: File > Open / Cmd-O reach the SAME verb the
+             * double-click (finder_surface_open) and the Apple menu use --
+             * no second launch implementation (design F4.3). */
+            serial_puts("FINDER-OPEN-APP name=");
+            serial_puts(l83);
+            serial_puts(" dir=");
+            serial_puti((int32_t)ldir);
+            serial_puts(" n=");
+            serial_puti((int32_t)launch);
+            serial_putc('\n');
+#ifndef KMAIN_MUT_OPEN_NO_LAUNCH
+            /* MUTANT KMAIN_MUT_OPEN_NO_LAUNCH (Rule 6): the command runs and
+             * is reported, the verb is never called -- Open "works" on serial
+             * and launches nothing (test-flair-finder-open-mutant). */
+            flair_live_launch_app(ctx, bi, l83, ldir);
+#endif
+        }
         return;
+    }
 
     default:
         return;
@@ -6685,12 +6793,16 @@ static void tbx_headless_smoke(void)
      * does; the arrows carry ascii 0. */
     {
         static const uint16_t i123_keys[] = {
+#ifdef TBX_SMOKE_I123_COPY
+#include "../../spec/i123_copy_smoke_keys.h"
+#else
             0x0231, 0x0332, 0x0433, 0x4D00,                 /* 1 2 3 Right  */
             0x0231, 0x342E, 0x0635, 0x4D00,                 /* 1 . 5 Right  */
             0x0C2D, 0x0837, 0x4D00,                         /* - 7 Right    */
             0x0231, 0x342E, 0x0332, 0x0433, 0x0534, 0x0635, 0x0736, 0x0837,
             0x0938, 0x0A39, 0x0B30, 0x0231, 0x0332, 0x0433, 0x0534, 0x0635,
             0x1C0D                                          /* 1.23456789012345 Enter */
+#endif
         };
         (void)tbx_launch("123.EXE", apps.start_cluster);
         app = tbx_take_affirm();
@@ -7336,12 +7448,31 @@ void kernel_main(void)
      * The scene authors placement; Calc alone paints its live content. */
     {
         dir_entry_t apps;
-        if (!g_finder_vol || fat12_find(g_finder_vol,g_finder_secbuf,"APPS",&apps)!=FAT12_OK ||
-            tbx_launch("CALC.EXE",apps.start_cluster)!=TBX_OK)
-            flair_desktop_oom("film CALC.EXE launch");
+        int apps_rc=FAT12_ERR_NOT_FOUND, load_rc=TBX_OK;
+        if (g_finder_vol)
+            apps_rc=fat12_find(g_finder_vol,g_finder_secbuf,"APPS",&apps);
+        if (apps_rc==FAT12_OK && !(apps.attribute & DIR_ATTR_DIRECTORY))
+            apps_rc=FAT12_ERR_NOT_FOUND;
+        if (g_film_volume_status==FAT12_OK && apps_rc==FAT12_OK)
+            load_rc=tbx_launch("CALC.EXE",apps.start_cluster);
+        panic_reason_t reason=film_startup_reason(g_film_volume_status,apps_rc,load_rc);
+        if (reason!=PANIC_REASON_NONE) {
+            /* DAS L001: carry the actual mount/find/launch statuses to serial;
+             * show a short accurate cause before the terminal HALTED marker. */
+            serial_puts("PANIC film-startup volume="); serial_puti(g_film_volume_status);
+            serial_puts(" apps="); serial_puti(apps_rc);
+            serial_puts(" load="); serial_puti(load_rc); serial_putc('\n');
+            panic_show_reason(reason,reason==PANIC_REASON_DATA_VOLUME ? "DATA DISK" :
+                                     reason==PANIC_REASON_APPS ? "APPS" : "CALC.EXE");
+            serial_puts("HALTED\n");
+            for (;;) { __asm__ __volatile__("cli; hlt"); }
+        }
         FlairApp *calc=tbx_take_affirm();
-        if (!calc || !calc->windows || !calc->windows->nextWindow)
-            flair_desktop_oom("film Calc two windows");
+        if (!calc || !calc->windows || !calc->windows->nextWindow) {
+            panic_show_reason(PANIC_REASON_CALC_WINDOWS,"CALC.EXE");
+            serial_puts("PANIC film-startup CALC windows\nHALTED\n");
+            for (;;) { __asm__ __volatile__("cli; hlt"); }
+        }
         EventRecord ev0 = {0};
         (void)FlairProcess_activate(&ten_plist,ctx.wm,&ev0,calc);
         flair_film_arrange(ctx.wm,calc->windows->nextWindow,calc->windows);
@@ -7360,7 +7491,7 @@ void kernel_main(void)
     /* (3) Each tenant's OWN menu is its menubar; the live app-switch loop swaps the
      * FOREGROUND tenant's menu into the SECOND (Photoshop-chimera) band (ref beads
      * initech-4w15 / initech-7tjp: band 1 == the SHELL-OWNED static System-7 bar,
-     * drawn ONCE by shell_render below, never repainted by the live loop). HELLO's
+     * retained by shell_render, never replaced by a foreground switch). HELLO's
      * menu IS the Photoshop bar; NOTES owns the no-Apple File/Edit/Notes fixture
      * above. Because HELLO is the boot FOREGROUND (2), shell_render's fixed band-2
      * composition (bar_photoshop) ALREADY equals the foreground's menu at boot --
@@ -7597,7 +7728,7 @@ void kernel_main(void)
 
         /* Ref: bead initech-4w15. The TOP System-7 shell bar (bar_sys, rows
          * [0, FLAIR_MENUBAR_H)) is SHELL-OWNED and STATIC -- shell_render draws
-         * it ONCE when the scene is built and it must NEVER be repainted again
+         * it when the scene is composed; foreground switches must NEVER replace it
          * (shell.h Sec 1 "TWO STACKED MENU BARS"). The foreground-tenant menubar
          * swap below must land ONLY on the SECOND (Photoshop-band) bar at rows
          * [SHELL_MENUBAR2_TOP, SHELL_MENUBAR2_TOP + FLAIR_MENUBAR_H). A whole-
@@ -7611,7 +7742,7 @@ void kernel_main(void)
          * (shell.h; ADR-0004 D-2 one surface module -- reused, not duplicated).
          * DrawMenuBar into a port over this view can then ONLY land on rows
          * [SHELL_MENUBAR2_TOP, SHELL_MENUBAR2_TOP + FLAIR_MENUBAR_H) of the real
-         * offscreen; row 0 (bar_sys) is never touched by the live loop again. */
+         * offscreen; a foreground switch never replaces row 0 (bar_sys). */
         bitmap_t ten_bar2_view;
         GrafPort ten_barport;
         {
@@ -7660,10 +7791,24 @@ void kernel_main(void)
             if(tbx_preferences_dirty()) {
                 for(WindowPtr w=ctx.wm->front;w;w=w->nextWindow)
                     WindowMgr_invalidate(ctx.wm,w,region_get_bbox(w->contRgn));
+#ifdef KMAIN_MUT_CP_NO_SYSTEM_BAR
+                /* Rule 6 / B05: omit only the system-bar pass on preference
+                 * redraw. The foreground bar and clock still get repainted. */
                 desktop_paint_all(ctx.wm,&ctx.off,ctx.comp);
-                flair_live_content_phase(&ctx);
+                DrawMenuBar(&ten_barport,flair_live_tenant_bar(&ctx,&ten_plist),-1,
+                            (const region_t *)0);
                 GrafPort cpbar=ten_barport;cpbar.portBits.bm=ctx.off;
                 MenuClock_draw(&cpbar,(const region_t *)0);
+#else
+                /* PRD 6.3 / shell.h painter order; DAS audit L027 (B05).
+                 * A full desktop paint erases the menu overlays too. Compose
+                 * both installed bars/clock and the modal in the normal order,
+                 * then route visible tenant content before the shielded present.
+                 * This also covers temporary Sound preview if it dirties prefs. */
+                shell_render_with_menubar(ctx.scene,&ctx.off,
+                                          flair_live_tenant_bar(&ctx,&ten_plist));
+#endif
+                flair_live_content_phase(&ctx);
                 flair_desktop_present(&b,&ctx.off);
             }
 

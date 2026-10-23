@@ -1,0 +1,235 @@
+# fixtures/iword-goto/goto.steps -- the REAL WordPerfect 5.1 (03-09-92) under
+# DOSBox-X, driven by ../wordperfect51-decomp/tools/mint_drive.sh (bead
+# initech-1zk9): PgUp / PgDn (Reference p. 104 "First Line on the Next /
+# Previous Page") and Go To (Ctrl-Home; Reference p. 223-224) on a document
+# of two hard pages, one more page and a soft page after 54 lines.
+# Minted 2026-10-23 on a scratch copy of ../wordperfect51-decomp mint/work
+# (the corpus untouched); each `shot NAME` is NAME.png beside this file.
+# The preamble's first Return went INTO the document: line 1 is blank, so
+# "Page one line two." is Ln 1.33"; page 3 is "Page three." + 53 blank lines
+# and the 54th Return starts the soft page 4. Read: 03-06 PgDn (next page's
+# first line at the screen top, Pos 1"; on the last page the document's
+# end), 07/12 PgUp, 10 the column not kept, 13/14/22 "Go to " + digits,
+# 15/16/17/23/29 Enter (page; past the end the last; 0 page 1), 18/19
+# Esc/F1 cancel, 20/21 Backspace + Enter with no digits: no move, 25/26 Go
+# To Up/Down, 27 Go To w, 28 Go To twice, 30 "Go to 2x" (a letter echoed;
+# its Enter not minted). Graded by test_iword_face.c leg F16.
+sleep 7
+key Return
+sleep 4
+type Page one line one.
+key Return
+type Page one line two.
+key ctrl+Return
+type Page two line one.
+key Return
+type Page two second line here.
+key ctrl+Return
+type Page three.
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+key Return
+type Page four soft.
+key Return
+type Four again.
+sleep 1
+shot 01_typed
+key Home
+key Home
+key Up
+sleep 1
+shot 02_top
+key Next
+sleep 1
+shot 03_pgdn
+key Next
+sleep 1
+shot 04_pgdn2
+key Next
+sleep 1
+shot 05_pgdn3
+key Next
+sleep 1
+shot 06_pgdn_last
+key Prior
+sleep 1
+shot 07_pgup
+key Home
+key Home
+key Up
+key Prior
+sleep 1
+shot 08_pgup_first
+key Right
+key Right
+key Right
+key Right
+key Right
+key Down
+sleep 1
+shot 09_col5_line2
+key Next
+sleep 1
+shot 10_pgdn_col
+key Down
+key Right
+key Right
+key Right
+key Right
+key Right
+key Right
+key Right
+key Right
+key Right
+key Right
+sleep 1
+shot 11_p2_line2
+key Prior
+sleep 1
+shot 12_pgup_mid
+key Home
+key Home
+key Up
+key ctrl+Home
+sleep 1
+shot 13_goto_prompt
+key 3
+sleep 1
+shot 14_goto_3
+key Return
+sleep 1
+shot 15_goto_3_enter
+key ctrl+Home
+key 9
+key Return
+sleep 1
+shot 16_goto_9
+key ctrl+Home
+key 0
+key Return
+sleep 1
+shot 17_goto_0
+key ctrl+Home
+key 2
+key Escape
+sleep 1
+shot 18_goto_2_esc
+key ctrl+Home
+key 2
+key F1
+sleep 1
+shot 19_goto_2_f1
+key Home
+key Home
+key Up
+key ctrl+Home
+key 2
+key BackSpace
+sleep 1
+shot 20_goto_bs
+key Return
+sleep 1
+shot 21_goto_bs_enter
+key ctrl+Home
+key 1
+key 2
+sleep 1
+shot 22_goto_12
+key Return
+sleep 1
+shot 23_goto_12_enter
+key ctrl+Home
+key 2
+key Return
+key Down
+key Right
+key Right
+key Right
+sleep 1
+shot 24_p2_mid
+key ctrl+Home
+key Up
+sleep 1
+shot 25_goto_up
+key ctrl+Home
+key Down
+sleep 1
+shot 26_goto_down
+key Home
+key Home
+key Up
+key ctrl+Home
+key w
+sleep 1
+shot 27_goto_char
+key ctrl+Home
+key ctrl+Home
+sleep 1
+shot 28_goto_twice
+key ctrl+Home
+key 4
+key Return
+sleep 1
+shot 29_goto_4_soft
+key ctrl+Home
+key 2
+key x
+sleep 1
+shot 30_goto_2x
+key ctrl+Home
+key 2
+key Return
+sleep 1
+shot 31_goto_2
+end

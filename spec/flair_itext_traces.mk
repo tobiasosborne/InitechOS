@@ -97,3 +97,13 @@ FLAIR_ITEXT_BADNAME_SPEC := $(FLAIR_ITEXT_BADNAME_UP_SPEC),kret,w600,kbspc,kbspc
 # (Likewise FLAIR_ITEXT_BADNAME_UP_SPEC ends at the bad-name alert; the full
 # BADNAME_SPEC then dismisses it and enters a valid name.)
 FLAIR_ITEXT_FULL_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m-68:0,w400,kctrl-o,w1000,kdown,kdown,kdown,kdown,kdown,kret,w1000,kx,w1500,m100:0,m100:0,m100:0,m100:0,m0:100,w300
+
+# 6. L011 (audit 2026-10-23-das; bead initech-4hkk) -- Cut -> Undo, the
+# audit's own steps. Launch prefix AND the typing of "Saving tables to disk"
+# Return "PC LOAD LETTER" copied EXACTLY from FLAIR_ITEXT_SPEC through its
+# w300; Ctrl-A (Select All); Ctrl-X (Cut: the window empties); Ctrl-Z (Undo:
+# both lines come back, selected); Ctrl-S (untitled -> the Save As box, name
+# UNTITLED); 8 Backspaces; "UNDO.TXT" Return -> TENANT-SF-REPLY good=1
+# path=UNDO.TXT; the file holds the 36 typed bytes (CR line end). Drives
+# test-flair-itext-undo (+ -mutant) and record-flair itext_undo.
+FLAIR_ITEXT_UNDO_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m-68:0,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,kctrl-a,w200,kctrl-x,w300,kctrl-z,w300,kctrl-s,w600,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,ku,kn,kd,ko,kdot,kt,kx,kt,kret,w120,w600
