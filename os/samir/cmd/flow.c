@@ -1900,12 +1900,22 @@ int samir_last_error(xb_interp *ip)
  * on EACH call's stack (~6 KiB); with DO <proc>'s 8 KiB body copy a recursive
  * DO consumed ~20 KiB of the 64 KiB SAMIR.COM stack per level and overran it
  * after a few levels (audit 2026-10-23-samir L003: EIP/ESP garbage, session
- * lost). A count-only split_lines pass now sizes the per-call arrays to the
- * lines actually present (a 3-line procedure body costs 36 bytes), still on
- * THIS call's stack so samir_do stays re-entrant. A static pool would not fit:
+ * lost). A count-only split_lines pass sizes the tables to the lines actually
+ * present. Up to FLOW_STACK_LINES lines live in a fixed array on this call's
+ * stack (384 bytes: 20 DO levels of it cost 7.5 KiB); a larger body takes its
+ * tables from the PAL owned heap (acquire), released on every return, so a
+ * long recursive procedure cannot run the stack into the program image --
+ * when the heap is exhausted the DO fails with #43 "Insufficient memory." and
+ * the session survives (initech-39e5 review). A static pool would not fit:
  * the SAMIR.COM BSS reserve is full (samir.ld owned-heap tail ASSERT). One
- * program is still capped at FLOW_MAX_LINES (#43 "Insufficient memory.").
+ * program is still capped at FLOW_MAX_LINES.
  */
+#ifndef FLOW_STACK_LINES
+#define FLOW_STACK_LINES 32
+#endif
+static int flow_exec_lines(xb_interp *ip, flow_state *fs, const char *prg,
+                           uint32_t plen, int n, flow_line *s_lines,
+                           line_kind *s_kind);
 static int flow_run_lines(xb_interp *ip, flow_state *fs, const char *prg,
                           uint32_t plen, int n);
 
@@ -1941,8 +1951,39 @@ int samir_do_n(xb_interp *ip, const char *prg, uint32_t plen)
 static int flow_run_lines(xb_interp *ip, flow_state *fs, const char *prg,
                           uint32_t plen, int n)
 {
-    flow_line  s_lines[n > 0 ? n : 1];
-    line_kind  s_kind[n > 0 ? n : 1];
+#ifndef FLOW_MUTATE_STACK_LINES
+    flow_line  small_lines[FLOW_STACK_LINES];
+    line_kind  small_kind[FLOW_STACK_LINES];
+    samir_pal_t *pal;
+    void *blk;
+    int rc;
+    if (n <= FLOW_STACK_LINES)
+        return flow_exec_lines(ip, fs, prg, plen, n, small_lines, small_kind);
+    pal = xb_interp_pal(ip);
+    blk = (pal && pal->acquire)
+        ? pal->acquire(pal, (uint32_t)n * (uint32_t)(sizeof(flow_line) + sizeof(line_kind)))
+        : (void *)0;
+    if (!blk) {
+        fs->last_error = 43;                /* Insufficient memory. */
+        return -INTERP_ERR_NOMEM;
+    }
+    rc = flow_exec_lines(ip, fs, prg, plen, n, (flow_line *)blk,
+                         (line_kind *)((flow_line *)blk + n));
+    pal->release(pal, blk);
+    return rc;
+#else
+    /* MUTANT (Rule 6): the pre-review per-call stack tables. A 500-line
+     * recursive procedure then overruns the 64 KiB guest stack. */
+    flow_line  vla_lines[n > 0 ? n : 1];
+    line_kind  vla_kind[n > 0 ? n : 1];
+    return flow_exec_lines(ip, fs, prg, plen, n, vla_lines, vla_kind);
+#endif
+}
+
+static int flow_exec_lines(xb_interp *ip, flow_state *fs, const char *prg,
+                           uint32_t plen, int n, flow_line *s_lines,
+                           line_kind *s_kind)
+{
     xb_ctx *ctx;
     flow_prog fp;
     flow_signal sig = SIG_NONE;

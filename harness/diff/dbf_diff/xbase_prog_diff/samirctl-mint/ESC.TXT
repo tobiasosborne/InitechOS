@@ -1,0 +1,11 @@
+
+
+
+*** INTERRUPTED ***
+Called from - C:ESC.prg
+Cancel, Ignore, or Suspend? (C, I, or S) Ignore
+*** INTERRUPTED ***
+Called from - C:ESC.prg
+Cancel, Ignore, or Suspend? (C, I, or S) Cancel
+Do cancelled
+. quit

@@ -93,6 +93,7 @@
 #include "samir/interp.h"
 #include "samir/screen.h"
 #include "samir/rt.h"
+#include "memory_map.h"     /* PROGRAM_STACK_BOT: the stack guard below */
 
 /* ---- Arena sizing constants ----------------------------------------------- *
  *
@@ -653,8 +654,37 @@ static int32_t milton_input_read(void *user, void *buf, uint32_t cap)
 {
     return milton_read((samir_pal_t *)user,0,buf,cap);
 }
+/* Stack guard (initech-39e5 review; Rule 2). The program stack is the 64 KiB
+ * from PROGRAM_STACK_BOT to PROGRAM_STACK_TOP (spec/memory_map.h); below it
+ * lie the environment and the heap arena, so an overrun corrupts data
+ * silently. The lowest MILTON_GUARD_WORDS words of the stack hold a pattern
+ * set at start-up and verified at every console read: a clobbered guard
+ * stops SAMIR loudly instead of running on with corrupted memory. The
+ * engine's own budget (20 DO levels, heap line tables) keeps the deepest
+ * frame far above it; the guard only proves that. */
+#define MILTON_GUARD_WORDS 64u
+static uint32_t milton_guard_word(uint32_t i) { return 0x53414D49u ^ (i * 0x9E3779B1u); }
+static void milton_guard_set(void)
+{
+    volatile uint32_t *g = (volatile uint32_t *)(uintptr_t)PROGRAM_STACK_BOT;
+    uint32_t i;
+    for (i = 0; i < MILTON_GUARD_WORDS; i++) g[i] = milton_guard_word(i);
+}
+static void milton_guard_check(samir_pal_t *p)
+{
+    volatile uint32_t *g = (volatile uint32_t *)(uintptr_t)PROGRAM_STACK_BOT;
+    uint32_t i;
+    for (i = 0; i < MILTON_GUARD_WORDS; i++)
+        if (g[i] != milton_guard_word(i)) {
+            static const char m[] = "\r\nSTACK OVERFLOW -- InitechBase halted\r\n";
+            milton_rawout(p, m, (uint32_t)(sizeof m - 1u));
+            milton_panic();
+        }
+}
+
 static int32_t milton_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
 {
+    milton_guard_check(p);
     /* Type-ahead captured by the Esc poll must not be lost to the kernel's
      * cooked editor: replay it through the PAL editor (initech-39e5). */
     if((state_of(p)->screen.active || state_of(p)->ta_n) && milton_is_console(0))
@@ -680,6 +710,7 @@ static int32_t milton_conin_char(samir_pal_t *p)
     uint32_t result;
     pal_milton_state_t *st = state_of(p);
 
+    milton_guard_check(p);
     if (st->ta_n) {                     /* type-ahead from the Esc poll first */
         uint8_t c = st->ta[st->ta_head];
         st->ta_head = (uint8_t)((st->ta_head + 1u) % sizeof st->ta);
@@ -1002,6 +1033,7 @@ samir_pal_t *pal_milton_make(void)
     st->vtable.conin_line = milton_conin_line;
     st->vtable.conin_char = milton_conin_char;
     st->vtable.conin_escape = milton_conin_escape;
+    milton_guard_set();
     st->vtable.curdrive   = milton_curdrive;
     st->ta_head = st->ta_n = 0;
     st->con_in = -1;
