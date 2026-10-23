@@ -1,0 +1,164 @@
+[
+  {
+    "id": "L001",
+    "area": "Finder / full disk",
+    "severity": "P1",
+    "summary": "A full volume without an existing Trash cannot be freed from Finder",
+    "steps": "Boot flair_tenants_interactive.img with full-data.img, made by evidence/prepare_fixtures.py (zero free clusters; no pre-existing TRASH). Dismiss the boot alert with Return and Escape. Double-click INITECH (600,64). Drag README.TXT (60,102) to Trash (600,420). Dismiss the refusal and double-click Trash.",
+    "saw": "The file remained in the root. Staging and opening Trash both failed. New Folder correctly reported disk full, but the Finder offered no deletion route that could free space. The stopped volume still had zero bytes free. This is a blocked Finder recovery task, not observed file corruption; Exit to InitechDOS is a possible workaround.",
+    "expected": "Allow an explicitly confirmed space-recovery operation even when no cluster is available for creating Trash, or reserve the required metadata before the disk can fill. This is my filesystem usability expectation, not a measured historical Mac behavior.",
+    "evidence": [
+      "shots/114-full-root.png",
+      "shots/115-full-create-alert.png",
+      "shots/116-full-trash-real.png",
+      "evidence/full02-serial.log",
+      "evidence/full02-root.txt",
+      "evidence/full02-fsck.txt",
+      "evidence/full02-hashes.json"
+    ],
+    "guess": "os/milton/kmain.c:3654 initializes the service directory; os/flair/finder_windows.c:1084 rejects its absence. Guess: no space-recovery fallback exists when that initialization cannot allocate a cluster."
+  },
+  {
+    "id": "L002",
+    "area": "Finder / keyboard painting",
+    "severity": "P2",
+    "summary": "Keyboard selection changes internally while the old highlight remains on screen",
+    "steps": "Fresh edge-data.img: open INITECH (600,64), click folder A (60,154), press Right, and wait two seconds. Then press Ctrl-O. Independent replay: python3 evidence/reproduce_keyboard.py.",
+    "saw": "A stayed highlighted after Right. The entire root-window crop was byte-identical before and after the key, despite the wait. Ctrl-O then opened B. Type-ahead and vertical navigation likewise changed state without presenting the new selection until mouse-driven repainting. The independent keyboard-repro session reproduced it.",
+    "expected": "Present the new selection and scroll position immediately, before the next command acts on it. Ordinary GUI feedback expectation. Earlier G07 described absent keyboard selection; this is a defect in the newly functioning keyboard implementation, with an observed mismatch between displayed and operative selection.",
+    "evidence": [
+      "shots/130-key-before-A.png",
+      "shots/131-key-right-stale-A.png",
+      "shots/132-key-opens-B.png",
+      "shots/repro-key-stale.png",
+      "shots/repro-key-opens-B.png",
+      "evidence/keys01-serial.log",
+      "evidence/keyboard-repro-serial.log",
+      "evidence/verification-metrics.json",
+      "evidence/reproduce_keyboard.py"
+    ],
+    "guess": "os/flair/finder_windows.c:2164 updates selection and invalidates it. os/milton/kmain.c:7530 dispatches the key, but its subsequent presentation paths service tenant switches and disk-tenant drawing. Guess: ordinary Finder keys lack the required paint/present cycle."
+  },
+  {
+    "id": "L003",
+    "area": "Finder / keyboard scrolling",
+    "severity": "P2",
+    "summary": "Horizontal keyboard navigation can leave the selected icon entirely outside the viewport",
+    "steps": "Fresh edge-data.img: open INITECH, then MANY (194,154). Select F000.TXT (78,122). Drag the grow box (389,289) by (-260,0), making the window 100 pixels wide. Press Right. Force repaint with a one-pixel title drag from (84,90) to (85,90). Finally grow from (130,289) by (260,0).",
+    "saw": "After repaint, no selected icon was visible in the narrow window and the horizontal thumb remained at the left. Widening the window revealed F001.TXT selected. This persists after an explicit repaint and is separate from L002. The pinned, overlapping labels in the narrow view are existing J02.",
+    "expected": "Scroll horizontally to keep the keyboard-selected item visible. This is my keyboard-navigation usability expectation; no live Mac keyboard comparison was performed.",
+    "evidence": [
+      "shots/133-narrow-many-before.png",
+      "shots/134-key-hidden-after-repaint.png",
+      "shots/135-key-hidden-revealed.png",
+      "shots/repro-key-hidden.png",
+      "shots/repro-key-revealed.png",
+      "evidence/keys01-serial.log",
+      "evidence/reproduce_keyboard.py"
+    ],
+    "guess": "os/flair/finder_windows.c:2206 adjusts only WSCROLL_V in fw_key. Guess: the horizontal reveal calculation is missing."
+  },
+  {
+    "id": "L004",
+    "area": "Finder / application launch",
+    "severity": "P2",
+    "summary": "File > Open and Ctrl-O cannot launch a selected executable",
+    "steps": "Fresh normal data: double-click INITECH (600,64), APPS (126,102), then single-click CTENANT.EXE (148,122). Hold lower File at (53,29), dismiss it, and press Ctrl-O. Then double-click the same executable.",
+    "saw": "Open was disabled and Ctrl-O did nothing. Double-clicking launched C Tenant from the same selection and file. This is not the old inability to open README documents (F07); this executable is demonstrably launchable.",
+    "expected": "File > Open and its displayed shortcut should perform the same supported open operation as a double-click. This is a classic Finder expectation from memory and a consistency requirement within this session.",
+    "evidence": [
+      "shots/150-app-open-menu.png",
+      "shots/151-app-command-open.png",
+      "shots/152-app-double-click.png",
+      "evidence/menus-serial.log"
+    ],
+    "guess": "os/flair/finder_windows.c:2094 enables Open only for folders; :1867 likewise processes only folders. Guess: the executable launch path in os/milton/kmain.c:3975 was not joined to the menu/keyboard command."
+  },
+  {
+    "id": "L005",
+    "area": "Finder / inactive windows",
+    "severity": "P2",
+    "summary": "A double-click in an inactive Finder window only activates and selects",
+    "steps": "Fresh normal data: open root and APPS. Move APPS by dragging (210,90) to (430,220), leaving the root DOS icon exposed. Double-click DOS at (195,102) with the driver's 130 ms click spacing. Double-click it again after the resulting screenshot.",
+    "saw": "The first double-click activated the root and selected DOS without opening it. The second double-click opened DOS. The same lost first click was encountered when trying to launch an executable from an inactive APPS window.",
+    "expected": "A double-click on an exposed Finder icon should open it even if its window was inactive. This expectation is from my memory of Finder and from ordinary double-click semantics, not from a captured historical input trace. Treat the period-specific click-through policy as a design decision to verify.",
+    "evidence": [
+      "shots/160-inactive-folder-doubleclick.png",
+      "shots/161-active-folder-doubleclick.png",
+      "evidence/menus-serial.log"
+    ],
+    "guess": "os/milton/kmain.c:7665 calls the Finder gesture tracker only when chrome_was_active. Guess: the activation click never participates in the double-click recognizer."
+  },
+  {
+    "id": "L006",
+    "area": "Trash / Put Away",
+    "severity": "P2",
+    "summary": "Put Away silently restores only one item from a multiple selection",
+    "steps": "Fresh edge-data.img: open root, open A (60,154), drag A/SAME.TXT (145,122) to Trash (600,420), and close A with Ctrl-W. Open B (126,154), drag B/SAME.TXT (78,122) to Trash, and close B. Open Trash, press Ctrl-A, then Ctrl-Y.",
+    "saw": "Trash contained SAME.TXT and collision-renamed SAME001.TXT, and both were visibly selected. Ctrl-Y logged PUT_AWAY sel=2 followed by FINDER-PUT-AWAY n=1. SAME.TXT remained, now deselected. Extracted bytes show B/SAME.TXT restored with the BBB payload and the AAA payload still in Trash. A later reboot and single-item Put Away restored the remaining item successfully.",
+    "expected": "Apply Put Away to all selected restorable items, or report the partial result. Classic Finder command-selection semantics from memory; single-item origin persistence was independently observed working.",
+    "evidence": [
+      "shots/200-trash-colliding-names.png",
+      "shots/201-trash-two-selected.png",
+      "shots/202-put-away-multiple.png",
+      "shots/203-putaway-remaining-state.png",
+      "shots/204-putaway-after-reboot.png",
+      "evidence/trashmulti-serial.log",
+      "evidence/trashmulti-trash.txt",
+      "evidence/trashmulti-A.txt",
+      "evidence/trashmulti-B.txt",
+      "evidence/trashmulti-remaining-SAME.TXT",
+      "evidence/trashmulti-restored-B-SAME.TXT",
+      "evidence/trashmulti-fsck.txt",
+      "evidence/trashresume-serial.log"
+    ],
+    "guess": "os/flair/finder_windows.c:2003 walks selected indices, while finder_ops_put_away in os/flair/finder_ops.c:601 repopulates the window after each item. Guess: that repopulation clears the remaining selection before the loop can process it."
+  },
+  {
+    "id": "L007",
+    "area": "Finder / error wording",
+    "severity": "P3",
+    "summary": "Opening unavailable Trash reports that an item could not be moved",
+    "steps": "Use the full02 setup from L001. Dismiss previous alerts, then double-click the desktop Trash at (600,420).",
+    "saw": "The open operation logged FINDER-WIN-OPEN-FAIL rc=-13. Its alert said, \"The item could not be moved. The disk may be full or the folder may no longer be available.\" No move had been requested.",
+    "expected": "Name the failed operation and missing/unavailable Trash. This is an error-message accuracy expectation. This wording defect is independent of L001's inability to recover disk space.",
+    "evidence": [
+      "shots/117-full-trash-open.png",
+      "evidence/full02-serial.log"
+    ],
+    "guess": "os/flair/finder_windows.c:1085 returns FINDER_WIN_ERR_NOTRASH, which falls through the generic move wording at :1771. Guess: an operation-specific NOTRASH message is missing."
+  },
+  {
+    "id": "L008",
+    "area": "Trash / command availability",
+    "severity": "P2",
+    "summary": "New Folder creates a fresh folder directly inside Trash",
+    "steps": "In the edge01 session, empty Trash while its window remains open (after shots/079-purged-child-closed.png). Press Ctrl-N, then choose lower Special > Empty Trash at (200,29) -> (200,64).",
+    "saw": "NEWFOLD appeared directly in Trash. The serial log confirms FINDER-NEW-FOLDER name=NEWFOLD parent=710, and the next destructive confirmation offered to remove that new folder. Creation did not redirect to an ordinary folder or explain the unusual destination.",
+    "expected": "Disable New Folder while Trash is frontmost. This is a period Finder expectation from memory and a protection against accidentally creating work in a deletion container; it is not backed by a captured Mac command-enable matrix.",
+    "evidence": [
+      "shots/079-purged-child-closed.png",
+      "shots/080-after-purge-newfolder.png",
+      "shots/081-empty-twice.png",
+      "evidence/edge01-serial.log"
+    ],
+    "guess": "os/flair/finder_menu.c:124 authors New Folder as always enabled, and os/flair/finder_windows.c:1835 calls the ordinary folder-creation path without a Trash context guard. Guess: Trash-specific enablement is absent."
+  },
+  {
+    "id": "L009",
+    "area": "Shell / shipped manual",
+    "severity": "P3",
+    "summary": "Exit-to-DOS instructions promise date/time prompts that the shipped disk skips",
+    "steps": "Boot the supplied normal pair. Activate Finder by opening INITECH. Choose lower Special > Exit to InitechDOS at (200,29) -> (200,163), then Return. Wait for the console.",
+    "saw": "The banner was followed immediately by A:\\>; no date or time prompt appeared. The extracted shipped AUTOEXEC.BAT contains @ECHO OFF and PATH=A:\\DOS. An echo command confirmed the shell was live.",
+    "expected": "The shipped procedure should match the shipped disk. pubs/manuals/tps-report-generator/s2-leaving-flair.tex:71 says \"Because the data volume has no \\file{AUTOEXEC.BAT}, InitechDOS asks for the\" date/time; lines 86-91 then instruct the user to answer those prompts. Update that procedure or its assumed installation. This is a named local manual mismatch, not a request to alter standard DOS AUTOEXEC behavior.",
+    "evidence": [
+      "shots/214-exit-dos-prompts.png",
+      "shots/215-dos-alive.png",
+      "evidence/power-serial.log",
+      "evidence/shipped-AUTOEXEC.BAT",
+      "evidence/references/s2-leaving-flair.tex"
+    ],
+    "guess": "No kernel defect inferred: the image's AUTOEXEC.BAT and the manual's installation assumption disagree."
+  }
+]

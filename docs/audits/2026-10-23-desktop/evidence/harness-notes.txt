@@ -1,0 +1,5 @@
+No guest finding is based on these harness errors:
+1. The attempted session label edge collided with the prepared images/edge-data.img pathname. SameFileError prevented emulator creation. The actual session is edge01.
+2. inputfinal stopped on HMP sendkey rejecting the grave token. The correct QEMU token is grave_accent. finally quit the owned emulator.
+3. Fast timer-based HMP chords in inputfinish left ambiguous modifier state; its intended built-in menu captures were Finder/About instead. directinputs uses explicit QMP make/break events and supplies the valid modifier and built-in-menu evidence.
+4. Initial menu screenshots were sometimes taken before guest presentation or after release. Only the corrected held-menu screenshots are cited for menu contents.

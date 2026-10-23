@@ -1,0 +1,10 @@
+{
+  "edge-data.img": {
+    "sha256": "f7f2ae1046da5846f6fe7f19f8b74ea770c7dbd239d3a1622c9561a5e26f1bfb",
+    "bytes": 1474560
+  },
+  "full-data.img": {
+    "sha256": "2f42560bca4c59999c819e57b4dfeec334220c6ada8038f3b667c9108ec33415",
+    "bytes": 1474560
+  }
+}

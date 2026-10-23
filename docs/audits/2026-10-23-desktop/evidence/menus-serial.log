@@ -1,0 +1,1422 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=0180
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+VIDEO 640x480 bpp=32 pitch=2560 lfb=0xFD000000 dac=6
+KAT 0x00500000-0x00543010
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-BOOT-SCREEN
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DOS-VOLUME-OK C rc=0
+DESKTOP-DB-CREATE
+TRASH-CREATE
+APPLE-MENU n=6
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+FLAIR-SCRAP-READY bytes=32808
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-CURSOR x=320 y=240
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CURSOR x=80 y=60
+FLAIR-CLOCK 12:51 pm
+FLAIR-TICK n=4
+FLAIR-CURSOR x=0 y=0
+FLAIR-TICK n=7
+FLAIR-TICK n=10
+FLAIR-TICK n=13
+FLAIR-CURSOR x=150 y=16
+FLAIR-CURSOR x=300 y=32
+FLAIR-CURSOR x=525 y=56
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-DISPATCH app=FINDER
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-ICON-SELECT name=INITECH count=1
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-OPEN-VOLUME win=0 n=4
+FLAIR-CURSOR x=440 y=0
+FLAIR-CURSOR x=200 y=0
+FLAIR-CURSOR x=40 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=126 y=102
+FLAIR-EVT what=1 where=126,102 msg=00000000
+FLAIR-EVT what=2 where=126,102 msg=00000000
+FINDER-WIN-SELECT win=0 name=APPS count=1
+FLAIR-EVT what=1 where=126,102 msg=00000000
+FLAIR-EVT what=2 where=126,102 msg=00000000
+FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+FINDER-VIEW-RESTORE win=1 bits=0
+FLAIR-CURSOR x=46 y=42
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=148 y=122
+FLAIR-EVT what=1 where=148,122 msg=00000000
+FLAIR-EVT what=2 where=148,122 msg=00000000
+FINDER-WIN-SELECT win=1 name=CTENANT.EXE count=1
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=512
+FLAIR-EVT what=2 where=53,29 msg=00000000
+FLAIR-MENU menu=512 item=0 (sel=0x00000000)
+FLAIR-EVT what=3 where=53,29 msg=0000186F
+FLAIR-EVT what=4 where=53,29 msg=0000186F
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=148 y=122
+FLAIR-EVT what=1 where=148,122 msg=00000000
+FLAIR-EVT what=2 where=148,122 msg=00000000
+FINDER-WIN-SELECT win=1 name=CTENANT.EXE count=1
+FLAIR-EVT what=1 where=148,122 msg=00000000
+FLAIR-EVT what=2 where=148,122 msg=00000000
+TENANT-LOAD name=CTENANT.EXE len=1888 base=0x001e5750
+TENANT-REGISTER ok app=CTENANT
+TENANT-GATE ax=0x0001 rec=+0x0714 -> 0
+TENANT-GATE ax=0x0050 bar=+0x06e8 -> 0
+TENANT-GATE ax=0x0020 l=180 t=170 r=470 b=330 goaway=1 -> 1
+TENANT-GATE ax=0x0022 win=1 s="C Tenant" -> 0
+TENANT-EVT what=8
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=400 b=400 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=8 s="A C application, from disk" fg=1 bg=0 -> 0
+FLAIR-DISPATCH app=CTENANT
+FLAIR-CURSOR x=0 y=2
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=70 y=30
+FLAIR-CURSOR x=210 y=90
+FLAIR-EVT what=1 where=210,90 msg=00000000
+TENANT-EVT what=8
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=400 b=400 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=8 s="A C application, from disk" fg=1 bg=0 -> 0
+FLAIR-DISPATCH app=FINDER
+FLAIR-EVT what=2 where=210,90 msg=00000000
+FLAIR-DRAG win 0 (40,80)->(40,80)
+FLAIR-CURSOR x=50 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=40 y=61
+FLAIR-CURSOR x=80 y=122
+FLAIR-EVT what=1 where=80,122 msg=00000000
+FLAIR-EVT what=2 where=80,122 msg=00000000
+FINDER-WIN-SELECT win=1 name=TENANTFX.EXE count=1
+FLAIR-EVT what=1 where=80,122 msg=00000000
+FLAIR-EVT what=2 where=80,122 msg=00000000
+TENANT-SLOT-BUSY name=TENANTFX.EXE
+FINDER-ALERT reason=launch
+FINDER-ALERT-LINE The application could not be opened.
+FLAIR-EVT what=3 where=80,122 msg=00000100
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=400 b=400 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=8 s="A C application, from disk" fg=1 bg=0 -> 0
+FLAIR-EVT what=4 where=80,122 msg=00000100
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=150 y=90
+FLAIR-CURSOR x=300 y=180
+FLAIR-EVT what=1 where=300,180 msg=00000000
+FLAIR-EVT what=2 where=300,180 msg=00000000
+FINDER-WIN-DESELECT-ALL win=1
+FLAIR-EVT what=3 where=300,180 msg=00001071
+FLAIR-EVT what=4 where=300,180 msg=00001071
+FLAIR-CLOCK 12:52 pm
+FLAIR-CURSOR x=220 y=120
+FLAIR-CURSOR x=60 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=150 y=155
+FLAIR-CURSOR x=300 y=310
+FLAIR-EVT what=1 where=300,310 msg=00000000
+TENANT-EVT what=8
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=400 b=400 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=8 y=8 s="A C application, from disk" fg=1 bg=0 -> 0
+FLAIR-DISPATCH app=CTENANT
+FLAIR-EVT what=2 where=300,310 msg=00000000
+FLAIR-CURSOR x=220 y=250
+FLAIR-CURSOR x=60 y=130
+FLAIR-CURSOR x=0 y=10
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=129
+FLAIR-CURSOR x=53 y=47
+FLAIR-EVT what=2 where=53,47 msg=00000000
+FLAIR-MENU menu=129 item=1 (sel=0x00810001)
+TENANT-MENU menu=129 item=1 src=mouse
+TENANT-EVT what=81
+TENANT-GATE ax=0x0070 rc=0 -> 0
+TENANT-EXIT rc=0 via=exit
+TENANT-HEAPAVAIL n=3231744
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=80 y=122
+FLAIR-EVT what=1 where=80,122 msg=00000000
+FLAIR-EVT what=2 where=80,122 msg=00000000
+FINDER-WIN-SELECT win=1 name=TENANTFX.EXE count=1
+FLAIR-EVT what=1 where=80,122 msg=00000000
+FLAIR-EVT what=2 where=80,122 msg=00000000
+TENANT-LOAD name=TENANTFX.EXE len=812 base=0x001e5750
+TENANT-REGISTER ok app=TENANTFX
+TENANT-GATE ax=0x0001 rec=+0x00e4 -> 0
+TENANT-GATE ax=0x0050 bar=+0x00fc -> 0
+TENANT-GATE ax=0x0020 l=100 t=160 r=400 b=340 goaway=1 -> 1
+TENANT-GATE ax=0x0022 win=1 s="TenantFix" -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=400 b=400 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=16 y=16 s="Loaded from disk" fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=16 y=40 s="Click here to quit" fg=1 bg=0 -> 0
+TENANT-EVT what=8
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=400 b=400 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=16 y=16 s="Loaded from disk" fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=16 y=40 s="Click here to quit" fg=1 bg=0 -> 0
+FLAIR-DISPATCH app=TENANTFX
+FLAIR-CURSOR x=0 y=62
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=150 y=29
+FLAIR-EVT what=1 where=150,29 msg=00000000
+FLAIR-MENU-DROP menu=131
+FLAIR-CURSOR x=150 y=47
+FLAIR-EVT what=2 where=150,47 msg=00000000
+FLAIR-MENU menu=131 item=1 (sel=0x00830001)
+TENANT-MENU menu=131 item=1 src=mouse
+TENANT-EVT what=81
+TENANT-GATE ax=0x0030 win=1 x=16 y=64 s="TenantFix 1.0, a disk app" fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0050 bar=+0x02a4 -> 0
+TENANT-GATE ax=0x0052 -> 0
+FLAIR-CURSOR x=70 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=96 y=29
+FLAIR-EVT what=1 where=96,29 msg=00000000
+FLAIR-MENU-DROP menu=130
+FLAIR-EVT what=2 where=96,29 msg=00000000
+FLAIR-MENU menu=130 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=75 y=34
+FLAIR-CURSOR x=298 y=136
+FLAIR-CURSOR x=373 y=170
+FLAIR-EVT what=1 where=373,170 msg=00000000
+FLAIR-EVT what=2 where=373,170 msg=00000000
+FLAIR-TRACKBOX win 0 part 7 in=1
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=400 b=400 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=16 y=16 s="Loaded from disk" fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=16 y=40 s="Click here to quit" fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=16 y=64 s="TenantFix 1.0, a disk app" fg=1 bg=0 -> 0
+FLAIR-ZOOM win 0 in
+FLAIR-EVT what=3 where=373,170 msg=00001071
+TENANT-MENU menu=129 item=1 src=key
+TENANT-EVT what=81
+TENANT-GATE ax=0x0070 rc=0 -> 0
+TENANT-EXIT rc=0 via=exit
+TENANT-HEAPAVAIL n=3231744
+FLAIR-EVT what=4 where=373,170 msg=00001071
+FLAIR-CURSOR x=293 y=110
+FLAIR-CURSOR x=133 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=140 y=60
+FLAIR-CURSOR x=210 y=90
+FLAIR-EVT what=1 where=210,90 msg=00000000
+FLAIR-CURSOR x=357 y=177
+FLAIR-CURSOR x=430 y=220
+FLAIR-EVT what=2 where=430,220 msg=00000000
+FLAIR-DRAG win 0 (40,80)->(260,210)
+FLAIR-CURSOR x=190 y=40
+FLAIR-CURSOR x=30 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=130 y=68
+FLAIR-CURSOR x=195 y=102
+FLAIR-EVT what=1 where=195,102 msg=00000000
+FLAIR-EVT what=2 where=195,102 msg=00000000
+FLAIR-EVT what=1 where=195,102 msg=00000000
+FLAIR-EVT what=2 where=195,102 msg=00000000
+FINDER-WIN-SELECT win=0 name=DOS count=1
+FLAIR-CURSOR x=115 y=42
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=195 y=102
+FLAIR-EVT what=1 where=195,102 msg=00000000
+FLAIR-EVT what=2 where=195,102 msg=00000000
+FINDER-WIN-SELECT win=0 name=DOS count=1
+FLAIR-EVT what=1 where=195,102 msg=00000000
+FLAIR-EVT what=2 where=195,102 msg=00000000
+FINDER-OPEN-FOLDER name=DOS win=2 singleton=0
+FINDER-VIEW-RESTORE win=2 bits=0
+FLAIR-EVT what=3 where=195,102 msg=00001177
+FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=0
+FINDER-CLOSE-WINDOW win=2
+DESKTOP-DB-SAVE n=3
+FLAIR-EVT what=4 where=195,102 msg=00001177
+FLAIR-CURSOR x=35 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=133 y=47
+FLAIR-CURSOR x=200 y=70
+FLAIR-EVT what=1 where=200,70 msg=00000000
+FLAIR-EVT what=2 where=200,70 msg=00000000
+FLAIR-DRAG win 0 (20,60)->(20,60)
+FLAIR-CURSOR x=120 y=10
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=10
+FLAIR-EVT what=1 where=53,10 msg=00000000
+FLAIR-MENU-DROP menu=128
+FLAIR-EVT what=2 where=53,10 msg=00000000
+FLAIR-MENU menu=128 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=48 y=5
+FLAIR-CURSOR x=96 y=10
+FLAIR-EVT what=1 where=96,10 msg=00000000
+FLAIR-MENU-DROP menu=129
+FLAIR-EVT what=2 where=96,10 msg=00000000
+FLAIR-MENU menu=129 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=16 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=71 y=5
+FLAIR-CURSOR x=142 y=10
+FLAIR-EVT what=1 where=142,10 msg=00000000
+FLAIR-MENU-DROP menu=130
+FLAIR-EVT what=2 where=142,10 msg=00000000
+FLAIR-MENU menu=130 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=62 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=67 y=3
+FLAIR-CURSOR x=200 y=10
+FLAIR-EVT what=1 where=200,10 msg=00000000
+FLAIR-MENU-DROP menu=131
+FLAIR-EVT what=2 where=200,10 msg=00000000
+FLAIR-MENU menu=131 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=40 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=71 y=14
+FLAIR-CURSOR x=142 y=29
+FLAIR-EVT what=1 where=142,29 msg=00000000
+FLAIR-MENU-DROP menu=514
+FLAIR-CURSOR x=142 y=63
+FLAIR-EVT what=2 where=142,63 msg=00000000
+FLAIR-MENU menu=514 item=2 (sel=0x02020002)
+FINDER-CMD id=17 name=VIEW_SMALL src=mouse sel=1
+FINDER-VIEW win=0 mode=small sort=name bits=2
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=142 y=29
+FLAIR-EVT what=1 where=142,29 msg=00000000
+FLAIR-MENU-DROP menu=514
+FLAIR-CURSOR x=142 y=79
+FLAIR-EVT what=2 where=142,79 msg=00000000
+FLAIR-MENU menu=514 item=3 (sel=0x02020003)
+FINDER-CMD id=18 name=VIEW_NAME src=mouse sel=1
+FINDER-VIEW win=0 mode=list sort=name bits=1
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=71 y=14
+FLAIR-CURSOR x=142 y=29
+FLAIR-EVT what=1 where=142,29 msg=00000000
+FLAIR-MENU-DROP menu=514
+FLAIR-CURSOR x=142 y=95
+FLAIR-EVT what=2 where=142,95 msg=00000000
+FLAIR-MENU menu=514 item=4 (sel=0x02020004)
+FINDER-CMD id=19 name=VIEW_SIZE src=mouse sel=1
+FINDER-VIEW win=0 mode=list sort=size bits=5
+FLAIR-CURSOR x=62 y=35
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=71 y=14
+FLAIR-CURSOR x=142 y=29
+FLAIR-EVT what=1 where=142,29 msg=00000000
+FLAIR-MENU-DROP menu=514
+FLAIR-CURSOR x=142 y=111
+FLAIR-EVT what=2 where=142,111 msg=00000000
+FLAIR-MENU menu=514 item=5 (sel=0x02020005)
+FINDER-CMD id=20 name=VIEW_KIND src=mouse sel=1
+FINDER-VIEW win=0 mode=list sort=kind bits=9
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=71 y=14
+FLAIR-CURSOR x=142 y=29
+FLAIR-EVT what=1 where=142,29 msg=00000000
+FLAIR-MENU-DROP menu=514
+FLAIR-CURSOR x=142 y=143
+FLAIR-EVT what=2 where=142,143 msg=00000000
+FLAIR-MENU menu=514 item=7 (sel=0x02020007)
+FINDER-CMD id=21 name=VIEW_DATE src=mouse sel=1
+FINDER-VIEW win=0 mode=list sort=date bits=13
+FLAIR-CURSOR x=62 y=83
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=75 y=23
+FLAIR-CURSOR x=225 y=68
+FLAIR-CURSOR x=300 y=91
+FLAIR-EVT what=1 where=300,91 msg=00000000
+FINDER-VIEW win=0 mode=list sort=date bits=13
+FLAIR-EVT what=2 where=300,91 msg=00000000
+FLAIR-CURSOR x=220 y=31
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=71 y=14
+FLAIR-CURSOR x=142 y=29
+FLAIR-EVT what=1 where=142,29 msg=00000000
+FLAIR-MENU-DROP menu=514
+FLAIR-CURSOR x=142 y=47
+FLAIR-EVT what=2 where=142,47 msg=00000000
+FLAIR-MENU menu=514 item=1 (sel=0x02020001)
+FINDER-CMD id=14 name=VIEW_ICONS src=mouse sel=1
+FINDER-VIEW win=0 mode=icons
+FLAIR-CURSOR x=62 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=96 y=29
+FLAIR-EVT what=1 where=96,29 msg=00000000
+FLAIR-MENU-DROP menu=513
+FLAIR-EVT what=2 where=96,29 msg=00000000
+FLAIR-MENU menu=513 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=16 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=48 y=14
+FLAIR-CURSOR x=96 y=29
+FLAIR-EVT what=1 where=96,29 msg=00000000
+FLAIR-MENU-DROP menu=513
+FLAIR-CURSOR x=96 y=47
+FLAIR-EVT what=2 where=96,47 msg=00000000
+FLAIR-MENU menu=513 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=48 y=14
+FLAIR-CURSOR x=96 y=29
+FLAIR-EVT what=1 where=96,29 msg=00000000
+FLAIR-MENU-DROP menu=513
+FLAIR-CURSOR x=96 y=63
+FLAIR-EVT what=2 where=96,63 msg=00000000
+FLAIR-MENU menu=513 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=48 y=14
+FLAIR-CURSOR x=96 y=29
+FLAIR-EVT what=1 where=96,29 msg=00000000
+FLAIR-MENU-DROP menu=513
+FLAIR-CURSOR x=96 y=79
+FLAIR-EVT what=2 where=96,79 msg=00000000
+FLAIR-MENU menu=513 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=16 y=19
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=96 y=29
+FLAIR-EVT what=1 where=96,29 msg=00000000
+FLAIR-MENU-DROP menu=513
+FLAIR-CURSOR x=96 y=95
+FLAIR-EVT what=2 where=96,95 msg=00000000
+FLAIR-MENU menu=513 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=96 y=29
+FLAIR-EVT what=1 where=96,29 msg=00000000
+FLAIR-MENU-DROP menu=513
+FLAIR-CURSOR x=96 y=111
+FLAIR-EVT what=2 where=96,111 msg=00000000
+FLAIR-MENU menu=513 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=48 y=14
+FLAIR-CURSOR x=96 y=29
+FLAIR-EVT what=1 where=96,29 msg=00000000
+FLAIR-MENU-DROP menu=513
+FLAIR-CURSOR x=96 y=127
+FLAIR-EVT what=2 where=96,127 msg=00000000
+FLAIR-MENU menu=513 item=6 (sel=0x02010006)
+FINDER-CMD id=8 name=SELECT_ALL src=mouse sel=1
+FINDER-SELECT-ALL win=0 n=4
+FLAIR-CURSOR x=16 y=67
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=96 y=29
+FLAIR-EVT what=1 where=96,29 msg=00000000
+FLAIR-MENU-DROP menu=513
+FLAIR-CURSOR x=96 y=149
+FLAIR-EVT what=2 where=96,149 msg=00000000
+FLAIR-MENU menu=513 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=29
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=96 y=29
+FLAIR-EVT what=1 where=96,29 msg=00000000
+FLAIR-MENU-DROP menu=513
+FLAIR-CURSOR x=96 y=171
+FLAIR-EVT what=2 where=96,171 msg=00000000
+FLAIR-MENU menu=513 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=51
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=512
+FLAIR-CURSOR x=53 y=79
+FLAIR-EVT what=2 where=53,79 msg=00000000
+FLAIR-MENU menu=512 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=512
+FLAIR-CURSOR x=53 y=117
+FLAIR-EVT what=2 where=53,117 msg=00000000
+FLAIR-MENU menu=512 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=512
+FLAIR-CURSOR x=53 y=133
+FLAIR-EVT what=2 where=53,133 msg=00000000
+FLAIR-MENU menu=512 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=73
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=512
+FLAIR-CURSOR x=53 y=149
+FLAIR-EVT what=2 where=53,149 msg=00000000
+FLAIR-MENU menu=512 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=29
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=512
+FLAIR-CURSOR x=53 y=165
+FLAIR-EVT what=2 where=53,165 msg=00000000
+FLAIR-MENU menu=512 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=105
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=512
+FLAIR-CURSOR x=53 y=187
+FLAIR-EVT what=2 where=53,187 msg=00000000
+FLAIR-MENU menu=512 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=67
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=512
+FLAIR-CURSOR x=53 y=145
+FLAIR-CURSOR x=53 y=203
+FLAIR-EVT what=2 where=53,203 msg=00000000
+FLAIR-MENU menu=512 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=83
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=512
+FLAIR-CURSOR x=53 y=219
+FLAIR-EVT what=2 where=53,219 msg=00000000
+FLAIR-MENU menu=512 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=39
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=512
+FLAIR-CURSOR x=53 y=98
+FLAIR-CURSOR x=53 y=235
+FLAIR-EVT what=2 where=53,235 msg=00000000
+FLAIR-MENU menu=512 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=115
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=142 y=29
+FLAIR-EVT what=1 where=142,29 msg=00000000
+FLAIR-MENU-DROP menu=514
+FLAIR-CURSOR x=142 y=127
+FLAIR-EVT what=2 where=142,127 msg=00000000
+FLAIR-MENU menu=514 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=7
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=71 y=14
+FLAIR-CURSOR x=142 y=29
+FLAIR-EVT what=1 where=142,29 msg=00000000
+FLAIR-MENU-DROP menu=514
+FLAIR-CURSOR x=142 y=159
+FLAIR-EVT what=2 where=142,159 msg=00000000
+FLAIR-MENU menu=514 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=39
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=71 y=14
+FLAIR-CURSOR x=142 y=29
+FLAIR-EVT what=1 where=142,29 msg=00000000
+FLAIR-MENU-DROP menu=514
+FLAIR-CURSOR x=142 y=175
+FLAIR-EVT what=2 where=142,175 msg=00000000
+FLAIR-MENU menu=514 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=0 y=55
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=142 y=29
+FLAIR-EVT what=1 where=142,29 msg=00000000
+FLAIR-MENU-DROP menu=514
+FLAIR-CURSOR x=142 y=197
+FLAIR-EVT what=2 where=142,197 msg=00000000
+FLAIR-MENU menu=514 item=11 (sel=0x0202000B)
+FINDER-CMD id=9 name=CLEANUP src=mouse sel=4
+FINDER-CLEANUP win=0 moved=0
+FLAIR-CURSOR x=0 y=77
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=71 y=14
+FLAIR-CURSOR x=142 y=29
+FLAIR-EVT what=1 where=142,29 msg=00000000
+FLAIR-MENU-DROP menu=514
+FLAIR-CURSOR x=142 y=90
+FLAIR-CURSOR x=142 y=213
+FLAIR-EVT what=2 where=142,213 msg=00000000
+FLAIR-MENU menu=514 item=12 (sel=0x0202000C)
+FINDER-CMD id=10 name=ARRANGE_BY_NAME src=mouse sel=4
+FINDER-ARRANGE win=0 moved=3
+FLAIR-CURSOR x=62 y=153
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=63 y=7
+FLAIR-CURSOR x=189 y=22
+FLAIR-CURSOR x=252 y=29
+FLAIR-EVT what=1 where=252,29 msg=00000000
+FLAIR-MENU-DROP menu=516
+FLAIR-CURSOR x=252 y=47
+FLAIR-EVT what=2 where=252,47 msg=00000000
+FLAIR-MENU menu=516 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=92 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=63 y=7
+FLAIR-CURSOR x=189 y=22
+FLAIR-CURSOR x=252 y=29
+FLAIR-EVT what=1 where=252,29 msg=00000000
+FLAIR-MENU-DROP menu=516
+FLAIR-CURSOR x=252 y=63
+FLAIR-EVT what=2 where=252,63 msg=00000000
+FLAIR-MENU menu=516 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=92 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=67 y=10
+FLAIR-CURSOR x=200 y=29
+FLAIR-EVT what=1 where=200,29 msg=00000000
+FLAIR-MENU-DROP menu=515
+FLAIR-CURSOR x=200 y=85
+FLAIR-EVT what=2 where=200,85 msg=00000000
+FLAIR-MENU menu=515 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=40 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=133 y=19
+FLAIR-CURSOR x=200 y=29
+FLAIR-EVT what=1 where=200,29 msg=00000000
+FLAIR-MENU-DROP menu=515
+FLAIR-CURSOR x=200 y=141
+FLAIR-EVT what=2 where=200,141 msg=00000000
+FLAIR-MENU menu=515 item=0 (sel=0x00000000)
+FLAIR-CURSOR x=120 y=81
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=142 y=29
+FLAIR-EVT what=1 where=142,29 msg=00000000
+FLAIR-MENU-DROP menu=514
+FLAIR-EVT what=2 where=142,29 msg=00000000
+FLAIR-MENU menu=514 item=0 (sel=0x00000000)
+FLAIR-CLOCK 12:53 pm
+FLAIR-CLOCK 12:54 pm
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=20 y=10
+FLAIR-EVT what=1 where=20,10 msg=00000000
+APPLE-MENU n=6
+FLAIR-MENU-DROP menu=1
+FLAIR-CURSOR x=20 y=49
+FLAIR-EVT what=2 where=20,49 msg=00000000
+FLAIR-MENU menu=1 item=3 (sel=0x00010003)
+APPLE-LAUNCH name=CALCULAT.EXE dir=APPS
+TENANT-LOAD name=CALCULAT.EXE len=6032 base=0x001eb110
+TENANT-REGISTER ok app=CALCULAT
+TENANT-GATE ax=0x0001 rec=+0x1750 -> 0
+TENANT-GATE ax=0x0050 bar=+0x1480 -> 0
+TENANT-GATE ax=0x0020 l=267 t=94 r=373 b=262 goaway=4097 -> 1
+TENANT-GATE ax=0x0022 win=1 s="Calculator" -> 0
+TENANT-EVT what=8
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=102 b=146 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=7 t=7 r=93 b=27 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=8 t=8 r=92 b=26 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=84 t=14 r=87 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=15 r=84 b=16 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=87 t=15 r=88 b=16 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=16 r=84 b=17 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=87 t=16 r=88 b=17 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=17 r=84 b=18 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=87 t=17 r=88 b=18 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=18 r=84 b=19 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=87 t=18 r=88 b=19 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=19 r=84 b=20 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=87 t=19 r=88 b=20 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=84 t=20 r=87 b=21 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=26 t=34 r=28 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=10 t=48 r=26 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=8 t=32 r=26 b=48 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=9 t=33 r=25 b=47 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=15 t=37 r=18 b=38 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=38 r=15 b=39 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=38 r=19 b=39 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=39 r=15 b=40 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=40 r=15 b=41 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=41 r=15 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=42 r=15 b=43 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=42 r=19 b=43 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=15 t=43 r=18 b=44 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=48 t=34 r=50 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=32 t=48 r=48 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=30 t=32 r=48 b=48 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=31 t=33 r=47 b=47 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=39 r=41 b=40 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=41 r=41 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=70 t=34 r=72 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=54 t=48 r=70 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=52 t=32 r=70 b=48 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=53 t=33 r=69 b=47 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=36 r=63 b=37 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=37 r=63 b=38 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=61 t=38 r=62 b=39 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=61 t=39 r=62 b=40 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=60 t=40 r=61 b=41 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=60 t=41 r=61 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=42 r=60 b=43 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=43 r=60 b=44 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=92 t=34 r=94 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=76 t=48 r=92 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=74 t=32 r=92 b=48 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=75 t=33 r=91 b=47 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=82 t=37 r=83 b=38 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=84 t=37 r=85 b=38 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=38 r=84 b=39 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=81 t=39 r=86 b=40 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=40 r=84 b=41 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=82 t=41 r=83 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=84 t=41 r=85 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=26 t=56 r=28 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=10 t=70 r=26 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=8 t=54 r=26 b=70 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=9 t=55 r=25 b=69 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=59 r=19 b=60 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=60 r=19 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=61 r=18 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=62 r=18 b=63 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=63 r=17 b=64 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=64 r=17 b=65 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=65 r=17 b=66 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=48 t=56 r=50 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=32 t=70 r=48 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=30 t=54 r=48 b=70 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=31 t=55 r=47 b=69 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=59 r=40 b=60 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=60 r=37 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=60 r=41 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=61 r=37 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=61 r=41 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=62 r=40 b=63 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=63 r=37 b=64 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=63 r=41 b=64 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=64 r=37 b=65 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=64 r=41 b=65 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=65 r=40 b=66 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=70 t=56 r=72 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=54 t=70 r=70 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=52 t=54 r=70 b=70 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=53 t=55 r=69 b=69 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=59 r=62 b=60 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=60 r=59 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=60 r=63 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=61 r=59 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=61 r=63 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=62 r=63 b=63 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=63 r=63 b=64 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=61 t=64 r=62 b=65 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=65 r=61 b=66 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=92 t=56 r=94 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=76 t=70 r=92 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=74 t=54 r=92 b=70 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=75 t=55 r=91 b=69 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=80 t=62 r=84 b=63 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=26 t=78 r=28 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=10 t=92 r=26 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=8 t=76 r=26 b=92 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=9 t=77 r=25 b=91 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=81 r=18 b=82 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=82 r=18 b=83 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=15 t=83 r=16 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=83 r=18 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=84 r=15 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=84 r=18 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=85 r=19 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=86 r=18 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=87 r=18 b=88 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=48 t=78 r=50 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=32 t=92 r=48 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=30 t=76 r=48 b=92 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=31 t=77 r=47 b=91 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=81 r=41 b=82 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=82 r=37 b=83 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=83 r=40 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=84 r=41 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=85 r=41 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=86 r=37 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=86 r=41 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=87 r=40 b=88 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=70 t=78 r=72 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=54 t=92 r=70 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=52 t=76 r=70 b=92 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=53 t=77 r=69 b=91 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=60 t=81 r=62 b=82 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=82 r=60 b=83 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=83 r=59 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=84 r=62 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=85 r=59 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=85 r=63 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=86 r=59 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=86 r=63 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=87 r=62 b=88 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=92 t=78 r=94 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=76 t=92 r=92 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=74 t=76 r=92 b=92 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=75 t=77 r=91 b=91 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=82 t=82 r=83 b=83 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=82 t=83 r=83 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=80 t=84 r=85 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=82 t=85 r=83 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=82 t=86 r=83 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=26 t=100 r=28 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=10 t=114 r=26 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=8 t=98 r=26 b=114 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=9 t=99 r=25 b=113 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=103 r=17 b=104 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=15 t=104 r=17 b=105 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=105 r=17 b=106 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=106 r=17 b=107 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=107 r=17 b=108 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=108 r=17 b=109 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=109 r=17 b=110 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=48 t=100 r=50 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=32 t=114 r=48 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=30 t=98 r=48 b=114 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=31 t=99 r=47 b=113 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=103 r=40 b=104 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=104 r=37 b=105 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=104 r=41 b=105 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=105 r=41 b=106 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=39 t=106 r=40 b=107 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=38 t=107 r=39 b=108 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=108 r=38 b=109 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=109 r=41 b=110 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=70 t=100 r=72 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=54 t=114 r=70 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=52 t=98 r=70 b=114 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=53 t=99 r=69 b=113 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=103 r=63 b=104 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=61 t=104 r=62 b=105 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=60 t=105 r=61 b=106 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=106 r=62 b=107 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=107 r=63 b=108 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=108 r=59 b=109 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=108 r=63 b=109 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=109 r=62 b=110 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=92 t=100 r=94 b=138 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=76 t=136 r=92 b=138 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=74 t=98 r=92 b=136 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=75 t=99 r=91 b=135 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=80 t=127 r=85 b=128 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=80 t=129 r=85 b=130 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=48 t=122 r=50 b=138 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=10 t=136 r=48 b=138 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=8 t=120 r=48 b=136 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=9 t=121 r=47 b=135 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=15 t=125 r=18 b=126 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=126 r=15 b=127 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=126 r=19 b=127 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=127 r=15 b=128 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=127 r=19 b=128 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=128 r=15 b=129 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=128 r=19 b=129 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=129 r=15 b=130 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=129 r=19 b=130 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=130 r=15 b=131 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=130 r=19 b=131 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=15 t=131 r=18 b=132 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=70 t=122 r=72 b=138 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=54 t=136 r=70 b=138 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=52 t=120 r=70 b=136 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=53 t=121 r=69 b=135 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=131 r=60 b=132 c=1 -> 0
+FLAIR-DISPATCH app=CALCULAT
+FLAIR-EVT what=3 where=20,49 msg=00001071
+TENANT-EVT what=3
+FLAIR-EVT what=4 where=20,49 msg=00001071
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=20 y=10
+FLAIR-EVT what=1 where=20,10 msg=00000000
+APPLE-MENU n=6
+FLAIR-MENU-DROP menu=1
+FLAIR-CURSOR x=20 y=65
+FLAIR-EVT what=2 where=20,65 msg=00000000
+FLAIR-MENU menu=1 item=4 (sel=0x00010004)
+APPLE-LAUNCH name=CPANELS.EXE dir=APPS
+TENANT-SLOT-BUSY name=CPANELS.EXE
+FINDER-ALERT reason=launch
+FINDER-ALERT-LINE The application could not be opened.
+FLAIR-EVT what=3 where=20,65 msg=00001071
+FLAIR-EVT what=4 where=20,65 msg=00001071
+FLAIR-CURSOR x=0 y=5
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=20 y=10
+FLAIR-EVT what=1 where=20,10 msg=00000000
+FLAIR-CURSOR x=20 y=81
+FLAIR-EVT what=2 where=20,81 msg=00000000
+FLAIR-EVT what=3 where=20,81 msg=00001071
+FLAIR-EVT what=4 where=20,81 msg=00001071
+FLAIR-CURSOR x=0 y=21
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=20 y=10
+FLAIR-EVT what=1 where=20,10 msg=00000000
+FLAIR-CURSOR x=20 y=97
+FLAIR-EVT what=2 where=20,97 msg=00000000
+FLAIR-EVT what=3 where=20,97 msg=00001071
+FLAIR-EVT what=4 where=20,97 msg=00001071
+FLAIR-EVT what=3 where=20,97 msg=00001177
+FLAIR-EVT what=4 where=20,97 msg=00001177
+FLAIR-EVT what=3 where=20,97 msg=00001177
+FLAIR-EVT what=4 where=20,97 msg=00001177
+FLAIR-CURSOR x=0 y=37
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=150 y=16
+FLAIR-CURSOR x=375 y=40
+FLAIR-CURSOR x=525 y=56
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FLAIR-CURSOR x=520 y=4
+FLAIR-CURSOR x=280 y=0
+FLAIR-CURSOR x=120 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-CURSOR x=142 y=90
+FLAIR-CURSOR x=142 y=213
+FLAIR-EVT what=2 where=142,213 msg=00000000
+FLAIR-EVT what=3 where=142,213 msg=00000100
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=102 b=146 c=2 -> 0
+TENANT-GATE ax=0x0031 win=1 l=7 t=7 r=93 b=27 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=8 t=8 r=92 b=26 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=84 t=14 r=87 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=15 r=84 b=16 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=87 t=15 r=88 b=16 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=16 r=84 b=17 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=87 t=16 r=88 b=17 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=17 r=84 b=18 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=87 t=17 r=88 b=18 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=18 r=84 b=19 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=87 t=18 r=88 b=19 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=19 r=84 b=20 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=87 t=19 r=88 b=20 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=84 t=20 r=87 b=21 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=26 t=34 r=28 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=10 t=48 r=26 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=8 t=32 r=26 b=48 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=9 t=33 r=25 b=47 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=15 t=37 r=18 b=38 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=38 r=15 b=39 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=38 r=19 b=39 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=39 r=15 b=40 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=40 r=15 b=41 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=41 r=15 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=42 r=15 b=43 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=42 r=19 b=43 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=15 t=43 r=18 b=44 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=48 t=34 r=50 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=32 t=48 r=48 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=30 t=32 r=48 b=48 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=31 t=33 r=47 b=47 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=39 r=41 b=40 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=41 r=41 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=70 t=34 r=72 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=54 t=48 r=70 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=52 t=32 r=70 b=48 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=53 t=33 r=69 b=47 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=36 r=63 b=37 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=37 r=63 b=38 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=61 t=38 r=62 b=39 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=61 t=39 r=62 b=40 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=60 t=40 r=61 b=41 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=60 t=41 r=61 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=42 r=60 b=43 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=43 r=60 b=44 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=92 t=34 r=94 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=76 t=48 r=92 b=50 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=74 t=32 r=92 b=48 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=75 t=33 r=91 b=47 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=82 t=37 r=83 b=38 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=84 t=37 r=85 b=38 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=38 r=84 b=39 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=81 t=39 r=86 b=40 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=83 t=40 r=84 b=41 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=82 t=41 r=83 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=84 t=41 r=85 b=42 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=26 t=56 r=28 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=10 t=70 r=26 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=8 t=54 r=26 b=70 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=9 t=55 r=25 b=69 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=59 r=19 b=60 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=60 r=19 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=61 r=18 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=62 r=18 b=63 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=63 r=17 b=64 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=64 r=17 b=65 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=65 r=17 b=66 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=48 t=56 r=50 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=32 t=70 r=48 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=30 t=54 r=48 b=70 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=31 t=55 r=47 b=69 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=59 r=40 b=60 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=60 r=37 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=60 r=41 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=61 r=37 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=61 r=41 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=62 r=40 b=63 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=63 r=37 b=64 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=63 r=41 b=64 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=64 r=37 b=65 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=64 r=41 b=65 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=65 r=40 b=66 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=70 t=56 r=72 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=54 t=70 r=70 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=52 t=54 r=70 b=70 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=53 t=55 r=69 b=69 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=59 r=62 b=60 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=60 r=59 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=60 r=63 b=61 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=61 r=59 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=61 r=63 b=62 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=62 r=63 b=63 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=63 r=63 b=64 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=61 t=64 r=62 b=65 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=65 r=61 b=66 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=92 t=56 r=94 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=76 t=70 r=92 b=72 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=74 t=54 r=92 b=70 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=75 t=55 r=91 b=69 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=80 t=62 r=84 b=63 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=26 t=78 r=28 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=10 t=92 r=26 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=8 t=76 r=26 b=92 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=9 t=77 r=25 b=91 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=81 r=18 b=82 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=82 r=18 b=83 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=15 t=83 r=16 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=83 r=18 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=84 r=15 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=84 r=18 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=85 r=19 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=86 r=18 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=17 t=87 r=18 b=88 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=48 t=78 r=50 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=32 t=92 r=48 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=30 t=76 r=48 b=92 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=31 t=77 r=47 b=91 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=81 r=41 b=82 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=82 r=37 b=83 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=83 r=40 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=84 r=41 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=85 r=41 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=86 r=37 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=86 r=41 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=87 r=40 b=88 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=70 t=78 r=72 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=54 t=92 r=70 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=52 t=76 r=70 b=92 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=53 t=77 r=69 b=91 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=60 t=81 r=62 b=82 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=82 r=60 b=83 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=83 r=59 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=84 r=62 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=85 r=59 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=85 r=63 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=86 r=59 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=86 r=63 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=87 r=62 b=88 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=92 t=78 r=94 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=76 t=92 r=92 b=94 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=74 t=76 r=92 b=92 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=75 t=77 r=91 b=91 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=82 t=82 r=83 b=83 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=82 t=83 r=83 b=84 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=80 t=84 r=85 b=85 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=82 t=85 r=83 b=86 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=82 t=86 r=83 b=87 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=26 t=100 r=28 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=10 t=114 r=26 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=8 t=98 r=26 b=114 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=9 t=99 r=25 b=113 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=103 r=17 b=104 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=15 t=104 r=17 b=105 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=105 r=17 b=106 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=106 r=17 b=107 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=107 r=17 b=108 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=108 r=17 b=109 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=16 t=109 r=17 b=110 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=48 t=100 r=50 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=32 t=114 r=48 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=30 t=98 r=48 b=114 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=31 t=99 r=47 b=113 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=103 r=40 b=104 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=104 r=37 b=105 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=104 r=41 b=105 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=40 t=105 r=41 b=106 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=39 t=106 r=40 b=107 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=38 t=107 r=39 b=108 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=37 t=108 r=38 b=109 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=36 t=109 r=41 b=110 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=70 t=100 r=72 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=54 t=114 r=70 b=116 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=52 t=98 r=70 b=114 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=53 t=99 r=69 b=113 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=103 r=63 b=104 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=61 t=104 r=62 b=105 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=60 t=105 r=61 b=106 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=106 r=62 b=107 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=107 r=63 b=108 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=58 t=108 r=59 b=109 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=62 t=108 r=63 b=109 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=109 r=62 b=110 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=92 t=100 r=94 b=138 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=76 t=136 r=92 b=138 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=74 t=98 r=92 b=136 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=75 t=99 r=91 b=135 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=80 t=127 r=85 b=128 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=80 t=129 r=85 b=130 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=48 t=122 r=50 b=138 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=10 t=136 r=48 b=138 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=8 t=120 r=48 b=136 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=9 t=121 r=47 b=135 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=15 t=125 r=18 b=126 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=126 r=15 b=127 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=126 r=19 b=127 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=127 r=15 b=128 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=127 r=19 b=128 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=128 r=15 b=129 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=128 r=19 b=129 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=129 r=15 b=130 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=129 r=19 b=130 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=14 t=130 r=15 b=131 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=18 t=130 r=19 b=131 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=15 t=131 r=18 b=132 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=70 t=122 r=72 b=138 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=54 t=136 r=70 b=138 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=52 t=120 r=70 b=136 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=53 t=121 r=69 b=135 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=59 t=131 r=60 b=132 c=1 -> 0
+FLAIR-CLOCK 12:55 pm
+FLAIR-EVT what=4 where=142,213 msg=00000100
+FLAIR-CURSOR x=0 y=93
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=70 y=26
+FLAIR-CURSOR x=280 y=103
+FLAIR-EVT what=1 where=280,103 msg=00000000
+FLAIR-EVT what=2 where=280,103 msg=00000000
+FLAIR-TRACKBOX win 0 part 6 in=1
+TENANT-EXIT rc=0 via=close
+TENANT-HEAPAVAIL n=3204464
+FLAIR-TENANT-EXIT name=CALCULAT
+FLAIR-CLOSE win 0
+FLAIR-CURSOR x=120 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=20 y=10
+FLAIR-EVT what=1 where=20,10 msg=00000000
+APPLE-MENU n=6
+FLAIR-MENU-DROP menu=1
+FLAIR-CURSOR x=20 y=65
+FLAIR-EVT what=2 where=20,65 msg=00000000
+FLAIR-MENU menu=1 item=4 (sel=0x00010004)
+APPLE-LAUNCH name=CPANELS.EXE dir=APPS
+TENANT-LOAD name=CPANELS.EXE len=6976 base=0x001eb110
+TENANT-REGISTER ok app=CPANELS
+TENANT-GATE ax=0x0001 rec=+0x16fc -> 0
+TENANT-GATE ax=0x0093 -> 0
+TENANT-GATE ax=0x0094 -> 0
+CPANELS-MEMORY total=16256 system=16133 largest=123 cache=0
+TENANT-GATE ax=0x0095 -> 0
+TENANT-GATE ax=0x0050 bar=+0x15d4 -> 0
+TENANT-GATE ax=0x0020 l=120 t=90 r=520 b=390 goaway=2 -> 1
+TENANT-GATE ax=0x0022 win=1 s="Control Panels" -> 0
+TENANT-EVT what=8
+TENANT-EVT what=6
+CPANEL title=Control Panels
+TENANT-GATE ax=0x0092 -> 0
+FLAIR-DISPATCH app=CPANELS
+FLAIR-EVT what=3 where=20,65 msg=00001071
+TENANT-MENU menu=129 item=1 src=key
+TENANT-EVT what=81
+TENANT-GATE ax=0x0070 rc=0 -> 0
+TENANT-EXIT rc=0 via=exit
+TENANT-HEAPAVAIL n=3204464
+FLAIR-EVT what=4 where=20,65 msg=00001071
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=20 y=10
+FLAIR-EVT what=1 where=20,10 msg=00000000
+APPLE-MENU n=6
+FLAIR-MENU-DROP menu=1
+FLAIR-CURSOR x=20 y=81
+FLAIR-EVT what=2 where=20,81 msg=00000000
+FLAIR-MENU menu=1 item=5 (sel=0x00010005)
+APPLE-LAUNCH name=NOTEPAD.EXE dir=APPS
+TENANT-LOAD name=NOTEPAD.EXE len=7760 base=0x001f1ba0
+TENANT-REGISTER ok app=NOTEPAD
+TENANT-GATE ax=0x0001 rec=+0x1d04 -> 0
+TENANT-GATE ax=0x0081 path="NOTEPAD.DAT" mode=0 -> -258
+TENANT-GATE ax=0x0050 bar=+0x1b94 -> 0
+TENANT-GATE ax=0x0020 l=160 t=80 r=480 b=360 goaway=2 -> 1
+TENANT-GATE ax=0x0022 win=1 s="Note Pad" -> 0
+TENANT-GATE ax=0x00c1 win=1 len=47 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-EVT what=8
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=4 r=5 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=4 t=4 r=5 b=15 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=273 t=236 r=274 b=237 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=274 t=235 r=275 b=236 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=275 t=234 r=276 b=235 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=276 t=233 r=277 b=234 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=277 t=232 r=278 b=233 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=278 t=231 r=279 b=232 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=279 t=230 r=280 b=231 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=280 t=229 r=281 b=230 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=281 t=228 r=282 b=229 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=282 t=227 r=283 b=228 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=283 t=226 r=284 b=227 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=284 t=225 r=285 b=226 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=285 t=224 r=286 b=225 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=286 t=223 r=287 b=224 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=287 t=222 r=288 b=223 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=288 t=221 r=289 b=222 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=289 t=220 r=290 b=221 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=290 t=219 r=291 b=220 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=291 t=218 r=292 b=219 c=1 -> 0
+TENANT-GATE ax=0x0031 win=1 l=292 t=217 r=293 b=218 c=1 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="1 of 8" fg=65537 bg=0 -> 0
+FLAIR-DISPATCH app=NOTEPAD
+FLAIR-EVT what=3 where=20,81 msg=00001071
+TENANT-MENU menu=129 item=2 src=key
+TENANT-EVT what=81
+TENANT-GATE ax=0x0080 path="NOTEPAD.DAT" -> 5
+TENANT-GATE ax=0x0083 h=5 n=8224 -> 8224
+TENANT-GATE ax=0x0085 h=5 -> 0
+DA-SAVED NOTEPAD.DAT
+TENANT-GATE ax=0x0070 rc=0 -> 0
+TENANT-EXIT rc=0 via=exit
+TENANT-HEAPAVAIL n=3166544
+FLAIR-EVT what=4 where=20,81 msg=00001071
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=20 y=10
+FLAIR-EVT what=1 where=20,10 msg=00000000
+APPLE-MENU n=6
+FLAIR-MENU-DROP menu=1
+FLAIR-CURSOR x=20 y=97
+FLAIR-EVT what=2 where=20,97 msg=00000000
+FLAIR-MENU menu=1 item=6 (sel=0x00010006)
+APPLE-LAUNCH name=SCRAPBK.EXE dir=APPS
+TENANT-LOAD name=SCRAPBK.EXE len=5968 base=0x001fafc0
+TENANT-REGISTER ok app=SCRAPBK
+TENANT-GATE ax=0x0001 rec=+0x1604 -> 0
+TENANT-GATE ax=0x0081 path="SCRAPBK.DAT" mode=0 -> -258
+TENANT-GATE ax=0x0050 bar=+0x1488 -> 0
+TENANT-GATE ax=0x0020 l=160 t=80 r=480 b=360 goaway=2 -> 1
+TENANT-GATE ax=0x0022 win=1 s="Scrapbook" -> 0
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-EVT what=8
+TENANT-SCRAP get n=-102
+TENANT-GATE ax=0x00a1 n=0 -> -102
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="0 of 0" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+TENANT-EVT what=6
+TENANT-GATE ax=0x00c2 win=1 -> 0
+TENANT-GATE ax=0x00c1 win=1 len=237 value=0 -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=293 b=237 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=30 y=218 s="0 of 0" fg=65537 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=160 y=218 s="TEXT only" fg=65537 bg=0 -> 0
+FLAIR-DISPATCH app=SCRAPBK
+FLAIR-EVT what=3 where=20,97 msg=00001071
+TENANT-MENU menu=129 item=2 src=key
+TENANT-EVT what=81
+TENANT-GATE ax=0x0080 path="SCRAPBK.DAT" -> 5
+TENANT-GATE ax=0x0083 h=5 n=32848 -> 32848
+TENANT-GATE ax=0x0085 h=5 -> 0
+DA-SAVED SCRAPBK.DAT
+TENANT-GATE ax=0x0070 rc=0 -> 0
+TENANT-EXIT rc=0 via=exit
+TENANT-HEAPAVAIL n=3081184
+FLAIR-EVT what=4 where=20,97 msg=00001071
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=133 y=47
+FLAIR-CURSOR x=200 y=70
+FLAIR-EVT what=1 where=200,70 msg=00000000
+FLAIR-EVT what=2 where=200,70 msg=00000000
+FLAIR-DRAG win 0 (20,60)->(20,60)
+FLAIR-EVT what=3 where=200,70 msg=00001177
+FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=4
+FINDER-CLOSE-WINDOW win=0
+DESKTOP-DB-SAVE n=4
+FLAIR-EVT what=4 where=200,70 msg=00001177
+FLAIR-EVT what=3 where=200,70 msg=00001177
+FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=1
+FINDER-CLOSE-WINDOW win=1
+DESKTOP-DB-SAVE n=5
+FLAIR-EVT what=4 where=200,70 msg=00001177
+FLAIR-CURSOR x=40 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=75 y=8
+FLAIR-CURSOR x=225 y=24
+FLAIR-CURSOR x=375 y=40
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-ICON-SELECT name=INITECH count=1
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-OPEN-VOLUME win=0 n=6
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-ICON-SELECT name=INITECH count=1
+FLAIR-CURSOR x=440 y=0
+FLAIR-CURSOR x=280 y=0
+FLAIR-CURSOR x=120 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=512
+FLAIR-CURSOR x=142 y=90
+FLAIR-CURSOR x=142 y=213
+FLAIR-EVT what=2 where=142,213 msg=00000000
+FLAIR-MENU menu=512 item=0 (sel=0x00000000)
+FLAIR-CLOCK 12:56 pm
+FLAIR-CLOCK 12:57 pm
+FLAIR-CLOCK 12:58 pm
+FLAIR-CURSOR x=62 y=153
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=53 y=29
+FLAIR-EVT what=1 where=53,29 msg=00000000
+FLAIR-MENU-DROP menu=512
+FLAIR-CURSOR x=142 y=29
+FLAIR-MENU-XDROP menu=514
+FLAIR-CURSOR x=142 y=152
+FLAIR-CURSOR x=142 y=213
+FLAIR-EVT what=2 where=142,213 msg=00000000
+FLAIR-MENU menu=512 item=12 (sel=0x0202000C)
+FINDER-CMD id=10 name=ARRANGE_BY_NAME src=mouse sel=0
+FINDER-ARRANGE win=0 moved=4
+FLAIR-CURSOR x=0 y=33
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=30 y=70
+FLAIR-EVT what=1 where=30,70 msg=00000000
+FLAIR-CURSOR x=85 y=105
+FLAIR-EVT what=2 where=85,105 msg=00000000
+FLAIR-TRACKBOX win 0 part 6 in=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=141 y=28
+FLAIR-CURSOR x=282 y=56
+FLAIR-CURSOR x=352 y=70
+FLAIR-EVT what=1 where=352,70 msg=00000000
+FLAIR-EVT what=2 where=352,70 msg=00000000
+FLAIR-TRACKBOX win 0 part 7 in=1
+FLAIR-ZOOM win 0 in
+FLAIR-CURSOR x=112 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=152 y=12
+FLAIR-CURSOR x=305 y=25
+FLAIR-CURSOR x=534 y=44
+FLAIR-CURSOR x=610 y=50
+FLAIR-EVT what=1 where=610,50 msg=00000000
+FLAIR-EVT what=2 where=610,50 msg=00000000
+FLAIR-TRACKBOX win 0 part 8 in=1
+FLAIR-ZOOM win 0 out
+FLAIR-EVT what=3 where=610,50 msg=00001177
+FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=0
+FINDER-CLOSE-WINDOW win=0
+DESKTOP-DB-SAVE n=5
+FLAIR-EVT what=4 where=610,50 msg=00001177
+FLAIR-CURSOR x=450 y=0
+FLAIR-CURSOR x=210 y=0
+FLAIR-CURSOR x=50 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=150 y=16
+FLAIR-CURSOR x=300 y=32
+FLAIR-CURSOR x=450 y=48
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-ICON-SELECT name=INITECH count=1
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-OPEN-VOLUME win=0 n=6
+FLAIR-CURSOR x=360 y=0
+FLAIR-CURSOR x=200 y=0
+FLAIR-CURSOR x=40 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=148 y=108
+FLAIR-CURSOR x=295 y=215
+FLAIR-CURSOR x=369 y=269
+FLAIR-EVT what=1 where=369,269 msg=00000000
+FLAIR-CURSOR x=299 y=229
+FLAIR-CURSOR x=229 y=189
+FLAIR-EVT what=2 where=229,189 msg=00000000
+FLAIR-GROW win 0 (360,220)->(220,140)
+FLAIR-EVT what=3 where=229,189 msg=00001177
+FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=0
+FINDER-CLOSE-WINDOW win=0
+DESKTOP-DB-SAVE n=5
+FLAIR-EVT what=4 where=229,189 msg=00001177
+FLAIR-CURSOR x=69 y=69
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=75 y=8
+FLAIR-CURSOR x=225 y=24
+FLAIR-CURSOR x=375 y=40
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-ICON-SELECT name=INITECH count=1
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-OPEN-VOLUME win=0 n=6

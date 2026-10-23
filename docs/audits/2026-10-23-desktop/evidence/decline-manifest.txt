@@ -1,0 +1,2 @@
+cdc0d840b8c78452964e7fa834c1ba57b3f2cf8d2af363677f4ab4a957daa432  evidence/ctenant_decline.exe
+587c740e1d903a413d6c3b77109ee7324256243af63204ec6e52e83683959f92  images/declining-fixture.img

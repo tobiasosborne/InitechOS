@@ -1,0 +1,41 @@
+{
+  "commit": "e67b8311092873fe16e6c6d62ad82f894bfb8d7d",
+  "files": {
+    "images/flair_tenants_interactive.img": {
+      "bytes": 1507328,
+      "sha256": "9ba91b6f1c847ee8ff0891019265ba4e6d5bf7da94759a288832804029a2b0b3"
+    },
+    "images/flair_data.img": {
+      "bytes": 1474560,
+      "sha256": "346940a7f8d0f9ab009f605889c4cf8b0abb073610b0135884026e9e827a320f"
+    },
+    "images/flair_live_interactive.img": {
+      "bytes": 1507328,
+      "sha256": "79bba5b616141d5ecc70f4f640bdcb0d6a9fa888a035866d0a7cb66c68b8822c"
+    },
+    "images/tracer_boot.img": {
+      "bytes": 1507328,
+      "sha256": "ac5eb48e4d9b21124a568441550ad2415a7d7df908b27932ecd0bb947bd84c85"
+    },
+    "images/fat_data.img": {
+      "bytes": 1474560,
+      "sha256": "e9d439efff547f7f941c51ca6d72e6ad4f4dbdc3f2b2edbf675362c059e76a2b"
+    },
+    "images/samir_list.img": {
+      "bytes": 1474560,
+      "sha256": "30f54ac8033edaa0f760d467b2ea5156b8d0ff2955dbeee5a8bf366e60921dc8"
+    },
+    "images/edge-data.img": {
+      "bytes": 1474560,
+      "sha256": "f7f2ae1046da5846f6fe7f19f8b74ea770c7dbd239d3a1622c9561a5e26f1bfb"
+    },
+    "images/full-data.img": {
+      "bytes": 1474560,
+      "sha256": "2f42560bca4c59999c819e57b4dfeec334220c6ada8038f3b667c9108ec33415"
+    },
+    "images/declining-fixture.img": {
+      "bytes": 1474560,
+      "sha256": "587c740e1d903a413d6c3b77109ee7324256243af63204ec6e52e83683959f92"
+    }
+  }
+}

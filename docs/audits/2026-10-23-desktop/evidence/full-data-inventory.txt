@@ -1,0 +1,58 @@
+ Volume in drive : is INITECH    
+ Volume Serial Number is 494E-4954
+Directory for ::/
+
+README   TXT       169 1980-01-01   0:00 
+APPS         <DIR>     1980-01-01   0:00 
+DOS          <DIR>     1980-01-01   0:00 
+AUTOEXEC BAT        24 1980-01-01   0:00 
+FILL     BIN   1163776 2026-10-23  14:35 
+        5 files           1 163 969 bytes
+
+Directory for ::/APPS
+
+.            <DIR>     1980-01-01   0:00 
+..           <DIR>     1980-01-01   0:00 
+TENANTFX EXE      1028 1980-01-01   0:00 
+CTENANT  EXE      2028 1980-01-01   0:00 
+123      EXE     64892 1980-01-01   0:00 
+WORD     EXE     52472 1980-01-01   0:00 
+123      MNU     17746 1980-01-01   0:00 
+CALC     EXE     17944 1980-01-01   0:00 
+TEXT     EXE      9400 1980-01-01   0:00 
+PAINT    EXE      2736 1980-01-01   0:00 
+CALCULAT EXE      6396 1980-01-01   0:00 
+TPSREP   COM      7348 1980-01-01   0:00 
+TPSPARM  DAT        93 1980-01-01   0:00 
+TPS      DBF       940 1980-01-01   0:00 
+LEDGER   TXT       156 1980-01-01   0:00 
+MICHAEL  CFG       165 1980-01-01   0:00 
+NOTEPAD  EXE      8576 1980-01-01   0:00 
+SCRAPBK  EXE      6760 1980-01-01   0:00 
+CPANELS  EXE      7624 1980-01-01   0:00 
+       19 files             206 304 bytes
+
+Directory for ::/DOS
+
+.            <DIR>     1980-01-01   0:00 
+..           <DIR>     1980-01-01   0:00 
+CHKDSK   COM      8241 1980-01-01   0:00 
+ATTRIB   COM      2368 1980-01-01   0:00 
+LABEL    COM      1885 1980-01-01   0:00 
+XCOPY    COM      6052 1980-01-01   0:00 
+TREE     COM      6052 1980-01-01   0:00 
+EDLIN    COM      8209 1980-01-01   0:00 
+MORE     COM       163 1980-01-01   0:00 
+FIND     COM       985 1980-01-01   0:00 
+SORT     COM       623 1980-01-01   0:00 
+FDISK    COM      4385 1980-01-01   0:00 
+FORMAT   COM      9233 1980-01-01   0:00 
+SYS      COM      9233 1980-01-01   0:00 
+DISKCOPY COM      9233 1980-01-01   0:00 
+DISKCOMP COM      9233 1980-01-01   0:00 
+       16 files              75 895 bytes
+
+Total files listed:
+       40 files           1 446 168 bytes
+                                  0 bytes free
+

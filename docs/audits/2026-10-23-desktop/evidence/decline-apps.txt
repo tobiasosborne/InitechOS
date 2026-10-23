@@ -1,0 +1,27 @@
+ Volume in drive : is INITECH    
+ Volume Serial Number is 494E-4954
+Directory for ::/APPS
+
+.            <DIR>     1980-01-01   0:00 
+..           <DIR>     1980-01-01   0:00 
+TENANTFX EXE      1028 1980-01-01   0:00 
+CTENANT  EXE      1868 2026-10-23  14:42 
+123      EXE     64892 1980-01-01   0:00 
+WORD     EXE     52472 1980-01-01   0:00 
+123      MNU     17746 1980-01-01   0:00 
+CALC     EXE     17944 1980-01-01   0:00 
+TEXT     EXE      9400 1980-01-01   0:00 
+PAINT    EXE      2736 1980-01-01   0:00 
+CALCULAT EXE      6396 1980-01-01   0:00 
+TPSREP   COM      7348 1980-01-01   0:00 
+TPSPARM  DAT        93 1980-01-01   0:00 
+TPS      DBF       940 1980-01-01   0:00 
+LEDGER   TXT       156 1980-01-01   0:00 
+MICHAEL  CFG       165 1980-01-01   0:00 
+NOTEPAD  EXE      8576 1980-01-01   0:00 
+SCRAPBK  EXE      6760 1980-01-01   0:00 
+CPANELS  EXE      7624 1980-01-01   0:00 
+NEWFOLD      <DIR>     1980-00-00   0:00 
+       20 files             206 144 bytes
+                          1 162 240 bytes free
+

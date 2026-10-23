@@ -1,0 +1,15 @@
+{"utc": "2026-10-23T12:37:07.620445+00:00", "session": "base", "pid": 8, "exit_code": 0}
+{"utc": "2026-10-23T12:44:47.578169+00:00", "session": "edge01", "pid": 7, "exit_code": 0}
+{"utc": "2026-10-23T12:45:25.284992+00:00", "session": "full01", "pid": 19, "exit_code": 0}
+{"utc": "2026-10-23T12:46:24.810599+00:00", "session": "full02", "pid": 24, "exit_code": 0}
+{"utc": "2026-10-23T12:47:22.001383+00:00", "session": "decline", "pid": 29, "exit_code": 0}
+{"utc": "2026-10-23T12:51:18.589241+00:00", "session": "keys01", "pid": 34, "exit_code": 0}
+{"utc": "2026-10-23T12:58:48.187670+00:00", "session": "menus", "pid": 40, "exit_code": 0}
+{"utc": "2026-10-23T12:59:56.120736+00:00", "session": "trashmulti", "pid": 50, "exit_code": 0}
+{"utc": "2026-10-23T13:00:04.973164+00:00", "session": "trashresume", "pid": 55, "exit_code": 0}
+{"utc": "2026-10-23T13:01:39.303159+00:00", "session": "power", "pid": 60, "exit_code": 0}
+{"utc": "2026-10-23T13:03:24.349134+00:00", "session": "keyboard-repro", "pid": 7, "exit_code": 0}
+{"utc": "2026-10-23T13:12:15.606730+00:00", "session": "inputfinal", "pid": 7, "exit_code": 0}
+{"utc": "2026-10-23T13:19:19.707707+00:00", "session": "inputfinish", "pid": 8, "exit_code": 0}
+{"utc": "2026-10-23T13:19:28.623910+00:00", "session": "manytrash", "pid": 14, "exit_code": 0}
+{"utc": "2026-10-23T13:23:35.061266+00:00", "session": "directinputs", "pid": 7, "exit_code": 0}

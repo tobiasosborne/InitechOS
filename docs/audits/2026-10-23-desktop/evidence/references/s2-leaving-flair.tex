@@ -1,0 +1,152 @@
+% Session 2 -- Leaving FLAIR: Procedure TPS-P-01 (AN-15: "beginning with
+% leaving FLAIR, since the generator runs only from the InitechDOS prompt").
+% Law 1 sources: os/flair/finder_menu.c (Special menu: ... Restart, Shut
+% Down, Sleep, divider, Exit to InitechDOS, always enabled);
+% os/flair/finder_windows.c finder_exit_dos_alert_text ("Are you sure you
+% want to exit to InitechDOS?"); os/milton/kmain.c finder_exit_dos (buttons
+% Exit and Cancel; Cancel leaves the desktop; Exit asks open applications to
+% quit as Shut Down does, saves the desktop, re-initialises the console,
+% prints the banner of spec/dos_banner.txt and starts COMMAND.COM as the
+% permanent command processor on the data volume, drive A);
+% os/milton/command.c (EXIT is ignored by the permanent processor; DATE and
+% TIME prompts at startup without AUTOEXEC.BAT, initech-qskz; CLS; CD; DIR
+% /W).  The screens are the journey route (screens/SCREENS, flair).
+% GATES: test-flair-exit-to-dos test-flair-tps-journey test-pubs-screens test-pubs-tps
+\Gates{test-flair-exit-to-dos, test-flair-tps-journey, test-pubs-screens, test-pubs-tps}
+\chapter{Leaving FLAIR}
+
+\SideHead{Introduction}The TPS Report Generator runs only from the
+InitechDOS prompt.  Every run therefore begins at the FLAIR desktop with the
+exit to InitechDOS.  In this session you complete the pre-run checklist,
+leave the desktop, and make the directory that holds the program the
+current directory.
+
+\SideHead{Objectives}Upon completion of this session you will be able to:
+\begin{enumerate}
+\item Complete Checklist TPS-C-1.
+\item Choose \textbf{Exit to InitechDOS} from the \textbf{Special} menu and
+  confirm the exit.
+\item Answer the date and time prompts and clear the screen.
+\item Make \file{A:\bs APPS} the current directory and verify that the
+  program files are present.
+\end{enumerate}
+
+\IsThisGoodForTheCompany
+
+\section{Before the Run}
+\index{pre-run checklist}
+The pre-run checklist is completed at the desktop, before the exit.  Initial
+each item as it is completed.  Retain the completed checklist with
+\form{5}.
+
+\begin{Checklist}{TPS-C-1}{Pre-Run}
+\CheckItem{The current edition of this book is at the workstation.}
+\CheckItem{\form{1} (Rev.\ 10/89) through \form{5} are at hand.}
+\CheckItem{A copy of the memo about the new cover sheets is at hand, and its
+  number is noted.}
+\CheckItem{The report number for this run has been assigned and entered in
+  \form{2}, column 1.}
+\CheckItem{Work in every open application has been saved.}
+\CheckItem{If the report now kept as \file{TPSREPT.BAK} must be retained
+  longer, it has been copied as your supervisor directs.  The run deletes
+  it (\proc{07}).}
+\end{Checklist}
+
+\section{The Exit to InitechDOS}
+\index{Exit to InitechDOS}\index{Special menu}\index{FLAIR desktop, leaving}\index{date and time prompts}
+\textbf{Exit to InitechDOS} is the last item of the \textbf{Special} menu,
+in its own group below \textbf{Shut Down} and \textbf{Sleep}.  It is always
+available.  Choosing it displays the alert \texttt{Are you sure you want to
+exit to InitechDOS?} with two buttons, \textbf{Exit} and \textbf{Cancel}.
+
+Clicking \textbf{Cancel}, or pressing \key{Esc}, removes the alert; the
+desktop remains as it was.  Clicking \textbf{Exit} puts the desktop away as
+\textbf{Shut Down} does: each open application is asked to quit, and if one
+does not, the desktop remains.  The desktop is then saved, the screen
+returns to the text display, and InitechDOS starts on the data volume,
+drive A, with this banner:
+
+\ReportLines{../../../spec/dos_banner.txt}{1}{2}
+
+Because the data volume has no \file{AUTOEXEC.BAT}, InitechDOS asks for the
+date and the time.  Pressing \key{Enter} at each prompt keeps the date and
+the time shown.
+
+\begin{Procedure}{TPS-P-01}{To Leave FLAIR for the InitechDOS Prompt}
+\ProcField{Purpose}{To end the FLAIR session and make \file{A:\bs APPS} the
+  current directory at the InitechDOS prompt.}
+\ProcField{Frequency}{Each run of the TPS Report Generator.}
+\ProcField{Performed by}{The operator.}
+\ProcField{Prerequisites}{The FLAIR desktop is running with the shipped data
+  volume as drive A.  Checklist TPS-C-1 is complete.}
+\ProcField{Materials}{This book; Checklist TPS-C-1.}
+\begin{ProcSteps}
+\item Choose \textbf{Exit to InitechDOS} from the \textbf{Special} menu.
+  \Response{Are you sure you want to exit to InitechDOS?}
+\item Click \textbf{Exit}.  The desktop is put away and the InitechDOS
+  banner is displayed, followed by the date prompt.
+  \Response{Enter new date (mm-dd-yy):}
+\item Press \key{Enter}.  The time prompt is displayed.
+  \Response{Enter new time:}
+\item Press \key{Enter}.  The prompt \texttt{A:\bs>} is displayed.
+\item Type \type{CLS} and press \key{Enter}.  The screen is cleared and the
+  prompt is displayed at the top.
+\item Type \type{CD APPS}.  \key{Enter} \Slip{VO30-05}{is then pressed}.
+  \Response{A:\bs APPS>}
+\item Type \type{DIR TPS*.* /W} and press \key{Enter}.
+  \OpsShot[marks={1=TPSREP.COM;2=A:\Bsl APPS>DIR}, label=fig:tpsdir, caption={The
+  program files in \file{A:\bs APPS}.}]{tpsdir}
+\end{ProcSteps}
+\ProcField{Verification}{The listing names \file{TPSREP.COM},
+  \file{TPSPARM.DAT} and \file{TPS.DBF} (callout 1).  The prompt is
+  \texttt{A:\bs APPS>} (callout 2).}
+\ProcField{Records retained}{Checklist TPS-C-1, with \form{5}.}
+\ProcNote{If a file is missing from the listing, do not continue.  See your
+  supervisor.}
+\ProcNote{\cmd{EXIT} has no effect at this prompt.  The procedures in this
+  book end at the InitechDOS prompt.}
+\end{Procedure}
+
+\begin{CalloutLegend}
+\LegendRow{1}{File names}{The TPS Report Generator, its parameter record and
+  the TPS table.}
+\LegendRow{2}{Prompt}{The current directory is \file{A:\bs APPS}.  The
+  program is run from this prompt.}
+\end{CalloutLegend}
+
+\section{The Current Directory}
+\index{current directory}
+The program reads \Slip{VO30-06}{it's} parameter record and its table from the current
+directory.  If the current directory is \file{A:\bs}, InitechDOS does not
+find the program at all:
+
+\OpsShot[caption={The command typed before \proc{01}, step 6.}]{tpsroot}
+
+If the command is typed with the directory name, the program starts, but
+finds no parameter record in \file{A:\bs} and ends with return code 1:
+
+\OpsShot[fromtext={A:\Bsl>APPS}]{tps001}
+
+In both cases, type \type{CD APPS}, and run the program again from the
+prompt \texttt{A:\bs APPS>}.
+
+\section{Lab Project 1. Leaving FLAIR}
+During this project you leave the desktop and verify the program files.
+\begin{enumerate}
+\item Complete Checklist TPS-C-1 at the desktop.
+\item Carry out \proc{01}, steps 1 to 7.
+\item Compare your screen with Figure~\ref{fig:tpsdir}.  The listing
+  must name the same three files.
+\item Write the time at which you completed the procedure here:
+  \rule{30mm}{0.4pt}
+\end{enumerate}
+
+\section{Study Questions}
+\begin{enumerate}
+\item From which menu is \textbf{Exit to InitechDOS} chosen?
+\item What happens when you click \textbf{Cancel} in the alert?
+\item Why is \type{CD APPS} typed before the program is run?
+\item What does InitechDOS display if \type{TPSREP TPS.DBF} is typed at the
+  prompt \texttt{A:\bs>}?
+\item What is done if a program file is missing from the listing?
+\end{enumerate}

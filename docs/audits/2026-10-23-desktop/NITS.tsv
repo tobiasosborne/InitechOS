@@ -1,0 +1,10 @@
+id	area	severity	summary
+L001	Finder / full disk	P1	A full volume without an existing Trash cannot be freed from Finder
+L002	Finder / keyboard painting	P2	Keyboard selection changes internally while the old highlight remains on screen
+L003	Finder / keyboard scrolling	P2	Horizontal keyboard navigation can leave the selected icon entirely outside the viewport
+L004	Finder / application launch	P2	File > Open and Ctrl-O cannot launch a selected executable
+L005	Finder / inactive windows	P2	A double-click in an inactive Finder window only activates and selects
+L006	Trash / Put Away	P2	Put Away silently restores only one item from a multiple selection
+L007	Finder / error wording	P3	Opening unavailable Trash reports that an item could not be moved
+L008	Trash / command availability	P2	New Folder creates a fresh folder directly inside Trash
+L009	Shell / shipped manual	P3	Exit-to-DOS instructions promise date/time prompts that the shipped disk skips

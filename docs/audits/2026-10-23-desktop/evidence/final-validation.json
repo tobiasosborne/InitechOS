@@ -1,0 +1,251 @@
+{
+  "report_ascii": true,
+  "new_findings": 9,
+  "pngs_verified": 267,
+  "cited_paths_missing": [],
+  "sessions": {
+    "base": {
+      "qemu_pid": 8,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 18886,
+      "fsck_exit": 0
+    },
+    "decline": {
+      "qemu_pid": 29,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 6039,
+      "fsck_exit": 0
+    },
+    "directinputs": {
+      "qemu_pid": 7,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 32750,
+      "fsck_exit": 0
+    },
+    "edge01": {
+      "qemu_pid": 7,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 41411,
+      "fsck_exit": 0
+    },
+    "full01": {
+      "qemu_pid": 19,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 2626,
+      "fsck_exit": 0
+    },
+    "full02": {
+      "qemu_pid": 24,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 3242,
+      "fsck_exit": 0
+    },
+    "inputfinal": {
+      "qemu_pid": 7,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 8531,
+      "fsck_exit": 0
+    },
+    "inputfinish": {
+      "qemu_pid": 8,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 30769,
+      "fsck_exit": 0
+    },
+    "keyboard-repro": {
+      "qemu_pid": 7,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 3551,
+      "fsck_exit": 0
+    },
+    "keys01": {
+      "qemu_pid": 34,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 9400,
+      "fsck_exit": 0
+    },
+    "manytrash": {
+      "qemu_pid": 14,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 3868,
+      "fsck_exit": 0
+    },
+    "menus": {
+      "qemu_pid": 40,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 57471,
+      "fsck_exit": 0
+    },
+    "power": {
+      "qemu_pid": 60,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 9418,
+      "fsck_exit": 0
+    },
+    "trashmulti": {
+      "qemu_pid": 50,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 4226,
+      "fsck_exit": 0
+    },
+    "trashresume": {
+      "qemu_pid": 55,
+      "exit_code": 0,
+      "serial_bad_markers": [],
+      "serial_bytes": 4186,
+      "fsck_exit": 0
+    }
+  },
+  "high_level_action_counts": {
+    "base": {
+      "click": 22,
+      "drag": 1,
+      "key": 37,
+      "keyheld": 2,
+      "menu": 7,
+      "selectmenu": 0,
+      "shot": 40
+    },
+    "decline": {
+      "click": 4,
+      "drag": 0,
+      "key": 4,
+      "keyheld": 0,
+      "menu": 0,
+      "selectmenu": 4,
+      "shot": 7
+    },
+    "directinputs": {
+      "click": 6,
+      "drag": 0,
+      "key": 2,
+      "keyheld": 440,
+      "menu": 0,
+      "selectmenu": 33,
+      "shot": 19
+    },
+    "edge01": {
+      "click": 25,
+      "drag": 21,
+      "key": 185,
+      "keyheld": 4,
+      "menu": 0,
+      "selectmenu": 7,
+      "shot": 84
+    },
+    "full01": {
+      "click": 3,
+      "drag": 1,
+      "key": 6,
+      "keyheld": 0,
+      "menu": 0,
+      "selectmenu": 0,
+      "shot": 4
+    },
+    "full02": {
+      "click": 2,
+      "drag": 1,
+      "key": 6,
+      "keyheld": 0,
+      "menu": 0,
+      "selectmenu": 0,
+      "shot": 4
+    },
+    "inputfinal": {
+      "click": 8,
+      "drag": 3,
+      "key": 74,
+      "keyheld": 0,
+      "menu": 0,
+      "selectmenu": 0,
+      "shot": 8
+    },
+    "inputfinish": {
+      "click": 8,
+      "drag": 0,
+      "key": 219,
+      "keyheld": 0,
+      "menu": 0,
+      "selectmenu": 33,
+      "shot": 17
+    },
+    "keyboard-repro": {
+      "click": 4,
+      "drag": 3,
+      "key": 4,
+      "keyheld": 0,
+      "menu": 0,
+      "selectmenu": 0,
+      "shot": 5
+    },
+    "keys01": {
+      "click": 15,
+      "drag": 9,
+      "key": 13,
+      "keyheld": 2,
+      "menu": 0,
+      "selectmenu": 0,
+      "shot": 14
+    },
+    "manytrash": {
+      "click": 3,
+      "drag": 1,
+      "key": 1,
+      "keyheld": 0,
+      "menu": 0,
+      "selectmenu": 2,
+      "shot": 5
+    },
+    "menus": {
+      "click": 22,
+      "drag": 2,
+      "key": 19,
+      "keyheld": 0,
+      "menu": 0,
+      "selectmenu": 41,
+      "shot": 46
+    },
+    "power": {
+      "click": 9,
+      "drag": 0,
+      "key": 29,
+      "keyheld": 0,
+      "menu": 0,
+      "selectmenu": 3,
+      "shot": 6
+    },
+    "trashmulti": {
+      "click": 4,
+      "drag": 2,
+      "key": 4,
+      "keyheld": 0,
+      "menu": 0,
+      "selectmenu": 0,
+      "shot": 4
+    },
+    "trashresume": {
+      "click": 4,
+      "drag": 1,
+      "key": 5,
+      "keyheld": 0,
+      "menu": 0,
+      "selectmenu": 1,
+      "shot": 4
+    }
+  },
+  "report_sha256": "6ad782b95b9deeb3a8088fd0f1795d2926a3a32bb45ea35679fdaa2066cd963b"
+}

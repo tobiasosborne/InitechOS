@@ -1,0 +1,12 @@
+ Volume in drive : is INITECH    
+ Volume Serial Number is 494E-4954
+Directory for ::/
+
+README   TXT       169 1980-01-01   0:00 
+APPS         <DIR>     1980-01-01   0:00 
+DOS          <DIR>     1980-01-01   0:00 
+AUTOEXEC BAT        24 1980-01-01   0:00 
+FILL     BIN   1163776 2026-10-23  14:35 
+        5 files           1 163 969 bytes
+                                  0 bytes free
+
