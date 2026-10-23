@@ -111,6 +111,10 @@ extern int report_register(xb_interp *ip);   /* cmd/report.c (initech-airx) */
  * the same reason as the register fns -- no shared commands.h yet).
  */
 extern int proc_run(xb_interp *ip, const char *prg);
+/* cmd/proc.c (initech-39e5): a disk program run as DO level 1 (named, for the
+ * Esc trace), and the nested dot prompt behind the Esc prompt's "Suspend". */
+extern int proc_run_program(xb_interp *ip, const char *prg, const char *name);
+extern void proc_set_suspend(xb_interp *ip, int (*fn)(xb_interp *));
 
 /* Packed storage only; every decoded ordinal is independently compared with
  * spec/samir/dbase_msg_codes.tsv by test-samir-messages (PRD 6.6). */
@@ -573,7 +577,7 @@ static int repl_try_do_file(xb_interp *ip, const char *s, int *rc, int *ec)
     }
 
     xb_interp_ctx(ip)->dot_command=0;
-    *rc = proc_run(ip, prg);
+    *rc = proc_run_program(ip, prg, name);
     xb_interp_ctx(ip)->dot_command=1;
     return 1;
 }
@@ -629,18 +633,19 @@ static int repl_register_modules(xb_interp *ip)
  * full contract. Returns INTERP_OK on a clean exit (EOF / QUIT / EXIT), or a
  * negative interp_err if module registration failed before the loop began.
  */
-int samir_repl(samir_pal_t *pal, xb_interp *ip)
+/*
+ * repl_loop: the dot-prompt loop body shared by the session prompt and the
+ * nested prompt of a SUSPENDed program (Using III+ U5-273 SUSPEND/RESUME; the
+ * Esc prompt's "S", mint samirctl ESCS.TXT: "Suspend" / "Do suspended" / a
+ * dot prompt / RESUME continues the loop). Returns:
+ *   top level : INTERP_OK at EOF / QUIT / EXIT, or after a program QUIT.
+ *   nested    : INTERP_OK on RESUME; INTERP_RC_QUIT on QUIT / EOF;
+ *               INTERP_RC_CANCEL when a typed CANCEL unwinds the program.
+ */
+static int repl_loop(samir_pal_t *pal, xb_interp *ip, int nested)
 {
     char line[REPL_LINE_CAP];
     int rc;
-
-    if (!pal || !ip)
-        return -INTERP_ERR_NOMEM;
-
-    rc = repl_register_modules(ip);
-    if (rc != INTERP_OK)
-        return rc;
-    xb_interp_ctx(ip)->message = samir_message;   /* MESSAGE(), U6-54 */
 
     for (;;) {
         char *s;
@@ -651,7 +656,8 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
         repl_puts(pal, ". ");                 /* the dBASE dot prompt */
 
         n = pal->conin_line(pal, line, (uint32_t)REPL_LINE_CAP);
-        if (n < 0) break;                     /* EOF / keyboard error -> stop */
+        if (n < 0)                            /* EOF / keyboard error -> stop */
+            return nested ? INTERP_RC_QUIT : INTERP_OK;
         line[(uint32_t)n < (uint32_t)REPL_LINE_CAP ? (uint32_t)n : REPL_LINE_CAP - 1u] = '\0';
 
         s = repl_trim(line);
@@ -660,7 +666,15 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
         /* (1) REPL-terminating verbs. */
         if (repl_verb_eq(s, "QUIT", (const char **)0) ||
             repl_verb_eq(s, "EXIT", (const char **)0))
-            break;
+            return nested ? INTERP_RC_QUIT : INTERP_OK;
+
+        /* (2) RESUME continues a suspended program; with none suspended it
+         * is #101 "Not suspended." (Using III+ U5-273; DBASE.MSG). */
+        if (repl_verb_eq(s, "RESUME", (const char **)0)) {
+            if (nested) return INTERP_OK;
+            repl_render_error(pal, 101);
+            continue;
+        }
 
         /* (3) DO <name> off disk: a bare "DO <name>" at the dot prompt runs
          * <name>.PRG from the data disk (dBASE: DO a disk program). Tried BEFORE
@@ -674,6 +688,11 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
             if (repl_try_do_file(ip, s, &dofile_rc, &dofile_ec)) {
                 if (dofile_ec != 0) {
                     repl_render_error(pal, dofile_ec);   /* a load fault (#18/#43/#1) */
+                } else if (dofile_rc == INTERP_RC_QUIT) {
+                    /* QUIT in a program (Using III+ U5-168; audit L013). */
+                    return nested ? INTERP_RC_QUIT : INTERP_OK;
+                } else if (dofile_rc == INTERP_RC_CANCEL) {
+                    if (nested) return INTERP_RC_CANCEL;
                 } else if (dofile_rc != INTERP_OK) {
                     int code = samir_last_error(ip);
                     repl_mutation_error(pal, ip, code != 0 ? code : 16);
@@ -687,12 +706,43 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
          * and ON ERROR work at the dot prompt. proc_run sets samir_last_error and
          * fires an installed ON ERROR trap once on a runtime error. */
         rc = proc_run(ip, s);
+        if (rc == INTERP_RC_QUIT)
+            return nested ? INTERP_RC_QUIT : INTERP_OK;
+        if (rc == INTERP_RC_CANCEL) {
+            if (nested) return INTERP_RC_CANCEL;
+            continue;
+        }
         if (rc != INTERP_OK) {
             int code = samir_last_error(ip);
             repl_mutation_error(pal, ip, code != 0 ? code : 16);
             /* continue the loop -- a bad line never aborts the session. */
         }
     }
+}
+
+/* The Esc prompt's "Suspend" (proc.c proc_escape): a nested dot prompt with
+ * the program state intact; the program resumes as a program afterwards. */
+static int repl_suspend(xb_interp *ip)
+{
+    int rc = repl_loop(xb_interp_pal(ip), ip, 1);
+    xb_interp_ctx(ip)->dot_command = 0;
+    return rc;
+}
+
+int samir_repl(samir_pal_t *pal, xb_interp *ip)
+{
+    int rc;
+
+    if (!pal || !ip)
+        return -INTERP_ERR_NOMEM;
+
+    rc = repl_register_modules(ip);
+    if (rc != INTERP_OK)
+        return rc;
+    xb_interp_ctx(ip)->message = samir_message;   /* MESSAGE(), U6-54 */
+    proc_set_suspend(ip, repl_suspend);
+
+    (void)repl_loop(pal, ip, 0);
 
     xb_interp_ctx(ip)->set_status=0;
     set_close_alternate(ip);

@@ -558,6 +558,8 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
 
     /* SET SAFETY default = ON [verified: set-commands.md Sec 2]. */
     ss->safety = 1;
+    /* SET ESCAPE default = ON (Using III+ U5-220 "normally ON"). */
+    ss->escape = 1;
 
     /* GATED options: cleared. */
     for (i = 0; i < SET_GATED_TEXT_CAP; i++) {
@@ -713,6 +715,15 @@ static int set_cmd_hook(void *user, xb_interp *ip,
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
+    /* SET ESCAPE ON|OFF (Using III+ U5-220): OFF disables the Esc program
+     * interrupt and ON ESCAPE (U5-160). Before initech-39e5 it was #10. */
+    if (s_ci_eq(opt, "ESCAPE")) {
+        int on;
+        if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
+        ss->escape = on;
+        return CMD_OK;
+    }
+
     /*
      * SET NEAR: NOT a III+ option. Fail loud as an unrecognised SET sub-option.
      * [Ref: set-commands.md Sec 5 completeness: NEAR absent from HELP_topics.txt
@@ -824,6 +835,14 @@ int set_get_safety(xb_interp *ip)
     if (!ip) return 1;
     ss = set_state_for(ip, (int *)0);
     return ss ? ss->safety : 1;
+}
+
+int set_get_escape(xb_interp *ip)
+{
+    set_state *ss;
+    if (!ip) return 1;
+    ss = set_state_for(ip, (int *)0);
+    return ss ? ss->escape : 1;
 }
 
 const set_state *set_get_state(xb_interp *ip)

@@ -135,6 +135,21 @@ records are added to \file{INVOICE.DBF}:
 \SeeAlso{REPLACE, RECCOUNT(), DELETE, COPY FILE}
 \end{XbaseEntry}
 
+% CANCEL -- os/samir/cmd/proc.c "CANCEL" (INTERP_RC_CANCEL unwinds every DO
+% level to the dot prompt; Using III+ U5-43).  Gate: test-samir-ctl.
+\begin{XbaseEntry}{CANCEL}{command}
+Ends the program and returns to the dot prompt.
+\Syntax
+\SyntaxLine{\kw{CANCEL}}
+\Usage
+In a program, \cmd{CANCEL} stops the program at once, together with every
+program and procedure that called it, and the dot prompt returns.  Memory
+variables made \cmd{PUBLIC} remain.  Typed at the dot prompt, \cmd{CANCEL}
+does nothing, except while a program is suspended (see \cmd{RESUME}): then it
+ends the suspended program.
+\SeeAlso{QUIT, RESUME, RETURN, SET ESCAPE}
+\end{XbaseEntry}
+
 % CLEAR MEMORY -- os/samir/cmd/flow.c exec_command "CLEAR MEMORY"
 % (xb_interp_release_all: every memory variable, PUBLIC and PRIVATE, at any
 % level; Using III+ U5-51/PDF 163).  Lane samirdml 14a8fc75.  Gates:
@@ -335,8 +350,10 @@ refused with \xmsg{18}{Line exceeds maximum of 254 characters.}
 In a program, \cmd{DO} \xp{procedure} runs a procedure of the same program
 file: the lines that follow its \cmd{PROCEDURE} line, up to the next
 \cmd{RETURN}.  When the procedure returns, the program goes on with the line
-after the \cmd{DO}.  Procedures may call other procedures, and themselves, to a
-depth of 64.
+after the \cmd{DO}.  Procedures may call other procedures, and themselves.  At
+most 20 \cmd{DO} commands may be in progress at once, counting the program
+started at the dot prompt; the \cmd{DO} that would begin a twenty-first is
+refused with \xmsg{103}{DOs nested too deep.}
 
 \kw{WITH} passes the values of the expressions to the procedure, which
 receives them in the memory variables of its \cmd{PARAMETERS} line, in order.

@@ -67,6 +67,12 @@ static void    null_reset(samir_pal_t *p, void *mark)
 static int32_t null_exec(samir_pal_t *p, const char *cmdline)
 { (void)p; (void)cmdline; return -(int32_t)PAL_ENOENT; }  /* no COMMAND.COM */
 
+static int     null_conin_escape(samir_pal_t *p)
+{ (void)p; return 0; }                       /* no keyboard: Esc never pressed */
+
+static int     null_curdrive(samir_pal_t *p)
+{ (void)p; return -1; }                      /* no drive notion */
+
 /* The exported null vtable: every slot bound (the completeness proof). */
 samir_pal_t samir_pal_null = {
 	null_open,
@@ -88,5 +94,7 @@ samir_pal_t samir_pal_null = {
     null_reset,
     0,
     null_conin_line,
-    null_exec
+    null_exec,
+    null_conin_escape,
+    null_curdrive
 };
