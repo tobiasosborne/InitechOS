@@ -399,9 +399,9 @@ static int q_next_expr(const char **p, char *dst, uint32_t cap, int *ok)
 /*
  * A LIST/DISPLAY/LOCATE argument string is:
  *   [<scope>] [<expr list>] [FOR <cond>] [WHILE <cond>] [OFF]
- * We locate the top-level keywords FOR, WHILE, OFF (whole words, outside string
- * literals), split the string at them, and recover the scope + expr list from the
- * head. The clause keywords never appear inside a field/expr name as a whole word
+ * We locate top-level options and conditions (whole words, outside literals
+ * and parentheses), and recover the expression list between them. The clause
+ * keywords never appear inside a field/expr name as a whole word
  * at the top level in the corpus idioms, so whole-word top-level matching is safe.
  */
 
@@ -454,9 +454,9 @@ static uint32_t q_parse_uint(const char **s)
  * Returns 0 on success, non-zero on overflow (fail loud at the caller).
  *
  * Strategy: walk the string token by token at the top level (outside string
- * literals), recording the byte offsets of the first top-level FOR / WHILE / OFF
- * keywords. The head (before the earliest clause keyword) holds the optional
- * scope then the optional expression list.
+ * literals/parentheses), recording the first FOR / WHILE / OFF and scope.
+ * OFF and scope may precede or follow the expression list. Ref: real III+
+ * docs/research/mints/numlist-v1-2026-10-23 (LIST BAL OFF NEXT 2 at EOF).
  */
 static int q_split_clauses(const char *args, query_clauses *qc)
 {
@@ -468,10 +468,11 @@ static int q_split_clauses(const char *args, query_clauses *qc)
     leading_off = q_match_kw(s, "OFF");
     if (leading_off) s = q_skip_ws(s + leading_off);
 #endif
-    int in_s = 0, in_d = 0, in_b = 0;
+    int in_s = 0, in_d = 0, in_b = 0, depth = 0;
     const char *for_at = (const char *)0;
     const char *while_at = (const char *)0;
     const char *off_at = (const char *)0;
+    const char *scope_at = (const char *)0, *scope_end = (const char *)0;
     const char *p = s;
     char prev = ' ';
 
@@ -494,7 +495,15 @@ static int q_split_clauses(const char *args, query_clauses *qc)
         if (c == '\'') { in_s = 1; prev = c; p++; continue; }
         if (c == '"')  { in_d = 1; prev = c; p++; continue; }
         if (c == '[')  { in_b = 1; prev = c; p++; continue; }
-        if (q_isspace(prev)) {
+        if (c == '(') depth++;
+        else if (c == ')' && depth) depth--;
+        if (!depth && q_isspace(prev)) {
+            if (!scope_at && !for_at && !while_at &&
+#ifdef SAMIR_LIST_MUTATE_SCOPE
+                p == s &&
+#endif
+                (q_match_kw(p,"ALL") || q_match_kw(p,"REST") ||
+                 q_match_kw(p,"NEXT") || q_match_kw(p,"RECORD"))) scope_at=p;
             if (!for_at && q_match_kw(p, "FOR"))     for_at = p;
             if (!while_at && q_match_kw(p, "WHILE")) while_at = p;
             if (!off_at && q_match_kw(p, "OFF"))     off_at = p;
@@ -507,14 +516,33 @@ static int q_split_clauses(const char *args, query_clauses *qc)
     if (off_at)
         qc->off = 1;
 
-    /* the head is everything before the earliest of FOR / WHILE / OFF. */
+    if (scope_at) {
+        int sk;
+        if ((sk=q_match_kw(scope_at,"ALL"))>0) qc->scope_kind=QS_ALL;
+        else if ((sk=q_match_kw(scope_at,"REST"))>0) qc->scope_kind=QS_REST;
+        else if ((sk=q_match_kw(scope_at,"NEXT"))>0) qc->scope_kind=QS_NEXT;
+        else { sk=q_match_kw(scope_at,"RECORD");qc->scope_kind=QS_RECORD; }
+        scope_end=q_skip_ws(scope_at+sk);
+        if(qc->scope_kind==QS_NEXT || qc->scope_kind==QS_RECORD) {
+            qc->scope_n=q_parse_uint(&scope_end);scope_end=q_skip_ws(scope_end);
+        }
+    }
+
+    /* Consume prefix options before bounding the expression list. In
+     * LIST NEXT 1 OFF BAL * 2, NAME, OFF must not discard its tail. */
     {
+        const char *h = q_skip_ws(s);
         const char *head_end = (const char *)0;
-        const char *cands[3];
+        const char *cands[4];
         int i;
-        cands[0] = for_at; cands[1] = while_at; cands[2] = off_at;
-        for (i = 0; i < 3; i++) {
-            if (cands[i] && (!head_end || cands[i] < head_end))
+        if(h==scope_at) h=scope_end;
+#if !defined(SAMIR_LIST_MUTATE_OFF) && !defined(SAMIR_FNS_MUTANT_listoff)
+        if(h==off_at) h=q_skip_ws(h+3);
+#endif
+        if(h==scope_at) h=scope_end;
+        cands[0] = for_at; cands[1] = while_at; cands[2] = off_at; cands[3]=scope_at;
+        for (i = 0; i < 4; i++) {
+            if (cands[i] && cands[i]>=h && (!head_end || cands[i] < head_end))
                 head_end = cands[i];
         }
         if (!head_end) {
@@ -522,22 +550,8 @@ static int q_split_clauses(const char *args, query_clauses *qc)
             head_end = s + q_strlen(s);
         }
 
-        /* ---- parse the head: [<scope>] [<expr list>] ---- */
+        /* ---- copy the expression list ---- */
         {
-            const char *h = q_skip_ws(s);
-            int sk;
-            /* scope keywords */
-            if ((sk = q_match_kw(h, "ALL")) > 0) {
-                qc->scope_kind = QS_ALL; h = q_skip_ws(h + sk);
-            } else if ((sk = q_match_kw(h, "REST")) > 0) {
-                qc->scope_kind = QS_REST; h = q_skip_ws(h + sk);
-            } else if ((sk = q_match_kw(h, "NEXT")) > 0) {
-                qc->scope_kind = QS_NEXT; h = q_skip_ws(h + sk);
-                qc->scope_n = q_parse_uint(&h); h = q_skip_ws(h);
-            } else if ((sk = q_match_kw(h, "RECORD")) > 0) {
-                qc->scope_kind = QS_RECORD; h = q_skip_ws(h + sk);
-                qc->scope_n = q_parse_uint(&h); h = q_skip_ws(h);
-            }
             /* the remainder of the head (up to head_end) is the expr list. */
             {
                 uint32_t n = 0;
@@ -838,6 +852,11 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
             if (rc != NAV_OK) { if (ec) *ec = Q_MSG_NOT_INDEXED /*range*/; return -INTERP_ERR_SYNTAX; }
         }
         rc=q_render_heading(ip,area,qc,ec);if(rc) return rc;
+#ifndef SAMIR_LIST_MUTATE_EOF
+        /* Real numlist-v1 III+: DISPLAY at EOF emits no synthetic blank
+         * record (not even a zero numeric field with SET HEADING OFF). */
+        if(wa_eof(env,area)) { if(ec) *ec=0;return INTERP_OK; }
+#endif
         /* WHILE on a single record: if .F., skip; FOR: if .F., skip. */
         if (qc->has_while) {
             int t = 0;

@@ -33335,23 +33335,31 @@ include harness/diff/fat_diff/block_device.mk
 include harness/diff/fat_diff/fdisk.mk
 # initech-31d1: byte-exact LIST/DISPLAY layout vs REAL mint 005 tables.
 # Same complete M005U/M005N replay as test-samir-use; no whitespace squeezing.
-SAMIR_LIST_LAYOUT_MUTS := $(addprefix $(BUILD)/test_samir_list_layout_,COLUMNS HEADING OPENING)
+SAMIR_LIST_LAYOUT_MUTS := $(addprefix $(BUILD)/test_samir_list_layout_,COLUMNS HEADING OPENING OFF SCOPE EOF)
 $(SAMIR_LIST_LAYOUT_MUTS): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEST_AUDIT_USE -DSAMIR_LIST_MUTATE_$(patsubst test_samir_list_layout_%,%,$(notdir $@)) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
 .PHONY: test-samir-list-layout test-samir-list-layout-mutant
+# initech-tnvc: lane ioke's numlist EOF capture plus SF-exprcol's OFF projection.
+# These real III+ bytes are immutable inputs; this gate never mints a golden.
+.PHONY: samir-list-off-goldens
+samir-list-off-goldens:
+	@sha256sum -c $(DBF_DIFF_DIR)/list_off_real.sha256
+samir-use-goldens: samir-list-off-goldens
 test-samir-list-layout: $(TEST_SAMIR_USE) samir-use-goldens
 	@mkdir -p $(BUILD)/samir.audit $(BUILD)/samir-audit
 	@$(TEST_SAMIR_USE) $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-list-layout-host.log 2>&1 || { cat $(BUILD)/samir-list-layout-host.log; exit 1; }
 	@tail -1 $(BUILD)/samir-list-layout-host.log
-	@printf '>>> test-samir-list-layout: green (M005U/M005N spaces and program-opening CR LF graded)\n'
+	@printf '>>> test-samir-list-layout: green (M005U/M005N bytes; OFF/scope order and numlist EOF capture)\n'
 test-samir-list-layout-mutant: $(SAMIR_LIST_LAYOUT_MUTS) samir-use-goldens
 	@mkdir -p $(BUILD)/samir.audit $(BUILD)/samir-audit
-	@set -e; for kind in COLUMNS HEADING OPENING; do \
-	  if $(BUILD)/test_samir_list_layout_$$kind $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-list-layout-mut-$$kind.log 2>&1; then echo '!!! LIST layout mutant passed'; exit 1; fi; \
+	@set -e; for kind in COLUMNS HEADING OPENING OFF SCOPE EOF; do \
+	  case $$kind in OFF) reason='LIST NEXT 1 OFF BAL * 2, NAME';; SCOPE|EOF) reason='tnvc numlist real-dBASE golden';; *) reason='M005U real-dBASE golden';; esac; \
+	  rc=0; $(BUILD)/test_samir_list_layout_$$kind $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-list-layout-mut-$$kind.log 2>&1 || rc=$$?; \
+	  test $$rc -eq 1 || { cat $(BUILD)/samir-list-layout-mut-$$kind.log; echo '!!! LIST layout mutant did not fail cleanly'; exit 1; }; \
 	  grep -q 'checks,.*failures' $(BUILD)/samir-list-layout-mut-$$kind.log; \
-	  grep -q 'FAIL .*M005U real-dBASE golden' $(BUILD)/samir-list-layout-mut-$$kind.log; \
+	  grep 'FAIL ' $(BUILD)/samir-list-layout-mut-$$kind.log | grep -Fq "$$reason"; \
 	  printf '>>> test-samir-list-layout-mutant: %s correctly RED: ' "$$kind"; \
-	  grep -m1 'FAIL .*M005U real-dBASE golden' $(BUILD)/samir-list-layout-mut-$$kind.log; \
+	  grep 'FAIL ' $(BUILD)/samir-list-layout-mut-$$kind.log | grep -Fm1 "$$reason"; \
 	done
 	@printf '>>> test-samir-list-layout-mutant: green\n'
 TEST_UNIT_GATES += test-samir-list-layout test-samir-list-layout-mutant

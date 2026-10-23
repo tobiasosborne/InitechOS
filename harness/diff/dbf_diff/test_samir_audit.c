@@ -318,6 +318,81 @@ static void m005_replay(const char *corpus,const char *prg,const char *log,
     }
     CHECK(strcmp(m005_norm,want)==0,why);
 }
+
+/* initech-tnvc: the lane ioke III+ capture is the EOF/parse-order oracle.
+ * Preserve every byte between its markers. The OFF expression cases project
+ * SF-exprcol's real table by removing ONLY its 8-byte record-number column
+ * (Using III+ U5-144); the remaining deletion-column space stays intact.
+ * No expected field, expression value, width or padding comes from SAMIR. */
+static void list_read(const char *path,char *buf,size_t cap)
+{
+    FILE *f=fopen(path,"rb");size_t n=0;
+    CHECK(f!=NULL,"LIST independent reference opened");
+    if(f) { n=fread(buf,1,cap-1,f);CHECK(!ferror(f) && feof(f),"LIST reference fits buffer");fclose(f); }
+    buf[n]=0;
+}
+static void list_program(samir_pal_t *pal,const char *prg,const char *want,
+                         const char *begin,const char *end,const char *why)
+{
+    FILE *f=fopen("OFFTEST.PRG","wb");xb_interp *ip;
+    const char *p,*q;size_t n=strlen(want);
+    CHECK(f!=NULL,"LIST replay program opened");
+    if(!f) return;
+    CHECK(fwrite(prg,1,strlen(prg),f)==strlen(prg) && fclose(f)==0,"LIST replay program written");
+    ip=xb_interp_make(pal);CHECK(ip!=NULL,"LIST replay interpreter constructed");
+    if(!ip) return;
+    cap_clear();script_reset();script_push("DO OFFTEST");script_push("QUIT");
+    CHECK(samir_repl(pal,ip)==0,"LIST replay returns cleanly");
+    p=strstr(g_cap.buf,begin);if(p) p+=strlen(begin);
+    q=p?strstr(p,end):NULL;
+    if(!p || !q || (size_t)(q-p)!=n || memcmp(p,want,n)) {
+        size_t j=0;if(p && q) while(j<n && p+j<q && p[j]==want[j]) j++;
+        fprintf(stderr,"%s differs at byte %lu\n",why,(unsigned long)j);
+    }
+    CHECK(p && q && (size_t)(q-p)==n && !memcmp(p,want,n),why);
+    xb_interp_free(ip);
+}
+static void list_off_replay(samir_pal_t *pal)
+{
+    char cwd[1024],prg[8192],gold[8192],want[2048],exprgold[8192],script[1024];
+    const char *p,*q;size_t n=0;unsigned i;
+    static const char *const commands[]={
+        "LIST NEXT 1 OFF BAL * 2, NAME", "LIST BAL * 2, NAME OFF NEXT 1",
+        "LIST OFF NEXT 1 BAL * 2, NAME", "LIST NEXT 1 BAL * 2, NAME OFF",
+        "DISPLAY NEXT 1 OFF BAL * 2, NAME", "DISPLAY BAL * 2, NAME OFF NEXT 1",
+        "DISPLAY OFF NEXT 1 BAL * 2, NAME", "DISPLAY NEXT 1 BAL * 2, NAME OFF",
+        "LIST NEXT 1 OFF BAL * 2, NAME FOR BAL > 0 WHILE BAL > 0"
+    };
+    list_read("docs/research/mints/numlist-v1-2026-10-23/FNSTEST.PRG",prg,sizeof prg);
+    list_read("docs/research/mints/numlist-v1-2026-10-23/GOLD.OUT",gold,sizeof gold);
+    list_read("harness/diff/dbf_diff/xbase_prog_diff/fns-mint/exprcol/GOLD.OUT",exprgold,sizeof exprgold);
+    p=strstr(gold,"[FNS-BEGIN]");q=p?strstr(p,"[FNS-END]"):NULL;
+    CHECK(p && q && q-p>=11 && (size_t)(q-p-11)<sizeof want,"real numlist transcript markers bounded");
+    if(!p || !q || q-p<11 || (size_t)(q-p-11)>=sizeof want) return;
+    memcpy(want,p+11,(size_t)(q-p-11));want[q-p-11]=0;
+    mkdir("build/samir.audit/listoff",0777);
+    CHECK(reference_copy("build/CLIENTS.DBF","build/samir.audit/listoff/BASE.DBF"),"same three-row fixture as real numlist mint");
+    if(!getcwd(cwd,sizeof cwd) || chdir("build/samir.audit/listoff")) { CHECK(0,"LIST replay directory entered");return; }
+    list_program(pal,prg,want,"[FNS-BEGIN]","[FNS-END]","tnvc numlist real-dBASE golden (scope/EOF)");
+    p=strstr(exprgold,"\r\nRecord#     BAL * 2 NAME\r\n");
+    q=p?strstr(p+2,"\r\n\r\n"):NULL;
+    CHECK(p && q,"SF-exprcol real expression table found");
+    if(p && q) {
+        want[n++]='\r';want[n++]='\n';p+=2;
+        while(p<q) {
+            const char *e=strstr(p,"\r\n");
+            if(!e || e-p<9 || (size_t)(e-p)>=sizeof want-n) { CHECK(0,"real OFF projection bounded");break; }
+            memcpy(want+n,p+8,(size_t)(e-p-8));n+=(size_t)(e-p-8);
+            want[n++]='\r';want[n++]='\n';p=e+2;
+        }
+        want[n]=0;
+        for(i=0;i<sizeof commands/sizeof commands[0];i++) {
+            snprintf(script,sizeof script,"USE BASE\r\n?? '[OFF-BEGIN]'\r\n%s\r\n?? '[OFF-END]'\r\nRETURN\r\n",commands[i]);
+            list_program(pal,script,want,"[OFF-BEGIN]","[OFF-END]",commands[i]);
+        }
+    }
+    CHECK(chdir(cwd)==0,"LIST replay directory left");
+}
 #endif
 static void run(samir_pal_t *pal, const char **lines, int n, const char *expected,
                 const char *why)
@@ -372,6 +447,7 @@ int main(int argc,char **argv)
     pal=cap_pal_make(host);
     undefined_variable(pal);
 #ifdef TEST_AUDIT_USE
+    list_off_replay(pal);
     {
         const char *s[]={"use build/samir.audit/CLIENTS","list"};
         RUN(s,"PESTON","K09 short USE defaults to .DBF");
