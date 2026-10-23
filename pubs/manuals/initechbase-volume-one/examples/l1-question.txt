@@ -4,4 +4,4 @@
 
 MILTON     WADDAMS       . ? SALARY / 12
 
-      1645.83
+   1645.83

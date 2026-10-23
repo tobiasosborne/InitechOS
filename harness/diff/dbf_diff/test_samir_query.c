@@ -266,8 +266,11 @@ static void test_logical_echo(samir_pal_t *pal)
      * column would read "100 .T." / "200 .F.", so "100 T"/"200 F" (space then a
      * bare letter) is present iff the column is bare. This leg is the regression
      * guard that the ?-dotting fix does NOT leak into LIST columns. */
-    CHECK(cap_has("100 T"), "logic: LIST rec1 OK column is bare T [corpus L.689]");
-    CHECK(cap_has("200 F"), "logic: LIST rec2 OK column is bare F [corpus L.689]");
+    /* initech-ioke: the spec's L.689 "bare T/F" reading is overruled by the
+     * real III+ PROG-query capture (xbase_prog_diff/golden/query.out,
+     * prog-real.sha256): LIST prints a Logical cell DOTTED, "100 .T.". */
+    CHECK(cap_has("100 .T."), "logic: LIST rec1 OK column is dotted .T. [real golden/query.out]");
+    CHECK(cap_has("200 .F."), "logic: LIST rec2 OK column is dotted .F. [real golden/query.out]");
 
     xb_interp_free(ip);
     remove(path);
@@ -372,10 +375,11 @@ static void test_locate_record(samir_pal_t *pal)
      * rec3 -> FOUND .T., RECNO 3). Hand-reasoned from the single-record scope
      * rule; independent of q_locate's internals. */
     CHECK(cap_has("\n.F."), "locR: LOCATE RECORD 2 FOR AMT=99 -> FOUND() .F. [single-rec scope]");
-    CHECK(cap_has("\n2"),   "locR: cursor STAYS at rec 2 on the miss (RECNO 2)");
+    /* ? RECNO() is a 10-wide numeric (real query.out "         2"). */
+    CHECK(cap_has("\n         2"),   "locR: cursor STAYS at rec 2 on the miss (RECNO 2)");
     /* Positive control (guard both pre/post): RECORD 3 is a genuine hit. */
     CHECK(cap_has("\n.T."), "locR: LOCATE RECORD 3 FOR AMT=99 -> FOUND() .T.");
-    CHECK(cap_has("\n3"),   "locR: the RECORD 3 hit lands on rec 3 (RECNO 3)");
+    CHECK(cap_has("\n         3"),   "locR: the RECORD 3 hit lands on rec 3 (RECNO 3)");
 
     xb_interp_free(ip);
     remove(path);
@@ -442,7 +446,7 @@ static void test_locate_next(samir_pal_t *pal)
     script_push("QUIT");
     CHECK(samir_repl(pal, ip) == INTERP_OK, "locN: samir_repl clean exit (B)");
     CHECK(cap_has("\n.T."), "locN: LOCATE NEXT 60 FOR AMT=777 -> FOUND() .T. (rec50 in window)");
-    CHECK(cap_has("\n50"),  "locN: the NEXT 60 hit lands on rec 50 (RECNO 50)");
+    CHECK(cap_has("\n        50"),  "locN: the NEXT 60 hit lands on rec 50 (RECNO 50)");
     xb_interp_free(ip);
 
     remove(path);

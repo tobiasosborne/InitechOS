@@ -121,10 +121,13 @@ int main(int argc,char **argv)
     }else if(undefined){
         CHECK_STR_EQ(between(". ? nosuchvar\n",". store 7"),
                      "12  Variable not found.\n","kdna exact guest dot-prompt error transcript");
+        /* initech-ioke: a numeric memvar prints 10 wide in real III+ 1.1
+         * (fns-mint/memwidth: STORE 7 TO COUNTER, ? COUNTER -> "         7";
+         * fns-mint/errors: ERROR() -> "        10"). */
         CHECK_STR_EQ(between(". ? present\n",". on error store"),
-                     "\n7","kdna guest bound variable still resolves");
+                     "\n         7","kdna guest bound variable still resolves");
         CHECK_STR_EQ(between(". ? seen\n",". quit"),
-                     "\n12","kdna guest ON ERROR / ERROR() sees 12");
+                     "\n        12","kdna guest ON ERROR / ERROR() sees 12");
         CHECK(!strstr(serial,"Internal error."),"kdna guest trap keeps catalog error");
         CHECK(!strstr(serial,"Unrecognized command verb."),"kdna guest handler preserves original error");
     }else{

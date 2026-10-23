@@ -1,0 +1,13 @@
+? "[FNS-BEGIN]"
+USE BASE
+LIST NEXT 2 NAME, BAL / (52 + 0 + 0)
+GO TOP
+DISPLAY BAL / (52 + 0 + 0), NAME
+LIST NEXT 1 BAL * 2, NAME
+? INT(10/3)
+? INT(41250/1000)
+? INT((CTOD("07/24/86") - CTOD("01/01/80")) / 365)
+? INT(3.99), INT(-3.7), INT(41250/1000)
+? 7 / 2, 2 ** 3, 2 ^ 10, 1 + 2 * 3, (1 + 2) * 3
+? "[FNS-END]"
+RETURN

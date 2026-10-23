@@ -73,6 +73,7 @@ test-samir-memwidth: test-dbase-diff test-samir-dml-macro test-samir-repl samir-
 	@$(SAMIR_FNS_TEST) memwidth host
 	@printf '>>> test-samir-memwidth: green (PROG-04/05, DML-02 numeric memvar columns)\n'
 test-samir-memwidth-mutant: test-samir-memwidth $(BUILD)/prog_diff_memwidth_mutant
+	@mkdir -p $(BUILD)/samir-size
 	@set +e; $(BUILD)/prog_diff_memwidth_mutant $(DBASE3_DECOMP) $(PROG_DIFF_DIR) > $(BUILD)/samir-size/memwidth-red.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q '^FAIL: flow: stdout matches real III+ golden' $(BUILD)/samir-size/memwidth-red.log || { cat $(BUILD)/samir-size/memwidth-red.log; exit 1; }; \
 	 printf 'SAMIR_SIZE_MUTATE_MEMVAR_WIDTH RED: '; grep -m1 '^FAIL:' $(BUILD)/samir-size/memwidth-red.log

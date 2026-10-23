@@ -494,18 +494,23 @@ int main(int argc,char **argv)
         /* Re-keyed 2026-10-15 (initech-1y0h/r3pa): numeric cells render
          * right-aligned in their N(w,d) width (Using III+ U5-144), so BAL
          * N(8,2) prints " 1234.50". */
-        RUN(s," 1234.50\r\n 7777.77\r\n","K05 LIST excludes negative balance");
+        /* initech-ioke: real III+ LIST OFF keeps the deletion-flag column, so
+         * each N(8,2) cell follows one blank (fns-mint/listoff; a dosbox-x
+         * capture of this exact "list bal off" over CLIENTS.DBF printed
+         * "  1234.50"). ? RECNO() below is the 10-wide numeric of the real
+         * PROG-query golden/query.out ("         2"). */
+        RUN(s,"  1234.50\r\n  7777.77\r\n","K05 LIST excludes negative balance");
         CHECK(!cap_has("-42"),"K05 hidden row absent");
     }
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","set filter to bal < 0","go top","? recno()","skip","? eof()","skip -1","? recno()","set filter to","go top","? recno()"};
-        RUN(s,"\n2.","K05 GO TOP reaches passing physical record");
+        RUN(s,"\n         2.","K05 GO TOP reaches passing physical record");
         CHECK(cap_has(".T."),"K05 filtered EOF");
-        CHECK(cap_has("\n1."),"K05 clearing restores records");
+        CHECK(cap_has("\n         1."),"K05 clearing restores records");
     }
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","set filter to bal > 0","locate for .t.","? recno()","continue","? recno()"};
-        RUN(s,"\n3.","K05 CONTINUE skips excluded row");
+        RUN(s,"\n         3.","K05 CONTINUE skips excluded row");
     }
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","set filter to .f.","go top","? eof()","list"};
@@ -526,8 +531,8 @@ int main(int argc,char **argv)
         if(in)fclose(in);
         if(out)fclose(out);
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","set filter to bal > 0","select 2","use build/samir.audit/OTHER.DBF alias other","set filter to bal < 0","go top","? recno()","select 1","go bottom","? recno()"};
-        RUN(s,"\n3.","K05 filter survives area switch");
-        CHECK(cap_has("\n2."),"K05 second area has separate filter");
+        RUN(s,"\n         3.","K05 filter survives area switch");
+        CHECK(cap_has("\n         2."),"K05 second area has separate filter");
     }
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","go 2","delete","display","list","set deleted on","list off name","go 2","display","set deleted off","recall","display"};
@@ -541,7 +546,7 @@ int main(int argc,char **argv)
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","go 2","delete","set deleted on","set filter to bal < 0","go top","? eof()","set deleted off","go top","? recno()"};
         RUN(s,".T.","K06 deleted and filter compose");
-        CHECK(cap_has("\n2."),"K06 OFF restores deleted record");
+        CHECK(cap_has("\n         2."),"K06 OFF restores deleted record");
     }
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","set filter to bal > 0","replace all city with 'VISIBLE'","set filter to","go 2","display off city"};
@@ -549,13 +554,13 @@ int main(int argc,char **argv)
     }
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","go 2","delete","set deleted on","go top","skip","? recno()","go 2","list next 1 off name"};
-        RUN(s,"\n3.","K06 SKIP excludes deleted record");
+        RUN(s,"\n         3.","K06 SKIP excludes deleted record");
         CHECK(cap_has("WADDAMS"),"K06 NEXT scope includes deleted (U5-215)");
     }
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF index build/samir.audit/NAMES.NDX","set filter to bal > 0","go top","? recno()","skip","? recno()","skip","? eof()","skip -1","? recno()","go 3","skip","? recno()"};
-        RUN(s,"\n3.","K05 indexed TOP follows NAME order");
-        CHECK(cap_has("\n1."),"K05 indexed SKIP bypasses excluded record");
+        RUN(s,"\n         3.","K05 indexed TOP follows NAME order");
+        CHECK(cap_has("\n         1."),"K05 indexed SKIP bypasses excluded record");
         CHECK(cap_has(".T."),"K05 indexed filtered EOF");
     }
     {
@@ -582,12 +587,12 @@ int main(int argc,char **argv)
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF index build/samir.audit/NAMES.NDX","set filter to bal < 0","seek 'MATCH'","? found(),recno()"};
         duplicate_names=1;
-        RUN(s,".T. 2.","K05 SEEK skips excluded first duplicate and finds visible second");
+        RUN(s,".T.          2.","K05 SEEK skips excluded first duplicate and finds visible second");
         duplicate_names=0;
     }
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","set filter to bal > 0","use build/samir.audit/CLIENTS.DBF","go top","skip","? recno()"};
-        RUN(s,"\n2.","K05 reopening table clears previous filter");
+        RUN(s,"\n         2.","K05 reopening table clears previous filter");
     }
     {
         const char *on[]={"use build/samir.audit/CLIENTS.DBF","set deleted on","go top"};
@@ -604,11 +609,11 @@ int main(int argc,char **argv)
      * Exact filtered BOF cursor clamp is authored, no local reference golden. */
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","set filter to bal < 0","go top","skip -1","? bof(),eof(),recno()"};
-        RUN(s,".T. .F. 2.","K05 backward boundary stays at first visible record, BOF without EOF");
+        RUN(s,".T. .F.          2.","K05 backward boundary stays at first visible record, BOF without EOF");
     }
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF index build/samir.audit/NAMES.NDX","set filter to bal < 0","go top","skip -1","? bof(),eof(),recno()"};
-        RUN(s,".T. .F. 2.","K05 indexed backward boundary is the filtered first record");
+        RUN(s,".T. .F.          2.","K05 indexed backward boundary is the filtered first record");
     }
 #endif
     pal_host_free(host);

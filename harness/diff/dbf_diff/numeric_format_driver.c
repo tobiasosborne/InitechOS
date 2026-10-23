@@ -1,5 +1,5 @@
 /* Descriptor display differential. Expected bytes come only from Python.
- * Ref: Using III+ U5-144/PDF 256; manual-derived, no local LIST golden. */
+ * Ref: Using III+ U5-144/PDF 256 (cells); line framing: real SF-numlist. */
 #include <stdio.h>
 #include <stdint.h>
 #include "samir/interp.h"

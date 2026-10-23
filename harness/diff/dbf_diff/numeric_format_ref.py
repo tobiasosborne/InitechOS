@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 """Independent LIST field oracle, Using III+ U5-144 (PDF 256).
-Manual-derived, no captured LIST golden in the local corpus. Raw DBFs are
-written with struct, never SAMIR's writer. Decimal is independent of dec_format.
+Manual-derived cell rule. Raw DBFs are written with struct, never SAMIR's
+writer. Decimal is independent of dec_format. Line framing (initech-ioke) is
+the real III+ 1.1 capture xbase_prog_diff/fns-mint/numlist/GOLD.OUT (and
+fns-mint/listoff): LIST/DISPLAY OFF keep the one-column deletion field, so
+each record line opens with one blank before the first cell.
 """
+# Real SF-numlist: "LIST OFF BAL" -> "  1234.50" for N(8,2); "DISPLAY OFF" ->
+# " PESTON     HONOLULU      1234.50" (one deletion-field blank, then cells).
+DELETION_FIELD = ' '
+
 import decimal
 import pathlib
 import random
@@ -57,9 +64,9 @@ def main():
             path = root / 'CASE.DBF'
             path.write_bytes(header + descriptor + b'\r' + b''.join(b' ' + c.encode('ascii') for c in cells) + b'\x1a')
             result = subprocess.run([binary, str(path)], capture_output=True, text=True)
-            expected = ''.join(c + '\n' for c in cells)
+            expected = ''.join(DELETION_FIELD + c + '\n' for c in cells)
             # LIST, explicit-field LIST, DISPLAY ALL, and current DISPLAY.
-            expected = expected * 3 + cells[0] + '\n'
+            expected = expected * 3 + DELETION_FIELD + cells[0] + '\n'
             checks += len(cells) * 3 + 1
             if result.returncode or result.stdout != expected:
                 print(f'FAIL: N({width},{places}) descriptor differential', file=sys.stderr)
@@ -82,13 +89,13 @@ def main():
     path = root / 'WIDE.DBF'
     path.write_bytes(header + fields + b'\r ' + ''.join(cells).encode('ascii') + b'\x1a')
     result = subprocess.run([binary, str(path), 'wide'], capture_output=True, text=True)
-    expected = (' '.join(cells) + '\n') * 3
+    expected = (DELETION_FIELD + ' '.join(cells) + '\n') * 3
     checks += len(cells) * 3
     if result.returncode or result.stdout != expected:
         print('FAIL: wide-record descriptor differential', file=sys.stderr)
         print(f'test-samir-numeric-format: {checks} checks, FAIL')
         return 1
-    print(f'test-samir-numeric-format: {checks} cells PASS (manual-derived, no LIST golden)')
+    print(f'test-samir-numeric-format: {checks} cells PASS (manual-derived cells, real SF-numlist framing)')
     return 0
 
 

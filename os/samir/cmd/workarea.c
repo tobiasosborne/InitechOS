@@ -1498,6 +1498,11 @@ int xb_interp_console_visible(xb_interp *ip)
 }
 void xb_interp_output(xb_interp *ip,const char *s,uint32_t n)
 {
+#ifdef SAMIR_FNS_MUTANT_console
+    /* SF-console bite: CONSOLE OFF wrongly silences ALTERNATE too; the real
+     * III+ capture keeps "HIDDEN" in the alternate file (fns-mint/console). */
+    if(!xb_interp_console_visible(ip)) return;
+#endif
     if(ip && ip->ctx.mirror_output && n)
         ip->ctx.mirror_output(ip->ctx.mirror_user,s,n);
 #ifndef SAMIR_MUTATE_CONSOLE

@@ -1,0 +1,32 @@
+
+[FNS-BEGIN]
+      BAL
+  1234.50
+   -42.00
+  7777.77
+
+      BAL
+  1234.50
+
+ NAME       CITY              BAL
+ PESTON     HONOLULU      1234.50
+
+Record#       BAL
+      2    -42.00
+
+      bal
+  1234.50
+   -42.00
+  7777.77
+
+ PESTON     HONOLULU      1234.50
+ WADDAMS    AUSTIN         -42.00
+ LUMBERGH   DALLAS        7777.77
+
+  1234.50
+   -42.00
+  7777.77
+
+ PESTON     HONOLULU      1234.50
+
+[FNS-END]
