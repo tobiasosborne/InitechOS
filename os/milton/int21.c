@@ -223,8 +223,8 @@ static const int21_file_backend_t *g_file = 0;
  * includes fat12.h/blockdev.h or references the volume (Law 3). g_absdisk_bound
  * gates it: with NO seam bound INT 25h/26h fail loud (CF=1), never fault. The
  * copy keeps the seam alive independent of the caller's struct lifetime. */
-/* q45q: one seam per DEC-18 letter AL (0=A:, 2=C:, 3=D:; B is never bound).
- * spec/absdisk_int2526.json "invalid_drive: AL != mounted volume". */
+/* DEC-15a (initech-yyi2/q45q): one seam per DEC-18 letter AL (0=A:, 2=C:, 3=D:).
+ * spec/absdisk_int2526.json "invalid_drive: AL is not a mounted volume". */
 static int21_absdisk_backend_t g_absdisk[4];
 static int                     g_absdisk_bound[4];
 
