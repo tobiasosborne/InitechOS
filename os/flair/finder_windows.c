@@ -1993,18 +1993,31 @@ static void fw_do_close(finder_shell_t *sh, finder_cmd_id id, int slot)
     fw_outcome(sh, id, st, slot);
 }
 
-/* Open the SELECTED folder of the front window. The SELECTION_OPENABLE
- * predicate (bead initech-tdnl.38) has already passed, so a folder is there;
- * a selected document no longer enables Open at all. */
+/* Open the SELECTION of the front window: every selected FOLDER opens a
+ * window (bead initech-tdnl.38), and a selected APPLICATION is NAMED for
+ * launch in the outcome (bead initech-fbo4, audit 2026-10-23 desktop L004) --
+ * kmain hands it to the ONE launch verb a double-click uses, so File > Open,
+ * Cmd-O and the double-click are one operation (Users Guide V6.0 PDF p. 38 /
+ * p. 45: "either by double-clicking it or by selecting it and choosing Open
+ * from the File menu"). The SELECTION_OPENABLE predicate has already passed,
+ * so one of the two is there; a selected document still enables nothing.
+ * Folders first (their windows open in the Finder, behind the application
+ * the launch brings forward); the launch names the FIRST selected
+ * application in listing order, from THIS window's directory. */
 static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
 {
     int opened = 0;
+    const finder_desk_icon_t *app = (const finder_desk_icon_t *)0;
+    int apps = 0;
+    uint16_t dir;
     if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
+    dir = sh->windows[slot].dir_start;
     for (int i = 0; i < (int)sh->windows[slot].view.n; i++) {
         const finder_desk_icon_t *ic = &sh->windows[slot].view.icons[i];
-        if (ic->selected && ic->kind == (uint8_t)FINDER_ICON_FOLDER) {
+        if (!ic->selected) continue;
+        if (ic->kind == (uint8_t)FINDER_ICON_FOLDER) {
         int nslot = -1, singleton = 0;
-        finder_win_status_t st = finder_win_open(sh, sh->windows[slot].dir_start,
+        finder_win_status_t st = finder_win_open(sh, dir,
                                                  ic->dir_start, ic->name,
                                                  0u, &nslot, &singleton);
         fw_outcome(sh, id, st, nslot);
@@ -2017,8 +2030,22 @@ static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
         break;
 #endif
         }
+#ifndef FINDER_MUT_OPEN_NO_APP
+        /* MUTANT FINDER_MUT_OPEN_NO_APP (Rule 6): Open is lit for the
+         * application but names no launch -- the L004 defect, half-fixed. */
+        else if (ic->kind == (uint8_t)FINDER_ICON_APP) {
+            if (app == (const finder_desk_icon_t *)0) app = ic;
+            apps++;
+        }
+#endif
     }
-    if (!opened) fw_outcome(sh, id, FINDER_WIN_ERR_NULL, slot);
+    if (!opened && !apps) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, slot); return; }
+    if (!opened) fw_outcome(sh, id, FINDER_WIN_OK, slot);
+    if (app != (const finder_desk_icon_t *)0) {
+        sh->last.launch     = (uint8_t)apps;
+        sh->last.launch_dir = dir;
+        fw_copy83(sh->last.launch83, app->name);
+    }
 }
 
 /* Edit > Select All (bead initech-tdnl.36, audit F03): every icon of the
@@ -2222,7 +2249,8 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
         (slot >= 0) ? finder_desk_selection_count(&sh->windows[slot].view)
                     : finder_desk_selection_count(&sh->desk);
     /* SELECTION_OPENABLE (bead initech-tdnl.38): Open acts on a selected
-     * FOLDER of the front disk window -- the only thing fw_do_open opens. */
+     * FOLDER of the front disk window, or (bead initech-fbo4, audit L004) a
+     * selected APPLICATION -- the two things fw_do_open opens. */
     /* TRASH_NONEMPTY (bead initech-6k12): the cached count, kept current by
      * every path that changes \TRASH (drops, New Folder, the purge). */
     sh->ctx->trash_nonempty = (uint8_t)((sh->trash_items != 0u) ? 1 : 0);
@@ -2232,7 +2260,13 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
         const finder_desk_t *v = &sh->windows[slot].view;
         for (int i = 0; i < (int)v->n; i++)
             if (v->icons[i].selected &&
-                v->icons[i].kind == (uint8_t)FINDER_ICON_FOLDER)
+                (v->icons[i].kind == (uint8_t)FINDER_ICON_FOLDER
+#ifndef FINDER_MUT_OPEN_APP_DARK
+                 /* MUTANT FINDER_MUT_OPEN_APP_DARK (Rule 6): the L004 defect
+                  * itself -- an application never lights File > Open. */
+                 || v->icons[i].kind == (uint8_t)FINDER_ICON_APP
+#endif
+                ))
                 sh->ctx->selection_openable = 1u;
         if(sh->windows[slot].is_trash)
             for(int i=0;i<v->n;i++) if(v->icons[i].selected)

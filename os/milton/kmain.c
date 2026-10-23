@@ -6379,7 +6379,15 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
         finder_exit_dos(ctx, bi, o->moved);
         return;
 
-    case FCMD_OPEN:
+    case FCMD_OPEN: {
+        /* bead initech-fbo4 (audit 2026-10-23 desktop L004): the outcome may
+         * NAME an application to launch. Copy it out first -- the launch verb
+         * services the tenant, and the shell's `last` is not ours after that. */
+        uint8_t  launch = o->launch;
+        uint16_t ldir   = o->launch_dir;
+        char     l83[FINDER_DESK_NAME_MAX];
+        for (int i = 0; i < FINDER_DESK_NAME_MAX; i++) l83[i] = o->launch83[i];
+        l83[FINDER_DESK_NAME_MAX - 1] = '\0';
         serial_puts("FINDER-OPEN-COUNT n=");serial_puti(o->moved);serial_putc('\n');
         if (o->status != FINDER_WIN_OK) {
             finder_desk_repaint(ctx,bi);
@@ -6387,14 +6395,35 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
             return;
         }
         finder_desk_repaint(ctx, bi);
-        serial_puts("FINDER-OPEN-FOLDER name=");
-        serial_puts(o->name83);
-        serial_puts(" win=");
-        serial_puti((int32_t)o->slot);
-        serial_puts(" singleton=");
-        serial_puti((int32_t)o->singleton);
-        serial_putc('\n');
+        if (o->moved > 0) {
+            serial_puts("FINDER-OPEN-FOLDER name=");
+            serial_puts(o->name83);
+            serial_puts(" win=");
+            serial_puti((int32_t)o->slot);
+            serial_puts(" singleton=");
+            serial_puti((int32_t)o->singleton);
+            serial_putc('\n');
+        }
+        if (launch) {
+            /* THE ADAPTER: File > Open / Cmd-O reach the SAME verb the
+             * double-click (finder_surface_open) and the Apple menu use --
+             * no second launch implementation (design F4.3). */
+            serial_puts("FINDER-OPEN-APP name=");
+            serial_puts(l83);
+            serial_puts(" dir=");
+            serial_puti((int32_t)ldir);
+            serial_puts(" n=");
+            serial_puti((int32_t)launch);
+            serial_putc('\n');
+#ifndef KMAIN_MUT_OPEN_NO_LAUNCH
+            /* MUTANT KMAIN_MUT_OPEN_NO_LAUNCH (Rule 6): the command runs and
+             * is reported, the verb is never called -- Open "works" on serial
+             * and launches nothing (test-flair-finder-open-mutant). */
+            flair_live_launch_app(ctx, bi, l83, ldir);
+#endif
+        }
         return;
+    }
 
     default:
         return;
