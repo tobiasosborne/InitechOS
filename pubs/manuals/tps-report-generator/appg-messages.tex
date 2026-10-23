@@ -39,6 +39,12 @@ directory is not \file{A:\bs APPS}, type \type{CD APPS} and start again at
 return code 1.}{See your supervisor.  The record is corrected under
 Operating Procedure OP-7.3.}
 
+\TpsMessageEntry{TPS-010}{The \texttt{LINES} line of the parameter record
+\file{TPSPARM.DAT} does not hold a number.  The program ends with return
+code 1, before the alignment is asked for and before any file is
+changed.}{See your supervisor.  The record is corrected under Operating
+Procedure OP-7.3.}
+
 \TpsMessageEntry{TPS-007}{No table was named on the command line, or the
 table named is not in the current directory.  The program ends with return
 code 7.}{Type the command again with the table name: \type{TPSREP TPS.DBF}.
@@ -49,6 +55,12 @@ supervisor.}
 first of the six required fields it lacks, or \texttt{SIGNATURE} when it is
 not a dBASE III table.  The program ends with return code 6.}{Check the
 table name.  If it is \file{TPS.DBF}, see your supervisor.}
+
+\TpsMessageEntry{TPS-011}{The \texttt{PAGES} field of a record of the table
+does not hold a number: \ph{n} is the number of the record, counting from
+1.  The program ends with return code 6, before the alignment is asked for
+and before any file is changed.}{See your supervisor.  Do not correct the
+table yourself.}
 
 \TpsMessageEntry{R2.prompt}{The program requires
 the form to be aligned.}{Carry out \proc{03}.}
@@ -86,6 +98,12 @@ supervisor.}
 \TpsMessageEntry{TPS-008}{\rpt\ could not be created in the current
 directory.  No report is written.  The program ends with return code
 8.}{See your supervisor.}
+
+\TpsMessageEntry{TPS-009}{\rpt\ could not be written to the disk, usually
+because the disk is full.  The report on the screen is not complete and
+no report is kept: the unfinished \rpt\ is deleted and the previous report
+remains as \file{TPSREPT.BAK}.  The program ends with return code
+9.}{See your supervisor.  Do not carry out \proc{07}.}
 
 \TpsMessageEntry{END}{The last line of every run: \ph{n} is the return code
 (Session~1).}{If the return code is 0, carry out \proc{07}.  Otherwise carry

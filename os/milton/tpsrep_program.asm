@@ -29,7 +29,12 @@
 ; pp. 7-8, 7-12..7-16 (PSP default FCBs, FCB layout); dBASE III PLUS .DBF
 ; header (../dbase3-decomp: 32-byte header, 32-byte field descriptors ended by
 ; 0Dh, records led by a deletion flag). Rule 12 ASCII; Rule 11 deterministic.
-; Mutants (Rule 6): -DTPS_MUTATE_COUNT6 accepts 6 space-bar presses;
+; Fault handling (audit 2026-10-23-das L004/L028/L029, bead initech-ycvk): every
+; FCB write/close status is checked (TPS-009), LINES= must be a number
+; (TPS-010), every live record's PAGES must be a number (TPS-011).
+; Mutants (Rule 6): -DTPS_MUTATE_NOWRCHK ignores the write status;
+; -DTPS_MUTATE_LINESOK / -DTPS_MUTATE_PAGESOK skip the number checks;
+; -DTPS_MUTATE_COUNT6 accepts 6 space-bar presses;
 ; -DTPS_MUTATE_SAY7 states the count in the R2 prompt (the tacit rule: the
 ; count and the key are written only in the manual, spec/tps_ritual.json R2).
 
@@ -132,12 +137,34 @@ start:
     mov [l_memo], ecx
     mov esi, k_lines
     call getparam
+%ifndef TPS_MUTATE_LINESOK
+    test ecx, ecx               ; LINES= must be a decimal number (TPS-010);
+    jz .badlines                ; only the documented 0 is taken as 1
+    xor ebx, ebx
+.lchk:
+    movzx eax, byte [esi + ebx]
+    sub eax, '0'
+    cmp eax, 9
+    ja .badlines
+    inc ebx
+    cmp ebx, ecx
+    jb .lchk
+%endif
     call atoi                   ; EAX = LINES value
     test eax, eax
     jnz .r1_lines
     mov eax, 1
 .r1_lines:
     mov [lines], eax
+    jmp .lines_ok
+.badlines:
+    mov edx, m_r10
+    call lineout
+    mov edx, m_op73
+    call lineout
+    mov al, 1
+    jmp finish
+.lines_ok:
 
     ; ---- the table named on the command line ------------------------------
     cmp byte [tblfcb + 1], ' '
@@ -226,6 +253,9 @@ start:
     inc ebx
     cmp ebx, 6
     jne .chk
+%ifndef TPS_MUTATE_PAGESOK
+    call validpages
+%endif
     jmp ritual
 .missing:
     mov edx, m_e6a
@@ -245,6 +275,57 @@ start:
     call lineout
     mov al, 6
     jmp finish
+
+; PAGES must be a number in every live record: blanks, digits, blanks (the
+; dBASE III numeric field, right-justified; all blank is an empty field).
+; Anything else is refused before the ritual and before any file is touched
+; (TPS-011, audit L029). EBX/ECX/EDX/ESI are free here.
+validpages:
+    mov dword [rec], 0
+.r: mov eax, [rec]
+    cmp eax, [nrecs]
+    jae .ok
+    mul dword [reclen]
+    add eax, [hdrlen]
+    mov [rbase], eax
+    call rdbyte                 ; deletion flag
+    cmp al, '*'
+    je .n
+    mov ebx, 3                  ; PAGES
+    call fieldptr
+    mov ecx, [lentab + ebx * 4]
+    xor edx, edx                ; 0 leading blanks, 1 digits, 2 trailing blanks
+.b: mov eax, [fptr]
+    call rdbyte
+    cmp al, ' '
+    je .sp
+    cmp al, '0'
+    jb .bad
+    cmp al, '9'
+    ja .bad
+    cmp edx, 2
+    je .bad                     ; a digit after a trailing blank
+    mov edx, 1
+    jmp .nx
+.sp: test edx, edx
+    jz .nx
+    mov edx, 2
+.nx: inc dword [fptr]
+    dec ecx
+    jnz .b
+.n: inc dword [rec]
+    jmp .r
+.bad:
+    mov edx, m_e11a
+    call puts
+    mov eax, [rec]
+    inc eax
+    call putdec
+    mov edx, m_e11b
+    call lineout
+    mov al, 6
+    jmp finish
+.ok: ret
 
 ; ---- R2..R5: the operating procedure --------------------------------------
 ; R2 top of form alignment (spec/tps_ritual.json R2; Ref: IBM 4230 Printer
@@ -446,6 +527,10 @@ report:
     call totals
     call flushout
     FCB 0x10, outfcb
+%ifndef TPS_MUTATE_NOWRCHK
+    test al, al
+    jnz writefail
+%endif
     mov byte [tofile], 0
     call crlf
     mov edx, m_done1
@@ -824,11 +909,24 @@ wrrec:                          ; write the 128-byte record buffer (p. 6-76)
     push edx
     mov edx, outrec
     call setdta
-    FCB 0x15, outfcb
+    FCB 0x15, outfcb            ; AL 0 = written; 1 = disk full; 2 = DTA wrap
+%ifndef TPS_MUTATE_NOWRCHK
+    test al, al
+    jnz writefail
+%endif
     mov dword [opos], 0
     pop edx
     pop eax
     ret
+writefail:                      ; TPS-009: the report did not reach the disk
+    mov byte [tofile], 0        ; (no more writes; the console says so, not "WRITTEN")
+    call crlf
+    mov edx, m_e9
+    call lineout
+    FCB 0x10, outfcb            ; close, then drop the truncated report: the
+    FCB 0x13, outfcb            ; previous one stays as TPSREPT.BAK
+    mov al, 9
+    jmp finish
 flushout:                       ; pad the last record with Ctrl-Z (CP/M heritage)
     mov ebx, [opos]
     test ebx, ebx
@@ -1141,6 +1239,10 @@ m_e6b:   db ' NOT FOUND).$'
 m_e7a:   db 'TPS-007 TABLE NOT FOUND.$'
 m_e7b:   db 'USAGE: TPSREP table.DBF$'
 m_e8:    db 'TPS-008 TPSREPT.TXT COULD NOT BE CREATED.$'
+m_e9:    db 'TPS-009 TPSREPT.TXT COULD NOT BE WRITTEN. THE DISK MAY BE FULL.$'
+m_r10:   db 'TPS-010 PARAMETER LINES IN TPSPARM.DAT IS NOT A NUMBER.$'
+m_e11a:  db 'TPS-011 PAGES IS NOT A NUMBER (RECORD $'
+m_e11b:  db ').$'
 m_done1: db 'TPS REPORT WRITTEN TO TPSREPT.TXT.$'
 m_done2: db 'PREVIOUS REPORT RETAINED AS TPSREPT.BAK.$'
 m_end1:  db 'TPS REPORT GENERATOR TERMINATED. RETURN CODE $'

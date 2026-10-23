@@ -120,7 +120,8 @@ operator keys this number in \proc{05}; it is printed on the cover sheet
 and in the totals.
 
 \SideHead{LINES=}The number of detail lines on each page of the report.
-A value of 0 is taken as 1.
+A value of 0 is taken as 1.  A value that is not a number is refused
+with \TpsLine{TPS-010}{1}.
 
 A missing line is refused before anything else is done: the program
 displays \TpsLine{TPS-002}{1}, with the name of the missing line, and
@@ -182,11 +183,12 @@ The return code can be tested in a batch file with \cmd{IF ERRORLEVEL}.
 \begin{tabular}{@{}rp{88mm}@{}}
 \rule{0pt}{10pt}\sffamily\bfseries Code & \sffamily\bfseries Meaning\\\hline
 0 & The report was written\\
-1 & The parameter record is missing or incomplete (TPS-001, TPS-002)\\
+1 & The parameter record is missing, incomplete or not valid (TPS-001, TPS-002, TPS-010)\\
 5 & The cover sheet was not attached; no report was written (TPS-005)\\
-6 & The table is not a TPS table (TPS-006)\\
+6 & The table is not a TPS table, or a \texttt{PAGES} value is not a number (TPS-006, TPS-011)\\
 7 & No table was named, or it was not found (TPS-007)\\
-8 & \rpt\ could not be created (TPS-008)\\\hline
+8 & \rpt\ could not be created (TPS-008)\\
+9 & \rpt\ could not be written, for example because the disk is full (TPS-009)\\\hline
 \end{tabular}\end{center}
 
 \section{Study Questions}
