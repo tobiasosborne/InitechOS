@@ -238,10 +238,23 @@ static int fo_attr_cb(const finder_dirent_t *e, void *u)
 
 /* Remove icon `idx` from a window's model, keeping every other icon exactly
  * where it is (a period Finder window does not re-flow when an item leaves). */
+/* The window's per-entry FAT metadata (finder_window_t.meta: size, date,
+ * time, attribute -- the list view's columns and sort keys) is a PARALLEL
+ * array, same indices as the icons: it shifts with them, or every survivor
+ * past `idx` would be drawn and sorted with its neighbour's size and date
+ * (review of bead initech-vnl4: Put Away now removes in place, where it used
+ * to re-enumerate). Each icon carries its own `selected`, so the selection
+ * shifts with it.
+ * MUTANT FINDER_OPS_MUT_REMOVE_NO_META (Rule 6; test-finder-ops O16): the icons
+ * shift, the metadata does not. NEVER in a real build. */
 static void fo_remove_icon(finder_window_t *w, int idx)
 {
-    for (int i = idx; i + 1 < (int)w->view.n; i++)
+    for (int i = idx; i + 1 < (int)w->view.n; i++) {
         w->view.icons[i] = w->view.icons[i + 1];
+#if !defined(FINDER_OPS_MUT_REMOVE_NO_META)
+        if (w->meta != (finder_win_meta_t *)0) w->meta[i] = w->meta[i + 1];
+#endif
+    }
     w->view.n = (uint16_t)(w->view.n - 1u);
     finder_click_reset(&w->click);       /* stored indices shifted             */
 }

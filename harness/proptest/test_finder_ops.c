@@ -1287,6 +1287,87 @@ static void leg_locked_trash(void)
           "L118 purge keeps protected item and its origin");
 }
 
+
+/* ===========================================================================
+ * O16 -- PUT AWAY KEEPS EACH SURVIVOR'S METADATA (bead initech-vnl4 review;
+ * audit 2026-10-23 desktop L006). Put Away now removes the restored icon in
+ * place (fo_remove_icon) instead of re-listing the Trash window, so the
+ * window's PARALLEL metadata (finder_window_t.meta: size/date/attribute, the
+ * list view's columns and sort keys) must shift with the icons. Hand-authored
+ * fixture: A.TXT 111 B, B.TXT 222 B, C.TXT 333 B staged in that order; A (a
+ * NON-final entry) is put away with C also selected; each survivor must still
+ * carry ITS OWN size and C its selection; then the command puts both
+ * remaining selected items away in one go (the L006 symptom: n=1).
+ * MUTANT FINDER_OPS_MUT_REMOVE_NO_META: the icons shift, the metadata stays.
+ * ===========================================================================*/
+static uint32_t o16_size_of(const char *n)
+{
+    return !strcmp(n, "A.TXT") ? 111u : !strcmp(n, "B.TXT") ? 222u :
+           !strcmp(n, "C.TXT") ? 333u : 0xFFFFFFFFu;
+}
+
+static int o16_meta_bad(const finder_window_t *w)
+{
+    int bad = 0;
+    for (int k = 0; k < (int)w->view.n; k++)
+        bad += w->meta[k].size != o16_size_of(w->view.icons[k].name);
+    return bad;
+}
+
+static void leg_putaway_meta(void)
+{
+    static const char *const names[3] = { "A.TXT", "B.TXT", "C.TXT" };
+    FinderCtx ctx = {0};
+    finder_move_result_t r;
+    finder_tgt_t t;
+    finder_window_t *w;
+    int slot = -1, k, a, b, c;
+
+    scene_init(&S);
+    for (k = 0; k < 3; k++) {
+        mv_add(&S.mock.d[0], names[k], 0x20u, (uint16_t)(40 + k));
+        S.mock.d[0].e[S.mock.d[0].n - 1].size = o16_size_of(names[k]);
+    }
+    CHECK(finder_win_populate(&S.sh, ROOT) == FINDER_WIN_OK, "O16 (setup) the root lists A, B, C");
+    for (k = 0; k < 3; k++) {
+        int i = idx_of(&S.sh.windows[ROOT].view, names[k]);
+        t = finder_ops_resolve(&S.sh, ROOT, i, 600, 420);
+        CHECK(i >= 0 && finder_ops_drop(&S.sh, ROOT, i, &t, 0, 0, &r) == FINDER_WIN_OK &&
+              r.op == FINDER_OP_TRASH, "O16 (setup) each of A, B, C is staged");
+    }
+    CHECK(finder_win_open_trash(&S.sh, &slot, NULL) == FINDER_WIN_OK, "O16 (setup) the Trash window opens");
+    if (slot < 0) return;
+    w = &S.sh.windows[slot];
+    CHECK(w->view.n == 3u && w->meta != NULL, "O16 (setup) the Trash window lists three entries with metadata");
+    if (w->view.n != 3u || w->meta == NULL) return;
+    CHECK(o16_meta_bad(w) == 0, "O16 (setup) each listed entry carries its own size");
+
+    a = idx_of(&w->view, "A.TXT");
+    c = idx_of(&w->view, "C.TXT");
+    CHECK(a >= 0 && c >= 0 && a + 1 < (int)w->view.n, "O16 (setup) A.TXT is a NON-final entry");
+    if (a < 0 || c < 0) return;
+    w->view.icons[c].selected = 1u;
+    w->view.icons[a].selected = 1u;
+    CHECK(finder_ops_put_away(&S.sh, slot, a) == FINDER_WIN_OK && mv_has(&S.mock, CL_ROOT, "A.TXT"),
+          "O16 Put Away restores the non-final A.TXT");
+    CHECK(w->view.n == 2u && o16_meta_bad(w) == 0,
+          "O16 every SURVIVOR keeps its own metadata (B.TXT 222, C.TXT 333) after the in-place removal");
+    b = idx_of(&w->view, "B.TXT");
+    c = idx_of(&w->view, "C.TXT");
+    CHECK(b >= 0 && c >= 0 && w->view.icons[c].selected && !w->view.icons[b].selected,
+          "O16 ... and the selection rides with its icon (C selected, B not)");
+    if (b < 0 || c < 0) return;
+
+    w->view.icons[b].selected = 1u;
+    finder_shell_bind_ctx(&S.sh, &ctx);
+    CHECK(ctx.exec(ctx.shell, FCMD_PUT_AWAY) && S.sh.last.moved == 2 &&
+          S.sh.last.status == FINDER_WIN_OK,
+          "O16 Put Away of a TWO-item selection restores both (L006: not n=1)");
+    CHECK(mv_has(&S.mock, CL_ROOT, "B.TXT") && mv_has(&S.mock, CL_ROOT, "C.TXT") &&
+          S.sh.windows[slot].view.n == 0u && S.sh.n_origins == 0u,
+          "O16 ... B.TXT and C.TXT are home, the Trash window is empty, no origin left");
+}
+
 int main(void)
 {
     leg_scroll();
@@ -1305,5 +1386,6 @@ int main(void)
     leg_empty_trash();
     leg_locked_trash();
     leg_power();
+    leg_putaway_meta();
     return TEST_SUMMARY("test_finder_ops");
 }

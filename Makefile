@@ -13636,7 +13636,7 @@ TEST_FINDER_OPS      := $(BUILD)/test_finder_ops
 TEST_FINDER_OPS_SRC  := harness/proptest/test_finder_ops.c
 FINDER_OPS_LINK      := $(FINDER_WIN_LINK)
 FINDER_OPS_DEPS      := $(TEST_FINDER_OPS_SRC) os/flair/finder_ops.h $(FINDER_WIN_DEPS)
-FINDER_OPS_MUTANTS   := TRASH_NO_STAGE NO_CYCLE NO_ORIGIN NO_SERVICE_GUARD COUNT_CELL
+FINDER_OPS_MUTANTS   := TRASH_NO_STAGE NO_CYCLE NO_ORIGIN NO_SERVICE_GUARD COUNT_CELL REMOVE_NO_META
 # -DWINDOW_ENABLE_R1_OPS (bead initech-tdnl.34): leg O9 drives ZoomWindow /
 # SizeWindow / CollapseWindow -- the SAME window.c verbs the kernel links
 # (window.o is built with it) -- so the re-base is graded against every
@@ -13676,14 +13676,14 @@ test-finder-ops: $(TEST_FINDER_OPS)
 
 # Each mutant must go RED for its NAMED reason (the CHECK text is grepped).
 test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite $(BUILD)/test_finder_ops_mutant_abs $(BUILD)/test_finder_ops_mutant_arrange $(BUILD)/test_finder_ops_mutant_scrollpaint $(BUILD)/test_finder_ops_mutant_trashroot $(BUILD)/test_finder_ops_mutant_noconfirm $(BUILD)/test_finder_ops_mutant_powernosave
-	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_SERVICE_GUARD:O12 the root TRASH dropped on APPS is refused SERVICE' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell' 'arrange:O10 View > Arrange (by Name) ran' 'scrollpaint:O11 hit: a click on F18 where it is DRAWN' 'trashroot:O13 the Trash window lists exactly the staged README.TXT' 'COUNT_CELL:O13 the root window shows it in the lowest FREE cell' 'noconfirm:O14 dispatch alone deletes nothing' 'powernosave:O15 Special > Shut Down runs in the shell and notes 2'; do \
+	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_SERVICE_GUARD:O12 the root TRASH dropped on APPS is refused SERVICE' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell' 'arrange:O10 View > Arrange (by Name) ran' 'scrollpaint:O11 hit: a click on F18 where it is DRAWN' 'trashroot:O13 the Trash window lists exactly the staged README.TXT' 'COUNT_CELL:O13 the root window shows it in the lowest FREE cell' 'noconfirm:O14 dispatch alone deletes nothing' 'powernosave:O15 Special > Shut Down runs in the shell and notes 2' 'REMOVE_NO_META:O16 every SURVIVOR keeps its own metadata'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; \
 		bin=$(BUILD)/test_finder_ops_mutant_$$m; \
 		if $$bin > $$bin.log 2>&1; then printf '!!! test-finder-ops-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -F "$$why" $$bin.log | grep -q FAIL || { printf '!!! test-finder-ops-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-finder-ops-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
 	done
-	@printf '>>> test-finder-ops-mutant: green (all twelve mutants RED for the named reason)\n'
+	@printf '>>> test-finder-ops-mutant: green (all thirteen mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
@@ -14879,7 +14879,7 @@ test-iword-wp5-roundtrip-mutant: $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_DROP_C
 		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-wp5-roundtrip-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-iword-wp5-roundtrip-mutant: %s correctly RED (%s; %s)\n' "$$m" "$$(grep -F "$$why" $$bin.log)" "$$(grep -m1 'FAIL typed' $$bin.log | sed 's/^ *//')"; \
 	done
-	@printf '>>> test-iword-wp5-roundtrip-mutant: green (all twelve mutants RED for the named reason)\n'
+	@printf '>>> test-iword-wp5-roundtrip-mutant: green (all thirteen mutants RED for the named reason)\n'
 endif
 
 # ---------------------------------------------------------------------------
@@ -14941,7 +14941,7 @@ test-iword-codes-mutant: $(foreach m,$(IWORD_CODES_MUTANTS),$(BUILD)/test_iword_
 		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-codes-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-iword-codes-mutant: %s correctly RED (%s; %s)\n' "$$m" "$$(grep -m1 'FAIL' $$bin.log | sed 's/^ *//')" "$$(grep -m1 '      C' $$bin.log | sed 's/^ *//')"; \
 	done
-	@printf '>>> test-iword-codes-mutant: green (all twelve mutants RED for the named reason)\n'
+	@printf '>>> test-iword-codes-mutant: green (all thirteen mutants RED for the named reason)\n'
 
 TEST_IWORD_REVEAL := $(BUILD)/test_iword_reveal_codes
 IWORD_REVEAL_DEPS := $(IWORD_WP5_DIR)/test_iword_reveal_codes.c $(IWORD_WP5_DIR)/iword_keys.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h
