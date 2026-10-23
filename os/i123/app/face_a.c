@@ -954,7 +954,16 @@ static int commit(void)
     uint16_t top = i123_view_top(&g_sheet);
     int rc;
     const i123_cell_t *locked=i123_find(&g_sheet,cc,cr);
+    /* B02 review (initech-3s12): an ABSENT cell is the default 0xFF, bit 7
+     * set -- protected under /WGP Enable unless /Range Unprot gave it a
+     * BLANK (wk1-format.md Sec 4.1 / Format byte bit 7; manual p. 10-3). */
+#ifndef I123_MUT_ABSENT_UNPROTECTED
+    if(g_sheet.protec&&((locked?locked->fmt:WK1_FMT_FRESH_CELL)&128)) {notice("Cell is protected");return 1;}
+#else
+    /* MUTANT (Rule 6; test-i123-cells-mutant C9): an absent cell counts as
+     * unprotected. NEVER real. */
     if(g_sheet.protec&&locked&&(locked->fmt&128)) {notice("Cell is protected");return 1;}
+#endif
     refresh_clock();
     /* EDIT completes as a label unless the entry starts like a value (p. 1-16:
      * the first character decides; mint keys 05 "'HelloX", 49 "HelloZ"). */

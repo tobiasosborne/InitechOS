@@ -32512,7 +32512,7 @@ TEST_UNIT_GATES += test-i123-resize test-i123-resize-mutant
 # Over the real face_a.c + the recording mock; expected bytes are the test's.
 # Rule 6: each mutant restores one half of the old store, RED on its id.
 I123_CELLS_DEPS := harness/proptest/test_i123_cells.c $(I123_QUIT_DEPS)
-I123_CELLS_MUTANTS := I123_MUT_DEFAULT_BLANK:C1 I123_MUT_ALLOC_BEFORE_RECLAIM:C5
+I123_CELLS_MUTANTS := I123_MUT_DEFAULT_BLANK:C1 I123_MUT_ALLOC_BEFORE_RECLAIM:C5 I123_MUT_ABSENT_UNPROTECTED:C9
 $(BUILD)/test_i123_cells: $(I123_CELLS_DEPS) | $(BUILD)
 	$(CC) $(I123_QUIT_CFLAGS) -o $@ $< $(I123_CORE_SRC)
 $(BUILD)/test_i123_cells_mutant_%: $(I123_CELLS_DEPS) | $(BUILD)

@@ -24,6 +24,8 @@
  *   I123_MUT_DEFAULT_BLANK        default format stored as a BLANK   -> C1
  *   I123_MUT_ALLOC_BEFORE_RECLAIM new blob allocated before the old
  *                                 one is released                     -> C5
+ *   I123_MUT_ABSENT_UNPROTECTED   an absent cell escapes global
+ *                                 protection (entry and /Copy)         -> C9
  * ASCII-clean (Rule 12). Deterministic (Rule 11).
  */
 #define main i123_quit_oracle_main
@@ -81,6 +83,34 @@ static void t_kept(void)
     CHECK(!i123_find(&g_sheet, 2, 0) && g_sheet.ncells == 2, "C4", "the erased ordinary C1 is absent; two BLANKs remain");
     tks("/rfrd1\r");             /* Format Reset on the empty D1: nothing to store */
     CHECK(!i123_find(&g_sheet, 3, 0), "C4", "a default format on an empty cell stores no BLANK");
+}
+
+/* C9/C10: the review's repro -- with global protection on, an ABSENT cell
+ * (no BLANK since the elision) is protected: the default 0xFF has bit 7 set
+ * (wk1-format.md Format byte; every cell 123.EXE writes is 0xFF whatever
+ * PROTEC is), and only /Range Unprot makes a cell writable. */
+static void t_protect(void)
+{
+    tks("/rpa1\r");             /* explicit Prot on the empty A1: stays absent */
+    CHECK(!i123_find(&g_sheet, 0, 0), "R0", "setup: /Range Prot on an empty A1 stores nothing");
+    tks("/rua2..a3\r");         /* A2, A3 unprotected BLANKs                   */
+    tks("/wgpe");
+    CHECK(g_sheet.protec, "R0", "setup: global protection enabled");
+    tks("2\r");
+    CHECK(g_mode == M_NOTICE && !i123_find(&g_sheet, 0, 0), "C9", "typing into the protected absent A1 is refused");
+    tk(27);
+    f5("b1"); tks("3\r");
+    CHECK(!i123_find(&g_sheet, 1, 0), "C9", "typing into the absent B1 (default, protected) is refused");
+    tk(27);
+    f5("a2"); tks("5\r");
+    CHECK(g_mode == M_READY && i123_find(&g_sheet, 0, 1) && i123_find(&g_sheet, 0, 1)->kind == I123_K_INTEGER, "C9",
+          "typing into the unprotected A2 is stored");
+    tks("/ca2\rc5\r");
+    CHECK(!i123_find(&g_sheet, 2, 4) && g_mode == M_NOTICE, "C10", "/Copy into the absent protected C5 is refused");
+    tk(27);
+    tks("/ca2\ra3\r");
+    CHECK(i123_find(&g_sheet, 0, 2) && i123_find(&g_sheet, 0, 2)->kind == I123_K_INTEGER, "C10",
+          "/Copy into the unprotected A3 is stored");
 }
 
 /* C5..C8: L032 -- the string pool near its limit. */
@@ -146,6 +176,7 @@ int main(int argc, char **argv)
     if (g_ctr == MAP_FAILED) return 2;
     launch("CAPACITY", t_capacity);
     launch("KEPT", t_kept);
+    launch("PROTECT", t_protect);
     launch("POOL", t_pool);
     launch("GROW", t_grow);
     printf("i123-cells: %d checks, %d failures\n", g_ctr[0], g_ctr[1]);

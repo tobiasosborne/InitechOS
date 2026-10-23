@@ -28,6 +28,11 @@ static void ranges(void)
     CHECK(g_mode==M_NOTICE,"R5","Protected typed entry visibly refused");tk(27);
     i123_cell_value(&g_sheet,0,0,&v);CHECK(v.n==10,"R5","Protected cell unchanged");
     tks("/rua1\r99\r");i123_cell_value(&g_sheet,0,0,&v);CHECK(v.n==99,"R5","Unprot permits entry");
+    /* initech-3s12 review: under /WGP Enable the absent A4..C6 are protected
+     * (default 0xFF, bit 7) and Value/Trans into them is refused; R6 grades
+     * Value/Trans, so protection is disabled first. */
+    tks("/rva1..c1\ra4\r");CHECK(g_mode==M_NOTICE&&!i123_find(&g_sheet,1,3),"R5","Value into protected absent cells refused");tk(27);
+    tks("/wgpd");CHECK(!g_sheet.protec,"R5","Global protection disabled");
     tks("/rva1..c1\ra4\r");CHECK(i123_find(&g_sheet,1,3)->kind==I123_K_NUMBER,"R6","Value replaces formulas");
     tks("/rta1..c1\ra6\r");CHECK(i123_find(&g_sheet,0,6)->kind==I123_K_NUMBER,"R6","Trans converts formulas and exchanges axes");
     tks("/rnta10\r");cell(0,9,content,sizeof content);CHECK(!strcmp(content,"'TOTAL"),"R7","Name Table");
