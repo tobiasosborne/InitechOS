@@ -15,6 +15,22 @@ void block_device_bind(unsigned i,const blockdev_t *d,uint32_t n)
 { initialized=1; if(i<2){disks[i]=*d;sizes[i]=n;} }
 void block_device_mounted(uint8_t d,uint32_t b,uint32_t n,void(*w)(uint32_t,uint32_t,const void *))
 { mounted_drive=d;mounted_base=b;mounted_size=n;write_notice=w; }
+/* L042 (docs/audits/2026-10-23-dos): FORMAT/SYS write C:/D: through this
+ * vector, behind those volumes' mounted FAT caches. DOS 3.3 keeps one view
+ * of a drive (UG p119: SYS, then COPY COMMAND.COM onto the same disk), so
+ * every mounted fixed volume hears its raw writes, volume-relative. */
+static du_map watched[2];
+static void (*watch_notice[2])(unsigned,uint32_t,uint32_t,const void *);
+void block_device_watch(unsigned letter,const du_map *m,void(*w)(unsigned,uint32_t,uint32_t,const void *))
+{ if(letter==2||letter==3){watched[letter-2]=*m;watch_notice[letter-2]=w;} }
+static void overlap(uint32_t lba,uint32_t count,const uint8_t *buf,uint32_t base,uint32_t size,unsigned letter,
+                    void(*a)(uint32_t,uint32_t,const void *),void(*b)(unsigned,uint32_t,uint32_t,const void *))
+{
+    uint32_t lo=lba>base?lba:base,hi=lba+count<base+size?lba+count:base+size;
+    if(lo>=hi)return;
+    if(a)a(lo-base,hi-lo,buf+(lo-lba)*BD_sector_bytes);
+    else b(letter,lo-base,hi-lo,buf+(lo-lba)*BD_sector_bytes);
+}
 static void init(void)
 {
     if(initialized)return;
@@ -156,11 +172,13 @@ void KERNEL_ASM_ABI int13_dispatch(int_frame_t *f)
         lba+=mounted_base;
 #endif
         rc=disks[i].write_sectors(disks[i].ctx,lba,count,buf);
-        if(!rc && write_notice && drive==mounted_drive) {
-            uint32_t lo=lba>mounted_base?lba:mounted_base;
-            uint32_t hi=lba+count<mounted_base+mounted_size?lba+count:mounted_base+mounted_size;
-            if(lo<hi)write_notice(lo-mounted_base,hi-lo,(const uint8_t *)buf+(lo-lba)*BD_sector_bytes);
-        }
+        if(!rc && write_notice && drive==mounted_drive)
+            overlap(lba,count,buf,mounted_base,mounted_size,0,write_notice,0);
+#ifndef BLOCK_DEVICE_MUT_WATCH
+        for(unsigned w=0;!rc && w<2;w++)
+            if(watch_notice[w] && drive==watched[w].disk)
+                overlap(lba,count,buf,watched[w].base,watched[w].sectors,w+2,0,watch_notice[w]);
+#endif
     }
     result(f,block_device_status(rc));
 }

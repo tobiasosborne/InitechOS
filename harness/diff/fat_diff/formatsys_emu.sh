@@ -25,6 +25,52 @@ run(){
  grep -q 'quit_after_found=1' "$w/$1.report" || red "$1 prompt"
  "$b/console_text" /usr/share/seabios/vgabios-stdvga.bin "$w/$1.ppm" > "$w/$1.screen" || red pixels
 }
+if [ "$only" = syswrite ]; then
+ # L042 (docs/audits/2026-10-23-dos REPORT.md): FORMAT, SYS, then ordinary
+ # writes in ONE boot. MS-DOS 3.3 UG p119: SYS does not copy COMMAND.COM --
+ # copy it with COPY; that COPY and an ECHO redirection are the writes that
+ # must not land on, or unlink, the transferred system files. D: is already
+ # a mounted FAT12 volume (mformat + a file and a directory), so a stale
+ # mounted FAT would hand out the clusters SYS has just used.
+ prepare 'REM'
+ mformat -i "$w/master.img@@2064384" -T 2880 -c 1 -H 4032 ::
+ mmd -i "$w/master.img@@2064384" ::DHOME
+ printf 'old\r\n' > "$w/old.txt"; mcopy -i "$w/master.img@@2064384" "$w/old.txt" ::OLD.TXT
+ printf '@ECHO OFF\r\nFORMAT D:\r\nSYS D:\r\nCOPY C:\\COMMAND.COM D:\\\r\nECHO NEW-DATA > D:\\NEW.TXT\r\nECHO DU-RETURN\r\n' > "$w/autoexec.bat"
+ mcopy -o -i "$w/data.img" "$w/autoexec.bat" ::AUTOEXEC.BAT
+ run syswrite 'kret,WProceed,ky,kret' 'Enter current Volume Label' DU-RETURN
+ grep -qFx 'System transferred' "$w/syswrite.screen" || red 'syswrite SYS message'
+ dd if="$w/master.img" of="$w/syswrite.img" bs=512 skip=4032 count=2880 status=none
+ # Independent judges only: dosfstools + mtools on the stopped image.
+ fsck.fat -n "$w/syswrite.img" > "$w/syswrite-fsck" 2>&1 || { cat "$w/syswrite-fsck"; red 'syswrite filesystem'; }
+ mdir -a -i "$w/syswrite.img" :: > "$w/syswrite-mdir" 2>&1 || red 'syswrite mdir'
+ for f in IO.SYS INITDOS.SYS COMMAND.COM; do
+  mcopy -i "$w/master.img@@32256" "::$f" - > "$w/ref-$f"
+  mcopy -i "$w/syswrite.img" "::$f" - > "$w/syswrite-$f" 2>/dev/null || red "syswrite $f unreadable"
+  cmp -s "$w/ref-$f" "$w/syswrite-$f" || red "syswrite $f bytes"
+ done
+ printf 'NEW-DATA\r\n' > "$w/new.want"
+ mcopy -i "$w/syswrite.img" ::NEW.TXT - > "$w/new.got" 2>/dev/null || red 'syswrite NEW.TXT unreadable'
+ cmp -s "$w/new.want" "$w/new.got" || red 'syswrite NEW.TXT bytes'
+ # Free space after the writes: mtools' count of the SPC1 layout, not the guest's.
+ free=$(mdir -i "$w/syswrite.img" :: | sed -n '/bytes free/s/[^0-9]//gp')
+ used=512; for f in IO.SYS INITDOS.SYS COMMAND.COM; do bytes=$(wc -c < "$w/ref-$f"); used=$((used+(bytes+511)/512*512)); done
+ [ "$free" = "$(( (2880-1-2*9-14)*512-used ))" ] || red "syswrite free $free"
+ # The transferred disk must start the system (stage2 boots the first entry).
+ dd if="$w/master.img" of="$w/booted.img" bs=512 count=8064 status=none
+ dd if="$w/master.img" of="$w/entry" bs=1 skip=462 count=16 status=none
+ printf '\200' | dd of="$w/entry" bs=1 seek=0 conv=notrunc status=none
+ dd if="$w/entry" of="$w/booted.img" bs=1 seek=446 conv=notrunc status=none
+ dd if=/dev/zero of="$w/booted.img" bs=1 seek=462 count=48 conv=notrunc status=none
+ printf '@ECHO OFF\r\n' | mcopy -o -i "$w/data.img" - ::AUTOEXEC.BAT
+ "$b/qemu_harness" --disk "$w/booted.img" --disk2 "$w/data.img" --out "$w" --name syswrite-boot \
+  --keys 'e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE --timeout-ms 20000 > "$w/syswrite-boot.stdout" 2> "$w/syswrite-boot.report" || true
+ grep -q 'quit_after_found=1' "$w/syswrite-boot.report" || red 'syswrite did not boot'
+ for marker in IOSYS-FOUND INITDOS-FOUND KERNEL SHELL-READY SHELL-EXIT; do
+  grep -qFx "$marker" "$w/syswrite-boot.serial" || red "syswrite boot missing $marker"
+ done
+ echo 'GREEN test-formatsys-syswrite-emu: FORMAT, SYS, COPY, ECHO in one boot; fsck/mtools clean, system bytes intact, disk boots'; exit 0
+fi
 if [ "$only" != RUNNING ]; then
  prepare 'FORMAT D: /S /V'
  run format 'ky,kret,WVolume label,kshift-o,kshift-f,kshift-f,kshift-i,kshift-c,kshift-e,kret' 'Proceed with Format' DU-RETURN

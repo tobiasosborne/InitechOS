@@ -617,22 +617,44 @@ static int mount_dos_volume(unsigned letter, fat12_volume_t *vol,
     return rc;
 }
 
+static ata_ctx_t fixed_master;
+static blockdev_t fixed_dev;
+static fat12_volume_t fixed_volumes[2];
+static uint8_t fixed_sector[512];
+
+static void mount_fixed_volume(unsigned letter)
+{
+    int rc = mount_dos_volume(letter, &fixed_volumes[letter-2], &fixed_dev,
+                              fixed_sector);
+    if (!rc) rc = fileio_fat_add_drive(letter, &fixed_volumes[letter-2]);
+    if (rc) fileio_fat_drop_drive(letter);
+    serial_puts(rc ? "DOS-VOLUME-FAIL " : "DOS-VOLUME-OK ");
+    serial_putc((char)('A'+letter));
+    serial_puts(" rc="); serial_puti(rc); serial_putc('\n');
+}
+
+/* L042 (docs/audits/2026-10-23-dos; MS-DOS 3.3 UG pp74-76,119): FORMAT and
+ * SYS write C:/D: through INT 13h. A new boot record (FORMAT, SYS) may carry
+ * new geometry, so the volume is mounted afresh, FAT re-read; any other
+ * write's FAT bytes are mirrored, so a later DOS write never allocates over,
+ * or flushes a stale FAT across, the transferred system files. */
+static void fixed_volume_written(unsigned letter, uint32_t lba, uint32_t count,
+                                 const void *buf)
+{
+    if (lba == 0u) mount_fixed_volume(letter);
+    else fileio_fat_raw_written(letter, lba, count, buf);
+}
+
 static void mount_fixed_volumes(void)
 {
-    static ata_ctx_t master;
-    static blockdev_t dev;
-    static fat12_volume_t volumes[2];
-    uint8_t sector[512];
-    ata_ctx_init_primary_master(&master);
-    ata_blockdev_init(&dev, &master);
+    ata_ctx_init_primary_master(&fixed_master);
+    ata_blockdev_init(&fixed_dev, &fixed_master);
     for (unsigned letter=2;letter<4;letter++) {
         du_map map;
         if (block_device_map(letter, &map)) continue;
-        int rc = mount_dos_volume(letter, &volumes[letter-2], &dev, sector);
-        if (!rc) rc = fileio_fat_add_drive(letter, &volumes[letter-2]);
-        serial_puts(rc ? "DOS-VOLUME-FAIL " : "DOS-VOLUME-OK ");
-        serial_putc((char)('A'+letter));
-        serial_puts(" rc="); serial_puti(rc); serial_putc('\n');
+        mount_fixed_volume(letter);
+        /* An unformatted partition becomes a drive once FORMAT writes it. */
+        block_device_watch(letter, &map, fixed_volume_written);
     }
 }
 
