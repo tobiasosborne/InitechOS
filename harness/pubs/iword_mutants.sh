@@ -45,8 +45,10 @@ awk 'BEGIN{d=0} /^type ./ && !d { sub(/^type ./, "type Q"); d=1 } { print }' "$k
 mkdir -p "$m/fs" "$m/got"
 "$probe" replay "$m/changed.keys" "$m/fs" "$m/got"
 red CHANGED_KEYSTROKE 'test-pubs RED SCREEN-DRIFT:' "$gate" same SCREEN-DRIFT "pubs/manuals/initechword-workbook/screens/$first.scr" "$m/got/$first.scr"
-# 7 a status-line message added to WORD.EXE without a probe scenario
-sed 's|error("ERROR: File Not Found", M_GET_NAME);|error("ERROR: Unprobed Message", M_GET_NAME);|' os/iword/app/face_a.c > "$m/face_a.c"
+# 7 a status-line message added to WORD.EXE without a probe scenario.
+#   face_a.c's shared retrieve path now passes `back`, not M_GET_NAME:
+#   mutate the message itself, independently of its caller's return mode.
+sed 's|error("ERROR: File Not Found",|error("ERROR: Unprobed Message",|' os/iword/app/face_a.c > "$m/face_a.c"
 grep -q 'ERROR: Unprobed Message' "$m/face_a.c" || { printf '!!! test-pubs-iword-mutant FAIL: the message mutant did not apply\n'; exit 1; }
 mkdir -p "$m/inv"
 red UNPROBED_MESSAGE 'test-pubs RED MESSAGE-UNPROBED:' "$probe" inventory "$m/inv" "$m/face_a.c"

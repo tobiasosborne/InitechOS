@@ -180,7 +180,15 @@ static void directory(uint32_t start,unsigned depth) {
             copy(e,p+at,32);
             if(!e[0])return;
             if(e[0]==0xe5||e[11]==15||e[0]=='.')continue;
-            if(e[11]&8){if(s.pass==0){s.hidden++;volume(e);}continue;}
+            /* IBM DOS Reference 7-50 counts the label among hidden files.
+             * Genuine DOS 3.30 agrees: chkdsk-label-golden/label.txt (ug8l).
+             * A label owns no chain and adds no hidden_bytes. */
+            if(e[11]&8){if(s.pass==0){
+#ifndef CHKDSK_MUT_LABEL
+                s.hidden++;
+#endif
+                volume(e);
+            }continue;}
             name83(e,name);uint32_t n=len(name);
             if(base_len+n+2>=sizeof(s.path)){s.incomplete=1;continue;}
             copy(s.path+base_len,name,n+1);

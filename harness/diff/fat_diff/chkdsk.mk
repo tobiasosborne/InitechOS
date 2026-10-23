@@ -6,7 +6,7 @@ CHKDSK_ADAPTER := os/milton/chkdsk_program.c
 CHKDSK_PROG_BIN := $(BUILD)/chkdsk_program.bin
 CHKDSK_FIXTURE := $(BUILD)/chkdsk_fixture
 CHKDSK_HOST := $(BUILD)/chkdsk_host
-CHKDSK_MUTANTS := REPORT LOST CROSS INVALID VERBOSE FRAG NOFIX RECOVER DISCARD MEMORY MIRROR
+CHKDSK_MUTANTS := REPORT LOST CROSS INVALID VERBOSE FRAG NOFIX RECOVER DISCARD MEMORY MIRROR LABEL
 CHKDSK_INC := -Ios/milton -Ispec -I$(CHKDSK_DIR) -I$(BUILD)
 CHKDSK_HOST_SRC := $(CHKDSK_DIR)/chkdsk_host.c $(CHKDSK_SRC) os/milton/mcb.c $(CHKDSK_DIR)/blockdev_file.c
 
@@ -52,13 +52,15 @@ $(BUILD)/chkdsk_cache_boot.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_chkdsk_
 
 .PHONY: test-chkdsk test-chkdsk-mutant test-chkdsk-emu test-chkdsk-emu-mutant
 test-chkdsk: $(CHKDSK_HOST) $(CHKDSK_FIXTURE)
+	@sh $(CHKDSK_DIR)/chkdsk_label.sh $(BUILD)/chkdsk/labels $(CHKDSK_HOST)
 	@sh $(CHKDSK_DIR)/chkdsk.sh host $(BUILD) $(CHKDSK_HOST) $(CHKDSK_FIXTURE)
 test-chkdsk-emu: $(CHKDSK_PROG_BIN) $(CHKDSK_FIXTURE) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
 	@INITECH_QMP_STDIO=1 sh $(CHKDSK_DIR)/chkdsk.sh emu $(BUILD) $(CHKDSK_PROG_BIN) $(CHKDSK_FIXTURE) $(SECONDARY_TRACER_IMG)
 test-chkdsk-mutant: $(foreach m,$(CHKDSK_MUTANTS),$(BUILD)/chkdsk_host_$(m)) $(CHKDSK_FIXTURE)
 	@set -eu; for m in $(CHKDSK_MUTANTS); do \
 	 log=$(BUILD)/chkdsk-mutant-$$m.log; \
-	 if sh $(CHKDSK_DIR)/chkdsk.sh host $(BUILD) $(BUILD)/chkdsk_host_$$m $(CHKDSK_FIXTURE) > $$log 2>&1; then \
+	 if { sh $(CHKDSK_DIR)/chkdsk_label.sh $(BUILD)/chkdsk/labels $(BUILD)/chkdsk_host_$$m && \
+	      sh $(CHKDSK_DIR)/chkdsk.sh host $(BUILD) $(BUILD)/chkdsk_host_$$m $(CHKDSK_FIXTURE); } > $$log 2>&1; then \
 	  echo "FAIL CHKDSK mutant $$m survived"; exit 1; fi; \
 	 grep 'RED CHKDSK-' $$log | tail -1 || { cat $$log; exit 1; }; \
 	 echo "GREEN CHKDSK mutant $$m rejected"; done

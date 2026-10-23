@@ -12,7 +12,7 @@ PHONE    TXT      263   3-02-92   8:51a
 APPS            <DIR>   3-01-92  12:00p
 SAMPLES         <DIR>   3-01-92  12:30p
 
-        6 File(s)   1416704 bytes free
+        6 File(s)   1415680 bytes free
 A:\>
 
 

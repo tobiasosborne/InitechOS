@@ -9,7 +9,7 @@ A:\REPORTS>DIR
 .               <DIR>   3-02-92   9:30a
 ..              <DIR>   3-02-92   9:30a
 
-        2 File(s)   1416192 bytes free
+        2 File(s)   1415168 bytes free
 A:\REPORTS>
 
 

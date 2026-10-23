@@ -1,0 +1,8 @@
+Volume CHKTEST     created Mar 1, 1992 12:00a
+
+  1457664 bytes total disk space
+      512 bytes in 2 hidden files
+  1457152 bytes available on disk
+
+   654336 bytes total memory
+   600144 bytes free
