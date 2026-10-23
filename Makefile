@@ -31233,6 +31233,20 @@ $(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_FILE_WRITE_NOOP,file_write)
 $(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_FILE_LEAK,file_leak))
 FILE_ROUND_OK = $(call APPL_ALIVE,$(1)) && grep -q 's="FILE ROUNDTRIP OK".* -> 0$$' $(1)
 FILE_REAP_OK = $(call APPL_ALIVE,$(1)) && [ "$$(grep -c 's="FILE OPEN FIFTEEN OK".* -> 0$$' $(1))" = 2 ] && [ "$$(grep -c '^TENANT-FILES reclaimed=15 live=0$$' $(1))" = 2 ]
+# initech-3j17: kmain.c finder_notice/flair_live_alert_run consumes Return.
+# Require each crash alert followed by Return before relaunch, and no modal
+# timeout (which also disposes the alert without an actual dismissal).
+# Match Return's Set-1 keycode 0x1C in message bits 8..15 (event_model.h
+# Sec 3), independently of the cooked CR/LF byte accepted by DialogHandleEvent.
+define FILE_CRASH_OK
+awk ' \
+ /^TENANT-REGISTER ok app=FILETEN$$/ { if (pending) bad=1; launches++ } \
+ /^TENANT-EXIT rc=-1 via=crash$$/ { crashes++ } \
+ /^FINDER-ALERT reason=crash$$/ { if (pending || crashes != alerts+1) bad=1; pending=1; alerts++ } \
+ pending && /^FLAIR-EVT what=3 .*msg=00001C[0-9A-F][0-9A-F]$$/ { pending=0; dismissed++ } \
+ /^FLAIR-TRACK-EXPIRED$$/ { bad=1 } \
+ END { exit !(launches==2 && crashes==2 && alerts==2 && dismissed==2 && !pending && !bad) }' $(1)
+endef
 .PHONY: test-flair-files test-flair-files-mutant test-flair-files-reap test-flair-files-reap-mutant
 test-flair-files: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_FILE_DATA)
 	$(call appl-boot,flair_files,$(FLAIRTENANTS_IMG),$(FLAIR_FILE_DATA),FLAIR_FILE_ROUND,--screendump --screendump-after FLAIR-LIVE-OK)
@@ -31256,6 +31270,7 @@ test-flair-files-reap: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_FILE_DATA)
 	@grep -qx 'TENANT-EXIT rc=0 via=exit' $(BUILD)/flair_files_quit.serial
 	@grep -qx 'TENANT-EXIT rc=0 via=close' $(BUILD)/flair_files_close.serial
 	@grep -qx 'TENANT-EXIT rc=-1 via=crash' $(BUILD)/flair_files_crash.serial
+	@$(call FILE_CRASH_OK,$(BUILD)/flair_files_crash.serial) || { printf '!!! test-flair-files-reap FAIL: crash alerts must appear and be dismissed with Return twice\n'; exit 1; }
 	@printf '>>> test-flair-files-reap: green (twice fifteen opens: quit, close, crash with damaged PSP)\n'
 test-flair-files-reap-mutant: test-flair-files-reap $(BUILD)/flair_tenants_mut_file_leak.img
 	$(call appl-boot,flair_files_leak,$(BUILD)/flair_tenants_mut_file_leak.img,$(FLAIR_FILE_DATA),FLAIR_FILE_QUIT,)
