@@ -226,9 +226,9 @@ $(eval $(call bochs-flair-leg,kernel-size-r4-emu,$(FLAIRTENANTS_IMG),$(FLAIR_DAT
 
 # Factory oracle FIRST (Rule 1). The same second-boot parser is used by the
 # live driver. The mutant cuts its wait to the first boot (Rule 6).
-$(BUILD)/test_bochs_completion: harness/emu/test_bochs_completion.c $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
+$(BUILD)/test_bochs_completion: harness/emu/test_bochs_completion.c $(BOCHS_LIB_SRC) harness/emu/bochs.h harness/emu/bochs_trace.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu $< -o $@
-$(BUILD)/test_bochs_completion_mut: harness/emu/test_bochs_completion.c $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
+$(BUILD)/test_bochs_completion_mut: harness/emu/test_bochs_completion.c $(BOCHS_LIB_SRC) harness/emu/bochs.h harness/emu/bochs_trace.h | $(BUILD)
 	$(CC) $(CFLAGS) -DBOCHS_MUTATE_NO_REBOOT_WAIT -Iharness/emu $< -o $@
 .PHONY: test-bochs-completion test-bochs-completion-mutant
 test-bochs-completion: $(BUILD)/test_bochs_completion
@@ -241,7 +241,7 @@ TEST_UNIT_GATES += test-bochs-completion test-bochs-completion-mutant
 
 # Exactness and complete-line requirements each have their own named mutant.
 define bochs-completion-parser-mutant
-$(BUILD)/test_bochs_completion_$(1): harness/emu/test_bochs_completion.c $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
+$(BUILD)/test_bochs_completion_$(1): harness/emu/test_bochs_completion.c $(BOCHS_LIB_SRC) harness/emu/bochs.h harness/emu/bochs_trace.h | $(BUILD)
 	$(CC) $(CFLAGS) -DBOCHS_MUTATE_$(2) -Iharness/emu $$< -o $$@
 .PHONY: test-bochs-completion-$(1)-mutant
 test-bochs-completion-$(1)-mutant: $(BUILD)/test_bochs_completion_$(1)
@@ -263,7 +263,7 @@ $(BUILD)/bochs_no_reboot.boot: harness/emu/fixtures/bochs_reboot.asm | $(BUILD)
 $(BUILD)/bochs_no_reboot.img: $(BUILD)/bochs_no_reboot.boot
 	dd if=/dev/zero of=$@ bs=512 count=128 status=none
 	dd if=$< of=$@ conv=notrunc status=none
-$(BUILD)/bochs_harness_mut_nowait: $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
+$(BUILD)/bochs_harness_mut_nowait: $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h harness/emu/bochs_trace.h | $(BUILD)
 	$(CC) $(CFLAGS) -DBOCHS_MUTATE_NO_REBOOT_WAIT -Iharness/emu -o $@ $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC)
 
 # Always copy: the fixture records its first boot in sector 2. Require the
@@ -300,3 +300,5 @@ endif
 test-flair-restart-bochs: test-bochs-reboot
 TEST_EMU_GATES += test-bochs-reboot test-bochs-reboot-mutant
 TEST_EMU_GATES += test-flair-shutdown-cancel test-flair-shutdown-cancel-mutant
+# Mixed mouse/keyboard acceptance, defined in emu/copybreak.mk (not a boot-only leg).
+TEST_EMU_GATES += test-flair-copybreak-bochs

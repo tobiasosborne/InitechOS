@@ -1482,9 +1482,15 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
  * The kbd IRQ1 producer posts into this ring; the bounded wake loop in
  * kernel_main drains it in task context and emits FLAIR-KEY on serial.
  *
- * Additive (ADR-0006 E-D3 / BC-2): the DOS g_kbd ASCII ring in kbd.c is
- * kept 100% intact; COMMAND.COM / test-shell / test-samir-boot are GREEN. */
+ * DAS L002: the active GUI owns keys. DOS input is enabled only while the
+ * console owns the screen; the raw hook also records modifier releases. */
 static flair_raw_ring_t g_flair_kbd_ring;
+static kbd_state_t g_flair_consumed_keys;
+
+static void flair_consumed_key(uint8_t sc)
+{
+    (void)kbd_translate(&g_flair_consumed_keys, sc);
+}
 
 /* R0.1 first-activity latch. The live arm explicitly resets this before
  * installing the IRQ12 hook. That re-arm remains intentional and idempotent
@@ -1497,8 +1503,8 @@ static int g_flair_cursor_x;
 static int g_flair_cursor_y;
 
 /* flair_live_kbd_post -- kbd scancode hook installed by BOOT_FLAIR_LIVE.
- * Called from IRQ1 context (kbd_irq_handler, AFTER the DOS g_kbd ring post
- * and BEFORE the PIC EOI) with the RAW PS/2 scancode byte (scancode SET 1
+ * Called from IRQ1 context after updating physical keyboard state and before
+ * PIC EOI, with the RAW PS/2 scancode byte (scancode SET 1
  * make/break from port 0x60; NOT the ASCII translation). Posts ONE
  * FLAIR_RAW_KEYBOARD event to g_flair_kbd_ring.
  * ISR-enqueue-only minimum (ADR-0004 D-4): a single flair_raw_post() call;
@@ -2946,13 +2952,10 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * The shared system_key.h predicate is used before flair_app_dispatch and
  * by the host routing oracle; FLAIR_MUT_PLAIN_BSL_LAUNCH restores the bug.
  *
- * THE g_kbd DRAIN (the brief's contract): the kbd IRQ1 handler posts to BOTH the
- * DOS g_kbd ASCII ring (SAMIR reads this via INT 21h) AND the FLAIR raw ring
- * (the pump cooks this) -- kbd.c. So the hotkey ALSO left a '\' in g_kbd. Drain
- * pending CON input through the hotkey before running SAMIR, preserving the
- * text tenant's later typeahead (int21.h discard_through contract). Ordinary
- * desktop backslashes consume their duplicate DOS bytes before GUI delivery,
- * so an old worksheet prefix cannot be mistaken for the launch boundary.
+ * INPUT OWNERSHIP (DAS L002): the GUI receives raw input exclusively.
+ * At the cooked launch chord, transfer the queued raw suffix to DOS in order,
+ * preserving its decoder state and later typeahead. During SAMIR the raw hook
+ * only records state to be cooked without GUI delivery on resume.
  *
  * REBUILD = RE-PRESENT THE PRESERVED OFFSCREEN (Option A, stateless; the ADR's
  * "re-render the SAME scene + re-present"). SAMIR runs ENTIRELY below the 1 MiB
@@ -2967,7 +2970,7 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * Ref: ADR-0013 Sec 3.2 (class-2 text tenants); spec/memory_map.h (the < 1 MiB
  *      vs FLAIR-heap disjointness proof); os/milton/kmain.c loader_exec_by_name
  *      (the PSP/JFT/CWD save+restore wrapper this reuses); os/milton/kbd.c (the
- *      dual-ring post). CLAUDE.md Law 2 (pre==post is real, not by luck), Law 4
+ *      exclusive input owner). CLAUDE.md Law 2 (pre==post is real, not by luck), Law 4
  *      (full-screen app then back to the live desktop), Rule 2 (fail loud),
  *      Rule 11 (deterministic), Rule 12 (ASCII-clean).
  * ===========================================================================*/
@@ -2986,16 +2989,43 @@ static void flair_launch_text_tenant(const boot_info_t *bi, flair_live_ctx_t *ct
 {
     serial_puts("FLAIR-SUSPEND\n");
 
-    /* Drop the hotkey from the DOS input stream so it does not pollute SAMIR's
-     * first cooked INT-21h line (the dual-ring post in kbd.c put a '\' in g_kbd
-     * too), together with any desktop typing queued before it -- but NOT the
-     * keys typed after it: those are SAMIR's typeahead. The '\' may already sit
-     * in the INT 21h lookahead (an AH=0Bh poll or a CON output byte's ^C check
-     * moves it out of g_kbd), and the pump may reach this hotkey only after the
-     * next keys arrived (seen when the hotkey lands within a few ticks of
-     * FLAIR-LIVE-READY: ". \use" or ". se" in test-samir-lifetime-desktop), so
-     * a drain of g_kbd alone is wrong both ways. */
-    int21_conin_discard_through('\\');
+#ifdef KMAIN_INPUT_HANDOFF_GATE
+    /* ADR-0013 O-7 typeahead: model a delayed cooperative task while IRQ1
+     * queues the launch release (3 bytes) and QUIT+Return (10 bytes).
+     * Gate images only. This makes the no-replay mutation independent of
+     * host scheduling; the production path has no wait. */
+    {
+        uint32_t start = flair_tick_count();
+        while (g_flair_kbd_ring.head - g_flair_kbd_ring.tail < 13u &&
+               flair_tick_count() - start < 200u)
+            __asm__ __volatile__("hlt");
+        if (g_flair_kbd_ring.head - g_flair_kbd_ring.tail >= 13u)
+            serial_puts("FLAIR-HANDOFF-QUEUED\n");
+    }
+#endif
+
+    /* Transfer only raw bytes AFTER the cooked launch chord to DOS, using
+     * the decoder snapshot at that boundary. IRQ1's state is already at
+     * head; reusing it would misread releases and extended prefixes. Mask
+     * IRQs so live DOS input cannot overtake this bounded replay. */
+    {
+        unsigned long flags;
+        kbd_state_t replay = g_flair_consumed_keys;
+        __asm__ __volatile__("pushf; pop %0; cli" : "=r"(flags) : : "memory");
+        kbd_set_input_owner(KBD_OWNER_DOS);
+        int21_conin_handoff();
+        uint32_t end = g_flair_kbd_ring.head;
+        for (uint32_t i = g_flair_kbd_ring.tail; i != end; ++i) {
+            const flair_raw_event_t *raw = &g_flair_kbd_ring.slots[i & FLAIR_RAW_RING_MASK];
+#ifndef KMAIN_MUT_NO_INPUT_REPLAY
+            if (raw->kind == FLAIR_RAW_KEYBOARD)
+                kbd_console_replay(&replay, (uint8_t)raw->payload);
+#else
+            (void)raw; (void)replay; /* Rule 6: queued QUIT loses its prefix. */
+#endif
+        }
+        __asm__ __volatile__("push %0; popf" : : "r"(flags) : "memory", "cc");
+    }
 
     /* Prepare the screen for SAMIR's text I/O: clear the LFB to the console paper
      * + home the cursor. The kernel console came up at boot and is already bound
@@ -3030,7 +3060,14 @@ static void flair_launch_text_tenant(const boot_info_t *bi, flair_live_ctx_t *ct
      * cooking releases too: Ctrl/Alt came down before suspend and came up
      * during SAMIR. A raw tail=head drop would leave them latched on resume.
      * Keep the Event Manager's tick/cursor/lock state (event_model.h Sec 2/5). */
-    flair_text_tenant_drain(&g_flair_kbd_ring);
+    {
+        unsigned long flags;
+        __asm__ __volatile__("pushf; pop %0; cli" : "=r"(flags) : : "memory");
+        flair_text_tenant_drain(&g_flair_kbd_ring);
+        kbd_set_input_owner(KBD_OWNER_GUI);
+        int21_conin_handoff();
+        __asm__ __volatile__("push %0; popf" : : "r"(flags) : "memory", "cc");
+    }
 
 #ifndef FLAIR_LIVE_MUTATE_NO_REBUILD
     /* REBUILD: the offscreen survived SAMIR (< 1 MiB vs FLAIR-heap disjoint, see
@@ -6099,6 +6136,12 @@ static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *
 {
     void (*repl)(int);
 
+    /* Input ownership follows the handoff itself, including the existing
+     * no-teardown pixel mutant: that mutant must still run DIR at the prompt
+     * so its oracle can grade the deliberately surviving desktop pixels. */
+    kbd_set_input_owner(KBD_OWNER_DOS);
+    int21_conin_handoff();
+
 #if !defined(KMAIN_MUT_EXIT_NO_TEARDOWN)
     /* TEAR DOWN: the desktop's input + clock hooks out, the Toolbox fault
      * triage unbound (a DOS program's fault is the ordinary PC LOAD LETTER
@@ -6129,10 +6172,7 @@ static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *
 #else
     (void)bi;
 #endif
-    /* Typeahead from the desktop is not the prompt's: the IRQ1 handler posts
-     * to the DOS ring too (kbd.c), so drop what the alert's keys left there. */
-    while (kbd_getchar() >= 0) {
-    }
+    /* The ownership handoff already discarded the desktop's cooked input. */
     serial_puts("FLAIR-EXIT-TO-DOS\n");
     /* The kernel context COMMAND.COM runs in: the kernel PSP and terminate
      * hook (the loader rebinds both per EXEC and restores them), the root of
@@ -7392,6 +7432,8 @@ void kernel_main(void)
      * event.c tick counter to 0. IRQs are still masked here (before sti); no
      * producer can be running yet. Ref: event.h flair_event_init contract. */
     flair_event_init(&g_flair_kbd_ring);
+    kbd_state_init(&g_flair_consumed_keys);
+    flair_event_set_keyboard_observer(flair_consumed_key);
 
     /* R0.1 boot-still policy (gate images): arm tracking but do not show. Keep these explicit,
      * idempotent stores even though tdnl.29 now guarantees zero BSS: x/y are
@@ -7440,8 +7482,8 @@ void kernel_main(void)
      * kbd_set_scancode_hook defaults NULL; only THIS kernel installs the hook, so
      * every other kbd.o-linking kernel is byte-identical (Rule 11). The hook is
      * flair_live_kbd_post (above in this TU): posts FLAIR_RAW_KEYBOARD to
-     * g_flair_kbd_ring -- the ADR-0004 D-4 ISR-enqueue-only minimum. The DOS
-     * g_kbd ASCII ring (kbd.c) is kept 100% intact (additive; ADR-0006 BC-2).
+     * g_flair_kbd_ring -- the ADR-0004 D-4 ISR-enqueue-only minimum. The
+     * explicit keyboard owner keeps GUI chords out of the DOS cooked ring.
      *
      * The FLAIR_LIVE_MUTATE_NO_KBD_HOOK Rule-6 mutant SKIPS this install, so
      * no FLAIR-KEY ever appears -> the FO-5 gate goes RED. NEVER define in a
@@ -7481,6 +7523,12 @@ void kernel_main(void)
      * at 0 after flair_event_init above. After this, IRQ0 fires ~every 10 ms and
      * IRQ1 fires on every keystroke from the 8042 output buffer. */
     sysinit_enable_irqs(serial_puts);
+
+    /* DAS L002: sysinit initialized the default DOS owner. The active
+     * desktop now exclusively owns keys, before READY admits injected input.
+     * DEC-16 break checkpoints and BREAK state are unchanged. */
+    kbd_set_input_owner(KBD_OWNER_GUI);
+    int21_conin_handoff();
 
     /* --- FO-6: unmask the PS/2 mouse IRQ12 AFTER sti (ADR-0006 E-D3d) --------- *
      * sysinit_enable_irqs() above installed the IRQ0/IRQ1 gates, unmasked IRQ0+
@@ -7626,6 +7674,9 @@ void kernel_main(void)
                 int_frame_t time = { 0 };
                 time.eax = 0x2C00u;
                 int21_dispatch(&time);
+                /* DAS L002 oracle: witness the completed DOS checkpoint,
+                 * even when the displayed minute did not change. */
+                serial_puts("FLAIR-CLOCK-POLL\n");
                 if (MenuClock_set((time.ecx >> 8) & 255u, time.ecx & 255u)) {
                     GrafPort clock_port = ten_barport;
                     clock_port.portBits.bm = ctx.off; /* whole offscreen: band1 */
@@ -7695,15 +7746,6 @@ void kernel_main(void)
                 flair_launch_text_tenant(&b, &ctx, FLAIR_TEXT_TENANT_NAME);
                 continue;
             }
-            /* DEC-LAUNCH-1: a plain backslash is tenant text below, but its
-             * duplicate DOS-ring byte must leave now. Otherwise the next
-             * launch's discard_through would stop at this OLD backslash and
-             * feed the worksheet suffix (e.g. minus/Return) to SAMIR. Keep
-             * later typeahead, as int21.h discard_through promises. */
-            if (ev.what == (uint16_t)keyDown &&
-                (ev.message & 0xFFu) == (uint32_t)'\\')
-                int21_conin_discard_through('\\');
-
             /* R3.3 (bead initech-tdnl.10): a Ctrl chord with a FINDER window
              * frontmost is a Finder command -- New Folder, Clean Up, Close
              * Window, Open. Intercepted BEFORE the Layer-5 dispatch for the

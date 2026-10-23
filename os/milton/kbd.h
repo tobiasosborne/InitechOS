@@ -23,7 +23,7 @@
  * test-kbd proves the whole path on the emulator.
  *
  * REENTRANCY INVARIANT (beads initech-xk2): the IRQ1 handler touches ONLY this
- * file's g_kbd ring + g_kbd_state. It NEVER calls int21_dispatch and NEVER
+ * file's keyboard input state. It NEVER calls int21_dispatch and NEVER
  * touches the INT 21h dispatcher globals (g_dta/g_find/g_sft/g_cur_psp). INT 21h
  * uses a TRAP gate (0x8F, IF stays set), so once IRQ1 is unmasked an IRQ CAN
  * interrupt an in-flight INT 21h call -- that is safe ONLY because there is zero
@@ -108,6 +108,28 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode);
  * MS-DOS 3.3 User's Guide pp.154-155 (F3). No port I/O. */
 void kbd_scancode_put(kbd_ring_t *ring, kbd_state_t *state, uint8_t scancode);
 
+/* DAS L002 / PRD Sec 6.1,6.3: the active surface owns input. GUI command
+ * chords must never become DOS typeahead (DEC-16 break checkpoints remain).
+ * Modifier state follows physical keys even while DOS receives no bytes. */
+typedef enum { KBD_OWNER_DOS, KBD_OWNER_GUI } kbd_owner_t;
+typedef struct {
+    kbd_ring_t cooked;
+    kbd_state_t state;
+    kbd_owner_t owner;
+} kbd_input_t;
+void kbd_input_init(kbd_input_t *input);
+void kbd_input_claim(kbd_input_t *input, kbd_owner_t owner);
+void kbd_input_put(kbd_input_t *input, uint8_t scancode);
+
+/* Task-context handoff, atomic against IRQ1, preserving the caller's IF.
+ * A change drops the old owner's cooked bytes; an idempotent claim keeps
+ * DOS typeahead, including an unread extended-key second byte. */
+void kbd_set_input_owner(kbd_owner_t owner);
+
+/* With IRQs masked, transfer queued post-launch scancodes to DOS. State
+ * is the snapshot at the cooked launch event; IRQ1 is already at head. */
+void kbd_console_replay(kbd_state_t *state, uint8_t scancode);
+
 /* ---- kernel-only (freestanding; touch I/O ports) ------------------------- */
 
 /* Initialize the keyboard ring + modifier state. Does NOT unmask the PIC line
@@ -120,28 +142,12 @@ void kbd_init(void);
  * ring, then sends EOI (0x20 -> port 0x20). Kernel-only (port I/O). */
 void kbd_irq_handler(void);
 
-/* Optional raw-scancode hook for the FLAIR live event loop (ADR-0006
- * E-D3(c) / FO-5 -- beads initech-5l5z). When non-NULL, kbd_irq_handler
- * calls this AFTER posting the decoded ASCII to the DOS g_kbd ring and
- * BEFORE issuing the PIC EOI (kbd.c). The hook receives the RAW PS/2
- * scancode byte read from port 0x60 (scancode SET 1 make/break; NOT the
- * ASCII translation). DEFAULT NULL: every kernel that never calls
- * kbd_set_scancode_hook() has a kbd_irq_handler that is byte-for-byte
- * the legacy scan->ASCII->ring-put->EOI path (CLAUDE.md Rule 11 byte-
- * stability; the hook branch is not executed).
- *
- * ISR context: the hook must do the ADR-0004 D-4 minimum -- post the raw
- * byte to a lock-free ring and return; NO Toolbox call, NO allocation,
- * NO port I/O. The EventRecord synthesis (keyDown/keyUp) happens in task
- * context inside WaitNextEvent (ADR-0004 D-4 / event.h). Written once
- * from task context BEFORE `sti`; read in ISR context -- safe on a single-
- * core cooperative system (no concurrent writer; CLAUDE.md "cooperative").
- *
- * The FLAIR-live kernel (kmain.c -DBOOT_FLAIR_LIVE) installs its private
- * flair_live_kbd_post() hook here so the kbd IRQ1 -> FLAIR raw ring path
- * fires on metal with no WaitNextEvent pump yet (FO-5, the cheapest on-metal
- * SPSC-ring-atomicity-under-async-producer test). Ref: ADR-0006 E-D3(c),
- * FO-5; kbd.c g_scancode_hook; spec/event_model.h flair_raw_event_t. */
+/* Optional ISR raw observer, invoked after physical state update and before
+ * PIC EOI. Install before sti; detach on GUI exit. The hook may only enqueue
+ * raw bytes, never call DOS/Toolbox or allocate (ADR-0004 D-4). It does not
+ * grant DOS input ownership. During suspension the GUI cooks its buffered
+ * raw events without dispatch, so modifier releases cannot latch on resume.
+ * Ref: ADR-0006 FO-5; DAS L002; kbd_set_input_owner above. */
 void kbd_set_scancode_hook(void (*fn)(uint8_t sc));
 
 /* Non-blocking consumer API for the event loop / the echo self-test.

@@ -92,6 +92,8 @@ typedef struct {
      * and release are sent. Capture waits for the last release. Ref:
      * docs/research/samir-bochs-rfb.md (RFC 6143 Sec 7.5.4). */
     const char *keys_script;
+    /* Also accepts QEMU's mixed-trace mDX:DY/l0/l1/wMS/kctrl-letter tokens
+     * for shared GUI regression traces (bochs_trace.h). Guest 640x480. */
     const char *keys_after;
 
     /* Pinned guest RTC (Rule 11; parallel to qemu.h rtc_base): >0 writes

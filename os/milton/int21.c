@@ -644,6 +644,12 @@ void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll)
     g_conin_get  = get;
     g_conin_poll = poll;
 }
+void int21_conin_handoff(void)
+{
+#ifndef INT21_MUT_KEEP_INPUT_LOOKAHEAD
+    g_conin_pushback = -1;
+#endif
+}
 void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set)
 {
     g_clock_get = get;

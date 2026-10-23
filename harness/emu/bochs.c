@@ -23,6 +23,7 @@
 #define _XOPEN_SOURCE 700   /* realpath(3) (XSI; glibc gates it on XOPEN_EXTENDED) */
 
 #include "bochs.h"
+#include "bochs_trace.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -193,6 +194,8 @@ static int write_bochsrc(const char *path, const BochsConfig *cfg,
     else
         fputs("clock: sync=none\n", f);
     fputs("display_library: rfb\n", f);
+    if (cfg->keys_script && strchr(cfg->keys_script, ':'))
+        fputs("mouse: type=ps2, enabled=1\n", f);
     /* The RFB port is selected by the BX_RFB display via the 5900+display#
      * default; this build uses 5900. (Bochs 2.7 has no bochsrc knob for it.) */
     (void)port;
@@ -423,18 +426,8 @@ static bool rfb_request_full(RfbShadow *r)
  * silently dropped. This is factory input, not an OS keyboard shortcut. */
 static unsigned rfb_key(const char *s, size_t n)
 {
-    if (n == 1 && ((*s >= 'a' && *s <= 'z') || (*s >= '0' && *s <= '9')))
-        return (unsigned char)*s;
-    if (n == 3 && memcmp(s, "ret", 3) == 0) {
-#ifdef BOCHS_KEYS_MUT_RETURN
-        return 0xff08; /* Rule 6: BackSpace instead of Return. */
-#else
-        return 0xff0d;
-#endif
-    }
-    if (n == 3 && memcmp(s, "spc", 3) == 0) return ' ';
-    if (n == 3 && memcmp(s, "dot", 3) == 0) return '.';
-    return 0;
+    BochsTraceStep step;
+    return bochs_trace_parse(s, n, &step) && step.kind == BX_KEY ? step.key : 0;
 }
 
 static bool rfb_key_event(RfbShadow *r, unsigned key, bool down)
@@ -452,6 +445,26 @@ static bool rfb_key_event(RfbShadow *r, unsigned key, bool down)
         sleep_ms(5);
     }
     if (sent != sizeof m) rfb_fail(r, "cannot send KeyEvent");
+    return sent == sizeof m;
+}
+
+/* RFC 6143 Sec 7.5.5. As with KeyEvent, interrupted/partial sends must
+ * finish the packet or fail loud; never leave a truncated RFB message. */
+static bool rfb_pointer_event(RfbShadow *r, unsigned x, unsigned y, unsigned buttons)
+{
+    unsigned char m[6] = {5, (unsigned char)buttons,
+        (unsigned char)(x >> 8), (unsigned char)x,
+        (unsigned char)(y >> 8), (unsigned char)y};
+    size_t sent = 0;
+    long long until = mono_ms() + 2000;
+    while (sent < sizeof m && mono_ms() < until) {
+        ssize_t k = send(r->fd, m + sent, sizeof m - sent, MSG_NOSIGNAL);
+        if (k > 0) { sent += (size_t)k; continue; }
+        if (k < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) break;
+        rfb_pump(r);
+        sleep_ms(5);
+    }
+    if (sent != sizeof m) rfb_fail(r, "cannot send PointerEvent");
     return sent == sizeof m;
 }
 
@@ -649,7 +662,8 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     }
     for (const char *p = cfg->keys_script; p && *p;) {
         const char *end = strchr(p, ',');
-        if (!rfb_key(p, end ? (size_t)(end - p) : strlen(p)) ||
+        BochsTraceStep step;
+        if (!bochs_trace_parse(p, end ? (size_t)(end - p) : strlen(p), &step) ||
             (end && !end[1])) {
             fprintf(stderr, "bochs_run: unsupported key script token\n");
             return -1;
@@ -833,6 +847,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     const char *key_next = cfg->keys_script;
     bool keys_started = false, key_down = false;
     long long key_at = 0;
+    BochsTracePointer pointer = { .x = 320, .y = 240 };
     for (;;) {
         pid_t w = waitpid(pid, &status, WNOHANG);
         if (w == pid) { reaped = true; break; }
@@ -845,11 +860,24 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         }
         if (key_next && keys_started && rfb.have_init && mono_ms() >= key_at) {
             const char *end = strchr(key_next, ',');
-            unsigned key = rfb_key(key_next, end ? (size_t)(end - key_next) : strlen(key_next));
-            if (!rfb_key_event(&rfb, key, !key_down)) break;
-            key_down = !key_down;
+            BochsTraceStep step;
+            if (!bochs_trace_parse(key_next, end ? (size_t)(end - key_next) : strlen(key_next), &step)) break;
+            int delay = 80;
+            if (step.kind == BX_KEY) {
+                if (step.ctrl && !key_down && !rfb_key_event(&rfb, 0xffe3, true)) break;
+                if (!rfb_key_event(&rfb, rfb_key(key_next, end ? (size_t)(end - key_next) : strlen(key_next)), !key_down)) break;
+                key_down = !key_down;
+                if (step.ctrl && !key_down && !rfb_key_event(&rfb, 0xffe3, false)) break;
+                delay = 30;
+            } else if (step.kind == BX_WAIT) delay = step.delay;
+            else {
+                unsigned x, y, buttons;
+                int consumed = bochs_trace_pointer_next(&pointer, &step, &x, &y, &buttons);
+                if (!rfb_pointer_event(&rfb, x, y, buttons)) break;
+                if (!consumed) { key_at = mono_ms() + delay; continue; }
+            }
             if (!key_down) key_next = end ? end + 1 : NULL;
-            key_at = mono_ms() + 30;
+            key_at = mono_ms() + delay;
         }
         if (cfg->quit_after || (cfg->screendump_after && sd == SD_WAIT)) {
             char *txt = read_file(out->serial_path, NULL);

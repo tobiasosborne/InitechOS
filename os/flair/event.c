@@ -100,6 +100,12 @@ static uint16_t g_modifiers;
 static uint8_t g_kbd_held;
 static uint8_t g_kbd_ext;
 static uint8_t g_kbd_skip;
+static void (*g_keyboard_observer)(uint8_t);
+
+void flair_event_set_keyboard_observer(void (*observer)(uint8_t))
+{
+    g_keyboard_observer = observer;
+}
 
 /* The cooperative yield hook (see event.h Sec 3). */
 static flair_event_yield_fn g_yield_fn;
@@ -175,6 +181,7 @@ void flair_event_init(flair_raw_ring_t *ring)
     g_kbd_held   = 0u;
     g_kbd_ext    = 0u;
     g_kbd_skip   = 0u;
+    g_keyboard_observer = 0;
     g_yield_fn   = (flair_event_yield_fn)0;
 }
 
@@ -462,6 +469,10 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
         uint8_t  ascii     = 0u;
         uint16_t vkey;
 
+#ifndef EVENT_MUT_NO_KEY_OBSERVER
+        if (g_keyboard_observer)
+            g_keyboard_observer((uint8_t)(byte | (is_break ? 0x80u : 0u)));
+#endif
         if (g_kbd_skip != 0u) {          /* inside E1 1D 45 / E1 9D C5 */
             g_kbd_skip--;
             break;

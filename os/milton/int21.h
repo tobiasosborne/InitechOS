@@ -652,6 +652,11 @@ typedef int (*int21_coninpoll_fn)(void);  /* NON-blocking: char 0..255, or -1   
  * keyboard-backed callbacks near the sti; the host oracle binds a queued mock. */
 void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll);
 
+/* Task-context input handoff (DAS L002): forget the previous surface's
+ * lookahead, including half-read CON extended keys. The keyboard producer
+ * changes ownership and clears its ring separately. Does not change BREAK. */
+void int21_conin_handoff(void);
+
 /* Discard pending CON input up to AND including the first byte == c, keeping
  * what follows it. "Pending" spans the single-slot lookahead (filled by AH=0Bh
  * and by the ^C/^S/^P check every CON output byte makes) and the bound poll. */

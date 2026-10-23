@@ -8,9 +8,9 @@ SAMIR_BOCHS_REPORT := $(BUILD)/$(SAMIR_BOCHS_NAME).report
 SAMIR_BOCHS_SERIAL := $(BUILD)/$(SAMIR_BOCHS_NAME).serial
 
 # Factory-only transport check: no RFB socket or Bochs process needed.
-$(BUILD)/test_samir_bochs_keys: harness/emu/test_samir_bochs_keys.c $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
+$(BUILD)/test_samir_bochs_keys: harness/emu/test_samir_bochs_keys.c $(BOCHS_LIB_SRC) harness/emu/bochs.h harness/emu/bochs_trace.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu $< -o $@
-$(BUILD)/test_samir_bochs_keys_mut: harness/emu/test_samir_bochs_keys.c $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
+$(BUILD)/test_samir_bochs_keys_mut: harness/emu/test_samir_bochs_keys.c $(BOCHS_LIB_SRC) harness/emu/bochs.h harness/emu/bochs_trace.h | $(BUILD)
 	$(CC) $(CFLAGS) -DBOCHS_KEYS_MUT_RETURN -Iharness/emu $< -o $@
 .PHONY: test-samir-bochs-keys test-samir-bochs-keys-mutant
 test-samir-bochs-keys: $(BUILD)/test_samir_bochs_keys

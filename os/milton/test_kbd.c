@@ -29,6 +29,7 @@
 #include <string.h>
 
 #include "kbd.h"
+#include "../../spec/tsr_contract.h"
 #include "pit.h"
 #include "test_assert.h"
 
@@ -332,6 +333,53 @@ static void test_control(void)
     CHECK(kbd_translate(&st, 0x2e) == 'c', "init clears pending E0 and Ctrl");
 }
 
+/* DAS L002; GUI Copy is one command, never a pending DOS Ctrl-C. */
+static void test_input_ownership(void)
+{
+    kbd_input_t in;
+    uint8_t c;
+    kbd_input_init(&in);
+    kbd_input_put(&in, 0x20); /* DOS typeahead */
+    kbd_input_claim(&in, KBD_OWNER_DOS);
+    CHECK(kbd_ring_get(&in.cooked, &c) && c == 'd',
+          "ownership: repeated DOS claim preserves typeahead");
+    kbd_input_put(&in, 0x3d);
+    CHECK(kbd_ring_get(&in.cooked, &c) && c == 0,
+          "ownership: extended key prefix");
+    kbd_input_claim(&in, KBD_OWNER_DOS);
+    CHECK(kbd_ring_get(&in.cooked, &c) && c == 0x3d,
+          "ownership: repeated claim preserves extended-key suffix");
+    kbd_input_put(&in, 0x20);
+    kbd_input_claim(&in, KBD_OWNER_GUI);
+    CHECK(kbd_ring_empty(&in.cooked), "ownership: entry drops old DOS input");
+    kbd_input_put(&in, 0x1d);
+    for (unsigned i = 0; i < 100; ++i) {
+        kbd_input_put(&in, 0x2e); /* Copy */
+        kbd_input_put(&in, 0xae);
+        kbd_input_put(&in, 0x3d); /* GUI function key */
+    }
+    CHECK(kbd_ring_empty(&in.cooked) && !in.cooked.dropped,
+          "ownership: GUI keys never fill or overflow DOS ring");
+    CHECK(kbd_bios_flags(&in.state) & TSR_KBD_FLAG_CTRL,
+          "ownership: physical Ctrl still published during GUI");
+    kbd_input_claim(&in, KBD_OWNER_DOS); /* suspended desktop */
+    kbd_input_put(&in, 0x9d);
+    kbd_input_put(&in, 0x20);
+    kbd_input_put(&in, 0x3d);
+    kbd_input_put(&in, 0x1d);
+    kbd_input_put(&in, 0x2e);
+    static const uint8_t want[] = { 'd', 0, 0x3d, 3 };
+    for (unsigned i = 0; i < sizeof want; ++i)
+        CHECK(kbd_ring_get(&in.cooked, &c) && c == want[i],
+              "ownership: DOS text, extended key and Ctrl-C survive suspension");
+    kbd_input_claim(&in, KBD_OWNER_GUI);
+    kbd_input_put(&in, 0x9d);
+    kbd_input_claim(&in, KBD_OWNER_DOS); /* exit to prompt */
+    kbd_input_put(&in, 0x2e);
+    CHECK(kbd_ring_get(&in.cooked, &c) && c == 'c',
+          "ownership: GUI release clears Ctrl before prompt resumes");
+}
+
 int main(void)
 {
     {
@@ -347,5 +395,6 @@ int main(void)
     test_modifier_sequences();
     test_control();
     test_pit();
+    test_input_ownership();
     return TEST_SUMMARY("test-kbd-unit");
 }
