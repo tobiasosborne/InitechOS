@@ -89,6 +89,7 @@
 #include "process.h"             /* FlairProcessList, FlairProcess_launch,
                                   * flair_app_dispatch, flair_route_updates (-Ios/flair)*/
 #include "system_key.h"          /* system launcher predicate; routing oracle */
+#include "power_notice.h"        /* visible explanation of a refused quit */
 #include "egg_jtc.h"             /* initech-2ter (a), hidden authored mat */
 #ifdef FLAIR_FILM_SCENE
 #include "film_scene.h"
@@ -5982,6 +5983,22 @@ static __attribute__((cold,noinline)) int finder_power_ask_apps(flair_live_ctx_t
     serial_puts("FINDER-POWER-CANCEL app=");
     serial_puts(still);
     serial_puts(r > 0 ? " declined\n" : " cannot-ask\n");
+    /* B04 / audit DAS L022: serial alone leaves the user guessing. The
+     * notice is modal, restores the desktop, and never terminates the app. */
+    {
+        static const char *const ok[] = { "OK" };
+        const char *lines[3];
+        unsigned n = finder_power_notice(r > 0, still, lines);
+        if (n) {
+            flair_live_alert_open(ctx, bi, lines, (int)n, ok, 1, 1);
+            serial_puts("FINDER-POWER-NOTICE\n");
+            for (unsigned i = 0; i < n; i++) {
+                serial_puts("FINDER-ALERT-LINE ");
+                serial_puts(lines[i]); serial_putc('\n');
+            }
+            (void)flair_live_alert_run(ctx, bi);
+        }
+    }
     return 0;
 }
 
