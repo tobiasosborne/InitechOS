@@ -1,0 +1,9 @@
+PASS: emitted sources and corpus are ASCII
+PASS: sh -n dml_mint.sh
+PASS: git diff --check
+PASS: original golden pins retained; six new real-III+ fixture pins pass
+PASS: independent re-mint matches all six new pinned files byte-for-byte
+PASS: mint binaries match sister reference corpus
+SAMIR.COM: 95497 -> 95721 B (+224 B), 98175 B cap, 2454 B spare; kernel delta 0 B
+SAMIR.COM SHA256: 3b2c490668dbb810ac3a4abe65bb9f135ae5a6fc89094ad09ca9aeea95d489f6
+PASS: test-samir-size-repro in host.log: two clean builds byte-identical

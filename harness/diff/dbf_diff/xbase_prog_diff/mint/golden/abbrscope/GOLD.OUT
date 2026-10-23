@@ -1,0 +1,43 @@
+[DML-BEGIN]
+         2
+                                                         
+ X          Y                                            
+                                                         
+
+         2
+                                                         
+ N          Y            V                               
+                                                         
+
+                                                         
+ C          R            S          A          D         
+                                                         
+
+                                                         
+ R          S            A          D          D         
+                                                         
+
+ T          U                                            
+ R          S            A          D          D         
+                                                         
+
+ T          U                                            
+ W          S            Z          D          D         
+                                                         
+
+ T          U                                            
+ PS         S            S          D          D         
+                                                         
+
+ T          U                                            
+ E          F            S          D          D         
+ E          F                                            
+
+ G          U            H                               
+ G          F            H          D          D         
+ G          F            H                               
+
+ G          U            H                               
+ REST NEXT  NEXT, REST   ALL        D          D         
+ G          F            H                               
+[DML-END]

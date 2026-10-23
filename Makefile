@@ -34162,7 +34162,7 @@ TEST_UNIT_GATES += test-samir-core-diff test-samir-core-diff-mutant
 # RUN (DML-16) is back in the vector (initech-n8q8): the PAL exec seam runs
 # COMMAND.COM /C through the nested EXEC; its mutant SAMIR_DML_MUTANT_run is
 # the RUN_NOEXEC bite (no CR LFs, no child, no VERSION.TXT).
-SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run abbrev
+SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run abbrev abbrscope
 SAMIR_DML_TEST := $(BUILD)/test_samir_dml
 SAMIR_DML_MUTS := $(addprefix $(BUILD)/test_samir_dml_, $(SAMIR_DML_CASES))
 $(SAMIR_DML_TEST): $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
@@ -34199,21 +34199,24 @@ endef
 $(foreach verb,$(SAMIR_DML_CASES),$(eval $(call samir-dml-gates,$(verb))))
 
 # Audit L009 / initech-13d3: both spellings were independently run by DBASE.EXE.
-# The hook mutant rejects DISP only; full DISPLAY must still match its golden.
+# DISP's hook mutant leaves full DISPLAY intact; abbrscope restores the bad
+# REPLACE scope scan. Both must lose the independent real-III+ differential.
 .PHONY: mint-samir-abbrev test-samir-abbrev test-samir-abbrev-mutant test-samir-abbrev-emu
 mint-samir-abbrev: $(CLIENTS_DBF)
-	@SAMIR_DML_MINT_DEST="$(abspath $(BUILD)/samir-abbrev-mint)" sh $(DBF_DIFF_DIR)/dml_mint.sh $(abspath $(DBASE3_DECOMP)) abbrev abbrfull
+	@SAMIR_DML_MINT_DEST="$(abspath $(BUILD)/samir-abbrev-mint)" sh $(DBF_DIFF_DIR)/dml_mint.sh $(abspath $(DBASE3_DECOMP)) abbrev abbrfull abbrscope
 	@for name in abbrev abbrfull; do for f in DMLTEST.PRG GOLD.OUT BASE.DBF NAMES.NDX VALUES.MEM; do \
 	 cmp $(BUILD)/samir-abbrev-mint/$$name/$$f $(SAMIR_MINT_TREE)/golden/$$name/$$f || exit 1; done; done
+	@for f in DMLTEST.PRG GOLD.OUT INPUT.DBF BASE.DBF MINT.PRG CONFIG.DB; do \
+	 cmp $(BUILD)/samir-abbrev-mint/abbrscope/$$f $(SAMIR_MINT_TREE)/golden/abbrscope/$$f || exit 1; done
 	@printf '>>> mint-samir-abbrev: green (isolated real III+ rerun reproduces committed goldens)\n'
-test-samir-abbrev: test-samir-dml-abbrev
+test-samir-abbrev: test-samir-dml-abbrev test-samir-dml-abbrscope
 	@$(SAMIR_DML_TEST) abbrfull host
 	@for f in GOLD.OUT BASE.DBF NAMES.NDX VALUES.MEM; do cmp $(BUILD)/samirdml/golden/abbrev/$$f $(BUILD)/samirdml/golden/abbrfull/$$f || exit 1; done
-	@printf '>>> test-samir-abbrev: green (both spellings vs real III+ output and DBF/NDX)\n'
-test-samir-abbrev-mutant: test-samir-abbrev test-samir-dml-abbrev-mutant
+	@printf '>>> test-samir-abbrev: green (both spellings and replacement scopes vs real III+ output and files)\n'
+test-samir-abbrev-mutant: test-samir-abbrev test-samir-dml-abbrev-mutant test-samir-dml-abbrscope-mutant
 	@$(BUILD)/test_samir_dml_abbrev abbrfull host
-	@printf '>>> test-samir-abbrev-mutant: green (DISP RED; full DISPLAY control green)\n'
-test-samir-abbrev-emu: test-samir-dml-abbrev-emu
+	@printf '>>> test-samir-abbrev-mutant: green (DISP and replacement-scope mutants RED; full DISPLAY control green)\n'
+test-samir-abbrev-emu: test-samir-dml-abbrev-emu test-samir-dml-abbrscope-emu
 	@INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) abbrfull emu $(SAMIR_COM)
 	@printf '>>> test-samir-abbrev-emu: green\n'
 TEST_UNIT_GATES += test-samir-abbrev test-samir-abbrev-mutant

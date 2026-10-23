@@ -1,0 +1,564 @@
+Makefile:8837: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8835: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8846: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8844: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/prog_diff harness/diff/dbf_diff/xbase_prog_diff/prog_diff.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> samir-prog-goldens: green (PROG-01..07, EXTRA-01..13, PUBS-01 real III+ captures)
+>>> test-dbase-diff: xBase .prg program differential (stdout + result .dbf vs real III+ goldens; gate 100%) (S6.4)
+  Real III+ program mints: prog-real.sha256 (make mint-samir-prog).
+xbase-prog-diff: 8 checks, 0 failures
+>>> test-dbase-diff: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_decimals harness/diff/dbf_diff/test_interp_decimals.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-decimals: SET DECIMALS -> ?/?? computed-numeric display (division; 1/3->0.33) (7az.20)
+  GATE: SQRT/LOG/EXP SET DECIMALS display -- bead 7az.13 (not implemented); gated pending those functions landing.
+  GATE: VAL of a non-integer string (e.g. VAL('3.14159')) display with set_decimals -- the exact 'shows more places if naturally present' vs 'clamps to DECIMALS' behavior is [oracle-resolves] (numeric-and-string-formatting.md S5.1 FIXED OFF semantics needs live DBASE.EXE).
+  GATE: ? 6/2 (integer-valued division) trailing zeros under SET DECIMALS -- whether an exact-integer division result shows decimals is [oracle-resolves] (fractional-part heuristic gives dec=0 for 6/2=3.0).
+  GATE: STR() unaffected by SET DECIMALS -- verified and proven in test_interp_setfmt.c; not re-proven here (STR returns XB_C, never reaches the XB_N render branch).
+test_interp_decimals: SET DECIMALS effect on ? display
+  Ground: mint-results-002.md '? 1/3 -> 0.33 (DECIMALS=2)' [verified]
+  Scope:  numeric-and-string-formatting.md:33 (division/SQRT/LOG/VAL/EXP)
+test_interp_decimals: 23 checks, 0 failures
+>>> test-interp-decimals: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DDEC_MUTATE_IGNORE_SETDEC -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_decimals_mut harness/diff/dbf_diff/test_interp_decimals.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-decimals-mutant: confirming the ignore-SET-DECIMALS mutant goes RED (Rule 6; 7az.20)
+>>> test-interp-decimals-mutant: green (ignore-SET-DECIMALS correctly RED)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_flow harness/diff/dbf_diff/test_interp_flow.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-flow: statement executor + DO WHILE/IF/DO CASE/LOOP/EXIT; guard-must-be-Logical (S5.3)
+test-interp-flow: 79 checks, 0 failures
+>>> test-interp-flow: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DFLOW_MUTATE_DOCASE_ALL -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_flow_mut harness/diff/dbf_diff/test_interp_flow.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-flow-mutant: confirming the DO-CASE-runs-all mutant goes RED (Rule 6; initech-7az.4)
+>>> test-interp-flow-mutant: green (DO CASE runs-all correctly RED)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_list harness/diff/dbf_diff/test_interp_list.c os/samir/cmd/proc.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-list: LIST/DISPLAY scope/FOR/WHILE/OFF; ?/??; LOCATE/CONTINUE; SEEK/FIND (S5.4)
+  SKIP (LOUD): SET FILTER / SET DELETED interaction with scope (S5.6; GAPS secP) -- not asserted.
+  SKIP (LOUD): layout cases outside M005U/M005N / ? inter-expr separator width (navigation-query-display Open Q6/7) -- no real transcript for those cases.
+test-interp-list: 108 checks, 0 failures
+>>> test-interp-list: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_MUTATE_HEADING -Iseed -Ios/samir/include -Ispec -o build/test_interp_screen_HEADING harness/diff/dbf_diff/test_interp_list.c os/samir/cmd/proc.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+test-interp-list-heading-mutant: PASS (implementation mutant RED: screen controls)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DQUERY_MUTATE_CONTINUE_SCOPE -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_list_mut harness/diff/dbf_diff/test_interp_list.c os/samir/cmd/proc.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-list-mutant: confirming the CONTINUE-re-scope mutant goes RED (Rule 6; initech-7az.5)
+>>> test-interp-list-mutant: green (CONTINUE re-scope correctly RED)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_nav harness/diff/dbf_diff/test_interp_nav.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-nav: GO/GOTO/SKIP/GO TOP-BOTTOM/EOF/BOF; physical + index order (S5.2)
+  SKIP (LOUD): SKIP at EOF error-vs-silent (GAPS secP) -- not asserted.
+  SKIP (LOUD): SKIP at BOF error-vs-silent (GAPS secP) -- not asserted.
+  SKIP (LOUD): NAMES SKIP at EOF exact error-vs-silent (GAPS secP) -- not asserted.
+  SKIP (LOUD): NAMES SKIP at BOF exact error-vs-silent (GAPS secP) -- not asserted.
+  SKIP (LOUD): GO to record hidden by SET DELETED/FILTER (GAPS secP) -- not asserted (S5.6).
+test-interp-nav: 261 checks, 0 failures
+>>> test-interp-nav: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DNAV_MUTATE_SKIP -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_nav_mut harness/diff/dbf_diff/test_interp_nav.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-nav-mutant: confirming the SKIP off-by-one mutant goes RED (Rule 6; initech-7az.3)
+>>> test-interp-nav-mutant: green (SKIP off-by-one correctly RED)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_proc harness/diff/dbf_diff/test_interp_proc.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-proc: DO/PROC/PARAMS/RETURN/PUBLIC/PRIVATE/ACCEPT/INPUT/WAIT/ON ERROR + scope (S5.7)
+name? amt? press: SKIP [GATED plan Sec 7 / corpus Open-q]: PARAMETERS by-REFERENCE write-back exactness -- proc.c passes WITH args BY VALUE; a bare-name by-ref alias is corpus-open (memory-variables.md Open-q 5). NOT asserted.
+SKIP [GATED plan Sec 7 / corpus Open-q]: uninitialized PUBLIC/PRIVATE VALUE (Clipper inits .F.; III+ 1.1 parity unconfirmed) -- proc.c inits to XB_U (memory-variables.md Open-q 3). Its VALUE is NOT asserted.
+SKIP [GATED plan Sec 7 / corpus Open-q]: DO-name precedence (an open PROCEDURE vs a disk <name>.prg) -- proc.c resolves only against the registered source (control-flow-and-procedures.md Open-q 1). NOT asserted.
+test-interp-proc: 43 checks, 0 failures
+>>> test-interp-proc: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DPROC_MUTATE_PRIVATE_NORESTORE -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_proc_mut harness/diff/dbf_diff/test_interp_proc.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-proc-mutant: confirming the PRIVATE-no-restore mutant goes RED (Rule 6; initech-7az.8)
+>>> test-interp-proc-mutant: green (PRIVATE no-restore correctly RED)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_replace harness/diff/dbf_diff/test_interp_replace.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-replace: REPLACE/APPEND/DELETE/RECALL/PACK/ZAP; coercion + index drift (S5.5)
+test-interp-replace: 67 checks, 0 failures
+>>> test-interp-replace: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DMUTATE_REPLACE_NO_SCOPE -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_replace_mut harness/diff/dbf_diff/test_interp_replace.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-replace-mutant: confirming the REPLACE-ignores-scope mutant goes RED (Rule 6; initech-7az.6)
+>>> test-interp-replace-mutant: green (REPLACE-ignores-scope correctly RED)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_set harness/diff/dbf_diff/test_interp_set.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/set.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-set: SET EXACT/DECIMALS/DATE/CENTURY/ORDER/... defaults + override (S5.6)
+test_interp_set: S5.6 SET state oracle
+  LOUD-SKIP: SET DECIMALS formatter effect (STR/dec_format) deferred -- parallel lane owns fn_builtins.c; follow-up bead required.
+  LOUD-SKIP: SET DATE formatter effect (DTOC/display format) deferred -- parallel lane owns fn_builtins.c; follow-up bead required.
+  LOUD-SKIP: SET CENTURY formatter effect (4-digit year display) deferred -- parallel lane owns fn_builtins.c; follow-up bead required.
+  LOUD-SKIP: SET INDEX runtime effect (index open) deferred -- work-area index-open plumbing not yet present; follow-up bead required.
+  LOUD-SKIP: SET RELATION runtime effect (area linking) deferred -- work-area relation plumbing not yet present; follow-up bead required.
+test_interp_set: 65 checks, 0 failures
+>>> test-interp-set: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_MUTATE_CONSOLE -Iseed -Ios/samir/include -Ispec -o build/test_interp_screen_CONSOLE harness/diff/dbf_diff/test_interp_list.c os/samir/cmd/proc.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+test-interp-set-console-mutant: PASS (implementation mutant RED: screen controls)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSET_MUTATE_EXACT_DEFAULT -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_set_mut harness/diff/dbf_diff/test_interp_set.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/set.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-set-mutant: confirming the EXACT-default-ON mutant goes RED (Rule 6; initech-7az.7)
+>>> test-interp-set-mutant: green (EXACT default-ON correctly RED)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_setfmt harness/diff/dbf_diff/test_interp_setfmt.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-setfmt: SET DATE/CENTURY -> DTOC/CTOD; STR ignores SET DECIMALS (verified) (S5.6/7az.15)
+  GATE: SET DECIMALS effect on division/VAL/computed display is a separate step (numeric-and-string-formatting.md:33); not asserted.
+GATE: SET DATE ITALIAN: picture DD-MM-YY is same as GERMAN but with '/' separator confusion -- exact minted behavior [oracle-resolves]. Loud-skipping ITALIAN/FRENCH format assertions.
+GATE: CTOD with 4-digit year string under CENTURY OFF: acceptance behavior of 10-char AMERICAN string ('08/05/1985') under CENTURY OFF is [oracle-resolves] per dates-and-century.md Open Question. Loud-skipping.
+GATE: STR(n) 2-arg form SET DECIMALS interaction: 2-arg uses dec=0 (settled design choice; see set-commands.md Sec 3.1). No oracle-resolves needed -- already asserted above.
+test_interp_setfmt: SET DECIMALS/DATE/CENTURY formatter wiring oracle
+test_interp_setfmt: 46 checks, 0 failures
+>>> test-interp-setfmt: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DXB_MUTATE_SETFMT_IGNORE -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_setfmt_mut harness/diff/dbf_diff/test_interp_setfmt.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-setfmt-mutant: confirming the DTOC-ignores-SET-DATE/CENTURY mutant goes RED (Rule 6; 7az.15)
+>>> test-interp-setfmt-mutant: green (DTOC-ignores-SET-DATE correctly RED)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_use harness/diff/dbf_diff/test_interp_use.c os/samir/cmd/workarea.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-use: work-area model + USE/CLOSE/SELECT + field/memo resolve glue (S5.1)
+test-interp-use: 73 checks, 0 failures
+>>> test-interp-use: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DWA_MUTATE_SELECT -Iseed -Ios/samir/include -Ispec \
+	-o build/test_interp_use_mut harness/diff/dbf_diff/test_interp_use.c os/samir/cmd/workarea.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-interp-use-mutant: confirming the SELECT-misroute mutant goes RED (Rule 6; initech-7az.2)
+>>> test-interp-use-mutant: green (SELECT misroute correctly RED)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include \
+	-o build/test_samir_pal_contract harness/diff/dbf_diff/test_samir_pal_contract.c os/samir/pal/pal_null.c
+>>> test-samir-pal: samir_pal vtable contract complete + linkable (pal_null)
+test_samir_pal_contract: 26 checks, 0 failures
+>>> test-samir-pal: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include \
+	-o build/test_samir_rt harness/diff/dbf_diff/test_samir_rt.c os/samir/core/rt.c
+>>> test-samir-rt: freestanding rt (JDN, dec_format ties->+inf, mem/str)
+test_samir_rt: 61 checks, 0 failures
+>>> test-samir-rt: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include \
+	-o build/test_samir_pal_host harness/diff/dbf_diff/test_samir_pal_host.c os/samir/pal/pal_host.c
+>>> test-samir-pal-host: host PAL binding (libc + injectable clock + arena)
+test_samir_pal_host: 28 checks, 0 failures
+>>> test-samir-pal-host: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ispec \
+	-o build/test_samir_spec harness/diff/dbf_diff/test_samir_spec.c
+>>> test-samir-spec: spec/samir locked data consistent (III+-only; no ==; 0x1C/0x1F NORMALIZE)
+test_samir_spec: spec dir = spec/samir
+test_samir_spec: 111 checks, 0 failures
+>>> test-samir-spec: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include \
+	-o build/test_samir_value harness/diff/dbf_diff/test_samir_value.c os/samir/core/value.c os/samir/core/rt.c
+>>> test-samir-value: xb_val typed value (C/N/D/L/M/U) + xb_typeof/xb_eq
+test-samir-value: 59 checks, 0 failures
+>>> test-samir-value: green
+>>> test-samir-dbf-ref: independent .dbf/.dbt reader vs corpus goldens
+dbf_ref selftest: 147 checks, 0 failures
+>>> test-samir-dbf-ref: green
+>>> test-samir-ndx-ref: independent .ndx B-tree reader vs corpus goldens
+ndx_ref selftest: 116 checks, 0 failures
+>>> test-samir-ndx-ref: green
+>>> test-samir: SAMIR foundation green (PAL + rt + value + host binding + spec lock + dbf_ref + ndx_ref)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/mint_clients_dbf harness/diff/dbf_diff/mint_clients_dbf.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/core/value.c os/samir/core/rt.c os/samir/pal/pal_host.c
+>>> mint_clients_dbf: wrote build/CLIENTS.DBF (3 fields, 3 records, date 07-19-93)
+>>> CLIENTS.DBF: minted build/CLIENTS.DBF (NAME/C CITY/C BAL/N; 3 records; deterministic; bead hdlb)
+>>> samir-dml-goldens: green (real III+ ledger rows pinned)
+test-samir-dml: 6 checks, 0 failures
+>>> test-samir-dml-abbrev: green
+test-samir-dml: 5 checks, 0 failures
+>>> test-samir-dml-abbrscope: green
+test-samir-dml: 6 checks, 0 failures
+>>> test-samir-abbrev: green (both spellings and replacement scopes vs real III+ output and files)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_abbrev -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_abbrev harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_abbrev RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_abbrscope -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_abbrscope harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_abbrscope RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml: 6 checks, 0 failures
+>>> test-samir-abbrev-mutant: green (DISP and replacement-scope mutants RED; full DISPLAY control green)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec -o build/test_samir_dbsafe harness/diff/dbf_diff/test_samir_dbsafe.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+append: 502 checks, 0 failures
+>>> test-samir-append-safe: green
+>>> test-samir-append-safe-mutant: memory correctly RED (L001 in-memory committed count)
+>>> test-samir-append-safe-mutant: count correctly RED (L001 original header geometry and committed count)
+>>> test-samir-append-safe-mutant: rewrite correctly RED (L001 prior record bytes untouched)
+>>> test-samir-append-safe-mutant: green
+cc -std=c11 -Wall -Wextra -Werror -Iharness/emu harness/emu/test_samir_bochs_keys.c -o build/test_samir_bochs_keys
+>>> test-samir-bochs-keys: green (RFC KeyEvent bytes, both edges, partial writes, EINTR, broken transport)
+cc -std=c11 -Wall -Wextra -Werror -DBOCHS_KEYS_MUT_RETURN -Iharness/emu harness/emu/test_samir_bochs_keys.c -o build/test_samir_bochs_keys_mut
+RED samir-bochs-keys: Return keysym must be ff0d
+>>> test-samir-bochs-keys-mutant: green (Return-to-BackSpace branch correctly RED)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec -o build/test_samir_core harness/diff/dbf_diff/test_samir_core.c os/samir/cmd/flow.c os/samir/cmd/nav.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/core/eval.c os/samir/core/fn_builtins.c os/samir/core/lex.c os/samir/core/parse.c os/samir/core/rt.c os/samir/core/value.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/pal/pal_host.c
+samir-core: 286 checks, 0 failures
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -o build/samir_core_ref harness/diff/dbf_diff/samir_core_ref.c
+samir-core-real-diff: 9 checks, 0 failures
+samir-core-real-diff: 104 checks, 0 failures
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_CORE_MUTATE_NDX_DUP_DESCENT -Iseed -Ios/samir/include -Ispec -o build/test_samir_core_NDX_DUP_DESCENT harness/diff/dbf_diff/test_samir_core.c os/samir/cmd/flow.c os/samir/cmd/nav.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/core/eval.c os/samir/core/fn_builtins.c os/samir/core/lex.c os/samir/core/parse.c os/samir/core/rt.c os/samir/core/value.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/pal/pal_host.c
+test-samir-core-diff-mutant: GREEN (NDX_DUP_DESCENT correctly RED: same-key append/split differential vs real III+)
+samir-core-real-diff: 104 checks, 0 failures
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_CORE_MUTATE_DBF_SIZE -Iseed -Ios/samir/include -Ispec -o build/test_samir_core_DBF_SIZE harness/diff/dbf_diff/test_samir_core.c os/samir/cmd/flow.c os/samir/cmd/nav.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/core/eval.c os/samir/core/fn_builtins.c os/samir/core/lex.c os/samir/core/parse.c os/samir/core/rt.c os/samir/core/value.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_CORE_MUTATE_DATE_WIDTH -Iseed -Ios/samir/include -Ispec -o build/test_samir_core_DATE_WIDTH harness/diff/dbf_diff/test_samir_core.c os/samir/cmd/flow.c os/samir/cmd/nav.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/core/eval.c os/samir/core/fn_builtins.c os/samir/core/lex.c os/samir/core/parse.c os/samir/core/rt.c os/samir/core/value.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_CORE_MUTATE_MEMO_POINTER -Iseed -Ios/samir/include -Ispec -o build/test_samir_core_MEMO_POINTER harness/diff/dbf_diff/test_samir_core.c os/samir/cmd/flow.c os/samir/cmd/nav.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/core/eval.c os/samir/core/fn_builtins.c os/samir/core/lex.c os/samir/core/parse.c os/samir/core/rt.c os/samir/core/value.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_CORE_MUTATE_DBT_SPAN -Iseed -Ios/samir/include -Ispec -o build/test_samir_core_DBT_SPAN harness/diff/dbf_diff/test_samir_core.c os/samir/cmd/flow.c os/samir/cmd/nav.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/core/eval.c os/samir/core/fn_builtins.c os/samir/core/lex.c os/samir/core/parse.c os/samir/core/rt.c os/samir/core/value.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_CORE_MUTATE_NDX_SIZE -Iseed -Ios/samir/include -Ispec -o build/test_samir_core_NDX_SIZE harness/diff/dbf_diff/test_samir_core.c os/samir/cmd/flow.c os/samir/cmd/nav.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/core/eval.c os/samir/core/fn_builtins.c os/samir/core/lex.c os/samir/core/parse.c os/samir/core/rt.c os/samir/core/value.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_CORE_MUTATE_NDX_BUILD_SIZE -Iseed -Ios/samir/include -Ispec -o build/test_samir_core_NDX_BUILD_SIZE harness/diff/dbf_diff/test_samir_core.c os/samir/cmd/flow.c os/samir/cmd/nav.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/core/eval.c os/samir/core/fn_builtins.c os/samir/core/lex.c os/samir/core/parse.c os/samir/core/rt.c os/samir/core/value.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_CORE_MUTATE_MEMVAR_RECLAIM -Iseed -Ios/samir/include -Ispec -o build/test_samir_core_MEMVAR_RECLAIM harness/diff/dbf_diff/test_samir_core.c os/samir/cmd/flow.c os/samir/cmd/nav.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/core/eval.c os/samir/core/fn_builtins.c os/samir/core/lex.c os/samir/core/parse.c os/samir/core/rt.c os/samir/core/value.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_CORE_MUTATE_CONCAT_PLUS -Iseed -Ios/samir/include -Ispec -o build/test_samir_core_CONCAT_PLUS harness/diff/dbf_diff/test_samir_core.c os/samir/cmd/flow.c os/samir/cmd/nav.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/core/eval.c os/samir/core/fn_builtins.c os/samir/core/lex.c os/samir/core/parse.c os/samir/core/rt.c os/samir/core/value.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_CORE_MUTATE_CONCAT_MINUS -Iseed -Ios/samir/include -Ispec -o build/test_samir_core_CONCAT_MINUS harness/diff/dbf_diff/test_samir_core.c os/samir/cmd/flow.c os/samir/cmd/nav.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/core/eval.c os/samir/core/fn_builtins.c os/samir/core/lex.c os/samir/core/parse.c os/samir/core/rt.c os/samir/core/value.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_CORE_MUTATE_FILE_NEEDS_USE -Iseed -Ios/samir/include -Ispec -o build/test_samir_core_FILE_NEEDS_USE harness/diff/dbf_diff/test_samir_core.c os/samir/cmd/flow.c os/samir/cmd/nav.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/core/eval.c os/samir/core/fn_builtins.c os/samir/core/lex.c os/samir/core/parse.c os/samir/core/rt.c os/samir/core/value.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/pal/pal_host.c
+test-samir-core-mutants: DBF_SIZE correctly RED:   FAIL harness/diff/dbf_diff/test_samir_core.c:54: DBF_SIZE: wrapped record span rejected on read
+test-samir-core-mutants: DATE_WIDTH correctly RED:   FAIL harness/diff/dbf_diff/test_samir_core.c:74: DATE_WIDTH: next field preserved
+test-samir-core-mutants: MEMO_POINTER correctly RED:   FAIL harness/diff/dbf_diff/test_samir_core.c:91: MEMO_POINTER: existing reader sees appended live span
+test-samir-core-mutants: DBT_SPAN correctly RED:   FAIL harness/diff/dbf_diff/test_samir_core.c:108: DBT_SPAN: terminator outside live span rejected
+test-samir-core-mutants: NDX_SIZE correctly RED:   FAIL harness/diff/dbf_diff/test_samir_core.c:131: NDX_SIZE: short or partial page is structural error
+test-samir-core-mutants: NDX_BUILD_SIZE correctly RED:   FAIL harness/diff/dbf_diff/test_samir_core.c:135: NDX_BUILD_SIZE: key span: reject overflowing key buffer before allocation
+test-samir-core-mutants: NDX_DUP_DESCENT correctly RED:   FAIL harness/diff/dbf_diff/test_samir_core.c:155: NDX_DUP_DESCENT: same-key traversal strictly ordered by recno
+test-samir-core-mutants: MEMVAR_RECLAIM correctly RED:   FAIL harness/diff/dbf_diff/test_samir_core.c:204: MEMVAR_RECLAIM: repeated update, alias copy, release and type change reclaim bytes
+test-samir-core-mutants: CONCAT_PLUS correctly RED:   FAIL harness/diff/dbf_diff/test_samir_core.c:194: CONCAT_PLUS: 260 rejected with manual error 77
+test-samir-core-mutants: CONCAT_MINUS correctly RED:   FAIL harness/diff/dbf_diff/test_samir_core.c:196: CONCAT_MINUS: 260 rejected with manual error 76
+test-samir-core-mutants: FILE_NEEDS_USE correctly RED:   FAIL harness/diff/dbf_diff/test_samir_core.c:199: FILE_NEEDS_USE: existing file works without cursor
+test-samir-core-mutants: GREEN (all named regressions caught)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec -o build/test_samir_datatype harness/diff/dbf_diff/test_samir_datatype.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+test-samir-datatype: 9 checks, 0 failures
+test-samir-datatype: 9 checks, 0 failures
+test-samir-datatype: 6 checks, 0 failures
+test-samir-datatype: 6 checks, 0 failures
+test-samir-datatype boundary: 15 checks, 0 failures
+test-samir-datatype: 5 checks, 0 failures
+test-samir-datatype: 25 checks, 0 failures
+test-samir-datatype: 5 checks, 0 failures
+>>> test-samir-datatype: green (L001/L006/L016 vs real III+)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DT_MUTANT_blankwrite -Iseed -Ios/samir/include -Ispec -o build/test_samir_datatype_blankwrite harness/diff/dbf_diff/test_samir_datatype.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DT_MUTANT_starread -Iseed -Ios/samir/include -Ispec -o build/test_samir_datatype_starread harness/diff/dbf_diff/test_samir_datatype.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DT_MUTANT_blankread -Iseed -Ios/samir/include -Ispec -o build/test_samir_datatype_blankread harness/diff/dbf_diff/test_samir_datatype.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DT_MUTANT_blankkey -Iseed -Ios/samir/include -Ispec -o build/test_samir_datatype_blankkey harness/diff/dbf_diff/test_samir_datatype.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DT_MUTANT_cutoff -Iseed -Ios/samir/include -Ispec -o build/test_samir_datatype_cutoff harness/diff/dbf_diff/test_samir_datatype.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DT_MUTANT_blankwrite RED:   FAIL harness/diff/dbf_diff/test_samir_datatype.c:110: L001 blank D field reads as a blank Date (real III+ TYPE("WHEN")="D", DT3 G8)
+>>> SAMIR_DT_MUTANT_starread RED:   FAIL harness/diff/dbf_diff/test_samir_datatype.c:114: L006 "****" N field reads as 1.7976931348623157E308 (real III+ DT5 I1/I2/I7)
+>>> SAMIR_DT_MUTANT_blankread RED:   FAIL harness/diff/dbf_diff/test_samir_datatype.c:110: L001 blank D field reads as a blank Date (real III+ TYPE("WHEN")="D", DT3 G8)
+>>> SAMIR_DT_MUTANT_blankkey RED:   FAIL harness/diff/dbf_diff/test_samir_datatype.c:395: L016 BLANKDAT.NDX entries (blank key 1E+100 last) match real III+ via ndx_ref.py
+>>> SAMIR_DT_MUTANT_cutoff RED:   FAIL harness/diff/dbf_diff/test_samir_datatype.c:235: L006 boundary: 9.2E18 fits N(19,0) and REPLACE stores its digits
+make: Nothing to be done for 'test-samir-dml-abbrev'.
+make: Nothing to be done for 'test-samir-dml-abbrev-mutant'.
+make: Nothing to be done for 'test-samir-dml-abbrscope'.
+make: Nothing to be done for 'test-samir-dml-abbrscope-mutant'.
+test-samir-dml: 5 checks, 0 failures
+>>> test-samir-dml-append: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_append -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_append harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_append RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml: 4 checks, 0 failures
+>>> test-samir-dml-clear: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_clear -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_clear harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_clear RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml-state (manual-grounded; exact differential remains mandatory): 6 checks, 0 failures
+>>> test-samir-dml-clear-state: green (state only; exact transcript still required)
+>>> SAMIR_DML_MUTANT_clear RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:39: DML state clear removed hidden PRIVATE N
+test-samir-dml: 4 checks, 0 failures
+>>> test-samir-dml-close: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_close -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_close harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_close RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml-state (manual-grounded; exact differential remains mandatory): 6 checks, 0 failures
+>>> test-samir-dml-close-state: green (state only; exact transcript still required)
+>>> SAMIR_DML_MUTANT_close RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:45: DML state close preserved DBF and cursor
+test-samir-dml: 5 checks, 0 failures
+>>> test-samir-dml-copyfile: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_copyfile -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_copyfile harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_copyfile RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:109: DML COPIED.TXT bytes match real III+
+test-samir-dml: 5 checks, 0 failures
+>>> test-samir-dml-erase: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_erase -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_erase harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_erase RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml: 6 checks, 0 failures
+>>> test-samir-dml-index: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_index -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_index harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_index RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml: 6 checks, 0 failures
+>>> test-samir-dml-label: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_label -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_label harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_label RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml: 4 checks, 0 failures
+>>> test-samir-dml-macro: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_macro -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_macro harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_macro RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml-state (manual-grounded; exact differential remains mandatory): 4 checks, 0 failures
+>>> test-samir-dml-macro-state: green (state only; exact transcript still required)
+>>> SAMIR_DML_MUTANT_macro RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:43: DML state macro executed substituted assignment
+test-samir-dml: 7 checks, 0 failures
+>>> test-samir-dml-reindex: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_reindex -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_reindex harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_reindex RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml: 6 checks, 0 failures
+>>> test-samir-dml-rename: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_rename -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_rename harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_rename RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml: 5 checks, 0 failures
+>>> test-samir-dml-restore: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_restore -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_restore harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_restore RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml: 9 checks, 0 failures
+>>> test-samir-dml-run: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_run -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_run harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_run RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml: 5 checks, 0 failures
+>>> test-samir-dml-save: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_save -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_save harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_save RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:109: DML VALUES.MEM bytes match real III+
+test-samir-dml: 5 checks, 0 failures
+>>> test-samir-dml-sort: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_sort -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_sort harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_sort RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml: 5 checks, 0 failures
+>>> test-samir-dml-total: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_total -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_total harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_total RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+test-samir-dml: 4 checks, 0 failures
+>>> test-samir-dml-type: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DML_MUTANT_type -Iseed -Ios/samir/include -Ispec -o build/test_samir_dml_type harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_DML_MUTANT_type RED:   FAIL harness/diff/dbf_diff/test_samir_dml.c:214: DML transcript byte-identical to real III+
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+test-samir-fns: 4 checks, 0 failures
+>>> test-samir-fns-alias: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_alias -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_alias harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_alias RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-fns-alternate: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_alternate -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_alternate harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_alternate RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-fns-console: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_console -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_console harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_console RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-fns-division: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_division -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_division harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_division RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-fns-errors: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_errors -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_errors harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_errors RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-fns-exprcol: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_exprcol -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_exprcol harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_exprcol RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-fns-index: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_index -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_index harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_index RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-fns-listoff: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_listoff -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_listoff harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_listoff RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-fns-numlist: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_numlist -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_numlist harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_numlist RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-fns-recsize: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_recsize -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_recsize harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_recsize RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-fns-struct: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_struct -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_struct harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_struct RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-fns-type: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_type -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_type harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_type RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-fns-unknown: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_FNS_MUTANT_unknown -Iseed -Ios/samir/include -Ispec -o build/test_samir_fns_unknown harness/diff/dbf_diff/test_samir_fns.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_FNS_MUTANT_unknown RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:81: FNS transcript byte-identical to real III+
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DT_MUTANT_blankdtoc -Iseed -Ios/samir/include -Ispec -o build/test_samir_datatype_blankdtoc harness/diff/dbf_diff/test_samir_datatype.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DT_MUTANT_numericfit -Iseed -Ios/samir/include -Ispec -o build/test_samir_datatype_numericfit harness/diff/dbf_diff/test_samir_datatype.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_DT_MUTANT_valstar -Iseed -Ios/samir/include -Ispec -o build/test_samir_datatype_valstar harness/diff/dbf_diff/test_samir_datatype.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DXB_MUTATE_TR_ROUNDING -Iseed -Ios/samir/include -Ispec -o build/test_xbase_transform_rounding_mut harness/diff/dbf_diff/test_xbase_transform.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c
+>>> TRANSFORM rounding correctly RED:   FAIL G10: TRANSFORM converts before picture truncation [real III+ DT1 C10] [MUTANT TARGET] (ok_c):
+>>> blankdtoc correctly RED:   FAIL harness/diff/dbf_diff/test_samir_datatype.c:190: FMT-DTOC blank field retains separators [real III+ DT2 E1]
+>>> numericfit correctly RED:   FAIL harness/diff/dbf_diff/test_samir_datatype.c:118: FMT-NFIT decimal overflow preserves -999 and 1000 after reopen [DT2 F12/F13]
+>>> valstar correctly RED:   FAIL harness/diff/dbf_diff/test_samir_datatype.c:123: FMT-VALSTAR VAL(****) returns DBL_MAX [real III+ DT5 I7]
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -o build/test_samir_input harness/diff/dbf_diff/test_samir_input.c
+test-samir-input: 104 checks, 0 failures
+>>> test-samir-input: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_MUTATE_STDIN_LINES -Iseed -Ios/samir/include -o build/test_samir_input_mut harness/diff/dbf_diff/test_samir_input.c
+>>> test-samir-input-mutant: green (multi-command read correctly RED)
+lifetime: 745 checks, 0 failures
+>>> test-samir-lifetime: green
+>>> test-samir-lifetime-mutant: reset correctly RED (L003 reset cannot cross a live owner)
+>>> test-samir-lifetime-mutant: duplicate correctly RED (L003 exact duplicate refused)
+>>> test-samir-lifetime-mutant: heap correctly RED (L003 reclaimed open)
+>>> test-samir-lifetime-mutant: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DTEST_AUDIT_USE -Iseed -Ios/samir/include -Ispec -o build/test_samir_use harness/diff/dbf_diff/test_samir_audit.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+docs/research/mints/numlist-v1-2026-10-23/FNSTEST.PRG: OK
+docs/research/mints/numlist-v1-2026-10-23/GOLD.OUT: OK
+harness/diff/dbf_diff/xbase_prog_diff/fns-mint/exprcol/GOLD.OUT: OK
+test-samir-audit: 213 checks, 0 failures
+>>> test-samir-list-layout: green (M005U/M005N bytes; OFF/scope order and numlist EOF capture)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DTEST_AUDIT_USE -DSAMIR_LIST_MUTATE_COLUMNS -Iseed -Ios/samir/include -Ispec -o build/test_samir_list_layout_COLUMNS harness/diff/dbf_diff/test_samir_audit.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DTEST_AUDIT_USE -DSAMIR_LIST_MUTATE_HEADING -Iseed -Ios/samir/include -Ispec -o build/test_samir_list_layout_HEADING harness/diff/dbf_diff/test_samir_audit.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DTEST_AUDIT_USE -DSAMIR_LIST_MUTATE_OPENING -Iseed -Ios/samir/include -Ispec -o build/test_samir_list_layout_OPENING harness/diff/dbf_diff/test_samir_audit.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DTEST_AUDIT_USE -DSAMIR_LIST_MUTATE_OFF -Iseed -Ios/samir/include -Ispec -o build/test_samir_list_layout_OFF harness/diff/dbf_diff/test_samir_audit.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DTEST_AUDIT_USE -DSAMIR_LIST_MUTATE_SCOPE -Iseed -Ios/samir/include -Ispec -o build/test_samir_list_layout_SCOPE harness/diff/dbf_diff/test_samir_audit.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DTEST_AUDIT_USE -DSAMIR_LIST_MUTATE_EOF -Iseed -Ios/samir/include -Ispec -o build/test_samir_list_layout_EOF harness/diff/dbf_diff/test_samir_audit.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-samir-list-layout-mutant: COLUMNS correctly RED:   FAIL harness/diff/dbf_diff/test_samir_audit.c:319: M005U real-dBASE golden: USE INDEX defaults .NDX and starts at the index top
+>>> test-samir-list-layout-mutant: HEADING correctly RED:   FAIL harness/diff/dbf_diff/test_samir_audit.c:319: M005U real-dBASE golden: USE INDEX defaults .NDX and starts at the index top
+>>> test-samir-list-layout-mutant: OPENING correctly RED:   FAIL harness/diff/dbf_diff/test_samir_audit.c:319: M005U real-dBASE golden: USE INDEX defaults .NDX and starts at the index top
+>>> test-samir-list-layout-mutant: OFF correctly RED:   FAIL harness/diff/dbf_diff/test_samir_audit.c:352: LIST NEXT 1 OFF BAL * 2, NAME
+>>> test-samir-list-layout-mutant: SCOPE correctly RED:   FAIL harness/diff/dbf_diff/test_samir_audit.c:352: tnvc numlist real-dBASE golden (scope/EOF)
+>>> test-samir-list-layout-mutant: EOF correctly RED:   FAIL harness/diff/dbf_diff/test_samir_audit.c:352: tnvc numlist real-dBASE golden (scope/EOF)
+>>> test-samir-list-layout-mutant: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/test_samir_repl harness/diff/dbf_diff/test_samir_repl.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-samir-repl: dot-prompt REPL USE/LIST/LOCATE/REPLACE/STORE/SET/DO/QUIT + catalog errors (S5.8)
+test-samir-repl: 53 checks, 0 failures
+>>> test-samir-repl: green
+>>> samir-size-goldens: green (SF-memwidth real III+ capture pinned)
+test-samir-fns: 3 checks, 0 failures
+>>> test-samir-memwidth: green (PROG-04/05, DML-02 numeric memvar columns)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_SIZE_MUTATE_MEMVAR_WIDTH -Iseed -Ios/samir/include -Ispec -o build/prog_diff_memwidth_mutant harness/diff/dbf_diff/xbase_prog_diff/prog_diff.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+SAMIR_SIZE_MUTATE_MEMVAR_WIDTH RED: FAIL: flow: stdout matches real III+ golden
+>>> test-samir-memwidth-mutant: green
+cc -std=c11 -Wall -Wextra -Werror -Ios/samir/include -o build/test_samir_messages harness/diff/dbf_diff/test_samir_messages.c
+cc -std=c11 -Wall -Wextra -Werror -O2 -o build/samir_msg_pack tools/samir_msg_pack.c
+samir-messages: all 151 ordinals byte-identical to DBASE.MSG; bounds green
+>>> test-samir-messages: green (deterministic packing; independent catalogue decode)
+cc -std=c11 -Wall -Wextra -Werror -DSAMIR_SIZE_MUTATE_MSG_PAIR -Ios/samir/include -o build/test_samir_messages_mutant harness/diff/dbf_diff/test_samir_messages.c
+RED SAMIR_MSG_PAIR: catalogue ordinal 2 differs from DBASE.MSG
+>>> test-samir-messages-mutant: green (SAMIR_SIZE_MUTATE_MSG_PAIR RED)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Ios/samir/include -Ispec -o build/samir_numeric_format harness/diff/dbf_diff/numeric_format_driver.c os/samir/cmd/proc.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+test-samir-numeric-format: 8957 cells PASS (manual-derived cells, real SF-numlist framing)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_NUMERIC_MUTATE_FRACTION -Ios/samir/include -Ispec -o build/samir_numeric_FRACTION harness/diff/dbf_diff/numeric_format_driver.c os/samir/cmd/proc.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+test-samir-numeric-format-fraction-mutant: PASS (implementation mutant RED: descriptor differential)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_NUMERIC_MUTATE_LEFT -Ios/samir/include -Ispec -o build/samir_numeric_LEFT harness/diff/dbf_diff/numeric_format_driver.c os/samir/cmd/proc.c os/samir/cmd/set.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+test-samir-numeric-format-left-mutant: PASS (implementation mutant RED: descriptor differential)
+test-samir-audit: 213 checks, 0 failures
+>>> test-samir-use: green (incl. mint 005 USE INDEX / NEXT n replays vs real dBASE III PLUS 1.1)
+>>> test-samir-print: green (exact ?/?? + mint-005 LIST/DISPLAY)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_PRINT_MUTATE_LF -Iseed -Ios/samir/include -Ispec -o build/test_samir_print_lf harness/diff/dbf_diff/test_samir_dml.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> SAMIR_PRINT_MUTATE_LF RED: DML transcript differs at byte 11 (got 0x0a, real 0x0d; lengths 50/52)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec \
+	-o build/test_samir_query harness/diff/dbf_diff/test_samir_query.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-samir-query: query.c logical echo (.T./.F. vs T/F) + SET DATE/CENTURY + LOCATE RECORD/NEXT
+test-samir-query: 30 checks, 0 failures
+>>> test-samir-query: green
+make: Nothing to be done for 'test-samir-repl'.
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DREPL_MUTATE_NO_MUTATE_MODULE -Iseed -Ios/samir/include -Ispec \
+	-o build/test_samir_repl_mut harness/diff/dbf_diff/test_samir_repl.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-samir-repl-mutant: confirming the no-mutate-module mutant goes RED (Rule 6; initech-7az.9)
+>>> test-samir-repl-mutant: green (REPLACE-unregistered correctly RED)
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec -o build/test_samir_report harness/diff/dbf_diff/test_samir_report.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+test-samir-report: 1138 checks, 0 failures
+>>> test-samir-report: green (111 real III+ files; 13 repeated with abbreviated commands)
+>>> test-samir-report-mutant: subtotal correctly RED (REPORT G8TP.TXT: differs)
+>>> test-samir-report-mutant: column correctly RED (REPORT G1FLT.TXT: differs)
+>>> test-samir-report-mutant: page correctly RED (REPORT G2TRV.TXT: differs)
+>>> test-samir-report-mutant: green
+safety: 67 checks, 0 failures
+>>> test-samir-safety: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DSAMIR_MUTATE_ZAP_SAFETY -Iseed -Ios/samir/include -Ispec -o build/test_samir_safety_mut harness/diff/dbf_diff/test_samir_dbsafe.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-samir-safety-mutant: green (missing confirmation correctly RED)
+cc -std=c11 -Wall -Wextra -Werror -Ispec -o build/test_samir_size harness/diff/dbf_diff/test_samir_size.c
+samir-size: 95721 B; reclaimed 10646 B; headroom 10631 B (budget 106352 B)
+>>> test-samir-size: green (>=8192 B recovery; >=4096 B headroom)
+samir-size: 98175 B; reclaimed 8192 B; headroom 8177 B (budget 106352 B)
+RED SAMIR_SIZE: 99817 B > 98175 B reclaim cap / 102256 B headroom cap
+>>> test-samir-size-mutant: green (SAMIR_SIZE_PAD_4096 RED; image remains below linker budget)
+>>> test-samir-size-repro: green (two clean builds byte-identical): 3b2c490668dbb810ac3a4abe65bb9f135ae5a6fc89094ad09ca9aeea95d489f6  build/SAMIR.COM
+>>> test-samir-softfp: softfp.c 18 helpers vs host double (DEC-02 / Law 2)
+test_samir_softfp: 23858 checks, 0 failures
+>>> test-samir-softfp-implmutant: green (SOFTFP_MUT_ROUND correctly RED -- implementation-side mutant, oracle bites)
+>>> test-samir-softfp-mutant: green (mutant correctly RED)
+test-samir-status: 1888 checks, 0 failures
+test-samir-status-mutant: PASS (status-band implementation mutant RED)
+>>> test-samir-undefined: green (manual #12 transcript; ON ERROR / ERROR())
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DTEST_AUDIT_USE -DSAMIR_MUTATE_UNDEFINED_ERROR1 -Iseed -Ios/samir/include -Ispec -o build/test_samir_undefined_error1 harness/diff/dbf_diff/test_samir_audit.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+>>> test-samir-undefined-mutant: SAMIR_MUTATE_UNDEFINED_ERROR1 correctly RED:   FAIL harness/diff/dbf_diff/test_samir_audit.c:432: kdna exact dot-prompt error transcript
+>>> test-samir-undefined-mutant: green
+make: Nothing to be done for 'test-samir-use'.
+>>> test-samir-use-mutant: extension correctly RED (K09 short USE defaults to .DBF)
+>>> test-samir-use-mutant: error correctly RED (K09 missing file is)
+>>> test-samir-use-mutant: ndxext correctly RED (samir: 1  File does not exist.)
+>>> test-samir-use-mutant: indextop correctly RED (samir: [U1] 1 CI10Buckman notEOF)
+>>> test-samir-use-mutant: nextpast correctly RED (samir: [N1] 32 notEOF)
+>>> test-samir-use-mutant: setstale correctly RED (x5cc SET SAFETY does not leak)
+>>> test-samir-use-mutant: procstale correctly RED (x5cc ON ERROR trap does not leak)
+>>> test-samir-use-mutant: green
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed -Ios/samir/include -Ispec -o build/test_samir_view harness/diff/dbf_diff/test_samir_audit.c os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c os/samir/pal/pal_host.c
+test-samir-audit: 159 checks, 0 failures
+>>> test-samir-view: green
+>>> test-samir-view-mutant: filter correctly RED (K05 hidden row absent)
+>>> test-samir-view-mutant: deleted correctly RED (K06 deleted and filter compose)
+>>> test-samir-view-mutant: marker correctly RED (K06 marker precedes deleted record)
+>>> test-samir-view-mutant: green
+>>> test-xbase-coercion: coercion fuzzer -- engine vs table-driven reference (directed 34 cells + 2000 seeds) (S3.4)
+coerce_fuzz: directed all-cells pass (34 cells)...
+coerce_fuzz: random sweep seeds 1..2000 (x4 iters each)...
+coerce_fuzz: coverage: 34 cells (25 success + 9 error), 3 SET_EXACT sensitive, 2000 random seeds x 4 iters
+coerce_fuzz: ALL GREEN -- directed 34 cells + 2000 seeds, 0 divergences
+test-xbase-coercion: 8037 checks, 0 failures
+>>> test-xbase-coercion: green
+>>> test-xbase-coercion-mutant: confirming the engine C+N-succeeds mutant is caught by the fuzzer (Rule 6; initech-gmo.4)
+>>> test-xbase-coercion-mutant: green (fuzzer caught the C+N divergence)
+>>> test-xbase-eval: xBase III+ evaluator + operator coercion (C+N=error#9; SET EXACT; D arith; $) (S3.3)
+test-xbase-eval: 81 checks, 0 failures
+>>> test-xbase-eval: green
+>>> test-xbase-eval-mutant: confirming the C+N-succeeds mutant goes RED (Rule 6; initech-gmo.3)
+>>> test-xbase-eval-mutant: green (C+N auto-stringify correctly RED)
+>>> test-xbase-fn-a: xBase III+ built-in functions A (STR/SUBSTR/CTOD/IIF/TYPE/...) (S3.5)
+test-xbase-fn-a: 91 checks, 0 failures
+>>> test-xbase-fn-a: green
+>>> test-xbase-fn-a-mutant: confirming the SUBSTR-0-based mutant goes RED (Rule 6; initech-7az.1)
+>>> test-xbase-fn-a-mutant: green (SUBSTR 0-based correctly RED)
+>>> test-xbase-fn-a-mutant-ctod: confirming the CTOD calendar-cap mutant goes RED (Rule 6; initech-9u0f)
+>>> test-xbase-fn-a-mutant-ctod: green (calendar-invalid rollover correctly RED)
+>>> test-xbase-fn-b: xBase III+ functions B freestanding (ABS/INT/MOD/ROUND/MAX/MIN/DOW/CDOW/CMONTH) (S3.6a)
+  SKIP [GATED:numfn-2] INT(-3.7): truncate-toward-zero vs floor unconfirmed -- pending MINT (numfn-1..4)
+  SKIP [GATED:numfn-2] INT(-3.0): same gate -- pending MINT (numfn-1..4)
+  SKIP [GATED:numfn-3] MOD(-17,5): sign-of-dividend vs sign-of-divisor unconfirmed -- pending MINT (numfn-1..4)
+  SKIP [GATED:numfn-3] MOD(17,-5): same gate -- pending MINT (numfn-1..4)
+  SKIP [GATED:numfn-3] MOD(a,0): zero-divisor behavior (return a vs error) unconfirmed -- pending MINT (numfn-1..4)
+  SKIP [GATED:numfn-1] ROUND(-2.5,0): tie direction (toward-+inf vs away-from-zero) unconfirmed -- pending MINT (numfn-1..4)
+  SKIP [GATED:numfn-4] MAX(date1,date2): return-type (Date vs day-number) unconfirmed -- pending MINT (numfn-1..4)
+  SKIP [GATED:numfn-4] MIN(date1,date2): same gate -- pending MINT (numfn-1..4)
+test-xbase-fn-b: 82 checks, 0 failures
+>>> test-xbase-fn-b: green
+>>> test-xbase-fn-b-mutant: confirming the DOW-shift mutant goes RED (Rule 6; initech-7az.11)
+>>> test-xbase-fn-b-mutant: green (DOW shift correctly RED)
+>>> test-xbase-fn-b-mutant-round: confirming the ROUND floor-vs-truncate mutant goes RED (Rule 6; initech-eyig)
+>>> test-xbase-fn-b-mutant-round: green (negative-operand truncation correctly RED)
+>>> test-xbase-fn-c: xBase III+ string fns C (LEFT/RIGHT/STUFF/REPLICATE/AT/ISALPHA/ISUPPER/ISLOWER; TRANSFORM GATED) (7az.12)
+SKIP [initech-7az.TRANSFORM] TRANSFORM PICTURE/@ formatting not fully grounded -- follow-up bead required. TRANSFORM is registered (fn_transform) but its full template parser is GATED pending MINT/DISASM verification of @ clauses, comma groups, and character-picture semantics.
+test-xbase-fn-c: 69 checks, 0 failures
+>>> test-xbase-fn-c: green
+>>> test-xbase-fn-c-mutant: confirming the LEFT n+1 mutant goes RED (Rule 6; initech-7az.12)
+>>> test-xbase-fn-c-mutant: green (LEFT n+1 correctly RED)
+>>> test-xbase-fn-d: xBase III+ DB functions (RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF/FILE) (S3.6b)
+  SKIP (LOUD) [GATED:S4.3/S5.4]: FOUND() post-SEEK/post-LOCATE not
+               asserted -- the FOUND flag is set by SEEK (S4.3) and
+               LOCATE (S5.4); only the fresh-USE .F. default is grounded.
+test-xbase-fn-d: 59 checks, 0 failures
+>>> test-xbase-fn-d: green
+>>> test-xbase-fn-d-mutant: confirming the RECNO-at-EOF mutant goes RED (Rule 6; initech-7az.10)
+>>> test-xbase-fn-d-mutant: green (RECNO-at-EOF correctly RED)
+>>> test-xbase-lex: xBase III+ expression lexer (literals/ops/dotted; rejects ==) (S3.1)
+test-xbase-lex: 167 checks, 0 failures
+>>> test-xbase-lex: green
+>>> test-xbase-lex-mutant: confirming the '== accepted' mutant goes RED (Rule 6; initech-gmo.1)
+>>> test-xbase-lex-mutant: green (== acceptance correctly RED)
+>>> test-xbase-parse: xBase III+ precedence parser -> AST (^ left-assoc; unary>^) (S3.2)
+test-xbase-parse: 158 checks, 0 failures
+>>> test-xbase-parse: green
+>>> test-xbase-parse-mutant: confirming the right-assoc-^ mutant goes RED (Rule 6; initech-gmo.2)
+>>> test-xbase-parse-mutant: green (right-assoc ^ correctly RED)
+>>> test-xbase-transform: TRANSFORM full picture/function engine (numeric + @(/@X/@C/@B + char) (7az.14)
+test_xbase_transform: 48 checks, 0 failures
+>>> test-xbase-transform: green
+>>> test-xbase-transform-dotwidth-mutant: green (L007 exact-fit cases correctly RED)
+>>> test-xbase-transform-mutant: confirming the @( paren mutant goes RED (Rule 6; initech-7az.14)
+>>> test-xbase-transform-mutant: green (@( paren correctly RED)
+>>> test-samir-ctl: Esc interrupt / ON ESCAPE / 20-level DO cap / RETURN TO MASTER / QUIT / RETRY vs real dBASE III PLUS 1.1 (mint samirctl)
+test-samir-ctl: 82 checks, 0 failures
+>>> test-samir-ctl: green
+>>> test-samir-ctl-mutant: test_samir_ctl_FLOW_MUTATE_NO_ESCAPE correctly RED
+>>> test-samir-ctl-mutant: test_samir_ctl_PROC_MUTATE_NO_DO_CAP correctly RED
+>>> test-samir-ctl-mutant: test_samir_ctl_PROC_MUTATE_MASTER_ONE_LEVEL correctly RED
+>>> test-samir-ctl-mutant: test_samir_ctl_PROC_MUTATE_NO_QUIT correctly RED
+>>> test-samir-ctl-mutant: test_samir_ctl_FLOW_MUTATE_NO_RETRY correctly RED
+>>> test-samir-ctl-mutant: test_samir_ctl_FLOW_MUTATE_STACK_LINES correctly RED
+>>> test-samir-ctl-mutant: green (all 6 mutants RED)

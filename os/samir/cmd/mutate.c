@@ -270,6 +270,33 @@ typedef struct {
     int      has_while;
 } m_clauses;
 
+#ifndef SAMIR_DML_MUTANT_abbrscope
+/* Real III+ abbrscope mint: a trailing scope follows a COMPLETE WITH
+ * expression, never a comma/field or an expression operand. Parse syntax
+ * only (no evaluation or side effects), using the ordinary expression
+ * grammar so quoted commas, function arguments and operators stay intact. */
+static int m_after_replace_expr(const char *s, const char *end)
+{
+    /* This span can contain several individually bounded expressions. */
+    xb_token toks[M_MAX_EXPR + 1];
+    xb_node nodes[M_MAX_NODES];
+    int nt, ec, i, pair = 0, depth = 0;
+
+    nt = xb_lex(s, (uint32_t)(end - s), toks, M_MAX_EXPR + 1, &ec);
+    if (nt < 0) return 0;
+    for (i = 0; i < nt - 1; i++) {
+        if (toks[i].type == XBT_LPAREN) depth++;
+        else if (toks[i].type == XBT_RPAREN) depth--;
+        else if (toks[i].type == XBT_COMMA && depth == 0) pair = i + 1;
+    }
+    if (nt - pair < 4 || toks[pair].type != XBT_IDENT ||
+        toks[pair + 1].type != XBT_IDENT ||
+        !m_match_kw(s + toks[pair + 1].offset, "WITH")) return 0;
+    return xb_parse(toks + pair + 2, (uint32_t)(nt - pair - 2),
+                    nodes, M_MAX_NODES, &ec) >= 0;
+}
+#endif
+
 /*
  * m_split_clauses: parse `args` into scope + head + FOR + WHILE. The head is the
  * text after the optional leading scope and before the first top-level FOR/WHILE
@@ -310,7 +337,11 @@ static int m_split_clauses(const char *args, m_clauses *mc)
              * Scope is a clause after the replacement list as well as a
              * prefix; keep it out of the WITH expression in either spelling. */
             if (!scope_at && !for_at && !while_at &&
-                rt_kw_word(p, "ALL\0REST\0NEXT\0RECORD\0", (int *)0) >= 0)
+                rt_kw_word(p, "ALL\0REST\0NEXT\0RECORD\0", (int *)0) >= 0
+#ifndef SAMIR_DML_MUTANT_abbrscope
+                && (p == s || m_after_replace_expr(s, p))
+#endif
+               )
                 scope_at = p;
             if (!for_at && m_match_kw(p, "FOR"))     for_at = p;
             if (!while_at && m_match_kw(p, "WHILE")) while_at = p;
