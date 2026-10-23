@@ -73,6 +73,7 @@ os/milton/command.c	"CD"	2026-10-17	UI/TOKEN: shell prompt/heading, command/envi
 os/milton/command.c	"CHDIR"	2026-10-17	UI/TOKEN: shell prompt/heading, command/environment token or INT21 assembly (MS-DOS 3.3 pp.54,57,97,101,120; ADR-0003 App A)
 os/milton/command.c	"CLS"	2026-10-17	UI/TOKEN: shell prompt/heading, command/environment token or INT21 assembly (MS-DOS 3.3 pp.54,57,97,101,120; ADR-0003 App A)
 os/milton/command.c	"COMSPEC"	2026-10-17	UI/TOKEN: shell prompt/heading, command/environment token or INT21 assembly (MS-DOS 3.3 pp.54,57,97,101,120; ADR-0003 App A)
+os/milton/command.c	"COMMAND"	2026-10-23	TOKEN: dispatch-table command name, not output (MS-DOS 3.3 Reference pp.46-47; initech-gzf1)
 os/milton/command.c	"COPY"	2026-10-17	UI/TOKEN: shell prompt/heading, command/environment token or INT21 assembly (MS-DOS 3.3 pp.54,57,97,101,120; ADR-0003 App A)
 os/milton/command.c	"Current date is "	2026-10-17	UI/TOKEN: shell prompt/heading, command/environment token or INT21 assembly (MS-DOS 3.3 pp.54,57,97,101,120; ADR-0003 App A)
 os/milton/command.c	"Current time is "	2026-10-17	UI/TOKEN: shell prompt/heading, command/environment token or INT21 assembly (MS-DOS 3.3 pp.54,57,97,101,120; ADR-0003 App A)

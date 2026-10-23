@@ -33283,6 +33283,7 @@ $(FLAIR_DATA_ITEXT_FULL_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 	cp -f $(FLAIR_DATA_IMG) $@
 	head -c 4096 /dev/zero | tr '\0' 'k' > $@.k4
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $@.k4 ::K4.TXT
+	@$(call fixture-check,recipe,$@)
 .PHONY: test-flair-itext-badname test-flair-itext-badname-mutant test-flair-itext-full test-flair-itext-full-mutant
 test-flair-itext-badname: $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
 	@printf 'InitechOS (STAPLER) -- make test-flair-itext-badname : an invalid 8.3 name in Save As alerts (initech-oobx L017)\n'

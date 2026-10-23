@@ -65,7 +65,7 @@ test-bochs-legs-mutant: $(BUILD)/test_bochs_legs
 	@sh harness/emu/test_bochs_legs.sh $(BUILD) mutants
 TEST_UNIT_GATES += test-bochs-legs test-bochs-legs-mutant
 
-# $(call bochs-flair-leg,<gate name>,<kernel image>,<data image>,<profile>[,<video path>])
+# $(call bochs-flair-leg,<gate name>,<kernel image>,<data image>,<profile>[,<video path>,<scratch image>])
 define bochs-flair-leg
 $(if $(BOCHS_LEG_END_$(4)),,$(error unknown Bochs leg profile $(4) for $(1)))
 $(if $(filter $(or $(5),vbe101),vbe101 vbe101pad vga13 e00),,$(error unknown Bochs video path "$(5)" for $(1)))
@@ -81,8 +81,8 @@ test-$(1)-bochs: $$(BOCHS_BIN) $(2) $(3)
 	@printf '======================================================================\n'
 	@command -v $$(BOCHS) >/dev/null 2>&1 || { printf '!!! test-$(1)-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2); SKIP_BOCHS=1 is the only documented opt-out.\n'; exit 1; }
 	$(if $(filter vga13,$(5)),@test -r $(BOCHS_CIRRUS_VGABIOS) || { printf '!!! test-$(1)-bochs FAIL: ISA Cirrus VGA BIOS %s missing (apt install vgabios; bochs Depends: vgabios | seabios). A skipped oracle is worse than a red one (Law 2).\n' "$(BOCHS_CIRRUS_VGABIOS)"; exit 1; },@true)
-	$(if $(strip $(3)),cp -f $(3) $$(BUILD)/$(1)_bochs_data.img,@true)
-	@$$(BOCHS_BIN) --disk "$(2)" $(if $(strip $(3)),--disk2 "$$(BUILD)/$(1)_bochs_data.img") $(BOCHS_LEG_VIDEO_$(or $(5),vbe101)) \
+	$(if $(strip $(3)),cp -f $(3) $(or $(value 6),$$(BUILD)/$(1)_bochs_data.img),@true)
+	@$$(BOCHS_BIN) --disk "$(2)" $(if $(strip $(3)),--disk2 "$(or $(value 6),$$(BUILD)/$(1)_bochs_data.img)") $(BOCHS_LEG_VIDEO_$(or $(5),vbe101)) \
 		--expect $(BOCHS_LEG_END_$(4)) --quit-after $(BOCHS_LEG_END_$(4)) \
 		--name "$(1)_bochs" --out "$$(BUILD)" --timeout-ms 45000 \
 		2> "$$(BUILD)/$(1)_bochs.report.txt" || true
@@ -195,7 +195,10 @@ $(foreach gate,flair-finder-icons flair-trash-full flair-toolbox-hardening,$(eva
 # flagship on the pristine data volume (profile flairdb); the alert-chrome leg
 # boots its i123 gate image on the i123 quit data (profile flair).
 $(foreach gate,flair-disk-windows flair-file-ops flair-trash-window,$(eval $(call bochs-flair-leg,$(gate),$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flairdb,)))
-$(eval $(call bochs-flair-leg,flair-alert-chrome,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),flair,))
+# initech-mz9w / PRD Sec 8: the collision mutant must override the SAME
+# scratch path used by both the copy and --disk2, including with SKIP_BOCHS=1.
+FLAIR_ALERTCHROME_BOCHS_DATA ?= $(BUILD)/flair-alert-chrome_bochs_data.img
+$(eval $(call bochs-flair-leg,flair-alert-chrome,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),flair,,$(FLAIR_ALERTCHROME_BOCHS_DATA)))
 
 # Kernel hygiene: preserve self-test kernel identity and completion markers.
 # MZ invalid-entry stimulus and baked BUSY semantics remain the QEMU oracle;
