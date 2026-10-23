@@ -74,7 +74,6 @@
 #include "i123.h"
 #include "menu.h"
 #include "i123/wk1_format.h"
-#include "cpanels_record.h"
 
 const char tbx_app_name[] = "123";
 
@@ -180,24 +179,6 @@ static i123_sheet_t  g_sheet;
 static uint8_t       g_calc_mem[I123_CALC_BYTES(SHEET_CELLS)];
 static uint8_t       g_nest_mem[I123_CALC_BYTES(16u)];
 static i123_calc_t   g_cx, g_cx_nest;
-/* TBX_CLOCK writes only to module/BSS, never the shared kernel stack.
- * Ref: tbx.h clock contract; Lotus Reference p. 13-46 (@NOW). */
-#ifndef I123_MUT_CLOCK_MISSING
-static cp_time_t     g_clock;
-#endif
-
-static void refresh_clock(void)
-{
-#ifdef I123_MUT_CLOCK_FROZEN
-    if (g_cx.have_now) return;
-#endif
-    g_cx.have_now = 0;
-#ifndef I123_MUT_CLOCK_MISSING
-    if (tbx_get_clock(&g_clock) == TBX_OK)
-        i123_calc_clock(&g_cx, g_clock.year, g_clock.month, g_clock.day,
-                        g_clock.hour, g_clock.minute, g_clock.second);
-#endif
-}
 static uint32_t     g_bank;
 static uint8_t      g_wk[65536];
 static uint32_t     g_wk_len;
@@ -710,7 +691,6 @@ static void changed(i123_sheet_t *next)
 {
     /* Recalc the candidate bank BEFORE publishing it; failure keeps the old
      * worksheet. All command mutations use the same unsaved-work guard. */
-    refresh_clock();
     if (i123_after_entry(&g_cx,next)) { notice("Not enough worksheet memory"); return; }
     g_sheet = *next; g_bank = 1-g_bank; g_dirty = 1; ready(); paint_all();
 }
@@ -934,7 +914,6 @@ static int commit(void)
     int rc;
     const i123_cell_t *locked=i123_find(&g_sheet,cc,cr);
     if(g_sheet.protec&&locked&&(locked->fmt&128)) {notice("Cell is protected");return 1;}
-    refresh_clock();
     /* EDIT completes as a label unless the entry starts like a value (p. 1-16:
      * the first character decides; mint keys 05 "'HelloX", 49 "HelloZ"). */
     if (g_mode == M_LABEL || (g_mode == M_EDIT && !is_value_start(g_edit[0]))) {
@@ -945,16 +924,7 @@ static int commit(void)
         if (rc == I123_OK) rc = i123_after_entry(&g_cx, &g_sheet);
     } else {
         double x;
-        /* Reference p. 1-19: a leading dollar enters a number, independently
-         * of its display format. Strip it only at the entry boundary, so
-         * absolute references (+$A$1) keep their formula meaning. */
-        uint32_t prefix = 0;
-#ifndef I123_MUT_CURRENCY_REJECT
-        /* Real NUMENTRY.WK1: $-12.34 / $+12.34 are numbers; -$ / +$
-         * are refused. $A$1 remains a formula after numeric parsing fails. */
-        if (g_elen > 1 && g_edit[0] == '$') prefix = 1;
-#endif
-        rc = i123_parse_value(g_edit + prefix, g_elen - prefix, &x);
+        rc = i123_parse_value(g_edit, g_elen, &x);
         if (rc == I123_OK) {
             rc = i123_set_number(&g_sheet, cc, cr, x);
 #ifndef I123_MUT_NO_RECALC
@@ -997,7 +967,6 @@ static int commit(void)
 /* CALC (F9): recalculate now (manual p. 12-32, PDF 276). */
 static void calc_key(void)
 {
-    refresh_clock();
     if (i123_recalc(&g_cx, &g_sheet) != I123_OK) {
         notice("Not enough memory to recalculate");
         return;

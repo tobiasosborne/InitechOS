@@ -48,7 +48,6 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
-#include "../../spec/cpanels_record.h"
 
 #include "../../os/i123/app/face_a.c"   /* the application under test */
 
@@ -75,12 +74,6 @@ static int  m_fail_write;               /* WRITE writes nothing               */
 static const char *m_dir;
 static FILE *m_fh[8];
 static char  m_fpath[8][300];
-/* B08: injectable guest clock; the production gate requires module/BSS. */
-static cp_time_t m_clock = {1992, 3, 9, 12, 0, 0, 0};
-static int32_t m_clock_rc = TBX_OK;
-static unsigned m_clock_reads;
-int32_t tbx_get_clock(void *t)
-{ m_clock_reads++; if (m_clock_rc == TBX_OK) *(cp_time_t *)t = m_clock; return m_clock_rc; }
 
 int32_t tbx_register(void) { return TBX_OK; }
 int32_t tbx_new_window(int32_t l, int32_t t, int32_t r, int32_t b, int32_t g)
