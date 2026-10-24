@@ -762,6 +762,11 @@ KERNEL_R5_FLAGS ?= -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -fno
                    --param=max-inline-insns-auto=0
 KERNEL_SECTION_FLAGS := -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-ident $(KERNEL_R5_FLAGS)
 KERNEL_GC_LDFLAGS := --gc-sections
+# Round 8: retain per-function/data sections through LTO's final codegen too.
+# Ref: CODEX-OUT.md, LTO section probe; round-2 policy Sec 4 lever C.
+# Otherwise a discarded native reference keeps its emitted LTO callee in a
+# shared .text section. The flagship measurement recovers 256 loaded bytes.
+KERNEL_LTO_SECTION_FLAGS := -ffunction-sections -fdata-sections
 # Round 3 part 2 (initech-tode): kernel-only link driver seam for selected
 # cold-object optimisation. Native hot objects remain outside LTO.
 # Ref: PRD Sec 5/6.1/6.3/7; docs/worklog/WL-0127-kernel-size-round3.md.
@@ -806,7 +811,7 @@ endef
 # LTO set trades the 4-byte-per-case tables for compare trees. Codegen-only:
 # no ABI of a native object, asm entry or transient import changes. Measured
 # on the flagship: 187,988 -> 187,372 (one partition) -> 187,212 B (both).
-KERNEL_LINK = $(KERNEL_CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz -flto-partition=one -fno-jump-tables $(KERNEL_ABI_FLAGS) $(KERNEL_R5_FLAGS) \
+KERNEL_LINK = $(KERNEL_CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz -flto-partition=one -fno-jump-tables $(KERNEL_LTO_SECTION_FLAGS) $(KERNEL_ABI_FLAGS) $(KERNEL_R5_FLAGS) \
               -Wl,--build-id=none $(foreach flag,$(KERNEL_GC_LDFLAGS),-Xlinker $(flag)) -T $(KERNEL_LD)
 FLAIR_FINDER_OPS_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
 FLAIR_STDFILE_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)

@@ -13,18 +13,19 @@ $(KGC_DIR)/probe.elf: $(KGC_DIR)/probe.o $(KERNEL_LD)
 
 # Grade symbol reachability independently of the compiler/linker flags.
 define kernel-gc-grade
-nm --defined-only $(1) > $(KGC_DIR)/symbols; \
+symbols=$(KGC_DIR)/$(notdir $(1)).symbols; \
+nm --defined-only $(1) > "$$symbols"; \
 for s in _start gc_live_function gc_live_data; do \
-	grep -q " $$s$$" $(KGC_DIR)/symbols || { printf '!!! kernel-gc FAIL: live %s removed\n' "$$s"; exit 1; }; \
+	grep -q " $$s$$" "$$symbols" || { printf '!!! kernel-gc FAIL: live %s removed\n' "$$s"; exit 1; }; \
 done; \
 for s in gc_dead_function gc_dead_data; do \
-	if grep -q " $$s$$" $(KGC_DIR)/symbols; then printf '!!! kernel-gc FAIL: dead %s retained\n' "$$s"; exit 1; fi; \
+	if grep -q " $$s$$" "$$symbols"; then printf '!!! kernel-gc FAIL: dead %s retained\n' "$$s"; exit 1; fi; \
 done; \
-grep -q '^00500000 .* _start$$' $(KGC_DIR)/symbols || { printf '!!! kernel-gc FAIL: entry moved from KERNEL_BASE\n'; exit 1; }
+grep -q '^00500000 .* _start$$' "$$symbols" || { printf '!!! kernel-gc FAIL: entry moved from KERNEL_BASE\n'; exit 1; }
 endef
 
 .PHONY: test-kernel-gc test-kernel-gc-mutant test-kernel-gc-emu
-test-kernel-gc: $(KGC_DIR)/probe.elf
+test-kernel-gc: $(KGC_DIR)/probe.elf test-kernel-gc-lto
 	@$(call kernel-gc-grade,$<)
 	@printf '>>> test-kernel-gc: green (entry/live code/data retained; dead code/data removed)\n'
 
@@ -110,12 +111,15 @@ test-kernel-size-r3: test-kernel-headroom | $(KGC_DIR)
 # size_pad_one adds real, explicitly rooted loaded data to the flagship until
 # it exceeds the independent acceptance bound by exactly one byte. The gate
 # must reject that ELF; changing the oracle's bound would not prove this.
+# Round 8: retain the flagship's real transient imports, as the r4 mutant does.
+# Ref: CODEX-OUT.md, oracle audit; dropping those roots changes the image under
+# test and can discard services instead of testing the independent byte cap.
 test-kernel-size-r3-mutant: test-kernel-size-r3
 	@set -eu; $(call kernel-r3-grade,$(KERNEL_FLAIRTENANTS_ELF)); \
 	pad=$$(( $(KERNEL_R3_LOADED_MAX) + 1 - loaded )); \
 	printf 'bits 32\nsection .data align=1\nglobal r3_size_pad\nr3_size_pad: times %s db 0xA5\n' "$$pad" >$(KGC_DIR)/r3-pad.asm; \
 	$(NASM) -f elf32 $(KGC_DIR)/r3-pad.asm -o $(KGC_DIR)/r3-pad.o
-	$(KERNEL_LINK) -u r3_size_pad -o $(KGC_DIR)/r3-pad.elf $(KERNEL_FLAIRTENANTS_OBJS) $(KGC_DIR)/r3-pad.o
+	$(KERNEL_LINK) -u r3_size_pad -o $(KGC_DIR)/r3-pad.elf $(KERNEL_FLAIRTENANTS_OBJS) $(KGC_DIR)/r3-pad.o @$(TRANSIENT_IMPORTS_LD)
 	@$(OBJCOPY) -O binary $(KGC_DIR)/r3-pad.elf $(KGC_DIR)/r3-loaded.bin
 	@test "$$(wc -c < $(KGC_DIR)/r3-loaded.bin)" -eq $$(( $(KERNEL_R3_LOADED_MAX) + 1 ))
 	@if ( $(call kernel-r3-grade,$(KGC_DIR)/r3-pad.elf) ) >$(KGC_DIR)/r3-pad.log 2>&1; then \
@@ -161,3 +165,27 @@ test-kernel-cold-lto-mutant: test-kernel-cold-lto
 	@grep '!!! kernel-cold-lto FAIL: cross-object callee retained' $(KGC_DIR)/cold_no_lto.log
 	@printf '>>> test-kernel-cold-lto-mutant: green (no_lto RED)\n'
 TEST_UNIT_GATES += test-kernel-cold-lto test-kernel-cold-lto-mutant
+
+# Round 8: exercise the real LTO link as well as the raw-ld fixture above.
+# Ref: CODEX-OUT.md, LTO section probe; round-2 policy Sec 4 lever C.
+# A reference in a dead native section makes the plugin emit the callee;
+# final section GC must still remove it, and KEEP must place _start first.
+$(KGC_DIR)/lto-probe.o: $(KGC_SRC) | $(KGC_DIR)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_COLD_LTO_FLAGS) -c $< -o $@
+$(KGC_DIR)/native-dead.o: harness/proptest/kernel_gc_native.c | $(KGC_DIR)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Oz -c $< -o $@
+$(KGC_DIR)/lto-probe.elf: $(KGC_DIR)/lto-probe.o $(KGC_DIR)/native-dead.o $(KERNEL_LD)
+	$(KERNEL_LINK) -o $@ $(KGC_DIR)/lto-probe.o $(KGC_DIR)/native-dead.o
+
+.PHONY: test-kernel-gc-lto test-kernel-gc-lto-mutant
+test-kernel-gc-lto: $(KGC_DIR)/lto-probe.elf
+	@$(call kernel-gc-grade,$<)
+	@printf '>>> test-kernel-gc-lto: green (dead native reference discarded after LTO; entry fixed)\n'
+
+test-kernel-gc-lto-mutant: test-kernel-gc-lto
+	$(filter-out $(KERNEL_LTO_SECTION_FLAGS),$(KERNEL_LINK)) -o $(KGC_DIR)/lto-no-sections.elf $(KGC_DIR)/lto-probe.o $(KGC_DIR)/native-dead.o
+	@if ( $(call kernel-gc-grade,$(KGC_DIR)/lto-no-sections.elf) ) >$(KGC_DIR)/lto-no-sections.log 2>&1; then \
+		printf '!!! test-kernel-gc-lto-mutant FAIL: no_lto_sections survived\n'; exit 1; fi
+	@grep '!!! kernel-gc FAIL: dead gc_dead_function retained' $(KGC_DIR)/lto-no-sections.log
+	@printf '>>> test-kernel-gc-lto-mutant: green (no_lto_sections RED)\n'
+TEST_UNIT_GATES += test-kernel-gc-lto-mutant
