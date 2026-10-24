@@ -20136,8 +20136,8 @@ endif
 # strictly stronger. Shift-click is absent by harness limitation, not by choice;
 # spec/flair_desktop_icons_traces.mk records why and where it IS covered.
 #
-# Mutation-proven by test-flair-desktop-icons-mutant; Bochs boot leg is
-# test-flair-desktop-icons-bochs (Rule 5).
+# Mutation-proven by test-flair-desktop-icons-mutant; Bochs boot + pixel leg is
+# test-flair-desktop-icons-bochs (Rule 5; harness/bochs_legs.mk, WL-0170).
 FLAIR_DI_PRE_NAME     := flair_deskicons_pre
 FLAIR_DI_SEL_NAME     := flair_deskicons_sel
 FLAIR_DI_DESEL_NAME   := flair_deskicons_desel
@@ -20277,7 +20277,7 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- the booted Finder draws, selects, marquees, opens, drags and\n'
 	@printf '            PERSISTS its desktop icons; the position survives a power cycle\n'
-	@printf '            (QEMU; Bochs boot leg = make test-flair-desktop-icons-bochs)\n'
+	@printf '            (QEMU; Bochs boot + pixel leg = make test-flair-desktop-icons-bochs)\n'
 	@printf '======================================================================\n'
 
 # REAL gate: test-flair-desktop-icons-mutant (Rule 6 -- MUTATION-PROVE that the
@@ -20368,90 +20368,14 @@ test-flair-desktop-icons-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA
 	@printf 'VERDICT   : PASS -- both R3.2 mutants drive their legs RED (the gate bites; Rule 6)\n'
 	@printf '======================================================================\n'
 
-# ---------------------------------------------------------------------------
-# REAL gate: test-flair-desktop-icons-bochs (PRD Sec 8 / Rule 5 -- the BOCHS boot
-# leg of the R3.2 DesktopMgr image)
-# ---------------------------------------------------------------------------
-# TRUTHFUL CONSTRAINT (Law 1/Law 2, verbatim the test-flair-appswitch-bochs
-# situation -- it is the SAME $(FLAIRTENANTS_IMG)): Bochs 2.7's LGPL vgabios
-# ENOMODEs the 640x480 VBE mode and falls back to standard VGA 0x13
-# (320x200x8); flair_desktop_run then FAILS LOUD and HALTS BEFORE the tenants
-# (and therefore before the Finder shell tenant) are launched -- so
-# FINDER-DESKTOP-ICONS genuinely DOES NOT appear on Bochs, and there is no QMP
-# mouse injection either. What this leg proves is the real differential: the
-# SAME kernel -- now carrying finder_desktop.o + finder_icon.o and ~11 KiB
-# bigger -- still runs the boot chain, the FLAIR heap gate and the FAT mount
-# IDENTICALLY to QEMU, and the 640x480 guard still fires with no triple-fault.
-# The desktop-icon behaviour itself is graded on QEMU (test-flair-desktop-icons).
-FLAIR_DI_BOCHS_NAME   := flair_deskicons_bochs
-FLAIR_DI_BOCHS_REPORT := $(BUILD)/$(FLAIR_DI_BOCHS_NAME).report.txt
-FLAIR_DI_BOCHS_SERIAL := $(BUILD)/$(FLAIR_DI_BOCHS_NAME).serial
-.PHONY: test-flair-desktop-icons-bochs
-# See test-boot-bochs for why SKIP_BOCHS is a Make-level `ifeq`, not a
-# shell-level `if...exit 0` (a shell exit 0 mid-recipe does not skip later
-# recipe lines under Make).
-ifeq ($(SKIP_BOCHS),1)
-test-flair-desktop-icons-bochs:
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-desktop-icons-bochs : BOCHS leg (R3.2)\n'
-	@printf '======================================================================\n'
-	@printf '!!! test-flair-desktop-icons-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
-	@printf '======================================================================\n'
-else
-test-flair-desktop-icons-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-desktop-icons-bochs : BOCHS leg (R3.2)\n'
-	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). bead initech-tdnl.9.\n'
-	@printf '  Bochs 2.7: VBE ENOMODE -> mode-0x13 (320x200); the 640x480 desktop cannot\n'
-	@printf '  fit, so kmain FAILS LOUD after MOUNT-OK but BEFORE the Finder tenant; the\n'
-	@printf '  leg proves the DesktopMgr-carrying kernel keeps the shared boot/heap/mount\n'
-	@printf '  milestones + the guard, no fault. (Icons are graded on QEMU.)\n'
-	@printf '======================================================================\n'
-	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-desktop-icons-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
-	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRTENANTS_IMG)"
-	@printf 'Expecting : VGA13 fallback + shared kernel markers + the 640x480 fail-loud\n'
-	@printf '            guard (PANIC + HALTED), no triple-fault\n'
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
-	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
-	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
-	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
-		--name "$(FLAIR_DI_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
-		2> "$(FLAIR_DI_BOCHS_REPORT)" || true
-	@cat "$(FLAIR_DI_BOCHS_REPORT)"
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@grep -q 'rfb_unblocked=1' "$(FLAIR_DI_BOCHS_REPORT)" \
-		|| { printf '!!! test-flair-desktop-icons-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
-	@if grep -q 'triple_fault=1' "$(FLAIR_DI_BOCHS_REPORT)"; then \
-		printf '!!! test-flair-desktop-icons-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
-	fi
-	@if [ ! -s "$(FLAIR_DI_BOCHS_SERIAL)" ]; then \
-		printf '!!! test-flair-desktop-icons-bochs FAIL: no serial captured at %s\n' "$(FLAIR_DI_BOCHS_SERIAL)"; exit 1; \
-	fi
-	@printf 'Serial markers captured:\n'
-	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED; do \
-		if grep -q "^$$m$$" "$(FLAIR_DI_BOCHS_SERIAL)"; then printf '  %-14s : present\n' "$$m"; \
-		else printf '  %-14s : MISSING\n' "$$m"; fi; \
-	done
-	@for m in VBE-ENOMODE VGA13; do \
-		grep -q "^$$m$$" "$(FLAIR_DI_BOCHS_SERIAL)" \
-			|| { printf '!!! test-flair-desktop-icons-bochs FAIL: fallback marker %s missing\n' "$$m"; exit 1; }; \
-	done
-	@for m in S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK; do \
-		grep -q "^$$m$$" "$(FLAIR_DI_BOCHS_SERIAL)" \
-			|| { printf '!!! test-flair-desktop-icons-bochs FAIL: shared kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
-	done
-	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_DI_BOCHS_SERIAL)" \
-		|| { printf '!!! test-flair-desktop-icons-bochs FAIL: the 640x480-required guard did NOT fire under the 320x200 fallback\n'; exit 1; }
-	@grep -q '^HALTED$$' "$(FLAIR_DI_BOCHS_SERIAL)" \
-		|| { printf '!!! test-flair-desktop-icons-bochs FAIL: HALTED terminal marker missing\n'; exit 1; }
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- the DesktopMgr-carrying flairtenants kernel booted under Bochs\n'
-	@printf '            through the shared kernel + FLAIR-heap + FAT-mount milestones (== QEMU),\n'
-	@printf '            and the 640x480 fail-loud guard fired correctly under the 320x200\n'
-	@printf '            fallback (no triple-fault). The icon layer itself is QEMU-only.\n'
-	@printf '======================================================================\n'
-endif
+# test-flair-desktop-icons-bochs: the WL-0170 bochs-flair-leg (harness/bochs_legs.mk,
+# profile flairdb, vbe101; initech-buze) + its pixel twin
+# test-flair-desktop-icons-bochs-pixel: the SAME $(FLAIRTENANTS_IMG) takes VESA
+# 0101h on Bochs 2.7, reaches the live desktop, prints FINDER-DESKTOP-ICONS n=2,
+# and its presented desktop equals the QEMU 32bpp golden on all 307200 pixels;
+# the Bochs snapshot also passes ppm_flair_desktop_icons_check leg DEFAULT (both
+# icon strikes). The pre-WL-0170 ENOMODE -> mode-13h -> guard claim this leg used
+# to grade is dead for the stock ROM (the guard: test-flair-appswitch-vga13-bochs).
 
 # ===========================================================================
 # REAL gate: test-flair-disk-windows (bead initech-tdnl.10 -- GUI remediation
@@ -31446,7 +31370,7 @@ TEST_EMU_GATES := \
 	test-flair-menu test-flair-menu-mutant \
 	test-flair-menu-crossdrag test-flair-menu-crossdrag-mutant \
 	test-flair-appswitch test-flair-appswitch-mutant test-flair-appswitch-bochs \
-	test-flair-desktop-icons test-flair-desktop-icons-mutant test-flair-desktop-icons-bochs \
+	test-flair-desktop-icons test-flair-desktop-icons-mutant \
 	test-flair-disk-windows test-flair-disk-windows-mutant \
 	test-flair-list-view test-flair-list-view-mutant \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
