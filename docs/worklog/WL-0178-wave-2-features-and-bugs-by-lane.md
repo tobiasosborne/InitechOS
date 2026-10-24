@@ -24,15 +24,65 @@ up to and a little over pace on both Claude and Codex; Fable within Claude + 2.
 | menubars | Codex | c8w7 | preference redraw through the shell compositor (both bars, clock, foreground menu) |
 | i123copy | Codex | fyji | /Copy destination rectangles + shared POINT selection (real R2.2 mints) |
 | doscmd | Codex | f8f0, 0qw1 | DEL <directory> with the DOS question; "Terminate batch job (Y/N)?" incl. Ctrl-C during an EXEC child (real DOS 3.30 mint) |
+| iwordlist | Codex | 7aou | InitechWord List Files keys 2 Delete / 3 Move-Rename / 8 Copy live (real WP 5.1 headless mints); review fix: a trailing-dot FAT alias of the same file (OPS. == OPS) no longer deletes the only copy -- FAT-backed regression |
+| samirstatus | Codex | f99h | SAMIR STATUS / DISPLAY MEMORY from real III+ captures; SAMIR.COM size round (100,385 -> 97,705 B under the 98,175 cap); review fix: STATUS scans INTO as a whole keyword outside literals (statusinto corpus) -- SEE Acceptance for its merge state |
 
 Rule 8 notes (locked spec / controlled vocabulary changes, each with its bead):
 - spec/dos_messages.json + ADR-0003 Appendix C: MSG-DOS-0063 "Terminate batch job (Y/N)?"
   (MS-DOS 3.3 Reference PAUSE, printed p.149; initech-0qw1). Catalogue route, no dosmsg.allow
   exception.
 - spec/iword/listfiles.h + spec/iword/fkeys.json: List Files keys 2/3/8 (Delete, Move/Rename,
-  Copy) live=1 (real WP 5.1; initech-7aou) -- pending the lane's merge.
+  Copy) live=1 (real WP 5.1; initech-7aou) -- merged 0dc0b22d.
 - i123 test-i123-range-menu R6 re-keyed: /Range Value into protected empty cells is refused
   (it only passed because of the B02 bug; initech-3s12).
+
+## Backlog triage (operator question: "406 open beads sounds like a lot")
+
+One Opus agent checked all 406 open beads against main (HEAD 3e32c47f) with six read-only
+sub-checks; 396 verified in code/git/worklogs, 10 title-only guesses. Headline: 41 already done
+on main (closed tonight: 32; the other 9 -- w06, f8v, f8v.4, 2rv, 5em, 6h6, alg, ax9, 17n -- sit
+behind operator-decision or stale-epic deps dam/fyy/7az/iqe/0tl and were NOT forced), 10 epics
+closable after re-parenting, 21 TRIVIAL (Haiku), 69 SMALL (Sonnet), 184 MEDIUM (one lane),
+39 CORE, 42 blocked on external material (19 of them DOS utilities with no reference binary:
+does the DOS 3.3 manual alone satisfy Law 1? -- operator). Staleness: 133 beads untouched 30+ days,
+116 over 90; 7 of 9 P0s are stale milestone epics that also manufacture most of `bd blocked`.
+Two layers: a June planning layer (112) and the October audit layer (143 touched 2026-10-23).
+Thirteen lane branches hold unmerged WIP for untouched beads (flairman -> ipu5.11, l123man ->
+ipu5.9, flaircmd -> tdnl.106, finderalerts -> tdnl.72, iwordp4 -> 8q6j, i123p4 -> 1z3o, dupinfo
+-> p6st, pascaltbx, mints, finderrobust, bootscreen2): each needs a merge/rebase/abandon ruling
+before its bead is dispatched again. Report, TIERS.tsv and CLOSE-NOW.txt lived in the PM
+scratchpad; the numbers above are the durable record. Also surfaced: bsy.5 (BREAK default ON at
+boot vs the DOS 3.3 manual's OFF), b1q0 (duplicate Makefile recipe pair: deleting the wrong one
+changes kernel flags), CLAUDE.md still says ssim.c is unbuilt (it is built: f04b1511).
+
+## Turbo Pascal ground truth (initech-v872)
+
+Turbo Initech had no real-software golden (only Free Pascal). A Sonnet lane created
+`../turbopascal-decomp` from the official Embarcadero museum tp55.zip (sha256 a04ff655...,
+TP 6.0 not obtainable: 404 at the museum, only DE/PC-98 builds elsewhere) with a dosbox-x mint
+harness on Xvfb :88 and goldens MINT00-05: 18 IDE shots + measured geometry, 70 verified
+compiler error numbers, 17 runtime error numbers with the exact `Runtime error NNN at
+SSSS:OOOO.` line (exit code = error number), Write/Str/Val formatting beside fpc output, and the
+57-program initech-os corpus under real TPC. Divergences (re/fpc-vs-tp55.md): TP Integer is
+16-bit without widening (200*200 = -25536; three corpus goldens carry REV=54321 only because of
+{$MODE DELPHI} -- OPERATOR DECISION on Turbo Initech's Integer width), round() is half-away-from-
+zero, default Real prints 3.1415900000E+00, 23 corpus files fail on the MODE header alone. Beads
+k65i obk9 x2fd 9sie cu0f 590o lrqy filed.
+
+## New-machine readiness (operator priority, end of session)
+
+The six decomp siblings and the manuals library existed only on this laptop with no remote.
+Tonight: private GitHub repos tobiasosborne/{dbase3,lotus123,system7,win31,wordperfect51,
+turbopascal}-decomp (all branches + tags pushed) and tobiasosborne/initech-manuals-ref (manifest
++ fetch/verify scripts in git; the 93 scans, 1.1 GB, as release v2026-10-24 assets, one tarball
+per directory). Each sibling's gitignored goldens (real software images, ROMs, Mac OS 8.1
+captures, mint work; 16 of these files are read directly by the Makefile) are release
+`goldens-2026-10-24` assets with sha256 manifests (dbase3 579 MB, win31 677 MB, system7 1.6 GB,
+wordperfect51 44 MB, lotus123 17 MB, turbopascal 3.8 MB). docs/BOOTSTRAP.md is the rebuild
+procedure; tools/bootstrap/doctor.sh checks every tool/sibling/manifest and fails loud;
+tools/bootstrap/fetch-siblings.sh clones + restores + verifies (round-trip tested on two
+siblings: byte-identical). GitHub LFS was rejected (1 GB free quota); release assets have a 2 GB
+per-file limit and no quota.
 
 ## Frictions
 
@@ -71,3 +121,8 @@ session, ../initech-os-cert).
 - Follow-ups filed: uyi1 (Range Name protection), 0zm4 (B02 emu replay), kz49 ([Wn] width tag),
   COMSPEC on the flagship, iword goto emu leg, Go To completions, test-samir-fns-pending.
 - fxrq (Calculator Copy/Paste) blocked on a real-Mac paste mint (bead note).
+- 4zpa: SAMIR DISPLAY two/three-area paging pauses once more than real III+ (found by the
+  samirstatus fix round; evidence under the lane's build/status-fix).
+- Gate-list lesson (bd remember): a gate's rule may live in harness/**/*.mk, spec/*.mk or
+  pubs/pubs.mk; a Makefile-only filter dropped 31 of 51 iwordlist gates from the merge pass and
+  they ran as two further passes behind the lock (all green).
