@@ -157,17 +157,36 @@ cd ~/Projects/initech-os
 tools/bootstrap/doctor.sh            # every tool, every sibling, the manuals manifest
 ```
 
-Then the certificate, in a separate worktree so lanes can keep using the main
-checkout (this is also the first job of ANY session after a machine move --
-it is the only thing that catches environment-isms):
+Then the certificate on a many-core box (also the first job of ANY session
+after a machine move -- it catches environment-isms):
+
+```sh
+tools/cert-sharded.sh -j 8
+```
+
+The runner creates eight detached worktrees at HEAD, cleans and warms each,
+then runs the unchanged gate vector with work stealing. Results, per-gate
+logs and solo re-run logs stay in `build/cert/`; the worktrees are removed.
+Every FAIL is re-run once alone, and both FAIL-CONFIRMED and FLAKY keep the
+certificate red. Use `--out DIR` for another run, `--resume` to finish an
+interrupted run with the same commit, worker count and gate selection, or
+`--keep` to retain worktrees for inspection. `--only unit|emu` and
+`--gates FILE` (one gate name per line) select smoke runs.
+
+Serial `make test` remains the reference certificate. Run it in a separate
+worktree so lanes can keep using the main checkout:
 
 ```sh
 git worktree add ../initech-os-cert main
 cd ../initech-os-cert && make clean && make test 2>&1 | tee /tmp/cert.log
 ```
 
-Expect: all host gates + all emu gates green, serially, in well under an hour
-on a 2024 laptop. Known-red gates are NAMED (`test-bochs-pending`,
+Expect: all host gates + all emu gates green. The sharded runner becomes the
+replacement certificate after the serial comparison, two full runs without
+FLAKY, and timing acceptance in `docs/design/parallel-certificate.md` Sec 4;
+the lane smoke runs alone do not establish that acceptance. Compare runner
+verdict sets with `tools/cert-sharded.sh --out build/cert --diff OTHER/results.txt`
+(exit 0 for equal, 1 for different). Known-red gates are NAMED (`test-bochs-pending`,
 `test-samir-fns-pending`), never silent. If a gate is red only on the new box,
 that is an emulator-ism or a toolchain delta: stop and compare versions with
 the table in Sec 1 before touching an oracle (CLAUDE.md Stop conditions).

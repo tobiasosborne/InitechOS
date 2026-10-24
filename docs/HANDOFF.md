@@ -1590,6 +1590,7 @@ os/milton/           THE KERNEL (C+asm): kstart/kernel.ld/kmain, console, idt/is
                      test_*.c host oracles, test_program.asm (baked .COM)
 os/{flair,samir,tps,apps}  the rest of the OS (C; tps/ will hold Turbo Initech)
 Makefile             factory + gates; CC interim = host gcc -m32 -ffreestanding
+tools/cert-sharded.sh many-core certificate: -j 8; serial make test is the reference
 build/               artifacts (gitignored)
 ```
 
