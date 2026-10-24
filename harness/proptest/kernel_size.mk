@@ -87,55 +87,22 @@ test-kernel-flair-repro: | $(BUILD)
 TEST_UNIT_GATES += test-kernel-gc-roots test-kernel-flair-repro
 TEST_EMU_GATES += test-kernel-gc-emu-mutant
 
-# Round 3 part 2, initech-tode. Independent acceptance bound: the arrival
-# binding kernel loaded 182732 bytes; recover at least 10240 more, without
-# changing the 196608-byte boot window or its 4096-byte safety floor.
-# Ref: WL-0127; PRD Sec 5/6.1/6.3/8; ADR-0003 Appendix A.
-KERNEL_R3_LOADED_MAX := 172492
-.PHONY: test-kernel-size-r3 test-kernel-size-r3-mutant
+# Round 3 part 2, initech-tode. The arrival-reclaim cap was retired by
+# operator ruling 2026-10-24 (initech-oiygj); history: WL-0127 / WL-0128.
+# Live size gates: test-kernel-headroom (all kernels, 4 KiB floor) and
+# test-kernel-size-r4 (flagship, 16 KiB floor); both use the boot window.
+# Ref: PRD Sec 5/6.1/6.3/8; ADR-0003 Appendix A.
 .PHONY: test-kernel-size-r3-emu test-kernel-size-r3-emu-mutant
-define kernel-r3-grade
-$(OBJCOPY) -O binary "$(1)" $(KGC_DIR)/r3-loaded.bin; \
-loaded=$$(wc -c < $(KGC_DIR)/r3-loaded.bin); \
-if [ "$$loaded" -gt "$(KERNEL_R3_LOADED_MAX)" ]; then \
-	printf '!!! kernel-size-r3 FAIL: %s loaded %s B > %s B (10 KiB reclaim required)\n' "$(1)" "$$loaded" "$(KERNEL_R3_LOADED_MAX)"; exit 1; \
-fi
-endef
-test-kernel-size-r3: test-kernel-headroom | $(KGC_DIR)
-	@set -eu; $(kernel-headroom-enum); \
-	for b in $$bins; do \
-		$(call kernel-r3-grade,$${b%.bin}.elf); \
-	done
-	@printf '>>> test-kernel-size-r3: green (all kernels reclaim >= 10240 B against arrival binding)\n'
 
-# size_pad_one adds real, explicitly rooted loaded data to the flagship until
-# it exceeds the independent acceptance bound by exactly one byte. The gate
-# must reject that ELF; changing the oracle's bound would not prove this.
-# Round 8: retain the flagship's real transient imports, as the r4 mutant does.
-# Ref: CODEX-OUT.md, oracle audit; dropping those roots changes the image under
-# test and can discard services instead of testing the independent byte cap.
-test-kernel-size-r3-mutant: test-kernel-size-r3
-	@set -eu; $(call kernel-r3-grade,$(KERNEL_FLAIRTENANTS_ELF)); \
-	pad=$$(( $(KERNEL_R3_LOADED_MAX) + 1 - loaded )); \
-	printf 'bits 32\nsection .data align=1\nglobal r3_size_pad\nr3_size_pad: times %s db 0xA5\n' "$$pad" >$(KGC_DIR)/r3-pad.asm; \
-	$(NASM) -f elf32 $(KGC_DIR)/r3-pad.asm -o $(KGC_DIR)/r3-pad.o
-	$(KERNEL_LINK) -u r3_size_pad -o $(KGC_DIR)/r3-pad.elf $(KERNEL_FLAIRTENANTS_OBJS) $(KGC_DIR)/r3-pad.o @$(TRANSIENT_IMPORTS_LD)
-	@$(OBJCOPY) -O binary $(KGC_DIR)/r3-pad.elf $(KGC_DIR)/r3-loaded.bin
-	@test "$$(wc -c < $(KGC_DIR)/r3-loaded.bin)" -eq $$(( $(KERNEL_R3_LOADED_MAX) + 1 ))
-	@if ( $(call kernel-r3-grade,$(KGC_DIR)/r3-pad.elf) ) >$(KGC_DIR)/r3-pad.log 2>&1; then \
-		printf '!!! test-kernel-size-r3-mutant FAIL: size_pad_one survived\n'; exit 1; fi
-	@grep '!!! kernel-size-r3 FAIL:' $(KGC_DIR)/r3-pad.log
-	@printf '>>> test-kernel-size-r3-mutant: green (size_pad_one RED)\n'
-
-# Reuse independent injected traces and their mutation-proven pixel / real
-# DOS transcript / mtools identical-image FAT oracles; no new DOS behaviour.
+# Independent behaviour gates retain their round-3 names for certificate diffs.
+# Reuse injected traces and their mutation-proven pixel / real DOS transcript /
+# mtools identical-image FAT oracles; no new DOS behaviour.
 test-kernel-size-r3-emu:
 	+@INITECH_QMP_STDIO=1 $(MAKE) --no-print-directory test-kernel-gc-emu test-flair-itext
 	@printf '>>> test-kernel-size-r3-emu: green (desktop pixels, text trace, DOS/FCB/FAT differential)\n'
 test-kernel-size-r3-emu-mutant:
 	+@INITECH_QMP_STDIO=1 $(MAKE) --no-print-directory test-kernel-gc-emu-mutant
 	@printf '>>> test-kernel-size-r3-emu-mutant: green (desktop/FCB behaviour mutants RED)\n'
-TEST_UNIT_GATES += test-kernel-size-r3 test-kernel-size-r3-mutant
 TEST_EMU_GATES += test-kernel-size-r3-emu test-kernel-size-r3-emu-mutant
 
 # LTO stays confined to selected cold TUs. Optimise across their boundary,

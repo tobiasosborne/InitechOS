@@ -1,8 +1,12 @@
 # Kernel Size Policy, Round 8
 
+Status 2026-10-24: r3 cap retired by operator ruling (initech-oiygj);
+r4 is the live flagship headroom gate. Overlays epic initech-x8gsi is the
+forward path. The round-8 measurements and verdicts below are history.
+
 Bead: initech-hztg. Base: 2808f8b5. Branch: lane/ksize.
-Status: Part 1 was PARTIAL. Part 2 achieves r4 GREEN; r3 remains RED by
-9076 B and is explicitly operator-owned under the part-2 brief.
+Historical status: Part 1 was PARTIAL. Part 2 achieved r4 GREEN; r3 was RED
+by 9076 B and explicitly operator-owned under the part-2 brief.
 
 ## Measurement
 
@@ -43,9 +47,10 @@ places the C fixture entry at KERNEL_BASE. A no_lto_sections mutant restores
 the original failure. The ordinary raw-ld GC oracle remains in place, and
 test-kernel-gc now also exercises the actual LTO link driver.
 
-The r3 cap+1 mutant now retains the real flagship's transient imports, as
-the r4 mutant already did. Dropping those roots would test a smaller image
-without required services. The cap, exact cap+1 check and rejection stay fixed.
+The then-live r3 cap+1 mutant was corrected to retain the real flagship's
+transient imports, as the r4 mutant already did. Dropping those roots would
+test a smaller image without required services. The cap, exact cap+1 check
+and rejection stayed fixed for that run; r3 is now retired by the ruling above.
 
 ## Levers parked
 
@@ -68,8 +73,8 @@ refactors have been exhausted.
 
 ## Acceptance
 
-The final command outputs are recorded in CODEX-OUT.md. The round stays open
-until the unchanged r3 all-kernel cap and r4 flagship headroom gate are green.
+The final command outputs were recorded in CODEX-OUT.md. At part-1 handoff,
+the round remained open pending the then-live r3 cap and r4 headroom gate.
 Bochs legs belong to the PM after merge, per LANE-BRIEF.md; none is run here.
 
 Final output from this worktree (complete command-by-command output is in
@@ -108,8 +113,8 @@ over r4. This is a measured partial improvement, not a completed green round.
 
 Arrival is the part-1 merge 6b02c678: flagship 183700 loaded bytes. The r4
 bar for this lane is the unchanged 180224 B flagship cap. The all-kernel
-172492 B r3 cap is reported separately; its policy decision is with the
-operator. Bochs legs are the PM's, per LANE-BRIEF.md.
+172492 B r3 cap was reported separately for the operator's policy decision
+(now retired by the ruling above). Bochs legs are the PM's, per LANE-BRIEF.md.
 
 The arrival source supersedes two details of the historical round-2 estimate:
 loader_context_t already saves/restores ESI/EDI, and all the listed hardware
@@ -386,10 +391,11 @@ captures remain byte-identical, and the host guards include 24bpp.
 >>> test-kernel-size-r3-emu-mutant: green (desktop/FCB behaviour mutants RED)
 ```
 
-No Bochs gate was run; the PM retains accuracy acceptance. Local followups
-are initech-7sp (operator r3 decision) and initech-3kc (PM Bochs acceptance).
-The original initech-hztg stays in progress for those parent-level decisions;
-the coding lane's part-2 r4 bar and all requested QEMU/host proofs are complete.
+No Bochs gate was run; the PM retains accuracy acceptance. At handoff, local
+followups were initech-7sp (operator r3 decision, now resolved by the ruling
+above) and initech-3kc (PM Bochs acceptance). The original initech-hztg was
+left in progress for those parent-level decisions; the coding lane's part-2
+r4 bar and all requested QEMU/host proofs were complete.
 Dolt origin is absent in this worktree; no remote endpoint is invented.
 
 ### Part 2 review fixes

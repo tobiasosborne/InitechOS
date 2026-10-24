@@ -2,6 +2,11 @@
 
 Session of 2026-10-24 on the new WSL2 box. HEAD at close: 61294e7e.
 
+Status update 2026-10-24 (initech-oiygj, WL-0181): the operator retired the
+r3 arrival cap and its mutant. r4 remains the live flagship headroom gate;
+the overlays programme is filed as epic initech-x8gsi. The r3 failures below
+are historical certificate results.
+
 ## Context
 
 The programme moved off the old laptop onto a new machine: Ubuntu 24.04 on
@@ -150,9 +155,9 @@ is not a result. Serial `make test` is kept as a one-off cross-check only.
 
 ## Pointers
 
-- Operator decision owed: kernel r3 cap. Either a structural overlay
-  programme or a ruling on the semantics of the all-kernel cap. Without it
-  hztg cannot close.
+- The kernel r3 decision requested at handoff is resolved by operator ruling
+  2026-10-24 (initech-oiygj, WL-0181): retire the cap and its mutant; retain
+  r4 and the all-kernel headroom floor. Forward work: overlays epic initech-x8gsi.
 - Unmerged lane queue (11 branches, about 48 commits, 17-20 Oct, all need
   rebase and re-verification): flairman 19, l123man 8, flaircmd 6,
   finderalerts 3, finderrobust 3, iwordp4 2, pascaltbx 2, mints 2, i123p4 1,

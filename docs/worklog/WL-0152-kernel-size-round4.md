@@ -378,12 +378,15 @@ emulator wrapper; no synthetic expected transcript or pixel golden was added.
 the same kernel 173140 B / 23468 B headroom. Binding recovery is 16276 B;
 flagship recovery is 16564 B. The requested 16384 B target is for the flagship.
 
-The pre-existing test-kernel-size-r3 has a fixed 172492 B cap for EVERY kernel.
+At round-4 acceptance, test-kernel-size-r3 had a fixed 172492 B cap for
+EVERY kernel.
 The arrival build already exceeded it; the final binding remains 648 B above
 it. That historical gate was not weakened or removed. It was not run as part
 of this lane, and this report does not claim the full vector is green. Its
-absolute cap remains a PM policy follow-up; no beads were edited. Bochs,
-86Box and full make test were not run, as instructed. No commit or push.
+absolute cap was left as a PM policy follow-up; operator ruling 2026-10-24
+(initech-oiygj, WL-0181) has since retired it and its mutant. No beads were
+edited. Bochs, 86Box and full make test were not run, as instructed. No
+commit or push.
 All requested round-4 QEMU acceptance and determinism checks are complete.
 
 | Kernel ELF | Before B | After B | Reclaim B |
