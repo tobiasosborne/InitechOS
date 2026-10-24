@@ -320,7 +320,8 @@ enum { M_EDIT, M_SAVE_NAME, M_GET_NAME, M_REPLACE, M_SAVEQ, M_EXITQ, M_ERROR, M_
        M_SIZE, M_FONTBLK, M_MOVENB, M_RETMENU, M_FMTSP, M_GRAY, M_SEARCH,
        M_RCONF, M_RSEARCH, M_RTEXT, M_RASK, M_UNDO,
        M_SETUP, M_ENV, M_UNITS, M_UNITVALUE, M_BACKUP, M_BACKUPVALUE,
-       M_LISTDIR, M_LIST, M_LISTSUB, M_LOOK, M_LISTRQ, M_GOTO };
+       M_LISTDIR, M_LIST, M_LISTSUB, M_LOOK, M_LISTRQ,
+       M_LFDELETE, M_LFNAME, M_LFREPLACE, M_LFERROR, M_GOTO };
 static int      g_mode = M_EDIT;
 static int      g_err_return;               /* the prompt an ERROR returns to */
 static const char *g_err;
@@ -353,7 +354,9 @@ static uint8_t g_undo_join;
 static uint8_t g_settings[IW_SETTINGS_SIZE], g_settings_io[IW_SETTINGS_SIZE+1];
 static uint8_t g_unit_target;
 static uint32_t query_label(char *out, uint32_t cap);
-static char     g_name[TBX_FILE_PATH_MAX];  /* the name being typed        */
+/* List Files offers an absolute A:\ name: room for the root-relative
+ * Toolbox path plus the three display-only drive characters. */
+static char     g_name[TBX_FILE_PATH_MAX + 4]; /* the name being typed     */
 static uint32_t g_nlen;
 static uint8_t  g_fresh;                    /* the offered name: a key replaces it */
 static char     g_path[TBX_FILE_PATH_MAX];  /* "NAME" for the file verbs     */
@@ -1216,7 +1219,7 @@ static void offer_name(void)
 static int take_name(void)
 {
     uint32_t i, dot = 0, base = 0, ext = 0;
-    if (g_nlen == 0u) return 0;
+    if (g_nlen == 0u || g_nlen >= sizeof g_path) return 0;
     for (i = 0; i < g_nlen; i++) {
         char c = upper(g_name[i]);
         int ok = (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.';
@@ -1368,7 +1371,8 @@ static void retrieve_named(void)
  *                 LF11_12; else "Retrieve into current document? No (Yes)",
  *                 LF12_03); F7 back to the document (LF03_17); Esc does
  *                 nothing (LF03_16); F1 back to the document (authored).
- *                 2 3 4 5 7 8 9 N: drawn GRAY, ignored (IW_LF_ITEMS).
+ *                 2/3/8: selected-file operations (initech-7aou, real WP ops mint).
+ *                 4 5 7 9 N: drawn GRAY, ignored (IW_LF_ITEMS).
  *   Look          "File: <path>  WP5.1  Revised: <stamp>" band, the
  *                 document from row 3 as the editing screen wraps it, "Look:
  *                 1 Next Doc; 2 Prev Doc: 0" (LF11_09); Esc and Space back
@@ -1391,6 +1395,10 @@ static uint8_t     g_look_wp;
 static iw_wp5_t    g_look_w;
 static uint16_t    g_look_date, g_look_time;
 static char        g_look_path[TBX_FILE_PATH_MAX + 4];
+static char        g_lf_src[TBX_FILE_PATH_MAX], g_lf_dst[TBX_FILE_PATH_MAX];
+static char        g_lf_question[2u * TBX_FILE_PATH_MAX];
+static uint8_t     g_lf_op;                  /* '2' Delete, '3' Move, '8' Copy */
+static uint8_t     g_lf_full;
 static const uint8_t LF_DEL_HDR1[] = IW_LF_DEL_HDR1;
 static const uint8_t LF_DEL_LIST[] = IW_LF_DEL_LIST;
 static const uint8_t LF_DEL_PROMPT[] = IW_LF_DEL_PROMPT;
@@ -1398,7 +1406,7 @@ static const uint8_t LF_DEL_LOOK[] = IW_LF_DEL_LOOK;
 typedef struct lf_item { char key; uint8_t row, c0, c1, live; } lf_item_t;
 static const lf_item_t LF_ITEMS[IW_LF_N_ITEMS] = IW_LF_ITEMS;
 
-static int lf_mode(void) { return g_mode >= M_LISTDIR && g_mode <= M_LISTRQ; }
+static int lf_mode(void) { return g_mode >= M_LISTDIR && g_mode <= M_LFERROR; }
 static uint32_t lf_slots(void) { return g_lf_n + 2u; }
 static int lf_is_file(uint32_t slot)
 {
@@ -1469,6 +1477,191 @@ static void lf_retrieve(void)
     retrieve_file(M_LIST);
 }
 
+/* Selected-file adapter, initech-7aou. Ref: WP Reference List Files PDF
+ * 364-370; real WP prompts in fixtures/iword-listfiles-ops. A path is pinned
+ * when the question opens; refreshing the list must never retarget it. */
+static void lf_error(int32_t rc)
+{
+    g_lf_full = rc == TBX_ERR_DOS(39);
+    g_err = rc == TBX_ERR_DOS(39) ? IW_LF_DISK_FULL :
+            rc == TBX_ERR_DOS(2) ? "ERROR: File not found" :
+            rc == TBX_ERR_DOS(3) ? "ERROR: Invalid drive/path specification" :
+                                  "ERROR: Access denied";
+    g_mode = M_LFERROR;
+}
+
+static int lf_same(const char *a, const char *b)
+{
+    uint32_t i = 0;
+    while (a[i] && a[i] == b[i]) i++;
+    return a[i] == b[i];
+}
+
+static void lf_question(const char *verb, const char *path)
+{
+    scopy(g_lf_question, verb);
+    scopy(g_lf_question + slen(g_lf_question), IW_LF_DRIVE);
+    scopy(g_lf_question + slen(g_lf_question), path);
+    scopy(g_lf_question + slen(g_lf_question), IW_LF_NO_YES);
+}
+
+static void lf_refresh(void)
+{
+    char dir[TBX_FILE_PATH_MAX], path[TBX_FILE_PATH_MAX];
+    const char *keep = g_lf_op == '8' ? g_lf_src : g_lf_dst;
+    uint32_t sel = g_lf_sel;
+    scopy(dir, g_lf_dir);
+    lf_open(dir, 0u);
+    g_lf_sel = sel < lf_slots() ? sel : lf_slots() - 1u;
+    /* Real WP shots 32/33: Copy retains the source; Rename follows its
+     * new alphabetical position. Delete selects the next remaining entry. */
+#ifndef IWORD_MUT_LF_SELECTION
+    if (g_lf_op != '2') for (uint32_t i = 0; i < g_lf_n; i++) {
+        if (lf_cat(path, g_lf_dir, g_lf_ent[i].name) && lf_same(path, keep)) { g_lf_sel = i + 2u; break; }
+    }
+#else
+    (void)path; (void)keep; /* MUTANT: keep the old slot after the re-sort. */
+#endif
+    if (g_lf_sel / 2u >= IW_LF_FACE_LIST_ROWS) g_lf_top = g_lf_sel / 2u - (IW_LF_FACE_LIST_ROWS - 1u);
+}
+
+static int lf_protected(const char *path)
+{
+    static uint8_t rec[TBX_FIND_REC_BYTES];
+    int32_t n = tbx_file_find(path, IW_LF_FIND_ATTR, rec, 1u);
+    if (n < 0 && n != TBX_ERR_DOS(2) && n != TBX_ERR_DOS(18)) { lf_error(n); return 1; }
+#ifndef IWORD_MUT_LF_PROTECT
+    if (n > 0 && (rec[TBX_FIND_REC_ATTR_OFF] & 0x11u)) { lf_error(TBX_ERR_DOS(5)); return 1; }
+#endif
+    return 0;
+}
+
+static void lf_perform(void)
+{
+    int32_t rc;
+    if (g_lf_op != '8' && lf_protected(g_lf_src)) return;
+    if (g_lf_op == '2') rc = tbx_file_delete(g_lf_src);
+    else {
+        if (lf_same(g_lf_src, g_lf_dst)) { g_mode = M_LIST; return; }
+        if (lf_protected(g_lf_dst)) return;
+        /* DOS AH=56h handles a new same-directory name without free space.
+         * Cross-directory moves (DOS 17) and confirmed replacements use the
+         * shared mcep transaction; delete the source ONLY after it commits. */
+        rc = g_lf_op == '3' ? tbx_file_rename(g_lf_src, g_lf_dst) : TBX_ERR_DOS(17);
+        if (rc == TBX_ERR_DOS(17) || rc == TBX_ERR_DOS(5)) {
+#ifdef IWORD_MUT_LF_TRUNCATE
+            /* MUTANT: the old destructive CREATE-before-copy mistake. */
+            int32_t h = tbx_file_create(g_lf_dst);
+            if (h >= 0) (void)tbx_file_close(h);
+#endif
+            rc = tbx_file_copy_save(g_lf_src, g_lf_dst);
+            if (rc == TBX_OK && g_lf_op == '3') rc = tbx_file_delete(g_lf_src);
+        }
+    }
+    if (rc < 0) { lf_error(rc); return; }
+    lf_refresh();
+}
+
+static void lf_begin(char op)
+{
+    /* Directories are not file operands (real WP shots 19/20). Never hand
+     * Current, Parent or a directory to a file verb. */
+    if (!lf_file_path(g_shown)) return;
+    scopy(g_lf_src, g_path);
+#ifdef IWORD_MUT_LF_WRONG_PATH
+    /* MUTANT: address the editing document instead of the highlighted file. */
+    scopy(g_lf_src, "WRONG.TXT");
+#endif
+    g_lf_op = (uint8_t)op;
+    g_lf_full = 0;
+    if (op == '2') { lf_question(IW_LF_DELETE, g_lf_src); g_mode = M_LFDELETE; }
+    else {
+        g_name[0] = 0; g_nlen = 0; g_fresh = 0;
+        if (op == '3') { scopy(g_name, g_shown); g_nlen = slen(g_name); g_fresh = 1; }
+        g_mode = M_LFNAME;
+    }
+}
+
+/* Resolve relative to the listed directory, or A:\ for an absolute name.
+ * Validate 8.3 components before applying FAT's empty-extension alias. */
+static int lf_destination(void)
+{
+    static char input[sizeof g_name], joined[TBX_FILE_PATH_MAX];
+    static uint8_t rec[TBX_FIND_REC_BYTES];
+    uint32_t len = g_nlen, at = 0;
+    int root = 0, ok;
+    int32_t n;
+    scopy(input, g_name);
+    if (input[0] && input[1] == ':') {
+        if (upper(input[0]) != 'A') return 0;
+        at = 2u;
+    }
+    if (input[at] == '\\' || input[at] == '/') { root = 1; at++; }
+    if (!input[at] && !root) return 0;
+    if (!lf_cat(joined, root ? "" : g_lf_dir, input + at)) return 0;
+    for (uint32_t i = 0; joined[i]; i++) {
+        joined[i] = upper(joined[i]);
+        if (joined[i] == '/') joined[i] = '\\';
+    }
+    at = slen(joined);
+    if (at && joined[at - 1u] == '\\') joined[--at] = 0;
+    if (!joined[0]) { rec[0] = IW_LF_ATTR_DIR; n = 1; } /* A:\ is a directory too */
+    else n = tbx_file_find(joined, IW_LF_FIND_ATTR, rec, 1u);
+    if (n > 0 && (rec[0] & IW_LF_ATTR_DIR)) {
+        const char *leaf = g_lf_src;
+        for (uint32_t i = 0; g_lf_src[i]; i++) if (g_lf_src[i] == '\\') leaf = g_lf_src + i + 1u;
+        if (joined[0] && !lf_cat(joined, joined, "\\")) return 0;
+        if (!lf_cat(joined, joined, leaf)) return 0;
+    }
+    scopy(g_name, joined); g_nlen = slen(g_name);
+    ok = take_name();
+    scopy(g_name, input); g_nlen = len;
+    if (ok) {
+        uint32_t out = 0;
+        /* fat12.c parse_name83: NAME and NAME. have identical padded
+         * fields. take_name already refused second dots and empty bases.
+         * Normalize EVERY component before either same-file check, or a
+         * replacement Move can copy over itself and delete the only copy. */
+        for (uint32_t i = 0; g_path[i]; i++) {
+#ifndef IWORD_MUT_LF_ALIAS
+            if (g_path[i] == '.' && (!g_path[i + 1u] || g_path[i + 1u] == '\\')) continue;
+#endif
+            g_lf_dst[out++] = g_path[i];
+        }
+        g_lf_dst[out] = 0;
+    }
+    return ok;
+}
+
+static void lf_operation_key(char ch, uint8_t vk)
+{
+    if (g_mode == M_LFERROR) {
+        if (g_lf_full && vk != VK_F1 && vk != VK_ESC && ch != 0x1B) lf_perform();
+        else g_mode = M_LIST;
+        return;
+    }
+    if (vk == VK_F1 || vk == VK_ESC || ch == 0x1B) { g_mode = M_LIST; return; }
+    if (g_mode == M_LFDELETE || g_mode == M_LFREPLACE) {
+        if (upper(ch) == 'Y') lf_perform(); else g_mode = M_LIST;
+        return;
+    }
+    if (vk == VK_ENTER || ch == '\r') {
+        int32_t h;
+        if (!lf_destination()) { g_err = "ERROR: Invalid file name"; g_mode = M_LFERROR; return; }
+        if (lf_same(g_lf_src, g_lf_dst)) { g_mode = M_LIST; return; }
+        h = tbx_file_open(g_lf_dst, TBX_FILE_READ_ONLY);
+        if (h >= 0) {
+            (void)tbx_file_close(h);
+            lf_question(IW_LF_REPLACE, g_lf_dst); g_mode = M_LFREPLACE;
+        } else if (h == TBX_ERR_DOS(2)) lf_perform();
+        else lf_error(h);
+    } else if (vk == VK_BSPC || ch == 8) { g_fresh = 0; if (g_nlen) g_name[--g_nlen] = 0; }
+    else if (ch >= ' ' && ch <= '~') {
+        if (g_fresh) { g_nlen = 0; g_fresh = 0; }
+        if (g_nlen < sizeof g_name - 1u) { g_name[g_nlen++] = ch; g_name[g_nlen] = 0; }
+    }
+}
+
 /* Look: the file into the spare bank (at most a bank; a longer text file
  * shows its first BANK bytes) */
 static void lf_look(void)
@@ -1496,6 +1689,7 @@ static void lf_key(char ch, uint8_t vk)
 {
     uint32_t n = lf_slots();
     char up = upper(ch);
+    if (g_mode >= M_LFDELETE && g_mode <= M_LFERROR) { lf_operation_key(ch, vk); return; }
     switch (g_mode) {
     case M_LISTDIR:
         if (vk == VK_ENTER || ch == '\r') { g_lf_dir[0] = 0; lf_open("", 0u); }
@@ -1539,7 +1733,8 @@ static void lf_key(char ch, uint8_t vk)
     else if (ch == '6' || vk == VK_ENTER || ch == '\r') {
         if (lf_is_file(g_lf_sel)) lf_look();
         else if (lf_slot_dir(g_lf_sel, g_lf_sub)) g_mode = M_LISTSUB;
-    } else if (ch == '1') {
+    } else if (ch == '2' || ch == '3' || ch == '8') lf_begin(ch);
+    else if (ch == '1') {
         if (lf_is_file(g_lf_sel)) { if (g_ed.doc.len) g_mode = M_LISTRQ; else lf_retrieve(); }
     }
     /* keep the selection's row on the screen */
@@ -1683,6 +1878,37 @@ static void paint_lf(void)
             if (c0 < c1) { r.blk_col = (uint8_t)c0; r.blk_len = (uint8_t)(c1 - c0); }
         }
         put_row((int)(IW_LF_LIST_ROW + i), &r);
+    }
+    if (g_mode >= M_LFDELETE && g_mode <= M_LFERROR) {
+        const char *text = g_mode == M_LFNAME ? (g_lf_op == '3' ? IW_LF_NEW_NAME : IW_LF_COPY_TO) :
+                           g_mode == M_LFERROR ? g_err : g_lf_question;
+        uint32_t col;
+        put_text_row(LINE_STATUS - 1, "");
+        row_clear(&r);
+        for (col = 0; text[col] && col < SCR_COLS; col++) r.t[col] = text[col];
+        for (i = 0; i < col; i++) if (r.t[i] != ' ') r.a[i] = (uint8_t)IW_A_BOLD;
+        if (g_mode == M_LFNAME) {
+            for (i = 0; g_name[i] && col + i < SCR_COLS; i++) {
+                r.t[col + i] = g_name[i]; r.a[col + i] = (uint8_t)IW_A_BOLD;
+            }
+            r.inv_col = (uint8_t)(g_fresh ? col : col + i < SCR_COLS ? col + i : SCR_COLS - 1u);
+            r.inv_len = 1;
+        } else if (g_mode != M_LFERROR) {
+            uint32_t pre = slen(g_mode == M_LFDELETE ? IW_LF_DELETE : IW_LF_REPLACE);
+            uint32_t pathlen = slen(g_mode == M_LFDELETE ? g_lf_src : g_lf_dst) + 3u;
+            r.blk_col = (uint8_t)pre;
+            r.blk_len = (uint8_t)(pathlen < SCR_COLS - pre ? pathlen : SCR_COLS - pre);
+            for (i = 0; i < pathlen && pre + i < SCR_COLS; i++) r.a[pre + i] = 0;
+            /* The default's N and alternative's Y are bright; 'o ( es)'
+             * is ordinary intensity (mint 02/13/15, row 24). */
+            pre += pathlen + 2u;
+            if (pre < SCR_COLS) { r.inv_col = (uint8_t)pre; r.inv_len = 1; }
+            if (pre + 1u < SCR_COLS) r.a[pre + 1u] = 0;
+            if (pre + 3u < SCR_COLS) r.a[pre + 3u] = 0;
+            for (i = pre + 5u; i < col; i++) r.a[i] = 0;
+        }
+        put_row(LINE_STATUS, &r);
+        return;
     }
     if (g_mode == M_LISTSUB || g_mode == M_LISTRQ) {
         put_text_row(LINE_STATUS - 1, "");

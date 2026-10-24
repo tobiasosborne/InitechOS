@@ -1,0 +1,12 @@
+sleep 8
+key F5
+sleep 1
+key Return
+sleep 1
+key Down
+key Right
+key 2
+key y
+sleep 1
+shot 25_readonly_volume
+end

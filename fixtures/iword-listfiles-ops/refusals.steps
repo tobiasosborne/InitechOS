@@ -1,0 +1,20 @@
+sleep 8
+key F5
+sleep 1
+key Return
+sleep 1
+key Down
+key 8
+sleep 1
+shot 19_directory_copy
+key 3
+sleep 1
+shot 20_directory_move
+key Escape
+key Right
+key 8
+type NOSUCH\OUT.TXT
+key Return
+sleep 1
+shot 21_bad_path
+end

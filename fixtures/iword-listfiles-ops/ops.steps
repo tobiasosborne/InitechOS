@@ -1,0 +1,23 @@
+# Real WP 5.1 03-09-92, scratch work copy; Reference PDF pp. 364-370.
+sleep 8
+type Keep active.
+key F5
+key Return
+shot 01_list
+key Down
+key Right
+key 2
+shot 02_delete
+key n
+key 3
+shot 03_move
+key Escape
+key 8
+shot 04_copy
+key Escape
+key Down
+key 2
+shot 05_lock_delete
+key y
+shot 06_readonly_deleted
+end

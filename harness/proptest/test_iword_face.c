@@ -123,6 +123,7 @@ static int32_t m_free = TBX_ERR_DOS(0x0F);
 static int m_find_calls;
 int32_t tbx_trap(uint32_t c, uint32_t n, const uint32_t *a) { (void)c; (void)n; (void)a; return TBX_ERR_BADCODE; }
 int32_t tbx_get_clock(void *t) { memcpy(t, &m_clock, sizeof m_clock); return TBX_OK; }
+#ifndef IWORD_LF_OPS_MOCK
 int32_t tbx_file_find(const char *pat, uint32_t attr, void *recs, uint32_t max)
 {
     size_t L = strlen(pat);
@@ -143,6 +144,7 @@ int32_t tbx_file_find(const char *pat, uint32_t attr, void *recs, uint32_t max)
     }
     return k ? (int32_t)k : (L == 3 ? 0 : TBX_ERR_DOS(3));
 }
+#endif
 int32_t tbx_disk_free(void) { return m_free; }
 
 int32_t tbx_draw_cells(int32_t w, int32_t x, int32_t y, const char *s, uint32_t f, uint32_t b)
@@ -177,6 +179,7 @@ static int32_t new_handle(FILE *f)
     fclose(f); return TBX_ERR_DOS(4);
 }
 static FILE *fh(int32_t h) { return (h >= 5 && h < 13) ? m_fh[h - 5] : 0; }
+#ifndef IWORD_LF_OPS_MOCK
 int32_t tbx_file_create(const char *path)
 { char hp[300]; FILE *f; host_name(path, hp); f = fopen(hp, "w+b"); return f ? new_handle(f) : TBX_ERR_DOS(5); }
 int32_t tbx_file_open(const char *path, uint32_t mode)
@@ -212,6 +215,7 @@ int32_t tbx_file_rename(const char *o, const char *n)
     if ((f = fopen(hn, "rb")) != NULL) { fclose(f); return TBX_ERR_DOS(5); }
     return rename(ho, hn) == 0 ? TBX_OK : TBX_ERR_DOS(2);
 }
+#endif
 
 /* ---- driving the application ------------------------------------------- */
 #define SHIFT ((int32_t)FLAIR_EVT_MOD_SHIFT_KEY)

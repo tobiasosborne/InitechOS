@@ -1,0 +1,14 @@
+sleep 8
+key F5
+sleep 1
+key Return
+sleep 1
+key Down
+key Right
+key Down
+key 3
+type RENAME.TXT
+key Return
+sleep 1
+shot 30_readonly_rename
+end

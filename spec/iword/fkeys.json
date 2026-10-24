@@ -3,7 +3,8 @@
   "bead": "initech-qvgd",
   "source": "WP 5.1 Reference printed pp. 963-964; notes p. 966; Template pp. 5-6; WP51 Funct Strip.jpg",
   "unmapped": "The six modified F11/F12 slots have no command name (p. 966 note 4).",
-  "rule8": "2026-10-20 initech-qvgd: F5 List gray -> list (List Files implemented from the real WP 5.1 mint, ../wordperfect51-decomp mint/work/LISTF/mint-results-005.md); the List Files menu items InitechWord does not perform (2 3 4 5 7 8 9 N) are period-grayed by spec/iword/listfiles.h IW_LF_ITEMS.",
+  "rule8": "2026-10-20 initech-qvgd: F5 List gray -> list (List Files implemented from the real WP 5.1 mint, ../wordperfect51-decomp mint/work/LISTF/mint-results-005.md); the List Files menu items InitechWord does not perform (4 5 7 9 N) are period-grayed by spec/iword/listfiles.h IW_LF_ITEMS.",
+  "listfiles_ops_rule8": "initech-7aou PM ruling: 2 Delete, 3 Move/Rename, 8 Copy live; WP 5.1 Reference List Files PDF pp. 364-370 + real mint fixtures/iword-listfiles-ops.",
   "keys": [
     {"modifier":"plain","key":1,"name":"Cancel","action":"undelete"},
     {"modifier":"plain","key":2,"name":"Search","action":"search_forward"},

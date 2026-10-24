@@ -1,0 +1,13 @@
+sleep 8
+key F5
+sleep 1
+key Return
+sleep 1
+key Down
+key Right
+key 8
+type NEW.TXT
+key Return
+sleep 1
+shot 26_readonly_copy
+end

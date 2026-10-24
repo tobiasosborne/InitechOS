@@ -128,3 +128,24 @@ FLAIR_IWORD_GOTO_CLIP_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-o,kn,ke,kctrl-ret,ksh
 # Backspace x5, "name" Enter: saved as BADNAME, the name the user corrected
 # it to -- never silently.
 FLAIR_IWORD_BADNAME_CLIP_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-o,kk,kf10,kb,ka,kd,kspc,kn,ka,km,ke,kret,kspc,kbspc,kbspc,kbspc,kbspc,kbspc,kn,ka,km,ke,kret
+
+# initech-7aou: disposable OPS directory. Real WP operation prompts:
+# fixtures/iword-listfiles-ops (Reference List Files PDF 364-370).
+# Keep active. stays unsaved throughout. Root OPS is slot 5; its list opens
+# at Parent, then Down selects ALPHA.TXT. Copy, Replace No/Yes, rename,
+# confirmed Delete, read-only refusals, copy protected source and move into SUB.
+FLAIR_IWORD_OPS_START := $(FLAIR_IWORD_LAUNCH),kshift-k,ke,ke,kp,kspc,ka,kc,kt,ki,kv,ke,kdot,kf10,kb,ke,kf,ko,kr,ke,kret,kf5,kret,kdown,kdown,kright,kret,kret,kdown
+FLAIR_IWORD_LISTFILES_OPS_SPEC := $(FLAIR_IWORD_OPS_START),k2,kn,k2,kret,k3,kesc,k8,kf1,k3,kb,ke,kt,ka,kdot,kt,kx,kt,kret,kn,k8,kb,ke,kt,ka,kdot,kt,kx,kt,kret,kn,k8,kc,ko,kp,ky,kdot,kt,kx,kt,kret,k3,kb,ke,kt,ka,kdot,kt,kx,kt,kret,kn,k3,kb,ke,kt,ka,kdot,kt,kx,kt,kret,ky,k3,kr,ke,kn,ka,km,ke,kd,kdot,kt,kx,kt,kret,kup,k2,kn,k2,ky,k2,ky,kspc,k3,ko,kt,kh,ke,kr,kdot,kt,kx,kt,kret,kspc,k8,kr,ke,ka,kd,kdot,kt,kx,kt,kret,kdown,k3,ks,ku,kb,kbsl,km,ko,kv,ke,kd,kdot,kt,kx,kt,kret,kf7,kf10,ka,kf,kt,ke,kr,kret
+# A full volume: replacement Copy, new Copy and replacement Move must all
+# fail while keeping every source and old destination byte (mtools/FAT).
+FLAIR_IWORD_LISTFILES_OPS_FULL_SPEC := $(FLAIR_IWORD_OPS_START),k8,kb,ke,kt,ka,kdot,kt,kx,kt,kret,ky,kf1,k8,kn,ke,kw,kdot,kt,kx,kt,kret,kf1,k3,kb,ke,kt,ka,kdot,kt,kx,kt,kret,ky,kf1,kdown,kright,k2,ky,kf7,kf10,ka,kf,kt,ke,kr,kret
+
+# initech-7aou fix round: REVIEW.md's same-file FAT alias, not a POSIX
+# spelling test. Move ALPHA to A:\OPS.\ALPHA.TXT, Enter, Replace Yes if
+# offered, then save the unchanged active document as AFTER. The existing
+# same-file refusal returns to List Files; Y there has no operation.
+FLAIR_IWORD_LISTFILES_ALIAS_SPEC := $(FLAIR_IWORD_OPS_START),k3,ka,kshift-semicolon,kbsl,ko,kp,ks,kdot,kbsl,ka,kl,kp,kh,ka,kdot,kt,kx,kt,kret,ky,kf7,kf10,ka,kf,kt,ke,kr,kret
+
+# Short Rule-14 demonstration; the gate trace above also saves and compares
+# the active document before/after. No long waits or clock-boundary masking.
+FLAIR_IWORD_LISTFILES_OPS_CLIP_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-k,ke,ke,kp,kspc,ka,kc,kt,ki,kv,ke,kdot,kf5,kret,kdown,kdown,kright,kret,kret,kdown,k2,kn,k8,kc,ko,kp,ky,kdot,kt,kx,kt,kret,k3,kn,ke,kw,kdot,kt,kx,kt,kret,kf7

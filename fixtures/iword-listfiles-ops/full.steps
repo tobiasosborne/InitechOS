@@ -1,0 +1,14 @@
+sleep 8
+key F5
+sleep 1
+key Return
+sleep 1
+key Down
+key Right
+key 8
+type BETA.TXT
+key Return
+key y
+sleep 1
+shot 29_full_copy
+end
