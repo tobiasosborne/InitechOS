@@ -82,6 +82,7 @@ test-samir-memwidth-emu: test-samir-dml-macro-emu samir-size-goldens $(SAMIR_FNS
 	@INITECH_QMP_STDIO=1 $(SAMIR_FNS_TEST) memwidth emu
 	@printf '>>> test-samir-memwidth-emu: green (real III+ DML-02 in QEMU)\n'
 test-samir-memwidth-emu-mutant: test-samir-memwidth-emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MEMVAR_WIDTH.COM
+	@mkdir -p $(BUILD)/samir-size   # own scratch dir: FAIL on a fresh parallel worker (initech-27clv)
 	@set +e; INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) macro emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MEMVAR_WIDTH.COM > $(BUILD)/samir-size/memwidth-emu-red.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q 'FAIL.*DML transcript byte-identical' $(BUILD)/samir-size/memwidth-emu-red.log && \
 	 ! grep -q 'FAIL.*locked QEMU trace' $(BUILD)/samir-size/memwidth-emu-red.log || { cat $(BUILD)/samir-size/memwidth-emu-red.log; exit 1; }; \
