@@ -223,7 +223,10 @@ fallback, asserted on serial.)
 > tools/bootstrap/doctor.sh + fetch-siblings.sh. The six decomp siblings and the manuals
 > library now have PRIVATE GitHub remotes (tobiasosborne/<name>) with their gitignored goldens
 > as release assets (`goldens-2026-10-24`; manuals `v2026-10-24`), sha256-verified; round-trip
-> restore tested. Refresh the snapshot after new mints (procedure in BOOTSTRAP.md Sec 3).
+> restore tested. Refresh the snapshot after new mints with tools/bootstrap/snapshot-sibling.sh
+> (refuses on untracked files -- the dbase3 mint/work tree was untracked, missed the first
+> snapshot, and was re-snapshotted 2026-10-24 ~08:30 after the new box's test-samir-use went
+> red; initech-e8s3 on the new box). doctor.sh now checks every sibling file the gates read.
 >
 > **New ground truth:** ../turbopascal-decomp (real Turbo Pascal 5.5; initech-v872) -- the Law-1
 > footing for M8. OPERATOR DECISION pending: Turbo Initech Integer width (TP is 16-bit, three

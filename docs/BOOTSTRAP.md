@@ -116,7 +116,7 @@ NFNT/PAT# resources, the WP List Files mint image, the DOS 6.22 mint disk.
 Sixteen of those files are read directly by the Makefile (grep `_DECOMP)/`),
 more by mint scripts, so a sibling without its tarball will turn gates red.
 
-Snapshot sizes (2026-10-24): dbase3 576 MB, win31 679 MB, system7 1.2 GB,
+Snapshot sizes (2026-10-24, dbase3 refreshed with mint/work the same day): dbase3 591 MB, win31 679 MB, system7 1.2 GB,
 wordperfect51 43 MB, lotus123 17 MB, turbopascal 5.5 MB; manuals 1.1 GB.
 
 Re-acquiring from the original sources instead: every sibling's `SOURCES.md`
@@ -125,11 +125,29 @@ lists the archive.org / WinWorld / vendor URL and sha256 of each golden master
 sha256 a04ff655...), and `initech-manuals-ref/SOURCES.md` does the same for
 every scan. The release assets are a convenience, not the only route.
 
-Refreshing a snapshot after new mints land in a sibling: in that sibling,
-`git status --short --ignored | grep '^!!'` lists the ignored paths; tar them,
-`sha256sum` them, and `gh release upload goldens-<date> ... --clobber` (or
-create a new tag and pass `TAG=` to the fetch script). The PM did exactly this
-on 2026-10-24; the one-liners are in WL-0178.
+Refreshing a snapshot after new mints land in a sibling:
+
+```sh
+tools/bootstrap/snapshot-sibling.sh dbase3-decomp            # re-tar + re-upload to goldens-2026-10-24
+TAG=goldens-2026-11-01 tools/bootstrap/snapshot-sibling.sh lotus123-decomp   # or a new tag
+```
+
+The script tars every gitignored path, writes the sha256 manifest, uploads
+both with `--clobber`, and **REFUSES while the sibling has untracked (`??`)
+files**. That rule exists because of the first machine move: a snapshot only
+sees ignored paths, so anything neither committed nor ignored stays on the old
+laptop. `dbase3-decomp/mint/work` (the installed DBASE.EXE tree seven Makefile
+sites read) was in exactly that state on 2026-10-24 and had to be re-snapshotted
+after the new box's certificate went red on `test-samir-use` (initech-e8s3).
+Every sibling's rule of thumb: our work (`.steps`, confs, `.PRG`, transcripts,
+screenshots, scripts, mint-results) is committed; copyrighted or installed
+material (`goldens/`, `mint/work/`, `mint/samirctl/`, ROMs, captures) is
+ignored and travels as the asset. `git status --short` in a sibling must be
+empty apart from `!!` lines before a snapshot.
+
+`tools/bootstrap/doctor.sh` checks the exact sibling files the Makefile and
+gate rules read (grep `_DECOMP)/` in `Makefile` + `*.mk`), so a sibling that is
+"restored" but missing a gate input is MISSING there before `make test` is.
 
 ## 4. Verify the machine
 

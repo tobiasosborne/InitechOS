@@ -69,6 +69,28 @@ for d in dbase3-decomp lotus123-decomp system7-decomp win31-decomp wordperfect51
         else warn "../$d" "cloned, but gitignored goldens not restored (tools/bootstrap/fetch-siblings.sh)"; fi
     else miss "../$d" "git clone https://github.com/tobiasosborne/$d $proj/$d"; fi
 done
+
+# The exact sibling files the Makefile / gate rules read (grep '_DECOMP)/' in
+# Makefile + *.mk). A sibling can be cloned with its goldens "restored" and still
+# miss one of these if a snapshot was taken while the path was untracked rather
+# than ignored (dbase3 mint/work, 2026-10-24, initech-e8s3). Checked only when
+# the sibling is cloned; MISSING turns the SAMIR / FLAIR / I123 / IWORD gates red.
+echo "== sibling files the gates read"
+for f in \
+    dbase3-decomp/goldens dbase3-decomp/mint/work/DBASE.EXE dbase3-decomp/mint/work/DBASE.OVL \
+    dbase3-decomp/mint/work/DBASEINL.OVL dbase3-decomp/mint/work/DBASE.MSG dbase3-decomp/mint/samirctl/DBASE.EXE \
+    dbase3-decomp/re/mint-results-004.md dbase3-decomp/re/mint-results-005.md \
+    lotus123-decomp/goldens/lotus-123-2.2-installed-ref/extracted/installed/123.RI lotus123-decomp/goldens/minted/MINT01.WK1 lotus123-decomp/tools/wk1_ref.py \
+    system7-decomp/goldens/captures/s8_desktop_menubar.png system7-decomp/goldens/captures/s8_alert_modal.png \
+    system7-decomp/goldens/resources/NFNT_5478.bin "system7-decomp/goldens/resources/PAT#_0.bin" system7-decomp/mint/work/geneva12/NFNT_12112.bin \
+    win31-decomp/oracles/wine/server/region.c \
+    wordperfect51-decomp/goldens/minted/MINT09.WP5 wordperfect51-decomp/mint/work/WP51/MINT09 wordperfect51-decomp/mint/work/LISTF wordperfect51-decomp/tools/wp5_ref.py \
+    turbopascal-decomp/goldens/tp55/tp55.zip; do
+    sib="${f%%/*}"
+    [ -d "$proj/$sib/.git" ] || continue
+    if [ -e "$proj/$f" ]; then ok "../$f" ""; else miss "../$f" "gate input absent: re-run tools/bootstrap/fetch-siblings.sh $sib (snapshot may predate it)"; fi
+done
+
 if [ -f "$proj/initech-manuals-ref/MANIFEST.sha256" ]; then
     if (cd "$proj/initech-manuals-ref" && sha256sum -c --quiet MANIFEST.sha256 >/dev/null 2>&1); then ok "../initech-manuals-ref" "manifest verifies"
     else warn "../initech-manuals-ref" "cloned, scans not restored: run its ./fetch.sh"; fi
