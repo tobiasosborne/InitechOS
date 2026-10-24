@@ -865,6 +865,8 @@ FLAIR_TEXT_OPT     := -Oz -fomit-frame-pointer -fno-strict-aliasing
 # separately audited round-8-part-2 policy below.
 # Ref: each driver's existing local hardware contract; PRD Sec 5/6.1; WL-0152.
 KERNEL_LOWLEVEL_OPT := -Oz -fomit-frame-pointer -fno-strict-aliasing
+# Round 8 part 2: descriptor and pointed-to gate table are ordered at LIDT.
+KERNEL_IDT_OPT := -Os -fno-strict-aliasing -fomit-frame-pointer
 KERNEL_BLOCK_DEVICE_OPT := -Oz -fno-strict-aliasing $(KERNEL_COLD_LTO_FLAGS)
 # Round 8 part 2: the transfer saves every callee-saved GPR and declares
 # child-clobbered EAX/ECX/EDX. Stack operands are read before switching ESP;
@@ -8765,7 +8767,7 @@ $(KERNEL_CONSOLE_OBJ): $(KERNEL_CONSOLE_C) $(KERNEL_DIR)/console.h $(KERNEL_DIR)
 
 # Interrupt foundation objects (beads initech-a5a).
 $(KERNEL_IDT_OBJ): $(KERNEL_IDT_C) $(KERNEL_DIR)/idt.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) -I$(KERNEL_DIR) -c $(KERNEL_IDT_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_IDT_OPT) -I$(KERNEL_DIR) -c $(KERNEL_IDT_C) -o $@
 
 $(KERNEL_PIC_OBJ): $(KERNEL_PIC_C) $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/io.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) -I$(KERNEL_DIR) -c $(KERNEL_PIC_C) -o $@

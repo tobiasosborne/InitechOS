@@ -226,3 +226,32 @@ boundary check, conkeys (+emu-mutant), tsr (+mutant), flair-modifier-release
 >>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 552527fad847073cf84533a2f61887f24ee5b94f271378101eb3b43236571967)
 >>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 1b2d192f7443d98b2ff6804f68ed604d88857e4e1890bae607198ad4928dfe2d)
 ```
+
+IDT (3g): LIDT names its descriptor but also consumes the pointed-to gate
+table. A memory clobber publishes all initialized gates before loading it.
+Operands are complete; LIDT does not change arithmetic flags. Init loops stay
+bounded at 256 defaults and 32 exceptions. Native -Os retains the prior
+frame-pointer omission/no strict aliasing: 181076 -> 181076 B (0). Dropping
+frame-pointer omission grew 32 B and was rejected despite green proof.
+All 25 selected-policy gates in lever3g-final/status pass: the common 23 and
+idt (+mutant). Rule-11 hashes:
+
+```text
+>>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 f2e76ec16ae22f68e9e2151c1ed00cbe69f61239594a9621cd4962e94efdf6a0)
+>>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 21ddca097ce7a2b8e9d1279b8d9d474b46449222abfea529033ffd969f3fc4c4)
+```
+
+The other native drivers are audited and left at their existing round-4
+policy: mouse (3c), PIC (3d), IRQ (3e), PIT (3f). Individual -Os trials recovered
+0 loaded bytes each. Mouse status polls are volatile, bounded at 100000 reads;
+ACK/drain counts remain bounded, packet state is ISR-owned, and slave-before-
+master EOI is intact. The active (last) mouse recipe uses KERNEL_LOWLEVEL_OPT;
+the earlier -Os recipe is shadowed, so that variable is not mistaken for the
+effective policy. PIC operands fully name their ports/values; volatile OUT
+also preserves the port-0x80 delays. PIC has no ordinary shared RAM state;
+its native call boundaries order caller initialization before unmasking.
+IRQ depth and PIT ticks are volatile, naturally aligned counters. UART loops
+are bounded volatile IN reads; the terminal INT3 loop intentionally never
+returns. Tick/mouse hooks are installed through native calls, and their
+ISR-only state does not require a new RAM/port ordering assumption. None of
+these zero-saving policies is reflagged just to count a historical saving.

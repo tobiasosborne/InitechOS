@@ -122,5 +122,8 @@ void idt_init(void)
     g_idt_ptr.limit = (uint16_t)(sizeof(g_idt) - 1u);   /* 0x7FF */
     g_idt_ptr.base  = (uint32_t)(uintptr_t)&g_idt[0];
 
-    __asm__ __volatile__("lidt %0" : : "m"(g_idt_ptr));
+    /* The descriptor operand names g_idt_ptr, not the table it points to.
+     * Publish every gate before LIDT can expose it to exception delivery.
+     * Ref: round-2 policy Sec 4; Intel LIDT / IDT contract above. */
+    __asm__ __volatile__("lidt %0" : : "m"(g_idt_ptr) : "memory");
 }
