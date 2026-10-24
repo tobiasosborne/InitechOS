@@ -40,7 +40,7 @@ lines ~43-47) but nothing else in the docs assumes anything but `../<name>`.
 
 ```sh
 sudo apt install build-essential gcc-multilib nasm make git jq p7zip-full unzip \
-     qemu-system-x86 bochs bochs-x bochsbios mtools dosfstools \
+     qemu-system-x86 bochs bochs-x bochsbios vgabios mtools dosfstools \
      fpc dosbox-x basilisk2 xvfb imagemagick ffmpeg poppler-utils \
      python3 python3-numpy python3-pil texlive-full gh git-lfs
 ```
@@ -52,6 +52,7 @@ Why each matters (so you can tell a hard requirement from a nicety):
 | build-essential, gcc-multilib, nasm | the artifact (C, freestanding -m32) + boot stubs | nothing builds |
 | qemu-system-x86 | every emu gate (`test-*-emu`, clips) | `make test` red |
 | bochs + bochs-x + bochsbios | the Bochs legs (`test-boot-bochs`, FLAIR desktop/appswitch, SAMIR) | `make test` FAILS LOUD; `SKIP_BOCHS=1` is the only opt-out |
+| vgabios | every Bochs leg: the stock LGPL ROM via the `/usr/share/bochs/VGABIOS-lgpl-latest` symlink (dangling without it; bochs only Recommends it) AND the ISA Cirrus ROM `/usr/share/vgabios/vgabios.cirrus.bin` (`BOCHS_CIRRUS_VGABIOS` in harness/bochs_legs.mk, the vga13 legs) | Bochs panics "couldn't open ROM image file", `serial_len=0`, `make test` red |
 | mtools, dosfstools | FAT differential, fixture volumes, mtools-differential Finder ops | `make test` red |
 | fpc | the INDEPENDENT golden for the seed/TPS differential | FAILS LOUD; `SKIP_FPC=1` is the only opt-out |
 | dosbox-x | minting real dBASE/Lotus/WP/TP goldens; some gates replay DOSBox transcripts | mint lanes impossible |
