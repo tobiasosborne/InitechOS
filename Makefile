@@ -28599,6 +28599,7 @@ $(SAMIR_DBSAFE_MUT_COMS): $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/h
 	$(OBJCOPY) -O binary $$dir/SAMIR.elf $@
 .PHONY: test-samir-full-emu-mutant test-samir-lifetime-emu-mutant test-samir-safety-emu-mutant
 test-samir-full-emu-mutant: $(BUILD)/SAMIR_DBSAFE_full.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
+	@mkdir -p $(BUILD)/dbsafe   # own scratch dir: FLAKY on a fresh parallel worker (initech-hteno)
 	@if $(TEST_SAMIR_DBSAFE_EMU) full $(BUILD)/SAMIR_DBSAFE_full.COM > $(BUILD)/dbsafe/emu-mut-full.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
 	@grep -Fq 'L001 table reopens in guest' $(BUILD)/dbsafe/emu-mut-full.log
 	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-full.log
