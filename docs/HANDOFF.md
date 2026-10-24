@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-10-24 06:00 (**WL-0178: wave 2 -- 14 lane merges, 51 beads closed (19 lane + 32 triage), NEW-MACHINE READINESS (docs/BOOTSTRAP.md, private sibling remotes + release-asset goldens), Turbo Pascal 5.5 ground truth; see Sec 5 CURRENT STATE.** PREVIOUS: 2026-10-20 07:00 (**WL-0174: 33 lane merges, 29 beads closed; see Sec 5 CURRENT STATE.** PREVIOUS: 2026-10-16 04:30 (**WL-0114: THE SECOND NIGHT -- seven lanes merged (real Lotus /Copy /Move goldens + the engine fixed to real R2.2 bytes, Platinum alert chrome, InitechWord P2 codes + block ops with 20 real WP 5.1 mints, fixture-volume verifier, SAMIR REPORT FORM, F16 body frame); full clean certificate ALL GREEN 450 host + 241 emu at 12f62a0; see Sec 5 CURRENT STATE.** PREVIOUS: 2026-10-15 06:00 (**WL-0104: THE FRONTIER NIGHT -- fifteen lanes merged (Restart/Shut Down, Ctrl-C/Ctrl-Z, Initech 123 formulas + the complete slash menu tree, InitechWord P1, Font Manager slice 2, Trash stale views, kernel headroom round 2, gate honesty, the LOOK batches: scroll bars, DOS console, menus, SAMIR screen), LOOK audit pass 6; certificate: see Sec 5 CURRENT STATE.** PREVIOUS: 2026-10-05 02:05 (**WL-0094: MENUS REACH DISK APPS, THE TRASH WORKS, INITECH 123 OPENS FROM THE FINDER AS A C DISK APPLICATION, COPY/DEL DATA LOSS FIXED, FIFTH AUDIT, PHYSICAL-EDITION RESEARCH; cert 376 host + 173 emu at 7030e2f -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-10-04 06:40, session close (**WL-0093: FOUR HANDS-ON DESKTOP AUDITS (41 findings; all four window-system P0s fixed and certified, cert 367 host + 144 emu at 37334ee), PROPORTIONAL CHICAGO, DRAG-MOVE, SETMBAR, KERNEL X87 -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-09-26 evening (**WL-0092: canonical-app goldens land -- real Lotus 1-2-3 R2.2 + real WordPerfect 5.1 run under the mint harness, both P0 Law-1 gates closed, see Sec 5 CURRENT STATE.** PREVIOUS: **WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
+**Last Reconciled:** 2026-10-24 15:57 (**WL-0180: new WSL box certified gate by gate, 12 main regressions fixed, kernel size round 8, parallel certificate runner; r3 cap decision owed**)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -203,6 +203,43 @@ fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
 
+> **CURRENT STATE (2026-10-24 ~15:57, WL-0180 -- new-box certificate, size round 8, parallel certificate runner. Supersedes every CURRENT STATE block below for "what to do next".)**
+>
+> **Machine:** work moved to a new WSL2 box (Ubuntu 24.04, 64 cores, 62 GB; toolchain per
+> docs/BOOTSTRAP.md, siblings restored from release assets, doctor green except 86Box). Box-isms were
+> only two: vgabios package (initech-3kiy) and the old laptop's /home/tobias paths (3e7q, pla5);
+> dbase3-decomp mint/work needed a re-snapshot (e8s3).
+>
+> **Certificate:** the per-gate SERIAL sweep at 2808f8b5 (1478 gates, ~5 h) found 30 reds; all but
+> kernel size are fixed on main. Real regressions the laptop never certified: loader refused every
+> InitechMZ .EXE since 7850d4d2 (zxzi, P0, 5628a872), SAMIR pubs candidate feed (u01i), TPS screen
+> drift (kqr8), icons-bochs dead claim (buze), xcopy ctrlc mutant (hk3py). No full serial
+> `make test` has been run on 61294e7e.
+>
+> **Parallel certificate (initech-9bgg6, open):** tools/cert-sharded.sh, design in
+> docs/design/parallel-certificate.md. First full run at c9a5cd53, -j 8: 1454 PASS in 81 min, zero
+> timing flakes; every failure was a hidden gate dependency serial order masked (hteno, 27clv,
+> 72872), all fixed. The SECOND full run at HEAD 61294e7e is IN PROGRESS (no result yet). Serial
+> `make test` stays the reference until two consecutive sharded runs agree (design Sec 4).
+>
+> **Kernel size round 8 (initech-hztg, open):** flagship 183,956 -> 180,208 B; r4 GREEN with a 16 B
+> margin; r3 (172,492 B all-kernel cap) still ~9.1 KB over. OPERATOR DECISION OWED: structural
+> overlay programme vs a ruling on the r3 cap's semantics. The next kernel-growing lane re-breaks r4.
+>
+> **Operator rulings 2026-10-24 (bd memories):** work mostly serially; Claude/Fable up to 4 points
+> ahead of pace, Codex up to 10 (banked reset); exploit Codex gpt-6.1-sol for coding/computer use.
+>
+> **Unmerged lane queue (11 branches, ~48 commits, 17-20 Oct; all need rebase + re-verification):**
+> flairman 19, l123man 8, flaircmd 6, finderalerts 3, finderrobust 3, iwordp4 2, pascaltbx 2,
+> mints 2, i123p4 1, dupinfo 1, bootscreen2 1. Smallest code lanes first (bootscreen2, dupinfo,
+> pascaltbx); book lanes after the pubs gate is stable.
+>
+> **Next work:** (1) finish run 2 and diff it: in ../initech-os-cx-parcert
+> `tools/cert-sharded.sh --out build/cert-full2 --diff build/cert-full/results.txt`; if clean, flip
+> BOOTSTRAP/HANDOFF to the sharded certificate and update the bd memory on host discipline; (2) r3
+> decision; (3) the lane queue; (4) the WL-0178 Codex candidates. Frictions: use `make -pn` with no
+> target for gate lists; use /usr/bin/grep in agent commands (interactive grep is ugrep).
+>
 > **CURRENT STATE (2026-10-24 ~05:30, WL-0178 -- wave 2 after the audit fix wave + NEW-MACHINE
 > READINESS. Supersedes every CURRENT STATE block below for "what to do next".)**
 >
