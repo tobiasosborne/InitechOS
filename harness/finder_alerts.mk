@@ -216,15 +216,44 @@ $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_MUT_NO_LAUNCH_ALERT,fi
 $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_MUT_NO_MOVE_ALERT,finder_move_alert))
 $(eval $(call flair-tenants-finderops-mutant-rules,FINDER_MUT_ORIGINAL_LOST,finder_origin))
 $(eval $(call flair-tenants-finderops-mutant-rules,FINDER_MUT_REPLACE_CANCEL,finder_replace))
-$(eval $(call flair-tenants-kmain-mutant-rules,FINDER_MUT_DEMO_LIVE,finder_demo))
+$(eval $(call flair-tenants-kmain-mutant-rules,FINDER_MUT_DEMO_LIVE -DFLAIR_TEN_TICK_BUDGET=1500,finder_demo_hold))
 
-test-flair-finder-input-mutant: test-flair-finder-input $(BUILD)/flair_tenants_mut_finder_click.img
-	$(call appl-boot,finder_click_mut,$(BUILD)/flair_tenants_mut_finder_click.img,$(FLAIR_DATA_IMG),FLAIR_ACTIVATE_ONLY_SPEC,--screendump)
+# Rule 6 pairing: every emu mutant below boots the SAME image class as the
+# clean leg it mirrors -- the clean legs all boot $(FLAIRTENANTS_HOLD_IMG)
+# (kmain -DFLAIR_TEN_TICK_BUDGET=1500) -- with exactly ONE perturbed object.
+# The pre-fix mutants booted the default 250-tick (or the 500-tick i123)
+# kernel: under host load the guest's life ended before the injected trace
+# finished (FLAIR-LIVE-OK mid-trace; seen on move-alert twice, input once,
+# dialog-tracking once), so a mutant went RED for "trace truncated" or failed
+# for "no dump", not for its named reason. Nothing any oracle grades is
+# relaxed: same traces, same checks, same polarities.
+# $(call finder-hold-mutant-image,<name>,<replaced clean obj>,<mutated obj>)
+#   -> $(BUILD)/flair_tenants_mut_<name>_hold.img
+define finder-hold-mutant-image
+$(BUILD)/kernel_flairtenants_mut_$(1)_hold.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(2),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(3) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(2),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(3) @$(TRANSIENT_IMPORTS_LD)
+$(BUILD)/kernel_flairtenants_mut_$(1)_hold.bin: $(BUILD)/kernel_flairtenants_mut_$(1)_hold.elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then printf '!!! kernel_flairtenants_mut_$(1)_hold.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; exit 1; fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(1)_hold)
+$(BUILD)/flair_tenants_mut_$(1)_hold.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(1)_hold.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(1)_hold.bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(1)_hold.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(1)_hold.bin
+	@printf ">>> flair-tenants HOLD mutant image ($(3)): %s\n" "$$@"
+endef
+$(eval $(call finder-hold-mutant-image,finder_click,$(KERNEL_PROCESS_OBJ),$(BUILD)/process_mut_finder_click.o))
+$(eval $(call finder-hold-mutant-image,finder_press,$(KERNEL_DIALOG_OBJ),$(BUILD)/alert_chrome_finder_press.o))
+$(foreach m,finder_entries finder_windows finder_open_one finder_keys finder_disk_alert finder_launch_alert finder_move_alert,$(eval $(call finder-hold-mutant-image,$(m),$(KERNEL_FINDER_WINDOWS_OBJ),$(BUILD)/finder_windows_mut_$(m).o)))
+$(foreach m,finder_origin finder_replace,$(eval $(call finder-hold-mutant-image,$(m),$(BUILD)/finder_ops.o,$(BUILD)/finder_ops_mut_$(m).o)))
+
+test-flair-finder-input-mutant: test-flair-finder-input $(BUILD)/flair_tenants_mut_finder_click_hold.img
+	$(call appl-boot,finder_click_mut,$(BUILD)/flair_tenants_mut_finder_click_hold.img,$(FLAIR_DATA_IMG),FLAIR_ACTIVATE_ONLY_SPEC,--screendump)
 	@$(call APPL_ALIVE,$(BUILD)/finder_click_mut.serial) || { printf '!!! finder_click_mut did not finish alive\n'; exit 1; }
 	@grep -q '^TENANT-EXIT' $(BUILD)/finder_click_mut.serial
 	@printf '>>> test-flair-finder-input-mutant: PROC_MUT_CLICK_THROUGH RED (activating click exits tenant)\n'
-test-flair-dialog-tracking-mutant: test-flair-dialog-tracking $(BUILD)/alert_chrome_finder_press.img
-	$(call appl-boot,finder_press_mut,$(BUILD)/alert_chrome_finder_press.img,$(FLAIR_DATA_IMG),FLAIR_DIALOG_TRACK_SPEC,--screendump)
+test-flair-dialog-tracking-mutant: test-flair-dialog-tracking $(BUILD)/flair_tenants_mut_finder_press_hold.img
+	$(call appl-boot,finder_press_mut,$(BUILD)/flair_tenants_mut_finder_press_hold.img,$(FLAIR_DATA_IMG),FLAIR_DIALOG_TRACK_SPEC,--screendump)
 	@$(call APPL_ALIVE,$(BUILD)/finder_press_mut.serial) || { printf '!!! finder_press_mut did not finish alive\n'; exit 1; }
 	@if $(PPM_FLAIR_TRASH_CHECK_BIN) chrome $(BUILD)/finder_press_mut.ppm > $(BUILD)/finder_press_mut.pixels 2>&1; then exit 1; fi
 	@grep 'FAIL ALERT-BANDS' $(BUILD)/finder_press_mut.pixels
@@ -232,8 +261,8 @@ test-flair-dialog-tracking-mutant: test-flair-dialog-tracking $(BUILD)/alert_chr
 
 # Same injected limits trace, same independent pixel checker, named failures.
 define finder-limits-emu-mutant
-test-flair-finder-$(1)-mutant: test-flair-finder-limits $(BUILD)/flair_tenants_mut_$(2).img
-	$$(call appl-boot,mut_$(2),$(BUILD)/flair_tenants_mut_$(2).img,$(FINDER_LIMITS_DATA),FLAIR_FINDER_LIMITS_SPEC,--screendump)
+test-flair-finder-$(1)-mutant: test-flair-finder-limits $(BUILD)/flair_tenants_mut_$(2)_hold.img
+	$$(call appl-boot,mut_$(2),$(BUILD)/flair_tenants_mut_$(2)_hold.img,$(FINDER_LIMITS_DATA),FLAIR_FINDER_LIMITS_SPEC,--screendump)
 	@$$(call APPL_ALIVE,$(BUILD)/mut_$(2).serial) || { printf '!!! mut_$(2) did not finish alive\n'; exit 1; }
 	@if $(3); then printf '!!! $(4) survived\n'; exit 1; fi
 	@printf '>>> test-flair-finder-$(1)-mutant: $(4) RED ($(5))\n'
@@ -245,8 +274,8 @@ $(eval $(call finder-limits-emu-mutant,open-all,finder_open_one,grep -q '^FINDER
 $(eval $(call finder-limits-emu-mutant,keys,finder_keys,grep -q '^FINDER-OPEN-FOLDER name=F68 ' $(BUILD)/mut_finder_keys.serial,FINDER_MUT_NO_KEYS,F68 not opened))
 
 define finder-notice-emu-mutant
-test-flair-finder-$(1)-mutant: test-flair-finder-$(2) $(BUILD)/flair_tenants_mut_$(3).img
-	$$(call appl-boot,mut_$(3),$(BUILD)/flair_tenants_mut_$(3).img,$(4),$(5),--screendump $(7))
+test-flair-finder-$(1)-mutant: test-flair-finder-$(2) $(BUILD)/flair_tenants_mut_$(3)_hold.img
+	$$(call appl-boot,mut_$(3),$(BUILD)/flair_tenants_mut_$(3)_hold.img,$(4),$(5),--screendump $(7))
 	@$$(call APPL_ALIVE,$(BUILD)/mut_$(3).serial) || { printf '!!! mut_$(3) did not finish alive\n'; exit 1; }
 	@if $(PPM_FLAIR_TRASH_CHECK_BIN) notice $(BUILD)/mut_$(3).ppm > $(BUILD)/mut_$(3).pixels 2>&1; then printf '!!! $(6) survived\n';exit 1;fi
 	@grep 'FAIL ALERT-BANDS' $(BUILD)/mut_$(3).pixels
@@ -258,21 +287,21 @@ $(eval $(call finder-notice-emu-mutant,launch-alert,launch-alerts,finder_launch_
 # $(7): the mutant's dump waits for the guest to reach the cycle refusal (the
 # point the clean leg grades), so RED means "no notice there", not a race.
 $(eval $(call finder-notice-emu-mutant,move-alert,refused,finder_move_alert,$(FLAIR_DATA_IMG),FLAIR_FINDER_REFUSED_SPEC,FINDER_MUT_NO_MOVE_ALERT,--screendump-after "FINDER-MOVE-REFUSED reason=cycle"))
-test-flair-finder-restore-mutant: test-flair-finder-restore $(BUILD)/flair_tenants_mut_finder_origin.img
-	$(call appl-boot,mut_finder_origin,$(BUILD)/flair_tenants_mut_finder_origin.img,$(FINDER_RESTORE_DATA),FLAIR_FINDER_RESTORE_SPEC,--screendump)
+test-flair-finder-restore-mutant: test-flair-finder-restore $(BUILD)/flair_tenants_mut_finder_origin_hold.img
+	$(call appl-boot,mut_finder_origin,$(BUILD)/flair_tenants_mut_finder_origin_hold.img,$(FINDER_RESTORE_DATA),FLAIR_FINDER_RESTORE_SPEC,--screendump)
 	@$(call APPL_ALIVE,$(BUILD)/mut_finder_origin.serial) || { printf '!!! mut_finder_origin did not finish alive\n'; exit 1; }
 	@grep -q '^FINDER-PUT-AWAY n=0' $(BUILD)/mut_finder_origin.serial
 	@grep -q '^TRASH-RENAME from=README.TXT to=READM001.TXT' $(BUILD)/mut_finder_origin.serial
 	@! mdir -i $(BUILD)/mut_finder_origin_data.img ::README.TXT >/dev/null 2>&1
 	@printf '>>> test-flair-finder-restore-mutant: FINDER_MUT_ORIGINAL_LOST RED (original name not restored)\n'
-test-flair-finder-replace-mutant: test-flair-finder-replace $(BUILD)/flair_tenants_mut_finder_replace.img
-	$(call appl-boot,mut_finder_replace,$(BUILD)/flair_tenants_mut_finder_replace.img,$(FINDER_REPLACE_DATA),FLAIR_FINDER_REPLACE_OK_SPEC,--screendump)
+test-flair-finder-replace-mutant: test-flair-finder-replace $(BUILD)/flair_tenants_mut_finder_replace_hold.img
+	$(call appl-boot,mut_finder_replace,$(BUILD)/flair_tenants_mut_finder_replace_hold.img,$(FINDER_REPLACE_DATA),FLAIR_FINDER_REPLACE_OK_SPEC,--screendump)
 	@$(call APPL_ALIVE,$(BUILD)/mut_finder_replace.serial) || { printf '!!! mut_finder_replace did not finish alive\n'; exit 1; }
 	@grep -q '^FINDER-ALERT reason=replace' $(BUILD)/mut_finder_replace.serial
 	@mdir -i $(BUILD)/mut_finder_replace_data.img ::README.TXT >/dev/null 2>&1
 	@printf '>>> test-flair-finder-replace-mutant: FINDER_MUT_REPLACE_CANCEL RED (confirmed source never moved)\n'
-test-flair-finder-demo-mutant: test-flair-finder-demo $(BUILD)/flair_tenants_mut_finder_demo.img
-	$(call appl-boot,mut_finder_demo,$(BUILD)/flair_tenants_mut_finder_demo.img,$(FLAIR_DATA_IMG),FLAIR_FINDER_DEMO_SPEC,--screendump --screendump-after "FLAIR-MENU-DROP menu=256")
+test-flair-finder-demo-mutant: test-flair-finder-demo $(BUILD)/flair_tenants_mut_finder_demo_hold.img
+	$(call appl-boot,mut_finder_demo,$(BUILD)/flair_tenants_mut_finder_demo_hold.img,$(FLAIR_DATA_IMG),FLAIR_FINDER_DEMO_SPEC,--screendump --screendump-after "FLAIR-MENU-DROP menu=256")
 	@$(call APPL_ALIVE,$(BUILD)/mut_finder_demo.serial) || { printf '!!! mut_finder_demo did not finish alive\n'; exit 1; }
 	@if $(BUILD)/ppm_finder_demo_check $(BUILD)/mut_finder_demo.ppm ../system7-decomp/goldens/captures/s8_menu_dropped.png > $(BUILD)/mut_finder_demo.pixels 2>&1; then exit 1;fi
 	@grep 'FAIL DEMO_GRAY' $(BUILD)/mut_finder_demo.pixels
