@@ -79,7 +79,8 @@ void loader_nest_leave(loader_state_t *active, const loader_state_t *saved)
  *
  *   in_place == 0 (baked):    `image` MUST be non-NULL; out->image_src = image.
  *                             load_program copies image -> PROGRAM_IMAGE.
- *   in_place == 1 (FAT/za4m):  `image` is ignored (NULL); out->image_src = NULL.
+ *   in_place == 1 (FAT/za4m):  `image` is the RESIDENT image (looked at, never
+ *                              copied; NULL is a caller bug); out->image_src = NULL.
  *                             The bytes are ALREADY at PROGRAM_IMAGE -- no copy.
  *
  * EITHER way the ONLY size bound is PROGRAM_IMAGE_MAX (~188 KiB = ENV_BLOCK -
@@ -367,7 +368,12 @@ loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
      *    image_len is the LOAD MODULE length, so the arena base sits above the
      *    relocated module, not the whole file (DEC-08a.3). */
     {
-        loader_status_t cs = loader_prepare_core(/*image=*/(const uint8_t *)0,
+        /* The relocated load module is RESIDENT at file_at (== PROGRAM_IMAGE)
+         * after step 4, so it is the in-place image the core looks at for the
+         * content refusal (initech-13ig); the core still records image_src ==
+         * NULL for every in-place plan. A NULL here has been LOADER_ERR_NULL_IMAGE
+         * since 7850d4d2 and refused EVERY InitechMZ (initech-zxzi). */
+        loader_status_t cs = loader_prepare_core(file_at,
                                                  img.load_module_len, cmd_tail,
                                                  cmd_tail_len, /*in_place=*/1, out);
         if (cs != LOADER_OK) {
