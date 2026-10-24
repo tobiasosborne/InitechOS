@@ -60,6 +60,9 @@ static void (*g_fault_hook)(uint32_t vector, uint32_t eip) = 0;
 void panic_set_fault_hook(void (*hook)(uint32_t vector, uint32_t eip))
 {
     g_fault_hook = hook;
+    /* Publish before a caller enables IRQs or continues the DOS handoff,
+     * including when LTO inlines this setter (round-2 policy Sec 4). */
+    __asm__ __volatile__("" ::: "memory");
 }
 
 static void pserial_putc(char c)
@@ -131,6 +134,10 @@ static const boot_info_t *panic_video(void)
         outb(0x3C8,0); outb(0x3C9,0); outb(0x3C9,0); outb(0x3C9,0);
         outb(0x3C8,15); outb(0x3C9,gray); outb(0x3C9,gray); outb(0x3C9,gray);
     }
+    /* Complete the volatile DAC port sequence before physical pixel stores.
+     * IN/OUT name all their register operands and do not alter arithmetic
+     * flags; this is the RAM/I/O ordering point needed by the painter. */
+    __asm__ __volatile__("" ::: "memory");
     return b;
 }
 
@@ -218,6 +225,6 @@ void KERNEL_ASM_ABI isr_dispatch_c(int_frame_t *frame)
     /* Terminal: never return into the faulting instruction (would loop). IF is
      * already 0 (interrupt gate); cli is belt-and-suspenders (Rule 2). */
     for (;;) {
-        __asm__ __volatile__("cli; hlt");
+        __asm__ __volatile__("cli; hlt" ::: "memory");
     }
 }

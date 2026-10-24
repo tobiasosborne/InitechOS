@@ -20,7 +20,7 @@ $(PANIC_SCREEN_DIR)/gp.com: os/milton/panic_program.asm | $(PANIC_SCREEN_DIR)
 # kernels substitute just panic.o, keeping the actual DOS-only console path.
 define panic-screen-kernel
 $(BUILD)/panic_screen_$(1).o: $(KERNEL_PANIC_C) $(PANIC_SCREEN_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) --param=min-pagesize=0 $(2) -I$(KERNEL_DIR) -c $$< -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PANIC_OPT) --param=min-pagesize=0 $(2) -I$(KERNEL_DIR) -c $$< -o $$@
 $(BUILD)/kernel_panic_screen_$(1).elf: $(filter-out $(KERNEL_PANIC_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/panic_screen_$(1).o $(KERNEL_LD)
 	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_PANIC_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/panic_screen_$(1).o
 $(BUILD)/kernel_panic_screen_$(1).bin: $(BUILD)/kernel_panic_screen_$(1).elf

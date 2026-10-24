@@ -255,3 +255,25 @@ are bounded volatile IN reads; the terminal INT3 loop intentionally never
 returns. Tick/mouse hooks are installed through native calls, and their
 ISR-only state does not require a new RAM/port ordering assumption. None of
 these zero-saving policies is reflagged just to count a historical saving.
+
+Panic (3h): publish the fault-hook store before caller IRQ enable/DOS handoff;
+order the completed DAC port sequence before physical pixel stores; make
+terminal CLI/HLT a memory barrier. UART polls retain volatile IN and their
+100000-read bound. Exception entry retains KERNEL_ASM_ABI (cdecl/regparm(0));
+no harness lookup relies on a newly internalized symbol. Native -Os recovered
+0 B here; the full house cold policy, including effective -Oz/LTO and matching
+cross-jump/alias options, recovers 128 B: 181076 -> 180948 B. Every normal,
+debug, reason and mutant recipe uses KERNEL_PANIC_OPT. This adds no port,
+state or raster behavior; the rasterizer source stays unchanged.
+
+All 29 gates in lever3h/status pass: the common 23, panic-layout (+mutant),
+panic-reason-map (+mutant), flair-app-launch (+all six mutants). Crash triage
+kills only the crashing tenant and the desktop survives. All ten saved
+positive panic/reason PPM captures compare byte-identical before/after.
+Bochs accuracy is still the explicitly delegated PM leg, not certified here.
+
+```text
+GREEN panic byte comparison: all ten before/after PPM files identical
+>>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 d2ef56676ac8c5686667e688ab06fe11ae477b5b582da8e9f5b574f38a76ae26)
+>>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 8c9dcb57bc2a9888b599d3d6fe1f823d6f897877ca605a7c3e57344d71fe971a)
+```
