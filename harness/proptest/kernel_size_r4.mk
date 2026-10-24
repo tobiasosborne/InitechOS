@@ -108,7 +108,7 @@ TEST_UNIT_GATES += test-chicago-pack test-chicago-pack-mutant
 
 # Compile both policies from the SAME source, then prove the load-bearing
 # producer/consumer/assembly boundaries retain their audited native policy.
-# Round 8 part 2: event/keyboard still retain their original -O0 bytes.
+# Round 8 part 2: event matches audited native -Oz; keyboard remains -O0.
 # The loader joins cold LTO after its context/clobber audit; check the actual
 # final ELF save/restore/stack-switch sequence instead of assuming -O0 bytes.
 # This is a boundary check, not the semantic oracle (the injected gates and
@@ -130,15 +130,16 @@ endef
 test-kernel-native-boundaries: $(KERNEL_FLAIRTENANTS_ELF) | $(KERNEL_R4_DIR)
 	@set -eu; for unit in kbd event; do \
 		case $$unit in event) src=os/flair/event.c;; *) src=os/milton/$$unit.c;; esac; \
-		$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Ispec -Ios/milton -Ios/flair -c $$src -o $(KERNEL_R4_DIR)/native-$$unit.o; \
-		$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) -Ispec -Ios/milton -Ios/flair -c $$src -o $(KERNEL_R4_DIR)/selected-$$unit.o; \
+		flags=; case $$unit in event) flags='$(KERNEL_EVENT_OPT)';; esac; \
+		$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $$flags -Ispec -Ios/milton -Ios/flair -c $$src -o $(KERNEL_R4_DIR)/native-$$unit.o; \
+		$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $$flags $(KERNEL_PURE_DECODE_FLAGS) -Ispec -Ios/milton -Ios/flair -c $$src -o $(KERNEL_R4_DIR)/selected-$$unit.o; \
 	done
 	@set -eu; $(call kernel-native-boundary-grade,selected)
 	@set -eu; for src in $(TEST_LOADER_SRC) $(TEST_MZLOAD_SRC) $(TEST_TENANT_LOAD_SRC); do \
 		$(CC) $(CFLAGS) -Ispec -Ios/milton -Iseed $$src $(KERNEL_LOADER_C) $(KERNEL_PSP_C) -o $(KERNEL_R4_DIR)/validation-model; \
 		$(KERNEL_R4_DIR)/validation-model; \
 	done
-	$(CC) $(CFLAGS) $(KERNEL_PURE_DECODE_FLAGS) $(EVENT_INC) $(TEST_EVENT_SRC) os/flair/event.c -o $(KERNEL_R4_DIR)/event-model
+	$(CC) $(CFLAGS) $(KERNEL_EVENT_OPT) $(EVENT_INC) $(TEST_EVENT_SRC) os/flair/event.c -o $(KERNEL_R4_DIR)/event-model
 	@$(KERNEL_R4_DIR)/event-model
 	$(CC) $(CFLAGS) $(KERNEL_PURE_DECODE_FLAGS) -Ios/milton -Iseed $(TEST_KBD_SRC) $(TEST_KBD_DEPS) -o $(KERNEL_R4_DIR)/kbd-model
 	@$(KERNEL_R4_DIR)/kbd-model
@@ -147,11 +148,11 @@ test-kernel-native-boundaries: $(KERNEL_FLAIRTENANTS_ELF) | $(KERNEL_R4_DIR)
 test-kernel-native-boundaries-mutant: test-kernel-native-boundaries
 	@set -eu; for unit in kbd event; do \
 		case $$unit in event) src=os/flair/event.c;; *) src=os/milton/$$unit.c;; esac; \
-		$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Oz -Ispec -Ios/milton -Ios/flair -c $$src -o $(KERNEL_R4_DIR)/whole_oz-$$unit.o; \
+		$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -O0 -Ispec -Ios/milton -Ios/flair -c $$src -o $(KERNEL_R4_DIR)/wrong_native-$$unit.o; \
 	done
-	@if ( $(call kernel-native-boundary-grade,whole_oz) ) >$(KERNEL_R4_DIR)/whole-oz.log 2>&1; then \
-		printf '!!! test-kernel-native-boundaries-mutant FAIL: whole_tu_oz survived\n'; exit 1; fi
-	@grep '^!!! kernel-native-boundary FAIL:' $(KERNEL_R4_DIR)/whole-oz.log
+	@if ( $(call kernel-native-boundary-grade,wrong_native) ) >$(KERNEL_R4_DIR)/wrong-native.log 2>&1; then \
+		printf '!!! test-kernel-native-boundaries-mutant FAIL: wrong_native_policy survived\n'; exit 1; fi
+	@grep '^!!! kernel-native-boundary FAIL:' $(KERNEL_R4_DIR)/wrong-native.log
 	@cp -f $(KERNEL_FLAIRTENANTS_ELF) $(KERNEL_R4_DIR)/bad-restore.elf
 	@set -eu; pos=$$(LC_ALL=C grep -abo "$$(printf '\213\130\010\213\150\014\213\160\020\213\170\024\213\040\377\140\004')" $(KERNEL_R4_DIR)/bad-restore.elf | cut -d: -f1); \
 		test "$$(printf '%s\n' "$$pos" | wc -l)" -eq 1; test -n "$$pos"; \
@@ -159,7 +160,7 @@ test-kernel-native-boundaries-mutant: test-kernel-native-boundaries
 	@if sh harness/proptest/kernel_transfer_check.sh $(KERNEL_R4_DIR)/bad-restore.elf $(KERNEL_R4_DIR)/bad-restore.dis >$(KERNEL_R4_DIR)/bad-restore.log 2>&1; then \
 		printf '!!! test-kernel-native-boundaries-mutant FAIL: wrong_edi_restore survived\n'; exit 1; fi
 	@grep '^!!! kernel-transfer FAIL: restore step 4' $(KERNEL_R4_DIR)/bad-restore.log
-	@printf '>>> test-kernel-native-boundaries-mutant: green (whole_tu_oz and wrong_edi_restore RED)\n'
+	@printf '>>> test-kernel-native-boundaries-mutant: green (wrong_native_policy and wrong_edi_restore RED)\n'
 TEST_UNIT_GATES += test-kernel-native-boundaries test-kernel-native-boundaries-mutant
 
 $(KERNEL_KMAIN_COLD_OBJ): os/milton/kmain_cold.c os/milton/kmain_cold.h | $(BUILD)

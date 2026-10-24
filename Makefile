@@ -861,7 +861,7 @@ FLAIR_TEXT_OPT     := -Oz -fomit-frame-pointer -fno-strict-aliasing
 # Round 4 native low-level set: no LTO, no ABI or source ordering change.
 # IO instructions/delay reads are volatile asm; poll budgets remain bounded
 # counters. IDT/PIC setup is init-once; panic/IRQ diagnostics are cold.
-# kbd.c/event.c remain -O0 here (SPSC publication); loader now uses the
+# kbd.c remains -O0 here; event and loader now use their
 # separately audited round-8-part-2 policy below.
 # Ref: each driver's existing local hardware contract; PRD Sec 5/6.1; WL-0152.
 KERNEL_LOWLEVEL_OPT := -Oz -fomit-frame-pointer -fno-strict-aliasing
@@ -873,6 +873,9 @@ KERNEL_BLOCK_DEVICE_OPT := -Oz -fno-strict-aliasing $(KERNEL_COLD_LTO_FLAGS)
 # Ref: round-2 policy Sec 4; loader.c context offset assertions and EXEC gates.
 KERNEL_LOADER_OPT = $(KERNEL_COLD_LTO_FLAGS)
 KERNEL_PURE_DECODE_FLAGS := -DKERNEL_PURE_DECODE_OZ
+# Round 8 part 2: explicit acquire/publish compiler barriers protect the raw
+# slot copies. Keep the ISR/pump object native, with its prior aliasing policy.
+KERNEL_EVENT_OPT := -Oz -fno-strict-aliasing -fomit-frame-pointer
 # ROUND 2 (bead initech-opms, 2026-10-15; docs/design/kernel-size-policy-round2.md
 # Sec 3 lever B): the remaining SHARED -O0 objects that are pure logic -- no
 # inline asm that switches stacks, no ISR-shared state, no port-I/O timing --
@@ -8699,7 +8702,7 @@ $(KERNEL_HEAP_OBJ): os/flair/heap.c os/flair/heap.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_HEAP_OPT) $(FLAIR_HEAP_INC) -c $(FLAIR_HEAP_C) -o $@
 
 $(KERNEL_EVENT_OBJ): os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) $(EVENT_INC) -c os/flair/event.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_EVENT_OPT) $(EVENT_INC) -c os/flair/event.c -o $@
 
 $(KERNEL_CURSOR_OBJ): os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spec/assets/cursors.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CURSOR_OPT) -Ios/flair -Ispec/assets -c os/flair/cursor.c -o $@
@@ -14461,24 +14464,24 @@ TEST_EVENT_DEPS := harness/proptest/expect_abort.h os/flair/ring_report.h os/fla
 EVENT_INC := -Ios/flair -Ispec -Iseed
 
 $(TEST_EVENT): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
+	$(CC) $(CFLAGS) $(KERNEL_EVENT_OPT) $(SEED_TEST_CFLAGS) $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
 $(TEST_EVENT_RECORD): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_DBLCLICK_TICKS=3000u $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
+	$(CC) $(CFLAGS) $(KERNEL_EVENT_OPT) $(SEED_TEST_CFLAGS) -DFINDER_DBLCLICK_TICKS=3000u $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
 $(TEST_EVENT_MUT_RECORD): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_DBLCLICK_TICKS=3000u -DRECORD_MUT_IGNORE_DBLCLICK_DEFINE $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
+	$(CC) $(CFLAGS) $(KERNEL_EVENT_OPT) $(SEED_TEST_CFLAGS) -DFINDER_DBLCLICK_TICKS=3000u -DRECORD_MUT_IGNORE_DBLCLICK_DEFINE $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
 $(TEST_EVENT_MUT_DROP): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_DROP_SYNTH $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
+	$(CC) $(CFLAGS) $(KERNEL_EVENT_OPT) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_DROP_SYNTH $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
 $(TEST_EVENT_MUT_WHERE): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_STALE_WHERE $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
+	$(CC) $(CFLAGS) $(KERNEL_EVENT_OPT) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_STALE_WHERE $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
 # initech-tdnl.58 (audit G11): the pre-fix SET-1 decoder (break bit ignored).
 $(TEST_EVENT_MUT_SET1): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_SET1_BREAK_BLIND $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
+	$(CC) $(CFLAGS) $(KERNEL_EVENT_OPT) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_SET1_BREAK_BLIND $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
 
 test-event: $(TEST_EVENT) $(TEST_EVENT_RECORD)
 	@printf ">>> test-event: ISR-enqueue SPSC ring + WaitNextEvent deterministic replay (raw trace -> EventRecord sequence, D-4/D-8)\n"
 	@$(TEST_EVENT)
 	@$(TEST_EVENT_RECORD)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) $(EVENT_INC) -c os/flair/event.c -o $(BUILD)/event_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_EVENT_OPT) $(EVENT_INC) -c os/flair/event.c -o $(BUILD)/event_freestanding.o \
 		|| { printf '!!! test-event FAIL: event.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-event: green\n"
 
@@ -23929,9 +23932,9 @@ FLAIRTENANTS_RECORD_IMG := $(BUILD)/flair_tenants_mut_record.img
 # Seed it in the Event Manager, including init after preferences load; the
 # default event.o and all gate/flagship kernels keep the normal Mouse setting.
 $(BUILD)/event_recorddbl.o: $(TEST_EVENT_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) -DFINDER_DBLCLICK_TICKS=3000u $(EVENT_INC) -c os/flair/event.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_EVENT_OPT) -DFINDER_DBLCLICK_TICKS=3000u $(EVENT_INC) -c os/flair/event.c -o $@
 $(BUILD)/event_recorddbl_mut_ignore.o: $(TEST_EVENT_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) -DFINDER_DBLCLICK_TICKS=3000u -DRECORD_MUT_IGNORE_DBLCLICK_DEFINE $(EVENT_INC) -c os/flair/event.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_EVENT_OPT) -DFINDER_DBLCLICK_TICKS=3000u -DRECORD_MUT_IGNORE_DBLCLICK_DEFINE $(EVENT_INC) -c os/flair/event.c -o $@
 
 # The record kernel's console keeps a STEADY cursor (console.c CONSOLE_RECORD_CURSOR_STEADY):
 # per-event clip frames are grabbed on a wall-clock settle and the tick-phase blink made
@@ -29728,7 +29731,7 @@ modrel-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' $(1) \
 # The pre-fix decoder as a kernel: the bounded tenants kernel with ONLY event.o
 # swapped for one built -DEVENT_MUTATE_SET1_BREAK_BLIND.
 $(BUILD)/event_mut_set1.o: os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) -DEVENT_MUTATE_SET1_BREAK_BLIND -Ios/flair -Ispec -Iseed -c os/flair/event.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_EVENT_OPT) -DEVENT_MUTATE_SET1_BREAK_BLIND -Ios/flair -Ispec -Iseed -c os/flair/event.c -o $@
 $(BUILD)/kernel_flairtenants_mut_set1.elf: $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
 	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_mut_set1.bin: $(BUILD)/kernel_flairtenants_mut_set1.elf | $(BUILD)

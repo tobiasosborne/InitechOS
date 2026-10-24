@@ -150,3 +150,37 @@ INITECH_QMP_STDIO=1. Complete final verdict lines are in CODEX-OUT.md.
 >>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 45ac1b447730ebfaa13be8411238dd9ef0a15019f55b1dfaed57fc6b7c4f2bc5)
 >>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 fac488e41d2e6e1bc004f14e8f13865f877d8b37d0d1c9d7403e34a9eef8da82)
 ```
+
+### Lever 2 -- event-ring publication and consumption
+
+The ISR may interrupt a partly completed pump copy. Volatile indices force
+index accesses but do not order ordinary slot memory. Each side now has an
+empty volatile asm memory barrier after observing the indices and another
+before advancing its owned index. The complete slot is therefore written
+before head is published, and copied out before tail allows reuse. This is a
+compiler-ordering contract on the existing single x86 core, with no CPU fence,
+new instruction-set requirement or change to the locked ring layout.
+
+The entire event object now uses native -Oz, no strict aliasing, with frame
+pointer omission. The obsolete synthesis-only pragmas are removed. Every
+kernel event recipe, recording variant and mutant uses KERNEL_EVENT_OPT; the
+host event replay and mutation tests also run optimized. Disassembly confirms
+all three dwords are copied by REP MOVSL before the head/tail store. The
+boundary gate compares the new audited native policy and rejects a different
+policy; the ELF loader restore mutant continues to bite independently.
+
+Flagship: 182004 -> 181524 B (-480 B). The historical -996 B estimate included
+synthesis code already optimized in round 4. The evaluated TEST_EMU_GATES
+vector contains no additional gate with pump or event in its name; the named
+desktop/appswitch/itext/live gates and keyboard/modifier traces are exercised.
+
+Lever-2 proof: all 19 commands in build/ksize8p2/lever2/status exited zero:
+event (+mutant), mouse-producer (+mutant), event-owner-mutant,
+kernel-native-boundaries (+mutant), flair-desktop (+mutant), flair-appswitch
+(+mutant), flair-itext, flair-live (+mutant), flair-key (+mutant),
+flair-modifier-release (+mutant), kernel-repro. QEMU used INITECH_QMP_STDIO=1.
+
+```text
+>>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 45ac1b447730ebfaa13be8411238dd9ef0a15019f55b1dfaed57fc6b7c4f2bc5)
+>>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 b0463f5842a77680c510113ceb4d35c48c9777ffd14f4c1395dab7997454e91d)
+```
