@@ -98,7 +98,7 @@ test-iword-listfiles-ops-goldens:
 test-iword-listfiles-ops: $(BUILD)/test_iword_listfiles_ops test-iword-listfiles-ops-goldens
 	@d=$$(mktemp -d $(BUILD)/iword_ops.XXXXXX); $< $$d fixtures/iword-listfiles-ops/grids
 test-iword-listfiles: test-iword-listfiles-ops
-IWORD_LF_OPS_MUTANTS := LF_WRONG_PATH LF_PROTECT LF_TRUNCATE LF_SELECTION
+IWORD_LF_OPS_MUTANTS := LF_WRONG_PATH LF_PROTECT LF_TRUNCATE LF_SELECTION LF_ALIAS
 $(BUILD)/test_iword_listfiles_ops_mut_%: $(IWORD_LF_OPS_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DIWORD_MUT_$* -Iseed -Ios/apps/tbx $(IWORD_CORE_INC) -o $@ $< $(IWORD_CORE_SRC)
 .PHONY: test-iword-listfiles-ops-mutant
@@ -182,3 +182,35 @@ test-flair-iword-listfiles-ops-mutant: test-flair-iword-listfiles-ops $(FLAIR_IW
 	@if $(call iword-ops-kept,$(BUILD)/flair_iword_ops_truncate_data.img,ops-truncate); then printf 'FAIL: LF_TRUNCATE kept destination\n'; exit 1; fi
 	@printf '>>> test-flair-iword-listfiles-ops-mutant: green (wrong selected path and truncate-before-copy both RED)\n'
 TEST_EMU_GATES += test-flair-iword-listfiles-ops test-flair-iword-listfiles-ops-mutant
+
+# REVIEW.md P1: only the real FAT12 backend resolves OPS. as OPS. Compare
+# the surviving file against the independent mint payload after Move/Yes.
+iword-ops-alias-kept = $(call iword-ops-kept,$(1),$(2)) && $(call iword-ops-document,$(1),$(2))
+.PHONY: test-flair-iword-listfiles-alias
+test-flair-iword-listfiles-alias: $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_IWORD_OPS_DATA) test-iword-listfiles-ops-goldens
+	$(call appl-boot,flair_iword_alias,$(FLAIR_IWORD_GATE_IMG),$(FLAIR_IWORD_OPS_DATA),FLAIR_IWORD_LISTFILES_ALIAS_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_iword_alias.serial) && $(call IWORD_UP,$(BUILD)/flair_iword_alias.serial)
+	@grep -qF 's="New name: a:\ops.\alpha.txt' $(BUILD)/flair_iword_alias.serial
+	@$(call iword-ops-alias-kept,$(BUILD)/flair_iword_alias_data.img,ops-alias) || { printf 'RED-REASON listfiles-alias: same-file Move/Yes lost source bytes or changed active document\n'; exit 1; }
+	@! grep -E '^TENANT-GATE ax=0x008(0|6|9|a) path="OPS' $(BUILD)/flair_iword_alias.serial
+	@fsck.fat -n $(BUILD)/flair_iword_alias_data.img > /dev/null
+	@printf '>>> test-flair-iword-listfiles-alias: green (FAT12 trailing-dot alias keeps source bytes and active document)\n'
+test-flair-iword-listfiles-ops: test-flair-iword-listfiles-alias
+
+$(eval $(call tenant-exe-rules,iword_ops_alias,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_LF_ALIAS,$(IWORD_APP_DEP),))
+FLAIR_IWORD_OPS_ALIAS_DATA := $(BUILD)/flair_iword_ops_alias.img
+$(FLAIR_IWORD_OPS_ALIAS_DATA): $(FLAIR_IWORD_OPS_DATA) $(BUILD)/tenant/iword_ops_alias.exe
+	@$(call fixture-preflight,$(FLAIR_IWORD_OPS_DATA))
+	cp -f $(FLAIR_IWORD_OPS_DATA) $@
+	@SOURCE_DATE_EPOCH=699350400 TZ=UTC mcopy -o -i $@ $(BUILD)/tenant/iword_ops_alias.exe ::APPS/WORD.EXE
+	@$(call fixture-check,recipe,$@)
+.PHONY: test-flair-iword-listfiles-alias-mutant
+test-flair-iword-listfiles-alias-mutant: test-flair-iword-listfiles-alias $(FLAIR_IWORD_OPS_ALIAS_DATA)
+	$(call appl-boot,flair_iword_alias_mut,$(FLAIR_IWORD_GATE_IMG),$(FLAIR_IWORD_OPS_ALIAS_DATA),FLAIR_IWORD_LISTFILES_ALIAS_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_iword_alias_mut.serial) && $(call IWORD_UP,$(BUILD)/flair_iword_alias_mut.serial)
+	@grep -qF 's="New name: a:\ops.\alpha.txt' $(BUILD)/flair_iword_alias_mut.serial
+	@if { $(call iword-ops-alias-kept,$(BUILD)/flair_iword_alias_mut_data.img,ops-alias-mut); } > $(BUILD)/iword-alias-mutant.log 2>&1; then printf 'FAIL: LF_ALIAS survived FAT12 emulator\n'; exit 1; fi
+	@grep -qF '::OPS/ALPHA.TXT' $(BUILD)/iword-alias-mutant.log
+	@printf '>>> test-flair-iword-listfiles-alias-mutant: green (LF_ALIAS loses the only copy)\n'
+test-flair-iword-listfiles-ops-mutant: test-flair-iword-listfiles-alias-mutant
+TEST_EMU_GATES += test-flair-iword-listfiles-alias test-flair-iword-listfiles-alias-mutant

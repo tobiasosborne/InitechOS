@@ -108,9 +108,42 @@ static void open_ops(void)
 { fkey(F5,0);fkey(ENTER,0);fkey(DOWN,0);fkey(ENTER,0);fkey(ENTER,0); }
 static void no_temp(void)
 { char hp[300];host_name("OPS",hp);DIR *d=opendir(hp);struct dirent *e;while((e=readdir(d)))CHECK(!strstr(e->d_name,".$$"),"ops-rollback","no temporary leaked");closedir(d); }
+static void alias_destinations(void)
+{
+    /* Ref: fat12.c parse_name83's padded empty extension, REVIEW.md P1.
+     * The emulator alias gate below is the data-loss oracle; these cases
+     * also cover inner/leaf components without teaching POSIX FAT rules. */
+    static const char *cases[][2] = {
+        { "A:\\OPS.\\ALPHA.TXT", "OPS\\ALPHA.TXT" },
+        { "a:/ops./alpha.txt", "OPS\\ALPHA.TXT" },
+        { "SUB.\\FRESH.", "OPS\\SUB\\FRESH" },
+        { "A:\\OPS.\\SUB.\\PLAIN.", "OPS\\SUB\\PLAIN" },
+        { "A:\\OPS.\\SUB.DIR\\FILE.TXT", "OPS\\SUB.DIR\\FILE.TXT" },
+        { "A:\\OPS..\\ALPHA.TXT", 0 },
+        { "SUB..\\FRESH", 0 },
+        { "ALPHA.TXT.", 0 }
+    };
+    for (uint32_t i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        tk('3');tks(cases[i][0]);
+        int ok = lf_destination();
+        CHECK(cases[i][1] ? ok && !strcmp(g_lf_dst,cases[i][1]) : !ok,
+              "ops-alias",cases[i][0]);
+        CHECK(!strcmp(g_name,cases[i][0]) && g_nlen==strlen(cases[i][0]),
+              "ops-alias","offered input preserved after validation");
+        fkey(ESC,0);
+    }
+    for (int op = 0; op < 2; op++) {
+        int calls = creates + deletes;
+        tk(op ? '8' : '3');tks("A:\\OPS.\\ALPHA.TXT");fkey(ENTER,0);
+        CHECK(g_mode==M_LIST && creates+deletes==calls && content("OPS\\ALPHA.TXT","ALPHA CONTENT\r\n"),
+              "ops-alias","same-file alias returns to list before Replace or mutation");
+        if(g_mode==M_LFERROR)tk(' ');
+    }
+    active();
+}
 static void tests(void)
 {
-    tks("Keep active.");document_before=g_ed;open_ops();select_file("ALPHA.TXT");tk('2'); if(!prompt("02_delete"))return;
+    tks("Keep active.");document_before=g_ed;open_ops();select_file("ALPHA.TXT");alias_destinations();tk('2'); if(!prompt("02_delete"))return;
     tk('n');CHECK(content("OPS\\ALPHA.TXT","ALPHA CONTENT\r\n"),"ops-cancel","Delete No kept selected file");
     tk('2');fkey(ENTER,0);CHECK(exists("OPS\\ALPHA.TXT"),"ops-cancel","Delete Enter defaults to No");
     tk('3');if(!prompt("03_move"))return;fkey(ESC,0);CHECK(g_mode==M_LIST,"ops-cancel","Move Escape returns to list");

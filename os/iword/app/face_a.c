@@ -1583,7 +1583,7 @@ static void lf_begin(char op)
 }
 
 /* Resolve relative to the listed directory, or A:\ for an absolute name.
- * Reuse the editor's 8.3 validator; never alter a name silently. */
+ * Validate 8.3 components before applying FAT's empty-extension alias. */
 static int lf_destination(void)
 {
     static char input[sizeof g_name], joined[TBX_FILE_PATH_MAX];
@@ -1616,7 +1616,20 @@ static int lf_destination(void)
     scopy(g_name, joined); g_nlen = slen(g_name);
     ok = take_name();
     scopy(g_name, input); g_nlen = len;
-    if (ok) scopy(g_lf_dst, g_path);
+    if (ok) {
+        uint32_t out = 0;
+        /* fat12.c parse_name83: NAME and NAME. have identical padded
+         * fields. take_name already refused second dots and empty bases.
+         * Normalize EVERY component before either same-file check, or a
+         * replacement Move can copy over itself and delete the only copy. */
+        for (uint32_t i = 0; g_path[i]; i++) {
+#ifndef IWORD_MUT_LF_ALIAS
+            if (g_path[i] == '.' && (!g_path[i + 1u] || g_path[i + 1u] == '\\')) continue;
+#endif
+            g_lf_dst[out++] = g_path[i];
+        }
+        g_lf_dst[out] = 0;
+    }
     return ok;
 }
 

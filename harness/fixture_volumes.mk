@@ -196,5 +196,5 @@ $(eval $(call fixture-contract,$(CALC_SEEDED_SILENT_DATA),$(FLAIR_FIXTURES) APPS
 
 # initech-7aou: disposable List Files operation inputs, including full variants.
 IWORD_OPS_FIXTURES := $(FIXTURE_CONTENTS_$(FLAIR_IWORD_LF_DATA)) OPS/SUB= OPS/ALPHA.TXT OPS/BETA.TXT OPS/LOCK.TXT=AR
-$(foreach img,$(FLAIR_IWORD_OPS_DATA) $(FLAIR_IWORD_OPS_WRONG_DATA),$(eval $(call fixture-contract,$(img),$(IWORD_OPS_FIXTURES))))
+$(foreach img,$(FLAIR_IWORD_OPS_DATA) $(FLAIR_IWORD_OPS_WRONG_DATA) $(FLAIR_IWORD_OPS_ALIAS_DATA),$(eval $(call fixture-contract,$(img),$(IWORD_OPS_FIXTURES))))
 $(foreach img,$(FLAIR_IWORD_OPS_FULL_DATA) $(FLAIR_IWORD_OPS_TRUNCATE_DATA),$(eval $(call fixture-contract,$(img),$(IWORD_OPS_FIXTURES) FILLER.BIN OPS/SPARE.TXT)))
