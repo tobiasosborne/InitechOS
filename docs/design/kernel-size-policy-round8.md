@@ -102,3 +102,51 @@ red real-size prerequisites, so their padding bodies are not certified.
 
 Remaining gap: the binding kernel is 12576 B over r3; the flagship is 3476 B
 over r4. This is a measured partial improvement, not a completed green round.
+
+## Part 2 -- audited parked levers (lane/ksize2)
+
+Arrival is the part-1 merge 6b02c678: flagship 183700 loaded bytes. The r4
+bar for this lane is the unchanged 180224 B flagship cap. The all-kernel
+172492 B r3 cap is reported separately; its policy decision is with the
+operator. Bochs legs are the PM's, per LANE-BRIEF.md.
+
+The arrival source supersedes two details of the historical round-2 estimate:
+loader_context_t already saves/restores ESI/EDI, and all the listed hardware
+drivers except keyboard already run native -Oz. Savings already taken in
+round 4 are not counted again. Arrival host loader/MZ and native-boundary
+checks are green (the earlier part-1 MZ fixture failures do not reproduce).
+
+### Lever 1 -- loader transfer and whole-object cold optimization
+
+All callee-saved GPRs are captured in the context with compile-time offset
+assertions, and the non-returning hook restores EBX/EBP/ESI/EDI, ESP, then
+jumps to the saved label. The entry asm must also declare ECX and EDX: the
+child can destroy these caller-saved registers even though the entry sequence
+itself only uses EAX. The existing memory/condition-code clobbers remain.
+Every input memory operand is read before the ESP switch; the entry jump
+uses EAX, so frame-pointer omission cannot address the new stack by mistake.
+
+With that contract explicit, the complete loader joins KERNEL_COLD_LTO_FLAGS;
+the validation-only pragmas are redundant and removed. The actual linked ELF
+is checked for the ordered save/entry/restore instructions, including the LTO
+clone. A real ELF mutant changes the EDI restore displacement from 20 to 16
+and must fail at restore step 4. Native event/keyboard byte-policy checks and
+the host validation models remain. This structural audit complements the
+injected EXEC/DOS/MZ behavior oracles; it does not replace them. Every loader
+mutant recipe now uses the same optimization policy as the real object.
+
+Native -Os recovered 576 B; native -Oz with frame-pointer omission recovered
+864 B. The selected full cold policy recovers 1696 B: 183700 -> 182004 B.
+
+Lever-1 proof: all 31 gates in build/ksize8p2/lever1-lto/status exited zero:
+exec-unit; loader (+mutant, big +mutant, nested-mutant); mzload (+mutant);
+exec (+mutant, nested +mutant); mzexec (+mutant); mz (+mutant); zs24-exec
+(+mutant); baked-exec-guard (+mutant); batch-exec (+mutant); autoexec
+(+mutant); flair-execguard (+mutant); mzload-entry-emu (+mutant);
+kernel-native-boundaries (+mutant); kernel-repro. QEMU used
+INITECH_QMP_STDIO=1. Complete final verdict lines are in CODEX-OUT.md.
+
+```text
+>>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 45ac1b447730ebfaa13be8411238dd9ef0a15019f55b1dfaed57fc6b7c4f2bc5)
+>>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 fac488e41d2e6e1bc004f14e8f13865f877d8b37d0d1c9d7403e34a9eef8da82)
+```

@@ -82,7 +82,7 @@ $(FLAIRTENANTS_RECORDDBL_EXITDOS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_
 # CWDRESET: the flagship objects with loader.o built -DLOADER_MUT_CWD_RESET
 # (the pre-3p1a reset-to-root at every launch), + its own transient.
 $(BUILD)/loader_mut_cwdreset.o: $(KERNEL_LOADER_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/psp.h spec/memory_map.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DLOADER_MUT_CWD_RESET -Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOADER_OPT) -DLOADER_MUT_CWD_RESET -Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
 $(BUILD)/kernel_flairtenants_mut_cwdreset.elf: $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/loader_mut_cwdreset.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
 	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/loader_mut_cwdreset.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_mut_cwdreset.bin: $(BUILD)/kernel_flairtenants_mut_cwdreset.elf | $(BUILD)

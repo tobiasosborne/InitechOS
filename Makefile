@@ -772,8 +772,9 @@ KERNEL_LTO_SECTION_FLAGS := -ffunction-sections -fdata-sections
 # Ref: PRD Sec 5/6.1/6.3/7; docs/worklog/WL-0127-kernel-size-round3.md.
 # The six file-at-a-time -Oz probes saved only 416 binding bytes. Selected
 # cold managers can additionally share/constant-fold code across TU boundaries.
-# Do not apply to the native blitter, ATKINSON, text, loader, event ring or
-# hardware/interrupt drivers. mcb.o also stays native: CHKDSK links that object.
+# Blitter, ATKINSON, text, event and hardware/interrupt drivers stay native.
+# The loader joins this set after its round-8-part-2 transfer audit below.
+# mcb.o also stays native: CHKDSK links that object.
 # Keep each TU's prior aliasing policy, i386 ISA, and all serial markers.
 # Size round 6 (WL-0162 Part 4): ONE aliasing + page-size policy for the whole
 # LTO set. Every TU with these flags already ran without type-based alias
@@ -860,11 +861,17 @@ FLAIR_TEXT_OPT     := -Oz -fomit-frame-pointer -fno-strict-aliasing
 # Round 4 native low-level set: no LTO, no ABI or source ordering change.
 # IO instructions/delay reads are volatile asm; poll budgets remain bounded
 # counters. IDT/PIC setup is init-once; panic/IRQ diagnostics are cold.
-# kbd.c/event.c remain -O0 (SPSC publication); loader.c remains -O0 (resume asm).
+# kbd.c/event.c remain -O0 here (SPSC publication); loader now uses the
+# separately audited round-8-part-2 policy below.
 # Ref: each driver's existing local hardware contract; PRD Sec 5/6.1; WL-0152.
 KERNEL_LOWLEVEL_OPT := -Oz -fomit-frame-pointer -fno-strict-aliasing
 KERNEL_BLOCK_DEVICE_OPT := -Oz -fno-strict-aliasing $(KERNEL_COLD_LTO_FLAGS)
-KERNEL_LOADER_VALIDATE_FLAGS := -DKERNEL_VALIDATE_OZ
+# Round 8 part 2: the transfer saves every callee-saved GPR and declares
+# child-clobbered EAX/ECX/EDX. Stack operands are read before switching ESP;
+# the exit hook restores ESP/EBP before resuming. The corrected transfer may
+# now join the cold LTO set; the final ELF transfer audit checks its instructions.
+# Ref: round-2 policy Sec 4; loader.c context offset assertions and EXEC gates.
+KERNEL_LOADER_OPT = $(KERNEL_COLD_LTO_FLAGS)
 KERNEL_PURE_DECODE_FLAGS := -DKERNEL_PURE_DECODE_OZ
 # ROUND 2 (bead initech-opms, 2026-10-15; docs/design/kernel-size-policy-round2.md
 # Sec 3 lever B): the remaining SHARED -O0 objects that are pure logic -- no
@@ -883,11 +890,10 @@ KERNEL_PURE_DECODE_FLAGS := -DKERNEL_PURE_DECODE_OZ
 #   sft 1,415->713  psp 740->338  blitter 1,425->778  shell 1,738->1,217
 #   cursor 1,579->1,041  flair_look 1,418->931  heap 740->304
 #   desktop 1,160->837  surface 579->352
-# STAYS -O0 (parked, design note Sec 4): loader.c (its program-entry asm saves
-# only ESP/EBP/EBX and resumes at an in-asm label -- an optimised caller may keep
-# a live value in ESI/EDI across it), event.c (the ISR/pump SPSC ring relies on
-# volatile ordering of head vs the non-volatile slot copy), and the hardware
-# drivers (ata/kbd/mouse/pic/irq/pit/idt/panic: port-I/O timing, ~3 KiB total).
+# At the round-2 arrival, loader, event and the hardware drivers stayed -O0
+# for the hazards documented in Sec 4. Round 4 subsequently optimized the
+# drivers except keyboard; round 8 part 2 explicitly audits the remaining
+# transfer/publication boundaries. Their current per-object policies are above.
 KERNEL_SIZE_OPT_R2    := -Oz -fno-strict-aliasing -fomit-frame-pointer
 KERNEL_FILEIO_FAT_OPT := $(KERNEL_SIZE_OPT_R2) $(KERNEL_COLD_LTO_FLAGS)
 KERNEL_DEVICES_OPT    := $(KERNEL_SIZE_OPT_R2) $(KERNEL_COLD_LTO_FLAGS)
@@ -8813,7 +8819,7 @@ $(KERNEL_SYSINIT_OBJ): $(KERNEL_SYSINIT_C) $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)
 $(KERNEL_LOADER_OBJ): $(KERNEL_LOADER_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/psp.h \
                       spec/memory_map.h $(KERNEL_DIR)/int21.h \
                       $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOADER_VALIDATE_FLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOADER_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
 
 # ATA PIO sector backend (beads initech-adf/initech-saw): the SAME ata.c that
 # is freestanding-only (no host oracle -- it touches I/O ports); compiled into
@@ -27171,7 +27177,7 @@ ZS24EXEC_TRACER_ROOTONLY_IMG := $(BUILD)/tracer_boot_mut_zs24rootonly.img
 $(ZS24EXEC_LOADER_MUT_OBJ): $(KERNEL_LOADER_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/psp.h \
                             spec/memory_map.h $(KERNEL_DIR)/int21.h \
                             $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DLOADER_MUTATE_EXEC_ROOTONLY \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOADER_OPT) -DLOADER_MUTATE_EXEC_ROOTONLY \
 		-Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
 
 ZS24EXEC_SHELL_ROOTONLY_OBJS := $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(ZS24EXEC_LOADER_MUT_OBJ)
@@ -34807,7 +34813,7 @@ $(eval $(call fixture-contract,$(BUILD)/fat_exec_nested.img,HELLO.TXT GREET.COM 
 $(NEST_MAIN): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/loader.h os/milton/int21.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_EXEC_NESTED -Ispec -I$(KERNEL_DIR),$@)
 $(BUILD)/loader_nested_mut.o: $(KERNEL_LOADER_C) os/milton/loader.h os/milton/int21.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOADER_VALIDATE_FLAGS) -DLOADER_MUT_NO_RESTORE -Ispec -I$(KERNEL_DIR) -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOADER_OPT) -DLOADER_MUT_NO_RESTORE -Ispec -I$(KERNEL_DIR) -c $< -o $@
 $(BUILD)/kernel_exec_nested.elf: $(NEST_OBJS) $(KERNEL_LD)
 	$(KERNEL_LINK) -o $@ $(NEST_OBJS)
 $(BUILD)/kernel_exec_nested_mut.elf: $(NEST_MUT_OBJS) $(KERNEL_LD)

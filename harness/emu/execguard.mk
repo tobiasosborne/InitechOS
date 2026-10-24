@@ -69,7 +69,7 @@ $(EXECGUARD_MUT_NOCOMSPEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairte
 # NO_GUARD: the flagship objects with loader.o built -DLOADER_MUT_NO_TRANSIENT_GUARD
 # (the cwdreset pattern, harness/emu/exit_dos.mk), + its own transient.
 $(BUILD)/loader_mut_noguard.o: $(KERNEL_LOADER_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/psp.h spec/memory_map.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/transient.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DLOADER_MUT_NO_TRANSIENT_GUARD -Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOADER_OPT) -DLOADER_MUT_NO_TRANSIENT_GUARD -Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
 $(BUILD)/kernel_flairtenants_mut_noguard.elf: $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/loader_mut_noguard.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
 	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/loader_mut_noguard.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_mut_noguard.bin: $(BUILD)/kernel_flairtenants_mut_noguard.elf | $(BUILD)
