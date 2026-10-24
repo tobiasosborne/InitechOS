@@ -30,6 +30,7 @@
 #include <stdint.h>
 
 #include "samir/rt.h"
+#include "samir/eval.h"
 
 /* ======================================================================== */
 /* 1. Memory / string utilities                                              */
@@ -149,6 +150,47 @@ int rt_copy_span(char *dst, uint32_t cap, const char *from, const char *to)
     return (int)n;
 }
 
+/* Ref: III+ string-functions.md literals; query/mutation/procedure grammar
+ * already treats the three quote states as mutually exclusive. Share only
+ * that state transition, including the closing delimiter's literal status. */
+int rt_literal_byte(char c, char *quote)
+{
+    if (*quote) {
+        if (c == *quote) *quote = 0;
+        return 1;
+    }
+    if (c == '\'' || c == '"' || c == '[') {
+        *quote = c == '[' ? ']' : c;
+        return 1;
+    }
+    return 0;
+}
+
+/* Ref: programming-and-io.md WITH lists, and navigation-query-display.md
+ * expression lists: commas inside quoted text or function calls stay data. */
+int rt_copy_expr(const char **src, char *dst, uint32_t cap)
+{
+    const char *s = *src;
+    uint32_t n = 0;
+    char quote = 0;
+    int depth = 0;
+    while (*s) {
+        char c = *s;
+        if (!rt_literal_byte(c, &quote)) {
+            if (c == '(') depth++;
+            else if (c == ')') { if (depth > 0) depth--; }
+            else if (c == ',' && depth == 0) break;
+        }
+        if (n >= cap) return -1;
+        dst[n++] = c;
+        s++;
+    }
+    while (n && (dst[n - 1] == ' ' || dst[n - 1] == '\t')) n--;
+    dst[n] = 0;
+    *src = s;
+    return (int)n;
+}
+
 /* ======================================================================== */
 /* 2. Julian Day Number -- Gregorian calendar (valid 1900-2155)             */
 /* ======================================================================== */
@@ -198,6 +240,38 @@ void ymd_from_jdn(int32_t jdn, int32_t *y, int32_t *m, int32_t *d)
     *d = e - (153 * mm + 2) / 5 + 1;
     *m = mm + 3 - 12 * (mm / 10);
     *y = 100 * b + dd - 4800 + mm / 10;
+}
+
+/* Ref: dates-and-century.md's eight pictures and the real III+ DT1/DT2/DT3/
+ * DT6 captures. One field-order table serves DTOC, ? and LIST/DISPLAY; the
+ * callers still own allocation, bounded appends and mutation hooks. */
+uint32_t rt_date_format(double jdn, unsigned fmt, int century, char *out, int query)
+{
+    static const uint8_t order[8][3] = {
+        {1,2,0}, {0,1,2}, {2,1,0}, {2,1,0},
+        {2,1,0}, {2,1,0}, {0,1,2}, {1,2,0}
+    };
+    static const char separators[] = "/./-/./-";
+    int32_t parts[3] = {0,0,0};
+    unsigned picture = fmt <= XB_DATE_USA ? fmt : query ? XB_DATE_AMERICAN : XB_DATE_BRITISH;
+    uint32_t n = 0;
+    int blank = jdn <= 0.0;
+    char sep = separators[picture];
+    if (!blank) ymd_from_jdn((int32_t)jdn, &parts[0], &parts[1], &parts[2]);
+    for (unsigned i = 0; i < 3; i++) {
+        unsigned field = order[picture][i];
+        int32_t v = parts[field];
+        int divisor = !field && century ? 1000 : 10;
+        if (!field && !century) v %= 100;
+        if (i) out[n++] = sep;
+        while (divisor) {
+            int digit = v / divisor;
+            if (query || divisor != (!field && century ? 1000 : 10)) digit %= 10;
+            out[n++] = blank ? ' ' : (char)('0' + digit);
+            divisor /= 10;
+        }
+    }
+    return n;
 }
 
 /* ======================================================================== */

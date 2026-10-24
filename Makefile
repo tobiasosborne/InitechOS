@@ -28584,6 +28584,13 @@ SAMIR_SIZE_CFLAGS += -fno-forward-propagate -fno-shrink-wrap -fno-defer-pop -fno
 # proof. Measured: 99738 -> 98230 B (-1508 B).
 SAMIR_SIZE_CFLAGS += -fno-tree-loop-im -fno-tree-scev-cprop -fno-guess-branch-probability -fno-code-hoisting \
                      -fno-move-loop-invariants -fno-caller-saves --param=max-inline-insns-single=200
+# Inspection size round (initech-f99h): remeasure after folding function
+# preconditions, literal/expression scanners and date formatting. On that
+# 98,185 B image, this set saves 512 B (97,673 B): delay early inlining, allow
+# jump tables for the folded dispatch, and lower the declared-inline ceiling.
+# Override the earlier policy for every TU, mutant and LTO link identically;
+# -march=i386 and the soft-float ABI remain pinned (ADR-0009).
+SAMIR_SIZE_CFLAGS += -fno-early-inlining -fjump-tables --param=max-inline-insns-single=175
 SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
                      -std=c11 -Wall -Wextra -Werror -Oz -flto $(SAMIR_SIZE_CFLAGS) -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
                      -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -I$(SAMIR_INC_DIR) -Ispec

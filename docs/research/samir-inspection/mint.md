@@ -35,6 +35,11 @@ mutants. Run these gates serially: concurrent runs interfered, while unchanged
 serial reruns passed. The real mint also reproduced its pinned output when
 rerun alone after a loaded run exhausted its scheduled paging keys.
 
-The load size remains a blocking acceptance failure; see REPORT.md. No
-locked spec, budget, or oracle tolerance was changed. Relation navigation
-remains the pre-existing gated behavior; inspection reports its stored intent.
+The round-2 size refactor recovers 2,712 bytes: SAMIR.COM is 97,673 bytes,
+502 below the unchanged reclaim cap. All SAMIR host roots and QEMU gate
+targets pass; the saved pre-round and final binaries both match the 20 DML
+and 13 function guest goldens. Bochs remains unverified because this sandbox
+denies its RFB socket before guest execution (also on an isolated retry).
+See REPORT.md and samir-inspection-size-round2.md. No locked spec, budget,
+or oracle tolerance changed. Relation navigation remains the pre-existing
+gated behavior; inspection reports its stored intent.

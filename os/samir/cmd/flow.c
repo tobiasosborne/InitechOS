@@ -594,7 +594,7 @@ static int split_lines(const char *prg, uint32_t plen, flow_line *lines, int cap
 
     while (i < plen && prg[i] != '\0') {
         uint32_t start = i, end;
-        int in_squote = 0, in_dquote = 0, in_bracket = 0;
+        char quote = 0;
         uint32_t content_end = 0;  /* end before any '&&' inline comment */
         int saw_comment = 0;
         uint32_t j;
@@ -603,19 +603,8 @@ static int split_lines(const char *prg, uint32_t plen, flow_line *lines, int cap
         while (i < plen && prg[i] != '\0' && prg[i] != '\n') {
             char c = prg[i];
             if (!saw_comment) {
-                if (in_squote) {
-                    if (c == '\'') in_squote = 0;
-                } else if (in_dquote) {
-                    if (c == '"') in_dquote = 0;
-                } else if (in_bracket) {
-                    if (c == ']') in_bracket = 0;
-                } else if (c == '\'') {
-                    in_squote = 1;
-                } else if (c == '"') {
-                    in_dquote = 1;
-                } else if (c == '[') {
-                    in_bracket = 1;
-                } else if (c == '&' && i + 1u < plen && prg[i + 1] == '&') {
+                if (!rt_literal_byte(c, &quote) &&
+                    c == '&' && i + 1u < plen && prg[i + 1] == '&') {
                     saw_comment = 1;
                     content_end = i;    /* comment starts here */
                 }
@@ -785,17 +774,12 @@ static int detect_assign(const char *line, char *name, uint32_t ncap,
  */
 static int find_to_kw(const char *s, uint32_t *to_at)
 {
-    int in_s = 0, in_d = 0, in_b = 0;
+    char quote = 0;
     uint32_t i = 0;
     char prev = ' ';
     for (i = 0; s[i] != '\0'; i++) {
         char c = s[i];
-        if (in_s) { if (c == '\'') in_s = 0; prev = c; continue; }
-        if (in_d) { if (c == '"')  in_d = 0; prev = c; continue; }
-        if (in_b) { if (c == ']')  in_b = 0; prev = c; continue; }
-        if (c == '\'') { in_s = 1; prev = c; continue; }
-        if (c == '"')  { in_d = 1; prev = c; continue; }
-        if (c == '[')  { in_b = 1; prev = c; continue; }
+        if (rt_literal_byte(c, &quote)) { prev = c; continue; }
         /* match a whole-word " TO " (blank-delimited). */
         if ((fl_isspace(prev)) &&
             (fl_up1(c) == 'T') && (fl_up1(s[i + 1]) == 'O') &&

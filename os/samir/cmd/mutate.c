@@ -308,7 +308,7 @@ static int m_after_replace_expr(const char *s, const char *end)
 static int m_split_clauses(const char *args, m_clauses *mc)
 {
     const char *s = m_skip_ws(args);
-    int in_s = 0, in_d = 0, in_b = 0;
+    char quote = 0;
     const char *for_at = (const char *)0;
     const char *while_at = (const char *)0;
     const char *scope_at = (const char *)0;
@@ -326,12 +326,7 @@ static int m_split_clauses(const char *args, m_clauses *mc)
     /* locate the first top-level FOR / WHILE keywords. */
     while (*p != '\0') {
         char c = *p;
-        if (in_s) { if (c == '\'') in_s = 0; prev = c; p++; continue; }
-        if (in_d) { if (c == '"')  in_d = 0; prev = c; p++; continue; }
-        if (in_b) { if (c == ']')  in_b = 0; prev = c; p++; continue; }
-        if (c == '\'') { in_s = 1; prev = c; p++; continue; }
-        if (c == '"')  { in_d = 1; prev = c; p++; continue; }
-        if (c == '[')  { in_b = 1; prev = c; p++; continue; }
+        if (rt_literal_byte(c, &quote)) { prev = c; p++; continue; }
         if (m_isspace(prev)) {
             /* Real abbrev/abbrfull mint: REPLACE ... RECORD 1 WHILE ... .
              * Scope is a clause after the replacement list as well as a
@@ -520,9 +515,8 @@ static int m_apply_replace_one(xb_interp *ip, int area, uint32_t recno,
         uint32_t fnlen = 0u;
         int field_idx;
         char exprbuf[M_MAX_EXPR + 1];
-        uint32_t elen = 0u;
+        int elen;
         xb_val v;
-        int in_s = 0, in_d = 0, in_b = 0, depth = 0;
         const char *wpos;
 
         /* --- field name --- */
@@ -544,24 +538,8 @@ static int m_apply_replace_one(xb_interp *ip, int area, uint32_t recno,
         }
 
         /* --- expression up to the next top-level comma --- */
-        while (*p != '\0') {
-            char c = *p;
-            if (in_s) { if (c == '\'') in_s = 0; }
-            else if (in_d) { if (c == '"') in_d = 0; }
-            else if (in_b) { if (c == ']') in_b = 0; }
-            else if (c == '\'') in_s = 1;
-            else if (c == '"') in_d = 1;
-            else if (c == '[') in_b = 1;
-            else if (c == '(') depth++;
-            else if (c == ')') { if (depth > 0) depth--; }
-            else if (c == ',' && depth == 0) break;
-            if (elen >= M_MAX_EXPR) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
-            exprbuf[elen++] = c;
-            p++;
-        }
-        while (elen > 0u && m_isspace(exprbuf[elen - 1])) elen--;
-        exprbuf[elen] = '\0';
-        if (elen == 0u) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+        elen = rt_copy_expr(&p, exprbuf, M_MAX_EXPR);
+        if (elen <= 0) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
 
         /* resolve the field name. */
         field_idx = m_field_index(env, area, fstart, fnlen);

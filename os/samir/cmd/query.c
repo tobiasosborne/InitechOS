@@ -264,65 +264,10 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
          * Ref (Law 1): ../dbase3-decomp/specs/runtime/dates-and-century.md
          *   "The six III+ formats" (order/separator table) + "SET CENTURY ON/OFF"
          *   (2- vs 4-digit year; display format is not part of the value). */
-        int32_t y, m, d;
         char dt[10];
-        int k = 0;
-        unsigned fmt = (ctx != (const xb_ctx *)0) ? ctx->set_date_fmt
-                                                  : XB_DATE_AMERICAN;
-        int century = (ctx != (const xb_ctx *)0) ? (ctx->set_century != 0) : 0;
-        char sep;
-        int year_first, day_first;
-        if (xb_date_blank(v->u.d)) { y = 0; m = 0; d = 0; }   /* blanked below */
-        else ymd_from_jdn((int32_t)v->u.d, &y, &m, &d);
-        switch (fmt) {
-        case XB_DATE_ANSI:    sep = '.'; year_first = 1; day_first = 0; break; /* YY.MM.DD */
-        case XB_DATE_JAPAN:   sep = '/'; year_first = 1; day_first = 0; break; /* YY/MM/DD */
-        case XB_DATE_BRITISH:                                                  /* DD/MM/YY */
-        case XB_DATE_FRENCH:  sep = '/'; year_first = 0; day_first = 1; break; /* DD/MM/YY */
-        case XB_DATE_ITALIAN: sep = '-'; year_first = 0; day_first = 1; break; /* DD-MM-YY */
-        case XB_DATE_GERMAN:  sep = '.'; year_first = 0; day_first = 1; break; /* DD.MM.YY */
-        case XB_DATE_USA:     sep = '-'; year_first = 0; day_first = 0; break; /* MM-DD-YY */
-        case XB_DATE_AMERICAN:
-        default:              sep = '/'; year_first = 0; day_first = 0; break; /* MM/DD/YY */
-        }
-        if (year_first) {
-            if (century) {
-                dt[k++] = (char)('0' + (y / 1000) % 10);
-                dt[k++] = (char)('0' + (y / 100) % 10);
-            }
-            dt[k++] = (char)('0' + (y / 10) % 10);
-            dt[k++] = (char)('0' + y % 10);
-            dt[k++] = sep;
-            dt[k++] = (char)('0' + (m / 10) % 10);
-            dt[k++] = (char)('0' + m % 10);
-            dt[k++] = sep;
-            dt[k++] = (char)('0' + (d / 10) % 10);
-            dt[k++] = (char)('0' + d % 10);
-        } else {
-            int f0 = day_first ? d : m;    /* leading field: day (BRITISH...) or month */
-            int f1 = day_first ? m : d;
-            dt[k++] = (char)('0' + (f0 / 10) % 10);
-            dt[k++] = (char)('0' + f0 % 10);
-            dt[k++] = sep;
-            dt[k++] = (char)('0' + (f1 / 10) % 10);
-            dt[k++] = (char)('0' + f1 % 10);
-            dt[k++] = sep;
-            if (century) {
-                dt[k++] = (char)('0' + (y / 1000) % 10);
-                dt[k++] = (char)('0' + (y / 100) % 10);
-            }
-            dt[k++] = (char)('0' + (y / 10) % 10);
-            dt[k++] = (char)('0' + y % 10);
-        }
-        /* The blank date keeps the picture's separators with its digit
-         * positions blank: real III+ LIST WHEN and ? CTOD("  /  /  ") show
-         * "  /  /  " (datatype-mint DT1 D-block LIST, DT3 G8/G11). Before the
-         * codec carried a blank D field as xb_d(0.0) (initech-ylqs) it was
-         * XB_U and printed nothing; JDN 0 must not render as a date. */
-        if (xb_date_blank(v->u.d)) {
-            int j;
-            for (j = 0; j < k; j++) if (dt[j] != sep) dt[j] = ' ';
-        }
+        unsigned fmt = ctx ? ctx->set_date_fmt : XB_DATE_AMERICAN;
+        int century = ctx ? ctx->set_century != 0 : 0;
+        uint32_t k = rt_date_format(v->u.d, fmt, century, dt, 1);
         q_append(buf, pos, cap, dt, (uint32_t)k);
         break;
     }
@@ -361,32 +306,9 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
 static int q_next_expr(const char **p, char *dst, uint32_t cap, int *ok)
 {
     const char *s = q_skip_ws(*p);
-    uint32_t n = 0;
-    int in_s = 0, in_d = 0, in_b = 0, depth = 0;
-    uint32_t end;
-
     *ok = 1;
     if (*s == '\0') { *p = s; return 0; }
-
-    while (*s != '\0') {
-        char c = *s;
-        if (in_s) { if (c == '\'') in_s = 0; }
-        else if (in_d) { if (c == '"') in_d = 0; }
-        else if (in_b) { if (c == ']') in_b = 0; }
-        else if (c == '\'') in_s = 1;
-        else if (c == '"') in_d = 1;
-        else if (c == '[') in_b = 1;
-        else if (c == '(') depth++;
-        else if (c == ')') { if (depth > 0) depth--; }
-        else if (c == ',' && depth == 0) break;
-        if (n >= cap - 1u) { *ok = 0; return 0; }
-        dst[n++] = c;
-        s++;
-    }
-    /* trim trailing blanks */
-    end = n;
-    while (end > 0u && q_isspace(dst[end - 1])) end--;
-    dst[end] = '\0';
+    if (rt_copy_expr(&s, dst, cap - 1u) < 0) { *ok = 0; return 0; }
     /* advance past the comma if present */
     if (*s == ',') s++;
     *p = s;
@@ -462,7 +384,8 @@ static int q_split_clauses(const char *args, query_clauses *qc)
     leading_off = q_match_kw(s, "OFF");
     if (leading_off) s = q_skip_ws(s + leading_off);
 #endif
-    int in_s = 0, in_d = 0, in_b = 0, depth = 0;
+    char quote = 0;
+    int depth = 0;
     const char *for_at = (const char *)0;
     const char *while_at = (const char *)0;
     const char *off_at = (const char *)0;
@@ -483,12 +406,7 @@ static int q_split_clauses(const char *args, query_clauses *qc)
     /* locate the first top-level FOR / WHILE / OFF keywords. */
     while (*p != '\0') {
         char c = *p;
-        if (in_s) { if (c == '\'') in_s = 0; prev = c; p++; continue; }
-        if (in_d) { if (c == '"')  in_d = 0; prev = c; p++; continue; }
-        if (in_b) { if (c == ']')  in_b = 0; prev = c; p++; continue; }
-        if (c == '\'') { in_s = 1; prev = c; p++; continue; }
-        if (c == '"')  { in_d = 1; prev = c; p++; continue; }
-        if (c == '[')  { in_b = 1; prev = c; p++; continue; }
+        if (rt_literal_byte(c, &quote)) { prev = c; p++; continue; }
         if (c == '(') depth++;
         else if (c == ')' && depth) depth--;
         if (!depth && q_isspace(prev)) {

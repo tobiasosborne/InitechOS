@@ -178,18 +178,20 @@ static int name_is(const char *name, uint16_t len, const char *kw)
  * SPACE() guards against this (#59). */
 #define XB_STR_MAX 254
 
+/* Private fn_* handlers receive arguments validated by fn_signature in the
+ * dispatcher below. Keep domain checks and environment queries in handlers. */
+
 /* ======================================================================== */
 /* String functions                                                          */
 /* ======================================================================== */
 
 /* UPPER(<expC>) / LOWER(<expC>) -> C. Per-byte ASCII fold into scratch. */
-static int fn_case(xb_ctx *ctx, const xb_val *args, int nargs,
+static int fn_case(xb_ctx *ctx, const xb_val *args,
                    int up, xb_val *out, int *err)
 {
     uint16_t len, i;
     char *dst;
-    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
+
     len = args[0].u.c.len;
     if (len == 0) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
     dst = fn_scratch(ctx, len);
@@ -205,13 +207,12 @@ static int fn_case(xb_ctx *ctx, const xb_val *args, int nargs,
 /* TRIM(<expC>) / RTRIM(<expC>) -> C: drop TRAILING blanks only (synonyms in
  * III+, string-functions.md). LTRIM(<expC>) -> C: drop LEADING blanks only.
  * No allocation: trimming yields a sub-slice of the SAME backing bytes. */
-static int fn_trim(const xb_val *args, int nargs, int leading,
+static int fn_trim(const xb_val *args, int leading,
                    xb_val *out, int *err)
 {
     uint16_t len;
     const char *p;
-    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
+
     p   = args[0].u.c.p;
     len = args[0].u.c.len;
     if (leading) {
@@ -235,10 +236,6 @@ static int fn_substr(const xb_val *args, int nargs, xb_val *out, int *err)
     int32_t  start, count;
     uint16_t len;
     uint16_t avail;
-    if (nargs != 2 && nargs != 3) return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0]))       return fn_fail(err, XBEE_MISMATCH);
-    if (args[1].t != XB_N)        return fn_fail(err, XBEE_MISMATCH);
-    if (nargs == 3 && args[2].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
 
     len   = args[0].u.c.len;
     start = to_int_trunc(args[1].u.n);
@@ -276,23 +273,20 @@ static int fn_substr(const xb_val *args, int nargs, xb_val *out, int *err)
 }
 
 /* LEN(<expC>) -> N: byte length (string-functions.md). */
-static int fn_len(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_len(const xb_val *args, xb_val *out, int *err)
 {
-    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
     *out = xb_n((double)args[0].u.c.len);
     *err = XBEE_OK;
     return 0;
 }
 
 /* SPACE(<expN>) -> C: n blanks. SPACE(0)="". n<0 -> #60. n>254 -> #59. */
-static int fn_space(xb_ctx *ctx, const xb_val *args, int nargs,
+static int fn_space(xb_ctx *ctx, const xb_val *args,
                     xb_val *out, int *err)
 {
     int32_t n, i;
     char *dst;
-    if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+
     n = to_int_trunc(args[0].u.n);
     if (n < 0)          return fn_fail(err, XBEE_SPACE_NEG);   /* #60          */
     if (n > XB_STR_MAX) return fn_fail(err, XBEE_SPACE_LARGE); /* #59          */
@@ -306,13 +300,12 @@ static int fn_space(xb_ctx *ctx, const xb_val *args, int nargs,
 }
 
 /* CHR(<expN>) -> C: single-byte string of code n. 0..255 else #57. */
-static int fn_chr(xb_ctx *ctx, const xb_val *args, int nargs,
+static int fn_chr(xb_ctx *ctx, const xb_val *args,
                   xb_val *out, int *err)
 {
     int32_t n;
     char *dst;
-    if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+
     n = to_int_trunc(args[0].u.n);
     if (n < 0 || n > 255) return fn_fail(err, XBEE_CHR_RANGE); /* #57          */
     dst = fn_scratch(ctx, 1);
@@ -325,10 +318,8 @@ static int fn_chr(xb_ctx *ctx, const xb_val *args, int nargs,
 
 /* ASC(<expC>) -> N: code of the leftmost byte; ASC("") -> 0
  * (string-functions.md; the conservative documented Clipper/Harbour result). */
-static int fn_asc(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_asc(const xb_val *args, xb_val *out, int *err)
 {
-    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
     if (args[0].u.c.len == 0) { *out = xb_n(0.0); *err = XBEE_OK; return 0; }
     *out = xb_n((double)(uint8_t)args[0].u.c.p[0]);
     *err = XBEE_OK;
@@ -365,10 +356,8 @@ static int fn_str(xb_ctx *ctx, const xb_val *args, int nargs,
     int32_t width = 10;   /* default general-expression width (Open Q3)        */
     int32_t dec   = 0;    /* default 0 -- STR never reads SET DECIMALS [verified] */
     char *dst;
-    if (nargs < 1 || nargs > 3) return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_N)      return fn_fail(err, XBEE_MISMATCH);
+
     if (nargs >= 2) {
-        if (args[1].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
         width = to_int_trunc(args[1].u.n);
         /* 2-arg STR(n, width): dec stays 0. SET DECIMALS does NOT govern STR
          * in any call form (numeric-and-string-formatting.md lines 11-13, 33). */
@@ -376,7 +365,6 @@ static int fn_str(xb_ctx *ctx, const xb_val *args, int nargs,
     /* 1-arg STR(n): dec stays 0. STR never reads ctx->set_decimals.
      * [verified: numeric-and-string-formatting.md lines 11-13 + mint-001] */
     if (nargs == 3) {
-        if (args[2].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
         dec = to_int_trunc(args[2].u.n);   /* 3-arg always overrides */
     }
     /* Field-width sanity: width 1..254, dec 0..15, dec must leave room for at
@@ -395,10 +383,8 @@ static int fn_str(xb_ctx *ctx, const xb_val *args, int nargs,
 /* VAL(<expC>) -> N: leading numeric portion (rt.h dec_parse). A first-byte
  * '*' is the overflow sentinel, DBL_MAX (real III+ datatype-mint DT5 I7).
  * Other non-numeric / empty strings -> 0. */
-static int fn_val(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_val(const xb_val *args, xb_val *out, int *err)
 {
-    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
     *out = xb_n(dec_parse(args[0].u.c.p, (int)args[0].u.c.len));
 #ifndef SAMIR_DT_MUTANT_valstar
     /* Do not trim: real III+ distinguishes "*" from " *" (DT6 V01/V03). */
@@ -465,7 +451,7 @@ static int ctod_collect_digits(const char *p, uint16_t len, char *buf, int cap)
  *   CTOD('1985.08.05') returns blank instead of the correct date, and the
  *   unit assertion goes RED.
  */
-static int fn_ctod_impl(const xb_val *args, int nargs,
+static int fn_ctod_impl(const xb_val *args,
                         xb_ctx *ctx, xb_val *out, int *err)
 {
     const char *p;
@@ -476,8 +462,6 @@ static int fn_ctod_impl(const xb_val *args, int nargs,
     int  yearlen;
     uint8_t fmt, century;
 
-    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
     p   = args[0].u.c.p;
     len = args[0].u.c.len;
 
@@ -588,23 +572,6 @@ static int fn_ctod_impl(const xb_val *args, int nargs,
     }
 }
 
-/*
- * fn_dtoc_write2 / fn_dtoc_write4: write a 2/4-digit number into dst at pos.
- * Freestanding helpers (no sprintf). pos is updated.
- */
-static void fn_dtoc_write2(char *dst, int *pos, int v)
-{
-    dst[(*pos)++] = (char)('0' + (v / 10));
-    dst[(*pos)++] = (char)('0' + (v % 10));
-}
-static void fn_dtoc_write4(char *dst, int *pos, int v)
-{
-    dst[(*pos)++] = (char)('0' + (v / 1000));
-    dst[(*pos)++] = (char)('0' + ((v / 100) % 10));
-    dst[(*pos)++] = (char)('0' + ((v / 10)  % 10));
-    dst[(*pos)++] = (char)('0' + (v % 10));
-}
-
 /* DTOC(<expD>) -> C. Renders a Date using ctx->set_date_fmt and ctx->set_century.
  * Blank date -> blank digits with the picture's separators retained.
  * [real III+ datatype-mint DT2 E1/E2, DT3 G10; DT6 D01..D05]
@@ -635,21 +602,12 @@ static void fn_dtoc_write4(char *dst, int *pos, int v)
  *   DTOC(date) returns 8-char 2-digit-year output instead of 10-char 4-digit,
  *   and the unit assertion goes RED.
  */
-static int fn_dtoc_impl(xb_ctx *ctx, const xb_val *args, int nargs,
+static int fn_dtoc_impl(xb_ctx *ctx, const xb_val *args,
                         xb_val *out, int *err)
 {
     char *dst;
-    int32_t y, m, d;
-    int  yy_display;
     uint8_t fmt, century;
     uint32_t width;
-    char sep;
-    int  pos;
-    int  year_first;
-    int  i;
-
-    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_D) return fn_fail(err, XBEE_MISMATCH);
 
 #ifdef XB_MUTATE_SETFMT_IGNORE
     fmt     = (uint8_t)XB_DATE_AMERICAN;
@@ -663,64 +621,10 @@ static int fn_dtoc_impl(xb_ctx *ctx, const xb_val *args, int nargs,
     dst = fn_scratch(ctx, width);
     if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
 
-    /* Determine separator and field order. */
-    switch (fmt) {
-    case XB_DATE_AMERICAN: sep = '/'; year_first = 0; break; /* MM/DD/YY[YY] */
-    case XB_DATE_ANSI:     sep = '.'; year_first = 1; break; /* YY[YY].MM.DD */
-    case XB_DATE_BRITISH:  sep = '/'; year_first = 0; break; /* DD/MM/YY[YY] */
-    case XB_DATE_ITALIAN:  sep = '-'; year_first = 0; break; /* DD-MM-YY[YY] */
-    case XB_DATE_FRENCH:   sep = '/'; year_first = 0; break; /* DD/MM/YY[YY] */
-    case XB_DATE_GERMAN:   sep = '.'; year_first = 0; break; /* DD.MM.YY[YY] */
-    case XB_DATE_JAPAN:    sep = '/'; year_first = 1; break; /* YY[YY]/MM/DD */
-    case XB_DATE_USA:      sep = '-'; year_first = 0; break; /* MM-DD-YY[YY] */
-    default:               sep = '/'; year_first = 0; break; /* fallback=AMERICAN */
-    }
-
-    if (fn_date_blank(args[0].u.d)) {
-        for (i = 0; i < (int)width; i++) dst[i] = ' ';
-#ifndef SAMIR_DT_MUTANT_blankdtoc
-        /* The year-first CENTURY picture has its separators two columns
-         * later. Stored blank D fields remain eight spaces (DT2 E4.DBF). */
-        pos = year_first && century ? 4 : 2;
-        dst[pos] = dst[pos + 3] = sep;
+    rt_date_format(args[0].u.d, fmt, century, dst, 0);
+#ifdef SAMIR_DT_MUTANT_blankdtoc
+    if (fn_date_blank(args[0].u.d)) rt_memset(dst, ' ', width);
 #endif
-        *out = xb_c(dst, (uint16_t)width); *err = XBEE_OK; return 0;
-    }
-
-    ymd_from_jdn((int32_t)args[0].u.d, &y, &m, &d);
-    yy_display = century ? (int)y : (int)(y % 100);  /* 2- or 4-digit year */
-
-    pos = 0;
-    if (year_first) {
-        /* ANSI (YY[YY].MM.DD) and JAPAN (YY[YY]/MM/DD): year first. */
-        if (century) fn_dtoc_write4(dst, &pos, yy_display);
-        else         fn_dtoc_write2(dst, &pos, yy_display);
-        dst[pos++] = sep;
-        fn_dtoc_write2(dst, &pos, (int)m);
-        dst[pos++] = sep;
-        fn_dtoc_write2(dst, &pos, (int)d);
-    } else {
-        /* All other formats: two leading fields + year last. */
-        int f0, f1;
-        switch (fmt) {
-        case XB_DATE_AMERICAN: /* MM/DD/YY[YY] */
-        case XB_DATE_USA:      /* MM-DD-YY[YY] */
-            f0 = (int)m; f1 = (int)d; break;
-        case XB_DATE_BRITISH:  /* DD/MM/YY[YY] */
-        case XB_DATE_ITALIAN:  /* DD-MM-YY[YY] */
-        case XB_DATE_FRENCH:   /* DD/MM/YY[YY] */
-        case XB_DATE_GERMAN:   /* DD.MM.YY[YY] */
-        default:
-            f0 = (int)d; f1 = (int)m; break;
-        }
-        fn_dtoc_write2(dst, &pos, f0);
-        dst[pos++] = sep;
-        fn_dtoc_write2(dst, &pos, f1);
-        dst[pos++] = sep;
-        if (century) fn_dtoc_write4(dst, &pos, yy_display);
-        else         fn_dtoc_write2(dst, &pos, yy_display);
-    }
-
     *out = xb_c(dst, (uint16_t)width);
     *err = XBEE_OK;
     return 0;
@@ -729,9 +633,8 @@ static int fn_dtoc_impl(xb_ctx *ctx, const xb_val *args, int nargs,
 /* DATE() -> D: today's date from the INJECTED ctx->ctx_today (JDN). No args.
  * Freestanding: never reads the OS clock (Rule 11; pal.h today()). If the
  * caller has not injected a date, ctx_today is 0.0 -> a blank date. */
-static int fn_date(xb_ctx *ctx, int nargs, xb_val *out, int *err)
+static int fn_date(xb_ctx *ctx, xb_val *out, int *err)
 {
-    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
     *out = xb_d(ctx->ctx_today);
     *err = XBEE_OK;
     return 0;
@@ -739,12 +642,11 @@ static int fn_date(xb_ctx *ctx, int nargs, xb_val *out, int *err)
 
 /* DAY/MONTH/YEAR(<expD>) -> N. Blank date -> 0 (dates-and-century.md table).
  * which: 0=DAY, 1=MONTH, 2=YEAR. */
-static int fn_dmy(const xb_val *args, int nargs, int which,
+static int fn_dmy(const xb_val *args, int which,
                   xb_val *out, int *err)
 {
     int32_t y, m, d;
-    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_D) return fn_fail(err, XBEE_MISMATCH);
+
     if (fn_date_blank(args[0].u.d)) { *out = xb_n(0.0); *err = XBEE_OK; return 0; }
     ymd_from_jdn((int32_t)args[0].u.d, &y, &m, &d);
     switch (which) {
@@ -765,7 +667,7 @@ static int fn_dmy(const xb_val *args, int nargs, int which,
 /* Using III+ U6-86/87: evaluate the expression contained in the Character
  * argument. Invalid or undefined expressions return U without raising them.
  * DML-01 is the real CLEAR MEMORY / TYPE transcript. */
-static int fn_type(const xb_val *args, int nargs, xb_ctx *ctx,
+static int fn_type(const xb_val *args, xb_ctx *ctx,
                    xb_val *out, int *err)
 {
     char *dst, code='U';
@@ -775,11 +677,11 @@ static int fn_type(const xb_val *args, int nargs, xb_ctx *ctx,
     xb_val value;
     int nt,root,e;
     static unsigned depth;
-    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+
     /* Using III+ U6-86/87: the Character argument contains an expression;
      * an absent name or invalid expression reports U, without raising it.
      * DML-01 real III+ transcript pins TYPE("N") after CLEAR MEMORY. */
-    if(args[0].t!=XB_C) return fn_fail(err,XBEE_MISMATCH);
+
     if(depth<8) {
         nt=xb_lex(args[0].u.c.p,args[0].u.c.len,toks,128,&e);
         root=nt<0?-1:xb_parse(toks,(uint32_t)nt,nodes,128,&e);
@@ -817,11 +719,10 @@ static int fn_type(const xb_val *args, int nargs, xb_ctx *ctx,
  *        + Harbour math.txt:7-42]; real idiom: RECONCIL.PRG:28 ABS(notcash).
  * Freestanding: negation via the unary minus operator; no libm needed.
  */
-static int fn_abs(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_abs(const xb_val *args, xb_val *out, int *err)
 {
     double v;
-    if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+
     v = args[0].u.n;
 #ifdef XB_MUTATE_FN_ABS
     /* MUTATION (Rule 6): skip the sign-flip so ABS(-5) returns -5.
@@ -848,11 +749,10 @@ static int fn_abs(const xb_val *args, int nargs, xb_val *out, int *err)
  *   Ref: numeric-and-date-functions.md INT section [verified: HELP.DBS line 1297
  *        + Harbour math.txt:88-120].
  */
-static int fn_int(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_int(const xb_val *args, xb_val *out, int *err)
 {
     double v;
-    if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+
     /* PROVISIONAL/GATED (numfn-2): truncate toward zero via cast. */
     v = (double)(int64_t)args[0].u.n;
     *out = xb_n(v);
@@ -876,12 +776,10 @@ static int fn_int(const xb_val *args, int nargs, xb_val *out, int *err)
  *   Ref: numeric-and-date-functions.md MOD section [verified: HELP.DBS line 1306
  *        + Harbour math.txt:247-284].
  */
-static int fn_mod(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_mod(const xb_val *args, xb_val *out, int *err)
 {
     double a, b, q;
-    if (nargs != 2)        return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
-    if (args[1].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+
     a = args[0].u.n;
     b = args[1].u.n;
     /* PROVISIONAL/GATED (numfn-3): MOD(a,0) -> a (zero-divisor not an error). */
@@ -916,14 +814,12 @@ static int fn_mod(const xb_val *args, int nargs, xb_val *out, int *err)
  *   Ref: numeric-and-date-functions.md ROUND section [verified: HELP.DBS lines
  *        1307-1308 + Harbour math.txt:326-367].
  */
-static int fn_round(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_round(const xb_val *args, xb_val *out, int *err)
 {
     double v, scale, rounded;
     int    dec;
     int    i;
-    if (nargs != 2)        return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
-    if (args[1].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+
     v   = args[0].u.n;
     dec = to_int_trunc(args[1].u.n);   /* may be negative (round to tens, etc.) */
 
@@ -978,10 +874,9 @@ static int fn_round(const xb_val *args, int nargs, xb_val *out, int *err)
  *   Ref: numeric-and-date-functions.md MAX/MIN sections [verified: HELP.DBS
  *        lines 1302-1305 + Harbour math.txt:162-244].
  */
-static int fn_maxmin(const xb_val *args, int nargs, int is_max,
+static int fn_maxmin(const xb_val *args, int is_max,
                      xb_val *out, int *err)
 {
-    if (nargs != 2) return fn_fail(err, XBEE_INVALID_ARG);
     /* Same-type required (numeric-and-date-functions.md: mixed raises #9). */
     if (args[0].t != args[1].t) return fn_fail(err, XBEE_MISMATCH);
 
@@ -1027,11 +922,10 @@ static int fn_maxmin(const xb_val *args, int nargs, int is_max,
  * Targets a SETTLED, non-GATED case (the Sunday=1/Saturday=7 numbering is
  * [verified] against Harbour datetime.txt:262; not one of the GATED cells).
  */
-static int fn_dow(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_dow(const xb_val *args, xb_val *out, int *err)
 {
     int32_t jdn, dow;
-    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_D) return fn_fail(err, XBEE_MISMATCH);
+
     if (fn_date_blank(args[0].u.d)) { *out = xb_n(0.0); *err = XBEE_OK; return 0; }
     jdn = (int32_t)args[0].u.d;
     /* DOW: ((jdn+1)%7)+1  with 1=Sunday,7=Saturday [verified]. */
@@ -1072,13 +966,12 @@ static const char * const fn_dow_names[8] = {
 };
 static const uint16_t fn_dow_lens[8] = { 0, 6, 6, 7, 9, 8, 6, 8 };
 
-static int fn_cdow(xb_ctx *ctx, const xb_val *args, int nargs,
+static int fn_cdow(xb_ctx *ctx, const xb_val *args,
                    xb_val *out, int *err)
 {
     int32_t jdn, dow;
     (void)ctx;    /* No scratch needed: result points at a static literal. */
-    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_D) return fn_fail(err, XBEE_MISMATCH);
+
     if (fn_date_blank(args[0].u.d)) {
         /* Blank date -> empty string. PROVISIONAL: not asserted in the oracle
          * (Harbour says NUL byte; III+ exact blank-date behavior [oracle-resolves]).
@@ -1123,13 +1016,12 @@ static const char * const fn_mon_names[13] = {
 };
 static const uint16_t fn_mon_lens[13] = { 0, 7, 8, 5, 5, 3, 4, 4, 6, 9, 7, 8, 8 };
 
-static int fn_cmonth(xb_ctx *ctx, const xb_val *args, int nargs,
+static int fn_cmonth(xb_ctx *ctx, const xb_val *args,
                      xb_val *out, int *err)
 {
     int32_t y, m, d;
     (void)ctx;    /* No scratch: result points at a static literal. */
-    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_D) return fn_fail(err, XBEE_MISMATCH);
+
     if (fn_date_blank(args[0].u.d)) {
         *out = xb_c("", 0); *err = XBEE_OK; return 0;
     }
@@ -1156,13 +1048,11 @@ static int fn_cmonth(xb_ctx *ctx, const xb_val *args, int nargs,
  * Arity/type errors: nargs!=2 -> #11, args[0]!C -> #9, args[1]!N -> #9.
  * No scratch needed: result is a sub-slice of the input (no allocation).
  */
-static int fn_left(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_left(const xb_val *args, xb_val *out, int *err)
 {
     int32_t n;
     uint16_t len;
-    if (nargs != 2)           return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
-    if (args[1].t != XB_N)   return fn_fail(err, XBEE_MISMATCH);
+
     len = args[0].u.c.len;
     n   = to_int_trunc(args[1].u.n);
     if (n <= 0)                { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
@@ -1190,13 +1080,11 @@ static int fn_left(const xb_val *args, int nargs, xb_val *out, int *err)
  *   [verified: HELP.DBS @STR FUNC 3 line 1349; period-exact III+ surface]
  * No scratch: result is a sub-slice (no allocation).
  */
-static int fn_right(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_right(const xb_val *args, xb_val *out, int *err)
 {
     int32_t n;
     uint16_t len;
-    if (nargs != 2)           return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
-    if (args[1].t != XB_N)   return fn_fail(err, XBEE_MISMATCH);
+
     len = args[0].u.c.len;
     n   = to_int_trunc(args[1].u.n);
     if (n <= 0)                { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
@@ -1218,7 +1106,7 @@ static int fn_right(const xb_val *args, int nargs, xb_val *out, int *err)
  *   [verified: HELP.DBS @STR FUNC 2 line 1344; period-exact III+ surface]
  * Scratch allocation required (result is a new buffer).
  */
-static int fn_replicate(xb_ctx *ctx, const xb_val *args, int nargs,
+static int fn_replicate(xb_ctx *ctx, const xb_val *args,
                         xb_val *out, int *err)
 {
     int32_t n, i;
@@ -1226,9 +1114,7 @@ static int fn_replicate(xb_ctx *ctx, const xb_val *args, int nargs,
     uint32_t rlen;
     char *dst;
     uint16_t j;
-    if (nargs != 2)           return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
-    if (args[1].t != XB_N)   return fn_fail(err, XBEE_MISMATCH);
+
     clen = args[0].u.c.len;
     n    = to_int_trunc(args[1].u.n);
     if (n <= 0 || clen == 0) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
@@ -1258,12 +1144,10 @@ static int fn_replicate(xb_ctx *ctx, const xb_val *args, int nargs,
  * Empty needle (expC1="") -> 0  (no match; the $ operator also returns .F.
  *   for "" $ s, per mint-results-002.md: '""$"ABC"' -> .F.)
  */
-static int fn_at(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_at(const xb_val *args, xb_val *out, int *err)
 {
     uint16_t nlen, hlen, i, j;
-    if (nargs != 2)           return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
-    if (!is_char(&args[1]))   return fn_fail(err, XBEE_MISMATCH);
+
     nlen = args[0].u.c.len;    /* needle  length */
     hlen = args[1].u.c.len;    /* haystack length */
     if (nlen == 0 || nlen > hlen) {
@@ -1295,7 +1179,7 @@ static int fn_at(const xb_val *args, int nargs, xb_val *out, int *err)
  *   [verified: HELP.DBS @STR FUNC 3 line 1353; period-exact III+ surface]
  * 4-arg function; scratch allocation required.
  */
-static int fn_stuff(xb_ctx *ctx, const xb_val *args, int nargs,
+static int fn_stuff(xb_ctx *ctx, const xb_val *args,
                     xb_val *out, int *err)
 {
     int32_t  start, del;
@@ -1304,12 +1188,6 @@ static int fn_stuff(xb_ctx *ctx, const xb_val *args, int nargs,
     int32_t  pre, suf_start, suf_len;
     char    *dst;
     uint32_t pos;
-
-    if (nargs != 4)           return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
-    if (args[1].t != XB_N)   return fn_fail(err, XBEE_MISMATCH);
-    if (args[2].t != XB_N)   return fn_fail(err, XBEE_MISMATCH);
-    if (!is_char(&args[3]))   return fn_fail(err, XBEE_MISMATCH);
 
     src_len = args[0].u.c.len;
     rep_len = args[3].u.c.len;
@@ -1363,11 +1241,10 @@ static int fn_stuff(xb_ctx *ctx, const xb_val *args, int nargs,
  *   ".T. if the first character of <expC> is a letter.")
  *   [verified: HELP.DBS @STRING FUNCTIONS line 1330; period-exact III+ surface]
  */
-static int fn_isalpha(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_isalpha(const xb_val *args, xb_val *out, int *err)
 {
     char c;
-    if (nargs != 1)           return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
+
     if (args[0].u.c.len == 0) { *out = xb_l(0); *err = XBEE_OK; return 0; }
     c = args[0].u.c.p[0];
     *out = xb_l((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ? 1 : 0);
@@ -1383,11 +1260,10 @@ static int fn_isalpha(const xb_val *args, int nargs, xb_val *out, int *err)
  *   ".T. if the first character of <expC> is an uppercase letter.")
  *   [verified: HELP.DBS @STR FUNC 2 line 1336; period-exact III+ surface]
  */
-static int fn_isupper(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_isupper(const xb_val *args, xb_val *out, int *err)
 {
     char c;
-    if (nargs != 1)           return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
+
     if (args[0].u.c.len == 0) { *out = xb_l(0); *err = XBEE_OK; return 0; }
     c = args[0].u.c.p[0];
     *out = xb_l((c >= 'A' && c <= 'Z') ? 1 : 0);
@@ -1403,11 +1279,10 @@ static int fn_isupper(const xb_val *args, int nargs, xb_val *out, int *err)
  *   ".T. if the first character of <expC> is a lowercase letter.")
  *   [verified: HELP.DBS @STRING FUNCTIONS line 1331; period-exact III+ surface]
  */
-static int fn_islower(const xb_val *args, int nargs, xb_val *out, int *err)
+static int fn_islower(const xb_val *args, xb_val *out, int *err)
 {
     char c;
-    if (nargs != 1)           return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
+
     if (args[0].u.c.len == 0) { *out = xb_l(0); *err = XBEE_OK; return 0; }
     c = args[0].u.c.p[0];
     *out = xb_l((c >= 'a' && c <= 'z') ? 1 : 0);
@@ -1856,7 +1731,7 @@ static int tr_format_char(xb_ctx *ctx,
     return 0;
 }
 
-static int fn_transform(xb_ctx *ctx, const xb_val *args, int nargs,
+static int fn_transform(xb_ctx *ctx, const xb_val *args,
                         xb_val *out, int *err)
 {
     /*
@@ -1874,10 +1749,6 @@ static int fn_transform(xb_ctx *ctx, const xb_val *args, int nargs,
     int         at_flags;
     const char *tmpl;
     uint16_t    tlen;
-
-    if (nargs != 2)                               return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[1].t != XB_C)                        return fn_fail(err, XBEE_MISMATCH);
-    if (args[0].t != XB_N && !is_char(&args[0]))  return fn_fail(err, XBEE_MISMATCH);
 
     pic  = args[1].u.c.p;
     plen = args[1].u.c.len;
@@ -1956,10 +1827,10 @@ static int need_dbcur(xb_ctx *ctx, int *err)
  *      wa_recno tracks the cursor and is RECCOUNT+1 at EOF -- we return it
  *      verbatim. The mutation hook below proves the EOF==RECCOUNT+1 rule bites.
  */
-static int fn_recno(xb_ctx *ctx, int nargs, xb_val *out, int *err)
+static int fn_recno(xb_ctx *ctx, xb_val *out, int *err)
 {
     uint32_t r;
-    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+
     if (!need_dbcur(ctx, err)) return *err;
     r = ctx->dbcur->recno(ctx->dbcur_user);
 #ifdef XB_MUTATE_FN_RECNO_EOF
@@ -1983,9 +1854,8 @@ static int fn_recno(xb_ctx *ctx, int nargs, xb_val *out, int *err)
  *     none-open case is the #52 fail-loud here).
  *   (system-and-database-functions.md RECCOUNT().)
  */
-static int fn_reccount(xb_ctx *ctx, int nargs, xb_val *out, int *err)
+static int fn_reccount(xb_ctx *ctx, xb_val *out, int *err)
 {
-    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
     if (!need_dbcur(ctx, err)) return *err;
     *out = xb_n((double)ctx->dbcur->reccount(ctx->dbcur_user));
     *err = XBEE_OK;
@@ -1997,10 +1867,10 @@ static int fn_reccount(xb_ctx *ctx, int nargs, xb_val *out, int *err)
  *   On an empty database both are .T. (system-and-database-functions.md table).
  *   No arguments. is_eof: 1 for EOF, 0 for BOF.
  */
-static int fn_eofbof(xb_ctx *ctx, int nargs, int is_eof, xb_val *out, int *err)
+static int fn_eofbof(xb_ctx *ctx, int is_eof, xb_val *out, int *err)
 {
     int flag;
-    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+
     if (!need_dbcur(ctx, err)) return *err;
     flag = is_eof ? ctx->dbcur->eof(ctx->dbcur_user)
                   : ctx->dbcur->bof(ctx->dbcur_user);
@@ -2023,9 +1893,8 @@ static int fn_eofbof(xb_ctx *ctx, int nargs, int is_eof, xb_val *out, int *err)
  *   per the pointer/flag matrix "USE => FOUND .F.") and LOUD-SKIPS the post-SEEK/
  *   post-LOCATE cases, which land when S5.4 wires the FOUND flag.
  */
-static int fn_found(xb_ctx *ctx, int nargs, xb_val *out, int *err)
+static int fn_found(xb_ctx *ctx, xb_val *out, int *err)
 {
-    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
     if (!need_dbcur(ctx, err)) return *err;
     *out = xb_l(ctx->dbcur->found(ctx->dbcur_user) ? 1 : 0);
     *err = XBEE_OK;
@@ -2038,9 +1907,8 @@ static int fn_found(xb_ctx *ctx, int nargs, xb_val *out, int *err)
  *   active area. Independent of SET DELETED. On EOF / no record -> .F.
  *   (system-and-database-functions.md DELETED().)
  */
-static int fn_deleted(xb_ctx *ctx, int nargs, xb_val *out, int *err)
+static int fn_deleted(xb_ctx *ctx, xb_val *out, int *err)
 {
-    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
     if (!need_dbcur(ctx, err)) return *err;
     *out = xb_l(ctx->dbcur->deleted(ctx->dbcur_user) ? 1 : 0);
     *err = XBEE_OK;
@@ -2058,7 +1926,7 @@ static int fn_deleted(xb_ctx *ctx, int nargs, xb_val *out, int *err)
  *   the returned XB_C owns stable bytes (Law 3: no malloc).
  */
 #define FN_FIELD_NAME_CAP 16   /* dBASE field names are <= 10 chars + NUL */
-static int fn_field(xb_ctx *ctx, const xb_val *args, int nargs,
+static int fn_field(xb_ctx *ctx, const xb_val *args,
                     xb_val *out, int *err)
 {
     int32_t  idx;
@@ -2067,8 +1935,6 @@ static int fn_field(xb_ctx *ctx, const xb_val *args, int nargs,
     char    *dst;
     int      i;
 
-    if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
     if (!need_dbcur(ctx, err)) return *err;
 
     idx = to_int_trunc(args[0].u.n);
@@ -2101,14 +1967,13 @@ static int fn_field(xb_ctx *ctx, const xb_val *args, int nargs,
  *     oracle asserts the alias form; the path/extension exactness is GATED.
  */
 #define WA_DBF_NAME_CAP 16   /* alias cap (workarea WA_ALIAS_CAP=12) + headroom */
-static int fn_dbf(xb_ctx *ctx, int nargs, xb_val *out, int *err)
+static int fn_dbf(xb_ctx *ctx, xb_val *out, int *err)
 {
     char  namebuf[WA_DBF_NAME_CAP];
     int   nl;
     char *dst;
     int   i;
 
-    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
     if (!need_dbcur(ctx, err)) return *err;
 
     nl = ctx->dbcur->dbf_name(ctx->dbcur_user, namebuf, (uint32_t)WA_DBF_NAME_CAP);
@@ -2132,15 +1997,13 @@ static int fn_dbf(xb_ctx *ctx, int nargs, xb_val *out, int *err)
  *   The name must be NUL-terminated for the PAL open; the arg is a pointer+len
  *   slice (not NUL-terminated), so copy it into scratch with a trailing NUL.
  */
-static int fn_file(xb_ctx *ctx, const xb_val *args, int nargs,
+static int fn_file(xb_ctx *ctx, const xb_val *args,
                    xb_val *out, int *err)
 {
     uint16_t len, i;
     char    *nm;
     int      exists;
 
-    if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
-    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
     /* FILE is an environment query, not a cursor operation. Using III+
      * U6-33; ADR-0008 DEC-02 (initech-52ph/u5mw). */
 #ifdef SAMIR_CORE_MUTATE_FILE_NEEDS_USE
@@ -2205,6 +2068,60 @@ static const char fn_names[] =
     "LEFT\0RIGHT\0STUFF\0REPLICATE\0AT\0ISALPHA\0ISUPPER\0"
     "ISLOWER\0TRANSFORM\0";
 
+/* Same arity/type preconditions formerly repeated in each private handler.
+ * Ref: the III+ function specifications cited at each handler above. Check
+ * counts before reading args, and types before any allocation or operation.
+ * C accepts C/M, c only C, X accepts N/C/M; MAX/MIN keep their paired check.
+ * RECSIZE/ERROR/MESSAGE retain their special dispatch (and allocation order). */
+static const struct { uint8_t min, max; char types[4]; } fn_signature[] = {
+    [FN_UPPER] = {1, 1, "C"},
+    [FN_LOWER] = {1, 1, "C"},
+    [FN_TRIM] = {1, 1, "C"},
+    [FN_RTRIM] = {1, 1, "C"},
+    [FN_LTRIM] = {1, 1, "C"},
+    [FN_SUBSTR] = {2, 3, "CNN"},
+    [FN_LEN] = {1, 1, "C"},
+    [FN_SPACE] = {1, 1, "N"},
+    [FN_CHR] = {1, 1, "N"},
+    [FN_ASC] = {1, 1, "C"},
+    [FN_STR] = {1, 3, "NNN"},
+    [FN_VAL] = {1, 1, "C"},
+    [FN_CTOD] = {1, 1, "C"},
+    [FN_DTOC] = {1, 1, "D"},
+    [FN_DATE] = {0, 0, ""},
+    [FN_DAY] = {1, 1, "D"},
+    [FN_MONTH] = {1, 1, "D"},
+    [FN_YEAR] = {1, 1, "D"},
+    [FN_TYPE] = {1, 1, "c"},
+    [FN_ABS] = {1, 1, "N"},
+    [FN_INT] = {1, 1, "N"},
+    [FN_MOD] = {2, 2, "NN"},
+    [FN_ROUND] = {2, 2, "NN"},
+    [FN_MAX] = {2, 2, ""},
+    [FN_MIN] = {2, 2, ""},
+    [FN_CDOW] = {1, 1, "D"},
+    [FN_CMONTH] = {1, 1, "D"},
+    [FN_DOW] = {1, 1, "D"},
+    [FN_RECNO] = {0, 0, ""},
+    [FN_RECCOUNT] = {0, 0, ""},
+    [FN_EOF] = {0, 0, ""},
+    [FN_BOF] = {0, 0, ""},
+    [FN_FOUND] = {0, 0, ""},
+    [FN_DELETED] = {0, 0, ""},
+    [FN_FIELD] = {1, 1, "N"},
+    [FN_DBF] = {0, 0, ""},
+    [FN_FILE] = {1, 1, "C"},
+    [FN_LEFT] = {2, 2, "CN"},
+    [FN_RIGHT] = {2, 2, "CN"},
+    [FN_STUFF] = {4, 4, "CNNC"},
+    [FN_REPLICATE] = {2, 2, "CN"},
+    [FN_AT] = {2, 2, "CC"},
+    [FN_ISALPHA] = {1, 1, "C"},
+    [FN_ISUPPER] = {1, 1, "C"},
+    [FN_ISLOWER] = {1, 1, "C"},
+    [FN_TRANSFORM] = {2, 2, "Xc"},
+};
+
 int xb_call_builtin(const char *name, uint16_t namelen,
                     const xb_val *args, int nargs,
                     xb_ctx *ctx, xb_val *out, int *err_code)
@@ -2222,6 +2139,21 @@ int xb_call_builtin(const char *name, uint16_t namelen,
         k++;
     }
     if (*kw == '\0') k = -1;                    /* no such built-in -> #31 */
+
+    if (k >= FN_UPPER) {
+        unsigned i;
+        if (nargs < fn_signature[k].min || nargs > fn_signature[k].max)
+            return fn_fail(err_code, XBEE_INVALID_ARG);
+        for (i = 0; i < (unsigned)nargs; i++) {
+            char t = fn_signature[k].types[i];
+            if ((t == 'C' && !is_char(&args[i])) ||
+                (t == 'c' && args[i].t != XB_C) ||
+                (t == 'N' && args[i].t != XB_N) ||
+                (t == 'D' && args[i].t != XB_D) ||
+                (t == 'X' && args[i].t != XB_N && !is_char(&args[i])))
+                return fn_fail(err_code, XBEE_MISMATCH);
+        }
+    }
 
     switch (k) {
     /* Using III+ U6-69; SF-recsize pins the deletion-byte inclusion and
@@ -2252,44 +2184,44 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     }
 
     /* String functions */
-    case FN_UPPER:  return fn_case(ctx, args, nargs, 1, out, err_code);
-    case FN_LOWER:  return fn_case(ctx, args, nargs, 0, out, err_code);
-    case FN_TRIM:   return fn_trim(args, nargs, 0, out, err_code);
-    case FN_RTRIM:  return fn_trim(args, nargs, 0, out, err_code); /* synonym */
-    case FN_LTRIM:  return fn_trim(args, nargs, 1, out, err_code);
+    case FN_UPPER:  return fn_case(ctx, args, 1, out, err_code);
+    case FN_LOWER:  return fn_case(ctx, args, 0, out, err_code);
+    case FN_TRIM:   return fn_trim(args, 0, out, err_code);
+    case FN_RTRIM:  return fn_trim(args, 0, out, err_code); /* synonym */
+    case FN_LTRIM:  return fn_trim(args, 1, out, err_code);
     case FN_SUBSTR: return fn_substr(args, nargs, out, err_code);
-    case FN_LEN:    return fn_len(args, nargs, out, err_code);
-    case FN_SPACE:  return fn_space(ctx, args, nargs, out, err_code);
-    case FN_CHR:    return fn_chr(ctx, args, nargs, out, err_code);
-    case FN_ASC:    return fn_asc(args, nargs, out, err_code);
+    case FN_LEN:    return fn_len(args, out, err_code);
+    case FN_SPACE:  return fn_space(ctx, args, out, err_code);
+    case FN_CHR:    return fn_chr(ctx, args, out, err_code);
+    case FN_ASC:    return fn_asc(args, out, err_code);
 
     /* Conversion bridges */
     case FN_STR:    return fn_str(ctx, args, nargs, out, err_code);
-    case FN_VAL:    return fn_val(args, nargs, out, err_code);
-    case FN_CTOD:   return fn_ctod_impl(args, nargs, ctx, out, err_code);
-    case FN_DTOC:   return fn_dtoc_impl(ctx, args, nargs, out, err_code);
+    case FN_VAL:    return fn_val(args, out, err_code);
+    case FN_CTOD:   return fn_ctod_impl(args, ctx, out, err_code);
+    case FN_DTOC:   return fn_dtoc_impl(ctx, args, out, err_code);
 
     /* Date functions */
-    case FN_DATE:   return fn_date(ctx, nargs, out, err_code);
-    case FN_DAY:    return fn_dmy(args, nargs, 0, out, err_code);
-    case FN_MONTH:  return fn_dmy(args, nargs, 1, out, err_code);
-    case FN_YEAR:   return fn_dmy(args, nargs, 2, out, err_code);
+    case FN_DATE:   return fn_date(ctx, out, err_code);
+    case FN_DAY:    return fn_dmy(args, 0, out, err_code);
+    case FN_MONTH:  return fn_dmy(args, 1, out, err_code);
+    case FN_YEAR:   return fn_dmy(args, 2, out, err_code);
 
     /* Generic */
-    case FN_TYPE:   return fn_type(args, nargs, ctx, out, err_code);
+    case FN_TYPE:   return fn_type(args, ctx, out, err_code);
 
     /* Numeric functions (S3.6a freestanding half) */
-    case FN_ABS:    return fn_abs(args, nargs, out, err_code);
-    case FN_INT:    return fn_int(args, nargs, out, err_code);
-    case FN_MOD:    return fn_mod(args, nargs, out, err_code);
-    case FN_ROUND:  return fn_round(args, nargs, out, err_code);
-    case FN_MAX:    return fn_maxmin(args, nargs, 1, out, err_code);
-    case FN_MIN:    return fn_maxmin(args, nargs, 0, out, err_code);
+    case FN_ABS:    return fn_abs(args, out, err_code);
+    case FN_INT:    return fn_int(args, out, err_code);
+    case FN_MOD:    return fn_mod(args, out, err_code);
+    case FN_ROUND:  return fn_round(args, out, err_code);
+    case FN_MAX:    return fn_maxmin(args, 1, out, err_code);
+    case FN_MIN:    return fn_maxmin(args, 0, out, err_code);
 
     /* Date name functions (S3.6a freestanding half) */
-    case FN_CDOW:   return fn_cdow(ctx, args, nargs, out, err_code);
-    case FN_CMONTH: return fn_cmonth(ctx, args, nargs, out, err_code);
-    case FN_DOW:    return fn_dow(args, nargs, out, err_code);
+    case FN_CDOW:   return fn_cdow(ctx, args, out, err_code);
+    case FN_CMONTH: return fn_cmonth(ctx, args, out, err_code);
+    case FN_DOW:    return fn_dow(args, out, err_code);
 
     /* Database / work-area functions (S3.6b, initech-7az.10). These reach the
      * SELECTED work area's cursor through ctx->dbcur (eval.h xb_dbcursor) -- NOT
@@ -2297,29 +2229,29 @@ int xb_call_builtin(const char *name, uint16_t namelen,
      * core. ctx->dbcur == NULL (no work area) -> XBEE_NO_DATABASE (#52) fail loud.
      * Refs: system-and-database-functions.md sec 2 (RECNO/RECCOUNT/EOF/BOF/FOUND/
      *   DELETED/FIELD/DBF) + sec 3 (FILE); dbase_msg_codes.tsv #52. */
-    case FN_RECNO:    return fn_recno(ctx, nargs, out, err_code);
-    case FN_RECCOUNT: return fn_reccount(ctx, nargs, out, err_code);
-    case FN_EOF:      return fn_eofbof(ctx, nargs, 1, out, err_code);
-    case FN_BOF:      return fn_eofbof(ctx, nargs, 0, out, err_code);
-    case FN_FOUND:    return fn_found(ctx, nargs, out, err_code);
-    case FN_DELETED:  return fn_deleted(ctx, nargs, out, err_code);
-    case FN_FIELD:    return fn_field(ctx, args, nargs, out, err_code);
-    case FN_DBF:      return fn_dbf(ctx, nargs, out, err_code);
-    case FN_FILE:     return fn_file(ctx, args, nargs, out, err_code);
+    case FN_RECNO:    return fn_recno(ctx, out, err_code);
+    case FN_RECCOUNT: return fn_reccount(ctx, out, err_code);
+    case FN_EOF:      return fn_eofbof(ctx, 1, out, err_code);
+    case FN_BOF:      return fn_eofbof(ctx, 0, out, err_code);
+    case FN_FOUND:    return fn_found(ctx, out, err_code);
+    case FN_DELETED:  return fn_deleted(ctx, out, err_code);
+    case FN_FIELD:    return fn_field(ctx, args, out, err_code);
+    case FN_DBF:      return fn_dbf(ctx, out, err_code);
+    case FN_FILE:     return fn_file(ctx, args, out, err_code);
 
     /* String functions C (initech-7az.12): LEFT RIGHT STUFF REPLICATE AT
      * ISALPHA ISUPPER ISLOWER TRANSFORM.
      * Refs: HELP.DBS.strings.txt @STRING FUNCTIONS + @STR FUNC 2/3 (lines
      *   1326-1358); mint-results-002.md (TRANSFORM exists, "9999" picture). */
-    case FN_LEFT:      return fn_left(args, nargs, out, err_code);
-    case FN_RIGHT:     return fn_right(args, nargs, out, err_code);
-    case FN_STUFF:     return fn_stuff(ctx, args, nargs, out, err_code);
-    case FN_REPLICATE: return fn_replicate(ctx, args, nargs, out, err_code);
-    case FN_AT:        return fn_at(args, nargs, out, err_code);
-    case FN_ISALPHA:   return fn_isalpha(args, nargs, out, err_code);
-    case FN_ISUPPER:   return fn_isupper(args, nargs, out, err_code);
-    case FN_ISLOWER:   return fn_islower(args, nargs, out, err_code);
-    case FN_TRANSFORM: return fn_transform(ctx, args, nargs, out, err_code);
+    case FN_LEFT:      return fn_left(args, out, err_code);
+    case FN_RIGHT:     return fn_right(args, out, err_code);
+    case FN_STUFF:     return fn_stuff(ctx, args, out, err_code);
+    case FN_REPLICATE: return fn_replicate(ctx, args, out, err_code);
+    case FN_AT:        return fn_at(args, out, err_code);
+    case FN_ISALPHA:   return fn_isalpha(args, out, err_code);
+    case FN_ISUPPER:   return fn_isupper(args, out, err_code);
+    case FN_ISLOWER:   return fn_islower(args, out, err_code);
+    case FN_TRANSFORM: return fn_transform(ctx, args, out, err_code);
     default:           break;
     }
 

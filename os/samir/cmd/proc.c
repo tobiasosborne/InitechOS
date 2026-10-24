@@ -239,17 +239,12 @@ static int p_ci_eq_prefix(const char *s, const char *kw, const char *le)
  */
 static int p_find_to(const char *s, uint32_t *to_at)
 {
-    int in_s = 0, in_d = 0, in_b = 0;
+    char quote = 0;
     uint32_t i;
     char prev = ' ';
     for (i = 0; s[i] != '\0'; i++) {
         char c = s[i];
-        if (in_s) { if (c == '\'') in_s = 0; prev = c; continue; }
-        if (in_d) { if (c == '"')  in_d = 0; prev = c; continue; }
-        if (in_b) { if (c == ']')  in_b = 0; prev = c; continue; }
-        if (c == '\'') { in_s = 1; prev = c; continue; }
-        if (c == '"')  { in_d = 1; prev = c; continue; }
-        if (c == '[')  { in_b = 1; prev = c; continue; }
+        if (rt_literal_byte(c, &quote)) { prev = c; continue; }
         if (p_isspace(prev) && p_up1(c) == 'T' && p_up1(s[i + 1]) == 'O' &&
             (s[i + 2] == '\0' || p_isspace(s[i + 2]))) {
             *to_at = i;
@@ -717,26 +712,8 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
          * and evaluate each argument expression by value. */
         while (*p != '\0') {
             char ebuf[P_MAX_EXPR + 1];
-            uint32_t eo = 0;
-            int in_s = 0, in_d = 0, in_b = 0, depth = 0;
             xb_val v;
-            while (*p != '\0') {
-                char c = *p;
-                if (in_s) { if (c == '\'') in_s = 0; }
-                else if (in_d) { if (c == '"') in_d = 0; }
-                else if (in_b) { if (c == ']') in_b = 0; }
-                else if (c == '\'') in_s = 1;
-                else if (c == '"') in_d = 1;
-                else if (c == '[') in_b = 1;
-                else if (c == '(') depth++;
-                else if (c == ')') { if (depth > 0) depth--; }
-                else if (c == ',' && depth == 0) break;
-                if (eo >= (uint32_t)P_MAX_EXPR) { ecode = 0; goto syntax; }
-                ebuf[eo++] = c;
-                p++;
-            }
-            while (eo > 0u && p_isspace(ebuf[eo - 1])) eo--;
-            ebuf[eo] = '\0';
+            if (rt_copy_expr(&p, ebuf, P_MAX_EXPR) < 0) { ecode = 0; goto syntax; }
             if (nargs >= P_MAX_ARGS) { ecode = P_MSG_WRONG_PARAM; goto syntax; }
             crc = xb_interp_eval(ip, ebuf, &v, ec);
             if (crc != INTERP_OK)
