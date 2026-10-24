@@ -7,7 +7,7 @@ Local sources inspected as page images at 110 dpi:
 
 * `InitechOS-PRD.md` section 6.1, and
   `docs/adr/ADR-0003-InitechDOS-Base-OS-Personality.md`, DEC-08 / Appendix A.
-* `/home/tobias/Projects/initech-manuals-ref/dos33/MS-DOS_3.3_Users_Guide_198707.pdf`:
+* `../initech-manuals-ref/dos33/MS-DOS_3.3_Users_Guide_198707.pdf`:
   printed pp.162-193 = PDF pp.247-278; Appendix F p.313 = PDF p.398 (reserved .BAK filename refusal).
 * The same directory's `80X0945_DOS_3.30_Technical_Reference_Apr87.pdf`:
   printed pp.6-11--6-12 = PDF pp.134-135 (00,scan extended-key input).
