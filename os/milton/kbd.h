@@ -51,8 +51,8 @@ _Static_assert((KBD_RING_CAP & (KBD_RING_CAP - 1u)) == 0u,
  * the mask (CAP-1) is the only wrap arithmetic. */
 typedef struct {
     uint8_t  buf[KBD_RING_CAP];
-    uint16_t head;   /* next slot the producer writes (mod CAP)  */
-    uint16_t tail;   /* next slot the consumer reads  (mod CAP)  */
+    volatile uint16_t head; /* ISR publication; next write (mod CAP) */
+    volatile uint16_t tail; /* task release; next read (mod CAP)    */
     volatile uint8_t dropped; /* 0 clear, 1 pending, 2 reported (owpg) */
 } kbd_ring_t;
 

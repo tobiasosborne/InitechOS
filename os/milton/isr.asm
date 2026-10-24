@@ -15,6 +15,10 @@
 ; pointer to it. For an exception the C side halts (never returns); the iret
 ; tail exists so the SAME common stub can serve a clean-returning vector (the
 ; live IDT self-test on vector 0x80 returns and resumes -- kmain.c).
+;
+; Intel SDM Vol. 1 Sec. 3.4.3.2, "DF Flag": STD makes MOVS/STOS run
+; backward. Interrupt entry does NOT clear DF (the 8086 convention).
+; Every path calling C must CLD first; IRETD restores the caller's saved DF.
 
 bits 32
 
@@ -111,6 +115,7 @@ isr_irq15_spurious:
 ;   vector, err_code, eip, cs, eflags
 ; ESP after pushad therefore points at int_frame_t field 0 (edi) -- hand it to C.
 isr_common:
+    cld
     push gs                    ; -> int_frame_t.gs (+44)
     push fs                    ; -> .fs (+40)
     push es                    ; -> .es (+36)
@@ -159,6 +164,7 @@ isr_common:
 extern int21_dispatch          ; void int21_dispatch(int_frame_t *)
 global int21_entry
 int21_entry:
+    cld
     push dword 0               ; dummy error code (uniform frame; no CPU err)
     push dword 0x21            ; vector sentinel (so a dump shows AH path = 0x21)
     push gs                    ; -> int_frame_t.gs (+44)
@@ -207,6 +213,7 @@ int21_entry:
 extern int20_dispatch          ; void int20_dispatch(int_frame_t *)
 global int20_entry
 int20_entry:
+    cld
     push dword 0               ; dummy error code (uniform frame; no CPU err)
     push dword 0x20            ; vector sentinel (a dump shows the 0x20 path)
     push gs                    ; -> int_frame_t.gs (+44)
@@ -254,6 +261,7 @@ int20_entry:
 extern int22_dispatch          ; void int22_dispatch(int_frame_t *)
 global int22_entry
 int22_entry:
+    cld
     push dword 0               ; dummy error code (uniform frame; no CPU err)
     push dword 0x22            ; vector sentinel (a dump shows the 0x22 path)
     push gs                    ; -> int_frame_t.gs (+44)
@@ -284,6 +292,7 @@ int22_entry:
 extern int23_dispatch          ; void int23_dispatch(int_frame_t *)
 global int23_entry
 int23_entry:
+    cld
     push dword 0               ; dummy error code (uniform frame; no CPU err)
     push dword 0x23            ; vector sentinel (a dump shows the 0x23 path)
     push gs                    ; -> int_frame_t.gs (+44)
@@ -314,6 +323,7 @@ int23_entry:
 extern int24_dispatch          ; void int24_dispatch(int_frame_t *)
 global int24_entry
 int24_entry:
+    cld
     push dword 0               ; dummy error code (uniform frame; no CPU err)
     push dword 0x24            ; vector sentinel (a dump shows the 0x24 path)
     push gs                    ; -> int_frame_t.gs (+44)
@@ -393,6 +403,7 @@ int13_entry:
 extern int25_dispatch          ; void int25_dispatch(int_frame_t *)
 global int25_entry
 int25_entry:
+    cld
     push dword 0               ; dummy error code (uniform frame; no CPU err)
     push dword 0x25            ; vector sentinel (a dump shows the 0x25 path)
     push gs                    ; -> int_frame_t.gs (+44)
@@ -427,6 +438,7 @@ int25_entry:
 extern int26_dispatch          ; void int26_dispatch(int_frame_t *)
 global int26_entry
 int26_entry:
+    cld
     push dword 0               ; dummy error code (uniform frame; no CPU err)
     push dword 0x26            ; vector sentinel (a dump shows the 0x26 path)
     push gs                    ; -> int_frame_t.gs (+44)
@@ -468,6 +480,7 @@ int26_entry:
 extern %3
 global %1
 %1:
+    cld
     push dword 0
     push dword %2
     push gs
@@ -540,6 +553,7 @@ extern mouse_irq_handler:weak  ; void mouse_irq_handler(void) -- reads 0x60 + du
 
 global irq0_entry
 irq0_entry:
+    cld
     pushad                     ; save all GPRs (interrupted context)
     push ds
     push es
@@ -556,6 +570,7 @@ irq0_entry:
 
 global irq1_entry
 irq1_entry:
+    cld
     pushad
     push ds
     push es
@@ -583,6 +598,7 @@ irq1_entry:
 ; to 0 there -- see the weak extern above).
 global irq12_entry
 irq12_entry:
+    cld
     pushad
     push ds
     push es
@@ -606,6 +622,7 @@ irq12_entry:
 extern selftest_report_c       ; void selftest_report_c(void)
 global isr_selftest
 isr_selftest:
+    cld
     pushad
     push ds
     push es

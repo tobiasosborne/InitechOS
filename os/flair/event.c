@@ -29,8 +29,8 @@
  * ISR context  -> flair_raw_post(ring, raw)  -- enqueue ONLY; never Toolbox.
  *             + flair_tick_advance()          -- increment tick counter ONLY.
  * Task context -> WaitNextEvent / GetNextEvent -- drain ring, synthesize,
- *                 filter, deliver. The two contexts are mutually exclusive
- *                 by cooperative scheduling (ADR-0004 D-6 / C-5).
+ *                 filter, deliver. An ISR can interrupt the pump between
+ *                 instructions; interrupt gates serialize the producers.
  *
  * SCANCODE -> ASCII (minimal table)
  * ----------------------------------
@@ -197,13 +197,14 @@ void flair_event_init(flair_raw_ring_t *ring)
  *
  * X86 SINGLE-CORE ATOMICITY:
  *   On the 386+ cooperative desktop (ADR-0004 D-6 / C-5), a single-core ISR
- *   and the pump are mutually exclusive by construction (ISR suspends the pump;
- *   the pump cannot be interrupted mid-operation by the same ISR on one core).
+ *   and the pump cannot execute simultaneously: an ISR suspends the pump.
+ *   The pump can be interrupted partway through a copy, so the slot must be
+ *   fully copied before publishing head or releasing tail for reuse.
  *   The volatile qualifiers on head/tail ensure the compiler emits actual
  *   memory reads rather than caching the value in a register across the
- *   ISR/pump boundary -- which is the only hazard on a single cooperative CPU.
- *   (A multi-core port would need explicit memory barriers; that is out of
- *   scope -- ADR-0004 D-6 cooperative, non-SMP target.)
+ *   ISR/pump boundary. Empty volatile asm with a memory clobber orders the
+ *   ordinary slot copy against those index accesses under optimization.
+ *   No CPU fence is needed on this single x86 core (round-2 policy Sec 4).
  *
  * FULL-RING: drop + increment drop_count (Rule 2 -- defined, non-silent
  * failure; see event.h Sec 1 rationale). Returns 0 (dropped) or 1 (queued).
@@ -229,10 +230,11 @@ int flair_raw_post(flair_raw_ring_t *ring, const flair_raw_event_t *raw)
     }
 
     /* Write the slot at the masked head index, then advance head (unmasked). */
+    __asm__ __volatile__("" ::: "memory");
     ring->slots[h & FLAIR_RAW_RING_MASK] = *raw;
 
-    /* Volatile store: compiler must not hoist head update above slot write
-     * (the sole ordering hazard on single-core cooperative x86; see header). */
+    /* Publish only after the entire non-volatile slot has been written. */
+    __asm__ __volatile__("" ::: "memory");
     ring->head = h + 1u;
 
     return 1;   /* successfully enqueued */
@@ -322,12 +324,8 @@ static const uint8_t sc_shifted[128] = {
 /* Which physical modifier a (make, extended) pair names, or 0. The keyboard's
  * own "fake shifts" (E0 2A / E0 AA, E0 36 / E0 B6), which bracket the grey
  * cursor keys, name no key and return 0 (OSDev "PS/2 Keyboard" set 1). */
-/* Pure/task-owned synthesis only; publication and drain stay at -O0.
- * Ref: spec/event_model.h Sec 5, the SPSC contract above; native boundary gate. */
-#ifdef KERNEL_PURE_DECODE_OZ
-#pragma GCC push_options
-#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
-#endif
+/* Whole-object native optimization follows the explicit SPSC barriers above.
+ * Ref: spec/event_model.h Sec 5; round-2 policy Sec 4; native boundary gate. */
 static uint8_t kbd_modifier_bit(uint8_t make, int ext)
 {
     switch (make) {
@@ -385,9 +383,6 @@ static int16_t clamp_coord(int16_t cur, int8_t delta, int16_t max)
  * drain_one -- pop one raw record from the ring. Returns 1 if a record was
  * popped (written to *out), 0 if the ring was empty.
  */
-#ifdef KERNEL_PURE_DECODE_OZ
-#pragma GCC pop_options
-#endif
 static int drain_one(flair_raw_ring_t *ring, flair_raw_event_t *out)
 {
 #ifndef EVENT_MUT_SILENT_DROP
@@ -400,7 +395,11 @@ static int drain_one(flair_raw_ring_t *ring, flair_raw_event_t *out)
     h = ring->head;   /* volatile read -- see consumer note above */
     t = ring->tail;
     if (h == t) return 0;   /* empty */
+    /* Acquire the published slot, then finish the copy before allowing the
+     * ISR to reuse it. Volatile head/tail alone do not order ordinary memory. */
+    __asm__ __volatile__("" ::: "memory");
     *out = ring->slots[t & FLAIR_RAW_RING_MASK];
+    __asm__ __volatile__("" ::: "memory");
     ring->tail = t + 1u;   /* unmasked increment; mask applied only on slot access */
     return 1;
 }
@@ -421,10 +420,6 @@ static int drain_one(flair_raw_ring_t *ring, flair_raw_event_t *out)
  *     deltas. The `where` field in mouse events remains stale. Makes the
  *     replay oracle go RED because expected cursor positions are wrong.
  */
-#ifdef KERNEL_PURE_DECODE_OZ
-#pragma GCC push_options
-#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
-#endif
 static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
 {
     uint16_t what = (uint16_t)nullEvent;
@@ -645,9 +640,6 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
  * 7. GetNextEvent -- non-blocking, single drain (MTE Ch 2 p. 2-26)
  * ===========================================================================*/
 
-#ifdef KERNEL_PURE_DECODE_OZ
-#pragma GCC pop_options
-#endif
 int GetNextEvent(flair_raw_ring_t *ring,
                  uint16_t eventMask,
                  EventRecord *theEvent)

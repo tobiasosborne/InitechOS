@@ -69,19 +69,24 @@ static inline void panic_screen_lines(volatile uint8_t *lfb, uint32_t pitch,
 #ifdef PANIC_MUTATE_NO_8BPP
     if (bpp==8u) return;
 #endif
+    /* Every supported black pixel is all zero bytes. Clear exactly the
+     * visible bytes; the pitch guard above bounds w*bytes and preserves padding.
+     * Ref: PRD Sec 5; round-8 size policy Part 2. */
     for (uint32_t y=0;y<h;y++)
-        for (uint32_t x=0;x<w;x++)
-            panic_pixel(lfb+y*pitch+x*bytes,bpp,0);
+        for (uint32_t x=0;x<w*bytes;x++)
+            lfb[y*pitch+x]=0;
     for (uint32_t line=0;line<(subject ? 3u : 2u);line++) {
         const char *text=line==2u ? subject : line ? status : "PC LOAD LETTER";
-        uint32_t scale=line ? 1u : 2u;
+        /* The only scales are 1 and 2: unsigned division is exactly a shift. */
+        uint32_t shift=line ? 0u : 1u;
+        uint32_t scale=1u<<shift;
         panic_origin_t p=panic_origin(w,h,text,scale,line ? 1u : 0u);
         if (line==2u) p.y+=24u;
         for (uint32_t i=0;text[i];i++)
             for (uint32_t y=0;y<16u*scale;y++)
                 for (uint32_t x=0;x<8u*scale;x++)
                     if (p.y+y<h && p.x+i*8u*scale+x<w &&
-                        (font[(uint8_t)text[i]*16u+y/scale] & (128u>>(x/scale))))
+                        (font[(uint8_t)text[i]*16u+(y>>shift)] & (128u>>(x>>shift))))
                         panic_pixel(lfb+(p.y+y)*pitch+
                                     (p.x+i*8u*scale+x)*bytes,bpp,1);
     }

@@ -36,14 +36,12 @@
  * Makefile edit (CLAUDE.md scope: do not touch the Makefile; Law 3 artifact = C).
  * mz.c is pure + freestanding (-ffreestanding, <stdint.h> only), so inlining it
  * here is identical to compiling it as a peer object. */
-/* Only validation/layout code below is optimized. The resume/stack-switch
- * region retains its original -O0 policy. Ref: ADR-0003 DEC-08a.1-.5;
+/* The complete object joins the kernel-only cold optimization set after the
+ * full GPR/context audit (round 8 part 2). The final ELF transfer check and
+ * the EXEC family grade the non-local transfer under the actual LTO link.
+ * Ref: ADR-0003 DEC-08a.1-.5;
  * docs/design/kernel-size-policy-round2.md Sec 4 (loader_run_plan hazard).
  * The house macro defines this identically for every kernel that links us. */
-#ifdef KERNEL_VALIDATE_OZ
-#pragma GCC push_options
-#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
-#endif
 #include "mz.c"
 
 /* Host-visible bookkeeping used by the real transfer path; IBM DOS 3.30 TR
@@ -594,9 +592,6 @@ loader_status_t loader_prepare_tenant(uint8_t *block, uint32_t block_len,
  * oracle never calls the asm path.
  * ------------------------------------------------------------------------ */
 
-#ifdef KERNEL_VALIDATE_OZ
-#pragma GCC pop_options
-#endif
 #if defined(__STDC_HOSTED__) && __STDC_HOSTED__
 
 /* Hosted stub: validate only; do NOT touch the (host's) absolute addresses or
@@ -1017,18 +1012,18 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * parent_exit is restored on return (IBM DOS 3.30 TR pp. 6-196/200). */
     int21_set_exit(loader_exit_hook);
 
-    /* Pin the three transfer targets into plain locals so the asm can reference
-     * them as MEMORY operands -- i386 has too few registers to carry entry +
-     * stack_top + psp_addr in registers alongside the GPR clobbers (the asm
-     * would over-constrain). EAX is the only scratch register the asm needs. */
+    /* Keep entry and stack_top in memory; constrain the PSP pointer to EBX.
+     * GCC then preserves the caller's EBX and cannot use it as an unrelated
+     * address base that an undeclared in-asm EBX write would invalidate. */
     const uint32_t entry_eip = plan.entry;
     const uint32_t stack_top = plan.stack_top;
     const uint32_t psp_ptr   = plan.psp_addr;
 
-    /* The asm: capture ESP/EBP/EBX + a return label into ctx, switch to the
-     * program stack, load EBX = PSP_ADDR (the program's pointer to its own PSP,
+    /* The asm: capture ESP and all callee-saved GPRs plus a return label, then
+     * switch to the
+     * program stack, with EBX = PSP_ADDR (the program's pointer to its own PSP,
      * Sec 3.3), and JMP (not CALL -- Sec 4.3) to the program entry. When the
-     * program terminates, loader_exit_hook restores ESP/EBP/EBX and jumps to the
+     * program terminates, loader_exit_hook restores ESP/EBP/EBX/ESI/EDI and jumps to the
      * 1: label, landing us right after this block with ctx.exit_code set.
      *
      * Order matters (bcg.10): every MEMORY operand must be read while ESP still
@@ -1040,24 +1035,29 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * (the program does not rely on it; it previously held &1f anyway). The very
      * last instruction before the jmp is the ESP switch, whose source (stack_top)
      * is read with the kernel ESP still live. "memory" tells GCC the asm
-     * reads/writes memory across the non-local flow. */
+     * reads/writes memory across the non-local flow. ESI/EDI are preserved by
+     * the context (offsets asserted above); the child may destroy ECX/EDX as
+     * well as EAX, so all three caller-saved registers must be clobbers even
+     * though this entry sequence itself only uses EAX. Ref: round-2 Sec 4. */
     __asm__ __volatile__(
         "mov %%esp, %0\n\t"          /* ctx.saved_esp = current kernel ESP        */
         "mov %%ebp, %1\n\t"          /* ctx.saved_ebp = current frame base        */
-        "mov %%ebx, %2\n\t"          /* ctx.saved_ebx = current EBX               */
+        "mov %%ebx, %2\n\t"          /* save the constrained PSP input in EBX     */
         "lea 1f, %%eax\n\t"          /* EAX = address of the return label (1:)    */
         "mov %%eax, %3\n\t"          /* ctx.return_eip = &1f                      */
         "mov %%esi, %4\n\t"
         "mov %%edi, %5\n\t"
         "mov %6, %%eax\n\t"          /* EAX = entry_eip, read BEFORE the switch    */
-        "mov %7, %%ebx\n\t"          /* EBX = PSP_ADDR (program's PSP pointer)    */
         "mov %8, %%esp\n\t"          /* switch to the program stack top (LAST)    */
         "jmp *%%eax\n\t"             /* JMP via REGISTER (no post-switch mem read) */
         "1:\n\t"                     /* <- loader_exit_hook jumps back here       */
+        /* Intel SDM Vol. 1 "DF Flag" / 8086 convention: a non-local return
+         * from the child's INT 21h bypasses IRET; C requires forward strings. */
+        "cld\n\t"
         : "=m"(ctx.saved_esp), "=m"(ctx.saved_ebp), "=m"(ctx.saved_ebx),
           "=m"(ctx.return_eip), "=m"(ctx.saved_esi), "=m"(ctx.saved_edi)
-        : "m"(entry_eip), "m"(psp_ptr), "m"(stack_top)
-        : "eax", "cc", "memory");
+        : "m"(entry_eip), "b"(psp_ptr), "m"(stack_top)
+        : "eax", "ecx", "edx", "cc", "memory");
 
     /* Resume the immediate caller's frame, PSP, hook and directory state.
      * Neither nested termination path may force a kernel-context rebind. */
@@ -1477,10 +1477,6 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
  * later class-2 text-tenant EXEC (ADR-0013 Sec 3.2). The carve goes through the
  * caller's callback so this object never learns about the FLAIR heap.
  * ------------------------------------------------------------------------ */
-#ifdef KERNEL_VALIDATE_OZ
-#pragma GCC push_options
-#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
-#endif
 loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
                                    loader_carve_fn carve, void *user,
                                    void **out_block, tenant_plan_t *out)
@@ -1565,7 +1561,4 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
     return st;
 }
 
-#ifdef KERNEL_VALIDATE_OZ
-#pragma GCC pop_options
-#endif
 #endif /* freestanding vs hosted */
