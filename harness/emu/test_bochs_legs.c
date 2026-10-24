@@ -51,6 +51,10 @@ static const struct leg legs[] = {
       "FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK DESKTOP-DB-CREATE TRASH-CREATE " "FLAIR-DESKTOP FLAIR-LIVE-READY !PANIC" },
     { "flair-trash-window", "build/flair_tenants.img", DATA, "FLAIR-LIVE-READY", "vbe101",
       "FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK DESKTOP-DB-CREATE TRASH-CREATE " "FLAIR-DESKTOP FLAIR-LIVE-READY !PANIC" },
+    /* initech-buze: the R3.2 DesktopMgr leg, re-keyed from the dead ENOMODE
+     * claim to the flagship on the pristine volume (+ its pixel twin, PIXEL). */
+    { "flair-desktop-icons", "build/flair_tenants.img", DATA, "FLAIR-LIVE-READY", "vbe101",
+      "FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK DESKTOP-DB-CREATE TRASH-CREATE " "FLAIR-DESKTOP FLAIR-LIVE-READY !PANIC" },
     { "flair-alert-chrome", "build/flair_tenants_mut_i123_file_gate.img",
       "build/flair_i123_quit_fixture.img", "FLAIR-LIVE-READY", "vbe101", FLAIR_CHECKS },
     FLAIR("trash-hidden-emu"),
@@ -187,6 +191,17 @@ int main(int argc, char **argv)
         if (strcmp(l->name, "flair-desktop-8bpp") == 0)
             require(strcmp(l->video, "vbe101pad") == 0 && strstr(body, " vbe101pad FLAIR-HEAP-OK"),
                     "DAC", target);
+        /* PIXEL: a leg whose Bochs frame is graded against the QEMU golden
+         * keeps its pixel twin as a prerequisite (the boot leg alone cannot
+         * see a wrong desktop). The prerequisites are the stanza's first line. */
+        if (strcmp(l->name, "flair-desktop-8bpp") == 0 || strcmp(l->name, "flair-desktop-icons") == 0) {
+            char *first = strchr(body, '\n');
+            snprintf(needle, sizeof needle, " %s-pixel", target);
+            if (first) *first = 0;
+            int ok = strstr(body, needle) != NULL;
+            if (first) *first = '\n';
+            require(ok, "PIXEL", target);
+        }
         /* BOUNDARY: the completion line is both the harness --expect and its
          * --quit-after, and the ONE checker gets the leg's exact checks. */
         snprintf(needle, sizeof needle, "--expect %s --quit-after %s ", l->end, l->end);
@@ -211,6 +226,6 @@ int main(int argc, char **argv)
         free(body);
     }
     free(v); free(db);
-    printf("GREEN test-bochs-legs: %zu named boot legs; vector, images, boundaries, video paths, the padded DAC row\n", count);
+    printf("GREEN test-bochs-legs: %zu named boot legs; vector, images, boundaries, video paths, the padded DAC row, the pixel twins\n", count);
     return 0;
 }

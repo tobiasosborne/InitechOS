@@ -163,6 +163,37 @@ endif
 test-flair-desktop-8bpp-bochs: test-flair-desktop-8bpp-bochs-pixel
 TEST_EMU_GATES += test-flair-desktop-8bpp-bochs-mutant
 
+# initech-buze: the R3.2 DesktopMgr leg (bead initech-tdnl.9), re-keyed from the
+# dead pre-WL-0170 claim (VBE-ENOMODE -> mode 13h -> the 640x480 guard PANIC ->
+# HALTED; on the stock ROM it timed out at 45 s waiting for HALTED). The boot leg
+# boots $(FLAIRTENANTS_IMG) on a scratch copy of the PRISTINE $(FLAIR_DATA_IMG)
+# (profile flairdb: the Finder's DESKTOP.DB + \TRASH bootstrap is part of the
+# R3.2 boot). The pixel twin grades the presented desktop at the tenants-ready
+# line against the QEMU 32bpp capture of the SAME image + data bytes + RTC (EXACT
+# + RFB BGR233), requires FINDER-DESKTOP-ICONS n=2 on the Bochs serial, and runs
+# the R3.2 grader leg DEFAULT (ppm_flair_desktop_icons_check: both icon cells
+# against the mint-008 captures + label-band and bare-teal probes, independent
+# of both emulators) on Bochs's own lossless snapshot. No input is
+# replayed on Bochs: select / marquee / open / drag+persist stay on QEMU
+# (test-flair-desktop-icons + -mutant).
+$(eval $(call bochs-flair-leg,flair-desktop-icons,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flairdb,))
+FLAIR_DI_BOCHS_SNAP := $(BUILD)/bochs-pixel/flair_desktop_icons-bochs.snap.ppm
+.PHONY: test-flair-desktop-icons-bochs-pixel
+ifeq ($(SKIP_BOCHS),1)
+test-flair-desktop-icons-bochs-pixel:
+	@printf '!!! %s SKIPPED (SKIP_BOCHS=1 opt-out): the Bochs pixel grade was NOT run\n' "$@"
+else
+test-flair-desktop-icons-bochs-pixel: $(BOCHS_PIXEL_DEPS) $(PPM_FLAIR_DESKICONS_CHECK_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
+	@$(call bochs-pixel-leg,flair_desktop_icons,$(FLAIRTENANTS_IMG),$(FLAIRTENANTS_IMG),$(FLAIR_GATE_DATA),$(BOCHS_PIXEL_TENANTS_LINE))
+	@sh harness/emu/bochs_leg_check.sh test-flair-desktop-icons-bochs-pixel $(BUILD)/bochs-pixel/flair_desktop_icons-bochs.report $(BUILD)/bochs-pixel/flair_desktop_icons-bochs.serial vbe101 FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK DESKTOP-DB-CREATE TRASH-CREATE FLAIR-DESKTOP 'FINDER-DESKTOP-ICONS n=2' '$(BOCHS_PIXEL_TENANTS_LINE)' !PANIC
+	@$(PPM_FLAIR_DESKICONS_CHECK_BIN) default $(FLAIR_DI_BOCHS_SNAP) \
+		|| { printf '!!! test-flair-desktop-icons-bochs-pixel FAIL: the Bochs desktop does not carry both icon strikes\n'; exit 1; }
+endif
+test-flair-desktop-icons-bochs: test-flair-desktop-icons-bochs-pixel
+
 # WL-0170: the FORCED mode-13h legs. The stock ROM takes 0101h, so the VGA13
 # floor and the VBE-ENOMODE / VBE-E00 fallbacks are graded on two real period
 # video configurations: an ISA Cirrus (VBE without LFB) and a plain VGA.

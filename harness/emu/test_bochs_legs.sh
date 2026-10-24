@@ -15,7 +15,7 @@ database() {
 database Makefile "$work/legs.make-db"
 "$build/test_bochs_legs" "$work/legs.make-db"
 [ "$mode" = mutants ] || exit 0
-for rule in MISSING VECTOR IMAGE BOUNDARY VIDEO DAC SAMIR; do
+for rule in MISSING VECTOR IMAGE BOUNDARY VIDEO DAC PIXEL SAMIR; do
     source=harness/bochs_legs.mk
     [ "$rule" != SAMIR ] || source=harness/samir_boot_bochs.mk
     case $rule in
@@ -27,6 +27,8 @@ for rule in MISSING VECTOR IMAGE BOUNDARY VIDEO DAC SAMIR; do
     VIDEO) sed 's/^BOCHS_LEG_VIDEO_vga13 := .*$/BOCHS_LEG_VIDEO_vga13 :=/' harness/bochs_legs.mk ;;
     # The VESA8 flagship leg stops grading the 648-pixel padded scanline.
     DAC) sed 's/,$(FLAIR_DATA_IMG),flair,vbe101pad))$/,$(FLAIR_DATA_IMG),flair))/' harness/bochs_legs.mk ;;
+    # The R3.2 icons leg drops its pixel twin (boot-only again).
+    PIXEL) sed '/^test-flair-desktop-icons-bochs: test-flair-desktop-icons-bochs-pixel$/d' harness/bochs_legs.mk ;;
     # The S8.2 leg must drive SAMIR, not certify only SHELL-READY.
     SAMIR) sed '/--keys "$(SAMIRBOOT_SCRN_KEYS)" --keys-after SHELL-READY/d' "$source" ;;
     esac > "$work/$rule.mk"
@@ -40,4 +42,4 @@ for rule in MISSING VECTOR IMAGE BOUNDARY VIDEO DAC SAMIR; do
     printf 'BOCHS_LEGS_%s: ' "$rule"
     cat "$work/$rule.log"
 done
-echo 'GREEN test-bochs-legs-mutant: all seven factory wiring mutants caught'
+echo 'GREEN test-bochs-legs-mutant: all eight factory wiring mutants caught'
