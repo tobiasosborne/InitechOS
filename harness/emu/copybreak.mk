@@ -34,7 +34,7 @@ RECORD_MARKER_copybreak = DA-LOADED SCRAPBK.DAT
 RECORD_SETTLE_copybreak = 400
 
 $(BUILD)/kbd_copybreak_leak.o: $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h spec/tsr_contract.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) -DKBD_MUT_DUAL_RING -I$(KERNEL_DIR) -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) -DKBD_MUT_DUAL_RING -I$(KERNEL_DIR) -c $< -o $@
 $(BUILD)/kernel_copybreak_leak.elf: $(filter-out $(KERNEL_KBD_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_iword_gate.o $(BUILD)/kbd_copybreak_leak.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD)
 	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_KBD_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_iword_gate.o $(BUILD)/kbd_copybreak_leak.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_copybreak_leak.bin: $(BUILD)/kernel_copybreak_leak.elf
@@ -46,7 +46,7 @@ $(BUILD)/copybreak_leak.img: $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/ker
 	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_copybreak_leak.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_copybreak_leak.bin
 
 $(BUILD)/test_kbd_dual_ring: $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_DUAL_RING -I$(MILTON_DIR) -Iseed -o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
+	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_DUAL_RING -I$(MILTON_DIR) -Iseed -o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
 $(BUILD)/test_conin_dual_ring: $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_DUAL_RING -Ispec -I$(MILTON_DIR) -Iseed -Ibuild -o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
 $(BUILD)/test_conin_owner_pb: $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS)

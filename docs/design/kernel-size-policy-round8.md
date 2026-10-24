@@ -208,3 +208,21 @@ mutants, no-drive-emu (+mutant), fs, block-device-emu (+mutant). Rule-11 hashes:
 >>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 eb00fa63d35d89c7f79a90c90f4189fe87551e0a71a3e805a0bcfadd1f6bfffe)
 >>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 ad0c090a1a5bb3c7900ebed1801d4f3819dbe27e09d80cc5f241e32fe77e4f38)
 ```
+
+Keyboard (3b): volatile head/tail keep their existing layout. Acquire/publish
+barriers cover ordinary ring slots and the extended-key two-byte pair, and
+memory clobbers keep the consumer inside CLI/STI. Port reads remain volatile;
+the 16-read drain is unchanged. Whole native -Os retains no strict aliasing
+and frame-pointer omission; the prior Set-1 -Oz subpolicy remains. Every
+kernel/host keyboard mutant uses the same policy. Native boundary sections
+are now compared against the actual event.o/kbd.o kernel objects.
+
+Flagship 181524 -> 181076 B (-448). All 36 command invocations in lever3b/status
+pass: the common 23 plus kbd-unit (+mutant), j1lu-kbd-mutant, an extra native
+boundary check, conkeys (+emu-mutant), tsr (+mutant), flair-modifier-release
+(+mutant), input-owner-mutant, flair-copybreak (+mutant). Rule-11 hashes:
+
+```text
+>>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 552527fad847073cf84533a2f61887f24ee5b94f271378101eb3b43236571967)
+>>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 1b2d192f7443d98b2ff6804f68ed604d88857e4e1890bae607198ad4928dfe2d)
+```

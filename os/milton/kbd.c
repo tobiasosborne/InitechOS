@@ -51,14 +51,15 @@ int kbd_ring_empty(const kbd_ring_t *r)
 
 int kbd_ring_put(kbd_ring_t *r, uint8_t c)
 {
+    uint16_t head = r->head;
 #ifdef KBD_MUTATE_RING_OFFBYONE
     /* MUTANT (CLAUDE.md Rule 6; defined only by `make test-kbd-unit-mutant`):
      * compute the wrapped next index WITHOUT the +1, so a full ring is never
      * detected and the wrap overwrites unread data -- the ring oracle must go
      * RED. NEVER define this in a real build. */
-    uint16_t next = (uint16_t)(r->head & (KBD_RING_CAP - 1u));
+    uint16_t next = (uint16_t)(head & (KBD_RING_CAP - 1u));
 #else
-    uint16_t next = (uint16_t)((r->head + 1u) & (KBD_RING_CAP - 1u));
+    uint16_t next = (uint16_t)((head + 1u) & (KBD_RING_CAP - 1u));
 #endif
     if (next == r->tail) {
         if (r->dropped == 0) r->dropped = 1; /* ISR records, task reports. */
@@ -66,7 +67,10 @@ int kbd_ring_put(kbd_ring_t *r, uint8_t c)
          * Rule 2 fail-loud applies to invariant violations, not lost input). */
         return 0;
     }
-    r->buf[r->head] = c;
+    /* Round-2 Sec 4: volatile indices do not order ordinary slot memory. */
+    __asm__ __volatile__("" ::: "memory");
+    r->buf[head] = c;
+    __asm__ __volatile__("" ::: "memory");
     r->head = next;
     return 1;
 }
@@ -79,11 +83,14 @@ int kbd_ring_get(kbd_ring_t *r, uint8_t *out)
         RING_REPORT("KBD-RING-DROP\n");
     }
 #endif
-    if (r->head == r->tail) {
+    uint16_t head = r->head, tail = r->tail;
+    if (head == tail) {
         return 0; /* empty */
     }
-    *out = r->buf[r->tail];
-    r->tail = (uint16_t)((r->tail + 1u) & (KBD_RING_CAP - 1u));
+    __asm__ __volatile__("" ::: "memory");
+    *out = r->buf[tail];
+    __asm__ __volatile__("" ::: "memory");
+    r->tail = (uint16_t)((tail + 1u) & (KBD_RING_CAP - 1u));
     return 1;
 }
 
@@ -121,7 +128,7 @@ static const char SC1_SHIFT[0x3A] = {
     /* 0x38 */ 0,    ' '
 };
 
-/* Pure Set-1 decoder; the ring and IRQ publication retain native -O0 bytes.
+/* Pure Set-1 decoder retains its measured -Oz policy within native -Os.
  * Ref: kbd.h Set-1 contract; test-kernel-native-boundaries. */
 #ifdef KERNEL_PURE_DECODE_OZ
 #pragma GCC push_options
@@ -286,11 +293,14 @@ void kbd_scancode_put(kbd_ring_t *ring, kbd_state_t *state, uint8_t sc)
 #ifdef KBD_MUT_DROP_EXTENDED
         return; /* Rule 6: restore the pre-template lost-function-key path. */
 #endif
-        uint16_t next = (uint16_t)((ring->head + 1u) & (KBD_RING_CAP - 1u));
+        uint16_t head = ring->head;
+        uint16_t next = (uint16_t)((head + 1u) & (KBD_RING_CAP - 1u));
         uint16_t end = (uint16_t)((next + 1u) & (KBD_RING_CAP - 1u));
         if (next != ring->tail && end != ring->tail) {
-            ring->buf[ring->head] = 0;
+            __asm__ __volatile__("" ::: "memory");
+            ring->buf[head] = 0;
             ring->buf[next] = sc;
+            __asm__ __volatile__("" ::: "memory");
             ring->head = end;
         } else if (ring->dropped == 0) {
             ring->dropped = 1; /* Task context reports the lost pair once. */
@@ -412,9 +422,9 @@ int kbd_haschar(void)
     /* Brief critical section: stop IRQ1 from advancing head mid-read. The
      * cooperative model has a single consumer, so this only guards the index
      * read against a torn producer update. */
-    __asm__ __volatile__("cli");
+    __asm__ __volatile__("cli" ::: "memory");
     has = !kbd_ring_empty(&g_input.cooked);
-    __asm__ __volatile__("sti");
+    __asm__ __volatile__("sti" ::: "memory");
     return has;
 }
 
@@ -422,8 +432,8 @@ int kbd_getchar(void)
 {
     uint8_t c;
     int got;
-    __asm__ __volatile__("cli");
+    __asm__ __volatile__("cli" ::: "memory");
     got = kbd_ring_get(&g_input.cooked, &c);
-    __asm__ __volatile__("sti");
+    __asm__ __volatile__("sti" ::: "memory");
     return got ? (int)c : -1;
 }

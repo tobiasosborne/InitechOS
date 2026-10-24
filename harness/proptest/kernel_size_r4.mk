@@ -106,9 +106,9 @@ test-chicago-pack-mutant: test-chicago-pack
 	@printf '>>> test-chicago-pack-mutant: green (packed_row RED)\n'
 TEST_UNIT_GATES += test-chicago-pack test-chicago-pack-mutant
 
-# Compile both policies from the SAME source, then prove the load-bearing
-# producer/consumer/assembly boundaries retain their audited native policy.
-# Round 8 part 2: event matches audited native -Oz; keyboard remains -O0.
+# Compile a reference with the audited native policy, then compare the
+# load-bearing producer/consumer sections to the actual kernel objects.
+# Round 8 part 2: event matches native -Oz; keyboard matches native -Os.
 # The loader joins cold LTO after its context/clobber audit; check the actual
 # final ELF save/restore/stack-switch sequence instead of assuming -O0 bytes.
 # This is a boundary check, not the semantic oracle (the injected gates and
@@ -130,9 +130,9 @@ endef
 test-kernel-native-boundaries: $(KERNEL_FLAIRTENANTS_ELF) | $(KERNEL_R4_DIR)
 	@set -eu; for unit in kbd event; do \
 		case $$unit in event) src=os/flair/event.c;; *) src=os/milton/$$unit.c;; esac; \
-		flags=; case $$unit in event) flags='$(KERNEL_EVENT_OPT)';; esac; \
+		flags=; case $$unit in event) flags='$(KERNEL_EVENT_OPT)';; kbd) flags='$(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS)';; esac; \
 		$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $$flags -Ispec -Ios/milton -Ios/flair -c $$src -o $(KERNEL_R4_DIR)/native-$$unit.o; \
-		$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $$flags $(KERNEL_PURE_DECODE_FLAGS) -Ispec -Ios/milton -Ios/flair -c $$src -o $(KERNEL_R4_DIR)/selected-$$unit.o; \
+		cp -f $(BUILD)/$$unit.o $(KERNEL_R4_DIR)/selected-$$unit.o; \
 	done
 	@set -eu; $(call kernel-native-boundary-grade,selected)
 	@set -eu; for src in $(TEST_LOADER_SRC) $(TEST_MZLOAD_SRC) $(TEST_TENANT_LOAD_SRC); do \
@@ -141,7 +141,7 @@ test-kernel-native-boundaries: $(KERNEL_FLAIRTENANTS_ELF) | $(KERNEL_R4_DIR)
 	done
 	$(CC) $(CFLAGS) $(KERNEL_EVENT_OPT) $(EVENT_INC) $(TEST_EVENT_SRC) os/flair/event.c -o $(KERNEL_R4_DIR)/event-model
 	@$(KERNEL_R4_DIR)/event-model
-	$(CC) $(CFLAGS) $(KERNEL_PURE_DECODE_FLAGS) -Ios/milton -Iseed $(TEST_KBD_SRC) $(TEST_KBD_DEPS) -o $(KERNEL_R4_DIR)/kbd-model
+	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) -Ios/milton -Iseed $(TEST_KBD_SRC) $(TEST_KBD_DEPS) -o $(KERNEL_R4_DIR)/kbd-model
 	@$(KERNEL_R4_DIR)/kbd-model
 	@sh harness/proptest/kernel_transfer_check.sh $(KERNEL_FLAIRTENANTS_ELF) $(KERNEL_R4_DIR)/transfer.dis
 	@printf '>>> test-kernel-native-boundaries: green (native event/keyboard policy; final ELF loader context and stack switch; host models)\n'

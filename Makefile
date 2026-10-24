@@ -861,7 +861,7 @@ FLAIR_TEXT_OPT     := -Oz -fomit-frame-pointer -fno-strict-aliasing
 # Round 4 native low-level set: no LTO, no ABI or source ordering change.
 # IO instructions/delay reads are volatile asm; poll budgets remain bounded
 # counters. IDT/PIC setup is init-once; panic/IRQ diagnostics are cold.
-# kbd.c remains -O0 here; event and loader now use their
+# Keyboard/event/loader now use their
 # separately audited round-8-part-2 policy below.
 # Ref: each driver's existing local hardware contract; PRD Sec 5/6.1; WL-0152.
 KERNEL_LOWLEVEL_OPT := -Oz -fomit-frame-pointer -fno-strict-aliasing
@@ -876,6 +876,9 @@ KERNEL_PURE_DECODE_FLAGS := -DKERNEL_PURE_DECODE_OZ
 # Round 8 part 2: explicit acquire/publish compiler barriers protect the raw
 # slot copies. Keep the ISR/pump object native, with its prior aliasing policy.
 KERNEL_EVENT_OPT := -Oz -fno-strict-aliasing -fomit-frame-pointer
+# Round 8 part 2: volatile indices, ordered slot publication and compiler
+# barriers at CLI/STI make the remaining keyboard boundary safe at -Os.
+KERNEL_KBD_OPT := -Os -fno-strict-aliasing -fomit-frame-pointer
 # ROUND 2 (bead initech-opms, 2026-10-15; docs/design/kernel-size-policy-round2.md
 # Sec 3 lever B): the remaining SHARED -O0 objects that are pure logic -- no
 # inline asm that switches stacks, no ISR-shared state, no port-I/O timing --
@@ -5200,27 +5203,27 @@ TEST_KBD_MUT_CAPS  := $(BUILD)/test_kbd_mutant_caps
 TEST_KBD_MUT_EXT   := $(BUILD)/test_kbd_mutant_extended
 
 $(TEST_KBD): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
 
 $(TEST_KBD_MUT_RING): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUTATE_RING_OFFBYONE -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUTATE_RING_OFFBYONE -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
 
 $(TEST_KBD_MUT_TABLE): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUTATE_SCANCODE_TABLE -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUTATE_SCANCODE_TABLE -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
 
 $(TEST_KBD_MUT_SHIFT): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_ONE_SHIFT -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_ONE_SHIFT -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
 
 $(TEST_KBD_MUT_CAPS): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_CAPS_REPEAT -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_CAPS_REPEAT -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
 
 $(TEST_KBD_MUT_EXT): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_DROP_EXTENDED -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_DROP_EXTENDED -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
 
 .PHONY: test-kbd-unit test-kbd-unit-mutant
@@ -8862,7 +8865,7 @@ $(KERNEL_DESKTOP_DB_MUT_SKIP_OBJ): $(KERNEL_DESKTOP_DB_C) $(KERNEL_DIR)/desktop_
 # divisor logic; freestanding here (the IRQ handlers touch I/O ports), hosted
 # there (pure halves only). io.h only -- no -Ispec needed.
 $(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h spec/tsr_contract.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_KBD_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_KBD_C) -o $@
 
 # PS/2 mouse IRQ12 driver (beads initech-5l5z FO-6). io.h only. mouse.o is
 # linked ONLY into the flair_live kernel(s) (isr.o's irq12_entry references
