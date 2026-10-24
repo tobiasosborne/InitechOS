@@ -785,8 +785,10 @@ KERNEL_LTO_SECTION_FLAGS := -ffunction-sections -fdata-sections
 # merged code is smaller. Measured flagship: 182,764 -> 181,900 B (-864 B).
 # Round 8 part 2: use ABI-required global alignment in the cold set only.
 # Keep out of KERNEL_CFLAGS: TENANT_CFLAGS inherits its cdecl base. Packed
-# layouts, natural type alignment and explicit aligned attributes are checked
-# by test-kernel-data-layout; hot/native objects keep their existing policy.
+# layouts and natural type alignment are unchanged by this option; explicit
+# attributes remain compiler contracts. The former sizeof/_Alignof gate did
+# not test global placement and was removed in review F3. This policy is
+# review-proven only; hot/native objects keep their existing policy.
 KERNEL_COLD_DATA_FLAGS := -malign-data=abi
 KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000 -fno-jump-tables -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_DATA_FLAGS)
 # Round 4 introduced frame-pointer omission on cold/pure C (Ubuntu retains

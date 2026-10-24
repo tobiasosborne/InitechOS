@@ -434,3 +434,47 @@ actual transfer bytes outside the loader symbol; both are RED for their
 intended reasons. The existing wrong-EDI-restore mutant also remains RED.
 Proof: build/ksize8p2-review/f2-before.log, f2.log and f2-mutants.log.
 Flagship remains 180208 B (0 B delta); .text and section sizes are unchanged.
+
+F3: remove the event/keyboard same-source, same-flag byte-comparison leg
+and its -O0 policy mutant. They agree by construction after any shared source
+change, including deletion of the barriers. They are not an ordering oracle.
+The remaining native-boundaries gate checks the real loader transfer and host
+loader/MZ/tenant/event/keyboard models; its real-ELF EDI-restore mutant bites.
+The gate's verdict now states that ring barriers are review-proven only.
+
+Barrier review: event.c flair_raw_post and drain_one read head/tail before
+the first compiler memory barrier, copy the complete slot, then issue the
+second barrier before publishing head/tail. kbd.c kbd_ring_put/get follow
+the same ordering; kbd_scancode_put publishes an extended-key pair only
+after both byte stores, and kbd_haschar/getchar retain CLI/STI memory
+clobbers. Inspection of actual event.o/kbd.o confirms these orders for this
+compiler: event producer REP MOVSL at +0x3d precedes head at +0x40; consumer
+index loads at +0x2a/+0x30 precede REP MOVSL at +0x49 and tail at +0x4c.
+Keyboard put stores slot at +0x24 before head at +0x27; get loads indices
+at +0x1b/+0x1f, slot at +0x2b, then writes tail at +0x34. This is a review
+observation, not an automated emitted-order assertion or mutation proof.
+The host and injected tests do not prove compiler barrier placement.
+
+Remove test-kernel-data-layout, its compile-only fixture and its unrelated
+-fpack-struct mutant. The pre-removal control (f3-old-layout.log) confirms
+that .layout is identical with and without -malign-data=abi: the 22
+sizeof/_Alignof pairs cannot guard the global-placement policy. No global
+alignment gate is claimed in its place. -malign-data=abi remains confined
+to the cold compiler policy; explicit attributes remain compiler contracts.
+The earlier lever-2/3b/4 gate claims above are superseded by this correction.
+
+Proof retained: native-boundaries (+EDI mutant), event (+behavior mutants),
+kbd-unit (+behavior mutants) and makefile-vars are GREEN in f3.log.
+These certify only their stated behavior/transfer contracts. Removing the
+two decorative legs changes no artifact bytes: the post-F3 loaded flagship
+compares byte-identical with F2 at 180208 B (0 B delta).
+
+Review acceptance: all 26 final commands exit 0, including all 18 gates
+requested by the brief, the four DF/transfer proof gates and mutants, and
+four supplemental event/keyboard behavior gates. All 309 kernels retain
+the 4096 B floor. The binding kernel remains 181568 B with 15040 B headroom;
+the flagship is 180208 B with 16400 B headroom and 16 B r4 margin. The
+cap+1 mutant is exactly 180225 B and rejected. Loaded-byte deltas are
+F1 +32 B, F2 0 B, F3 0 B. CODEX-OUT.md records every final command line,
+both clean-rebuild hashes, the mutation failures and the proof limits.
+No Bochs gates, bd commands or pushes were run, per this review's brief.

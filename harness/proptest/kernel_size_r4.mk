@@ -131,35 +131,11 @@ test-chicago-pack-mutant: test-chicago-pack
 	@printf '>>> test-chicago-pack-mutant: green (packed_row RED)\n'
 TEST_UNIT_GATES += test-chicago-pack test-chicago-pack-mutant
 
-# Compile a reference with the audited native policy, then compare the
-# load-bearing producer/consumer sections to the actual kernel objects.
-# Round 8 part 2: event matches native -Oz; keyboard matches native -Os.
-# The loader joins cold LTO after its context/clobber audit; check the actual
-# final ELF save/restore/stack-switch sequence instead of assuming -O0 bytes.
-# This is a boundary check, not the semantic oracle (the injected gates and
-# independent DOS/FAT/pixel checks above remain mandatory).
-define kernel-native-boundary-grade
-for pair in 'event flair_raw_post drain_one GetNextEvent WaitNextEvent' 'kbd kbd_ring_put kbd_ring_get kbd_irq_handler kbd_haschar kbd_getchar'; do \
-	set -- $$pair; unit=$$1; shift; \
-	for fn; do \
-		rm -f $(KERNEL_R4_DIR)/base-section $(KERNEL_R4_DIR)/test-section; \
-		$(OBJCOPY) --dump-section .text.$$fn=$(KERNEL_R4_DIR)/base-section $(KERNEL_R4_DIR)/native-$$unit.o || exit 1; \
-		$(OBJCOPY) --dump-section .text.$$fn=$(KERNEL_R4_DIR)/test-section $(KERNEL_R4_DIR)/$(1)-$$unit.o || exit 1; \
-		test -s $(KERNEL_R4_DIR)/base-section && test -s $(KERNEL_R4_DIR)/test-section || exit 1; \
-		cmp -s $(KERNEL_R4_DIR)/base-section $(KERNEL_R4_DIR)/test-section || { \
-			printf '!!! kernel-native-boundary FAIL: %s changed\n' "$$fn"; exit 1; }; \
-	done; \
-done
-endef
+# Round-8 review F3: same-source/same-flag byte equality cannot prove barrier
+# placement. Keep the independent host models and linked loader contract;
+# ring barriers are review-proven, not gate-proven (see the design document).
 .PHONY: test-kernel-native-boundaries test-kernel-native-boundaries-mutant
 test-kernel-native-boundaries: $(KERNEL_FLAIRTENANTS_ELF) | $(KERNEL_R4_DIR)
-	@set -eu; for unit in kbd event; do \
-		case $$unit in event) src=os/flair/event.c;; *) src=os/milton/$$unit.c;; esac; \
-		flags=; case $$unit in event) flags='$(KERNEL_EVENT_OPT)';; kbd) flags='$(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS)';; esac; \
-		$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $$flags -Ispec -Ios/milton -Ios/flair -c $$src -o $(KERNEL_R4_DIR)/native-$$unit.o; \
-		cp -f $(BUILD)/$$unit.o $(KERNEL_R4_DIR)/selected-$$unit.o; \
-	done
-	@set -eu; $(call kernel-native-boundary-grade,selected)
 	@set -eu; for src in $(TEST_LOADER_SRC) $(TEST_MZLOAD_SRC) $(TEST_TENANT_LOAD_SRC); do \
 		$(CC) $(CFLAGS) -Ispec -Ios/milton -Iseed $$src $(KERNEL_LOADER_C) $(KERNEL_PSP_C) -o $(KERNEL_R4_DIR)/validation-model; \
 		$(KERNEL_R4_DIR)/validation-model; \
@@ -169,15 +145,8 @@ test-kernel-native-boundaries: $(KERNEL_FLAIRTENANTS_ELF) | $(KERNEL_R4_DIR)
 	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) -Ios/milton -Iseed $(TEST_KBD_SRC) $(TEST_KBD_DEPS) -o $(KERNEL_R4_DIR)/kbd-model
 	@$(KERNEL_R4_DIR)/kbd-model
 	@sh harness/proptest/kernel_transfer_check.sh $(KERNEL_FLAIRTENANTS_ELF) $(KERNEL_R4_DIR)/transfer.dis
-	@printf '>>> test-kernel-native-boundaries: green (native event/keyboard policy; final ELF loader context and stack switch; host models)\n'
+	@printf '>>> test-kernel-native-boundaries: green (linked loader transfer; host models; ring barriers review-proven only)\n'
 test-kernel-native-boundaries-mutant: test-kernel-native-boundaries
-	@set -eu; for unit in kbd event; do \
-		case $$unit in event) src=os/flair/event.c;; *) src=os/milton/$$unit.c;; esac; \
-		$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -O0 -Ispec -Ios/milton -Ios/flair -c $$src -o $(KERNEL_R4_DIR)/wrong_native-$$unit.o; \
-	done
-	@if ( $(call kernel-native-boundary-grade,wrong_native) ) >$(KERNEL_R4_DIR)/wrong-native.log 2>&1; then \
-		printf '!!! test-kernel-native-boundaries-mutant FAIL: wrong_native_policy survived\n'; exit 1; fi
-	@grep '^!!! kernel-native-boundary FAIL:' $(KERNEL_R4_DIR)/wrong-native.log
 	@cp -f $(KERNEL_FLAIRTENANTS_ELF) $(KERNEL_R4_DIR)/bad-restore.elf
 	@set -eu; pos=$$(LC_ALL=C grep -abo "$$(printf '\213\130\010\213\150\014\213\160\020\213\170\024\213\040\377\140\004')" $(KERNEL_R4_DIR)/bad-restore.elf | cut -d: -f1); \
 		test "$$(printf '%s\n' "$$pos" | wc -l)" -eq 1; test -n "$$pos"; \
@@ -185,36 +154,11 @@ test-kernel-native-boundaries-mutant: test-kernel-native-boundaries
 	@if sh harness/proptest/kernel_transfer_check.sh $(KERNEL_R4_DIR)/bad-restore.elf $(KERNEL_R4_DIR)/bad-restore.dis >$(KERNEL_R4_DIR)/bad-restore.log 2>&1; then \
 		printf '!!! test-kernel-native-boundaries-mutant FAIL: wrong_edi_restore survived\n'; exit 1; fi
 	@grep '^!!! kernel-transfer FAIL: restore step 4' $(KERNEL_R4_DIR)/bad-restore.log
-	@printf '>>> test-kernel-native-boundaries-mutant: green (wrong_native_policy and wrong_edi_restore RED)\n'
+	@printf '>>> test-kernel-native-boundaries-mutant: green (real ELF wrong_edi_restore RED)\n'
 TEST_UNIT_GATES += test-kernel-native-boundaries test-kernel-native-boundaries-mutant
 
-# Round 8 part 2: data placement may lose cache-oriented padding, while ABI
-# layouts and explicitly requested alignment must remain unchanged. A real
-# packing flag is the counterexample, not a modified expected byte vector.
-KERNEL_LAYOUT_SRC := harness/proptest/kernel_data_layout.c
-KERNEL_LAYOUT_INC := -Ispec -Ios/milton -Ios/flair
-.PHONY: test-kernel-data-layout test-kernel-data-layout-mutant
-test-kernel-data-layout: | $(KERNEL_R4_DIR)
-	@case '$(KERNEL_CFLAGS) $(TENANT_CFLAGS)' in *-malign-data=abi*) \
-		printf '!!! kernel-data-layout FAIL: cold flag leaked to shared/tenant flags\n'; exit 1;; esac
-	@case '$(KERNEL_COLD_DATA_FLAGS)' in -malign-data=abi) :;; *) \
-		printf '!!! kernel-data-layout FAIL: cold ABI alignment policy absent\n'; exit 1;; esac
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LAYOUT_INC) -c $(KERNEL_LAYOUT_SRC) -o $(KERNEL_R4_DIR)/layout-default.o
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_COLD_DATA_FLAGS) $(KERNEL_LAYOUT_INC) -c $(KERNEL_LAYOUT_SRC) -o $(KERNEL_R4_DIR)/layout-abi.o
-	@set -eu; for policy in default abi; do \
-		$(OBJCOPY) --dump-section .layout=$(KERNEL_R4_DIR)/layout-$$policy.bin $(KERNEL_R4_DIR)/layout-$$policy.o; \
-		readelf -SW $(KERNEL_R4_DIR)/layout-$$policy.o | awk '/\.explicit_alignment / && $$NF==16 {found=1} END {exit !found}'; \
-	done
-	@cmp $(KERNEL_R4_DIR)/layout-default.bin $(KERNEL_R4_DIR)/layout-abi.bin
-	@printf '>>> test-kernel-data-layout: green (22 sizeof/alignment pairs equal; explicit align 16 retained; tenant flags isolated)\n'
-test-kernel-data-layout-mutant: test-kernel-data-layout
-	@if LC_ALL=C $(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -fpack-struct=1 $(KERNEL_LAYOUT_INC) -c $(KERNEL_LAYOUT_SRC) -o $(KERNEL_R4_DIR)/layout-packed.o >$(KERNEL_R4_DIR)/layout-packed.log 2>&1; then \
-		$(OBJCOPY) --dump-section .layout=$(KERNEL_R4_DIR)/layout-packed.bin $(KERNEL_R4_DIR)/layout-packed.o; \
-		if cmp -s $(KERNEL_R4_DIR)/layout-default.bin $(KERNEL_R4_DIR)/layout-packed.bin; then \
-			printf '!!! test-kernel-data-layout-mutant FAIL: packed_layout survived\n'; exit 1; fi; \
-	else grep -q 'static assertion failed' $(KERNEL_R4_DIR)/layout-packed.log || { cat $(KERNEL_R4_DIR)/layout-packed.log; exit 1; }; fi
-	@printf '>>> test-kernel-data-layout-mutant: green (packed_layout RED)\n'
-TEST_UNIT_GATES += test-kernel-data-layout test-kernel-data-layout-mutant
+# F3: removed test-kernel-data-layout and its packing mutant. sizeof/_Alignof
+# do not measure -malign-data=abi global placement; no policy oracle is claimed.
 
 $(KERNEL_KMAIN_COLD_OBJ): os/milton/kmain_cold.c os/milton/kmain_cold.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/milton -c $< -o $@
