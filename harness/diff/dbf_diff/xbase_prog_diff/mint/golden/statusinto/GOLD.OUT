@@ -1,0 +1,155 @@
+
+[DML-BEGIN]
+FIELD-INTO
+
+Currently Selected Database: 
+Select area:  1, Database in Use: A:INPUT.dbf   Alias: ONE
+    Related into: TWO
+    Relation: PAINTO 
+
+Select area:  2, Database in Use: A:BASE.dbf   Alias: TWO
+    Master index file:  A:NAMES.ndx  Key: NAME 
+
+Alternate file: A:GOLD.OUT
+File search path:   
+Default disk drive: A:
+Print destination:  PRN:
+Margin =     0
+Current work area =    1
+
+On Error:      ? "MINT-ERROR", ERROR(), MESSAGE()
+ALTERNATE  - ON    DELETED    - OFF   FIXED      - OFF   SAFETY     - OFF   
+BELL       - OFF   DELIMITERS - OFF   HEADING    - ON    SCOREBOARD - ON    
+CARRY      - OFF   DEVICE     - SCRN  HELP       - ON    STATUS     - OFF   
+CATALOG    - OFF   DOHISTORY  - OFF   HISTORY    - ON    STEP       - OFF   
+CENTURY    - OFF   ECHO       - OFF   INTENSITY  - ON    TALK       - OFF   
+CONFIRM    - OFF   ESCAPE     - ON    MENU       - ON    TITLE      - ON    
+CONSOLE    - ON    EXACT      - OFF   PRINT      - OFF   UNIQUE     - OFF   
+DEBUG      - OFF   FIELDS     - OFF   
+
+Programmable function keys:
+F2  - assist;
+F3  - list;
+F4  - dir;
+F5  - display structure;
+F6  - display status;
+F7  - display memory;
+F8  - display;
+F9  - append;
+F10 - edit;
+
+SINGLE-QUOTE-INTO
+
+Currently Selected Database: 
+Select area:  1, Database in Use: A:INPUT.dbf   Alias: ONE
+    Related into: TWO
+    Relation: ' INTO ' + PAINTO 
+
+Select area:  2, Database in Use: A:BASE.dbf   Alias: TWO
+    Master index file:  A:NAMES.ndx  Key: NAME 
+
+Alternate file: A:GOLD.OUT
+File search path:   
+Default disk drive: A:
+Print destination:  PRN:
+Margin =     0
+Current work area =    1
+
+On Error:      ? "MINT-ERROR", ERROR(), MESSAGE()
+ALTERNATE  - ON    DELETED    - OFF   FIXED      - OFF   SAFETY     - OFF   
+BELL       - OFF   DELIMITERS - OFF   HEADING    - ON    SCOREBOARD - ON    
+CARRY      - OFF   DEVICE     - SCRN  HELP       - ON    STATUS     - OFF   
+CATALOG    - OFF   DOHISTORY  - OFF   HISTORY    - ON    STEP       - OFF   
+CENTURY    - OFF   ECHO       - OFF   INTENSITY  - ON    TALK       - OFF   
+CONFIRM    - OFF   ESCAPE     - ON    MENU       - ON    TITLE      - ON    
+CONSOLE    - ON    EXACT      - OFF   PRINT      - OFF   UNIQUE     - OFF   
+DEBUG      - OFF   FIELDS     - OFF   
+
+Programmable function keys:
+F2  - assist;
+F3  - list;
+F4  - dir;
+F5  - display structure;
+F6  - display status;
+F7  - display memory;
+F8  - display;
+F9  - append;
+F10 - edit;
+
+DOUBLE-QUOTE-INTO
+
+Currently Selected Database: 
+Select area:  1, Database in Use: A:INPUT.dbf   Alias: ONE
+    Related into: TWO
+    Relation: " INTO " + PAINTO 
+
+Select area:  2, Database in Use: A:BASE.dbf   Alias: TWO
+    Master index file:  A:NAMES.ndx  Key: NAME 
+
+Alternate file: A:GOLD.OUT
+File search path:   
+Default disk drive: A:
+Print destination:  PRN:
+Margin =     0
+Current work area =    1
+
+On Error:      ? "MINT-ERROR", ERROR(), MESSAGE()
+ALTERNATE  - ON    DELETED    - OFF   FIXED      - OFF   SAFETY     - OFF   
+BELL       - OFF   DELIMITERS - OFF   HEADING    - ON    SCOREBOARD - ON    
+CARRY      - OFF   DEVICE     - SCRN  HELP       - ON    STATUS     - OFF   
+CATALOG    - OFF   DOHISTORY  - OFF   HISTORY    - ON    STEP       - OFF   
+CENTURY    - OFF   ECHO       - OFF   INTENSITY  - ON    TALK       - OFF   
+CONFIRM    - OFF   ESCAPE     - ON    MENU       - ON    TITLE      - ON    
+CONSOLE    - ON    EXACT      - OFF   PRINT      - OFF   UNIQUE     - OFF   
+DEBUG      - OFF   FIELDS     - OFF   
+
+Programmable function keys:
+F2  - assist;
+F3  - list;
+F4  - dir;
+F5  - display structure;
+F6  - display status;
+F7  - display memory;
+F8  - display;
+F9  - append;
+F10 - edit;
+
+BRACKET-INTO
+
+Currently Selected Database: 
+Select area:  1, Database in Use: A:INPUT.dbf   Alias: ONE
+    Related into: TWO
+    Relation: [ INTO ] + PAINTO 
+
+Select area:  2, Database in Use: A:BASE.dbf   Alias: TWO
+    Master index file:  A:NAMES.ndx  Key: NAME 
+
+Alternate file: A:GOLD.OUT
+File search path:   
+Default disk drive: A:
+Print destination:  PRN:
+Margin =     0
+Current work area =    1
+
+On Error:      ? "MINT-ERROR", ERROR(), MESSAGE()
+ALTERNATE  - ON    DELETED    - OFF   FIXED      - OFF   SAFETY     - OFF   
+BELL       - OFF   DELIMITERS - OFF   HEADING    - ON    SCOREBOARD - ON    
+CARRY      - OFF   DEVICE     - SCRN  HELP       - ON    STATUS     - OFF   
+CATALOG    - OFF   DOHISTORY  - OFF   HISTORY    - ON    STEP       - OFF   
+CENTURY    - OFF   ECHO       - OFF   INTENSITY  - ON    TALK       - OFF   
+CONFIRM    - OFF   ESCAPE     - ON    MENU       - ON    TITLE      - ON    
+CONSOLE    - ON    EXACT      - OFF   PRINT      - OFF   UNIQUE     - OFF   
+DEBUG      - OFF   FIELDS     - OFF   
+
+Programmable function keys:
+F2  - assist;
+F3  - list;
+F4  - dir;
+F5  - display structure;
+F6  - display status;
+F7  - display memory;
+F8  - display;
+F9  - append;
+F10 - edit;
+
+[DML-END]

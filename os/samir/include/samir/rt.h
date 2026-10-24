@@ -101,6 +101,16 @@ int rt_kw_word(const char *s, const char *list, int *len);
  */
 int rt_copy_span(char *dst, uint32_t cap, const char *from, const char *to);
 
+/* III+ literal delimiters: single/double quotes or [..]. Start with *quote=0.
+ * Consume one byte; return 1 for literal content AND its opening/closing byte.
+ * The command scanners retain their own whitespace/parenthesis rules. */
+int rt_literal_byte(char c, char *quote);
+
+/* Copy through the next comma outside literals/parentheses, trimming trailing
+ * spaces/tabs. cap excludes the terminating NUL. On success advance *src to
+ * that comma (or NUL) and return length; on overflow return -1. */
+int rt_copy_expr(const char **src, char *dst, uint32_t cap);
+
 /* ---- 2. Julian Day Number (Gregorian calendar, 1900-2155) ---- */
 
 /*
@@ -128,6 +138,11 @@ int32_t jdn_from_ymd(int32_t y, int32_t m, int32_t d);
  * Ref: inverse of the Meeus Gregorian JDN formula.
  */
 void ymd_from_jdn(int32_t jdn, int32_t *y, int32_t *m, int32_t *d);
+
+/* Render a date in the XB_DATE_* picture, returning 8 or 10 bytes (no NUL).
+ * Blank dates retain separators. query selects the query printer's existing
+ * digit/fallback rules; zero preserves DTOC's rules outside normal pictures. */
+uint32_t rt_date_format(double jdn, unsigned fmt, int century, char *out, int query);
 
 /* ---- 3. Decimal formatter / parser ---- */
 

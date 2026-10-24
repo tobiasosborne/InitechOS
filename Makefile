@@ -28611,6 +28611,13 @@ SAMIR_SIZE_CFLAGS += -fno-forward-propagate -fno-shrink-wrap -fno-defer-pop -fno
 # proof. Measured: 99738 -> 98230 B (-1508 B).
 SAMIR_SIZE_CFLAGS += -fno-tree-loop-im -fno-tree-scev-cprop -fno-guess-branch-probability -fno-code-hoisting \
                      -fno-move-loop-invariants -fno-caller-saves --param=max-inline-insns-single=200
+# Inspection size round (initech-f99h): remeasure after folding function
+# preconditions, literal/expression scanners and date formatting. On that
+# 98,185 B image, this set saves 512 B (97,673 B): delay early inlining, allow
+# jump tables for the folded dispatch, and lower the declared-inline ceiling.
+# Override the earlier policy for every TU, mutant and LTO link identically;
+# -march=i386 and the soft-float ABI remain pinned (ADR-0009).
+SAMIR_SIZE_CFLAGS += -fno-early-inlining -fjump-tables --param=max-inline-insns-single=175
 SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
                      -std=c11 -Wall -Wextra -Werror -Oz -flto $(SAMIR_SIZE_CFLAGS) -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
                      -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -I$(SAMIR_INC_DIR) -Ispec
@@ -34554,13 +34561,13 @@ TEST_UNIT_GATES += test-samir-core-diff test-samir-core-diff-mutant
 # RUN (DML-16) is back in the vector (initech-n8q8): the PAL exec seam runs
 # COMMAND.COM /C through the nested EXEC; its mutant SAMIR_DML_MUTANT_run is
 # the RUN_NOEXEC bite (no CR LFs, no child, no VERSION.TXT).
-SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run abbrev abbrscope
+SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run abbrev abbrscope status memory statusinto
 SAMIR_DML_TEST := $(BUILD)/test_samir_dml
 SAMIR_DML_MUTS := $(addprefix $(BUILD)/test_samir_dml_, $(SAMIR_DML_CASES))
 $(SAMIR_DML_TEST): $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLOW_MEMVAR_ARENA=6000 -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
 $(SAMIR_DML_MUTS): $(BUILD)/test_samir_dml_%: $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_DML_MUTANT_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLOW_MEMVAR_ARENA=6000 -DSAMIR_DML_MUTANT_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
 .PHONY: mint-samir-dml test-samir-dml test-samir-dml-mutants test-samir-dml-emu test-samir-dml-emu-mutants
 mint-samir-dml: $(CLIENTS_DBF)
 	@sh $(DBF_DIFF_DIR)/dml_mint.sh $(abspath $(DBASE3_DECOMP))
@@ -34686,9 +34693,29 @@ $(BUILD)/samirdml/.promoted: $(SAMIR_MINT_FILES) | $(BUILD)
 samir-dml-goldens: $(BUILD)/samirdml/.promoted
 	@sha256sum --quiet -c $(DBF_DIFF_DIR)/xbase_prog_diff/dml-goldens.sha256 || { printf 'RED: MINT required or changed: see docs/worklog/samirdml-mint.md\n'; exit 1; }
 	@sha256sum --quiet -c $(PROG_DIFF_DIR)/abbrev-goldens.sha256
+	@sha256sum --quiet -c $(PROG_DIFF_DIR)/inspection-goldens.sha256
 	@printf '>>> samir-dml-goldens: green (real III+ ledger rows pinned)\n'
 $(addprefix test-samir-dml-, $(SAMIR_DML_CASES)): samir-dml-goldens
 $(addsuffix -emu, $(addprefix test-samir-dml-, $(SAMIR_DML_CASES))): samir-dml-goldens
+
+.PHONY: mint-samir-inspection
+mint-samir-inspection: $(CLIENTS_DBF)
+	@cd $(DBASE3_DECOMP)/mint/work && sha256sum --quiet -c $(abspath $(SAMIR_MINT_TREE)/golden/status/reference.sha256)
+	@SAMIR_DML_MINT_DEST="$(abspath $(BUILD)/inspection-remint)" sh $(DBF_DIFF_DIR)/dml_mint.sh $(abspath $(DBASE3_DECOMP)) status memory
+	@for name in status memory; do for f in DMLTEST.PRG GOLD.OUT BASE.DBF MINT.PRG CONFIG.DB; do \
+	 cmp $(BUILD)/inspection-remint/$$name/$$f $(SAMIR_MINT_TREE)/golden/$$name/$$f || exit 1; done; done
+	@for f in SECOND.DBF THIRD.DBF EDGE.DBF EDGE.DBT NAMES.NDX BALS.NDX SECOND.NDX THIRD.NDX; do \
+	 cmp $(BUILD)/inspection-remint/status/$$f $(SAMIR_MINT_TREE)/golden/status/$$f || exit 1; done
+	@printf '>>> mint-samir-inspection: green (isolated III+ rerun reproduces pinned transcripts and files)\n'
+
+# Review regression: independent field/literal INTO relation capture.
+.PHONY: mint-samir-statusinto
+mint-samir-statusinto: $(CLIENTS_DBF)
+	@cd $(DBASE3_DECOMP)/mint/work && sha256sum --quiet -c $(abspath $(SAMIR_MINT_TREE)/golden/statusinto/reference.sha256)
+	@SAMIR_DML_MINT_DEST="$(abspath $(BUILD)/statusinto-remint)" sh $(DBF_DIFF_DIR)/dml_mint.sh $(abspath $(DBASE3_DECOMP)) statusinto
+	@for f in DMLTEST.PRG GOLD.OUT BASE.DBF INPUT.DBF NAMES.NDX MINT.PRG CONFIG.DB; do \
+	 cmp $(BUILD)/statusinto-remint/statusinto/$$f $(SAMIR_MINT_TREE)/golden/statusinto/$$f || exit 1; done
+	@printf '>>> mint-samir-statusinto: green (real III+ field/literal INTO capture reproduced)\n'
 
 # State assertions isolate the implemented dispatch changes from the existing
 # ?/TYPE formatting blocks. They never substitute for the exact differential.

@@ -102,6 +102,7 @@ typedef struct {
 } cap_pal;
 
 static cap_pal g_cap;
+static unsigned inspection_page_keys;
 
 static pal_fd  cap_open (samir_pal_t *p, const char *n, int m) { cap_pal *c=(cap_pal*)p; return c->inner->open(c->inner,n,m); }
 static int     cap_close(samir_pal_t *p, pal_fd fd)           { cap_pal *c=(cap_pal*)p; return c->inner->close(c->inner,fd); }
@@ -130,7 +131,7 @@ static int32_t cap_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
     buf[k] = '\0';
     return (int32_t)k;
 }
-static int32_t cap_conin_char(samir_pal_t *p){ cap_pal *c=(cap_pal*)p; return c->inner->conin_char(c->inner); }
+static int32_t cap_conin_char(samir_pal_t *p){ (void)p;inspection_page_keys++;return ' '; }
 static void    cap_gotoxy(samir_pal_t *p, uint8_t r, uint8_t col){ cap_pal *c=(cap_pal*)p; c->inner->gotoxy(c->inner,r,col); }
 static void    cap_set_attr(samir_pal_t *p, uint8_t a){ cap_pal *c=(cap_pal*)p; c->inner->set_attr(c->inner,a); }
 static void    cap_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd){ cap_pal *c=(cap_pal*)p; c->inner->today(c->inner,yy,mm,dd); }
@@ -455,6 +456,67 @@ static void test_locate_next(samir_pal_t *pal)
 /* ===================================================================== */
 /* main                                                                   */
 /* ===================================================================== */
+/* Using U5-108/146 and the independently minted dml/memory transcript:
+ * retained hidden values are listed, unassigned PRIVATE declarations are not.
+ * Exercise the bounded API itself, not just its presentation. */
+static void test_inspection(samir_pal_t *pal)
+{
+    xb_interp *ip=xb_interp_make(pal);
+    xb_memvar_info mv;
+    unsigned cursor=0,n;
+    xb_val v=xb_c("outer",5),got;
+    CHECK(ip!=NULL,"inspection: interpreter");
+    if(!ip)return;
+    script_reset();script_push("QUIT");cap_clear();
+    CHECK(samir_repl(pal,ip)==0,"inspection: register modules");
+    CHECK(!xb_interp_memvar_next(ip,&cursor,&mv),"inspection: no variables without a table");
+    CHECK(xb_interp_declare_public(ip,"UNSET")==0 &&
+          xb_interp_get_memvar(ip,"UNSET",&got)==0 && got.t==XB_L && !got.u.l,
+          "inspection: PUBLIC starts Logical false (real MEMORY-DECLARED)");
+    xb_interp_release_all(ip);
+    CHECK(xb_interp_declare_public(ip,"SHADOW")==0 && xb_interp_store(ip,"SHADOW",&v)==0,
+          "inspection: public outer value");
+    CHECK(xb_interp_scope_enter(ip)>0 && xb_interp_declare_private(ip,"SHADOW")==0,
+          "inspection: hide public");
+    v=xb_n(123.5);CHECK(xb_interp_store(ip,"SHADOW",&v)==0,"inspection: private value");
+    CHECK(xb_interp_declare_private(ip,"UNSET")==0,"inspection: unassigned private");
+    cursor=0;
+    CHECK(xb_interp_memvar_next(ip,&cursor,&mv) && !strcmp(mv.name,"SHADOW") &&
+          mv.is_public && mv.hidden && mv.value.t==XB_C && mv.value.u.c.len==5,
+          "inspection: hidden public retains its scope/type/size/value");
+    CHECK(xb_interp_memvar_next(ip,&cursor,&mv) && !strcmp(mv.name,"SHADOW") &&
+          !mv.is_public && !mv.hidden && mv.level==1 && mv.value.t==XB_N && mv.value.u.n==123.5,
+          "inspection: visible private scope/type/value");
+    CHECK(!xb_interp_memvar_next(ip,&cursor,&mv) && !xb_interp_memvar_next(ip,&cursor,&mv),
+          "inspection: unassigned private omitted and end stable");
+    CHECK(xb_interp_get_memvar(ip,"SHADOW",&got)==0 && got.t==XB_N && got.u.n==123.5,
+          "inspection: enumeration did not change name resolution");
+    xb_interp_scope_leave(ip);cursor=0;
+    CHECK(xb_interp_memvar_next(ip,&cursor,&mv) && mv.is_public && !mv.hidden &&
+          mv.value.t==XB_C && !memcmp(mv.value.u.c.p,"outer",5) &&
+          !xb_interp_memvar_next(ip,&cursor,&mv),"inspection: RETURN restores public enumeration");
+    xb_interp_release_all(ip);
+    for(n=0;n<256;n++) {
+        char name[11];snprintf(name,sizeof name,"V%03u",n);v=xb_n(n);
+        if(xb_interp_store(ip,name,&v)!=0)break;
+    }
+    CHECK(n==256 && xb_interp_store(ip,"OVERFLOW",&v)!=0,"inspection: all 256 slots bounded");
+    cursor=0;n=0;while(xb_interp_memvar_next(ip,&cursor,&mv))n++;
+    CHECK(n==256 && cursor==256,"inspection: enumeration includes final slot");
+    wa_select(xb_interp_env(ip),7);
+    inspection_page_keys=0;cap_clear();
+    CHECK(samir_do(ip,"LIST MEMORY\nLIST STATUS")==0 && inspection_page_keys==0,
+          "inspection: LIST never pauses, no database required");
+    inspection_page_keys=0;cap_clear();
+    CHECK(samir_do(ip,"DISPLAY MEMORY\nDISPLAY STATUS")==0 && inspection_page_keys>0,
+          "inspection: DISPLAY pauses at screen boundaries");
+    CHECK(wa_selected(xb_interp_env(ip))==7 &&
+          xb_interp_get_memvar(ip,"V255",&got)==0 && got.u.n==255,
+          "inspection: DISPLAY/LIST preserve selected area and final variable");
+    CHECK(samir_do(ip,"LIST MEMORY EXTRA")!=0,"inspection: bad tail rejected before output");
+    xb_interp_free(ip);
+}
+
 int main(int argc, char **argv)
 {
     struct pal_host_cfg cfg;
@@ -475,6 +537,7 @@ int main(int argc, char **argv)
     test_date_render(pal);
     test_locate_record(pal);
     test_locate_next(pal);
+    test_inspection(pal);
 
     pal_host_free(host);
     return TEST_SUMMARY("test-samir-query");

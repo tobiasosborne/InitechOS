@@ -329,6 +329,40 @@ Every record that meets a condition:
 \SeeAlso{LIST, ?, SET HEADING, GO, SKIP}
 \end{XbaseEntry}
 
+% Ground truth: Using III+ U5-108/109; real inspection mint.
+% Gates: test-samir-dml-memory/status, their -emu and mutant legs.
+\begin{XbaseEntry}{DISPLAY MEMORY}{command}
+Shows the memory variables and pauses for a key between screens.
+\Syntax
+\SyntaxLine{\kw{DISPLAY MEMORY}}
+\Usage
+Each entry gives the name, PUBLIC or PRIVATE status, type, and current value.
+Hidden outer variables are included and marked hidden.  A PRIVATE declaration
+has no entry until a value is assigned; a newly declared PUBLIC is logical
+false.  Numbers appear both at their display precision and with eight decimal
+places.  PRIVATE entries name the program that created them.
+
+The totals give the variables and bytes used and available.  There are 256
+variable slots and 6,000 bytes for variable values.  No database need be open.
+Inspecting memory preserves the variables and the selected work area.
+\SeeAlso{LIST MEMORY, PUBLIC, PRIVATE, STORE, RELEASE}
+\end{XbaseEntry}
+
+\begin{XbaseEntry}{DISPLAY STATUS}{command}
+Shows the open files and working environment, pausing for a key between pages.
+\Syntax
+\SyntaxLine{\kw{DISPLAY STATUS}}
+\Usage
+Each open work area shows its database name and alias, memo file, indexes and
+their keys, controlling index, filter, and configured relation.  The selected
+area is identified.  The report also shows the alternate file, default drive,
+ON ERROR and ON ESCAPE commands, SET states, and function key assignments.
+It may be used with no database open and does not move any record pointer or
+change the selected work area.  The relation shown is its configured setting;
+automatic movement of a related area's record pointer is not provided.
+\SeeAlso{LIST STATUS, SELECT, SET INDEX, SET FILTER, SET RELATION}
+\end{XbaseEntry}
+
 % DO -- os/samir/samir_main.c repl_try_do_file (DO <name> at the dot prompt
 % runs <name>.PRG from the disk; 8191-byte cap, #18) and os/samir/cmd/proc.c
 % p_do / p_call (a PROCEDURE of the program running; WITH arguments by value;

@@ -58,6 +58,7 @@ struct work_area {
     samir_pal_t *owner_pal;
     void *owned;
     char         filter[257];          /* Using III+ U5-229: per-area condition */
+    char         relation[128];        /* existing SET RELATION intent, per area */
     int          open;                 /* 1 if a table is open here */
     dbf_table   *tbl;                  /* the .dbf codec handle */
     dbt_file    *memo;                 /* the .dbt handle, or NULL (no memo) */
@@ -335,6 +336,7 @@ wa_env *wa_env_make(samir_pal_t *pal)
         wa->nfields = 0;
         wa->alias[0] = '\0';
         wa->filter[0] = '\0';
+        wa->relation[0] = '\0';
         wa->rec_cache = (xb_val *)0;
         wa->rec_bytes = (char *)0;
         wa->rec_bytes_len = 0u;
@@ -715,6 +717,7 @@ int wa_close(wa_env *env, int area)
     wa->nfields = 0;
     wa->alias[0] = '\0';
     wa->filter[0] = '\0';
+    wa->relation[0] = '\0';
     wa->cache_recno = 0u;
     wa->rec_cache = (xb_val *)0;
     wa->rec_bytes = (char *)0;
@@ -1488,6 +1491,24 @@ int wa_record_deleted(wa_env *env, int area)
     work_area *wa=&env->area[area-1];
     int rc=wa_touch_record(wa);
     return rc ? rc : wa->cache_deleted;
+}
+
+const char *wa_filter_text(const wa_env *env, int area)
+{
+    return wa_is_open(env,area) ? env->area[area-1].filter : "";
+}
+const char *wa_relation_text(const wa_env *env, int area)
+{
+    return wa_is_open(env,area) ? env->area[area-1].relation : "";
+}
+void wa_set_relation_text(wa_env *env, int area, const char *s)
+{
+    unsigned n=0;
+    if (!wa_is_open(env,area)) return;
+    while (s[n] && n < sizeof(env->area[area-1].relation)-1) {
+        env->area[area-1].relation[n]=s[n]; n++;
+    }
+    env->area[area-1].relation[n]=0;
 }
 
 /* Using III+ U5-210/PDF 322: screen output off only in a program;

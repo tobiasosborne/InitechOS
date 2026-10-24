@@ -449,6 +449,9 @@ int ndx_open(samir_pal_t *pal, const char *name, ndx_index **out)
     return ndx_open_impl(pal, name, PAL_RD, 0, out);
 }
 
+/* Using III+ U5-109: STATUS reports each open index's actual filename. */
+const char *ndx_name(const ndx_index *idx) { return idx ? idx->path : ""; }
+
 int ndx_open_rw(samir_pal_t *pal, const char *name, ndx_index **out)
 {
     return ndx_open_impl(pal, name, PAL_RDWR, 1, out);

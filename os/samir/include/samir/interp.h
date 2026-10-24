@@ -373,6 +373,17 @@ int xb_interp_store(xb_interp *ip, const char *name, const xb_val *v);
  */
 int xb_interp_get_memvar(xb_interp *ip, const char *name, xb_val *out);
 
+/* Using III+ U5-108/146; real dml/memory mint: include retained hidden values,
+ * omit unassigned PRIVATE declarations. Cursor is a slot index, initially 0;
+ * returns 1 per entry, 0 at end. Borrowed strings/values; no state mutation. */
+typedef struct {
+    const char *name, *program;
+    xb_val value;
+    int is_public, hidden, level;
+} xb_memvar_info;
+int xb_interp_memvar_next(xb_interp *, unsigned *cursor, xb_memvar_info *);
+unsigned xb_interp_memvar_capacity(void);
+
 /*
  * xb_interp_release_all: drop every memvar (RELEASE ALL). The arena bytes are not
  * individually reclaimed (bump arena), but the names become invisible to resolve
@@ -400,9 +411,8 @@ int samir_last_error(xb_interp *ip);
  *
  *   - dot-prompt / main level = level 0.
  *   - PUBLIC <list>  : declares level-0 GLOBALS that survive RETURN
- *     (xb_interp_declare_public). GATED: the uninitialized PUBLIC VALUE
- *     (Clipper inits to .F.; III+ 1.1 parity unconfirmed -- memory-variables.md
- *     Open-question 3) -- we init to XB_U and the oracle loud-skips its value.
+ *     (xb_interp_declare_public), initially Logical .F. (real III+ 1.1
+ *     dml/memory mint, MEMORY-DECLARED; Using U5-108).
  *   - PRIVATE <list> : creates a FRESH level-current var that HIDES any visible
  *     same-named caller/PUBLIC var until scope_leave (xb_interp_declare_private).
  *   - PARAMETERS <list> + DO ... WITH : binds the WITH values BY POSITION into

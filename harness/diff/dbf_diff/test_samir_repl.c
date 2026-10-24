@@ -733,6 +733,32 @@ static void test_session_abbreviations(samir_pal_t *pal)
     xb_interp_free(ip); remove(path); remove("/tmp/test_samir_abbr.ndx");
 }
 
+static void test_session_inspection(samir_pal_t *pal)
+{
+    xb_interp *ip=xb_interp_make(pal);
+    xb_val value;
+    CHECK(ip!=NULL,"inspection prompt: interpreter");
+    if(!ip)return;
+    script_reset();cap_clear();
+    script_push("LIST STATUS");
+    script_push("DISPLAY MEMORY");
+    script_push("STATUS=42");
+    script_push("MEMORY='kept'");
+    script_push("LIST MEMORY");
+    script_push("LIST STATUS");
+    script_push("QUIT");
+    CHECK(samir_repl(pal,ip)==0,"inspection prompt: no-table session returned");
+    CHECK(!cap_has("Variable not found") && !cap_has("No database is in USE"),
+          "inspection prompt: reserved subcommands bypass record expressions");
+    CHECK(cap_has("variables defined,") && cap_has("Current work area =    1"),
+          "inspection prompt: both report families dispatched");
+    CHECK(xb_interp_get_memvar(ip,"STATUS",&value)==0 && value.t==XB_N && value.u.n==42,
+          "inspection prompt: variable named STATUS survives");
+    CHECK(xb_interp_get_memvar(ip,"MEMORY",&value)==0 && value.t==XB_C &&
+          value.u.c.len==4 && !memcmp(value.u.c.p,"kept",4),"inspection prompt: variable named MEMORY survives");
+    xb_interp_free(ip);
+}
+
 int main(int argc, char **argv)
 {
     struct pal_host_cfg cfg;
@@ -757,6 +783,7 @@ int main(int argc, char **argv)
     test_session_plain_use_rw(pal);  /* 7az.19: plain USE opens rw -> REPLACE persists */
     test_session_do_file(pal);       /* 9a0f: DO <file> runs a .PRG off disk via the PAL */
     test_session_abbreviations(pal);
+    test_session_inspection(pal);
 
     pal_host_free(host);
     return TEST_SUMMARY("test-samir-repl");

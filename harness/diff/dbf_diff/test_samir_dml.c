@@ -17,10 +17,13 @@ extern samir_pal_t *pal_host_make(struct pal_host_cfg);
 extern void pal_host_free(samir_pal_t *);
 static char captured[65536];
 static unsigned used, input_line;
+static unsigned inspection_keys;
 static xb_interp *state_ip;
 static const char *state_name;
 static void output(samir_pal_t *p,const char *s,uint32_t n)
 { (void)p; if(n<sizeof captured-used) { memcpy(captured+used,s,n);used+=n;captured[used]=0; } }
+static int inspection_drive(samir_pal_t *p) { (void)p;return 'A'; }
+static int32_t inspection_key(samir_pal_t *p) { (void)p;inspection_keys++;return ' '; }
 static int32_t input(samir_pal_t *p,char *s,uint32_t n)
 { const char *v=input_line++==0?"DO DMLTEST":"QUIT";(void)p;snprintf(s,n,"%s",v);return (int32_t)strlen(s); }
 /* Separate manual-grounded state checks. These do not replace or normalize
@@ -138,10 +141,11 @@ int main(int argc,char **argv)
 {
     const char *name=argc>1?argv[1]:"clear",*mode=argc>2?argv[2]:"host";
     const char *com=argc>3?argv[3]:"build/SAMIR.COM";
-    static const char *const names[]={"clear","macro","close","index","reindex","sort","total","append","save","restore","copyfile","type","rename","erase","label","run","abbrev","abbrfull","abbrscope"};
+    static const char *const names[]={"clear","macro","close","index","reindex","sort","total","append","save","restore","copyfile","type","rename","erase","label","run","abbrev","abbrfull","abbrscope","status","memory","statusinto"};
     char gold[1024],dir[1024],cmd[16384],path[2048];
     static unsigned char expected[65536];FILE *f;
     int emu=!strcmp(mode,"emu"),state=!strcmp(mode,"state"),valid=0;unsigned ni;
+    int inspection=!strcmp(name,"status")||!strcmp(name,"memory")||!strcmp(name,"statusinto");
     for(ni=0;ni<sizeof names/sizeof names[0];ni++)if(!strcmp(name,names[ni]))valid=1;
     if(!valid||(!emu&&!state&&strcmp(mode,"host")))return 2;
     if(state&&strcmp(name,"clear")&&strcmp(name,"macro")&&strcmp(name,"close"))return 2;
@@ -162,6 +166,13 @@ int main(int argc,char **argv)
     if(!strcmp(name,"abbrscope")) {
         snprintf(cmd,sizeof cmd,"cp -f %s/INPUT.DBF %s/BASE.DBF",gold,dir);command(cmd);
     }
+    if(!strcmp(name,"statusinto")) {
+        snprintf(cmd,sizeof cmd,"cp -f %s/INPUT.DBF %s/INPUT.DBF",gold,dir);command(cmd);
+    }
+    if(!strcmp(name,"status")) {
+        snprintf(cmd,sizeof cmd,"cp -f %s/SECOND.DBF %s/SECOND.DBF && cp -f %s/THIRD.DBF %s/THIRD.DBF",gold,dir,gold,dir);command(cmd);
+        snprintf(cmd,sizeof cmd,"cp -f %s/EDGE.DBF %s/EDGE.DBT %s/",gold,gold,dir);command(cmd);
+    }
     snprintf(path,sizeof path,"%s/INPUT.TXT",dir);f=fopen(path,"wb");if(!f)return 2;fputs("ASCII first\r\nsecond line\r\n\032IGNORED\r\n",f);fclose(f);
     if(!strcmp(name,"reindex")||!strcmp(name,"restore")||!strcmp(name,"append")||!strcmp(name,"label")) {
         const char *files=!strcmp(name,"reindex")?"NAMES.NDX":!strcmp(name,"restore")?"VALUES.MEM":!strcmp(name,"append")?"IMPORT.DBF":"CLIENTS.DBF ADDRESS.LBL";
@@ -171,18 +182,19 @@ int main(int argc,char **argv)
         snprintf(cmd,sizeof cmd,"cp -f build/samirdml/golden/index/NAMES.NDX %s/NAMES.NDX",dir);command(cmd);
     }
     if(emu) {
-        const char *trace="d,m,l,ret,e,x,i,t,ret";
+        const char *trace=inspection?"d,m,l,ret,space,space,space,space,space,space,space,space,space,space,space,space,space,space,space,space,e,x,i,t,ret":"d,m,l,ret,e,x,i,t,ret";
+        const char *key_count=inspection?"keys_sent=25":"keys_sent=9";
         snprintf(path,sizeof path,"%s/data.img",dir);f=fopen(path,"wb");if(!f)return 2;fseek(f,1474560-1,SEEK_SET);fputc(0,f);fclose(f);
         snprintf(path,sizeof path,"%s/DML.IN",dir);f=fopen(path,"wb");if(!f)return 2;fputs("DO DMLTEST\r\nQUIT\r\n",f);fclose(f);
         snprintf(path,sizeof path,"%s/DML.BAT",dir);f=fopen(path,"wb");if(!f)return 2;fputs("@echo off\r\nsamir < dml.in > result.txt\r\n",f);
         if(!strcmp(name,"run"))fputs("ver > verref.txt\r\n",f); /* check_run_version's same-run reference */
         fputs("type result.txt\r\n",f);fclose(f);
         snprintf(cmd,sizeof cmd,"mformat -i %s/data.img -f 1440 :: && mcopy -o -i %s/data.img %s ::SAMIR.COM && mcopy -o -i %s/data.img %s/*.DBF %s/*.PRG %s/*.TXT %s/*.IN %s/*.BAT ::",dir,dir,com,dir,dir,dir,dir,dir,dir);command(cmd);
-        snprintf(cmd,sizeof cmd,"for f in %s/*.NDX %s/*.MEM %s/*.LBL; do test ! -f \"$f\" || mcopy -o -i %s/data.img \"$f\" ::; done",dir,dir,dir,dir);command(cmd);
+        snprintf(cmd,sizeof cmd,"for f in %s/*.NDX %s/*.MEM %s/*.LBL %s/*.DBT; do test ! -f \"$f\" || mcopy -o -i %s/data.img \"$f\" ::; done",dir,dir,dir,dir,dir);command(cmd);
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-before.log",dir,dir);command(cmd);
         snprintf(cmd,sizeof cmd,"INITECH_QMP_STDIO=1 build/qemu_harness --disk build/tracer_secondary.img --disk2 %s/data.img --name dml_%s --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > %s/qemu.out 2> %s/qemu.report",dir,name,trace,dir,dir);command(cmd);
         snprintf(path,sizeof path,"%s/qemu.report",dir);readfile(path,(unsigned char *)captured,sizeof captured);
-        CHECK(strstr(captured,"triple_fault=0")&&strstr(captured,"quit_after_found=1")&&strstr(captured,"keys_sent=9"),"DML entire locked QEMU trace returned without fault");
+        CHECK(strstr(captured,"triple_fault=0")&&strstr(captured,"quit_after_found=1")&&strstr(captured,key_count),"DML entire locked QEMU trace returned without fault");
         snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::RESULT.TXT %s/RESULT.TXT",dir,dir);command(cmd);
         snprintf(path,sizeof path,"%s/RESULT.TXT",dir);readfile(path,(unsigned char *)captured,sizeof captured);
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-after.log",dir,dir);command(cmd);
@@ -198,6 +210,7 @@ int main(int argc,char **argv)
         }
         if(chdir(dir))return 2;
         pal=pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});if(!pal)return 2;
+        if(inspection) { pal->curdrive=inspection_drive;pal->conin_char=inspection_key; }
         pal->conout=output;pal->conin_line=state?state_input:input;ip=xb_interp_make(pal);
         state_ip=ip;state_name=name;
         CHECK(ip&&samir_repl(pal,ip)==0,"DML full disk program returned");
@@ -205,6 +218,16 @@ int main(int argc,char **argv)
         pal_host_free(pal);
         if(!strcmp(name,"run"))CHECK(system("VER > VERREF.TXT")==0,"host processor minted its own VER > file");
         if(chdir(cwd))return 2;
+        if(inspection) {
+            if(!strcmp(name,"statusinto"))CHECK(inspection_keys==0,"DML LIST STATUS did not pause");
+            else CHECK(inspection_keys>0,"DML DISPLAY inspection paused for keys (LIST did not)");
+        }
+    }
+    if(inspection) {
+        /* Compare the same alternate-file channel the real program minted,
+         * INCLUDING paging prompts. PAL key counts additionally prove waits. */
+        if(emu) { snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::GOLD.OUT %s/GOLD.OUT",dir,dir);command(cmd); }
+        snprintf(path,sizeof path,"%s/GOLD.OUT",dir);readfile(path,(unsigned char *)captured,sizeof captured);
     }
     snprintf(path,sizeof path,"%s/captured.out",dir);f=fopen(path,"wb");if(f){fwrite(captured,1,strlen(captured),f);fclose(f);}
     if(state) {
