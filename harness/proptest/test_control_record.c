@@ -9,21 +9,21 @@
  *   push-button accent spec (chimera element 10; bevel colors, ring count,
  *   no-#DFDFDF guardrail, render-order semantics).
  *
- * SELF-VERIFY: build and run standalone without `make`:
+ * SELF-VERIFY: build and run standalone without `make` (from the repo root):
  *   # Freestanding compile (no stdlib; just -c to confirm it compiles):
  *   gcc -m32 -ffreestanding -nostdlib -fno-stack-protector -std=c11 \
- *       -I/home/tobias/Projects/initech-os/spec -c \
- *       /home/tobias/Projects/initech-os/harness/proptest/test_control_record.c \
+ *       -Ispec -c \
+ *       harness/proptest/test_control_record.c \
  *       -o /tmp/test_control_record_fs.o
  *   # Hosted binary (runs + prints result):
  *   gcc -m32 -std=c11 \
- *       -I/home/tobias/Projects/initech-os/spec \
- *       /home/tobias/Projects/initech-os/harness/proptest/test_control_record.c \
+ *       -Ispec \
+ *       harness/proptest/test_control_record.c \
  *       -o /tmp/test_control_record && /tmp/test_control_record
  *   # Mutation probe (must exit 1; proves the oracle bites):
  *   gcc -m32 -std=c11 -DTEST_CTRL_MUTANT \
- *       -I/home/tobias/Projects/initech-os/spec \
- *       /home/tobias/Projects/initech-os/harness/proptest/test_control_record.c \
+ *       -Ispec \
+ *       harness/proptest/test_control_record.c \
  *       -o /tmp/test_control_record_mutant && /tmp/test_control_record_mutant; \
  *       test $? -ne 0 && echo "MUTATION RED (correct)" || echo "MUTATION GREEN (BUG)"
  *

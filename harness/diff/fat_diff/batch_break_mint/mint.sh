@@ -3,7 +3,9 @@
 set -eu
 src=harness/diff/fat_diff/batch_break_mint
 out=$(pwd)/build/batch-break-remint
-media=${DOS33_BOOT:-/home/tobias/Projects/initech-manuals-ref/sidekick/dosboot/PB_MSDOS33_Sys_and_Util.img}
+# Sibling repo ../initech-manuals-ref, located relative to this script (repo root = 4 up).
+root=$(cd "$(dirname "$0")/../../../.." && pwd)
+media=${DOS33_BOOT:-$root/../initech-manuals-ref/sidekick/dosboot/PB_MSDOS33_Sys_and_Util.img}
 mkdir -p "$out"
 cc -std=c11 -O2 -Wall -Wextra -Werror "$src/mint.c" -o "$out/drive"
 sha256sum "$media" > "$out/media.sha256"

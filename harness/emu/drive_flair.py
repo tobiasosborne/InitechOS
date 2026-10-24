@@ -19,7 +19,8 @@ Scene geometry (spec/flair_tenants_demo.h):
 """
 import os, subprocess, sys, shutil
 
-REPO = "/home/tobias/Projects/initech-os"
+# Repo root derived from this file (harness/emu/ -> ../..), not an absolute path.
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SCRATCH = os.path.dirname(os.path.abspath(__file__))
 OUT = "/tmp/claude-1000/fd"  # short: QMP unix socket sun_path is 108-char capped
 IMG = os.path.join(REPO, "build", "flair_tenants.img")

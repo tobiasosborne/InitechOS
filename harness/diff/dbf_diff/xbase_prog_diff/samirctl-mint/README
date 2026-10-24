@@ -26,7 +26,7 @@ then dBASE reads them (AUTOTYPE in the autoexec runs before DBASE starts
 and the keys are lost). Procedures live in SET PROCEDURE files or separate
 program files: III+ 1.1 keeps them out of the main program file.
 
-  DBASE3_DECOMP=/home/tobias/Projects/dbase3-decomp python3 -I mint_setup.py
+  DBASE3_DECOMP=../dbase3-decomp python3 -I mint_setup.py
   DBASE3_DECOMP=... python3 -I mint_run.py esc        (nest raw esc escs
                                      esctrap master quitp retry)
 

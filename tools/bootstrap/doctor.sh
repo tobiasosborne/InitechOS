@@ -26,7 +26,20 @@ need ld       "flat-32 links"                              "binutils"
 need make     "the factory"                                "make"
 need python3  "harness references (FAT, dbf), lints"       "python3"
 need qemu-system-i386 "dev-loop oracle"                    "qemu-system-x86"
-need bochs    "real->protected accuracy legs (test-*-bochs)" "bochs bochs-x bochsbios"
+need bochs    "real->protected accuracy legs (test-*-bochs)" "bochs bochs-x bochsbios vgabios"
+# The ROM files the Bochs harness actually opens (BOCHS_DEFAULT_BIOS /
+# BOCHS_DEFAULT_VGABIOS in harness/emu/bochs.h; BOCHS_CIRRUS_VGABIOS in
+# harness/bochs_legs.mk). VGABIOS-lgpl-latest is a symlink into the vgabios
+# package, which bochs only Recommends: without it the link dangles and every
+# Bochs leg panics "couldn't open ROM image file" (initech-3kiy). Resolve through
+# symlinks. Override paths via the env vars below (used to prove the check bites).
+for rom in "${BOCHS_DEFAULT_BIOS:-/usr/share/bochs/BIOS-bochs-legacy}" \
+           "${BOCHS_DEFAULT_VGABIOS:-/usr/share/bochs/VGABIOS-lgpl-latest}" \
+           "${BOCHS_CIRRUS_VGABIOS:-/usr/share/vgabios/vgabios.cirrus.bin}"; do
+    real="$(readlink -f "$rom" 2>/dev/null)"
+    if [ -n "$real" ] && [ -f "$real" ]; then ok "ROM $rom" "-> $real"
+    else miss "ROM $rom" "absent or dangling symlink (sudo apt install vgabios)"; fi
+done
 need mformat  "FAT differential + fixture volumes (mtools)" "mtools"
 need mcopy    "mtools"                                     "mtools"
 need mkfs.fat "fixture volumes"                            "dosfstools"
