@@ -3,6 +3,8 @@
 # No tracked publication, executable or allow-list is ever changed here.
 set -eu
 gate=$1; replay=$2; out=$3; built=$4; allow=$5; sdisk=${6:-}; sinv=${7:-}
+# $8 the candidate script, then the sources it reads (pubs.mk PUBS_SAMIR_CAND_SRC).
+cand=${8:-}; [ "$#" -lt 8 ] || shift 8
 root=$(pwd)
 m=$out/mutants
 mkdir -p "$m"
@@ -146,4 +148,40 @@ printf 'PUBSFAKE\nLIST\nUPPER\n' | (cd "$m/probe" && "$sinv") > "$m/probe.list"
 grep -qx 'LIST|command' "$m/probe.list" && grep -qx 'UPPER|function' "$m/probe.list" && ! grep -q '^PUBSFAKE|' "$m/probe.list" || {
     cat "$m/probe.list"; printf '!!! test-pubs-mutant FAIL: the inventory probe cannot tell a shipped word from PUBSFAKE\n'; exit 1; }
 printf '>>> test-pubs-mutant: inventory probe refuses PUBSFAKE, accepts LIST and UPPER()\n'
-printf '>>> test-pubs-mutant: green (26 named mutants rejected by their gate legs)\n'
+# initech-u01i: the candidate feed follows the names into the packed grammar
+# tables ("...ACCEPT\0INPUT\0..." of proc.c, rt_kw_index).  One verb dropped
+# from the table the feed reads (the compiled probe unchanged) loses it from
+# the inventory, and Using InitechBase goes RED for its entry.
+[ -n "$cand" ] && [ "$#" -gt 0 ] || { printf '!!! test-pubs-mutant FAIL: no InitechBase candidate feed\n'; exit 1; }
+sh "$cand" "$@" > "$m/feed.cand"
+grep -qx ACCEPT "$m/feed.cand" || { printf '!!! test-pubs-mutant FAIL: the candidate feed lacks ACCEPT\n'; exit 1; }
+rm -rf "$m/feed-src"; mkdir -p "$m/feed-src"; srcs=
+for f in "$@"; do
+    case $f in */cmd/proc.c) sed 's/ACCEPT\\0//' "$f" > "$m/feed-src/proc.c"; f=$m/feed-src/proc.c;; esac
+    srcs="$srcs $f"
+done
+grep -q 'ACCEPT' "$m/feed-src/proc.c" 2>/dev/null && ! grep -q 'ACCEPT\\0' "$m/feed-src/proc.c" || {
+    printf '!!! test-pubs-mutant FAIL: could not drop ACCEPT from the proc.c table\n'; exit 1; }
+# shellcheck disable=SC2086
+sh "$cand" $srcs > "$m/feed-noaccept.cand"
+! grep -qx ACCEPT "$m/feed-noaccept.cand" || { printf '!!! test-pubs-mutant FAIL: ACCEPT still fed\n'; exit 1; }
+rm -rf "$m/probe"; mkdir -p "$m/probe"
+(cd "$m/probe" && "$sinv" < ../feed-noaccept.cand) | LC_ALL=C sort > "$m/noaccept.shipped"
+red FEED_DROPS_VERB DOC-NOT-SHIPPED "$gate" commands "$m/noaccept.shipped" harness/pubs/samir.allow "$built/initechbase-volume-one/main.cmds"
+grep -F 'ACCEPT|command' "$m/FEED_DROPS_VERB.log" > /dev/null || {
+    cat "$m/FEED_DROPS_VERB.log"; printf '!!! test-pubs-mutant FAIL: FEED_DROPS_VERB went RED for another verb\n'; exit 1; }
+# Full names only (rt_kw_match, the III+ four-letter rule; 9261bac8): a
+# shortening fed beside its full name is withheld, alone it is still taken
+# (the probe is unchanged), and were it listed (REST, a scope word that also
+# shortens RESTORE) the books would go RED for a name they rightly omit.
+printf 'DISP\nDISPLAY\nREST\nRESTORE\nPARAMETER\nPARAMETERS\n' | (cd "$m/probe" && "$sinv") > "$m/short.list"
+printf 'DISPLAY|command\nRESTORE|command\nPARAMETERS|command\n' | LC_ALL=C sort > "$m/short.want"
+LC_ALL=C sort "$m/short.list" | cmp -s - "$m/short.want" || {
+    cat "$m/short.list"; printf '!!! test-pubs-mutant FAIL: a four-letter shortening was listed beside its full name\n'; exit 1; }
+printf 'DISP\n' | (cd "$m/probe" && "$sinv") | grep -qx 'DISP|command' || {
+    printf '!!! test-pubs-mutant FAIL: the probe no longer accepts DISP\n'; exit 1; }
+{ cat "$out/samir.shipped"; printf 'REST|command\n'; } | LC_ALL=C sort > "$m/withshort.shipped"
+red LISTED_SHORTENING SHIPPED-NOT-DOCUMENTED "$gate" commands "$m/withshort.shipped" harness/pubs/samir.allow "$built/initechbase-volume-one/main.cmds"
+[ -z "$(ls -A "$m/probe")" ] || { printf '!!! test-pubs-mutant FAIL: a probe left files behind\n'; exit 1; }
+printf '>>> test-pubs-mutant: the candidate feed reads the packed tables; shortenings are withheld beside their full names\n'
+printf '>>> test-pubs-mutant: green (28 named mutants rejected by their gate legs)\n'

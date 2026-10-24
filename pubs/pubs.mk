@@ -307,10 +307,14 @@ $(PUBS_REPLAY): harness/pubs/samir_replay.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG)
 # ---- InitechBase (bead initech-ipu5.8; PUB-REF-0001 GC-01/02/03, CP-11/12) ----
 # The shipped InitechBase surface, asked of the shipped dot prompt
 # (harness/pubs/samir_inventory.c): NAME|command, NAME|function, NAME|set for
-# every candidate word of the SAMIR sources the REPL accepts (a quoted
-# two-word verb such as "CLEAR MEMORY" gives both its words), and the message
-# catalogue n|text.  The Sample Programs and Utilities diskette is minted from
-# pubs/examples/samir/disk through the shipped writers
+# every candidate word of the SAMIR sources the REPL accepts, and the message
+# catalogue n|text.  The candidates are every one- or two-word upper-case
+# element of a string literal of the sources the dispatcher compiles, \0
+# separating the elements of a packed grammar table ("TYPE\0RENAME\0...",
+# rt_kw_index; harness/pubs/samir_candidates.sh, initech-u01i); a two-word
+# element such as "CLEAR MEMORY" gives both its words.  The Sample Programs
+# and Utilities diskette is minted from pubs/examples/samir/disk through the
+# shipped writers
 # (harness/pubs/samir_sample_disk.c); every InitechBase example replays
 # against a fresh copy of it.
 PUBS_SAMIR_INV      := $(BUILD)/pubs_samir_inventory
@@ -319,6 +323,8 @@ PUBS_SAMIR_DISK     := $(PUBS_BUILD)/samir-disk
 PUBS_SAMIR_DISK_SRC := $(sort $(wildcard $(PUBS_DIR)/examples/samir/disk/*))
 PUBS_SAMIR_BOOKS    := initechbase-volume-one initechbase-volume-two initechbase-quick-reference
 PUBS_SAMIR_ALLOW    := harness/pubs/samir.allow
+PUBS_SAMIR_CAND     := harness/pubs/samir_candidates.sh
+PUBS_SAMIR_CAND_SRC  = $(SAMIR_MAIN_SRC) $(wildcard $(SAMIR_CMD_DIR)/*.c $(SAMIR_DIR)/core/*.c) $(SAMIR_HEADERS)
 $(PUBS_SAMIR_INV): harness/pubs/samir_inventory.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ harness/pubs/samir_inventory.c $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
 $(PUBS_SAMIR_DISKTOOL): harness/pubs/samir_sample_disk.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
@@ -330,9 +336,7 @@ $(PUBS_SAMIR_DISK)/.minted: $(PUBS_SAMIR_DISKTOOL) $(PUBS_SAMIR_DISK_SRC)
 .PHONY: pubs-samir-inventory pubs-examples test-pubs-samir-disk test-pubs-samir-programs
 pubs-samir-inventory: $(PUBS_SAMIR_INV)
 	@mkdir -p $(PUBS_CHECK)/samir-probe
-	@{ grep -oh '"[A-Z][A-Z0-9]*"' $(SAMIR_MAIN_SRC) $(SAMIR_CMD_DIR)/*.c $(SAMIR_DIR)/core/*.c | tr -d '"'; \
-	   grep -oh '"[A-Z][A-Z0-9]* [A-Z][A-Z0-9]*"' $(SAMIR_MAIN_SRC) $(SAMIR_CMD_DIR)/*.c $(SAMIR_DIR)/core/*.c | tr -d '"' | tr ' ' '\n'; \
-	   printf '%s\n' '?' '??' '@' '!' '&' '&&' '*'; } | sort -u > $(PUBS_CHECK)/samir.candidates
+	@sh $(PUBS_SAMIR_CAND) $(PUBS_SAMIR_CAND_SRC) > $(PUBS_CHECK)/samir.candidates
 	@cd $(PUBS_CHECK)/samir-probe && $(abspath $(PUBS_SAMIR_INV)) < ../samir.candidates | LC_ALL=C sort > ../samir.shipped
 	@$(PUBS_SAMIR_INV) messages > $(PUBS_CHECK)/samir.catalogue
 	@[ -z "$$(ls -A $(PUBS_CHECK)/samir-probe)" ] || { printf '!!! test-pubs RED SAMIR-INVENTORY: a probe left files behind\n'; exit 1; }
@@ -468,7 +472,8 @@ test-pubs-samir-programs:
 # One recipe (two used to be merged in, and make ran only the last: the TPS
 # manual's mutants were silently skipped).
 test-pubs-mutant: test-pubs test-pubs-label-mutant $(PUBS_GATE) $(PUBS_SAMIR_INV) $(PUBS_TPS_INV_BIN)
-	@sh harness/pubs/mutants.sh $(PUBS_GATE) $(PUBS_REPLAY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_ALLOW) $(PUBS_SAMIR_DISK) $(PUBS_SAMIR_INV)
+	@sh harness/pubs/mutants.sh $(PUBS_GATE) $(PUBS_REPLAY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_ALLOW) $(PUBS_SAMIR_DISK) $(PUBS_SAMIR_INV) \
+		$(PUBS_SAMIR_CAND) $(PUBS_SAMIR_CAND_SRC)
 	@sh harness/pubs/tps_mutants.sh $(PUBS_TPS_INV_BIN) $(PUBS_GATE) $(PUBS_CHECK) $(PUBS_BUILD)/gate/$(PUBS_TPS_BOOK) $(PUBS_GEN)
 	@sh harness/pubs/slip_mutants.sh $(PUBS_GATE) $(PUBS_SLIP_REGISTER) $(PUBS_DIR)/class $(PUBS_DIR)/manuals $(PUBS_BUILD)/gate $(PUBS_BUILD) $(PUBS_SLIP_BOOKS)
 	@if sh harness/pubs/slip_places.sh $(PUBS_BUILD) mutant > $(PUBS_BUILD)/slip-places-mutant.log 2>&1; then \

@@ -2,8 +2,11 @@
  * surface, asked of the ACTUAL dot-prompt dispatcher rather than copied into
  * a second list.  The same single-route pattern as dos_surface_inventory.c:
  * candidate words are read from stdin, one per line (the Makefile feeds every
- * quoted upper-case word of os/samir/samir_main.c and of the cmd and core sources), and
- * a word is shipped iff the real code accepts it:
+ * upper-case word of the string literals and packed "A\0B\0" grammar tables of
+ * os/samir/samir_main.c, the cmd and core sources and the samir headers:
+ * harness/pubs/samir_candidates.sh, initech-u01i), and a word is shipped iff
+ * the real code accepts it, under its full name (a four-letter-or-longer
+ * shortening of another accepted candidate is that name; see the end of main):
  *
  *   NAME|command   samir_repl (samir_main.c: the REPL-owned verbs, then the
  *                  registered hook chain query/mutate/set/proc/report behind
@@ -145,6 +148,8 @@ int main(int argc,char **argv)
     }
     /* Every candidate is also a keyword candidate for the two-word form. */
     static char words[1024][64]; int nwords = 0;
+    enum { K_CMD = 1, K_FN = 2, K_SET = 4 };
+    static unsigned char kinds[1024];
     while (fgets(word, sizeof word, stdin)) {
         word[strcspn(word, "\r\n")] = '\0';
         if (!word[0]) continue;
@@ -157,29 +162,50 @@ int main(int argc,char **argv)
          * bare verb has no form of its own to document. */
         if (!strcmp(word, "SET")) goto options;
         g_accept = accepted_cmd;
-        if (!unrecognized(probe(word))) printf("%s|command\n", word);
+        if (!unrecognized(probe(word))) kinds[wi] |= K_CMD;
         else {
             snprintf(line, sizeof line, "%s X", word);
-            if (!unrecognized(probe(line))) printf("%s|command\n", word);
+            if (!unrecognized(probe(line))) kinds[wi] |= K_CMD;
             else if (word[0] >= 'A' && word[0] <= 'Z')
                 for (int ki = 0; ki < nwords; ki++) {
                     if (words[ki][0] < 'A' || words[ki][0] > 'Z') continue;
                     snprintf(line, sizeof line, "%s %s", word, words[ki]);
-                    if (!unrecognized(probe(line))) { printf("%s|command\n", word); break; }
+                    if (!unrecognized(probe(line))) { kinds[wi] |= K_CMD; break; }
                 }
         }
     options:
         if (word[0] >= 'A' && word[0] <= 'Z') {
             g_accept = accepted_fn;
             snprintf(line, sizeof line, "? %s()", word);
-            if (!strstr(probe(line), "31  Invalid function name.")) printf("%s|function\n", word);
+            if (!strstr(probe(line), "31  Invalid function name.")) kinds[wi] |= K_FN;
             g_accept = accepted_set;
             for (size_t i = 0; i < sizeof ops / sizeof ops[0]; i++) {
                 snprintf(line, sizeof line, "SET %s %s", word, ops[i]);
-                if (!set_refused(probe(line))) { printf("%s|set\n", word); break; }
+                if (!set_refused(probe(line))) { kinds[wi] |= K_SET; break; }
             }
         }
     }
     remove("PROBE.DBF");
+    /* Full names only.  Since initech-13d3 (9261bac8) the dispatcher takes
+     * any prefix of four or more letters of a command, keyword or SET option
+     * (rt_kw_match, os/samir/core/rt.c), as real dBASE III PLUS 1.1 does
+     * (../dbase3-decomp specs/runtime/interpreter-and-execution-model.md
+     * Sec 3.1: the verb table "holds the full spellings"; graded by the real
+     * abbrev/abbrfull mints).  So a candidate that is such a prefix of
+     * another candidate accepted as the same kind -- REST of RESTORE, SET
+     * DELETE of SET DELETED, PARAMETER of PARAMETERS -- is that name typed
+     * short, not a name of its own; the books document the rule once
+     * (Using InitechBase u2-commands), never each shortening. */
+    static const char *const kname[] = { "command", "function", "set" };
+    for (int wi = 0; wi < nwords; wi++)
+        for (int k = 0; k < 3; k++) {
+            size_t n = strlen(words[wi]);
+            int shortening = 0;
+            if (!(kinds[wi] & (1 << k))) continue;
+            for (int vi = 0; vi < nwords && !shortening && n >= 4; vi++)
+                shortening = vi != wi && (kinds[vi] & (1 << k)) && strlen(words[vi]) > n &&
+                             !strncmp(words[vi], words[wi], n);
+            if (!shortening) printf("%s|%s\n", words[wi], kname[k]);
+        }
     return ferror(stdout) ? 1 : 0;
 }
