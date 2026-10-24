@@ -277,3 +277,34 @@ GREEN panic byte comparison: all ten before/after PPM files identical
 >>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 d2ef56676ac8c5686667e688ab06fe11ae477b5b582da8e9f5b574f38a76ae26)
 >>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 8c9dcb57bc2a9888b599d3d6fe1f823d6f897877ca605a7c3e57344d71fe971a)
 ```
+
+### Lever 4 -- kernel-only ABI global-data alignment
+
+KERNEL_COLD_DATA_FLAGS adds -malign-data=abi only to KERNEL_COLD_LTO_FLAGS.
+It is absent from KERNEL_CFLAGS, its cdecl derivative and TENANT_CFLAGS; the
+expanded HELLO.EXE recipe confirms the boundary. Natural type layouts and
+packed/explicitly aligned records are unchanged: a standing compile-only
+probe compares 22 sizeof/alignment pairs across boot, PSP/DOS, IDT/frame,
+loader/tenant, keyboard/event and graphics records. Both 176-byte vectors
+hash d6f6141387ab6eba3518e6324082329c182942f220d2ff8ceae9b62de70442e2;
+explicit align 16 remains 16. Existing locked-header assertions also compile.
+A real -fpack-struct=1 counterexample must fail assertions or vector equality.
+No spec, ABI, ISA, hot-object policy, linker root or boot geometry changes.
+
+Flagship 180948 -> 180240 B (-708). This intermediate r4 preflight is still
+RED by 16 B; no cap is loosened. The final acceptance after the named rodata/
+panic-rendering lever is reported below. Earlier isolated trials without
+this complete cold set measured -740 B; the selected tree's measured reclaim
+is 708 B. Complete preflight verdicts are in CODEX-OUT.md.
+
+Lever-4 affected-family proof: all 89 commands in lever4-family/status exit
+zero, covering the union of the selected loader, event and driver families
+above, including all behavior mutants. Layout (+packing mutant), native
+boundaries (+mutants) and makefile-vars are independently green in preflight.
+The real r4/r4-mutant prerequisites remain RED at this checkpoint, explicitly
+recorded at 180240 B; lever 5 supplies the remaining recovery. Rule-11 hashes:
+
+```text
+>>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 dd53e4d9c0d20af2153a4fac62a5bd8d78779a620ad62d2a310c8b07c08bb849)
+>>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 65ca20ae19bb06a4bb2aacf3b39741eeb9bdd8df4dbc826bd78b0d0207342d21)
+```

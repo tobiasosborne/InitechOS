@@ -163,6 +163,34 @@ test-kernel-native-boundaries-mutant: test-kernel-native-boundaries
 	@printf '>>> test-kernel-native-boundaries-mutant: green (wrong_native_policy and wrong_edi_restore RED)\n'
 TEST_UNIT_GATES += test-kernel-native-boundaries test-kernel-native-boundaries-mutant
 
+# Round 8 part 2: data placement may lose cache-oriented padding, while ABI
+# layouts and explicitly requested alignment must remain unchanged. A real
+# packing flag is the counterexample, not a modified expected byte vector.
+KERNEL_LAYOUT_SRC := harness/proptest/kernel_data_layout.c
+KERNEL_LAYOUT_INC := -Ispec -Ios/milton -Ios/flair
+.PHONY: test-kernel-data-layout test-kernel-data-layout-mutant
+test-kernel-data-layout: | $(KERNEL_R4_DIR)
+	@case '$(KERNEL_CFLAGS) $(TENANT_CFLAGS)' in *-malign-data=abi*) \
+		printf '!!! kernel-data-layout FAIL: cold flag leaked to shared/tenant flags\n'; exit 1;; esac
+	@case '$(KERNEL_COLD_DATA_FLAGS)' in -malign-data=abi) :;; *) \
+		printf '!!! kernel-data-layout FAIL: cold ABI alignment policy absent\n'; exit 1;; esac
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LAYOUT_INC) -c $(KERNEL_LAYOUT_SRC) -o $(KERNEL_R4_DIR)/layout-default.o
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_COLD_DATA_FLAGS) $(KERNEL_LAYOUT_INC) -c $(KERNEL_LAYOUT_SRC) -o $(KERNEL_R4_DIR)/layout-abi.o
+	@set -eu; for policy in default abi; do \
+		$(OBJCOPY) --dump-section .layout=$(KERNEL_R4_DIR)/layout-$$policy.bin $(KERNEL_R4_DIR)/layout-$$policy.o; \
+		readelf -SW $(KERNEL_R4_DIR)/layout-$$policy.o | awk '/\.explicit_alignment / && $$NF==16 {found=1} END {exit !found}'; \
+	done
+	@cmp $(KERNEL_R4_DIR)/layout-default.bin $(KERNEL_R4_DIR)/layout-abi.bin
+	@printf '>>> test-kernel-data-layout: green (22 sizeof/alignment pairs equal; explicit align 16 retained; tenant flags isolated)\n'
+test-kernel-data-layout-mutant: test-kernel-data-layout
+	@if LC_ALL=C $(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -fpack-struct=1 $(KERNEL_LAYOUT_INC) -c $(KERNEL_LAYOUT_SRC) -o $(KERNEL_R4_DIR)/layout-packed.o >$(KERNEL_R4_DIR)/layout-packed.log 2>&1; then \
+		$(OBJCOPY) --dump-section .layout=$(KERNEL_R4_DIR)/layout-packed.bin $(KERNEL_R4_DIR)/layout-packed.o; \
+		if cmp -s $(KERNEL_R4_DIR)/layout-default.bin $(KERNEL_R4_DIR)/layout-packed.bin; then \
+			printf '!!! test-kernel-data-layout-mutant FAIL: packed_layout survived\n'; exit 1; fi; \
+	else grep -q 'static assertion failed' $(KERNEL_R4_DIR)/layout-packed.log || { cat $(KERNEL_R4_DIR)/layout-packed.log; exit 1; }; fi
+	@printf '>>> test-kernel-data-layout-mutant: green (packed_layout RED)\n'
+TEST_UNIT_GATES += test-kernel-data-layout test-kernel-data-layout-mutant
+
 $(KERNEL_KMAIN_COLD_OBJ): os/milton/kmain_cold.c os/milton/kmain_cold.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/milton -c $< -o $@
 .PHONY: test-kernel-cold-about test-kernel-cold-about-mutant

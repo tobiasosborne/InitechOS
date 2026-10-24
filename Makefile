@@ -783,11 +783,16 @@ KERNEL_LTO_SECTION_FLAGS := -ffunction-sections -fdata-sections
 # -fno-strict-aliasing only REMOVES an optimisation assumption, so no correct
 # program changes meaning; with one option set across the partition the
 # merged code is smaller. Measured flagship: 182,764 -> 181,900 B (-864 B).
-KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000 -fno-jump-tables -fno-strict-aliasing --param=min-pagesize=0
-# Round 4: Ubuntu's GCC retains frame pointers even at -Oz. Only the existing
-# cold/pure C set drops them; the loader transfer and both ring publications
-# retain native -O0 bytes (test-kernel-native-boundaries). Ref: PRD Sec 5/6.1/8;
-# WL-0152 audit. Low-level routines retain native, separately measured flags.
+# Round 8 part 2: use ABI-required global alignment in the cold set only.
+# Keep out of KERNEL_CFLAGS: TENANT_CFLAGS inherits its cdecl base. Packed
+# layouts, natural type alignment and explicit aligned attributes are checked
+# by test-kernel-data-layout; hot/native objects keep their existing policy.
+KERNEL_COLD_DATA_FLAGS := -malign-data=abi
+KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000 -fno-jump-tables -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_DATA_FLAGS)
+# Round 4 introduced frame-pointer omission on cold/pure C (Ubuntu retains
+# frame pointers even at -Oz). Round 8 part 2 separately audits loader, ring,
+# keyboard and panic boundaries below; native driver policies stay explicit.
+# Ref: PRD Sec 5/6.1/8; WL-0152; test-kernel-native-boundaries.
 SERIAL_TRACE_PACK_SRC := tools/serial_trace_pack.c
 SERIAL_TRACE_PACK := $(BUILD)/serial_trace_pack
 CHICAGO_PACK_H := $(BUILD)/chicago_packed_data.h
