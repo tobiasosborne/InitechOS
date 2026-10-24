@@ -135,6 +135,16 @@ exists because wave-2 merges grew the flagship past the r4 floor.
   until two consecutive sharded runs agree (design Sec 4).
 - No full serial `make test` has been run on 61294e7e.
 
+
+Run 2 (added 2026-10-24 17:05): tools/cert-sharded.sh -j 8 at 61294e7e in
+../initech-os-cx-parcert/build/cert-full2: 1483 PASS, 2 FAIL-CONFIRMED (test-kernel-size-r3
+and its mutant, the owed r3 decision), 0 FLAKY, 66m45s wall clock (169m user). The
+--diff against run 1 lists only the gates today's fixes changed (r4 pair, the 22
+CLIENTS.DBF readers, memwidth-emu-mutant) and the four gates added by the size
+lane (test-kernel-df, test-kernel-transfer, + mutants). Run 3 at the same HEAD was
+started for the 'two consecutive runs without FLAKY' clause of design Sec 4; until
+it agrees, serial make test stays the reference.
+
 ## Pointers
 
 - Operator decision owed: kernel r3 cap. Either a structural overlay
