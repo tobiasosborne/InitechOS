@@ -1,7 +1,8 @@
 # Kernel Size Policy, Round 8
 
 Bead: initech-hztg. Base: 2808f8b5. Branch: lane/ksize.
-Status: PARTIAL; the requested r3/r4 green round has not been achieved.
+Status: Part 1 was PARTIAL. Part 2 achieves r4 GREEN; r3 remains RED by
+9076 B and is explicitly operator-owned under the part-2 brief.
 
 ## Measurement
 
@@ -308,3 +309,85 @@ recorded at 180240 B; lever 5 supplies the remaining recovery. Rule-11 hashes:
 >>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 dd53e4d9c0d20af2153a4fac62a5bd8d78779a620ad62d2a310c8b07c08bb849)
 >>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 65ca20ae19bb06a4bb2aacf3b39741eeb9bdd8df4dbc826bd78b0d0207342d21)
 ```
+
+### Lever 5 -- linked strikes and compact panic raster
+
+Chicago, Geneva 9 and Geneva 12 all link through text.c's FONT_TABLES_DEFINE.
+Geneva 12 uses the same generated row-dictionary storage as Chicago; leave its
+1462 B of named data linked (762 rows + 192 offsets + 124 dictionary + four
+96-byte first/count/lb/aw arrays). FONT.BIN in the panic fixture is a separate
+BIOS VGA font dump for the independent oracle, not a Toolbox volume-font route.
+
+The historical 622 B panic_screen_lines symbol is text, not rodata. A shorter
+raster recovers 64 loaded bytes. Every supported black pixel is all zero bytes,
+so clear exactly w*bytes visible bytes per row in the same byte order. The
+existing guard proves that product <= pitch and prevents overflow/padding
+writes. Scales are 1 or 2, so unsigned pixel divisions are exactly shifts by
+0 or 1. Foreground masks, coordinates, clipping and bytes stay identical.
+An include-order-preserving final-policy control measured 180240 B; shifts
+alone 180208 B; byte clear plus shifts 180176 B. The production build confirms
+180176 B: r4 green, 48 B under the unchanged cap. No font or locked spec header is changed.
+
+Preflight r4 and its exact cap+1 mutant pass; host panic-layout (+mutant) covers
+8/24/32bpp, clipping, odd sizes, row padding and framebuffer guards. All ten
+before/after positive panic/reason PPM captures are byte-identical under QEMU.
+Final family/acceptance output and the all-kernel r3 measurement follow below;
+Bochs remains with the PM per the brief.
+
+### Part-2 final acceptance and handoff
+
+Flagship 183700 -> 180176 B: **3524 B reclaimed**, 16432 B headroom, 48 B
+under the unchanged r4 cap. The aspirational 5 KB margin was not achieved.
+All 309 kernels meet the unchanged 4096 B global floor in the 196608 B
+window. The new binding kernel is kernel_flairtenants_db_write_skip.elf:
+181568 B loaded, 15040 B headroom. The remaining all-kernel r3 gap is exactly
+**9076 B** (181568 - 172492), not the first failure's smaller 7140 B gap.
+The former G12ROW binding now loads 181512 B.
+
+| Lever | Flagship before B | After B | Reclaimed B |
+| --- | ---: | ---: | ---: |
+| 1 loader | 183700 | 182004 | 1696 |
+| 2 event | 182004 | 181524 | 480 |
+| 3a ATA ordering | 181524 | 181524 | 0 |
+| 3b keyboard | 181524 | 181076 | 448 |
+| 3c-f mouse/PIC/IRQ/PIT | - | - | 0 (already optimized; retained) |
+| 3g IDT ordering | 181076 | 181076 | 0 |
+| 3h panic cold policy | 181076 | 180948 | 128 |
+| 4 cold ABI data alignment | 180948 | 180240 | 708 |
+| 5 compact panic raster | 180240 | 180176 | 64 |
+| 5 linked Geneva 12 | - | - | 0 (1462 B retained) |
+
+The complete per-lever and final command verdicts are in CODEX-OUT.md;
+build/ksize8p2/final-kernel-sizes.tsv contains all 309 independent measurements.
+Final acceptance has 45 zero exits and only the explicitly expected r3 size
+failure; both r3 emulator behavior gates are green. The final panic/reason
+captures remain byte-identical, and the host guards include 24bpp.
+
+```text
+>>> test-kernel-headroom: 309 kernels measured; window 196608 B (384 sectors); floor 4096 B
+    flagship kernel_flairtenants.elf                              180176 B loaded, headroom  16432 B
+    LARGEST  kernel_flairtenants_db_write_skip.elf                181568 B loaded, headroom  15040 B (binding)
+>>> test-kernel-headroom: green
+>>> test-kernel-headroom-mutant: green (floor-1 pad kernel RED, floor pad kernel GREEN)
+>>> test-kernel-size-r4: green (flagship keeps >= 16 KiB headroom in the 384-sector window)
+!!! kernel-size-r4 FAIL: loaded 180225 B > 180224 B (the flagship must keep 16 KiB headroom -- size round 5 is due)
+>>> test-kernel-size-r4-mutant: green (size_pad_one RED)
+>>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 58e8311c5f0dd4ac2e3eba2553f4d41e40bccf16320181482370dada6619d277)
+>>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 14cf8db0b07e2c10a6e6f41d5e2cea40401350d07c8ce9a7fe540edf459c0e76)
+>>> test-kernel-gc: green (entry/live code/data retained; dead code/data removed)
+>>> test-kernel-gc-mutant: green (no_gc/no_sections both RED for dead code)
+>>> test-kernel-gc-lto: green (dead native reference discarded after LTO; entry fixed)
+>>> test-kernel-gc-lto-mutant: green (no_lto_sections RED)
+>>> test-kernel-cold-lto: green (cross-TU call folded to 22; entry fixed)
+>>> test-kernel-cold-lto-mutant: green (no_lto RED)
+>>> test-makefile-vars: green
+!!! kernel-size-r3 FAIL: build/kernel_alert_chrome_finder_press.elf loaded 179632 B > 172492 B (10 KiB reclaim required)
+>>> test-kernel-size-r3-emu: green (desktop pixels, text trace, DOS/FCB/FAT differential)
+>>> test-kernel-size-r3-emu-mutant: green (desktop/FCB behaviour mutants RED)
+```
+
+No Bochs gate was run; the PM retains accuracy acceptance. Local followups
+are initech-7sp (operator r3 decision) and initech-3kc (PM Bochs acceptance).
+The original initech-hztg stays in progress for those parent-level decisions;
+the coding lane's part-2 r4 bar and all requested QEMU/host proofs are complete.
+Dolt origin is absent in this worktree; no remote endpoint is invented.
