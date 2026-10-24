@@ -34989,5 +34989,8 @@ test-flair-i123-copy-mutant: test-flair-i123-copy $(FLAIR_DATA_I123_PERIOD_TEXT_
 	@printf '>>> test-flair-i123-copy-mutant: green (rectangle save passes; period-as-text fails serial and pixels)\n'
 TEST_EMU_GATES += test-flair-i123-copy test-flair-i123-copy-cpu test-flair-i123-copy-bochs test-flair-i123-copy-mutant
 
+# Parallel certificate runner bookkeeping (initech-9bgg6), no emulators.
+include harness/cert_runner.mk
+
 # Calculator desk accessory lifecycle (initech-0xs6).
 include harness/emu/calcda_power.mk
