@@ -3411,9 +3411,15 @@ test-samir-query: $(TEST_SAMIR_QUERY)
 	@printf ">>> test-samir-query: green\n"
 
 # Audit L001/L003/L007: injected write boundaries and strict owner lifetimes.
+# The L003 codec-lifetime leg copies a real III+ index (CNAMES.NDX) out of the
+# dbase3-decomp sibling; the sibling root travels as a define (the
+# SYSTEM7_DECOMP pattern), never as a host path baked into the test
+# (initech-3kiy follow-up: the old absolute /home path broke the certificate
+# on the first machine move).
+SAMIR_DBSAFE_DEF := -DDBASE3_DECOMP=\"$(DBASE3_DECOMP)\"
 TEST_SAMIR_DBSAFE := $(BUILD)/test_samir_dbsafe
 $(TEST_SAMIR_DBSAFE): $(DBF_DIFF_DIR)/test_samir_dbsafe.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(SAMIR_DBSAFE_DEF) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
 .PHONY: test-samir-append-safe test-samir-lifetime test-samir-safety
 test-samir-append-safe test-samir-lifetime test-samir-safety: $(TEST_SAMIR_DBSAFE)
 	@mkdir -p $(BUILD)/dbsafe
@@ -3423,7 +3429,7 @@ test-samir-append-safe test-samir-lifetime test-samir-safety: $(TEST_SAMIR_DBSAF
 SAMIR_APPEND_MUTANTS := $(BUILD)/test_samir_append_memory $(BUILD)/test_samir_append_count $(BUILD)/test_samir_append_rewrite
 $(SAMIR_APPEND_MUTANTS): $(DBF_DIFF_DIR)/test_samir_dbsafe.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	@case "$@" in *_memory) flag=SAMIR_MUTATE_APPEND_MEMORY;; *_count) flag=SAMIR_MUTATE_APPEND_COUNT;; *) flag=SAMIR_MUTATE_APPEND_REWRITE;; esac; \
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$$flag -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$$flag $(SAMIR_DBSAFE_DEF) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
 .PHONY: test-samir-append-safe-mutant
 test-samir-append-safe-mutant: $(SAMIR_APPEND_MUTANTS)
 	@mkdir -p $(BUILD)/dbsafe
@@ -3438,7 +3444,7 @@ test-samir-append-safe-mutant: $(SAMIR_APPEND_MUTANTS)
 SAMIR_LIFETIME_MUTANTS := $(BUILD)/test_samir_lifetime_reset $(BUILD)/test_samir_lifetime_duplicate $(BUILD)/test_samir_lifetime_heap
 $(SAMIR_LIFETIME_MUTANTS): $(DBF_DIFF_DIR)/test_samir_dbsafe.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	@case "$@" in *_reset) flag=SAMIR_MUTATE_OWNER_RESET;; *_heap) flag=SAMIR_MUTATE_HEAP_FREE;; *) flag=SAMIR_MUTATE_DUPLICATE_OPEN;; esac; \
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$$flag -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$$flag $(SAMIR_DBSAFE_DEF) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
 .PHONY: test-samir-lifetime-mutant
 test-samir-lifetime-mutant: $(SAMIR_LIFETIME_MUTANTS)
 	@mkdir -p $(BUILD)/dbsafe
@@ -3451,7 +3457,7 @@ test-samir-lifetime-mutant: $(SAMIR_LIFETIME_MUTANTS)
 	@printf '>>> test-samir-lifetime-mutant: green\n'
 
 $(BUILD)/test_samir_safety_mut: $(DBF_DIFF_DIR)/test_samir_dbsafe.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_MUTATE_ZAP_SAFETY -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_MUTATE_ZAP_SAFETY $(SAMIR_DBSAFE_DEF) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
 .PHONY: test-samir-safety-mutant
 test-samir-safety-mutant: $(BUILD)/test_samir_safety_mut
 	@mkdir -p $(BUILD)/dbsafe

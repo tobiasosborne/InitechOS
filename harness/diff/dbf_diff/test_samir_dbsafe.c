@@ -28,7 +28,19 @@ static struct {
     int armed, boundary, hit, calls, seek_fault, short_kind, error;
     void *live_mark; int reset_bad, closes, opens, objects;
 } c;
+/* Sibling ground-truth root (Makefile DBASE3_DECOMP). Relative paths are
+ * anchored to project_root because main() chdirs into a private sandbox
+ * before the tests run. Never an absolute host path (Law 3 / initech-3kiy). */
+#ifndef DBASE3_DECOMP
+#define DBASE3_DECOMP "../dbase3-decomp"
+#endif
 static char project_root[1024];
+static const char *sibling(const char *rel){
+    static char buf[2048];
+    if(DBASE3_DECOMP[0]=='/') snprintf(buf,sizeof buf,"%s/%s",DBASE3_DECOMP,rel);
+    else snprintf(buf,sizeof buf,"%s/%s/%s",project_root,DBASE3_DECOMP,rel);
+    return buf;
+}
 static uint32_t test_heap_size=4u*1024u*1024u;
 static const char *path="build/dbsafe/FAULT.DBF";
 static pal_fd op(samir_pal_t *p,const char *s,int m){pal_fd fd;(void)p;fd=c.inner->open(c.inner,s,m);if(fd>=0)c.opens++;return fd;}
@@ -149,7 +161,7 @@ static void codec_lifetimes(samir_pal_t *p){
     dbt_file *ma=NULL,*mb=NULL;ndx_index *ia=NULL,*ib=NULL;ndx_node_t *node=NULL;
     unsigned char block[512]={1};FILE *f=fopen("build/dbsafe/A.DBT","wb");
     CHECK(f!=NULL,"empty memo fixture");if(f){fwrite(block,1,sizeof block,f);fclose(f);}
-    copy_local("/home/tobias/Projects/dbase3-decomp/goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CNAMES.NDX","build/dbsafe/CNAMES.NDX");
+    copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CNAMES.NDX"),"build/dbsafe/CNAMES.NDX");
     CHECK(dbt_open(p,"build/dbsafe/A.DBT",0,&ma)==0,"L003 first memo open");
     CHECK(ndx_open_rw(p,"build/dbsafe/CNAMES.NDX",&ia)==0,"L003 first index open (local corpus copy)");
     CHECK(dbt_open(p,"build/dbsafe/A.DBT",0,&mb)==0,"L003 second memo open");
