@@ -1012,17 +1012,16 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * parent_exit is restored on return (IBM DOS 3.30 TR pp. 6-196/200). */
     int21_set_exit(loader_exit_hook);
 
-    /* Pin the three transfer targets into plain locals so the asm can reference
-     * them as MEMORY operands -- i386 has too few registers to carry entry +
-     * stack_top + psp_addr in registers alongside the GPR clobbers (the asm
-     * would over-constrain). EAX is the only scratch register the asm needs. */
+    /* Keep entry and stack_top in memory; constrain the PSP pointer to EBX.
+     * GCC then preserves the caller's EBX and cannot use it as an unrelated
+     * address base that an undeclared in-asm EBX write would invalidate. */
     const uint32_t entry_eip = plan.entry;
     const uint32_t stack_top = plan.stack_top;
     const uint32_t psp_ptr   = plan.psp_addr;
 
     /* The asm: capture ESP and all callee-saved GPRs plus a return label, then
      * switch to the
-     * program stack, load EBX = PSP_ADDR (the program's pointer to its own PSP,
+     * program stack, with EBX = PSP_ADDR (the program's pointer to its own PSP,
      * Sec 3.3), and JMP (not CALL -- Sec 4.3) to the program entry. When the
      * program terminates, loader_exit_hook restores ESP/EBP/EBX/ESI/EDI and jumps to the
      * 1: label, landing us right after this block with ctx.exit_code set.
@@ -1043,13 +1042,12 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
     __asm__ __volatile__(
         "mov %%esp, %0\n\t"          /* ctx.saved_esp = current kernel ESP        */
         "mov %%ebp, %1\n\t"          /* ctx.saved_ebp = current frame base        */
-        "mov %%ebx, %2\n\t"          /* ctx.saved_ebx = current EBX               */
+        "mov %%ebx, %2\n\t"          /* save the constrained PSP input in EBX     */
         "lea 1f, %%eax\n\t"          /* EAX = address of the return label (1:)    */
         "mov %%eax, %3\n\t"          /* ctx.return_eip = &1f                      */
         "mov %%esi, %4\n\t"
         "mov %%edi, %5\n\t"
         "mov %6, %%eax\n\t"          /* EAX = entry_eip, read BEFORE the switch    */
-        "mov %7, %%ebx\n\t"          /* EBX = PSP_ADDR (program's PSP pointer)    */
         "mov %8, %%esp\n\t"          /* switch to the program stack top (LAST)    */
         "jmp *%%eax\n\t"             /* JMP via REGISTER (no post-switch mem read) */
         "1:\n\t"                     /* <- loader_exit_hook jumps back here       */
@@ -1058,7 +1056,7 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
         "cld\n\t"
         : "=m"(ctx.saved_esp), "=m"(ctx.saved_ebp), "=m"(ctx.saved_ebx),
           "=m"(ctx.return_eip), "=m"(ctx.saved_esi), "=m"(ctx.saved_edi)
-        : "m"(entry_eip), "m"(psp_ptr), "m"(stack_top)
+        : "m"(entry_eip), "b"(psp_ptr), "m"(stack_top)
         : "eax", "ecx", "edx", "cc", "memory");
 
     /* Resume the immediate caller's frame, PSP, hook and directory state.

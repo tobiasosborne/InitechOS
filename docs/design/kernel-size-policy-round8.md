@@ -420,3 +420,17 @@ Before the fix it is RED for the missing entry/resume CLDs; after the fix
 it is GREEN. test-kernel-df-mutant replaces the real ELF IRQ1 CLD with NOP
 and is RED for calling C before CLD. Logs: build/ksize8p2-review/df-before.log
 and f1.log. test-kernel-size-r4 remains GREEN.
+
+F2: psp_ptr is now a "b" input. GCC establishes EBX before the asm;
+the context's EBX save records that input and GCC preserves its own caller's
+EBX. Removing the undeclared in-asm EBX write removes the hazard of addressing
+the subsequent stack_top operand through an overwritten EBX. The transfer
+checker accepts only an ESP/EBP-based ESP source, scans all executable ELF
+sections for the save sequence (including unnamed/inlined copies), and
+requires exactly one transfer and one restore. It is RED on the pre-fix
+transfer at save step 9 and GREEN on the constrained version. New real-ELF
+mutants change the stack source base to EBX and insert a second copy of the
+actual transfer bytes outside the loader symbol; both are RED for their
+intended reasons. The existing wrong-EDI-restore mutant also remains RED.
+Proof: build/ksize8p2-review/f2-before.log, f2.log and f2-mutants.log.
+Flagship remains 180208 B (0 B delta); .text and section sizes are unchanged.

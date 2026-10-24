@@ -71,6 +71,14 @@ test-kernel-df-mutant: test-kernel-df
 	@printf '>>> test-kernel-df-mutant: green (real ELF missing_irq1_cld RED)\n'
 TEST_UNIT_GATES += test-kernel-df test-kernel-df-mutant
 
+.PHONY: test-kernel-transfer test-kernel-transfer-mutant
+test-kernel-transfer: $(KERNEL_FLAIRTENANTS_ELF) | $(KERNEL_R4_DIR)
+	@sh harness/proptest/kernel_transfer_check.sh $< $(KERNEL_R4_DIR)/transfer.dis
+	@printf '>>> test-kernel-transfer: green (unique linked transfer; ESP/EBP-based stack operand)\n'
+test-kernel-transfer-mutant: test-kernel-transfer
+	@sh harness/proptest/kernel_transfer_mutants.sh $(KERNEL_FLAIRTENANTS_ELF) $(KERNEL_R4_DIR)
+TEST_UNIT_GATES += test-kernel-transfer test-kernel-transfer-mutant
+
 # Source-to-table equality uses the host C compiler as the independent oracle.
 # The original formatter calls and the packed form must emit identical bytes.
 $(SERIAL_TRACE_PACK): $(SERIAL_TRACE_PACK_SRC) | $(BUILD)
