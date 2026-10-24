@@ -34516,7 +34516,7 @@ TEST_UNIT_GATES += test-samir-core-diff test-samir-core-diff-mutant
 # RUN (DML-16) is back in the vector (initech-n8q8): the PAL exec seam runs
 # COMMAND.COM /C through the nested EXEC; its mutant SAMIR_DML_MUTANT_run is
 # the RUN_NOEXEC bite (no CR LFs, no child, no VERSION.TXT).
-SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run abbrev abbrscope status memory
+SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run abbrev abbrscope status memory statusinto
 SAMIR_DML_TEST := $(BUILD)/test_samir_dml
 SAMIR_DML_MUTS := $(addprefix $(BUILD)/test_samir_dml_, $(SAMIR_DML_CASES))
 $(SAMIR_DML_TEST): $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
@@ -34662,6 +34662,15 @@ mint-samir-inspection: $(CLIENTS_DBF)
 	@for f in SECOND.DBF THIRD.DBF EDGE.DBF EDGE.DBT NAMES.NDX BALS.NDX SECOND.NDX THIRD.NDX; do \
 	 cmp $(BUILD)/inspection-remint/status/$$f $(SAMIR_MINT_TREE)/golden/status/$$f || exit 1; done
 	@printf '>>> mint-samir-inspection: green (isolated III+ rerun reproduces pinned transcripts and files)\n'
+
+# Review regression: independent field/literal INTO relation capture.
+.PHONY: mint-samir-statusinto
+mint-samir-statusinto: $(CLIENTS_DBF)
+	@cd $(DBASE3_DECOMP)/mint/work && sha256sum --quiet -c $(abspath $(SAMIR_MINT_TREE)/golden/statusinto/reference.sha256)
+	@SAMIR_DML_MINT_DEST="$(abspath $(BUILD)/statusinto-remint)" sh $(DBF_DIFF_DIR)/dml_mint.sh $(abspath $(DBASE3_DECOMP)) statusinto
+	@for f in DMLTEST.PRG GOLD.OUT BASE.DBF INPUT.DBF NAMES.NDX MINT.PRG CONFIG.DB; do \
+	 cmp $(BUILD)/statusinto-remint/statusinto/$$f $(SAMIR_MINT_TREE)/golden/statusinto/$$f || exit 1; done
+	@printf '>>> mint-samir-statusinto: green (real III+ field/literal INTO capture reproduced)\n'
 
 # State assertions isolate the implemented dispatch changes from the existing
 # ?/TYPE formatting blocks. They never substitute for the exact differential.

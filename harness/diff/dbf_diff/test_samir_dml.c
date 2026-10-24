@@ -141,11 +141,11 @@ int main(int argc,char **argv)
 {
     const char *name=argc>1?argv[1]:"clear",*mode=argc>2?argv[2]:"host";
     const char *com=argc>3?argv[3]:"build/SAMIR.COM";
-    static const char *const names[]={"clear","macro","close","index","reindex","sort","total","append","save","restore","copyfile","type","rename","erase","label","run","abbrev","abbrfull","abbrscope","status","memory"};
+    static const char *const names[]={"clear","macro","close","index","reindex","sort","total","append","save","restore","copyfile","type","rename","erase","label","run","abbrev","abbrfull","abbrscope","status","memory","statusinto"};
     char gold[1024],dir[1024],cmd[16384],path[2048];
     static unsigned char expected[65536];FILE *f;
     int emu=!strcmp(mode,"emu"),state=!strcmp(mode,"state"),valid=0;unsigned ni;
-    int inspection=!strcmp(name,"status")||!strcmp(name,"memory");
+    int inspection=!strcmp(name,"status")||!strcmp(name,"memory")||!strcmp(name,"statusinto");
     for(ni=0;ni<sizeof names/sizeof names[0];ni++)if(!strcmp(name,names[ni]))valid=1;
     if(!valid||(!emu&&!state&&strcmp(mode,"host")))return 2;
     if(state&&strcmp(name,"clear")&&strcmp(name,"macro")&&strcmp(name,"close"))return 2;
@@ -165,6 +165,9 @@ int main(int argc,char **argv)
     /* abbrscope's schema and blank rows were created by real DBASE.EXE. */
     if(!strcmp(name,"abbrscope")) {
         snprintf(cmd,sizeof cmd,"cp -f %s/INPUT.DBF %s/BASE.DBF",gold,dir);command(cmd);
+    }
+    if(!strcmp(name,"statusinto")) {
+        snprintf(cmd,sizeof cmd,"cp -f %s/INPUT.DBF %s/INPUT.DBF",gold,dir);command(cmd);
     }
     if(!strcmp(name,"status")) {
         snprintf(cmd,sizeof cmd,"cp -f %s/SECOND.DBF %s/SECOND.DBF && cp -f %s/THIRD.DBF %s/THIRD.DBF",gold,dir,gold,dir);command(cmd);
@@ -215,7 +218,10 @@ int main(int argc,char **argv)
         pal_host_free(pal);
         if(!strcmp(name,"run"))CHECK(system("VER > VERREF.TXT")==0,"host processor minted its own VER > file");
         if(chdir(cwd))return 2;
-        if(inspection)CHECK(inspection_keys>0,"DML DISPLAY inspection paused for keys (LIST did not)");
+        if(inspection) {
+            if(!strcmp(name,"statusinto"))CHECK(inspection_keys==0,"DML LIST STATUS did not pause");
+            else CHECK(inspection_keys>0,"DML DISPLAY inspection paused for keys (LIST did not)");
+        }
     }
     if(inspection) {
         /* Compare the same alternate-file channel the real program minted,

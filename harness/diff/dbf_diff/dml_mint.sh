@@ -9,7 +9,7 @@ dest=${SAMIR_DML_MINT_DEST:-"$root/build/samirdml/golden"}
 source="$root/harness/diff/dbf_diff/xbase_prog_diff/corpus/dml"
 command -v dosbox-x >/dev/null || { echo 'RED: MINT required: dosbox-x missing'; exit 1; }
 mkdir -p "$dest"
-for name in ${*:-clear macro close index reindex sort total append save restore copyfile type rename erase label run abbrev abbrfull abbrscope status memory}; do
+for name in ${*:-clear macro close index reindex sort total append save restore copyfile type rename erase label run abbrev abbrfull abbrscope status memory statusinto}; do
     work="$dest/$name"
     rm -rf "$work"
     mkdir -p "$work"
@@ -61,16 +61,31 @@ COPY TO BASE
 USE
 EOF
     fi
+    if [ "$name" = statusinto ]; then
+        # Real III+ creates the PAINTO field; both PALs replay this input.
+        cat >> "$work/MINT.PRG" <<'EOF'
+USE BASE
+COPY STRUCTURE EXTENDED TO SHAPE
+USE SHAPE
+GO TOP
+REPLACE FIELD_NAME WITH 'PAINTO'
+USE
+CREATE INPUT FROM SHAPE
+APPEND BLANK
+REPLACE PAINTO WITH 'ALPHA'
+USE
+EOF
+    fi
     case "$name" in clear|abbrev|abbrfull|memory) printf 'SET PROCEDURE TO DMLTEST\r\n' >> "$work/MINT.PRG";; esac
     case "$name" in
-        status|memory) printf 'DO DMLTEST\r\nQUIT\r\n' >> "$work/MINT.PRG";;
+        status|memory|statusinto) printf 'DO DMLTEST\r\nQUIT\r\n' >> "$work/MINT.PRG";;
         *) printf 'SET ALTERNATE TO GOLD.OUT\r\nSET ALTERNATE ON\r\nDO DMLTEST\r\nSET ALTERNATE TO\r\nQUIT\r\n' >> "$work/MINT.PRG";;
     esac
     drive=c
     keys=
     mint_timeout=20
     mapper=
-    case "$name" in status|memory)
+    case "$name" in status|memory|statusinto)
         # spec/drive_letters.json: the locked QEMU data disk is A:. Mint the
         # same drive identity, rather than normalizing filenames in a diff.
         drive=a
@@ -80,6 +95,10 @@ EOF
         # sending them all before a later DISPLAY would lose type-ahead.
         keys="AUTOTYPE -w 2 -p 2$(printf ' space%.0s' $(seq 1 16))";;
     esac
+    if [ "$name" = statusinto ]; then
+        mapper="$mapper -fastlaunch"
+        keys= # LIST-only boundary regression; DISPLAY's existing mint is separate.
+    fi
     cat > "$work/mint.conf" <<EOF
 [sdl]
 output=surface
@@ -104,14 +123,14 @@ EOF
     SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout -k 2 "$mint_timeout" dosbox-x $mapper -conf "$work/mint.conf" -exit > "$work/mint.log" 2>&1 || :
     test -s "$work/GOLD.OUT" || { echo "RED: MINT required: $name produced no GOLD.OUT ($work/mint.log)"; exit 1; }
     grep -q '\[DML-END\]' "$work/GOLD.OUT" || { echo "RED: MINT required: $name did not finish"; exit 1; }
-    case "$name" in status|memory)
+    case "$name" in status|memory|statusinto)
         test "$(tail -c 1 "$work/GOLD.OUT" | od -An -tu1 | tr -d ' ')" = 26 || {
             echo "RED: MINT required: $name alternate did not close with DOS EOF"; exit 1;
         };;
     esac
     # STATUS prints the installed ON ERROR source itself. Only a line starting
     # with the handler's output marker denotes a trapped error in that case.
-    if [ "$name" = status ]; then error_pattern='^MINT-ERROR'; else error_pattern='MINT-ERROR'; fi
+    case "$name" in status|statusinto) error_pattern='^MINT-ERROR';; *) error_pattern='MINT-ERROR';; esac
     if grep -q "$error_pattern" "$work/GOLD.OUT"; then cat "$work/GOLD.OUT"; exit 1; fi
     if [ "$name" = abbrscope ] && grep -q 'SCOPE-ERROR' "$work/GOLD.OUT"; then cat "$work/GOLD.OUT"; exit 1; fi
     (cd "$work" && sha256sum DMLTEST.PRG GOLD.OUT ./*.DBF ./*.NDX ./*.MEM ./*.LBL ./*.TXT 2>/dev/null || :) > "$work/sha256.txt"

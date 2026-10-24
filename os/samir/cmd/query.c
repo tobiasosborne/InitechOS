@@ -1440,7 +1440,17 @@ static void qi_status(q_inspection *q)
         if(*filter) { qi_text(q,"Filter: ");qi_text(q,filter);qi_line(q); }
         if(*rel) {
             const char *into=rel;
-            while(*into && rt_kw_word(into,"INTO\0",(int *)0)!=0)into++;
+            char quote=0;
+            /* Real III+ statusinto mint: PAINTO and quoted INTO stay in the
+             * relation expression; only a whole clause keyword splits it. */
+            for(;*into;into++) {
+                if(rt_literal_byte(*into,&quote))continue;
+                if(
+#ifndef SAMIR_DML_MUTANT_statusinto
+                   (into==rel || q_isspace(into[-1])) &&
+#endif
+                   rt_kw_word(into,"INTO\0",(int *)0)==0)break;
+            }
             if(*into) {
                 qi_text(q,"    Related into: ");qi_text(q,q_skip_ws(into+4));qi_line(q);
                 qi_text(q,"    Relation: ");
