@@ -94,9 +94,10 @@ screendrift.
 - Worker agents waiting on their own `tail -f` watchers fire repeated
   "waiting" notices; a nudge resumes them.
 - Shared budgets: flagship headroom 17,420 -> ~14,700 B across the wave;
-  SAMIR.COM crossed the ADR-0009 reclaim cap (99,738 > 98,175 B) after five
-  SAMIR lanes -- a size round (initech-vn4i) is the honest answer, not a cap
-  change.
+  SAMIR.COM crossed the then-live lane reclaim cap (99,738 > 98,175 B) after
+  five SAMIR lanes, prompting a size round (initech-vn4i). Operator ruling
+  2026-10-24 retired that arrival criterion; see WL-0182. The physical
+  PAL-memory headroom floor remains live.
 
 ## Acceptance
 

@@ -6,24 +6,25 @@ $(SAMIR_SIZE_TEST): $(DBF_DIFF_DIR)/test_samir_size.c spec/memory_map.h | $(BUIL
 .PHONY: test-samir-size test-samir-size-mutant test-samir-size-repro test-samir-size-emu test-samir-size-emu-mutant
 test-samir-size: $(SAMIR_SIZE_TEST) $(SAMIR_SIZE_IMAGE)
 	@$(SAMIR_SIZE_TEST) $(SAMIR_SIZE_IMAGE)
-	@printf '>>> test-samir-size: green (>=8192 B recovery; >=4096 B headroom)\n'
+	@printf '>>> test-samir-size: green (>=4096 B headroom against samir.ld PAL-memory budget)\n'
 
-# Boundary control retains the actual program and pads to the exact acceptance
-# cap. A named 4 KiB pad on the production image must lose the required reclaim
-# while still fitting samir.ld. This separately exercises the measured saving.
+# Rule 6: retain the actual program and pad to 4095 B headroom (RED), then
+# exactly 4096 B (GREEN). Read the budget from the oracle's samir.ld arithmetic.
 # It is a file-size mutant, not a behavior mutant; QEMU behavior is separate.
 test-samir-size-mutant: test-samir-size
 	@mkdir -p $(BUILD)/samir-size
-	@cp -f $(SAMIR_COM) $(BUILD)/samir-size/boundary.COM
-	@truncate -s 98175 $(BUILD)/samir-size/boundary.COM
-	@$(SAMIR_SIZE_TEST) $(BUILD)/samir-size/boundary.COM
-	@cp -f $(SAMIR_COM) $(BUILD)/samir-size/SAMIR_SIZE_PAD_4096.COM
-	@dd if=/dev/zero bs=4096 count=1 status=none >> $(BUILD)/samir-size/SAMIR_SIZE_PAD_4096.COM
-	@set +e; $(SAMIR_SIZE_TEST) $(BUILD)/samir-size/SAMIR_SIZE_PAD_4096.COM > $(BUILD)/samir-size/pad-red.log 2>&1; rc=$$?; set -e; \
+	@set -e; budget=$$($(SAMIR_SIZE_TEST) $(SAMIR_COM) | sed -n 's/.*(budget \([0-9][0-9]*\) B)$$/\1/p'); \
+	 test -n "$$budget" || { printf 'samir-size-mutant: missing PAL-memory budget\n'; exit 1; }; \
+	 cp -f $(SAMIR_COM) $(BUILD)/samir-size/SAMIR_SIZE_PAD_4096.COM; \
+	 truncate -s $$(( budget - 4096 + 1 )) $(BUILD)/samir-size/SAMIR_SIZE_PAD_4096.COM; \
+	 set +e; $(SAMIR_SIZE_TEST) $(BUILD)/samir-size/SAMIR_SIZE_PAD_4096.COM > $(BUILD)/samir-size/pad-red.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q '^RED SAMIR_SIZE:' $(BUILD)/samir-size/pad-red.log && \
-	 test $$(stat -c%s $(BUILD)/samir-size/SAMIR_SIZE_PAD_4096.COM) -le 106352 || { cat $(BUILD)/samir-size/pad-red.log; exit 1; }; \
-	 cat $(BUILD)/samir-size/pad-red.log
-	@printf '>>> test-samir-size-mutant: green (SAMIR_SIZE_PAD_4096 RED; image remains below linker budget)\n'
+	 test $$(stat -c%s $(BUILD)/samir-size/SAMIR_SIZE_PAD_4096.COM) -le "$$budget" || { cat $(BUILD)/samir-size/pad-red.log; exit 1; }; \
+	 cat $(BUILD)/samir-size/pad-red.log; \
+	 cp -f $(SAMIR_COM) $(BUILD)/samir-size/floor.COM; \
+	 truncate -s $$(( budget - 4096 )) $(BUILD)/samir-size/floor.COM
+	@$(SAMIR_SIZE_TEST) $(BUILD)/samir-size/floor.COM
+	@printf '>>> test-samir-size-mutant: green (SAMIR_SIZE_PAD_4096 floor-1 RED; floor GREEN; both below linker budget)\n'
 test-samir-size-repro: $(SAMIR_COM)
 	@mkdir -p $(BUILD)/samir-size
 	@$(MAKE) --no-print-directory -B samir-com > $(BUILD)/samir-size/repro-1.log 2>&1

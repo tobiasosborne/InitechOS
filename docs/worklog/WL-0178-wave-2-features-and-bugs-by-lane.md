@@ -100,8 +100,9 @@ per-file limit and no quota.
   worktree, then re-queuing.
 - Codex lanes stop correctly on Rule-5 questions (doscmd: locked message; iwordlist: locked
   List Files table; calcda: no real-Mac paste fixture) -- each got a PM ruling or a follow-up.
-- SAMIR.COM: DISPLAY STATUS/MEMORY at full fidelity costs +4,664 B (2,210 B over the reclaim
-  cap); a size round runs on the lane before merge rather than stripping behaviour.
+- SAMIR.COM: DISPLAY STATUS/MEMORY at full fidelity cost +4,664 B (2,210 B over the
+  then-live reclaim cap); a size round ran on the lane before merge. Operator ruling
+  2026-10-24 retired that arrival criterion; the PAL-memory floor stays (WL-0182).
 
 ## Acceptance
 

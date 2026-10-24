@@ -42,8 +42,12 @@ policy changed. Compiler: Ubuntu GCC 13.3.0-6ubuntu2~24.04.1.
 
 Final text 93699 B, rodata 4187 B, loaded alignment 29 B, BSS 48504 B.
 Hard-budget headroom is 8437 B; the required 4096 B floor is exceeded by
-4341 B. The size gate additionally enforces the requested 8192 B recovery
-against the fixed arrival measurement (98175 B maximum).
+4341 B. At that round, the size gate additionally enforced the requested
+8192 B recovery against the fixed arrival measurement (98175 B maximum).
+
+Operator ruling 2026-10-24 (initech-9swot; WL-0182) retired that arrival-reclaim
+clause; the 4096 B headroom floor against samir.ld remains live. The verdicts
+in this shard preserve the historical round-1 policy and measurements.
 
 Two clean builds compare byte for byte, with zero x87 instructions:
 

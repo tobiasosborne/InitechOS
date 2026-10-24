@@ -10,15 +10,19 @@ test-samir-size was RED on main:
 
     RED SAMIR_SIZE: 98587 B > 98175 B reclaim cap / 102256 B headroom cap
 
-The two caps (harness/diff/dbf_diff/test_samir_size.c): the *reclaim cap*
-is ARRIVAL - RECOVER = 106367 - 8192 = 98175 B, the round-1 target pinned
-against the fixed arrival measurement; the *headroom cap* is the linker
-budget minus 4 KiB = 106352 - 4096 = 102256 B. Round 1
+At that round, the two caps (harness/diff/dbf_diff/test_samir_size.c): the
+*reclaim cap* was ARRIVAL - RECOVER = 106367 - 8192 = 98175 B, the round-1
+target pinned against the fixed arrival measurement; the *headroom cap* was
+the linker budget minus 4 KiB = 106352 - 4096 = 102256 B. Round 1
 (docs/worklog/samir-size-round1.md) reached 97915 B with
 SAMIR_SIZE_CFLAGS + the byte-pair message catalogue; the fns lanes since
 then grew the image to 98587 B (docs/worklog/samirfns-fourth-launch.md:
 7,780 B recovered, 412 B short). Brief: reclaim at least 1,500 B with no
 behavioural change, never raise a cap.
+
+Operator ruling 2026-10-24 (initech-9swot; WL-0182) retired the arrival-reclaim
+clause. The 4096 B floor against the samir.ld PAL-memory budget remains live.
+The measurements and verdicts below record this round's historical policy.
 
 ## Measure first
 
