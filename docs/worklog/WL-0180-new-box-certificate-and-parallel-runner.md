@@ -130,9 +130,9 @@ exists because wave-2 merges grew the flagship past the r4 floor.
 - r4 green (16 B margin). r3 RED: 9,076 B over the 172,492 B cap. OPEN
   initech-hztg. The next kernel-growing lane re-breaks r4.
 - Parallel run 1 (c9a5cd53): 1454 PASS, 81 min. All failures fixed on main.
-- Parallel run 2 at the final HEAD 61294e7e is IN PROGRESS as this is
-  written; no result is claimed. Serial `make test` remains the reference
-  until two consecutive sharded runs agree (design Sec 4).
+- Parallel run 2 at the final HEAD 61294e7e: see the Run 2 addendum below.
+  The operator ratified the sharded runner as the certificate on run 2 and
+  VETOED run 3.
 - No full serial `make test` has been run on 61294e7e.
 
 
@@ -141,9 +141,12 @@ Run 2 (added 2026-10-24 17:05): tools/cert-sharded.sh -j 8 at 61294e7e in
 and its mutant, the owed r3 decision), 0 FLAKY, 66m45s wall clock (169m user). The
 --diff against run 1 lists only the gates today's fixes changed (r4 pair, the 22
 CLIENTS.DBF readers, memwidth-emu-mutant) and the four gates added by the size
-lane (test-kernel-df, test-kernel-transfer, + mutants). Run 3 at the same HEAD was
-started for the 'two consecutive runs without FLAKY' clause of design Sec 4; until
-it agrees, serial make test stays the reference.
+lane (test-kernel-df, test-kernel-transfer, + mutants). A run 3 at the same HEAD was
+started for the 'two consecutive runs without FLAKY' clause of design Sec 4 and was
+VETOED by the operator as excess (ruling 2026-10-24: `tools/cert-sharded.sh -j 8` IS
+the certificate on the strength of run 2; the clause stands as written, not as
+applied). The partial run-3 log in ../initech-os-cx-parcert/build/cert-full3-run.log
+is not a result. Serial `make test` is kept as a one-off cross-check only.
 
 ## Pointers
 
@@ -156,10 +159,9 @@ it agrees, serial make test stays the reference.
   dupinfo 1, bootscreen2 1. Recommendation: certificate first, then smallest
   code lanes first (bootscreen2, dupinfo, pascaltbx), the book lanes after the
   pubs gate is stable.
-- Finish run 2 and diff it: in ../initech-os-cx-parcert,
-  `tools/cert-sharded.sh --out build/cert-full2 --diff build/cert-full/results.txt`.
-  If clean, flip BOOTSTRAP/HANDOFF to the sharded certificate and update the
-  bd memory on host discipline.
+- Run 2 is diffed and the flip to the sharded certificate is done (4d283f9b:
+  BOOTSTRAP Sec 4, design Sec 4; bd memory certificate-2026-10-24). No
+  further certificate run on 61294e7e; the next run is on the next merged HEAD.
 - Docs: docs/design/parallel-certificate.md, docs/design/kernel-size-policy-round8.md,
   docs/BOOTSTRAP.md, WL-0178, WL-0179.
 - Beads: zxzi 3kiy pla5 3e7q e8s3 buze u01i kqr8 hk3py hteno 27clv 72872

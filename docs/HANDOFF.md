@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-10-24 15:57 (**WL-0180: new WSL box certified gate by gate, 12 main regressions fixed, kernel size round 8, parallel certificate runner; r3 cap decision owed**)
+**Last Reconciled:** 2026-10-24 17:15 (**WL-0180: new WSL box certified gate by gate, 12 main regressions fixed, kernel size round 8, sharded certificate ratified on run 2, run 3 vetoed; r3 cap decision owed**)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -203,7 +203,7 @@ fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
 
-> **CURRENT STATE (2026-10-24 ~15:57, WL-0180 -- new-box certificate, size round 8, parallel certificate runner. Supersedes every CURRENT STATE block below for "what to do next".)**
+> **CURRENT STATE (2026-10-24 ~17:15, WL-0180 -- new-box certificate, size round 8, parallel certificate runner; certificate ruling. Supersedes every CURRENT STATE block below for "what to do next".)**
 >
 > **Machine:** work moved to a new WSL2 box (Ubuntu 24.04, 64 cores, 62 GB; toolchain per
 > docs/BOOTSTRAP.md, siblings restored from release assets, doctor green except 86Box). Box-isms were
@@ -216,11 +216,15 @@ fallback, asserted on serial.)
 > drift (kqr8), icons-bochs dead claim (buze), xcopy ctrlc mutant (hk3py). No full serial
 > `make test` has been run on 61294e7e.
 >
-> **Parallel certificate (initech-9bgg6, open):** tools/cert-sharded.sh, design in
-> docs/design/parallel-certificate.md. First full run at c9a5cd53, -j 8: 1454 PASS in 81 min, zero
+> **Parallel certificate (initech-9bgg6, CLOSED by operator ruling):** `tools/cert-sharded.sh -j 8`
+> IS the certificate (BOOTSTRAP Sec 4, design Sec 4). Run 1 at c9a5cd53: 1454 PASS in 81 min, zero
 > timing flakes; every failure was a hidden gate dependency serial order masked (hteno, 27clv,
-> 72872), all fixed. The SECOND full run at HEAD 61294e7e is IN PROGRESS (no result yet). Serial
-> `make test` stays the reference until two consecutive sharded runs agree (design Sec 4).
+> 72872), all fixed. Run 2 at HEAD 61294e7e: 1483 PASS, 0 FLAKY, 2 FAIL-CONFIRMED (the owed r3 pair),
+> 66m45s; its --diff against run 1 is explained gate for gate. **Run 3 was VETOED by the operator as
+> excess** (the design's 'two consecutive clean runs' clause is recorded as written, not as applied);
+> a partial run-3 log sits in ../initech-os-cx-parcert/build/cert-full3-run.log and is NOT a result.
+> Serial `make test` is kept only as a one-off cross-check reference. main at 61294e7e is therefore
+> CERTIFIED GREEN except the named r3 pair.
 >
 > **Kernel size round 8 (initech-hztg, open):** flagship 183,956 -> 180,208 B; r4 GREEN with a 16 B
 > margin; r3 (172,492 B all-kernel cap) still ~9.1 KB over. OPERATOR DECISION OWED: structural
@@ -234,10 +238,9 @@ fallback, asserted on serial.)
 > mints 2, i123p4 1, dupinfo 1, bootscreen2 1. Smallest code lanes first (bootscreen2, dupinfo,
 > pascaltbx); book lanes after the pubs gate is stable.
 >
-> **Next work:** (1) finish run 2 and diff it: in ../initech-os-cx-parcert
-> `tools/cert-sharded.sh --out build/cert-full2 --diff build/cert-full/results.txt`; if clean, flip
-> BOOTSTRAP/HANDOFF to the sharded certificate and update the bd memory on host discipline; (2) r3
-> decision; (3) the lane queue; (4) the WL-0178 Codex candidates. Frictions: use `make -pn` with no
+> **Next work:** (1) r3 decision (initech-hztg); (2) the lane queue, smallest code lanes first;
+> (3) the WL-0178 Codex candidates. Do NOT start another certificate run on 61294e7e; run the
+> sharded certificate only on a new HEAD after merges. Frictions: use `make -pn` with no
 > target for gate lists; use /usr/bin/grep in agent commands (interactive grep is ugrep).
 >
 > **CURRENT STATE (2026-10-24 ~05:30, WL-0178 -- wave 2 after the audit fix wave + NEW-MACHINE
