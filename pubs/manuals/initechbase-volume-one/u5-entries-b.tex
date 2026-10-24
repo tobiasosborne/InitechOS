@@ -243,7 +243,9 @@ Expressions as well as fields may be listed:
 \end{XbaseEntry}
 
 % Using III+ U5-146/147; inspection mint, byte-exact host and emulator gates.
-\begin{XbaseEntry}{LIST MEMORY}{command}
+% A form of the LIST command (compound): its NAME is registered by the
+% LIST entry; the inventory keys verbs, as for CLEAR MEMORY (initech-u01i).
+\begin{XbaseEntry}{LIST MEMORY}{compound}
 Lists the memory variables and their totals without pausing between screens.
 \Syntax
 \SyntaxLine{\kw{LIST MEMORY}}
@@ -254,7 +256,9 @@ No database need be open.  Variables and work areas are preserved.
 \SeeAlso{DISPLAY MEMORY, PUBLIC, PRIVATE, RELEASE}
 \end{XbaseEntry}
 
-\begin{XbaseEntry}{LIST STATUS}{command}
+% A form of the LIST command (compound): its NAME is registered by the
+% LIST entry; the inventory keys verbs, as for CLEAR MEMORY (initech-u01i).
+\begin{XbaseEntry}{LIST STATUS}{compound}
 Lists the open work areas, files, and working environment without pausing.
 \Syntax
 \SyntaxLine{\kw{LIST STATUS}}
@@ -393,7 +397,6 @@ sure no record is marked by mistake.
 % by position into PRIVATE memvars; #93 without arguments, #94 count).
 % Gate: test-interp-proc.
 \begin{XbaseEntry}{PARAMETERS}{command}
-\XAlso{PARAMETER}{PARAMETER}%
 Receives the values passed by \cmd{DO} \ldots{} \kw{WITH} in memory variables.
 \Syntax
 \SyntaxLine{\kw{PARAMETERS} \xp{memvar list}}
@@ -408,7 +411,8 @@ Give \cmd{PARAMETERS} one name for each value the \cmd{DO} passes.  A procedure
 called with values but without \cmd{PARAMETERS} stops at its \cmd{RETURN} with
 \xmsg{93}{No PARAMETER statement found.}
 
-\cmd{PARAMETER} is another name for \cmd{PARAMETERS}.
+\type{PARAMETER}, like any shortening of \cmd{PARAMETERS} to four or more
+letters, is accepted for it.
 \Examples
 See \cmd{DO}: the procedure \texttt{NEWSAL} of \file{RAISE.PRG} receives a salary
 and a percentage.
