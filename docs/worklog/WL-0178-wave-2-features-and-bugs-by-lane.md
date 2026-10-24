@@ -25,7 +25,7 @@ up to and a little over pace on both Claude and Codex; Fable within Claude + 2.
 | i123copy | Codex | fyji | /Copy destination rectangles + shared POINT selection (real R2.2 mints) |
 | doscmd | Codex | f8f0, 0qw1 | DEL <directory> with the DOS question; "Terminate batch job (Y/N)?" incl. Ctrl-C during an EXEC child (real DOS 3.30 mint) |
 | iwordlist | Codex | 7aou | InitechWord List Files keys 2 Delete / 3 Move-Rename / 8 Copy live (real WP 5.1 headless mints); review fix: a trailing-dot FAT alias of the same file (OPS. == OPS) no longer deletes the only copy -- FAT-backed regression |
-| samirstatus | Codex | f99h | SAMIR STATUS / DISPLAY MEMORY from real III+ captures; SAMIR.COM size round (100,385 -> 97,705 B under the 98,175 cap); review fix: STATUS scans INTO as a whole keyword outside literals (statusinto corpus) -- SEE Acceptance for its merge state |
+| samirstatus | Codex | f99h | SAMIR STATUS / DISPLAY MEMORY from real III+ captures; SAMIR.COM size round (100,385 -> 97,705 B under the 98,175 cap); review fix: STATUS scans INTO as a whole keyword outside literals (statusinto corpus) -- merged 71bd666e, both SAMIR Bochs legs green |
 
 Rule 8 notes (locked spec / controlled vocabulary changes, each with its bead):
 - spec/dos_messages.json + ADR-0003 Appendix C: MSG-DOS-0063 "Terminate batch job (Y/N)?"
@@ -109,7 +109,7 @@ Every merged lane re-verified by the PM on main (its families + mutants + the th
 headroom; Bochs legs where the family has them: panic, execguard x3, finderopen, menubars,
 i123copy x2). Eleven Rule-14 clips recorded and repro-proven on main after the merges
 (film_panic, film_scene, calculator_power, calculator_refused, i123_wide, iword_goto,
-iword_badname, itext_undo, finder_open_app, cpanels_pattern_bars, i123_copy_tile): operator
+iword_badname, itext_undo, finder_open_app, cpanels_pattern_bars, i123_copy_tile) + iword_listfiles_ops: operator
 eyeball owed. Full `make clean && make test` certificate: NOT run on this HEAD (first job next
 session, ../initech-os-cert).
 
