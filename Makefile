@@ -34512,19 +34512,26 @@ test-samir-dml: $(addprefix test-samir-dml-, $(SAMIR_DML_CASES))
 test-samir-dml-mutants: $(addsuffix -mutant, $(addprefix test-samir-dml-, $(SAMIR_DML_CASES)))
 test-samir-dml-emu: $(addsuffix -emu, $(addprefix test-samir-dml-, $(SAMIR_DML_CASES)))
 test-samir-dml-emu-mutants: $(addsuffix -emu-mutant, $(addprefix test-samir-dml-, $(SAMIR_DML_CASES)))
+# Every gate that runs test_samir_dml / test_samir_fns (any mode, any mutant)
+# declares $(CLIENTS_DBF): the C driver copies build/CLIENTS.DBF by path
+# (test_samir_dml.c:164, test_samir_fns.c:52), so the fixture is a make
+# prerequisite, never an accident of which gate ran first. The -emu legs did
+# not declare it and went RED with "cp: cannot stat build/CLIENTS.DBF" on a
+# parallel-certificate worker whose earlier gates never minted it
+# (initech-72872); serial make test hid it (host gates mint it first).
 define samir-dml-gates
 .PHONY: test-samir-dml-$(1) test-samir-dml-$(1)-mutant test-samir-dml-$(1)-emu test-samir-dml-$(1)-emu-mutant
 test-samir-dml-$(1): $$(SAMIR_DML_TEST) $$(CLIENTS_DBF)
 	@$$< $(1) host
 	@printf '>>> test-samir-dml-$(1): green\n'
-test-samir-dml-$(1)-mutant: $$(BUILD)/test_samir_dml_$(1) test-samir-dml-$(1)
+test-samir-dml-$(1)-mutant: $$(BUILD)/test_samir_dml_$(1) test-samir-dml-$(1) $$(CLIENTS_DBF)
 	@set +e; $$< $(1) host > $$(BUILD)/dml-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'DML transcript byte-identical\|bytes match real III+' $$(BUILD)/dml-mut-$(1).log || { cat $$(BUILD)/dml-mut-$(1).log; echo 'mutant survived or failed infrastructure'; exit 1; }; \
 	 printf '>>> SAMIR_DML_MUTANT_$(1) RED: '; grep 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-mut-$(1).log | head -1
-test-samir-dml-$(1)-emu: $$(SAMIR_DML_TEST) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_COM)
+test-samir-dml-$(1)-emu: $$(SAMIR_DML_TEST) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_COM) $$(CLIENTS_DBF)
 	@INITECH_QMP_STDIO=1 $$(SAMIR_DML_TEST) $(1) emu $$(SAMIR_COM)
 	@printf '>>> test-samir-dml-$(1)-emu: green\n'
-test-samir-dml-$(1)-emu-mutant: test-samir-dml-$(1)-emu $$(SAMIR_DML_TEST) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(BUILD)/SAMIR_SCREEN_SAMIR_DML_MUTANT_$(1).COM
+test-samir-dml-$(1)-emu-mutant: test-samir-dml-$(1)-emu $$(SAMIR_DML_TEST) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(BUILD)/SAMIR_SCREEN_SAMIR_DML_MUTANT_$(1).COM $$(CLIENTS_DBF)
 	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_DML_TEST) $(1) emu $$(BUILD)/SAMIR_SCREEN_SAMIR_DML_MUTANT_$(1).COM > $$(BUILD)/dml-emu-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && ! grep -q 'FAIL.*locked QEMU trace' $$(BUILD)/dml-emu-mut-$(1).log && grep -q 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-emu-mut-$(1).log || { cat $$(BUILD)/dml-emu-mut-$(1).log; echo 'emu mutant survived or failed infrastructure'; exit 1; }; \
 	 printf '>>> SAMIR_DML_MUTANT_$(1) emu RED: '; grep 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-emu-mut-$(1).log | head -1
@@ -34544,14 +34551,14 @@ mint-samir-abbrev: $(CLIENTS_DBF)
 	@for f in DMLTEST.PRG GOLD.OUT INPUT.DBF BASE.DBF MINT.PRG CONFIG.DB; do \
 	 cmp $(BUILD)/samir-abbrev-mint/abbrscope/$$f $(SAMIR_MINT_TREE)/golden/abbrscope/$$f || exit 1; done
 	@printf '>>> mint-samir-abbrev: green (isolated real III+ rerun reproduces committed goldens)\n'
-test-samir-abbrev: test-samir-dml-abbrev test-samir-dml-abbrscope
+test-samir-abbrev: test-samir-dml-abbrev test-samir-dml-abbrscope $(CLIENTS_DBF)
 	@$(SAMIR_DML_TEST) abbrfull host
 	@for f in GOLD.OUT BASE.DBF NAMES.NDX VALUES.MEM; do cmp $(BUILD)/samirdml/golden/abbrev/$$f $(BUILD)/samirdml/golden/abbrfull/$$f || exit 1; done
 	@printf '>>> test-samir-abbrev: green (both spellings and replacement scopes vs real III+ output and files)\n'
-test-samir-abbrev-mutant: test-samir-abbrev test-samir-dml-abbrev-mutant test-samir-dml-abbrscope-mutant
+test-samir-abbrev-mutant: test-samir-abbrev test-samir-dml-abbrev-mutant test-samir-dml-abbrscope-mutant $(CLIENTS_DBF)
 	@$(BUILD)/test_samir_dml_abbrev abbrfull host
 	@printf '>>> test-samir-abbrev-mutant: green (DISP and replacement-scope mutants RED; full DISPLAY control green)\n'
-test-samir-abbrev-emu: test-samir-dml-abbrev-emu test-samir-dml-abbrscope-emu
+test-samir-abbrev-emu: test-samir-dml-abbrev-emu test-samir-dml-abbrscope-emu $(CLIENTS_DBF)
 	@INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) abbrfull emu $(SAMIR_COM)
 	@printf '>>> test-samir-abbrev-emu: green\n'
 TEST_UNIT_GATES += test-samir-abbrev test-samir-abbrev-mutant
@@ -34657,10 +34664,10 @@ mint-samir-statusinto: $(CLIENTS_DBF)
 # ?/TYPE formatting blocks. They never substitute for the exact differential.
 define samir-dml-state-gates
 .PHONY: test-samir-dml-$(1)-state test-samir-dml-$(1)-state-mutant
-test-samir-dml-$(1)-state: $$(SAMIR_DML_TEST) samir-dml-goldens
+test-samir-dml-$(1)-state: $$(SAMIR_DML_TEST) samir-dml-goldens $$(CLIENTS_DBF)
 	@$$< $(1) state
 	@printf '>>> test-samir-dml-$(1)-state: green (state only; exact transcript still required)\n'
-test-samir-dml-$(1)-state-mutant: $$(BUILD)/test_samir_dml_$(1) test-samir-dml-$(1)-state
+test-samir-dml-$(1)-state-mutant: $$(BUILD)/test_samir_dml_$(1) test-samir-dml-$(1)-state $$(CLIENTS_DBF)
 	@set +e; $$< $(1) state > $$(BUILD)/dml-state-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*DML state $(1)' $$(BUILD)/dml-state-mut-$(1).log || { cat $$(BUILD)/dml-state-mut-$(1).log; exit 1; }; \
 	 printf '>>> SAMIR_DML_MUTANT_$(1) RED: '; grep 'FAIL.*DML state $(1)' $$(BUILD)/dml-state-mut-$(1).log | head -1
@@ -34675,13 +34682,13 @@ $(SAMIR_PRINT_MUT): $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_
 .PHONY: test-samir-print test-samir-print-mutant test-samir-print-emu test-samir-print-emu-mutant
 test-samir-print: test-samir-dml-clear test-samir-dml-macro test-samir-dml-close test-samir-use
 	@echo '>>> test-samir-print: green (exact ?/?? + mint-005 LIST/DISPLAY)'
-test-samir-print-mutant: $(SAMIR_PRINT_MUT) test-samir-print
+test-samir-print-mutant: $(SAMIR_PRINT_MUT) test-samir-print $(CLIENTS_DBF)
 	@if $< clear host > $(BUILD)/samir-print-lf.log 2>&1; then echo 'LF mutant survived'; exit 1; fi
 	@grep -q 'got 0x0a, real 0x0d' $(BUILD)/samir-print-lf.log
 	@printf '>>> SAMIR_PRINT_MUTATE_LF RED: '; grep 'DML transcript differs' $(BUILD)/samir-print-lf.log
 test-samir-print-emu: test-samir-dml-clear-emu test-samir-dml-macro-emu test-samir-dml-close-emu
 	@echo '>>> test-samir-print-emu: green'
-test-samir-print-emu-mutant: test-samir-print-emu $(SAMIR_DML_TEST) $(BUILD)/SAMIR_SCREEN_SAMIR_PRINT_MUTATE_LF.COM
+test-samir-print-emu-mutant: test-samir-print-emu $(SAMIR_DML_TEST) $(BUILD)/SAMIR_SCREEN_SAMIR_PRINT_MUTATE_LF.COM $(CLIENTS_DBF)
 	@if INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) clear emu $(BUILD)/SAMIR_SCREEN_SAMIR_PRINT_MUTATE_LF.COM > $(BUILD)/samir-print-lf-emu.log 2>&1; then echo 'guest LF mutant survived'; exit 1; fi
 	@grep -q 'got 0x0a, real 0x0d' $(BUILD)/samir-print-lf-emu.log
 	@printf '>>> SAMIR_PRINT_MUTATE_LF emu RED: '; grep 'DML transcript differs' $(BUILD)/samir-print-lf-emu.log
@@ -34763,14 +34770,14 @@ define samir-fns-gates
 test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_FNS_PROMOTED)
 	@$$(SAMIR_FNS_TEST) $(1) host
 	@echo '>>> test-samir-fns-$(1): green'
-test-samir-fns-$(1)-mutant: test-samir-fns-$(1) $$(BUILD)/test_samir_fns_$(1)
+test-samir-fns-$(1)-mutant: test-samir-fns-$(1) $$(BUILD)/test_samir_fns_$(1) $$(CLIENTS_DBF)
 	@set +e; $$(BUILD)/test_samir_fns_$(1) $(1) host > $$(BUILD)/samirfns/mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log || { cat $$(BUILD)/samirfns/mut-$(1).log; exit 1; }; \
 	 printf '>>> SAMIR_FNS_MUTANT_$(1) RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log
 test-samir-fns-$(1)-emu: $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_COM) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_FNS_PROMOTED)
 	@INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu
 	@echo '>>> test-samir-fns-$(1)-emu: green'
-test-samir-fns-$(1)-emu-mutant: test-samir-fns-$(1)-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM
+test-samir-fns-$(1)-emu-mutant: test-samir-fns-$(1)-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM $$(CLIENTS_DBF)
 	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM > $$(BUILD)/samirfns/emu-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log || { cat $$(BUILD)/samirfns/emu-mut-$(1).log; exit 1; }; \
 	 printf '>>> SAMIR_FNS_MUTANT_$(1) emu RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log
