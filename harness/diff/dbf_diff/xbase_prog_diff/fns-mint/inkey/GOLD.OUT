@@ -1,0 +1,11 @@
+
+[FNS-BEGIN]
+no-key   0 N
+no-key-again   0 N
+timeout-one
+MINT-ERROR         11 Invalid function argument.
+wrong-type
+MINT-ERROR         11 Invalid function argument.
+extra-args
+MINT-ERROR         11 Invalid function argument.
+[FNS-END]

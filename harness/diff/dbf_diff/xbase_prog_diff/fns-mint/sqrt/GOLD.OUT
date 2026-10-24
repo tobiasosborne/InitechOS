@@ -1,0 +1,15 @@
+
+[FNS-BEGIN]
+SQRT(4) 2.00 N
+SQRT(2) 1.41 N
+SQRT(0) 0.00 N
+negative-domain
+*****
+MINT-ERROR         61 SQRT() : Negative.
+wrong-type
+MINT-ERROR         11 Invalid function argument.
+missing-arg
+MINT-ERROR         11 Invalid function argument.
+extra-arg
+MINT-ERROR         11 Invalid function argument.
+[FNS-END]

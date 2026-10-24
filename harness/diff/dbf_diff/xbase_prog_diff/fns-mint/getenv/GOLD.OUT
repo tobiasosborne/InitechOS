@@ -1,0 +1,12 @@
+
+[FNS-BEGIN]
+COMSPEC [Z:\COMMAND.COM] C         14
+NOSUCHVAR [] C          0
+empty-name []
+wrong-type
+MINT-ERROR         11 Invalid function argument.
+missing-arg
+MINT-ERROR         11 Invalid function argument.
+extra-arg
+MINT-ERROR         11 Invalid function argument.
+[FNS-END]

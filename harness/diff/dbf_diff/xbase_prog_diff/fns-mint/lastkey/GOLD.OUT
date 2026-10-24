@@ -1,0 +1,10 @@
+
+[FNS-BEGIN]
+type U
+no-key
+MINT-ERROR         31 Invalid function name.
+no-key-again
+MINT-ERROR         31 Invalid function name.
+extra-arg
+MINT-ERROR         31 Invalid function name.
+[FNS-END]

@@ -34753,12 +34753,13 @@ include harness/emu/panic_reasons.mk
 # PM 2026-10-17: SAMIR_FNS_CASES are the cases whose real-III+ capture the
 # interpreter reproduces today (fns-mint/<case>/GOLD.OUT pinned); the PENDING
 # list is the samirfns lane's scaffolding (docs/worklog/samirfns-blocked.md):
-# 11 unimplemented SET/function behaviours + default/diskspace unminted. They
+# Unimplemented SET/function behaviours; default is still unminted. They
 # are run by name (make test-samir-fns-pending), NOT in the default vector --
 # a known-red gate in `make test` is noise, not an oracle. A case moves from
 # PENDING to CASES with the commit that makes it green (Rule 6: mutant too).
 SAMIR_FNS_CASES := alias alternate console division errors exprcol index listoff numlist recsize struct type unknown
-SAMIR_FNS_PENDING := century default diskspace os overflow path procedure relation talk time version with
+SAMIR_FNS_PENDING := century default overflow path procedure relation talk with \
+	exp log sqrt time lupdate ndx row col prow pcol inkey readkey lastkey iscolor fklabel os version getenv diskspace
 .PHONY: test-samir-fns-pending
 test-samir-fns-pending: $(addprefix test-samir-fns-,$(SAMIR_FNS_PENDING))
 SAMIR_FNS_TEST := $(BUILD)/test_samir_fns
@@ -34777,7 +34778,8 @@ mint-samir-fns: $(CLIENTS_DBF)
 # PM promotes into the tree; this rule copies the tree into build/ so a fresh
 # build dir passes fns-accepted.sha256 / samir-size-real.sha256 without dosbox-x
 # (fixups 2026-10-17). default/ has no GOLD.OUT on purpose: its zero-byte capture
-# is NOT a golden (docs/worklog/samirfns-blocked.md); diskspace/ was never minted.
+# is NOT a golden (docs/worklog/samirfns-blocked.md). Lane 0 adds the separately
+# minted function cases, including diskspace, without claiming implementation.
 SAMIR_FNS_MINT_TREE := $(DBF_DIFF_DIR)/xbase_prog_diff/fns-mint
 SAMIR_FNS_MINT_FILES := $(shell find $(SAMIR_FNS_MINT_TREE) -type f 2>/dev/null)
 SAMIR_FNS_PROMOTED := $(BUILD)/samirfns/.promoted
@@ -34809,6 +34811,16 @@ TEST_UNIT_GATES += test-samir-fns-$(1) test-samir-fns-$(1)-mutant
 TEST_EMU_GATES += test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
 endef
 $(foreach rule,$(SAMIR_FNS_CASES),$(eval $(call samir-fns-gates,$(rule))))
+# Named PENDING gates are available explicitly, outside the default test vectors.
+# Missing functions differ from real III+ until implemented; LASTKEY instead
+# pins III+'s existing #31 rejection (it is absent from that dialect).
+define samir-fns-pending-gate
+.PHONY: test-samir-fns-$(1)
+test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_FNS_PROMOTED)
+	@$$(SAMIR_FNS_TEST) $(1) host
+	@echo '>>> test-samir-fns-$(1): green'
+endef
+$(foreach rule,$(SAMIR_FNS_PENDING),$(eval $(call samir-fns-pending-gate,$(rule))))
 
 # Real III+ captures for the four currently exercised SF rules. Missing or
 # stale independent bytes fail loudly; this gate never regenerates evidence.

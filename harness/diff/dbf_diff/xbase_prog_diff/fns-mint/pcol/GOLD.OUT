@@ -1,0 +1,8 @@
+
+[FNS-BEGIN]
+screen    0 N
+screen-after-say    0 N
+printer-at-2-3          4 N
+extra-arg
+MINT-ERROR         11 Invalid function argument.
+[FNS-END]

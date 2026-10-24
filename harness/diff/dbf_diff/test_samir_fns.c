@@ -14,7 +14,7 @@ extern samir_pal_t *pal_host_make(struct pal_host_cfg);
 extern void pal_host_free(samir_pal_t *);
 static char captured[65536];
 static unsigned used,input_line;
-static const char *const driver[]={"SET TALK OFF","SET SAFETY OFF","SET ALTERNATE TO CAPTURE.OUT","SET ALTERNATE ON","DO FNSTEST","SET ALTERNATE TO","QUIT"};
+static const char *const driver[]={"SET TALK OFF","SET SAFETY OFF","ON ERROR ? \"MINT-ERROR\", ERROR(), MESSAGE()","SET ALTERNATE TO CAPTURE.OUT","SET ALTERNATE ON","DO FNSTEST","SET ALTERNATE TO","QUIT"};
 static void output(samir_pal_t *p,const char *s,uint32_t n)
 { (void)p; if(n<sizeof captured-used) { memcpy(captured+used,s,n); used+=n; captured[used]=0; } }
 static int32_t input(samir_pal_t *p,char *s,uint32_t cap)
@@ -23,6 +23,14 @@ static int command(const char *s)
 { int rc=system(s); if(rc)fprintf(stderr,"command failed: %s\n",s); CHECK(rc==0,"FNS factory command succeeded");return rc; }
 static size_t readfile(const char *path,char *buf,size_t cap)
 { FILE *f=fopen(path,"rb");size_t n=0;if(f){n=fread(buf,1,cap-1,f);fclose(f);}buf[n]=0;return n; }
+static void diff_line(const char *label,const char *p,size_t n,size_t at)
+{
+    size_t start=at<n?at:n,end;
+    if(!p){fprintf(stderr,"%s: <missing FNS-BEGIN>\n",label);return;}
+    while(start&&p[start-1]!='\n')start--;
+    end=start;while(end<n&&p[end]!='\r'&&p[end]!='\n')end++;
+    fprintf(stderr,"%s: %.*s\n",label,(int)(end-start),p+start);
+}
 static int equal_text(const char *a,const char *b)
 {
     const char *p=strstr(a,"[FNS-BEGIN]"),*q=strstr(b,"[FNS-BEGIN]");
@@ -31,7 +39,8 @@ static int equal_text(const char *a,const char *b)
     if(!e||!f||n!=m||memcmp(p,q,n)) {
         size_t j=0;if(p&&q)while(j<n&&j<m&&p[j]==q[j])j++;
         fprintf(stderr,"FNS transcript differs at byte %lu (got 0x%02x, real 0x%02x; lengths %lu/%lu)\n",(unsigned long)j,
-            p&&j<n?(unsigned char)p[j]:0,q&&j<m?(unsigned char)q[j]:0,(unsigned long)n,(unsigned long)m);return 0;
+            p&&j<n?(unsigned char)p[j]:0,q&&j<m?(unsigned char)q[j]:0,(unsigned long)n,(unsigned long)m);
+        diff_line("  got",p,n,j);diff_line("  real",q,m,j);return 0;
     }return 1;
 }
 int main(int argc,char **argv)

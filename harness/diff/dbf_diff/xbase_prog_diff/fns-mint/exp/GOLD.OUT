@@ -1,0 +1,13 @@
+
+[FNS-BEGIN]
+EXP(1)          2.72 N
+EXP(0)          1.00 N
+EXP(-1)          0.37 N
+EXP(10)      22026.47 N
+wrong-type
+MINT-ERROR         11 Invalid function argument.
+missing-arg
+MINT-ERROR         11 Invalid function argument.
+extra-arg
+MINT-ERROR         11 Invalid function argument.
+[FNS-END]

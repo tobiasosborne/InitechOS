@@ -1,4 +1,10 @@
 
 [FNS-BEGIN]
 C          8 : :
+shape C          8 .T. .T.
+hour .T. .T.
+minute .T. .T.
+second .T. .T.
+extra-arg
+MINT-ERROR         11 Invalid function argument.
 [FNS-END]

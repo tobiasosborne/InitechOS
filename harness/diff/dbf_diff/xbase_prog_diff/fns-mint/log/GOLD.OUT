@@ -1,0 +1,18 @@
+
+[FNS-BEGIN]
+LOG(1) 0.00 N
+LOG(2) 0.69 N
+LOG(0.5) -.69 N
+zero-domain
+****
+MINT-ERROR         58 LOG() : Zero or negative.
+negative-domain
+*****
+MINT-ERROR         58 LOG() : Zero or negative.
+wrong-type
+MINT-ERROR         11 Invalid function argument.
+missing-arg
+MINT-ERROR         11 Invalid function argument.
+extra-arg
+MINT-ERROR         11 Invalid function argument.
+[FNS-END]

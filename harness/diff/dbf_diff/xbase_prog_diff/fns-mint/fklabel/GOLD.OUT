@@ -1,0 +1,20 @@
+
+[FNS-BEGIN]
+FKLABEL(0) [] C          0
+FKLABEL(1) [F2] C          2
+FKLABEL(2) [F3] C          2
+FKLABEL(3) [F4] C          2
+FKLABEL(4) [F5] C          2
+FKLABEL(5) [F6] C          2
+FKLABEL(6) [F7] C          2
+FKLABEL(7) [F8] C          2
+FKLABEL(8) [F9] C          2
+FKLABEL(9) [F10] C          3
+FKLABEL(10) [] C          0
+wrong-type
+MINT-ERROR         11 Invalid function argument.
+missing-arg
+MINT-ERROR         11 Invalid function argument.
+extra-arg
+MINT-ERROR         11 Invalid function argument.
+[FNS-END]

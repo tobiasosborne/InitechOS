@@ -1,0 +1,7 @@
+
+[FNS-BEGIN]
+no-read   0 N
+no-read-again   0 N
+extra-arg
+MINT-ERROR         11 Invalid function argument.
+[FNS-END]

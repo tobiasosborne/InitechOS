@@ -1,0 +1,7 @@
+
+[FNS-BEGIN]
+N .T.
+stable-type N .T.
+extra-arg
+MINT-ERROR         11 Invalid function argument.
+[FNS-END]

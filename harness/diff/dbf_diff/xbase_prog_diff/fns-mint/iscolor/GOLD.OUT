@@ -1,0 +1,7 @@
+
+[FNS-BEGIN]
+svga .T. L
+after-set-color .T. L
+extra-arg
+MINT-ERROR         11 Invalid function argument.
+[FNS-END]

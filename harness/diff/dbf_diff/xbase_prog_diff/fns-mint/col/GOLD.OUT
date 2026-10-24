@@ -1,0 +1,9 @@
+
+[FNS-BEGIN]
+range .T. .T. N
+at-2-3          4 N
+origin          0 N
+edge         79 N
+extra-arg
+MINT-ERROR         11 Invalid function argument.
+[FNS-END]

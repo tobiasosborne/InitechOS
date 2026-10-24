@@ -2052,7 +2052,10 @@ enum {
     FN_RECNO, FN_RECCOUNT, FN_EOF, FN_BOF, FN_FOUND, FN_DELETED, FN_FIELD,
     FN_DBF, FN_FILE,
     FN_LEFT, FN_RIGHT, FN_STUFF, FN_REPLICATE, FN_AT, FN_ISALPHA, FN_ISUPPER,
-    FN_ISLOWER, FN_TRANSFORM
+    FN_ISLOWER, FN_TRANSFORM,
+    FN_EXP, FN_LOG, FN_SQRT, FN_TIME, FN_LUPDATE, FN_NDX, FN_ROW, FN_COL,
+    FN_PROW, FN_PCOL, FN_INKEY, FN_READKEY, FN_LASTKEY, FN_ISCOLOR, FN_FKLABEL,
+    FN_OS, FN_VERSION, FN_GETENV, FN_DISKSPACE
 };
 static const char fn_names[] =
     "RECSIZE\0ERROR\0MESSAGE\0"
@@ -2066,7 +2069,10 @@ static const char fn_names[] =
     "RECNO\0RECCOUNT\0EOF\0BOF\0FOUND\0DELETED\0FIELD\0"
     "DBF\0FILE\0"
     "LEFT\0RIGHT\0STUFF\0REPLICATE\0AT\0ISALPHA\0ISUPPER\0"
-    "ISLOWER\0TRANSFORM\0";
+    "ISLOWER\0TRANSFORM\0"
+    "EXP\0LOG\0SQRT\0TIME\0LUPDATE\0NDX\0ROW\0COL\0"
+    "PROW\0PCOL\0INKEY\0READKEY\0LASTKEY\0ISCOLOR\0FKLABEL\0"
+    "OS\0VERSION\0GETENV\0DISKSPACE\0";
 
 /* Same arity/type preconditions formerly repeated in each private handler.
  * Ref: the III+ function specifications cited at each handler above. Check
@@ -2120,7 +2126,173 @@ static const struct { uint8_t min, max; char types[4]; } fn_signature[] = {
     [FN_ISUPPER] = {1, 1, "C"},
     [FN_ISLOWER] = {1, 1, "C"},
     [FN_TRANSFORM] = {2, 2, "Xc"},
+    [FN_EXP] = {1, 1, "N"},
+    [FN_LOG] = {1, 1, "N"},
+    [FN_SQRT] = {1, 1, "N"},
+    [FN_TIME] = {0, 0, ""},
+    [FN_LUPDATE] = {0, 0, ""},
+    [FN_NDX] = {1, 1, "N"},
+    [FN_ROW] = {0, 0, ""},
+    [FN_COL] = {0, 0, ""},
+    [FN_PROW] = {0, 0, ""},
+    [FN_PCOL] = {0, 0, ""},
+    [FN_INKEY] = {0, 0, ""},
+    [FN_READKEY] = {0, 0, ""},
+    [FN_LASTKEY] = {0, 0, ""},
+    [FN_ISCOLOR] = {0, 0, ""},
+    [FN_FKLABEL] = {1, 1, "N"},
+    [FN_OS] = {0, 0, ""},
+    /* SF-version: real III+ accepts one numeric arg (internal build string),
+     * despite the HELP-derived spec describing only the no-argument form. */
+    [FN_VERSION] = {0, 1, "N"},
+    [FN_GETENV] = {1, 1, "C"},
+    [FN_DISKSPACE] = {0, 0, ""},
 };
+
+/* ---- fan-out wave 2026-10-24: one function per lane; replace the stub
+body only ---- */
+/* Ref: ../dbase3-decomp/specs/functions/{numeric-and-date-functions,
+ * system-and-database-functions}.md and the per-name real fns-mint captures.
+ * The signatures above record III+ arity/types; these reserved handlers
+ * bypass shared validation so EVERY call still returns #31, including the
+ * inventory's zero-argument probes. Each implementing lane must validate
+ * its arguments in its own body before using them. INKEY is zero-argument
+ * in III+; LASTKEY is absent and must remain a rejection (SF-lastkey).
+ * No clock, keyboard, printer or other environment behavior is fabricated. */
+static int fn_exp_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_sqrt_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_time_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_lupdate_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_ndx_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_row_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_col_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_prow_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_pcol_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_inkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_readkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_lastkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_iscolor_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_fklabel_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_os_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_version_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_getenv_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+static int fn_diskspace_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    (void)ctx; (void)args; (void)nargs; (void)out;
+    return fn_fail(err, XBEE_INVALID_FN);
+}
+
+/* ---- end fan-out wave ---- */
 
 int xb_call_builtin(const char *name, uint16_t namelen,
                     const xb_val *args, int nargs,
@@ -2140,7 +2312,7 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     }
     if (*kw == '\0') k = -1;                    /* no such built-in -> #31 */
 
-    if (k >= FN_UPPER) {
+    if (k >= FN_UPPER && k < FN_EXP) {
         unsigned i;
         if (nargs < fn_signature[k].min || nargs > fn_signature[k].max)
             return fn_fail(err_code, XBEE_INVALID_ARG);
@@ -2252,6 +2424,25 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     case FN_ISUPPER:   return fn_isupper(args, out, err_code);
     case FN_ISLOWER:   return fn_islower(args, out, err_code);
     case FN_TRANSFORM: return fn_transform(ctx, args, out, err_code);
+    case FN_EXP: return fn_exp_stub(ctx, args, nargs, out, err_code);
+    case FN_LOG: return fn_log_stub(ctx, args, nargs, out, err_code);
+    case FN_SQRT: return fn_sqrt_stub(ctx, args, nargs, out, err_code);
+    case FN_TIME: return fn_time_stub(ctx, args, nargs, out, err_code);
+    case FN_LUPDATE: return fn_lupdate_stub(ctx, args, nargs, out, err_code);
+    case FN_NDX: return fn_ndx_stub(ctx, args, nargs, out, err_code);
+    case FN_ROW: return fn_row_stub(ctx, args, nargs, out, err_code);
+    case FN_COL: return fn_col_stub(ctx, args, nargs, out, err_code);
+    case FN_PROW: return fn_prow_stub(ctx, args, nargs, out, err_code);
+    case FN_PCOL: return fn_pcol_stub(ctx, args, nargs, out, err_code);
+    case FN_INKEY: return fn_inkey_stub(ctx, args, nargs, out, err_code);
+    case FN_READKEY: return fn_readkey_stub(ctx, args, nargs, out, err_code);
+    case FN_LASTKEY: return fn_lastkey_stub(ctx, args, nargs, out, err_code);
+    case FN_ISCOLOR: return fn_iscolor_stub(ctx, args, nargs, out, err_code);
+    case FN_FKLABEL: return fn_fklabel_stub(ctx, args, nargs, out, err_code);
+    case FN_OS: return fn_os_stub(ctx, args, nargs, out, err_code);
+    case FN_VERSION: return fn_version_stub(ctx, args, nargs, out, err_code);
+    case FN_GETENV: return fn_getenv_stub(ctx, args, nargs, out, err_code);
+    case FN_DISKSPACE: return fn_diskspace_stub(ctx, args, nargs, out, err_code);
     default:           break;
     }
 
