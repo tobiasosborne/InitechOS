@@ -187,6 +187,16 @@ name=$(basename "$work")
     --keys "$trace" --keys-after 'copying files' \
     --keys-after-ms 20000 --quit-after SHELL-DONE > "$work/harness.log" 2> "$work/report" || true
 grep -q 'triple_fault=0' "$work/report" || fail 'QEMU triple fault/report'
+if [ "$mode" = cancel ] && grep -q '^INT23-BREAK' "$work/$name.serial" &&
+   grep -q 'Terminate batch job (Y/N)?' "$work/$name.serial" &&
+   ! grep -q '^ZUVO-CANCEL2' "$work/$name.serial"; then
+    # A /W that reads the key with break checking (AH=08h) leaves ^C to the
+    # kernel's INT 23h abort; inside a batch real DOS 3.3 then asks
+    # "Terminate batch job (Y/N)?" (MS-DOS 3.3 Users Guide, Reference PAUSE,
+    # printed p.149 / PDF p.234; MSG-DOS-0063; EXEC-child path 119b454e),
+    # which reads the rest of the typed keys, so no exit 2 and no ZUVO-DONE.
+    fail "QEMU /W Ctrl-C ignored by XCOPY (INT 23h abort reached the batch prompt 'Terminate batch job (Y/N)?'; no exit 2)"
+fi
 grep -q '^ZUVO-DONE' "$work/$name.serial" || fail 'QEMU external EXEC completion'
 grep -q '^SHELL-EXIT' "$work/$name.serial" || fail 'QEMU post-program shell exit'
 if [ "$mode" = cancel ]; then

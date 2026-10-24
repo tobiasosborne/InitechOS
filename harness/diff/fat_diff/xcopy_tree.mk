@@ -51,11 +51,19 @@ test-xcopy-tree-emu-mutant: $(ZUVO_HOST) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) 
 	@set -e; for m in xcopy tree ctrlc; do \
 	  x=$(XCOPY_PROG_BIN); t=$(TREE_PROG_BIN); \
 	  mode=emu; \
-	  case $$m in xcopy) x=$(BUILD)/xcopy_mut_program.bin;; tree) t=$(BUILD)/tree_mut_program.bin;; ctrlc) x=$(BUILD)/xcopy_ctrlc_program.bin; mode=cancel;; esac; \
-	  log=$(BUILD)/zuvo_emu_mut_$$m.log; work=$(BUILD)/zuvo_emu_mut_$$m; \
+	  case $$m in \
+	    xcopy) x=$(BUILD)/xcopy_mut_program.bin; want='directory membership';; \
+	    tree) t=$(BUILD)/tree_mut_program.bin; want='TREE manual layout';; \
+	    ctrlc) x=$(BUILD)/xcopy_ctrlc_program.bin; mode=cancel; want='/W Ctrl-C ignored by XCOPY (INT 23h abort reached the batch prompt';; \
+	  esac; \
+	  log=$(BUILD)/zuvo_emu_mut_$$m.log; work=$(BUILD)/zuvo_emu_mut_$$m; serial=$$work/zuvo_emu_mut_$$m.serial; \
 	  if sh $(ZUVO_DIR)/xcopy_tree.sh $$mode $(ZUVO_HOST) $$work $(SECONDARY_TRACER_IMG) $(HARNESS_BIN) $$x $$t > $$log 2>&1; then echo "FAIL: $$m live mutant survived"; exit 1; fi; \
-	  grep -q '^ZUVO-DONE' $$work/zuvo_emu_mut_$$m.serial; \
-	  grep '^XCOPY/TREE RED:.*\(directory membership\|TREE manual layout\|Ctrl-C exit\)' $$log; \
+	  if [ $$m = ctrlc ]; then \
+	    grep -q '^SHELL-READY' $$serial; grep -q '^INT23-BREAK' $$serial; \
+	    grep -q 'Terminate batch job (Y/N)?' $$serial; \
+	    if grep -q '^ZUVO-CANCEL2' $$serial; then echo "FAIL: $$m exited 2, not the batch-prompt route"; exit 1; fi; \
+	  else grep -q '^ZUVO-DONE' $$serial; fi; \
+	  grep '^XCOPY/TREE RED: QEMU ' $$log | grep -F "$$want"; \
 	  echo "XCOPY/TREE EMU MUTANT GREEN: $$m booted and caught"; \
 	done
 	@echo 'XCOPY/TREE EMU MUTANTS GREEN: S TREE_LAYOUT CTRL_C booted and caught'
