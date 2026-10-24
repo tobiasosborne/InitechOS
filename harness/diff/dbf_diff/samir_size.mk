@@ -69,7 +69,7 @@ TEST_UNIT_GATES += test-samir-messages test-samir-messages-mutant
 $(BUILD)/prog_diff_memwidth_mutant: $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_SIZE_MUTATE_MEMVAR_WIDTH -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
 .PHONY: test-samir-memwidth test-samir-memwidth-mutant test-samir-memwidth-emu test-samir-memwidth-emu-mutant
-test-samir-memwidth: test-dbase-diff test-samir-dml-macro test-samir-repl samir-size-goldens $(SAMIR_FNS_TEST)
+test-samir-memwidth: test-dbase-diff test-samir-dml-macro test-samir-repl samir-size-goldens $(SAMIR_FNS_TEST) $(CLIENTS_DBF)
 	@$(SAMIR_FNS_TEST) memwidth host
 	@printf '>>> test-samir-memwidth: green (PROG-04/05, DML-02 numeric memvar columns)\n'
 test-samir-memwidth-mutant: test-samir-memwidth $(BUILD)/prog_diff_memwidth_mutant
@@ -78,10 +78,10 @@ test-samir-memwidth-mutant: test-samir-memwidth $(BUILD)/prog_diff_memwidth_muta
 	 test $$rc = 1 && grep -q '^FAIL: flow: stdout matches real III+ golden' $(BUILD)/samir-size/memwidth-red.log || { cat $(BUILD)/samir-size/memwidth-red.log; exit 1; }; \
 	 printf 'SAMIR_SIZE_MUTATE_MEMVAR_WIDTH RED: '; grep -m1 '^FAIL:' $(BUILD)/samir-size/memwidth-red.log
 	@printf '>>> test-samir-memwidth-mutant: green\n'
-test-samir-memwidth-emu: test-samir-dml-macro-emu samir-size-goldens $(SAMIR_FNS_TEST)
+test-samir-memwidth-emu: test-samir-dml-macro-emu samir-size-goldens $(SAMIR_FNS_TEST) $(CLIENTS_DBF)
 	@INITECH_QMP_STDIO=1 $(SAMIR_FNS_TEST) memwidth emu
 	@printf '>>> test-samir-memwidth-emu: green (real III+ DML-02 in QEMU)\n'
-test-samir-memwidth-emu-mutant: test-samir-memwidth-emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MEMVAR_WIDTH.COM
+test-samir-memwidth-emu-mutant: test-samir-memwidth-emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MEMVAR_WIDTH.COM $(CLIENTS_DBF)
 	@mkdir -p $(BUILD)/samir-size   # own scratch dir: FAIL on a fresh parallel worker (initech-27clv)
 	@set +e; INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) macro emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MEMVAR_WIDTH.COM > $(BUILD)/samir-size/memwidth-emu-red.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q 'FAIL.*DML transcript byte-identical' $(BUILD)/samir-size/memwidth-emu-red.log && \
