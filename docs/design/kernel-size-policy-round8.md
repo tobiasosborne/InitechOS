@@ -391,3 +391,32 @@ are initech-7sp (operator r3 decision) and initech-3kc (PM Bochs acceptance).
 The original initech-hztg stays in progress for those parent-level decisions;
 the coding lane's part-2 r4 bar and all requested QEMU/host proofs are complete.
 Dolt origin is absent in this worktree; no remote endpoint is invented.
+
+### Part 2 review fixes
+
+DF ground truth: Intel SDM Vol. 1 Sec. 3.4.3.2, "DF Flag", describes
+STD/CLD and the direction of MOVS/STOS. Interrupt delivery saves EFLAGS;
+it does not establish the C ABI forward-string convention. This is the
+8086 convention: clear live DF before C, preserve the interrupted FLAGS
+image for IRET. Reference acquired before the fix:
+https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-1-manual.pdf
+
+F1: add CLD to all 14 previously unguarded paths into C in isr.asm,
+including IRQ0, DOS/TSR services and the selftest as well as the five
+reported paths. Exception/spurious vector wrappers share isr_common;
+the bare TSR idle IRETD calls no C. INT 13h and the Toolbox gate already
+clear DF. Add one CLD at the loader resume label: 15 one-byte instructions.
+Measured .text grows 16 B; loaded bytes grow 32 B after section padding:
+180176 -> 180208 B, 16400 B headroom, 16 B r4 margin.
+
+The current EXEC harness cannot faithfully combine a child held at STD,
+an injected IRQ under the live FLAIR hook, and inspection of the raw payload:
+EXEC images lack that hook, while live images have no child/ring observation
+protocol. A faithful behavior probe is unavailable in the current harness.
+Use the brief's static fallback, not a claimed IRQ payload proof.
+test-kernel-df inspects all 16 linked C-entry stubs for CLD before every
+CALL and follows the saved loader resume address to its first instruction.
+Before the fix it is RED for the missing entry/resume CLDs; after the fix
+it is GREEN. test-kernel-df-mutant replaces the real ELF IRQ1 CLD with NOP
+and is RED for calling C before CLD. Logs: build/ksize8p2-review/df-before.log
+and f1.log. test-kernel-size-r4 remains GREEN.

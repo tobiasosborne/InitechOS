@@ -54,6 +54,23 @@ test-kernel-size-r4-emu-mutant:
 TEST_UNIT_GATES += test-kernel-size-r4 test-kernel-size-r4-mutant
 TEST_EMU_GATES += test-kernel-size-r4-emu test-kernel-size-r4-emu-mutant
 
+# Static DF contract on the actual flagship, including the non-local resume.
+.PHONY: test-kernel-df test-kernel-df-mutant
+test-kernel-df: $(KERNEL_FLAIRTENANTS_ELF) | $(KERNEL_R4_DIR)
+	@sh harness/proptest/kernel_df_check.sh $< $(KERNEL_R4_DIR)/df.dis
+	@printf '>>> test-kernel-df: green (linked entry/resume CLD contract; static proof only)\n'
+test-kernel-df-mutant: test-kernel-df
+	@cp -f $(KERNEL_FLAIRTENANTS_ELF) $(KERNEL_R4_DIR)/df-mutant.elf
+	@set -eu; addr=$$(awk '/<irq1_entry>:/ {active=1; next} active && /cld/ {sub(/:$$/,"",$$1); print $$1; exit}' $(KERNEL_R4_DIR)/df.dis); \
+		set -- $$(objdump -h $(KERNEL_R4_DIR)/df-mutant.elf | awk '$$2==".text" {print $$4, $$6}'); \
+		test -n "$$addr"; test "$$#" -eq 2; \
+		printf '\220' | dd of=$(KERNEL_R4_DIR)/df-mutant.elf bs=1 seek=$$(( 0x$$addr - 0x$$1 + 0x$$2 )) conv=notrunc status=none
+	@if sh harness/proptest/kernel_df_check.sh $(KERNEL_R4_DIR)/df-mutant.elf $(KERNEL_R4_DIR)/df-mutant.dis >$(KERNEL_R4_DIR)/df-mutant.log 2>&1; then \
+		printf '!!! test-kernel-df-mutant FAIL: missing_irq1_cld survived\n'; exit 1; fi
+	@grep '^!!! kernel-df FAIL: irq1_entry calls C before cld' $(KERNEL_R4_DIR)/df-mutant.log
+	@printf '>>> test-kernel-df-mutant: green (real ELF missing_irq1_cld RED)\n'
+TEST_UNIT_GATES += test-kernel-df test-kernel-df-mutant
+
 # Source-to-table equality uses the host C compiler as the independent oracle.
 # The original formatter calls and the packed form must emit identical bytes.
 $(SERIAL_TRACE_PACK): $(SERIAL_TRACE_PACK_SRC) | $(BUILD)

@@ -1053,6 +1053,9 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
         "mov %8, %%esp\n\t"          /* switch to the program stack top (LAST)    */
         "jmp *%%eax\n\t"             /* JMP via REGISTER (no post-switch mem read) */
         "1:\n\t"                     /* <- loader_exit_hook jumps back here       */
+        /* Intel SDM Vol. 1 "DF Flag" / 8086 convention: a non-local return
+         * from the child's INT 21h bypasses IRET; C requires forward strings. */
+        "cld\n\t"
         : "=m"(ctx.saved_esp), "=m"(ctx.saved_ebp), "=m"(ctx.saved_ebx),
           "=m"(ctx.return_eip), "=m"(ctx.saved_esi), "=m"(ctx.saved_edi)
         : "m"(entry_eip), "m"(psp_ptr), "m"(stack_top)
