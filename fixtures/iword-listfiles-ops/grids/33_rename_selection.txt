@@ -1,0 +1,51 @@
+00|03-01-92  09:00a            Directory A:\OPS\*.*                                |
+01|Document size:        0   Free:  1,310,208 Used:         52     Files:       4  |
+02|                                                                                |
+03| .    Current    <Dir>                  \xB3 ..   Parent     <Dir>                 |
+04| SUB     .       <Dir>  02-29-92 09:00a \xB3 BETA    .TXT       11  02-29-92 09:00a|
+05| DELTA   .TXT       15  02-29-92 09:00a \xB3 LOCK    .TXT       11  02-29-92 09:00a|
+06| ZETA    .TXT       15  02-29-92 09:00a                                         |
+07|                                                                                |
+08|                                                                                |
+09|                                                                                |
+10|                                                                                |
+11|                                                                                |
+12|                                                                                |
+13|                                                                                |
+14|                                                                                |
+15|                                                                                |
+16|                                                                                |
+17|                                                                                |
+18|                                                                                |
+19|                                                                                |
+20|                                                                                |
+21|                                                                                |
+22|                                                                                |
+23|1 Retrieve; 2 Delete; 3 Move/Rename; 4 Print; 5 Short/Long Display;             |
+24|6 Look; 7 Other Directory; 8 Copy; 9 Find; N Name Search: 6                     |
+cursor [(5, 0)]
+00 0-7:aaaaaa/aa0000 8-9:aa0000/aa0000 10-15:aaaaaa/aa0000 16-27:aa0000/aa0000 28-36:aaaaaa/aa0000 37-37:aa0000/aa0000 38-47:aaaaaa/aa0000 48-79:aa0000/aa0000
+01 0-7:aaaaaa/aa0000 8-8:aa0000/aa0000 9-13:aaaaaa/aa0000 14-21:aa0000/aa0000 22-22:aaaaaa/aa0000 23-25:aa0000/aa0000 26-30:aaaaaa/aa0000 31-32:aa0000/aa0000 33-41:aaaaaa/aa0000 42-42:aa0000/aa0000 43-47:aaaaaa/aa0000 48-56:aa0000/aa0000 57-58:aaaaaa/aa0000 59-63:aa0000/aa0000 64-69:aaaaaa/aa0000 70-76:aa0000/aa0000 77-77:aaaaaa/aa0000 78-79:aa0000/aa0000
+02 0-79:0000aa/0000aa
+03 0-0:0000aa/0000aa 1-1:aaaaaa/0000aa 2-5:0000aa/0000aa 6-12:aaaaaa/0000aa 13-16:0000aa/0000aa 17-21:aaaaaa/0000aa 22-39:0000aa/0000aa 40-40:aaaaaa/0000aa 41-41:0000aa/0000aa 42-43:aaaaaa/0000aa 44-46:0000aa/0000aa 47-52:aaaaaa/0000aa 53-57:0000aa/0000aa 58-62:aaaaaa/0000aa 63-79:0000aa/0000aa
+04 0-0:0000aa/0000aa 1-3:aaaaaa/0000aa 4-8:0000aa/0000aa 9-9:aaaaaa/0000aa 10-16:0000aa/0000aa 17-21:aaaaaa/0000aa 22-23:0000aa/0000aa 24-31:aaaaaa/0000aa 32-32:0000aa/0000aa 33-38:aaaaaa/0000aa 39-39:0000aa/0000aa 40-40:aaaaaa/0000aa 41-41:0000aa/0000aa 42-45:aaaaaa/0000aa 46-49:0000aa/0000aa 50-53:aaaaaa/0000aa 54-60:0000aa/0000aa 61-62:aaaaaa/0000aa 63-64:0000aa/0000aa 65-72:aaaaaa/0000aa 73-73:0000aa/0000aa 74-79:aaaaaa/0000aa
+05 0-0:aa0000/aa0000 1-5:aaaaaa/aa0000 6-8:aa0000/aa0000 9-12:aaaaaa/aa0000 13-19:aa0000/aa0000 20-21:aaaaaa/aa0000 22-23:aa0000/aa0000 24-31:aaaaaa/aa0000 32-32:aa0000/aa0000 33-38:aaaaaa/aa0000 39-39:0000aa/0000aa 40-40:aaaaaa/0000aa 41-41:0000aa/0000aa 42-45:aaaaaa/0000aa 46-49:0000aa/0000aa 50-53:aaaaaa/0000aa 54-60:0000aa/0000aa 61-62:aaaaaa/0000aa 63-64:0000aa/0000aa 65-72:aaaaaa/0000aa 73-73:0000aa/0000aa 74-79:aaaaaa/0000aa
+06 0-0:0000aa/0000aa 1-4:aaaaaa/0000aa 5-8:0000aa/0000aa 9-12:aaaaaa/0000aa 13-19:0000aa/0000aa 20-21:aaaaaa/0000aa 22-23:0000aa/0000aa 24-31:aaaaaa/0000aa 32-32:0000aa/0000aa 33-38:aaaaaa/0000aa 39-79:0000aa/0000aa
+07 0-79:0000aa/0000aa
+08 0-79:0000aa/0000aa
+09 0-79:0000aa/0000aa
+10 0-79:0000aa/0000aa
+11 0-79:0000aa/0000aa
+12 0-79:0000aa/0000aa
+13 0-79:0000aa/0000aa
+14 0-79:0000aa/0000aa
+15 0-79:0000aa/0000aa
+16 0-79:0000aa/0000aa
+17 0-79:0000aa/0000aa
+18 0-79:0000aa/0000aa
+19 0-79:0000aa/0000aa
+20 0-79:0000aa/0000aa
+21 0-79:0000aa/0000aa
+22 0-79:0000aa/0000aa
+23 0-0:ffffff/0000aa 1-1:0000aa/0000aa 2-2:ffffff/0000aa 3-10:aaaaaa/0000aa 11-11:0000aa/0000aa 12-12:ffffff/0000aa 13-13:0000aa/0000aa 14-14:ffffff/0000aa 15-20:aaaaaa/0000aa 21-21:0000aa/0000aa 22-22:ffffff/0000aa 23-23:0000aa/0000aa 24-24:ffffff/0000aa 25-35:aaaaaa/0000aa 36-36:0000aa/0000aa 37-37:ffffff/0000aa 38-38:0000aa/0000aa 39-39:ffffff/0000aa 40-44:aaaaaa/0000aa 45-45:0000aa/0000aa 46-46:ffffff/0000aa 47-47:0000aa/0000aa 48-48:ffffff/0000aa 49-57:aaaaaa/0000aa 58-58:0000aa/0000aa 59-66:aaaaaa/0000aa 67-79:0000aa/0000aa
+24 0-0:ffffff/0000aa 1-1:0000aa/0000aa 2-2:ffffff/0000aa 3-6:aaaaaa/0000aa 7-7:0000aa/0000aa 8-8:ffffff/0000aa 9-9:0000aa/0000aa 10-10:ffffff/0000aa 11-14:aaaaaa/0000aa 15-15:0000aa/0000aa 16-25:aaaaaa/0000aa 26-26:0000aa/0000aa 27-27:ffffff/0000aa 28-28:0000aa/0000aa 29-29:ffffff/0000aa 30-33:aaaaaa/0000aa 34-34:0000aa/0000aa 35-35:ffffff/0000aa 36-36:0000aa/0000aa 37-37:ffffff/0000aa 38-41:aaaaaa/0000aa 42-42:0000aa/0000aa 43-43:ffffff/0000aa 44-44:0000aa/0000aa 45-45:ffffff/0000aa 46-48:aaaaaa/0000aa 49-49:0000aa/0000aa 50-56:aaaaaa/0000aa 57-57:0000aa/0000aa 58-58:ffffff/0000aa 59-79:0000aa/0000aa

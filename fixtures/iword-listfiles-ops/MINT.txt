@@ -1,0 +1,44 @@
+initech-7aou / cx-iwordlist round 2. Independent golden: REAL WordPerfect 5.1
+(03-09-92), DOSBox-X 2024.03.01, svga_s3, 80x25 text / 720x400 surface.
+Reference: WPDOS51Reference.pdf, PDF pp. 364-370, printed pp. 347-353.
+
+The corpus was never modified. All runs used scratch copies of mint/work/WP51
+and LISTF/lf005.img, with OPS/SUB and these DOS files added:
+ ALPHA.TXT 15 bytes "ALPHA CONTENT\r\n"
+ BETA.TXT  11 bytes "BETA KEEP\r\n"
+ LOCK.TXT  11 bytes "LOCK KEEP\r\n", DOS read-only attribute 01h set.
+The active document in ops/collisions was "Keep active." (12 characters).
+The first exploratory fixture used host creation stamps; later cases used a
+fixed DOS date. These stamps are evidence, never the app's expected output.
+
+X11 sockets were unavailable in the sandbox. wp51_headless.c supplies SDL
+keyboard events from these .steps files and captures DOSBox-X's real surface.
+The corpus's existing decode.py matches each glyph EXACTLY against its own
+DOSBox-X font atlas (no OCR guesses or generated implementation goldens).
+Raw BMPs were converted losslessly to PNG. Reproduce into a NEW directory:
+ WORDPERFECT51_DECOMP=/absolute/corpus fixtures/iword-listfiles-ops/mint.sh build/new-ops-mint
+Each case gets fresh WP work files; reusing one leaves WP's crash/recovery files.
+
+02/05: Delete <absolute path>? No (Yes). Only Y confirms.
+03/12: New name: <absolute path>; first character replaces the offered name.
+04/14: Copy this file to: <blank>.
+13/15: Replace <absolute target>? No (Yes), for BOTH Move and Copy.
+16/17/18: copy success, replacement move success, active document preserved.
+19/20: Copy and Move do nothing with SUB highlighted.
+21: ERROR: Invalid drive/path specification.
+25: deleting on an IMGMOUNT -ro volume refuses with ERROR: File not found.
+26: Copy on that volume refuses with ERROR: Can't find virtual files.
+29: Insufficient disk space -- Insert new diskette and press any key.
+32/33: Copy retains the source selection; Rename selects its new sorted slot.
+
+SAFETY DIFFERENCE, EXPLICIT: real WP deletes a confirmed DOS-read-only file
+(05 -> 06_readonly_deleted), and renames it (30_readonly_rename). It does NOT
+supply the read-only refusal the bead presumed. InitechWord follows the PM's
+explicit stronger safety instruction: refuse Delete/Move/Replace of read-only
+files, keep their attributes and bytes, and show DOS access-denied feedback.
+Directories are refused as file operands; empty-directory Delete is outside
+this adapter. No weakening of the captured WP golden is hidden in the oracle.
+
+Golden checksums are SHA256SUMS; gates verify them before testing. Full-disk
+emulator fixtures retain the mcep save's documented delete/rename commit window;
+these gates verify failure before commit, not power-loss or media-fault recovery.

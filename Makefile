@@ -24306,6 +24306,15 @@ RECORD_SETTLE_iword_listfiles = 400
 RECORD_IMAGE_iword_listfiles = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 RECORD_DATA_iword_listfiles = $(BUILD)/flair_iword_lf.img
 RECORD_RTC_BASE_iword_listfiles = 1992-03-01T09:00:00
+# initech-7aou Rule 14: registered before record-flair expands prerequisites.
+# PM records on main; the emulator gate drives the complete safety trace.
+RECORD_SCRIPTS += iword_listfiles_ops
+RECORD_SPEC_iword_listfiles_ops = $(FLAIR_IWORD_LISTFILES_OPS_CLIP_SPEC)
+RECORD_MARKER_iword_listfiles_ops = TENANT-GATE ax=0x0089 path="OPS\ALPHA.TXT" new="OPS\NEW.TXT" -> 0
+RECORD_SETTLE_iword_listfiles_ops = 400
+RECORD_IMAGE_iword_listfiles_ops = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_DATA_iword_listfiles_ops = $(BUILD)/flair_iword_ops.img
+RECORD_RTC_BASE_iword_listfiles_ops = 1992-03-01T09:00:00
 # itext_edit (bead initech-tdnl.16, R4.2 InitechText; Rule 14): the
 # SimpleText-alike opens from the Finder -- double-click APPS\TEXT.EXE, the
 # "untitled" window -- "Saving tables to disk" / "PC LOAD LETTER" typed in

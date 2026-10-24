@@ -111,14 +111,22 @@
 #define IW_LF_MENU2          "6 Look; 7 Other Directory; 8 Copy; 9 Find; N Name Search: 6"
 #define IW_LF_MENU2_BRIGHT   "B B     B B                B B     B B     B B            B"
 /* The period-gray table (Rule 8 note, initech-qvgd): {key, menu row 1|2,
- * first col, last col, live}. 1 Retrieve and 6 Look are performed; the rest
- * are drawn GRAY and their keys ignored. */
+ * first col, last col, live}. Unbuilt items are GRAY; their keys ignored. */
+/* initech-7aou PM ruling: WP Reference List Files PDF 364-370 + fixtures/iword-listfiles-ops real WP mint: 2/3/8 live. */
 #define IW_LF_ITEMS { \
-    { '1', 1u,  0u, 10u, 1u }, { '2', 1u, 12u, 20u, 0u }, { '3', 1u, 22u, 35u, 0u }, \
+    { '1', 1u,  0u, 10u, 1u }, { '2', 1u, 12u, 20u, 1u }, { '3', 1u, 22u, 35u, 1u }, \
     { '4', 1u, 37u, 44u, 0u }, { '5', 1u, 46u, 66u, 0u }, { '6', 2u,  0u,  6u, 1u }, \
-    { '7', 2u,  8u, 25u, 0u }, { '8', 2u, 27u, 33u, 0u }, { '9', 2u, 35u, 41u, 0u }, \
+    { '7', 2u,  8u, 25u, 0u }, { '8', 2u, 27u, 33u, 1u }, { '9', 2u, 35u, 41u, 0u }, \
     { 'N', 2u, 43u, 56u, 0u } }
 #define IW_LF_N_ITEMS        10u
+/* Real WP 5.1 mint fixtures/iword-listfiles-ops, shots 02-04, 13, 15. */
+#define IW_LF_DELETE         "Delete "
+#define IW_LF_NEW_NAME       "New name: "
+#define IW_LF_COPY_TO        "Copy this file to: "
+#define IW_LF_REPLACE        "Replace "
+#define IW_LF_NO_YES         "? No (Yes)"
+/* Real WP full-disk Copy, shot 29_full_copy. F1/Esc cancel; a key retries. */
+#define IW_LF_DISK_FULL      "Insufficient disk space -- Insert new diskette and press any key"
 /* Retrieve into a non-empty document (LF12_03_into_q): row 23 blank, this on
  * row 24; y retrieves at the document cursor, n returns to the list. */
 #define IW_LF_INTO_Q         "Retrieve into current document? No (Yes)"

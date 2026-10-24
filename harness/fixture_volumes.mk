@@ -193,3 +193,8 @@ verify-fixture-volume:
 # holds APPS/TABLES.TXT (CALC_SEEDED_DATA, minted + verified by its own rule).
 $(eval $(call fixture-contract,$(CALC_SEEDED_DATA),$(FLAIR_FIXTURES) APPS/TABLES.TXT))
 $(eval $(call fixture-contract,$(CALC_SEEDED_SILENT_DATA),$(FLAIR_FIXTURES) APPS/TABLES.TXT))
+
+# initech-7aou: disposable List Files operation inputs, including full variants.
+IWORD_OPS_FIXTURES := $(FIXTURE_CONTENTS_$(FLAIR_IWORD_LF_DATA)) OPS/SUB= OPS/ALPHA.TXT OPS/BETA.TXT OPS/LOCK.TXT=AR
+$(foreach img,$(FLAIR_IWORD_OPS_DATA) $(FLAIR_IWORD_OPS_WRONG_DATA),$(eval $(call fixture-contract,$(img),$(IWORD_OPS_FIXTURES))))
+$(foreach img,$(FLAIR_IWORD_OPS_FULL_DATA) $(FLAIR_IWORD_OPS_TRUNCATE_DATA),$(eval $(call fixture-contract,$(img),$(IWORD_OPS_FIXTURES) FILLER.BIN OPS/SPARE.TXT)))

@@ -23,8 +23,7 @@
  * row at 76) and FIRST checks that every deleted / cut cell is blank on the
  * real screen -- so the comparison loses no WordPerfect cell. Colours: a red
  * WP cell (bg aa0000: band or selection bar) must be BLACK on GRAY; a bright
- * one (fg ffffff) bold; a List Files menu item other than 1 Retrieve and 6
- * Look (the brief's live pair) GRAY.
+ * one (fg ffffff) bold; unbuilt List Files menu items GRAY (1/2/3/6/8 live per the PM ruling).
  *
  * usage: test_iword_listfiles <grids-dir> <host-files-dir>
  *        test_iword_listfiles <grids-dir> <host-files-dir> <serial> <free>
@@ -155,7 +154,7 @@ static int fit(const wp_screen_t *s, int w, int kind, unsigned char *out, unsign
 
 /* The face's row `f` against WP row `w`: text cell for cell; with colours
  * (`attrs`), red -> BLACK on GRAY, bright -> bold; on a menu row (`menu`) the
- * items other than 1 and 6 GRAY. */
+ * unbuilt items GRAY (1/2/3/6/8 live, initech-7aou). */
 static void cmp_row(const char *id, const wp_screen_t *s, int f, int w, int kind, int attrs, int menu)
 {
     unsigned char t[SCR_W];
@@ -178,7 +177,7 @@ static void cmp_row(const char *id, const wp_screen_t *s, int f, int w, int kind
             if (fo[c] != 0xffffffu || t[c + 1] != ' ' || !((t[c] >= '1' && t[c] <= '9') || t[c] == 'N')) continue;
             for (e = c + 2; e < SCR_W && t[e] != ';' && t[e] != ':'; e++) {}
             if (e >= SCR_W) continue;
-            if (t[c] != '1' && t[c] != '6') for (int k = c; k <= e; k++) gray[k] = 1;
+            if (t[c] != '1' && t[c] != '2' && t[c] != '3' && t[c] != '6' && t[c] != '8') for (int k = c; k <= e; k++) gray[k] = 1;
         }
     }
     ok = 1; bad = -1;
@@ -294,7 +293,7 @@ static void listfiles_test(void)
              * items' keys are ignored */
             fkey(ESC, 0);            cmp_list("LF14_23_after_n");
             tk('6'); tk(' ');        cmp_list("LF14_23_after_n");
-            tk('2'); tk('3'); tk('N'); tk('9'); cmp_list("LF14_23_after_n");
+            tk('N'); tk('9'); cmp_list("LF14_23_after_n");
         }
     }
     CHECK(g_mode == M_EDIT && g_ed.dirty, "LF14_25", "y retrieved into the document (now modified)");

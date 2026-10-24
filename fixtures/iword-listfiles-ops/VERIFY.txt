@@ -1,0 +1,137 @@
+initech-7aou / cx-iwordlist round 2 verification
+
+FINAL RESULT: all listed required gates PASS. No full `make test` was run.
+Changes remain uncommitted and unpushed for the PM, as BRIEF.md requires.
+No tracker command after the initial, pre-BRIEF `bd prime` was run.
+
+GROUND TRUTH
+WP 5.1 Reference List Files, PDF pp. 364-370, and real WP 5.1 captures
+in this directory; see MINT.txt, .steps files, shots, grids and SHA256SUMS.
+The checked-in C headless driver was compiled with -Wall -Wextra -Werror;
+mint.sh was then run into build/iword-ops-remint on fresh scratch work dirs.
+Rows 24 of 02_delete, 03_move, 04_copy, 13_move_replace, 15_copy_replace,
+and 29_full_copy matched the earlier real-WP captures exactly. SHA256SUMS
+passes. No expected screen was transcribed from InitechWord's output.
+
+RED BEFORE IMPLEMENTATION (test-iword-listfiles-ops)
+    row 23 is   [6 Look; 7 Other Directory; 8 Copy; 9 Find; N Name Search: 6                 ]
+    row 23 want [Delete A:\OPS\ALPHA.TXT? No (Yes)                                           ]
+  FAIL ops-prompt 02_delete (line 80)
+RED-REASON listfiles-ops: selected-file prompt or safety contract
+test-iword-listfiles-ops: 2 checks, 1 failures
+The old tree ignores key 2 instead of asking the independently minted question.
+
+A subsequent real-WP selection mint caught a second defect before its fix:
+  FAIL ops-selection rename follows the new name (real WP shot 33) (line 106)
+RED-REASON listfiles-ops: selected-file prompt or safety contract
+Fixed by following the source after Copy / new name after Rename, rather
+than retaining an old numeric slot in a newly sorted list.
+
+OTHER DEVELOPMENT FAILURES, FIXED WITHOUT RELAXING AN ORACLE
+The first new emulator pixel check addressed blank row 1 instead of row 0:
+RED-REASON listfiles-ops: active document pixels absent
+It now checks the established content top, global y=62..78; the >10-pixel
+threshold is unchanged. Final text, style and mtools legs also pass.
+The first manual build rejected the newly added Notes topic after Entries:
+./ref-l.tex:102: initech-wpc: Notes topic `Delete, Move/Rename and Copy' is out of alphabetical order (AN-11).
+The topic was moved before Entries; the final full manual build/check passes.
+Initial scaffold compile errors (missing test key aliases, C indentation and
+bounded snprintf diagnostics) were corrected before claiming a meaningful RED.
+X11 mint failure: Can't init SDL x11 not available; Xvfb could not bind its
+socket. Resolved with the C SDL2 driver, not with hand-authored goldens.
+LeakSanitizer has encountered a fatal error.
+LeakSanitizer does not work under ptrace.
+Address/undefined-behavior checking was rerun with ASAN_OPTIONS=detect_leaks=0:
+test-iword-listfiles-ops: 118 checks, 0 failures. No leak-check claim is made.
+
+HOST GATES - PASS, INCLUDING EACH NAMED -mutant TARGET
+ test-iword-face
+ test-iword-listfiles (also runs test-iword-listfiles-ops)
+ test-iword-listfiles-ops (118 checks)
+ test-iword-listfiles-ops-mutant
+ test-iword-fkeys
+ test-iword-search
+ test-iword-replace
+ test-iword-undo
+ test-iword-setup
+ test-itext-route
+ test-i123-quit
+ test-notepad-route
+ test-cpanels
+The listfiles host mutant family includes LF_COLUMN, LF_ZERO_DATE and the
+operations mutants LF_WRONG_PATH, LF_PROTECT, LF_TRUNCATE, LF_SELECTION.
+Every mutant fails for its named prompt/protection/data/selection reason.
+The operations host exercises confirmed/default-No/cancelled Delete, fresh
+name editing/cancel, replacement No/Yes, Copy, same- and cross-directory
+Move, protected source/destination, self-copy, current-directory selection,
+short reads/writes, read failure, both close failures, full disk, a new failed
+copy, occupied temporary, listing refresh and exact editor-state preservation.
+It also copies 100,123 bytes, renames a maximum 127-byte source path offered
+as a 130-character absolute name, and copies to the existing A:\ root.
+
+EMULATOR GATES - PASS, INCLUDING EACH NAMED -mutant TARGET
+ test-flair-iword
+ test-flair-iword-listfiles
+ test-flair-iword-listfiles-ops
+ test-flair-iword-codes
+ test-flair-iword-block
+ test-flair-iword-format
+ test-flair-iword-fkeys
+ test-flair-iword-search
+ test-flair-iword-replace
+ test-flair-iword-undo
+ test-flair-iword-setup
+ test-flair-fullsave
+ test-flair-notepad
+Also PASS:
+ test-flair-cpanels-persist
+ test-flair-cpanels-settings
+ test-flair-cpanels-settings-mutant
+All emulator runs use the existing harness with INITECH_QMP_STDIO=1, its
+supported inherited-socket transport for a sandbox that cannot bind sockets.
+No timeout, tick budget, pixel tolerance, oracle tag or legacy trace was raised,
+dropped or loosened. The new operations traces are separately locked additions.
+
+Operations: 157 normal / 74 full-disk delivered keys, 9/9 and 5/5 required
+real-WP prompts in order, with filename band and bright/default choice cells.
+Successful results are extracted with mtools and byte-compared to independent
+payloads; protected attributes are checked with mattrib. Before/after WP5
+saves of the active document are byte-identical in BOTH legs. Failed Copy /
+Move keep ALPHA.TXT and BETA.TXT; new failures and temporaries are absent.
+fsck.fat -n passes. The final document also has text/pixel checks.
+Emulator mutants: LF_WRONG_PATH fails the prompt sequence; LF_TRUNCATE changes
+BETA.TXT (byte 1), proving the full-disk preservation comparison bites.
+Shared save regressions: Word/Text/123 full-disk saves preserve old targets;
+Note Pad and Control Panels persistence also pass. Existing destructive-save,
+occupied-temporary, Note Pad and settings mutants are rejected.
+
+INTEGRATION / PUBLICATIONS - PASS
+ test-fixture-volumes
+ test-fixture-volumes-mutant
+ test-makefile-vars
+ test-pubs-iword (final normal invocation, no SKIP_PUBS or omitted prerequisite)
+The publication gate replayed 73 launches / 141 printed screens and found
+362/362 documented shipped items, 0 DRAFT, 0 explicit omissions. List Files
+PDF pages 53-54 (printed 45-46) were rendered and visually checked.
+ASCII source scan, git diff --check and sh -n mint.sh pass.
+record-flair SCRIPT=iword_listfiles_ops was dry-run only: script is in the
+clip block BEFORE record-flair, with literal fixture image prerequisite and
+a unique final-rename marker. The PM records/reproves the clip on main.
+
+BUILD / LIMITS
+WORD.EXE: 54,364 -> 57,516 bytes, +3,152; 8,020 below the 65,536-byte cap.
+The iword gate kernel remains 196,608 bytes (size delta 0). SAMIR.COM was
+not rebuilt or changed; its source is untouched (binary delta unmeasured).
+The MZ builder's normal relocation derivation/cap check passed.
+
+The PM's read-only refusal is intentionally stronger than real WP's
+confirmed read-only Delete/Rename; see MINT.txt's explicit evidence.
+The access-denied wording for that stricter policy is authored DOS feedback.
+Empty-directory Delete is not implemented: these are file operations and
+all directory selections are safe non-operands. Parent-relative '..' paths
+are unsupported. Exact real-WP self-copy/error-key flows, media changes and
+power-loss/media-fault recovery at the inherited mcep delete/rename commit window are not
+certified. Bochs/86Box and actual clip recording were not run in this lane.
+Follow-ups for PM: record/repro iword_listfiles_ops on main; file separate
+scope for directory deletion / commit-window recovery if required. No bd,
+commit, push or main-branch write was performed after reading the lane brief.

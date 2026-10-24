@@ -92,6 +92,33 @@ into current document? No (Yes)}; answer \Typed{Y} to add the file at the
 cursor, or \Typed{N} to keep the screen as it is.
 
 \Notes
+\Topic{Delete, Move/Rename and Copy}
+Highlight the file before selecting an operation.  Select \Ch{Delete}{2}
+and answer \Typed{Y} to the \Scr{Delete} question to remove that file.
+Any other answer, including \K{Enter}, leaves it on the diskette.
+
+Select \Ch{Move/Rename}{3} to change a file's name or directory.  The
+\Scr{New name:} prompt offers its present name; typing a character replaces
+the offered name.  Select \Ch{Copy}{8} to make another copy, and enter its
+name after \Scr{Copy this file to:}.  A name without a drive or leading
+backslash is relative to the directory being listed.  A leading backslash
+or \Typed{A:\textbackslash} starts at the diskette's root.  You can include
+a subdirectory and a new name, or name an existing subdirectory to keep
+the file's name there.  Press \K{Enter} to perform the operation.
+
+If that name already exists, \Scr{Replace} asks \Scr{No (Yes)}.  Answer
+\Typed{Y} to replace it, or any other key to keep both files.  \FK{Cancel}{F1}
+or \K{Esc} cancels a name or confirmation prompt.  The directory listing
+is refreshed after an operation; the document on the editing screen is
+unchanged.
+
+Read-only files cannot be deleted, moved or replaced.  They can be copied
+to another name.  Directories, including Current and Parent, are not file
+operands for these three commands.  A failed copy keeps the source and
+the previous destination.  If \Scr{Insufficient disk space} appears, insert
+a diskette with room and press a key to try again, or press
+\FK{Cancel}{F1} to return to the list.
+
 \Topic{Entries}
 Each entry prints the file name, its size in bytes, and the date and time it
 was last saved, as the operating system's directory listing prints them.  The
@@ -100,8 +127,8 @@ the space left on the diskette.  Directories print \Scr{<Dir>} in place of
 a size.
 
 \Topic{Menu items not yet in this version}
-The List Files menu also names Delete, Move/Rename, Print, Short/Long
-Display, Other Directory, Copy, Find and Name Search.  This version of
+The List Files menu also names Print, Short/Long
+Display, Other Directory, Find and Name Search.  This version of
 InitechWord prints those items in grey and does nothing when they are
 selected; use the operating system's commands for the same tasks (see the
 \emph{InitechDOS User's Guide}).

@@ -44,8 +44,12 @@
 #include "tbx.h"
 
 static char g_tbx_save_tmp[TBX_FILE_PATH_MAX];
+static unsigned char g_tbx_save_chunk[1024];
 
-static __attribute__((unused)) int32_t tbx_file_save(const char *path, const void *buf, uint32_t n)
+/* initech-7aou: the SAME transaction also consumes a file handle. The input
+ * is closed before committing; short reads/writes and either failed close
+ * discard only our temporary. This avoids a document-sized copy limit. */
+static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n, int32_t input)
 {
     const unsigned char *b = (const unsigned char *)buf;
     uint32_t i = 0, dot = 0, pos = 0, k;
@@ -67,7 +71,10 @@ static __attribute__((unused)) int32_t tbx_file_save(const char *path, const voi
         else if (path[i] == '.') dot = i;
     }
     if (dot == 0) dot = i;
-    if (dot + 5u > TBX_FILE_PATH_MAX) return TBX_ERR_BADARG;
+    if (dot + 5u > TBX_FILE_PATH_MAX) {
+        if (input >= 0) (void)tbx_file_close(input);
+        return TBX_ERR_BADARG;
+    }
     for (i = 0; i < dot; i++) g_tbx_save_tmp[i] = path[i];
     g_tbx_save_tmp[dot] = '.'; g_tbx_save_tmp[dot+1] = '$';
     g_tbx_save_tmp[dot+2] = '$'; g_tbx_save_tmp[dot+4] = '\0';
@@ -85,16 +92,38 @@ static __attribute__((unused)) int32_t tbx_file_save(const char *path, const voi
         h = tbx_file_create(g_tbx_save_tmp);
 #endif
     }
-    if (h < 0) return h;
+    if (h < 0) {
+        if (input >= 0) (void)tbx_file_close(input);
+        return h;
+    }
     while (pos < n) {
-        rc = tbx_file_write(h, b + pos, n - pos);
-        if (rc <= 0 || (uint32_t)rc > n - pos) break;
-        pos += (uint32_t)rc;
+        const unsigned char *part = b ? b + pos : g_tbx_save_chunk;
+        uint32_t count = n - pos, done = 0;
+        if (input >= 0) {
+            if (count > sizeof g_tbx_save_chunk) count = sizeof g_tbx_save_chunk;
+            rc = tbx_file_read(input, g_tbx_save_chunk, count);
+            if (rc <= 0 || (uint32_t)rc > count) { if (rc == 0) rc = TBX_ERR_DOS(5); break; }
+            count = (uint32_t)rc;
+        }
+        while (done < count) {
+            rc = tbx_file_write(h, part + done, count - done);
+            if (rc <= 0 || (uint32_t)rc > count - done) break;
+            done += (uint32_t)rc;
+#ifdef TBX_MUT_SAVE_ONE_WRITE
+            break;
+#endif
+        }
+        pos += done;
+        if (done != count) break;
 #ifdef TBX_MUT_SAVE_ONE_WRITE
         break;   /* MUTANT (iword IWORD_MUT_SETUP_SHORT): one write only */
 #endif
     }
     cl = tbx_file_close(h);
+    if (input >= 0) {
+        int32_t in_close = tbx_file_close(input);
+        if (in_close < 0) cl = in_close;
+    }
     if (pos != n || cl < 0) {
         (void)tbx_file_delete(g_tbx_save_tmp);   /* the old file never moved */
         return cl < 0 ? cl : rc < 0 ? rc : (int32_t)pos;
@@ -106,5 +135,24 @@ static __attribute__((unused)) int32_t tbx_file_save(const char *path, const voi
     }
     rc = tbx_file_rename(g_tbx_save_tmp, path);
     return rc < 0 ? rc : (int32_t)n;
+}
+
+static __attribute__((unused)) int32_t tbx_file_save(const char *path, const void *buf, uint32_t n)
+{
+    return tbx_file_save_feed(path, buf, n, -1);
+}
+
+/* Copy through the mcep transaction, never CREATE over a destination.
+ * Both paths and the transfer buffer live in module/BSS storage. Returns
+ * TBX_OK only when every source byte has committed; DOS 39 is disk full. */
+static __attribute__((unused)) int32_t tbx_file_copy_save(const char *src, const char *dst)
+{
+    int32_t h = tbx_file_open(src, TBX_FILE_READ_ONLY), n, rc;
+    if (h < 0) return h;
+    n = tbx_file_seek(h, 0, TBX_FILE_FROM_END);
+    rc = n < 0 ? n : tbx_file_seek(h, 0, TBX_FILE_FROM_START);
+    if (rc < 0) { (void)tbx_file_close(h); return rc; }
+    rc = tbx_file_save_feed(dst, 0, (uint32_t)n, h);
+    return rc < 0 ? rc : rc == n ? TBX_OK : TBX_ERR_DOS(39);
 }
 #endif
