@@ -173,18 +173,17 @@ interrupted run with the same commit, worker count and gate selection, or
 `--keep` to retain worktrees for inspection. `--only unit|emu` and
 `--gates FILE` (one gate name per line) select smoke runs.
 
-Serial `make test` remains the reference certificate. Run it in a separate
-worktree so lanes can keep using the main checkout:
+`tools/cert-sharded.sh -j 8` IS the certificate (operator ruling 2026-10-24, after
+run 2 at 61294e7e: 1483 PASS, 0 FLAKY, 66 min). Serial `make test` is kept as the
+reference for a one-off cross-check; run it in a separate worktree so lanes can
+keep using the main checkout:
 
 ```sh
 git worktree add ../initech-os-cert main
 cd ../initech-os-cert && make clean && make test 2>&1 | tee /tmp/cert.log
 ```
 
-Expect: all host gates + all emu gates green. The sharded runner becomes the
-replacement certificate after the serial comparison, two full runs without
-FLAKY, and timing acceptance in `docs/design/parallel-certificate.md` Sec 4;
-the lane smoke runs alone do not establish that acceptance. Compare runner
+Expect: all host gates + all emu gates green. Compare runner
 verdict sets with `tools/cert-sharded.sh --out build/cert --diff OTHER/results.txt`
 (exit 0 for equal, 1 for different). Known-red gates are NAMED (`test-bochs-pending`,
 `test-samir-fns-pending`), never silent. If a gate is red only on the new box,

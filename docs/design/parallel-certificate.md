@@ -74,6 +74,12 @@ CURRENT STATE 2026-10-24; beads zxzi, u01i, buze, hk3py, kqr8, hztg).
 
 ## 4. Acceptance (what makes this the certificate)
 
+MET 2026-10-24 by operator ruling after run 2 (61294e7e: 1483 PASS, 0 FLAKY,
+2 confirmed = the owed r3 pair, 66m45s at N=8); run 1 (c9a5cd53) found and
+retired three hidden inter-gate dependencies (initech-hteno, 27clv, 72872) and
+had no timing flake. The operator declined a third run as excess; the
+'two consecutive runs' clause below is recorded as written, not as applied.
+
 - Same HEAD, same box: the sharded run's verdict set equals the serial
   sweep's for every gate (the 2026-10-24 serial sweep at 2808f8b5 plus the
   serial family re-runs on main are the control; a second serial sweep at
