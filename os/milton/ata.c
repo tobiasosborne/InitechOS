@@ -75,7 +75,9 @@
 #endif
 
 /* Freestanding port I/O primitives. The artifact has no libc; these are the
- * canonical x86 inb/outb/inw wrappers. */
+ * canonical x86 inb/outb/inw wrappers. Memory clobbers order the PIO buffer
+ * accesses against command/data I/O under optimization (round-2 Sec 4).
+ * IN/OUT do not alter arithmetic flags; all register operands are explicit. */
 #ifdef ATA_HOST_TEST
 /* Factory scripted bus; the kernel always uses real x86 I/O below. */
 uint8_t ata_test_inb(uint16_t port);
@@ -90,25 +92,25 @@ void ata_test_outw(uint16_t port, uint16_t value);
 static inline uint8_t inb(uint16_t port)
 {
 	uint8_t v;
-	__asm__ __volatile__("inb %1, %0" : "=a"(v) : "Nd"(port));
+	__asm__ __volatile__("inb %1, %0" : "=a"(v) : "Nd"(port) : "memory");
 	return v;
 }
 
 static inline void outb(uint16_t port, uint8_t v)
 {
-	__asm__ __volatile__("outb %0, %1" : : "a"(v), "Nd"(port));
+	__asm__ __volatile__("outb %0, %1" : : "a"(v), "Nd"(port) : "memory");
 }
 
 static inline uint16_t inw(uint16_t port)
 {
 	uint16_t v;
-	__asm__ __volatile__("inw %1, %0" : "=a"(v) : "Nd"(port));
+	__asm__ __volatile__("inw %1, %0" : "=a"(v) : "Nd"(port) : "memory");
 	return v;
 }
 
 static inline void outw(uint16_t port, uint16_t v)
 {
-	__asm__ __volatile__("outw %0, %1" : : "a"(v), "Nd"(port));
+	__asm__ __volatile__("outw %0, %1" : : "a"(v), "Nd"(port) : "memory");
 }
 #endif
 

@@ -184,3 +184,27 @@ flair-modifier-release (+mutant), kernel-repro. QEMU used INITECH_QMP_STDIO=1.
 >>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 45ac1b447730ebfaa13be8411238dd9ef0a15019f55b1dfaed57fc6b7c4f2bc5)
 >>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 b0463f5842a77680c510113ceb4d35c48c9777ffd14f4c1395dab7997454e91d)
 ```
+
+### Lever 3 -- hardware audit, one changed object per commit
+
+Every changed driver faces the same 23-gate QEMU/native/repro family, before
+the next object: boot; boot-system-mutant and boot-system-emu-mutant (there is
+no test-boot-mutant target); kbd; flair-key (+mutant); flair-live (+mutant);
+int21-irqstorm (+mutant); flair-mouse (+mutant); flair-cpanels-mouse (+mutant,
+apply-mutant); panic; panic-screen (+mutant); panic-reasons (+mutant);
+kernel-native-boundaries (+mutant); kernel-repro. This includes every expanded
+TEST_EMU_GATES name containing kbd/mouse/pit/irq/panic, excluding Bochs.
+Complete per-step verdicts are in CODEX-OUT.md and build/ksize8p2/lever3*/.
+
+ATA (3a): complete register operands, no arithmetic-flag effects; add memory
+clobbers to all four local IN/OUT primitives to order PIO buffers against I/O.
+Polls always read volatile port instructions, including all four settle reads;
+BSY/DRQ and retry budgets remain finite. The existing native -Oz is retained:
+the -Os trial grows 64 B. Flagship 181524 -> 181524 B (0); no old savings are
+claimed. All 33 gates pass: the common 23 plus ata, prewait/flush/lba/errors
+mutants, no-drive-emu (+mutant), fs, block-device-emu (+mutant). Rule-11 hashes:
+
+```text
+>>> test-kernel-repro: green -- build/kernel.bin reproducible (sha256 eb00fa63d35d89c7f79a90c90f4189fe87551e0a71a3e805a0bcfadd1f6bfffe)
+>>> test-kernel-repro: green -- build/kernel_flairtenants.bin reproducible (sha256 ad0c090a1a5bb3c7900ebed1801d4f3819dbe27e09d80cc5f241e32fe77e4f38)
+```
