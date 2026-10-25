@@ -786,7 +786,16 @@ static int p_on(xb_interp *ip, proc_state *ps, const char *args, int *ec)
         dst[i] = '\0';
         *(k ? &ps->has_onesc : &ps->has_onerr) = (*p != '\0');
         if (!k) xb_interp_ctx(ip)->on_error_procedure =
-            rt_kw_word(p, "DO\0", (int *)0) == 0;
+            rt_kw_word(p, "DO\0", (int *)0) == 0
+#ifdef SAMIR_FNS_MUTANT_ndx_handler_name
+            /* MUTANT: real ndx/GOLD.OUT R5-RENAMED uses OTHERNAME. */
+            && rt_kw_word(p_skip_ws(p+2), "GUARDTRAP\0", (int *)0) == 0
+#endif
+#ifdef SAMIR_FNS_MUTANT_ndx_handler_depth
+            /* MUTANT: real ndx/GOLD.OUT R5-NESTED installs at depth 2. */
+            && ps->do_depth == 1
+#endif
+            ;
     }
     /* ON KEY: parsed + accepted; the ON KEY trap is not modelled.
      * (programming-and-io.md sec 14 -- precedence ERROR>ESCAPE>KEY.) */

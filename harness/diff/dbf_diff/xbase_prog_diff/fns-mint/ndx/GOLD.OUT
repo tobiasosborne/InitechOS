@@ -90,4 +90,10 @@ HNEST-NORMAL-RETURN          0
 HNEST-AFTER          0
 HFALL-ENTER          9
 HFALL-AFTER          0
+R5-RENAMED
+BODY
+AFTER          0          0
+R5-NESTED
+BODY
+AFTER          0          0
 [FNS-END]
