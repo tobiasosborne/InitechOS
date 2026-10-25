@@ -1,0 +1,15 @@
+
+[FNS-BEGIN]
+PAIR-NDX-SQRT
+MINT-ERROR         61 SQRT() : Negative.
+ARGS  ********
+PAIR-SQRT-NDX
+MINT-ERROR         87 NDX(): Invalid index number.
+ARGS ******** 
+PAIR-NDX-VALID
+MINT-ERROR         87 NDX(): Invalid index number.
+ARGS           1
+PAIR-VALID-NDX
+MINT-ERROR         87 NDX(): Invalid index number.
+ARGS          1 
+[FNS-END]

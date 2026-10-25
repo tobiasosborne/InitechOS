@@ -2265,11 +2265,7 @@ static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
          * handler enters its body; an immediate error invokes the handler. */
         return fn_fail(err, 58);
 #endif
-#ifdef SAMIR_FNS_MUTANT_logdoarg
-        ctx->deferred_error = 87; /* MUTANT: wrong DO-argument error code. */
-#else
         ctx->deferred_error = 58;
-#endif
     }
 #if defined(SAMIR_FNS_MUTANT_LOG) || defined(SAMIR_FNS_MUTANT_log)
     /* Rule 6 mutation: perturb the numeric result so the pinned golden fails. */
@@ -2295,11 +2291,7 @@ static int fn_sqrt_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         return fn_fail(err, 61); /* MUTANT: raise before the result prints. */
 #endif
         if (!ctx->deferred_error) {
-#ifdef SAMIR_FNS_MUTANT_sqrtdoarg
-            ctx->deferred_error = 87; /* MUTANT: wrong DO-argument code. */
-#else
             ctx->deferred_error = 61;
-#endif
         }
     }
 

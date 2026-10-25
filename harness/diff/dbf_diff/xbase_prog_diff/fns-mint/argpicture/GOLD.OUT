@@ -1,0 +1,21 @@
+
+[FNS-BEGIN]
+STORE-LOG
+MINT-ERROR         58 LOG() : Zero or negative.
+X **********
+STORE-SQRT
+MINT-ERROR         61 SQRT() : Negative.
+X ********
+STORE-INF
+MINT-ERROR         58 LOG() : Zero or negative.
+X *******
+PASS-LOG
+MINT-ERROR         58 LOG() : Zero or negative.
+P **********
+PASS-SQRT
+MINT-ERROR         61 SQRT() : Negative.
+P ********
+PASS-INF
+MINT-ERROR         58 LOG() : Zero or negative.
+P *******
+[FNS-END]

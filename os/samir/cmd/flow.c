@@ -472,8 +472,21 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
      * the assigning literal. Keep this outside the arena-reclaim branches. */
 #ifndef SAMIR_SIZE_MUTATE_MEMVAR_WIDTH
     if (fs->vars[slot].val.t == XB_N) {
-        unsigned dec = fs->vars[slot].val.num_dec;
-        fs->vars[slot].val.num_width = (uint16_t)(10 + (dec ? dec + 1 : 0));
+        xb_val *stored = &fs->vars[slot].val;
+        unsigned dec = stored->num_dec, columns = 10;
+#ifndef SAMIR_FNS_MUTANT_argpicture
+        union { double n; uint64_t bits; } picture;
+        picture.n = stored->u.n;
+        /* Real argpicture/GOLD.OUT: STORE and PARAMETERS both extend an
+         * overflow value's existing picture by its decimal suffix (LOG(-100)
+         * 7 -> 10, SQRT(-1) 5 -> 8). Finite values use ten integer columns.
+         * IEEE exponent all-ones covers both infinity and NaN, independent
+         * of the function or error code that produced the value. */
+        if ((picture.bits >> 52 & 0x7ffu) == 0x7ffu)
+            columns = stored->num_width;
+#endif
+        columns += dec ? dec + 1 : 0;
+        stored->num_width = (uint16_t)(columns > 255 ? 255 : columns);
     }
 #endif
     return INTERP_OK;
@@ -926,7 +939,7 @@ typedef struct {
 /* Forward decl of the recursive runner. */
 static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec);
 static int fl_escape(flow_prog *fp, int *ec);
-static int fl_trap(flow_prog *fp, int rc, int *ec);
+static int fl_trap(xb_interp *ip, int rc, int *ec);
 
 /*
  * match_block_end: given an opener at index `start`, return the index of its
@@ -1293,6 +1306,21 @@ static int fl_finish_statement(xb_interp *ip, int rc, int *ec)
     return rc;                         /* an immediate error wins */
 }
 
+/* Real III+ fns-mint/{logdoarg,sqrtdoarg,ndxdoarg,sqrtpass}/GOLD.OUT:
+ * report a WITH expression's deferred error before entering the routine.
+ * Normal handler completion resumes the call; RETRY re-runs the DO and
+ * cancellation unwinds. Use the ordinary error completion/trap path for
+ * every pending code, consuming it before the handler can run statements. */
+int samir_finish_transfer(xb_interp *ip, int *ec)
+{
+    int rc = fl_finish_statement(ip, INTERP_OK, ec);
+    int t;
+    if (rc == INTERP_OK) return rc;
+    t = fl_trap(ip, rc, ec);
+    if (t == 2) return INTERP_RC_RETRY;
+    return t < 0 ? t : t ? INTERP_OK : rc;
+}
+
 /* One completion path for ordinary statements and structured guards.
  * Ref: real III+ ndx/GOLD.OUT IF-BODY/IF-AFTER, CASE-BODY/CASE-AFTER,
  * WHILE-BODY and the *-RETRY-* captures. Never re-raise a handled code. */
@@ -1309,7 +1337,7 @@ static int fl_handle_statement(flow_prog *fp, int rc, int *ec, int *retry)
     }
 #endif
     if (rc == INTERP_OK) return rc;
-    t = fl_trap(fp, rc, ec);
+    t = fl_trap(fp->ip, rc, ec);
     if (!t) return rc;
     if (t < 0) return t;
 #ifndef FLOW_MUTATE_NO_RETRY
@@ -1596,12 +1624,12 @@ static int fl_catalog(xb_interp *ip, int rc, int ec)
  * at the next line), 0 = untrapped (the caller fails loud). A RETURN
  * sentinel (positive rc) is never an error.
  */
-static int fl_trap(flow_prog *fp, int rc, int *ec)
+static int fl_trap(xb_interp *ip, int rc, int *ec)
 {
-    xb_ctx *c = xb_interp_ctx(fp->ip);
+    xb_ctx *c = xb_interp_ctx(ip);
     int t;
     if (rc < 0 && rc >= -INTERP_ERR_DEPTH && c->on_error &&
-        (t = c->on_error(fp->ip, fl_catalog(fp->ip, rc, ec ? *ec : 0))) != 0) {
+        (t = c->on_error(ip, fl_catalog(ip, rc, ec ? *ec : 0))) != 0) {
         if (ec) *ec = 0;
         return t;
     }
@@ -1697,7 +1725,7 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
         case LK_ENDDO:
             /* Real III+ 1.1 SF-struct: a lone ENDDO raises #96 and an ON
              * ERROR trap resumes the program at the next line. */
-            { int t = fl_trap(fp, -INTERP_ERR_STRUCT, ec);
+            { int t = fl_trap(fp->ip, -INTERP_ERR_STRUCT, ec);
               if (t < 0) return t;
               if (t) { i++; break; } }
             if (ec) *ec = 0;

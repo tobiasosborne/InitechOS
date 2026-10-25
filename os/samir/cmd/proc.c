@@ -721,7 +721,18 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
             xb_val v;
             if (rt_copy_expr(&p, ebuf, P_MAX_EXPR) < 0) { ecode = 0; goto syntax; }
             if (nargs >= P_MAX_ARGS) { ecode = P_MSG_WRONG_PARAM; goto syntax; }
-            crc = xb_interp_eval(ip, ebuf, &v, ec);
+            {
+                xb_ctx *ctx = xb_interp_ctx(ip);
+                int pending = ctx->deferred_error;
+#ifndef SAMIR_FNS_MUTANT_argorder
+                /* Real argorder/GOLD.OUT: the last failing argument wins;
+                 * a later valid argument preserves it. Each expression still
+                 * keeps its first deferred error within its own phase. */
+                ctx->deferred_error = 0;
+#endif
+                crc = xb_interp_eval(ip, ebuf, &v, ec);
+                if (!ctx->deferred_error) ctx->deferred_error = pending;
+            }
             if (crc != INTERP_OK)
                 goto out;
             if(v.t==XB_C || v.t==XB_M) {
@@ -739,6 +750,13 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
             break;
         }
     }
+
+#if !defined(SAMIR_FNS_MUTANT_logdoarg) && !defined(SAMIR_FNS_MUTANT_sqrtdoarg) && !defined(SAMIR_FNS_MUTANT_ndxdoarg) && !defined(SAMIR_FNS_MUTANT_sqrtpass)
+    /* Argument blocks are owned before ON ERROR can reset expression scratch.
+     * Complete the caller's evaluation before any callee statement can run. */
+    crc = samir_finish_transfer(ip, ec);
+    if (crc != INTERP_OK) goto out;
+#endif
 
     crc = p_call(ip, ps, name, argv, nargs, ec);
 out:

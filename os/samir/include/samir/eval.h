@@ -643,8 +643,10 @@ typedef struct xb_ctx {
     int   error_number;
     /* Real III+ fns-mint/ndx/GOLD.OUT lines 4-5 and 7-8: NDX(8)
      * yields "" for the complete output statement, then raises error 87.
-     * First deferred error wins; the statement executor consumes this slot.
-     * An ordinary immediate statement error takes precedence. */
+     * First deferred error within an evaluation phase wins. DO WITH starts
+     * a phase per argument and retains the last failing phase until transfer
+     * (real argorder/GOLD.OUT). The executor consumes this slot; an ordinary
+     * immediate statement error takes precedence. */
     int   deferred_error;
 
     /*
