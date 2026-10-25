@@ -67,7 +67,7 @@ typedef enum loader_status {
     LOADER_ERR_NOMEM,
     /* AH=4Bh AL=03h LOAD OVERLAY (ADR-0003 Amendment DEC-19.4): the overlay
      * footprint is not wholly inside memory the caller owns. Nothing was
-     * read or written; maps to DOS 0009h at the kmain seam. */
+     * written to the destination; maps to DOS 0009h at the kmain seam. */
     LOADER_ERR_NOT_OWNED
 } loader_status_t;
 
@@ -417,7 +417,10 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
  * (int21_overlay_dest_ok on the kernel; a fixed window in the host oracle).
  * `dest` is where the bytes go and `load_linear` its flat address (the same
  * number on the kernel; the host oracle passes a fake linear, as
- * loader_prepare_tenant does). `scratch` is >= LOADER_OVL_SCRATCH bytes.
+ * loader_prepare_tenant does). `stage` is private storage of `stage_cap`
+ * bytes, disjoint from dest and scratch; `scratch` is >= LOADER_OVL_SCRATCH
+ * bytes. Kernel staging is NOBITS BSS sized to PROGRAM_IMAGE_MAX, the largest
+ * normal process window, inside the existing link-guarded kernel runway.
  *
  *   - First min(file_len, 1Eh) bytes into scratch; 'MZ'/'ZM' (DEC-08a.4)
  *     selects the InitechMZ path (mz_parse_header reads only bytes [0,1Eh)):
@@ -430,15 +433,18 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
  *     Otherwise the file is RAW: footprint = file_len, copied verbatim, the
  *     factor ignored.
  *   - owns(load_linear, footprint) == 0 -> LOADER_ERR_NOT_OWNED.
- *   - MZ: every relocation offset is validated (off + 4 <= footprint) BEFORE
- *     any byte is written -> LOADER_ERR_BAD_FORMAT, destination untouched.
- *   - The footprint is read to dest; MZ: mz_apply_relocs(dest, footprint,
- *     reloc_factor, ...) adds the factor to each relocated dword (DEC-19.3).
- *   - A read failure -> LOADER_ERR_READ. *out_len = footprint on LOADER_OK.
+ *   - footprint > stage_cap -> LOADER_ERR_NOMEM; destination untouched.
+ *   - Read the module into stage, then read each relocation chunk ONCE and
+ *     validate/apply its fixups there. Bad offset -> LOADER_ERR_BAD_FORMAT;
+ *     a read failure -> LOADER_ERR_READ. Neither writes any destination byte.
+ *   - Recheck owns, then commit exactly the footprint with no further I/O or
+ *     validation. Every refusal leaves the WHOLE dest and *out_len untouched.
+ *     *out_len = footprint on LOADER_OK.
  *
  * MUTATION hooks (Rule 6): LOADER_MUTATE_OVL_NO_FACTOR (the factor is never
  * applied), LOADER_MUTATE_OVL_ACCEPT_FOREIGN (an untagged MZ is copied as a
- * raw file instead of refused). */
+ * raw file instead of refused), LOADER_MUTATE_OVL_EARLY_COMMIT (read into dest
+ * instead of stage, breaking the whole-destination canary invariant). */
 #define LOADER_OVL_SCRATCH 256u
 typedef int (*loader_ovl_read_fn)(void *ctx, uint32_t off, uint32_t len,
                                   uint8_t *dst);
@@ -446,7 +452,8 @@ typedef int (*loader_ovl_owns_fn)(uint32_t linear, uint32_t len);
 loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
                                     uint32_t file_len, uint8_t *dest,
                                     uint32_t load_linear, uint32_t reloc_factor,
-                                    loader_ovl_owns_fn owns, uint8_t *scratch,
+                                    loader_ovl_owns_fn owns, uint8_t *stage,
+                                    uint32_t stage_cap, uint8_t *scratch,
                                     uint32_t *out_len);
 
 /* loader_load_overlay -- KERNEL: locate `name83` in `dir_start` (0 == root)

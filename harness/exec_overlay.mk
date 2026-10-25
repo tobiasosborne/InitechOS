@@ -7,9 +7,9 @@
 #
 # Host gate (TEST_UNIT_GATES): test-overlay drives the REAL loader_overlay_core,
 # int21 AH=4Bh AL=03h dispatch and int21_overlay_dest_ok (os/milton/
-# test_overlay.c). test-overlay-mutant: three mutants, each RED for its own
+# test_overlay.c). test-overlay-mutant: four mutants, each RED for its own
 # named check -- factor not applied, off-by-one ownership bound, untagged MZ
-# accepted.
+# accepted, and premature destination writes.
 #
 # Emu gate (TEST_EMU_GATES, QEMU -- the EXEC family's tri-emulator status:
 # test-exec / test-mzexec / test-exec-nested are QEMU-only, Bochs/86Box ride
@@ -35,12 +35,26 @@ TEST_OVERLAY_SRC   := $(MILTON_DIR)/test_overlay.c
 TEST_OVERLAY_LINK  := $(TEST_EXEC_DEPS) $(KERNEL_LOADER_C) $(MILTON_DIR)/fat12.c
 TEST_OVERLAY_DEPS  := $(TEST_OVERLAY_SRC) $(TEST_OVERLAY_LINK) $(TEST_EXEC_HDRS) \
                       $(MILTON_DIR)/loader.h $(MILTON_DIR)/mz.h $(MILTON_DIR)/mz.c \
-                      $(MILTON_DIR)/mcb.h spec/memory_map.h spec/toolbox_gate.h
+                      $(MILTON_DIR)/mcb.h $(MILTON_DIR)/fat12.h $(MILTON_DIR)/blockdev.h \
+                      spec/memory_map.h spec/toolbox_gate.h
 TEST_OVERLAY       := $(BUILD)/test_overlay
+OVL_DOS33_REF      := harness/fixtures/dos33_overlay
+$(BUILD)/overlay_dos33_check: $(OVL_DOS33_REF)/check.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+$(BUILD)/overlay_dos33_check_mut: $(OVL_DOS33_REF)/check.c | $(BUILD)
+	$(CC) $(CFLAGS) -DMUTATE_EXPECT_LOAD_PATCH -o $@ $<
+.PHONY: test-overlay-dos33-reference
+test-overlay-dos33-reference: $(BUILD)/overlay_dos33_check $(BUILD)/overlay_dos33_check_mut
+	@$(BUILD)/overlay_dos33_check $(OVL_DOS33_REF)/factor-different.bin $(OVL_DOS33_REF)/factor-equal.bin
+	@if $(BUILD)/overlay_dos33_check_mut $(OVL_DOS33_REF)/factor-different.bin $(OVL_DOS33_REF)/factor-equal.bin > $(BUILD)/overlay_dos33_check_mut.log 2>&1; then \
+		printf '!!! DOS33 load-based-address mutant survived\n'; exit 1; fi
+	@grep -qx 'FAIL DOS33 different-factor fixup address' $(BUILD)/overlay_dos33_check_mut.log
+	@printf '>>> test-overlay-dos33-reference: green; load-based-address mutant RED\n'
 # name:define pairs; the name is the mutant binary suffix.
 OVL_HOST_MUTANTS   := nofactor:LOADER_MUTATE_OVL_NO_FACTOR \
                       obo:INT21_MUTATE_OVL_BOUNDS_OBO \
-                      foreign:LOADER_MUTATE_OVL_ACCEPT_FOREIGN
+                      foreign:LOADER_MUTATE_OVL_ACCEPT_FOREIGN \
+                      atomic:LOADER_MUTATE_OVL_EARLY_COMMIT
 
 $(TEST_OVERLAY): $(TEST_OVERLAY_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -63,7 +77,7 @@ define ovl-host-red
 endef
 
 .PHONY: test-overlay test-overlay-mutant
-test-overlay: $(TEST_OVERLAY)
+test-overlay: $(TEST_OVERLAY) test-overlay-dos33-reference
 	@printf '>>> test-overlay: AH=4Bh AL=03h core (factor reloc, footprint, raw, refusals) + dispatch + DEC-19.4 ownership\n'
 	@$(TEST_OVERLAY)
 	@printf '>>> test-overlay: green\n'
@@ -72,7 +86,8 @@ test-overlay-mutant: test-overlay $(foreach m,$(OVL_HOST_MUTANTS),$(BUILD)/test_
 	$(call ovl-host-red,nofactor,A1 reloc @4: 0x10 + factor 0x123400 = 0x123410,factor-not-applied)
 	$(call ovl-host-red,obo,C5 one byte past the block (the next MCB header) refused,bounds-off-by-one)
 	$(call ovl-host-red,foreign,A5 untagged MZ -> LOADER_ERR_FOREIGN_MZ,untagged-MZ-accepted)
-	@printf '>>> test-overlay-mutant: green (all three mutants RED for their named reasons)\n'
+	$(call ovl-host-red,atomic,A12 failed read leaves the WHOLE destination untouched,early-destination-write)
+	@printf '>>> test-overlay-mutant: green (all four mutants RED for their named reasons)\n'
 TEST_UNIT_GATES += test-overlay test-overlay-mutant
 
 # ---- emulator fixtures -------------------------------------------------------

@@ -4485,7 +4485,8 @@ int int21_overlay_dest_ok(uint32_t linear, uint32_t len)
  * AL=00h), EBX -> exec_overlay_block_t {load_addr, reloc_factor}. No PSP, no
  * environment, no memory allocation, no execution, no InDOS hand-off (nothing
  * runs). The block is MANDATORY (it carries the load address): NULL or
- * unreadable -> 0009h (the DEC-14 user-pointer code). No backend bound ->
+ * wrapping extent -> 0009h (DEC-14 checks NULL/wrap, not readability).
+ * No backend bound ->
  * 0002h, never a silent success. CF clear on success; AX is left unchanged
  * (the TR documents no return value for a successful EXEC). */
 static void do_exec_overlay(int_frame_t *f, const char *leaf, uint16_t dir_start)

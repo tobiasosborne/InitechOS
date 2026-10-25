@@ -1,0 +1,5 @@
+bits 16
+org 0x100
+mov ax,0x10
+out 0xf4,ax
+hlt

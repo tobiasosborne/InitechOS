@@ -15,7 +15,8 @@
  *   A. loader_overlay_core over an in-memory file and a fake owned window:
  *      relocation by the caller's factor, the exact footprint (canaries past
  *      it stay intact), raw verbatim copy, the untagged-MZ refusal, malformed
- *      MZ refused BEFORE a byte is written, the ownership refusal.
+ *      MZ refused BEFORE a destination byte is written, the ownership refusal,
+ *      whole-destination atomicity under partial reads and invalid fixups.
  *   B. int21_dispatch AH=4Bh AL=03h with a mock overlay backend: the EBX
  *      block is decoded per spec/dos_structs.h, a NULL block is 0009h, a
  *      backend error is returned, other subfunctions stay 0001h.
@@ -30,6 +31,7 @@
  *   -DLOADER_MUTATE_OVL_NO_FACTOR      -> A1/A2 relocated-dword checks RED
  *   -DINT21_MUTATE_OVL_BOUNDS_OBO      -> C one-byte-past checks RED
  *   -DLOADER_MUTATE_OVL_ACCEPT_FOREIGN -> A5 untagged-MZ refusal RED
+ *   -DLOADER_MUTATE_OVL_EARLY_COMMIT   -> A12/A13 whole canary RED
  */
 #include <stdint.h>
 #include <stddef.h>
@@ -71,6 +73,7 @@ static uint32_t g_file_len;
 static int      g_read_fail;     /* make every read fail (A9) */
 static int      g_reads;
 static int      g_fail_read_at; /* fail AFTER copying this read's bytes */
+static int      g_revoke_after_read, g_revoked;
 
 static int mem_read(void *ctx, uint32_t off, uint32_t len, uint8_t *dst)
 {
@@ -80,6 +83,7 @@ static int mem_read(void *ctx, uint32_t off, uint32_t len, uint8_t *dst)
         return 1;
     }
     memcpy(dst, g_file + off, len);
+    if (g_reads == g_revoke_after_read) g_revoked = 1;
     return g_reads == g_fail_read_at;
 }
 
@@ -92,12 +96,13 @@ static int win_owns(uint32_t lin, uint32_t len)
     g_owns_calls++;
     g_owns_lin = lin;
     g_owns_len = len;
-    return lin >= g_win_lo && lin <= g_win_hi && len <= g_win_hi - lin;
+    return !g_revoked && lin >= g_win_lo && lin <= g_win_hi && len <= g_win_hi - lin;
 }
 
-/* Destination: 256 bytes of footprint room + canaries, all preset to 0xA5. */
+/* Whole-destination canary, including the real FAT test's 1024-byte footprint. */
 #define CANARY 0xA5u
 static uint8_t g_dest[1024];
+static uint8_t g_stage[1024];
 static uint8_t g_scratch[LOADER_OVL_SCRATCH];
 
 static void dest_reset(void)
@@ -108,6 +113,7 @@ static void dest_reset(void)
     g_reads = 0;
     g_read_fail = 0;
     g_fail_read_at = 0;
+    g_revoke_after_read = g_revoked = 0;
 }
 static int dest_canary_from(uint32_t from)
 {
@@ -257,10 +263,10 @@ int main(void)
     dest_reset();
     got = 0xDEADu;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_scratch, &got);
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_OK, "A1 tagged InitechMZ overlay loads");
     CHECK(got == MOD_LEN, "A1 footprint == load module length (64)");
-    CHECK(g_owns_calls == 1 && g_owns_lin == LOAD && g_owns_len == MOD_LEN,
+    CHECK(g_owns_calls == 2 && g_owns_lin == LOAD && g_owns_len == MOD_LEN,
           "A1 ownership asked for (load address, module length)");
     CHECK(get32(g_dest, 4u) == 0x00123410u,
           "A1 reloc @4: 0x10 + factor 0x123400 = 0x123410");
@@ -299,7 +305,7 @@ int main(void)
         g_win_hi = LOAD + 0x200u;
         g_owns_calls = 0;
         st = loader_overlay_core(mem_read, 0, g_file_len, big, LOAD, FACTOR,
-                                 win_owns, g_scratch, &got);
+                                 win_owns, g_stage, sizeof g_stage, g_scratch, &got);
         CHECK(st == LOADER_OK && got == 280u,
               "A2 header-gap table, 70 relocs: loads, footprint 280");
         int all = 1;
@@ -319,7 +325,7 @@ int main(void)
     g_file_len = 23u;
     dest_reset();
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_scratch, &got);
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_OK && got == 23u, "A3 raw file loads, footprint = size");
     CHECK(memcmp(g_dest, "OVL-RAW-VERBATIM\r\n$", 19u) == 0 &&
           get32(g_dest, 19u) == 0x00000010u,
@@ -332,7 +338,7 @@ int main(void)
     g_file_len = 2u;
     dest_reset();
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_scratch, &got);
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_OK && got == 2u && g_dest[1] == 'Q',
           "A4 two-byte non-MZ file copied raw");
 
@@ -341,7 +347,7 @@ int main(void)
     build_mz(0u, 0u);
     dest_reset();
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_scratch, &got);
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_ERR_FOREIGN_MZ, "A5 untagged MZ -> LOADER_ERR_FOREIGN_MZ");
     CHECK(dest_canary_from(0u) && g_owns_calls == 0,
           "A5 untagged MZ: destination untouched, ownership never asked");
@@ -351,7 +357,7 @@ int main(void)
     build_mz(MZ_INITECH_TAG, 61u);
     dest_reset();
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_scratch, &got);
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_ERR_BAD_FORMAT, "A6 OOB reloc (61 + 4 > 64) -> BAD_FORMAT");
     CHECK(dest_canary_from(0u), "A6 OOB reloc: destination untouched");
 
@@ -359,7 +365,7 @@ int main(void)
     build_mz(MZ_INITECH_TAG, 0u);
     dest_reset();
     st = loader_overlay_core(mem_read, 0, 0x40u, g_dest, LOAD, FACTOR,
-                             win_owns, g_scratch, &got);
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_ERR_BAD_FORMAT && dest_canary_from(0u),
           "A7 truncated MZ -> BAD_FORMAT, nothing written");
 
@@ -369,13 +375,13 @@ int main(void)
     dest_reset();
     g_win_hi = LOAD + MOD_LEN - 1u;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_scratch, &got);
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_ERR_NOT_OWNED && dest_canary_from(0u),
           "A8 footprint one byte past the window -> NOT_OWNED, untouched");
     g_win_hi = LOAD + MOD_LEN;
     dest_reset();
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_scratch, &got);
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_OK && dest_canary_from(MOD_LEN),
           "A8 exact-fit window accepted");
     g_win_hi = LOAD + 0x100u;
@@ -384,17 +390,17 @@ int main(void)
     dest_reset();
     g_read_fail = 1;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_scratch, &got);
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_ERR_READ, "A9 read failure -> LOADER_ERR_READ");
 
     /* A10: an empty file is a zero-byte raw overlay. A11: NULL arguments. */
     dest_reset();
     st = loader_overlay_core(mem_read, 0, 0u, g_dest, LOAD, FACTOR,
-                             win_owns, g_scratch, &got);
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_OK && got == 0u && dest_canary_from(0u),
           "A10 empty file: OK, nothing written");
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             0, g_scratch, &got);
+                             0, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_ERR_NULL_OUT, "A11 NULL ownership callback refused");
 
     /* A12: fail EVERY read, including a read that already changed its buffer.
@@ -404,7 +410,7 @@ int main(void)
     dest_reset();
     g_win_hi = LOAD + sizeof g_dest;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_scratch, &got);
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_OK, "A12 multi-chunk baseline loads");
     int reads = g_reads;
     CHECK(reads >= 4, "A12 header, module and two relocation chunks read");
@@ -413,7 +419,7 @@ int main(void)
         g_fail_read_at = fail;
         got = 0xDEADu;
         st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                                 win_owns, g_scratch, &got);
+                                 win_owns, g_stage, sizeof g_stage, g_scratch, &got);
         printf("A12 fault at read %d/%d: status=%d\n", fail, reads, st);
         CHECK(st == LOADER_ERR_READ && g_reads == fail,
               "A12 each injected read failure is returned immediately");
@@ -429,7 +435,7 @@ int main(void)
         dest_reset();
         got = 0xDEADu;
         st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                                 win_owns, g_scratch, &got);
+                                 win_owns, g_stage, sizeof g_stage, g_scratch, &got);
         CHECK(st == LOADER_ERR_BAD_FORMAT && got == 0xDEADu,
               "A12 invalid fixup in either chunk refuses the overlay");
         CHECK(dest_canary_from(0u),
@@ -441,7 +447,7 @@ int main(void)
     dest_reset();
     g_fail_read_at = 2;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_scratch, &got);
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
     CHECK(st == LOADER_ERR_READ && dest_canary_from(0u),
           "A12 failed raw read leaves the WHOLE destination untouched");
 
@@ -462,12 +468,30 @@ int main(void)
         g_short_fat[3] = 0xFFu; g_short_fat[4] = 0x0Fu; /* cluster 2 EOC */
         dest_reset();
         st = loader_overlay_core(short_file_read, &de, de.file_size, g_dest,
-                                 LOAD, FACTOR, win_owns, g_scratch, &got);
+                                 LOAD, FACTOR, win_owns, g_stage, sizeof g_stage, g_scratch, &got);
         CHECK(st == LOADER_ERR_READ, "A13 short FAT chain refused");
         CHECK(dest_canary_from(0u),
               "A13 short FAT chain leaves the WHOLE destination untouched");
     }
     g_win_hi = LOAD + 0x100u;
+
+    /* A14: staging capacity and ownership can both refuse without a commit. */
+    build_mz(MZ_INITECH_TAG, 0u);
+    dest_reset();
+    got = 0xDEADu;
+    st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
+                             win_owns, g_stage, MOD_LEN - 1u, g_scratch, &got);
+    CHECK(st == LOADER_ERR_NOMEM && got == 0xDEADu && g_reads == 1,
+          "A14 staging too small refuses before reading the module");
+    CHECK(dest_canary_from(0u), "A14 short stage leaves whole destination untouched");
+    dest_reset();
+    g_revoke_after_read = 2;
+    st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
+                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+    CHECK(st == LOADER_ERR_NOT_OWNED && got == 0xDEADu && g_owns_calls == 2,
+          "A14 ownership revoked during I/O refuses at the commit boundary");
+    CHECK(dest_canary_from(0u), "A14 revoked ownership leaves whole destination untouched");
+    dest_reset();
 
     /* ===================== Part B: AH=4Bh AL=03h dispatch ================ */
     CHECK(sizeof(exec_overlay_block_t) == 8u &&

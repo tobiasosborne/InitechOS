@@ -588,19 +588,19 @@ loader_status_t loader_prepare_tenant(uint8_t *block, uint32_t block_len,
  * AH=4Bh AL=03h LOAD OVERLAY core (ADR-0003 Amendment DEC-19; see loader.h).
  * Pure: every file byte comes through `rd`, every ownership question through
  * `owns`, so the host oracle drives it over an in-memory file and a fake
- * window. The header and relocation table are read into `scratch` in chunks
- * of LOADER_OVL_SCRATCH/4 entries -- the destination receives exactly the
- * footprint (TR p. 11-5: the caller allocated for "the program to be loaded",
- * so not one byte of header or relocation table may land past it).
+ * window. All fallible reads and fixups operate on private staging/scratch;
+ * only a completed image is committed. Ref: review 2026-10-25, initech-i15;
+ * DEC-19.3/.4, TR p. 11-5 (the caller's allocated footprint).
  * ------------------------------------------------------------------------ */
 #define LOADER_OVL_CHUNK (LOADER_OVL_SCRATCH / 4u)
 
-/* Walk the relocation table in chunks. pass 0 validates every offset against
- * the footprint (nothing written yet); pass 1 adds the factor. */
+/* Walk the relocation table ONCE. mz_apply_relocs validates every patch
+ * offset and applies the factor to STAGING, never the caller's destination.
+ * Even a late read error or bad fixup leaves the whole destination intact. */
 static loader_status_t loader_ovl_relocs(loader_ovl_read_fn rd, void *ctx,
                                          const mz_image_t *img, uint8_t *dest,
                                          uint32_t reloc_factor,
-                                         uint8_t *scratch, int apply)
+                                         uint8_t *scratch)
 {
     uint32_t done = 0u;
     while (done < img->reloc_count) {
@@ -609,29 +609,21 @@ static loader_status_t loader_ovl_relocs(loader_ovl_read_fn rd, void *ctx,
         if (rd(ctx, img->reloc_table_off + done * 4u, n * 4u, scratch) != 0) {
             return LOADER_ERR_READ;
         }
-        if (apply) {
 #ifndef LOADER_MUTATE_OVL_NO_FACTOR
-            if (mz_apply_relocs(dest, img->load_module_len, reloc_factor,
-                                scratch, (uint16_t)n) != MZ_OK) {
+        if (mz_apply_relocs(dest, img->load_module_len, reloc_factor,
+                            scratch, (uint16_t)n) != MZ_OK) {
+            return LOADER_ERR_BAD_FORMAT;
+        }
+#else
+        /* Rule-6 mutant: validate offsets but never add the factor. */
+        (void)dest; (void)reloc_factor;
+        for (uint32_t i = 0u; i < n; i++) {
+            uint32_t off = mz_rd32(scratch + i * 4u);
+            if (off > img->load_module_len || img->load_module_len - off < 4u) {
                 return LOADER_ERR_BAD_FORMAT;
             }
-#else
-            /* MUTANT (Rule 6; test-overlay-mutant / test-exec-overlay-mutant
-             * only): the relocation factor is never applied -- every relocated
-             * dword keeps its link-time value. The factor asserts (host) and the
-             * OVL-MZ-OK / OVL-FACTOR-OK markers (emu) MUST go RED. NEVER define
-             * in a real build. */
-            (void)dest; (void)reloc_factor;
-#endif
-        } else {
-            for (uint32_t i = 0u; i < n; i++) {
-                uint32_t off = mz_rd32(scratch + i * 4u);
-                if (off > img->load_module_len ||
-                    img->load_module_len - off < 4u) {
-                    return LOADER_ERR_BAD_FORMAT;   /* OOB fixup: write nothing */
-                }
-            }
         }
+#endif
         done += n;
     }
     return LOADER_OK;
@@ -640,7 +632,8 @@ static loader_status_t loader_ovl_relocs(loader_ovl_read_fn rd, void *ctx,
 loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
                                     uint32_t file_len, uint8_t *dest,
                                     uint32_t load_linear, uint32_t reloc_factor,
-                                    loader_ovl_owns_fn owns, uint8_t *scratch,
+                                    loader_ovl_owns_fn owns, uint8_t *stage,
+                                    uint32_t stage_cap, uint8_t *scratch,
                                     uint32_t *out_len)
 {
     mz_image_t img;
@@ -649,7 +642,8 @@ loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
     int is_mz = 0;
     loader_status_t st;
 
-    if (rd == 0 || owns == 0 || dest == 0 || scratch == 0 || out_len == 0) {
+    if (rd == 0 || owns == 0 || dest == 0 || stage == 0 ||
+        scratch == 0 || out_len == 0) {
         return LOADER_ERR_NULL_OUT;
     }
     if (head != 0u && rd(ctx, 0u, head, scratch) != 0) {
@@ -675,23 +669,29 @@ loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
         }
     }
     if (!owns(load_linear, len)) {
-        return LOADER_ERR_NOT_OWNED;        /* DEC-19.4: nothing read or written */
+        return LOADER_ERR_NOT_OWNED;        /* header read; destination untouched */
     }
-    if (is_mz) {
-        st = loader_ovl_relocs(rd, ctx, &img, dest, reloc_factor, scratch, 0);
-        if (st != LOADER_OK) {
-            return st;
-        }
+    if (len > stage_cap) {
+        return LOADER_ERR_NOMEM;
     }
-    if (len != 0u && rd(ctx, src, len, dest) != 0) {
+#ifdef LOADER_MUTATE_OVL_EARLY_COMMIT
+    /* Rule-6 mutant: restore direct writes, reproducing the review's partial
+     * FAT read corruption. test-overlay-mutant must catch the whole canary. */
+    stage = dest;
+#endif
+    if (len != 0u && rd(ctx, src, len, stage) != 0) {
         return LOADER_ERR_READ;
     }
     if (is_mz) {
-        st = loader_ovl_relocs(rd, ctx, &img, dest, reloc_factor, scratch, 1);
+        st = loader_ovl_relocs(rd, ctx, &img, stage, reloc_factor, scratch);
         if (st != LOADER_OK) {
             return st;
         }
     }
+    /* Recheck after I/O before committing; a reader that invalidates ownership
+     * cannot turn an earlier successful check into a write to a freed block. */
+    if (!owns(load_linear, len)) return LOADER_ERR_NOT_OWNED;
+    for (uint32_t i = 0u; i < len; i++) dest[i] = stage[i];
     *out_len = len;
     return LOADER_OK;
 }
@@ -1394,6 +1394,11 @@ static uint32_t       g_load_fat_len = 0;
  * sector each on the 1.44 MB geometry). Kernel BSS. */
 static uint8_t  g_load_sector[BLOCKDEV_SECTOR_SIZE];
 static uint8_t  g_load_cluster[BLOCKDEV_SECTOR_SIZE];
+/* Private NOBITS storage: no loaded-image bytes or DOS allocation. Both the
+ * SYSINIT arena and EXEC windows end at PROGRAM_ARENA_CEIL, so the existing
+ * PROGRAM_IMAGE_MAX holds any overlay a normal process can own. The linker
+ * enforces KERNEL_IMAGE_CEIL including this BSS (spec/memory_map.h). */
+static uint8_t  g_ovl_stage[PROGRAM_IMAGE_MAX];
 
 static loader_status_t loader_find_file(const char *name83, uint16_t dir_start,
                                         dir_entry_t *de);
@@ -1656,7 +1661,8 @@ loader_status_t loader_load_overlay(const char *name83, uint16_t dir_start,
     }
     st = loader_overlay_core(loader_ovl_fat_read, &de, de.file_size,
                              (uint8_t *)(uintptr_t)load_linear, load_linear,
-                             reloc_factor, owns, g_load_sector, &len);
+                             reloc_factor, owns, g_ovl_stage, sizeof g_ovl_stage,
+                             g_load_sector, &len);
     if (st == LOADER_ERR_FOREIGN_MZ) {
         loader_panic_foreign_mz(name83);   /* DEC-08a.5 verbatim -- noreturn */
     }

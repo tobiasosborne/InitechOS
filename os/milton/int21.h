@@ -649,7 +649,8 @@ void int21_set_overlay_backend(int21_overlay_fn fn);
  * area of ONE arena block whose MCB owner is the current PSP (an AH=48h block,
  * the DOS way, TR p. 11-5). NULL / 32-bit wrap fail first (DEC-14). Never the
  * PSP itself, an MCB header, another owner's block, the kernel, or anything
- * outside the caller. 0 -> AL=03h refuses with 0009h before any byte is read.
+ * outside the caller. 0 -> AL=03h refuses with 0009h before any destination
+ * byte is written (the loader first reads the header into kernel scratch).
  * The loader calls it through loader_overlay_core's `owns` callback. */
 int int21_overlay_dest_ok(uint32_t linear, uint32_t len);
 

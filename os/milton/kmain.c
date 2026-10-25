@@ -939,6 +939,7 @@ static uint16_t loader_overlay_by_name(const char *name83, uint16_t dir_start,
                                 int21_overlay_dest_ok)) {
         case LOADER_OK:            return 0u;
         case LOADER_ERR_NOT_OWNED: return INT21_ERR_INVALID_MEMORY;  /* 0009h */
+        case LOADER_ERR_NOMEM:     return INT21_ERR_INSUFFICIENT_MEM; /* 0008h */
         case LOADER_ERR_BAD_FORMAT: return INT21_ERR_BAD_FORMAT;     /* 000Bh */
         default:                   return INT21_ERR_FILE_NOT_FOUND;  /* 0002h */
     }
@@ -3855,6 +3856,13 @@ static void flair_tenant_mount_volume(void)
             }
 
             loader_bind_fat_volume(&ften_vol, fat, fat_len);
+            /* The GUI text-tenant launcher runs before the common text-kernel
+             * bindings. Ref: ADR-0013 Sec 3.2; DEC-19; review initech-i15. */
+#ifdef KMAIN_MUT_OVL_UNBOUND
+            int21_set_overlay_backend(0);       /* Rule-6 flagship mutant */
+#else
+            int21_set_overlay_backend(loader_overlay_by_name);
+#endif
 
             /* R3.2 (bead initech-tdnl.9): capture the volume handles the
              * Finder's DESKTOP.DB commit needs, and read the volume's LABEL off

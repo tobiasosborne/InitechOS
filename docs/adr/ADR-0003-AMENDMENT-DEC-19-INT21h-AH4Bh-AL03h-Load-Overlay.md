@@ -90,8 +90,11 @@ points to `exec_overlay_block_t`, locked in
 
 `_Static_assert(sizeof == 8)` in the spec header and the `offsetof` checks of
 `test_overlay.c` (B0) hold the code to the layout. The block is mandatory (it
-carries the load address): `EBX == 0` or an unreadable block is refused with
-`0009h`, unlike AL=00h, whose optional block degrades to a no-argument launch.
+carries the load address): `EBX == 0` or a block extent that wraps the 32-bit
+address space is refused with `0009h`. DEC-14 checks NULL and arithmetic wrap;
+it does not establish mapping, readability or ownership of the parameter
+block. AL=00h's optional block degrades to a no-argument launch for those
+same NULL/wrap conditions.
 
 ### DEC-19.3 -- What is loaded, and the relocation rule
 
@@ -110,7 +113,7 @@ Format is chosen by content, never by extension (DEC-08a.4):
   its block from the module gets nothing past it (TR p. 11-5). `e_minalloc`,
   `e_maxalloc`, `e_cs:e_ip` and `e_ss:e_sp` are ignored -- nothing is allocated
   or run. Every relocation offset is validated against the module BEFORE any
-  byte is written, so a malformed overlay leaves the destination untouched.
+  destination byte is written, so a malformed overlay leaves it untouched.
 - **Raw file** (anything else): copied verbatim, `file_size` bytes; the factor
   is ignored, as DOS ignores it for a non-.EXE image. An empty file loads zero
   bytes.
@@ -118,6 +121,32 @@ Format is chosen by content, never by extension (DEC-08a.4):
   (`PANIC foreign-mz`, DEC-08a.5), exactly as AL=00h does. Overlaying 16-bit
   code into a flat program would be the same misexecution DEC-08a.5 forbids,
   one CALL later.
+
+**Documented deviation (review 2026-10-25, PENDING OPERATOR RATIFICATION).**
+The DEC-19.3 decision above is unchanged: InitechMZ patch locations are
+`load_addr + module_relative_offset`, even when `reloc_factor != load_addr`.
+This differs from genuine MS-DOS 3.30 in WHERE the fixup is written, as well
+as the already stated arithmetic-width deviation (a flat byte factor added
+to a uint32 dword modulo 2^32, rather than a segment factor added to a WORD).
+The independent [DOS 3.30 probe and captures](../../harness/fixtures/dos33_overlay/README.txt)
+load a module whose first WORD is `0010h` at segment A=`0E3Ch`, supply factor
+B=`0E7Dh`, and initialize B:0 to `1111h`. DOS returns CF clear, leaves A:0
+at `0010h`, and writes B:0=`1F8Eh` (`1111h + 0E7Dh`). With factor A, the
+control writes A:0=`0E4Ch` and leaves B:0 at `1111h`. InitechDOS deliberately
+keeps fixup writes within the loaded module and does not reproduce DOS's
+factor-based patch address. These captures ground the difference; they do
+not ratify it or change the pending status of this amendment.
+
+Implementation correction (review 2026-10-25, initech-i15): header reads go
+to kernel scratch, the module goes to private kernel NOBITS staging, and
+each relocation-table chunk is read once and validated/applied there. Only
+after all fallible work and a second ownership check does an infallible
+bounded copy commit the footprint. Every refusal, including a partial FAT
+read or an invalid fixup in the final chunk, leaves the whole destination
+untouched. Staging has `PROGRAM_IMAGE_MAX` bytes, enough for the normal
+process windows ending at `PROGRAM_ARENA_CEIL`; a footprint beyond staging
+capacity is a resource refusal `0008h`, distinct from ownership refusal
+`0009h`. No PSP, DOS allocation, execution or relocation decision changes.
 
 ### DEC-19.4 -- Destination ownership (a deliberate deviation, the DEC-14 stance)
 
@@ -139,7 +168,8 @@ must lie wholly inside ONE region the current process owns:
 NULL and 32-bit wrap fail first (`user_buf_ok`, DEC-14). The caller's PSP, any
 MCB header, a free block, another process's block, the kernel and anything
 outside the caller are refused with **`0009h` invalid memory block address**,
-before a byte of the file is read. *Code choice:* 0009h is the DOS code for "the
+before any destination byte is written (the header is read into scratch to
+determine the footprint). *Code choice:* 0009h is the DOS code for "the
 memory you named is not a block you hold" (TR p. 6-42; AH=49h/4Ah return it for
 exactly that) and is the code DEC-14 already assigns to a bad user buffer;
 0008h (insufficient memory) would misdescribe an address fault as a quantity
@@ -155,12 +185,13 @@ nothing).
 | AL not 00h/03h | CF, AX = `0001h` |
 | File absent, a directory, unreadable, or no overlay backend bound | CF, AX = `0002h` (the AL=00h mapping) |
 | Path component missing | CF, AX = `0003h` |
-| EBX block NULL/unreadable, or the footprint not caller-owned (DEC-19.4) | CF, AX = `0009h` |
+| Footprint exceeds private staging capacity | CF, AX = `0008h` |
+| EBX block NULL/wrapping, or the footprint not caller-owned (DEC-19.4) | CF, AX = `0009h` |
 | Malformed InitechMZ (truncated, header > image, out-of-module relocation) | CF, AX = `000Bh` |
 | Untagged 16-bit MZ | `PANIC foreign-mz` (DEC-08a.5); never returns |
 
-Every refusal except `0001h` is also recorded for AH=59h GET EXTENDED ERROR
-(the `0001h` path is the pre-existing one and is unchanged).
+Every returning refusal is also recorded for AH=59h GET EXTENDED ERROR by
+the existing `int21_dispatch` wrapper, including `0001h`.
 
 ### DEC-19.6 -- DEC-08a.7 un-deferred
 
@@ -187,10 +218,15 @@ about what dBASE does without its overlay (research gap G-1).
   against the real `loader_overlay_core`, `int21_dispatch` and
   `int21_overlay_dest_ok`; literal expected bytes; canaries prove the exact
   footprint; the header-gap relocation table with 70 entries crosses the
-  scratch-chunk boundary.
+  scratch-chunk boundary. A12 faults every read after copying its bytes and
+  rejects invalid fixups in both chunks; A13 uses the real FAT short-chain
+  reader. Both assert the whole-destination canary, not just the tail. A14
+  checks staging exhaustion and ownership revoked during I/O. The RED-first
+  transcripts are in `harness/fixtures/exec_overlay/`.
 - `make test-overlay-mutant`: `LOADER_MUTATE_OVL_NO_FACTOR` (factor never
   applied), `INT21_MUTATE_OVL_BOUNDS_OBO` (one byte past an owned region
-  accepted), `LOADER_MUTATE_OVL_ACCEPT_FOREIGN` (untagged MZ copied raw) --
+  accepted), `LOADER_MUTATE_OVL_ACCEPT_FOREIGN` (untagged MZ copied raw), and
+  `LOADER_MUTATE_OVL_EARLY_COMMIT` (read into dest rather than stage) --
   each RED for its named check.
 - `make test-exec-overlay` (emulator, TEST_EMU_GATES): a resident program
   (`ovltest_program.asm`) loads an mzlink InitechMZ overlay whose relocations
@@ -202,6 +238,13 @@ about what dBASE does without its overlay (research gap G-1).
   each goes RED for its named marker. QEMU only, matching test-exec,
   test-mzexec and test-exec-nested; Bochs/86Box ride initech-x0i (Rule 5 is
   owed by the whole EXEC family, not waived for this service).
+- `make test-exec-overlay-flair` (also required by `test-exec-overlay`): the
+  shipping flagship boots the same fixture as SAMIR.COM through the real
+  Ctrl-Alt-backslash GUI text-tenant launcher. It must print every overlay
+  success marker, exit rc=0 and resume FLAIR. The companion `-mutant` gate
+  unbinds only the GUI initialization's overlay backend
+  (`KMAIN_MUT_OVL_UNBOUND`); it must print `OVL-FAIL mz-load`, exit rc=1 and
+  resume without an overlay success. It is required by the overlay mutant gate.
 
 ## 5. Alternatives rejected
 
@@ -239,6 +282,14 @@ about what dBASE does without its overlay (research gap G-1).
    SAMIR runs under, so the binding cannot simply be dropped there. The floor
    was not touched; a size round (or ADR-0014 kernel overlays) or an explicit
    operator decision on the floor must precede merging.
+
+Review implementation measurement (2026-10-25, initech-i15): the fixes above
+reduce flagship loaded bytes from 181,040 to 180,944 (-96 B), while private
+staging grows NOBITS BSS from 95,856 to 288,112 (+192,256 B).
+`_kernel_end = 0x572850 < KERNEL_IMAGE_CEIL = 0x580000`; the buffer stays
+inside the existing guarded image window. The 180,224 B size floor is
+unchanged and still not met (720 B over). Its operator decision remains
+outside this review fix; no size oracle was weakened or bypassed.
 
 ## 7. Supersession
 
