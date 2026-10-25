@@ -34,3 +34,15 @@ capture logic, encoder, input trace or recorder setting is changed here.
 The validation run uses BUILD=build/kov2r and serial image/emulator gates.
 Full gate outcomes, per-kernel loaded sizes, and command/exit records are
 written to build/lane-kov2-r-report.txt and build/lane-kov2-r-evidence/.
+
+The 149-target matrix completed with one legacy artifact-location mismatch:
+locked_trash.sh writes into build/ even under BUILD=build/kov2r, so the icon
+oracle mutant looked for a nonexistent custom-directory screenshot. Its
+unchanged default-directory rerun passed. Every other matrix target passed,
+including all overlay gates/mutants, app-switch Bochs with OVL-OK, launchkey,
+and SAMIR suspend with byte-identical pre/post desktop screenshots.
+
+The complete census measured 336 kernels; the largest mutant loads 170,124 B
+and retains 26,484 B headroom. All 77 production kernels meet 169,984 B.
+The strict static checker, global/local code-address mutants and Finder
+lazy nosave/noload probes all pass. No recorder work was performed.
