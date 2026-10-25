@@ -152,7 +152,7 @@ struct samir_pal {
 	 * arena core above; these three are stubbed until the form layer. */
 
 	/* conin_char: read a single raw keypress, NO echo. Returns the key (>=0),
-	 * or < 0 on EOF/error. Milton: AH=07h direct console input without echo
+	 * or < 0 on EOF/error. Milton: AH=07h direct character input without echo
 	 * (do_conin_raw, os/milton/int21.c). */
 	int32_t (*conin_char)(samir_pal_t *);
 
@@ -244,6 +244,21 @@ struct samir_pal {
      * AH=36h, DL=0: AX=sectors/cluster, BX=free clusters, CX=bytes/sector;
      * AX=FFFFh means invalid drive. Host returns a fixed value (Rule 11). */
     int     (*diskspace)(samir_pal_t *, uint32_t *bytes);
+
+    /* Nonblocking keyboard FIFO poll: -1 if empty, 0..255 for an IBM
+     * character, 256|scan for a DOS extended key. Never reads command-file
+     * stdin. Milton: INT 21h AH=0Bh status, AH=07h direct character input
+     * without echo (unfiltered; no Ctrl-C check),
+     * ADR-0003 Appendix A and DEC-04a flat ABI; IBM DOS 3.30 Technical
+     * Reference, these function entries. Host: fixed empty queue (Rule 11).
+     * INKEY's III+ control-key translation belongs to the engine. */
+    int32_t (*conin_poll)(samir_pal_t *);
+
+    /* time: return hour (0-23), minute and second (0-59). Host: fixed
+     * 12:34:56. Milton: IBM DOS 3.30 Technical Reference, INT 21h AH=2Ch
+     * GET TIME (CH=hour, CL=minute, DH=second; hundredths are discarded).
+     * Append PAL extensions so existing positional slots keep their offsets. */
+    void    (*time)(samir_pal_t *, uint8_t *hour, uint8_t *minute, uint8_t *second);
 };
 
 /* Owned buffer chains: reclaim ONLY this codec's allocations. */

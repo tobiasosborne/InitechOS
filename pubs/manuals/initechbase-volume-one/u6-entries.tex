@@ -382,6 +382,27 @@ The unused branch is not evaluated, and a condition that is not logical is refus
 \SeeAlso{TYPE(), MAX(), MIN()}
 \end{XbaseEntry}
 
+% Using III+ U6-40/41 Table 6-1; real III+ fns-mint/inkey/GOLD.OUT.
+\begin{XbaseEntry}{INKEY}{function}
+Returns the numeric code of the first key in the type-ahead buffer, or 0 if
+no key is waiting. The key is removed from the buffer. Execution does not pause.
+\Syntax
+\SyntaxLine{\kw{INKEY()}}
+\Usage
+The result is an integer from 0 to 255. Ordinary characters use their IBM
+character codes. Special keys return their control-key equivalents: Right 4,
+Left 19, Up 5, Down 24, Ctrl-Right 2, Ctrl-Left 26, Ins 22, Del 7,
+Home 1, End 6, PgUp 18, PgDn 3, Ctrl-Home 29, Ctrl-End 23,
+Esc (or Ctrl-Q) 27, Ctrl-PgUp 31, and Ctrl-PgDn 30.
+
+The function takes no argument. A call with any argument, including a
+number of seconds, raises \xmsg{11}{Invalid function argument.}.
+\Examples
+With no key waiting:
+\DotExample{examples/fn-inkey}
+\SeeAlso{CHR(), ASC(), TYPE()}
+\end{XbaseEntry}
+
 % INT -- os/samir/core/fn_builtins.c fn_int (l.820-831)
 \begin{XbaseEntry}{INT}{function}
 Returns the whole-number part of a numeric expression, as a numeric value.
@@ -744,6 +765,22 @@ A start position below 1 raises \xmsg{62}{SUBSTR() : Start point out of range.};
 \DotExample{examples/fn-substr}
 \DotExample{examples/fn-substr-2}
 \SeeAlso{LEFT(), RIGHT(), STUFF(), AT(), LEN()}
+\end{XbaseEntry}
+
+% TIME -- os/samir/core/fn_builtins.c fn_time_stub; III+ HELP.DBS line 1284.
+\begin{XbaseEntry}{TIME}{function}
+Returns the system time as an eight-character string in \texttt{hh:mm:ss} format.
+\Syntax
+\SyntaxLine{\kw{TIME()}}
+\Usage
+The hour runs from 00 through 23, and the minute and second from 00 through
+59. Colons separate the three pairs of digits. The time is read from the
+system clock when the function is called. A call with any argument raises
+\xmsg{11}{Invalid function argument.}.
+\Examples
+The type, length and separators are the same whatever the time of day:
+\DotExample{examples/fn-time}
+\SeeAlso{DATE(), TYPE(), LEN(), SUBSTR()}
 \end{XbaseEntry}
 
 % TRANSFORM -- os/samir/core/fn_builtins.c fn_transform (l.1784-1840), tr_format_numeric (l.1509-1735), tr_format_char (l.1759-1780), tr_parse_at_flags (l.1454-1480)

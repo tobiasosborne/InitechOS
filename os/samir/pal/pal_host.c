@@ -313,6 +313,15 @@ static int32_t host_conin_char(samir_pal_t *p)
     return (c == EOF) ? -1 : (int32_t)c;
 }
 
+/* Rule 11: the host oracle always has an empty keyboard FIFO. No select,
+ * stdin read, wall clock or sleep. III+ INKEY takes no timeout argument
+ * (fns-mint/inkey/GOLD.OUT), so there is no clock to advance. */
+static int32_t host_conin_poll(samir_pal_t *p)
+{
+    (void)p;
+    return -1;
+}
+
 static void host_gotoxy(samir_pal_t *p, uint8_t row, uint8_t col)
 {
     /* Host stub: no-op. Exercised fully at S8.4. */
@@ -349,6 +358,15 @@ static void host_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
     if (yy) *yy = st->date_yy;
     if (mm) *mm = st->date_mm;
     if (dd) *dd = st->date_dd;
+}
+
+/* Fixed host time keeps function goldens deterministic (Rule 11). */
+static void host_time(samir_pal_t *p, uint8_t *hour, uint8_t *minute, uint8_t *second)
+{
+    (void)p;
+    if (hour) *hour = 12;
+    if (minute) *minute = 34;
+    if (second) *second = 56;
 }
 
 static void *host_acquire(samir_pal_t *p,uint32_t n) { return pal_heap_alloc(state_of(p)->blocks,n); }
@@ -470,6 +488,7 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
     st->vtable.conin_line = host_conin_line;
     st->vtable.conin_line_noecho = host_conin_line;
     st->vtable.conin_char = host_conin_char;
+    st->vtable.conin_poll = host_conin_poll;
     st->vtable.gotoxy     = host_gotoxy;
     st->vtable.set_attr   = host_set_attr;
     st->vtable.today      = host_today;
@@ -480,6 +499,7 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
     st->vtable.acquire = host_acquire; st->vtable.release = host_release;
     st->vtable.exec       = host_exec;
     st->vtable.getenv     = host_getenv;
+    st->vtable.time       = host_time;
 
     /* Inject the fixed clock (deterministic; Rule 11). */
     st->date_yy = cfg.date_yy;

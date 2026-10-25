@@ -184,6 +184,7 @@ typedef struct {
     uint8_t      ta[20];
     uint8_t      ta_head, ta_n;
     int8_t       con_in;    /* stdin is CON: -1 unknown, 0 no, 1 yes */
+    uint8_t      poll_extended; /* An INKEY poll consumed a DOS 00 prefix. */
 } pal_milton_state_t;
 
 /* Recover the state block from the vtable pointer (vtable is first). */
@@ -700,7 +701,8 @@ static int32_t milton_conin_line_noecho(samir_pal_t *p,char *buf,uint32_t cap)
 /* ---- Terminal extension stubs (S8.4) -------------------------------------- */
 
 /*
- * milton_conin_char: AH=07h DIRECT CONSOLE INPUT WITHOUT ECHO, NO Ctrl-C CHECK.
+ * milton_conin_char: AH=07h DIRECT CHARACTER INPUT WITHOUT ECHO (unfiltered,
+ * no Ctrl-C check). AH=06h is DIRECT CONSOLE I/O.
  * Returns the char (>= 0) or < 0 on error.
  * Ref: pal.h conin_char slot; ADR-0009 DEC-06; os/milton/int21.c do_conin_raw.
  */
@@ -723,6 +725,36 @@ static int32_t milton_conin_char(samir_pal_t *p)
     }
     /* AL = character (bit 7:0 of EAX). */
     return (int32_t)(result & 0xFFu);
+}
+
+/* Ref: ADR-0003 Appendix A; IBM DOS 3.30 Technical Reference AH=0Bh
+ * GET INPUT STATUS and AH=07h DIRECT CHARACTER INPUT (no echo/Ctrl-C);
+ * DEC-04a flat register convention. Drain SAMIR's type-ahead before DOS.
+ * Check availability before EVERY byte, including an extended scan byte:
+ * even a split 00,scan pair must not make INKEY wait. AH=07h reads the
+ * keyboard directly. As with conin_escape, a redirected command session
+ * does not claim console type-ahead (the gate's shell EXIT follows it). */
+static int32_t milton_conin_poll(samir_pal_t *p)
+{
+    pal_milton_state_t *st = state_of(p);
+    int cf = 0;
+    int32_t key;
+    if (st->con_in < 0) st->con_in = (int8_t)milton_is_console(0);
+    if (!st->con_in) return -1;
+    for (;;) {
+        if (!st->ta_n &&
+            !(int21(0x0Bu, 0u, 0u, 0u, 0u, 0u, &cf) & 0xFFu))
+            return -1;
+        if (cf) return -1;
+        key = milton_conin_char(p);
+        if (key < 0) return -1;
+        if (st->poll_extended) {
+            st->poll_extended = 0;
+            return 256 | key;
+        }
+        if (key != 0) return key;
+        st->poll_extended = 1;
+    }
 }
 
 /* pal.h conin_escape (initech-39e5; Using III+ U5-220 SET ESCAPE): between
@@ -944,6 +976,18 @@ static void milton_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
     }
 }
 
+/* Ref: IBM DOS 3.30 Technical Reference, INT 21h AH=2Ch GET TIME;
+ * CH=hour, CL=minute, DH=second, DL=hundredths (DEC-04a flat convention). */
+static void milton_time(samir_pal_t *p, uint8_t *hour, uint8_t *minute, uint8_t *second)
+{
+    uint32_t ecx_r = 0u, edx_r = 0u;
+    (void)p;
+    (void)int21_cxdx(0x2Cu, 0x00u, 0u, 0u, 0u, &ecx_r, &edx_r, (int *)0);
+    if (hour) *hour = (uint8_t)((ecx_r >> 8) & 0xFFu);
+    if (minute) *minute = (uint8_t)(ecx_r & 0xFFu);
+    if (second) *second = (uint8_t)((edx_r >> 8) & 0xFFu);
+}
+
 /* ---- Arena slots ---------------------------------------------------------- */
 
 /*
@@ -1085,6 +1129,8 @@ samir_pal_t *pal_milton_make(void)
     st->vtable.conout     = milton_conout;
     st->vtable.conin_line = milton_conin_line;
     st->vtable.conin_char = milton_conin_char;
+    st->vtable.conin_poll = milton_conin_poll;
+    st->poll_extended = 0;
     st->vtable.conin_escape = milton_conin_escape;
     milton_guard_set();
     st->vtable.curdrive   = milton_curdrive;
@@ -1100,6 +1146,7 @@ samir_pal_t *pal_milton_make(void)
     st->vtable.acquire = milton_acquire; st->vtable.release = milton_release;
     st->vtable.exec       = milton_exec;
     st->vtable.getenv     = milton_getenv;
+    st->vtable.time       = milton_time;
 
     /* AH=48h ALLOC -- request PAL_MILTON_HEAP_PARAS paragraphs from the loader-
      * bound DISJOINT arena (DEC-04, bead 1q4u). No AH=4Ah SETBLOCK first: the

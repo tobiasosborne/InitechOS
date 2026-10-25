@@ -1,0 +1,3 @@
+. ? "no-key", INKEY(), TYPE("INKEY()")
+
+no-key   0 N

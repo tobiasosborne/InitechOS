@@ -43,6 +43,60 @@ static int equal_text(const char *a,const char *b)
         diff_line("  got",p,n,j);diff_line("  real",q,m,j);return 0;
     }return 1;
 }
+
+/* Independent key expectations: Using III+ U6-40/41, Table 6-1, in
+ * docs/audits/2026-10-15-look-pass6/evidence/dbase-manual.txt. The mint
+ * has no keystrokes, so inject a locked FIFO at the PAL seam as well. */
+static int32_t inkey_pending;
+static unsigned inkey_polls;
+static int32_t inkey_input(samir_pal_t *p)
+{
+    int32_t key = inkey_pending;
+    (void)p;
+    inkey_polls++;
+    inkey_pending = -1;
+    return key;
+}
+static void inkey_keys(samir_pal_t *pal, xb_interp *ip)
+{
+    static const struct { int32_t dos; int code; } special[] = {
+        {0x14D,4}, {0x14B,19}, {0x148,5}, {0x150,24},
+        {0x174,2}, {0x173,26}, {0x152,22}, {0x153,7},
+        {0x147,1}, {0x14F,6}, {0x149,18}, {0x151,3},
+        {0x177,29}, {0x175,23}, {0x184,31}, {0x176,30}
+    };
+    int32_t (*saved)(samir_pal_t *) = pal->conin_poll;
+    xb_ctx *ctx = xb_interp_ctx(ip);
+    xb_val out, arg = xb_n(1);
+    int err;
+    CHECK(ctx->file_pal == pal, "INKEY interpreter is bound to its PAL");
+    CHECK(saved && saved(pal) == -1 && saved(pal) == -1,
+          "INKEY host PAL is a deterministic empty keyboard FIFO");
+    pal->conin_poll = inkey_input;
+    for (unsigned i = 0; i < sizeof special / sizeof special[0]; i++) {
+        inkey_pending = special[i].dos;
+        CHECK(xb_call_builtin("INKEY",5,NULL,0,ctx,&out,&err)==0 &&
+              out.t==XB_N && out.u.n==special[i].code,
+              "INKEY special key matches Using III+ Table 6-1");
+        CHECK(xb_call_builtin("INKEY",5,NULL,0,ctx,&out,&err)==0 &&
+              out.t==XB_N && out.u.n==0,
+              "INKEY consumes each pending key exactly once");
+    }
+    for (unsigned i = 1; i < 256; i++) {
+        inkey_pending = (int32_t)i;
+        CHECK(xb_call_builtin("INKEY",5,NULL,0,ctx,&out,&err)==0 &&
+              out.t==XB_N && out.u.n==(i==17?27:i),
+              "INKEY IBM character or control-key equivalent");
+    }
+    inkey_pending = 'A';
+    inkey_polls = 0;
+    CHECK(xb_call_builtin("INKEY",5,&arg,1,ctx,&out,&err)==11 &&
+          err==11 && inkey_polls==0 && inkey_pending=='A',
+          "INKEY rejects a timeout without consuming a pending key");
+    CHECK(xb_call_builtin("INKEY",5,NULL,0,ctx,&out,&err)==0 &&
+          out.t==XB_N && out.u.n=='A', "INKEY preserves the rejected call's key");
+    pal->conin_poll = saved;
+}
 int main(int argc,char **argv)
 {
     const char *name=argc>1?argv[1]:"unknown",*mode=argc>2?argv[2]:"host";
@@ -86,6 +140,7 @@ int main(int argc,char **argv)
         if(!getcwd(cwd,sizeof cwd)||chdir(dir))return 2;
         pal=pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});if(!pal)return 2;
         pal->conout=output;pal->conin_line=input;ip=xb_interp_make(pal);
+        if (ip && !strcmp(name,"inkey")) inkey_keys(pal,ip);
         CHECK(ip&&samir_repl(pal,ip)==0,"FNS full disk program returned");
         if(ip)xb_interp_free(ip);
         pal_host_free(pal);if(chdir(cwd))return 2;

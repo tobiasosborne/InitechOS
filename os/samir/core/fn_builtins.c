@@ -2213,8 +2213,28 @@ static int fn_sqrt_stub(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_time_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    /* Ref: ../dbase3-decomp/archive/golden-mined/HELP.DBS.strings.txt:1284,
+     * TIME() returns "hh:mm:ss"; fns-mint/time/GOLD.OUT pins C/8/colons. */
+    uint8_t hour = 0, minute = 0, second = 0;
+    char *dst;
+    (void)args;
+    if (nargs) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!ctx->file_pal || !ctx->file_pal->time)
+        return fn_fail(err, XBEE_INVALID_ARG);
+    ctx->file_pal->time(ctx->file_pal, &hour, &minute, &second);
+    dst = fn_scratch(ctx, 8);
+    if (!dst) return fn_fail(err, XBEE_SCRATCH_FULL);
+    dst[0] = (char)('0' + hour / 10u); dst[1] = (char)('0' + hour % 10u);
+    dst[2] = ':';
+#if defined(SAMIR_FNS_MUTANT_TIME) || defined(SAMIR_FNS_MUTANT_time)
+    dst[2] = ';'; /* The named gate passes the lower-case case name. */
+#endif
+    dst[3] = (char)('0' + minute / 10u); dst[4] = (char)('0' + minute % 10u);
+    dst[5] = ':';
+    dst[6] = (char)('0' + second / 10u); dst[7] = (char)('0' + second % 10u);
+    *out = xb_c(dst, 8);
+    *err = XBEE_OK;
+    return 0;
 }
 
 static int fn_lupdate_stub(xb_ctx *ctx, const xb_val *args, int nargs,
@@ -2275,8 +2295,44 @@ static int fn_pcol_stub(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_inkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    int32_t key = -1;
+    (void)args;
+    /* Ref: real III+ fns-mint/inkey/GOLD.OUT: INKEY(1), INKEY("X")
+     * and INKEY(1,2) all raise #11. Using III+ U6-40/41 Table 6-1
+     * (docs/audits/2026-10-15-look-pass6/evidence/dbase-manual.txt):
+     * nonblocking FIFO poll, IBM characters and control-key equivalents. */
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    if (ctx && ctx->file_pal && ctx->file_pal->conin_poll)
+        key = ctx->file_pal->conin_poll(ctx->file_pal);
+    if (key < 0) key = 0;
+    else if (key >= 256) {
+        switch (key & 255) {
+        case 0x4D: key = 4; break;   /* Right / Ctrl-D */
+        case 0x4B: key = 19; break;  /* Left / Ctrl-S */
+        case 0x48: key = 5; break;   /* Up / Ctrl-E */
+        case 0x50: key = 24; break;  /* Down / Ctrl-X */
+        case 0x74: key = 2; break;   /* Ctrl-Right / Ctrl-B */
+        case 0x73: key = 26; break;  /* Ctrl-Left / Ctrl-Z */
+        case 0x52: key = 22; break;  /* Ins / Ctrl-V */
+        case 0x53: key = 7; break;   /* Del / Ctrl-G */
+        case 0x47: key = 1; break;   /* Home / Ctrl-A */
+        case 0x4F: key = 6; break;   /* End / Ctrl-F */
+        case 0x49: key = 18; break;  /* PgUp / Ctrl-R */
+        case 0x51: key = 3; break;   /* PgDn / Ctrl-C */
+        case 0x77: key = 29; break;  /* Ctrl-Home / Ctrl-] */
+        case 0x75: key = 23; break;  /* Ctrl-End / Ctrl-W */
+        case 0x84: key = 31; break;  /* Ctrl-PgUp / Ctrl-_ */
+        case 0x76: key = 30; break;  /* Ctrl-PgDn / Ctrl-^ */
+        default: key = 0; break;    /* No Table 6-1 equivalent. */
+        }
+    } else if (key == 17) key = 27; /* Ctrl-Q / Esc */
+#ifdef SAMIR_FNS_MUTANT_inkey
+    key++;                         /* Rule 6: empty queue must return zero. */
+#endif
+    *out = xb_n((double)key);
+    out->num_width = 3;             /* Real III+ "no-key   0 N". */
+    *err = XBEE_OK;
+    return 0;
 }
 
 static int fn_readkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
