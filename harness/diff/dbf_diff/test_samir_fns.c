@@ -31,12 +31,13 @@ static unsigned used;
 #ifndef SAMIR_W2
 static unsigned input_line;
 #endif
-static const char *const driver[]={"SET TALK OFF","SET SAFETY OFF","ON ERROR ? \"MINT-ERROR\", ERROR(), MESSAGE()","SET ALTERNATE TO GOLD.OUT","SET ALTERNATE ON","DO FNSTEST","SET ALTERNATE TO","QUIT"};
+static const char *driver[]={"SET TALK OFF","SET SAFETY OFF","ON ERROR ? \"MINT-ERROR\", ERROR(), MESSAGE()","SET ALTERNATE TO GOLD.OUT","SET ALTERNATE ON","DO FNSTEST",NULL,"SET ALTERNATE TO","QUIT"};
 static void output(samir_pal_t *p,const char *s,uint32_t n)
 { (void)p; if(n<sizeof captured-used) { memcpy(captured+used,s,n); used+=n; captured[used]=0; } }
 #ifndef SAMIR_W2
 static int32_t input(samir_pal_t *p,char *s,uint32_t cap)
-{ const char *v=input_line<sizeof driver/sizeof driver[0]?driver[input_line++]:"QUIT"; (void)p;snprintf(s,cap,"%s",v);return (int32_t)strlen(s); }
+{ while(input_line<sizeof driver/sizeof driver[0]&&!driver[input_line])input_line++;
+  const char *v=input_line<sizeof driver/sizeof driver[0]?driver[input_line++]:"QUIT"; (void)p;snprintf(s,cap,"%s",v);return (int32_t)strlen(s); }
 #endif
 static int command(const char *s)
 { int rc=system(s); if(rc)fprintf(stderr,"command failed: %s\n",s); CHECK(rc==0,CAPTURE_KIND " factory command succeeded");return rc; }
@@ -240,6 +241,10 @@ int main(int argc,char **argv)
     snprintf(dir,sizeof dir,"build/samirw2/%s-%s",mode,name);
     snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s && cp -rf %s/INPUT/. %s/ && cp -f %s/FNSTEST.PRG %s/MINT.PRG %s/CONFIG.DB %s/",dir,dir,gold,dir,gold,gold,gold,dir);command(cmd);
 #else
+    /* Preserve a mint wrapper's explicit end marker after an early RETURN.
+     * Ref: real returnarg/MINT.PRG; never synthesize one for other captures. */
+    snprintf(path,sizeof path,"%s/MINT.PRG",gold);readfile(path,current,sizeof current);
+    driver[6]=strstr(current,"\n? \"[FNS-END]\"")?"? \"[FNS-END]\"":NULL;
     snprintf(cmd,sizeof cmd,"for source_prg in harness/diff/dbf_diff/xbase_prog_diff/corpus/fns/%s/*.PRG; do [ -f \"$source_prg\" ] || continue; cmp -s \"$source_prg\" %s/\"${source_prg##*/}\" || exit 1; done",name,gold);
     if(command(cmd))return 2;
     snprintf(dir,sizeof dir,"build/samirfns/%s-%s",mode,name);
@@ -250,7 +255,7 @@ int main(int argc,char **argv)
     if(emu){
         snprintf(path,sizeof path,"%s/data.img",dir);f=fopen(path,"wb");if(!f)return 2;fseek(f,1474560-1,SEEK_SET);fputc(0,f);fclose(f);
         snprintf(path,sizeof path,"%s/FNS.IN",dir);f=fopen(path,"wb");if(!f)return 2;
-        for(unsigned i=0;i<sizeof driver/sizeof driver[0];i++)fprintf(f,"%s\r\n",driver[i]);
+        for(unsigned i=0;i<sizeof driver/sizeof driver[0];i++)if(driver[i])fprintf(f,"%s\r\n",driver[i]);
         fclose(f);
         snprintf(path,sizeof path,"%s/FNS.BAT",dir);f=fopen(path,"wb");if(!f)return 2;
         fputs("@echo off\r\n",f);

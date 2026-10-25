@@ -1308,8 +1308,8 @@ static int fl_finish_statement(xb_interp *ip, int rc, int *ec)
 
 /* Real III+ fns-mint/{logdoarg,sqrtdoarg,ndxdoarg,sqrtpass}/GOLD.OUT:
  * report a WITH expression's deferred error before entering the routine.
- * Normal handler completion resumes the call; RETRY re-runs the DO and
- * cancellation unwinds. Use the ordinary error completion/trap path for
+ * Normal handler completion resumes the call; inline RETURN skips it.
+ * Use the ordinary error completion/trap path for
  * every pending code, consuming it before the handler can run statements. */
 int samir_finish_transfer(xb_interp *ip, int *ec)
 {
@@ -1317,8 +1317,20 @@ int samir_finish_transfer(xb_interp *ip, int *ec)
     int t;
     if (rc == INTERP_OK) return rc;
     t = fl_trap(ip, rc, ec);
-    if (t == 2) return INTERP_RC_RETRY;
-    return t < 0 ? t : t ? INTERP_OK : rc;
+    while (t == 2) {
+#ifdef SAMIR_FNS_MUTANT_retryconfirm
+        return INTERP_OK; /* MUTANT: ignore RETRY during argument completion. */
+#else
+        /* Real retryconfirm/GOLD.OUT: this unfinished argument phase has no
+         * completed command to restart. RETRY reports the ordinary unknown
+         * command error, then resumes with the original argument vector. */
+        rc = -INTERP_ERR_UNKNOWN_CMD;
+        if (ec) *ec = 0;
+        t = fl_trap(ip, rc, ec);
+#endif
+    }
+    if (t < 0 || t == INTERP_TRAP_RETURN) return t;
+    return t ? INTERP_OK : rc;
 }
 
 /* One completion path for ordinary statements and structured guards.

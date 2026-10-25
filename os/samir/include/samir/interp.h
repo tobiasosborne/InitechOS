@@ -215,10 +215,14 @@ int samir_do(xb_interp *ip, const char *prg);
  */
 int samir_do_n(xb_interp *ip, const char *prg, uint32_t len);
 
+/* ON ERROR's inline RETURN skips the pending transfer. A handler procedure's
+ * ordinary RETURN has already become normal completion. Real returnarg. */
+#define INTERP_TRAP_RETURN 3
+
 /* Finish deferred argument errors before transferring control to a routine.
- * Normal handler completion resumes the transfer; RETRY/cancellation return
- * their ordinary control sentinels. Immediate expression errors stay with
- * the statement executor. Ref: real III+ fns-mint/ndxdoarg and sqrtpass. */
+ * Normal completion resumes; inline RETURN skips; argument-phase RETRY reports
+ * an unrecognized command then resumes the saved call (real retryconfirm).
+ * Negative control outcomes unwind. Immediate errors stay with the executor. */
 int samir_finish_transfer(xb_interp *ip, int *err_code);
 
 /*

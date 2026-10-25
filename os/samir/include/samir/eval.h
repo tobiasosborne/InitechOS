@@ -718,6 +718,7 @@ typedef struct xb_ctx {
      * failing one and the program resumes at the next line (real III+ 1.1,
      * SF-errors). Returns 1 when a trap handled `code`, 2 when the handler
      * executed RETRY (re-run the failing statement, Using III+ U5-182),
+     * 3 for inline RETURN (skip a pending transfer; real returnarg),
      * 0 when untrapped. Set by proc.c. */
     int (*on_error)(void *ip, int code);
     /* Real ndx/GOLD.OUT R4-GUARD: false deferred guards with DO handlers

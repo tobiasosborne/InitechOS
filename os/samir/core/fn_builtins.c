@@ -2164,19 +2164,28 @@ static const struct { uint8_t min, max; char types[4]; } fn_signature[] = {
  * LOG(0.36), SQRT(99.998)). Never derive or widen the picture from the result,
  * and never pre-round its stored double. Nonfinite results use the same
  * argument picture, so overflow widths require no special classification. */
-static void fn_math_picture(const xb_ctx *ctx, const xb_val *arg, xb_val *out)
+static void fn_math_picture(const xb_ctx *ctx, const xb_val *arg, xb_val *out,
+                            unsigned computed_width)
 {
     unsigned old_suffix = arg->num_dec ? (unsigned)arg->num_dec + 1u : 0u;
-    unsigned integer_columns = arg->num_width > old_suffix
-        ? (unsigned)arg->num_width - old_suffix : 1u;
+    int integer_columns = (int)(computed_width ? computed_width : arg->num_width)
+        - (int)old_suffix;
+    /* Natural LOG/SQRT arguments retain their existing integer column rule.
+     * EXP replaces the suffix of a computed base even when no integer room
+     * remains: real limitpic/GOLD.OUT EXP(1.000000000) is 2.71828183.
+     * Keep that subtraction signed; clamp only the final computed picture. */
+    if (!computed_width && integer_columns < 1) integer_columns = 1;
+#ifdef SAMIR_FNS_MUTANT_limitpic
+    if (integer_columns < 1) integer_columns = 1;
+#endif
     unsigned decimals = ctx->set_decimals > arg->num_dec
         ? ctx->set_decimals : arg->num_dec;
-    unsigned width = integer_columns + (decimals ? decimals + 1u : 0u);
+    int width = integer_columns + (int)(decimals ? decimals + 1u : 0u);
 #ifdef SAMIR_FNS_MUTANT_mathpicture
     /* Regression proof: corrupt only negative arguments with wide pictures. */
     if (arg->u.n < 0.0 && arg->num_width > 4u) width++;
 #endif
-    out->num_width = (uint16_t)(width > 255u ? 255u : width);
+    out->num_width = (uint16_t)(width < 1 ? 1 : width > 255 ? 255 : width);
     out->num_dec = (uint16_t)decimals;
 }
 
@@ -2227,11 +2236,7 @@ static int fn_exp_stub(xb_ctx *ctx, const xb_val *args, int nargs,
      * EXP(1.00) and N(8,2) field arguments are 10; EXP(0.368) keeps 3
      * decimals. Replacing that argument suffix through the same helper as
      * LOG/SQRT reproduces these widths without rounding the stored result. */
-    {
-        xb_val picture = args[0];
-        picture.num_width = out->num_width;
-        fn_math_picture(ctx, &picture, out);
-    }
+    fn_math_picture(ctx, &args[0], out, out->num_width);
     *err = XBEE_OK;
     return 0;
 }
@@ -2272,7 +2277,7 @@ static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     value += 0.01;
 #endif
     *out = xb_n(value);
-    fn_math_picture(ctx, &args[0], out);
+    fn_math_picture(ctx, &args[0], out, 0);
     *err = XBEE_OK;
     return 0;
 }
@@ -2300,7 +2305,7 @@ static int fn_sqrt_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     __asm__ volatile ("fldl %1\n\tfsqrt\n\tfstpl %0"
                       : "=m"(result) : "m"(args[0].u.n));
     *out = xb_n(result);
-    fn_math_picture(ctx, &args[0], out);
+    fn_math_picture(ctx, &args[0], out, 0);
     *err = XBEE_OK;
     return 0;
 }

@@ -1,5 +1,9 @@
 # DO WITH deferred completion
 
+Historical round-6 record: its argument-phase RETRY and inline RETURN model
+is corrected by `wave1-logsqrt-round7.md`. The hand-authored transfer
+RETRY/CANCEL expectations below have been replaced by independent real captures.
+
 Context: PM authorized changes to the shared flow/proc mechanism on
 lane/wave1-logsqrt-r after the replay onto NDX main. No push or bd operations.
 

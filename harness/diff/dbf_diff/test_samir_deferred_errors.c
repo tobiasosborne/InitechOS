@@ -145,56 +145,8 @@ static void handled_guards(xb_interp *ip)
           "guard propagates handler cancellation through ordinary control path");
     xb_interp_ctx(ip)->on_error = NULL;
 }
-/* The minted DO-argument programs pin handler-before-body and normal
- * resumption. Exercise the shared RETRY/cancel/unhandled paths as well. */
-extern int proc_run(xb_interp *, const char *);
-static int transfer_handler(void *user, int code)
-{
-    xb_interp *ip = user;
-    xb_val value;
-    guard_calls++;
-    guard_code = code;
-    CHECK(xb_interp_ctx(ip)->deferred_error == 0,
-          "transfer consumes the pending slot before invoking its handler");
-    CHECK(xb_interp_get_memvar(ip, "DBODY", &value) == INTERP_OK && value.u.n == 0,
-          "argument handler runs before any callee statement");
-    if (guard_mode == 2) return INTERP_RC_CANCEL;
-    if (guard_mode == 1) {
-        value = xb_n(1);
-        xb_interp_store(ip, "GSLOT", &value);
-        return 2;
-    }
-    return 1;
-}
-static void transfer_boundaries(xb_interp *ip)
-{
-    static const char program[] =
-        "DBODY=0\nDAFTER=0\nDO TARGET WITH NDX(GSLOT)\nDAFTER=1\nRETURN\n"
-        "PROCEDURE TARGET\nPARAMETERS P\nDBODY=1\nRETURN\n";
-    xb_ctx *ctx = xb_interp_ctx(ip);
-    xb_val value;
-    int rc;
-    for (guard_mode = 0; guard_mode < 4; guard_mode++) {
-        value = xb_n(8);
-        xb_interp_store(ip, "GSLOT", &value);
-        ctx->on_error = guard_mode == 3 ? NULL : transfer_handler;
-        ctx->on_error_procedure = 0;
-        guard_calls = guard_code = 0;
-        rc = proc_run(ip, program);
-        CHECK(rc == (guard_mode == 3 ? -INTERP_ERR_EVAL : INTERP_OK),
-              "transfer propagates unhandled errors and ordinary control outcomes");
-        CHECK(guard_calls == (guard_mode == 3 ? 0 : 1) &&
-              (guard_mode == 3 || guard_code == 87),
-              "argument error is handled once, including after RETRY");
-        CHECK(xb_interp_get_memvar(ip, "DBODY", &value) == INTERP_OK &&
-              value.u.n == (guard_mode < 2 ? 1 : 0),
-              "normal/retried transfer enters once; cancellation/unhandled error never enters");
-        CHECK(xb_interp_get_memvar(ip, "DAFTER", &value) == INTERP_OK &&
-              value.u.n == (guard_mode < 2 ? 1 : 0) && ctx->deferred_error == 0,
-              "transfer resumes or unwinds without leaking a deferred code");
-    }
-    ctx->on_error = NULL;
-}
+/* Argument transfer outcomes are graded by real returnarg/retryconfirm
+ * transcripts on host and QEMU, including the actual received argument. */
 int main(void)
 {
     samir_pal_t *pal = pal_host_make((struct pal_host_cfg){86, 7, 24, 2*1024*1024});
@@ -244,7 +196,6 @@ int main(void)
               "immediate guard type error overrides deferred code");
     }
     handled_guards(ip);
-    transfer_boundaries(ip);
     if (g_fails) fprintf(stderr, "Captured REPL output:\n%s\n", output);
     xb_interp_free(ip);
     pal_host_free(pal);
