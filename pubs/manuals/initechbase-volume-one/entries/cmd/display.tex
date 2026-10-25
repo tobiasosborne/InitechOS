@@ -1,0 +1,33 @@
+% DISPLAY -- os/samir/cmd/query.c q_list (is_display: default scope the
+% current record; heading line per SET HEADING; deleted records '*').
+% Gates: test-samir-query, test-samir-list-layout, test-interp-list.
+\begin{XbaseEntry}{DISPLAY}{command}
+Displays the current record, or the records in a scope.
+\Syntax
+\SyntaxLine{\kw{DISPLAY} \opt{\xp{scope}} \opt{\xp{expression list}}
+  \opt{\kw{FOR} \xp{condition}} \opt{\kw{WHILE} \xp{condition}}}
+\Defaults
+The scope is the current record.  Without an expression list, every field of
+the record is displayed.
+\Usage
+\cmd{DISPLAY} works as \cmd{LIST} does, with one difference: without a scope it
+shows only the current record.  With a scope, such as \kw{ALL} or \kw{NEXT}
+\xp{n}, it shows the records of the scope that meet the conditions.  A
+\kw{FOR} condition alone tests the current record only; to search the
+database, give the scope \kw{ALL}.
+
+The first line is a heading (unless SET HEADING is OFF): \texttt{Record\#}
+and the names of the fields, or the expressions, as typed.  Each record follows
+on its own line, with its record number.  A record marked for deletion has an
+asterisk in front of its number.  A memo field is displayed with its text.
+
+The scope must come before the expression list; \kw{FOR} and \kw{WHILE} may
+follow it.  A \cmd{DISPLAY} of a scope leaves the record pointer on the last
+record it examined.
+\Examples
+\DotExample{examples/c-display}
+Every record that meets a condition:
+\DotExample{examples/c-display-2}
+\SeeAlso{LIST, ?, SET HEADING, GO, SKIP}
+\end{XbaseEntry}
+

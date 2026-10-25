@@ -1,0 +1,56 @@
+% REPORT FORM -- os/samir/cmd/report.c (U5-177 options; the .FRM of
+% frm.md; mint 004 layout; TO PRINT refused #126).  Gates:
+% test-samir-report, test-samir-report-emu.
+\begin{XbaseEntry}{REPORT FORM}{compound}
+\XAlso{REPORT}{REPORT}%
+Prints a report of the database in USE, laid out by a report form file.
+\Syntax
+\SyntaxLine{\kw{REPORT FORM} \xp{file} \opt{\xp{scope}}
+  \opt{\kw{FOR} \xp{condition}} \opt{\kw{WHILE} \xp{condition}}
+  \opt{\kw{PLAIN}} \opt{\kw{HEADING} \xp{expC}} \opt{\kw{NOEJECT}}
+  \opt{\kw{SUMMARY}} \opt{\kw{TO FILE} \xp{file}}}
+\Defaults
+The scope is \kw{ALL}.  The extension of the report form file is
+\file{.FRM}.
+\Usage
+A report form file describes a report: its title, its columns, the expression
+and heading of each column, which columns are totalled, and whether the
+records are grouped.  The report forms \file{STAFFRPT.FRM} and
+\file{INVRPT.FRM} are on the Sample Programs and Utilities diskette.
+
+\cmd{REPORT FORM} prints a page heading -- the page number, the date and the
+title -- then the column headings, then one line for each record of the scope
+that meets the conditions, and at the end the total of each totalled column.
+In a grouped report a new group begins whenever the group expression changes;
+each group has its own heading and subtotals.  Use the report with the records
+in the order of the group, through an index.
+
+A column value too long for its column continues on the next line of the
+report.  A new page begins when the page is full.
+\Options
+\kw{PLAIN} leaves out the page number and the date, and prints the title and
+the column headings on the first page only.
+
+\kw{HEADING} \xp{expC} prints the value of \xp{expC} after the page number.
+
+\kw{NOEJECT} leaves out the page advance before the first page.
+
+\kw{SUMMARY} prints only the group headings, the subtotals and the total,
+without the lines of the records.
+
+\kw{TO FILE} \xp{file} also writes the report to a text file.  Without an
+extension, the file is given the extension \file{.TXT}.  The report is
+displayed on the screen as well.
+\Tips
+Print a report on a printer from InitechDOS: write it \kw{TO FILE}, leave
+InitechBase and copy the file to the printer.  \kw{TO PRINT} is refused with
+\xmsg{126}{Printer is either not connected or turned off.}
+\Examples
+\DotExample{examples/c-report}
+The whole register, without page headings:
+\DotExample{examples/c-report-2}
+Subtotals only, with a heading:
+\DotExample{examples/c-report-3}
+\SeeAlso{LIST, SET HEADING, USE}
+\end{XbaseEntry}
+

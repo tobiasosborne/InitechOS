@@ -1,0 +1,14 @@
+% CHR -- os/samir/core/fn_builtins.c fn_chr (l.308-322)
+\begin{XbaseEntry}{CHR}{function}
+Returns the character whose code is a given number, as a character string of length 1.
+\Syntax
+\SyntaxLine{\kw{CHR(}\xp{expN}\kw{)}}
+\Usage
+\xp{expN} must lie between 0 and 255 inclusive; a fractional part is dropped. A number outside that range raises \xmsg{57}{CHR() : Out of range.}. A non-numeric argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}. \fn{CHR(0)} yields a string that holds the null character and has length 1.
+\Examples
+\DotExample{examples/fn-chr}
+A code outside the range is refused:
+\DotExample{examples/fn-chr-2}
+\SeeAlso{ASC(), SPACE(), REPLICATE()}
+\end{XbaseEntry}
+

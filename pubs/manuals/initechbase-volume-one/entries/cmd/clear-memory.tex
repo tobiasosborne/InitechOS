@@ -1,0 +1,22 @@
+% CLEAR MEMORY -- os/samir/cmd/flow.c exec_command "CLEAR MEMORY"
+% (xb_interp_release_all: every memory variable, PUBLIC and PRIVATE, at any
+% level; Using III+ U5-51/PDF 163).  Lane samirdml 14a8fc75.  Gates:
+% test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{CLEAR MEMORY}{compound}\XAlso{CLEAR}{CLEAR}%
+Releases all memory variables.
+\Syntax
+\SyntaxLine{\kw{CLEAR MEMORY}}
+\Usage
+\cmd{CLEAR MEMORY} releases every memory variable: the public ones, and the
+private ones of every program and procedure running.  A memory variable
+released no longer exists; a reference to it gives
+\xmsg{12}{Variable not found.}  Databases and other files are not affected.
+
+At the dot prompt \cmd{CLEAR MEMORY} does what \cmd{RELEASE ALL} does.  In a
+program they differ: \cmd{RELEASE ALL} releases only the private memory
+variables of the routine running, \cmd{CLEAR MEMORY} all of them.
+\Examples
+\DotExample{examples/c-clearmem}
+\SeeAlso{RELEASE, PUBLIC, PRIVATE, SAVE}
+\end{XbaseEntry}
+

@@ -1,0 +1,14 @@
+% RIGHT -- os/samir/core/fn_builtins.c fn_right (l.1160-1175)
+\begin{XbaseEntry}{RIGHT}{function}
+Returns the rightmost characters of a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{RIGHT(}\xp{expC}\kw{,} \xp{expN}\kw{)}}
+\Usage
+\xp{expN} is the number of characters to take. If it is larger than the length of \xp{expC} the whole string is returned; if it is 0 or negative the result is an empty string. No error is raised for any value of \xp{expN}. The first argument must be a character expression and the second numeric, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Tips
+Trailing blanks count as characters. Apply \fn{TRIM()} first to take the last characters of the text of a character field.
+\Examples
+\DotExample{examples/fn-right}
+\SeeAlso{LEFT(), SUBSTR(), TRIM(), LEN()}
+\end{XbaseEntry}
+

@@ -1,0 +1,12 @@
+% EOF -- os/samir/core/fn_builtins.c fn_eofbof (l.1925-1937)
+\begin{XbaseEntry}{EOF}{function}
+Returns a logical value that is true when a record movement has gone past the last record of the database in the selected work area.
+\Syntax
+\SyntaxLine{\kw{EOF()}}
+\Usage
+\fn{EOF()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. At the end of the file RECNO() is one more than RECCOUNT(). A failed SEEK and a LOCATE or CONTINUE that finds no further record also leave the pointer at the end of the file. With no database in USE the function does not raise an error; it returns .F.
+\Examples
+\DotExample{examples/fn-eof}
+\SeeAlso{BOF(), RECNO(), RECCOUNT(), FOUND(), SKIP}
+\end{XbaseEntry}
+

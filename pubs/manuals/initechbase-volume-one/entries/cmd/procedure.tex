@@ -1,0 +1,19 @@
+% PROCEDURE -- os/samir/cmd/proc.c (PROCEDURE lines end the main program;
+% DO <name> runs the block up to RETURN).  Gate: test-interp-proc.
+\begin{XbaseEntry}{PROCEDURE}{command}
+Begins a procedure in a program file.
+\Syntax
+\SyntaxLine{\kw{PROCEDURE} \xp{name}}
+\Usage
+A program file may hold, after its main program, any number of procedures.
+Each begins with a \cmd{PROCEDURE} line that names it, and ends with
+\cmd{RETURN}.  The main program ends at the first \cmd{PROCEDURE} line: when a
+program is run, it stops there, and the procedures run only when
+\cmd{DO} calls them by name.
+
+A procedure name has up to 10 letters and digits and begins with a letter.
+\Examples
+See \cmd{DO} and \cmd{PRIVATE}.
+\SeeAlso{DO, PARAMETERS, RETURN}
+\end{XbaseEntry}
+

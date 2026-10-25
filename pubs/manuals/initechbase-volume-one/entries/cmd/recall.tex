@@ -1,0 +1,19 @@
+% RECALL -- os/samir/cmd/mutate.c m_recall (default the current record; FOR
+% without a scope = ALL).  Gate: test-interp-replace.
+\begin{XbaseEntry}{RECALL}{command}
+Removes the deletion mark from records.
+\Syntax
+\SyntaxLine{\kw{RECALL} \opt{\xp{scope}} \opt{\kw{FOR} \xp{condition}}
+  \opt{\kw{WHILE} \xp{condition}}}
+\Defaults
+Without a scope or a condition, \cmd{RECALL} works on the current record
+only.  With a \kw{FOR} condition and no scope, the scope is \kw{ALL}.
+\Usage
+\cmd{RECALL} makes records marked by \cmd{DELETE} ordinary records again.  A
+record removed by \cmd{PACK} or \cmd{ZAP} cannot be recalled.
+\Examples
+Record 13 of \file{STAFF.DBF} is marked for deletion on the diskette:
+\DotExample{examples/c-recall}
+\SeeAlso{DELETE, PACK, DELETED()}
+\end{XbaseEntry}
+

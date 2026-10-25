@@ -1,0 +1,21 @@
+% SET ORDER -- os/samir/cmd/set.c do_set_order -> wa_set_order (0 = natural
+% order, n = the n-th index of USE ... INDEX).  Gate: test-interp-set.
+\begin{XbaseEntry}{ORDER}{set}
+Chooses which of the open index files is the master index.
+\Syntax
+\SyntaxLine{\kw{SET ORDER TO} \opt{\xp{n}}}
+\Usage
+When several index files are open with a database, the first named in
+\cmd{USE} is the master index: it gives the order in which the records are
+processed, and it is the index \cmd{SEEK} and \cmd{FIND} search.  SET ORDER
+TO \xp{n} makes the \xp{n}th of the open index files the master index.  SET
+ORDER TO 0, or SET ORDER TO alone, processes the records in record-number
+order; the index files stay open.
+\Tips
+Move to the first record with \cmd{GO TOP} after SET ORDER.
+\Examples
+The open index files are on the name and on the department:
+\DotExample{examples/c-setorder}
+\SeeAlso{USE, SEEK, FIND, GO}
+\end{XbaseEntry}
+

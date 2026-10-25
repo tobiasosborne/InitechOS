@@ -1,0 +1,32 @@
+% SEEK -- os/samir/cmd/query.c q_seek (expression through ndx_seek on the
+% master index; type must match the key; SET EXACT; #26).  Gates:
+% test-ndx-seek, test-samir-query.
+\begin{XbaseEntry}{SEEK}{command}
+Finds the first record whose index key matches the value of an expression.
+\Syntax
+\SyntaxLine{\kw{SEEK} \xp{exp}}
+\Usage
+\cmd{SEEK} evaluates the expression and searches the master index of the
+database in USE for it.  If the key of a record matches, the record pointer
+moves to the first such record in index order and \fn{FOUND()} is true.  If
+no key matches, the pointer moves to the end of the file: \fn{EOF()} is true
+and \fn{FOUND()} false.
+
+The expression must be of the type of the index key: a character expression
+for an index on a character field, a number for an index on a numeric field.
+For a character key, a key that begins with the value matches while SET EXACT
+is OFF; with SET EXACT ON the key must equal the value, apart from trailing
+blanks.
+
+\cmd{SEEK} needs an open index; without one it displays
+\xmsg{26}{Database is not indexed.}
+\Tips
+In a program, \cmd{SEEK} a memory variable that holds the answer to an
+\cmd{ACCEPT}, then test \fn{FOUND()}.
+\Examples
+\DotExample{examples/c-seek}
+The index \file{STAFFNO.NDX} is on the employee number:
+\DotExample{examples/c-seek-2}
+\SeeAlso{FIND, LOCATE, SET EXACT, SET ORDER, USE, FOUND()}
+\end{XbaseEntry}
+

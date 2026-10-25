@@ -1,0 +1,21 @@
+% SET DELETED -- os/samir/cmd/set.c (wa_set_deleted: the walk of
+% LIST/DISPLAY/LOCATE and navigation skips 0x2A records).  Gate:
+% test-interp-set.
+\begin{XbaseEntry}{DELETED}{set}
+Determines whether records marked for deletion are processed.
+\Syntax
+\SyntaxLine{\kw{SET DELETED} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF.
+\Usage
+With SET DELETED ON, the commands that move through the database and process
+records -- \cmd{LIST}, \cmd{DISPLAY}, \cmd{LOCATE}, \cmd{CONTINUE},
+\cmd{SKIP}, \cmd{GO TOP}, \cmd{GO BOTTOM} -- pass over the records marked for
+deletion as if they were not there.  The records remain in the database until
+\cmd{PACK}.  With SET DELETED OFF, marked records are processed like any
+other, and are shown with an asterisk.
+\Examples
+\DotExample{examples/c-setdeleted}
+\SeeAlso{DELETE, PACK, RECALL, DELETED()}
+\end{XbaseEntry}
+

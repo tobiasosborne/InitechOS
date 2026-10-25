@@ -1,0 +1,16 @@
+% Using III+ U5-239; SF-index host/guest differential and named mutant.
+\begin{XbaseEntry}{INDEX}{set}
+Names the index files to be used with the database in USE.
+\Syntax
+\SyntaxLine{\kw{SET INDEX TO} \opt{\xp{index file list}}}
+\Usage
+Opens the named index files for the database in the selected work area,
+replacing its previous index list.  The extension \file{.NDX} is assumed.
+Up to seven files may be named.  The first becomes the master index, and
+the record pointer moves to its beginning.  SET INDEX TO without a list
+closes the indexes of the selected work area and restores record order.
+\Examples
+\DotExample{examples/c-setindex}
+\SeeAlso{USE, SET ORDER, SEEK}
+\end{XbaseEntry}
+

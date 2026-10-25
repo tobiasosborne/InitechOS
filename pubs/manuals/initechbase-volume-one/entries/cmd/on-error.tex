@@ -1,0 +1,24 @@
+% ON ERROR -- os/samir/cmd/proc.c p_on "ERROR" (store / clear the trap) and
+% flow.c fl_trap (the trap command runs in place of the error message; a
+% program goes on with its next command: real III+ 1.1 SF-errors capture).
+% Gates: test-interp-proc, test-samir-fns-errors.
+\begin{XbaseEntry}{ON ERROR}{compound}
+\XAlso{ON}{ON}%
+Names a command to be carried out when an error occurs.
+\Syntax
+\SyntaxLine{\kw{ON ERROR} \opt{\xp{command}}}
+\Usage
+After \cmd{ON ERROR} \xp{command}, whenever a command cannot be carried out,
+InitechBase carries out \xp{command} in place of the error message.  In a
+program, the program then goes on with the command that follows the one that
+failed.  The function \fn{ERROR()} gives the number of the error while the
+command runs and afterwards, so the command can record or report it.  The
+command is often \cmd{DO} of a procedure that handles errors.
+
+\cmd{ON ERROR} with no command removes the trap.  A new \cmd{ON ERROR} replaces
+the one before.
+\Examples
+\DotExample{examples/c-onerror}
+\SeeAlso{ERROR(), ON ESCAPE, ON KEY, RETURN}
+\end{XbaseEntry}
+

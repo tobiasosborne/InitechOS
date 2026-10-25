@@ -1,0 +1,14 @@
+% STUFF -- os/samir/core/fn_builtins.c fn_stuff (l.1265-1325)
+\begin{XbaseEntry}{STUFF}{function}
+Deletes characters from a character string and inserts another string in their place, as a character string.
+\Syntax
+\SyntaxLine{\kw{STUFF(}\xp{expC1}\kw{,} \xp{expN1}\kw{,} \xp{expN2}\kw{,} \xp{expC2}\kw{)}}
+\Usage
+Beginning at position \xp{expN1} of \xp{expC1}, counting from 1, the function removes \xp{expN2} characters and puts \xp{expC2} in their place. \xp{expC2} need not be as long as the part removed. With \xp{expN2} equal to 0 nothing is removed and \xp{expC2} is inserted; with an empty \xp{expC2} characters are removed and nothing is inserted.
+
+A position below 1 is treated as 1, and a position past the end of \xp{expC1} puts \xp{expC2} at the end. A negative count is treated as 0, and a count larger than the characters that remain removes them all. A result longer than 254 characters raises \xmsg{59}{SPACE() : Too large.}. The first and fourth arguments must be character expressions and the second and third numeric, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than four arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-stuff}
+\SeeAlso{SUBSTR(), LEFT(), RIGHT(), AT()}
+\end{XbaseEntry}
+

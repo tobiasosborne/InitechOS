@@ -1,0 +1,12 @@
+% RTRIM -- os/samir/core/fn_builtins.c fn_trim (l.207-226), dispatch l.2105
+\begin{XbaseEntry}{RTRIM}{function}
+Removes the trailing blanks of a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{RTRIM(}\xp{expC}\kw{)}}
+\Usage
+\fn{RTRIM()} is a synonym of \fn{TRIM()} and behaves identically: blanks at the end of the string are removed and leading blanks are kept. A string of blanks gives an empty string. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-rtrim}
+\SeeAlso{TRIM(), LTRIM(), LEN()}
+\end{XbaseEntry}
+

@@ -1,0 +1,16 @@
+% VERSION -- HELP.DBS 1287-1288; SF-version; operator ruling initech-ugpsk.
+\begin{XbaseEntry}{VERSION}{function}
+Returns the version of InitechBase as a character string.
+\Syntax
+\SyntaxLine{\kw{VERSION(}\opt{\xp{expN}}\kw{)}}
+\Usage
+With no argument the result is \texttt{InitechBase version 3.30}, a string
+of 24 characters. An optional numeric argument is accepted; 0, 1, and 2
+all return the same string. InitechBase reads the internal build string
+as the same version identification in these forms. A non-numeric argument,
+or more than one argument, raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-version}
+\SeeAlso{TYPE(), LEN()}
+\end{XbaseEntry}
+

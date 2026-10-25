@@ -1,0 +1,44 @@
+% LIST -- os/samir/cmd/query.c q_list (default scope ALL with an implicit
+% GO TOP; heading per SET HEADING; deleted '*'; SET DELETED, SET FILTER).
+% Gates: test-samir-query, test-samir-list-layout, test-interp-list.
+\begin{XbaseEntry}{LIST}{command}
+Lists the records of the database in USE.
+\Syntax
+\SyntaxLine{\kw{LIST} \opt{\xp{scope}} \opt{\xp{expression list}}
+  \opt{\kw{FOR} \xp{condition}} \opt{\kw{WHILE} \xp{condition}}
+  \opt{\kw{OFF}}}
+\Defaults
+The scope is \kw{ALL}: \cmd{LIST} begins at the first record.  Without an
+expression list, every field is listed.
+\Usage
+\cmd{LIST} displays one line for each record of the scope that meets the
+\kw{FOR} and \kw{WHILE} conditions.  Each line begins with the record number,
+then the value of each field or expression.  The first line is a heading:
+\texttt{Record\#} and the field names, or the expressions as typed; SET
+HEADING OFF leaves it out.  A record marked for deletion has an asterisk in
+front of its number.  While SET DELETED is ON, such records are not listed;
+while a filter is set, only the records that meet it are listed.
+
+The columns are as wide as the fields or the values, or as the headings when
+these are wider.  Character fields are shown at their full width, numeric
+fields with their decimal places, dates in the form set by SET DATE, logical
+fields as \texttt{.T.} or \texttt{.F.}, and memo fields with their text.  The
+screen holds 80 characters: a longer line continues on the next.
+
+\kw{FOR} tests every record of the scope.  \kw{WHILE} stops at the first record
+for which its condition is false, and leaves the record pointer on it; without
+a scope, a \cmd{LIST} with \kw{WHILE} also begins at the first record.  The
+scope must come before the expression list.  After \cmd{LIST} of the whole
+file the record pointer is at the end of the file; after \kw{NEXT} \xp{n} it is
+on the last record listed.
+\Options
+\kw{OFF} leaves out the record numbers.  It may precede the scope and
+expression list; the expressions still select the columns to display.
+\Examples
+\DotExample{examples/c-list}
+Expressions as well as fields may be listed:
+\DotExample{examples/c-list-2}
+\DotExample{examples/c-list-off}
+\SeeAlso{DISPLAY, ?, SET DELETED, SET FILTER, SET HEADING, REPORT FORM}
+\end{XbaseEntry}
+

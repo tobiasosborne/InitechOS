@@ -1,0 +1,21 @@
+% Using III+ U6-40/41 Table 6-1; real III+ fns-mint/inkey/GOLD.OUT.
+\begin{XbaseEntry}{INKEY}{function}
+Returns the numeric code of the first key in the type-ahead buffer, or 0 if
+no key is waiting. The key is removed from the buffer. Execution does not pause.
+\Syntax
+\SyntaxLine{\kw{INKEY()}}
+\Usage
+The result is an integer from 0 to 255. Ordinary characters use their IBM
+character codes. Special keys return their control-key equivalents: Right 4,
+Left 19, Up 5, Down 24, Ctrl-Right 2, Ctrl-Left 26, Ins 22, Del 7,
+Home 1, End 6, PgUp 18, PgDn 3, Ctrl-Home 29, Ctrl-End 23,
+Esc (or Ctrl-Q) 27, Ctrl-PgUp 31, and Ctrl-PgDn 30.
+
+The function takes no argument. A call with any argument, including a
+number of seconds, raises \xmsg{11}{Invalid function argument.}.
+\Examples
+With no key waiting:
+\DotExample{examples/fn-inkey}
+\SeeAlso{CHR(), ASC(), TYPE()}
+\end{XbaseEntry}
+

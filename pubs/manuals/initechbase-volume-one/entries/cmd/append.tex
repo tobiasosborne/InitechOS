@@ -1,0 +1,58 @@
+% APPEND BLANK -- os/samir/cmd/mutate.c m_append (BLANK required; adds a
+% blank record, makes it current, inserts its key into every open index).
+% Gate: test-interp-replace, test-samir-write.
+% APPEND FROM -- os/samir/cmd/mutate.c d_append_from (Using III+ U5-28/PDF
+% 140: fields matched by name in any order; deleted records skipped only
+% under SET DELETED ON; default .DBF; the database in USE refused, 3; a
+% memo field in the database in USE, 34; a field of the same name and
+% another type, 9; every open index rebuilt).  Lane samirdml 14a8fc75.
+% Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{APPEND}{command}
+Adds records to the end of the database in USE: one blank record, or the
+records of another database.
+\Syntax
+\SyntaxLine{\kw{APPEND BLANK}}
+\par or\par
+\SyntaxLine{\kw{APPEND FROM} \xp{file}}
+\Defaults
+\kw{APPEND FROM} assumes the extension \file{.DBF}.
+\Usage
+\cmd{APPEND BLANK} adds one record to the end of the database in the selected
+work area and makes it the current record.  Every field of the new record is
+empty: character fields are blanks, numeric fields are zero, date fields are
+blank and logical fields are false.  The record count, \fn{RECCOUNT()}, grows
+by one.
+
+The new record is written to the disk at once.  If index files are open with
+the database, the new record is entered in each of them.
+
+Fill in the fields of the new record with \cmd{REPLACE}.  In a program, an
+\cmd{ACCEPT} or \cmd{INPUT} for each field followed by \cmd{APPEND BLANK} and
+\cmd{REPLACE} enters a record.
+
+\cmd{APPEND FROM} adds every record of the database named to the end of the
+database in USE, in the order of its records.  Fields are matched by name:
+a field of the database in USE takes the value of the field of the same name
+in the other database, wherever it stands in its structure.  A field the
+other database does not have is left empty, and a field the database in USE
+does not have is not copied.  A character value longer than its field is cut
+off on the right.  Records marked for deletion are appended, and are not
+marked in the database in USE, unless SET DELETED is ON: then they are left
+out.  The last record appended becomes the current record, and every open
+index file is brought up to date.
+
+The database named must not be the database in USE
+(\xmsg{3}{File is already open.}), and two fields of the same name must have
+the same type (\xmsg{9}{Data type mismatch.}).  Records cannot be appended to
+a database that has a memo field (\xmsg{34}{Operation with Memo field
+invalid.}).
+\Examples
+A new record is added and two of its fields are filled in:
+\DotExample{examples/c-append}
+The batch of new invoices on the sample diskette, \file{ARBATCH.DBF}, has the
+fields of the ledger in another order, and no \texttt{PAID} field.  Its three
+records are added to \file{INVOICE.DBF}:
+\DotExample{examples/c-append-2}
+\SeeAlso{REPLACE, RECCOUNT(), DELETE, COPY FILE}
+\end{XbaseEntry}
+

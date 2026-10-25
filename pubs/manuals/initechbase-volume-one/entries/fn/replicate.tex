@@ -1,0 +1,12 @@
+% REPLICATE -- os/samir/core/fn_builtins.c fn_replicate (l.1188-1215)
+\begin{XbaseEntry}{REPLICATE}{function}
+Returns a character string repeated a given number of times, as a character string.
+\Syntax
+\SyntaxLine{\kw{REPLICATE(}\xp{expC}\kw{,} \xp{expN}\kw{)}}
+\Usage
+\xp{expN} is the number of copies; a fractional part is dropped. When \xp{expN} is 0 or negative, or \xp{expC} is empty, the result is an empty string. A result longer than 254 characters raises \xmsg{59}{SPACE() : Too large.}; that message is shared with SPACE(). The first argument must be a character expression and the second numeric, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-replicate}
+\SeeAlso{SPACE(), LEN(), CHR()}
+\end{XbaseEntry}
+

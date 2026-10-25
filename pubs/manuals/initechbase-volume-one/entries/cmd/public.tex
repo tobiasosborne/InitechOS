@@ -1,0 +1,22 @@
+% PUBLIC -- os/samir/cmd/proc.c p_public -> xb_interp_declare_public
+% (level-0 variable that survives RETURN).  Gate: test-interp-proc.
+\begin{XbaseEntry}{PUBLIC}{command}
+Creates memory variables that every program and procedure can use and that
+remain when they return.
+\Syntax
+\SyntaxLine{\kw{PUBLIC} \xp{memvar list}}
+\Usage
+A public memory variable is not released when the procedure or program that
+created it returns.  It can be used by every procedure, by the programs run
+afterwards and at the dot prompt, until it is released with \cmd{RELEASE}.
+
+Declare a memory variable \cmd{PUBLIC} before you store a value in it.  If a
+memory variable of the name is already visible, \cmd{PUBLIC} leaves it as it
+is.  A public memory variable has no value until one is stored in it.
+\Examples
+The procedure \texttt{NEWSAL} of \file{RAISE.PRG} (listed under \cmd{DO})
+declares its result \cmd{PUBLIC}, so it is still there at the dot prompt:
+\DotExample{examples/c-public}
+\SeeAlso{PRIVATE, RELEASE, STORE}
+\end{XbaseEntry}
+

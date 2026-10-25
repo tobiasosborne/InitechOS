@@ -1,0 +1,23 @@
+% SET DECIMALS -- os/samir/cmd/set.c do_set_decimals (0..15, empty = 2;
+% ctx->set_decimals read by display of computed values).  Gate:
+% test-interp-decimals.
+\begin{XbaseEntry}{DECIMALS}{set}
+Sets the number of decimal places displayed for the results of calculations.
+\Syntax
+\SyntaxLine{\kw{SET DECIMALS TO} \opt{\xp{expN}}}
+\Defaults
+2.
+\Usage
+The setting determines how many decimal places \cmd{?}, \cmd{LIST} and
+\cmd{DISPLAY} show for a value that InitechBase has calculated, such as the
+result of a division.  The value itself keeps its full precision; only its
+display is rounded.  Numeric fields keep the decimal places of their
+structure, and whole numbers are displayed without decimal places.
+
+The number of places may be from 0 to 15; a larger number gives 15.  SET
+DECIMALS TO with no number restores 2.
+\Examples
+\DotExample{examples/c-setdecimals}
+\SeeAlso{?, ROUND(), STR()}
+\end{XbaseEntry}
+

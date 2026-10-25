@@ -1,0 +1,20 @@
+% SET CONSOLE -- os/samir/cmd/set.c (ctx->set_console) read by
+% os/samir/cmd/workarea.c xb_interp_console_visible (initech-vz6z, Using
+% III+ U5-210: output hidden only for commands of a program; dot commands
+% and error messages stay visible; SET ALTERNATE still receives it).
+% Gate: test-interp-set-console-mutant.
+\begin{XbaseEntry}{CONSOLE}{set}
+Turns the display of output on the screen on or off.
+\Syntax
+\SyntaxLine{\kw{SET CONSOLE} \kw{ON}/\kw{OFF}}
+\Defaults
+ON.
+\Usage
+With SET CONSOLE OFF, the output of the commands of a program is not
+displayed, and what is typed in answer to its prompts is not echoed.
+Commands typed at the dot prompt and error messages are displayed whatever
+the setting.  Output that SET ALTERNATE copies to a file is written to the
+file in either case.
+\SeeAlso{SET TALK, REPORT FORM}
+\end{XbaseEntry}
+

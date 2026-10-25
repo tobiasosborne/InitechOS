@@ -1,0 +1,13 @@
+% ABS -- os/samir/core/fn_builtins.c fn_abs (l.789-808)
+\begin{XbaseEntry}{ABS}{function}
+Returns the absolute value of a numeric expression, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{ABS(}\xp{expN}\kw{)}}
+\Usage
+\fn{ABS()} removes the sign of a negative number and leaves any other number unchanged. The argument must be numeric. A call with other than one argument raises \xmsg{11}{Invalid function argument.}; an argument that is not numeric raises \xmsg{9}{Data type mismatch.}.
+\Examples
+The difference between a salary and a reference figure, with and without its sign:
+\DotExample{examples/fn-abs}
+\SeeAlso{INT(), MAX(), MIN(), MOD()}
+\end{XbaseEntry}
+

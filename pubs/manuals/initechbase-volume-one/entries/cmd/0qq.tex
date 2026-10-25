@@ -1,0 +1,15 @@
+% ?? -- os/samir/cmd/query.c "??" (no leading CR LF).  Gate: test-samir-query.
+\begin{XbaseEntry}{??}{command}
+Displays the value of one or more expressions where the cursor is, without
+moving to a new line.
+\Syntax
+\SyntaxLine{\kw{??} \xp{expression list}}
+\Usage
+\cmd{??} displays the values in the same way as \cmd{?}, but at the current
+position of the cursor: it does not begin a new line.  A program uses it to
+build one line of output from several commands.
+\Examples
+\DotExample{examples/c-qqmark}
+\SeeAlso{?, DISPLAY, LIST}
+\end{XbaseEntry}
+

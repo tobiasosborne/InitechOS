@@ -1,0 +1,17 @@
+% SUBSTR -- os/samir/core/fn_builtins.c fn_substr (l.232-274)
+\begin{XbaseEntry}{SUBSTR}{function}
+Returns part of a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{SUBSTR(}\xp{expC}\kw{,} \xp{expN1} \opt{\kw{,} \xp{expN2}}\kw{)}}
+\Defaults
+When \xp{expN2} is left out, the result runs to the end of \xp{expC}.
+\Usage
+\xp{expN1} is the position of the first character wanted, counting from 1; \xp{expN2} is the number of characters. A count larger than the characters that remain is cut back to them, and a count of 0 or less gives an empty string. A start position past the end of the string gives an empty string. A fractional part of either number is dropped.
+
+A start position below 1 raises \xmsg{62}{SUBSTR() : Start point out of range.}; a position cannot be counted from the right. The first argument must be a character expression and the others numeric, otherwise \xmsg{9}{Data type mismatch.} is raised. A call with fewer than two or more than three arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-substr}
+\DotExample{examples/fn-substr-2}
+\SeeAlso{LEFT(), RIGHT(), STUFF(), AT(), LEN()}
+\end{XbaseEntry}
+

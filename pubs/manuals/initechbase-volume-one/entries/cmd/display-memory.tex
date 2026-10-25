@@ -1,0 +1,21 @@
+% Ground truth: Using III+ U5-108/109; real inspection mint.
+% Gates: test-samir-dml-memory/status, their -emu and mutant legs.
+% A form of the DISPLAY command (compound): its NAME is registered by the
+% DISPLAY entry; the inventory keys verbs, as for CLEAR MEMORY (initech-u01i).
+\begin{XbaseEntry}{DISPLAY MEMORY}{compound}
+Shows the memory variables and pauses for a key between screens.
+\Syntax
+\SyntaxLine{\kw{DISPLAY MEMORY}}
+\Usage
+Each entry gives the name, PUBLIC or PRIVATE status, type, and current value.
+Hidden outer variables are included and marked hidden.  A PRIVATE declaration
+has no entry until a value is assigned; a newly declared PUBLIC is logical
+false.  Numbers appear both at their display precision and with eight decimal
+places.  PRIVATE entries name the program that created them.
+
+The totals give the variables and bytes used and available.  There are 256
+variable slots and 6,000 bytes for variable values.  No database need be open.
+Inspecting memory preserves the variables and the selected work area.
+\SeeAlso{LIST MEMORY, PUBLIC, PRIVATE, STORE, RELEASE}
+\end{XbaseEntry}
+

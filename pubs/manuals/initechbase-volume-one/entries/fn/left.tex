@@ -1,0 +1,12 @@
+% LEFT -- os/samir/core/fn_builtins.c fn_left (l.1126-1147)
+\begin{XbaseEntry}{LEFT}{function}
+Returns the leftmost characters of a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{LEFT(}\xp{expC}\kw{,} \xp{expN}\kw{)}}
+\Usage
+\xp{expN} is the number of characters to take. If it is larger than the length of \xp{expC} the whole string is returned; if it is 0 or negative the result is an empty string. A fractional part of \xp{expN} is dropped. No error is raised for any value of \xp{expN}. The first argument must be a character expression and the second numeric, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-left}
+\SeeAlso{RIGHT(), SUBSTR(), AT(), LEN()}
+\end{XbaseEntry}
+

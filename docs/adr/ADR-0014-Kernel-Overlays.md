@@ -16,7 +16,7 @@
 | Document ID | OEA-ADR-0014 |
 | Title | Kernel Overlays |
 | Version | 0.9 (draft for ratification) |
-| Status | **PROPOSED** -- awaiting the operator's ratification. Not binding. No implementation is authorized by this draft. |
+| Status | **RATIFIED** 2026-10-25 by the operator, with DEC-14-5 = Alternative 5A (preload every section at desktop start). Binding. |
 | Classification | Internal Use Only |
 | Primary Author | Architecture Review Board, Overlay Committee (Seat A: Toolbox, kernel memory, cooperative pump; Seat B: period ground truth, container, loader and boot risk; Chair: synthesis). Drafted by the Board Secretary. |
 | Date | 2026-10-24 |
@@ -341,6 +341,19 @@ two files and TP's one `.OVR`).
    with r4 and the headroom floor binding meanwhile.
 4. Closing research gap G-1 (a dBASE mint with DBASE.OVL absent) before any user-facing text
    cites dBASE's behaviour.
+
+### Operator resolution (2026-10-25)
+
+1. Ratified.
+2. DEC-14-5: **Alternative 5A** -- preload every section at desktop start (the Chair's recommendation).
+3. Gate DEC-14-9(d) joins the default `make test` vector on its first green; r4 and the headroom
+   floor bind meanwhile (PM default under Law 2: no known-red gate in the default vector).
+4. Research gap G-1 stays open; it blocks only user-facing text that cites dBASE's missing-overlay
+   behaviour, not implementation.
+
+Trigger: SAMIR overlays Phase A (INT 21h AH=4Bh AL=03h load overlay, its ADR-0003 amendment ratified 2026-10-25 and landing with that lane) costs +832 B and the flagship had
+16 B of r4 margin; kernel overlays run first so Phase A lands on freed room (beads initech-x8gsi,
+initech-dewv).
 
 ## 9. Supersession and acceptance
 

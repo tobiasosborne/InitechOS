@@ -1,0 +1,24 @@
+% ON ESCAPE, ON KEY -- os/samir/cmd/proc.c p_on "ESCAPE" (the trap text,
+% fired by proc_escape between two program lines; real III+ 1.1 mint samirctl
+% ESCTRAP.TXT); "KEY" is parsed and accepted, not installed.  Gate:
+% test-samir-ctl.
+\begin{XbaseEntry}[the ON KEY trap is accepted but not carried out by this
+  version (proc.c)]{ON ESCAPE}{compound}
+Name a command to be carried out when \key{Esc}, or any key, is pressed while
+a program runs.
+\Syntax
+\SyntaxLine{\kw{ON ESCAPE} \opt{\xp{command}}}
+\par or\par
+\SyntaxLine{\kw{ON KEY} \opt{\xp{command}}}
+\Usage
+While SET ESCAPE is ON, pressing \key{Esc} as a program runs carries out the
+command named by \cmd{ON ESCAPE} instead of interrupting the program; the
+program then goes on with its next line.  A program can use it to end a loop
+of its own accord.  \cmd{ON ESCAPE} without a command removes the command,
+and \key{Esc} interrupts the program again.
+
+InitechBase accepts \cmd{ON KEY}, with or without a command, and displays no
+message; the command is not carried out when a key is pressed.
+\SeeAlso{ON ERROR, SET ESCAPE, WAIT}
+\end{XbaseEntry}
+

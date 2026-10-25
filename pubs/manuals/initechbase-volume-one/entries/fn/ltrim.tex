@@ -1,0 +1,14 @@
+% LTRIM -- os/samir/core/fn_builtins.c fn_trim (l.207-226)
+\begin{XbaseEntry}{LTRIM}{function}
+Removes the leading blanks of a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{LTRIM(}\xp{expC}\kw{)}}
+\Usage
+Only blanks (the space character) at the start of the string are removed; trailing blanks are kept. A string of blanks gives an empty string. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Tips
+Applied to the result of \fn{STR()}, \fn{LTRIM()} turns a number into a string without the leading blanks that STR() adds.
+\Examples
+\DotExample{examples/fn-ltrim}
+\SeeAlso{TRIM(), RTRIM(), STR(), SPACE()}
+\end{XbaseEntry}
+

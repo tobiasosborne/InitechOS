@@ -1,0 +1,30 @@
+% ACCEPT -- os/samir/cmd/proc.c p_accept (prompt expression, then one
+% cooked line into a Character memvar; empty line -> "").  Gate:
+% test-interp-proc.
+\begin{XbaseEntry}{ACCEPT}{command}
+Displays a prompt, reads a line typed at the keyboard and stores it in a
+memory variable as a character string.
+\Syntax
+\SyntaxLine{\kw{ACCEPT} \opt{\xp{expC}} \kw{TO} \xp{memvar}}
+\Usage
+\cmd{ACCEPT} displays the character expression \xp{expC}, if one is given, and
+waits for a line to be typed.  The line ends when you press \key{Enter}.  The
+characters typed are stored in \xp{memvar} as a character string, whatever
+they are: a number typed in answer to \cmd{ACCEPT} is stored as characters.  If
+you press \key{Enter} alone, \xp{memvar} is an empty string.  The memory
+variable is created if it does not exist.
+
+The prompt is usually a character string in quotation marks.  It is displayed
+as it stands, so end it with a blank or a colon and a blank to keep the answer
+apart from it.
+\Tips
+Use \cmd{INPUT} when the answer is a number, a date or a logical value, and
+\cmd{WAIT} when one keystroke is enough.  To compare an answer with stored
+data in capitals, convert it with \fn{UPPER()}.
+\Examples
+\DotExample{examples/c-accept}
+Without a prompt, \cmd{ACCEPT} waits on a new line:
+\DotExample{examples/c-accept-2}
+\SeeAlso{INPUT, STORE, UPPER(), WAIT}
+\end{XbaseEntry}
+

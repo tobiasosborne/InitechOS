@@ -1,0 +1,39 @@
+% RUN / ! -- os/samir/cmd/mutate.c d_run (Using III+ U5-185/186, PDF
+% 297-298: RUN/! <command>; the rest of the line goes verbatim to the
+% command processor, which performs any redirection, then control returns;
+% one CR LF before and one after the child; 92 when the processor cannot be
+% loaded).  The OS PAL (os/samir/pal/pal_milton.c) EXECs COMSPEC with
+% " /C <line>"; the example's command is lower-case ECHO with a redirection,
+% which InitechDOS COMMAND.COM and the host processor of the replay both run
+% and whose file TYPE shows the same (the output to the screen would not be
+% part of the replayed transcript).  Lane samirfix, bead initech-n8q8.
+% Gates: test-samir-dml (run), test-samir-dml-emu.
+\begin{XbaseEntry}{RUN}{command}\XAlso{!}{!}%
+Carries out an InitechDOS command or runs a program, then returns to
+InitechBase.
+\Syntax
+\SyntaxLine{\kw{RUN} \xp{command}}
+\par or\par
+\SyntaxLine{\kw{!} \xp{command}}
+\Usage
+\cmd{RUN} passes the rest of the line, as it stands, to the InitechDOS
+command processor, \file{COMMAND.COM}, which carries it out: an internal
+command such as \texttt{DIR}, \texttt{COPY} or \texttt{ECHO}, a program, or a
+batch file.  Redirection with \texttt{>} is carried out by the command
+processor.  When the command ends, InitechBase goes on at the dot prompt or
+in the program.  Open databases stay open, and the record pointer is where it
+was.  \cmd{!} is another name for \cmd{RUN}.
+
+\file{COMMAND.COM} is found through the COMSPEC setting of the environment,
+or else on drive A.  If it cannot be loaded, \cmd{RUN} reports
+\xmsg{92}{Unable to load COMMAND.COM.}  The command processor and the
+program must fit in the memory InitechBase leaves free.
+\Tips
+Do not \cmd{RUN} a program that stays resident in memory: the memory it keeps
+is not returned to InitechBase.
+\Examples
+A note is written to a text file by the InitechDOS \texttt{ECHO} command and
+displayed with \cmd{TYPE}.  The record pointer is unchanged:
+\DotExample{examples/c-run}
+\SeeAlso{TYPE, QUIT}
+\end{XbaseEntry}

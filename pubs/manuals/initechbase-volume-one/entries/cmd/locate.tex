@@ -1,0 +1,27 @@
+% LOCATE -- os/samir/cmd/query.c q_locate (default scope ALL with implicit
+% GO TOP; stores the FOR for CONTINUE; sets FOUND/EOF).  Gate:
+% test-samir-query.
+\begin{XbaseEntry}{LOCATE}{command}
+Moves to the first record that meets a condition.
+\Syntax
+\SyntaxLine{\kw{LOCATE} \opt{\xp{scope}} \kw{FOR} \xp{condition}
+  \opt{\kw{WHILE} \xp{condition}}}
+\Defaults
+The scope is \kw{ALL}: the search begins at the first record.
+\Usage
+\cmd{LOCATE} tests the records of the scope, in order, against the \kw{FOR}
+condition, and stops at the first record that meets it.  That record becomes
+the current record and \fn{FOUND()} is true.  If no record meets the
+condition, the record pointer moves to the end of the scope: for the default
+scope, \fn{EOF()} is true.  \fn{FOUND()} is then false.
+
+\cmd{LOCATE} reads the records one after another and needs no index.  The
+condition may be any logical expression.  \cmd{CONTINUE} goes on to the next
+record that meets the same condition.
+\Tips
+On a large indexed database, \cmd{SEEK} finds a key faster than \cmd{LOCATE}.
+\Examples
+\DotExample{examples/c-locate}
+\SeeAlso{CONTINUE, SEEK, FIND, SET FILTER, FOUND()}
+\end{XbaseEntry}
+

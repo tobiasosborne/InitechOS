@@ -1,0 +1,12 @@
+% ISLOWER -- os/samir/core/fn_builtins.c fn_islower (l.1373-1383)
+\begin{XbaseEntry}{ISLOWER}{function}
+Returns a logical value that is true when a character string begins with a lower-case letter.
+\Syntax
+\SyntaxLine{\kw{ISLOWER(}\xp{expC}\kw{)}}
+\Usage
+Only the first character is examined; it must be one of a through z. The result is .F. for an empty string and for a first character that is not a letter. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-islower}
+\SeeAlso{ISUPPER(), ISALPHA(), LOWER()}
+\end{XbaseEntry}
+

@@ -1,0 +1,30 @@
+% COPY FILE -- os/samir/cmd/mutate.c d_file (Using III+ U5-59/PDF 171: any
+% closed file, both names with their extensions; a source open as a
+% database, 3; absent, 1; a target open as a database, 3; SAFETY ON
+% refuses an existing target, 7; real DML-11: the copy is written in
+% 512-byte blocks, the last filled out with zero bytes).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{COPY FILE}{compound}\XAlso{COPY}{COPY}%
+Makes a copy of a file.
+\Syntax
+\SyntaxLine{\kw{COPY FILE} \xp{file} \kw{TO} \xp{new file}}
+\Usage
+\cmd{COPY FILE} copies the first file to the second.  Give both names with
+their extensions; none is assumed.  Any file may be copied: a database, an
+index file, a program, a report form.  The copy is written in blocks of 512
+bytes, and the last block is filled out with zero bytes.
+
+A database that is open cannot be copied, and cannot be replaced by the copy:
+\cmd{COPY FILE} reports \xmsg{3}{File is already open.}  If the first file is
+not on the diskette, it reports \xmsg{1}{File does not exist.}  While SET
+SAFETY is ON, a file of the new name is not replaced
+(\xmsg{7}{File already exists.}).
+
+A database's memo fields are kept in its memo file (\file{.DBT}).  Copy the
+memo file with the database, under the same new name.
+\Examples
+A copy of the departments database is made and opened:
+\DotExample{examples/c-copyfile}
+\SeeAlso{ERASE, RENAME, TYPE}
+\end{XbaseEntry}
+

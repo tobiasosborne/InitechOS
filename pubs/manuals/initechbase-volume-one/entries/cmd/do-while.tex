@@ -1,0 +1,38 @@
+% DO WHILE -- os/samir/cmd/flow.c LK_DOWHILE/LK_ENDDO/LK_LOOP/LK_EXIT (guard
+% must be Logical, #37; LOOP back to the test; EXIT after ENDDO).
+% Gates: test-interp-flow, test-samir-canon-y2k.
+\begin{XbaseEntry}{DO WHILE}{compound}
+\XAlso{ENDDO}{ENDDO}\XAlso{LOOP}{LOOP}\XAlso{EXIT}{EXIT}%
+Repeats a group of commands in a program as long as a condition is true.
+\Syntax
+\SyntaxLine{\kw{DO WHILE} \xp{condition}}
+\SyntaxLine{\ \ \xp{commands}}
+\SyntaxLine{\ \ \opt{\kw{LOOP}}}
+\SyntaxLine{\ \ \opt{\kw{EXIT}}}
+\SyntaxLine{\kw{ENDDO}}
+\Usage
+InitechBase tests the condition.  If it is true, the commands up to
+\cmd{ENDDO} are carried out and the condition is tested again; when it is
+false, the program goes on after \cmd{ENDDO}.  The condition must be a logical
+expression, or the program stops with \xmsg{37}{Not a Logical expression.}
+
+\cmd{LOOP} goes back to the test at once, leaving out the rest of the commands
+of the loop.  \cmd{EXIT} leaves the loop at once and goes on after
+\cmd{ENDDO}.  Both are normally written inside an \cmd{IF}.
+
+The commonest loop of an InitechBase program processes every record of a
+database: it begins at the first record, ends when \fn{EOF()} is true, and
+moves to the next record with \cmd{SKIP} before \cmd{ENDDO}.
+
+\cmd{DO WHILE} is used only in programs.  At the dot prompt, \cmd{EXIT} is a
+different command: it leaves InitechBase (see \cmd{QUIT}).
+\Tips
+Make sure that something in the loop changes the condition.  A loop that
+processes records and forgets the \cmd{SKIP} never ends.
+\Examples
+\file{PAYTOTAL.PRG} totals the salaries of exempt and non-exempt staff,
+leaving out the records marked for deletion with \cmd{LOOP}:
+\ProgramListing{PAYTOTAL.PRG}
+\DotExample{examples/c-dowhile}
+\SeeAlso{DO CASE, IF, SKIP, EOF()}
+\end{XbaseEntry}

@@ -1,0 +1,32 @@
+% ? -- os/samir/cmd/query.c q_cmd_hook "?" (leading CR LF, values joined by
+% one blank, no trailing newline; q_render_val: N without trailing zeros of
+% a computed value, field N without its decimals, L as .T./.F., D by SET
+% DATE).  Gates: test-samir-query, test-interp-list.
+\begin{XbaseEntry}{?}{command}
+Displays the value of one or more expressions on a new line.
+\Syntax
+\SyntaxLine{\kw{?} \opt{\xp{expression list}}}
+\Usage
+\cmd{?} moves to the beginning of a new line and displays the value of each
+expression in the list.  The values are separated by one blank.  With no
+expression, \cmd{?} displays an empty line.
+
+Character values are displayed with their trailing blanks, so a character
+field takes its full width.  Numbers are displayed without leading blanks;
+a numeric field or a whole number is displayed without its decimal places,
+and the result of a division or other calculation with as many decimal places
+as SET DECIMALS gives (two when InitechBase starts).  Logical values are
+displayed as \texttt{.T.} or \texttt{.F.}; dates in the form set by SET DATE.
+
+The cursor stays at the end of the displayed line.  At the dot prompt the next
+prompt therefore follows on the same line as the value, as the examples show.
+\Tips
+Use \cmd{?} at the dot prompt to look at a field of the current record, a
+memory variable or the result of a function without listing the record.
+\Examples
+\DotExample{examples/c-qmark}
+A character string and a number:
+\DotExample{examples/c-qmark-2}
+\SeeAlso{??, DISPLAY, LIST, SET DECIMALS, STR(), TRANSFORM()}
+\end{XbaseEntry}
+

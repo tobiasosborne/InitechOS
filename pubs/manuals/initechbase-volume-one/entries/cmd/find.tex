@@ -1,0 +1,32 @@
+% FIND -- os/samir/cmd/query.c q_find (unquoted literal through ndx_seek on
+% the master index; SET EXACT; #26 without an index).  Gate: test-ndx-seek,
+% test-samir-query.
+\begin{XbaseEntry}{FIND}{command}
+Finds the first record whose index key begins with a literal character
+string.
+\Syntax
+\SyntaxLine{\kw{FIND} \xp{literal string}}
+\Usage
+\cmd{FIND} searches the master index of the database in USE (the first index
+named in \cmd{USE}, or the one chosen with SET ORDER) for the characters
+typed after the command, without quotation marks.  If a key begins with them,
+the record pointer moves to the first such record in index order and
+\fn{FOUND()} is true.  If none does, the pointer moves to the end of the file:
+\fn{EOF()} is true and \fn{FOUND()} false.
+
+While SET EXACT is OFF, a key that begins with the string is found; with SET
+EXACT ON, the key must equal the string, apart from trailing blanks.  Capital
+and small letters are different.
+
+\cmd{FIND} needs an open index.  Without one it displays
+\xmsg{26}{Database is not indexed.}
+\Tips
+\cmd{SEEK} does the same with an expression, so it can search for the
+contents of a memory variable or for a number.
+\Examples
+\DotExample{examples/c-find}
+A string that begins no key leaves the pointer at the end of the file:
+\DotExample{examples/c-find-2}
+\SeeAlso{SEEK, LOCATE, SET EXACT, SET ORDER, USE, FOUND()}
+\end{XbaseEntry}
+

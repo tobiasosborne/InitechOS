@@ -1,0 +1,16 @@
+% AT -- os/samir/core/fn_builtins.c fn_at (l.1228-1252)
+\begin{XbaseEntry}{AT}{function}
+Returns the position at which one character string first occurs inside another, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{AT(}\xp{expC1}\kw{,} \xp{expC2}\kw{)}}
+\Usage
+\fn{AT()} searches \xp{expC2} for the first occurrence of \xp{expC1} and returns the position of its first character, counting from 1. The result is 0 when \xp{expC1} does not occur in \xp{expC2}, when \xp{expC1} is an empty string, or when \xp{expC1} is longer than \xp{expC2}. The comparison distinguishes upper case from lower case, and SET EXACT has no effect on it. Memo fields are accepted for either argument. Both arguments must be character expressions, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Tips
+To search without regard to case, convert both strings with \fn{UPPER()} first.
+\Examples
+\DotExample{examples/fn-at}
+Letters are compared as typed, so the lower-case form of a name in upper case is not found:
+\DotExample{examples/fn-at-2}
+\SeeAlso{LEFT(), RIGHT(), STUFF(), SUBSTR(), UPPER()}
+\end{XbaseEntry}
+

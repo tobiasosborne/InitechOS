@@ -1,0 +1,12 @@
+% LOWER -- os/samir/core/fn_builtins.c fn_case (l.185-203)
+\begin{XbaseEntry}{LOWER}{function}
+Converts the letters of a character string to lower case, as a character string.
+\Syntax
+\SyntaxLine{\kw{LOWER(}\xp{expC}\kw{)}}
+\Usage
+Only the letters A through Z are changed; every other character, including characters with codes above 127, is left as it is. The result has the length of the argument. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-lower}
+\SeeAlso{UPPER(), ISLOWER(), ISUPPER()}
+\end{XbaseEntry}
+

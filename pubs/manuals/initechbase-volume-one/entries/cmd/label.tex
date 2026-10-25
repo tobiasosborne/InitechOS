@@ -1,0 +1,31 @@
+% LABEL -- os/samir/cmd/report.c lbl_run (FORM <file>, default .LBL, the
+% 1034-byte dBASE III PLUS label form; TO FILE <file>, default .TXT; every
+% record in master-index order; 54 for an invalid form).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{LABEL}{command}
+Prints labels from a label form file.
+\Syntax
+\SyntaxLine{\kw{LABEL FORM} \xp{label file} \opt{\kw{TO FILE} \xp{file}}}
+\Usage
+\cmd{LABEL FORM} prints one label for every record of the database in USE,
+in the order of the master index, laid out by the label form file named.
+If no extension is given, \file{.LBL} is assumed.  The label form gives the
+height and width of a label, the margin, the space between labels, the
+number of labels across, and the expressions printed on each line of the
+label.
+
+\kw{TO FILE} writes the labels to a text file instead of the screen;
+\file{.TXT} is assumed.
+
+InitechBase prints label forms made with dBASE III PLUS; it does not create
+them.  A form that is not a valid label form is reported as
+\xmsg{54}{Label file invalid.}
+\Examples
+The label form \file{STAFFLBL.LBL} on the sample diskette prints three
+interoffice mail labels across, each three lines high: the name, the
+telephone extension and the department.  With \file{STAFFDPT.NDX} as the
+master index the labels come in department order:
+\DotExample{examples/c-label}
+\SeeAlso{REPORT FORM}
+\end{XbaseEntry}
+
