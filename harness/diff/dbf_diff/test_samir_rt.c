@@ -250,6 +250,18 @@ static void test_dec_format(void)
     CHECK_STR_EQ(fmt(0.125, 4, 2), "0.13",
         "dec_format(0.125,w=4,d=2)=\"0.13\" [minted BATLOG]");
 
+    /* III+ LOG golden: keep the requested decimals by dropping only an
+     * integer zero that does not fit. PM LOG review also pins STR(-0.6,4,1).
+     * A five-column case ensures this is not keyed to width four. */
+    CHECK_STR_EQ(fmt(-0.69, 4, 2), "-.69",
+        "fraction: omit zero when -0.69 needs five columns but has four");
+    CHECK_STR_EQ(fmt(-0.6, 4, 1), "-0.6",
+        "fraction: preserve zero when STR(-0.6,4,1) fits exactly");
+    CHECK_STR_EQ(fmt(-0.069, 5, 3), "-.069",
+        "fraction: omit zero at width five too");
+    CHECK_STR_EQ(fmt(0.69, 3, 2), ".69",
+        "fraction: omit an unsigned zero only when it does not fit");
+
     /* Width overflow -> '*'-fill (minted OTEST.DBF: SEATS_OPEN N4 with 99999) */
     /* [verified: minted OTEST.DBF, re/mint-results-001.md] */
     CHECK_STR_EQ(fmt(99999.0, 4, 0), "****",

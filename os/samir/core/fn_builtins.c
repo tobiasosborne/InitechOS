@@ -2200,8 +2200,64 @@ static int fn_exp_stub(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    double x, value;
+    uint16_t width = 1;
+    union { double n; uint64_t bits; } result;
+
+    /* Real dBASE III+ 1.1: LOG accepts exactly one numeric expression.
+     * Ref: numeric-and-date-functions.md LOG section; HELP.DBS line 1298.
+     * The real mint uses #11 (not the generic #9 type mismatch) for both
+     * bad arity and bad type. */
+    if (nargs != 1 || args[0].t != XB_N)
+        return fn_fail(err, XBEE_INVALID_ARG);
+
+    x = args[0].u.n;
+    /* ln(x) = ln(2)*log2(x), using the same FLDLN2/FYL2X operations as
+     * os/i123/core/eval.c. Memory operands keep the surrounding soft-float
+     * ABI intact: both temporary x87 stack entries are popped here.
+     * The common kernel boot initializes the FPU (ADR-0009 DEC-01a).
+     * LANE-BRIEF explicitly requires x87 for LOG. */
+    __asm__ volatile ("fldln2\n\tfldl %1\n\tfyl2x\n\tfstpl %0"
+                      : "=m"(value) : "m"(x));
+    /* Real III+ fns-mint/log/GOLD.OUT: print the complete statement's
+     * overflow result before raising #58. The accepted NDX mechanism
+     * consumes the first pending code at the statement boundary. */
+    if (x <= 0.0 && !ctx->deferred_error)
+        ctx->deferred_error = 58;
+#if defined(SAMIR_FNS_MUTANT_LOG) || defined(SAMIR_FNS_MUTANT_log)
+    /* Rule 6 mutation: perturb the numeric result so the pinned golden fails. */
+    value += 0.01;
+#endif
+    *out = xb_n(value);
+    /* HELP.DBS SET DECIMALS applies to LOG. xb_interp_make supplies the
+     * period default of two; an explicit SET DECIMALS TO 0 remains zero. */
+    out->num_dec = ctx->set_decimals;
+    /* Ref: ../dbase3-decomp/specs/runtime/numeric-and-string-formatting.md
+     * Sec 1, natural numeric width;
+     * fns-mint/log/GOLD.OUT supplies the nonfinite overflow pictures.
+     * Count the result's integer digits, with a sign for a nonzero negative
+     * integer part. A negative fraction uses the optional zero's column.
+     * Nonfinite results have no integer digits: infinity uses the minimum
+     * integer picture, NaN one additional indeterminate-result column.
+     * Apply the same point/decimal suffix to every class: at DECIMALS 2,
+     * -infinity and NaN therefore format as four and five stars, respectively.
+     * Width depends on the result, never on which argument produced it. */
+    result.n = value;
+    if ((result.bits & 0x7ff0000000000000ULL) == 0x7ff0000000000000ULL) {
+        if (result.bits & 0x000fffffffffffffULL) width++;
+    } else {
+        double magnitude = value < 0.0 ? -value : value;
+        while (magnitude >= 10.0 && width < 255u) {
+            magnitude /= 10.0;
+            width++;
+        }
+        if (value <= -1.0) width++;
+    }
+    if (ctx->set_decimals)
+        width = (uint16_t)(width + ctx->set_decimals + 1u);
+    out->num_width = width > 255u ? 255u : width;
+    *err = XBEE_OK;
+    return 0;
 }
 
 static int fn_sqrt_stub(xb_ctx *ctx, const xb_val *args, int nargs,
