@@ -1,5 +1,6 @@
 /* Publications correctness oracle. Ref: PUB-REF-0001 GC-01/03/05/06,
  * PN-01/05, VO-30; PRD Sec 8; CLAUDE.md Law 2, Rules 2/6. Host C only. */
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -106,10 +107,18 @@ static const char *namepart(const char *item,char *buf)
 {
     size_t n=strcspn(item,"|");memcpy(buf,item,n);buf[n]=0;return buf;
 }
+/* Shared index vocabulary, checked before the source gate's DRAFT exemption. */
+static int commandkind(const char *kind)
+{
+    static const char *kinds[]={"internal","external","batch","config","int21",
+        "wpkey","wpmenu","wppull","wpcode","wpmsg","wpgray","command","function","set"};
+    for(size_t i=0;i<sizeof kinds/sizeof *kinds;i++) if(!strcmp(kind,kinds[i])) return 1;
+    return 0;
+}
 /* A book's documented-command list, <job>.cmds (initech-syntax.sty
- * \RegisterCommand): NAME|KIND|STATE|ENTRY.  Several books' lists may be
- * given; a pair documented in two books is one documented item.  DRAFT
- * pairs (the build lacks the behaviour, D-14) are returned in *draft. */
+ * \RegisterCommand): NAME|KIND|STATE|ENTRY. Several books may be given;
+ * a pair documented in two books is one item. DRAFT pairs are returned
+ * in *draft (the build lacks the behaviour, D-14). */
 static void cmdsfile(const char *path,Set *doc,Set *draft)
 {
     char *text=readfile(path),*line=text;
@@ -126,12 +135,7 @@ static void cmdsfile(const char *path,Set *doc,Set *draft)
             if(k!=4 || *q || !*f[0] || !*f[3]) die("COMMAND-INDEX",path,line);
             /* InitechWord (harness/pubs/iword_probe.c, bead initech-ipu5.10):
              * wpkey wpmenu wppull wpcode wpmsg wpgray */
-            if(strcmp(f[1],"internal") && strcmp(f[1],"external") && strcmp(f[1],"batch") &&
-               strcmp(f[1],"config") && strcmp(f[1],"int21") && strcmp(f[1],"wpkey") &&
-               strcmp(f[1],"wpmenu") && strcmp(f[1],"wppull") && strcmp(f[1],"wpcode") &&
-               strcmp(f[1],"wpmsg") && strcmp(f[1],"wpgray") &&
-               /* InitechBase (bead initech-ipu5.8): samir_inventory.c kinds */
-               strcmp(f[1],"command") && strcmp(f[1],"function") && strcmp(f[1],"set"))
+            if(!commandkind(f[1]))
                 die("COMMAND-INDEX",path,line);
             if(strcmp(f[2],"GATED") && strcmp(f[2],"DRAFT")) die("COMMAND-INDEX",path,line);
             addkind(doc,f[0],f[1]);
@@ -172,130 +176,7 @@ static void crosscheck(const char *shipped,int ndoc,char **docs,const char *allo
     crosscheck_sets(docs[0],allowpath,&ship,&doc,&draft,&allow);
     printf(">>> test-pubs-commands: green (%zu shipped, %zu documented, %zu DRAFT, %zu explicit omissions)\n",ship.n,doc.n,draft.n,allow.n);
 }
-/* ---- srclockstep (bead initech-7opiw, F1): the InitechBase lockstep read
- * straight from the .tex SOURCES, no LaTeX.  It mirrors, in order, what the
- * class files write to <job>.cmds (initech-xbase.sty / initech-syntax.sty):
- *   begin{XbaseEntry}[draft]{NAME}{KIND}  RegisterCommand(NAME,KIND,state);
- *        KIND compound registers nothing and sets the XAlso kind to command;
- *   QREntry[draft]{NAME}{KIND}{syn}{desc} likewise (a non-compound QREntry
- *        leaves the XAlso kind as it stood, exactly as the class does);
- *   QRFunction{NAME}{desc}                NAME|function|GATED;
- *   XAlso{NAME}{idx}                      NAME|<current kind>|<current state>;
- *   DotExample{examples/X}                X.dot and X.txt must exist.
- * Books are walked from main.tex through input{..} in order; a (NAME,KIND)
- * pair twice in one book is the class's "documented twice" error. */
-typedef struct { char kind[16],state[8];Set *doc,*draft;const char *dir,*book;size_t nex; } Src;
-static void stripc(char *t)
-{
-    char *w=t,*r=t;
-    while(*r) {
-        if(*r=='\\' && r[1]) { *w++=*r++;*w++=*r++;continue; }
-        if(*r=='%') { while(*r && *r!='\n') r++;continue; }
-        *w++=*r++;
-    }
-    *w=0;
-}
-static const char *skipws(const char *p) { while(*p==' ' || *p=='\n' || *p=='\t' || *p=='\r') p++;return p; }
-/* One balanced {..} group (or [..] up to the first brace-level-0 ']') at p
- * after whitespace; the contents go into out. */
-static const char *grp(const char *p,char open,char *out,size_t cap,const char *where)
-{
-    int depth=0;size_t n=0;
-    p=skipws(p);
-    if(*p!=open) die("SRC-SYNTAX",where,"expected argument group");
-    p++;
-    for(;*p;p++) {
-        if(*p=='\\' && p[1]) { if(n+2<cap) { out[n++]=*p;out[n++]=p[1]; } p++;continue; }
-        if(*p=='{') depth++;
-        if(*p=='}') { if(open=='{' && depth==0) { out[n]=0;return p+1; } depth--; }
-        if(*p==']' && open=='[' && depth==0) { out[n]=0;return p+1; }
-        if(n+1<cap) out[n++]=*p;
-    }
-    die("SRC-SYNTAX",where,"unbalanced argument group");return p;
-}
-static const char *optgrp(const char *p,int *present,char *out,size_t cap,const char *where)
-{
-    const char *q=skipws(p);
-    if(*q=='[') { *present=1;return grp(q,'[',out,cap,where); }
-    *present=0;return p;
-}
-static void srcreg(Src *s,const char *name,const char *kind,const char *state)
-{
-    char key[MAX_NAME];
-    if(!*name || strpbrk(name,"\\{}")) die("SRC-NAME",s->book,name);
-    if(!*kind) die("SRC-KIND",s->book,name);
-    if(snprintf(key,sizeof key,"%s|%s",name,kind)>=(int)sizeof key) die("SRC-NAME",s->book,name);
-    if(has(s->doc,key)) die("DOCUMENTED-TWICE",s->book,key);
-    addkind(s->doc,name,kind);
-    if(!strcmp(state,"DRAFT")) addkind(s->draft,name,kind);
-}
-static int macro(const char *p,const char *name)
-{
-    size_t n=strlen(name);
-    return !strncmp(p,name,n) && !isalpha((unsigned char)p[n]);
-}
-static void srcwalk(Src *s,const char *file)
-{
-    char path[1024],*text;
-    snprintf(path,sizeof path,"%s/%s%s",s->dir,file,strstr(file,".tex")?"":".tex");
-    { struct stat st;
-      /* generated tables (build/pubs/gen/samir_*.tex, TEXINPUTS) hold no entries */
-      if(stat(path,&st) && !strncmp(file,"samir_",6)) return; }
-    text=readfile(path);stripc(text);
-    for(const char *p=text;*p;p++) {
-        char a[512],b[512],d[512];int dr;
-        if(*p!='\\') continue;
-        if(!strncmp(p,"\\begin{XbaseEntry}",18)) {
-            p=optgrp(p+18,&dr,d,sizeof d,path);p=grp(p,'{',a,sizeof a,path);p=grp(p,'{',b,sizeof b,path);
-            if(strcmp(b,"command") && strcmp(b,"function") && strcmp(b,"set") && strcmp(b,"compound")) die("SRC-KIND",a,b);
-            strcpy(s->state,dr?"DRAFT":"GATED");strcpy(s->kind,!strcmp(b,"compound")?"command":b);
-            if(strcmp(b,"compound")) srcreg(s,a,b,s->state);
-            p--;
-        } else if(macro(p,"\\QREntry")) {
-            p=optgrp(p+8,&dr,d,sizeof d,path);p=grp(p,'{',a,sizeof a,path);p=grp(p,'{',b,sizeof b,path);
-            strcpy(s->state,dr?"DRAFT":"GATED");
-            if(!strcmp(b,"compound")) strcpy(s->kind,"command"); else srcreg(s,a,b,s->state);
-            p--;
-        } else if(macro(p,"\\QRFunction")) {
-            p=grp(p+11,'{',a,sizeof a,path);srcreg(s,a,"function","GATED");p--;
-        } else if(macro(p,"\\XAlso")) {
-            p=grp(p+6,'{',a,sizeof a,path);srcreg(s,a,s->kind,s->state);p--;
-        } else if(macro(p,"\\DotExample")) {
-            char f[1100];struct stat st;const char *ext[2]={".dot",".txt"};
-            p=grp(p+11,'{',a,sizeof a,path);
-            for(int e=0;e<2;e++) {
-                snprintf(f,sizeof f,"%s/%s%s",s->dir,a,ext[e]);
-                if(stat(f,&st)) die("EXAMPLE-PAIR",f,"missing (DotExample needs X.dot and X.txt)");
-            }
-            s->nex++;p--;
-        } else if(macro(p,"\\input")) {
-            const char *q=skipws(p+6);
-            if(*q=='{') { p=grp(q,'{',a,sizeof a,path);srcwalk(s,a);p--; }
-        }
-    }
-    free(text);
-}
-/* srclockstep <shipped> <allow> <volume-one dir> <quick-reference dir> <volume-two dir> */
-static void srclockstep(int argc,char **argv)
-{
-    static Set ship,allow,doc,draft;
-    const char *books[3];size_t nex=0;
-    if(argc!=7) die("USAGE","srclockstep","<shipped> <allow> <vol-one dir> <quick-ref dir> <vol-two dir>");
-    ship=list(argv[2],0);allow=list(argv[3],1);books[0]=argv[4];books[1]=argv[5];books[2]=argv[6];
-    for(int b=0;b<3;b++) {
-        Src s;memset(&s,0,sizeof s);
-        doc.n=draft.n=0;s.doc=&doc;s.draft=&draft;s.dir=s.book=books[b];
-        srcwalk(&s,"main");nex+=s.nex;
-        if(getenv("SRCLOCKSTEP_DUMP")) for(size_t i=0;i<doc.n;i++) fprintf(stderr,"%d|%s\n",b,doc.item[i]);
-        if(b==2) {
-            if(doc.n) die("COMMAND-SURFACE",books[b],"Volume Two teaches; its commands are documented in Using InitechBase");
-            continue;
-        }
-        crosscheck_sets(books[b],argv[3],&ship,&doc,&draft,&allow);
-        printf(">>> test-pubs-lockstep-src: %s: %zu shipped, %zu documented, %zu DRAFT\n",books[b],ship.n,doc.n,draft.n);
-    }
-    printf(">>> test-pubs-lockstep-src: green (%zu DotExample pairs present; no LaTeX run)\n",nex);
-}
+#include "srclockstep.h"
 static void monotonic(const char *now,const char *before)
 {
     Set a=list(now,1),b=list(before,1);
