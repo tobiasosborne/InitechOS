@@ -6,6 +6,7 @@
  * mtools stages identical corpus inputs and extracts stdout; fsck.fat checks
  * the volume. The screen projects the first REAL M005U table, never SAMIR.
  */
+#include "scratch_lock.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -91,6 +92,7 @@ static void grade(const char *got,int which,const char *transport)
 }
 int main(int argc,char **argv)
 {
+    scratch_lock("build/.lock-samir-list-layout");
     const char *mode=argc>1?argv[1]:"files",*com=argc>2?argv[2]:"build/SAMIR.COM";
     const char *corpus=argc>3?argv[3]:"../dbase3-decomp";
     static const char *const inputs[]={"TRAVEL.DBF","TRAVEL.DBT","TRIPS.NDX","AVAL_FLT.DBF","AVAL_FLT.NDX","FLT_NO.NDX"};
@@ -133,7 +135,7 @@ int main(int argc,char **argv)
         fclose(f);
         snprintf(cmd,sizeof cmd,"build/qemu_harness --disk build/tracer_secondary.img --disk2 " D "/data.img --name samir_list_layout_screen --out build --timeout-ms 45000 --keys '%s' --keys-after SHELL-READY --screendump --screendump-after '[/M005U0]. ' > " D "/screen.out 2> " D "/screen.report",trace);
     } else
-        snprintf(cmd,sizeof cmd,"build/qemu_harness --disk build/tracer_secondary.img --disk2 " D "/data.img --name samir_list_layout_files --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > " D "/files.out 2> " D "/files.report",trace);
+        snprintf(cmd,sizeof cmd,"build/qemu_harness --disk build/tracer_secondary.img --disk2 " D "/data.img --name samir_list_layout_files --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > " D "/files.out 2> " D "/files.report; rc=$?; cat " D "/files.report 1>&2; exit $rc",trace);
     command(cmd);
     snprintf(path,sizeof path,D "/%s.report",mode);slurp(path,report,sizeof report);
     CHECK(strstr(report,"triple_fault=0")!=NULL,"layout guest did not triple fault");

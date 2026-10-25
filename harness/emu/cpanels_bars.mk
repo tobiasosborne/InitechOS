@@ -71,5 +71,3 @@ test-flair-cpanels-bars-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_cp_no_
 	@grep -E '^FAIL CP_BARS system=[1-9][0-9]*/12800 foreground=0/12800$$' $(BUILD)/cp_bars_no_system_bar.pixels
 	@printf '>>> test-flair-cpanels-bars-mutant: green (omitted system bar correctly RED)\n'
 test-flair-cpanels-settings-mutant: test-flair-cpanels-bars-mutant
-# These legs share the read-only primary boot image; QEMU locks it exclusively.
-.NOTPARALLEL: test-flair-cpanels-settings test-flair-cpanels-persist test-flair-cpanels-settings-mutant

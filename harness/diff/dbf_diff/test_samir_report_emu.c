@@ -16,6 +16,7 @@
  *
  * Usage: test_samir_report_emu files|screen [SAMIR.COM] [corpus]
  */
+#include "scratch_lock.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,6 +60,7 @@ static void keys(const char *t, char *out, size_t cap)
 
 int main(int argc, char **argv)
 {
+    scratch_lock("build/.lock-samir-report-emu");
     const char *mode = argc > 1 ? argv[1] : "files";
     const char *com = argc > 2 ? argv[2] : "build/SAMIR.COM";
     const char *corpus = argc > 3 ? argv[3] : "../dbase3-decomp";
@@ -94,7 +96,7 @@ int main(int argc, char **argv)
         if (f) fclose(f);
         command("mcopy -o -i " D "/files.img " D "/RPT.BAT ::RPT.BAT");
         keys("rpt\nexit\n", keybuf, sizeof keybuf);
-        snprintf(cmd, sizeof cmd, "build/qemu_harness --disk build/tracer_secondary.img --disk2 " D "/files.img --name samir_report_files --out build --rtc-base 1986-07-24T12:00:00 --timeout-ms 120000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > " D "/files.out 2> " D "/files.report", keybuf);
+        snprintf(cmd, sizeof cmd, "build/qemu_harness --disk build/tracer_secondary.img --disk2 " D "/files.img --name samir_report_files --out build --rtc-base 1986-07-24T12:00:00 --timeout-ms 120000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > " D "/files.out 2> " D "/files.report; rc=$?; cat " D "/files.report 1>&2; exit $rc", keybuf);
         command(cmd);
     }
     snprintf(path, sizeof path, D "/%s.report", mode);

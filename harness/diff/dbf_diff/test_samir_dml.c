@@ -104,7 +104,8 @@ static void compare_file(const char *dir,const char *gold,const char *file)
     snprintf(p,sizeof p,"%s/%s",dir,file);snprintf(q,sizeof q,"%s/%s",gold,file);
     an=readfile(p,a,sizeof a);bn=readfile(q,b,sizeof b);
     if(strstr(file,".NDX")) {
-        snprintf(cmd,sizeof cmd,"python3 harness/diff/dbf_diff/ndx_ref.py --index-dump '%s' > build/samirdml/got.ndx && python3 harness/diff/dbf_diff/ndx_ref.py --index-dump '%s' > build/samirdml/want.ndx && cmp build/samirdml/got.ndx build/samirdml/want.ndx",p,q);
+        /* Dump files live in the per-case dir (initech-2kkqr): shared build/samirdml/{got,want}.ndx raced under make -j. */
+        snprintf(cmd,sizeof cmd,"python3 harness/diff/dbf_diff/ndx_ref.py --index-dump '%s' > '%s.got.ndx' && python3 harness/diff/dbf_diff/ndx_ref.py --index-dump '%s' > '%s.want.ndx' && cmp '%s.got.ndx' '%s.want.ndx'",p,p,q,p,p,p);
         eq=an&&bn&&command(cmd)==0;
     } else if(strstr(file,".DBF"))eq=equal_dbf(a,an,b,bn);
     else if(strstr(file,".MEM"))eq=equal_mem(a,an,b,bn);

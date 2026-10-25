@@ -1625,9 +1625,9 @@ static int build_argv(const QemuConfig *cfg, char **argv,
         PUSH(cfg->kernel_path);
     } else {
         /* disk_path validated non-NULL by caller. */
-        static char drvbuf[QEMU_PATH_MAX + 24];
-        snprintf(drvbuf, sizeof(drvbuf), "format=raw,file=%s",
-                 cfg->disk_path);
+        static char drvbuf[QEMU_PATH_MAX + 48];
+        snprintf(drvbuf, sizeof(drvbuf), "format=raw,file=%s%s",
+                 cfg->disk_path, cfg->boot_rw ? "" : ",snapshot=on");
         PUSH("-drive");
         PUSH(drvbuf);
     }

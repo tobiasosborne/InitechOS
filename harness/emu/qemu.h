@@ -134,6 +134,16 @@ typedef struct {
      * exiting, which is still RED (timed_out + triple_fault). */
     bool allow_reboot;
 
+    /* --boot-rw (initech-2kkqr / initech-b9oa): the raw-disk BOOT image is
+     * opened snapshot=on by DEFAULT, so concurrent harness runs (make -j)
+     * share one read-only boot image instead of colliding on QEMU's
+     * exclusive write lock (QEMU exiting at launch under -j), and no gate can
+     * leak boot-disk state into the next. Guest writes to the boot disk go to
+     * a throwaway overlay. boot_rw opens it writable, for a gate that must
+     * write the boot disk in place and read it back. The data disk (--disk2)
+     * is never snapshotted. */
+    bool boot_rw;
+
     /* Explicit opt-out of the initech-qed1 bare-injection safety check (see
      * qemu_main.c). A gate that passes --keys/--mouse with NEITHER
      * --quit-after NOR a post-input screendump budget (--screendump-after or

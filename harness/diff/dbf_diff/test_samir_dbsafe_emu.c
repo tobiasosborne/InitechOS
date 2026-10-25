@@ -4,6 +4,7 @@
  * Boots the SECONDARY shell image: the script ends with EXIT and waits for
  * SHELL-DONE, and EXIT at the permanent primary shell is ignored (initech-pbru).
  */
+#include "scratch_lock.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,6 +60,7 @@ static void fill(void){
     CHECK(freebytes()==0,"L001 FAT disk has zero free clusters (mtools)");
 }
 int main(int argc,char **argv){
+    scratch_lock("build/.lock-dbsafe-emu");
     const char *mode=argc>1?argv[1]:"full",*com=argc>2?argv[2]:"build/SAMIR.COM";
     char cmd[16384],script[8192],out[4096],keys[4096],com_path[2048];size_t n,i,j;FILE *f;
     int full=!strcmp(mode,"full"),life=!strncmp(mode,"lifetime",8),desktop=strstr(mode,"desktop")!=NULL,z;

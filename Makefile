@@ -28699,7 +28699,7 @@ test-samir-report-emu-mutant: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDAR
 	@if $(TEST_SAMIR_REPORT_EMU) files $(SAMIR_REPORT_MUT_COM) $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-report-emu-mut.log 2>&1; then echo '!!! report emu mutant passed'; exit 1; fi
 	@grep -q 'checks,.*failures' $(BUILD)/samir-report-emu-mut.log
 	@grep -Fq 'REPORT G8TP.TXT: guest file differs' $(BUILD)/samir-report-emu-mut.log
-	@grep -q 'triple_fault=0' $(BUILD)/samir-report-emu/files.report
+	@grep -q 'triple_fault=0' $(BUILD)/samir-report-emu-mut.log
 	@grep -Fq 'G1FLT.TXT  guest file byte-identical' $(BUILD)/samir-report-emu-mut.log
 	@printf '>>> test-samir-report-emu-mutant: green (dropped subtotal band correctly RED in the guest: G8TP.TXT differs, G1FLT.TXT still identical, no crash)\n'
 
@@ -28807,8 +28807,8 @@ test-samir-audit-emu-mutant: $(filter-out $(BUILD)/SAMIR_AUDIT_input.COM $(BUILD
 	  if $(TEST_SAMIR_AUDIT_EMU) view $(BUILD)/SAMIR_AUDIT_$$kind.COM > $(BUILD)/samir-audit/mut-emu-$$kind.log 2>&1; then echo '!!! emu mutant passed'; exit 1; fi; \
 	  grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-emu-$$kind.log; \
 	  grep -Fq "$$reason" $(BUILD)/samir-audit/mut-emu-$$kind.log; \
-	  grep -q 'triple_fault=0' $(BUILD)/samir-audit/emu.report; \
-	  grep -q 'quit_after_found=1' $(BUILD)/samir-audit/emu.report; \
+	  grep -q 'triple_fault=0' $(BUILD)/samir-audit/mut-emu-$$kind.log; \
+	  grep -q 'quit_after_found=1' $(BUILD)/samir-audit/mut-emu-$$kind.log; \
 	  printf '>>> test-samir-audit-emu-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
 	done
 	@printf '>>> test-samir-audit-emu-mutant: green\n'
@@ -28816,8 +28816,8 @@ test-samir-input-emu-mutant: $(BUILD)/SAMIR_AUDIT_input.COM $(TEST_SAMIR_AUDIT_E
 	@if $(TEST_SAMIR_AUDIT_EMU) input $(BUILD)/SAMIR_AUDIT_input.COM > $(BUILD)/samir-audit/mut-emu-input.log 2>&1; then echo '!!! input emu mutant passed'; exit 1; fi
 	@grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-emu-input.log
 	@grep -Fq 'K13 USE/LIST/QUIT rendered all three rows' $(BUILD)/samir-audit/mut-emu-input.log
-	@grep -q 'triple_fault=0' $(BUILD)/samir-audit/emu.report
-	@grep -q 'quit_after_found=1' $(BUILD)/samir-audit/emu.report
+	@grep -q 'triple_fault=0' $(BUILD)/samir-audit/mut-emu-input.log
+	@grep -q 'quit_after_found=1' $(BUILD)/samir-audit/mut-emu-input.log
 	@printf '>>> test-samir-input-emu-mutant: green (multi-command read correctly RED; clean shell return)\n'
 
 # --- SAMIR.COM SHORT-READ MUTANT (bead hdlb; Rule 6): the SAME .COM build but
@@ -33994,9 +33994,9 @@ test-samir-list-layout-emu-mutant: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_LIST_LA
 	  if $(TEST_SAMIR_LIST_LAYOUT_EMU) files $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_$$kind.COM $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-list-layout-emu-mut-$$kind.log 2>&1; then echo '!!! LIST emu mutant passed'; exit 1; fi; \
 	  grep -q 'checks,.*failures' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
 	  grep -q 'FAIL .*M005U table 0 stdout file byte-identical' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
-	  grep -q 'triple_fault=0' $(BUILD)/samir-list-layout/files.report; \
-	  grep -q 'quit_after_found=1' $(BUILD)/samir-list-layout/files.report; \
-	  cp -f $(BUILD)/samir-list-layout/files.report $(BUILD)/samir-list-layout-emu-mut-$$kind.report; \
+	  grep -q 'triple_fault=0' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
+	  grep -q 'quit_after_found=1' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
+	  grep '^\[harness\]' $(BUILD)/samir-list-layout-emu-mut-$$kind.log > $(BUILD)/samir-list-layout-emu-mut-$$kind.report; \
 	  printf '>>> test-samir-list-layout-emu-mutant: %s correctly RED: ' "$$kind"; \
 	  grep -m1 'LIST M005U table 0 stdout file differs' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
 	done
@@ -34028,8 +34028,8 @@ test-samir-undefined-emu-mutant: $(BUILD)/SAMIR_AUDIT_undefined.COM $(TEST_SAMIR
 	@if INITECH_QMP_STDIO=1 $(TEST_SAMIR_AUDIT_EMU) undefined $(BUILD)/SAMIR_AUDIT_undefined.COM > $(BUILD)/samir-audit/mut-emu-undefined.log 2>&1; then echo '!!! undefined emu error-1 mutant passed'; exit 1; fi
 	@grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-emu-undefined.log
 	@grep -Fq 'kdna exact guest dot-prompt error transcript' $(BUILD)/samir-audit/mut-emu-undefined.log
-	@grep -q 'triple_fault=0' $(BUILD)/samir-audit/emu.report
-	@grep -q 'quit_after_found=1' $(BUILD)/samir-audit/emu.report
+	@grep -q 'triple_fault=0' $(BUILD)/samir-audit/mut-emu-undefined.log
+	@grep -q 'quit_after_found=1' $(BUILD)/samir-audit/mut-emu-undefined.log
 	@printf '>>> test-samir-undefined-emu-mutant: SAMIR_MUTATE_UNDEFINED_ERROR1 correctly RED: '
 	@grep -F 'FAIL' $(BUILD)/samir-audit/mut-emu-undefined.log | grep -F 'kdna exact guest dot-prompt error transcript'
 	@printf '>>> test-samir-undefined-emu-mutant: green (clean guest return)\n'
@@ -34500,7 +34500,7 @@ test-samir-core-emu: $(BUILD)/test_samir_core_emu $(HARNESS_BIN) $(SECONDARY_TRA
 test-samir-core-emu-mutants: $(SAMIR_CORE_COM_MUTS) $(BUILD)/test_samir_core_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
 	@set -e; for rule in $(SAMIR_CORE_EMU_RULES); do \
 	  log=$(BUILD)/samir-core-emu-$$rule.log; set +e; INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(BUILD)/SAMIR_CORE_$$rule.COM > $$log 2>&1; rc=$$?; set -e; \
-	  test $$rc = 1 && grep -q "FAIL .*$$rule:" $$log && grep -q 'checks,' $$log && grep -q 'triple_fault=0' $(BUILD)/samir-core-emu/report.log && grep -q 'quit_after_found=1' $(BUILD)/samir-core-emu/report.log || { cat $$log; exit 1; }; \
+	  test $$rc = 1 && grep -q "FAIL .*$$rule:" $$log && grep -q 'checks,' $$log && grep -q 'triple_fault=0' $$log && grep -q 'quit_after_found=1' $$log || { cat $$log; exit 1; }; \
 	  printf 'test-samir-core-emu-mutants: %s correctly RED: ' $$rule; grep -m1 "FAIL .*$$rule:" $$log; \
 	done
 	@printf 'test-samir-core-emu-mutants: GREEN (all guest regressions caught)\n'
@@ -34565,14 +34565,14 @@ test-samir-dml-$(1): $$(SAMIR_DML_TEST) $$(CLIENTS_DBF)
 test-samir-dml-$(1)-mutant: $$(BUILD)/test_samir_dml_$(1) test-samir-dml-$(1) $$(CLIENTS_DBF)
 	@set +e; $$< $(1) host > $$(BUILD)/dml-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'DML transcript byte-identical\|bytes match real III+' $$(BUILD)/dml-mut-$(1).log || { cat $$(BUILD)/dml-mut-$(1).log; echo 'mutant survived or failed infrastructure'; exit 1; }; \
-	 printf '>>> SAMIR_DML_MUTANT_$(1) RED: '; grep 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-mut-$(1).log | head -1
+	 printf '>>> SAMIR_DML_MUTANT_$(1) RED: %s\n' "`grep 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-mut-$(1).log | head -1`"
 test-samir-dml-$(1)-emu: $$(SAMIR_DML_TEST) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_COM) $$(CLIENTS_DBF)
 	@INITECH_QMP_STDIO=1 $$(SAMIR_DML_TEST) $(1) emu $$(SAMIR_COM)
 	@printf '>>> test-samir-dml-$(1)-emu: green\n'
 test-samir-dml-$(1)-emu-mutant: test-samir-dml-$(1)-emu $$(SAMIR_DML_TEST) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(BUILD)/SAMIR_SCREEN_SAMIR_DML_MUTANT_$(1).COM $$(CLIENTS_DBF)
 	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_DML_TEST) $(1) emu $$(BUILD)/SAMIR_SCREEN_SAMIR_DML_MUTANT_$(1).COM > $$(BUILD)/dml-emu-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && ! grep -q 'FAIL.*locked QEMU trace' $$(BUILD)/dml-emu-mut-$(1).log && grep -q 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-emu-mut-$(1).log || { cat $$(BUILD)/dml-emu-mut-$(1).log; echo 'emu mutant survived or failed infrastructure'; exit 1; }; \
-	 printf '>>> SAMIR_DML_MUTANT_$(1) emu RED: '; grep 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-emu-mut-$(1).log | head -1
+	 printf '>>> SAMIR_DML_MUTANT_$(1) emu RED: %s\n' "`grep 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-emu-mut-$(1).log | head -1`"
 TEST_UNIT_GATES += test-samir-dml-$(1) test-samir-dml-$(1)-mutant
 TEST_EMU_GATES += test-samir-dml-$(1)-emu test-samir-dml-$(1)-emu-mutant
 endef
@@ -34708,7 +34708,7 @@ test-samir-dml-$(1)-state: $$(SAMIR_DML_TEST) samir-dml-goldens $$(CLIENTS_DBF)
 test-samir-dml-$(1)-state-mutant: $$(BUILD)/test_samir_dml_$(1) test-samir-dml-$(1)-state $$(CLIENTS_DBF)
 	@set +e; $$< $(1) state > $$(BUILD)/dml-state-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*DML state $(1)' $$(BUILD)/dml-state-mut-$(1).log || { cat $$(BUILD)/dml-state-mut-$(1).log; exit 1; }; \
-	 printf '>>> SAMIR_DML_MUTANT_$(1) RED: '; grep 'FAIL.*DML state $(1)' $$(BUILD)/dml-state-mut-$(1).log | head -1
+	 printf '>>> SAMIR_DML_MUTANT_$(1) RED: %s\n' "`grep 'FAIL.*DML state $(1)' $$(BUILD)/dml-state-mut-$(1).log | head -1`"
 TEST_UNIT_GATES += test-samir-dml-$(1)-state test-samir-dml-$(1)-state-mutant
 endef
 $(foreach verb,clear macro close,$(eval $(call samir-dml-state-gates,$(verb))))
@@ -34813,14 +34813,14 @@ test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_FNS_PROMOTED)
 test-samir-fns-$(1)-mutant: test-samir-fns-$(1) $$(BUILD)/test_samir_fns_$(1) $$(CLIENTS_DBF)
 	@set +e; $$(BUILD)/test_samir_fns_$(1) $(1) host > $$(BUILD)/samirfns/mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log || { cat $$(BUILD)/samirfns/mut-$(1).log; exit 1; }; \
-	 printf '>>> SAMIR_FNS_MUTANT_$(1) RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log
+	 printf '>>> SAMIR_FNS_MUTANT_$(1) RED: %s\n' "`grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log`"
 test-samir-fns-$(1)-emu: $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_COM) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_FNS_PROMOTED)
 	@INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu
 	@echo '>>> test-samir-fns-$(1)-emu: green'
 test-samir-fns-$(1)-emu-mutant: test-samir-fns-$(1)-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM $$(CLIENTS_DBF)
 	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM > $$(BUILD)/samirfns/emu-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log || { cat $$(BUILD)/samirfns/emu-mut-$(1).log; exit 1; }; \
-	 printf '>>> SAMIR_FNS_MUTANT_$(1) emu RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log
+	 printf '>>> SAMIR_FNS_MUTANT_$(1) emu RED: %s\n' "`grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log`"
 TEST_UNIT_GATES += test-samir-fns-$(1) test-samir-fns-$(1)-mutant
 TEST_EMU_GATES += test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
 endef
@@ -35050,6 +35050,7 @@ TEST_EMU_GATES += test-flair-i123-copy test-flair-i123-copy-cpu test-flair-i123-
 
 # Parallel certificate runner bookkeeping (initech-9bgg6), no emulators.
 include harness/cert_runner.mk
+include harness/merge_samir.mk
 
 # Calculator desk accessory lifecycle (initech-0xs6).
 include harness/emu/calcda_power.mk
