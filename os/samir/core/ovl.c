@@ -27,6 +27,7 @@
  * ASCII-clean (Rule 12). No timestamps (Rule 11).
  */
 #include <stdint.h>
+#include <stddef.h>
 #include "samir/ovl.h"
 #include "samir/ovl_format.h"   /* LOCKED spec-data, on -Ispec */
 #include "samir/rt.h"
@@ -150,74 +151,91 @@ void samir_ovl_require_resident(uintptr_t p,const char *where)
     if (p >= (uintptr_t)__ovl_slot && p < (uintptr_t)__ovl_slot_end)
         ovl_panic(where,p);
 }
+/* Ref: design Sec 6, rule 4. Keep the original audit order and spelling,
+ * including the two cursor prefixes (binding vs boundary). Each descriptor
+ * costs two bytes, with no per-field pointer/relocation. Build the full
+ * diagnostic only on failure; successful audits just advance over its name.
+ * The lists generate both metadata and names so they cannot get out of step.
+ */
+#define PAL_FIELDS(F) \
+    F(open) F(close) F(read) F(write) F(seek) F(remove) F(rename) \
+    F(conout) F(conin_line) F(conin_char) F(gotoxy) F(set_attr) F(today) \
+    F(alloc) F(reset) F(acquire) F(release) F(status) F(conin_line_noecho) \
+    F(exec) F(conin_escape) F(curdrive) F(getenv) F(os_version) F(diskspace) \
+    F(conin_poll) F(time) F(iscolor) F(say_screen) F(printout)
+#define CTX_FIELDS(F) \
+    F(mirror_output) F(mirror_user) F(resolve) F(user) F(scratch) F(dbcur) \
+    F(dbcur_user) F(file_pal) F(record_size) F(on_error) F(message) \
+    F(on_escape) F(program_name) F(on_error_text) F(on_escape_text)
+#define CURSOR_FIELDS(F) \
+    F(recno) F(reccount) F(eof) F(bof) F(found) F(deleted) F(field_name) \
+    F(dbf_name) F(file_exists) F(last_update) F(index_name)
+
+typedef struct { uint8_t offset, name_len; } ovl_field;
+typedef struct {
+    const ovl_field *fields;
+    const char *names;
+} ovl_fields;
+#define FIELD_NAME(f) #f "\0"
+#define FIELD_DESC(t,f) { offsetof(t,f), sizeof(#f) },
+/* The byte offsets and uintptr_t loads are part of the flat x86 ABI. Check
+ * each field, rather than silently truncating a future layout extension. */
+#define FIELD_ASSERT(t,f) \
+    _Static_assert(offsetof(t,f) < 255 && sizeof(((t *)0)->f) == sizeof(uintptr_t) \
+        && sizeof(#f) <= 32, "overlay field descriptor: " #t "." #f);
+#define PAL_ASSERT(f) FIELD_ASSERT(samir_pal_t,f)
+#define CTX_ASSERT(f) FIELD_ASSERT(xb_ctx,f)
+#define CURSOR_ASSERT(f) FIELD_ASSERT(xb_dbcursor,f)
+PAL_FIELDS(PAL_ASSERT)
+CTX_FIELDS(CTX_ASSERT)
+CURSOR_FIELDS(CURSOR_ASSERT)
+#define PAL_DESC(f) FIELD_DESC(samir_pal_t,f)
+#define CTX_DESC(f) FIELD_DESC(xb_ctx,f)
+#define CURSOR_DESC(f) FIELD_DESC(xb_dbcursor,f)
+static const ovl_field pal_fields[] = { PAL_FIELDS(PAL_DESC) {255,0} };
+static const ovl_field ctx_fields[] = { CTX_FIELDS(CTX_DESC) {255,0} };
+static const ovl_field cursor_fields[] = { CURSOR_FIELDS(CURSOR_DESC) {255,0} };
+static const ovl_fields pal_audit = { pal_fields, PAL_FIELDS(FIELD_NAME) };
+static const ovl_fields ctx_audit = { ctx_fields, CTX_FIELDS(FIELD_NAME) };
+static const ovl_fields cursor_audit = { cursor_fields, CURSOR_FIELDS(FIELD_NAME) };
+
+static void ovl_validate_fields(const void *base,const ovl_fields *audit,
+                                const char *prefix)
+{
+    const ovl_field *f = audit->fields;
+    const char *name = audit->names;
+    if (!base) return;
+    for (; f->offset != 255; name += f->name_len, ++f) {
+        uintptr_t p;
+        /* Copy the representation: no pointer-type aliasing or alignment
+         * assumptions when reading function and data pointers alike. */
+        __builtin_memcpy(&p,(const char *)base + f->offset,sizeof p);
+        if (p >= (uintptr_t)__ovl_slot && p < (uintptr_t)__ovl_slot_end) {
+            char where[48]; /* longest prefix 10 + field including NUL <=32 */
+            uint32_t n = rt_strlen(prefix);
+            rt_memcpy(where,prefix,n);
+            rt_memcpy(where+n,name,f->name_len);
+            ovl_panic(where,p);
+        }
+    }
+}
 void samir_ovl_validate_pal(const samir_pal_t *pal)
 {
     SAMIR_RETAIN(pal);
-    if (!pal) return;
-    SAMIR_RETAIN(pal->open);
-    SAMIR_RETAIN(pal->close);
-    SAMIR_RETAIN(pal->read);
-    SAMIR_RETAIN(pal->write);
-    SAMIR_RETAIN(pal->seek);
-    SAMIR_RETAIN(pal->remove);
-    SAMIR_RETAIN(pal->rename);
-    SAMIR_RETAIN(pal->conout);
-    SAMIR_RETAIN(pal->conin_line);
-    SAMIR_RETAIN(pal->conin_char);
-    SAMIR_RETAIN(pal->gotoxy);
-    SAMIR_RETAIN(pal->set_attr);
-    SAMIR_RETAIN(pal->today);
-    SAMIR_RETAIN(pal->alloc);
-    SAMIR_RETAIN(pal->reset);
-    SAMIR_RETAIN(pal->acquire);
-    SAMIR_RETAIN(pal->release);
-    SAMIR_RETAIN(pal->status);
-    SAMIR_RETAIN(pal->conin_line_noecho);
-    SAMIR_RETAIN(pal->exec);
-    SAMIR_RETAIN(pal->conin_escape);
-    SAMIR_RETAIN(pal->curdrive);
-    SAMIR_RETAIN(pal->getenv);
-    SAMIR_RETAIN(pal->os_version);
-    SAMIR_RETAIN(pal->diskspace);
-    SAMIR_RETAIN(pal->conin_poll);
-    SAMIR_RETAIN(pal->time);
-    SAMIR_RETAIN(pal->iscolor);
-    SAMIR_RETAIN(pal->say_screen);
-    SAMIR_RETAIN(pal->printout);
+    ovl_validate_fields(pal,&pal_audit,"pal->");
+}
+void samir_ovl_validate_cursor(const xb_dbcursor *v)
+{
+    /* The binder already checked v before passing it here. */
+    ovl_validate_fields(v,&cursor_audit,"v->");
 }
 void samir_ovl_validate_ctx(const xb_ctx *c)
 {
     SAMIR_RETAIN(c);
+    ovl_validate_fields(c,&ctx_audit,"c->");
     if (!c) return;
-    SAMIR_RETAIN(c->mirror_output);
-    SAMIR_RETAIN(c->mirror_user);
-    SAMIR_RETAIN(c->resolve);
-    SAMIR_RETAIN(c->user);
-    SAMIR_RETAIN(c->scratch);
-    SAMIR_RETAIN(c->dbcur);
-    SAMIR_RETAIN(c->dbcur_user);
-    SAMIR_RETAIN(c->file_pal);
-    SAMIR_RETAIN(c->record_size);
-    SAMIR_RETAIN(c->on_error);
-    SAMIR_RETAIN(c->message);
-    SAMIR_RETAIN(c->on_escape);
-    SAMIR_RETAIN(c->program_name);
-    SAMIR_RETAIN(c->on_error_text);
-    SAMIR_RETAIN(c->on_escape_text);
     samir_ovl_validate_pal(c->file_pal);
-    if(c->dbcur) {
-        SAMIR_RETAIN(c->dbcur->recno);
-        SAMIR_RETAIN(c->dbcur->reccount);
-        SAMIR_RETAIN(c->dbcur->eof);
-        SAMIR_RETAIN(c->dbcur->bof);
-        SAMIR_RETAIN(c->dbcur->found);
-        SAMIR_RETAIN(c->dbcur->deleted);
-        SAMIR_RETAIN(c->dbcur->field_name);
-        SAMIR_RETAIN(c->dbcur->dbf_name);
-        SAMIR_RETAIN(c->dbcur->file_exists);
-        SAMIR_RETAIN(c->dbcur->last_update);
-        SAMIR_RETAIN(c->dbcur->index_name);
-    }
+    ovl_validate_fields(c->dbcur,&cursor_audit,"c->dbcur->");
 }
 
 static uint32_t ovl_slot_len(void)
