@@ -32,7 +32,7 @@ FAT_OVL_FOREIGN_IMG := $(BUILD)/fat_ovl_foreign.img
 
 # ---- host oracle -----------------------------------------------------------
 TEST_OVERLAY_SRC   := $(MILTON_DIR)/test_overlay.c
-TEST_OVERLAY_LINK  := $(TEST_EXEC_DEPS) $(KERNEL_LOADER_C)
+TEST_OVERLAY_LINK  := $(TEST_EXEC_DEPS) $(KERNEL_LOADER_C) $(MILTON_DIR)/fat12.c
 TEST_OVERLAY_DEPS  := $(TEST_OVERLAY_SRC) $(TEST_OVERLAY_LINK) $(TEST_EXEC_HDRS) \
                       $(MILTON_DIR)/loader.h $(MILTON_DIR)/mz.h $(MILTON_DIR)/mz.c \
                       $(MILTON_DIR)/mcb.h spec/memory_map.h spec/toolbox_gate.h
@@ -174,3 +174,49 @@ test-exec-overlay-mutant: test-exec-overlay $(foreach k,$(filter-out exec_overla
 	@printf '>>> test-exec-overlay-mutant: LOADER_MUTATE_OVL_ACCEPT_FOREIGN RED (no panic; OVL-FOREIGN-AFTER printed)\n'
 	@printf '>>> test-exec-overlay-mutant: green (all three kernel mutants RED for their named reasons)\n'
 TEST_EMU_GATES += test-exec-overlay test-exec-overlay-mutant
+
+# The shipping FLAIR kernel reaches its text tenant through the GUI pump,
+# before the common text-kernel backend bindings. Drive the SAME OVLTEST
+# bytes under SAMIR.COM, with the system's real Ctrl-Alt-backslash launcher.
+# Ref: ADR-0013 Sec 3.2 (class-2 tenant); review 2026-10-25, initech-i15.
+FAT_OVL_FLAIR_IMG := $(BUILD)/fat_ovl_flair.img
+$(eval $(call fixture-contract,$(FAT_OVL_FLAIR_IMG),HELLO.TXT GREET.COM OVLTEST.COM OVLT.OVL OVLR.BIN SAMIR.COM))
+$(FAT_OVL_FLAIR_IMG): $(FAT_OVL_IMG) $(OVLTEST_BIN)
+	@cp -f $< $@
+	@mcopy -o -i $@ $(OVLTEST_BIN) ::SAMIR.COM
+	@$(call fixture-check,recipe,$@)
+
+$(BUILD)/kmain_flairtenants_mut_ovl_unbound.o: $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MAIN_C) | $(BUILD)
+	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DKMAIN_MUT_OVL_UNBOUND -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(BUILD)/kmain_flairtenants_mut_ovl_unbound.o,ovl_unbound))
+
+# $(call ovl-flair-boot,<boot image>,<run name>)
+define ovl-flair-boot
+@$(call fixture-preflight,$(FAT_OVL_FLAIR_IMG))
+@cp -f $(FAT_OVL_FLAIR_IMG) $(BUILD)/$(2)_data.img
+@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk $(1) --disk2 $(BUILD)/$(2)_data.img \
+	--expect FLAIR-RESUME --name $(2) --out $(BUILD) --timeout-ms 20000 \
+	--keys ctrl-alt-bsl --keys-after FLAIR-LIVE-READY --quit-after FLAIR-RESUME \
+	2> $(BUILD)/$(2).report
+@tr -d '\r' < $(BUILD)/$(2).serial > $(BUILD)/$(2).txt
+endef
+
+.PHONY: test-exec-overlay-flair test-exec-overlay-flair-mutant
+test-exec-overlay-flair: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FAT_OVL_FLAIR_IMG)
+	$(call ovl-flair-boot,$(FLAIRTENANTS_IMG),exec_overlay_flair)
+	@for m in FLAIR-SUSPEND $(OVL_GREEN_MARKERS) 'FLAIR-TEXT-EXIT rc=0' FLAIR-RESUME; do \
+		grep -qx "$$m" $(BUILD)/exec_overlay_flair.txt || { cat $(BUILD)/exec_overlay_flair.txt; \
+		printf '!!! test-exec-overlay-flair RED: marker %s missing\n' "$$m"; exit 1; }; done
+	@! grep -Eq '^(OVL-FAIL|PANIC)' $(BUILD)/exec_overlay_flair.txt
+	@printf '>>> test-exec-overlay-flair: green (flagship GUI text tenant loads, calls and refuses overlays, then resumes)\n'
+
+test-exec-overlay-flair-mutant: test-exec-overlay-flair $(BUILD)/flair_tenants_mut_ovl_unbound.img
+	$(call ovl-flair-boot,$(BUILD)/flair_tenants_mut_ovl_unbound.img,exec_overlay_flair_mut_unbound)
+	@grep -qx 'OVL-FAIL mz-load' $(BUILD)/exec_overlay_flair_mut_unbound.txt \
+		&& grep -qx 'FLAIR-TEXT-EXIT rc=1' $(BUILD)/exec_overlay_flair_mut_unbound.txt \
+		&& ! grep -qx 'OVL-ALL-OK' $(BUILD)/exec_overlay_flair_mut_unbound.txt \
+		|| { cat $(BUILD)/exec_overlay_flair_mut_unbound.txt; printf '!!! overlay backend unbound mutant survived\n'; exit 1; }
+	@printf '>>> test-exec-overlay-flair-mutant: KMAIN_MUT_OVL_UNBOUND RED (OVL-FAIL mz-load, rc=1)\n'
+
+test-exec-overlay: test-exec-overlay-flair
+test-exec-overlay-mutant: test-exec-overlay-flair-mutant

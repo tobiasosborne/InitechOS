@@ -1,0 +1,20 @@
+Makefile:8902: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8900: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8911: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8909: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Ispec -Ios/milton -Iseed -Ibuild \
+	-o build/test_overlay os/milton/test_overlay.c os/milton/int21.c os/milton/devices.c os/milton/mcb.c os/milton/sft.c os/milton/psp.c os/milton/irq.c os/milton/loader.c os/milton/fat12.c
+>>> test-overlay: AH=4Bh AL=03h core (factor reloc, footprint, raw, refusals) + dispatch + DEC-19.4 ownership
+  FAIL os/milton/test_overlay.c:420: A12 failed read leaves the WHOLE destination untouched
+  FAIL os/milton/test_overlay.c:420: A12 failed read leaves the WHOLE destination untouched
+  FAIL os/milton/test_overlay.c:420: A12 failed read leaves the WHOLE destination untouched
+  FAIL os/milton/test_overlay.c:445: A12 failed raw read leaves the WHOLE destination untouched
+  FAIL os/milton/test_overlay.c:467: A13 short FAT chain leaves the WHOLE destination untouched
+A12 fault at read 1/6: status=7
+A12 fault at read 2/6: status=7
+A12 fault at read 3/6: status=7
+A12 fault at read 4/6: status=7
+A12 fault at read 5/6: status=7
+A12 fault at read 6/6: status=7
+test_overlay: 85 checks, 5 failures
+make: *** [harness/exec_overlay.mk:68: test-overlay] Error 1

@@ -41,6 +41,7 @@
 #include "mz.h"
 #include "psp.h"
 #include "dos_structs.h"
+#include "fat12.h"
 #include "test_assert.h"
 
 TEST_HARNESS();
@@ -69,6 +70,7 @@ static uint8_t  g_file[2048];
 static uint32_t g_file_len;
 static int      g_read_fail;     /* make every read fail (A9) */
 static int      g_reads;
+static int      g_fail_read_at; /* fail AFTER copying this read's bytes */
 
 static int mem_read(void *ctx, uint32_t off, uint32_t len, uint8_t *dst)
 {
@@ -78,7 +80,7 @@ static int mem_read(void *ctx, uint32_t off, uint32_t len, uint8_t *dst)
         return 1;
     }
     memcpy(dst, g_file + off, len);
-    return 0;
+    return g_reads == g_fail_read_at;
 }
 
 /* ---- the fake owned window ---------------------------------------------- */
@@ -95,7 +97,7 @@ static int win_owns(uint32_t lin, uint32_t len)
 
 /* Destination: 256 bytes of footprint room + canaries, all preset to 0xA5. */
 #define CANARY 0xA5u
-static uint8_t g_dest[512];
+static uint8_t g_dest[1024];
 static uint8_t g_scratch[LOADER_OVL_SCRATCH];
 
 static void dest_reset(void)
@@ -105,6 +107,7 @@ static void dest_reset(void)
     g_owns_lin = g_owns_len = 0u;
     g_reads = 0;
     g_read_fail = 0;
+    g_fail_read_at = 0;
 }
 static int dest_canary_from(uint32_t from)
 {
@@ -141,6 +144,44 @@ static void build_mz(uint16_t tag, uint32_t reloc_bad)
     put32(g_file, image + 4u, 16u);
     put32(g_file, image + 8u, reloc_bad ? reloc_bad : 60u);
     g_file_len = image + 12u;
+}
+
+/* Two relocation chunks, including fixups in the module's last dword. */
+static void build_many_mz(void)
+{
+    memset(g_file, 0, sizeof g_file);
+    put16(g_file, 0, 0x5A4Du);
+    put16(g_file, 2, 88u);        /* 600 = 512 + 88 */
+    put16(g_file, 4, 2u);
+    put16(g_file, 6, 70u);
+    put16(g_file, 8, 20u);       /* module at 320, length 280 */
+    put16(g_file, 0x18, 32u);
+    put16(g_file, 0x1C, MZ_INITECH_TAG);
+    for (uint32_t k = 0; k < 70u; k++) {
+        put32(g_file, 32u + k * 4u, k * 4u);
+        put32(g_file, 320u + k * 4u, k);
+    }
+    g_file_len = 600u;
+}
+
+/* The review's real FAT failure: a 1024-byte file has just one cluster.
+ * A sector read succeeds, and the subsequent EOC check refuses the file.
+ * Ref: fat12_read_partial's file-size/chain contract (PRD Sec 6.1). */
+static fat12_volume_t g_short_vol;
+static uint8_t g_short_fat[512], g_short_cluster[512];
+static int short_disk_read(void *ctx, uint32_t lba, uint32_t count, void *buf)
+{
+    (void)ctx;
+    if (lba != 2u || count != 1u) return -1;
+    memset(buf, 'R', 512u);
+    return 0;
+}
+static int short_file_read(void *ctx, uint32_t off, uint32_t len, uint8_t *dst)
+{
+    uint32_t got = 0u;
+    return fat12_read_partial(&g_short_vol, g_short_fat, sizeof g_short_fat,
+                              ctx, off, len, dst, g_short_cluster, &got)
+               != FAT12_OK || got != len;
 }
 
 /* ---- Part B: the mock overlay backend ----------------------------------- */
@@ -355,6 +396,78 @@ int main(void)
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
                              0, g_scratch, &got);
     CHECK(st == LOADER_ERR_NULL_OUT, "A11 NULL ownership callback refused");
+
+    /* A12: fail EVERY read, including a read that already changed its buffer.
+     * Discover the read count, then fault each ordinal; this is an atomicity
+     * property, independent of the implementation's read order/pass count. */
+    build_many_mz();
+    dest_reset();
+    g_win_hi = LOAD + sizeof g_dest;
+    st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
+                             win_owns, g_scratch, &got);
+    CHECK(st == LOADER_OK, "A12 multi-chunk baseline loads");
+    int reads = g_reads;
+    CHECK(reads >= 4, "A12 header, module and two relocation chunks read");
+    for (int fail = 1; fail <= reads; fail++) {
+        dest_reset();
+        g_fail_read_at = fail;
+        got = 0xDEADu;
+        st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
+                                 win_owns, g_scratch, &got);
+        printf("A12 fault at read %d/%d: status=%d\n", fail, reads, st);
+        CHECK(st == LOADER_ERR_READ && g_reads == fail,
+              "A12 each injected read failure is returned immediately");
+        CHECK(dest_canary_from(0u),
+              "A12 failed read leaves the WHOLE destination untouched");
+        CHECK(got == 0xDEADu, "A12 failed read leaves out_len untouched");
+    }
+    /* Bad offsets in BOTH chunks: earlier valid fixups must not have committed
+     * anything when the final chunk's validation refuses the module. */
+    for (uint32_t k = 0; k < 2u; k++) {
+        build_many_mz();
+        put32(g_file, 32u + (k ? 69u : 0u) * 4u, 277u);
+        dest_reset();
+        got = 0xDEADu;
+        st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
+                                 win_owns, g_scratch, &got);
+        CHECK(st == LOADER_ERR_BAD_FORMAT && got == 0xDEADu,
+              "A12 invalid fixup in either chunk refuses the overlay");
+        CHECK(dest_canary_from(0u),
+              "A12 failed validation leaves the WHOLE destination untouched");
+    }
+    /* Raw module reads can also partially write before returning an error. */
+    memcpy(g_file, "RAW", 3u);
+    g_file_len = 64u;
+    dest_reset();
+    g_fail_read_at = 2;
+    st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
+                             win_owns, g_scratch, &got);
+    CHECK(st == LOADER_ERR_READ && dest_canary_from(0u),
+          "A12 failed raw read leaves the WHOLE destination untouched");
+
+    /* A13: exercise the actual reader, not only a fault-injection callback. */
+    {
+        blockdev_t disk = { .read_sectors = short_disk_read };
+        dir_entry_t de = { .start_cluster = 2u, .file_size = 1024u };
+        memset(&g_short_vol, 0, sizeof g_short_vol);
+        g_short_vol.dev = &disk;
+        g_short_vol.total_sectors = 8u;
+        g_short_vol.total_clusters = 6u;
+        g_short_vol.fat_type = FAT_TYPE_FAT12;
+        g_short_vol.bpb.bytes_per_sector = 512u;
+        g_short_vol.bpb.sectors_per_cluster = 1u;
+        g_short_vol.bpb.reserved_sectors = 1u;
+        g_short_vol.bpb.num_fats = 1u;
+        g_short_vol.bpb.sectors_per_fat = 1u;
+        g_short_fat[3] = 0xFFu; g_short_fat[4] = 0x0Fu; /* cluster 2 EOC */
+        dest_reset();
+        st = loader_overlay_core(short_file_read, &de, de.file_size, g_dest,
+                                 LOAD, FACTOR, win_owns, g_scratch, &got);
+        CHECK(st == LOADER_ERR_READ, "A13 short FAT chain refused");
+        CHECK(dest_canary_from(0u),
+              "A13 short FAT chain leaves the WHOLE destination untouched");
+    }
+    g_win_hi = LOAD + 0x100u;
 
     /* ===================== Part B: AH=4Bh AL=03h dispatch ================ */
     CHECK(sizeof(exec_overlay_block_t) == 8u &&
