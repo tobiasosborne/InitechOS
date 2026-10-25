@@ -88,7 +88,8 @@ OFF, and no file.
 \Usage
 SET ALTERNATE TO creates the text file named, replacing a file of that name;
 if no extension is given, \file{.TXT} is assumed.  SET ALTERNATE ON then
-copies to the file everything InitechBase displays, until SET ALTERNATE OFF.
+copies displayed command output to the file, until SET ALTERNATE OFF.
+Positioned \cmd{@} SAY output is not copied.
 The file receives the output even while SET CONSOLE is OFF, so a program can
 write a report to a file without showing it.
 
@@ -240,6 +241,31 @@ other, and are shown with an asterisk.
 \Examples
 \DotExample{examples/c-setdeleted}
 \SeeAlso{DELETE, PACK, RECALL, DELETED()}
+\end{XbaseEntry}
+
+% SET DEVICE -- set-commands.md Section 3.4; say-get-read.md Section 2.2;
+% real III+ fns-mint/{prow,pcol}/GOLD.OUT.
+\begin{XbaseEntry}{DEVICE}{set}
+Chooses the device that receives positioned SAY output.
+\Syntax
+\SyntaxLine{\kw{SET DEVICE TO} \kw{SCREEN}/\kw{PRINT}}
+\Defaults
+SCREEN.
+\Usage
+With SET DEVICE TO SCREEN, \cmd{@} SAY displays its expression at the given
+screen position and updates \fn{ROW()} and \fn{COL()}.  With SET DEVICE TO
+PRINT, it writes at the given printer position and updates \fn{PROW()} and
+\fn{PCOL()}.  Output to one device leaves the position of the other alone.
+This version accepts printer rows 0 through 24 and columns 0 through 79;
+a position outside those limits raises
+\xmsg{30}{Position is off the screen.}.
+
+SET DEVICE does not change the destination of \cmd{?} or \cmd{??}; those
+commands continue to advance the screen cursor.
+\Examples
+Write to the printer, save its position, then return to screen output:
+\DotExample{examples/set-device}
+\SeeAlso{@, ROW(), COL(), PROW(), PCOL()}
 \end{XbaseEntry}
 
 % SET ESCAPE -- os/samir/cmd/set.c "ESCAPE" (ss->escape, default ON);

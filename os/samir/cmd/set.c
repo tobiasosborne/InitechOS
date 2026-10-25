@@ -715,7 +715,7 @@ static int set_cmd_hook(void *user, xb_interp *ip,
 
     k = rt_kw_index(opt, "ALTERNATE\0EXACT\0DECIMALS\0DATE\0CENTURY\0ORDER\0"
                          "INDEX\0DELETED\0FILTER\0RELATION\0TALK\0SAFETY\0"
-                         "ESCAPE\0HEADING\0CONSOLE\0STATUS\0COLOR\0");
+                         "ESCAPE\0HEADING\0CONSOLE\0STATUS\0COLOR\0DEVICE\0");
     switch (k) {
     case 0: { /* ALTERNATE */
         int on;
@@ -822,6 +822,17 @@ static int set_cmd_hook(void *user, xb_interp *ip,
         return CMD_OK;
     }
     case 16: return do_set_color(ip,ss,s,err_code);
+    case 17: { /* SET DEVICE: set-commands.md section 3.4; only @SAY. */
+        int device;
+        if(rt_kw_word(s,"TO\0",(int *)0)!=0) {
+            if(err_code) *err_code=10;
+            return -INTERP_ERR_SYNTAX;
+        }
+        device=rt_kw_index(s_skip_ws(s+2),"SCREEN\0PRINT\0");
+        if(device<0) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+        xb_interp_ctx(ip)->device_print=(uint8_t)device;
+        return CMD_OK;
+    }
     default:
         break;
     }

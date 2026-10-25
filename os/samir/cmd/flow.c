@@ -671,8 +671,9 @@ static uint32_t split_verb(const char *line, char *verb, uint32_t vcap,
         i++;
 
     /* '!' is RUN's punctuation synonym (HELP.DBS _RUN/!; initech-n8q8). */
-    if (line[i] == '!') {
-        if (v < vcap - 1) verb[v++] = '!';
+    if (line[i] == '!' || line[i] == '@') {
+        /* say-get-read.md: @ is a punctuation command, including @2,3. */
+        if (v < vcap - 1) verb[v++] = line[i];
         i++;
     } else
     /* the '?' / '??' display verbs are punctuation, not letters. */

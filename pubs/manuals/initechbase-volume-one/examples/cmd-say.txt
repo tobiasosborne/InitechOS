@@ -1,0 +1,11 @@
+. @ 2,3 SAY "X"
+. STORE ROW() TO SAVEROW
+. STORE COL() TO SAVECOL
+. ? SAVEROW, SAVECOL
+
+         2          4. @ 23,78 SAY "X"
+. STORE ROW() TO SAVEROW
+. STORE COL() TO SAVECOL
+. ? SAVEROW, SAVECOL
+
+        23         79

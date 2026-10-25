@@ -630,6 +630,10 @@ typedef struct xb_ctx {
     /* Using III+ U5-210/235/259: screen controls. STATUS has no CONFIG.DB.
      * dot_command is set only around a command entered at the dot prompt. */
     uint8_t set_heading, set_console, set_status, dot_command;
+    /* say-get-read.md sections 1-2; fns-mint row/col/prow/pcol.
+     * Independent screen and printer positions, initially zero. */
+    uint8_t device_print;
+    uint16_t screen_row, screen_col, printer_row, printer_col;
     /* Using III+ U5-193: ALTERNATE records program output even CONSOLE OFF. */
     void (*mirror_output)(void *, const char *, uint32_t);
     void *mirror_user;

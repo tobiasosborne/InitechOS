@@ -2264,32 +2264,64 @@ static int fn_ndx_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     return fn_fail(err, XBEE_INVALID_FN);
 }
 
+/* Ref: system-and-database-functions.md ROW; real fns-mint/row.
+ * Printer functions have width four in the independent III+ transcript. */
 static int fn_row_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    (void)args;
+    if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
+    *out=xb_n(ctx ? ctx->screen_row : 0);
+    out->num_width=4;
+#ifdef SAMIR_FNS_MUTANT_row
+    out->u.n+=1; /* Each independent real capture must catch this. */
+#endif
+    return 0;
 }
 
+/* Ref: system-and-database-functions.md COL; real fns-mint/col.
+ * Printer functions have width four in the independent III+ transcript. */
 static int fn_col_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    (void)args;
+    if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
+    *out=xb_n(ctx ? ctx->screen_col : 0);
+    out->num_width=4;
+#ifdef SAMIR_FNS_MUTANT_col
+    out->u.n+=1; /* Each independent real capture must catch this. */
+#endif
+    return 0;
 }
 
+/* Ref: system-and-database-functions.md PROW; real fns-mint/prow.
+ * Printer functions have width four in the independent III+ transcript. */
 static int fn_prow_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    (void)args;
+    if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
+    *out=xb_n(ctx ? ctx->printer_row : 0);
+    out->num_width=4;
+#ifdef SAMIR_FNS_MUTANT_prow
+    out->u.n+=1; /* Each independent real capture must catch this. */
+#endif
+    return 0;
 }
 
+/* Ref: system-and-database-functions.md PCOL; real fns-mint/pcol.
+ * Printer functions have width four in the independent III+ transcript. */
 static int fn_pcol_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    (void)args;
+    if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
+    *out=xb_n(ctx ? ctx->printer_col : 0);
+    out->num_width=4;
+#ifdef SAMIR_FNS_MUTANT_pcol
+    out->u.n+=1; /* Each independent real capture must catch this. */
+#endif
+    return 0;
 }
 
 static int fn_inkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,

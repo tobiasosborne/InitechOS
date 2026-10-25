@@ -210,4 +210,8 @@ int dec_format_fit(double v, int width, int dec, char *out, int ties_even);
  */
 double dec_parse(const char *s, int len);
 
+/* 80x25 screen wraps/scrolls; printer has no screen edge.
+ * Ref: say-get-read.md section 1, system-and-database-functions.md ROW/COL. */
+void rt_cursor_advance(uint16_t *,uint16_t *,const char *,uint32_t,int);
+
 #endif /* INITECH_SAMIR_RT_H */

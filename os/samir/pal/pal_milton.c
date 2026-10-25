@@ -840,6 +840,37 @@ static void milton_gotoxy(samir_pal_t *p,uint8_t row,uint8_t col)
 {
     if(milton_is_console(1)) milton_cursor(p,row,col);
 }
+/* INT 21h AH=3Dh/40h/3Eh: direct CON is independent of redirected
+ * stdout. ANSI.SYS positions the cursor; INT 10h is an exception vector in
+ * Milton protected mode (os/milton/idt.c), not the real-mode BIOS API. */
+static int milton_say_screen(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
+{
+    char seq[16];uint32_t pos=0;int result=0;
+    pal_fd fd=milton_open(p,"CON",PAL_WR);
+    if(fd<0)return -PAL_EIO;
+    seq[pos++]=27;seq[pos++]='[';row++;col++;
+    if(row>=10)seq[pos++]=(char)('0'+row/10);
+    seq[pos++]=(char)('0'+row%10);seq[pos++]=';';
+    if(col>=10)seq[pos++]=(char)('0'+col/10);
+    seq[pos++]=(char)('0'+col%10);seq[pos++]='H';
+    if(milton_write(p,fd,seq,pos)!=(int32_t)pos || milton_write(p,fd,text,n)!=(int32_t)n) result=-PAL_EIO;
+    if(milton_close(p,fd))result=-PAL_EIO;
+    if(!result && state_of(p)->screen.active)
+        samir_screen_at(&state_of(p)->screen,(uint8_t)(row-1),(uint8_t)(col-1),text,n);
+    return result;
+}
+/* DOS 3.3 AH=05h, DL=byte: os/milton/int21.c do_prn_output.
+ * Its unbound sink discards immediately; never poll absent printer hardware. */
+static int milton_printout(samir_pal_t *p,const char *text,uint32_t n)
+{
+    uint32_t i;int cf=0;(void)p;
+    for(i=0;i<n;i++) {
+        (void)int21(0x05u,0,(uint8_t)text[i],0,0,0,&cf);
+        if(cf)return -PAL_EIO;
+    }
+    return 0;
+}
+
 static void milton_set_attr(samir_pal_t *p,uint8_t attr)
 {
     /* Existing CON ANSI transport: CGA -> SGR 30-37/40-47, 1 and 5.
@@ -1158,6 +1189,8 @@ samir_pal_t *pal_milton_make(void)
     st->ta_head = st->ta_n = 0;
     st->con_in = -1;
     st->vtable.gotoxy     = milton_gotoxy;
+    st->vtable.say_screen = milton_say_screen;
+    st->vtable.printout = milton_printout;
     st->vtable.set_attr   = milton_set_attr;
     st->vtable.iscolor    = milton_iscolor;
     st->vtable.today      = milton_today;

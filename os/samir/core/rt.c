@@ -594,3 +594,25 @@ void pal_owned_free(samir_pal_t *pal, void **owner)
     *owner=(void *)0;
     while(b){pal_owned_block *next=b->next;pal->release(pal,b);b=next;}
 }
+
+/* Control motion matches os/milton/console.c console_putc and ANSI BEL. */
+void rt_cursor_advance(uint16_t *row,uint16_t *col,const char *s,uint32_t n,int screen)
+{
+    uint32_t i;
+    for(i=0;i<n;i++) {
+        if(s[i]=='\r') *col=0;
+        else if(s[i]=='\n') { if(*row<65535u) ++*row;if(screen)*col=0; }
+        else if(s[i]=='\f') { *row=*col=0; }
+        else if(screen && s[i]=='\a') { }
+        else if(screen && s[i]=='\t') {
+            *col=(uint16_t)((*col/8+1)*8);
+            if(*col>=80) { *col=0;++*row; }
+        }
+        else if(s[i]=='\b') { if(*col) --*col; }
+        else {
+            if(*col<65535u) ++*col;
+            if(screen && *col==80) { *col=0;++*row; }
+        }
+        if(screen && *row>24) *row=24;
+    }
+}

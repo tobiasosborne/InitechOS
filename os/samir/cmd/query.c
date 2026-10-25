@@ -891,6 +891,71 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
     return INTERP_OK;
 }
 
+/* Ref: say-get-read.md sections 1-2; programming-and-io.md error 30.
+ * Deliberately reject out-of-slice clauses before evaluating or painting. */
+static int q_say(xb_interp *ip,const char *args,int *ec)
+{
+    const char *p=args,*comma=0,*say=0;
+    char quote=0,prev=' ',expr[Q_MAX_EXPR+1],line[Q_LINEBUF];
+    int depth=0,rc,j;uint32_t n=0;xb_val v;double coordinate[2];
+    xb_ctx *ctx=xb_interp_ctx(ip);samir_pal_t *pal=xb_interp_pal(ip);
+    for(;*p;p++) {
+        char c=*p;
+        if(rt_literal_byte(c,&quote)) { prev=c;continue; }
+        if(c=='(') depth++;
+        else if(c==')' && depth) depth--;
+        if(!depth) {
+            if(c==',' && !comma) comma=p;
+            if(q_isspace(prev) && q_match_kw(p,"SAY")) { say=p;break; }
+        }
+        prev=c;
+    }
+    if(!comma || !say || comma>say) { if(ec)*ec=10;return -INTERP_ERR_SYNTAX; }
+    for(j=0;j<2;j++) {
+        const char *start=j?comma+1:args,*end=j?say:comma;
+        n=(uint32_t)(end-start);
+        if(n>Q_MAX_EXPR) { if(ec)*ec=18;return -INTERP_ERR_SYNTAX; }
+        rt_memcpy(expr,start,n);expr[n]=0;
+        rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
+        if(v.t!=XB_N) { if(ec)*ec=27;return -INTERP_ERR_EVAL; }
+        coordinate[j]=v.u.n;
+        /* No printed-page limits are established by the local spec. Fail
+         * loud outside the specified grid rather than invent page geometry. */
+        if(!(v.u.n>-1 && v.u.n<(j?80:25))) { if(ec)*ec=30;return -INTERP_ERR_EVAL; }
+    }
+    p=q_skip_ws(say+3);
+    rc=xb_interp_eval(ip,p,&v,ec);if(rc)return rc;
+    if(v.t==XB_N) {
+        const dbf_field_t *f=q_field_descriptor(ip,p);
+        if(f) { v.num_width=f->field_len;v.num_dec=f->dec_count; }
+    }
+    n=0;q_render_val(line,&n,sizeof line,&v,ctx,1);
+    if(ctx->device_print) {
+        uint16_t row=ctx->printer_row,col=ctx->printer_col;
+        uint16_t target_row=(uint16_t)coordinate[0],target_col=(uint16_t)coordinate[1];
+        if(!pal->printout) { if(ec)*ec=29;return -INTERP_ERR_EVAL; }
+        /* Harbour doc/en/set.txt SET DEVICE corroborates III+ forms:
+         * backwards rows eject a page; emit CR/LF/spaces to position the head.
+         * The supplied III+ goldens pin forward row 2, column 3 only. */
+        if(row>target_row) { if(pal->printout(pal,"\f",1))goto io_error;row=col=0; }
+        while(row<target_row) { if(pal->printout(pal,"\r\n",2))goto io_error;row++;col=0; }
+        if(col>target_col) { if(pal->printout(pal,"\r",1))goto io_error;col=0; }
+        while(col<target_col) { if(pal->printout(pal," ",1))goto io_error;col++; }
+        if(pal->printout(pal,line,n))goto io_error;
+        ctx->printer_row=target_row;ctx->printer_col=target_col;
+        rt_cursor_advance(&ctx->printer_row,&ctx->printer_col,line,n,0);
+    } else {
+        if(!pal->say_screen || pal->say_screen(pal,(uint8_t)coordinate[0],(uint8_t)coordinate[1],line,n))goto io_error;
+        ctx->screen_row=(uint16_t)coordinate[0];ctx->screen_col=(uint16_t)coordinate[1];
+        rt_cursor_advance(&ctx->screen_row,&ctx->screen_col,line,n,1);
+    }
+    if(ec)*ec=0;
+    return INTERP_OK;
+io_error:
+    if(ec)*ec=29;
+    return -INTERP_ERR_EVAL;
+}
+
 /* ===================================================================== */
 /* LOCATE / CONTINUE                                                      */
 /* ===================================================================== */
@@ -1509,7 +1574,7 @@ static int query_cmd_hook(void *user, xb_interp *ip,
     if (!qs) { if (err_code) *err_code = 0; return -INTERP_ERR_NOMEM; }
 
     k = rt_kw_index(verb, "LIST\0DISPLAY\0?\0??\0LOCATE\0CONTINUE\0SEEK\0FIND\0"
-                          "GO\0GOTO\0SKIP\0");
+                          "GO\0GOTO\0SKIP\0@\0");
 #ifdef SAMIR_DML_MUTANT_abbrev
     /* Disable recognition at one hook only: real DISP differential must bite. */
     if (k == 1 && rt_strlen(verb) != 7) return CMD_UNKNOWN;
@@ -1538,6 +1603,7 @@ static int query_cmd_hook(void *user, xb_interp *ip,
     case 6: rc = q_seek(ip, args, err_code); break;
     case 7: rc = q_find(ip, args, err_code); break;
     case 8: case 9: rc = q_go(ip, args, err_code); break;               /* GO GOTO */
+    case 11: rc = q_say(ip, args, err_code); break;
     case 10: rc = q_skip(ip, args, err_code); break;
     default: return CMD_UNKNOWN;                /* not a query verb */
     }

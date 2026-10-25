@@ -34771,12 +34771,18 @@ include harness/emu/panic_reasons.mk
 # are run by name (make test-samir-fns-pending), NOT in the default vector --
 # a known-red gate in `make test` is noise, not an oracle. A case moves from
 # PENDING to CASES with the commit that makes it green (Rule 6: mutant too).
-SAMIR_FNS_CASES := alias alternate console diskspace division errors exp exprcol fklabel getenv index inkey iscolor listoff lupdate numlist os readkey recsize struct time type unknown version
+SAMIR_FNS_CASES := alias alternate col console diskspace division errors exp exprcol fklabel getenv index inkey iscolor listoff lupdate numlist os pcol prow readkey recsize row struct time type unknown version
 SAMIR_FNS_PENDING := century default overflow path procedure relation talk with \
-	log sqrt ndx row col prow pcol lastkey
+	log sqrt ndx lastkey
 .PHONY: test-samir-fns-pending
 test-samir-fns-pending: $(addprefix test-samir-fns-,$(SAMIR_FNS_PENDING))
 SAMIR_FNS_TEST := $(BUILD)/test_samir_fns
+$(BUILD)/test_samir_say: $(DBF_DIFF_DIR)/test_samir_say.c $(SAMIR_DIR)/core/screen.c $(filter-out $(SAMIR_DIR)/samir_main.c,$(SAMIR_MAIN_SRC)) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
+.PHONY: test-samir-say
+test-samir-say: $(BUILD)/test_samir_say
+	@$<
+TEST_UNIT_GATES += test-samir-say
 $(SAMIR_FNS_TEST): $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
 $(BUILD)/test_samir_fns_%: $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
