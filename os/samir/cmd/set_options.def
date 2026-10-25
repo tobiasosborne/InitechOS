@@ -5,8 +5,9 @@
  * function in set.c (set_opt_<name>).  A lane adds a SET option by writing its
  * handler and adding ONE row here; nothing is numbered.  Row order matters only
  * for the 4-letter-abbreviation tie-break (earlier row wins, as rt_kw_index).
- * .gitattributes marks this file merge=union, so concurrent row additions merge
- * without a conflict.  Keep rows ASCII, one per line, no blank lines needed.
+ * .gitattributes marks this file merge=union. Distinct additions avoid positional
+ * conflicts; test-samir-registries rejects duplicate keys and malformed rows.
+ * Keep rows ASCII, one per line, no blank lines needed.
  */
 SET_OPT("ALTERNATE", set_opt_alternate)
 SET_OPT("EXACT", set_opt_exact)

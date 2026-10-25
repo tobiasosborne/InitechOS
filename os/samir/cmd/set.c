@@ -662,7 +662,8 @@ invalid:
 /*
  * One handler per SET option, one row per option in set_options.def (an
  * X-macro list; .gitattributes marks it merge=union, so two lanes adding
- * rows never renumber or conflict).  A handler is
+ * rows avoid positional conflicts; test-samir-registries validates the merge).
+ * A handler is
  *     int fn(xb_interp *ip, set_state *ss, const char *s, int *err_code)
  * with `s` the text after the option keyword, and returns exactly what
  * set_cmd_hook returns (CMD_OK or a negative error).  The keyword is matched

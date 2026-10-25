@@ -106,7 +106,7 @@ PUBS_GENERATED += $(PUBS_SAMIR_GEN)
 # $(PUBS_GEN)/entries-<book>-<group>.tex (pubs/entry-index.sh); a chapter says
 # \input{entries-<book>-<group>}.  Adding an entry = adding one file; the
 # directory itself is a prerequisite so adds and removals both regenerate.
-PUBS_ENTRY_DIRS  := $(sort $(patsubst %/,%,$(dir $(wildcard $(PUBS_DIR)/manuals/*/entries/*/*.tex))))
+PUBS_ENTRY_DIRS  := $(sort $(patsubst %/,%,$(wildcard $(PUBS_DIR)/manuals/*/entries/*/)))
 PUBS_ENTRY_IDX   := $(foreach d,$(PUBS_ENTRY_DIRS),$(PUBS_GEN)/entries-$(word 3,$(subst /, ,$(d)))-$(word 5,$(subst /, ,$(d))).tex)
 define pubs-entry-index
 $$(PUBS_GEN)/entries-$(word 3,$(subst /, ,$(1)))-$(word 5,$(subst /, ,$(1))).tex: $(PUBS_DIR)/entry-index.sh $(1) $$(wildcard $(1)/*.tex)
@@ -115,6 +115,11 @@ $$(PUBS_GEN)/entries-$(word 3,$(subst /, ,$(1)))-$(word 5,$(subst /, ,$(1))).tex
 endef
 $(foreach d,$(PUBS_ENTRY_DIRS),$(eval $(call pubs-entry-index,$(d))))
 PUBS_GENERATED += $(PUBS_ENTRY_IDX)
+
+.PHONY: test-pubs-entry-index
+test-pubs-entry-index:
+	+@MAKE="$(MAKE)" sh harness/pubs/entry_index_check.sh
+test-pubs-build: test-pubs-entry-index
 
 # Build into $(1) (fresh), optional mode $(2) (mutant) and manual $(3).
 define pubs-build-into
