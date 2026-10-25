@@ -2150,6 +2150,45 @@ static const struct { uint8_t min, max; char types[4]; } fn_signature[] = {
     [FN_DISKSPACE] = {0, 0, ""},
 };
 
+/* Real III+ log/sqrt GOLD.OUT picture probes (PM round 3): LOG(22027)
+ * is eight columns, SQRT(10000) eight, LOG(-100) seven, SQRT(-1.00) five,
+ * and -BAL N(8,2) nine. STORE preserves a ten-integer-column memvar picture.
+ * Ref: harness/diff/dbf_diff/xbase_prog_diff/fns-mint/{log,sqrt}/GOLD.OUT;
+ * ../dbase3-decomp/specs/runtime/numeric-and-string-formatting.md Sec 5.1.
+ * SET DECIMALS is a minimum: the minted D0/D1 fractional and field probes
+ * retain argument precision. Remove the old point/fraction suffix exactly
+ * once, preserve at least one integer column, then attach max(arg, SET)
+ * decimal places, with a point only when that count is nonzero.
+ * Rounding guard: the ordinary dec_format_fit printer retries rounding at
+ * lower precision if a carry will not fit this picture (LOG(22026),
+ * LOG(0.36), SQRT(99.998)). Never derive or widen the picture from the result,
+ * and never pre-round its stored double. Nonfinite results use the same
+ * argument picture, so overflow widths require no special classification. */
+static void fn_math_picture(const xb_ctx *ctx, const xb_val *arg, xb_val *out,
+                            unsigned computed_width)
+{
+    unsigned old_suffix = arg->num_dec ? (unsigned)arg->num_dec + 1u : 0u;
+    int integer_columns = (int)(computed_width ? computed_width : arg->num_width)
+        - (int)old_suffix;
+    /* Natural LOG/SQRT arguments retain their existing integer column rule.
+     * EXP replaces the suffix of a computed base even when no integer room
+     * remains: real limitpic/GOLD.OUT EXP(1.000000000) is 2.71828183.
+     * Keep that subtraction signed; clamp only the final computed picture. */
+    if (!computed_width && integer_columns < 1) integer_columns = 1;
+#ifdef SAMIR_FNS_MUTANT_limitpic
+    if (integer_columns < 1) integer_columns = 1;
+#endif
+    unsigned decimals = ctx->set_decimals > arg->num_dec
+        ? ctx->set_decimals : arg->num_dec;
+    int width = integer_columns + (int)(decimals ? decimals + 1u : 0u);
+#ifdef SAMIR_FNS_MUTANT_mathpicture
+    /* Regression proof: corrupt only negative arguments with wide pictures. */
+    if (arg->u.n < 0.0 && arg->num_width > 4u) width++;
+#endif
+    out->num_width = (uint16_t)(width < 1 ? 1 : width > 255 ? 255 : width);
+    out->num_dec = (uint16_t)decimals;
+}
+
 /* ---- fan-out wave 2026-10-24: one function per lane; replace the stub
 body only ---- */
 /* Ref: ../dbase3-decomp/specs/functions/{numeric-and-date-functions,
@@ -2187,12 +2226,17 @@ static int fn_exp_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         "fstpl %0"
         : "=m" (result)
         : "m" (a));
-#if defined(SAMIR_FNS_MUTANT_EXP) || defined(SAMIR_FNS_MUTANT_exp)
+#if defined(SAMIR_FNS_MUTANT_EXP) || defined(SAMIR_FNS_MUTANT_exp) || defined(SAMIR_FNS_MUTANT_exppicture)
     result += 1.0; /* Rule 6: the EXP transcript must catch this perturbation. */
 #endif
     *out = xb_n(result);
-    out->num_dec = ctx->set_decimals;
-    out->num_width = (uint16_t)(10 + (ctx->set_decimals ? ctx->set_decimals + 1 : 0));
+    /* Real III+ fns-mint/exppicture/GOLD.OUT: EXP starts with the standard
+     * computed-Numeric picture supplied by xb_n, while retaining the
+     * argument's fractional metadata. EXP(1) is 13 columns at DECIMALS 2,
+     * EXP(1.00) and N(8,2) field arguments are 10; EXP(0.368) keeps 3
+     * decimals. Replacing that argument suffix through the same helper as
+     * LOG/SQRT reproduces these widths without rounding the stored result. */
+    fn_math_picture(ctx, &args[0], out, out->num_width);
     *err = XBEE_OK;
     return 0;
 }
@@ -2200,15 +2244,70 @@ static int fn_exp_stub(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    double x, value;
+
+    /* Real dBASE III+ 1.1: LOG accepts exactly one numeric expression.
+     * Ref: numeric-and-date-functions.md LOG section; HELP.DBS line 1298.
+     * The real mint uses #11 (not the generic #9 type mismatch) for both
+     * bad arity and bad type. */
+    if (nargs != 1 || args[0].t != XB_N)
+        return fn_fail(err, XBEE_INVALID_ARG);
+
+    x = args[0].u.n;
+    /* ln(x) = ln(2)*log2(x), using the same FLDLN2/FYL2X operations as
+     * os/i123/core/eval.c. Memory operands keep the surrounding soft-float
+     * ABI intact: both temporary x87 stack entries are popped here.
+     * The common kernel boot initializes the FPU (ADR-0009 DEC-01a).
+     * LANE-BRIEF explicitly requires x87 for LOG. */
+    __asm__ volatile ("fldln2\n\tfldl %1\n\tfyl2x\n\tfstpl %0"
+                      : "=m"(value) : "m"(x));
+    /* Real III+ fns-mint/log/GOLD.OUT: print the complete statement's
+     * overflow result before raising #58. The accepted NDX mechanism
+     * consumes the first pending code at the statement boundary. */
+    if (x <= 0.0 && !ctx->deferred_error) {
+#ifdef SAMIR_FNS_MUTANT_logguards
+        /* Real logguards/GOLD.OUT: a deferred false guard under a procedure
+         * handler enters its body; an immediate error invokes the handler. */
+        return fn_fail(err, 58);
+#endif
+        ctx->deferred_error = 58;
+    }
+#if defined(SAMIR_FNS_MUTANT_LOG) || defined(SAMIR_FNS_MUTANT_log)
+    /* Rule 6 mutation: perturb the numeric result so the pinned golden fails. */
+    value += 0.01;
+#endif
+    *out = xb_n(value);
+    fn_math_picture(ctx, &args[0], out, 0);
+    *err = XBEE_OK;
+    return 0;
 }
 
 static int fn_sqrt_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    double result;
+
+    /* Ref: HELP.DBS line 1309; numeric-and-date-functions.md SQRT;
+     * real III+ fns-mint/sqrt/GOLD.OUT, including argument-picture probes. */
+    if (nargs != 1 || args[0].t != XB_N)
+        return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].u.n < 0.0) {
+#if defined(SAMIR_FNS_MUTANT_SQRT) || defined(SAMIR_FNS_MUTANT_sqrt)
+        return fn_fail(err, 61); /* MUTANT: raise before the result prints. */
+#endif
+        if (!ctx->deferred_error) {
+            ctx->deferred_error = 61;
+        }
+    }
+
+    /* Match i123/core/eval.c's x87 FSQRT path. Memory operands preserve the
+     * surrounding soft-float ABI; a negative input yields a masked NaN. */
+    __asm__ volatile ("fldl %1\n\tfsqrt\n\tfstpl %0"
+                      : "=m"(result) : "m"(args[0].u.n));
+    *out = xb_n(result);
+    fn_math_picture(ctx, &args[0], out, 0);
+    *err = XBEE_OK;
+    return 0;
 }
 
 static int fn_time_stub(xb_ctx *ctx, const xb_val *args, int nargs,

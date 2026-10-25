@@ -1,0 +1,3 @@
+. ? "SQRT(4)", SQRT(4), TYPE("SQRT(4)")
+
+SQRT(4) 2.00 N

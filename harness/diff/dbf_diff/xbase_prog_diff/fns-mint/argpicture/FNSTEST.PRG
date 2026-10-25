@@ -1,0 +1,24 @@
+* Ref: real III+ numeric error parameter/memvar picture follow-up.
+* MINT-ERRORS: 58 61 58 58 61 58
+? "[FNS-BEGIN]"
+? "STORE-LOG"
+STORE LOG(-100) TO X
+? "X",X
+? "STORE-SQRT"
+STORE SQRT(-1) TO X
+? "X",X
+? "STORE-INF"
+STORE LOG(0) TO X
+? "X",X
+? "PASS-LOG"
+DO PICOUT WITH LOG(-100)
+? "PASS-SQRT"
+DO PICOUT WITH SQRT(-1)
+? "PASS-INF"
+DO PICOUT WITH LOG(0)
+? "[FNS-END]"
+RETURN
+PROCEDURE PICOUT
+PARAMETERS P
+? "P",P
+RETURN

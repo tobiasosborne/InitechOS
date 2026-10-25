@@ -1,0 +1,22 @@
+% LOG -- os/samir/core/fn_builtins.c fn_log_stub; III+ HELP.DBS line 1298;
+% real dBASE III PLUS 1.1 capture: fns-mint/log/GOLD.OUT.
+\begin{XbaseEntry}{LOG}{function}
+Returns the natural logarithm of a numeric expression, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{LOG(}\xp{expN}\kw{)}}
+\Usage
+\fn{LOG()} returns the natural logarithm (base \texttt{e}) of its argument.
+The argument must be greater than zero. In an output statement, a zero or
+negative argument displays an asterisk field before
+\xmsg{58}{LOG() : Zero or negative.} is raised.
+An argument that is not numeric, or a call with other than one argument,
+raises \xmsg{11}{Invalid function argument.}.
+The display keeps the argument's space for whole-number digits.
+SET DECIMALS sets the minimum requested decimal places; a fractional
+argument can request more. The displayed result is rounded to fit.
+\Examples
+The natural logarithm of two:
+\DotExample{examples/fn-log}
+\SeeAlso{EXP(), SQRT()}
+\end{XbaseEntry}
+

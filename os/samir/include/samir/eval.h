@@ -643,8 +643,10 @@ typedef struct xb_ctx {
     int   error_number;
     /* Real III+ fns-mint/ndx/GOLD.OUT lines 4-5 and 7-8: NDX(8)
      * yields "" for the complete output statement, then raises error 87.
-     * First deferred error wins; the statement executor consumes this slot.
-     * An ordinary immediate statement error takes precedence. */
+     * First deferred error within an evaluation phase wins. DO WITH starts
+     * a phase per argument and retains the last failing phase until transfer
+     * (real argorder/GOLD.OUT). The executor consumes this slot; an ordinary
+     * immediate statement error takes precedence. */
     int   deferred_error;
 
     /*
@@ -716,6 +718,7 @@ typedef struct xb_ctx {
      * failing one and the program resumes at the next line (real III+ 1.1,
      * SF-errors). Returns 1 when a trap handled `code`, 2 when the handler
      * executed RETRY (re-run the failing statement, Using III+ U5-182),
+     * 3 for inline RETURN (skip a pending transfer; real returnarg),
      * 0 when untrapped. Set by proc.c. */
     int (*on_error)(void *ip, int code);
     /* Real ndx/GOLD.OUT R4-GUARD: false deferred guards with DO handlers

@@ -11,6 +11,7 @@
 #include "scratch_lock.h"
 #include "samir_install.h"
 #include "samir/interp.h"
+#include "samir/rt.h"
 TEST_HARNESS();
 #ifdef SAMIR_W2
 #include "w2_host.h"
@@ -30,12 +31,13 @@ static unsigned used;
 #ifndef SAMIR_W2
 static unsigned input_line;
 #endif
-static const char *const driver[]={"SET TALK OFF","SET SAFETY OFF","ON ERROR ? \"MINT-ERROR\", ERROR(), MESSAGE()","SET ALTERNATE TO GOLD.OUT","SET ALTERNATE ON","DO FNSTEST","SET ALTERNATE TO","QUIT"};
+static const char *driver[]={"SET TALK OFF","SET SAFETY OFF","ON ERROR ? \"MINT-ERROR\", ERROR(), MESSAGE()","SET ALTERNATE TO GOLD.OUT","SET ALTERNATE ON","DO FNSTEST",NULL,"SET ALTERNATE TO","QUIT"};
 static void output(samir_pal_t *p,const char *s,uint32_t n)
 { (void)p; if(n<sizeof captured-used) { memcpy(captured+used,s,n); used+=n; captured[used]=0; } }
 #ifndef SAMIR_W2
 static int32_t input(samir_pal_t *p,char *s,uint32_t cap)
-{ const char *v=input_line<sizeof driver/sizeof driver[0]?driver[input_line++]:"QUIT"; (void)p;snprintf(s,cap,"%s",v);return (int32_t)strlen(s); }
+{ while(input_line<sizeof driver/sizeof driver[0]&&!driver[input_line])input_line++;
+  const char *v=input_line<sizeof driver/sizeof driver[0]?driver[input_line++]:"QUIT"; (void)p;snprintf(s,cap,"%s",v);return (int32_t)strlen(s); }
 #endif
 static int command(const char *s)
 { int rc=system(s); if(rc)fprintf(stderr,"command failed: %s\n",s); CHECK(rc==0,CAPTURE_KIND " factory command succeeded");return rc; }
@@ -49,6 +51,51 @@ static void diff_line(const char *label,const char *p,size_t n,size_t at)
     end=start;while(end<n&&p[end]!='\r'&&p[end]!='\n')end++;
     fprintf(stderr,"%s: %.*s\n",label,(int)(end-start),p+start);
 }
+
+#ifndef SAMIR_W2
+static void test_log_contract(xb_interp *ip)
+{
+    xb_ctx *ctx = xb_interp_ctx(ip);
+    xb_val v;
+    int ec, rc, before = g_fails;
+
+    /* PM LOG review: an overflow value is a successful evaluation; only
+     * the statement executor may raise its deferred error. */
+    ctx->deferred_error = 0;
+    rc = xb_interp_eval(ip, "LOG(0)", &v, &ec);
+    CHECK(rc == INTERP_OK && ec == 0 && ctx->deferred_error == 58,
+          "LOG(0) returns normally and defers error 58");
+    CHECK(v.t == XB_N && v.u.n < -1e300,
+          "LOG(0) returns negative infinity in its overflow result");
+    ctx->deferred_error = 87;
+    rc = xb_interp_eval(ip, "LOG(-1)", &v, &ec);
+    CHECK(rc == INTERP_OK && ec == 0 && ctx->deferred_error == 87,
+          "LOG domain failure preserves the first deferred error");
+    CHECK(v.t == XB_N && v.u.n != v.u.n,
+          "LOG(-1) returns NaN in its overflow result");
+    ctx->deferred_error = 0;
+
+    used = 0; captured[0] = 0;
+    rc = samir_do(ip, "? \"left\", LOG(0), \"right\", LOG(-1), \"done\"");
+    CHECK(rc == INTERP_OK && ctx->deferred_error == 0,
+          "statement consumes deferred LOG error and ON ERROR handles it");
+    CHECK_STR_EQ(captured,
+        "\r\nleft **** right ***** done\r\nMINT-ERROR         58 LOG() : Zero or negative.",
+        "complete output statement precedes deferred LOG error report");
+    used = 0; captured[0] = 0;
+    rc = samir_do(ip, "? LOG(0), LOG(\"X\")");
+    CHECK(rc == INTERP_OK && ctx->deferred_error == 0 && ctx->error_number == 11,
+          "an immediate argument error wins over a pending LOG domain error");
+    CHECK_STR_EQ(captured, "\r\nMINT-ERROR         11 Invalid function argument.",
+        "immediate error uses the ordinary ON ERROR report");
+    ctx->deferred_error = 87;
+    CHECK(samir_do(ip, "? \"nested\"") == INTERP_OK && ctx->deferred_error == 87,
+          "nested statement execution restores its caller's deferred slot");
+    ctx->deferred_error = 0;
+    if (g_fails == before)
+        puts(">>> test-samir-log-contract: green (deferred error ordering, first error)");
+}
+#endif
 static int equal_text(const char *a,const char *b)
 {
     const char *p=strstr(a,CAPTURE_BEGIN),*q=strstr(b,CAPTURE_BEGIN);
@@ -117,6 +164,48 @@ static void inkey_keys(samir_pal_t *pal, xb_interp *ip)
     pal->conin_poll = saved;
 }
 #endif
+
+#ifndef SAMIR_W2
+/* Use the language pipeline so literals and unary signs carry their real
+ * display widths; xb_n() alone deliberately defaults to ten columns. */
+static int sqrt_eval(const char *source, xb_ctx *ctx, xb_val *value, int *error)
+{
+    xb_token tokens[16];
+    xb_node nodes[16];
+    int count = xb_lex(source, (uint32_t)strlen(source), tokens, 16, error);
+    int root;
+    if (count < 0) return count;
+    root = xb_parse(tokens, (uint32_t)count, nodes, 16, error);
+    if (root < 0) return root;
+    return xb_eval(nodes, root, ctx, value, error);
+}
+static void sqrt_mirror(void *user, const char *s, uint32_t n)
+{ (void)s; *(unsigned *)user += n; }
+static void sqrt_deferred_check(void)
+{
+    xb_ctx ctx = {0};
+    samir_pal_t pal = {0};
+    xb_val arg = xb_u(), value = xb_u();
+    int error = 0, rc;
+    used = 0;
+    pal.conout = output;
+    ctx.file_pal = &pal;
+    ctx.set_console = 1;
+    ctx.set_decimals = 2;
+    ctx.mirror_output = sqrt_mirror;
+    ctx.mirror_user = &used;
+    CHECK(sqrt_eval("-1", &ctx, &arg, &error) == 0 && arg.num_width == 2,
+          "parsed -1 carries its two-column display width");
+    rc = xb_call_builtin("SQRT", 4, &arg, 1, &ctx, &value, &error);
+    CHECK(rc == 0 && error == 0 && ctx.deferred_error == 61,
+          "SQRT(-1) returns normally and defers error 61");
+    CHECK(used == 0, "SQRT evaluation emits no console or alternate bytes");
+    CHECK(value.t == XB_N, "SQRT domain error returns a Numeric value");
+    ctx.deferred_error = 87;
+    rc = xb_call_builtin("SQRT", 4, &arg, 1, &ctx, &value, &error);
+    CHECK(rc == 0 && ctx.deferred_error == 87, "first deferred error wins");
+}
+#endif
 int main(int argc,char **argv)
 {
     const char *name=argc>1?argv[1]:"unknown",*mode=argc>2?argv[2]:"host";
@@ -152,15 +241,21 @@ int main(int argc,char **argv)
     snprintf(dir,sizeof dir,"build/samirw2/%s-%s",mode,name);
     snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s && cp -rf %s/INPUT/. %s/ && cp -f %s/FNSTEST.PRG %s/MINT.PRG %s/CONFIG.DB %s/",dir,dir,gold,dir,gold,gold,gold,dir);command(cmd);
 #else
+    /* Preserve a mint wrapper's explicit end marker after an early RETURN.
+     * Ref: real returnarg/MINT.PRG; never synthesize one for other captures. */
+    snprintf(path,sizeof path,"%s/MINT.PRG",gold);readfile(path,current,sizeof current);
+    driver[6]=strstr(current,"\n? \"[FNS-END]\"")?"? \"[FNS-END]\"":NULL;
+    snprintf(cmd,sizeof cmd,"for source_prg in harness/diff/dbf_diff/xbase_prog_diff/corpus/fns/%s/*.PRG; do [ -f \"$source_prg\" ] || continue; cmp -s \"$source_prg\" %s/\"${source_prg##*/}\" || exit 1; done",name,gold);
+    if(command(cmd))return 2;
     snprintf(dir,sizeof dir,"build/samirfns/%s-%s",mode,name);
-    snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s/DATA && cp -f build/CLIENTS.DBF %s/BASE.DBF && cp -f %s/FNSTEST.PRG %s/FNSTEST.PRG && cp -f %s/LIBRARY.PRG %s/LIBRARY.PRG && cp -f %s/DATA/* %s/DATA/",dir,dir,dir,gold,dir,gold,dir,gold,dir);command(cmd);
+    snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s/DATA && cp -f build/CLIENTS.DBF %s/BASE.DBF && cp -f %s/*.PRG %s/ && cp -f %s/DATA/* %s/DATA/",dir,dir,dir,gold,dir,gold,dir);command(cmd);
 #endif
     if(!strcmp(name,"default")||!strcmp(name,"path")){snprintf(cmd,sizeof cmd,"rm -f %s/BASE.DBF",dir);command(cmd);}
     if(!strcmp(name,"alias")||!strcmp(name,"relation")){snprintf(cmd,sizeof cmd,"cp -f build/CLIENTS.DBF %s/OTHER.DBF",dir);command(cmd);}
     if(emu){
         snprintf(path,sizeof path,"%s/data.img",dir);f=fopen(path,"wb");if(!f)return 2;fseek(f,1474560-1,SEEK_SET);fputc(0,f);fclose(f);
         snprintf(path,sizeof path,"%s/FNS.IN",dir);f=fopen(path,"wb");if(!f)return 2;
-        for(unsigned i=0;i<sizeof driver/sizeof driver[0];i++)fprintf(f,"%s\r\n",driver[i]);
+        for(unsigned i=0;i<sizeof driver/sizeof driver[0];i++)if(driver[i])fprintf(f,"%s\r\n",driver[i]);
         fclose(f);
         snprintf(path,sizeof path,"%s/FNS.BAT",dir);f=fopen(path,"wb");if(!f)return 2;
         fputs("@echo off\r\n",f);
@@ -222,6 +317,7 @@ int main(int argc,char **argv)
         pal->conin_line=input;ip=xb_interp_make(pal);
         if (ip && !strcmp(name,"inkey")) inkey_keys(pal,ip);
         CHECK(ip&&samir_repl(pal,ip)==0,CAPTURE_KIND " full disk program returned");
+        if(ip && !strcmp(name,"log"))test_log_contract(ip);
         if(ip)xb_interp_free(ip);
 #endif
         pal_host_free(pal);if(chdir(cwd))return 2;
@@ -243,6 +339,7 @@ int main(int argc,char **argv)
     }
     return TEST_SUMMARY("test-samir-w2");
 #else
+    if (!strcmp(name,"sqrt"))sqrt_deferred_check();
     return TEST_SUMMARY("test-samir-fns");
 #endif
 }

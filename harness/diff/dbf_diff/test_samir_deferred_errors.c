@@ -145,6 +145,8 @@ static void handled_guards(xb_interp *ip)
           "guard propagates handler cancellation through ordinary control path");
     xb_interp_ctx(ip)->on_error = NULL;
 }
+/* Argument transfer outcomes are graded by real returnarg/retryconfirm
+ * transcripts on host and QEMU, including the actual received argument. */
 int main(void)
 {
     samir_pal_t *pal = pal_host_make((struct pal_host_cfg){86, 7, 24, 2*1024*1024});

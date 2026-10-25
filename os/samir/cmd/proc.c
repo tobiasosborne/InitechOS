@@ -721,7 +721,18 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
             xb_val v;
             if (rt_copy_expr(&p, ebuf, P_MAX_EXPR) < 0) { ecode = 0; goto syntax; }
             if (nargs >= P_MAX_ARGS) { ecode = P_MSG_WRONG_PARAM; goto syntax; }
-            crc = xb_interp_eval(ip, ebuf, &v, ec);
+            {
+                xb_ctx *ctx = xb_interp_ctx(ip);
+                int pending = ctx->deferred_error;
+#ifndef SAMIR_FNS_MUTANT_argorder
+                /* Real argorder/GOLD.OUT: the last failing argument wins;
+                 * a later valid argument preserves it. Each expression still
+                 * keeps its first deferred error within its own phase. */
+                ctx->deferred_error = 0;
+#endif
+                crc = xb_interp_eval(ip, ebuf, &v, ec);
+                if (!ctx->deferred_error) ctx->deferred_error = pending;
+            }
             if (crc != INTERP_OK)
                 goto out;
             if(v.t==XB_C || v.t==XB_M) {
@@ -739,6 +750,16 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
             break;
         }
     }
+
+#if !defined(SAMIR_FNS_MUTANT_logdoarg) && !defined(SAMIR_FNS_MUTANT_sqrtdoarg) && !defined(SAMIR_FNS_MUTANT_ndxdoarg) && !defined(SAMIR_FNS_MUTANT_sqrtpass)
+    /* Argument blocks are owned before ON ERROR can reset expression scratch.
+     * Complete the caller's evaluation before any callee statement can run. */
+    crc = samir_finish_transfer(ip, ec);
+    if (crc != INTERP_OK) {
+        if (crc == INTERP_TRAP_RETURN) crc = INTERP_OK;
+        goto out;
+    }
+#endif
 
     crc = p_call(ip, ps, name, argv, nargs, ec);
 out:
@@ -937,6 +958,12 @@ static int proc_trap(void *vip, int code)
     rc = proc_fire_onerror(ip, code);
     if (rc == PROC_RC_RETRY_TRAP || rc == PROC_RC_RETRY)
         return 2;
+    if (rc == PROC_RC_RETURN)
+#ifdef SAMIR_FNS_MUTANT_returnarg
+        return 1; /* MUTANT: lose the inline handler's RETURN outcome. */
+#else
+        return INTERP_TRAP_RETURN;
+#endif
     if (rc == INTERP_RC_QUIT || rc == INTERP_RC_CANCEL ||
         rc == PROC_RC_RETURN_MASTER)
         return rc;
@@ -1136,12 +1163,12 @@ int proc_fire_onerror(xb_interp *ip, int err_code)
     ctx->error_number = err_code;
     ps->handler_depth = ps->do_depth;
     rc = samir_do(ip, ps->onerr);           /* almost always "DO <handler>" */
-    if (rc == PROC_RC_RETURN)
-        rc = INTERP_OK;
+    /* A procedure handler's RETURN is consumed by p_call. Preserve an
+     * inline RETURN for the caller's transfer boundary (real returnarg). */
     ps->in_handler = 0;
     /* Inline commands retain ERROR() (SF-errors). Routine completion in
      * p_call owns clearing, so a helper's return is visible inside a handler. */
-    if (rc == PROC_RC_RETRY_TRAP || rc == PROC_RC_RETRY)
+    if (rc == PROC_RC_RETRY_TRAP || rc == PROC_RC_RETRY || rc == PROC_RC_RETURN)
         ctx->error_number = 0;
     return rc;
 }

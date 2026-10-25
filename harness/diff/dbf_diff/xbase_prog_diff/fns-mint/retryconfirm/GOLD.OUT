@@ -1,0 +1,7 @@
+
+[FNS-BEGIN]
+TRAP          1         58
+TRAP          2         16
+TARG ****************          0
+AFTER          2          0
+[FNS-END]
