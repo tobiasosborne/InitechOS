@@ -98,12 +98,18 @@ int main(int argc, char **argv)
     fclose(f);
     snprintf(cmd, sizeof cmd, "mcopy -o -i %s " D "/OVL.BAT ::OVL.BAT", img);
     if (command(cmd)) return 2;
+    /* Keys in stream order (--mouse k<chord>), each answer only once SAMIR
+     * waits for it: typed ahead, a Ctrl-C would meet InitechDOS's BREAK=ON
+     * check during SAMIR's start-up reads instead (INT 23h, "Terminate batch
+     * job"), as on DOS. W<marker> holds until the prompt is on serial; the
+     * retry (ENTER) re-opens and re-verifies SAMIR.OVL, given 3 s. */
     snprintf(cmd, sizeof cmd,
              "build/qemu_harness --disk build/tracer_secondary.img --disk2 %s --name samir_ovl_%s --out build "
-             "--timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > " D "/%s.stdout 2> " D "/%s.report",
+             "--timeout-ms 60000 --mouse '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > " D "/%s.stdout 2> " D "/%s.report",
              img, mode,
-             ok ? "o,v,l,ret,shift-slash,spc,apostrophe,o,v,l,apostrophe,shift-equal,apostrophe,minus,o,k,apostrophe,ret,q,u,i,t,ret,e,x,i,t,ret"
-                : "o,v,l,ret,ret,ctrl-c,e,x,i,t,ret",
+             ok ? "ko,kv,kl,kret,w3000,kshift-slash,kspc,kapostrophe,ko,kv,kl,kapostrophe,kshift-equal,kapostrophe,kminus,ko,kk,kapostrophe,kret,"
+                  "w1000,kq,ku,ki,kt,kret,w2000,ke,kx,ki,kt,kret"
+                : "ko,kv,kl,kret,WInsert System Disk,w500,kret,w3000,kctrl-c,w2000,ke,kx,ki,kt,kret",
              mode, mode);
     command(cmd);
     snprintf(cmd, sizeof cmd, "build/samir_ovl_%s.serial", mode);

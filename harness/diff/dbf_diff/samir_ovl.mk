@@ -96,8 +96,8 @@ test-samir-ovl-swap-emu-mutant: test-samir-ovl-swap-emu \
 	@mkdir -p $(BUILD)/samir-ovl
 	@set -e; for k in NO_SWAP NO_RELOC; do log=$(BUILD)/samir-ovl/swap-mut-$$k.log; \
 	  set +e; INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) status emu $(BUILD)/SAMIR_SCREEN_SAMIR_OVL_MUTATE_$$k.EXE > $$log 2>&1; rc=$$?; set -e; \
-	  test $$rc -ne 0 && grep -q 'FAIL' $$log || { cat $$log; exit 1; }; \
-	  printf 'SAMIR_OVL_MUTATE_%s swap RED: ' $$k; grep -m1 'FAIL' $$log; done
+	  test $$rc -ne 0 && grep -q 'FAIL.*DML' $$log || { cat $$log; exit 1; }; \
+	  printf 'SAMIR_OVL_MUTATE_%s swap RED: ' $$k; grep -m1 'FAIL.*DML' $$log; done
 	@printf '>>> test-samir-ovl-swap-emu-mutant: green (NO_SWAP, NO_RELOC RED)\n'
 
 TEST_UNIT_GATES += test-samir-ovl test-samir-ovl-mutant test-samir-ovl-static test-samir-ovl-static-mutant
