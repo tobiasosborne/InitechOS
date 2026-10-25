@@ -2217,12 +2217,21 @@ static int fn_exp_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         "fstpl %0"
         : "=m" (result)
         : "m" (a));
-#if defined(SAMIR_FNS_MUTANT_EXP) || defined(SAMIR_FNS_MUTANT_exp)
+#if defined(SAMIR_FNS_MUTANT_EXP) || defined(SAMIR_FNS_MUTANT_exp) || defined(SAMIR_FNS_MUTANT_exppicture)
     result += 1.0; /* Rule 6: the EXP transcript must catch this perturbation. */
 #endif
     *out = xb_n(result);
-    out->num_dec = ctx->set_decimals;
-    out->num_width = (uint16_t)(10 + (ctx->set_decimals ? ctx->set_decimals + 1 : 0));
+    /* Real III+ fns-mint/exppicture/GOLD.OUT: EXP starts with the standard
+     * computed-Numeric picture supplied by xb_n, while retaining the
+     * argument's fractional metadata. EXP(1) is 13 columns at DECIMALS 2,
+     * EXP(1.00) and N(8,2) field arguments are 10; EXP(0.368) keeps 3
+     * decimals. Replacing that argument suffix through the same helper as
+     * LOG/SQRT reproduces these widths without rounding the stored result. */
+    {
+        xb_val picture = args[0];
+        picture.num_width = out->num_width;
+        fn_math_picture(ctx, &picture, out);
+    }
     *err = XBEE_OK;
     return 0;
 }
@@ -2250,8 +2259,13 @@ static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     /* Real III+ fns-mint/log/GOLD.OUT: print the complete statement's
      * overflow result before raising #58. The accepted NDX mechanism
      * consumes the first pending code at the statement boundary. */
-    if (x <= 0.0 && !ctx->deferred_error)
+    if (x <= 0.0 && !ctx->deferred_error) {
+#ifdef SAMIR_FNS_MUTANT_logdoarg
+        ctx->deferred_error = 87; /* MUTANT: wrong DO-argument error code. */
+#else
         ctx->deferred_error = 58;
+#endif
+    }
 #if defined(SAMIR_FNS_MUTANT_LOG) || defined(SAMIR_FNS_MUTANT_log)
     /* Rule 6 mutation: perturb the numeric result so the pinned golden fails. */
     value += 0.01;
@@ -2275,7 +2289,13 @@ static int fn_sqrt_stub(xb_ctx *ctx, const xb_val *args, int nargs,
 #if defined(SAMIR_FNS_MUTANT_SQRT) || defined(SAMIR_FNS_MUTANT_sqrt)
         return fn_fail(err, 61); /* MUTANT: raise before the result prints. */
 #endif
-        if (!ctx->deferred_error) ctx->deferred_error = 61;
+        if (!ctx->deferred_error) {
+#ifdef SAMIR_FNS_MUTANT_sqrtdoarg
+            ctx->deferred_error = 87; /* MUTANT: wrong DO-argument code. */
+#else
+            ctx->deferred_error = 61;
+#endif
+        }
     }
 
     /* Match i123/core/eval.c's x87 FSQRT path. Memory operands preserve the

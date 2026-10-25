@@ -5,7 +5,9 @@ Returns the value of e raised to a numeric expression, as a numeric value.
 \SyntaxLine{\kw{EXP(}\xp{expN}\kw{)}}
 \Usage
 \fn{EXP()} calculates e raised to the value of its argument. The argument
-must be numeric. SET DECIMALS controls the decimal places displayed. A call with other than one argument raises
+must be numeric. SET DECIMALS sets the minimum requested decimal places;
+a fractional argument can request more. The displayed result is rounded to fit.
+A call with other than one argument raises
 \xmsg{11}{Invalid function argument.}; an argument that is not numeric also
 raises \xmsg{11}{Invalid function argument.} in III+.
 \Examples
