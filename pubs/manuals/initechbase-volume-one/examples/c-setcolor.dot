@@ -1,0 +1,5 @@
+SET COLOR TO W+/B,N/W
+? "color", ISCOLOR(), TYPE("ISCOLOR()")
+SET COLOR TO W/N
+? "after-set-color", ISCOLOR(), TYPE("ISCOLOR()")
+SET COLOR TO

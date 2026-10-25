@@ -842,7 +842,27 @@ static void milton_gotoxy(samir_pal_t *p,uint8_t row,uint8_t col)
 }
 static void milton_set_attr(samir_pal_t *p,uint8_t attr)
 {
-    if(milton_is_console(1)) milton_rawout(p,attr==0x70?"\033[0;7m":"\033[0m",attr==0x70?6u:4u);
+    /* Existing CON ANSI transport: CGA -> SGR 30-37/40-47, 1 and 5.
+     * Ref: os/milton/ansi.c ansi_do_sgr, IBM DOS 3.30 TR Ch 4 tables 4-1/4-2.
+     * Reset first so a previous bright/blinking attribute cannot leak. */
+    static const char cga_to_ansi[]="04261537";
+    char seq[16]="\033[0;30;40";
+    unsigned n=9;
+    seq[5]=cga_to_ansi[attr&7];seq[8]=cga_to_ansi[(attr>>4)&7];
+    if(attr&8){seq[n++]=';';seq[n++]='1';}
+    if(attr&128){seq[n++]=';';seq[n++]='5';}
+    seq[n++]='m';
+    if(milton_is_console(1))milton_rawout(p,seq,n);
+}
+
+/* PRD Sec 5 / spec/hardware.json video: every supported display is colour.
+ * Boot uses INT 10h AX=4F02h (VBE) or AX=0013h (256-colour fallback),
+ * os/boot/io_sys.asm vbe_setup. No BIOS invocation in protected-mode SAMIR;
+ * this remains true for a W/N attribute or redirected console output. */
+static int milton_iscolor(samir_pal_t *p)
+{
+    (void)p;
+    return 1;
 }
 
 /* ---- Command processor slot (RUN / !; initech-n8q8) ----------------------- *
@@ -1139,6 +1159,7 @@ samir_pal_t *pal_milton_make(void)
     st->con_in = -1;
     st->vtable.gotoxy     = milton_gotoxy;
     st->vtable.set_attr   = milton_set_attr;
+    st->vtable.iscolor    = milton_iscolor;
     st->vtable.today      = milton_today;
     st->vtable.os_version = milton_os_version;
     st->vtable.alloc      = milton_alloc;

@@ -547,6 +547,9 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
 
     /* SET SAFETY default = ON [verified: set-commands.md Sec 2]. */
     ss->safety = 1;
+    /* III+ HELP.DBS SET COLOR: white/black, black/white, black border. */
+    ss->color_standard=0x07;ss->color_enhanced=0x70;
+    ss->color_border=ss->color_background=0;
     /* SET ESCAPE default = ON (Using III+ U5-220 "normally ON"). */
     ss->escape = 1;
 
@@ -564,6 +567,94 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
 /* ===================================================================== */
 /* The SET command hook (main dispatch)                                   */
 /* ===================================================================== */
+
+/* Ref: ../dbase3-decomp/specs/commands/set-commands.md SET COLOR,
+ * HELP.DBS lines 1390-1398; CGA attribute layout in os/milton/console.c.
+ * U/I/X are monochrome underline/inverse/blank attributes. RG and GR
+ * denote the same red+green mixture; RB denotes red+blue. */
+static int color_name(const char **text)
+{
+    const char *s=*text;
+    int a=s_up1(*s), value;
+    if(!a)return -1;
+    s++;
+    if(a=='N'||a=='X') value=0;
+    else if(a=='B') { value=1;if(s_up1(*s)=='G'){value=3;s++;} }
+    else if(a=='G') { value=2;if(s_up1(*s)=='R'){value=6;s++;} }
+    else if(a=='R') {
+        value=4;
+        if(s_up1(*s)=='B'){value=5;s++;}
+        else if(s_up1(*s)=='G'){value=6;s++;}
+    }
+    else if(a=='W')value=7;
+    else if(a=='U')value=1;
+    else if(a=='I')value=0x70;
+    else return -1;
+    *text=s;
+    return value;
+}
+
+static int color_modifiers(const char **text,int *bits)
+{
+    while(**text=='+'||**text=='*') {
+        int bit=**text=='+'?8:128;
+        if(*bits&bit)return -1;
+        *bits|=bit;
+        (*text)++;
+    }
+    return 0;
+}
+
+static int color_attribute(const char **text,uint8_t *attr)
+{
+    const char *s=s_skip_ws(*text);
+    int mono=s_up1(*s)=='U'||s_up1(*s)=='I'||s_up1(*s)=='X';
+    int fg=color_name(&s), bg=0, bits=0;
+    if(fg<0||color_modifiers(&s,&bits))return -1;
+    s=s_skip_ws(s);
+    if(*s=='/') {
+        s=s_skip_ws(s+1);bg=color_name(&s);
+        if(bg<0||bg>7||color_modifiers(&s,&bits))return -1;
+        s=s_skip_ws(s);
+    } else if(!mono)return -1;
+    if(*s && *s!=',')return -1;
+#ifdef SET_COLOR_MUTANT_BG
+    bg=0; /* Rule 6: drop only the parsed background nibble. */
+#endif
+    *attr=(uint8_t)(fg|(bg<<4)|bits);
+    *text=s;
+    return 0;
+}
+
+static int do_set_color(xb_interp *ip,set_state *ss,const char *s,int *err)
+{
+    uint8_t attrs[4];unsigned field=0;
+    samir_pal_t *pal=xb_interp_pal(ip);
+    /* The TO grammar is literal attributes, not an expression or DOS SET.
+     * Malformed literals -> #10 Syntax error (catalogue, spec Sec 1.4).
+     * Parse into locals first: even a bad fourth field changes nothing. */
+    if(rt_kw_word(s,"TO\0",(int *)0)!=0)goto invalid;
+    s=s_skip_ws(s+2);
+    attrs[0]=ss->color_standard;attrs[1]=ss->color_enhanced;
+    attrs[2]=ss->color_border;attrs[3]=ss->color_background;
+    if(!*s) {
+        attrs[0]=0x07;attrs[1]=0x70;attrs[2]=attrs[3]=0;
+    } else for(;;) {
+        s=s_skip_ws(s);
+        if(*s && *s!=',' && color_attribute(&s,&attrs[field]))goto invalid;
+        if(!*s)break;
+        if(*s!=','||++field==4)goto invalid;
+        s++;
+    }
+    if(!pal->set_attr)goto invalid;
+    ss->color_standard=attrs[0];ss->color_enhanced=attrs[1];
+    ss->color_border=attrs[2];ss->color_background=attrs[3];
+    pal->set_attr(pal,attrs[0]);
+    return CMD_OK;
+invalid:
+    if(err)*err=10;
+    return -INTERP_ERR_SYNTAX;
+}
 
 /*
  * set_cmd_hook: an xb_cmd_hook (interp.h). Dispatches the SET verb.
@@ -624,7 +715,7 @@ static int set_cmd_hook(void *user, xb_interp *ip,
 
     k = rt_kw_index(opt, "ALTERNATE\0EXACT\0DECIMALS\0DATE\0CENTURY\0ORDER\0"
                          "INDEX\0DELETED\0FILTER\0RELATION\0TALK\0SAFETY\0"
-                         "ESCAPE\0HEADING\0CONSOLE\0STATUS\0");
+                         "ESCAPE\0HEADING\0CONSOLE\0STATUS\0COLOR\0");
     switch (k) {
     case 0: { /* ALTERNATE */
         int on;
@@ -730,6 +821,7 @@ static int set_cmd_hook(void *user, xb_interp *ip,
         else ctx->set_status=(uint8_t)on;
         return CMD_OK;
     }
+    case 16: return do_set_color(ip,ss,s,err_code);
     default:
         break;
     }

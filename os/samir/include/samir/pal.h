@@ -259,6 +259,13 @@ struct samir_pal {
      * GET TIME (CH=hour, CL=minute, DH=second; hundredths are discarded).
      * Append PAL extensions so existing positional slots keep their offsets. */
     void    (*time)(samir_pal_t *, uint8_t *hour, uint8_t *minute, uint8_t *second);
+
+    /* iscolor: nonzero for a colour display, zero for monochrome, independent
+     * of SET COLOR. Ref: HELP.DBS line 1270; PRD Sec 5 / hardware.json video.
+     * Milton's boot selects colour via INT 10h AX=4F02h or AX=0013h
+     * (os/boot/io_sys.asm); the protected-mode PAL reports that invariant
+     * without a BIOS call. Host: fixed colour capability (Rule 11). */
+    int     (*iscolor)(samir_pal_t *);
 };
 
 /* Owned buffer chains: reclaim ONLY this codec's allocations. */

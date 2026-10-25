@@ -81,6 +81,7 @@ int main(void)
 	CHECK(p->conin_char && p->gotoxy && p->set_attr,
 	      "terminal-extension slots are bound (DEC-02 rev: @SAY/GET/READ)");
 	CHECK(p->today, "clock slot is bound (injectable, AH=2Ah)");
+    CHECK(p->iscolor && p->iscolor(p)==0,"null colour capability slot bound and false");
 	CHECK(p->alloc && p->reset, "arena slots are bound (AH=48h)");
     CHECK(p->acquire && p->release,"persistent owner slots bound");
     CHECK(p->acquire(p,16u)==NULL,"null persistent allocation fails loud");

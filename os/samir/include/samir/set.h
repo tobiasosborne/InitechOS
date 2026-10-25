@@ -113,6 +113,8 @@ typedef struct {
     int  century;           /* 0 = OFF (default), 1 = ON */
     int  talk;              /* 1 = ON (default), 0 = OFF */
     int  safety;            /* 1 = ON (default), 0 = OFF */
+    /* HELP.DBS SET COLOR lines 1393-1396; CGA attribute bytes. */
+    uint8_t color_standard, color_enhanced, color_border, color_background;
 
     /* --- Stored value options --- */
     int          decimals;  /* 2 = default; >= 0 */

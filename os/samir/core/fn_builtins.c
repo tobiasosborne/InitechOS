@@ -2361,11 +2361,23 @@ static int fn_lastkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     return fn_fail(err, XBEE_INVALID_FN);
 }
 
-static int fn_iscolor_stub(xb_ctx *ctx, const xb_val *args, int nargs,
+static int fn_iscolor(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    /* Ref: system-and-database-functions.md ISCOLOR; HELP.DBS line 1270;
+     * fns-mint/iscolor/GOLD.OUT: logical, unchanged by SET COLOR, #11 on args. */
+    samir_pal_t *pal = ctx ? ctx->file_pal : (samir_pal_t *)0;
+    int color;
+    (void)args;
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!pal || !pal->iscolor) return fn_fail(err, XBEE_INVALID_ARG);
+    color = pal->iscolor(pal);
+#if defined(SAMIR_FNS_MUTANT_iscolor) || defined(SAMIR_FNS_MUTANT_ISCOLOR)
+    color = !color; /* Rule 6: invert only the capability result. */
+#endif
+    *out = xb_l(color);
+    *err = XBEE_OK;
+    return 0;
 }
 
 static int fn_fklabel_stub(xb_ctx *ctx, const xb_val *args, int nargs,
@@ -2635,7 +2647,7 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     case FN_INKEY: return fn_inkey_stub(ctx, args, nargs, out, err_code);
     case FN_READKEY: return fn_readkey_stub(ctx, args, nargs, out, err_code);
     case FN_LASTKEY: return fn_lastkey_stub(ctx, args, nargs, out, err_code);
-    case FN_ISCOLOR: return fn_iscolor_stub(ctx, args, nargs, out, err_code);
+    case FN_ISCOLOR: return fn_iscolor(ctx, args, nargs, out, err_code);
     case FN_FKLABEL: return fn_fklabel_stub(ctx, args, nargs, out, err_code);
     case FN_OS: return fn_os_stub(ctx, args, nargs, out, err_code);
     case FN_VERSION: return fn_version(ctx, args, nargs, out, err_code);

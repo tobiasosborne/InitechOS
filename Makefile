@@ -3233,6 +3233,20 @@ test-interp-set-mutant: $(TEST_INTERP_SET_MUT)
 		printf '>>> test-interp-set-mutant: green (EXACT default-ON correctly RED)\n'; \
 	fi
 
+# SET COLOR: PM wave-1 recovery; real command parser + injected PAL attribute.
+$(BUILD)/test_samir_set_color: $(DBF_DIFF_DIR)/test_samir_set_color.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC) $(wildcard $(SAMIR_INC_DIR)/samir/*.h) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
+$(BUILD)/test_samir_set_color_mutant: $(DBF_DIFF_DIR)/test_samir_set_color.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC) $(wildcard $(SAMIR_INC_DIR)/samir/*.h) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSET_COLOR_MUTANT_BG -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
+.PHONY: test-samir-set-color test-samir-set-color-mutant
+test-samir-set-color: $(BUILD)/test_samir_set_color
+	@$<
+	@echo '>>> test-samir-set-color: green'
+test-samir-set-color-mutant: test-samir-set-color $(BUILD)/test_samir_set_color_mutant
+	@set +e; $(BUILD)/test_samir_set_color_mutant > $(BUILD)/set-color-mutant.log 2>&1; rc=$$?; set -e; \
+	 test $$rc -eq 1 && grep -q 'FAIL.*SET COLOR standard attribute reaches PAL' $(BUILD)/set-color-mutant.log || { cat $(BUILD)/set-color-mutant.log; exit 1; }; \
+	 printf '>>> SET_COLOR_MUTANT_BG RED: '; grep -m1 'FAIL.*SET COLOR standard attribute reaches PAL' $(BUILD)/set-color-mutant.log
+
 # ---- SAMIR S5.6 formatter wiring: SET DATE/CENTURY -> DTOC/CTOD (initech-7az.15) ----
 # SET DATE (8 formats) + SET CENTURY drive DTOC format + CTOD parse via xb_ctx fields
 # populated by set.c. STR() is NOT governed by SET DECIMALS (verified: numeric-and-
@@ -34757,9 +34771,9 @@ include harness/emu/panic_reasons.mk
 # are run by name (make test-samir-fns-pending), NOT in the default vector --
 # a known-red gate in `make test` is noise, not an oracle. A case moves from
 # PENDING to CASES with the commit that makes it green (Rule 6: mutant too).
-SAMIR_FNS_CASES := alias alternate console diskspace division errors exp exprcol fklabel getenv index inkey listoff lupdate numlist os readkey recsize struct time type unknown version
+SAMIR_FNS_CASES := alias alternate console diskspace division errors exp exprcol fklabel getenv index inkey iscolor listoff lupdate numlist os readkey recsize struct time type unknown version
 SAMIR_FNS_PENDING := century default overflow path procedure relation talk with \
-	log sqrt ndx row col prow pcol lastkey iscolor
+	log sqrt ndx row col prow pcol lastkey
 .PHONY: test-samir-fns-pending
 test-samir-fns-pending: $(addprefix test-samir-fns-,$(SAMIR_FNS_PENDING))
 SAMIR_FNS_TEST := $(BUILD)/test_samir_fns
@@ -34811,6 +34825,7 @@ TEST_UNIT_GATES += test-samir-fns-$(1) test-samir-fns-$(1)-mutant
 TEST_EMU_GATES += test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
 endef
 $(foreach rule,$(SAMIR_FNS_CASES),$(eval $(call samir-fns-gates,$(rule))))
+TEST_UNIT_GATES += test-samir-set-color test-samir-set-color-mutant
 # Named PENDING gates are available explicitly, outside the default test vectors.
 # Missing functions differ from real III+ until implemented; LASTKEY instead
 # pins III+'s existing #31 rejection (it is absent from that dialect).

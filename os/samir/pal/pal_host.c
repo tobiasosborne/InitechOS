@@ -334,6 +334,14 @@ static void host_set_attr(samir_pal_t *p, uint8_t attr)
     (void)p; (void)attr;
 }
 
+/* Fixed colour adapter, matching fns-mint/iscolor/GOLD.OUT (Rule 11).
+ * Never infer capability from the host terminal or redirected output. */
+static int host_iscolor(samir_pal_t *p)
+{
+    (void)p;
+    return 1;
+}
+
 /* ---- clock slot (injectable; NEVER wall clock) -------------------------- */
 
 /* Fixed target identity, never the host OS (Rule 11; pal.h AH=30h). */
@@ -491,6 +499,7 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
     st->vtable.conin_poll = host_conin_poll;
     st->vtable.gotoxy     = host_gotoxy;
     st->vtable.set_attr   = host_set_attr;
+    st->vtable.iscolor    = host_iscolor;
     st->vtable.today      = host_today;
     st->vtable.os_version = host_os_version;
     st->vtable.diskspace  = host_diskspace;

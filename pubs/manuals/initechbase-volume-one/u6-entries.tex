@@ -429,6 +429,25 @@ Only the first character is examined. The letters are A through Z and a through 
 \SeeAlso{ISUPPER(), ISLOWER(), VAL(), LEFT()}
 \end{XbaseEntry}
 
+% HELP.DBS line 1270; real III+ fns-mint/iscolor/GOLD.OUT.
+\begin{XbaseEntry}{ISCOLOR}{function}
+Returns a logical value that is true when the system is running in color.
+\Syntax
+\SyntaxLine{\kw{ISCOLOR()}}
+\Usage
+The result is .T. on a color display and .F. on a monochrome display.
+Choosing white on black with SET COLOR TO W/N does not change the display's
+color capability. The function takes no argument; an argument raises
+\xmsg{11}{Invalid function argument.}.
+\Examples
+On a color display:
+\begin{TypeIn}
+. ? "svga", ISCOLOR(), TYPE("ISCOLOR()")
+svga .T. L
+\end{TypeIn}
+\SeeAlso{SET COLOR, TYPE()}
+\end{XbaseEntry}
+
 % ISLOWER -- os/samir/core/fn_builtins.c fn_islower (l.1373-1383)
 \begin{XbaseEntry}{ISLOWER}{function}
 Returns a logical value that is true when a character string begins with a lower-case letter.
