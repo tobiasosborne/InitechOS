@@ -30,7 +30,11 @@ $(BUILD)/baked_guard.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_baked_guard.b
 
 .PHONY: test-baked-exec-guard test-fat-hygiene-emu
 test-baked-exec-guard: $(HARNESS_BIN) $(BUILD)/baked_guard.img $(FAT_EXEC_IMG)
-	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk $(BUILD)/baked_guard.img --disk2 $(FAT_EXEC_IMG) --name baked_guard --out $(BUILD) --timeout-ms 8000 --quit-after EXEC-4B-END > $(BUILD)/baked_guard.stdout 2> $(BUILD)/baked_guard.report || true
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_EXEC_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_EXEC_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_EXEC_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_EXEC_IMG))),:)
+	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk $(BUILD)/baked_guard.img --disk2 "$(FLAIR_GATE_DATA)" --name baked_guard --out $(BUILD) --timeout-ms 8000 --quit-after EXEC-4B-END > $(BUILD)/baked_guard.stdout 2> $(BUILD)/baked_guard.report || true
 	@! grep -q 'triple_fault=1' $(BUILD)/baked_guard.report
 	@tr -d '\r' < $(BUILD)/baked_guard.serial > $(BUILD)/baked_guard.normalized
 	@grep -qx 'KHY-BAKED-NESTED-OK' $(BUILD)/baked_guard.normalized || { echo 'RED baked EXEC guard: nested load did not restore caller PSP/rc'; exit 1; }
@@ -88,7 +92,11 @@ $(BUILD)/baked_unguarded.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_baked_ung
 	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_baked_unguarded.bin $(BOOT_SYSTEM_TOOL)
 .PHONY: test-baked-exec-guard-mutant
 test-baked-exec-guard-mutant: $(HARNESS_BIN) $(BUILD)/baked_unguarded.img $(FAT_EXEC_IMG)
-	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk $(BUILD)/baked_unguarded.img --disk2 $(FAT_EXEC_IMG) --name baked_unguarded --out $(BUILD) --timeout-ms 6000 > $(BUILD)/baked_unguarded.stdout 2> $(BUILD)/baked_unguarded.report || true
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_EXEC_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_EXEC_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_EXEC_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_EXEC_IMG))),:)
+	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk $(BUILD)/baked_unguarded.img --disk2 "$(FLAIR_GATE_DATA)" --name baked_unguarded --out $(BUILD) --timeout-ms 6000 > $(BUILD)/baked_unguarded.stdout 2> $(BUILD)/baked_unguarded.report || true
 	@grep -q 'PROGRAM-BEGIN' $(BUILD)/baked_unguarded.serial
 	@grep -q '^GREETINGS FROM A:GREET.COM' $(BUILD)/baked_unguarded.serial
 	@! grep -q 'PROGRAM-EXIT rc=7' $(BUILD)/baked_unguarded.serial || { echo 'FAIL unguarded baked mutant survived'; exit 1; }

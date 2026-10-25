@@ -25210,7 +25210,11 @@ test-fs: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_DATA_IMG) $(PPM_TEXT_CHECK
 	@# then grade its prompt and the blank former mount-listing rows explicitly.
 	@# Primary DOS startup is separately graded by test-dos-startup.
 	@$(call fixture-preflight,$(FAT_DATA_IMG))
-	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_DATA_IMG)" --screendump \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_DATA_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_DATA_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --screendump \
 		--screendump-after SHELL-READY \
 		--name "$(FS_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(FS_REPORT)" || true
@@ -25289,7 +25293,11 @@ test-type: $(HARNESS_BIN) $(DEMO_IMG) $(FAT_DATA_IMG)
 	@printf 'Expecting : FILEIO-BIND-OK + "%s" between TYPE-OUTPUT-BEGIN/END + TYPE-EXIT rc=0\n' "$(TYPE_CONTENT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FAT_DATA_IMG))
-	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" --disk2 "$(FAT_DATA_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_DATA_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_DATA_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(TYPE_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(TYPE_REPORT)" || true
 	@cat "$(TYPE_REPORT)"
@@ -25407,7 +25415,11 @@ test-dir: $(HARNESS_BIN) $(DEMO_IMG) $(FAT_DATA_IMG)
 	@printf 'Expecting : FILEIO-BIND-OK + fixture names between DIR-PROG-OUTPUT-BEGIN/END + DIR-PROG-EXIT rc=0\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FAT_DATA_IMG))
-	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" --disk2 "$(FAT_DATA_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_DATA_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_DATA_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(DIRP_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(DIRP_REPORT)" || true
 	@cat "$(DIRP_REPORT)"
@@ -25473,7 +25485,11 @@ test-exec: $(HARNESS_BIN) $(EXEC_IMG) $(FAT_EXEC_IMG)
 	@printf 'Expecting : "%s" + EXEC-SAW-EXIT rc=7 + EXEC-4B-RC=7 + no triple-fault\n' "$(EXEC_OUTPUT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FAT_EXEC_IMG))
-	@$(HARNESS_BIN) --disk "$(EXEC_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_EXEC_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_EXEC_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_EXEC_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_EXEC_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(EXEC_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(EXEC_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(EXEC_REPORT)" || true
 	@cat "$(EXEC_REPORT)"
@@ -25781,7 +25797,11 @@ test-multiopen: $(HARNESS_BIN) $(MULTIOPEN_IMG) $(FAT_MULTIOPEN_IMG)
 	@printf 'Expecting : FILEIO-BIND-OK + MO-A1=Hel / MO-B1=Sec / MO-A2=Hello / MO-BIG=%s + MULTIOPEN-EXIT rc=0 + no triple-fault\n' "$(MO_BIG_SIG)"
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FAT_MULTIOPEN_IMG))
-	@$(HARNESS_BIN) --disk "$(MULTIOPEN_IMG)" --disk2 "$(FAT_MULTIOPEN_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_MULTIOPEN_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_MULTIOPEN_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_MULTIOPEN_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_MULTIOPEN_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(MULTIOPEN_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(MULTIOPEN_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(MULTIOPEN_REPORT)" || true
 	@cat "$(MULTIOPEN_REPORT)"
@@ -25867,7 +25887,11 @@ test-datetime: $(HARNESS_BIN) $(DATETIME_IMG) $(FAT_MULTIOPEN_IMG)
 	@printf 'Expecting : DT-YEAR=2026 MON=6 DAY=9 DOW=2(Tue) HOUR=12 MIN=34 SEC=56 + FREE>0 + PSP>0 + rc=0\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FAT_MULTIOPEN_IMG))
-	@$(HARNESS_BIN) --disk "$(DATETIME_IMG)" --disk2 "$(FAT_MULTIOPEN_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_MULTIOPEN_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_MULTIOPEN_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_MULTIOPEN_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_MULTIOPEN_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(DATETIME_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--rtc-base "$(DATETIME_RTC_BASE)" --rtc-deterministic \
 		--name "$(DATETIME_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(DATETIME_REPORT)" || true
@@ -26351,7 +26375,11 @@ test-shell: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CH
 	@# ppm_text_check's [C] "seafoam below the banner" guard. The visual half gets
 	@# its OWN clean boot (Run 2, below).
 	@$(call fixture-preflight,$(FAT_EXEC_IMG))
-	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_EXEC_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_EXEC_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_EXEC_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_EXEC_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(SHELL_NAME)" --out "$(BUILD)" --timeout-ms 12000 \
 		--keys "d,i,r,ret,t,y,p,e,spc,h,e,l,l,o,dot,t,x,t,ret,g,r,e,e,t,ret,b,a,d,c,m,d,ret,e,x,i,t,ret" \
 		--keys-after "SHELL-READY" \
@@ -26411,7 +26439,7 @@ test-shell: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CH
 	@# adds the row-2 prompt-band assertion. Exact cells below also reject the
 	@# old console mount listing, whose header formerly occupied that row.
 	@$(call fixture-preflight,$(FAT_EXEC_IMG))
-	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--screendump --screendump-after SHELL-READY \
 		--name "$(SHELL_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(SHELL_SCRN_REPORT)" || true
@@ -26727,7 +26755,11 @@ test-readerr-winh: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG)
 	@printf 'Expecting : ONE "Bad command or file name" per PRN read, OUT.TXT left empty, clean SHELL-EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FAT_EXEC_IMG))
-	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_EXEC_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_EXEC_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_EXEC_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_EXEC_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(WINH_NAME)" --out "$(BUILD)" --timeout-ms 10000 \
 		--keys "$(WINH_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -26791,7 +26823,11 @@ test-readerr-winh-mutant: $(HARNESS_BIN) $(WINH_MUT_TRACER_IMG) $(FAT_EXEC_IMG)
 	@# here (a host-load delay cannot manufacture a hang that isn't real, so
 	@# there is no false-RED exposure from the legacy quit on this leg).
 	@$(call fixture-preflight,$(FAT_EXEC_IMG))
-	@$(HARNESS_BIN) --disk "$(WINH_MUT_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_EXEC_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_EXEC_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_EXEC_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_EXEC_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(WINH_MUT_TRACER_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(WINH_MUT_NAME)" --out "$(BUILD)" --timeout-ms 5000 \
 		--keys "$(WINH_KEYS)" --keys-after "SHELL-READY" --legacy-quit \
 		2> "$(WINH_MUT_REPORT)" || true
