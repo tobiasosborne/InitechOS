@@ -1314,6 +1314,7 @@ xb_interp *xb_interp_make(samir_pal_t *pal)
     ip->ctx.set_decimals = 2;
     ip->ctx.set_exact    = 0;
     ip->ctx.error_number = 0;          /* Programming III+ N5-30: no trapped error */
+    ip->ctx.deferred_error = 0;        /* NDX GOLD.OUT: raise after the statement */
     ip->ctx.set_century  = 0;          /* III+ default OFF (mint-results-003) */
     ip->ctx.set_date_fmt = XB_DATE_AMERICAN;  /* III+ default (mint-results-003) */
     ip->ctx.scratch      = ip->scratch;

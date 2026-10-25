@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include "test_assert.h"
 #include "samir/interp.h"
+#include "samir/rt.h"
 TEST_HARNESS();
 struct pal_host_cfg { uint8_t yy,mm,dd; uint32_t heap; };
 extern samir_pal_t *pal_host_make(struct pal_host_cfg);
@@ -42,6 +43,90 @@ static int equal_text(const char *a,const char *b)
             p&&j<n?(unsigned char)p[j]:0,q&&j<m?(unsigned char)q[j]:0,(unsigned long)n,(unsigned long)m);
         diff_line("  got",p,n,j);diff_line("  real",q,m,j);return 0;
     }return 1;
+}
+/* Use the language pipeline so literals and unary signs carry their real
+ * display widths; xb_n() alone deliberately defaults to ten columns. */
+static int sqrt_eval(const char *source, xb_ctx *ctx, xb_val *value, int *error)
+{
+    xb_token tokens[16];
+    xb_node nodes[16];
+    int count = xb_lex(source, (uint32_t)strlen(source), tokens, 16, error);
+    int root;
+    if (count < 0) return count;
+    root = xb_parse(tokens, (uint32_t)count, nodes, 16, error);
+    if (root < 0) return root;
+    return xb_eval(nodes, root, ctx, value, error);
+}
+/* PM SQRT review: the display rounds across an integer-width boundary.
+ * The expected text is the review's fixed 99.998 -> 10.00 case. */
+static void sqrt_width_check(void)
+{
+    xb_ctx ctx = {0};
+    xb_val arg = xb_n(99.998), value = xb_u();
+    char text[256] = {0};
+    int error = 0;
+    ctx.set_decimals = 2;
+    CHECK(xb_call_builtin("SQRT", 4, &arg, 1, &ctx, &value, &error) == 0,
+          "SQRT rounding-boundary expression evaluates");
+    if (value.num_width <= sizeof text)
+        dec_format(value.u.n, value.num_width, value.num_dec, text);
+    if (value.num_width != 5 || memcmp(text, "10.00", 5))
+        fprintf(stderr, "SQRT width edge: width=%u text='%.*s'; expected width=5 text='10.00'\n",
+                value.num_width, value.num_width, text);
+    CHECK(value.num_width == 5 && value.num_dec == 2 && !memcmp(text, "10.00", 5),
+          "SQRT(99.998) displays 10.00 without width overflow");
+}
+static void sqrt_mirror(void *user, const char *s, uint32_t n)
+{ (void)s; *(unsigned *)user += n; }
+static void sqrt_deferred_check(void)
+{
+    xb_ctx ctx = {0};
+    samir_pal_t pal = {0};
+    xb_val arg = xb_u(), value = xb_u();
+    char text[5] = {0};
+    int error = 0, rc;
+    used = 0;
+    pal.conout = output;
+    ctx.file_pal = &pal;
+    ctx.set_console = 1;
+    ctx.set_decimals = 2;
+    ctx.mirror_output = sqrt_mirror;
+    ctx.mirror_user = &used;
+    CHECK(sqrt_eval("-1", &ctx, &arg, &error) == 0 && arg.num_width == 2,
+          "parsed -1 carries its two-column display width");
+    rc = xb_call_builtin("SQRT", 4, &arg, 1, &ctx, &value, &error);
+    CHECK(rc == 0 && error == 0 && ctx.deferred_error == 61,
+          "SQRT(-1) returns normally and defers error 61");
+    CHECK(used == 0, "SQRT evaluation emits no console or alternate bytes");
+    if (value.t == XB_N && value.num_width == sizeof text)
+        dec_format(value.u.n, value.num_width, value.num_dec, text);
+    CHECK(value.t == XB_N && value.num_width == 5 && !memcmp(text, "*****", 5),
+          "SQRT domain result star-fills through the ordinary numeric formatter");
+    ctx.deferred_error = 87;
+    rc = xb_call_builtin("SQRT", 4, &arg, 1, &ctx, &value, &error);
+    CHECK(rc == 0 && ctx.deferred_error == 87, "first deferred error wins");
+}
+/* PM round 2: this extrapolates the LOG(0), LOG(-1), SQRT(-1) goldens;
+ * SQRT(-100) itself remains pending an independent III+ mint. */
+static void sqrt_argument_width_check(void)
+{
+    xb_ctx ctx = {0};
+    xb_val arg = xb_u(), value = xb_u();
+    char text[7] = {0};
+    int error = 0, rc;
+    ctx.set_decimals = 2;
+    CHECK(sqrt_eval("-100", &ctx, &arg, &error) == 0 && arg.num_width == 4,
+          "parsed -100 carries its four-column display width");
+    rc = sqrt_eval("SQRT(-100)", &ctx, &value, &error);
+    CHECK(rc == 0 && error == 0 && ctx.deferred_error == 61,
+          "SQRT(-100) returns normally and defers error 61");
+    if (value.t == XB_N && value.num_width <= sizeof text)
+        dec_format(value.u.n, value.num_width, value.num_dec, text);
+    if (value.num_width != 7 || memcmp(text, "*******", 7))
+        fprintf(stderr, "SQRT negative width: got %u; expected 7 for SQRT(-100) at DECIMALS 2\n",
+                value.num_width);
+    CHECK(value.num_width == 7 && value.num_dec == 2 && !memcmp(text, "*******", 7),
+          "SQRT(-100) produces a seven-wide star field by the inferred rule");
 }
 int main(int argc,char **argv)
 {
@@ -88,5 +173,8 @@ int main(int argc,char **argv)
     snprintf(path,sizeof path,"%s/CAPTURE.OUT",dir);readfile(path,captured,sizeof captured);
     snprintf(path,sizeof path,"%s/captured.out",dir);f=fopen(path,"wb");if(f){fwrite(captured,1,strlen(captured),f);fclose(f);}
     CHECK(equal_text(captured,expected),"FNS transcript byte-identical to real III+");
+    if (!strcmp(name, "sqrt")) {
+        sqrt_width_check(); sqrt_deferred_check(); sqrt_argument_width_check();
+    }
     return TEST_SUMMARY("test-samir-fns");
 }
