@@ -50,8 +50,10 @@ test-kernel-gc-mutant: test-kernel-gc
 # and tenant calls. No new DOS behaviour or new reference output is invented.
 # Ref: ADR-0003 Appendix A; IBM DOS 3.30 Technical Reference 6-200 (PDF 323,
 # inspected scan: EXIT closes files/returns to parent); fcb_tps.mk goldens.
-test-kernel-gc-emu:
-	+@INITECH_QMP_STDIO=1 $(MAKE) --no-print-directory test-boot test-flair-appswitch test-fcb-api
+# initech-1x6x2.1: the re-graded gates are PREREQUISITES, not a nested
+# $(MAKE) -- a nested run re-ran gates that are in the same parallel vector
+# (test-par) and raced them on their fixed build/ output names.
+test-kernel-gc-emu: test-boot test-flair-appswitch test-fcb-api
 	@printf '>>> test-kernel-gc-emu: green (boot/desktop pixels/FCB transcript and FAT differential)\n'
 
 TEST_UNIT_GATES += test-kernel-gc test-kernel-gc-mutant
@@ -69,17 +71,22 @@ test-kernel-gc-roots: $(KERNEL_FLAIRTENANTS_ELF) | $(KGC_DIR)
 	@grep -q '^00500000 .* _start$$' $(KGC_DIR)/roots
 	@printf '>>> test-kernel-gc-roots: green (entry, IDT, all exception/IRQ/DOS/Toolbox stubs retained)\n'
 
-test-kernel-gc-emu-mutant:
-	+@INITECH_QMP_STDIO=1 $(MAKE) --no-print-directory test-flair-appswitch-mutant test-fcb-api-mutant
+test-kernel-gc-emu-mutant: test-flair-appswitch-mutant test-fcb-api-mutant
 	@printf '>>> test-kernel-gc-emu-mutant: green (desktop and FCB behaviour mutants rejected)\n'
 
 # Two complete flagship object rebuilds, not just the smaller DOS kernel.bin.
 # Ref: CLAUDE.md Rule 11 and PRD Sec 7; no source/host-path-dependent bytes.
+# initech-1x6x2.1: both clean builds run in ONE private build directory
+# (removed between passes), never by deleting the shared flagship objects
+# that the parallel vector is linking and booting. palette.h (generated into
+# spec/ from a build tool) is frozen so the private make cannot rewrite it.
+KERNEL_FLAIR_REPRO_DIR := $(BUILD)/kernel-flair-repro
 test-kernel-flair-repro: | $(BUILD)
-	@set -eu; for pass in 1 2; do \
-		rm -f $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_FLAIRTENANTS_ELF) $(KERNEL_FLAIRTENANTS_BIN); \
-		$(MAKE) --no-print-directory $(KERNEL_FLAIRTENANTS_BIN) >$(BUILD)/kernel-flair-repro-$$pass.log 2>&1; \
-		cp -f $(KERNEL_FLAIRTENANTS_BIN) $(BUILD)/kernel-flair-repro-$$pass.bin; \
+	@set -eu; d=$(KERNEL_FLAIR_REPRO_DIR); for pass in 1 2; do \
+		rm -rf $$d; mkdir -p $$d; \
+		$(MAKE) --no-print-directory -o $(PALETTE_H) BUILD=$$d $$d/$(notdir $(KERNEL_FLAIRTENANTS_BIN)) >$(BUILD)/kernel-flair-repro-$$pass.log 2>&1 \
+			|| { cat $(BUILD)/kernel-flair-repro-$$pass.log; exit 1; }; \
+		cp -f $$d/$(notdir $(KERNEL_FLAIRTENANTS_BIN)) $(BUILD)/kernel-flair-repro-$$pass.bin; \
 	done
 	@cmp -s $(BUILD)/kernel-flair-repro-1.bin $(BUILD)/kernel-flair-repro-2.bin || { printf '!!! test-kernel-flair-repro FAIL: clean flagship rebuilds differ\n'; exit 1; }
 	@printf '>>> test-kernel-flair-repro: green (two clean builds byte-identical; sha256 %s)\n' "$$(sha256sum < $(BUILD)/kernel-flair-repro-1.bin | cut -d' ' -f1)"
@@ -97,11 +104,9 @@ TEST_EMU_GATES += test-kernel-gc-emu-mutant
 # Independent behaviour gates retain their round-3 names for certificate diffs.
 # Reuse injected traces and their mutation-proven pixel / real DOS transcript /
 # mtools identical-image FAT oracles; no new DOS behaviour.
-test-kernel-size-r3-emu:
-	+@INITECH_QMP_STDIO=1 $(MAKE) --no-print-directory test-kernel-gc-emu test-flair-itext
+test-kernel-size-r3-emu: test-kernel-gc-emu test-flair-itext
 	@printf '>>> test-kernel-size-r3-emu: green (desktop pixels, text trace, DOS/FCB/FAT differential)\n'
-test-kernel-size-r3-emu-mutant:
-	+@INITECH_QMP_STDIO=1 $(MAKE) --no-print-directory test-kernel-gc-emu-mutant
+test-kernel-size-r3-emu-mutant: test-kernel-gc-emu-mutant
 	@printf '>>> test-kernel-size-r3-emu-mutant: green (desktop/FCB behaviour mutants RED)\n'
 TEST_EMU_GATES += test-kernel-size-r3-emu test-kernel-size-r3-emu-mutant
 

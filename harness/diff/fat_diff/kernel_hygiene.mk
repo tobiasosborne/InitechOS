@@ -129,14 +129,16 @@ $(eval $(call khy-ata-mutant,errors,ATA_MUTATE_ERROR_COLLAPSE,distinct post-comm
 
 .PHONY: test-kernel-repro-flagship
 test-kernel-repro-flagship: test-kernel-repro
-	@test -s $(KERNEL_FLAIRTENANTS_BIN).repro.1 -a -s $(KERNEL_FLAIRTENANTS_BIN).repro.2 || { echo 'RED flagship repro: flagship rebuild comparison missing'; exit 1; }
-	@cmp $(KERNEL_FLAIRTENANTS_BIN).repro.1 $(KERNEL_FLAIRTENANTS_BIN).repro.2
+	@test -s $(KERNEL_REPRO_DIR)/$(notdir $(KERNEL_FLAIRTENANTS_BIN)).repro.1 -a -s $(KERNEL_REPRO_DIR)/$(notdir $(KERNEL_FLAIRTENANTS_BIN)).repro.2 || { echo 'RED flagship repro: flagship rebuild comparison missing'; exit 1; }
+	@cmp $(KERNEL_REPRO_DIR)/$(notdir $(KERNEL_FLAIRTENANTS_BIN)).repro.1 $(KERNEL_REPRO_DIR)/$(notdir $(KERNEL_FLAIRTENANTS_BIN)).repro.2
 	@echo 'GREEN test-kernel-repro-flagship: both flagship builds byte-identical'
 TEST_UNIT_GATES += test-kernel-repro-flagship
 
 .PHONY: test-kernel-repro-flagship-mutant
-test-kernel-repro-flagship-mutant: | $(BUILD)/khygiene-evidence
-	@if $(MAKE) --no-print-directory test-kernel-repro KERNEL_REPRO_MUTATE_FLAGSHIP=1 > $(BUILD)/khygiene-evidence/mutant-flagship-repro.log 2>&1; then echo 'FAIL flagship second-build byte mutant survived'; exit 1; fi
+# initech-1x6x2.1: its own repro directory, and the inputs are prerequisites,
+# so the nested run neither races test-kernel-repro nor builds a shared kernel.
+test-kernel-repro-flagship-mutant: $(KERNEL_REPRO_BINS) | $(BUILD)/khygiene-evidence
+	@if $(MAKE) --no-print-directory $(addprefix -o ,$(KERNEL_REPRO_BINS) $(MAKEFILE_STAMP)) test-kernel-repro KERNEL_REPRO_DIR=$(BUILD)/kernel-repro-mutant KERNEL_REPRO_MUTATE_FLAGSHIP=1 > $(BUILD)/khygiene-evidence/mutant-flagship-repro.log 2>&1; then echo 'FAIL flagship second-build byte mutant survived'; exit 1; fi
 	@grep 'RED test-kernel-repro: $(KERNEL_FLAIRTENANTS_BIN) is NOT reproducible' $(BUILD)/khygiene-evidence/mutant-flagship-repro.log
 	@echo 'GREEN test-kernel-repro-flagship-mutant: KERNEL_REPRO_MUTATE_FLAGSHIP correctly RED'
 TEST_UNIT_GATES += test-kernel-repro-flagship-mutant

@@ -44,11 +44,12 @@ test-kernel-size-r4-mutant: test-kernel-size-r4
 # tenant trace and pixel graders. No new DOS behaviour or self-derived golden.
 # IBM DOS 3.30 Technical Reference 6-200 / PDF 323: EXIT closes files and
 # returns to parent; MS-DOS 3.3 User's Guide 28 / PDF 41: DIR / COMMAND.COM.
-test-kernel-size-r4-emu:
-	+@INITECH_QMP_STDIO=1 $(MAKE) --no-print-directory test-fcb-api test-flair-appswitch test-flair-itext
+# initech-1x6x2.1: the re-graded gates are PREREQUISITES, not a nested
+# $(MAKE) -- a nested run re-ran gates that are in the same parallel vector
+# (test-par) and raced them on their fixed build/ output names.
+test-kernel-size-r4-emu: test-fcb-api test-flair-appswitch test-flair-itext
 	@printf '>>> test-kernel-size-r4-emu: green (DOS/FAT differential; injected desktop/text traces and pixels)\n'
-test-kernel-size-r4-emu-mutant:
-	+@INITECH_QMP_STDIO=1 $(MAKE) --no-print-directory test-fcb-api-mutant test-flair-appswitch-mutant
+test-kernel-size-r4-emu-mutant: test-fcb-api-mutant test-flair-appswitch-mutant
 	@printf '>>> test-kernel-size-r4-emu-mutant: green (FCB and desktop behaviour mutants RED)\n'
 
 TEST_UNIT_GATES += test-kernel-size-r4 test-kernel-size-r4-mutant
