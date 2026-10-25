@@ -7,6 +7,7 @@
 #include <string.h>
 #include "test_assert.h"
 #include "trace_complete.h"
+#include "samir_install.h"
 TEST_HARNESS();
 static char serial[262144];
 static int command(const char *s) { int rc=system(s);CHECK(rc==0,s);return rc; }
@@ -30,14 +31,14 @@ static void keys(const char *s,char *out)
 int main(int argc,char **argv)
 {
     const char *mode=argc>1?argv[1]:"status";
-    const char *com=argc>2?argv[2]:"build/SAMIR.COM";
+    const char *com=argc>2?argv[2]:"build/SAMIR.EXE";
     char cmd[16384],keybuf[4096],report[4096],path[1024];
     int status=!strcmp(mode,"status"),off=!strcmp(mode,"off"),console=!strcmp(mode,"console");
-    /* Scratch key (initech-2kkqr): a mutant run (non-default SAMIR.COM) must not share
+    /* Scratch key (initech-2kkqr): a mutant run (non-default SAMIR.EXE) must not share
      * image/report/serial/PPM paths with the accepted leg of the same mode, or with
      * another mutant, when gates run concurrently under make -j. Default COM => key==mode. */
     char key[512]; { const char *b=strrchr(com,'/'); b=b?b+1:com;
-      if(!strcmp(com,"build/SAMIR.COM")) snprintf(key,sizeof key,"%s",mode);
+      if(!strcmp(com,"build/SAMIR.EXE")) snprintf(key,sizeof key,"%s",mode);
       else snprintf(key,sizeof key,"%s_%s",mode,b); }
     /* The QMP transport (socket or INITECH_QMP_STDIO=1 stdio) is the harness's
      * choice, not this oracle's: the Codex lane's sandbox needed stdio, the
@@ -45,7 +46,7 @@ int main(int argc,char **argv)
     if(command("mkdir -p build/samir-screen")) return 2;
     snprintf(cmd,sizeof(cmd),"cp -f build/samir_list.img build/samir-screen/%s.img",key);
     if(command(cmd)) return 2;
-    snprintf(cmd,sizeof(cmd),"mcopy -o -i build/samir-screen/%s.img %s ::SAMIR.COM",key,com);
+    {char img[1024];snprintf(img,sizeof img,"build/samir-screen/%s.img",key);CHECK(samir_install_cmd(cmd,sizeof cmd,img,com)==0,"SAMIR.EXE + SAMIR.OVL named");}
     if(command(cmd)) return 2;
     if(console) {
         FILE *f; snprintf(path,sizeof(path),"build/samir-screen/SCREEN_%s.PRG",key); f=fopen(path,"wb");

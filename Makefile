@@ -682,7 +682,7 @@ KERNEL_CC     ?= gcc
 # default arch emits cmov (P6+) freely; the Bochs legs run cpu model=pentium
 # (harness/emu/bochs.c) which has NO cmov -> PANIC vec=06 the first time a
 # Bochs-exercised path contained one. ADR-0001 targets 386+; the artifact must
-# never contain >386 instructions. Same pin on SAMIR_COM_PROFILE below.
+# never contain >386 instructions. Same pin on SAMIR_EXE_PROFILE below.
 # Round 5 (WL-0168, lane ksize5): register-argument + callee-pops calling
 # convention for the WHOLE kernel image, the WL-0171 SAMIR precedent (period
 # precedent: Borland's `register` and `pascal` conventions). Every kernel TU,
@@ -24806,14 +24806,14 @@ record-flair-repro: $(HARNESS_BIN) $(FLAIRTENANTS_IMG)
 # FLAIR text-tenant oracle: a SYSTEM HOTKEY launches SAMIR full-screen, then the
 # desktop returns BIT-IDENTICAL). beads: this lane.
 # ---------------------------------------------------------------------------
-# SAMIR (InitechBase) is a character-mode .COM -- the FIRST class-2 TEXT tenant.
+# SAMIR (InitechBase) is a character-mode program -- the FIRST class-2 TEXT tenant.
 # From the live co-resident HELLO+NOTES desktop, pressing the system hotkey
 # (Ctrl+Alt+'\', PS/2 SET-1 make 0x2B; token "ctrl-alt-bsl") SUSPENDS the desktop, runs
 # SAMIR full-screen (USE CLIENTS.DBF / LIST / QUIT), and REBUILDS the desktop on
 # return -- the System-7/MultiFinder "switch to a full-screen app" gesture.
 #
 # Two deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG), each WITH
-# --disk2 = $(SAMIR_LIST_IMG) (SAMIR.COM + CLIENTS.DBF on the primary slave, the
+# --disk2 = $(SAMIR_LIST_IMG) (SAMIR.EXE + CLIENTS.DBF on the primary slave, the
 # SAME data disk as test-samir-boot):
 #   PRE : no keys; screendump after FLAIR-LIVE-READY -> the co-resident desktop.
 #   POST: inject "ctrl-alt-bsl" then SAMIR's USE/LIST/QUIT; keys-after
@@ -24862,7 +24862,7 @@ test-flair-samir-suspend: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(SAMIR_LIST_IMG)
 	@printf '  Hotkey -> suspend desktop -> SAMIR full-screen (USE/LIST/QUIT) -> rebuild.\n'
 	@printf '  Ref: ADR-0013 Sec 3.2 (class-2 text tenant); spec/memory_map.h. Law 2/4.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(FLAIRTENANTS_IMG)" "$(SAMIR_LIST_IMG)"
+	@printf 'Booting   : %s + data disk %s (SAMIR.EXE + CLIENTS.DBF, primary slave)\n' "$(FLAIRTENANTS_IMG)" "$(SAMIR_LIST_IMG)"
 	@printf 'Expecting : FLAIR-SUSPEND + LIST rows {PESTON,WADDAMS,LUMBERGH} + FLAIR-RESUME + pre==post\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(SAMIR_LIST_IMG))
@@ -28354,7 +28354,7 @@ test-kernel-repro-mutant: | $(BUILD)
 	 printf '>>> test-kernel-repro-mutant: green (byte change detected -- the repro comparison bites)\n'
 
 # ===========================================================================
-# SAMIR <-> InitechDOS integration gates + the SAMIR.COM artifact (ADR-0009;
+# SAMIR <-> InitechDOS integration gates + the SAMIR.EXE artifact (ADR-0009;
 # beads ax9.1/ax9.2/ap5g/1q4u/qucm/nh0m). Host gates here; the boot->USE->LIST
 # emu gate (bead hdlb) lands later in TEST_EMU_GATES.
 # ===========================================================================
@@ -28377,7 +28377,7 @@ test-arena-disjoint-mutant: $(TEST_ARENADJ_MUT)
 	else printf '>>> test-arena-disjoint-mutant: green (overlap mutant correctly RED)\n'; fi
 
 # --- test-loader-big (bead za4m): FAT .COM loads DIRECT into PROGRAM_IMAGE;
-#     the >64 KiB SAMIR.COM clears the old LOAD_STAGING cap (PROGRAM_IMAGE_MAX). ---
+#     the >64 KiB SAMIR.EXE clears the old LOAD_STAGING cap (PROGRAM_IMAGE_MAX). ---
 TEST_LOADER_BIG     := $(BUILD)/test_loader_big
 TEST_LOADER_BIG_MUT := $(BUILD)/test_loader_big_mutant_stagingcap
 $(TEST_LOADER_BIG): $(MILTON_DIR)/test_loader_big.c $(KERNEL_LOADER_C) $(KERNEL_PSP_C) | $(BUILD)
@@ -28542,7 +28542,9 @@ test-samir-softfp-implmutant: $(TEST_SAMIR_SOFTFP_IMPLMUT)
 	@if $(TEST_SAMIR_SOFTFP_IMPLMUT) >/dev/null 2>&1; then printf '!!! test-samir-softfp-implmutant FAIL: round-tie mutant PASSED -- oracle is decoration\n'; exit 1; \
 	else printf '>>> test-samir-softfp-implmutant: green (SOFTFP_MUT_ROUND correctly RED -- implementation-side mutant, oracle bites)\n'; fi
 
-# --- SAMIR.COM: the Milton-bound flat .COM (ADR-0009 DEC-01/02/03/05/06).
+# --- SAMIR.EXE + SAMIR.OVL: the Milton-bound InitechMZ resident and its overlay
+#     file (ADR-0009 DEC-01/02/03/05/06; overlays Phase B initech-5etom.1,
+#     docs/design/samir-overlays.md).
 #     Soft-float, one-interp profile (FLOW_MAX_REGISTRY=1), org 0x40100 via
 #     samir.ld, BSS (.bss NOLOAD) zeroed at runtime by samir_crt0. ---
 SAMIR_HEADERS := $(wildcard $(SAMIR_INC_DIR)/samir/*.h) $(filter $(SAMIR_DIR)/%,$(FACTORY_DEF_FILES))
@@ -28601,64 +28603,97 @@ SAMIR_SIZE_CFLAGS += -fno-tree-loop-im -fno-tree-scev-cprop -fno-guess-branch-pr
 # Override the earlier policy for every TU, mutant and LTO link identically;
 # -march=i386 and the soft-float ABI remain pinned (ADR-0009).
 SAMIR_SIZE_CFLAGS += -fno-early-inlining -fjump-tables --param=max-inline-insns-single=175
-SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
+SAMIR_EXE_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
                      -std=c11 -Wall -Wextra -Werror -Oz -flto $(SAMIR_SIZE_CFLAGS) -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
-                     -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -I$(SAMIR_INC_DIR) -Ispec
-SAMIR_LINK = $(CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz $(SAMIR_SIZE_CFLAGS) -msoft-float -mno-80387 -Wl,--gc-sections,--build-id=none -T $(SAMIR_LD_SCRIPT)
-SAMIR_COM_CSRCS := $(SAMIR_RT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_PARSE_SRC) \
+                     -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -DSAMIR_OVERLAYS -I$(SAMIR_INC_DIR) -Ispec
+# Overlays Phase B (initech-5etom.1; docs/design/samir-overlays.md): link at
+# ORG 0 with --emit-relocs (-q) so tools/samir_ovl_pack.c sees every
+# relocation, and with per-function sections at the LTO stage so every call is
+# a relocation (the call-graph rule). samir.ld places the overlays.
+SAMIR_OVL_SRC := $(SAMIR_DIR)/core/ovl.c
+SAMIR_LINK = $(CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz $(SAMIR_SIZE_CFLAGS) -msoft-float -mno-80387 -ffunction-sections -fdata-sections -Wl,--gc-sections,--build-id=none,-q,--no-warn-rwx-segments -T $(SAMIR_LD_SCRIPT)
+SAMIR_EXE_CSRCS := $(SAMIR_RT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_PARSE_SRC) \
                    $(SAMIR_EVAL_SRC) $(SAMIR_FN_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) \
                    $(SAMIR_NDX_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) \
                    $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) $(SAMIR_REPORT_SRC) \
-                   $(SAMIR_MAIN_SRC) $(SAMIR_DIR)/core/screen.c $(SAMIR_DIR)/pal/pal_milton.c $(SAMIR_SOFTFP_SRC)
+                   $(SAMIR_MAIN_SRC) $(SAMIR_DIR)/core/screen.c $(SAMIR_DIR)/pal/pal_milton.c $(SAMIR_SOFTFP_SRC) \
+                   $(SAMIR_OVL_SRC)
+# The packer: SAMIR.elf -> resident module + reloc list + SAMIR.OVL, with the
+# static checks (relocation kinds, slot = largest overlay, slot headers, the
+# call-graph rule). Overlay order = ids (os/samir/include/samir/ovl.h).
+SAMIR_OVL_PACK     := $(BUILD)/samir_ovl_pack
+SAMIR_OVL_SECTIONS := --overlay .ovl_file --overlay .ovl_report --overlay .ovl_status \
+                      --overlay .ovl_set --overlay .ovl_memfile
+# The first --forbid is the manager (must exist); the rest are the interpreter
+# entries that could run another command (and so swap the slot) if overlay code
+# reached them directly.
+SAMIR_OVL_FORBID   := --forbid samir_ovl_call --forbid samir_do --forbid samir_repl \
+                      --forbid run_block --forbid exec_command --forbid fl_trap --forbid fl_escape
+# e_minalloc (DEC-08a.3): the PAL heap's arena part is one AH=48h block of
+# 2057 paragraphs (pal_milton.c PAL_MILTON_HEAP_PARAS) plus its MCB; the loader
+# refuses with DOS 08h rather than start SAMIR heap-starved.
+SAMIR_MINALLOC     := 2058
+SAMIR_PACK_DEPS    := $(SAMIR_OVL_PACK) $(MZLINK_BIN) spec/samir/ovl_format.h
+$(SAMIR_OVL_PACK): tools/samir_ovl_pack.c spec/samir/ovl_format.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec -o $@ $<
+# samir_pack ELF,OUT.EXE: write OUT.EXE (InitechMZ, header-gap relocations)
+# and its sibling OUT.OVL from one link. Every SAMIR build (shipped and every
+# mutant) goes through this one recipe line.
+# Either step failing fails the recipe even inside a `set -e` chain (a failure
+# on the left of && would not stop set -e by itself).
+samir_pack = { $(SAMIR_OVL_PACK) $(1) --res-bin $(1).res --res-rel $(1).rel --ovl $(basename $(2)).OVL \
+             $(SAMIR_OVL_SECTIONS) $(SAMIR_OVL_FORBID) && \
+             $(MZLINK_BIN) $(1).res $(2) --reloc-file $(1).rel --header-relocs --minalloc $(SAMIR_MINALLOC) > $(1).mzlink.log 2>&1; } \
+             || { cat $(1).mzlink.log 2>/dev/null; rm -f $(2) $(basename $(2)).OVL; exit 1; }
 SAMIR_CRT0_ASM  := $(SAMIR_DIR)/boot/samir_crt0.asm
 SAMIR_LD_SCRIPT := $(SAMIR_DIR)/boot/samir.ld
-SAMIR_COM       := $(BUILD)/SAMIR.COM
-.PHONY: samir-com
-samir-com: $(SAMIR_COM)
-$(SAMIR_COM): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
-	@rm -rf $(BUILD)/samir_com && mkdir -p $(BUILD)/samir_com
-	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com/samir_crt0.o
-	@set -e; for s in $(SAMIR_COM_CSRCS); do \
-		o=$(BUILD)/samir_com/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
-		$(CC) $(SAMIR_COM_PROFILE) -c $$s -o $$o; \
+SAMIR_EXE       := $(BUILD)/SAMIR.EXE
+.PHONY: samir-exe
+samir-exe: $(SAMIR_EXE)
+$(SAMIR_EXE): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_EXE_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_PACK_DEPS) | $(BUILD)
+	@rm -rf $(BUILD)/samir_exe && mkdir -p $(BUILD)/samir_exe
+	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_exe/samir_crt0.o
+	@set -e; for s in $(SAMIR_EXE_CSRCS); do \
+		o=$(BUILD)/samir_exe/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
+		$(CC) $(SAMIR_EXE_PROFILE) -c $$s -o $$o; \
 	done
-	@$(SAMIR_LINK) -o $(BUILD)/samir_com/SAMIR.elf $(BUILD)/samir_com/samir_crt0.o $$(ls $(BUILD)/samir_com/*.o | grep -v 'samir_crt0\.o')
-	@$(OBJCOPY) -O binary $(BUILD)/samir_com/SAMIR.elf $@
-	@sz=$$(stat -c%s $@); x87=$$(objdump -d $(BUILD)/samir_com/SAMIR.elf | grep -ciE '\bf(ld|st|add|sub|mul|div)[a-z]*\b' || true); \
-	 printf '>>> SAMIR.COM: %s bytes (flat .COM @0x40100, soft-float, x87=%s)\n' "$$sz" "$$x87"
+	@$(SAMIR_LINK) -o $(BUILD)/samir_exe/SAMIR.elf $(BUILD)/samir_exe/samir_crt0.o $$(ls $(BUILD)/samir_exe/*.o | grep -v 'samir_crt0\.o')
+	@$(call samir_pack,$(BUILD)/samir_exe/SAMIR.elf,$@)
+	@sz=$$(stat -c%s $(BUILD)/samir_exe/SAMIR.elf.res); x87=$$(objdump -d $(BUILD)/samir_exe/SAMIR.elf | grep -ciE '\bf(ld|st|add|sub|mul|div)[a-z]*\b' || true); \
+	 printf '>>> SAMIR.EXE: %s-byte resident module + SAMIR.OVL %s bytes (InitechMZ, soft-float, x87=%s)\n' "$$sz" "$$(stat -c%s $(basename $@).OVL)" "$$x87"
 
 TEST_SAMIR_DBSAFE_EMU := $(BUILD)/test_samir_dbsafe_emu
 $(TEST_SAMIR_DBSAFE_EMU): $(DBF_DIFF_DIR)/test_samir_dbsafe_emu.c | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
 .PHONY: test-samir-full-emu test-samir-lifetime-emu test-samir-safety-emu
-test-samir-full-emu test-samir-lifetime-emu test-samir-safety-emu: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+test-samir-full-emu test-samir-lifetime-emu test-samir-safety-emu: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(BUILD)/CLIENTS.DBF
 	@case "$@" in *full*) mode=full;; *lifetime*) mode=lifetime;; *) mode=safety;; esac; $(TEST_SAMIR_DBSAFE_EMU) $$mode
 	@printf '>>> %s: green\n' '$@'
 
 # Rule 6 target mutants compile the SAME engine with one named regression.
-SAMIR_DBSAFE_MUT_COMS := $(BUILD)/SAMIR_DBSAFE_full.COM $(BUILD)/SAMIR_DBSAFE_lifetime.COM $(BUILD)/SAMIR_DBSAFE_safety.COM
-$(SAMIR_DBSAFE_MUT_COMS): $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/heap.h $(SAMIR_LD_SCRIPT) $(SAMIR_CRT0_ASM) | $(BUILD)
-	@set -e; kind=$$(basename $@ .COM | sed 's/SAMIR_DBSAFE_//'); \
+SAMIR_DBSAFE_MUT_EXES := $(BUILD)/SAMIR_DBSAFE_full.EXE $(BUILD)/SAMIR_DBSAFE_lifetime.EXE $(BUILD)/SAMIR_DBSAFE_safety.EXE
+$(SAMIR_DBSAFE_MUT_EXES): $(SAMIR_HEADERS) $(SAMIR_EXE_CSRCS) $(SAMIR_DIR)/pal/heap.h $(SAMIR_LD_SCRIPT) $(SAMIR_PACK_DEPS) $(SAMIR_CRT0_ASM) | $(BUILD)
+	@set -e; kind=$$(basename $@ .EXE | sed 's/SAMIR_DBSAFE_//'); \
 	case $$kind in full) flag=SAMIR_MUTATE_APPEND_REWRITE;; lifetime) flag=SAMIR_MUTATE_DUPLICATE_OPEN;; safety) flag=SAMIR_MUTATE_ZAP_SAFETY;; esac; \
 	dir=$(BUILD)/samir_dbsafe_$$kind; mkdir -p $$dir; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$dir/crt0.o; \
-	for src in $(SAMIR_COM_CSRCS); do obj=$$dir/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$$flag -c $$src -o $$obj; done; \
+	for src in $(SAMIR_EXE_CSRCS); do obj=$$dir/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_EXE_PROFILE) -D$$flag -c $$src -o $$obj; done; \
 	$(SAMIR_LINK) -o $$dir/SAMIR.elf $$dir/crt0.o $$(ls $$dir/*.o | grep -v '/crt0.o'); \
-	$(OBJCOPY) -O binary $$dir/SAMIR.elf $@
+	$(call samir_pack,$$dir/SAMIR.elf,$@)
 .PHONY: test-samir-full-emu-mutant test-samir-lifetime-emu-mutant test-samir-safety-emu-mutant
-test-samir-full-emu-mutant: $(BUILD)/SAMIR_DBSAFE_full.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
+test-samir-full-emu-mutant: $(BUILD)/SAMIR_DBSAFE_full.EXE $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
 	@mkdir -p $(BUILD)/dbsafe   # own scratch dir: FLAKY on a fresh parallel worker (initech-hteno)
-	@if $(TEST_SAMIR_DBSAFE_EMU) full $(BUILD)/SAMIR_DBSAFE_full.COM > $(BUILD)/dbsafe/emu-mut-full.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
+	@if $(TEST_SAMIR_DBSAFE_EMU) full $(BUILD)/SAMIR_DBSAFE_full.EXE > $(BUILD)/dbsafe/emu-mut-full.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
 	@grep -Fq 'L001 table reopens in guest' $(BUILD)/dbsafe/emu-mut-full.log
 	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-full.log
 	@printf '>>> test-samir-full-emu-mutant: green (header-first rewrite correctly RED)\n'
-test-samir-lifetime-emu-mutant: $(BUILD)/SAMIR_DBSAFE_lifetime.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
-	@if $(TEST_SAMIR_DBSAFE_EMU) lifetime $(BUILD)/SAMIR_DBSAFE_lifetime.COM > $(BUILD)/dbsafe/emu-mut-lifetime.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
+test-samir-lifetime-emu-mutant: $(BUILD)/SAMIR_DBSAFE_lifetime.EXE $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
+	@if $(TEST_SAMIR_DBSAFE_EMU) lifetime $(BUILD)/SAMIR_DBSAFE_lifetime.EXE > $(BUILD)/dbsafe/emu-mut-lifetime.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
 	@grep -Fq 'L003 real catalog duplicate-open refusal' $(BUILD)/dbsafe/emu-mut-lifetime.log
 	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-lifetime.log
 	@printf '>>> test-samir-lifetime-emu-mutant: green (duplicate USE correctly RED)\n'
-test-samir-safety-emu-mutant: $(BUILD)/SAMIR_DBSAFE_safety.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
-	@if $(TEST_SAMIR_DBSAFE_EMU) safety $(BUILD)/SAMIR_DBSAFE_safety.COM > $(BUILD)/dbsafe/emu-mut-safety.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
+test-samir-safety-emu-mutant: $(BUILD)/SAMIR_DBSAFE_safety.EXE $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
+	@if $(TEST_SAMIR_DBSAFE_EMU) safety $(BUILD)/SAMIR_DBSAFE_safety.EXE > $(BUILD)/dbsafe/emu-mut-safety.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
 	@grep -Fq 'L007 N preserves all records' $(BUILD)/dbsafe/emu-mut-safety.log
 	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-safety.log
 	@printf '>>> test-samir-safety-emu-mutant: green (missing confirmation correctly RED)\n'
@@ -28666,47 +28701,47 @@ test-samir-safety-emu-mutant: $(BUILD)/SAMIR_DBSAFE_safety.COM $(TEST_SAMIR_DBSA
 # Drive the audit's duplicate/distinct/older-CLOSE cases on the actual desktop,
 # then launch SAMIR again through the system hotkey (not just COMMAND.COM).
 .PHONY: test-samir-lifetime-desktop test-samir-lifetime-desktop-mutant
-test-samir-lifetime-desktop: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(FLAIRTENANTS_INTERACTIVE_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+test-samir-lifetime-desktop: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(FLAIRTENANTS_INTERACTIVE_IMG) $(SAMIR_EXE) $(BUILD)/CLIENTS.DBF
 	@$(TEST_SAMIR_DBSAFE_EMU) lifetime-desktop
 	@printf '>>> test-samir-lifetime-desktop: green\n'
-test-samir-lifetime-desktop-mutant: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(FLAIRTENANTS_INTERACTIVE_IMG) $(BUILD)/SAMIR_DBSAFE_lifetime.COM $(BUILD)/CLIENTS.DBF
-	@if $(TEST_SAMIR_DBSAFE_EMU) lifetime-desktop $(BUILD)/SAMIR_DBSAFE_lifetime.COM > $(BUILD)/dbsafe/emu-mut-desktop.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
+test-samir-lifetime-desktop-mutant: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(FLAIRTENANTS_INTERACTIVE_IMG) $(BUILD)/SAMIR_DBSAFE_lifetime.EXE $(BUILD)/CLIENTS.DBF
+	@if $(TEST_SAMIR_DBSAFE_EMU) lifetime-desktop $(BUILD)/SAMIR_DBSAFE_lifetime.EXE > $(BUILD)/dbsafe/emu-mut-desktop.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
 	@grep -Fq 'L003 real catalog duplicate-open refusal' $(BUILD)/dbsafe/emu-mut-desktop.log
 	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-desktop.log
 	@printf '>>> test-samir-lifetime-desktop-mutant: green (duplicate USE correctly RED)\n'
 
-# REPORT FORM in the guest (initech-airx): EXEC SAMIR.COM, REPORT FORM ... TO
+# REPORT FORM in the guest (initech-airx): EXEC SAMIR.EXE, REPORT FORM ... TO
 # FILE, read the files back with mtools and diff them against the real
 # DBASE.EXE 1.1 files (mint 004); the screen leg checks the final screendump
 # cell by cell against the real G2TRV.TXT console projection (Rule 14 clip for
 # a text-console app). Inputs come md5-pinned from $(DBASE3_DECOMP)/mint/work.
 SAMIR_REPORT_IMG   := $(BUILD)/samir_report_data.img
 SAMIR_REPORT_FILES := AVAL_FLT.DBF AVAL_FLT.NDX FLT_INFO.FRM TRAVEL.DBF TRAVEL.DBT TRIPS.NDX TRAVELER.FRM TRIP.FRM R4TRIP.DBF
-$(SAMIR_REPORT_IMG): $(SAMIR_COM) $(SAMIR_REPORT_MD5) | $(BUILD)
+$(SAMIR_REPORT_IMG): $(SAMIR_EXE) $(SAMIR_REPORT_MD5) | $(BUILD)
 	@cd "$(DBASE3_DECOMP)/mint/work" && md5sum -c --quiet "$(CURDIR)/$(SAMIR_REPORT_MD5)" || { printf '!!! samir_report_data FAIL: mint 004 files absent or changed under %s/mint/work\n' "$(DBASE3_DECOMP)"; exit 1; }
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
-	@mcopy -i $@ $(SAMIR_COM) ::SAMIR.COM
+	@mcopy -i $@ $(SAMIR_EXE) ::SAMIR.EXE && mcopy -i $@ $(basename $(SAMIR_EXE)).OVL ::SAMIR.OVL
 	@set -e; for f in $(SAMIR_REPORT_FILES); do mcopy -i $@ "$(DBASE3_DECOMP)/mint/work/$$f" ::$$f; done
-	@printf '>>> samir_report_data: minted %s (SAMIR.COM + mint 004 report inputs)\n' "$@"
+	@printf '>>> samir_report_data: minted %s (SAMIR.EXE + mint 004 report inputs)\n' "$@"
 	@$(call fixture-check,recipe,$@)
 TEST_SAMIR_REPORT_EMU := $(BUILD)/test_samir_report_emu
 $(TEST_SAMIR_REPORT_EMU): $(DBF_DIFF_DIR)/test_samir_report_emu.c | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
-SAMIR_REPORT_MUT_COM := $(BUILD)/SAMIR_REPORT_subtotal.COM
-$(SAMIR_REPORT_MUT_COM): $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+SAMIR_REPORT_MUT_EXE := $(BUILD)/SAMIR_REPORT_subtotal.EXE
+$(SAMIR_REPORT_MUT_EXE): $(SAMIR_HEADERS) $(SAMIR_EXE_CSRCS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_PACK_DEPS) | $(BUILD)
 	@set -e; d=$(BUILD)/samir_report_mut; mkdir -p $$d; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
-	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -DSAMIR_REPORT_MUTATE_NO_SUBTOTAL -c $$src -o $$obj; done; \
+	for src in $(SAMIR_EXE_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_EXE_PROFILE) -DSAMIR_REPORT_MUTATE_NO_SUBTOTAL -c $$src -o $$obj; done; \
 	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
-	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
+	$(call samir_pack,$$d/SAMIR.elf,$@)
 .PHONY: test-samir-report-emu test-samir-report-emu-mutant
-test-samir-report-emu: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(SAMIR_REPORT_IMG) $(PPM_TEXT_CHECK_BIN)
-	@$(TEST_SAMIR_REPORT_EMU) files $(SAMIR_COM) $(abspath $(DBASE3_DECOMP))
-	@$(TEST_SAMIR_REPORT_EMU) screen $(SAMIR_COM) $(abspath $(DBASE3_DECOMP))
+test-samir-report-emu: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(SAMIR_REPORT_IMG) $(PPM_TEXT_CHECK_BIN)
+	@$(TEST_SAMIR_REPORT_EMU) files $(SAMIR_EXE) $(abspath $(DBASE3_DECOMP))
+	@$(TEST_SAMIR_REPORT_EMU) screen $(SAMIR_EXE) $(abspath $(DBASE3_DECOMP))
 	@printf '>>> test-samir-report-emu: green (guest REPORT FORM files byte-identical to real dBASE; screendump cells match)\n'
-test-samir-report-emu-mutant: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_REPORT_MUT_COM) $(SAMIR_REPORT_IMG)
-	@if $(TEST_SAMIR_REPORT_EMU) files $(SAMIR_REPORT_MUT_COM) $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-report-emu-mut.log 2>&1; then echo '!!! report emu mutant passed'; exit 1; fi
+test-samir-report-emu-mutant: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_REPORT_MUT_EXE) $(SAMIR_REPORT_IMG)
+	@if $(TEST_SAMIR_REPORT_EMU) files $(SAMIR_REPORT_MUT_EXE) $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-report-emu-mut.log 2>&1; then echo '!!! report emu mutant passed'; exit 1; fi
 	@grep -q 'checks,.*failures' $(BUILD)/samir-report-emu-mut.log
 	@grep -Fq 'REPORT G8TP.TXT: guest file differs' $(BUILD)/samir-report-emu-mut.log
 	@grep -q 'triple_fault=0' $(BUILD)/samir-report-emu-mut.log
@@ -28714,13 +28749,13 @@ test-samir-report-emu-mutant: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDAR
 	@printf '>>> test-samir-report-emu-mutant: green (dropped subtotal band correctly RED in the guest: G8TP.TXT differs, G1FLT.TXT still identical, no crash)\n'
 
 # ---- SAMIR program control IN THE GUEST (initech-39e5; audit 2026-10-23-samir
-# L002 / L003 / L013). Boot the DOS route, EXEC SAMIR.COM and type, as one key
+# L002 / L003 / L013). Boot the DOS route, EXEC SAMIR.EXE and type, as one key
 # stream: DO LOOP (DO WHILE .T.), Esc, C; DO RECINT (the audit's recursive
 # procedure, verbatim); DO AFTER (prints the loop counter); DO QUITPRG (the
 # audit's QUIT program, verbatim); EXIT. Graded on serial against the real
 # III+ 1.1 wording (mint samirctl ESC.TXT / NEST.TXT / QUITP.TXT): the
 # interrupt dialogue, "DOs nested too deep." with the session surviving (the
-# 20-level cap must FIT the 64 KiB SAMIR.COM stack -- the pre-fix build lost
+# 20-level cap must FIT the 64 KiB SAMIR.EXE stack -- the pre-fix build lost
 # the guest here), RECOVERED with N > 0, and QUIT returning to DOS with AFTER
 # QUIT never printed. DO BIGREC (initech-39e5 review) recurses a 500-line
 # procedure: its line tables come from the PAL heap, so the guest stops it
@@ -28733,19 +28768,19 @@ test-samir-report-emu-mutant: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDAR
 SAMIR_CTL_EMU_DIR  := $(DBF_DIFF_DIR)/samirctl_emu
 SAMIR_CTL_EMU_PRGS := LOOP.PRG RECINT.PRG BIGREC.PRG AFTER.PRG QUITPRG.PRG
 SAMIR_CTL_EMU_KEYS := s,a,m,i,r,ret,d,o,spc,l,o,o,p,ret,esc,c,d,o,spc,r,e,c,i,n,t,ret,d,o,spc,b,i,g,r,e,c,ret,d,o,spc,a,f,t,e,r,ret,d,o,spc,q,u,i,t,p,r,g,ret,e,x,i,t,ret
-SAMIR_CTL_EMU_MUTS := $(BUILD)/SAMIR_CTL_FLOW_MUTATE_NO_ESCAPE.COM $(BUILD)/SAMIR_CTL_PROC_MUTATE_NO_DO_CAP.COM $(BUILD)/SAMIR_CTL_FLOW_MUTATE_STACK_LINES.COM
-$(SAMIR_CTL_EMU_MUTS): $(BUILD)/SAMIR_CTL_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+SAMIR_CTL_EMU_MUTS := $(BUILD)/SAMIR_CTL_FLOW_MUTATE_NO_ESCAPE.EXE $(BUILD)/SAMIR_CTL_PROC_MUTATE_NO_DO_CAP.EXE $(BUILD)/SAMIR_CTL_FLOW_MUTATE_STACK_LINES.EXE
+$(SAMIR_CTL_EMU_MUTS): $(BUILD)/SAMIR_CTL_%.EXE: $(SAMIR_HEADERS) $(SAMIR_EXE_CSRCS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_PACK_DEPS) | $(BUILD)
 	@set -e; d=$(BUILD)/samir_ctl_$*; mkdir -p $$d; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
-	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$* -c $$src -o $$obj; done; \
+	for src in $(SAMIR_EXE_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_EXE_PROFILE) -D$* -c $$src -o $$obj; done; \
 	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
-	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
+	$(call samir_pack,$$d/SAMIR.elf,$@)
 # $(call samir_ctl_emu_run,<samir.com>,<name>) -> $(BUILD)/<name>.samir (serial
 # from `A:\>samir` on, CR stripped) + $(BUILD)/<name>.report
 define samir_ctl_emu_run
 	@dd if=/dev/zero of=$(BUILD)/$(2).img bs=512 count=2880 status=none
 	@mformat -i $(BUILD)/$(2).img -f 1440 ::
-	@mcopy -i $(BUILD)/$(2).img $(1) ::SAMIR.COM
+	@mcopy -i $(BUILD)/$(2).img $(1) ::SAMIR.EXE && mcopy -i $(BUILD)/$(2).img $(basename $(1)).OVL ::SAMIR.OVL
 	@set -e; for f in $(SAMIR_CTL_EMU_PRGS); do mcopy -i $(BUILD)/$(2).img $(SAMIR_CTL_EMU_DIR)/$$f ::$$f; done
 	@$(call fixture-check,recipe,$(BUILD)/$(2).img)
 	@started=$$(date +%s); rc=0; $(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BUILD)/$(2).img" \
@@ -28758,9 +28793,9 @@ define samir_ctl_emu_run
 	@tr -d '\r' < "$(BUILD)/$(2).serial" 2>/dev/null | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(2).samir" || true
 endef
 .PHONY: test-samir-ctl-emu test-samir-ctl-emu-mutant
-test-samir-ctl-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM)
+test-samir-ctl-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE)
 	@printf '>>> test-samir-ctl-emu: Esc / 20-level DO cap / QUIT in the guest (audit L002 L003 L013; mint samirctl wording)\n'
-	$(call samir_ctl_emu_run,$(SAMIR_COM),samir_ctl_emu)
+	$(call samir_ctl_emu_run,$(SAMIR_EXE),samir_ctl_emu)
 	@sh harness/emu/require_trace.sh $(BUILD)/samir_ctl_emu.report $(BUILD)/samir_ctl_emu.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')"
 	@S=$(BUILD)/samir_ctl_emu.samir; R=$(BUILD)/samir_ctl_emu.report; \
 	fail() { printf '!!! test-samir-ctl-emu FAIL: %s\n' "$$1"; cat "$$S"; exit 1; }; \
@@ -28781,16 +28816,16 @@ test-samir-ctl-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM)
 	grep -q 'quit_after_found=1' "$$R" || fail 'the session never reached SHELL-DONE (EXIT after QUIT)'
 	@printf '>>> test-samir-ctl-emu: green (QEMU)\n'
 test-samir-ctl-emu-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_CTL_EMU_MUTS)
-	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_NO_ESCAPE.COM,samir_ctl_emu_mut_esc)
+	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_NO_ESCAPE.EXE,samir_ctl_emu_mut_esc)
 	@sh harness/emu/require_fault_trace.sh $(BUILD)/samir_ctl_emu_mut_esc.report $(BUILD)/samir_ctl_emu_mut_esc.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')" escape
 	@if grep -qxF '*** INTERRUPTED ***' $(BUILD)/samir_ctl_emu_mut_esc.samir; then printf '!!! test-samir-ctl-emu-mutant FAIL: no-Esc-poll mutant still interrupted\n'; exit 1; fi
 	@grep -q 'triple_fault=0' $(BUILD)/samir_ctl_emu_mut_esc.report || { printf '!!! no-Esc mutant run did not complete cleanly (harness)\n'; exit 1; }
 	@printf '>>> test-samir-ctl-emu-mutant: Esc-never-polled correctly RED (the loop cannot be stopped)\n'
-	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_PROC_MUTATE_NO_DO_CAP.COM,samir_ctl_emu_mut_cap)
+	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_PROC_MUTATE_NO_DO_CAP.EXE,samir_ctl_emu_mut_cap)
 	@sh harness/emu/require_fault_trace.sh $(BUILD)/samir_ctl_emu_mut_cap.report $(BUILD)/samir_ctl_emu_mut_cap.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')" cap
 	@if grep -qE 'RECOVERED +[1-9][0-9]*' $(BUILD)/samir_ctl_emu_mut_cap.samir && grep -qF 'DOs nested too deep.' $(BUILD)/samir_ctl_emu_mut_cap.samir && grep -q 'quit_after_found=1' $(BUILD)/samir_ctl_emu_mut_cap.report; then printf '!!! test-samir-ctl-emu-mutant FAIL: no-DO-cap mutant survived the recursion\n'; exit 1; fi
 	@printf '>>> test-samir-ctl-emu-mutant: no-20-level-cap correctly RED (recursion past the cap loses the session)\n'
-	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_STACK_LINES.COM,samir_ctl_emu_mut_stk)
+	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_STACK_LINES.EXE,samir_ctl_emu_mut_stk)
 	@sh harness/emu/require_fault_trace.sh $(BUILD)/samir_ctl_emu_mut_stk.report $(BUILD)/samir_ctl_emu_mut_stk.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')" stack
 	@if grep -qE 'RECOVERED +[1-9][0-9]*' $(BUILD)/samir_ctl_emu_mut_stk.samir && grep -q 'quit_after_found=1' $(BUILD)/samir_ctl_emu_mut_stk.report; then printf '!!! test-samir-ctl-emu-mutant FAIL: stack-line-table mutant survived BIGREC\n'; exit 1; fi
 	@printf '>>> test-samir-ctl-emu-mutant: per-call stack line tables correctly RED (500-line BIGREC loses the session)\n'
@@ -28800,27 +28835,27 @@ TEST_SAMIR_AUDIT_EMU := $(BUILD)/test_samir_audit_emu
 $(TEST_SAMIR_AUDIT_EMU): $(DBF_DIFF_DIR)/test_samir_audit_emu.c | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
 .PHONY: test-samir-audit-emu test-samir-input-emu
-test-samir-audit-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+test-samir-audit-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(BUILD)/CLIENTS.DBF
 	@$(TEST_SAMIR_AUDIT_EMU) view
 	@printf '>>> test-samir-audit-emu: green\n'
-test-samir-input-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+test-samir-input-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(BUILD)/CLIENTS.DBF
 	@$(TEST_SAMIR_AUDIT_EMU) input
 	@printf '>>> test-samir-input-emu: green\n'
 
 # On-target mutants re-run the SAME complete oracle (no crash counts as RED).
-SAMIR_AUDIT_MUT_COMS := $(addprefix $(BUILD)/SAMIR_AUDIT_,filter.COM deleted.COM marker.COM extension.COM useerror.COM input.COM undefined.COM)
-$(SAMIR_AUDIT_MUT_COMS): $(BUILD)/SAMIR_AUDIT_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+SAMIR_AUDIT_MUT_EXES := $(addprefix $(BUILD)/SAMIR_AUDIT_,filter.EXE deleted.EXE marker.EXE extension.EXE useerror.EXE input.EXE undefined.EXE)
+$(SAMIR_AUDIT_MUT_EXES): $(BUILD)/SAMIR_AUDIT_%.EXE: $(SAMIR_HEADERS) $(SAMIR_EXE_CSRCS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_PACK_DEPS) | $(BUILD)
 	@case "$*" in filter) flag=SAMIR_MUTATE_FILTER_VIEW;; deleted) flag=SAMIR_MUTATE_DELETED_VIEW;; marker) flag=SAMIR_MUTATE_DELETE_MARK;; extension) flag=SAMIR_MUTATE_USE_EXTENSION;; useerror) flag=SAMIR_MUTATE_USE_ERROR;; input) flag=SAMIR_MUTATE_STDIN_LINES;; undefined) flag=SAMIR_MUTATE_UNDEFINED_ERROR1;; esac; \
 	set -e; d=$(BUILD)/samir_audit_$*; mkdir -p $$d; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
-	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$$flag -c $$src -o $$obj; done; \
+	for src in $(SAMIR_EXE_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_EXE_PROFILE) -D$$flag -c $$src -o $$obj; done; \
 	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
-	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
+	$(call samir_pack,$$d/SAMIR.elf,$@)
 .PHONY: test-samir-audit-emu-mutant test-samir-input-emu-mutant
-test-samir-audit-emu-mutant: $(filter-out $(BUILD)/SAMIR_AUDIT_input.COM $(BUILD)/SAMIR_AUDIT_undefined.COM,$(SAMIR_AUDIT_MUT_COMS)) $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
+test-samir-audit-emu-mutant: $(filter-out $(BUILD)/SAMIR_AUDIT_input.EXE $(BUILD)/SAMIR_AUDIT_undefined.EXE,$(SAMIR_AUDIT_MUT_EXES)) $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
 	@set -e; for kind in filter deleted marker extension useerror; do \
 	  case $$kind in filter) reason='K05 active FILTER excludes negative row';; deleted) reason='K06 ON hides deleted row';; marker) reason='K06 audit DELETE+DISPLAY has asterisk';; extension) reason='K09 implicit extension succeeded before explicit control';; useerror) reason='K09 missing table is';; esac; \
-	  if $(TEST_SAMIR_AUDIT_EMU) view $(BUILD)/SAMIR_AUDIT_$$kind.COM > $(BUILD)/samir-audit/mut-emu-$$kind.log 2>&1; then echo '!!! emu mutant passed'; exit 1; fi; \
+	  if $(TEST_SAMIR_AUDIT_EMU) view $(BUILD)/SAMIR_AUDIT_$$kind.EXE > $(BUILD)/samir-audit/mut-emu-$$kind.log 2>&1; then echo '!!! emu mutant passed'; exit 1; fi; \
 	  grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-emu-$$kind.log; \
 	  grep -Fq "$$reason" $(BUILD)/samir-audit/mut-emu-$$kind.log; \
 	  grep -q 'triple_fault=0' $(BUILD)/samir-audit/mut-emu-$$kind.log; \
@@ -28828,39 +28863,39 @@ test-samir-audit-emu-mutant: $(filter-out $(BUILD)/SAMIR_AUDIT_input.COM $(BUILD
 	  printf '>>> test-samir-audit-emu-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
 	done
 	@printf '>>> test-samir-audit-emu-mutant: green\n'
-test-samir-input-emu-mutant: $(BUILD)/SAMIR_AUDIT_input.COM $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
-	@if $(TEST_SAMIR_AUDIT_EMU) input $(BUILD)/SAMIR_AUDIT_input.COM > $(BUILD)/samir-audit/mut-emu-input.log 2>&1; then echo '!!! input emu mutant passed'; exit 1; fi
+test-samir-input-emu-mutant: $(BUILD)/SAMIR_AUDIT_input.EXE $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
+	@if $(TEST_SAMIR_AUDIT_EMU) input $(BUILD)/SAMIR_AUDIT_input.EXE > $(BUILD)/samir-audit/mut-emu-input.log 2>&1; then echo '!!! input emu mutant passed'; exit 1; fi
 	@grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-emu-input.log
 	@grep -Fq 'K13 USE/LIST/QUIT rendered all three rows' $(BUILD)/samir-audit/mut-emu-input.log
 	@grep -q 'triple_fault=0' $(BUILD)/samir-audit/mut-emu-input.log
 	@grep -q 'quit_after_found=1' $(BUILD)/samir-audit/mut-emu-input.log
 	@printf '>>> test-samir-input-emu-mutant: green (multi-command read correctly RED; clean shell return)\n'
 
-# --- SAMIR.COM SHORT-READ MUTANT (bead hdlb; Rule 6): the SAME .COM build but
+# --- SAMIR.EXE SHORT-READ MUTANT (bead hdlb; Rule 6): the SAME .EXE build but
 #     with -DPAL_MILTON_MUTATE_SHORT_READ on the on-target I/O path -- milton_read
 #     shaves one byte off every multi-byte read, so the .dbf header/records read
 #     short and the on-target codec mis-decodes -> the LIST rows the S8.2 gate
 #     asserts garble/vanish (USE reports #15) -> the gate goes RED for the RIGHT
 #     reason (wrong data, NOT a crash; no triple-fault). The mutant gate
 #     (test-samir-boot-mutant) confirms the bite. ---
-SAMIR_COM_MUT   := $(BUILD)/SAMIR_MUT.COM
-.PHONY: samir-com-mutant
-samir-com-mutant: $(SAMIR_COM_MUT)
-$(SAMIR_COM_MUT): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
-	@rm -rf $(BUILD)/samir_com_mut && mkdir -p $(BUILD)/samir_com_mut
-	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_mut/samir_crt0.o
-	@set -e; for s in $(SAMIR_COM_CSRCS); do \
-		o=$(BUILD)/samir_com_mut/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
-		$(CC) $(SAMIR_COM_PROFILE) -DPAL_MILTON_MUTATE_SHORT_READ -c $$s -o $$o; \
+SAMIR_EXE_MUT   := $(BUILD)/SAMIR_MUT.EXE
+.PHONY: samir-exe-mutant
+samir-exe-mutant: $(SAMIR_EXE_MUT)
+$(SAMIR_EXE_MUT): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_EXE_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_PACK_DEPS) | $(BUILD)
+	@rm -rf $(BUILD)/samir_exe_mut && mkdir -p $(BUILD)/samir_exe_mut
+	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_exe_mut/samir_crt0.o
+	@set -e; for s in $(SAMIR_EXE_CSRCS); do \
+		o=$(BUILD)/samir_exe_mut/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
+		$(CC) $(SAMIR_EXE_PROFILE) -DPAL_MILTON_MUTATE_SHORT_READ -c $$s -o $$o; \
 	done
-	@$(SAMIR_LINK) -o $(BUILD)/samir_com_mut/SAMIR.elf $(BUILD)/samir_com_mut/samir_crt0.o $$(ls $(BUILD)/samir_com_mut/*.o | grep -v 'samir_crt0\.o')
-	@$(OBJCOPY) -O binary $(BUILD)/samir_com_mut/SAMIR.elf $@
-	@printf '>>> SAMIR_MUT.COM: %s bytes (short-read on-target I/O mutant; Rule 6)\n' "$$(stat -c%s $@)"
+	@$(SAMIR_LINK) -o $(BUILD)/samir_exe_mut/SAMIR.elf $(BUILD)/samir_exe_mut/samir_crt0.o $$(ls $(BUILD)/samir_exe_mut/*.o | grep -v 'samir_crt0\.o')
+	@$(call samir_pack,$(BUILD)/samir_exe_mut/SAMIR.elf,$@)
+	@printf '>>> SAMIR_MUT.EXE: %s bytes (short-read on-target I/O mutant; Rule 6)\n' "$$(stat -c%s $@)"
 
 # --- CLIENTS.DBF FIXTURE (bead hdlb): a deterministic 3-field / 3-record .dbf the
 #     S8.2 gate USEs + LISTs. Minted by mint_clients_dbf, which LINKS the shipped
 #     SAMIR host dbf writer (dbf.c + value.c + rt.c over pal_host.c) so the fixture
-#     is read back BIT-FOR-BIT by the on-target SAMIR.COM reader (one writer, no
+#     is read back BIT-FOR-BIT by the on-target SAMIR.EXE reader (one writer, no
 #     second encoder to drift). Deterministic (injected date; Rule 11), build
 #     intermediate, NOT committed. ---
 MINT_CLIENTS_BIN := $(BUILD)/mint_clients_dbf
@@ -28872,22 +28907,22 @@ $(CLIENTS_DBF): $(MINT_CLIENTS_BIN) | $(BUILD)
 	@$(MINT_CLIENTS_BIN) $@
 	@printf '>>> CLIENTS.DBF: minted %s (NAME/C CITY/C BAL/N; 3 records; deterministic; bead hdlb)\n' "$@"
 
-# --- SAMIR DATA DISKS (bead hdlb): FAT12 floppies carrying SAMIR.COM + CLIENTS.DBF
-#     (the production gate disk) and SAMIR_MUT.COM + CLIENTS.DBF (the mutant disk).
+# --- SAMIR DATA DISKS (bead hdlb): FAT12 floppies carrying SAMIR.EXE + CLIENTS.DBF
+#     (the production gate disk) and SAMIR_MUT.EXE + CLIENTS.DBF (the mutant disk).
 #     Mirrors FAT_EXEC_IMG; re-minted per build, NOT committed (Rule 11). ---
 # (SAMIR_LIST_IMG / SAMIR_LIST_MUT_IMG are defined above test-flair-samir-suspend,
 #  their first prerequisite use -- test-makefile-vars, tdnl.81.)
-$(SAMIR_LIST_IMG): $(SAMIR_COM) $(CLIENTS_DBF) | $(BUILD)
+$(SAMIR_LIST_IMG): $(SAMIR_EXE) $(CLIENTS_DBF) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
-	@mcopy -i $@ $(SAMIR_COM) ::SAMIR.COM
+	@mcopy -i $@ $(SAMIR_EXE) ::SAMIR.EXE && mcopy -i $@ $(basename $(SAMIR_EXE)).OVL ::SAMIR.OVL
 	@mcopy -i $@ $(CLIENTS_DBF) ::CLIENTS.DBF
-	@printf '>>> samir_list: minted %s (FAT12 disk for test-samir-boot; SAMIR.COM + CLIENTS.DBF)\n' "$@"
+	@printf '>>> samir_list: minted %s (FAT12 disk for test-samir-boot; SAMIR.EXE + CLIENTS.DBF)\n' "$@"
 	@$(call fixture-check,recipe,$@)
-$(SAMIR_LIST_MUT_IMG): $(SAMIR_COM_MUT) $(CLIENTS_DBF) | $(BUILD)
+$(SAMIR_LIST_MUT_IMG): $(SAMIR_EXE_MUT) $(CLIENTS_DBF) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
-	@mcopy -i $@ $(SAMIR_COM_MUT) ::SAMIR.COM
+	@mcopy -i $@ $(SAMIR_EXE_MUT) ::SAMIR.EXE && mcopy -i $@ $(basename $(SAMIR_EXE_MUT)).OVL ::SAMIR.OVL
 	@mcopy -i $@ $(CLIENTS_DBF) ::CLIENTS.DBF
 	@printf '>>> samir_list_mut: minted %s (short-read mutant disk for test-samir-boot-mutant)\n' "$@"
 	@$(call fixture-check,recipe,$@)
@@ -28897,9 +28932,9 @@ $(SAMIR_LIST_MUT_IMG): $(SAMIR_COM_MUT) $(CLIENTS_DBF) | $(BUILD)
 # ---------------------------------------------------------------------------
 # THE MILESTONE: SAMIR (InitechBase) RUNS INSIDE InitechOS, end-to-end, on the
 # emulator. Boot the COMMAND.COM shell kernel (TRACER_IMG) WITH a FAT12 data disk
-# (--disk2 = SAMIR_LIST_IMG, carrying SAMIR.COM + CLIENTS.DBF) and inject, gated on
+# (--disk2 = SAMIR_LIST_IMG, carrying SAMIR.EXE + CLIENTS.DBF) and inject, gated on
 # SHELL-READY:
-#     samir<ret>                 (COMMAND.COM EXEC of SAMIR.COM via AH=4Bh)
+#     samir<ret>                 (COMMAND.COM EXEC of SAMIR.EXE via AH=4Bh)
 #     use clients.dbf<ret>       (SAMIR's dot-prompt USE opens the .dbf rw)
 #     list<ret>                  (LIST walks + renders every record)
 #     quit<ret>                  (SAMIR REPL clean exit -> crt0 INT 21h AH=4Ch)
@@ -28942,9 +28977,9 @@ SAMIRBOOT_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s
 test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-samir-boot : SAMIR runs INSIDE InitechOS (S8.2)\n'
-	@printf '  Ref: bead initech-hdlb; ADR-0009 DEC-08. boot -> EXEC SAMIR.COM -> USE -> LIST.\n'
+	@printf '  Ref: bead initech-hdlb; ADR-0009 DEC-08. boot -> EXEC SAMIR.EXE -> USE -> LIST.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(SECONDARY_TRACER_IMG)" "$(SAMIR_LIST_IMG)"
+	@printf 'Booting   : %s + data disk %s (SAMIR.EXE + CLIENTS.DBF, primary slave)\n' "$(SECONDARY_TRACER_IMG)" "$(SAMIR_LIST_IMG)"
 	@printf 'Expecting : SHELL-READY + dot prompt + LIST rows {PESTON,WADDAMS,LUMBERGH} + no triple-fault\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# Run 1 (serial): EXEC SAMIR, USE CLIENTS.DBF, LIST, QUIT, EXIT. Generous
@@ -29047,10 +29082,10 @@ test-samir-boot-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_MUT_
 # this gate is the FIRST runtime exercise of pal_milton's WRITE/SEEK/CLOSE path
 # (AH=40h WRITE + AH=42h LSEEK + AH=3Eh CLOSE -> the kernel FAT12 write path over
 # ATA). Boot the COMMAND.COM shell kernel (TRACER_IMG) WITH a FRESH, WRITABLE
-# FAT12 data disk (--disk2 = SAMIR_WRITE_IMG, a per-run copy of SAMIR.COM +
+# FAT12 data disk (--disk2 = SAMIR_WRITE_IMG, a per-run copy of SAMIR.EXE +
 # CLIENTS.DBF -- Rule 11 deterministic start: the kernel MUTATES it, so it must
 # NOT be a committed fixture), and inject, gated on SHELL-READY:
-#     samir<ret>                       (EXEC SAMIR.COM via AH=4Bh)
+#     samir<ret>                       (EXEC SAMIR.EXE via AH=4Bh)
 #     use clients.dbf<ret>             (USE opens the .dbf read-WRITE, 7az.19)
 #     replace bal with 9999.99<ret>    (REPLACE rec 1 BAL, default scope = current)
 #     append blank<ret>                (APPEND BLANK adds rec 4)
@@ -29102,34 +29137,34 @@ SAMIR_WRITE_SCRN_IMG := $(BUILD)/samir_write_scrn.img
 SAMIR_WRITE_MUT_IMG  := $(BUILD)/samir_write_mut.img
 
 # samir_write_mint: $(call samir_write_mint,<image>,<samir.com>) -- mint a FRESH
-# 1.44 MB FAT12 disk with the given SAMIR.COM + a PRISTINE copy of CLIENTS.DBF.
+# 1.44 MB FAT12 disk with the given SAMIR.EXE + a PRISTINE copy of CLIENTS.DBF.
 define samir_write_mint
 	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
 	@mformat -i $(1) -f 1440 ::
-	@mcopy -i $(1) $(2) ::SAMIR.COM
+	@mcopy -i $(1) $(2) ::SAMIR.EXE && mcopy -i $(1) $(basename $(2)).OVL ::SAMIR.OVL
 	@mcopy -i $(1) $(CLIENTS_DBF) ::CLIENTS.DBF
-	@$(call fixture-check,recipe,$(1),SAMIR.COM CLIENTS.DBF)
+	@$(call fixture-check,recipe,$(1),SAMIR.EXE SAMIR.OVL CLIENTS.DBF)
 endef
 
-# --- SAMIR.COM DROP-WRITE MUTANT (bead g6wx; Rule 6): the SAME .COM build but
+# --- SAMIR.EXE DROP-WRITE MUTANT (bead g6wx; Rule 6): the SAME .EXE build but
 #     pal_milton.c is compiled with -DPAL_MILTON_MUTATE_DROP_WRITE so milton_write
 #     on a real file handle (fd >= 3) is a no-op that reports success. dbf_flush
 #     then "succeeds" in the engine but nothing reaches the disk -> the extracted
 #     .dbf is STALE -> test-samir-write-mutant's persistence assertion bites
 #     (3 records, original BALs; NO crash; the live LIST still renders). ---
-SAMIR_COM_DROPWRITE := $(BUILD)/SAMIR_DROPWRITE.COM
-.PHONY: samir-com-dropwrite
-samir-com-dropwrite: $(SAMIR_COM_DROPWRITE)
-$(SAMIR_COM_DROPWRITE): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
-	@rm -rf $(BUILD)/samir_com_dropwrite && mkdir -p $(BUILD)/samir_com_dropwrite
-	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_dropwrite/samir_crt0.o
-	@set -e; for s in $(SAMIR_COM_CSRCS); do \
-		o=$(BUILD)/samir_com_dropwrite/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
-		$(CC) $(SAMIR_COM_PROFILE) -DPAL_MILTON_MUTATE_DROP_WRITE -c $$s -o $$o; \
+SAMIR_EXE_DROPWRITE := $(BUILD)/SAMIR_DROPWRITE.EXE
+.PHONY: samir-exe-dropwrite
+samir-exe-dropwrite: $(SAMIR_EXE_DROPWRITE)
+$(SAMIR_EXE_DROPWRITE): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_EXE_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_PACK_DEPS) | $(BUILD)
+	@rm -rf $(BUILD)/samir_exe_dropwrite && mkdir -p $(BUILD)/samir_exe_dropwrite
+	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_exe_dropwrite/samir_crt0.o
+	@set -e; for s in $(SAMIR_EXE_CSRCS); do \
+		o=$(BUILD)/samir_exe_dropwrite/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
+		$(CC) $(SAMIR_EXE_PROFILE) -DPAL_MILTON_MUTATE_DROP_WRITE -c $$s -o $$o; \
 	done
-	@$(SAMIR_LINK) -o $(BUILD)/samir_com_dropwrite/SAMIR.elf $(BUILD)/samir_com_dropwrite/samir_crt0.o $$(ls $(BUILD)/samir_com_dropwrite/*.o | grep -v 'samir_crt0\.o')
-	@$(OBJCOPY) -O binary $(BUILD)/samir_com_dropwrite/SAMIR.elf $@
-	@printf '>>> SAMIR_DROPWRITE.COM: %s bytes (drop-write on-target WRITE mutant; Rule 6)\n' "$$(stat -c%s $@)"
+	@$(SAMIR_LINK) -o $(BUILD)/samir_exe_dropwrite/SAMIR.elf $(BUILD)/samir_exe_dropwrite/samir_crt0.o $$(ls $(BUILD)/samir_exe_dropwrite/*.o | grep -v 'samir_crt0\.o')
+	@$(call samir_pack,$(BUILD)/samir_exe_dropwrite/SAMIR.elf,$@)
+	@printf '>>> SAMIR_DROPWRITE.EXE: %s bytes (drop-write on-target WRITE mutant; Rule 6)\n' "$$(stat -c%s $@)"
 
 SAMIRWR_NAME       := samir_write
 SAMIRWR_SERIAL     := $(BUILD)/$(SAMIRWR_NAME).serial
@@ -29150,18 +29185,18 @@ SAMIRWR_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,r,e,p,l,a,c,
 SAMIRWR_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,r,e,p,l,a,c,e,spc,b,a,l,spc,w,i,t,h,spc,9,9,9,9,dot,9,9,ret,a,p,p,e,n,d,spc,b,l,a,n,k,ret,r,e,p,l,a,c,e,spc,b,a,l,spc,w,i,t,h,spc,5,5,5,5,dot,5,5,ret,l,i,s,t,ret
 
 .PHONY: test-samir-write test-samir-write-mutant
-test-samir-write: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(CLIENTS_DBF) $(PPM_TEXT_CHECK_BIN)
+test-samir-write: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(CLIENTS_DBF) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-samir-write : SAMIR WRITES a .dbf that PERSISTS (S8.2 deepening)\n'
 	@printf '  Ref: bead initech-g6wx; ADR-0009 DEC-08. boot -> USE -> REPLACE + APPEND -> flush -> on-disk .dbf.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + FRESH WRITABLE data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(SECONDARY_TRACER_IMG)" "$(SAMIR_WRITE_IMG)"
+	@printf 'Booting   : %s + FRESH WRITABLE data disk %s (SAMIR.EXE + CLIENTS.DBF, primary slave)\n' "$(SECONDARY_TRACER_IMG)" "$(SAMIR_WRITE_IMG)"
 	@printf 'Expecting : in-emu LIST shows BAL 9999.99 + rec4 5555.55; extracted .dbf has 4 records (independent reader)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# FRESH disk for the serial leg -- Rule 11: each run starts from the pristine
 	@# 3-record fixture so APPEND BLANK lands exactly one new record (3->4), never
 	@# accumulating across legs/invocations.
-	@$(call samir_write_mint,$(SAMIR_WRITE_IMG),$(SAMIR_COM))
+	@$(call samir_write_mint,$(SAMIR_WRITE_IMG),$(SAMIR_EXE))
 	@printf '>>> samir_write: minted FRESH %s (pristine 3-record CLIENTS.DBF) for the serial leg\n' "$(SAMIR_WRITE_IMG)"
 	@# Run 1 (serial): EXEC SAMIR, USE rw, REPLACE + APPEND + REPLACE, LIST, QUIT, EXIT.
 	@$(call fixture-preflight,$(SAMIR_WRITE_IMG))
@@ -29205,7 +29240,7 @@ test-samir-write: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(CLIENTS_
 	@# bg_y0=32 bg_x0=560; immune to vertical scroll; weakens nothing). ----
 	@# FRESH disk for the screendump leg (its OWN image) so its appends never
 	@# disturb the serial leg's on-disk persistence proof (Rule 11).
-	@$(call samir_write_mint,$(SAMIR_WRITE_SCRN_IMG),$(SAMIR_COM))
+	@$(call samir_write_mint,$(SAMIR_WRITE_SCRN_IMG),$(SAMIR_EXE))
 	@$(call fixture-preflight,$(SAMIR_WRITE_SCRN_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_WRITE_SCRN_IMG)" \
 		--name "$(SAMIRWR_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
@@ -29250,10 +29285,10 @@ test-samir-write: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(CLIENTS_
 	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
 	@printf '======================================================================\n'
 
-test-samir-write-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_DROPWRITE) $(CLIENTS_DBF)
+test-samir-write-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE_DROPWRITE) $(CLIENTS_DBF)
 	@printf '>>> test-samir-write-mutant: confirming the drop-write pal_milton mutant goes RED (Rule 6)\n'
 	@# FRESH mutant disk from the pristine fixture (Rule 11).
-	@$(call samir_write_mint,$(SAMIR_WRITE_MUT_IMG),$(SAMIR_COM_DROPWRITE))
+	@$(call samir_write_mint,$(SAMIR_WRITE_MUT_IMG),$(SAMIR_EXE_DROPWRITE))
 	@$(call fixture-preflight,$(SAMIR_WRITE_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_WRITE_MUT_IMG)" \
 		--name "$(SAMIRWR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
@@ -29294,9 +29329,9 @@ test-samir-write-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_DROP
 # THE MILESTONE: the Initech AR-aging accounting app (Y2KACCT.PRG) RUNS INSIDE
 # InitechOS on QEMU -- WITH its ENFORCED Year-2000 bug (bead 586.1) -- via the
 # new `DO <file>` dot-prompt verb (samir_main.c repl_try_do_file). Boot the
-# COMMAND.COM shell kernel with a FAT12 data disk carrying SAMIR.COM +
+# COMMAND.COM shell kernel with a FAT12 data disk carrying SAMIR.EXE +
 # INVOICE.DBF + Y2KACCT.PRG, then inject (gated on SHELL-READY):
-#     samir<ret>      (COMMAND.COM EXEC of SAMIR.COM)
+#     samir<ret>      (COMMAND.COM EXEC of SAMIR.EXE)
 #     do y2kacct<ret> (SAMIR's dot prompt loads + runs Y2KACCT.PRG off disk)
 #     quit<ret>       (SAMIR REPL clean exit)
 #     exit<ret>       (COMMAND.COM clean exit)
@@ -29330,7 +29365,7 @@ test-samir-write-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_DROP
 
 # --- INVOICE.DBF fixtures (canon + Y2K-fixed mutant). Minted by mint_invoice_dbf,
 #     which links the shipped SAMIR host dbf writer so the fixture is read back
-#     bit-for-bit by the on-target SAMIR.COM reader. Deterministic (Rule 11). ---
+#     bit-for-bit by the on-target SAMIR.EXE reader. Deterministic (Rule 11). ---
 MINT_INVOICE_BIN     := $(BUILD)/mint_invoice_dbf
 MINT_INVOICE_FIX_BIN := $(BUILD)/mint_invoice_dbf_fix
 INVOICE_DBF          := $(BUILD)/INVOICE.DBF
@@ -29358,35 +29393,35 @@ $(Y2KACCT_PRG): $(Y2KACCT_PRG_SRC) | $(BUILD)
 	@cp $(Y2KACCT_PRG_SRC) $@
 	@printf '>>> Y2KACCT.PRG: staged %s (canon AR aging + self-driving ASOF; Y2K bug ENFORCED)\n' "$@"
 
-# --- SAMIR.COM DO-TRUNC MUTANT (bead 9a0f; Rule 6): the SAME .COM build but
+# --- SAMIR.EXE DO-TRUNC MUTANT (bead 9a0f; Rule 6): the SAME .EXE build but
 #     samir_main.c compiled with -DREPL_MUTATE_DO_TRUNC so repl_load_prg reads
 #     only the first HALF of the .prg -> the report body is cut off -> the in-emu
 #     canon assertions go RED for the RIGHT reason (truncated DO-file read, no
 #     crash). NEVER define in a real build. ---
-SAMIR_COM_DOTRUNC := $(BUILD)/SAMIR_DOTRUNC.COM
-.PHONY: samir-com-dotrunc
-samir-com-dotrunc: $(SAMIR_COM_DOTRUNC)
-$(SAMIR_COM_DOTRUNC): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
-	@rm -rf $(BUILD)/samir_com_dotrunc && mkdir -p $(BUILD)/samir_com_dotrunc
-	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_dotrunc/samir_crt0.o
-	@set -e; for s in $(SAMIR_COM_CSRCS); do \
-		o=$(BUILD)/samir_com_dotrunc/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
-		$(CC) $(SAMIR_COM_PROFILE) -DREPL_MUTATE_DO_TRUNC -c $$s -o $$o; \
+SAMIR_EXE_DOTRUNC := $(BUILD)/SAMIR_DOTRUNC.EXE
+.PHONY: samir-exe-dotrunc
+samir-exe-dotrunc: $(SAMIR_EXE_DOTRUNC)
+$(SAMIR_EXE_DOTRUNC): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_EXE_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_PACK_DEPS) | $(BUILD)
+	@rm -rf $(BUILD)/samir_exe_dotrunc && mkdir -p $(BUILD)/samir_exe_dotrunc
+	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_exe_dotrunc/samir_crt0.o
+	@set -e; for s in $(SAMIR_EXE_CSRCS); do \
+		o=$(BUILD)/samir_exe_dotrunc/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
+		$(CC) $(SAMIR_EXE_PROFILE) -DREPL_MUTATE_DO_TRUNC -c $$s -o $$o; \
 	done
-	@$(SAMIR_LINK) -o $(BUILD)/samir_com_dotrunc/SAMIR.elf $(BUILD)/samir_com_dotrunc/samir_crt0.o $$(ls $(BUILD)/samir_com_dotrunc/*.o | grep -v 'samir_crt0\.o')
-	@$(OBJCOPY) -O binary $(BUILD)/samir_com_dotrunc/SAMIR.elf $@
-	@printf '>>> SAMIR_DOTRUNC.COM: %s bytes (DO-file half-read mutant; Rule 6)\n' "$$(stat -c%s $@)"
+	@$(SAMIR_LINK) -o $(BUILD)/samir_exe_dotrunc/SAMIR.elf $(BUILD)/samir_exe_dotrunc/samir_crt0.o $$(ls $(BUILD)/samir_exe_dotrunc/*.o | grep -v 'samir_crt0\.o')
+	@$(call samir_pack,$(BUILD)/samir_exe_dotrunc/SAMIR.elf,$@)
+	@printf '>>> SAMIR_DOTRUNC.EXE: %s bytes (DO-file half-read mutant; Rule 6)\n' "$$(stat -c%s $@)"
 
 # --- canon-y2k data-disk minter: $(call cy2k_mint,<image>,<samir.com>,<invoice.dbf>)
-#     -- FRESH FAT12 disk with SAMIR.COM + INVOICE.DBF + Y2KACCT.PRG. Re-minted per
+#     -- FRESH FAT12 disk with SAMIR.EXE + INVOICE.DBF + Y2KACCT.PRG. Re-minted per
 #     leg (the .prg is read-only here, but mint fresh for Rule 11 hygiene). ---
 define cy2k_mint
 	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
 	@mformat -i $(1) -f 1440 ::
-	@mcopy -i $(1) $(2) ::SAMIR.COM
+	@mcopy -i $(1) $(2) ::SAMIR.EXE && mcopy -i $(1) $(basename $(2)).OVL ::SAMIR.OVL
 	@mcopy -i $(1) $(3) ::INVOICE.DBF
 	@mcopy -i $(1) $(Y2KACCT_PRG) ::Y2KACCT.PRG
-	@$(call fixture-check,recipe,$(1),SAMIR.COM INVOICE.DBF Y2KACCT.PRG)
+	@$(call fixture-check,recipe,$(1),SAMIR.EXE SAMIR.OVL INVOICE.DBF Y2KACCT.PRG)
 endef
 
 CY2K_IMG          := $(BUILD)/samir_canon_y2k.img
@@ -29412,16 +29447,16 @@ CY2K_KEYS      := s,a,m,i,r,ret,u,s,e,spc,i,n,v,o,i,c,e,dot,d,b,f,ret,d,o,spc,y,
 CY2K_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,i,n,v,o,i,c,e,dot,d,b,f,ret,d,o,spc,y,2,k,a,c,c,t,ret
 
 .PHONY: test-samir-canon-y2k test-samir-canon-y2k-mutant
-test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF) $(Y2KACCT_PRG) $(PPM_TEXT_CHECK_BIN)
+test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(INVOICE_DBF) $(Y2KACCT_PRG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-samir-canon-y2k : the Initech AR app + its Y2K bug RUN inside InitechOS\n'
 	@printf '  Ref: bead initech-9a0f (Law-4 capstone); 586.1 (the enforced Y2K bug). boot -> EXEC SAMIR -> DO Y2KACCT.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + data disk %s (SAMIR.COM + INVOICE.DBF + Y2KACCT.PRG)\n' "$(SECONDARY_TRACER_IMG)" "$(CY2K_IMG)"
+	@printf 'Booting   : %s + data disk %s (SAMIR.EXE + INVOICE.DBF + Y2KACCT.PRG)\n' "$(SECONDARY_TRACER_IMG)" "$(CY2K_IMG)"
 	@printf 'Expecting : the aging report on serial WITH the buggy A1001 -36477 / A1003 -36462 / TOTAL 0.00 (canon)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(call cy2k_mint,$(CY2K_IMG),$(SAMIR_COM),$(INVOICE_DBF))
-	@printf '>>> samir_canon_y2k: minted FRESH %s (SAMIR.COM + INVOICE.DBF + Y2KACCT.PRG)\n' "$(CY2K_IMG)"
+	@$(call cy2k_mint,$(CY2K_IMG),$(SAMIR_EXE),$(INVOICE_DBF))
+	@printf '>>> samir_canon_y2k: minted FRESH %s (SAMIR.EXE + INVOICE.DBF + Y2KACCT.PRG)\n' "$(CY2K_IMG)"
 	@# Run 1 (serial): EXEC SAMIR, DO Y2KACCT, QUIT, EXIT.
 	@$(call fixture-preflight,$(CY2K_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CY2K_IMG)" \
@@ -29462,7 +29497,7 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(INVO
 	@# prints ~12 report lines; they scroll the active band lower than the 3-row LIST
 	@# gate, so the report text lands in band [176,260). seafoam right margin checked
 	@# (immune to vertical scroll), same discriminator pattern as test-samir-write. ----
-	@$(call cy2k_mint,$(CY2K_SCRN_IMG),$(SAMIR_COM),$(INVOICE_DBF))
+	@$(call cy2k_mint,$(CY2K_SCRN_IMG),$(SAMIR_EXE),$(INVOICE_DBF))
 	@$(call fixture-preflight,$(CY2K_SCRN_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CY2K_SCRN_IMG)" \
 		--name "$(CY2K_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
@@ -29485,7 +29520,7 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(INVO
 	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
 	@printf '======================================================================\n'
 
-# The mutant: the DO-file-READ bite (Rule 6, this bead's feature). SAMIR_DOTRUNC.COM
+# The mutant: the DO-file-READ bite (Rule 6, this bead's feature). SAMIR_DOTRUNC.EXE
 # (-DREPL_MUTATE_DO_TRUNC) reads only the FIRST HALF of Y2KACCT.PRG, so the report
 # BODY (the DO WHILE record walk + the TOTAL line) is cut off -> the canon serial
 # lines (A1001 -36477, A1003 -36462, TOTAL 0.00) VANISH -> RED. This proves the new
@@ -29498,9 +29533,9 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(INVO
 # (The host gate test-canon-y2k-mutant covers the ASOF+data Y2K-fix bite, which can
 # patch both at once; INVOICE.fix.dbf is retained as a documented host-equivalent
 # fixture.) Ref: bead initech-9a0f; samir_main.c repl_load_prg REPL_MUTATE_DO_TRUNC.
-test-samir-canon-y2k-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_DOTRUNC) $(INVOICE_DBF) $(Y2KACCT_PRG)
+test-samir-canon-y2k-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE_DOTRUNC) $(INVOICE_DBF) $(Y2KACCT_PRG)
 	@printf '>>> test-samir-canon-y2k-mutant: confirming the DO-file half-read mutant breaks canon in-emu -> RED (Rule 6; initech-9a0f)\n'
-	@$(call cy2k_mint,$(CY2K_MUT_IMG),$(SAMIR_COM_DOTRUNC),$(INVOICE_DBF))
+	@$(call cy2k_mint,$(CY2K_MUT_IMG),$(SAMIR_EXE_DOTRUNC),$(INVOICE_DBF))
 	@$(call fixture-preflight,$(CY2K_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CY2K_MUT_IMG)" \
 		--name "$(CY2K_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
@@ -29539,9 +29574,9 @@ test-samir-canon-y2k-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_
 # (SALAMI.PRG) RUNS INSIDE InitechOS on QEMU -- WITH its ENFORCED "too much too
 # fast" misplaced-decimal skim (bead 586.2) -- via the same `DO <file>` dot-prompt
 # verb (samir_main.c repl_try_do_file) the Y2K twin (bead 9a0f) uses. Boot the
-# COMMAND.COM shell kernel with a FAT12 data disk carrying SAMIR.COM +
+# COMMAND.COM shell kernel with a FAT12 data disk carrying SAMIR.EXE +
 # INVOICE.DBF + SALAMI.PRG, then inject (gated on SHELL-READY):
-#     samir<ret>      (COMMAND.COM EXEC of SAMIR.COM)
+#     samir<ret>      (COMMAND.COM EXEC of SAMIR.EXE)
 #     use invoice.dbf<ret> (SAMIR's dot prompt opens the AR ledger)
 #     do salami<ret>  (SAMIR's dot prompt loads + runs SALAMI.PRG off disk)
 #     quit<ret>       (SAMIR REPL clean exit)
@@ -29575,7 +29610,7 @@ test-samir-canon-y2k-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_
 #      inside the OS (Law 4).
 #   4. SCREENDUMP (Law 4): a separate keys+grab run renders the report on the LFB.
 # It BITES (test-samir-canon-salami-mutant) via -DREPL_MUTATE_DO_TRUNC (the
-# DO-file-read mutant, SAMIR_DOTRUNC.COM): SAMIR reads only the FIRST HALF of
+# DO-file-read mutant, SAMIR_DOTRUNC.EXE): SAMIR reads only the FIRST HALF of
 # SALAMI.PRG -> the posting body + the BOLTON line are cut off -> the canon serial
 # values vanish -> RED, no crash. (Canon-bug ENFORCEMENT -- the misplaced-decimal
 # SCALE -- stays covered by the host gate test-canon-salami-mutant; the in-emu
@@ -29595,15 +29630,15 @@ $(SALAMI_PRG): $(SALAMI_PRG_SRC) | $(BUILD)
 	@printf '>>> SALAMI.PRG: staged %s (canon finance-charge sweep + self-driving RATE/SCALE; salami bug ENFORCED)\n' "$@"
 
 # --- canon-salami data-disk minter: $(call csalami_mint,<image>,<samir.com>)
-#     -- FRESH FAT12 disk with SAMIR.COM + INVOICE.DBF + SALAMI.PRG. INVOICE.DBF is
+#     -- FRESH FAT12 disk with SAMIR.EXE + INVOICE.DBF + SALAMI.PRG. INVOICE.DBF is
 #     reused from the 9a0f mint (same AMOUNT/PAID the salami canon needs). ---
 define csalami_mint
 	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
 	@mformat -i $(1) -f 1440 ::
-	@mcopy -i $(1) $(2) ::SAMIR.COM
+	@mcopy -i $(1) $(2) ::SAMIR.EXE && mcopy -i $(1) $(basename $(2)).OVL ::SAMIR.OVL
 	@mcopy -i $(1) $(INVOICE_DBF) ::INVOICE.DBF
 	@mcopy -i $(1) $(SALAMI_PRG) ::SALAMI.PRG
-	@$(call fixture-check,recipe,$(1),SAMIR.COM INVOICE.DBF SALAMI.PRG)
+	@$(call fixture-check,recipe,$(1),SAMIR.EXE SAMIR.OVL INVOICE.DBF SALAMI.PRG)
 endef
 
 CSAL_IMG          := $(BUILD)/samir_canon_salami.img
@@ -29629,16 +29664,16 @@ CSAL_KEYS      := s,a,m,i,r,ret,u,s,e,spc,i,n,v,o,i,c,e,dot,d,b,f,ret,d,o,spc,s,
 CSAL_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,i,n,v,o,i,c,e,dot,d,b,f,ret,d,o,spc,s,a,l,a,m,i,ret
 
 .PHONY: test-samir-canon-salami test-samir-canon-salami-mutant
-test-samir-canon-salami: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF) $(SALAMI_PRG) $(PPM_TEXT_CHECK_BIN)
+test-samir-canon-salami: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(INVOICE_DBF) $(SALAMI_PRG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-samir-canon-salami : Bolton salami virus RUNS inside InitechOS\n'
 	@printf '  Ref: bead initech-4hte (canon pair, salami twin of 9a0f); 586.2 (the enforced skim). boot -> EXEC SAMIR -> USE INVOICE -> DO SALAMI.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + data disk %s (SAMIR.COM + INVOICE.DBF + SALAMI.PRG)\n' "$(SECONDARY_TRACER_IMG)" "$(CSAL_IMG)"
+	@printf 'Booting   : %s + data disk %s (SAMIR.EXE + INVOICE.DBF + SALAMI.PRG)\n' "$(SECONDARY_TRACER_IMG)" "$(CSAL_IMG)"
 	@printf 'Expecting : the posting report on serial WITH the buggy A1004 0.4998 / BOLTON 0.38 (too much too fast, canon)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(call csalami_mint,$(CSAL_IMG),$(SAMIR_COM))
-	@printf '>>> samir_canon_salami: minted FRESH %s (SAMIR.COM + INVOICE.DBF + SALAMI.PRG)\n' "$(CSAL_IMG)"
+	@$(call csalami_mint,$(CSAL_IMG),$(SAMIR_EXE))
+	@printf '>>> samir_canon_salami: minted FRESH %s (SAMIR.EXE + INVOICE.DBF + SALAMI.PRG)\n' "$(CSAL_IMG)"
 	@# Run 1 (serial): EXEC SAMIR, USE INVOICE, DO SALAMI, QUIT, EXIT.
 	@$(call fixture-preflight,$(CSAL_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CSAL_IMG)" \
@@ -29676,7 +29711,7 @@ test-samir-canon-salami: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(I
 	@# prints ~10 report lines; they scroll the active band lower than the 3-row LIST
 	@# gate, so the report text lands in band [176,260). seafoam right margin checked
 	@# (immune to vertical scroll), same discriminator pattern as test-samir-canon-y2k. ----
-	@$(call csalami_mint,$(CSAL_SCRN_IMG),$(SAMIR_COM))
+	@$(call csalami_mint,$(CSAL_SCRN_IMG),$(SAMIR_EXE))
 	@$(call fixture-preflight,$(CSAL_SCRN_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CSAL_SCRN_IMG)" \
 		--name "$(CSAL_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
@@ -29699,7 +29734,7 @@ test-samir-canon-salami: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(I
 	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
 	@printf '======================================================================\n'
 
-# The mutant: the DO-file-READ bite (Rule 6, the 9a0f DO <file> feature). SAMIR_DOTRUNC.COM
+# The mutant: the DO-file-READ bite (Rule 6, the 9a0f DO <file> feature). SAMIR_DOTRUNC.EXE
 # (-DREPL_MUTATE_DO_TRUNC) reads only the FIRST HALF of SALAMI.PRG, so the posting BODY
 # (the DO WHILE record walk + the BOLTON total line) is cut off -> the canon serial
 # values (A1004 0.4998, BOLTON 0.38) VANISH -> RED. This proves the DO-file plumbing is
@@ -29708,9 +29743,9 @@ test-samir-canon-salami: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(I
 # (Canon-bug ENFORCEMENT -- the misplaced-decimal SCALE=0 -- stays covered by the host gate
 # test-canon-salami-mutant, which flips SCALE to 2 and confirms the honest BOLTON 0.00.)
 # Ref: bead initech-4hte; samir_main.c repl_load_prg REPL_MUTATE_DO_TRUNC.
-test-samir-canon-salami-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_DOTRUNC) $(INVOICE_DBF) $(SALAMI_PRG)
+test-samir-canon-salami-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE_DOTRUNC) $(INVOICE_DBF) $(SALAMI_PRG)
 	@printf '>>> test-samir-canon-salami-mutant: confirming the DO-file half-read mutant breaks canon in-emu -> RED (Rule 6; initech-4hte)\n'
-	@$(call csalami_mint,$(CSAL_MUT_IMG),$(SAMIR_COM_DOTRUNC))
+	@$(call csalami_mint,$(CSAL_MUT_IMG),$(SAMIR_EXE_DOTRUNC))
 	@$(call fixture-preflight,$(CSAL_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CSAL_MUT_IMG)" \
 		--name "$(CSAL_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
@@ -33501,12 +33536,12 @@ TEST_UNIT_GATES += test-samir-status test-samir-status-mutant
 
 # Same implementation mutants in the flat COM. Dead sections are omitted;
 # the existing link assertion still reserves BSS + the full AH=48h arena.
-$(BUILD)/SAMIR_SCREEN_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_DIR)/pal/heap.h $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/include/samir/screen.h | $(BUILD)
+$(BUILD)/SAMIR_SCREEN_%.EXE: $(SAMIR_HEADERS) $(SAMIR_EXE_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_PACK_DEPS) $(SAMIR_DIR)/pal/heap.h $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/include/samir/screen.h | $(BUILD)
 	@set -e; d=$(BUILD)/samir_screen_$*; mkdir -p $$d; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
-	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$* -c $$src -o $$obj; done; \
+	for src in $(SAMIR_EXE_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_EXE_PROFILE) -D$* -c $$src -o $$obj; done; \
 	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
-	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
+	$(call samir_pack,$$d/SAMIR.elf,$@)
 $(BUILD)/test_samir_screen_emu: $(DBF_DIFF_DIR)/test_samir_screen_emu.c | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
 .PHONY: test-samir-status-emu test-samir-status-off-emu test-samir-status-emu-mutant test-samir-numeric-format-emu test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant
@@ -33514,12 +33549,12 @@ test-samir-status-emu test-samir-status-off-emu test-samir-numeric-format-emu te
 	@mode=status; case '$@' in *off-emu) mode=off;; *numeric*) mode=numeric;; *console*) mode=console;; esac; $(BUILD)/test_samir_screen_emu $$mode && \
 	 cp -f $(BUILD)/samir_screen_$$mode.ppm $(BUILD)/samir-screen/accepted-$$mode.ppm && \
 	 cp -f $(BUILD)/samir_screen_$$mode.serial $(BUILD)/samir-screen/accepted-$$mode.serial
-test-samir-status-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_STATUS.COM
+test-samir-status-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_STATUS.EXE
 	@set +e; $(BUILD)/test_samir_screen_emu status $< > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings|heading)' $(BUILD)/$@.log && grep -q 'status: serial Command Line' $(BUILD)/$@.log && grep -q 'status: reverse band' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (same status-band mutant RED on serial and video)\n' '$@'
-test-samir-numeric-format-emu-fraction-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_NUMERIC_MUTATE_FRACTION.COM
-test-samir-numeric-format-emu-left-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_NUMERIC_MUTATE_LEFT.COM
+test-samir-numeric-format-emu-fraction-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_NUMERIC_MUTATE_FRACTION.EXE
+test-samir-numeric-format-emu-left-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_NUMERIC_MUTATE_LEFT.EXE
 test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant:
 	@set +e; $(BUILD)/test_samir_screen_emu numeric $< > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings)' $(BUILD)/$@.log && grep -q 'numeric: integral fraction and right alignment' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
@@ -33529,8 +33564,8 @@ test-samir-status-emu-mutant test-samir-numeric-format-emu-fraction-mutant test-
 TEST_EMU_GATES += test-samir-status-emu test-samir-status-off-emu test-samir-status-emu-mutant test-samir-numeric-format-emu test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant
 
 .PHONY: test-samir-console-emu test-samir-console-emu-mutant
-test-samir-console-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.COM
-	@set +e; $(BUILD)/test_samir_screen_emu console $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.COM > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
+test-samir-console-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.EXE
+	@set +e; $(BUILD)/test_samir_screen_emu console $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.EXE > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings)' $(BUILD)/$@.log && grep -q 'console: program output and prompt suppressed' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (same CONSOLE suppression mutant RED in guest)\n' '$@'
 TEST_EMU_GATES += test-samir-console-emu test-samir-console-emu-mutant
@@ -34003,15 +34038,15 @@ TEST_SAMIR_LIST_LAYOUT_EMU := $(BUILD)/test_samir_list_layout_emu
 $(TEST_SAMIR_LIST_LAYOUT_EMU): $(DBF_DIFF_DIR)/test_samir_list_layout_emu.c | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
 SAMIR_LIST_LAYOUT_EMU_DEPS := $(TEST_SAMIR_LIST_LAYOUT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
-SAMIR_LIST_LAYOUT_MUT_COMS := $(addprefix $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_,COLUMNS.COM HEADING.COM OPENING.COM)
+SAMIR_LIST_LAYOUT_MUT_EXES := $(addprefix $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_,COLUMNS.EXE HEADING.EXE OPENING.EXE)
 .PHONY: test-samir-list-layout-emu test-samir-list-layout-emu-mutant
-test-samir-list-layout-emu: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_COM) samir-use-goldens
-	@$(TEST_SAMIR_LIST_LAYOUT_EMU) files $(SAMIR_COM) $(abspath $(DBASE3_DECOMP))
-	@$(TEST_SAMIR_LIST_LAYOUT_EMU) screen $(SAMIR_COM) $(abspath $(DBASE3_DECOMP))
+test-samir-list-layout-emu: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_EXE) samir-use-goldens
+	@$(TEST_SAMIR_LIST_LAYOUT_EMU) files $(SAMIR_EXE) $(abspath $(DBASE3_DECOMP))
+	@$(TEST_SAMIR_LIST_LAYOUT_EMU) screen $(SAMIR_EXE) $(abspath $(DBASE3_DECOMP))
 	@printf '>>> test-samir-list-layout-emu: green (9 real tables on serial/disk; M005U console cells)\n'
-test-samir-list-layout-emu-mutant: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_LIST_LAYOUT_MUT_COMS) samir-use-goldens
+test-samir-list-layout-emu-mutant: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_LIST_LAYOUT_MUT_EXES) samir-use-goldens
 	@set -e; for kind in COLUMNS HEADING OPENING; do \
-	  if $(TEST_SAMIR_LIST_LAYOUT_EMU) files $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_$$kind.COM $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-list-layout-emu-mut-$$kind.log 2>&1; then echo '!!! LIST emu mutant passed'; exit 1; fi; \
+	  if $(TEST_SAMIR_LIST_LAYOUT_EMU) files $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_$$kind.EXE $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-list-layout-emu-mut-$$kind.log 2>&1; then echo '!!! LIST emu mutant passed'; exit 1; fi; \
 	  grep -q 'checks,.*failures' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
 	  grep -q 'FAIL .*M005U table 0 stdout file byte-identical' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
 	  grep -q 'triple_fault=0' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
@@ -34040,12 +34075,12 @@ test-samir-undefined-mutant: $(SAMIR_UNDEFINED_MUT) samir-use-goldens
 	@printf '>>> test-samir-undefined-mutant: SAMIR_MUTATE_UNDEFINED_ERROR1 correctly RED: '
 	@grep -F 'FAIL' $(BUILD)/samir-audit/mut-undefined.log | grep -F 'kdna exact dot-prompt error transcript'
 	@printf '>>> test-samir-undefined-mutant: green\n'
-test-samir-undefined-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+test-samir-undefined-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(BUILD)/CLIENTS.DBF
 	@INITECH_QMP_STDIO=1 $(TEST_SAMIR_AUDIT_EMU) undefined
 	@printf '>>> test-samir-undefined-emu: green (typed dot prompt; ON ERROR / ERROR(); clean shell return)\n'
-test-samir-undefined-emu-mutant: $(BUILD)/SAMIR_AUDIT_undefined.COM $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
+test-samir-undefined-emu-mutant: $(BUILD)/SAMIR_AUDIT_undefined.EXE $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
 	@mkdir -p $(BUILD)/samir-audit
-	@if INITECH_QMP_STDIO=1 $(TEST_SAMIR_AUDIT_EMU) undefined $(BUILD)/SAMIR_AUDIT_undefined.COM > $(BUILD)/samir-audit/mut-emu-undefined.log 2>&1; then echo '!!! undefined emu error-1 mutant passed'; exit 1; fi
+	@if INITECH_QMP_STDIO=1 $(TEST_SAMIR_AUDIT_EMU) undefined $(BUILD)/SAMIR_AUDIT_undefined.EXE > $(BUILD)/samir-audit/mut-emu-undefined.log 2>&1; then echo '!!! undefined emu error-1 mutant passed'; exit 1; fi
 	@grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-emu-undefined.log
 	@grep -Fq 'kdna exact guest dot-prompt error transcript' $(BUILD)/samir-audit/mut-emu-undefined.log
 	@grep -q 'triple_fault=0' $(BUILD)/samir-audit/mut-emu-undefined.log
@@ -34508,18 +34543,18 @@ test-samir-core-mutants: $(SAMIR_CORE_MUTS)
 $(BUILD)/test_samir_core_emu: $(DBF_DIFF_DIR)/test_samir_core_emu.c | $(BUILD)
 	$(CC) $(CFLAGS) -Iseed -o $@ $<
 SAMIR_CORE_EMU_RULES := CONCAT_PLUS CONCAT_MINUS MEMVAR_RECLAIM
-SAMIR_CORE_COM_MUTS := $(addprefix $(BUILD)/SAMIR_CORE_,$(addsuffix .COM,$(SAMIR_CORE_EMU_RULES)))
-$(SAMIR_CORE_COM_MUTS): $(BUILD)/SAMIR_CORE_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+SAMIR_CORE_EXE_MUTS := $(addprefix $(BUILD)/SAMIR_CORE_,$(addsuffix .EXE,$(SAMIR_CORE_EMU_RULES)))
+$(SAMIR_CORE_EXE_MUTS): $(BUILD)/SAMIR_CORE_%.EXE: $(SAMIR_HEADERS) $(SAMIR_EXE_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_PACK_DEPS) | $(BUILD)
 	@set -e; d=$(BUILD)/samir_core_$*; mkdir -p $$d; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
-	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -DSAMIR_CORE_MUTATE_$* -c $$src -o $$obj; done; \
+	for src in $(SAMIR_EXE_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_EXE_PROFILE) -DSAMIR_CORE_MUTATE_$* -c $$src -o $$obj; done; \
 	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
-	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
-test-samir-core-emu: $(BUILD)/test_samir_core_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM)
-	@INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(SAMIR_COM)
-test-samir-core-emu-mutants: $(SAMIR_CORE_COM_MUTS) $(BUILD)/test_samir_core_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	$(call samir_pack,$$d/SAMIR.elf,$@)
+test-samir-core-emu: $(BUILD)/test_samir_core_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE)
+	@INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(SAMIR_EXE)
+test-samir-core-emu-mutants: $(SAMIR_CORE_EXE_MUTS) $(BUILD)/test_samir_core_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
 	@set -e; for rule in $(SAMIR_CORE_EMU_RULES); do \
-	  log=$(BUILD)/samir-core-emu-$$rule.log; set +e; INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(BUILD)/SAMIR_CORE_$$rule.COM > $$log 2>&1; rc=$$?; set -e; \
+	  log=$(BUILD)/samir-core-emu-$$rule.log; set +e; INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(BUILD)/SAMIR_CORE_$$rule.EXE > $$log 2>&1; rc=$$?; set -e; \
 	  test $$rc = 1 && grep -q "FAIL .*$$rule:" $$log && grep -q 'checks,' $$log && grep -q 'triple_fault=0' $$log && grep -q 'quit_after_found=1' $$log || { cat $$log; exit 1; }; \
 	  printf 'test-samir-core-emu-mutants: %s correctly RED: ' $$rule; grep -m1 "FAIL .*$$rule:" $$log; \
 	done
@@ -34595,11 +34630,11 @@ test-samir-dml-$(1)-mutant: $$(BUILD)/test_samir_dml_$(1) test-samir-dml-$(1) $$
 	@set +e; $$< $(1) host > $$(BUILD)/dml-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'DML transcript byte-identical\|bytes match real III+' $$(BUILD)/dml-mut-$(1).log || { cat $$(BUILD)/dml-mut-$(1).log; echo 'mutant survived or failed infrastructure'; exit 1; }; \
 	 printf '>>> SAMIR_DML_MUTANT_$(1) RED: %s\n' "`grep 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-mut-$(1).log | head -1`"
-test-samir-dml-$(1)-emu: $$(SAMIR_DML_TEST) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_COM) $$(CLIENTS_DBF)
-	@INITECH_QMP_STDIO=1 $$(SAMIR_DML_TEST) $(1) emu $$(SAMIR_COM)
+test-samir-dml-$(1)-emu: $$(SAMIR_DML_TEST) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_EXE) $$(CLIENTS_DBF)
+	@INITECH_QMP_STDIO=1 $$(SAMIR_DML_TEST) $(1) emu $$(SAMIR_EXE)
 	@printf '>>> test-samir-dml-$(1)-emu: green\n'
-test-samir-dml-$(1)-emu-mutant: test-samir-dml-$(1)-emu $$(SAMIR_DML_TEST) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(BUILD)/SAMIR_SCREEN_SAMIR_DML_MUTANT_$(1).COM $$(CLIENTS_DBF)
-	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_DML_TEST) $(1) emu $$(BUILD)/SAMIR_SCREEN_SAMIR_DML_MUTANT_$(1).COM > $$(BUILD)/dml-emu-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
+test-samir-dml-$(1)-emu-mutant: test-samir-dml-$(1)-emu $$(SAMIR_DML_TEST) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(BUILD)/SAMIR_SCREEN_SAMIR_DML_MUTANT_$(1).EXE $$(CLIENTS_DBF)
+	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_DML_TEST) $(1) emu $$(BUILD)/SAMIR_SCREEN_SAMIR_DML_MUTANT_$(1).EXE > $$(BUILD)/dml-emu-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && ! grep -q 'FAIL.*locked QEMU trace' $$(BUILD)/dml-emu-mut-$(1).log && grep -q 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-emu-mut-$(1).log || { cat $$(BUILD)/dml-emu-mut-$(1).log; echo 'emu mutant survived or failed infrastructure'; exit 1; }; \
 	 printf '>>> SAMIR_DML_MUTANT_$(1) emu RED: %s\n' "`grep 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-emu-mut-$(1).log | head -1`"
 TEST_UNIT_GATES += test-samir-dml-$(1) test-samir-dml-$(1)-mutant
@@ -34626,7 +34661,7 @@ test-samir-abbrev-mutant: test-samir-abbrev test-samir-dml-abbrev-mutant test-sa
 	@$(BUILD)/test_samir_dml_abbrev abbrfull host
 	@printf '>>> test-samir-abbrev-mutant: green (DISP and replacement-scope mutants RED; full DISPLAY control green)\n'
 test-samir-abbrev-emu: test-samir-dml-abbrev-emu test-samir-dml-abbrscope-emu $(CLIENTS_DBF)
-	@INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) abbrfull emu $(SAMIR_COM)
+	@INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) abbrfull emu $(SAMIR_EXE)
 	@printf '>>> test-samir-abbrev-emu: green\n'
 TEST_UNIT_GATES += test-samir-abbrev test-samir-abbrev-mutant
 TEST_EMU_GATES += test-samir-abbrev-emu
@@ -34755,8 +34790,8 @@ test-samir-print-mutant: $(SAMIR_PRINT_MUT) test-samir-print $(CLIENTS_DBF)
 	@printf '>>> SAMIR_PRINT_MUTATE_LF RED: '; grep 'DML transcript differs' $(BUILD)/samir-print-lf.log
 test-samir-print-emu: test-samir-dml-clear-emu test-samir-dml-macro-emu test-samir-dml-close-emu
 	@echo '>>> test-samir-print-emu: green'
-test-samir-print-emu-mutant: test-samir-print-emu $(SAMIR_DML_TEST) $(BUILD)/SAMIR_SCREEN_SAMIR_PRINT_MUTATE_LF.COM $(CLIENTS_DBF)
-	@if INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) clear emu $(BUILD)/SAMIR_SCREEN_SAMIR_PRINT_MUTATE_LF.COM > $(BUILD)/samir-print-lf-emu.log 2>&1; then echo 'guest LF mutant survived'; exit 1; fi
+test-samir-print-emu-mutant: test-samir-print-emu $(SAMIR_DML_TEST) $(BUILD)/SAMIR_SCREEN_SAMIR_PRINT_MUTATE_LF.EXE $(CLIENTS_DBF)
+	@if INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) clear emu $(BUILD)/SAMIR_SCREEN_SAMIR_PRINT_MUTATE_LF.EXE > $(BUILD)/samir-print-lf-emu.log 2>&1; then echo 'guest LF mutant survived'; exit 1; fi
 	@grep -q 'got 0x0a, real 0x0d' $(BUILD)/samir-print-lf-emu.log
 	@printf '>>> SAMIR_PRINT_MUTATE_LF emu RED: '; grep 'DML transcript differs' $(BUILD)/samir-print-lf-emu.log
 TEST_UNIT_GATES += test-samir-print test-samir-print-mutant
@@ -34849,11 +34884,11 @@ test-samir-fns-$(1)-mutant: test-samir-fns-$(1) $$(BUILD)/test_samir_fns_$(1) $$
 	@set +e; $$(BUILD)/test_samir_fns_$(1) $(1) host > $$(BUILD)/samirfns/mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log || { cat $$(BUILD)/samirfns/mut-$(1).log; exit 1; }; \
 	 printf '>>> SAMIR_FNS_MUTANT_$(1) RED: %s\n' "`grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log`"
-test-samir-fns-$(1)-emu: $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_COM) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_FNS_PROMOTED)
+test-samir-fns-$(1)-emu: $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_EXE) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_FNS_PROMOTED)
 	@INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu
 	@echo '>>> test-samir-fns-$(1)-emu: green'
-test-samir-fns-$(1)-emu-mutant: test-samir-fns-$(1)-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM $$(CLIENTS_DBF)
-	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM > $$(BUILD)/samirfns/emu-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
+test-samir-fns-$(1)-emu-mutant: test-samir-fns-$(1)-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).EXE $$(CLIENTS_DBF)
+	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).EXE > $$(BUILD)/samirfns/emu-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log || { cat $$(BUILD)/samirfns/emu-mut-$(1).log; exit 1; }; \
 	 printf '>>> SAMIR_FNS_MUTANT_$(1) emu RED: %s\n' "`grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log`"
 TEST_UNIT_GATES += test-samir-fns-$(1) test-samir-fns-$(1)-mutant
@@ -34881,6 +34916,7 @@ samir-fns-goldens: $(SAMIR_FNS_PROMOTED)
 TEST_UNIT_GATES += samir-fns-goldens
 
 include harness/diff/dbf_diff/samir_size.mk
+include harness/diff/dbf_diff/samir_ovl.mk
 include harness/diff/fat_diff/dos_volumes.mk
 include harness/diff/fat_diff/drive_operands.mk
 include harness/diff/fat_diff/fat_spc.mk

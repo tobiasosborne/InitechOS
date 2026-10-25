@@ -53,6 +53,15 @@
  *                  panics 'PANIC foreign-mz' and never runs it (DEC-08a.5).
  *     --minalloc   e_minalloc paragraphs (default 0).
  *     --entry      entry offset within the module -> e_ip (e_cs stays 0; default 0).
+ *     --reloc-file F  read the reloc-site offsets from F: little-endian u32s,
+ *                  one per site (bead initech-5etom.1: tools/samir_ovl_pack.c
+ *                  writes SAMIR's ~1000 sites; too many for a command line).
+ *     --header-relocs  put the reloc table in the HEADER (e_lfarlc = 0x1C, the
+ *                  period layout: DBASE.EXE carries 2773 entries at 0x1C inside
+ *                  an 11264-byte header, ../dbase3-decomp/re/ghidra-plan.md
+ *                  Sec 0.1) instead of the trailer. Required once the module
+ *                  passes 64 KiB: e_lfarlc is a u16 and a trailer table would
+ *                  sit beyond it (refused below, Rule 2).
  *     --reloc-diff OTHER.bin DELTA
  *                  DERIVE the reloc sites (bead initech-tdnl.14, the disk-tenant
  *                  fixture): OTHER.bin is the SAME source assembled at org DELTA
@@ -138,6 +147,7 @@ int main(int argc, char **argv)
     int      foreign     = 0;
     uint32_t minalloc    = 0;
     uint32_t entry_off   = 0;
+    int      header_relocs = 0;
     const char *diff_path = NULL;
     uint32_t diff_delta  = 0;
 
@@ -163,6 +173,23 @@ int main(int argc, char **argv)
             diff_delta = (uint32_t)strtoul(argv[++i], NULL, 0);
             if ((diff_delta & 0xFFu) == 0u)
                 die("--reloc-diff DELTA must change the low byte (e.g. 0x01010110)");
+        } else if (strcmp(argv[i], "--reloc-file") == 0) {
+            if (++i >= argc) die("--reloc-file needs an argument");
+            FILE *fr = fopen(argv[i], "rb");
+            uint8_t w[4];
+            if (fr == NULL) die("--reloc-file: cannot open");
+            reloc_count = 0;
+            for (;;) {
+                size_t got = fread(w, 1, 4, fr);
+                if (got == 0) break;
+                if (got != 4) die("--reloc-file: length is not a multiple of 4");
+                if (reloc_count >= MAX_RELOCS) die("--reloc-file: too many reloc sites");
+                reloc_off[reloc_count++] = (uint32_t)w[0] | ((uint32_t)w[1] << 8) |
+                                           ((uint32_t)w[2] << 16) | ((uint32_t)w[3] << 24);
+            }
+            fclose(fr);
+        } else if (strcmp(argv[i], "--header-relocs") == 0) {
+            header_relocs = 1;
         } else if (strcmp(argv[i], "--entry") == 0) {
             if (++i >= argc) die("--entry needs an argument");
             entry_off = (uint32_t)strtoul(argv[i], NULL, 0);
@@ -241,10 +268,25 @@ int main(int argc, char **argv)
         die("--entry offset past the module");
     }
 
-    /* ---- Compute the container layout (the trailer-reloc model). ---- */
-    uint32_t image_bytes  = HDR_SIZE + mod_len;            /* header + module */
-    uint32_t reloc_table  = image_bytes;                   /* trailer past image */
-    uint32_t total        = reloc_table + reloc_count * 4u;
+    /* ---- Compute the container layout: the trailer-reloc model, or with
+     * --header-relocs the period header-gap model (table at 0x1C, header
+     * rounded up to whole paragraphs, module after it). ---- */
+    uint32_t hdr_size     = HDR_SIZE;
+    uint32_t reloc_table;
+    if (header_relocs) {
+        reloc_table = 0x1Cu + 4u;          /* first dword after the tag word */
+        hdr_size    = (reloc_table + reloc_count * 4u + 15u) & ~15u;
+        if (hdr_size < HDR_SIZE) hdr_size = HDR_SIZE;
+        if (hdr_size / 16u > 0xFFFFu) die("--header-relocs: header too large");
+    }
+    uint32_t image_bytes  = hdr_size + mod_len;            /* header + module */
+    if (!header_relocs) reloc_table = image_bytes;         /* trailer past image */
+    uint32_t total        = header_relocs ? image_bytes : reloc_table + reloc_count * 4u;
+    /* e_lfarlc is a u16 and e_cp counts 512-byte pages in a u16 (Rule 2:
+     * refuse rather than write a truncated header). */
+    if (reloc_count > 0u && reloc_table > 0xFFFFu)
+        die("reloc table offset exceeds e_lfarlc (u16): use --header-relocs");
+    if ((image_bytes + 511u) / 512u > 0xFFFFu) die("image too large for e_cp");
 
     uint8_t *buf = (uint8_t *)calloc(1, total);
     if (buf == NULL) die("out of memory");
@@ -265,7 +307,7 @@ int main(int argc, char **argv)
     put16(buf, 0x02, e_cblp);                              /* e_cblp */
     put16(buf, 0x04, e_cp);                                /* e_cp   */
     put16(buf, 0x06, (uint16_t)reloc_count);               /* e_crlc */
-    put16(buf, 0x08, (uint16_t)(HDR_SIZE / 16u));          /* e_cparhdr = 2 */
+    put16(buf, 0x08, (uint16_t)(hdr_size / 16u));          /* e_cparhdr (2 unless --header-relocs) */
     put16(buf, 0x0A, (uint16_t)minalloc);                  /* e_minalloc */
     put16(buf, 0x0C, 0xFFFFu);                             /* e_maxalloc (clamped) */
     put16(buf, 0x0E, 0u);                                  /* e_ss (advisory) */
@@ -278,7 +320,7 @@ int main(int argc, char **argv)
     put16(buf, 0x1C, (uint16_t)(foreign ? 0u : MZ_INITECH_TAG));
 
     /* ---- Place the load module after the header. ---- */
-    memcpy(buf + HDR_SIZE, module, mod_len);
+    memcpy(buf + hdr_size, module, mod_len);
 
     /* ---- Emit the trailer reloc table (rc LE u32 module-relative offsets). ---- */
     for (uint32_t i = 0; i < reloc_count; i++) {
@@ -295,7 +337,7 @@ int main(int argc, char **argv)
     fprintf(stderr,
             "mzlink: wrote %s (%u bytes): hdr=0x%X mod_len=%u relocs=%u%s "
             "minalloc=%u entry_off=%u tag=0x%04X\n",
-            out_path, total, HDR_SIZE, mod_len, reloc_count,
+            out_path, total, hdr_size, mod_len, reloc_count,
             no_reloc ? " (NO-RELOC mutant)" : (foreign ? " (FOREIGN/untagged)" : ""),
             minalloc, entry_off,
             (unsigned)(foreign ? 0u : MZ_INITECH_TAG));

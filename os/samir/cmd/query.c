@@ -85,6 +85,7 @@
 #include "samir/rt.h"
 #include "samir/pal.h"
 #include "samir/set.h"
+#include "samir/ovl.h"
 
 /* ===================================================================== */
 /* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)            */
@@ -1332,13 +1333,13 @@ typedef struct {
     int display, stopped;
 } q_inspection;
 
-static void qi_text(q_inspection *q, const char *s)
+static SAMIR_OVL_TEXT(status) void qi_text(q_inspection *q, const char *s)
 { q_append_cstr(q->line,&q->n,sizeof q->line,s); }
-static void qi_pad(q_inspection *q, unsigned width)
+static SAMIR_OVL_TEXT(status) void qi_pad(q_inspection *q, unsigned width)
 { while(q->n<width) qi_text(q," "); }
-static void qi_uint(q_inspection *q, unsigned n, int width)
+static SAMIR_OVL_TEXT(status) void qi_uint(q_inspection *q, unsigned n, int width)
 { q_append_uint_rj(q->line,&q->n,sizeof q->line,n,width); }
-static void qi_pause(q_inspection *q, int blank)
+static SAMIR_OVL_TEXT(status) void qi_pause(q_inspection *q, int blank)
 {
     samir_pal_t *pal=xb_interp_pal(q->ip);
     int key;
@@ -1351,7 +1352,7 @@ static void qi_pause(q_inspection *q, int blank)
     if(blank)q_putn(q->ip,"\r\n",2);
     q->rows=0;
 }
-static void qi_line(q_inspection *q)
+static SAMIR_OVL_TEXT(status) void qi_line(q_inspection *q)
 {
     if(!q->stopped) {
         if(q->display==2 && q->rows==17)qi_pause(q,0);
@@ -1359,7 +1360,7 @@ static void qi_line(q_inspection *q)
     }
     q->n=0;
 }
-static void qi_file(q_inspection *q, const char *name, const char *extension)
+static SAMIR_OVL_TEXT(status) void qi_file(q_inspection *q, const char *name, const char *extension)
 {
     samir_pal_t *pal=xb_interp_pal(q->ip);
     unsigned n=0,end=0;
@@ -1375,7 +1376,7 @@ static void qi_file(q_inspection *q, const char *name, const char *extension)
     }
     if(extension)qi_text(q,extension);
 }
-static void qi_memory(q_inspection *q)
+static SAMIR_OVL_TEXT(status) void qi_memory(q_inspection *q)
 {
     xb_memvar_info mv;
     unsigned cursor=0,count=0,bytes=0,cap=xb_interp_memvar_capacity();
@@ -1403,7 +1404,7 @@ static void qi_memory(q_inspection *q)
     qi_uint(q,count,5);qi_text(q," variables defined, ");qi_uint(q,bytes,8);qi_text(q," bytes used");qi_line(q);
     qi_uint(q,256-count,5);qi_text(q," variables available, ");qi_uint(q,bytes>cap?0:cap-bytes,6);qi_text(q," bytes available");qi_line(q);
 }
-static void qi_status(q_inspection *q)
+static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
 {
     xb_interp *ip=q->ip;
     wa_env *env=xb_interp_env(ip);
@@ -1486,7 +1487,7 @@ static void qi_status(q_inspection *q)
       for(unsigned i=2;i<=10;i++){qi_text(q,"F");qi_uint(q,i,0);qi_pad(q,4);qi_text(q,"- ");qi_text(q,s);qi_line(q);s+=rt_strlen(s)+1;}}
 }
 
-static int q_inspect(xb_interp *ip, int what, int display, const char *tail, int *ec)
+static SAMIR_OVL_TEXT(status) int q_inspect(xb_interp *ip, int what, int display, const char *tail, int *ec)
 {
     q_inspection q;
     if(*q_skip_ws(tail)) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
@@ -1495,6 +1496,15 @@ static int q_inspect(xb_interp *ip, int what, int display, const char *tail, int
     q_putn(ip,"\r\n",2);
     return INTERP_OK;
 }
+/* Overlay STATUS (initech-5etom.1; docs/design/samir-overlays.md Sec 3):
+ * LIST/DISPLAY STATUS|MEMORY. k = what * 2 + display (what: 0 STATUS,
+ * 1 MEMORY); returns q_inspect's result, which query_cmd_hook wraps as before. */
+static SAMIR_OVL_TEXT(status) int query_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
+{
+    return q_inspect(ip, k >> 1, k & 1, args, ec);
+}
+SAMIR_OVL_HEADER(status, SAMIR_OVL_STATUS, query_ovl_entry);
+
 static int query_cmd_hook(void *user, xb_interp *ip,
                           const char *verb, const char *args, int *err_code)
 {
@@ -1524,7 +1534,7 @@ static int query_cmd_hook(void *user, xb_interp *ip,
         int inspection=rt_kw_word(tail,"STATUS\0MEMORY\0",(int *)0);
         if(inspection>=0) {
             while(*tail && !q_isspace(*tail))tail++;
-            rc=q_inspect(ip,inspection,is_display,tail,err_code);
+            rc=SAMIR_OVL_CALL(SAMIR_OVL_STATUS,query_ovl_entry,inspection*2+is_display,ip,tail,err_code);
             break;
         }
         if (q_split_clauses(args, &qc) != 0) { if (err_code) *err_code = 0; return -INTERP_ERR_SYNTAX; }

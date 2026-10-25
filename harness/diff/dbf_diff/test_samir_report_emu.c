@@ -1,7 +1,7 @@
 /* test_samir_report_emu.c -- REPORT FORM inside InitechOS (initech-airx).
  *
  * REAL-dBASE DIFFERENTIAL on the target (Law 2, Rule 14): boot the OS, EXEC
- * SAMIR.COM from COMMAND.COM, type USE / REPORT FORM ... TO FILE, QUIT, then
+ * SAMIR.EXE from COMMAND.COM, type USE / REPORT FORM ... TO FILE, QUIT, then
  * read the written files back off the FAT volume with mtools (an independent
  * reader) and compare them byte for byte with the files real DBASE.EXE 1.1
  * wrote for the same commands (mint session 004: G1FLT/G2TRV/G8TP/G9TS,
@@ -14,7 +14,7 @@
  * G2TRV.TXT bytes (FF removed, cut after the 27th record), never against
  * SAMIR output. SAMIR is a text-console app: this screendump is its clip.
  *
- * Usage: test_samir_report_emu files|screen [SAMIR.COM] [corpus]
+ * Usage: test_samir_report_emu files|screen [SAMIR.EXE] [corpus]
  */
 #include "scratch_lock.h"
 #include <stdio.h>
@@ -22,6 +22,7 @@
 #include <string.h>
 #include "test_assert.h"
 #include "trace_complete.h"
+#include "samir_install.h"
 TEST_HARNESS();
 
 #define D "build/samir-report-emu"
@@ -63,14 +64,17 @@ int main(int argc, char **argv)
 {
     scratch_lock("build/.lock-samir-report-emu");
     const char *mode = argc > 1 ? argv[1] : "files";
-    const char *com = argc > 2 ? argv[2] : "build/SAMIR.COM";
+    const char *com = argc > 2 ? argv[2] : "build/SAMIR.EXE";
     const char *corpus = argc > 3 ? argv[3] : "../dbase3-decomp";
     int screen = !strcmp(mode, "screen"), i;
     char cmd[12288], keybuf[6144], path[1024];
     static char got[1 << 16], want[1 << 16], report[8192];
 
     if (command("mkdir -p " D)) return 2;
-    snprintf(cmd, sizeof cmd, "cp -f build/samir_report_data.img " D "/%s.img && mcopy -o -i " D "/%s.img %s ::SAMIR.COM", mode, mode, com);
+    { char img[256], ins[3072];
+      snprintf(img, sizeof img, D "/%s.img", mode);
+      if (samir_install_cmd(ins, sizeof ins, img, com)) return 2;
+      snprintf(cmd, sizeof cmd, "cp -f build/samir_report_data.img %s && %s", img, ins); }
     if (command(cmd)) return 2;
     snprintf(cmd, sizeof cmd, "fsck.fat -n " D "/%s.img > " D "/%s-fsck-before.log", mode, mode);
     command(cmd);

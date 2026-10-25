@@ -320,7 +320,7 @@ static void session(const char *name, const char *const *lines, int n,
 }
 
 /* NESTBIG runs on a thread whose stack is NESTBIG_STACK bytes, a stand-in for
- * the 64 KiB SAMIR.COM stack (spec/memory_map.h PROGRAM_STACK_BOT..TOP; host
+ * the 64 KiB SAMIR.EXE stack (spec/memory_map.h PROGRAM_STACK_BOT..TOP; host
  * frames are larger, 64-bit). Per-call line tables back on the stack
  * (FLOW_MUTATE_STACK_LINES: 20 levels x 503 lines x 16 bytes) overflow it;
  * the overflow is caught on an alternate signal stack and reported RED. */

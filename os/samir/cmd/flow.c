@@ -46,6 +46,7 @@
 #include "samir/rt.h"
 #include "samir/pal.h"
 #include "samir/set.h"
+#include "samir/ovl.h"
 
 /* ===================================================================== */
 /* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)           */
@@ -993,8 +994,8 @@ static int find_top_level(flow_prog *fp, int from, int to,
 /* SAVE/RESTORE scalar records. Using III+ U5-180/181/187; DML-09/10
  * and mint-001 .MEM bytes. 0x12 is the real DO level (DML-09 = 2),
  * not an invented reserved zero. Transient pool pointers are never written. */
-static int fl_memfail(int *ec,int code) {if(ec)*ec=code;return -INTERP_ERR_EVAL;}
-static int fl_memfile(xb_interp *ip,flow_state *fs,const char *args,int restore,int *ec)
+static SAMIR_OVL_TEXT(memfile) int fl_memfail(int *ec,int code) {if(ec)*ec=code;return -INTERP_ERR_EVAL;}
+static SAMIR_OVL_TEXT(memfile) int fl_memfile(xb_interp *ip,flow_state *fs,const char *args,int restore,int *ec)
 {
     samir_pal_t *p=xb_interp_pal(ip);char word[16],name[128];
     const char *s;unsigned n=0;int dot=0,add=0,rc=0;pal_fd fd;
@@ -1090,6 +1091,15 @@ static int fl_memfile(xb_interp *ip,flow_state *fs,const char *args,int restore,
     return rc?fl_memfail(ec,rc):INTERP_OK;
 }
 
+/* Overlay MEMFILE (initech-5etom.1; docs/design/samir-overlays.md Sec 3):
+ * SAVE TO / RESTORE FROM (k = 0 SAVE, 1 RESTORE). The flow state is the one
+ * exec_command holds (fp->fs == flow_lookup(ip): samir_do registered it). */
+static SAMIR_OVL_TEXT(memfile) int flow_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
+{
+    return fl_memfile(ip, flow_lookup(ip), args, k == 1, ec);
+}
+SAMIR_OVL_HEADER(memfile, SAMIR_OVL_MEMFILE, flow_ovl_entry);
+
 static int exec_command(flow_prog *fp, const char *line, int *ec)
 {
     xb_interp  *ip = fp->ip;
@@ -1128,7 +1138,7 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
     k = rt_kw_index(verb, "SAVE\0RESTORE\0STORE\0SELECT\0RELEASE\0");
 
     if (k == 0 || k == 1)                       /* SAVE RESTORE */
-        return fl_memfile(ip,fs,args,k == 1,ec);
+        return SAMIR_OVL_CALL(SAMIR_OVL_MEMFILE, flow_ovl_entry, k, ip, args, ec);
 
     /* (2) STORE */
     if (k == 2)

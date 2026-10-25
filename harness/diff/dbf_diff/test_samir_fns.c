@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include "test_assert.h"
 #include "trace_complete.h"
+#include "samir_install.h"
 #include "samir/interp.h"
 TEST_HARNESS();
 struct pal_host_cfg { uint8_t yy,mm,dd; uint32_t heap; };
@@ -101,7 +102,7 @@ static void inkey_keys(samir_pal_t *pal, xb_interp *ip)
 int main(int argc,char **argv)
 {
     const char *name=argc>1?argv[1]:"unknown",*mode=argc>2?argv[2]:"host";
-    const char *com=argc>3?argv[3]:"build/SAMIR.COM";
+    const char *com=argc>3?argv[3]:"build/SAMIR.EXE";
     char gold[1024],dir[1024],cmd[16384],path[2048];
     static char expected[65536],minted[8192],current[8192];size_t mn,cn;
     int emu=!strcmp(mode,"emu");FILE *f;
@@ -127,7 +128,8 @@ int main(int argc,char **argv)
          * drive. Supply that environment input; the PAL returns it verbatim. */
         if(!strcmp(name,"getenv"))fputs("set COMSPEC=Z:\\COMMAND.COM\r\n",f);
         fputs("samir < fns.in > result.txt\r\n",f);fclose(f);
-        snprintf(cmd,sizeof cmd,"mformat -i %s/data.img -f 1440 :: && mcopy -o -i %s/data.img %s ::SAMIR.COM && mcopy -o -i %s/data.img %s/*.PRG %s/*.IN %s/*.BAT :: && mmd -i %s/data.img ::DATA && mcopy -o -i %s/data.img %s/DATA/* ::DATA/",dir,dir,com,dir,dir,dir,dir,dir,dir,dir);command(cmd);
+        {char img[1100],ins[3400];snprintf(img,sizeof img,"%s/data.img",dir);CHECK(samir_install_cmd(ins,sizeof ins,img,com)==0,"SAMIR.EXE + SAMIR.OVL named");
+        snprintf(cmd,sizeof cmd,"mformat -i %s/data.img -f 1440 :: && %s && mcopy -o -i %s/data.img %s/*.PRG %s/*.IN %s/*.BAT :: && mmd -i %s/data.img ::DATA && mcopy -o -i %s/data.img %s/DATA/* ::DATA/",dir,ins,dir,dir,dir,dir,dir,dir,dir);}command(cmd);
         if(strcmp(name,"default")&&strcmp(name,"path")){snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img %s/BASE.DBF ::",dir,dir);command(cmd);}
         if(!strcmp(name,"alias")||!strcmp(name,"relation")){snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img %s/OTHER.DBF ::",dir,dir);command(cmd);}
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-before.log",dir,dir);command(cmd);

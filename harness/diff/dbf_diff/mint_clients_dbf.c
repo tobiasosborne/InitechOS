@@ -7,7 +7,7 @@
  * dbf writer (dbf.c + value.c + rt.c) over the host PAL (pal_host.c) and emits
  * one deterministic .dbf to a caller-supplied path (argv[1], default
  * build/CLIENTS.DBF). This is the SAME writer the engine ships, so the fixture
- * is read back BIT-FOR-BIT by the in-emulator SAMIR.COM reader -- no second
+ * is read back BIT-FOR-BIT by the in-emulator SAMIR.EXE reader -- no second
  * .dbf encoder to drift (Rule 6 spirit: one writer, mutation-provable).
  *
  * Determinism (Rule 11): identical inputs + an INJECTED last-update date

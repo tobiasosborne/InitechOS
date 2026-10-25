@@ -3022,7 +3022,7 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
  *      (full-screen app then back to the live desktop), Rule 2 (fail loud),
  *      Rule 11 (deterministic), Rule 12 (ASCII-clean).
  * ===========================================================================*/
-#define FLAIR_TEXT_TENANT_NAME         "SAMIR.COM"  /* 8.3 name on the FAT volume */
+#define FLAIR_TEXT_TENANT_NAME         "SAMIR.EXE"  /* 8.3 name on the FAT volume (InitechMZ + SAMIR.OVL beside it, initech-5etom.1) */
 
 /* g_flair_kbd_ring (the SPSC raw ring the FLAIR pump drains) is defined earlier
  * in this TU's BOOT_FLAIR_LIVE block; flair_launch_text_tenant drains its stale

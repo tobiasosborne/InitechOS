@@ -2,11 +2,12 @@
 # (the locked Face A default column width is nine). No rendered golden minted.
 include spec/flair_launchkey_traces.mk
 LAUNCHKEY_DATA := $(BUILD)/launchkey_data.img
-$(LAUNCHKEY_DATA): $(FLAIR_DATA_IMG) $(BUILD)/SAMIR.COM
+$(LAUNCHKEY_DATA): $(FLAIR_DATA_IMG) $(BUILD)/SAMIR.EXE
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $@
-	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/SAMIR.COM ::SAMIR.COM
-	@$(call fixture-check,recipe,$@,$(FLAIR_FIXTURES) SAMIR.COM)
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/SAMIR.EXE ::SAMIR.EXE
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/SAMIR.OVL ::SAMIR.OVL
+	@$(call fixture-check,recipe,$@,$(FLAIR_FIXTURES) SAMIR.EXE SAMIR.OVL)
 
 # Shared verbatim by the clean gate and its one-branch mutant.
 LAUNCHKEY_IMAGE ?= $(BUILD)/flair_tenants_mut_launchkey_gate.img

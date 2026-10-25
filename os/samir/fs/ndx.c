@@ -144,6 +144,7 @@
 #include "samir/value.h"
 #include "samir/ndx.h"
 #include "samir/ndx_format.h"
+#include "samir/ovl.h"
 
 /* -----------------------------------------------------------------------
  * Internal helpers
@@ -1300,7 +1301,7 @@ static int write_page(samir_pal_t *pal, pal_fd fd, uint32_t page_no,
     return NDX_OK;
 }
 
-int ndx_build(samir_pal_t *pal, const char *out_name,
+SAMIR_OVL_TEXT(file) int ndx_build(samir_pal_t *pal, const char *out_name,
               uint16_t key_type, uint16_t key_len, const char *key_expr,
               uint32_t nrec, ndx_key_provider get_key, void *user)
 {
@@ -2655,7 +2656,7 @@ int ndx_update_key(ndx_index *idx,
  * Ref (Law 1): ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
  * sec.10 (PACK rebuilds all open index files); ndx.h S4.5 maintenance contract.
  */
-int ndx_rebuild(ndx_index *idx, uint32_t nrec,
+SAMIR_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx, uint32_t nrec,
                 ndx_key_provider get_key, void *user)
 {
     samir_pal_t *pal;
