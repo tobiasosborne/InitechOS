@@ -1,0 +1,15 @@
+
+[W2-BEGIN]
+[DEFAULT NO LIBRARY]
+MINT-ERROR          1 File does not exist.
+[LIBRARY ONE SELECTED]
+LIBRARY ONE
+[LIBRARY TWO SELECTED]
+LIBRARY TWO
+[LIBRARY CLEARED]
+MINT-ERROR          1 File does not exist.
+[MISSING LIBRARY]
+MINT-ERROR          1 File does not exist.
+[MISSING TO]
+MINT-ERROR         10 Syntax error.
+[W2-END]

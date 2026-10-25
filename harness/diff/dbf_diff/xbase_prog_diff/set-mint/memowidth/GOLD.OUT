@@ -1,0 +1,28 @@
+
+[W2-BEGIN]
+[DEFAULT MEMOWIDTH]
+Record#  NOTE
+      1  Alpha bravo charlie delta echo foxtrot golf hotel 
+         india juliet kilo lima mike november oscar papa.  
+
+[MEMOWIDTH TWENTY]
+Record#  NOTE
+      1  Alpha bravo charlie 
+         delta echo foxtrot  
+         golf hotel india    
+         juliet kilo lima    
+         mike november oscar 
+         papa.               
+
+[MEMOWIDTH FIFTY]
+Record#  NOTE
+      1  Alpha bravo charlie delta echo foxtrot golf hotel 
+         india juliet kilo lima mike november oscar papa.  
+
+[BAD NUMERIC OPERAND]
+MINT-ERROR         27 Not a numeric expression.
+[MISSING TO]
+MINT-ERROR         10 Syntax error.
+[ZERO MEMOWIDTH]
+MINT-ERROR         46 Illegal value.
+[W2-END]

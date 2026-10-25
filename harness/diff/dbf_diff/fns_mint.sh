@@ -28,39 +28,7 @@ for input in "$root"/harness/diff/dbf_diff/xbase_prog_diff/corpus/fns/*.prg; do
     # Each directory is a fresh mounted C: so state/file ownership cannot leak.
     for file in DBASE.EXE DBASE.OVL DBASEINL.OVL DBASE.MSG CONFIG.DB; do cp -f "$dest/$file" "$work/$file"; done
     printf 'SET TALK OFF\r\nSET SAFETY OFF\r\nON ERROR ? "MINT-ERROR", ERROR(), MESSAGE()\r\nSET ALTERNATE TO GOLD.OUT\r\nSET ALTERNATE ON\r\nDO FNSTEST\r\nSET ALTERNATE TO\r\nQUIT\r\n' > "$work/MINT.PRG"
-    cat > "$work/mint.conf" <<EOF
-[sdl]
-output=surface
-[dosbox]
-machine=svga_s3
-memsize=8
-[cpu]
-core=auto
-cputype=386
-cycles=max
-[autoexec]
-mount c "$work"
-c:
-DATE 07/24/1986
-DBASE MINT
-exit
-EOF
-    rm -f "$work/GOLD.OUT"
-    SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout --foreground -k 2 "${FNS_MINT_TIMEOUT:-90}" dosbox-x -defaultconf -fastlaunch -nopromptfolder -conf "$work/mint.conf" -exit > "$work/mint.log" 2>&1 || :
-    test -s "$work/GOLD.OUT" || { echo "RED: MINT impossible: $name has no capture; see $work/mint.log"; exit 1; }
-    grep -q '\[FNS-END\]' "$work/GOLD.OUT" || { echo "RED: MINT incomplete: $name"; exit 1; }
-    test "$(tail -c 1 "$work/GOLD.OUT" | od -An -tu1 | tr -d ' ')" = 26 || { echo "RED: MINT unflushed: $name"; exit 1; }
-    # Error probes declare the exact ordered catalogue codes in their source.
-    # An absent declaration still forbids all errors, as for existing cases.
-    # Review the real capture before adding/changing this declaration; never
-    # accept an arbitrary error merely because the end marker was reached.
-    expected_errors=$(sed -n 's/^\* MINT-ERRORS: *//p' "$input" | tr -d '\r' | awk '{$1=$1; print}')
-    actual_errors=$(awk '/MINT-ERROR/ { if ($1 != "MINT-ERROR" || $2 !~ /^[0-9]+$/) { print "MALFORMED"; exit } printf "%s%s", sep, $2; sep=" " }' "$work/GOLD.OUT")
-    if [ "$actual_errors" != "$expected_errors" ]; then
-        printf 'RED: MINT unexpected errors: %s (expected [%s], got [%s])\n' "$name" "$expected_errors" "$actual_errors"
-        cat "$work/GOLD.OUT"
-        exit 1
-    fi
+    MINT_PROBE=0 MINT_TIMEOUT="${FNS_MINT_TIMEOUT:-90}" sh "$root/harness/diff/dbf_diff/mint_capture.sh" "$work" "$input" '[FNS-END]'
     (cd "$work" && sha256sum FNSTEST.PRG GOLD.OUT) > "$work/sha256.txt"
     printf 'MINT SF-%s: %s/GOLD.OUT\n' "$name" "$work"
 done

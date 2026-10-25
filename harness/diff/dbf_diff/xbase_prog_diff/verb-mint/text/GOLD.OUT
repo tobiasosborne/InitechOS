@@ -1,0 +1,15 @@
+
+[W2-BEGIN]
+[EXPRESSION OUTPUT EXPANDS VARIABLE]
+EXPANDED
+[TEXT PRESERVES LITERAL CONTENT]
+  leading spaces
+&WORD stays literal
+&& is literal text
+1+2 is not evaluated
+
+last line
+[EMPTY TEXT BLOCK]
+[UNMATCHED ENDTEXT]
+MINT-ERROR         16 *** Unrecognized command verb.
+[W2-END]

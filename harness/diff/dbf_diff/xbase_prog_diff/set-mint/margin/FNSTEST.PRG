@@ -1,0 +1,26 @@
+* MINT-ERRORS: 27 10
+* Ref: ../dbase3-decomp/specs/commands/set-commands.md:225
+* PRINTER.OUT is the independent raw LPT stream: zero/five/zero margins.
+? "[W2-BEGIN]"
+? "[DEFAULT ZERO MARGIN]"
+SET PRINT ON
+? "X"
+SET PRINT OFF
+EJECT
+SET MARGIN TO 5
+? "[FIVE COLUMN MARGIN]"
+SET PRINT ON
+? "X"
+SET PRINT OFF
+EJECT
+SET MARGIN TO 0
+? "[MARGIN RESTORED TO ZERO]"
+SET PRINT ON
+? "X"
+SET PRINT OFF
+? "[NONNUMERIC MARGIN]"
+SET MARGIN TO "BAD"
+? "[MISSING TO]"
+SET MARGIN 5
+? "[W2-END]"
+RETURN

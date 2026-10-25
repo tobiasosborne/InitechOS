@@ -1,0 +1,58 @@
+LOG: Early LOG Init complete
+LOG: DOSBox-X's working directory: /home/tobiasosborne/Projects/initech-os-cx-w2mint
+LOG: Logging init: beginning logging proper. This is the end of the early init logging
+LOG: Logging: No logfile was given. All further logging will be discarded.
+LOG: DOSBox-X version 2024.03.01 Commit 02f36ba (Linux SDL2 64-bit)
+LOG: SDL: version 2.30.0, Video dummy, Audio dummy
+LOG: Host keyboard layout is now  ()
+LOG: Mapper keyboard layout is now  ()
+LOG: SDL2 reports desktop display mode 1024 x 768
+LOG: Configured windowposition: -
+LOG: SDL: Current window pixel format: SDL_PIXELFORMAT_RGB888
+LOG: SDL: You are running in 24 bpp mode, this will slow down things!
+LOG: Screen report: Method 'None' (-1.000 x -1.000 pixels) at (0.000 x 0.000) (-1.000 x -1.000 mm) (-0.039 x -0.039 in) (-1.000 x -1.000 DPI)
+LOG: ISA BCLK: 8333333.333Hz (25000000/3)
+LOG: monopal: green, 
+LOG: Active save slot: 1 [Empty]
+LOG: USING AVI+ZMBV
+LOG: Max 3670016 sz 8192
+LOG: Final 8192
+ALSA lib seq_hw.c:528:(snd_seq_hw_open) open /dev/snd/seq failed: No such file or directory
+LOG: SDLNet_TCP_Open: Couldn't create socket
+LOG: TiMidity: can't open control connection (host=127.0.0.1, port=7777)
+LOG: MIDI:fluidsynth: SoundFont not specified, and no system SoundFont found
+LOG: MIDI:synth: Specify .SF2 sound font file with midiconfig=
+LOG: MT32: failed to locate ROMs.
+LOG: MT32 emulation requires the PCM and CONTROL ROM files.
+LOG: To eliminate this error message, check the DOSBox-X wiki.
+LOG: The ROM files are: CM32L_CONTROL.ROM and CM32L_PCM.ROM or MT32_CONTROL.ROM and MT32_PCM.ROM
+LOG: MIDI:Opened device:none
+LOG: VOODOO LFB now at d0000000
+LOG: Serial1: BASE 3f8h
+LOG: Serial2: BASE 2f8h
+LOG: Parallel1: BASE 378h
+LOG: MPU-401 Registering I/O ports as if IBM PC MPU-401 at base 330h
+LOG: Memory I/O complexity optimization enabled aka option 'memory io optimization 1'. If the game or demo is unable to draw to the screen properly, set the option to false.
+LOG: The 'scanline render on demand' option is available and may provide a modest boost in video render performance if set to true.
+LOG: Screen report: Method 'None' (-1.000 x -1.000 pixels) at (0.000 x 0.000) (-1.000 x -1.000 mm) (-0.039 x -0.039 in) (-1.000 x -1.000 DPI)
+LOG: Allocated APM BIOS pm entry point at f000:ce20
+LOG: Writing code to fce20
+LOG: Writing code to fce40
+LOG: Screen report: Method 'None' (-1.000 x -1.000 pixels) at (0.000 x 0.000) (-1.000 x -1.000 mm) (-0.039 x -0.039 in) (-1.000 x -1.000 DPI)
+LOG: ISA Plug & Play BIOS enabled
+LOG: VGA ROM BIOS init callback
+LOG: WARNING: No translation support (to host) for code page 0
+LOG:         72 ERROR BIOS:Keyboard layout file auto not found
+LOG:         72 ERROR BIOS:Keyboard layout file auto not found
+LOG: XMS: 50 handles allocated for use by the DOS environment
+LOG: EMS page frame at 0xe000-0xefff
+LOG: COMMAND.COM env size:             720 bytes
+LOG: COMMAND.COM environment block:    0x0701 sz=0x002d
+LOG: COMMAND.COM main body (PSP):      0x072f sz=0x009a
+LOG: COMMAND.COM stack:                0x0749
+LOG: pixratio 1.350, dw false, dh false
+LOG: Aspect ratio: 720 x 540  xToY=1.333 yToX=0.750
+LOG: menuScale=1
+LOG: surface consider=720x417 final=720x417
+LOG: Screen report: Method 'None' (-1.000 x -1.000 pixels) at (0.000 x 0.000) (-1.000 x -1.000 mm) (-0.039 x -0.039 in) (-1.000 x -1.000 DPI)
+LOG: Parallel 1: File closed.

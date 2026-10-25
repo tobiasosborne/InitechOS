@@ -1,0 +1,12 @@
+
+[W2-BEGIN]
+[DEFAULT NO CATALOG FILE]
+.F.
+[CATALOG RECORDS ONDATA BUT NOT OFFDATA]
+Record#  PATH                                                                   FILE_NAME    ALIAS    TYPE TITLE                                                                            CODE TAG
+      1  C:BASE.dbf                                                             BASE.dbf     BASE     dbf                                                                                      1     
+      2  ONDATA.dbf                                                             ONDATA.dbf   ONDATA   dbf                                                                                      2     
+
+[INVALID CATALOG PARENT DIRECTORY]
+MINT-ERROR         29 File is not accessible.
+[W2-END]

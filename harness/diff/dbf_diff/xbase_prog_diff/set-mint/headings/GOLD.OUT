@@ -1,0 +1,30 @@
+
+[W2-BEGIN]
+[DEFAULT HEADINGS ON]
+Record#  NAME
+      1  PESTON    
+
+[HEADING OFF]
+      1  PESTON    
+
+[HEADINGS ON]
+Record#  NAME
+      1  PESTON    
+
+[HEAD OFF]
+      1  PESTON    
+
+[HEADING ON]
+Record#  NAME
+      1  PESTON    
+
+[HEADINGS OFF]
+      1  PESTON    
+
+[HEAD ON]
+Record#  NAME
+      1  PESTON    
+
+[BAD TOGGLE]
+MINT-ERROR         10 Syntax error.
+[W2-END]
