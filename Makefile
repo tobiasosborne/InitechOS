@@ -4990,6 +4990,11 @@ TEST_FAT12_FUZZ          := $(BUILD)/fat12_fuzz
 TEST_FAT12_FUZZ_MUT_RMW  := $(BUILD)/fat12_fuzz_mut_rmw
 # A blank 1.44 MB FAT12 template; each fuzz run COPIES it to a fresh scratch image.
 FAT12_FUZZ_BLANK_IMG     := $(BUILD)/fat12_fuzz_blank.img
+# initech-1x6x2.1: the fuzzers name their scratch "<image>.seedN.scratch" /
+# ".cseedN.scratch", so every gate that ran seed 7 on the shared blank wrote
+# the SAME scratch file under make -j (test-fat-fuzz "DIVERGENCE on seed 7").
+# Each fuzz gate passes its own copy of the blank, hence its own scratch.
+FUZZ_GATE_BLANK = $(BUILD)/$@.fuzzblank.img
 # Deterministic seed sweep + per-seed op budget. The in-process+remount+FAT-sync
 # legs run on the WHOLE sweep (fast, no shell-out); the mtools/python external
 # leg runs on a smaller subset to bound the gate time (still a real cross-check).
@@ -5017,18 +5022,19 @@ $(TEST_FAT12_FUZZ_MUT_RMW): $(FAT_DIFF_DIR)/fat12_fuzz.c $(FAT12_SRC) $(BLOCKDEV
 # seed's every op agrees three ways. The fuzzer prints the seed count + ops.
 .PHONY: test-fat-fuzz
 test-fat-fuzz: $(TEST_FAT12_FUZZ) $(FAT12_FUZZ_BLANK_IMG) $(FAT12_REF_PY)
+	@cp -f $(FAT12_FUZZ_BLANK_IMG) $(FUZZ_GATE_BLANK)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-fat-fuzz : FAT12 generative fuzzer (deterministic seed sweep)\n'
 	@printf '======================================================================\n'
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-fat-fuzz FAIL: mtools `mcopy` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-fat-fuzz FAIL: python3 not found (needed for the independent reference).\n'; exit 1; }
 	@printf '>>> test-fat-fuzz [A]: model + remount + FAT-sync over seeds %s..%s (fast, every op)\n' "$(FAT12_FUZZ_SEEDS_LO)" "$(FAT12_FUZZ_SEEDS_HI)"
-	@$(TEST_FAT12_FUZZ) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FAT12_FUZZ_BLANK_IMG)" \
+	@$(TEST_FAT12_FUZZ) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FUZZ_GATE_BLANK)" \
 		|| { printf '!!! test-fat-fuzz FAIL [A]: a seed diverged (shrunk reproducer above) -- root-cause it (Rule 3)\n'; exit 1; }
 	@printf '>>> test-fat-fuzz [B]: + mtools/python external cross-check over seeds %s..%s\n' "$(FAT12_FUZZ_SEEDS_LO)" "$(FAT12_FUZZ_EXT_HI)"
-	@$(TEST_FAT12_FUZZ) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_EXT_HI) --ops $(FAT12_FUZZ_OPS) "$(FAT12_FUZZ_BLANK_IMG)" \
+	@$(TEST_FAT12_FUZZ) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_EXT_HI) --ops $(FAT12_FUZZ_OPS) "$(FUZZ_GATE_BLANK)" \
 		|| { printf '!!! test-fat-fuzz FAIL [B]: mtools/python disagree with the model (shrunk reproducer above)\n'; exit 1; }
-	@rm -f "$(FAT12_FUZZ_BLANK_IMG)".seed*.scratch "$(FAT12_FUZZ_BLANK_IMG)".*.bin
+	@rm -f "$(FUZZ_GATE_BLANK)".seed*.scratch "$(FUZZ_GATE_BLANK)".*.bin
 	@printf '>>> test-fat-fuzz: green (deterministic seed sweep -- model + remount + FAT-sync + mtools/python all agree)\n'
 
 # Mutation gate (Rule 6): build the fuzzer against the no-RMW positioned-write
@@ -5036,15 +5042,16 @@ test-fat-fuzz: $(TEST_FAT12_FUZZ) $(FAT12_FUZZ_BLANK_IMG) $(FAT12_REF_PY)
 # reproducer). A fuzzer that never catches a bug is decoration.
 .PHONY: test-fat-fuzz-mutant
 test-fat-fuzz-mutant: $(TEST_FAT12_FUZZ_MUT_RMW) $(FAT12_FUZZ_BLANK_IMG)
+	@cp -f $(FAT12_FUZZ_BLANK_IMG) $(FUZZ_GATE_BLANK)
 	@printf '>>> test-fat-fuzz-mutant: confirming the fuzzer FINDS + SHRINKS the no-RMW mutant (Rule 6)\n'
-	@if $(TEST_FAT12_FUZZ_MUT_RMW) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FAT12_FUZZ_BLANK_IMG)" >/dev/null 2>&1; then \
+	@if $(TEST_FAT12_FUZZ_MUT_RMW) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FUZZ_GATE_BLANK)" >/dev/null 2>&1; then \
 		printf '!!! test-fat-fuzz-mutant FAIL: no-RMW mutant PASSED the fuzzer -- the fuzzer is decoration\n'; \
-		rm -f "$(FAT12_FUZZ_BLANK_IMG)".seed*.scratch; \
+		rm -f "$(FUZZ_GATE_BLANK)".seed*.scratch; \
 		exit 1; \
 	else \
 		printf '>>> test-fat-fuzz-mutant: green (fuzzer correctly RED on the no-RMW mutant; shrunk reproducer:)\n'; \
-		$(TEST_FAT12_FUZZ_MUT_RMW) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FAT12_FUZZ_BLANK_IMG)" 2>&1 | sed -n '/SHRUNK/,/----/p' || true; \
-		rm -f "$(FAT12_FUZZ_BLANK_IMG)".seed*.scratch; \
+		$(TEST_FAT12_FUZZ_MUT_RMW) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FUZZ_GATE_BLANK)" 2>&1 | sed -n '/SHRUNK/,/----/p' || true; \
+		rm -f "$(FUZZ_GATE_BLANK)".seed*.scratch; \
 	fi
 
 # --- FAT12 CORRUPTION fuzzer (beads initech-dnn; malformed-BPB part of initech-9xl)
@@ -5097,13 +5104,14 @@ $(TEST_FAT12_CORRUPT_FUZZ_MUT_BPB): $(FAT_DIFF_DIR)/fat12_corrupt_fuzz.c $(FAT12
 # that ever HUNG would otherwise stall the gate forever; a timeout is RED.
 .PHONY: test-fat-corrupt-fuzz
 test-fat-corrupt-fuzz: $(TEST_FAT12_CORRUPT_FUZZ) $(FAT12_FUZZ_BLANK_IMG)
+	@cp -f $(FAT12_FUZZ_BLANK_IMG) $(FUZZ_GATE_BLANK)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-fat-corrupt-fuzz : FAT12 corruption fuzzer (deterministic seed sweep)\n'
 	@printf '======================================================================\n'
 	@printf '>>> test-fat-corrupt-fuzz: malformed FAT12 inputs over seeds %s..%s (fail-loud + bounded)\n' "$(FAT12_CORRUPT_SEEDS_LO)" "$(FAT12_CORRUPT_SEEDS_HI)"
-	@timeout 120 $(TEST_FAT12_CORRUPT_FUZZ) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FAT12_FUZZ_BLANK_IMG)" \
-		|| { printf '!!! test-fat-corrupt-fuzz FAIL: a malformed input hung, went OOB, or was NOT rejected fail-loud -- root-cause it (Rule 3)\n'; rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch; exit 1; }
-	@rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch
+	@timeout 120 $(TEST_FAT12_CORRUPT_FUZZ) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FUZZ_GATE_BLANK)" \
+		|| { printf '!!! test-fat-corrupt-fuzz FAIL: a malformed input hung, went OOB, or was NOT rejected fail-loud -- root-cause it (Rule 3)\n'; rm -f "$(FUZZ_GATE_BLANK)".cseed*.scratch; exit 1; }
+	@rm -f "$(FUZZ_GATE_BLANK)".cseed*.scratch
 	@printf '>>> test-fat-corrupt-fuzz: green (every malformed FAT12 input failed loud + bounded -- no hang, no OOB)\n'
 
 # Mutation gate (Rule 6): build the corruption fuzzer against fat12.c's
@@ -5115,22 +5123,23 @@ test-fat-corrupt-fuzz: $(TEST_FAT12_CORRUPT_FUZZ) $(FAT12_FUZZ_BLANK_IMG)
 # are RED (non-zero exit). The `timeout` is the hard backstop.
 .PHONY: test-fat-corrupt-fuzz-mutant
 test-fat-corrupt-fuzz-mutant: $(TEST_FAT12_CORRUPT_FUZZ_MUT_STEP) $(TEST_FAT12_CORRUPT_FUZZ_MUT_BPB) $(FAT12_FUZZ_BLANK_IMG)
+	@cp -f $(FAT12_FUZZ_BLANK_IMG) $(FUZZ_GATE_BLANK)
 	@printf '>>> test-fat-corrupt-fuzz-mutant: confirming the fuzzer DETECTS the no-step-guard + accept-bad-BPB mutants (Rule 6)\n'
-	@if timeout 120 $(TEST_FAT12_CORRUPT_FUZZ_MUT_STEP) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FAT12_FUZZ_BLANK_IMG)" >/dev/null 2>&1; then \
+	@if timeout 120 $(TEST_FAT12_CORRUPT_FUZZ_MUT_STEP) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FUZZ_GATE_BLANK)" >/dev/null 2>&1; then \
 		printf '!!! test-fat-corrupt-fuzz-mutant FAIL: no-step-guard mutant PASSED the fuzzer -- the fuzzer is decoration\n'; \
-		rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch; \
+		rm -f "$(FUZZ_GATE_BLANK)".cseed*.scratch; \
 		exit 1; \
 	else \
 		printf '>>> test-fat-corrupt-fuzz-mutant: green leg 1/2 (fuzzer RED on the no-step-guard mutant)\n'; \
 	fi
-	@if timeout 120 $(TEST_FAT12_CORRUPT_FUZZ_MUT_BPB) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FAT12_FUZZ_BLANK_IMG)" >/dev/null 2>&1; then \
+	@if timeout 120 $(TEST_FAT12_CORRUPT_FUZZ_MUT_BPB) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FUZZ_GATE_BLANK)" >/dev/null 2>&1; then \
 		printf '!!! test-fat-corrupt-fuzz-mutant FAIL: accept-bad-BPB mutant PASSED the fuzzer -- the fuzzer is decoration\n'; \
-		rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch; \
+		rm -f "$(FUZZ_GATE_BLANK)".cseed*.scratch; \
 		exit 1; \
 	else \
 		printf '>>> test-fat-corrupt-fuzz-mutant: green leg 2/2 (fuzzer RED on the accept-bad-BPB mutant)\n'; \
 	fi
-	@rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch
+	@rm -f "$(FUZZ_GATE_BLANK)".cseed*.scratch
 	@printf '>>> test-fat-corrupt-fuzz-mutant: green (fuzzer correctly RED on both corruption mutants)\n'
 
 # ---------------------------------------------------------------------------
