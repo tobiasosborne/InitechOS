@@ -1,0 +1,2 @@
+mEnv = GETENV("COMSPEC")
+? "COMSPEC", "["+mEnv+"]", TYPE("mEnv"), LEN(mEnv)

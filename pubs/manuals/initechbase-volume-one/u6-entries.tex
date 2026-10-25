@@ -305,6 +305,20 @@ A search on the name index that succeeds, and one that fails and leaves the poin
 \SeeAlso{EOF(), RECNO(), SEEK, FIND, LOCATE, CONTINUE}
 \end{XbaseEntry}
 
+% GETENV -- dBASE III+ HELP.DBS.strings.txt @ENV FUNC 2.
+\begin{XbaseEntry}{GETENV}{function}
+Returns the value of a DOS environment variable as a character string.
+\Syntax
+\SyntaxLine{\kw{GETENV(}\xp{expC}\kw{)}}
+\Usage
+The argument is the environment variable name. If no variable with that name
+is set, GETENV() returns an empty string. A call with other than one character
+argument raises \xmsg{11}{Invalid function argument.}
+\Examples
+\DotExample{examples/fn-getenv}
+\SeeAlso{RUN, TYPE(), LEN()}
+\end{XbaseEntry}
+
 % IIF -- os/samir/core/eval.c eval_call (l.641-690)
 \begin{XbaseEntry}{IIF}{function}
 Returns one of two values, chosen by a logical condition.

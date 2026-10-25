@@ -1335,6 +1335,7 @@ xb_interp *xb_interp_make(samir_pal_t *pal)
     ip->ctx.scratch      = ip->scratch;
     ip->ctx.scratch_cap  = INTERP_SCRATCH_CAP;
     ip->ctx.scratch_used = 0u;
+    ip->ctx.file_pal     = pal;
 
     pal->today(pal, &yy, &mm, &dd);
     /* yy is two-digit; 00..99. CENTURY handling lives above the PAL; for the

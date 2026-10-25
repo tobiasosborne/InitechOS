@@ -225,6 +225,12 @@ struct samir_pal {
      * has no drive notion (the drive is then omitted). Milton: AH=19h. */
     int     (*conin_escape)(samir_pal_t *);
     int     (*curdrive)(samir_pal_t *);
+
+	/* getenv: copy a DOS environment value into `buf`, returning its length,
+	 * or -PAL_ENOENT when unset (and -PAL_EIO if it will not fit). Milton:
+	 * INT 21h AH=62h GET PSP, then PSP:2Ch names the NUL-delimited environment
+	 * block. Host binding supplies deterministic fixture values. */
+	int32_t (*getenv)(samir_pal_t *, const char *name, char *buf, uint32_t cap);
 };
 
 /* Owned buffer chains: reclaim ONLY this codec's allocations. */

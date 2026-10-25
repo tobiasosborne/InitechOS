@@ -73,13 +73,17 @@ static int     null_conin_escape(samir_pal_t *p)
 static int     null_curdrive(samir_pal_t *p)
 { (void)p; return -1; }                      /* no drive notion */
 
+static int32_t null_getenv(samir_pal_t *p, const char *name, char *buf,
+                           uint32_t cap)
+{ (void)p; (void)name; (void)buf; (void)cap; return -(int32_t)PAL_ENOENT; }
+
 /* The exported null vtable: every slot bound (the completeness proof). */
 /* Designated, not positional: a slot appended to struct samir_pal can no
  * longer shift its neighbours into the wrong type (wave-1 review, 2026-10-25).
  * Designated initializers do not warn on an omitted slot, so completeness is
  * pinned by the slot count below: a member added to pal.h fails this build
  * until it is bound here AND counted (Rule 2: fail at compile time). */
-#define SAMIR_PAL_SLOTS 22u
+#define SAMIR_PAL_SLOTS 23u
 _Static_assert(sizeof(samir_pal_t) == SAMIR_PAL_SLOTS * sizeof(void (*)(void)),
                "samir_pal gained or lost a slot: bind it in samir_pal_null and update SAMIR_PAL_SLOTS");
 
@@ -105,5 +109,6 @@ samir_pal_t samir_pal_null = {
 	.conin_line_noecho = null_conin_line,
 	.exec              = null_exec,
 	.conin_escape      = null_conin_escape,
-	.curdrive          = null_curdrive
+	.curdrive          = null_curdrive,
+	.getenv            = null_getenv
 };

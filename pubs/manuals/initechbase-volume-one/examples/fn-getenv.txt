@@ -1,0 +1,4 @@
+. mEnv = GETENV("COMSPEC")
+. ? "COMSPEC", "["+mEnv+"]", TYPE("mEnv"), LEN(mEnv)
+
+COMSPEC [Z:\COMMAND.COM] C         14

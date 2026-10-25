@@ -66,7 +66,12 @@ int main(int argc,char **argv)
         snprintf(path,sizeof path,"%s/FNS.IN",dir);f=fopen(path,"wb");if(!f)return 2;
         for(unsigned i=0;i<sizeof driver/sizeof driver[0];i++)fprintf(f,"%s\r\n",driver[i]);
         fclose(f);
-        snprintf(path,sizeof path,"%s/FNS.BAT",dir);f=fopen(path,"wb");if(!f)return 2;fputs("@echo off\r\nsamir < fns.in > result.txt\r\n",f);fclose(f);
+        snprintf(path,sizeof path,"%s/FNS.BAT",dir);f=fopen(path,"wb");if(!f)return 2;
+        fputs("@echo off\r\n",f);
+        /* The independent GETENV mint pins COMSPEC to the DOSBox system
+         * drive. Supply that environment input; the PAL returns it verbatim. */
+        if(!strcmp(name,"getenv"))fputs("set COMSPEC=Z:\\COMMAND.COM\r\n",f);
+        fputs("samir < fns.in > result.txt\r\n",f);fclose(f);
         snprintf(cmd,sizeof cmd,"mformat -i %s/data.img -f 1440 :: && mcopy -o -i %s/data.img %s ::SAMIR.COM && mcopy -o -i %s/data.img %s/*.PRG %s/*.IN %s/*.BAT :: && mmd -i %s/data.img ::DATA && mcopy -o -i %s/data.img %s/DATA/* ::DATA/",dir,dir,com,dir,dir,dir,dir,dir,dir,dir);command(cmd);
         if(strcmp(name,"default")&&strcmp(name,"path")){snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img %s/BASE.DBF ::",dir,dir);command(cmd);}
         if(!strcmp(name,"alias")||!strcmp(name,"relation")){snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img %s/OTHER.DBF ::",dir,dir);command(cmd);}

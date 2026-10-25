@@ -355,6 +355,24 @@ static int32_t host_exec(samir_pal_t *p, const char *cmdline)
     return WIFEXITED(rc) ? (int32_t)WEXITSTATUS(rc) : 255;
 }
 
+/* GETENV fixture is fixed so host and guest transcript gates are reproducible. */
+static int32_t host_getenv(samir_pal_t *p, const char *name, char *buf,
+                           uint32_t cap)
+{
+    static const char comspec[] = "Z:\\COMMAND.COM";
+    uint32_t i, n = 0;
+    (void)p;
+    if (!name || !buf) return -(int32_t)PAL_EIO;
+    if (name[0] == 'C' && name[1] == 'O' && name[2] == 'M' &&
+        name[3] == 'S' && name[4] == 'P' && name[5] == 'E' &&
+        name[6] == 'C' && name[7] == '\0') n = sizeof comspec - 1u;
+    else return -(int32_t)PAL_ENOENT;
+    if (n >= cap) return -(int32_t)PAL_EIO;
+    for (i = 0; i < n; i++) buf[i] = comspec[i];
+    buf[n] = '\0';
+    return (int32_t)n;
+}
+
 /* ---- arena slots -------------------------------------------------------- */
 
 static void *host_alloc(samir_pal_t *p, uint32_t n)
@@ -443,6 +461,7 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
     st->vtable.reset      = host_reset;
     st->vtable.acquire = host_acquire; st->vtable.release = host_release;
     st->vtable.exec       = host_exec;
+    st->vtable.getenv     = host_getenv;
 
     /* Inject the fixed clock (deterministic; Rule 11). */
     st->date_yy = cfg.date_yy;

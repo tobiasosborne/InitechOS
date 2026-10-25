@@ -2294,8 +2294,30 @@ static int fn_version_stub(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_getenv_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    char *name, *value;
+    int32_t n;
+    uint16_t i, len;
+    /* Ref: dbase3-decomp system-and-database-functions.md GETENV and
+     * HELP.DBS.strings.txt GETENV(); the PAL reads the DOS environment. */
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    /* III+'s GETENV type failure is #11 in the independent function golden. */
+    if (!is_char(&args[0])) return fn_fail(err, XBEE_INVALID_ARG);
+    len = args[0].u.c.len;
+    name = fn_scratch(ctx, (uint32_t)len + 1u);
+    value = fn_scratch(ctx, XB_STR_MAX + 1u);
+    if (!name || !value) return fn_fail(err, XBEE_SCRATCH_FULL);
+    for (i = 0; i < len; i++) name[i] = args[0].u.c.p[i];
+    name[len] = '\0';
+    n = (ctx->file_pal && ctx->file_pal->getenv) ?
+        ctx->file_pal->getenv(ctx->file_pal, name, value, XB_STR_MAX + 1u) :
+        -(int32_t)PAL_ENOENT;
+    if (n < 0) n = 0;
+#ifdef SAMIR_FNS_MUTANT_getenv
+    if (n > 0) n--;
+#endif
+    *out = xb_c(value, (uint16_t)n);
+    *err = XBEE_OK;
+    return 0;
 }
 
 static int fn_diskspace_stub(xb_ctx *ctx, const xb_val *args, int nargs,

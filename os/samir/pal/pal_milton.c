@@ -758,6 +758,37 @@ static int milton_curdrive(samir_pal_t *p)
     return 'A' + (int)(int21(0x19u, 0u, 0u, 0u, 0u, 0u, (int *)0) & 0xFFu);
 }
 
+/* Ref: INT 21h AH=62h GET PSP returns the PSP paragraph in BX; PSP:2Ch is
+ * the DOS environment segment, whose entries are NAME=VALUE\0 strings. */
+static int32_t milton_getenv(samir_pal_t *p, const char *name, char *buf,
+                             uint32_t cap)
+{
+    uint32_t eax = 0x6200u, ebx, env_seg, off = 0u, i, n;
+    const char *env;
+    (void)p;
+    __asm__ __volatile__("int $0x21" : "+a"(eax), "=b"(ebx) : : "cc", "memory");
+    if ((ebx & 0xFFFFu) == 0u) return -(int32_t)PAL_ENOENT;
+    env_seg = *(const uint16_t *)(uintptr_t)(((ebx & 0xFFFFu) << 4) + 0x2Cu);
+    if (env_seg == 0u) return -(int32_t)PAL_ENOENT;
+    env = (const char *)(uintptr_t)(env_seg << 4);
+    while (off < 32768u && env[off] != '\0') {
+        i = 0u;
+        while (name[i] != '\0' && env[off + i] == name[i]) i++;
+        if (name[i] == '\0' && env[off + i] == '=') {
+            n = 0u;
+            while (env[off + i + 1u + n] != '\0') n++;
+            if (n >= cap) return -(int32_t)PAL_EIO;
+            for (n = 0u; env[off + i + 1u + n] != '\0'; n++)
+                buf[n] = env[off + i + 1u + n];
+            buf[n] = '\0';
+            return (int32_t)n;
+        }
+        while (off < 32768u && env[off] != '\0') off++;
+        off++;
+    }
+    return -(int32_t)PAL_ENOENT;
+}
+
 /* Terminal slots now bind to the same ANSI transport as STATUS. */
 static void milton_gotoxy(samir_pal_t *p,uint8_t row,uint8_t col)
 {
@@ -1044,6 +1075,7 @@ samir_pal_t *pal_milton_make(void)
     st->vtable.reset      = milton_reset;
     st->vtable.acquire = milton_acquire; st->vtable.release = milton_release;
     st->vtable.exec       = milton_exec;
+    st->vtable.getenv     = milton_getenv;
 
     /* AH=48h ALLOC -- request PAL_MILTON_HEAP_PARAS paragraphs from the loader-
      * bound DISJOINT arena (DEC-04, bead 1q4u). No AH=4Ah SETBLOCK first: the
