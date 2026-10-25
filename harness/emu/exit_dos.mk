@@ -62,7 +62,7 @@ TPSJ_DONE            := TPS REPORT GENERATOR TERMINATED. RETURN CODE 0.
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_EXIT_NO_TEARDOWN,exit_no_teardown))
 $(eval $(call exitdos-transient-rules,exit_no_teardown,$(BUILD)/kernel_flairtenants_mut_exit_no_teardown.elf))
 EXITDOS_MUT_NOTEARDOWN_IMG := $(BUILD)/flair_exitdos_mut_no_teardown.img
-$(EXITDOS_MUT_NOTEARDOWN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_exit_no_teardown.bin $(BUILD)/transient_exit_no_teardown.bin | $(BUILD)
+$(EXITDOS_MUT_NOTEARDOWN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/flairovl_kernel_flairtenants_mut_exit_no_teardown.sys $(BUILD)/flairovl_kernel_flairtenants_mut_exit_no_teardown.ovl $(BUILD)/transient_exit_no_teardown.bin | $(BUILD)
 	$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_mut_exit_no_teardown.bin,$(BUILD)/transient_exit_no_teardown.bin)
 	@printf ">>> exit-to-DOS MUTANT image (-DKMAIN_MUT_EXIT_NO_TEARDOWN): %s\n" "$@"
 # NO_TRANSIENT: delete the real COMMAND.COM through mtools (initech-e9sx).
@@ -75,7 +75,7 @@ $(EXITDOS_MUT_NOTRANSIENT_IMG): $(FLAIRTENANTS_IMG) | $(BUILD)
 # The clip image: the DOUBLE-CLICK record kernel (the trace opens the volume)
 # with a transient linked against IT.
 $(eval $(call exitdos-transient-rules,recorddbl,$(BUILD)/kernel_flairtenants_recorddbl.elf))
-$(FLAIRTENANTS_RECORDDBL_EXITDOS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recorddbl.bin $(BUILD)/transient_recorddbl.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+$(FLAIRTENANTS_RECORDDBL_EXITDOS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/flairovl_kernel_flairtenants_recorddbl.sys $(BUILD)/flairovl_kernel_flairtenants_recorddbl.ovl $(BUILD)/transient_recorddbl.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_recorddbl.bin,$(BUILD)/transient_recorddbl.bin)
 	@printf ">>> flair-tenants DOUBLE-CLICK RECORD image + transient COMMAND.COM: %s\n" "$@"
 
@@ -92,7 +92,7 @@ $(BUILD)/kernel_flairtenants_mut_cwdreset.bin: $(BUILD)/kernel_flairtenants_mut_
 	$(call kernel-end-guard,$<,flairtenants-mut-cwdreset)
 $(eval $(call exitdos-transient-rules,cwdreset,$(BUILD)/kernel_flairtenants_mut_cwdreset.elf))
 EXITDOS_MUT_CWDRESET_IMG := $(BUILD)/flair_exitdos_mut_cwdreset.img
-$(EXITDOS_MUT_CWDRESET_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_cwdreset.bin $(BUILD)/transient_cwdreset.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+$(EXITDOS_MUT_CWDRESET_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/flairovl_kernel_flairtenants_mut_cwdreset.sys $(BUILD)/flairovl_kernel_flairtenants_mut_cwdreset.ovl $(BUILD)/transient_cwdreset.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_mut_cwdreset.bin,$(BUILD)/transient_cwdreset.bin)
 	@printf ">>> exit-to-DOS MUTANT image (-DLOADER_MUT_CWD_RESET): %s\n" "$@"
 

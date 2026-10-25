@@ -1,8 +1,17 @@
 /* Ref: PRD 6.3/6.4; spec/easter/jump_to_conclusions.json (authored);
  * os/apps/ref_tenant.c (AC-2 records and updateEvt clipping);
  * spec/window_record.h noGrowDocProc (standard Platinum, no grow box).
- * Modeless resident document; the shell supplies the modal alert.
- * No application file, menu row, command or manual entry advertises it. */
+ * Modeless document; the shell supplies the modal alert.
+ * No application file, menu row, command or manual entry advertises it.
+ *
+ * OVERLAID (ADR-0014 DEC-14-10 lane 1, epic initech-x8gsi): this file is the
+ * JTC mat's part of section COLD of C:\FLAIR.OVL, linked at its overlay-window address against
+ * the running kernel (os/milton/overlay.ld). It is NOT in the resident kernel.
+ * Its two entry points are reached only through the generated resident stubs
+ * named egg_jtc_open / egg_jtc_event (DEC-14-6.1/.2: egg_jtc_procs holds stub
+ * addresses); it calls the kernel directly through checked imports (6.3) and
+ * installs no IRQ hook (6.5). The per-event pad poll and the pending pad stay
+ * resident in egg_jtc_model.c, so the hot path never touches this section. */
 #include "egg_jtc.h"
 #include "window.h"
 #include "blitter.h"
@@ -23,8 +32,6 @@ typedef struct jtc_state {
     jtc_records *rec;
     const bitmap_t *dst;
 } jtc_state;
-static int pending;
-int egg_jtc_take_pad(void) { int i = pending - 1; pending = 0; return i; }
 
 static void box(const bitmap_t *dst, const region_t *clip, rgn_rect_t r, int part)
 {
@@ -68,11 +75,20 @@ static void paint(jtc_state *p, const region_t *clip)
         box(dst,clip,r,FLAIR_PART_CONTENT);
         r.left++; r.top++; r.right--; r.bottom--;
         box(dst,clip,r,FLAIR_PART_PLAT_FACE);
+#ifndef EGG_MUT_OVL_ONE_LABEL  /* MUTANT overlay only (DEC-14-9(a), Rule 6) */
         label(dst,clip,r,egg_jtc_label(i),ink,face);
+#else
+        label(dst,clip,r,egg_jtc_label(0),ink,face);   /* every pad says pad 0 */
+#endif
     }
 }
-static int open_mat(FlairApp *self, const FlairLaunchParams *lp)
+int egg_jtc_open(FlairApp *self, const FlairLaunchParams *lp)
 {
+#ifdef EGG_MUT_OVL_UD2
+    /* MUTANT overlay only (DEC-14-9(c), DEC-14-6.6): a CPU exception with
+     * EIP inside the overlay window must panic naming the section. */
+    __asm__ __volatile__("ud2");
+#endif
     jtc_state *p = flair_alloc(&self->arena,FLAIR_CLASS_GENERAL,sizeof *p);
     jtc_records *r = flair_alloc(&self->records_arena,FLAIR_CLASS_HANDLE,sizeof *r);
     if (!p || !r) return 1;
@@ -93,7 +109,7 @@ static int open_mat(FlairApp *self, const FlairLaunchParams *lp)
     p->rec = r; p->dst = lp->surface;
     return 0;
 }
-static void mat_event(FlairApp *self, const EventRecord *e)
+void egg_jtc_event(FlairApp *self, const EventRecord *e)
 {
     jtc_state *p = self->userData;
     if (e->what == updateEvt) {
@@ -101,7 +117,6 @@ static void mat_event(FlairApp *self, const EventRecord *e)
         region_op(clip,p->rec->w.contRgn,p->rec->w.updateRgn,RGN_OP_INTERSECT);
         paint(p,clip);
     } else if (e->what == mouseDown) {
-        pending = egg_jtc_hit(region_get_bbox(p->rec->w.contRgn),e->where.h,e->where.v)+1;
+        egg_jtc_pending = egg_jtc_hit(region_get_bbox(p->rec->w.contRgn),e->where.h,e->where.v)+1;
     }
 }
-const FlairAppProcs egg_jtc_procs = {open_mat,mat_event,0,0};

@@ -63,7 +63,7 @@ $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_COMMAND_MAGIC,command_m
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_COMMAND_MESSAGE,command_message))
 $(foreach tag,command_volume command_magic command_message,$(eval $(call exitdos-transient-rules,$(tag),$(BUILD)/kernel_flairtenants_mut_$(tag).elf)))
 define command-file-mutant-image
-$(COMMAND_FILE_IMG)/$(1).img: $(BUILD)/kernel_flairtenants_mut_$(1).bin $(BUILD)/transient_$(1).bin $(BOOT_SYSTEM_MINT) $(BOOT_SYSTEM_TOOL) $(IO_SYS_BIN) $(MBR_BIN) $(STAGE2_BIN)
+$(COMMAND_FILE_IMG)/$(1).img: $(BUILD)/flairovl_kernel_flairtenants_mut_$(1).sys $(BUILD)/flairovl_kernel_flairtenants_mut_$(1).ovl $(BUILD)/transient_$(1).bin $(BOOT_SYSTEM_MINT) $(BOOT_SYSTEM_TOOL) $(IO_SYS_BIN) $(MBR_BIN) $(STAGE2_BIN)
 	@mkdir -p $(COMMAND_FILE_IMG)
 	$$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_mut_$(1).bin,$(BUILD)/transient_$(1).bin)
 endef

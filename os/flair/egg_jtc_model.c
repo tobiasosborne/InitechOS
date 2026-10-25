@@ -60,3 +60,12 @@ int egg_jtc_trigger(unsigned *n, const EventRecord *e)
 #endif
     return ++*n == limit;
 }
+/* ADR-0014 DEC-14-10 lane 1: moved here from egg_jtc.c (now overlaid) so the
+ * per-event poll stays resident beside the trigger. */
+int egg_jtc_pending;
+int egg_jtc_take_pad(void)
+{
+    int i = egg_jtc_pending - 1;
+    egg_jtc_pending = 0;
+    return i;
+}

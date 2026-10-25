@@ -57,6 +57,11 @@
  * non-tenant faults. */
 static void (*g_fault_hook)(uint32_t vector, uint32_t eip) = 0;
 
+/* ADR-0014 DEC-14-6.4 (panic.h). Set on entry to every terminal panic path
+ * and never cleared: every such path halts. A tenant crash the fault hook
+ * unwinds is not a panic and never sets it. */
+volatile uint8_t g_panic_active;
+
 void panic_set_fault_hook(void (*hook)(uint32_t vector, uint32_t eip))
 {
     g_fault_hook = hook;
@@ -143,6 +148,7 @@ static const boot_info_t *panic_video(void)
 
 void panic_show_reason(panic_reason_t reason, const char *subject)
 {
+    g_panic_active = 1u;
 #ifndef PANIC_MUTATE_SKIP_REASON
     const boot_info_t *b=panic_video();
     panic_screen_reason((volatile uint8_t *)(uintptr_t)b->lfb_addr,
@@ -196,6 +202,9 @@ void KERNEL_ASM_ABI isr_dispatch_c(int_frame_t *frame)
         g_fault_hook(frame->vector, frame->eip);
     }
 
+    /* From here the exception is terminal (a tenant crash unwound inside the
+     * hook and never returns here): the panic path has begun. */
+    g_panic_active = 1u;
     panic_draw(frame->vector);
 
     /* Grep-able one-liner first (the oracle keys on "PANIC vec=NN err=MM"). */

@@ -238,8 +238,8 @@ $(BUILD)/kernel_flairtenants_mut_$(1)_hold.bin: $(BUILD)/kernel_flairtenants_mut
 	if [ "$$$$sz" -gt "$$$$max" ]; then printf '!!! kernel_flairtenants_mut_$(1)_hold.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; exit 1; fi; \
 	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(1)_hold)
-$(BUILD)/flair_tenants_mut_$(1)_hold.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(1)_hold.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(1)_hold.bin | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(1)_hold.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(1)_hold.bin
+$(BUILD)/flair_tenants_mut_$(1)_hold.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/flairovl_kernel_flairtenants_mut_$(1)_hold.sys $(BUILD)/flairovl_kernel_flairtenants_mut_$(1)_hold.ovl $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(1)_hold.bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/flairovl_kernel_flairtenants_mut_$(1)_hold.sys $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(1)_hold.bin $(BUILD)/flairovl_kernel_flairtenants_mut_$(1)_hold.ovl
 	@printf ">>> flair-tenants HOLD mutant image ($(3)): %s\n" "$$@"
 endef
 $(eval $(call finder-hold-mutant-image,finder_click,$(KERNEL_PROCESS_OBJ),$(BUILD)/process_mut_finder_click.o))

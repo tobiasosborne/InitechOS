@@ -63,6 +63,9 @@ typedef struct ata_ctx {
  * success, a negative ATA_ERR_* on error (fail loud, never an infinite spin).
  * Signature matches blockdev_t::read_sectors. */
 int ata_read_sectors(void *ctx, uint32_t lba, uint32_t count, void *buf);
+/* Nonzero while ata_read_sectors / ata_write_sectors is moving data on the
+ * channel (ADR-0014 DEC-14-6.4: the overlay manager's CONTEXT guard). */
+extern volatile uint8_t g_ata_busy;
 
 /* Write `count` sectors at `lba` (LBA28) from `buf` (>= count*512 bytes) via PIO
  * (WRITE SECTORS 0x30 + CACHE FLUSH 0xE7). `ctx` MUST point at a valid ata_ctx_t.

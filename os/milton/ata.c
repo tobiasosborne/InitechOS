@@ -279,7 +279,13 @@ int ata_reset(void *ctx)
     return ata_wait_ready(c->io_base,c->ctrl_base);
 }
 
-int ata_read_sectors(void *ctx, uint32_t lba, uint32_t count, void *buf)
+/* ADR-0014 DEC-14-6.4 (ata.h): nonzero while a PIO transfer is in flight on
+ * the shared primary channel; the overlay manager refuses to start its own
+ * boot-volume read under it (CONTEXT). The public entry points wrap the PIO
+ * bodies, so every return path drops the count. */
+volatile uint8_t g_ata_busy;
+
+static int ata_pio_read(void *ctx, uint32_t lba, uint32_t count, void *buf)
 {
 	const ata_ctx_t *c = (const ata_ctx_t *)ctx;
 	uint8_t *out = (uint8_t *)buf;
@@ -362,7 +368,7 @@ int ata_read_sectors(void *ctx, uint32_t lba, uint32_t count, void *buf)
  * NOTE: a const-correct write buffer (the blockdev_t::write_sectors signature
  * takes `const void *`) -- we never modify it; we only read words OUT of it.
  */
-int ata_write_sectors(void *ctx, uint32_t lba, uint32_t count, const void *buf)
+static int ata_pio_write(void *ctx, uint32_t lba, uint32_t count, const void *buf)
 {
 	const ata_ctx_t *c   = (const ata_ctx_t *)ctx;
 	const uint8_t   *in  = (const uint8_t *)buf;
@@ -432,6 +438,24 @@ int ata_write_sectors(void *ctx, uint32_t lba, uint32_t count, const void *buf)
 	}
 
 	return 0;
+}
+
+int ata_read_sectors(void *ctx, uint32_t lba, uint32_t count, void *buf)
+{
+	int rc;
+	g_ata_busy++;
+	rc = ata_pio_read(ctx, lba, count, buf);
+	g_ata_busy--;
+	return rc;
+}
+
+int ata_write_sectors(void *ctx, uint32_t lba, uint32_t count, const void *buf)
+{
+	int rc;
+	g_ata_busy++;
+	rc = ata_pio_write(ctx, lba, count, buf);
+	g_ata_busy--;
+	return rc;
 }
 
 void ata_blockdev_init(blockdev_t *dev, ata_ctx_t *ctx)
