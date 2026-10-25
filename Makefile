@@ -13761,7 +13761,12 @@ $(FIXTURE_VOLUMES_CHECK): harness/check_fixture_volumes.c | $(BUILD)
 .PHONY: test-fixture-volumes test-fixture-volumes-mutant
 test-fixture-volumes: $(FIXTURE_VOLUMES_CHECK)
 	@$(MAKE) --no-print-directory -s fixture-volume-recipe-lint
-	@$(MAKE) --no-print-directory -pn help SKIP_BOCHS=0 > $(FIXTURE_VOLUMES_SCAN).db
+	@# initech-1x6x2.1: -q, not -n. Under a parallel parent make the -n command
+	@# echo of `help` ("printf 'Build:...") was flushed into the middle of the -p
+	@# database ("unsupported target in make database"). -q prints the same
+	@# database and echoes nothing; its exit 1 just means `help` is out of date.
+	@rc=0; $(MAKE) --no-print-directory -pq help SKIP_BOCHS=0 > $(FIXTURE_VOLUMES_SCAN).db || rc=$$?; \
+	 [ "$$rc" -le 1 ] || { printf '!!! test-fixture-volumes FAIL: the make database dump failed (exit %s)\n' "$$rc"; exit 1; }
 	@$(FIXTURE_VOLUMES_CHECK) --probe $(FIXTURE_VOLUMES_SCAN).db $(FIXTURE_VOLUMES_SCAN).mk $(FIXTURE_VOLUMES_SCAN).expanded
 	@$(MAKE) --no-print-directory -s -f $(firstword $(MAKEFILE_LIST)) -f $(FIXTURE_VOLUMES_SCAN).mk fixture-volume-probe SKIP_BOCHS=0
 	@$(FIXTURE_VOLUMES_CHECK) --check $(FIXTURE_VOLUMES_SCAN).expanded $(FIXTURE_VOLUMES_SCAN).tsv
