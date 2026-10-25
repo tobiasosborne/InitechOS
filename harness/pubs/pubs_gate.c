@@ -142,11 +142,13 @@ static void cmdsfile(const char *path,Set *doc,Set *draft)
     }
     free(text);
 }
-static void crosscheck(const char *shipped,int ndoc,char **docs,const char *allowpath)
+/* The both-directions rule shared by `commands` and `srclockstep`. */
+static void crosscheck_sets(const char *docs0,const char *allowpath,const Set *ship_,const Set *doc_,const Set *draft_,const Set *allow_)
 {
-    Set ship=list(shipped,0),doc={0},draft={0},allow=list(allowpath,1);
+    static Set ship,doc,draft,allow;
     char a[MAX_NAME],b[MAX_NAME];
-    for(int i=0;i<ndoc;i++) cmdsfile(docs[i],&doc,&draft);
+    const char *docs[1];
+    ship=*ship_;doc=*doc_;draft=*draft_;allow=*allow_;docs[0]=docs0;
     if(!ship.n || !doc.n) die("COMMAND-INDEX",docs[0],"empty inventory/index");
     for(size_t i=0;i<doc.n;i++)
         if(!has(&ship,doc.item[i]) && !has(&draft,doc.item[i])) die("DOC-NOT-SHIPPED",docs[0],doc.item[i]);
@@ -161,7 +163,138 @@ static void crosscheck(const char *shipped,int ndoc,char **docs,const char *allo
     for(size_t i=0;i<ship.n;i++) if(!has(&doc,ship.item[i]) && !has(&allow,namepart(ship.item[i],b)))
         die("SHIPPED-NOT-DOCUMENTED",docs[0],ship.item[i]);
     for(size_t i=0;i<draft.n;i++) printf("!!! test-pubs DRAFT-ENTRY: %s (documented as DRAFT; GC-12 blocks release)\n",draft.item[i]);
+}
+static void crosscheck(const char *shipped,int ndoc,char **docs,const char *allowpath)
+{
+    static Set ship,doc,draft,allow;
+    ship=list(shipped,0);allow=list(allowpath,1);doc.n=draft.n=0;
+    for(int i=0;i<ndoc;i++) cmdsfile(docs[i],&doc,&draft);
+    crosscheck_sets(docs[0],allowpath,&ship,&doc,&draft,&allow);
     printf(">>> test-pubs-commands: green (%zu shipped, %zu documented, %zu DRAFT, %zu explicit omissions)\n",ship.n,doc.n,draft.n,allow.n);
+}
+/* ---- srclockstep (bead initech-7opiw, F1): the InitechBase lockstep read
+ * straight from the .tex SOURCES, no LaTeX.  It mirrors, in order, what the
+ * class files write to <job>.cmds (initech-xbase.sty / initech-syntax.sty):
+ *   begin{XbaseEntry}[draft]{NAME}{KIND}  RegisterCommand(NAME,KIND,state);
+ *        KIND compound registers nothing and sets the XAlso kind to command;
+ *   QREntry[draft]{NAME}{KIND}{syn}{desc} likewise (a non-compound QREntry
+ *        leaves the XAlso kind as it stood, exactly as the class does);
+ *   QRFunction{NAME}{desc}                NAME|function|GATED;
+ *   XAlso{NAME}{idx}                      NAME|<current kind>|<current state>;
+ *   DotExample{examples/X}                X.dot and X.txt must exist.
+ * Books are walked from main.tex through input{..} in order; a (NAME,KIND)
+ * pair twice in one book is the class's "documented twice" error. */
+typedef struct { char kind[16],state[8];Set *doc,*draft;const char *dir,*book;size_t nex; } Src;
+static void stripc(char *t)
+{
+    char *w=t,*r=t;
+    while(*r) {
+        if(*r=='\\' && r[1]) { *w++=*r++;*w++=*r++;continue; }
+        if(*r=='%') { while(*r && *r!='\n') r++;continue; }
+        *w++=*r++;
+    }
+    *w=0;
+}
+static const char *skipws(const char *p) { while(*p==' ' || *p=='\n' || *p=='\t' || *p=='\r') p++;return p; }
+/* One balanced {..} group (or [..] up to the first brace-level-0 ']') at p
+ * after whitespace; the contents go into out. */
+static const char *grp(const char *p,char open,char *out,size_t cap,const char *where)
+{
+    int depth=0;size_t n=0;
+    p=skipws(p);
+    if(*p!=open) die("SRC-SYNTAX",where,"expected argument group");
+    p++;
+    for(;*p;p++) {
+        if(*p=='\\' && p[1]) { if(n+2<cap) { out[n++]=*p;out[n++]=p[1]; } p++;continue; }
+        if(*p=='{') depth++;
+        if(*p=='}') { if(open=='{' && depth==0) { out[n]=0;return p+1; } depth--; }
+        if(*p==']' && open=='[' && depth==0) { out[n]=0;return p+1; }
+        if(n+1<cap) out[n++]=*p;
+    }
+    die("SRC-SYNTAX",where,"unbalanced argument group");return p;
+}
+static const char *optgrp(const char *p,int *present,char *out,size_t cap,const char *where)
+{
+    const char *q=skipws(p);
+    if(*q=='[') { *present=1;return grp(q,'[',out,cap,where); }
+    *present=0;return p;
+}
+static void srcreg(Src *s,const char *name,const char *kind,const char *state)
+{
+    char key[MAX_NAME];
+    if(!*name || strpbrk(name,"\\{}")) die("SRC-NAME",s->book,name);
+    if(!*kind) die("SRC-KIND",s->book,name);
+    if(snprintf(key,sizeof key,"%s|%s",name,kind)>=(int)sizeof key) die("SRC-NAME",s->book,name);
+    if(has(s->doc,key)) die("DOCUMENTED-TWICE",s->book,key);
+    addkind(s->doc,name,kind);
+    if(!strcmp(state,"DRAFT")) addkind(s->draft,name,kind);
+}
+static int macro(const char *p,const char *name)
+{
+    size_t n=strlen(name);
+    return !strncmp(p,name,n) && !isalpha((unsigned char)p[n]);
+}
+static void srcwalk(Src *s,const char *file)
+{
+    char path[1024],*text;
+    snprintf(path,sizeof path,"%s/%s%s",s->dir,file,strstr(file,".tex")?"":".tex");
+    { struct stat st;
+      /* generated tables (build/pubs/gen/samir_*.tex, TEXINPUTS) hold no entries */
+      if(stat(path,&st) && !strncmp(file,"samir_",6)) return; }
+    text=readfile(path);stripc(text);
+    for(const char *p=text;*p;p++) {
+        char a[512],b[512],d[512];int dr;
+        if(*p!='\\') continue;
+        if(!strncmp(p,"\\begin{XbaseEntry}",18)) {
+            p=optgrp(p+18,&dr,d,sizeof d,path);p=grp(p,'{',a,sizeof a,path);p=grp(p,'{',b,sizeof b,path);
+            if(strcmp(b,"command") && strcmp(b,"function") && strcmp(b,"set") && strcmp(b,"compound")) die("SRC-KIND",a,b);
+            strcpy(s->state,dr?"DRAFT":"GATED");strcpy(s->kind,!strcmp(b,"compound")?"command":b);
+            if(strcmp(b,"compound")) srcreg(s,a,b,s->state);
+            p--;
+        } else if(macro(p,"\\QREntry")) {
+            p=optgrp(p+8,&dr,d,sizeof d,path);p=grp(p,'{',a,sizeof a,path);p=grp(p,'{',b,sizeof b,path);
+            strcpy(s->state,dr?"DRAFT":"GATED");
+            if(!strcmp(b,"compound")) strcpy(s->kind,"command"); else srcreg(s,a,b,s->state);
+            p--;
+        } else if(macro(p,"\\QRFunction")) {
+            p=grp(p+11,'{',a,sizeof a,path);srcreg(s,a,"function","GATED");p--;
+        } else if(macro(p,"\\XAlso")) {
+            p=grp(p+6,'{',a,sizeof a,path);srcreg(s,a,s->kind,s->state);p--;
+        } else if(macro(p,"\\DotExample")) {
+            char f[1100];struct stat st;const char *ext[2]={".dot",".txt"};
+            p=grp(p+11,'{',a,sizeof a,path);
+            for(int e=0;e<2;e++) {
+                snprintf(f,sizeof f,"%s/%s%s",s->dir,a,ext[e]);
+                if(stat(f,&st)) die("EXAMPLE-PAIR",f,"missing (DotExample needs X.dot and X.txt)");
+            }
+            s->nex++;p--;
+        } else if(macro(p,"\\input")) {
+            const char *q=skipws(p+6);
+            if(*q=='{') { p=grp(q,'{',a,sizeof a,path);srcwalk(s,a);p--; }
+        }
+    }
+    free(text);
+}
+/* srclockstep <shipped> <allow> <volume-one dir> <quick-reference dir> <volume-two dir> */
+static void srclockstep(int argc,char **argv)
+{
+    static Set ship,allow,doc,draft;
+    const char *books[3];size_t nex=0;
+    if(argc!=7) die("USAGE","srclockstep","<shipped> <allow> <vol-one dir> <quick-ref dir> <vol-two dir>");
+    ship=list(argv[2],0);allow=list(argv[3],1);books[0]=argv[4];books[1]=argv[5];books[2]=argv[6];
+    for(int b=0;b<3;b++) {
+        Src s;memset(&s,0,sizeof s);
+        doc.n=draft.n=0;s.doc=&doc;s.draft=&draft;s.dir=s.book=books[b];
+        srcwalk(&s,"main");nex+=s.nex;
+        if(getenv("SRCLOCKSTEP_DUMP")) for(size_t i=0;i<doc.n;i++) fprintf(stderr,"%d|%s\n",b,doc.item[i]);
+        if(b==2) {
+            if(doc.n) die("COMMAND-SURFACE",books[b],"Volume Two teaches; its commands are documented in Using InitechBase");
+            continue;
+        }
+        crosscheck_sets(books[b],argv[3],&ship,&doc,&draft,&allow);
+        printf(">>> test-pubs-lockstep-src: %s: %zu shipped, %zu documented, %zu DRAFT\n",books[b],ship.n,doc.n,draft.n);
+    }
+    printf(">>> test-pubs-lockstep-src: green (%zu DotExample pairs present; no LaTeX run)\n",nex);
 }
 static void monotonic(const char *now,const char *before)
 {
@@ -782,6 +915,7 @@ int main(int argc,char **argv)
 {
     if(argc>=2 && !strcmp(argv[1],"inventory")) inventory(argc,argv);
     else if(argc>=5 && !strcmp(argv[1],"commands")) crosscheck(argv[2],argc-4,argv+4,argv[3]);
+    else if(argc>=2 && !strcmp(argv[1],"srclockstep")) srclockstep(argc,argv);
     else if(argc==4 && !strcmp(argv[1],"monotonic")) monotonic(argv[2],argv[3]);
     else if(argc>=4 && !strcmp(argv[1],"mentions")) {
         Set pairs=list(argv[2],0),ship={0},mentions={0};char nb[MAX_NAME];
@@ -827,6 +961,6 @@ int main(int argc,char **argv)
         for(int i=3;i<argc;i++) walk(argv[i]);
         puts(">>> test-pubs-lint: green (ASCII, period vocabulary/years, part numbers and print codes)");
     } else if(argc>=7 && !strcmp(argv[1],"inconsistency")) inconsistency(argc,argv);
-    else die("USAGE","pubs_gate","inventory|commands|monotonic|keys|same|lint|samirmentions|messages|inconsistency");
+    else die("USAGE","pubs_gate","inventory|commands|srclockstep|monotonic|keys|same|lint|samirmentions|messages|inconsistency");
     return 0;
 }

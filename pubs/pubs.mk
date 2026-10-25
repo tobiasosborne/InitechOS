@@ -334,7 +334,11 @@ $(PUBS_SAMIR_DISK)/.minted: $(PUBS_SAMIR_DISKTOOL) $(PUBS_SAMIR_DISK_SRC)
 	@$(PUBS_SAMIR_DISKTOOL) $(PUBS_DIR)/examples/samir/disk $(PUBS_SAMIR_DISK)
 	@touch $@
 .PHONY: pubs-samir-inventory pubs-examples test-pubs-samir-disk test-pubs-samir-programs
-pubs-samir-inventory: $(PUBS_SAMIR_INV)
+# A real file target (bead initech-7opiw): the inventory is re-probed only
+# when the inventory tool, the candidate scanner or the SAMIR sources change,
+# so the per-merge test-pubs-lockstep-src is not charged for it every time.
+pubs-samir-inventory: $(PUBS_CHECK)/samir.shipped
+$(PUBS_CHECK)/samir.shipped: $(PUBS_SAMIR_INV) $(PUBS_SAMIR_CAND) $(PUBS_SAMIR_CAND_SRC)
 	@mkdir -p $(PUBS_CHECK)/samir-probe
 	@sh $(PUBS_SAMIR_CAND) $(PUBS_SAMIR_CAND_SRC) > $(PUBS_CHECK)/samir.candidates
 	@cd $(PUBS_CHECK)/samir-probe && $(abspath $(PUBS_SAMIR_INV)) < ../samir.candidates | LC_ALL=C sort > ../samir.shipped
@@ -359,6 +363,27 @@ test-pubs-samir-disk: $(PUBS_SAMIR_DISK)/.minted
 		[ -f $(PUBS_SAMIR_DISK)/$$name ] || { printf '!!! test-pubs RED SAMPLE-DISK: %s missing\n' "$$name"; exit 1; }; \
 	done < $(PUBS_DIR)/examples/samir/disk/MANIFEST
 	@printf '>>> test-pubs-samir-disk: green (%s files on the Sample Programs and Utilities diskette)\n' "$$(ls $(PUBS_SAMIR_DISK) | wc -l)"
+
+# ---- CADENCE (operator ruling 2026-10-25; bead initech-7opiw, F1+F6) -------
+# Typesetting runs once per SESSION, never per merge.
+#   per merge   : test-pubs-lockstep-src (+ -mutant): the InitechBase manuals
+#                 in lockstep with the shipped inventory, read from the .tex
+#                 SOURCES by `pubs_gate srclockstep` -- no LaTeX, about 1 s.
+#                 In TEST_UNIT_GATES.
+#   per session : make test-pubs (test-pubs-build typesets every document,
+#                 then the LaTeX-derived tps/commands/examples/screens/repro
+#                 gates).  pubs/build.sh runs pass 1 in parallel (PUBS_JOBS,
+#                 default nproc) and pass 2 (master index) after it.
+# test-pubs-tps and test-pubs-examples still depend on test-pubs-build, so
+# they are session gates, not merge gates.  No gate was removed from test-pubs.
+.PHONY: test-pubs-lockstep-src test-pubs-lockstep-src-mutant
+test-pubs-lockstep-src: $(PUBS_GATE) $(PUBS_CHECK)/samir.shipped
+	@$(PUBS_GATE) srclockstep $(PUBS_CHECK)/samir.shipped $(PUBS_SAMIR_ALLOW) \
+		$(PUBS_DIR)/manuals/initechbase-volume-one $(PUBS_DIR)/manuals/initechbase-quick-reference \
+		$(PUBS_DIR)/manuals/initechbase-volume-two
+test-pubs-lockstep-src-mutant: test-pubs-lockstep-src
+	@sh harness/pubs/srclockstep_mutants.sh $(PUBS_GATE) $(PUBS_CHECK)/samir.shipped $(PUBS_SAMIR_ALLOW) \
+		$(PUBS_DIR)/manuals $(PUBS_BUILD)/lockstep-src-mutants
 
 .PHONY: test-pubs test-pubs-commands test-pubs-tps test-pubs-lint test-pubs-examples test-pubs-mutant pubs-inventory \
 	test-pubs-inconsistency
