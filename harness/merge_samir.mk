@@ -18,3 +18,14 @@ test-merge-samir:
 	if $(MAKE) -n test-pubs-lockstep-src >/dev/null 2>&1; then gates="$$gates test-pubs-lockstep-src"; lock=yes; else lock=absent; fi; \
 	printf '>>> test-merge-samir: %s gates (test-pubs-lockstep-src: %s; no LaTeX)\n' "$$(echo $$gates | wc -w)" "$$lock"; \
 	$(MAKE) -k $$gates && printf '>>> test-merge-samir: ALL GREEN\n'
+
+# test-par (initech-2kkqr, F7): the same gate vector as `make test`
+# (TEST_UNIT_GATES + TEST_EMU_GATES) as ONE parallel make, so -jN actually
+# parallelises. `make test` itself drives the gates from serial shell loops
+# (test-unit / test-emu) and ignores -j. -k: report every red gate.
+#   make -j32 test-par
+.PHONY: test-par
+test-par:
+	@gates="$(sort $(TEST_UNIT_GATES) $(TEST_EMU_GATES))"; \
+	printf '>>> test-par: %s gates (unit+emu), one parallel make\n' "$$(echo $$gates | wc -w)"; \
+	$(MAKE) -k $$gates && printf '>>> test-par: ALL GREEN\n'
