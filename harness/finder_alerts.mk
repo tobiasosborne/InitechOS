@@ -325,10 +325,14 @@ test-flair-finder-alerts: $(FINDER_ALERTS_EMU_CLEAN) $(FINDER_ALERTS_EMU_MUT) te
 FINDER_PRESSED_CAPTURE := ../system7-decomp/goldens/captures/s8_alert_ok_pressed.png
 FINDER_PRESSED_CAPTURE_TL := ../system7-decomp/goldens/captures/s8_alert_ok_pressed_tl.png
 .PHONY: test-flair-dialog-pressed-golden finder-dialog-pressed-probe test-flair-dialog-pressed-golden-mutant
-test-flair-dialog-pressed-golden:
+# initech-1x6x2.1: the probe's inputs are prerequisites of the gate and frozen
+# (-o) in the sub-make, so it runs only the probe recipe and never builds the
+# shared hold image / data volume beside the parallel vector.
+FINDER_PRESSED_PROBE_DEPS = $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
+test-flair-dialog-pressed-golden: $(FINDER_PRESSED_PROBE_DEPS)
 	@for c in $(FINDER_PRESSED_CAPTURE) $(FINDER_PRESSED_CAPTURE_TL); do test -f $$c || { printf '!!! test-flair-dialog-pressed-golden RED: missing Mac OS 8.1 native held-OK capture: %s (re/mint-results-010.md)\n' "$$c"; exit 1; }; done
-	@$(MAKE) --no-print-directory finder-dialog-pressed-probe
-finder-dialog-pressed-probe: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
+	@$(MAKE) --no-print-directory $(addprefix -o ,$(FINDER_PRESSED_PROBE_DEPS) $(MAKEFILE_STAMP)) finder-dialog-pressed-probe
+finder-dialog-pressed-probe: $(FINDER_PRESSED_PROBE_DEPS)
 	$(call appl-boot,dialog_held,$(FLAIRTENANTS_HOLD_IMG),$(FLAIR_DATA_IMG),FLAIR_DIALOG_HELD_SPEC,--screendump --screendump-after "FINDER-TRASH-ALERT")
 	@$(call APPL_ALIVE,$(BUILD)/dialog_held.serial) || { printf '!!! dialog_held did not finish alive\n'; exit 1; }
 	@! grep -q '^FINDER-TRASH-EMPTIED' $(BUILD)/dialog_held.serial
