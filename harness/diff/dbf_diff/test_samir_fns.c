@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include "test_assert.h"
 #include "samir/interp.h"
+#include "samir/rt.h"
 TEST_HARNESS();
 struct pal_host_cfg { uint8_t yy,mm,dd; uint32_t heap; };
 extern samir_pal_t *pal_host_make(struct pal_host_cfg);
@@ -30,6 +31,67 @@ static void diff_line(const char *label,const char *p,size_t n,size_t at)
     while(start&&p[start-1]!='\n')start--;
     end=start;while(end<n&&p[end]!='\r'&&p[end]!='\n')end++;
     fprintf(stderr,"%s: %.*s\n",label,(int)(end-start),p+start);
+}
+static void test_log_contract(xb_interp *ip)
+{
+    xb_ctx *ctx = xb_interp_ctx(ip);
+    xb_val v;
+    int ec, rc, before = g_fails;
+    char picture[256];
+
+    /* PM LOG review: an overflow value is a successful evaluation; only
+     * the statement executor may raise its deferred error. */
+    ctx->deferred_error = 0;
+    rc = xb_interp_eval(ip, "LOG(0)", &v, &ec);
+    CHECK(rc == INTERP_OK && ec == 0 && ctx->deferred_error == 58,
+          "LOG(0) returns normally and defers error 58");
+    CHECK(v.t == XB_N && v.u.n < -1e300 && v.num_width == 4,
+          "LOG(0) returns negative infinity in its natural overflow picture");
+    ctx->deferred_error = 87;
+    rc = xb_interp_eval(ip, "LOG(-1)", &v, &ec);
+    CHECK(rc == INTERP_OK && ec == 0 && ctx->deferred_error == 87,
+          "LOG domain failure preserves the first deferred error");
+    CHECK(v.t == XB_N && v.u.n != v.u.n && v.num_width == 5,
+          "LOG(-1) returns NaN in its natural overflow picture");
+    ctx->deferred_error = 0;
+
+    rc = xb_interp_eval(ip, "LOG(22027)", &v, &ec);
+    CHECK(rc == INTERP_OK && v.num_width == 5 && v.num_dec == 2,
+          "LOG(22027) derives its width from two result integer digits");
+    dec_format(v.u.n, v.num_width, v.num_dec, picture);
+    picture[v.num_width] = 0;
+    CHECK_STR_EQ(picture, "10.00", "LOG(22027) retains both decimal places");
+    rc = xb_interp_eval(ip, "LOG(0.000001)", &v, &ec);
+    CHECK(rc == INTERP_OK && v.num_width == 6 && v.num_dec == 2,
+          "negative LOG result includes its integer digits and sign");
+    dec_format(v.u.n, v.num_width, v.num_dec, picture);
+    picture[v.num_width] = 0;
+    CHECK_STR_EQ(picture, "-13.82", "negative LOG result retains its decimals");
+    ctx->set_decimals = 0;
+    rc = xb_interp_eval(ip, "LOG(22027)", &v, &ec);
+    CHECK(rc == INTERP_OK && v.num_width == 2 && v.num_dec == 0,
+          "LOG respects zero decimal places and derives integer-only width");
+    ctx->set_decimals = 2;
+
+    used = 0; captured[0] = 0;
+    rc = samir_do(ip, "? \"left\", LOG(0), \"right\", LOG(-1), \"done\"");
+    CHECK(rc == INTERP_OK && ctx->deferred_error == 0,
+          "statement consumes deferred LOG error and ON ERROR handles it");
+    CHECK_STR_EQ(captured,
+        "\r\nleft **** right ***** done\r\nMINT-ERROR         58 LOG() : Zero or negative.",
+        "complete output statement precedes deferred LOG error report");
+    used = 0; captured[0] = 0;
+    rc = samir_do(ip, "? LOG(0), LOG(\"X\")");
+    CHECK(rc == INTERP_OK && ctx->deferred_error == 0 && ctx->error_number == 11,
+          "an immediate argument error wins over a pending LOG domain error");
+    CHECK_STR_EQ(captured, "\r\nMINT-ERROR         11 Invalid function argument.",
+        "immediate error uses the ordinary ON ERROR report");
+    ctx->deferred_error = 87;
+    CHECK(samir_do(ip, "? \"nested\"") == INTERP_OK && ctx->deferred_error == 87,
+          "nested statement execution restores its caller's deferred slot");
+    ctx->deferred_error = 0;
+    if (g_fails == before)
+        puts(">>> test-samir-log-contract: green (deferred error ordering, first error, result widths)");
 }
 static int equal_text(const char *a,const char *b)
 {
@@ -82,6 +144,7 @@ int main(int argc,char **argv)
         pal=pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});if(!pal)return 2;
         pal->conout=output;pal->conin_line=input;ip=xb_interp_make(pal);
         CHECK(ip&&samir_repl(pal,ip)==0,"FNS full disk program returned");
+        if(ip && !strcmp(name,"log"))test_log_contract(ip);
         if(ip)xb_interp_free(ip);
         pal_host_free(pal);if(chdir(cwd))return 2;
     }

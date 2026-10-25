@@ -34757,9 +34757,9 @@ include harness/emu/panic_reasons.mk
 # are run by name (make test-samir-fns-pending), NOT in the default vector --
 # a known-red gate in `make test` is noise, not an oracle. A case moves from
 # PENDING to CASES with the commit that makes it green (Rule 6: mutant too).
-SAMIR_FNS_CASES := alias alternate console division errors exprcol index listoff numlist recsize struct type unknown
-SAMIR_FNS_PENDING := century default overflow path procedure relation talk with \
-	exp log sqrt time lupdate ndx row col prow pcol inkey readkey lastkey iscolor fklabel os version getenv diskspace
+SAMIR_FNS_CASES := alias alternate console division errors exprcol index listoff log numlist recsize struct type unknown
+SAMIR_FNS_PENDING := century col default diskspace exp fklabel getenv inkey iscolor lastkey lupdate ndx os overflow \
+	path pcol procedure prow readkey relation row sqrt talk time version with
 .PHONY: test-samir-fns-pending
 test-samir-fns-pending: $(addprefix test-samir-fns-,$(SAMIR_FNS_PENDING))
 SAMIR_FNS_TEST := $(BUILD)/test_samir_fns

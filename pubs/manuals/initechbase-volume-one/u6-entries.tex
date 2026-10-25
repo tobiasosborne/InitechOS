@@ -397,6 +397,25 @@ Apply \fn{TRIM()} to the argument to count the characters without the trailing b
 \SeeAlso{TRIM(), SPACE(), SUBSTR()}
 \end{XbaseEntry}
 
+% LOG -- os/samir/core/fn_builtins.c fn_log_stub; III+ HELP.DBS line 1298;
+% real dBASE III PLUS 1.1 capture: fns-mint/log/GOLD.OUT.
+\begin{XbaseEntry}{LOG}{function}
+Returns the natural logarithm of a numeric expression, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{LOG(}\xp{expN}\kw{)}}
+\Usage
+\fn{LOG()} returns the natural logarithm (base \texttt{e}) of its argument.
+The argument must be greater than zero. With zero or a negative argument,
+the numeric result displays as asterisks; InitechBase completes the statement
+before raising \xmsg{58}{LOG() : Zero or negative.}.
+An argument that is not numeric, or a call with other than one argument,
+raises \xmsg{11}{Invalid function argument.}.
+\Examples
+The natural logarithm of two:
+\DotExample{examples/fn-log}
+\SeeAlso{EXP(), SQRT()}
+\end{XbaseEntry}
+
 % LOWER -- os/samir/core/fn_builtins.c fn_case (l.185-203)
 \begin{XbaseEntry}{LOWER}{function}
 Converts the letters of a character string to lower case, as a character string.

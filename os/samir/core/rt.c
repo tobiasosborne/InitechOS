@@ -428,8 +428,19 @@ static int dec_format_core(double v, int width, int dec, char *out, int even)
         } while (tmp > 0u);
     }
 
-    /* Total columns: sign (if neg) + int_digits + (dec > 0 ? 1 + dec : 0) */
+    /* Total columns: sign (if neg) + integer digits + fractional picture. */
     total_need = (neg ? 1 : 0) + int_digits + (dec > 0 ? 1 + dec : 0);
+
+    /* Ref: ../dbase3-decomp/specs/runtime/numeric-and-string-formatting.md
+     * Sec 3.4 (total width), and the
+     * independent fns-mint/log/GOLD.OUT (-.69) / division/GOLD.OUT (-0.33).
+     * A fraction's integer zero is optional only when its full picture
+     * does not fit. Preserve it whenever there is room, e.g. -0.6 in four
+     * columns; omit it before sacrificing requested decimal places. */
+    if (int_part == 0u && dec > 0 && total_need > width) {
+        int_digits = 0;
+        total_need--;
+    }
 
     /* Overflow check */
     if (total_need > width) {
@@ -458,7 +469,7 @@ static int dec_format_core(double v, int width, int dec, char *out, int even)
     }
 
     /* Integer digits */
-    if (emit_digits(out + pos, int_digits, int_part) != 0) {
+    if (int_digits && emit_digits(out + pos, int_digits, int_part) != 0) {
         /* Should not happen after the total_need check -- but fail safe */
         int i;
         for (i = 0; i < width; i++) {
