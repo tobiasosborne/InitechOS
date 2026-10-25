@@ -66,3 +66,6 @@ refs/
 # Mac 68K ROMs + period disk images -- abandonware-grey, NEVER commit (gui-ground-truth.md Sec 8)
 *.ROM
 *.rom
+CODEX-OUT.md
+CODEX-OUT.*.md
+LANE-BRIEF.md

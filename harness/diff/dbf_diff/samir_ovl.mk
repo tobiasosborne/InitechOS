@@ -116,6 +116,16 @@ test-samir-ovl-guard-emu-mutant: $(BUILD)/test_samir_ovl_guard_emu $(HARNESS_BIN
 	 k=$${pair%%:*}; why=$${pair#*:}; $(BUILD)/test_samir_ovl_guard_emu $$k $(BUILD)/SAMIR_SCREEN_SAMIR_OVL_MUTATE_$$k.EXE "$$why"; done
 TEST_EMU_GATES += test-samir-ovl-guard-emu-mutant
 
+# Exhaustive retained-field diagnostics and range edges using the real manager
+# on the host. Unused manager I/O is discarded; the panic endpoint is captured
+# by the oracle, while guard-emu-mutant checks the actual kernel panic.
+$(BUILD)/test_samir_ovl_lifetime: $(DBF_DIFF_DIR)/test_samir_ovl_lifetime.c $(SAMIR_OVL_SRC) $(SAMIR_RT_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) -O2 -DSAMIR_OVERLAYS -ffunction-sections -fdata-sections -I$(SAMIR_INC_DIR) -Iseed -Ispec -Wl,--gc-sections,--defsym=__ovl_slot_end=__ovl_slot+256 -o $@ $(DBF_DIFF_DIR)/test_samir_ovl_lifetime.c $(SAMIR_OVL_SRC) $(SAMIR_RT_SRC)
+.PHONY: test-samir-ovl-lifetime
+test-samir-ovl-lifetime: $(BUILD)/test_samir_ovl_lifetime
+	@$<
+TEST_UNIT_GATES += test-samir-ovl-lifetime
+
 .PHONY: test-samir-ovl-output
 # Two real grouped outputs: deletion of only OVL must rebuild the complete pair.
 # Private BUILD avoids racing the accepted link in a parallel merge vector.

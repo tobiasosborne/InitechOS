@@ -12,11 +12,13 @@
 void samir_ovl_require_resident(uintptr_t p, const char *where);
 void samir_ovl_validate_ctx(const xb_ctx *ctx);
 void samir_ovl_validate_pal(const samir_pal_t *pal);
+void samir_ovl_validate_cursor(const xb_dbcursor *v);
 #else
 static inline void samir_ovl_require_resident(uintptr_t p, const char *where)
 { (void)p; (void)where; }
 static inline void samir_ovl_validate_ctx(const xb_ctx *ctx) { (void)ctx; }
 static inline void samir_ovl_validate_pal(const samir_pal_t *pal) { (void)pal; }
+static inline void samir_ovl_validate_cursor(const xb_dbcursor *v) { (void)v; }
 #endif
 #define SAMIR_RETAIN(p) samir_ovl_require_resident((uintptr_t)(p), #p)
 static inline void samir_bind_output(xb_ctx *c,
@@ -35,15 +37,7 @@ static inline void samir_bind_cursor(xb_ctx *c,const xb_dbcursor *v,void *user)
 {
     SAMIR_RETAIN(c); SAMIR_RETAIN(v); SAMIR_RETAIN(user);
     /* Validate the nested vtable before publishing it. */
-    if(v) {
-#define CURSOR_CHECK(f) SAMIR_RETAIN(v->f)
-        CURSOR_CHECK(recno); CURSOR_CHECK(reccount); CURSOR_CHECK(eof);
-        CURSOR_CHECK(bof); CURSOR_CHECK(found); CURSOR_CHECK(deleted);
-        CURSOR_CHECK(field_name); CURSOR_CHECK(dbf_name);
-        CURSOR_CHECK(file_exists); CURSOR_CHECK(last_update);
-        CURSOR_CHECK(index_name);
-#undef CURSOR_CHECK
-    }
+    samir_ovl_validate_cursor(v);
     c->dbcur=v; c->dbcur_user=user;
 }
 static inline void samir_bind_errors(xb_ctx *c,int (*error)(void *,int),
