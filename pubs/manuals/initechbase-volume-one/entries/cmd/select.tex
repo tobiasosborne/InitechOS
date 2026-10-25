@@ -1,0 +1,23 @@
+% SELECT -- os/samir/cmd/flow.c "SELECT" (a number 1..10 or an alias).
+% Gate: test-interp-use.
+\begin{XbaseEntry}{SELECT}{command}
+Chooses the work area in which the following commands work.
+\Syntax
+\SyntaxLine{\kw{SELECT} \xp{n}/\xp{alias}}
+\Usage
+InitechBase has ten work areas, numbered 1 to 10, and each may hold one
+database with its index files.  Work area 1 is selected when InitechBase
+starts.  \cmd{SELECT} \xp{n} selects work area \xp{n}; \cmd{SELECT} \xp{alias}
+selects the work area of the database with that alias.  The alias of a
+database is its file name without the extension, unless \cmd{USE} gave it
+another.
+
+\cmd{USE} opens a database in the selected work area, and the commands that
+read or change records work on the database of the selected work area.  Each
+work area keeps its own record pointer, so moving in one database does not
+move the others.
+\Examples
+\DotExample{examples/c-select}
+\SeeAlso{USE, CLOSE, DBF()}
+\end{XbaseEntry}
+

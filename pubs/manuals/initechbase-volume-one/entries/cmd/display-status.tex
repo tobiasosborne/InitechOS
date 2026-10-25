@@ -1,0 +1,17 @@
+% A form of the DISPLAY command (compound): its NAME is registered by the
+% DISPLAY entry; the inventory keys verbs, as for CLEAR MEMORY (initech-u01i).
+\begin{XbaseEntry}{DISPLAY STATUS}{compound}
+Shows the open files and working environment, pausing for a key between pages.
+\Syntax
+\SyntaxLine{\kw{DISPLAY STATUS}}
+\Usage
+Each open work area shows its database name and alias, memo file, indexes and
+their keys, controlling index, filter, and configured relation.  The selected
+area is identified.  The report also shows the alternate file, default drive,
+ON ERROR and ON ESCAPE commands, SET states, and function key assignments.
+It may be used with no database open and does not move any record pointer or
+change the selected work area.  The relation shown is its configured setting;
+automatic movement of a related area's record pointer is not provided.
+\SeeAlso{LIST STATUS, SELECT, SET INDEX, SET FILTER, SET RELATION}
+\end{XbaseEntry}
+

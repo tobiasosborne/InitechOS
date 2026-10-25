@@ -1,0 +1,18 @@
+% TYPE -- os/samir/cmd/mutate.c d_file (the file shown up to the DOS
+% end-of-file mark; open database refused, 3; absent, 1).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{TYPE}{command}
+Displays the contents of a text file.
+\Syntax
+\SyntaxLine{\kw{TYPE} \xp{file}}
+\Usage
+\cmd{TYPE} displays the file named, up to its end-of-file mark
+(\key{Ctrl-Z}).  Give the name with its extension; none is assumed.  Use it
+for program files, report output written with \kw{TO FILE}, and other text
+files.  A database that is open cannot be displayed
+(\xmsg{3}{File is already open.}).
+\Examples
+\DotExample{examples/c-type}
+\SeeAlso{ERASE, RENAME}
+\end{XbaseEntry}
+

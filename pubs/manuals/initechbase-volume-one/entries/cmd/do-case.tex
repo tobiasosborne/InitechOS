@@ -1,0 +1,40 @@
+% DO CASE -- os/samir/cmd/flow.c LK_DOCASE/LK_CASE/LK_OTHERWISE/LK_ENDCASE
+% (first true CASE runs; guard must be Logical, #37; program lines only).
+% Gate: test-interp-flow.
+\begin{XbaseEntry}{DO CASE}{compound}
+\XAlso{CASE}{CASE}\XAlso{OTHERWISE}{OTHERWISE}\XAlso{ENDCASE}{ENDCASE}%
+Chooses one of several groups of commands in a program.
+\Syntax
+\SyntaxLine{\kw{DO CASE}}
+\SyntaxLine{\kw{CASE} \xp{condition}}
+\SyntaxLine{\ \ \xp{commands}}
+\SyntaxLine{\opt{\kw{CASE} \xp{condition}}}
+\SyntaxLine{\ \ \opt{\xp{commands}}}
+\SyntaxLine{\rep}
+\SyntaxLine{\opt{\kw{OTHERWISE}}}
+\SyntaxLine{\ \ \opt{\xp{commands}}}
+\SyntaxLine{\kw{ENDCASE}}
+\Usage
+InitechBase tests the condition of each \cmd{CASE} in turn.  It carries out
+the commands of the first \cmd{CASE} whose condition is true, and then goes on
+after \cmd{ENDCASE}; the other \cmd{CASE} groups are skipped, even if their
+conditions are also true.  If no condition is true, the commands after
+\cmd{OTHERWISE} are carried out; without \cmd{OTHERWISE}, none are.
+
+Each condition must be a logical expression.  A condition of another type
+stops the program with \xmsg{37}{Not a Logical expression.}
+
+\cmd{DO CASE} is used only in programs.  The commands in each group may be any
+commands, including further \cmd{DO CASE}, \cmd{IF} and \cmd{DO WHILE}
+structures.
+\Tips
+Use \cmd{DO CASE} instead of a chain of \cmd{IF} commands whenever there are
+more than two possibilities.
+\Examples
+The program \file{DEPTNAME.PRG} gives the name of the department of the
+current employee:
+\ProgramListing{DEPTNAME.PRG}
+\DotExample{examples/c-docase}
+\SeeAlso{IF, DO WHILE}
+\end{XbaseEntry}
+

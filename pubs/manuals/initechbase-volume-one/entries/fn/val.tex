@@ -1,0 +1,14 @@
+% VAL -- os/samir/core/fn_builtins.c fn_val (l.396-403); os/samir/core/rt.c dec_parse (l.328-390)
+\begin{XbaseEntry}{VAL}{function}
+Converts a character string of digits to a number, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{VAL(}\xp{expC}\kw{)}}
+\Usage
+Leading blanks are skipped and an optional sign and one decimal point are accepted. Conversion stops at the first character that is not a digit, so VAL("12.5abc") is 12.5. A string that does not begin with a number, and an empty string, give 0; no error is raised. An exponent is not recognized: VAL("1E3") is 1. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-val}
+A code held as text, used in arithmetic:
+\DotExample{examples/fn-val-2}
+\SeeAlso{STR(), TYPE(), ISALPHA()}
+\end{XbaseEntry}
+

@@ -1,0 +1,20 @@
+% CTOD -- os/samir/core/fn_builtins.c fn_ctod_impl (l.459-625)
+\begin{XbaseEntry}{CTOD}{function}
+Converts a character string to a date.
+\Syntax
+\SyntaxLine{\kw{CTOD(}\xp{expC}\kw{)}}
+\Usage
+\fn{CTOD()} reads the digits of \xp{expC}, ignores every character that is not a digit, and arranges them in the order given by the current SET DATE format. Exactly six digits (a two-digit year) or eight digits (a four-digit year) must be present. A two-digit year is taken as a year of the twentieth century, counted from 00 as 1900; there is no sliding window. Either form is accepted whether SET CENTURY is ON or OFF.
+
+The month must be 1 through 12 and the day must exist in that month and year, so that 02/29 is accepted in a leap year only. A string with any other number of digits, with an impossible month or day, or with a year outside the range of 256 years that begins with 1900, does not raise an error; the result is the blank date. An empty string also gives the blank date.
+
+The order of the fields follows SET DATE: month, day, year for AMERICAN and USA; day, month, year for BRITISH, FRENCH, ITALIAN and GERMAN; year, month, day for ANSI and JAPAN. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Tips
+Because separators are ignored, a string such as 3/1/92, which holds only four digits, produces the blank date. Write both digits of the month and the day.
+\Examples
+\DotExample{examples/fn-ctod}
+The same text is read in the order that SET DATE selects; under BRITISH the first pair of digits is the day:
+\DotExample{examples/fn-ctod-2}
+\SeeAlso{DTOC(), DATE(), DAY(), MONTH(), YEAR(), SET DATE}
+\end{XbaseEntry}
+

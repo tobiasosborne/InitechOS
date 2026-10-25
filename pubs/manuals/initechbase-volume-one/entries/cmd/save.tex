@@ -1,0 +1,16 @@
+% SAVE -- os/samir/cmd/flow.c fl_memfile (TO <file>, default .MEM; every
+% memory variable; the dBASE III PLUS .MEM layout).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{SAVE}{command}
+Saves the memory variables in a memory file.
+\Syntax
+\SyntaxLine{\kw{SAVE TO} \xp{file}}
+\Usage
+\cmd{SAVE} writes every memory variable, with its type and value, to the
+file named.  If no extension is given, \file{.MEM} is assumed.  The file can
+be read back with \cmd{RESTORE}, by InitechBase or by dBASE III PLUS.
+\Examples
+\DotExample{examples/c-save}
+\SeeAlso{RELEASE, RESTORE}
+\end{XbaseEntry}
+

@@ -1,0 +1,23 @@
+% SET CENTURY -- os/samir/cmd/set.c do_set_century (ctx->set_century; DTOC
+% and display use four digits; CTOD accepts them).  Gate:
+% test-interp-setfmt.
+\begin{XbaseEntry}{CENTURY}{set}
+Determines whether dates are displayed with the century.
+\Syntax
+\SyntaxLine{\kw{SET CENTURY} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF.
+\Usage
+With SET CENTURY OFF, the year of a date has two digits: \texttt{12/25/91}.
+With SET CENTURY ON, it has four: \texttt{12/25/1991}.  The setting applies to
+dates displayed by \cmd{?}, \cmd{LIST} and \cmd{DISPLAY} and to the result of
+\fn{DTOC()}.
+
+A year typed with two digits is a year of the nineteen hundreds:
+\fn{CTOD()} converts \texttt{12/25/91} to the 25th of December 1991 whatever the
+setting.  With SET CENTURY ON, a four-digit year may also be given.
+\Examples
+\DotExample{examples/c-setcentury}
+\SeeAlso{SET DATE, CTOD(), DTOC()}
+\end{XbaseEntry}
+

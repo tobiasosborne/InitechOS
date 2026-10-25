@@ -1,0 +1,25 @@
+% SET FILTER -- os/samir/cmd/set.c do_set_filter -> wa_set_filter (the
+% walk of LIST/DISPLAY/GO TOP/SKIP admits matching records only).  Gate:
+% test-interp-set.
+\begin{XbaseEntry}{FILTER}{set}
+Makes InitechBase pass over the records that do not meet a condition.
+\Syntax
+\SyntaxLine{\kw{SET FILTER TO} \opt{\xp{condition}}}
+\Usage
+After SET FILTER TO \xp{condition}, the database of the selected work area
+appears to hold only the records that meet the condition.  \cmd{LIST},
+\cmd{DISPLAY}, \cmd{GO TOP}, \cmd{GO BOTTOM} and \cmd{SKIP} pass over the others.
+\cmd{GO} with a record number still goes to that record.
+
+The filter applies to the database in USE in the selected work area, until it
+is removed with SET FILTER TO and no condition, or the database is closed.
+SET FILTER needs a database in USE; without one it displays
+\xmsg{17}{Cannot select requested database.}
+\Tips
+Move the record pointer with \cmd{GO TOP} after you set a filter, so that the
+current record is one that meets it.
+\Examples
+\DotExample{examples/c-setfilter}
+\SeeAlso{LOCATE, LIST, SET DELETED}
+\end{XbaseEntry}
+

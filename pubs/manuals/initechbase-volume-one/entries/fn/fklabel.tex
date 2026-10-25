@@ -1,0 +1,18 @@
+% FKLABEL -- HELP.DBS line 1261; real III+ fns-mint/fklabel/GOLD.OUT.
+\begin{XbaseEntry}{FKLABEL}{function}
+Returns the name of a function key, as a character string.
+\Syntax
+\SyntaxLine{\kw{FKLABEL(}\xp{expN}\kw{)}}
+\Usage
+The numbers 1 through 9 return the names F2 through F10, respectively.
+The numbers 0 and 10 return an empty string. The names contain no trailing
+blanks: F2 through F9 have length 2, and F10 has length 3.
+
+The argument must be numeric. A non-numeric argument or a call with other
+than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+The name, type and length for function key number 1:
+\DotExample{examples/fn-fklabel}
+\SeeAlso{TYPE(), LEN()}
+\end{XbaseEntry}
+

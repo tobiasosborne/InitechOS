@@ -1,0 +1,19 @@
+% RENAME -- os/samir/cmd/mutate.c d_file (<file> TO <file>; open database
+% refused, 3; SAFETY ON refuses an existing target, 7).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{RENAME}{command}
+Changes the name of a file.
+\Syntax
+\SyntaxLine{\kw{RENAME} \xp{file} \kw{TO} \xp{new file}}
+\Usage
+\cmd{RENAME} gives the file a new name.  Give both names with their
+extensions; none is assumed.  A database that is open cannot be renamed
+(\xmsg{3}{File is already open.}), and while SET SAFETY is ON a file of the
+new name is not replaced (\xmsg{7}{File already exists.}).
+
+Rename a database's memo file (\file{.DBT}) with it.
+\Examples
+\DotExample{examples/c-rename}
+\SeeAlso{ERASE, TYPE}
+\end{XbaseEntry}
+

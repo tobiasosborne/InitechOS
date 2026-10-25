@@ -1,0 +1,12 @@
+% TRIM -- os/samir/core/fn_builtins.c fn_trim (l.207-226)
+\begin{XbaseEntry}{TRIM}{function}
+Removes the trailing blanks of a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{TRIM(}\xp{expC}\kw{)}}
+\Usage
+Blanks at the end of the string are removed; leading blanks are kept. A string of blanks gives an empty string. Character fields are stored at their full width, so TRIM() is the usual way to join a field to other text. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-trim}
+\SeeAlso{RTRIM(), LTRIM(), LEN(), SPACE()}
+\end{XbaseEntry}
+

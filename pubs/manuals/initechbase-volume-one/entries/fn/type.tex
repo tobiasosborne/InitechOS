@@ -1,0 +1,18 @@
+% TYPE -- os/samir/core/fn_builtins.c fn_type (Using III+ U6-86/87: the
+% argument is a character string holding an expression; U for an invalid
+% expression or an absent name; a non-character argument is 9; real III+
+% transcript DML-01, lane samirdml 14a8fc75; SF-type, samirfns a8d8cd73).
+\begin{XbaseEntry}{TYPE}{function}
+Returns a one-letter code for the data type of an expression, as a character string.
+\Syntax
+\SyntaxLine{\kw{TYPE(}\xp{expC}\kw{)}}
+\Usage
+The argument is a character string that holds an expression, such as \texttt{"SALARY"} or \texttt{"3 + 4"}.  TYPE() evaluates the expression in the string and returns the code of its value: C for character, N for numeric, D for date, L for logical, M for memo.  If the string does not hold a valid expression, or names a field or memory variable that does not exist, TYPE() returns U; no error is raised, so a program can test whether a memory variable exists.  An argument that is not a character string raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+The types of the fields of the sample database:
+\DotExample{examples/fn-type}
+Types of expressions:
+\DotExample{examples/fn-type-2}
+\SeeAlso{VAL(), STR(), LEN(), IIF()}
+\end{XbaseEntry}
+

@@ -1,0 +1,21 @@
+% QUIT -- os/samir/samir_main.c samir_repl (QUIT and EXIT end the loop;
+% wa_close_all closes every database; back to InitechDOS).  Gate:
+% test-samir-repl, test-samir-boot.
+\begin{XbaseEntry}{QUIT}{command}
+Closes all files and leaves InitechBase.
+\Syntax
+\SyntaxLine{\kw{QUIT}}
+\Usage
+\cmd{QUIT} closes every open database with its index files and returns to
+InitechDOS, which displays its prompt.  \cmd{EXIT}, typed at the dot prompt,
+does the same.  In a program, \cmd{QUIT} ends the program, and every program
+that called it, and leaves InitechBase in the same way; the lines after it are
+not carried out.
+
+Always leave InitechBase with \cmd{QUIT} before you turn off or restart the
+computer.
+\Examples
+\DotExample{examples/c-quit}
+\SeeAlso{CLOSE, USE}
+\end{XbaseEntry}
+

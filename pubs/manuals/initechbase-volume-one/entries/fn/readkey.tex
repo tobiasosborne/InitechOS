@@ -1,0 +1,16 @@
+% HELP.DBS 1281-1282; system-and-database-functions.md READKEY;
+% the no-command example is a line of the real III+ readkey/GOLD.OUT.
+\begin{XbaseEntry}{READKEY}{function}
+Returns the number representing the key used to leave a full-screen command.
+\Syntax
+\SyntaxLine{\kw{READKEY()}}
+\Usage
+Before a full-screen command has run, the result is 0. Repeated calls leave
+the value unchanged. The function takes no argument; an argument raises
+\xmsg{11}{Invalid function argument.}.
+\Examples
+With no full-screen command having run:
+\DotExample{examples/fn-readkey}
+\SeeAlso{TYPE()}
+\end{XbaseEntry}
+

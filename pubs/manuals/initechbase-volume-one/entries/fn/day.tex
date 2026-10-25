@@ -1,0 +1,12 @@
+% DAY -- os/samir/core/fn_builtins.c fn_dmy (l.727-742)
+\begin{XbaseEntry}{DAY}{function}
+Returns the day of the month of a date, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{DAY(}\xp{expD}\kw{)}}
+\Usage
+The result is a whole number from 1 through 31. The DAY of a blank date is 0. The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-day}
+\SeeAlso{MONTH(), YEAR(), DOW(), CTOD()}
+\end{XbaseEntry}
+

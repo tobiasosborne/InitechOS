@@ -1,0 +1,26 @@
+% PARAMETERS -- os/samir/cmd/proc.c p_parameters (binds DO ... WITH values
+% by position into PRIVATE memvars; #93 without arguments, #94 count).
+% Gate: test-interp-proc.
+\begin{XbaseEntry}{PARAMETERS}{command}
+Receives the values passed by \cmd{DO} \ldots{} \kw{WITH} in memory variables.
+\Syntax
+\SyntaxLine{\kw{PARAMETERS} \xp{memvar list}}
+\Usage
+\cmd{PARAMETERS} is the first command of a procedure that is called with
+\kw{WITH}.  It creates one private memory variable for each name of the list
+and gives it the value in the same position of the \kw{WITH} list: the first
+name receives the first value, and so on.  The memory variables are released
+when the procedure returns.
+
+Give \cmd{PARAMETERS} one name for each value the \cmd{DO} passes.  A procedure
+called with values but without \cmd{PARAMETERS} stops at its \cmd{RETURN} with
+\xmsg{93}{No PARAMETER statement found.}
+
+\type{PARAMETER}, like any shortening of \cmd{PARAMETERS} to four or more
+letters, is accepted for it.
+\Examples
+See \cmd{DO}: the procedure \texttt{NEWSAL} of \file{RAISE.PRG} receives a salary
+and a percentage.
+\SeeAlso{DO, PROCEDURE, PRIVATE, RETURN}
+\end{XbaseEntry}
+

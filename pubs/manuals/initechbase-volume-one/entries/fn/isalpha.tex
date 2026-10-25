@@ -1,0 +1,12 @@
+% ISALPHA -- os/samir/core/fn_builtins.c fn_isalpha (l.1333-1343)
+\begin{XbaseEntry}{ISALPHA}{function}
+Returns a logical value that is true when a character string begins with a letter.
+\Syntax
+\SyntaxLine{\kw{ISALPHA(}\xp{expC}\kw{)}}
+\Usage
+Only the first character is examined. The letters are A through Z and a through z. The result is .F. for an empty string. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-isalpha}
+\SeeAlso{ISUPPER(), ISLOWER(), VAL(), LEFT()}
+\end{XbaseEntry}
+

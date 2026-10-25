@@ -656,6 +656,180 @@ invalid:
     return -INTERP_ERR_SYNTAX;
 }
 
+/* ===================================================================== */
+/* SET option table (F4, initech-0wox2)                                   */
+/* ===================================================================== */
+/*
+ * One handler per SET option, one row per option in set_options.def (an
+ * X-macro list; .gitattributes marks it merge=union, so two lanes adding
+ * rows avoid positional conflicts; test-samir-registries validates the merge).
+ * A handler is
+ *     int fn(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+ * with `s` the text after the option keyword, and returns exactly what
+ * set_cmd_hook returns (CMD_OK or a negative error).  The keyword is matched
+ * by rt_kw_index (whole token, III+ four-letter abbreviation); where two
+ * keywords share an abbreviation the EARLIER row wins, so rows are only ever
+ * ordered for that tie-break -- never numbered.
+ */
+typedef int (*set_opt_fn)(xb_interp *ip, set_state *ss, const char *s, int *err_code);
+typedef struct { const char *name; set_opt_fn fn; } set_opt_row;
+
+static int set_opt_alternate(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    if(!parse_on_off(s,&on)) { ss->alternate_on=on;return CMD_OK; }
+    if(rt_kw_word(s,"TO\0",(int *)0)==0) {
+        char name[128];uint32_t n;samir_pal_t *pal=xb_interp_pal(ip);
+        s=s_skip_ws(s+2);set_close_alternate(ip);
+        if(!*s)return CMD_OK;
+        s_copy_trim(name,sizeof name,s);n=rt_strlen(name);
+        if(n>1 && ((name[0]=='"' && name[n-1]=='"')||(name[0]=='\'' && name[n-1]=='\''))) {
+            uint32_t j;for(j=0;j<n-2;j++)name[j]=name[j+1];name[n-2]=0;
+        }
+        {uint32_t j;int dot=0;for(j=0;name[j];j++)if(name[j]=='.')dot=1;
+         if(!dot && j+4<sizeof name)rt_memcpy(name+j,".TXT",5);}
+        ss->alternate=pal->open(pal,name,PAL_WR|PAL_CREATE|PAL_TRUNC);
+        if(ss->alternate<0){if(err_code)*err_code=8;return -INTERP_ERR_EVAL;}
+        s_copy_trim(ss->alternate_name,sizeof ss->alternate_name,name);
+        return CMD_OK;
+    }
+    if(err_code)*err_code=10;
+    return -INTERP_ERR_SYNTAX;
+}
+
+static int set_opt_exact(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int rc = do_set_exact(ip, s, err_code);
+    (void)ss;
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+static int set_opt_decimals(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int rc = do_set_decimals(ip, ss, s, err_code);
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+static int set_opt_date(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int rc = do_set_date(ip, ss, s, err_code);
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+static int set_opt_century(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int rc = do_set_century(ip, ss, s, err_code);
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+static int set_opt_order(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int rc = do_set_order(ip, s, err_code);
+    (void)ss;
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+static int set_opt_index(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int rc = do_set_index(ip, ss, s, err_code);
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+static int set_opt_deleted(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ss;
+    if (parse_on_off(s, &on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    wa_set_deleted(xb_interp_env(ip),on);
+    if(err_code) *err_code=0;
+    return CMD_OK;
+}
+
+static int set_opt_filter(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int rc = do_set_filter(ip, ss, s, err_code);
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+static int set_opt_relation(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int rc = do_set_relation(ip, ss, s, err_code);
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+static int set_opt_talk(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int rc = do_set_talk(ss, s, err_code);
+    (void)ip;
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+static int set_opt_safety(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int rc = do_set_safety(ss, s, err_code);
+    (void)ip;
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+/* SET ESCAPE ON|OFF (Using III+ U5-220): OFF disables the Esc program
+ * interrupt and ON ESCAPE (U5-160). Before initech-39e5 it was #10. */
+static int set_opt_escape(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ip;
+    if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
+    ss->escape = on;
+    return CMD_OK;
+}
+
+/*
+ * SET NEAR: NOT a III+ option. Fail loud as an unrecognised SET sub-option.
+ * [Ref: set-commands.md Sec 5 completeness: NEAR absent from HELP_topics.txt
+ *  III+ index; it is a Clipper/dBASE IV addition.]
+ */
+/* Using III+ U5-210/PDF 322, U5-235/PDF 347, U5-259/PDF 371. */
+static int set_opt_onoff_ctx(xb_interp *ip, const char *s, int *err_code, int which)
+{
+    int on;
+    xb_ctx *ctx=xb_interp_ctx(ip);
+    if(parse_on_off(s,&on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    if(which==0) ctx->set_heading=(uint8_t)on;
+    else if(which==1) ctx->set_console=(uint8_t)on;
+    else ctx->set_status=(uint8_t)on;
+    return CMD_OK;
+}
+static int set_opt_heading(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{ (void)ss; return set_opt_onoff_ctx(ip,s,err_code,0); }
+static int set_opt_console(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{ (void)ss; return set_opt_onoff_ctx(ip,s,err_code,1); }
+static int set_opt_status(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{ (void)ss; return set_opt_onoff_ctx(ip,s,err_code,2); }
+
+static int set_opt_color(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    return do_set_color(ip,ss,s,err_code);
+}
+
+/* Rows come from set_options.def: SET_OPT(KEYWORD, handler). */
+#define SET_OPT(kw, fn) { kw, fn },
+static const set_opt_row set_opts[] = {
+#include "set_options.def"
+    { (const char *)0, (set_opt_fn)0 }
+};
+#undef SET_OPT
+/* The keyword list in rt_kw_index form, in row order. */
+#define SET_OPT(kw, fn) kw "\0"
+static const char set_opt_kw[] =
+#include "set_options.def"
+    ;
+#undef SET_OPT
+
+/* The row index of `opt` (upper-cased), or -1: rt_kw_index over the rows. */
+static int set_opt_lookup(const char *opt)
+{
+    return rt_kw_index(opt, set_opt_kw);
+}
+
 /*
  * set_cmd_hook: an xb_cmd_hook (interp.h). Dispatches the SET verb.
  * Returns CMD_OK (handled), CMD_UNKNOWN (not a SET verb), or a negative error.
@@ -713,118 +887,9 @@ static int set_cmd_hook(void *user, xb_interp *ip,
     /* Dispatch on the sub-option.                                         */
     /* ------------------------------------------------------------------ */
 
-    k = rt_kw_index(opt, "ALTERNATE\0EXACT\0DECIMALS\0DATE\0CENTURY\0ORDER\0"
-                         "INDEX\0DELETED\0FILTER\0RELATION\0TALK\0SAFETY\0"
-                         "ESCAPE\0HEADING\0CONSOLE\0STATUS\0COLOR\0");
-    switch (k) {
-    case 0: { /* ALTERNATE */
-        int on;
-        if(!parse_on_off(s,&on)) { ss->alternate_on=on;return CMD_OK; }
-        if(rt_kw_word(s,"TO\0",(int *)0)==0) {
-            char name[128];uint32_t n;samir_pal_t *pal=xb_interp_pal(ip);
-            s=s_skip_ws(s+2);set_close_alternate(ip);
-            if(!*s)return CMD_OK;
-            s_copy_trim(name,sizeof name,s);n=rt_strlen(name);
-            if(n>1 && ((name[0]=='"' && name[n-1]=='"')||(name[0]=='\'' && name[n-1]=='\''))) {
-                uint32_t j;for(j=0;j<n-2;j++)name[j]=name[j+1];name[n-2]=0;
-            }
-            {uint32_t j;int dot=0;for(j=0;name[j];j++)if(name[j]=='.')dot=1;
-             if(!dot && j+4<sizeof name)rt_memcpy(name+j,".TXT",5);}
-            ss->alternate=pal->open(pal,name,PAL_WR|PAL_CREATE|PAL_TRUNC);
-            if(ss->alternate<0){if(err_code)*err_code=8;return -INTERP_ERR_EVAL;}
-            s_copy_trim(ss->alternate_name,sizeof ss->alternate_name,name);
-            return CMD_OK;
-        }
-        if(err_code)*err_code=10;
-        return -INTERP_ERR_SYNTAX;
-    }
-
-    case 1: { /* EXACT */
-        int rc = do_set_exact(ip, s, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    case 2: { /* DECIMALS */
-        int rc = do_set_decimals(ip, ss, s, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    case 3: { /* DATE */
-        int rc = do_set_date(ip, ss, s, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    case 4: { /* CENTURY */
-        int rc = do_set_century(ip, ss, s, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    case 5: { /* ORDER */
-        int rc = do_set_order(ip, s, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    case 6: { /* INDEX */
-        int rc = do_set_index(ip, ss, s, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    case 7: { /* DELETED */
-        int on;
-        if (parse_on_off(s, &on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
-        wa_set_deleted(xb_interp_env(ip),on);
-        if(err_code) *err_code=0;
-        return CMD_OK;
-    }
-
-    case 8: { /* FILTER */
-        int rc = do_set_filter(ip, ss, s, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    case 9: { /* RELATION */
-        int rc = do_set_relation(ip, ss, s, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    case 10: { /* TALK */
-        int rc = do_set_talk(ss, s, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    case 11: { /* SAFETY */
-        int rc = do_set_safety(ss, s, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-
-    /* SET ESCAPE ON|OFF (Using III+ U5-220): OFF disables the Esc program
-     * interrupt and ON ESCAPE (U5-160). Before initech-39e5 it was #10. */
-    case 12: { /* ESCAPE */
-        int on;
-        if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
-        ss->escape = on;
-        return CMD_OK;
-    }
-
-    /*
-     * SET NEAR: NOT a III+ option. Fail loud as an unrecognised SET sub-option.
-     * [Ref: set-commands.md Sec 5 completeness: NEAR absent from HELP_topics.txt
-     *  III+ index; it is a Clipper/dBASE IV addition.]
-     */
-    /* Using III+ U5-210/PDF 322, U5-235/PDF 347, U5-259/PDF 371. */
-    case 13: case 14: case 15: { /* HEADING CONSOLE STATUS */
-        int on;
-        xb_ctx *ctx=xb_interp_ctx(ip);
-        if(parse_on_off(s,&on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
-        if(k==13) ctx->set_heading=(uint8_t)on;
-        else if(k==14) ctx->set_console=(uint8_t)on;
-        else ctx->set_status=(uint8_t)on;
-        return CMD_OK;
-    }
-    case 16: return do_set_color(ip,ss,s,err_code);
-    default:
-        break;
-    }
+    k = set_opt_lookup(opt);
+    if (k >= 0)
+        return set_opts[k].fn(ip, ss, s, err_code);
 
     /* An unknown SET option (NEAR is dBASE IV / Clipper, not III+) is a
      * syntax error, #10: real III+ 1.1 SF-unknown and SF-errors. */

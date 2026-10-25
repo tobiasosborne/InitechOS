@@ -1,0 +1,26 @@
+% NOTE / * / && -- os/samir/cmd/flow.c trim_line ("&&" strips to the end of
+% the line; a line beginning "*" or "NOTE" is a comment).  Gate:
+% test-interp-flow.
+\begin{XbaseEntry}{NOTE}{command}
+\XAlso{*}{*}\XAlso{&&}{\&\&}%
+Marks a comment in a program.
+\Syntax
+\SyntaxLine{\kw{NOTE} \xp{text}}
+\par or\par
+\SyntaxLine{\kw{*} \xp{text}}
+\par or\par
+\SyntaxLine{\xp{command} \kw{\&\&} \xp{text}}
+\Usage
+A line that begins with \cmd{NOTE} or with an asterisk is a comment:
+InitechBase does not carry it out.  Two ampersands after a command begin a
+comment that runs to the end of the line; the command before them is carried
+out.
+
+Comments explain a program to the people who read it.  Every program on the
+Sample Programs and Utilities diskette begins with comment lines that give its
+name, its purpose and the database it works on.
+\Examples
+\DotExample{examples/c-note}
+\SeeAlso{DO, PROCEDURE}
+\end{XbaseEntry}
+

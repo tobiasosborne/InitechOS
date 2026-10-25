@@ -1,0 +1,23 @@
+% PACK -- os/samir/cmd/mutate.c m_pack (dbf_pack removes the 0x2A records and
+% renumbers; every open index rebuilt, initech-x87g).  Gates:
+% test-interp-replace, test-ndx-pack.
+\begin{XbaseEntry}{PACK}{command}
+Removes the records marked for deletion from the database in USE.
+\Syntax
+\SyntaxLine{\kw{PACK}}
+\Usage
+\cmd{PACK} removes every record that \cmd{DELETE} has marked from the database
+in the selected work area, and renumbers the records that remain, in their
+order.  The database becomes smaller, and \fn{RECCOUNT()} gives the new
+number of records.  Every index file open with the database is rebuilt for the
+new record numbers.
+
+The records removed cannot be recalled.
+\Tips
+Before \cmd{PACK}, list the marked records with \cmd{LIST FOR DELETED()} to make
+sure no record is marked by mistake.
+\Examples
+\DotExample{examples/c-pack}
+\SeeAlso{DELETE, RECALL, ZAP, DELETED()}
+\end{XbaseEntry}
+

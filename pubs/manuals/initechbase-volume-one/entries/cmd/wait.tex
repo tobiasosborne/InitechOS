@@ -1,0 +1,20 @@
+% WAIT -- os/samir/cmd/proc.c p_wait (prompt, one key via conin_char, a
+% one-character string; Enter alone -> "").  Gate: test-interp-proc.
+\begin{XbaseEntry}{WAIT}{command}
+Waits for one key to be pressed, and can store it in a memory variable.
+\Syntax
+\SyntaxLine{\kw{WAIT} \opt{\xp{expC}} \opt{\kw{TO} \xp{memvar}}}
+\Usage
+\cmd{WAIT} displays the prompt \xp{expC}, if one is given, and waits until a key
+is pressed.  The key is not followed by \key{Enter}.  With \kw{TO}, the key is
+stored in \xp{memvar} as a character string of one character; if the key was
+\key{Enter}, the memory variable is an empty string.  Without a prompt,
+\cmd{WAIT} displays nothing while it waits.
+\Tips
+A program uses \cmd{WAIT} to hold its output on the screen until the operator
+has read it, and to take a single-letter answer to a question.
+\Examples
+\DotExample{examples/c-wait}
+\SeeAlso{ACCEPT, INPUT}
+\end{XbaseEntry}
+

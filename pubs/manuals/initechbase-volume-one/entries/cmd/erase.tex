@@ -1,0 +1,22 @@
+% ERASE -- os/samir/cmd/mutate.c d_file (Using III+ U5-121; a file of an
+% open database is refused, 3; absent, 1).  Lane samirdml 14a8fc75.
+% Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{ERASE}{command}
+Deletes a file from the diskette.
+\Syntax
+\SyntaxLine{\kw{ERASE} \xp{file}}
+\Usage
+\cmd{ERASE} deletes the file named.  Give the file name with its extension;
+none is assumed.  The file cannot be recovered.
+
+A database that is open in a work area cannot be erased:
+\cmd{ERASE} reports \xmsg{3}{File is already open.}  Close it with \cmd{USE}
+or \cmd{CLOSE} first.  If the file is not on the diskette, \cmd{ERASE}
+reports \xmsg{1}{File does not exist.}
+\Examples
+The open database is refused.  Once it is closed, an index file is erased,
+and the database can no longer be opened with it:
+\DotExample{examples/c-erase}
+\SeeAlso{RENAME, TYPE}
+\end{XbaseEntry}
+

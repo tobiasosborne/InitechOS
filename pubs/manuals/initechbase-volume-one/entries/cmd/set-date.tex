@@ -1,0 +1,32 @@
+% SET DATE -- os/samir/cmd/set.c do_set_date (eight formats; ctx->set_date_fmt
+% read by DTOC/CTOD and display).  Gate: test-interp-setfmt.
+\begin{XbaseEntry}{DATE}{set}
+Chooses the form in which dates are displayed and typed.
+\Syntax
+\SyntaxLine{\kw{SET DATE} \opt{\kw{TO}} \kw{AMERICAN}/\allowbreak\kw{ANSI}/\allowbreak\kw{BRITISH}/\allowbreak\kw{FRENCH}/\allowbreak\kw{GERMAN}/\allowbreak\kw{ITALIAN}/\allowbreak\kw{JAPAN}/\allowbreak\kw{USA}}
+\Defaults
+AMERICAN.
+\Usage
+The setting determines the order of the month, day and year and the character
+that separates them, both for dates that InitechBase displays and for the
+character strings that \fn{CTOD()} converts:
+
+\begin{tabular}{@{}ll@{}}
+\kw{AMERICAN} & \texttt{mm/dd/yy}\\
+\kw{ANSI} & \texttt{yy.mm.dd}\\
+\kw{BRITISH} & \texttt{dd/mm/yy}\\
+\kw{FRENCH} & \texttt{dd/mm/yy}\\
+\kw{GERMAN} & \texttt{dd.mm.yy}\\
+\kw{ITALIAN} & \texttt{dd-mm-yy}\\
+\kw{JAPAN} & \texttt{yy/mm/dd}\\
+\kw{USA} & \texttt{mm-dd-yy}\\
+\end{tabular}
+
+The year has four digits while SET CENTURY is ON.
+\Examples
+The first of March 1992 in each form:
+\DotExample{examples/c-setdate}
+\DotExample{examples/c-setdate-2}
+\SeeAlso{SET CENTURY, CTOD(), DTOC(), DATE()}
+\end{XbaseEntry}
+

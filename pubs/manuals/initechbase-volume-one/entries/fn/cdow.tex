@@ -1,0 +1,12 @@
+% CDOW -- os/samir/core/fn_builtins.c fn_cdow (l.1042-1060)
+\begin{XbaseEntry}{CDOW}{function}
+Returns the name of the day of the week of a date, as a character string.
+\Syntax
+\SyntaxLine{\kw{CDOW(}\xp{expD}\kw{)}}
+\Usage
+The name is in English, with a capital first letter: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday or Saturday. The CDOW of a blank date is an empty string. The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}. SET DATE and SET CENTURY have no effect on the result.
+\Examples
+\DotExample{examples/fn-cdow}
+\SeeAlso{CMONTH(), DOW(), DAY(), CTOD()}
+\end{XbaseEntry}
+

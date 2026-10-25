@@ -1,0 +1,16 @@
+% TIME -- os/samir/core/fn_builtins.c fn_time_stub; III+ HELP.DBS line 1284.
+\begin{XbaseEntry}{TIME}{function}
+Returns the system time as an eight-character string in \texttt{hh:mm:ss} format.
+\Syntax
+\SyntaxLine{\kw{TIME()}}
+\Usage
+The hour runs from 00 through 23, and the minute and second from 00 through
+59. Colons separate the three pairs of digits. The time is read from the
+system clock when the function is called. A call with any argument raises
+\xmsg{11}{Invalid function argument.}.
+\Examples
+The type, length and separators are the same whatever the time of day:
+\DotExample{examples/fn-time}
+\SeeAlso{DATE(), TYPE(), LEN(), SUBSTR()}
+\end{XbaseEntry}
+

@@ -1,0 +1,18 @@
+% RELEASE -- os/samir/cmd/flow.c "RELEASE" (a name list, or ALL).  Gate:
+% test-interp-flow.
+\begin{XbaseEntry}{RELEASE}{command}
+Releases memory variables.
+\Syntax
+\SyntaxLine{\kw{RELEASE} \xp{memvar list}}
+\par or\par
+\SyntaxLine{\kw{RELEASE ALL}}
+\Usage
+\cmd{RELEASE} removes the memory variables named.  \cmd{RELEASE ALL} removes all
+of them.  A memory variable released no longer exists; a reference to it
+gives \xmsg{12}{Variable not found.}
+\Examples
+\DotExample{examples/c-release}
+\DotExample{examples/c-release-2}
+\SeeAlso{STORE, PUBLIC, PRIVATE}
+\end{XbaseEntry}
+

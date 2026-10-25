@@ -1,0 +1,28 @@
+/* set_options.def -- the SET option table (F4, initech-0wox2).
+ *
+ * One row per option: SET_OPT(<quoted keyword>, handler); the keyword stays a quoted
+ * literal so harness/pubs/samir_candidates.sh (the manual inventory) sees it.  The handler is a static
+ * function in set.c (set_opt_<name>).  A lane adds a SET option by writing its
+ * handler and adding ONE row here; nothing is numbered.  Row order matters only
+ * for the 4-letter-abbreviation tie-break (earlier row wins, as rt_kw_index).
+ * .gitattributes marks this file merge=union. Distinct additions avoid positional
+ * conflicts; test-samir-registries rejects duplicate keys and malformed rows.
+ * Keep rows ASCII, one per line, no blank lines needed.
+ */
+SET_OPT("ALTERNATE", set_opt_alternate)
+SET_OPT("EXACT", set_opt_exact)
+SET_OPT("DECIMALS", set_opt_decimals)
+SET_OPT("DATE", set_opt_date)
+SET_OPT("CENTURY", set_opt_century)
+SET_OPT("ORDER", set_opt_order)
+SET_OPT("INDEX", set_opt_index)
+SET_OPT("DELETED", set_opt_deleted)
+SET_OPT("FILTER", set_opt_filter)
+SET_OPT("RELATION", set_opt_relation)
+SET_OPT("TALK", set_opt_talk)
+SET_OPT("SAFETY", set_opt_safety)
+SET_OPT("ESCAPE", set_opt_escape)
+SET_OPT("HEADING", set_opt_heading)
+SET_OPT("CONSOLE", set_opt_console)
+SET_OPT("STATUS", set_opt_status)
+SET_OPT("COLOR", set_opt_color)

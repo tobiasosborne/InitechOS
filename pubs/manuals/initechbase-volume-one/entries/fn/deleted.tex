@@ -1,0 +1,13 @@
+% DELETED -- os/samir/core/fn_builtins.c fn_deleted (l.1966-1972)
+\begin{XbaseEntry}{DELETED}{function}
+Returns a logical value that is true when the current record is marked for deletion.
+\Syntax
+\SyntaxLine{\kw{DELETED()}}
+\Usage
+\fn{DELETED()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. It tests the deletion mark of the current record in the selected work area and does not depend on the setting of SET DELETED. At the end of the file, where there is no current record, and with no database in USE, the result is .F.
+\Examples
+In the sample database record 13 is marked for deletion:
+\DotExample{examples/fn-deleted}
+\SeeAlso{RECNO(), EOF(), DELETE, RECALL, PACK}
+\end{XbaseEntry}
+

@@ -1,0 +1,11 @@
+% YEAR -- os/samir/core/fn_builtins.c fn_dmy (l.727-742)
+\begin{XbaseEntry}{YEAR}{function}
+Returns the year of a date, with its century, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{YEAR(}\xp{expD}\kw{)}}
+\Usage
+The result has four digits whatever SET CENTURY says. The YEAR of a blank date is 0. Since CTOD() reads a two-digit year as a year of the century that begins with 1900, YEAR(CTOD("12/25/05")) is 1905. The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-year}
+\SeeAlso{MONTH(), DAY(), CTOD(), DTOC(), SET CENTURY}
+\end{XbaseEntry}

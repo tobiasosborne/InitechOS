@@ -1,0 +1,25 @@
+% INDEX -- os/samir/cmd/mutate.c d_index (ON <key> TO <file>, default .NDX;
+% key Character, Numeric or Date, 1..220 bytes of text; the new index is
+% attached and becomes the master; SAFETY ON refuses an existing file, 7).
+% Lane samirdml 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{INDEX}{command}
+Creates an index file for the database in USE.
+\Syntax
+\SyntaxLine{\kw{INDEX ON} \xp{key expression} \kw{TO} \xp{index file}}
+\Usage
+\cmd{INDEX} builds an index file of the database in the selected work area,
+ordered by the key expression.  The key must be of type Character, Numeric
+or Date.  If no extension is given, \file{.NDX} is assumed.  The new index is
+opened at once, with the index files already open, as the master index; the
+record pointer goes to the first record in key order.  Up to seven index
+files may be open with one database.
+
+While SET SAFETY is ON, an index file that already exists is not replaced:
+\cmd{INDEX} reports \xmsg{7}{File already exists.}
+\Examples
+An index of the staff by the date of hire; the first four records in its
+order:
+\DotExample{examples/c-index}
+\SeeAlso{REINDEX, SET INDEX, SET ORDER, USE}
+\end{XbaseEntry}
+

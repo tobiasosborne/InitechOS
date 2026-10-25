@@ -1,0 +1,19 @@
+% REINDEX -- os/samir/cmd/mutate.c d_index (rebuild every open index of the
+% selected work area from its own key; 114 on failure).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{REINDEX}{command}
+Rebuilds the open index files of the database in USE.
+\Syntax
+\SyntaxLine{\kw{REINDEX}}
+\Usage
+\cmd{REINDEX} rebuilds every index file open in the selected work area from
+its own key expression.  Use it when an index file has been damaged, or
+when the database was changed while the index file was not open.
+\Examples
+A record is added while \file{STAFFNAM.NDX} is not open, so the index file
+does not know it: \cmd{FIND} does not find the name.  \cmd{REINDEX} brings
+the index file up to date:
+\DotExample{examples/c-reindex}
+\SeeAlso{INDEX, PACK, USE}
+\end{XbaseEntry}
+

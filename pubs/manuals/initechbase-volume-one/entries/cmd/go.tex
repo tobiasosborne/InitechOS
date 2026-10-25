@@ -1,0 +1,29 @@
+% GO -- os/samir/cmd/query.c q_go (TOP / BOTTOM in master-index order, a
+% record number in physical order; #5 out of range).  Gate: test-interp-nav.
+\begin{XbaseEntry}{GO}{command}
+\XAlso{GOTO}{GOTO}%
+Moves the record pointer to a record.
+\Syntax
+\SyntaxLine{\kw{GO}/\kw{GOTO} \xp{expN}}
+\par or\par
+\SyntaxLine{\kw{GO}/\kw{GOTO} \kw{TOP}/\kw{BOTTOM}}
+\Usage
+\cmd{GO} \xp{expN} makes record number \xp{expN} the current record.  The
+record number is the position of the record in the database, whatever index
+is open.  A number below 1 or above the number of records is refused with
+\xmsg{5}{Record is out of range.}
+
+\cmd{GO TOP} moves to the first record and \cmd{GO BOTTOM} to the last.  With
+an index open, first and last mean in the order of the master index; without
+one, record 1 and the last record.  While a filter is set (SET FILTER),
+\cmd{GO TOP} and \cmd{GO BOTTOM} move to the first and last record that meets
+it.
+
+\cmd{GOTO} is another name for \cmd{GO}.
+\Examples
+\DotExample{examples/c-go}
+With an index open, the top is the first name in alphabetical order:
+\DotExample{examples/c-go-2}
+\SeeAlso{SKIP, RECNO(), EOF(), BOF()}
+\end{XbaseEntry}
+

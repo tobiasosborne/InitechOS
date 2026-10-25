@@ -1,0 +1,15 @@
+% EXP -- os/samir/core/fn_builtins.c fn_exp_stub; III+ HELP @NUMERIC FUNCTIONS line 1293.
+\begin{XbaseEntry}{EXP}{function}
+Returns the value of e raised to a numeric expression, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{EXP(}\xp{expN}\kw{)}}
+\Usage
+\fn{EXP()} calculates e raised to the value of its argument. The argument
+must be numeric. SET DECIMALS controls the decimal places displayed. A call with other than one argument raises
+\xmsg{11}{Invalid function argument.}; an argument that is not numeric also
+raises \xmsg{11}{Invalid function argument.} in III+.
+\Examples
+\DotExample{examples/fn-exp}
+\SeeAlso{LOG(), SQRT(), SET DECIMALS}
+\end{XbaseEntry}
+

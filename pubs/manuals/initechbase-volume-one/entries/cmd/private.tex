@@ -1,0 +1,26 @@
+% PRIVATE -- os/samir/cmd/proc.c p_private -> xb_interp_declare_private
+% (hides the caller's variable until the routine returns).  Gate:
+% test-interp-proc.
+\begin{XbaseEntry}{PRIVATE}{command}
+Creates memory variables that belong to the procedure running, hiding any of
+the same names.
+\Syntax
+\SyntaxLine{\kw{PRIVATE} \xp{memvar list}}
+\Usage
+\cmd{PRIVATE} gives the procedure in which it is used its own memory variables
+of the names in the list.  A memory variable of the same name created by the
+program that called the procedure, or declared PUBLIC, is hidden while the
+procedure runs and keeps its value: when the procedure returns, the private
+variables are released and the hidden ones are visible again.
+
+A private memory variable has no value until a value is stored in it.
+
+A memory variable that a procedure creates without \cmd{PRIVATE}, by storing a
+value in a name that does not yet exist, is private to that procedure as well.
+\Examples
+\file{TALLY.PRG} keeps its count apart from the count of its procedure:
+\ProgramListing{TALLY.PRG}
+\DotExample{examples/c-private}
+\SeeAlso{PUBLIC, RELEASE, STORE, PARAMETERS}
+\end{XbaseEntry}
+

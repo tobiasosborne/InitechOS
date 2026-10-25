@@ -66,11 +66,17 @@ $(CORPUS_CONFIG): corpus-config-force | $(BUILD)
 # nondeterministic). Every target now carries the Makefile stamp as an extra
 # prerequisite (GNU make >= 4.3 .EXTRA_PREREQS; it is NOT in $^ / $<, so no
 # recipe sees it). The stamp and $(BUILD) itself opt out to break the cycle.
+# Definition tables are compiler inputs too (F4 review, initech-q8j). Share
+# their invalidation with EVERY target, including future direct cc consumers
+# and guest profiles. This deliberately invalidates conservatively; adding
+# -MMD to multi-source cc/link recipes records only their final source.
+FACTORY_DEF_FILES := $(shell find os seed spec harness tools pubs -type f -name '*.def' -print | LC_ALL=C sort)
 MAKEFILE_STAMP := $(BUILD)/.makefile.stamp
-$(MAKEFILE_STAMP): $(firstword $(MAKEFILE_LIST))
+$(MAKEFILE_STAMP): $(firstword $(MAKEFILE_LIST)) $(FACTORY_DEF_FILES)
 	@mkdir -p $(dir $@) && touch $@
 $(MAKEFILE_STAMP): .EXTRA_PREREQS =
 $(BUILD): .EXTRA_PREREQS =
+$(FACTORY_DEF_FILES): .EXTRA_PREREQS =
 .EXTRA_PREREQS := $(MAKEFILE_STAMP)
 
 # Generated diagnostic-message header (beads initech-509.1; ADR-0003 Appendix C /
@@ -3869,6 +3875,7 @@ test-samir-ndx-ref:
 	@printf ">>> test-samir-ndx-ref: green\n"
 
 .PHONY: test-samir
+include harness/registries.mk
 test-samir: test-samir-pal test-samir-rt test-samir-pal-host test-samir-spec test-samir-value test-samir-dbf-ref test-samir-ndx-ref
 	@printf ">>> test-samir: SAMIR foundation green (PAL + rt + value + host binding + spec lock + dbf_ref + ndx_ref)\n"
 
@@ -28535,7 +28542,7 @@ test-samir-softfp-implmutant: $(TEST_SAMIR_SOFTFP_IMPLMUT)
 # --- SAMIR.COM: the Milton-bound flat .COM (ADR-0009 DEC-01/02/03/05/06).
 #     Soft-float, one-interp profile (FLOW_MAX_REGISTRY=1), org 0x40100 via
 #     samir.ld, BSS (.bss NOLOAD) zeroed at runtime by samir_crt0. ---
-SAMIR_HEADERS := $(wildcard $(SAMIR_INC_DIR)/samir/*.h)
+SAMIR_HEADERS := $(wildcard $(SAMIR_INC_DIR)/samir/*.h) $(filter $(SAMIR_DIR)/%,$(FACTORY_DEF_FILES))
 # ADR-0009 DEC-03: recover loaded bytes without borrowing the BSS/PAL reserves.
 # House policy applies identically to the shipped program and every mutant.
 SAMIR_SIZE_CFLAGS := -fomit-frame-pointer -fcrossjumping -fno-inline-functions-called-once -fno-partial-inlining -fno-jump-tables
@@ -34771,9 +34778,15 @@ include harness/emu/panic_reasons.mk
 # are run by name (make test-samir-fns-pending), NOT in the default vector --
 # a known-red gate in `make test` is noise, not an oracle. A case moves from
 # PENDING to CASES with the commit that makes it green (Rule 6: mutant too).
-SAMIR_FNS_CASES := alias alternate console diskspace division errors exp exprcol fklabel getenv index inkey iscolor listoff lupdate numlist os readkey recsize struct time type unknown version
-SAMIR_FNS_PENDING := century default overflow path procedure relation talk with \
-	log sqrt ndx row col prow pcol lastkey
+# F4 (initech-0wox2): the lists are DERIVED from marker files, one per case, so a
+# lane accepts its case by renaming .../fns-mint/<case>/PENDING to ACCEPTED (one
+# file, no shared line).  ACCEPTED => CASES; PENDING => PENDING; neither => the case
+# directory is minted evidence only (e.g. memwidth).  SAMIR_FNS_PENDING_EXTRA keeps
+# non-mint pending cases expressible.  Lists are sorted (order is prerequisite-only).
+SAMIR_FNS_MINT_DIR := harness/diff/dbf_diff/xbase_prog_diff/fns-mint
+SAMIR_FNS_CASES := $(sort $(patsubst $(SAMIR_FNS_MINT_DIR)/%/ACCEPTED,%,$(wildcard $(SAMIR_FNS_MINT_DIR)/*/ACCEPTED)))
+SAMIR_FNS_PENDING_EXTRA :=
+SAMIR_FNS_PENDING := $(sort $(patsubst $(SAMIR_FNS_MINT_DIR)/%/PENDING,%,$(wildcard $(SAMIR_FNS_MINT_DIR)/*/PENDING)) $(SAMIR_FNS_PENDING_EXTRA))
 .PHONY: test-samir-fns-pending
 test-samir-fns-pending: $(addprefix test-samir-fns-,$(SAMIR_FNS_PENDING))
 SAMIR_FNS_TEST := $(BUILD)/test_samir_fns

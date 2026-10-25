@@ -1,0 +1,13 @@
+% MIN -- os/samir/core/fn_builtins.c fn_maxmin (l.948-973)
+\begin{XbaseEntry}{MIN}{function}
+Returns the smaller of two numbers or of two dates.
+\Syntax
+\SyntaxLine{\kw{MIN(}\xp{expN1}\kw{,} \xp{expN2}\kw{)}}
+\SyntaxLine{\kw{MIN(}\xp{expD1}\kw{,} \xp{expD2}\kw{)}}
+\Usage
+Both arguments must be of the same type, numeric or date; the result is of that type, and for dates the earlier date is the smaller. Two arguments of different types, or of a type other than numeric or date, raise \xmsg{9}{Data type mismatch.}. A call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-min}
+\SeeAlso{MAX(), ABS(), IIF()}
+\end{XbaseEntry}
+

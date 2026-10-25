@@ -1,0 +1,15 @@
+% DATE -- os/samir/core/fn_builtins.c fn_date (l.717-724)
+\begin{XbaseEntry}{DATE}{function}
+Returns the system date, as a date value.
+\Syntax
+\SyntaxLine{\kw{DATE()}}
+\Usage
+\fn{DATE()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The date is the one supplied to the interpreter by the system when it starts. If no date was supplied, the result is the blank date. Subtracting one date from another gives the number of days between them, and adding a number to a date gives a later date.
+\Examples
+In the sample session the system date is 03/01/92:
+\DotExample{examples/fn-date}
+The number of days since a hiring date:
+\DotExample{examples/fn-date-2}
+\SeeAlso{DTOC(), CTOD(), DAY(), MONTH(), YEAR(), SET DATE}
+\end{XbaseEntry}
+

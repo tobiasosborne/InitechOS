@@ -1,0 +1,16 @@
+% SET TALK -- os/samir/cmd/set.c do_set_talk (ss->talk stored; no consumer
+% in the shipped engine).
+\begin{XbaseEntry}[the setting is recorded but the shipped version does not
+  act on it (set.c)]{TALK}{set}
+Determines whether InitechBase reports the results of commands on the screen.
+\Syntax
+\SyntaxLine{\kw{SET TALK} \kw{ON}/\kw{OFF}}
+\Defaults
+ON.
+\Usage
+InitechBase accepts SET TALK ON and OFF and records the setting.  The commands
+of this version display no result messages, and their output is the same with
+either setting.  Programs commonly begin with SET TALK OFF.
+\SeeAlso{SET CONSOLE}
+\end{XbaseEntry}
+

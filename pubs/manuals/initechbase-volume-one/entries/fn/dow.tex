@@ -1,0 +1,13 @@
+% DOW -- os/samir/core/fn_builtins.c fn_dow (l.997-1011)
+\begin{XbaseEntry}{DOW}{function}
+Returns the day of the week of a date, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{DOW(}\xp{expD}\kw{)}}
+\Usage
+Sunday is 1 and Saturday is 7. The DOW of a blank date is 0. The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+03/01/92 is a Sunday and 03/07/92 a Saturday:
+\DotExample{examples/fn-dow}
+\SeeAlso{CDOW(), DAY(), MONTH(), YEAR()}
+\end{XbaseEntry}
+

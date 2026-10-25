@@ -1,0 +1,12 @@
+% FILE -- os/samir/core/fn_builtins.c fn_file (l.2060-2080)
+\begin{XbaseEntry}{FILE}{function}
+Returns a logical value that is true when a file of the given name exists.
+\Syntax
+\SyntaxLine{\kw{FILE(}\xp{expC}\kw{)}}
+\Usage
+\xp{expC} is the name of the file and must include its extension; \fn{FILE("STAFF")} does not assume the extension .DBF. The argument must be a character expression, otherwise \xmsg{9}{Data type mismatch.} is raised, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}. A database need not be in USE.
+\Examples
+\DotExample{examples/fn-file}
+\SeeAlso{DBF(), USE}
+\end{XbaseEntry}
+

@@ -1,0 +1,13 @@
+% Using III+ U6-69; SF-recsize host/guest differential and named mutant.
+\begin{XbaseEntry}{RECSIZE}{function}
+Returns the size in bytes of a record of the database in the selected work area.
+\Syntax
+\SyntaxLine{\kw{RECSIZE()}}
+\Usage
+The size includes the deletion flag and all field widths.  With no database
+in USE the result is 0.  The function takes no argument.
+\Examples
+\DotExample{examples/fn-recsize}
+\SeeAlso{RECCOUNT(), RECNO(), USE}
+\end{XbaseEntry}
+

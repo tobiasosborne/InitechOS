@@ -1,0 +1,27 @@
+% CONTINUE -- os/samir/cmd/query.c q_continue (re-applies the stored LOCATE
+% FOR from the record after the current one; #42 without LOCATE).
+% Gate: test-samir-query.
+\begin{XbaseEntry}{CONTINUE}{command}
+Moves to the next record that meets the condition of the last \cmd{LOCATE}.
+\Syntax
+\SyntaxLine{\kw{CONTINUE}}
+\Usage
+\cmd{CONTINUE} goes on with the search begun by \cmd{LOCATE} in the selected
+work area.  It tests the records after the current one against the
+\kw{FOR} condition of the \cmd{LOCATE} and stops at the first that meets it.
+\fn{FOUND()} is then true.  When no further record meets the condition, the
+record pointer is at the end of the file: \fn{EOF()} is true and
+\fn{FOUND()} false.
+
+\cmd{CONTINUE} uses only the \kw{FOR} condition.  The scope and the \kw{WHILE}
+condition of the \cmd{LOCATE}, if it had them, no longer apply.  Without an
+earlier \cmd{LOCATE}, \cmd{CONTINUE} displays
+\xmsg{42}{CONTINUE without LOCATE.}
+\Tips
+In a program, test \fn{FOUND()} after each \cmd{CONTINUE}, and stop when it is
+false.
+\Examples
+\DotExample{examples/c-continue}
+\SeeAlso{LOCATE, FOUND(), EOF(), SEEK}
+\end{XbaseEntry}
+

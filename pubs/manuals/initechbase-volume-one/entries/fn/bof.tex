@@ -1,0 +1,13 @@
+% BOF -- os/samir/core/fn_builtins.c fn_eofbof (l.1925-1937)
+\begin{XbaseEntry}{BOF}{function}
+Returns a logical value that is true when a record movement has gone back past the first record of the database in the selected work area.
+\Syntax
+\SyntaxLine{\kw{BOF()}}
+\Usage
+\fn{BOF()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The value reflects the selected work area. With no database in USE the function does not raise an error; it returns .F.
+\Examples
+Moving up from the first record sets the flag, and the record pointer stays at record 1:
+\DotExample{examples/fn-bof}
+\SeeAlso{EOF(), RECNO(), RECCOUNT(), SKIP, GO}
+\end{XbaseEntry}
+

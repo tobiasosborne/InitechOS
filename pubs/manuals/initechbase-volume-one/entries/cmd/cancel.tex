@@ -1,0 +1,15 @@
+% CANCEL -- os/samir/cmd/proc.c "CANCEL" (INTERP_RC_CANCEL unwinds every DO
+% level to the dot prompt; Using III+ U5-43).  Gate: test-samir-ctl.
+\begin{XbaseEntry}{CANCEL}{command}
+Ends the program and returns to the dot prompt.
+\Syntax
+\SyntaxLine{\kw{CANCEL}}
+\Usage
+In a program, \cmd{CANCEL} stops the program at once, together with every
+program and procedure that called it, and the dot prompt returns.  Memory
+variables made \cmd{PUBLIC} remain.  Typed at the dot prompt, \cmd{CANCEL}
+does nothing, except while a program is suspended (see \cmd{RESUME}): then it
+ends the suspended program.
+\SeeAlso{QUIT, RESUME, RETURN, SET ESCAPE}
+\end{XbaseEntry}
+

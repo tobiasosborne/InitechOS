@@ -1,0 +1,18 @@
+% SET HEADING -- os/samir/cmd/set.c (ctx->set_heading; query.c leaves out
+% the heading line of LIST / DISPLAY).  Gates: test-interp-set,
+% test-interp-list-heading-mutant.
+\begin{XbaseEntry}{HEADING}{set}
+Determines whether \cmd{LIST} and \cmd{DISPLAY} begin with a heading line.
+\Syntax
+\SyntaxLine{\kw{SET HEADING} \kw{ON}/\kw{OFF}}
+\Defaults
+ON.
+\Usage
+With SET HEADING ON, \cmd{LIST} and \cmd{DISPLAY} begin with a line that names
+the columns.  With SET HEADING OFF, only the records are displayed.  Without
+the headings, a column is as wide as its values only.
+\Examples
+\DotExample{examples/c-setheading}
+\SeeAlso{LIST, DISPLAY}
+\end{XbaseEntry}
+

@@ -1,0 +1,42 @@
+% USE -- os/samir/samir_main.c repl_do_use (default .DBF / .NDX
+% extensions; ALIAS; INDEX up to 7; first index master; first record in
+% index order; #1, #3, #15, #28, #29).  Gates: test-samir-repl,
+% test-interp-use, test-samir-use.
+\begin{XbaseEntry}{USE}{command}
+Opens a database, with its index files, in the selected work area, or closes
+the database there.
+\Syntax
+\SyntaxLine{\kw{USE} \opt{\xp{file} \opt{\kw{ALIAS} \xp{alias}}
+  \opt{\kw{INDEX} \xp{index file list}}}}
+\Usage
+\cmd{USE} \xp{file} closes the database open in the selected work area, if
+there is one, and opens the database \xp{file}.  The extension \file{.DBF} is
+added when none is given.  If the database has memo fields, its memo file, of
+the same name with the extension \file{.DBT}, is opened with it.  The first
+record becomes the current record.
+
+\kw{INDEX} opens up to seven index files with the database.  The extension
+\file{.NDX} is added when none is given.  The first index file of the list is
+the master index: it gives the order of the records, and the first record in
+that order becomes the current record.  The other index files are kept up to
+date when records are added or changed.
+
+\kw{ALIAS} gives the database another name for \cmd{SELECT} and \fn{DBF()}.
+Without it, the alias is the file name without the extension.
+
+\cmd{USE} with no file name closes the database of the selected work area.
+
+\cmd{USE} reports a database that cannot be opened: \xmsg{1}{File does not
+exist.} when there is no such file, \xmsg{3}{File is already open.} when it is
+open in another work area, and \xmsg{15}{Not a dBASE database.} when the file
+is not a database.
+
+\cmd{USE} is a dot prompt command.  A program works on the databases that are
+open when it is run.
+\Examples
+\DotExample{examples/c-use}
+\DotExample{examples/c-use-2}
+\DotExample{examples/c-use-3}
+\SeeAlso{CLOSE, SELECT, SET ORDER, DBF()}
+\end{XbaseEntry}
+

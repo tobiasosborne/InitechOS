@@ -1,0 +1,15 @@
+% SET RELATION -- os/samir/cmd/set.c do_set_relation (text recorded; the
+% runtime effect is deferred: "GATED: runtime relation effect deferred").
+\begin{XbaseEntry}[the relation is recorded but not maintained by this version
+  (set.c)]{RELATION}{set}
+Links the database in USE to a database in another work area.
+\Syntax
+\SyntaxLine{\kw{SET RELATION TO} \opt{\xp{key expression} \kw{INTO} \xp{alias}}}
+\Usage
+InitechBase accepts SET RELATION TO with or without a relation and displays no
+message.  The record pointer of the other database does not move with the
+selected one: select the other work area and use \cmd{SEEK} to find the related
+record.
+\SeeAlso{SELECT, SEEK, USE}
+\end{XbaseEntry}
+

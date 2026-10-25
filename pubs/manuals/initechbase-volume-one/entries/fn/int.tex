@@ -1,0 +1,14 @@
+% INT -- os/samir/core/fn_builtins.c fn_int (l.820-831)
+\begin{XbaseEntry}{INT}{function}
+Returns the whole-number part of a numeric expression, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{INT(}\xp{expN}\kw{)}}
+\Usage
+\fn{INT()} drops the fractional part. It does not round: both 3.99 and 3.01 give 3, and a negative number is cut toward zero, so that -3.7 gives -3. A non-numeric argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Tips
+Use \fn{ROUND()} to round to the nearest whole number.
+\Examples
+\DotExample{examples/fn-int}
+\SeeAlso{ROUND(), MOD(), ABS(), STR()}
+\end{XbaseEntry}
+

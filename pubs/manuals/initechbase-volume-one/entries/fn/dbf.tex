@@ -1,0 +1,12 @@
+% DBF -- os/samir/core/fn_builtins.c fn_dbf (l.2029-2048)
+\begin{XbaseEntry}{DBF}{function}
+Returns the name of the database open in the selected work area, as a character string.
+\Syntax
+\SyntaxLine{\kw{DBF()}}
+\Usage
+\fn{DBF()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The result is the alias of the open database in upper case, which is its file name without the drive and without the extension. With no database in USE the result is an empty string and no error is raised.
+\Examples
+\DotExample{examples/fn-dbf}
+\SeeAlso{FIELD(), RECCOUNT(), FILE(), USE}
+\end{XbaseEntry}
+

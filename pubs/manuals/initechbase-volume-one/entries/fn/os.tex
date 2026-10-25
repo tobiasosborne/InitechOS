@@ -1,0 +1,16 @@
+% HELP.DBS line 1273; system-and-database-functions.md OS();
+% LANE-BRIEF operator ruling (initech-ugpsk), SF-os GOLD.OUT.
+\begin{XbaseEntry}{OS}{function}
+Returns the name and version of the computer operating system, as a character string.
+\Syntax
+\SyntaxLine{\kw{OS()}}
+\Usage
+\fn{OS()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. On InitechDOS 3.30 the result is \texttt{InitechDOS 3.30}, a string of 15 characters.
+\Examples
+\begin{verbatim}
+. ? "os", "["+OS()+"]", TYPE("OS()"), LEN(OS())
+os [InitechDOS 3.30] C         15
+\end{verbatim}
+\SeeAlso{TYPE(), LEN()}
+\end{XbaseEntry}
+

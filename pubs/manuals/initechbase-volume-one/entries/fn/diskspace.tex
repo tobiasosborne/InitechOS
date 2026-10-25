@@ -1,0 +1,14 @@
+% HELP.DBS:1257; independent III+ fns-mint/diskspace/GOLD.OUT.
+\begin{XbaseEntry}{DISKSPACE}{function}
+Returns the number of bytes left on the default disk, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{DISKSPACE()}}
+\Usage
+The function takes no argument. Supplying a drive number or any other
+argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+On a disk with space available:
+\DotExample{examples/fn-diskspace}
+\SeeAlso{FILE(), TYPE()}
+\end{XbaseEntry}
+
