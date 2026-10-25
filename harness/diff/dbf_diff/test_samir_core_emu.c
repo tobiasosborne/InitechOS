@@ -2,10 +2,12 @@
  * CORE.PRG is authored from those rules. mtools/fsck judge identical images.
  * Same serial + real EXEC pattern as test_samir_audit_emu.c and m0dc.
  */
+#include "scratch_lock.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "test_assert.h"
+#include "trace_complete.h"
 TEST_HARNESS();
 static int command(const char *s){int rc=system(s);CHECK(rc==0,s);return rc;}
 static void keys(const char *text,char *out)
@@ -22,6 +24,7 @@ static void keys(const char *text,char *out)
 }
 int main(int argc,char **argv)
 {
+    scratch_lock("build/.lock-samir-core-emu");
     const char *com=argc>1?argv[1]:"build/SAMIR.COM";
     char cmd[4096],trace[2048],serial[262144];FILE *f;size_t n;
     const char *prg=
@@ -44,8 +47,9 @@ int main(int argc,char **argv)
     command("mcopy -o -i build/samir-core-emu/emu.img build/samir-core-emu/CORE.PRG ::CORE.PRG");
     command("fsck.fat -n build/samir-core-emu/emu.img > build/samir-core-emu/fsck-before.log");
     keys("samir\n? space(130)+space(130)\n? space(130)-space(130)\ndo core\nquit\nexit\n",trace);
-    snprintf(cmd,sizeof(cmd),"build/qemu_harness --disk build/tracer_secondary.img --disk2 build/samir-core-emu/emu.img --name samir_core --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > build/samir-core-emu/stdout.log 2> build/samir-core-emu/report.log",trace);
+    snprintf(cmd,sizeof(cmd),"build/qemu_harness --disk build/tracer_secondary.img --disk2 build/samir-core-emu/emu.img --name samir_core --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > build/samir-core-emu/stdout.log 2> build/samir-core-emu/report.log; rc=$?; cat build/samir-core-emu/report.log 1>&2; exit $rc",trace);
     command(cmd);
+    if(!emu_trace_complete("build/samir-core-emu/report.log","build/samir_core.serial",emu_trace_keys(trace)))return 2;
     f=fopen("build/samir_core.serial","rb");CHECK(f!=NULL,"serial captured");if(!f)return 1;
     n=fread(serial,1,sizeof(serial)-1,f);fclose(f);serial[n]=0;
     CHECK(strstr(serial,"SHELL-DONE")!=NULL,"guest shell returned");

@@ -29,6 +29,8 @@ static void usage(const char *argv0)
 {
     fprintf(stderr,
         "usage: %s (--kernel ELF | --disk IMG) [options]\n"
+        "  --boot-rw          open the --disk boot image writable (default: private overlay,\n"
+        "                     a read-only share, so concurrent runs under make -j do not collide)\n"
         "  --disk2 IMG        attach a 2nd raw disk on the IDE primary SLAVE\n"
         "                     (if=ide,index=1); the kernel mounts it over ATA\n"
         "  --expect MARKER    assert MARKER substring present on serial\n"
@@ -159,6 +161,8 @@ int main(int argc, char **argv)
             cfg.quit_after_count = atoi(argv[++i]);
         } else if (strcmp(a, "--allow-reboot") == 0) {
             cfg.allow_reboot = true;
+        } else if (strcmp(a, "--boot-rw") == 0) {
+            cfg.boot_rw = true;
         } else if (strcmp(a, "--legacy-quit") == 0) {
             cfg.legacy_quit = true;
         } else if (strcmp(a, "--mouse") == 0) {

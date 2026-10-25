@@ -2,8 +2,9 @@
 # Injected manual prompts + console_text pixels and mtools on scratch disks.
 set -eu
 export INITECH_QMP_STDIO=1 LC_ALL=C TZ=UTC SOURCE_DATE_EPOCH=315532800
-b=$1; boot=$2; format=$3; only=${4:-all}; w=$b/formatsys-emu
-mkdir -p "$w"
+b=$1; boot=$2; format=$3; only=${4:-all}
+mkdir -p "$b/formatsys-emu"
+w=$(mktemp -d "$b/formatsys-emu/run.XXXXXX")
 red(){ echo "RED formatsys-emu $*"; exit 1; }
 prepare(){
  cp -f "$boot" "$w/master.img"; truncate -s $((8064*512)) "$w/master.img"
@@ -20,7 +21,7 @@ prepare(){
 }
 run(){
  # Bound a blocked injected-input wait as well as the harness's boot timer.
- timeout 35s "$b/qemu_harness" --disk "$w/master.img" --disk2 "$w/data.img" --out "$w" --name "$1" \
+ timeout 35s "$b/qemu_harness" --boot-rw --disk "$w/master.img" --disk2 "$w/data.img" --out "$w" --name "$1" \
  --mouse "$2" --keys-after "$3" --quit-after "$4" --screendump --screendump-after "$4" --timeout-ms 25000 > "$w/$1.stdout" 2> "$w/$1.report" || true
  ! grep -q 'triple_fault=1' "$w/$1.report" || red triple-fault
  # A running-volume mutant erases its own AUTOEXEC, so DU-RETURN need not
@@ -96,7 +97,7 @@ if [ "$only" = syswrite ]; then
  dd if="$w/entry" of="$w/booted.img" bs=1 seek=446 conv=notrunc status=none
  dd if=/dev/zero of="$w/booted.img" bs=1 seek=462 count=48 conv=notrunc status=none
  printf '@ECHO OFF\r\n' | mcopy -o -i "$w/data.img" - ::AUTOEXEC.BAT
- "$b/qemu_harness" --disk "$w/booted.img" --disk2 "$w/data.img" --out "$w" --name syswrite-boot \
+ "$b/qemu_harness" --boot-rw --disk "$w/booted.img" --disk2 "$w/data.img" --out "$w" --name syswrite-boot \
   --keys 'e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE --timeout-ms 20000 > "$w/syswrite-boot.stdout" 2> "$w/syswrite-boot.report" || true
  grep -q 'quit_after_found=1' "$w/syswrite-boot.report" || red 'syswrite did not boot'
  for marker in IOSYS-FOUND INITDOS-FOUND KERNEL SHELL-READY SHELL-EXIT; do
@@ -154,7 +155,7 @@ END
   dd if="$w/entry" of="$w/booted.img" bs=1 seek=446 conv=notrunc status=none
   dd if=/dev/zero of="$w/booted.img" bs=1 seek=462 count=48 conv=notrunc status=none
   printf '@ECHO OFF\r\n' | mcopy -o -i "$w/data.img" - ::AUTOEXEC.BAT
-  "$b/qemu_harness" --disk "$w/booted.img" --disk2 "$w/data.img" --out "$w" --name boot \
+  "$b/qemu_harness" --boot-rw --disk "$w/booted.img" --disk2 "$w/data.img" --out "$w" --name boot \
    --keys 'e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE --timeout-ms 20000 > "$w/boot.stdout" 2> "$w/boot.report" || true
   grep -q 'quit_after_found=1' "$w/boot.report" || red '/S did not boot'
   grep -qF 'A:\>' "$w/boot.serial" || red '/S missing A prompt'

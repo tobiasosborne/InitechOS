@@ -5,11 +5,13 @@
  * Replays audit samir-filter/state and dos-extra command sequences. mtools
  * and fsck.fat judge the disk; no SAMIR decoder supplies the expected bytes.
  */
+#include "scratch_lock.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include "test_assert.h"
+#include "trace_complete.h"
 TEST_HARNESS();
 static char serial[262144], fragment[65536];
 static int command(const char *s)
@@ -64,6 +66,7 @@ static void keys(const char *text,char *out,size_t cap)
 }
 int main(int argc,char **argv)
 {
+    scratch_lock("build/.lock-samir-audit");
     const char *mode=argc>1?argv[1]:"view";
     const char *com=argc>2?argv[2]:"build/SAMIR.COM";
     char cmd[16384],keybuf[8192],raw[262144];
@@ -97,9 +100,10 @@ int main(int argc,char **argv)
         keys("samir\nuse clients\nuse clients.dbf\nlist for bal > 1000\nset filter to bal > 1000\ngo top\nlist\nset filter to bal > 7000\ngo top\nskip -1\ndisplay\ngo 2\nset filter to\ngo top\ndelete\ndisplay\nlist\nset deleted on\ngo top\nlist\nset deleted off\ngo top\nrecall\nlist\nuse absent\nquit\nexit\n",keybuf,sizeof(keybuf));
     }
     command("fsck.fat -n build/samir-audit/emu.img > build/samir-audit/fsck-before.log");
-    snprintf(cmd,sizeof(cmd),"build/qemu_harness --disk build/tracer_secondary.img --disk2 build/samir-audit/emu.img --name samir_audit_%s --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > build/samir-audit/emu.stdout 2> build/samir-audit/emu.report",mode,keybuf);
+    snprintf(cmd,sizeof(cmd),"build/qemu_harness --disk build/tracer_secondary.img --disk2 build/samir-audit/emu.img --name samir_audit_%s --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > build/samir-audit/emu.stdout 2> build/samir-audit/emu.report; rc=$?; cat build/samir-audit/emu.report 1>&2; exit $rc",mode,keybuf);
     command(cmd);
     snprintf(cmd,sizeof(cmd),"build/samir_audit_%s.serial",mode);
+    if(!emu_trace_complete("build/samir-audit/emu.report",cmd,emu_trace_keys(keybuf)))return 2;
     n=read_file(cmd,raw,sizeof(raw));
     for(i=0,j=0;i<n;i++) if(raw[i]!='\r') serial[j++]=raw[i];
     serial[j]=0;

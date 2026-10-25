@@ -13,6 +13,7 @@
  * authored, no local reference golden. The fixture is the audit's three-row
  * CLIENTS table; never a generated expected-output golden.
  */
+#include "scratch_lock.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -439,6 +440,7 @@ static void undefined_variable(samir_pal_t *pal)
 }
 int main(int argc,char **argv)
 {
+    scratch_lock("build/.lock-samir.audit");
     (void)argc; (void)argv;
     struct pal_host_cfg cfg={99,12,31,16u*1024u*1024u};
     samir_pal_t *host=pal_host_make(cfg), *pal;

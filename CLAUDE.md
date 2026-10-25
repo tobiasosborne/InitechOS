@@ -330,7 +330,9 @@ you catch yourself about to do one, stop and re-check the cited reference.
 
 ```bash
 # Toolchain / emulators (one-time, Ubuntu):
-sudo apt install qemu-system-i386 bochs make nasm mtools fpc
+sudo apt install qemu-system-i386 qemu-utils bochs make nasm mtools fpc
+# qemu-img (qemu-utils) creates the harness's private boot overlays under
+# build/.qemu-tmp; boot-disk readback oracles instead use private --boot-rw copies.
 # fpc (Free Pascal) is a base requirement since 2026-08-01 (initech-altq): it
 # mints the INDEPENDENT golden for the DEC-07 Rung-2 seed differential
 # (test-seed-fpc-diff, IN the default `make test` vector). Missing fpc FAILS

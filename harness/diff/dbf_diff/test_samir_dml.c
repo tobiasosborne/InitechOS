@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include "test_assert.h"
+#include "trace_complete.h"
 #include "samir/interp.h"
 TEST_HARNESS();
 struct pal_host_cfg { uint8_t date_yy,date_mm,date_dd; uint32_t heap_size; };
@@ -104,7 +105,8 @@ static void compare_file(const char *dir,const char *gold,const char *file)
     snprintf(p,sizeof p,"%s/%s",dir,file);snprintf(q,sizeof q,"%s/%s",gold,file);
     an=readfile(p,a,sizeof a);bn=readfile(q,b,sizeof b);
     if(strstr(file,".NDX")) {
-        snprintf(cmd,sizeof cmd,"python3 harness/diff/dbf_diff/ndx_ref.py --index-dump '%s' > build/samirdml/got.ndx && python3 harness/diff/dbf_diff/ndx_ref.py --index-dump '%s' > build/samirdml/want.ndx && cmp build/samirdml/got.ndx build/samirdml/want.ndx",p,q);
+        /* Dump files live in the per-case dir (initech-2kkqr): shared build/samirdml/{got,want}.ndx raced under make -j. */
+        snprintf(cmd,sizeof cmd,"python3 harness/diff/dbf_diff/ndx_ref.py --index-dump '%s' > '%s.got.ndx' && python3 harness/diff/dbf_diff/ndx_ref.py --index-dump '%s' > '%s.want.ndx' && cmp '%s.got.ndx' '%s.want.ndx'",p,p,q,p,p,p);
         eq=an&&bn&&command(cmd)==0;
     } else if(strstr(file,".DBF"))eq=equal_dbf(a,an,b,bn);
     else if(strstr(file,".MEM"))eq=equal_mem(a,an,b,bn);
@@ -160,8 +162,10 @@ int main(int argc,char **argv)
             fprintf(stderr,"RED: MINT required: %s corpus changed since real III+ run\n",name);return 2;
         }
     }
-    snprintf(dir,sizeof dir,"build/samirdml/%s-%s",mode,name);
-    snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s && cp -f build/CLIENTS.DBF %s/BASE.DBF && cp -f harness/diff/dbf_diff/xbase_prog_diff/corpus/dml/%s.prg %s/DMLTEST.PRG",dir,dir,dir,name,dir);command(cmd);
+    snprintf(dir,sizeof dir,"build/samirdml/%s-%s-XXXXXX",mode,name);
+    if(!mkdtemp(dir)) { perror("DML private directory");return 2; }
+    printf("DML artifacts: %s\n",dir);
+    snprintf(cmd,sizeof cmd,"cp -f build/CLIENTS.DBF %s/BASE.DBF && cp -f harness/diff/dbf_diff/xbase_prog_diff/corpus/dml/%s.prg %s/DMLTEST.PRG",dir,name,dir);command(cmd);
     /* abbrscope's schema and blank rows were created by real DBASE.EXE. */
     if(!strcmp(name,"abbrscope")) {
         snprintf(cmd,sizeof cmd,"cp -f %s/INPUT.DBF %s/BASE.DBF",gold,dir);command(cmd);
@@ -192,7 +196,10 @@ int main(int argc,char **argv)
         snprintf(cmd,sizeof cmd,"mformat -i %s/data.img -f 1440 :: && mcopy -o -i %s/data.img %s ::SAMIR.COM && mcopy -o -i %s/data.img %s/*.DBF %s/*.PRG %s/*.TXT %s/*.IN %s/*.BAT ::",dir,dir,com,dir,dir,dir,dir,dir,dir);command(cmd);
         snprintf(cmd,sizeof cmd,"for f in %s/*.NDX %s/*.MEM %s/*.LBL %s/*.DBT; do test ! -f \"$f\" || mcopy -o -i %s/data.img \"$f\" ::; done",dir,dir,dir,dir,dir);command(cmd);
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-before.log",dir,dir);command(cmd);
-        snprintf(cmd,sizeof cmd,"INITECH_QMP_STDIO=1 build/qemu_harness --disk build/tracer_secondary.img --disk2 %s/data.img --name dml_%s --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > %s/qemu.out 2> %s/qemu.report",dir,name,trace,dir,dir);command(cmd);
+        snprintf(cmd,sizeof cmd,"INITECH_QMP_STDIO=1 build/qemu_harness --disk build/tracer_secondary.img --disk2 %s/data.img --name dml_%s --out %s --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > %s/qemu.out 2> %s/qemu.report",dir,name,dir,trace,dir,dir);command(cmd);
+        snprintf(path,sizeof path,"%s/dml_%s.serial",dir,name);
+        { char rp[2048];snprintf(rp,sizeof rp,"%s/qemu.report",dir);
+          if(!emu_trace_complete(rp,path,inspection?25:9))return 2; }
         snprintf(path,sizeof path,"%s/qemu.report",dir);readfile(path,(unsigned char *)captured,sizeof captured);
         CHECK(strstr(captured,"triple_fault=0")&&strstr(captured,"quit_after_found=1")&&strstr(captured,key_count),"DML entire locked QEMU trace returned without fault");
         snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::RESULT.TXT %s/RESULT.TXT",dir,dir);command(cmd);

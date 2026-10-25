@@ -2,6 +2,7 @@
  * Include the implementation to exercise argv construction without QEMU.
  * Trap fork too: even the missing-preflight mutant must stay host-only. */
 #define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 #include <sys/types.h>
 static pid_t paths_test_fork(void);
 #define fork paths_test_fork
@@ -48,7 +49,7 @@ int main(void)
     if (join_path(serial,sizeof(serial),dir,"paths",".serial") ||
         join_path(log,sizeof(log),dir,"paths",".log") ||
         join_path(sock,sizeof(sock),dir,"paths",".sock") ||
-        build_argv(&cfg,argv,serial,log,sock) < 0) return 1;
+        build_argv(&cfg,argv,serial,log,sock,NULL) < 0) return 1;
     int found = 0;
     for (int i=0; argv[i]; i++)
         if (!strcmp(argv[i],"-serial") && argv[i+1] &&

@@ -4,8 +4,8 @@
 set -eu
 export LC_ALL=C TZ=UTC SOURCE_DATE_EPOCH=315532800 INITECH_QMP_STDIO=1
 build=$1; boot=$2; com=$3; only=${4:-all}
-w=$build/fdisk-emu
-mkdir -p "$w"
+mkdir -p "$build/fdisk-emu"
+w=$(mktemp -d "$build/fdisk-emu/run.XXXXXX")
 red() { echo "RED fdisk-emu $*"; exit 1; }
 prepare() {
  cp -f "$boot" "$w/boot.img"
@@ -28,7 +28,7 @@ run() {
  dd if="$w/before.img" of="$w/prep.bin" bs=512 count=1 status=none
  mcopy -o -i "$w/data.img" "$w/prep.bin" ::PREP.BIN
  cp -f "$w/data.img" "$w/data-before.img"
- "$build/qemu_harness" --disk "$w/boot.img" --disk2 "$w/data.img" --name "$name" --out "$w" \
+ "$build/qemu_harness" --boot-rw --disk "$w/boot.img" --disk2 "$w/data.img" --name "$name" --out "$w" \
   --timeout-ms 20000 --keys "$keys" --keys-after 'Enter choice:' \
   --quit-after "$mark" --screendump --screendump-after "$mark" \
   > "$w/$name.stdout" 2> "$w/$name.report" || true

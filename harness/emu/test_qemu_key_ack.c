@@ -3,6 +3,7 @@
  * and the old serial echo are already available: neither permits another key.
  * Exercise BOTH real injection loops without a scheduler-dependent sleep. */
 #define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 #include <time.h>
 #include <poll.h>
 #include <sys/types.h>

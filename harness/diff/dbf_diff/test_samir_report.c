@@ -15,6 +15,7 @@
  * #50, #52, #126 (spec/samir/dbase_msg_codes.tsv; Using dBase III Plus
  * U5-177, U7-16, U7-17). UNIVERS.FRM is the corpus's real corrupt control.
  */
+#include "scratch_lock.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -194,6 +195,7 @@ static char g_cmd[256][96];
 
 int main(int argc, char **argv)
 {
+    scratch_lock("build/.lock-samir-report");
     struct pal_host_cfg cfg = { 86, 7, 24, 16u << 20 };   /* DATE 07/24/1986 as minted */
     samir_pal_t *host = pal_host_make(cfg);
     int i, n;

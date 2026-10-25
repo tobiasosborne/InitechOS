@@ -72,6 +72,7 @@ static void check(void)
 }
 int main(int argc,char **argv)
 {
-    if(argc==2 && !strcmp(argv[1],"prepare"))prepare();else check();
+    if(argc<2 || chdir(argv[1])) { perror("reference private root");return 2; }
+    if(argc==3 && !strcmp(argv[2],"prepare"))prepare();else check();
     return TEST_SUMMARY("samir-core-real-diff");
 }

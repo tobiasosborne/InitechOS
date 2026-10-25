@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "test_assert.h"
+#include "trace_complete.h"
 #include "samir/interp.h"
 TEST_HARNESS();
 struct pal_host_cfg { uint8_t yy,mm,dd; uint32_t heap; };
@@ -131,6 +132,9 @@ int main(int argc,char **argv)
         if(!strcmp(name,"alias")||!strcmp(name,"relation")){snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img %s/OTHER.DBF ::",dir,dir);command(cmd);}
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-before.log",dir,dir);command(cmd);
         snprintf(cmd,sizeof cmd,"INITECH_QMP_STDIO=1 build/qemu_harness --disk build/tracer_secondary.img --disk2 %s/data.img --name fns_%s --out build --timeout-ms 60000 --keys 'f,n,s,ret,e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE > %s/qemu.out 2> %s/qemu.report",dir,name,dir,dir);command(cmd);
+        snprintf(path,sizeof path,"build/fns_%s.serial",name);
+        { char rp[2048];snprintf(rp,sizeof rp,"%s/qemu.report",dir);
+          if(!emu_trace_complete(rp,path,9))return 2; }
         snprintf(path,sizeof path,"%s/qemu.report",dir);readfile(path,captured,sizeof captured);
         CHECK(strstr(captured,"triple_fault=0")&&strstr(captured,"quit_after_found=1")&&strstr(captured,"keys_sent=9"),"FNS entire locked QEMU trace returned without fault");
         snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::CAPTURE.OUT %s/CAPTURE.OUT",dir,dir);command(cmd);

@@ -3,9 +3,10 @@
 # User's Guide p.159 / PDF244; fixture bytes, never kernel output, are golden.
 set -eu
 export INITECH_QMP_STDIO=1 LC_ALL=C
-boot=$1; tag=${2:-green}; only=${3:-all}
-root=build/dos-resident-break-$tag
-mkdir -p "$root"
+boot=$1; tag=${2:-green}; only=${3:-all}; write_boot=${4:-no}
+mkdir -p build
+root=$(mktemp -d "build/dos-resident-break-$tag.XXXXXX")
+printf 'oracle artifacts: %s\n' "$root"
 red() { echo "RED dos-resident-break: $*"; exit 1; }
 for mode in controlshort gaps2 redirect; do
  [ "$only" = all ] || [ "$only" = "$mode" ] || continue
@@ -28,13 +29,19 @@ for mode in controlshort gaps2 redirect; do
    done;;
  redirect) command='TYPE HUGE.TXT < INPUT.TXT > CUT.TXT'; trigger='C80Y-BEGIN'; delay='w100,';;
  esac
- printf '@echo off\r\ncd \\T\r\necho C80Y-BEGIN\r\n%s\r\necho C80Y-MUST-NOT-RUN\r\n' "$command" > "$out/autoexec"
+ if [ "$write_boot" = yes ]; then
+  mcopy -i "$out/data.img" build/resident_boot_write.bin ::BWRITE.COM
+ fi
+ { printf '@echo off\r\n'
+   if [ "$write_boot" = yes ]; then printf 'BWRITE\r\n'; fi
+   printf 'cd \\T\r\necho C80Y-BEGIN\r\n%s\r\necho C80Y-MUST-NOT-RUN\r\n' "$command"
+ } > "$out/autoexec"
  mcopy -i "$out/data.img" "$out/autoexec" ::AUTOEXEC.BAT
  cp -f "$out/data.img" "$out/reference.img"
  cp -f "$boot" "$out/boot.img"
  # Wait for the returned prompt BEFORE typing a command: buffered input is
  # not evidence of a usable prompt. No spaces to advance a broken DIR pager.
- build/qemu_harness --disk "$out/boot.img" --disk2 "$out/data.img" --out "$out" --name run \
+ build/qemu_harness --boot-rw --disk "$out/boot.img" --disk2 "$out/data.img" --out "$out" --name run \
    --mouse "${delay}kctrl-c,WTerminate batch job (Y/N)?,ky,WA:\\T>,ke,kc,kh,ko,kspc,ka,kf,kt,ke,kr,kminus,kc,ka,kn,kc,ke,kl,kret,ke,kx,ki,kt,kret" \
    --keys-after "$trigger" --quit-after SHELL-DONE --timeout-ms 20000 \
    --screendump --screendump-after SHELL-DONE > "$out/stdout" 2> "$out/report" || true
