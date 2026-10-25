@@ -327,6 +327,22 @@ static void host_set_attr(samir_pal_t *p, uint8_t attr)
 
 /* ---- clock slot (injectable; NEVER wall clock) -------------------------- */
 
+/* Fixed target identity, never the host OS (Rule 11; pal.h AH=30h). */
+static uint16_t host_os_version(samir_pal_t *p)
+{
+    (void)p;
+    return 0x1e03u;
+}
+
+/* Fixed free-byte fixture for INT 21h AH=36h; never query the host disk.
+ * The independent III+ diskspace golden pins numeric type and positivity. */
+static int host_diskspace(samir_pal_t *p, uint32_t *bytes)
+{
+    (void)p;
+    *bytes = 1048576u;
+    return PAL_OK;
+}
+
 static void host_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
 {
     pal_host_state_t *st = state_of(p);
@@ -457,6 +473,8 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
     st->vtable.gotoxy     = host_gotoxy;
     st->vtable.set_attr   = host_set_attr;
     st->vtable.today      = host_today;
+    st->vtable.os_version = host_os_version;
+    st->vtable.diskspace  = host_diskspace;
     st->vtable.alloc      = host_alloc;
     st->vtable.reset      = host_reset;
     st->vtable.acquire = host_acquire; st->vtable.release = host_release;

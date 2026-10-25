@@ -1,0 +1,3 @@
+. ? "no-read", READKEY(), TYPE("READKEY()")
+
+no-read   0 N

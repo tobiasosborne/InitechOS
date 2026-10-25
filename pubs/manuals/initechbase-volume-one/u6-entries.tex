@@ -207,6 +207,20 @@ In the sample database record 13 is marked for deletion:
 \SeeAlso{RECNO(), EOF(), DELETE, RECALL, PACK}
 \end{XbaseEntry}
 
+% HELP.DBS:1257; independent III+ fns-mint/diskspace/GOLD.OUT.
+\begin{XbaseEntry}{DISKSPACE}{function}
+Returns the number of bytes left on the default disk, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{DISKSPACE()}}
+\Usage
+The function takes no argument. Supplying a drive number or any other
+argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+On a disk with space available:
+\DotExample{examples/fn-diskspace}
+\SeeAlso{FILE(), TYPE()}
+\end{XbaseEntry}
+
 % DOW -- os/samir/core/fn_builtins.c fn_dow (l.997-1011)
 \begin{XbaseEntry}{DOW}{function}
 Returns the day of the week of a date, as a numeric value.
@@ -264,6 +278,21 @@ The ON ERROR command stores the number of the error in a memory variable; no mes
 \SeeAlso{MESSAGE(), ON ERROR, CHR()}
 \end{XbaseEntry}
 
+% EXP -- os/samir/core/fn_builtins.c fn_exp_stub; III+ HELP @NUMERIC FUNCTIONS line 1293.
+\begin{XbaseEntry}{EXP}{function}
+Returns the value of e raised to a numeric expression, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{EXP(}\xp{expN}\kw{)}}
+\Usage
+\fn{EXP()} calculates e raised to the value of its argument. The argument
+must be numeric. SET DECIMALS controls the decimal places displayed. A call with other than one argument raises
+\xmsg{11}{Invalid function argument.}; an argument that is not numeric also
+raises \xmsg{11}{Invalid function argument.} in III+.
+\Examples
+\DotExample{examples/fn-exp}
+\SeeAlso{LOG(), SQRT(), SET DECIMALS}
+\end{XbaseEntry}
+
 % FIELD -- os/samir/core/fn_builtins.c fn_field (l.1986-2012)
 \begin{XbaseEntry}{FIELD}{function}
 Returns the name of a field of the database in the selected work area, as a character string.
@@ -289,6 +318,24 @@ Returns a logical value that is true when a file of the given name exists.
 \Examples
 \DotExample{examples/fn-file}
 \SeeAlso{DBF(), USE}
+\end{XbaseEntry}
+
+% FKLABEL -- HELP.DBS line 1261; real III+ fns-mint/fklabel/GOLD.OUT.
+\begin{XbaseEntry}{FKLABEL}{function}
+Returns the name of a function key, as a character string.
+\Syntax
+\SyntaxLine{\kw{FKLABEL(}\xp{expN}\kw{)}}
+\Usage
+The numbers 1 through 9 return the names F2 through F10, respectively.
+The numbers 0 and 10 return an empty string. The names contain no trailing
+blanks: F2 through F9 have length 2, and F10 has length 3.
+
+The argument must be numeric. A non-numeric argument or a call with other
+than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+The name, type and length for function key number 1:
+\DotExample{examples/fn-fklabel}
+\SeeAlso{TYPE(), LEN()}
 \end{XbaseEntry}
 
 % FOUND -- os/samir/core/fn_builtins.c fn_found (l.1951-1956)
@@ -499,6 +546,38 @@ The result is a whole number from 1 through 12. The MONTH of a blank date is 0. 
 \Examples
 \DotExample{examples/fn-month}
 \SeeAlso{DAY(), YEAR(), CMONTH(), CTOD()}
+\end{XbaseEntry}
+
+% HELP.DBS line 1273; system-and-database-functions.md OS();
+% LANE-BRIEF operator ruling (initech-ugpsk), SF-os GOLD.OUT.
+\begin{XbaseEntry}{OS}{function}
+Returns the name and version of the computer operating system, as a character string.
+\Syntax
+\SyntaxLine{\kw{OS()}}
+\Usage
+\fn{OS()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. On InitechDOS 3.30 the result is \texttt{InitechDOS 3.30}, a string of 15 characters.
+\Examples
+\begin{verbatim}
+. ? "os", "["+OS()+"]", TYPE("OS()"), LEN(OS())
+os [InitechDOS 3.30] C         15
+\end{verbatim}
+\SeeAlso{TYPE(), LEN()}
+\end{XbaseEntry}
+
+% HELP.DBS 1281-1282; system-and-database-functions.md READKEY;
+% the no-command example is a line of the real III+ readkey/GOLD.OUT.
+\begin{XbaseEntry}{READKEY}{function}
+Returns the number representing the key used to leave a full-screen command.
+\Syntax
+\SyntaxLine{\kw{READKEY()}}
+\Usage
+Before a full-screen command has run, the result is 0. Repeated calls leave
+the value unchanged. The function takes no argument; an argument raises
+\xmsg{11}{Invalid function argument.}.
+\Examples
+With no full-screen command having run:
+\DotExample{examples/fn-readkey}
+\SeeAlso{TYPE()}
 \end{XbaseEntry}
 
 % RECCOUNT -- os/samir/core/fn_builtins.c fn_reccount (l.1911-1917)
@@ -747,6 +826,22 @@ Leading blanks are skipped and an optional sign and one decimal point are accept
 A code held as text, used in arithmetic:
 \DotExample{examples/fn-val-2}
 \SeeAlso{STR(), TYPE(), ISALPHA()}
+\end{XbaseEntry}
+
+% VERSION -- HELP.DBS 1287-1288; SF-version; operator ruling initech-ugpsk.
+\begin{XbaseEntry}{VERSION}{function}
+Returns the version of InitechBase as a character string.
+\Syntax
+\SyntaxLine{\kw{VERSION(}\opt{\xp{expN}}\kw{)}}
+\Usage
+With no argument the result is \texttt{InitechBase version 3.30}, a string
+of 24 characters. An optional numeric argument is accepted; 0, 1, and 2
+all return the same string. InitechBase reads the internal build string
+as the same version identification in these forms. A non-numeric argument,
+or more than one argument, raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-version}
+\SeeAlso{TYPE(), LEN()}
 \end{XbaseEntry}
 
 % YEAR -- os/samir/core/fn_builtins.c fn_dmy (l.727-742)

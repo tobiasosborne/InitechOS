@@ -2162,8 +2162,38 @@ body only ---- */
 static int fn_exp_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    double a, result;
+    if (nargs != 1 || args[0].t != XB_N)
+        return fn_fail(err, XBEE_INVALID_ARG); /* III+ EXP mint: error 11 */
+
+    a = args[0].u.n;
+    /* Ref: ../dbase3-decomp/specs/functions/numeric-and-date-functions.md
+     * EXP; HELP.DBS @NUMERIC FUNCTIONS line 1293 and @SET DECIMALS line 1416.
+     * Compute e^a as 2^(a*log2(e)), following os/i123/core/eval.c x87_exp2.
+     * Memory operands keep SAMIR's soft-float ABI; the x87 stack is balanced. */
+    __asm__ volatile (
+        "fldl2e\n\t"
+        "fmull %1\n\t"
+        "fld %%st(0)\n\t"
+        "frndint\n\t"
+        "fxch %%st(1)\n\t"
+        "fsub %%st(1), %%st(0)\n\t"
+        "f2xm1\n\t"
+        "fld1\n\t"
+        "faddp\n\t"
+        "fscale\n\t"
+        "fstp %%st(1)\n\t"
+        "fstpl %0"
+        : "=m" (result)
+        : "m" (a));
+#if defined(SAMIR_FNS_MUTANT_EXP) || defined(SAMIR_FNS_MUTANT_exp)
+    result += 1.0; /* Rule 6: the EXP transcript must catch this perturbation. */
+#endif
+    *out = xb_n(result);
+    out->num_dec = ctx->set_decimals;
+    out->num_width = (uint16_t)(10 + (ctx->set_decimals ? ctx->set_decimals + 1 : 0));
+    *err = XBEE_OK;
+    return 0;
 }
 
 static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
@@ -2252,8 +2282,20 @@ static int fn_inkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_readkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    /* Ref: system-and-database-functions.md READKEY; HELP.DBS 1281-1282;
+     * fns-mint/readkey/GOLD.OUT: before any full-screen command, repeated
+     * calls return zero in three numeric columns. READKEY is exit history,
+     * not a keyboard poll: do not consume type-ahead or wait for a key.
+     * SAMIR currently has no full-screen READ/EDIT/BROWSE command producer. */
+    (void)ctx; (void)args;
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    *out = xb_n(0.0);
+#ifdef SAMIR_FNS_MUTANT_readkey
+    out->u.n = 1.0;
+#endif
+    out->num_width = 3;
+    *err = XBEE_OK;
+    return 0;
 }
 
 static int fn_lastkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
@@ -2273,22 +2315,75 @@ static int fn_iscolor_stub(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_fklabel_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    /* Ref: system-and-database-functions.md FKLABEL; HELP.DBS line 1261.
+     * Real III+ fns-mint/fklabel/GOLD.OUT pins 1..9 to F2..F10, 0 and 10
+     * to empty strings, and both bad arity and bad type to #11 (not #9).
+     * These key names are fixed; no keyboard state or PAL query is needed. */
+    static const char labels[10][4] = {
+        "", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10"
+    };
+    int key = 0;
+    (void)ctx;
+    if (nargs != 1 || args[0].t != XB_N)
+        return fn_fail(err, XBEE_INVALID_ARG);
+    /* Bound before converting so large numeric arguments cannot overflow. */
+    if (args[0].u.n >= 1.0 && args[0].u.n < 10.0)
+        key = to_int_trunc(args[0].u.n);
+#if defined(SAMIR_FNS_MUTANT_FKLABEL) || defined(SAMIR_FNS_MUTANT_fklabel)
+    /* Rule 6: the generic gates supply the lowercase case-name spelling.
+     * Perturb only FKLABEL(1), returning F3 in place of the real F2. */
+    if (key == 1) key = 2;
+#endif
+    *out = xb_c(labels[key], (uint16_t)(key == 0 ? 0 : key == 9 ? 3 : 2));
+    *err = XBEE_OK;
+    return 0;
 }
 
 static int fn_os_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    /* Ref: system-and-database-functions.md OS(), HELP.DBS line 1273;
+     * LANE-BRIEF operator ruling / ADR-0003 DEC-12: InitechDOS branding.
+     * The minted zero-argument signature rejects extra arguments (#11). */
+    uint16_t version;
+    char *text;
+    (void)args;
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!ctx->file_pal || !ctx->file_pal->os_version)
+        return fn_fail(err, XBEE_INVALID_ARG);
+    version = ctx->file_pal->os_version(ctx->file_pal);
+    text = fn_scratch(ctx, 15u);
+    if (!text) return fn_fail(err, XBEE_SCRATCH_FULL);
+    rt_memcpy(text, "InitechDOS 0.00", 15u);
+    text[11] = (char)('0' + (version & 0xffu));
+    text[13] = (char)('0' + (version >> 8) / 10u);
+    text[14] = (char)('0' + (version >> 8) % 10u);
+    /* The existing gate template spells its case macro in lowercase. */
+#if defined(SAMIR_FNS_MUTANT_OS) || defined(SAMIR_FNS_MUTANT_os)
+    text[14] = '1'; /* Rule 6: wrong version, 3.31 instead of 3.30. */
+#endif
+    *out = xb_c(text, 15u);
+    *err = XBEE_OK;
+    return 0;
 }
 
-static int fn_version_stub(xb_ctx *ctx, const xb_val *args, int nargs,
-                        xb_val *out, int *err)
+static int fn_version(xb_ctx *ctx, const xb_val *args, int nargs,
+                      xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    /* Ref: system-and-database-functions.md VERSION; HELP.DBS 1287-1288.
+     * fns-mint/version accepts an optional number despite the prose spec.
+     * Operator ruling initech-ugpsk: the internal build string is read as
+     * the same fixed Initech identity for both forms (Rule 11). */
+    static const char version[] = "InitechBase version 3.30";
+    (void)ctx;
+    if (nargs < 0 || nargs > 1 || (nargs == 1 && args[0].t != XB_N))
+        return fn_fail(err, XBEE_INVALID_ARG);
+#if defined(SAMIR_FNS_MUTANT_VERSION) || defined(SAMIR_FNS_MUTANT_version)
+    *out = xb_c(version, (uint16_t)(sizeof version - 2u));
+#else
+    *out = xb_c(version, (uint16_t)(sizeof version - 1u));
+#endif
+    return 0;
 }
 
 static int fn_getenv_stub(xb_ctx *ctx, const xb_val *args, int nargs,
@@ -2323,8 +2418,20 @@ static int fn_getenv_stub(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_diskspace_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    uint32_t bytes;
+    (void)args;
+    /* Ref: system-and-database-functions.md DISKSPACE; HELP.DBS:1257.
+     * III+ takes no drive argument. fns-mint/diskspace pins N, >0 and #11. */
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!ctx || !ctx->file_pal || !ctx->file_pal->diskspace)
+        return fn_fail(err, XBEE_UNBOUND);
+    if (ctx->file_pal->diskspace(ctx->file_pal, &bytes) != PAL_OK)
+        return fn_fail(err, 29); /* dbase_msg_codes.tsv: File is not accessible. */
+#if defined(SAMIR_FNS_MUTANT_DISKSPACE) || defined(SAMIR_FNS_MUTANT_diskspace)
+    bytes = 0u; /* Rule 6: the independent III+ >0 line must reject this. */
+#endif
+    *out = xb_n((double)bytes);
+    return 0;
 }
 
 /* ---- end fan-out wave ---- */
@@ -2475,7 +2582,7 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     case FN_ISCOLOR: return fn_iscolor_stub(ctx, args, nargs, out, err_code);
     case FN_FKLABEL: return fn_fklabel_stub(ctx, args, nargs, out, err_code);
     case FN_OS: return fn_os_stub(ctx, args, nargs, out, err_code);
-    case FN_VERSION: return fn_version_stub(ctx, args, nargs, out, err_code);
+    case FN_VERSION: return fn_version(ctx, args, nargs, out, err_code);
     case FN_GETENV: return fn_getenv_stub(ctx, args, nargs, out, err_code);
     case FN_DISKSPACE: return fn_diskspace_stub(ctx, args, nargs, out, err_code);
     default:           break;

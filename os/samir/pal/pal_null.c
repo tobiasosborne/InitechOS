@@ -77,13 +77,19 @@ static int32_t null_getenv(samir_pal_t *p, const char *name, char *buf,
                            uint32_t cap)
 { (void)p; (void)name; (void)buf; (void)cap; return -(int32_t)PAL_ENOENT; }
 
+static uint16_t null_os_version(samir_pal_t *p)
+{ (void)p; return 0u; }                      /* no OS: version 0.0 */
+
+static int     null_diskspace(samir_pal_t *p, uint32_t *bytes)
+{ (void)p; *bytes = 0u; return -PAL_EIO; }   /* no disk: fails loud */
+
 /* The exported null vtable: every slot bound (the completeness proof). */
 /* Designated, not positional: a slot appended to struct samir_pal can no
  * longer shift its neighbours into the wrong type (wave-1 review, 2026-10-25).
  * Designated initializers do not warn on an omitted slot, so completeness is
  * pinned by the slot count below: a member added to pal.h fails this build
  * until it is bound here AND counted (Rule 2: fail at compile time). */
-#define SAMIR_PAL_SLOTS 23u
+#define SAMIR_PAL_SLOTS 25u
 _Static_assert(sizeof(samir_pal_t) == SAMIR_PAL_SLOTS * sizeof(void (*)(void)),
                "samir_pal gained or lost a slot: bind it in samir_pal_null and update SAMIR_PAL_SLOTS");
 
@@ -110,5 +116,7 @@ samir_pal_t samir_pal_null = {
 	.exec              = null_exec,
 	.conin_escape      = null_conin_escape,
 	.curdrive          = null_curdrive,
-	.getenv            = null_getenv
+	.getenv            = null_getenv,
+	.os_version        = null_os_version,
+	.diskspace         = null_diskspace
 };

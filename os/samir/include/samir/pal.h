@@ -231,6 +231,19 @@ struct samir_pal {
 	 * INT 21h AH=62h GET PSP, then PSP:2Ch names the NUL-delimited environment
 	 * block. Host binding supplies deterministic fixture values. */
 	int32_t (*getenv)(samir_pal_t *, const char *name, char *buf, uint32_t cap);
+
+    /* OS() version: low byte = major, high byte = minor (decimal).
+     * Milton: INT 21h AH=30h GETVER, AL=3/AH=30 (3.30).
+     * Ref: ADR-0003 Appendix A/DEC-12; DEC-04a flat ABI and
+     * spec/int21h_calling_convention.json AH=30h. Host pins 0x1e03. */
+    uint16_t (*os_version)(samir_pal_t *);
+
+    /* Free bytes on the default disk, for III+ DISKSPACE() (HELP.DBS:1257).
+     * Returns PAL_OK and writes *bytes, or -(pal_err) on failure.
+     * Ref: ADR-0003 Appendix A; IBM DOS 3.30 Technical Reference INT 21h
+     * AH=36h, DL=0: AX=sectors/cluster, BX=free clusters, CX=bytes/sector;
+     * AX=FFFFh means invalid drive. Host returns a fixed value (Rule 11). */
+    int     (*diskspace)(samir_pal_t *, uint32_t *bytes);
 };
 
 /* Owned buffer chains: reclaim ONLY this codec's allocations. */

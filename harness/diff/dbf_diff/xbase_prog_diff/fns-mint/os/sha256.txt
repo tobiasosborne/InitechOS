@@ -1,2 +1,6 @@
 45fc936deb3d123ed7bff865018011f3812da1d8fa53f9d5cca813ad21fadc04  FNSTEST.PRG
-b24aac149ff6c888fda5eea0521f4e78a6e4af3598bb6d29c281c5fae6278cb1  GOLD.OUT
+# Operator ruling initech-ugpsk: re-key only the OS value/LEN line from
+# DOS 5.00 (8) to InitechDOS 3.30 (15); FNSTEST.PRG stays byte-identical.
+# Original minted GOLD.OUT SHA-256:
+# b24aac149ff6c888fda5eea0521f4e78a6e4af3598bb6d29c281c5fae6278cb1
+f20941d74d85b8bfcd7e6fa973d5d2f5e65524deb7e52a9b559a8d29d3762851  GOLD.OUT

@@ -1,2 +1,7 @@
 47344cd8d694ddd7179fc531d83f69f2f48e1d0430443db7778ddf5202449e13  FNSTEST.PRG
-8c4f2bf3ba0f907802a378eb89fb7c8f65cf1494d72672e49727bdd1cff38437  GOLD.OUT
+5823c07add8d7f7ee0ec9d21d750b92e75ecccac19a71d9ac82263188a238ca4  GOLD.OUT
+# Operator ruling initech-ugpsk: re-key only version/zero/one/two to
+# InitechBase version 3.30 (LEN 24); numeric forms read the internal build
+# string as the same identity. FNSTEST.PRG and other GOLD.OUT lines unchanged.
+# Original real III+ GOLD.OUT SHA-256:
+# 8c4f2bf3ba0f907802a378eb89fb7c8f65cf1494d72672e49727bdd1cff38437

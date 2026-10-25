@@ -1,10 +1,10 @@
 
 [FNS-BEGIN]
 C .T.
-version [dBASE III PLUS  Version 1.1 ] C         28
-zero [dBASE III PLUS Version 2.0x100 (07/24/86)] C         41
-one [dBASE III PLUS Version 2.0x100 (07/24/86)] C         41
-two [dBASE III PLUS Version 2.0x100 (07/24/86)] C         41
+version [InitechBase version 3.30] C         24
+zero [InitechBase version 3.30] C         24
+one [InitechBase version 3.30] C         24
+two [InitechBase version 3.30] C         24
 wrong-type
 MINT-ERROR         11 Invalid function argument.
 logical-type

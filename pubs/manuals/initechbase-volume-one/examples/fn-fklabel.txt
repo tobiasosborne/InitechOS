@@ -1,0 +1,3 @@
+. ? "FKLABEL(1)", "["+FKLABEL(1)+"]", TYPE("FKLABEL(1)"), LEN(FKLABEL(1))
+
+FKLABEL(1) [F2] C          2

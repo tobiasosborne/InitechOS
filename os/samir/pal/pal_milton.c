@@ -789,6 +789,20 @@ static int32_t milton_getenv(samir_pal_t *p, const char *name, char *buf,
     return -(int32_t)PAL_ENOENT;
 }
 
+/* Ref: IBM DOS 3.30 Technical Reference INT 21h AH=36h GET DISK FREE
+ * SPACE; ADR-0003 Appendix A and DEC-04a flat register convention.
+ * DL=0 selects the default drive. Only the low 16 bits are DOS results. */
+static int milton_diskspace(samir_pal_t *p, uint32_t *bytes)
+{
+    uint32_t ax = 0x3600u, bx, cx, dx = 0u;
+    (void)p;
+    __asm__ __volatile__("int $0x21"
+        : "+a"(ax), "=b"(bx), "=c"(cx), "+d"(dx) : : "cc", "memory");
+    if ((ax & 0xFFFFu) == 0xFFFFu) return -PAL_EIO;
+    *bytes = (ax & 0xFFFFu) * (bx & 0xFFFFu) * (cx & 0xFFFFu);
+    return PAL_OK;
+}
+
 /* Terminal slots now bind to the same ANSI transport as STATUS. */
 static void milton_gotoxy(samir_pal_t *p,uint8_t row,uint8_t col)
 {
@@ -896,6 +910,14 @@ static int32_t milton_exec(samir_pal_t *p, const char *cmdline)
  *   "set_cx(f, year); set_dx(f, (uint16_t)(((uint16_t)mon<<8)|(uint16_t)day));"
  *   "set_al(f, dow); cf_clear(f);"
  */
+/* Ref: ADR-0003 Appendix A AH=30h GETVER / DEC-12; DEC-04a flat ABI.
+ * AL = major, AH = minor; GETVER never sets CF (locked calling convention). */
+static uint16_t milton_os_version(samir_pal_t *p)
+{
+    (void)p;
+    return (uint16_t)int21(0x30u, 0u, 0u, 0u, 0u, 0u, 0);
+}
+
 static void milton_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
 {
     uint32_t ecx_r = 0u, edx_r = 0u;
@@ -1066,11 +1088,13 @@ samir_pal_t *pal_milton_make(void)
     st->vtable.conin_escape = milton_conin_escape;
     milton_guard_set();
     st->vtable.curdrive   = milton_curdrive;
+    st->vtable.diskspace  = milton_diskspace;
     st->ta_head = st->ta_n = 0;
     st->con_in = -1;
     st->vtable.gotoxy     = milton_gotoxy;
     st->vtable.set_attr   = milton_set_attr;
     st->vtable.today      = milton_today;
+    st->vtable.os_version = milton_os_version;
     st->vtable.alloc      = milton_alloc;
     st->vtable.reset      = milton_reset;
     st->vtable.acquire = milton_acquire; st->vtable.release = milton_release;

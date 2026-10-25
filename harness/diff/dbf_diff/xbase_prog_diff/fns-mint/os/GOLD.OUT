@@ -1,7 +1,7 @@
 
 [FNS-BEGIN]
 C .T.
-os [DOS 5.00] C          8
+os [InitechDOS 3.30] C         15
 extra-arg
 MINT-ERROR         11 Invalid function argument.
 [FNS-END]
