@@ -53,6 +53,12 @@ The icon-mutant image template still supplied an unpatched kernel to the
 boot-image builder. It now installs each mutant's matching patched kernel,
 overlay and transient; the builder's refusal check remains intact.
 
+The shutdown-cancel MKDIR_CUT mutant also needs the moved mkdir adapter.
+Its fault-injection branch imports additional FAT services, so that one
+kernel/overlay pair gets object-derived import, stub and want tables of its
+own. The independent overlay reader checks this pair as well. The normal
+kernel's tables and resident bytes do not change for this fault injection.
+
 The pristine Lane 1 tree failed record-flair-repro for Empty Trash: one frame
 differed at 89 cursor pixels while OK was held. Increasing settle time did
 not cure the race, and those experimental settings were removed. A decision
