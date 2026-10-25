@@ -6349,6 +6349,7 @@ static void ovl_load(void)
     {
         const ovl_dir_t *e = (const ovl_dir_t *)(base + OVL_HDR_FIXED);
         if (e->load != OVERLAY_BASE + e->file_off || e->file_off < first ||
+            e->file_off > h->image_len ||   /* no unsigned underflow below */
             e->length > h->image_len - e->file_off ||
             e->bss_end < e->load + e->length || e->bss_end > OVERLAY_CEIL)
             ovl_fail(OVL_WHY_EXTENTS, e->bss_end);
