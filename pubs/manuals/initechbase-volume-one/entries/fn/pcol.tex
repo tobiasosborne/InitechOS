@@ -1,0 +1,15 @@
+% PCOL -- system-and-database-functions.md PCOL; fns-mint/pcol/GOLD.OUT.
+\begin{XbaseEntry}{PCOL}{function}
+Returns the column of the printer head, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{PCOL()}}
+\Usage
+Columns are numbered from zero.  The initial position is 0.  After
+SET DEVICE TO PRINT, \cmd{@} SAY advances the printer head past its displayed
+value.  Screen output leaves the printer position alone.
+The function takes no argument; a call with any argument raises
+\xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-pcol}
+\SeeAlso{PROW(), COL(), SET DEVICE, @}
+\end{XbaseEntry}

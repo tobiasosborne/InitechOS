@@ -83,6 +83,8 @@ static pal_err errno_to_pal(void)
 typedef struct {
     samir_pal_t  vtable;           /* MUST be first: the engine casts p->vtable */
 
+    uint16_t say_row,say_col; /* Deterministic host screen, never stdout. */
+
     /* File table */
     FILE        *fds[PAL_HOST_FD_MAX];
 
@@ -328,6 +330,30 @@ static void host_gotoxy(samir_pal_t *p, uint8_t row, uint8_t col)
     (void)p; (void)row; (void)col;
 }
 
+/* pal.h positioned output: host model; no terminal escapes or transcript. */
+static int host_say_screen(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
+{
+    pal_host_state_t *st=state_of(p);
+    st->say_row=row;st->say_col=col;
+    /* Keep PAL-only host contract tests independent of the engine runtime. */
+    for(uint32_t i=0;i<n;i++) {
+        if(text[i]=='\r') st->say_col=0;
+        else if(text[i]=='\n') { st->say_row++;st->say_col=0; }
+        else if(text[i]=='\f') st->say_row=st->say_col=0;
+        else if(text[i]=='\a') { }
+        else if(text[i]=='\t') {
+            st->say_col=(uint16_t)((st->say_col/8+1)*8);
+            if(st->say_col>=80) { st->say_col=0;st->say_row++; }
+        }
+        else if(text[i]=='\b') { if(st->say_col) st->say_col--; }
+        else if(++st->say_col==80) { st->say_col=0;st->say_row++; }
+        if(st->say_row>24) st->say_row=24;
+    }
+    return 0;
+}
+static int host_printout(samir_pal_t *p,const char *text,uint32_t n)
+{ (void)p;(void)text;(void)n;return 0; } /* deterministic discarded printer */
+
 static void host_set_attr(samir_pal_t *p, uint8_t attr)
 {
     /* Host stub: no-op. Exercised fully at S8.4. */
@@ -498,6 +524,8 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
     st->vtable.conin_char = host_conin_char;
     st->vtable.conin_poll = host_conin_poll;
     st->vtable.gotoxy     = host_gotoxy;
+    st->vtable.say_screen = host_say_screen;
+    st->vtable.printout = host_printout;
     st->vtable.set_attr   = host_set_attr;
     st->vtable.iscolor    = host_iscolor;
     st->vtable.today      = host_today;

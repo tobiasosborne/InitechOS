@@ -93,13 +93,20 @@ static void    null_time(samir_pal_t *p, uint8_t *hour, uint8_t *minute,
 static int     null_iscolor(samir_pal_t *p)
 { (void)p; return 0; }                       /* no colour display */
 
+static int     null_say_screen(samir_pal_t *p, uint8_t row, uint8_t col,
+                               const char *s, uint32_t n)
+{ (void)p; (void)row; (void)col; (void)s; (void)n; return -PAL_EIO; }  /* no screen */
+
+static int     null_printout(samir_pal_t *p, const char *s, uint32_t n)
+{ (void)p; (void)s; (void)n; return -PAL_EIO; }  /* no printer: fails loud */
+
 /* The exported null vtable: every slot bound (the completeness proof). */
 /* Designated, not positional: a slot appended to struct samir_pal can no
  * longer shift its neighbours into the wrong type (wave-1 review, 2026-10-25).
  * Designated initializers do not warn on an omitted slot, so completeness is
  * pinned by the slot count below: a member added to pal.h fails this build
  * until it is bound here AND counted (Rule 2: fail at compile time). */
-#define SAMIR_PAL_SLOTS 28u
+#define SAMIR_PAL_SLOTS 30u
 _Static_assert(sizeof(samir_pal_t) == SAMIR_PAL_SLOTS * sizeof(void (*)(void)),
                "samir_pal gained or lost a slot: bind it in samir_pal_null and update SAMIR_PAL_SLOTS");
 
@@ -131,5 +138,7 @@ samir_pal_t samir_pal_null = {
 	.diskspace         = null_diskspace,
 	.conin_poll        = null_conin_poll,
 	.time              = null_time,
-	.iscolor           = null_iscolor
+	.iscolor           = null_iscolor,
+	.say_screen        = null_say_screen,
+	.printout          = null_printout
 };

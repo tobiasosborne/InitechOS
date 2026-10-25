@@ -1,0 +1,26 @@
+% @ SAY -- say-get-read.md Sections 1-2; programming-and-io.md Section 7;
+% real III+ fns-mint/{row,col,prow,pcol}/GOLD.OUT.
+\begin{XbaseEntry}{@}{command}
+Displays an expression at a specified row and column of the current device.
+\Syntax
+\SyntaxLine{\kw{@} \xp{row}\kw{,}\xp{column} \kw{SAY} \xp{expression}}
+\Usage
+Rows and columns are numbered from zero.  On the screen, rows run from 0
+through 24 and columns from 0 through 79.  The coordinates are numeric
+expressions; a fractional part is dropped.  A screen position outside those
+limits raises \xmsg{30}{Position is off the screen.}.
+This version accepts the same coordinate limits for printer output; a
+printer position beyond those limits also raises error 30.
+
+The expression is displayed with the same formatting as \cmd{?}.  The cursor
+then stands immediately after the displayed value.  SET DEVICE TO PRINT
+sends the positioned output to the printer instead, moving its print head.
+Positioned output is not copied to the SET ALTERNATE file.
+
+This version accepts the SAY form shown above.  A PICTURE clause raises
+\xmsg{36}{Unrecognized phrase/keyword in command.}.
+\Examples
+Save the cursor position before displaying it with \cmd{?}:
+\DotExample{examples/cmd-say}
+\SeeAlso{SET DEVICE, ROW(), COL(), PROW(), PCOL(), ?}
+\end{XbaseEntry}

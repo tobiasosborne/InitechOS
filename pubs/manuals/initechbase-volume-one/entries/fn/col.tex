@@ -1,0 +1,15 @@
+% COL -- system-and-database-functions.md COL; fns-mint/col/GOLD.OUT.
+\begin{XbaseEntry}{COL}{function}
+Returns the column of the screen cursor, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{COL()}}
+\Usage
+Columns are numbered from 0 through 79.  After \cmd{@} SAY, the cursor is
+immediately after the displayed value.  Output from \cmd{?} and \cmd{??}
+also advances the screen cursor.  Printer output leaves it alone.
+The function takes no argument; a call with any argument raises
+\xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-col}
+\SeeAlso{ROW(), PCOL(), SET DEVICE, @}
+\end{XbaseEntry}

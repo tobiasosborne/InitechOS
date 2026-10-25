@@ -7,7 +7,9 @@
 #include <stdint.h>
 typedef void (*samir_screen_draw)(void *,uint8_t,uint8_t,uint8_t,const char *,uint32_t);
 typedef struct {
-    char text[22][80];
+    /* say-get-read.md section 1: @SAY can address rows 22..24 too.
+     * Normal dot-prompt scrolling still uses the original 22-row viewport. */
+    char text[25][80];
     char status[80], guidance[80];
     uint8_t row,col,active;
     samir_screen_draw draw;
@@ -15,5 +17,6 @@ typedef struct {
 } samir_screen;
 void samir_screen_init(samir_screen *,samir_screen_draw,void *);
 void samir_screen_status(samir_screen *,int,char,const char *,uint32_t,uint32_t);
+void samir_screen_at(samir_screen *,uint8_t,uint8_t,const char *,uint32_t);
 void samir_screen_write(samir_screen *,const char *,uint32_t);
 #endif

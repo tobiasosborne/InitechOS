@@ -820,6 +820,22 @@ static SAMIR_OVL_TEXT(set) int set_opt_color(xb_interp *ip, set_state *ss, const
     return do_set_color(ip,ss,s,err_code);
 }
 
+/* SET DEVICE: set-commands.md section 3.4; only @SAY. Parsing is cold
+ * (docs/design/samir-overlays.md Sec 3); device/cursor state stays resident. */
+static SAMIR_OVL_TEXT(set) int set_opt_device(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int device;
+    (void)ss;
+    if(rt_kw_word(s,"TO\0",(int *)0)!=0) {
+        if(err_code) *err_code=10;
+        return -INTERP_ERR_SYNTAX;
+    }
+    device=rt_kw_index(s_skip_ws(s+2),"SCREEN\0PRINT\0");
+    if(device<0) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    xb_interp_ctx(ip)->device_print=(uint8_t)device;
+    return CMD_OK;
+}
+
 /* Rows come from set_options.def: SET_OPT(KEYWORD, handler). */
 #define SET_OPT(kw, fn) { kw, fn },
 static const set_opt_row set_opts[] SAMIR_OVL_DATA(set) = {
@@ -862,6 +878,14 @@ static SAMIR_OVL_TEXT(set) int ovl_bad_hook(void *u,xb_interp *ip,const char *v,
 static SAMIR_OVL_TEXT(set) void ovl_bad_pal(samir_pal_t *p,const char *s,uint32_t n)
 { (void)p;(void)s;(void)n; }
 #endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_SAY
+static SAMIR_OVL_TEXT(set) int ovl_bad_say(samir_pal_t *p,uint8_t r,uint8_t c,const char *s,uint32_t n)
+{ (void)p;(void)r;(void)c;(void)s;(void)n;return 0; }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_PRINT
+static SAMIR_OVL_TEXT(set) int ovl_bad_print(samir_pal_t *p,const char *s,uint32_t n)
+{ (void)p;(void)s;(void)n;return 0; }
+#endif
 #ifdef SAMIR_OVL_MUTATE_ESCAPE_CURSOR
 static SAMIR_OVL_TEXT(set) uint32_t ovl_bad_cursor(void *u) { (void)u;return 1; }
 #endif
@@ -886,6 +910,14 @@ static SAMIR_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
 #endif
 #ifdef SAMIR_OVL_MUTATE_ESCAPE_PAL
     { samir_pal_t hooks=*xb_interp_pal(ip);hooks.conout=ovl_bad_pal;
+      samir_bind_pal(xb_interp_pal(ip),&hooks); }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_SAY
+    { samir_pal_t hooks=*xb_interp_pal(ip);hooks.say_screen=ovl_bad_say;
+      samir_bind_pal(xb_interp_pal(ip),&hooks); }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_PRINT
+    { samir_pal_t hooks=*xb_interp_pal(ip);hooks.printout=ovl_bad_print;
       samir_bind_pal(xb_interp_pal(ip),&hooks); }
 #endif
 #ifdef SAMIR_OVL_MUTATE_ESCAPE_CURSOR

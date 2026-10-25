@@ -1551,6 +1551,9 @@ void xb_interp_output(xb_interp *ip,const char *s,uint32_t n)
 #ifndef SAMIR_MUTATE_CONSOLE
     if(!xb_interp_console_visible(ip)) return;
 #endif
+    /* system-and-database-functions.md ROW/COL: ? and ?? advance the screen.
+     * Preserve buffered expression evaluation before moving the cursor. */
+    if(ip) rt_cursor_advance(&ip->ctx.screen_row,&ip->ctx.screen_col,s,n,1);
     if(ip && ip->pal->conout && n) ip->pal->conout(ip->pal,s,n);
 }
 

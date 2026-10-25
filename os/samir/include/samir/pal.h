@@ -266,6 +266,15 @@ struct samir_pal {
      * (os/boot/io_sys.asm); the protected-mode PAL reports that invariant
      * without a BIOS call. Host: fixed colour capability (Rule 11). */
     int     (*iscolor)(samir_pal_t *);
+
+    /* Positioned screen output bypasses stdout and SET ALTERNATE.
+     * Milton: INT 21h AH=3Dh open CON, AH=40h ANSI cursor + text, AH=3Eh.
+     * BIOS INT 10h cannot be used in Milton protected mode (idt.c).
+     * Host: deterministic memory cursor and discarded screen bytes. */
+    int (*say_screen)(samir_pal_t *,uint8_t,uint8_t,const char *,uint32_t);
+    /* Printer bytes: Milton INT 21h AH=05h, DL=byte (int21.c do_aux_prn).
+     * No busy wait when unbound. Host discards deterministically. */
+    int (*printout)(samir_pal_t *,const char *,uint32_t);
 };
 
 /* Owned buffer chains: reclaim ONLY this codec's allocations. */

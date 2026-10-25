@@ -182,6 +182,8 @@ void samir_ovl_validate_pal(const samir_pal_t *pal)
     SAMIR_RETAIN(pal->conin_poll);
     SAMIR_RETAIN(pal->time);
     SAMIR_RETAIN(pal->iscolor);
+    SAMIR_RETAIN(pal->say_screen);
+    SAMIR_RETAIN(pal->printout);
 }
 void samir_ovl_validate_ctx(const xb_ctx *c)
 {

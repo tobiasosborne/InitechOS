@@ -1,0 +1,9 @@
+. ? PROW()
+
+   0. SET DEVICE TO PRINT
+. @ 2,3 SAY "X"
+. STORE PROW() TO POSVAL
+. SET DEVICE TO SCREEN
+. ? POSVAL
+
+         2

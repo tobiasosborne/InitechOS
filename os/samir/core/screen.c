@@ -73,3 +73,41 @@ void samir_screen_write(samir_screen *s,const char *text,uint32_t len)
         }
     }
 }
+
+/* SAY-only cursor/cell synchronization after the PAL paints CON.
+ * Ref: ../dbase3-decomp/specs/full-screen/say-get-read.md sections 1, 2.2:
+ * @SAY addresses all 25 rows and leaves the cursor after its value. The
+ * row-23 golden and test_samir_say require cells beyond the 22-row viewport.
+ * Using III+ U5-16/PDF128 reserves the status rows for normal output: neither
+ * next_row nor samir_screen_write changes policy after this operation. */
+static void say_next_row(samir_screen *s)
+{
+    uint32_t r;
+    s->col=0;
+    if(s->row<24) { s->row++;return; }
+    for(r=0;r<24;r++)rt_memcpy(s->text[r],s->text[r+1],80);
+    rt_memset(s->text[24],' ',80);
+}
+void samir_screen_at(samir_screen *s,uint8_t row,uint8_t col,const char *text,uint32_t n)
+{
+    uint32_t i;
+    s->row=row;s->col=col;
+    /* Only SAY takes the terminal's control motion here (Milton console.c
+     * console_putc and ansi.c BEL); the shared dot-prompt writer stays intact.
+     * This also preserves test_samir_say's embedded-control expectations. */
+    for(i=0;i<n;i++) {
+        char c=text[i];
+        if(c=='\n')say_next_row(s);
+        else if(c=='\r')s->col=0;
+        else if(c=='\b') { if(s->col)s->col--; }
+        else if(c=='\a') { }
+        else if(c=='\f') { rt_memset(s->text,' ',sizeof s->text);s->row=s->col=0; }
+        else if(c=='\t') {
+            uint8_t next=(uint8_t)((s->col/8+1)*8);
+            if(next>=80)say_next_row(s);else s->col=next;
+        } else {
+            s->text[s->row][s->col++]=c;
+            if(s->col==80)say_next_row(s);
+        }
+    }
+}

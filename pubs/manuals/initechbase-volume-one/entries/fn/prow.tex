@@ -1,0 +1,15 @@
+% PROW -- system-and-database-functions.md PROW; fns-mint/prow/GOLD.OUT.
+\begin{XbaseEntry}{PROW}{function}
+Returns the row of the printer head, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{PROW()}}
+\Usage
+Rows are numbered from zero.  The initial position is 0.  After
+SET DEVICE TO PRINT, \cmd{@} SAY moves the printer head to the given row.
+Screen output leaves the printer position alone.
+The function takes no argument; a call with any argument raises
+\xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-prow}
+\SeeAlso{PCOL(), ROW(), SET DEVICE, @}
+\end{XbaseEntry}
