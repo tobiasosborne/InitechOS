@@ -43,6 +43,8 @@ for f in $TRACE_ASSUME_OLD; do
  [ -f "$f" ] || { echo "RED test-samir-trace: prerequisite $f missing (declare it on test-samir-trace)"; exit 1; }
  old="$old -o $f"
 done
+# Phony gates the boot mutant is ordered after (harness/gate_pairs.mk): done.
+for g in ${TRACE_ASSUME_DONE:-}; do old="$old -o $g"; done
 rc=0
 # shellcheck disable=SC2086
 ${MAKE:-make} --no-print-directory $old test-samir-boot-mutant HARNESS_BIN="$PWD/$w/failed-harness" \

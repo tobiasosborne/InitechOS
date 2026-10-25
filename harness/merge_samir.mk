@@ -66,8 +66,11 @@ TEST_EMU_GATES += test-qemu-snapshot
 # build/tracer_secondary.img beside the outer make, while ~30 other legs were
 # booting it (triple_fault=1 at serial_len=50). Every input of the boot-mutant
 # recipe is now a prerequisite here and is frozen (-o) in the nested make.
+# TRACE_ASSUME_DONE: the gate harness/gate_pairs.mk orders the mutant after;
+# the nested run must not re-run it (it would boot with the injected harness).
 TRACE_ASSUME_OLD = $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_MUT_IMG) $(MAKEFILE_STAMP)
+TRACE_ASSUME_DONE = test-samir-boot
 .PHONY: test-samir-trace
 test-samir-trace: $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_MUT_IMG)
-	+@MAKE="$(MAKE)" TRACE_ASSUME_OLD="$(TRACE_ASSUME_OLD)" sh tools/test-emu-trace.sh
+	+@MAKE="$(MAKE)" TRACE_ASSUME_OLD="$(TRACE_ASSUME_OLD)" TRACE_ASSUME_DONE="$(TRACE_ASSUME_DONE)" sh tools/test-emu-trace.sh
 TEST_UNIT_GATES += test-samir-trace
