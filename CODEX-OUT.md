@@ -1,105 +1,198 @@
-NDX is merge-ready on lane/wave1-ndx-r, based on fetched origin/main 4aaa0f72. Integration commit: 8f2bc5fc. No push, merge into main, bd, Bochs or full make test was run.
+LOG and SQRT, PM round 3: argument-picture fix committed locally. The requested function, mutant, QEMU, foundation and size gates pass. Shared-runtime follow-ups remain open as detailed below. Nothing was pushed.
 
-The seven lane commits were replayed in order; lane-brief commit 15222bc2 was skipped:
+1. Local commits and scope. Merge commit 7e9edf0d combines origin/lane/wave1-sqrt (d1411291) into lane/wave1-log. Implementation commit 69347583 contains the shared helper, real III+ captures, fixture support and manual updates. The brief conflict retained the LOG lane brief; the Makefile keeps both accepted functions.
 
-| Original | Replayed |
-| --- | --- |
-| 65cf35d0 | e21fff80 |
-| 37804a78 | 5653ba77 |
-| ab5fca21 | 770b7fd8 |
-| 24bbea83 | 9db8da5f |
-| fa880e3c | eaf4a6ed |
-| 5b56d615 | 3d7fef4b |
-| 133537a7 | 1808e757 |
+The three deferred-v1 files (eval.h, flow.c and workarea.c) are byte-identical to the merge baseline. No guard-path hunks were edited. deferred-v2.patch has not been supplied, so the PM-owned guard fix remains pending. The EXP function is also unchanged relative to the merge baseline.
 
-Conflict resolutions:
+2. Shared picture rule. fn_math_picture is used by both LOG and SQRT for normal and overflow results:
 
-- Makefile: retained F4 marker-derived lists, W2 rules and main's EXE/OVL machinery. ndx moved PENDING -> ACCEPTED; ndxdisplay has its own ACCEPTED marker. Classifier emulator mutants now build/install EXE/OVL pairs.
-- eval.h/workarea.c: retained last_update and appended index_name at the END. PAL slots remain 30; no slot was added. Existing main PAL bindings, including SAY, remain intact; the host curdrive binding pins C: deterministically.
-- Manuals: retained generated entry includes; ported NDX into entries/fn/ndx.tex in both manuals. The obsolete monolithic u6-entries.tex stays deleted. Main's set_options.def remains intact.
-- fns_mint.sh: kept main's shared mint_capture.sh and added explicit procedure-library setup for programs containing PROCEDURE definitions. All W2 evidence and adapter paths remain intact.
-- proc.c/query.c: retained guarded error binding and the STATUS overlay annotation while replaying routine-return clearing and case-preserving filename rendering.
-- Function harness: retained completed-trace checks and the unchanged transcript comparator, installed both EXE and OVL, used writable private boot copies for real C: captures, and added per-case locks so classifier mutants cannot clobber one another under -j64. The alternate filename remains GOLD.OUT as in the reviewed lane.
-
-The first merge-vector run also caught index I/O normalization uppercasing native directory names. ndx_io_name now canonicalizes only the file component and preserves directory spelling. Main's independent K05 view and mint-005 USE INDEX/list-layout regressions pass. Display spelling remains separately owned and unchanged.
-
-Placement and lifetime:
-
-NDX(), cursor access, deferred-error/guard completion, procedures, index open/accessors and the copying display-name setter remain resident. INDEX ON / REINDEX and ndx_build/ndx_rebuild execute in FILE; STATUS rendering stays in STATUS; SET INDEX parsing stays in SET. The ELF confirms the resident helpers below __ovl_slot=0x15490 and d_index/ndx_build/ndx_rebuild inside the overlay slot. NOCROSSREFS and the static call-graph gate pass.
-
-Display text is copied into the same resident-owned allocation as ndx_index. The constructor guards the allocation and retained tail pointer; the setter guards the owned destination and copies bytes rather than retaining the FILE/SET caller's pointer. REINDEX preserves that allocation. index_name is covered by samir_bind_cursor's lifetime guard and by the context audit at every overlay boundary. No new API retains a pointer into the slot. Placement is documented in docs/design/samir-overlays.md.
-
-Sizes:
-
-| Item | Bytes |
-| --- | ---: |
-| Resident load module | 87184 |
-| Resident budget | 93776 |
-| Headroom | 6592 |
-| Headroom above the 4096-byte floor | 2496 |
-| SAMIR.EXE file | 90672 |
-| Largest overlay / slot (FILE) | 9888 |
-| SAMIR.OVL file | 27136 |
-
-Against main's 84528-byte resident, the resident delta is +2656 bytes. PAL slot count and memory-budget assertions are unchanged.
-
-Every make command below used these command-line assignments:
 ```text
-DBASE3_DECOMP=/home/tobiasosborne/Projects/dbase3-decomp
-LOTUS123_DECOMP=/home/tobiasosborne/Projects/lotus123-decomp
-SYSTEM7_DECOMP=/home/tobiasosborne/Projects/system7-decomp
-WIN31_DECOMP=/home/tobiasosborne/Projects/win31-decomp
+D = max(argument decimal places, SET DECIMALS)
+I = max(1, argument width - original point/fraction suffix)
+W = I + (D ? D + 1 : 0)
 ```
 
-Commands and exit codes:
+The helper preserves argument integer/sign room and replaces its fractional suffix once. It never sizes from the result or classifies infinity/NaN. SET DECIMALS is a minimum: fresh D0/D1 fractional and field probes preserve greater argument precision. The ordinary dec_format_fit rounding guard retries within the selected width, including carries; it does not pre-round the stored double or widen the picture from the result. The comment cites the committed real captures and local formatting specification.
 
-- git fetch origin main: 0. git switch -c lane/wave1-ndx-r origin/main: 0.
-- git cherry-pick of the seven listed commits: conflict stops (1), resolved faithfully; final git cherry-pick --continue: 0.
-- Initial make -j8 test-samir-fns-ndx test-samir-fns-ndxdisplay test-samir-size test-samir-ovl-static test-pubs-lockstep-src samir-fns-goldens: 0.
-- Cold make -j64 test-merge-samir: 2. The run exposed the directory-normalization regression, unstaged marker-file dependency issue, boot-output snapshot isolation, and emulator infrastructure failures. The source/fixture issues were repaired and staged.
-- Repair checks for test-samir-view, test-samir-use and test-samir-list-layout: green; the combined repair invocation initially exited 2 while C: output was still isolated in a disposable QEMU snapshot. After enabling --boot-rw on the private boot copy, both NDX emulator gates exited 0.
-- Warm make -j64 test-merge-samir: 0, all 336 gates green.
-- Separate make -j8 invocation of all targets listed below: 0.
-- Final make test-pubs-lockstep-src after a manual-entry whitespace cleanup: 0.
+Removed the incorrect LOG(22027) five-column assertion and the other inferred result-width/output expectations. Numeric presentation expectations now come from independently minted bytes. Generic deferred-error contract checks remain.
 
-Separate verification targets:
+3. Independent real III+ mints. Ran fns_mint.sh against ../dbase3-decomp for log, sqrt, exppicture, logdoarg and sqrtdoarg. All five passed their declared error-code sequences, reached one FNS-END marker, flushed DOS EOF, and passed their SHA-256 checks. Verbatim mint verdicts:
+
 ```text
-test-samir-fns-ndx test-samir-fns-ndx-mutant
-test-samir-fns-ndx-emu test-samir-fns-ndx-emu-mutant
-test-samir-fns-ndxdisplay test-samir-fns-ndxdisplay-mutant
-test-samir-fns-ndxdisplay-emu test-samir-fns-ndxdisplay-emu-mutant
-test-samir-fns-ndx-deferred-mutant
-test-samir-fns-ndx-handler-name-mutant test-samir-fns-ndx-handler-depth-mutant
-test-samir-fns-ndx-handler-name-emu-mutant test-samir-fns-ndx-handler-depth-emu-mutant
-test-samir-size test-samir-ovl-static test-pubs-lockstep-src samir-fns-goldens
+MINT SF-log: /home/tobiasosborne/Projects/initech-os-cx-fn-log/build/samirfns/golden/log/GOLD.OUT
+MINT SF-sqrt: /home/tobiasosborne/Projects/initech-os-cx-fn-log/build/samirfns/golden/sqrt/GOLD.OUT
+MINT SF-exppicture: /home/tobiasosborne/Projects/initech-os-cx-fn-log/build/samirfns/golden/exppicture/GOLD.OUT
+MINT SF-logdoarg: /home/tobiasosborne/Projects/initech-os-cx-fn-log/build/samirfns/golden/logdoarg/GOLD.OUT
+MINT SF-sqrtdoarg: /home/tobiasosborne/Projects/initech-os-cx-fn-log/build/samirfns/golden/sqrtdoarg/GOLD.OUT
 ```
 
-Verbatim final verdicts:
+Committed corpus programs, helper PRGs, captures, provenance and hashes. The fixtures cover literals, memvars, N(8,2) fields, expressions, fractional arguments, DECIMALS 0/1/2/3, positive nested arguments and domain failures inside nested routines. Matching external PRGs and procedure bodies let both existing DO resolution paths execute identical helper bodies. The mint and test driver copy and verify these helper inputs. No licensed dBASE executable, overlay or message file was committed.
+
+Real III+ outputs for the PM examples, quoted to preserve spaces:
+
+| Probe | Real III+ output |
+|---|---|
+| LOG(22027), D2 | `"   10.00"` |
+| LOG(22026), D2 | `"   10.00"` |
+| LOG(-100), D2 | `"*******"` |
+| STORE -100 TO X; LOG(X) | `"*************"` |
+| SQRT(-1.00), D2 | `"*****"` |
+| SQRT(-BAL), BAL N(8,2) | `"*********"` |
+| SQRT(-100), D0 | `"****"` |
+| SQRT(10000), D2 | `"  100.00"` |
+
+Additional captured examples include SQRT(99.998) = "10.000", LOG(0.000001) = "-13.8155", LOG(0.36) = "-1.0", and SQRT(4.0000) = "2.0000" even at DECIMALS 0. These bytes, rather than inferred result widths, govern the implementation.
+
+4. RED before the shared helper. The fresh probes caught both original implementations:
+
 ```text
->>> test-merge-samir: 336 gates (test-pubs-lockstep-src: yes; no LaTeX)
->>> test-merge-samir: ALL GREEN
-samir-size: resident 87184 B; headroom 6592 B (budget 93776 B); slot 9888 B = overlay 0 (9888 B) of 5; SAMIR.OVL 27136 B
->>> test-samir-fns-ndx: green
->>> test-samir-fns-ndxdisplay: green
->>> test-samir-size: green (resident >=4096 B headroom against the samir.ld PAL-memory budget; slot == largest overlay)
+FNS transcript differs at byte 406 (got 0x31, real 0x20; lengths 1941/1946)
+  got: 10.00
+  real:    10.00
+  FAIL harness/diff/dbf_diff/test_samir_fns.c:173: FNS transcript byte-identical to real III+
+>>> test-samir-log-contract: green (deferred error ordering, first error)
+test-samir-fns: 12 checks, 1 failures
+make: *** [Makefile:34813: test-samir-fns-log] Error 1
+```
+
+```text
+FNS transcript differs at byte 333 (got 0x31, real 0x20; lengths 1873/1830)
+  got: 100.00
+  real:   100.00
+  FAIL harness/diff/dbf_diff/test_samir_fns.c:173: FNS transcript byte-identical to real III+
+test-samir-fns: 8 checks, 1 failures
+make: *** [Makefile:34813: test-samir-fns-sqrt] Error 1
+```
+
+5. Final passing gates. The following command exited 0:
+
+```sh
+INITECH_QMP_STDIO=1 make test-samir-fns-log test-samir-fns-sqrt test-samir-fns-log-mutant test-samir-fns-sqrt-mutant test-samir-fns-log-emu test-samir-fns-sqrt-emu test-samir-fns-log-emu-mutant test-samir-fns-sqrt-emu-mutant test-samir test-samir-size test-samir-fns samir-fns-goldens
+```
+
+Verbatim verdicts:
+
+```text
+>>> test-samir-log-contract: green (deferred error ordering, first error)
+>>> test-samir-fns-log: green
+>>> test-samir-fns-sqrt: green
+>>> SAMIR_FNS_MUTANT_log RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:175: FNS transcript byte-identical to real III+
+>>> SAMIR_FNS_MUTANT_sqrt RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:175: FNS transcript byte-identical to real III+
+>>> SAMIR.COM: 98425 bytes (flat .COM @0x40100, soft-float, x87=4)
+>>> test-samir-fns-log-emu: green
+>>> test-samir-fns-sqrt-emu: green
+>>> SAMIR_FNS_MUTANT_log emu RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:175: FNS transcript byte-identical to real III+
+>>> SAMIR_FNS_MUTANT_sqrt emu RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:175: FNS transcript byte-identical to real III+
+>>> test-samir-pal: green
+>>> test-samir-rt: green
+>>> test-samir-pal-host: green
+>>> test-samir-spec: green
+>>> test-samir-value: green
+>>> test-samir-dbf-ref: green
+>>> test-samir-ndx-ref: green
+>>> test-samir: SAMIR foundation green (PAL + rt + value + host binding + spec lock + dbf_ref + ndx_ref)
+samir-size: 98425 B; headroom 7927 B (budget 106352 B)
+>>> test-samir-size: green (>=4096 B headroom against samir.ld PAL-memory budget)
+>>> test-samir-fns-alias: green
+>>> test-samir-fns-alternate: green
+>>> test-samir-fns-console: green
+>>> test-samir-fns-division: green
+>>> test-samir-fns-errors: green
+>>> test-samir-fns-exprcol: green
+>>> test-samir-fns-index: green
+>>> test-samir-fns-listoff: green
+>>> test-samir-fns-numlist: green
+>>> test-samir-fns-recsize: green
+>>> test-samir-fns-struct: green
+>>> test-samir-fns-type: green
+>>> test-samir-fns-unknown: green
 >>> samir-fns-goldens: green (SF-index/listoff/recsize/type/errors/struct/unknown/division/numlist/exprcol real III+ captures pinned)
->>> test-samir-ovl-static: green (relocation kinds, slot, headers, call-graph rule; re-pack byte-identical)
->>> SAMIR_FNS_MUTANT_ndx RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:231: FNS transcript byte-identical to real III+
->>> SAMIR_FNS_MUTANT_ndxdisplay RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:231: FNS transcript byte-identical to real III+
->>> SAMIR_FNS_MUTANT_ndx_deferred RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:231: FNS transcript byte-identical to real III+
->>> SAMIR_FNS_MUTANT_ndx_handler_name RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:231: FNS transcript byte-identical to real III+
->>> SAMIR_FNS_MUTANT_ndx_handler_depth RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:231: FNS transcript byte-identical to real III+
->>> test-samir-fns-ndx-emu: green
->>> SAMIR_FNS_MUTANT_ndx emu RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:231: FNS transcript byte-identical to real III+
->>> test-samir-fns-ndxdisplay-emu: green
->>> SAMIR_FNS_MUTANT_ndx_handler_name emu RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:231: FNS transcript byte-identical to real III+
->>> SAMIR_FNS_MUTANT_ndx_handler_depth emu RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:231: FNS transcript byte-identical to real III+
->>> SAMIR_FNS_MUTANT_ndxdisplay emu RED:   FAIL harness/diff/dbf_diff/test_samir_fns.c:231: FNS transcript byte-identical to real III+
->>> test-pubs-lockstep-src: pubs/manuals/initechbase-volume-one: 149 shipped, 149 documented, 2 DRAFT
->>> test-pubs-lockstep-src: pubs/manuals/initechbase-quick-reference: 149 shipped, 149 documented, 2 DRAFT
->>> test-pubs-lockstep-src: green (293 DotExample typed-line checks, 1 Transcript pairs; restricted source grammar, no LaTeX run)
 ```
 
-Both native III+ goldens are byte-identical to the reviewed lane. All changed text is ASCII; source whitespace checks pass with native golden spacing and mint provenance preserved. The final report commit also removes one blank line at the end of the new manual entry. Existing untracked archive reports and logs were retained.
+An additional SAMIR_FNS_MUTANT_mathpicture build corrupts only wide negative argument pictures. Both runs exit 1 for the intended newly minted fractional-negative row:
 
-Logs: build/ndx-merge/initial.log, merge-cold.log, repairs.log, emu-repair.log, merge-warm.log, targeted-final.log and pubs-final.log. No oracle was relaxed.
+```text
+FNS transcript differs at byte 548 (got 0x2a, real 0x0d; lengths 1836/1830)
+  got: ******
+  real: *****
+  FAIL harness/diff/dbf_diff/test_samir_fns.c:175: FNS transcript byte-identical to real III+
+>>> test-samir-log-contract: green (deferred error ordering, first error)
+test-samir-fns: 13 checks, 1 failures
+```
+
+```text
+FNS transcript differs at byte 504 (got 0x2a, real 0x0d; lengths 1726/1720)
+  got: ******
+  real: *****
+  FAIL harness/diff/dbf_diff/test_samir_fns.c:175: FNS transcript byte-identical to real III+
+test-samir-fns: 9 checks, 1 failures
+```
+
+6. EXP on main does NOT match the fresh picture probes. Built the engine from origin/main 4884df087ff9a82ce61af9ffc1b6a8603e2103c9 in /tmp. Only the factory driver helper-file staging was adjusted; main runtime sources were unchanged. Its exppicture run exits 1:
+
+```text
+FNS transcript differs at byte 97 (got 0x20, real 0x32; lengths 629/606)
+  got:          2.72
+  real:       2.72
+  FAIL /tmp/log-sqrt-r3-main/harness/diff/dbf_diff/test_samir_fns.c:150: FNS transcript byte-identical to real III+
+test-samir-fns: 3 checks, 1 failures
+```
+
+Quoted comparisons from the real capture and main engine:
+
+| Probe | Real III+ | Main EXP |
+|---|---|---|
+| EXP(1) | `"         2.72"` | `"         2.72"` |
+| EXP(1.00) | `"      2.72"` | `"         2.72"` |
+| EXP(0.368) | `"     1.445"` | `"         1.44"` |
+| EXP(0.000001) | `"  1.000001"` | `"         1.00"` |
+| EXP(-BAL) | `"      0.00"` | `"         0.00"` |
+| EXP(BAL/1000) | `"      3.44"` | `"         3.44"` |
+| EXP(10), D0 | `"     22026"` | `"     22026"` |
+| EXP(1.00), D3 | `"      2.718"` | `"         2.718"` |
+
+The EXP mismatch includes fractional/field width and retained precision. EXP was not changed in this lane. Its independent probe is committed for the owning lane.
+
+7. Explicit PENDING shared-runtime diagnostics. The added logdoarg and sqrtdoarg captures show that real III+ reports a failed DO argument before entering the callee, then passes a ten-column overflow value. Current SAMIR enters the callee with thirteen columns and reports the error afterward. These extra cases are named PENDING gates, outside the passing numeric acceptance cases; their expected bytes were not relaxed. The passing LOG/SQRT cases still contain nested positive arguments and nested in-routine domain failures.
+
+Verbatim current diagnostic failures:
+
+```text
+FNS transcript differs at byte 33 (got 0x50, real 0x4d; lengths 155/152)
+  got: PICOUT *************
+  real: MINT-ERROR         58 LOG() : Zero or negative.
+  FAIL harness/diff/dbf_diff/test_samir_fns.c:175: FNS transcript byte-identical to real III+
+test-samir-fns: 4 checks, 1 failures
+make: *** [Makefile:34825: test-samir-fns-logdoarg] Error 1
+```
+
+```text
+FNS transcript differs at byte 34 (got 0x50, real 0x4d; lengths 149/146)
+  got: PICOUT *************
+  real: MINT-ERROR         61 SQRT() : Negative.
+  FAIL harness/diff/dbf_diff/test_samir_fns.c:175: FNS transcript byte-identical to real III+
+test-samir-fns: 4 checks, 1 failures
+make: *** [Makefile:34825: test-samir-fns-sqrtdoarg] Error 1
+```
+
+The DO-argument issue needs the PM shared-runtime ruling; it was reported while the picture work continued. The separately reviewed IF/CASE/WHILE guard blocker also remains pending deferred-v2.patch. These outstanding shared statement semantics prevent claiming full conformance despite the passing numeric gates.
+
+8. Binary size and checks. Rebuilt the merged pre-fix source (7e9edf0d) separately with the same profile for a like-for-like two-function baseline:
+
+```text
+-rwxr-xr-x 1 tobiasosborne tobiasosborne 98728 Oct 25 11:17 /tmp/log-sqrt-r3-merge-baseline/SAMIR.COM
+-rwxr-xr-x 1 tobiasosborne tobiasosborne 98425 Oct 25 11:11 build/SAMIR.COM
+```
+
+The shared picture fix reduces SAMIR.COM from 98728 to 98425 bytes: -303 bytes. The final image has 7927 bytes of headroom against the 106352-byte budget. The initially present LOG-only artifact was 98489 bytes (-64 bytes versus that stale pre-merge artifact); it is not the merged-source baseline.
+
+Changed source and probe text is ASCII. Synthetic binary DBF fixtures are preserved as binary. Real GOLD.OUT CRLF/DOS EOF and raw mint logs are retained verbatim. The source whitespace check passes with CR-at-EOL recognized and raw tool-generated mint.log files excluded; those logs contain original trailing spaces. All five per-capture hash manifests pass. The deferred-v1 files and EXP body compare unchanged against the merge baseline.
+
+Implementation statistics:
+
+```text
+69347583a7470e07d00168f4a767011b3dae3653 samir(fns): preserve LOG and SQRT argument pictures against fresh III+ mints
+ 77 files changed, 1202 insertions(+), 162 deletions(-)
+```
+
+All work is on lane/wave1-log in local commits. This report is committed separately. Existing untracked log/report backups remain untouched; nothing was pushed. Beads pull/create were unavailable because its Dolt origin and issue_prefix configuration are missing.
