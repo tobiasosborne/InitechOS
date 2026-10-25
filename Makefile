@@ -35064,5 +35064,8 @@ TEST_EMU_GATES += test-flair-i123-copy test-flair-i123-copy-cpu test-flair-i123-
 # Parallel certificate runner bookkeeping (initech-9bgg6), no emulators.
 include harness/cert_runner.mk
 
+# Real III PLUS 1.1 full-screen golden minter (W4.0).
+include harness/diff/dbf_diff/screen_mint.mk
+
 # Calculator desk accessory lifecycle (initech-0xs6).
 include harness/emu/calcda_power.mk

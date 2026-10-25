@@ -1,0 +1,33 @@
+[harness] exact text-screen helper deadline expired (killed and reaped)
+GREEN: stalled text-screen helper killed and reaped within harness deadline
+Review evidence: /home/tobiasosborne/Projects/initech-os-cx-fsmint/build/screen-mint/review-tests.LlhWew
+RED: stale-capture rejected (exit 2)
+RED: reserved-dump7.bin rejected (exit 2)
+RED: reserved-capture.ok rejected (exit 2)
+RED: reserved-dbase.exe rejected (exit 2)
+RED: reserved-DBASEINL.OVL rejected (exit 2)
+RED: reserved-screen.com rejected (exit 2)
+RED: reserved-events.bin rejected (exit 2)
+RED: reserved-MINT.PRG rejected (exit 2)
+RED: missing-save-marker rejected (exit 1)
+RED: failed-save-marker rejected (exit 1)
+RED: oracle-hash rejected (exit 1)
+RED: oracle-self-test-gate rejected (exit 1)
+RED: oracle-repro-gate rejected (exit 1)
+RED: oracle-binary rejected (exit 1)
+RED: oracle-events rejected (exit 1)
+RED: oracle-helper rejected (exit 1)
+GREEN: real III+ mint dir-case (2 dump points)
+GREEN: real III+ mint dir-case (2 dump points)
+RUN DIR run 1
+36f606f82f388ac959fa222938c9ce923058ab1cd359343d472442052ae24405  ./dir.screen
+5f5fe2772e5aac2f98e42746ae64149ae6ff2e7decc14d067d673fa8b012a9c2  ./space.screen
+RUN DIR run 2
+36f606f82f388ac959fa222938c9ce923058ab1cd359343d472442052ae24405  ./dir.screen
+5f5fe2772e5aac2f98e42746ae64149ae6ff2e7decc14d067d673fa8b012a9c2  ./space.screen
+GREEN: RUN DIR and native DIR byte-identical despite changed host timestamps and space
+RED: helper-failed-after-save rejected (exit 1)
+RED: incomplete-capture rejected (exit 1)
+RED: stalled-helper rejected (exit 1)
+RED: stalled-record-helper rejected (exit 1)
+GREEN: all five review blockers mutation-proven

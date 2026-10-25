@@ -261,13 +261,63 @@ typedef struct {
     int ended;             /* 1 once end_marker was seen on serial          */
     int after_end;         /* events injected after end_marker              */
     int first_dead;        /* 1-based index of the first such event, or 0   */
+    long long deadline;   /* the parent harness's absolute wall deadline */
+    int failed;
 } RecordCtx;
 
 /* Issue one QMP screendump to path over an already-handshaked fd. Shared by
  * the record-mode frame grabs and the legacy single --screendump. Returns 0
  * on a successful send (file existence is the caller's check). */
-static int qmp_do_screendump(int fd, const char *path)
+static int qmp_do_screendump(int fd, const char *path, long long deadline)
 {
+    /* W4.0: optional exact text page beside the PPM, on the same settled
+     * capture boundary. Inherit this QMP connection (also works with stdio
+     * transport); the parent waits, so replies cannot race between readers.
+     * The matching unstripped kernel ELF supplies the live console symbols.
+     * No overhead or new dependency on ordinary pixel-only harness runs. */
+    const char *text_elf = getenv("INITECH_TEXT_SCREEN_ELF");
+    if (text_elf && *text_elf) {
+        const char *tool = getenv("INITECH_TEXT_SCREEN_TOOL");
+        char output[QEMU_PATH_MAX + 16];
+        int len = snprintf(output, sizeof output, "%s.screen", path);
+        if (!tool || !*tool || len < 0 || (size_t)len >= sizeof output) return -1;
+        unlink(output);
+        pid_t child = fork();
+        if (child < 0) return -1;
+        if (child == 0) {
+            if (setpgid(0, 0) < 0) _exit(127);
+            if (dup2(fd, 3) < 0) _exit(127);
+            execl(tool, tool, "--fd", "3", text_elf, output, (char *)NULL);
+            _exit(127);
+        }
+        /* Kill a wrapper's descendants as well as the direct helper. */
+        (void)setpgid(child, child);
+        int status;
+        pid_t waited;
+        for (;;) {
+            waited = waitpid(child, &status, WNOHANG);
+            if (waited == child || (waited < 0 && errno != EINTR)) break;
+            if (mono_ms() >= deadline) {
+                kill(-child, SIGKILL);
+                kill(child, SIGKILL); /* also covers a failed setpgid race */
+                do { waited = waitpid(child, &status, 0); } while (waited < 0 && errno == EINTR);
+                unlink(output);
+                fprintf(stderr, "[harness] exact text-screen helper deadline expired (killed and reaped)\n");
+                return -1;
+            }
+            sleep_ms(5);
+        }
+        if (waited != child || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+            unlink(output);
+            fprintf(stderr, "[harness] exact text-screen capture FAILED\n");
+            return -1;
+        }
+        struct stat st;
+        if (stat(output, &st) || st.st_size == 0) {
+            fprintf(stderr, "[harness] exact text-screen capture missing\n");
+            return -1;
+        }
+    }
     char cmd[QEMU_PATH_MAX + 64];
     int n = snprintf(cmd, sizeof(cmd),
                      "{\"execute\":\"screendump\",\"arguments\":"
@@ -284,8 +334,7 @@ static int qmp_do_screendump(int fd, const char *path)
 
 /* Grab the next record-mode frame: settle-drain (the guest finishes painting
  * the event we just injected), then dump frame_%05d.ppm. Silent no-op when
- * rec is NULL. A failed dump is LOUD (Law 2) but does not abort the run --
- * the encode step will fail honestly on the missing frame. */
+ * rec is NULL. A failed dump is LOUD and marks the QMP session failed. */
 static void record_frame(RecordCtx *rec)
 {
     if (!rec) {
@@ -299,9 +348,10 @@ static void record_frame(RecordCtx *rec)
         fprintf(stderr, "[harness] record: frame path too long (skipped)\n");
         return;
     }
-    if (qmp_do_screendump(rec->fd, path) == 0) {
+    if (qmp_do_screendump(rec->fd, path, rec->deadline) == 0) {
         rec->count++;
     } else {
+        rec->failed = 1;
         fprintf(stderr, "[harness] record: frame %d dump FAILED\n",
                 rec->count);
     }
@@ -352,6 +402,7 @@ static void record_pre_event(RecordCtx *rec)
  * restored frame, not the marker's held panel (bead initech-b3hl; Law 2). */
 typedef struct {
     int fd;
+    long long deadline;
     const char *path;
     const char *marker;
     const char *serial_path;
@@ -386,7 +437,7 @@ static void capture_take(CaptureCtx *cap)
     if (!cap || cap->attempted) return;
     cap->attempted = 1;
     qmp_drain(cap->fd, 150);
-    if (qmp_do_screendump(cap->fd, cap->path) == 0) {
+    if (qmp_do_screendump(cap->fd, cap->path, cap->deadline) == 0) {
         cap->taken = 1;
     } else {
         fprintf(stderr,
@@ -399,6 +450,11 @@ static void capture_if_seen(CaptureCtx *cap)
 {
     if (cap && cap->midtrack && !cap->attempted && capture_marker_seen(cap))
         capture_take(cap);
+}
+
+static int capture_failed(const RecordCtx *rec, const CaptureCtx *cap)
+{
+    return (rec && rec->failed) || (cap && cap->attempted && !cap->taken);
 }
 
 static void capture_wait_after_event(CaptureCtx *cap, int budget_ms)
@@ -813,8 +869,10 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
             if (!key_ack_enabled(ack)) qmp_drain(fd, 30);
             if (!key_ack_wait(fd, ack, before)) return -1;
             capture_if_seen(cap);
+            if (capture_failed(rec, cap)) return -1;
             /* Record mode (initech-l9cd): one frame per injected event. */
             record_frame(rec);
+            if (capture_failed(rec, cap)) return -1;
         }
     }
     if (bad) {
@@ -1036,6 +1094,7 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
                 while (mono_ms() < until) {
                     qmp_drain(fd, 20);
                     capture_if_seen(cap);
+                    if (capture_failed(rec, cap)) return -1;
                 }
                 ok = 1;
             }
@@ -1071,8 +1130,10 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
             } else {
                 capture_if_seen(cap);
             }
+            if (capture_failed(rec, cap)) return -1;
             /* Record mode (initech-l9cd): one frame per injected event. */
             record_frame(rec);
+            if (capture_failed(rec, cap)) return -1;
         } else {
             fprintf(stderr, "[harness] --mouse: unknown token '%s' (skipped)\n",
                     tok);
@@ -1258,7 +1319,8 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
                        int keys_after_ms, const char *quit_after,
                        int quit_budget_ms, int quit_count, int *quit_seen,
                        const char *record_end_marker, int *rec_after_end,
-                       int *rec_first_dead, const clockid_t *guest_clock)
+                       int *rec_first_dead, const clockid_t *guest_clock,
+                       long long harness_deadline)
 {
     /* initech-7r2; PRD Sec 8 / Rule 2: the ready and completion waits share
      * one 120 s ceiling. Serial growth renews their existing idle budgets,
@@ -1329,6 +1391,7 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
     CaptureCtx *cap = NULL;
     if (ppm_path && screendump_after && screendump_after[0] != '\0') {
         cap_store.fd = fd;
+        cap_store.deadline = harness_deadline;
         cap_store.path = ppm_path;
         cap_store.marker = screendump_after;
         cap_store.serial_path = serial_path;
@@ -1365,6 +1428,8 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
             rec_store.ended = 0;
             rec_store.after_end = 0;
             rec_store.first_dead = 0;
+            rec_store.deadline = harness_deadline;
+            rec_store.failed = 0;
             rec = &rec_store;
         }
         if (want_keys || want_mouse) {
@@ -1386,6 +1451,7 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
             }
             /* Frame 0: the pre-interaction desktop (post ready-marker). */
             record_frame(rec);
+            if (capture_failed(rec, cap)) { close(fd); return -1; }
             KeyAckCtx ack = { serial_path, keys_ack,
                 keys_after_ms > 0 ? keys_after_ms : 4000,
                 serial_deadline, guest_clock };
@@ -1419,6 +1485,9 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
         }
         if (rec && rec_first_dead) {
             *rec_first_dead = rec->first_dead;
+        }
+        if (capture_failed(rec, cap)) {
+            close(fd); return -1;
         }
     }
 
@@ -1466,7 +1535,7 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
             }
         }
         if (capture_ready) {
-            if (qmp_do_screendump(fd, ppm_path) != 0) {
+            if (qmp_do_screendump(fd, ppm_path, harness_deadline) != 0) {
                 close(fd);
                 return -1;
             }
@@ -1785,6 +1854,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
             return -1;
         }
     }
+    long long harness_deadline = mono_ms() + timeout_ms;
     pid_t pid = fork();
     if (pid < 0) {
         if (qmp_pair[0] >= 0) { close(qmp_pair[0]); close(qmp_pair[1]); }
@@ -1829,6 +1899,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
      * initech-5l5z FO-6). */
     bool want_keys  = cfg->keys_spec  && cfg->keys_spec[0]  != '\0';
     bool want_mouse = cfg->mouse_spec && cfg->mouse_spec[0] != '\0';
+    bool qmp_failed = false;
     if (cfg->enable_qmp_screendump || want_keys || want_mouse) {
         const char *ppm = cfg->enable_qmp_screendump ? out->screendump_path
                                                       : NULL;
@@ -1862,7 +1933,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
                         cfg->keys_after_ms, cfg->quit_after, sd_budget,
                         cfg->quit_after_count, &qseen,
                         cfg->record_frames ? cfg->record_end_marker : NULL,
-                        &after_end, &first_dead, guest_clock) == 0) {
+                        &after_end, &first_dead, guest_clock, harness_deadline) == 0) {
             out->quit_marker_found = qseen != 0;
             out->record_events_after_end = after_end;
             out->record_first_dead_event = first_dead;
@@ -1875,15 +1946,19 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
                     out->screendump_taken = true;
                 }
             }
+        } else {
+            qmp_failed = true;
+            kill(pid, SIGTERM);
         }
     }
 
     /* Wall-clock timeout loop: poll waitpid, escalate SIGTERM -> SIGKILL. */
-    long long deadline = mono_ms() + timeout_ms;
+    long long deadline = harness_deadline;
     int status = 0;
     bool reaped = false;
-    bool sent_term = false;
-    long long term_at = 0;
+    bool sent_term = qmp_failed;
+    long long term_at = qmp_failed ? mono_ms() : 0;
+    if (qmp_failed && mono_ms() >= deadline) out->timed_out = true;
     for (;;) {
         pid_t w = waitpid(pid, &status, WNOHANG);
         if (w == pid) {
@@ -1971,6 +2046,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
 
     /* Overall verdict. */
     out->ok = out->launched && !out->timed_out && !out->triple_fault &&
+              !qmp_failed &&
               out->guest_errors == 0 &&
               (cfg->expect_marker == NULL || out->marker_found) &&
               (cfg->quit_after == NULL || cfg->quit_after[0] == '\0' ||

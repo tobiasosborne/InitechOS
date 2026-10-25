@@ -1,0 +1,38 @@
+Repro evidence: build/screen-mint/repro.4O9lXj
+GREEN: real III+ mint assist (2 dump points)
+GREEN: real III+ mint assist (2 dump points)
+RUN 1 assist
+601dcb5e9a116976830449a95c017e199b9b6dda4f8384524f4d6a0df3cb6d5a  ./main-menu.screen
+8e753e3a6ec6b2dcbcac5c444e172be6a5f12fa967b5b06c80dde5b6180da4e0  ./menu-open.screen
+RUN 2 assist
+601dcb5e9a116976830449a95c017e199b9b6dda4f8384524f4d6a0df3cb6d5a  ./main-menu.screen
+8e753e3a6ec6b2dcbcac5c444e172be6a5f12fa967b5b06c80dde5b6180da4e0  ./menu-open.screen
+GREEN: reproducible real III+ assist (two fresh runs byte-identical; stored goldens match)
+GREEN: real III+ mint browse (1 dump points)
+GREEN: real III+ mint browse (1 dump points)
+RUN 1 browse
+d20c2f68eef36717a66c1045977b4f4dc0435672c70ece624a1efda2f1e26ef2  ./browse-edited.screen
+RUN 2 browse
+d20c2f68eef36717a66c1045977b4f4dc0435672c70ece624a1efda2f1e26ef2  ./browse-edited.screen
+GREEN: reproducible real III+ browse (two fresh runs byte-identical; stored goldens match)
+GREEN: real III+ mint dot (1 dump points)
+GREEN: real III+ mint dot (1 dump points)
+RUN 1 dot
+f79f3d9123b24ea82d7a14121f4bbf436c91ed415f1b62582926a34c584ab3b6  ./structure.screen
+RUN 2 dot
+f79f3d9123b24ea82d7a14121f4bbf436c91ed415f1b62582926a34c584ab3b6  ./structure.screen
+GREEN: reproducible real III+ dot (two fresh runs byte-identical; stored goldens match)
+GREEN: real III+ mint edit (1 dump points)
+GREEN: real III+ mint edit (1 dump points)
+RUN 1 edit
+d2fe1d693d2add06c60544070ce5bb8ef55956461bb488d747d983ca2b798dd1  ./record-two.screen
+RUN 2 edit
+d2fe1d693d2add06c60544070ce5bb8ef55956461bb488d747d983ca2b798dd1  ./record-two.screen
+GREEN: reproducible real III+ edit (two fresh runs byte-identical; stored goldens match)
+GREEN: real III+ mint get (1 dump points)
+GREEN: real III+ mint get (1 dump points)
+RUN 1 get
+b62b9ef27fda4e3c36fe44d5c840845dca3b8eb4ac0074800b60eb23d5c95ab6  ./read-typed.screen
+RUN 2 get
+b62b9ef27fda4e3c36fe44d5c840845dca3b8eb4ac0074800b60eb23d5c95ab6  ./read-typed.screen
+GREEN: reproducible real III+ get (two fresh runs byte-identical; stored goldens match)
