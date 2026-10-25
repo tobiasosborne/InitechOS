@@ -23641,7 +23641,9 @@ endif
 # MP4 (libx264 yuv420p) with ffmpeg bitexact flags + metadata stripped so the
 # outputs carry no timestamps (Rule 11). DEV AID + Law-4 evidence channel, not
 # a default-vector gate; `record-flair-repro` is the empirical byte-identical
-# check (same SCRIPT -> identical sha256s).
+# check (same SCRIPT -> identical sha256s). WHEN each frame is grabbed: on the
+# record kernels at a guest-served input-idle sync point (RECORD-SYNC, bead
+# initech-x8gsi.1 -- see RECORD_SYNC_IMAGES below), never on the wall clock.
 #   usage: make record-flair SCRIPT=solid_drag
 #          make record-flair-repro SCRIPT=solid_drag
 RECORD_CLIPS_DIR := $(BUILD)/clips
@@ -24023,7 +24025,7 @@ RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag s
 # Reuses the kmain-variant template; "mut_" in the artifact name is the
 # template's naming -- this knob widens a demo bound, it mutates NO behavior
 # the oracles grade (the default image stays byte-identical, budget 250).
-$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=3000,record))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=3000 -DFLAIR_RECORD_SYNC,record))
 FLAIRTENANTS_RECORD_IMG := $(BUILD)/flair_tenants_mut_record.img
 
 # The DOUBLE-CLICK record image (bead initech-tdnl.10). A SECOND record variant
@@ -24103,7 +24105,7 @@ record-flair-mutant: $(BUILD)/flair_tenants_recorddbl_mut_ignore.img
 # MEASURED: the 96-event menu_long trace spends ~0.4 s per recorded frame and
 # outlived the 3000-tick life (FLAIR-TRACK-EXPIRED mid-gesture). It widens a
 # demo bound only; nothing an oracle grades changes.
-$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=6000,recordlong))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=6000 -DFLAIR_RECORD_SYNC,recordlong))
 $(BUILD)/kernel_flairtenants_recordlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/event_recorddbl.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
 	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/event_recorddbl.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_recordlongdbl.bin: $(BUILD)/kernel_flairtenants_recordlongdbl.elf | $(BUILD)
@@ -24248,7 +24250,7 @@ RECORD_IMAGE_i123_copy_tile = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # recordxlong also steps the FILE COPY bar per injected event (kmain.c FILECOPY_RECORD_STEP):
 # four moves complete the 500-tick copy at 125 ticks each, so the up/MID/DONE frames are
 # deterministic under record-flair-repro (PM 2026-10-17).
-$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=12000 -DFILECOPY_RECORD_STEP=125,recordxlong))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=12000 -DFILECOPY_RECORD_STEP=125 -DFLAIR_RECORD_SYNC,recordxlong))
 $(BUILD)/kernel_flairtenants_recordxlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/event_recorddbl.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
 	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/event_recorddbl.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_recordxlongdbl.bin: $(BUILD)/kernel_flairtenants_recordxlongdbl.elf | $(BUILD)
@@ -24797,6 +24799,39 @@ RECORD_MARKER_trash_putaway_multi = FINDER-PUT-AWAY n=2
 # outlast the default settle: a 120 ms grab raced it (record-flair-repro).
 $(foreach s,trash_delete_now trash_notrash_open trash_putaway_multi,$(eval RECORD_SETTLE_$(s) = 1000))
 
+# RECORD-SYNC (bead initech-x8gsi.1, operator-authorized 2026-10-25). MEASURED:
+# record-flair-repro was RED on main for empty_trash (frame 52: the Trash still
+# listing the files the OK click was purging in one capture, emptied in the
+# other) and finder_entries (frame 18: Open-All half painted); an overlay branch
+# with slower first calls added five more Finder clips. Longer settles did not
+# cure it: a wall-clock grab samples a guest whose progress depends on host load,
+# and the guest's own clock ran on through every grab (scroll_arrow took 2, 3 or
+# 4 held-repeat steps per press across six captures).
+# These record images are built with -DFLAIR_RECORD_SYNC (the three
+# flair-tenants-kmain-mutant-rules calls above) and recorded LOCKSTEP
+# (os/milton/kmain.c RECORD-SYNC; harness/emu/qemu.c record_frame_sync):
+#   - QEMU runs with -icount (--rtc-deterministic: shift=4, ~62 MIPS, a 486's
+#     pace), so guest time counts retired instructions, not host speed;
+#   - each frame is grabbed only at a guest-served input-idle sync point, the
+#     settle (RECORD_SETTLE_<script>) after the guest CONSUMED the input, timed
+#     on the guest's clock; the guest blocks, clock stopped, while the harness
+#     grabs and queues the next token, then resumes on a PIT tick edge;
+#   - "w<ms>" holds are guest-clock holds; the record kernel's menu-bar clock
+#     follows the guest clock (the RTC runs on through every grab).
+# The settle keeps the pacing between events the clips were authored against;
+# it no longer decides WHEN a frame is grabbed. Images outside this list (the
+# interactive desktop, the boot-hold / cursor-boot / menu-bar-clock captures of
+# time itself) keep the legacy timed grab.
+RECORD_IMG_OF = $(or $(RECORD_IMAGE_$(SCRIPT)),$(FLAIRTENANTS_RECORD_IMG))
+RECORD_SYNC_ARGS = --record-sync --rtc-deterministic
+RECORD_SYNC_IMAGES = $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) \
+	$(FLAIRTENANTS_RECORDLONGDBL_IMG) $(FLAIRTENANTS_RECORDXLONGDBL_IMG) \
+	$(FLAIRTENANTS_RECORDDBL_EXITDOS_IMG) $(BUILD)/flair_tenants_recorddbl_mut_ignore.img
+# The throwaway data-volume copy is per SCRIPT (not the per-target
+# build/record-flair_data.img), so captures of DIFFERENT scripts can run side by
+# side without one clobbering the volume another guest is writing.
+record-flair: FLAIR_GATE_DATA = $(RECORD_CLIPS_DIR)/rec_$(SCRIPT)_data.img
+
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -24813,8 +24848,16 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --record-end-marker FLAIR-LIVE-OK --timeout-ms 45000 \
 		$(if $(RECORD_RTC_BASE_$(SCRIPT)),--rtc-base "$(RECORD_RTC_BASE_$(SCRIPT))" --rtc-deterministic) \
 		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --record-end-marker FLAIR-LIVE-OK --timeout-ms $(or $(RECORD_TIMEOUT_MS_$(SCRIPT)),45000) \
+		$(if $(filter $(RECORD_IMG_OF),$(RECORD_SYNC_IMAGES)),$(RECORD_SYNC_ARGS)) \
 		2> "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || true
 	@if grep -q 'triple_fault=1' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report"; then printf '!!! record-flair: guest TRIPLE-FAULTED during capture\n'; exit 1; fi
+	@# initech-x8gsi.1: a RECORD-SYNC image takes every frame at a guest-served
+	@# sync point. A capture the harness could not complete, or a guest that
+	@# never answered on COM2, is RED -- never a clip of whatever got grabbed.
+	@if grep -Eq 'record-sync: .*FAILED|record: frame [0-9]+ dump FAILED|QMP recsync-[0-9]+ failed' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report"; then \
+		printf '!!! record-flair [%s]: frame capture FAILED:\n' "$(SCRIPT)"; grep -E 'record-sync|record: frame|QMP rec' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" | head -5; exit 1; fi
+	@if grep -q 'REC-SYNC-BAD' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).serial"; then printf '!!! record-flair [%s]: guest saw a malformed COM2 sync byte\n' "$(SCRIPT)"; exit 1; fi
+	@$(if $(filter $(RECORD_IMG_OF),$(RECORD_SYNC_IMAGES)),tr -d '\r' < "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).serial" | grep -qx 'REC-SYNC-ON' || { printf '!!! record-flair [%s]: RECORD-SYNC image never probed COM2 (REC-SYNC-ON missing)\n' "$(SCRIPT)"; exit 1; },:)
 	@if grep -Eq 'KBD-RING-DROP|FLAIR-EVT-DROP' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).serial"; then printf '!!! record-flair: input ring overrun (owpg)\n'; exit 1; fi
 	@# initech-mfrb: a bounded record image halts at FLAIR-LIVE-OK when its pump
 	@# life runs out; events injected after that are LOST while the frames keep
@@ -24849,8 +24892,9 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 	@ls -la "$(RECORD_CLIPS_DIR)/$(SCRIPT).gif" "$(RECORD_CLIPS_DIR)/$(SCRIPT).mp4"
 
 # Reproducibility check (Rule 11, empirical): capture the SAME SCRIPT twice and
-# require byte-identical GIF+MP4. A drift here means a frame raced its paint
-# settle -- raise --record-settle-ms (or investigate), never ship a flaky clip
+# require byte-identical GIF+MP4. A drift on a RECORD-SYNC image (RECORD_SYNC_IMAGES)
+# means guest state at an idle point depends on host timing -- investigate the guest;
+# on a legacy timed-grab image it means a frame raced its settle. Never ship a flaky clip
 # pipeline as "deterministic".
 .PHONY: record-flair-repro
 record-flair-repro: $(HARNESS_BIN) $(FLAIRTENANTS_IMG)
@@ -24869,7 +24913,7 @@ record-flair-repro: $(HARNESS_BIN) $(FLAIRTENANTS_IMG)
 		rm -rf "$(RECORD_CLIPS_DIR)/$(SCRIPT).run1"; \
 		printf '>>> record-flair-repro [%s]: PASS -- two captures byte-identical\n' "$(SCRIPT)"; \
 	else \
-		printf '!!! record-flair-repro [%s]: FAIL -- captures differ (frame raced its settle?)\n' "$(SCRIPT)"; \
+		printf '!!! record-flair-repro [%s]: FAIL -- captures differ (a host-timed frame: see RECORD-SYNC)\n' "$(SCRIPT)"; \
 		printf '    capture 1 preserved at %s (frames + clips); capture 2 is the live files -- diff the frame PPMs to find the racing frame\n' "$(RECORD_CLIPS_DIR)/$(SCRIPT).run1"; \
 		diff "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.1" "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.2" || true; exit 1; \
 	fi
