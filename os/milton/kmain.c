@@ -939,7 +939,6 @@ static uint16_t loader_overlay_by_name(const char *name83, uint16_t dir_start,
                                 int21_overlay_dest_ok)) {
         case LOADER_OK:            return 0u;
         case LOADER_ERR_NOT_OWNED: return INT21_ERR_INVALID_MEMORY;  /* 0009h */
-        case LOADER_ERR_NOMEM:     return INT21_ERR_INSUFFICIENT_MEM; /* 0008h */
         case LOADER_ERR_BAD_FORMAT: return INT21_ERR_BAD_FORMAT;     /* 000Bh */
         default:                   return INT21_ERR_FILE_NOT_FOUND;  /* 0002h */
     }

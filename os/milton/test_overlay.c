@@ -16,7 +16,8 @@
  *      relocation by the caller's factor, the exact footprint (canaries past
  *      it stay intact), raw verbatim copy, the untagged-MZ refusal, malformed
  *      MZ refused BEFORE a destination byte is written, the ownership refusal,
- *      whole-destination atomicity under partial reads and invalid fixups.
+ *      whole-destination canaries for validation refusals and genuine device
+ *      I/O errors with explicitly allowed partial writes (PM initech-f9t).
  *   B. int21_dispatch AH=4Bh AL=03h with a mock overlay backend: the EBX
  *      block is decoded per spec/dos_structs.h, a NULL block is 0009h, a
  *      backend error is returned, other subfunctions stay 0001h.
@@ -31,7 +32,8 @@
  *   -DLOADER_MUTATE_OVL_NO_FACTOR      -> A1/A2 relocated-dword checks RED
  *   -DINT21_MUTATE_OVL_BOUNDS_OBO      -> C one-byte-past checks RED
  *   -DLOADER_MUTATE_OVL_ACCEPT_FOREIGN -> A5 untagged-MZ refusal RED
- *   -DLOADER_MUTATE_OVL_EARLY_COMMIT   -> A12/A13 whole canary RED
+ *   -DLOADER_MUTATE_OVL_COPY_FIRST     -> A12 validation canary RED
+ *   -DFAT12_MUTATE_FILE_CHAIN_CHECK    -> A13 short-chain canary RED
  */
 #include <stdint.h>
 #include <stddef.h>
@@ -74,6 +76,9 @@ static int      g_read_fail;     /* make every read fail (A9) */
 static int      g_reads;
 static int      g_fail_read_at; /* fail AFTER copying this read's bytes */
 static int      g_revoke_after_read, g_revoked;
+static int      g_commit_started, g_check_fail, g_check_calls;
+
+static uint8_t g_dest[1024];
 
 static int mem_read(void *ctx, uint32_t off, uint32_t len, uint8_t *dst)
 {
@@ -82,9 +87,16 @@ static int mem_read(void *ctx, uint32_t off, uint32_t len, uint8_t *dst)
     if (g_read_fail || off > g_file_len || len > g_file_len - off) {
         return 1;
     }
+    if (dst == g_dest) g_commit_started = 1;
     memcpy(dst, g_file + off, len);
     if (g_reads == g_revoke_after_read) g_revoked = 1;
     return g_reads == g_fail_read_at;
+}
+static int mem_check(void *ctx)
+{
+    (void)ctx;
+    g_check_calls++;
+    return g_check_fail;
 }
 
 /* ---- the fake owned window ---------------------------------------------- */
@@ -101,8 +113,6 @@ static int win_owns(uint32_t lin, uint32_t len)
 
 /* Whole-destination canary, including the real FAT test's 1024-byte footprint. */
 #define CANARY 0xA5u
-static uint8_t g_dest[1024];
-static uint8_t g_stage[1024];
 static uint8_t g_scratch[LOADER_OVL_SCRATCH];
 
 static void dest_reset(void)
@@ -114,6 +124,7 @@ static void dest_reset(void)
     g_read_fail = 0;
     g_fail_read_at = 0;
     g_revoke_after_read = g_revoked = 0;
+    g_commit_started = g_check_fail = g_check_calls = 0;
 }
 static int dest_canary_from(uint32_t from)
 {
@@ -175,12 +186,19 @@ static void build_many_mz(void)
  * Ref: fat12_read_partial's file-size/chain contract (PRD Sec 6.1). */
 static fat12_volume_t g_short_vol;
 static uint8_t g_short_fat[512], g_short_cluster[512];
+static int g_short_reads, g_short_fail_second;
 static int short_disk_read(void *ctx, uint32_t lba, uint32_t count, void *buf)
 {
     (void)ctx;
-    if (lba != 2u || count != 1u) return -1;
+    g_short_reads++;
+    if (lba < 2u || lba > 3u || count != 1u || (lba == 3u && g_short_fail_second))
+        return -1;
     memset(buf, 'R', 512u);
     return 0;
+}
+static int short_file_check(void *ctx)
+{
+    return fat12_validate_file_chain(&g_short_vol, g_short_fat, sizeof g_short_fat, ctx);
 }
 static int short_file_read(void *ctx, uint32_t off, uint32_t len, uint8_t *dst)
 {
@@ -263,7 +281,7 @@ int main(void)
     dest_reset();
     got = 0xDEADu;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_OK, "A1 tagged InitechMZ overlay loads");
     CHECK(got == MOD_LEN, "A1 footprint == load module length (64)");
     CHECK(g_owns_calls == 2 && g_owns_lin == LOAD && g_owns_len == MOD_LEN,
@@ -305,7 +323,7 @@ int main(void)
         g_win_hi = LOAD + 0x200u;
         g_owns_calls = 0;
         st = loader_overlay_core(mem_read, 0, g_file_len, big, LOAD, FACTOR,
-                                 win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                                 win_owns, mem_check, g_scratch, &got);
         CHECK(st == LOADER_OK && got == 280u,
               "A2 header-gap table, 70 relocs: loads, footprint 280");
         int all = 1;
@@ -325,7 +343,7 @@ int main(void)
     g_file_len = 23u;
     dest_reset();
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_OK && got == 23u, "A3 raw file loads, footprint = size");
     CHECK(memcmp(g_dest, "OVL-RAW-VERBATIM\r\n$", 19u) == 0 &&
           get32(g_dest, 19u) == 0x00000010u,
@@ -338,7 +356,7 @@ int main(void)
     g_file_len = 2u;
     dest_reset();
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_OK && got == 2u && g_dest[1] == 'Q',
           "A4 two-byte non-MZ file copied raw");
 
@@ -347,7 +365,7 @@ int main(void)
     build_mz(0u, 0u);
     dest_reset();
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_ERR_FOREIGN_MZ, "A5 untagged MZ -> LOADER_ERR_FOREIGN_MZ");
     CHECK(dest_canary_from(0u) && g_owns_calls == 0,
           "A5 untagged MZ: destination untouched, ownership never asked");
@@ -357,7 +375,7 @@ int main(void)
     build_mz(MZ_INITECH_TAG, 61u);
     dest_reset();
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_ERR_BAD_FORMAT, "A6 OOB reloc (61 + 4 > 64) -> BAD_FORMAT");
     CHECK(dest_canary_from(0u), "A6 OOB reloc: destination untouched");
 
@@ -365,7 +383,7 @@ int main(void)
     build_mz(MZ_INITECH_TAG, 0u);
     dest_reset();
     st = loader_overlay_core(mem_read, 0, 0x40u, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_ERR_BAD_FORMAT && dest_canary_from(0u),
           "A7 truncated MZ -> BAD_FORMAT, nothing written");
 
@@ -375,13 +393,13 @@ int main(void)
     dest_reset();
     g_win_hi = LOAD + MOD_LEN - 1u;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_ERR_NOT_OWNED && dest_canary_from(0u),
           "A8 footprint one byte past the window -> NOT_OWNED, untouched");
     g_win_hi = LOAD + MOD_LEN;
     dest_reset();
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_OK && dest_canary_from(MOD_LEN),
           "A8 exact-fit window accepted");
     g_win_hi = LOAD + 0x100u;
@@ -390,27 +408,27 @@ int main(void)
     dest_reset();
     g_read_fail = 1;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_ERR_READ, "A9 read failure -> LOADER_ERR_READ");
 
     /* A10: an empty file is a zero-byte raw overlay. A11: NULL arguments. */
     dest_reset();
     st = loader_overlay_core(mem_read, 0, 0u, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_OK && got == 0u && dest_canary_from(0u),
           "A10 empty file: OK, nothing written");
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             0, g_stage, sizeof g_stage, g_scratch, &got);
+                             0, mem_check, g_scratch, &got);
     CHECK(st == LOADER_ERR_NULL_OUT, "A11 NULL ownership callback refused");
 
-    /* A12: fail EVERY read, including a read that already changed its buffer.
-     * Discover the read count, then fault each ordinal; this is an atomicity
-     * property, independent of the implementation's read order/pass count. */
+    /* A12: fault EVERY read. Validation-phase I/O must preserve the whole
+     * destination. Once module copy starts, device errors may leave partial
+     * writes (PM ruling on cb3c7910), always confined to the footprint. */
     build_many_mz();
     dest_reset();
     g_win_hi = LOAD + sizeof g_dest;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_OK, "A12 multi-chunk baseline loads");
     int reads = g_reads;
     CHECK(reads >= 4, "A12 header, module and two relocation chunks read");
@@ -419,12 +437,12 @@ int main(void)
         g_fail_read_at = fail;
         got = 0xDEADu;
         st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                                 win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                                 win_owns, mem_check, g_scratch, &got);
         printf("A12 fault at read %d/%d: status=%d\n", fail, reads, st);
         CHECK(st == LOADER_ERR_READ && g_reads == fail,
               "A12 each injected read failure is returned immediately");
-        CHECK(dest_canary_from(0u),
-              "A12 failed read leaves the WHOLE destination untouched");
+        CHECK(dest_canary_from(g_commit_started ? 280u : 0u),
+              "A12 validation read failure preserves whole dest; device writes stay in footprint");
         CHECK(got == 0xDEADu, "A12 failed read leaves out_len untouched");
     }
     /* Bad offsets in BOTH chunks: earlier valid fixups must not have committed
@@ -435,7 +453,7 @@ int main(void)
         dest_reset();
         got = 0xDEADu;
         st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                                 win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                                 win_owns, mem_check, g_scratch, &got);
         CHECK(st == LOADER_ERR_BAD_FORMAT && got == 0xDEADu,
               "A12 invalid fixup in either chunk refuses the overlay");
         CHECK(dest_canary_from(0u),
@@ -447,7 +465,7 @@ int main(void)
     dest_reset();
     g_fail_read_at = 2;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_ERR_READ && memcmp(g_dest, g_file, 64u) == 0 &&
           dest_canary_from(64u),
           "A12 device read error reports READ with only the attempted bytes changed");
@@ -468,27 +486,94 @@ int main(void)
         g_short_vol.bpb.sectors_per_fat = 1u;
         g_short_fat[3] = 0xFFu; g_short_fat[4] = 0x0Fu; /* cluster 2 EOC */
         dest_reset();
+        g_short_reads = g_short_fail_second = 0;
+        CHECK(short_file_check(&de) == FAT12_ERR_CHAIN && g_short_reads == 0,
+              "A13 short FAT chain preflight uses NO data reads");
         st = loader_overlay_core(short_file_read, &de, de.file_size, g_dest,
-                                 LOAD, FACTOR, win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                                 LOAD, FACTOR, win_owns, short_file_check, g_scratch, &got);
         CHECK(st == LOADER_ERR_READ, "A13 short FAT chain refused");
         CHECK(dest_canary_from(0u),
               "A13 short FAT chain leaves the WHOLE destination untouched");
+        CHECK(g_short_reads == 1, "A13 only the header probe reads file data");
+
+        /* A valid two-cluster chain can still hit a genuine device failure
+         * on the second sector. Preflight succeeds with no data reads; the
+         * first 512 destination bytes change, and the untouched tail stays A5. */
+        (void)fat12_set_entry(g_short_fat, sizeof g_short_fat, 2u, 3u);
+        (void)fat12_set_entry(g_short_fat, sizeof g_short_fat, 3u, FAT12_EOC_VALUE);
+        g_short_reads = 0;
+        CHECK(short_file_check(&de) == FAT12_OK && g_short_reads == 0,
+              "A13 complete chain preflight uses NO data reads");
+        dest_reset();
+        got = 0xDEADu;
+        g_short_fail_second = 1;
+        st = loader_overlay_core(short_file_read, &de, de.file_size, g_dest,
+                                 LOAD, FACTOR, win_owns, short_file_check, g_scratch, &got);
+        int prefix = 1;
+        for (uint32_t i = 0u; i < 512u; i++) if (g_dest[i] != 'R') prefix = 0;
+        CHECK(st == LOADER_ERR_READ && got == 0xDEADu,
+              "A13 genuine device error returns READ, out_len unchanged");
+        CHECK(prefix && dest_canary_from(512u),
+              "A13 genuine device error leaves exactly the first sector written");
+        g_short_fail_second = 0;
+
+        /* Validate through EOC, even beyond a short declared file: broken
+         * links and cycles cannot be excused by having enough initial bytes. */
+        static const uint16_t bad_links[] = { 0u, 1u, FAT12_BAD, 8u, 2u };
+        de.file_size = 1u;
+        for (uint32_t i = 0u; i < sizeof bad_links / sizeof bad_links[0]; i++) {
+            (void)fat12_set_entry(g_short_fat, sizeof g_short_fat, 2u, bad_links[i]);
+            dest_reset();
+            got = 0xDEADu;
+            st = loader_overlay_core(short_file_read, &de, de.file_size, g_dest,
+                                     LOAD, FACTOR, win_owns, short_file_check, g_scratch, &got);
+            CHECK(st == LOADER_ERR_READ && got == 0xDEADu && dest_canary_from(0u),
+                  "A13 free, bad, out-of-range and cyclic chains refuse before writes");
+        }
+        de.file_size = 0u; de.start_cluster = 0u;
+        CHECK(short_file_check(&de) == FAT12_OK, "A13 empty file needs no chain");
+        de.file_size = UINT32_MAX;
+        CHECK(short_file_check(&de) == FAT12_ERR_CHAIN, "A13 maximal size refuses without overflow");
+
+        /* The common FAT decoder also covers whole-cache FAT16 volumes. */
+        memset(g_short_fat, 0, sizeof g_short_fat);
+        g_short_vol.fat_type = FAT_TYPE_FAT16;
+        put16(g_short_fat, 4u, 3u); put16(g_short_fat, 6u, FAT16_EOC_VALUE);
+        de.start_cluster = 2u; de.file_size = 1024u;
+        CHECK(short_file_check(&de) == FAT12_OK, "A13 FAT16 complete chain accepted");
+        de.file_size = 1025u;
+        CHECK(short_file_check(&de) == FAT12_ERR_CHAIN, "A13 FAT16 short chain refused");
+        put16(g_short_fat, 6u, 2u);
+        de.file_size = 1u;
+        CHECK(short_file_check(&de) == FAT12_ERR_CHAIN, "A13 FAT16 cycle refused");
+        {
+            static uint8_t reserved_fat[6144];
+            fat12_volume_t large = g_short_vol;
+            large.fat_type = FAT_TYPE_FAT12;
+            large.total_clusters = 4084u;
+            (void)fat12_set_entry(reserved_fat, sizeof reserved_fat, 2u, 0xFF0u);
+            (void)fat12_set_entry(reserved_fat, sizeof reserved_fat, 0xFF0u, FAT12_EOC_VALUE);
+            CHECK(fat12_validate_file_chain(&large, reserved_fat, sizeof reserved_fat, &de)
+                      == FAT12_ERR_CHAIN,
+                  "A13 reserved FAT12 marker refused even within the geometry's range");
+        }
     }
     g_win_hi = LOAD + 0x100u;
 
-    /* A14: staging capacity and ownership can both refuse without a commit. */
+    /* A14: backing extent and ownership refusals precede the module copy. */
     build_mz(MZ_INITECH_TAG, 0u);
     dest_reset();
     got = 0xDEADu;
+    g_check_fail = 1;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, MOD_LEN - 1u, g_scratch, &got);
-    CHECK(st == LOADER_ERR_NOMEM && got == 0xDEADu && g_reads == 1,
-          "A14 staging too small refuses before reading the module");
-    CHECK(dest_canary_from(0u), "A14 short stage leaves whole destination untouched");
+                             win_owns, mem_check, g_scratch, &got);
+    CHECK(st == LOADER_ERR_READ && got == 0xDEADu && g_reads == 1 && g_check_calls == 1,
+          "A14 invalid backing extent refuses before reading the module");
+    CHECK(dest_canary_from(0u), "A14 backing refusal leaves whole destination untouched");
     dest_reset();
     g_revoke_after_read = 2;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
-                             win_owns, g_stage, sizeof g_stage, g_scratch, &got);
+                             win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_ERR_NOT_OWNED && got == 0xDEADu && g_owns_calls == 2,
           "A14 ownership revoked during I/O refuses at the commit boundary");
     CHECK(dest_canary_from(0u), "A14 revoked ownership leaves whole destination untouched");

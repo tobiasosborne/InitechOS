@@ -792,14 +792,46 @@ static __attribute__((noinline)) int chain_link_unusable(const fat12_volume_t *v
 }
 
 /*
- * fat12_walk_chain -- follow start_cluster..EOC, with the anti-hang guard.
- *
- * Ref (Law 1): brief Sec 3 (chain semantics; EOC >= 0xFF8) and CLAUDE.md
- *   Rule 2 -- "a cyclic chain must NOT hang." max_clusters bounds the loop:
- *   a valid chain can visit at most total_clusters distinct clusters, so the
- *   caller sizes out_clusters accordingly; exceeding it means a cycle or
- *   corruption, which we surface as FAT12_ERR_CHAIN rather than spin.
+ * File preflight, PM ruling initech-f9t: validate through EOC, without a
+ * cluster-sized or chain-sized buffer, before overlay destination writes.
+ * Ref: fat12-ground-truth.md Sec 3; CLAUDE.md Rule 2 (bound cyclic walks).
  */
+int fat12_validate_file_chain(const fat12_volume_t *vol, const void *fat,
+                              uint32_t fat_len, const dir_entry_t *entry)
+{
+#ifdef FAT12_MUTATE_FILE_CHAIN_CHECK
+    /* Rule 6: a short chain then reaches the destructive module read. */
+    (void)vol; (void)fat; (void)fat_len; (void)entry;
+    return FAT12_OK;
+#else
+    if (vol == NULL || entry == NULL) return FAT12_ERR_NULL;
+    if (entry->file_size == 0u) return FAT12_OK;
+    uint32_t bytes = (uint32_t)vol->bpb.bytes_per_sector * vol->bpb.sectors_per_cluster;
+    if (bytes == 0u) return FAT12_ERR_GEOMETRY;
+    uint32_t need = entry->file_size / bytes + (entry->file_size % bytes != 0u);
+    if (need > vol->total_clusters) return FAT12_ERR_CHAIN;
+    uint16_t cur = entry->start_cluster;
+    /* The reserved 0xFF0..0xFF6 / 0xFFF0..0xFFF6 markers are not data
+     * clusters even on a geometry whose numerical range includes them.
+     * Ref: fat12-ground-truth.md Sec 3; fat16-ground-truth.md Sec 3. */
+    uint16_t reserved = vol->fat_type == FAT_TYPE_FAT16 ? 0xFFF0u : 0x0FF0u;
+    /* Walking through EOC also rejects cycles beyond the declared extent.
+     * The total-cluster bound terminates a cycle without a chain-sized array. */
+    for (uint32_t n = 0u; n < vol->total_clusters; n++) {
+        uint16_t next;
+        if (cur >= reserved || chain_link_unusable(vol, cur)) return FAT12_ERR_CHAIN;
+        int rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+        if (rc != FAT12_OK) return rc;
+        if (chain_is_eoc(vol, next))
+            return n + 1u >= need ? FAT12_OK : FAT12_ERR_CHAIN;
+        cur = next;
+    }
+    return FAT12_ERR_CHAIN;
+#endif
+}
+
+/* Follow start_cluster..EOC into the caller's bounded array. Ref: brief Sec 3;
+ * max_clusters is both its capacity and the anti-hang bound (Rule 2). */
 int fat12_walk_chain(const fat12_volume_t *vol, const void *fat,
                      uint32_t fat_len, uint16_t start_cluster,
                      uint16_t *out_clusters, uint32_t max_clusters,

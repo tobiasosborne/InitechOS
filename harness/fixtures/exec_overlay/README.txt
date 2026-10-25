@@ -16,3 +16,12 @@ flair-unbound-red.txt: the shipping flagship kernel, the existing overlay
 fixture installed as SAMIR.COM, Ctrl-Alt-backslash through the real GUI pump.
 The gate fails for missing OVL-MZ-CALLED after OVL-FAIL mz-load and rc=1.
 These are observed failure transcripts, not success goldens.
+
+PM supersession, initech-f9t: cb3c7910's full-module staging was rejected.
+Validation refusals still preserve the whole destination, but genuine device
+read errors during copy/fixup I/O may leave partial writes. This is an explicit
+operator change to the error contract, not an inferred oracle relaxation.
+stream-device-red.txt and stream-memory-red.txt were captured before changing
+the loader: the rejected implementation fails the deliberately partial-read
+fixture and uses 193280 B of linked byte buffers, above the 1024 B bound.
+The older full-atomicity transcripts above remain historical evidence.

@@ -7,9 +7,9 @@
 #
 # Host gate (TEST_UNIT_GATES): test-overlay drives the REAL loader_overlay_core,
 # int21 AH=4Bh AL=03h dispatch and int21_overlay_dest_ok (os/milton/
-# test_overlay.c). test-overlay-mutant: four mutants, each RED for its own
+# test_overlay.c). test-overlay-mutant: five mutants, each RED for its own
 # named check -- factor not applied, off-by-one ownership bound, untagged MZ
-# accepted, and premature destination writes.
+# accepted, copying before fixup validation, and omitting chain preflight.
 #
 # Emu gate (TEST_EMU_GATES, QEMU -- the EXEC family's tri-emulator status:
 # test-exec / test-mzexec / test-exec-nested are QEMU-only, Bochs/86Box ride
@@ -54,7 +54,8 @@ test-overlay-dos33-reference: $(BUILD)/overlay_dos33_check $(BUILD)/overlay_dos3
 OVL_HOST_MUTANTS   := nofactor:LOADER_MUTATE_OVL_NO_FACTOR \
                       obo:INT21_MUTATE_OVL_BOUNDS_OBO \
                       foreign:LOADER_MUTATE_OVL_ACCEPT_FOREIGN \
-                      atomic:LOADER_MUTATE_OVL_EARLY_COMMIT
+                      preflight:LOADER_MUTATE_OVL_COPY_FIRST \
+                      chain:FAT12_MUTATE_FILE_CHAIN_CHECK
 
 $(TEST_OVERLAY): $(TEST_OVERLAY_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -86,8 +87,9 @@ test-overlay-mutant: test-overlay $(foreach m,$(OVL_HOST_MUTANTS),$(BUILD)/test_
 	$(call ovl-host-red,nofactor,A1 reloc @4: 0x10 + factor 0x123400 = 0x123410,factor-not-applied)
 	$(call ovl-host-red,obo,C5 one byte past the block (the next MCB header) refused,bounds-off-by-one)
 	$(call ovl-host-red,foreign,A5 untagged MZ -> LOADER_ERR_FOREIGN_MZ,untagged-MZ-accepted)
-	$(call ovl-host-red,atomic,A12 failed read leaves the WHOLE destination untouched,early-destination-write)
-	@printf '>>> test-overlay-mutant: green (all four mutants RED for their named reasons)\n'
+	$(call ovl-host-red,preflight,A12 failed validation leaves the WHOLE destination untouched,copy-before-validation)
+	$(call ovl-host-red,chain,A13 short FAT chain leaves the WHOLE destination untouched,missing-chain-preflight)
+	@printf '>>> test-overlay-mutant: green (all five mutants RED for their named reasons)\n'
 TEST_UNIT_GATES += test-overlay test-overlay-mutant
 
 # ---- emulator fixtures -------------------------------------------------------

@@ -368,6 +368,14 @@ int fat12_walk_chain(const fat12_volume_t *vol, const void *fat,
                      uint16_t *out_clusters, uint32_t max_clusters,
                      uint32_t *out_count);
 
+/* Validate a file's complete chain through EOC with O(1) space and no data
+ * sector reads. It must cover file_size; free/bad/out-of-range links and
+ * cycles are refused. A volume with no FAT window performs no device I/O.
+ * Ref: PRD 6.1; DEC-19, PM streamed-overlay ruling (initech-f9t). An empty
+ * file needs no chain. The FAT/entry stay stable through the later read. */
+int fat12_validate_file_chain(const fat12_volume_t *vol, const void *fat,
+                              uint32_t fat_len, const dir_entry_t *entry);
+
 /* ---- Root-directory enumeration + file read (beads initech-adf) ---- */
 
 /* Length of a NUL-terminated formatted 8.3 name: 8 + '.' + 3 + NUL = 13. */

@@ -137,16 +137,38 @@ keeps fixup writes within the loaded module and does not reproduce DOS's
 factor-based patch address. These captures ground the difference; they do
 not ratify it or change the pending status of this amendment.
 
-Implementation correction (review 2026-10-25, initech-i15): header reads go
-to kernel scratch, the module goes to private kernel NOBITS staging, and
-each relocation-table chunk is read once and validated/applied there. Only
-after all fallible work and a second ownership check does an infallible
-bounded copy commit the footprint. Every refusal, including a partial FAT
-read or an invalid fixup in the final chunk, leaves the whole destination
-untouched. Staging has `PROGRAM_IMAGE_MAX` bytes, enough for the normal
-process windows ending at `PROGRAM_ARENA_CEIL`; a footprint beyond staging
-capacity is a resource refusal `0008h`, distinct from ownership refusal
-`0009h`. No PSP, DOS allocation, execution or relocation decision changes.
+**Documented deviation (PM ruling on cb3c7910, review 2026-10-25,
+PENDING OPERATOR RATIFICATION).** The PM rejected the 192,256-byte NOBITS
+staging implementation: that kernel runway headroom belongs to resident code
+and ADR-0014 overlay tables. Its replacement (initech-f9t) uses only the two
+existing 512-byte loader buffers, 1 KiB total; header/relocation chunks share
+one, and the FAT data reader uses the other. There is no module-sized buffer,
+new memory-map window, DOS allocation, PSP, or relocation-rule change.
+
+Before ANY destination write, the loader parses the header/tag, checks
+ownership of the WHOLE footprint, walks the FAT chain through EOC to prove
+it covers the declared FILE size (no data-sector reads), validates EVERY
+relocation offset through streamed chunks, and rechecks ownership. A short
+1024-byte-declared/one-cluster chain, a cycle, bad/free/out-of-range link,
+malformed header or invalid fixup in any chunk is refused with the entire
+destination untouched. The module is then streamed into the destination and
+the already-validated table is reread to apply the fixups.
+
+**Device-read exception:** the only ordinary error return after the first
+write is a genuine device read error during module copy or fixup-table I/O.
+It maps to `0002h` (the retained AL=00h mapping), and the destination may be
+partly written or partly relocated; the caller must not execute that failed
+replacement. *Whether genuine MS-DOS 3.30 behaves the same on a mid-copy
+device read error is UNVERIFIED.* The retained DOS 3.30 probe establishes
+the fixup-address difference only; it is not device-fault evidence.
+
+The file, directory-entry copy, ownership and cached FAT remain stable during
+this non-reentrant DOS call. A changed repeated fixup or a post-proof FAT
+structural error violates that source invariant. A repeated fixup now out of
+range, or a post-proof FAT structural error, traps fail-loud (Rule 2)
+rather than returning a validation error after writes or misreporting a
+logical corruption as a genuine device error. No normal validation refusal
+occurs in the copy/fixup phase. Every error leaves `out_len` unpublished.
 
 ### DEC-19.4 -- Destination ownership (a deliberate deviation, the DEC-14 stance)
 
@@ -185,7 +207,6 @@ nothing).
 | AL not 00h/03h | CF, AX = `0001h` |
 | File absent, a directory, unreadable, or no overlay backend bound | CF, AX = `0002h` (the AL=00h mapping) |
 | Path component missing | CF, AX = `0003h` |
-| Footprint exceeds private staging capacity | CF, AX = `0008h` |
 | EBX block NULL/wrapping, or the footprint not caller-owned (DEC-19.4) | CF, AX = `0009h` |
 | Malformed InitechMZ (truncated, header > image, out-of-module relocation) | CF, AX = `000Bh` |
 | Untagged 16-bit MZ | `PANIC foreign-mz` (DEC-08a.5); never returns |
@@ -219,14 +240,18 @@ about what dBASE does without its overlay (research gap G-1).
   `int21_overlay_dest_ok`; literal expected bytes; canaries prove the exact
   footprint; the header-gap relocation table with 70 entries crosses the
   scratch-chunk boundary. A12 faults every read after copying its bytes and
-  rejects invalid fixups in both chunks; A13 uses the real FAT short-chain
-  reader. Both assert the whole-destination canary, not just the tail. A14
-  checks staging exhaustion and ownership revoked during I/O. The RED-first
-  transcripts are in `harness/fixtures/exec_overlay/`.
+  rejects invalid fixups in both chunks. Every VALIDATION refusal asserts the
+  whole-destination canary. A13 checks the real FAT short-chain reader, cycles
+  and broken links, no data reads during preflight, FAT12/FAT16 coverage, and
+  an actual device read failure after the first 512 destination bytes have
+  been written. A14 checks backing-extent failure and ownership revoked before
+  copy. The RED-first transcripts are in `harness/fixtures/exec_overlay/`;
+  the older full-atomicity expectations were superseded by the PM ruling.
 - `make test-overlay-mutant`: `LOADER_MUTATE_OVL_NO_FACTOR` (factor never
   applied), `INT21_MUTATE_OVL_BOUNDS_OBO` (one byte past an owned region
-  accepted), `LOADER_MUTATE_OVL_ACCEPT_FOREIGN` (untagged MZ copied raw), and
-  `LOADER_MUTATE_OVL_EARLY_COMMIT` (read into dest rather than stage) --
+  accepted), `LOADER_MUTATE_OVL_ACCEPT_FOREIGN` (untagged MZ copied raw),
+  `LOADER_MUTATE_OVL_COPY_FIRST` (copy before fixup validation), and
+  `FAT12_MUTATE_FILE_CHAIN_CHECK` (skip the chain preflight) --
   each RED for its named check.
 - `make test-exec-overlay` (emulator, TEST_EMU_GATES): a resident program
   (`ovltest_program.asm`) loads an mzlink InitechMZ overlay whose relocations
@@ -245,6 +270,9 @@ about what dBASE does without its overlay (research gap G-1).
   unbinds only the GUI initialization's overlay backend
   (`KMAIN_MUT_OVL_UNBOUND`); it must print `OVL-FAIL mz-load`, exit rc=1 and
   resume without an overlay success. It is required by the overlay mutant gate.
+- `make test-overlay-memory` (required by `test-exec-overlay`) measures the
+  linked loader byte buffers, including the rejected staging symbol if present.
+  The combined fixed-buffer bound is 1024 B; cb3c7910 fails it at 193,280 B.
 
 ## 5. Alternatives rejected
 
@@ -283,13 +311,23 @@ about what dBASE does without its overlay (research gap G-1).
    was not touched; a size round (or ADR-0014 kernel overlays) or an explicit
    operator decision on the floor must precede merging.
 
-Review implementation measurement (2026-10-25, initech-i15): the fixes above
-reduce flagship loaded bytes from 181,040 to 180,944 (-96 B), while private
-staging grows NOBITS BSS from 95,856 to 288,112 (+192,256 B).
+Historical, REJECTED implementation measurement (2026-10-25, initech-i15): cb3c7910
+reduced flagship loaded bytes from 181,040 to 180,944 (-96 B), while private
+staging grew NOBITS BSS from 95,856 to 288,112 (+192,256 B).
 `_kernel_end = 0x572850 < KERNEL_IMAGE_CEIL = 0x580000`; the buffer stays
 inside the existing guarded image window. The 180,224 B size floor is
 unchanged and still not met (720 B over). Its operator decision remains
-outside this review fix; no size oracle was weakened or bypassed.
+outside this review fix; no size oracle was weakened or bypassed. The PM
+subsequently rejected that NOBITS consumption. The initech-f9t replacement
+removes the full staging array; see [WL-0184](../worklog/WL-0184-overlay-streamed-preflight.md)
+and CODEX-OUT.md for its measured
+deltas against 91192754. The size floor is not changed by this replacement.
+
+PM replacement measurement (initech-f9t): loaded bytes 181,040 -> 181,360
+(+320 B versus 91192754); NOBITS BSS 95,856 -> 95,856 (delta 0).
+The rejected staging allocation is gone, the existing fixed loader buffers
+total 1024 B, and `_kernel_end = 0x543AF0` leaves 247,056 B below the existing
+`KERNEL_IMAGE_CEIL`. The known size-r4 policy remains outside this task.
 
 ## 7. Supersession
 

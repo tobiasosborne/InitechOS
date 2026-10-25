@@ -1,5 +1,9 @@
 # Overlay review fixes (2026-10-25, initech-i15)
 
+Historical: the PM subsequently rejected cb3c7910's module-sized NOBITS
+staging. WL-0184 (initech-f9t) supersedes that memory/atomicity design with
+streamed validation and an explicit partial-device-read exception.
+
 Context: review of 91192754 found partial destination writes on failure and a
 missing backend binding on the flagship GUI text-tenant path. The operator
 requested fixes on this branch, no push, and no change to DEC-19's relocation
