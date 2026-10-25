@@ -199,6 +199,11 @@ uint16_t ndx_unique_flag(const ndx_index *idx);
  * [ndx.md ss2.1: piclist "lowercase" refuted by byte-check] */
 const char *ndx_key_expr(const ndx_index *idx);
 const char *ndx_name(const ndx_index *idx);
+/* Interpreter name provenance, not an on-disk NDX field. The I/O path keeps
+ * its spelling; NDX() displays a supplied default extension as .ndx.
+ * Ref: fns-mint/ndx/GOLD.OUT, INDEX ON NAME TO T1 -> C:T1.ndx. */
+void ndx_set_name_defaulted(ndx_index *idx, int defaulted);
+int ndx_name_defaulted(const ndx_index *idx);
 
 /* -----------------------------------------------------------------------
  * Node I/O

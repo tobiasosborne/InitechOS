@@ -591,6 +591,7 @@ typedef struct xb_dbcursor {
     int      (*dbf_name)   (void *u, char *buf, uint32_t cap);             /* <0 if none open */
     int      (*file_exists)(void *u, const char *name);
     double   (*last_update)(void *u);                                      /* header date JDN; 0 if closed */
+    int      (*index_name) (void *u, int slot, char *buf, uint32_t cap); /* 1-based; <0 none */
 } xb_dbcursor;
 
 /*
@@ -640,6 +641,11 @@ typedef struct xb_ctx {
     int   set_exact;          /* 0 = OFF (III+ default); !=0 = ON */
     /* Programming III+ N5-30 (PDF 418): ERROR() reads the trapped error. */
     int   error_number;
+    /* Real III+ fns-mint/ndx/GOLD.OUT lines 4-5 and 7-8: NDX(8)
+     * yields "" for the complete output statement, then raises error 87.
+     * First deferred error wins; the statement executor consumes this slot.
+     * An ordinary immediate statement error takes precedence. */
+    int   deferred_error;
 
     /*
      * SET DECIMALS / SET DATE / SET CENTURY formatter context.

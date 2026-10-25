@@ -307,6 +307,11 @@ static int32_t host_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
 
 /* ---- terminal extension stubs (S8.4) ------------------------------------ */
 
+/* PAL curdrive models DOS INT 21h AH=19h. The factory has a fixed C: drive,
+ * independent of the host working directory or environment (Rule 11). */
+static int host_curdrive(samir_pal_t *p)
+{ (void)p; return 'C'; }
+
 static int32_t host_conin_char(samir_pal_t *p)
 {
     int c;
@@ -537,6 +542,7 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
     st->vtable.exec       = host_exec;
     st->vtable.getenv     = host_getenv;
     st->vtable.time       = host_time;
+    st->vtable.curdrive   = host_curdrive;
 
     /* Inject the fixed clock (deterministic; Rule 11). */
     st->date_yy = cfg.date_yy;

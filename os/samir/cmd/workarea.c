@@ -1105,6 +1105,28 @@ static double wac_last_update(void *u)
     return (double)jdn_from_ymd(1900 + (int)y, (int)m, (int)d);
 }
 
+/* Ref: HELP.DBS 1234-1236: name in the selected area's ordered index list.
+ * GOLD.OUT pins the default extension .ndx after INDEX ON ... TO T1.
+ * Preserve supplied extension spelling; the parser records defaulting, so
+ * display never guesses provenance from the letters in a filename. */
+static int wac_index_name(void *u, int slot, char *buf, uint32_t cap)
+{
+    work_area *wa = wa_cur_area((wa_env *)u);
+    ndx_index *idx;
+    const char *name;
+    uint32_t n;
+    if (!wa || !wa->open || slot < 1 || slot > wa->nidx || !buf || !cap)
+        return -1;
+    idx = wa->idx[slot - 1];
+    name = ndx_name(idx);
+    n = rt_strlen(name);
+    if (n >= cap) return -1;
+    rt_memcpy(buf, name, n + 1u);
+    if (ndx_name_defaulted(idx) && n >= 4u)
+        rt_memcpy(buf + n - 4u, ".ndx", 4u);
+    return (int)n;
+}
+
 /* The single shared vtable instance (const; one per process). wa_bind_ctx points
  * ctx->dbcur at this and ctx->dbcur_user at the env. */
 static const xb_dbcursor wa_dbcursor_vtable = {
@@ -1117,7 +1139,8 @@ static const xb_dbcursor wa_dbcursor_vtable = {
     wac_field_name,
     wac_dbf_name,
     wac_file_exists,
-    wac_last_update
+    wac_last_update,
+    wac_index_name
 };
 
 static uint32_t wac_record_size(void *user)
@@ -1334,6 +1357,7 @@ xb_interp *xb_interp_make(samir_pal_t *pal)
     ip->ctx.set_decimals = 2;
     ip->ctx.set_exact    = 0;
     ip->ctx.error_number = 0;          /* Programming III+ N5-30: no trapped error */
+    ip->ctx.deferred_error = 0;        /* NDX GOLD.OUT: raise after the statement */
     ip->ctx.set_century  = 0;          /* III+ default OFF (mint-results-003) */
     ip->ctx.set_date_fmt = XB_DATE_AMERICAN;  /* III+ default (mint-results-003) */
     ip->ctx.scratch      = ip->scratch;

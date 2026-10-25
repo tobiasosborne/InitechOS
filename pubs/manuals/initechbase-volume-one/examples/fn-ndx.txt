@@ -1,0 +1,5 @@
+. USE STAFF
+. INDEX ON LASTNAME TO T1
+. ? "indexed", "["+NDX(1)+"]", TYPE("NDX(1)"), LEN(NDX(1))
+
+indexed [C:T1.ndx] C          8
