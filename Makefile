@@ -28641,10 +28641,14 @@ $(SAMIR_OVL_PACK): tools/samir_ovl_pack.c spec/samir/ovl_format.h | $(BUILD)
 # mutant) goes through this one recipe line.
 # Either step failing fails the recipe even inside a `set -e` chain (a failure
 # on the left of && would not stop set -e by itself).
-samir_pack = { $(SAMIR_OVL_PACK) $(1) --res-bin $(1).res --res-rel $(1).rel --ovl $(basename $(2)).OVL \
+# initech-1x6x2.1: both files are written next to the ELF (each build's private
+# directory) and renamed into place, OVL first, so a parallel consumer never
+# reads a half-written SAMIR.EXE/SAMIR.OVL (neither file embeds its own name).
+samir_pack = { $(SAMIR_OVL_PACK) $(1) --res-bin $(1).res --res-rel $(1).rel --ovl $(1).pack.OVL \
              $(SAMIR_OVL_SECTIONS) $(SAMIR_OVL_FORBID) && \
-             $(MZLINK_BIN) $(1).res $(2) --reloc-file $(1).rel --header-relocs --minalloc $(SAMIR_MINALLOC) > $(1).mzlink.log 2>&1; } \
-             || { cat $(1).mzlink.log 2>/dev/null; rm -f $(2) $(basename $(2)).OVL; exit 1; }
+             $(MZLINK_BIN) $(1).res $(1).pack.EXE --reloc-file $(1).rel --header-relocs --minalloc $(SAMIR_MINALLOC) > $(1).mzlink.log 2>&1 && \
+             mv -f $(1).pack.OVL $(basename $(2)).OVL && mv -f $(1).pack.EXE $(2); } \
+             || { cat $(1).mzlink.log 2>/dev/null; rm -f $(2) $(basename $(2)).OVL $(1).pack.EXE $(1).pack.OVL; exit 1; }
 SAMIR_CRT0_ASM  := $(SAMIR_DIR)/boot/samir_crt0.asm
 SAMIR_LD_SCRIPT := $(SAMIR_DIR)/boot/samir.ld
 SAMIR_EXE       := $(BUILD)/SAMIR.EXE
@@ -28913,18 +28917,22 @@ $(CLIENTS_DBF): $(MINT_CLIENTS_BIN) | $(BUILD)
 #     Mirrors FAT_EXEC_IMG; re-minted per build, NOT committed (Rule 11). ---
 # (SAMIR_LIST_IMG / SAMIR_LIST_MUT_IMG are defined above test-flair-samir-suspend,
 #  their first prerequisite use -- test-makefile-vars, tdnl.81.)
+# Minted as $@.tmp and renamed (initech-1x6x2.1): several parallel legs read
+# these disks, so none may ever see a half-formatted one.
 $(SAMIR_LIST_IMG): $(SAMIR_EXE) $(SAMIR_OVL) $(CLIENTS_DBF) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
-	@mformat -i $@ -f 1440 ::
-	@mcopy -i $@ $(SAMIR_EXE) ::SAMIR.EXE && mcopy -i $@ $(basename $(SAMIR_EXE)).OVL ::SAMIR.OVL
-	@mcopy -i $@ $(CLIENTS_DBF) ::CLIENTS.DBF
+	@rm -f $@.tmp && dd if=/dev/zero of=$@.tmp bs=512 count=2880 status=none
+	@mformat -i $@.tmp -f 1440 ::
+	@mcopy -i $@.tmp $(SAMIR_EXE) ::SAMIR.EXE && mcopy -i $@.tmp $(basename $(SAMIR_EXE)).OVL ::SAMIR.OVL
+	@mcopy -i $@.tmp $(CLIENTS_DBF) ::CLIENTS.DBF
+	@mv -f $@.tmp $@
 	@printf '>>> samir_list: minted %s (FAT12 disk for test-samir-boot; SAMIR.EXE + CLIENTS.DBF)\n' "$@"
 	@$(call fixture-check,recipe,$@)
 $(SAMIR_LIST_MUT_IMG): $(SAMIR_EXE_MUT) $(CLIENTS_DBF) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
-	@mformat -i $@ -f 1440 ::
-	@mcopy -i $@ $(SAMIR_EXE_MUT) ::SAMIR.EXE && mcopy -i $@ $(basename $(SAMIR_EXE_MUT)).OVL ::SAMIR.OVL
-	@mcopy -i $@ $(CLIENTS_DBF) ::CLIENTS.DBF
+	@rm -f $@.tmp && dd if=/dev/zero of=$@.tmp bs=512 count=2880 status=none
+	@mformat -i $@.tmp -f 1440 ::
+	@mcopy -i $@.tmp $(SAMIR_EXE_MUT) ::SAMIR.EXE && mcopy -i $@.tmp $(basename $(SAMIR_EXE_MUT)).OVL ::SAMIR.OVL
+	@mcopy -i $@.tmp $(CLIENTS_DBF) ::CLIENTS.DBF
+	@mv -f $@.tmp $@
 	@printf '>>> samir_list_mut: minted %s (short-read mutant disk for test-samir-boot-mutant)\n' "$@"
 	@$(call fixture-check,recipe,$@)
 

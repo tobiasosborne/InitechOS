@@ -60,7 +60,14 @@ test-qemu-snapshot: $(HARNESS_BIN) $(BUILD)/snapshot_write.bin $(BUILD)/snapshot
 	@sh harness/emu/test_snapshot.sh $(HARNESS_BIN) $(BUILD)/snapshot_write.bin $(BUILD)/snapshot_debug_exit.bin
 TEST_EMU_GATES += test-qemu-snapshot
 
+# The script's nested make runs test-samir-boot-mutant in the SHARED build/.
+# initech-1x6x2.1: it used to depend on SAMIR_LIST_MUT_IMG only, so on a cold
+# run the nested make relinked kernel_shell_secondary and re-minted
+# build/tracer_secondary.img beside the outer make, while ~30 other legs were
+# booting it (triple_fault=1 at serial_len=50). Every input of the boot-mutant
+# recipe is now a prerequisite here and is frozen (-o) in the nested make.
+TRACE_ASSUME_OLD = $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_MUT_IMG) $(MAKEFILE_STAMP)
 .PHONY: test-samir-trace
-test-samir-trace: $(SAMIR_LIST_MUT_IMG)
-	+@sh tools/test-emu-trace.sh
+test-samir-trace: $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_MUT_IMG)
+	+@MAKE="$(MAKE)" TRACE_ASSUME_OLD="$(TRACE_ASSUME_OLD)" sh tools/test-emu-trace.sh
 TEST_UNIT_GATES += test-samir-trace

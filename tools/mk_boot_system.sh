@@ -8,6 +8,12 @@ export SOURCE_DATE_EPOCH=315532800 TZ=UTC LC_ALL=C
 work=$(mktemp -d "${out}.mint.XXXXXX")
 trap 'rm -rf "$work"' EXIT HUP INT TERM
 for t in mformat mcopy mattrib mlabel; do command -v "$t" >/dev/null; done
+# initech-1x6x2.1: mint into $work (same directory as $out) and rename at the
+# end. Emulator legs boot $out through a qcow2 overlay whose raw backing file
+# is read live; rewriting it in place (dd truncates first) under a parallel
+# make fed booting guests a zeroed/partial disk -> triple fault at boot.
+final=$out
+out=$work/image
 # 46 complete 2x32 CHS cylinders; partition [63,2943), one trailing zero.
 dd if=/dev/zero of="$out" bs=512 count=2944 status=none
 dd if="$mbr" of="$out" conv=notrunc status=none
@@ -32,4 +38,5 @@ if [ -n "$command" ]; then
 fi
 # A label consumes a root entry: add it only AFTER both system files.
 mlabel -i "$volume" ::BOOT
-printf '>>> boot-system image: %s (BOOT FAT12@63; root[0]=IO.SYS, root[1]=INITDOS.SYS; HSR)\n' "$out"
+mv -f "$out" "$final"
+printf '>>> boot-system image: %s (BOOT FAT12@63; root[0]=IO.SYS, root[1]=INITDOS.SYS; HSR)\n' "$final"
