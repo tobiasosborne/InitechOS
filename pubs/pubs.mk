@@ -397,7 +397,8 @@ test-pubs-samir-disk: $(PUBS_SAMIR_DISK)/.minted
 # test-pubs-tps and test-pubs-examples still depend on test-pubs-build, so
 # they are session gates, not merge gates.  No gate was removed from test-pubs.
 .PHONY: test-pubs-lockstep-src test-pubs-lockstep-src-mutant
-test-pubs-lockstep-src: $(PUBS_GATE) $(PUBS_CHECK)/samir.shipped $(PUBS_SAMIR_GEN)
+PUBS_SAMIR_ENTRY_IDX := $(filter $(foreach b,$(PUBS_SAMIR_BOOKS),$(PUBS_GEN)/entries-$(b)-%),$(PUBS_ENTRY_IDX))
+test-pubs-lockstep-src: $(PUBS_GATE) $(PUBS_CHECK)/samir.shipped $(PUBS_SAMIR_GEN) $(PUBS_SAMIR_ENTRY_IDX)
 	@$(PUBS_GATE) srclockstep $(PUBS_CHECK)/samir.shipped $(PUBS_SAMIR_ALLOW) \
 		$(PUBS_DIR)/manuals/initechbase-volume-one $(PUBS_DIR)/manuals/initechbase-quick-reference \
 		$(PUBS_DIR)/manuals/initechbase-volume-two $(PUBS_GEN)

@@ -12,9 +12,14 @@ fresh() {
     rm -rf "$w"; mkdir -p "$w/manuals" "$w/examples" "$w/gen"
     for b in $vo $qr $v2; do cp -rf "$man/$b" "$w/manuals/$b"; done
     cp -rf "$man/../class" "$man/../common" "$w/"
+    cp -f "$man/../entry-index.sh" "$w/"
     cp -rf "$man/../examples/samir" "$w/examples/"
     for t in limits formats coercion messages; do cp -f "$gen/samir_$t.tex" "$w/gen/"; done
+    for b in $vo $qr; do
+        for idx in "$gen"/entries-"$b"-*.tex; do cp -f "$idx" "$w/gen/"; done
+    done
 }
+refresh() { sh "$w/entry-index.sh" "$w/manuals/$1/entries/$2" > "$w/gen/entries-$1-$2.tex"; }
 run() {
     "$gate" srclockstep "$shipped" "$allow" "$w/manuals/$vo" "$w/manuals/$qr" "$w/manuals/$v2" "$w/gen"
 }
@@ -31,15 +36,15 @@ red() {
 faults=0
 fresh
 run > "$w/baseline.log" 2>&1 || { cat "$w/baseline.log"; printf '!!! test-pubs-lockstep-src-mutant FAIL: baseline is not green\n'; exit 1; }
-# 1. Volume One loses the whole ABS function entry (the name is still shipped).
+# 1. Volume One loses ABS's file; a refreshed index must expose the missing entry.
 fresh
-awk '/^\\begin{XbaseEntry}{ABS}{function}/{skip=1} !skip{print} skip && /^\\end{XbaseEntry}/{skip=0}' "$man/$vo/u6-entries.tex" > "$w/manuals/$vo/u6-entries.tex"
-cmp -s "$man/$vo/u6-entries.tex" "$w/manuals/$vo/u6-entries.tex" && { printf '!!! mutant 1 did not apply\n'; exit 1; }
+rm -f "$w/manuals/$vo/entries/fn/abs.tex"
+refresh "$vo" fn
 red vo-entry-missing SHIPPED-NOT-DOCUMENTED
-# 2. The Quick Reference loses the ABS line.
+# 2. The Quick Reference loses ABS's file, with its index refreshed too.
 fresh
-sed '/^\\QRFunction{ABS}/d' "$man/$qr/qr-functions.tex" > "$w/manuals/$qr/qr-functions.tex"
-cmp -s "$man/$qr/qr-functions.tex" "$w/manuals/$qr/qr-functions.tex" && { printf '!!! mutant 2 did not apply\n'; exit 1; }
+rm -f "$w/manuals/$qr/entries/fn/abs.tex"
+refresh "$qr" fn
 red qr-entry-missing SHIPPED-NOT-DOCUMENTED
 # 3. An entry for a name the shipped inventory lacks (a non-DRAFT QR line).
 fresh
@@ -61,19 +66,20 @@ red qr-entry-twice DOCUMENTED-TWICE
 # Review of 31b286e4: each of these used to be a false GREEN against the
 # real class/main.cmds oracle. No unknown TeX is guessed to be harmless.
 fresh
-sed 's/^\\QRFunction{ABS}{Absolute value of a number}$/\\iffalse\\QRFunction{ABS}{Absolute value of a number}\\fi/' "$man/$qr/qr-functions.tex" > "$w/manuals/$qr/qr-functions.tex"
+sed 's/^\\QRFunction{ABS}{Absolute value of a number}$/\\iffalse\\QRFunction{ABS}{Absolute value of a number}\\fi/' "$man/$qr/entries/fn/abs.tex" > "$w/manuals/$qr/entries/fn/abs.tex"
 red conditional-abs SRC-CONDITIONAL
 fresh
-sed 's/^\\QRFunction{ABS}{Absolute value of a number}$/\\newcommand{\\UnusedAbs}{\\QRFunction{ABS}{Absolute value of a number}}/' "$man/$qr/qr-functions.tex" > "$w/manuals/$qr/qr-functions.tex"
+sed 's/^\\QRFunction{ABS}{Absolute value of a number}$/\\newcommand{\\UnusedAbs}{\\QRFunction{ABS}{Absolute value of a number}}/' "$man/$qr/entries/fn/abs.tex" > "$w/manuals/$qr/entries/fn/abs.tex"
 red unused-macro-abs SRC-DEFINITION
 fresh
 printf '\\def\\UnusedAbs{\\QRFunction{ABS}{Unused}}\n' >> "$w/manuals/$qr/qr-functions.tex"
 red def-body SRC-DEFINITION
 fresh
-awk '/^\\QRFunction\{ABS\}/{print "\\begin{TypeIn}";print;print "\\end{TypeIn}";next} {print}' "$man/$qr/qr-functions.tex" > "$w/manuals/$qr/qr-functions.tex"
+awk '/^\\QRFunction\{ABS\}/{print "\\begin{TypeIn}";print;print "\\end{TypeIn}";next} {print}' "$man/$qr/entries/fn/abs.tex" > "$w/manuals/$qr/entries/fn/abs.tex"
 red verbatim-abs SRC-VERBATIM
 fresh
-sed '/^\\QRFunction{ABS}/d' "$man/$qr/qr-functions.tex" > "$w/manuals/$qr/qr-functions.tex"
+rm -f "$w/manuals/$qr/entries/fn/abs.tex"
+refresh "$qr" fn
 printf '\\QRFunction{ABS}{After end}\n' >> "$w/manuals/$qr/main.tex"
 red entry-after-document SRC-AFTER-END
 fresh
@@ -178,6 +184,26 @@ red encoded-control-word SRC-SYNTAX
 fresh
 printf '\\string\\QRFunction{NOSUCHFN}{Quoted entry}\n' >> "$w/manuals/$qr/qr-functions.tex"
 red quoted-entry SRC-UNKNOWN
+# F4 integration: compare against the DIRECTORY-derived index before any
+# command coverage check. Wrong-group moves regenerate both indexes so the
+# kind/group check, rather than a stale-index diagnostic, must reject them.
+fresh
+printf '\\QRFunction{STRAY}{Omitted by index}\n' > "$w/manuals/$qr/entries/fn/stray.tex"
+red omitted-entry-file SRC-ENTRY-INDEX
+fresh
+printf '\\input{entries/fn/phantom}%%\n' >> "$w/gen/entries-$qr-fn.tex"
+red phantom-index-line SRC-ENTRY-INDEX
+fresh
+mv -f "$w/manuals/$qr/entries/fn/abs.tex" "$w/manuals/$qr/entries/cmd/abs.tex"
+refresh "$qr" fn
+refresh "$qr" cmd
+red wrong-entry-group SRC-ENTRY-GROUP
+fresh
+awk 'NR==1{print;next} {a[NR]=$0} END{for(i=NR;i>=2;i--)print a[i]}' "$gen/entries-$qr-fn.tex" > "$w/gen/entries-$qr-fn.tex"
+red reordered-entry-index SRC-ENTRY-INDEX
+fresh
+printf '\\QRFunction{HIDDEN}{Hidden entry}\n' > "$w/manuals/$qr/entries/fn/.hidden.tex"
+red hidden-entry-file SRC-ENTRY-INDEX
 # Comments containing entry macros remain comments, never phantom entries.
 fresh
 printf '%% \\QRFunction{NOSUCHFN}{Comment only}\n' >> "$w/manuals/$qr/qr-functions.tex"

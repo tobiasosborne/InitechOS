@@ -6,10 +6,16 @@
  */
 #include <stdint.h>
 #include <limits.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <errno.h>
+typedef struct {char group[4],name[256];char *text;int used;} SrcIndex;
 typedef struct {
     char kind[16],state[8],dir[PATH_MAX],root[PATH_MAX],gen[PATH_MAX];
     char env[64][64];size_t nenv,nex,ntrans;int phase,files,depth,generated;
     unsigned definitions;int class_seen;
+    SrcIndex index[3];size_t nindex;int qr,in_index,entry_primary;
+    const char *bookname,*entry_group;
     Set *doc,*draft;const char *book;
 } Src;
 static uint64_t srchash(const char *p,size_t n)
@@ -24,6 +30,7 @@ static uint64_t srchash(const char *p,size_t n)
  * An added package cannot be loaded by the pinned class or source grammar.
  */
 static const struct {const char *path;uint64_t hash;} srcsupport[]={
+    {"entry-index.sh", UINT64_C(0x3ad5f2a1ca044214)},
     {"class/initech-borland.sty", UINT64_C(0x52071d0d39cf7634)},
     {"class/initech-forms.sty", UINT64_C(0x86bc26eda6c9930e)},
     {"class/initech-manual.cls", UINT64_C(0x16e152aa10bd3351)},
@@ -89,6 +96,99 @@ static const char *srcarg(const char *p,char *out,size_t cap,const char *where)
 }
 static void srcscan(Src *,const char *,const char *,int,const char *);
 static void srcwalk(Src *,const char *,const char *);
+static void srcdirectory(const char *path,const char *tag)
+{
+    struct stat st;char real[PATH_MAX];
+    if(lstat(path,&st) || !S_ISDIR(st.st_mode) || !realpath(path,real) || strcmp(real,path))
+        die(tag,path,"expected a resolved directory (no symlinks)");
+}
+/* Reuse F4's key validation AND C-locale sort, without a shell command
+ * string or a second implementation of its ordering. Child failures must
+ * propagate; neither a pipeline nor a partial index is an oracle. */
+static char *srcderiveindex(const char *script,const char *dir)
+{
+    int fd[2],status;pid_t pid,got;size_t n=0,cap=4096;char *text;
+    if(pipe(fd)) die("SRC-ENTRY-INDEX",dir,"pipe failed");
+    pid=fork();
+    if(pid<0) die("SRC-ENTRY-INDEX",dir,"fork failed");
+    if(!pid) {
+        close(fd[0]);
+        if(dup2(fd[1],STDOUT_FILENO)<0) _exit(127);
+        close(fd[1]);execl("/bin/sh","sh",script,dir,(char *)NULL);_exit(127);
+    }
+    close(fd[1]);FILE *f=fdopen(fd[0],"rb");text=malloc(cap);
+    if(!f || !text) die("SRC-ENTRY-INDEX",dir,"allocation/stream failed");
+    int c;
+    while((c=fgetc(f))!=EOF) {
+        if(!c || c>126 || (c<32 && c!='\n')) die("SRC-ENTRY-INDEX",dir,"invalid generator output byte");
+        if(n+1==cap) {
+            if(cap==16*1024*1024) die("SRC-ENTRY-INDEX",dir,"index too large");
+            cap*=2;char *t=realloc(text,cap);if(!t) die("SRC-ENTRY-INDEX",dir,"allocation failed");text=t;
+        }
+        text[n++]=(char)c;
+    }
+    if(ferror(f) || fclose(f)) die("SRC-ENTRY-INDEX",dir,"generator read failed");
+    do {got=waitpid(pid,&status,0);} while(got<0 && errno==EINTR);
+    if(got!=pid || !WIFEXITED(status) || WEXITSTATUS(status))
+        die("SRC-ENTRY-INDEX",dir,"entry-index.sh failed");
+    text[n]=0;return text;
+}
+static void srcindexes(Src *s)
+{
+    char root[PATH_MAX],dir[PATH_MAX],path[PATH_MAX],script[PATH_MAX];struct stat st;
+    const char *groups[]={"cmd","fn","set"};
+    s->bookname=strrchr(s->dir,'/');s->bookname=s->bookname?s->bookname+1:s->dir;
+    s->qr=!strcmp(s->bookname,"initechbase-quick-reference");
+    int count=s->qr?3:!strcmp(s->bookname,"initechbase-volume-one")?2:0;
+    srcpath(root,sizeof root,s->dir,"entries","SRC-ENTRY-GROUP");
+    if(!count) {
+        if(!lstat(root,&st)) die("SRC-ENTRY-GROUP",root,"this book has no entry groups");
+        return;
+    }
+    srcdirectory(root,"SRC-ENTRY-GROUP");DIR *d=opendir(root);struct dirent *e;
+    if(!d) die("SRC-ENTRY-GROUP",root,"opendir failed");
+    while((e=readdir(d))) {
+        if(!strcmp(e->d_name,".") || !strcmp(e->d_name,"..")) continue;
+        int ok=0;for(int i=0;i<count;i++) if(!strcmp(e->d_name,groups[i])) ok=1;
+        if(!ok) die("SRC-ENTRY-GROUP",root,e->d_name);
+    }
+    closedir(d);srcpath(script,sizeof script,s->root,"entry-index.sh","SRC-SUPPORT");
+    for(int i=0;i<count;i++) {
+        SrcIndex *idx=&s->index[s->nindex++];strcpy(idx->group,groups[i]);
+        srcpath(dir,sizeof dir,root,groups[i],"SRC-ENTRY-GROUP");srcdirectory(dir,"SRC-ENTRY-GROUP");
+        d=opendir(dir);if(!d) die("SRC-ENTRY-GROUP",dir,"opendir failed");
+        while((e=readdir(d))) {
+            if(!strcmp(e->d_name,".") || !strcmp(e->d_name,"..")) continue;
+            srcpath(path,sizeof path,dir,e->d_name,"SRC-INPUT");
+            size_t n=strlen(e->d_name);
+            if(n>=4 && !strcmp(e->d_name+n-4,".tex")) {
+                if(e->d_name[0]=='.') die("SRC-ENTRY-INDEX",path,"hidden entry is omitted by the generator glob");
+                srcregular(path,"SRC-INPUT");
+            }
+            else if(lstat(path,&st) || S_ISDIR(st.st_mode)) die("SRC-ENTRY-GROUP",path,"nested entry directory");
+        }
+        closedir(d);idx->text=srcderiveindex(script,dir);
+        if(snprintf(idx->name,sizeof idx->name,"entries-%s-%s.tex",s->bookname,groups[i])>=(int)sizeof idx->name)
+            die("SRC-ENTRY-INDEX",dir,"long index name");
+        srcpath(path,sizeof path,s->dir,idx->name,"SRC-ENTRY-INDEX");
+        if(!lstat(path,&st)) die("SRC-ENTRY-INDEX",path,"book-local shadow of generated entry index");
+        srcpath(path,sizeof path,s->gen,idx->name,"SRC-ENTRY-INDEX");srcregular(path,"SRC-ENTRY-INDEX");
+        char *actual=readfile(path);
+        if(stat(path,&st) || (size_t)st.st_size!=strlen(idx->text) || strcmp(actual,idx->text))
+            die("SRC-ENTRY-INDEX",path,"generated index differs from entry-index.sh over the entry directory");
+        free(actual);
+    }
+}
+static void srcgroup(Src *s,const char *name,const char *kind,const char *where)
+{
+    if(!s->entry_group) return;
+    if(strcmp(kind,"command") && strcmp(kind,"function") && strcmp(kind,"set") && strcmp(kind,"compound"))
+        die("SRC-ENTRY-GROUP",where,"kind has no InitechBase entry group");
+    const char *group=!strcmp(kind,"function") || (!strcmp(kind,"compound") && !strcmp(name,"\\&"))?"fn":
+        !strcmp(kind,"set") && s->qr?"set":"cmd";
+    if(strcmp(group,s->entry_group)) die("SRC-ENTRY-GROUP",where,"entry kind/title belongs in another group");
+    if(++s->entry_primary!=1) die("SRC-ENTRY-GROUP",where,"more than one primary entry in a file");
+}
 /* Only the following macros are known to have no registration/input side
  * effect. m/o are recursively checked passive arguments, v a VERBATIM
  * argument of the class (not a potentially executable TeX argument).
@@ -326,6 +426,7 @@ static void srcscan(Src *s,const char *p,const char *end,int passive,const char 
                         p=srcarg(p,b,sizeof b,where);p=srcarg(p,word,sizeof word,where);
                         if(strcmp(word,"compound") && strcmp(word,"command") && strcmp(word,"function") && strcmp(word,"set"))
                             die("SRC-KIND",where,word);
+                        srcgroup(s,b,word,where);
                         strcpy(s->state,dr?"DRAFT":"GATED");
                         if(strcmp(word,"compound")) {srcreg(s,b,word,s->state);strcpy(s->kind,word);}
                         else {strcpy(s->kind,"command");srctitle(b,where);}
@@ -353,6 +454,7 @@ static void srcscan(Src *s,const char *p,const char *end,int passive,const char 
             srceffects(s,passive,where);int dr=*skipws(p)=='[';p=srcargs(s,p,"o",where);
             p=srcarg(p,a,sizeof a,where);p=srcarg(p,b,sizeof b,where);
             if(strcmp(b,"compound") && !commandkind(b)) die("SRC-KIND",where,b);
+            srcgroup(s,a,b,where);
             strcpy(s->state,dr?"DRAFT":"GATED");
             if(!strcmp(b,"compound")) {strcpy(s->kind,"command");srctitle(a,where);}
             else srcreg(s,a,b,s->state);
@@ -361,6 +463,7 @@ static void srcscan(Src *s,const char *p,const char *end,int passive,const char 
             srceffects(s,passive,where);p=srcarg(p,a,sizeof a,where);
             if(!strcmp(word,"DotExample")) srcexample(s,a,0,where);
             else {
+                if(!strcmp(word,"QRFunction")) srcgroup(s,a,"function",where);
                 srcreg(s,a,!strcmp(word,"QRFunction")?"function":s->kind,!strcmp(word,"QRFunction")?"GATED":s->state);
                 p=srcargs(s,p,"m",where);
             }
@@ -383,7 +486,26 @@ static void srcwalk(Src *s,const char *file,const char *where)
     if(n>4 && !strcmp(file+n-4,".tex")) n-=4;
     if(!n || n>=sizeof name) die("SRC-INPUT",where,file);
     memcpy(name,file,n);name[n]=0;
+    if(s->entry_group) die("SRC-INPUT",where,"nested input from an entry file is unsupported");
+    if(!strncmp(name,"entries/",8)) {
+        if(!s->in_index) die("SRC-INPUT",where,"entry paths are allowed only in the verified derived index");
+        const char *key=strchr(name+8,'/');
+        if(!key || !srcstem(key+1)) die("SRC-INPUT",where,name);
+        size_t g=(size_t)(key-name-8);SrcIndex *idx=NULL;
+        for(size_t i=0;i<s->nindex;i++) if(strlen(s->index[i].group)==g && !strncmp(name+8,s->index[i].group,g)) idx=&s->index[i];
+        if(!idx || s->in_index!=(int)(idx-s->index)+1) die("SRC-INPUT",where,"cross-group entry path");
+        if(snprintf(name+n,sizeof name-n,".tex")>=(int)(sizeof name-n)) die("SRC-INPUT",where,file);
+        srcpath(path,sizeof path,s->dir,name,"SRC-INPUT");
+        s->entry_group=idx->group;s->entry_primary=0;
+        goto source;
+    }
     if(!srcstem(name)) die("SRC-INPUT",where,"only literal book-local basenames and named generated tables are supported");
+    for(size_t i=0;i<s->nindex;i++) if(strlen(s->index[i].name)==n+4 && !strncmp(name,s->index[i].name,n)) {
+        SrcIndex *idx=&s->index[i];
+        if(s->in_index || idx->used++) die("SRC-ENTRY-INDEX",where,"nested/repeated entry index");
+        s->in_index=(int)i+1;srcscan(s,idx->text,idx->text+strlen(idx->text),0,idx->name);s->in_index=0;
+        return;
+    }
     static const char *tables[]={"samir_limits","samir_formats","samir_coercion","samir_messages"};
     for(size_t i=0;i<sizeof tables/sizeof *tables;i++) if(!strcmp(name,tables[i])) generated=1;
     if(snprintf(name+n,sizeof name-n,".tex")>=(int)(sizeof name-n)) die("SRC-INPUT",where,file);
@@ -393,6 +515,7 @@ static void srcwalk(Src *s,const char *file,const char *where)
         if(!lstat(path,&st)) die("SRC-INPUT",path,"book-local shadow of generated table");
         srcpath(path,sizeof path,s->gen,name,"SRC-INPUT");
     }
+source:
     if(++s->files>64) die("SRC-INPUT",where,"input nesting/cycle limit");
     srcregular(path,"SRC-INPUT");char *text=readfile(path);struct stat st;
     if(stat(path,&st) || strlen(text)!=(size_t)st.st_size)
@@ -400,6 +523,10 @@ static void srcwalk(Src *s,const char *file,const char *where)
     for(const char *p=text;*p;p++) if((unsigned char)*p>126 ||
        ((unsigned char)*p<32 && !strchr("\n\r\t",*p))) die("SRC-SYNTAX",path,"non-ASCII source byte");
     s->generated=generated;srcscan(s,text,text+strlen(text),0,path);s->generated=old;
+    if(s->entry_group) {
+        if(s->entry_primary!=1) die("SRC-ENTRY-GROUP",path,"file has no primary entry");
+        s->entry_group=NULL;
+    }
     free(text);s->files--;
 }
 /* srclockstep <shipped> <allow> <vol-one> <quick-ref> <vol-two> <generated-dir> */
@@ -414,7 +541,11 @@ static void srclockstep(int argc,char **argv)
         if(!realpath(s.book,s.dir) || !realpath(argv[7],s.gen)) die("SRC-INPUT",s.book,"cannot resolve source/generated directory");
         srcpath(rootpath,sizeof rootpath,s.dir,"../..","SRC-INPUT");
         if(!realpath(rootpath,s.root)) die("SRC-INPUT",s.book,"cannot resolve publications root");
-        srcsupportcheck(s.root);srcwalk(&s,"main",s.book);
+        srcsupportcheck(s.root);srcindexes(&s);srcwalk(&s,"main",s.book);
+        for(size_t i=0;i<s.nindex;i++) {
+            if(!s.index[i].used) die("SRC-ENTRY-INDEX",s.index[i].name,"entry group is not included by the book");
+            free(s.index[i].text);
+        }
         if(s.phase!=2 || s.nenv) die("SRC-ENVIRONMENT",s.book,"missing document end or unclosed environment");
         nex+=s.nex;ntrans+=s.ntrans;
         if(getenv("SRCLOCKSTEP_DUMP")) for(size_t i=0;i<doc.n;i++) fprintf(stderr,"%d|%s\n",b,doc.item[i]);
