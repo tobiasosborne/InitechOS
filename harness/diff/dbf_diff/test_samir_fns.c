@@ -9,18 +9,33 @@
 #include "test_assert.h"
 #include "samir/interp.h"
 TEST_HARNESS();
+#ifdef SAMIR_W2
+#include "w2_host.h"
+#define CAPTURE_BEGIN "[W2-BEGIN]"
+#define CAPTURE_END "[W2-END]"
+#define CAPTURE_KIND "W2"
+#else
+#define CAPTURE_BEGIN "[FNS-BEGIN]"
+#define CAPTURE_END "[FNS-END]"
+#define CAPTURE_KIND "FNS"
+#endif
 struct pal_host_cfg { uint8_t yy,mm,dd; uint32_t heap; };
 extern samir_pal_t *pal_host_make(struct pal_host_cfg);
 extern void pal_host_free(samir_pal_t *);
 static char captured[65536];
-static unsigned used,input_line;
+static unsigned used;
+#ifndef SAMIR_W2
+static unsigned input_line;
+#endif
 static const char *const driver[]={"SET TALK OFF","SET SAFETY OFF","ON ERROR ? \"MINT-ERROR\", ERROR(), MESSAGE()","SET ALTERNATE TO CAPTURE.OUT","SET ALTERNATE ON","DO FNSTEST","SET ALTERNATE TO","QUIT"};
 static void output(samir_pal_t *p,const char *s,uint32_t n)
 { (void)p; if(n<sizeof captured-used) { memcpy(captured+used,s,n); used+=n; captured[used]=0; } }
+#ifndef SAMIR_W2
 static int32_t input(samir_pal_t *p,char *s,uint32_t cap)
 { const char *v=input_line<sizeof driver/sizeof driver[0]?driver[input_line++]:"QUIT"; (void)p;snprintf(s,cap,"%s",v);return (int32_t)strlen(s); }
+#endif
 static int command(const char *s)
-{ int rc=system(s); if(rc)fprintf(stderr,"command failed: %s\n",s); CHECK(rc==0,"FNS factory command succeeded");return rc; }
+{ int rc=system(s); if(rc)fprintf(stderr,"command failed: %s\n",s); CHECK(rc==0,CAPTURE_KIND " factory command succeeded");return rc; }
 static size_t readfile(const char *path,char *buf,size_t cap)
 { FILE *f=fopen(path,"rb");size_t n=0;if(f){n=fread(buf,1,cap-1,f);fclose(f);}buf[n]=0;return n; }
 static void diff_line(const char *label,const char *p,size_t n,size_t at)
@@ -33,12 +48,12 @@ static void diff_line(const char *label,const char *p,size_t n,size_t at)
 }
 static int equal_text(const char *a,const char *b)
 {
-    const char *p=strstr(a,"[FNS-BEGIN]"),*q=strstr(b,"[FNS-BEGIN]");
-    const char *e=p?strstr(p,"[FNS-END]"):NULL,*f=q?strstr(q,"[FNS-END]"):NULL;
-    size_t n=e?(size_t)(e-p)+9:p?strlen(p):0,m=f?(size_t)(f-q)+9:q?strlen(q):0;
+    const char *p=strstr(a,CAPTURE_BEGIN),*q=strstr(b,CAPTURE_BEGIN);
+    const char *e=p?strstr(p,CAPTURE_END):NULL,*f=q?strstr(q,CAPTURE_END):NULL;
+    size_t n=e?(size_t)(e-p)+strlen(CAPTURE_END):p?strlen(p):0,m=f?(size_t)(f-q)+strlen(CAPTURE_END):q?strlen(q):0;
     if(!e||!f||n!=m||memcmp(p,q,n)) {
         size_t j=0;if(p&&q)while(j<n&&j<m&&p[j]==q[j])j++;
-        fprintf(stderr,"FNS transcript differs at byte %lu (got 0x%02x, real 0x%02x; lengths %lu/%lu)\n",(unsigned long)j,
+        fprintf(stderr,CAPTURE_KIND " transcript differs at byte %lu (got 0x%02x, real 0x%02x; lengths %lu/%lu)\n",(unsigned long)j,
             p&&j<n?(unsigned char)p[j]:0,q&&j<m?(unsigned char)q[j]:0,(unsigned long)n,(unsigned long)m);
         diff_line("  got",p,n,j);diff_line("  real",q,m,j);return 0;
     }return 1;
@@ -47,6 +62,7 @@ static int equal_text(const char *a,const char *b)
 /* Independent key expectations: Using III+ U6-40/41, Table 6-1, in
  * docs/audits/2026-10-15-look-pass6/evidence/dbase-manual.txt. The mint
  * has no keystrokes, so inject a locked FIFO at the PAL seam as well. */
+#ifndef SAMIR_W2
 static int32_t inkey_pending;
 static unsigned inkey_polls;
 static int32_t inkey_input(samir_pal_t *p)
@@ -97,6 +113,7 @@ static void inkey_keys(samir_pal_t *pal, xb_interp *ip)
           out.t==XB_N && out.u.n=='A', "INKEY preserves the rejected call's key");
     pal->conin_poll = saved;
 }
+#endif
 int main(int argc,char **argv)
 {
     const char *name=argc>1?argv[1]:"unknown",*mode=argc>2?argv[2]:"host";
@@ -104,15 +121,34 @@ int main(int argc,char **argv)
     char gold[1024],dir[1024],cmd[16384],path[2048];
     static char expected[65536],minted[8192],current[8192];size_t mn,cn;
     int emu=!strcmp(mode,"emu");FILE *f;
+#ifdef SAMIR_W2
+    const char *case_name;
+    int kind_len;
+    if(!strncmp(name,"set-",4)){case_name=name+4;kind_len=3;}
+    else if(!strncmp(name,"verb-",5)){case_name=name+5;kind_len=4;}
+    else return 2;
+    if(!*case_name||strspn(case_name,"abcdefghijklmnopqrstuvwxyz")!=strlen(case_name)||strcmp(mode,"host"))return 2;
+    snprintf(gold,sizeof gold,"harness/diff/dbf_diff/xbase_prog_diff/%.*s-mint/%s",kind_len,name,case_name);
+#else
     if(strspn(name,"abcdefghijklmnopqrstuvwxyz")!=strlen(name)||(!emu&&strcmp(mode,"host")))return 2;
     snprintf(gold,sizeof gold,"build/samirfns/golden/%s",name);
+#endif
     snprintf(path,sizeof path,"%s/GOLD.OUT",gold);
     if(!readfile(path,expected,sizeof expected)){fprintf(stderr,"RED: MINT required: %s/GOLD.OUT\n",gold);return 2;}
     snprintf(path,sizeof path,"%s/FNSTEST.PRG",gold);mn=readfile(path,minted,sizeof minted);
+#ifdef SAMIR_W2
+    snprintf(path,sizeof path,"harness/diff/dbf_diff/xbase_prog_diff/corpus/w2/%.*s/%s.prg",kind_len,name,case_name);cn=readfile(path,current,sizeof current);
+#else
     snprintf(path,sizeof path,"harness/diff/dbf_diff/xbase_prog_diff/corpus/fns/%s.prg",name);cn=readfile(path,current,sizeof current);
+#endif
     if(!mn||mn!=cn||memcmp(minted,current,mn)){fprintf(stderr,"RED: MINT required: stale %s corpus\n",name);return 2;}
+#ifdef SAMIR_W2
+    snprintf(dir,sizeof dir,"build/samirw2/%s-%s",mode,name);
+    snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s && cp -rf %s/INPUT/. %s/ && cp -f %s/FNSTEST.PRG %s/MINT.PRG %s/CONFIG.DB %s/",dir,dir,gold,dir,gold,gold,gold,dir);command(cmd);
+#else
     snprintf(dir,sizeof dir,"build/samirfns/%s-%s",mode,name);
     snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s/DATA && cp -f build/CLIENTS.DBF %s/BASE.DBF && cp -f %s/FNSTEST.PRG %s/FNSTEST.PRG && cp -f %s/LIBRARY.PRG %s/LIBRARY.PRG && cp -f %s/DATA/* %s/DATA/",dir,dir,dir,gold,dir,gold,dir,gold,dir);command(cmd);
+#endif
     if(!strcmp(name,"default")||!strcmp(name,"path")){snprintf(cmd,sizeof cmd,"rm -f %s/BASE.DBF",dir);command(cmd);}
     if(!strcmp(name,"alias")||!strcmp(name,"relation")){snprintf(cmd,sizeof cmd,"cp -f build/CLIENTS.DBF %s/OTHER.DBF",dir);command(cmd);}
     if(emu){
@@ -139,14 +175,51 @@ int main(int argc,char **argv)
         char cwd[2048];samir_pal_t *pal;xb_interp *ip;
         if(!getcwd(cwd,sizeof cwd)||chdir(dir))return 2;
         pal=pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});if(!pal)return 2;
-        pal->conout=output;pal->conin_line=input;ip=xb_interp_make(pal);
-        if (ip && !strcmp(name,"inkey")) inkey_keys(pal,ip);
-        CHECK(ip&&samir_repl(pal,ip)==0,"FNS full disk program returned");
+        pal->conout=output;
+#ifdef SAMIR_W2
+        struct w2_host_env env;
+        char c_root[2048],d_root[4096];
+        if(!getcwd(c_root,sizeof c_root))return 2;
+        snprintf(d_root,sizeof d_root,"%s/DRIVE",c_root);
+        /* Same explicit inputs as mint_capture.sh: C:/D:, 64 MiB each. */
+        const struct w2_host_config cfg={c_root,d_root,67108864u,67108864u,'C'};
+        int attached=w2_host_bind(&env,pal,&cfg);
+        CHECK(attached==PAL_OK,"W2 explicit DOS drive/free-space inputs attached");
+        if(attached!=PAL_OK){pal_host_free(pal);return 2;}
+        ip=xb_interp_make(pal);
+        CHECK(ip&&w2_host_startup(pal,ip,"MINT.PRG")==0,"W2 MINT.PRG batch startup returned");
+        CHECK(env.input_calls==0,"W2 batch startup consumed no REPL setup commands");
         if(ip)xb_interp_free(ip);
+        w2_host_unbind(&env);
+#else
+        pal->conin_line=input;ip=xb_interp_make(pal);
+        if (ip && !strcmp(name,"inkey")) inkey_keys(pal,ip);
+        CHECK(ip&&samir_repl(pal,ip)==0,CAPTURE_KIND " full disk program returned");
+        if(ip)xb_interp_free(ip);
+#endif
         pal_host_free(pal);if(chdir(cwd))return 2;
     }
+#ifdef SAMIR_W2
+    snprintf(path,sizeof path,"%s/GOLD.OUT",dir);readfile(path,captured,sizeof captured);
+#else
     snprintf(path,sizeof path,"%s/CAPTURE.OUT",dir);readfile(path,captured,sizeof captured);
+#endif
     snprintf(path,sizeof path,"%s/captured.out",dir);f=fopen(path,"wb");if(f){fwrite(captured,1,strlen(captured),f);fclose(f);}
-    CHECK(equal_text(captured,expected),"FNS transcript byte-identical to real III+");
+    CHECK(equal_text(captured,expected),CAPTURE_KIND " transcript byte-identical to real III+");
+#ifdef SAMIR_W2
+    /* Printer-only effects (notably MARGIN) have independent raw LPT goldens.
+     * A future host printer PAL must route its bytes to this capture seam.
+     * Missing printer output remains RED while the feature is PENDING. */
+    snprintf(path,sizeof path,"%s/PRINTER.OUT",gold);
+    size_t printer_expected=readfile(path,expected,sizeof expected);
+    if(printer_expected){
+        snprintf(path,sizeof path,"%s/PRINTER.OUT",dir);
+        size_t printer_got=readfile(path,captured,sizeof captured);
+        CHECK(printer_got==printer_expected && !memcmp(captured,expected,printer_expected),
+              "W2 raw printer transcript byte-identical to real III+");
+    }
+    return TEST_SUMMARY("test-samir-w2");
+#else
     return TEST_SUMMARY("test-samir-fns");
+#endif
 }

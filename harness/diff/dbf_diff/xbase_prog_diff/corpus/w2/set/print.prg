@@ -1,0 +1,18 @@
+* MINT-ERRORS: 10
+* Ref: ../dbase3-decomp/specs/commands/set-commands.md:158
+? "[W2-BEGIN]"
+? "[DEFAULT PRINT OFF]"
+?? "OFF"
+? PROW(), PCOL()
+SET PRINT ON
+?? "ON"
+SET PRINT OFF
+? "[PRINT ON ADVANCED PRINTER COLUMN]"
+? PROW(), PCOL()
+?? "OFF"
+? "[PRINT OFF LEAVES PRINTER COLUMN UNCHANGED]"
+? PROW(), PCOL()
+? "[BAD TOGGLE]"
+SET PRINT MAYBE
+? "[W2-END]"
+RETURN

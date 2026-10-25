@@ -1,0 +1,22 @@
+
+[W2-BEGIN]
+[DEFAULT UNIQUE OFF]
+Record#  NAME       CITY
+      3  LUMBERGH   DALLAS      
+      1  PESTON     HONOLULU    
+      2  WADDAMS    HONOLULU    
+
+[UNIQUE ON DUPLICATE OMITTED]
+Record#  NAME       CITY
+      3  LUMBERGH   DALLAS      
+      1  PESTON     HONOLULU    
+
+[UNIQUE OFF DUPLICATE RESTORED]
+Record#  NAME       CITY
+      3  LUMBERGH   DALLAS      
+      1  PESTON     HONOLULU    
+      2  WADDAMS    HONOLULU    
+
+[BAD TOGGLE]
+MINT-ERROR         10 Syntax error.
+[W2-END]

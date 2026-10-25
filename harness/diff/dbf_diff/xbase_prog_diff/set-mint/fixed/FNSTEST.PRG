@@ -1,0 +1,16 @@
+* MINT-ERRORS: 10
+* Ref: ../dbase3-decomp/specs/commands/set-commands.md:153
+? "[W2-BEGIN]"
+? "[DEFAULT FIXED OFF DECIMALS TWO]"
+? 7, 1.2+2.3, 22/7
+SET DECIMALS TO 4
+SET FIXED ON
+? "[FIXED ON DECIMALS FOUR]"
+? 7, 1.2+2.3, 22/7
+SET FIXED OFF
+? "[FIXED OFF DECIMALS FOUR]"
+? 7, 1.2+2.3, 22/7
+? "[BAD TOGGLE]"
+SET FIXED MAYBE
+? "[W2-END]"
+RETURN

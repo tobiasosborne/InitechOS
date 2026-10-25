@@ -1,0 +1,21 @@
+* MINT-ERRORS: 10
+* Ref: ../dbase3-decomp/specs/commands/set-commands.md:324
+? "[W2-BEGIN]"
+? "[DEFAULT C]"
+USE BASE
+? NAME, BAL
+USE
+SET DEFAULT TO D
+? "[CHANGED D]"
+USE BASE
+? NAME, BAL
+USE
+SET DEFAULT TO C
+? "[RESTORED C]"
+USE BASE
+? NAME, BAL
+USE
+? "[MISSING TO]"
+SET DEFAULT C
+? "[W2-END]"
+RETURN

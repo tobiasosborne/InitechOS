@@ -1,0 +1,18 @@
+
+[W2-BEGIN]
+[DEFAULT ALL NUMERIC FIELDS]
+      3 records summed
+        BAL
+    8970.27
+      8970.27 .T.          4
+[NEXT TWO]       1192.50
+[POSITIVE BALANCES]       9012.27
+[DELETED OFF]       8970.27
+[DELETED ON]       9012.27
+[NONNUMERIC EXPRESSION]
+MINT-ERROR         27 Not a numeric expression.
+[MISSING TO VARIABLE]
+MINT-ERROR         10 Syntax error.
+[NONLOGICAL SUM CONDITION]
+MINT-ERROR         37 Not a Logical expression.
+[W2-END]

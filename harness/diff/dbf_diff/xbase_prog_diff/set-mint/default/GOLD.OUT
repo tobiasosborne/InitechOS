@@ -1,0 +1,11 @@
+
+[W2-BEGIN]
+[DEFAULT C]
+PESTON      1234.50
+[CHANGED D]
+DRIVE_D       99.00
+[RESTORED C]
+PESTON      1234.50
+[MISSING TO]
+MINT-ERROR         10 Syntax error.
+[W2-END]

@@ -1,0 +1,47 @@
+
+[W2-BEGIN]
+[DEFAULT DATABASE FILES]
+Database Files    # Records    Last Update     Size
+BASE.DBF                 3     07/19/93         223
+MEMO.DBF                 1     07/24/86          77
+OTHER.DBF                3     07/24/86         223
+
+    523 bytes in     3 files.
+67108864 bytes remaining on drive.
+
+[SKELETON FILTER]
+MEMO.DBF           
+
+     77 bytes in     1 files.
+67108864 bytes remaining on drive.
+
+[DIFFERENT DIRECTORY]
+TARGET.DBF         
+
+    161 bytes in     1 files.
+67108864 bytes remaining on drive.
+
+[NO MATCHING FILE]
+
+None
+
+67108864 bytes remaining on drive.
+
+[TRAILING WORDS PROBE]
+Database Files    # Records    Last Update     Size
+
+None
+
+67108864 bytes remaining on drive.
+
+[INVALID DRIVE]
+
+
+None
+
+[NONEXISTENT DIRECTORY]
+
+
+None
+
+[W2-END]

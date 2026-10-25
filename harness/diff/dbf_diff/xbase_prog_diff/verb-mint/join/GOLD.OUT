@@ -1,0 +1,32 @@
+
+[W2-BEGIN]
+[DIFFERENT INPUTS]
+C:BASE.dbf WADDAMS       20.00
+[CONDITIONAL JOIN]
+         2
+Record#  NAME       CITY              BAL
+      1  PESTON     SECOND        1234.50
+      2  WADDAMS    REMOTE         -42.00
+
+[CARTESIAN JOIN]
+         9
+Record#  NAME       CITY
+      1  PESTON     REMOTE      
+      2  PESTON     SECOND      
+      3  PESTON     UNMATCHED   
+      4  WADDAMS    REMOTE      
+      5  WADDAMS    SECOND      
+      6  WADDAMS    UNMATCHED   
+      7  LUMBERGH   REMOTE      
+      8  LUMBERGH   SECOND      
+      9  LUMBERGH   UNMATCHED   
+
+[SELF JOIN REFUSED]
+MINT-ERROR        139 Cannot JOIN a file with itself.
+[BAD ALIAS]
+MINT-ERROR         13 ALIAS not found.
+[MISSING TO]
+MINT-ERROR         10 Syntax error.
+[UNKNOWN JOIN FIELD]
+MINT-ERROR         12 Variable not found.
+[W2-END]

@@ -1,0 +1,23 @@
+
+[W2-BEGIN]
+[DEFAULT ALL FIELDS]
+Record#  NAME       CITY              BAL
+      1  PESTON     HONOLULU      1234.50
+
+[FIELDS ON]
+Record#  NAME
+      1  PESTON    
+
+[FIELDS OFF]
+Record#  NAME       CITY              BAL
+      1  PESTON     HONOLULU      1234.50
+
+[ADDITIVE FIELD LIST]
+Record#  NAME       CITY
+      1  PESTON     HONOLULU    
+
+[BAD FIELD]
+MINT-ERROR         12 Variable not found.
+[BAD TOGGLE]
+MINT-ERROR         10 Syntax error.
+[W2-END]

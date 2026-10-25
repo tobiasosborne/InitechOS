@@ -34837,6 +34837,46 @@ test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_FNS_PROMOTED)
 endef
 $(foreach rule,$(SAMIR_FNS_PENDING),$(eval $(call samir-fns-pending-gate,$(rule))))
 
+# W2 mint-first: all named differential gates remain PENDING and outside the
+# default vector. samir-w2-goldens separately verifies the reference evidence.
+SAMIR_W2_MINT_TREE := $(DBF_DIFF_DIR)/xbase_prog_diff
+SAMIR_W2_MINTED := set/catalog set/default set/dohistory set/fields set/fixed \
+	set/headings set/history set/margin set/memowidth set/path set/print set/procedure \
+	set/unique set/view verb/average verb/count verb/dir verb/eject verb/insert \
+	verb/join verb/sum verb/text verb/update
+SAMIR_W2_PENDING := $(subst /,-,$(SAMIR_W2_MINTED))
+SAMIR_W2_FIXTURE := $(BUILD)/w2_fixture
+SAMIR_W2_TEST := $(BUILD)/test_samir_w2
+$(SAMIR_W2_FIXTURE): $(DBF_DIFF_DIR)/w2_fixture.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
+$(SAMIR_W2_TEST): $(DBF_DIFF_DIR)/test_samir_fns.c $(DBF_DIFF_DIR)/w2_host.c $(DBF_DIFF_DIR)/w2_host.h $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_W2 -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter-out $(SAMIR_MAIN_SRC),$(filter %.c,$^))
+$(BUILD)/test_w2_host: $(DBF_DIFF_DIR)/test_w2_host.c $(DBF_DIFF_DIR)/w2_host.c $(DBF_DIFF_DIR)/w2_host.h $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter-out $(SAMIR_MAIN_SRC),$(filter %.c,$^))
+.PHONY: test-samir-w2-host-adapter
+test-samir-w2-host-adapter: $(BUILD)/test_w2_host
+	@$<
+.PHONY: mint-samir-w2 test-samir-w2-pending samir-w2-goldens
+mint-samir-w2: $(addprefix mint-samir-w2-,$(SAMIR_W2_PENDING))
+test-samir-w2-pending: $(addprefix test-samir-w2-,$(SAMIR_W2_PENDING))
+samir-w2-goldens:
+	@set -e; for case in $(SAMIR_W2_MINTED); do \
+	 kind=$${case%/*}; name=$${case#*/}; dir=$(SAMIR_W2_MINT_TREE)/$$kind-mint/$$name; \
+	 (cd $$dir && sha256sum --quiet -c sha256.txt); \
+	 cmp $(SAMIR_W2_MINT_TREE)/corpus/w2/$$case.prg $$dir/FNSTEST.PRG; \
+	 done
+	@echo '>>> samir-w2-goldens: green (23 real III+ captures; sources and all input hashes pinned)'
+define samir-w2-pending-gate
+.PHONY: mint-samir-w2-$(subst /,-,$(1)) test-samir-w2-$(subst /,-,$(1))
+mint-samir-w2-$(subst /,-,$(1)): $$(CLIENTS_DBF) $$(SAMIR_W2_FIXTURE)
+	@sh $$(DBF_DIFF_DIR)/w2_mint.sh $$(abspath $$(DBASE3_DECOMP)) $(1)
+test-samir-w2-$(subst /,-,$(1)): $$(SAMIR_W2_TEST)
+	@cd $(SAMIR_W2_MINT_TREE)/$(word 1,$(subst /, ,$(1)))-mint/$(word 2,$(subst /, ,$(1))) && sha256sum --quiet -c sha256.txt
+	@$$(SAMIR_W2_TEST) $(subst /,-,$(1)) host
+	@echo '>>> test-samir-w2-$(subst /,-,$(1)): green'
+endef
+$(foreach rule,$(SAMIR_W2_MINTED),$(eval $(call samir-w2-pending-gate,$(rule))))
+
 # Real III+ captures for the four currently exercised SF rules. Missing or
 # stale independent bytes fail loudly; this gate never regenerates evidence.
 .PHONY: samir-fns-goldens

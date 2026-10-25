@@ -1,0 +1,32 @@
+
+[W2-BEGIN]
+[BEFORE VIEW]
+C:BASE.dbf          3
+Record#  NAME
+      1  PESTON    
+
+[RESTORED VIEW FIELD LIST]
+Record#  FIRSTNAME            LASTNAME             PHONE         TRAVELCODE TRAVELPLAN                               DEPARTURE       COST PAID NOTES ADDRESS                   CITY                 STATE ZIPCODE
+     23  Lori                 Dickerson            (555)981-7100 AO26       26-night Australian Outback              10/30/85     3295.00 .F.  Memo  14565 Collins Ave.        Phoenix              AZ    85041
+
+[VIEW RESTORED FIRST WORK AREA]
+C:\VIEW\TRAVEL.DBF         49
+Record#  FIRSTNAME            LASTNAME
+     23  Lori                 Dickerson           
+
+[PARENT RECORD ONE AND RELATED CHILD]
+Buckman              Buckman              Oxnard              
+[PARENT RECORD TWO AND RELATED CHILD]
+Lisbonn              Lisbonn              Glendale            
+[VIEW RESTORED SECOND WORK AREA]
+C:\VIEW\CLIENTS.DBF         49
+Record#  LASTNAME             CITY
+      2  Lisbonn              Glendale            
+
+[MISSING VIEW FILE]
+MINT-ERROR          1 File does not exist.
+[EMPTY VIEW OPERAND]
+MINT-ERROR         10 Syntax error.
+[MISSING TO]
+MINT-ERROR         10 Syntax error.
+[W2-END]

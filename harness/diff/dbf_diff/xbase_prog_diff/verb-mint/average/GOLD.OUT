@@ -1,0 +1,18 @@
+
+[W2-BEGIN]
+[DEFAULT ALL NUMERIC FIELDS]
+      3 records averaged
+     BAL
+ 2990.09
+      2990.09 .T.          4
+[NEXT TWO]        596.25
+[POSITIVE BALANCES]       4506.14
+[DELETED OFF]       2990.09
+[DELETED ON]       4506.14
+[NONNUMERIC EXPRESSION]
+MINT-ERROR         27 Not a numeric expression.
+[MISSING TO VARIABLE]
+MINT-ERROR         10 Syntax error.
+[NONLOGICAL AVERAGE CONDITION]
+MINT-ERROR         37 Not a Logical expression.
+[W2-END]

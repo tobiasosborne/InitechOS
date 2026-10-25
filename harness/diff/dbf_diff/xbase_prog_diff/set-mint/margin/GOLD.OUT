@@ -1,0 +1,13 @@
+
+[W2-BEGIN]
+[DEFAULT ZERO MARGIN]
+X
+[FIVE COLUMN MARGIN]
+X
+[MARGIN RESTORED TO ZERO]
+X
+[NONNUMERIC MARGIN]
+MINT-ERROR         27 Not a numeric expression.
+[MISSING TO]
+MINT-ERROR         10 Syntax error.
+[W2-END]

@@ -1,0 +1,33 @@
+
+[W2-BEGIN]
+[BEFORE UPDATE]
+Record#  NAME       CITY              BAL
+      3  LUMBERGH   DALLAS        7777.77
+      1  PESTON     HONOLULU      1234.50
+      2  WADDAMS    AUSTIN         -42.00
+
+[SORTED MERGE UPDATE]
+Record#  NAME       CITY              BAL
+      3  LUMBERGH   DALLAS        7777.77
+      1  PESTON     SECOND        1244.50
+      2  WADDAMS    REMOTE         -22.00
+
+[TRANSACTION PHYSICAL ORDER: WADDAMS BEFORE PESTON]
+Record#  NAME            BAL
+      1  WADDAMS       20.00
+      2  PESTON        10.00
+      3  EXTRA         30.00
+
+[RANDOM UPDATE UNSORTED TRANSACTIONS]
+Record#  NAME       CITY              BAL
+      3  LUMBERGH   DALLAS        7777.77
+      1  PESTON     SECOND        1254.50
+      2  WADDAMS    REMOTE          -2.00
+
+[BAD ALIAS]
+MINT-ERROR         13 ALIAS not found.
+[MISSING REPLACE]
+MINT-ERROR         10 Syntax error.
+[TYPE MISMATCH]
+MINT-ERROR          9 Data type mismatch.
+[W2-END]
