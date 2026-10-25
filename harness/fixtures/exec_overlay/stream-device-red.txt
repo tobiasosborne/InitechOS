@@ -1,0 +1,16 @@
+Makefile:8902: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8900: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8911: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8909: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Ispec -Ios/milton -Iseed -Ibuild \
+	-o build/test_overlay os/milton/test_overlay.c os/milton/int21.c os/milton/devices.c os/milton/mcb.c os/milton/sft.c os/milton/psp.c os/milton/irq.c os/milton/loader.c os/milton/fat12.c
+DOS33 overlay captures: factor-based patch address confirmed
+>>> test-overlay-dos33-reference: green; load-based-address mutant RED
+>>> test-overlay: AH=4Bh AL=03h core (factor reloc, footprint, raw, refusals) + dispatch + DEC-19.4 ownership
+  FAIL os/milton/test_overlay.c:451: A12 device read error reports READ with only the attempted bytes changed
+A12 fault at read 1/4: status=7
+A12 fault at read 2/4: status=7
+A12 fault at read 3/4: status=7
+A12 fault at read 4/4: status=7
+test_overlay: 83 checks, 1 failures
+make: *** [harness/exec_overlay.mk:82: test-overlay] Error 1

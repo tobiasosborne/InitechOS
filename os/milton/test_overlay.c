@@ -448,8 +448,9 @@ int main(void)
     g_fail_read_at = 2;
     st = loader_overlay_core(mem_read, 0, g_file_len, g_dest, LOAD, FACTOR,
                              win_owns, g_stage, sizeof g_stage, g_scratch, &got);
-    CHECK(st == LOADER_ERR_READ && dest_canary_from(0u),
-          "A12 failed raw read leaves the WHOLE destination untouched");
+    CHECK(st == LOADER_ERR_READ && memcmp(g_dest, g_file, 64u) == 0 &&
+          dest_canary_from(64u),
+          "A12 device read error reports READ with only the attempted bytes changed");
 
     /* A13: exercise the actual reader, not only a fault-injection callback. */
     {

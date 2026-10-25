@@ -235,3 +235,17 @@ test-exec-overlay-flair-mutant: test-exec-overlay-flair $(BUILD)/flair_tenants_m
 
 test-exec-overlay: test-exec-overlay-flair
 test-exec-overlay-mutant: test-exec-overlay-flair-mutant
+
+# PM ruling on cb3c7910 (initech-f9t): all loader-owned overlay byte buffers,
+# including the existing FAT sector scratch, fit in 1 KiB. Inspect the linked
+# buffers rather than accepting a big NOBITS array hidden from loaded size.
+.PHONY: test-overlay-memory
+test-overlay-memory: $(KERNEL_FLAIRTENANTS_ELF)
+	@nm -S --defined-only $< > $(BUILD)/overlay_memory.symbols
+	@total=0; count=0; while read address bytes kind name; do \
+		case "$$name" in g_load_sector|g_load_cluster|g_ovl_stage) \
+			total=$$((total + 0x$$bytes)); count=$$((count + 1));; esac; \
+		done < $(BUILD)/overlay_memory.symbols; \
+		printf '>>> overlay fixed byte buffers: %s B (limit 1024 B)\n' "$$total"; \
+		test "$$count" -ge 2 && test "$$total" -le 1024
+test-exec-overlay: test-overlay-memory

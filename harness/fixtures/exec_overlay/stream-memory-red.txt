@@ -1,0 +1,6 @@
+Makefile:8902: warning: overriding recipe for target 'build/mouse.o'
+Makefile:8900: warning: ignoring old recipe for target 'build/mouse.o'
+Makefile:8911: warning: overriding recipe for target 'build/mouse_mut_eoi.o'
+Makefile:8909: warning: ignoring old recipe for target 'build/mouse_mut_eoi.o'
+>>> overlay fixed byte buffers: 193280 B (limit 1024 B)
+make: *** [harness/exec_overlay.mk:245: test-overlay-memory] Error 1
