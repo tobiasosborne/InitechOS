@@ -15,4 +15,73 @@ missing-arg
 MINT-ERROR         11 Invalid function argument.
 extra-arg
 MINT-ERROR         11 Invalid function argument.
+LOG-PICTURE-22027
+   10.00
+LOG-PICTURE-22026
+   10.00
+LOG-PICTURE-NEG100
+*******
+MINT-ERROR         58 LOG() : Zero or negative.
+LOG-PICTURE-NEGDEC
+*****
+MINT-ERROR         58 LOG() : Zero or negative.
+LOG-PICTURE-MEMVAR-NEG
+*************
+MINT-ERROR         58 LOG() : Zero or negative.
+LOG-PICTURE-MEMVAR-POS
+        10.00
+LOG-PICTURE-EXPR-NEG
+*******
+MINT-ERROR         58 LOG() : Zero or negative.
+LOG-PICTURE-EXPR-POS
+    10.00
+LOG-PICTURE-FRACTION
+-1.00
+LOG-PICTURE-NO-LEADING-ZERO
+-.69
+LOG-PICTURE-SMALL
+-13.8155
+LOG-PICTURE-GUARD-036
+-1.0
+LOG-PICTURE-GUARD-NOZERO
+-2.3
+LOG-PICTURE-RECIPROCAL
+    -10.00
+LOG-PICTURE-FIELD-POS
+    7.12
+LOG-PICTURE-FIELD-NEG
+*********
+MINT-ERROR         58 LOG() : Zero or negative.
+LOG-PICTURE-D0-POS
+   10
+LOG-PICTURE-D0-NEG
+****
+MINT-ERROR         58 LOG() : Zero or negative.
+LOG-PICTURE-D0-FRACTION
+0.6931
+LOG-PICTURE-D0-NEGDEC
+*****
+MINT-ERROR         58 LOG() : Zero or negative.
+LOG-PICTURE-D0-FIELD-POS
+    7.12
+LOG-PICTURE-D0-FIELD-NEG
+*********
+MINT-ERROR         58 LOG() : Zero or negative.
+LOG-PICTURE-D1-FRACTION
+0.6931
+LOG-PICTURE-D3-POS
+   10.000
+LOG-PICTURE-D3-NEG
+******
+MINT-ERROR         58 LOG() : Zero or negative.
+LOG-NESTED-ARG-POS
+PICOUT         10.00
+PICLEAF
+PICOUT-AFTER-LEAF
+LOG-NESTED-INNER-ERROR
+*******
+MINT-ERROR         58 LOG() : Zero or negative.
+PICDEEP-AFTER
+PICERR-AFTER
+LOG-AFTER-NESTED
 [FNS-END]

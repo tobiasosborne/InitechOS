@@ -4,9 +4,12 @@ Returns the square root of a numeric expression, as a numeric value.
 \Syntax
 \SyntaxLine{\kw{SQRT(}\xp{expN}\kw{)}}
 \Usage
-The argument must be numeric. A negative value raises
-\xmsg{61}{SQRT() : Negative.}. The number of displayed decimal places follows
-SET DECIMALS. A call with other than one numeric argument raises
+The argument must be numeric. In an output statement, a negative value
+displays an asterisk field before \xmsg{61}{SQRT() : Negative.} is raised.
+The display keeps the argument's space for whole-number digits.
+SET DECIMALS sets the minimum requested decimal places; a fractional
+argument can request more. The displayed result is rounded to fit.
+A call with other than one numeric argument raises
 \xmsg{11}{Invalid function argument.}.
 \Examples
 \DotExample{examples/fn-sqrt}

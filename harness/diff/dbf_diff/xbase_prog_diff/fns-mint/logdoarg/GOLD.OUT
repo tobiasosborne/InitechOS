@@ -1,0 +1,9 @@
+
+[FNS-BEGIN]
+LOG-NESTED-ARG-NEG
+MINT-ERROR         58 LOG() : Zero or negative.
+PICOUT **********
+PICLEAF
+PICOUT-AFTER-LEAF
+AFTER-DO-ARG
+[FNS-END]

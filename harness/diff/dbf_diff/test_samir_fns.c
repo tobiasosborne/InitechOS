@@ -55,7 +55,6 @@ static void test_log_contract(xb_interp *ip)
     xb_ctx *ctx = xb_interp_ctx(ip);
     xb_val v;
     int ec, rc, before = g_fails;
-    char picture[256];
 
     /* PM LOG review: an overflow value is a successful evaluation; only
      * the statement executor may raise its deferred error. */
@@ -63,33 +62,15 @@ static void test_log_contract(xb_interp *ip)
     rc = xb_interp_eval(ip, "LOG(0)", &v, &ec);
     CHECK(rc == INTERP_OK && ec == 0 && ctx->deferred_error == 58,
           "LOG(0) returns normally and defers error 58");
-    CHECK(v.t == XB_N && v.u.n < -1e300 && v.num_width == 4,
-          "LOG(0) returns negative infinity in its natural overflow picture");
+    CHECK(v.t == XB_N && v.u.n < -1e300,
+          "LOG(0) returns negative infinity in its overflow result");
     ctx->deferred_error = 87;
     rc = xb_interp_eval(ip, "LOG(-1)", &v, &ec);
     CHECK(rc == INTERP_OK && ec == 0 && ctx->deferred_error == 87,
           "LOG domain failure preserves the first deferred error");
-    CHECK(v.t == XB_N && v.u.n != v.u.n && v.num_width == 5,
-          "LOG(-1) returns NaN in its natural overflow picture");
+    CHECK(v.t == XB_N && v.u.n != v.u.n,
+          "LOG(-1) returns NaN in its overflow result");
     ctx->deferred_error = 0;
-
-    rc = xb_interp_eval(ip, "LOG(22027)", &v, &ec);
-    CHECK(rc == INTERP_OK && v.num_width == 5 && v.num_dec == 2,
-          "LOG(22027) derives its width from two result integer digits");
-    dec_format(v.u.n, v.num_width, v.num_dec, picture);
-    picture[v.num_width] = 0;
-    CHECK_STR_EQ(picture, "10.00", "LOG(22027) retains both decimal places");
-    rc = xb_interp_eval(ip, "LOG(0.000001)", &v, &ec);
-    CHECK(rc == INTERP_OK && v.num_width == 6 && v.num_dec == 2,
-          "negative LOG result includes its integer digits and sign");
-    dec_format(v.u.n, v.num_width, v.num_dec, picture);
-    picture[v.num_width] = 0;
-    CHECK_STR_EQ(picture, "-13.82", "negative LOG result retains its decimals");
-    ctx->set_decimals = 0;
-    rc = xb_interp_eval(ip, "LOG(22027)", &v, &ec);
-    CHECK(rc == INTERP_OK && v.num_width == 2 && v.num_dec == 0,
-          "LOG respects zero decimal places and derives integer-only width");
-    ctx->set_decimals = 2;
 
     used = 0; captured[0] = 0;
     rc = samir_do(ip, "? \"left\", LOG(0), \"right\", LOG(-1), \"done\"");
@@ -109,7 +90,7 @@ static void test_log_contract(xb_interp *ip)
           "nested statement execution restores its caller's deferred slot");
     ctx->deferred_error = 0;
     if (g_fails == before)
-        puts(">>> test-samir-log-contract: green (deferred error ordering, first error, result widths)");
+        puts(">>> test-samir-log-contract: green (deferred error ordering, first error)");
 }
 static int equal_text(const char *a,const char *b)
 {
@@ -179,6 +160,45 @@ static void inkey_keys(samir_pal_t *pal, xb_interp *ip)
     pal->conin_poll = saved;
 }
 #endif
+/* Use the language pipeline so literals and unary signs carry their real
+ * display widths; xb_n() alone deliberately defaults to ten columns. */
+static int sqrt_eval(const char *source, xb_ctx *ctx, xb_val *value, int *error)
+{
+    xb_token tokens[16];
+    xb_node nodes[16];
+    int count = xb_lex(source, (uint32_t)strlen(source), tokens, 16, error);
+    int root;
+    if (count < 0) return count;
+    root = xb_parse(tokens, (uint32_t)count, nodes, 16, error);
+    if (root < 0) return root;
+    return xb_eval(nodes, root, ctx, value, error);
+}
+static void sqrt_mirror(void *user, const char *s, uint32_t n)
+{ (void)s; *(unsigned *)user += n; }
+static void sqrt_deferred_check(void)
+{
+    xb_ctx ctx = {0};
+    samir_pal_t pal = {0};
+    xb_val arg = xb_u(), value = xb_u();
+    int error = 0, rc;
+    used = 0;
+    pal.conout = output;
+    ctx.file_pal = &pal;
+    ctx.set_console = 1;
+    ctx.set_decimals = 2;
+    ctx.mirror_output = sqrt_mirror;
+    ctx.mirror_user = &used;
+    CHECK(sqrt_eval("-1", &ctx, &arg, &error) == 0 && arg.num_width == 2,
+          "parsed -1 carries its two-column display width");
+    rc = xb_call_builtin("SQRT", 4, &arg, 1, &ctx, &value, &error);
+    CHECK(rc == 0 && error == 0 && ctx.deferred_error == 61,
+          "SQRT(-1) returns normally and defers error 61");
+    CHECK(used == 0, "SQRT evaluation emits no console or alternate bytes");
+    CHECK(value.t == XB_N, "SQRT domain error returns a Numeric value");
+    ctx.deferred_error = 87;
+    rc = xb_call_builtin("SQRT", 4, &arg, 1, &ctx, &value, &error);
+    CHECK(rc == 0 && ctx.deferred_error == 87, "first deferred error wins");
+}
 int main(int argc,char **argv)
 {
     const char *name=argc>1?argv[1]:"unknown",*mode=argc>2?argv[2]:"host";
@@ -214,8 +234,10 @@ int main(int argc,char **argv)
     snprintf(dir,sizeof dir,"build/samirw2/%s-%s",mode,name);
     snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s && cp -rf %s/INPUT/. %s/ && cp -f %s/FNSTEST.PRG %s/MINT.PRG %s/CONFIG.DB %s/",dir,dir,gold,dir,gold,gold,gold,dir);command(cmd);
 #else
+    snprintf(cmd,sizeof cmd,"for source_prg in harness/diff/dbf_diff/xbase_prog_diff/corpus/fns/%s/*.PRG; do [ -f \"$source_prg\" ] || continue; cmp -s \"$source_prg\" %s/\"${source_prg##*/}\" || exit 1; done",name,gold);
+    if(command(cmd))return 2;
     snprintf(dir,sizeof dir,"build/samirfns/%s-%s",mode,name);
-    snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s/DATA && cp -f build/CLIENTS.DBF %s/BASE.DBF && cp -f %s/FNSTEST.PRG %s/FNSTEST.PRG && cp -f %s/LIBRARY.PRG %s/LIBRARY.PRG && cp -f %s/DATA/* %s/DATA/",dir,dir,dir,gold,dir,gold,dir,gold,dir);command(cmd);
+    snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s/DATA && cp -f build/CLIENTS.DBF %s/BASE.DBF && cp -f %s/*.PRG %s/ && cp -f %s/DATA/* %s/DATA/",dir,dir,dir,gold,dir,gold,dir);command(cmd);
 #endif
     if(!strcmp(name,"default")||!strcmp(name,"path")){snprintf(cmd,sizeof cmd,"rm -f %s/BASE.DBF",dir);command(cmd);}
     if(!strcmp(name,"alias")||!strcmp(name,"relation")){snprintf(cmd,sizeof cmd,"cp -f build/CLIENTS.DBF %s/OTHER.DBF",dir);command(cmd);}
@@ -285,7 +307,6 @@ int main(int argc,char **argv)
         if (ip && !strcmp(name,"inkey")) inkey_keys(pal,ip);
         CHECK(ip&&samir_repl(pal,ip)==0,CAPTURE_KIND " full disk program returned");
         if(ip && !strcmp(name,"log"))test_log_contract(ip);
-        if(ip && !strcmp(name,"sqrt"))test_sqrt_contract(ip);
         if(ip)xb_interp_free(ip);
 #endif
         pal_host_free(pal);if(chdir(cwd))return 2;
@@ -307,6 +328,7 @@ int main(int argc,char **argv)
     }
     return TEST_SUMMARY("test-samir-w2");
 #else
+    if (!strcmp(name,"sqrt"))sqrt_deferred_check();
     return TEST_SUMMARY("test-samir-fns");
 #endif
 }

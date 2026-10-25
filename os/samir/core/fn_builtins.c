@@ -2150,6 +2150,36 @@ static const struct { uint8_t min, max; char types[4]; } fn_signature[] = {
     [FN_DISKSPACE] = {0, 0, ""},
 };
 
+/* Real III+ log/sqrt GOLD.OUT picture probes (PM round 3): LOG(22027)
+ * is eight columns, SQRT(10000) eight, LOG(-100) seven, SQRT(-1.00) five,
+ * and -BAL N(8,2) nine. STORE preserves a ten-integer-column memvar picture.
+ * Ref: harness/diff/dbf_diff/xbase_prog_diff/fns-mint/{log,sqrt}/GOLD.OUT;
+ * ../dbase3-decomp/specs/runtime/numeric-and-string-formatting.md Sec 5.1.
+ * SET DECIMALS is a minimum: the minted D0/D1 fractional and field probes
+ * retain argument precision. Remove the old point/fraction suffix exactly
+ * once, preserve at least one integer column, then attach max(arg, SET)
+ * decimal places, with a point only when that count is nonzero.
+ * Rounding guard: the ordinary dec_format_fit printer retries rounding at
+ * lower precision if a carry will not fit this picture (LOG(22026),
+ * LOG(0.36), SQRT(99.998)). Never derive or widen the picture from the result,
+ * and never pre-round its stored double. Nonfinite results use the same
+ * argument picture, so overflow widths require no special classification. */
+static void fn_math_picture(const xb_ctx *ctx, const xb_val *arg, xb_val *out)
+{
+    unsigned old_suffix = arg->num_dec ? (unsigned)arg->num_dec + 1u : 0u;
+    unsigned integer_columns = arg->num_width > old_suffix
+        ? (unsigned)arg->num_width - old_suffix : 1u;
+    unsigned decimals = ctx->set_decimals > arg->num_dec
+        ? ctx->set_decimals : arg->num_dec;
+    unsigned width = integer_columns + (decimals ? decimals + 1u : 0u);
+#ifdef SAMIR_FNS_MUTANT_mathpicture
+    /* Regression proof: corrupt only negative arguments with wide pictures. */
+    if (arg->u.n < 0.0 && arg->num_width > 4u) width++;
+#endif
+    out->num_width = (uint16_t)(width > 255u ? 255u : width);
+    out->num_dec = (uint16_t)decimals;
+}
+
 /* ---- fan-out wave 2026-10-24: one function per lane; replace the stub
 body only ---- */
 /* Ref: ../dbase3-decomp/specs/functions/{numeric-and-date-functions,
@@ -2201,8 +2231,6 @@ static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
     double x, value;
-    uint16_t width = 1;
-    union { double n; uint64_t bits; } result;
 
     /* Real dBASE III+ 1.1: LOG accepts exactly one numeric expression.
      * Ref: numeric-and-date-functions.md LOG section; HELP.DBS line 1298.
@@ -2229,33 +2257,7 @@ static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     value += 0.01;
 #endif
     *out = xb_n(value);
-    /* HELP.DBS SET DECIMALS applies to LOG. xb_interp_make supplies the
-     * period default of two; an explicit SET DECIMALS TO 0 remains zero. */
-    out->num_dec = ctx->set_decimals;
-    /* Ref: ../dbase3-decomp/specs/runtime/numeric-and-string-formatting.md
-     * Sec 1, natural numeric width;
-     * fns-mint/log/GOLD.OUT supplies the nonfinite overflow pictures.
-     * Count the result's integer digits, with a sign for a nonzero negative
-     * integer part. A negative fraction uses the optional zero's column.
-     * Nonfinite results have no integer digits: infinity uses the minimum
-     * integer picture, NaN one additional indeterminate-result column.
-     * Apply the same point/decimal suffix to every class: at DECIMALS 2,
-     * -infinity and NaN therefore format as four and five stars, respectively.
-     * Width depends on the result, never on which argument produced it. */
-    result.n = value;
-    if ((result.bits & 0x7ff0000000000000ULL) == 0x7ff0000000000000ULL) {
-        if (result.bits & 0x000fffffffffffffULL) width++;
-    } else {
-        double magnitude = value < 0.0 ? -value : value;
-        while (magnitude >= 10.0 && width < 255u) {
-            magnitude /= 10.0;
-            width++;
-        }
-        if (value <= -1.0) width++;
-    }
-    if (ctx->set_decimals)
-        width = (uint16_t)(width + ctx->set_decimals + 1u);
-    out->num_width = width > 255u ? 255u : width;
+    fn_math_picture(ctx, &args[0], out);
     *err = XBEE_OK;
     return 0;
 }
@@ -2264,52 +2266,24 @@ static int fn_sqrt_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
     double result;
-    char rounded[32];
-    unsigned first = 0;
 
-    /* Ref: ../dbase3-decomp/archive/golden-mined/HELP.DBS.strings.txt:1309;
-     * ../dbase3-decomp/specs/functions/numeric-and-date-functions.md:348-360
-     * pins SQRT(<expN>), its Numeric result,
-     * SET DECIMALS display precision, and error 61 for a negative argument.
-     * The real dBASE III PLUS 1.1 oracle is fns-mint/sqrt/GOLD.OUT. */
+    /* Ref: HELP.DBS line 1309; numeric-and-date-functions.md SQRT;
+     * real III+ fns-mint/sqrt/GOLD.OUT, including argument-picture probes. */
     if (nargs != 1 || args[0].t != XB_N)
         return fn_fail(err, XBEE_INVALID_ARG);
     if (args[0].u.n < 0.0) {
-        /* GOLD.OUT: finish the statement with an overflowed Numeric
-         * result, then raise #61 through the accepted NDX lane's
-         * deferred-error path. Evaluation itself never writes any output. */
 #if defined(SAMIR_FNS_MUTANT_SQRT) || defined(SAMIR_FNS_MUTANT_sqrt)
         return fn_fail(err, 61); /* MUTANT: raise before the result prints. */
 #endif
-        /* Inferred from real III+ fns-mint/log/GOLD.OUT and
-         * fns-mint/sqrt/GOLD.OUT at DECIMALS 2: LOG(0) has four stars;
-         * LOG(-1) and SQRT(-1) have five. Their argument widths are 1, 2,
-         * and 2: overflow width = argument display width + decimals + point.
-         * num_width preserves literal signs, field widths and expression
-         * presentation (parse.c/eval.c/workarea.c). Larger negatives and
-         * DECIMALS 0 await the PM's mint follow-up; this rule is inferred. */
-        unsigned width = (unsigned)args[0].num_width + ctx->set_decimals + 1u;
-        *out = xb_n(1.7976931348623157e308); /* existing overflow sentinel */
-        out->num_width = (uint16_t)(width > 255u ? 255u : width);
-        out->num_dec = ctx->set_decimals;
         if (!ctx->deferred_error) ctx->deferred_error = 61;
-        *err = XBEE_OK;
-        return 0;
     }
 
-    /* Match i123/core/eval.c's x87 FSQRT path. Use explicit memory operands
-     * so SAMIR's soft-float ABI does not ask the compiler for x87 helpers. */
-    __asm__ ("fldl %1\n\tfsqrt\n\tfstpl %0"
-             : "=m" (result) : "m" (args[0].u.n));
-
+    /* Match i123/core/eval.c's x87 FSQRT path. Memory operands preserve the
+     * surrounding soft-float ABI; a negative input yields a masked NaN. */
+    __asm__ volatile ("fldl %1\n\tfsqrt\n\tfstpl %0"
+                      : "=m"(result) : "m"(args[0].u.n));
     *out = xb_n(result);
-    out->num_dec = ctx->set_decimals;
-    /* Derive the width from the formatter's ROUNDED digits, retaining the
-     * original double: SQRT(99.998) displays 10.00, requiring five columns.
-     * A successfully formatted scaled int64 plus point fits in 32 bytes. */
-    dec_format(result, sizeof rounded, out->num_dec, rounded);
-    while (first < sizeof rounded && rounded[first] == ' ') first++;
-    out->num_width = (uint16_t)(sizeof rounded - first);
+    fn_math_picture(ctx, &args[0], out);
     *err = XBEE_OK;
     return 0;
 }

@@ -20,6 +20,11 @@ for input in "$root"/harness/diff/dbf_diff/xbase_prog_diff/corpus/fns/*.prg; do
     mkdir -p "$work/DATA"
     cp -f "$input" "$work/FNSTEST.PRG"
     cp -f "$dest/LIBRARY.PRG" "$work/LIBRARY.PRG"
+    # Optional external DO programs are inputs to both real III+ and SAMIR.
+    for helper in "$root/harness/diff/dbf_diff/xbase_prog_diff/corpus/fns/$name/"*.PRG; do
+        [ -f "$helper" ] || continue
+        cp -f "$helper" "$work/$(basename "$helper")"
+    done
     cp -f "$root/build/CLIENTS.DBF" "$work/BASE.DBF"
     cp -f "$root/build/CLIENTS.DBF" "$work/OTHER.DBF"
     cp -f "$root/build/CLIENTS.DBF" "$work/DATA/BASE.DBF"
@@ -34,6 +39,10 @@ for input in "$root"/harness/diff/dbf_diff/xbase_prog_diff/corpus/fns/*.prg; do
     fi
     printf 'SET ALTERNATE TO GOLD.OUT\r\nSET ALTERNATE ON\r\nDO FNSTEST\r\nSET ALTERNATE TO\r\nQUIT\r\n' >> "$work/MINT.PRG"
     MINT_PROBE=0 MINT_TIMEOUT="${FNS_MINT_TIMEOUT:-90}" sh "$root/harness/diff/dbf_diff/mint_capture.sh" "$work" "$input" '[FNS-END]'
-    (cd "$work" && sha256sum FNSTEST.PRG GOLD.OUT) > "$work/sha256.txt"
+    (cd "$work" && sha256sum FNSTEST.PRG GOLD.OUT
+     for helper in "$root/harness/diff/dbf_diff/xbase_prog_diff/corpus/fns/$name/"*.PRG; do
+         [ -f "$helper" ] || continue
+         sha256sum "$(basename "$helper")"
+     done) > "$work/sha256.txt"
     printf 'MINT SF-%s: %s/GOLD.OUT\n' "$name" "$work"
 done
