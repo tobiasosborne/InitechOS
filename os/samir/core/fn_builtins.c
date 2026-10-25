@@ -2263,8 +2263,55 @@ static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_sqrt_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    double result;
+    char rounded[32];
+    unsigned first = 0;
+
+    /* Ref: ../dbase3-decomp/archive/golden-mined/HELP.DBS.strings.txt:1309;
+     * ../dbase3-decomp/specs/functions/numeric-and-date-functions.md:348-360
+     * pins SQRT(<expN>), its Numeric result,
+     * SET DECIMALS display precision, and error 61 for a negative argument.
+     * The real dBASE III PLUS 1.1 oracle is fns-mint/sqrt/GOLD.OUT. */
+    if (nargs != 1 || args[0].t != XB_N)
+        return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].u.n < 0.0) {
+        /* GOLD.OUT: finish the statement with an overflowed Numeric
+         * result, then raise #61 through the accepted NDX lane's
+         * deferred-error path. Evaluation itself never writes any output. */
+#if defined(SAMIR_FNS_MUTANT_SQRT) || defined(SAMIR_FNS_MUTANT_sqrt)
+        return fn_fail(err, 61); /* MUTANT: raise before the result prints. */
+#endif
+        /* Inferred from real III+ fns-mint/log/GOLD.OUT and
+         * fns-mint/sqrt/GOLD.OUT at DECIMALS 2: LOG(0) has four stars;
+         * LOG(-1) and SQRT(-1) have five. Their argument widths are 1, 2,
+         * and 2: overflow width = argument display width + decimals + point.
+         * num_width preserves literal signs, field widths and expression
+         * presentation (parse.c/eval.c/workarea.c). Larger negatives and
+         * DECIMALS 0 await the PM's mint follow-up; this rule is inferred. */
+        unsigned width = (unsigned)args[0].num_width + ctx->set_decimals + 1u;
+        *out = xb_n(1.7976931348623157e308); /* existing overflow sentinel */
+        out->num_width = (uint16_t)(width > 255u ? 255u : width);
+        out->num_dec = ctx->set_decimals;
+        if (!ctx->deferred_error) ctx->deferred_error = 61;
+        *err = XBEE_OK;
+        return 0;
+    }
+
+    /* Match i123/core/eval.c's x87 FSQRT path. Use explicit memory operands
+     * so SAMIR's soft-float ABI does not ask the compiler for x87 helpers. */
+    __asm__ ("fldl %1\n\tfsqrt\n\tfstpl %0"
+             : "=m" (result) : "m" (args[0].u.n));
+
+    *out = xb_n(result);
+    out->num_dec = ctx->set_decimals;
+    /* Derive the width from the formatter's ROUNDED digits, retaining the
+     * original double: SQRT(99.998) displays 10.00, requiring five columns.
+     * A successfully formatted scaled int64 plus point fits in 32 bytes. */
+    dec_format(result, sizeof rounded, out->num_dec, rounded);
+    while (first < sizeof rounded && rounded[first] == ' ') first++;
+    out->num_width = (uint16_t)(sizeof rounded - first);
+    *err = XBEE_OK;
+    return 0;
 }
 
 static int fn_time_stub(xb_ctx *ctx, const xb_val *args, int nargs,

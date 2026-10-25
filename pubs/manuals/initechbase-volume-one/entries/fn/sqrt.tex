@@ -1,0 +1,15 @@
+% SQRT -- dBASE III+ HELP.DBS @NUM FUNC 2:1309; GOLD.OUT fns-mint/sqrt.
+\begin{XbaseEntry}{SQRT}{function}
+Returns the square root of a numeric expression, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{SQRT(}\xp{expN}\kw{)}}
+\Usage
+The argument must be numeric. A negative value raises
+\xmsg{61}{SQRT() : Negative.}. The number of displayed decimal places follows
+SET DECIMALS. A call with other than one numeric argument raises
+\xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-sqrt}
+\SeeAlso{ABS(), EXP(), LOG(), SET DECIMALS}
+\end{XbaseEntry}
+

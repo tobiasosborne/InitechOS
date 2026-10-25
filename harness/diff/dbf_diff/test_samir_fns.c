@@ -285,6 +285,7 @@ int main(int argc,char **argv)
         if (ip && !strcmp(name,"inkey")) inkey_keys(pal,ip);
         CHECK(ip&&samir_repl(pal,ip)==0,CAPTURE_KIND " full disk program returned");
         if(ip && !strcmp(name,"log"))test_log_contract(ip);
+        if(ip && !strcmp(name,"sqrt"))test_sqrt_contract(ip);
         if(ip)xb_interp_free(ip);
 #endif
         pal_host_free(pal);if(chdir(cwd))return 2;
