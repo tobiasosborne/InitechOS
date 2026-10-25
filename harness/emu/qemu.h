@@ -220,6 +220,21 @@ typedef struct {
      * counts the events sent after the marker (record_events_after_end); any
      * nonzero count makes the run NOT ok (Law 2, Rule 2). NULL == no check. */
     const char *record_end_marker;
+    /* RECORD-SYNC capture handshake (bead initech-x8gsi.1). When true (record
+     * mode only), QEMU gets a second UART (COM2) on a FIFO pair the harness
+     * writes, every key token is queued in ONE QMP command, and each frame is
+     * taken ONLY at a guest-served sync point: the harness sends the settle
+     * (in guest ticks); the -DFLAIR_RECORD_SYNC record kernel
+     * (os/milton/kmain.c) answers at its first input-idle point that long
+     * after the input with "REC-SYNC n=<k> ..." and blocks, clock stopped,
+     * while the harness grabs the frame and queues the next token's input;
+     * then it resumes on a PIT edge. Pair with rtc_deterministic (-icount) so
+     * guest time does not depend on host speed (make record-flair passes
+     * both). A frame therefore never depends on how far a busy guest got
+     * before a wall-clock grab (the record-flair-repro races). A sync that
+     * does not come within the budget fails the run (Law 2), never falls back
+     * to a timed grab. Requires a FLAIR_RECORD_SYNC kernel. */
+    bool record_sync;
 
     /* Pinned RTC base (beads initech-yv9). When non-NULL, the harness passes
      * `-rtc base=<rtc_base>` to QEMU so the guest's emulated MC146818 RTC starts

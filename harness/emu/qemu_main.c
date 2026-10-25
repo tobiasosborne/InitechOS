@@ -94,6 +94,9 @@ static void usage(const char *argv0)
         "                     every --record event injected after MARK is on\n"
         "                     serial went to a halted guest: counted, shouted,\n"
         "                     and the run is NOT ok (bead initech-mfrb)\n"
+        "  --record-sync      take each --record frame only at a guest-served\n"
+        "                     sync point (COM2 request/ack handshake; needs a\n"
+        "                     -DFLAIR_RECORD_SYNC kernel; bead initech-x8gsi.1)\n"
         "  --rtc-base ISO     pin the guest RTC to a fixed instant via\n"
         "                     `-rtc base=ISO` (e.g. 2026-06-09T12:34:56) so the\n"
         "                     clock oracle is deterministic\n"
@@ -184,6 +187,8 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--record-end-marker") == 0) {
             NEED_ARG();
             cfg.record_end_marker = argv[++i];
+        } else if (strcmp(a, "--record-sync") == 0) {
+            cfg.record_sync = true;
         } else if (strcmp(a, "--rtc-base") == 0) {
             NEED_ARG();
             cfg.rtc_base = argv[++i];
