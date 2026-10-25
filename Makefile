@@ -24770,9 +24770,7 @@ RECORD_SPEC_finder_demo = $(FLAIR_FINDER_DEMO_SPEC)
 $(foreach s,finder_entries finder_windows finder_open_all finder_keys,$(eval RECORD_DATA_$(s) = $$(FINDER_LIMITS_DATA)))
 $(foreach s,finder_entries finder_windows finder_open_all finder_keys finder_diskfull finder_launch_alerts finder_refused finder_replace finder_restore finder_demo,$(eval RECORD_IMAGE_$(s) = $$(FLAIRTENANTS_RECORDLONGDBL_IMG)))
 $(foreach s,finder_entries finder_windows finder_open_all finder_keys,$(eval RECORD_MARKER_$(s) = FINDER-ALERT reason=windows))
-# The host saturation probe intentionally has no files/fixture contract.
-# Record the same full-disk gesture on the declared, valid full volume.
-RECORD_DATA_finder_diskfull = $(FINDER_FULL_DATA)
+RECORD_DATA_finder_diskfull = $(BUILD)/finder_diskfull_host.img
 RECORD_DATA_finder_launch_alerts = $(FLAIR_DATA_TFX_NOREG_IMG)
 RECORD_DATA_finder_refused = $(FLAIR_DATA_IMG)
 RECORD_DATA_finder_replace = $(FINDER_REPLACE_DATA)
@@ -24781,9 +24779,9 @@ RECORD_DATA_finder_demo = $(FLAIR_DATA_IMG)
 RECORD_MARKER_finder_diskfull = FINDER-ALERT reason=disk-full
 RECORD_MARKER_finder_launch_alerts = FINDER-ALERT reason=launch
 RECORD_MARKER_finder_refused = FINDER-ALERT reason=move
-RECORD_MARKER_finder_replace = FINDER-MOVE name=README.TXT from=0 to=3
+RECORD_MARKER_finder_replace = FINDER-MOVE name=README.TXT
 RECORD_MARKER_finder_restore = FINDER-PUT-AWAY n=1
-RECORD_MARKER_finder_demo = FLAIR-MENU menu=256 item=0 (sel=0x00000000)
+RECORD_MARKER_finder_demo = FLAIR-MENU menu=256 item=0
 RECORD_SCRIPTS += finder_crash_alert
 RECORD_SPEC_finder_crash_alert = $(FLAIR_APP_LAUNCH_SPEC)
 RECORD_IMAGE_finder_crash_alert = $(FLAIRTENANTS_RECORDLONGDBL_IMG)

@@ -463,20 +463,35 @@ $(call calcda-boot,$(2)_about,$(1),$(FLAIR_DATA_IMG),FLAIR_APPLE_ABOUT_SPEC,APPL
 @tr -d '\r' < $(BUILD)/$(2)_about.serial | awk '/^FLAIR-TENANTS-READY/{r=1} /^OVL-OK$$/{n++; if(!r) early=1} END{exit !(n==1 && !early)}' \
  || { printf 'RED %s: About did not load the overlay lazily\n' '$(2)'; exit 1; }
 endef
+# Lane 2: the first cold Finder entry is the drop's generated stub. The
+# warm drag-target highlight must precede OVL-OK; the committed move and its
+# bytes are checked independently through mtools (PRD 6.3/6.5, DEC-14-9(a)).
+define ovl-lazy-finder
+$(call calcda-boot,$(2)_finder,$(1),$(FLAIR_DATA_IMG),FLAIR_FILEOPS_INTO_SPEC,FINDER-MOVE name=README.TXT from=0 to=3)
+@grep -qx 'FINDER-MOVE name=README.TXT from=0 to=3' $(BUILD)/$(2)_finder.serial || { printf 'RED %s: Finder move did not commit\n' '$(2)'; exit 1; }
+@mtype -i $(BUILD)/$(2)_finder_data.img ::/APPS/README.TXT | cmp -s - $(FLAIR_DATA_README) || { printf 'RED %s: moved Finder bytes differ\n' '$(2)'; exit 1; }
+@! mdir -i $(BUILD)/$(2)_finder_data.img ::/README.TXT >/dev/null 2>&1 || { printf 'RED %s: Finder source still present\n' '$(2)'; exit 1; }
+@tr -d '\r' < $(BUILD)/$(2)_finder.serial | awk '/^FLAIR-TENANTS-READY/{r=1} /^FINDER-DROP-HILITE name=APPS$$/{d=1} /^OVL-OK$$/{n++; if(!r || !d) bad=1} /^FINDER-MOVE name=README.TXT from=0 to=3$$/{m=1; if(n!=1) bad=1} END{exit !(m && n==1 && !bad)}' \
+ || { printf 'RED %s: Finder did not load lazily once at the drop\n' '$(2)'; exit 1; }
+endef
 .PHONY: test-ovl-lazy test-ovl-lazy-mutant
 test-ovl-lazy: test-flair-apple-menu $(OVL_LAZY_IMG) $(FLAIR_DATA_IMG) $(JTC_CHECK)
 	$(call ovl-lazy-mat,$(OVL_LAZY_IMG),ovl_lazy)
 	$(call ovl-lazy-about,$(OVL_LAZY_IMG),ovl_lazy)
-	@printf '>>> test-ovl-lazy: green (no preload: the first stub call loads C:\\FLAIR.OVL once, after READY; JTC mat == authored golden; About == preloaded capture)\n'
+	$(call ovl-lazy-finder,$(OVL_LAZY_IMG),ovl_lazy)
+	@printf '>>> test-ovl-lazy: green (no preload: JTC, About and Finder move load once after READY; Finder bytes match through mtools)\n'
 test-ovl-lazy-mutant: test-ovl-lazy $(OVL_GATE_DIR)/nosave.img $(OVL_GATE_DIR)/noload.img
-	@set -e; for m in nosave noload; do for leg in mat about; do \
+	@set -e; for m in nosave noload; do for leg in mat about finder; do \
 	 if ( $(MAKE) --no-print-directory ovl-lazy-leg-$$leg OVL_LAZY_LEG_IMG=$(OVL_GATE_DIR)/$$m.img OVL_LAZY_LEG_TAG=ovl_lazy_$$m ) > $(OVL_GATE_DIR)/lazy_$${m}_$$leg.log 2>&1; then \
 		printf '!!! test-ovl-lazy-mutant FAIL: stub mutant %s survived the %s trace\n' $$m $$leg; exit 1; fi; \
 	 printf '    %s %s: %s\n' $$m $$leg "$$(grep -E '^(RED|!!!)' $(OVL_GATE_DIR)/lazy_$${m}_$$leg.log | head -n 1)"; done; done
-	@printf '>>> test-ovl-lazy-mutant: green (slow path without pushad/popad, and an ovl_check that never loads: RED on both traces)\n'
+	@printf '>>> test-ovl-lazy-mutant: green (nosave/noload RED on JTC, About and Finder traces)\n'
 .PHONY: ovl-lazy-leg-mat ovl-lazy-leg-about
 ovl-lazy-leg-mat:
 	$(call ovl-lazy-mat,$(OVL_LAZY_LEG_IMG),$(OVL_LAZY_LEG_TAG))
 ovl-lazy-leg-about:
 	$(call ovl-lazy-about,$(OVL_LAZY_LEG_IMG),$(OVL_LAZY_LEG_TAG))
+.PHONY: ovl-lazy-leg-finder
+ovl-lazy-leg-finder:
+	$(call ovl-lazy-finder,$(OVL_LAZY_LEG_IMG),$(OVL_LAZY_LEG_TAG))
 TEST_EMU_GATES += test-ovl-lazy test-ovl-lazy-mutant

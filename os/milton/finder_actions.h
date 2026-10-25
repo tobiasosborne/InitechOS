@@ -63,7 +63,6 @@ extern char g_finder_trash_confirm_lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_M
 extern char g_finder_delete_now_confirm_lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
 int finder_fat_mkdir(void *fs_user, const char *name83,
                             uint16_t parent_dir_start);
-int finder_fat_map(int rc);
 int finder_fat_move(void *fs_user, const char *src_name83,
                            uint16_t src_dir, const char *dst_name83,
                            uint16_t dst_dir);
@@ -83,7 +82,6 @@ int finder_fat_read_partial(void *fs_user, const char *name83,
 int finder_fat_write_partial(void *fs_user, uint16_t dir, uint32_t slot,
                                     uint32_t offset, const uint8_t *data,
                                     uint32_t len, uint32_t *out_written);
-int16_t finder_lerp16(int16_t a, int16_t b, int k);
 void finder_zoom_back(flair_live_ctx_t *ctx, const boot_info_t *bi,
                              rgn_rect_t from, rgn_rect_t home);
 void finder_delete_now(flair_live_ctx_t *ctx, const boot_info_t *bi,

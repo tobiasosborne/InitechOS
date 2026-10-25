@@ -44,7 +44,8 @@ int finder_fat_mkdir(void *fs_user, const char *name83,
     return (int)FINDER_WIN_ERR_MKDIR;
 }
 
-int finder_fat_map(int rc)
+/* Internal to COLD: this utility is never a resident entry or callback. */
+static int finder_fat_map(int rc)
 {
     if (rc == FAT12_OK)            return (int)FINDER_WIN_OK;
     if (rc == FAT12_ERR_SAME_DIR)  return (int)FINDER_WIN_ERR_SAMEDIR;
@@ -171,7 +172,7 @@ int finder_fat_write_partial(void *fs_user, uint16_t dir, uint32_t slot,
                                               g_finder_clusbuf, out_written));
 }
 
-int16_t finder_lerp16(int16_t a, int16_t b, int k)
+static int16_t finder_lerp16(int16_t a, int16_t b, int k)
 {
     return (int16_t)((int)a + (((int)b - (int)a) * k) / FINDER_ZOOM_STEPS);
 }
