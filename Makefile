@@ -34977,10 +34977,13 @@ test-samir-fns-$(1)-emu-mutant: test-samir-fns-$(1)-emu $$(BUILD)/SAMIR_SCREEN_S
 	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).EXE > $$(BUILD)/samirfns/emu-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log || { cat $$(BUILD)/samirfns/emu-mut-$(1).log; exit 1; }; \
 	 printf '>>> SAMIR_FNS_MUTANT_$(1) emu RED: %s\n' "`grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log`"
-TEST_UNIT_GATES += test-samir-fns-$(1) test-samir-fns-$(1)-mutant
-TEST_EMU_GATES += test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
+$(if $(2),,TEST_UNIT_GATES += test-samir-fns-$(1) test-samir-fns-$(1)-mutant)
+$(if $(2),,TEST_EMU_GATES += test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant)
 endef
 $(foreach rule,$(SAMIR_FNS_CASES),$(eval $(call samir-fns-gates,$(rule))))
+# Conditional-promotion diagnostics retain all four explicit gate legs.
+SAMIR_FNS_DIAGNOSTICS := $(filter logdoarg sqrtdoarg,$(SAMIR_FNS_PENDING))
+$(foreach rule,$(SAMIR_FNS_DIAGNOSTICS),$(eval $(call samir-fns-gates,$(rule),diagnostic)))
 TEST_UNIT_GATES += test-samir-set-color test-samir-set-color-mutant
 # Named PENDING gates are available explicitly, outside the default test vectors.
 # Missing functions differ from real III+ until implemented; LASTKEY instead
@@ -34991,7 +34994,7 @@ test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_FNS_PROMOTED)
 	@$$(SAMIR_FNS_TEST) $(1) host
 	@echo '>>> test-samir-fns-$(1): green'
 endef
-$(foreach rule,$(SAMIR_FNS_PENDING),$(eval $(call samir-fns-pending-gate,$(rule))))
+$(foreach rule,$(filter-out $(SAMIR_FNS_DIAGNOSTICS),$(SAMIR_FNS_PENDING)),$(eval $(call samir-fns-pending-gate,$(rule))))
 
 # W2 mint-first: all named differential gates remain PENDING and outside the
 # default vector. samir-w2-goldens separately verifies the reference evidence.

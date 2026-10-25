@@ -2260,6 +2260,11 @@ static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
      * overflow result before raising #58. The accepted NDX mechanism
      * consumes the first pending code at the statement boundary. */
     if (x <= 0.0 && !ctx->deferred_error) {
+#ifdef SAMIR_FNS_MUTANT_logguards
+        /* Real logguards/GOLD.OUT: a deferred false guard under a procedure
+         * handler enters its body; an immediate error invokes the handler. */
+        return fn_fail(err, 58);
+#endif
 #ifdef SAMIR_FNS_MUTANT_logdoarg
         ctx->deferred_error = 87; /* MUTANT: wrong DO-argument error code. */
 #else

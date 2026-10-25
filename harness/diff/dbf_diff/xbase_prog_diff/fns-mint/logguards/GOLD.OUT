@@ -1,0 +1,12 @@
+
+[FNS-BEGIN]
+LOG-GUARD-PROC
+BODY
+AFTER          0          0
+CASE-PROC-BODY
+CASE-PROC-AFTER          0          0
+LOG-CASE-FALSE
+MINT-ERROR         58 LOG() : Zero or negative.
+SAW58         58
+CASE-AFTER         58
+[FNS-END]

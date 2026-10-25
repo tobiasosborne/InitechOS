@@ -50,6 +50,8 @@ static void diff_line(const char *label,const char *p,size_t n,size_t at)
     end=start;while(end<n&&p[end]!='\r'&&p[end]!='\n')end++;
     fprintf(stderr,"%s: %.*s\n",label,(int)(end-start),p+start);
 }
+
+#ifndef SAMIR_W2
 static void test_log_contract(xb_interp *ip)
 {
     xb_ctx *ctx = xb_interp_ctx(ip);
@@ -92,6 +94,7 @@ static void test_log_contract(xb_interp *ip)
     if (g_fails == before)
         puts(">>> test-samir-log-contract: green (deferred error ordering, first error)");
 }
+#endif
 static int equal_text(const char *a,const char *b)
 {
     const char *p=strstr(a,CAPTURE_BEGIN),*q=strstr(b,CAPTURE_BEGIN);
@@ -160,6 +163,8 @@ static void inkey_keys(samir_pal_t *pal, xb_interp *ip)
     pal->conin_poll = saved;
 }
 #endif
+
+#ifndef SAMIR_W2
 /* Use the language pipeline so literals and unary signs carry their real
  * display widths; xb_n() alone deliberately defaults to ten columns. */
 static int sqrt_eval(const char *source, xb_ctx *ctx, xb_val *value, int *error)
@@ -199,6 +204,7 @@ static void sqrt_deferred_check(void)
     rc = xb_call_builtin("SQRT", 4, &arg, 1, &ctx, &value, &error);
     CHECK(rc == 0 && ctx.deferred_error == 87, "first deferred error wins");
 }
+#endif
 int main(int argc,char **argv)
 {
     const char *name=argc>1?argv[1]:"unknown",*mode=argc>2?argv[2]:"host";
