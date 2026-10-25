@@ -63,7 +63,7 @@ $(FLAIR_DATA_EXECGUARD_IMG): $(FLAIR_DATA_IMG) $(EXECGUARD_PROG_BIN) $(FLAIRTENA
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_EXEC_NO_COMSPEC,exec_no_comspec))
 $(eval $(call exitdos-transient-rules,exec_no_comspec,$(BUILD)/kernel_flairtenants_mut_exec_no_comspec.elf))
 EXECGUARD_MUT_NOCOMSPEC_IMG := $(BUILD)/flair_execguard_mut_no_comspec.img
-$(EXECGUARD_MUT_NOCOMSPEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_exec_no_comspec.bin $(BUILD)/transient_exec_no_comspec.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+$(EXECGUARD_MUT_NOCOMSPEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/flairovl_kernel_flairtenants_mut_exec_no_comspec.sys $(BUILD)/flairovl_kernel_flairtenants_mut_exec_no_comspec.ovl $(BUILD)/transient_exec_no_comspec.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_mut_exec_no_comspec.bin,$(BUILD)/transient_exec_no_comspec.bin)
 	@printf ">>> execguard MUTANT image (-DKMAIN_MUT_EXEC_NO_COMSPEC): %s\n" "$@"
 # NO_GUARD: the flagship objects with loader.o built -DLOADER_MUT_NO_TRANSIENT_GUARD
@@ -79,7 +79,7 @@ $(BUILD)/kernel_flairtenants_mut_noguard.bin: $(BUILD)/kernel_flairtenants_mut_n
 	$(call kernel-end-guard,$<,flairtenants-mut-noguard)
 $(eval $(call exitdos-transient-rules,noguard,$(BUILD)/kernel_flairtenants_mut_noguard.elf))
 EXECGUARD_MUT_NOGUARD_IMG := $(BUILD)/flair_execguard_mut_noguard.img
-$(EXECGUARD_MUT_NOGUARD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_noguard.bin $(BUILD)/transient_noguard.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+$(EXECGUARD_MUT_NOGUARD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/flairovl_kernel_flairtenants_mut_noguard.sys $(BUILD)/flairovl_kernel_flairtenants_mut_noguard.ovl $(BUILD)/transient_noguard.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_mut_noguard.bin,$(BUILD)/transient_noguard.bin)
 	@printf ">>> execguard MUTANT image (-DLOADER_MUT_NO_TRANSIENT_GUARD): %s\n" "$@"
 
@@ -95,7 +95,7 @@ $(BUILD)/transient_mut_skew.elf: $(KERNEL_FLAIRTENANTS_ELF) $(TRANSIENT_HDR_MUT_
 $(BUILD)/transient_mut_skew.bin: $(BUILD)/transient_mut_skew.elf
 	$(OBJCOPY) -O binary $< $@
 EXECGUARD_MUT_SKEW_IMG := $(BUILD)/flair_execguard_mut_skew.img
-$(EXECGUARD_MUT_SKEW_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_BIN) $(BUILD)/transient_mut_skew.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+$(EXECGUARD_MUT_SKEW_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/flairovl_kernel_flairtenants.sys $(BUILD)/flairovl_kernel_flairtenants.ovl $(BUILD)/transient_mut_skew.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	$(call exitdos-image-recipe,$(KERNEL_FLAIRTENANTS_BIN),$(BUILD)/transient_mut_skew.bin)
 	@printf ">>> execguard MUTANT image (transient with its last import skewed): %s\n" "$@"
 

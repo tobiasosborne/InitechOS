@@ -42,8 +42,8 @@ $(BUILD)/kernel_copybreak_leak.bin: $(BUILD)/kernel_copybreak_leak.elf
 	@test "$$(wc -c < $@)" -le $$(( $(KERNEL_SECTORS) * 512 ))
 	@truncate -s $$(( $(KERNEL_SECTORS) * 512 )) $@
 	$(call kernel-end-guard,$<,copybreak-leak)
-$(BUILD)/copybreak_leak.img: $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_copybreak_leak.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_copybreak_leak.bin
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_copybreak_leak.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_copybreak_leak.bin
+$(BUILD)/copybreak_leak.img: $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/flairovl_kernel_copybreak_leak.sys $(BUILD)/flairovl_kernel_copybreak_leak.ovl $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_copybreak_leak.bin
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/flairovl_kernel_copybreak_leak.sys $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_copybreak_leak.bin $(BUILD)/flairovl_kernel_copybreak_leak.ovl
 
 $(BUILD)/test_kbd_dual_ring: $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS)
 	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_DUAL_RING -I$(MILTON_DIR) -Iseed -o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)

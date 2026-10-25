@@ -88,11 +88,25 @@ void loader_nest_leave(loader_state_t *active, const loader_state_t *saved)
  * a 77 KiB SAMIR.COM now loads (it used to fail LOADER_ERR_TOO_BIG). */
 int loader_image_is_transient(const uint8_t *image, uint32_t image_len)
 {
-#ifndef LOADER_MUT_NO_TRANSIENT_GUARD
-    uint32_t m = 0u;
     if (image == 0 || image_len < TRANSIENT_MAGIC_LEN) {
         return 0;
     }
+#ifndef LOADER_MUT_NO_OVERLAY_GUARD
+    /* ADR-0014 DEC-14-2: C:\FLAIR.OVL (spec/overlay_format.h, magic
+     * "FLAIROVL") is a kernel overlay, never a program: DOS EXEC error 11 like
+     * the transient. Compared as two little-endian dwords ("FLAI", "ROVL"), so
+     * the contiguous byte string stays out of every kernel that does not load
+     * the overlay (tools/mk_boot_system.sh keys on it). MUTANT
+     * LOADER_MUT_NO_OVERLAY_GUARD: test-loader-mutant only. */
+    if (((uint32_t)image[0] | (uint32_t)image[1] << 8 | (uint32_t)image[2] << 16 |
+         (uint32_t)image[3] << 24) == 0x49414C46u &&
+        ((uint32_t)image[4] | (uint32_t)image[5] << 8 | (uint32_t)image[6] << 16 |
+         (uint32_t)image[7] << 24) == 0x4C564F52u) {
+        return 1;
+    }
+#endif
+#ifndef LOADER_MUT_NO_TRANSIENT_GUARD
+    uint32_t m = 0u;
     while (m < TRANSIENT_MAGIC_LEN && image[m] == (uint8_t)TRANSIENT_MAGIC[m]) {
         m++;
     }
@@ -101,7 +115,6 @@ int loader_image_is_transient(const uint8_t *image, uint32_t image_len)
     /* MUTANT (Rule 6; make test-flair-execguard-mutant / test-loader-mutant
      * only): the pre-13ig loader never recognises the overlay and runs its
      * header as code. NEVER in a real build. */
-    (void)image; (void)image_len;
     return 0;
 #endif
 }

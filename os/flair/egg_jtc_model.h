@@ -26,4 +26,10 @@ int egg_jtc_hit(rgn_rect_t content, int x, int y);
 /* Returns 1 only on the last click; consumes no ordinary Apple gesture.
  * Caller invokes on every event, including Option release, to reset. */
 int egg_jtc_trigger(unsigned *clicks, const EventRecord *ev);
+/* The pad the overlaid mat recorded on its last mouseDown, plus one; 0 when
+ * none. RESIDENT (ADR-0014 DEC-14-10 lane 1): the shell polls it on every
+ * event, so it must never fault the JTC overlay section in. */
+extern int egg_jtc_pending;
+/* The shell owns modal alerts; take one pending pad, or -1. */
+int egg_jtc_take_pad(void);
 #endif

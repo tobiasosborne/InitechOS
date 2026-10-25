@@ -39,8 +39,16 @@ test-egg-jtc-pubs: pubs-inventory
 	@printf '>>> test-egg-jtc-pubs: green (hidden title absent from shipped inventory and manuals; no exemption needed)\n'
 TEST_UNIT_GATES += test-egg-jtc-pubs
 
+# ADR-0014 lane 1: egg_jtc.o is in section COLD of C:\FLAIR.OVL, not a resident
+# object -- native (non-LTO) code, kernel ABI, linked by overlay.ld.
 $(BUILD)/egg_jtc.o: os/flair/egg_jtc.c os/flair/egg_jtc.h os/flair/egg_jtc_model.h
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) $(JTC_INC) -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(OVL_SECTION_OPT) $(JTC_INC) -c $< -o $@
+# ADR-0014 lane 1: About This Computer joins section COLD (measured -396 B resident).
+$(BUILD)/about_box_ovl.o: os/milton/about_box.c os/milton/about_box.h os/milton/kmain_cold.h os/milton/int21.h os/milton/boot_info.h
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(OVL_SECTION_OPT) -Ios/milton -Ispec -c $< -o $@
+$(BUILD)/kmain_cold_ovl.o: os/milton/kmain_cold.c os/milton/kmain_cold.h
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(OVL_SECTION_OPT) -Ios/milton -c $< -o $@
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): os/milton/about_box.h
 $(BUILD)/egg_jtc_model.o: $(JTC_MODEL) os/flair/egg_jtc_model.h
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) $(JTC_INC) -c $< -o $@
 $(BUILD)/egg_jtc_model_mutant.o: $(JTC_MODEL) os/flair/egg_jtc_model.h

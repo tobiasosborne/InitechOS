@@ -3,7 +3,19 @@
 # Ref: ADR-0003 DEC-01/07/08; IBM DOS 3.30 TR p1-7,5-4,5-11;
 # MS-DOS 3.3 User's Guide p119 SYS: copy IO first, then the DOS kernel.
 set -eu
-out=$1; mbr=$2; loader=$3; io=$4; kernel=$5; layout=$6; command=${7:-}
+out=$1; mbr=$2; loader=$3; io=$4; kernel=$5; layout=$6; command=${7:-}; overlay=${8:-}
+# ADR-0014 DEC-14-4: a FLAIR tenant kernel (it carries the FLAIROVL magic it
+# checks) boots only beside C:\FLAIR.OVL linked against it, and only after
+# tools/flairovl.c patched its expect slot (the "OVLCRC??" placeholder gone).
+# Refuse either mismatch here, at image build, not as a boot-time MISSING.
+if LC_ALL=C grep -qa 'OVLCRC??' "$kernel"; then
+ echo "!!! mk_boot_system: $kernel is an UNPATCHED overlay kernel -- install build/flairovl_<kernel>.sys with its .ovl" >&2; exit 1
+fi
+if LC_ALL=C grep -qa 'FLAIROVL' "$kernel"; then
+ [ -n "$overlay" ] || { echo "!!! mk_boot_system: $kernel loads C:\\FLAIR.OVL but no overlay was given" >&2; exit 1; }
+elif [ -n "$overlay" ]; then
+ echo "!!! mk_boot_system: an overlay was given for $kernel, which has no overlay manager" >&2; exit 1
+fi
 export SOURCE_DATE_EPOCH=315532800 TZ=UTC LC_ALL=C
 work=$(mktemp -d "${out}.mint.XXXXXX")
 trap 'rm -rf "$work"' EXIT HUP INT TERM
@@ -29,6 +41,15 @@ if [ -n "$command" ]; then
  touch -d '@315532800' "$work/COMMAND.COM"
  mcopy -m -i "$volume" "$work/COMMAND.COM" ::COMMAND.COM
  mattrib -i "$volume" +a -h -s -r ::COMMAND.COM
+fi
+# ADR-0014 DEC-14-4: C:\FLAIR.OVL beside COMMAND.COM -- visible 8.3 file,
+# archive attribute only, directory date 1980-01-01 00:00 (Rule 11), copied
+# separately from SYS's hidden files (SYS / FORMAT /S never copy it, DEC-14-7).
+if [ -n "$overlay" ]; then
+ cp -f "$overlay" "$work/FLAIR.OVL"
+ touch -d '@315532800' "$work/FLAIR.OVL"
+ mcopy -m -i "$volume" "$work/FLAIR.OVL" ::FLAIR.OVL
+ mattrib -i "$volume" +a -h -s -r ::FLAIR.OVL
 fi
 # A label consumes a root entry: add it only AFTER both system files.
 mlabel -i "$volume" ::BOOT

@@ -14,7 +14,8 @@ typedef enum {
     PANIC_REASON_APPS,
     PANIC_REASON_CALC_LOAD,
     PANIC_REASON_HEAP,
-    PANIC_REASON_CALC_WINDOWS
+    PANIC_REASON_CALC_WINDOWS,
+    PANIC_REASON_OVERLAY       /* ADR-0014 DEC-14-7: C:\FLAIR.OVL refused */
 } panic_reason_t;
 
 static inline const char *panic_reason_text(panic_reason_t reason)
@@ -26,6 +27,7 @@ static inline const char *panic_reason_text(panic_reason_t reason)
     case PANIC_REASON_CALC_LOAD: return "CANNOT LOAD REQUIRED CALC.EXE";
     case PANIC_REASON_HEAP: return "FLAIR HEAP EXHAUSTED";
     case PANIC_REASON_CALC_WINDOWS: return "REQUIRED CALC WINDOWS UNAVAILABLE";
+    case PANIC_REASON_OVERLAY: return "CANNOT LOAD FLAIR.OVL";
     default: return "STARTUP FAILURE";
     }
 }

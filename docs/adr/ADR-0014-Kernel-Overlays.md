@@ -258,6 +258,8 @@ Each gate is written RED first and mutation-proven; a gate that has not failed p
   ELF (LTO can silently keep a copy).
 - **(h) Bochs.** `OVL-OK` is added to the required markers of `test-flair-appswitch-bochs`.
   86Box remains deferred with initech-x0i.
+  *Note (PM ruling 2026-10-25, lane 1; decision unchanged):* the "one fixed `OVL-LOAD` line" of
+  (a) and the `OVL-OK` marker of (h) are the same single serial line, emitted as `OVL-OK`.
 - **(i) Unchanged families stay green:** `test-flair-desktop`, `test-flair-appswitch`,
   `test-kernel-headroom`, `test-kernel-size-r4`, the finder-alerts family
   (`harness/finder_alerts.mk`), `test-flair-execguard`, `test-flair-exit-to-dos`, and the

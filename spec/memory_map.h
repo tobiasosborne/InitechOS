@@ -141,7 +141,8 @@
  * RUNWAY SUB-WINDOWS (bead initech-xu97; ADR-0003-AMENDMENT-DEC-08b):
  *   [KERNEL_BASE,      KERNEL_IMAGE_CEIL) 0x500000..0x580000  kernel image+.bss
  *   [TRANSIENT_BASE,   TRANSIENT_CEIL)    0x580000..0x5C0000  transient shell
- *   [0x5C0000,         KERNEL_STACK_BOT)  192 KiB unassigned runway (zeroed)
+ *   [OVERLAY_BASE,     OVERLAY_CEIL)      0x5C0000..0x5E0000  FLAIR.OVL window
+ *   [OVERLAY_CEIL,     KERNEL_STACK_BOT)  0x5E0000..0x5F0000  64 KiB stack guard
  *   [KERNEL_STACK_BOT, KERNEL_STACK_TOP+4) 0x5F0000..0x600000 kernel stack
  * The stack is the runway's top 64 KiB (same size as the retired conventional
  * stack the region-engine stack audit was sized against), growing DOWN toward
@@ -185,6 +186,24 @@
  * ------------------------------------------------------------------------ */
 #define TRANSIENT_BASE      0x00580000u
 #define TRANSIENT_CEIL      0x005C0000u
+
+/* ------------------------------------------------------------------------ *
+ * THE KERNEL OVERLAY WINDOW (Rule-8 deliberate act; ADR-0014 DEC-14-3,
+ * RATIFIED 2026-10-25; epic initech-x8gsi lane 1). Cold FLAIR kernel code and
+ * data are read from C:\FLAIR.OVL (spec/overlay_format.h) into this FIXED
+ * window at desktop start (DEC-14-5 Alternative 5A: every section preloaded,
+ * never evicted, discarded only by Exit to InitechDOS). It is the bottom
+ * 128 KiB of the formerly unassigned runway: below KERNEL_CEIL, so the
+ * INITECH_MIN_EXT_KB boot gate already backs it with RAM and kstart.asm's
+ * runway zeroing already clears it; disjoint from TRANSIENT because the
+ * exit-to-DOS path may itself be overlaid one day and must never be
+ * overwritten by the transient it loads. [OVERLAY_CEIL, KERNEL_STACK_BOT)
+ * stays UNASSIGNED as a 64 KiB guard: the kernel stack grows down toward the
+ * runway (ADR-0003-AMENDMENT-DEC-08b), never straight into overlay code.
+ * ------------------------------------------------------------------------ */
+#define OVERLAY_BASE        0x005C0000u
+#define OVERLAY_CEIL        0x005E0000u
+#define OVERLAY_STACK_GUARD 0x00010000u
 
 /* Flat linear address of the PSP (256 bytes). The program's "segment" base in
  * the .COM model. Ref Sec 1 / Sec 3.2. RAISED 0x20000 -> 0x30000 (beads
@@ -535,7 +554,8 @@ _Static_assert(KERNEL_STACK_TOP + 4u <= FLAIR_HEAP_BASE ||
  * MEMORY-MAP WINDOW DISJOINTNESS (bead initech-xu97; Rule 2 fail loud at
  * COMPILE time; ADR-0003-AMENDMENT-DEC-08b). Every named physical window this
  * header owns, as a half-open [LO, HI) pair, and a _Static_assert for EVERY
- * pair (8 windows, 28 pairs). Any edit that re-overlaps two windows -- the
+ * pair (9 windows, 36 pairs; OVERLAY joined by ADR-0014 DEC-14-3). Any
+ * edit that re-overlaps two windows -- the
  * tdnl.29 Step-0.3 defect was KERNEL_STACK [0x4F0000,0x500000) inside
  * FLAIR_HEAP -- stops every kernel and host object that includes this header.
  * Mutation-proven by `make test-memory-map-mutant` (sed-mutated copies of this
@@ -563,6 +583,8 @@ _Static_assert(KERNEL_STACK_TOP + 4u <= FLAIR_HEAP_BASE ||
 #define MMAP_WIN_HI_TRANSIENT   TRANSIENT_CEIL
 #define MMAP_WIN_LO_KSTACK      KERNEL_STACK_BOT
 #define MMAP_WIN_HI_KSTACK      (KERNEL_STACK_TOP + 4u)
+#define MMAP_WIN_LO_OVERLAY     OVERLAY_BASE
+#define MMAP_WIN_HI_OVERLAY     OVERLAY_CEIL
 
 #define MMAP_ASSERT_DISJOINT(A, B)                                          \
     _Static_assert(MMAP_WIN_HI_##A <= MMAP_WIN_LO_##B ||                    \
@@ -597,6 +619,15 @@ MMAP_ASSERT_DISJOINT(FLAIR_HEAP, KSTACK);
 MMAP_ASSERT_DISJOINT(KIMAGE,     TRANSIENT);
 MMAP_ASSERT_DISJOINT(KIMAGE,     KSTACK);
 MMAP_ASSERT_DISJOINT(TRANSIENT,  KSTACK);
+/* ADR-0014 DEC-14-3: the overlay window against every other window. */
+MMAP_ASSERT_DISJOINT(OVERLAY,    BOUNCE);
+MMAP_ASSERT_DISJOINT(OVERLAY,    PROGRAM);
+MMAP_ASSERT_DISJOINT(OVERLAY,    STAGING);
+MMAP_ASSERT_DISJOINT(OVERLAY,    VGA);
+MMAP_ASSERT_DISJOINT(OVERLAY,    FLAIR_HEAP);
+MMAP_ASSERT_DISJOINT(OVERLAY,    KIMAGE);
+MMAP_ASSERT_DISJOINT(OVERLAY,    TRANSIENT);
+MMAP_ASSERT_DISJOINT(OVERLAY,    KSTACK);
 
 /* Runway containment: image, transient and stack all live inside the
  * RAM-gated [KERNEL_BASE, KERNEL_CEIL); the image ceiling IS the transient
@@ -608,6 +639,11 @@ _Static_assert(TRANSIENT_CEIL <= KERNEL_STACK_BOT &&
                KERNEL_STACK_TOP + 4u <= KERNEL_CEIL &&
                KERNEL_BASE < KERNEL_IMAGE_CEIL,
                "image, transient and kernel stack must lie inside the runway");
+/* ADR-0014 DEC-14-3: the overlay window lies inside the RAM-gated runway,
+ * above the transient, with the 64 KiB unassigned guard below the stack. */
+_Static_assert(TRANSIENT_CEIL <= OVERLAY_BASE && OVERLAY_BASE < OVERLAY_CEIL &&
+               OVERLAY_CEIL + OVERLAY_STACK_GUARD <= KERNEL_STACK_BOT,
+               "overlay window must keep its 64 KiB guard below the kernel stack");
 _Static_assert(KERNEL_STACK_TOP + 4u - KERNEL_STACK_BOT == 0x00010000u &&
                (KERNEL_STACK_TOP & 3u) == 0u,
                "kernel stack must be a 4-aligned 64 KiB window");

@@ -122,6 +122,9 @@
 #include "stdfile.h"             /* Standard File model (gymo; tdnl.16)          */
 #include "scrap.h"               /* the desk scrap (b2vk; tdnl.16 / ww9c)         */
 #include "transient.h"           /* COMMAND.COM file header (3p1a/e9sx) */
+#include "overlay_format.h"      /* FLAIR.OVL container (ADR-0014; -Ispec) */
+#include "about_box.h"           /* overlaid About This Computer (ADR-0014)  */
+#include "irq.h"                 /* g_irq_depth: DEC-14-6.4 context guard */
 #include "dos_messages.h"        /* DEC-13 generated diagnostic catalogue */
 
 /* The INT 81h entry stub (os/milton/tbx_gate.asm). */
@@ -216,7 +219,7 @@ void serial_puts(const char *s)
 
 /* Emit an unsigned decimal (for the BI-BAD diagnostic). Freestanding: no
  * libc, so we format by hand into a small reversed buffer. */
-static void serial_putu(uint32_t v)
+void serial_putu(uint32_t v)   /* extern: an overlay import (about_box.h) */
 {
     char buf[10];
     int n = 0;
@@ -4811,16 +4814,16 @@ static void flair_live_alert_open_icon(flair_live_ctx_t *ctx, const boot_info_t 
 }
 
 /* The alert with no icon item (every caller but the Empty Trash confirm). */
-static void flair_live_alert_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                                  const char *const *text, int n,
-                                  const char *const *btn, int nb, int draw)
+void flair_live_alert_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                           const char *const *text, int n,
+                           const char *const *btn, int nb, int draw)
 {
     flair_live_alert_open_icon(ctx, bi, text, n, btn, nb, draw, FTA_NO_ICON);
 }
 
 /* Returns the item hit (1..nb); the cancel item when a bounded image's life
  * ends with the alert still up. */
-static uint16_t flair_live_alert_run(flair_live_ctx_t *ctx, const boot_info_t *bi)
+uint16_t flair_live_alert_run(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     uint16_t hit = 0u;
     uint32_t t0 = flair_tick_count();
@@ -5673,36 +5676,15 @@ static void flair_live_apple_refresh(void)
     serial_putc('\n');
 }
 
-/* About This Computer: the shipped banner's name/version (BANNER_LINE1,
- * spec/dos_banner.txt) and the machine's REAL memory -- the RAM stage2
- * probed (1 MiB + ext_mem_kb) and the InitechDOS arena's largest free block,
- * walked live off the MCB chain (int21_mcb_stats). An unbound arena says so
- * ("none"), it never shows a made-up figure. The Mac OS 8 window of the
- * capture (s8_about_this_computer.png) is shown through the shell's alert
- * (the banner art and the per-application bars are a recorded gap). */
-static __attribute__((cold,noinline)) void flair_live_about(flair_live_ctx_t *ctx, const boot_info_t *bi)
-{
-    static char l2[48], l3[48];
-    static const char *const ok_label[1] = { "OK" };
-    const char *text[3];
-    uint32_t mem_k = 1024u + bi->ext_mem_kb, arena = 0u, largest = 0u;
-    int bound = int21_mcb_stats(&arena, &largest);
-    kmain_about_lines(l2,l3,mem_k,largest,bound);
-    text[0] = BANNER_LINE1;
-    text[1] = l2;
-    text[2] = l3;
-    serial_puts("APPLE-ABOUT mem_k=");
-    serial_putu(mem_k);
-    serial_puts(" arena_k=");
-    serial_putu(arena / 64u);
-    serial_puts(" largest_k=");
-    serial_putu(largest / 64u);
-    serial_putc('\n');
-    flair_live_alert_open(ctx, bi, text, 3, ok_label, 1, 1);
-    serial_puts("APPLE-ABOUT up\n");
-    (void)flair_live_alert_run(ctx, bi);
-    serial_puts("APPLE-ABOUT closed\n");
-}
+/* About This Computer is OVERLAID (os/milton/about_box.c, section COLD of
+ * C:\FLAIR.OVL; ADR-0014 DEC-14-10 lane 1, measured -396 B resident). The
+ * shell reaches it through the generated stub flair_about_box and passes the
+ * locked banner line, which keeps its one home here (BANNER_LINE1). */
+
+/* The JTC mat's vtable stays RESIDENT and holds the generated STUB addresses
+ * egg_jtc_open / egg_jtc_event, never overlay addresses (ADR-0014 DEC-14-6.2;
+ * TP routes procedure pointers the same way, RG5 p. 169). */
+const FlairAppProcs egg_jtc_procs = {egg_jtc_open, egg_jtc_event, 0, 0};
 
 /* Ref: operator initech-2ter (a), spec/easter/jump_to_conclusions.json.
  * Authored hidden gesture, no corpus hidden-About precedent. Do not change
@@ -5760,7 +5742,7 @@ static int flair_live_apple_result(flair_live_ctx_t *ctx, const boot_info_t *bi,
     if (sel == 0u || MenuResultID(sel) != (int16_t)FLAIR_MENU_ID_APPLE) return 0;
     switch (apple_menu_action(sel, &da)) {
     case APPLE_ACT_ABOUT:
-        flair_live_about(ctx, bi);
+        flair_about_box(ctx, bi, BANNER_LINE1);
         break;
     case APPLE_ACT_LAUNCH:
         serial_puts("APPLE-LAUNCH name=");
@@ -6128,50 +6110,75 @@ static __attribute__((cold,noinline)) void exitdos_fail(const char *why, uint32_
     kernel_halt();
 }
 
+/* THE PRIVATE BOOT-VOLUME READ (C:, primary master; ADR-0003 DEC-18), shared
+ * by the transient COMMAND.COM and C:\FLAIR.OVL (ADR-0014 DEC-14-4: "exactly
+ * as exitdos_load_transient reads COMMAND.COM", R6 "reuse the boot-mount
+ * read"). MS-DOS 3.3 User's Guide pp28/46/119 (named file on disk); ADR-0003
+ * DEC-07a / spec/mbr_partition_contract.json: fat12_mount discovers the boot
+ * partition and all later sectors are volume-relative. This private mount
+ * never changes drive A:'s data-volume/CWD binding. Returns 0 with *d filled,
+ * or the step that failed (1 mount, 2 cluster size, 3 lookup) with *v = its
+ * status. g_boot_slave is a MUTANT-only knob (Rule 6): the real kernel reads
+ * the boot volume, never the data volume. */
+static fat12_volume_t g_boot_vol;
+static uint8_t g_boot_sector[512], g_boot_cluster[4096];
+#if defined(KMAIN_MUT_COMMAND_VOLUME) || defined(OVL_MUT_DATA_VOLUME)
+static int g_boot_slave;
+#endif
+static int boot_root_find(const char *name83, dir_entry_t *d, uint32_t *v)
+{
+    static ata_ctx_t ata;
+    static blockdev_t dev;
+    static fat12_fat_window_t window;
+    static uint8_t fat_cache[1024];
+    int rc;
+
+    ata_ctx_init_primary_master(&ata);
+#if defined(KMAIN_MUT_COMMAND_VOLUME) || defined(OVL_MUT_DATA_VOLUME)
+    if (g_boot_slave) ata_ctx_init_primary_slave(&ata);
+#endif
+    ata_blockdev_init(&dev, &ata);
+    rc = fat12_mount(&g_boot_vol, &dev, g_boot_sector);
+    *v = (uint32_t)rc;
+    if (rc != FAT12_OK) return 1;
+    *v = g_boot_vol.bpb.sectors_per_cluster;
+    if (*v > sizeof g_boot_cluster / 512u) return 2;
+    fat12_fat_window_init(&window, fat_cache, sizeof fat_cache);
+    g_boot_vol.fat_window = &window;
+    rc = fat12_find(&g_boot_vol, g_boot_sector, name83, d);
+    *v = (uint32_t)rc;
+    return rc != FAT12_OK ? 3 : 0;
+}
+
 /* Read + validate the transient. Returns its entry; never returns on failure. */
 static void (*exitdos_load_transient(void))(int)
 {
-    ata_ctx_t boot_ata;
-    blockdev_t boot_dev;
-    fat12_volume_t boot_vol;
-    fat12_fat_window_t window;
     dir_entry_t command;
-    static uint8_t sector[512], fat_cache[1024], cluster[4096];
     transient_hdr_t *h = (transient_hdr_t *)(uintptr_t)TRANSIENT_BASE;
     /* EVERY kernel import the transient's code uses, from the GENERATED table
      * (build/transient_want.asm; os/milton/transient.h). The review of
      * initech-13ig found the former hand-kept list checked five of ten. */
     const uint32_t n_want = transient_import_count;
     const uint32_t hdr_bytes = (uint32_t)sizeof *h + n_want * 4u;
-    uint32_t bytes, k;
+    uint32_t bytes, k, v;
     int rc;
 
     if ((uint32_t)(uintptr_t)_kernel_end > TRANSIENT_BASE)
         exitdos_fail("the kernel overlaps the transient window",
                      (uint32_t)(uintptr_t)_kernel_end);
-    ata_ctx_init_primary_master(&boot_ata);
 #ifdef KMAIN_MUT_COMMAND_VOLUME
-    ata_ctx_init_primary_slave(&boot_ata);
+    g_boot_slave = 1;
 #endif
-    /* MS-DOS 3.3 User's Guide pp28/46/119: named COMMAND.COM on disk.
-     * ADR-0003 DEC-07a / spec/mbr_partition_contract.json: let fat12_mount
-     * discover the boot partition; all subsequent sectors are volume-relative.
-     * This private mount never changes drive A:'s data-volume/CWD binding. */
-    ata_blockdev_init(&boot_dev, &boot_ata);
-    rc = fat12_mount(&boot_vol, &boot_dev, sector);
-    if (rc != FAT12_OK) exitdos_fail("boot FAT mount failed", (uint32_t)rc);
-    if (boot_vol.bpb.sectors_per_cluster > sizeof cluster / 512u)
-        exitdos_fail("boot FAT cluster too large", boot_vol.bpb.sectors_per_cluster);
-    fat12_fat_window_init(&window, fat_cache, sizeof fat_cache);
-    boot_vol.fat_window = &window;
-    rc = fat12_find(&boot_vol, sector, "COMMAND.COM", &command);
-    if (rc != FAT12_OK) exitdos_fail("COMMAND.COM not found", (uint32_t)rc);
+    rc = boot_root_find("COMMAND.COM", &command, &v);
+    if (rc == 1) exitdos_fail("boot FAT mount failed", v);
+    if (rc == 2) exitdos_fail("boot FAT cluster too large", v);
+    if (rc != 0) exitdos_fail("COMMAND.COM not found", v);
     if ((command.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u ||
         command.file_size <= sizeof *h ||
         command.file_size > TRANSIENT_CEIL - TRANSIENT_BASE)
         exitdos_fail("COMMAND.COM file extents", command.file_size);
-    rc = fat12_read_partial(&boot_vol, 0, 0u, &command, 0u, sizeof *h,
-                           h, cluster, &bytes);
+    rc = fat12_read_partial(&g_boot_vol, 0, 0u, &command, 0u, sizeof *h,
+                           h, g_boot_cluster, &bytes);
     if (rc != FAT12_OK || bytes != sizeof *h)
         exitdos_fail("boot FAT read of the header failed", (uint32_t)rc);
 #ifndef KMAIN_MUT_COMMAND_MAGIC
@@ -6185,8 +6192,8 @@ static void (*exitdos_load_transient(void))(int)
         h->load_end != TRANSIENT_BASE + command.file_size ||
         h->bss_end < h->load_end || h->bss_end > TRANSIENT_CEIL)
         exitdos_fail("transient header extents", h->bss_end);
-    rc = fat12_read_file(&boot_vol, 0, 0u, &command, h,
-                         TRANSIENT_CEIL - TRANSIENT_BASE, cluster, &bytes);
+    rc = fat12_read_file(&g_boot_vol, 0, 0u, &command, h,
+                         TRANSIENT_CEIL - TRANSIENT_BASE, g_boot_cluster, &bytes);
     if (rc != FAT12_OK || bytes != command.file_size)
         exitdos_fail("boot FAT read of the transient failed", (uint32_t)rc);
     for (k = 0u; k < n_want; k++)
@@ -6208,6 +6215,196 @@ static void (*exitdos_load_transient(void))(int)
     g_transient_exec_secondary =
         (void (*)(const char *, uint32_t))(uintptr_t)h->exec_secondary;
     return (void (*)(int))(uintptr_t)h->entry;
+}
+
+/* ---------------------------------------------------------------------------
+ * THE KERNEL OVERLAY MANAGER (ADR-0014, RATIFIED 2026-10-25; epic
+ * initech-x8gsi lane 1). Cold kernel code lives in C:\FLAIR.OVL (locked
+ * container spec/overlay_format.h) and is read into the fixed window
+ * [OVERLAY_BASE, OVERLAY_CEIL) (spec/memory_map.h, DEC-14-3). DEC-14-5
+ * Alternative 5A: EVERY section is read and verified once, at desktop start,
+ * before FLAIR-TENANTS-READY, and never evicted; Exit to InitechDOS discards
+ * it with the desktop. The generated stubs (build/ovl_kernel.asm) re-check
+ * ovl_state on every call and come here only if the window is not VALID
+ * (defence in depth, DEC-14-6.1). Period basis (research Secs 1-3): dBASE III
+ * PLUS ships raw non-MZ overlay files it cannot run without; Turbo Pascal 5.0
+ * puts every overlaid unit in one .OVR and fails by number without it.
+ *
+ * Trust nothing read from disk (Rule 2, the transient's discipline): the
+ * magic, version and counts must match this kernel's generated tables, the
+ * identity and EVERY import address must equal this kernel's own (FOREIGN),
+ * the CRC-32 of every other byte must equal the value patched into THIS
+ * kernel after link (CORRUPT; DEC-14-2), and every extent must lie in the
+ * window (EXTENTS). Any refusal is the PC LOAD LETTER panic naming the
+ * reason (DEC-14-7); there is no degraded desktop.
+ * ------------------------------------------------------------------------- */
+/* GENERATED (Makefile OVL rules, build/ovl_kernel.asm; never hand-kept):
+ * the import-address want table, the count of stubs, and the two resident
+ * dwords {crc32, identity} the packer patches after the overlay link. */
+extern const uint32_t ovl_import_want[];
+extern const uint32_t ovl_import_count;
+extern const uint32_t ovl_export_count;
+extern const uint32_t ovl_kernel_expect[2];
+uint8_t ovl_state;                 /* 1 == the window holds a VALID overlay */
+
+static __attribute__((cold,noinline,noreturn)) void ovl_fail(const char *why,
+                                                            uint32_t v)
+{
+    /* DEC-14-7: serial names the reason; the physical screen is the typed
+     * PC LOAD LETTER panic with the reason as its subject line. */
+    serial_puts("PANIC FLAIR.OVL ");
+    serial_puts(why);
+    serial_puts(" v=");
+    serial_puthex32(v);
+    serial_putc('\n');
+#ifdef PANIC_DEBUG_OVL
+    /* The register dump, behind the debug flag (DEC-14-7; PRD Appendix B). */
+    {
+        uint32_t r[8], *q = r;
+        __asm__ __volatile__("pushal\n\tmovl $8, %%ecx\n1:\tpopl (%0)\n\t"
+                             "addl $4, %0\n\tloop 1b"
+                             : "+r"(q) : : "ecx", "memory");
+        for (v = 0u; v < 8u; v++) { serial_puts(" r="); serial_puthex32(r[v]); }
+        serial_putc('\n');
+    }
+#endif
+    panic_show_reason(PANIC_REASON_OVERLAY, why);
+    serial_puts("HALTED\n");
+    for (;;) { __asm__ __volatile__("cli; hlt"); }
+}
+
+/* CRC-32/IEEE 802.3, reflected, bitwise (spec/overlay_format.h OVL_CRC_RULE). */
+static uint32_t ovl_crc(uint32_t c, const uint8_t *p, uint32_t n)
+{
+    while (n--) {
+        c ^= *p++;
+        for (int k = 0; k < 8; k++) c = (c >> 1) ^ (OVL_CRC_POLY & (0u - (c & 1u)));
+    }
+    return c;
+}
+
+static void ovl_load(void)
+{
+    ovl_hdr_t *h = (ovl_hdr_t *)(uintptr_t)OVERLAY_BASE;
+    const uint8_t *base = (const uint8_t *)h;
+    const uint32_t *t;
+    dir_entry_t d;
+    uint32_t v, k, crc_off, first, bytes;
+
+    /* DEC-14-6.4: only from the event pump or the INT 81h gate -- never from
+     * an IRQ, the panic path, or under an in-flight ATA transfer (the boot and
+     * data volumes share the primary channel). The slow path pumps nothing. */
+    v = 0u;
+#ifndef OVL_MUT_NO_IRQ_GUARD
+    v |= g_irq_depth;
+#endif
+#ifndef OVL_MUT_NO_PANIC_GUARD
+    v |= (uint32_t)g_panic_active << 8;
+#endif
+#ifndef OVL_MUT_NO_BUSY_GUARD
+    v |= (uint32_t)g_ata_busy << 16;
+#endif
+    if (v != 0u) ovl_fail(OVL_WHY_CONTEXT, v);
+#ifdef OVL_MUT_DATA_VOLUME
+    g_boot_slave = 1;     /* MUTANT: read the data volume (A:), never C: */
+#endif
+#ifndef OVL_MUT_NO_MISSING
+    if (boot_root_find(OVL_FILE_NAME83, &d, &v) != 0) ovl_fail(OVL_WHY_MISSING, v);
+#else
+    (void)boot_root_find(OVL_FILE_NAME83, &d, &v);   /* MUTANT: ignore a miss */
+#endif
+    if ((d.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u ||
+        d.file_size < OVL_HDR_FIXED || d.file_size % OVL_SECTOR != 0u ||
+        d.file_size > OVERLAY_CEIL - OVERLAY_BASE)
+        ovl_fail(OVL_WHY_EXTENTS, d.file_size);
+    if (fat12_read_file(&g_boot_vol, 0, 0u, &d, h, OVERLAY_CEIL - OVERLAY_BASE,
+                        g_boot_cluster, &bytes) != FAT12_OK || bytes != d.file_size)
+        ovl_fail(OVL_WHY_MISSING, bytes);
+    for (k = 0u; k < OVL_MAGIC_LEN; k++)
+        if (h->magic[k] != OVL_MAGIC[k]) {
+#ifndef OVL_MUT_NO_MAGIC
+            ovl_fail(OVL_WHY_FOREIGN, k);
+#else
+            __asm__ __volatile__("");   /* MUTANT: notice nothing, carry on */
+#endif
+        }
+    if (h->version != OVL_VERSION || h->n_sections != 1u ||
+        h->n_imports != ovl_import_count || h->n_exports != ovl_export_count)
+        ovl_fail(OVL_WHY_FOREIGN, h->n_imports);
+    crc_off = OVL_CRC_OFF(1u, ovl_import_count, ovl_export_count);
+    first = crc_off + 4u;
+    if (h->image_len < first || h->image_len > d.file_size)
+        ovl_fail(OVL_WHY_EXTENTS, h->image_len);
+#ifndef OVL_MUT_NO_IMPORTS
+    if (h->identity != ovl_kernel_expect[1]) ovl_fail(OVL_WHY_FOREIGN, h->identity);
+    t = (const uint32_t *)(base + OVL_IMPORTS_OFF(1u));
+    for (k = 0u; k < ovl_import_count; k++)
+        if (t[k] != ovl_import_want[k]) ovl_fail(OVL_WHY_FOREIGN, k);
+#endif
+    v = ~ovl_crc(ovl_crc(0xFFFFFFFFu, base, crc_off), base + first,
+                 h->image_len - first);
+#ifndef OVL_MUT_NO_CRC
+    if (v != ovl_kernel_expect[0]) ovl_fail(OVL_WHY_CORRUPT, v);
+#endif
+    {
+        const ovl_dir_t *e = (const ovl_dir_t *)(base + OVL_HDR_FIXED);
+        if (e->load != OVERLAY_BASE + e->file_off || e->file_off < first ||
+            e->file_off > h->image_len ||   /* no unsigned underflow below */
+            e->length > h->image_len - e->file_off ||
+            e->bss_end < e->load + e->length || e->bss_end > OVERLAY_CEIL)
+            ovl_fail(OVL_WHY_EXTENTS, e->bss_end);
+        for (uint8_t *z = (uint8_t *)(uintptr_t)(e->load + e->length);
+             z < (uint8_t *)(uintptr_t)e->bss_end; z++)
+            *z = 0u;
+    }
+    t = (const uint32_t *)(base + OVL_EXPORTS_OFF(1u, ovl_import_count));
+    for (k = 0u; k < ovl_export_count; k++)
+        if (t[k] < OVERLAY_BASE + first || t[k] >= OVERLAY_BASE + h->image_len)
+            ovl_fail(OVL_WHY_EXTENTS, t[k]);
+    ovl_state = 1u;
+    /* The ONE fixed line the overlay adds to a boot transcript (DEC-14-9(a));
+     * a required Bochs marker (DEC-14-9(h)). */
+    serial_puts("OVL-OK\n");
+}
+
+/* The stubs' slow path (build/ovl_kernel.asm saves every register around
+ * this call): load the window if it is not VALID. Under 5A it is reached
+ * only if a stub ran before the desktop-start preload. */
+void ovl_need(void)
+{
+    ovl_load();
+}
+
+#if defined(OVL_TEST_CTX_IRQ) || defined(OVL_TEST_CTX_PANIC) || defined(OVL_TEST_CTX_BUSY)
+/* GATE-ONLY context probes (DEC-14-9(c), harness/proptest/overlay.mk; NEVER
+ * in a real build): attempt a load from each forbidden context. The real
+ * manager panics CONTEXT; each OVL_MUT_NO_*_GUARD mutant instead reloads and
+ * the probe reports OVL-TEST-SURVIVED. */
+static volatile int g_ovl_test_done;
+static __attribute__((unused)) void ovl_test_tick(void)
+{
+    flair_tick_advance();
+    if (!g_ovl_test_done) { g_ovl_test_done = 1; ovl_need(); g_ovl_test_done = 2; }
+}
+static void ovl_test_survived(void)
+{
+    serial_puts("OVL-TEST-SURVIVED\nHALTED\n");
+    for (;;) { __asm__ __volatile__("cli; hlt"); }
+}
+#endif
+
+/* DEC-14-6.6: a CPU exception with EIP in the overlay window is a kernel
+ * fault, never a tenant crash. tbx_fault_triage returns for it (its range is
+ * the tenant image in the FLAIR heap, disjoint from OVERLAY by the
+ * spec/memory_map.h asserts); this names the section before the PC LOAD
+ * LETTER vector panic. */
+static void ovl_fault_triage(uint32_t vector, uint32_t eip)
+{
+    tbx_fault_triage(vector, eip);
+#ifndef OVL_MUT_NO_FAULT_NAME
+    if (eip - OVERLAY_BASE < OVERLAY_CEIL - OVERLAY_BASE)
+        serial_puts("PANIC FLAIR.OVL section=COLD\n");
+#endif
 }
 
 /* The hand-off itself. Never returns. */
@@ -7186,6 +7383,24 @@ void kernel_main(void)
 
 #if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
     flair_tenant_mount_volume();
+    /* ADR-0014 DEC-14-5 Alternative 5A: read and verify EVERY overlay section
+     * now, at desktop start, before the user has work to lose and before
+     * FLAIR-TENANTS-READY (so the Bochs leg covers the read path, Rule 5).
+     * OVL_TEST_NO_PRELOAD (GATE-ONLY, test-ovl-lazy; never in a real build)
+     * skips it so the stubs' lazy slow path is what loads the window. */
+#ifndef OVL_TEST_NO_PRELOAD
+    ovl_load();
+#endif
+#ifdef OVL_TEST_CTX_PANIC
+    panic_show_reason(PANIC_REASON_HEAP, "OVL CONTEXT PROBE");
+    ovl_need();
+    ovl_test_survived();
+#endif
+#ifdef OVL_TEST_CTX_BUSY
+    g_ata_busy = 1u;
+    ovl_need();
+    ovl_test_survived();
+#endif
 #endif
 #if defined(FLAIR_LIVE_TENANTS) && defined(TBX_HEADLESS_SMOKE)
     /* The headless tenant smoke (tdnl.14 Rule-5 leg): runs BEFORE the 640x480
@@ -7439,7 +7654,7 @@ void kernel_main(void)
         tbx_preferences_boot(1024u+b.ext_mem_kb);
         idt_set_gate((uint8_t)TBX_GATE_VECTOR, (void *)tbx_gate_entry,
                      (uint16_t)TBX_GATE_SELECTOR, (uint8_t)TBX_GATE_TYPE_ATTR);
-        panic_set_fault_hook(tbx_fault_triage);
+        panic_set_fault_hook(ovl_fault_triage);   /* tbx triage + DEC-14-6.6 */
         serial_puts("TBX-GATE-READY vec=0x81\n");
     }
 
@@ -7669,6 +7884,11 @@ void kernel_main(void)
      * CPU -- the cascade requirement (CLAUDE.md minefield). After this the mouse
      * fires IRQ12 on every PS/2 packet byte. Ref: ADR-0006 E-D3d/BC-3; pic.h. */
     pic_unmask_irq12();
+#ifdef OVL_TEST_CTX_IRQ
+    pit_set_tick_hook(ovl_test_tick);
+    while (g_ovl_test_done != 2) { __asm__ __volatile__("hlt"); }
+    ovl_test_survived();
+#endif
 
     /* --- FO-7: install the cooperative HLT yield, then announce READY ---------- *
      * flair_event_set_yield installs the HLT sleep WaitNextEvent calls while the

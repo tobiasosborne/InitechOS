@@ -49,6 +49,12 @@ int main(void)
     e.what = mouseDown; e.modifiers = FLAIR_EVT_MOD_OPTION_KEY;
     (void)egg_jtc_trigger(&n,&e); e.where.h = 33;
     CHECK(!egg_jtc_trigger(&n,&e) && n == 0, "outside resets");
+    /* ADR-0014 lane 1: the per-event pad poll is RESIDENT (the mat itself is
+     * overlaid): nothing pending is -1; a pending pad is taken exactly once. */
+    CHECK(egg_jtc_take_pad() == -1, "no pending pad");
+    egg_jtc_pending = 9;
+    CHECK(egg_jtc_take_pad() == 8, "pending pad taken");
+    CHECK(egg_jtc_take_pad() == -1, "pending pad taken once");
     flair_raw_ring_t ring;
     flair_event_init(&ring);
     flair_event_warp(218,372);

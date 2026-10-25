@@ -62,6 +62,7 @@ BI_FS_VS(FLAIR_HEAP);
 BI_FS_VS(KIMAGE);
 BI_FS_VS(TRANSIENT);
 BI_FS_VS(KSTACK);
+BI_FS_VS(OVERLAY);
 _Static_assert(DISJ(BI_LO, BI_HI, FS_LO, FS_HI),
                "memory map windows overlap: BOOT_INFO vs FONT_STASH");
 
@@ -83,6 +84,7 @@ int main(void)
         { "KIMAGE",      MMAP_WIN_LO_KIMAGE,     MMAP_WIN_HI_KIMAGE },
         { "TRANSIENT",   MMAP_WIN_LO_TRANSIENT,  MMAP_WIN_HI_TRANSIENT },
         { "KSTACK",      MMAP_WIN_LO_KSTACK,     MMAP_WIN_HI_KSTACK },
+        { "OVERLAY",     MMAP_WIN_LO_OVERLAY,    MMAP_WIN_HI_OVERLAY },
     };
     const unsigned n = (unsigned)(sizeof w / sizeof w[0]);
     unsigned i, j, pairs = 0, bad = 0;

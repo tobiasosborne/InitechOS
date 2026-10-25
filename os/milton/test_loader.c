@@ -198,6 +198,32 @@ int main(void)
               "seven bytes cannot carry the 8-byte magic: an ordinary program");
     }
 
+    /* ---- Case 6b: C:\FLAIR.OVL is not a program either (ADR-0014 DEC-14-2:
+     *      "AH=4Bh EXEC refuses a file bearing the overlay magic with DOS
+     *      error 11, as it refuses the transient today"). Both entries refuse
+     *      the 8-byte FLAIROVL magic LOADER_ERR_BAD_FORMAT; a near miss and a
+     *      7-byte image are ordinary programs. Literal bytes here, not the
+     *      kernel's OVL_MAGIC (Law 2). Mutant: test-loader-mutant's
+     *      LOADER_MUT_NO_OVERLAY_GUARD leg. -------------------------------- */
+    {
+        static const uint8_t k_ovl[16]  = { 'F','L','A','I','R','O','V','L',
+                                            1, 0, 0, 0, 0, 0, 0, 0 };
+        static const uint8_t k_ovln[16] = { 'F','L','A','I','R','O','V','M',
+                                            1, 0, 0, 0, 0, 0, 0, 0 };
+        loader_plan_t plan;
+        CHECK(loader_image_is_transient(k_ovl, 8u) == 1 &&
+              loader_image_is_transient(k_ovln, 16u) == 0 &&
+              loader_image_is_transient(k_ovl, 7u) == 0,
+              "loader_image_is_transient: exactly the 8-byte FLAIROVL magic");
+        CHECK(loader_prepare(k_ovl, 16u, (const char *)0, 0u, &plan)
+                  == LOADER_ERR_BAD_FORMAT &&
+              loader_prepare_in_place(k_ovl, 16u, (const char *)0, 0u, &plan)
+                  == LOADER_ERR_BAD_FORMAT,
+              "both entries: a FLAIR.OVL image must be refused LOADER_ERR_BAD_FORMAT");
+        CHECK(loader_prepare(k_ovln, 16u, (const char *)0, 0u, &plan) == LOADER_OK,
+              "a near-miss overlay magic (FLAIROVM) is an ordinary program");
+    }
+
     /* ---- Case 5: EXEC env inheritance decision (beads initech-1i0x Tranche E
      *      inc 3). loader_decide_env maps the AH=4Bh env_block (0 = inherit-empty;
      *      ENV_BLOCK = inherit the shell's populated env) to (env_linear,
