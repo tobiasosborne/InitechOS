@@ -1,0 +1,10 @@
+. USE STAFF
+. ? "open", TYPE("LUPDATE()"), LUPDATE()
+
+open D 03/01/92. USE
+. ? "closed", TYPE("LUPDATE()"), LUPDATE()
+
+closed D   /  /  . ? "extra-arg"
+
+extra-arg. ? LUPDATE(1)
+11  Invalid function argument.

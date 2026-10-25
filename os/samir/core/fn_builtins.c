@@ -2190,8 +2190,21 @@ static int fn_time_stub(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_lupdate_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    double date;
+    (void)args;
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    /* Rule 2: no work-area cursor is #52, as for RECNO() and its siblings;
+     * a bound cursor with no file in USE answers the blank date (GOLD.OUT). */
+    if (!need_dbcur(ctx, err)) return *err;
+    date = ctx->dbcur->last_update
+        ? ctx->dbcur->last_update(ctx->dbcur_user) : 0.0;
+#ifdef SAMIR_FNS_MUTANT_lupdate
+    /* Rule 6: perturb the returned date by one day; the independent mint bites. */
+    if (date > 0.0) date += 1.0;
+#endif
+    *out = xb_d(date);
+    *err = XBEE_OK;
+    return 0;
 }
 
 static int fn_ndx_stub(xb_ctx *ctx, const xb_val *args, int nargs,

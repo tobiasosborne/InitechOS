@@ -590,6 +590,7 @@ typedef struct xb_dbcursor {
     int      (*field_name) (void *u, uint32_t i, char *buf, uint32_t cap); /* 1-based; <0 none */
     int      (*dbf_name)   (void *u, char *buf, uint32_t cap);             /* <0 if none open */
     int      (*file_exists)(void *u, const char *name);
+    double   (*last_update)(void *u);                                      /* header date JDN; 0 if closed */
 } xb_dbcursor;
 
 /*

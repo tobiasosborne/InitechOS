@@ -1,0 +1,6 @@
+USE STAFF
+? "open", TYPE("LUPDATE()"), LUPDATE()
+USE
+? "closed", TYPE("LUPDATE()"), LUPDATE()
+? "extra-arg"
+? LUPDATE(1)

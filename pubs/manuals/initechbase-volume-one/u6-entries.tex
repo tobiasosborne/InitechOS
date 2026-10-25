@@ -499,6 +499,18 @@ Returns the number of records in the database in the selected work area, as a nu
 \SeeAlso{RECNO(), EOF(), DELETED(), COUNT}
 \end{XbaseEntry}
 
+% LUPDATE -- dBASE III PLUS HELP.DBS @DATA FUNC 2, line 1233.
+\begin{XbaseEntry}{LUPDATE}{function}
+Returns the date of the last update to the database in the selected work area, as a date value.
+\Syntax
+\SyntaxLine{\kw{LUPDATE()}}
+\Usage
+\fn{LUPDATE()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. With no database in USE, it returns a blank date.
+\Examples
+\DotExample{examples/fn-lupdate}
+\SeeAlso{DBF(), DATE(), USE}
+\end{XbaseEntry}
+
 % RECNO -- os/samir/core/fn_builtins.c fn_recno (l.1884-1900)
 \begin{XbaseEntry}{RECNO}{function}
 Returns the number of the current record of the database in the selected work area, as a numeric value.

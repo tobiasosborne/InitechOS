@@ -1086,6 +1086,21 @@ static int wac_file_exists(void *u, const char *name)
     return 1;
 }
 
+/* LUPDATE() reads the DBF header's last-update date; a closed area is blank.
+ * Ref: HELP.DBS @DATA FUNC 2 line 1233 and dbf.h header date accessors. */
+static double wac_last_update(void *u)
+{
+    wa_env *env = (wa_env *)u;
+    dbf_table *tbl = env ? wa_table(env, wa_selected(env)) : 0;
+    uint8_t y, m, d;
+    if (!tbl) return 0.0;
+    y = dbf_year(tbl);
+    m = dbf_month(tbl);
+    d = dbf_day(tbl);
+    if (m < 1u || m > 12u || d < 1u || d > 31u) return 0.0;
+    return (double)jdn_from_ymd(1900 + (int)y, (int)m, (int)d);
+}
+
 /* The single shared vtable instance (const; one per process). wa_bind_ctx points
  * ctx->dbcur at this and ctx->dbcur_user at the env. */
 static const xb_dbcursor wa_dbcursor_vtable = {
@@ -1097,7 +1112,8 @@ static const xb_dbcursor wa_dbcursor_vtable = {
     wac_deleted,
     wac_field_name,
     wac_dbf_name,
-    wac_file_exists
+    wac_file_exists,
+    wac_last_update
 };
 
 static uint32_t wac_record_size(void *user)
