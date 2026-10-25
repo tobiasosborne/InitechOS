@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include "test_assert.h"
+#include "trace_complete.h"
 TEST_HARNESS();
 static char serial[262144],raw[262144];
 static char project_root[1024];
@@ -107,7 +108,9 @@ int main(int argc,char **argv){
         keyscript("use clients.dbf\nselect 2\nuse clients.dbf\nuse other.dbf\nselect 1\nuse\nselect 2\nlist\nselect 1\nuse clients.dbf\nclose databases\nselect 2\nuse other.dbf\nselect 1\nuse clients.dbf\nquit\n\\use clients.dbf\nlist\nquit\n",keys,sizeof keys);
         snprintf(cmd,sizeof cmd,"build/qemu_harness --disk build/flair_tenants_interactive.img --disk2 build/dbsafe/emu.img --name samir_dbsafe_%s --out build --timeout-ms 60000 --keys '%s' --keys-after FLAIR-LIVE-READY --keys-after-ms 15000 --expect FLAIR-RESUME --screendump --screendump-after FLAIR-RESUME > build/dbsafe/emu.stdout 2> build/dbsafe/emu.report",mode,keys);
     }
-    run(cmd);snprintf(cmd,sizeof cmd,"build/samir_dbsafe_%s.serial",mode);n=readfile(cmd,raw,sizeof raw);
+    run(cmd);snprintf(cmd,sizeof cmd,"build/samir_dbsafe_%s.serial",mode);
+    if(!emu_trace_complete("build/dbsafe/emu.report",cmd,desktop?emu_trace_keys(keys):11))return 2;
+    n=readfile(cmd,raw,sizeof raw);
     for(i=0,j=0;i<n;i++)if(raw[i]!='\r')serial[j++]=raw[i];
     serial[j]=0;
     CHECK(desktop ? occurrences("FLAIR-RESUME")>=2 : strstr(serial,"SHELL-DONE")!=NULL,"L003 QUIT returns cleanly to desktop");

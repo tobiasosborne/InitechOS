@@ -29,7 +29,7 @@ static void usage(const char *argv0)
 {
     fprintf(stderr,
         "usage: %s (--kernel ELF | --disk IMG) [options]\n"
-        "  --boot-rw          open the --disk boot image writable (default: snapshot=on,\n"
+        "  --boot-rw          open the --disk boot image writable (default: private overlay,\n"
         "                     a read-only share, so concurrent runs under make -j do not collide)\n"
         "  --disk2 IMG        attach a 2nd raw disk on the IDE primary SLAVE\n"
         "                     (if=ide,index=1); the kernel mounts it over ATA\n"

@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "test_assert.h"
+#include "trace_complete.h"
 TEST_HARNESS();
 static char serial[262144], fragment[65536];
 static int command(const char *s)
@@ -102,6 +103,7 @@ int main(int argc,char **argv)
     snprintf(cmd,sizeof(cmd),"build/qemu_harness --disk build/tracer_secondary.img --disk2 build/samir-audit/emu.img --name samir_audit_%s --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > build/samir-audit/emu.stdout 2> build/samir-audit/emu.report; rc=$?; cat build/samir-audit/emu.report 1>&2; exit $rc",mode,keybuf);
     command(cmd);
     snprintf(cmd,sizeof(cmd),"build/samir_audit_%s.serial",mode);
+    if(!emu_trace_complete("build/samir-audit/emu.report",cmd,emu_trace_keys(keybuf)))return 2;
     n=read_file(cmd,raw,sizeof(raw));
     for(i=0,j=0;i<n;i++) if(raw[i]!='\r') serial[j++]=raw[i];
     serial[j]=0;

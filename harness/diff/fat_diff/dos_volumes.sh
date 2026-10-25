@@ -4,8 +4,8 @@
 set -eu
 export INITECH_QMP_STDIO=1 SOURCE_DATE_EPOCH=315532800 TZ=UTC LC_ALL=C
 mode=$1; boot=$2; tag=${3:-green}
-w=build/dos-volumes/$mode-$tag
-mkdir -p "$w"
+mkdir -p build/dos-volumes
+w=$(mktemp -d "build/dos-volumes/$mode-$tag.XXXXXX")
 red() { echo "RED dos-volumes $*"; exit 1; }
 cp -f "$boot" "$w/c.img"
 dd if=/dev/zero of="$w/a.img" bs=512 count=2880 status=none
@@ -47,7 +47,7 @@ else
         expect=A
     fi
     mcopy -o -i "$w/a.img" "$w/autoexec" ::AUTOEXEC.BAT
-    build/qemu_harness --disk "$w/c.img" --disk2 "$w/a.img" --name run --out "$w" \
+    build/qemu_harness --boot-rw --disk "$w/c.img" --disk2 "$w/a.img" --name run --out "$w" \
         --timeout-ms 30000 --keys 'e,x,i,t,ret' --keys-after VOLUMES-DONE \
         --quit-after SHELL-DONE 2> "$w/report" || true
     grep -qx SHELL-EXIT "$w/run.serial" || red 'EMU did not finish shell'

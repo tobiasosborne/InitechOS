@@ -18420,11 +18420,13 @@ test-harness-quit-after: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(HARNESS_QA_IMG
 	@printf '>>> test-harness-quit-after: typed-ahead exit + --quit-after SHELL-EXIT must let a %s-EXEC batch finish\n' "$(HARNESS_QA_EXECS)"
 	@rm -f "$(BUILD)/$(HARNESS_QA_NAME).serial"
 	@$(call fixture-preflight,$(HARNESS_QA_IMG))
-	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(HARNESS_QA_IMG)" \
+	@cp -f "$(HARNESS_QA_IMG)" "$(BUILD)/$(HARNESS_QA_NAME)_data.img"
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BUILD)/$(HARNESS_QA_NAME)_data.img" \
 		--name "$(HARNESS_QA_NAME)" --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
 		2> "$(BUILD)/$(HARNESS_QA_NAME).report" || true
+	@sh harness/emu/require_trace.sh "$(BUILD)/$(HARNESS_QA_NAME).report" "$(BUILD)/$(HARNESS_QA_NAME).serial" 5
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(HARNESS_QA_NAME).report"; then \
 		printf '!!! test-harness-quit-after FAIL: boot triple-faulted\n'; exit 1; fi
 	@grep -q 'quit_after_found=1' "$(BUILD)/$(HARNESS_QA_NAME).report" \
@@ -18442,11 +18444,13 @@ test-harness-quit-after-mutant: $(HARNESS_MUT_NOQUIT_BIN) $(SECONDARY_TRACER_IMG
 	@printf '>>> test-harness-quit-after-mutant: HARNESS_MUTATE_NO_QUIT_WAIT must truncate the batch (Rule 6)\n'
 	@rm -f "$(BUILD)/$(HARNESS_QA_MUT_NAME).serial"
 	@$(call fixture-preflight,$(HARNESS_QA_IMG))
-	@$(HARNESS_MUT_NOQUIT_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(HARNESS_QA_IMG)" \
+	@cp -f "$(HARNESS_QA_IMG)" "$(BUILD)/$(HARNESS_QA_MUT_NAME)_data.img"
+	@$(HARNESS_MUT_NOQUIT_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BUILD)/$(HARNESS_QA_MUT_NAME)_data.img" \
 		--name "$(HARNESS_QA_MUT_NAME)" --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
 		2> "$(BUILD)/$(HARNESS_QA_MUT_NAME).report" || true
+	@sh harness/emu/require_trace.sh "$(BUILD)/$(HARNESS_QA_MUT_NAME).report" "$(BUILD)/$(HARNESS_QA_MUT_NAME).serial" 5
 	@test -s "$(BUILD)/$(HARNESS_QA_MUT_NAME).serial" \
 		|| { printf '!!! test-harness-quit-after-mutant FAIL: no serial from the mutant boot\n'; exit 1; }
 	@grep -q 'SHELL-READY' "$(BUILD)/$(HARNESS_QA_MUT_NAME).serial" \
@@ -24823,14 +24827,14 @@ record-flair-repro: $(HARNESS_BIN) $(FLAIRTENANTS_IMG)
 # Ref: ADR-0013 Sec 3.2 (class-2 text tenants); spec/memory_map.h (disjointness);
 # os/milton/kmain.c flair_launch_text_tenant. NOT in `make test` (orchestrator
 # wires the suite).
-SAMIR_SUSP_PRE_NAME    := flair_samir_suspend_pre
-SAMIR_SUSP_POST_NAME   := flair_samir_suspend_post
-SAMIR_SUSP_PRE_PPM     := $(BUILD)/$(SAMIR_SUSP_PRE_NAME).ppm
-SAMIR_SUSP_POST_PPM    := $(BUILD)/$(SAMIR_SUSP_POST_NAME).ppm
-SAMIR_SUSP_PRE_SERIAL  := $(BUILD)/$(SAMIR_SUSP_PRE_NAME).serial
-SAMIR_SUSP_POST_SERIAL := $(BUILD)/$(SAMIR_SUSP_POST_NAME).serial
-SAMIR_SUSP_PRE_REPORT  := $(BUILD)/$(SAMIR_SUSP_PRE_NAME).report
-SAMIR_SUSP_POST_REPORT := $(BUILD)/$(SAMIR_SUSP_POST_NAME).report
+SAMIR_SUSP_PRE_NAME = $@_pre
+SAMIR_SUSP_POST_NAME = $@_post
+SAMIR_SUSP_PRE_PPM     = $(BUILD)/$(SAMIR_SUSP_PRE_NAME).ppm
+SAMIR_SUSP_POST_PPM    = $(BUILD)/$(SAMIR_SUSP_POST_NAME).ppm
+SAMIR_SUSP_PRE_SERIAL  = $(BUILD)/$(SAMIR_SUSP_PRE_NAME).serial
+SAMIR_SUSP_POST_SERIAL = $(BUILD)/$(SAMIR_SUSP_POST_NAME).serial
+SAMIR_SUSP_PRE_REPORT  = $(BUILD)/$(SAMIR_SUSP_PRE_NAME).report
+SAMIR_SUSP_POST_REPORT = $(BUILD)/$(SAMIR_SUSP_POST_NAME).report
 # Rule-8 re-key (initech-rex3, DEC-LAUNCH-1): bare bsl -> ctrl-alt-bsl in
 # BOTH the clean O-7 gate and its NO_REBUILD mutant (shared script).
 # The other bsl trace, ZS24EXEC_KEYS, types DOS paths and remains plain text.
@@ -24911,21 +24915,19 @@ test-flair-samir-suspend: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(SAMIR_LIST_IMG)
 # BITES). Boots build/flair_tenants_mut_no_rebuild.img (-DFLAIR_LIVE_MUTATE_NO_REBUILD:
 # skip the post-SAMIR rebuild) with the SAME PRE/POST capture, and asserts the
 # bit-identity check goes RED (post.ppm != the CLEAN pre.ppm) with NO triple-fault.
-SAMIR_SUSP_MUT_NAME    := flair_samir_suspend_mut
-SAMIR_SUSP_MUT_PPM     := $(BUILD)/$(SAMIR_SUSP_MUT_NAME).ppm
-SAMIR_SUSP_MUT_SERIAL  := $(BUILD)/$(SAMIR_SUSP_MUT_NAME).serial
-SAMIR_SUSP_MUT_REPORT  := $(BUILD)/$(SAMIR_SUSP_MUT_NAME).report
-test-flair-samir-suspend-mutant: $(HARNESS_BIN) $(SAMIR_LIST_IMG) $(BUILD)/flair_tenants_mut_no_rebuild.img
+SAMIR_SUSP_MUT_NAME = $@_mut
+SAMIR_SUSP_MUT_PPM     = $(BUILD)/$(SAMIR_SUSP_MUT_NAME).ppm
+SAMIR_SUSP_MUT_SERIAL  = $(BUILD)/$(SAMIR_SUSP_MUT_NAME).serial
+SAMIR_SUSP_MUT_REPORT  = $(BUILD)/$(SAMIR_SUSP_MUT_NAME).report
+test-flair-samir-suspend-mutant: $(FLAIRTENANTS_IMG) $(HARNESS_BIN) $(SAMIR_LIST_IMG) $(BUILD)/flair_tenants_mut_no_rebuild.img
 	@printf '>>> test-flair-samir-suspend-mutant: confirming the no-rebuild mutant goes RED (Rule 6)\n'
 	@$(call fixture-preflight,$(SAMIR_LIST_IMG))
 	cp -f $(SAMIR_LIST_IMG) $(FLAIR_GATE_DATA)
 	@$(if $(call fixture-spec,$(SAMIR_LIST_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(SAMIR_LIST_IMG))),:)
-	@# Establish the CLEAN pre baseline (the real desktop) if not already present.
-	@if [ ! -s "$(SAMIR_SUSP_PRE_PPM)" ]; then \
-		$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
-			--name "$(SAMIR_SUSP_PRE_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
-			--screendump --screendump-after "FLAIR-LIVE-READY" 2>/dev/null || true; \
-	fi
+	@# Mint this gate's CLEAN pre baseline from the current real desktop.
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
+		--name "$(SAMIR_SUSP_PRE_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
+		--screendump --screendump-after "FLAIR-LIVE-READY" 2> "$(SAMIR_SUSP_PRE_REPORT)"
 	@if [ ! -s "$(SAMIR_SUSP_PRE_PPM)" ]; then printf '!!! test-flair-samir-suspend-mutant FAIL: clean PRE screendump missing (cannot establish the baseline)\n'; exit 1; fi
 	@# POST under the mutant image: same keys, dump after FLAIR-RESUME.
 
@@ -24933,7 +24935,8 @@ test-flair-samir-suspend-mutant: $(HARNESS_BIN) $(SAMIR_LIST_IMG) $(BUILD)/flair
 		--name "$(SAMIR_SUSP_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIR_SUSP_KEYS)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-RESUME" \
-		2> "$(SAMIR_SUSP_MUT_REPORT)" || true
+		2> "$(SAMIR_SUSP_MUT_REPORT)"
+	@sh harness/emu/require_trace.sh "$(SAMIR_SUSP_MUT_REPORT)" "$(SAMIR_SUSP_MUT_SERIAL)" "$$(printf '%s\n' '$(SAMIR_SUSP_KEYS)' | awk -F, '{print NF}')"
 	@if grep -q 'triple_fault=1' "$(SAMIR_SUSP_MUT_REPORT)"; then \
 		printf '!!! test-flair-samir-suspend-mutant FAIL: the mutant TRIPLE-FAULTED -- a crash, not the wrong-pixels RED the gate asserts\n'; exit 1; \
 	fi
@@ -28738,17 +28741,20 @@ define samir_ctl_emu_run
 	@mcopy -i $(BUILD)/$(2).img $(1) ::SAMIR.COM
 	@set -e; for f in $(SAMIR_CTL_EMU_PRGS); do mcopy -i $(BUILD)/$(2).img $(SAMIR_CTL_EMU_DIR)/$$f ::$$f; done
 	@$(call fixture-check,recipe,$(BUILD)/$(2).img)
-	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BUILD)/$(2).img" \
+	@started=$$(date +%s); rc=0; $(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BUILD)/$(2).img" \
 		--name "$(2)" --out "$(BUILD)" --timeout-ms 90000 \
 		--keys "$(SAMIR_CTL_EMU_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
-		2> "$(BUILD)/$(2).report" || true
+		2> "$(BUILD)/$(2).report" || rc=$$?; \
+	 printf '%s\n' "$$rc" > "$(BUILD)/$(2).report.status"; \
+	 printf '%s\n' "$$(( $$(date +%s) - started ))" > "$(BUILD)/$(2).report.elapsed"
 	@tr -d '\r' < "$(BUILD)/$(2).serial" 2>/dev/null | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(2).samir" || true
 endef
 .PHONY: test-samir-ctl-emu test-samir-ctl-emu-mutant
 test-samir-ctl-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM)
 	@printf '>>> test-samir-ctl-emu: Esc / 20-level DO cap / QUIT in the guest (audit L002 L003 L013; mint samirctl wording)\n'
 	$(call samir_ctl_emu_run,$(SAMIR_COM),samir_ctl_emu)
+	@sh harness/emu/require_trace.sh $(BUILD)/samir_ctl_emu.report $(BUILD)/samir_ctl_emu.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')"
 	@S=$(BUILD)/samir_ctl_emu.samir; R=$(BUILD)/samir_ctl_emu.report; \
 	fail() { printf '!!! test-samir-ctl-emu FAIL: %s\n' "$$1"; cat "$$S"; exit 1; }; \
 	! grep -q 'triple_fault=1' "$$R" || fail 'TRIPLE FAULT'; \
@@ -28769,13 +28775,16 @@ test-samir-ctl-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM)
 	@printf '>>> test-samir-ctl-emu: green (QEMU)\n'
 test-samir-ctl-emu-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_CTL_EMU_MUTS)
 	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_NO_ESCAPE.COM,samir_ctl_emu_mut_esc)
+	@sh harness/emu/require_fault_trace.sh $(BUILD)/samir_ctl_emu_mut_esc.report $(BUILD)/samir_ctl_emu_mut_esc.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')" escape
 	@if grep -qxF '*** INTERRUPTED ***' $(BUILD)/samir_ctl_emu_mut_esc.samir; then printf '!!! test-samir-ctl-emu-mutant FAIL: no-Esc-poll mutant still interrupted\n'; exit 1; fi
 	@grep -q 'triple_fault=0' $(BUILD)/samir_ctl_emu_mut_esc.report || { printf '!!! no-Esc mutant run did not complete cleanly (harness)\n'; exit 1; }
 	@printf '>>> test-samir-ctl-emu-mutant: Esc-never-polled correctly RED (the loop cannot be stopped)\n'
 	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_PROC_MUTATE_NO_DO_CAP.COM,samir_ctl_emu_mut_cap)
+	@sh harness/emu/require_fault_trace.sh $(BUILD)/samir_ctl_emu_mut_cap.report $(BUILD)/samir_ctl_emu_mut_cap.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')" cap
 	@if grep -qE 'RECOVERED +[1-9][0-9]*' $(BUILD)/samir_ctl_emu_mut_cap.samir && grep -qF 'DOs nested too deep.' $(BUILD)/samir_ctl_emu_mut_cap.samir && grep -q 'quit_after_found=1' $(BUILD)/samir_ctl_emu_mut_cap.report; then printf '!!! test-samir-ctl-emu-mutant FAIL: no-DO-cap mutant survived the recursion\n'; exit 1; fi
 	@printf '>>> test-samir-ctl-emu-mutant: no-20-level-cap correctly RED (recursion past the cap loses the session)\n'
 	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_STACK_LINES.COM,samir_ctl_emu_mut_stk)
+	@sh harness/emu/require_fault_trace.sh $(BUILD)/samir_ctl_emu_mut_stk.report $(BUILD)/samir_ctl_emu_mut_stk.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')" stack
 	@if grep -qE 'RECOVERED +[1-9][0-9]*' $(BUILD)/samir_ctl_emu_mut_stk.samir && grep -q 'quit_after_found=1' $(BUILD)/samir_ctl_emu_mut_stk.report; then printf '!!! test-samir-ctl-emu-mutant FAIL: stack-line-table mutant survived BIGREC\n'; exit 1; fi
 	@printf '>>> test-samir-ctl-emu-mutant: per-call stack line tables correctly RED (500-line BIGREC loses the session)\n'
 	@printf '>>> test-samir-ctl-emu-mutant: green\n'
@@ -29010,7 +29019,8 @@ test-samir-boot-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_MUT_
 		--name "$(SAMIRBOOT_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRBOOT_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
-		2> "$(SAMIRBOOT_MUT_REPORT)" || true
+		2> "$(SAMIRBOOT_MUT_REPORT)"
+	@sh harness/emu/require_trace.sh "$(SAMIRBOOT_MUT_REPORT)" "$(SAMIRBOOT_MUT_SERIAL)" "$$(printf '%s\n' '$(SAMIRBOOT_KEYS)' | awk -F, '{print NF}')"
 	@# The mutant must NOT triple-fault (it is a DATA bug, not a crash) ...
 	@if grep -q 'triple_fault=1' "$(SAMIRBOOT_MUT_REPORT)"; then \
 		printf '!!! test-samir-boot-mutant FAIL: the mutant TRIPLE-FAULTED -- a crash, not the wrong-data RED the gate asserts\n'; exit 1; \
@@ -29242,7 +29252,8 @@ test-samir-write-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_DROP
 		--name "$(SAMIRWR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRWR_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
-		2> "$(SAMIRWR_MUT_REPORT)" || true
+		2> "$(SAMIRWR_MUT_REPORT)"
+	@sh harness/emu/require_trace.sh "$(SAMIRWR_MUT_REPORT)" "$(SAMIRWR_MUT_SERIAL)" "$$(printf '%s\n' '$(SAMIRWR_KEYS)' | awk -F, '{print NF}')"
 	@# The mutant must NOT triple-fault (it is a data-not-persisted bug, not a crash).
 	@if grep -q 'triple_fault=1' "$(SAMIRWR_MUT_REPORT)"; then \
 		printf '!!! test-samir-write-mutant FAIL: the mutant TRIPLE-FAULTED -- a crash, not the stale-disk RED the gate asserts\n'; exit 1; \
@@ -29488,7 +29499,8 @@ test-samir-canon-y2k-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_
 		--name "$(CY2K_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CY2K_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
-		2> "$(CY2K_MUT_REPORT)" || true
+		2> "$(CY2K_MUT_REPORT)"
+	@sh harness/emu/require_trace.sh "$(CY2K_MUT_REPORT)" "$(CY2K_MUT_SERIAL)" "$$(printf '%s\n' '$(CY2K_KEYS)' | awk -F, '{print NF}')"
 	@# The mutant must NOT triple-fault (it is a wrong-data bug, not a crash).
 	@if grep -q 'triple_fault=1' "$(CY2K_MUT_REPORT)"; then \
 		printf '!!! test-samir-canon-y2k-mutant FAIL: the mutant TRIPLE-FAULTED -- a crash, not the wrong-data RED the gate asserts\n'; exit 1; \
@@ -29697,7 +29709,8 @@ test-samir-canon-salami-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_C
 		--name "$(CSAL_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CSAL_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
-		2> "$(CSAL_MUT_REPORT)" || true
+		2> "$(CSAL_MUT_REPORT)"
+	@sh harness/emu/require_trace.sh "$(CSAL_MUT_REPORT)" "$(CSAL_MUT_SERIAL)" "$$(printf '%s\n' '$(CSAL_KEYS)' | awk -F, '{print NF}')"
 	@# The mutant must NOT triple-fault (it is a wrong-data bug, not a crash).
 	@if grep -q 'triple_fault=1' "$(CSAL_MUT_REPORT)"; then \
 		printf '!!! test-samir-canon-salami-mutant FAIL: the mutant TRIPLE-FAULTED -- a crash, not the wrong-data RED the gate asserts\n'; exit 1; \
@@ -34511,23 +34524,32 @@ TEST_EMU_GATES += test-samir-core-emu test-samir-core-emu-mutants
 $(BUILD)/samir_core_ref: $(DBF_DIFF_DIR)/samir_core_ref.c | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
 .PHONY: test-samir-core-diff test-samir-core-diff-mutant
-test-samir-core-diff: test-samir-core $(BUILD)/samir_core_ref
-	@command -v dosbox-x >/dev/null || { echo 'missing dosbox-x: real III+ mint required'; exit 1; }
-	@mkdir -p $(BUILD)/samir-core-mint
-	@$(BUILD)/samir_core_ref prepare
-	@cp -f $(DBASE3_DECOMP)/mint/work/DBASE.EXE $(DBASE3_DECOMP)/mint/work/DBASE.OVL $(DBASE3_DECOMP)/mint/work/DBASE.MSG $(DBASE3_DECOMP)/mint/work/DBASEINL.OVL $(BUILD)/samir-core-mint/
-	@cp -f $(BUILD)/core-memo.dbf $(BUILD)/samir-core-mint/MEMO.DBF
-	@cp -f $(BUILD)/core-memo.dbt $(BUILD)/samir-core-mint/MEMO.DBT
-	@rm -f $(BUILD)/samir-core-mint/MINT.TXT $(BUILD)/samir-core-mint/REF.NDX
-	@SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout -k 5 30 dosbox-x -conf $(BUILD)/samir-core-mint/ref.conf -exit > $(BUILD)/samir-core-mint/run.log 2>&1
-	@$(BUILD)/samir_core_ref
-test-samir-core-diff-mutant: test-samir-core-diff $(BUILD)/test_samir_core_NDX_DUP_DESCENT
-	@set +e; $(BUILD)/test_samir_core_NDX_DUP_DESCENT > $(BUILD)/samir-core-diff-mutant-engine.log 2>&1; rc=$$?; set -e; test $$rc = 1
-	@set +e; $(BUILD)/samir_core_ref > $(BUILD)/samir-core-diff-mutant.log 2>&1; rc=$$?; set -e; \
-	 test $$rc = 1 && grep -q 'FAIL .*same-key append/split differential' $(BUILD)/samir-core-diff-mutant.log && grep -q 'checks,' $(BUILD)/samir-core-diff-mutant.log || { cat $(BUILD)/samir-core-diff-mutant.log; exit 1; }; \
-	 printf 'test-samir-core-diff-mutant: GREEN (NDX_DUP_DESCENT correctly RED: same-key append/split differential vs real III+)\n'
-	@$(BUILD)/test_samir_core > $(BUILD)/samir-core-restored.log
-	@$(BUILD)/samir_core_ref
+# Every producer, real III+ mint, mutant, and reader stays in one private root.
+# Ref: PRD 6.6/8; no expected bytes or differential assertions change.
+define samir-core-reference-run
+	@set -e; command -v dosbox-x >/dev/null || { echo 'missing dosbox-x: real III+ mint required'; exit 1; }; \
+	 root=$$(mktemp -d $(abspath $(BUILD))/core-diff-$(1).XXXXXX); \
+	 echo "core differential artifacts: $$root"; mkdir -p $$root/build/samir-core-mint; \
+	 $(abspath $(BUILD))/test_samir_core $$root; \
+	 $(abspath $(BUILD))/samir_core_ref $$root prepare; \
+	 cp -f $(addprefix $(abspath $(DBASE3_DECOMP))/mint/work/,DBASE.EXE DBASE.OVL DBASE.MSG DBASEINL.OVL) $$root/build/samir-core-mint/; \
+	 cp -f $$root/build/core-memo.dbf $$root/build/samir-core-mint/MEMO.DBF; \
+	 cp -f $$root/build/core-memo.dbt $$root/build/samir-core-mint/MEMO.DBT; \
+	 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout -k 5 30 dosbox-x -conf $$root/build/samir-core-mint/ref.conf -exit > $$root/mint.log 2>&1; \
+	 $(abspath $(BUILD))/samir_core_ref $$root; \
+	 if test '$(1)' = mutant; then \
+	   rc=0; $(abspath $(BUILD))/test_samir_core_NDX_DUP_DESCENT $$root > $$root/mutant-engine.log 2>&1 || rc=$$?; test $$rc = 1; \
+	   rc=0; $(abspath $(BUILD))/samir_core_ref $$root > $$root/mutant.log 2>&1 || rc=$$?; \
+	   test $$rc = 1 && grep -q 'FAIL .*same-key append/split differential' $$root/mutant.log && grep -q 'checks,' $$root/mutant.log || { cat $$root/mutant.log; exit 1; }; \
+	   printf 'test-samir-core-diff-mutant: GREEN (NDX_DUP_DESCENT correctly RED: same-key append/split differential vs real III+)\n'; \
+	   $(abspath $(BUILD))/test_samir_core $$root > $$root/restored.log; \
+	   $(abspath $(BUILD))/samir_core_ref $$root; \
+	 fi
+endef
+test-samir-core-diff: $(BUILD)/test_samir_core $(BUILD)/samir_core_ref
+	$(call samir-core-reference-run,accepted)
+test-samir-core-diff-mutant: $(BUILD)/test_samir_core $(BUILD)/samir_core_ref $(BUILD)/test_samir_core_NDX_DUP_DESCENT
+	$(call samir-core-reference-run,mutant)
 TEST_UNIT_GATES += test-samir-core-diff test-samir-core-diff-mutant
 
 
@@ -34539,9 +34561,9 @@ SAMIR_DML_CASES := clear macro close index reindex sort total append save restor
 SAMIR_DML_TEST := $(BUILD)/test_samir_dml
 SAMIR_DML_MUTS := $(addprefix $(BUILD)/test_samir_dml_, $(SAMIR_DML_CASES))
 $(SAMIR_DML_TEST): $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLOW_MEMVAR_ARENA=6000 -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLOW_MEMVAR_ARENA=6000 -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
 $(SAMIR_DML_MUTS): $(BUILD)/test_samir_dml_%: $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLOW_MEMVAR_ARENA=6000 -DSAMIR_DML_MUTANT_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLOW_MEMVAR_ARENA=6000 -DSAMIR_DML_MUTANT_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
 .PHONY: mint-samir-dml test-samir-dml test-samir-dml-mutants test-samir-dml-emu test-samir-dml-emu-mutants
 mint-samir-dml: $(CLIENTS_DBF)
 	@sh $(DBF_DIFF_DIR)/dml_mint.sh $(abspath $(DBASE3_DECOMP))

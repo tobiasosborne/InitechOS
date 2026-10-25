@@ -10,6 +10,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "test_assert.h"
 #include "samir/dbf.h"
 #include "samir/dbt.h"
@@ -220,8 +224,15 @@ static void test_eval(samir_pal_t *p)
           "MEMVAR_RECLAIM: outer hidden value restored");
     xb_interp_free(ip);
 }
-int main(void)
+int main(int argc,char **argv)
 {
+    /* PRD 8 / Rule 11: a differential's producer and reader share only
+     * their explicit private root; ordinary/mutant invocations get new roots. */
+    char directory[]="build/samir-core-XXXXXX";
+    const char *root=argc>1?argv[1]:mkdtemp(directory);
+    if(!root || chdir(root) || (mkdir("build",0755) && errno!=EEXIST)) {
+        perror("core private directory");return 2;
+    }
     samir_pal_t *p=pal_host_make((struct pal_host_cfg){86,3,14,8u*1024u*1024u});
     CHECK(p!=NULL,"PAL allocated");if(!p)return 1;
     test_dbf_size(p);test_date(p);test_memo(p);test_dbt_span(p);

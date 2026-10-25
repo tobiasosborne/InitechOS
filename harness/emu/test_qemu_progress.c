@@ -2,6 +2,7 @@
  * Exercise the real marker wait with a scripted serial producer and virtual
  * monotonic time. Host scheduling cannot make this regression test flaky. */
 #define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 #include <time.h>
 static int progress_clock(clockid_t, struct timespec *);
 static int progress_sleep(const struct timespec *, struct timespec *);

@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "test_assert.h"
+#include "trace_complete.h"
 TEST_HARNESS();
 static char serial[262144];
 static int command(const char *s) { int rc=system(s);CHECK(rc==0,s);return rc; }
@@ -60,13 +61,16 @@ int main(int argc,char **argv)
     else keys("samir\nuse clients\nset heading off\nlist\ngo 2\ndisplay\n",keybuf);
     snprintf(cmd,sizeof(cmd),"build/qemu_harness --disk build/tracer_secondary.img --disk2 build/samir-screen/%s.img --name samir_screen_%s --out build --timeout-ms 45000 --keys '%s' --keys-after SHELL-READY --screendump --screendump-after SHELL-READY > build/samir-screen/%s.out 2> build/samir-screen/%s.report",key,key,keybuf,key,key);
     /* A live screenshot leg intentionally stops on the bounded timeout. */
-    (void)system(cmd);
+    if(system(cmd)!=0)return 2;
     snprintf(path,sizeof(path),"build/samir-screen/%s.report",key);slurp(path,report,sizeof(report));
     CHECK(strstr(report,"triple_fault=0")!=NULL,"guest did not triple fault");
     { const char *sent=strstr(report,"keys_sent=");unsigned expected=1;const char *k=keybuf;
       while(*k) if(*k++==',') expected++;
       CHECK(sent && strtoul(sent+10,NULL,10)==expected,"entire input trace injected"); }
-    snprintf(path,sizeof(path),"build/samir_screen_%s.serial",key);slurp(path,serial,sizeof(serial));
+    snprintf(path,sizeof(path),"build/samir_screen_%s.serial",key);
+    { char rp[1024];snprintf(rp,sizeof rp,"build/samir-screen/%s.report",key);
+      if(!emu_trace_complete(rp,path,emu_trace_keys(keybuf)))return 2; }
+    slurp(path,serial,sizeof(serial));
     CHECK(strstr(serial,"SHELL-READY")!=NULL,"shell booted");
     CHECK(strstr(serial,"File already exists")==NULL,"screen settings accepted");
     CHECK(strstr(serial,"PC LOAD LETTER")==NULL,"guest did not panic");

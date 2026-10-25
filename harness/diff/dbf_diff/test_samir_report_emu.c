@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "test_assert.h"
+#include "trace_complete.h"
 TEST_HARNESS();
 
 #define D "build/samir-report-emu"
@@ -110,6 +111,7 @@ int main(int argc, char **argv)
         CHECK(s && strtoul(s + 10, NULL, 10) == expected, "entire input trace injected");
     }
     snprintf(path, sizeof path, "build/samir_report_%s.serial", mode);
+    if(!emu_trace_complete(screen?D "/screen.report":D "/files.report",path,emu_trace_keys(keybuf)))return 2;
     {
         long n = slurp(path, serial, sizeof serial), j = 0;
         for (i = 0; i < n; i++) if (serial[i] != '\r') serial[j++] = serial[i];

@@ -26,6 +26,7 @@ need ld       "flat-32 links"                              "binutils"
 need make     "the factory"                                "make"
 need python3  "harness references (FAT, dbf), lints"       "python3"
 need qemu-system-i386 "dev-loop oracle"                    "qemu-system-x86"
+need qemu-img "private boot overlays in writable build TMPDIR" "qemu-utils"
 need bochs    "real->protected accuracy legs (test-*-bochs)" "bochs bochs-x bochsbios vgabios"
 # The ROM files the Bochs harness actually opens (BOCHS_DEFAULT_BIOS /
 # BOCHS_DEFAULT_VGABIOS in harness/emu/bochs.h; BOCHS_CIRRUS_VGABIOS in

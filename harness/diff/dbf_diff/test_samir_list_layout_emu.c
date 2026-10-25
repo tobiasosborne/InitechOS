@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "test_assert.h"
+#include "trace_complete.h"
 TEST_HARNESS();
 #define D "build/samir-list-layout"
 static char serial[262144], output[65536];
@@ -145,7 +146,9 @@ int main(int argc,char **argv)
         while(*t) if(*t++==',') expected++;
         CHECK(sent && strtoul(sent+10,NULL,10)==expected,"entire locked layout trace injected");
     }
-    snprintf(path,sizeof path,"build/samir_list_layout_%s.serial",mode);slurp(path,serial,sizeof serial);
+    snprintf(path,sizeof path,"build/samir_list_layout_%s.serial",mode);
+    if(!emu_trace_complete(screen?D "/screen.report":D "/files.report",path,emu_trace_keys(trace)))return 2;
+    slurp(path,serial,sizeof serial);
     CHECK(strstr(serial,"SHELL-READY") && !strstr(serial,"PC LOAD LETTER"),"layout OS booted without panic");
     if(screen) {
         grade(serial,0,"screen serial");

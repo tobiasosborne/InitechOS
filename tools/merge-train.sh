@@ -27,7 +27,8 @@
 #     and no retry. Lanes applied before the failure stay applied (staged,
 #     uncommitted); undo with `git reset --hard HEAD` after checking, or fix
 #     the lane and re-run. A conflicting lane is checked BEFORE it is applied
-#     (`git apply --check --3way`), so it leaves this checkout untouched.
+#     in a disposable index. Unmerged entries are rejected before touching
+#     this checkout; the resulting clean patch is applied atomically.
 #   * The gate run is one `make -jN test-merge-samir` for the whole train
 #     (harness/merge_samir.mk: SAMIR unit + emu + mutant gates, plus
 #     test-pubs-lockstep-src if the Makefile has it; never LaTeX typesetting).
@@ -63,6 +64,8 @@ if [ $# -eq 0 ]; then
 fi
 
 die() { printf 'merge-train: %s\n' "$*" >&2; exit 1; }
+case $jobs in ''|*[!0-9]*|0) die "-j requires a positive integer" ;; esac
+[ "$jobs" -gt 0 ] 2>/dev/null || die "-j requires a positive integer"
 
 repo=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git checkout"
 cd "$repo" || die "cannot cd to $repo"
@@ -70,8 +73,12 @@ branch=$(git rev-parse --abbrev-ref HEAD)
 if [ "$any_branch" -eq 0 ] && [ "$branch" != main ]; then
   die "on branch '$branch', not main (use -B to override)"
 fi
-if [ "$allow_dirty" -eq 0 ] && [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+dirty=$(git status --porcelain --untracked-files=all)
+if [ "$allow_dirty" -eq 0 ] && [ -n "$dirty" ]; then
   die "working tree has uncommitted changes (commit/stash them or use -D)"
+fi
+if [ "$dry" -eq 1 ] && [ -n "$dirty" ]; then
+  die "dry run refuses a dirty destination, including with -D; commit/stash first"
 fi
 
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/merge-train.XXXXXX") || die "mktemp failed"
@@ -92,9 +99,10 @@ lane_patch() {
     ltop=$(git -C "$lane" rev-parse --show-toplevel 2>/dev/null) || return 1
     base=$(git -C "$ltop" merge-base HEAD "$(git -C "$repo" rev-parse HEAD)" 2>/dev/null) || return 1
     idx=$tmp/index.$$
-    gitdir=$(git -C "$ltop" rev-parse --git-dir)
-    case $gitdir in /*) ;; *) gitdir=$ltop/$gitdir ;; esac
-    cp "$gitdir/index" "$idx" 2>/dev/null || : > "$idx"
+    index=$(git -C "$ltop" rev-parse --path-format=absolute --git-path index) || return 1
+    # Preserve index time: a newly dated copy can hide same-size edits made
+    # in the source index's timestamp tick (Git's racily-clean safeguard).
+    cp -pf "$index" "$idx" || return 1
     GIT_INDEX_FILE=$idx git -C "$ltop" add -A >/dev/null 2>&1 || return 1
     GIT_INDEX_FILE=$idx git -C "$ltop" diff --cached --binary "$base" > "$out" || return 1
     rm -f "$idx"
@@ -118,18 +126,30 @@ for lane in "$@"; do
     continue
   fi
   files=$(git apply --numstat "$patch" | wc -l | tr -d ' ')
-  if ! out=$(git -C "$target" apply --check --3way "$patch" 2>&1); then
+  # --check --3way can return 0 WITH conflicts. Actually merge in an isolated
+  # index (CLAUDE Rules 2/4), then inspect its stages before any destination
+  # write. Diff the before/after trees so the final apply needs no three-way
+  # conflict machinery and preserves unrelated staged/unstaged changes (-D).
+  index=$(git -C "$target" rev-parse --path-format=absolute --git-path index) || die "cannot locate destination index"
+  preview=$tmp/preview.index
+  cp -f "$index" "$preview" || die "cannot snapshot destination index"
+  before=$(GIT_INDEX_FILE=$preview git -C "$target" write-tree) || die "destination has unmerged entries"
+  if ! out=$(GIT_INDEX_FILE=$preview git -C "$target" apply --cached --3way "$patch" 2>&1) ||
+     [ -n "$(GIT_INDEX_FILE=$preview git -C "$target" ls-files --unmerged)" ]; then
     printf 'merge-train: CONFLICT: lane %s (%s files) does not apply cleanly onto %s.\n' "$lane" "$files" "$(git -C "$target" rev-parse --short HEAD)" >&2
     printf '%s\n' "$out" | sed 's/^/  | /' >&2
     printf 'merge-train: STOPPED. No auto-resolution. Lanes applied so far stay staged in %s;\n' "$target" >&2
     printf '  inspect with `git diff --cached --stat`, undo with `git reset --hard HEAD`.\n' >&2
     exit 1
   fi
-  if ! out=$(git -C "$target" apply --3way "$patch" 2>&1); then
-    printf 'merge-train: CONFLICT: lane %s failed to apply (3-way).\n' "$lane" >&2
+  after=$(GIT_INDEX_FILE=$preview git -C "$target" write-tree) || die "lane '$lane' has unmerged entries"
+  clean=$tmp/clean.patch
+  git -C "$target" diff --binary "$before" "$after" > "$clean" || die "cannot produce clean lane patch"
+  # Applying an already-merged lane is a no-op, not an empty-patch error.
+  if [ -s "$clean" ] && ! out=$(git -C "$target" apply --index "$clean" 2>&1); then
+    printf 'merge-train: CONFLICT: lane %s does not match the destination working tree.\n' "$lane" >&2
     printf '%s\n' "$out" | sed 's/^/  | /' >&2
-    printf 'merge-train: STOPPED. No auto-resolution. %s may hold conflict markers / partial state:\n' "$target" >&2
-    printf '  inspect `git status`, undo with `git reset --hard HEAD`.\n' >&2
+    printf 'merge-train: STOPPED. Failed lane was not applied; earlier lanes stay staged in %s.\n' "$target" >&2
     exit 1
   fi
   printf '  %-40s applied, %s files\n' "$lane" "$files" >> "$summary"

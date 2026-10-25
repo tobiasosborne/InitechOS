@@ -30,6 +30,7 @@
  */
 
 #define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 
 #include "qemu.h"
 
@@ -1531,7 +1532,7 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
  */
 static int build_argv(const QemuConfig *cfg, char **argv,
                       const char *serial_path, const char *log_path,
-                      const char *sock_path)
+                      const char *sock_path, const char *overlay)
 {
     int i = 0;
 #define PUSH(s)                          \
@@ -1626,8 +1627,8 @@ static int build_argv(const QemuConfig *cfg, char **argv,
     } else {
         /* disk_path validated non-NULL by caller. */
         static char drvbuf[QEMU_PATH_MAX + 48];
-        snprintf(drvbuf, sizeof(drvbuf), "format=raw,file=%s%s",
-                 cfg->disk_path, cfg->boot_rw ? "" : ",snapshot=on");
+        snprintf(drvbuf, sizeof(drvbuf), "format=%s,file=%s",
+                 overlay ? "qcow2" : "raw", overlay ? overlay : cfg->disk_path);
         PUSH("-drive");
         PUSH(drvbuf);
     }
@@ -1681,6 +1682,51 @@ static int build_argv(const QemuConfig *cfg, char **argv,
 /* ------------------------------------------------------------------ */
 /* public entry points                                                 */
 /* ------------------------------------------------------------------ */
+
+/* PRD 8 / Rules 2,11: preserve the read-only backing image without QEMU's
+ * implicit snapshot temp file (which some builds hardcode in /var/tmp).
+ * Each run owns its explicit overlay AND TMPDIR below the output build dir. */
+static void overlay_remove(const char *directory, const char *overlay)
+{
+    if (overlay[0]) unlink(overlay);
+    if (directory[0]) rmdir(directory);
+}
+
+static int overlay_create(const QemuConfig *cfg, const char *dir,
+                          char *directory, char *overlay)
+{
+    char parent[QEMU_PATH_MAX], pattern[QEMU_PATH_MAX], base[QEMU_PATH_MAX];
+    int n = snprintf(parent, sizeof parent, "%s/.qemu-tmp", dir);
+    if (n < 0 || n >= (int)sizeof parent) return -1;
+    if (mkdir(parent, 0700) && errno != EEXIST) { perror(parent); return -1; }
+    n = snprintf(pattern, sizeof pattern, "%s/run-XXXXXX", parent);
+    if (n < 0 || n >= (int)sizeof pattern || !mkdtemp(pattern)) return -1;
+    char *resolved = realpath(pattern, NULL), *backing = realpath(cfg->disk_path, NULL);
+    if (!resolved || !backing || strlen(resolved) >= QEMU_PATH_MAX || strlen(backing) >= sizeof base) {
+        fprintf(stderr, "qemu_run: invalid or oversized boot overlay path\n");
+        free(resolved); free(backing); rmdir(pattern); return -1;
+    }
+    strcpy(directory, resolved); strcpy(base, backing);
+    free(resolved); free(backing);
+    n = snprintf(overlay, QEMU_PATH_MAX, "%s/boot.qcow2", directory);
+    if (n < 0 || n >= QEMU_PATH_MAX) { overlay[0] = 0; overlay_remove(directory, overlay); return -1; }
+    pid_t child = fork();
+    if (child == 0) {
+        if (setenv("TMPDIR", directory, 1)) _exit(127);
+        execlp("qemu-img", "qemu-img", "create", "-q", "-f", "qcow2",
+               "-F", "raw", "-b", base, overlay, (char *)NULL);
+        _exit(127);
+    }
+    int status = 0;
+    pid_t reaped;
+    if (child < 0) { overlay_remove(directory, overlay); return -1; }
+    do { reaped = waitpid(child, &status, 0); } while (reaped < 0 && errno == EINTR);
+    if (reaped != child || !WIFEXITED(status) || WEXITSTATUS(status)) {
+        fprintf(stderr, "qemu_run: private boot overlay creation failed\n");
+        overlay_remove(directory, overlay); return -1;
+    }
+    return 0;
+}
 
 void qemu_result_free(QemuResult *out)
 {
@@ -1765,10 +1811,15 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         }
     }
 
+    char temporary[QEMU_PATH_MAX] = "", overlay[QEMU_PATH_MAX] = "";
+    if (!cfg->kernel_path && !cfg->boot_rw &&
+        overlay_create(cfg, dir, temporary, overlay)) return -1;
     char *argv[MAX_ARGV];
-    if (build_argv(cfg, argv, out->serial_path, out->log_path, sock_path)
+    if (build_argv(cfg, argv, out->serial_path, out->log_path, sock_path,
+                   overlay[0] ? overlay : NULL)
         < 0) {
         fprintf(stderr, "qemu_run: too many qemu arguments\n");
+        overlay_remove(temporary, overlay);
         return -1;
     }
 
@@ -1782,6 +1833,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
          (cfg->mouse_spec && cfg->mouse_spec[0]))) {
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, qmp_pair) != 0) {
             perror("qemu_run: QMP socketpair");
+            overlay_remove(temporary, overlay);
             return -1;
         }
     }
@@ -1789,9 +1841,11 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
     if (pid < 0) {
         if (qmp_pair[0] >= 0) { close(qmp_pair[0]); close(qmp_pair[1]); }
         fprintf(stderr, "qemu_run: fork failed: %s\n", strerror(errno));
+        overlay_remove(temporary, overlay);
         return -1;
     }
     if (pid == 0) {
+        if (temporary[0] && setenv("TMPDIR", temporary, 1)) _exit(127);
         /* child: silence qemu's stdout/stderr noise onto the log dir's
          * null so -nographic monitor banner does not pollute our streams.
          * Serial goes to a file already; QMP banner goes to the socket. */
@@ -1920,6 +1974,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
 
     /* Clean up the socket file regardless. */
     unlink(sock_path);
+    overlay_remove(temporary, overlay);
 
     /* Capture serial. Missing file => empty capture (not an error). */
     {
@@ -1970,7 +2025,11 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
     }
 
     /* Overall verdict. */
-    out->ok = out->launched && !out->timed_out && !out->triple_fault &&
+    out->ok = out->launched && reaped && out->term_signal == 0 &&
+              /* isa-debug-exit value 0 exits QEMU with status 1, in raw AND
+               * multiboot fixtures. A startup failure has no guest serial. */
+              (out->exit_code == 0 || (out->exit_code == 1 && out->serial_len > 0)) &&
+              !out->timed_out && !out->triple_fault &&
               out->guest_errors == 0 &&
               (cfg->expect_marker == NULL || out->marker_found) &&
               (cfg->quit_after == NULL || cfg->quit_after[0] == '\0' ||

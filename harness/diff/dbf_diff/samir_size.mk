@@ -27,10 +27,11 @@ test-samir-size-mutant: test-samir-size
 	@printf '>>> test-samir-size-mutant: green (SAMIR_SIZE_PAD_4096 floor-1 RED; floor GREEN; both below linker budget)\n'
 test-samir-size-repro: $(SAMIR_COM)
 	@mkdir -p $(BUILD)/samir-size
-	@$(MAKE) --no-print-directory -B samir-com > $(BUILD)/samir-size/repro-1.log 2>&1
-	@cp -f $(SAMIR_COM) $(BUILD)/samir-size/repro-1.COM
-	@$(MAKE) --no-print-directory -B samir-com > $(BUILD)/samir-size/repro-2.log 2>&1
-	@cmp $(SAMIR_COM) $(BUILD)/samir-size/repro-1.COM
+	@set -e; root=$$(mktemp -d $(abspath $(BUILD))/samir-size/repro-XXXXXX); \
+	 $(MAKE) --no-print-directory -B samir-com BUILD=$$root/first > $$root/first.log 2>&1; \
+	 $(MAKE) --no-print-directory -B samir-com BUILD=$$root/second > $$root/second.log 2>&1; \
+	 cmp $$root/first/SAMIR.COM $$root/second/SAMIR.COM; \
+	 cmp $(SAMIR_COM) $$root/first/SAMIR.COM
 	@printf '>>> test-samir-size-repro: green (two clean builds byte-identical): '; sha256sum $(SAMIR_COM)
 
 # Locked injected traces, independent III+ transcripts/DBF bytes, mtools and

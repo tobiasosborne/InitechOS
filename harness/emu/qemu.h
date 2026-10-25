@@ -135,11 +135,12 @@ typedef struct {
     bool allow_reboot;
 
     /* --boot-rw (initech-2kkqr / initech-b9oa): the raw-disk BOOT image is
-     * opened snapshot=on by DEFAULT, so concurrent harness runs (make -j)
+     * opened through a private disposable qcow2 overlay by DEFAULT, so concurrent runs
      * share one read-only boot image instead of colliding on QEMU's
      * exclusive write lock (QEMU exiting at launch under -j), and no gate can
      * leak boot-disk state into the next. Guest writes to the boot disk go to
-     * a throwaway overlay. boot_rw opens it writable, for a gate that must
+     * a throwaway overlay under <out>/.qemu-tmp/run-XXXXXX (also TMPDIR).
+     * boot_rw opens it writable, for a gate that must
      * write the boot disk in place and read it back. The data disk (--disk2)
      * is never snapshotted. */
     bool boot_rw;

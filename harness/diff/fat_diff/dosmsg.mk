@@ -143,8 +143,21 @@ test-dos-resident-break-mutant: $(HARNESS_BIN) $(BUILD)/console_text $(BUILD)/do
 	  test $$rc -eq 1; \
 	  if test $$m = type; then why='TYPE emitted bytes after cancellation'; else why='gaps2 did not return a usable prompt'; fi; \
 	  grep -E "^RED dos-resident-break: ($$why|listing reached the final line after cancellation)$$" $(BUILD)/dos_resident_break_$$m.log; \
-	  grep -q INT23-BREAK $(BUILD)/dos-resident-break-mutant-$$m/$$mode/run.serial; \
+	  root=$$(sed -n 's/^oracle artifacts: //p' $(BUILD)/dos_resident_break_$$m.log); \
+	  grep -q INT23-BREAK $$root/$$mode/run.serial; \
 	  echo "GREEN test-dos-resident-break-mutant: $$m cancellation caught"; \
 	done
 TEST_UNIT_GATES += test-dos-break-cleanup-mutant
 TEST_EMU_GATES += test-dos-resident-break-mutant
+
+# A guest write must be visible to the same independent whole-disk cmp.
+$(BUILD)/resident_boot_write.bin: harness/diff/fat_diff/resident_boot_write.asm | $(BUILD)
+	$(NASM) -f bin $< -o $@
+.PHONY: test-dos-resident-boot-write-mutant
+test-dos-resident-boot-write-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/console_text $(BUILD)/dos_resident_break_check $(BUILD)/resident_boot_write.bin
+	@rc=0; sh harness/diff/fat_diff/dos_resident_break.sh $(SECONDARY_TRACER_IMG) bootwrite controlshort yes > $(BUILD)/resident-bootwrite.log 2>&1 || rc=$$?; \
+	 test $$rc = 1 && grep -Fx 'RED dos-resident-break: boot disk changed' $(BUILD)/resident-bootwrite.log || { cat $(BUILD)/resident-bootwrite.log; exit 1; }; \
+	 root=$$(sed -n 's/^oracle artifacts: //p' $(BUILD)/resident-bootwrite.log); \
+	 grep -q BOOT-WRITE-COMMITTED $$root/controlshort/run.serial
+	@echo 'GREEN test-dos-resident-boot-write-mutant: actual guest boot-disk write rejected by independent cmp'
+TEST_EMU_GATES += test-dos-resident-boot-write-mutant

@@ -14,8 +14,8 @@ set -eu
 export INITECH_QMP_STDIO=1 SOURCE_DATE_EPOCH=315532800 TZ=UTC LC_ALL=C
 mode=$1; boot=$2; tag=$3
 xcopy=$4; tree=$5; attrib=$6; label=$7; chkdsk=$8; fdisk=$9
-w=build/drive-operands/$mode-$tag
-mkdir -p "$w"
+mkdir -p build/drive-operands
+w=$(mktemp -d "build/drive-operands/$mode-$tag.XXXXXX")
 # Every finding is graded on every run (mutants grep their own RED line).
 failed=0
 red() { echo "RED drive-operands $*"; failed=1; }
@@ -53,7 +53,7 @@ mcopy -i "$w/a.img" "$w/one.txt" ::T/ONE.TXT
 mcopy -i "$w/a.img" "$w/keep.txt" ::DHOME/ONE.TXT
 run() {
     mcopy -o -i "$w/a.img" "$w/$1.bat" ::AUTOEXEC.BAT
-    build/qemu_harness --disk "$w/c.img" --disk2 "$w/a.img" --name "$1" --out "$w" \
+    build/qemu_harness --boot-rw --disk "$w/c.img" --disk2 "$w/a.img" --name "$1" --out "$w" \
         --timeout-ms 30000 --keys "$2" --keys-after "$3" \
         --quit-after "$4" 2> "$w/$1.report" || true
     if grep -q 'triple_fault=1' "$w/$1.report"; then die "$1 triple fault"; fi

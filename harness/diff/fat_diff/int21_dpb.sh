@@ -12,8 +12,8 @@ export LC_ALL=C TZ=UTC INITECH_QMP_STDIO=1 SOURCE_DATE_EPOCH=315532800
 mode=$1
 if [ "$mode" = host ]; then driver=$2; boot=$3; tag=${4:-green}
 else boot=$2; tag=${3:-green}; fi
-w=build/int21-dpb/$mode-$tag
-rm -rf "$w"; mkdir -p "$w"
+mkdir -p build/int21-dpb
+w=$(mktemp -d "build/int21-dpb/$mode-$tag.XXXXXX")
 red() { echo "RED int21-dpb $*"; exit 1; }
 
 # The fixed query script: <AH><DL>:<expected drive letter, or - for AL=FFh>.
@@ -154,7 +154,7 @@ else
     printf '@ECHO OFF\r\nDPB\r\nECHO DPB-DONE\r\n' > "$w/autoexec"
     mcopy -i "$w/a.img" "$w/autoexec" ::AUTOEXEC.BAT
     golden A 0 "$w/a.img"; golden C 2 "$C"; golden D 3 "$D"
-    build/qemu_harness --disk "$w/c.img" --disk2 "$w/a.img" --name run --out "$w" \
+    build/qemu_harness --boot-rw --disk "$w/c.img" --disk2 "$w/a.img" --name run --out "$w" \
         --timeout-ms 30000 --keys 'e,x,i,t,ret' --keys-after DPB-DONE \
         --quit-after SHELL-DONE 2> "$w/report" || true
     grep -qx SHELL-EXIT "$w/run.serial" || red 'EMU did not finish shell'
