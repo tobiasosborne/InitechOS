@@ -36,6 +36,7 @@
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  */
 
+#include "samir/lifetime.h"
 #include <stdint.h>
 
 #include "samir/eval.h"
@@ -836,6 +837,7 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
 int xb_eval(const xb_node *pool, int root, xb_ctx *ctx,
             xb_val *out, int *err_code)
 {
+    samir_ovl_validate_ctx(ctx);
     int local_err = XBEE_OK;
     int rc;
 

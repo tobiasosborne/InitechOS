@@ -2,7 +2,7 @@
 # (the locked Face A default column width is nine). No rendered golden minted.
 include spec/flair_launchkey_traces.mk
 LAUNCHKEY_DATA := $(BUILD)/launchkey_data.img
-$(LAUNCHKEY_DATA): $(FLAIR_DATA_IMG) $(BUILD)/SAMIR.EXE
+$(LAUNCHKEY_DATA): $(FLAIR_DATA_IMG) $(BUILD)/SAMIR.EXE $(BUILD)/SAMIR.OVL
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $@
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/SAMIR.EXE ::SAMIR.EXE

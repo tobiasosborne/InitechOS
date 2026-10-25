@@ -73,6 +73,7 @@
  *   - os/samir/include/samir/pal.h (conout -- the only OS surface here).
  */
 
+#include "samir/lifetime.h"
 #include <stdint.h>
 
 #include "samir/interp.h"
@@ -124,6 +125,7 @@ static int          g_n;
 
 static query_state *query_state_for(xb_interp *ip)
 {
+    SAMIR_RETAIN(ip);
     int i;
     if (!ip)
         return (query_state *)0;
@@ -133,6 +135,7 @@ static query_state *query_state_for(xb_interp *ip)
     }
     if (g_n >= Q_REGISTRY)
         return (query_state *)0;        /* too many live interpreters: fail loud */
+    SAMIR_RETAIN(ip);
     g_key[g_n] = ip;
     g_val[g_n].have_locate = 0;
     g_val[g_n].locate_area = 0;

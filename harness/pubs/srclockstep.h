@@ -41,7 +41,9 @@ static const struct {const char *path;uint64_t hash;} srcsupport[]={
     {"class/initech-syntax.sty", UINT64_C(0x774d35058c6171ef)},
     {"class/initech-wpc.sty", UINT64_C(0x74e0925815254c9b)},
     {"class/initech-xbase.sty", UINT64_C(0xe4c18d096db1b955)},
-    {"common/colophon.tex", UINT64_C(0x75840a9653b5df66)},
+    /* Phase B's accepted SAMIR.EXE rename only; real test-pubs-tps and
+     * test-pubs-examples green before repinning (WL-0185). No grammar delta. */
+    {"common/colophon.tex", UINT64_C(0x5954f12ecb295c51)},
     {"common/initech-logo.tex", UINT64_C(0xf516b10e6b9980db)}
 };
 static const char *skipws(const char *p)

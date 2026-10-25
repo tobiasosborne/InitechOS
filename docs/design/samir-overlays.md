@@ -1,7 +1,8 @@
 # SAMIR overlays (InitechBase overlays Phase B)
 
-Bead initech-5etom.1 (epic initech-5etom). Status: implemented on the Phase B
-lane; awaiting PM review and the operator decisions in Sec 9.
+Bead initech-5etom.1 (epic initech-5etom). Status: operator accepted the design on 2026-10-25 (Sec 10). Phase B is
+independent of Phase A and rebased onto main c2ba6e16; review fixes and their
+acceptance are recorded in docs/worklog/WL-0185-samir-overlay-review.md.
 
 SAMIR was a flat `.COM` at its size wall (100,777 B against a 102,256 B cap:
 the `samir.ld` PAL-memory budget with the 4 KiB headroom floor). This note
@@ -11,17 +12,17 @@ plus `DBASE.OVL` (ADR-0009 DEC-03 named this the authentic end state).
 
 ## 1. Result
 
-| | before (main) | after |
+| | before overlays | after rebase and review fixes |
 |---|---:|---:|
-| loaded program bytes | 100,777 (SAMIR.COM) | 78,704 (SAMIR.EXE load module) |
+| loaded program bytes | 100,777 (SAMIR.COM) | 82,032 (SAMIR.EXE load module) |
 | module budget (Sec 5) | 106,352 | 93,776 |
-| headroom over the budget | 5,575 | 15,072 |
-| headroom over the 4 KiB floor | 1,479 | 10,976 |
-| SAMIR.EXE file | -- | 81,552 (32 B header + 704 relocations + module) |
-| SAMIR.OVL file | -- | 26,112 (5 overlays, 512-byte multiple) |
-| slot (= largest overlay) | -- | 9,712 |
+| headroom over the budget | 5,575 | 11,744 |
+| headroom over the 4 KiB floor | 1,479 | 7,648 |
+| SAMIR.EXE file | -- | 85,376 (32 B header + 828 relocations + module) |
+| SAMIR.OVL file | -- | 26,624 (5 overlays, 512-byte multiple) |
+| slot (= largest overlay) | -- | 9,728 |
 
-Dry run (not committed): the parked `lane/wave1-say` diff (main...lane/wave1-say:
+Historical pre-rebase dry run (not committed): the parked `lane/wave1-say` diff (main...lane/wave1-say:
 @...SAY, SET DEVICE, ROW/COL/PROW/PCOL) applies cleanly on top and gives an
 81,104 B resident (SET DEVICE lands in the SET overlay, now 2,820 B):
 headroom 12,672 B, 8,576 B above the floor. On main it needed 103,246 B
@@ -69,20 +70,20 @@ touches stays resident.
 
 | Overlay (id) | Bytes | Contents |
 |---|---:|---|
-| FILE (0) | 9,700 | TYPE, RENAME, ERASE, COPY FILE, RUN/!, SORT, TOTAL, INDEX, REINDEX, APPEND FROM, PACK, ZAP (`cmd/mutate.c` d_*/m_pack/m_zap) + `ndx_build`/`ndx_rebuild` (`fs/ndx.c`; only these verbs build indexes) |
+| FILE (0) | 9,724 | TYPE, RENAME, ERASE, COPY FILE, RUN/!, SORT, TOTAL, INDEX, REINDEX, APPEND FROM, PACK, ZAP (`cmd/mutate.c` d_*/m_pack/m_zap) + `ndx_build`/`ndx_rebuild` (`fs/ndx.c`; only these verbs build indexes) |
 | REPORT (1) | 6,604 | REPORT FORM, LABEL FORM (`cmd/report.c`) |
 | STATUS (2) | 3,022 | LIST/DISPLAY STATUS, LIST/DISPLAY MEMORY (`cmd/query.c` q_inspect/qi_*) |
-| SET (3) | 2,752 | the SET sub-option parser (`cmd/set.c`); the SET state and every getter stay resident |
+| SET (3) | 3,200 | the SET sub-option parser (`cmd/set.c`); the SET state and every getter stay resident |
 | MEMFILE (4) | 2,041 | SAVE TO / RESTORE FROM (`cmd/flow.c` fl_memfile) |
 
-Resident (78,704 B): crt0, the PAL (`pal_milton.c`), soft-float, lexer,
+Resident (82,032 B): crt0, the PAL (`pal_milton.c`), soft-float, lexer,
 parser, evaluator and every built-in function, value/rt, DBF/DBT/NDX
 read/seek/maintain, work areas, navigation, the flow spine (DO WHILE/IF/
 CASE, memvars, STORE, RELEASE), procedures (DO, PARAMETERS, ACCEPT, INPUT,
 WAIT, ON ...), the query verbs (LIST, DISPLAY, ?, ??, LOCATE, CONTINUE, SEEK,
 FIND, GO, SKIP), the record edits (REPLACE, APPEND [BLANK], DELETE, RECALL),
 the REPL, every command hook's claim (verb recognition) and the overlay
-manager (about 1.2 KB). String literals and mergeable constants of overlay
+manager and retained-pointer guards. String literals and mergeable constants of overlay
 functions also stay resident (Sec 4).
 
 **Slot count: one.** One fixed slot is the authentic default (TP5's single
@@ -138,8 +139,8 @@ into the AH=48h block (now 2057 paragraphs = 0x8090) and the 3,952 B region
 moved into the reserve above `.bss`. Region sizes, list order and
 non-adjacency are unchanged, so allocation behaviour is identical. Module
 budget: 106,352 - 16,528 + 3,952 = 93,776 B (`test_samir_size.c` pins it).
-Reserve use: slot 9,712 + `.bss` 46,996 + region 3,952 (+ alignment) =
-60,672 of 65,536 B (link-time ASSERT). `e_minalloc` = 2058 paragraphs, so
+Reserve use: slot 9,728 + `.bss` 46,996 + region 3,952 (+ alignment) =
+60,704 of 65,536 B (link-time ASSERT). `e_minalloc` = 2058 paragraphs, so
 the loader refuses (DOS 08h) rather than start SAMIR heap-starved
 (DEC-08a.3). Knob for later waves: the slot may grow to about 14.5 KB; past
 that, move the 3,952 B region back to the arena (budget -3,952).
@@ -155,12 +156,20 @@ that, move the 3,952 B region back to the arena (budget -3,952).
    interpreter entry that could run another command (`samir_do`,
    `samir_repl`, `run_block`, `exec_command`, `fl_trap`, `fl_escape`); the
    first name must exist, so a renamed manager cannot disable the check.
-   Run time (defence in depth, indirect calls): the manager panics if asked
-   to swap while an overlay frame is on the stack.
+   Run time (defence in depth, indirect calls): the manager rejects any
+   reentry while an overlay frame is on the stack, including same-id calls.
+   The PAL prints the invariant, loaded/requested ids, depth and pointer on
+   stderr, then raises UD2 into the kernel panic (PC LOAD LETTER).
 4. Code pointers kept in resident state are never overlay addresses (the
    command hooks registered in the chain are the resident claims; an overlay
    passes its own callbacks only for the duration of a resident call, e.g.
-   `ndx_rebuild(..., d_key, ...)`).
+   `ndx_rebuild(..., d_key, ...)`). Runtime registration checks in
+   `samir/lifetime.h` reject slot addresses in output/resolver/error/cursor/PAL
+   bindings, command hooks, suspend hooks and retained codec ownership state.
+   The manager audits every public context pointer, nested cursor vtable and
+   PAL slot before entry and after return, before permitting any eviction.
+   This also catches direct writes bypassing the binding APIs. Synchronous
+   NDX key-provider arguments are not retained and remain permitted.
 
 ## 7. Packaging and names
 
@@ -197,20 +206,32 @@ test-samir-ovl-swap-emu (+mutant: NO_SWAP, NO_RELOC), test-samir-size
 reuses the real-III+ DML-status program, which alternates the SET, STATUS
 and FILE overlays; its Bochs leg is test-samir-dml-status-emu-bochs.
 
-## 10. Decisions for the operator
+## 10. Accepted operator decisions (2026-10-25)
 
-1. **EXEC AL=03h is not used by SAMIR.** Phase A (DEC-19) loads one whole
-   file; the ground truth for the DBASE.EXE/DBASE.OVL pattern is one
-   multi-segment file read by the program's own manager (Sec 2). Using
-   AL=03h would need one file per overlay (SAMIR1.OVL ... SAMIRn.OVL), which
-   the research's "one or two large files, not one per feature" (Sec 4)
-   argues against. Consequence: Phase B does not depend on Phase A (or on
-   its 832 B of kernel); DEC-19 remains a correct, ratified OS service
-   (TP 5.5 INSTALL.EXE is a period AL=03h user). Alternative if preferred:
-   the packer can emit per-overlay InitechMZ files and `ovl_fetch` becomes
-   one AX=4B03h call; the manager's other parts stand.
-2. **Refusal wording.** `Insert System Disk and press ENTER, or press
-   Ctrl-C to abort.` drops dBASE's "2" (InitechBase ships one System
-   diskette). G-1 is still open; the text claims nothing about dBASE.
-3. **Heap split** (Sec 5): approve the region swap and the new module budget
-   constant 93,776 B (same window, same floor).
+1. The multi-segment DBASE.EXE-style PAL manager is accepted. Phase B neither
+   requires nor introduces an EXEC AL=03h / DEC-19 kernel service.
+2. The Insert System Disk wording is accepted. G-1 still limits claims about
+   real dBASE's missing-overlay behaviour; it does not block this wording.
+3. The heap-region swap and 93,776 B module budget are accepted, with the
+   original physical window and 4 KiB floor intact.
+4. The `samir-exe*` target rename is accepted. EXE and OVL are grouped build
+   outputs; all default-image consumers declare both dependencies. The output
+   gate deletes only OVL in a private BUILD and proves the pair is rebuilt
+   byte-identically.
+
+## 11. Review regression gates
+
+`test-samir-ovl-guard-emu-mutant` builds the SET callback escape that static
+reachability missed, plus direct context-data, command-hook, PAL-hook,
+cursor-vtable, error-hook, suspend-hook and indirect live-reentry regressions.
+Each completed deliberate-fault trace proves its specific context diagnostic,
+exact loaded/requested/depth values, kernel vector 06 panic and absence of a
+return to unsafe code. Relocation omission is likewise stopped before calling
+an entry outside the slot; its trace completes at the diagnostic kernel panic.
+NO_SWAP remains a wrong-output differential with a completed shell trace.
+
+The short-read PAL mutant marks DBF handles only, clearing marks on close or
+handle reuse. It leaves startup OVL reads and command input intact. Its gate
+requires the actual USE command, error 15, no overlay refusal, absent LIST rows
+and F2's complete trace. `test-samir-mzlink-io` checks a valid relocation stream,
+a partial dword, a read error and an injected fclose error.

@@ -181,13 +181,16 @@ int main(int argc, char **argv)
             reloc_count = 0;
             for (;;) {
                 size_t got = fread(w, 1, 4, fr);
-                if (got == 0) break;
+                if (got == 0) {
+                    if (ferror(fr)) die("--reloc-file: read failed");
+                    break;
+                }
                 if (got != 4) die("--reloc-file: length is not a multiple of 4");
                 if (reloc_count >= MAX_RELOCS) die("--reloc-file: too many reloc sites");
                 reloc_off[reloc_count++] = (uint32_t)w[0] | ((uint32_t)w[1] << 8) |
                                            ((uint32_t)w[2] << 16) | ((uint32_t)w[3] << 24);
             }
-            fclose(fr);
+            if (fclose(fr) != 0) die("--reloc-file: close failed");
         } else if (strcmp(argv[i], "--header-relocs") == 0) {
             header_relocs = 1;
         } else if (strcmp(argv[i], "--entry") == 0) {

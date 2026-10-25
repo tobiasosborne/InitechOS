@@ -30,6 +30,7 @@
 #include "samir/ovl.h"
 #include "samir/ovl_format.h"   /* LOCKED spec-data, on -Ispec */
 #include "samir/rt.h"
+#include "samir/lifetime.h"
 
 static uint32_t ovl_rd32(const uint8_t *p)
 {
@@ -125,7 +126,8 @@ const volatile uint32_t samir_ovl_stamp = 0u;
 
 /* pal_milton.c: the only int 0x21 TU (ADR-0009 DEC-06). */
 void pal_milton_terminate(uint8_t code) __attribute__((noreturn));
-void pal_milton_panic(void) __attribute__((noreturn));
+void pal_milton_overlay_panic(const char *,uint32_t,uint32_t,uint32_t,uintptr_t)
+    __attribute__((noreturn));
 
 #define OVL_NONE 0xFFFFFFFFu
 
@@ -133,10 +135,87 @@ static struct {
     samir_pal_t *pal;
     pal_fd       fd;          /* SAMIR.OVL, open for the session (or -1)  */
     uint32_t     loaded;      /* id in the slot, or OVL_NONE              */
+    uint32_t     requested;
     uint32_t     depth;       /* overlay frames on the stack              */
     uint32_t     file_len;
     uint8_t      dir[SAMIR_OVL_MAX * SAMIR_OVL_DIR_SIZE];
 } O;
+
+static void __attribute__((noreturn)) ovl_panic(const char *why,uintptr_t p)
+{
+    pal_milton_overlay_panic(why,O.loaded,O.requested,O.depth,p);
+}
+void samir_ovl_require_resident(uintptr_t p,const char *where)
+{
+    if (p >= (uintptr_t)__ovl_slot && p < (uintptr_t)__ovl_slot_end)
+        ovl_panic(where,p);
+}
+void samir_ovl_validate_pal(const samir_pal_t *pal)
+{
+    SAMIR_RETAIN(pal);
+    if (!pal) return;
+    SAMIR_RETAIN(pal->open);
+    SAMIR_RETAIN(pal->close);
+    SAMIR_RETAIN(pal->read);
+    SAMIR_RETAIN(pal->write);
+    SAMIR_RETAIN(pal->seek);
+    SAMIR_RETAIN(pal->remove);
+    SAMIR_RETAIN(pal->rename);
+    SAMIR_RETAIN(pal->conout);
+    SAMIR_RETAIN(pal->conin_line);
+    SAMIR_RETAIN(pal->conin_char);
+    SAMIR_RETAIN(pal->gotoxy);
+    SAMIR_RETAIN(pal->set_attr);
+    SAMIR_RETAIN(pal->today);
+    SAMIR_RETAIN(pal->alloc);
+    SAMIR_RETAIN(pal->reset);
+    SAMIR_RETAIN(pal->acquire);
+    SAMIR_RETAIN(pal->release);
+    SAMIR_RETAIN(pal->status);
+    SAMIR_RETAIN(pal->conin_line_noecho);
+    SAMIR_RETAIN(pal->exec);
+    SAMIR_RETAIN(pal->conin_escape);
+    SAMIR_RETAIN(pal->curdrive);
+    SAMIR_RETAIN(pal->getenv);
+    SAMIR_RETAIN(pal->os_version);
+    SAMIR_RETAIN(pal->diskspace);
+    SAMIR_RETAIN(pal->conin_poll);
+    SAMIR_RETAIN(pal->time);
+    SAMIR_RETAIN(pal->iscolor);
+}
+void samir_ovl_validate_ctx(const xb_ctx *c)
+{
+    SAMIR_RETAIN(c);
+    if (!c) return;
+    SAMIR_RETAIN(c->mirror_output);
+    SAMIR_RETAIN(c->mirror_user);
+    SAMIR_RETAIN(c->resolve);
+    SAMIR_RETAIN(c->user);
+    SAMIR_RETAIN(c->scratch);
+    SAMIR_RETAIN(c->dbcur);
+    SAMIR_RETAIN(c->dbcur_user);
+    SAMIR_RETAIN(c->file_pal);
+    SAMIR_RETAIN(c->record_size);
+    SAMIR_RETAIN(c->on_error);
+    SAMIR_RETAIN(c->message);
+    SAMIR_RETAIN(c->on_escape);
+    SAMIR_RETAIN(c->program_name);
+    SAMIR_RETAIN(c->on_error_text);
+    SAMIR_RETAIN(c->on_escape_text);
+    samir_ovl_validate_pal(c->file_pal);
+    if(c->dbcur) {
+        SAMIR_RETAIN(c->dbcur->recno);
+        SAMIR_RETAIN(c->dbcur->reccount);
+        SAMIR_RETAIN(c->dbcur->eof);
+        SAMIR_RETAIN(c->dbcur->bof);
+        SAMIR_RETAIN(c->dbcur->found);
+        SAMIR_RETAIN(c->dbcur->deleted);
+        SAMIR_RETAIN(c->dbcur->field_name);
+        SAMIR_RETAIN(c->dbcur->dbf_name);
+        SAMIR_RETAIN(c->dbcur->file_exists);
+        SAMIR_RETAIN(c->dbcur->last_update);
+    }
+}
 
 static uint32_t ovl_slot_len(void)
 {
@@ -225,6 +304,7 @@ static int ovl_prompt(void)
 
 int samir_ovl_open(samir_pal_t *pal)
 {
+    samir_ovl_validate_pal(pal);
     O.pal = pal;
     O.fd = -1;
     O.loaded = OVL_NONE;
@@ -268,6 +348,9 @@ static int ovl_fetch(uint32_t id)
     if (crc != ecrc) return -1;
 #endif
     if (h->magic != SAMIR_OVL_MAGIC || h->id != id) return -1;
+    if ((uintptr_t)h->entry < (uintptr_t)slot + SAMIR_OVL_SLOT_HDR_SIZE ||
+        (uintptr_t)h->entry >= (uintptr_t)slot + len)
+        ovl_panic("entry outside slot",(uintptr_t)h->entry);
     O.loaded = id;
     return 0;
 }
@@ -277,7 +360,12 @@ int samir_ovl_call(unsigned id, int k, xb_interp *ip, const char *args, int *ec)
     const samir_ovl_slot_hdr *h = (const samir_ovl_slot_hdr *)(const void *)__ovl_slot;
     int rc;
 
-    if (id >= SAMIR_OVL_COUNT) pal_milton_panic();
+    O.requested=id;
+    if (id >= SAMIR_OVL_COUNT) ovl_panic("invalid id",id);
+    if (O.depth) ovl_panic("live swap",0u);
+    SAMIR_RETAIN(ip);
+    samir_ovl_validate_pal(O.pal);
+    samir_ovl_validate_ctx(xb_interp_ctx(ip));
 #ifdef SAMIR_OVL_MUTATE_NO_SWAP
     /* MUTANT (Rule 6; test-samir-ovl-swap-emu-mutant only): load once, never
      * swap -- whatever overlay came first answers every later call. */
@@ -285,8 +373,7 @@ int samir_ovl_call(unsigned id, int k, xb_interp *ip, const char *args, int *ec)
 #else
     if (O.loaded != id) {
 #endif
-        /* Never evict an overlay that has a frame on the stack (Rule 2). */
-        if (O.depth) pal_milton_panic();
+        /* Entry above forbids reentry, including an indirect same-id call. */
         while (ovl_fetch(id)) {
             ovl_close();
             if (!ovl_prompt()) {
@@ -299,6 +386,10 @@ int samir_ovl_call(unsigned id, int k, xb_interp *ip, const char *args, int *ec)
     }
     O.depth++;
     rc = h->entry(k, ip, args, ec);
+    /* Public PAL/ctx fields may have been written directly by overlay code.
+     * Reject escape before control leaves the active overlay, not after a swap. */
+    samir_ovl_validate_pal(O.pal);
+    samir_ovl_validate_ctx(xb_interp_ctx(ip));
     O.depth--;
     return rc;
 }

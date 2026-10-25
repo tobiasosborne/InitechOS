@@ -25,6 +25,8 @@
 #include <stdint.h>
 #include "test_assert.h"
 #include "samir_install.h"
+#include "trace_complete.h"
+#include "scratch_lock.h"
 #include "samir/ovl_format.h"
 TEST_HARNESS();
 #define D "build/samir-ovl-emu"
@@ -37,6 +39,7 @@ static unsigned count(const char *hay, const char *needle)
 }
 int main(int argc, char **argv)
 {
+    scratch_lock("build/.lock-samir-ovl-emu");
     const char *mode = argc > 1 ? argv[1] : "ok", *exe = argc > 2 ? argv[2] : "build/SAMIR.EXE";
     const char *stale = argc > 3 ? argv[3] : "build/SAMIR_REPORT_subtotal.OVL";
     int ok = !strcmp(mode, "ok"), missing = !strcmp(mode, "missing");
@@ -109,9 +112,16 @@ int main(int argc, char **argv)
              img, mode,
              ok ? "ko,kv,kl,kret,w3000,kshift-slash,kspc,kapostrophe,ko,kv,kl,kapostrophe,kshift-equal,kapostrophe,kminus,ko,kk,kapostrophe,kret,"
                   "w1000,kq,ku,ki,kt,kret,w2000,ke,kx,ki,kt,kret"
-                : "ko,kv,kl,kret,WInsert System Disk,w500,kret,w3000,kctrl-c,w2000,ke,kx,ki,kt,kret",
+                : "ko,kv,kl,kret,w3000,kret,w3000,kctrl-c,w1000,kn,kret,w1000,kq,ku,ki,kt,kret,w1000,ke,kx,ki,kt,kret",
              mode, mode);
     command(cmd);
+    snprintf(cmd,sizeof cmd,D "/%s.report",mode);
+    { char report[16384]; FILE *r=fopen(cmd,"rb");size_t z=0;
+      if(r){z=fread(report,1,sizeof report-1,r);fclose(r);}report[z]=0;
+      fprintf(stderr,"%s",report);
+      CHECK(strstr(report,"[harness] OK=1\n") && strstr(report,"quit_after_found=1") &&
+            strstr(report,ok?"mouse_events_sent=31 ":"mouse_events_sent=23 "),"overlay refusal entire trace completed");
+    }
     snprintf(cmd, sizeof cmd, "build/samir_ovl_%s.serial", mode);
     f = fopen(cmd, "rb");
     CHECK(f != NULL, "serial captured");

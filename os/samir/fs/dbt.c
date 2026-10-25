@@ -83,6 +83,7 @@
  *   - os/samir/include/samir/rt.h   (rt_memcpy, rt_memset).
  */
 
+#include "samir/lifetime.h"
 #include <stdint.h>
 
 #include "samir/pal.h"
@@ -124,6 +125,7 @@ struct dbt_file {
  * (The PAL read returns the byte count; we require exactly n.) */
 static int read_exact(samir_pal_t *pal, pal_fd fd, void *buf, uint32_t n)
 {
+    samir_ovl_validate_pal(pal);
     int32_t got = pal->read(pal, fd, buf, n);
     return (got > 0 && (uint32_t)got == n);
 }
@@ -134,6 +136,7 @@ static int read_exact(samir_pal_t *pal, pal_fd fd, void *buf, uint32_t n)
 static int dbt_open_impl(samir_pal_t *pal, const char *name, int is_iv_dialect,
                          int writable, dbt_file **out)
 {
+    samir_ovl_validate_pal(pal);
     dbt_file *f;
     pal_fd    fd;
     int32_t   fsize;
@@ -215,6 +218,7 @@ int dbt_open_rw(samir_pal_t *pal, const char *name, dbt_file **out)
  * ----------------------------------------------------------------------- */
 static int write_next_free(samir_pal_t *pal, pal_fd fd, uint32_t nf)
 {
+    samir_ovl_validate_pal(pal);
     uint8_t  buf[4];
     int32_t  nw;
 
@@ -251,6 +255,7 @@ static int write_next_free(samir_pal_t *pal, pal_fd fd, uint32_t nf)
  * ----------------------------------------------------------------------- */
 int dbt_create(samir_pal_t *pal, const char *name, dbt_file **out)
 {
+    samir_ovl_validate_pal(pal);
     dbt_file *f;
     pal_fd    fd;
     uint8_t   pad[DBT_BLOCK_SIZE - 4u];  /* 508 zero bytes for @0x04..0x1FF */

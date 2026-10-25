@@ -7,7 +7,7 @@ SAMIR_SIZE_IMAGE ?= $(SAMIR_EXE)
 $(SAMIR_SIZE_TEST): $(DBF_DIFF_DIR)/test_samir_size.c spec/memory_map.h spec/samir/ovl_format.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec -o $@ $<
 .PHONY: test-samir-size test-samir-size-mutant test-samir-size-repro test-samir-size-emu test-samir-size-emu-mutant
-test-samir-size: $(SAMIR_SIZE_TEST) $(SAMIR_SIZE_IMAGE)
+test-samir-size: $(SAMIR_SIZE_TEST) $(SAMIR_SIZE_IMAGE) $(SAMIR_OVL)
 	@$(SAMIR_SIZE_TEST) $(SAMIR_SIZE_IMAGE)
 	@printf '>>> test-samir-size: green (resident >=4096 B headroom against the samir.ld PAL-memory budget; slot == largest overlay)\n'
 
@@ -52,7 +52,7 @@ test-samir-size-repro: $(SAMIR_EXE)
 	 cmp $$root/first/SAMIR.OVL $$root/second/SAMIR.OVL; \
 	 cmp $(SAMIR_EXE) $$root/first/SAMIR.EXE; \
 	 cmp $(basename $(SAMIR_EXE)).OVL $$root/first/SAMIR.OVL
-	@printf '>>> test-samir-size-repro: green (two clean builds byte-identical): '; sha256sum $(SAMIR_EXE)
+	@printf '>>> test-samir-size-repro: green (two clean builds byte-identical): '; sha256sum $(SAMIR_EXE) $(SAMIR_OVL)
 
 # Locked injected traces, independent III+ transcripts/DBF bytes, mtools and
 # dosfstools are the existing boot/write gates (IBM DOS 3.30 TR 6-200, EXIT).

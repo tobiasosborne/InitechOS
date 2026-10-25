@@ -203,6 +203,7 @@ int main(int argc,char **argv)
         { char rp[2048];snprintf(rp,sizeof rp,"%s/qemu.report",dir);
           if(!emu_trace_complete(rp,path,inspection?25:9))return 2; }
         snprintf(path,sizeof path,"%s/qemu.report",dir);readfile(path,(unsigned char *)captured,sizeof captured);
+        fprintf(stderr,"%s",captured);
         CHECK(strstr(captured,"triple_fault=0")&&strstr(captured,"quit_after_found=1")&&strstr(captured,key_count),"DML entire locked QEMU trace returned without fault");
         snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::RESULT.TXT %s/RESULT.TXT",dir,dir);command(cmd);
         snprintf(path,sizeof path,"%s/RESULT.TXT",dir);readfile(path,(unsigned char *)captured,sizeof captured);

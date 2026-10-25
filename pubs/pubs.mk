@@ -264,7 +264,7 @@ $(PUBS_UTILS_STAMP): $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(X
 # `samir` disk, minted from this staging directory.
 PUBS_SAMIR_CAPTURE       := $(PUBS_BUILD)/samir-capture
 PUBS_SAMIR_CAPTURE_STAMP := $(PUBS_SAMIR_CAPTURE)/.staged
-$(PUBS_SAMIR_CAPTURE_STAMP): $(SAMIR_EXE) $(PUBS_BUILD)/samir-disk/.minted
+$(PUBS_SAMIR_CAPTURE_STAMP): $(SAMIR_EXE) $(SAMIR_OVL) $(PUBS_BUILD)/samir-disk/.minted
 	@rm -rf $(PUBS_SAMIR_CAPTURE); mkdir -p $(PUBS_SAMIR_CAPTURE)
 	@cp $(SAMIR_EXE) $(PUBS_SAMIR_CAPTURE)/SAMIR.EXE
 	@cp $(basename $(SAMIR_EXE)).OVL $(PUBS_SAMIR_CAPTURE)/SAMIR.OVL

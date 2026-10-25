@@ -56,6 +56,7 @@
  *   - os/samir/include/samir/set.h    (set_state + public getters).
  */
 
+#include "samir/lifetime.h"
 #include <stdint.h>
 
 #include "samir/interp.h"
@@ -96,7 +97,12 @@ void set_close_alternate(xb_interp *ip)
         g_val[i].alternate=-1;g_val[i].alternate_on=0;
     }
 }
-static void alternate_output(void *user,const char *s,uint32_t n)
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_CALLBACK
+static SAMIR_OVL_TEXT(set) void alternate_output(
+#else
+static void alternate_output(
+#endif
+void *user,const char *s,uint32_t n)
 {
     xb_interp *ip=user;samir_pal_t *pal=xb_interp_pal(ip);int i;
     for(i=0;i<g_n;i++)if(g_key[i]==ip && g_val[i].alternate_on && g_val[i].alternate>=0) {
@@ -120,6 +126,7 @@ static void alternate_output(void *user,const char *s,uint32_t n)
  */
 static set_state *set_state_for(xb_interp *ip, int *is_new)
 {
+    SAMIR_RETAIN(ip);
     int i;
     if (!ip)
         return (set_state *)0;
@@ -131,6 +138,7 @@ static set_state *set_state_for(xb_interp *ip, int *is_new)
     }
     if (g_n >= SET_REGISTRY)
         return (set_state *)0;          /* registry full: fail loud at caller */
+    SAMIR_RETAIN(ip);
     g_key[g_n] = ip;
     if (is_new) *is_new = 1;
     return &g_val[g_n++];
@@ -511,8 +519,9 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
     int i;
     ss->alternate=-1;ss->alternate_on=0;
     ss->alternate_name[0]=0;
-    xb_interp_ctx(ip)->mirror_output=alternate_output;
-    xb_interp_ctx(ip)->mirror_user=ip;
+#ifndef SAMIR_OVL_MUTATE_ESCAPE_CALLBACK
+    samir_bind_output(xb_interp_ctx(ip),alternate_output,ip);
+#endif
 
     /*
      * SET EXACT default = OFF [verified: mint-results-002.md].
@@ -844,6 +853,25 @@ static SAMIR_OVL_TEXT(set) int set_opt_lookup(const char *opt)
 /* Overlay SET (initech-5etom.1; docs/design/samir-overlays.md Sec 3): the
  * SET sub-option parser. set_cmd_hook (resident) claims the verb exactly as
  * before; everything after the claim runs here, unchanged. k is unused. */
+/* Deliberate retained-pointer regressions for the runtime gates. */
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_HOOK
+static SAMIR_OVL_TEXT(set) int ovl_bad_hook(void *u,xb_interp *ip,const char *v,const char *a,int *e)
+{ (void)u;(void)ip;(void)v;(void)a;(void)e;return CMD_UNKNOWN; }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_PAL
+static SAMIR_OVL_TEXT(set) void ovl_bad_pal(samir_pal_t *p,const char *s,uint32_t n)
+{ (void)p;(void)s;(void)n; }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_CURSOR
+static SAMIR_OVL_TEXT(set) uint32_t ovl_bad_cursor(void *u) { (void)u;return 1; }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_ERROR
+static SAMIR_OVL_TEXT(set) int ovl_bad_error(void *u,int e) { (void)u;(void)e;return 0; }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_SUSPEND
+static SAMIR_OVL_TEXT(set) int ovl_bad_suspend(xb_interp *ip) { (void)ip;return 0; }
+extern void proc_set_suspend(xb_interp *,int (*)(xb_interp *));
+#endif
 static SAMIR_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
                                              const char *args, int *err_code)
 {
@@ -853,6 +881,34 @@ static SAMIR_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
     int         i, k, opt_len;
 
     (void)k_unused;
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_HOOK
+    xb_interp_add_cmd_hook(ip,ovl_bad_hook,ip);
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_PAL
+    { samir_pal_t hooks=*xb_interp_pal(ip);hooks.conout=ovl_bad_pal;
+      samir_bind_pal(xb_interp_pal(ip),&hooks); }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_CURSOR
+    { static xb_dbcursor bad;xb_ctx *c=xb_interp_ctx(ip);bad=*c->dbcur;
+      bad.recno=ovl_bad_cursor;samir_bind_cursor(c,&bad,c->dbcur_user); }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_ERROR
+    { xb_ctx *c=xb_interp_ctx(ip);samir_bind_errors(c,ovl_bad_error,c->on_escape,c->on_error_text,c->on_escape_text); }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_SUSPEND
+    proc_set_suspend(ip,ovl_bad_suspend);
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_CALLBACK
+    /* Rule 6: a real callback escape, formerly accepted by the static graph. */
+    samir_bind_output(xb_interp_ctx(ip),alternate_output,ip);
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_RAW
+    xb_interp_ctx(ip)->mirror_user=(void *)(uintptr_t)set_ovl_entry;
+#endif
+#ifdef SAMIR_OVL_MUTATE_LIVE
+    /* Indirect ON ERROR is invisible to static relocation reachability. */
+    xb_interp_ctx(ip)->on_error(ip,10);
+#endif
     /* Find the set_state for this interpreter. */
     ss = set_state_for(ip, (int *)0);
     if (!ss) {
