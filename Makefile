@@ -35320,3 +35320,7 @@ include harness/emu/calcda_power.mk
 # Kernel overlays: the ADR-0014 DEC-14-9 gates (epic initech-x8gsi lane 1).
 # Last: uses the kmain / objswap mutant templates, jtc-boot and kernel_size.mk.
 include harness/proptest/overlay.mk
+
+# Gate/mutant ordering for parallel vectors (initech-1x6x2.1). KEEP LAST:
+# it reads the complete TEST_UNIT_GATES / TEST_EMU_GATES lists.
+include harness/gate_pairs.mk
