@@ -66,16 +66,23 @@ int main(int argc,char **argv)
         snprintf(path,sizeof path,"%s/FNS.IN",dir);f=fopen(path,"wb");if(!f)return 2;
         for(unsigned i=0;i<sizeof driver/sizeof driver[0];i++)fprintf(f,"%s\r\n",driver[i]);
         fclose(f);
-        snprintf(path,sizeof path,"%s/FNS.BAT",dir);f=fopen(path,"wb");if(!f)return 2;fputs("@echo off\r\nsamir < fns.in > result.txt\r\n",f);fclose(f);
+        /* The real mint.conf mounts this corpus as C:. Use the boot image's
+         * real C: partition (DEC-18; boot_system.c: LBA 63, 2880 sectors),
+         * rather than making an artifact PAL lie about the data floppy A:.
+         * Keep the existing locked nine-key FNS/EXIT trace on A:. */
+        snprintf(path,sizeof path,"%s/FNS.BAT",dir);f=fopen(path,"wb");if(!f)return 2;fputs("@echo off\r\nc:\r\nsamir < fns.in > result.txt\r\na:\r\n",f);fclose(f);
         snprintf(cmd,sizeof cmd,"mformat -i %s/data.img -f 1440 :: && mcopy -o -i %s/data.img %s ::SAMIR.COM && mcopy -o -i %s/data.img %s/*.PRG %s/*.IN %s/*.BAT :: && mmd -i %s/data.img ::DATA && mcopy -o -i %s/data.img %s/DATA/* ::DATA/",dir,dir,com,dir,dir,dir,dir,dir,dir,dir);command(cmd);
-        if(strcmp(name,"default")&&strcmp(name,"path")){snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img %s/BASE.DBF ::",dir,dir);command(cmd);}
-        if(!strcmp(name,"alias")||!strcmp(name,"relation")){snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img %s/OTHER.DBF ::",dir,dir);command(cmd);}
+        snprintf(cmd,sizeof cmd,"cp -f build/tracer_secondary.img %s/boot.img && mcopy -o -i %s/boot.img@@32256 %s ::SAMIR.COM && mcopy -o -i %s/boot.img@@32256 %s/*.PRG %s/*.IN :: && mmd -i %s/boot.img@@32256 ::DATA && mcopy -o -i %s/boot.img@@32256 %s/DATA/* ::DATA/",dir,dir,com,dir,dir,dir,dir,dir,dir);command(cmd);
+        if(strcmp(name,"default")&&strcmp(name,"path")){snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img %s/BASE.DBF :: && mcopy -o -i %s/boot.img@@32256 %s/BASE.DBF ::",dir,dir,dir,dir);command(cmd);}
+        if(!strcmp(name,"alias")||!strcmp(name,"relation")){snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img %s/OTHER.DBF :: && mcopy -o -i %s/boot.img@@32256 %s/OTHER.DBF ::",dir,dir,dir,dir);command(cmd);}
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-before.log",dir,dir);command(cmd);
-        snprintf(cmd,sizeof cmd,"INITECH_QMP_STDIO=1 build/qemu_harness --disk build/tracer_secondary.img --disk2 %s/data.img --name fns_%s --out build --timeout-ms 60000 --keys 'f,n,s,ret,e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE > %s/qemu.out 2> %s/qemu.report",dir,name,dir,dir);command(cmd);
+        snprintf(cmd,sizeof cmd,"dd if=%s/boot.img of=%s/c-volume.img bs=512 skip=63 count=2880 status=none && fsck.fat -n %s/c-volume.img > %s/fsck-c-before.log",dir,dir,dir,dir);command(cmd);
+        snprintf(cmd,sizeof cmd,"INITECH_QMP_STDIO=1 build/qemu_harness --disk %s/boot.img --disk2 %s/data.img --name fns_%s --out build --timeout-ms 60000 --keys 'f,n,s,ret,e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE > %s/qemu.out 2> %s/qemu.report",dir,dir,name,dir,dir);command(cmd);
         snprintf(path,sizeof path,"%s/qemu.report",dir);readfile(path,captured,sizeof captured);
         CHECK(strstr(captured,"triple_fault=0")&&strstr(captured,"quit_after_found=1")&&strstr(captured,"keys_sent=9"),"FNS entire locked QEMU trace returned without fault");
-        snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::CAPTURE.OUT %s/CAPTURE.OUT",dir,dir);command(cmd);
+        snprintf(cmd,sizeof cmd,"mcopy -o -i %s/boot.img@@32256 ::CAPTURE.OUT %s/CAPTURE.OUT",dir,dir);command(cmd);
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-after.log",dir,dir);command(cmd);
+        snprintf(cmd,sizeof cmd,"dd if=%s/boot.img of=%s/c-volume.img bs=512 skip=63 count=2880 status=none && fsck.fat -n %s/c-volume.img > %s/fsck-c-after.log",dir,dir,dir,dir);command(cmd);
     }else{
         char cwd[2048];samir_pal_t *pal;xb_interp *ip;
         if(!getcwd(cwd,sizeof cwd)||chdir(dir))return 2;

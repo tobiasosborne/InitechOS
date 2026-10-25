@@ -487,6 +487,24 @@ The result is a whole number from 1 through 12. The MONTH of a blank date is 0. 
 \SeeAlso{DAY(), YEAR(), CMONTH(), CTOD()}
 \end{XbaseEntry}
 
+% NDX -- III+ HELP.DBS @DATA FUNC 2 (1234-1236) and @SET INDEX (1493).
+\begin{XbaseEntry}{NDX}{function}
+Returns the name of an open index file in the selected work area, as a character string.
+\Syntax
+\SyntaxLine{\kw{NDX(}\xp{expN}\kw{)}}
+\Usage
+\fn{NDX()} takes one numeric argument from 1 through 7, selecting an index in
+the order it was opened. An unused slot from 1 through 7 returns an empty
+string. A slot outside that range gives an empty string while the current
+statement finishes, then raises \xmsg{87}{NDX(): Invalid index number.}.
+A nonnumeric argument or a call with other than one argument raises
+\xmsg{11}{Invalid function argument.}.
+\Examples
+The first open index and its returned name, type, and length:
+\DotExample{examples/fn-ndx}
+\SeeAlso{INDEX, SET INDEX, CLOSE INDEX}
+\end{XbaseEntry}
+
 % RECCOUNT -- os/samir/core/fn_builtins.c fn_reccount (l.1911-1917)
 \begin{XbaseEntry}{RECCOUNT}{function}
 Returns the number of records in the database in the selected work area, as a numeric value.

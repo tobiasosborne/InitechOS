@@ -220,9 +220,10 @@ struct samir_pal {
      * reading (a redirected stream is commands, not keystrokes). NULL on a PAL
      * with no keyboard (Esc is then never seen). Milton: AH=0Bh input status
      * then AH=07h raw read (os/milton/int21.c do_input_status/do_conin_raw).
-     * curdrive: the default drive letter ('A'..'Z') for the interrupt trace
-     * "Called from - C:ESC.prg" (mint samirctl ESC.TXT), or < 0 if the PAL
-     * has no drive notion (the drive is then omitted). Milton: AH=19h. */
+     * curdrive: the default drive letter ('A'..'Z') for filename qualification
+     * and the interrupt trace "Called from - C:ESC.prg" (mint samirctl
+     * ESC.TXT), or < 0 if the PAL has no drive notion (omit the drive).
+     * Milton: INT 21h AH=19h; host: deterministic C:. */
     int     (*conin_escape)(samir_pal_t *);
     int     (*curdrive)(samir_pal_t *);
 };

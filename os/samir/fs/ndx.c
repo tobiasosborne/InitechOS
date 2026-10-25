@@ -202,6 +202,7 @@ struct ndx_index {
      * (initech-x87g), which rebuilds the file fresh via ndx_build and reopens
      * it in place so callers keep the same ndx_index* handle. */
     char     path[NDX_PATH_MAX];
+    uint8_t  name_defaulted;           /* extension supplied by command parser */
 
     /* Arena management. */
     void    *last_node;  /* mark before last ndx_read_node alloc; freed by
@@ -440,6 +441,7 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
         idx->path[p] = '\0';
     }
 
+    idx->name_defaulted = 0;
     *out = idx;
     return NDX_OK;
 }
@@ -451,6 +453,10 @@ int ndx_open(samir_pal_t *pal, const char *name, ndx_index **out)
 
 /* Using III+ U5-109: STATUS reports each open index's actual filename. */
 const char *ndx_name(const ndx_index *idx) { return idx ? idx->path : ""; }
+void ndx_set_name_defaulted(ndx_index *idx, int defaulted)
+{ if (idx) idx->name_defaulted = defaulted != 0; }
+int ndx_name_defaulted(const ndx_index *idx)
+{ return idx && idx->name_defaulted; }
 
 int ndx_open_rw(samir_pal_t *pal, const char *name, ndx_index **out)
 {

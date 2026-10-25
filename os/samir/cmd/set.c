@@ -399,7 +399,8 @@ static int do_set_index(xb_interp *ip, set_state *ss, const char *args, int *err
             s=s_skip_ws(s);
             while(*s && *s!=',' && !s_isspace(*s)) {
                 if(n>=sizeof name-5){if(err_code)*err_code=10;return -INTERP_ERR_SYNTAX;}
-                if(*s=='.')dot=1;
+                if(*s=='/' || *s=='\\' || *s==':')dot=0;
+                else if(*s=='.')dot=1;
                 name[n++]=*s++;
             }
             name[n]=0;
@@ -409,6 +410,9 @@ static int do_set_index(xb_interp *ip, set_state *ss, const char *args, int *err
                 if(err_code)*err_code=1;
                 return -INTERP_ERR_EVAL;
             }
+            /* Same inferred default-name rule as INDEX ON; keep explicit
+             * extensions verbatim (NDX GOLD.OUT pins only INDEX ON's case). */
+            ndx_set_name_defaulted(ix,!dot);
             if(wa_attach_index(env,area,ix)!=WA_OK) {ndx_close(ix);if(err_code)*err_code=28;return -INTERP_ERR_EVAL;}
             count++;
             s=s_skip_ws(s);if(*s==',')s=s_skip_ws(s+1);

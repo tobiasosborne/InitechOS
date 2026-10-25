@@ -1065,6 +1065,25 @@ static int d_name(char *name,unsigned cap,const char *ext)
     if(!dot) { if(n+rt_strlen(ext)>=cap)return 0;rt_memcpy(name+n,ext,rt_strlen(ext)+1); }
     return 1;
 }
+/* INDEX ON defaults its extension, but explicit extension bytes belong to
+ * the caller. GOLD.OUT pins only the default .ndx display; preserving an
+ * explicit extension is the inferred name rule pending a separate III+ mint.
+ * Keep the existing uppercase I/O default, with provenance on the handle. */
+static int d_index_name(char *name, unsigned cap, int *defaulted)
+{
+    unsigned i, n = rt_strlen(name), dot = n;
+    for (i = 0; i < n; i++) {
+        if (name[i] == '/' || name[i] == '\\' || name[i] == ':') dot = n;
+        else if (name[i] == '.' && dot == n) dot = i;
+    }
+    for (i = 0; i < dot; i++) name[i] = m_up1(name[i]);
+    *defaulted = dot == n;
+    if (*defaulted) {
+        if (n + 5u > cap) return 0;
+        rt_memcpy(name + n, ".NDX", 5u);
+    }
+    return 1;
+}
 /* Existing destinations stay intact under SAFETY until an independently
  * minted overwrite-prompt extension is available. No guessed prompt bytes. */
 static int d_destination(xb_interp *ip,const char *name,int *ec)
@@ -1106,14 +1125,14 @@ static int d_index(xb_interp *ip,const char *args,int rebuild,int *ec)
         }
     } else {
         const char *p=m_skip_ws(args),*to;char expr[255],name[128];xb_val v;ndx_index *ix;
-        unsigned n;int k=m_match_kw(p,"ON");
+        unsigned n;int defaulted, k=m_match_kw(p,"ON");
         if(!k)return d_fail(ec,10);
         p=m_skip_ws(p+k);to=d_kw(p,"TO");
         if(!to)return d_fail(ec,10);
         n=(unsigned)(to-p);while(n && m_isspace(p[n-1]))n--;
         if(!n || n>220)return d_fail(ec,10);
         rt_memcpy(expr,p,n);expr[n]=0;p=m_skip_ws(to+2);
-        if(!d_word(&p,name,sizeof name) || *p || !d_name(name,sizeof name,".NDX"))return d_fail(ec,10);
+        if(!d_word(&p,name,sizeof name) || *p || !d_index_name(name,sizeof name,&defaulted))return d_fail(ec,10);
         if(d_destination(ip,name,ec))return -INTERP_ERR_EVAL;
         rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
         ctx.expr=expr;ctx.type=v.t==XB_C?0:1;
@@ -1125,6 +1144,7 @@ static int d_index(xb_interp *ip,const char *args,int rebuild,int *ec)
         if(rc) { wa_nav_goto(env,area,keep);return d_fail(ec,ctx.ec?ctx.ec:29); }
         rc=ndx_open_rw(pal,name,&ix);
         if(rc)return d_fail(ec,114);
+        ndx_set_name_defaulted(ix,defaulted);
         if(wa_attach_index(env,area,ix)!=WA_OK) {ndx_close(ix);return d_fail(ec,28);}
     }
     wa_nav_reset(area);

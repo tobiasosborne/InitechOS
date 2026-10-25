@@ -282,6 +282,7 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
     char file[REPL_TOK_CAP];
     char alias[REPL_TOK_CAP];
     static char idxbuf[NDX_PER_AREA][REPL_TOK_CAP];
+    int idx_defaulted[NDX_PER_AREA] = {0};
     wa_index_list il;
     const char *have_alias = (const char *)0;
     int area;
@@ -339,8 +340,11 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
 #ifndef SAMIR_MUTATE_USE_NDX_EXTENSION
     {
         int k;
-        for (k = 0; k < il.count; k++)
+        for (k = 0; k < il.count; k++) {
+            uint32_t before = rt_strlen(idxbuf[k]);
             if (repl_default_ext(idxbuf[k], REPL_TOK_CAP, ".NDX") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+            idx_defaulted[k] = rt_strlen(idxbuf[k]) != before;
+        }
     }
 #endif
 
@@ -373,6 +377,9 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
         return -INTERP_ERR_EVAL;
     }
     wa_select(env, area);                     /* USE selects the area it opens */
+    /* USE INDEX is the same inferred default-extension rule as SET INDEX. */
+    for (int k = 0; k < il.count; k++)
+        ndx_set_name_defaulted(wa_index(env, area, k), idx_defaulted[k]);
     /* USE with indexes leaves the FIRST record in master-index order current,
      * not physical record 1: real dBASE III PLUS 1.1 shows RECNO() 23 after
      * USE TRAVEL INDEX TRIPS, 2 after USE AVAL_FLT INDEX AVAL_FLT, FLT_NO and 6
