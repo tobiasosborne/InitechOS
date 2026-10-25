@@ -187,7 +187,7 @@ test-pubs-build: $(PUBS_MSG_TEX) $(PUBS_SAMIR_GEN)
 	@for t in $(LUALATEX) $(LATEXMK); do command -v $$t >/dev/null 2>&1 || { \
 		printf '!!! test-pubs-build FAIL: %s not found (TeX Live is required to typeset the manuals). A skipped oracle is worse than a red one (Law 2). Set SKIP_PUBS=1 to explicitly (and loudly) opt out.\n' "$$t"; exit 1; }; done
 	@bad=$$(LC_ALL=C grep -l -P '[^\x00-\x7F]' $(PUBS_SOURCES) harness/console_text.c tools/pubs_msgtable.c harness/pubs/tps_inventory.c \
-		harness/pubs/pubs_gate.c harness/pubs/slip_places.sh harness/pubs/slip_mutants.sh spec/pubs_inconsistencies.json || true); \
+		harness/pubs/pubs_gate.c harness/pubs/srclockstep.h harness/pubs/slip_places.sh harness/pubs/slip_mutants.sh spec/pubs_inconsistencies.json || true); \
 	if [ -n "$$bad" ]; then printf '!!! test-pubs-build FAIL: non-ASCII bytes in (Rule 12): %s\n' "$$bad"; exit 1; fi
 	$(call pubs-build-into,$(PUBS_BUILD)/gate)
 	@set -e; for log in $(PUBS_BUILD)/gate/*/*.log; do \
@@ -311,7 +311,7 @@ PUBS_CHECK := $(PUBS_BUILD)/correctness
 PUBS_ALLOW := harness/pubs/pilot.allow
 PUBS_GATE_INPUTS := $(shell find pubs -type f)
 
-$(PUBS_GATE): harness/pubs/pubs_gate.c | $(BUILD)
+$(PUBS_GATE): harness/pubs/pubs_gate.c harness/pubs/srclockstep.h | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 $(PUBS_INT21): harness/pubs/int21_inventory.c $(KERNEL_INT21_C) $(DOS_MESSAGES_H) | $(BUILD)
 	$(CC) $(CFLAGS) -ffunction-sections -fdata-sections -Ispec -Ios/milton -Iseed -Ibuild -Wl,--gc-sections -o $@ $<
@@ -354,7 +354,11 @@ $(PUBS_SAMIR_DISK)/.minted: $(PUBS_SAMIR_DISKTOOL) $(PUBS_SAMIR_DISK_SRC)
 	@$(PUBS_SAMIR_DISKTOOL) $(PUBS_DIR)/examples/samir/disk $(PUBS_SAMIR_DISK)
 	@touch $@
 .PHONY: pubs-samir-inventory pubs-examples test-pubs-samir-disk test-pubs-samir-programs
-pubs-samir-inventory: $(PUBS_SAMIR_INV)
+# A real file target (bead initech-7opiw): the inventory is re-probed only
+# when the inventory tool, the candidate scanner or the SAMIR sources change,
+# so the per-merge test-pubs-lockstep-src is not charged for it every time.
+pubs-samir-inventory: $(PUBS_CHECK)/samir.shipped
+$(PUBS_CHECK)/samir.shipped: $(PUBS_SAMIR_INV) $(PUBS_SAMIR_CAND) $(PUBS_SAMIR_CAND_SRC)
 	@mkdir -p $(PUBS_CHECK)/samir-probe
 	@sh $(PUBS_SAMIR_CAND) $(PUBS_SAMIR_CAND_SRC) > $(PUBS_CHECK)/samir.candidates
 	@cd $(PUBS_CHECK)/samir-probe && $(abspath $(PUBS_SAMIR_INV)) < ../samir.candidates | LC_ALL=C sort > ../samir.shipped
@@ -379,6 +383,28 @@ test-pubs-samir-disk: $(PUBS_SAMIR_DISK)/.minted
 		[ -f $(PUBS_SAMIR_DISK)/$$name ] || { printf '!!! test-pubs RED SAMPLE-DISK: %s missing\n' "$$name"; exit 1; }; \
 	done < $(PUBS_DIR)/examples/samir/disk/MANIFEST
 	@printf '>>> test-pubs-samir-disk: green (%s files on the Sample Programs and Utilities diskette)\n' "$$(ls $(PUBS_SAMIR_DISK) | wc -l)"
+
+# ---- CADENCE (operator ruling 2026-10-25; bead initech-7opiw, F1+F6) -------
+# Typesetting runs once per SESSION, never per merge.
+#   per merge   : test-pubs-lockstep-src (+ -mutant): the InitechBase manuals
+#                 in lockstep with the shipped inventory, read from the .tex
+#                 SOURCES by `pubs_gate srclockstep` -- no LaTeX, about 1 s.
+#                 In TEST_UNIT_GATES.
+#   per session : make test-pubs (test-pubs-build typesets every document,
+#                 then the LaTeX-derived tps/commands/examples/screens/repro
+#                 gates).  pubs/build.sh runs pass 1 in parallel (PUBS_JOBS,
+#                 default nproc) and pass 2 (master index) after it.
+# test-pubs-tps and test-pubs-examples still depend on test-pubs-build, so
+# they are session gates, not merge gates.  No gate was removed from test-pubs.
+.PHONY: test-pubs-lockstep-src test-pubs-lockstep-src-mutant
+PUBS_SAMIR_ENTRY_IDX := $(filter $(foreach b,$(PUBS_SAMIR_BOOKS),$(PUBS_GEN)/entries-$(b)-%),$(PUBS_ENTRY_IDX))
+test-pubs-lockstep-src: $(PUBS_GATE) $(PUBS_CHECK)/samir.shipped $(PUBS_SAMIR_GEN) $(PUBS_SAMIR_ENTRY_IDX)
+	@$(PUBS_GATE) srclockstep $(PUBS_CHECK)/samir.shipped $(PUBS_SAMIR_ALLOW) \
+		$(PUBS_DIR)/manuals/initechbase-volume-one $(PUBS_DIR)/manuals/initechbase-quick-reference \
+		$(PUBS_DIR)/manuals/initechbase-volume-two $(PUBS_GEN)
+test-pubs-lockstep-src-mutant: test-pubs-lockstep-src
+	@sh harness/pubs/srclockstep_mutants.sh $(PUBS_GATE) $(PUBS_CHECK)/samir.shipped $(PUBS_SAMIR_ALLOW) \
+		$(PUBS_DIR)/manuals $(PUBS_BUILD)/lockstep-src-mutants $(PUBS_GEN)
 
 .PHONY: test-pubs test-pubs-commands test-pubs-tps test-pubs-lint test-pubs-examples test-pubs-mutant pubs-inventory \
 	test-pubs-inconsistency

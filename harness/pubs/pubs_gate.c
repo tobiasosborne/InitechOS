@@ -1,5 +1,6 @@
 /* Publications correctness oracle. Ref: PUB-REF-0001 GC-01/03/05/06,
  * PN-01/05, VO-30; PRD Sec 8; CLAUDE.md Law 2, Rules 2/6. Host C only. */
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -106,10 +107,18 @@ static const char *namepart(const char *item,char *buf)
 {
     size_t n=strcspn(item,"|");memcpy(buf,item,n);buf[n]=0;return buf;
 }
+/* Shared index vocabulary, checked before the source gate's DRAFT exemption. */
+static int commandkind(const char *kind)
+{
+    static const char *kinds[]={"internal","external","batch","config","int21",
+        "wpkey","wpmenu","wppull","wpcode","wpmsg","wpgray","command","function","set"};
+    for(size_t i=0;i<sizeof kinds/sizeof *kinds;i++) if(!strcmp(kind,kinds[i])) return 1;
+    return 0;
+}
 /* A book's documented-command list, <job>.cmds (initech-syntax.sty
- * \RegisterCommand): NAME|KIND|STATE|ENTRY.  Several books' lists may be
- * given; a pair documented in two books is one documented item.  DRAFT
- * pairs (the build lacks the behaviour, D-14) are returned in *draft. */
+ * \RegisterCommand): NAME|KIND|STATE|ENTRY. Several books may be given;
+ * a pair documented in two books is one item. DRAFT pairs are returned
+ * in *draft (the build lacks the behaviour, D-14). */
 static void cmdsfile(const char *path,Set *doc,Set *draft)
 {
     char *text=readfile(path),*line=text;
@@ -126,12 +135,7 @@ static void cmdsfile(const char *path,Set *doc,Set *draft)
             if(k!=4 || *q || !*f[0] || !*f[3]) die("COMMAND-INDEX",path,line);
             /* InitechWord (harness/pubs/iword_probe.c, bead initech-ipu5.10):
              * wpkey wpmenu wppull wpcode wpmsg wpgray */
-            if(strcmp(f[1],"internal") && strcmp(f[1],"external") && strcmp(f[1],"batch") &&
-               strcmp(f[1],"config") && strcmp(f[1],"int21") && strcmp(f[1],"wpkey") &&
-               strcmp(f[1],"wpmenu") && strcmp(f[1],"wppull") && strcmp(f[1],"wpcode") &&
-               strcmp(f[1],"wpmsg") && strcmp(f[1],"wpgray") &&
-               /* InitechBase (bead initech-ipu5.8): samir_inventory.c kinds */
-               strcmp(f[1],"command") && strcmp(f[1],"function") && strcmp(f[1],"set"))
+            if(!commandkind(f[1]))
                 die("COMMAND-INDEX",path,line);
             if(strcmp(f[2],"GATED") && strcmp(f[2],"DRAFT")) die("COMMAND-INDEX",path,line);
             addkind(doc,f[0],f[1]);
@@ -142,11 +146,13 @@ static void cmdsfile(const char *path,Set *doc,Set *draft)
     }
     free(text);
 }
-static void crosscheck(const char *shipped,int ndoc,char **docs,const char *allowpath)
+/* The both-directions rule shared by `commands` and `srclockstep`. */
+static void crosscheck_sets(const char *docs0,const char *allowpath,const Set *ship_,const Set *doc_,const Set *draft_,const Set *allow_)
 {
-    Set ship=list(shipped,0),doc={0},draft={0},allow=list(allowpath,1);
+    static Set ship,doc,draft,allow;
     char a[MAX_NAME],b[MAX_NAME];
-    for(int i=0;i<ndoc;i++) cmdsfile(docs[i],&doc,&draft);
+    const char *docs[1];
+    ship=*ship_;doc=*doc_;draft=*draft_;allow=*allow_;docs[0]=docs0;
     if(!ship.n || !doc.n) die("COMMAND-INDEX",docs[0],"empty inventory/index");
     for(size_t i=0;i<doc.n;i++)
         if(!has(&ship,doc.item[i]) && !has(&draft,doc.item[i])) die("DOC-NOT-SHIPPED",docs[0],doc.item[i]);
@@ -161,8 +167,16 @@ static void crosscheck(const char *shipped,int ndoc,char **docs,const char *allo
     for(size_t i=0;i<ship.n;i++) if(!has(&doc,ship.item[i]) && !has(&allow,namepart(ship.item[i],b)))
         die("SHIPPED-NOT-DOCUMENTED",docs[0],ship.item[i]);
     for(size_t i=0;i<draft.n;i++) printf("!!! test-pubs DRAFT-ENTRY: %s (documented as DRAFT; GC-12 blocks release)\n",draft.item[i]);
+}
+static void crosscheck(const char *shipped,int ndoc,char **docs,const char *allowpath)
+{
+    static Set ship,doc,draft,allow;
+    ship=list(shipped,0);allow=list(allowpath,1);doc.n=draft.n=0;
+    for(int i=0;i<ndoc;i++) cmdsfile(docs[i],&doc,&draft);
+    crosscheck_sets(docs[0],allowpath,&ship,&doc,&draft,&allow);
     printf(">>> test-pubs-commands: green (%zu shipped, %zu documented, %zu DRAFT, %zu explicit omissions)\n",ship.n,doc.n,draft.n,allow.n);
 }
+#include "srclockstep.h"
 static void monotonic(const char *now,const char *before)
 {
     Set a=list(now,1),b=list(before,1);
@@ -782,6 +796,7 @@ int main(int argc,char **argv)
 {
     if(argc>=2 && !strcmp(argv[1],"inventory")) inventory(argc,argv);
     else if(argc>=5 && !strcmp(argv[1],"commands")) crosscheck(argv[2],argc-4,argv+4,argv[3]);
+    else if(argc>=2 && !strcmp(argv[1],"srclockstep")) srclockstep(argc,argv);
     else if(argc==4 && !strcmp(argv[1],"monotonic")) monotonic(argv[2],argv[3]);
     else if(argc>=4 && !strcmp(argv[1],"mentions")) {
         Set pairs=list(argv[2],0),ship={0},mentions={0};char nb[MAX_NAME];
@@ -827,6 +842,6 @@ int main(int argc,char **argv)
         for(int i=3;i<argc;i++) walk(argv[i]);
         puts(">>> test-pubs-lint: green (ASCII, period vocabulary/years, part numbers and print codes)");
     } else if(argc>=7 && !strcmp(argv[1],"inconsistency")) inconsistency(argc,argv);
-    else die("USAGE","pubs_gate","inventory|commands|monotonic|keys|same|lint|samirmentions|messages|inconsistency");
+    else die("USAGE","pubs_gate","inventory|commands|srclockstep|monotonic|keys|same|lint|samirmentions|messages|inconsistency");
     return 0;
 }

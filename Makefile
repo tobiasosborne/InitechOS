@@ -33947,7 +33947,7 @@ include harness/diff/fat_diff/dosutil.mk
 # test-pubs-screens (emu gate).  See pubs/pubs.mk.
 # ---------------------------------------------------------------------------
 include pubs/pubs.mk
-TEST_UNIT_GATES += test-pubs-build test-pubs test-pubs-mutant test-pubs-honesty
+TEST_UNIT_GATES += test-pubs-build test-pubs test-pubs-mutant test-pubs-honesty test-pubs-lockstep-src test-pubs-lockstep-src-mutant
 TEST_EMU_GATES += test-pubs-screens
 
 # EDLIN (initech-udr1; DEBUG is a separate lane).
