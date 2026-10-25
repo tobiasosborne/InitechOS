@@ -32,7 +32,12 @@ prefix to initech allowed tracking initech-i15. Git commits require access to
 the parent repository's worktree index outside the filesystem sandbox. No main
 or remote branch is changed.
 
-Acceptance and byte measurements: see CODEX-OUT.md and build/overlay-fix/.
+Acceptance: overlay host/emulator gates and their mutants, EXEC/MZEXEC, nested
+and subdirectory EXEC, loader/MZ/tenant/MCB gates and ADR citation gates all
+returned exit 0. DOS33 remint exit 0, with both saved captures byte-identical.
+Loaded flagship bytes: 181040 -> 180944 (-96); NOBITS BSS +192256;
+_kernel_end=0x572850 < 0x580000. Detailed commands/exit codes are in the local
+ignored -o report CODEX-OUT.md and build/overlay-fix/.
 The known test-kernel-size-r4 failure remains outside this task; its floor and
 oracle are unchanged. QEMU is the EXEC family's existing emulator gate;
 Bochs/86Box coverage remains the original initech-x0i obligation.
