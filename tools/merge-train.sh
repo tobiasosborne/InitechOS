@@ -125,7 +125,13 @@ for lane in "$@"; do
     printf '  inspect with `git diff --cached --stat`, undo with `git reset --hard HEAD`.\n' >&2
     exit 1
   fi
-  git -C "$target" apply --3way "$patch" >/dev/null 2>&1 || die "lane '$lane': apply failed after a clean check (see git status in $target)"
+  if ! out=$(git -C "$target" apply --3way "$patch" 2>&1); then
+    printf 'merge-train: CONFLICT: lane %s failed to apply (3-way).\n' "$lane" >&2
+    printf '%s\n' "$out" | sed 's/^/  | /' >&2
+    printf 'merge-train: STOPPED. No auto-resolution. %s may hold conflict markers / partial state:\n' "$target" >&2
+    printf '  inspect `git status`, undo with `git reset --hard HEAD`.\n' >&2
+    exit 1
+  fi
   printf '  %-40s applied, %s files\n' "$lane" "$files" >> "$summary"
   printf 'merge-train: applied lane %s (%s files)\n' "$lane" "$files"
 done
