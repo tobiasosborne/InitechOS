@@ -21,6 +21,12 @@ plus `DBASE.OVL` (ADR-0009 DEC-03 named this the authentic end state).
 | SAMIR.OVL file | -- | 26,112 (5 overlays, 512-byte multiple) |
 | slot (= largest overlay) | -- | 9,712 |
 
+Dry run (not committed): the parked `lane/wave1-say` diff (main...lane/wave1-say:
+@...SAY, SET DEVICE, ROW/COL/PROW/PCOL) applies cleanly on top and gives an
+81,104 B resident (SET DEVICE lands in the SET overlay, now 2,820 B):
+headroom 12,672 B, 8,576 B above the floor. On main it needed 103,246 B
+against a 102,256 B cap.
+
 ## 2. Ground truth (Law 1)
 
 - **Packaging.** `DBASE.EXE` 133,632 B (MZ) and one raw overlay file
@@ -181,7 +187,17 @@ input aborts. At start-up the abort exits with return code 1 before any
 database is open; mid-session (the file replaced under a running SAMIR) the
 abort closes every work area as QUIT does, then exits with 1.
 
-## 9. Decisions for the operator
+## 9. Gates
+
+`harness/diff/dbf_diff/samir_ovl.mk` and `samir_size.mk`: test-samir-ovl
+(+mutant: NO_RELOC, NO_STAMP), test-samir-ovl-static (+mutant: CROSS,
+RESREF, REENTER), test-samir-ovl-emu (+mutant: SKIP_OPEN, NO_STAMP, NO_CRC),
+test-samir-ovl-swap-emu (+mutant: NO_SWAP, NO_RELOC), test-samir-size
+(+mutant: PAD, SLOT), test-samir-size-repro (EXE and OVL). The swap gate
+reuses the real-III+ DML-status program, which alternates the SET, STATUS
+and FILE overlays; its Bochs leg is test-samir-dml-status-emu-bochs.
+
+## 10. Decisions for the operator
 
 1. **EXEC AL=03h is not used by SAMIR.** Phase A (DEC-19) loads one whole
    file; the ground truth for the DBASE.EXE/DBASE.OVL pattern is one
