@@ -1,0 +1,205 @@
+
+[FNS-BEGIN]
+NDX C:bare.ndx
+
+Currently Selected Database: 
+Select area:  1, Database in Use: C:BASE.dbf   Alias: BASE
+    Master index file:  C:bare.ndx  Key: NAME 
+
+Alternate file: C:GOLD.OUT
+File search path:   
+Default disk drive: C:
+Print destination:  PRN:
+Margin =     0
+Current work area =    1
+
+On Error:      ? "INLINE",ERROR()
+ALTERNATE  - ON    DELETED    - OFF   FIXED      - OFF   SAFETY     - OFF   
+BELL       - OFF   DELIMITERS - OFF   HEADING    - ON    SCOREBOARD - ON    
+CARRY      - OFF   DEVICE     - SCRN  HELP       - ON    STATUS     - OFF   
+CATALOG    - OFF   DOHISTORY  - OFF   HISTORY    - ON    STEP       - OFF   
+CENTURY    - OFF   ECHO       - OFF   INTENSITY  - ON    TALK       - OFF   
+CONFIRM    - OFF   ESCAPE     - ON    MENU       - ON    TITLE      - ON    
+CONSOLE    - ON    EXACT      - OFF   PRINT      - OFF   UNIQUE     - OFF   
+DEBUG      - OFF   FIELDS     - OFF   
+
+Programmable function keys:
+F2  - assist;
+F3  - list;
+F4  - dir;
+F5  - display structure;
+F6  - display status;
+F7  - display memory;
+F8  - display;
+F9  - append;
+F10 - edit;
+
+REINDEX C:bare.ndx
+
+Currently Selected Database: 
+Select area:  1, Database in Use: C:BASE.dbf   Alias: BASE
+    Master index file:  C:bare.ndx  Key: NAME 
+
+Alternate file: C:GOLD.OUT
+File search path:   
+Default disk drive: C:
+Print destination:  PRN:
+Margin =     0
+Current work area =    1
+
+On Error:      ? "INLINE",ERROR()
+ALTERNATE  - ON    DELETED    - OFF   FIXED      - OFF   SAFETY     - OFF   
+BELL       - OFF   DELIMITERS - OFF   HEADING    - ON    SCOREBOARD - ON    
+CARRY      - OFF   DEVICE     - SCRN  HELP       - ON    STATUS     - OFF   
+CATALOG    - OFF   DOHISTORY  - OFF   HISTORY    - ON    STEP       - OFF   
+CENTURY    - OFF   ECHO       - OFF   INTENSITY  - ON    TALK       - OFF   
+CONFIRM    - OFF   ESCAPE     - ON    MENU       - ON    TITLE      - ON    
+CONSOLE    - ON    EXACT      - OFF   PRINT      - OFF   UNIQUE     - OFF   
+DEBUG      - OFF   FIELDS     - OFF   
+
+Programmable function keys:
+F2  - assist;
+F3  - list;
+F4  - dir;
+F5  - display structure;
+F6  - display status;
+F7  - display memory;
+F8  - display;
+F9  - append;
+F10 - edit;
+
+SET C:bare.ndx
+
+Currently Selected Database: 
+Select area:  1, Database in Use: C:BASE.dbf   Alias: BASE
+    Master index file:  C:bare.ndx  Key: NAME 
+
+Alternate file: C:GOLD.OUT
+File search path:   
+Default disk drive: C:
+Print destination:  PRN:
+Margin =     0
+Current work area =    1
+
+On Error:      ? "INLINE",ERROR()
+ALTERNATE  - ON    DELETED    - OFF   FIXED      - OFF   SAFETY     - OFF   
+BELL       - OFF   DELIMITERS - OFF   HEADING    - ON    SCOREBOARD - ON    
+CARRY      - OFF   DEVICE     - SCRN  HELP       - ON    STATUS     - OFF   
+CATALOG    - OFF   DOHISTORY  - OFF   HISTORY    - ON    STEP       - OFF   
+CENTURY    - OFF   ECHO       - OFF   INTENSITY  - ON    TALK       - OFF   
+CONFIRM    - OFF   ESCAPE     - ON    MENU       - ON    TITLE      - ON    
+CONSOLE    - ON    EXACT      - OFF   PRINT      - OFF   UNIQUE     - OFF   
+DEBUG      - OFF   FIELDS     - OFF   
+
+Programmable function keys:
+F2  - assist;
+F3  - list;
+F4  - dir;
+F5  - display structure;
+F6  - display status;
+F7  - display memory;
+F8  - display;
+F9  - append;
+F10 - edit;
+
+FAILOPEN C:bare.ndx
+
+Currently Selected Database: 
+Select area:  1, Database in Use: C:BASE.dbf   Alias: BASE
+    Master index file:  C:MiXeD.nDx  Key: NAME 
+
+Alternate file: C:GOLD.OUT
+File search path:   
+Default disk drive: C:
+Print destination:  PRN:
+Margin =     0
+Current work area =    1
+
+On Error:      ? "INLINE",ERROR()
+ALTERNATE  - ON    DELETED    - OFF   FIXED      - OFF   SAFETY     - OFF   
+BELL       - OFF   DELIMITERS - OFF   HEADING    - ON    SCOREBOARD - ON    
+CARRY      - OFF   DEVICE     - SCRN  HELP       - ON    STATUS     - OFF   
+CATALOG    - OFF   DOHISTORY  - OFF   HISTORY    - ON    STEP       - OFF   
+CENTURY    - OFF   ECHO       - OFF   INTENSITY  - ON    TALK       - OFF   
+CONFIRM    - OFF   ESCAPE     - ON    MENU       - ON    TITLE      - ON    
+CONSOLE    - ON    EXACT      - OFF   PRINT      - OFF   UNIQUE     - OFF   
+DEBUG      - OFF   FIELDS     - OFF   
+
+Programmable function keys:
+F2  - assist;
+F3  - list;
+F4  - dir;
+F5  - display structure;
+F6  - display status;
+F7  - display memory;
+F8  - display;
+F9  - append;
+F10 - edit;
+
+
+Currently Selected Database: 
+Select area:  1, Database in Use: C:BASE.dbf   Alias: BASE
+    Master index file:  C:MiXeD.nDx  Key: NAME 
+
+Alternate file: C:GOLD.OUT
+File search path:   
+Default disk drive: C:
+Print destination:  PRN:
+Margin =     0
+Current work area =    1
+
+On Error:      ? "INLINE",ERROR()
+ALTERNATE  - ON    DELETED    - OFF   FIXED      - OFF   SAFETY     - OFF   
+BELL       - OFF   DELIMITERS - OFF   HEADING    - ON    SCOREBOARD - ON    
+CARRY      - OFF   DEVICE     - SCRN  HELP       - ON    STATUS     - OFF   
+CATALOG    - OFF   DOHISTORY  - OFF   HISTORY    - ON    STEP       - OFF   
+CENTURY    - OFF   ECHO       - OFF   INTENSITY  - ON    TALK       - OFF   
+CONFIRM    - OFF   ESCAPE     - ON    MENU       - ON    TITLE      - ON    
+CONSOLE    - ON    EXACT      - OFF   PRINT      - OFF   UNIQUE     - OFF   
+DEBUG      - OFF   FIELDS     - OFF   
+
+Programmable function keys:
+F2  - assist;
+F3  - list;
+F4  - dir;
+F5  - display structure;
+F6  - display status;
+F7  - display memory;
+F8  - display;
+F9  - append;
+F10 - edit;
+
+
+Currently Selected Database: 
+Select area:  1, Database in Use: C:BASE.dbf   Alias: BASE
+    Master index file:  C:mixed.nDx  Key: NAME 
+
+Alternate file: C:GOLD.OUT
+File search path:   
+Default disk drive: C:
+Print destination:  PRN:
+Margin =     0
+Current work area =    1
+
+On Error:      ? "INLINE",ERROR()
+ALTERNATE  - ON    DELETED    - OFF   FIXED      - OFF   SAFETY     - OFF   
+BELL       - OFF   DELIMITERS - OFF   HEADING    - ON    SCOREBOARD - ON    
+CARRY      - OFF   DEVICE     - SCRN  HELP       - ON    STATUS     - OFF   
+CATALOG    - OFF   DOHISTORY  - OFF   HISTORY    - ON    STEP       - OFF   
+CENTURY    - OFF   ECHO       - OFF   INTENSITY  - ON    TALK       - OFF   
+CONFIRM    - OFF   ESCAPE     - ON    MENU       - ON    TITLE      - ON    
+CONSOLE    - ON    EXACT      - OFF   PRINT      - OFF   UNIQUE     - OFF   
+DEBUG      - OFF   FIELDS     - OFF   
+
+Programmable function keys:
+F2  - assist;
+F3  - list;
+F4  - dir;
+F5  - display structure;
+F6  - display status;
+F7  - display memory;
+F8  - display;
+F9  - append;
+F10 - edit;
+
+[FNS-END]

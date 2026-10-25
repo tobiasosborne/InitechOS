@@ -718,6 +718,9 @@ typedef struct xb_ctx {
      * executed RETRY (re-run the failing statement, Using III+ U5-182),
      * 0 when untrapped. Set by proc.c. */
     int (*on_error)(void *ip, int code);
+    /* Real ndx/GOLD.OUT R4-GUARD: false deferred guards with DO handlers
+     * enter their body without calling the handler; inline handlers trap. */
+    uint8_t on_error_procedure;
     /* Using III+ U6-62: MESSAGE() reads the catalogue text of the trapped
      * error. Bound by the dot prompt (samir_main.c); NULL -> "". */
     unsigned (*message)(unsigned code, char *out, unsigned cap);

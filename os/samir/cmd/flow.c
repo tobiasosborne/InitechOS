@@ -1318,6 +1318,22 @@ static int fl_handle_statement(flow_prog *fp, int rc, int *ec, int *retry)
     return INTERP_OK;
 }
 
+/* Real ndx/GOLD.OUT R4-GUARD-MIN / R4-CASE-PROC-BODY: a false
+ * deferred guard with a procedure handler enters its body, without invoking
+ * that handler, and clears ERROR(). Immediate errors still use the trap.
+ * This applies to any deferred code, independently of the function. */
+static void fl_guard_value(xb_interp *ip, int rc, int *truth)
+{
+    xb_ctx *c = xb_interp_ctx(ip);
+    if (rc == INTERP_OK && c->deferred_error) {
+        c->error_number = c->deferred_error; /* visible to the next CASE */
+        if (!*truth && c->on_error_procedure) {
+            c->deferred_error = c->error_number = 0;
+            *truth = 1;
+        }
+    }
+}
+
 /* IF/WHILE RETRY re-evaluates the guard. A normally handled deferred error
  * keeps the already evaluated condition even if the handler changes inputs.
  * The real IMMEDIATE-*-BODY probes also pin a handled immediate guard error
@@ -1333,6 +1349,7 @@ static int fl_guard(flow_prog *fp, const char *expr, int *truth, int *ec)
         xb_interp_ctx(fp->ip)->deferred_error = 0;
         *truth = 1;
         rc = eval_guard(fp->ip, expr, truth, ec);
+        fl_guard_value(fp->ip, rc, truth);
         rc = fl_handle_statement(fp, rc, ec, &retry);
         if (rc != INTERP_OK) return rc;
     } while (retry);
@@ -1427,6 +1444,7 @@ static int run_docase(flow_prog *fp, int start, int endcase, int *next,
                 return -INTERP_ERR_DEPTH;
             (void)line_classify(buf, &rest);
             rc = eval_guard(fp->ip, rest, &truth, ec);
+            fl_guard_value(fp->ip, rc, &truth);
             /* False CASE guards form one selection: coalesce deferred codes
              * until a branch is selected (or OTHERWISE/ENDCASE is reached).
              * The real CASE-RETRY-AFTER probe pins RETRY as leaving this

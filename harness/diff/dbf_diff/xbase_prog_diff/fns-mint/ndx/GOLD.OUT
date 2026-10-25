@@ -65,4 +65,29 @@ PREON-ERROR          9
 PREGUARD-ERROR          9
 MINT-ERROR         37 Not a Logical expression.
 NONLOGICAL-GUARD-AFTER          5          1          0
+R4-GUARD-MIN
+BODY
+AFTER          0          0
+R4-CASE-PROC-BODY
+R4-CASE-PROC-AFTER          0          0
+R4-CASE-MIN
+H          9
+H         87
+SAW87
+R4-HANDLERS
+H-ENTER          9
+AFTER9          0
+
+H-ENTER         87
+AFTER87          0
+INLINE          9
+INLINE-AFTER          9
+NORMAL-ENTER          9
+NORMAL-AFTER          0
+HNEST-ENTER          9
+NORMAL-ENTER          9
+HNEST-NORMAL-RETURN          0
+HNEST-AFTER          0
+HFALL-ENTER          9
+HFALL-AFTER          0
 [FNS-END]

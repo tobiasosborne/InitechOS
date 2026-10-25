@@ -126,6 +126,9 @@ static void handled_guards(xb_interp *ip)
     xb_val v;
     char program[1024];
     unsigned i;
+    /* This callback models an inline handler; real procedure completion
+     * is covered by the minted R4-GUARD-MIN program in the NDX gate. */
+    xb_interp_ctx(ip)->on_error_procedure = 0;
     xb_interp_ctx(ip)->on_error = guard_handler;
     for (i = 0; i < sizeof cases / sizeof cases[0]; i++) {
         guard_mode = cases[i].mode; guard_calls = guard_code = 0;

@@ -29,7 +29,7 @@ static unsigned used;
 #ifndef SAMIR_W2
 static unsigned input_line;
 #endif
-static const char *const driver[]={"SET TALK OFF","SET SAFETY OFF","ON ERROR ? \"MINT-ERROR\", ERROR(), MESSAGE()","SET ALTERNATE TO CAPTURE.OUT","SET ALTERNATE ON","DO FNSTEST","SET ALTERNATE TO","QUIT"};
+static const char *const driver[]={"SET TALK OFF","SET SAFETY OFF","ON ERROR ? \"MINT-ERROR\", ERROR(), MESSAGE()","SET ALTERNATE TO GOLD.OUT","SET ALTERNATE ON","DO FNSTEST","SET ALTERNATE TO","QUIT"};
 static void output(samir_pal_t *p,const char *s,uint32_t n)
 { (void)p; if(n<sizeof captured-used) { memcpy(captured+used,s,n); used+=n; captured[used]=0; } }
 #ifndef SAMIR_W2
@@ -190,7 +190,7 @@ int main(int argc,char **argv)
           if(!emu_trace_complete(rp,path,9))return 2; }
         snprintf(path,sizeof path,"%s/qemu.report",dir);readfile(path,captured,sizeof captured);
         CHECK(strstr(captured,"triple_fault=0")&&strstr(captured,"quit_after_found=1")&&strstr(captured,"keys_sent=9"),"FNS entire locked QEMU trace returned without fault");
-        snprintf(cmd,sizeof cmd,"mcopy -o -i %s%s ::CAPTURE.OUT %s/CAPTURE.OUT",dir,index_drive?"/boot.img@@32256":"/data.img",dir);command(cmd);
+        snprintf(cmd,sizeof cmd,"mcopy -o -i %s%s ::GOLD.OUT %s/GOLD.OUT",dir,index_drive?"/boot.img@@32256":"/data.img",dir);command(cmd);
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-after.log",dir,dir);command(cmd);
         if(index_drive) {
             snprintf(cmd,sizeof cmd,"dd if=%s/boot.img of=%s/c-volume.img bs=512 skip=63 count=2880 status=none && fsck.fat -n %s/c-volume.img > %s/fsck-c-after.log",dir,dir,dir,dir);command(cmd);
@@ -223,11 +223,7 @@ int main(int argc,char **argv)
 #endif
         pal_host_free(pal);if(chdir(cwd))return 2;
     }
-#ifdef SAMIR_W2
     snprintf(path,sizeof path,"%s/GOLD.OUT",dir);readfile(path,captured,sizeof captured);
-#else
-    snprintf(path,sizeof path,"%s/CAPTURE.OUT",dir);readfile(path,captured,sizeof captured);
-#endif
     snprintf(path,sizeof path,"%s/captured.out",dir);f=fopen(path,"wb");if(f){fwrite(captured,1,strlen(captured),f);fclose(f);}
     CHECK(equal_text(captured,expected),CAPTURE_KIND " transcript byte-identical to real III+");
 #ifdef SAMIR_W2

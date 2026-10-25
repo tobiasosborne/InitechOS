@@ -144,13 +144,11 @@
 /* engine is single-threaded cooperative; no malloc.                        */
 /* ===================================================================== */
 
-enum { P_HANDLER_ACTIVE = 1, P_HANDLER_CALLED = 2 };
-
 typedef struct {
     const char *source;          /* the registered program source (proc_run) */
     char        onerr[P_MAX_ONERR + 1]; /* installed ON ERROR command, "" = none */
     int         has_onerr;       /* 1 = an ON ERROR trap is installed */
-    int         in_handler;      /* active/called-procedure flags; no re-entry */
+    int         in_handler;      /* active handler; no re-entry */
 
     /* the pending DO ... WITH arg vector for the routine CURRENTLY being entered.
      * A PARAMETERS line in that routine's body binds these positionally. The
@@ -625,8 +623,6 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
      * PARAMETERS verb, which reads the pending arg vector below. */
     rc = xb_interp_scope_enter(ip);
     if (rc < 0) { if (ec) *ec = 0; return rc; }   /* DO nested too deep */
-    if (ps->in_handler && ps->do_depth == ps->handler_depth)
-        ps->in_handler |= P_HANDLER_CALLED;
 
     /* stash the pending WITH args so a PARAMETERS line in the body can bind them
      * positionally (proc_state-level, since the body runs via a fresh samir_do). */
@@ -680,6 +676,9 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
      * already mapped to INTERP_OK above.) */
     xb_interp_scope_leave(ip);
 
+    /* Real ndx/GOLD.OUT NORMAL-AFTER / HNEST-NORMAL-RETURN: every
+     * successful routine return clears ERROR(), including nested helpers. */
+    if (rc == INTERP_OK) xb_interp_ctx(ip)->error_number = 0;
     return rc;                              /* INTERP_OK or a real error */
 }
 
@@ -786,6 +785,8 @@ static int p_on(xb_interp *ip, proc_state *ps, const char *args, int *ec)
         while (p[i] != '\0' && i < (uint32_t)P_MAX_ONERR) { dst[i] = p[i]; i++; }
         dst[i] = '\0';
         *(k ? &ps->has_onesc : &ps->has_onerr) = (*p != '\0');
+        if (!k) xb_interp_ctx(ip)->on_error_procedure =
+            rt_kw_word(p, "DO\0", (int *)0) == 0;
     }
     /* ON KEY: parsed + accepted; the ON KEY trap is not modelled.
      * (programming-and-io.md sec 14 -- precedence ERROR>ESCAPE>KEY.) */
@@ -1024,6 +1025,7 @@ int proc_register(xb_interp *ip)
     rt_memset(ps, 0, (uint32_t)sizeof(*ps));   /* as proc_state_for's fresh slot */
 #endif
     samir_bind_errors(xb_interp_ctx(ip),proc_trap,proc_escape,ps->onerr,ps->onesc);
+    xb_interp_ctx(ip)->on_error_procedure = 0;
     xb_interp_ctx(ip)->program_name = ps->prgname;
 
     return xb_interp_add_cmd_hook(ip, proc_cmd_hook, (void *)0);
@@ -1100,6 +1102,7 @@ int proc_run_program(xb_interp *ip, const char *prg, const char *name)
     ps->do_depth++;
     ps->master_depth = ps->do_depth;
     rc = proc_run(ip, prg);
+    if (rc == INTERP_OK) xb_interp_ctx(ip)->error_number = 0;
     ps->do_depth--;
     ps->master_depth = saved_master;
     for (i = 0; i < P_MAX_PRGNAME; i++) ps->prgname[i] = saved_name[i];
@@ -1115,10 +1118,10 @@ int proc_fire_onerror(xb_interp *ip, int err_code)
 {
     proc_state *ps = proc_state_for(ip);
     xb_ctx *ctx = xb_interp_ctx(ip);
-    int rc, called_procedure;
+    int rc;
     if (!ps || !ps->has_onerr || ps->in_handler)
         return INTERP_OK;
-    ps->in_handler = P_HANDLER_ACTIVE;
+    ps->in_handler = 1;
     /* Programming III+ N5-30 (PDF 418): ERROR() sees the condition being
      * handled, even while the handler evaluates a new expression. */
     ctx->error_number = err_code;
@@ -1126,12 +1129,10 @@ int proc_fire_onerror(xb_interp *ip, int err_code)
     rc = samir_do(ip, ps->onerr);           /* almost always "DO <handler>" */
     if (rc == PROC_RC_RETURN)
         rc = INTERP_OK;
-    called_procedure = ps->in_handler & P_HANDLER_CALLED;
     ps->in_handler = 0;
-    /* Inline handlers retain the code (real SF-errors). A called handler
-     * clears it on return: real ndx/GOLD.OUT pins PREGUARD-ERROR=9 then
-     * NONLOGICAL-GUARD-AFTER ERROR()=0. RETRY also clears it. */
-    ctx->error_number = (called_procedure || rc == PROC_RC_RETRY_TRAP || rc == PROC_RC_RETRY)
-                        ? 0 : err_code;
+    /* Inline commands retain ERROR() (SF-errors). Routine completion in
+     * p_call owns clearing, so a helper's return is visible inside a handler. */
+    if (rc == PROC_RC_RETRY_TRAP || rc == PROC_RC_RETRY)
+        ctx->error_number = 0;
     return rc;
 }
