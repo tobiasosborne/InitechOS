@@ -627,6 +627,32 @@ typedef uint16_t (*int21_exec_fn)(const char *name83, uint16_t dir_start,
  * oracle binds a mock. */
 void int21_set_exec_backend(int21_exec_fn fn);
 
+/* ---- AH=4Bh AL=03h LOAD OVERLAY (ADR-0003 Amendment DEC-19) ---------------
+ * IBM DOS 3.30 TR p. 6-196: "Load, do not create the program segment prefix,
+ * and do not begin execution"; p. 11-5: no PSP, no memory allocation. do_exec
+ * resolves the EDX path exactly as AL=00h does, reads the EBX block
+ * (exec_overlay_block_t, spec/dos_structs.h) and hands the bare leaf, its
+ * containing-directory cluster, the load address and the relocation factor to
+ * this backend. The backend returns 0 or a DOS error code (0002h absent,
+ * 0009h destination not caller-owned, 000Bh malformed InitechMZ); an untagged
+ * 16-bit MZ panics inside the loader (DEC-08a.5), exactly as AL=00h. The
+ * kernel binds the FAT-sourced loader (kmain.c loader_overlay_by_name); the
+ * host oracle binds a mock. NULL -> AL=03h returns 0002h, never a silent
+ * success. */
+typedef uint16_t (*int21_overlay_fn)(const char *name83, uint16_t dir_start,
+                                     uint32_t load_addr, uint32_t reloc_factor);
+void int21_set_overlay_backend(int21_overlay_fn fn);
+
+/* DEC-19.4 destination ownership: 1 iff [linear, linear+len) lies wholly in
+ * memory the CURRENT process owns -- its own image/BSS window [PSP+100h,
+ * first arena header) when that window sits below the bound arena, or the data
+ * area of ONE arena block whose MCB owner is the current PSP (an AH=48h block,
+ * the DOS way, TR p. 11-5). NULL / 32-bit wrap fail first (DEC-14). Never the
+ * PSP itself, an MCB header, another owner's block, the kernel, or anything
+ * outside the caller. 0 -> AL=03h refuses with 0009h before any byte is read.
+ * The loader calls it through loader_overlay_core's `owns` callback. */
+int int21_overlay_dest_ok(uint32_t linear, uint32_t len);
+
 /* ---- CON INPUT SOURCE (beads initech-n62) ---------------------------------
  * The CON-input functions (AH=01h/06h/07h/08h/0Ah/0Bh/0Ch) read keystrokes
  * through an INPUT SOURCE abstraction that mirrors the sink/exit/file-backend

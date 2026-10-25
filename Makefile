@@ -34912,6 +34912,10 @@ test-loader-nested-mutant: $(BUILD)/test_loader_nested_mut test-loader
 TEST_UNIT_GATES += test-loader-nested-mutant
 TEST_EMU_GATES += test-exec-nested test-exec-nested-mutant
 
+# initech-dewv: INT 21h AH=4Bh AL=03h LOAD OVERLAY (ADR-0003 Amendment DEC-19);
+# host gate + emu gate on the exec-nested kernel objects above.
+include harness/exec_overlay.mk
+
 # JTC Rule-6 fixture: same 1000-tick kmain, one model object perturbed.
 # Expanded here after flair-tenants-objswap-mutant-rules is defined.
 $(eval $(call flair-tenants-objswap-mutant-rules,$(BUILD)/egg_jtc_model.o $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(BUILD)/egg_jtc_model_mutant.o $(BUILD)/kmain_flairtenants_mut_jtc_gate.o,jtc_trigger))

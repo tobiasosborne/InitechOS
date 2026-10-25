@@ -64,7 +64,11 @@ typedef enum loader_status {
                               * Fail loud (Rule 2) -- do NOT run garbage. */
     /* Disk-launched FLAIR tenant load (bead initech-tdnl.14; DEC-AC3-1): the
      * caller's heap carve for the code block failed (BC-5 fail-loud budget). */
-    LOADER_ERR_NOMEM
+    LOADER_ERR_NOMEM,
+    /* AH=4Bh AL=03h LOAD OVERLAY (ADR-0003 Amendment DEC-19.4): the overlay
+     * footprint is not wholly inside memory the caller owns. Nothing was
+     * read or written; maps to DOS 0009h at the kmain seam. */
+    LOADER_ERR_NOT_OWNED
 } loader_status_t;
 
 /* Native flat EXEC context, not a scheduler (PRD Sec 2; ADR-0003 DEC-08).
@@ -398,5 +402,60 @@ typedef void *(*loader_carve_fn)(uint32_t len, void *user);
 loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
                                    loader_carve_fn carve, void *user,
                                    void **out_block, tenant_plan_t *out);
+
+/* ------------------------------------------------------------------------ *
+ * AH=4Bh AL=03h LOAD OVERLAY (ADR-0003 Amendment DEC-19, un-deferring
+ * DEC-08a.7). IBM DOS 3.30 TR p. 6-196: "Load, do not create the program
+ * segment prefix, and do not begin execution"; p. 6-197: the caller supplies
+ * the load segment and "relocation factor to be applied to the image";
+ * p. 11-5: no PSP, no memory allocation. The DEC-08a machinery EXTENDS here:
+ * the same mz_parse_header / mz_apply_relocs, with the caller's factor as the
+ * base the flat dwords are added to.
+ *
+ * `rd(ctx, off, len, dst)` reads exactly `len` file bytes at `off` into `dst`
+ * (0 = ok). `owns(linear, len)` is the DEC-19.4 destination check
+ * (int21_overlay_dest_ok on the kernel; a fixed window in the host oracle).
+ * `dest` is where the bytes go and `load_linear` its flat address (the same
+ * number on the kernel; the host oracle passes a fake linear, as
+ * loader_prepare_tenant does). `scratch` is >= LOADER_OVL_SCRATCH bytes.
+ *
+ *   - First min(file_len, 1Eh) bytes into scratch; 'MZ'/'ZM' (DEC-08a.4)
+ *     selects the InitechMZ path (mz_parse_header reads only bytes [0,1Eh)):
+ *       untagged MZ (MZ_ERR_FOREIGN) -> LOADER_ERR_FOREIGN_MZ (the KERNEL
+ *         caller PANICS, DEC-08a.5 -- exactly as AL=00h);
+ *       any other parse error         -> LOADER_ERR_BAD_FORMAT;
+ *       footprint = load_module_len   (the header and relocation table are
+ *         never written; e_minalloc/e_maxalloc/e_cs:e_ip/e_ss:e_sp are
+ *         ignored -- nothing is allocated or run).
+ *     Otherwise the file is RAW: footprint = file_len, copied verbatim, the
+ *     factor ignored.
+ *   - owns(load_linear, footprint) == 0 -> LOADER_ERR_NOT_OWNED.
+ *   - MZ: every relocation offset is validated (off + 4 <= footprint) BEFORE
+ *     any byte is written -> LOADER_ERR_BAD_FORMAT, destination untouched.
+ *   - The footprint is read to dest; MZ: mz_apply_relocs(dest, footprint,
+ *     reloc_factor, ...) adds the factor to each relocated dword (DEC-19.3).
+ *   - A read failure -> LOADER_ERR_READ. *out_len = footprint on LOADER_OK.
+ *
+ * MUTATION hooks (Rule 6): LOADER_MUTATE_OVL_NO_FACTOR (the factor is never
+ * applied), LOADER_MUTATE_OVL_ACCEPT_FOREIGN (an untagged MZ is copied as a
+ * raw file instead of refused). */
+#define LOADER_OVL_SCRATCH 256u
+typedef int (*loader_ovl_read_fn)(void *ctx, uint32_t off, uint32_t len,
+                                  uint8_t *dst);
+typedef int (*loader_ovl_owns_fn)(uint32_t linear, uint32_t len);
+loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
+                                    uint32_t file_len, uint8_t *dest,
+                                    uint32_t load_linear, uint32_t reloc_factor,
+                                    loader_ovl_owns_fn owns, uint8_t *scratch,
+                                    uint32_t *out_len);
+
+/* loader_load_overlay -- KERNEL: locate `name83` in `dir_start` (0 == root)
+ * on the bound volume exactly as load_program_from_fat does, then
+ * loader_overlay_core with dest == load_linear. A foreign MZ PANICS
+ * (DEC-08a.5). No EXEC frame, PSP, arena or hook is touched. Hosted build: a
+ * stub returning LOADER_ERR_NO_VOLUME (the oracle drives the core). */
+loader_status_t loader_load_overlay(const char *name83, uint16_t dir_start,
+                                    uint32_t load_linear, uint32_t reloc_factor,
+                                    loader_ovl_owns_fn owns);
 
 #endif /* INITECH_LOADER_H */

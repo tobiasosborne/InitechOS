@@ -923,6 +923,27 @@ static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
     }
 }
 
+/* AH=4Bh AL=03h LOAD OVERLAY backend (ADR-0003 Amendment DEC-19): bind the
+ * caller's current volume as loader_exec_by_name does, load through the
+ * shared overlay core with int21's DEC-19.4 ownership check, and map the
+ * status onto the DOS codes. An untagged MZ never returns (DEC-08a.5 panic in
+ * the loader). Absent / unreadable reads as 0002h, the AL=00h mapping. */
+__attribute__((unused))   /* bound beside each loader_exec_by_name binding */
+static uint16_t loader_overlay_by_name(const char *name83, uint16_t dir_start,
+                                       uint32_t load_addr, uint32_t reloc_factor)
+{
+    uint32_t fat_len;
+    const uint8_t *fat = fileio_fat_fat_buffer(&fat_len);
+    loader_bind_fat_volume(fileio_fat_current_volume(), fat, fat_len);
+    switch (loader_load_overlay(name83, dir_start, load_addr, reloc_factor,
+                                int21_overlay_dest_ok)) {
+        case LOADER_OK:            return 0u;
+        case LOADER_ERR_NOT_OWNED: return INT21_ERR_INVALID_MEMORY;  /* 0009h */
+        case LOADER_ERR_BAD_FORMAT: return INT21_ERR_BAD_FORMAT;     /* 000Bh */
+        default:                   return INT21_ERR_FILE_NOT_FOUND;  /* 0002h */
+    }
+}
+
 /* Run a baked flat program through the loader, framed with serial markers
  * `<tag>-BEGIN` / `<tag>-EXIT rc=NN` / `<tag>-LOAD-FAIL st=NN` so a boot oracle
  * can assert load->run->return. Restores the kernel-context exit hook + PSP
@@ -6264,6 +6285,7 @@ static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *
      * needed -- AH=4Bh EXEC through the loader, AH=25h/35h on the live IDT,
      * INT 25h/26h on the flagship volume's device (CHKDSK.COM lives in APPS). */
     int21_set_exec_backend(loader_exec_by_name);
+    int21_set_overlay_backend(loader_overlay_by_name);   /* AH=4Bh AL=03h, DEC-19 */
     int21_set_vectortable(int21_setvect_idt, int21_getvect_idt);
     if (g_finder_vol != (const fat12_volume_t *)0 && g_absdisk_vol.dev != 0) {
         int21_absdisk_backend_t absdisk;
@@ -8444,6 +8466,7 @@ void kernel_main(void)
                 loader_bind_fat_volume(&vol, load_fat, load_fat_len);
             }
             int21_set_exec_backend(loader_exec_by_name);
+            int21_set_overlay_backend(loader_overlay_by_name);   /* AH=4Bh AL=03h, DEC-19 */
             serial_puts("LOADER-FAT-BIND-OK\n");
 
             /* Bind the INT 25h/26h ABSOLUTE-DISK seam (ADR-0003 DEC-15, beads
@@ -8558,10 +8581,18 @@ void kernel_main(void)
 
 #ifdef BOOT_EXEC_NESTED
     /* Resident caller and disk child; IBM DOS 3.30 TR AH=4Bh/4Ch/4Dh.
-     * Fixture asserts restored PSP and repeated child reclamation itself. */
+     * Fixture asserts restored PSP and repeated child reclamation itself.
+     * -DBOOT_EXEC_OVERLAY runs OVLTEST.COM instead: a resident program that
+     * drives AH=4Bh AL=03h LOAD OVERLAY (ADR-0003 Amendment DEC-19; make
+     * test-exec-overlay) and grades itself into serial markers. */
     {
+#ifdef BOOT_EXEC_OVERLAY
+        static const char exec_nested_prog[] = "OVLTEST.COM";
+#else
+        static const char exec_nested_prog[] = "NEST.COM";
+#endif
         uint8_t rc = 255u;
-        uint16_t err = loader_exec_by_name("NEST.COM", 0u, 0, 0u, 0u, &rc);
+        uint16_t err = loader_exec_by_name(exec_nested_prog, 0u, 0, 0u, 0u, &rc);
         serial_puts("EXEC-NESTED-EXIT rc=");
         serial_putu(err ? 255u : rc);
         serial_putc('\n');

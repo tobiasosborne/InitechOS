@@ -233,6 +233,8 @@ static int                     g_absdisk_bound[4];
  * AH=4Bh reaches the actual load+run through this seam so int21.c does not link
  * loader.c (keeping it host-testable). */
 static int21_exec_fn g_exec = 0;
+/* AH=4Bh AL=03h LOAD OVERLAY backend (ADR-0003 Amendment DEC-19). */
+static int21_overlay_fn g_overlay = 0;
 
 /* The most recent child exit code, retrievable via AH=4Dh GET-RETURN-CODE
  * (DOS 3.3 PRM AH=4Dh). Set by a successful AH=4Bh EXEC; reset is the caller's
@@ -459,6 +461,7 @@ void int21_cwd_restore(const int21_cwd_snapshot_t *s)
     }
 }
 void int21_set_exec_backend(int21_exec_fn fn) { g_exec = fn; }
+void int21_set_overlay_backend(int21_overlay_fn fn) { g_overlay = fn; }
 
 /* ---- MCB arena seam (beads initech-509.6; AH=48h/49h/4Ah) ----
  * Bind the arena buffer + its flat base address. base==NULL or total_paras<2
@@ -4403,8 +4406,9 @@ int int21_wildcard_match(const uint8_t pat[11], const uint8_t name[11])
 
 /* AH=4Bh EXEC (LOAD AND EXECUTE): AL = subfunction, EDX = flat ptr to the ASCIIZ
  * program path (root-dir 8.3 only this milestone). AL=00h is load-and-execute (a
- * child program); AL=03h (load overlay) + other subfunctions are out of scope ->
- * invalid function (CF=1, AX=0x0001). The child runs to completion via the saw
+ * child program); AL=03h (load overlay) shares the path resolution below and
+ * then branches to do_exec_overlay (ADR-0003 Amendment DEC-19); any other
+ * subfunction -> invalid function (CF=1, AX=0x0001). The child runs to completion via the saw
  * path (load_program_from_fat); when it terminates (4Ch / INT 20h) the loader
  * regains control and EXEC returns to the caller with CF clear. The child's exit
  * code is stashed for AH=4Dh GET-RETURN-CODE.
@@ -4425,11 +4429,93 @@ int int21_wildcard_match(const uint8_t pat[11], const uint8_t name[11])
  * Resident flat callers use the loader's bounded return-frame chain and the
  * existing MCB arena. Exhausted memory/depth returns CF=1, AX=0008h.
  * Ref: DOS 3.3 PRM AH=4Bh; ADR-0003 DEC-08 (flat .COM); beads initech-saw/zs24. */
+/* DEC-19.4 (ADR-0003 Amendment DEC-19): may AH=4Bh AL=03h write the overlay
+ * footprint [linear, linear+len)? IBM DOS 3.30 TR p. 11-5: "load overlay" does
+ * not check that the caller owns the target block, and "there is a chance that
+ * the program being loaded will overlay one of the control blocks that DOS uses
+ * to keep track of memory blocks". InitechDOS makes the TR's stated assumption
+ * an enforced check (the DEC-14 stance): the footprint must lie in ONE region
+ * the current process owns --
+ *   (A) its own image/BSS window [PSP+100h, first arena header), when the PSP
+ *       sits below the bound arena (the top-level EXEC layout, loader.c
+ *       loader_prepare_core: the arena is disjoint ABOVE image + BSS reserve;
+ *       with no arena bound the window ends at PROGRAM_ARENA_CEIL); or
+ *   (B) the data area of one arena block whose MCB owner is the current PSP
+ *       (an AH=48h block -- TR p. 11-5's "allocate a block ... to hold the
+ *       program that will be loaded"; a nested child's own EXEC block).
+ * Never the PSP, an MCB header, a free or foreign block, the kernel or any
+ * address outside the caller. NULL / 32-bit wrap fail first (user_buf_ok). */
+int int21_overlay_dest_ok(uint32_t linear, uint32_t len)
+{
+    uint32_t psp, limit = 0u, img_end;
+    if (!user_buf_ok(linear, len) || linear == 0u || g_cur_psp == 0) {
+        return 0;
+    }
+    psp     = (uint32_t)(uintptr_t)g_cur_psp;
+    img_end = g_arena_bound ? g_arena_base_linear : (uint32_t)PROGRAM_ARENA_CEIL;
+    if (linear >= psp && linear - psp < 0x100u) {
+        return 0;                                   /* the caller's own PSP  */
+    }
+    if (linear >= psp + 0x100u && linear < img_end) {
+        limit = img_end;                            /* (A) image/BSS window  */
+    } else if (g_arena_bound && linear >= g_arena_base_linear) {
+        uint32_t end;                               /* (B) an owned block    */
+        if (mcb_owned_block(&g_arena, cur_psp_owner(),
+                            linear - g_arena_base_linear, &end)) {
+            limit = g_arena_base_linear + end;
+        }
+    }
+    if (limit == 0u) {
+        return 0;
+    }
+#ifdef INT21_MUTATE_OVL_BOUNDS_OBO
+    /* MUTANT (Rule 6; make test-overlay-mutant / test-exec-overlay-mutant
+     * only): the classic off-by-one -- a footprint ONE byte past the owned
+     * region is accepted, so the overlay's last byte lands on the next MCB
+     * header (or the arena's first header). The exact-fit-plus-one refusal
+     * asserts MUST go RED. NEVER define in a real build. */
+    return len <= limit - linear + 1u;
+#else
+    return len <= limit - linear;
+#endif
+}
+
+/* AH=4Bh AL=03h LOAD OVERLAY (ADR-0003 Amendment DEC-19; IBM DOS 3.30 TR
+ * pp. 6-196/197, 11-5): EDX -> the ASCIIZ path (resolved by do_exec exactly as
+ * AL=00h), EBX -> exec_overlay_block_t {load_addr, reloc_factor}. No PSP, no
+ * environment, no memory allocation, no execution, no InDOS hand-off (nothing
+ * runs). The block is MANDATORY (it carries the load address): NULL or
+ * unreadable -> 0009h (the DEC-14 user-pointer code). No backend bound ->
+ * 0002h, never a silent success. CF clear on success; AX is left unchanged
+ * (the TR documents no return value for a successful EXEC). */
+static void do_exec_overlay(int_frame_t *f, const char *leaf, uint16_t dir_start)
+{
+    uint32_t pb = f->ebx;
+    uint16_t err;
+    if (pb == 0u || !user_buf_ok(pb, (uint32_t)sizeof(exec_overlay_block_t))) {
+        err = INT21_ERR_INVALID_MEMORY;
+    } else if (g_overlay == 0) {
+        err = INT21_ERR_FILE_NOT_FOUND;
+    } else {
+        const exec_overlay_block_t *blk =
+            (const exec_overlay_block_t *)(uintptr_t)pb;
+        err = g_overlay(leaf, dir_start, blk->load_addr, blk->reloc_factor);
+    }
+    if (err != 0u) {
+        set_ax(f, err);
+        int21_note_error(err);           /* AH=59h GET EXTENDED ERROR */
+        cf_set(f);
+        return;
+    }
+    cf_clear(f);
+}
+
 static void do_exec(int_frame_t *f)
 {
     uint8_t sub = frame_al(f);
-    if (sub != 0x00u) {
-        /* AL=03h load-overlay + any other subfunction: out of scope (Rule 2). */
+    if (sub != 0x00u && sub != 0x03u) {
+        /* AL=00h load+execute and AL=03h load overlay are the two DOS 3.30
+         * subfunctions (TR p. 6-196); anything else is invalid (Rule 2). */
         set_ax(f, INT21_ERR_INVALID_FUNCTION);
         cf_set(f);
         return;
@@ -4466,6 +4552,10 @@ static void do_exec(int_frame_t *f)
         set_ax(f, perr);                 /* 0x0003 PATH_NOT_FOUND */
         int21_note_error(perr);          /* AH=59h GET EXTENDED ERROR */
         cf_set(f);
+        return;
+    }
+    if (sub == 0x03u) {
+        do_exec_overlay(f, leaf, dir_start);     /* DEC-19: load, never run */
         return;
     }
     if (g_exec == 0) {

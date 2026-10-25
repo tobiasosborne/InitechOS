@@ -164,6 +164,36 @@ _Static_assert(sizeof(exec_param_block_t) == 16,
                "exec_param_block_t must be 16 bytes (flat-32 DOS AH=4Bh block)");
 
 /* ------------------------------------------------------------------------ *
+ * AH=4Bh AL=03h LOAD OVERLAY parameter block (ADR-0003 Amendment DEC-19)
+ *
+ * Real DOS 3.30 (IBM TR p. 6-197, AL = 03H "Load overlay"): ES:BX ->
+ * {WORD segment address where file will be loaded; WORD relocation factor to
+ * be applied to the image}. On the flat substrate (DEC-04a) both WORD
+ * segments become flat 32-bit quantities, so the block is two dwords and
+ * AH=4Bh AL=03h receives EBX -> this block.
+ *
+ *   Offset Size Field
+ *   00h    4    Load address (flat linear; DOS: load segment)
+ *   04h    4    Relocation factor (flat; DOS: segment relocation factor)
+ *
+ * Relocation rule (DEC-19.3): for a TAGGED InitechMZ file each uint32
+ * relocation entry names a module-relative dword; reloc_factor is ADDED to
+ * that dword (DOS adds its segment factor to each fixup word). The common
+ * call passes reloc_factor == load_addr. A non-MZ file is copied verbatim and
+ * the factor is ignored, as DOS ignores it for a non-.EXE image.
+ * ------------------------------------------------------------------------ */
+
+#pragma pack(push, 1)
+typedef struct exec_overlay_block {
+	uint32_t load_addr;     /* 00h: flat linear load address                  */
+	uint32_t reloc_factor;  /* 04h: added to each InitechMZ relocated dword   */
+} exec_overlay_block_t;
+#pragma pack(pop)
+
+_Static_assert(sizeof(exec_overlay_block_t) == 8,
+               "exec_overlay_block_t must be 8 bytes (flat-32 AH=4Bh AL=03h block)");
+
+/* ------------------------------------------------------------------------ *
  * B.4 Drive Parameter Block (32 bytes; DOS 3.x) -- INT 21h AH=1Fh / AH=32h
  *
  *   Admitted 2026-10-17 (WL-0167, bead initech-dpb1) with the AH=32h

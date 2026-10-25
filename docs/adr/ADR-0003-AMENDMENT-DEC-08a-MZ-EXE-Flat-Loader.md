@@ -107,7 +107,10 @@ lives in `harness/` **only** — never in `os/milton/`, never on the execution p
 free differential/authenticity goldens (a real period `.EXE` header parses correctly) but
 **executes nothing** (bead `initech-dtw.3`).
 
-**DEC-08a.7 — Overlays deferred.** AH=4Bh AL=03h "load overlay" (the `DBASE.OVL` mechanism,
+<!-- Formatting promotion of the existing DEC-08a.7 prose block; content unchanged (initech-dewv: cited by the PROPOSED Amendment DEC-19, which would supersede it on ratification). -->
+### DEC-08a.7 — Overlays deferred.
+
+AH=4Bh AL=03h "load overlay" (the `DBASE.OVL` mechanism,
 ADR-0009 DEC-03) remains deferred (bead `initech-dtw.4`); the header and relocation
 machinery are defined so the overlay loader extends, not replaces, this format.
 

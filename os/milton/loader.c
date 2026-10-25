@@ -585,6 +585,118 @@ loader_status_t loader_prepare_tenant(uint8_t *block, uint32_t block_len,
 }
 
 /* ------------------------------------------------------------------------ *
+ * AH=4Bh AL=03h LOAD OVERLAY core (ADR-0003 Amendment DEC-19; see loader.h).
+ * Pure: every file byte comes through `rd`, every ownership question through
+ * `owns`, so the host oracle drives it over an in-memory file and a fake
+ * window. The header and relocation table are read into `scratch` in chunks
+ * of LOADER_OVL_SCRATCH/4 entries -- the destination receives exactly the
+ * footprint (TR p. 11-5: the caller allocated for "the program to be loaded",
+ * so not one byte of header or relocation table may land past it).
+ * ------------------------------------------------------------------------ */
+#define LOADER_OVL_CHUNK (LOADER_OVL_SCRATCH / 4u)
+
+/* Walk the relocation table in chunks. pass 0 validates every offset against
+ * the footprint (nothing written yet); pass 1 adds the factor. */
+static loader_status_t loader_ovl_relocs(loader_ovl_read_fn rd, void *ctx,
+                                         const mz_image_t *img, uint8_t *dest,
+                                         uint32_t reloc_factor,
+                                         uint8_t *scratch, int apply)
+{
+    uint32_t done = 0u;
+    while (done < img->reloc_count) {
+        uint32_t n = img->reloc_count - done;
+        if (n > LOADER_OVL_CHUNK) n = LOADER_OVL_CHUNK;
+        if (rd(ctx, img->reloc_table_off + done * 4u, n * 4u, scratch) != 0) {
+            return LOADER_ERR_READ;
+        }
+        if (apply) {
+#ifndef LOADER_MUTATE_OVL_NO_FACTOR
+            if (mz_apply_relocs(dest, img->load_module_len, reloc_factor,
+                                scratch, (uint16_t)n) != MZ_OK) {
+                return LOADER_ERR_BAD_FORMAT;
+            }
+#else
+            /* MUTANT (Rule 6; test-overlay-mutant / test-exec-overlay-mutant
+             * only): the relocation factor is never applied -- every relocated
+             * dword keeps its link-time value. The factor asserts (host) and the
+             * OVL-MZ-OK / OVL-FACTOR-OK markers (emu) MUST go RED. NEVER define
+             * in a real build. */
+            (void)dest; (void)reloc_factor;
+#endif
+        } else {
+            for (uint32_t i = 0u; i < n; i++) {
+                uint32_t off = mz_rd32(scratch + i * 4u);
+                if (off > img->load_module_len ||
+                    img->load_module_len - off < 4u) {
+                    return LOADER_ERR_BAD_FORMAT;   /* OOB fixup: write nothing */
+                }
+            }
+        }
+        done += n;
+    }
+    return LOADER_OK;
+}
+
+loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
+                                    uint32_t file_len, uint8_t *dest,
+                                    uint32_t load_linear, uint32_t reloc_factor,
+                                    loader_ovl_owns_fn owns, uint8_t *scratch,
+                                    uint32_t *out_len)
+{
+    mz_image_t img;
+    uint32_t len = file_len, src = 0u;
+    uint32_t head = file_len < MZ_MIN_HDR_READ ? file_len : MZ_MIN_HDR_READ;
+    int is_mz = 0;
+    loader_status_t st;
+
+    if (rd == 0 || owns == 0 || dest == 0 || scratch == 0 || out_len == 0) {
+        return LOADER_ERR_NULL_OUT;
+    }
+    if (head != 0u && rd(ctx, 0u, head, scratch) != 0) {
+        return LOADER_ERR_READ;
+    }
+    if (mz_is_mz(scratch, head)) {
+        /* mz_parse_header reads only bytes [0, MZ_MIN_HDR_READ) of its buffer
+         * and checks every extent against file_len (mz.c steps 2-9), so the
+         * header-only scratch copy is a sufficient view of the whole file. */
+        int ps = mz_parse_header(scratch, file_len, &img);
+        if (ps == MZ_OK) {
+            is_mz = 1;
+            src   = img.load_module_off;
+            len   = img.load_module_len;
+        } else if (ps == MZ_ERR_FOREIGN) {
+#ifndef LOADER_MUTATE_OVL_ACCEPT_FOREIGN
+            return LOADER_ERR_FOREIGN_MZ;   /* DEC-08a.5: the kernel panics */
+#endif
+            /* MUTANT (Rule 6): the untagged 16-bit MZ falls through and is
+             * copied as a raw file. NEVER define in a real build. */
+        } else {
+            return LOADER_ERR_BAD_FORMAT;
+        }
+    }
+    if (!owns(load_linear, len)) {
+        return LOADER_ERR_NOT_OWNED;        /* DEC-19.4: nothing read or written */
+    }
+    if (is_mz) {
+        st = loader_ovl_relocs(rd, ctx, &img, dest, reloc_factor, scratch, 0);
+        if (st != LOADER_OK) {
+            return st;
+        }
+    }
+    if (len != 0u && rd(ctx, src, len, dest) != 0) {
+        return LOADER_ERR_READ;
+    }
+    if (is_mz) {
+        st = loader_ovl_relocs(rd, ctx, &img, dest, reloc_factor, scratch, 1);
+        if (st != LOADER_OK) {
+            return st;
+        }
+    }
+    *out_len = len;
+    return LOADER_OK;
+}
+
+/* ------------------------------------------------------------------------ *
  * Kernel-only: image copy + PSP build + control transfer + return-to-loader.
  *
  * Compiled into the kernel (freestanding). In a HOSTED build (__STDC_HOSTED__)
@@ -652,6 +764,17 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
 {
     (void)name83; (void)dir_start; (void)carve; (void)user; (void)out;
     if (out_block) *out_block = 0;
+    return LOADER_ERR_NO_VOLUME;
+}
+
+/* Hosted stub (ADR-0003 Amendment DEC-19): the FAT find is kernel-only; the
+ * host oracle (test_overlay.c) drives the pure loader_overlay_core directly. */
+loader_status_t loader_load_overlay(const char *name83, uint16_t dir_start,
+                                    uint32_t load_linear, uint32_t reloc_factor,
+                                    loader_ovl_owns_fn owns)
+{
+    (void)name83; (void)dir_start; (void)load_linear; (void)reloc_factor;
+    (void)owns;
     return LOADER_ERR_NO_VOLUME;
 }
 
@@ -1272,6 +1395,9 @@ static uint32_t       g_load_fat_len = 0;
 static uint8_t  g_load_sector[BLOCKDEV_SECTOR_SIZE];
 static uint8_t  g_load_cluster[BLOCKDEV_SECTOR_SIZE];
 
+static loader_status_t loader_find_file(const char *name83, uint16_t dir_start,
+                                        dir_entry_t *de);
+
 void loader_bind_fat_volume(const struct fat12_volume *vol,
                             const uint8_t *fat, uint32_t fat_len)
 {
@@ -1323,18 +1449,11 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
      * case. We discard the returned slot (EXEC is read-only -- no dir write-back). */
     dir_entry_t de;
     int rc;
-    if (dir_start == 0u) {
-        rc = fat12_find(g_load_vol, g_load_sector, name83, &de);
-    } else {
-        uint32_t slot = 0u;
-        rc = fat12_find_slot_in(g_load_vol, g_load_fat, g_load_fat_len,
-                                dir_start, g_load_sector, name83, &de, &slot);
-    }
-    if (rc == FAT12_ERR_NOT_FOUND) {
-        return LOADER_ERR_NOT_FOUND;
-    }
-    if (rc != FAT12_OK) {
-        return LOADER_ERR_READ;
+    {
+        loader_status_t fst = loader_find_file(name83, dir_start, &de);
+        if (fst != LOADER_OK) {
+            return fst;
+        }
     }
 
     /* A leaf that resolves to a DIRECTORY is not a runnable program: refuse it
@@ -1344,10 +1463,9 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
      * Maps to 0x0002 (file not found) at the do_exec seam -- the DOS-authentic
      * "no runnable program here". The root case can only reach this for a root
      * directory entry, which no prior root-EXEC golden exercises (a .COM carries
-     * attr 0x00/0x20, never DIR_ATTR_DIRECTORY), so root EXEC stays byte-identical. */
-    if ((de.attribute & DIR_ATTR_DIRECTORY) != 0u) {
-        return LOADER_ERR_NOT_FOUND;
-    }
+     * attr 0x00/0x20, never DIR_ATTR_DIRECTORY), so root EXEC stays byte-identical.
+     * (The guard lives in loader_find_file, shared with the tenant and overlay
+     * loads -- ADR-0003 Amendment DEC-19.) */
 
     /* Reject before reading anything that cannot fit the program region. The SOLE
      * size bound is PROGRAM_IMAGE_MAX (~188 KiB = ENV_BLOCK - PROGRAM_IMAGE) --
@@ -1477,6 +1595,74 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
  * later class-2 text-tenant EXEC (ADR-0013 Sec 3.2). The carve goes through the
  * caller's callback so this object never learns about the FLAIR heap.
  * ------------------------------------------------------------------------ */
+/* Locate a plain file `name83` in the directory whose first cluster is
+ * `dir_start` (0 == root) on the bound volume: the find shared by the tenant
+ * and overlay loads (the same two fat12 calls load_program_from_fat makes).
+ * A directory entry is not a loadable file (LOADER_ERR_NOT_FOUND). */
+static loader_status_t loader_find_file(const char *name83, uint16_t dir_start,
+                                        dir_entry_t *de)
+{
+    int rc;
+    if (g_load_vol == 0) {
+        return LOADER_ERR_NO_VOLUME;
+    }
+    if (dir_start == 0u) {
+        rc = fat12_find(g_load_vol, g_load_sector, name83, de);
+    } else {
+        uint32_t slot = 0u;
+        rc = fat12_find_slot_in(g_load_vol, g_load_fat, g_load_fat_len,
+                                dir_start, g_load_sector, name83, de, &slot);
+    }
+    if (rc == FAT12_ERR_NOT_FOUND) {
+        return LOADER_ERR_NOT_FOUND;
+    }
+    if (rc != FAT12_OK) {
+        return LOADER_ERR_READ;
+    }
+    if ((de->attribute & DIR_ATTR_DIRECTORY) != 0u) {
+        return LOADER_ERR_NOT_FOUND;   /* a folder is not a loadable file */
+    }
+    return LOADER_OK;
+}
+
+/* loader_overlay_core's reader on the kernel: a positioned read of the
+ * located entry (ctx) through the shared FAT cache; a short read fails. */
+static int loader_ovl_fat_read(void *ctx, uint32_t off, uint32_t len,
+                               uint8_t *dst)
+{
+    uint32_t got = 0u;
+    if (fat12_read_partial(g_load_vol, g_load_fat, g_load_fat_len,
+                           (const dir_entry_t *)ctx, off, len, dst,
+                           g_load_cluster, &got) != FAT12_OK) {
+        return 1;
+    }
+    return got != len;
+}
+
+/* AH=4Bh AL=03h LOAD OVERLAY on the kernel (ADR-0003 Amendment DEC-19; see
+ * loader.h). The find's sector scratch is free once the entry is located, so
+ * it doubles as the core's header/relocation scratch (no new BSS). */
+_Static_assert(BLOCKDEV_SECTOR_SIZE >= LOADER_OVL_SCRATCH,
+               "g_load_sector must hold the overlay core's scratch");
+loader_status_t loader_load_overlay(const char *name83, uint16_t dir_start,
+                                    uint32_t load_linear, uint32_t reloc_factor,
+                                    loader_ovl_owns_fn owns)
+{
+    dir_entry_t de;
+    uint32_t len = 0u;
+    loader_status_t st = loader_find_file(name83, dir_start, &de);
+    if (st != LOADER_OK) {
+        return st;
+    }
+    st = loader_overlay_core(loader_ovl_fat_read, &de, de.file_size,
+                             (uint8_t *)(uintptr_t)load_linear, load_linear,
+                             reloc_factor, owns, g_load_sector, &len);
+    if (st == LOADER_ERR_FOREIGN_MZ) {
+        loader_panic_foreign_mz(name83);   /* DEC-08a.5 verbatim -- noreturn */
+    }
+    return st;
+}
+
 loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
                                    loader_carve_fn carve, void *user,
                                    void **out_block, tenant_plan_t *out)
@@ -1492,24 +1678,9 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
         return LOADER_ERR_NULL_OUT;
     }
     *out_block = 0;
-    if (g_load_vol == 0) {
-        return LOADER_ERR_NO_VOLUME;
-    }
-    if (dir_start == 0u) {
-        rc = fat12_find(g_load_vol, g_load_sector, name83, &de);
-    } else {
-        uint32_t slot = 0u;
-        rc = fat12_find_slot_in(g_load_vol, g_load_fat, g_load_fat_len,
-                                dir_start, g_load_sector, name83, &de, &slot);
-    }
-    if (rc == FAT12_ERR_NOT_FOUND) {
-        return LOADER_ERR_NOT_FOUND;
-    }
-    if (rc != FAT12_OK) {
-        return LOADER_ERR_READ;
-    }
-    if ((de.attribute & DIR_ATTR_DIRECTORY) != 0u) {
-        return LOADER_ERR_NOT_FOUND;   /* a folder is not a runnable tenant */
+    st = loader_find_file(name83, dir_start, &de);
+    if (st != LOADER_OK) {
+        return st;                     /* no volume / absent / a folder / read */
     }
     if (de.file_size == 0u || de.file_size > (uint32_t)TBX_TENANT_IMAGE_MAX) {
         return LOADER_ERR_TOO_BIG;
