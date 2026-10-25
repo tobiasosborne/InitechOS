@@ -14,3 +14,7 @@
 # here, after every TEST_UNIT_GATES / TEST_EMU_GATES += of every fragment.
 GATE_VECTOR := $(sort $(TEST_UNIT_GATES) $(TEST_EMU_GATES))
 $(foreach g,$(GATE_VECTOR),$(foreach m,$(filter $(g)-mutant $(g)-mutants,$(GATE_VECTOR)),$(eval $(m): $(g))))
+# An emulator mutant of a gate that has no separate -emu leg shares the gate's
+# scratch the same way (test-conkeys-emu-mutant vs test-conkeys: both drive
+# conkeys.sh into build/conkeys/ under the harness name "conkeys").
+$(foreach g,$(GATE_VECTOR),$(if $(filter $(g)-emu,$(GATE_VECTOR)),,$(foreach m,$(filter $(g)-emu-mutant,$(GATE_VECTOR)),$(eval $(m): $(g)))))
