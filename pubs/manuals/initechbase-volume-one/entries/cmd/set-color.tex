@@ -1,0 +1,26 @@
+% HELP.DBS SET COLOR 1390-1398; set-commands.md SET COLOR; PM wave-1 recovery.
+\begin{XbaseEntry}{COLOR}{set}
+Chooses the colors or display attributes used for text on the screen.
+\Syntax
+\SyntaxLine{\kw{SET COLOR TO} \opt{\xp{standard}}\opt{\kw{,}\xp{enhanced}}\opt{\kw{,}\xp{border}}\opt{\kw{,}\xp{background}}}
+\Defaults
+White on black for standard text, black on white for enhanced text, and black
+for the border and background.
+\Usage
+An attribute is a foreground color followed by a slash and a background color.
+The letters are N (black), B (blue), G (green), BG (cyan), R (red), RB
+(magenta), GR or RG (brown), and W (white). Add + for an intense foreground
+or * for blinking. U, I, and X give monochrome underline, inverse, and blank
+attributes respectively.
+
+The four positions select standard text, enhanced text, border, and background.
+An omitted position keeps its previous attribute. The standard attribute is
+applied to subsequent screen output; the other attributes are retained in the
+session. SET COLOR TO with nothing after TO restores the defaults. A malformed
+attribute raises \xmsg{10}{Syntax error.} and changes none of the attributes.
+Choosing white on black does not change the result of \fn{ISCOLOR()}.
+\Examples
+\DotExample{examples/c-setcolor}
+\SeeAlso{ISCOLOR(), SET CONSOLE}
+\end{XbaseEntry}
+

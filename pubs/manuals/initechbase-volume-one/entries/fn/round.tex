@@ -1,0 +1,14 @@
+% ROUND -- os/samir/core/fn_builtins.c fn_round (l.886-936)
+\begin{XbaseEntry}{ROUND}{function}
+Rounds a number to a given number of decimal places, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{ROUND(}\xp{expN1}\kw{,} \xp{expN2}\kw{)}}
+\Usage
+\xp{expN2} is the number of places to keep to the right of the decimal point. A negative \xp{expN2} rounds to the left of the point: -2 rounds to the nearest hundred. A fractional part of \xp{expN2} is dropped. A value exactly half-way between two results is rounded toward the larger number: ROUND(2.5,0) is 3 and ROUND(-2.5,0) is -2. Both arguments must be numeric, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+
+SET DECIMALS governs only how a computed fractional number is displayed; it does not change the value that ROUND() returns.
+\Examples
+\DotExample{examples/fn-round}
+\SeeAlso{INT(), STR(), MOD(), SET DECIMALS}
+\end{XbaseEntry}
+

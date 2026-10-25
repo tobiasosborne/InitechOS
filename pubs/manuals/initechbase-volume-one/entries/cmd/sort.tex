@@ -1,0 +1,32 @@
+% SORT -- os/samir/cmd/mutate.c d_sort (TO <file> ON <field>, default .DBF;
+% ascending; Character, Numeric or Date field; a memo field refuses, 34;
+% unknown field 48; character key over 100, 23; SAFETY ON refuses an
+% existing target, 7; records taken in master-index order, equal keys kept
+% in that order).  Lane samirdml 14a8fc75.  Gates: test-samir-dml,
+% test-samir-dml-emu.
+\begin{XbaseEntry}{SORT}{command}
+Copies the database in USE to a new database, in the order of a field.
+\Syntax
+\SyntaxLine{\kw{SORT TO} \xp{file} \kw{ON} \xp{field}}
+\Usage
+\cmd{SORT} writes every record of the database in the selected work area to
+a new database, in ascending order of the field named.  If no extension is
+given, \file{.DBF} is assumed.  The field must be of type Character, Numeric
+or Date; records with equal values keep the order in which they were read.
+The database in USE is not changed.
+
+A database with a memo field cannot be sorted (\xmsg{34}{Operation with
+Memo field invalid.}).  A field the database does not have is reported as
+\xmsg{48}{Field not found.}, and a character field of more than 100
+characters as \xmsg{23}{Index is too big (100 char maximum).}  While SET
+SAFETY is ON, a database of the new name is not replaced
+(\xmsg{7}{File already exists.}).
+\Examples
+The ledger in order of due date.  The due dates keyed with the year 00 are
+stored as 1900 (see \cmd{SET CENTURY}), and so come first:
+\DotExample{examples/c-sort}
+\file{STAFF.DBF} has a memo field, \texttt{NOTES}, and cannot be sorted:
+\DotExample{examples/c-sort-2}
+\SeeAlso{INDEX, TOTAL}
+\end{XbaseEntry}
+

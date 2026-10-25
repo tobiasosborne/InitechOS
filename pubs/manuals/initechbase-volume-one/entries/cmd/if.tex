@@ -1,0 +1,33 @@
+% IF -- os/samir/cmd/flow.c LK_IF/LK_ELSE/LK_ENDIF (guard must be Logical,
+% #37; program lines only).  Gate: test-interp-flow.
+\begin{XbaseEntry}{IF}{command}
+\XAlso{ELSE}{ELSE}\XAlso{ENDIF}{ENDIF}%
+Carries out one of two groups of commands in a program, according to a
+condition.
+\Syntax
+\SyntaxLine{\kw{IF} \xp{condition}}
+\SyntaxLine{\ \ \xp{commands}}
+\SyntaxLine{\opt{\kw{ELSE}}}
+\SyntaxLine{\ \ \opt{\xp{commands}}}
+\SyntaxLine{\kw{ENDIF}}
+\Usage
+When the condition is true, the commands between \cmd{IF} and \cmd{ELSE} (or
+\cmd{ENDIF}) are carried out.  When it is false, the commands between
+\cmd{ELSE} and \cmd{ENDIF} are carried out, if there is an \cmd{ELSE}.  The
+program then goes on after \cmd{ENDIF}.
+
+The condition must be a logical expression: a field of type Logical, a
+comparison, or a logical function such as \fn{EOF()}.  InitechBase does not
+treat a number or a string as true or false; a condition of another type stops
+the program with \xmsg{37}{Not a Logical expression.}
+
+\cmd{IF} is used only in programs.  \cmd{IF} structures may be nested inside one
+another and inside \cmd{DO WHILE} and \cmd{DO CASE}; each \cmd{IF} needs its own
+\cmd{ENDIF}.
+\Examples
+\file{PAYTOTAL.PRG}, listed under \cmd{DO WHILE}, uses \cmd{IF} twice: to skip
+the deleted records and to add each salary to one of two totals:
+\DotExample{examples/c-if}
+\SeeAlso{DO CASE, DO WHILE, IIF()}
+\end{XbaseEntry}
+

@@ -1,0 +1,25 @@
+% SET EXACT -- os/samir/cmd/set.c do_set_exact (ctx->set_exact; eval.c
+% C = C begins-with rule; ndx_seek).  Gates: test-interp-set,
+% test-xbase-eval.
+\begin{XbaseEntry}{EXACT}{set}
+Determines how character strings are compared.
+\Syntax
+\SyntaxLine{\kw{SET EXACT} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF.
+\Usage
+With SET EXACT OFF, the comparison \xp{expC1} \texttt{=} \xp{expC2} is true
+when \xp{expC1} begins with \xp{expC2}: \texttt{'SMYKOWSKI' = 'SMY'} is true.
+The string on the right decides how many characters are compared, so an empty
+string on the right equals every string.  With SET EXACT ON, the two strings
+must be the same, apart from trailing blanks.  \texttt{<>} and \texttt{\#}
+follow the same rule, and so do \cmd{SEEK} and \cmd{FIND}.
+
+The setting does not affect \texttt{<}, \texttt{>}, \texttt{<=}, \texttt{>=} or
+the substring operator \texttt{\$}.  Capital and small letters are always
+different.
+\Examples
+\DotExample{examples/c-setexact}
+\SeeAlso{SEEK, FIND, AT()}
+\end{XbaseEntry}
+

@@ -1,0 +1,26 @@
+% SET STATUS -- os/samir/cmd/set.c (ctx->set_status) ->
+% samir_status_refresh -> pal_milton.c milton_status / core/screen.c
+% samir_screen_status (row 23: "Command Line", drive, database, Rec: n/m;
+% the dot prompt scrolls in rows 1-22).  Gates: test-samir-status,
+% test-samir-screen-emu.
+\begin{XbaseEntry}{STATUS}{set}
+Displays or removes the status bar at the bottom of the screen.
+\Syntax
+\SyntaxLine{\kw{SET STATUS} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF.
+\Usage
+With SET STATUS ON, InitechBase clears the screen and keeps the two bottom
+lines for itself.  The status bar, in reverse video, shows \texttt{Command
+Line}, the current drive, the name of the database in USE in the selected
+work area, and the current record number with the number of records
+(\texttt{Rec: 3/13}).  The line below it is a guidance line.  Commands and their
+output scroll in the lines above.  The status bar is brought up to date after
+every command.
+
+SET STATUS OFF removes the status bar; output then uses the whole screen.
+\cmd{CLOSE} and \cmd{QUIT} also remove it.  The status bar appears only on the
+screen; it is never part of output that is redirected to a file.
+\SeeAlso{RECNO(), RECCOUNT(), DBF()}
+\end{XbaseEntry}
+

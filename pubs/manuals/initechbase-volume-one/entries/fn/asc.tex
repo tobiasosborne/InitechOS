@@ -1,0 +1,14 @@
+% ASC -- os/samir/core/fn_builtins.c fn_asc (l.327-335)
+\begin{XbaseEntry}{ASC}{function}
+Returns the character code of the leftmost character of a character string, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{ASC(}\xp{expC}\kw{)}}
+\Usage
+The result is a whole number from 0 through 255. Only the first character of \xp{expC} is examined. The ASC of an empty string is 0. A memo field is accepted as the argument. An argument that is not a character expression raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+Codes of single characters, and the character that follows the first letter of a name:
+\DotExample{examples/fn-asc}
+\DotExample{examples/fn-asc-2}
+\SeeAlso{CHR(), LEFT(), SUBSTR()}
+\end{XbaseEntry}
+

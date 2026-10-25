@@ -1,0 +1,14 @@
+% FOUND -- os/samir/core/fn_builtins.c fn_found (l.1951-1956)
+\begin{XbaseEntry}{FOUND}{function}
+Returns a logical value that is true when the most recent search in the selected work area found a record.
+\Syntax
+\SyntaxLine{\kw{FOUND()}}
+\Usage
+\fn{FOUND()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The value is set by SEEK, FIND, LOCATE and CONTINUE. Immediately after a database is opened with USE, and with no database in USE, it is .F.
+\Examples
+A search on the name index that succeeds, and one that fails and leaves the pointer at the end of the file:
+\DotExample{examples/fn-found}
+\DotExample{examples/fn-found-2}
+\SeeAlso{EOF(), RECNO(), SEEK, FIND, LOCATE, CONTINUE}
+\end{XbaseEntry}
+

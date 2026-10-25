@@ -1,0 +1,26 @@
+% RETURN -- os/samir/cmd/proc.c PROC_RC_RETURN (leaves the routine, out of any
+% IF / DO WHILE; at the main level ends the program); TO MASTER,
+% PROC_RC_RETURN_MASTER (real III+ 1.1 mint samirctl MASTER.TXT).  Gates:
+% test-interp-proc, test-samir-ctl.
+\begin{XbaseEntry}{RETURN}{command}
+Ends a procedure or a program and returns to the one that called it.
+\Syntax
+\SyntaxLine{\kw{RETURN} \opt{\kw{TO MASTER}}}
+\Usage
+In a procedure, \cmd{RETURN} ends the procedure at once, even inside an
+\cmd{IF} or a \cmd{DO WHILE}, and the calling program goes on with the line
+after its \cmd{DO}.  The private memory variables of the procedure are
+released.  In the main program of a program file, \cmd{RETURN} ends the program
+and InitechBase returns to the dot prompt.
+
+Every procedure ends with \cmd{RETURN}, and so does the main program of a file
+that contains procedures.  At the dot prompt, \cmd{RETURN} does nothing.
+
+\kw{TO MASTER} returns past every calling procedure to the main program
+started at the dot prompt, which goes on with the line after its own
+\cmd{DO}.
+\Examples
+See \cmd{DO}.
+\SeeAlso{DO, PROCEDURE, PRIVATE}
+\end{XbaseEntry}
+

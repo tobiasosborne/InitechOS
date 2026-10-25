@@ -1,0 +1,12 @@
+% RECNO -- os/samir/core/fn_builtins.c fn_recno (l.1884-1900)
+\begin{XbaseEntry}{RECNO}{function}
+Returns the number of the current record of the database in the selected work area, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{RECNO()}}
+\Usage
+\fn{RECNO()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. Records are numbered from 1 in the order in which they are stored, whatever index is active. At the end of the file the value is one more than RECCOUNT(). With no database in USE the value is 0 and no error is raised.
+\Examples
+\DotExample{examples/fn-recno}
+\SeeAlso{RECCOUNT(), EOF(), BOF(), GO}
+\end{XbaseEntry}
+

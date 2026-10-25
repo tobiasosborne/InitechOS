@@ -1,0 +1,45 @@
+% REPLACE -- os/samir/cmd/mutate.c m_replace (default the current record;
+% field WITH expr pairs; xbase_coercion.json assignment rules via
+% dbf_replace; #9 cross-type; numeric overflow '*'; indexes updated on the
+% current-record form).  Gates: test-interp-replace, test-dbf-mutate.
+\begin{XbaseEntry}{REPLACE}{command}
+Changes the contents of fields.
+\Syntax
+\SyntaxLine{\kw{REPLACE} \opt{\xp{scope}} \xp{field} \kw{WITH} \xp{exp}
+  \opt{\kw{,} \xp{field} \kw{WITH} \xp{exp} \rep}
+  \opt{\kw{FOR} \xp{condition}} \opt{\kw{WHILE} \xp{condition}}}
+\Defaults
+Without a scope or a condition, \cmd{REPLACE} changes the current record
+only.  With a \kw{FOR} condition and no scope, the scope is \kw{ALL}.
+\Usage
+For each record of the scope that meets the conditions, \cmd{REPLACE}
+evaluates each expression and stores its value in the field before
+\kw{WITH}.  The expressions are evaluated for the record being changed, so
+\texttt{SALARY WITH SALARY * 1.03} raises each salary by three per cent.  The
+changed records are written to the disk at once.
+
+The value must be of the type of the field: a character value into a
+character field, a number into a numeric field, a date into a date field, a
+logical value into a logical field.
+\draft{a character value replaced into a memo field is not stored by this
+version, and the text the field held is lost (mutate.c); change memo text with
+another program}  Any other combination is
+refused with \xmsg{9}{Data type mismatch.} (Appendix~E).  A character value
+longer than the field is cut off at the width of the field; a shorter one is
+filled with blanks.  A number too large for its field is stored as asterisks.
+
+When the current record is replaced, every index file open with the database
+is updated for the new contents of the fields.
+\Tips
+Convert values of another type first: \fn{STR()} turns a number into
+characters, \fn{VAL()} characters into a number, \fn{CTOD()} characters into
+a date.
+\Examples
+\DotExample{examples/c-replace}
+A scope and a condition change several records at once:
+\DotExample{examples/c-replace-2}
+A value of the wrong type is refused:
+\DotExample{examples/c-replace-3}
+\SeeAlso{APPEND, STORE, STR(), VAL(), CTOD()}
+\end{XbaseEntry}
+

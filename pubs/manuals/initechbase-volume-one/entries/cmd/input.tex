@@ -1,0 +1,26 @@
+% INPUT -- os/samir/cmd/proc.c p_input (prompt, one line, EVALUATED as an
+% expression; the memvar takes its type).  Gate: test-interp-proc.
+\begin{XbaseEntry}{INPUT}{command}
+Displays a prompt, reads an expression typed at the keyboard and stores its
+value in a memory variable.
+\Syntax
+\SyntaxLine{\kw{INPUT} \opt{\xp{expC}} \kw{TO} \xp{memvar}}
+\Usage
+\cmd{INPUT} displays the prompt \xp{expC}, if one is given, and waits for a
+line ending with \key{Enter}.  The line is evaluated as an expression, and its
+value is stored in \xp{memvar}, which takes the type of the value.  A number
+typed in answer gives a numeric memory variable.  A character string must be
+typed in quotation marks; a date is typed as a call of \fn{CTOD()}; a logical
+value as \texttt{.T.} or \texttt{.F.}.
+
+Because the answer is an expression, it may also be a calculation, a field
+name or a memory variable.  The answer must be a valid InitechBase
+expression.
+\Tips
+Use \cmd{ACCEPT} for character answers: the user need not type quotation
+marks.
+\Examples
+\DotExample{examples/c-input}
+\SeeAlso{ACCEPT, WAIT, STORE, CTOD()}
+\end{XbaseEntry}
+

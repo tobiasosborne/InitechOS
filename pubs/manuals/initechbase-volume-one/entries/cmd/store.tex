@@ -1,0 +1,28 @@
+% STORE and = -- os/samir/cmd/flow.c "STORE" and "<name> = <expr>"
+% (xb_interp_store: create or update, type from the value).  Gate:
+% test-interp-flow.
+\begin{XbaseEntry}{STORE}{command}
+Stores a value in one or more memory variables.
+\Syntax
+\SyntaxLine{\kw{STORE} \xp{exp} \kw{TO} \xp{memvar list}}
+\par or\par
+\SyntaxLine{\xp{memvar} \kw{=} \xp{exp}}
+\Usage
+\cmd{STORE} evaluates the expression and stores its value in each memory
+variable of the list.  A memory variable that does not exist is created; one
+that exists receives the new value, whatever its type was.  The memory
+variable takes the type of the value: character, numeric, date or logical.
+
+The second form stores the value in one memory variable.  It does the same as
+\cmd{STORE}.
+
+A memory variable name has up to 10 letters, digits and underscores, and
+begins with a letter.  Do not give a memory variable the name of a field of the
+database in USE: in an expression the field of the current record is found
+first, and the memory variable cannot be reached.  The programs of this manual
+begin the names of their memory variables with the letter M.
+\Examples
+\DotExample{examples/c-store}
+\SeeAlso{RELEASE, PUBLIC, PRIVATE, ACCEPT, INPUT, REPLACE}
+\end{XbaseEntry}
+

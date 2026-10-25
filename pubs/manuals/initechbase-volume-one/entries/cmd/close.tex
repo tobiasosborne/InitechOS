@@ -1,0 +1,41 @@
+% CLOSE -- os/samir/samir_main.c repl_do_close (Using III+ U5-53/PDF 165:
+% CLOSE <file type> / ALL.  ALL and DATABASES close every database with its
+% indexes; INDEX closes the index files of every work area and leaves the
+% databases open in natural order; ALTERNATE, FORMAT and PROCEDURE are
+% accepted and close nothing -- SET ALTERNATE TO closes the alternate file,
+% observed in the replay; any other word, or none, is 10).  Lane samirdml 14a8fc75.
+% Gates: test-samir-repl, test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{CLOSE}{command}
+Closes the open files of one type, or all of them.
+\Syntax
+\SyntaxLine{\kw{CLOSE} \xp{file type}}
+\par or\par
+\SyntaxLine{\kw{CLOSE ALL}}
+\Usage
+\cmd{CLOSE} is followed by one of the words \kw{ALL}, \kw{DATABASES},
+\kw{INDEX}, \kw{ALTERNATE}, \kw{FORMAT} or \kw{PROCEDURE}.  Memory variables
+are not affected by any of them.
+
+\cmd{CLOSE ALL} and \cmd{CLOSE DATABASES} close the database open in every
+work area, with its index files.  Afterwards no database is in USE in any
+work area.
+
+\cmd{CLOSE INDEX} closes the index files of every work area and leaves the
+databases open.  Each database is then read in the order of its records
+until an index file is opened again with \cmd{SET INDEX} or \cmd{USE}.
+
+\cmd{CLOSE ALTERNATE}, \cmd{CLOSE FORMAT} and \cmd{CLOSE PROCEDURE} are
+accepted and close nothing in this version.  Close the alternate file with
+\cmd{SET ALTERNATE TO}, without a file name.  \cmd{CLOSE} without a word, or with any other word,
+is reported as \xmsg{10}{Syntax error.}
+\Tips
+To close only the database of the selected work area, type \cmd{USE} with no
+file name.
+\Examples
+\DotExample{examples/c-close}
+With its index file closed, the database is read in the order of its
+records again:
+\DotExample{examples/c-close-2}
+\SeeAlso{QUIT, SELECT, USE, SET INDEX}
+\end{XbaseEntry}
+

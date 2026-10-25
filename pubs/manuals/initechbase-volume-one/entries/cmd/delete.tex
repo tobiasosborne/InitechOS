@@ -1,0 +1,26 @@
+% DELETE -- os/samir/cmd/mutate.c m_delete (default the current record;
+% FOR without a scope = ALL; marks with 0x2A, written at once).
+% Gate: test-interp-replace, test-dbf-mutate.
+\begin{XbaseEntry}{DELETE}{command}
+Marks records of the database in USE for deletion.
+\Syntax
+\SyntaxLine{\kw{DELETE} \opt{\xp{scope}} \opt{\kw{FOR} \xp{condition}}
+  \opt{\kw{WHILE} \xp{condition}}}
+\Defaults
+Without a scope or a condition, \cmd{DELETE} marks the current record only.
+With a \kw{FOR} condition and no scope, the scope is \kw{ALL}.
+\Usage
+A record marked for deletion stays in the database.  \cmd{LIST} and
+\cmd{DISPLAY} show it with an asterisk in front of its record number, and the
+function \fn{DELETED()} is true for it.  \cmd{RECALL} removes the mark;
+\cmd{PACK} removes the marked records from the database for good.
+
+While SET DELETED is ON, the commands that process records leave out the
+records marked for deletion.
+
+The mark is written to the disk at once.
+\Examples
+\DotExample{examples/c-delete}
+\SeeAlso{PACK, RECALL, SET DELETED, ZAP, DELETED()}
+\end{XbaseEntry}
+

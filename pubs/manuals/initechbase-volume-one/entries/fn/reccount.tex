@@ -1,0 +1,12 @@
+% RECCOUNT -- os/samir/core/fn_builtins.c fn_reccount (l.1911-1917)
+\begin{XbaseEntry}{RECCOUNT}{function}
+Returns the number of records in the database in the selected work area, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{RECCOUNT()}}
+\Usage
+\fn{RECCOUNT()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The count is the number of records stored in the file, including those marked for deletion; neither SET FILTER nor SET DELETED changes it. It is 0 for an empty database and with no database in USE, where no error is raised.
+\Examples
+\DotExample{examples/fn-reccount}
+\SeeAlso{RECNO(), EOF(), DELETED(), COUNT}
+\end{XbaseEntry}
+

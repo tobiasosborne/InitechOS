@@ -1,0 +1,12 @@
+% ISUPPER -- os/samir/core/fn_builtins.c fn_isupper (l.1353-1363)
+\begin{XbaseEntry}{ISUPPER}{function}
+Returns a logical value that is true when a character string begins with an upper-case letter.
+\Syntax
+\SyntaxLine{\kw{ISUPPER(}\xp{expC}\kw{)}}
+\Usage
+Only the first character is examined; it must be one of A through Z. The result is .F. for an empty string and for a first character that is not a letter. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-isupper}
+\SeeAlso{ISLOWER(), ISALPHA(), UPPER()}
+\end{XbaseEntry}
+

@@ -1,0 +1,46 @@
+% DO -- os/samir/samir_main.c repl_try_do_file (DO <name> at the dot prompt
+% runs <name>.PRG from the disk; 8191-byte cap, #18) and os/samir/cmd/proc.c
+% p_do / p_call (a PROCEDURE of the program running; WITH arguments by value;
+% #16 unknown target).  Gates: test-samir-canon-y2k, test-interp-proc.
+\begin{XbaseEntry}{DO}{command}
+Runs a program file, or a procedure of the program that is running.
+\Syntax
+\SyntaxLine{\kw{DO} \xp{program}}
+\par or\par
+\SyntaxLine{\kw{DO} \xp{procedure} \opt{\kw{WITH} \xp{expression list}}}
+\Usage
+At the dot prompt, \cmd{DO} \xp{program} reads the program file
+\xp{program}\texttt{.PRG} from the disk and runs it.  You need not type the
+extension.  The program runs from its first line until it reaches
+\cmd{RETURN}, its first \cmd{PROCEDURE} or its last line; then the dot prompt
+returns.  A program file may hold at most 8,191 characters; a larger file is
+refused with \xmsg{18}{Line exceeds maximum of 254 characters.}
+
+In a program, \cmd{DO} \xp{procedure} runs a procedure of the same program
+file: the lines that follow its \cmd{PROCEDURE} line, up to the next
+\cmd{RETURN}.  When the procedure returns, the program goes on with the line
+after the \cmd{DO}.  Procedures may call other procedures, and themselves.  At
+most 20 \cmd{DO} commands may be in progress at once, counting the program
+started at the dot prompt; the \cmd{DO} that would begin a twenty-first is
+refused with \xmsg{103}{DOs nested too deep.}
+
+\kw{WITH} passes the values of the expressions to the procedure, which
+receives them in the memory variables of its \cmd{PARAMETERS} line, in order.
+The procedure receives a copy of each value: a change it makes to a parameter
+does not change the expression that was passed.
+\draft{a character constant written directly in the WITH list is not passed
+intact by this version (proc.c); pass a character value
+through a memory variable or an expression}
+
+A name that is neither a program file on the disk nor a procedure of the
+program running is refused with \xmsg{16}{*** Unrecognized command verb.}
+\Tips
+The programs that come with InitechBase work on the database already in USE:
+open it at the dot prompt with \cmd{USE} before you type \cmd{DO}.
+\Examples
+\file{RAISE.PRG} calls its procedure \texttt{NEWSAL} with two values:
+\ProgramListing{RAISE.PRG}
+\DotExample{examples/c-do}
+\SeeAlso{PARAMETERS, PROCEDURE, RETURN, PUBLIC, PRIVATE}
+\end{XbaseEntry}
+

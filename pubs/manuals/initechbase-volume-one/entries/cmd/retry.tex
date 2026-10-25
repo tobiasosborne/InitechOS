@@ -1,0 +1,19 @@
+% RETRY -- os/samir/cmd/proc.c "RETRY" (PROC_RC_RETRY; the caller runs its DO
+% again, or for the procedure ON ERROR called, the failed line; ERROR() is
+% cleared; real III+ 1.1 mint samirctl RETRYM.TXT).  Gate: test-samir-ctl.
+\begin{XbaseEntry}{RETRY}{command}
+Returns to the calling program and carries out the calling line again.
+\Syntax
+\SyntaxLine{\kw{RETRY}}
+\Usage
+\cmd{RETRY} ends the procedure like \cmd{RETURN}, but the program that
+called it carries out the \cmd{DO} line again instead of going on with the
+next line.  In a procedure called by \cmd{ON ERROR}, the line carried out
+again is the line in which the error occurred: the procedure can correct the
+cause of the error and try once more.  \cmd{RETRY} sets \fn{ERROR()} to 0.
+
+A line that fails every time is tried again without end; press \key{Esc} to
+interrupt the program.
+\SeeAlso{ON ERROR, ERROR(), RETURN}
+\end{XbaseEntry}
+

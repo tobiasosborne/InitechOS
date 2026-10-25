@@ -1,0 +1,13 @@
+% ERROR -- os/samir/core/fn_builtins.c xb_call_builtin (l.2095-2100); os/samir/cmd/proc.c proc_fire_onerror
+\begin{XbaseEntry}{ERROR}{function}
+Returns the number of the error being handled by an ON ERROR command, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{ERROR()}}
+\Usage
+\fn{ERROR()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The function returns the number of the last error handled by the command named in ON ERROR, while that command runs and afterwards. Before any error has been handled the result is 0.
+\Examples
+The ON ERROR command stores the number of the error in a memory variable; no message is displayed, and the number remains after the command:
+\DotExample{examples/fn-error}
+\SeeAlso{MESSAGE(), ON ERROR, CHR()}
+\end{XbaseEntry}
+

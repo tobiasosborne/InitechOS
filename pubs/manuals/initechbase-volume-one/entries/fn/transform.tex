@@ -1,0 +1,24 @@
+% TRANSFORM -- os/samir/core/fn_builtins.c fn_transform (l.1784-1840), tr_format_numeric (l.1509-1735), tr_format_char (l.1759-1780), tr_parse_at_flags (l.1454-1480)
+\begin{XbaseEntry}{TRANSFORM}{function}
+Formats a number or a character string according to a picture, as a character string.
+\Syntax
+\SyntaxLine{\kw{TRANSFORM(}\xp{expN}\kw{,} \xp{expC}\kw{)}}
+\SyntaxLine{\kw{TRANSFORM(}\xp{expC1}\kw{,} \xp{expC2}\kw{)}}
+\Usage
+The second argument is the picture and must be a character expression. A picture may begin with a function clause, which is the character @ followed by letters and ended by one blank; the rest is the template. The template, not the clause, sets the length of the result.
+
+For a number, each 9 or \# in the template is a digit position, a decimal point and any other character are copied, and the digits are placed from the right. A \$ is a digit position that, when the number is shorter than the template, is replaced by a \$ on the left of the number, together with any comma in that stretch. A negative sign is written in the free position to the left of the first digit; when no free position remains, every digit position becomes an asterisk, and so it does when the number has too many digits. With a decimal point in the template, the integer digits of the number must leave at least one digit position spare, or the result is filled with asterisks.
+
+The function letters are: ( , which encloses a negative number in parentheses and, for a negative number only, widens the result by two characters; X, which adds the characters DB after a negative number and widens the result by three; C, which adds CR after a number that is not negative and widens the result by three; and B, which moves the number to the left of its field. Other letters in the clause are ignored.
+
+For a character string, each position of the template yields one character: ! gives the source character at that position in upper case, X, A and N give it unchanged, and any other character is copied from the template in place of the source character. A source shorter than the template is filled out with blanks and a longer one is cut off. A picture of no characters gives an empty string.
+
+A first argument that is not a number or a character string, such as a date or a logical value, raises \xmsg{9}{Data type mismatch.}, as does a picture that is not a character string. A call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+Sign handling, the clauses ( and C, and a floating dollar sign:
+\DotExample{examples/fn-transform}
+A character source converted to upper case, and a number too wide for its picture:
+\DotExample{examples/fn-transform-2}
+\SeeAlso{STR(), VAL(), UPPER(), LTRIM()}
+\end{XbaseEntry}
+

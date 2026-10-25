@@ -1,0 +1,18 @@
+% RESUME -- os/samir/samir_main.c repl_loop (nested dot prompt of a program
+% suspended from the Esc prompt; 101 when none is; real III+ 1.1 mint
+% samirctl ESCS.TXT).  Gate: test-samir-ctl.
+\begin{XbaseEntry}{RESUME}{command}
+Continues a suspended program.
+\Syntax
+\SyntaxLine{\kw{RESUME}}
+\Usage
+When \key{Esc} interrupts a program and you answer \key{S} (Suspend),
+InitechBase displays \texttt{Do suspended} and the dot prompt, with the
+program, its memory variables and its databases left as they were.  Any
+command may then be typed.  \cmd{RESUME} continues the program at the line
+where it was interrupted; \cmd{CANCEL} ends it instead.
+
+With no program suspended, \cmd{RESUME} displays \xmsg{101}{Not suspended.}
+\SeeAlso{CANCEL, SET ESCAPE}
+\end{XbaseEntry}
+

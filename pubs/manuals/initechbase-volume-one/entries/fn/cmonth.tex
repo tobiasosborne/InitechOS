@@ -1,0 +1,12 @@
+% CMONTH -- os/samir/core/fn_builtins.c fn_cmonth (l.1093-1103)
+\begin{XbaseEntry}{CMONTH}{function}
+Returns the name of the month of a date, as a character string.
+\Syntax
+\SyntaxLine{\kw{CMONTH(}\xp{expD}\kw{)}}
+\Usage
+The name is in English, with a capital first letter, from January through December. The CMONTH of a blank date is an empty string. The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-cmonth}
+\SeeAlso{CDOW(), MONTH(), YEAR(), DTOC()}
+\end{XbaseEntry}
+

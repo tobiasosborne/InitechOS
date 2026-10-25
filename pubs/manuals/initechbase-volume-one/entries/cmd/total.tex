@@ -1,0 +1,29 @@
+% TOTAL -- os/samir/cmd/mutate.c d_total (ON <field> TO <file>; one record
+% per run of equal key values in master-index order, numeric fields summed,
+% the others from the first record of the run; memo refuses, 34; unknown
+% field 48; SAFETY 7).  Lane samirdml 14a8fc75.  Gates: test-samir-dml,
+% test-samir-dml-emu.
+\begin{XbaseEntry}{TOTAL}{command}
+Summarizes the numeric fields of the database in USE into a new database.
+\Syntax
+\SyntaxLine{\kw{TOTAL ON} \xp{key field} \kw{TO} \xp{file}}
+\Usage
+\cmd{TOTAL} reads the database in the selected work area in its present
+order and writes one record to the new database for each group of
+consecutive records with the same value in the key field.  The numeric
+fields of the new record hold the sums of the group; the other fields come
+from the first record of the group.  If no extension is given, \file{.DBF}
+is assumed.  Use the database sorted or indexed on the key field, so that
+equal values are together.
+
+A database with a memo field cannot be totaled (\xmsg{34}{Operation with
+Memo field invalid.}), and a key field it does not have is reported as
+\xmsg{48}{Field not found.}  While SET SAFETY is ON, a database of the new
+name is not replaced (\xmsg{7}{File already exists.}).
+\Examples
+The batch of new invoices, \file{ARBATCH.DBF}, totaled by customer.  The
+two invoices of HARTWELL become one record:
+\DotExample{examples/c-total}
+\SeeAlso{INDEX, SORT}
+\end{XbaseEntry}
+

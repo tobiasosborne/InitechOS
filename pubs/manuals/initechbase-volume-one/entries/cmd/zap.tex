@@ -1,0 +1,24 @@
+% ZAP -- os/samir/cmd/mutate.c m_zap (m_confirm_file while SAFETY ON; the
+% table emptied in place, its indexes emptied).  Gates:
+% test-samir-safety-emu, test-interp-replace.
+\begin{XbaseEntry}{ZAP}{command}
+Removes all the records of the database in USE.
+\Syntax
+\SyntaxLine{\kw{ZAP}}
+\Usage
+\cmd{ZAP} removes every record from the database of the selected work area and
+leaves an empty database with the same structure.  The records cannot be
+recovered.  Use \cmd{ZAP} on a database opened without index files.
+
+While SET SAFETY is ON, \cmd{ZAP} first asks \texttt{ZAP} \xp{file}\texttt{? (Y/N)};
+the records are removed only if the answer is \type{Y}.
+\begin{AteWarning}
+\cmd{ZAP} cannot be undone.  Keep a copy of a database before you remove its
+records.
+\end{AteWarning}
+\Examples
+\DotExample{examples/c-zap}
+With SET SAFETY OFF the records are removed at once:
+\DotExample{examples/c-zap-2}
+\SeeAlso{DELETE, PACK, SET SAFETY}
+\end{XbaseEntry}

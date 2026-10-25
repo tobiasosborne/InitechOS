@@ -40,7 +40,7 @@ PUBS_BUILD        := $(BUILD)/pubs
 PUBS_GEN          := $(PUBS_BUILD)/gen
 PUBS_SOURCES      := $(sort $(wildcard $(PUBS_DIR)/*.sh $(PUBS_DIR)/*.mk $(PUBS_DIR)/latexmkrc \
                        $(PUBS_DIR)/class/* $(PUBS_DIR)/common/* $(PUBS_DIR)/screens/*.sh $(PUBS_DIR)/screens/disk/* \
-                       $(PUBS_DIR)/manuals/*/*.tex $(PUBS_DIR)/manuals/*/screens/*))
+                       $(PUBS_DIR)/manuals/*/*.tex $(PUBS_DIR)/manuals/*/entries/*/*.tex $(PUBS_DIR)/manuals/*/screens/*))
 PUBS_MANUALS      := $(patsubst $(PUBS_DIR)/manuals/%/main.tex,%,$(wildcard $(PUBS_DIR)/manuals/*/main.tex))
 PUBS_BOOK_TARGETS := $(addprefix pubs-,$(PUBS_MANUALS))
 PUBS_STYLE_SOURCES := $(wildcard $(PUBS_DIR)/*.cls $(PUBS_DIR)/*.sty $(PUBS_DIR)/preamble.tex \
@@ -100,6 +100,21 @@ $(PUBS_GEN)/samir_coercion.tex: $(PUBS_SAMIR_TABLES) spec/samir/xbase_coercion.j
 	@mkdir -p $(PUBS_GEN)
 	@$(PUBS_SAMIR_TABLES) coercion spec/samir/xbase_coercion.json > $@.tmp && mv -f $@.tmp $@
 PUBS_GENERATED += $(PUBS_SAMIR_GEN)
+
+# F4 (initech-0wox2): one file per manual entry.  Each directory
+# pubs/manuals/<book>/entries/<group>/ becomes a generated, sorted \input index
+# $(PUBS_GEN)/entries-<book>-<group>.tex (pubs/entry-index.sh); a chapter says
+# \input{entries-<book>-<group>}.  Adding an entry = adding one file; the
+# directory itself is a prerequisite so adds and removals both regenerate.
+PUBS_ENTRY_DIRS  := $(sort $(patsubst %/,%,$(dir $(wildcard $(PUBS_DIR)/manuals/*/entries/*/*.tex))))
+PUBS_ENTRY_IDX   := $(foreach d,$(PUBS_ENTRY_DIRS),$(PUBS_GEN)/entries-$(word 3,$(subst /, ,$(d)))-$(word 5,$(subst /, ,$(d))).tex)
+define pubs-entry-index
+$$(PUBS_GEN)/entries-$(word 3,$(subst /, ,$(1)))-$(word 5,$(subst /, ,$(1))).tex: $(PUBS_DIR)/entry-index.sh $(1) $$(wildcard $(1)/*.tex)
+	@mkdir -p $$(PUBS_GEN)
+	@sh $(PUBS_DIR)/entry-index.sh $(1) > $$@.tmp && mv -f $$@.tmp $$@
+endef
+$(foreach d,$(PUBS_ENTRY_DIRS),$(eval $(call pubs-entry-index,$(d))))
+PUBS_GENERATED += $(PUBS_ENTRY_IDX)
 
 # Build into $(1) (fresh), optional mode $(2) (mutant) and manual $(3).
 define pubs-build-into

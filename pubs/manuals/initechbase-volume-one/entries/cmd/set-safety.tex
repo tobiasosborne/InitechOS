@@ -1,0 +1,20 @@
+% SET SAFETY -- os/samir/cmd/set.c do_set_safety; os/samir/cmd/mutate.c
+% m_confirm_file (ZAP asks "ZAP <file>? (Y/N)" while ON).  Gate:
+% test-samir-safety-emu.
+\begin{XbaseEntry}{SAFETY}{set}
+Determines whether InitechBase asks for confirmation before it removes all
+the records of a database.
+\Syntax
+\SyntaxLine{\kw{SET SAFETY} \kw{ON}/\kw{OFF}}
+\Defaults
+ON.
+\Usage
+With SET SAFETY ON, \cmd{ZAP} names the database and asks \texttt{(Y/N)}
+before it removes the records.  Only the answer \type{Y}, in either case,
+lets it go on; any other answer leaves the database as it is.  With SET
+SAFETY OFF, \cmd{ZAP} removes the records without asking.
+\Examples
+See \cmd{ZAP}.
+\SeeAlso{ZAP, PACK}
+\end{XbaseEntry}
+

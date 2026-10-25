@@ -1,0 +1,15 @@
+% FIELD -- os/samir/core/fn_builtins.c fn_field (l.1986-2012)
+\begin{XbaseEntry}{FIELD}{function}
+Returns the name of a field of the database in the selected work area, as a character string.
+\Syntax
+\SyntaxLine{\kw{FIELD(}\xp{expN}\kw{)}}
+\Usage
+\xp{expN} is the position of the field in the structure, counting from 1. The name is returned in upper case. A position that is less than 1 or greater than the number of fields does not raise an error; the result is an empty string, and so it is with no database in USE. A non-numeric argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Tips
+A loop that steps \xp{expN} from 1 until the result is an empty string visits every field of the structure.
+\Examples
+The sample database has nine fields:
+\DotExample{examples/fn-field}
+\SeeAlso{DBF(), TYPE(), RECCOUNT(), LEN()}
+\end{XbaseEntry}
+

@@ -1,0 +1,20 @@
+% STR -- os/samir/core/fn_builtins.c fn_str (l.361-392)
+\begin{XbaseEntry}{STR}{function}
+Converts a number to a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{STR(}\xp{expN1} \opt{\kw{,} \xp{expN2} \opt{\kw{,} \xp{expN3}}}\kw{)}}
+\Defaults
+\xp{expN2}, the length of the result, is 10. \xp{expN3}, the number of decimal places, is 0. SET DECIMALS has no effect on STR(); the places are those of \xp{expN3} only.
+\Usage
+The result always has exactly \xp{expN2} characters. The number is rounded to \xp{expN3} places, with a value half-way between two results rounded toward the larger number, and it is placed at the right of the field with blanks on the left. A negative sign and the decimal point each take one character of the length.
+
+When the number does not fit in the length, every character of the result is an asterisk. The length must be from 1 through 254, the number of places from 0 through 15, and, when the places are not 0, the length must be at least the places plus 2. Any other value raises \xmsg{63}{STR() : Out of range.}. A non-numeric argument raises \xmsg{9}{Data type mismatch.}, and a call with no argument or with more than three raises \xmsg{11}{Invalid function argument.}.
+\Tips
+The result of \fn{STR()} with its default length begins with blanks. Apply \fn{LTRIM()} to remove them before joining the number to text.
+\Examples
+\DotExample{examples/fn-str}
+A number too wide for its field fills the field with asterisks; a length too small for the places is refused:
+\DotExample{examples/fn-str-2}
+\SeeAlso{VAL(), LTRIM(), ROUND(), INT(), TRANSFORM()}
+\end{XbaseEntry}
+

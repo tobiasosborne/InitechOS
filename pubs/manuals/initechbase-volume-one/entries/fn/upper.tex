@@ -1,0 +1,14 @@
+% UPPER -- os/samir/core/fn_builtins.c fn_case (l.185-203)
+\begin{XbaseEntry}{UPPER}{function}
+Converts the letters of a character string to upper case, as a character string.
+\Syntax
+\SyntaxLine{\kw{UPPER(}\xp{expC}\kw{)}}
+\Usage
+Only the letters a through z are changed; every other character, including characters with codes above 127, is left as it is. The result has the length of the argument. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Tips
+Compare two strings through \fn{UPPER()} to ignore differences of case.
+\Examples
+\DotExample{examples/fn-upper}
+\SeeAlso{LOWER(), ISUPPER(), ISLOWER(), AT()}
+\end{XbaseEntry}
+

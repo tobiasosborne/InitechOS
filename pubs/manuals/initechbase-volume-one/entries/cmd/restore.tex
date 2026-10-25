@@ -1,0 +1,24 @@
+% RESTORE -- os/samir/cmd/flow.c fl_memfile (FROM <file>, default .MEM;
+% ADDITIVE keeps the present variables; the whole file is checked before
+% any variable changes, 55).  Lane samirdml 14a8fc75.  Gates:
+% test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{RESTORE}{command}
+Loads memory variables from a memory file.
+\Syntax
+\SyntaxLine{\kw{RESTORE FROM} \xp{file} \opt{\kw{ADDITIVE}}}
+\Usage
+\cmd{RESTORE} reads the memory variables saved with \cmd{SAVE}.  If no
+extension is given, \file{.MEM} is assumed.  Without \kw{ADDITIVE}, all
+present memory variables are released first; with it, they are kept and the
+saved ones are added.
+
+A file that is not a valid memory file is reported as
+\xmsg{55}{Memory Variable file is invalid.} and no variable is changed.
+\Examples
+\file{MONTHEND.MEM} on the sample diskette holds four memory variables of the
+month-end close, one of each type.  With \kw{ADDITIVE} the memory variable
+\texttt{MCOUNT} is kept; without it, it is released:
+\DotExample{examples/c-restore}
+\SeeAlso{RELEASE, SAVE}
+\end{XbaseEntry}
+

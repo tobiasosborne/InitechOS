@@ -1,0 +1,16 @@
+% IIF -- os/samir/core/eval.c eval_call (l.641-690)
+\begin{XbaseEntry}{IIF}{function}
+Returns one of two values, chosen by a logical condition.
+\Syntax
+\SyntaxLine{\kw{IIF(}\xp{expL}\kw{,} \xp{exp1}\kw{,} \xp{exp2}\kw{)}}
+\Usage
+When \xp{expL} is true the function returns the value of \xp{exp1}; when it is false it returns the value of \xp{exp2}. The type of the result is the type of the expression chosen, so the two expressions need not have the same type.
+
+Only the expression that is chosen is evaluated. An expression that would raise an error in the other branch, such as a division by zero, is never evaluated. \xp{expL} must be a logical expression; a number or a string is not accepted as a condition and raises \xmsg{37}{Not a Logical expression.}. A call with fewer or more than three arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-iif}
+The unused branch is not evaluated, and a condition that is not logical is refused:
+\DotExample{examples/fn-iif-2}
+\SeeAlso{TYPE(), MAX(), MIN()}
+\end{XbaseEntry}
+

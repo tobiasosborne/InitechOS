@@ -1,0 +1,14 @@
+% SPACE -- os/samir/core/fn_builtins.c fn_space (l.288-304)
+\begin{XbaseEntry}{SPACE}{function}
+Returns a string of blanks of a given length, as a character string.
+\Syntax
+\SyntaxLine{\kw{SPACE(}\xp{expN}\kw{)}}
+\Usage
+\xp{expN} is the number of blanks; a fractional part is dropped, and 0 gives an empty string. A negative number raises \xmsg{60}{SPACE() : Negative.}. A number above 254, the longest character string, raises \xmsg{59}{SPACE() : Too large.}. A non-numeric argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-space}
+The longest string is 254 characters:
+\DotExample{examples/fn-space-2}
+\SeeAlso{REPLICATE(), LEN(), TRIM()}
+\end{XbaseEntry}
+

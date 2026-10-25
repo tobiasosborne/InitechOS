@@ -1,0 +1,19 @@
+% DTOC -- os/samir/core/fn_builtins.c fn_dtoc_impl (l.628-715)
+\begin{XbaseEntry}{DTOC}{function}
+Converts a date to a character string.
+\Syntax
+\SyntaxLine{\kw{DTOC(}\xp{expD}\kw{)}}
+\Usage
+The form of the string is set by SET DATE, and its width by SET CENTURY. With SET CENTURY OFF the string is 8 characters and the year has two digits; with SET CENTURY ON it is 10 characters and the year has four digits. The blank date gives a string of blanks of that width.
+
+The forms are: AMERICAN, month/day/year; ANSI, year.month.day; BRITISH and FRENCH, day/month/year; ITALIAN, day-month-year; GERMAN, day.month.year; JAPAN, year/month/day; USA, month-day-year.
+
+The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+A date field converted under the default settings:
+\DotExample{examples/fn-dtoc}
+The settings change both the order and the width:
+\DotExample{examples/fn-dtoc-2}
+\SeeAlso{CTOD(), DATE(), SET DATE, SET CENTURY}
+\end{XbaseEntry}
+

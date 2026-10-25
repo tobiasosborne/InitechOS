@@ -1,0 +1,43 @@
+% & -- os/samir/cmd/flow.c flow_expand (Using III+ U6-7..9, PDF 403-405:
+% & <character memvar>[.<cstring>]; real mint samirdml/macro).  Every & in
+% a line is replaced, before the line is carried out, by the contents of the
+% character memory variable named after it, inside quotation marks too; a
+% period ends the name and is dropped; up to 16 passes; a variable that
+% does not exist, 12; not character, 9; a line over 254 characters, 18.
+% Registered as &|command: the inventory asks the dot prompt for the line
+% "&" (harness/pubs/samir_inventory.c).  Lane samirdml 14a8fc75.  Gates:
+% test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{\&}{compound}\XAlso{&}{\&}%
+Macro substitution: puts the contents of a character memory variable in a
+command line in place of its name.
+\Syntax
+\SyntaxLine{\kw{\&}\xp{memvar}\opt{\kw{.}\xp{characters}}}
+\Usage
+Before InitechBase carries out a command line, it replaces each \texttt{\&}
+followed by the name of a character memory variable with the contents of the
+variable.  The command then runs as if the contents had been typed in its
+place.  Use \texttt{\&} where InitechBase takes what is typed literally rather
+than as an expression: a file name after \cmd{USE} or \cmd{DO}, the
+characters after \cmd{FIND}, a field name, or a whole command.
+
+The name ends at the first character that cannot be part of a memory variable
+name.  To join other characters to the contents directly, end the name with a
+period; the period is dropped.  \texttt{\&} is also replaced inside quotation
+marks, so it can put the contents of a variable into a character string.
+
+The memory variable must exist (\xmsg{12}{Variable not found.}) and must be of
+type Character (\xmsg{9}{Data type mismatch.}).  The command line after the
+substitution may be up to 254 characters long
+(\xmsg{18}{Line exceeds maximum of 254 characters.}).
+\Tips
+Field names take precedence over memory variables in an expression, but not
+after \texttt{\&}: only a memory variable is substituted.
+\Examples
+A file name and the key of a \cmd{FIND} come from memory variables:
+\DotExample{examples/fn-macro}
+The contents of a variable within a character string, and the name of a
+function completed with a period:
+\DotExample{examples/fn-macro-2}
+\SeeAlso{STORE, ACCEPT, FIND, USE}
+\end{XbaseEntry}
+

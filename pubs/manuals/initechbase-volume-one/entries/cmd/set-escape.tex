@@ -1,0 +1,30 @@
+% SET ESCAPE -- os/samir/cmd/set.c "ESCAPE" (ss->escape, default ON);
+% os/samir/cmd/flow.c fl_escape polls the PAL between program lines and
+% os/samir/cmd/proc.c proc_escape prints the interrupt lines of real III+ 1.1
+% (mint samirctl ESC.TXT / ESCS.TXT).  Gates: test-samir-ctl,
+% test-samir-ctl-emu.
+\begin{XbaseEntry}{ESCAPE}{set}
+Determines whether \key{Esc} interrupts a program.
+\Syntax
+\SyntaxLine{\kw{SET ESCAPE} \kw{ON}/\kw{OFF}}
+\Defaults
+ON.
+\Usage
+With SET ESCAPE ON, pressing \key{Esc} while a program runs stops it before
+its next line, and InitechBase displays:
+\begin{verbatim}
+*** INTERRUPTED ***
+Called from - A:PAYROLL.prg
+Cancel, Ignore, or Suspend? (C, I, or S)
+\end{verbatim}
+with one \texttt{Called from} line for each program and procedure in
+progress.  Press \key{C} to end the program (\texttt{Do cancelled}),
+\key{I} to let it go on as if nothing had happened, or \key{S} to suspend
+it at the dot prompt until \cmd{RESUME}.  If an \cmd{ON ESCAPE} command is
+named, it is carried out instead.
+
+With SET ESCAPE OFF, \key{Esc} is not noticed and a program cannot be
+interrupted; use it only in programs that are sure to finish.
+\SeeAlso{ON ESCAPE, RESUME, CANCEL}
+\end{XbaseEntry}
+

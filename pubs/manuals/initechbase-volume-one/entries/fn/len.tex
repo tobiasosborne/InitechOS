@@ -1,0 +1,14 @@
+% LEN -- os/samir/core/fn_builtins.c fn_len (l.278-284)
+\begin{XbaseEntry}{LEN}{function}
+Returns the length of a character string, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{LEN(}\xp{expC}\kw{)}}
+\Usage
+The length counts every character, including trailing blanks; the LEN of a character field is therefore always the width of the field. The LEN of an empty string is 0. A memo field is accepted. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Tips
+Apply \fn{TRIM()} to the argument to count the characters without the trailing blanks.
+\Examples
+\DotExample{examples/fn-len}
+\SeeAlso{TRIM(), SPACE(), SUBSTR()}
+\end{XbaseEntry}
+

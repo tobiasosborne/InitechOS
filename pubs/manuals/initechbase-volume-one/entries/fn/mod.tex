@@ -1,0 +1,12 @@
+% MOD -- os/samir/core/fn_builtins.c fn_mod (l.847-865)
+\begin{XbaseEntry}{MOD}{function}
+Returns the remainder of the division of one number by another, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{MOD(}\xp{expN1}\kw{,} \xp{expN2}\kw{)}}
+\Usage
+The remainder is \xp{expN1} less \xp{expN2} times the whole-number part of their quotient, so it takes the sign of \xp{expN1}: MOD(-17,5) is -2 and MOD(17,-5) is 2. When \xp{expN2} is 0 no error is raised and the result is \xp{expN1}. Both arguments must be numeric, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-mod}
+\SeeAlso{INT(), ROUND(), ABS()}
+\end{XbaseEntry}
+

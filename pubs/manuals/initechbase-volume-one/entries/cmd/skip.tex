@@ -1,0 +1,23 @@
+% SKIP -- os/samir/cmd/query.c q_skip (n records in master-index order;
+% stops at EOF/BOF without a message).  Gate: test-interp-nav.
+\begin{XbaseEntry}{SKIP}{command}
+Moves the record pointer forward or back.
+\Syntax
+\SyntaxLine{\kw{SKIP} \opt{\xp{expN}}}
+\Defaults
+1.
+\Usage
+\cmd{SKIP} moves the record pointer \xp{expN} records forward, or back if
+\xp{expN} is negative.  With an index open, the records are counted in index
+order; while a filter is set or SET DELETED is ON, the records passed over do
+not count.
+
+Moving forward past the last record puts the record pointer at the end of the
+file: \fn{RECNO()} is one more than the number of records and \fn{EOF()} is
+true.  Moving back past the first record leaves it on the first record, with
+\fn{BOF()} true.  InitechBase displays no message in either case.
+\Examples
+\DotExample{examples/c-skip}
+\SeeAlso{GO, EOF(), BOF(), RECNO()}
+\end{XbaseEntry}
+
