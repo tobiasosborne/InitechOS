@@ -35232,3 +35232,7 @@ include harness/diff/dbf_diff/screen_mint.mk
 
 # Calculator desk accessory lifecycle (initech-0xs6).
 include harness/emu/calcda_power.mk
+
+# Gate/mutant ordering for parallel vectors (initech-1x6x2.1). KEEP LAST:
+# it reads the complete TEST_UNIT_GATES / TEST_EMU_GATES lists.
+include harness/gate_pairs.mk
