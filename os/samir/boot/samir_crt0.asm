@@ -18,7 +18,7 @@
 ;     mirrors it at org 0x40100 and ADDS .bss zeroing (DEC-05).
 ;
 ; Contract (shared with the pal_milton agent): the C entry symbol is
-;   void samir_milton_entry(void);
+;   int samir_milton_entry(void);   (the exit code; was void before overlays)
 ; It constructs pal_milton + the interpreter and runs samir_repl. This stub:
 ;   (a) zeroes .bss from __bss_start to __bss_end (DEC-05 -- a flat .COM does
 ;       not carry .bss in its file; we must materialize it rather than rely on
@@ -36,7 +36,7 @@
 bits 32
 
 global _start
-extern samir_milton_entry      ; void samir_milton_entry(void) -- C, pal_milton agent
+extern samir_milton_entry      ; int samir_milton_entry(void) -- C, pal_milton agent
 extern __bss_start             ; from samir.ld -- start of .bss (NOLOAD)
 extern __bss_end               ; from samir.ld -- end of .bss
 
@@ -78,13 +78,12 @@ _start:
     push    ebp
 
     ; (c) Run the engine. samir_milton_entry builds pal_milton + interp + REPL.
-    call    samir_milton_entry      ; void samir_milton_entry(void)
+    call    samir_milton_entry      ; int samir_milton_entry(void)
 
-    ; (d) Terminate. AH=4Ch, AL = exit code. samir_milton_entry returns void, so
-    ; treat a clean return as exit code 0. (If a future contract returns a code
-    ; in EAX, AL already carries the low byte -- but the void contract means
-    ; we force AL=0 for determinism, Rule 11.)
-    xor     al, al                  ; AL = 0 (clean exit)
+    ; (d) Terminate. AH=4Ch, AL = exit code = the low byte of the int the entry
+    ; returns in EAX: 0 after QUIT, 1 when the operator aborted at the
+    ; overlays' "Insert System Disk" prompt (initech-5etom.1; os/samir/core/
+    ; ovl.c). Deterministic either way (Rule 11).
     mov     ah, DOS_FN_EXIT         ; AH = 0x4C  (spec: see DOS_FN_EXIT above)
     int     DOS_INT                 ; INT 0x21 -- terminate with return code
 

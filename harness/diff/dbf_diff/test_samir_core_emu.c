@@ -8,6 +8,7 @@
 #include <string.h>
 #include "test_assert.h"
 #include "trace_complete.h"
+#include "samir_install.h"
 TEST_HARNESS();
 static int command(const char *s){int rc=system(s);CHECK(rc==0,s);return rc;}
 static void keys(const char *text,char *out)
@@ -25,7 +26,7 @@ static void keys(const char *text,char *out)
 int main(int argc,char **argv)
 {
     scratch_lock("build/.lock-samir-core-emu");
-    const char *com=argc>1?argv[1]:"build/SAMIR.COM";
+    const char *com=argc>1?argv[1]:"build/SAMIR.EXE";
     char cmd[4096],trace[2048],serial[262144];FILE *f;size_t n;
     const char *prg=
       "SET TALK OFF\r\nSET STATUS OFF\r\n"
@@ -39,7 +40,7 @@ int main(int argc,char **argv)
     if(!f)return 1;
     CHECK(fseek(f,1474560-1,SEEK_SET)==0 && fputc(0,f)!=EOF,"FAT sized");fclose(f);
     command("mformat -i build/samir-core-emu/emu.img -f 1440 ::");
-    snprintf(cmd,sizeof(cmd),"mcopy -o -i build/samir-core-emu/emu.img %s ::SAMIR.COM",com);
+    CHECK(samir_install_cmd(cmd,sizeof cmd,"build/samir-core-emu/emu.img",com)==0,"SAMIR.EXE + SAMIR.OVL named");
     if(command(cmd))return 1;
     f=fopen("build/samir-core-emu/CORE.PRG","wb");CHECK(f!=NULL,"PRG allocated");
     if(!f)return 1;

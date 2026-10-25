@@ -1,4 +1,4 @@
-/* Audit K05/K06/K09 and K13, actual OS EXEC of SAMIR.COM.
+/* Audit K05/K06/K09 and K13, actual OS EXEC of SAMIR.EXE.
  * MANUAL-GROUNDED (not a historical output differential): Using III+
  * U1-4, U2-26, U5-215, U5-229; Programming P10-17/18. K13 is authored,
  * no local reference to historical redirected dBASE; PAL conin_line contract.
@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include "test_assert.h"
 #include "trace_complete.h"
+#include "samir_install.h"
 TEST_HARNESS();
 static char serial[262144], fragment[65536];
 static int command(const char *s)
@@ -68,7 +69,7 @@ int main(int argc,char **argv)
 {
     scratch_lock("build/.lock-samir-audit");
     const char *mode=argc>1?argv[1]:"view";
-    const char *com=argc>2?argv[2]:"build/SAMIR.COM";
+    const char *com=argc>2?argv[2]:"build/SAMIR.EXE";
     char cmd[16384],keybuf[8192],raw[262144];
     FILE *f;size_t n,i,j;
     int input=strcmp(mode,"input")==0;
@@ -79,7 +80,7 @@ int main(int argc,char **argv)
     if(!f) return 2;
     CHECK(fseek(f,1474560-1,SEEK_SET)==0 && fputc(0,f)!=EOF,"FAT image sized");fclose(f);
     command("mformat -i build/samir-audit/emu.img -f 1440 ::");
-    snprintf(cmd,sizeof(cmd),"mcopy -o -i build/samir-audit/emu.img %s ::SAMIR.COM",com);
+    CHECK(samir_install_cmd(cmd,sizeof cmd,"build/samir-audit/emu.img",com)==0,"SAMIR.EXE + SAMIR.OVL named");
     if(command(cmd)) return 2;
     command("mcopy -o -i build/samir-audit/emu.img build/CLIENTS.DBF ::CLIENTS.DBF");
     if(input){

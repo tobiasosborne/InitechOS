@@ -138,12 +138,14 @@
  *   - os/samir/include/samir/value.h (xb_val, XB_C, XB_N, xb_c, xb_n).
  */
 
+#include "samir/lifetime.h"
 #include <stdint.h>
 #include "samir/pal.h"
 #include "samir/rt.h"
 #include "samir/value.h"
 #include "samir/ndx.h"
 #include "samir/ndx_format.h"
+#include "samir/ovl.h"
 
 /* -----------------------------------------------------------------------
  * Internal helpers
@@ -218,6 +220,7 @@ struct ndx_index {
  */
 static int read_exact(samir_pal_t *pal, pal_fd fd, void *buf, uint32_t n)
 {
+    samir_ovl_validate_pal(pal);
     int32_t got = pal->read(pal, fd, buf, n);
     if (got < 0 || (uint32_t)got != n)
         return -NDX_ERR_IO;
@@ -230,6 +233,7 @@ static int read_exact(samir_pal_t *pal, pal_fd fd, void *buf, uint32_t n)
  */
 static int seek_to(samir_pal_t *pal, pal_fd fd, uint32_t off)
 {
+    samir_ovl_validate_pal(pal);
     int32_t pos = pal->seek(pal, fd, (int32_t)off, PAL_SEEK_SET);
     if (pos < 0 || (uint32_t)pos != off)
         return -NDX_ERR_IO;
@@ -301,6 +305,7 @@ static uint16_t u16le(const uint8_t *p)
 static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
                           int writable, ndx_index **out)
 {
+    samir_ovl_validate_pal(pal);
     pal_fd    fd;
     int32_t   fsize_raw;
     uint32_t  fsize;
@@ -446,6 +451,7 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
 
 int ndx_open(samir_pal_t *pal, const char *name, ndx_index **out)
 {
+    samir_ovl_validate_pal(pal);
     return ndx_open_impl(pal, name, PAL_RD, 0, out);
 }
 
@@ -454,6 +460,7 @@ const char *ndx_name(const ndx_index *idx) { return idx ? idx->path : ""; }
 
 int ndx_open_rw(samir_pal_t *pal, const char *name, ndx_index **out)
 {
+    samir_ovl_validate_pal(pal);
     return ndx_open_impl(pal, name, PAL_RDWR, 1, out);
 }
 
@@ -1290,6 +1297,7 @@ static void stable_sort_keys(uint16_t key_type, uint16_t key_len,
 static int write_page(samir_pal_t *pal, pal_fd fd, uint32_t page_no,
                       const uint8_t *page)
 {
+    samir_ovl_validate_pal(pal);
     int rc = seek_to(pal, fd, page_no * (uint32_t)NDX_PAGE_SIZE);
     int32_t put;
     if (rc != NDX_OK)
@@ -1300,10 +1308,11 @@ static int write_page(samir_pal_t *pal, pal_fd fd, uint32_t page_no,
     return NDX_OK;
 }
 
-int ndx_build(samir_pal_t *pal, const char *out_name,
+SAMIR_OVL_TEXT(file) int ndx_build(samir_pal_t *pal, const char *out_name,
               uint16_t key_type, uint16_t key_len, const char *key_expr,
               uint32_t nrec, ndx_key_provider get_key, void *user)
 {
+    samir_ovl_validate_pal(pal);
     void     *mark;
     uint8_t  *keys;       /* nrec * key_len bytes of on-disk key data */
     uint32_t *recnos;     /* nrec recnos, parallel to keys */
@@ -2655,7 +2664,7 @@ int ndx_update_key(ndx_index *idx,
  * Ref (Law 1): ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
  * sec.10 (PACK rebuilds all open index files); ndx.h S4.5 maintenance contract.
  */
-int ndx_rebuild(ndx_index *idx, uint32_t nrec,
+SAMIR_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx, uint32_t nrec,
                 ndx_key_provider get_key, void *user)
 {
     samir_pal_t *pal;

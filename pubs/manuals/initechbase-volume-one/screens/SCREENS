@@ -1,6 +1,6 @@
 # Screens for InitechBase Volume One (1040-0000-10), bead initech-ipu5.8.
 # name|serial marker[#count]|disk -- the conventions of the InitechDOS books
-# (initechdos-users-guide/screens/SCREENS); disk `samir` boots with SAMIR.COM
+# (initechdos-users-guide/screens/SCREENS); disk `samir` boots with SAMIR.EXE + SAMIR.OVL
 # and the Sample Programs and Utilities diskette (pubs/screens/capture.sh).
 # Regenerate with "make pubs-screens"; "make test-pubs-screens" re-captures
 # every screen and diffs it against the book.

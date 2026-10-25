@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include "test_assert.h"
 #include "trace_complete.h"
+#include "samir_install.h"
 #include "samir/interp.h"
 TEST_HARNESS();
 struct pal_host_cfg { uint8_t date_yy,date_mm,date_dd; uint32_t heap_size; };
@@ -142,7 +143,7 @@ static void check_run_version(const char *dir)
 int main(int argc,char **argv)
 {
     const char *name=argc>1?argv[1]:"clear",*mode=argc>2?argv[2]:"host";
-    const char *com=argc>3?argv[3]:"build/SAMIR.COM";
+    const char *com=argc>3?argv[3]:"build/SAMIR.EXE";
     static const char *const names[]={"clear","macro","close","index","reindex","sort","total","append","save","restore","copyfile","type","rename","erase","label","run","abbrev","abbrfull","abbrscope","status","memory","statusinto"};
     char gold[1024],dir[1024],cmd[16384],path[2048];
     static unsigned char expected[65536];FILE *f;
@@ -193,7 +194,8 @@ int main(int argc,char **argv)
         snprintf(path,sizeof path,"%s/DML.BAT",dir);f=fopen(path,"wb");if(!f)return 2;fputs("@echo off\r\nsamir < dml.in > result.txt\r\n",f);
         if(!strcmp(name,"run"))fputs("ver > verref.txt\r\n",f); /* check_run_version's same-run reference */
         fputs("type result.txt\r\n",f);fclose(f);
-        snprintf(cmd,sizeof cmd,"mformat -i %s/data.img -f 1440 :: && mcopy -o -i %s/data.img %s ::SAMIR.COM && mcopy -o -i %s/data.img %s/*.DBF %s/*.PRG %s/*.TXT %s/*.IN %s/*.BAT ::",dir,dir,com,dir,dir,dir,dir,dir,dir);command(cmd);
+        {char img[1100],ins[3400];snprintf(img,sizeof img,"%s/data.img",dir);CHECK(samir_install_cmd(ins,sizeof ins,img,com)==0,"SAMIR.EXE + SAMIR.OVL named");
+        snprintf(cmd,sizeof cmd,"mformat -i %s/data.img -f 1440 :: && %s && mcopy -o -i %s/data.img %s/*.DBF %s/*.PRG %s/*.TXT %s/*.IN %s/*.BAT ::",dir,ins,dir,dir,dir,dir,dir,dir);}command(cmd);
         snprintf(cmd,sizeof cmd,"for f in %s/*.NDX %s/*.MEM %s/*.LBL %s/*.DBT; do test ! -f \"$f\" || mcopy -o -i %s/data.img \"$f\" ::; done",dir,dir,dir,dir,dir);command(cmd);
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-before.log",dir,dir);command(cmd);
         snprintf(cmd,sizeof cmd,"INITECH_QMP_STDIO=1 build/qemu_harness --disk build/tracer_secondary.img --disk2 %s/data.img --name dml_%s --out %s --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > %s/qemu.out 2> %s/qemu.report",dir,name,dir,trace,dir,dir);command(cmd);
@@ -201,6 +203,7 @@ int main(int argc,char **argv)
         { char rp[2048];snprintf(rp,sizeof rp,"%s/qemu.report",dir);
           if(!emu_trace_complete(rp,path,inspection?25:9))return 2; }
         snprintf(path,sizeof path,"%s/qemu.report",dir);readfile(path,(unsigned char *)captured,sizeof captured);
+        fprintf(stderr,"%s",captured);
         CHECK(strstr(captured,"triple_fault=0")&&strstr(captured,"quit_after_found=1")&&strstr(captured,key_count),"DML entire locked QEMU trace returned without fault");
         snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::RESULT.TXT %s/RESULT.TXT",dir,dir);command(cmd);
         snprintf(path,sizeof path,"%s/RESULT.TXT",dir);readfile(path,(unsigned char *)captured,sizeof captured);

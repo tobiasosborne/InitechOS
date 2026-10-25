@@ -8,7 +8,7 @@
  * writer (dbf.c + value.c + rt.c) over the host PAL (pal_host.c) and emits one
  * deterministic INVOICE.DBF to a caller-supplied path (argv[1], default
  * build/INVOICE.DBF). This is the SAME writer the engine ships, so the fixture is
- * read back BIT-FOR-BIT by the in-emulator SAMIR.COM reader -- one writer, no
+ * read back BIT-FOR-BIT by the in-emulator SAMIR.EXE reader -- one writer, no
  * second encoder to drift (mirrors mint_clients_dbf.c).
  *
  * THE CANON BUG IS SEEDED HERE (Law 4 -- "the *wrong* rollover matches real

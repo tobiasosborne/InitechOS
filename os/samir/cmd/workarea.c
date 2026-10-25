@@ -28,6 +28,7 @@
  * ASCII-clean (Rule 12). Reproducible (Rule 11). Fail loud (Rule 2).
  */
 
+#include "samir/lifetime.h"
 #include <stdint.h>
 
 #include "samir/workarea.h"
@@ -304,6 +305,7 @@ static int wa_touch_record(work_area *wa)
 
 wa_env *wa_env_make(samir_pal_t *pal)
 {
+    samir_ovl_validate_pal(pal);
     wa_env *env;
     int a;
 
@@ -609,6 +611,7 @@ int wa_adopt_table(wa_env *env, int area, dbf_table *tbl, dbt_file *memo,
         return -WA_ERR_OCCUPIED;       /* caller must CLOSE first (fail loud) */
 
     /* Adopt the codec handles directly (the area takes ownership). */
+    SAMIR_RETAIN(tbl); SAMIR_RETAIN(memo);
     wa->tbl     = tbl;
     wa->memo    = memo;
     wa->nrec    = dbf_nrec(tbl);
@@ -629,6 +632,7 @@ int wa_adopt_table(wa_env *env, int area, dbf_table *tbl, dbt_file *memo,
     wa->nidx = 0;
     if (idx && nidx > 0) {
         for (i = 0; i < nidx; i++) {
+            SAMIR_RETAIN(idx[i]);
             wa->idx[i] = idx[i];
             wa->nidx = i + 1;
         }
@@ -1127,13 +1131,11 @@ void wa_bind_ctx(wa_env *env, xb_ctx *ctx)
 {
     if (!ctx)
         return;
-    ctx->resolve     = wa_resolve;
-    ctx->user        = env;
+    samir_bind_resolver(ctx,wa_resolve,env);
     /* Wire the DB-cursor hook so RECNO/EOF/FIELD/DBF/... resolve against the
      * selected area (S3.6b). fn_builtins.c reaches these ONLY through the vtable;
      * NULL dbcur (a pure-expression ctx with no env) makes them fail loud. */
-    ctx->dbcur       = &wa_dbcursor_vtable;
-    ctx->dbcur_user  = env;
+    samir_bind_cursor(ctx,&wa_dbcursor_vtable,env);
     ctx->record_size = wac_record_size;
 }
 
@@ -1280,6 +1282,7 @@ int wa_attach_index(wa_env *env,int area,ndx_index *ix)
     if(!env || area<1 || area>WA_NAREAS || !ix) return -WA_ERR_BAD_ORDER;
     wa=&env->area[area-1];
     if(wa->nidx>=NDX_PER_AREA) return -WA_ERR_BAD_ORDER;
+    SAMIR_RETAIN(ix);
     wa->idx[wa->nidx++]=ix;wa->master=wa->nidx;
     return WA_OK;
 }
@@ -1292,6 +1295,7 @@ int wa_get_deleted(const wa_env *env) { return env?env->deleted_on:0; }
 
 xb_interp *xb_interp_make(samir_pal_t *pal)
 {
+    samir_ovl_validate_pal(pal);
     xb_interp *ip;
     void *mark;
     uint8_t yy = 0, mm = 1, dd = 1;
@@ -1541,6 +1545,7 @@ void xb_interp_output(xb_interp *ip,const char *s,uint32_t n)
      * III+ capture keeps "HIDDEN" in the alternate file (fns-mint/console). */
     if(!xb_interp_console_visible(ip)) return;
 #endif
+    if(ip) samir_ovl_validate_ctx(&ip->ctx);
     if(ip && ip->ctx.mirror_output && n)
         ip->ctx.mirror_output(ip->ctx.mirror_user,s,n);
 #ifndef SAMIR_MUTATE_CONSOLE

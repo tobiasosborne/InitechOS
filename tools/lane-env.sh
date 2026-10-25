@@ -7,7 +7,7 @@
 # ~/Projects (CCACHE_BASEDIR makes the clone path irrelevant to the hash).
 # No Makefile change: CC/KERNEL_CC stay as they are, PATH picks the wrapper.
 #
-# Measured 2026-10-25 (bead initech-b9y7b): fresh clone `make -j32 samir-com
+# Measured 2026-10-25 (bead initech-b9y7b): fresh clone `make -j32 samir-com (now samir-exe)
 # image` 28 s cold -> 18 s with a warm cache (148/148 compile hits; the rest
 # is nasm/ld/image assembly). build/SAMIR.COM and build/initech.img are
 # byte-identical with and without ccache (Rule 11 unaffected).

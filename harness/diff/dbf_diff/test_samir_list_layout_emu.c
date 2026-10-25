@@ -12,6 +12,7 @@
 #include <string.h>
 #include "test_assert.h"
 #include "trace_complete.h"
+#include "samir_install.h"
 TEST_HARNESS();
 #define D "build/samir-list-layout"
 static char serial[262144], output[65536];
@@ -94,7 +95,7 @@ static void grade(const char *got,int which,const char *transport)
 int main(int argc,char **argv)
 {
     scratch_lock("build/.lock-samir-list-layout");
-    const char *mode=argc>1?argv[1]:"files",*com=argc>2?argv[2]:"build/SAMIR.COM";
+    const char *mode=argc>1?argv[1]:"files",*com=argc>2?argv[2]:"build/SAMIR.EXE";
     const char *corpus=argc>3?argv[3]:"../dbase3-decomp";
     static const char *const inputs[]={"TRAVEL.DBF","TRAVEL.DBT","TRIPS.NDX","AVAL_FLT.DBF","AVAL_FLT.NDX","FLT_NO.NDX"};
     int screen=!strcmp(mode,"screen"),i;FILE *f;
@@ -105,7 +106,8 @@ int main(int argc,char **argv)
     command("mkdir -p " D);
     f=create(D "/data.img");if(!f) return 2;
     CHECK(fseek(f,1474560-1,SEEK_SET)==0 && fputc(0,f)!=EOF,"FAT image sized");fclose(f);
-    command("mformat -i " D "/data.img -f 1440 ::");plant(com,"SAMIR.COM");
+    command("mformat -i " D "/data.img -f 1440 ::");plant(com,"SAMIR.EXE");
+    {char ovl[1024];CHECK(samir_ovl_path(com,ovl,sizeof ovl)==0,"SAMIR.OVL named");plant(ovl,"SAMIR.OVL");}
     for(i=0;i<6;i++) {
         snprintf(path,sizeof path,"%s/mint/work/%s",corpus,inputs[i]);plant(path,inputs[i]);
         snprintf(cmd,sizeof cmd,"mcopy -o -i " D "/data.img ::%s " D "/%s && cmp '%s' " D "/%s",inputs[i],inputs[i],path,inputs[i]);

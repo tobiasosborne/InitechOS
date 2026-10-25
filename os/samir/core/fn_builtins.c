@@ -67,6 +67,7 @@
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  */
 
+#include "samir/lifetime.h"
 #include <stdint.h>
 
 #include "samir/eval.h"
@@ -2508,6 +2509,7 @@ int xb_call_builtin(const char *name, uint16_t namelen,
                     const xb_val *args, int nargs,
                     xb_ctx *ctx, xb_val *out, int *err_code)
 {
+    samir_ovl_validate_ctx(ctx);
     const char *kw = fn_names;
     int k = 0;
 

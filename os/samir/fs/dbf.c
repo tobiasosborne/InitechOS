@@ -75,6 +75,7 @@
  *     our typed values agree with it field-by-field).
  */
 
+#include "samir/lifetime.h"
 #include <stdint.h>
 
 #include "samir/pal.h"
@@ -236,6 +237,7 @@ static void wr_u32le(uint8_t *b, uint32_t v)
 static int read_exact(samir_pal_t *pal, pal_fd fd, int32_t off,
                       void *buf, uint32_t n)
 {
+    samir_ovl_validate_pal(pal);
     int32_t pos;
     int32_t got;
 
@@ -299,6 +301,7 @@ static int teardown(dbf_table *tbl, int rc)
 static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
                            int open_mode, int want_writable)
 {
+    samir_ovl_validate_pal(pal);
     uint8_t hdr[DBF_HDR_SIZE];
     uint8_t desc[DBF_DESC_STRIDE];
     dbf_table *tbl;
@@ -675,6 +678,7 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
  */
 int dbf_open(samir_pal_t *pal, const char *name, dbf_table **out)
 {
+    samir_ovl_validate_pal(pal);
     return dbf_open_common(pal, name, out, PAL_RD, /*want_writable=*/0);
 }
 
@@ -688,6 +692,7 @@ int dbf_open(samir_pal_t *pal, const char *name, dbf_table **out)
  */
 int dbf_open_rw(samir_pal_t *pal, const char *name, dbf_table **out)
 {
+    samir_ovl_validate_pal(pal);
     return dbf_open_common(pal, name, out, PAL_RDWR, /*want_writable=*/1);
 }
 
@@ -1134,6 +1139,7 @@ static void fmt_field(uint8_t *dst, uint8_t flen, char ftype, uint8_t dec,
 int dbf_create(samir_pal_t *pal, const char *name,
                const dbf_field_spec *fields, int nfields, dbf_table **out)
 {
+    samir_ovl_validate_pal(pal);
     dbf_table  *tbl;
     pal_fd      fd;
     uint32_t    sum_lens;     /* 1 + sum(field lengths) */

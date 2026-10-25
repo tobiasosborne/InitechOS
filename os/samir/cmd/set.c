@@ -56,6 +56,7 @@
  *   - os/samir/include/samir/set.h    (set_state + public getters).
  */
 
+#include "samir/lifetime.h"
 #include <stdint.h>
 
 #include "samir/interp.h"
@@ -67,6 +68,7 @@
 #include "samir/set.h"
 #include "samir/ndx.h"
 #include "samir/nav.h"
+#include "samir/ovl.h"
 
 /* ===================================================================== */
 /* Tunables                                                               */
@@ -95,7 +97,12 @@ void set_close_alternate(xb_interp *ip)
         g_val[i].alternate=-1;g_val[i].alternate_on=0;
     }
 }
-static void alternate_output(void *user,const char *s,uint32_t n)
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_CALLBACK
+static SAMIR_OVL_TEXT(set) void alternate_output(
+#else
+static void alternate_output(
+#endif
+void *user,const char *s,uint32_t n)
 {
     xb_interp *ip=user;samir_pal_t *pal=xb_interp_pal(ip);int i;
     for(i=0;i<g_n;i++)if(g_key[i]==ip && g_val[i].alternate_on && g_val[i].alternate>=0) {
@@ -119,6 +126,7 @@ static void alternate_output(void *user,const char *s,uint32_t n)
  */
 static set_state *set_state_for(xb_interp *ip, int *is_new)
 {
+    SAMIR_RETAIN(ip);
     int i;
     if (!ip)
         return (set_state *)0;
@@ -130,6 +138,7 @@ static set_state *set_state_for(xb_interp *ip, int *is_new)
     }
     if (g_n >= SET_REGISTRY)
         return (set_state *)0;          /* registry full: fail loud at caller */
+    SAMIR_RETAIN(ip);
     g_key[g_n] = ip;
     if (is_new) *is_new = 1;
     return &g_val[g_n++];
@@ -172,7 +181,7 @@ static const char *s_skip_ws(const char *s)
 }
 
 /* skip an optional whole-word "TO" (any case) and the blanks after it. */
-static const char *s_skip_to(const char *s)
+static SAMIR_OVL_TEXT(set) const char *s_skip_to(const char *s)
 {
     if (rt_kw_word(s, "TO\0", (int *)0) == 0)
         s = s_skip_ws(s + 2);
@@ -180,7 +189,7 @@ static const char *s_skip_to(const char *s)
 }
 
 /* parse an unsigned integer at *s; advance *s past it. */
-static uint32_t s_parse_uint(const char **s)
+static SAMIR_OVL_TEXT(set) uint32_t s_parse_uint(const char **s)
 {
     uint32_t v = 0;
     const char *p = *s;
@@ -193,7 +202,7 @@ static uint32_t s_parse_uint(const char **s)
 }
 
 /* copy up to cap-1 bytes of `src` into `dst`, NUL-terminate, trim trailing WS. */
-static void s_copy_trim(char *dst, uint32_t cap, const char *src)
+static SAMIR_OVL_TEXT(set) void s_copy_trim(char *dst, uint32_t cap, const char *src)
 {
     uint32_t i = 0, last_nonws = 0;
     while (src[i] != '\0' && i < cap - 1u) {
@@ -209,7 +218,7 @@ static void s_copy_trim(char *dst, uint32_t cap, const char *src)
 /* Returns 0 on success, -1 on parse error.                              */
 /* ===================================================================== */
 
-static int parse_on_off(const char *args, int *val)
+static SAMIR_OVL_TEXT(set) int parse_on_off(const char *args, int *val)
 {
     /* "OFF" is entry 0 and "ON" entry 1: the index is the value. */
     int k = rt_kw_index(s_skip_ws(args), "OFF\0ON\0");
@@ -233,7 +242,7 @@ static int parse_on_off(const char *args, int *val)
  * not the SET command itself. This function is correct; the mutant fires in
  * set_init_defaults where the initial set_exact is set.
  */
-static int do_set_exact(xb_interp *ip, const char *args, int *err_code)
+static SAMIR_OVL_TEXT(set) int do_set_exact(xb_interp *ip, const char *args, int *err_code)
 {
     int val;
     if (parse_on_off(args, &val) != 0) {
@@ -252,7 +261,7 @@ static int do_set_exact(xb_interp *ip, const char *args, int *err_code)
  * Ref: set-commands.md Sec 3.1 (default 2; "SET DECIMALS TO" with no value
  * resets to 2). [verified: mint-results-002.md DECIMALS=2 default]
  */
-static int do_set_decimals(xb_interp *ip, set_state *ss,
+static SAMIR_OVL_TEXT(set) int do_set_decimals(xb_interp *ip, set_state *ss,
                            const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
@@ -283,7 +292,7 @@ static int do_set_decimals(xb_interp *ip, set_state *ss,
  * JAPAN/USA; default AMERICAN) [verified: harbour set.txt:130-140;
  * mint-results-003.md DATE=AMERICAN].
  */
-static int do_set_date(xb_interp *ip, set_state *ss,
+static SAMIR_OVL_TEXT(set) int do_set_date(xb_interp *ip, set_state *ss,
                        const char *args, int *err_code)
 {
     set_date_fmt fmt;
@@ -316,7 +325,7 @@ static int do_set_date(xb_interp *ip, set_state *ss,
  * Ref: set-commands.md Sec 2 (default OFF) [verified: mint-results-003.md;
  * dates-and-century.md: CENTURY OFF = 2-digit year; ON = 4-digit year].
  */
-static int do_set_century(xb_interp *ip, set_state *ss,
+static SAMIR_OVL_TEXT(set) int do_set_century(xb_interp *ip, set_state *ss,
                           const char *args, int *err_code)
 {
     int val;
@@ -339,7 +348,7 @@ static int do_set_century(xb_interp *ip, set_state *ss,
  * "call the existing wa_set_order (read/call only, no workarea.c edit)".
  * "SET ORDER TO 0" or bare "SET ORDER TO" -> natural order (0).
  */
-static int do_set_order(xb_interp *ip, const char *args, int *err_code)
+static SAMIR_OVL_TEXT(set) int do_set_order(xb_interp *ip, const char *args, int *err_code)
 {
     wa_env *env = xb_interp_env(ip);
     int area;
@@ -378,7 +387,7 @@ static int do_set_order(xb_interp *ip, const char *args, int *err_code)
  * Replace the selected area's open indexes; retain text for old accessors.
  * Ref: Using III+ U5-239 and real SF-index transcript.
  */
-static int do_set_index(xb_interp *ip, set_state *ss, const char *args, int *err_code)
+static SAMIR_OVL_TEXT(set) int do_set_index(xb_interp *ip, set_state *ss, const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
     /* consume "TO" keyword if present */
@@ -430,7 +439,7 @@ static int do_set_index(xb_interp *ip, set_state *ss, const char *args, int *err
  * Installs the selected area condition; see Using III+ U5-229.
  * Ref: set-commands.md Sec 3.5 (SET FILTER TO <condition>).
  */
-static int do_set_filter(xb_interp *ip, set_state *ss, const char *args, int *err_code)
+static SAMIR_OVL_TEXT(set) int do_set_filter(xb_interp *ip, set_state *ss, const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
     /* consume "TO" keyword if present */
@@ -452,7 +461,7 @@ static int do_set_filter(xb_interp *ip, set_state *ss, const char *args, int *er
  * GATED -- relation plumbing not yet present. Stores raw text.
  * Ref: set-commands.md Sec 3.5 (SET RELATION TO <key> INTO <alias>).
  */
-static int do_set_relation(xb_interp *ip, set_state *ss, const char *args, int *err_code)
+static SAMIR_OVL_TEXT(set) int do_set_relation(xb_interp *ip, set_state *ss, const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
     /* consume "TO" keyword if present */
@@ -471,7 +480,7 @@ static int do_set_relation(xb_interp *ip, set_state *ss, const char *args, int *
  * (coupled to output formatting in parallel lanes).
  * Ref: set-commands.md Sec 2 (default ON) [verified: sample programs idiom].
  */
-static int do_set_talk(set_state *ss, const char *args, int *err_code)
+static SAMIR_OVL_TEXT(set) int do_set_talk(set_state *ss, const char *args, int *err_code)
 {
     int val;
     if (parse_on_off(args, &val) != 0) {
@@ -488,7 +497,7 @@ static int do_set_talk(set_state *ss, const char *args, int *err_code)
  * Stores in set_state; ZAP consumes it. Other file-overwrite guards deferred.
  * Ref: set-commands.md Sec 2 (default ON) [verified: sample programs idiom].
  */
-static int do_set_safety(set_state *ss, const char *args, int *err_code)
+static SAMIR_OVL_TEXT(set) int do_set_safety(set_state *ss, const char *args, int *err_code)
 {
     int val;
     if (parse_on_off(args, &val) != 0) {
@@ -510,8 +519,9 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
     int i;
     ss->alternate=-1;ss->alternate_on=0;
     ss->alternate_name[0]=0;
-    xb_interp_ctx(ip)->mirror_output=alternate_output;
-    xb_interp_ctx(ip)->mirror_user=ip;
+#ifndef SAMIR_OVL_MUTATE_ESCAPE_CALLBACK
+    samir_bind_output(xb_interp_ctx(ip),alternate_output,ip);
+#endif
 
     /*
      * SET EXACT default = OFF [verified: mint-results-002.md].
@@ -572,7 +582,7 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
  * HELP.DBS lines 1390-1398; CGA attribute layout in os/milton/console.c.
  * U/I/X are monochrome underline/inverse/blank attributes. RG and GR
  * denote the same red+green mixture; RB denotes red+blue. */
-static int color_name(const char **text)
+static SAMIR_OVL_TEXT(set) int color_name(const char **text)
 {
     const char *s=*text;
     int a=s_up1(*s), value;
@@ -594,7 +604,7 @@ static int color_name(const char **text)
     return value;
 }
 
-static int color_modifiers(const char **text,int *bits)
+static SAMIR_OVL_TEXT(set) int color_modifiers(const char **text,int *bits)
 {
     while(**text=='+'||**text=='*') {
         int bit=**text=='+'?8:128;
@@ -605,7 +615,7 @@ static int color_modifiers(const char **text,int *bits)
     return 0;
 }
 
-static int color_attribute(const char **text,uint8_t *attr)
+static SAMIR_OVL_TEXT(set) int color_attribute(const char **text,uint8_t *attr)
 {
     const char *s=s_skip_ws(*text);
     int mono=s_up1(*s)=='U'||s_up1(*s)=='I'||s_up1(*s)=='X';
@@ -626,7 +636,7 @@ static int color_attribute(const char **text,uint8_t *attr)
     return 0;
 }
 
-static int do_set_color(xb_interp *ip,set_state *ss,const char *s,int *err)
+static SAMIR_OVL_TEXT(set) int do_set_color(xb_interp *ip,set_state *ss,const char *s,int *err)
 {
     uint8_t attrs[4];unsigned field=0;
     samir_pal_t *pal=xb_interp_pal(ip);
@@ -674,7 +684,7 @@ invalid:
 typedef int (*set_opt_fn)(xb_interp *ip, set_state *ss, const char *s, int *err_code);
 typedef struct { const char *name; set_opt_fn fn; } set_opt_row;
 
-static int set_opt_alternate(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_alternate(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int on;
     if(!parse_on_off(s,&on)) { ss->alternate_on=on;return CMD_OK; }
@@ -697,45 +707,45 @@ static int set_opt_alternate(xb_interp *ip, set_state *ss, const char *s, int *e
     return -INTERP_ERR_SYNTAX;
 }
 
-static int set_opt_exact(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_exact(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_exact(ip, s, err_code);
     (void)ss;
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static int set_opt_decimals(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_decimals(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_decimals(ip, ss, s, err_code);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static int set_opt_date(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_date(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_date(ip, ss, s, err_code);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static int set_opt_century(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_century(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_century(ip, ss, s, err_code);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static int set_opt_order(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_order(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_order(ip, s, err_code);
     (void)ss;
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static int set_opt_index(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_index(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_index(ip, ss, s, err_code);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static int set_opt_deleted(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_deleted(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int on;
     (void)ss;
@@ -745,26 +755,26 @@ static int set_opt_deleted(xb_interp *ip, set_state *ss, const char *s, int *err
     return CMD_OK;
 }
 
-static int set_opt_filter(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_filter(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_filter(ip, ss, s, err_code);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static int set_opt_relation(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_relation(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_relation(ip, ss, s, err_code);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static int set_opt_talk(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_talk(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_talk(ss, s, err_code);
     (void)ip;
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static int set_opt_safety(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_safety(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_safety(ss, s, err_code);
     (void)ip;
@@ -773,7 +783,7 @@ static int set_opt_safety(xb_interp *ip, set_state *ss, const char *s, int *err_
 
 /* SET ESCAPE ON|OFF (Using III+ U5-220): OFF disables the Esc program
  * interrupt and ON ESCAPE (U5-160). Before initech-39e5 it was #10. */
-static int set_opt_escape(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_escape(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int on;
     (void)ip;
@@ -788,7 +798,7 @@ static int set_opt_escape(xb_interp *ip, set_state *ss, const char *s, int *err_
  *  III+ index; it is a Clipper/dBASE IV addition.]
  */
 /* Using III+ U5-210/PDF 322, U5-235/PDF 347, U5-259/PDF 371. */
-static int set_opt_onoff_ctx(xb_interp *ip, const char *s, int *err_code, int which)
+static SAMIR_OVL_TEXT(set) int set_opt_onoff_ctx(xb_interp *ip, const char *s, int *err_code, int which)
 {
     int on;
     xb_ctx *ctx=xb_interp_ctx(ip);
@@ -798,21 +808,21 @@ static int set_opt_onoff_ctx(xb_interp *ip, const char *s, int *err_code, int wh
     else ctx->set_status=(uint8_t)on;
     return CMD_OK;
 }
-static int set_opt_heading(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_heading(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 { (void)ss; return set_opt_onoff_ctx(ip,s,err_code,0); }
-static int set_opt_console(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_console(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 { (void)ss; return set_opt_onoff_ctx(ip,s,err_code,1); }
-static int set_opt_status(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_status(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 { (void)ss; return set_opt_onoff_ctx(ip,s,err_code,2); }
 
-static int set_opt_color(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static SAMIR_OVL_TEXT(set) int set_opt_color(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     return do_set_color(ip,ss,s,err_code);
 }
 
 /* Rows come from set_options.def: SET_OPT(KEYWORD, handler). */
 #define SET_OPT(kw, fn) { kw, fn },
-static const set_opt_row set_opts[] = {
+static const set_opt_row set_opts[] SAMIR_OVL_DATA(set) = {
 #include "set_options.def"
     { (const char *)0, (set_opt_fn)0 }
 };
@@ -825,7 +835,7 @@ static const char set_opt_kw[] =
 #undef SET_OPT
 
 /* The row index of `opt` (upper-cased), or -1: rt_kw_index over the rows. */
-static int set_opt_lookup(const char *opt)
+static SAMIR_OVL_TEXT(set) int set_opt_lookup(const char *opt)
 {
     return rt_kw_index(opt, set_opt_kw);
 }
@@ -840,21 +850,65 @@ static int set_opt_lookup(const char *opt)
  * args: the remainder of the line after "SET", trimmed of leading blanks.
  * The first word of args is the sub-option (EXACT, DECIMALS, etc.).
  */
-static int set_cmd_hook(void *user, xb_interp *ip,
-                        const char *verb, const char *args, int *err_code)
+/* Overlay SET (initech-5etom.1; docs/design/samir-overlays.md Sec 3): the
+ * SET sub-option parser. set_cmd_hook (resident) claims the verb exactly as
+ * before; everything after the claim runs here, unchanged. k is unused. */
+/* Deliberate retained-pointer regressions for the runtime gates. */
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_HOOK
+static SAMIR_OVL_TEXT(set) int ovl_bad_hook(void *u,xb_interp *ip,const char *v,const char *a,int *e)
+{ (void)u;(void)ip;(void)v;(void)a;(void)e;return CMD_UNKNOWN; }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_PAL
+static SAMIR_OVL_TEXT(set) void ovl_bad_pal(samir_pal_t *p,const char *s,uint32_t n)
+{ (void)p;(void)s;(void)n; }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_CURSOR
+static SAMIR_OVL_TEXT(set) uint32_t ovl_bad_cursor(void *u) { (void)u;return 1; }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_ERROR
+static SAMIR_OVL_TEXT(set) int ovl_bad_error(void *u,int e) { (void)u;(void)e;return 0; }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_SUSPEND
+static SAMIR_OVL_TEXT(set) int ovl_bad_suspend(xb_interp *ip) { (void)ip;return 0; }
+extern void proc_set_suspend(xb_interp *,int (*)(xb_interp *));
+#endif
+static SAMIR_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
+                                             const char *args, int *err_code)
 {
     set_state  *ss;
     const char *s, *opt_start;
     char        opt[32];
     int         i, k, opt_len;
 
-    (void)user;
-    if (err_code) *err_code = 0;
-    if (!ip || !verb) return CMD_UNKNOWN;
-
-    /* Only handle the "SET" verb. */
-    if (!s_ci_eq(verb, "SET")) return CMD_UNKNOWN;
-
+    (void)k_unused;
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_HOOK
+    xb_interp_add_cmd_hook(ip,ovl_bad_hook,ip);
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_PAL
+    { samir_pal_t hooks=*xb_interp_pal(ip);hooks.conout=ovl_bad_pal;
+      samir_bind_pal(xb_interp_pal(ip),&hooks); }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_CURSOR
+    { static xb_dbcursor bad;xb_ctx *c=xb_interp_ctx(ip);bad=*c->dbcur;
+      bad.recno=ovl_bad_cursor;samir_bind_cursor(c,&bad,c->dbcur_user); }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_ERROR
+    { xb_ctx *c=xb_interp_ctx(ip);samir_bind_errors(c,ovl_bad_error,c->on_escape,c->on_error_text,c->on_escape_text); }
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_SUSPEND
+    proc_set_suspend(ip,ovl_bad_suspend);
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_CALLBACK
+    /* Rule 6: a real callback escape, formerly accepted by the static graph. */
+    samir_bind_output(xb_interp_ctx(ip),alternate_output,ip);
+#endif
+#ifdef SAMIR_OVL_MUTATE_ESCAPE_RAW
+    xb_interp_ctx(ip)->mirror_user=(void *)(uintptr_t)set_ovl_entry;
+#endif
+#ifdef SAMIR_OVL_MUTATE_LIVE
+    /* Indirect ON ERROR is invisible to static relocation reachability. */
+    xb_interp_ctx(ip)->on_error(ip,10);
+#endif
     /* Find the set_state for this interpreter. */
     ss = set_state_for(ip, (int *)0);
     if (!ss) {
@@ -899,6 +953,19 @@ static int set_cmd_hook(void *user, xb_interp *ip,
     if (err_code) *err_code = 10;
 #endif
     return -INTERP_ERR_SYNTAX;
+}
+SAMIR_OVL_HEADER(set, SAMIR_OVL_SET, set_ovl_entry);
+
+static int set_cmd_hook(void *user, xb_interp *ip,
+                        const char *verb, const char *args, int *err_code)
+{
+    (void)user;
+    if (err_code) *err_code = 0;
+    if (!ip || !verb) return CMD_UNKNOWN;
+
+    /* Only handle the "SET" verb. */
+    if (!s_ci_eq(verb, "SET")) return CMD_UNKNOWN;
+    return SAMIR_OVL_CALL(SAMIR_OVL_SET, set_ovl_entry, 0, ip, args, err_code);
 }
 
 /* ===================================================================== */

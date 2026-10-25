@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include "test_assert.h"
 #include "trace_complete.h"
+#include "samir_install.h"
 TEST_HARNESS();
 static char serial[262144],raw[262144];
 static char project_root[1024];
@@ -62,7 +63,7 @@ static void fill(void){
 }
 int main(int argc,char **argv){
     scratch_lock("build/.lock-dbsafe-emu");
-    const char *mode=argc>1?argv[1]:"full",*com=argc>2?argv[2]:"build/SAMIR.COM";
+    const char *mode=argc>1?argv[1]:"full",*com=argc>2?argv[2]:"build/SAMIR.EXE";
     char cmd[16384],script[8192],out[4096],keys[4096],com_path[2048];size_t n,i,j;FILE *f;
     int full=!strcmp(mode,"full"),life=!strncmp(mode,"lifetime",8),desktop=strstr(mode,"desktop")!=NULL,z;
     {
@@ -87,7 +88,7 @@ int main(int argc,char **argv){
     run("mkdir -p build/dbsafe");f=fopen("build/dbsafe/emu.img","wb");CHECK(f!=NULL,"FAT image open");if(!f)return 2;
     CHECK(fseek(f,1474560-1,SEEK_SET)==0 && fputc(0,f)!=EOF,"FAT image sized");fclose(f);
     run("mformat -i build/dbsafe/emu.img -f 1440 ::");
-    snprintf(cmd,sizeof cmd,"mcopy -o -i build/dbsafe/emu.img %s ::SAMIR.COM",com);if(run(cmd))return 2;
+    if(samir_install_cmd(cmd,sizeof cmd,"build/dbsafe/emu.img",com) || run(cmd))return 2;
     run("mcopy -o -i build/dbsafe/emu.img build/CLIENTS.DBF ::CLIENTS.DBF");
     if(full){
         strcpy(script,"use clients\n");for(z=0;z<32;z++)strcat(script,"append blank\n");

@@ -1,11 +1,13 @@
 % Getting Started, Chapter 1: Installing InitechBase (annex Sec 1: the
 % Getting Started section -- install, copy the sample diskette).  Sources:
 % the InitechDOS requirements of spec/hardware.json as the InitechDOS
-% User's Guide states them; ADR-0009 (SAMIR.COM, a flat .COM run by
-% InitechDOS); pubs/examples/samir/disk/MANIFEST (the sample diskette);
+% User's Guide states them; ADR-0009 and docs/design/samir-overlays.md
+% (SAMIR.EXE with its overlay file SAMIR.OVL, run by InitechDOS; the refusal
+% text is spec/samir/ovl_format.h SAMIR_OVL_PROMPT, gate test-samir-ovl-emu);
+% pubs/examples/samir/disk/MANIFEST (the sample diskette);
 % the screen is a capture of the running system (screens/SCREENS).
 \chapter{Installing InitechBase}
-\Gates{test-pubs-screens, test-pubs-samir-disk, test-samir-boot}
+\Gates{test-pubs-screens, test-pubs-samir-disk, test-samir-boot, test-samir-ovl-emu}
 This chapter lists what you need to use InitechBase, describes the InitechBase
 package, and tells you how to make the working copies of the diskettes that
 you use every day.
@@ -28,7 +30,7 @@ InitechBase runs under InitechDOS Version~3.30.  You need:
   index (1040-0000-11)
 \item The \doctitle{InitechBase Quick Reference Guide} (1040-0000-20)
 \item The InitechBase System diskette, which holds the program
-  \file{SAMIR.COM}
+  \file{SAMIR.EXE} and its overlay file \file{SAMIR.OVL}
 \item The Sample Programs and Utilities diskette, which holds the sample
   databases, index files, report forms and programs used in this manual
 \item The Software License Agreement and the Warranty Registration Card
@@ -45,6 +47,14 @@ package in drive~A and the working diskette in drive~B, and type
 \type{COPY A:*.* B:} at the InitechDOS prompt.  For a fixed disk, name its
 drive and directory instead of \file{B:}.  The \doctitle{InitechDOS User's Guide} describes \file{COPY}, the
 creation of directories, and diskettes and fixed disks.
+
+\file{SAMIR.EXE} reads parts of itself from \file{SAMIR.OVL} while it runs, so
+keep the two files together and start InitechBase from the directory that
+holds them.  If \file{SAMIR.OVL} is not there, or is damaged, or belongs to
+another release of \file{SAMIR.EXE}, InitechBase displays
+\type{Insert System Disk and press ENTER, or press Ctrl-C to abort.}
+Put the right \file{SAMIR.OVL} in place and press Enter to go on, or press
+Ctrl-C to return to InitechDOS.
 
 \ATEHead{The Sample Programs and Utilities Diskette}
 \noindent\hspace*{-\imHang}\begin{tabular}{@{}p{30mm}p{104mm}@{}}

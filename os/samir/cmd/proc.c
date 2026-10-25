@@ -76,6 +76,7 @@
  *     OS surface here).
  */
 
+#include "samir/lifetime.h"
 #include <stdint.h>
 
 #include "samir/interp.h"
@@ -175,6 +176,7 @@ static int         g_n;
 
 static proc_state *proc_state_for(xb_interp *ip)
 {
+    SAMIR_RETAIN(ip);
     int i;
     if (!ip)
         return (proc_state *)0;
@@ -184,6 +186,7 @@ static proc_state *proc_state_for(xb_interp *ip)
     }
     if (g_n >= P_REGISTRY)
         return (proc_state *)0;          /* too many live interpreters: fail loud */
+    SAMIR_RETAIN(ip);
     g_key[g_n] = ip;
     /* every field starts empty/zero: no source, no ON ERROR / ON ESCAPE
      * trap, no pending WITH args, depth 0, dot prompt (prgname ""), no
@@ -1001,6 +1004,7 @@ static int proc_escape(void *vip)
 void proc_set_suspend(xb_interp *ip, int (*fn)(xb_interp *))
 {
     proc_state *ps = proc_state_for(ip);
+    SAMIR_RETAIN(fn);
     if (ps) ps->suspend = fn;
 }
 
@@ -1015,11 +1019,9 @@ int proc_register(xb_interp *ip)
         return -INTERP_ERR_NOMEM;
     rt_memset(ps, 0, (uint32_t)sizeof(*ps));   /* as proc_state_for's fresh slot */
 #endif
-    xb_interp_ctx(ip)->on_error = proc_trap;
-    xb_interp_ctx(ip)->on_escape = proc_escape;
+    samir_bind_errors(xb_interp_ctx(ip),proc_trap,proc_escape,ps->onerr,ps->onesc);
     xb_interp_ctx(ip)->program_name = ps->prgname;
-    xb_interp_ctx(ip)->on_error_text = ps->onerr;
-    xb_interp_ctx(ip)->on_escape_text = ps->onesc;
+
     return xb_interp_add_cmd_hook(ip, proc_cmd_hook, (void *)0);
 }
 
@@ -1045,6 +1047,7 @@ int proc_run(xb_interp *ip, const char *prg)
      * SUSPENDed program's dot prompt must not orphan that program's
      * PROCEDURE blocks (initech-39e5). */
     saved_source = ps->source;
+    SAMIR_RETAIN(prg);
     ps->source = prg;
     ps->run_depth++;
 

@@ -64,6 +64,10 @@
 #include "samir/value.h"
 #include "samir/rt.h"
 #include "samir/pal.h"
+#include "samir/ovl.h"
+#ifdef SAMIR_OVL_MUTATE_CROSS
+#include "samir/ndx.h"
+#endif
 
 /* query.c engine helpers (expression evaluation + value display text). */
 extern void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
@@ -93,7 +97,7 @@ static struct {
     char line[RP_LINE], pool[RP_POOL], gv[2][RP_TXT], hd[RP_TXT], fn[RP_TXT];
 } R;
 
-static int rp_u16(int o) { return R.frm[o] | (R.frm[o + 1] << 8); }
+static SAMIR_OVL_TEXT(report) int rp_u16(int o) { return R.frm[o] | (R.frm[o + 1] << 8); }
 /* Shared III+ keyword policy; length is the typed spelling, not the canon. */
 static int rp_word(const char *s, const char *w)
 {
@@ -101,7 +105,7 @@ static int rp_word(const char *s, const char *w)
 }
 
 /* ---- sinks: the TO FILE handle gets every byte, the console no FF ---- */
-static void rp_raw(const char *s, int n)
+static SAMIR_OVL_TEXT(report) void rp_raw(const char *s, int n)
 {
     int i;
     if (R.fd >= 0 && R.pal->write(R.pal, R.fd, s, (uint32_t)n) != n) R.err = 29;
@@ -109,9 +113,9 @@ static void rp_raw(const char *s, int n)
     xb_interp_output(R.ip, s, (uint32_t)i);
     if (i + 1 < n) xb_interp_output(R.ip, s + i + 1, (uint32_t)(n - i - 1));
 }
-static void rp_str(const char *s, int n) { while (n-- > 0 && R.pos < RP_LINE) R.line[R.pos++] = *s++; }
-static void rp_to(int c) { while (R.pos < c && R.pos < RP_LINE) R.line[R.pos++] = ' '; }
-static void rp_out(void)
+static SAMIR_OVL_TEXT(report) void rp_str(const char *s, int n) { while (n-- > 0 && R.pos < RP_LINE) R.line[R.pos++] = *s++; }
+static SAMIR_OVL_TEXT(report) void rp_to(int c) { while (R.pos < c && R.pos < RP_LINE) R.line[R.pos++] = ' '; }
+static SAMIR_OVL_TEXT(report) void rp_out(void)
 {
     rp_raw("\r\n", 2);
     rp_raw(R.line, R.pos);
@@ -121,7 +125,7 @@ static void rp_out(void)
 
 /* Next wrapped piece of s[0..n) for width w: returns its print length; *adv
  * = bytes consumed (a ';' is consumed, not printed). [verified: R4DT] */
-static int rp_seg(const char *s, int n, int w, int *adv)
+static SAMIR_OVL_TEXT(report) int rp_seg(const char *s, int n, int w, int *adv)
 {
     int i = 0, k;
     while (i < n && s[i] != ';') i++;
@@ -130,16 +134,16 @@ static int rp_seg(const char *s, int n, int w, int *adv)
     *adv = k ? k : w;
     return *adv;
 }
-static int rp_center(int len) { return R.lm + (len < R.U ? (R.U - len) / 2 : 0); }
+static SAMIR_OVL_TEXT(report) int rp_center(int len) { return R.lm + (len < R.U ? (R.U - len) / 2 : 0); }
 /* i-th ';' piece of s (NULL when absent); *n its length. */
-static const char *rp_piece(const char *s, int i, int *n)
+static SAMIR_OVL_TEXT(report) const char *rp_piece(const char *s, int i, int *n)
 {
     while (i--) { while (*s && *s != ';') s++; if (!*s) return 0; s++; }
     for (*n = 0; s[*n] && s[*n] != ';'; ++*n) ;
     return s;
 }
 
-static void rp_header(void)
+static SAMIR_OVL_TEXT(report) void rp_header(void)
 {
     const char *s;
     int i, n, a, k, c;
@@ -181,14 +185,14 @@ static void rp_header(void)
     rp_out(); rp_out();
 }
 
-static void rp_eject(void)
+static SAMIR_OVL_TEXT(report) void rp_eject(void)
 {
     rp_raw("\r\f", 2);
     R.L = 0; R.page++;
     rp_header();
 }
 /* A unit of n lines needs n+1 lines left. [verified: 83 lpp sweeps] */
-static int rp_need(int n)
+static SAMIR_OVL_TEXT(report) int rp_need(int n)
 {
 #ifdef SAMIR_REPORT_MUTATE_PAGE
     n--;   /* MUTANT: off-by-one room check */
@@ -196,13 +200,13 @@ static int rp_need(int n)
     if (R.L + n + 1 > R.lpp) { rp_eject(); return 1; }
     return 0;
 }
-static void rp_label(const char *s)
+static SAMIR_OVL_TEXT(report) void rp_label(const char *s)
 {
     rp_to(R.lm - 1);
     rp_str(s, rt_strlen(s));
 }
 /* Subtotal / total band for level k (0 group, 1 subgroup, 2 grand). */
-static void rp_total(int k)
+static SAMIR_OVL_TEXT(report) void rp_total(int k)
 {
     static const char *const lab[3] = { "** Subtotal **", "* Subsubtotal *", "*** Total ***" };
     int c;
@@ -225,7 +229,7 @@ static void rp_total(int k)
 }
 
 /* Display text of v at dst[*p]; C right-trimmed when trim. 0 or catalog code. */
-static int rp_text(const xb_val *v, char *dst, uint32_t *p, uint32_t cap, int trim)
+static SAMIR_OVL_TEXT(report) int rp_text(const xb_val *v, char *dst, uint32_t *p, uint32_t cap, int trim)
 {
     uint32_t s = *p;
     if (v->t == XB_M) return 34;
@@ -235,7 +239,7 @@ static int rp_text(const xb_val *v, char *dst, uint32_t *p, uint32_t cap, int tr
     return 0;
 }
 
-static int rp_record(int first, int *ec)
+static SAMIR_OVL_TEXT(report) int rp_record(int first, int *ec)
 {
     char tmp[2][RP_TXT];
     uint32_t tn[2], p = 0;
@@ -300,7 +304,7 @@ static int rp_record(int first, int *ec)
 }
 
 /* name (+ ext when the last path part has none) into R.fn; 0 or 10. */
-static int rp_name(const char *name, const char *ext)
+static SAMIR_OVL_TEXT(report) int rp_name(const char *name, const char *ext)
 {
     int n = rt_strlen(name), i, dot = 0;
     if (!n || n + 5 > RP_TXT) return 10;
@@ -311,7 +315,7 @@ static int rp_name(const char *name, const char *ext)
 }
 
 /* Load + validate the .frm (frm.md Sec 7). 0 or a catalog code. */
-static int rp_load(void)
+static SAMIR_OVL_TEXT(report) int rp_load(void)
 {
     const char *str[54];
     int i, x, tot, nz = 0, sum = 0, nstr;
@@ -358,7 +362,7 @@ static int rp_load(void)
 enum { K_FOR, K_WHILE, K_HEADING, K_TO, K_NEXT, K_RECORD, K_PLAIN, K_NOEJECT, K_SUMMARY, K_ALL, K_REST, K_N };
 static const char *const g_kw[K_N] = { "FOR", "WHILE", "HEADING", "TO", "NEXT", "RECORD", "PLAIN", "NOEJECT", "SUMMARY", "ALL", "REST" };
 
-static int rp_cond(const char *c, int *ec)    /* 1 true, 0 false, -1 fault */
+static SAMIR_OVL_TEXT(report) int rp_cond(const char *c, int *ec)    /* 1 true, 0 false, -1 fault */
 {
     xb_val v;
     if (!c) return 1;
@@ -369,7 +373,7 @@ static int rp_cond(const char *c, int *ec)    /* 1 true, 0 false, -1 fault */
 
 /* Position for the scope (default ALL; WHILE implies REST), set the column
  * types from the starting record, print the first page header, then walk. */
-static int rp_walk(char *cl[K_N], int *ec)
+static SAMIR_OVL_TEXT(report) int rp_walk(char *cl[K_N], int *ec)
 {
     wa_env *env = xb_interp_env(R.ip);
     int area = wa_selected(env), first = 1, t, i;
@@ -415,7 +419,7 @@ static int rp_walk(char *cl[K_N], int *ec)
     return 0;
 }
 
-static int rp_run(const char *args, int *ec)
+static SAMIR_OVL_TEXT(report) int rp_run(const char *args, int *ec)
 {
     char a[RP_TXT], *cl[K_N], *s, *e, *last = 0;
     int k = -1, q = 0, depth = 0, rc = 0, i;
@@ -494,7 +498,7 @@ static int rp_run(const char *args, int *ec)
 
 /* LABEL FORM: Using III+ U5-143; DML-15 ADDRESS.LBL and EXTRA-01..05
  * independently pin comma trimming, across columns and CR band terminators. */
-static int lbl_run(const char *args,int *ec)
+static SAMIR_OVL_TEXT(report) int lbl_run(const char *args,int *ec)
 {
     char a[256],*p,*s,*e,expr[61],band[16][512];int len[16];
     int h,w,lm,gap,across,spacing,area,col=0,rc=0;
@@ -580,15 +584,44 @@ static int lbl_run(const char *args,int *ec)
     return rc;
 }
 
+/* Overlay REPORT (initech-5etom.1; docs/design/samir-overlays.md Sec 3):
+ * k = 0 REPORT FORM, 1 LABEL FORM; the result is exactly what
+ * report_cmd_hook returned for that verb before the split. */
+static SAMIR_OVL_TEXT(report) int report_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
+{
+    (void)ip;
+#ifdef SAMIR_OVL_MUTATE_CROSS
+    /* MUTANT (Rule 6; test-samir-ovl-static-mutant only): overlay REPORT names
+     * a FILE-overlay function -- the link must refuse (OVERLAY NOCROSSREFS). */
+    if (k == 99) return (int)(uintptr_t)(void *)ndx_rebuild;
+#endif
+#ifdef SAMIR_OVL_MUTATE_REENTER
+    /* MUTANT (Rule 6; test-samir-ovl-static-mutant only): overlay code runs a
+     * nested program, which could swap the slot under it -- the packer's
+     * call-graph rule must refuse. */
+    if (k == 99) return samir_do(ip, "");
+#endif
+    if (k) return lbl_run(args, ec) ? -INTERP_ERR_EVAL : CMD_OK;
+    return rp_run(args, ec) ? -INTERP_ERR_EVAL : CMD_OK;
+}
+SAMIR_OVL_HEADER(report, SAMIR_OVL_REPORT, report_ovl_entry);
+
 static int report_cmd_hook(void *user, xb_interp *ip, const char *verb,
                            const char *args, int *err_code)
 {
+    int k;
     (void)user;
-    if(rp_word(verb,"LABEL")) {R.ip=ip;*err_code=0;return lbl_run(args,err_code)?-INTERP_ERR_EVAL:CMD_OK;}
-    if (!rp_word(verb, "REPORT")) return CMD_UNKNOWN;
+#ifdef SAMIR_OVL_MUTATE_RESREF
+    /* MUTANT (Rule 6; test-samir-ovl-static-mutant only): resident code names
+     * an overlay function -- the link must refuse (NOCROSSREFS_TO). */
+    if (!verb[0]) return (int)(uintptr_t)(void *)rp_run;
+#endif
+    if (rp_word(verb, "LABEL")) k = 1;
+    else if (rp_word(verb, "REPORT")) k = 0;
+    else return CMD_UNKNOWN;
     R.ip = ip;
     *err_code = 0;
-    return rp_run(args, err_code) ? -INTERP_ERR_EVAL : CMD_OK;
+    return SAMIR_OVL_CALL(SAMIR_OVL_REPORT, report_ovl_entry, k, ip, args, err_code);
 }
 
 int report_register(xb_interp *ip);

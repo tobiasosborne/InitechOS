@@ -1,38 +1,58 @@
 # ADR-0009 DEC-03/04/05. Factory-only diagnostics never relax samir.ld.
+# Overlays Phase B (initech-5etom.1; docs/design/samir-overlays.md Sec 5):
+# the oracle now reads SAMIR.EXE (resident module) and its sibling SAMIR.OVL
+# (slot = largest overlay); same physical window, same 4096 B floor.
 SAMIR_SIZE_TEST := $(BUILD)/test_samir_size
-SAMIR_SIZE_IMAGE ?= $(SAMIR_COM)
-$(SAMIR_SIZE_TEST): $(DBF_DIFF_DIR)/test_samir_size.c spec/memory_map.h | $(BUILD)
+SAMIR_SIZE_IMAGE ?= $(SAMIR_EXE)
+$(SAMIR_SIZE_TEST): $(DBF_DIFF_DIR)/test_samir_size.c spec/memory_map.h spec/samir/ovl_format.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec -o $@ $<
 .PHONY: test-samir-size test-samir-size-mutant test-samir-size-repro test-samir-size-emu test-samir-size-emu-mutant
-test-samir-size: $(SAMIR_SIZE_TEST) $(SAMIR_SIZE_IMAGE)
+test-samir-size: $(SAMIR_SIZE_TEST) $(SAMIR_SIZE_IMAGE) $(SAMIR_OVL)
 	@$(SAMIR_SIZE_TEST) $(SAMIR_SIZE_IMAGE)
-	@printf '>>> test-samir-size: green (>=4096 B headroom against samir.ld PAL-memory budget)\n'
+	@printf '>>> test-samir-size: green (resident >=4096 B headroom against the samir.ld PAL-memory budget; slot == largest overlay)\n'
 
-# Rule 6: retain the actual program and pad to 4095 B headroom (RED), then
-# exactly 4096 B (GREEN). Read the budget from the oracle's samir.ld arithmetic.
-# It is a file-size mutant, not a behavior mutant; QEMU behavior is separate.
-test-samir-size-mutant: test-samir-size
+# Rule 6, two size mutants built from the real artifacts:
+#  SAMIR_SIZE_PAD_4096: the real resident module zero-padded to 4095 B of
+#    headroom and re-wrapped by mzlink (RED), then to exactly 4096 B (GREEN);
+#  SAMIR_SIZE_SLOT: the real SAMIR.OVL with its slot length 16 B too large,
+#    so the slot is no longer the largest overlay (RED).
+# File-size mutants, not behaviour mutants; QEMU behaviour is separate.
+SAMIR_SIZE_RES := $(BUILD)/samir_exe/SAMIR.elf.res
+test-samir-size-mutant: test-samir-size $(MZLINK_BIN)
 	@mkdir -p $(BUILD)/samir-size
-	@set -e; budget=$$($(SAMIR_SIZE_TEST) $(SAMIR_COM) | sed -n 's/.*(budget \([0-9][0-9]*\) B)$$/\1/p'); \
+	@set -e; budget=$$($(SAMIR_SIZE_TEST) $(SAMIR_EXE) | sed -n 's/.*(budget \([0-9][0-9]*\) B).*/\1/p'); \
 	 test -n "$$budget" || { printf 'samir-size-mutant: missing PAL-memory budget\n'; exit 1; }; \
-	 cp -f $(SAMIR_COM) $(BUILD)/samir-size/SAMIR_SIZE_PAD_4096.COM; \
-	 truncate -s $$(( budget - 4096 + 1 )) $(BUILD)/samir-size/SAMIR_SIZE_PAD_4096.COM; \
-	 set +e; $(SAMIR_SIZE_TEST) $(BUILD)/samir-size/SAMIR_SIZE_PAD_4096.COM > $(BUILD)/samir-size/pad-red.log 2>&1; rc=$$?; set -e; \
-	 test $$rc = 1 && grep -q '^RED SAMIR_SIZE:' $(BUILD)/samir-size/pad-red.log && \
-	 test $$(stat -c%s $(BUILD)/samir-size/SAMIR_SIZE_PAD_4096.COM) -le "$$budget" || { cat $(BUILD)/samir-size/pad-red.log; exit 1; }; \
-	 cat $(BUILD)/samir-size/pad-red.log; \
-	 cp -f $(SAMIR_COM) $(BUILD)/samir-size/floor.COM; \
-	 truncate -s $$(( budget - 4096 )) $(BUILD)/samir-size/floor.COM
-	@$(SAMIR_SIZE_TEST) $(BUILD)/samir-size/floor.COM
-	@printf '>>> test-samir-size-mutant: green (SAMIR_SIZE_PAD_4096 floor-1 RED; floor GREEN; both below linker budget)\n'
-test-samir-size-repro: $(SAMIR_COM)
+	 for v in red:1 floor:0; do n=$${v%%:*}; extra=$${v#*:}; \
+	   cp -f $(SAMIR_SIZE_RES) $(BUILD)/samir-size/$$n.res; \
+	   truncate -s $$(( budget - 4096 + extra )) $(BUILD)/samir-size/$$n.res; \
+	   $(MZLINK_BIN) $(BUILD)/samir-size/$$n.res $(BUILD)/samir-size/SAMIR_SIZE_PAD_$$n.EXE --header-relocs --minalloc $(SAMIR_MINALLOC) 2>/dev/null; \
+	   cp -f $(basename $(SAMIR_EXE)).OVL $(BUILD)/samir-size/SAMIR_SIZE_PAD_$$n.OVL; \
+	 done; \
+	 set +e; $(SAMIR_SIZE_TEST) $(BUILD)/samir-size/SAMIR_SIZE_PAD_red.EXE > $(BUILD)/samir-size/pad-red.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && grep -q '^RED SAMIR_SIZE:' $(BUILD)/samir-size/pad-red.log || { cat $(BUILD)/samir-size/pad-red.log; exit 1; }; \
+	 cat $(BUILD)/samir-size/pad-red.log
+	@$(SAMIR_SIZE_TEST) $(BUILD)/samir-size/SAMIR_SIZE_PAD_floor.EXE
+	@set -e; cp -f $(SAMIR_EXE) $(BUILD)/samir-size/SAMIR_SIZE_SLOT.EXE; \
+	 cp -f $(basename $(SAMIR_EXE)).OVL $(BUILD)/samir-size/SAMIR_SIZE_SLOT.OVL; \
+	 slot=$$(od -An -tu4 -j16 -N4 $(BUILD)/samir-size/SAMIR_SIZE_SLOT.OVL | tr -d ' '); slot=$$(( slot + 16 )); \
+	 printf "$$(printf '\\%03o\\%03o\\%03o\\%03o' $$(( slot & 255 )) $$(( (slot >> 8) & 255 )) $$(( (slot >> 16) & 255 )) $$(( slot >> 24 )))" | \
+	   dd of=$(BUILD)/samir-size/SAMIR_SIZE_SLOT.OVL bs=1 seek=16 conv=notrunc status=none; \
+	 set +e; $(SAMIR_SIZE_TEST) $(BUILD)/samir-size/SAMIR_SIZE_SLOT.EXE > $(BUILD)/samir-size/slot-red.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && grep -q '^RED SAMIR_SLOT:' $(BUILD)/samir-size/slot-red.log || { cat $(BUILD)/samir-size/slot-red.log; exit 1; }; \
+	 cat $(BUILD)/samir-size/slot-red.log
+	@printf '>>> test-samir-size-mutant: green (SAMIR_SIZE_PAD floor-1 RED; floor GREEN; SAMIR_SIZE_SLOT RED)\n'
+# Reproducible (Rule 11): two forced rebuilds give byte-identical SAMIR.EXE AND
+# SAMIR.OVL (the stamp in each ties the pair).
+test-samir-size-repro: $(SAMIR_EXE)
 	@mkdir -p $(BUILD)/samir-size
 	@set -e; root=$$(mktemp -d $(abspath $(BUILD))/samir-size/repro-XXXXXX); \
-	 $(MAKE) --no-print-directory -B samir-com BUILD=$$root/first > $$root/first.log 2>&1; \
-	 $(MAKE) --no-print-directory -B samir-com BUILD=$$root/second > $$root/second.log 2>&1; \
-	 cmp $$root/first/SAMIR.COM $$root/second/SAMIR.COM; \
-	 cmp $(SAMIR_COM) $$root/first/SAMIR.COM
-	@printf '>>> test-samir-size-repro: green (two clean builds byte-identical): '; sha256sum $(SAMIR_COM)
+	 $(MAKE) --no-print-directory -B samir-exe BUILD=$$root/first > $$root/first.log 2>&1; \
+	 $(MAKE) --no-print-directory -B samir-exe BUILD=$$root/second > $$root/second.log 2>&1; \
+	 cmp $$root/first/SAMIR.EXE $$root/second/SAMIR.EXE; \
+	 cmp $$root/first/SAMIR.OVL $$root/second/SAMIR.OVL; \
+	 cmp $(SAMIR_EXE) $$root/first/SAMIR.EXE; \
+	 cmp $(basename $(SAMIR_EXE)).OVL $$root/first/SAMIR.OVL
+	@printf '>>> test-samir-size-repro: green (two clean builds byte-identical): '; sha256sum $(SAMIR_EXE) $(SAMIR_OVL)
 
 # Locked injected traces, independent III+ transcripts/DBF bytes, mtools and
 # dosfstools are the existing boot/write gates (IBM DOS 3.30 TR 6-200, EXIT).
@@ -83,9 +103,9 @@ test-samir-memwidth-mutant: test-samir-memwidth $(BUILD)/prog_diff_memwidth_muta
 test-samir-memwidth-emu: test-samir-dml-macro-emu samir-size-goldens $(SAMIR_FNS_TEST) $(CLIENTS_DBF)
 	@INITECH_QMP_STDIO=1 $(SAMIR_FNS_TEST) memwidth emu
 	@printf '>>> test-samir-memwidth-emu: green (real III+ DML-02 in QEMU)\n'
-test-samir-memwidth-emu-mutant: test-samir-memwidth-emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MEMVAR_WIDTH.COM $(CLIENTS_DBF)
+test-samir-memwidth-emu-mutant: test-samir-memwidth-emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MEMVAR_WIDTH.EXE $(CLIENTS_DBF)
 	@mkdir -p $(BUILD)/samir-size   # own scratch dir: FAIL on a fresh parallel worker (initech-27clv)
-	@set +e; INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) macro emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MEMVAR_WIDTH.COM > $(BUILD)/samir-size/memwidth-emu-red.log 2>&1; rc=$$?; set -e; \
+	@set +e; INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) macro emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MEMVAR_WIDTH.EXE > $(BUILD)/samir-size/memwidth-emu-red.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q 'FAIL.*DML transcript byte-identical' $(BUILD)/samir-size/memwidth-emu-red.log && \
 	 ! grep -q 'FAIL.*locked QEMU trace' $(BUILD)/samir-size/memwidth-emu-red.log || { cat $(BUILD)/samir-size/memwidth-emu-red.log; exit 1; }; \
 	 printf 'SAMIR_SIZE_MUTATE_MEMVAR_WIDTH emu RED: '; grep -m1 'FAIL.*DML transcript' $(BUILD)/samir-size/memwidth-emu-red.log
@@ -98,8 +118,8 @@ mint-samir-memwidth: $(CLIENTS_DBF)
 	@sh $(DBF_DIFF_DIR)/fns_mint.sh $(abspath $(DBASE3_DECOMP)) memwidth
 test-samir-messages-emu: test-samir-core-emu
 	@printf '>>> test-samir-messages-emu: green (exact catalogue messages 76/77 in QEMU)\n'
-test-samir-messages-emu-mutant: test-samir-messages-emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MSG_PAIR.COM
-	@set +e; INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MSG_PAIR.COM > $(BUILD)/samir-size/msg-pair-emu-red.log 2>&1; rc=$$?; set -e; \
+test-samir-messages-emu-mutant: test-samir-messages-emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MSG_PAIR.EXE
+	@set +e; INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(BUILD)/SAMIR_SCREEN_SAMIR_SIZE_MUTATE_MSG_PAIR.EXE > $(BUILD)/samir-size/msg-pair-emu-red.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q 'FAIL.*guest exact manual error' $(BUILD)/samir-size/msg-pair-emu-red.log && \
 	 ! grep -q 'FAIL.*guest did not panic' $(BUILD)/samir-size/msg-pair-emu-red.log || { cat $(BUILD)/samir-size/msg-pair-emu-red.log; exit 1; }; \
 	 printf 'SAMIR_SIZE_MUTATE_MSG_PAIR emu RED: '; grep -m1 'FAIL.*guest exact manual error' $(BUILD)/samir-size/msg-pair-emu-red.log

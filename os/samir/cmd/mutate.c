@@ -109,6 +109,7 @@
 #include "samir/rt.h"
 #include "samir/pal.h"
 #include "samir/set.h"
+#include "samir/ovl.h"
 
 /* ===================================================================== */
 /* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)            */
@@ -884,7 +885,7 @@ typedef struct {
     int         ec;
 } m_pack_kp_ctx;
 
-static int m_pack_get_key(void *user, uint32_t recno,
+static SAMIR_OVL_TEXT(file) int m_pack_get_key(void *user, uint32_t recno,
                           uint8_t *key_out, uint16_t key_len)
 {
     m_pack_kp_ctx *c = (m_pack_kp_ctx *)user;
@@ -900,7 +901,7 @@ static int m_pack_get_key(void *user, uint32_t recno,
 }
 #endif /* !MUTATE_PACK_NO_REINDEX */
 
-static int m_pack(xb_interp *ip, int *ec)
+static SAMIR_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
     int area = wa_selected(env);
@@ -982,7 +983,7 @@ static int m_pack(xb_interp *ip, int *ec)
  * empty/error/EOF as No are authored, no local reference for those edge rules.
  * Use the same cooked PAL as the REPL so a redirected answer consumes one line.
  * This helper can guard further destructive file commands when implemented. */
-static int m_confirm_file(xb_interp *ip,const char *verb,const dbf_table *tbl)
+static SAMIR_OVL_TEXT(file) int m_confirm_file(xb_interp *ip,const char *verb,const dbf_table *tbl)
 {
     samir_pal_t *pal=xb_interp_pal(ip);
     char answer[256];const char *s;uint32_t len;
@@ -1002,7 +1003,7 @@ static int m_confirm_file(xb_interp *ip,const char *verb,const dbf_table *tbl)
     return len==1u && (s[0]=='Y' || s[0]=='y');
 }
 
-static int m_zap(xb_interp *ip, int *ec)
+static SAMIR_OVL_TEXT(file) int m_zap(xb_interp *ip, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
     int area = wa_selected(env);
@@ -1036,8 +1037,8 @@ static int m_zap(xb_interp *ip, int *ec)
 
 /* DML-04/05, Using III+ U5-131/132/172. Command adapters retain
  * NDX's independent codec and evaluate keys through the same resolver as SEEK. */
-static int d_fail(int *ec,int code) { if(ec)*ec=code;return -INTERP_ERR_EVAL; }
-static const char *d_kw(const char *s,const char *kw)
+static SAMIR_OVL_TEXT(file) int d_fail(int *ec,int code) { if(ec)*ec=code;return -INTERP_ERR_EVAL; }
+static SAMIR_OVL_TEXT(file) const char *d_kw(const char *s,const char *kw)
 {
     char quote=0;
     for(const char *p=s;*p;p++) {
@@ -1047,7 +1048,7 @@ static const char *d_kw(const char *s,const char *kw)
     }
     return 0;
 }
-static int d_word(const char **p,char *out,unsigned cap)
+static SAMIR_OVL_TEXT(file) int d_word(const char **p,char *out,unsigned cap)
 {
     unsigned n=0;const char *s=m_skip_ws(*p);char quote=0;
     if(*s=='\'' || *s=='"') quote=*s++;
@@ -1058,7 +1059,7 @@ static int d_word(const char **p,char *out,unsigned cap)
     if(quote) { if(*s!=quote)return 0;s++; }
     out[n]=0;*p=m_skip_ws(s);return n!=0;
 }
-static int d_name(char *name,unsigned cap,const char *ext)
+static SAMIR_OVL_TEXT(file) int d_name(char *name,unsigned cap,const char *ext)
 {
     unsigned i,n=rt_strlen(name);int dot=0;
     for(i=0;i<n;i++) { name[i]=m_up1(name[i]);if(name[i]=='.')dot=1; }
@@ -1067,7 +1068,7 @@ static int d_name(char *name,unsigned cap,const char *ext)
 }
 /* Existing destinations stay intact under SAFETY until an independently
  * minted overwrite-prompt extension is available. No guessed prompt bytes. */
-static int d_destination(xb_interp *ip,const char *name,int *ec)
+static SAMIR_OVL_TEXT(file) int d_destination(xb_interp *ip,const char *name,int *ec)
 {
     samir_pal_t *p=xb_interp_pal(ip);pal_fd fd;
     wa_env *env=xb_interp_env(ip);
@@ -1081,13 +1082,13 @@ static int d_destination(xb_interp *ip,const char *name,int *ec)
     return 0;
 }
 typedef struct { xb_interp *ip;const char *expr;uint16_t type;int ec; } d_key_ctx;
-static int d_key(void *user,uint32_t rec,uint8_t *key,uint16_t len)
+static SAMIR_OVL_TEXT(file) int d_key(void *user,uint32_t rec,uint8_t *key,uint16_t len)
 {
     d_key_ctx *c=user;wa_env *e=xb_interp_env(c->ip);
     if(wa_nav_goto(e,wa_selected(e),rec)!=NAV_OK)return -1;
     return m_encode_key(c->ip,c->expr,c->type,len,key,&c->ec);
 }
-static int d_index(xb_interp *ip,const char *args,int rebuild,int *ec)
+static SAMIR_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebuild,int *ec)
 {
     wa_env *env=xb_interp_env(ip);samir_pal_t *pal=xb_interp_pal(ip);
     int area=wa_selected(env),rc;dbf_table *t=wa_table(env,area);
@@ -1134,7 +1135,7 @@ static int d_index(xb_interp *ip,const char *args,int rebuild,int *ec)
 
 /* SORT/TOTAL: Using III+ U5-269/270/276; real DML-06 tie order and
  * DML-07 consecutive groups (non-numeric fields come from the first row). */
-static int d_schema(dbf_table *t,dbf_field_spec *s,int *ec)
+static SAMIR_OVL_TEXT(file) int d_schema(dbf_table *t,dbf_field_spec *s,int *ec)
 {
     int n=dbf_nfields(t);
     if(n>128)return d_fail(ec,43);
@@ -1145,10 +1146,10 @@ static int d_schema(dbf_table *t,dbf_field_spec *s,int *ec)
     }
     return n;
 }
-static int d_field(dbf_table *t,const char *name)
+static SAMIR_OVL_TEXT(file) int d_field(dbf_table *t,const char *name)
 { for(int i=0;i<dbf_nfields(t);i++)if(m_ci_eq(name,dbf_field(t,i)->name))return i;return -1; }
 typedef struct {uint32_t rec;double number;char key[100];} d_sort_row;
-static int d_sort(xb_interp *ip,const char *args,int *ec)
+static SAMIR_OVL_TEXT(file) int d_sort(xb_interp *ip,const char *args,int *ec)
 {
     wa_env *env=xb_interp_env(ip);int area=wa_selected(env),rc=0,fi,nf,del;
     samir_pal_t *pal=xb_interp_pal(ip);dbf_table *src=wa_table(env,area),*out=0;
@@ -1202,7 +1203,7 @@ static int d_sort(xb_interp *ip,const char *args,int *ec)
     pal->release(pal,rows);
     return rc?d_fail(ec,rc):INTERP_OK;
 }
-static int d_total(xb_interp *ip,const char *args,int *ec)
+static SAMIR_OVL_TEXT(file) int d_total(xb_interp *ip,const char *args,int *ec)
 {
     wa_env *env=xb_interp_env(ip);int area=wa_selected(env),nf,fi,del,rc=0,have=0;
     samir_pal_t *pal=xb_interp_pal(ip);dbf_table *src=wa_table(env,area),*out=0;
@@ -1251,7 +1252,7 @@ static int d_total(xb_interp *ip,const char *args,int *ec)
 /* Closed ASCII file verbs. Using III+ U5-59/121/175/278;
  * real DML-11..14: TYPE stops at DOS EOF, COPY FILE preserves every byte. */
 /* kind: 0 TYPE, 1 RENAME, 2 ERASE, 3 COPY (mutate_cmd_hook's table order). */
-static int d_file(xb_interp *ip,int kind,const char *args,int *ec)
+static SAMIR_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,int *ec)
 {
     const char *p=m_skip_ws(args);char src[128],dst[128],buf[512];int copy=kind==3;
     int type=kind==0,erase=kind==2,rc=0;
@@ -1327,7 +1328,7 @@ static int d_file(xb_interp *ip,int kind,const char *args,int *ec)
  * the child each pair falls on (the child's output went to its own file);
  * one before and one after is AUTHORED. Error 92 "Unable to load COMMAND.COM."
  * (spec/samir/dbase_msg_codes.tsv) when the PAL has no processor. */
-static int d_run(xb_interp *ip,const char *args,int *ec)
+static SAMIR_OVL_TEXT(file) int d_run(xb_interp *ip,const char *args,int *ec)
 {
     samir_pal_t *pal=xb_interp_pal(ip);
 #ifdef SAMIR_DML_MUTANT_run
@@ -1346,7 +1347,7 @@ static int d_run(xb_interp *ip,const char *args,int *ec)
  * Each record is persisted before proceeding. Previously appended records are
  * never rolled back if a later input/write fails; there is no invented batch
  * transaction. The blank-append primitive protects only its own record. */
-static int d_append_from(xb_interp *ip,const char *args,int *ec)
+static SAMIR_OVL_TEXT(file) int d_append_from(xb_interp *ip,const char *args,int *ec)
 {
     wa_env *env=xb_interp_env(ip);int area=wa_selected(env),del,rc=0,nf,ns;
     dbf_table *out=wa_table(env,area),*src=0;const char *p=m_skip_ws(args);
@@ -1393,6 +1394,30 @@ static int d_append_from(xb_interp *ip,const char *args,int *ec)
     return rc?d_fail(ec,rc):INTERP_OK;
 }
 
+/* Overlay FILE (initech-5etom.1; docs/design/samir-overlays.md Sec 3): the
+ * cold mutation verbs. `k` is mutate_cmd_hook's keyword index; each case
+ * returns exactly what the hook returned for that verb before the split. */
+static SAMIR_OVL_TEXT(file) int mutate_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
+{
+    int rc;
+    switch (k) {
+    case 0: case 1: case 2: case 3:             /* TYPE RENAME ERASE COPY FILE */
+        return d_file(ip,k,args,ec);
+    case 4: case 5:                             /* RUN ! */
+        return d_run(ip,args,ec);
+    case 6:  return d_sort(ip,args,ec);
+    case 7:  return d_total(ip,args,ec);
+    case 8: case 9:                             /* INDEX REINDEX */
+        return d_index(ip,args,k==9,ec);
+    case 11: rc = d_append_from(ip,args,ec); break;   /* APPEND FROM */
+    case 14: rc = m_pack(ip, ec); break;
+    case 15: rc = m_zap(ip, ec); break;
+    default: return CMD_UNKNOWN;
+    }
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+SAMIR_OVL_HEADER(file, SAMIR_OVL_FILE, mutate_ovl_entry);
+
 static int m_replace(xb_interp *ip, const char *args, int *ec)
 {
     m_clauses mc;
@@ -1428,22 +1453,21 @@ static int mutate_cmd_hook(void *user, xb_interp *ip,
     k = rt_kw_index(verb, "TYPE\0RENAME\0ERASE\0COPY\0RUN\0!\0SORT\0TOTAL\0INDEX\0"
                           "REINDEX\0REPLACE\0APPEND\0DELETE\0RECALL\0PACK\0ZAP\0");
     switch (k) {
-    case 0: case 1: case 2: case 3:             /* TYPE RENAME ERASE COPY */
-        return d_file(ip,k,args,err_code);
-    case 4: case 5:                             /* RUN ! */
-        return d_run(ip,args,err_code);
-    case 6:  return d_sort(ip,args,err_code);
-    case 7:  return d_total(ip,args,err_code);
-    case 8: case 9:                             /* INDEX REINDEX */
-        return d_index(ip,args,k==9,err_code);
+    case 3:                                     /* COPY: only COPY FILE is ours */
+        if (!m_match_kw(m_skip_ws(args), "FILE")) return CMD_UNKNOWN;
+        /* fall through */
+    case 0: case 1: case 2:                     /* TYPE RENAME ERASE */
+    case 4: case 5: case 6: case 7: case 8: case 9: /* RUN ! SORT TOTAL INDEX REINDEX */
+    case 14: case 15:                           /* PACK ZAP */
+        return SAMIR_OVL_CALL(SAMIR_OVL_FILE, mutate_ovl_entry, k, ip, args, err_code);
     case 10: rc = m_replace(ip, args, err_code); break;
     case 11:
-        rc = m_match_kw(m_skip_ws(args),"FROM")?d_append_from(ip,args,err_code):m_append(ip, args, err_code);
+        if (m_match_kw(m_skip_ws(args),"FROM"))  /* APPEND FROM is cold */
+            return SAMIR_OVL_CALL(SAMIR_OVL_FILE, mutate_ovl_entry, k, ip, args, err_code);
+        rc = m_append(ip, args, err_code);
         break;
     case 12: rc = m_delete_recall(ip, args, /*want_delete=*/1, err_code); break;
     case 13: rc = m_delete_recall(ip, args, /*want_delete=*/0, err_code); break;
-    case 14: rc = m_pack(ip, err_code); break;
-    case 15: rc = m_zap(ip, err_code); break;
     default: return CMD_UNKNOWN;                /* not a mutation verb */
     }
     return (rc == INTERP_OK) ? CMD_OK : rc;

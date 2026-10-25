@@ -1,3 +1,4 @@
+#include "samir/lifetime.h"
 #include "samir/screen.h"
 #include "samir/rt.h"
 /* Fig 5-17: mode columns 0..15, drive 17..21, database 23..44,
@@ -16,6 +17,7 @@ static uint32_t number(char *out,uint32_t n)
 }
 void samir_screen_init(samir_screen *s,samir_screen_draw draw,void *user)
 {
+    SAMIR_RETAIN(s); SAMIR_RETAIN(draw); SAMIR_RETAIN(user);
     rt_memset(s,0,sizeof(*s)); rt_memset(s->text,' ',sizeof(s->text));
     s->draw=draw;s->user=user;
 }

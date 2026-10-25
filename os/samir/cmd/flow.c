@@ -37,6 +37,7 @@
  *   - spec/samir/dbase_msg_codes.tsv   (#16 unrecognized verb, #37 not logical).
  */
 
+#include "samir/lifetime.h"
 #include <stdint.h>
 
 #include "samir/interp.h"
@@ -46,6 +47,7 @@
 #include "samir/rt.h"
 #include "samir/pal.h"
 #include "samir/set.h"
+#include "samir/ovl.h"
 
 /* ===================================================================== */
 /* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)           */
@@ -199,6 +201,7 @@ static int flow_resolve(void *user, const char *name, uint16_t len, xb_val *out)
 
 static flow_state *flow_state_for(xb_interp *ip)
 {
+    SAMIR_RETAIN(ip);
     static flow_state s_pool[FLOW_MAX_REGISTRY];
     static char       s_arena[FLOW_MAX_REGISTRY][FLOW_MEMVAR_ARENA];
     flow_state *fs;
@@ -230,6 +233,7 @@ static flow_state *flow_state_for(xb_interp *ip)
     fs->arena = s_arena[slot];
     flow_reset(fs);
 
+    SAMIR_RETAIN(ip);
     g_reg_key[g_reg_n] = ip;
     g_reg_val[g_reg_n] = fs;
     g_reg_n++;
@@ -993,8 +997,8 @@ static int find_top_level(flow_prog *fp, int from, int to,
 /* SAVE/RESTORE scalar records. Using III+ U5-180/181/187; DML-09/10
  * and mint-001 .MEM bytes. 0x12 is the real DO level (DML-09 = 2),
  * not an invented reserved zero. Transient pool pointers are never written. */
-static int fl_memfail(int *ec,int code) {if(ec)*ec=code;return -INTERP_ERR_EVAL;}
-static int fl_memfile(xb_interp *ip,flow_state *fs,const char *args,int restore,int *ec)
+static SAMIR_OVL_TEXT(memfile) int fl_memfail(int *ec,int code) {if(ec)*ec=code;return -INTERP_ERR_EVAL;}
+static SAMIR_OVL_TEXT(memfile) int fl_memfile(xb_interp *ip,flow_state *fs,const char *args,int restore,int *ec)
 {
     samir_pal_t *p=xb_interp_pal(ip);char word[16],name[128];
     const char *s;unsigned n=0;int dot=0,add=0,rc=0;pal_fd fd;
@@ -1090,6 +1094,15 @@ static int fl_memfile(xb_interp *ip,flow_state *fs,const char *args,int restore,
     return rc?fl_memfail(ec,rc):INTERP_OK;
 }
 
+/* Overlay MEMFILE (initech-5etom.1; docs/design/samir-overlays.md Sec 3):
+ * SAVE TO / RESTORE FROM (k = 0 SAVE, 1 RESTORE). The flow state is the one
+ * exec_command holds (fp->fs == flow_lookup(ip): samir_do registered it). */
+static SAMIR_OVL_TEXT(memfile) int flow_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
+{
+    return fl_memfile(ip, flow_lookup(ip), args, k == 1, ec);
+}
+SAMIR_OVL_HEADER(memfile, SAMIR_OVL_MEMFILE, flow_ovl_entry);
+
 static int exec_command(flow_prog *fp, const char *line, int *ec)
 {
     xb_interp  *ip = fp->ip;
@@ -1128,7 +1141,7 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
     k = rt_kw_index(verb, "SAVE\0RESTORE\0STORE\0SELECT\0RELEASE\0");
 
     if (k == 0 || k == 1)                       /* SAVE RESTORE */
-        return fl_memfile(ip,fs,args,k == 1,ec);
+        return SAMIR_OVL_CALL(SAMIR_OVL_MEMFILE, flow_ovl_entry, k, ip, args, ec);
 
     /* (2) STORE */
     if (k == 2)
@@ -1649,15 +1662,16 @@ static void flow_mark_inuse(xb_interp *ip, flow_state *fs)
 {
     xb_ctx *ctx = xb_interp_ctx(ip);
     if (ctx && ctx->resolve != flow_resolve) {
+        samir_ovl_validate_ctx(ctx);
         fs->saved_resolve = ctx->resolve;
         fs->saved_user    = ctx->user;
-        ctx->resolve = flow_resolve;
-        ctx->user    = fs;
+        samir_bind_resolver(ctx,flow_resolve,fs);
     }
 }
 
 void xb_interp_set_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user)
 {
+    SAMIR_RETAIN(hook); SAMIR_RETAIN(user);
     flow_state *fs = flow_state_for(ip);
     int i;
     if (!fs)
@@ -1678,6 +1692,7 @@ void xb_interp_set_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user)
 
 int xb_interp_add_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user)
 {
+    SAMIR_RETAIN(hook); SAMIR_RETAIN(user);
     flow_state *fs = flow_state_for(ip);
     if (!fs)
         return -INTERP_ERR_NOMEM;
@@ -1702,11 +1717,12 @@ int xb_interp_store(xb_interp *ip, const char *name, const xb_val *v)
      * to subsequent xb_interp_eval_str / samir_do (delegates to fields). */
     ctx = xb_interp_ctx(ip);
     if (ctx && ctx->resolve != flow_resolve) {
+        samir_ovl_validate_ctx(ctx);
         fs->saved_resolve = ctx->resolve;
         fs->saved_user    = ctx->user;
-        ctx->resolve = flow_resolve;
-        ctx->user    = fs;
+        samir_bind_resolver(ctx,flow_resolve,fs);
     }
+    samir_ovl_validate_ctx(xb_interp_ctx(ip));
     fs->program = ctx ? ctx->program_name : (const char *)0;
     return memvar_set(fs, name, v);
 }
@@ -1970,6 +1986,7 @@ int samir_do_n(xb_interp *ip, const char *prg, uint32_t plen)
         return -INTERP_ERR_NOMEM;
     fs->last_error = 0;
 
+    samir_ovl_validate_ctx(xb_interp_ctx(ip));
     fs->program = xb_interp_ctx(ip)->program_name;
 
     n = split_lines(prg, plen, (flow_line *)0, FLOW_MAX_LINES);
@@ -2048,11 +2065,11 @@ static int flow_exec_lines(xb_interp *ip, flow_state *fs, const char *prg,
      * samir_do does not capture flow_resolve as its own delegate (infinite loop). */
     ctx = xb_interp_ctx(ip);
     if (ctx->resolve != flow_resolve) {
+        samir_ovl_validate_ctx(ctx);
         fs->saved_resolve = ctx->resolve;
         fs->saved_user    = ctx->user;
     }
-    ctx->resolve = flow_resolve;
-    ctx->user    = fs;
+    samir_bind_resolver(ctx,flow_resolve,fs);
 
     fp.ip     = ip;
     fp.fs     = fs;

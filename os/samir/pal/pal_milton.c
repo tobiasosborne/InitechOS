@@ -86,6 +86,7 @@
  * Fail loud (Rule 2): every error is negative, never a silent no-op.
  */
 
+#include "samir/lifetime.h"
 #include <stdint.h>
 
 #include "samir/pal.h"
@@ -93,6 +94,7 @@
 #include "samir/interp.h"
 #include "samir/screen.h"
 #include "samir/rt.h"
+#include "samir/ovl.h"
 #include "memory_map.h"     /* PROGRAM_STACK_BOT: the stack guard below */
 
 /* ---- Arena sizing constants ----------------------------------------------- *
@@ -111,9 +113,19 @@
  * Reclaim 10384 bytes from the old 16 KiB static pool; move the same amount
  * of owned heap into its BSS reserve tail. Scratch and total owned capacity
  * stay unchanged. Link-time assertions prove both disjoint intervals. */
-#define PAL_MILTON_HEAP_PARAS  1271u
+/* Overlays Phase B (initech-5etom.1, docs/design/samir-overlays.md Sec 5):
+ * the overlay slot now occupies most of the BSS reserve that held the
+ * 16528-byte second heap region, so that region moves into the AH=48h block
+ * (2057 paragraphs = 16528 + the 16384-byte bump arena), and the 3952-byte
+ * first region moves the other way, into the reserve above .bss
+ * (_samir_heap_tail, samir.ld). Both regions keep their exact sizes and their
+ * list order (3952 first), and they are never adjacent (one in the reserve,
+ * one in the arena), so pal_heap's neighbour coalescing still never joins them
+ * and allocation behaviour is unchanged. samir.ld asserts both placements. */
+#define PAL_MILTON_HEAP_PARAS  2057u
 #define PAL_MILTON_TAIL_BYTES  16528u
-extern uint8_t _samir_heap_tail[];      /* samir.ld: first byte after .bss */
+#define PAL_MILTON_REGION1_BYTES 3952u
+extern uint8_t _samir_heap_tail[];      /* samir.ld: first 16-byte boundary after .bss */
 #define PAL_MILTON_HEAP_BYTES  (PAL_MILTON_HEAP_PARAS * 16u)
 
 /* ---- Freestanding panic --------------------------------------------------- *
@@ -175,6 +187,9 @@ typedef struct {
      * Authored 20 KiB budget, no local reference. */
     pal_heap_block *blocks;
     samir_line_state input;
+#ifdef PAL_MILTON_MUTATE_SHORT_READ
+    uint32_t short_read_fds; /* DBF handles only; overlays and command input intact. */
+#endif
     uint8_t     *heap_base;
     uint8_t     *heap_ptr;
     uint8_t     *heap_end;
@@ -279,6 +294,42 @@ static uint32_t int21_cxdx(uint8_t func, uint8_t al_val,
     return eax_out;
 }
 
+/* INT 21h AH=4Ch terminate with return code (IBM DOS 3.30 TR p. 6-200), for
+ * the overlay manager's mid-session abort (os/samir/core/ovl.c), which has
+ * already closed every work area. Never returns. */
+void pal_milton_terminate(uint8_t code) __attribute__((noreturn));
+void pal_milton_terminate(uint8_t code)
+{
+    (void)int21(0x4Cu, code, 0u, 0u, 0u, 0u, (int *)0);
+    milton_panic();   /* the exit hook is unbound: fail loud (Rule 2) */
+}
+
+/* Rule 2: the guard reaches the kernel's invalid-opcode panic (PC LOAD
+ * LETTER plus register context). stderr stays visible under redirection.
+ * CLI/HLT alone cannot deliver a panic: CLI disables the claimed interrupt. */
+void pal_milton_overlay_panic(const char *,uint32_t,uint32_t,uint32_t,uintptr_t)
+    __attribute__((noreturn));
+static void ovl_diag(const char *s)
+{
+    (void)int21(0x40u,0u,(uint32_t)(uintptr_t)s,2u,rt_strlen(s),0u,(int *)0);
+}
+static void ovl_hex(uint32_t x)
+{
+    char b[9]; unsigned i;
+    for(i=0;i<8;i++) { unsigned n=(x >> (28-4*i)) & 15u;b[i]=(char)(n<10?'0'+n:'A'+n-10); }
+    b[8]=0;ovl_diag(b);
+}
+void pal_milton_overlay_panic(const char *why,uint32_t loaded,uint32_t requested,
+                              uint32_t depth,uintptr_t pointer)
+{
+    ovl_diag("\r\nSAMIR OVERLAY PANIC: ");ovl_diag(why);
+    ovl_diag(" loaded=");ovl_hex(loaded);ovl_diag(" requested=");ovl_hex(requested);
+    ovl_diag(" depth=");ovl_hex(depth);ovl_diag(" pointer=");ovl_hex((uint32_t)pointer);
+    ovl_diag("\r\n");
+    __asm__ __volatile__("ud2" ::: "memory");
+    __builtin_unreachable();
+}
+
 /* ---- File I/O slots ------------------------------------------------------- */
 
 /*
@@ -322,6 +373,17 @@ static pal_fd milton_open(samir_pal_t *p, const char *name, int mode)
     }
     /* AX = handle (low 16 bits; do_open sets EAX low 16).
      * Valid handles are JFT indices (0-based, small non-negative numbers). */
+#ifdef PAL_MILTON_MUTATE_SHORT_READ
+    {
+        uint32_t fd = result & 0xFFFFu, n = rt_strlen(name);
+        if (fd < 32u) {
+            state_of(p)->short_read_fds &= ~(1u << fd);
+            if (n >= 4u && name[n-4] == '.' && (name[n-3] | 32) == 'd' &&
+                (name[n-2] | 32) == 'b' && (name[n-1] | 32) == 'f')
+                state_of(p)->short_read_fds |= 1u << fd;
+        }
+    }
+#endif
     return (pal_fd)(result & 0xFFFFu);
 }
 
@@ -338,6 +400,9 @@ static int milton_close(samir_pal_t *p, pal_fd fd)
     if (fd < 0) {
         return -(int)PAL_EACCES;
     }
+#ifdef PAL_MILTON_MUTATE_SHORT_READ
+    if ((uint32_t)fd < 32u) state_of(p)->short_read_fds &= ~(1u << fd);
+#endif
     result = int21(0x3Eu, 0x00u,
                    0u,               /* EDX unused */
                    (uint32_t)fd,     /* EBX=handle */
@@ -377,7 +442,7 @@ static int32_t milton_read(samir_pal_t *p, pal_fd fd, void *buf, uint32_t n)
 #ifdef PAL_MILTON_MUTATE_SHORT_READ
     /* MUTANT: request one byte fewer so reads come up short (>1 only, so a
      * single-byte read still moves). The dbf codec then mis-frames records. */
-    if (n > 1u) {
+    if (n > 1u && (uint32_t)fd < 32u && (state_of(p)->short_read_fds & (1u << fd))) {
         n -= 1u;
     }
 #endif
@@ -1169,6 +1234,9 @@ samir_pal_t *pal_milton_make(void)
     st->vtable.getenv     = milton_getenv;
     st->vtable.time       = milton_time;
 
+    /* Validate every installed PAL hook before publishing the binding. */
+    samir_bind_pal(&st->vtable,&st->vtable);
+
     /* AH=48h ALLOC -- request PAL_MILTON_HEAP_PARAS paragraphs from the loader-
      * bound DISJOINT arena (DEC-04, bead 1q4u). No AH=4Ah SETBLOCK first: the
      * loader (int21_mcb_bind_program) already placed the arena ABOVE the program
@@ -1190,11 +1258,13 @@ samir_pal_t *pal_milton_make(void)
      * This is the "fake-paragraph = linear >> 4" convention documented in
      * spec/memory_map.h and os/milton/int21.c arena_seg_base / do_alloc. */
     heap_seg = result & 0xFFFFu;
-    st->heap_base = (uint8_t *)(uintptr_t)(heap_seg << 4);
+    /* AH=48h block: [region 2: 16528][bump arena: 16384]; region 1 (3952)
+     * sits in the BSS reserve -- see the PAL_MILTON_HEAP_PARAS note. */
+    st->heap_base = (uint8_t *)(uintptr_t)(heap_seg << 4) + PAL_MILTON_TAIL_BYTES;
     st->heap_ptr  = st->heap_base;
     st->heap_end  = st->heap_base + 16384u;
-    st->blocks=pal_heap_init(st->heap_end,3952u);
-    pal_heap_add(st->blocks,_samir_heap_tail,PAL_MILTON_TAIL_BYTES);
+    st->blocks=pal_heap_init(_samir_heap_tail,PAL_MILTON_REGION1_BYTES);
+    pal_heap_add(st->blocks,(uint8_t *)(uintptr_t)(heap_seg << 4),PAL_MILTON_TAIL_BYTES);
 
     return &st->vtable;
 }
@@ -1223,13 +1293,18 @@ samir_pal_t *pal_milton_make(void)
  *      os/samir/include/samir/interp.h (xb_interp_make / xb_interp_free /
  *        samir_repl declarations).
  */
-void samir_milton_entry(void)
+int samir_milton_entry(void)
 {
     samir_pal_t *pal;
     xb_interp   *ip;
 
     pal = pal_milton_make();
     /* pal_milton_make panics on failure; it never returns NULL. */
+
+    /* Overlays Phase B: verify SAMIR.OVL before the first dot prompt
+     * (os/samir/core/ovl.c). An abort at the "Insert System Disk" prompt
+     * leaves before any database is open: exit code 1. */
+    if (samir_ovl_open(pal)) return 1;
 
     ip = xb_interp_make(pal);
     if (!ip) {
@@ -1240,5 +1315,6 @@ void samir_milton_entry(void)
     (void)samir_repl(pal, ip);
 
     xb_interp_free(ip);
-    /* Return to samir_crt0, which will INT 21h AH=4Ch AL=0. */
+    /* Return to samir_crt0, which will INT 21h AH=4Ch with AL = this value. */
+    return 0;
 }

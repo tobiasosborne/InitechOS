@@ -259,14 +259,15 @@ $(PUBS_UTILS_STAMP): $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(X
 	@rm -rf $(PUBS_UTILS_DIR); mkdir -p $(PUBS_UTILS_DIR)
 	@for u in $(PUBS_UTILS); do cp $${u#*=} $(PUBS_UTILS_DIR)/$${u%%=*}; done
 	@touch $@
-# The InitechBase screens (bead initech-ipu5.8) boot with SAMIR.COM and the
+# The InitechBase screens (bead initech-ipu5.8) boot with SAMIR.EXE + SAMIR.OVL and the
 # Sample Programs and Utilities diskette on the second drive: capture.sh's
 # `samir` disk, minted from this staging directory.
 PUBS_SAMIR_CAPTURE       := $(PUBS_BUILD)/samir-capture
 PUBS_SAMIR_CAPTURE_STAMP := $(PUBS_SAMIR_CAPTURE)/.staged
-$(PUBS_SAMIR_CAPTURE_STAMP): $(SAMIR_COM) $(PUBS_BUILD)/samir-disk/.minted
+$(PUBS_SAMIR_CAPTURE_STAMP): $(SAMIR_EXE) $(SAMIR_OVL) $(PUBS_BUILD)/samir-disk/.minted
 	@rm -rf $(PUBS_SAMIR_CAPTURE); mkdir -p $(PUBS_SAMIR_CAPTURE)
-	@cp $(SAMIR_COM) $(PUBS_SAMIR_CAPTURE)/SAMIR.COM
+	@cp $(SAMIR_EXE) $(PUBS_SAMIR_CAPTURE)/SAMIR.EXE
+	@cp $(basename $(SAMIR_EXE)).OVL $(PUBS_SAMIR_CAPTURE)/SAMIR.OVL
 	@for f in $(PUBS_BUILD)/samir-disk/*; do cp $$f $(PUBS_SAMIR_CAPTURE)/; done
 	@touch $@
 PUBS_SCREEN_DEPS := $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_DIR)/screens/capture.sh $(PUBS_DIR)/screens/keys.sh \
@@ -319,7 +320,7 @@ $(PUBS_SURFACE): harness/pubs/dos_surface_inventory.c os/milton/batch.c os/milto
 		$(KERNEL_CONFIG_SYS_C) os/milton/config_sys.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/milton -Iseed -o $@ $<
 # The replay runner links the WHOLE shipped dot prompt (samir_main.c and every
-# module SAMIR.COM registers) since bead initech-ipu5.8: the InitechBase
+# module SAMIR.EXE registers) since bead initech-ipu5.8: the InitechBase
 # manuals replay their examples through samir_repl (the session route).
 $(PUBS_REPLAY): harness/pubs/samir_replay.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^

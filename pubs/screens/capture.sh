@@ -25,8 +25,8 @@
 #
 # A third diskette serves the InitechBase manuals (bead initech-ipu5.8):
 # samir.img, the InitechBase System diskette and the Sample Programs and
-# Utilities diskette on one disk -- every file of <samir dir> (SAMIR.COM, the
-# shipped .COM, and the sample files minted by harness/pubs/samir_sample_disk
+# Utilities diskette on one disk -- every file of <samir dir> (SAMIR.EXE and
+# SAMIR.OVL, the shipped program and its overlay file, and the sample files minted by harness/pubs/samir_sample_disk
 # through the shipped writers), copied byte for byte (the .PRG programs as
 # the sample diskette holds them) with one pinned date, in name order.  It
 # has no AUTOEXEC.BAT, so InitechDOS asks for the date and time first.
@@ -112,8 +112,8 @@ mint "$out/practice.img" ""
 mint "$out/noautoexec.img" AUTOEXEC.BAT
 # The InitechBase diskette, only for a SCREENS file that asks for it.
 if grep -q '|samir$' "$defs"; then
-    [ -n "$samir" ] && [ -r "$samir/SAMIR.COM" ] || {
-        printf '!!! capture.sh FAIL: %s needs the samir diskette directory (with SAMIR.COM)\n' "$defs"; exit 1; }
+    [ -n "$samir" ] && [ -r "$samir/SAMIR.EXE" ] && [ -r "$samir/SAMIR.OVL" ] || {
+        printf '!!! capture.sh FAIL: %s needs the samir diskette directory (with SAMIR.EXE and SAMIR.OVL)\n' "$defs"; exit 1; }
     img=$out/samir.img
     dd if=/dev/zero of="$img" bs=512 count=2880 status=none
     SOURCE_DATE_EPOCH=$(TZ=UTC date -d "1992-03-01 08:00" +%s) TZ=UTC \
