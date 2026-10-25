@@ -74,27 +74,36 @@ static int     null_curdrive(samir_pal_t *p)
 { (void)p; return -1; }                      /* no drive notion */
 
 /* The exported null vtable: every slot bound (the completeness proof). */
+/* Designated, not positional: a slot appended to struct samir_pal can no
+ * longer shift its neighbours into the wrong type (wave-1 review, 2026-10-25).
+ * Designated initializers do not warn on an omitted slot, so completeness is
+ * pinned by the slot count below: a member added to pal.h fails this build
+ * until it is bound here AND counted (Rule 2: fail at compile time). */
+#define SAMIR_PAL_SLOTS 22u
+_Static_assert(sizeof(samir_pal_t) == SAMIR_PAL_SLOTS * sizeof(void (*)(void)),
+               "samir_pal gained or lost a slot: bind it in samir_pal_null and update SAMIR_PAL_SLOTS");
+
 samir_pal_t samir_pal_null = {
-	null_open,
-	null_close,
-	null_read,
-	null_write,
-	null_seek,
-	null_remove,
-	null_rename,
-	null_conout,
-	null_conin_line,
-	null_conin_char,
-	null_gotoxy,
-	null_set_attr,
-	null_today,
-	null_alloc,
-	null_reset,
-    null_alloc,
-    null_reset,
-    0,
-    null_conin_line,
-    null_exec,
-    null_conin_escape,
-    null_curdrive
+	.open              = null_open,
+	.close             = null_close,
+	.read              = null_read,
+	.write             = null_write,
+	.seek              = null_seek,
+	.remove            = null_remove,
+	.rename            = null_rename,
+	.conout            = null_conout,
+	.conin_line        = null_conin_line,
+	.conin_char        = null_conin_char,
+	.gotoxy            = null_gotoxy,
+	.set_attr          = null_set_attr,
+	.today             = null_today,
+	.alloc             = null_alloc,
+	.reset             = null_reset,
+	.acquire           = null_alloc,
+	.release           = null_reset,
+	.status            = 0,
+	.conin_line_noecho = null_conin_line,
+	.exec              = null_exec,
+	.conin_escape      = null_conin_escape,
+	.curdrive          = null_curdrive
 };

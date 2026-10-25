@@ -25,6 +25,7 @@
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  */
 
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -55,6 +56,25 @@ int main(void)
 	      "pal_err codes are distinct (symbolic compare, never magnitude)");
 
 	/* ---- every vtable slot is bound (non-NULL function pointer) ---- */
+	/* By construction over the WHOLE struct, not a hand list: samir_pal is
+	 * only function pointers (pal_null.c pins the count), so walk it as an
+	 * array; the one deliberately-empty slot is status (no status line on the
+	 * null binding). A slot dropped from pal_null.c's designated initializer
+	 * is NULL and fails here. */
+	{
+		void (*slot[sizeof(samir_pal_t) / sizeof(void (*)(void))])(void);
+		size_t n = sizeof(slot) / sizeof(slot[0]), i, unbound = 0;
+		size_t status_ix = offsetof(samir_pal_t, status) / sizeof(slot[0]);
+		memcpy(slot, p, sizeof(slot));
+		for (i = 0; i < n; i++)
+			if (i != status_ix && slot[i] == 0) {
+				fprintf(stderr, "  unbound samir_pal slot #%u\n", (unsigned)i);
+				unbound++;
+			}
+		CHECK(sizeof(samir_pal_t) == n * sizeof(slot[0]),
+		      "samir_pal holds only function-pointer slots");
+		CHECK(unbound == 0, "every samir_pal slot except status is bound");
+	}
 	CHECK(p->open && p->close && p->read && p->write && p->seek &&
 	      p->remove && p->rename, "file-I/O slots are all bound");
 	CHECK(p->conout && p->conin_line, "cooked-console slots are bound");
