@@ -14,7 +14,8 @@ OFF, and no file.
 \Usage
 SET ALTERNATE TO creates the text file named, replacing a file of that name;
 if no extension is given, \file{.TXT} is assumed.  SET ALTERNATE ON then
-copies to the file everything InitechBase displays, until SET ALTERNATE OFF.
+copies displayed command output to the file, until SET ALTERNATE OFF.
+Positioned \cmd{@} SAY output is not copied.
 The file receives the output even while SET CONSOLE is OFF, so a program can
 write a report to a file without showing it.
 

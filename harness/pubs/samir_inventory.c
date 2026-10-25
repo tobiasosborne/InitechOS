@@ -20,7 +20,8 @@
  *                  "Invalid function name." (fn_builtins.c xb_call_builtin
  *                  and the IIF special form of eval.c)
  *   NAME|set       "SET NAME <probe>" is accepted by the SET module for one
- *                  of the probe operands ON, OFF, TO, TO 0, TO 2, AMERICAN, TO X:
+ *                  of the probe operands ON, OFF, TO, TO 0, TO 2, AMERICAN,
+ *                  TO X, TO SCREEN, TO PRINT:
  *                  the line is answered with neither #16 nor the code the
  *                  shipped REPL prints for an option set.c does not know
  *                  (set_cmd_hook returns -INTERP_ERR_SYNTAX with no catalog
@@ -132,7 +133,7 @@ int main(int argc,char **argv)
         return ferror(stdout) ? 1 : 0;
     }
     char word[64], line[160];
-    static const char *const ops[] = { "ON", "OFF", "TO", "TO 0", "TO 2", "AMERICAN", "TO X" };
+    static const char *const ops[] = { "ON", "OFF", "TO", "TO 0", "TO 2", "AMERICAN", "TO X", "TO SCREEN", "TO PRINT" };
     /* Calibration (Rule 2): the probe must tell a shipped word from an
      * unshipped one, or every answer below is noise. */
     int bad;

@@ -1,0 +1,9 @@
+. @ 2,3 SAY "X"
+. STORE ROW() TO POSVAL
+. ? POSVAL
+
+         2. @ 0,0 SAY ""
+. STORE ROW() TO POSVAL
+. ? POSVAL
+
+         0

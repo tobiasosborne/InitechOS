@@ -1,0 +1,9 @@
+. @ 2,3 SAY "X"
+. STORE COL() TO POSVAL
+. ? POSVAL
+
+         4. @ 23,78 SAY "X"
+. STORE COL() TO POSVAL
+. ? POSVAL
+
+        79

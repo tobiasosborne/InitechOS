@@ -1,0 +1,16 @@
+% ROW -- system-and-database-functions.md ROW; fns-mint/row/GOLD.OUT.
+\begin{XbaseEntry}{ROW}{function}
+Returns the row of the screen cursor, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{ROW()}}
+\Usage
+Rows are numbered from 0 through 24.  The initial position is 0.  After
+\cmd{@} SAY, the cursor remains on its specified row until output moves it.
+\cmd{?} begins a new screen line; \cmd{??} continues at the current position.
+Printer output leaves the screen position alone.
+The function takes no argument; a call with any argument raises
+\xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-row}
+\SeeAlso{COL(), PROW(), SET DEVICE, @}
+\end{XbaseEntry}

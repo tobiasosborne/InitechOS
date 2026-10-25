@@ -105,14 +105,14 @@ TEST_UNIT_GATES += test-samir-ovl test-samir-ovl-mutant test-samir-ovl-static te
 TEST_EMU_GATES += test-samir-ovl-emu test-samir-ovl-emu-mutant test-samir-ovl-swap-emu test-samir-ovl-swap-emu-mutant
 
 # Runtime lifetime defence: static references alone cannot catch these stores.
-SAMIR_OVL_GUARD_MUTANTS := ESCAPE_CALLBACK ESCAPE_RAW LIVE ESCAPE_HOOK ESCAPE_PAL ESCAPE_CURSOR ESCAPE_ERROR ESCAPE_SUSPEND
+SAMIR_OVL_GUARD_MUTANTS := ESCAPE_CALLBACK ESCAPE_RAW LIVE ESCAPE_HOOK ESCAPE_PAL ESCAPE_CURSOR ESCAPE_ERROR ESCAPE_SUSPEND ESCAPE_SAY ESCAPE_PRINT
 $(BUILD)/test_samir_ovl_guard_emu: $(DBF_DIFF_DIR)/test_samir_ovl_guard_emu.c $(DBF_DIFF_DIR)/samir_install.h $(DBF_DIFF_DIR)/trace_complete.h $(DBF_DIFF_DIR)/scratch_lock.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
 .PHONY: test-samir-ovl-guard-emu-mutant
 # Each regression builds (including the SET callback missed by the old static
 # checker), then is refused at run time with its own diagnostic and real panic.
 test-samir-ovl-guard-emu-mutant: $(BUILD)/test_samir_ovl_guard_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(addprefix $(BUILD)/SAMIR_SCREEN_SAMIR_OVL_MUTATE_,$(addsuffix .EXE,$(SAMIR_OVL_GUARD_MUTANTS)))
-	@set -e; for pair in ESCAPE_CALLBACK:fn ESCAPE_RAW:'c->mirror_user' LIVE:'live swap' ESCAPE_HOOK:hook ESCAPE_PAL:'pal->conout' ESCAPE_CURSOR:'v->recno' ESCAPE_ERROR:error ESCAPE_SUSPEND:fn; do \
+	@set -e; for pair in ESCAPE_CALLBACK:fn ESCAPE_RAW:'c->mirror_user' LIVE:'live swap' ESCAPE_HOOK:hook ESCAPE_PAL:'pal->conout' ESCAPE_CURSOR:'v->recno' ESCAPE_ERROR:error ESCAPE_SUSPEND:fn ESCAPE_SAY:'pal->say_screen' ESCAPE_PRINT:'pal->printout'; do \
 	 k=$${pair%%:*}; why=$${pair#*:}; $(BUILD)/test_samir_ovl_guard_emu $$k $(BUILD)/SAMIR_SCREEN_SAMIR_OVL_MUTATE_$$k.EXE "$$why"; done
 TEST_EMU_GATES += test-samir-ovl-guard-emu-mutant
 
