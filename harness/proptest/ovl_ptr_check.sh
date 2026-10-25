@@ -10,7 +10,8 @@
 #     outside the overlay window.
 #   ovl_ptr_check.sh overlay <section object>...
 #     No section object takes the ADDRESS of overlay code (an R_386_32 against
-#     a .text section or symbol): such a pointer is the only way an overlay
+#     a .text section, or against any T/t symbol a section object defines):
+#     such a pointer is the only way an overlay
 #     address could reach resident data at run time. Calls are R_386_PC32.
 # Exit 1 with a named reason on violation. LC_ALL=C.
 set -eu
@@ -39,8 +40,15 @@ resident)
     [ "$bad" -eq 0 ] || { printf '!!! ovl-ptr FAIL: %s resident relocated pointer(s) into the overlay window (DEC-14-6.2)\n' "$bad"; exit 1; }
     ;;
 overlay)
+    # Overlay code = every .text section AND every text symbol (T or t) any
+    # section object defines (review of 61fa5720: a GLOBAL function is
+    # relocated against its symbol, not its section). Calls are R_386_PC32.
+    code=$(mktemp); trap 'rm -f "$code"' EXIT
+    for o in "$@"; do nm --defined-only "$o" | awk '$2 ~ /^[tT]$/ {print $3}'; done | sort -u > "$code"
     for o in "$@"; do
-        hit=$(objdump -r "$o" | awk '$2 == "R_386_32" && $3 ~ /^\.text/' | head -n 1)
+        hit=$(objdump -r "$o" | awk -v list="$code" '
+            BEGIN { while ((getline n < list) > 0) t[n] = 1 }
+            $2 == "R_386_32" { s = $3; sub(/[-+]0x[0-9a-f]+$/, "", s); if (s ~ /^\.text/ || (s in t)) { print; exit } }')
         [ -z "$hit" ] || { printf '!!! ovl-ptr FAIL: %s takes the address of overlay code (%s) (DEC-14-6.2)\n' "$o" "$hit"; exit 1; }
     done
     ;;

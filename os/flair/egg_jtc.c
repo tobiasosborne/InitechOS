@@ -82,8 +82,19 @@ static void paint(jtc_state *p, const region_t *clip)
 #endif
     }
 }
+#ifdef EGG_MUT_OVL_LEAK
+/* MUTANT overlay only (DEC-14-6.2, review reproducer B; Rule 6): a GLOBAL
+ * overlay function whose address is stored where resident code could keep it.
+ * test-ovl-context-static-mutant must go RED on the object's relocation. */
+extern void *egg_jtc_leak;
+void egg_jtc_inner(void);
+void egg_jtc_inner(void) { }
+#endif
 int egg_jtc_open(FlairApp *self, const FlairLaunchParams *lp)
 {
+#ifdef EGG_MUT_OVL_LEAK
+    egg_jtc_leak = (void *)egg_jtc_inner;
+#endif
 #ifdef EGG_MUT_OVL_UD2
     /* MUTANT overlay only (DEC-14-9(c), DEC-14-6.6): a CPU exception with
      * EIP inside the overlay window must panic naming the section. */

@@ -161,12 +161,15 @@ test-ovl-context-static-mutant: test-ovl-context-static
 	@$(NASM) -f elf32 $(OVL_GATE_DIR)/addr.asm -o $(OVL_GATE_DIR)/addr.o
 	@if sh harness/proptest/ovl_ptr_check.sh overlay $(OVL_SECTION_OBJS) $(OVL_GATE_DIR)/addr.o > $(OVL_GATE_DIR)/addr.log 2>&1; then printf '!!! FAIL: overlay address-taken code survived\n'; exit 1; fi
 	@grep 'takes the address of overlay code' $(OVL_GATE_DIR)/addr.log
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(OVL_SECTION_OPT) $(JTC_INC) -DEGG_MUT_OVL_LEAK -c os/flair/egg_jtc.c -o $(OVL_GATE_DIR)/egg_jtc_mut_leak.o
+	@if sh harness/proptest/ovl_ptr_check.sh overlay $(OVL_GATE_DIR)/egg_jtc_mut_leak.o $(filter-out $(BUILD)/egg_jtc.o,$(OVL_SECTION_OBJS)) > $(OVL_GATE_DIR)/leak.log 2>&1; then printf '!!! FAIL: a global overlay function address (reproducer B) survived\n'; exit 1; fi
+	@grep 'takes the address of overlay code' $(OVL_GATE_DIR)/leak.log
 	@mkdir -p $(OVL_GATE_DIR)/heapmap
 	@sed -e 's/^#define OVERLAY_BASE        0x[0-9A-F]*u$$/#define OVERLAY_BASE        0x004C0000u/' -e 's/^#define OVERLAY_CEIL        0x[0-9A-F]*u$$/#define OVERLAY_CEIL        0x004E0000u/' spec/memory_map.h > $(OVL_GATE_DIR)/heapmap/memory_map.h
 	@test "$$(grep -cE '^#define OVERLAY_(BASE|CEIL) +0x004[CE]0000u$$' $(OVL_GATE_DIR)/heapmap/memory_map.h)" -eq 2
 	@if $(CC) $(CFLAGS) -I$(OVL_GATE_DIR)/heapmap -I$(KERNEL_DIR) -o $(OVL_GATE_DIR)/heapmap/t $(TEST_MEMMAP_SRC) > $(OVL_GATE_DIR)/heapmap/cc.log 2>&1; then printf '!!! FAIL: overlay window inside the FLAIR heap compiled\n'; exit 1; fi
 	@grep -q 'memory map windows overlap: OVERLAY vs FLAIR_HEAP' $(OVL_GATE_DIR)/heapmap/cc.log
-	@printf '>>> test-ovl-context-static-mutant: green (stub ref from pit.o, hook-setter import, resident window pointer, overlay address-taken code, window-in-heap: all RED)\n'
+	@printf '>>> test-ovl-context-static-mutant: green (stub ref from pit.o, hook-setter import, resident window pointer, overlay address-taken code (local and global), window-in-heap: all RED)\n'
 TEST_UNIT_GATES += test-ovl-context-static test-ovl-context-static-mutant
 
 # --- (d) the resident-size gate (DEC-14-9(d)) ---------------------------------
