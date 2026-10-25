@@ -7384,8 +7384,12 @@ void kernel_main(void)
     flair_tenant_mount_volume();
     /* ADR-0014 DEC-14-5 Alternative 5A: read and verify EVERY overlay section
      * now, at desktop start, before the user has work to lose and before
-     * FLAIR-TENANTS-READY (so the Bochs leg covers the read path, Rule 5). */
+     * FLAIR-TENANTS-READY (so the Bochs leg covers the read path, Rule 5).
+     * OVL_TEST_NO_PRELOAD (GATE-ONLY, test-ovl-lazy; never in a real build)
+     * skips it so the stubs' lazy slow path is what loads the window. */
+#ifndef OVL_TEST_NO_PRELOAD
     ovl_load();
+#endif
 #ifdef OVL_TEST_CTX_PANIC
     panic_show_reason(PANIC_REASON_HEAP, "OVL CONTEXT PROBE");
     ovl_need();

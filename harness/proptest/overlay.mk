@@ -383,17 +383,23 @@ TEST_EMU_GATES += test-ovl-context test-ovl-context-mutant
 # pads all show pad 0's label, packed as a mutant overlay on the REAL gate kernel, must fail the
 # authored still; (2) every stub resolved to the WRONG export must fail.
 $(eval $(call ovl-gate-image,$(OVL_GATE_DIR)/nolabel.img,$(OVL_JTC_KERNEL),_nolabel))
-OVL_SWAP_DIR := $(OVL_GATE_DIR)/swap
-$(OVL_SWAP_DIR)/ovl_kernel.o: $(TRANSIENT_IMPORTS_LD) tools/mk_ovl_tables.sh $(OVL_SECTION_OBJS)
-	@mkdir -p $(OVL_SWAP_DIR)
-	@OVL_MUT_SWAP_STUBS=1 sh tools/mk_ovl_tables.sh $(OVL_SWAP_DIR) $(NASM) $(TRANSIENT_IMPORTS_LD).kdef $(TRANSIENT_IMPORTS_LD).kund $(OVL_SECTION_OBJS)
-	@sed 's|$(OVL_KERNEL_OBJ)|$(OVL_SWAP_DIR)/ovl_kernel.o|' $(TRANSIENT_IMPORTS_LD) > $(OVL_SWAP_DIR)/link.rsp
-$(BUILD)/kernel_mut_ovlswap.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_jtc_gate.o $(OVL_SWAP_DIR)/ovl_kernel.o $(KERNEL_LD)
-	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_jtc_gate.o @$(OVL_SWAP_DIR)/link.rsp
-$(BUILD)/kernel_mut_ovlswap.bin: $(BUILD)/kernel_mut_ovlswap.elf
-	$(OBJCOPY) -O binary $< $@
-	@sz=$$(wc -c < $@); dd if=/dev/zero of=$@ bs=1 seek=$$sz count=$$(( $(KERNEL_SECTORS) * 512 - sz )) conv=notrunc status=none
-$(eval $(call ovl-gate-image,$(OVL_GATE_DIR)/swap.img,kernel_mut_ovlswap,))
+# $(call ovl-stub-mutant,<tag>,<generator env>,<kmain obj>): a kernel
+# build/kernel_mut_ovl<tag>.{elf,bin} whose GENERATED stub object is a mutant
+# (tools/mk_ovl_tables.sh knob), everything else real, plus its gate image
+# $(OVL_GATE_DIR)/<tag>.img carrying the real overlay linked against it.
+define ovl-stub-mutant
+$(OVL_GATE_DIR)/$(1)/ovl_kernel.o: $(TRANSIENT_IMPORTS_LD) tools/mk_ovl_tables.sh $(OVL_SECTION_OBJS)
+	@mkdir -p $(OVL_GATE_DIR)/$(1)
+	@$(2) sh tools/mk_ovl_tables.sh $(OVL_GATE_DIR)/$(1) $(NASM) $(TRANSIENT_IMPORTS_LD).kdef $(TRANSIENT_IMPORTS_LD).kund $(OVL_SECTION_OBJS)
+	@sed 's|$(OVL_KERNEL_OBJ)|$(OVL_GATE_DIR)/$(1)/ovl_kernel.o|' $(TRANSIENT_IMPORTS_LD) > $(OVL_GATE_DIR)/$(1)/link.rsp
+$(BUILD)/kernel_mut_ovl$(1).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(3) $(OVL_GATE_DIR)/$(1)/ovl_kernel.o $(KERNEL_LD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(3) @$(OVL_GATE_DIR)/$(1)/link.rsp
+$(BUILD)/kernel_mut_ovl$(1).bin: $(BUILD)/kernel_mut_ovl$(1).elf
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); dd if=/dev/zero of=$$@ bs=1 seek=$$$$sz count=$$$$(( $(KERNEL_SECTORS) * 512 - sz )) conv=notrunc status=none
+$$(eval $$(call ovl-gate-image,$(OVL_GATE_DIR)/$(1).img,kernel_mut_ovl$(1),))
+endef
+$(eval $(call ovl-stub-mutant,swap,OVL_MUT_SWAP_STUBS=1,$(BUILD)/kmain_flairtenants_mut_jtc_gate.o))
 .PHONY: test-ovl-behaviour test-ovl-behaviour-mutant
 test-ovl-behaviour: test-flair-egg-jtc test-ovl-absence
 	@grep -qx 'OVL-OK' $(BUILD)/egg_jtc_mat.serial
@@ -412,3 +418,51 @@ test-ovl-behaviour-mutant: test-ovl-behaviour $(OVL_GATE_DIR)/nolabel.img $(OVL_
 	 else printf '!!! wrong-export stubs survived\n'; exit 1; fi
 	@printf '>>> test-ovl-behaviour-mutant: green (mutant overlay on a real kernel and wrong-export stubs both RED)\n'
 TEST_EMU_GATES += test-ovl-behaviour test-ovl-behaviour-mutant
+
+# --- the LAZY slow path (DEC-14-6.1; review of 61fa5720, Rule 6) ------------
+# Under 5A the desktop-start preload always wins, so the stubs' slow path
+# (ovl_check -> pushad; call ovl_need; popad) never ran in any gate. This gate
+# kernel skips the preload (-DOVL_TEST_NO_PRELOAD, gate-only): the FIRST stub
+# call -- the JTC mat's open, or Apple > About -- must load the window
+# (OVL-OK only AFTER FLAIR-TENANTS-READY) and behave exactly as the preloaded
+# desktop: the mat against its authored golden, the About alert byte-identical
+# to test-flair-apple-menu's preloaded capture. Mutants: the slow path without
+# pushad/popad (the regparm arguments clobbered) and an ovl_check that never
+# loads must both go RED on BOTH traces.
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1000 -DOVL_TEST_NO_PRELOAD,ovl_lazy))
+$(eval $(call ovl-stub-mutant,nosave,OVL_MUT_STUB_NOSAVE=1,$(BUILD)/kmain_flairtenants_mut_ovl_lazy.o))
+$(eval $(call ovl-stub-mutant,noload,OVL_MUT_STUB_NOLOAD=1,$(BUILD)/kmain_flairtenants_mut_ovl_lazy.o))
+OVL_LAZY_IMG := $(BUILD)/flair_tenants_mut_ovl_lazy.img
+# $(call ovl-lazy-mat,<image>,<tag>) / $(call ovl-lazy-about,<image>,<tag>):
+# one trace each; exit 1 on any departure from the preloaded behaviour.
+define ovl-lazy-mat
+$(call calcda-boot,$(2)_mat,$(1),$(FLAIR_DATA_IMG),FLAIR_EGG_JTC_OPEN_SPEC,EGG-JTC-OPEN click=3)
+@grep -qx 'EGG-JTC-OPEN click=3' $(BUILD)/$(2)_mat.serial || { printf 'RED %s: the mat never opened\n' '$(2)'; exit 1; }
+@$(JTC_CHECK) $(BUILD)/$(2)_mat.ppm fixtures/easter/jtc_mat.png || { printf 'RED %s: mat pixels\n' '$(2)'; exit 1; }
+@tr -d '\r' < $(BUILD)/$(2)_mat.serial | awk '/^FLAIR-TENANTS-READY/{r=1} /^OVL-OK$$/{n++; if(!r) early=1} END{exit !(n==1 && !early)}' \
+ || { printf 'RED %s: OVL-OK was not loaded lazily exactly once after FLAIR-TENANTS-READY\n' '$(2)'; exit 1; }
+endef
+define ovl-lazy-about
+$(call calcda-boot,$(2)_about,$(1),$(FLAIR_DATA_IMG),FLAIR_APPLE_ABOUT_SPEC,APPLE-ABOUT up)
+@grep -qx 'APPLE-ABOUT up' $(BUILD)/$(2)_about.serial && grep -q '^APPLE-ABOUT mem_k=130944 ' $(BUILD)/$(2)_about.serial || { printf 'RED %s: no About alert\n' '$(2)'; exit 1; }
+@cmp -s $(BUILD)/$(2)_about.ppm $(BUILD)/flair_apple_about.ppm || { printf 'RED %s: About alert pixels differ from the preloaded capture\n' '$(2)'; exit 1; }
+@tr -d '\r' < $(BUILD)/$(2)_about.serial | awk '/^FLAIR-TENANTS-READY/{r=1} /^OVL-OK$$/{n++; if(!r) early=1} END{exit !(n==1 && !early)}' \
+ || { printf 'RED %s: About did not load the overlay lazily\n' '$(2)'; exit 1; }
+endef
+.PHONY: test-ovl-lazy test-ovl-lazy-mutant
+test-ovl-lazy: test-flair-apple-menu $(OVL_LAZY_IMG) $(FLAIR_DATA_IMG) $(JTC_CHECK)
+	$(call ovl-lazy-mat,$(OVL_LAZY_IMG),ovl_lazy)
+	$(call ovl-lazy-about,$(OVL_LAZY_IMG),ovl_lazy)
+	@printf '>>> test-ovl-lazy: green (no preload: the first stub call loads C:\\FLAIR.OVL once, after READY; JTC mat == authored golden; About == preloaded capture)\n'
+test-ovl-lazy-mutant: test-ovl-lazy $(OVL_GATE_DIR)/nosave.img $(OVL_GATE_DIR)/noload.img
+	@set -e; for m in nosave noload; do for leg in mat about; do \
+	 if ( $(MAKE) --no-print-directory ovl-lazy-leg-$$leg OVL_LAZY_LEG_IMG=$(OVL_GATE_DIR)/$$m.img OVL_LAZY_LEG_TAG=ovl_lazy_$$m ) > $(OVL_GATE_DIR)/lazy_$${m}_$$leg.log 2>&1; then \
+		printf '!!! test-ovl-lazy-mutant FAIL: stub mutant %s survived the %s trace\n' $$m $$leg; exit 1; fi; \
+	 printf '    %s %s: %s\n' $$m $$leg "$$(grep -E '^(RED|!!!)' $(OVL_GATE_DIR)/lazy_$${m}_$$leg.log | head -n 1)"; done; done
+	@printf '>>> test-ovl-lazy-mutant: green (slow path without pushad/popad, and an ovl_check that never loads: RED on both traces)\n'
+.PHONY: ovl-lazy-leg-mat ovl-lazy-leg-about
+ovl-lazy-leg-mat:
+	$(call ovl-lazy-mat,$(OVL_LAZY_LEG_IMG),$(OVL_LAZY_LEG_TAG))
+ovl-lazy-leg-about:
+	$(call ovl-lazy-about,$(OVL_LAZY_LEG_IMG),$(OVL_LAZY_LEG_TAG))
+TEST_EMU_GATES += test-ovl-lazy test-ovl-lazy-mutant

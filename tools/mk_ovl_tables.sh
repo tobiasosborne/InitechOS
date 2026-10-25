@@ -78,8 +78,20 @@ exp_base=$(( 0x5C0000 + 32 + 20 * 1 + 4 * ni ))
     printf 'global %s\n%s:\n    call ovl_check\n    jmp [dword 0x%08X]\n' "$e" "$e" $(( exp_base + 4 * slot ))
     i=$(( i + 1 ))
   done < "$out/ovl_exports.txt"
-  printf 'ovl_check:\n    cmp byte [ovl_state], 1\n    jne .load\n    ret\n'
-  printf '.load:\n    pushad\n    call ovl_need\n    popad\n    ret\n'
+  # MUTANTS (Rule 6; test-ovl-lazy-mutant only, never in a real build):
+  #   OVL_MUT_STUB_NOSAVE=1  the slow path loses pushad/popad (EAX/EDX/ECX,
+  #                          the -mregparm=3 arguments, clobbered by ovl_need)
+  #   OVL_MUT_STUB_NOLOAD=1  ovl_check never loads (jumps through an empty slot)
+  if [ "${OVL_MUT_STUB_NOLOAD:-0}" = 1 ]; then
+    printf 'ovl_check:\n    ret\n    dd ovl_need   ; keep the manager linked (it is just never called)\n'
+  else
+    printf 'ovl_check:\n    cmp byte [ovl_state], 1\n    jne .load\n    ret\n'
+    if [ "${OVL_MUT_STUB_NOSAVE:-0}" = 1 ]; then
+      printf '.load:\n    call ovl_need\n    ret\n'
+    else
+      printf '.load:\n    pushad\n    call ovl_need\n    popad\n    ret\n'
+    fi
+  fi
   printf 'section .rodata.ovl_kernel progbits alloc noexec nowrite align=4\n'
   printf 'global ovl_import_want\nglobal ovl_import_count\nglobal ovl_export_count\nglobal ovl_kernel_expect\n'
   printf 'ovl_import_want:\n'
