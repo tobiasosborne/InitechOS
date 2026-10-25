@@ -35033,6 +35033,52 @@ test-samir-w2-$(subst /,-,$(1)): $$(SAMIR_W2_TEST)
 endef
 $(foreach rule,$(SAMIR_W2_MINTED),$(eval $(call samir-w2-pending-gate,$(rule))))
 
+# NDX GOLD.OUT: the completed statement must precede error 87. This second
+# mutant raises immediately; the unchanged real-III+ transcript must catch it.
+.PHONY: test-samir-fns-ndx-deferred-mutant test-samir-deferred-errors
+test-samir-fns-ndx-deferred-mutant: test-samir-fns-ndx $(BUILD)/test_samir_fns_ndx_deferred
+	@set +e; $(BUILD)/test_samir_fns_ndx_deferred ndx host > $(BUILD)/samirfns/mut-ndx-deferred.log 2>&1; rc=$$?; set -e; \
+	 test $$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $(BUILD)/samirfns/mut-ndx-deferred.log || { cat $(BUILD)/samirfns/mut-ndx-deferred.log; exit 1; }; \
+	 printf '>>> SAMIR_FNS_MUTANT_ndx_deferred RED: '; grep 'FAIL.*FNS transcript' $(BUILD)/samirfns/mut-ndx-deferred.log
+$(BUILD)/test_samir_deferred_errors: $(DBF_DIFF_DIR)/test_samir_deferred_errors.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
+test-samir-deferred-errors: $(BUILD)/test_samir_deferred_errors
+	@$<
+	@echo '>>> test-samir-deferred-errors: green'
+$(BUILD)/test_samir_ndx_names: $(DBF_DIFF_DIR)/test_samir_ndx_names.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
+$(BUILD)/ndx_fn_builtins.o: $(SAMIR_FN_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(SAMIR_INC_DIR) -Ispec -c $(SAMIR_FN_SRC) -o $@
+.PHONY: test-samir-ndx-names
+test-samir-ndx-names: $(BUILD)/test_samir_ndx_names $(BUILD)/ndx_fn_builtins.o $(CLIENTS_DBF)
+	@$(NM) -u $(BUILD)/ndx_fn_builtins.o > $(BUILD)/ndx-fn-undefined.log
+	@if grep -Eq '[[:space:]](wa_|ndx_)' $(BUILD)/ndx-fn-undefined.log; then cat $(BUILD)/ndx-fn-undefined.log; exit 1; fi
+	@echo '>>> test-samir-ndx-link: green (no undefined work-area/index symbols)'
+	@$(BUILD)/test_samir_ndx_names
+	@echo '>>> test-samir-ndx-names: green'
+test-samir-fns: test-samir-deferred-errors test-samir-ndx-names
+test-samir-fns-mutants: test-samir-fns-ndx-deferred-mutant
+TEST_UNIT_GATES += test-samir-deferred-errors test-samir-fns-ndx-deferred-mutant test-samir-ndx-names
+
+# Real ndx/GOLD.OUT R5-RENAMED / R5-NESTED: procedure classification must
+# depend on the command, independently of the handler name or DO depth.
+define samir-fns-ndx-classifier-gates
+.PHONY: test-samir-fns-ndx-handler-$(1)-mutant test-samir-fns-ndx-handler-$(1)-emu-mutant
+test-samir-fns-ndx-handler-$(1)-mutant: test-samir-fns-ndx $$(BUILD)/test_samir_fns_ndx_handler_$(1)
+	@set +e; $$(BUILD)/test_samir_fns_ndx_handler_$(1) ndx host > $$(BUILD)/samirfns/mut-ndx-handler-$(1).log 2>&1; rc=$$$$?; set -e; \
+	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-ndx-handler-$(1).log || { cat $$(BUILD)/samirfns/mut-ndx-handler-$(1).log; exit 1; }; \
+	 printf '>>> SAMIR_FNS_MUTANT_ndx_handler_$(1) RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-ndx-handler-$(1).log
+test-samir-fns-ndx-handler-$(1)-emu-mutant: test-samir-fns-ndx-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_ndx_handler_$(1).EXE
+	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) ndx emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_ndx_handler_$(1).EXE > $$(BUILD)/samirfns/emu-mut-ndx-handler-$(1).log 2>&1; rc=$$$$?; set -e; \
+	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-ndx-handler-$(1).log || { cat $$(BUILD)/samirfns/emu-mut-ndx-handler-$(1).log; exit 1; }; \
+	 printf '>>> SAMIR_FNS_MUTANT_ndx_handler_$(1) emu RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-ndx-handler-$(1).log
+test-samir-fns-mutants: test-samir-fns-ndx-handler-$(1)-mutant
+test-samir-fns-emu-mutants: test-samir-fns-ndx-handler-$(1)-emu-mutant
+TEST_UNIT_GATES += test-samir-fns-ndx-handler-$(1)-mutant
+TEST_EMU_GATES += test-samir-fns-ndx-handler-$(1)-emu-mutant
+endef
+$(foreach rule,name depth,$(eval $(call samir-fns-ndx-classifier-gates,$(rule))))
+
 # Real III+ captures for the four currently exercised SF rules. Missing or
 # stale independent bytes fail loudly; this gate never regenerates evidence.
 .PHONY: samir-fns-goldens

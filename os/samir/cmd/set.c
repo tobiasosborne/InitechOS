@@ -404,20 +404,26 @@ static SAMIR_OVL_TEXT(set) int do_set_index(xb_interp *ip, set_state *ss, const 
         if(!wa_table(env,area)) {if(err_code)*err_code=52;return -INTERP_ERR_EVAL;}
         wa_close_indexes(env,area);wa_nav_reset(area);
         while(*s) {
-            char name[128];uint32_t n=0;int dot=0;ndx_index *ix;
+            char name[128],display[128];uint32_t n=0;int dot=0;ndx_index *ix;
             s=s_skip_ws(s);
             while(*s && *s!=',' && !s_isspace(*s)) {
                 if(n>=sizeof name-5){if(err_code)*err_code=10;return -INTERP_ERR_SYNTAX;}
-                if(*s=='.')dot=1;
+                if(*s=='/' || *s=='\\' || *s==':')dot=0;
+                else if(*s=='.')dot=1;
                 name[n++]=*s++;
             }
             name[n]=0;
             if(!n || count>=NDX_PER_AREA) {if(err_code)*err_code=count>=NDX_PER_AREA?28:10;return -INTERP_ERR_SYNTAX;}
             if(!dot)rt_memcpy(name+n,".NDX",5);
+            rt_memcpy(display,name,rt_strlen(name)+1u);
+            ndx_io_name(name);
             if(ndx_open_rw(xb_interp_pal(ip),name,&ix)!=NDX_OK) {
                 if(err_code)*err_code=1;
                 return -INTERP_ERR_EVAL;
             }
+            /* III+ ndx/GOLD.OUT: SET INDEX displays the new operand's case. */
+            ndx_set_name_defaulted(ix,!dot);
+            if(ndx_set_display_name(ix,display)!=NDX_OK) {ndx_close(ix);if(err_code)*err_code=114;return -INTERP_ERR_EVAL;}
             if(wa_attach_index(env,area,ix)!=WA_OK) {ndx_close(ix);if(err_code)*err_code=28;return -INTERP_ERR_EVAL;}
             count++;
             s=s_skip_ws(s);if(*s==',')s=s_skip_ws(s+1);

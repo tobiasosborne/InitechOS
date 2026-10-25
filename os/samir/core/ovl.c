@@ -216,6 +216,7 @@ void samir_ovl_validate_ctx(const xb_ctx *c)
         SAMIR_RETAIN(c->dbcur->dbf_name);
         SAMIR_RETAIN(c->dbcur->file_exists);
         SAMIR_RETAIN(c->dbcur->last_update);
+        SAMIR_RETAIN(c->dbcur->index_name);
     }
 }
 

@@ -1428,9 +1428,12 @@ static SAMIR_OVL_TEXT(status) void qi_line(q_inspection *q)
     }
     q->n=0;
 }
-static SAMIR_OVL_TEXT(status) void qi_file(q_inspection *q, const char *name, const char *extension)
+static SAMIR_OVL_TEXT(status) void qi_file(q_inspection *q, const char *name, const char *extension, int preserve)
 {
     samir_pal_t *pal=xb_interp_pal(q->ip);
+#ifdef SAMIR_FNS_MUTANT_ndxdisplay
+    preserve=0; /* MUTANT: STATUS must preserve supplied index spelling. */
+#endif
     unsigned n=0,end=0;
     int drive=pal->curdrive?pal->curdrive(pal):-1;
     if(name[0] && name[1]!=':' && drive>='A' && drive<='Z') {
@@ -1439,7 +1442,7 @@ static SAMIR_OVL_TEXT(status) void qi_file(q_inspection *q, const char *name, co
     while(name[n]) { if(name[n]=='.')end=n;n++; }
     if(!extension || !end)end=n;
     for(n=0;n<end;n++) {
-        char c=q_up1(name[n]);if(c=='/')c='\\';
+        char c=preserve?name[n]:q_up1(name[n]);if(c=='/')c='\\';
         q_append(q->line,&q->n,sizeof q->line,&c,1);
     }
     if(extension)qi_text(q,extension);
@@ -1464,7 +1467,7 @@ static SAMIR_OVL_TEXT(status) void qi_memory(q_inspection *q)
             qi_text(q,"  (");q_append(q->line,&q->n,sizeof q->line,raw,19);qi_text(q,")");
         }
         if(!mv.is_public && mv.program[0]) {
-            qi_pad(q,62);qi_file(q,mv.program,".prg");
+            qi_pad(q,62);qi_file(q,mv.program,".prg",0);
         }
         qi_line(q);
         if(q->stopped)return;
@@ -1497,14 +1500,16 @@ static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
 #endif
         if(a==wa_selected(env)) { qi_text(q,"Currently Selected Database: ");qi_line(q); }
         qi_text(q,"Select area: ");qi_uint(q,(unsigned)a,2);qi_text(q,", Database in Use: ");
-        qi_file(q,dbf_name(wa_table(env,a)),".dbf");qi_text(q,"   Alias: ");qi_text(q,wa_alias(env,a));qi_line(q);
+        qi_file(q,dbf_name(wa_table(env,a)),".dbf",0);qi_text(q,"   Alias: ");qi_text(q,wa_alias(env,a));qi_line(q);
         for(int i=0;i<wa_index_count(env,a);i++) {
             ndx_index *ix=wa_index(env,a,i);
             qi_text(q,i+1==wa_master_order(env,a)?"    Master index file:  ":"           Index file:  ");
-            qi_file(q,ndx_name(ix),".ndx");qi_text(q,"  Key: ");qi_text(q,ndx_key_expr(ix));qi_text(q," ");qi_line(q);
+            /* Real ndxdisplay/GOLD.OUT pins supplied case after creation,
+             * REINDEX and SET INDEX; only the default extension is replaced. */
+            qi_file(q,ndx_display_name(ix),ndx_name_defaulted(ix)?".ndx":(const char *)0,1);qi_text(q,"  Key: ");qi_text(q,ndx_key_expr(ix));qi_text(q," ");qi_line(q);
         }
         if(wa_memo(env,a)) {
-            qi_text(q,"           Memo file:   ");qi_file(q,dbf_name(wa_table(env,a)),".dbt");qi_line(q);
+            qi_text(q,"           Memo file:   ");qi_file(q,dbf_name(wa_table(env,a)),".dbt",0);qi_line(q);
         }
         if(*filter) { qi_text(q,"Filter: ");qi_text(q,filter);qi_line(q); }
         if(*rel) {
@@ -1529,7 +1534,7 @@ static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
         if(++areas%2==0)qi_pause(q,1);
         qi_line(q);
     }
-    if(ss && ss->alternate>=0) { qi_text(q,"Alternate file: ");qi_file(q,ss->alternate_name,(const char *)0);qi_line(q); }
+    if(ss && ss->alternate>=0) { qi_text(q,"Alternate file: ");qi_file(q,ss->alternate_name,(const char *)0,0);qi_line(q); }
     qi_text(q,"File search path:   ");qi_line(q);
     qi_text(q,"Default disk drive: ");
     { samir_pal_t *pal=xb_interp_pal(ip);int d=pal->curdrive?pal->curdrive(pal):-1;

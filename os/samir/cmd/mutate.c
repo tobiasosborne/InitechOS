@@ -1066,6 +1066,24 @@ static SAMIR_OVL_TEXT(file) int d_name(char *name,unsigned cap,const char *ext)
     if(!dot) { if(n+rt_strlen(ext)>=cap)return 0;rt_memcpy(name+n,ext,rt_strlen(ext)+1); }
     return 1;
 }
+/* Preserve the supplied display spelling before normalizing the I/O name.
+ * Ref: III+ ndx/GOLD.OUT: bare -> C:bare.ndx; MiXeD.nDx -> C:MiXeD.nDx. */
+static int d_index_name(char *name, char *display, unsigned cap, int *defaulted)
+{
+    unsigned i, n = rt_strlen(name), dot = n;
+    for (i = 0; i < n; i++) {
+        if (name[i] == '/' || name[i] == '\\' || name[i] == ':') dot = n;
+        else if (name[i] == '.' && dot == n) dot = i;
+    }
+    *defaulted = dot == n;
+    if (*defaulted) {
+        if (n + 5u > cap) return 0;
+        rt_memcpy(name + n, ".NDX", 5u);
+    }
+    rt_memcpy(display, name, rt_strlen(name) + 1u);
+    ndx_io_name(name);
+    return 1;
+}
 /* Existing destinations stay intact under SAFETY until an independently
  * minted overwrite-prompt extension is available. No guessed prompt bytes. */
 static SAMIR_OVL_TEXT(file) int d_destination(xb_interp *ip,const char *name,int *ec)
@@ -1106,15 +1124,15 @@ static SAMIR_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebui
             if(rc) { wa_nav_goto(env,area,keep);return d_fail(ec,ctx.ec?ctx.ec:114); }
         }
     } else {
-        const char *p=m_skip_ws(args),*to;char expr[255],name[128];xb_val v;ndx_index *ix;
-        unsigned n;int k=m_match_kw(p,"ON");
+        const char *p=m_skip_ws(args),*to;char expr[255],name[128],display[128];xb_val v;ndx_index *ix;
+        unsigned n;int defaulted, k=m_match_kw(p,"ON");
         if(!k)return d_fail(ec,10);
         p=m_skip_ws(p+k);to=d_kw(p,"TO");
         if(!to)return d_fail(ec,10);
         n=(unsigned)(to-p);while(n && m_isspace(p[n-1]))n--;
         if(!n || n>220)return d_fail(ec,10);
         rt_memcpy(expr,p,n);expr[n]=0;p=m_skip_ws(to+2);
-        if(!d_word(&p,name,sizeof name) || *p || !d_name(name,sizeof name,".NDX"))return d_fail(ec,10);
+        if(!d_word(&p,name,sizeof name) || *p || !d_index_name(name,display,sizeof name,&defaulted))return d_fail(ec,10);
         if(d_destination(ip,name,ec))return -INTERP_ERR_EVAL;
         rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
         ctx.expr=expr;ctx.type=v.t==XB_C?0:1;
@@ -1126,6 +1144,8 @@ static SAMIR_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebui
         if(rc) { wa_nav_goto(env,area,keep);return d_fail(ec,ctx.ec?ctx.ec:29); }
         rc=ndx_open_rw(pal,name,&ix);
         if(rc)return d_fail(ec,114);
+        ndx_set_name_defaulted(ix,defaulted);
+        if(ndx_set_display_name(ix,display)!=NDX_OK) {ndx_close(ix);return d_fail(ec,114);}
         if(wa_attach_index(env,area,ix)!=WA_OK) {ndx_close(ix);return d_fail(ec,28);}
     }
     wa_nav_reset(area);

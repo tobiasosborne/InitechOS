@@ -204,6 +204,8 @@ struct ndx_index {
      * (initech-x87g), which rebuilds the file fresh via ndx_build and reopens
      * it in place so callers keep the same ndx_index* handle. */
     char     path[NDX_PATH_MAX];
+    char    *display_name;            /* supplied spelling, in this owned block */
+    uint8_t  name_defaulted;           /* extension supplied by command parser */
 
     /* Arena management. */
     void    *last_node;  /* mark before last ndx_read_node alloc; freed by
@@ -312,9 +314,10 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
     int       rc;
     uint8_t   page0[NDX_PAGE_SIZE];
     ndx_index *idx;
-    uint32_t   expr_i;
+    uint32_t   expr_i, name_len = rt_strlen(name);
 
     *out = (ndx_index *)0;
+    if (name_len >= NDX_PATH_MAX) return -NDX_ERR_IO;
 
     /* Step 1: open. */
     fd = pal->open(pal, name, pal_mode);
@@ -398,12 +401,18 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
         }
 
         /* Independently owned index; arbitrary close order is safe. */
-        idx  = (ndx_index *)pal->acquire(pal, (uint32_t)sizeof(ndx_index));
+        idx  = (ndx_index *)pal->acquire(pal, (uint32_t)sizeof(ndx_index) + name_len + 1u);
         if (!idx) {
             pal->close(pal, fd);
             return -NDX_ERR_OOM;
         }
+        /* FILE/SET callers may supply transient overlay or stack text. Only
+         * this resident-owned allocation is retained (overlays design Sec 6). */
+        SAMIR_RETAIN(idx);
+        SAMIR_RETAIN(idx + 1);
         rt_memset(idx, 0, sizeof(ndx_index));
+        idx->display_name = (char *)(idx + 1);
+        rt_memcpy(idx->display_name, name, name_len + 1u);
 
         idx->pal            = pal;
         idx->fd             = fd;
@@ -445,6 +454,7 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
         idx->path[p] = '\0';
     }
 
+    idx->name_defaulted = 0;
     *out = idx;
     return NDX_OK;
 }
@@ -455,8 +465,36 @@ int ndx_open(samir_pal_t *pal, const char *name, ndx_index **out)
     return ndx_open_impl(pal, name, PAL_RD, 0, out);
 }
 
+/* Preserve directory spelling: the host PAL also accepts native paths. DOS
+ * itself resolves directories without regard to case. Display uses its copy. */
+void ndx_io_name(char *name)
+{
+    char *base = name, *p;
+    for (p = name; *p; p++)
+        if (*p == '/' || *p == '\\' || *p == ':') base = p + 1;
+    for (p = base; *p; p++)
+        if (*p >= 'a' && *p <= 'z') *p = (char)(*p - 'a' + 'A');
+}
+
 /* Using III+ U5-109: STATUS reports each open index's actual filename. */
 const char *ndx_name(const ndx_index *idx) { return idx ? idx->path : ""; }
+const char *ndx_display_name(const ndx_index *idx)
+{ return idx ? idx->display_name : ""; }
+int ndx_set_display_name(ndx_index *idx, const char *name)
+{
+    uint32_t n = rt_strlen(name);
+    if (!idx) return -NDX_ERR_IO;
+    /* Copy bytes; never retain the caller's pointer across an overlay swap. */
+    SAMIR_RETAIN(idx);
+    SAMIR_RETAIN(idx->display_name);
+    if (n > rt_strlen(idx->path)) return -NDX_ERR_IO;
+    rt_memcpy(idx->display_name, name, n + 1u);
+    return NDX_OK;
+}
+void ndx_set_name_defaulted(ndx_index *idx, int defaulted)
+{ if (idx) idx->name_defaulted = defaulted != 0; }
+int ndx_name_defaulted(const ndx_index *idx)
+{ return idx && idx->name_defaulted; }
 
 int ndx_open_rw(samir_pal_t *pal, const char *name, ndx_index **out)
 {

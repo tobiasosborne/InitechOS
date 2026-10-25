@@ -926,6 +926,7 @@ typedef struct {
 /* Forward decl of the recursive runner. */
 static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec);
 static int fl_escape(flow_prog *fp, int *ec);
+static int fl_trap(flow_prog *fp, int rc, int *ec);
 
 /*
  * match_block_end: given an opener at index `start`, return the index of its
@@ -1276,6 +1277,85 @@ static int flow_expand(xb_interp *ip, char *line, int *ec)
 /* The structured executor                                                */
 /* ===================================================================== */
 
+/* Ref: fns-mint/ndx/GOLD.OUT lines 4-5 and 7-8: a complete output
+ * statement precedes NDX's error 87. Convert the pending code to the SAME
+ * status/ordinal pair as an immediate evaluation error, after side effects.
+ * Always consume it before ON ERROR can execute another statement. */
+static int fl_finish_statement(xb_interp *ip, int rc, int *ec)
+{
+    xb_ctx *ctx = xb_interp_ctx(ip);
+    int pending = ctx->deferred_error;
+    ctx->deferred_error = 0;
+    if (rc == INTERP_OK && pending) {
+        if (ec) *ec = pending;
+        return -INTERP_ERR_EVAL;
+    }
+    return rc;                         /* an immediate error wins */
+}
+
+/* One completion path for ordinary statements and structured guards.
+ * Ref: real III+ ndx/GOLD.OUT IF-BODY/IF-AFTER, CASE-BODY/CASE-AFTER,
+ * WHILE-BODY and the *-RETRY-* captures. Never re-raise a handled code. */
+static int fl_handle_statement(flow_prog *fp, int rc, int *ec, int *retry)
+{
+    int t;
+    *retry = 0;
+    rc = fl_finish_statement(fp->ip, rc, ec);
+#ifndef FLOW_MUTATE_NO_RETRY
+    if (rc == INTERP_RC_RETRY) {
+        if (ec) *ec = 0;
+        *retry = 1;
+        return INTERP_OK;
+    }
+#endif
+    if (rc == INTERP_OK) return rc;
+    t = fl_trap(fp, rc, ec);
+    if (!t) return rc;
+    if (t < 0) return t;
+#ifndef FLOW_MUTATE_NO_RETRY
+    if (t == 2) *retry = 1;
+#endif
+    return INTERP_OK;
+}
+
+/* Real ndx/GOLD.OUT R4-GUARD-MIN / R4-CASE-PROC-BODY: a false
+ * deferred guard with a procedure handler enters its body, without invoking
+ * that handler, and clears ERROR(). Immediate errors still use the trap.
+ * This applies to any deferred code, independently of the function. */
+static void fl_guard_value(xb_interp *ip, int rc, int *truth)
+{
+    xb_ctx *c = xb_interp_ctx(ip);
+    if (rc == INTERP_OK && c->deferred_error) {
+        c->error_number = c->deferred_error; /* visible to the next CASE */
+        if (!*truth && c->on_error_procedure) {
+            c->deferred_error = c->error_number = 0;
+            *truth = 1;
+        }
+    }
+}
+
+/* IF/WHILE RETRY re-evaluates the guard. A normally handled deferred error
+ * keeps the already evaluated condition even if the handler changes inputs.
+ * The real IMMEDIATE-*-BODY probes also pin a handled immediate guard error
+ * as entering its body; seed truth to true when no evaluated value exists. */
+static int fl_guard(flow_prog *fp, const char *expr, int *truth, int *ec)
+{
+    int rc, retry = 0;
+    do {
+        if (retry) {
+            rc = fl_escape(fp, ec);
+            if (rc != INTERP_OK) return rc;
+        }
+        xb_interp_ctx(fp->ip)->deferred_error = 0;
+        *truth = 1;
+        rc = eval_guard(fp->ip, expr, truth, ec);
+        fl_guard_value(fp->ip, rc, truth);
+        rc = fl_handle_statement(fp, rc, ec, &retry);
+        if (rc != INTERP_OK) return rc;
+    } while (retry);
+    return INTERP_OK;
+}
+
 /*
  * run_if: execute IF <guard> ... [ELSE ...] ENDIF starting at fp->lines[start]
  * (which is LK_IF). `endif` is the index of the matching ENDIF. *next is set to
@@ -1292,7 +1372,7 @@ static int run_if(flow_prog *fp, int start, int endif, int *next,
     {
         const char *rest;
         (void)line_classify(buf, &rest);     /* re-derive the guard text */
-        rc = eval_guard(fp->ip, rest, &truth, ec);
+        rc = fl_guard(fp, rest, &truth, ec);
         if (rc != INTERP_OK)
             return rc;
     }
@@ -1359,13 +1439,21 @@ static int run_docase(flow_prog *fp, int start, int endcase, int *next,
         if (k == LK_CASE) {
             char buf[FLOW_MAX_LINELEN + 1];
             const char *rest;
-            int truth = 0;
+            int truth = 1, retry;
             if (copy_line(&fp->lines[i], buf, sizeof(buf)) != 0)
                 return -INTERP_ERR_DEPTH;
             (void)line_classify(buf, &rest);
             rc = eval_guard(fp->ip, rest, &truth, ec);
-            if (rc != INTERP_OK)
-                return rc;
+            fl_guard_value(fp->ip, rc, &truth);
+            /* False CASE guards form one selection: coalesce deferred codes
+             * until a branch is selected (or OTHERWISE/ENDCASE is reached).
+             * The real CASE-RETRY-AFTER probe pins RETRY as leaving this
+             * selection without executing any CASE/OTHERWISE body. */
+            if (rc != INTERP_OK || truth) {
+                rc = fl_handle_statement(fp, rc, ec, &retry);
+                if (rc != INTERP_OK) return rc;
+                if (retry) { *next = endcase + 1; return INTERP_OK; }
+            }
 #ifdef FLOW_MUTATE_DOCASE_ALL
             /* MUTANT (Rule 6 -- -DFLOW_MUTATE_DOCASE_ALL): run EVERY true CASE
              * body instead of only the first -> a DO CASE that should pick one
@@ -1399,6 +1487,13 @@ static int run_docase(flow_prog *fp, int start, int endcase, int *next,
         }
         /* a plain line between DO CASE and the first CASE is ignored by dBASE. */
         i++;
+    }
+
+    if (xb_interp_ctx(fp->ip)->deferred_error) {
+        int retry;
+        rc = fl_handle_statement(fp, INTERP_OK, ec, &retry);
+        if (rc != INTERP_OK) return rc;
+        if (retry) { *next = endcase + 1; return INTERP_OK; }
     }
 
 #ifdef FLOW_MUTATE_DOCASE_ALL
@@ -1451,7 +1546,7 @@ static int run_dowhile(flow_prog *fp, int start, int enddo, int *next, int *ec)
         rc = fl_escape(fp, ec);         /* U5-220: an empty loop is stoppable */
         if (rc != INTERP_OK)
             return rc;
-        rc = eval_guard(fp->ip, rest, &truth, ec);
+        rc = fl_guard(fp, rest, &truth, ec);
         if (rc != INTERP_OK)
             return rc;
         if (!truth)
@@ -1550,7 +1645,7 @@ static int fl_escape(flow_prog *fp, int *ec)
  */
 static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
 {
-    int i = from, rc;
+    int i = from, rc, retry;
     char buf[FLOW_MAX_LINELEN + 1];
 
     while (i < to) {
@@ -1559,6 +1654,7 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
         /* Using III+ U5-220: Esc interrupts a program between commands. */
         rc = fl_escape(fp, ec);
         if (rc != INTERP_OK) return rc;
+        xb_interp_ctx(fp->ip)->deferred_error = 0;
 
         switch (k) {
         case LK_IF: {
@@ -1621,24 +1717,9 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
             rc = flow_expand(fp->ip, buf, ec);
             if (rc == INTERP_OK)
                 rc = exec_command(fp, buf, ec);
-            /* Using III+ U5-182: a DO whose callee executed RETRY runs
-             * again (the RETRY loop is cancellable with Esc, U5-220). */
-#ifndef FLOW_MUTATE_NO_RETRY
-            if (rc == INTERP_RC_RETRY) { if (ec) *ec = 0; break; }
-#endif
-            /* Using III+ U5-160: ON ERROR runs its command in place of the
-             * failing one; the program resumes at the next line (real III+
-             * 1.1, SF-errors). A RETURN sentinel is not an error. A handler
-             * that executed RETRY re-runs the failed statement instead
-             * (U5-182; mint samirctl RETRYM.TXT). */
-            if (rc != INTERP_OK) {
-                int t = fl_trap(fp, rc, ec);
-                if (!t) return rc;
-                if (t < 0) return t;    /* the handler cancelled / quit */
-#ifndef FLOW_MUTATE_NO_RETRY
-                if (t == 2) break;
-#endif
-            }
+            rc = fl_handle_statement(fp, rc, ec, &retry);
+            if (rc != INTERP_OK) return rc;
+            if (retry) break;
             i++;
             break;
         }
@@ -1977,7 +2058,7 @@ int samir_do(xb_interp *ip, const char *prg)
 int samir_do_n(xb_interp *ip, const char *prg, uint32_t plen)
 {
     flow_state *fs;
-    int n;
+    int n, rc, saved_deferred;
 
     if (!ip || !prg)
         return -INTERP_ERR_EVAL;
@@ -1995,7 +2076,13 @@ int samir_do_n(xb_interp *ip, const char *prg, uint32_t plen)
         fs->last_error = 43;                /* Insufficient memory. */
         return -INTERP_ERR_DEPTH;
     }
-    return flow_run_lines(ip, fs, prg, plen, n);
+    /* A nested program owns its statements' slot. Preserve a deferred error
+     * already scheduled while evaluating its caller's command arguments. */
+    saved_deferred = xb_interp_ctx(ip)->deferred_error;
+    xb_interp_ctx(ip)->deferred_error = 0;
+    rc = flow_run_lines(ip, fs, prg, plen, n);
+    xb_interp_ctx(ip)->deferred_error = saved_deferred;
+    return rc;
 }
 
 /* The second half of samir_do_n: the line arrays sized by the count pass. */

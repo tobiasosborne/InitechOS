@@ -2261,8 +2261,55 @@ static int fn_lupdate_stub(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_ndx_stub(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
-    (void)ctx; (void)args; (void)nargs; (void)out;
-    return fn_fail(err, XBEE_INVALID_FN);
+    /* Ref: III+ HELP.DBS @DATA FUNC 2 (1234-1236) and @SET INDEX
+     * (1493): NDX takes a numeric, 1-based slot; III+ supports seven indexes.
+     * The real fns-mint/ndx/GOLD.OUT pins empty valid slots as "", invalid
+     * ordinals as error 87, and a nonnumeric argument as error 11.
+     * As for FIELD/DBF, index metadata crosses only the dbcursor vtable. */
+    int32_t slot;
+    int nl, drive = -1;
+    char name[256];                    /* ndx codec's bounded stored path */
+    char *dst;
+    uint32_t prefix = 0;
+
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_N) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!(args[0].u.n >= 1.0 && args[0].u.n < 8.0)) {
+#ifdef SAMIR_FNS_MUTANT_ndx_deferred
+        return fn_fail(err, 87);       /* MUTANT: output must precede the error */
+#else
+        /* Real III+ NDX GOLD.OUT lines 4-5 and 7-8: complete the output
+         * with an empty string before the ordinary statement error path. */
+        if (!ctx) return fn_fail(err, XBEE_NO_DATABASE);
+        if (!ctx->deferred_error) ctx->deferred_error = 87;
+        *out = xb_c("", 0);
+        *err = XBEE_OK;
+        return 0;
+#endif
+    }
+    slot = to_int_trunc(args[0].u.n);
+    if (!ctx || !ctx->dbcur || !ctx->dbcur->index_name)
+        return fn_fail(err, XBEE_NO_DATABASE);
+#ifdef SAMIR_FNS_MUTANT_ndx
+    /* Intentional off-by-one: the golden's indexed NDX(1) line must catch it. */
+    slot++;
+#endif
+    nl = ctx->dbcur->index_name(ctx->dbcur_user, (int)slot, name, sizeof name);
+    if (nl <= 0) {
+        *out = xb_c("", 0);
+        *err = XBEE_OK;
+        return 0;
+    }
+    if (ctx->file_pal && ctx->file_pal->curdrive)
+        drive = ctx->file_pal->curdrive(ctx->file_pal);
+    if (name[1] != ':' && drive >= 'A' && drive <= 'Z') prefix = 2;
+    dst = fn_scratch(ctx, (uint32_t)nl + prefix);
+    if (!dst) return fn_fail(err, XBEE_SCRATCH_FULL);
+    if (prefix) { dst[0] = (char)drive; dst[1] = ':'; }
+    rt_memcpy(dst + prefix, name, (uint32_t)nl);
+    *out = xb_c(dst, (uint16_t)((uint32_t)nl + prefix));
+    *err = XBEE_OK;
+    return 0;
 }
 
 /* Ref: system-and-database-functions.md ROW; real fns-mint/row.

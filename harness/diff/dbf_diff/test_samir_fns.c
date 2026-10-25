@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include "test_assert.h"
 #include "trace_complete.h"
+#include "scratch_lock.h"
 #include "samir_install.h"
 #include "samir/interp.h"
 TEST_HARNESS();
@@ -29,7 +30,7 @@ static unsigned used;
 #ifndef SAMIR_W2
 static unsigned input_line;
 #endif
-static const char *const driver[]={"SET TALK OFF","SET SAFETY OFF","ON ERROR ? \"MINT-ERROR\", ERROR(), MESSAGE()","SET ALTERNATE TO CAPTURE.OUT","SET ALTERNATE ON","DO FNSTEST","SET ALTERNATE TO","QUIT"};
+static const char *const driver[]={"SET TALK OFF","SET SAFETY OFF","ON ERROR ? \"MINT-ERROR\", ERROR(), MESSAGE()","SET ALTERNATE TO GOLD.OUT","SET ALTERNATE ON","DO FNSTEST","SET ALTERNATE TO","QUIT"};
 static void output(samir_pal_t *p,const char *s,uint32_t n)
 { (void)p; if(n<sizeof captured-used) { memcpy(captured+used,s,n); used+=n; captured[used]=0; } }
 #ifndef SAMIR_W2
@@ -123,6 +124,7 @@ int main(int argc,char **argv)
     char gold[1024],dir[1024],cmd[16384],path[2048];
     static char expected[65536],minted[8192],current[8192];size_t mn,cn;
     int emu=!strcmp(mode,"emu");FILE *f;
+    int index_drive=!strcmp(name,"ndx") || !strcmp(name,"ndxdisplay");
 #ifdef SAMIR_W2
     const char *case_name;
     int kind_len;
@@ -135,6 +137,8 @@ int main(int argc,char **argv)
     if(strspn(name,"abcdefghijklmnopqrstuvwxyz")!=strlen(name)||(!emu&&strcmp(mode,"host")))return 2;
     snprintf(gold,sizeof gold,"build/samirfns/golden/%s",name);
 #endif
+    /* F2: normal and multiple NDX mutant legs share this case's fixtures. */
+    { char lock[1200];snprintf(lock,sizeof lock,"build/.lock-samirfns-%s-%s",mode,name);scratch_lock(lock); }
     snprintf(path,sizeof path,"%s/GOLD.OUT",gold);
     if(!readfile(path,expected,sizeof expected)){fprintf(stderr,"RED: MINT required: %s/GOLD.OUT\n",gold);return 2;}
     snprintf(path,sizeof path,"%s/FNSTEST.PRG",gold);mn=readfile(path,minted,sizeof minted);
@@ -163,20 +167,37 @@ int main(int argc,char **argv)
         /* The independent GETENV mint pins COMSPEC to the DOSBox system
          * drive. Supply that environment input; the PAL returns it verbatim. */
         if(!strcmp(name,"getenv"))fputs("set COMSPEC=Z:\\COMMAND.COM\r\n",f);
-        fputs("samir < fns.in > result.txt\r\n",f);fclose(f);
+        if(index_drive)fputs("c:\r\n",f);
+        fputs("samir < fns.in > result.txt\r\n",f);
+        if(index_drive)fputs("a:\r\n",f);
+        fclose(f);
         {char img[1100],ins[3400];snprintf(img,sizeof img,"%s/data.img",dir);CHECK(samir_install_cmd(ins,sizeof ins,img,com)==0,"SAMIR.EXE + SAMIR.OVL named");
         snprintf(cmd,sizeof cmd,"mformat -i %s/data.img -f 1440 :: && %s && mcopy -o -i %s/data.img %s/*.PRG %s/*.IN %s/*.BAT :: && mmd -i %s/data.img ::DATA && mcopy -o -i %s/data.img %s/DATA/* ::DATA/",dir,ins,dir,dir,dir,dir,dir,dir,dir);}command(cmd);
         if(strcmp(name,"default")&&strcmp(name,"path")){snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img %s/BASE.DBF ::",dir,dir);command(cmd);}
         if(!strcmp(name,"alias")||!strcmp(name,"relation")){snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img %s/OTHER.DBF ::",dir,dir);command(cmd);}
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-before.log",dir,dir);command(cmd);
-        snprintf(cmd,sizeof cmd,"INITECH_QMP_STDIO=1 build/qemu_harness --disk build/tracer_secondary.img --disk2 %s/data.img --name fns_%s --out build --timeout-ms 60000 --keys 'f,n,s,ret,e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE > %s/qemu.out 2> %s/qemu.report",dir,name,dir,dir);command(cmd);
+        /* NDX's real mint runs on C:. Keep that drive real, install both
+         * files into its private boot volume, and retain the locked A: trace. */
+        snprintf(cmd,sizeof cmd,"cp -f build/tracer_secondary.img %s/boot.img",dir);command(cmd);
+        if(index_drive) {
+            char img[1100],ins[3400];
+            snprintf(img,sizeof img,"%s/boot.img@@32256",dir);
+            CHECK(samir_install_cmd(ins,sizeof ins,img,com)==0,"C: SAMIR.EXE + SAMIR.OVL named");
+            snprintf(cmd,sizeof cmd,"%s && mcopy -o -i %s %s/*.PRG %s/*.IN %s/*.BAT %s/BASE.DBF :: && mmd -i %s ::DATA && mcopy -o -i %s %s/DATA/* ::DATA/",ins,img,dir,dir,dir,dir,img,img,dir);command(cmd);
+            snprintf(cmd,sizeof cmd,"dd if=%s/boot.img of=%s/c-volume.img bs=512 skip=63 count=2880 status=none && fsck.fat -n %s/c-volume.img > %s/fsck-c-before.log",dir,dir,dir,dir);command(cmd);
+        }
+
+        snprintf(cmd,sizeof cmd,"INITECH_QMP_STDIO=1 build/qemu_harness --disk %s/boot.img --boot-rw --disk2 %s/data.img --name fns_%s --out build --timeout-ms 60000 --keys 'f,n,s,ret,e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE > %s/qemu.out 2> %s/qemu.report",dir,dir,name,dir,dir);command(cmd);
         snprintf(path,sizeof path,"build/fns_%s.serial",name);
         { char rp[2048];snprintf(rp,sizeof rp,"%s/qemu.report",dir);
           if(!emu_trace_complete(rp,path,9))return 2; }
         snprintf(path,sizeof path,"%s/qemu.report",dir);readfile(path,captured,sizeof captured);
         CHECK(strstr(captured,"triple_fault=0")&&strstr(captured,"quit_after_found=1")&&strstr(captured,"keys_sent=9"),"FNS entire locked QEMU trace returned without fault");
-        snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::CAPTURE.OUT %s/CAPTURE.OUT",dir,dir);command(cmd);
+        snprintf(cmd,sizeof cmd,"mcopy -o -i %s%s ::GOLD.OUT %s/GOLD.OUT",dir,index_drive?"/boot.img@@32256":"/data.img",dir);command(cmd);
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-after.log",dir,dir);command(cmd);
+        if(index_drive) {
+            snprintf(cmd,sizeof cmd,"dd if=%s/boot.img of=%s/c-volume.img bs=512 skip=63 count=2880 status=none && fsck.fat -n %s/c-volume.img > %s/fsck-c-after.log",dir,dir,dir,dir);command(cmd);
+        }
     }else{
         char cwd[2048];samir_pal_t *pal;xb_interp *ip;
         if(!getcwd(cwd,sizeof cwd)||chdir(dir))return 2;
@@ -205,11 +226,7 @@ int main(int argc,char **argv)
 #endif
         pal_host_free(pal);if(chdir(cwd))return 2;
     }
-#ifdef SAMIR_W2
     snprintf(path,sizeof path,"%s/GOLD.OUT",dir);readfile(path,captured,sizeof captured);
-#else
-    snprintf(path,sizeof path,"%s/CAPTURE.OUT",dir);readfile(path,captured,sizeof captured);
-#endif
     snprintf(path,sizeof path,"%s/captured.out",dir);f=fopen(path,"wb");if(f){fwrite(captured,1,strlen(captured),f);fclose(f);}
     CHECK(equal_text(captured,expected),CAPTURE_KIND " transcript byte-identical to real III+");
 #ifdef SAMIR_W2
