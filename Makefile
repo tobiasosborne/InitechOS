@@ -34992,8 +34992,8 @@ test-samir-fns-ndx-handler-$(1)-mutant: test-samir-fns-ndx $$(BUILD)/test_samir_
 	@set +e; $$(BUILD)/test_samir_fns_ndx_handler_$(1) ndx host > $$(BUILD)/samirfns/mut-ndx-handler-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-ndx-handler-$(1).log || { cat $$(BUILD)/samirfns/mut-ndx-handler-$(1).log; exit 1; }; \
 	 printf '>>> SAMIR_FNS_MUTANT_ndx_handler_$(1) RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-ndx-handler-$(1).log
-test-samir-fns-ndx-handler-$(1)-emu-mutant: test-samir-fns-ndx-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_ndx_handler_$(1).COM
-	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) ndx emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_ndx_handler_$(1).COM > $$(BUILD)/samirfns/emu-mut-ndx-handler-$(1).log 2>&1; rc=$$$$?; set -e; \
+test-samir-fns-ndx-handler-$(1)-emu-mutant: test-samir-fns-ndx-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_ndx_handler_$(1).EXE
+	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) ndx emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_ndx_handler_$(1).EXE > $$(BUILD)/samirfns/emu-mut-ndx-handler-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-ndx-handler-$(1).log || { cat $$(BUILD)/samirfns/emu-mut-ndx-handler-$(1).log; exit 1; }; \
 	 printf '>>> SAMIR_FNS_MUTANT_ndx_handler_$(1) emu RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-ndx-handler-$(1).log
 test-samir-fns-mutants: test-samir-fns-ndx-handler-$(1)-mutant

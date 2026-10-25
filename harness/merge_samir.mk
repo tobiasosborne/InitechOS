@@ -64,3 +64,7 @@ TEST_EMU_GATES += test-qemu-snapshot
 test-samir-trace: $(SAMIR_LIST_MUT_IMG)
 	+@sh tools/test-emu-trace.sh
 TEST_UNIT_GATES += test-samir-trace
+
+# NDX has additional implementation mutants sharing the function harness.
+$(BUILD)/test_samir_fns_ndx_handler_name $(BUILD)/test_samir_fns_ndx_handler_depth \
+$(BUILD)/test_samir_fns_ndx_deferred: $(DBF_DIFF_DIR)/scratch_lock.h $(DBF_DIFF_DIR)/trace_complete.h

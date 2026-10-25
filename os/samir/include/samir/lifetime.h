@@ -41,6 +41,7 @@ static inline void samir_bind_cursor(xb_ctx *c,const xb_dbcursor *v,void *user)
         CURSOR_CHECK(bof); CURSOR_CHECK(found); CURSOR_CHECK(deleted);
         CURSOR_CHECK(field_name); CURSOR_CHECK(dbf_name);
         CURSOR_CHECK(file_exists); CURSOR_CHECK(last_update);
+        CURSOR_CHECK(index_name);
 #undef CURSOR_CHECK
     }
     c->dbcur=v; c->dbcur_user=user;

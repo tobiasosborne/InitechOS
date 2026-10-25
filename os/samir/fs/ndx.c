@@ -406,6 +406,10 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
             pal->close(pal, fd);
             return -NDX_ERR_OOM;
         }
+        /* FILE/SET callers may supply transient overlay or stack text. Only
+         * this resident-owned allocation is retained (overlays design Sec 6). */
+        SAMIR_RETAIN(idx);
+        SAMIR_RETAIN(idx + 1);
         rt_memset(idx, 0, sizeof(ndx_index));
         idx->display_name = (char *)(idx + 1);
         rt_memcpy(idx->display_name, name, name_len + 1u);
@@ -461,6 +465,17 @@ int ndx_open(samir_pal_t *pal, const char *name, ndx_index **out)
     return ndx_open_impl(pal, name, PAL_RD, 0, out);
 }
 
+/* Preserve directory spelling: the host PAL also accepts native paths. DOS
+ * itself resolves directories without regard to case. Display uses its copy. */
+void ndx_io_name(char *name)
+{
+    char *base = name, *p;
+    for (p = name; *p; p++)
+        if (*p == '/' || *p == '\\' || *p == ':') base = p + 1;
+    for (p = base; *p; p++)
+        if (*p >= 'a' && *p <= 'z') *p = (char)(*p - 'a' + 'A');
+}
+
 /* Using III+ U5-109: STATUS reports each open index's actual filename. */
 const char *ndx_name(const ndx_index *idx) { return idx ? idx->path : ""; }
 const char *ndx_display_name(const ndx_index *idx)
@@ -468,7 +483,11 @@ const char *ndx_display_name(const ndx_index *idx)
 int ndx_set_display_name(ndx_index *idx, const char *name)
 {
     uint32_t n = rt_strlen(name);
-    if (!idx || n > rt_strlen(idx->path)) return -NDX_ERR_IO;
+    if (!idx) return -NDX_ERR_IO;
+    /* Copy bytes; never retain the caller's pointer across an overlay swap. */
+    SAMIR_RETAIN(idx);
+    SAMIR_RETAIN(idx->display_name);
+    if (n > rt_strlen(idx->path)) return -NDX_ERR_IO;
     rt_memcpy(idx->display_name, name, n + 1u);
     return NDX_OK;
 }

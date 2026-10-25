@@ -348,8 +348,7 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
             uint32_t before = rt_strlen(idxbuf[k]);
             if (repl_default_ext(idxbuf[k], REPL_TOK_CAP, ".NDX") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
             idx_defaulted[k] = rt_strlen(idxbuf[k]) != before;
-            for (char *t=idxbuf[k]; *t; t++)
-                if (*t >= 'a' && *t <= 'z') *t=(char)(*t-'a'+'A');
+            ndx_io_name(idxbuf[k]);
         }
     }
 #endif

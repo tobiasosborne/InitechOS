@@ -86,6 +86,14 @@ the REPL, every command hook's claim (verb recognition) and the overlay
 manager and retained-pointer guards. String literals and mergeable constants of overlay
 functions also stay resident (Sec 4).
 
+NDX() and deferred-error/guard completion stay resident with the interpreter.
+Index display spelling is copied into the resident-owned `ndx_index` allocation;
+FILE (INDEX/REINDEX) and SET never publish an overlay pointer. Resident display
+accessors and the copying setter let STATUS and SET use that metadata without
+cross-overlay calls. The allocation and retained display pointer use the lifetime
+guard, and `index_name` is audited as the final cursor-vtable slot at binding and
+at every overlay boundary.
+
 **Slot count: one.** One fixed slot is the authentic default (TP5's single
 overlay buffer; dBASE's overlay area). It costs nothing against the module
 budget: it lives in the loader's BSS reserve (Sec 5). Several slots would

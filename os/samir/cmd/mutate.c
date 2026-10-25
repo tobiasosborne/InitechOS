@@ -1081,7 +1081,7 @@ static int d_index_name(char *name, char *display, unsigned cap, int *defaulted)
         rt_memcpy(name + n, ".NDX", 5u);
     }
     rt_memcpy(display, name, rt_strlen(name) + 1u);
-    for (i = 0; name[i]; i++) name[i] = m_up1(name[i]);
+    ndx_io_name(name);
     return 1;
 }
 /* Existing destinations stay intact under SAFETY until an independently

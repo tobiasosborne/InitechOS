@@ -416,7 +416,7 @@ static SAMIR_OVL_TEXT(set) int do_set_index(xb_interp *ip, set_state *ss, const 
             if(!n || count>=NDX_PER_AREA) {if(err_code)*err_code=count>=NDX_PER_AREA?28:10;return -INTERP_ERR_SYNTAX;}
             if(!dot)rt_memcpy(name+n,".NDX",5);
             rt_memcpy(display,name,rt_strlen(name)+1u);
-            for(uint32_t j=0;name[j];j++)name[j]=s_up1(name[j]);
+            ndx_io_name(name);
             if(ndx_open_rw(xb_interp_pal(ip),name,&ix)!=NDX_OK) {
                 if(err_code)*err_code=1;
                 return -INTERP_ERR_EVAL;

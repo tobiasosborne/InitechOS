@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include "test_assert.h"
 #include "trace_complete.h"
+#include "scratch_lock.h"
 #include "samir_install.h"
 #include "samir/interp.h"
 TEST_HARNESS();
@@ -136,6 +137,8 @@ int main(int argc,char **argv)
     if(strspn(name,"abcdefghijklmnopqrstuvwxyz")!=strlen(name)||(!emu&&strcmp(mode,"host")))return 2;
     snprintf(gold,sizeof gold,"build/samirfns/golden/%s",name);
 #endif
+    /* F2: normal and multiple NDX mutant legs share this case's fixtures. */
+    { char lock[1200];snprintf(lock,sizeof lock,"build/.lock-samirfns-%s-%s",mode,name);scratch_lock(lock); }
     snprintf(path,sizeof path,"%s/GOLD.OUT",gold);
     if(!readfile(path,expected,sizeof expected)){fprintf(stderr,"RED: MINT required: %s/GOLD.OUT\n",gold);return 2;}
     snprintf(path,sizeof path,"%s/FNSTEST.PRG",gold);mn=readfile(path,minted,sizeof minted);
@@ -180,11 +183,11 @@ int main(int argc,char **argv)
             char img[1100],ins[3400];
             snprintf(img,sizeof img,"%s/boot.img@@32256",dir);
             CHECK(samir_install_cmd(ins,sizeof ins,img,com)==0,"C: SAMIR.EXE + SAMIR.OVL named");
-            snprintf(cmd,sizeof cmd,"%s && mcopy -o -i %s %s/*.PRG %s/*.IN %s/BASE.DBF :: && mmd -i %s ::DATA && mcopy -o -i %s %s/DATA/* ::DATA/",ins,img,dir,dir,dir,img,img,dir);command(cmd);
+            snprintf(cmd,sizeof cmd,"%s && mcopy -o -i %s %s/*.PRG %s/*.IN %s/*.BAT %s/BASE.DBF :: && mmd -i %s ::DATA && mcopy -o -i %s %s/DATA/* ::DATA/",ins,img,dir,dir,dir,dir,img,img,dir);command(cmd);
             snprintf(cmd,sizeof cmd,"dd if=%s/boot.img of=%s/c-volume.img bs=512 skip=63 count=2880 status=none && fsck.fat -n %s/c-volume.img > %s/fsck-c-before.log",dir,dir,dir,dir);command(cmd);
         }
 
-        snprintf(cmd,sizeof cmd,"INITECH_QMP_STDIO=1 build/qemu_harness --disk %s/boot.img --disk2 %s/data.img --name fns_%s --out build --timeout-ms 60000 --keys 'f,n,s,ret,e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE > %s/qemu.out 2> %s/qemu.report",dir,dir,name,dir,dir);command(cmd);
+        snprintf(cmd,sizeof cmd,"INITECH_QMP_STDIO=1 build/qemu_harness --disk %s/boot.img --boot-rw --disk2 %s/data.img --name fns_%s --out build --timeout-ms 60000 --keys 'f,n,s,ret,e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE > %s/qemu.out 2> %s/qemu.report",dir,dir,name,dir,dir);command(cmd);
         snprintf(path,sizeof path,"build/fns_%s.serial",name);
         { char rp[2048];snprintf(rp,sizeof rp,"%s/qemu.report",dir);
           if(!emu_trace_complete(rp,path,9))return 2; }

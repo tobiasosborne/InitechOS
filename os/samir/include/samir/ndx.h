@@ -198,6 +198,9 @@ uint16_t ndx_unique_flag(const ndx_index *idx);
  * lowercased). Capped at 100 bytes. CNAMES="LASTNAME + FIRSTNAME ".
  * [ndx.md ss2.1: piclist "lowercase" refuted by byte-check] */
 const char *ndx_key_expr(const ndx_index *idx);
+/* Canonical I/O file component; retain directory spelling for host PAL paths
+ * (mint 005 USE INDEX and audit K05's build/samir.audit fixtures). */
+void ndx_io_name(char *name);
 const char *ndx_name(const ndx_index *idx);
 /* NDX's displayed spelling is separate from the normalized I/O pathname.
  * Setter accepts a name no longer than that pathname, including its suffix.
