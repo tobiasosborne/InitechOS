@@ -1,7 +1,6 @@
-/* NDX PM review: callback-only metadata, PAL drive, name provenance.
- * GOLD.OUT pins INDEX ON ... TO T1 -> C:T1.ndx. Explicit extension
- * preservation and equivalent SET INDEX/USE defaulting are inferred rules,
- * tested here independently of the period golden pending a follow-up mint. */
+/* NDX PM review: callback-only metadata, PAL drive, display provenance.
+ * The round-3 real III+ ndx/GOLD.OUT pins lowercase creation, REINDEX,
+ * explicit extensions and SET INDEX/USE operand spelling independently. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,9 +24,9 @@ static const char *const commands[] = {
     "USE BASE", "INDEX ON NAME TO other.IDX", "SNAP", "QUIT"
 };
 static const char *const expected[] = {
-    "C:BARE.ndx", "C:BARE.ndx", "C:BARE.ndx", "C:BARE.NDX", "C:BARE.ndx",
-    "C:EXPLICIT.nDx", "C:EXPLICIT.nDx", "C:EXPLICIT.nDx",
-    "D:EXPLICIT.nDx", "EXPLICIT.nDx", "UPPER.NDX", "OTHER.IDX"
+    "C:bare.ndx", "C:BARE.ndx", "C:BARE.ndx", "C:BARE.NDX", "C:BARE.ndx",
+    "C:explicit.nDx", "C:EXPLICIT.nDx", "C:EXPLICIT.nDx",
+    "D:EXPLICIT.nDx", "EXPLICIT.nDx", "upper.NDX", "other.IDX"
 };
 static int drive_d(samir_pal_t *p) { (void)p; return 'D'; }
 static int no_drive(samir_pal_t *p) { (void)p; return -1; }

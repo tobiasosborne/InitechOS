@@ -13,4 +13,56 @@ missing-arg
 MINT-ERROR         11 Invalid function argument.
 extra-arg
 MINT-ERROR         11 Invalid function argument.
+created-lower [C:bare.ndx]
+reindexed-lower [C:bare.ndx]
+set-explicit [C:BARE.NDX]
+set-lower-default [C:bare.ndx]
+use-explicit [C:BARE.NDX]
+use-lower-default [C:bare.ndx]
+created-mixed [C:MiXeD.nDx]
+reindexed-mixed [C:MiXeD.nDx]
+set-uppercase-extension [C:MIXED.NDX]
+use-mixed-extension [C:mixed.nDx]
+created-uppercase-extension [C:upper.NDX]
+created-other-extension [C:other.IDX]
+if-true
+MINT-ERROR         87 NDX(): Invalid index number.
+IF-BODY
+IF-AFTER
+MINT-ERROR         87 NDX(): Invalid index number.
+IF-ELSE
+case
+MINT-ERROR         87 NDX(): Invalid index number.
+CASE-BODY
+CASE-AFTER
+MINT-ERROR         87 NDX(): Invalid index number.
+WHILE-BODY          1
+MINT-ERROR         87 NDX(): Invalid index number.
+WHILE-BODY          2
+MINT-ERROR         87 NDX(): Invalid index number.
+WHILE-AFTER          2
+MINT-ERROR         87 NDX(): Invalid index number.
+IF-PRESERVED
+IF-PRESERVED-AFTER .F.
+MINT-ERROR         87 NDX(): Invalid index number.
+IF-RETRY-ELSE
+IF-RETRY-AFTER          1          0
+MINT-ERROR         87 NDX(): Invalid index number.
+CASE-RETRY-AFTER          1          0
+MINT-ERROR         87 NDX(): Invalid index number.
+WHILE-RETRY-AFTER          1          0
+MINT-ERROR          9 Data type mismatch.
+IMMEDIATE-IF-BODY
+IMMEDIATE-IF-AFTER
+MINT-ERROR          9 Data type mismatch.
+IMMEDIATE-CASE-BODY
+IMMEDIATE-CASE-AFTER
+MINT-ERROR          9 Data type mismatch.
+IMMEDIATE-WHILE-BODY
+IMMEDIATE-WHILE-AFTER
+PREPUBLIC-ERROR          9
+PREON-ERROR          9
+PREGUARD-ERROR          9
+MINT-ERROR         37 Not a Logical expression.
+NONLOGICAL-GUARD-AFTER          5          1          0
 [FNS-END]

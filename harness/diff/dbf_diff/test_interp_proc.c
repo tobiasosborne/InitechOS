@@ -425,17 +425,20 @@ static void test_wait(samir_pal_t *pal)
  * ===================================================================== */
 static void test_on_error(samir_pal_t *pal)
 {
-    /* PUBLIC ERRSEEN ; ON ERROR DO TRAP ; force a #37 (IF 1 -- non-Logical guard)
-     * in the main body. The trap sets ERRSEEN=1. The handler must have run. */
+    /* Real III+ ndx/GOLD.OUT NONLOGICAL-GUARD-AFTER pins continuation:
+     * handler sets trap=1, then the IF body sets value=5, ERROR() returns 0. */
     const char *prg =
         "PUBLIC ERRSEEN\n"
+        "PUBLIC TRAPSEEN\n"
         "ERRSEEN = 0\n"
+        "TRAPSEEN = 0\n"
         "ON ERROR DO TRAP\n"
         "IF 1\n"
         "  ERRSEEN = 5\n"
         "ENDIF\n"
         "PROCEDURE TRAP\n"
         "  ERRSEEN = 1\n"
+        "  TRAPSEEN = 1\n"
         "  RETURN\n";
     xb_interp *ip = make_ip(pal);
     double v = -1.0;
@@ -444,13 +447,13 @@ static void test_on_error(samir_pal_t *pal)
     CHECK(ip != NULL, "onerror: interp made");
     if (!ip) return;
     rc = proc_run(ip, prg);
-    /* the main body errors (rc != OK) but the trap fires, setting ERRSEEN=1. */
-    snprintf(msg, sizeof(msg), "onerror: main body raised an error (rc=%d ec=%d)",
+    snprintf(msg, sizeof(msg), "onerror: handled guard resumes (rc=%d ec=%d)",
              rc, samir_last_error(ip));
-    CHECK(rc != INTERP_OK, msg);
+    CHECK(rc == INTERP_OK && samir_last_error(ip) == 0, msg);
     CHECK(memvar_num(ip, "ERRSEEN", &v), "onerror: ERRSEEN numeric");
-    snprintf(msg, sizeof(msg), "onerror: handler fired -> ERRSEEN==1 (got %g)", v);
-    CHECK(v == 1.0, msg);
+    snprintf(msg, sizeof(msg), "onerror: IF body follows handler -> ERRSEEN==5 (got %g)", v);
+    CHECK(v == 5.0, msg);
+    CHECK(memvar_num(ip, "TRAPSEEN", &v) && v == 1.0, "onerror: separate counter proves handler fired");
     xb_interp_free(ip);
 }
 

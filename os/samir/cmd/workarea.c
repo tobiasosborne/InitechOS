@@ -1118,7 +1118,7 @@ static int wac_index_name(void *u, int slot, char *buf, uint32_t cap)
     if (!wa || !wa->open || slot < 1 || slot > wa->nidx || !buf || !cap)
         return -1;
     idx = wa->idx[slot - 1];
-    name = ndx_name(idx);
+    name = ndx_display_name(idx);
     n = rt_strlen(name);
     if (n >= cap) return -1;
     rt_memcpy(buf, name, n + 1u);

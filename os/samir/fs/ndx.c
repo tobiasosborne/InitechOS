@@ -204,6 +204,7 @@ struct ndx_index {
      * (initech-x87g), which rebuilds the file fresh via ndx_build and reopens
      * it in place so callers keep the same ndx_index* handle. */
     char     path[NDX_PATH_MAX];
+    char    *display_name;            /* supplied spelling, in this owned block */
     uint8_t  name_defaulted;           /* extension supplied by command parser */
 
     /* Arena management. */
@@ -313,9 +314,10 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
     int       rc;
     uint8_t   page0[NDX_PAGE_SIZE];
     ndx_index *idx;
-    uint32_t   expr_i;
+    uint32_t   expr_i, name_len = rt_strlen(name);
 
     *out = (ndx_index *)0;
+    if (name_len >= NDX_PATH_MAX) return -NDX_ERR_IO;
 
     /* Step 1: open. */
     fd = pal->open(pal, name, pal_mode);
@@ -399,12 +401,14 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
         }
 
         /* Independently owned index; arbitrary close order is safe. */
-        idx  = (ndx_index *)pal->acquire(pal, (uint32_t)sizeof(ndx_index));
+        idx  = (ndx_index *)pal->acquire(pal, (uint32_t)sizeof(ndx_index) + name_len + 1u);
         if (!idx) {
             pal->close(pal, fd);
             return -NDX_ERR_OOM;
         }
         rt_memset(idx, 0, sizeof(ndx_index));
+        idx->display_name = (char *)(idx + 1);
+        rt_memcpy(idx->display_name, name, name_len + 1u);
 
         idx->pal            = pal;
         idx->fd             = fd;
@@ -459,6 +463,15 @@ int ndx_open(samir_pal_t *pal, const char *name, ndx_index **out)
 
 /* Using III+ U5-109: STATUS reports each open index's actual filename. */
 const char *ndx_name(const ndx_index *idx) { return idx ? idx->path : ""; }
+const char *ndx_display_name(const ndx_index *idx)
+{ return idx ? idx->display_name : ""; }
+int ndx_set_display_name(ndx_index *idx, const char *name)
+{
+    uint32_t n = rt_strlen(name);
+    if (!idx || n > rt_strlen(idx->path)) return -NDX_ERR_IO;
+    rt_memcpy(idx->display_name, name, n + 1u);
+    return NDX_OK;
+}
 void ndx_set_name_defaulted(ndx_index *idx, int defaulted)
 { if (idx) idx->name_defaulted = defaulted != 0; }
 int ndx_name_defaulted(const ndx_index *idx)

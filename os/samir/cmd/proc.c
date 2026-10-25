@@ -144,11 +144,13 @@
 /* engine is single-threaded cooperative; no malloc.                        */
 /* ===================================================================== */
 
+enum { P_HANDLER_ACTIVE = 1, P_HANDLER_CALLED = 2 };
+
 typedef struct {
     const char *source;          /* the registered program source (proc_run) */
     char        onerr[P_MAX_ONERR + 1]; /* installed ON ERROR command, "" = none */
     int         has_onerr;       /* 1 = an ON ERROR trap is installed */
-    int         in_handler;      /* 1 = currently running the trap (no re-entry) */
+    int         in_handler;      /* active/called-procedure flags; no re-entry */
 
     /* the pending DO ... WITH arg vector for the routine CURRENTLY being entered.
      * A PARAMETERS line in that routine's body binds these positionally. The
@@ -623,6 +625,8 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
      * PARAMETERS verb, which reads the pending arg vector below. */
     rc = xb_interp_scope_enter(ip);
     if (rc < 0) { if (ec) *ec = 0; return rc; }   /* DO nested too deep */
+    if (ps->in_handler && ps->do_depth == ps->handler_depth)
+        ps->in_handler |= P_HANDLER_CALLED;
 
     /* stash the pending WITH args so a PARAMETERS line in the body can bind them
      * positionally (proc_state-level, since the body runs via a fresh samir_do). */
@@ -1111,24 +1115,23 @@ int proc_fire_onerror(xb_interp *ip, int err_code)
 {
     proc_state *ps = proc_state_for(ip);
     xb_ctx *ctx = xb_interp_ctx(ip);
-    int rc, saved_error;
+    int rc, called_procedure;
     if (!ps || !ps->has_onerr || ps->in_handler)
         return INTERP_OK;
-    ps->in_handler = 1;
+    ps->in_handler = P_HANDLER_ACTIVE;
     /* Programming III+ N5-30 (PDF 418): ERROR() sees the condition being
      * handled, even while the handler evaluates a new expression. */
-    saved_error = ctx->error_number;
     ctx->error_number = err_code;
     ps->handler_depth = ps->do_depth;
     rc = samir_do(ip, ps->onerr);           /* almost always "DO <handler>" */
     if (rc == PROC_RC_RETURN)
         rc = INTERP_OK;
+    called_procedure = ps->in_handler & P_HANDLER_CALLED;
     ps->in_handler = 0;
-    /* ERROR()/MESSAGE() keep the handled condition after the handler and
-     * later successful commands (real III+ 1.1 SF-errors). RETRY clears it
-     * (Using III+ U5-182). */
-    (void)saved_error;
-    ctx->error_number = (rc == PROC_RC_RETRY_TRAP || rc == PROC_RC_RETRY)
+    /* Inline handlers retain the code (real SF-errors). A called handler
+     * clears it on return: real ndx/GOLD.OUT pins PREGUARD-ERROR=9 then
+     * NONLOGICAL-GUARD-AFTER ERROR()=0. RETRY also clears it. */
+    ctx->error_number = (called_procedure || rc == PROC_RC_RETRY_TRAP || rc == PROC_RC_RETRY)
                         ? 0 : err_code;
     return rc;
 }

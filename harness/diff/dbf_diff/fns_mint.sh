@@ -27,7 +27,12 @@ for input in "$root"/harness/diff/dbf_diff/xbase_prog_diff/corpus/fns/*.prg; do
     if [ "$name" = path ] || [ "$name" = default ]; then rm -f "$work/BASE.DBF"; fi
     # Each directory is a fresh mounted C: so state/file ownership cannot leak.
     for file in DBASE.EXE DBASE.OVL DBASEINL.OVL DBASE.MSG CONFIG.DB; do cp -f "$dest/$file" "$work/$file"; done
-    printf 'SET TALK OFF\r\nSET SAFETY OFF\r\nON ERROR ? "MINT-ERROR", ERROR(), MESSAGE()\r\nSET ALTERNATE TO GOLD.OUT\r\nSET ALTERNATE ON\r\nDO FNSTEST\r\nSET ALTERNATE TO\r\nQUIT\r\n' > "$work/MINT.PRG"
+    printf 'SET TALK OFF\r\nSET SAFETY OFF\r\nON ERROR ? "MINT-ERROR", ERROR(), MESSAGE()\r\n' > "$work/MINT.PRG"
+    # III+ loads named procedures explicitly, as in prog_mint.sh.
+    if grep -iq '^[[:space:]]*PROCEDURE[[:space:]]' "$input"; then
+        printf 'SET PROCEDURE TO FNSTEST\r\n' >> "$work/MINT.PRG"
+    fi
+    printf 'SET ALTERNATE TO GOLD.OUT\r\nSET ALTERNATE ON\r\nDO FNSTEST\r\nSET ALTERNATE TO\r\nQUIT\r\n' >> "$work/MINT.PRG"
     MINT_PROBE=0 MINT_TIMEOUT="${FNS_MINT_TIMEOUT:-90}" sh "$root/harness/diff/dbf_diff/mint_capture.sh" "$work" "$input" '[FNS-END]'
     (cd "$work" && sha256sum FNSTEST.PRG GOLD.OUT) > "$work/sha256.txt"
     printf 'MINT SF-%s: %s/GOLD.OUT\n' "$name" "$work"

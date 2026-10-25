@@ -199,6 +199,11 @@ uint16_t ndx_unique_flag(const ndx_index *idx);
  * [ndx.md ss2.1: piclist "lowercase" refuted by byte-check] */
 const char *ndx_key_expr(const ndx_index *idx);
 const char *ndx_name(const ndx_index *idx);
+/* NDX's displayed spelling is separate from the normalized I/O pathname.
+ * Setter accepts a name no longer than that pathname, including its suffix.
+ * Ref: real III+ fns-mint/ndx/GOLD.OUT: created-lower/reindexed-lower. */
+const char *ndx_display_name(const ndx_index *idx);
+int ndx_set_display_name(ndx_index *idx, const char *name);
 /* Interpreter name provenance, not an on-disk NDX field. The I/O path keeps
  * its spelling; NDX() displays a supplied default extension as .ndx.
  * Ref: fns-mint/ndx/GOLD.OUT, INDEX ON NAME TO T1 -> C:T1.ndx. */

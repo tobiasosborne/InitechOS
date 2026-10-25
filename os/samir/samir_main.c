@@ -283,6 +283,7 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
     char alias[REPL_TOK_CAP];
     static char idxbuf[NDX_PER_AREA][REPL_TOK_CAP];
     int idx_defaulted[NDX_PER_AREA] = {0};
+    const char *idx_source[NDX_PER_AREA];
     wa_index_list il;
     const char *have_alias = (const char *)0;
     int area;
@@ -313,12 +314,15 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
             have_alias = alias;
         } else if (repl_verb_eq(kw, "INDEX", (const char **)0)) {
             char one[REPL_TOK_CAP];
-            while (repl_word(&p, one, sizeof one) != 0u) {
+            for (;;) {
+                const char *supplied = p;
+                if (repl_word(&p, one, sizeof one) == 0u) break;
                 if (il.count >= NDX_PER_AREA) {
                     if (ec) *ec = 28;        /* Too many indices */
                     return -INTERP_ERR_SYNTAX;
                 }
                 rt_memcpy(idxbuf[il.count], one, rt_strlen(one) + 1u);
+                idx_source[il.count] = supplied;
                 il.names[il.count] = idxbuf[il.count];
                 il.count++;
             }
@@ -344,6 +348,8 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
             uint32_t before = rt_strlen(idxbuf[k]);
             if (repl_default_ext(idxbuf[k], REPL_TOK_CAP, ".NDX") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
             idx_defaulted[k] = rt_strlen(idxbuf[k]) != before;
+            for (char *t=idxbuf[k]; *t; t++)
+                if (*t >= 'a' && *t <= 'z') *t=(char)(*t-'a'+'A');
         }
     }
 #endif
@@ -377,9 +383,18 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
         return -INTERP_ERR_EVAL;
     }
     wa_select(env, area);                     /* USE selects the area it opens */
-    /* USE INDEX is the same inferred default-extension rule as SET INDEX. */
-    for (int k = 0; k < il.count; k++)
+    /* III+ ndx/GOLD.OUT: USE INDEX displays the operand's supplied spelling. */
+    for (int k = 0; k < il.count; k++) {
+        char display[REPL_TOK_CAP];
+        const char *supplied = idx_source[k];
+        repl_word(&supplied,display,sizeof display);
+        if (idx_defaulted[k]) repl_default_ext(display,sizeof display,".NDX");
         ndx_set_name_defaulted(wa_index(env, area, k), idx_defaulted[k]);
+        if (ndx_set_display_name(wa_index(env,area,k),display)!=NDX_OK) {
+            if (ec) *ec=114;
+            return -INTERP_ERR_EVAL;
+        }
+    }
     /* USE with indexes leaves the FIRST record in master-index order current,
      * not physical record 1: real dBASE III PLUS 1.1 shows RECNO() 23 after
      * USE TRAVEL INDEX TRIPS, 2 after USE AVAL_FLT INDEX AVAL_FLT, FLT_NO and 6
