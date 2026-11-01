@@ -353,6 +353,35 @@ static void test_dec_parse(void)
 /* main                                                                      */
 /* ======================================================================== */
 
+static void test_display_rounding_mode(void)
+{
+    /* Independent matrixb/numdisplay captures. Keep the stored binary64
+     * values fixed while changing every x87 rounding control setting:
+     * conversion must neither depend on nor change the caller's mode. */
+    static const struct { double value; int width, dec; const char *text; } cases[] = {
+        {0.9999999995, 11, 9, "0.999999999"},
+        {-0.9999999995, 12, 9, "-0.999999999"},
+        {9.999899999499995, 17, 15, "9.999899999499995"},
+        {31622.776601683792, 26, 15, "       31622.7766016837923"},
+        {2.5, 2, 0, " 2"}, {-2.5, 3, 0, " -2"}
+    };
+    uint16_t saved, mode, after;
+    __asm__ volatile ("fnstcw %0" : "=m"(saved));
+    for (unsigned rc = 0; rc < 4; rc++) {
+        mode = (uint16_t)((saved & ~0x0c00u) | (rc << 10));
+        __asm__ volatile ("fldcw %0" : : "m"(mode));
+        for (unsigned i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+            char text[32];
+            int n = dec_format_display(cases[i].value,cases[i].width,cases[i].dec,text);
+            text[n] = 0;
+            CHECK_STR_EQ(text,cases[i].text,"display uses exact nearest-even under every x87 mode");
+        }
+        __asm__ volatile ("fnstcw %0" : "=m"(after));
+        CHECK(after == mode,"display preserves x87 control word");
+    }
+    __asm__ volatile ("fldcw %0" : : "m"(saved));
+}
+
 int main(void)
 {
     /* Real III+ abbrev mint: invalid continuations and short verbs reject;
@@ -375,6 +404,7 @@ int main(void)
     test_jdn_roundtrip();
     test_dec_format();
     test_dec_parse();
+    test_display_rounding_mode();
 
     return TEST_SUMMARY("test_samir_rt");
 }
