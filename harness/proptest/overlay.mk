@@ -91,12 +91,14 @@ TEST_UNIT_GATES += test-ovl-window test-ovl-window-mutant
 # --- (g) absence: the moved family is gone from the resident ELF -------------
 # The family = the text symbols egg_jtc.o defines, clone suffixes stripped,
 # minus header static inlines (os/flair/*.h). An export may remain only as its
-# generated 11-byte stub: call ovl_check; jmp [export slot].
+# generated 11-byte stub: call ovl_check; jmp [export slot]. A stub this kernel
+# never references is GC'd (test-ovl-stub-prune): zero copies is still absence.
 define ovl-absence-check
 fam=$$(nm --defined-only $(OVL_SECTION_OBJS) | awk '$$2 ~ /^[tT]$$/{sub(/\..*/,"",$$3); print $$3}' | LC_ALL=C sort -u); \
 checked=; for f in $$fam; do grep -Eq "static inline[^(]*[ *]$$f\(" os/flair/*.h spec/*.h spec/assets/*.h && continue; checked="$$checked $$f"; \
 	hits=$$(nm --defined-only $(1) | awk -v f="$$f" '{n=$$3; sub(/\..*/,"",n); sub(/_kept$$/,"",n)} n==f' | wc -l); \
 	if grep -qx "$$f" $(BUILD)/ovl_exports.txt; then \
+		[ "$$hits" -ne 0 ] || continue; \
 		a=$$(nm $(1) | awk -v f="$$f" '$$3==f{print $$1}'); \
 		[ "$$hits" -eq 1 ] && [ -n "$$a" ] || { printf '!!! ovl-absence FAIL: export %s resident %s times\n' "$$f" "$$hits"; exit 1; }; \
 		objdump -d --no-show-raw-insn --start-address=0x$$a --stop-address=$$(( 0x$$a + 11 )) $(1) | grep -A2 "<$$f>:" | tail -n 2 > $(OVL_GATE_DIR)/stub.dis; \
@@ -126,10 +128,36 @@ $(OVL_GATE_DIR)/finder_ops_kept.o: os/flair/finder_ops_cold.c os/flair/finder_op
 test-ovl-absence-finder-mutant: test-ovl-absence $(OVL_GATE_DIR)/finder_ops_kept.o
 	$(KERNEL_LINK) -u finder_ops_drop_kept -o $(OVL_GATE_DIR)/finder_kept.elf $(KERNEL_FLAIRTENANTS_OBJS) $(OVL_GATE_DIR)/finder_ops_kept.o @$(TRANSIENT_IMPORTS_LD)
 	@if ( $(call ovl-absence-check,$(OVL_GATE_DIR)/finder_kept.elf) ) > $(OVL_GATE_DIR)/finder_kept.log 2>&1; then printf '!!! Finder resident body survived\n'; exit 1; fi
-	@grep -E '!!! ovl-absence FAIL: (export finder_ops_drop resident 2 times|moved symbol fo_)' $(OVL_GATE_DIR)/finder_kept.log
+	@grep -E '!!! ovl-absence FAIL: (export finder_ops_drop resident [12] times|moved symbol fo_)' $(OVL_GATE_DIR)/finder_kept.log
 	@printf '>>> test-ovl-absence-finder-mutant: green (resident Finder body RED)\n'
 test-ovl-absence-mutant: test-ovl-absence-finder-mutant
 TEST_UNIT_GATES += test-ovl-absence-finder-mutant
+
+# --- stub pruning (bead initech-x8gsi; DEC-14-9(d) headroom) -----------------
+# The export table in FLAIR.OVL stays the full ordered list (spec/overlay_format.h;
+# slot numbers never move), but each generated stub is its own section, so
+# --gc-sections drops a stub its kernel never references. Expected set comes
+# from the objects, not from the generator: a stub in the ELF that no resident
+# object references (gcc-nm -u, $(TRANSIENT_IMPORTS_LD).kund) is 11 B of waste.
+# $(call ovl-stub-prune-check,<elf>)
+define ovl-stub-prune-check
+nm --defined-only $(1) | awk '{print $$3}' | LC_ALL=C sort -u | LC_ALL=C comm -12 - $(BUILD)/ovl_exports.txt > $(OVL_GATE_DIR)/stubs.txt; \
+kept=$$(wc -l < $(OVL_GATE_DIR)/stubs.txt); total=$$(wc -l < $(BUILD)/ovl_exports.txt); \
+[ "$$kept" -gt 0 ] || { printf '!!! ovl-stub-prune FAIL: %s has no stubs at all (vacuous)\n' "$(notdir $(1))"; exit 1; }; \
+waste=$$(LC_ALL=C comm -23 $(OVL_GATE_DIR)/stubs.txt $(TRANSIENT_IMPORTS_LD).kund | tr '\n' ' '); \
+[ -z "$$waste" ] || { printf '!!! ovl-stub-prune FAIL: %s carries stubs no resident object references: %s\n' "$(notdir $(1))" "$$waste"; exit 1; }; \
+printf '    %s: %s of %s stubs kept, all referenced\n' "$(notdir $(1))" "$$kept" "$$total"
+endef
+.PHONY: test-ovl-stub-prune test-ovl-stub-prune-mutant
+test-ovl-stub-prune: $(KERNEL_FLAIRTENANTS_ELF) $(TRANSIENT_IMPORTS_LD) | $(OVL_GATE_DIR)
+	@$(call ovl-stub-prune-check,$(KERNEL_FLAIRTENANTS_ELF))
+	@printf '>>> test-ovl-stub-prune: green (the flagship carries only the stubs it references)\n'
+# Rule 6: every stub back in one section, so GC cannot drop any.
+test-ovl-stub-prune-mutant: test-ovl-stub-prune $(BUILD)/kernel_mut_ovlonesec.elf
+	@if ( $(call ovl-stub-prune-check,$(BUILD)/kernel_mut_ovlonesec.elf) ) > $(OVL_GATE_DIR)/onesec.log 2>&1; then printf '!!! test-ovl-stub-prune-mutant FAIL: one-section stubs survived\n'; exit 1; fi
+	@grep '!!! ovl-stub-prune FAIL: kernel_mut_ovlonesec.elf carries stubs' $(OVL_GATE_DIR)/onesec.log
+	@printf '>>> test-ovl-stub-prune-mutant: green (one-section stubs RED)\n'
+TEST_UNIT_GATES += test-ovl-stub-prune test-ovl-stub-prune-mutant
 
 # --- (c) static ELF rules (DEC-14-6.2/.5) ------------------------------------
 # 1. no IRQ / driver / INT 21h object references a stub; 2. the overlay imports
@@ -414,6 +442,7 @@ $(BUILD)/kernel_mut_ovl$(1).bin: $(BUILD)/kernel_mut_ovl$(1).elf
 $$(eval $$(call ovl-gate-image,$(OVL_GATE_DIR)/$(1).img,kernel_mut_ovl$(1),))
 endef
 $(eval $(call ovl-stub-mutant,swap,OVL_MUT_SWAP_STUBS=1,$(BUILD)/kmain_flairtenants_mut_jtc_gate.o))
+$(eval $(call ovl-stub-mutant,onesec,OVL_MUT_STUB_ONE_SECTION=1,$(KERNEL_FLAIRTENANTS_MAIN_OBJ)))
 .PHONY: test-ovl-behaviour test-ovl-behaviour-mutant
 test-ovl-behaviour: test-flair-egg-jtc test-ovl-absence test-flair-file-ops test-flair-trash-edges test-flair-finder-alerts test-flair-file-copy
 	@grep -qx 'OVL-OK' $(BUILD)/egg_jtc_mat.serial
