@@ -35033,6 +35033,20 @@ test-samir-w2-$(subst /,-,$(1)): $$(SAMIR_W2_TEST)
 endef
 $(foreach rule,$(SAMIR_W2_MINTED),$(eval $(call samir-w2-pending-gate,$(rule))))
 
+# SET HEADINGS: ACCEPTED against the real III+ capture set-mint/headings
+# (HEADING/HEADINGS/HEAD spellings), plus a mutant that inverts the toggle.
+SAMIR_W2_SETHEADINGS_MUT := $(BUILD)/test_samir_w2_setheadings_mut
+$(SAMIR_W2_SETHEADINGS_MUT): $(DBF_DIFF_DIR)/test_samir_fns.c $(DBF_DIFF_DIR)/w2_host.c $(DBF_DIFF_DIR)/w2_host.h $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_W2 -DSAMIR_MUTATE_SET_HEADINGS -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter-out $(SAMIR_MAIN_SRC),$(filter %.c,$^))
+.PHONY: test-samir-set-headings test-samir-set-headings-mutant
+test-samir-set-headings: test-samir-w2-set-headings
+	@echo '>>> test-samir-set-headings: green (ACCEPTED vs real III+ capture)'
+test-samir-set-headings-mutant: test-samir-set-headings $(SAMIR_W2_SETHEADINGS_MUT)
+	@set +e; $(SAMIR_W2_SETHEADINGS_MUT) set-headings host > $(BUILD)/w2-set-headings-mut.log 2>&1; rc=$$?; set -e; \
+	 test $$rc -ne 0 && grep -q 'W2 transcript' $(BUILD)/w2-set-headings-mut.log || { cat $(BUILD)/w2-set-headings-mut.log; echo 'mutant survived'; exit 1; }; \
+	 echo '>>> test-samir-set-headings-mutant: RED as required'
+TEST_UNIT_GATES += test-samir-set-headings test-samir-set-headings-mutant
+
 # NDX GOLD.OUT: the completed statement must precede error 87. This second
 # mutant raises immediately; the unchanged real-III+ transcript must catch it.
 .PHONY: test-samir-fns-ndx-deferred-mutant test-samir-deferred-errors
