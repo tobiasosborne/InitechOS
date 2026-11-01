@@ -1,0 +1,22 @@
+% SET MARGIN -- set-commands.md Section 3 (SET MARGIN); real III+ 1.1
+% xbase_prog_diff/set-mint/margin/PRINTER.OUT (raw LPT stream).
+\begin{XbaseEntry}{MARGIN}{set}
+Sets the left margin of printed output.
+\Syntax
+\SyntaxLine{\kw{SET MARGIN TO} <numeric expression>}
+\Defaults
+0.
+\Usage
+While SET PRINT is ON, InitechBase writes the margin as that many blanks after
+each line feed it sends to the printer, so every line that \cmd{?} starts is
+indented.  The first characters of a \cmd{??} that continues the current line
+are not indented, and a carriage return or form feed alone does not add the
+margin.  The screen is not affected, and \fn{PCOL()} does not count the margin.
+
+The expression is truncated to a whole number; a negative value, or one that
+truncates to less than 1, sets the margin to 0.  Only the first of several
+comma-separated expressions is used.  A non-numeric expression raises
+\xmsg{27}{Not a numeric expression.}, and a missing expression or a missing TO
+raises \xmsg{10}{Syntax error.}; the margin is unchanged by an error.
+\SeeAlso{SET PRINT, SET DEVICE, EJECT, PCOL()}
+\end{XbaseEntry}

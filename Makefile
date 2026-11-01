@@ -35094,6 +35094,18 @@ test-samir-set-headings-mutant: test-samir-set-headings $(SAMIR_W2_SETHEADINGS_M
 	 echo '>>> test-samir-set-headings-mutant: RED as required'
 TEST_UNIT_GATES += test-samir-set-headings test-samir-set-headings-mutant
 
+# ACCEPTED (initech-2e6lp, lane set-margin): set/margin is graded by real III+
+# 1.1 screen + raw LPT (PRINTER.OUT) captures. The mutant rounds the margin
+# instead of truncating it; the unchanged captured golden must go RED.
+.PHONY: test-samir-w2-set-margin-mutant
+$(BUILD)/test_samir_w2_set_margin_mutant: $(DBF_DIFF_DIR)/test_samir_fns.c $(DBF_DIFF_DIR)/w2_host.c $(DBF_DIFF_DIR)/w2_host.h $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_W2 -DSAMIR_W2_MUTANT_margin -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter-out $(SAMIR_MAIN_SRC),$(filter %.c,$^))
+test-samir-w2-set-margin-mutant: test-samir-w2-set-margin $(BUILD)/test_samir_w2_set_margin_mutant
+	@mkdir -p $(BUILD)/samirfns; set +e; $(BUILD)/test_samir_w2_set_margin_mutant set-margin host > $(BUILD)/samirfns/mut-w2-set-margin.log 2>&1; rc=$$?; set -e; \
+	 test $$rc -ne 0 && grep -q 'FAIL.*W2' $(BUILD)/samirfns/mut-w2-set-margin.log || { cat $(BUILD)/samirfns/mut-w2-set-margin.log; exit 1; }; \
+	 printf '>>> SAMIR_W2_MUTANT_set_margin RED: %s\n' "`grep 'FAIL.*W2' $(BUILD)/samirfns/mut-w2-set-margin.log | head -1`"
+TEST_UNIT_GATES += test-samir-w2-set-margin test-samir-w2-set-margin-mutant
+
 # NDX GOLD.OUT: the completed statement must precede error 87. This second
 # mutant raises immediately; the unchanged real-III+ transcript must catch it.
 .PHONY: test-samir-fns-ndx-deferred-mutant test-samir-deferred-errors

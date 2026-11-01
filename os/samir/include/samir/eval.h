@@ -638,6 +638,9 @@ typedef struct xb_ctx {
     /* say-get-read.md sections 1-2; fns-mint row/col/prow/pcol.
      * Independent screen and printer positions, initially zero. */
     uint8_t device_print;
+    /* SET PRINT / SET MARGIN: real III+ w2 set-mint/margin PRINTER.OUT. */
+    uint8_t set_print;
+    uint16_t set_margin;
     uint16_t screen_row, screen_col, printer_row, printer_col;
     /* Using III+ U5-193: ALTERNATE records program output even CONSOLE OFF. */
     void (*mirror_output)(void *, const char *, uint32_t);

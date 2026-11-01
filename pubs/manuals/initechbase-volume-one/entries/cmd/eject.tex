@@ -1,0 +1,12 @@
+% EJECT -- os/samir/cmd/query.c (verb EJECT); real III+ 1.1
+% xbase_prog_diff/set-mint/margin/PRINTER.OUT (carriage return, form feed).
+\begin{XbaseEntry}{EJECT}{command}
+Advances the printer to the top of the next page.
+\Syntax
+\SyntaxLine{\kw{EJECT}}
+\Usage
+\cmd{EJECT} sends a carriage return and a form feed to the printer and sets
+the printer position to row 0, column 0.  It works whether or not SET PRINT is
+ON.  Anything typed after the word EJECT is ignored.
+\SeeAlso{SET DEVICE, PCOL()}
+\end{XbaseEntry}

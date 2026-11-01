@@ -875,6 +875,53 @@ static SAMIR_OVL_TEXT(set) int set_opt_device(xb_interp *ip, set_state *ss, cons
     return CMD_OK;
 }
 
+/* SET MARGIN TO <expN>: real III+ w2 set-mint/margin. Only the first
+ * comma-separated expression is used; truncated toward zero; negative -> 0;
+ * the value wraps as a signed 16-bit count (70000 -> 4464, 32768 -> 0).
+ * Unverified: negatives below -1, values >= 2^32 (both read as 0). */
+static SAMIR_OVL_TEXT(set) int set_opt_margin(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    char expr[256];
+    uint32_t n=0u,w;
+    int depth=0,rc;
+    char quote=0;
+    xb_val v;
+    double d;
+    (void)ss;
+    if(rt_kw_word(s,"TO\0",(int *)0)!=0) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    s=s_skip_ws(s+2);
+    for(;*s && n<sizeof expr-1u;s++) {
+        if(quote) { if(*s==quote) quote=0; }
+        else if(*s=='"' || *s=='\'') quote=*s;
+        else if(*s=='(') depth++;
+        else if(*s==')') depth--;
+        else if(*s==',' && depth<=0) break;
+        expr[n++]=*s;
+    }
+    while(n && s_isspace(expr[n-1])) n--;
+    expr[n]=0;
+    if(!n) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    rc=xb_interp_eval(ip,expr,&v,err_code);
+    if(rc!=INTERP_OK) return rc;
+    if(v.t!=XB_N) { if(err_code) *err_code=27; return -INTERP_ERR_EVAL; }
+    d=v.u.n;
+    if(d<1.0 || d>=4294967296.0) d=0.0;
+    w=(uint32_t)d&0xFFFFu;
+#ifdef SAMIR_W2_MUTANT_margin
+    w=(uint32_t)(d+0.5)&0xFFFFu;       /* rounds instead of truncating */
+#endif
+    xb_interp_ctx(ip)->set_margin=(uint16_t)(w>=32768u?0u:w);
+    return CMD_OK;
+}
+static SAMIR_OVL_TEXT(set) int set_opt_print(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ss;
+    if(parse_on_off(s,&on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    xb_interp_ctx(ip)->set_print=(uint8_t)on;
+    return CMD_OK;
+}
+
 /* Rows come from set_options.def: SET_OPT(KEYWORD, handler). */
 #define SET_OPT(kw, fn) { kw, fn },
 static const set_opt_row set_opts[] SAMIR_OVL_DATA(set) = {
