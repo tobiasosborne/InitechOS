@@ -149,19 +149,19 @@ grep -qx 'LIST|command' "$m/probe.list" && grep -qx 'UPPER|function' "$m/probe.l
     cat "$m/probe.list"; printf '!!! test-pubs-mutant FAIL: the inventory probe cannot tell a shipped word from PUBSFAKE\n'; exit 1; }
 printf '>>> test-pubs-mutant: inventory probe refuses PUBSFAKE, accepts LIST and UPPER()\n'
 # initech-u01i: the candidate feed follows the names into the packed grammar
-# tables ("...ACCEPT\0INPUT\0..." of proc.c, rt_kw_index).  One verb dropped
-# from the table the feed reads (the compiled probe unchanged) loses it from
+# tables (proc_verbs.def rows, rt_kw_index).  One verb dropped
+# row from the table the feed reads (the compiled probe unchanged) loses it from
 # the inventory, and Using InitechBase goes RED for its entry.
 [ -n "$cand" ] && [ "$#" -gt 0 ] || { printf '!!! test-pubs-mutant FAIL: no InitechBase candidate feed\n'; exit 1; }
 sh "$cand" "$@" > "$m/feed.cand"
 grep -qx ACCEPT "$m/feed.cand" || { printf '!!! test-pubs-mutant FAIL: the candidate feed lacks ACCEPT\n'; exit 1; }
 rm -rf "$m/feed-src"; mkdir -p "$m/feed-src"; srcs=
 for f in "$@"; do
-    case $f in */cmd/proc.c) sed 's/ACCEPT\\0//' "$f" > "$m/feed-src/proc.c"; f=$m/feed-src/proc.c;; esac
+    case $f in */cmd/proc_verbs.def) sed '/"ACCEPT"/d' "$f" > "$m/feed-src/proc_verbs.def"; f=$m/feed-src/proc_verbs.def;; esac
     srcs="$srcs $f"
 done
-grep -q 'ACCEPT' "$m/feed-src/proc.c" 2>/dev/null && ! grep -q 'ACCEPT\\0' "$m/feed-src/proc.c" || {
-    printf '!!! test-pubs-mutant FAIL: could not drop ACCEPT from the proc.c table\n'; exit 1; }
+[ -s "$m/feed-src/proc_verbs.def" ] && ! grep -q '"ACCEPT"' "$m/feed-src/proc_verbs.def" || {
+    printf '!!! test-pubs-mutant FAIL: could not drop ACCEPT from the proc_verbs.def table\n'; exit 1; }
 # shellcheck disable=SC2086
 sh "$cand" $srcs > "$m/feed-noaccept.cand"
 ! grep -qx ACCEPT "$m/feed-noaccept.cand" || { printf '!!! test-pubs-mutant FAIL: ACCEPT still fed\n'; exit 1; }

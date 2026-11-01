@@ -9,8 +9,10 @@ setdir=$work/os/samir/cmd
 mint=$work/harness/diff/dbf_diff/xbase_prog_diff/fns-mint
 mkdir -p "$setdir" "$mint/accepted" "$mint/pending" "$mint/evidence"
 cp -f .gitattributes "$work/.gitattributes"
+for t in set_options query_verbs mutate_verbs proc_verbs flow_verbs; do
+    cp -f "os/samir/cmd/$t.def" "$setdir/$t.def"
+done
 cp -f os/samir/cmd/set_options.def "$work/base.def"
-cp -f "$work/base.def" "$setdir/set_options.def"
 : > "$mint/accepted/ACCEPTED"
 : > "$mint/pending/PENDING"
 "$checker" "$work"
@@ -74,4 +76,31 @@ printf 'future/*.def merge=union\n' >> "$work/.gitattributes"
 expect_red unsupported-union 'union path has no registry validator'
 cp -f .gitattributes "$work/.gitattributes"
 "$checker" "$work"
-printf '>>> test-samir-registries-mutant: green (union duplicate, malformed rows, markers, unknown union schema)\n'
+# Command-verb tables (initech-1x6x2.4): the same union-duplicate and
+# malformed-row mutants against each, from that table's own base rows.
+verb_mutant() { # file macro prefix what firstkey
+    f=$setdir/$1.def; cp -f "os/samir/cmd/$1.def" "$work/vbase.def"
+    cp -f "$work/vbase.def" "$work/vours.def"; cp -f "$work/vbase.def" "$work/vtheirs.def"
+    printf '%s("DEMO", %sa)\n' "$2" "$3" >> "$work/vours.def"
+    printf '%s("DEMO", %sb)\n' "$2" "$3" >> "$work/vtheirs.def"
+    git merge-file --union -p "$work/vours.def" "$work/vbase.def" "$work/vtheirs.def" > "$f"
+    expect_red "union-DEMO-$1" "duplicate $4 key DEMO"
+    for row in "$2(DEMO, ${3}x)" "$2(\"DEMO\", ${3}x) trailing" "$2(\"DEMO\", wrong_x)" \
+        "$2(\"DE\\0MO\", ${3}x)" "$2(\"DEMO\" ${3}x)"; do
+        cp -f "$work/vbase.def" "$f"; printf '%s\n' "$row" >> "$f"
+        expect_red "malformed-$1" "malformed $2 row"
+    done
+    cp -f "$work/vbase.def" "$f"; : > "$f"
+    expect_red "empty-$1" 'empty table'
+    cp -f "$work/vbase.def" "$f"
+}
+verb_mutant query_verbs QUERY_VERB qv_ QUERY
+verb_mutant mutate_verbs MUTATE_VERB mv_ MUTATE
+verb_mutant proc_verbs PROC_VERB pv_ PROC
+verb_mutant flow_verbs FLOW_VERB fv_ FLOW
+# A schema'd table that went missing is RED, not skipped.
+rm -f "$setdir/proc_verbs.def"
+expect_red missing-table 'cannot open source'
+cp -f os/samir/cmd/proc_verbs.def "$setdir/proc_verbs.def"
+"$checker" "$work"
+printf '>>> test-samir-registries-mutant: green (union duplicate, malformed rows, markers, unknown union schema, verb tables)\n'

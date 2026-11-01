@@ -1422,23 +1422,28 @@ static SAMIR_OVL_TEXT(file) int d_append_from(xb_interp *ip,const char *args,int
 }
 
 /* Overlay FILE (initech-5etom.1; docs/design/samir-overlays.md Sec 3): the
- * cold mutation verbs. `k` is mutate_cmd_hook's keyword index; each case
- * returns exactly what the hook returned for that verb before the split. */
+ * cold mutation verbs. `k` is a MUT_OP_* operation id -- stable numbers owned by
+ * this overlay, NOT the row position in mutate_verbs.def (initech-1x6x2.4);
+ * each case returns exactly what the hook returned for that verb before the split. */
+enum { MUT_OP_TYPE = 0, MUT_OP_RENAME = 1, MUT_OP_ERASE = 2, MUT_OP_COPY = 3,
+       MUT_OP_RUN = 4, MUT_OP_BANG = 5, MUT_OP_SORT = 6, MUT_OP_TOTAL = 7,
+       MUT_OP_INDEX = 8, MUT_OP_REINDEX = 9, MUT_OP_APPEND_FROM = 11,
+       MUT_OP_PACK = 14, MUT_OP_ZAP = 15 };
 static SAMIR_OVL_TEXT(file) int mutate_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
 {
     int rc;
     switch (k) {
-    case 0: case 1: case 2: case 3:             /* TYPE RENAME ERASE COPY FILE */
+    case MUT_OP_TYPE: case MUT_OP_RENAME: case MUT_OP_ERASE: case MUT_OP_COPY: /* TYPE RENAME ERASE COPY FILE */
         return d_file(ip,k,args,ec);
-    case 4: case 5:                             /* RUN ! */
+    case MUT_OP_RUN: case MUT_OP_BANG:          /* RUN ! */
         return d_run(ip,args,ec);
-    case 6:  return d_sort(ip,args,ec);
-    case 7:  return d_total(ip,args,ec);
-    case 8: case 9:                             /* INDEX REINDEX */
-        return d_index(ip,args,k==9,ec);
-    case 11: rc = d_append_from(ip,args,ec); break;   /* APPEND FROM */
-    case 14: rc = m_pack(ip, ec); break;
-    case 15: rc = m_zap(ip, ec); break;
+    case MUT_OP_SORT:  return d_sort(ip,args,ec);
+    case MUT_OP_TOTAL: return d_total(ip,args,ec);
+    case MUT_OP_INDEX: case MUT_OP_REINDEX:     /* INDEX REINDEX */
+        return d_index(ip,args,k==MUT_OP_REINDEX,ec);
+    case MUT_OP_APPEND_FROM: rc = d_append_from(ip,args,ec); break;   /* APPEND FROM */
+    case MUT_OP_PACK: rc = m_pack(ip, ec); break;
+    case MUT_OP_ZAP: rc = m_zap(ip, ec); break;
     default: return CMD_UNKNOWN;
     }
     return (rc == INTERP_OK) ? CMD_OK : rc;
@@ -1468,36 +1473,85 @@ static int m_delete_recall(xb_interp *ip, const char *args, int want_delete, int
     wa_include_deleted(env,old);
     return rc;
 }
+/* Verb handlers, one per row of mutate_verbs.def (initech-1x6x2.4). Each
+ * returns the hook's final code (CMD_OK == INTERP_OK == 0). */
+/* One shared overlay call site (a per-verb SAMIR_OVL_CALL expansion costs ~30 B each). */
+static __attribute__((noinline)) int mutate_cold(xb_interp *ip, const char *args, int *ec, int op)
+{ return SAMIR_OVL_CALL(SAMIR_OVL_FILE, mutate_ovl_entry, op, ip, args, ec); }
+#define MUT_COLD(name, op) \
+    static int name(xb_interp *ip, const char *args, int *ec) \
+    { return mutate_cold(ip, args, ec, op); }
+MUT_COLD(mv_type, MUT_OP_TYPE)
+MUT_COLD(mv_rename, MUT_OP_RENAME)
+MUT_COLD(mv_erase, MUT_OP_ERASE)
+MUT_COLD(mv_run, MUT_OP_RUN)
+MUT_COLD(mv_bang, MUT_OP_BANG)
+MUT_COLD(mv_sort, MUT_OP_SORT)
+MUT_COLD(mv_total, MUT_OP_TOTAL)
+MUT_COLD(mv_index, MUT_OP_INDEX)
+MUT_COLD(mv_reindex, MUT_OP_REINDEX)
+MUT_COLD(mv_pack, MUT_OP_PACK)
+MUT_COLD(mv_zap, MUT_OP_ZAP)
+#undef MUT_COLD
+
+static inline __attribute__((always_inline)) int mv_copy(xb_interp *ip, const char *args, int *ec)
+{
+    /* COPY: only COPY FILE is ours */
+    if (!m_match_kw(m_skip_ws(args), "FILE")) return CMD_UNKNOWN;
+    return mutate_cold(ip, args, ec, MUT_OP_COPY);
+}
+static inline __attribute__((always_inline)) int mv_replace(xb_interp *ip, const char *args, int *ec)
+{
+    int rc = m_replace(ip, args, ec);
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+static inline __attribute__((always_inline)) int mv_append(xb_interp *ip, const char *args, int *ec)
+{
+    int rc;
+    if (m_match_kw(m_skip_ws(args),"FROM"))  /* APPEND FROM is cold */
+        return mutate_cold(ip, args, ec, MUT_OP_APPEND_FROM);
+    rc = m_append(ip, args, ec);
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+static inline __attribute__((always_inline)) int mv_delete(xb_interp *ip, const char *args, int *ec)
+{
+    int rc = m_delete_recall(ip, args, /*want_delete=*/1, ec);
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+static inline __attribute__((always_inline)) int mv_recall(xb_interp *ip, const char *args, int *ec)
+{
+    int rc = m_delete_recall(ip, args, /*want_delete=*/0, ec);
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+/* Rows come from mutate_verbs.def: MUTATE_VERB(KEYWORD, handler). Row order is
+ * the 4-letter-abbreviation tie-break (earlier row wins, as rt_kw_index). */
+#define MUTATE_VERB(kw, fn) kw "\0"
+static const char __attribute__((aligned(1))) mutate_verb_kw[] =
+#include "mutate_verbs.def"
+    ;
+#undef MUTATE_VERB
+
 static int mutate_cmd_hook(void *user, xb_interp *ip,
                            const char *verb, const char *args, int *err_code)
 {
-    int k, rc;
+    int k;
     (void)user;
     if (err_code) *err_code = 0;
     if (!ip || !verb)
         return CMD_UNKNOWN;
 
-    k = rt_kw_index(verb, "TYPE\0RENAME\0ERASE\0COPY\0RUN\0!\0SORT\0TOTAL\0INDEX\0"
-                          "REINDEX\0REPLACE\0APPEND\0DELETE\0RECALL\0PACK\0ZAP\0");
-    switch (k) {
-    case 3:                                     /* COPY: only COPY FILE is ours */
-        if (!m_match_kw(m_skip_ws(args), "FILE")) return CMD_UNKNOWN;
-        /* fall through */
-    case 0: case 1: case 2:                     /* TYPE RENAME ERASE */
-    case 4: case 5: case 6: case 7: case 8: case 9: /* RUN ! SORT TOTAL INDEX REINDEX */
-    case 14: case 15:                           /* PACK ZAP */
-        return SAMIR_OVL_CALL(SAMIR_OVL_FILE, mutate_ovl_entry, k, ip, args, err_code);
-    case 10: rc = m_replace(ip, args, err_code); break;
-    case 11:
-        if (m_match_kw(m_skip_ws(args),"FROM"))  /* APPEND FROM is cold */
-            return SAMIR_OVL_CALL(SAMIR_OVL_FILE, mutate_ovl_entry, k, ip, args, err_code);
-        rc = m_append(ip, args, err_code);
-        break;
-    case 12: rc = m_delete_recall(ip, args, /*want_delete=*/1, err_code); break;
-    case 13: rc = m_delete_recall(ip, args, /*want_delete=*/0, err_code); break;
-    default: return CMD_UNKNOWN;                /* not a mutation verb */
+    k = rt_kw_index(verb, mutate_verb_kw);
+    {
+        enum { MV_BASE = __COUNTER__ + 1 };
+#define MUTATE_VERB(kw, fn) case __COUNTER__ - MV_BASE: return fn(ip, args, err_code);
+        switch (k) {
+#include "mutate_verbs.def"
+        default: break;
+        }
+#undef MUTATE_VERB
     }
-    return (rc == INTERP_OK) ? CMD_OK : rc;
+    return CMD_UNKNOWN;
 }
 
 /* ===================================================================== */

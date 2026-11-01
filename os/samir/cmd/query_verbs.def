@@ -1,0 +1,25 @@
+/* query_verbs.def -- the query/display command verb table (initech-1x6x2.4).
+ *
+ * One row per verb: QUERY_VERB(<quoted keyword>, handler); the keyword stays a
+ * quoted literal so harness/pubs/samir_candidates.sh (the manual inventory)
+ * sees it. The handler is a static qv_<name> in query.c. A lane adds a verb by
+ * writing its handler and adding ONE row here; nothing is numbered. Row order
+ * matters only for the 4-letter-abbreviation tie-break (earlier row wins, as
+ * rt_kw_index), so append unless you mean a tie-break. Two verbs may share a
+ * handler body through thin wrappers (qv_go serves GO and GOTO).
+ * .gitattributes marks this file merge=union; test-samir-registries rejects
+ * duplicate keys and malformed rows. Keep rows ASCII, one per line.
+ */
+QUERY_VERB("LIST", qv_list)
+QUERY_VERB("DISPLAY", qv_display)
+QUERY_VERB("?", qv_question)
+QUERY_VERB("??", qv_question2)
+QUERY_VERB("LOCATE", qv_locate)
+QUERY_VERB("CONTINUE", qv_continue)
+QUERY_VERB("SEEK", qv_seek)
+QUERY_VERB("FIND", qv_find)
+QUERY_VERB("GO", qv_go)
+QUERY_VERB("GOTO", qv_go)
+QUERY_VERB("SKIP", qv_skip)
+QUERY_VERB("@", qv_say)
+QUERY_VERB("EJECT", qv_eject)
