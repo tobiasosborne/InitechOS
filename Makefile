@@ -35033,6 +35033,22 @@ test-samir-w2-$(subst /,-,$(1)): $$(SAMIR_W2_TEST)
 endef
 $(foreach rule,$(SAMIR_W2_MINTED),$(eval $(call samir-w2-pending-gate,$(rule))))
 
+# ACCEPTED W2 gate: SET MEMOWIDTH (initech-2e6lp). Green against the extended real
+# III+ capture; each mutant must turn the same gate RED (Rule 6).
+.PHONY: test-samir-w2-set-memowidth-mutants
+define samir-w2-memowidth-mutant
+$$(BUILD)/test_samir_w2_mut_memowidth_$(1): $$(DBF_DIFF_DIR)/test_samir_fns.c $$(DBF_DIFF_DIR)/w2_host.c $$(DBF_DIFF_DIR)/w2_host.h $$(SAMIR_MAIN_SRC) $$(INTERP_PROC_ENG) $$(SAMIR_PAL_HOST_SRC) $$(SAMIR_HEADERS) | $$(BUILD)
+	$$(CC) $$(CFLAGS) $$(SEED_TEST_CFLAGS) -DSAMIR_W2 -DSAMIR_W2_MUTANT_memowidth_$(1) -Iseed -I$$(SAMIR_INC_DIR) -Ispec -o $$@ $$(filter-out $$(SAMIR_MAIN_SRC),$$(filter %.c,$$^))
+test-samir-w2-set-memowidth-mutants: test-samir-w2-set-memowidth-mutant-$(1)
+.PHONY: test-samir-w2-set-memowidth-mutant-$(1)
+test-samir-w2-set-memowidth-mutant-$(1): test-samir-w2-set-memowidth $$(BUILD)/test_samir_w2_mut_memowidth_$(1)
+	@set +e; $$(BUILD)/test_samir_w2_mut_memowidth_$(1) set-memowidth host > $$(BUILD)/test_samir_w2_mut_memowidth_$(1).log 2>&1; rc=$$$$?; set -e; \
+	 test $$$$rc -eq 1 && grep -q 'FAIL.*W2 transcript' $$(BUILD)/test_samir_w2_mut_memowidth_$(1).log || { cat $$(BUILD)/test_samir_w2_mut_memowidth_$(1).log; exit 1; }; \
+	 printf '>>> SAMIR_W2_MUTANT_memowidth_$(1) RED: '; grep 'FAIL.*W2 transcript' $$(BUILD)/test_samir_w2_mut_memowidth_$(1).log
+endef
+$(foreach m,ignore nowrap256,$(eval $(call samir-w2-memowidth-mutant,$(m))))
+TEST_UNIT_GATES += test-samir-w2-set-memowidth test-samir-w2-set-memowidth-mutants
+
 # NDX GOLD.OUT: the completed statement must precede error 87. This second
 # mutant raises immediately; the unchanged real-III+ transcript must catch it.
 .PHONY: test-samir-fns-ndx-deferred-mutant test-samir-deferred-errors

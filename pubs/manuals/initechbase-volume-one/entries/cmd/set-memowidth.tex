@@ -1,0 +1,19 @@
+% SET MEMOWIDTH -- os/samir/cmd/set.c set_opt_memowidth (ctx->memo_width1) and the
+% wrap in os/samir/cmd/query.c q_memo_next.  Real III+ 1.1 capture:
+% xbase_prog_diff/set-mint/memowidth.  Gate: test-samir-w2-set-memowidth.
+\begin{XbaseEntry}{MEMOWIDTH}{set}
+Sets the width in columns at which memo field text is wrapped for display.
+\Syntax
+\SyntaxLine{\kw{SET MEMOWIDTH TO} \opt{\xp{expN}}}
+\Defaults
+50.
+\Usage
+\cmd{?}, \cmd{LIST} and \cmd{DISPLAY} break memo text into lines of the set
+width, each padded to that width.  A line ends after the last blank that fits;
+a word longer than the width is split at the width.  The number is truncated to
+a whole number and must be at least 8, otherwise the command fails with the
+error Illegal value.  Larger numbers are not refused, but only the low eight
+bits are kept, so 256 gives a width of 0 and 300 gives 44.  SET MEMOWIDTH TO
+with no number restores 50.
+\SeeAlso{?, LIST, DISPLAY}
+\end{XbaseEntry}

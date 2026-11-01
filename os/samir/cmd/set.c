@@ -821,6 +821,35 @@ static SAMIR_OVL_TEXT(set) int set_opt_console(xb_interp *ip, set_state *ss, con
 static SAMIR_OVL_TEXT(set) int set_opt_status(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 { (void)ss; return set_opt_onoff_ctx(ip,s,err_code,2); }
 
+/* SET MEMOWIDTH TO <expN>. Ref: real III+ 1.1 captures set-mint/memowidth
+ * (GOLD.OUT: errors 27/10/46) plus W2-mint probes: the operand is truncated
+ * toward zero, < 8 (incl. 0, negatives, 7.9) is error 46, there is no upper
+ * bound and the width kept is the low byte (256 -> 0, 300 -> 44, 1000 -> 232);
+ * a missing TO is error 10, a non-numeric operand 27, and "SET MEMOWIDTH TO"
+ * with no operand restores the default 50. */
+static SAMIR_OVL_TEXT(set) int set_opt_memowidth(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    xb_val v;
+    int rc;
+    double d;
+    (void)ss;
+    s = s_skip_ws(s);
+    if(rt_kw_word(s,"TO\0",(int *)0)!=0) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    s = s_skip_ws(s+2);
+    if(*s=='\0') { xb_interp_ctx(ip)->memo_width1=0; return CMD_OK; }
+    rc = xb_interp_eval(ip,s,&v,err_code);
+    if(rc!=INTERP_OK) return rc;
+    if(v.t!=XB_N) { if(err_code) *err_code=27; return -INTERP_ERR_EVAL; }
+    d = v.u.n;
+    if(d<8.0) { if(err_code) *err_code=46; return -INTERP_ERR_EVAL; }
+#ifdef SAMIR_W2_MUTANT_memowidth_nowrap256
+    xb_interp_ctx(ip)->memo_width1 = (uint16_t)((d>255.0 ? 255u : (uint32_t)d) + 1u);
+#else
+    xb_interp_ctx(ip)->memo_width1 = (uint16_t)(((d>=4294967296.0 ? 0xFFFFFFFFu : (uint32_t)d) & 255u) + 1u);
+#endif
+    return CMD_OK;
+}
+
 static SAMIR_OVL_TEXT(set) int set_opt_color(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     return do_set_color(ip,ss,s,err_code);
