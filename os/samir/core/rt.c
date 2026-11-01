@@ -359,6 +359,50 @@ int64_t rt_floor64(double x)
  * Width overflow -> '*'-fill.
  * [verified: minted OTEST.DBF, mint-results-001.md]
  */
+/* Exact binary64 -> scaled integer for display. Multiplying in double loses
+ * the low bit below a tie (matrixb SQRT(.999999999)); even an x87 extended
+ * product can land on a false tie at 18 digits (numdisplay SQRT(10^9)).
+ * Multiply the 53-bit significand by 5^dec in three 32-bit limbs, then shift
+ * by the binary exponent + dec, retaining guard/sticky bits for nearest-even.
+ * The caller has checked that the rounded magnitude fits signed 64 bits.
+ * This is digit generation precision, independent of the x87 rounding mode.
+ */
+static int64_t display_scaled(double v, int dec)
+{
+    union { double n; uint64_t bits; } u;
+    uint32_t limb[3];
+    uint64_t significand, carry, result;
+    int exponent, i, j, guard = 0, sticky = 0;
+    u.n = v;
+    exponent = (int)((u.bits >> 52) & 2047u);
+    significand = u.bits & 0x000fffffffffffffULL;
+    if (exponent) significand |= 0x0010000000000000ULL;
+    else exponent = 1;
+    exponent += dec - 1075;
+    limb[0] = (uint32_t)significand;
+    limb[1] = (uint32_t)(significand >> 32);
+    limb[2] = 0;
+    for (i = 0; i < dec; i++) {
+        carry = 0;
+        for (j = 0; j < 3; j++) {
+            carry += (uint64_t)limb[j] * 5u;
+            limb[j] = (uint32_t)carry;
+            carry >>= 32;
+        }
+    }
+    if (exponent <= -96) return 0;
+    for (; exponent < 0; exponent++) {
+        sticky |= guard;
+        guard = limb[0] & 1u;
+        limb[0] = (limb[0] >> 1) | (limb[1] << 31);
+        limb[1] = (limb[1] >> 1) | (limb[2] << 31);
+        limb[2] >>= 1;
+    }
+    result = ((uint64_t)limb[1] << 32) | limb[0];
+    result = (result << exponent) + (guard && (sticky || (result & 1u)));
+    return v < 0.0 ? -(int64_t)result : (int64_t)result;
+}
+
 static int dec_format_core(double v, int width, int dec, char *out, int even)
 {
     int      neg;
@@ -399,7 +443,17 @@ static int dec_format_core(double v, int width, int dec, char *out, int even)
 
     /* Round: scale up, add 0.5, floor (= round-half-up = ties toward +inf).
      * Safe for |v| < 2^53 / 10^dec -- well within dBASE N-field range. */
-    if (even) {
+    if (even == 2) {
+        scaled = display_scaled(v, dec);
+#ifdef SAMIR_FNS_MUTANT_numconvert
+        /* Regression: preserve nearest-even but round the product to
+         * binary64 first, turning SQRT(.999999999) into a false tie. */
+        double x = v * (double)pow10_tbl[dec];
+        scaled = rt_floor64(x);
+        double fraction = x - (double)scaled;
+        if (fraction > 0.5 || (fraction == 0.5 && scaled % 2 != 0)) scaled++;
+#endif
+    } else if (even) {
         /* The DBF/picture conversion uses nearest-even, unlike STR.
          * Real III+ datatype-mint DT6: N1..N4 (+/-1.25 -> +/-1.2),
          * T01/T03 and A3/A4 (binary-exact ties vs values above a tie). */
@@ -521,6 +575,38 @@ int dec_format_fit(double v, int width, int dec, char *out, int ties_even)
 #endif
         dec--;
     }
+}
+
+/* General display, including callers in the STATUS overlay. This must stay
+ * resident: an overlay cannot swap the single slot while returning through
+ * its caller (ovl.h). Ref: real III+ matrixb/numfmt/numround captures. */
+int dec_format_display(double v, int width, int dec, char *out)
+{
+    int field = width > 19 ? 19 : width;
+    int pad = width - field, exponent = 0, digits, i;
+    double mag = v < 0.0 ? -v : v;
+    uint64_t mantissa;
+    for (i = 0; i < pad; i++) out[i] = ' ';
+    out += pad;
+    dec_format_fit(v, field, dec, out, 2);
+#ifdef SAMIR_FNS_MUTANT_matrixb
+    return width; /* regression: star-fill instead of scientific fallback */
+#endif
+    if (field < 7 || out[0] != '*' || !(mag > 0.0 && mag < 1e99))
+        return width;
+    while (mag >= 1.0) { mag /= 10.0; exponent++; }
+    digits = field - 6;
+    /* Scientific output truncates the mantissa; it does not round it.
+     * One sign column (a blank for positive), '.', digits and E+nn. */
+    mantissa = (uint64_t)(int64_t)(mag * (double)pow10_tbl[digits]);
+    out[0] = v < 0.0 ? '-' : ' ';
+    out[1] = '.';
+    emit_digits(out + 2, digits, mantissa);
+    out[digits + 2] = 'E';
+    out[digits + 3] = '+';
+    out[digits + 4] = (char)('0' + exponent / 10);
+    out[digits + 5] = (char)('0' + exponent % 10);
+    return width;
 }
 
 /*

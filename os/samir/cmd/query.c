@@ -296,7 +296,7 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
         if(dec)dec=2;
 #endif
         if(width>255)width=255;
-        int n=dec_format_fit(v->u.n,width,dec,cell,0);
+        int n=dec_format_display(v->u.n,width,dec,cell);
         q_append(buf,pos,cap,cell,(uint32_t)n);
         break;
     }
@@ -603,8 +603,10 @@ static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
          * real III+ 1.1 SF-exprcol, "LIST NAME, BAL / (52 + 0 + 0)" prints
          * "PESTON                  23.74" under the 18-byte heading. */
         if(v->t==XB_N) {
-            char cell[256];uint32_t n=0;
-            q_render_val(cell,&n,sizeof(cell),v,ctx,0);
+            char cell[256];uint32_t n;
+            /* Real numdisplay D0: the heading's extra column gives a
+             * scientific mantissa another digit, rather than blank padding. */
+            n=(uint32_t)dec_format_display(v->u.n,(int)width,v->num_dec,cell);
             while(*pos-start+n<width && *pos<cap) buf[(*pos)++]=' ';
             q_append(buf,pos,cap,cell,n);
             return;
