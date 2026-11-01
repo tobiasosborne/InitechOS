@@ -1,0 +1,2 @@
+LG=LG+STR(N,3)+":"+STR(ERROR(),3)
+RETURN

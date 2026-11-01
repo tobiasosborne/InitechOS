@@ -219,6 +219,33 @@ int main(void)
               "writing the last column wraps to col 0 of the next row");
 
         /* --- scroll at the last row: a sentinel cell moves up by one row --- */
+        /* ESC[=7l state: IBM DOS 3.30 TR 80X0945 p. 3-16, "characters past
+         * end-of-line are thrown away"; row 24 fills without scrolling. */
+        con.nowrap = 1;
+        con.cur_col = 0; con.cur_row = CONSOLE_ROWS - 1;
+        console_set_cursor(&con, 0u, 0u);
+        console_putc(&con, 'T');
+        console_set_cursor(&con, CONSOLE_ROWS - 1, 0u);
+        for (int i = 0; i < CONSOLE_COLS; i++) console_putc(&con, (char)GLYPH_SOLID);
+        CHECK(con.cur_row == CONSOLE_ROWS - 1 && con.cur_col == CONSOLE_COLS - 1,
+              "nowrap: 80 chars on row 24 leave the cursor at 24,79");
+        CHECK(con.cells[0] == (uint8_t)'T', "nowrap: row 0 did not scroll");
+        CHECK(con.cells[(CONSOLE_ROWS*CONSOLE_COLS - 1u)*2u] == (uint8_t)GLYPH_SOLID,
+              "nowrap: the last cell holds the written glyph");
+        console_putc(&con, 'Q');
+        CHECK(con.cells[(CONSOLE_ROWS*CONSOLE_COLS - 1u)*2u] == (uint8_t)GLYPH_SOLID &&
+              con.cur_col == CONSOLE_COLS - 1, "nowrap: a character past end-of-line is thrown away");
+        console_set_cursor(&con, CONSOLE_ROWS - 1, CONSOLE_COLS - 1);
+        console_putc(&con, 'R');
+        CHECK(con.cells[(CONSOLE_ROWS*CONSOLE_COLS - 1u)*2u] == (uint8_t)'R',
+              "nowrap: a cursor move makes the last column writable again");
+        console_set_cursor(&con, CONSOLE_ROWS - 1, CONSOLE_COLS - 4);
+        console_putc(&con, '\t');
+        CHECK(con.cur_row == CONSOLE_ROWS - 1 && con.cur_col == CONSOLE_COLS - 1 &&
+              con.cells[0] == (uint8_t)'T', "nowrap: TAB past the last stop clamps, no scroll");
+        con.nowrap = 0;
+        con.past_end = 0;
+        console_clear(&con);
         /* Put a solid sentinel at row 24, col 0; then a '\n' on row 24 must
          * scroll, leaving the sentinel content now at row 23. */
         con.cur_col = 0; con.cur_row = CONSOLE_ROWS - 1;     /* row 24 */

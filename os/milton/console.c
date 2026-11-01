@@ -234,6 +234,8 @@ void console_putc(console_t *con, char ch)
     if (con == 0 || con->lfb == 0 || con->font == 0) {
         return;
     }
+    uint8_t past = con->past_end;
+    con->past_end = 0;
     switch (ch) {
     case '\f':
         /* initech-3sxp / M016. DOS 3.3 User's Guide p.45 / PDF 130:
@@ -255,7 +257,11 @@ void console_putc(console_t *con, char ch)
         /* Advance to the next tab stop; wrap/scroll if it runs off the row. */
         uint32_t next = (con->cur_col / CONSOLE_TAB_WIDTH + 1) * CONSOLE_TAB_WIDTH;
         if (next >= con->cols) {
-            advance_line(con);
+            if (con->nowrap) {
+                con->cur_col = con->cols - 1u;   /* wrap off: never scroll */
+            } else {
+                advance_line(con);
+            }
         } else {
             con->cur_col = next;
         }
@@ -270,6 +276,11 @@ void console_putc(console_t *con, char ch)
         break;
     }
 
+    /* Wrap off: past end-of-line the character is thrown away (TR p. 3-16). */
+    if (past && con->nowrap) {
+        con->past_end = 1;
+        return;
+    }
     /* Printable: blit at the cursor with the CURRENT attribute (beads
      * initech-p96i), then advance with wrap + scroll. cur_fg/cur_bg default to
      * fg/bg (set at console_init), so with no ANSI SGR active this is byte-for-
@@ -280,6 +291,13 @@ void console_putc(console_t *con, char ch)
               con->cur_attr);
     con->cur_col++;
     if (con->cur_col >= con->cols) {
+#ifndef CONSOLE_MUTATE_NOWRAP_IGNORED
+        if (con->nowrap) {
+            con->cur_col = con->cols - 1u;
+            con->past_end = 1;
+            return;
+        }
+#endif
         advance_line(con);
     }
 }
@@ -475,6 +493,7 @@ void console_set_cursor(console_t *con, uint32_t row, uint32_t col)
     if (con->cols == 0u || con->rows == 0u) {
         return;
     }
+    con->past_end = 0;
     con->cur_col = (col >= con->cols) ? (con->cols - 1u) : col;
     con->cur_row = (row >= con->rows) ? (con->rows - 1u) : row;
 }

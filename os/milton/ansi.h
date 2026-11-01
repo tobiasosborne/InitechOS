@@ -120,6 +120,7 @@ typedef enum {
     ANSI_ACT_DEVICE_STATUS, /* ESC[6n Device Status Report -- note only       */
     ANSI_ACT_BELL,          /* BEL (0x07) -- ring the bell                   */
     ANSI_ACT_KEY_REMAP,     /* ESC[...p keyboard reassignment -- note only    */
+    ANSI_ACT_SET_WRAP,      /* ESC[=7h / ESC[=7l line wrap on / off (erase_mode) */
     ANSI_ACT_NONE           /* No-op (sequence consumed, no visible effect)   */
 } ansi_action_kind_t;
 
@@ -182,6 +183,7 @@ typedef struct {
     int  cols_wide;                          /* screen width  (initialised)   */
 
     uint8_t attr;                            /* current CGA attribute byte    */
+    uint8_t private_marker;                  /* CSI carried '=' or '?' (SM/RM)  */
 } ansi_state_t;
 
 /* ---------------------------------------------------------------------------

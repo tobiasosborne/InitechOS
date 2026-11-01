@@ -7611,7 +7611,19 @@ test-ansi: $(TEST_ANSI)
 	@$(TEST_ANSI)
 	@printf ">>> test-ansi: green\n"
 
-test-ansi-mutant: $(TEST_ANSI_MUT_PARAM) $(TEST_ANSI_MUT_SGR) $(TEST_ANSI_MUT_CLAMP)
+$(BUILD)/test_ansi_mutant_wrapflip: $(TEST_ANSI_SRC) $(TEST_ANSI_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DANSI_MUTATE_WRAP_FLIP \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_ANSI_SRC)
+$(BUILD)/test_console_mutant_nowrap: $(TEST_CONSOLE_SRC) $(MILTON_DIR)/console.c $(MILTON_DIR)/console.h $(MILTON_DIR)/boot_info.h os/flair/surface.c os/flair/surface.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONSOLE_MUTATE_NOWRAP_IGNORED -I$(MILTON_DIR) -Iseed -Ios/flair \
+		-o $@ $(TEST_CONSOLE_SRC) $(MILTON_DIR)/console.c os/flair/surface.c
+test-ansi-mutant: $(TEST_ANSI_MUT_PARAM) $(TEST_ANSI_MUT_SGR) $(TEST_ANSI_MUT_CLAMP) $(BUILD)/test_ansi_mutant_wrapflip $(BUILD)/test_console_mutant_nowrap
+	@if $(BUILD)/test_console_mutant_nowrap >/dev/null 2>&1; then \
+		printf '!!! test-ansi-mutant FAIL: nowrap-ignored console mutant PASSED\n'; exit 1; \
+	else printf '>>> test-ansi-mutant: green (nowrap-ignored console mutant correctly RED)\n'; fi
+	@if $(BUILD)/test_ansi_mutant_wrapflip >/dev/null 2>&1; then \
+		printf '!!! test-ansi-mutant FAIL: wrap-flip mutant PASSED\n'; exit 1; \
+	else printf '>>> test-ansi-mutant: green (wrap-flip mutant correctly RED)\n'; fi
 	@printf ">>> test-ansi-mutant: confirming all three mutants go RED (Rule 6)\n"
 	@if $(TEST_ANSI_MUT_PARAM) >/dev/null 2>&1; then \
 		printf '!!! test-ansi-mutant FAIL: param-accum mutant PASSED -- the multi-digit param test is decoration\n'; exit 1; \
@@ -28793,7 +28805,7 @@ SAMIR_EXE_CSRCS := $(SAMIR_RT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_P
 # call-graph rule). Overlay order = ids (os/samir/include/samir/ovl.h).
 SAMIR_OVL_PACK     := $(BUILD)/samir_ovl_pack
 SAMIR_OVL_SECTIONS := --overlay .ovl_file --overlay .ovl_report --overlay .ovl_status \
-                      --overlay .ovl_set --overlay .ovl_memfile
+                      --overlay .ovl_set --overlay .ovl_memfile --overlay .ovl_forms
 # The first --forbid is the manager (must exist); the rest are the interpreter
 # entries that could run another command (and so swap the slot) if overlay code
 # reached them directly.

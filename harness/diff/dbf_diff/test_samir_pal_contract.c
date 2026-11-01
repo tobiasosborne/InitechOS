@@ -84,6 +84,8 @@ int main(void)
     CHECK(p->iscolor && p->iscolor(p)==0,"null colour capability slot bound and false");
     CHECK(p->say_screen && p->say_screen(p,2,3,"X",1)==-PAL_EIO,
           "null positioned screen output fails loud");
+    CHECK(p->paint && p->paint(p,2,3,"X",1)==-PAL_EIO,
+          "paint is bound and fails loud on the null PAL");
     CHECK(p->printout && p->printout(p,"X",1)==-PAL_EIO,
           "null printer output fails loud");
 	CHECK(p->alloc && p->reset, "arena slots are bound (AH=48h)");

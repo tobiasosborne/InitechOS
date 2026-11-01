@@ -276,6 +276,12 @@ struct samir_pal {
     /* Printer bytes: Milton INT 21h AH=05h, DL=byte (int21.c do_aux_prn).
      * No busy wait when unbound. Host discards deterministically. */
     int (*printout)(samir_pal_t *,const char *,uint32_t);
+    /* Screen cells for @...TO / @...CLEAR / CLEAR: n bytes at (row,col), never
+     * wrapping or scrolling, so (24,79) is writable; ends with the cursor at
+     * (row,col+n) or the last column. n == 0 only positions the cursor. Milton:
+     * CON with ANSI.SYS ESC[=7l (IBM DOS 3.30 TR 80X0945 p. 3-16, Reset Mode).
+     * Host: discarded deterministically. */
+    int (*paint)(samir_pal_t *,uint8_t,uint8_t,const char *,uint32_t);
 };
 
 /* Owned buffer chains: reclaim ONLY this codec's allocations. */

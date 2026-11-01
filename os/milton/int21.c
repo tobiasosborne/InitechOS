@@ -95,7 +95,7 @@ static void conkeys_trace(const char *s)
  * only g_ansi_saved_{row,col} (read from the console at ESC[s) are. */
 static ansi_state_t       g_ansi_st;
 static int                g_ansi_inited = 0;
-static int21_ansi_console_t g_ansi_ops  = { 0, 0, 0, 0, 0, 0, 0, 0 };
+static int21_ansi_console_t g_ansi_ops  = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 static int21_ansi_gate_fn g_ansi_gate   = 0;
 /* The apply-layer cursor save slot (ESC[s/ESC[u); the console is the truth. */
 static int                g_ansi_saved_row = 0;
@@ -833,6 +833,12 @@ static void ansi_apply(const ansi_action_t *act, void *ctx)
     case ANSI_ACT_ERASE_DISPLAY:
         if (g_ansi_ops.erase_display) {
             g_ansi_ops.erase_display(g_ansi_ops.ctx, act->erase_mode);
+        }
+        break;
+
+    case ANSI_ACT_SET_WRAP:
+        if (g_ansi_ops.set_wrap) {
+            g_ansi_ops.set_wrap(g_ansi_ops.ctx, act->erase_mode);
         }
         break;
 

@@ -952,6 +952,37 @@ static void test_key_remap(void)
  * (zero defaults), 3-7/3-8 (bounded relative movement), 3-10 (DSR), 3-12
  * (save/restore), 3-15 (SGR 8 invisible). The 9999 parser bound is a local
  * safety limit, not a claimed DOS numeric limit; it exceeds this screen. */
+/* ESC[=7l / ESC[=7h: IBM DOS 3.30 TR 80X0945 p. 3-16, Reset/Set Mode. */
+static void test_wrap_mode(void)
+{
+    ansi_state_t st;
+    action_log_t log;
+    ansi_init(&st, 25, 80);
+    log_reset(&log);
+    const uint8_t off[] = { 0x1Bu, '[', '=', '7', 'l' };
+    feed_bytes(&st, off, (int)sizeof(off), &log);
+    const ansi_action_t *a = find_action(&log, ANSI_ACT_SET_WRAP, 0);
+    CHECK(log.count == 1 && a != 0 && a->erase_mode == 0, "ESC[=7l: wrap off");
+    log_reset(&log);
+    const uint8_t on[] = { 0x1Bu, '[', '=', '7', 'h' };
+    feed_bytes(&st, on, (int)sizeof(on), &log);
+    a = find_action(&log, ANSI_ACT_SET_WRAP, 0);
+    CHECK(log.count == 1 && a != 0 && a->erase_mode == 1, "ESC[=7h: wrap on");
+    log_reset(&log);
+    const uint8_t mode[] = { 0x1Bu, '[', '=', '3', 'h' };
+    feed_bytes(&st, mode, (int)sizeof(mode), &log);
+    CHECK(log.count == 0, "ESC[=3h: video mode consumed, no action");
+    log_reset(&log);
+    const uint8_t bare[] = { 0x1Bu, '[', '7', 'l' };
+    feed_bytes(&st, bare, (int)sizeof(bare), &log);
+    CHECK(log.count == 0, "ESC[7l: no private marker, not a TR p. 3-16 form");
+    log_reset(&log);
+    const uint8_t query[] = { 0x1Bu, '[', '?', '7', 'l' };
+    feed_bytes(&st, query, (int)sizeof(query), &log);
+    a = find_action(&log, ANSI_ACT_SET_WRAP, 0);
+    CHECK(log.count == 1 && a != 0 && a->erase_mode == 0, "ESC[?7l: wrap off");
+}
+
 static void test_ansi_lane(void)
 {
     ansi_state_t st;
@@ -1021,6 +1052,7 @@ static void test_ansi_lane(void)
 
 int main(void)
 {
+    test_wrap_mode();
     test_ansi_lane();
     test_erase_display();
     test_cursor_position();
