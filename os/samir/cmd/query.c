@@ -561,7 +561,7 @@ static const dbf_field_t *q_field_descriptor(xb_interp *ip, const char *expr)
 /* Memo cells of one LIST row: the first line is inline, the rest follow. */
 #define Q_MEMO_CELLS 4
 typedef struct {
-    uint32_t n, col[Q_MEMO_CELLS], len[Q_MEMO_CELLS], off[Q_MEMO_CELLS], w[Q_MEMO_CELLS];
+    uint32_t n, overflow, col[Q_MEMO_CELLS], len[Q_MEMO_CELLS], off[Q_MEMO_CELLS], w[Q_MEMO_CELLS];
     const char *t[Q_MEMO_CELLS];
 } q_memocells;
 static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
@@ -580,7 +580,7 @@ static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
         if(off<len && mc && mc->n<Q_MEMO_CELLS) {
             uint32_t i=mc->n++;
             mc->col[i]=start;mc->len[i]=len;mc->off[i]=off;mc->w[i]=width;mc->t[i]=t;
-        }
+        } else if(off<len) mc->overflow=1u; /* fail loud at the row (Rule 2) */
         return;
     }
     if(f && f->type=='N' && v->t==XB_N) {
@@ -697,6 +697,7 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
     int rc;
     q_memocells mc;
     mc.n = 0u;
+    mc.overflow = 0u;
 
     /* Ref: Using dBase III Plus.pdf U2-26: asterisk before a deleted record.
      * Exact marker column is authored, no local reference golden. */
@@ -755,6 +756,8 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
         }
     }
 
+    /* More wrapped memo columns than Q_MEMO_CELLS: refuse, never drop lines. */
+    if (mc.overflow) { if (ec) *ec = 46; return -INTERP_ERR_EVAL; }
     q_append_cstr(line, &pos, sizeof(line), "\r\n");
     q_putn(ip, line, pos);
     /* SET MEMOWIDTH continuation lines: each wrapped memo cell resumes under

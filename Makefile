@@ -35048,6 +35048,13 @@ test-samir-w2-set-memowidth-mutant-$(1): test-samir-w2-set-memowidth $$(BUILD)/t
 endef
 $(foreach m,ignore nowrap256,$(eval $(call samir-w2-memowidth-mutant,$(m))))
 TEST_UNIT_GATES += test-samir-w2-set-memowidth test-samir-w2-set-memowidth-mutants
+$(BUILD)/test_samir_memocells: $(DBF_DIFF_DIR)/test_samir_memocells.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
+.PHONY: test-samir-memocells
+test-samir-memocells: $(BUILD)/test_samir_memocells $(SAMIR_W2_FIXTURE)
+	@d=$(BUILD)/memocells; rm -rf $$d; mkdir -p $$d/DRIVE $$d/DATA; $(SAMIR_W2_FIXTURE) $$d; cd $$d && $(abspath $(BUILD))/test_samir_memocells
+	@echo '>>> test-samir-memocells: green'
+TEST_UNIT_GATES += test-samir-memocells
 
 # NDX GOLD.OUT: the completed statement must precede error 87. This second
 # mutant raises immediately; the unchanged real-III+ transcript must catch it.
