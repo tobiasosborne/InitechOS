@@ -422,6 +422,13 @@ static void ansi_erase_display(void *ctx, int mode)
         console_erase_display((console_t *)ctx, mode);
     }
 }
+static void ansi_set_wrap(void *ctx, int on)
+{
+    if (ctx) {
+        ((console_t *)ctx)->nowrap = (uint8_t)!on;
+        ((console_t *)ctx)->past_end = 0;
+    }
+}
 static void ansi_erase_line(void *ctx, int mode)
 {
     if (ctx) {
@@ -8708,6 +8715,7 @@ void kernel_main(void)
         ansi_ops.cursor_rel    = ansi_cursor_rel;
         ansi_ops.erase_display = ansi_erase_display;
         ansi_ops.erase_line    = ansi_erase_line;
+        ansi_ops.set_wrap      = ansi_set_wrap;
         ansi_ops.set_attr      = ansi_set_attr;
         ansi_ops.get_cursor    = ansi_get_cursor;
         ansi_ops.ctx           = g_int21_con;

@@ -986,6 +986,26 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
     return INTERP_OK;
 }
 
+/* Printer motion shared by @...SAY and bare @ r,c under SET DEVICE TO PRINT.
+ * Harbour doc/en/set.txt SET DEVICE corroborates III+ forms: backwards rows
+ * eject a page; emit CR/LF/spaces to position the head. The supplied III+
+ * goldens pin forward row 2, column 3 (fns-mint) and at-to-c/TJ (bare @). */
+static int forms_ovl_entry(int k, xb_interp *ip, const char *args, int *ec);
+static SAMIR_OVL_TEXT(forms) int q_printer_at(xb_interp *ip,uint16_t target_row,uint16_t target_col,const char *line,uint32_t n)
+{
+    xb_ctx *ctx=xb_interp_ctx(ip);samir_pal_t *pal=xb_interp_pal(ip);
+    uint16_t row=ctx->printer_row,col=ctx->printer_col;
+    if(!pal->printout)return -1;
+    if(row>target_row) { if(pal->printout(pal,"\f",1))return -1;row=col=0; }
+    while(row<target_row) { if(pal->printout(pal,"\r\n",2))return -1;row++;col=0; }
+    if(col>target_col) { if(pal->printout(pal,"\r",1))return -1;col=0; }
+    while(col<target_col) { if(pal->printout(pal," ",1))return -1;col++; }
+    if(n && pal->printout(pal,line,n))return -1;
+    ctx->printer_row=target_row;ctx->printer_col=target_col;
+    rt_cursor_advance(&ctx->printer_row,&ctx->printer_col,line,n,0);
+    return 0;
+}
+
 /* Ref: say-get-read.md sections 1-2; programming-and-io.md error 30.
  * Deliberately reject out-of-slice clauses before evaluating or painting. */
 static int q_say(xb_interp *ip,const char *args,int *ec)
@@ -1005,7 +1025,9 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
         }
         prev=c;
     }
-    if(!comma || !say || comma>say) { if(ec)*ec=10;return -INTERP_ERR_SYNTAX; }
+    /* W3: every other @ form is the FORMS overlay (a SAY after the comma only). */
+    if(!say) return SAMIR_OVL_CALL(SAMIR_OVL_FORMS,forms_ovl_entry,0,ip,args,ec);
+    if(!comma || comma>say) { if(ec)*ec=10;return -INTERP_ERR_SYNTAX; }
     for(j=0;j<2;j++) {
         const char *start=j?comma+1:args,*end=j?say:comma;
         n=(uint32_t)(end-start);
@@ -1026,19 +1048,9 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
     }
     n=0;q_render_val(line,&n,sizeof line,&v,ctx,1);
     if(ctx->device_print) {
-        uint16_t row=ctx->printer_row,col=ctx->printer_col;
-        uint16_t target_row=(uint16_t)coordinate[0],target_col=(uint16_t)coordinate[1];
-        if(!pal->printout) { if(ec)*ec=29;return -INTERP_ERR_EVAL; }
-        /* Harbour doc/en/set.txt SET DEVICE corroborates III+ forms:
-         * backwards rows eject a page; emit CR/LF/spaces to position the head.
-         * The supplied III+ goldens pin forward row 2, column 3 only. */
-        if(row>target_row) { if(pal->printout(pal,"\f",1))goto io_error;row=col=0; }
-        while(row<target_row) { if(pal->printout(pal,"\r\n",2))goto io_error;row++;col=0; }
-        if(col>target_col) { if(pal->printout(pal,"\r",1))goto io_error;col=0; }
-        while(col<target_col) { if(pal->printout(pal," ",1))goto io_error;col++; }
-        if(pal->printout(pal,line,n))goto io_error;
-        ctx->printer_row=target_row;ctx->printer_col=target_col;
-        rt_cursor_advance(&ctx->printer_row,&ctx->printer_col,line,n,0);
+        /* FORMS overlay k=2: row and column in k, byte count through *ec. */
+        int count=(int)n;
+        if(SAMIR_OVL_CALL(SAMIR_OVL_FORMS,forms_ovl_entry,2|((int)coordinate[0]<<8)|((int)coordinate[1]<<16),ip,line,&count))goto io_error;
     } else {
         if(!pal->say_screen || pal->say_screen(pal,(uint8_t)coordinate[0],(uint8_t)coordinate[1],line,n))goto io_error;
         ctx->screen_row=(uint16_t)coordinate[0];ctx->screen_col=(uint16_t)coordinate[1];
@@ -1050,7 +1062,6 @@ io_error:
     if(ec)*ec=29;
     return -INTERP_ERR_EVAL;
 }
-
 /* ===================================================================== */
 /* LOCATE / CONTINUE                                                      */
 /* ===================================================================== */
@@ -1703,6 +1714,219 @@ static SAMIR_OVL_TEXT(status) int query_ovl_entry(int k, xb_interp *ip, const ch
 }
 SAMIR_OVL_HEADER(status, SAMIR_OVL_STATUS, query_ovl_entry);
 
+/* ===================================================================== */
+/* Overlay FORMS (initech-p3nn0 W3 slice 1): @...TO, @...CLEAR, bare @, CLEAR */
+/* ===================================================================== */
+/* Rules below are from real dBASE III PLUS 1.1 screens,
+ * harness/diff/dbf_diff/xbase_prog_diff/screen-mint/at-to-{a,b,c},
+ * at-clear-{a,b,c}; catalogue codes from TG, TH and CH of those cases.
+ * The say-get-read.md sec 9-10 [oracle-resolves] items are settled there:
+ * CLEAR TO exists, single/double glyphs, degenerate lines without caps. */
+static SAMIR_OVL_TEXT(forms) int qf_fail(int *ec,int code)
+{ if(ec)*ec=code;return code==10||code==36?-INTERP_ERR_SYNTAX:-INTERP_ERR_EVAL; }
+/* First depth-0 comma / blank-prefixed keyword outside literals. */
+static SAMIR_OVL_TEXT(forms) const char *qf_scan(const char *p,const char *kw2,int *kind)
+{
+    char quote=0,prev=' ';int depth=0;
+    for(;*p;p++) {
+        char c=*p;
+        if(rt_literal_byte(c,&quote)) { prev=c;continue; }
+        if(c=='(')depth++;
+        else if(c==')' && depth)depth--;
+        if(!depth) {
+            if(c==',' && !kw2) { *kind=0;return p; }
+            if(kw2 && q_isspace(prev)) {
+                if(rt_kw_match(p,"TO")) { *kind=1;return p; }
+                if(rt_kw_match(p,"CLEAR")) { *kind=2;return p; }
+            }
+        }
+        prev=c;
+    }
+    return 0;
+}
+/* Evaluate [s,e) as one numeric coordinate; junk in it is 36 (TG 12,13,15,16). */
+static SAMIR_OVL_TEXT(forms) int qf_num(xb_interp *ip,const char *s,const char *e,int *out,int *raw_ok,int limit,int *ec)
+{
+    char expr[Q_MAX_EXPR+1];xb_val v;int rc;uint32_t n;
+    while(s<e && q_isspace(*s))s++;
+    n=(uint32_t)(e-s);
+    if(n>Q_MAX_EXPR)return qf_fail(ec,18);
+    rt_memcpy(expr,s,n);expr[n]=0;
+    rc=xb_interp_eval(ip,expr,&v,ec);
+    if(rc) {
+        if(rc==-INTERP_ERR_SYNTAX || (ec && *ec==10))return qf_fail(ec,36);
+        return rc;
+    }
+    if(v.t!=XB_N)return qf_fail(ec,27);
+    /* at-large LA/LB/LC, at-to-b TG 19,20: III+ truncates, keeps the low 16 bits
+     * as a signed value (65546 -> 10, 65535 -> -1), and a value beyond 32 bits
+     * becomes 0 (9999999999, 1E20). Range-check BEFORE the cast: out-of-range
+     * double to int is undefined in C. */
+#ifndef SAMIR_FORMS_MUTANT_narrow
+    *out=(v.u.n>-2147483648.0 && v.u.n<2147483648.0)?(int)(int16_t)(uint16_t)(uint32_t)(int32_t)v.u.n:0;
+#else
+    *out=(v.u.n>-2147483648.0 && v.u.n<2147483648.0)?(int32_t)v.u.n:limit;
+#endif
+    if(*out<0||*out>=limit)*raw_ok=0;
+    return INTERP_OK;
+}
+/* "<row>,<col>[ DOUBLE]" after TO. */
+static SAMIR_OVL_TEXT(forms) int qf_corner(xb_interp *ip,const char *p,int *r,int *c,int *ok,int *dbl,int *ec)
+{
+    const char *comma,*e;int kind,rc;
+    p=q_skip_ws(p);
+    comma=qf_scan(p,0,&kind);
+    if(!comma||comma==p)return qf_fail(ec,10);
+    if(!*q_skip_ws(comma+1))return qf_fail(ec,10);
+    e=comma+rt_strlen(comma);
+    if(dbl) {
+        const char *t=e;
+        while(t>comma && q_isspace(t[-1]))t--;
+        e=t;
+        while(t>comma && !q_isspace(t[-1]))t--;
+        if(t>comma+1 && rt_kw_match(t,"DOUBLE")) { *dbl=1;e=t; }
+    }
+    rc=qf_num(ip,p,comma,r,ok,25,ec);if(rc)return rc;
+    return qf_num(ip,comma+1,e,c,ok,80,ec);
+}
+static SAMIR_OVL_TEXT(forms) int qf_fill(samir_pal_t *pal,int r,int c,char ch,int n)
+{
+    char row[80];rt_memset(row,ch,(uint32_t)n);
+    return pal->paint(pal,(uint8_t)r,(uint8_t)c,row,(uint32_t)n);
+}
+static SAMIR_OVL_TEXT(forms) int qf_cursor(xb_interp *ip)
+{
+    xb_ctx *x=xb_interp_ctx(ip);
+    /* After a box ending in the last column ROW() can be 25 (TE): the BIOS
+     * cursor cannot be, and a following @ always repositions it. */
+    return xb_interp_pal(ip)->paint(xb_interp_pal(ip),(uint8_t)(x->screen_row<24?x->screen_row:24),
+                                    (uint8_t)(x->screen_col<79?x->screen_col:79),"",0);
+}
+/* Ref: at-to-a TA/TB/TD, at-to-b TE/TF, at-to-c TI. Edges overwrite cells, the
+ * interior is kept; a one-row span is all horizontal (a point too), a one-column
+ * span all vertical. Cursor: last row, last column + 1, wrapping to the next
+ * row (ROW() 25 after 24,79). @...TO always goes to the screen (at-clear-c DB). */
+static SAMIR_OVL_TEXT(forms) int qf_box(xb_interp *ip,int r1,int c1,int r2,int c2,int dbl)
+{
+    samir_pal_t *pal=xb_interp_pal(ip);xb_ctx *x=xb_interp_ctx(ip);
+    char h=dbl?(char)0xCD:(char)0xC4,v=dbl?(char)0xBA:(char)0xB3;
+    char row[80];int w=c2-c1+1,r;
+#ifndef SAMIR_FORMS_MUTANT_glyph
+    char tl=dbl?(char)0xC9:(char)0xDA,tr=dbl?(char)0xBB:(char)0xBF;
+    char bl=dbl?(char)0xC8:(char)0xC0,br=dbl?(char)0xBC:(char)0xD9;
+#else
+    char tl=(char)0xC9,tr=(char)0xBB,bl=(char)0xC8,br=(char)0xBC;
+#endif
+    if(r1==r2) { if(qf_fill(pal,r1,c1,h,w))return -1; }
+    else if(c1==c2) {
+        for(r=r1;r<=r2;r++) if(pal->paint(pal,(uint8_t)r,(uint8_t)c1,&v,1))return -1;
+    } else {
+        rt_memset(row,h,(uint32_t)w);
+        row[0]=tl;row[w-1]=tr;
+        if(pal->paint(pal,(uint8_t)r1,(uint8_t)c1,row,(uint32_t)w))return -1;
+        for(r=r1+1;r<r2;r++) {
+            if(pal->paint(pal,(uint8_t)r,(uint8_t)c1,&v,1))return -1;
+            if(pal->paint(pal,(uint8_t)r,(uint8_t)c2,&v,1))return -1;
+        }
+        row[0]=bl;row[w-1]=br;
+        if(pal->paint(pal,(uint8_t)r2,(uint8_t)c1,row,(uint32_t)w))return -1;
+    }
+    x->screen_row=(uint16_t)r2;x->screen_col=(uint16_t)(c2+1);
+#ifndef SAMIR_FORMS_MUTANT_cursor
+    if(x->screen_col>=80) { x->screen_col=0;x->screen_row++; }
+#endif
+    return qf_cursor(ip);
+}
+/* Ref: at-clear-a CA/CB/CC/CD, at-clear-b CE/CF/CH, at-to-c TJ. */
+static SAMIR_OVL_TEXT(forms) int qf_at(xb_interp *ip,const char *args,int *ec)
+{
+    const char *p=q_skip_ws(args),*comma,*kw,*tail;int kind=0,rc,r=0,c=0,r2=0,c2=0,ok=1,ok2=1,dbl=0;
+    xb_ctx *x=xb_interp_ctx(ip);samir_pal_t *pal=xb_interp_pal(ip);
+    comma=qf_scan(p,0,&kind);
+    kw=qf_scan(p,"",&kind);
+    if(!comma||comma==p||(kw && comma>kw))return qf_fail(ec,10);   /* TG 14,21; CH 13-15 */
+    if(!kw)kind=0;
+    if(kw && !*q_skip_ws(comma+1))return qf_fail(ec,12);
+    if(kw && q_skip_ws(comma+1)==kw)return qf_fail(ec,12);          /* TG 22: "TO" is the expression */
+    rc=qf_num(ip,p,comma,&r,&ok,25,ec);if(rc)return rc;
+    rc=qf_num(ip,comma+1,kw?kw:comma+rt_strlen(comma),&c,&ok,80,ec);if(rc)return rc;
+    if(!pal->paint) return qf_fail(ec,29);
+    if(kind==1) {
+        rc=qf_corner(ip,kw+rt_kw_match(kw,"TO"),&r2,&c2,&ok2,&dbl,ec);if(rc)return rc;
+        /* First corner off screen 30 (at-large LA 3), then inverted 46 (TH 7),
+         * then second corner off screen 30 (TG 3). */
+        if(!ok)return qf_fail(ec,30);
+        if(r2<r||c2<c)return qf_fail(ec,46);
+        if(!ok2)return qf_fail(ec,30);
+        if(qf_box(ip,r,c,r2,c2,dbl))return qf_fail(ec,29);
+    } else if(kind==2) {
+        tail=q_skip_ws(kw+rt_kw_match(kw,"CLEAR"));
+        if(*tail) {
+            int n=rt_kw_match(tail,"TO");
+            if(!n)return qf_fail(ec,36);                            /* CH 6 */
+            rc=qf_corner(ip,tail+n,&r2,&c2,&ok2,0,ec);if(rc)return rc;
+            if(!ok)return qf_fail(ec,30);
+            if(r2<r||c2<c)return qf_fail(ec,46);                    /* CH 9 */
+            if(!ok2)return qf_fail(ec,30);
+            for(;r<=r2;r++) if(qf_fill(pal,r,c,' ',c2-c+1))return qf_fail(ec,29);
+            /* CC: the cursor and ROW()/COL() do not move. */
+            if(qf_cursor(ip))return qf_fail(ec,29);
+        } else {
+            int row=r;
+            if(!ok)return qf_fail(ec,30);
+            for(;row<25;row++) if(qf_fill(pal,row,c,' ',80-c))return qf_fail(ec,29);
+            x->screen_row=(uint16_t)r;x->screen_col=(uint16_t)c;
+            if(qf_cursor(ip))return qf_fail(ec,29);
+        }
+    } else {
+        if(!ok)return qf_fail(ec,30);
+        if(x->device_print) {                                       /* TJ */
+            if(q_printer_at(ip,(uint16_t)r,(uint16_t)c,"",0))return qf_fail(ec,29);
+        } else {
+            if(qf_fill(pal,r,c,' ',80-c))return qf_fail(ec,29);     /* CB, CF */
+            x->screen_row=(uint16_t)r;x->screen_col=(uint16_t)c;
+            if(qf_cursor(ip))return qf_fail(ec,29);
+        }
+    }
+    if(ec)*ec=0;
+    return INTERP_OK;
+}
+/* CLEAR: CD/CG; other operands 36 (CH 10, at-clear-d DA 10). CLEAR MEMORY is flow.c.
+ * Recognised words ignore what follows them (at-clear-d DA 7-9, DC). ALL closes
+ * the databases and releases memvars, leaving screen and cursor (DC, DD). GETS and
+ * FIELDS have nothing to drop until @...GET and SET FIELDS exist. TYPEAHEAD
+ * discards waiting keys. A status bar stays on top; real repaint is at-status. */
+static SAMIR_OVL_TEXT(forms) int qf_clear(xb_interp *ip,const char *args,int *ec)
+{
+    samir_pal_t *pal=xb_interp_pal(ip);xb_ctx *x=xb_interp_ctx(ip);int r;
+    if(*q_skip_ws(args)) {
+#ifndef SAMIR_FORMS_MUTANT_subcmd
+        r=rt_kw_word(q_skip_ws(args),"ALL\0FIELDS\0GETS\0TYPEAHEAD\0",(int *)0);
+        if(r==0) { wa_close_all(xb_interp_env(ip));xb_interp_release_all(ip); }
+        if(r==3 && pal->conin_poll) while(pal->conin_poll(pal)>0) { }
+        if(r>=0) { if(ec)*ec=0;return INTERP_OK; }
+#endif
+        return qf_fail(ec,36);
+    }
+    if(!pal->paint)return qf_fail(ec,29);
+#ifndef SAMIR_FORMS_MUTANT_clear
+    for(r=0;r<25;r++) if(qf_fill(pal,r,0,' ',80))return qf_fail(ec,29);
+#else
+    (void)r;
+#endif
+    x->screen_row=0;x->screen_col=0;
+    if(qf_cursor(ip))return qf_fail(ec,29);
+    samir_status_refresh(ip);
+    if(ec)*ec=0;
+    return INTERP_OK;
+}
+static SAMIR_OVL_TEXT(forms) int forms_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
+{
+    if(k&2)return q_printer_at(ip,(uint16_t)((k>>8)&255),(uint16_t)((k>>16)&255),args,(uint32_t)*ec);
+    return k?qf_clear(ip,args,ec):qf_at(ip,args,ec);
+}
+SAMIR_OVL_HEADER(forms, SAMIR_OVL_FORMS, forms_ovl_entry);
+
 /* Verb handlers, one per row of query_verbs.def (initech-1x6x2.4); a handler is called as
  * fn(ip, [state,] [verb,] args, err_code) from the row-driven switch in the hook. Each returns
  * the hook's final code (CMD_OK == INTERP_OK == 0, so no mapping is needed). */
@@ -1762,6 +1986,8 @@ static inline __attribute__((always_inline)) int qv_eject(xb_interp *ip, query_s
 }
 static inline __attribute__((always_inline)) int qv_say(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
 { (void)qs; (void)verb; return q_say(ip, args, ec); }
+static inline __attribute__((always_inline)) int qv_clear(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{ (void)qs; (void)verb; return SAMIR_OVL_CALL(SAMIR_OVL_FORMS,forms_ovl_entry,1,ip,args,ec); }
 
 /* Rows come from query_verbs.def: QUERY_VERB(KEYWORD, handler). Row order is the
  * 4-letter-abbreviation tie-break (earlier row wins, as rt_kw_index). */

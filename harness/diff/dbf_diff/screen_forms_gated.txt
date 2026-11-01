@@ -1,0 +1,13 @@
+# W3 forms: real III+ dumps SAMIR must match exactly (cells, attributes, cursor).
+# Paused-in-program screens only. The *d dumps (dot prompt after a program),
+# at-dot, at-dot-c, at-status and at-clear-c are evidence, NOT yet gated: the
+# dot-prompt placement and status repaint rules they show are follow-up beads.
+# at-to-a TC is the unhandled-error Cancel/Ignore/Suspend screen, also a follow-up;
+# its code 46 is gated through at-to-c TH.
+at-to-a TA TB TD
+at-large LA LB LC
+at-clear-d DA DC DD
+at-to-b TE TF TG
+at-to-c TH TI TJ
+at-clear-a CA CB CC CD
+at-clear-b CE CF CG CH

@@ -1198,6 +1198,12 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
                         tok + 1, HARNESS_W_BUDGET_MS);
                 ok = 1;   /* counted as sent: the token was honoured */
             }
+        } else if (tok[0] == 'D' && tok[1] != '\0') {
+            /* "D<path>" -- one QMP screendump HERE in the stream, with the exact
+             * .screen beside it when INITECH_TEXT_SCREEN_* are set (W3 forms:
+             * several dumps of one keystroke-driven session). Failure is fatal. */
+            if (qmp_do_screendump(fd, tok + 1, mono_ms() + 15000) != 0) return -1;
+            ok = 1;
         } else if (tok[0] == 'w' && tok[1] >= '0' && tok[1] <= '9') {
             /* "w<ms>" -- hold every input state for <ms> milliseconds. */
             int ms = atoi(tok + 1);

@@ -646,16 +646,22 @@ static int milton_is_console(uint32_t handle)
     if(cf) milton_panic();
     return (dx & 0x8000u)!=0;
 }
-static void milton_cursor(samir_pal_t *p,uint8_t row,uint8_t col)
+/* ESC[r;cH for a 0-based position; returns its length. */
+static __attribute__((noinline)) uint32_t milton_cup(char *seq,uint8_t row,uint8_t col)
 {
-    char seq[16];int n=0;
+    uint32_t n=0;
     seq[n++]=27;seq[n++]='[';
     row++;col++;
     if(row>=10) seq[n++]=(char)('0'+row/10);
     seq[n++]=(char)('0'+row%10);seq[n++]=';';
     if(col>=10) seq[n++]=(char)('0'+col/10);
     seq[n++]=(char)('0'+col%10);seq[n++]='H';
-    milton_rawout(p,seq,(uint32_t)n);
+    return n;
+}
+static void milton_cursor(samir_pal_t *p,uint8_t row,uint8_t col)
+{
+    char seq[16];
+    milton_rawout(p,seq,milton_cup(seq,row,col));
 }
 static void milton_draw(void *user,uint8_t row,uint8_t col,uint8_t attr,const char *text,uint32_t n)
 {
@@ -908,20 +914,35 @@ static void milton_gotoxy(samir_pal_t *p,uint8_t row,uint8_t col)
 /* INT 21h AH=3Dh/40h/3Eh: direct CON is independent of redirected
  * stdout. ANSI.SYS positions the cursor; INT 10h is an exception vector in
  * Milton protected mode (os/milton/idt.c), not the real-mode BIOS API. */
-static int milton_say_screen(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
+static int milton_con_at(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n,int cells)
 {
-    char seq[16];uint32_t pos=0;int result=0;
+    char seq[16];uint32_t pos=milton_cup(seq,row,col);int result=0;
     pal_fd fd=milton_open(p,"CON",PAL_WR);
     if(fd<0)return -PAL_EIO;
-    seq[pos++]=27;seq[pos++]='[';row++;col++;
-    if(row>=10)seq[pos++]=(char)('0'+row/10);
-    seq[pos++]=(char)('0'+row%10);seq[pos++]=';';
-    if(col>=10)seq[pos++]=(char)('0'+col/10);
-    seq[pos++]=(char)('0'+col%10);seq[pos++]='H';
+#ifndef SAMIR_FORMS_MUTANT_wrap
+    if(cells && milton_write(p,fd,"\033[=7l",5)!=5) result=-PAL_EIO;
+#endif
     if(milton_write(p,fd,seq,pos)!=(int32_t)pos || milton_write(p,fd,text,n)!=(int32_t)n) result=-PAL_EIO;
+    if(cells && milton_write(p,fd,"\033[=7h",5)!=5) result=-PAL_EIO;
     if(milton_close(p,fd))result=-PAL_EIO;
+    return result;
+}
+static int milton_say_screen(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
+{
+    int result=milton_con_at(p,row,col,text,n,0);
     if(!result && state_of(p)->screen.active)
-        samir_screen_at(&state_of(p)->screen,(uint8_t)(row-1),(uint8_t)(col-1),text,n);
+        samir_screen_at(&state_of(p)->screen,row,col,text,n);
+    return result;
+}
+/* pal.h paint: ANSI.SYS wrap off around the cells, so (24,79) never scrolls. */
+static int milton_paint(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
+{
+    int result=milton_con_at(p,row,col,text,n,1);
+    if(!result && state_of(p)->screen.active) {
+        samir_screen *s=&state_of(p)->screen;
+        rt_memcpy(&s->text[row][col],text,n);
+        s->row=row;s->col=(uint8_t)(col+n<80u?col+n:79u);
+    }
     return result;
 }
 /* DOS 3.3 AH=05h, DL=byte: os/milton/int21.c do_prn_output.
@@ -1256,6 +1277,7 @@ samir_pal_t *pal_milton_make(void)
     st->vtable.gotoxy     = milton_gotoxy;
     st->vtable.say_screen = milton_say_screen;
     st->vtable.printout = milton_printout;
+    st->vtable.paint = milton_paint;
     st->vtable.set_attr   = milton_set_attr;
     st->vtable.iscolor    = milton_iscolor;
     st->vtable.today      = milton_today;

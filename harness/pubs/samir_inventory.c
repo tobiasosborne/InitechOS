@@ -15,7 +15,7 @@
  *                  failing both, "NAME WORD" for every candidate WORD, since
  *                  a verb may exist only with its keyword (COPY FILE,
  *                  mutate.c d_file; CLEAR MEMORY, flow.c exec_command:
- *                  "COPY" and "CLEAR" alone are #16, Using III+ U5-59/U5-51)
+ *                  "COPY" alone is #16, Using III+ U5-59/U5-51)
  *   NAME|function  the line "? NAME()" does not answer #31
  *                  "Invalid function name." (fn_builtins.c xb_call_builtin
  *                  and the IIF special form of eval.c)

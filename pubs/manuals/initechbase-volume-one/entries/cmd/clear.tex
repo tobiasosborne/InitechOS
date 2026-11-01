@@ -1,0 +1,13 @@
+% CLEAR -- real III+ screen-mint/at-clear-a CD, at-clear-b CG/CH, at-clear-d DA/DC/DD.
+\begin{XbaseEntry}{CLEAR}{command}
+Erases the whole screen.
+\Syntax
+\SyntaxLine{\kw{CLEAR} [\kw{ALL} | \kw{FIELDS} | \kw{GETS} | \kw{MEMORY} | \kw{TYPEAHEAD}]}
+\Usage
+With no word, the screen is blanked and the cursor goes to row 0, column 0.
+CLEAR ALL closes the databases and releases all memory variables, and leaves the
+screen as it was.  CLEAR TYPEAHEAD discards keys waiting to be read.  CLEAR GETS
+and CLEAR FIELDS are accepted and have nothing to clear in this version.  Any
+other word raises \xmsg{36}{Unrecognized phrase/keyword in command.}.
+\SeeAlso{@, CLEAR MEMORY}
+\end{XbaseEntry}

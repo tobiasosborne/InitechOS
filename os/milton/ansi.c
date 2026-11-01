@@ -422,6 +422,27 @@ static void ansi_dispatch_csi(ansi_state_t *st, uint8_t final,
         /* Any other 'n' code: consumed, no action (defensive). */
         break;
 
+    /* -- Set/Reset Mode: line wrap ---------------------------------------- */
+
+    case 'h': /* ESC[=7h -- wrap at end of line (the DOS default).          */
+    case 'l': /* ESC[=7l -- no wrap: characters past end-of-line are thrown away.
+               * Ref: IBM DOS 3.30 Technical Reference 80X0945, printed p. 3-16
+               * (manuals-ref PDF p. 85), Set Mode / Reset Mode; also ESC[?7h/l.
+               * MS-DOS 3.3 User's Reference App. C corroborates the final byte
+               * (docs/audits/2026-10-23-dos/evidence/dos33-manual.txt L12476-94).
+               * '=' and '?' are absorbed as parameter bytes above. Video-mode
+               * parameters other than 7 are consumed, no action. */
+        if (st->private_marker && ansi_param(st, 0, 0) == 7) {
+            a.kind       = ANSI_ACT_SET_WRAP;
+#ifdef ANSI_MUTATE_WRAP_FLIP
+            a.erase_mode = (final != 'h');
+#else
+            a.erase_mode = (final == 'h');
+#endif
+            ansi_emit(&a, cb, ctx);
+        }
+        break;
+
     /* -- Keyboard reassignment -------------------------------------------- */
 
     case 'p': /* ESC[...p -- Keyboard Reassignment.
@@ -532,6 +553,7 @@ void ansi_feed(ansi_state_t *st, uint8_t byte,
              * (not 8-bit C1 0x9B which real DOS ANSI.SYS does NOT support;
              * Ref: RBIL ANSI.SYS note "7-bit sequences only in DOS 3.x"). */
             st->fsm           = ANSI_ST_CSI_PARAM;
+            st->private_marker = 0;
             st->param_count   = 0;
             st->param_current = ANSI_PARAM_DEFAULT;
             int i;
@@ -601,6 +623,9 @@ void ansi_feed(ansi_state_t *st, uint8_t byte,
              * ECMA-48 Sec 5.4: intermediate bytes are absorbed between
              * parameters.  DOS ANSI.SYS absorbs them silently. */
             /* (state unchanged: remain in CSI_PARAM) */
+            if (byte == '=' || byte == '?') {
+                st->private_marker = 1;   /* TR p. 3-16: ESC[=#h, ESC[?7h */
+            }
         }
         break;
 

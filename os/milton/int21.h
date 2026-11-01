@@ -700,6 +700,7 @@ typedef struct int21_ansi_console {
     void (*cursor_rel)(void *ctx, int drow, int dcol);
     void (*erase_display)(void *ctx, int mode);
     void (*erase_line)(void *ctx, int mode);
+    void (*set_wrap)(void *ctx, int on);   /* ESC[=7h/l; NULL = ignored */
     void (*set_attr)(void *ctx, uint8_t cga_attr);
     void (*get_cursor)(void *ctx, int *row, int *col);
     void  *ctx;

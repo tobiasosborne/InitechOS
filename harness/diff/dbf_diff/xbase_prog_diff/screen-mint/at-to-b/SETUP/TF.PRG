@@ -1,0 +1,15 @@
+CLEAR
+A=2
+@ A+1,A*2 TO A+3,A*10
+@ 8.9,3.9 TO 10.9,9.9
+@ 12,3 to 14,9 double
+@ 12,12 TO 14,18 DOUB
+@ 12,21 TO 14,27 DOUBL
+@ 12,30 TO 14,36 double
+@ 16 , 3 TO 18 , 9
+@ 16,12 TO 18,18  DOUBLE
+R=ROW()
+C=COL()
+DO WHILE INKEY()=0
+ENDDO
+@ 20,60 SAY STR(R,3)+STR(C,3)

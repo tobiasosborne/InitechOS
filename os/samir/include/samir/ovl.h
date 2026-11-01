@@ -47,7 +47,8 @@ enum {
     SAMIR_OVL_STATUS = 2,   /* cmd/query.c: LIST/DISPLAY STATUS|MEMORY          */
     SAMIR_OVL_SET    = 3,   /* cmd/set.c: the SET sub-option parser             */
     SAMIR_OVL_MEMFILE = 4,  /* cmd/flow.c: SAVE TO / RESTORE FROM               */
-    SAMIR_OVL_COUNT  = 5
+    SAMIR_OVL_FORMS  = 5,   /* cmd/query.c: @...TO, @...CLEAR, bare @, CLEAR    */
+    SAMIR_OVL_COUNT  = 6
 };
 
 /* An overlay entry: `k` is the resident dispatcher's verb index (each entry
