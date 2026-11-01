@@ -35087,6 +35087,7 @@ samir-fns-goldens: $(SAMIR_FNS_PROMOTED)
 	@echo '>>> samir-fns-goldens: green (SF-index/listoff/recsize/type/errors/struct/unknown/division/numlist/exprcol real III+ captures pinned)'
 TEST_UNIT_GATES += samir-fns-goldens
 TEST_UNIT_GATES += samir-w2-goldens test-samir-w2-host-adapter
+include harness/diff/dbf_diff/w2_set_unique.mk
 
 include harness/diff/dbf_diff/samir_size.mk
 include harness/diff/dbf_diff/samir_ovl.mk

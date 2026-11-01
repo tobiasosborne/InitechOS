@@ -563,6 +563,7 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
 
     /* SET SAFETY default = ON [verified: set-commands.md Sec 2]. */
     ss->safety = 1;
+    ss->unique = 0;     /* SET UNIQUE default OFF (set-mint/unique) */
     /* III+ HELP.DBS SET COLOR: white/black, black/white, black border. */
     ss->color_standard=0x07;ss->color_enhanced=0x70;
     ss->color_border=ss->color_background=0;
@@ -778,6 +779,20 @@ static SAMIR_OVL_TEXT(set) int set_opt_talk(xb_interp *ip, set_state *ss, const 
     int rc = do_set_talk(ss, s, err_code);
     (void)ip;
     return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+/* SET UNIQUE ON|OFF: INDEX ON builds omit duplicate keys (first record wins).
+ * Ref: set-commands.md:165; real III+ captures set-mint/unique, uniqprobe. */
+static SAMIR_OVL_TEXT(set) int set_opt_unique(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ip;
+    if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
+#ifdef SAMIR_W2_MUTANT_unique_set
+    on = 0;   /* mutant: SET UNIQUE ON has no effect */
+#endif
+    ss->unique = on;
+    return CMD_OK;
 }
 
 static SAMIR_OVL_TEXT(set) int set_opt_safety(xb_interp *ip, set_state *ss, const char *s, int *err_code)
