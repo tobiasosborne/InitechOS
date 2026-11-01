@@ -1,0 +1,47 @@
+* MINT-ERRORS: 
+? "[W2-BEGIN]"
+SET HISTORY TO 0
+SET HISTORY TO 4
+SET DOHISTORY ON
+? "a1"
+? "a2"
+? "a3"
+? "a4"
+? "a5"
+SET DOHISTORY OFF
+SET HISTORY TO 6
+? "[E3 grow 4 to 6 list]"
+LIST HISTORY
+SET DOHISTORY ON
+? "b1"
+? "b2"
+SET DOHISTORY OFF
+? "[E3 after 2 writes logical]"
+LIST HISTORY
+SET HISTORY OFF
+? "[E3 physical]"
+LIST HISTORY
+SET HISTORY ON
+SET HISTORY TO 0
+SET HISTORY TO 4
+SET DOHISTORY ON
+? "c1"
+? "c2"
+? "c3"
+? "c4"
+? "c5"
+SET DOHISTORY OFF
+SET HISTORY TO 3
+? "[E4 shrink 4 to 3 list]"
+LIST HISTORY
+SET DOHISTORY ON
+? "d1"
+? "d2"
+SET DOHISTORY OFF
+? "[E4 after 2 writes logical]"
+LIST HISTORY
+SET HISTORY OFF
+? "[E4 physical]"
+LIST HISTORY
+? "[W2-END]"
+RETURN

@@ -144,6 +144,39 @@ static set_state *set_state_for(xb_interp *ip, int *is_new)
     return &g_val[g_n++];
 }
 
+/* SET HISTORY / SET DOHISTORY recorder (resident, hot path; flow.c calls it
+ * for each executed program statement before macro expansion).
+ * Real III+ 1.1 (set-mint/history, set-mint/dohistory): the line is stored
+ * before it executes, so the SET DOHISTORY OFF that ends a run is recorded
+ * but the SET DOHISTORY ON that began it is not; a zero capacity records
+ * nothing. The ring overwrites physical slots in order. The slot table and
+ * the line copies are PAL-heap blocks, outside the resident image. */
+void set_history_record(xb_interp *ip, const char *line)
+{
+    set_state *ss = set_state_for(ip, (int *)0);
+    samir_pal_t *pal;
+    uint32_t n, i;
+    char *copy;
+#ifndef SAMIR_W2_MUTANT_dohistory
+    if (!ss || !ss->dohistory || !ss->history_on || !ss->hist_cap) return;
+#else
+    if (!ss || !ss->history_on || !ss->hist_cap) return;   /* MUTANT: ignore DOHISTORY */
+#endif
+    pal = xb_interp_pal(ip);
+    if (!ss->hist) {
+        ss->hist = (char **)pal->acquire(pal, ss->hist_cap * (uint32_t)sizeof(char *));
+        if (!ss->hist) return;
+        for (i = 0; i < ss->hist_cap; i++) ss->hist[i] = (char *)0;
+    }
+    n = rt_strlen(line) + 1u;
+    copy = (char *)pal->acquire(pal, n);
+    if (!copy) return;
+    rt_memcpy(copy, line, n);
+    if (ss->hist[ss->hist_next]) pal->release(pal, ss->hist[ss->hist_next]);
+    ss->hist[ss->hist_next] = copy;
+    ss->hist_next = (ss->hist_next + 1u) % ss->hist_cap;
+}
+
 /* ===================================================================== */
 /* Small ASCII helpers (freestanding; no libc)                           */
 /* ===================================================================== */
@@ -570,6 +603,10 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
     ss->color_border=ss->color_background=0;
     /* SET ESCAPE default = ON (Using III+ U5-220 "normally ON"). */
     ss->escape = 1;
+    /* SET HISTORY ON, size 20; SET DOHISTORY OFF (real III+ history capture).
+     * A reused set_state address must not inherit another session's ring. */
+    ss->history_on = 1; ss->dohistory = 0;
+    ss->hist_cap = 20u; ss->hist_next = 0u; ss->hist = (char **)0;
 
     /* GATED options: cleared. */
     for (i = 0; i < SET_GATED_TEXT_CAP; i++) {
@@ -777,6 +814,17 @@ static SAMIR_OVL_TEXT(set) int set_opt_deleted(xb_interp *ip, set_state *ss, con
     return CMD_OK;
 }
 
+/* SET DOHISTORY ON|OFF: program statements are recorded only when ON
+ * (real III+ set-mint/dohistory: default OFF; bad toggle is #10). */
+static SAMIR_OVL_TEXT(set) int set_opt_dohistory(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ip;
+    if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
+    ss->dohistory = on;
+    return CMD_OK;
+}
+
 static SAMIR_OVL_TEXT(set) int set_opt_filter(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_filter(ip, ss, s, err_code);
@@ -833,6 +881,63 @@ static SAMIR_OVL_TEXT(set) int set_opt_escape(xb_interp *ip, set_state *ss, cons
  * [Ref: set-commands.md Sec 5 completeness: NEAR absent from HELP_topics.txt
  *  III+ index; it is a Clipper/dBASE IV addition.]
  */
+/* SET HISTORY ON|OFF|TO <expN> (real III+ 1.1 captures set-mint/history and
+ * probes hx2-hx8, build only). Rules fitted to those captures:
+ *   - TO n: n is an integer 0..16000 (fraction truncated); a character operand
+ *     is #27, a negative or too large one #46, a bad toggle #10.
+ *   - A shrink keeps physical slots 0..n-1 and wraps the write slot modulo n;
+ *     a grow keeps every slot and restarts the write slot at 0; the same size
+ *     changes nothing; n = 0 drops everything.
+ *   - ON and OFF restart the write slot at 0 (LIST then starts at slot 0).
+ * Not modelled (see bead): SET HISTORY ON while already ON also grew the ring
+ * in the real program (hx7 P2), and the dot-prompt up-arrow recall. */
+static SAMIR_OVL_TEXT(set) int set_opt_history(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    samir_pal_t *pal = xb_interp_pal(ip);
+    int on;
+    uint32_t n, i;
+    if (rt_kw_word(s, "TO\0", (int *)0) == 0) {
+        xb_val v;
+        int rc = xb_interp_eval(ip, s_skip_ws(s + 2), &v, err_code);
+        double d;
+        if (rc != INTERP_OK) return rc;
+        if (v.t != XB_N) { if (err_code) *err_code = 27; return -INTERP_ERR_EVAL; }
+        d = v.u.n;
+        if (d < 0.0 || d >= 16001.0) { if (err_code) *err_code = 46; return -INTERP_ERR_EVAL; }
+        n = (uint32_t)d;
+#ifdef SAMIR_W2_MUTANT_histcap
+        return CMD_OK;   /* MUTANT: SET HISTORY TO n never resizes */
+#endif
+        if (n == ss->hist_cap) return CMD_OK;
+        if (ss->hist) {
+            char **fresh = (char **)0;
+            if (n) {
+                fresh = (char **)pal->acquire(pal, n * (uint32_t)sizeof(char *));
+                if (!fresh) { if (err_code) *err_code = 43; return -INTERP_ERR_NOMEM; }
+                for (i = 0; i < n; i++) fresh[i] = i < ss->hist_cap ? ss->hist[i] : (char *)0;
+            }
+            for (i = n; i < ss->hist_cap; i++) if (ss->hist[i]) pal->release(pal, ss->hist[i]);
+            pal->release(pal, ss->hist);
+            ss->hist = fresh;
+        }
+#if defined(SAMIR_W2_MUTANT_histshrink)
+        ss->hist_next = 0u;   /* MUTANT: a shrink restarts the write slot */
+#elif defined(SAMIR_W2_MUTANT_histgrow)
+        ss->hist_next = n ? ss->hist_next % n : 0u;   /* MUTANT: a grow keeps the write slot */
+#else
+        ss->hist_next = (n && n < ss->hist_cap) ? ss->hist_next % n : 0u;
+#endif
+        ss->hist_cap = n;
+        return CMD_OK;
+    }
+    if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
+    ss->history_on = on;
+#ifndef SAMIR_W2_MUTANT_histtoggle
+    ss->hist_next = 0u;
+#endif
+    return CMD_OK;
+}
+
 /* Using III+ U5-210/PDF 322, U5-235/PDF 347, U5-259/PDF 371. */
 static SAMIR_OVL_TEXT(set) int set_opt_onoff_ctx(xb_interp *ip, const char *s, int *err_code, int which)
 {
