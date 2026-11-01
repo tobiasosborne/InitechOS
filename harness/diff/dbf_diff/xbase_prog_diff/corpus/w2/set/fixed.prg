@@ -1,5 +1,8 @@
-* MINT-ERRORS: 10
+* MINT-ERRORS: 10 10 10 10
 * Ref: ../dbase3-decomp/specs/commands/set-commands.md:153
+* Real III+ 1.1 probes: FIXED ON keeps the integer room of a value's picture and
+* replaces its decimals with SET DECIMALS (rounded at display; the stored value
+* is untouched); STORE under ON stores the transformed picture.
 ? "[W2-BEGIN]"
 ? "[DEFAULT FIXED OFF DECIMALS TWO]"
 ? 7, 1.2+2.3, 22/7
@@ -12,5 +15,59 @@ SET FIXED OFF
 ? 7, 1.2+2.3, 22/7
 ? "[BAD TOGGLE]"
 SET FIXED MAYBE
+? "[LITERALS AND EXPRESSIONS DECIMALS TWO]"
+SET DECIMALS TO 2
+SET FIXED ON
+? 7, 7.5555, 1.23456, 0.5, -3, -3.456
+? 2*3.5, 10/4, 10-2.5, 100000+0.5
+? 123456789012
+STORE 5 TO N
+STORE 3.14159 TO M
+? N, M, N+M
+? VAL("3.5"), INT(3.7), LEN("ab"), RECNO()
+? MOD(7,3), SQRT(16)
+? "[FIELDS DECIMALS FOUR]"
+USE BASE
+GO TOP
+SET DECIMALS TO 4
+? BAL, BAL+1, -BAL, BAL*2
+LIST NAME, BAL, BAL+1, 5, 2.5
+GO TOP
+DISPLAY BAL, BAL/3, BAL*2
+GO TOP
+STORE BAL TO B
+STORE BAL+1 TO B1
+SET FIXED OFF
+? B, B1
+SET FIXED ON
+? B, B1
+? "[DECIMALS ZERO ONE EIGHT]"
+SET DECIMALS TO 0
+? 7, 7.5, 22/7
+GO 2
+? BAL, BAL+1
+LIST NEXT 1 BAL, BAL+1
+SET DECIMALS TO 1
+? 3, -3.5, 0.04, B
+? STR(BAL), STR(1.5,6), LEN(STR(BAL))
+SET DECIMALS TO 8
+? 7, 7.5, 22/7, 1.2+2.3
+SET DECIMALS TO 2
+SET FIXED OFF
+? "[AFTER OFF]"
+? 7, 7.5555, 1.23456, 2*3.5, 22/7, 123456789012
+? "[FORMS]"
+SET FIXED TO ON
+SET FIXED
+SET FIXED OF
+? 7
+SET FIXE ON
+? 7, 22/7
+SET FIXED OFF junk
+? 7
+SET FIXED ON  junk
+? 7
+SET FIXED OFF
+? 7
 ? "[W2-END]"
 RETURN

@@ -35078,6 +35078,7 @@ test-samir-w2-$(subst /,-,$(1)): $$(SAMIR_W2_TEST)
 	@echo '>>> test-samir-w2-$(subst /,-,$(1)): green'
 endef
 $(foreach rule,$(SAMIR_W2_MINTED),$(eval $(call samir-w2-pending-gate,$(rule))))
+include harness/diff/dbf_diff/w2_set_fixed.mk
 
 # SET HEADINGS: ACCEPTED against the real III+ capture set-mint/headings
 # (HEADING/HEADINGS/HEAD spellings), plus a mutant that inverts the toggle.

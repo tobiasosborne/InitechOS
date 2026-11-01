@@ -1,0 +1,22 @@
+% SET FIXED -- os/samir/cmd/set.c set_opt_fixed (ctx->set_fixed; eval.c
+% xb_fixed_picture; query.c column pictures).  Real dBASE III PLUS 1.1 capture
+% xbase_prog_diff/set-mint/fixed.  Gates: test-samir-w2-set-fixed (+ -mutant).
+\begin{XbaseEntry}{FIXED}{set}
+Makes every displayed number use the same number of decimal places.
+\Syntax
+\SyntaxLine{\kw{SET FIXED} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF.
+\Usage
+With SET FIXED ON, \cmd{?}, \cmd{LIST} and \cmd{DISPLAY} show every number
+with the number of decimal places given by \cmd{SET DECIMALS}, whole numbers
+and numeric fields included: with SET DECIMALS TO 4, the number 7 is shown as
+\texttt{7.0000}.  The value keeps its full precision; only its display is
+rounded.  A number takes the same room before the decimal point as it does
+with SET FIXED OFF.
+
+With SET FIXED OFF, each value is shown with its own number of decimal places.
+Anything other than ON or OFF after the option is an error; text after ON or
+OFF is ignored.
+\SeeAlso{SET DECIMALS, ?, LIST}
+\end{XbaseEntry}

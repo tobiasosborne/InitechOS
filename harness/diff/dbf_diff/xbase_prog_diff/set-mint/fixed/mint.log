@@ -1,5 +1,5 @@
 LOG: Early LOG Init complete
-LOG: DOSBox-X's working directory: /home/tobiasosborne/Projects/initech-os-cx-w2mint
+LOG: DOSBox-X's working directory: /home/tobiasosborne/Projects/initech-os-lane-set-fixed
 LOG: Logging init: beginning logging proper. This is the end of the early init logging
 LOG: Logging: No logfile was given. All further logging will be discarded.
 LOG: DOSBox-X version 2024.03.01 Commit 02f36ba (Linux SDL2 64-bit)
@@ -18,7 +18,7 @@ LOG: USING AVI+ZMBV
 LOG: Max 3670016 sz 8192
 LOG: Final 8192
 ALSA lib seq_hw.c:528:(snd_seq_hw_open) open /dev/snd/seq failed: No such file or directory
-LOG: SDLNet_TCP_Open: Couldn't create socket
+LOG: SDLNet_TCP_Open: Couldn't connect to remote host
 LOG: TiMidity: can't open control connection (host=127.0.0.1, port=7777)
 LOG: MIDI:fluidsynth: SoundFont not specified, and no system SoundFont found
 LOG: MIDI:synth: Specify .SF2 sound font file with midiconfig=

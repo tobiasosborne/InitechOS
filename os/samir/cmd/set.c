@@ -546,6 +546,7 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
      * fn_builtins.c reads for STR() 1-arg default decimals). */
     ss->decimals = 2;
     xb_interp_ctx(ip)->set_decimals = 2;
+    xb_interp_ctx(ip)->set_fixed = 0;
 
     /* SET DATE default = AMERICAN [verified: mint-results-003.md]. */
     ss->date_fmt = SET_DATE_AMERICAN;
@@ -718,6 +719,20 @@ static SAMIR_OVL_TEXT(set) int set_opt_exact(xb_interp *ip, set_state *ss, const
     int rc = do_set_exact(ip, s, err_code);
     (void)ss;
     return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+/* SET FIXED ON|OFF (default OFF). The effect is applied by xb_eval to each
+ * top-level numeric result.  Real III+ 1.1 w2 set-mint/fixed: "SET FIXED TO ON",
+ * bare "SET FIXED", "SET FIXED OF" and "SET FIXED MAYBE" are all #10; trailing
+ * text after ON/OFF is ignored. */
+static SAMIR_OVL_TEXT(set) int set_opt_fixed(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ss;
+    on=rt_kw_word(s_skip_ws(s),"OFF\0ON\0",(int *)0); /* first word only */
+    if(on<0) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    xb_interp_ctx(ip)->set_fixed=(uint8_t)on;
+    return CMD_OK;
 }
 
 static SAMIR_OVL_TEXT(set) int set_opt_decimals(xb_interp *ip, set_state *ss, const char *s, int *err_code)

@@ -12,6 +12,7 @@
 SET_OPT("ALTERNATE", set_opt_alternate)
 SET_OPT("EXACT", set_opt_exact)
 SET_OPT("DECIMALS", set_opt_decimals)
+SET_OPT("FIXED", set_opt_fixed)
 SET_OPT("DATE", set_opt_date)
 SET_OPT("CENTURY", set_opt_century)
 SET_OPT("ORDER", set_opt_order)
