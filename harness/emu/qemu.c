@@ -441,7 +441,7 @@ static void record_frame(RecordCtx *rec)
 
 /* ---- RECORD-SYNC frame capture (bead initech-x8gsi.1; qemu.h record_sync) --
  * The protocol, harness side (the guest side and the byte codes are documented
- * at os/milton/kmain.c RECORD-SYNC). QEMU runs with -icount, so guest time is a
+ * at os/milton/rec_sync.h). QEMU runs with -icount, so guest time is a
  * function of the instructions it retires, never of host speed.
  *   FRAME (after every token, plus the initial and final frame): write the
  *     settle, converted to guest PIT ticks (settle_ms / 10, 1..250) -- the

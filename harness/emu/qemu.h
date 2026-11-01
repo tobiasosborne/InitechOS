@@ -225,7 +225,7 @@ typedef struct {
      * writes, every key token is queued in ONE QMP command, and each frame is
      * taken ONLY at a guest-served sync point: the harness sends the settle
      * (in guest ticks); the -DFLAIR_RECORD_SYNC record kernel
-     * (os/milton/kmain.c) answers at its first input-idle point that long
+     * (os/milton/rec_sync.h) answers at its first input-idle point that long
      * after the input with "REC-SYNC n=<k> ..." and blocks, clock stopped,
      * while the harness grabs the frame and queues the next token's input;
      * then it resumes on a PIT edge. Pair with rtc_deterministic (-icount) so
