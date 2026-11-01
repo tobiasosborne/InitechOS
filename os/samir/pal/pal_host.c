@@ -356,6 +356,8 @@ static int host_say_screen(samir_pal_t *p,uint8_t row,uint8_t col,const char *te
     }
     return 0;
 }
+static int host_paint(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
+{ (void)p;(void)row;(void)col;(void)text;(void)n;return 0; } /* discarded screen */
 static int host_printout(samir_pal_t *p,const char *text,uint32_t n)
 { (void)p;(void)text;(void)n;return 0; } /* deterministic discarded printer */
 
@@ -531,6 +533,7 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
     st->vtable.gotoxy     = host_gotoxy;
     st->vtable.say_screen = host_say_screen;
     st->vtable.printout = host_printout;
+    st->vtable.paint = host_paint;
     st->vtable.set_attr   = host_set_attr;
     st->vtable.iscolor    = host_iscolor;
     st->vtable.today      = host_today;

@@ -107,6 +107,11 @@ SECTIONS
             *(.text.0ovl_memfile)
             *(.rodata.0ovl_memfile)
         }
+        .ovl_forms {
+            KEEP(*(.rodata.0ovl_forms.0hdr))
+            *(.text.0ovl_forms)
+            *(.rodata.0ovl_forms)
+        }
     }
 
     . = ALIGN(16);
@@ -152,3 +157,4 @@ NOCROSSREFS_TO(.ovl_report  .text .rodata .data .bss)
 NOCROSSREFS_TO(.ovl_status  .text .rodata .data .bss)
 NOCROSSREFS_TO(.ovl_set     .text .rodata .data .bss)
 NOCROSSREFS_TO(.ovl_memfile .text .rodata .data .bss)
+NOCROSSREFS_TO(.ovl_forms   .text .rodata .data .bss)

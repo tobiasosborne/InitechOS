@@ -1,9 +1,14 @@
 % @ SAY -- say-get-read.md Sections 1-2; programming-and-io.md Section 7;
-% real III+ fns-mint/{row,col,prow,pcol}/GOLD.OUT.
+% real III+ fns-mint/{row,col,prow,pcol}/GOLD.OUT; @...TO, @...CLEAR and bare @
+% real III+ screen-mint/at-to-{a,b,c}, at-clear-{a,b}.
 \begin{XbaseEntry}{@}{command}
-Displays an expression at a specified row and column of the current device.
+Displays an expression at a specified row and column of the current device,
+draws a box or line, or erases part of the screen.
 \Syntax
 \SyntaxLine{\kw{@} \xp{row}\kw{,}\xp{column} \kw{SAY} \xp{expression}}
+\SyntaxLine{\kw{@} \xp{row}\kw{,}\xp{column} \kw{TO} \xp{row2}\kw{,}\xp{column2} [\kw{DOUBLE}]}
+\SyntaxLine{\kw{@} \xp{row}\kw{,}\xp{column} \kw{CLEAR} [\kw{TO} \xp{row2}\kw{,}\xp{column2}]}
+\SyntaxLine{\kw{@} \xp{row}\kw{,}\xp{column}}
 \Usage
 Rows and columns are numbered from zero.  On the screen, rows run from 0
 through 24 and columns from 0 through 79.  The coordinates are numeric
@@ -17,10 +22,20 @@ then stands immediately after the displayed value.  SET DEVICE TO PRINT
 sends the positioned output to the printer instead, moving its print head.
 Positioned output is not copied to the SET ALTERNATE file.
 
-This version accepts the SAY form shown above.  A PICTURE clause raises
+TO draws a single-line box, or a double-line box with DOUBLE, leaving its
+interior as it was.  When the two rows or the two columns are equal it draws a
+plain line.  The cursor then stands just past the last corner.  CLEAR blanks
+from the position to the bottom right of the screen and leaves the cursor at
+the position; CLEAR TO blanks only the given rectangle and leaves the cursor
+where it was.  With no keyword, the rest of the row is blanked.  A second corner
+above or to the left of the first raises \xmsg{46}{Illegal value.}.  TO and CLEAR
+always act on the screen, whatever SET DEVICE says; the form with no keyword
+moves the print head instead when the device is the printer.
+
+A PICTURE clause on SAY raises
 \xmsg{36}{Unrecognized phrase/keyword in command.}.
 \Examples
 Save the cursor position before displaying it with \cmd{?}:
 \DotExample{examples/cmd-say}
-\SeeAlso{SET DEVICE, ROW(), COL(), PROW(), PCOL(), ?}
+\SeeAlso{CLEAR, SET DEVICE, ROW(), COL(), PROW(), PCOL(), ?}
 \end{XbaseEntry}

@@ -98,6 +98,11 @@ typedef struct {
      * (console.c), not part of the struct, so a stack console stays small. */
     uint8_t  cur_attr;
     uint8_t *cells;
+    /* ANSI.SYS ESC[=7l: characters past end-of-line are thrown away (IBM DOS 3.30
+     * TR 80X0945 p. 3-16). past_end: the last column is already written, so the
+     * cursor rests on it and the next printable is discarded until a move. */
+    uint8_t  nowrap;
+    uint8_t  past_end;
 } console_t;
 
 /* Save the text page + cursor into buf (CONSOLE_PAGE_BYTES: the cells, then the
