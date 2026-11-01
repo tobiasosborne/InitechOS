@@ -10,7 +10,8 @@
  * not on disk; the kernel zeroes [load + length, bss_end). No timestamps
  * (Rule 11).
  *
- * Lane 1 has ONE section (COLD: the JTC mat + About This Computer, DEC-14-10).
+ * ONE section (COLD: JTC, About This Computer and cold Finder operations,
+ * ADR-0014 DEC-14-10 lanes 1/2).
  * A second section gets its own output
  * section here, its own directory row in overlay_hdr.asm, and its own
  * budget ASSERT (DEC-14-9(e)).
@@ -19,9 +20,10 @@ ENTRY(ovl_hdr)
 
 OVERLAY_BASE = 0x005C0000;
 OVERLAY_CEIL = 0x005E0000;
-/* DEC-14-9(e) per-section budget: section COLD (~2 KiB today).
- * Raising it is a deliberate act with an issue (Rule 8 spirit). */
-OVL_COLD_BUDGET = 0x1000;
+/* ADR-0014 lane 2: 4 KiB -> 32 KiB for Finder operation bodies and dialogs.
+ * One section, within the fixed 128 KiB window; the window/guard stay locked.
+ * DEC-14-9(e)'s exact-boundary mutant covers the enlarged section budget. */
+OVL_COLD_BUDGET = 0x8000;
 
 SECTIONS
 {

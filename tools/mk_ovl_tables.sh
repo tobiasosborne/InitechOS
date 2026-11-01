@@ -35,7 +35,16 @@ for o in "$@"; do nm --defined-only "$o" | awk '$2 ~ /^[A-Z]$/{print $3}'; done 
 for o in "$@"; do nm -u "$o" | awk '{print $NF}'; done | sort -u | comm -23 - "$out/ovl_gdef.txt" > "$out/ovl_und.txt"
 for o in "$@"; do nm --defined-only "$o" | awk '$2=="T"{print $3}'; done | sort -u > "$out/ovl_def.txt"
 comm -12 "$out/ovl_und.txt" "$kdef" > "$out/ovl_imports.txt"
-comm -12 "$out/ovl_def.txt" "$kund" > "$out/ovl_exports.txt"
+# All public COLD entry points get stubs. A resident mutant can call a cold
+# verb that the production caller normally reaches inside COLD (for example
+# Empty Trash without confirmation). Derive this superset from the objects,
+# so those variants cannot accidentally retain a resident copy of the body.
+# A shared utility may also be linked into DOS-only kernels (kmain_cold.o).
+# Its resident definition is GC'd in tenant kernels; it needs no public stub
+# unless a resident object actually references it.
+comm -23 "$out/ovl_def.txt" "$kdef" > "$out/ovl_exports.txt"
+comm -12 "$out/ovl_def.txt" "$kund" >> "$out/ovl_exports.txt"
+sort -u "$out/ovl_exports.txt" -o "$out/ovl_exports.txt"
 # Every name the sections leave undefined must be a resident kernel symbol:
 # anything else would only surface as an overlay link error later.
 missing=$(comm -23 "$out/ovl_und.txt" "$kdef")

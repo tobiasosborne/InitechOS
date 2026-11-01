@@ -10,9 +10,8 @@
 #                                         wrong volume, PC LOAD LETTER raster
 #   (c) test-ovl-context(-mutant)         runtime CONTEXT guards + section fault
 #       test-ovl-context-static(-mutant)  ELF stub / hook / pointer rules
-#   (d) test-kernel-size-ovl(-mutant)     169,984 B resident cap (RED until
-#                                         lane 2; NOT in the default vector --
-#                                         operator resolution 2026-10-25 item 3)
+#   (d) test-kernel-size-ovl(-mutant)     169,984 B resident cap (lane 2 GREEN;
+#                                         now in the default vector)
 #   (e) test-ovl-window(-mutant)          per-section budget + window size
 #   (f) test-ovl-repro(-mutant)           FLAIR.OVL + INITDOS.SYS + image
 #   (g) test-ovl-absence(-mutant)         moved symbols gone from the kernel
@@ -95,8 +94,8 @@ TEST_UNIT_GATES += test-ovl-window test-ovl-window-mutant
 # generated 11-byte stub: call ovl_check; jmp [export slot].
 define ovl-absence-check
 fam=$$(nm --defined-only $(OVL_SECTION_OBJS) | awk '$$2 ~ /^[tT]$$/{sub(/\..*/,"",$$3); print $$3}' | LC_ALL=C sort -u); \
-checked=; for f in $$fam; do grep -Eq "static inline[^(]*[ *]$$f\(" os/flair/*.h spec/*.h && continue; checked="$$checked $$f"; \
-	hits=$$(nm --defined-only $(1) | awk -v f="$$f" '{n=$$3; sub(/\..*/,"",n)} n==f' | wc -l); \
+checked=; for f in $$fam; do grep -Eq "static inline[^(]*[ *]$$f\(" os/flair/*.h spec/*.h spec/assets/*.h && continue; checked="$$checked $$f"; \
+	hits=$$(nm --defined-only $(1) | awk -v f="$$f" '{n=$$3; sub(/\..*/,"",n); sub(/_kept$$/,"",n)} n==f' | wc -l); \
 	if grep -qx "$$f" $(BUILD)/ovl_exports.txt; then \
 		a=$$(nm $(1) | awk -v f="$$f" '$$3==f{print $$1}'); \
 		[ "$$hits" -eq 1 ] && [ -n "$$a" ] || { printf '!!! ovl-absence FAIL: export %s resident %s times\n' "$$f" "$$hits"; exit 1; }; \
@@ -108,7 +107,7 @@ endef
 .PHONY: test-ovl-absence test-ovl-absence-mutant
 test-ovl-absence: $(KERNEL_FLAIRTENANTS_ELF) $(OVL_SECTION_OBJS) $(TRANSIENT_IMPORTS_LD) | $(OVL_GATE_DIR)
 	@$(call ovl-absence-check,$(KERNEL_FLAIRTENANTS_ELF))
-	@printf '>>> test-ovl-absence: green (the JTC family [%s] is absent from the resident ELF; exports are stubs only)\n' "$$(tr '\n' ' ' < $(OVL_GATE_DIR)/family.txt)"
+	@printf '>>> test-ovl-absence: green (COLD families, including Finder [%s], absent from the resident ELF; exports are stubs only)\n' "$$(tr '\n' ' ' < $(OVL_GATE_DIR)/family.txt)"
 # Rule 6: LTO keeps a resident copy. Link the flagship with egg_jtc.c compiled
 # INTO the kernel (entry points renamed so the stubs still link, kept by -u).
 $(OVL_GATE_DIR)/egg_jtc_kept.o: os/flair/egg_jtc.c os/flair/egg_jtc.h os/flair/egg_jtc_model.h | $(OVL_GATE_DIR)
@@ -116,9 +115,21 @@ $(OVL_GATE_DIR)/egg_jtc_kept.o: os/flair/egg_jtc.c os/flair/egg_jtc.h os/flair/e
 test-ovl-absence-mutant: test-ovl-absence $(OVL_GATE_DIR)/egg_jtc_kept.o
 	$(KERNEL_LINK) -u egg_jtc_open_kept -u egg_jtc_event_kept -o $(OVL_GATE_DIR)/kept.elf $(KERNEL_FLAIRTENANTS_OBJS) $(OVL_GATE_DIR)/egg_jtc_kept.o @$(TRANSIENT_IMPORTS_LD)
 	@if ( $(call ovl-absence-check,$(OVL_GATE_DIR)/kept.elf) ) > $(OVL_GATE_DIR)/kept.log 2>&1; then printf '!!! test-ovl-absence-mutant FAIL: a resident copy survived\n'; exit 1; fi
-	@grep '!!! ovl-absence FAIL: moved symbol' $(OVL_GATE_DIR)/kept.log
+	@grep -E '!!! ovl-absence FAIL: (moved symbol|export .* resident 2 times)' $(OVL_GATE_DIR)/kept.log
 	@printf '>>> test-ovl-absence-mutant: green (resident copy of the moved family RED)\n'
 TEST_UNIT_GATES += test-ovl-absence test-ovl-absence-mutant
+
+# Lane 2: independently prove the Finder family check catches a resident body.
+$(OVL_GATE_DIR)/finder_ops_kept.o: os/flair/finder_ops_cold.c os/flair/finder_ops_private.h | $(OVL_GATE_DIR)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(OVL_SECTION_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -Dfinder_ops_drop=finder_ops_drop_kept -Dfinder_ops_replace=finder_ops_replace_kept -Dfinder_ops_reason=finder_ops_reason_kept -Dfinder_ops_put_away=finder_ops_put_away_kept -c $< -o $@
+.PHONY: test-ovl-absence-finder-mutant
+test-ovl-absence-finder-mutant: test-ovl-absence $(OVL_GATE_DIR)/finder_ops_kept.o
+	$(KERNEL_LINK) -u finder_ops_drop_kept -o $(OVL_GATE_DIR)/finder_kept.elf $(KERNEL_FLAIRTENANTS_OBJS) $(OVL_GATE_DIR)/finder_ops_kept.o @$(TRANSIENT_IMPORTS_LD)
+	@if ( $(call ovl-absence-check,$(OVL_GATE_DIR)/finder_kept.elf) ) > $(OVL_GATE_DIR)/finder_kept.log 2>&1; then printf '!!! Finder resident body survived\n'; exit 1; fi
+	@grep -E '!!! ovl-absence FAIL: (export finder_ops_drop resident 2 times|moved symbol fo_)' $(OVL_GATE_DIR)/finder_kept.log
+	@printf '>>> test-ovl-absence-finder-mutant: green (resident Finder body RED)\n'
+test-ovl-absence-mutant: test-ovl-absence-finder-mutant
+TEST_UNIT_GATES += test-ovl-absence-finder-mutant
 
 # --- (c) static ELF rules (DEC-14-6.2/.5) ------------------------------------
 # 1. no IRQ / driver / INT 21h object references a stub; 2. the overlay imports
@@ -174,13 +185,13 @@ TEST_UNIT_GATES += test-ovl-context-static test-ovl-context-static-mutant
 
 # --- (d) the resident-size gate (DEC-14-9(d)) ---------------------------------
 # Every production (non-mutant) kernel loads at or under 196,608 - 4,096 -
-# 2 x 11,264 = 169,984 B. Honestly RED on landing; joins `make test` on its
-# FIRST green (operator resolution 2026-10-25, item 3) -- r4 and the 4 KiB
-# headroom floor bind meanwhile. NOT added to TEST_UNIT_GATES here.
+# 2 x 11,264 = 169,984 B. RED in lane 1; GREEN in lane 2, hence part of
+# `make test` (operator resolution 2026-10-25, item 3).
 KERNEL_OVL_RESIDENT_MAX := 169984
 define kernel-ovl-grade
 $(OBJCOPY) -O binary $(1) $(OVL_GATE_DIR)/resident.bin; \
 loaded=$$(wc -c < $(OVL_GATE_DIR)/resident.bin); \
+printf '    kernel-size-ovl %s loaded %s B; cap %s B\n' "$(1)" "$$loaded" '$(KERNEL_OVL_RESIDENT_MAX)'; \
 if [ "$$loaded" -gt "$(KERNEL_OVL_RESIDENT_MAX)" ]; then \
 	printf '!!! kernel-size-ovl FAIL: %s loaded %s B > %s B (DEC-14-9(d): 196608 - 4096 - 2 x 11264)\n' "$(notdir $(1))" "$$loaded" '$(KERNEL_OVL_RESIDENT_MAX)'; exit 1; \
 fi
@@ -212,7 +223,7 @@ test-kernel-size-ovl-mutant: $(KGC_DIR)/probe.o | $(OVL_GATE_DIR)
 	@if ( $(call kernel-ovl-grade,$(OVL_GATE_DIR)/szpad1.elf) ) > $(OVL_GATE_DIR)/szpad1.log 2>&1; then printf '!!! test-kernel-size-ovl-mutant FAIL: cap+1 survived\n'; exit 1; fi
 	@grep '!!! kernel-size-ovl FAIL: szpad1.elf loaded 169985 B' $(OVL_GATE_DIR)/szpad1.log
 	@printf '>>> test-kernel-size-ovl-mutant: green (cap passes, cap+1 RED)\n'
-TEST_UNIT_GATES += test-kernel-size-ovl-mutant
+TEST_UNIT_GATES += test-kernel-size-ovl test-kernel-size-ovl-mutant
 
 # --- (f) reproducibility: FLAIR.OVL, INITDOS.SYS, the minted image -----------
 # Two complete builds in DIFFERENT build directories under DIFFERENT locales
@@ -404,10 +415,10 @@ $$(eval $$(call ovl-gate-image,$(OVL_GATE_DIR)/$(1).img,kernel_mut_ovl$(1),))
 endef
 $(eval $(call ovl-stub-mutant,swap,OVL_MUT_SWAP_STUBS=1,$(BUILD)/kmain_flairtenants_mut_jtc_gate.o))
 .PHONY: test-ovl-behaviour test-ovl-behaviour-mutant
-test-ovl-behaviour: test-flair-egg-jtc test-ovl-absence
+test-ovl-behaviour: test-flair-egg-jtc test-ovl-absence test-flair-file-ops test-flair-trash-edges test-flair-finder-alerts test-flair-file-copy
 	@grep -qx 'OVL-OK' $(BUILD)/egg_jtc_mat.serial
 	@printf '>>> test-ovl-behaviour: green (the JTC mat ran from C:\\FLAIR.OVL against its authored goldens; resident copy absent)\n'
-test-ovl-behaviour-mutant: test-ovl-behaviour $(OVL_GATE_DIR)/nolabel.img $(OVL_GATE_DIR)/swap.img $(JTC_CHECK) $(OVL_DATA)
+test-ovl-behaviour-mutant: test-ovl-behaviour test-flair-file-ops-mutant test-flair-trash-edges-mutant test-flair-file-copy-mutant $(OVL_GATE_DIR)/nolabel.img $(OVL_GATE_DIR)/swap.img $(JTC_CHECK) $(OVL_DATA)
 	$(call jtc-boot,ovl_nolabel,$(OVL_GATE_DIR)/nolabel.img,FLAIR_EGG_JTC_OPEN_SPEC,EGG-JTC-OPEN click=3)
 	@if $(JTC_CHECK) $(BUILD)/ovl_nolabel.ppm fixtures/easter/jtc_mat.png > $(OVL_GATE_DIR)/nolabel.red 2>&1; then printf '!!! mutant overlay (one label) survived the authored still\n'; exit 1; fi
 	@cat $(OVL_GATE_DIR)/nolabel.red | head -n 2
@@ -452,20 +463,35 @@ $(call calcda-boot,$(2)_about,$(1),$(FLAIR_DATA_IMG),FLAIR_APPLE_ABOUT_SPEC,APPL
 @tr -d '\r' < $(BUILD)/$(2)_about.serial | awk '/^FLAIR-TENANTS-READY/{r=1} /^OVL-OK$$/{n++; if(!r) early=1} END{exit !(n==1 && !early)}' \
  || { printf 'RED %s: About did not load the overlay lazily\n' '$(2)'; exit 1; }
 endef
+# Lane 2: the first cold Finder entry is the drop's generated stub. The
+# warm drag-target highlight must precede OVL-OK; the committed move and its
+# bytes are checked independently through mtools (PRD 6.3/6.5, DEC-14-9(a)).
+define ovl-lazy-finder
+$(call calcda-boot,$(2)_finder,$(1),$(FLAIR_DATA_IMG),FLAIR_FILEOPS_INTO_SPEC,FINDER-MOVE name=README.TXT from=0 to=3)
+@grep -qx 'FINDER-MOVE name=README.TXT from=0 to=3' $(BUILD)/$(2)_finder.serial || { printf 'RED %s: Finder move did not commit\n' '$(2)'; exit 1; }
+@mtype -i $(BUILD)/$(2)_finder_data.img ::/APPS/README.TXT | cmp -s - $(FLAIR_DATA_README) || { printf 'RED %s: moved Finder bytes differ\n' '$(2)'; exit 1; }
+@! mdir -i $(BUILD)/$(2)_finder_data.img ::/README.TXT >/dev/null 2>&1 || { printf 'RED %s: Finder source still present\n' '$(2)'; exit 1; }
+@tr -d '\r' < $(BUILD)/$(2)_finder.serial | awk '/^FLAIR-TENANTS-READY/{r=1} /^FINDER-DROP-HILITE name=APPS$$/{d=1} /^OVL-OK$$/{n++; if(!r || !d) bad=1} /^FINDER-MOVE name=README.TXT from=0 to=3$$/{m=1; if(n!=1) bad=1} END{exit !(m && n==1 && !bad)}' \
+ || { printf 'RED %s: Finder did not load lazily once at the drop\n' '$(2)'; exit 1; }
+endef
 .PHONY: test-ovl-lazy test-ovl-lazy-mutant
 test-ovl-lazy: test-flair-apple-menu $(OVL_LAZY_IMG) $(FLAIR_DATA_IMG) $(JTC_CHECK)
 	$(call ovl-lazy-mat,$(OVL_LAZY_IMG),ovl_lazy)
 	$(call ovl-lazy-about,$(OVL_LAZY_IMG),ovl_lazy)
-	@printf '>>> test-ovl-lazy: green (no preload: the first stub call loads C:\\FLAIR.OVL once, after READY; JTC mat == authored golden; About == preloaded capture)\n'
+	$(call ovl-lazy-finder,$(OVL_LAZY_IMG),ovl_lazy)
+	@printf '>>> test-ovl-lazy: green (no preload: JTC, About and Finder move load once after READY; Finder bytes match through mtools)\n'
 test-ovl-lazy-mutant: test-ovl-lazy $(OVL_GATE_DIR)/nosave.img $(OVL_GATE_DIR)/noload.img
-	@set -e; for m in nosave noload; do for leg in mat about; do \
+	@set -e; for m in nosave noload; do for leg in mat about finder; do \
 	 if ( $(MAKE) --no-print-directory ovl-lazy-leg-$$leg OVL_LAZY_LEG_IMG=$(OVL_GATE_DIR)/$$m.img OVL_LAZY_LEG_TAG=ovl_lazy_$$m ) > $(OVL_GATE_DIR)/lazy_$${m}_$$leg.log 2>&1; then \
 		printf '!!! test-ovl-lazy-mutant FAIL: stub mutant %s survived the %s trace\n' $$m $$leg; exit 1; fi; \
 	 printf '    %s %s: %s\n' $$m $$leg "$$(grep -E '^(RED|!!!)' $(OVL_GATE_DIR)/lazy_$${m}_$$leg.log | head -n 1)"; done; done
-	@printf '>>> test-ovl-lazy-mutant: green (slow path without pushad/popad, and an ovl_check that never loads: RED on both traces)\n'
+	@printf '>>> test-ovl-lazy-mutant: green (nosave/noload RED on JTC, About and Finder traces)\n'
 .PHONY: ovl-lazy-leg-mat ovl-lazy-leg-about
 ovl-lazy-leg-mat:
 	$(call ovl-lazy-mat,$(OVL_LAZY_LEG_IMG),$(OVL_LAZY_LEG_TAG))
 ovl-lazy-leg-about:
 	$(call ovl-lazy-about,$(OVL_LAZY_LEG_IMG),$(OVL_LAZY_LEG_TAG))
+.PHONY: ovl-lazy-leg-finder
+ovl-lazy-leg-finder:
+	$(call ovl-lazy-finder,$(OVL_LAZY_LEG_IMG),$(OVL_LAZY_LEG_TAG))
 TEST_EMU_GATES += test-ovl-lazy test-ovl-lazy-mutant
