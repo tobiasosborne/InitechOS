@@ -1,5 +1,7 @@
 % SET PRINT -- os/samir/cmd/set.c set_opt_print; xbase_prog_diff/set-mint/margin
 % PRINTER.OUT (minimal: console output mirrored to the raw LPT stream).
+% Only ? and ?? output with SET MARGIN is checked against real III+; the
+% set-mint/print capture is still PENDING.
 \begin{XbaseEntry}{PRINT}{set}
 Sends console output to the printer as well as the screen.
 \Syntax
@@ -8,8 +10,9 @@ Sends console output to the printer as well as the screen.
 OFF.
 \Usage
 With SET PRINT ON, what \cmd{?} and \cmd{??} display is also sent to the
-printer, with the left margin set by SET MARGIN, and the printer position
-\fn{PROW()} and \fn{PCOL()} advances with it.  The screen is unaffected.
-Anything other than ON or OFF raises \xmsg{10}{Syntax error.}.
+printer, with the left margin set by SET MARGIN.  This version has been checked
+against the original product only for that margin behaviour; other effects of
+SET PRINT, including PROW() and PCOL() and the response to a bad setting, are
+not yet checked.
 \SeeAlso{SET DEVICE, EJECT, PCOL()}
 \end{XbaseEntry}
