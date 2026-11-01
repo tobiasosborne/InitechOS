@@ -11999,6 +11999,21 @@ test-harness-key-ack-mutant: test-harness-key-ack $(BUILD)/test_qemu_key_ack_mut
 	@printf '>>> test-harness-key-ack-mutant: green (NO_KEY_ACK correctly RED: next key outruns guest consumption)\n'
 TEST_UNIT_GATES += test-harness-key-ack test-harness-key-ack-mutant
 
+# initech-1x6x2.1; PRD Sec 8: blind-typed strokes pace on QEMU's CPU, not the
+# wall clock, so a parallel vector's starved guest is never outrun.
+$(BUILD)/test_qemu_key_pace: harness/emu/test_qemu_key_pace.c $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
+	$(CC) $(CFLAGS) -Iharness/emu -o $@ $<
+$(BUILD)/test_qemu_key_pace_mut: harness/emu/test_qemu_key_pace.c $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
+	$(CC) $(CFLAGS) -DHARNESS_MUTATE_NO_KEY_PACE -Iharness/emu -o $@ $<
+.PHONY: test-harness-key-pace test-harness-key-pace-mutant
+test-harness-key-pace: $(BUILD)/test_qemu_key_pace
+	@$<
+test-harness-key-pace-mutant: test-harness-key-pace $(BUILD)/test_qemu_key_pace_mut
+	@if $(BUILD)/test_qemu_key_pace_mut > $(BUILD)/qemu_key_pace_mut.log 2>&1; then printf '!!! key pace mutant survived\n'; exit 1; fi
+	@grep '^RED qemu-key-pace: a busy QEMU must receive the CPU budget' $(BUILD)/qemu_key_pace_mut.log
+	@printf '>>> test-harness-key-pace-mutant: green (NO_KEY_PACE correctly RED: next stroke outruns a starved guest)\n'
+TEST_UNIT_GATES += test-harness-key-pace test-harness-key-pace-mutant
+
 # Bochs oracle harness CLI (beads initech-564): library + main.
 $(BOCHS_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h harness/emu/bochs_trace.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu -o $@ $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC)
