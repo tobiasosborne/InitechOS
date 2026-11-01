@@ -194,6 +194,6 @@ const set_state *set_get_state(xb_interp *ip);
 void set_close_alternate(xb_interp *ip);
 /* Record one executed program statement into the HISTORY ring when both
  * SET HISTORY and SET DOHISTORY are ON (flow.c, before macro expansion). */
-void set_history_record(xb_interp *ip, const char *line);
+int set_history_record(xb_interp *ip, const char *line, int *ec);   /* 0 or -INTERP_ERR_NOMEM, ec 43 */
 
 #endif /* INITECH_SAMIR_SET_H */

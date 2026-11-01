@@ -151,30 +151,31 @@ static set_state *set_state_for(xb_interp *ip, int *is_new)
  * but the SET DOHISTORY ON that began it is not; a zero capacity records
  * nothing. The ring overwrites physical slots in order. The slot table and
  * the line copies are PAL-heap blocks, outside the resident image. */
-void set_history_record(xb_interp *ip, const char *line)
+int set_history_record(xb_interp *ip, const char *line, int *ec)
 {
     set_state *ss = set_state_for(ip, (int *)0);
     samir_pal_t *pal;
     uint32_t n, i;
     char *copy;
 #ifndef SAMIR_W2_MUTANT_dohistory
-    if (!ss || !ss->dohistory || !ss->history_on || !ss->hist_cap) return;
+    if (!ss || !ss->dohistory || !ss->history_on || !ss->hist_cap) return INTERP_OK;
 #else
-    if (!ss || !ss->history_on || !ss->hist_cap) return;   /* MUTANT: ignore DOHISTORY */
+    if (!ss || !ss->history_on || !ss->hist_cap) return INTERP_OK;   /* MUTANT: ignore DOHISTORY */
 #endif
     pal = xb_interp_pal(ip);
     if (!ss->hist) {
         ss->hist = (char **)pal->acquire(pal, ss->hist_cap * (uint32_t)sizeof(char *));
-        if (!ss->hist) return;
+        if (!ss->hist) { if (ec) *ec = 43; return -INTERP_ERR_NOMEM; }
         for (i = 0; i < ss->hist_cap; i++) ss->hist[i] = (char *)0;
     }
     n = rt_strlen(line) + 1u;
     copy = (char *)pal->acquire(pal, n);
-    if (!copy) return;
+    if (!copy) { if (ec) *ec = 43; return -INTERP_ERR_NOMEM; }   /* fail loud: Insufficient memory */
     rt_memcpy(copy, line, n);
     if (ss->hist[ss->hist_next]) pal->release(pal, ss->hist[ss->hist_next]);
     ss->hist[ss->hist_next] = copy;
     ss->hist_next = (ss->hist_next + 1u) % ss->hist_cap;
+    return INTERP_OK;
 }
 
 /* ===================================================================== */
