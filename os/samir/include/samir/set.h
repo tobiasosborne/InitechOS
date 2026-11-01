@@ -130,6 +130,15 @@ typedef struct {
     /* Using III+ U5-220: SET ESCAPE ON (default) lets Esc interrupt a
      * running program; OFF disables it and ON ESCAPE (initech-39e5). */
     int  escape;            /* 1 = ON (default), 0 = OFF */
+    /* SET HISTORY / SET DOHISTORY (W2a). Ring of the last `hist_cap` executed
+     * statements (physical slots, `hist_next` = next write slot). The slot
+     * table and the line copies live on the PAL heap, not in the resident.
+     * Ref: real III+ captures set-mint/history, set-mint/dohistory. */
+    int  history_on;        /* 1 = recording (default), 0 = SET HISTORY OFF */
+    int  dohistory;         /* 0 = program lines not recorded (default) */
+    uint32_t hist_cap;      /* SET HISTORY TO n (default 20, max 16000) */
+    uint32_t hist_next;     /* next slot written */
+    char **hist;            /* hist_cap slots, NULL = empty; lazily allocated */
 } set_state;
 
 /* -----------------------------------------------------------------------
@@ -182,5 +191,8 @@ int          set_get_escape  (xb_interp *ip);   /* 1 = ON (default) */
  */
 const set_state *set_get_state(xb_interp *ip);
 void set_close_alternate(xb_interp *ip);
+/* Record one executed program statement into the HISTORY ring when both
+ * SET HISTORY and SET DOHISTORY are ON (flow.c, before macro expansion). */
+void set_history_record(xb_interp *ip, const char *line);
 
 #endif /* INITECH_SAMIR_SET_H */

@@ -1560,9 +1560,43 @@ static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
       for(unsigned i=2;i<=10;i++){qi_text(q,"F");qi_uint(q,i,0);qi_pad(q,4);qi_text(q,"- ");qi_text(q,s);qi_line(q);s+=rt_strlen(s)+1;}}
 }
 
+/* LIST|DISPLAY HISTORY [LAST <n>]: the SET HISTORY ring oldest first, one
+ * statement per line (real III+ set-mint/history, probe hx1: LAST n keeps the
+ * newest n). The listing starts at the next-write slot. DISPLAY's screen
+ * pause is not modelled. */
+static SAMIR_OVL_TEXT(status) int q_history(xb_interp *ip, const char *tail, int *ec)
+{
+    const set_state *ss=set_get_state(ip);
+    q_inspection q;
+    uint32_t i,total=0,skip=0;
+    tail=q_skip_ws(tail);
+    if(*tail) {
+        xb_val v;int rc;
+        if(rt_kw_word(tail,"LAST\0",(int *)0)!=0) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
+        rc=xb_interp_eval(ip,q_skip_ws(tail+4),&v,ec);if(rc!=INTERP_OK)return rc;
+        if(v.t!=XB_N) { if(ec)*ec=27;return -INTERP_ERR_EVAL; }
+        q.n=v.u.n<0.0?0u:(uint32_t)v.u.n;
+        if(ss&&ss->hist)for(i=0;i<ss->hist_cap;i++)if(ss->hist[i])total++;
+        skip=total>q.n?total-q.n:0u;
+    }
+    q.ip=ip;q.n=0;q.rows=0;q.display=0;q.stopped=0;
+    if(ss&&ss->hist)for(i=0;i<ss->hist_cap;i++) {
+        #ifndef SAMIR_W2_MUTANT_histlist
+        const char *e=ss->hist[(ss->hist_next+i)%ss->hist_cap];
+#else
+        const char *e=ss->hist[i];   /* MUTANT: list from slot 0, not the oldest */
+#endif
+        if(!e)continue;
+        if(skip){skip--;continue;}
+        qi_text(&q,e);qi_line(&q);
+    }
+    q_putn(ip,"\r\n",2);
+    return INTERP_OK;
+}
 static SAMIR_OVL_TEXT(status) int q_inspect(xb_interp *ip, int what, int display, const char *tail, int *ec)
 {
     q_inspection q;
+    if(what==2)return q_history(ip,tail,ec);
     if(*q_skip_ws(tail)) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
     q.ip=ip;q.n=0;q.rows=0;q.display=display?(what==1?2:1):0;q.stopped=0;
     if(what==0)qi_status(&q);else qi_memory(&q);
@@ -1571,7 +1605,7 @@ static SAMIR_OVL_TEXT(status) int q_inspect(xb_interp *ip, int what, int display
 }
 /* Overlay STATUS (initech-5etom.1; docs/design/samir-overlays.md Sec 3):
  * LIST/DISPLAY STATUS|MEMORY. k = what * 2 + display (what: 0 STATUS,
- * 1 MEMORY); returns q_inspect's result, which query_cmd_hook wraps as before. */
+ * 1 MEMORY, 2 HISTORY); returns q_inspect's result, which query_cmd_hook wraps as before. */
 static SAMIR_OVL_TEXT(status) int query_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
 {
     return q_inspect(ip, k >> 1, k & 1, args, ec);
@@ -1604,7 +1638,7 @@ static int query_cmd_hook(void *user, xb_interp *ip,
         int area = wa_selected(env);
         int is_display = (k == 1);
         const char *tail=q_skip_ws(args);
-        int inspection=rt_kw_word(tail,"STATUS\0MEMORY\0",(int *)0);
+        int inspection=rt_kw_word(tail,"STATUS\0MEMORY\0HISTORY\0",(int *)0);
         if(inspection>=0) {
             while(*tail && !q_isspace(*tail))tail++;
             rc=SAMIR_OVL_CALL(SAMIR_OVL_STATUS,query_ovl_entry,inspection*2+is_display,ip,tail,err_code);

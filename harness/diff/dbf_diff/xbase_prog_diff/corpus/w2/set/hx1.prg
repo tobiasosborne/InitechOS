@@ -1,0 +1,19 @@
+* MINT-ERRORS: 16
+? "[W2-BEGIN]"
+SET DOHISTORY ON
+store   5  to  xv
+? "q"
+* comment
+zz = 3
+Foo bar baz
+a = "STORE 1 TO ZZ"
+&a
+SET DOHISTORY OFF
+? "[CASE AND SPACING]"
+LIST HISTORY
+? "[LAST]"
+LIST HISTORY LAST 3
+? "[DISPLAY]"
+DISPLAY HISTORY
+? "[W2-END]"
+RETURN
