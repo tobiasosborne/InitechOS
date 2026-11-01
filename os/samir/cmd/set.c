@@ -809,6 +809,9 @@ static SAMIR_OVL_TEXT(set) int set_opt_onoff_ctx(xb_interp *ip, const char *s, i
     int on;
     xb_ctx *ctx=xb_interp_ctx(ip);
     if(parse_on_off(s,&on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+#ifdef SAMIR_MUTATE_SET_HEADINGS
+    if(which==0) on=!on;
+#endif
     if(which==0) ctx->set_heading=(uint8_t)on;
     else if(which==1) ctx->set_console=(uint8_t)on;
     else ctx->set_status=(uint8_t)on;
