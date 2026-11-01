@@ -31,9 +31,23 @@ card 0 9 1 > "$w/report"
 printf 'SHELL-READY\nSHELL-DONE\n' > "$w/serial"
 printf '#!/bin/sh\necho INJECTED-HARNESS-FAILURE >&2\nexit 1\n' > "$w/failed-harness"
 chmod 755 "$w/failed-harness"
+# initech-1x6x2.1: this nested make shares build/ with the parallel merge
+# vector, so it must run ONLY the test-samir-boot-mutant recipe. Every file
+# that recipe depends on is a prerequisite of test-samir-trace (built once, by
+# the outer make) and is assumed old here (-o), so this make can never become
+# a second producer of build/tracer_secondary.img or its kernel chain while
+# other legs boot it (the cold-run triple faults). The Makefile passes the list.
+: "${TRACE_ASSUME_OLD:?set by the test-samir-trace recipe (the boot-mutant inputs)}"
+old="-o $PWD/$w/failed-harness"
+for f in $TRACE_ASSUME_OLD; do
+ [ -f "$f" ] || { echo "RED test-samir-trace: prerequisite $f missing (declare it on test-samir-trace)"; exit 1; }
+ old="$old -o $f"
+done
 rc=0
-make --no-print-directory test-samir-boot-mutant HARNESS_BIN="$PWD/$w/failed-harness" \
+# shellcheck disable=SC2086
+${MAKE:-make} --no-print-directory $old test-samir-boot-mutant HARNESS_BIN="$PWD/$w/failed-harness" \
  SAMIRBOOT_MUT_NAME=trace_failed SAMIRBOOT_MUT_REPORT="$w/report" SAMIRBOOT_MUT_SERIAL="$w/serial" > "$w/boot.log" 2>&1 || rc=$?
 [ "$rc" != 0 ] || { cat "$w/boot.log"; echo 'RED boot mutant accepted failed harness'; exit 1; }
-grep -qx INJECTED-HARNESS-FAILURE "$w/report"
+grep -qx INJECTED-HARNESS-FAILURE "$w/report" || {
+ cat "$w/boot.log"; echo 'RED test-samir-trace: boot mutant failed before running the injected harness'; exit 1; }
 echo 'GREEN test-samir-trace: missing/empty/partial/failed captures rejected; boot mutant fails when harness fails'

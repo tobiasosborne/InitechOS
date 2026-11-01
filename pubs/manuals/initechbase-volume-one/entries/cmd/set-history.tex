@@ -1,0 +1,17 @@
+% SET HISTORY -- os/samir/cmd/set.c set_opt_history / set_history_record.
+% Real III+ 1.1 captures: xbase_prog_diff/set-mint/history.  Gate:
+% test-samir-w2-set-history.
+\begin{XbaseEntry}{HISTORY}{set}
+Sets how many executed commands are kept for \cmd{LIST HISTORY}.
+\Syntax
+\SyntaxLine{\kw{SET HISTORY TO} <expN>}
+\SyntaxLine{\kw{SET HISTORY} \kw{ON}/\kw{OFF}}
+\Defaults
+20 commands, recording ON.
+\Usage
+The most recent <expN> commands are kept (0 to 16000); older ones are
+discarded.  SET HISTORY OFF stops recording.  Program lines are recorded only
+when \cmd{SET DOHISTORY} is ON.  A non-numeric size is error 27, an
+out-of-range size error 46.
+\SeeAlso{SET DOHISTORY, LIST HISTORY}
+\end{XbaseEntry}

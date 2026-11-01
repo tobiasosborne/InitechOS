@@ -2,7 +2,11 @@
 $(BUILD)/iword_fkeys_gen: tools/iword_fkeys_gen.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 spec/iword/fkeys.h: spec/iword/fkeys.json $(BUILD)/iword_fkeys_gen
-	@$(BUILD)/iword_fkeys_gen $< > $@.tmp && mv -f $@.tmp $@
+	@# Source-tree header from a build-dir tool (initech-1x6x2.1): replace only
+	@# when the bytes change, via a per-process temp name (private-BUILD sub-makes).
+	@$(BUILD)/iword_fkeys_gen $< > $@.tmp.$$$$ \
+		&& { if cmp -s $@.tmp.$$$$ $@; then rm -f $@.tmp.$$$$; else mv -f $@.tmp.$$$$ $@; fi; } \
+		|| { rm -f $@.tmp.$$$$; exit 1; }
 IWORD_P3_DEPS := harness/proptest/test_iword_p3.c harness/proptest/test_iword_face.c $(IWORD_APP_SRC) $(IWORD_APP_DEP)
 $(BUILD)/test_iword_p3: $(IWORD_P3_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -Ios/apps/tbx $(IWORD_CORE_INC) -o $@ harness/proptest/test_iword_p3.c $(IWORD_CORE_SRC)

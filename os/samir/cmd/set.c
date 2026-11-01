@@ -144,6 +144,40 @@ static set_state *set_state_for(xb_interp *ip, int *is_new)
     return &g_val[g_n++];
 }
 
+/* SET HISTORY / SET DOHISTORY recorder (resident, hot path; flow.c calls it
+ * for each executed program statement before macro expansion).
+ * Real III+ 1.1 (set-mint/history, set-mint/dohistory): the line is stored
+ * before it executes, so the SET DOHISTORY OFF that ends a run is recorded
+ * but the SET DOHISTORY ON that began it is not; a zero capacity records
+ * nothing. The ring overwrites physical slots in order. The slot table and
+ * the line copies are PAL-heap blocks, outside the resident image. */
+int set_history_record(xb_interp *ip, const char *line, int *ec)
+{
+    set_state *ss = set_state_for(ip, (int *)0);
+    samir_pal_t *pal;
+    uint32_t n, i;
+    char *copy;
+#ifndef SAMIR_W2_MUTANT_dohistory
+    if (!ss || !ss->dohistory || !ss->history_on || !ss->hist_cap) return INTERP_OK;
+#else
+    if (!ss || !ss->history_on || !ss->hist_cap) return INTERP_OK;   /* MUTANT: ignore DOHISTORY */
+#endif
+    pal = xb_interp_pal(ip);
+    if (!ss->hist) {
+        ss->hist = (char **)pal->acquire(pal, ss->hist_cap * (uint32_t)sizeof(char *));
+        if (!ss->hist) { if (ec) *ec = 43; return -INTERP_ERR_NOMEM; }
+        for (i = 0; i < ss->hist_cap; i++) ss->hist[i] = (char *)0;
+    }
+    n = rt_strlen(line) + 1u;
+    copy = (char *)pal->acquire(pal, n);
+    if (!copy) { if (ec) *ec = 43; return -INTERP_ERR_NOMEM; }   /* fail loud: Insufficient memory */
+    rt_memcpy(copy, line, n);
+    if (ss->hist[ss->hist_next]) pal->release(pal, ss->hist[ss->hist_next]);
+    ss->hist[ss->hist_next] = copy;
+    ss->hist_next = (ss->hist_next + 1u) % ss->hist_cap;
+    return INTERP_OK;
+}
+
 /* ===================================================================== */
 /* Small ASCII helpers (freestanding; no libc)                           */
 /* ===================================================================== */
@@ -546,6 +580,7 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
      * fn_builtins.c reads for STR() 1-arg default decimals). */
     ss->decimals = 2;
     xb_interp_ctx(ip)->set_decimals = 2;
+    xb_interp_ctx(ip)->set_fixed = 0;
 
     /* SET DATE default = AMERICAN [verified: mint-results-003.md]. */
     ss->date_fmt = SET_DATE_AMERICAN;
@@ -563,11 +598,16 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
 
     /* SET SAFETY default = ON [verified: set-commands.md Sec 2]. */
     ss->safety = 1;
+    ss->unique = 0;     /* SET UNIQUE default OFF (set-mint/unique) */
     /* III+ HELP.DBS SET COLOR: white/black, black/white, black border. */
     ss->color_standard=0x07;ss->color_enhanced=0x70;
     ss->color_border=ss->color_background=0;
     /* SET ESCAPE default = ON (Using III+ U5-220 "normally ON"). */
     ss->escape = 1;
+    /* SET HISTORY ON, size 20; SET DOHISTORY OFF (real III+ history capture).
+     * A reused set_state address must not inherit another session's ring. */
+    ss->history_on = 1; ss->dohistory = 0;
+    ss->hist_cap = 20u; ss->hist_next = 0u; ss->hist = (char **)0;
 
     /* GATED options: cleared. */
     for (i = 0; i < SET_GATED_TEXT_CAP; i++) {
@@ -720,6 +760,20 @@ static SAMIR_OVL_TEXT(set) int set_opt_exact(xb_interp *ip, set_state *ss, const
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
+/* SET FIXED ON|OFF (default OFF). The effect is applied by xb_eval to each
+ * top-level numeric result.  Real III+ 1.1 w2 set-mint/fixed: "SET FIXED TO ON",
+ * bare "SET FIXED", "SET FIXED OF" and "SET FIXED MAYBE" are all #10; trailing
+ * text after ON/OFF is ignored. */
+static SAMIR_OVL_TEXT(set) int set_opt_fixed(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ss;
+    on=rt_kw_word(s_skip_ws(s),"OFF\0ON\0",(int *)0); /* first word only */
+    if(on<0) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    xb_interp_ctx(ip)->set_fixed=(uint8_t)on;
+    return CMD_OK;
+}
+
 static SAMIR_OVL_TEXT(set) int set_opt_decimals(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_decimals(ip, ss, s, err_code);
@@ -761,6 +815,17 @@ static SAMIR_OVL_TEXT(set) int set_opt_deleted(xb_interp *ip, set_state *ss, con
     return CMD_OK;
 }
 
+/* SET DOHISTORY ON|OFF: program statements are recorded only when ON
+ * (real III+ set-mint/dohistory: default OFF; bad toggle is #10). */
+static SAMIR_OVL_TEXT(set) int set_opt_dohistory(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ip;
+    if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
+    ss->dohistory = on;
+    return CMD_OK;
+}
+
 static SAMIR_OVL_TEXT(set) int set_opt_filter(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_filter(ip, ss, s, err_code);
@@ -778,6 +843,20 @@ static SAMIR_OVL_TEXT(set) int set_opt_talk(xb_interp *ip, set_state *ss, const 
     int rc = do_set_talk(ss, s, err_code);
     (void)ip;
     return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+/* SET UNIQUE ON|OFF: INDEX ON builds omit duplicate keys (first record wins).
+ * Ref: set-commands.md:165; real III+ captures set-mint/unique, uniqprobe. */
+static SAMIR_OVL_TEXT(set) int set_opt_unique(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ip;
+    if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
+#ifdef SAMIR_W2_MUTANT_unique_set
+    on = 0;   /* mutant: SET UNIQUE ON has no effect */
+#endif
+    ss->unique = on;
+    return CMD_OK;
 }
 
 static SAMIR_OVL_TEXT(set) int set_opt_safety(xb_interp *ip, set_state *ss, const char *s, int *err_code)
@@ -803,12 +882,72 @@ static SAMIR_OVL_TEXT(set) int set_opt_escape(xb_interp *ip, set_state *ss, cons
  * [Ref: set-commands.md Sec 5 completeness: NEAR absent from HELP_topics.txt
  *  III+ index; it is a Clipper/dBASE IV addition.]
  */
+/* SET HISTORY ON|OFF|TO <expN> (real III+ 1.1 captures set-mint/history and
+ * probes hx2-hx8, build only). Rules fitted to those captures:
+ *   - TO n: n is an integer 0..16000 (fraction truncated); a character operand
+ *     is #27, a negative or too large one #46, a bad toggle #10.
+ *   - A shrink keeps physical slots 0..n-1 and wraps the write slot modulo n;
+ *     a grow keeps every slot and restarts the write slot at 0; the same size
+ *     changes nothing; n = 0 drops everything.
+ *   - ON and OFF restart the write slot at 0 (LIST then starts at slot 0).
+ * Not modelled (see bead): SET HISTORY ON while already ON also grew the ring
+ * in the real program (hx7 P2), and the dot-prompt up-arrow recall. */
+static SAMIR_OVL_TEXT(set) int set_opt_history(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    samir_pal_t *pal = xb_interp_pal(ip);
+    int on;
+    uint32_t n, i;
+    if (rt_kw_word(s, "TO\0", (int *)0) == 0) {
+        xb_val v;
+        int rc = xb_interp_eval(ip, s_skip_ws(s + 2), &v, err_code);
+        double d;
+        if (rc != INTERP_OK) return rc;
+        if (v.t != XB_N) { if (err_code) *err_code = 27; return -INTERP_ERR_EVAL; }
+        d = v.u.n;
+        if (d < 0.0 || d >= 16001.0) { if (err_code) *err_code = 46; return -INTERP_ERR_EVAL; }
+        n = (uint32_t)d;
+#ifdef SAMIR_W2_MUTANT_histcap
+        return CMD_OK;   /* MUTANT: SET HISTORY TO n never resizes */
+#endif
+        if (n == ss->hist_cap) return CMD_OK;
+        if (ss->hist) {
+            char **fresh = (char **)0;
+            if (n) {
+                fresh = (char **)pal->acquire(pal, n * (uint32_t)sizeof(char *));
+                if (!fresh) { if (err_code) *err_code = 43; return -INTERP_ERR_NOMEM; }
+                for (i = 0; i < n; i++) fresh[i] = i < ss->hist_cap ? ss->hist[i] : (char *)0;
+            }
+            for (i = n; i < ss->hist_cap; i++) if (ss->hist[i]) pal->release(pal, ss->hist[i]);
+            pal->release(pal, ss->hist);
+            ss->hist = fresh;
+        }
+#if defined(SAMIR_W2_MUTANT_histshrink)
+        ss->hist_next = 0u;   /* MUTANT: a shrink restarts the write slot */
+#elif defined(SAMIR_W2_MUTANT_histgrow)
+        ss->hist_next = n ? ss->hist_next % n : 0u;   /* MUTANT: a grow keeps the write slot */
+#else
+        ss->hist_next = (n && n < ss->hist_cap) ? ss->hist_next % n : 0u;
+#endif
+        ss->hist_cap = n;
+        return CMD_OK;
+    }
+    if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
+    ss->history_on = on;
+#ifndef SAMIR_W2_MUTANT_histtoggle
+    ss->hist_next = 0u;
+#endif
+    return CMD_OK;
+}
+
 /* Using III+ U5-210/PDF 322, U5-235/PDF 347, U5-259/PDF 371. */
 static SAMIR_OVL_TEXT(set) int set_opt_onoff_ctx(xb_interp *ip, const char *s, int *err_code, int which)
 {
     int on;
     xb_ctx *ctx=xb_interp_ctx(ip);
     if(parse_on_off(s,&on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+#ifdef SAMIR_MUTATE_SET_HEADINGS
+    if(which==0) on=!on;
+#endif
     if(which==0) ctx->set_heading=(uint8_t)on;
     else if(which==1) ctx->set_console=(uint8_t)on;
     else ctx->set_status=(uint8_t)on;
@@ -820,6 +959,35 @@ static SAMIR_OVL_TEXT(set) int set_opt_console(xb_interp *ip, set_state *ss, con
 { (void)ss; return set_opt_onoff_ctx(ip,s,err_code,1); }
 static SAMIR_OVL_TEXT(set) int set_opt_status(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 { (void)ss; return set_opt_onoff_ctx(ip,s,err_code,2); }
+
+/* SET MEMOWIDTH TO <expN>. Ref: real III+ 1.1 captures set-mint/memowidth
+ * (GOLD.OUT: errors 27/10/46) plus W2-mint probes: the operand is truncated
+ * toward zero, < 8 (incl. 0, negatives, 7.9) is error 46, there is no upper
+ * bound and the width kept is the low byte (256 -> 0, 300 -> 44, 1000 -> 232);
+ * a missing TO is error 10, a non-numeric operand 27, and "SET MEMOWIDTH TO"
+ * with no operand restores the default 50. */
+static SAMIR_OVL_TEXT(set) int set_opt_memowidth(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    xb_val v;
+    int rc;
+    double d;
+    (void)ss;
+    s = s_skip_ws(s);
+    if(rt_kw_word(s,"TO\0",(int *)0)!=0) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    s = s_skip_ws(s+2);
+    if(*s=='\0') { xb_interp_ctx(ip)->memo_width1=0; return CMD_OK; }
+    rc = xb_interp_eval(ip,s,&v,err_code);
+    if(rc!=INTERP_OK) return rc;
+    if(v.t!=XB_N) { if(err_code) *err_code=27; return -INTERP_ERR_EVAL; }
+    d = v.u.n;
+    if(d<8.0) { if(err_code) *err_code=46; return -INTERP_ERR_EVAL; }
+#ifdef SAMIR_W2_MUTANT_memowidth_nowrap256
+    xb_interp_ctx(ip)->memo_width1 = (uint16_t)((d>255.0 ? 255u : (uint32_t)d) + 1u);
+#else
+    xb_interp_ctx(ip)->memo_width1 = (uint16_t)(((d>=4294967296.0 ? 0xFFFFFFFFu : (uint32_t)d) & 255u) + 1u);
+#endif
+    return CMD_OK;
+}
 
 static SAMIR_OVL_TEXT(set) int set_opt_color(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
@@ -839,6 +1007,53 @@ static SAMIR_OVL_TEXT(set) int set_opt_device(xb_interp *ip, set_state *ss, cons
     device=rt_kw_index(s_skip_ws(s+2),"SCREEN\0PRINT\0");
     if(device<0) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
     xb_interp_ctx(ip)->device_print=(uint8_t)device;
+    return CMD_OK;
+}
+
+/* SET MARGIN TO <expN>: real III+ w2 set-mint/margin. Only the first
+ * comma-separated expression is used; truncated toward zero; negative -> 0;
+ * the value wraps as a signed 16-bit count (70000 -> 4464, 32768 -> 0).
+ * Unverified: negatives below -1, values >= 2^32 (both read as 0). */
+static SAMIR_OVL_TEXT(set) int set_opt_margin(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    char expr[256];
+    uint32_t n=0u,w;
+    int depth=0,rc;
+    char quote=0;
+    xb_val v;
+    double d;
+    (void)ss;
+    if(rt_kw_word(s,"TO\0",(int *)0)!=0) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    s=s_skip_ws(s+2);
+    for(;*s && n<sizeof expr-1u;s++) {
+        if(quote) { if(*s==quote) quote=0; }
+        else if(*s=='"' || *s=='\'') quote=*s;
+        else if(*s=='(') depth++;
+        else if(*s==')') depth--;
+        else if(*s==',' && depth<=0) break;
+        expr[n++]=*s;
+    }
+    while(n && s_isspace(expr[n-1])) n--;
+    expr[n]=0;
+    if(!n) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    rc=xb_interp_eval(ip,expr,&v,err_code);
+    if(rc!=INTERP_OK) return rc;
+    if(v.t!=XB_N) { if(err_code) *err_code=27; return -INTERP_ERR_EVAL; }
+    d=v.u.n;
+    if(d<1.0 || d>=4294967296.0) d=0.0;
+    w=(uint32_t)d&0xFFFFu;
+#ifdef SAMIR_W2_MUTANT_margin
+    w=(uint32_t)(d+0.5)&0xFFFFu;       /* rounds instead of truncating */
+#endif
+    xb_interp_ctx(ip)->set_margin=(uint16_t)(w>=32768u?0u:w);
+    return CMD_OK;
+}
+static SAMIR_OVL_TEXT(set) int set_opt_print(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ss;
+    if(parse_on_off(s,&on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+    xb_interp_ctx(ip)->set_print=(uint8_t)on;
     return CMD_OK;
 }
 

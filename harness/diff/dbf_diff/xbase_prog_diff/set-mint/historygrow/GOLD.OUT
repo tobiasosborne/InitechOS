@@ -1,0 +1,50 @@
+
+[W2-BEGIN]
+a1
+a2
+a3
+a4
+a5
+[E3 grow 4 to 6 list]
+? "a5"
+SET DOHISTORY OFF
+? "a3"
+? "a4"
+
+b1
+b2
+[E3 after 2 writes logical]
+? "a4"
+? "b1"
+? "b2"
+SET DOHISTORY OFF
+
+[E3 physical]
+? "a4"
+? "b1"
+? "b2"
+SET DOHISTORY OFF
+
+c1
+c2
+c3
+c4
+c5
+[E4 shrink 4 to 3 list]
+? "c5"
+SET DOHISTORY OFF
+? "c3"
+
+d1
+d2
+[E4 after 2 writes logical]
+? "d1"
+? "d2"
+SET DOHISTORY OFF
+
+[E4 physical]
+? "d1"
+? "d2"
+SET DOHISTORY OFF
+
+[W2-END]

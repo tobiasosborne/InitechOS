@@ -5,7 +5,11 @@ set -eu
 work=$(mktemp -d "${TMPDIR:-/tmp}/initech-def-deps-XXXXXX")
 trap 'rm -rf "$work"' EXIT
 trap 'exit 1' HUP INT TERM
-git ls-files -z --cached --others --exclude-standard > "$work/files"
+# The working tree, as it stands: `rm -rf build` removes the tracked
+# build/README.md, and a deleted path must not fail the tar (initech-1x6x2.1).
+git ls-files --deleted > "$work/deleted"
+git ls-files -z --cached --others --exclude-standard |
+    grep -zvxF -f "$work/deleted" > "$work/files"
 tar --null -T "$work/files" -cf "$work/source.tar"
 tar -xf "$work/source.tar" -C "$work"
 rm -f "$work/source.tar"

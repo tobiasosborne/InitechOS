@@ -56,14 +56,19 @@ test-samir-ovl-static: $(SAMIR_EXE) $(SAMIR_OVL) $(SAMIR_PACK_DEPS)
 	@cmp $(basename $(SAMIR_EXE)).OVL $(BUILD)/samir-ovl/REPACK.OVL
 	@printf '>>> test-samir-ovl-static: green (relocation kinds, slot, headers, call-graph rule; re-pack byte-identical)\n'
 # Each mutant build must FAIL, for its named reason.
-test-samir-ovl-static-mutant: test-samir-ovl-static
+# initech-1x6x2.1: the nested make shares build/ with the parallel merge
+# vector. Its only rule-built inputs (packer, linker, Makefile stamp) are
+# prerequisites here and frozen (-o) there, so it builds only the mutant's own
+# private build/samir_screen_SAMIR_OVL_MUTATE_<k>/ and never a shared file.
+SAMIR_OVL_STATIC_FROZEN = $(SAMIR_OVL_PACK) $(MZLINK_BIN) $(MAKEFILE_STAMP)
+test-samir-ovl-static-mutant: test-samir-ovl-static $(SAMIR_OVL_PACK) $(MZLINK_BIN)
 	@mkdir -p $(BUILD)/samir-ovl
 	@set -e; for m in CROSS:'prohibited cross reference from .ovl_report to' \
 	                  RESREF:'prohibited cross reference from .text to' \
 	                  REENTER:'<- samir_do <- report_ovl_entry'; do \
 	  k=$${m%%:*}; want=$${m#*:}; log=$(BUILD)/samir-ovl/static-$$k.log; \
 	  rm -f $(BUILD)/SAMIR_SCREEN_SAMIR_OVL_MUTATE_$$k.EXE; \
-	  if $(MAKE) --no-print-directory $(BUILD)/SAMIR_SCREEN_SAMIR_OVL_MUTATE_$$k.EXE > $$log 2>&1; then \
+	  if $(MAKE) --no-print-directory $(addprefix -o ,$(SAMIR_OVL_STATIC_FROZEN)) $(BUILD)/SAMIR_SCREEN_SAMIR_OVL_MUTATE_$$k.EXE > $$log 2>&1; then \
 	    printf '!!! test-samir-ovl-static-mutant: %s built -- the check is decoration\n' $$k; exit 1; fi; \
 	  grep -q -- "$$want" $$log || { cat $$log; exit 1; }; \
 	  printf 'SAMIR_OVL_MUTATE_%s RED: ' $$k; grep -m1 -- "$$want" $$log; done

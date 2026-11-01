@@ -623,6 +623,14 @@ int ndx_build(samir_pal_t *pal, const char *out_name,
               uint16_t key_type, uint16_t key_len, const char *key_expr,
               uint32_t nrec, ndx_key_provider get_key, void *user);
 
+/* ndx_build_ex: ndx_build plus UNIQUE. unique != 0 keeps only the first
+ * (lowest recno) record of each equal-key run and sets the header unique flag
+ * (bytes 0x16..0x17 = 00 01, u16 0x0100). Ref: real III+ INDEX ... UNIQUE and
+ * SET UNIQUE ON captures (xbase_prog_diff/set-mint/unique). */
+int ndx_build_ex(samir_pal_t *pal, const char *out_name,
+                 uint16_t key_type, uint16_t key_len, const char *key_expr,
+                 uint32_t nrec, ndx_key_provider get_key, void *user, int unique);
+
 /* -----------------------------------------------------------------------
  * S4.5: incremental index maintenance
  *

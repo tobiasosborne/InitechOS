@@ -34,6 +34,7 @@
 
 #include "qemu.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -41,6 +42,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -767,7 +769,112 @@ typedef struct {
     int budget_ms;
     long long deadline;
     const clockid_t *guest_clock;
+    pid_t qemu_pid;
 } KeyAckCtx;
+
+/* initech-1x6x2.1; PRD Sec 8; precedent: the host-wide Bochs flock (d9tt).
+ * `make -j64 test-merge-samir` started up to 64 QEMUs at once on 64 logical
+ * CPUs, beside compilers and other lanes' clones. A guest that needs 20 s alone
+ * then missed its 60 s wall deadline (timed_out=1 with SHELL-DONE seen). Every
+ * deadline stays as it is; instead at most NPROC/3 QEMUs run host-wide, so each
+ * gets a CPU, and queueing for a slot is not charged to any deadline. The flock
+ * dies with the harness, so a crash leaks nothing, and QEMU never inherits it.
+ * Slots are held until the harness exits: one QEMU per harness process. */
+static void qemu_slot_acquire(void)
+{
+#ifndef HARNESS_MUTATE_NO_QEMU_SLOTS
+    static int g_qemu_slot_fd = -1;
+    long cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    int slots = cpus >= 3 ? (int)(cpus / 3) : 1;
+    const char *env = getenv("INITECH_QEMU_SLOTS");
+    if (env && atoi(env) > 0) slots = atoi(env);
+    if (g_qemu_slot_fd >= 0) return;
+    /* Host-wide, so not $TMPDIR (legs set private ones). The gate's own dir. */
+    const char *dir = getenv("INITECH_QEMU_SLOT_DIR");
+    char path[512];
+    for (;;) {
+        for (int i = 0; i < slots; i++) {
+            snprintf(path, sizeof(path), "%.400s/initech-qemu-slot-%ld.%d",
+                     dir && dir[0] ? dir : "/tmp", (long)getuid(), i);
+            int fd = open(path, O_CREAT | O_RDWR | O_CLOEXEC, 0600);
+            if (fd < 0) {
+                fprintf(stderr, "[harness] qemu slot %s: %s\n", path, strerror(errno));
+                exit(2);
+            }
+            if (flock(fd, LOCK_EX | LOCK_NB) == 0) {
+                g_qemu_slot_fd = fd;
+                return;
+            }
+            close(fd);
+        }
+        sleep_ms(50);
+    }
+#endif
+}
+
+/* initech-1x6x2.1; PRD Sec 8; os/milton/kmain.c (input waits spin on hlt).
+ * A blind-typed trace outran a guest starved by a parallel vector: wall-clock
+ * pacing filled the 32-byte kernel ring (KBD-RING-DROP) or SAMIR's
+ * 20-byte typeahead, which dies with QUIT, so "exit" never reached the shell
+ * (test-samir-input-emu / -core-emu timeouts, each green alone; also red alone
+ * under taskset + spinners). The next stroke therefore waits until QEMU is
+ * idle (no runnable thread: the guest sits in hlt, ready for input), or until
+ * QEMU received KEY_PACE_CPU_MS of CPU since this stroke (a guest computing or
+ * polling, e.g. a loop an Esc must break). On an unloaded host a guest at its
+ * prompt is idle at once, so the injected trace is unchanged. --keys-ack has
+ * true consumption backpressure and does not use this. */
+#define KEY_PACE_CPU_MS 200
+#define KEY_PACE_IDLE_SAMPLES 3 /* 5 ms apart */
+
+#ifndef HARNESS_MUTATE_NO_KEY_PACE
+/* 1 = a QEMU thread is on a CPU or waiting for one; 0 = all asleep; -1 unknown. */
+static int qemu_runnable(pid_t pid)
+{
+    char path[64];
+    snprintf(path, sizeof(path), "/proc/%ld/task", (long)pid);
+    DIR *d = opendir(path);
+    if (!d) return -1;
+    int runnable = 0;
+    struct dirent *e;
+    while (!runnable && (e = readdir(d)) != NULL) {
+        char stat_path[320], line[512];
+        if (e->d_name[0] == '.') continue;
+        snprintf(stat_path, sizeof(stat_path), "/proc/%ld/task/%s/stat",
+                 (long)pid, e->d_name);
+        FILE *f = fopen(stat_path, "r");
+        if (!f) continue;
+        size_t n = fread(line, 1, sizeof(line) - 1, f);
+        fclose(f);
+        line[n] = '\0';
+        /* comm may hold spaces and parens: state follows the LAST ')'. */
+        const char *rp = strrchr(line, ')');
+        if (rp && rp[1] == ' ' && rp[2] == 'R') runnable = 1;
+    }
+    closedir(d);
+    return runnable;
+}
+#endif
+
+static int qmp_peer_closed(int);
+
+static void key_pace_wait(int fd, const KeyAckCtx *ack, long long cpu_at_send)
+{
+#ifndef HARNESS_MUTATE_NO_KEY_PACE
+    int idle = 0;
+    if (!ack || !ack->guest_clock || ack->qemu_pid <= 0) return;
+    while (mono_ms() < ack->deadline && !qmp_peer_closed(fd)) {
+        if (guest_ms(ack->guest_clock) - cpu_at_send >= KEY_PACE_CPU_MS) return;
+        int r = qemu_runnable(ack->qemu_pid);
+        if (r < 0) return;
+        idle = r ? 0 : idle + 1;
+        if (idle >= KEY_PACE_IDLE_SAMPLES) return;
+        qmp_drain(fd, 5);
+    }
+#else
+    /* Rule 6: restore the wall-clock burst (a starved guest gets outrun). */
+    (void)fd; (void)ack; (void)cpu_at_send;
+#endif
+}
 
 static int key_ack_enabled(const KeyAckCtx *ack)
 {
@@ -857,6 +964,7 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
          * through the same array-of-qcodes send-key. */
         int before = key_ack_count(ack);
         if (before < 0) return -1;
+        long long cpu_at_send = ack ? guest_ms(ack->guest_clock) : 0;
         if (qmp_send_key_chord(fd, tok, key_ack_enabled(ack)) != 0) {
             fprintf(stderr, "[harness] --keys: unknown token '%s' (skipped)\n",
                     tok);
@@ -867,7 +975,10 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
             sent++;
             /* Drain any QMP reply + give the guest a beat to take the IRQ1
              * before the next key (keeps the injection deterministic). */
-            if (!key_ack_enabled(ack)) qmp_drain(fd, 30);
+            if (!key_ack_enabled(ack)) {
+                qmp_drain(fd, 30);
+                key_pace_wait(fd, ack, cpu_at_send);
+            }
             if (!key_ack_wait(fd, ack, before)) return -1;
             capture_if_seen(cap);
             if (capture_failed(rec, cap)) return -1;
@@ -1152,6 +1263,7 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
 /* --screendump-after-count (bead initech-ipu5.7); set from the config by the
  * run function before the QMP session, read only by the screendump wait. */
 static int g_screendump_after_count = 1;
+static pid_t g_qemu_pid = -1; /* the running QEMU, for key_pace_wait */
 static int wait_for_serial_marker_n(const char *serial_path, const char *marker,
                                     int budget_ms, int count)
 {
@@ -1455,7 +1567,7 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
             if (capture_failed(rec, cap)) { close(fd); return -1; }
             KeyAckCtx ack = { serial_path, keys_ack,
                 keys_after_ms > 0 ? keys_after_ms : 4000,
-                serial_deadline, guest_clock };
+                serial_deadline, guest_clock, g_qemu_pid };
             if (want_keys) {
                 int bad = 0;
                 int sent = qmp_inject_keys(fd, keys_spec, &bad, rec, cap, &ack);
@@ -1906,6 +2018,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
             return -1;
         }
     }
+    qemu_slot_acquire(); /* before the deadline starts: waiting is not running */
     long long harness_deadline = mono_ms() + timeout_ms;
     pid_t pid = fork();
     if (pid < 0) {
@@ -1972,6 +2085,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         int after_end = 0;
         int first_dead = 0;
         g_screendump_after_count = cfg->screendump_after_count;
+        g_qemu_pid = pid;
         if (qmp_session(qmp_pair[0], sock_path, ppm,
                         want_keys ? cfg->keys_spec : NULL,
                         (want_keys || want_mouse) ? cfg->keys_after : NULL,

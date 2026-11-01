@@ -32,6 +32,19 @@ static unsigned used;
 static unsigned input_line;
 #endif
 static const char *driver[]={"SET TALK OFF","SET SAFETY OFF","ON ERROR ? \"MINT-ERROR\", ERROR(), MESSAGE()","SET ALTERNATE TO GOLD.OUT","SET ALTERNATE ON","DO FNSTEST",NULL,"SET ALTERNATE TO","QUIT"};
+#ifdef SAMIR_W2
+/* Raw LPT capture seam: bytes the program sends to the printer are appended to
+ * PRINTER.OUT in the (cleaned) run directory, diffed against the real III+
+ * DOSBox-X parallel1=file capture of the same name. */
+static int printer_capture(samir_pal_t *p,const char *s,uint32_t n)
+{
+    FILE *f=fopen("PRINTER.OUT","ab");
+    (void)p;
+    if(!f)return -1;
+    if(fwrite(s,1,n,f)!=n){fclose(f);return -1;}
+    return fclose(f)?-1:0;
+}
+#endif
 static void output(samir_pal_t *p,const char *s,uint32_t n)
 { (void)p; if(n<sizeof captured-used) { memcpy(captured+used,s,n); used+=n; captured[used]=0; } }
 #ifndef SAMIR_W2
@@ -299,6 +312,7 @@ int main(int argc,char **argv)
         pal=pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});if(!pal)return 2;
         pal->conout=output;
 #ifdef SAMIR_W2
+        pal->printout=printer_capture;
         struct w2_host_env env;
         char c_root[2048],d_root[4096];
         if(!getcwd(c_root,sizeof c_root))return 2;

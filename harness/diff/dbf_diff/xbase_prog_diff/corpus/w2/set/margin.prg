@@ -1,6 +1,9 @@
-* MINT-ERRORS: 27 10
+* MINT-ERRORS: 27 10 27 10 27
 * Ref: ../dbase3-decomp/specs/commands/set-commands.md:225
-* PRINTER.OUT is the independent raw LPT stream: zero/five/zero margins.
+* PRINTER.OUT is the independent raw LPT stream. Rules pinned here (re-minted
+* 2026-11-01 from probes): margin is emitted after every LF written to the
+* printer (not after CR/FF, not at the very start of a ?? line), PCOL excludes
+* it, the value truncates toward zero, negative -> 0, 16-bit signed wrap.
 ? "[W2-BEGIN]"
 ? "[DEFAULT ZERO MARGIN]"
 SET PRINT ON
@@ -22,5 +25,78 @@ SET PRINT OFF
 SET MARGIN TO "BAD"
 ? "[MISSING TO]"
 SET MARGIN 5
+? "[LF AND CR RULES]"
+SET MARGIN TO 3
+SET PRINT ON
+?? "A"
+?
+?? "B"
+? "C", "D"
+? "E" + CHR(10) + "F"
+?? "G" + CHR(13) + "H"
+?? "I" + CHR(12) + "J"
+SET PRINT OFF
+? "[PCOL EXCLUDES MARGIN]"
+SET PRINT ON
+?
+?? PCOL()
+SET PRINT OFF
+EJECT
+? "[ERRORS KEEP THE MARGIN]"
+SET MARGIN TO 4
+SET MARGIN TO .T.
+SET MARGIN TO
+SET MARGIN TO "7"
+SET PRINT ON
+? "K"
+SET PRINT OFF
+? "[TRUNCATE AND CLAMP]"
+SET MARGIN TO 5.7
+SET PRINT ON
+? "T57"
+SET PRINT OFF
+SET MARGIN TO 0.9
+SET PRINT ON
+? "T09"
+SET PRINT OFF
+SET MARGIN TO 3
+SET MARGIN TO -1
+SET PRINT ON
+? "N1"
+SET PRINT OFF
+SET MARGIN TO 3
+SET MARGIN TO -0.5
+SET PRINT ON
+? "N05"
+SET PRINT OFF
+? "[EXPRESSIONS]"
+SET MARGIN TO 1 + 2
+SET PRINT ON
+? "E3"
+SET PRINT OFF
+STORE 4 TO MV
+SET MARGIN TO MV
+SET PRINT ON
+? "V4"
+SET PRINT OFF
+SET MARGIN TO 2, 6
+SET PRINT ON
+? "L2"
+SET PRINT OFF
+? "[WIDE AND WRAPPED]"
+SET MARGIN TO 256
+SET PRINT ON
+? "W256"
+SET PRINT OFF
+SET MARGIN TO 70000
+SET PRINT ON
+? "W70000"
+SET PRINT OFF
+SET MARGIN TO 3
+SET MARGIN TO 32768
+SET PRINT ON
+? "W32768"
+SET PRINT OFF
+SET MARGIN TO 0
 ? "[W2-END]"
 RETURN

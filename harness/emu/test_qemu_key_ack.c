@@ -89,7 +89,7 @@ static int run(const char *path, int fd, const char *label, int mouse,
     echo_enabled = echoes;
     lag_ms = lag;
     KeyAckCtx ack = { path, paced ? "FLAIR-EVT what=4 " : NULL,
-                      1000, 120000, NULL };
+                      1000, 120000, NULL, 0 };
     int bad = 0;
     int sent = mouse == 1
         ? qmp_inject_mouse(fd, "kright,kright,kminus", NULL, NULL, path, &ack)

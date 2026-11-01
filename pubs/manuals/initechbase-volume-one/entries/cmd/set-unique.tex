@@ -1,0 +1,28 @@
+% SET UNIQUE -- os/samir/cmd/set.c set_opt_unique; os/samir/cmd/mutate.c d_index;
+% os/samir/fs/ndx.c ndx_build_ex.  Real III+ captures set-mint/unique and
+% set-mint/uniquerebuild.  Gate: test-samir-w2-unique (+ -mutant).
+\begin{XbaseEntry}{UNIQUE}{set}
+Determines whether an index built with \cmd{INDEX} keeps every record or only
+the first record of each key.
+\Syntax
+\SyntaxLine{\kw{SET UNIQUE} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF.
+\Usage
+With SET UNIQUE ON, \cmd{INDEX} omits every record whose key repeats the key
+of an earlier record; the first record in the database keeps its entry.  The
+omitted records do not appear when the database is listed in index order.
+The new index file is marked unique, so \cmd{REINDEX} omits duplicates again
+whatever the setting is at that time; an index built with SET UNIQUE OFF
+stays complete when it is rebuilt.  \kw{UNIQUE} after the file name of
+\cmd{INDEX} has the same effect for that one index.  Any other word after SET
+UNIQUE is a syntax error.
+\Examples
+\begin{verbatim}
+USE Clients
+SET UNIQUE ON
+INDEX ON City TO Cities
+LIST Name, City
+\end{verbatim}
+\SeeAlso{INDEX, REINDEX}
+\end{XbaseEntry}

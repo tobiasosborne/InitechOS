@@ -1754,7 +1754,9 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
         default:
             if (copy_line(&fp->lines[i], buf, sizeof(buf)) != 0)
                 return -INTERP_ERR_DEPTH;
-            rc = flow_expand(fp->ip, buf, ec);
+            rc = set_history_record(fp->ip, buf, ec);   /* SET DOHISTORY; pre-expansion */
+            if (rc == INTERP_OK)
+                rc = flow_expand(fp->ip, buf, ec);
             if (rc == INTERP_OK)
                 rc = exec_command(fp, buf, ec);
             rc = fl_handle_statement(fp, rc, ec, &retry);

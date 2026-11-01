@@ -232,6 +232,40 @@ static void q_append_uint_rj(char *buf, uint32_t *pos, uint32_t cap,
     q_append(buf, pos, cap, tmp, (uint32_t)n);
 }
 
+/* SET MEMOWIDTH wrap. Ref: real III+ 1.1 set-mint/memowidth GOLD.OUT and
+ * W2-mint probes: lines are at most W bytes and padded to W; a break falls after
+ * the last blank inside the W-byte window (kept on the line), or at W when the
+ * next byte is a blank (that blank is consumed), else the word is split at W.
+ * CR/LF bytes inside a memo are NOT given line-break meaning here (unminted). */
+static uint32_t q_mw(const xb_ctx *ctx)
+{
+#ifdef SAMIR_W2_MUTANT_memowidth_ignore
+    (void)ctx; return 50u;
+#else
+    return (ctx && ctx->memo_width1) ? (uint32_t)(ctx->memo_width1 - 1u) : 50u;
+#endif
+}
+/* Length of the next line starting at t+*off; advances *off past it. */
+static uint32_t q_memo_next(const char *t, uint32_t len, uint32_t *off, uint32_t w)
+{
+    uint32_t o = *off, k;
+    if (w == 0u) { *off = len; return 0u; }  /* width 0 (256): one empty line */
+    if (len - o <= w) { *off = len; return len - o; }
+    if (t[o + w] == ' ') { *off = o + w + 1u; return w; }
+    for (k = w; k > 0u; k--)
+        if (t[o + k - 1u] == ' ') { *off = o + k; return k; }
+    *off = o + w;
+    return w;
+}
+/* Append one padded memo line (w bytes) taken from t at *off. */
+static void q_memo_line(char *buf, uint32_t *pos, uint32_t cap,
+                        const char *t, uint32_t len, uint32_t *off, uint32_t w)
+{
+    uint32_t st = *off, n = q_memo_next(t, len, off, w);
+    q_append(buf, pos, cap, t + st, n);
+    for (; n < w && *pos < cap; n++) buf[(*pos)++] = ' ';
+}
+
 /* Shared value printer. Using III+ U5-15 and real PROG-01..07/DML
  * transcripts: numeric widths/decimals are carried with values; fields use
  * their descriptors in q_render_field. Character bytes, date formats and
@@ -242,8 +276,17 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
                   const xb_val *v, const xb_ctx *ctx, int logical_dotted)
 {
     switch (v->t) {
+    case XB_M: {
+        uint32_t w = q_mw(ctx), off = 0u, len = v->u.c.len;
+        const char *t = v->u.c.p ? v->u.c.p : "";
+        for (;;) {
+            q_memo_line(buf, pos, cap, t, len, &off, w);
+            if (off >= len) break;
+            q_append(buf, pos, cap, "\r\n", 2u);
+        }
+        break;
+    }
     case XB_C:
-    case XB_M:
         q_append(buf, pos, cap, v->u.c.p ? v->u.c.p : "", (uint32_t)v->u.c.len);
         break;
     case XB_N: {
@@ -253,7 +296,7 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
         if(dec)dec=2;
 #endif
         if(width>255)width=255;
-        int n=dec_format_fit(v->u.n,width,dec,cell,0);
+        int n=dec_format_display(v->u.n,width,dec,cell);
         q_append(buf,pos,cap,cell,(uint32_t)n);
         break;
     }
@@ -515,18 +558,35 @@ static const dbf_field_t *q_field_descriptor(xb_interp *ip, const char *expr)
     }
     return (const dbf_field_t *)0;
 }
+/* Memo cells of one LIST row: the first line is inline, the rest follow. */
+#define Q_MEMO_CELLS 4
+typedef struct {
+    uint32_t n, overflow, col[Q_MEMO_CELLS], len[Q_MEMO_CELLS], off[Q_MEMO_CELLS], w[Q_MEMO_CELLS];
+    const char *t[Q_MEMO_CELLS];
+} q_memocells;
 static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
                            const xb_val *v,const dbf_field_t *f,
-                           const xb_ctx *ctx, uint32_t width)
+                           const xb_ctx *ctx, uint32_t width, q_memocells *mc)
 {
     uint32_t start;
     /* A legal wide record can exceed one line buffer. Stream whole cells,
      * preserving every numeric byte instead of truncating at Q_LINEBUF. */
     if(width+*pos>=cap) { q_putn(ip,buf,*pos);*pos=0; }
     start=*pos;
+    if(v->t==XB_M) {
+        uint32_t off=0u,len=v->u.c.len;
+        const char *t=v->u.c.p?v->u.c.p:"";
+        q_memo_line(buf,pos,cap,t,len,&off,width);
+        if(off<len && mc && mc->n<Q_MEMO_CELLS) {
+            uint32_t i=mc->n++;
+            mc->col[i]=start;mc->len[i]=len;mc->off[i]=off;mc->w[i]=width;mc->t[i]=t;
+        } else if(off<len) mc->overflow=1u; /* fail loud at the row (Rule 2) */
+        return;
+    }
     if(f && f->type=='N' && v->t==XB_N) {
         char cell[256];
         int dec=f->dec_count;
+        if(ctx->set_fixed)dec=ctx->set_decimals; /* SET FIXED ON */
 #ifdef SAMIR_NUMERIC_MUTATE_FRACTION
         if(v->u.n==(double)(int64_t)v->u.n) dec=0;
 #endif
@@ -543,8 +603,10 @@ static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
          * real III+ 1.1 SF-exprcol, "LIST NAME, BAL / (52 + 0 + 0)" prints
          * "PESTON                  23.74" under the 18-byte heading. */
         if(v->t==XB_N) {
-            char cell[256];uint32_t n=0;
-            q_render_val(cell,&n,sizeof(cell),v,ctx,0);
+            char cell[256];uint32_t n;
+            /* Real numdisplay D0: the heading's extra column gives a
+             * scientific mantissa another digit, rather than blank padding. */
+            n=(uint32_t)dec_format_display(v->u.n,(int)width,v->num_dec,cell);
             while(*pos-start+n<width && *pos<cap) buf[(*pos)++]=' ';
             q_append(buf,pos,cap,cell,n);
             return;
@@ -559,6 +621,11 @@ static uint32_t q_column_width(const dbf_field_t *f,const char *expr,const xb_va
 {
     uint32_t width=f ? f->field_len : 0, name=rt_strlen(expr);
     if(f && f->type=='L') width=3; /* real PROG-query .T./.F. columns */
+    if(f && f->type=='N' && ctx->set_fixed) { /* SET FIXED ON re-pictures a numeric field column */
+        xb_val t=xb_u();t.t=XB_N;t.num_width=f->field_len;t.num_dec=f->dec_count;
+        xb_fixed_picture(ctx,&t);width=t.num_width;
+    }
+    if((f && f->type=='M') || (!f && v->t==XB_M)) return q_mw(ctx); /* SET MEMOWIDTH */
     if(!f) { char b[256]; uint32_t n=0; q_render_val(b,&n,sizeof(b),v,ctx,0); width=n; }
     /* Using III+ U5-235: heading length or field width, whichever is larger. */
     if(ctx->set_heading && name>width) width=name;
@@ -566,16 +633,17 @@ static uint32_t q_column_width(const dbf_field_t *f,const char *expr,const xb_va
 }
 static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *ec)
 {
-    char line[Q_LINEBUF],expr[Q_MAX_EXPR+1]; uint32_t pos=0;
+    char line[Q_LINEBUF],expr[Q_MAX_EXPR+1]; uint32_t pos=0,prefix;
     const char *p=qc->exprlist; int first=1,ok=1,fi=0;
     dbf_table *tbl=wa_table(xb_interp_env(ip),area);
 #ifdef SAMIR_MUTATE_HEADING
-    (void)ip;(void)qc;(void)ec;(void)tbl;(void)p;(void)first;(void)ok;(void)fi;(void)expr;(void)line;(void)pos;
+    (void)ip;(void)qc;(void)ec;(void)tbl;(void)p;(void)first;(void)ok;(void)fi;(void)expr;(void)line;(void)pos;(void)prefix;
     return INTERP_OK;
 #endif
     if(!xb_interp_ctx(ip)->set_heading) return INTERP_OK;
     if(!qc->off) q_append_cstr(line,&pos,sizeof(line),"Record#  ");
     else q_append_cstr(line,&pos,sizeof(line)," "); /* real PROG-query OFF */
+    (void)(prefix=pos); /* the "Record#  " lead is never trimmed (real set-mint/memowidth, width 0) */
     while(qc->has_exprlist ? q_next_expr(&p,expr,sizeof(expr),&ok) : fi<(int)dbf_nfields(tbl)) {
         const dbf_field_t *f; xb_val v; uint32_t width,n; int rc;
         if(!qc->has_exprlist) { f=dbf_field(tbl,fi++); rt_memcpy(expr,f->name,rt_strlen(f->name)+1); }
@@ -587,6 +655,9 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
         first=0;
         if(pos+width+1>=sizeof(line)) { q_putn(ip,line,pos);pos=0; }
         n=rt_strlen(expr);
+        /* Memo heading is cut to the memo width (the minted wrap of a heading
+         * longer than SET MEMOWIDTH, only reachable at 0 or 1, is unverified). */
+        if(((f && f->type=='M') || (!f && v.t==XB_M)) && n>width) n=width;
         /* Real III+ PROG-query: numeric headings align at the right edge
          * of their column, just like their numeric data (minted QTY N5). */
         /* SF-exprcol: a numeric EXPRESSION heading right-aligns too
@@ -607,7 +678,7 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
     /* Real III+ 1.1 M005U/M005N: the final heading is not column-padded,
      * unlike the final value (dbase3-decomp/re/mint-results-005.md). */
 #ifndef SAMIR_LIST_MUTATE_HEADING
-    while(pos && line[pos-1]==' ') pos--;
+    while(pos>prefix && line[pos-1]==' ') pos--;
 #endif
     q_append_cstr(line,&pos,sizeof(line),"\r\n");q_putn(ip,line,pos);
     return INTERP_OK;
@@ -631,6 +702,9 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
     char line[Q_LINEBUF];
     uint32_t pos = 0u;
     int rc;
+    q_memocells mc;
+    mc.n = 0u;
+    mc.overflow = 0u;
 
     /* Ref: Using dBase III Plus.pdf U2-26: asterisk before a deleted record.
      * Exact marker column is authored, no local reference golden. */
@@ -667,7 +741,7 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
                 return rc;
             q_render_field(ip,line, &pos, sizeof(line), &v,
                            q_field_descriptor(ip,expr), xb_interp_ctx(ip),
-                           q_column_width(q_field_descriptor(ip,expr),expr,&v,xb_interp_ctx(ip)));
+                           q_column_width(q_field_descriptor(ip,expr),expr,&v,xb_interp_ctx(ip)),&mc);
         }
         if (!ok) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
     } else {
@@ -685,12 +759,29 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             if (rc != INTERP_OK)
                 return rc;
             q_render_field(ip,line, &pos, sizeof(line), &v, f, xb_interp_ctx(ip),
-                           q_column_width(f,f->name,&v,xb_interp_ctx(ip)));
+                           q_column_width(f,f->name,&v,xb_interp_ctx(ip)),&mc);
         }
     }
 
+    /* More wrapped memo columns than Q_MEMO_CELLS: refuse, never drop lines. */
+    if (mc.overflow) { if (ec) *ec = 46; return -INTERP_ERR_EVAL; }
     q_append_cstr(line, &pos, sizeof(line), "\r\n");
     q_putn(ip, line, pos);
+    /* SET MEMOWIDTH continuation lines: each wrapped memo cell resumes under
+     * its own column (real III+ set-mint/memowidth, two-memo-column probe). */
+    for (;;) {
+        uint32_t i, any = 0u;
+        for (i = 0u; i < mc.n; i++) any |= mc.off[i] < mc.len[i];
+        if (!any) break;
+        pos = 0u;
+        for (i = 0u; i < mc.n; i++) {
+            if (mc.off[i] >= mc.len[i]) continue;
+            while (pos < mc.col[i] && pos < sizeof(line)) line[pos++] = ' ';
+            q_memo_line(line, &pos, sizeof(line), mc.t[i], mc.len[i], &mc.off[i], mc.w[i]);
+        }
+        q_append_cstr(line, &pos, sizeof(line), "\r\n");
+        q_putn(ip, line, pos);
+    }
     if (ec) *ec = 0;
     return INTERP_OK;
 }
@@ -879,7 +970,7 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
             return rc;
         if(v.t==XB_N) {
             const dbf_field_t *f=q_field_descriptor(ip,expr);
-            if(f){v.num_width=f->field_len;v.num_dec=f->dec_count;}
+            if(f){v.num_width=f->field_len;v.num_dec=f->dec_count;xb_fixed_picture(xb_interp_ctx(ip),&v);}
         }
         q_render_val(line,&pos,sizeof(line),&v,xb_interp_ctx(ip),1);
     }
@@ -931,7 +1022,7 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
     rc=xb_interp_eval(ip,p,&v,ec);if(rc)return rc;
     if(v.t==XB_N) {
         const dbf_field_t *f=q_field_descriptor(ip,p);
-        if(f) { v.num_width=f->field_len;v.num_dec=f->dec_count; }
+        if(f) { v.num_width=f->field_len;v.num_dec=f->dec_count;xb_fixed_picture(ctx,&v); }
     }
     n=0;q_render_val(line,&n,sizeof line,&v,ctx,1);
     if(ctx->device_print) {
@@ -1489,9 +1580,9 @@ static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
         "CONFIRM\0ESCAPE\0MENU\0TITLE\0CONSOLE\0EXACT\0PRINT\0UNIQUE\0DEBUG\0FIELDS\0";
     const char *name=names;
     unsigned areas=0;
-    int values[30]={ss?ss->alternate_on:0,wa_get_deleted(env),0,set_get_safety(ip),
+    int values[30]={ss?ss->alternate_on:0,wa_get_deleted(env),ctx->set_fixed,set_get_safety(ip),
         0,0,ctx->set_heading,1,0,0,1,ctx->set_status,0,0,1,0,ctx->set_century,0,1,
-        set_get_talk(ip),0,set_get_escape(ip),1,1,ctx->set_console,ctx->set_exact,0,0,0,0};
+        set_get_talk(ip),0,set_get_escape(ip),1,1,ctx->set_console,ctx->set_exact,0,ss?ss->unique:0,0,0};
     qi_line(q);
     for(int a=1;a<=WA_NAREAS;a++)if(wa_is_open(env,a)) {
         const char *filter=wa_filter_text(env,a),*rel=wa_relation_text(env,a);
@@ -1560,9 +1651,43 @@ static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
       for(unsigned i=2;i<=10;i++){qi_text(q,"F");qi_uint(q,i,0);qi_pad(q,4);qi_text(q,"- ");qi_text(q,s);qi_line(q);s+=rt_strlen(s)+1;}}
 }
 
+/* LIST|DISPLAY HISTORY [LAST <n>]: the SET HISTORY ring oldest first, one
+ * statement per line (real III+ set-mint/history, probe hx1: LAST n keeps the
+ * newest n). The listing starts at the next-write slot. DISPLAY's screen
+ * pause is not modelled. */
+static SAMIR_OVL_TEXT(status) int q_history(xb_interp *ip, const char *tail, int *ec)
+{
+    const set_state *ss=set_get_state(ip);
+    q_inspection q;
+    uint32_t i,total=0,skip=0;
+    tail=q_skip_ws(tail);
+    if(*tail) {
+        xb_val v;int rc;
+        if(rt_kw_word(tail,"LAST\0",(int *)0)!=0) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
+        rc=xb_interp_eval(ip,q_skip_ws(tail+4),&v,ec);if(rc!=INTERP_OK)return rc;
+        if(v.t!=XB_N) { if(ec)*ec=27;return -INTERP_ERR_EVAL; }
+        q.n=v.u.n<0.0?0u:(uint32_t)v.u.n;
+        if(ss&&ss->hist)for(i=0;i<ss->hist_cap;i++)if(ss->hist[i])total++;
+        skip=total>q.n?total-q.n:0u;
+    }
+    q.ip=ip;q.n=0;q.rows=0;q.display=0;q.stopped=0;
+    if(ss&&ss->hist)for(i=0;i<ss->hist_cap;i++) {
+        #ifndef SAMIR_W2_MUTANT_histlist
+        const char *e=ss->hist[(ss->hist_next+i)%ss->hist_cap];
+#else
+        const char *e=ss->hist[i];   /* MUTANT: list from slot 0, not the oldest */
+#endif
+        if(!e)continue;
+        if(skip){skip--;continue;}
+        qi_text(&q,e);qi_line(&q);
+    }
+    q_putn(ip,"\r\n",2);
+    return INTERP_OK;
+}
 static SAMIR_OVL_TEXT(status) int q_inspect(xb_interp *ip, int what, int display, const char *tail, int *ec)
 {
     q_inspection q;
+    if(what==2)return q_history(ip,tail,ec);
     if(*q_skip_ws(tail)) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
     q.ip=ip;q.n=0;q.rows=0;q.display=display?(what==1?2:1):0;q.stopped=0;
     if(what==0)qi_status(&q);else qi_memory(&q);
@@ -1571,7 +1696,7 @@ static SAMIR_OVL_TEXT(status) int q_inspect(xb_interp *ip, int what, int display
 }
 /* Overlay STATUS (initech-5etom.1; docs/design/samir-overlays.md Sec 3):
  * LIST/DISPLAY STATUS|MEMORY. k = what * 2 + display (what: 0 STATUS,
- * 1 MEMORY); returns q_inspect's result, which query_cmd_hook wraps as before. */
+ * 1 MEMORY, 2 HISTORY); returns q_inspect's result, which query_cmd_hook wraps as before. */
 static SAMIR_OVL_TEXT(status) int query_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
 {
     return q_inspect(ip, k >> 1, k & 1, args, ec);
@@ -1592,7 +1717,7 @@ static int query_cmd_hook(void *user, xb_interp *ip,
     if (!qs) { if (err_code) *err_code = 0; return -INTERP_ERR_NOMEM; }
 
     k = rt_kw_index(verb, "LIST\0DISPLAY\0?\0??\0LOCATE\0CONTINUE\0SEEK\0FIND\0"
-                          "GO\0GOTO\0SKIP\0@\0");
+                          "GO\0GOTO\0SKIP\0@\0EJECT\0");
 #ifdef SAMIR_DML_MUTANT_abbrev
     /* Disable recognition at one hook only: real DISP differential must bite. */
     if (k == 1 && rt_strlen(verb) != 7) return CMD_UNKNOWN;
@@ -1604,7 +1729,7 @@ static int query_cmd_hook(void *user, xb_interp *ip,
         int area = wa_selected(env);
         int is_display = (k == 1);
         const char *tail=q_skip_ws(args);
-        int inspection=rt_kw_word(tail,"STATUS\0MEMORY\0",(int *)0);
+        int inspection=rt_kw_word(tail,"STATUS\0MEMORY\0HISTORY\0",(int *)0);
         if(inspection>=0) {
             while(*tail && !q_isspace(*tail))tail++;
             rc=SAMIR_OVL_CALL(SAMIR_OVL_STATUS,query_ovl_entry,inspection*2+is_display,ip,tail,err_code);
@@ -1622,6 +1747,15 @@ static int query_cmd_hook(void *user, xb_interp *ip,
     case 7: rc = q_find(ip, args, err_code); break;
     case 8: case 9: rc = q_go(ip, args, err_code); break;               /* GO GOTO */
     case 11: rc = q_say(ip, args, err_code); break;
+    case 12: {                                  /* EJECT: CR FF; evidence is ONE margin-probe capture
+                                           (PRINT OFF, margin 3, after a printed line); verb-mint/eject PENDING */
+        samir_pal_t *pal = xb_interp_pal(ip);
+        xb_ctx *ctx = xb_interp_ctx(ip);
+        if (pal->printout) pal->printout(pal, "\r\f", 2u);
+        ctx->printer_row = ctx->printer_col = 0;
+        rc = INTERP_OK;
+        break;
+    }
     case 10: rc = q_skip(ip, args, err_code); break;
     default: return CMD_UNKNOWN;                /* not a query verb */
     }

@@ -627,6 +627,10 @@ typedef struct xb_dbcursor {
 #define XB_DATE_JAPAN     6u   /* YY/MM/DD  */
 #define XB_DATE_USA       7u   /* MM-DD-YY  */
 
+struct xb_ctx;
+/* SET FIXED ON: re-picture a numeric value (keep integer room, SET DECIMALS places). */
+void xb_fixed_picture(const struct xb_ctx *ctx, xb_val *v);
+
 typedef struct xb_ctx {
     /* Using III+ U5-210/235/259: screen controls. STATUS has no CONFIG.DB.
      * dot_command is set only around a command entered at the dot prompt. */
@@ -634,6 +638,13 @@ typedef struct xb_ctx {
     /* say-get-read.md sections 1-2; fns-mint row/col/prow/pcol.
      * Independent screen and printer positions, initially zero. */
     uint8_t device_print;
+    /* SET PRINT / SET MARGIN: real III+ w2 set-mint/margin PRINTER.OUT. */
+    uint8_t set_print;
+    uint16_t set_margin;
+    /* SET MEMOWIDTH (real III+ 1.1 set-mint/memowidth): stored as width+1 so a
+     * zeroed ctx means the default 50; the width is the low byte of the SET
+     * operand (256 -> 0, 300 -> 44). Read with q_mw() in cmd/query.c. */
+    uint16_t memo_width1;
     uint16_t screen_row, screen_col, printer_row, printer_col;
     /* Using III+ U5-193: ALTERNATE records program output even CONSOLE OFF. */
     void (*mirror_output)(void *, const char *, uint32_t);
@@ -692,6 +703,7 @@ typedef struct xb_ctx {
     uint8_t  set_decimals;    /* STR() default dec places; III+ default: 2       */
     uint8_t  set_date_fmt;    /* DTOC/CTOD format; XB_DATE_AMERICAN (0) default */
     uint8_t  set_century;     /* 0 = OFF (2-digit year); 1 = ON (4-digit year)   */
+    uint8_t  set_fixed;       /* SET FIXED: 1 = numeric results show SET DECIMALS places */
 
     int  (*resolve)(void *user, const char *name, uint16_t len, xb_val *out);
     void  *user;

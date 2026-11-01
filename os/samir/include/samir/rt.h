@@ -192,9 +192,14 @@ int dec_format(double v, int width, int dec, char *out);
  * even; STR retains dec_format's ties-to-+infinity contract. */
 int dec_format_even(double v, int width, int dec, char *out);
 /* Reduce decimals until the number fits, then star-fill (DT2 F12/F13).
- * ties_even selects DBF storage rounding (1); expression display keeps its
- * independently minted ties-to-+infinity rule (0, SF-division). */
+ * ties_even selects DBF storage rounding (1) or the legacy STR rule (0).
+ * General expression display uses dec_format_display below. */
 int dec_format_fit(double v, int width, int dec, char *out, int ties_even);
+
+/* III+ general display: exact nearest-even scaling, at most 19
+ * active columns, scientific fallback for finite magnitudes that do not fit.
+ * Independent from STR and DBF storage; see fns-mint/matrixb and numfmt. */
+int dec_format_display(double v, int width, int dec, char *out);
 
 /*
  * dec_parse: parse an ASCII decimal string `s` of `len` bytes into a double.

@@ -1,0 +1,12 @@
+% A form of the LIST command (compound).  Real III+ 1.1 captures:
+% xbase_prog_diff/set-mint/history.  Gate: test-samir-w2-set-history.
+\begin{XbaseEntry}{LIST HISTORY}{compound}
+Lists the commands kept by SET HISTORY, oldest first.
+\Syntax
+\SyntaxLine{\kw{LIST HISTORY} [\kw{LAST} <expN>]}
+\SyntaxLine{\kw{DISPLAY HISTORY} [\kw{LAST} <expN>]}
+\Usage
+LAST limits the listing to the newest <expN> commands.  In this version
+DISPLAY HISTORY does not pause at the end of a screen.
+\SeeAlso{SET HISTORY, SET DOHISTORY}
+\end{XbaseEntry}

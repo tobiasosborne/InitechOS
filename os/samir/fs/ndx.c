@@ -1350,6 +1350,14 @@ SAMIR_OVL_TEXT(file) int ndx_build(samir_pal_t *pal, const char *out_name,
               uint16_t key_type, uint16_t key_len, const char *key_expr,
               uint32_t nrec, ndx_key_provider get_key, void *user)
 {
+    return ndx_build_ex(pal, out_name, key_type, key_len, key_expr, nrec,
+                        get_key, user, 0);
+}
+
+SAMIR_OVL_TEXT(file) int ndx_build_ex(samir_pal_t *pal, const char *out_name,
+              uint16_t key_type, uint16_t key_len, const char *key_expr,
+              uint32_t nrec, ndx_key_provider get_key, void *user, int unique)
+{
     samir_ovl_validate_pal(pal);
     void     *mark;
     uint8_t  *keys;       /* nrec * key_len bytes of on-disk key data */
@@ -1435,6 +1443,30 @@ SAMIR_OVL_TEXT(file) int ndx_build(samir_pal_t *pal, const char *out_name,
 
     /* --- STABLE sort by collation; ties keep ascending recno. --- */
     stable_sort_keys(key_type, key_len, keys, recnos, nrec, tmpkey);
+
+    /* UNIQUE (INDEX ... UNIQUE / SET UNIQUE ON): keep only the first (lowest
+     * recno, the stable-sort tie order) record of each run of equal keys.
+     * Ref: real III+ captures set-mint/unique + uniquerebuild: later duplicates are
+     * omitted from the index; header unique flag bytes 0x16..0x17 = 00 01. */
+#ifdef SAMIR_W2_MUTANT_unique_dedupe
+    if (0) {   /* mutant: duplicates NOT omitted */
+#else
+    if (unique && nrec > 1u) {
+#endif
+        uint32_t w = 1u;
+        for (i = 1u; i < nrec; i++) {
+            if (build_cmp(key_type, key_len, keys + (uint32_t)(w - 1u) * key_len,
+                          keys + (uint32_t)i * key_len) == 0)
+                continue;
+            if (w != i) {
+                rt_memcpy(keys + (uint32_t)w * key_len,
+                          keys + (uint32_t)i * key_len, key_len);
+                recnos[w] = recnos[i];
+            }
+            w++;
+        }
+        nrec = w;
+    }
 
     /* --- Leaf count: pack 100% L->R, remainder last. --- */
     /* nleaf = ceil(nrec / kpp), minimum 1 (an empty index still has 1 leaf). */
@@ -1535,7 +1567,7 @@ SAMIR_OVL_TEXT(file) int ndx_build(samir_pal_t *pal, const char *out_name,
     u16le_w(page + NDX_HDR_KEY_TYPE_OFF,     key_type);
     u16le_w(page + NDX_HDR_GROUP_LENGTH_OFF, (uint16_t)group_len);
     u16le_w(page + NDX_HDR_DUMMY_OFF,        0u);             /* NORMALIZE -> 0 */
-    u16le_w(page + NDX_HDR_UNIQUE_FLAG_OFF,  0u);             /* bulk INDEX ON is non-unique */
+    u16le_w(page + NDX_HDR_UNIQUE_FLAG_OFF,  unique ? 0x0100u : 0u); /* bytes 00 01 */
     /* key_expr verbatim, NUL-terminated, cap 100. Tail after NUL stays 0. */
     if (key_expr) {
         uint32_t e;
@@ -2723,9 +2755,14 @@ SAMIR_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx, uint32_t nrec,
 
     /* Rebuild the whole .ndx from the packed table, preserving key geometry
      * and the verbatim key expression. */
-    rc = ndx_build(pal, idx->path,
+    rc = ndx_build_ex(pal, idx->path,
                    idx->key_type, idx->key_length, idx->key_expr,
-                   nrec, get_key, user);
+                   nrec, get_key, user,
+#ifdef SAMIR_W2_MUTANT_unique_rebuild
+                   0);   /* mutant: REINDEX forgets the index's own uniqueness */
+#else
+                   idx->unique_flag != 0u);
+#endif
     if (rc != NDX_OK)
         return rc;   /* fail loud; handle left fd == -1 */
 

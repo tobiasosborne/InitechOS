@@ -1,0 +1,15 @@
+% EJECT -- os/samir/cmd/query.c (verb EJECT). Evidence is a single real III+ 1.1
+% capture, set-mint/margin/PRINTER.OUT (SET PRINT OFF, margin 3, after a printed
+% line: CR FF reached the printer). verb-mint/eject is still PENDING.
+\begin{XbaseEntry}{EJECT}{command}
+Advances the printer to the top of the next page.
+\Syntax
+\SyntaxLine{\kw{EJECT}}
+\Usage
+\cmd{EJECT} sends a carriage return and a form feed to the printer and this
+version then sets the printer position to row 0, column 0.  It was checked
+against the original product only with SET PRINT OFF, after a printed line; other
+cases, including trailing words and the position after an eject, are not yet
+checked.
+\SeeAlso{SET DEVICE, PCOL()}
+\end{XbaseEntry}
