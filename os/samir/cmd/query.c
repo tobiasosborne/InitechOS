@@ -232,6 +232,40 @@ static void q_append_uint_rj(char *buf, uint32_t *pos, uint32_t cap,
     q_append(buf, pos, cap, tmp, (uint32_t)n);
 }
 
+/* SET MEMOWIDTH wrap. Ref: real III+ 1.1 set-mint/memowidth GOLD.OUT and
+ * W2-mint probes: lines are at most W bytes and padded to W; a break falls after
+ * the last blank inside the W-byte window (kept on the line), or at W when the
+ * next byte is a blank (that blank is consumed), else the word is split at W.
+ * CR/LF bytes inside a memo are NOT given line-break meaning here (unminted). */
+static uint32_t q_mw(const xb_ctx *ctx)
+{
+#ifdef SAMIR_W2_MUTANT_memowidth_ignore
+    (void)ctx; return 50u;
+#else
+    return (ctx && ctx->memo_width1) ? (uint32_t)(ctx->memo_width1 - 1u) : 50u;
+#endif
+}
+/* Length of the next line starting at t+*off; advances *off past it. */
+static uint32_t q_memo_next(const char *t, uint32_t len, uint32_t *off, uint32_t w)
+{
+    uint32_t o = *off, k;
+    if (w == 0u) { *off = len; return 0u; }  /* width 0 (256): one empty line */
+    if (len - o <= w) { *off = len; return len - o; }
+    if (t[o + w] == ' ') { *off = o + w + 1u; return w; }
+    for (k = w; k > 0u; k--)
+        if (t[o + k - 1u] == ' ') { *off = o + k; return k; }
+    *off = o + w;
+    return w;
+}
+/* Append one padded memo line (w bytes) taken from t at *off. */
+static void q_memo_line(char *buf, uint32_t *pos, uint32_t cap,
+                        const char *t, uint32_t len, uint32_t *off, uint32_t w)
+{
+    uint32_t st = *off, n = q_memo_next(t, len, off, w);
+    q_append(buf, pos, cap, t + st, n);
+    for (; n < w && *pos < cap; n++) buf[(*pos)++] = ' ';
+}
+
 /* Shared value printer. Using III+ U5-15 and real PROG-01..07/DML
  * transcripts: numeric widths/decimals are carried with values; fields use
  * their descriptors in q_render_field. Character bytes, date formats and
@@ -242,8 +276,17 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
                   const xb_val *v, const xb_ctx *ctx, int logical_dotted)
 {
     switch (v->t) {
+    case XB_M: {
+        uint32_t w = q_mw(ctx), off = 0u, len = v->u.c.len;
+        const char *t = v->u.c.p ? v->u.c.p : "";
+        for (;;) {
+            q_memo_line(buf, pos, cap, t, len, &off, w);
+            if (off >= len) break;
+            q_append(buf, pos, cap, "\r\n", 2u);
+        }
+        break;
+    }
     case XB_C:
-    case XB_M:
         q_append(buf, pos, cap, v->u.c.p ? v->u.c.p : "", (uint32_t)v->u.c.len);
         break;
     case XB_N: {
@@ -515,15 +558,31 @@ static const dbf_field_t *q_field_descriptor(xb_interp *ip, const char *expr)
     }
     return (const dbf_field_t *)0;
 }
+/* Memo cells of one LIST row: the first line is inline, the rest follow. */
+#define Q_MEMO_CELLS 4
+typedef struct {
+    uint32_t n, col[Q_MEMO_CELLS], len[Q_MEMO_CELLS], off[Q_MEMO_CELLS], w[Q_MEMO_CELLS];
+    const char *t[Q_MEMO_CELLS];
+} q_memocells;
 static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
                            const xb_val *v,const dbf_field_t *f,
-                           const xb_ctx *ctx, uint32_t width)
+                           const xb_ctx *ctx, uint32_t width, q_memocells *mc)
 {
     uint32_t start;
     /* A legal wide record can exceed one line buffer. Stream whole cells,
      * preserving every numeric byte instead of truncating at Q_LINEBUF. */
     if(width+*pos>=cap) { q_putn(ip,buf,*pos);*pos=0; }
     start=*pos;
+    if(v->t==XB_M) {
+        uint32_t off=0u,len=v->u.c.len;
+        const char *t=v->u.c.p?v->u.c.p:"";
+        q_memo_line(buf,pos,cap,t,len,&off,width);
+        if(off<len && mc && mc->n<Q_MEMO_CELLS) {
+            uint32_t i=mc->n++;
+            mc->col[i]=start;mc->len[i]=len;mc->off[i]=off;mc->w[i]=width;mc->t[i]=t;
+        }
+        return;
+    }
     if(f && f->type=='N' && v->t==XB_N) {
         char cell[256];
         int dec=f->dec_count;
@@ -564,6 +623,7 @@ static uint32_t q_column_width(const dbf_field_t *f,const char *expr,const xb_va
         xb_val t=xb_u();t.t=XB_N;t.num_width=f->field_len;t.num_dec=f->dec_count;
         xb_fixed_picture(ctx,&t);width=t.num_width;
     }
+    if((f && f->type=='M') || (!f && v->t==XB_M)) return q_mw(ctx); /* SET MEMOWIDTH */
     if(!f) { char b[256]; uint32_t n=0; q_render_val(b,&n,sizeof(b),v,ctx,0); width=n; }
     /* Using III+ U5-235: heading length or field width, whichever is larger. */
     if(ctx->set_heading && name>width) width=name;
@@ -571,16 +631,17 @@ static uint32_t q_column_width(const dbf_field_t *f,const char *expr,const xb_va
 }
 static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *ec)
 {
-    char line[Q_LINEBUF],expr[Q_MAX_EXPR+1]; uint32_t pos=0;
+    char line[Q_LINEBUF],expr[Q_MAX_EXPR+1]; uint32_t pos=0,prefix;
     const char *p=qc->exprlist; int first=1,ok=1,fi=0;
     dbf_table *tbl=wa_table(xb_interp_env(ip),area);
 #ifdef SAMIR_MUTATE_HEADING
-    (void)ip;(void)qc;(void)ec;(void)tbl;(void)p;(void)first;(void)ok;(void)fi;(void)expr;(void)line;(void)pos;
+    (void)ip;(void)qc;(void)ec;(void)tbl;(void)p;(void)first;(void)ok;(void)fi;(void)expr;(void)line;(void)pos;(void)prefix;
     return INTERP_OK;
 #endif
     if(!xb_interp_ctx(ip)->set_heading) return INTERP_OK;
     if(!qc->off) q_append_cstr(line,&pos,sizeof(line),"Record#  ");
     else q_append_cstr(line,&pos,sizeof(line)," "); /* real PROG-query OFF */
+    (void)(prefix=pos); /* the "Record#  " lead is never trimmed (real set-mint/memowidth, width 0) */
     while(qc->has_exprlist ? q_next_expr(&p,expr,sizeof(expr),&ok) : fi<(int)dbf_nfields(tbl)) {
         const dbf_field_t *f; xb_val v; uint32_t width,n; int rc;
         if(!qc->has_exprlist) { f=dbf_field(tbl,fi++); rt_memcpy(expr,f->name,rt_strlen(f->name)+1); }
@@ -592,6 +653,9 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
         first=0;
         if(pos+width+1>=sizeof(line)) { q_putn(ip,line,pos);pos=0; }
         n=rt_strlen(expr);
+        /* Memo heading is cut to the memo width (the minted wrap of a heading
+         * longer than SET MEMOWIDTH, only reachable at 0 or 1, is unverified). */
+        if(((f && f->type=='M') || (!f && v.t==XB_M)) && n>width) n=width;
         /* Real III+ PROG-query: numeric headings align at the right edge
          * of their column, just like their numeric data (minted QTY N5). */
         /* SF-exprcol: a numeric EXPRESSION heading right-aligns too
@@ -612,7 +676,7 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
     /* Real III+ 1.1 M005U/M005N: the final heading is not column-padded,
      * unlike the final value (dbase3-decomp/re/mint-results-005.md). */
 #ifndef SAMIR_LIST_MUTATE_HEADING
-    while(pos && line[pos-1]==' ') pos--;
+    while(pos>prefix && line[pos-1]==' ') pos--;
 #endif
     q_append_cstr(line,&pos,sizeof(line),"\r\n");q_putn(ip,line,pos);
     return INTERP_OK;
@@ -636,6 +700,8 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
     char line[Q_LINEBUF];
     uint32_t pos = 0u;
     int rc;
+    q_memocells mc;
+    mc.n = 0u;
 
     /* Ref: Using dBase III Plus.pdf U2-26: asterisk before a deleted record.
      * Exact marker column is authored, no local reference golden. */
@@ -672,7 +738,7 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
                 return rc;
             q_render_field(ip,line, &pos, sizeof(line), &v,
                            q_field_descriptor(ip,expr), xb_interp_ctx(ip),
-                           q_column_width(q_field_descriptor(ip,expr),expr,&v,xb_interp_ctx(ip)));
+                           q_column_width(q_field_descriptor(ip,expr),expr,&v,xb_interp_ctx(ip)),&mc);
         }
         if (!ok) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
     } else {
@@ -690,12 +756,27 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             if (rc != INTERP_OK)
                 return rc;
             q_render_field(ip,line, &pos, sizeof(line), &v, f, xb_interp_ctx(ip),
-                           q_column_width(f,f->name,&v,xb_interp_ctx(ip)));
+                           q_column_width(f,f->name,&v,xb_interp_ctx(ip)),&mc);
         }
     }
 
     q_append_cstr(line, &pos, sizeof(line), "\r\n");
     q_putn(ip, line, pos);
+    /* SET MEMOWIDTH continuation lines: each wrapped memo cell resumes under
+     * its own column (real III+ set-mint/memowidth, two-memo-column probe). */
+    for (;;) {
+        uint32_t i, any = 0u;
+        for (i = 0u; i < mc.n; i++) any |= mc.off[i] < mc.len[i];
+        if (!any) break;
+        pos = 0u;
+        for (i = 0u; i < mc.n; i++) {
+            if (mc.off[i] >= mc.len[i]) continue;
+            while (pos < mc.col[i] && pos < sizeof(line)) line[pos++] = ' ';
+            q_memo_line(line, &pos, sizeof(line), mc.t[i], mc.len[i], &mc.off[i], mc.w[i]);
+        }
+        q_append_cstr(line, &pos, sizeof(line), "\r\n");
+        q_putn(ip, line, pos);
+    }
     if (ec) *ec = 0;
     return INTERP_OK;
 }

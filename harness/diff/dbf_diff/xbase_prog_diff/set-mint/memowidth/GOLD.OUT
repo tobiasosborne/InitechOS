@@ -25,4 +25,151 @@ MINT-ERROR         27 Not a numeric expression.
 MINT-ERROR         10 Syntax error.
 [ZERO MEMOWIDTH]
 MINT-ERROR         46 Illegal value.
+[LOW EDGE SEVEN]
+MINT-ERROR         46 Illegal value.
+[NEGATIVE]
+MINT-ERROR         46 Illegal value.
+[SEVEN POINT NINE]
+MINT-ERROR         46 Illegal value.
+[EIGHT POINT FOUR]
+ NOTE
+ Alpha   
+ bravo   
+ charlie 
+ delta   
+ echo    
+ foxtrot 
+ golf    
+ hotel   
+ india   
+ juliet  
+ kilo    
+ lima    
+ mike    
+ november
+ oscar   
+ papa.   
+
+[WIDTH 12]
+Record#  NOTE
+      1  Alpha bravo 
+         charlie     
+         delta echo  
+         foxtrot golf
+         hotel india 
+         juliet kilo 
+         lima mike   
+         november    
+         oscar papa. 
+
+[WIDTH 9.9]
+ NOTE
+ Alpha    
+ bravo    
+ charlie  
+ delta    
+ echo     
+ foxtrot  
+ golf     
+ hotel    
+ india    
+ juliet   
+ kilo lima
+ mike     
+ november 
+ oscar    
+ papa.    
+
+[EXPRESSION 3*5]
+ NOTE
+ Alpha bravo    
+ charlie delta  
+ echo foxtrot   
+ golf hotel     
+ india juliet   
+ kilo lima mike 
+ november oscar 
+ papa.          
+
+[WIDTH 263 = 7 SPLITS WORD]
+ NOTE
+ Alpha  
+ bravo  
+ charlie
+ delta  
+ echo   
+ foxtrot
+ golf   
+ hotel  
+ india  
+ juliet 
+ kilo   
+ lima   
+ mike   
+ novembe
+ r oscar
+ papa.  
+
+[WIDTH 300 = 44]
+ NOTE
+ Alpha bravo charlie delta echo foxtrot golf 
+ hotel india juliet kilo lima mike november  
+ oscar papa.                                 
+
+[WIDTH 255]
+ NOTE
+ Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa.                                                                                                                                                             
+
+[WIDTH 256 = 0]
+Record#  
+      1  
+
+[WIDTH 16 MIXED COLUMNS]
+Record#     RECNO() NOTE                RECNO()*2
+      1           1 Alpha bravo                 2
+                    charlie delta   
+                    echo foxtrot    
+                    golf hotel india
+                    juliet kilo lima
+                    mike november   
+                    oscar papa.     
+
+[TWO MEMO COLUMNS]
+Record#  NOTE       NOTE
+      1  Alpha      Alpha     
+         bravo      bravo     
+         charlie    charlie   
+         delta echo delta echo
+         foxtrot    foxtrot   
+         golf hotel golf hotel
+         india      india     
+         juliet     juliet    
+         kilo lima  kilo lima 
+         mike       mike      
+         november   november  
+         oscar      oscar     
+         papa.      papa.     
+
+[QUESTION AT 8]
+Alpha   
+bravo   
+charlie 
+delta   
+echo    
+foxtrot 
+golf    
+hotel   
+india   
+juliet  
+kilo    
+lima    
+mike    
+november
+oscar   
+papa.   
+[RESET]
+Record#  NOTE
+      1  Alpha bravo charlie delta echo foxtrot golf hotel 
+         india juliet kilo lima mike november oscar papa.  
+
 [W2-END]
