@@ -145,8 +145,8 @@ test-samir-ovl-output:
 TEST_UNIT_GATES += test-samir-ovl-output
 
 # Header changes invalidate the full resident and mutant links.
-$(SAMIR_EXE) $(SAMIR_OVL): $(SAMIR_DIR)/cmd/set_options.def
-$(BUILD)/SAMIR_SCREEN_%.EXE: $(SAMIR_DIR)/cmd/set_options.def
+$(SAMIR_EXE) $(SAMIR_OVL): $(wildcard $(SAMIR_DIR)/cmd/*.def)
+$(BUILD)/SAMIR_SCREEN_%.EXE: $(wildcard $(SAMIR_DIR)/cmd/*.def)
 $(TEST_SAMIR_OVL_EMU): $(DBF_DIFF_DIR)/trace_complete.h $(DBF_DIFF_DIR)/scratch_lock.h
 $(BUILD)/mzlink_close_fault: tools/mzlink.c $(DBF_DIFF_DIR)/mzlink_close_fault.c | $(BUILD)
 	$(CC) $(CFLAGS) -Wl,--wrap=fclose -o $@ $^

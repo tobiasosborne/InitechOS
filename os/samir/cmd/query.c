@@ -1344,7 +1344,7 @@ static int q_seek_key(xb_interp *ip, const xb_val *key, int *ec)
     return INTERP_OK;
 }
 
-static int q_seek(xb_interp *ip, const char *args, int *ec)
+static inline __attribute__((always_inline)) int q_seek(xb_interp *ip, const char *args, int *ec)
 {
     xb_val key;
     char expr[Q_MAX_EXPR + 1];
@@ -1469,7 +1469,7 @@ static int q_walk(xb_interp *ip, int area, const query_clauses *qc, int display,
     wa_include_deleted(env,old);
     return rc;
 }
-static int q_locate(xb_interp *ip, query_state *qs, const char *args, int *ec)
+static inline __attribute__((always_inline)) int q_locate(xb_interp *ip, query_state *qs, const char *args, int *ec)
 {
     query_clauses qc;
     wa_env *env=xb_interp_env(ip);
@@ -1703,11 +1703,79 @@ static SAMIR_OVL_TEXT(status) int query_ovl_entry(int k, xb_interp *ip, const ch
 }
 SAMIR_OVL_HEADER(status, SAMIR_OVL_STATUS, query_ovl_entry);
 
+/* Verb handlers, one per row of query_verbs.def (initech-1x6x2.4); a handler is called as
+ * fn(ip, [state,] [verb,] args, err_code) from the row-driven switch in the hook. Each returns
+ * the hook's final code (CMD_OK == INTERP_OK == 0, so no mapping is needed). */
+static __attribute__((noinline)) int qv_listing(xb_interp *ip, const char *args, int is_display, int *err_code)
+{
+    query_clauses qc;
+    wa_env *env = xb_interp_env(ip);
+    int area = wa_selected(env);
+    const char *tail=q_skip_ws(args);
+    int inspection=rt_kw_word(tail,"STATUS\0MEMORY\0HISTORY\0",(int *)0);
+    if(inspection>=0) {
+        while(*tail && !q_isspace(*tail))tail++;
+        return SAMIR_OVL_CALL(SAMIR_OVL_STATUS,query_ovl_entry,inspection*2+is_display,ip,tail,err_code);
+    }
+    if (q_split_clauses(args, &qc) != 0) { if (err_code) *err_code = 0; return -INTERP_ERR_SYNTAX; }
+    return q_walk(ip, area, &qc, /*is_display_default=*/is_display, err_code);
+}
+static inline __attribute__((always_inline)) int qv_list(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{ (void)qs; (void)verb; return qv_listing(ip, args, 0, ec); }
+static inline __attribute__((always_inline)) int qv_display(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{
+    (void)qs;
+#ifdef SAMIR_DML_MUTANT_abbrev
+    /* Disable recognition at one hook only: real DISP differential must bite. */
+    if (rt_strlen(verb) != 7) return CMD_UNKNOWN;
+#else
+    (void)verb;
+#endif
+    return qv_listing(ip, args, 1, ec);
+}
+static inline __attribute__((always_inline)) int qv_question(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{ (void)qs; (void)verb; return q_question(ip, args, /*leading_nl=*/1, ec); }
+static inline __attribute__((always_inline)) int qv_question2(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{ (void)qs; (void)verb; return q_question(ip, args, /*leading_nl=*/0, ec); }
+static inline __attribute__((always_inline)) int qv_locate(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{ (void)verb; return q_locate(ip, qs, args, ec); }
+static inline __attribute__((always_inline)) int qv_continue(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{ (void)verb; (void)args; return q_continue(ip, qs, ec); }
+static inline __attribute__((always_inline)) int qv_seek(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{ (void)qs; (void)verb; return q_seek(ip, args, ec); }
+static inline __attribute__((always_inline)) int qv_find(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{ (void)qs; (void)verb; return q_find(ip, args, ec); }
+static __attribute__((noinline)) int qv_go(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{ (void)qs; (void)verb; return q_go(ip, args, ec); }
+static inline __attribute__((always_inline)) int qv_skip(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{ (void)qs; (void)verb; return q_skip(ip, args, ec); }
+static inline __attribute__((always_inline)) int qv_eject(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{
+    /* EJECT: CR FF; evidence is ONE margin-probe capture (PRINT OFF, margin 3,
+     * after a printed line); verb-mint/eject PENDING */
+    samir_pal_t *pal = xb_interp_pal(ip);
+    xb_ctx *ctx = xb_interp_ctx(ip);
+    (void)qs; (void)verb; (void)args; (void)ec;
+    if (pal->printout) pal->printout(pal, "\r\f", 2u);
+    ctx->printer_row = ctx->printer_col = 0;
+    return CMD_OK;
+}
+static inline __attribute__((always_inline)) int qv_say(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{ (void)qs; (void)verb; return q_say(ip, args, ec); }
+
+/* Rows come from query_verbs.def: QUERY_VERB(KEYWORD, handler). Row order is the
+ * 4-letter-abbreviation tie-break (earlier row wins, as rt_kw_index). */
+#define QUERY_VERB(kw, fn) kw "\0"
+static const char __attribute__((aligned(1))) query_verb_kw[] =
+#include "query_verbs.def"
+    ;
+#undef QUERY_VERB
+
 static int query_cmd_hook(void *user, xb_interp *ip,
                           const char *verb, const char *args, int *err_code)
 {
     query_state *qs;
-    int k, rc;
+    int k;
     (void)user;
     if (err_code) *err_code = 0;
     if (!ip || !verb)
@@ -1716,50 +1784,18 @@ static int query_cmd_hook(void *user, xb_interp *ip,
     qs = query_state_for(ip);
     if (!qs) { if (err_code) *err_code = 0; return -INTERP_ERR_NOMEM; }
 
-    k = rt_kw_index(verb, "LIST\0DISPLAY\0?\0??\0LOCATE\0CONTINUE\0SEEK\0FIND\0"
-                          "GO\0GOTO\0SKIP\0@\0EJECT\0");
-#ifdef SAMIR_DML_MUTANT_abbrev
-    /* Disable recognition at one hook only: real DISP differential must bite. */
-    if (k == 1 && rt_strlen(verb) != 7) return CMD_UNKNOWN;
-#endif
-    switch (k) {
-    case 0: case 1: {                           /* LIST DISPLAY */
-        query_clauses qc;
-        wa_env *env = xb_interp_env(ip);
-        int area = wa_selected(env);
-        int is_display = (k == 1);
-        const char *tail=q_skip_ws(args);
-        int inspection=rt_kw_word(tail,"STATUS\0MEMORY\0HISTORY\0",(int *)0);
-        if(inspection>=0) {
-            while(*tail && !q_isspace(*tail))tail++;
-            rc=SAMIR_OVL_CALL(SAMIR_OVL_STATUS,query_ovl_entry,inspection*2+is_display,ip,tail,err_code);
-            break;
+    k = rt_kw_index(verb, query_verb_kw);
+    /* Rows of query_verbs.def become the cases of this switch (row index == rt_kw_index result). */
+    {
+        enum { QV_BASE = __COUNTER__ + 1 };
+#define QUERY_VERB(kw, fn) case __COUNTER__ - QV_BASE: return fn(ip, qs, verb, args, err_code);
+        switch (k) {
+#include "query_verbs.def"
+        default: break;
         }
-        if (q_split_clauses(args, &qc) != 0) { if (err_code) *err_code = 0; return -INTERP_ERR_SYNTAX; }
-        rc = q_walk(ip, area, &qc, /*is_display_default=*/is_display, err_code);
-        break;
+#undef QUERY_VERB
     }
-    case 2: rc = q_question(ip, args, /*leading_nl=*/1, err_code); break;  /* ? */
-    case 3: rc = q_question(ip, args, /*leading_nl=*/0, err_code); break;  /* ?? */
-    case 4: rc = q_locate(ip, qs, args, err_code); break;
-    case 5: rc = q_continue(ip, qs, err_code); break;
-    case 6: rc = q_seek(ip, args, err_code); break;
-    case 7: rc = q_find(ip, args, err_code); break;
-    case 8: case 9: rc = q_go(ip, args, err_code); break;               /* GO GOTO */
-    case 11: rc = q_say(ip, args, err_code); break;
-    case 12: {                                  /* EJECT: CR FF; evidence is ONE margin-probe capture
-                                           (PRINT OFF, margin 3, after a printed line); verb-mint/eject PENDING */
-        samir_pal_t *pal = xb_interp_pal(ip);
-        xb_ctx *ctx = xb_interp_ctx(ip);
-        if (pal->printout) pal->printout(pal, "\r\f", 2u);
-        ctx->printer_row = ctx->printer_col = 0;
-        rc = INTERP_OK;
-        break;
-    }
-    case 10: rc = q_skip(ip, args, err_code); break;
-    default: return CMD_UNKNOWN;                /* not a query verb */
-    }
-    return (rc == INTERP_OK) ? CMD_OK : rc;
+    return CMD_UNKNOWN;
 }
 
 /* ===================================================================== */
