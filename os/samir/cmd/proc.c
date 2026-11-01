@@ -845,7 +845,7 @@ static inline __attribute__((always_inline)) int pv_procedure(xb_interp *ip, pro
     (void)ip; (void)ps; (void)args; (void)err_code;
     return PROC_RC_RETURN;
 }
-static __attribute__((noinline)) int pv_parameters(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+static inline __attribute__((always_inline)) int pv_parameters(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
 {
     param_bind pb;
     int rc;

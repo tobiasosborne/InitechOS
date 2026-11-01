@@ -1745,7 +1745,7 @@ static inline __attribute__((always_inline)) int qv_seek(xb_interp *ip, query_st
 { (void)qs; (void)verb; return q_seek(ip, args, ec); }
 static inline __attribute__((always_inline)) int qv_find(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
 { (void)qs; (void)verb; return q_find(ip, args, ec); }
-static __attribute__((noinline)) int qv_go(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+static inline __attribute__((always_inline)) int qv_go(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
 { (void)qs; (void)verb; return q_go(ip, args, ec); }
 static inline __attribute__((always_inline)) int qv_skip(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
 { (void)qs; (void)verb; return q_skip(ip, args, ec); }

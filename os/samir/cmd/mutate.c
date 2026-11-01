@@ -1476,11 +1476,11 @@ static int m_delete_recall(xb_interp *ip, const char *args, int want_delete, int
 /* Verb handlers, one per row of mutate_verbs.def (initech-1x6x2.4). Each
  * returns the hook's final code (CMD_OK == INTERP_OK == 0). */
 /* One shared overlay call site (a per-verb SAMIR_OVL_CALL expansion costs ~30 B each). */
-static __attribute__((noinline)) int mutate_cold(int op, xb_interp *ip, const char *args, int *ec)
+static __attribute__((noinline)) int mutate_cold(xb_interp *ip, const char *args, int *ec, int op)
 { return SAMIR_OVL_CALL(SAMIR_OVL_FILE, mutate_ovl_entry, op, ip, args, ec); }
 #define MUT_COLD(name, op) \
     static int name(xb_interp *ip, const char *args, int *ec) \
-    { return mutate_cold(op, ip, args, ec); }
+    { return mutate_cold(ip, args, ec, op); }
 MUT_COLD(mv_type, MUT_OP_TYPE)
 MUT_COLD(mv_rename, MUT_OP_RENAME)
 MUT_COLD(mv_erase, MUT_OP_ERASE)
@@ -1498,7 +1498,7 @@ static inline __attribute__((always_inline)) int mv_copy(xb_interp *ip, const ch
 {
     /* COPY: only COPY FILE is ours */
     if (!m_match_kw(m_skip_ws(args), "FILE")) return CMD_UNKNOWN;
-    return mutate_cold(MUT_OP_COPY, ip, args, ec);
+    return mutate_cold(ip, args, ec, MUT_OP_COPY);
 }
 static inline __attribute__((always_inline)) int mv_replace(xb_interp *ip, const char *args, int *ec)
 {
@@ -1509,7 +1509,7 @@ static inline __attribute__((always_inline)) int mv_append(xb_interp *ip, const 
 {
     int rc;
     if (m_match_kw(m_skip_ws(args),"FROM"))  /* APPEND FROM is cold */
-        return mutate_cold(MUT_OP_APPEND_FROM, ip, args, ec);
+        return mutate_cold(ip, args, ec, MUT_OP_APPEND_FROM);
     rc = m_append(ip, args, ec);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
