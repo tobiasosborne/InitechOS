@@ -1572,6 +1572,24 @@ void xb_interp_output(xb_interp *ip,const char *s,uint32_t n)
     if(ip) samir_ovl_validate_ctx(&ip->ctx);
     if(ip && ip->ctx.mirror_output && n)
         ip->ctx.mirror_output(ip->ctx.mirror_user,s,n);
+    /* SET PRINT ON: console bytes also reach the raw LPT stream, even with
+     * CONSOLE OFF. SET MARGIN: real III+ writes the margin spaces after every
+     * LF (not CR, not FF, not at the start of a ?? line); PCOL excludes them
+     * (set-mint/margin PRINTER.OUT). */
+    if(ip && ip->ctx.set_print && n && ip->pal->printout) {
+        static const char sp[16]="                ";
+        uint32_t i,from=0u,m;
+        for(i=0u;i<n;i++) {
+            if(s[i]!='\n') continue;
+            ip->pal->printout(ip->pal,s+from,i+1u-from);from=i+1u;
+            for(m=ip->ctx.set_margin;m;) {
+                uint32_t k=m>16u?16u:m;
+                ip->pal->printout(ip->pal,sp,k);m-=k;
+            }
+        }
+        if(from<n) ip->pal->printout(ip->pal,s+from,n-from);
+        rt_cursor_advance(&ip->ctx.printer_row,&ip->ctx.printer_col,s,n,0);
+    }
 #ifndef SAMIR_MUTATE_CONSOLE
     if(!xb_interp_console_visible(ip)) return;
 #endif

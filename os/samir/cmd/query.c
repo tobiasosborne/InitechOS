@@ -1592,7 +1592,7 @@ static int query_cmd_hook(void *user, xb_interp *ip,
     if (!qs) { if (err_code) *err_code = 0; return -INTERP_ERR_NOMEM; }
 
     k = rt_kw_index(verb, "LIST\0DISPLAY\0?\0??\0LOCATE\0CONTINUE\0SEEK\0FIND\0"
-                          "GO\0GOTO\0SKIP\0@\0");
+                          "GO\0GOTO\0SKIP\0@\0EJECT\0");
 #ifdef SAMIR_DML_MUTANT_abbrev
     /* Disable recognition at one hook only: real DISP differential must bite. */
     if (k == 1 && rt_strlen(verb) != 7) return CMD_UNKNOWN;
@@ -1622,6 +1622,14 @@ static int query_cmd_hook(void *user, xb_interp *ip,
     case 7: rc = q_find(ip, args, err_code); break;
     case 8: case 9: rc = q_go(ip, args, err_code); break;               /* GO GOTO */
     case 11: rc = q_say(ip, args, err_code); break;
+    case 12: {                                  /* EJECT: CR FF to the printer */
+        samir_pal_t *pal = xb_interp_pal(ip);
+        xb_ctx *ctx = xb_interp_ctx(ip);
+        if (pal->printout) pal->printout(pal, "\r\f", 2u);
+        ctx->printer_row = ctx->printer_col = 0;
+        rc = INTERP_OK;
+        break;
+    }
     case 10: rc = q_skip(ip, args, err_code); break;
     default: return CMD_UNKNOWN;                /* not a query verb */
     }

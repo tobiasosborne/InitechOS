@@ -10,4 +10,29 @@ X
 MINT-ERROR         27 Not a numeric expression.
 [MISSING TO]
 MINT-ERROR         10 Syntax error.
+[LF AND CR RULES]A
+B
+C D
+E
+FGHIJ
+[PCOL EXCLUDES MARGIN]
+   0
+[ERRORS KEEP THE MARGIN]
+MINT-ERROR         27 Not a numeric expression.
+MINT-ERROR         10 Syntax error.
+MINT-ERROR         27 Not a numeric expression.
+K
+[TRUNCATE AND CLAMP]
+T57
+T09
+N1
+N05
+[EXPRESSIONS]
+E3
+V4
+L2
+[WIDE AND WRAPPED]
+W256
+W70000
+W32768
 [W2-END]
