@@ -1,0 +1,19 @@
+
+[W2-BEGIN]
+[NONUNIQUE REINDEX UNDER UNIQUE ON]
+Record#  NAME       CITY
+      3  LUMBERGH   DALLAS      
+      1  PESTON     HONOLULU    
+      2  WADDAMS    HONOLULU    
+
+[UNIQUE REINDEX UNDER UNIQUE OFF]
+Record#  NAME       CITY
+      3  LUMBERGH   DALLAS      
+      1  PESTON     HONOLULU    
+
+[UNIQUE KEYWORD INDEX]
+Record#  NAME       CITY
+      3  LUMBERGH   DALLAS      
+      1  PESTON     HONOLULU    
+
+[W2-END]

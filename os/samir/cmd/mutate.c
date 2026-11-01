@@ -1125,22 +1125,29 @@ static SAMIR_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebui
         }
     } else {
         const char *p=m_skip_ws(args),*to;char expr[255],name[128],display[128];xb_val v;ndx_index *ix;
-        unsigned n;int defaulted, k=m_match_kw(p,"ON");
+        unsigned n;int defaulted, unique=0, k=m_match_kw(p,"ON");
         if(!k)return d_fail(ec,10);
         p=m_skip_ws(p+k);to=d_kw(p,"TO");
         if(!to)return d_fail(ec,10);
         n=(unsigned)(to-p);while(n && m_isspace(p[n-1]))n--;
         if(!n || n>220)return d_fail(ec,10);
         rt_memcpy(expr,p,n);expr[n]=0;p=m_skip_ws(to+2);
-        if(!d_word(&p,name,sizeof name) || *p || !d_index_name(name,display,sizeof name,&defaulted))return d_fail(ec,10);
+        if(!d_word(&p,name,sizeof name))return d_fail(ec,10);
+        /* Optional UNIQUE keyword; SET UNIQUE ON implies it (real III+ uniquerebuild). */
+        {const set_state *ss=set_get_state(ip);unique=ss && ss->unique;}
+        if(m_match_kw(p,"UNIQUE")>0) {unique=1;p=m_skip_ws(p+6);}
+        if(*p || !d_index_name(name,display,sizeof name,&defaulted))return d_fail(ec,10);
         if(d_destination(ip,name,ec))return -INTERP_ERR_EVAL;
+        /* At EOF (e.g. after LIST) a character field evaluates empty, which has no
+         * key width; measure on record 1 (set-mint/unique: INDEX after LIST). */
+        if(count && wa_eof(env,area))wa_nav_goto(env,area,1);
         rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
         ctx.expr=expr;ctx.type=v.t==XB_C?0:1;
         if(v.t!=XB_C && v.t!=XB_N && v.t!=XB_D)return d_fail(ec,9);
 #ifdef SAMIR_DML_MUTANT_index
         if(count)count--; /* last physical record has no index entry */
 #endif
-        rc=ndx_build(pal,name,ctx.type,v.t==XB_C?v.u.c.len:8,expr,count,d_key,&ctx);
+        rc=ndx_build_ex(pal,name,ctx.type,v.t==XB_C?v.u.c.len:8,expr,count,d_key,&ctx,unique);
         if(rc) { wa_nav_goto(env,area,keep);return d_fail(ec,ctx.ec?ctx.ec:29); }
         rc=ndx_open_rw(pal,name,&ix);
         if(rc)return d_fail(ec,114);

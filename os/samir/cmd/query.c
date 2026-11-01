@@ -1496,7 +1496,7 @@ static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
     unsigned areas=0;
     int values[30]={ss?ss->alternate_on:0,wa_get_deleted(env),ctx->set_fixed,set_get_safety(ip),
         0,0,ctx->set_heading,1,0,0,1,ctx->set_status,0,0,1,0,ctx->set_century,0,1,
-        set_get_talk(ip),0,set_get_escape(ip),1,1,ctx->set_console,ctx->set_exact,0,0,0,0};
+        set_get_talk(ip),0,set_get_escape(ip),1,1,ctx->set_console,ctx->set_exact,0,ss?ss->unique:0,0,0};
     qi_line(q);
     for(int a=1;a<=WA_NAREAS;a++)if(wa_is_open(env,a)) {
         const char *filter=wa_filter_text(env,a),*rel=wa_relation_text(env,a);
