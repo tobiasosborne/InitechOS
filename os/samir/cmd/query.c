@@ -1742,7 +1742,8 @@ static int query_cmd_hook(void *user, xb_interp *ip,
     case 7: rc = q_find(ip, args, err_code); break;
     case 8: case 9: rc = q_go(ip, args, err_code); break;               /* GO GOTO */
     case 11: rc = q_say(ip, args, err_code); break;
-    case 12: {                                  /* EJECT: CR FF to the printer */
+    case 12: {                                  /* EJECT: CR FF; evidence is ONE margin-probe capture
+                                           (PRINT OFF, margin 3, after a printed line); verb-mint/eject PENDING */
         samir_pal_t *pal = xb_interp_pal(ip);
         xb_ctx *ctx = xb_interp_ctx(ip);
         if (pal->printout) pal->printout(pal, "\r\f", 2u);
