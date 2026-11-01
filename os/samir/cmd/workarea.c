@@ -40,6 +40,7 @@
 #include "samir/value.h"
 #include "samir/rt.h"
 #include "samir/pal.h"
+#include "samir/ovl.h"
 
 /* ===================================================================== */
 /* Internal layouts                                                       */
@@ -777,7 +778,7 @@ int wa_select_alias(wa_env *env, const char *alias)
     return -WA_ERR_NO_ALIAS;
 }
 
-int wa_set_order(wa_env *env, int area, int order)
+SAMIR_OVL_TEXT(set) int wa_set_order(wa_env *env, int area, int order)
 {
     work_area *wa;
     if (!env || area < 1 || area > WA_NAREAS)

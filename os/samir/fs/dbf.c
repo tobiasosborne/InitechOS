@@ -83,6 +83,7 @@
 #include "samir/value.h"   /* xb_val, xb_c/xb_n/xb_d/xb_l/xb_m/xb_u */
 #include "samir/dbf.h"
 #include "samir/dbt.h"
+#include "samir/ovl.h"
 
 #include "samir/dbf_format.h"   /* LOCKED spec-data, on -Ispec/samir or -Ispec */
 
@@ -1136,7 +1137,7 @@ static void fmt_field(uint8_t *dst, uint8_t flen, char ftype, uint8_t dec,
     }
 }
 
-int dbf_create(samir_pal_t *pal, const char *name,
+SAMIR_OVL_TEXT(file) int dbf_create(samir_pal_t *pal, const char *name,
                const dbf_field_spec *fields, int nfields, dbf_table **out)
 {
     samir_ovl_validate_pal(pal);
@@ -1273,7 +1274,7 @@ int dbf_create(samir_pal_t *pal, const char *name,
     return DBF_OK;
 }
 
-int dbf_append_rec(dbf_table *tbl, const xb_val *in, int deleted)
+SAMIR_OVL_TEXT(file) int dbf_append_rec(dbf_table *tbl, const xb_val *in, int deleted)
 {
     uint8_t  *rec;
     uint32_t  field_off;

@@ -1278,7 +1278,7 @@ static void u16le_w(uint8_t *p, uint16_t v)
  * double compare (NO sign-flip; ndx.md ss4.2). This MUST match ndx_key_cmp so
  * the rebuilt order equals the read order.
  */
-static int build_cmp(uint16_t key_type, uint16_t key_len,
+SAMIR_OVL_TEXT(file) static int build_cmp(uint16_t key_type, uint16_t key_len,
                      const uint8_t *a, const uint8_t *b)
 {
     if (key_type == (uint16_t)NDX_KEY_TYPE_CHAR) {
@@ -1332,7 +1332,7 @@ static void stable_sort_keys(uint16_t key_type, uint16_t key_len,
  * write_page: seek to page PAGE_NO * 512 and write the 512-byte PAGE buffer.
  * Returns NDX_OK or -NDX_ERR_IO (fail loud on short write -- Rule 2).
  */
-static int write_page(samir_pal_t *pal, pal_fd fd, uint32_t page_no,
+SAMIR_OVL_TEXT(file) static int write_page(samir_pal_t *pal, pal_fd fd, uint32_t page_no,
                       const uint8_t *page)
 {
     samir_ovl_validate_pal(pal);
