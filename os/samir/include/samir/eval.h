@@ -627,6 +627,10 @@ typedef struct xb_dbcursor {
 #define XB_DATE_JAPAN     6u   /* YY/MM/DD  */
 #define XB_DATE_USA       7u   /* MM-DD-YY  */
 
+struct xb_ctx;
+/* SET FIXED ON: re-picture a numeric value (keep integer room, SET DECIMALS places). */
+void xb_fixed_picture(const struct xb_ctx *ctx, xb_val *v);
+
 typedef struct xb_ctx {
     /* Using III+ U5-210/235/259: screen controls. STATUS has no CONFIG.DB.
      * dot_command is set only around a command entered at the dot prompt. */
@@ -692,6 +696,7 @@ typedef struct xb_ctx {
     uint8_t  set_decimals;    /* STR() default dec places; III+ default: 2       */
     uint8_t  set_date_fmt;    /* DTOC/CTOD format; XB_DATE_AMERICAN (0) default */
     uint8_t  set_century;     /* 0 = OFF (2-digit year); 1 = ON (4-digit year)   */
+    uint8_t  set_fixed;       /* SET FIXED: 1 = numeric results show SET DECIMALS places */
 
     int  (*resolve)(void *user, const char *name, uint16_t len, xb_val *out);
     void  *user;

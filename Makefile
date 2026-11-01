@@ -35032,6 +35032,7 @@ test-samir-w2-$(subst /,-,$(1)): $$(SAMIR_W2_TEST)
 	@echo '>>> test-samir-w2-$(subst /,-,$(1)): green'
 endef
 $(foreach rule,$(SAMIR_W2_MINTED),$(eval $(call samir-w2-pending-gate,$(rule))))
+include harness/diff/dbf_diff/w2_set_fixed.mk
 
 # NDX GOLD.OUT: the completed statement must precede error 87. This second
 # mutant raises immediately; the unchanged real-III+ transcript must catch it.

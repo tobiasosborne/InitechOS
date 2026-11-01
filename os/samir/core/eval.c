@@ -834,6 +834,21 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
 /* Public entry point                                                        */
 /* ======================================================================== */
 
+void xb_fixed_picture(const xb_ctx *ctx, xb_val *v)
+{
+#ifdef SAMIR_W2_MUTANT_set_fixed
+    return; /* MUTANT: FIXED ON changes nothing */
+#endif
+    if (ctx->set_fixed && v->t == XB_N) {
+        unsigned w = v->num_width ? v->num_width : 10, d = v->num_dec;
+        unsigned room = w > (d ? d + 1 : 0) ? w - (d ? d + 1 : 0) : 0;
+        d = ctx->set_decimals;
+        w = room + (d ? d + 1 : 0);
+        v->num_dec = (uint16_t)d;
+        v->num_width = (uint16_t)(w > 255 ? 255 : w);
+    }
+}
+
 int xb_eval(const xb_node *pool, int root, xb_ctx *ctx,
             xb_val *out, int *err_code)
 {
@@ -857,6 +872,10 @@ int xb_eval(const xb_node *pool, int root, xb_ctx *ctx,
     if (rc != 0) {
         *out = xb_u(); /* leave result undefined on error */
     }
+    /* SET FIXED ON, real III+ 1.1 w2 set-mint/fixed: a top-level numeric
+     * result keeps its integer room (width less its decimal suffix) and takes
+     * SET DECIMALS places; the double itself is untouched (rounded at display). */
+    if (rc == 0) xb_fixed_picture(ctx, out);
     if (err_code) {
         *err_code = local_err;
     }

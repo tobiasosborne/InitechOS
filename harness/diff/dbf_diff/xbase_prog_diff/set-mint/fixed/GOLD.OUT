@@ -8,4 +8,43 @@
 7  3.5   3.1429
 [BAD TOGGLE]
 MINT-ERROR         10 Syntax error.
+[LITERALS AND EXPRESSIONS DECIMALS TWO]
+7.00 7.56 1.23 0.50 -3.00 -3.46
+  7.00   2.50   7.50  100000.50
+123456789012.00
+         5.00          3.14           8.14
+  3.50   3.00          2.00          0.00
+ 1.00  4.00
+[FIELDS DECIMALS FOUR]
+ 1234.5000   1235.5000  -1234.5000    2469.0000
+Record#  NAME              BAL       BAL+1      5    2.5
+      1  PESTON      1234.5000   1235.5000 5.0000 2.5000
+      2  WADDAMS      -42.0000    -41.0000 5.0000 2.5000
+      3  LUMBERGH    7777.7700   7778.7700 5.0000 2.5000
+
+Record#         BAL       BAL/3        BAL*2
+      1   1234.5000    411.5000    2469.0000
+
+      1234.5000       1235.5000
+      1234.5000       1235.5000
+[DECIMALS ZERO ONE EIGHT]
+7 8   3
+  -42    -41
+Record#    BAL  BAL+1
+      2    -42    -41
+
+3.0 -3.5 0.0       1234.5
+       -42      2         10.0
+7.00000000 7.50000000   3.14285714  3.50000000
+[AFTER OFF]
+7 7.5555 1.23456   7.0   3.14 123456789012
+[FORMS]
+MINT-ERROR         10 Syntax error.
+MINT-ERROR         10 Syntax error.
+MINT-ERROR         10 Syntax error.
+7
+7.00   3.14
+7
+7.00
+7
 [W2-END]

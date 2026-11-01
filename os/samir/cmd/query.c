@@ -527,6 +527,7 @@ static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
     if(f && f->type=='N' && v->t==XB_N) {
         char cell[256];
         int dec=f->dec_count;
+        if(ctx->set_fixed)dec=ctx->set_decimals; /* SET FIXED ON */
 #ifdef SAMIR_NUMERIC_MUTATE_FRACTION
         if(v->u.n==(double)(int64_t)v->u.n) dec=0;
 #endif
@@ -559,6 +560,10 @@ static uint32_t q_column_width(const dbf_field_t *f,const char *expr,const xb_va
 {
     uint32_t width=f ? f->field_len : 0, name=rt_strlen(expr);
     if(f && f->type=='L') width=3; /* real PROG-query .T./.F. columns */
+    if(f && f->type=='N' && ctx->set_fixed) { /* SET FIXED ON re-pictures a numeric field column */
+        xb_val t=xb_u();t.t=XB_N;t.num_width=f->field_len;t.num_dec=f->dec_count;
+        xb_fixed_picture(ctx,&t);width=t.num_width;
+    }
     if(!f) { char b[256]; uint32_t n=0; q_render_val(b,&n,sizeof(b),v,ctx,0); width=n; }
     /* Using III+ U5-235: heading length or field width, whichever is larger. */
     if(ctx->set_heading && name>width) width=name;
@@ -879,7 +884,7 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
             return rc;
         if(v.t==XB_N) {
             const dbf_field_t *f=q_field_descriptor(ip,expr);
-            if(f){v.num_width=f->field_len;v.num_dec=f->dec_count;}
+            if(f){v.num_width=f->field_len;v.num_dec=f->dec_count;xb_fixed_picture(xb_interp_ctx(ip),&v);}
         }
         q_render_val(line,&pos,sizeof(line),&v,xb_interp_ctx(ip),1);
     }
@@ -931,7 +936,7 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
     rc=xb_interp_eval(ip,p,&v,ec);if(rc)return rc;
     if(v.t==XB_N) {
         const dbf_field_t *f=q_field_descriptor(ip,p);
-        if(f) { v.num_width=f->field_len;v.num_dec=f->dec_count; }
+        if(f) { v.num_width=f->field_len;v.num_dec=f->dec_count;xb_fixed_picture(ctx,&v); }
     }
     n=0;q_render_val(line,&n,sizeof line,&v,ctx,1);
     if(ctx->device_print) {
@@ -1489,7 +1494,7 @@ static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
         "CONFIRM\0ESCAPE\0MENU\0TITLE\0CONSOLE\0EXACT\0PRINT\0UNIQUE\0DEBUG\0FIELDS\0";
     const char *name=names;
     unsigned areas=0;
-    int values[30]={ss?ss->alternate_on:0,wa_get_deleted(env),0,set_get_safety(ip),
+    int values[30]={ss?ss->alternate_on:0,wa_get_deleted(env),ctx->set_fixed,set_get_safety(ip),
         0,0,ctx->set_heading,1,0,0,1,ctx->set_status,0,0,1,0,ctx->set_century,0,1,
         set_get_talk(ip),0,set_get_escape(ip),1,1,ctx->set_console,ctx->set_exact,0,0,0,0};
     qi_line(q);
