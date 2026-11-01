@@ -248,6 +248,8 @@ static void serial_puthex32(uint32_t v)
     }
 }
 
+#include "rec_sync.h"   /* RECORD-SYNC: empty unless -DFLAIR_RECORD_SYNC (record kernels) */
+
 /* fb_clear -- fill the entire linear framebuffer with one RGB color, branching
  * on bpp exactly as stage2 (stage2.asm:272-296). This is the seam for the
  * future text console (initech-yqb): the console will clear to a background
@@ -488,9 +490,11 @@ static int int21_conin_get_kbd(void)
         /* M015: IRQ0 wakes this wait at 100 Hz. Overlay only while waiting;
          * restore before cooked echo (and before returning to FLAIR). */
         console_cursor_wait(g_int21_con, pit_ticks(), 1);
+        REC_SYNC_DOS_IDLE();
         __asm__ __volatile__("hlt");   /* sleep until IRQ1 (a keystroke) wakes us */
     }
     console_cursor_wait(g_int21_con, pit_ticks(), 0);
+    REC_SYNC_DOS_INPUT(c);
     return c;
 }
 
@@ -517,7 +521,9 @@ void KERNEL_ASM_ABI tsr_screen_dispatch(int_frame_t *f)
 
 static int int21_conin_poll_kbd(void)
 {
-    return kbd_getchar();   /* non-blocking: char 0..255 or -1 if the ring is empty */
+    int c = kbd_getchar();   /* non-blocking: char 0..255 or -1 if the ring is empty */
+    REC_SYNC_DOS_INPUT(c);
+    return c;
 }
 
 /* ---- INT 21h CLOCK source wiring (beads initech-yv9) ----------------------
@@ -1637,6 +1643,7 @@ static void flair_live_mouse_post(int dx, int dy, uint8_t buttons)
  * voluntarily (BC-7; cooperative, not preemptive). */
 static void flair_live_yield(void)
 {
+    REC_SYNC_YIELD(&g_flair_kbd_ring);
     __asm__ __volatile__("hlt");
 }
 
@@ -8046,6 +8053,7 @@ void kernel_main(void)
                 int_frame_t time = { 0 };
                 time.eax = 0x2C00u;
                 int21_dispatch(&time);
+                REC_SYNC_CLOCK(&time);
                 /* DAS L002 oracle: witness the completed DOS checkpoint,
                  * even when the displayed minute did not change. */
                 serial_puts("FLAIR-CLOCK-POLL\n");
