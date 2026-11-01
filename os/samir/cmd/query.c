@@ -630,13 +630,13 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
     const char *p=qc->exprlist; int first=1,ok=1,fi=0;
     dbf_table *tbl=wa_table(xb_interp_env(ip),area);
 #ifdef SAMIR_MUTATE_HEADING
-    (void)ip;(void)qc;(void)ec;(void)tbl;(void)p;(void)first;(void)ok;(void)fi;(void)expr;(void)line;(void)pos;
+    (void)ip;(void)qc;(void)ec;(void)tbl;(void)p;(void)first;(void)ok;(void)fi;(void)expr;(void)line;(void)pos;(void)prefix;
     return INTERP_OK;
 #endif
     if(!xb_interp_ctx(ip)->set_heading) return INTERP_OK;
     if(!qc->off) q_append_cstr(line,&pos,sizeof(line),"Record#  ");
     else q_append_cstr(line,&pos,sizeof(line)," "); /* real PROG-query OFF */
-    prefix=pos; /* the "Record#  " lead is never trimmed (real set-mint/memowidth, width 0) */
+    (void)(prefix=pos); /* the "Record#  " lead is never trimmed (real set-mint/memowidth, width 0) */
     while(qc->has_exprlist ? q_next_expr(&p,expr,sizeof(expr),&ok) : fi<(int)dbf_nfields(tbl)) {
         const dbf_field_t *f; xb_val v; uint32_t width,n; int rc;
         if(!qc->has_exprlist) { f=dbf_field(tbl,fi++); rt_memcpy(expr,f->name,rt_strlen(f->name)+1); }
