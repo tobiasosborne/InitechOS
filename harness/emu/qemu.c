@@ -42,6 +42,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -771,6 +772,46 @@ typedef struct {
     pid_t qemu_pid;
 } KeyAckCtx;
 
+/* initech-1x6x2.1; PRD Sec 8; precedent: the host-wide Bochs flock (d9tt).
+ * `make -j64 test-merge-samir` started up to 64 QEMUs at once on 64 logical
+ * CPUs, beside compilers and other lanes' clones. A guest that needs 20 s alone
+ * then missed its 60 s wall deadline (timed_out=1 with SHELL-DONE seen). Every
+ * deadline stays as it is; instead at most NPROC/3 QEMUs run host-wide, so each
+ * gets a CPU, and queueing for a slot is not charged to any deadline. The flock
+ * dies with the harness, so a crash leaks nothing, and QEMU never inherits it.
+ * Slots are held until the harness exits: one QEMU per harness process. */
+static void qemu_slot_acquire(void)
+{
+#ifndef HARNESS_MUTATE_NO_QEMU_SLOTS
+    static int g_qemu_slot_fd = -1;
+    long cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    int slots = cpus >= 3 ? (int)(cpus / 3) : 1;
+    const char *env = getenv("INITECH_QEMU_SLOTS");
+    if (env && atoi(env) > 0) slots = atoi(env);
+    if (g_qemu_slot_fd >= 0) return;
+    /* Host-wide, so not $TMPDIR (legs set private ones). The gate's own dir. */
+    const char *dir = getenv("INITECH_QEMU_SLOT_DIR");
+    char path[512];
+    for (;;) {
+        for (int i = 0; i < slots; i++) {
+            snprintf(path, sizeof(path), "%.400s/initech-qemu-slot-%ld.%d",
+                     dir && dir[0] ? dir : "/tmp", (long)getuid(), i);
+            int fd = open(path, O_CREAT | O_RDWR | O_CLOEXEC, 0600);
+            if (fd < 0) {
+                fprintf(stderr, "[harness] qemu slot %s: %s\n", path, strerror(errno));
+                exit(2);
+            }
+            if (flock(fd, LOCK_EX | LOCK_NB) == 0) {
+                g_qemu_slot_fd = fd;
+                return;
+            }
+            close(fd);
+        }
+        sleep_ms(50);
+    }
+#endif
+}
+
 /* initech-1x6x2.1; PRD Sec 8; os/milton/kmain.c (input waits spin on hlt).
  * A blind-typed trace outran a guest starved by a parallel vector: wall-clock
  * pacing filled the 32-byte kernel ring (KBD-RING-DROP) or SAMIR's
@@ -783,7 +824,7 @@ typedef struct {
  * prompt is idle at once, so the injected trace is unchanged. --keys-ack has
  * true consumption backpressure and does not use this. */
 #define KEY_PACE_CPU_MS 200
-#define KEY_PACE_IDLE_SAMPLES 3
+#define KEY_PACE_IDLE_SAMPLES 3 /* 5 ms apart */
 
 #ifndef HARNESS_MUTATE_NO_KEY_PACE
 /* 1 = a QEMU thread is on a CPU or waiting for one; 0 = all asleep; -1 unknown. */
@@ -827,7 +868,7 @@ static void key_pace_wait(int fd, const KeyAckCtx *ack, long long cpu_at_send)
         if (r < 0) return;
         idle = r ? 0 : idle + 1;
         if (idle >= KEY_PACE_IDLE_SAMPLES) return;
-        qmp_drain(fd, 2);
+        qmp_drain(fd, 5);
     }
 #else
     /* Rule 6: restore the wall-clock burst (a starved guest gets outrun). */
@@ -1977,6 +2018,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
             return -1;
         }
     }
+    qemu_slot_acquire(); /* before the deadline starts: waiting is not running */
     long long harness_deadline = mono_ms() + timeout_ms;
     pid_t pid = fork();
     if (pid < 0) {

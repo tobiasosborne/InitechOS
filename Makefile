@@ -11988,6 +11988,22 @@ test-harness-key-pace-mutant: test-harness-key-pace $(BUILD)/test_qemu_key_pace_
 	@printf '>>> test-harness-key-pace-mutant: green (NO_KEY_PACE correctly RED: next stroke outruns a starved guest)\n'
 TEST_UNIT_GATES += test-harness-key-pace test-harness-key-pace-mutant
 
+# initech-1x6x2.1: at most INITECH_QEMU_SLOTS QEMUs host-wide. Two 3 s harness
+# runs on one slot must queue (>= 5.5 s together); the mutant runs them at once.
+$(BUILD)/qemu_harness_mut_noslots: $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
+	$(CC) $(CFLAGS) -DHARNESS_MUTATE_NO_QEMU_SLOTS -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
+qemu_slot_pair = d=$(BUILD)/qemu-slots-$(1); rm -rf $$d; mkdir -p $$d; s=$$(date +%s%N); \
+	for r in a b; do INITECH_QEMU_SLOTS=1 INITECH_QEMU_SLOT_DIR=$$PWD/$$d $(2) --disk $(SECONDARY_TRACER_IMG) --name $$r --out $$d --timeout-ms 3000 >/dev/null 2>&1 & done; \
+	wait; ms=$$(( ($$(date +%s%N)-s)/1000000 ))
+.PHONY: test-harness-qemu-slots test-harness-qemu-slots-mutant
+test-harness-qemu-slots: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	@$(call qemu_slot_pair,gate,$(HARNESS_BIN)); test $$ms -ge 5500 || { printf '!!! test-harness-qemu-slots: one slot ran two QEMUs together (%s ms)\n' $$ms; exit 1; }; \
+	printf '>>> test-harness-qemu-slots: green (one slot serialised two runs: %s ms)\n' $$ms
+test-harness-qemu-slots-mutant: test-harness-qemu-slots $(BUILD)/qemu_harness_mut_noslots $(SECONDARY_TRACER_IMG)
+	@$(call qemu_slot_pair,mut,$(BUILD)/qemu_harness_mut_noslots); test $$ms -lt 5500 || { printf '!!! test-harness-qemu-slots-mutant: mutant still queued (%s ms)\n' $$ms; exit 1; }; \
+	printf '>>> test-harness-qemu-slots-mutant: green (NO_QEMU_SLOTS correctly RED: two QEMUs together, %s ms)\n' $$ms
+TEST_EMU_GATES += test-harness-qemu-slots test-harness-qemu-slots-mutant
+
 # Bochs oracle harness CLI (beads initech-564): library + main.
 $(BOCHS_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h harness/emu/bochs_trace.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu -o $@ $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC)
