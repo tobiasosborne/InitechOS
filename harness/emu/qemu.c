@@ -2160,7 +2160,7 @@ static int build_argv(const QemuConfig *cfg, char **argv,
     } else {
         /* disk_path validated non-NULL by caller. */
         static char drvbuf[QEMU_PATH_MAX + 48];
-        snprintf(drvbuf, sizeof(drvbuf), "format=%s,file=%s",
+        snprintf(drvbuf, sizeof(drvbuf), "format=%s,cache=unsafe,file=%s",
                  overlay ? "qcow2" : "raw", overlay ? overlay : cfg->disk_path);
         PUSH("-drive");
         PUSH(drvbuf);
@@ -2176,7 +2176,7 @@ static int build_argv(const QemuConfig *cfg, char **argv,
     if (cfg->data_disk_path) {
         static char drvbuf2[QEMU_PATH_MAX + 80];
         snprintf(drvbuf2, sizeof(drvbuf2),
-                 "file=%s,format=raw,if=ide,index=1,id=initech_disk2", cfg->data_disk_path);
+                 "file=%s,format=raw,cache=unsafe,if=ide,index=1,id=initech_disk2", cfg->data_disk_path);
         PUSH("-drive");
         PUSH(drvbuf2);
     }
