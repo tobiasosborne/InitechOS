@@ -890,7 +890,13 @@ static SAMIR_OVL_TEXT(set) int set_opt_history(xb_interp *ip, set_state *ss, con
             pal->release(pal, ss->hist);
             ss->hist = fresh;
         }
+#if defined(SAMIR_W2_MUTANT_histshrink)
+        ss->hist_next = 0u;   /* MUTANT: a shrink restarts the write slot */
+#elif defined(SAMIR_W2_MUTANT_histgrow)
+        ss->hist_next = n ? ss->hist_next % n : 0u;   /* MUTANT: a grow keeps the write slot */
+#else
         ss->hist_next = (n && n < ss->hist_cap) ? ss->hist_next % n : 0u;
+#endif
         ss->hist_cap = n;
         return CMD_OK;
     }

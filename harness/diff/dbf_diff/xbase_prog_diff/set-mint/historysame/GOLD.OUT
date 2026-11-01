@@ -1,0 +1,40 @@
+
+[W2-BEGIN]
+a1
+a2
+b1
+b2
+b3
+b4
+[E5 recorded SET HISTORY TO 6, logical]
+SET HISTORY TO 6
+? "b1"
+? "b2"
+? "b3"
+? "b4"
+SET DOHISTORY OFF
+
+[E5 physical]
+? "b4"
+SET DOHISTORY OFF
+SET HISTORY TO 6
+? "b1"
+? "b2"
+? "b3"
+
+c1
+d1
+d2
+d3
+d4
+[E6 same-size SET HISTORY TO 3 logical]
+? "d3"
+? "d4"
+SET DOHISTORY OFF
+
+[E6 physical]
+SET DOHISTORY OFF
+? "d3"
+? "d4"
+
+[W2-END]

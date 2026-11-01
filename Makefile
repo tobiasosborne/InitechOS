@@ -34996,7 +34996,7 @@ $(foreach rule,$(SAMIR_FNS_PENDING),$(eval $(call samir-fns-pending-gate,$(rule)
 # W2 mint-first: all named differential gates remain PENDING and outside the
 # default vector. samir-w2-goldens separately verifies the reference evidence.
 SAMIR_W2_MINT_TREE := $(DBF_DIFF_DIR)/xbase_prog_diff
-SAMIR_W2_MINTED := set/catalog set/default set/dohistory set/fields set/fixed \
+SAMIR_W2_MINTED := set/catalog set/default set/dohistory set/fields set/fixed set/historygrow set/historyresize set/historysame set/historyslots \
 	set/headings set/history set/margin set/memowidth set/path set/print set/procedure \
 	set/unique set/view verb/average verb/count verb/dir verb/eject verb/insert \
 	verb/join verb/sum verb/text verb/update
@@ -35021,7 +35021,7 @@ samir-w2-goldens:
 	 (cd $$dir && sha256sum --quiet -c sha256.txt); \
 	 cmp $(SAMIR_W2_MINT_TREE)/corpus/w2/$$case.prg $$dir/FNSTEST.PRG; \
 	 done
-	@echo '>>> samir-w2-goldens: green (23 real III+ captures; sources and all input hashes pinned)'
+	@echo '>>> samir-w2-goldens: green (27 real III+ captures; sources and all input hashes pinned)'
 define samir-w2-pending-gate
 .PHONY: mint-samir-w2-$(subst /,-,$(1)) test-samir-w2-$(subst /,-,$(1))
 mint-samir-w2-$(subst /,-,$(1)): $$(CLIENTS_DBF) $$(SAMIR_W2_FIXTURE)

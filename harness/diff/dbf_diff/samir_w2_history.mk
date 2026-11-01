@@ -3,8 +3,8 @@
 # samir-w2-goldens). The named PENDING gate is promoted into the default unit
 # vector; each mutant perturbs one rule and must turn the transcript RED
 # (Rule 6). Mutant binaries are private builds of the same W2 test driver.
-SAMIR_W2_HISTORY_CASES := set-history set-dohistory
-SAMIR_W2_HISTORY_MUTANTS := dohistory histtoggle histcap histlist
+SAMIR_W2_HISTORY_CASES := set-history set-dohistory set-historyresize set-historyslots
+SAMIR_W2_HISTORY_MUTANTS := dohistory histtoggle histcap histlist histshrink histgrow
 .PHONY: test-samir-w2-history test-samir-w2-history-mutant
 test-samir-w2-history: $(addprefix test-samir-w2-,$(SAMIR_W2_HISTORY_CASES))
 	@echo '>>> test-samir-w2-history: green (history, dohistory real III+ captures)'

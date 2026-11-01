@@ -1,0 +1,14 @@
+% SET DOHISTORY -- os/samir/cmd/set.c set_opt_dohistory.  Real III+ 1.1
+% captures: xbase_prog_diff/set-mint/dohistory.  Gate: test-samir-w2-set-dohistory.
+\begin{XbaseEntry}{DOHISTORY}{set}
+Determines whether commands executed from a program are kept in the history.
+\Syntax
+\SyntaxLine{\kw{SET DOHISTORY} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF.
+\Usage
+With SET DOHISTORY ON, each program line, including the lines of called
+programs, is stored before it runs, so the SET DOHISTORY OFF that ends the
+trace is itself kept.
+\SeeAlso{SET HISTORY, LIST HISTORY}
+\end{XbaseEntry}
