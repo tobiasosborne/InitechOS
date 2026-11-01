@@ -827,10 +827,130 @@ static int p_on(xb_interp *ip, proc_state *ps, const char *args, int *ec)
 /* The command hook (the S5.7 module entry point)                         */
 /* ===================================================================== */
 
+/* Verb handlers, one per row of proc_verbs.def (initech-1x6x2.4); a handler is called as
+ * fn(ip, [state,] [verb,] args, err_code) from the row-driven switch in the hook. Each returns
+ * the hook's final code. */
+static inline __attribute__((always_inline)) int pv_do(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    /* DO WHILE / DO CASE are the flow spine's (handled before the hook); only
+     * DO <name> reaches here. */
+    int rc = p_do(ip, ps, args, err_code);
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+static inline __attribute__((always_inline)) int pv_procedure(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    /* A PROCEDURE line reached during execution (e.g. trailing the main body
+     * if proc_run is bypassed) ENDS the current routine -- treat it as a
+     * clean RETURN so we never fall into the next routine's body. */
+    (void)ip; (void)ps; (void)args; (void)err_code;
+    return PROC_RC_RETURN;
+}
+static inline __attribute__((always_inline)) int pv_parameters(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    param_bind pb;
+    int rc;
+    ps->params_seen = 1;
+    pb.args  = ps->pending_args;
+    pb.nargs = ps->pending_nargs;
+    pb.idx   = 0;
+    /* error #94 if MORE WITH args than PARAMETERS names: counted after the
+     * bind by comparing idx (names consumed) against nargs. */
+    rc = p_for_each_name(ip, args, p_each_param, &pb, err_code);
+    if (rc != INTERP_OK) return rc;
+    if (pb.idx < pb.nargs) {            /* names < WITH args -> too many */
+        if (err_code) *err_code = P_MSG_WRONG_PARAM;
+        return -INTERP_ERR_SYNTAX;
+    }
+    return CMD_OK;
+}
+static inline __attribute__((always_inline)) int pv_return(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    /* RETURN [TO MASTER] (Using III+ U5-183). TO MASTER unwinds to the
+     * highest-level program (audit L041; mint samirctl MASTER.TXT). */
+    const char *a = p_skip_ws(args);
+    (void)ip; (void)ps; (void)err_code;
+    /* (a bare "RETURN TO" leaves "" -- not MASTER -- either way) */
+    if (rt_kw_word(a, "TO\0", (int *)0) == 0 &&
+        rt_kw_index(p_skip_ws(a + 2), "MASTER\0") == 0)
+        return PROC_RC_RETURN_MASTER;
+    return PROC_RC_RETURN;
+}
+static inline __attribute__((always_inline)) int pv_retry(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    /* Using III+ U5-182; audit L022; mint samirctl RETRYM.TXT. RETRY
+     * clears ERROR(). */
+    (void)ps; (void)args; (void)err_code;
+    xb_interp_ctx(ip)->error_number = 0;
+    return PROC_RC_RETRY;
+}
+static inline __attribute__((always_inline)) int pv_cancel(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    /* Using III+ U5-43: CANCEL ends the program, back to the dot prompt
+     * (a no-op typed at the session prompt; it ends a SUSPENDed one). */
+    (void)ip; (void)ps; (void)args; (void)err_code;
+    return INTERP_RC_CANCEL;
+}
+static inline __attribute__((always_inline)) int pv_quit(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    /* Using III+ U5-168: QUIT closes all files and leaves dBASE, also
+     * from a program (audit L013; mint samirctl QUITP.TXT: AFTER QUIT is
+     * never printed). The dot prompt does the closing on this code. */
+    (void)ip; (void)ps; (void)args; (void)err_code;
+#ifndef PROC_MUTATE_NO_QUIT
+    return INTERP_RC_QUIT;
+#else
+    return CMD_UNKNOWN;                 /* MUTANT: the pre-fix #16 */
+#endif
+}
+static inline __attribute__((always_inline)) int pv_public(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    int rc = p_for_each_name(ip, args, p_each_public, (void *)0, err_code);
+    (void)ps;
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+static inline __attribute__((always_inline)) int pv_private(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    int rc = p_for_each_name(ip, args, p_each_private, (void *)0, err_code);
+    (void)ps;
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+static inline __attribute__((always_inline)) int pv_accept(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    int rc = p_accept(ip, args, err_code);
+    (void)ps;
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+static inline __attribute__((always_inline)) int pv_input(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    int rc = p_input(ip, args, err_code);
+    (void)ps;
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+static inline __attribute__((always_inline)) int pv_wait(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    int rc = p_wait(ip, args, err_code);
+    (void)ps;
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+static inline __attribute__((always_inline)) int pv_on(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
+{
+    int rc = p_on(ip, ps, args, err_code);
+    return (rc == INTERP_OK) ? CMD_OK : rc;
+}
+
+/* Rows come from proc_verbs.def: PROC_VERB(KEYWORD, handler). Row order is the
+ * 4-letter-abbreviation tie-break (earlier row wins, as rt_kw_index). */
+#define PROC_VERB(kw, fn) kw "\0"
+static const char __attribute__((aligned(1))) proc_verb_kw[] =
+#include "proc_verbs.def"
+    ;
+#undef PROC_VERB
+
 static int proc_cmd_hook(void *user, xb_interp *ip,
                          const char *verb, const char *args, int *err_code)
 {
     proc_state *ps;
+    int k;
     (void)user;
     if (err_code) *err_code = 0;
     if (!ip || !verb)
@@ -839,96 +959,16 @@ static int proc_cmd_hook(void *user, xb_interp *ip,
     ps = proc_state_for(ip);
     if (!ps) { if (err_code) *err_code = 0; return -INTERP_ERR_NOMEM; }
 
-    switch (rt_kw_index(verb, "DO\0PROCEDURE\0PARAMETERS\0PARAMETER\0RETURN\0RETRY\0"
-                              "CANCEL\0QUIT\0PUBLIC\0PRIVATE\0ACCEPT\0INPUT\0WAIT\0ON\0")) {
-    case 0: { /* DO */
-        /* DO WHILE / DO CASE are the flow spine's (handled before the hook); only
-         * DO <name> reaches here. */
-        int rc = p_do(ip, ps, args, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    case 1: { /* PROCEDURE */
-        /* A PROCEDURE line reached during execution (e.g. trailing the main body
-         * if proc_run is bypassed) ENDS the current routine -- treat it as a
-         * clean RETURN so we never fall into the next routine's body. */
-        return PROC_RC_RETURN;
-    }
-    case 2: case 3: { /* PARAMETERS, PARAMETER */
-        param_bind pb;
-        int rc;
-        ps->params_seen = 1;
-        pb.args  = ps->pending_args;
-        pb.nargs = ps->pending_nargs;
-        pb.idx   = 0;
-        /* error #94 if MORE WITH args than PARAMETERS names: counted after the
-         * bind by comparing idx (names consumed) against nargs. */
-        rc = p_for_each_name(ip, args, p_each_param, &pb, err_code);
-        if (rc != INTERP_OK) return rc;
-        if (pb.idx < pb.nargs) {            /* names < WITH args -> too many */
-            if (err_code) *err_code = P_MSG_WRONG_PARAM;
-            return -INTERP_ERR_SYNTAX;
+    k = rt_kw_index(verb, proc_verb_kw);
+    {
+        enum { PV_BASE = __COUNTER__ + 1 };
+#define PROC_VERB(kw, fn) case __COUNTER__ - PV_BASE: return fn(ip, ps, args, err_code);
+        switch (k) {
+#include "proc_verbs.def"
+        default: break;
         }
-        return CMD_OK;
+#undef PROC_VERB
     }
-    case 4: { /* RETURN */
-        /* RETURN [TO MASTER] (Using III+ U5-183). TO MASTER unwinds to the
-         * highest-level program (audit L041; mint samirctl MASTER.TXT). */
-        const char *a = p_skip_ws(args);
-        /* (a bare "RETURN TO" leaves "" -- not MASTER -- either way) */
-        if (rt_kw_word(a, "TO\0", (int *)0) == 0 &&
-            rt_kw_index(p_skip_ws(a + 2), "MASTER\0") == 0)
-            return PROC_RC_RETURN_MASTER;
-        return PROC_RC_RETURN;
-    }
-    case 5: { /* RETRY */
-        /* Using III+ U5-182; audit L022; mint samirctl RETRYM.TXT. RETRY
-         * clears ERROR(). */
-        xb_interp_ctx(ip)->error_number = 0;
-        return PROC_RC_RETRY;
-    }
-    case 6: { /* CANCEL */
-        /* Using III+ U5-43: CANCEL ends the program, back to the dot prompt
-         * (a no-op typed at the session prompt; it ends a SUSPENDed one). */
-        return INTERP_RC_CANCEL;
-    }
-    case 7: { /* QUIT */
-        /* Using III+ U5-168: QUIT closes all files and leaves dBASE, also
-         * from a program (audit L013; mint samirctl QUITP.TXT: AFTER QUIT is
-         * never printed). The dot prompt does the closing on this code. */
-#ifndef PROC_MUTATE_NO_QUIT
-        return INTERP_RC_QUIT;
-#else
-        return CMD_UNKNOWN;                 /* MUTANT: the pre-fix #16 */
-#endif
-    }
-    case 8: { /* PUBLIC */
-        int rc = p_for_each_name(ip, args, p_each_public, (void *)0, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    case 9: { /* PRIVATE */
-        int rc = p_for_each_name(ip, args, p_each_private, (void *)0, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    case 10: { /* ACCEPT */
-        int rc = p_accept(ip, args, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    case 11: { /* INPUT */
-        int rc = p_input(ip, args, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    case 12: { /* WAIT */
-        int rc = p_wait(ip, args, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    case 13: { /* ON */
-        int rc = p_on(ip, ps, args, err_code);
-        return (rc == INTERP_OK) ? CMD_OK : rc;
-    }
-    default:
-        break;
-    }
-
     return CMD_UNKNOWN;                      /* not a proc/IO verb */
 }
 

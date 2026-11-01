@@ -1,0 +1,28 @@
+/* mutate_verbs.def -- the mutation command verb table (initech-1x6x2.4).
+ *
+ * One row per verb: MUTATE_VERB(<quoted keyword>, handler); the keyword stays a
+ * quoted literal so harness/pubs/samir_candidates.sh sees it. The handler is a
+ * static mv_<name> in mutate.c. A lane adds a verb by writing its handler and
+ * adding ONE row here; nothing is numbered (the overlay FILE operation ids are
+ * MUT_OP_* constants in mutate.c, independent of row order). Row order matters
+ * only for the 4-letter-abbreviation tie-break (earlier row wins, as
+ * rt_kw_index), so append unless you mean a tie-break.
+ * .gitattributes marks this file merge=union; test-samir-registries rejects
+ * duplicate keys and malformed rows. Keep rows ASCII, one per line.
+ */
+MUTATE_VERB("TYPE", mv_type)
+MUTATE_VERB("RENAME", mv_rename)
+MUTATE_VERB("ERASE", mv_erase)
+MUTATE_VERB("COPY", mv_copy)
+MUTATE_VERB("RUN", mv_run)
+MUTATE_VERB("!", mv_bang)
+MUTATE_VERB("SORT", mv_sort)
+MUTATE_VERB("TOTAL", mv_total)
+MUTATE_VERB("INDEX", mv_index)
+MUTATE_VERB("REINDEX", mv_reindex)
+MUTATE_VERB("REPLACE", mv_replace)
+MUTATE_VERB("APPEND", mv_append)
+MUTATE_VERB("DELETE", mv_delete)
+MUTATE_VERB("RECALL", mv_recall)
+MUTATE_VERB("PACK", mv_pack)
+MUTATE_VERB("ZAP", mv_zap)

@@ -1118,6 +1118,93 @@ static SAMIR_OVL_TEXT(memfile) int flow_ovl_entry(int k, xb_interp *ip, const ch
 }
 SAMIR_OVL_HEADER(memfile, SAMIR_OVL_MEMFILE, flow_ovl_entry);
 
+/* Verb handlers, one per row of flow_verbs.def (initech-1x6x2.4); a handler is called as
+ * fn(ip, [state,] [verb,] args, err_code) from the row-driven switch in the hook. Each returns
+ * the statement's final code; the unrecognised-verb path (k < 0) falls through
+ * to the command-hook chain. */
+/* SAVE TO / RESTORE FROM: overlay operation 0 / 1 (flow_ovl_entry). */
+static inline __attribute__((always_inline)) int fv_save(xb_interp *ip, flow_state *fs, const char *args, int *ec)
+{ (void)fs; return SAMIR_OVL_CALL(SAMIR_OVL_MEMFILE, flow_ovl_entry, 0, ip, args, ec); }
+static inline __attribute__((always_inline)) int fv_restore(xb_interp *ip, flow_state *fs, const char *args, int *ec)
+{ (void)fs; return SAMIR_OVL_CALL(SAMIR_OVL_MEMFILE, flow_ovl_entry, 1, ip, args, ec); }
+
+static inline __attribute__((always_inline)) int fv_store(xb_interp *ip, flow_state *fs, const char *args, int *ec)
+{
+    return exec_store(ip, fs, args, ec);
+}
+
+static inline __attribute__((always_inline)) int fv_select(xb_interp *ip, flow_state *fs, const char *args, int *ec)
+{
+    int rc;
+    (void)fs;
+    wa_env *env = xb_interp_env(ip);
+    /* numeric area? */
+    if (args[0] >= '0' && args[0] <= '9') {
+        int areanum = 0;
+        uint32_t i = 0;
+        while (args[i] >= '0' && args[i] <= '9') {
+            areanum = areanum * 10 + (args[i] - '0');
+            i++;
+        }
+        rc = wa_select(env, areanum);
+    } else {
+        char al[16];
+        const char *a2;
+        (void)split_verb(args, al, sizeof(al), &a2);
+        rc = wa_select_alias(env, al);
+    }
+    /* Real III+ 1.1 (SF-errors): SELECT 11 is #17, an unknown alias #13. */
+    if (rc != WA_OK) { if (ec) *ec = args[0] >= '0' && args[0] <= '9' ? 17 : 13; return -INTERP_ERR_SYNTAX; }
+    return INTERP_OK;
+}
+
+static inline __attribute__((always_inline)) int fv_release(xb_interp *ip, flow_state *fs, const char *args, int *ec)
+{
+    (void)ip; (void)ec;
+    char w2[16];
+    const char *a2;
+    (void)split_verb(args, w2, sizeof(w2), &a2);
+    if (fl_ci_eq(w2, "ALL") || w2[0] == '\0') {
+        int i;
+        for (i = 0; i < fs->nvars; i++)
+            fs->vars[i].live = 0;
+        fs->nvars = 0;
+        fs->arena_used = 0u;
+        return INTERP_OK;
+    }
+    /* RELEASE <namelist> */
+    {
+        const char *q = args;
+        for (;;) {
+            char nm[FLOW_MAX_NAME];
+            uint32_t n = 0;
+            int slot;
+            while (*q != '\0' && fl_isspace(*q)) q++;
+            while (*q != '\0' && *q != ',' && !fl_isspace(*q)) {
+                if (n < FLOW_MAX_NAME - 1) nm[n++] = fl_up1(*q);
+                q++;
+            }
+            nm[n] = '\0';
+            if (n > 0u) {
+                slot = memvar_find(fs, nm);
+                if (slot >= 0) fs->vars[slot].live = 0;
+            }
+            while (*q != '\0' && fl_isspace(*q)) q++;
+            if (*q == ',') { q++; continue; }
+            break;
+        }
+        return INTERP_OK;
+    }
+}
+
+/* Rows come from flow_verbs.def: FLOW_VERB(KEYWORD, handler). Row order is the
+ * 4-letter-abbreviation tie-break (earlier row wins, as rt_kw_index). */
+#define FLOW_VERB(kw, fn) kw "\0"
+static const char __attribute__((aligned(1))) flow_verb_kw[] =
+#include "flow_verbs.def"
+    ;
+#undef FLOW_VERB
+
 static int exec_command(flow_prog *fp, const char *line, int *ec)
 {
     xb_interp  *ip = fp->ip;
@@ -1153,74 +1240,15 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
     }
 
     (void)split_verb(line, verb, sizeof(verb), &args);
-    k = rt_kw_index(verb, "SAVE\0RESTORE\0STORE\0SELECT\0RELEASE\0");
-
-    if (k == 0 || k == 1)                       /* SAVE RESTORE */
-        return SAMIR_OVL_CALL(SAMIR_OVL_MEMFILE, flow_ovl_entry, k, ip, args, ec);
-
-    /* (2) STORE */
-    if (k == 2)
-        return exec_store(ip, fs, args, ec);
-
-    /* (3) SELECT n | <alias> -- the spine owns the work-area engine. */
-    if (k == 3) {
-        wa_env *env = xb_interp_env(ip);
-        /* numeric area? */
-        if (args[0] >= '0' && args[0] <= '9') {
-            int areanum = 0;
-            uint32_t i = 0;
-            while (args[i] >= '0' && args[i] <= '9') {
-                areanum = areanum * 10 + (args[i] - '0');
-                i++;
-            }
-            rc = wa_select(env, areanum);
-        } else {
-            char al[16];
-            const char *a2;
-            (void)split_verb(args, al, sizeof(al), &a2);
-            rc = wa_select_alias(env, al);
+    k = rt_kw_index(verb, flow_verb_kw);
+    if (k >= 0) {
+        enum { FV_BASE = __COUNTER__ + 1 };
+#define FLOW_VERB(kw, fn) case __COUNTER__ - FV_BASE: return fn(ip, fs, args, ec);
+        switch (k) {
+#include "flow_verbs.def"
+        default: break;
         }
-        /* Real III+ 1.1 (SF-errors): SELECT 11 is #17, an unknown alias #13. */
-        if (rc != WA_OK) { if (ec) *ec = args[0] >= '0' && args[0] <= '9' ? 17 : 13; return -INTERP_ERR_SYNTAX; }
-        return INTERP_OK;
-    }
-
-    /* (4) RELEASE ALL (memvar table owner is this step). */
-    if (k == 4) {
-        char w2[16];
-        const char *a2;
-        (void)split_verb(args, w2, sizeof(w2), &a2);
-        if (fl_ci_eq(w2, "ALL") || w2[0] == '\0') {
-            int i;
-            for (i = 0; i < fs->nvars; i++)
-                fs->vars[i].live = 0;
-            fs->nvars = 0;
-            fs->arena_used = 0u;
-            return INTERP_OK;
-        }
-        /* RELEASE <namelist> */
-        {
-            const char *q = args;
-            for (;;) {
-                char nm[FLOW_MAX_NAME];
-                uint32_t n = 0;
-                int slot;
-                while (*q != '\0' && fl_isspace(*q)) q++;
-                while (*q != '\0' && *q != ',' && !fl_isspace(*q)) {
-                    if (n < FLOW_MAX_NAME - 1) nm[n++] = fl_up1(*q);
-                    q++;
-                }
-                nm[n] = '\0';
-                if (n > 0u) {
-                    slot = memvar_find(fs, nm);
-                    if (slot >= 0) fs->vars[slot].live = 0;
-                }
-                while (*q != '\0' && fl_isspace(*q)) q++;
-                if (*q == ',') { q++; continue; }
-                break;
-            }
-            return INTERP_OK;
-        }
+#undef FLOW_VERB
     }
 
     /* (5) the registered command-hook CHAIN (S5.4..S5.7), tried in order. */

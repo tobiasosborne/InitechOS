@@ -345,7 +345,7 @@ PUBS_SAMIR_DISK_SRC := $(sort $(wildcard $(PUBS_DIR)/examples/samir/disk/*))
 PUBS_SAMIR_BOOKS    := initechbase-volume-one initechbase-volume-two initechbase-quick-reference
 PUBS_SAMIR_ALLOW    := harness/pubs/samir.allow
 PUBS_SAMIR_CAND     := harness/pubs/samir_candidates.sh
-PUBS_SAMIR_CAND_SRC  = $(SAMIR_MAIN_SRC) $(wildcard $(SAMIR_CMD_DIR)/*.c $(SAMIR_DIR)/core/*.c) $(SAMIR_HEADERS)
+PUBS_SAMIR_CAND_SRC  = $(SAMIR_MAIN_SRC) $(wildcard $(SAMIR_CMD_DIR)/*.c $(SAMIR_CMD_DIR)/*.def $(SAMIR_DIR)/core/*.c) $(SAMIR_HEADERS)
 $(PUBS_SAMIR_INV): harness/pubs/samir_inventory.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ harness/pubs/samir_inventory.c $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
 $(PUBS_SAMIR_DISKTOOL): harness/pubs/samir_sample_disk.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)

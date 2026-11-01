@@ -1,0 +1,26 @@
+/* proc_verbs.def -- the procedure / console-I/O command verb table (initech-1x6x2.4).
+ *
+ * One row per verb: PROC_VERB(<quoted keyword>, handler); the keyword stays a
+ * quoted literal so harness/pubs/samir_candidates.sh sees it. The handler is a
+ * static pv_<name> in proc.c. A lane adds a verb by writing its handler and
+ * adding ONE row here; nothing is numbered. Row order matters only for the
+ * 4-letter-abbreviation tie-break (earlier row wins, as rt_kw_index), so append
+ * unless you mean a tie-break. Two verbs may share a handler (pv_parameters
+ * serves PARAMETERS and PARAMETER).
+ * .gitattributes marks this file merge=union; test-samir-registries rejects
+ * duplicate keys and malformed rows. Keep rows ASCII, one per line.
+ */
+PROC_VERB("DO", pv_do)
+PROC_VERB("PROCEDURE", pv_procedure)
+PROC_VERB("PARAMETERS", pv_parameters)
+PROC_VERB("PARAMETER", pv_parameters)
+PROC_VERB("RETURN", pv_return)
+PROC_VERB("RETRY", pv_retry)
+PROC_VERB("CANCEL", pv_cancel)
+PROC_VERB("QUIT", pv_quit)
+PROC_VERB("PUBLIC", pv_public)
+PROC_VERB("PRIVATE", pv_private)
+PROC_VERB("ACCEPT", pv_accept)
+PROC_VERB("INPUT", pv_input)
+PROC_VERB("WAIT", pv_wait)
+PROC_VERB("ON", pv_on)

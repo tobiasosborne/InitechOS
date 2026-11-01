@@ -11,7 +11,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define SET_PATH "os/samir/cmd/set_options.def"
+#define CMD_DIR "os/samir/cmd/"
 #define MINT_PATH "harness/diff/dbf_diff/xbase_prog_diff/fns-mint"
 #define LINE_CAP 4096
 #define MAX_OPTIONS 256
@@ -90,13 +90,52 @@ static void uncomment(const char *in, char *out, int *block)
     *out = 0;
 }
 
-static unsigned check_options(void)
+/* One schema per union-merged row table. A row is MACRO("KEY", prefix_ident)
+ * on one physical line. `sym` lets a table key start with a command symbol
+ * (? ! @ &), which are verbs of the query/mutate tables. Adding a union path to
+ * .gitattributes without adding its schema here is RED (check_attributes).
+ */
+typedef struct {
+    const char *path, *macro, *prefix, *what;
+    int sym;
+} table_schema;
+
+static const table_schema schemas[] = {
+    { CMD_DIR "set_options.def",  "SET_OPT",     "set_opt_", "SET",    0 },
+    { CMD_DIR "query_verbs.def",  "QUERY_VERB",  "qv_",      "QUERY",  1 },
+    { CMD_DIR "mutate_verbs.def", "MUTATE_VERB", "mv_",      "MUTATE", 1 },
+    { CMD_DIR "proc_verbs.def",   "PROC_VERB",   "pv_",      "PROC",   1 },
+    { CMD_DIR "flow_verbs.def",   "FLOW_VERB",   "fv_",      "FLOW",   0 },
+};
+#define NSCHEMAS ((unsigned)(sizeof schemas / sizeof schemas[0]))
+
+static void fail_key(const table_schema *t, unsigned line, const char *key)
 {
-    FILE *f = open_source(SET_PATH);
+    fprintf(stderr, "!!! registry RED: %s:%u: duplicate %s key %s\n",
+            t->path, line, t->what, key);
+    exit(1);
+}
+
+static void fail_row(const table_schema *t, unsigned line)
+{
+    char why[64];
+    snprintf(why, sizeof why, "malformed %s row", t->macro);
+    fail(t->path, line, why);
+}
+
+static int sym_char(int c)
+{
+    return c == '?' || c == '!' || c == '@' || c == '&';
+}
+
+static unsigned check_table(const table_schema *t)
+{
+    FILE *f = open_source(t->path);
     char line[LINE_CAP], clean[LINE_CAP], keys[MAX_OPTIONS][KEY_CAP];
     unsigned number = 0, count = 0;
+    size_t mlen = strlen(t->macro), plen = strlen(t->prefix);
     int block = 0;
-    while (read_line(f, SET_PATH, &number, line)) {
+    while (read_line(f, t->path, &number, line)) {
         const char *p, *start;
         size_t n;
         unsigned i;
@@ -104,41 +143,37 @@ static unsigned check_options(void)
         uncomment(line, clean, &block);
         p = space(clean);
         if (!*p) continue;
-        if (strncmp(p, "SET_OPT", 7)) goto malformed;
-        p = space(p + 7);
-        if (*p++ != '(') goto malformed;
+        if (strncmp(p, t->macro, mlen)) fail_row(t, number);
+        p = space(p + mlen);
+        if (*p++ != '(') fail_row(t, number);
         p = space(p);
-        if (*p++ != '"') goto malformed;
+        if (*p++ != '"') fail_row(t, number);
         start = p;
-        if (*p < 'A' || *p > 'Z') goto malformed;
-        while ((*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '_') ++p;
+        if (t->sym && sym_char(*p)) {
+            while (sym_char(*p)) ++p;
+        } else {
+            if (*p < 'A' || *p > 'Z') fail_row(t, number);
+            while ((*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '_') ++p;
+        }
         n = (size_t)(p - start);
-        if (*p++ != '"' || n >= KEY_CAP) goto malformed;
+        if (*p++ != '"' || n >= KEY_CAP) fail_row(t, number);
         memcpy(key, start, n); key[n] = 0;
         p = space(p);
-        if (*p++ != ',') goto malformed;
+        if (*p++ != ',') fail_row(t, number);
         p = space(p);
-        if (strncmp(p, "set_opt_", 8) || !ident_first(p[8])) goto malformed;
-        p += 9;
+        if (strncmp(p, t->prefix, plen) || !ident_first(p[plen])) fail_row(t, number);
+        p += plen + 1;
         while (ident(*p)) ++p;
         p = space(p);
-        if (*p++ != ')' || *space(p)) goto malformed;
-        for (i = 0; i < count; ++i) {
-            if (!strcmp(keys[i], key)) {
-                fprintf(stderr, "!!! registry RED: %s:%u: duplicate SET key %s\n",
-                        SET_PATH, number, key);
-                exit(1);
-            }
-        }
-        if (count == MAX_OPTIONS) fail(SET_PATH, number, "too many SET options");
+        if (*p++ != ')' || *space(p)) fail_row(t, number);
+        for (i = 0; i < count; ++i)
+            if (!strcmp(keys[i], key)) fail_key(t, number, key);
+        if (count == MAX_OPTIONS) fail(t->path, number, "too many rows");
         strcpy(keys[count++], key);
-        continue;
-malformed:
-        fail(SET_PATH, number, "malformed SET_OPT row");
     }
-    if (block) fail(SET_PATH, number, "unterminated comment");
-    if (!count) fail(SET_PATH, number, "empty SET option table");
-    if (fclose(f)) fail(SET_PATH, number, "close failed");
+    if (block) fail(t->path, number, "unterminated comment");
+    if (!count) fail(t->path, number, "empty table");
+    if (fclose(f)) fail(t->path, number, "close failed");
     return count;
 }
 
@@ -207,23 +242,30 @@ static void check_attributes(void)
         path = strtok_r(p, " \t\r", &save);
         while ((token = strtok_r(NULL, " \t\r", &save)))
             if (!strcmp(token, "merge=union")) is_union = 1;
-        if (is_union && strcmp(path, SET_PATH))
-            fail(".gitattributes", number, "union path has no registry validator");
+        if (is_union) {
+            unsigned i, known = 0;
+            for (i = 0; i < NSCHEMAS; ++i)
+                if (!strcmp(path, schemas[i].path)) known = 1;
+            if (!known)
+                fail(".gitattributes", number, "union path has no registry validator");
+        }
     }
     if (fclose(f)) fail(".gitattributes", number, "close failed");
 }
 
 int main(int argc, char **argv)
 {
-    unsigned options, cases;
+    unsigned rows[NSCHEMAS], cases, i;
     if (argc != 2) {
         fprintf(stderr, "usage: %s <source root>\n", argv[0]);
         return 2;
     }
     if (chdir(argv[1])) fail(argv[1], 0, "cannot enter source root");
     check_attributes();
-    options = check_options();
+    for (i = 0; i < NSCHEMAS; ++i) rows[i] = check_table(&schemas[i]);
     cases = check_markers();
-    printf(">>> registries: green (%u SET rows, %u case directories)\n", options, cases);
+    printf(">>> registries: green (");
+    for (i = 0; i < NSCHEMAS; ++i) printf("%u %s rows, ", rows[i], schemas[i].what);
+    printf("%u case directories)\n", cases);
     return 0;
 }

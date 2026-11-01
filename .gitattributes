@@ -1,1 +1,5 @@
 os/samir/cmd/set_options.def merge=union
+os/samir/cmd/query_verbs.def merge=union
+os/samir/cmd/mutate_verbs.def merge=union
+os/samir/cmd/proc_verbs.def merge=union
+os/samir/cmd/flow_verbs.def merge=union
