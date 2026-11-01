@@ -17,6 +17,8 @@ Resumed from WL-0188. Operator rulings taken this session are listed below.
   FORMS overlay, ANSI.SYS ESC[=7l/h (DOS 3.30 TR p. 3-16).
 - 579bbe89 recorder lockstep capture (initech-x8gsi.1), three Finder clip fixture values
   (initech-4sny), QEMU drives cache=unsafe.
+- Kernel overlays Lane 2 + stub pruning: Finder ops in COLD; flagship 168,724 B, largest
+  kernel db_write_skip 169,892 B, 92 B under the unchanged 169,984 B cap.
 
 SAMIR resident 87,616 B, headroom about 6,160 B against the 4,096 B floor.
 
@@ -55,8 +57,6 @@ at 114-119 s.
 
 ## Stopped mid-flight
 
-- Kernel overlays Lane 2 (origin/lane/kov2-size ee2cd1f7, on origin/lane/kov2-train): see
-  Acceptance. Stub pruning gets the largest kernel to 169,892 B, 92 B under the cap.
 - lane/f2b 71fd1d7c (initech-1x6x2.2): UNVERIFIED, do not merge as is; it removes a lock
   that was hiding the input-emu pair's failure. Re-judge now that cache=unsafe is in.
 - lane/phaseA-dec19: ratified, deferred; +1,152 B will not fit under the cap yet.
@@ -71,6 +71,9 @@ passed 3/3 serially, before cache=unsafe landed. The vector has had zero timeout
 record-flair-repro: 37/37 on 579bbe89 with the clips script's three fixture overrides, now
 committed values. Not run this session: full `make test`, 86Box, full pubs typeset, test-par.
 No gate pins cache=unsafe; the extreme CPU-starvation repro still goes red.
+Lane 2 on the integrated tree: vector green with zero timed_out, size and overlay gates,
+test-flair-appswitch-bochs (OVL-OK, pixel-identical to QEMU), record-flair-repro 37/37;
+test-ovl-lazy-mutant ran on lane/kov2-size.
 
 ## Pointers
 
