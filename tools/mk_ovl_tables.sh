@@ -35,7 +35,19 @@ for o in "$@"; do nm --defined-only "$o" | awk '$2 ~ /^[A-Z]$/{print $3}'; done 
 for o in "$@"; do nm -u "$o" | awk '{print $NF}'; done | sort -u | comm -23 - "$out/ovl_gdef.txt" > "$out/ovl_und.txt"
 for o in "$@"; do nm --defined-only "$o" | awk '$2=="T"{print $3}'; done | sort -u > "$out/ovl_def.txt"
 comm -12 "$out/ovl_und.txt" "$kdef" > "$out/ovl_imports.txt"
-comm -12 "$out/ovl_def.txt" "$kund" > "$out/ovl_exports.txt"
+# All public COLD entry points get stubs. A resident mutant can call a cold
+# verb that the production caller normally reaches inside COLD (for example
+# Empty Trash without confirmation). Derive this superset from the objects,
+# so those variants cannot accidentally retain a resident copy of the body.
+# Each stub is its own section (below), so --gc-sections drops the ones a given
+# kernel never references; a kernel pays only for the stubs it calls. The
+# export TABLE stays this full ordered list in every overlay: slots never move.
+# A shared utility may also be linked into DOS-only kernels (kmain_cold.o).
+# Its resident definition is GC'd in tenant kernels; it needs no public stub
+# unless a resident object actually references it.
+comm -23 "$out/ovl_def.txt" "$kdef" > "$out/ovl_exports.txt"
+comm -12 "$out/ovl_def.txt" "$kund" >> "$out/ovl_exports.txt"
+sort -u "$out/ovl_exports.txt" -o "$out/ovl_exports.txt"
 # Every name the sections leave undefined must be a resident kernel symbol:
 # anything else would only surface as an overlay link error later.
 missing=$(comm -23 "$out/ovl_und.txt" "$kdef")
@@ -67,7 +79,9 @@ exp_base=$(( 0x5C0000 + 32 + 20 * 1 + 4 * ni ))
   printf 'bits 32\n'
   sed 's/^/extern /' "$out/ovl_imports.txt"
   printf 'extern ovl_need\nextern ovl_state\n'
-  printf 'section .text.ovl_stubs progbits alloc exec nowrite align=1\n'
+  # MUTANT (Rule 6; test-ovl-stub-prune-mutant only): all stubs in one section,
+  # so GC can drop none. Never in a real build.
+  [ "${OVL_MUT_STUB_ONE_SECTION:-0}" = 1 ] && printf 'section .text.ovl_stubs progbits alloc exec nowrite align=1\n'
   i=0
   while read -r e; do
     slot=$i
@@ -75,9 +89,11 @@ exp_base=$(( 0x5C0000 + 32 + 20 * 1 + 4 * ni ))
     # to the WRONG export (the slots rotated by one, so none stays put).
     # Never in a real build.
     [ "${OVL_MUT_SWAP_STUBS:-0}" = 1 ] && slot=$(( (i + 1) % ne ))
+    [ "${OVL_MUT_STUB_ONE_SECTION:-0}" = 1 ] || printf 'section .text.ovl_stub.%s progbits alloc exec nowrite align=1\n' "$e"
     printf 'global %s\n%s:\n    call ovl_check\n    jmp [dword 0x%08X]\n' "$e" "$e" $(( exp_base + 4 * slot ))
     i=$(( i + 1 ))
   done < "$out/ovl_exports.txt"
+  printf 'section .text.ovl_check progbits alloc exec nowrite align=1\n'
   # MUTANTS (Rule 6; test-ovl-lazy-mutant only, never in a real build):
   #   OVL_MUT_STUB_NOSAVE=1  the slow path loses pushad/popad (EAX/EDX/ECX,
   #                          the -mregparm=3 arguments, clobbered by ovl_need)
