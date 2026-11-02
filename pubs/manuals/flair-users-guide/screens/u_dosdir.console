@@ -4,15 +4,15 @@ A:\>DIR
 
  Directory of A:\
 
-README   TXT      180   1-01-80  12:00a
+README   TXT      169   1-01-80  12:00a
 APPS            <DIR>   1-01-80  12:00a
+DOS             <DIR>   1-01-80  12:00a
+AUTOEXEC BAT       24   1-01-80  12:00a
 DESKTOP  DB        56   0-00-80  12:00a
 TRASH           <DIR>   0-00-80  12:00a
 
-        4 File(s)   1250816 bytes free
+        6 File(s)   1150464 bytes free
 A:\>
-
-
 
 
 
