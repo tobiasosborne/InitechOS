@@ -135,9 +135,9 @@ own appswitch-bochs run.
   today's kernels); re-minted (4d91fece). Every users-guide .grey and .console
   capture compared byte-identical; the gate stops at the first drift, so the
   Accessories, Getting Started and Quick Reference captures (40 figures) were
-  verified only on the lane's ca10414d base. The full re-run was started in
-  the background (build/pm-logs/laneD-test-pubs-flair-screens-2.log) and had
-  not finished when the session closed: read that log first next session.
+  verified only on the lane's ca10414d base until the full re-run finished
+  after the close: GREEN, "145 FLAIR screens in the manuals == live desktop
+  output" (build/pm-logs/laneD-test-pubs-flair-screens-2.log, 4d91fece).
 - initech-z8lca (three InitechBase pubs drifts): a Sonnet lane was still
   running in ../initech-os-lane-pubsdrift (branch lane/pubsdrift) with two
   commits on main 95a5229e: the Volume One text names SET HEADINGS (the full
