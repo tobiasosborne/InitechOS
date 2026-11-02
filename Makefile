@@ -13933,6 +13933,9 @@ test-fixture-volumes: $(FIXTURE_VOLUMES_CHECK)
 	@rc=0; $(MAKE) --no-print-directory -pq help SKIP_BOCHS=0 > $(FIXTURE_VOLUMES_SCAN).db || rc=$$?; \
 	 [ "$$rc" -le 1 ] || { printf '!!! test-fixture-volumes FAIL: the make database dump failed (exit %s)\n' "$$rc"; exit 1; }
 	@$(FIXTURE_VOLUMES_CHECK) --probe $(FIXTURE_VOLUMES_SCAN).db $(FIXTURE_VOLUMES_SCAN).mk $(FIXTURE_VOLUMES_SCAN).expanded
+	@# Grouped pattern targets must reach the probe whole (both members, one recipe).
+	@grep -q '^tflp_target_[0-9]* := $(BUILD)/flairovl_%\.ovl $(BUILD)/flairovl_%\.sys$$' $(FIXTURE_VOLUMES_SCAN).mk \
+	 || { printf '!!! test-fixture-volumes FAIL: grouped flairovl pattern target missing from the probe\n'; exit 1; }
 	@$(MAKE) --no-print-directory -s -f $(firstword $(MAKEFILE_LIST)) -f $(FIXTURE_VOLUMES_SCAN).mk fixture-volume-probe SKIP_BOCHS=0
 	@$(FIXTURE_VOLUMES_CHECK) --check $(FIXTURE_VOLUMES_SCAN).expanded $(FIXTURE_VOLUMES_SCAN).tsv
 test-fixture-volumes-mutant: test-fixture-volumes
@@ -18576,24 +18579,28 @@ test-compiler-os-mutant: test-tps-gen-mutant $(TPS_GEN_MUT_VAR_IMG) test-tps-gen
 # out if qemu exits) + --keys-after-ms (size the ready wait for a slow boot).
 #
 # Workload: the corpus image with an AUTOEXEC that runs the registered corpus
-# batch TWICE (34 EXECs, 102 lines, 2,952 bytes -- far past the "line ~24 /
-# byte ~800" band the bead reported, under the 4 KiB BATCH_FILE_MAX). `exit` is
+# programs SIX times (102 EXECs, see "Workload sizing" below; far past the
+# "line ~24 / byte ~800" band the bead reported, under the 4 KiB BATCH_FILE_MAX). `exit` is
 # typed ahead at SHELL-READY (authentic DOS type-ahead into the kbd ring).
 #   positive leg: the real harness waits for SHELL-EXIT -> all 34 END markers
 #                 present + SHELL-EXIT + quit_after_found=1.
 #   mutant leg:   HARNESS_MUTATE_NO_QUIT_WAIT (the pre-fix quit-after-inputs
 #                 behaviour, CLAIMING quit_after_found=1) -> the batch is cut
-#                 short: SHELL-EXIT absent and < 34 END markers. The gate trusts
+#                 short: SHELL-EXIT absent and < 102 END markers. The gate trusts
 #                 the SERIAL, never the harness's self-report (Law 2).
 HARNESS_QA_BAT      := $(BUILD)/harness_quit_after.bat
 HARNESS_QA_IMG      := $(BUILD)/harness_quit_after.img
 HARNESS_QA_NAME     := harness_quit_after
 HARNESS_QA_MUT_NAME := harness_quit_after_mut
-HARNESS_QA_EXECS    := 34
+HARNESS_QA_EXECS    := 102
 HARNESS_MUT_NOQUIT_BIN := $(BUILD)/qemu_harness_mut_noquit
 
+# initech-eug5v: NO_KEY_PACE is compiled in too. The pre-6gkm harness had no
+# key_pace_wait (initech-1x6x2.1 added it later); with it the typed `exit`
+# alone burns up to ~1 s of guest CPU before the quit, which let the guest
+# finish the batch. NO_QUIT_WAIT + NO_KEY_PACE restores the pre-fix timing.
 $(HARNESS_MUT_NOQUIT_BIN): $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
-	$(CC) $(CFLAGS) -DHARNESS_MUTATE_NO_QUIT_WAIT -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
+	$(CC) $(CFLAGS) -DHARNESS_MUTATE_NO_QUIT_WAIT -DHARNESS_MUTATE_NO_KEY_PACE -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
 
 # bead initech-qed1: a SECOND, independent harness mutant that disables the
 # bare-injection safety check itself (qemu_main.c, right after arg parsing),
@@ -18604,9 +18611,21 @@ HARNESS_MUT_NOCHECK_BIN := $(BUILD)/qemu_harness_mut_nocheck
 $(HARNESS_MUT_NOCHECK_BIN): $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
 	$(CC) $(CFLAGS) -DHARNESS_MUTATE_NO_BARE_KEYS_CHECK -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
 
+# Workload sizing (initech-eug5v): the mutant must be cut short by the SERIAL,
+# so the batch has to outlast the mutant's quit point. That point is the typed
+# `exit` (5 keys, each paced by key_pace_wait for up to KEY_PACE_CPU_MS of QEMU
+# CPU -- initech-1x6x2.1) + qmp_drain(300) + `quit`; with cache=unsafe disks
+# (579bbe89) the original 34-EXEC / 2,952 B batch finished inside that window,
+# so the mutant completed 34/34 + SHELL-EXIT and the gate was decoration.
+# MEASURED on this host: mutant + pace disabled = 32/34, mutant alone = 34/34.
+# The batch is therefore the 17 registered corpus programs repeated 6 times
+# (102 EXECs) with a terse END marker after each EXEC (3.4 KB, under the 4 KiB
+# BATCH_FILE_MAX): ~3x the guest work of the old batch, same EXEC path.
+HARNESS_QA_REPS     := 6
 $(HARNESS_QA_IMG): $(TPS_COMPILER_IMG) $(TPS_COMPILER_BATCH) | $(BUILD)
-	@cat $(TPS_COMPILER_BATCH) $(TPS_COMPILER_BATCH) > $(HARNESS_QA_BAT)
-	@test "$$(grep -c '\.COM$$' $(HARNESS_QA_BAT))" -eq $(HARNESS_QA_EXECS) \
+	@{ printf '@ECHO OFF\n'; for r in $$(seq $(HARNESS_QA_REPS)); do \
+		tr -d '\r' < $(TPS_COMPILER_BATCH) | grep '\.COM$$' | while read -r c; do printf '%s\nECHO TPS-CORPUS-END %s\n' "$$c" "$$r"; done; done; } > $(HARNESS_QA_BAT)
+	@test "$$(grep -c '\.COM' $(HARNESS_QA_BAT))" -eq $(HARNESS_QA_EXECS) \
 		|| { printf '!!! harness quit-after image FAIL: batch is not %s EXEC lines\n' "$(HARNESS_QA_EXECS)"; exit 1; }
 	@test "$$(wc -c < $(HARNESS_QA_BAT))" -lt 4096 \
 		|| { printf '!!! harness quit-after image FAIL: batch exceeds BATCH_FILE_MAX (4096)\n'; exit 1; }
