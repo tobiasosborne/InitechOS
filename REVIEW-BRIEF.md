@@ -2,7 +2,7 @@
 
 You review ONE branch of InitechOS before the PM merges it to main. This
 is the only review round; there is no second pass, so be concrete and
-decisive. Read /home/tobias/Projects/initech-os/CLAUDE.md (Laws 1-4, the
+decisive. Read CLAUDE.md at the root of the repository you review (Laws 1-4, the
 Rules: oracle-first, Red->Green, mutation-proven goldens, no weakened
 oracles, no silent locked-spec edits, ASCII-clean source, no 2026-isms in
 the artifact, reproducible builds). Then in your working directory (the
