@@ -15,8 +15,8 @@
 |---|---|
 | Document ID | OEA-ADR-0003-A8 |
 | Title | ADR-0003 Amendment DEC-19: INT 21h AH=4Bh AL=03h Load Overlay in 32-Bit Flat Mode |
-| Version | 0.9 (draft for ratification) |
-| Status | **PROPOSED** -- awaiting the operator's ratification. The implementation below is landed behind its oracles; the decision is not binding until ratified. The two DEC-19.3 documented deviations (the fixup patch address; the bounded streamed preflight) were **RATIFIED by the operator 2026-11-01** (WL-0190); the mid-copy device-read-error parity with MS-DOS 3.30 stays **UNVERIFIED**. Merge was deferred until a kernel-overlay lane freed room under the ADR-0014 169,984 B cap (initech-qshpn); MERGED to main 2026-11-02 (lane kroom, largest kernel 167,360 B, 2,624 B under the cap). The overall ratification word remains the operator's (open question, WL-0193). |
+| Version | 1.0 |
+| Status | **RATIFIED** 2026-11-02 by the operator (ratification delegated to the PM in session: the operator un-deferred DEC-08a.7 on 2026-10-25, ratified both DEC-19.3 documented deviations on 2026-11-01 (WL-0190) and approved the merge once an overlay lane freed room under the ADR-0014 cap; merged to main 2026-11-02 via lane kroom, largest kernel 167,360 B, 2,624 B under 169,984 B). Binding. The mid-copy device-read-error parity with MS-DOS 3.30 stays **UNVERIFIED** and is recorded as such in DEC-19.3. |
 | Classification | Internal Use Only |
 | Document Owner | Office of Enterprise Architecture |
 | Primary Author | STAPLER Programme, overlays Phase A coding lane |
