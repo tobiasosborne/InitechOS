@@ -15,6 +15,17 @@
 #include "samir_install.h"
 TEST_HARNESS();
 static char serial[262144], fragment[65536];
+/* Scratch key (initech-1x6x2.2, pattern of test_samir_screen_emu initech-2kkqr): every
+ * scratch file is build/samir-audit/<key>.<name> and the lock is per key, so the three
+ * modes and every mutant COM run concurrently under make -j instead of queueing on one
+ * lock. Default COM => key==mode. Same inputs, same checks, same verdicts. */
+static char KEY[512];
+static const char *sp(const char *name)
+{
+    static char ring[8][1024];static int at;
+    char *b=ring[at++&7];
+    snprintf(b,1024,"build/samir-audit/%s.%s",KEY,name);return b;
+}
 static int command(const char *s)
 {
     int rc=system(s);
@@ -67,28 +78,31 @@ static void keys(const char *text,char *out,size_t cap)
 }
 int main(int argc,char **argv)
 {
-    scratch_lock("build/.lock-samir-audit");
     const char *mode=argc>1?argv[1]:"view";
     const char *com=argc>2?argv[2]:"build/SAMIR.EXE";
+    {const char *b=strrchr(com,'/');b=b?b+1:com;
+     if(!strcmp(com,"build/SAMIR.EXE")) snprintf(KEY,sizeof KEY,"%s",mode);
+     else snprintf(KEY,sizeof KEY,"%s_%s",mode,b);}
+    {char lk[1024];snprintf(lk,sizeof lk,"build/.lock-samir-audit-%s",KEY);scratch_lock(lk);}
     char cmd[16384],keybuf[8192],raw[262144];
     FILE *f;size_t n,i,j;
     int input=strcmp(mode,"input")==0;
     int undefined=strcmp(mode,"undefined")==0;
     command("mkdir -p build/samir-audit");
-    f=fopen("build/samir-audit/emu.img","wb");
+    f=fopen(sp("img"),"wb");
     CHECK(f!=NULL,"FAT image allocated");
     if(!f) return 2;
     CHECK(fseek(f,1474560-1,SEEK_SET)==0 && fputc(0,f)!=EOF,"FAT image sized");fclose(f);
-    command("mformat -i build/samir-audit/emu.img -f 1440 ::");
-    CHECK(samir_install_cmd(cmd,sizeof cmd,"build/samir-audit/emu.img",com)==0,"SAMIR.EXE + SAMIR.OVL named");
+    snprintf(cmd,sizeof cmd,"mformat -i %s -f 1440 ::",sp("img"));command(cmd);
+    CHECK(samir_install_cmd(cmd,sizeof cmd,sp("img"),com)==0,"SAMIR.EXE + SAMIR.OVL named");
     if(command(cmd)) return 2;
-    command("mcopy -o -i build/samir-audit/emu.img build/CLIENTS.DBF ::CLIENTS.DBF");
+    snprintf(cmd,sizeof cmd,"mcopy -o -i %s build/CLIENTS.DBF ::CLIENTS.DBF",sp("img"));command(cmd);
     if(input){
-        write_text("build/samir-audit/INPUT.BAT",
+        write_text(sp("INPUT.BAT"),
           "@echo off\r\necho use clients.dbf > input.txt\r\necho list >> input.txt\r\necho quit >> input.txt\r\n"
           "samir < input.txt > dbout.txt\r\ntype dbout.txt\r\n"
           "samir < input.txt > dbout2.txt\r\ntype dbout2.txt\r\n");
-        command("mcopy -o -i build/samir-audit/emu.img build/samir-audit/INPUT.BAT ::INPUT.BAT");
+        snprintf(cmd,sizeof cmd,"mcopy -o -i %s %s ::INPUT.BAT",sp("img"),sp("INPUT.BAT"));command(cmd);
         keys("input\nsamir\nuse clients.dbf\nlist\nquit\nexit\n",keybuf,sizeof(keybuf));
     }else if(undefined){
         /* Using III+ U7-21 (PDF 509), Programming III+ N5-30 (PDF 418).
@@ -100,11 +114,11 @@ int main(int argc,char **argv)
          * GO TOP+DELETE+DISPLAY before PACK. Also grade ON/OFF and missing USE. */
         keys("samir\nuse clients\nuse clients.dbf\nlist for bal > 1000\nset filter to bal > 1000\ngo top\nlist\nset filter to bal > 7000\ngo top\nskip -1\ndisplay\ngo 2\nset filter to\ngo top\ndelete\ndisplay\nlist\nset deleted on\ngo top\nlist\nset deleted off\ngo top\nrecall\nlist\nuse absent\nquit\nexit\n",keybuf,sizeof(keybuf));
     }
-    command("fsck.fat -n build/samir-audit/emu.img > build/samir-audit/fsck-before.log");
-    snprintf(cmd,sizeof(cmd),"build/qemu_harness --disk build/tracer_secondary.img --disk2 build/samir-audit/emu.img --name samir_audit_%s --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > build/samir-audit/emu.stdout 2> build/samir-audit/emu.report; rc=$?; cat build/samir-audit/emu.report 1>&2; exit $rc",mode,keybuf);
+    snprintf(cmd,sizeof cmd,"fsck.fat -n %s > %s",sp("img"),sp("fsck-before.log"));command(cmd);
+    snprintf(cmd,sizeof(cmd),"build/qemu_harness --disk build/tracer_secondary.img --disk2 %s --name samir_audit_%s --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > %s 2> %s; rc=$?; cat %s 1>&2; exit $rc",sp("img"),KEY,keybuf,sp("stdout"),sp("report"),sp("report"));
     command(cmd);
-    snprintf(cmd,sizeof(cmd),"build/samir_audit_%s.serial",mode);
-    if(!emu_trace_complete("build/samir-audit/emu.report",cmd,emu_trace_keys(keybuf)))return 2;
+    snprintf(cmd,sizeof(cmd),"build/samir_audit_%s.serial",KEY);
+    if(!emu_trace_complete(sp("report"),cmd,emu_trace_keys(keybuf)))return 2;
     n=read_file(cmd,raw,sizeof(raw));
     for(i=0,j=0;i<n;i++) if(raw[i]!='\r') serial[j++]=raw[i];
     serial[j]=0;
@@ -113,12 +127,12 @@ int main(int argc,char **argv)
     CHECK(strstr(serial,"PC LOAD LETTER")==NULL,"no guest panic");
     if(input){
         char a[8192],b[8192],in[8192];size_t an,bn;
-        command("mcopy -o -i build/samir-audit/emu.img ::INPUT.TXT build/samir-audit/input-extracted.txt");
-        read_file("build/samir-audit/input-extracted.txt",in,sizeof(in));
+        snprintf(cmd,sizeof cmd,"mcopy -o -i %s ::INPUT.TXT %s",sp("img"),sp("input-extracted.txt"));command(cmd);
+        read_file(sp("input-extracted.txt"),in,sizeof(in));
         CHECK_STR_EQ(in,"use clients.dbf\r\nlist\r\nquit\r\n","K13 audit ECHO created three CRLF commands");
-        command("mcopy -o -i build/samir-audit/emu.img ::DBOUT.TXT build/samir-audit/dbout.txt");
-        command("mcopy -o -i build/samir-audit/emu.img ::DBOUT2.TXT build/samir-audit/dbout2.txt");
-        an=read_file("build/samir-audit/dbout.txt",a,sizeof(a));bn=read_file("build/samir-audit/dbout2.txt",b,sizeof(b));
+        snprintf(cmd,sizeof cmd,"mcopy -o -i %s ::DBOUT.TXT %s",sp("img"),sp("dbout.txt"));command(cmd);
+        snprintf(cmd,sizeof cmd,"mcopy -o -i %s ::DBOUT2.TXT %s",sp("img"),sp("dbout2.txt"));command(cmd);
+        an=read_file(sp("dbout.txt"),a,sizeof(a));bn=read_file(sp("dbout2.txt"),b,sizeof(b));
         CHECK(an==bn && !memcmp(a,b,an),"K13 repeated redirection byte-identical");
         CHECK(strstr(a,"PESTON") && strstr(a,"WADDAMS") && strstr(a,"LUMBERGH"),"K13 USE/LIST/QUIT rendered all three rows");
         CHECK(!strstr(a,"Unrecognized") && !strstr(a,"Not a dBASE"),"K13 no combined-command error");
@@ -153,6 +167,6 @@ int main(int argc,char **argv)
         CHECK(strstr(serial,"1  File does not exist."),"K09 missing table is #1");
         CHECK(!strstr(serial,"File already exists."),"K06 SET DELETED accepted");
     }
-    command("fsck.fat -n build/samir-audit/emu.img > build/samir-audit/fsck-after.log");
+    snprintf(cmd,sizeof cmd,"fsck.fat -n %s > %s",sp("img"),sp("fsck-after.log"));command(cmd);
     return TEST_SUMMARY(undefined?"test-samir-undefined-emu":input?"test-samir-input-emu":"test-samir-audit-emu");
 }
