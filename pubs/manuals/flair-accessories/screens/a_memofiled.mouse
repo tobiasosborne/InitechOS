@@ -13,13 +13,13 @@ l1,l0,l1,l0
 m100:-12,m100:0,m49:0
 # click at (372,90) 
 l1,l0
-# go (43,238) TEXT.EXE
-m-100:100,m-100:48,m-100:0,m-29:0
-# double-click at (43,238) 
+# go (179,134) TEXT.EXE
+m-100:44,m-93:0
+# double-click at (179,134) 
 l1,l0,l1,l0
 WTENANT-REGISTER
 # go (300,300) 
-m100:62,m100:0,m57:0
+m100:100,m21:66
 # type "The new figure is 1500." (80 ms between keys: a loaded host drops typeahead)
 kshift-t,w80,kh,w80,ke,w80,kspc,w80,kn,w80,ke,w80,kw,w80,kspc,w80,kf,w80,ki,w80,kg,w80,ku,w80,kr,w80,ke,w80,kspc,w80,ki,w80,ks,w80,kspc,w80,k1,w80,k5,w80,k0,w80,k0,w80,kdot,w80
 # key ctrl-s: the Save dialog box

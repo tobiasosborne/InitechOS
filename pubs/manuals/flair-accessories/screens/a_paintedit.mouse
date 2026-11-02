@@ -11,13 +11,13 @@ l1,l0,l1,l0
 m100:-12,m100:0,m49:0
 # click at (372,90)
 l1,l0
-# go (111,238) PAINT.EXE
-m-100:100,m-100:48,m-61:0
-# double-click at (111,238)
+# go (247,134) PAINT.EXE
+m-100:44,m-25:0
+# double-click at (247,134)
 l1,l0,l1,l0
 WTENANT-REGISTER
 # go (62,30) Edit in InitechPaint's menu bar
-m-49:-100,m0:-100,m0:-8
+m-100:-100,m-85:-4
 # press at (62,30)
 l1
 w300

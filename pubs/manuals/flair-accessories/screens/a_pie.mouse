@@ -11,10 +11,10 @@ l1,l0,l1,l0
 m100:-12,m100:0,m49:0
 # click at (372,90)
 l1,l0
-# go (179,186) CALC.EXE
-m-100:96,m-93:0
-# double-click at (179,186)
+# go (111,134) CALC.EXE
+m-100:44,m-100:0,m-61:0
+# double-click at (111,134)
 l1,l0,l1,l0
 WTENANT-REGISTER
 # go (500,464) 
-m100:100,m100:100,m100:78,m21:0
+m100:100,m100:100,m100:100,m89:30

@@ -14,10 +14,10 @@
 % the disk applications are in the FLAIR Accessories Guide and the
 % applications' own books.
 % Items that are enabled but act on nothing in this build (the upper bar's
-% Quit -- shell_menus.h "a STATED, NAMED EXCEPTION ... a no-op today";
-% every item of HELLO's and NOTES' bars -- band-2 choices reach only a disk
-% application, kmain.c flair_live_tenant_menu_result) carry the DRAFT
-% marker (D-14).
+% Quit -- shell_menus.h "a STATED, NAMED EXCEPTION ... a no-op today")
+% carry the DRAFT marker (D-14).  Every item of HELLO's and NOTES' bars is
+% dimmed since initech-tdnl.79 (os/apps/ref_demo_menu.h: unimplemented demo
+% actions must be dimmed), so they are off, not DRAFT.
 % GATES: test-finder-menu test-finder-cmd test-menu-handlers test-flair-finder-cmds test-flair-disk-windows test-flair-empty-trash test-flair-restart test-flair-shutdown test-flair-exit-to-dos test-apple-menu test-flair-apple-menu test-flair-menu test-flair-appswitch test-pubs-flair test-pubs-flair-screens
 \Gates{test-finder-menu, test-finder-cmd, test-menu-handlers,
   test-flair-finder-cmds, test-flair-disk-windows, test-flair-empty-trash,
@@ -98,6 +98,15 @@ the largest block of that memory not in use.  Click \texttt{OK} or press
 while that program is on the data disk; without it, the menu holds only
 \menuitem{About This Computer...}.  The Calculator does not open while
 another application from the disk is open.}
+\MenuItemEntry[accessory not yet driven for this book]{Control Panels}{}{on}{Opens the Control Panels accessory, the program
+\file{CPANELS.EXE} in the \file{APPS} folder; in the menu only while that
+program is on the data disk.  See the \doctitle{FLAIR Accessories Guide}.}
+\MenuItemEntry[accessory not yet driven for this book]{Note Pad}{}{on}{Opens the Note Pad accessory, the program
+\file{NOTEPAD.EXE} in the \file{APPS} folder; in the menu only while that
+program is on the data disk.  See the \doctitle{FLAIR Accessories Guide}.}
+\MenuItemEntry[accessory not yet driven for this book]{Scrapbook}{}{on}{Opens the Scrapbook accessory, the program
+\file{SCRAPBK.EXE} in the \file{APPS} folder; in the menu only while that
+program is on the data disk.  See the \doctitle{FLAIR Accessories Guide}.}
 \end{MenuReference}
 
 \section{The Finder's File menu}
@@ -113,10 +122,11 @@ selected in a Finder window, when \menuitem{Open} and \menuitem{Close
 Window} are available.
 
 \begin{MenuReference}{FINDER}{File}
-\MenuItemEntry{New Folder}{N}{on}{Makes a new, empty folder in the folder
+\MenuItemEntry{New Folder}{N}{cond}{Makes a new, empty folder in the folder
 of the active Finder window, named \file{NEWFOLD} (or \file{NEWFOL02} to
 \file{NEWFOL99} if that name is taken).  With no Finder window in front it
-makes nothing.}
+makes nothing.  Dimmed while the Trash window is in front: the Trash holds
+what you are discarding, not new work.}
 \MenuItemEntry{Open}{O}{cond}{Opens the selected folder in a window.
 Available only when a folder is selected in the active Finder window.  To
 open an application, double-click its icon.}
@@ -126,8 +136,9 @@ Available only when a Finder window is in front.}
 \MenuItemEntry{Get Info}{I}{off}{Dimmed.}
 \MenuItemEntry{Duplicate}{D}{off}{Dimmed.}
 \MenuItemEntry{Make Alias}{}{off}{Dimmed.}
-\MenuItemEntry{Put Away}{Y}{off}{Dimmed.  To take an item out of the
-Trash, drag it out of the Trash window (Chapter~\ref{ch:trash}).}
+\MenuItemEntry{Put Away}{Y}{cond}{Puts the selected items of the Trash window
+back in the folders and disks they came from (Chapter~\ref{ch:trash}).
+Dimmed unless something is selected to put away.}
 \MenuItemEntry{Find}{F}{off}{Dimmed.}
 \MenuItemEntry{Page Setup}{}{off}{Dimmed.}
 \MenuItemEntry{Sharing}{}{off}{Dimmed.}
@@ -154,20 +165,28 @@ window or, with no Finder window in front, every icon on the desktop.}
 \section{The Finder's View menu}
 \index{View menu (Finder)}
 The View menu acts on the active Finder window.  Its commands are
-available only while a Finder window is in front.
+available only while a Finder window is in front.  A window shows its
+contents as icons, as small icons, or as a list; in a list, clicking the
+heading of a column sorts the list by that column.  The view of each window
+is remembered with the window.
 
 \FlairScreen[scale=4, label=fig:m-view]{viewmenu}{The Finder's View menu}
 
 \begin{MenuReference}{FINDER}{View}
 \MenuItemEntry{by Icons}{}{cond}{Shows the window's contents as icons.  The
-check mark beside it shows that icons are the way the window is viewed;
-it is the only way in this version of FLAIR.}
-\MenuItemEntry{by Small Icon}{}{off}{Dimmed.}
-\MenuItemEntry{by Name}{}{off}{Dimmed.}
-\MenuItemEntry{by Size}{}{off}{Dimmed.}
-\MenuItemEntry{by Kind}{}{off}{Dimmed.}
+check mark beside the active view shows how the window is viewed.}
+\MenuItemEntry[view figure not yet captured]{by Small Icon}{}{cond}{Lists the
+window's contents one to a line, each with a small icon.}
+\MenuItemEntry[view figure not yet captured]{by Name}{}{cond}{Lists the
+contents with the columns Name, Date Modified, Size and Kind, in alphabetical
+order of their names.}
+\MenuItemEntry[view figure not yet captured]{by Size}{}{cond}{The same list,
+largest first, with folders last.}
+\MenuItemEntry[view figure not yet captured]{by Kind}{}{cond}{The same list,
+ordered by kind: folders, then documents, then applications.}
 \MenuItemEntry{by Label}{}{off}{Dimmed.}
-\MenuItemEntry{by Date}{}{off}{Dimmed.}
+\MenuItemEntry[view figure not yet captured]{by Date}{}{cond}{The same list,
+ordered by date modified.}
 \MenuItemEntry{as Buttons}{}{off}{Dimmed.}
 \MenuItemEntry{as Pop-up Window}{}{off}{Dimmed.}
 \MenuItemEntry{Clean Up}{}{cond}{Moves every icon of the active window to
@@ -231,10 +250,9 @@ HELLO's menu bar}
 \newcommand\HelloMenu[1]{%
 \subsection{#1}
 \begin{MenuReference}{HELLO}{#1}
-\MenuItemEntry[HELLO's menu commands act on nothing in this version: a
-choice in the lower bar reaches only an application from the disk
-(kmain.c)]{New}{N}{on}{Drawn available.}
-\MenuItemEntry[as New]{Open}{O}{on}{Drawn available.}
+\MenuItemEntry{New}{N}{off}{Dimmed.  HELLO is a practice window; its menu
+commands do nothing.}
+\MenuItemEntry{Open}{O}{off}{Dimmed.}
 \end{MenuReference}}
 \HelloMenu{File}
 \HelloMenu{Edit}
@@ -255,30 +273,28 @@ It has three menus, \menuname{File}, \menuname{Edit} and
 
 \subsection{File}
 \begin{MenuReference}{NOTES}{File}
-\MenuItemEntry[NOTES' menu commands act on nothing in this version: a
-choice in the lower bar reaches only an application from the disk
-(kmain.c)]{New}{N}{on}{Drawn available.}
-\MenuItemEntry[as New]{Open}{O}{on}{Drawn available.}
-\MenuItemEntry[as New]{Save}{S}{on}{Drawn available.}
-\MenuItemEntry[as New]{Quit}{Q}{on}{Drawn available.  To close NOTES, click
-its close box.}
+\MenuItemEntry{New}{N}{off}{Dimmed.  NOTES is a practice window; its menu
+commands do nothing.}
+\MenuItemEntry{Open}{O}{off}{Dimmed.}
+\MenuItemEntry{Save}{S}{off}{Dimmed.}
+\MenuItemEntry{Quit}{Q}{off}{Dimmed.  To close NOTES, click its close box.}
 \end{MenuReference}
 
 \FlairScreen[scale=4, label=fig:m-notesedit]{notesedit}{NOTES' Edit menu}
 
 \subsection{Edit}
 \begin{MenuReference}{NOTES}{Edit}
-\MenuItemEntry[as File > New]{Undo}{Z}{on}{Drawn available.}
-\MenuItemEntry[as File > New]{Cut}{X}{on}{Drawn available.}
-\MenuItemEntry[as File > New]{Copy}{C}{on}{Drawn available.}
-\MenuItemEntry[as File > New]{Paste}{V}{on}{Drawn available.}
+\MenuItemEntry{Undo}{Z}{off}{Dimmed.}
+\MenuItemEntry{Cut}{X}{off}{Dimmed.}
+\MenuItemEntry{Copy}{C}{off}{Dimmed.}
+\MenuItemEntry{Paste}{V}{off}{Dimmed.}
 \end{MenuReference}
 
 \FlairScreen[scale=4, label=fig:m-notesnotes]{notesnotes}{NOTES' Notes menu}
 
 \subsection{Notes}
 \begin{MenuReference}{NOTES}{Notes}
-\MenuItemEntry[as File > New]{About Notes}{}{on}{Drawn available.}
+\MenuItemEntry{About Notes}{}{off}{Dimmed.}
 \end{MenuReference}
 The keyboard equivalents shown in the menus of HELLO and NOTES are not
 given to them: while HELLO or NOTES is in front, a \key{Ctrl} key

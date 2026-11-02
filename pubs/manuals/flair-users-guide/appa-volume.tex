@@ -12,7 +12,8 @@
 
 The data disk, whose icon on the desktop is labelled \texttt{INITECH}, is a
 1.44 MB diskette.  As delivered it holds the files below.  At its top level
-are the file \file{README.TXT} and the folder \file{APPS}; FLAIR adds the
+are the files \file{README.TXT} and \file{AUTOEXEC.BAT} and the folders
+\file{APPS} and \file{DOS}; FLAIR adds the
 Trash folder and the file \file{DESKTOP.DB} the first time it starts
 (Chapter~\ref{ch:finder}).
 
@@ -21,30 +22,27 @@ Trash folder and the file \file{DESKTOP.DB} the first time it starts
 \textbf{File} & \textbf{What it is}\\\hline
 \endhead
 \VolumeFile{}{README.TXT}{A short note about the disk.}
+\VolumeFile{}{AUTOEXEC.BAT}{The batch file InitechDOS runs when it starts from the
+disk: it silences the echo and puts the \file{DOS} folder on the command path.}
 \VolumeFile{APPS}{123.EXE}{Initech 123, the spreadsheet
 application.  See \doctitle{Initech 123 Reference}.}
 \VolumeFile{APPS}{123.MNU}{The menus of Initech 123, read by
 \file{123.EXE}.  Keep it beside \file{123.EXE}.}
-\VolumeFile{APPS}{ATTRIB.COM}{The InitechDOS ATTRIB program,
-which locks and unlocks files.  Runs at the InitechDOS prompt.}
 \VolumeFile{APPS}{CALC.EXE}{InitechCalc, the ledger and chart
 application.  See the \doctitle{FLAIR Accessories Guide}.}
 \VolumeFile{APPS}{CALCULAT.EXE}{The Calculator accessory, listed
 in the Apple menu.}
-\VolumeFile{APPS}{CHKDSK.COM}{The InitechDOS CHKDSK program,
-which checks a disk.  Runs at the InitechDOS prompt.}
 \VolumeFile{APPS}{CTENANT.EXE}{C Tenant, a sample application.
 See the \doctitle{FLAIR Accessories Guide}.}
-\VolumeFile{APPS}{EDLIN.COM}{The InitechDOS line editor.  Runs at
-the InitechDOS prompt.}
-\VolumeFile{APPS}{LABEL.COM}{The InitechDOS LABEL program, which
-names a disk.  Runs at the InitechDOS prompt.}
+\VolumeFile{APPS}{CPANELS.EXE}{Control Panels, the accessory that sets the desktop pattern, the mouse, the sound and the clock.  Listed in the Apple menu; see the \doctitle{FLAIR Accessories Guide}.}
 \VolumeFile{APPS}{LEDGER.TXT}{The ledger InitechCalc saves its
 tables from.}
 \VolumeFile{APPS}{MICHAEL.CFG}{The settings file of the
 \texttt{FILE COPY} progress box; it sets how fast the progress bar fills.}
+\VolumeFile{APPS}{NOTEPAD.EXE}{Note Pad, the accessory for short notes.  Listed in the Apple menu; see the \doctitle{FLAIR Accessories Guide}.}
 \VolumeFile{APPS}{PAINT.EXE}{InitechPaint.  See the
 \doctitle{FLAIR Accessories Guide}.}
+\VolumeFile{APPS}{SCRAPBK.EXE}{Scrapbook, the accessory that keeps pieces of text.  Listed in the Apple menu; see the \doctitle{FLAIR Accessories Guide}.}
 \VolumeFile{APPS}{TENANTFX.EXE}{TenantFix, a sample application.
 See the \doctitle{FLAIR Accessories Guide}.}
 \VolumeFile{APPS}{TEXT.EXE}{InitechText, the text editor.  See the
@@ -56,12 +54,22 @@ Generator.}
 \VolumeFile{APPS}{TPSREP.COM}{The TPS Report Generator.  Runs at
 the InitechDOS prompt; see \doctitle{TPS Report Generator Operating
 Procedures}.}
-\VolumeFile{APPS}{TREE.COM}{The InitechDOS TREE program, which
-shows the folders of a disk.  Runs at the InitechDOS prompt.}
 \VolumeFile{APPS}{WORD.EXE}{InitechWord, the word processor.  See
 \doctitle{InitechWord Reference}.}
-\VolumeFile{APPS}{XCOPY.COM}{The InitechDOS XCOPY program, which
-copies files and folders.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{ATTRIB.COM}{The InitechDOS ATTRIB program, which locks and unlocks files.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{CHKDSK.COM}{The InitechDOS CHKDSK program, which checks a disk.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{DISKCOMP.COM}{The InitechDOS DISKCOMP program, which compares two disks.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{DISKCOPY.COM}{The InitechDOS DISKCOPY program, which copies a whole disk.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{EDLIN.COM}{The InitechDOS line editor.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{FDISK.COM}{The InitechDOS FDISK program, which partitions a hard disk.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{FIND.COM}{The InitechDOS FIND program, which looks for text in files.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{FORMAT.COM}{The InitechDOS FORMAT program, which prepares a disk for use.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{LABEL.COM}{The InitechDOS LABEL program, which names a disk.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{MORE.COM}{The InitechDOS MORE program, which shows output a screen at a time.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{SORT.COM}{The InitechDOS SORT program, which sorts lines of text.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{SYS.COM}{The InitechDOS SYS program, which copies the system files to a disk.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{TREE.COM}{The InitechDOS TREE program, which shows the folders of a disk.  Runs at the InitechDOS prompt.}
+\VolumeFile{DOS}{XCOPY.COM}{The InitechDOS XCOPY program, which copies files and folders.  Runs at the InitechDOS prompt.}
 \end{longtable}
 \end{center}
 

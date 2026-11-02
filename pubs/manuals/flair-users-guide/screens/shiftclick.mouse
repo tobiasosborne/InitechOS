@@ -11,15 +11,15 @@ l1,l0,l1,l0
 m100:-12,m100:0,m49:0
 # click at (372,90)
 l1,l0
-# go (43,238) TEXT.EXE
-m-100:100,m-100:48,m-100:0,m-29:0
-# click at (43,238)
+# go (179,134) TEXT.EXE
+m-100:44,m-93:0
+# click at (179,134)
 l1,l0
 Kshift:1
-# go (111,238) PAINT.EXE
+# go (247,134) PAINT.EXE
 m68:0
-# click at (111,238)
+# click at (247,134)
 l1,l0
 Kshift:0
 # go (500,429) 
-m100:100,m100:91,m100:0,m89:0
+m100:100,m100:100,m53:95

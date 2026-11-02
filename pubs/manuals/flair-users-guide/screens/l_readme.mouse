@@ -12,13 +12,13 @@ l1,l0,l1,l0
 m100:-12,m100:0,m49:0
 # click at (372,90) 
 l1,l0
-# go (43,238) TEXT.EXE
-m-100:100,m-100:48,m-100:0,m-29:0
-# double-click at (43,238) 
+# go (179,134) TEXT.EXE
+m-100:44,m-93:0
+# double-click at (179,134) 
 l1,l0,l1,l0
 WTENANT-REGISTER
 # go (300,300) 
-m100:62,m100:0,m57:0
+m100:100,m21:66
 # key ctrl-o: the Open dialog box, listing the top level
 kctrl-o,w80
 w400

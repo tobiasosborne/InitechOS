@@ -9,15 +9,11 @@ m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
 # double-click at (123,102) 
 l1,l0,l1,l0
 w300
-# go (387,125) the scroll box of the APPS window
-m100:23,m100:0,m64:0
-# drag (387,125) -> (387,268) to the bottom of the scroll bar
-l1,m0:100,m0:43,l0
-w300
-# go (283,244) CALCULAT.EXE
-m-100:-24,m-4:0
-# drag (283,244) -> (600,64) onto the INITECH icon
-l1,m100:-100,m100:-80,m100:0,m17:0,l0
+# go (78,218) CALCULAT.EXE (row 3 of APPS: the 17 icons of the data disk as
+# delivered fit the window's first rows without scrolling)
+m-45:100,m0:16
+# drag (78,218) -> (600,64) onto the INITECH icon
+l1,m100:-100,m100:-54,m100:0,m100:0,m100:0,m22:0,l0
 w400
 # go (22,10) the apple in the upper menu bar
 m-100:-54,m-100:0,m-100:0,m-100:0,m-100:0,m-78:0
