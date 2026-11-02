@@ -33,7 +33,7 @@ first=flair-users-guide
 case " $books " in *" $first "*) ;; *) printf "!!! test-pubs-flair-mutant FAIL: the User's Guide is not among the books\n"; exit 1 ;; esac
 
 # 1. A documented menu item the build does not ship (a renamed command).
-sed 's/^FINDER>File>New Folder>N>on|/FINDER>File>New Folders>N>on|/' "$m/$first.cmds" > "$m/renamed.cmds"
+sed 's/^FINDER>File>New Folder>N>cond|/FINDER>File>New Folders>N>cond|/' "$m/$first.cmds" > "$m/renamed.cmds"
 grep -q 'New Folders' "$m/renamed.cmds"
 red RENAMED_COMMAND DOC-NOT-SHIPPED "$gate" commands "$out/flair.shipped" "$allow" "$m/renamed.cmds"
 # 2. A dimmed command documented as available (the State field).
