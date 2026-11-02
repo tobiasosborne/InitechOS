@@ -22,6 +22,17 @@
 
 #include <stdint.h>
 #include "io.h"
+
+/* ADR-0014 DEC-14-6.3 (bead initech-qshpn): kmain objects that section COLD
+ * (os/milton/power_cold.c, Restart / Shut Down / Exit to InitechDOS) reaches
+ * through the checked import table get external linkage in the FLAIR tenant
+ * kmain only; every other kmain variant keeps them file-local, unchanged. */
+#if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
+#define KMAIN_OVL_IMPORTED
+#else
+#define KMAIN_OVL_IMPORTED static
+#endif
+
 #include "boot_info.h"
 #include "kmain_cold.h"
 #include "memory_map.h"  /* high kernel runway (tdnl.29) + FLAIR heap contract */
@@ -240,7 +251,7 @@ void serial_putu(uint32_t v)   /* extern: an overlay import (about_box.h) */
 /* Emit a 32-bit value as 8 fixed-width hex nibbles (MSB first). Used by the
  * FLAIR-heap RAM-sufficiency panic to print the heap window addresses (more
  * readable than decimal). Freestanding: no libc; deterministic (Rule 11). */
-static void serial_puthex32(uint32_t v)
+KMAIN_OVL_IMPORTED void serial_puthex32(uint32_t v)
 {
     static const char H[] = "0123456789ABCDEF";
     for (int i = 28; i >= 0; i -= 4) {
@@ -368,7 +379,7 @@ static console_t *g_int21_con = 0;
  * program runs). File scope (BSS) so it outlives kernel_main and stays bound
  * across the program load/return. The loader binds the loaded program's own PSP
  * during a run; the kernel re-binds this one when load_program returns. */
-static psp_t g_kernel_psp;
+KMAIN_OVL_IMPORTED psp_t g_kernel_psp;
 
 static void int21_con_sink(char c)
 {
@@ -453,7 +464,7 @@ static void ansi_get_cursor(void *ctx, int *row, int *col)
     }
 }
 
-static void int21_exit_hook(uint8_t code)
+KMAIN_OVL_IMPORTED void int21_exit_hook(uint8_t code)
 {
     /* Emit the grep-able exit marker to serial + one console line, then halt
      * cleanly (Rule 2 -- never silent, never hang). */
@@ -572,7 +583,7 @@ static int int21_clock_set_rtc(uint16_t year, uint8_t month, uint8_t day,
  * kernel CS (idt_install_trap -- the SAME gate type the DOS handlers use);
  * GETVECT reassembles the flat offset from the gate's split lo/hi fields
  * (idt.h idt_gate_t). */
-static void int21_setvect_idt(uint8_t vec, uint32_t handler)
+KMAIN_OVL_IMPORTED void int21_setvect_idt(uint8_t vec, uint32_t handler)
 {
     /* A hardware IRQ vector keeps an interrupt gate (ADR-0003 DEC-04a.1), so a
      * resident's INT 09h-equivalent hook runs with IF clear like the kernel's
@@ -583,7 +594,7 @@ static void int21_setvect_idt(uint8_t vec, uint32_t handler)
         idt_install_trap(vec, (void *)(uintptr_t)handler);
 }
 
-static uint32_t int21_getvect_idt(uint8_t vec)
+KMAIN_OVL_IMPORTED uint32_t int21_getvect_idt(uint8_t vec)
 {
     idt_gate_t g = idt_get_gate(vec);
     return (uint32_t)g.offset_lo | ((uint32_t)g.offset_hi << 16);
@@ -595,14 +606,14 @@ static uint32_t int21_getvect_idt(uint8_t vec)
  * first arg. These thunks bridge the two by capturing the mounted volume's
  * volume view (set on the mounted==1 path below). int21.c never sees the
  * blockdev/FAT types (Law 3); the binding lives here in the kernel. */
-static fat12_volume_t g_absdisk_vol;
+KMAIN_OVL_IMPORTED fat12_volume_t g_absdisk_vol;
 
-static int int21_absdisk_read(uint32_t lba, uint32_t count, void *buf)
+KMAIN_OVL_IMPORTED int int21_absdisk_read(uint32_t lba, uint32_t count, void *buf)
 {
     return fat12_read_sectors(&g_absdisk_vol, lba, count, buf);
 }
 
-static int int21_absdisk_write(uint32_t lba, uint32_t count, const void *buf)
+KMAIN_OVL_IMPORTED int int21_absdisk_write(uint32_t lba, uint32_t count, const void *buf)
 {
     int rc = fat12_write_sectors(&g_absdisk_vol, lba, count, buf);
 #ifndef CHKDSK_MUT_CACHE
@@ -852,10 +863,10 @@ static int exec_name_is_comspec(const char *name83)
  * NULL until Special > Exit to InitechDOS reads + validates it, then its
  * header's exec_secondary (command_exec_secondary, the COMMAND /C secondary
  * processor). Set ONLY by exitdos_load_transient (initech-13ig). */
-static void (*g_transient_exec_secondary)(const char *tail, uint32_t len) =
+void (*g_transient_exec_secondary)(const char *tail, uint32_t len) =   /* COLD sets it */
     (void (*)(const char *, uint32_t))0;
 #endif
-static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
+KMAIN_OVL_IMPORTED uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
                                     const char *cmd_tail, uint32_t cmd_tail_len,
                                     uint32_t env_block, uint8_t *out_rc)
 {
@@ -1273,6 +1284,7 @@ void flair_desktop_present(const boot_info_t *bi, const bitmap_t *off)
  * window.c/desktop.c verbs the host suites mutation-prove; kmain is a thin
  * source/sink adapter (no event/geometry logic re-implemented here). */
 #include "finder_actions.h"
+#include "power_cold.h"     /* resident side of the COLD power/exit path (ADR-0014) */
 
 /* Build + render + present the live FLAIR desktop. Returns nothing; fails loud
  * on a too-small LFB or any heap exhaustion (Rule 2). When ctx_out is non-NULL
@@ -2504,7 +2516,7 @@ static void flair_live_track_scroll(flair_live_ctx_t *ctx,
  * shell furniture -> HideWindow. Both accrue exact exposure damage before the
  * standard chrome -> content -> band-2 -> present cycle. */
 #ifdef FLAIR_LIVE_TENANTS
-static void flair_live_tenant_heard(flair_live_ctx_t *ctx, const boot_info_t *bi);
+void flair_live_tenant_heard(flair_live_ctx_t *ctx, const boot_info_t *bi);
 #endif
 static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                 WindowPtr w, GrafPort *tenant_barport)
@@ -3281,7 +3293,7 @@ void flair_live_launch_app(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * __attribute__((unused)) on the mouse half for the same reason as
  * flair_live_finder_menu_result: KMAIN_MUT_MENU2_DEAD compiles its one call
  * site out. */
-static void flair_live_tenant_heard(flair_live_ctx_t *ctx, const boot_info_t *bi)
+void flair_live_tenant_heard(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     flair_live_tenant_service(ctx, bi);
     flair_desktop_present(bi, &ctx->off);
@@ -5178,320 +5190,21 @@ static int flair_live_apple_result(flair_live_ctx_t *ctx, const boot_info_t *bi,
 
 /* Special > Empty Trash, after the shell counted (bead initech-6k12). */
 
-/* ---------------------------------------------------------------------------
- * bead initech-tdnl.78: SPECIAL > RESTART AND SPECIAL > SHUT DOWN.
- *
- * THE BEHAVIOUR (Law 1):
- *   - both "first sav[e] any necessary information" (Restart / Shut Down,
- *     Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf PDF p. 141, book
- *     p. 121) -- "put everything away safely and update directory
- *     information" (same guide PDF p. 222, book p. 202). The Finder shell
- *     has already noted every open window's view (finder_windows.c
- *     fw_do_power); here the kernel commits DESKTOP.DB. That is the ONLY
- *     deferred state: the FAT backend commits every write before it returns
- *     (os/milton/fileio_fat.c "commits to disk per call (no deferred
- *     flush)", and its CLOSE is a no-op for that reason). The Trash is NOT
- *     emptied (System 7: Apple_Whats_New_In_System_7_Z030-3935-A.pdf PDF
- *     p. 23). Running disk applications are first asked to quit, and one
- *     that declines cancels the whole command (finder_power_ask_apps).
- *   - Restart then restarts the machine: the 8042 reset pulse
- *     (os/milton/power.h kernel_reset); a pulse that does not reset is a
- *     PANIC with the controller status, never a silent hang (Rule 2).
- *   - Shut Down, on a machine with no software power switch (a PC of the
- *     period, like the Macintosh Plus / SE): "the screen will become dark,
- *     and a dialog box will appear with a Restart button" (V6 guide PDF
- *     p. 215, book p. 195; "click the Restart button on the screen", the same
- *     page) -- the Macintosh User's Guide for desktop Macintosh computers
- *     (Z030-1751-A, PDF p. 25, book p. 6): switch off "when a message on
- *     screen indicates that it's safe to do so".
- *
- * THE SCREEN -- the System Error Handler's alert table, resource 'DSAT' 2 of
- * the System file on the System 7.0.1 boot disk (../system7-decomp/goldens/
- * work/boot701.dsk; System 7.5.3's boot753.img carries the same entries).
- * Alert 20001, the switch-off alert with a Restart button:
- *   text 0xB176 "It is now safe to switch off your Macintosh./If you wish to
- *        continue using your Macintosh,/press Restart." ('/' = new line),
- *        pen (v 94, h 114);
- *   icon 0xBFF1, a 32x32 ICON at rect (81,60)-(113,92) (the bytes below);
- *   buttons 0xAA0F, ONE button: string 0xA628 "Restart" at rect
- *        (154,404)-(174,463).
- * Those are 512x342 (compact Macintosh) screen coordinates; this 640x480
- * screen centres that frame, (+64,+69).
- * STATED DEVIATIONS:
- *   - "Macintosh" -> "computer": this is not a Macintosh; FLAIR is Initech's
- *     own platform (ADR-0012), and the house rule prefers the generic
- *     designation (ADR-0003 DEC-12; the Finder already says "About This
- *     Computer"). The rest of the text is verbatim.
- *   - the BOX rectangle is AUTHORED: the DSAT draws into the low-memory
- *     DSAlertRect, which the resource does not carry (no local reference).
- *     (96,133)..(546,259) = DSAT-space (32,64)..(482,190), enclosing the
- *     three DSAT elements.
- *   - the frame and face are the existing dBoxProc alert's (the Empty Trash
- *     confirm's, Platinum face; the Platinum alert frame is bead 81ft's).
- *   - line pitch 16 = the Chicago 12 cell (CHICAGO_CELL_H); the DSAT carries
- *     only the first pen position (baseline v 94 -> cell top 94 - 12 + 69).
- * Returns 1 when the Restart button (or Return, the default item) was
- * chosen; in a BOUNDED image the screen holds until the image's life ends
- * and then halts (kernel_halt) -- the interactive image waits forever, which
- * is what a switched-off-but-not-yet-unplugged machine does.
- * MUTANT KMAIN_MUT_SHUTDOWN_RETURNS (Rule 6; test-flair-shutdown-mutant):
- * returns 0 straight after the screen is up, so the desktop takes input
- * again. NEVER in a real build.
- * ------------------------------------------------------------------------- */
-#define FSD_DX       64
-#define FSD_DY       69
-#define FSD_L        (32 + FSD_DX)
-#define FSD_T        (64 + FSD_DY)
-#define FSD_R        (482 + FSD_DX)
-#define FSD_B        (190 + FSD_DY)
-#define FSD_ICON_X   (60 + FSD_DX)
-#define FSD_ICON_Y   (81 + FSD_DY)
-#define FSD_TEXT_X   (114 + FSD_DX)
-#define FSD_TEXT_Y   (94 - 12 + FSD_DY)
-#define FSD_BTN_L    (404 + FSD_DX)
-#define FSD_BTN_T    (154 + FSD_DY)
-#define FSD_BTN_R    (463 + FSD_DX)
-#define FSD_BTN_B    (174 + FSD_DY)
-
-/* DSAT 2 ICON 0xBFF1, 32 rows x 4 bytes, MSB = leftmost pixel, 1 = ink. */
-static const uint8_t FSD_ICON[128] = {
-    0xFF, 0xFF, 0xFF, 0xFF, 0x80, 0x7F, 0xFF, 0xFF,
-    0x80, 0x7F, 0xFF, 0xFF, 0x80, 0x7F, 0xFF, 0xFF,
-    0x80, 0x7F, 0xFF, 0xFF, 0x80, 0x7F, 0xC0, 0xFF,
-    0x88, 0x7F, 0x00, 0x3F, 0x88, 0x7E, 0x00, 0x1F,
-    0x88, 0x7C, 0x00, 0x0F, 0x80, 0x78, 0x00, 0x07,
-    0x80, 0x78, 0x00, 0x07, 0x80, 0x70, 0x00, 0x03,
-    0x80, 0x71, 0xDD, 0xC3, 0x80, 0x70, 0x00, 0x03,
-    0x80, 0x70, 0x00, 0x03, 0x80, 0x71, 0xDD, 0x43,
-    0x80, 0x70, 0x00, 0x03, 0x80, 0x70, 0x00, 0x03,
-    0x80, 0x71, 0xD7, 0x03, 0x80, 0x70, 0x00, 0x03,
-    0x87, 0xF0, 0x00, 0x03, 0x81, 0xF1, 0xEE, 0xC3,
-    0x81, 0xF0, 0x00, 0x07, 0x81, 0xF0, 0x00, 0x07,
-    0x81, 0xF0, 0x00, 0x0F, 0x81, 0xE0, 0x00, 0x1F,
-    0x8F, 0x80, 0x00, 0x7F, 0x81, 0xFF, 0xFF, 0xFF,
-    0x81, 0xFF, 0xFF, 0xFF, 0x81, 0xFF, 0xFF, 0xFF,
-    0x81, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-};
-
-static __attribute__((cold,noinline)) int finder_shutdown_screen(flair_live_ctx_t *ctx, const boot_info_t *bi)
+/* Special > Restart / Shut Down (finder_power, the shut-down screen and the
+ * reset) runs in section COLD: os/milton/power_cold.c (ADR-0014 DEC-14-8;
+ * bead initech-qshpn). The bounded image's life is kmain's, so the shut-down
+ * screen's halt check stays resident: in a BOUNDED image the screen holds
+ * until the image's life ends and then halts; the interactive image (and the
+ * KMAIN_MUT_TRACK_TIMEOUT hold mutant) waits forever. */
+void finder_shutdown_life_check(void)
 {
-    static const char *const text[3] = {
-        "It is now safe to switch off your computer.",
-        "If you wish to continue using your computer,",
-        "press Restart."
-    };
-    static DialogRecord     dr;
-    static DialogItem       it[4];
-    static ControlRecord    restart_c;
-    static finder_win_rgn_t rs, rc, ru;
-    const bitmap_t *off = &ctx->off;
-    uint16_t hit = 0u;
-    int k;
-
-    /* the screen becomes dark */
-    for (uint32_t y = 0u; y < off->height; y++)
-        surface_fill_span(off, 0u, y, off->width, (uint32_t)CIDX_BLACK);
-
-    control_init(&restart_c, pushButton,
-                 fta_rect(FSD_BTN_L, FSD_BTN_T, FSD_BTN_R, FSD_BTN_B),
-                 0, 0, 1, 1, "Restart");
-    for (k = 0; k < 4; k++) {
-        it[k].type    = (k == 0) ? ctrlItem : statText;
-        it[k].ctrl    = (k == 0) ? &restart_c : (ControlRecord *)0;
-        it[k].rect    = (k == 0) ? restart_c.contrlRect
-                                 : fta_rect(FSD_TEXT_X, FSD_TEXT_Y + 16 * (k - 1),
-                                            FSD_BTN_R, FSD_TEXT_Y + 16 * k);
-        it[k].text    = (k == 0) ? (const char *)0 : text[k - 1];
-        it[k].enabled = (uint8_t)((k == 0) ? 1 : 0);
-        it[k]._pad[0] = it[k]._pad[1] = it[k]._pad[2] = 0u;
-    }
-    fta_rgn(&rs); fta_rgn(&rc); fta_rgn(&ru);
-    (void)NewDialog(&dr, fta_rect(FSD_L, FSD_T, FSD_R, FSD_B), "", it, 4u,
-                    1u /* Restart = default = Return */, 0u,
-                    (WindowMgr *)0, &rs.r, &rc.r, &ru.r);
-    dr.window.port.portBits.bm = ctx->off;
-    dr.window.port.visRgn  = (region_t *)0;
-    dr.window.port.clipRgn = (region_t *)0;
-    dr.window.port.portRect = region_get_bbox(dr.window.strucRgn);
-    DrawDialog(&dr);
-    /* the DSAT icon, srcCopy (ink black, clear white) */
-    for (int r = 0; r < 32; r++)
-        for (int c = 0; c < 32; c++)
-            surface_put_pixel(off,
-                              (uint32_t)(FSD_ICON_Y + r) * off->pitch +
-                              (uint32_t)(FSD_ICON_X + c) * off->bytes_per_pixel,
-                              (FSD_ICON[r * 4 + (c >> 3)] & (0x80u >> (c & 7)))
-                                  ? (uint32_t)CIDX_BLACK : (uint32_t)CIDX_WHITE);
-    flair_desktop_present(bi, &ctx->off);
-    serial_puts("FLAIR-SHUTDOWN-SAFE\n");
-#if defined(KMAIN_MUT_SHUTDOWN_RETURNS)
-    return 0;
-#endif
-
-    for (;;) {
-        EventRecord ev;
-        int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev, 3u);
-        flair_live_cursor_track(&ev);
-        if (g) {
-            flair_live_emit_evt(&ev);
-            if (DialogHandleEvent(&dr, &ev, (dialog_filter_fn)0, &hit) &&
-                hit == 1u)
-                return 1;
-        }
 #if !defined(FLAIR_LIVE_INTERACTIVE) && !defined(KMAIN_MUT_TRACK_TIMEOUT)
-        if ((int32_t)(flair_tick_count() - g_flair_live_life_end) >= 0) {
-            serial_puts("FLAIR-SHUTDOWN-HALT\n");
-            kernel_halt();
-        }
-#endif
+    if ((int32_t)(flair_tick_count() - g_flair_live_life_end) >= 0) {
+        serial_puts("FLAIR-SHUTDOWN-HALT\n");
+        kernel_halt();
     }
-}
-
-/* The reset itself: never returns. A reset that does not land is a PANIC with
- * the 8042 status (0x100 set = the input buffer never drained), Rule 2. */
-static void finder_restart_now(void)
-{
-    uint32_t st;
-
-    serial_puts("FLAIR-RESTART\n");
-    st = kernel_reset();
-    serial_puts("PANIC kernel_reset: the 8042 pulse did not reset the machine st=");
-    serial_puthex32(st);
-    serial_puts("\nHALTED\n");
-    kernel_halt();
-}
-
-/* FIRST, THE RUNNING APPLICATIONS ARE ASKED TO QUIT (System 7: the Finder
- * sends each the Quit Application event on Restart / Shut Down, Inside
- * Macintosh Vol VI PDF pp. 340-341 / 345; the application answers it with
- * "the same routine" as its File > Quit, which saves documents or returns
- * userCanceledErr when "the Quit request was canceled by the user", PDF
- * p. 345, Listing 6-8). A cancel cancels the shut-down (PM directive
- * 2026-10-15, with the Initech 123 exit guard initech-fvnj). The one
- * resident disk tenant hears its OWN File > Quit (tbxgate.c tbx_ask_quit) and
- * the ordinary tenant service runs: it may EXIT (reaped), ask its question
- * (on a tree with TBX_ALERT the service runs the alert and delivers the
- * answer), or decline. Still resident afterwards == declined: the shut-down
- * is CANCELLED, loudly, and the tenant is NEVER terminated (its work would
- * be lost). Returns 1 to go on. The kernel-linked demo tenants (HELLO, NOTES)
- * hold no documents and are not asked: the reset or the halt ends them.
- * MUTANT KMAIN_MUT_POWER_NO_ASK (Rule 6; test-flair-shutdown-mutant): the
- * application is not asked. NEVER in a real build. */
-static __attribute__((cold,noinline)) int finder_power_ask_apps(flair_live_ctx_t *ctx, const boot_info_t *bi)
-{
-    const char *still;
-    int r;
-
-#if defined(KMAIN_MUT_POWER_NO_ASK)
-    return 1;
 #endif
-    r = tbx_ask_quit();
-    if (r == 0) return 1;                  /* no application running          */
-    if (r > 0) flair_live_tenant_heard(ctx, bi);
-    still = tbx_resident_name();
-    if (still == (const char *)0) return 1;
-    serial_puts("FINDER-POWER-CANCEL app=");
-    serial_puts(still);
-    serial_puts(r > 0 ? " declined\n" : " cannot-ask\n");
-    /* B04 / audit DAS L022: serial alone leaves the user guessing. The
-     * notice is modal, restores the desktop, and never terminates the app. */
-    {
-        static const char *const ok[] = { "OK" };
-        const char *lines[3];
-        unsigned n = finder_power_notice(r > 0, still, lines);
-        if (n) {
-            flair_live_alert_open(ctx, bi, lines, (int)n, ok, 1, 1);
-            serial_puts("FINDER-POWER-NOTICE\n");
-            for (unsigned i = 0; i < n; i++) {
-                serial_puts("FINDER-ALERT-LINE ");
-                serial_puts(lines[i]); serial_putc('\n');
-            }
-            (void)flair_live_alert_run(ctx, bi);
-        }
-    }
-    return 0;
 }
-
-/* Special > Restart / Shut Down after the shell noted the open views
- * (`noted`, finder_windows.c fw_do_power): ask the applications to quit,
- * commit, then reset or shut down.
- * MUTANT KMAIN_MUT_POWER_NO_FLUSH (Rule 6; test-flair-shutdown-mutant): the
- * DESKTOP.DB commit is skipped. NEVER in a real build. */
-void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                         finder_cmd_id id, int16_t noted)
-{
-    serial_puts(id == FCMD_RESTART ? "FINDER-POWER name=RESTART views="
-                                   : "FINDER-POWER name=SHUTDOWN views=");
-    serial_puti((int32_t)noted);
-    serial_putc('\n');
-    if (!finder_power_ask_apps(ctx, bi))
-        return;                         /* an application cancelled          */
-#if !defined(KMAIN_MUT_POWER_NO_FLUSH)
-    g_finder_db_dirty = 1;
-    finder_desk_persist();
-#endif
-    if (id == FCMD_SHUTDOWN && !finder_shutdown_screen(ctx, bi))
-        return;                         /* only KMAIN_MUT_SHUTDOWN_RETURNS */
-    finder_restart_now();
-}
-
-/* ---------------------------------------------------------------------------
- * bead initech-3p1a: SPECIAL > EXIT TO InitechDOS -- the chimera's own way out.
- *
- * THE BEHAVIOUR (Law 1):
- *   - The Macintosh leaves the Finder only by Restart / Shut Down (above;
- *     tdnl.78 graded against ../system7-decomp). InitechOS runs OVER
- *     InitechDOS (PRD Sec 1/4: the DOS-3.3 personality fused with the
- *     Toolbox), so it also offers the way back DOWN to the prompt, the way a
- *     period GUI shell over DOS did. The TPS Report Generator runs ONLY from
- *     that prompt (operator 2026-06-14 / 2026-10-16, bead initech-8479.1).
- *   - It asks first, in the existing alert (flair_live_alert_open: the
- *     s8_alert_modal.png geometry, default ringed, Escape = Cancel), with the
- *     operator's words "Are you sure you want to exit to InitechDOS?" --
- *     Exit (default, Return) / Cancel (Escape).
- *   - Exit puts everything away through the SAME path Shut Down uses
- *     (finder_power_ask_apps: a running disk application is asked to quit
- *     and may cancel; then the DESKTOP.DB commit), then tears the desktop
- *     down -- the pump's tick / keyboard / mouse hooks are taken out and the
- *     Toolbox fault triage is unbound -- and hands the SAME 640x480 LFB back
- *     to the InitechDOS text console the boot path built (there is no BIOS
- *     text mode to return to: the console is the VGA 8x16 font blitted into
- *     the LFB, os/milton/console.h). The console is RE-INITIALISED from
- *     boot_info and must come back CONSOLE_OK, or the hand-off PANICs (Rule
- *     2: a known console state or nothing).
- *   - The InitechDOS banner (ADR-0003 Appendix D.1, the locked
- *     spec/dos_banner.txt lines) is printed through INT 21h, then COMMAND.COM
- *     takes the console as the PERMANENT command processor (/P) with the
- *     flagship data volume, already mounted and bound, as drive A:.
- *   - COMMAND.COM is the TRANSIENT (os/milton/transient.h): read from the boot
- *     disk now, validated, never trusted blindly. A missing or foreign
- *     transient is ADR-0003's MSG-DOS-0014 on the console and a PANIC on
- *     serial -- the machine halts, as DOS did.
- * Serial: FINDER-EXIT-DOS-ALERT (alert up) ; FINDER-EXIT-DOS-CANCEL |
- *   FINDER-POWER name=EXITDOS views=<n> ; DESKTOP-DB-SAVE ... ;
- *   FLAIR-EXIT-TO-DOS ; COMMAND-TRANSIENT-OK bytes=<n> ; SHELL-READY.
- * MUTANT KMAIN_MUT_EXIT_NO_TEARDOWN (Rule 6; test-flair-exit-to-dos-mutant):
- * goes straight to the prompt WITHOUT the teardown and the console reset --
- * the desktop stays painted under the prompt. NEVER in a real build.
- * ------------------------------------------------------------------------- */
-static __attribute__((cold,noinline)) void exitdos_fail(const char *why, uint32_t v)
-{
-    /* Initial interpreter activation: MS-DOS 3.3 User's Guide printed p310
-     * (PDF395), ADR-0003 Appendix C/DEC-13. The post-EXEC overwrite/retry
-     * message on printed p338 is a different path. Halt is Rule 2 policy. */
-#ifndef KMAIN_MUT_COMMAND_MESSAGE
-    dos_puts("\n" MSG_DOS_0014 "\n$");
-#else
-    dos_puts("\n" MSG_DOS_0002 "\n$");
-#endif
-    serial_puts("PANIC exit-to-dos: ");
-    serial_puts(why);
-    serial_puts(" v=");
-    serial_puthex32(v);
-    serial_puts("\nHALTED\n");
-    kernel_halt();
-}
-
 /* THE PRIVATE BOOT-VOLUME READ (C:, primary master; ADR-0003 DEC-18), shared
  * by the transient COMMAND.COM and C:\FLAIR.OVL (ADR-0014 DEC-14-4: "exactly
  * as exitdos_load_transient reads COMMAND.COM", R6 "reuse the boot-mount
@@ -5502,12 +5215,13 @@ static __attribute__((cold,noinline)) void exitdos_fail(const char *why, uint32_
  * or the step that failed (1 mount, 2 cluster size, 3 lookup) with *v = its
  * status. g_boot_slave is a MUTANT-only knob (Rule 6): the real kernel reads
  * the boot volume, never the data volume. */
-static fat12_volume_t g_boot_vol;
-static uint8_t g_boot_sector[512], g_boot_cluster[4096];
+fat12_volume_t g_boot_vol;           /* COLD: exitdos_load_transient */
+static uint8_t g_boot_sector[512];
+uint8_t g_boot_cluster[4096];
 #if defined(KMAIN_MUT_COMMAND_VOLUME) || defined(OVL_MUT_DATA_VOLUME)
-static int g_boot_slave;
+int g_boot_slave;
 #endif
-static int boot_root_find(const char *name83, dir_entry_t *d, uint32_t *v)
+int boot_root_find(const char *name83, dir_entry_t *d, uint32_t *v)
 {
     static ata_ctx_t ata;
     static blockdev_t dev;
@@ -5530,73 +5244,6 @@ static int boot_root_find(const char *name83, dir_entry_t *d, uint32_t *v)
     rc = fat12_find(&g_boot_vol, g_boot_sector, name83, d);
     *v = (uint32_t)rc;
     return rc != FAT12_OK ? 3 : 0;
-}
-
-/* Read + validate the transient. Returns its entry; never returns on failure. */
-static void (*exitdos_load_transient(void))(int)
-{
-    dir_entry_t command;
-    transient_hdr_t *h = (transient_hdr_t *)(uintptr_t)TRANSIENT_BASE;
-    /* EVERY kernel import the transient's code uses, from the GENERATED table
-     * (build/transient_want.asm; os/milton/transient.h). The review of
-     * initech-13ig found the former hand-kept list checked five of ten. */
-    const uint32_t n_want = transient_import_count;
-    const uint32_t hdr_bytes = (uint32_t)sizeof *h + n_want * 4u;
-    uint32_t bytes, k, v;
-    int rc;
-
-    if ((uint32_t)(uintptr_t)_kernel_end > TRANSIENT_BASE)
-        exitdos_fail("the kernel overlaps the transient window",
-                     (uint32_t)(uintptr_t)_kernel_end);
-#ifdef KMAIN_MUT_COMMAND_VOLUME
-    g_boot_slave = 1;
-#endif
-    rc = boot_root_find("COMMAND.COM", &command, &v);
-    if (rc == 1) exitdos_fail("boot FAT mount failed", v);
-    if (rc == 2) exitdos_fail("boot FAT cluster too large", v);
-    if (rc != 0) exitdos_fail("COMMAND.COM not found", v);
-    if ((command.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u ||
-        command.file_size <= sizeof *h ||
-        command.file_size > TRANSIENT_CEIL - TRANSIENT_BASE)
-        exitdos_fail("COMMAND.COM file extents", command.file_size);
-    rc = fat12_read_partial(&g_boot_vol, 0, 0u, &command, 0u, sizeof *h,
-                           h, g_boot_cluster, &bytes);
-    if (rc != FAT12_OK || bytes != sizeof *h)
-        exitdos_fail("boot FAT read of the header failed", (uint32_t)rc);
-#ifndef KMAIN_MUT_COMMAND_MAGIC
-    for (k = 0u; k < TRANSIENT_MAGIC_LEN; k++)
-        if (h->magic[k] != TRANSIENT_MAGIC[k])
-            exitdos_fail("no COMMAND3 transient on the boot disk", k);
-#endif
-    if (h->n_imports != n_want)
-        exitdos_fail("transient import count != the kernel's", h->n_imports);
-    if (h->load_end <= TRANSIENT_BASE + hdr_bytes ||
-        h->load_end != TRANSIENT_BASE + command.file_size ||
-        h->bss_end < h->load_end || h->bss_end > TRANSIENT_CEIL)
-        exitdos_fail("transient header extents", h->bss_end);
-    rc = fat12_read_file(&g_boot_vol, 0, 0u, &command, h,
-                         TRANSIENT_CEIL - TRANSIENT_BASE, g_boot_cluster, &bytes);
-    if (rc != FAT12_OK || bytes != command.file_size)
-        exitdos_fail("boot FAT read of the transient failed", (uint32_t)rc);
-    for (k = 0u; k < n_want; k++)
-        if (h->imports[k] != transient_import_want[k])
-            exitdos_fail("transient linked against another kernel build", k);
-    if (h->entry < TRANSIENT_BASE + hdr_bytes || h->entry >= h->load_end)
-        exitdos_fail("transient entry outside its text", h->entry);
-    if (h->exec_secondary < TRANSIENT_BASE + hdr_bytes ||
-        h->exec_secondary >= h->load_end)
-        exitdos_fail("transient exec_secondary outside its text", h->exec_secondary);
-    for (uint8_t *z = (uint8_t *)(uintptr_t)h->load_end;
-         z < (uint8_t *)(uintptr_t)h->bss_end; z++)
-        *z = 0u;
-    serial_puts("COMMAND-TRANSIENT-OK bytes=");
-    serial_putu(h->load_end - TRANSIENT_BASE);
-    serial_putc('\n');
-    /* From here COMMAND.COM is resident: a program's EXEC of it runs the
-     * secondary processor (loader_exec_by_name, initech-13ig). */
-    g_transient_exec_secondary =
-        (void (*)(const char *, uint32_t))(uintptr_t)h->exec_secondary;
-    return (void (*)(int))(uintptr_t)h->entry;
 }
 
 /* ---------------------------------------------------------------------------
@@ -5789,31 +5436,28 @@ static void ovl_fault_triage(uint32_t vector, uint32_t eip)
 #endif
 }
 
-/* The hand-off itself. Never returns. */
-static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *bi)
+/* Special > Exit to InitechDOS (finder_exit_dos, flair_exit_to_dos) runs in
+ * section COLD: os/milton/power_cold.c (ADR-0014 DEC-14-8; bead
+ * initech-qshpn). These three stay resident for it. */
+
+/* The exit-to-DOS TEAR DOWN, resident (power_cold.c flair_exit_to_dos):
+ * the desktop's input + clock hooks out, the Toolbox fault triage unbound (a
+ * DOS program's fault is the ordinary PC LOAD LETTER panic, not a tenant
+ * death). IRQ12 stays live with NO hook: the mouse ISR keeps draining the
+ * PS/2 AUX stream, so a mouse moved at the prompt can never leave a byte in
+ * the 8042 output buffer ahead of a keystroke. Overlaid code never imports a
+ * hook setter (ADR-0014 DEC-14-6.5), hence this half lives here. Then A
+ * KNOWN CONSOLE STATE: re-initialise the boot console from boot_info and
+ * clear the whole LFB to its paper, or panic. Returns 0 (hooks already out)
+ * when there is no boot console; the caller names that failure. */
+int flair_exit_teardown(const boot_info_t *bi)
 {
-    void (*repl)(int);
-
-    /* Input ownership follows the handoff itself, including the existing
-     * no-teardown pixel mutant: that mutant must still run DIR at the prompt
-     * so its oracle can grade the deliberately surviving desktop pixels. */
-    kbd_set_input_owner(KBD_OWNER_DOS);
-    int21_conin_handoff();
-
-#if !defined(KMAIN_MUT_EXIT_NO_TEARDOWN)
-    /* TEAR DOWN: the desktop's input + clock hooks out, the Toolbox fault
-     * triage unbound (a DOS program's fault is the ordinary PC LOAD LETTER
-     * panic, not a tenant death). IRQ12 stays live with NO hook: the mouse
-     * ISR keeps draining the PS/2 AUX stream, so a mouse moved at the prompt
-     * can never leave a byte in the 8042 output buffer ahead of a keystroke. */
     pit_set_tick_hook((void (*)(void))0);
     kbd_set_scancode_hook((void (*)(uint8_t))0);
     mouse_set_event_hook((void (*)(int, int, uint8_t))0);
     panic_set_fault_hook((void (*)(uint32_t, uint32_t))0);
-    /* A KNOWN CONSOLE STATE: re-initialise the boot console from boot_info
-     * (bounds, bpp, font) and clear the whole LFB to its paper, or panic. */
     if (g_int21_con == (console_t *)0)
-        exitdos_fail("no boot console to hand back", 0u);
+        return 0;
     if (bi->lfb_bpp == 8u) {
         vga_set_dac((uint8_t)CONSOLE_BG_IDX, SEAFOAM_R, SEAFOAM_G, SEAFOAM_B);
         vga_set_dac((uint8_t)CONSOLE_FG_IDX, 0xC0, 0xC0, 0xC0);
@@ -5827,67 +5471,25 @@ static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *
             kernel_halt();
         }
     }
-#else
-    (void)bi;
-#endif
-    /* The ownership handoff already discarded the desktop's cooked input. */
-    serial_puts("FLAIR-EXIT-TO-DOS\n");
-    /* The kernel context COMMAND.COM runs in: the kernel PSP and terminate
-     * hook (the loader rebinds both per EXEC and restores them), the root of
-     * drive A: as the current directory. */
-    int21_set_exit(int21_exit_hook);
-    int21_set_psp(&g_kernel_psp);
-    int21_cwd_reset();
-    /* COMMAND.COM's DOS personality: the seams the boot-to-prompt kernel binds
-     * after ITS mount (kernel_main's FAT-MOUNT block) and the desktop never
-     * needed -- AH=4Bh EXEC through the loader, AH=25h/35h on the live IDT,
-     * INT 25h/26h on the flagship volume's device (CHKDSK.COM lives in APPS). */
-    int21_set_exec_backend(loader_exec_by_name);
-    int21_set_vectortable(int21_setvect_idt, int21_getvect_idt);
-    if (g_finder_vol != (const fat12_volume_t *)0 && g_absdisk_vol.dev != 0) {
-        int21_absdisk_backend_t absdisk;
-        absdisk.read          = int21_absdisk_read;
-        absdisk.write         = int21_absdisk_write;
-        absdisk.total_sectors = g_finder_vol->bpb.total_sectors_16 != 0u
-                                    ? (uint32_t)g_finder_vol->bpb.total_sectors_16
-                                    : g_finder_vol->bpb.total_sectors_32;
-        int21_set_blockdev(&absdisk);
-    }
-    repl = exitdos_load_transient();
+    return 1;
+}
+
+/* _kernel_end is a linker-script symbol, not an object's: the overlay's
+ * generated import table carries only object-defined names, so the COLD
+ * exit path reads it through this resident accessor. */
+uint32_t kernel_image_end(void)
+{
+    return (uint32_t)(uintptr_t)_kernel_end;
+}
+
+/* The InitechDOS banner (ADR-0003 Appendix D.1): the locked lines keep their
+ * one home in this file (BANNER_LINE1). */
+void exitdos_banner(void)
+{
     serial_puts("BANNER-BEGIN\n");
     dos_puts(BANNER_LINE1 "\n$");
     dos_puts(BANNER_LINE2 "\n$");
     serial_puts("BANNER-END\n");
-    dos_puts("\n$");
-    serial_puts("SHELL-READY\n");
-    repl(1);          /* the permanent command processor never returns */
-    exitdos_fail("COMMAND.COM returned", 0u);
-}
-
-/* Special > Exit to InitechDOS after the shell noted the open views. */
-void finder_exit_dos(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                            int16_t noted)
-{
-    static const char *const labels[2] = { "Exit", "Cancel" };
-    static char lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
-    const char *text[FINDER_ALERT_LINES];
-    int n = finder_exit_dos_alert_text(lines), k;
-
-    for (k = 0; k < n; k++) text[k] = lines[k];
-    flair_live_alert_open(ctx, bi, text, n, labels, 2, 1);
-    serial_puts("FINDER-EXIT-DOS-ALERT\n");
-    if (flair_live_alert_run(ctx, bi) != 1u) {
-        serial_puts("FINDER-EXIT-DOS-CANCEL\n");
-        return;
-    }
-    serial_puts("FINDER-POWER name=EXITDOS views=");
-    serial_puti((int32_t)noted);
-    serial_putc('\n');
-    if (!finder_power_ask_apps(ctx, bi))
-        return;                         /* an application cancelled          */
-    g_finder_db_dirty = 1;
-    finder_desk_persist();
-    flair_exit_to_dos(bi);
 }
 
 /* Report + service whatever the command spine's shell hook just did. ONE
