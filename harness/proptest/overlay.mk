@@ -332,16 +332,22 @@ endef
 OVL_N_IMPORTS_LAST = $(shell printf '%08X' $$(( $$(wc -l < $(BUILD)/ovl_imports.txt) - 1 )))
 $(OVL_GATE_DIR)/missing.img: $(FLAIRTENANTS_IMG)
 	$(call ovl-derive,$<,$@,missing)
+	@$(call fixture-check,recipe,$@)
 $(OVL_GATE_DIR)/crcflip.img: $(FLAIRTENANTS_IMG)
 	$(call ovl-derive,$<,$@,crcflip)
+	@$(call fixture-check,recipe,$@)
 $(OVL_GATE_DIR)/magicflip.img: $(FLAIRTENANTS_IMG)
 	$(call ovl-derive,$<,$@,magicflip)
+	@$(call fixture-check,recipe,$@)
 $(OVL_GATE_DIR)/missing_mut.img: $(BUILD)/flair_tenants_mut_ovl_no_missing.img
 	$(call ovl-derive,$<,$@,missing)
+	@$(call fixture-check,recipe,$@)
 $(OVL_GATE_DIR)/crcflip_mut.img: $(BUILD)/flair_tenants_mut_ovl_no_crc.img
 	$(call ovl-derive,$<,$@,crcflip)
+	@$(call fixture-check,recipe,$@)
 $(OVL_GATE_DIR)/magicflip_mut.img: $(BUILD)/flair_tenants_mut_ovl_no_magic.img
 	$(call ovl-derive,$<,$@,magicflip)
+	@$(call fixture-check,recipe,$@)
 # The wrong-volume mutant gets ITS OWN overlay on A:, so disabling the C:-only
 # rule shows as acceptance, not as an incidental identity mismatch.
 OVL_DATA_OVL_MUT := $(OVL_GATE_DIR)/data_with_mut_ovl.img
@@ -349,8 +355,10 @@ $(OVL_DATA_OVL_MUT): $(FLAIR_DATA_IMG) $(BUILD)/flairovl_kernel_flairtenants_mut
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $< $@
 	@mcopy -m -i $@ $(BUILD)/flairovl_kernel_flairtenants_mut_ovl_data_volume.ovl ::FLAIR.OVL
+	@$(call fixture-check,recipe,$@)
 $(OVL_GATE_DIR)/wrongvol_mut.img: $(BUILD)/flair_tenants_mut_ovl_data_volume.img
 	$(call ovl-derive,$<,$@,missing)
+	@$(call fixture-check,recipe,$@)
 $(OVL_DATA): $(FLAIR_DATA_IMG) | $(OVL_GATE_DIR)
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $< $@
@@ -359,6 +367,17 @@ $(OVL_DATA_OVL): $(FLAIR_DATA_IMG) $(OVL_FLAG).ovl | $(OVL_GATE_DIR)
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $< $@
 	@mcopy -m -i $@ $(OVL_FLAG).ovl ::FLAIR.OVL
+	@$(call fixture-check,recipe,$@)
+# Kernel-overlay panic-gate volumes (declared in harness/proptest/overlay.mk, which is included AFTER
+# fixture_volumes.mk, so the contracts live beside the recipes; initech-dieap).
+# Boot images derived from the minted flagship/mutant boot image by authoring ONE
+# defect into C:\FLAIR.OVL (deleted / flipped); they are fixtures, so each recipe
+# ends with the verifier. The deleted-overlay images keep the three boot files;
+# the flipped ones also keep FLAIR.OVL itself (present, archive-only).
+$(foreach n,missing missing_mut wrongvol_mut,$(eval $(call fixture-contract,$(OVL_GATE_DIR)/$(n).img,@@32256 IO.SYS=SHR INITDOS.SYS=SHR COMMAND.COM)))
+$(foreach n,crcflip magicflip crcflip_mut magicflip_mut,$(eval $(call fixture-contract,$(OVL_GATE_DIR)/$(n).img,@@32256 IO.SYS=SHR INITDOS.SYS=SHR COMMAND.COM FLAIR.OVL)))
+# A: data volumes carrying the overlay on the WRONG volume (DEC-14-4).
+$(foreach img,$(OVL_DATA_OVL) $(OVL_DATA_OVL_MUT),$(eval $(call fixture-contract,$(img),$(FLAIR_FIXTURES) FLAIR.OVL)))
 .PHONY: test-ovl-panic test-ovl-panic-mutant
 OVL_PANIC_IMGS := $(addprefix $(OVL_GATE_DIR)/,missing.img skew.img crcflip.img magicflip.img)
 OVL_PANIC_MUT_IMGS := $(addprefix $(OVL_GATE_DIR)/,missing_mut.img skew_mut.img crcflip_mut.img magicflip_mut.img wrongvol_mut.img)

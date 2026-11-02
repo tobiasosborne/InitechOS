@@ -13933,6 +13933,9 @@ test-fixture-volumes: $(FIXTURE_VOLUMES_CHECK)
 	@rc=0; $(MAKE) --no-print-directory -pq help SKIP_BOCHS=0 > $(FIXTURE_VOLUMES_SCAN).db || rc=$$?; \
 	 [ "$$rc" -le 1 ] || { printf '!!! test-fixture-volumes FAIL: the make database dump failed (exit %s)\n' "$$rc"; exit 1; }
 	@$(FIXTURE_VOLUMES_CHECK) --probe $(FIXTURE_VOLUMES_SCAN).db $(FIXTURE_VOLUMES_SCAN).mk $(FIXTURE_VOLUMES_SCAN).expanded
+	@# Grouped pattern targets must reach the probe whole (both members, one recipe).
+	@grep -q '^tflp_target_[0-9]* := $(BUILD)/flairovl_%\.ovl $(BUILD)/flairovl_%\.sys$$' $(FIXTURE_VOLUMES_SCAN).mk \
+	 || { printf '!!! test-fixture-volumes FAIL: grouped flairovl pattern target missing from the probe\n'; exit 1; }
 	@$(MAKE) --no-print-directory -s -f $(firstword $(MAKEFILE_LIST)) -f $(FIXTURE_VOLUMES_SCAN).mk fixture-volume-probe SKIP_BOCHS=0
 	@$(FIXTURE_VOLUMES_CHECK) --check $(FIXTURE_VOLUMES_SCAN).expanded $(FIXTURE_VOLUMES_SCAN).tsv
 test-fixture-volumes-mutant: test-fixture-volumes

@@ -56,7 +56,11 @@ static int probe(const char *db, const char *out, const char *manifest)
             target[0] = first[0] = 0;
             if (!colon || strchr(line, '=')) continue;
             *colon = 0;
-            if (strlen(line) >= sizeof(target) || strpbrk(line, " \t$")) {
+            /* A grouped target (one recipe, several members, e.g. the flairovl
+             * "%.ovl %.sys" pair) lists its members whitespace-separated; the
+             * probe's foreach over $@ expands the one recipe once per member.
+             * An unexpanded '$' in a target name is still refused. */
+            if (strlen(line) >= sizeof(target) || strchr(line, '$')) {
                 fprintf(stderr, "database target: %s\n", line);
                 fail("unsupported target in make database");
             }
