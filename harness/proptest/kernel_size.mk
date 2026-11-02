@@ -84,7 +84,7 @@ KERNEL_FLAIR_REPRO_DIR := $(BUILD)/kernel-flair-repro
 test-kernel-flair-repro: | $(BUILD)
 	@set -eu; d=$(KERNEL_FLAIR_REPRO_DIR); for pass in 1 2; do \
 		rm -rf $$d; mkdir -p $$d; \
-		$(MAKE) --no-print-directory -o $(PALETTE_H) BUILD=$$d $$d/$(notdir $(KERNEL_FLAIRTENANTS_BIN)) >$(BUILD)/kernel-flair-repro-$$pass.log 2>&1 \
+		$(REPRO_NOCACHE) $(MAKE) --no-print-directory -o $(PALETTE_H) BUILD=$$d $$d/$(notdir $(KERNEL_FLAIRTENANTS_BIN)) >$(BUILD)/kernel-flair-repro-$$pass.log 2>&1 \
 			|| { cat $(BUILD)/kernel-flair-repro-$$pass.log; exit 1; }; \
 		cp -f $$d/$(notdir $(KERNEL_FLAIRTENANTS_BIN)) $(BUILD)/kernel-flair-repro-$$pass.bin; \
 	done

@@ -262,7 +262,7 @@ OVL_REPRO_B := $(BUILD)/ovl-repro-b
 .PHONY: test-ovl-repro test-ovl-repro-mutant
 test-ovl-repro: | $(OVL_GATE_DIR)
 	@set -eu; LC_ALL=C $(MAKE) --no-print-directory $(OVL_FLAG).ovl $(INITDOS_SYS_BIN) $(FLAIRTENANTS_IMG) > $(OVL_GATE_DIR)/repro-a.log 2>&1; \
-	 rm -rf $(OVL_REPRO_B); LC_ALL=C.utf8 LANG=C.utf8 $(MAKE) --no-print-directory BUILD=$(OVL_REPRO_B) $(OVL_REPRO_B)/flairovl_kernel_flairtenants.ovl $(OVL_REPRO_B)/INITDOS.SYS $(OVL_REPRO_B)/flair_tenants.img > $(OVL_GATE_DIR)/repro-b.log 2>&1 || { tail -20 $(OVL_GATE_DIR)/repro-b.log; exit 1; }; \
+	 rm -rf $(OVL_REPRO_B); LC_ALL=C.utf8 LANG=C.utf8 $(REPRO_NOCACHE) $(MAKE) --no-print-directory BUILD=$(OVL_REPRO_B) $(OVL_REPRO_B)/flairovl_kernel_flairtenants.ovl $(OVL_REPRO_B)/INITDOS.SYS $(OVL_REPRO_B)/flair_tenants.img > $(OVL_GATE_DIR)/repro-b.log 2>&1 || { tail -20 $(OVL_GATE_DIR)/repro-b.log; exit 1; }; \
 	 for f in flairovl_kernel_flairtenants.ovl INITDOS.SYS flair_tenants.img; do \
 		a=$$(sha256sum < $(BUILD)/$$f | cut -d' ' -f1); b=$$(sha256sum < $(OVL_REPRO_B)/$$f | cut -d' ' -f1); \
 		[ "$(OVL_REPRO_MUTATE)" != 1 ] || [ "$$f" != flairovl_kernel_flairtenants.ovl ] || b=$$(printf X | cat $(OVL_REPRO_B)/$$f - | sha256sum | cut -d' ' -f1); \
