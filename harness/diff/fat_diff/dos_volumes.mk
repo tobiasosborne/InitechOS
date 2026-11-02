@@ -52,8 +52,9 @@ $(BUILD)/fat12_stale_gap.o: os/milton/fat12.c os/milton/fat12.h | $(BUILD)
 $(eval $(call j1lu-emu-variant,stale_gap,$(KERNEL_FAT12_OBJ),$(BUILD)/fat12_stale_gap.o))
 .PHONY: test-fat-fuzz-gap-mutant test-fat-truncate-gap-emu-mutant
 test-fat-fuzz-gap-mutant: $(BUILD)/fat12_fuzz_mut_stale_gap $(FAT12_FUZZ_BLANK_IMG)
+	@cp -f $(FAT12_FUZZ_BLANK_IMG) $(FUZZ_GATE_BLANK)
 	@mkdir -p $(BUILD)/dos-volumes
-	@if $< --sweep 7 7 --ops $(FAT12_FUZZ_OPS) --no-external $(FAT12_FUZZ_BLANK_IMG) > $(BUILD)/dos-volumes/stale-gap.log 2>&1; then echo 'FAIL STALE_GAP survived fuzzer'; exit 1; fi
+	@if $< --sweep 7 7 --ops $(FAT12_FUZZ_OPS) --no-external "$(FUZZ_GATE_BLANK)" > $(BUILD)/dos-volumes/stale-gap.log 2>&1; then echo 'FAIL STALE_GAP survived fuzzer'; exit 1; fi
 	@grep 'DIVERGENCE on seed 7' $(BUILD)/dos-volumes/stale-gap.log
 	@grep 'SHRUNK REPRODUCER (seed=7)' $(BUILD)/dos-volumes/stale-gap.log
 	@echo 'GREEN test-fat-fuzz-gap-mutant: STALE_GAP found and shrunk'

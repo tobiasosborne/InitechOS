@@ -451,10 +451,20 @@ endef
 .PHONY: kernel-headroom-probe test-kernel-headroom test-kernel-headroom-mutant
 kernel-headroom-probe: ;
 
-test-kernel-headroom:
+# initech-1x6x2.1: the kernels are PREREQUISITES (one producer: this make),
+# not a runtime `$(MAKE) $$bins` that relinked every kernel in the shared
+# build/ beside the parallel vector (objcopy: kernel_shell.elf is empty).
+# The list is enumerated at parse time, only when a headroom gate is a goal
+# (one extra -qp parse); the recipe re-enumerates and fails loud on drift.
+ifneq ($(filter test-kernel-headroom test-kernel-headroom-mutant,$(MAKECMDGOALS)),)
+KERNEL_HEADROOM_BINS := $(shell $(MAKE) --no-print-directory -qp -f $(firstword $(MAKEFILE_LIST)) kernel-headroom-probe 2>/dev/null \
+	| sed -n 's|^\($(BUILD)/kernel[^ :%]*\.bin\):.*|\1|p' | LC_ALL=C sort -u)
+endif
+KERNEL_HEADROOM_BINS ?=
+test-kernel-headroom: $(KERNEL_HEADROOM_BINS)
 	@$(kernel-headroom-enum); \
-	$(MAKE) --no-print-directory $$bins > $(BUILD)/.kernel_headroom_build.log 2>&1 || { \
-		cat $(BUILD)/.kernel_headroom_build.log; printf '!!! test-kernel-headroom: a kernel failed to build\n'; exit 1; }; \
+	for b in $$bins; do case ' $(KERNEL_HEADROOM_BINS) ' in *" $$b "*) ;; \
+		*) printf '!!! test-kernel-headroom: %s enumerated at run time but not a prerequisite (KERNEL_HEADROOM_BINS)\n' "$$b"; exit 1;; esac; done; \
 	elfs=$$(for b in $$bins; do printf '%s ' "$${b%.bin}.elf"; done); \
 	$(call kernel-headroom-measure,test-kernel-headroom)
 	@printf '>>> test-kernel-headroom: green\n'
@@ -470,8 +480,8 @@ test-kernel-headroom:
 KHR_MUT_ASM := $(BUILD)/khr_mut_pad.asm
 KHR_MUT_OBJ := $(BUILD)/khr_mut_pad.o
 KHR_MUT_ELF := $(BUILD)/khr_mut_pad.elf
-test-kernel-headroom-mutant:
-	@$(MAKE) --no-print-directory test-kernel-headroom >/dev/null || { printf '!!! test-kernel-headroom-mutant: the real gate is not green -- nothing to mutate\n'; exit 1; }
+# The real gate is a prerequisite: it must be green before there is anything to mutate.
+test-kernel-headroom-mutant: test-kernel-headroom
 	@$(kernel-headroom-enum); \
 	elfs0=$$(for b in $$bins; do printf '%s ' "$${b%.bin}.elf"; done); \
 	win=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -4352,7 +4362,10 @@ test-fat-move: $(TEST_FAT12_MOVE) $(FAT12_REF_PY)
 # with exactly ONE perturbed seam, each of which MUST turn the oracle RED -- and
 # RED with a real TEST_SUMMARY (a crashed harness is not a mutation proof).
 .PHONY: test-fat-move-mutant
-test-fat-move-mutant: $(TEST_FAT12_MOVE_MUT_RELINKS) $(TEST_FAT12_MOVE_MUT_LOSES) \
+# initech-1x6x2.1: test-fat-move and this gate re-mint and mutate the SAME two
+# images (fat12_move_{diff,struct}.img); the real gate is a prerequisite so the
+# two never interleave under make -j, and the re-mint sub-make is frozen.
+test-fat-move-mutant: test-fat-move $(TEST_FAT12_MOVE_MUT_RELINKS) $(TEST_FAT12_MOVE_MUT_LOSES) \
                       $(TEST_FAT12_MOVE_MUT_NODOTDOT) $(TEST_FAT12_MOVE_MUT_NOROLL) \
                       $(TEST_FAT12_MOVE_MUT_NOSUFFIX) $(TEST_FAT12_MOVE_MUT_FREES)
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-fat-move-mutant FAIL: mtools `mformat` not found.\n'; exit 1; }
@@ -4365,7 +4378,7 @@ test-fat-move-mutant: $(TEST_FAT12_MOVE_MUT_RELINKS) $(TEST_FAT12_MOVE_MUT_LOSES
 		"$(TEST_FAT12_MOVE_MUT_NOSUFFIX):no-collide-check:REPOR001.DBF" \
 		"$(TEST_FAT12_MOVE_MUT_FREES):frees-chain:on-disk FAT copies byte-unchanged" ; do \
 		bin=$${m%%:*}; rest=$${m#*:}; name=$${rest%%:*}; want=$${rest#*:}; \
-		$(MAKE) --no-print-directory fat12-move-images-quiet; \
+		$(MAKE) --no-print-directory -o $(MAKEFILE_STAMP) fat12-move-images-quiet; \
 		out=$$($$bin "$(FAT12_MOVE_DIFF_IMG)" "$(FAT12_MOVE_STRUCT_IMG)" 2>&1) && rcx=0 || rcx=1; \
 		printf '%s' "$$out" | grep -q 'checks, [0-9]* failures' \
 			|| { printf '!!! test-fat-move-mutant FAIL: %s produced no TEST_SUMMARY -- harness dead, RED is meaningless\n' "$$name"; exit 1; }; \
@@ -5006,6 +5019,11 @@ TEST_FAT12_FUZZ          := $(BUILD)/fat12_fuzz
 TEST_FAT12_FUZZ_MUT_RMW  := $(BUILD)/fat12_fuzz_mut_rmw
 # A blank 1.44 MB FAT12 template; each fuzz run COPIES it to a fresh scratch image.
 FAT12_FUZZ_BLANK_IMG     := $(BUILD)/fat12_fuzz_blank.img
+# initech-1x6x2.1: the fuzzers name their scratch "<image>.seedN.scratch" /
+# ".cseedN.scratch", so every gate that ran seed 7 on the shared blank wrote
+# the SAME scratch file under make -j (test-fat-fuzz "DIVERGENCE on seed 7").
+# Each fuzz gate passes its own copy of the blank, hence its own scratch.
+FUZZ_GATE_BLANK = $(BUILD)/$@.fuzzblank.img
 # Deterministic seed sweep + per-seed op budget. The in-process+remount+FAT-sync
 # legs run on the WHOLE sweep (fast, no shell-out); the mtools/python external
 # leg runs on a smaller subset to bound the gate time (still a real cross-check).
@@ -5033,18 +5051,19 @@ $(TEST_FAT12_FUZZ_MUT_RMW): $(FAT_DIFF_DIR)/fat12_fuzz.c $(FAT12_SRC) $(BLOCKDEV
 # seed's every op agrees three ways. The fuzzer prints the seed count + ops.
 .PHONY: test-fat-fuzz
 test-fat-fuzz: $(TEST_FAT12_FUZZ) $(FAT12_FUZZ_BLANK_IMG) $(FAT12_REF_PY)
+	@cp -f $(FAT12_FUZZ_BLANK_IMG) $(FUZZ_GATE_BLANK)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-fat-fuzz : FAT12 generative fuzzer (deterministic seed sweep)\n'
 	@printf '======================================================================\n'
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-fat-fuzz FAIL: mtools `mcopy` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-fat-fuzz FAIL: python3 not found (needed for the independent reference).\n'; exit 1; }
 	@printf '>>> test-fat-fuzz [A]: model + remount + FAT-sync over seeds %s..%s (fast, every op)\n' "$(FAT12_FUZZ_SEEDS_LO)" "$(FAT12_FUZZ_SEEDS_HI)"
-	@$(TEST_FAT12_FUZZ) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FAT12_FUZZ_BLANK_IMG)" \
+	@$(TEST_FAT12_FUZZ) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FUZZ_GATE_BLANK)" \
 		|| { printf '!!! test-fat-fuzz FAIL [A]: a seed diverged (shrunk reproducer above) -- root-cause it (Rule 3)\n'; exit 1; }
 	@printf '>>> test-fat-fuzz [B]: + mtools/python external cross-check over seeds %s..%s\n' "$(FAT12_FUZZ_SEEDS_LO)" "$(FAT12_FUZZ_EXT_HI)"
-	@$(TEST_FAT12_FUZZ) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_EXT_HI) --ops $(FAT12_FUZZ_OPS) "$(FAT12_FUZZ_BLANK_IMG)" \
+	@$(TEST_FAT12_FUZZ) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_EXT_HI) --ops $(FAT12_FUZZ_OPS) "$(FUZZ_GATE_BLANK)" \
 		|| { printf '!!! test-fat-fuzz FAIL [B]: mtools/python disagree with the model (shrunk reproducer above)\n'; exit 1; }
-	@rm -f "$(FAT12_FUZZ_BLANK_IMG)".seed*.scratch "$(FAT12_FUZZ_BLANK_IMG)".*.bin
+	@rm -f "$(FUZZ_GATE_BLANK)".seed*.scratch "$(FUZZ_GATE_BLANK)".*.bin
 	@printf '>>> test-fat-fuzz: green (deterministic seed sweep -- model + remount + FAT-sync + mtools/python all agree)\n'
 
 # Mutation gate (Rule 6): build the fuzzer against the no-RMW positioned-write
@@ -5052,15 +5071,16 @@ test-fat-fuzz: $(TEST_FAT12_FUZZ) $(FAT12_FUZZ_BLANK_IMG) $(FAT12_REF_PY)
 # reproducer). A fuzzer that never catches a bug is decoration.
 .PHONY: test-fat-fuzz-mutant
 test-fat-fuzz-mutant: $(TEST_FAT12_FUZZ_MUT_RMW) $(FAT12_FUZZ_BLANK_IMG)
+	@cp -f $(FAT12_FUZZ_BLANK_IMG) $(FUZZ_GATE_BLANK)
 	@printf '>>> test-fat-fuzz-mutant: confirming the fuzzer FINDS + SHRINKS the no-RMW mutant (Rule 6)\n'
-	@if $(TEST_FAT12_FUZZ_MUT_RMW) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FAT12_FUZZ_BLANK_IMG)" >/dev/null 2>&1; then \
+	@if $(TEST_FAT12_FUZZ_MUT_RMW) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FUZZ_GATE_BLANK)" >/dev/null 2>&1; then \
 		printf '!!! test-fat-fuzz-mutant FAIL: no-RMW mutant PASSED the fuzzer -- the fuzzer is decoration\n'; \
-		rm -f "$(FAT12_FUZZ_BLANK_IMG)".seed*.scratch; \
+		rm -f "$(FUZZ_GATE_BLANK)".seed*.scratch; \
 		exit 1; \
 	else \
 		printf '>>> test-fat-fuzz-mutant: green (fuzzer correctly RED on the no-RMW mutant; shrunk reproducer:)\n'; \
-		$(TEST_FAT12_FUZZ_MUT_RMW) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FAT12_FUZZ_BLANK_IMG)" 2>&1 | sed -n '/SHRUNK/,/----/p' || true; \
-		rm -f "$(FAT12_FUZZ_BLANK_IMG)".seed*.scratch; \
+		$(TEST_FAT12_FUZZ_MUT_RMW) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FUZZ_GATE_BLANK)" 2>&1 | sed -n '/SHRUNK/,/----/p' || true; \
+		rm -f "$(FUZZ_GATE_BLANK)".seed*.scratch; \
 	fi
 
 # --- FAT12 CORRUPTION fuzzer (beads initech-dnn; malformed-BPB part of initech-9xl)
@@ -5113,13 +5133,14 @@ $(TEST_FAT12_CORRUPT_FUZZ_MUT_BPB): $(FAT_DIFF_DIR)/fat12_corrupt_fuzz.c $(FAT12
 # that ever HUNG would otherwise stall the gate forever; a timeout is RED.
 .PHONY: test-fat-corrupt-fuzz
 test-fat-corrupt-fuzz: $(TEST_FAT12_CORRUPT_FUZZ) $(FAT12_FUZZ_BLANK_IMG)
+	@cp -f $(FAT12_FUZZ_BLANK_IMG) $(FUZZ_GATE_BLANK)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-fat-corrupt-fuzz : FAT12 corruption fuzzer (deterministic seed sweep)\n'
 	@printf '======================================================================\n'
 	@printf '>>> test-fat-corrupt-fuzz: malformed FAT12 inputs over seeds %s..%s (fail-loud + bounded)\n' "$(FAT12_CORRUPT_SEEDS_LO)" "$(FAT12_CORRUPT_SEEDS_HI)"
-	@timeout 120 $(TEST_FAT12_CORRUPT_FUZZ) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FAT12_FUZZ_BLANK_IMG)" \
-		|| { printf '!!! test-fat-corrupt-fuzz FAIL: a malformed input hung, went OOB, or was NOT rejected fail-loud -- root-cause it (Rule 3)\n'; rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch; exit 1; }
-	@rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch
+	@timeout 120 $(TEST_FAT12_CORRUPT_FUZZ) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FUZZ_GATE_BLANK)" \
+		|| { printf '!!! test-fat-corrupt-fuzz FAIL: a malformed input hung, went OOB, or was NOT rejected fail-loud -- root-cause it (Rule 3)\n'; rm -f "$(FUZZ_GATE_BLANK)".cseed*.scratch; exit 1; }
+	@rm -f "$(FUZZ_GATE_BLANK)".cseed*.scratch
 	@printf '>>> test-fat-corrupt-fuzz: green (every malformed FAT12 input failed loud + bounded -- no hang, no OOB)\n'
 
 # Mutation gate (Rule 6): build the corruption fuzzer against fat12.c's
@@ -5131,22 +5152,23 @@ test-fat-corrupt-fuzz: $(TEST_FAT12_CORRUPT_FUZZ) $(FAT12_FUZZ_BLANK_IMG)
 # are RED (non-zero exit). The `timeout` is the hard backstop.
 .PHONY: test-fat-corrupt-fuzz-mutant
 test-fat-corrupt-fuzz-mutant: $(TEST_FAT12_CORRUPT_FUZZ_MUT_STEP) $(TEST_FAT12_CORRUPT_FUZZ_MUT_BPB) $(FAT12_FUZZ_BLANK_IMG)
+	@cp -f $(FAT12_FUZZ_BLANK_IMG) $(FUZZ_GATE_BLANK)
 	@printf '>>> test-fat-corrupt-fuzz-mutant: confirming the fuzzer DETECTS the no-step-guard + accept-bad-BPB mutants (Rule 6)\n'
-	@if timeout 120 $(TEST_FAT12_CORRUPT_FUZZ_MUT_STEP) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FAT12_FUZZ_BLANK_IMG)" >/dev/null 2>&1; then \
+	@if timeout 120 $(TEST_FAT12_CORRUPT_FUZZ_MUT_STEP) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FUZZ_GATE_BLANK)" >/dev/null 2>&1; then \
 		printf '!!! test-fat-corrupt-fuzz-mutant FAIL: no-step-guard mutant PASSED the fuzzer -- the fuzzer is decoration\n'; \
-		rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch; \
+		rm -f "$(FUZZ_GATE_BLANK)".cseed*.scratch; \
 		exit 1; \
 	else \
 		printf '>>> test-fat-corrupt-fuzz-mutant: green leg 1/2 (fuzzer RED on the no-step-guard mutant)\n'; \
 	fi
-	@if timeout 120 $(TEST_FAT12_CORRUPT_FUZZ_MUT_BPB) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FAT12_FUZZ_BLANK_IMG)" >/dev/null 2>&1; then \
+	@if timeout 120 $(TEST_FAT12_CORRUPT_FUZZ_MUT_BPB) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FUZZ_GATE_BLANK)" >/dev/null 2>&1; then \
 		printf '!!! test-fat-corrupt-fuzz-mutant FAIL: accept-bad-BPB mutant PASSED the fuzzer -- the fuzzer is decoration\n'; \
-		rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch; \
+		rm -f "$(FUZZ_GATE_BLANK)".cseed*.scratch; \
 		exit 1; \
 	else \
 		printf '>>> test-fat-corrupt-fuzz-mutant: green leg 2/2 (fuzzer RED on the accept-bad-BPB mutant)\n'; \
 	fi
-	@rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch
+	@rm -f "$(FUZZ_GATE_BLANK)".cseed*.scratch
 	@printf '>>> test-fat-corrupt-fuzz-mutant: green (fuzzer correctly RED on both corruption mutants)\n'
 
 # ---------------------------------------------------------------------------
@@ -11641,8 +11663,12 @@ $(BUILD)/cursor_mut_squared_stem.o: os/flair/cursor.c os/flair/cursor.h os/flair
 # right after that macro's definition (the macro is defined later in this file).
 
 .PHONY: test-flair-cursor-mutant
-test-flair-cursor-mutant: $(BUILD)/flair_tenants_mut_cursor_squared.img
-	@rc=0; $(MAKE) --no-print-directory test-flair-cursor FLAIR_CURSOR_IMAGE=$(BUILD)/flair_tenants_mut_cursor_squared.img FLAIR_CURSOR_NAME=flair_cursor_mut_squared \
+# initech-1x6x2.1: the nested gate's inputs are prerequisites here and frozen
+# (-o) there, and it gets its own scratch data volume ($@_data.img would be
+# test-flair-cursor_data.img, the real gate's, which runs in the same vector).
+FLAIR_CURSOR_MUT_FROZEN = $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_CURSOR_CHECK_BIN) $(MAKEFILE_STAMP)
+test-flair-cursor-mutant: $(BUILD)/flair_tenants_mut_cursor_squared.img $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_CURSOR_CHECK_BIN)
+	@rc=0; $(MAKE) --no-print-directory $(addprefix -o ,$(FLAIR_CURSOR_MUT_FROZEN) $(BUILD)/flair_tenants_mut_cursor_squared.img) test-flair-cursor FLAIR_GATE_DATA=$(BUILD)/$@_data.img FLAIR_CURSOR_IMAGE=$(BUILD)/flair_tenants_mut_cursor_squared.img FLAIR_CURSOR_NAME=flair_cursor_mut_squared \
 		>$(BUILD)/flair_cursor_mut_squared.log 2>&1 || rc=$$?; \
 	[ "$$rc" -ne 0 ] && grep -qF 'RED M009 hotspot=(500,380) 48/256 differing cells' $(BUILD)/flair_cursor_mut_squared.log \
 		|| { cat $(BUILD)/flair_cursor_mut_squared.log; printf '!!! test-flair-cursor-mutant FAIL: old strike did not fail on the independent crop\n'; exit 1; }; \
@@ -11725,8 +11751,8 @@ test-flair-cursor-boot: $(HARNESS_BIN) $(FLAIR_CURSOR_BOOT_IMAGE) $(FLAIR_DATA_I
 # pre-fix behaviour); leg A must go RED on the pixels at (320,240).
 $(eval $(call flair-tenants-kmain-mutant-rules,CURSOR_MUT_HIDE_AT_BOOT -DFLAIR_LIVE_INTERACTIVE,cursorhideboot))
 .PHONY: test-flair-cursor-boot-mutant
-test-flair-cursor-boot-mutant: $(BUILD)/flair_tenants_mut_cursorhideboot.img
-	@rc=0; $(MAKE) --no-print-directory test-flair-cursor-boot FLAIR_CURSOR_BOOT_IMAGE=$(BUILD)/flair_tenants_mut_cursorhideboot.img FLAIR_CURSOR_BOOT_NAME=flair_cursor_boot_mut_hide \
+test-flair-cursor-boot-mutant: $(BUILD)/flair_tenants_mut_cursorhideboot.img $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_CURSOR_CHECK_BIN)
+	@rc=0; $(MAKE) --no-print-directory $(addprefix -o ,$(FLAIR_CURSOR_MUT_FROZEN) $(BUILD)/flair_tenants_mut_cursorhideboot.img) test-flair-cursor-boot FLAIR_GATE_DATA=$(BUILD)/$@_data.img FLAIR_CURSOR_BOOT_IMAGE=$(BUILD)/flair_tenants_mut_cursorhideboot.img FLAIR_CURSOR_BOOT_NAME=flair_cursor_boot_mut_hide \
 		>$(BUILD)/flair_cursor_boot_mut_hide.log 2>&1 || rc=$$?; \
 	[ "$$rc" -ne 0 ] && grep -qF 'RED M009 hotspot=(320,240)' $(BUILD)/flair_cursor_boot_mut_hide.log \
 		|| { cat $(BUILD)/flair_cursor_boot_mut_hide.log; printf '!!! test-flair-cursor-boot-mutant FAIL: CURSOR_MUT_HIDE_AT_BOOT survived -- the no-input still did not go RED on the pixels\n'; exit 1; }; \
@@ -13900,7 +13926,12 @@ $(FIXTURE_VOLUMES_CHECK): harness/check_fixture_volumes.c | $(BUILD)
 .PHONY: test-fixture-volumes test-fixture-volumes-mutant
 test-fixture-volumes: $(FIXTURE_VOLUMES_CHECK)
 	@$(MAKE) --no-print-directory -s fixture-volume-recipe-lint
-	@$(MAKE) --no-print-directory -pn help SKIP_BOCHS=0 > $(FIXTURE_VOLUMES_SCAN).db
+	@# initech-1x6x2.1: -q, not -n. Under a parallel parent make the -n command
+	@# echo of `help` ("printf 'Build:...") was flushed into the middle of the -p
+	@# database ("unsupported target in make database"). -q prints the same
+	@# database and echoes nothing; its exit 1 just means `help` is out of date.
+	@rc=0; $(MAKE) --no-print-directory -pq help SKIP_BOCHS=0 > $(FIXTURE_VOLUMES_SCAN).db || rc=$$?; \
+	 [ "$$rc" -le 1 ] || { printf '!!! test-fixture-volumes FAIL: the make database dump failed (exit %s)\n' "$$rc"; exit 1; }
 	@$(FIXTURE_VOLUMES_CHECK) --probe $(FIXTURE_VOLUMES_SCAN).db $(FIXTURE_VOLUMES_SCAN).mk $(FIXTURE_VOLUMES_SCAN).expanded
 	@$(MAKE) --no-print-directory -s -f $(firstword $(MAKEFILE_LIST)) -f $(FIXTURE_VOLUMES_SCAN).mk fixture-volume-probe SKIP_BOCHS=0
 	@$(FIXTURE_VOLUMES_CHECK) --check $(FIXTURE_VOLUMES_SCAN).expanded $(FIXTURE_VOLUMES_SCAN).tsv
@@ -18761,7 +18792,9 @@ test-seed-fpc-diff:
 	@printf '!!! test-seed-fpc-diff SKIPPED (SKIP_FPC=1 opt-out) -- the DEC-07 Rung-2 Free Pascal differential (ADR-0007 Sec 4.7) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_FPC and re-run before trusting this gate.\n'
 else
 .PHONY: test-seed-fpc-diff
-test-seed-fpc-diff: $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(SEED_RT_LD) $(HARNESS_BIN)
+# initech-1x6x2.1: test-seed-fileio-fpc (also in the vector) is a prerequisite,
+# not a nested re-run racing it on $(SEED_FPC_FILEIO_DIR).
+test-seed-fpc-diff: $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(SEED_RT_LD) $(HARNESS_BIN) test-seed-fileio-fpc
 	@printf ">>> test-seed-fpc-diff: DEC-07 Rung 2 -- Turbo Initech seed vs Free Pascal, byte-exact stdout diff on the shared-subset corpus (beads initech-63ce/initech-39k2, ADR-0007 Sec 4.7)\n"
 	@if ! command -v fpc >/dev/null 2>&1; then \
 		printf '!!! test-seed-fpc-diff FAIL (loud, not skipped -- Law 2): `fpc` (Free Pascal Compiler) is NOT installed in this environment.\n'; \
@@ -18804,7 +18837,6 @@ test-seed-fpc-diff: $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(SEED_RT_L
 			exit 1; \
 		fi; \
 	done; \
-	$(MAKE) --no-print-directory test-seed-fileio-fpc; \
 	$(SEED_BIN) --emit-asm -o $(BUILD)/fpc_diff/file_shared_seed.s $(SEED_FPC_DIR)/file_shared.pas \
 		|| { printf '!!! test-seed-fpc-diff FAIL: seed could not compile file_shared\n'; exit 1; }; \
 	$(NASM) -f elf32 $(BUILD)/fpc_diff/file_shared_seed.s -o $(BUILD)/fpc_diff/file_shared_seed.o; \
@@ -19384,7 +19416,7 @@ test-flair-desktop: test-color-canon-gen test-color-canon $(HARNESS_BIN) $(FLAIR
 # loud. The clean flair_shell.o is restored at the end so a later `make` links the
 # real (un-mutated) image.
 .PHONY: test-flair-desktop-mutant
-test-flair-desktop-mutant: $(HARNESS_BIN) $(PPM_FLAIR_CHECK_BIN) \
+test-flair-desktop-mutant: $(HARNESS_BIN) $(PPM_FLAIR_CHECK_BIN) $(KERNEL_FLAIR_SHELL_OBJ) \
 	$(BUILD)/flair_desktop_mut_onebar.img \
 	$(BUILD)/flair_desktop_mut_nomodal.img \
 	$(BUILD)/flair_desktop_mut_modalbehind.img
@@ -19417,7 +19449,6 @@ test-flair-desktop-mutant: $(HARNESS_BIN) $(PPM_FLAIR_CHECK_BIN) \
 			grep -m3 'FAIL ' "$(BUILD)/flair_mut_$$tag.chk" | sed 's/^/      /'; \
 		fi; \
 	done; \
-	$(MAKE) --no-print-directory $(KERNEL_FLAIR_SHELL_OBJ) >/dev/null; \
 	if [ "$$rc" != "0" ]; then exit 1; fi
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- all 3 mutants drive ppm_flair_check RED (the oracle bites; Rule 6)\n'
@@ -25394,7 +25425,11 @@ test-fs: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_DATA_IMG) $(PPM_TEXT_CHECK
 	@# then grade its prompt and the blank former mount-listing rows explicitly.
 	@# Primary DOS startup is separately graded by test-dos-startup.
 	@$(call fixture-preflight,$(FAT_DATA_IMG))
-	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_DATA_IMG)" --screendump \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_DATA_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_DATA_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --screendump \
 		--screendump-after SHELL-READY \
 		--name "$(FS_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(FS_REPORT)" || true
@@ -25473,7 +25508,11 @@ test-type: $(HARNESS_BIN) $(DEMO_IMG) $(FAT_DATA_IMG)
 	@printf 'Expecting : FILEIO-BIND-OK + "%s" between TYPE-OUTPUT-BEGIN/END + TYPE-EXIT rc=0\n' "$(TYPE_CONTENT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FAT_DATA_IMG))
-	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" --disk2 "$(FAT_DATA_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_DATA_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_DATA_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(TYPE_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(TYPE_REPORT)" || true
 	@cat "$(TYPE_REPORT)"
@@ -25591,7 +25630,11 @@ test-dir: $(HARNESS_BIN) $(DEMO_IMG) $(FAT_DATA_IMG)
 	@printf 'Expecting : FILEIO-BIND-OK + fixture names between DIR-PROG-OUTPUT-BEGIN/END + DIR-PROG-EXIT rc=0\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FAT_DATA_IMG))
-	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" --disk2 "$(FAT_DATA_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_DATA_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_DATA_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(DIRP_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(DIRP_REPORT)" || true
 	@cat "$(DIRP_REPORT)"
@@ -25657,7 +25700,11 @@ test-exec: $(HARNESS_BIN) $(EXEC_IMG) $(FAT_EXEC_IMG)
 	@printf 'Expecting : "%s" + EXEC-SAW-EXIT rc=7 + EXEC-4B-RC=7 + no triple-fault\n' "$(EXEC_OUTPUT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FAT_EXEC_IMG))
-	@$(HARNESS_BIN) --disk "$(EXEC_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_EXEC_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_EXEC_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_EXEC_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_EXEC_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(EXEC_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(EXEC_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(EXEC_REPORT)" || true
 	@cat "$(EXEC_REPORT)"
@@ -25965,7 +26012,11 @@ test-multiopen: $(HARNESS_BIN) $(MULTIOPEN_IMG) $(FAT_MULTIOPEN_IMG)
 	@printf 'Expecting : FILEIO-BIND-OK + MO-A1=Hel / MO-B1=Sec / MO-A2=Hello / MO-BIG=%s + MULTIOPEN-EXIT rc=0 + no triple-fault\n' "$(MO_BIG_SIG)"
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FAT_MULTIOPEN_IMG))
-	@$(HARNESS_BIN) --disk "$(MULTIOPEN_IMG)" --disk2 "$(FAT_MULTIOPEN_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_MULTIOPEN_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_MULTIOPEN_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_MULTIOPEN_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_MULTIOPEN_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(MULTIOPEN_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(MULTIOPEN_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(MULTIOPEN_REPORT)" || true
 	@cat "$(MULTIOPEN_REPORT)"
@@ -26051,7 +26102,11 @@ test-datetime: $(HARNESS_BIN) $(DATETIME_IMG) $(FAT_MULTIOPEN_IMG)
 	@printf 'Expecting : DT-YEAR=2026 MON=6 DAY=9 DOW=2(Tue) HOUR=12 MIN=34 SEC=56 + FREE>0 + PSP>0 + rc=0\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FAT_MULTIOPEN_IMG))
-	@$(HARNESS_BIN) --disk "$(DATETIME_IMG)" --disk2 "$(FAT_MULTIOPEN_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_MULTIOPEN_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_MULTIOPEN_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_MULTIOPEN_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_MULTIOPEN_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(DATETIME_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--rtc-base "$(DATETIME_RTC_BASE)" --rtc-deterministic \
 		--name "$(DATETIME_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(DATETIME_REPORT)" || true
@@ -26535,7 +26590,11 @@ test-shell: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CH
 	@# ppm_text_check's [C] "seafoam below the banner" guard. The visual half gets
 	@# its OWN clean boot (Run 2, below).
 	@$(call fixture-preflight,$(FAT_EXEC_IMG))
-	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_EXEC_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_EXEC_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_EXEC_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_EXEC_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(SHELL_NAME)" --out "$(BUILD)" --timeout-ms 12000 \
 		--keys "d,i,r,ret,t,y,p,e,spc,h,e,l,l,o,dot,t,x,t,ret,g,r,e,e,t,ret,b,a,d,c,m,d,ret,e,x,i,t,ret" \
 		--keys-after "SHELL-READY" \
@@ -26595,7 +26654,7 @@ test-shell: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CH
 	@# adds the row-2 prompt-band assertion. Exact cells below also reject the
 	@# old console mount listing, whose header formerly occupied that row.
 	@$(call fixture-preflight,$(FAT_EXEC_IMG))
-	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--screendump --screendump-after SHELL-READY \
 		--name "$(SHELL_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(SHELL_SCRN_REPORT)" || true
@@ -26911,7 +26970,11 @@ test-readerr-winh: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG)
 	@printf 'Expecting : ONE "Bad command or file name" per PRN read, OUT.TXT left empty, clean SHELL-EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call fixture-preflight,$(FAT_EXEC_IMG))
-	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_EXEC_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_EXEC_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_EXEC_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_EXEC_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(WINH_NAME)" --out "$(BUILD)" --timeout-ms 10000 \
 		--keys "$(WINH_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -26975,7 +27038,11 @@ test-readerr-winh-mutant: $(HARNESS_BIN) $(WINH_MUT_TRACER_IMG) $(FAT_EXEC_IMG)
 	@# here (a host-load delay cannot manufacture a hang that isn't real, so
 	@# there is no false-RED exposure from the legacy quit on this leg).
 	@$(call fixture-preflight,$(FAT_EXEC_IMG))
-	@$(HARNESS_BIN) --disk "$(WINH_MUT_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@# initech-1x6x2.1: boot a private copy -- QEMU write-locks a raw --disk2,
+	@# so legs sharing $(FAT_EXEC_IMG) failed to start under make -j (exit=1, serial_len=0).
+	cp -f $(FAT_EXEC_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FAT_EXEC_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FAT_EXEC_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(WINH_MUT_TRACER_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--name "$(WINH_MUT_NAME)" --out "$(BUILD)" --timeout-ms 5000 \
 		--keys "$(WINH_KEYS)" --keys-after "SHELL-READY" --legacy-quit \
 		2> "$(WINH_MUT_REPORT)" || true
@@ -28457,23 +28524,35 @@ print('    R = {%s} -- every referenced message present VERBATIM in build/kernel
 #     EXPECTED text from spec/dos_messages.json (NOT the header). The canonical
 #     spec text is now ABSENT from the image -> RED. Restore: regen the header
 #     from the spec and rebuild the image so the tree is clean again.
+# initech-1x6x2.1: mutant B rewords the header and rebuilds the shell kernel
+# in a PRIVATE build directory. It used to rewrite the shared
+# build/dos_messages.h (an input of every kernel) and relink the shared
+# kernel_shell.bin, then delete and regenerate both, while the parallel vector
+# compiled and booted them ("objcopy: build/kernel_shell.elf is empty").
+# The source mutants (test-dosmsg-source-mutant) are a prerequisite, not a
+# nested re-run of a gate that is in the same vector.
+DOSMSG_MUT_DIR := $(BUILD)/dosmsg-mutant
 .PHONY: test-dosmsg-mutant
-test-dosmsg-mutant: $(DOS_MESSAGES_H) $(KERNEL_SHELL_BIN) | $(BUILD)
+test-dosmsg-mutant: test-dosmsg-source-mutant $(DOS_MESSAGES_H) $(KERNEL_SHELL_BIN) $(KERNEL_FLAIRTENANTS_BIN) | $(BUILD)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-dosmsg-mutant : Rule 6 (oracle must bite)\n'
 	@printf '======================================================================\n'
-	@$(MAKE) --no-print-directory test-dosmsg-source-mutant
 	@printf '>>> test-dosmsg-mutant [B]: PRESENCE tooth must detect a reworded message in the image\n'
-	@python3 -c "h=open('$(DOS_MESSAGES_H)').read(); \
-open('$(DOS_MESSAGES_H)','w').write(h.replace('\"Bad command or file name\"','\"Bad command or filename\"',1))"
-	@$(MAKE) --no-print-directory $(KERNEL_SHELL_BIN) >/dev/null 2>&1
+	@rm -rf $(DOSMSG_MUT_DIR) && mkdir -p $(DOSMSG_MUT_DIR)
+	@$(MAKE) --no-print-directory BUILD=$(DOSMSG_MUT_DIR) $(DOSMSG_MUT_DIR)/$(notdir $(DOS_MESSAGES_H)) > $(DOSMSG_MUT_DIR)/build.log 2>&1 \
+		|| { cat $(DOSMSG_MUT_DIR)/build.log; exit 1; }
+	@python3 -c "h=open('$(DOSMSG_MUT_DIR)/$(notdir $(DOS_MESSAGES_H))').read(); \
+open('$(DOSMSG_MUT_DIR)/$(notdir $(DOS_MESSAGES_H))','w').write(h.replace('\"Bad command or file name\"','\"Bad command or filename\"',1))"
+	@$(MAKE) --no-print-directory -o $(DOSMSG_MUT_DIR)/$(notdir $(DOS_MESSAGES_H)) -o $(PALETTE_H) BUILD=$(DOSMSG_MUT_DIR) \
+		$(DOSMSG_MUT_DIR)/$(notdir $(KERNEL_SHELL_BIN)) >> $(DOSMSG_MUT_DIR)/build.log 2>&1 \
+		|| { cat $(DOSMSG_MUT_DIR)/build.log; exit 1; }
 	@python3 -c "import json,re,subprocess,sys; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 srcs='$(DOSMSG_KERNEL_SRCS)'.split(); \
 refs=set(); \
 [ refs.update(re.findall(r'MSG_DOS_00[0-9][0-9]', subprocess.run(['gcc','-fpreprocessed','-E','-P',s],capture_output=True,text=True).stdout)) for s in srcs ]; \
-img=open('$(KERNEL_SHELL_BIN)','rb').read()+open('$(KERNEL_FLAIRTENANTS_BIN)','rb').read(); \
+img=open('$(DOSMSG_MUT_DIR)/$(notdir $(KERNEL_SHELL_BIN))','rb').read()+open('$(KERNEL_FLAIRTENANTS_BIN)','rb').read(); \
 runs=re.findall(rb'[\x20-\x7e]{2,}', img); \
 blob=b'\x00'.join(runs); \
 txt=lambda name: m['MSG-DOS-'+name[len('MSG_DOS_'):]]; \
@@ -28482,12 +28561,10 @@ absent=any(needle(txt(name)) not in blob for name in sorted(refs)); \
 print('RED dosmsg-image: REWORD_0002 canonical message absent') if absent else None; \
 sys.exit(1 if absent else 0)"; \
 	rc=$$?; \
-	rm -f $(DOS_MESSAGES_H); $(MAKE) --no-print-directory $(DOS_MESSAGES_H) >/dev/null 2>&1; \
-	$(MAKE) --no-print-directory $(KERNEL_SHELL_BIN) >/dev/null 2>&1; \
 	if [ "$$rc" -eq 0 ]; then printf '!!! test-dosmsg-mutant FAIL: PRESENCE tooth did NOT detect the reworded message\n'; exit 1; fi
-	@printf '>>> test-dosmsg-mutant [B]: presence tooth bit (reworded message absent from image); tree restored\n'
+	@printf '>>> test-dosmsg-mutant [B]: presence tooth bit (reworded message absent from image); shared build untouched\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- both teeth bite; build/dos_messages.h + image restored clean\n'
+	@printf 'VERDICT   : PASS -- both teeth bite; mutant B built privately in $(DOSMSG_MUT_DIR)\n'
 	@printf '>>> test-dosmsg-mutant: green\n'
 	@printf '======================================================================\n'
 
@@ -28525,17 +28602,29 @@ test-program-window-golden: | $(BUILD)
 # scratch, and diffs the sha256. Any drift (embedded timestamp, host path,
 # symbol-order nondeterminism) goes RED here instead of silently poisoning the
 # fixpoint downstream.
+# initech-1x6x2.1: the clean rebuild runs in a PRIVATE build directory
+# (KERNEL_REPRO_DIR). It used to delete every kernel object/ELF/bin in the
+# shared build/ and relink them while the parallel vector was booting images
+# made from them. repro.1 is still the incremental build (the prerequisite,
+# made by this make); repro.2 is a from-scratch build of the same sources.
+# Kernel bytes do not depend on the BUILD path (checked: kernel.bin,
+# kernel_shell.bin, kernel_flairtenants.bin identical under build/ and a
+# nested build dir). palette.h is generated into spec/ from a build tool and
+# is frozen (-o): the private make must never rewrite the shared source tree.
+KERNEL_REPRO_DIR ?= $(BUILD)/kernel-repro
+KERNEL_REPRO_BINS = $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN)
 .PHONY: test-kernel-repro
-test-kernel-repro: | $(BUILD)
+test-kernel-repro: $(KERNEL_REPRO_BINS) | $(BUILD)
 	@printf '>>> test-kernel-repro: baseline AND flagship across a clean rebuild (tgcu; Rule 11)\n'
-	@set -eu; $(MAKE) --no-print-directory $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN) >/dev/null; \
-	for bin in $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN); do cp -f $$bin $$bin.repro.1; done; \
-	rm -f $(sort $(KERNEL_OBJS) $(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_ELF) $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_ELF) $(KERNEL_FLAIRTENANTS_BIN); \
-	$(MAKE) --no-print-directory $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN) >/dev/null; \
-	for bin in $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN); do \
-		cp -f $$bin $$bin.repro.2; \
-		if [ "$(KERNEL_REPRO_MUTATE_FLAGSHIP)" = 1 ] && [ "$$bin" = "$(KERNEL_FLAIRTENANTS_BIN)" ]; then printf X >> $$bin.repro.2; fi; \
-		a=$$(sha256sum < $$bin.repro.1 | cut -d' ' -f1); b=$$(sha256sum < $$bin.repro.2 | cut -d' ' -f1); \
+	@set -eu; d=$(KERNEL_REPRO_DIR); rm -rf $$d; mkdir -p $$d; \
+	for bin in $(KERNEL_REPRO_BINS); do cp -f $$bin $$d/$$(basename $$bin).repro.1; done; \
+	$(MAKE) --no-print-directory -o $(PALETTE_H) BUILD=$$d/build $(patsubst $(BUILD)/%,$$d/build/%,$(KERNEL_REPRO_BINS)) > $$d/clean-build.log 2>&1 \
+		|| { cat $$d/clean-build.log; printf '!!! test-kernel-repro: the private clean build failed\n'; exit 1; }; \
+	for bin in $(KERNEL_REPRO_BINS); do \
+		cp -f $$d/build/$$(basename $$bin) $$d/$$(basename $$bin).repro.2; \
+		r=$$d/$$(basename $$bin); \
+		if [ "$(KERNEL_REPRO_MUTATE_FLAGSHIP)" = 1 ] && [ "$$bin" = "$(KERNEL_FLAIRTENANTS_BIN)" ]; then printf X >> $$r.repro.2; fi; \
+		a=$$(sha256sum < $$r.repro.1 | cut -d' ' -f1); b=$$(sha256sum < $$r.repro.2 | cut -d' ' -f1); \
 		if [ "$$a" != "$$b" ]; then printf 'RED test-kernel-repro: %s is NOT reproducible\n' "$$bin"; exit 1; fi; \
 		printf '>>> test-kernel-repro: green -- %s reproducible (sha256 %s)\n' "$$bin" "$$a"; \
 	done
@@ -28547,9 +28636,8 @@ test-kernel-repro: | $(BUILD)
 # polluting the shipped artifact source with a test-only #ifdef; this proves the
 # comparison is not blind, which is the property test-kernel-repro relies on.)
 .PHONY: test-kernel-repro-mutant
-test-kernel-repro-mutant: | $(BUILD)
+test-kernel-repro-mutant: $(KERNEL_BIN) | $(BUILD)
 	@printf ">>> test-kernel-repro-mutant: confirming the sha256 comparison bites on a byte change (Rule 6)\n"
-	@$(MAKE) --no-print-directory $(KERNEL_BIN) >/dev/null
 	@cp -f $(KERNEL_BIN) $(BUILD)/kernel.mut.a
 	@cp -f $(KERNEL_BIN) $(BUILD)/kernel.mut.b
 	@printf 'X' >> $(BUILD)/kernel.mut.b
