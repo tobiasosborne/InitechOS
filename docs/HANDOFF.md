@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-10-24 (**WL-0180: new WSL box certified gate by gate, 12 main regressions fixed, kernel size round 8, sharded certificate ratified on run 2, run 3 vetoed; WL-0181: r3 cap retired by ruling, overlays programme filed**)
+**Last Reconciled:** 2026-11-02 (**WL-0193: order from chaos -- seven parked lanes landed and re-gated on main, 19 stale remote branches deleted after bundling, DEC-19 Load Overlay merged and ratified, four main-side reds found by the first test-par and fixed; see Sec 5. Previous: 2026-10-24, WL-0180: new WSL box certified gate by gate, 12 main regressions fixed, kernel size round 8, sharded certificate ratified on run 2, run 3 vetoed; WL-0181: r3 cap retired by ruling, overlays programme filed**)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -47,7 +47,7 @@ increasingly read as a found-footage CLEAN-ROOM reconstruction. ADR-by-committee
 | **Pascal** | Reserved for **Turbo Initech** (self-host compiler, ADR-0007 *pending*) and programs it compiles. The seed compiler (`seed/`) is its genesis, NOT the OS bootstrap. | PNC-1 |
 | **Self-host fixpoint** | Concerns Turbo Initech (`K₂==K₃`), not the C kernel (which the factory rebuilds). | PRD §7 |
 | **Toolchain** | Target `i686-elf` (ADR-0002). **Interim: host `gcc -m32 -ffreestanding -nostdlib` + `nasm` + `ld`** until dev moves to a more capable device. | CDR-0001 |
-| **Executable format** | Flat binary kernel; flat `.COM`-equivalent apps; **MZ `.EXE` deferred**. | ADR-0003 DEC-08 |
+| **Executable format** | Flat binary kernel; flat `.COM`-equivalent apps; InitechMZ flat-32 `.EXE` **shipped** (DEC-08a); INT 21h AH=4Bh AL=03h Load Overlay **ratified 2026-11-02** (DEC-19); kernel overlays FLAIR.OVL (ADR-0014). | ADR-0003 DEC-08 / DEC-08a / DEC-19; ADR-0014 |
 | **Documents** | All new docs in enterprise corporate-committee ("Initech") house style (NFR-7). | operator |
 | **Tracking** | `bd` (beads) only; `bd remember` for persistent knowledge. No TodoWrite/markdown TODOs. No GitHub CI. | CLAUDE.md |
 
@@ -203,6 +203,28 @@ fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
 
+> **CURRENT STATE (2026-11-02, WL-0193 -- order from chaos). Supersedes the 2026-10-24 block below for branch state.**
+>
+> **Branches:** the remote went from 33 to 12 branches. Every unmerged branch was bundled under
+> `../initech-lane-archive/branches-2026-11-02/` first. Still parked, each with a disposition on its bead:
+> lane/dupinfo (p6st), lane/iwordp4 (8q6j), lane/pascaltbx (tdnl.22), lane/flaircmd (tdnl.106; renumber
+> its amendment DEC-20), lane/mints' ndx.c rewrite (7tj3), lane/l123man (ipu5.9: needs a content pass
+> against the current Initech 123). Do NOT merge those branches as they are; revive from the patches.
+>
+> **Landed this session:** F2b scratch keys + pristine-corpus gate (586.4.1); the test-par stack
+> (1x6x2.1); four main-side gate repairs; ccache-proof repro gates (4yzna); power/exit into COLD +
+> DEC-19 Load Overlay (qshpn, dewv; largest kernel 167,360 B, 2,624 B under the 169,984 B cap); the
+> FLAIR manuals (ipu5.11; 12 DRAFT entries, gtzi4).
+>
+> **Known red / open:** `make test` had six reds before this session (first-ever test-par); four are
+> fixed, the three InitechBase pubs drifts are initech-z8lca. Main's multi-level .NDX diverges from
+> real III+ in 249/529 minted checks (7tj3). test-par load-only reds and the transient_imports.rsp
+> -j race: initech-lroek. Green emu legs leaving GB-sized QEMU logs: initech-tfn6r. No full `make test`
+> or sharded certificate was run on today's main.
+>
+> **Operator rulings in force:** serial lanes, re-gate on main per merge; Claude subagents only when so
+> directed (2026-11-02: no Codex, no Fable subagents); the operator runs remote branch deletions.
+>
 > **CURRENT STATE (2026-10-24, WL-0180 / WL-0181 -- new-box certificate, size round 8, parallel certificate runner; certificate and r3 retirement rulings. Supersedes every CURRENT STATE block below for "what to do next".)**
 >
 > **Machine:** work moved to a new WSL2 box (Ubuntu 24.04, 64 cores, 62 GB; toolchain per
