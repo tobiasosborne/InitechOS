@@ -63,10 +63,10 @@ test-boot-system-emu-mutant: $(HARNESS_BIN) $(BUILD)/boot_system $(SECONDARY_TRA
 	 grep -qx KERNEL $(BUILD)/boot-system/boot-system-loader-$$m.serial; \
 	 echo "GREEN test-boot-system-emu-mutant $$m rejected (fault incorrectly booted to KERNEL)"; done
 
-test-boot-system-repro: $(FLAIRTENANTS_IMG) $(BOOT_SYSTEM_MINT) $(BOOT_SYSTEM_TOOL)
+test-boot-system-repro: $(FLAIRTENANTS_IMG) $(BOOT_SYSTEM_MINT) $(BOOT_SYSTEM_TOOL) $(BUILD)/flairovl_kernel_flairtenants.ovl
 	@mkdir -p $(BUILD)/boot-system
 	@set -eu; for tag in a b; do \
-	 sh $(BOOT_SYSTEM_MINT) $(BUILD)/boot-system/repro-$$tag.img $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(INITDOS_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_flairtenants.bin; done
+	 sh $(BOOT_SYSTEM_MINT) $(BUILD)/boot-system/repro-$$tag.img $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(INITDOS_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_flairtenants.bin $(BUILD)/flairovl_kernel_flairtenants.ovl; done
 	@cmp $(BUILD)/boot-system/repro-a.img $(BUILD)/boot-system/repro-b.img
 	@cmp $(FLAIRTENANTS_IMG) $(BUILD)/boot-system/repro-a.img
 	@echo 'GREEN test-boot-system-repro: two fresh FAT builds == each other == shipped boot image, byte for byte'
