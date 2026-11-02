@@ -49,8 +49,11 @@ PUBS_FLAIR_ALLOW := harness/pubs/flair.allow
 # -DFLAIR_TEN_TICK_BUDGET=12000 -DFILECOPY_RECORD_STEP=125, the record
 # double-click bounds, the steady record console cursor) linked with the
 # transient's import list, as $(BUILD)/kernel_flairtenants_recorddbl.elf is.
-PUBS_FLAIR_KOBJS := $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_CONSOLE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) \
-                    $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o $(BUILD)/console_record.o
+# (Re-based on the merged tree: the record double-click bound moved from
+# finder_desktop_recorddbl.o to event_recorddbl.o, initech-9gxs, and the
+# tenant kernels ship as a patched INITDOS.SYS + C:\FLAIR.OVL pair, ADR-0014.)
+PUBS_FLAIR_KOBJS := $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ) $(KERNEL_CONSOLE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) \
+                    $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/event_recorddbl.o $(BUILD)/console_record.o
 $(BUILD)/kernel_flairtenants_pubs.elf: $(PUBS_FLAIR_KOBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
 	$(KERNEL_LINK) -o $@ $(PUBS_FLAIR_KOBJS) @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_pubs.bin: $(BUILD)/kernel_flairtenants_pubs.elf | $(BUILD)
@@ -61,7 +64,7 @@ $(BUILD)/kernel_flairtenants_pubs.bin: $(BUILD)/kernel_flairtenants_pubs.elf | $
 	$(call kernel-end-guard,$<,flairtenants-pubs)
 $(eval $(call exitdos-transient-rules,pubs,$(BUILD)/kernel_flairtenants_pubs.elf))
 PUBS_FLAIR_IMG   := $(BUILD)/flair_tenants_pubs.img
-$(PUBS_FLAIR_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_pubs.bin $(BUILD)/transient_pubs.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+$(PUBS_FLAIR_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_pubs.bin $(BUILD)/flairovl_kernel_flairtenants_pubs.sys $(BUILD)/flairovl_kernel_flairtenants_pubs.ovl $(BUILD)/transient_pubs.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_pubs.bin,$(BUILD)/transient_pubs.bin)
 	@printf ">>> pubs: FLAIR capture image (extra-long record kernel + transient COMMAND.COM): %s\n" "$@"
 PUBS_FLAIR_BOOT  := $(PUBS_FLAIR_IMG)
