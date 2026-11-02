@@ -2,4 +2,4 @@
 . GO 12
 . DISPLAY NOTES
 Record#  NOTES
-     12  Month-end close and accounts receivable.
+     12  Month-end close and accounts receivable.          
