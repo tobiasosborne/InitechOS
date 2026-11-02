@@ -14,7 +14,7 @@ for group in pubs/manuals/*/entries/*/; do
     }
 done
 : > "$work/pubs/manuals/fixture/entries/fn/.gitkeep"
-cp -f pubs/pubs.mk pubs/turbo.mk pubs/entry-index.sh "$work/pubs/"
+cp -f pubs/pubs.mk pubs/turbo.mk pubs/flair.mk pubs/entry-index.sh "$work/pubs/"
 printf 'BUILD := build\ninclude pubs/pubs.mk\n' > "$work/Makefile"
 cd "$work"
 dir=pubs/manuals/fixture/entries/fn
