@@ -11,9 +11,10 @@
 # (Rule 2): the source changed shape, and the manual must follow it.
 #
 #   finder_actions.c  the Locked notice (locked_text[])
-#   kmain.c         the shut-down screen
-#                   (finder_shutdown_screen text[]), About This Computer
-#                   (BANNER_LINE1), Standard File's Replace question (pre)
+#   kmain.c         About This Computer (BANNER_LINE1), Standard File's
+#                   Replace question (pre)
+#   power_cold.c    the shut-down screen (finder_shutdown_screen text[];
+#                   section COLD since ADR-0014 Lane 3, 2026-11-02)
 #   finder_windows_cold.c  Empty Trash (the fw_cat prefix) and Exit to InitechDOS
 #                   (fw_alert_wrap)
 #   dialog.h        the FILE COPY box: its title and its message
@@ -21,7 +22,7 @@
 #                   question (a), the Save As prompt (tbx_sf_putfile)
 # Thin shell (Law 3).  ASCII-clean (Rule 12).
 set -eu
-k=os/milton/kmain.c; fa=os/milton/finder_actions.c; w=os/flair/finder_windows_cold.c; d=os/flair/dialog.h; t=os/apps/itext/itext.c
+k=os/milton/kmain.c; p=os/milton/power_cold.c; fa=os/milton/finder_actions.c; w=os/flair/finder_windows_cold.c; d=os/flair/dialog.h; t=os/apps/itext/itext.c
 emit() {
     [ -n "$1" ] || { printf '!!! test-pubs RED FLAIR-INVENTORY: alert pattern %s matched nothing\n' "$2" >&2; exit 1; }
     printf '%s\n' "$1" | sed 's/  */ /g; s/ *$//; s/$/|alert/'
@@ -31,7 +32,7 @@ emit() {
 # the first string literal on the line after a matched line
 after() { sed -n "/$2/{n;p;q}" "$1" | sed -n 's/^[^"]*"\([^"]*\)".*/\1/p'; }
 emit "$(after $fa 'locked_text\[3\] = {')" locked_text
-emit "$(sed -n '/^static .*int finder_shutdown_screen/,/^}/p' $k | after /dev/stdin 'text\[3\] = {')" shutdown
+emit "$(sed -n '/^static .*int finder_shutdown_screen/,/^}/p' $p | after /dev/stdin 'text\[3\] = {')" shutdown
 emit "$(sed -n 's/^#define BANNER_LINE1 "\(.*\)"$/\1/p' $k)" BANNER_LINE1
 emit "$(sed -n 's/.*const char \*pre = "\(Replace existing\) .*/\1/p' $k)" replace
 emit "$(sed -n 's/.*fw_cat(msg, n, "\(The Trash contains\) ");.*/\1/p' $w)" trash

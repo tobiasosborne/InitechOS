@@ -73,6 +73,12 @@ PUBS_FLAIR_STEP  := $(PUBS_FLAIR_IMG)
 # README.TXT read-only (the test-flair-locked-trash fixture; no file of the
 # volume as delivered is locked).  Rows name it with image=locked.
 PUBS_FLAIR_LOCKED := $(BUILD)/record_locked_trash.img
+# Defined HERE, above test-pubs-flair-mutant, because := expands at parse time:
+# when this list sat below that target the mutant gate had NO image prerequisite
+# and failed 'boot image not readable' on a tree where the screens route had not
+# run (PM 2026-11-02, lane manuals-r merge).
+PUBS_FLAIR_SCREEN_DEPS := $(HARNESS_BIN) $(PUBS_FLAIR_BOOT) $(PUBS_FLAIR_STEP) $(FLAIR_DATA_IMG) $(PUBS_FLAIR_LOCKED) $(PUBS_FLAIR_GREY) $(CONSOLE_TEXT_BIN) \
+                          $(PUBS_DIR)/screens/flair_capture.sh spec/assets/clut.json spec/assets/color_canon.json
 
 $(PUBS_FLAIR_GREY): harness/pubs/flair_grey.c | $(BUILD)
 	$(CC) $(CFLAGS) -O2 -o $@ $<
@@ -137,8 +143,6 @@ test-pubs-flair test-pubs-flair-mutant:
 	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- the FLAIR manuals were NOT checked. This is NOT a pass.\n'
 endif
 
-PUBS_FLAIR_SCREEN_DEPS := $(HARNESS_BIN) $(PUBS_FLAIR_BOOT) $(PUBS_FLAIR_STEP) $(FLAIR_DATA_IMG) $(PUBS_FLAIR_LOCKED) $(PUBS_FLAIR_GREY) $(CONSOLE_TEXT_BIN) \
-                          $(PUBS_DIR)/screens/flair_capture.sh spec/assets/clut.json spec/assets/color_canon.json
 pubs-flair-screens: $(PUBS_FLAIR_SCREEN_DEPS)
 	@set -e; for b in $(PUBS_FLAIR_BOOKS); do \
 		d=$(PUBS_DIR)/manuals/$$b/screens; [ -f $$d/FLAIR ] || continue; \
