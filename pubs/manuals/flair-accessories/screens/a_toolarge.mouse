@@ -1,0 +1,40 @@
+# a_toolarge: Open... of a file longer than InitechText holds (123.EXE in
+# APPS): the notice.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102)
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90)
+l1,l0
+# go (43,238) TEXT.EXE
+m-100:100,m-100:48,m-100:0,m-29:0
+# double-click at (43,238)
+l1,l0,l1,l0
+WTENANT-REGISTER
+# go (300,300) 
+m100:62,m100:0,m57:0
+# key ctrl-o: the Open dialog box, listing the top level
+kctrl-o,w80
+w400
+# go (259,205) APPS in the list (row 2; the box is 348 x 193 centred, the
+# list 35 px down, 18 px a row)
+m-41:-95
+# double-click at (259,205): the list shows APPS
+l1,l0,l1,l0
+w400
+# go (259,223) 123.EXE (row 3 of APPS)
+m0:18
+# click at (259,223)
+l1,l0
+w200
+# key ret: Open; the file is too large
+kret,w80
+w400
+# go (300,318) 
+m41:95

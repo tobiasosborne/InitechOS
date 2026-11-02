@@ -1,0 +1,138 @@
+% Chapter 15 -- Adapting FLAIR to Your Work (Part II, Reference).  Sources
+% (Law 1): os/milton/desktop_db.c and os/flair/finder_desktop.c (DESKTOP.DB:
+% the desktop icons' places and each Finder window's place, size and state,
+% written on an icon drag, a window move or close, Restart, Shut Down and
+% Exit to InitechDOS, read at start-up); os/milton/kmain.c
+% (finder_desk_load_positions; a Finder window reopens at its recorded
+% place; flair_live_apple_refresh: the Apple menu re-read each time it is
+% pulled down, apple_menu_build lists the rows of spec/apple_menu_items.h
+% whose program is on the volume; the clock read from the RTC, MenuClock);
+% os/milton/rtc.c rtc_set (TIME and DATE at the prompt set the computer's
+% clock); os/flair/finder_menu.c (Preferences, the View by-items other than
+% by Icons, and Sharing always dimmed); spec/assets/color_canon.json (the
+% desktop colour is fixed).  Captures: screens/t_*.mouse.  Model: Macintosh
+% User's Guide 1991 Ch. 11 "Adapting Your Macintosh to Your Own Use"
+% (apple-macintosh.md Sec 8.2), cut to what FLAIR ships.
+% GATES: test-desktop-db test-flair-desktop-icons test-flair-disk-windows test-flair-drag test-apple-menu test-flair-apple-menu test-flair-menubar-clock test-datetime test-finder-menu test-pubs-flair-screens
+\Gates{test-desktop-db, test-flair-desktop-icons, test-flair-disk-windows,
+  test-flair-drag, test-apple-menu, test-flair-apple-menu,
+  test-flair-menubar-clock, test-datetime, test-finder-menu,
+  test-pubs-flair-screens}
+\chapter{Adapting FLAIR to Your Work}
+\label{ch:adapting}
+
+This chapter describes what you can arrange to suit the way you work: the
+places of the icons and windows, the accessories in the Apple menu, and the
+clock.  It also lists what this version of FLAIR does not let you change.
+
+\section{How FLAIR remembers your arrangement}
+\index{DESKTOP.DB}\index{arrangement of the desktop}
+FLAIR keeps a record of your desktop in the file \file{DESKTOP.DB} on the
+data disk: the place of the disk icon, and the place, size and state of
+each Finder window.  It brings the record up to date when you:
+\begin{itemize}
+\item move an icon on the desktop;
+\item move a Finder window or close one;
+\item choose \menuitem{Restart}, \menuitem{Shut Down} or \menuitem{Exit to
+  InitechDOS}.
+\end{itemize}
+When FLAIR starts, it reads the record and puts things back where you left
+them.  The record belongs to the disk: the same data disk shows the same
+arrangement on any computer.
+
+If \file{DESKTOP.DB} is missing or cannot be read, FLAIR starts with the
+icons in their usual places and makes a new record.
+
+\section{Arranging the desktop}
+\index{desktop!arranging}
+\SideHead{The disk icon}Drag the \texttt{INITECH} icon anywhere on the
+desktop (Figure~\ref{fig:icondrag}).  It stays there, and is there the next
+time FLAIR starts.
+
+\SideHead{The Trash}The Trash always stays at the lower right of the
+screen.
+
+\SideHead{HELLO and NOTES}The practice windows open in the same places each
+time FLAIR starts.  You can move them while you work, but their places are
+not recorded.
+
+\section{Where windows open}
+\index{windows!where they open}
+A Finder window opens where you last left it.  The first time a folder is
+opened, its window is placed a little lower and to the right of the last
+one opened, so that their title bars can all be seen.  From then on, it
+opens at the place and size it had when you moved it or closed it.
+\begin{TaskSteps}
+\Step Open the \texttt{INITECH} icon.
+\Step Drag the \texttt{Drive A Files} window by its title bar down and to
+the right.
+\Step Click its close box.
+\Step Double-click the \texttt{INITECH} icon again.
+\Result{The window opens where you put it.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:twinplace]{t_winplace}{Drive A Files opened again
+at the place it was moved to}
+
+The icons inside a Finder window are not recorded.  Each time the window
+opens, its icons are laid out in rows from the top left.
+
+\section{The accessories in the Apple menu}
+\index{Apple menu!accessories in}\index{accessories!adding and removing}
+The Apple menu lists an accessory only while its program is in the
+\file{APPS} folder of the data disk.  FLAIR looks at the disk each time you
+pull the menu down, so a change shows at once.
+
+\SideHead{To remove an accessory}Drag its program out of the \file{APPS}
+folder, onto the \texttt{INITECH} icon or into another folder.  The
+Calculator's program is \file{CALCULAT.EXE}.
+
+\FlairScreen[scale=4, label=fig:tnoacc]{t_noacc}{The Apple menu after
+CALCULAT.EXE was moved out of APPS}
+
+\SideHead{To put it back}Drag its program back into the \file{APPS}
+folder.  Its command returns to the Apple menu.
+
+When no accessory is installed, the Apple menu holds only
+\menuitem{About This Computer...}.
+
+\section{Setting the clock}
+\index{clock!setting}\index{TIME}\index{DATE}
+The clock in the menu bar shows the time kept by the computer's own clock,
+which runs even while the computer is turned off.  FLAIR has no command to
+set it.  To set the clock, use the \file{TIME} command at the InitechDOS
+prompt, and \file{DATE} to set the date.
+\begin{TaskSteps}
+\Step Choose \menuitem{Exit to InitechDOS} from the \menuname{Special} menu
+and click \texttt{Exit}.
+\Result{InitechDOS shows the date and the time and asks for new ones.}
+\Step Type the correct date and press \key{Enter}, then type the correct
+time and press \key{Enter}.
+\Result{You can also set them later with \file{DATE} and \file{TIME},
+followed by the new date or time.}
+\end{TaskSteps}
+
+\FlairText[fig:ttime]{t_time}{The computer's clock set to 1:45 pm with TIME}
+
+\begin{TaskSteps}[resume]
+\Step Restart the computer.
+\Result{FLAIR starts, and its clock shows the time you set.}
+\end{TaskSteps}
+
+The clock shows hours and minutes, with \texttt{am} or \texttt{pm}.  It
+cannot be changed to the 24-hour form, and it cannot be hidden.
+
+\section{What you cannot change}
+\index{Preferences command}
+This version of FLAIR has no control panels.  The following are fixed:
+\begin{itemize}
+\item the colour of the desktop, the look of the windows and the
+  typefaces of the menus;
+\item the speed of the pointer and the double-click time;
+\item the way Finder windows show their contents: as icons only.  In the
+  \menuname{View} menu, \menuitem{by Icons} is the one view; the other
+  views are dimmed;
+\item the Finder's preferences: \menuitem{Preferences} in the
+  \menuname{Edit} menu is dimmed.
+\end{itemize}
+The keys that FLAIR reserves are listed in Chapter~\ref{ch:keyboard}.

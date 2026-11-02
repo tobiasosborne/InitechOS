@@ -111,7 +111,8 @@ static const char *namepart(const char *item,char *buf)
 static int commandkind(const char *kind)
 {
     static const char *kinds[]={"internal","external","batch","config","int21",
-        "wpkey","wpmenu","wppull","wpcode","wpmsg","wpgray","command","function","set"};
+        "wpkey","wpmenu","wppull","wpcode","wpmsg","wpgray","command","function","set",
+        "menu","file","alert","operation"};
     for(size_t i=0;i<sizeof kinds/sizeof *kinds;i++) if(!strcmp(kind,kinds[i])) return 1;
     return 0;
 }
@@ -134,7 +135,9 @@ static void cmdsfile(const char *path,Set *doc,Set *draft)
             }
             if(k!=4 || *q || !*f[0] || !*f[3]) die("COMMAND-INDEX",path,line);
             /* InitechWord (harness/pubs/iword_probe.c, bead initech-ipu5.10):
-             * wpkey wpmenu wppull wpcode wpmsg wpgray */
+             * wpkey wpmenu wppull wpcode wpmsg wpgray; FLAIR kinds (bead
+             * initech-ipu5.11, checked by test-pubs-flair against
+             * harness/pubs/flair_inventory.c): menu file alert operation */
             if(!commandkind(f[1]))
                 die("COMMAND-INDEX",path,line);
             if(strcmp(f[2],"GATED") && strcmp(f[2],"DRAFT")) die("COMMAND-INDEX",path,line);

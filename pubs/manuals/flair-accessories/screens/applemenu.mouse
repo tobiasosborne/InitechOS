@@ -1,0 +1,6 @@
+# applemenu: the Apple menu pulled down.
+# go (22,10) the apple at the left of the upper menu bar
+m-100:-100,m-100:-100,m-98:-30
+# press at (22,10)
+l1
+w300

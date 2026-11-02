@@ -1,0 +1,179 @@
+% Chapter 12 -- Disks (Part II, Reference).  Sources (Law 1):
+% os/milton/kmain.c (flair_tenant_mount_volume: the data volume mounted as
+% drive A; desktop_db_volume_label: the disk icon's name is the volume label
+% read off the disk at start-up, an unlabelled volume shows a bare band;
+% FLAIR-FAT-MOUNT-FAIL: no data disk, no Finder windows, the clock unset;
+% TRASH and DESKTOP.DB made when missing); os/flair/finder_menu.c (Eject,
+% Erase Disk, Get Info always dimmed; Open lit by a selected folder);
+% os/flair/finder_ops.c (a drop on the disk icon moves to the top level);
+% spec/hardware.json (the drives); the data volume as minted by the
+% Makefile (FLAIR_FIXTURES: a 1.44 MB FAT12 diskette image, label INITECH).
+% The console figures are captures of the InitechDOS prompt reached with
+% Exit to InitechDOS (APPS\LABEL, APPS\TREE, APPS\ATTRIB; CHKDSK in
+% Chapter 18).  Model: Macintosh User's Guide 1991 Ch. 9 "Hard Disks and
+% Floppy Disks" (apple-macintosh.md Sec 8.2).
+% GATES: test-flair-data-volume test-flair-desktop-icons test-desktop-db test-finder-menu test-flair-exit-to-dos test-label-vol test-xcopy-tree test-attrib test-chkdsk test-pubs-flair-screens
+\Gates{test-flair-data-volume, test-flair-desktop-icons, test-desktop-db,
+  test-finder-menu, test-flair-exit-to-dos, test-label-vol, test-xcopy-tree,
+  test-attrib, test-chkdsk, test-pubs-flair-screens}
+\chapter{Disks}
+\label{ch:disks}
+\index{disks}
+
+Your work is kept on disks.  This chapter describes the two disks
+InitechOS uses, how FLAIR shows them, how much they hold, and how to look
+after the files on them.
+
+\section{The startup disk and the data disk}
+\index{startup disk}\index{data disk}
+InitechOS uses two disks, each in its own drive.
+
+\SideHead{Startup disk}Holds InitechDOS and FLAIR.  The computer loads
+them from it when you turn it on.  FLAIR does not show the startup disk on
+the desktop, and you do not keep your own files on it.
+
+\SideHead{Data disk}Holds your documents, the applications that come with
+FLAIR, and the InitechDOS programs that run at the command prompt.  FLAIR
+shows it on the desktop as the \texttt{INITECH} icon, and InitechDOS calls
+it \term{drive A}.
+
+Both disks must stay in their drives while FLAIR is running.  Appendix~A
+lists every file on the data disk as it is delivered.
+
+\section{The disk icon}
+\index{disk icon}\index{INITECH icon}
+The data disk is the icon at the top right of the desktop.
+\begin{itemize}
+\item Double-click it to open the \texttt{Drive A Files} window, which
+  shows the top level of the disk.
+\item Drag a file or folder onto it to move the item to the top level of
+  the disk.
+\item Drag the icon itself to move it on the desktop.  FLAIR remembers its
+  place.
+\end{itemize}
+The name under the icon is the disk's \term{volume label}, the name stored
+on the disk itself.  The data disk is delivered with the label
+\texttt{INITECH}.
+
+\section{What you cannot do with the disk icon}
+\index{Eject command}\index{Erase Disk command}\index{Get Info command}
+Some commands that act on disks are in the Finder's menus but are dimmed in
+this version of FLAIR:
+\begin{itemize}
+\item \menuitem{Eject} (\menuname{File} menu): the data disk cannot be
+  ejected while FLAIR runs.  Shut the computer down before you take a disk
+  out of its drive.
+\item \menuitem{Erase Disk} (\menuname{Special} menu): FLAIR does not
+  erase disks.
+\item \menuitem{Get Info} (\menuname{File} menu): FLAIR does not show
+  information about a disk, folder or file.  To see how much space the disk
+  has, use \file{CHKDSK} at the InitechDOS prompt (see ``How much a disk
+  holds,'' below).
+\end{itemize}
+Selecting the disk icon does not make \menuitem{Open} available in the
+\menuname{File} menu; double-click the icon to open it.  \menuitem{Open} is
+available when a folder is selected in a Finder window.
+
+\FlairScreen[scale=4, label=fig:kfilesel]{k_filesel}{The File menu with
+the APPS folder selected: Open and Close Window are available}
+
+\section{How much a disk holds}
+\index{disk space}\index{CHKDSK}
+The data disk is a 1.44~MB diskette: it holds 1,457,664 bytes, about 1,424
+kilobytes.  As delivered, about 1,220 kilobytes of it are free.
+
+FLAIR does not show the free space on a disk.  To see it, leave FLAIR and
+run \file{CHKDSK} from the \file{APPS} directory; Figure~\ref{fig:doschk} in
+Chapter~\ref{ch:dos} shows its report.  The \texttt{bytes available on disk}
+line is the free space.
+
+Remember that what you put in the Trash still takes up space on the disk
+until you empty the Trash.  The alert that asks you to confirm
+\menuitem{Empty Trash} tells you how much space the items in the Trash use.
+
+When the disk is full, a new folder cannot be made and a document cannot
+be saved.  Empty the Trash, and move documents you no longer need onto
+another disk at the InitechDOS prompt.
+
+\section{The name of the disk}
+\index{volume label}\index{LABEL}
+To see or change the volume label, use the \file{LABEL} program at the
+InitechDOS prompt.
+\begin{TaskSteps}
+\Step Choose \menuitem{Exit to InitechDOS} from the \menuname{Special} menu,
+click \texttt{Exit}, and press \key{Enter} twice to keep the date and the
+time.
+\Step Type \type{APPS\textbackslash LABEL} and press \key{Enter}.
+\Result{\file{LABEL} shows the label of drive A and asks for a new one.}
+\end{TaskSteps}
+
+\FlairText[fig:klabel]{k_label}{LABEL, showing the name of the data disk}
+
+\begin{TaskSteps}[resume]
+\Step Type a new name of up to 11 characters and press \key{Enter}, or
+press \key{Enter} alone to leave the label as it is.
+\Result{The \doctitle{InitechDOS Reference} describes the questions
+\file{LABEL} asks.}
+\end{TaskSteps}
+FLAIR reads the label when it starts.  A new label appears under the disk
+icon the next time you start FLAIR.  A disk with no label is shown with an
+empty name band under its icon.
+
+\section{The folders of the disk}
+\index{TREE}\index{folders!listing}
+The \file{TREE} program lists every folder on the disk, which InitechDOS
+calls directories.  Type \type{APPS\textbackslash TREE} at the prompt.
+
+\FlairText[fig:ktree]{k_tree}{The folders of the data disk, listed by TREE}
+
+The list shows the \file{TRASH} directory, which FLAIR uses to hold the
+Trash and does not show in its windows (Chapter~\ref{ch:finder}).
+
+\section{Locking a file}
+\index{locked items}\index{ATTRIB}\index{read-only files}
+A locked file cannot be changed, thrown away or replaced.  Lock a file you
+want to keep safe from mistakes, such as a finished report.  You lock and
+unlock files at the InitechDOS prompt with the \file{ATTRIB} program;
+InitechDOS calls a locked file \textit{read-only}.
+\begin{TaskSteps}
+\Step At the InitechDOS prompt, type this line and press \key{Enter}:\newline
+\type{APPS\textbackslash ATTRIB +R README.TXT}
+\Result{\file{README.TXT} is locked.}
+\Step Type this line and press \key{Enter}:\newline
+\type{APPS\textbackslash ATTRIB README.TXT}
+\Result{\file{ATTRIB} shows the file's attributes.  The \texttt{R} at the
+left means read-only: the file is locked.}
+\end{TaskSteps}
+
+\FlairText[fig:kattrib]{k_attrib}{README.TXT locked with ATTRIB}
+
+To unlock the file, type \type{APPS\textbackslash ATTRIB -R README.TXT}.
+
+In FLAIR, a locked file is shown like any other file.  When you drag it to
+the Trash it slides back, and an alert tells you that the item is locked
+(Figure~\ref{fig:locked}).  An application cannot save a document under the
+name of a locked file: InitechText reports that the document could not be
+saved (Figure~\ref{fig:nosave}).  You can still open a locked document and
+read it, and you can move a locked file from one folder to another.
+
+\section{If FLAIR starts without the data disk}
+\index{data disk!missing}
+If the data disk is not in its drive when the computer starts, FLAIR still
+starts, but it cannot show any files.
+
+\FlairScreen[scale=4, label=fig:knodisk]{k_nodisk}{FLAIR started without
+its data disk: the disk icon has no name, and the clock reads 12:00 am}
+\Operation{FLAIR-FAT-MOUNT-FAIL}
+
+The disk icon has no name, and the clock shows 12:00 am, because FLAIR
+reads the time through InitechDOS, which has no disk to work with.  Shut the
+computer down, put the data disk in its drive, and start the computer
+again.
+
+\section{Making copies of your work}
+\index{copying files}\index{backup copies}
+FLAIR moves files but does not copy them.  To keep a copy of your
+documents on another disk, use the \file{COPY} command or the \file{XCOPY}
+program at the InitechDOS prompt; the \doctitle{InitechDOS User's Guide}
+shows you how.  Make the copies at the end of each day's work, and keep
+them away from the computer.

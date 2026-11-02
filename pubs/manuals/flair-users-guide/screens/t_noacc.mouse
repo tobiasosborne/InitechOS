@@ -1,0 +1,26 @@
+# t_noacc: CALCULAT.EXE dragged out of APPS onto the INITECH icon (the top
+# level of the disk); the Apple menu then lists no accessory.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64) 
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102) 
+l1,l0,l1,l0
+w300
+# go (387,125) the scroll box of the APPS window
+m100:23,m100:0,m64:0
+# drag (387,125) -> (387,268) to the bottom of the scroll bar
+l1,m0:100,m0:43,l0
+w300
+# go (283,244) CALCULAT.EXE
+m-100:-24,m-4:0
+# drag (283,244) -> (600,64) onto the INITECH icon
+l1,m100:-100,m100:-80,m100:0,m17:0,l0
+w400
+# go (22,10) the apple in the upper menu bar
+m-100:-54,m-100:0,m-100:0,m-100:0,m-100:0,m-78:0
+# press at (22,10) 
+l1
+w400

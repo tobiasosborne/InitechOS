@@ -1,0 +1,31 @@
+# l_readme: README.TXT, the file at the top level of the data disk, opened
+# in InitechText with Open...
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64) 
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102) 
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90) 
+l1,l0
+# go (43,238) TEXT.EXE
+m-100:100,m-100:48,m-100:0,m-29:0
+# double-click at (43,238) 
+l1,l0,l1,l0
+WTENANT-REGISTER
+# go (300,300) 
+m100:62,m100:0,m57:0
+# key ctrl-o: the Open dialog box, listing the top level
+kctrl-o,w80
+w400
+# go (259,187) README.TXT (row 1 of the list)
+m-41:-100,m0:-13
+# double-click at (259,187) 
+l1,l0,l1,l0
+w600
+# go (300,341) 
+m41:100,m0:54

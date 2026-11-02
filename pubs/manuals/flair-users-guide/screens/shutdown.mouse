@@ -1,0 +1,14 @@
+# shutdown: Shut Down from the Special menu; the screen it leaves.
+# go (450,400) a bare point of the desktop
+m100:100,m30:60
+# click at (450,400)
+l1,l0
+# go (199,30) the Special title in the second menu bar
+m-100:-100,m-100:-100,m-51:-100,m0:-70
+# press at (199,30)
+l1
+# hold (199,125) Shut Down (Special item 7: rows 1-2, divider, row 4, divider, rows 6-7)
+m0:95
+# release at (199,125)
+l0
+w800

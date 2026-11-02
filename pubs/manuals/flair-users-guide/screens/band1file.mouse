@@ -1,0 +1,6 @@
+# band1file: the File menu of the upper menu bar.
+# go (53,10) File in the upper menu bar
+m-100:-100,m-100:-100,m-67:-30
+# press at (53,10)
+l1
+w300

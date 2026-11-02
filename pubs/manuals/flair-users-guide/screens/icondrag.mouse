@@ -1,0 +1,7 @@
+# icondrag: the INITECH icon dragged to a new place on the desktop.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# drag (600,64) -> (480,390) to a bare place of the desktop
+l1,m-100:100,m-20:100,m0:100,m0:26,l0
+# go (420,440) 
+m-60:50

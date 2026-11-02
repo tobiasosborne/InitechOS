@@ -1,0 +1,46 @@
+% FLAIR Quick Reference -- part 1031-0000-20 (PUB-REF-0001 Sec 12, DS row
+% FLR-QR: card, PK-11, four panels: the menu map and the shortcuts).  The
+% PK-11 booklet trim, 88.9 x 228.6 mm (the house trim halved), four pages:
+% the cover in the PK-02 grid scaled; the Finder's menus; the keys, the
+% mouse and the window; the back (wordmark, slogan, part number).  Every
+% command listed is registered (\RegisterMenuItem, initech-flair.sty) and
+% checked against the shipped bars by `make test-pubs-flair`, so the card
+% cannot list a command the build does not ship or draw a key it does not
+% bind.  Sources (Law 1): os/flair/finder_menu.c (the Finder's bar, the
+% predicate rows), os/flair/apple_menu.c, os/milton/kmain.c (Ctrl as the
+% command key; the Finder keys), os/flair/dialog.c (Enter / Esc), the
+% FLAIR User's Guide Chapters 8, 9 and 12 (the same facts in full).
+% Bead initech-ipu5.11.
+% GATES: test-finder-menu test-flair-finder-cmds test-apple-menu test-pubs-flair
+\documentclass[apple]{initech-manual}
+\usepackage{initech-flair}
+\FlairBook{flair-quick-reference}
+\geometry{paperwidth=88.9mm, paperheight=228.6mm, textwidth=74.9mm,
+  textheight=206mm, top=10mm, inner=7mm, outer=7mm, footskip=8mm,
+  nomarginpar}
+\AtBeginDocument{\setlength\evensidemargin{7mm-1in}\setlength\oddsidemargin{7mm-1in}}
+\ProductName{FLAIR}
+\ProductVersion{}
+\DocTitle{Quick Reference}
+\PartNumber{1031-0000-20}
+\PrintCode{A1-3/92}
+\FamilyName{Systems Family}
+\FamilyColor{FamilySystems}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\par\medskip}
+% PK-11: section heads Heros Bold caps between two rules; a command over a
+% one-line description is set here as the command with its key at the right.
+\newcommand\QRHead[1]{\par\addvspace{5pt}\noindent\rule{\linewidth}{0.5pt}\par
+  \nointerlineskip\vspace{1.5pt}\noindent{\sffamily\bfseries\footnotesize\MakeUppercase{#1}}\par
+  \nointerlineskip\vspace{1pt}\noindent\rule{\linewidth}{0.5pt}\par\vspace{2pt}}
+% \QRItem[draft]{CTX}{Menu}{Item}{Key}{State}{note}
+\makeatletter
+\NewDocumentCommand\QRItem{o m m m m m m}{%
+  \IfValueTF{#1}{\RegisterMenuItem[#1]{#2}{#3}{#4}{#5}{#6}}{\RegisterMenuItem{#2}{#3}{#4}{#5}{#6}}%
+  \par\noindent\makebox[\linewidth][l]{\ifnum\pdf@strcmp{#6}{off}=0 \textcolor{black!45}{#4}\else\textbf{#4}\fi
+    \hfill\ifx\relax#5\relax\else\CmdKey{#5}\fi}\par
+  \ifx\relax#7\relax\else{\noindent\hspace{1em}\scriptsize #7\par}\fi}
+\makeatother
+\begin{document}
+\pagestyle{empty}\footnotesize\setlength\parskip{0pt}
+\input{panels}
+\end{document}

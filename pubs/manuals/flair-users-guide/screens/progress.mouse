@@ -1,0 +1,32 @@
+# progress: File > Save: the FILE COPY box half way.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102)
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90)
+l1,l0
+# go (179,186) CALC.EXE
+m-100:96,m-93:0
+# double-click at (179,186)
+l1,l0,l1,l0
+WTENANT-REGISTER
+# File > Save by the mouse, not Ctrl-S: the box counts every input event
+# as a step of its bar, and a key release can arrive either side of the
+# box's appearance; the menu's button release is taken by the menu.
+# go (53,30) File in InitechCalc's menu bar
+m-100:-100,m-26:-56
+# press at (53,30)
+l1
+# hold (53,49) Save (File row 1)
+m0:19
+# release at (53,49)
+l0
+WTENANT-FILECOPY
+m1:0,m-1:0
+w300

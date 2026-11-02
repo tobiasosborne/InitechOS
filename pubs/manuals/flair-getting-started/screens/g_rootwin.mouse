@@ -1,0 +1,7 @@
+# g_rootwin: the INITECH disk opened.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (500,460) the pointer moved off the window
+m-100:100,m0:100,m0:100,m0:96

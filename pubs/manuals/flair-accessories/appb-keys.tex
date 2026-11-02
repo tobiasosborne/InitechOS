@@ -1,0 +1,59 @@
+% Appendix B -- The Keys of the Accessories: one table per application,
+% collected from Chapters 2 to 4.  Sources (Law 1): os/apps/calcda/
+% calc_core.c calc_cmd_from_key; os/apps/itext/itext.c key() and the menu
+% keys of its bar; os/apps/calc/calc.c (the arrow, Tab, Esc and Backspace
+% keys and the menu keys of its bar); os/milton/kmain.c (Ctrl chords to the
+% active application's bar; the backslash key reserved).
+% GATES: test-calcda test-itext-route test-calc-tenant test-tbx-menu
+\Gates{test-calcda, test-itext-route, test-calc-tenant, test-tbx-menu}
+\chapter{The Keys of the Accessories}
+\index{keys}
+
+\section{The Calculator}
+\begin{center}\small
+\begin{tabular}{@{}p{38mm}p{61mm}@{}}
+\textbf{Press} & \textbf{To}\\\hline
+\key{0} to \key{9}, \key{.} & enter a number\\
+\key{+} \key{-} \key{*} \key{/} & choose an operation\\
+\key{=} or \key{Enter} & see the result\\
+\key{C} or \key{Num Lock} & clear\\
+\key{Ctrl-W} & close the Calculator\\
+\end{tabular}
+\end{center}
+
+\section{InitechText}
+\begin{center}\small
+\begin{tabular}{@{}p{38mm}p{61mm}@{}}
+\textbf{Press} & \textbf{To}\\\hline
+\key{Ctrl-N} & start a new document\\
+\key{Ctrl-O} & open a document\\
+\key{Ctrl-S} & save the document\\
+\key{Ctrl-W} or \key{Ctrl-Q} & close the window and quit\\
+\key{Ctrl-X}, \key{Ctrl-C}, \key{Ctrl-V} & cut, copy, paste\\
+\key{Ctrl-A} & select the whole document\\
+arrow keys & move the insertion point\\
+\key{Backspace} & erase the character before the insertion point, or the
+selection\\
+\key{Enter} & end the line\\
+\end{tabular}
+\end{center}
+
+\section{InitechCalc}
+\begin{center}\small
+\begin{tabular}{@{}p{38mm}p{61mm}@{}}
+\textbf{Press} & \textbf{To}\\\hline
+\key{Ctrl-S} & save the tables\\
+\key{Ctrl-Q} & quit\\
+\key{Left Arrow}, \key{Right Arrow}, \key{Tab} & place the entry and move
+across\\
+\key{Up Arrow}, \key{Down Arrow} & place the entry and move down or up\\
+\key{Backspace} & erase the last character of the entry\\
+\key{Esc} & abandon the entry\\
+\end{tabular}
+\end{center}
+
+\section{InitechPaint and the sample applications}
+\key{Ctrl-Q} quits InitechPaint, C Tenant and TenantFix.
+
+In every application, the backslash key is reserved by FLAIR and is not
+delivered (see the \doctitle{FLAIR User's Guide}, Appendix~C).

@@ -1,0 +1,14 @@
+# a_calcpct: a share worked out as a percentage: 450 / 1200 * 100 =
+# go (22,10) the apple in the upper menu bar
+m-100:-100,m-100:-100,m-98:-30
+# press at (22,10) 
+l1
+# hold (22,51) Calculator
+m0:41
+# release at (22,51) 
+l0
+WTENANT-REGISTER
+# type "450/1200*100=" (80 ms between keys: a loaded host drops typeahead)
+k4,w80,k5,w80,k0,w80,kslash,w80,k1,w80,k2,w80,k0,w80,k0,w80,kshift-8,w80,k1,w80,k0,w80,k0,w80,kequal,w80
+# go (500,467) 
+m100:100,m100:100,m100:100,m100:100,m78:16

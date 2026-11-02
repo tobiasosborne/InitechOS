@@ -1,0 +1,57 @@
+# w_four: four Finder windows open (Drive A Files, NEWFOLD, the Trash and
+# APPS), each placed lower and to the right of the last; a fifth folder
+# (NEWFOL02) is double-clicked and does not open.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64) 
+l1,l0,l1,l0
+# go (53,30) File
+m-100:-34,m-100:0,m-100:0,m-100:0,m-100:0,m-47:0
+# press at (53,30) 
+l1
+# hold (53,47) New Folder
+m0:17
+# release at (53,47) 
+l0
+w300
+# go (191,102) NEWFOLD (cell 3)
+m100:55,m38:0
+# double-click at (191,102) its window opens
+l1,l0,l1,l0
+w300
+# go (600,420) the Trash icon
+m100:100,m100:100,m100:100,m100:18,m9:0
+# double-click at (600,420) its window opens
+l1,l0,l1,l0
+w300
+# go (300,68) the title bar of Drive A Files, above the other windows
+m-100:-100,m-100:-100,m-100:-100,m0:-52
+# click at (300,68) Drive A Files comes to the front
+l1,l0
+w300
+# go (53,30) File
+m-100:-38,m-100:0,m-47:0
+# press at (53,30) 
+l1
+# hold (53,47) New Folder: NEWFOL02 in Drive A Files (cell 4)
+m0:17
+# release at (53,47) 
+l0
+w300
+# go (123,102) APPS (cell 2)
+m70:55
+# double-click at (123,102) the fourth window opens
+l1,l0,l1,l0
+w300
+# go (300,68) the title bar of Drive A Files
+m100:-34,m77:0
+# click at (300,68) 
+l1,l0
+w300
+# go (259,102) NEWFOL02 (cell 4)
+m-41:34
+# double-click at (259,102) a fifth window: it does not open
+l1,l0,l1,l0
+w400
+# go (500,449) 
+m100:100,m100:100,m41:100,m0:47

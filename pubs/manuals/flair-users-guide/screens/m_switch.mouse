@@ -1,0 +1,34 @@
+# m_switch: InitechText open with a line typed; a click in the APPS window
+# makes the Finder active, and Close Window (Ctrl-W) closes APPS: the
+# InitechText window waits, inactive, behind the Finder's window.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64) 
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102) 
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90) 
+l1,l0
+# go (43,238) TEXT.EXE
+m-100:100,m-100:48,m-100:0,m-29:0
+# double-click at (43,238) 
+l1,l0,l1,l0
+WTENANT-REGISTER
+# go (300,300) 
+m100:62,m100:0,m57:0
+# type "Memo" (80 ms between keys: a loaded host drops typeahead)
+kshift-m,w80,ke,w80,km,w80,ko,w80
+# go (615,300) the right edge of the APPS window, beside InitechText's window
+m100:0,m100:0,m100:0,m15:0
+# click at (615,300) 
+l1,l0
+w400
+# key ctrl-w: Close Window closes APPS
+kctrl-w,w80
+w400
+# go (500,443) 
+m-100:100,m-15:43
