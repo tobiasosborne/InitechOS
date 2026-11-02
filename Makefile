@@ -8909,10 +8909,15 @@ $(KERNEL_DESKTOP_DB_OBJ): $(KERNEL_DESKTOP_DB_C) $(KERNEL_DIR)/desktop_db.h \
 				  $(KERNEL_DIR)/fat12.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_DESKTOP_DB_C) -o $@
 
+# initech-qshpn: the mutant compiles with the production object's flags
+# ($(KERNEL_TENANTS_OPT): -Os + the cold LTO set) and differs ONLY by
+# -DDB_WRITE_SKIP. Without them the object was -O0 native code outside the
+# LTO partition (2,255 B of text/rodata, its callers' inlining lost), which
+# made this enumerated kernel 1,168 B larger than the flagship it mutates.
 KERNEL_DESKTOP_DB_MUT_SKIP_OBJ := $(BUILD)/desktop_db_mut_write_skip.o
 $(KERNEL_DESKTOP_DB_MUT_SKIP_OBJ): $(KERNEL_DESKTOP_DB_C) $(KERNEL_DIR)/desktop_db.h \
 					   $(KERNEL_DIR)/fat12.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DDB_WRITE_SKIP -Ispec -I$(KERNEL_DIR) \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DDB_WRITE_SKIP -Ispec -I$(KERNEL_DIR) \
 		-c $(KERNEL_DESKTOP_DB_C) -o $@
 
 # PS/2 keyboard (IRQ1) + 8254 PIT (IRQ0) drivers (beads initech-3rs): the SAME
