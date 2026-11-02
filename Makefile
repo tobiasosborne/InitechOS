@@ -28630,6 +28630,19 @@ test-program-window-golden: | $(BUILD)
 # kernel_shell.bin, kernel_flairtenants.bin identical under build/ and a
 # nested build dir). palette.h is generated into spec/ from a build tool and
 # is frozen (-o): the private make must never rewrite the shared source tree.
+# initech-4yzna: a reproducibility gate's PRIVATE from-scratch rebuild must
+# really invoke the compiler. tools/lane-env.sh puts /usr/lib/ccache first in
+# PATH, so every cc/gcc call is a ccache call and a "clean" rebuild can be a
+# cache HIT: the gate would then compare the incremental build against the
+# cache, and a nondeterminism ccache cannot see (e.g. __TIME__ under
+# CCACHE_SLOPPINESS=time_macros) hides behind a cached object. With
+# CCACHE_DISABLE=1 the masquerade wrapper execs the real compiler. Set ONLY
+# on the gate's private sub-make; normal builds keep their cache. Used by
+# test-kernel-repro, test-kernel-flair-repro (kernel_size.mk), test-ovl-repro
+# (overlay.mk). Gates that only byte-compare already-built artifacts
+# (test-boot-system-repro, test-seed-repro, test-pubs-repro*,
+# record-flair-repro) compile nothing inside the gate and need no knob.
+REPRO_NOCACHE := CCACHE_DISABLE=1
 KERNEL_REPRO_DIR ?= $(BUILD)/kernel-repro
 KERNEL_REPRO_BINS = $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN)
 .PHONY: test-kernel-repro
@@ -28637,7 +28650,7 @@ test-kernel-repro: $(KERNEL_REPRO_BINS) | $(BUILD)
 	@printf '>>> test-kernel-repro: baseline AND flagship across a clean rebuild (tgcu; Rule 11)\n'
 	@set -eu; d=$(KERNEL_REPRO_DIR); rm -rf $$d; mkdir -p $$d; \
 	for bin in $(KERNEL_REPRO_BINS); do cp -f $$bin $$d/$$(basename $$bin).repro.1; done; \
-	$(MAKE) --no-print-directory -o $(PALETTE_H) BUILD=$$d/build $(patsubst $(BUILD)/%,$$d/build/%,$(KERNEL_REPRO_BINS)) > $$d/clean-build.log 2>&1 \
+	$(REPRO_NOCACHE) $(MAKE) --no-print-directory -o $(PALETTE_H) BUILD=$$d/build $(patsubst $(BUILD)/%,$$d/build/%,$(KERNEL_REPRO_BINS)) > $$d/clean-build.log 2>&1 \
 		|| { cat $$d/clean-build.log; printf '!!! test-kernel-repro: the private clean build failed\n'; exit 1; }; \
 	for bin in $(KERNEL_REPRO_BINS); do \
 		cp -f $$d/build/$$(basename $$bin) $$d/$$(basename $$bin).repro.2; \
