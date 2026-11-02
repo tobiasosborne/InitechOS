@@ -7,8 +7,8 @@
 % commands; the icons in a window laid out from the grid on every open;
 % the click that makes the Finder foreground); os/flair/finder_windows.h /
 % .c (window titles: "Drive A Files" for the top level, the 8.3 name of a
-% folder, "Trash"; the cascade from (20,60) by 20 px; FINDER_WIN_MAX 4;
-% 64 icons a window; the 68 x 52 grid in directory order; the hidden
+% folder, "Trash"; the cascade from (20,60) by 20 px; FINDER_WIN_MAX 32;
+% icons sized to the listing; the 68 x 52 grid in directory order; the hidden
 % TRASH, DESKTOP.DB and volume label; .EXE is the application icon);
 % os/milton/desktop_db.c (the DESKTOP.DB file).  Model: System 6 guide Ch.
 % 3 "Working With the Finder Desktop" and Mac User's Guide 1991 Ch. 10
@@ -83,14 +83,9 @@ lower and further right, so that their title bars can all be seen.  A
 folder has only one window: if its window is already open, opening the
 folder again brings that window to the front.
 
-Up to four Finder windows can be open at a time, and a window shows up to
-64 icons.  When four are open, double-clicking another folder does nothing;
-close one of the windows first.
-
-\FlairScreen[label=fig:wfour]{w_four}{Four Finder windows, each placed
-below and to the right of the one before; the folder NEWFOL02, double-clicked,
-does not open a fifth}
-\Operation{FINDER-WIN-FULL}
+Up to 32 Finder windows can be open at a time, and a window shows every
+icon of its folder.  When all the windows FLAIR keeps are in use,
+double-clicking another folder does nothing; close one of the windows first.
 
   The icons are laid out in rows from the top left, in the order
 in which the files are stored in the folder, each time the window opens;

@@ -171,19 +171,19 @@ menu.
 \Step Click \texttt{Exit}, or press \key{Enter}.
 \Result{FLAIR asks an open application to quit and saves the arrangement
 of the desktop.  Then the desktop disappears and the InitechDOS screen
-takes its place.  Because the data disk has no \file{AUTOEXEC.BAT} file,
-InitechDOS asks for the date and the time.  To cancel instead, click
+takes its place.  InitechDOS runs the \file{AUTOEXEC.BAT} file of the data
+disk, shows its version and the command prompt.  To cancel instead, click
 \texttt{Cancel} or press \key{Esc}; nothing changes.}
 \end{TaskSteps}
 
 \FlairText[fig:exitdate]{exitdate}{InitechDOS after Exit to InitechDOS}
 
 \begin{TaskSteps}[resume]
-\Step Press \key{Enter} to keep the date, and \key{Enter} again to keep
-the time.
+\Step Read the screen.
 \Result{The command prompt \texttt{A:\textbackslash>} appears.  Drive A is
-the data disk; the programs that run at the prompt are in its folder
-\file{APPS}.  The \doctitle{InitechDOS User's Guide} tells you how to use
+the data disk; the InitechDOS programs are in its folder \file{DOS}, which
+\file{AUTOEXEC.BAT} puts on the command path, and the other programs that
+run at the prompt are in \file{APPS}.  The \doctitle{InitechDOS User's Guide} tells you how to use
 the prompt.}
 \end{TaskSteps}
 FLAIR does not start again from the command prompt.  To return to FLAIR,

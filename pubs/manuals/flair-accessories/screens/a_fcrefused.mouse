@@ -54,10 +54,6 @@ kdown,w80
 kdown,w80
 # key down
 kdown,w80
-# key down
-kdown,w80
-# key down
-kdown,w80
 w200
 # key ret: Open MICHAEL.CFG
 kret,w80

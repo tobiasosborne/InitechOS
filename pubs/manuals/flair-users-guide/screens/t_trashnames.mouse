@@ -13,10 +13,10 @@ m0:17
 # release at (53,47) 
 l0
 w300
-# go (191,102) NEWFOLD
-m100:55,m38:0
-# drag (191,102) -> (600,420) onto the Trash
-l1,m100:100,m100:100,m100:100,m100:18,m9:0,l0
+# go (55,154) NEWFOLD (cell 4: the disk window now holds README.TXT, APPS, DOS and AUTOEXEC.BAT)
+m2:100,m0:7
+# drag (55,154) -> (600,420) onto the Trash
+l1,m100:100,m100:100,m100:66,m100:0,m100:0,m45:0,l0
 w300
 # go (53,30) File
 m-100:-100,m-100:-100,m-100:-100,m-100:-90,m-100:0,m-47:0
@@ -27,10 +27,10 @@ m0:17
 # release at (53,47) 
 l0
 w300
-# go (191,102) the second NEWFOLD
-m100:55,m38:0
-# drag (191,102) -> (600,420) onto the Trash
-l1,m100:100,m100:100,m100:100,m100:18,m9:0,l0
+# go (55,154) the second NEWFOLD (cell 4: the disk window now holds README.TXT, APPS, DOS and AUTOEXEC.BAT)
+m2:100,m0:7
+# drag (55,154) -> (600,420) onto the Trash
+l1,m100:100,m100:100,m100:66,m100:0,m100:0,m45:0,l0
 w300
 # double-click at (600,420) the Trash
 l1,l0,l1,l0

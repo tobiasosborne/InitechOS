@@ -17,12 +17,7 @@ w400
 m100:4,m100:0,m65:0
 # click at (464,167) 
 l1,l0
-Wmm-dd-yy
-# key ret: keep the date
-kret,w80
-Wtime:
-# key ret: keep the time
-kret,w80
+WA:\>
 w400
 # type "CLS" (80 ms between keys: a loaded host drops typeahead)
 kshift-c,w80,kshift-l,w80,kshift-s,w80

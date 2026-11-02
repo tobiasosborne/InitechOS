@@ -16,20 +16,15 @@ w400
 m100:4,m100:0,m65:0
 # click at (464,167) 
 l1,l0
-Wmm-dd-yy
-# key ret: keep the date
-kret,w80
-Wtime:
-# key ret: keep the time
-kret,w80
+WA:\>
 w400
 # type "CLS" (80 ms between keys: a loaded host drops typeahead)
 kshift-c,w80,kshift-l,w80,kshift-s,w80
 # key ret
 kret,w80
 w300
-# type "APPS\TREE" (80 ms between keys: a loaded host drops typeahead)
-kshift-a,w80,kshift-p,w80,kshift-p,w80,kshift-s,w80,kbackslash,w80,kshift-t,w80,kshift-r,w80,kshift-e,w80,kshift-e,w80
+# type "TREE" (80 ms between keys: a loaded host drops typeahead)
+kshift-t,w80,kshift-r,w80,kshift-e,w80,kshift-e,w80
 # key ret
 kret,w80
 w1000

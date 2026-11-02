@@ -3,7 +3,7 @@
 % the Mac OS 8 Installation manual Ch. 6 and the 1991 guide Ch. 16,
 % apple-macintosh.md Sec 5.4, 9).
 % Sources (Law 1): os/milton/kmain.c (finder_surface_open: only .EXE files
-% are opened; FINDER-WIN-FULL at the fifth Finder window;
+% are opened; FINDER-WIN-FULL when every Finder window slot (32) is in use;
 % FINDER-NEW-FOLDER-FAIL with no disk window front; FINDER_DBLCLICK_TICKS;
 % the Apple menu rebuilt from the disk; flair_live_finder_key and
 % flair_live_tenant_key; the move refusals and the zoom-back; the PC LOAD
@@ -30,7 +30,7 @@ does not work as you expect.
   Folders are easier to find than a long list of files.
 \item In a folder with many files, choose \menuitem{Arrange (by Name)}
   from the \menuname{View} menu to put the icons in alphabetical order.
-\item Close the Finder windows you are not using.  At most four can be
+\item Close the Finder windows you are not using.  Up to 32 can be
   open, and fewer windows leave more of the desktop in view.
 \item Quit an application when you have finished with it, so that the
   next one can open.

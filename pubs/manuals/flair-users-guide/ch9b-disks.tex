@@ -9,7 +9,7 @@
 % spec/hardware.json (the drives); the data volume as minted by the
 % Makefile (FLAIR_FIXTURES: a 1.44 MB FAT12 diskette image, label INITECH).
 % The console figures are captures of the InitechDOS prompt reached with
-% Exit to InitechDOS (APPS\LABEL, APPS\TREE, APPS\ATTRIB; CHKDSK in
+% Exit to InitechDOS (LABEL, TREE, ATTRIB on the DOS path; CHKDSK in
 % Chapter 18).  Model: Macintosh User's Guide 1991 Ch. 9 "Hard Disks and
 % Floppy Disks" (apple-macintosh.md Sec 8.2).
 % GATES: test-flair-data-volume test-flair-desktop-icons test-desktop-db test-finder-menu test-flair-exit-to-dos test-label-vol test-xcopy-tree test-attrib test-chkdsk test-pubs-flair-screens
@@ -101,9 +101,8 @@ To see or change the volume label, use the \file{LABEL} program at the
 InitechDOS prompt.
 \begin{TaskSteps}
 \Step Choose \menuitem{Exit to InitechDOS} from the \menuname{Special} menu,
-click \texttt{Exit}, and press \key{Enter} twice to keep the date and the
-time.
-\Step Type \type{APPS\textbackslash LABEL} and press \key{Enter}.
+and click \texttt{Exit}.
+\Step Type \type{LABEL} and press \key{Enter}.
 \Result{\file{LABEL} shows the label of drive A and asks for a new one.}
 \end{TaskSteps}
 
@@ -122,7 +121,7 @@ empty name band under its icon.
 \section{The folders of the disk}
 \index{TREE}\index{folders!listing}
 The \file{TREE} program lists every folder on the disk, which InitechDOS
-calls directories.  Type \type{APPS\textbackslash TREE} at the prompt.
+calls directories.  Type \type{TREE} at the prompt.
 
 \FlairText[fig:ktree]{k_tree}{The folders of the data disk, listed by TREE}
 
@@ -137,17 +136,17 @@ unlock files at the InitechDOS prompt with the \file{ATTRIB} program;
 InitechDOS calls a locked file \textit{read-only}.
 \begin{TaskSteps}
 \Step At the InitechDOS prompt, type this line and press \key{Enter}:\newline
-\type{APPS\textbackslash ATTRIB +R README.TXT}
+\type{ATTRIB +R README.TXT}
 \Result{\file{README.TXT} is locked.}
 \Step Type this line and press \key{Enter}:\newline
-\type{APPS\textbackslash ATTRIB README.TXT}
+\type{ATTRIB README.TXT}
 \Result{\file{ATTRIB} shows the file's attributes.  The \texttt{R} at the
 left means read-only: the file is locked.}
 \end{TaskSteps}
 
 \FlairText[fig:kattrib]{k_attrib}{README.TXT locked with ATTRIB}
 
-To unlock the file, type \type{APPS\textbackslash ATTRIB -R README.TXT}.
+To unlock the file, type \type{ATTRIB -R README.TXT}.
 
 In FLAIR, a locked file is shown like any other file.  When you drag it to
 the Trash it slides back, and an alert tells you that the item is locked

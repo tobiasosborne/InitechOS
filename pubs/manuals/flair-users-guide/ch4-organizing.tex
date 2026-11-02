@@ -8,7 +8,7 @@
 % the window keeps each icon's place); os/flair/finder_ops.c (drop targets:
 % a folder icon, the INITECH icon, another disk window; refusals zoom the
 % outline back: service, samedir, stale, cycle, exists, locked);
-% os/flair/finder_windows.h (FINDER_WIN_MAX 4 windows, 64 icons a window,
+% os/flair/finder_windows.h (FINDER_WIN_MAX 32 windows, icons sized to the listing,
 % the hidden TRASH and DESKTOP.DB).  Model: Macintosh User's Guide 1991
 % Ch. 6 "Organizing Your Work" (apple-macintosh.md Sec 8.2).
 % GATES: test-flair-disk-windows test-flair-file-ops test-flair-desktop-icons test-finder-windows test-finder-ops test-flair-finder-cmds test-pubs-flair-screens
@@ -171,8 +171,7 @@ Name)}
 
 \section{Limits}
 \index{limits}
-FLAIR shows at most 64 icons in one window, and opens at most four Finder
-windows at a time.  If a window does not open, close one of the others
-first.  The Trash folder and the file \file{DESKTOP.DB}, in which FLAIR
+FLAIR keeps at most 32 Finder windows open at a time.  If a window does
+not open, close one of the others first.  The Trash folder and the file \file{DESKTOP.DB}, in which FLAIR
 records the arrangement of your desktop, are on the data disk but are not
 shown in its window.

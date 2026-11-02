@@ -11,7 +11,7 @@ desktop|FLAIR-CURSOR x=420 y=380|full
 specialmenu|FLAIR-MENU-DROP menu=515|0,0,320,200
 shutdown|FLAIR-SHUTDOWN-SAFE|90,126,460,140
 exitalert|FINDER-EXIT-DOS-ALERT|120,76,400,130
-exitdate|Enter new date (mm-dd-yy):|text
+exitdate|A:\>|text
 applemenu|FLAIR-MENU-DROP menu=1|0,0,240,70
 band1file|FLAIR-MENU-DROP menu=128|0,0,200,50
 about|APPLE-ABOUT up|120,76,400,130
@@ -96,4 +96,3 @@ c_paint|FLAIR-CURSOR x=300 y=440|full|FLAIR-DISPATCH
 c_ctenant|FLAIR-CURSOR x=500 y=458|170,150,310,190|TENANT-REGISTER
 c_tfx|FLAIR-CURSOR x=500 y=459|full|TENANT-LOAD
 winparts|FLAIR-CURSOR x=500 y=420|14,56,372,232
-w_four|FLAIR-CURSOR x=500 y=449|full|FINDER-WIN-FULL

@@ -17,25 +17,20 @@ w400
 m100:4,m100:0,m65:0
 # click at (464,167) 
 l1,l0
-Wmm-dd-yy
-# key ret: keep the date
-kret,w80
-Wtime:
-# key ret: keep the time
-kret,w80
+WA:\>
 w400
 # type "CLS" (80 ms between keys: a loaded host drops typeahead)
 kshift-c,w80,kshift-l,w80,kshift-s,w80
 # key ret
 kret,w80
 w300
-# type "APPS\ATTRIB +R README.TXT" (80 ms between keys: a loaded host drops typeahead)
-kshift-a,w80,kshift-p,w80,kshift-p,w80,kshift-s,w80,kbackslash,w80,kshift-a,w80,kshift-t,w80,kshift-t,w80,kshift-r,w80,kshift-i,w80,kshift-b,w80,kspc,w80,kshift-equal,w80,kshift-r,w80,kspc,w80,kshift-r,w80,kshift-e,w80,kshift-a,w80,kshift-d,w80,kshift-m,w80,kshift-e,w80,kdot,w80,kshift-t,w80,kshift-x,w80,kshift-t,w80
+# type "ATTRIB +R README.TXT" (80 ms between keys: a loaded host drops typeahead)
+kshift-a,w80,kshift-t,w80,kshift-t,w80,kshift-r,w80,kshift-i,w80,kshift-b,w80,kspc,w80,kshift-equal,w80,kshift-r,w80,kspc,w80,kshift-r,w80,kshift-e,w80,kshift-a,w80,kshift-d,w80,kshift-m,w80,kshift-e,w80,kdot,w80,kshift-t,w80,kshift-x,w80,kshift-t,w80
 # key ret
 kret,w80
 w600
-# type "APPS\ATTRIB README.TXT" (80 ms between keys: a loaded host drops typeahead)
-kshift-a,w80,kshift-p,w80,kshift-p,w80,kshift-s,w80,kbackslash,w80,kshift-a,w80,kshift-t,w80,kshift-t,w80,kshift-r,w80,kshift-i,w80,kshift-b,w80,kspc,w80,kshift-r,w80,kshift-e,w80,kshift-a,w80,kshift-d,w80,kshift-m,w80,kshift-e,w80,kdot,w80,kshift-t,w80,kshift-x,w80,kshift-t,w80
+# type "ATTRIB README.TXT" (80 ms between keys: a loaded host drops typeahead)
+kshift-a,w80,kshift-t,w80,kshift-t,w80,kshift-r,w80,kshift-i,w80,kshift-b,w80,kspc,w80,kshift-r,w80,kshift-e,w80,kshift-a,w80,kshift-d,w80,kshift-m,w80,kshift-e,w80,kdot,w80,kshift-t,w80,kshift-x,w80,kshift-t,w80
 # key ret
 kret,w80
 w600
