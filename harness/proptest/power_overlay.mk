@@ -26,7 +26,10 @@ $(foreach t,$(OVL_POWER_TAGS),$(eval $(call finder-ovl-kernel,kernel_flairtenant
 $(OVL_GATE_DIR)/power_cold_kept.o: $(POWER_COLD_DEPS) | $(OVL_GATE_DIR)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(OVL_SECTION_OPT) $(FINDER_OVL_INC) -Dfinder_power=finder_power_kept -Dfinder_exit_dos=finder_exit_dos_kept -c $< -o $@
 .PHONY: test-ovl-absence-power-mutant
-test-ovl-absence-power-mutant: test-ovl-absence $(OVL_GATE_DIR)/power_cold_kept.o
+# After the Finder leg, never beside it: ovl-absence-check writes the shared
+# $(OVL_GATE_DIR)/stub.dis and family.txt (a -j race made the Finder leg read
+# this leg's disassembly).
+test-ovl-absence-power-mutant: test-ovl-absence test-ovl-absence-finder-mutant $(OVL_GATE_DIR)/power_cold_kept.o
 	$(KERNEL_LINK) -u finder_power_kept -u finder_exit_dos_kept -o $(OVL_GATE_DIR)/power_kept.elf $(KERNEL_FLAIRTENANTS_OBJS) $(OVL_GATE_DIR)/power_cold_kept.o @$(TRANSIENT_IMPORTS_LD)
 	@if ( $(call ovl-absence-check,$(OVL_GATE_DIR)/power_kept.elf) ) > $(OVL_GATE_DIR)/power_kept.log 2>&1; then printf '!!! test-ovl-absence-power-mutant FAIL: a resident power/exit body survived\n'; exit 1; fi
 	@grep -E '!!! ovl-absence FAIL: (export finder_(power|exit_dos) resident [12] times|moved symbol (finder_shutdown_screen|finder_power_ask_apps|flair_exit_to_dos|exitdos_fail) still resident)' $(OVL_GATE_DIR)/power_kept.log
