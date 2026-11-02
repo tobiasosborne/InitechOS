@@ -1,0 +1,15 @@
+# a_calcfile: the Calculator's File menu.
+# go (22,10) 
+m-100:-100,m-100:-100,m-98:-30
+# press at (22,10)
+l1
+# hold (22,51) Calculator
+m0:41
+# release at (22,51)
+l0
+WTENANT-REGISTER
+# go (53,30) File in the Calculator's menu bar
+m31:-21
+# press at (53,30)
+l1
+w300

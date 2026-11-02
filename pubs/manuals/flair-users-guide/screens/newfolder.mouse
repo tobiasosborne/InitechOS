@@ -1,0 +1,15 @@
+# newfolder: New Folder in the Drive A Files window.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (53,30) File in the lower (Finder) menu bar
+m-100:-34,m-100:0,m-100:0,m-100:0,m-100:0,m-47:0
+# press at (53,30)
+l1
+# hold (53,49) New Folder (File row 1)
+m0:19
+# release at (53,49)
+l0
+# go (500,430) 
+m100:100,m100:100,m100:100,m100:81,m47:0

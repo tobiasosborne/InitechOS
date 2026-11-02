@@ -1,0 +1,7 @@
+# helloclosed: HELLO closed with its close box.
+# go (70,70) the close box of HELLO
+m-100:-100,m-100:-70,m-50:0
+# click at (70,70)
+l1,l0
+# go (500,438) 
+m100:100,m100:100,m100:100,m100:68,m30:0

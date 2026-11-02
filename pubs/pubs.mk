@@ -455,11 +455,12 @@ test-pubs-inconsistency: test-pubs-build $(PUBS_GATE)
 # and every inline \cmd against the shipped names.  Any other book must
 # stay empty until its product has its own shipped inventory.  The
 # InitechWord books have theirs (harness/pubs/iword_probe.c): their .cmds
-# are graded by test-pubs-iword below; their inline \cmd list stays empty.
+# are graded by test-pubs-iword below; their inline \cmd list stays empty.  The FLAIR books' main.cmds have
+# theirs too (test-pubs-flair, pubs/flair.mk).
 PUBS_DOS_BOOKS := initechdos-reference initechdos-users-guide
 test-pubs-commands: pubs-inventory test-pubs-build
 	@set -e; for idx in $(PUBS_BUILD)/gate/*/main.cmds $(PUBS_BUILD)/gate/*/main.mentions; do \
-		case $$idx in */initechdos-*/*|*/$(PUBS_TPS_BOOK)/*|*/initechbase-*/*|*/turbo-initech-*/*|*/initechword-*/main.cmds) continue;; esac; \
+		case $$idx in */initechdos-*/*|*/$(PUBS_TPS_BOOK)/*|*/initechbase-*/*|*/turbo-initech-*/*|*/initechword-*/main.cmds|*/flair-*/main.cmds) continue;; esac; \
 		[ -z "$$(grep -v '^#' "$$idx" || true)" ] || { printf '!!! test-pubs RED COMMAND-SURFACE: %s needs its own shipped inventory before it can contain entries\n' "$$idx"; exit 1; }; done
 	@$(PUBS_GATE) commands $(PUBS_CHECK)/shipped $(PUBS_ALLOW) $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.cmds)
 	@$(PUBS_GATE) mentions $(PUBS_CHECK)/shipped $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.mentions)
@@ -571,8 +572,9 @@ include pubs/turbo.mk
 #   make test-pubs-iword-mutant   its named mutants (in test-pubs-mutant)
 #   make pubs-iword-screens       re-replay and write the replayed screens
 #                                 into pubs/manuals (review the diff)
-#   make pubs-flair-screens       re-capture the FLAIR figures into the tree
-#   make test-pubs-flair-screens  EMU GATE: re-capture and cmp (in
+#   make pubs-iword-flair-screens re-capture the FLAIR figures into the tree
+#                                 (pubs-flair-screens runs this and the FLAIR books')
+#   make test-pubs-iword-flair-screens  EMU GATE: re-capture and cmp (in
 #                                 test-pubs-screens)
 # ---------------------------------------------------------------------------
 PUBS_IWORD_PROBE := $(BUILD)/pubs_iword_probe
@@ -595,16 +597,16 @@ $(PUBS_PPM_GREY): harness/pubs/ppm_grey_png.c | $(BUILD)
 PUBS_IWORD_MUTANT_DEPS = $(PUBS_IWORD_PROBE) $(BUILD)/pubs_iword_probe_noblk $(BUILD)/pubs_iword_probe_fkdrop
 PUBS_IWORD_BOOKS := initechword-reference initechword-workbook initechword-install
 
-.PHONY: test-pubs-iword test-pubs-iword-mutant pubs-iword-screens pubs-flair-screens test-pubs-flair-screens
+.PHONY: test-pubs-iword test-pubs-iword-mutant pubs-iword-screens pubs-iword-flair-screens test-pubs-iword-flair-screens
 ifeq ($(SKIP_PUBS),1)
-test-pubs-iword test-pubs-iword-mutant test-pubs-flair-screens:
+test-pubs-iword test-pubs-iword-mutant test-pubs-iword-flair-screens:
 	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- the InitechWord manuals were NOT checked. This is NOT a pass.\n'
 else
 test-pubs-iword: test-pubs-build $(PUBS_IWORD_PROBE) $(PUBS_GATE)
 	@sh harness/pubs/iword_check.sh check $(PUBS_IWORD_PROBE) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK) $(PUBS_IWORD_ALLOW)
 test-pubs-iword-mutant: test-pubs-iword $(PUBS_IWORD_MUTANT_DEPS) $(PUBS_GATE)
 	@sh harness/pubs/iword_mutants.sh $(PUBS_IWORD_PROBE) $(BUILD)/pubs_iword_probe_noblk $(BUILD)/pubs_iword_probe_fkdrop $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK) $(PUBS_IWORD_ALLOW)
-test-pubs-flair-screens: test-pubs-build $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PUBS_PPM_GREY) $(PUBS_GATE)
+test-pubs-iword-flair-screens: test-pubs-build $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PUBS_PPM_GREY) $(PUBS_GATE)
 	@set -e; n=0; for m in $(PUBS_IWORD_BOOKS); do d=$(PUBS_DIR)/manuals/$$m/flair; f=fixtures/pubs/$$m; [ -f $$d/FLAIRSHOTS ] || continue; \
 		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PUBS_PPM_GREY) \
 			$$d/FLAIRSHOTS $(PUBS_BUILD)/flair-check/$$m spec/flair_iword_traces.mk FLAIR_IWORD_TYPE_SPEC; \
@@ -616,14 +618,20 @@ test-pubs-flair-screens: test-pubs-build $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) 
 			printf '!!! test-pubs RED SCREEN-UNPRINTED: %s\n' "$$c"; exit 1; }; done; \
 		while IFS= read -r x; do [ -f $$f/$$x.png ] || { printf '!!! test-pubs RED SCREEN-PAIR: %s/%s.png is printed but not committed\n' "$$f" "$$x"; exit 1; }; \
 			done < $(PUBS_BUILD)/gate/$$m/main.flairshots; done; \
-	printf '>>> test-pubs-flair-screens: green (%s FLAIR figures in the InitechWord manuals == the booted desktop, pixel for pixel)\n' "$$n"
+	printf '>>> test-pubs-iword-flair-screens: green (%s FLAIR figures in the InitechWord manuals == the booted desktop, pixel for pixel)\n' "$$n"
 endif
+# test-pubs-flair-screens (pubs/flair.mk) runs the FLAIR books' route and this
+# InitechWord route together; pubs-flair-screens likewise.
+test-pubs-flair-screens: test-pubs-iword-flair-screens
+pubs-flair-screens: pubs-iword-flair-screens
 test-pubs-screens: test-pubs-flair-screens
 pubs-iword-screens: $(PUBS_IWORD_PROBE) $(PUBS_GATE) pubs
 	@sh harness/pubs/iword_check.sh update $(PUBS_IWORD_PROBE) $(PUBS_GATE) $(PUBS_BUILD) $(PUBS_CHECK) $(PUBS_IWORD_ALLOW)
-pubs-flair-screens: $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PUBS_PPM_GREY)
+pubs-iword-flair-screens: $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PUBS_PPM_GREY)
 	@set -e; for m in $(PUBS_IWORD_BOOKS); do d=$(PUBS_DIR)/manuals/$$m/flair; [ -f $$d/FLAIRSHOTS ] || continue; \
 		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PUBS_PPM_GREY) \
 			$$d/FLAIRSHOTS $(PUBS_BUILD)/flair/$$m spec/flair_iword_traces.mk FLAIR_IWORD_TYPE_SPEC; \
 		mkdir -p fixtures/pubs/$$m; cp -f $(PUBS_BUILD)/flair/$$m/*.png fixtures/pubs/$$m/; \
-		printf '>>> pubs-flair-screens: fixtures/pubs/%s updated -- review the figures\n' "$$m"; done
+		printf '>>> pubs-iword-flair-screens: fixtures/pubs/%s updated -- review the figures\n' "$$m"; done
+# The FLAIR manuals' inventory, captures and gates (bead initech-ipu5.11).
+include $(PUBS_DIR)/flair.mk

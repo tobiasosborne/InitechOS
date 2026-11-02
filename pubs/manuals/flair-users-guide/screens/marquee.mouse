@@ -1,0 +1,19 @@
+# marquee: icons selected by dragging a rectangle round them.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102)
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90)
+l1,l0
+# go (20,70) a bare point left of the first icon row
+m-100:-20,m-100:0,m-100:0,m-52:0
+# drag (20,70) -> (160,150) round the first two rows' first two icons
+l1,m100:80,m40:0,l0
+# go (500,428) 
+m100:100,m100:100,m100:78,m40:0

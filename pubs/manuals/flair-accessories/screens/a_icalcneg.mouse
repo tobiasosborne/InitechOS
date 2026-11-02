@@ -1,0 +1,30 @@
+# a_icalcneg: -570 typed in the second row of column B.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102)
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90)
+l1,l0
+# go (111,134) CALC.EXE
+m-100:44,m-100:0,m-61:0
+# double-click at (111,134)
+l1,l0,l1,l0
+WTENANT-REGISTER
+# go (500,456) 
+m100:100,m100:100,m100:100,m89:22
+# key right
+kright,w80
+# key down
+kdown,w80
+# type "-570" (80 ms between keys: a loaded host drops typeahead)
+kminus,w80,k5,w80,k7,w80,k0,w80
+# key tab
+ktab,w80
+# go (500,463) 
+m0:7

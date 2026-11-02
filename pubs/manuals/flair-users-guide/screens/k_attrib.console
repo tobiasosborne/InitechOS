@@ -1,0 +1,25 @@
+A:\>ATTRIB +R README.TXT
+A:\>ATTRIB README.TXT
+R  A     A:\README.TXT
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

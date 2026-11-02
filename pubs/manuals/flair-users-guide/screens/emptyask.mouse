@@ -1,0 +1,18 @@
+# emptyask: Empty Trash after README.TXT was thrown away.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (55,102) README.TXT
+m-100:38,m-100:0,m-100:0,m-100:0,m-100:0,m-45:0
+# drag (55,102) -> (600,420) onto the Trash icon
+l1,m100:100,m100:100,m100:100,m100:18,m100:0,m45:0,l0
+# go (199,30) Special
+m-100:-100,m-100:-100,m-100:-100,m-100:-90,m-1:0
+# press at (199,30)
+l1
+# hold (199,65) Empty Trash (Special row 2)
+m0:35
+# release at (199,65)
+l0
+w400

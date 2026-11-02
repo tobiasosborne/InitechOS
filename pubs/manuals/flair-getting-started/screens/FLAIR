@@ -1,0 +1,16 @@
+# FLAIR screen captures of this book (pubs/screens/flair_capture.sh):
+#   name|marker[#N]|crop[|proves]   crop = full | x,y,w,h | text;
+#   proves = the operation markers the trace must put on serial
+# The trace of each is <name>.mouse (qemu_harness --mouse tokens; the
+# comments derive every move).  The pointer starts at (320,240).  The
+# marker is a serial line the shell prints AFTER the screen is drawn
+# (FLAIR-CURSOR x= y=: os/milton/kmain.c "Marker is emitted AFTER the
+# final-LFB draw completes"; FLAIR-MENU-DROP: captured while the button is
+# held).  `make pubs-flair-screens` writes the captures; `make
+# test-pubs-flair-screens` re-captures and compares them byte for byte.
+g_desktop|FLAIR-CURSOR x=420 y=381|full
+g_rootwin|FLAIR-CURSOR x=500 y=460|full|FINDER-OPEN-VOLUME
+g_apps|FLAIR-CURSOR x=500 y=461|full|FINDER-OPEN-FOLDER
+g_text|FLAIR-CURSOR x=300 y=320|full|TENANT-LOAD
+g_shutdown|FLAIR-SHUTDOWN-SAFE|90,126,460,140
+g_nodisk|FLAIR-CURSOR x=420 y=382|380,0,260,120|FLAIR-FAT-MOUNT-FAIL|nodisk

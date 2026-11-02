@@ -1,0 +1,39 @@
+# textsaved: the document saved as MEMO.TXT.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102)
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90)
+l1,l0
+# go (179,134) TEXT.EXE
+m-100:44,m-93:0
+# double-click at (179,134)
+l1,l0,l1,l0
+WTENANT-REGISTER
+# go (300,300) 
+m100:100,m21:66
+# type "Memo" (80 ms between keys: a loaded host drops typeahead)
+kshift-m,w80,ke,w80,km,w80,ko,w80
+# go (53,30) File
+m-100:-100,m-100:-100,m-47:-70
+# press at (53,30)
+l1
+# hold (53,103) Save
+m0:73
+# release at (53,103)
+l0
+w400
+kbackspace,kbackspace,kbackspace,kbackspace,kbackspace,kbackspace,kbackspace,kbackspace
+# type "memo.txt" (80 ms between keys: a loaded host drops typeahead)
+km,w80,ke,w80,km,w80,ko,w80,kdot,w80,kt,w80,kx,w80,kt,w80
+# key ret
+kret,w80
+w600
+# go (300,303) 
+m100:100,m100:100,m47:0

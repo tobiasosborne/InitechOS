@@ -1,0 +1,12 @@
+# calcda: the Calculator, chosen from the Apple menu.
+# go (22,10) the apple in the upper menu bar
+m-100:-100,m-100:-100,m-98:-30
+# press at (22,10)
+l1
+# hold (22,51) Calculator (Apple row 3: About 21-37, divider 37-43, Calculator 43-59)
+m0:41
+# release at (22,51)
+l0
+WTENANT-REGISTER
+# go (500,434) 
+m100:100,m100:100,m100:100,m100:83,m78:0

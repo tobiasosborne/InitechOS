@@ -1,0 +1,49 @@
+% Chapter 6 -- Taking Care of Your Work.  Sources (Law 1): os/milton/kmain.c
+% (Shut Down, Restart and Exit to InitechDOS commit DESKTOP.DB and ask the
+% open application to quit; nothing else writes the desktop arrangement on
+% a power loss); os/flair/finder_ops.c (the Trash moves, Empty Trash
+% deletes); os/apps/itext/itext.c (an unsaved document lives in memory
+% only); the InitechDOS books for COPY and XCOPY.
+% GATES: test-flair-shutdown test-flair-empty-trash test-flair-itext test-desktop-db
+\Gates{test-flair-shutdown, test-flair-empty-trash, test-flair-itext,
+  test-desktop-db}
+\chapter{Taking Care of Your Work}
+
+A few habits protect the documents you make with FLAIR.
+
+\section{Save often}
+\index{saving}
+A document you are working on lives in the computer's memory until you save
+it.  If the computer is turned off, or an application stops working, what
+you have not saved is lost.  Save with \key{Ctrl-S} every few minutes, and
+always before you leave your desk.
+
+\section{Shut down before you turn off}
+\index{shutting down}
+Choose \menuitem{Shut Down} from the Finder's \menuname{Special} menu and
+wait for the message that it is safe to switch off.  Shut Down asks the
+open application to save your work and records the arrangement of your
+desktop on the data disk.  Turning the computer off without it loses both.
+
+\section{Look in the Trash before you empty it}
+\index{Trash}
+What you drag to the Trash is only put aside.  \menuitem{Empty Trash}
+deletes it for good.  Double-click the Trash and check its window before
+you empty it.
+
+\section{Keep copies of your disks}
+\index{backup copies}
+Keep a copy of your data disk, and bring it up to date at the end of each
+day.  Leave FLAIR with \menuitem{Exit to InitechDOS} and copy your files
+with the \file{COPY} or \file{XCOPY} command; the \doctitle{InitechDOS
+User's Guide} shows you how.  Store the copies away from the computer.
+
+\section{Handling disks}
+\index{disks, handling}
+\begin{itemize}
+\item Keep disks away from magnets, telephones, displays and heat.
+\item Do not touch the surface of a disk, and do not bend it.
+\item Remove a disk from its drive only when the computer is turned off.
+\item Label each disk, and write on the label before you put it on the
+  disk.
+\end{itemize}

@@ -1,0 +1,62 @@
+% Chapter 5b -- Control Panels, Note Pad and Scrapbook.  Sources (Law 1):
+% os/apps/cpanels/core.c (the six panel names, controls and labels),
+% spec/cpanels_record.h (the settings and the file \CPANELS.DAT),
+% os/apps/notepad/notepad.c + spec/notepad/store.h (eight Note Pad pages,
+% 32 Scrapbook pages of text, 1024 characters each; NOTEPAD.DAT,
+% SCRAPBK.DAT), spec/apple_menu_items.h (the Apple menu rows).
+% Merged onto the tree where these three accessories already ship; written
+% from the source, NOT yet driven in the emulator for this book, so no
+% figures and the Apple-menu entries in the User's Guide carry the DRAFT
+% marker (D-14).  Rule 14 clips of the accessories: spec/flair_cpanels_traces.mk,
+% spec/flair_notepad_traces.mk.
+% GATES: test-pubs-flair
+\Gates{test-pubs-flair}
+\chapter{Control Panels, Note Pad and Scrapbook}
+\label{ch:moreacc}
+\index{Control Panels}\index{Note Pad}\index{Scrapbook}
+
+Three more accessories are in the Apple menu of the data disk as delivered.
+Like the Calculator, each is listed only while its program is in the
+\file{APPS} folder, and none opens while another application from the disk
+is open.
+
+\section{Control Panels}
+Choose \menuitem{Control Panels} from the Apple menu.  A window lists five
+panels: \texttt{Date \& Time}, \texttt{Desktop Patterns}, \texttt{Mouse},
+\texttt{Sound} and \texttt{Memory}.  Click the name of a panel to open it.
+Every panel but \texttt{Memory} has an \texttt{OK} button, which keeps what
+you set and saves it on the disk in the file \file{CPANELS.DAT}, and a
+\texttt{Cancel} button, which puts everything back as it was.  If FLAIR
+cannot save the settings, the panel says \texttt{Settings could not be
+saved.}
+
+\SideHead{Date \& Time}Sets the hour and minute, the day, the month and the
+year with arrow buttons, and has a \texttt{Menu Bar Clock} choice that shows
+or hides the clock at the right of the menu bar.
+
+\SideHead{Desktop Patterns}Nine choices for the pattern of the desktop:
+\texttt{Teal solid}, \texttt{Black}, \texttt{Dark stipple}, \texttt{Stipple},
+\texttt{Gray}, \texttt{Rows}, \texttt{Columns}, \texttt{Diagonal} and
+\texttt{Lines}.
+
+\SideHead{Mouse}\texttt{Tracking Speed} and \texttt{Double-Click Speed}, each
+\texttt{Slow}, \texttt{Normal} or \texttt{Fast}.
+
+\SideHead{Sound}\texttt{Alert Sound} (\texttt{Beep}, \texttt{Bell} or
+\texttt{Click}) and \texttt{Beep Length} (\texttt{Silent}, \texttt{Short} or
+\texttt{Full}), with a \texttt{Test} button.
+
+\SideHead{Memory}Shows \texttt{Built-in Memory}, \texttt{System},
+\texttt{Largest Unused Block} and \texttt{Disk Cache}, in kilobytes, and
+\texttt{Virtual Memory: Off}.  Nothing in this panel can be changed.
+
+\section{Note Pad}
+Note Pad keeps up to eight pages of text, each of at most 1024 characters,
+in the file \file{NOTEPAD.DAT}.  Type into the page in front; Note Pad asks
+whether to save before it closes.
+
+\section{Scrapbook}
+Scrapbook keeps up to 32 pieces of text, each of at most 1024 characters, in
+the file \file{SCRAPBK.DAT}.  It keeps text only.  When it is full, or a
+piece is too large, it says \texttt{The Scrapbook is full, or this clip is
+too large.}
