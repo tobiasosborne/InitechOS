@@ -348,20 +348,27 @@ int main(void)
               "AH=4Bh nested EXEC returns AX=0x0008 (deferred; guarded)");
     }
 
-    /* --- AH=4Bh AL=03h (load overlay) + other subfunctions -> CF=1, AX=0x0001
-     *     (invalid function); out of scope this milestone. -------------------- */
+    /* --- AH=4Bh subfunctions other than 00h/03h -> CF=1, AX=0x0001 (invalid
+     *     function; IBM DOS 3.30 TR p. 6-196 lists only 00H and 03H). AL=03h
+     *     LOAD OVERLAY itself is graded by test_overlay.c (ADR-0003 Amendment
+     *     DEC-19); here it must at least never reach the EXEC backend. ------- */
     {
         exec_reset(0u, 0u);
         uint32_t edx = low_dup("GREET.COM");
         CHECK(edx != 0u, "low_dup overlay-case buffer");
         int_frame_t f = fresh_frame();
+        f.eax = 0x4B02u;          /* AH=4Bh, AL=02h (not a DOS 3.30 subfunction) */
+        f.edx = edx;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=4Bh AL=02h sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
+              "AH=4Bh AL=02h returns AX=0x0001 (invalid function)");
+        CHECK(g_exec_called == 0, "AH=4Bh AL=02h does not call the load backend");
+        f = fresh_frame();
         f.eax = 0x4B03u;          /* AH=4Bh, AL=03h (load overlay) */
         f.edx = edx;
         int21_dispatch(&f);
-        CHECK(frame_cf(&f) == 1, "AH=4Bh AL=03h sets CF");
-        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
-              "AH=4Bh AL=03h (overlay) returns AX=0x0001 (out of scope)");
-        CHECK(g_exec_called == 0, "AH=4Bh overlay does not call the load backend");
+        CHECK(g_exec_called == 0, "AH=4Bh AL=03h never calls the EXEC backend");
     }
 
     /* --- No backend bound (NULL) -> AH=4Bh returns file-not-found (Rule 2:

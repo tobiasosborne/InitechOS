@@ -417,3 +417,23 @@ uint32_t mcb_keep_all(mcb_arena_t *a, uint16_t owner)
         para += 1u + h->size_paras;
     }
 }
+
+/* See mcb.h (ADR-0003 Amendment DEC-19.4). One read-only walk; a corrupt chain
+ * owns nothing (Rule 2: the overlay load is refused, never guessed). */
+int mcb_owned_block(const mcb_arena_t *a, uint16_t owner, uint32_t off,
+                    uint32_t *out_end)
+{
+    uint32_t para = 0u;
+    if (owner == MCB_OWNER_FREE || !mcb_chain_intact(a)) return 0;
+    for (;;) {
+        const mcb_t *h = mcb_hdr(a, para);
+        uint32_t lo = (para + 1u) * MCB_PARA;
+        uint32_t hi = lo + (uint32_t)h->size_paras * MCB_PARA;
+        if (h->owner == owner && off >= lo && off < hi) {
+            *out_end = hi;
+            return 1;
+        }
+        if (h->signature == MCB_SIG_TERMINAL) return 0;
+        para += 1u + h->size_paras;
+    }
+}

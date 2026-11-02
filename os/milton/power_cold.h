@@ -28,6 +28,8 @@ int int21_absdisk_write(uint32_t lba, uint32_t count, const void *buf);
 uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
                              const char *cmd_tail, uint32_t cmd_tail_len,
                              uint32_t env_block, uint8_t *out_rc);
+uint16_t loader_overlay_by_name(const char *name83, uint16_t dir_start,
+                                uint32_t load_addr, uint32_t reloc_factor);
 extern void (*g_transient_exec_secondary)(const char *tail, uint32_t len);
 void serial_puthex32(uint32_t v);
 uint32_t kernel_image_end(void);        /* _kernel_end (a linker symbol) */

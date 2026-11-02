@@ -64,7 +64,11 @@ typedef enum loader_status {
                               * Fail loud (Rule 2) -- do NOT run garbage. */
     /* Disk-launched FLAIR tenant load (bead initech-tdnl.14; DEC-AC3-1): the
      * caller's heap carve for the code block failed (BC-5 fail-loud budget). */
-    LOADER_ERR_NOMEM
+    LOADER_ERR_NOMEM,
+    /* AH=4Bh AL=03h LOAD OVERLAY (ADR-0003 Amendment DEC-19.4): the overlay
+     * footprint is not wholly inside memory the caller owns. Nothing was
+     * written to the destination; maps to DOS 0009h at the kmain seam. */
+    LOADER_ERR_NOT_OWNED
 } loader_status_t;
 
 /* Native flat EXEC context, not a scheduler (PRD Sec 2; ADR-0003 DEC-08).
@@ -398,5 +402,74 @@ typedef void *(*loader_carve_fn)(uint32_t len, void *user);
 loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
                                    loader_carve_fn carve, void *user,
                                    void **out_block, tenant_plan_t *out);
+
+/* ------------------------------------------------------------------------ *
+ * AH=4Bh AL=03h LOAD OVERLAY (ADR-0003 Amendment DEC-19, un-deferring
+ * DEC-08a.7). IBM DOS 3.30 TR p. 6-196: "Load, do not create the program
+ * segment prefix, and do not begin execution"; p. 6-197: the caller supplies
+ * the load segment and "relocation factor to be applied to the image";
+ * p. 11-5: no PSP, no memory allocation. The DEC-08a machinery EXTENDS here:
+ * the same mz_parse_header / mz_apply_relocs, with the caller's factor as the
+ * base the flat dwords are added to.
+ *
+ * `rd(ctx, off, len, dst)` reads exactly `len` file bytes at `off` into `dst`
+ * (0 = ok). `owns(linear, len)` is the DEC-19.4 destination check
+ * (int21_overlay_dest_ok on the kernel; a fixed window in the host oracle).
+ * `dest` is where the bytes go and `load_linear` its flat address (the same
+ * number on the kernel; the host oracle passes a fake linear, as
+ * loader_prepare_tenant does). `check(ctx)` proves the complete declared file
+ * has a valid backing extent (0 = valid); the kernel walks the cached FAT
+ * through EOC without reading data sectors. `scratch` is >= LOADER_OVL_SCRATCH
+ * bytes. There is no module-sized staging. The kernel reuses its existing two
+ * 512-byte FAT buffers (1024 bytes total; table/header share one of them).
+ * The reader must keep the file, entry and FAT stable for this non-reentrant
+ * call. After a successful check, a failed read denotes a device I/O error;
+ * changed bytes in a repeated relocation table are an invariant violation.
+ *
+ *   - First min(file_len, 1Eh) bytes into scratch; 'MZ'/'ZM' (DEC-08a.4)
+ *     selects the InitechMZ path (mz_parse_header reads only bytes [0,1Eh)):
+ *       untagged MZ (MZ_ERR_FOREIGN) -> LOADER_ERR_FOREIGN_MZ (the KERNEL
+ *         caller PANICS, DEC-08a.5 -- exactly as AL=00h);
+ *       any other parse error         -> LOADER_ERR_BAD_FORMAT;
+ *       footprint = load_module_len   (the header and relocation table are
+ *         never written; e_minalloc/e_maxalloc/e_cs:e_ip/e_ss:e_sp are
+ *         ignored -- nothing is allocated or run).
+ *     Otherwise the file is RAW: footprint = file_len, copied verbatim, the
+ *     factor ignored.
+ *   - owns(load_linear, footprint) == 0 -> LOADER_ERR_NOT_OWNED.
+ *   - check(ctx) != 0 -> LOADER_ERR_READ; whole dest untouched.
+ *   - Validate ALL relocation offsets, streaming chunks through scratch.
+ *     Bad offset -> LOADER_ERR_BAD_FORMAT, whole dest untouched.
+ *   - Recheck owns, then stream the module directly into dest and reread the
+ *     validated table to apply the factor. A device read error during copy or
+ *     fixup I/O returns LOADER_ERR_READ with dest possibly partially changed.
+ *     ALL validation refusals precede every write. *out_len is unchanged on
+ *     any refusal, and is the footprint on LOADER_OK. Ref: PM ruling on
+ *     cb3c7910 (initech-f9t); DEC-19 pending-ratification notes.
+ *
+ * MUTATION hooks (Rule 6): LOADER_MUTATE_OVL_NO_FACTOR (the factor is never
+ * applied), LOADER_MUTATE_OVL_ACCEPT_FOREIGN (an untagged MZ is copied as a
+ * raw file instead of refused), LOADER_MUTATE_OVL_COPY_FIRST (copy before
+ * validating fixups, violating validation's whole-destination invariant). */
+#define LOADER_OVL_SCRATCH 256u
+typedef int (*loader_ovl_read_fn)(void *ctx, uint32_t off, uint32_t len,
+                                  uint8_t *dst);
+typedef int (*loader_ovl_owns_fn)(uint32_t linear, uint32_t len);
+typedef int (*loader_ovl_check_fn)(void *ctx);
+loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
+                                    uint32_t file_len, uint8_t *dest,
+                                    uint32_t load_linear, uint32_t reloc_factor,
+                                    loader_ovl_owns_fn owns,
+                                    loader_ovl_check_fn check, uint8_t *scratch,
+                                    uint32_t *out_len);
+
+/* loader_load_overlay -- KERNEL: locate `name83` in `dir_start` (0 == root)
+ * on the bound volume exactly as load_program_from_fat does, then
+ * loader_overlay_core with dest == load_linear. A foreign MZ PANICS
+ * (DEC-08a.5). No EXEC frame, PSP, arena or hook is touched. Hosted build: a
+ * stub returning LOADER_ERR_NO_VOLUME (the oracle drives the core). */
+loader_status_t loader_load_overlay(const char *name83, uint16_t dir_start,
+                                    uint32_t load_linear, uint32_t reloc_factor,
+                                    loader_ovl_owns_fn owns);
 
 #endif /* INITECH_LOADER_H */

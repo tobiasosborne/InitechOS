@@ -458,6 +458,7 @@ static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *
      * needed -- AH=4Bh EXEC through the loader, AH=25h/35h on the live IDT,
      * INT 25h/26h on the flagship volume's device (CHKDSK.COM lives in APPS). */
     int21_set_exec_backend(loader_exec_by_name);
+    int21_set_overlay_backend(loader_overlay_by_name);   /* AH=4Bh AL=03h, DEC-19 */
     int21_set_vectortable(int21_setvect_idt, int21_getvect_idt);
     if (g_finder_vol != (const fat12_volume_t *)0 && g_absdisk_vol.dev != 0) {
         int21_absdisk_backend_t absdisk;

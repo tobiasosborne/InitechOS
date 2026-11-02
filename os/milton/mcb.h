@@ -135,4 +135,12 @@ int mcb_chain_intact(const mcb_arena_t *a);
  * Returns 1, or 0 (both 0) for a corrupt/empty chain. Bead initech-tdnl.47. */
 int mcb_stats(const mcb_arena_t *a, uint32_t *free_paras, uint32_t *largest_paras);
 
+/* AH=4Bh AL=03h destination ownership (ADR-0003 Amendment DEC-19.4; IBM DOS
+ * 3.30 TR p. 11-5). Arena-relative BYTE offset `off`: returns 1 iff it lies in
+ * the DATA area (never a header) of a block whose owner is `owner`, writing
+ * that block's data end (exclusive, arena-relative bytes) to *out_end. 0 for a
+ * FREE owner, an unowned/header/foreign offset, or a corrupt chain. Read-only. */
+int mcb_owned_block(const mcb_arena_t *a, uint16_t owner, uint32_t off,
+                    uint32_t *out_end);
+
 #endif /* INITECH_OS_MCB_H */
