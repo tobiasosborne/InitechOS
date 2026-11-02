@@ -354,10 +354,24 @@ int main(int argc, char **argv)
             FLAIR_CANON_MENU_ITEM_6, FLAIR_CANON_MENU_ITEM_7 };
         MenuItem pair[2];
         static char store[2][64];
-        const char *p = find(k, "it[0] = (MenuItem)", "kmain.i HELLO item 0");
-        menu_item(p, &pair[0], store[0], "HELLO item 0");
-        p = find(k, "it[1] = (MenuItem)", "kmain.i HELLO item 1");
-        menu_item(p, &pair[1], store[1], "HELLO item 1");
+        /* kmain.c (FLAIR_LIVE_TENANTS) builds the pair with flair_demo_item()
+         * of os/apps/ref_demo_menu.h: `it[0]=flair_demo_item("New",'N');`,
+         * its enabled field FLAIR_DEMO_ITEMS_ENABLED (tdnl.79: demo actions
+         * the program lacks are dimmed).  Both read from the preprocessed
+         * source, never assumed. */
+        long en = 0, key = 0;
+        const char *p = find(k, "MenuItem it={text,0,key,0,", "kmain.i flair_demo_item body");
+        scalar(p, &en, "flair_demo_item enabled");
+        for (int i = 0; i < 2; i++) {
+            char needle[32];
+            snprintf(needle, sizeof needle, "it[%d]=flair_demo_item(", i);
+            p = find(k, needle, "kmain.i HELLO item");
+            p = cstring(p, store[i], 64, "HELLO item text");
+            p = skipws(p); if (*p++ != ',') die("HELLO item", "expected ,");
+            scalar(p, &key, "HELLO item key");
+            memset(&pair[i], 0, sizeof pair[i]);
+            pair[i].text = store[i]; pair[i].cmdChar = (char)key; pair[i].enabled = (uint8_t)en;
+        }
         for (int m = 0; m < FLAIR_CANON_PHOTOSHOP_MENU_COUNT; m++) {
             MenuInfo mi = { (int16_t)m, titles[m], pair, 2, 0 };
             walk_menu("HELLO", &mi, -1, NULL, 0);

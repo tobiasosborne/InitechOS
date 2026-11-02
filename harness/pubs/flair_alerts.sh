@@ -10,17 +10,18 @@
 # site); nothing here is typed text.  A pattern that stops matching is RED
 # (Rule 2): the source changed shape, and the manual must follow it.
 #
-#   kmain.c         the Locked notice (locked_text[]), the shut-down screen
+#   finder_actions.c  the Locked notice (locked_text[])
+#   kmain.c         the shut-down screen
 #                   (finder_shutdown_screen text[]), About This Computer
 #                   (BANNER_LINE1), Standard File's Replace question (pre)
-#   finder_windows.c  Empty Trash (the fw_cat prefix) and Exit to InitechDOS
+#   finder_windows_cold.c  Empty Trash (the fw_cat prefix) and Exit to InitechDOS
 #                   (fw_alert_wrap)
 #   dialog.h        the FILE COPY box: its title and its message
 #   itext.c         InitechText: every say() notice, the Save changes
 #                   question (a), the Save As prompt (tbx_sf_putfile)
 # Thin shell (Law 3).  ASCII-clean (Rule 12).
 set -eu
-k=os/milton/kmain.c; w=os/flair/finder_windows.c; d=os/flair/dialog.h; t=os/apps/itext/itext.c
+k=os/milton/kmain.c; fa=os/milton/finder_actions.c; w=os/flair/finder_windows_cold.c; d=os/flair/dialog.h; t=os/apps/itext/itext.c
 emit() {
     [ -n "$1" ] || { printf '!!! test-pubs RED FLAIR-INVENTORY: alert pattern %s matched nothing\n' "$2" >&2; exit 1; }
     printf '%s\n' "$1" | sed 's/  */ /g; s/ *$//; s/$/|alert/'
@@ -29,8 +30,8 @@ emit() {
 # spaces collapsed: "InitechDOS  Version 3.30" is keyed with one space.)
 # the first string literal on the line after a matched line
 after() { sed -n "/$2/{n;p;q}" "$1" | sed -n 's/^[^"]*"\([^"]*\)".*/\1/p'; }
-emit "$(after $k 'locked_text\[3\] = {')" locked_text
-emit "$(sed -n '/^static int finder_shutdown_screen/,/^}/p' $k | after /dev/stdin 'text\[3\] = {')" shutdown
+emit "$(after $fa 'locked_text\[3\] = {')" locked_text
+emit "$(sed -n '/^static .*int finder_shutdown_screen/,/^}/p' $k | after /dev/stdin 'text\[3\] = {')" shutdown
 emit "$(sed -n 's/^#define BANNER_LINE1 "\(.*\)"$/\1/p' $k)" BANNER_LINE1
 emit "$(sed -n 's/.*const char \*pre = "\(Replace existing\) .*/\1/p' $k)" replace
 emit "$(sed -n 's/.*fw_cat(msg, n, "\(The Trash contains\) ");.*/\1/p' $w)" trash

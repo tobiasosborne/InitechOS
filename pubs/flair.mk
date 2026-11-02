@@ -89,7 +89,7 @@ $(BUILD)/pubs_flair_app_%: harness/pubs/flair_app_menus.c os/apps/tbx/tbx.h spec
 # The flagship kernel's kmain.c, preprocessed with ITS -D set (the
 # $(KERNEL_FLAIRTENANTS_MAIN_OBJ) recipe): the SYSTEM titles, HELLO's items
 # and the NOTES bar are kmain data.
-pubs-flair-inventory: $(PUBS_FLAIR_INV) $(foreach a,$(PUBS_FLAIR_APPS),$(BUILD)/pubs_flair_app_$(basename $(notdir $(a))))
+pubs-flair-inventory: $(DOS_MESSAGES_H) $(PUBS_FLAIR_INV) $(foreach a,$(PUBS_FLAIR_APPS),$(BUILD)/pubs_flair_app_$(basename $(notdir $(a))))
 	@mkdir -p $(PUBS_CHECK)
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) -E -P -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair \
 		-Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -Ibuild $(KERNEL_MAIN_C) -o $(PUBS_FLAIR_KMAIN)
