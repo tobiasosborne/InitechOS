@@ -10,7 +10,8 @@
  * the bounded-life halt (finder_shutdown_life_check: its tick and the
  * FLAIR_LIVE_INTERACTIVE build switch are kmain's), the locked banner lines
  * (exitdos_banner), the private boot-volume read shared with the overlay
- * manager (boot_root_find), and every code pointer stored in resident data
+ * manager (boot_root_find, reached through exitdos_root_find, which also
+ * carries the KMAIN_MUT_COMMAND_VOLUME knob), and every code pointer stored in resident data
  * (int21_exit_hook, loader_exec_by_name, the IDT and absolute-disk thunks:
  * resident functions, so no resident word ever points into the window).
  * Reached only from finder_outcome_run (COLD) through the event pump. */
@@ -369,10 +370,7 @@ static void (*exitdos_load_transient(void))(int)
     if (kernel_image_end() > TRANSIENT_BASE)
         exitdos_fail("the kernel overlaps the transient window",
                      kernel_image_end());
-#ifdef KMAIN_MUT_COMMAND_VOLUME
-    g_boot_slave = 1;
-#endif
-    rc = boot_root_find("COMMAND.COM", &command, &v);
+    rc = exitdos_root_find("COMMAND.COM", &command, &v);
     if (rc == 1) exitdos_fail("boot FAT mount failed", v);
     if (rc == 2) exitdos_fail("boot FAT cluster too large", v);
     if (rc != 0) exitdos_fail("COMMAND.COM not found", v);

@@ -32,11 +32,10 @@ extern void (*g_transient_exec_secondary)(const char *tail, uint32_t len);
 void serial_puthex32(uint32_t v);
 uint32_t kernel_image_end(void);        /* _kernel_end (a linker symbol) */
 
-/* The private boot-volume read, shared with the overlay manager. */
+/* The private boot-volume read, shared with the overlay manager: COLD looks
+ * COMMAND.COM up through this resident wrapper, which also holds the
+ * KMAIN_MUT_COMMAND_VOLUME knob (the mutant kernel's own resident object). */
 extern fat12_volume_t g_boot_vol;
 extern uint8_t g_boot_cluster[4096];
-int boot_root_find(const char *name83, dir_entry_t *d, uint32_t *v);
-#if defined(KMAIN_MUT_COMMAND_VOLUME) || defined(OVL_MUT_DATA_VOLUME)
-extern int g_boot_slave;                /* MUTANT-only knob (Rule 6)         */
-#endif
+int exitdos_root_find(const char *name83, dir_entry_t *d, uint32_t *v);
 #endif

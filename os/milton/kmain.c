@@ -5219,9 +5219,9 @@ fat12_volume_t g_boot_vol;           /* COLD: exitdos_load_transient */
 static uint8_t g_boot_sector[512];
 uint8_t g_boot_cluster[4096];
 #if defined(KMAIN_MUT_COMMAND_VOLUME) || defined(OVL_MUT_DATA_VOLUME)
-int g_boot_slave;
+static int g_boot_slave;
 #endif
-int boot_root_find(const char *name83, dir_entry_t *d, uint32_t *v)
+static int boot_root_find(const char *name83, dir_entry_t *d, uint32_t *v)
 {
     static ata_ctx_t ata;
     static blockdev_t dev;
@@ -5472,6 +5472,18 @@ int flair_exit_teardown(const boot_info_t *bi)
         }
     }
     return 1;
+}
+
+/* COLD's COMMAND.COM lookup (power_cold.c exitdos_load_transient). The
+ * MUTANT knob stays here, resident, so the mutant kernel needs no import the
+ * production overlay lacks. KMAIN_MUT_COMMAND_VOLUME (Rule 6;
+ * test-command-file-emu-mutant): read the data volume, never C:. */
+int exitdos_root_find(const char *name83, dir_entry_t *d, uint32_t *v)
+{
+#ifdef KMAIN_MUT_COMMAND_VOLUME
+    g_boot_slave = 1;
+#endif
+    return boot_root_find(name83, d, v);
 }
 
 /* _kernel_end is a linker-script symbol, not an object's: the overlay's

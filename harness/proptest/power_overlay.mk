@@ -12,8 +12,10 @@
 #   no_pulse                 POWER_MUT_NO_PULSE          test-flair-restart-mutant
 #   power_silent_cancel      POWER_MUT_SILENT_CANCEL     test-flair-power-notice-mutant
 #   exit_no_teardown         KMAIN_MUT_EXIT_NO_TEARDOWN  test-flair-exit-to-dos-mutant
-#   command_volume/_magic/_message  KMAIN_MUT_COMMAND_*  test-command-file-emu-mutant
-OVL_POWER_TAGS := shutdown_gate_no_flush shutdown_gate_returns shutdown_gate_no_ask no_pulse power_silent_cancel exit_no_teardown command_volume command_magic command_message
+#   command_magic/_message   KMAIN_MUT_COMMAND_MAGIC/_MESSAGE  test-command-file-emu-mutant
+# (KMAIN_MUT_COMMAND_VOLUME lives in the resident kmain.c exitdos_root_find,
+# so that mutant needs no COLD import the production overlay lacks.)
+OVL_POWER_TAGS := shutdown_gate_no_flush shutdown_gate_returns shutdown_gate_no_ask no_pulse power_silent_cancel exit_no_teardown command_magic command_message
 $(foreach t,$(OVL_POWER_TAGS),$(eval $(call finder-ovl-object,power,$(t),os/milton/power_cold.c,$(POWER_COLD_DEPS),$(OVL_ACTION_FLAGS_$(t)))))
 $(foreach t,$(OVL_POWER_TAGS),$(eval $(call finder-ovl-kernel,kernel_flairtenants_mut_$(t),$(filter-out $(BUILD)/power_cold_ovl.o,$(OVL_SECTION_OBJS)) $(BUILD)/finder_power_ovl_$(t).o)))
 
