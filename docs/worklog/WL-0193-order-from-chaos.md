@@ -127,3 +127,23 @@ own appswitch-bochs run.
   tdnl.62, tdnl.106, 1z3o, 4sny, ipu5.11, ipu5.9.
 - Archive: ../initech-lane-archive/branches-2026-11-02/,
   delete-candidates-2026-11-02.txt, delete-remote-branches-2026-11-02.sh.
+
+## Session end state (operator time box)
+
+- test-pubs-flair-screens on main after the manuals merge: first run RED on one
+  screen only, u_doschk.console (CHKDSK total memory 118,160 -> 118,032 B on
+  today's kernels); re-minted (4d91fece). Every users-guide .grey and .console
+  capture compared byte-identical; the gate stops at the first drift, so the
+  Accessories, Getting Started and Quick Reference captures (40 figures) were
+  verified only on the lane's ca10414d base. The full re-run was started in
+  the background (build/pm-logs/laneD-test-pubs-flair-screens-2.log) and had
+  not finished when the session closed: read that log first next session.
+- initech-z8lca (three InitechBase pubs drifts): a Sonnet lane was still
+  running in ../initech-os-lane-pubsdrift (branch lane/pubsdrift) with two
+  commits on main 95a5229e: the Volume One text names SET HEADINGS (the full
+  option name; HEADING is a shortening), and three Volume One transcripts
+  re-minted for memo wrapping at MEMOWIDTH 50 graded against real III+ 1.1.
+  The gs-dir.txt screen drift was in progress. NOT merged; the clone is left
+  in place for the next session to merge and re-gate (test-pubs-tps,
+  test-pubs-examples, test-pubs-screens on main).
+- Not run on today's main: full `make test`, the sharded certificate, 86Box.
