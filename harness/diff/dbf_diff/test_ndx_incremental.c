@@ -46,8 +46,8 @@
  *   NDX_MUTATE_ZERO_SEP_LEAF         a 0-separator branch read as an empty leaf
  *   NDX_MUTATE_DELETE_NOSPAN         delete stops in the first equal-key leaf
  *
- * ASCII-clean (Rule 12). Builds land in build/ndx_incr/ (Rule 11: no host
- * path is written into an artifact). Goldens are opened read-only.
+ * ASCII-clean (Rule 12). Each binary has its own NDX_INCR_OUT scratch path
+ * (Rule 11: no host path is written into an artifact). Goldens are read-only.
  */
 
 #include "../../oracle_policy.h"
@@ -252,7 +252,10 @@ static void mov(ndx_index *ix, uint16_t w, uint32_t from, uint32_t to, uint32_t 
     CHECK(rc == NDX_OK, g_msg);
 }
 
-#define OUT "build/ndx_incr"
+#ifndef NDX_INCR_OUT
+#define NDX_INCR_OUT "build/ndx_incr"
+#endif
+#define OUT NDX_INCR_OUT
 
 /* Close (flush) our index, grade it, reopen it read-write: the mint scripts
  * also closed the index (USE) before every COPY FILE snapshot. */
