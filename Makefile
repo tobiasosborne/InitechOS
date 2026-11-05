@@ -2766,6 +2766,35 @@ test-ndx-multilevel-mutant: $(TEST_NDX_ML_MUT)
 		printf '>>> test-ndx-multilevel-mutant: green (2-level ceiling revert correctly RED)\n'; \
 	fi
 
+# ---- Multi-level incremental NDX vs real III+ snapshots (initech-7tj3) ----
+# Independent M006A..D.PRG snapshots; compare meaningful bytes at every page
+# reachable from the golden root, including root growth and file geometry.
+TEST_NDX_INCR      := $(BUILD)/test_ndx_incremental
+TEST_NDX_INCR_SRC  := $(DBF_DIFF_DIR)/test_ndx_incremental.c
+TEST_NDX_INCR_ENG  := $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+NDX_INCR_MUTANTS   := LEAF_SPLIT_LOW:I01.NDX BULK_NO_ELIDE:B021.NDX DELETE_NO_SEP_UPDATE:D09.NDX ZERO_SEP_LEAF:E02_in-order
+$(TEST_NDX_INCR): $(TEST_NDX_INCR_SRC) $(ORACLE_POLICY_H) $(TEST_NDX_INCR_ENG) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(TEST_NDX_INCR_SRC) $(TEST_NDX_INCR_ENG)
+$(BUILD)/test_ndx_incremental_mut_%: $(TEST_NDX_INCR_SRC) $(ORACLE_POLICY_H) $(TEST_NDX_INCR_ENG) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(TEST_NDX_INCR_SRC) $(TEST_NDX_INCR_ENG)
+.PHONY: test-ndx-incremental test-ndx-incremental-mutant
+test-ndx-incremental: $(TEST_NDX_INCR)
+	@cd "$(DBASE3_DECOMP)/mint/work" && sha256sum --quiet -c "$(abspath $(DBF_DIFF_DIR)/ndx_incremental.sha256)"
+	@printf '>>> test-ndx-incremental: multi-level build/insert/REPLACE vs real III+ snapshot bytes (initech-7tj3)\n'
+	@$(TEST_NDX_INCR) "$(DBASE3_DECOMP)"
+	@printf '>>> test-ndx-incremental: green\n'
+test-ndx-incremental-mutant: $(foreach m,$(NDX_INCR_MUTANTS),$(BUILD)/test_ndx_incremental_mut_$(firstword $(subst :, ,$(m))))
+	@set -e; for pair in $(NDX_INCR_MUTANTS); do \
+		m=$${pair%%:*}; why=$$(printf '%s' "$${pair#*:}" | tr '_' ' '); bin=$(BUILD)/test_ndx_incremental_mut_$$m; \
+		set +e; $$bin "$(DBASE3_DECOMP)" > $$bin.log 2>&1; rc=$$?; set -e; \
+		test $$rc -eq 1 && grep -Eq '^test-ndx-incremental: [0-9]+ checks, [1-9][0-9]* failures$$' $$bin.log \
+		  || { tail -5 $$bin.log; printf '!!! incremental mutant %s did not fail with a test summary\n' "$$m"; exit 1; }; \
+		grep -q "^FIRST RED $$why" $$bin.log \
+		  || { grep 'FIRST RED' $$bin.log; printf '!!! incremental mutant %s: expected first RED %s\n' "$$m" "$$why"; exit 1; }; \
+		printf '>>> NDX_MUTATE_%s RED: %s\n' "$$m" "$$(grep -m1 '^FIRST RED' $$bin.log)"; \
+	done
+	@printf '>>> test-ndx-incremental-mutant: green (four named mutants RED)\n'
+
 # ---- SAMIR Phase-4 index: incremental maintenance (S4.5 / initech-ahu.5) ----
 # ndx_open_rw + ndx_insert_key/ndx_update_key/ndx_delete_key keep an open index
 # correct after APPEND/REPLACE: post-insert SEEK + in-order stay correct (BEHAVIORAL;
@@ -30738,6 +30767,7 @@ TEST_UNIT_GATES := \
 	test-ndx-build test-ndx-build-mutant \
 	test-dbase-corpus-pristine test-dbase-corpus-pristine-mutant \
 	test-ndx-multilevel test-ndx-multilevel-mutant \
+	test-ndx-incremental test-ndx-incremental-mutant \
 	test-ndx-maintain test-ndx-maintain-mutant test-ndx-maintain-span-mutant \
 	test-ndx-pack test-ndx-pack-mutant \
 	test-dbt-read test-dbt-read-mutant \
