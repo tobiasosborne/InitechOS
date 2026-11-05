@@ -38,6 +38,36 @@ PUBS_TURBO_REPLAY_ENV = TPS_BIN=$(TPS_LEX_FPC_BIN) SEED_BIN=$(SEED_BIN) NASM=$(N
 	OBJCOPY=$(OBJCOPY) SEED_RT_OBJ=$(SEED_RT_OBJ) SEED_DOS_RT_OBJ=$(SEED_DOS_RT_OBJ) \
 	SEED_FILEIO_RT_OBJ=$(SEED_FILEIO_RT_OBJ) SEED_RT_LD=$(SEED_RT_LD) SEED_DOS_LD=$(SEED_DOS_LD) \
 	HARNESS_BIN=$(HARNESS_BIN) TRACER_IMG=$(SECONDARY_TRACER_IMG) GATE=$(PUBS_TURBO_GATE) MAKE="$(MAKE)"
+PUBS_TURBO_MAKE_CMDS := $(wildcard $(PUBS_DIR)/manuals/turbo-initech-*/examples/*.cmd)
+PUBS_TURBO_MAKE_DIR := $(PUBS_TURBO_DIR)/make
+PUBS_TURBO_REPLAY_ENV += MAKE_REPLAY=$(PUBS_TURBO_MAKE_DIR)
+PUBS_TURBO_MAKE_OUTPUTS := $(patsubst $(PUBS_DIR)/manuals/%.cmd,$(PUBS_TURBO_MAKE_DIR)/%.txt,$(PUBS_TURBO_MAKE_CMDS))
+
+# initech-lroek / PUB-REF-0001 GC-03: printed make transcripts have their
+# own producers and BUILD trees. Re-entering the parent's compiler gates
+# from turbo_replay.sh raced their rm/compile/image recipes under test-par.
+# The recorded command is sequential so its stdout has the printed order;
+# the surrounding gate vector and these independent producers stay parallel.
+.PHONY: pubs-turbo-make-force test-pubs-turbo-inputs
+pubs-turbo-make-force:
+define pubs-turbo-make-transcript
+$(patsubst $(PUBS_DIR)/manuals/%.cmd,$(PUBS_TURBO_MAKE_DIR)/%.txt,$(1)): $(1) pubs-turbo-make-force
+	@mkdir -p $$(dir $$@)
+	@set -eu; target=$$$$(cat $$<); \
+	 cp -f $$< $$@.cmd; \
+	 for pass in warm capture; do \
+	   LC_ALL=C $$(MAKE) --no-print-directory -j1 -o $$(PALETTE_H) BUILD=$$(BUILD)/pubs-replay-$(notdir $(basename $(1))) $$$$target > $$@.$$$$pass.log 2>&1 \
+	     || { cat $$@.$$$$pass.log; exit 1; }; \
+	 done; \
+	 grep -E '^(>>> |!!! |[a-z_]+_pass_rate=)' $$@.capture.log > $$@
+endef
+$(foreach cmd,$(PUBS_TURBO_MAKE_CMDS),$(eval $(call pubs-turbo-make-transcript,$(cmd))))
+test-pubs-turbo-inputs: $(PUBS_TURBO_MAKE_OUTPUTS)
+	@set -eu; for cmd in $(PUBS_TURBO_MAKE_CMDS); do \
+	 actual=$(PUBS_TURBO_MAKE_DIR)/$${cmd#$(PUBS_DIR)/manuals/}; \
+	 diff -u $${cmd%.cmd}.txt $${actual%.cmd}.txt; \
+	 done
+	@printf '>>> test-pubs-turbo-inputs: green (printed make transcripts produced in private build trees)\n'
 
 $(PUBS_TURBO_GATE): harness/pubs/turbo_gate.c seed/lexer.c seed/token.c seed/lexer.h seed/token.h | $(BUILD)
 	$(CC) $(CFLAGS) -Wno-format-truncation -Iseed -o $@ harness/pubs/turbo_gate.c seed/lexer.c seed/token.c
@@ -71,7 +101,8 @@ pubs test-pubs-build test-pubs-repro test-pubs-repro-mutant: pubs-turbo-gen
 test-pubs: test-pubs-turbo
 test-pubs-mutant: test-pubs-turbo-mutant
 PUBS_TURBO_GATE_DEPS := test-pubs-build pubs-inventory $(PUBS_TURBO_SHIPPED) $(PUBS_RAILROAD) $(HARNESS_BIN) \
-	$(SECONDARY_TRACER_IMG) $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT_OBJ)
+	$(SECONDARY_TRACER_IMG) $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(PUBS_TURBO_MAKE_OUTPUTS)
+test-pubs-turbo-inputs: $(filter-out test-pubs-build,$(PUBS_TURBO_GATE_DEPS))
 test-pubs-turbo: $(PUBS_TURBO_GATE_DEPS)
 	@printf '>>> test-pubs-turbo: the Turbo Initech manuals against the shipped compiler (initech-ipu5.12)\n'
 	@test -n "$(PUBS_TURBO_BOOKS)" || { printf '!!! test-pubs RED TPS-BOOKS: no pubs/manuals/turbo-initech-*/main.tex\n'; exit 1; }
