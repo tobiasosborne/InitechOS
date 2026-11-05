@@ -938,6 +938,7 @@ KMAIN_OVL_IMPORTED uint16_t loader_exec_by_name(const char *name83, uint16_t dir
             return INT21_ERR_FILE_NOT_FOUND;    /* 0x0002 */
         case LOADER_ERR_BUSY:
         case LOADER_ERR_NOMEM:
+        case LOADER_ERR_FIXED_BASE:
             return INT21_ERR_INSUFFICIENT_MEM;  /* 0x0008 -- depth/arena exhausted */
         case LOADER_ERR_TOO_BIG:
         case LOADER_ERR_ZERO_LEN:

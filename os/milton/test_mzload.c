@@ -389,5 +389,32 @@ int main(int argc, char **argv)
               ".COM image_src points at the caller's bytes (baked .COM copy path)");
     }
 
+    /* h4bk: explicit flat placement above a KEEP'd resident. Independent
+     * numeric expectations: nonzero entry, real flat dword fixup, dynamic
+     * disjoint heap, and minalloc that fits canonically but not up here.
+     * Ref: DEC-08a.1/.3; ADR-0009 DEC-04; memory_map.h. */
+    for (unsigned shortage = 0; shortage < 2; shortage++) {
+        uint8_t img[0x64];
+        loader_plan_t plan;
+        memset(img, 0, sizeof img);
+        build_hdr(img, 1u, 0x60u, shortage ? 0x1000u : 0u, 0xFFFFu,
+                  0u, 0u, 0u, 3u, MZ_INITECH_TAG, 0x60u);
+        put32(img, 0x28u, 0x1234u);
+        put32(img, 0x60u, 8u);
+        loader_status_t st = loader_prepare_mz_at(img, sizeof img, 0, 0,
+                                                  0x50100u, 0x6F000u, &plan);
+        CHECK(st == (shortage ? LOADER_ERR_NOMEM : LOADER_OK),
+              "h4bk: relocated MZ minalloc uses actual remaining memory");
+        if (!shortage && st == LOADER_OK) {
+            CHECK(get32(img, 8u) == 0x51334u,
+                  "h4bk: flat fixup uses actual 0x50100 load base");
+            CHECK(plan.psp_addr == 0x50000u && plan.image_dst == 0x50100u &&
+                  plan.entry == 0x50103u && plan.image_src == 0,
+                  "h4bk: relocated PSP, image, nonzero entry and in-place plan");
+            CHECK(plan.arena_base == 0x60140u && plan.arena_ceil == 0x6F000u &&
+                  plan.arena_present && plan.stack_top == PROGRAM_STACK_TOP,
+                  "h4bk: heap above relocated BSS; separate top-level stack");
+        }
+    }
     return TEST_SUMMARY("test_mzload");
 }

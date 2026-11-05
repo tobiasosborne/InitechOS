@@ -158,8 +158,19 @@ int main(void)
     CHECK(int21_mcb_bind_above_residents(Wl + WIN) == 1, "T3: arena above residents");
     uint32_t cpsp = 0, cend = 0;
     CHECK(int21_mcb_exec_alloc(0x200u, &cpsp, &cend) == 0u, "T3: EXEC block");
-    CHECK(cpsp >= int21_tsr_top(), "T3: next load's PSP is above the resident");
+    CHECK(cpsp == int21_tsr_top() + 16u,
+          "T3: next load's PSP follows the first free MCB above the resident");
     CHECK(W[0x100] == 0xA5 && W[0x3FF] == 0xA5, "T3: resident bytes intact");
+    CHECK(int21_mcb_exec_trim(cpsp, cpsp + 0x1000u) == MCB_OK,
+          "T3: relocated top-level image trims its block for a free heap");
+    int21_set_psp((struct psp *)(uintptr_t)cpsp);
+    int_frame_t heap = call(0x48u, 0u, 0x10u, 0u);
+    CHECK((heap.eflags & 1u) == 0u &&
+          (heap.eax & 0xFFFFu) == (((cpsp + 0x1010u) >> 4) & 0xFFFFu),
+          "T3: AH=48h heap follows relocated image/BSS and its MCB");
+    int21_mcb_exec_free(cpsp);
+    CHECK(int21_mcb_exec_alloc(0x200u, &cpsp, &cend) == MCB_OK,
+          "T3: image and heap termination coalesce for the next EXEC");
 
     /* ---- T4: 31h twice = two residents ------------------------------------ */
     psp_t *tsr2 = (psp_t *)(uintptr_t)cpsp;

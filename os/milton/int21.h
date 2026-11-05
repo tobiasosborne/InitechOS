@@ -146,6 +146,9 @@ uint32_t int21_swap_dta(uint32_t dta);
 /* Allocate a nested native .COM's PSP/image/stack in the existing chain.
  * The block's owner is its new PSP paragraph (DOS 3.30 TR pp. 11-4/5). */
 uint16_t int21_mcb_exec_alloc(uint32_t image_len, uint32_t *psp, uint32_t *end);
+/* Shrink an EXEC-owned image/BSS block, leaving its tail FREE for AH=48h.
+ * Does not rebind or erase the chain (ADR-0009 DEC-04; initech-h4bk). */
+uint16_t int21_mcb_exec_trim(uint32_t psp, uint32_t end);
 void int21_mcb_exec_free(uint32_t psp);
 
 /* Resident COMMAND.COM can recover a built-in without terminating its PSP.

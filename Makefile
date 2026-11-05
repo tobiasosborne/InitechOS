@@ -35578,10 +35578,17 @@ $(BUILD)/tsr_program.bin: os/milton/tsr_program.asm | $(BUILD)
 	$(NASM) -f bin $< -o $@
 $(BUILD)/waitkey_program.bin: os/milton/tsr_program.asm | $(BUILD)
 	$(NASM) -f bin -DTSR_WAITKEY $< -o $@
-$(BUILD)/fat_tsr.img: $(FAT_EXEC_IMG) $(BUILD)/tsr_program.bin $(BUILD)/waitkey_program.bin
+# DEC-08a.1/.4: the PIC children explicitly use the zero-fixup MZ container;
+# a raw flat image has no declaration that permits moving it after KEEP.
+$(BUILD)/tsr_greet.exe: $(GREET_PROG_BIN) $(MZLINK_BIN)
+	$(MZLINK_BIN) $< $@ --no-reloc
+$(BUILD)/tsr_waitkey.exe: $(BUILD)/waitkey_program.bin $(MZLINK_BIN)
+	$(MZLINK_BIN) $< $@ --no-reloc
+$(BUILD)/fat_tsr.img: $(FAT_EXEC_IMG) $(BUILD)/tsr_program.bin $(BUILD)/tsr_greet.exe $(BUILD)/tsr_waitkey.exe
 	@cp -f $< $@
 	@mcopy -o -i $@ $(BUILD)/tsr_program.bin ::TSR.COM
-	@mcopy -o -i $@ $(BUILD)/waitkey_program.bin ::WAITKEY.COM
+	@mcopy -o -i $@ $(BUILD)/tsr_greet.exe ::GREET.COM
+	@mcopy -o -i $@ $(BUILD)/tsr_waitkey.exe ::WAITKEY.COM
 	@$(call fixture-check,recipe,$@)
 # $(call tsr-boot,<kernel image>,<name>) -- one scripted shell session.
 define tsr-boot
@@ -35621,6 +35628,8 @@ test-tsr-mutant: test-tsr $(BUILD)/tsr_nokeep.img $(BUILD)/tsr_noidle.img
 	@if $(call tsr-popup-ok,$(BUILD)/tsr_noidle.txt); then printf '!!! test-tsr-mutant FAIL: TSR_MUT_NO_IDLE survived\n'; exit 1; fi
 	@printf '>>> test-tsr-mutant: green (TSR_MUT_NO_KEEP RED: GREET loaded over the resident, %s; TSR_MUT_NO_IDLE RED: WAITKEY got x with no pop-up)\n' "$$(grep -m1 '^SK-POPUP' $(BUILD)/tsr_nokeep.txt || echo 'no SK-POPUP')"
 TEST_EMU_GATES += test-tsr test-tsr-mutant
+
+include harness/emu/tsr_exec.mk
 
 include harness/diff/fat_diff/doscmd_round2.mk
 

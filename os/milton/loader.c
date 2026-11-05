@@ -292,14 +292,29 @@ loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
                                   const char *cmd_tail, uint32_t cmd_tail_len,
                                   loader_plan_t *out)
 {
+    return loader_prepare_mz_at(file_at, file_len, cmd_tail, cmd_tail_len,
+                                 PROGRAM_IMAGE, PROGRAM_ARENA_CEIL, out);
+}
+
+loader_status_t loader_prepare_mz_at(uint8_t *file_at, uint32_t file_len,
+                                     const char *cmd_tail, uint32_t cmd_tail_len,
+                                     uint32_t load_base, uint32_t arena_ceil,
+                                     loader_plan_t *out)
+{
     mz_image_t img;
     int ps;
+    int canonical = load_base == PROGRAM_IMAGE && arena_ceil == PROGRAM_ARENA_CEIL;
 
     if (out == 0) {
         return LOADER_ERR_NULL_OUT;
     }
     if (file_at == 0 || file_len == 0u) {
         return LOADER_ERR_BAD_FORMAT;   /* nothing to parse -- fail loud (Rule 2) */
+    }
+    if (load_base < PROGRAM_IMAGE || (load_base & 0xFu) != 0u ||
+        arena_ceil > PROGRAM_ARENA_CEIL || arena_ceil <= load_base ||
+        (!canonical && file_len > arena_ceil - load_base)) {
+        return LOADER_ERR_NOMEM;
     }
 
     /* 1. Parse + validate the MZ container (DEC-08a.1/.5). The pure prep NEVER
@@ -356,7 +371,11 @@ loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
     if (img.reloc_count > 0u) {
         int rs = mz_apply_relocs(file_at + img.load_module_off,
                                  img.load_module_len,
+#ifdef LOADER_MUT_TSR_EXEC_FIXED_RELOC
                                  (uint32_t)PROGRAM_IMAGE,
+#else
+                                 load_base,
+#endif
                                  file_at + img.reloc_table_off, img.reloc_count);
         if (rs != MZ_OK) {
             return LOADER_ERR_BAD_FORMAT;   /* OOB reloc -- fail loud (Rule 2) */
@@ -404,7 +423,20 @@ loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
         /* The entry must point INTO the loaded module (Rule 2: never JMP past it). */
         return LOADER_ERR_BAD_FORMAT;
     }
-    out->entry = (uint32_t)PROGRAM_IMAGE + img.entry_off;
+    out->psp_addr = load_base - 0x100u;
+    out->image_dst = load_base;
+    out->entry = load_base + img.entry_off;
+    /* h4bk: top-level placement above a resident is independent of nested
+     * EXEC. Keep the canonical, disjoint stack (DEC-08b) and compute the heap
+     * from the actual module base (DEC-08a.1/.3; ADR-0009 DEC-04). */
+    if (!canonical) {
+        uint32_t base = (load_base + img.load_module_len +
+                         PROGRAM_BSS_RESERVE + 15u) & ~15u;
+        if (base > arena_ceil) return LOADER_ERR_NOMEM;
+        out->arena_base = base;
+        out->arena_ceil = arena_ceil;
+        out->arena_present = arena_ceil - base >= 32u;
+    }
 
     /* 7. e_minalloc TEETH (DEC-08a.3): the program declares it needs at least
      *    min_alloc_paras paragraphs of heap PAST its image. If the disjoint arena
@@ -417,7 +449,11 @@ loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
         uint32_t have_bytes = out->arena_present
                                   ? (out->arena_ceil - out->arena_base)
                                   : 0u;
+        /* The trimmed image block leaves one MCB header before the free
+         * heap's data. Canonical minalloc accounting is retained verbatim. */
+        if (!canonical && have_bytes >= 16u) have_bytes -= 16u;
         if (need_bytes > have_bytes) {
+            if (!canonical) return LOADER_ERR_NOMEM;
             return LOADER_ERR_BAD_FORMAT;   /* maps to DOS 08h at the EXEC seam */
         }
     }
@@ -1516,14 +1552,19 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
      * blocks. Native flat .COM code loaded here must be position independent;
      * unlike InitechMZ it has no relocation records (DEC-08/DEC-08a.1). */
     uint32_t child_psp = 0u, child_end = 0u;
-    /* A resident (AH=31h / INT 27h) keeps [PROGRAM_BASE, int21_tsr_top()), so
-     * a top-level EXEC is placed exactly like a nested one: the arena is
-     * re-bound above every resident and EXEC takes its largest block (TR
-     * pp. 11-4/5; bead initech-6fdt). The same position-independence rule as
-     * nested EXEC applies (DEC-08: a flat .COM carries no relocations). */
+    /* KEEP occupies the fixed flat-image base. Top-level MZ placement is a
+     * relocation, not a nested EXEC: use the first free MCB above the retained
+     * ranges; keep the top-level stack and a disjoint FREE heap. Raw flat
+     * images have no relocation/PIC declaration (DEC-08/DEC-08a.1), so refuse
+     * them below, even if their filename says .EXE (DEC-08a.4).
+     * Ref: psp-loader-ground-truth Sec 3; DEC-08b stack window; h4bk. */
     uint32_t above = g_load.depth ? 0u : int21_tsr_top();
     if (g_load.depth || above) {
+#ifdef LOADER_MUT_TSR_EXEC_OVERLAP
+        if (above && !int21_mcb_bind_program(PROGRAM_BASE, PROGRAM_ARENA_CEIL))
+#else
         if (above && !int21_mcb_bind_above_residents(PROGRAM_ARENA_CEIL))
+#endif
             return LOADER_ERR_NOMEM;
         if (int21_mcb_exec_alloc(de.file_size, &child_psp, &child_end) != 0u)
             return LOADER_ERR_NOMEM;
@@ -1565,7 +1606,35 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
      * transfer; a foreign untagged MZ PANICS fail-loud (DEC-08a.5). */
     uint8_t rcv = 0;
     loader_status_t st;
-    if (child_psp) {
+    if (child_psp && above && mz_is_mz(image, got)) {
+        loader_plan_t plan;
+        st = loader_prepare_mz_at(image, got, cmd_tail, cmd_tail_len,
+                                   child_psp + 0x100u, child_end, &plan);
+        if (st == LOADER_ERR_FOREIGN_MZ) loader_panic_foreign_mz(name83);
+        if (st == LOADER_OK) {
+            /* Return the unused tail to the SAME MCB chain, rather than
+             * reinitializing it or leaving no AH=48h heap (ADR-0009 DEC-04).
+             * The image's block includes the conservative BSS reserve; stack
+             * remains PROGRAM_STACK_TOP, outside the arena (DEC-08b). */
+            uint32_t end = plan.arena_base;
+            if (int21_mcb_exec_trim(child_psp, end) != 0u) st = LOADER_ERR_NOMEM;
+            else {
+                plan.params.alloc_end_linear = end;
+                for (uint32_t i = plan.image_dst + plan.image_len; i < end; i++)
+                    *(uint8_t *)(uintptr_t)i = 0u;
+                st = loader_run_plan(&plan, 0, env_block, &rcv);
+            }
+        }
+        int21_mcb_exec_free(child_psp);
+#ifndef LOADER_MUT_TSR_EXEC_ALLOW_FLAT
+    } else if (child_psp && above && !loader_image_is_transient(image, got)) {
+        ldr_serial_puts("LOADER-REFUSE-FLAT-RESIDENT name=");
+        ldr_serial_puts(name83);
+        ldr_serial_puts("\n");
+        int21_mcb_exec_free(child_psp);
+        st = LOADER_ERR_FIXED_BASE;
+#endif
+    } else if (child_psp) {
         loader_plan_t plan;
         st = loader_prepare_in_place(image, got, cmd_tail, cmd_tail_len, &plan);
         if (mz_is_mz(image, got)) {

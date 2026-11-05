@@ -544,6 +544,14 @@ void int21_mcb_exec_free(uint32_t psp)
     if (g_arena_bound) (void)mcb_free_owner(&g_arena, (uint16_t)(psp >> 4));
 }
 
+uint16_t int21_mcb_exec_trim(uint32_t psp, uint32_t end)
+{
+    if (!g_arena_bound || psp <= g_arena_base_linear || end <= psp ||
+        ((psp | end) & 15u) != 0u) return MCB_ERR_BAD_BLOCK;
+    return mcb_setblock(&g_arena, (psp - g_arena_base_linear) / 16u,
+                         (end - psp) / 16u, (uint16_t)(psp >> 4), 0);
+}
+
 int int21_mcb_reset(void)
 {
     if (!g_arena_bound) {
