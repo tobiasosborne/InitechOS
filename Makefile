@@ -9032,8 +9032,6 @@ $(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h spec/t
 # linked ONLY into the flair_live kernel(s) (isr.o's irq12_entry references
 # mouse_irq_handler via a WEAK extern, so non-flair kernels link without it).
 $(KERNEL_MOUSE_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_MOUSE_OPT) -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
-$(KERNEL_MOUSE_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/io.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
 
 # Rule-6 EOI mutant mouse.o (beads initech-5l5z FO-6; ADR-0006 BC-3/BC-9):
@@ -9041,8 +9039,6 @@ $(KERNEL_MOUSE_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/io.h 
 # only the master (0x20) EOI -> the slave 8259A wedges -> the mouse stops after
 # the first IRQ12 -> test-flair-mouse goes RED. NEVER define in a real build.
 $(KERNEL_MOUSE_MUT_EOI_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_MOUSE_OPT) -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
-$(KERNEL_MOUSE_MUT_EOI_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/io.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
 
 $(KERNEL_PIT_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
@@ -35695,6 +35691,9 @@ include harness/emu/calcda_power.mk
 include harness/proptest/overlay.mk
 include harness/proptest/finder_overlay.mk
 include harness/proptest/power_overlay.mk
+
+# Log policy and gates must follow the TEST_EMU_GATES := assignment.
+include harness/emu/qemu_log.mk
 
 # Gate/mutant ordering for parallel vectors (initech-1x6x2.1). KEEP LAST:
 # it reads the complete TEST_UNIT_GATES / TEST_EMU_GATES lists.

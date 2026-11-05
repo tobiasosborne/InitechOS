@@ -258,19 +258,22 @@ TEST_UNIT_GATES += test-kernel-size-ovl test-kernel-size-ovl-mutant
 # (the host offers C, C.utf8 and POSIX; the generators pin LC_ALL=C, research
 # gap G-4). The second tree is a fresh BUILD= directory: every object, both
 # links, the tables, the packer and the image mint are redone there.
-OVL_REPRO_B := $(BUILD)/ovl-repro-b
+OVL_REPRO_B ?= $(BUILD)/ovl-repro-b
 .PHONY: test-ovl-repro test-ovl-repro-mutant
-test-ovl-repro: | $(OVL_GATE_DIR)
-	@set -eu; LC_ALL=C $(MAKE) --no-print-directory $(OVL_FLAG).ovl $(INITDOS_SYS_BIN) $(FLAIRTENANTS_IMG) > $(OVL_GATE_DIR)/repro-a.log 2>&1; \
-	 rm -rf $(OVL_REPRO_B); LC_ALL=C.utf8 LANG=C.utf8 $(REPRO_NOCACHE) $(MAKE) --no-print-directory BUILD=$(OVL_REPRO_B) $(OVL_REPRO_B)/flairovl_kernel_flairtenants.ovl $(OVL_REPRO_B)/INITDOS.SYS $(OVL_REPRO_B)/flair_tenants.img > $(OVL_GATE_DIR)/repro-b.log 2>&1 || { tail -20 $(OVL_GATE_DIR)/repro-b.log; exit 1; }; \
+# initech-lroek / PRD Sec 7: the parent make owns the incremental build.
+# A nested make in the SAME BUILD was a second producer of every object and
+# transient_imports.rsp, racing gcc-nm and the badptr.elf LTO link under -j.
+test-ovl-repro: $(OVL_FLAG).ovl $(INITDOS_SYS_BIN) $(FLAIRTENANTS_IMG) | $(OVL_GATE_DIR)
+	@set -eu; \
+	 rm -rf $(OVL_REPRO_B); LC_ALL=C.utf8 LANG=C.utf8 $(REPRO_NOCACHE) $(MAKE) --no-print-directory -o $(PALETTE_H) BUILD=$(OVL_REPRO_B) $(OVL_REPRO_B)/flairovl_kernel_flairtenants.ovl $(OVL_REPRO_B)/INITDOS.SYS $(OVL_REPRO_B)/flair_tenants.img > $(OVL_GATE_DIR)/repro-b.log 2>&1 || { tail -20 $(OVL_GATE_DIR)/repro-b.log; exit 1; }; \
 	 for f in flairovl_kernel_flairtenants.ovl INITDOS.SYS flair_tenants.img; do \
 		a=$$(sha256sum < $(BUILD)/$$f | cut -d' ' -f1); b=$$(sha256sum < $(OVL_REPRO_B)/$$f | cut -d' ' -f1); \
 		[ "$(OVL_REPRO_MUTATE)" != 1 ] || [ "$$f" != flairovl_kernel_flairtenants.ovl ] || b=$$(printf X | cat $(OVL_REPRO_B)/$$f - | sha256sum | cut -d' ' -f1); \
 		[ "$$a" = "$$b" ] || { printf 'RED test-ovl-repro: %s differs across directories/locales\n' "$$f"; exit 1; }; \
 		printf '>>> test-ovl-repro: green -- %s reproducible (sha256 %s)\n' "$$f" "$$a"; \
 	 done
-test-ovl-repro-mutant:
-	@if $(MAKE) --no-print-directory test-ovl-repro OVL_REPRO_MUTATE=1 > $(OVL_GATE_DIR)/repro-mut.log 2>&1; then printf '!!! test-ovl-repro-mutant FAIL: a changed FLAIR.OVL passed\n'; exit 1; fi
+test-ovl-repro-mutant: $(OVL_FLAG).ovl $(INITDOS_SYS_BIN) $(FLAIRTENANTS_IMG) | $(OVL_GATE_DIR)
+	@if $(MAKE) --no-print-directory $(addprefix -o ,$(OVL_FLAG).ovl $(INITDOS_SYS_BIN) $(FLAIRTENANTS_IMG) $(MAKEFILE_STAMP)) test-ovl-repro OVL_REPRO_B=$(BUILD)/ovl-repro-mutant-b OVL_REPRO_MUTATE=1 > $(OVL_GATE_DIR)/repro-mut.log 2>&1; then printf '!!! test-ovl-repro-mutant FAIL: a changed FLAIR.OVL passed\n'; exit 1; fi
 	@grep 'RED test-ovl-repro: flairovl_kernel_flairtenants.ovl differs' $(OVL_GATE_DIR)/repro-mut.log
 	@printf '>>> test-ovl-repro-mutant: green (a one-byte FLAIR.OVL change is detected)\n'
 TEST_UNIT_GATES += test-ovl-repro test-ovl-repro-mutant

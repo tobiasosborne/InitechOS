@@ -29,6 +29,9 @@
  *    waiting for us if we never connect (e.g. it triple-faults first).
  */
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE 700
 
@@ -45,6 +48,7 @@
 #include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <sys/wait.h>
@@ -2277,6 +2281,99 @@ void qemu_result_free(QemuResult *out)
     out->serial_len = 0;
 }
 
+/* initech-tfn6r; PRD Sec 8 / Rule 2. Storage supervision is independent of
+ * QMP: its marker waits can occupy the parent for minutes. Never rotate or
+ * truncate a live log; the fault parser below still reads the whole file.
+ * The stop pipe also bounds the monitor's lifetime if the harness dies. */
+static int qemu_log_cap(unsigned long long *cap)
+{
+    const char *value = getenv("INITECH_QEMU_LOG_CAP_BYTES");
+    *cap = QEMU_DEFAULT_LOG_CAP_BYTES;
+    if (!value) return 0;
+    char *end;
+    errno = 0;
+    if (!value[0] || strspn(value, "0123456789") != strlen(value)) goto bad;
+    *cap = strtoull(value, &end, 10);
+    if (errno || *end || !*cap) goto bad;
+    return 0;
+bad:
+    fprintf(stderr, "[harness] RED QEMU-LOG-CAP: INITECH_QEMU_LOG_CAP_BYTES must be a positive decimal byte count\n");
+    return -1;
+}
+
+enum { QEMU_LOG_OVERFLOW = 42, QEMU_LOG_WATCH_ERROR = 43 };
+/* Pin the child identity before any waitpid can reap it. Use syscalls so
+ * libc need not provide pidfd wrappers; unsupported hosts fail the guard. */
+static int qemu_log_pidfd_open(pid_t qemu)
+{
+#if defined(SYS_pidfd_open) && defined(SYS_pidfd_send_signal)
+    return (int)syscall(SYS_pidfd_open, qemu, 0);
+#else
+    (void)qemu;
+    errno = ENOSYS;
+    return -1;
+#endif
+}
+
+#ifndef HARNESS_MUTATE_NO_QEMU_LOG_CAP
+static int qemu_log_pidfd_kill(int pidfd)
+{
+#ifdef SYS_pidfd_send_signal
+    return (int)syscall(SYS_pidfd_send_signal, pidfd, SIGKILL, NULL, 0);
+#else
+    (void)pidfd;
+    errno = ENOSYS;
+    return -1;
+#endif
+}
+#endif
+
+static pid_t qemu_log_watch(int pidfd, const char *path,
+                            unsigned long long cap, int qmp_fd, int sync_fd,
+                            int *stop_fd)
+{
+    int stop[2];
+    if (pipe(stop)) return -1;
+    pid_t watcher = fork();
+    if (watcher == 0) {
+        close(stop[1]);
+        if (qmp_fd >= 0) close(qmp_fd);
+        if (sync_fd >= 0) close(sync_fd);
+        struct pollfd p = { .fd = stop[0], .events = POLLIN };
+        for (;;) {
+            int ready = poll(&p, 1, 20);
+            if (ready < 0 && errno == EINTR) continue;
+            if (ready < 0) _exit(QEMU_LOG_WATCH_ERROR);
+            struct stat st;
+            int found = stat(path, &st);
+            if (found && errno != ENOENT) _exit(QEMU_LOG_WATCH_ERROR);
+#ifndef HARNESS_MUTATE_NO_QEMU_LOG_CAP
+            if (!found && st.st_size >= 0 &&
+                (unsigned long long)st.st_size > cap) {
+                /* Re-check EOF after poll/stat: the parent may have reaped
+                 * QEMU while this watcher was descheduled. The pidfd also
+                 * prevents signalling a reused PID if EOF races this check.
+                 * Still report overflow for writers exiting inside a poll. */
+                do { ready = poll(&p, 1, 0); }
+                while (ready < 0 && errno == EINTR);
+                if (ready < 0) _exit(QEMU_LOG_WATCH_ERROR);
+                if (!ready && qemu_log_pidfd_kill(pidfd) < 0 && errno != ESRCH)
+                    _exit(QEMU_LOG_WATCH_ERROR);
+                _exit(QEMU_LOG_OVERFLOW);
+            }
+#else
+            (void)cap;
+            (void)pidfd;
+#endif
+            if (ready) _exit(0);
+        }
+    }
+    close(stop[0]);
+    if (watcher < 0) { close(stop[1]); return -1; }
+    *stop_fd = stop[1];
+    return watcher;
+}
+
 int qemu_run(const QemuConfig *cfg, QemuResult *out)
 {
     if (!cfg || !out) {
@@ -2284,6 +2381,8 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
     }
     memset(out, 0, sizeof(*out));
     out->exit_code = -1;
+    unsigned long long log_cap;
+    if (qemu_log_cap(&log_cap)) return -1;
 
     /* Never let a closed QMP/serial pipe kill the harness with SIGPIPE --
      * the harness must always reach its reap+report (Law 2). */
@@ -2450,6 +2549,22 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
 
     if (qmp_pair[1] >= 0) close(qmp_pair[1]);
     out->launched = true;
+    int log_stop;
+    int log_pidfd = qemu_log_pidfd_open(pid);
+    pid_t log_watcher = log_pidfd < 0 ? -1 :
+        qemu_log_watch(log_pidfd, out->log_path, log_cap,
+                       qmp_pair[0], rec_sync_fd, &log_stop);
+    if (log_pidfd >= 0) close(log_pidfd); /* watcher owns its inherited fd */
+    if (log_watcher < 0) {
+        fprintf(stderr, "[harness] RED QEMU-LOG-GUARD: cannot start log monitor\n");
+        kill(pid, SIGKILL);
+        while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
+        if (qmp_pair[0] >= 0) close(qmp_pair[0]);
+        if (rec_sync_fd >= 0) close(rec_sync_fd);
+        unlink(sync_in); unlink(sync_out); unlink(sock_path);
+        overlay_remove(temporary, overlay);
+        return -1;
+    }
     clockid_t cpu_clock;
     const clockid_t *guest_clock = NULL;
     if (clock_getcpuclockid(pid, &cpu_clock) == 0) {
@@ -2559,6 +2674,22 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         }
     }
 
+    close(log_stop);
+    int log_status = 0;
+    pid_t log_reaped;
+    do { log_reaped = waitpid(log_watcher, &log_status, 0); }
+    while (log_reaped < 0 && errno == EINTR);
+    out->log_limit_exceeded = log_reaped == log_watcher &&
+        WIFEXITED(log_status) && WEXITSTATUS(log_status) == QEMU_LOG_OVERFLOW;
+    bool log_guard_ok = log_reaped == log_watcher &&
+        WIFEXITED(log_status) && WEXITSTATUS(log_status) == 0;
+    if (out->log_limit_exceeded) {
+        fprintf(stderr, "[harness] RED QEMU-LOG-CAP: %s exceeded %llu bytes; full log retained\n",
+                out->log_path, log_cap);
+    } else if (!log_guard_ok) {
+        fprintf(stderr, "[harness] RED QEMU-LOG-GUARD: log monitor failed; full log retained\n");
+    }
+
     /* Clean up the socket file regardless. */
     unlink(sock_path);
     if (rec_sync_fd >= 0) {
@@ -2622,7 +2753,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
                * multiboot fixtures. A startup failure has no guest serial. */
               (out->exit_code == 0 || (out->exit_code == 1 && out->serial_len > 0)) &&
               !out->timed_out && !out->triple_fault &&
-              !qmp_failed &&
+              !qmp_failed && log_guard_ok &&
               out->guest_errors == 0 &&
               (cfg->expect_marker == NULL || out->marker_found) &&
               (cfg->quit_after == NULL || cfg->quit_after[0] == '\0' ||

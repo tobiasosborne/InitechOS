@@ -34,7 +34,7 @@
 set -eu
 : "${TPS_BIN:?}" "${SEED_BIN:?}" "${NASM:?}" "${LD:?}" "${OBJCOPY:?}" "${SEED_RT_OBJ:?}" \
   "${SEED_DOS_RT_OBJ:?}" "${SEED_FILEIO_RT_OBJ:?}" "${SEED_RT_LD:?}" "${SEED_DOS_LD:?}" \
-  "${HARNESS_BIN:?}" "${TRACER_IMG:?}" "${GATE:?}" "${BUILT:?}" "${OUT:?}" "${MAKE:?}"
+  "${HARNESS_BIN:?}" "${TRACER_IMG:?}" "${GATE:?}" "${BUILT:?}" "${OUT:?}" "${MAKE:?}" "${MAKE_REPLAY:?}"
 root=$(pwd)
 abs() { case $1 in /*) printf '%s' "$1";; *) printf '%s/%s' "$root" "$1";; esac; }
 TPS_BIN=$(abs "$TPS_BIN"); SEED_BIN=$(abs "$SEED_BIN")
@@ -123,14 +123,11 @@ for index in "$BUILT"/turbo-initech-*/main.tpsexamples; do
             ;;
         make)
             [ -f "$ex/$name.cmd" ] && [ -f "$ex/$name.txt" ] || red TRANSCRIPT-PAIR "$ex/$name" "needs $name.cmd and $name.txt"
-            target=$(cat "$ex/$name.cmd")
             mkdir -p "$w"
-            # The first run brings every prerequisite up to date (their own
-            # build messages vary with what was stale); the second run is the
-            # one printed.
-            "$MAKE" --no-print-directory $target > "$w/make0.log" 2>&1 || true
-            "$MAKE" --no-print-directory $target > "$w/make.log" 2>&1 || true
-            grep -E '^(>>> |!!! |[a-z_]+_pass_rate=)' "$w/make.log" > "$w/make.txt" || true
+            # pubs/turbo.mk declares and runs this producer before the gate.
+            # Never re-enter sibling compiler recipes in the shared BUILD.
+            same TRANSCRIPT-DRIFT "$ex/$name.cmd" "$MAKE_REPLAY/$book/examples/$name.txt.cmd"
+            cp -f "$MAKE_REPLAY/$book/examples/$name.txt" "$w/make.txt"
             same TRANSCRIPT-DRIFT "$ex/$name.txt" "$w/make.txt"
             ;;
         *) red TRANSCRIPT-KIND "$index" "$kind" ;;
