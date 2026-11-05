@@ -44,6 +44,7 @@
  *   NDX_MUTATE_BULK_NO_ELIDE         a 1-child pending node becomes a branch
  *   NDX_MUTATE_DELETE_NO_SEP_UPDATE  a deleted HIGH key leaves a stale separator
  *   NDX_MUTATE_ZERO_SEP_LEAF         a 0-separator branch read as an empty leaf
+ *   NDX_MUTATE_DELETE_NOSPAN         delete stops in the first equal-key leaf
  *
  * ASCII-clean (Rule 12). Builds land in build/ndx_incr/ (Rule 11: no host
  * path is written into an artifact). Goldens are opened read-only.
@@ -263,6 +264,94 @@ static ndx_index *step(samir_pal_t *pal, ndx_index *ix, const char *path,
     return open_rw(pal, path);
 }
 
+/* Additional contract checks, independent of the byte-layout differential:
+ * malformed copies must fail before any write (ndx.md ss3, Rule 2), and a
+ * duplicate run must remain in recno order across more than two levels
+ * (ndx.md ss5/6; the original initech-0g22 span case only had two levels).
+ * These generated inputs are NOT used as golden bytes. */
+static void malformed_check(samir_pal_t *pal)
+{
+    char path[1024];
+    uint8_t *gold = NULL, *bad, *after = NULL, key[20];
+    long size, got;
+    unsigned kind, op;
+    snprintf(path, sizeof path, "%s/mint/work/A00.NDX", g_base);
+    size = slurp(path, &gold);
+    if (size < 0) oracle_failure("A00.NDX absent for invariant checks\n");
+    bad = (uint8_t *)malloc((size_t)size);
+    if (!bad) oracle_failure("invariant-check allocation failed\n");
+    render(10u, 20u, key);
+    for (kind = 0u; kind < 4u; kind++) {
+        uint32_t off = le32(gold) * 512u;
+        memcpy(bad, gold, (size_t)size);
+        if (kind == 0u || kind == 1u) {
+            /* The other root child: zero or an out-of-file page. */
+            off += 4u + le16(gold + off) * le16(gold + 18);
+            memset(bad + off, 0, 4u);
+            if (kind == 1u) bad[off] = 255u;
+        } else if (kind == 2u) {
+            /* A leaf with mixed leaf/branch groups. */
+            bad[512u + 4u + le16(gold + 18)] = 1u;
+        } else {
+            /* A self-cycle on the selected root child. */
+            memcpy(bad + off + 4u, gold, 4u);
+        }
+        for (op = 0u; op < 2u; op++) {
+            ndx_index *ix;
+            FILE *f = fopen(OUT "/bad.ndx", "wb");
+            int rc;
+            if (!f || fwrite(bad, 1u, (size_t)size, f) != (size_t)size
+                || fclose(f) != 0) oracle_failure("cannot write malformed copy\n");
+            ix = open_rw(pal, OUT "/bad.ndx");
+            if (!ix) continue;
+            rc = op ? ndx_delete_key(ix, key, 1u) : ndx_insert_key(ix, key, 400u);
+            snprintf(g_msg, sizeof g_msg, "malformed kind %u op %u fails loud (rc %d)", kind, op, rc);
+            CHECK(rc == (kind == 3u ? -NDX_ERR_CYCLE : -NDX_ERR_BAD_PAGE), g_msg);
+            ndx_close(ix);
+            got = slurp(OUT "/bad.ndx", &after);
+            CHECK(got == size && memcmp(bad, after, (size_t)size) == 0,
+                  "structural failure leaves the corrupted input untouched");
+            free(after);
+            after = NULL;
+        }
+    }
+    free(bad);
+    free(gold);
+}
+
+struct dup_ctx { uint32_t next; uint32_t last; int valid; };
+static int dup_visit(void *user, const uint8_t *key, uint32_t recno)
+{
+    struct dup_ctx *c = (struct dup_ctx *)user;
+    uint8_t want[100];
+    render(50u, 100u, want);
+    if (recno != c->next || recno > c->last || memcmp(key, want, 100u)) c->valid = 0;
+    c->next++;
+    return 0;
+}
+static void deep_duplicate_check(samir_pal_t *pal)
+{
+    uint32_t vals[130], r;
+    uint8_t key[100];
+    ndx_index *ix;
+    for (r = 0u; r < 130u; r++) vals[r] = 50u;
+    build(pal, OUT "/dup.ndx", 100u, vals, 130u);
+    ix = open_rw(pal, OUT "/dup.ndx");
+    if (!ix) return;
+    render(50u, 100u, key);
+    for (r = 130u; r > 0u; r--) {
+        struct dup_ctx c = { 1u, r - 1u, 1 };
+        int rc = ndx_delete_key(ix, key, r);
+        snprintf(g_msg, sizeof g_msg, "deep duplicate delete recno %u (rc %d)", (unsigned)r, rc);
+        if (rc != NDX_OK && !g_first_red_printed) { printf("FIRST RED %s\n", g_msg); g_first_red_printed = 1; }
+        CHECK(rc == NDX_OK, g_msg);
+        rc = ndx_inorder(ix, dup_visit, &c);
+        CHECK(rc == NDX_OK && c.valid && c.next == r, "deep duplicate survivors: exact recnos in order");
+        if (g_fails) break;
+    }
+    ndx_close(ix);
+}
+
 int main(int argc, char **argv)
 {
     struct pal_host_cfg cfg;
@@ -374,6 +463,8 @@ int main(int argc, char **argv)
         if (ix) ndx_close(ix);
     }
 
+    malformed_check(pal);
+    deep_duplicate_check(pal);
     CHECK(g_snapshots == 516u, "all 516 independently minted snapshots graded");
     printf("SNAPSHOTS: %u/516 graded\n", g_snapshots);
     pal_host_free(pal);

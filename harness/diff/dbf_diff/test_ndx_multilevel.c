@@ -18,28 +18,15 @@
  *   3-level tree and asserts the build succeeds AND is a STRUCTURALLY VALID
  *   B-tree.
  *
- * PROVENANCE OF THE GRADING (Law 1 honesty):
- *   There is NO minted 3-level golden .ndx in the corpus. The largest pristine/
- *   minted golden is BIGIDX.NDX (16 pages, 2-level: 14 leaves + 1 root; mint-
- *   results-003). The multi-level ("BIGXA"/ndx-B5) real-dBASE mint is PLANNED but
- *   NOT YET MINTED (re/mint-formats.md ndx-B5; loud-skipped in the differential).
- *   So a 3-level tree CANNOT be graded byte-exact against real dBASE. Instead
- *   this oracle grades against the FORMAT INVARIANTS that ndx.md ss5 states and
- *   that every 2-level golden was byte-verified to obey:
- *     - B-tree ordering: in-order traversal is strictly ascending; count == nrec
- *       (ndx.md ss5 "keys ascending ... in-order yields a fully sorted sequence").
- *     - HIGH-key separator: in a branch node, separator[i] == the MAX key of the
- *       subtree rooted at child_page[i] (ndx.md ss5 "Branch separator = HIGH key
- *       of subtree"); trailing child holds keys > the last separator (ss3.2).
- *     - Balanced depth: every leaf is at the same depth (a real B-tree invariant;
- *       the read paths ndx_seek/ndx_inorder assume it).
- *     - Root reachable; every branch node has >= 1 separator (so the reader's
- *       branch-vs-leaf test -- "first live entry has child_page != 0" -- fires).
- *     - Point lookups (ndx_seek) resolve the correct recno for present keys and
- *       report not-found for absent keys, across all 3 levels.
- *   The 2-level byte-exact goldens remain graded by test_ndx_build.c; the 2-level
- *   build path is unchanged, so those goldens are the regression guard that the
- *   refactor did not perturb the minted-exact case.
+ * PROVENANCE OF THE GRADING:
+ *   The M006A.PRG real-III+ mint supplies A00.NDX for this geometry: root p22
+ *   contains branch p20 (over leaves 1..19) and the lone leaf p21. Thus leaves
+ *   need not have the same depth. The old balanced-depth/24-page assumptions
+ *   are replaced by the independently minted 23-page/root-22 shape.
+ *   test-ndx-incremental pins and compares all meaningful bytes of A00 and
+ *   515 other snapshots; this leg checks HIGH-key separators, in-order recnos,
+ *   SEEK across levels, and incremental insert/delete. The 2-level byte gates
+ *   remain in test-ndx-build.
  *
  * MUTATION (Rule 6): built with -DNDX_MUTATE_NO_ROOT_SPLIT, ndx_build reverts to
  *   the OLD ceiling and returns -NDX_ERR_PAGE_OVF for a tree that needs 3 levels.
@@ -53,9 +40,9 @@
  *   child). Forcing >= 20 leaves needs a 3rd level.
  *   nrec = 343 -> nleaf = ceil(343 / 18) = 20 leaves (19*18 = 342 < 343).
  *   (nleaf - 1) = 19 > kpp = 18  ->  the OLD code returned -NDX_ERR_PAGE_OVF.
- *   Level shape (children/branch = kpp+1 = 19): L1 = ceil(20/19) = 2 branch
- *   nodes; L2 = ceil(2/19) = 1 root. Depth = 3 (root -> branch -> leaf), 24 pages
- *   (1 header + 20 leaves + 2 branches + 1 root), root_page = 23.
+ *   Real III+ streams a full branch once it has 19 children and promotes a
+ *   lone final child: 20 leaves + branch p20 + root p22 + header = 23 pages.
+ *   Ref: ../dbase3-decomp/mint/work/M006A.PRG, M006ALOG.TXT, A00.NDX.
  *   [key_length 20 mirrors the minted BIGIDX (kpp 18); ndx.md ss2 formulas.]
  *
  * ASCII-clean (Rule 12). No host paths / timestamps baked into artifacts (Rule 11).
@@ -75,8 +62,7 @@
  *     node/group/trailing child), ss5 (ordering + HIGH-key separator + search).
  *   - ../dbase3-decomp/re/mint-results-003.md (bulk build: 100% L->R leaf pack,
  *     remainder last; N keys / N+1 children; 2-level BIGIDX minted).
- *   - ../dbase3-decomp/re/mint-formats.md ndx-B5 (the multi-level "BIGXA" mint --
- *     PLANNED / not yet minted; this oracle grades structure, not those bytes).
+ *   - ../dbase3-decomp/mint/work/M006A.PRG, M006ALOG.TXT, A00.NDX.
  *   - spec/samir/ndx_format.h (LOCKED offsets + derived formulas).
  *   - os/samir/include/samir/ndx.h (ndx_build / ndx_open / ndx_read_node / seek).
  */
@@ -150,7 +136,7 @@ static int ml_get_key(void *user, uint32_t recno, uint8_t *key_out,
 
 /* ----------------------------------------------------------------------- */
 /* Recursive structural validator (independent of ndx_seek/ndx_inorder).    */
-/* Reads pages with ndx_read_node; asserts the HIGH-key + balanced-depth     */
+/* Reads pages with ndx_read_node; asserts the HIGH-key separator invariant */
 /* invariants (ndx.md ss5). Returns 0 on OK, non-0 on structural violation.  */
 /* On OK, *maxkey_out <- the MAX key of the subtree, *height_out <- subtree   */
 /* height (leaves = 1).                                                       */
@@ -180,7 +166,8 @@ static int validate_subtree(ndx_index *idx, uint32_t page_no, uint32_t depth,
         return 1;
     }
     cnt       = (uint32_t)node->entry_count;
-    is_branch = (cnt > 0u && node->entries[0].child_page != 0u);
+    is_branch = (cnt > 0u) ? (node->entries[0].child_page != 0u)
+                           : (node->trail_child != 0u);
 
     if (is_branch) {
         if (cnt > 64u) { CHECK(0, "validate: branch fanout > test cap"); ndx_node_free(idx, node); return 1; }
@@ -223,27 +210,21 @@ static int validate_subtree(ndx_index *idx, uint32_t page_no, uint32_t depth,
         return rc_ok;
     }
 
-    /* Branch: every child (sep[0..cnt-1].child + trailing) must have the SAME
-     * height; separator[i] MUST equal the MAX key of child_pg[i] (HIGH-key
-     * invariant, ndx.md ss5); the branch's own MAX = MAX of the trailing child. */
+    /* Branch: separator[i] MUST equal the MAX key of child_pg[i] (HIGH-key
+     * invariant, ndx.md ss5); the branch's own MAX = MAX of the trailing child.
+     * Leaves need NOT share one depth: real dBASE III PLUS hangs a lone last
+     * leaf directly off the root (minted A00, this very geometry: root p22 =
+     * [branch p20 over leaves 1..19, leaf p21]; M006A.PRG, M006ALOG.TXT,
+     * initech-7tj3). Height = the deepest child + 1. */
     {
         uint32_t child_h, first_h = 0u;
         uint8_t  child_max[ML_KEYLEN];
-        int      first = 1;
-
-        if (cnt < 1u) { CHECK(0, "validate: branch with 0 separators (reader would misread as leaf)"); return 1; }
 
         for (i = 0u; i < cnt; i++) {
             if (validate_subtree(idx, child_pg[i], depth - 1u, child_max,
                                  &child_h, label) != 0)
                 return 1;
-            if (first) { first_h = child_h; first = 0; }
-            else if (child_h != first_h) {
-                snprintf(msg, sizeof(msg),
-                         "%s: unbalanced depth at branch page %u child %u "
-                         "(h=%u vs %u)", label, page_no, i, child_h, first_h);
-                CHECK(0, msg); return 1;
-            }
+            if (child_h > first_h) first_h = child_h;
             /* HIGH-key separator: separator[i] == MAX of child_pg[i]. */
             if (rt_memcmp(sepkey[i], child_max, kl) != 0) {
                 snprintf(msg, sizeof(msg),
@@ -257,12 +238,7 @@ static int validate_subtree(ndx_index *idx, uint32_t page_no, uint32_t depth,
         if (validate_subtree(idx, trail_child, depth - 1u, child_max,
                              &child_h, label) != 0)
             return 1;
-        if (child_h != first_h) {
-            snprintf(msg, sizeof(msg),
-                     "%s: unbalanced trailing child at branch page %u", label,
-                     page_no);
-            CHECK(0, msg); return 1;
-        }
+        if (child_h > first_h) first_h = child_h;
         rt_memcpy(maxkey_out, child_max, kl);   /* branch MAX = trailing MAX */
         *height_out = first_h + 1u;
         return 0;
@@ -339,21 +315,22 @@ int main(int argc, char **argv)
         uint32_t root  = ndx_root_page(idx);
         snprintf(msg, sizeof(msg), "root_page (%u) in [1,total=%u)", root, total);
         CHECK(root >= 1u && root < total, msg);
-        /* nleaf=20 -> 1 hdr + 20 leaves + 2 L1 branches + 1 root = 24 pages. */
-        snprintf(msg, sizeof(msg), "total_pages == 24 (got %u)", total);
-        CHECK(total == 24u, msg);
-        snprintf(msg, sizeof(msg), "root_page == 23 (got %u)", root);
-        CHECK(root == 23u, msg);
+        /* Real dBASE (minted A00, same 343 x C20 geometry): 1 hdr + 20 leaves
+         * + 1 full level-1 branch (p20) + the root (p22) = 23 pages. */
+        snprintf(msg, sizeof(msg), "total_pages == 23 (got %u)", total);
+        CHECK(total == 23u, msg);
+        snprintf(msg, sizeof(msg), "root_page == 22 (got %u)", root);
+        CHECK(root == 22u, msg);
     }
 
-    /* ---- (3) STRUCTURAL validity: HIGH-key + balanced depth + >=3 levels. */
+    /* ---- (3) STRUCTURAL validity: HIGH-key separators + >=3 levels. */
     {
         uint8_t  rootmax[ML_KEYLEN];
         uint32_t height = 0u;
         int      vrc = validate_subtree(idx, ndx_root_page(idx),
                                         ndx_total_pages(idx), rootmax, &height,
                                         "struct");
-        CHECK(vrc == 0, "structural validity (HIGH-key separators + balanced depth)");
+        CHECK(vrc == 0, "structural validity (HIGH-key separators)");
         snprintf(msg, sizeof(msg),
                  "tree is genuinely multi-level: height %u >= 3", height);
         CHECK(height >= 3u, msg);
@@ -424,10 +401,10 @@ int main(int argc, char **argv)
         }
     }
 
-    /* ---- (6) HONEST FAIL-LOUD on the scoped-out incremental paths (Rule 2).
-     * Multi-level incremental insert/delete are NOT implemented (unminted split
-     * policy; see the worklog). On a >=3-level tree these MUST fail loud rather
-     * than corrupt a branch page. Assert the guard returns -NDX_ERR_NOROOM. */
+    /* ---- (6) Incremental insert/delete on the 3-level tree (initech-7tj3:
+     * the minted multi-level policy; byte-exact in test-ndx-incremental). An
+     * insert above every key lands and is found; deleting a present pair
+     * removes it. */
     ndx_close(idx);
     idx = NULL;
     {
@@ -436,20 +413,24 @@ int main(int argc, char **argv)
         CHECK(rc == NDX_OK && widx != NULL, "ndx_open_rw 3-level index");
         if (rc == NDX_OK && widx) {
             uint8_t  kbuf[ML_KEYLEN];
-            render_key(500u, kbuf);   /* a fresh interior value */
+            xb_val   kv;
+            uint32_t got = 0u;
+            int      found = 0;
+            render_key(100000u, kbuf);   /* above every stored value */
             rc = ndx_insert_key(widx, kbuf, ML_NREC + 1u);
-            snprintf(msg, sizeof(msg),
-                     "ndx_insert_key on 3-level tree fails loud NOROOM (rc=%d, "
-                     "want -%d)", rc, NDX_ERR_NOROOM);
-            CHECK(rc == -NDX_ERR_NOROOM, msg);
+            snprintf(msg, sizeof(msg), "ndx_insert_key on the 3-level tree (rc=%d)", rc);
+            CHECK(rc == NDX_OK, msg);
+            kv = xb_c((const char *)kbuf, (uint16_t)ML_KEYLEN);
+            rc = ndx_seek(widx, &kv, 1, &got, &found);
+            CHECK(rc == NDX_OK && found && got == ML_NREC + 1u, "inserted key found at its recno");
 
-            /* delete an existing key -- must also fail loud, never misreport. */
             render_key(value_for_recno(171u), kbuf);
             rc = ndx_delete_key(widx, kbuf, 171u);
-            snprintf(msg, sizeof(msg),
-                     "ndx_delete_key on 3-level tree fails loud NOROOM (rc=%d, "
-                     "want -%d)", rc, NDX_ERR_NOROOM);
-            CHECK(rc == -NDX_ERR_NOROOM, msg);
+            snprintf(msg, sizeof(msg), "ndx_delete_key on the 3-level tree (rc=%d)", rc);
+            CHECK(rc == NDX_OK, msg);
+            kv = xb_c((const char *)kbuf, (uint16_t)ML_KEYLEN);
+            rc = ndx_seek(widx, &kv, 1, &got, &found);
+            CHECK(rc == NDX_OK && !found, "deleted key no longer found");
             ndx_close(widx);
         }
     }
