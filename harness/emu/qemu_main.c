@@ -22,6 +22,8 @@
 #include "qemu.h"
 
 #include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -324,6 +326,16 @@ int main(int argc, char **argv)
     fprintf(stderr, "[harness] OK=%d\n", res.ok);
 
     int rc = res.ok ? 0 : 1;
+    /* initech-tfn6r / PRD Sec 8: only after the fault oracle has parsed the
+     * intact log and the report card is written. RED diagnostics stay whole;
+     * serial, screenshots and the report remain available on GREEN too. */
+#ifndef HARNESS_MUTATE_KEEP_GREEN_LOG
+    if (res.ok && unlink(res.log_path) && errno != ENOENT) {
+        fprintf(stderr, "[harness] RED QEMU-LOG-CLEANUP: cannot remove %s\n",
+                res.log_path);
+        rc = 2;
+    }
+#endif
     qemu_result_free(&res);
     return rc;
 }

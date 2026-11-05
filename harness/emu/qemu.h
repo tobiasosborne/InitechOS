@@ -277,12 +277,14 @@ typedef struct {
 
 /* Default wall-clock timeout if config->timeout_ms <= 0. */
 #define QEMU_DEFAULT_TIMEOUT_MS 5000
+#define QEMU_DEFAULT_LOG_CAP_BYTES 67108864ULL
 
 /*
  * QemuResult -- structured signals captured from the run.
  *
  * `ok` is the overall verdict: QEMU launched and reaped, did NOT time out,
- * reported no triple fault, no guest errors, and (if expect_marker was set)
+ * stayed within the debug-log cap, reported no triple fault, no guest errors,
+ * and (if expect_marker was set)
  * the marker was found. It is the single boolean a gate should consult,
  * but every component is exposed so a gate can be precise.
  */
@@ -303,6 +305,7 @@ typedef struct {
     int  cpu_reset_count;      /* count of cpu_reset events in the log.     */
     int  guest_errors;         /* count of guest_errors lines in the log.   */
     char log_path[QEMU_PATH_MAX];      /* the -D debug log file.            */
+    bool log_limit_exceeded;   /* diagnostic storage cap killed this leg. */
 
     bool screendump_taken;     /* QMP screendump issued and file exists.    */
     char screendump_path[QEMU_PATH_MAX]; /* the .ppm (if screendump_taken). */
