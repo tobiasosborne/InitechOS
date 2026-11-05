@@ -1057,6 +1057,11 @@ static SAMIR_OVL_TEXT(set) int set_opt_print(xb_interp *ip, set_state *ss, const
     return CMD_OK;
 }
 
+/* Procedure sources and active DO frames have one owner in proc.c. Pass the
+ * registered SET PROCEDURE row along the command chain to that owner. */
+static SAMIR_OVL_TEXT(set) int set_opt_procedure(xb_interp *ip, set_state *ss, const char *s, int *ec)
+{ (void)ip; (void)ss; (void)s; (void)ec; return CMD_UNKNOWN; }
+
 /* Rows come from set_options.def: SET_OPT(KEYWORD, handler). */
 #define SET_OPT(kw, fn) { kw, fn },
 static const set_opt_row set_opts[] SAMIR_OVL_DATA(set) = {

@@ -204,6 +204,10 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip);
  * silent skip of a broken statement.
  */
 int samir_do(xb_interp *ip, const char *prg);
+/* Shared disk-program loader (dot prompt, nested DO and batch startup).
+ * Caller owns the returned PAL acquire block and must release it. Errors
+ * are existing catalogue ordinals; NULL never means a partial program. */
+char *proc_load_program(xb_interp *ip, const char *name, uint32_t *len, int *ec);
 
 /*
  * samir_do_n: samir_do over the first `len` bytes of `prg` (the slice need not

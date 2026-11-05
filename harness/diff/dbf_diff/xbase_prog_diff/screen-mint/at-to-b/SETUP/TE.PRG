@@ -4,5 +4,4 @@ R=ROW()
 C=COL()
 @ 20,60 SAY STR(R,3)+STR(C,3)
 @ 21,60 SAY "x"
-DO WHILE INKEY()=0
-ENDDO
+DO P
