@@ -2771,9 +2771,9 @@ TEST_NDX_INCR      := $(BUILD)/test_ndx_incremental
 TEST_NDX_INCR_SRC  := $(DBF_DIFF_DIR)/test_ndx_incremental.c
 TEST_NDX_INCR_ENG  := $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 NDX_INCR_MUTANTS   := LEAF_SPLIT_LOW:I01.NDX BULK_NO_ELIDE:B017.NDX DELETE_NO_SEP_UPDATE:D09.NDX ZERO_SEP_LEAF:E02_in-order DELETE_NOSPAN:deep_duplicate_delete
-$(TEST_NDX_INCR): $(TEST_NDX_INCR_SRC) $(ORACLE_POLICY_H) $(TEST_NDX_INCR_ENG) $(SAMIR_HEADERS) | $(BUILD)
+$(TEST_NDX_INCR): $(TEST_NDX_INCR_SRC) $(ORACLE_POLICY_H) $(TEST_NDX_INCR_ENG) $(wildcard $(SAMIR_INC_DIR)/samir/*.h) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_INCR_OUT='"$(BUILD)/ndx_incr"' -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(TEST_NDX_INCR_SRC) $(TEST_NDX_INCR_ENG)
-$(BUILD)/test_ndx_incremental_mut_%: $(TEST_NDX_INCR_SRC) $(ORACLE_POLICY_H) $(TEST_NDX_INCR_ENG) $(SAMIR_HEADERS) | $(BUILD)
+$(BUILD)/test_ndx_incremental_mut_%: $(TEST_NDX_INCR_SRC) $(ORACLE_POLICY_H) $(TEST_NDX_INCR_ENG) $(wildcard $(SAMIR_INC_DIR)/samir/*.h) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_$* -DNDX_INCR_OUT='"$(BUILD)/ndx_incr_mut_$*"' -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(TEST_NDX_INCR_SRC) $(TEST_NDX_INCR_ENG)
 .PHONY: test-ndx-incremental test-ndx-incremental-mutant
 test-ndx-incremental: $(TEST_NDX_INCR)
