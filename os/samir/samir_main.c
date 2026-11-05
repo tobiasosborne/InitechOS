@@ -518,9 +518,13 @@ static int repl_loop(samir_pal_t *pal, xb_interp *ip, int nested)
 
         xb_interp_ctx(ip)->dot_command=1;
         samir_status_refresh(ip);
+        if(pal->prompt) pal->prompt(pal,!xb_interp_ctx(ip)->scoreboard_off,
+                                    xb_interp_ctx(ip)->screen_cleared);
+        xb_interp_ctx(ip)->screen_cleared=0;
         repl_puts(pal, ". ");                 /* the dBASE dot prompt */
 
-        n = pal->conin_line(pal, line, (uint32_t)REPL_LINE_CAP);
+        n = pal->conin_command ? pal->conin_command(pal,line,(uint32_t)REPL_LINE_CAP) :
+                                pal->conin_line(pal,line,(uint32_t)REPL_LINE_CAP);
         if (n < 0)                            /* EOF / keyboard error -> stop */
             return nested ? INTERP_RC_QUIT : INTERP_OK;
         line[(uint32_t)n < (uint32_t)REPL_LINE_CAP ? (uint32_t)n : REPL_LINE_CAP - 1u] = '\0';

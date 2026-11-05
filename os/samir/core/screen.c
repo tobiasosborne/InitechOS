@@ -20,6 +20,7 @@ void samir_screen_init(samir_screen *s,samir_screen_draw draw,void *user)
     SAMIR_RETAIN(s); SAMIR_RETAIN(draw); SAMIR_RETAIN(user);
     rt_memset(s,0,sizeof(*s)); rt_memset(s->text,' ',sizeof(s->text));
     s->draw=draw;s->user=user;
+    s->scoreboard=1;
 }
 void samir_screen_status(samir_screen *s,int on,char drive,const char *db,uint32_t rec,uint32_t count)
 {
@@ -44,15 +45,58 @@ void samir_screen_status(samir_screen *s,int on,char drive,const char *db,uint32
     }
     s->active=(uint8_t)(on!=0);
 }
+static void scroll(samir_screen *s,uint8_t bottom)
+{
+    uint32_t r,top=s->scoreboard?1u:0u;
+#ifdef SAMIR_DOTPROMPT_MUTANT_scoreboard
+    top=0;
+#endif
+    for(r=top;r<bottom;r++) rt_memcpy(s->text[r],s->text[r+1],80);
+    rt_memset(s->text[bottom],' ',80);
+    if(s->scroll) s->scroll(s->user,(uint8_t)top,bottom);
+    else if(s->draw) for(r=top;r<=bottom;r++) s->draw(s->user,(uint8_t)r,0,0x07,s->text[r],80);
+}
 static void next_row(samir_screen *s)
 {
-    uint32_t r;
+    uint8_t bottom=s->active?21:24;
     s->col=0;
-    if(++s->row<22) return;
-    s->row=21;
-    for(r=0;r<21;r++) rt_memcpy(s->text[r],s->text[r+1],80);
-    rt_memset(s->text[21],' ',80);
-    for(r=0;r<22;r++) s->draw(s->user,(uint8_t)r,0,0x07,s->text[r],80);
+    if(++s->row<=bottom) return;
+    s->row=bottom;
+    scroll(s,bottom);
+}
+/* Real III+ at-dot d1..d8, at-dot-c e1/e4/e5/e7 and at-to-b TEd.
+ * Enter has only returned the cursor to column zero; only this prompt scrolls.
+ * CLEAR's scoreboard cleanup is deferred until here, once per CLEAR. */
+void samir_screen_prompt(samir_screen *s,int scoreboard,int cleared)
+{
+    uint32_t n=79;
+    if(s->scoreboard!=(uint8_t)scoreboard) {
+        uint32_t r;
+        rt_memset(s->text,' ',sizeof s->text);
+        if(s->draw) for(r=0;r<25;r++) s->draw(s->user,(uint8_t)r,0,0x07,s->text[r],80);
+        s->row=s->col=0;
+    }
+    s->scoreboard=(uint8_t)scoreboard;
+    if(cleared && scoreboard) {
+#ifndef SAMIR_DOTPROMPT_MUTANT_clear
+        rt_memset(s->text[0]+39,' ',41);
+        if(s->draw) s->draw(s->user,0,39,0x07,s->text[0]+39,41);
+#endif
+    }
+    if(s->active) return;
+#ifndef SAMIR_DOTPROMPT_MUTANT_bottom
+    if(s->row>=24) { s->row=24;next_row(s); }
+    else {
+#ifdef SAMIR_DOTPROMPT_MUTANT_blank79
+        n=80;
+#endif
+        rt_memset(s->text[24],' ',n);
+        if(s->draw) s->draw(s->user,24,0,0x07,s->text[24],n);
+    }
+    s->row=24;s->col=0;
+#else
+    (void)n;
+#endif
 }
 void samir_screen_write(samir_screen *s,const char *text,uint32_t len)
 {
@@ -66,6 +110,7 @@ void samir_screen_write(samir_screen *s,const char *text,uint32_t len)
             i++;
         } else {
             uint32_t start=i,col=s->col;
+            if(s->row>24) next_row(s);
             while(i<len && s->col<80 && text[i]!='\n' && text[i]!='\r' && text[i]!='\b')
                 s->text[s->row][s->col++]=text[i++];
             s->draw(s->user,s->row,(uint8_t)col,0x07,text+start,i-start);
@@ -74,7 +119,7 @@ void samir_screen_write(samir_screen *s,const char *text,uint32_t len)
     }
 }
 
-/* SAY-only cursor/cell synchronization after the PAL paints CON.
+/* SAY paints through the PAL without terminal wrap, then owns its scrolling.
  * Ref: ../dbase3-decomp/specs/full-screen/say-get-read.md sections 1, 2.2:
  * @SAY addresses all 25 rows and leaves the cursor after its value. The
  * row-23 golden and test_samir_say require cells beyond the 22-row viewport.
@@ -82,11 +127,10 @@ void samir_screen_write(samir_screen *s,const char *text,uint32_t len)
  * next_row nor samir_screen_write changes policy after this operation. */
 static void say_next_row(samir_screen *s)
 {
-    uint32_t r;
     s->col=0;
     if(s->row<24) { s->row++;return; }
-    for(r=0;r<24;r++)rt_memcpy(s->text[r],s->text[r+1],80);
-    rt_memset(s->text[24],' ',80);
+    s->row=24;
+    scroll(s,24);
 }
 void samir_screen_at(samir_screen *s,uint8_t row,uint8_t col,const char *text,uint32_t n)
 {
@@ -106,7 +150,12 @@ void samir_screen_at(samir_screen *s,uint8_t row,uint8_t col,const char *text,ui
             uint8_t next=(uint8_t)((s->col/8+1)*8);
             if(next>=80)say_next_row(s);else s->col=next;
         } else {
-            s->text[s->row][s->col++]=c;
+            uint32_t start=i,col=s->col;
+            while(i<n && s->col<80 && (uint8_t)text[i]>=32 && text[i]!=127)
+                s->text[s->row][s->col++]=text[i++];
+            if(i==start) { s->text[s->row][s->col++]=c;i++; }
+            if(s->draw) s->draw(s->user,s->row,(uint8_t)col,0x07,text+start,i-start);
+            i--;
             if(s->col==80)say_next_row(s);
         }
     }

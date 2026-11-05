@@ -630,6 +630,16 @@ static void test_cursor_clamp(void)
         CHECK(a->col == 79, "ESC[500;200f: col clamped to 79");
     }
 
+    /* Real III+ at-to-b/TE: a full-page box leaves BIOS row 25. Both
+     * absolute position verbs and save/restore must carry it unchanged. */
+    for(int synonym=0;synonym<2;synonym++) {
+        const uint8_t offpage[] = {27,'[','2','6',';','1',synonym?'f':'H',27,'[','s',27,'[','H',27,'[','u'};
+        ansi_init(&st,25,80);log_reset(&log);
+        feed_bytes(&st,offpage,(int)sizeof offpage,&log);
+        a=find_action(&log,ANSI_ACT_MOVE_CURSOR,0);
+        CHECK(a && a->row==25 && a->col==0,"CUP/HVP carries off-page BIOS cursor (25,0)");
+        CHECK(st.row==25 && st.col==0,"save/restore preserves off-page cursor");
+    }
     /* A small screen (1x1) exercises the clamp at the tightest bound. */
     ansi_init(&st, 1, 1);
     log_reset(&log);

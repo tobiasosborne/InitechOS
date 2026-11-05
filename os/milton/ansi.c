@@ -346,7 +346,9 @@ static void ansi_dispatch_csi(ansi_state_t *st, uint8_t final,
             a.row  = ansi_clamp(r - 1, -2147483647, 2147483647);
             a.col  = ansi_clamp(c - 1, -2147483647, 2147483647);
 #else
-            a.row  = ansi_clamp(r - 1, 0, st->rows - 1);
+            /* Real III+ at-to-b/TE: ESC[26;1H carries BIOS row 25.
+             * Larger requests still use the existing last-row clamp. */
+            a.row  = r - 1 == st->rows ? st->rows : ansi_clamp(r - 1, 0, st->rows - 1);
             a.col  = ansi_clamp(c - 1, 0, st->cols_wide - 1);
 #endif
             /* Update FSM cursor so save/restore tracks absolute position. */

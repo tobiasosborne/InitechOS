@@ -162,7 +162,8 @@ void samir_ovl_require_resident(uintptr_t p,const char *where)
     F(conout) F(conin_line) F(conin_char) F(gotoxy) F(set_attr) F(today) \
     F(alloc) F(reset) F(acquire) F(release) F(status) F(conin_line_noecho) \
     F(exec) F(conin_escape) F(curdrive) F(getenv) F(os_version) F(diskspace) \
-    F(conin_poll) F(time) F(iscolor) F(say_screen) F(printout) F(paint)
+    F(conin_poll) F(time) F(iscolor) F(say_screen) F(printout) F(paint) \
+    F(prompt) F(conin_command)
 #define CTX_FIELDS(F) \
     F(mirror_output) F(mirror_user) F(resolve) F(user) F(scratch) F(dbcur) \
     F(dbcur_user) F(file_pal) F(record_size) F(on_error) F(message) \

@@ -94,6 +94,7 @@ int main(void)
          * rows; the established writer's editing/control policy must survive
          * positioned SAY (say-get-read.md sections 1-2). */
         samir_screen_init(&model,model_draw,NULL);
+        model.active=1;
         model.row=1;model.col=0;
         samir_screen_write(&model,"\b",1);
         CHECK(model.row==0 && model.col==79,"dot-prompt backspace still wraps to previous row");
