@@ -159,7 +159,8 @@ static int line_of(const char *text, const char *prefix, char *out, size_t cap)
     const char *p = text;
     size_t k = strlen(prefix);
     while (p && *p) {
-        const char *e = strpbrk(p, "\r\n");
+        /* SET ALTERNATE terminates its last text line with DOS EOF. */
+        const char *e = strpbrk(p, "\r\n\032");
         size_t len = e ? (size_t)(e - p) : strlen(p);
         if (len >= k && !memcmp(p, prefix, k) && len < cap) { memcpy(out, p, len); out[len] = 0; return 1; }
         p = e ? e + 1 : NULL;
@@ -188,6 +189,44 @@ static void same_line(const char *log, const char *prefix, const char *why)
     if (!line_of(captured, prefix, got, sizeof got) || !line_matches(got, want))
         fprintf(stderr, "  %s: got [%s] want [%s]\n", why, line_of(captured, prefix, got, sizeof got) ? got : "(none)", want);
     CHECK(line_of(captured, prefix, got, sizeof got) && line_matches(got, want), why);
+}
+
+/* Replay the independently minted program, omitting only its DOSBox capture
+ * wrapper. Retain every expression, SET mode and field/memvar operation.
+ * Ref: datecontract/README (initech-bkmv); no expected bytes come from SAMIR. */
+static char date_program[32768];
+static const char *date_commands[512];
+static int load_datecontract(void)
+{
+    char *line;
+    unsigned n = 0;
+    if (!readfile(GOLD "/datecontract/DATECHK.PRG", (unsigned char *)date_program,
+                  sizeof date_program)) return 1;
+    for (line = strtok(date_program, "\r\n"); line; line = strtok(NULL, "\r\n")) {
+        if (!strncmp(line, "ON ERROR ", 9) || !strncmp(line, "SET ALTERNATE", 13) ||
+            !strcmp(line, "QUIT")) continue;
+        if (n + 1 >= sizeof date_commands / sizeof date_commands[0]) return 1;
+        date_commands[n++] = line;
+    }
+    date_commands[n] = NULL;
+    script = date_commands;
+    return n < 200;
+}
+
+static void check_datecontract(void)
+{
+    unsigned n;
+    for (n = 0; date_commands[n]; n++) {
+        const char *s = date_commands[n];
+        char prefix[8], why[96];
+        size_t k;
+        if (strncmp(s, "? \"", 3)) continue;
+        s += 3;
+        for (k = 0; s[k] && s[k] != ' ' && k + 2 < sizeof prefix; k++) prefix[k] = s[k];
+        prefix[k++] = ' '; prefix[k] = 0;
+        snprintf(why, sizeof why, "DATECONTRACT %s[real III+ DATECHK]", prefix);
+        same_line("datecontract/DATECHK.TXT", prefix, why);
+    }
 }
 
 static int valid_d_bytes(const unsigned char *b)
@@ -307,6 +346,10 @@ int main(int argc, char **argv)
     else if (!strcmp(name, "numericfit"))      { script = numericfit_cmds; table = "E5"; }
     else if (!strcmp(name, "blankdtoc"))       { script = blankdtoc_cmds; table = "E4"; }
     else if (!strcmp(name, "valstar"))         { script = valstar_cmds; table = "E5"; }
+    else if (!strcmp(name, "datecontract")) {
+        if (load_datecontract()) return 2;
+        table = "E7";
+    }
     else if (!strcmp(name, "boundary")) {
         snprintf(dir, sizeof dir, "build/samirdt/%s/boundary", variant);
         snprintf(cmd, sizeof cmd, "rm -rf %s && mkdir -p %s", dir, dir);
@@ -355,8 +398,8 @@ int main(int argc, char **argv)
         }
         g3 = rec_bytes(got, gn, 3, REC_WHEN, 8);
         if (g3 && !valid_d_bytes(g3)) fprintf(stderr, "  rec 3 WHEN bytes [%.8s]\n", (const char *)g3);
-        CHECK(g3 && valid_d_bytes(g3),
-              "L001 REPLACE WHEN WITH CTOD(\"02/30/92\") leaves valid D bytes (blank or YYYYMMDD)");
+        CHECK(g3 && valid_d_bytes(g3) && !memcmp(g3, "19920301", 8),
+              "L001 CTOD(\"02/30/92\") stores 19920301 [real III+ DATECHK C05]");
     } else if (!strcmp(name, "overflow")) {
         const unsigned char *g = rec_bytes(got, gn, 1, REC_SMALL, 4), *w;
         wn = readfile(GOLD "/E5.DBF", want, sizeof want);
@@ -382,6 +425,8 @@ int main(int argc, char **argv)
         same_line("DT2LOG.TXT", "E2 [", "FMT-DTOC empty CTOD retains separators [real III+ DT2 E2]");
     } else if (!strcmp(name, "valstar")) {
         same_line("DT2LOG.TXT", "F8 [", "FMT-VALSTAR VAL overflow prints stars [real III+ DT2 F8]");
+    } else if (!strcmp(name, "datecontract")) {
+        check_datecontract();
     } else {
         snprintf(path, sizeof path, "%s/BLANKDAT.NDX", dir); gn = readfile(path, got, sizeof got);
         wn = readfile(GOLD "/BLANKDAT.NDX", want, sizeof want);

@@ -937,6 +937,30 @@ int main(void)
     /* -------------------------------------------------------------------- */
     printf("coerce_fuzz: directed all-cells pass (%d cells)...\n", NCELLS);
     dir_failures = run_directed_pass();
+    /* The type-only sweep cannot distinguish blank ordering rules. Exercise
+     * the independently minted VALUES as well (initech-bkmv, datatype-mint/
+     * datecontract/DATECHK.TXT Q001..Q180). This is not a total order. */
+    {
+        static const char *const ops[] = { "=", "<>", "<", ">", "<=", ">=", "#" };
+        char expr[64];
+        unsigned op, pair;
+        int exact;
+        for (exact = 0; exact <= 1; exact++) {
+            for (op = 0; op < sizeof ops / sizeof ops[0]; op++) {
+                for (pair = 0; pair < 3; pair++) {
+                    xb_val v; int err = 999;
+                    const char *lhs = pair == 1 ? "FDATE" : "BDATE";
+                    const char *rhs = pair == 0 ? "FDATE" : "BDATE";
+                    int good;
+                    snprintf(expr, sizeof expr, "%s %s %s", lhs, ops[op], rhs);
+                    good = eval_src(expr, (uint8_t)exact, &v, &err) == 0 &&
+                           err == XBEE_OK && v.t == XB_L && v.u.l == (pair == 2);
+                    CHECK(good, "BLANKCMP: minted blank comparison matrix [DATECHK]");
+                    if (!good) dir_failures++;
+                }
+            }
+        }
+    }
 
     /* -------------------------------------------------------------------- */
     /* Phase 2: RANDOM SEEDED SWEEP (1..SWEEP_N).                            */

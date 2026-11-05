@@ -41,8 +41,11 @@
     "R_concat_minus":    "C - C -> C; LHS trailing blanks moved to end; total length preserved.",
     "R_substr":          "c1 $ c2 -> L; literal substring; case-sensitive; blanks significant; unaffected by SET EXACT.",
     "R_order_same_type": "<,>,<=,>= require SAME base type; cross-type -> mismatch.",
-    "R_blankdate_high":  "In ordering, a blank date is GREATER THAN any non-blank date.",
+    "R_blankdate_high":  "Date expressions (=, <>, #, <, >, <=, >=): exactly one blank operand -> .F.; two blank operands -> .T. for every operator. Non-blank dates compare chronologically. INDEX key order is separate: blank LAST.",
     "R_no_truthiness":   ".AND./.OR./.NOT. and IF/DO WHILE/FOR/WHILE guards require L; non-L -> 'Not a Logical expression.'"
+  },
+  "rule_notes": {
+    "R_blankdate_high": "initech-bkmv: deliberate Rule 8 correction; legacy rule name retained. The 2026-10-24 blank-LOW detail is superseded by real III+ captures, per the operator's follow-real-III+ clarification. Evidence: harness/diff/dbf_diff/xbase_prog_diff/datatype-mint/datecontract/{CMPLOG.TXT,CMP2LOG.TXT,VERIFY.TXT,DATECHK.TXT}; DATECHK.PRG covers CTOD, memvar and Date field operands, both orders, all six operators and EXACT OFF/ON. Blank LAST remains the independent NDX contract."
   },
   "operator_coercion": [
     { "lhs":"N","op":"+","rhs":"N","result":"N" },

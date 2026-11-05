@@ -290,11 +290,30 @@ int main(void)
     /* D = D (cell D=D) */
     ok_l("DJAN = DJAN", 0, 1, "E12: D=D equal -> .T. [cell D=D]");
     ok_l("DJAN = DSEP", 0, 0, "E13: D=D unequal -> .F. [cell D=D]");
-    /* D < D (cell D<D) + R_blankdate_high: blank date is GREATER than any */
+    /* R_blankdate_high is the legacy name of the minted blank comparison
+     * matrix, not a total order. Ref: datatype-mint/datecontract/DATECHK.TXT
+     * Q001..Q180; independently repeated in CMPLOG/CMP2LOG/VERIFY.TXT.
+     * initech-bkmv: exactly one blank -> .F.; both blank -> .T., even <>. */
     ok_l("DJAN < DSEP",   0, 1, "E14: D<D ordering -> .T. [cell D<D]");
-    ok_l("DSEP < DBLANK", 0, 1, "E15: D<blankD -> .T. (R_blankdate_high: blank is GREATER)");
-    ok_l("DBLANK > DSEP", 0, 1, "E16: blankD>D -> .T. (R_blankdate_high)");
+    ok_l("DSEP < DBLANK", 0, 0, "E15: D<blankD -> .F. [DATECHK Q006]");
+    ok_l("DBLANK > DSEP", 0, 0, "E16: blankD>D -> .F. [DATECHK Q007]");
     ok_l("DBLANK < DSEP", 0, 0, "E17: blankD<D -> .F. (R_blankdate_high)");
+    {
+        static const char *const ops[] = { "=", "<>", "<", ">", "<=", ">=", "#" };
+        char expr[64];
+        unsigned i;
+        int exact;
+        for (exact = 0; exact <= 1; exact++) {
+            for (i = 0; i < sizeof ops / sizeof ops[0]; i++) {
+                snprintf(expr, sizeof expr, "DBLANK %s DSEP", ops[i]);
+                ok_l(expr, exact, 0, "BLANKCMP: blank/date -> .F. [DATECHK]");
+                snprintf(expr, sizeof expr, "DSEP %s DBLANK", ops[i]);
+                ok_l(expr, exact, 0, "BLANKCMP: date/blank -> .F. [DATECHK]");
+                snprintf(expr, sizeof expr, "DBLANK %s DBLANK", ops[i]);
+                ok_l(expr, exact, 1, "BLANKCMP: blank/blank -> .T. [DATECHK]");
+            }
+        }
+    }
 
     /* =================================================================== */
     /* F. C = C SET EXACT semantics (cell C=C: R_begins_with / R_exact_blankpad)*/

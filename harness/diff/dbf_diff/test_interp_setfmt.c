@@ -207,6 +207,9 @@ static int run_setfmt_tests(const char *corpus_path)
     len = eval_char(ip, "DTOC(CTOD('  /  /  '))", buf, (int)sizeof(buf));
     CHECK(len == 8 && memcmp(buf, "  /  /  ", 8) == 0,
           "default: DTOC(blank) -> '  /  /  ' [real III+ DT2 E1/E2]");
+    jdn = eval_date(ip, "CTOD('02/30/26')");
+    CHECK(jdn == 2424577,
+          "default: CTOD Feb 30 rolls to 1926-03-02 [initech-bkmv DATECHK C01]");
 
     /* 1d. STR(3.14159) 1-arg: dec=0 ALWAYS (STR is NOT governed by SET DECIMALS).
      * Result: "         3" (width=10, 0 decimals, right-justified).
@@ -283,6 +286,9 @@ static int run_setfmt_tests(const char *corpus_path)
     len = eval_char(ip, "DTOC(CTOD('  /  /  '))", buf, (int)sizeof(buf));
     CHECK(len == 10 && memcmp(buf, "  /  /    ", 10) == 0,
           "SET CENTURY ON: DTOC(blank) -> '  /  /    ' [real III+ DT6 D02]");
+    len = eval_char(ip, "'['+DTOC(CTOD(''))+']'", buf, (int)sizeof(buf));
+    CHECK(len == 12 && memcmp(buf, "[  /  /    ]", 12) == 0,
+          "SET CENTURY ON: bracketed blank DTOC [initech-bkmv DATECHK B03]");
 
     /* 4c. SET CENTURY OFF restores 8-char output. */
     rc = do_set(ip, "SET CENTURY OFF");
@@ -325,12 +331,12 @@ static int run_setfmt_tests(const char *corpus_path)
           "SET DATE ANSI: CTOD('85.08.05') == JDN 2446283 (1985-08-05) [MUTANT]");
 
     /* 5c. CTOD of AMERICAN format under ANSI: digits 08,05,85 -> ANSI interprets
-     * as YY=08, MM=05, DD=85 -> DD=85 out-of-range -> blank date.
+     * as YY=08, MM=05, DD=85 -> rolls to 1908-07-24.
      * Proves format switching is live (not hardcoded).
-     * [Ref: dates-and-century.md "invalid day -> blank date"] */
+     * [Ref: datatype-mint/datecontract/DATECHK.TXT C16] */
     jdn = eval_date(ip, "CTOD('08/05/85')");
-    CHECK(jdn == 0,
-          "SET DATE ANSI: CTOD('08/05/85') with ANSI parser -> blank (invalid DD=85) [MUTANT]");
+    CHECK(jdn == 2418147,
+          "SET DATE ANSI: CTOD('08/05/85') -> 1908-07-24 [DATECHK C16] [MUTANT]");
 
     /* 5d. SET DATE ANSI + SET CENTURY ON -> DTOC outputs YYYY.MM.DD (10 chars).
      * Ref: set-commands.md Sec 3.2 ANSI CENTURY ON = YYYY.MM.DD (10). */

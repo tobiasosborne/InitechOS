@@ -35034,7 +35034,7 @@ TEST_EMU_GATES += test-samir-abbrev-emu
 # xbase_prog_diff/datatype-mint (sha256-pinned; mint-samir-datatype re-runs
 # dosbox-x and proves real III+ still reproduces them). Each mutant re-opens one
 # defect in dbf.c/mutate.c and must turn at least one L0nn check RED.
-SAMIR_DT_CASES := blankdate overflow dateindex dateindex-blank boundary blankdtoc numericfit valstar
+SAMIR_DT_CASES := blankdate overflow dateindex dateindex-blank boundary blankdtoc numericfit valstar datecontract
 SAMIR_DT_MUTANTS := blankwrite starread blankread blankkey cutoff
 SAMIR_DT_TEST := $(BUILD)/test_samir_datatype
 SAMIR_DT_MUTS := $(addprefix $(BUILD)/test_samir_datatype_, $(SAMIR_DT_MUTANTS))
