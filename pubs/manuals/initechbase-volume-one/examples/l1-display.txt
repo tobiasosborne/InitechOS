@@ -2,4 +2,5 @@
 . GO 6
 . DISPLAY
 Record#  EMPNO LASTNAME       FIRSTNAME  DEPT EXT  HIRED       SALARY EXEMPT NOTES
-      6  1006  SMYKOWSKI      TOM        CUST 1425 08/18/75  34200.00 .F.    Takes the specifications from the customers to the engineers.
+      6  1006  SMYKOWSKI      TOM        CUST 1425 08/18/75  34200.00 .F.    Takes the specifications from the customers to the
+                                                                             engineers.                                        
