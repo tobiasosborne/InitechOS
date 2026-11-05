@@ -41,22 +41,22 @@
  *       STR right-justified width/dec.
  *   - ../dbase3-decomp/specs/functions/numeric-and-date-functions.md
  *       DATE() system date; CTOD parse mm/dd/yy (American default), bad -> blank;
- *       DTOC mm/dd/yy 8-char (CENTURY OFF default), blank -> 8 spaces;
+ *       DTOC mm/dd/yy 8-char (CENTURY OFF default); see minted correction below.
  *       DAY/MONTH/YEAR -> N, blank -> 0; DTOS NOT III+.
  *   - ../dbase3-decomp/specs/functions/system-and-database-functions.md
  *       TYPE() -> one of C/N/D/L/M/U.
  *   - ../dbase3-decomp/specs/runtime/dates-and-century.md
  *       default SET DATE AMERICAN mm/dd/yy, SET CENTURY OFF (width 8);
  *       base-1900 2-digit-year rule (CTOD('01/01/00')=1900);
- *       blank date sentinel (JDN 0); DTOC(blank) = 8 spaces.
+ *       blank date sentinel (JDN 0).
+ *   - harness/diff/dbf_diff/xbase_prog_diff/datatype-mint/datecontract/
+ *       DATECHK.TXT B01..C16: DTOC keeps separators; numeric CTOD components
+ *       roll over without error (initech-bkmv; supersedes inferred rules).
  *   - spec/samir/dbase_msg_codes.tsv (the codes above).
  *   - os/samir/include/samir/{eval.h,value.h,rt.h}.
  *
  * BOUNDARIES / GATED (loud-noted, NOT guessed):
- *   - SET DATE / SET CENTURY are NOT yet wired into xb_ctx (S5.6). CTOD/DTOC
- *     therefore assume the III+ DEFAULTS: AMERICAN (mm/dd/yy) + CENTURY OFF
- *     (2-digit year, width 8). When S5.6 lands, these read ctx state instead.
- *     (dates-and-century.md: AMERICAN + CENTURY OFF are the documented defaults.)
+ *   - CTOD/DTOC read SET DATE / SET CENTURY from xb_ctx (S5.6).
  *   - SUBSTR start-point upper threshold (start past end -> "" vs #62) is
  *     corpus [oracle-resolves] (string-functions.md Open Q1). CONSERVATIVE
  *     CHOICE: start<1 -> #62 (the dedicated message exists); start>len returns
@@ -109,7 +109,7 @@ static int is_char(const xb_val *v) { return v->t == XB_C || v->t == XB_M; }
  * Mirrors eval.c's static date_is_blank (kept local; freestanding, no export). */
 static int fn_date_blank(double jdn) { return jdn <= 0.0; }
 
-#ifndef XB_MUTATE_FN_CTOD_CALVALID
+#ifdef XB_MUTATE_FN_CTOD_CALVALID
 /*
  * xb_is_leap_year: proleptic Gregorian leap-year rule.
  * Ref: the same Meeus Ch.7 Gregorian formula already cited for
@@ -117,9 +117,8 @@ static int fn_date_blank(double jdn) { return jdn <= 0.0; }
  * EXCEPT century years not divisible by 400: 1900 is NOT leap, 2000 IS leap,
  * 2100 is NOT leap. All within the CTOD valid range 1900-2155 (rt.h).
  *
- * Compiled out entirely under -DXB_MUTATE_FN_CTOD_CALVALID (Rule 6 mutant;
- * see fn_ctod_impl below) -- its only caller, xb_days_in_month, is compiled
- * out too, so leaving this in would be an unused-function -Werror.
+ * Only the Rule 6 mutant uses this cap: real III+ rolls calendar-invalid
+ * CTOD input forward. The mutant restores the old inferred validation.
  */
 static int xb_is_leap_year(int yy)
 {
@@ -538,35 +537,30 @@ static int fn_ctod_impl(const xb_val *args,
             }
         }
 
-        if (yearlen == 2) yy += 1900;  /* base-1900 [verified: dates-and-century.md] */
-
-        /* Validate. An invalid field -> blank date (CTOD of a bad string). */
-        if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yy < 1900 || yy > 2155) {
+        /* Real III+ DATECHK C14: the all-zero input is the blank date. */
+        if (mm == 0 && dd == 0 && yy == 0) {
             *out = xb_d(0.0); *err = XBEE_OK; return 0;
         }
-#ifndef XB_MUTATE_FN_CTOD_CALVALID
-        /*
-         * initech-9u0f: the range check above (dd in [1..31]) is necessary
-         * but NOT sufficient -- April has 30 days, February has 28 or 29.
-         * Without this cap, CTOD('02/31/90') silently rolls forward into
-         * jdn_from_ymd(1990,2,31), producing 1990-03-03 instead of the
-         * blank date. Real CTOD treats a calendar-invalid string the same
-         * as any other "improper" string -> blank date, NOT a rollover.
-         * Ref: ../dbase3-decomp/specs/functions/numeric-and-date-functions.md
-         *   lines 462-469 ("Invalid string -> blank date"; Harbour
-         *   datetime.txt:146-147 "If an improper character string is passed
-         *   to the function, an empty date value will be returned").
-         * Ref (calendar rule): xb_is_leap_year/xb_days_in_month above, same
-         *   Meeus Ch.7 Gregorian source already cited for jdn_from_ymd.
-         *
-         * MUTATION GUARD (-DXB_MUTATE_FN_CTOD_CALVALID): drop this cap,
-         * reverting to the pre-fix behavior (calendar-invalid dd rolls
-         * forward instead of returning blank). Rule 6.
-         */
-        if (dd > xb_days_in_month(mm, yy)) {
+        if (yearlen == 2) yy += 1900;  /* base-1900 [verified: dates-and-century.md] */
+
+        if (yy < 1900 || yy > 2155) {
+            *out = xb_d(0.0); *err = XBEE_OK; return 0;
+        }
+#ifdef XB_MUTATE_FN_CTOD_CALVALID
+        /* Rule 6: restore the old calendar-invalid -> blank behavior. */
+        if (mm < 1 || mm > 12 || dd < 1 || dd > xb_days_in_month(mm, yy)) {
             *out = xb_d(0.0); *err = XBEE_OK; return 0;
         }
 #endif
+        /* initech-bkmv, real III+ DATECHK C01..C16: calendar components
+         * roll over, including zero and oversized month/day. Preserve the
+         * Gregorian March-based month term instead of range-checking or
+         * reducing the month modulo 12: 99/99/85 is 06/23/1993 (C13).
+         * jdn_from_ymd's Gregorian formula supplies the year/leap terms. */
+        if (mm > 2) {
+            dd += (153 * (mm - 3) + 2) / 5;
+            mm = 3;
+        }
         *out = xb_d((double)jdn_from_ymd(yy, mm, dd));
         *err = XBEE_OK;
         return 0;

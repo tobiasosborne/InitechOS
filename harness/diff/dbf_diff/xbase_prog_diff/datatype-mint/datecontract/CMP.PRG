@@ -1,0 +1,31 @@
+SET TALK OFF
+SET SAFETY OFF
+ON ERROR ? "MINT-ERROR", ERROR(), MESSAGE()
+SET ALTERNATE TO CMPLOG
+SET ALTERNATE ON
+? "TYPE ", TYPE("B"), TYPE("D")
+? "X01 ", CTOD("") < CTOD("09/01/85")
+? "X02 ", CTOD("") > CTOD("09/01/85")
+? "X03 ", CTOD("09/01/85") < CTOD("")
+? "X04 ", CTOD("09/01/85") > CTOD("")
+? "X05 ", CTOD("") <= CTOD("09/01/85")
+? "X06 ", CTOD("") >= CTOD("09/01/85")
+? "X07 ", CTOD("09/01/85") <= CTOD("")
+? "X08 ", CTOD("09/01/85") >= CTOD("")
+? "X09 ", CTOD("") = CTOD("")
+? "X10 ", CTOD("") <> CTOD("09/01/85")
+? "X11 ", CTOD("") < CTOD("")
+? "X12 ", CTOD("") <= CTOD("")
+MBLANK = CTOD("")
+MDATE = CTOD("09/01/85")
+? "V01 ["+DTOC(MBLANK)+"] ["+DTOC(MDATE)+"]"
+? "V02 ", MBLANK < MDATE, MBLANK > MDATE, MDATE < MBLANK, MDATE > MBLANK
+? "V03 ", MBLANK = MBLANK, MBLANK < MBLANK, MBLANK <= MBLANK
+? "A01 ["+DTOC(CTOD("00/00/85"))+"]"
+? "A02 ["+DTOC(CTOD("00/00/00"))+"]"
+? "A03 ["+DTOC(CTOD("01/00/00"))+"]"
+? "A04 ["+DTOC(CTOD("99/99/85"))+"]"
+SET DATE ANSI
+? "A05 ["+DTOC(CTOD("08/05/85"))+"]"
+SET ALTERNATE TO
+QUIT

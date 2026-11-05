@@ -2,4 +2,12 @@
 . SET DATE ANSI
 . ? DTOC(DATE())
 
-1992.03.01
+1992.03.01. ? "["+DTOC(CTOD(""))+"]"
+
+[    .  .  ]. SET DATE AMERICAN
+. ? "["+DTOC(CTOD(""))+"]"
+
+[  /  /    ]. SET CENTURY OFF
+. ? "["+DTOC(CTOD(""))+"]"
+
+[  /  /  ]

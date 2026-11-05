@@ -44,6 +44,16 @@ The year of a date has two digits unless SET CENTURY is ON.  Two digits typed
 into \fn{CTOD()} are a year of the nineteen hundreds; this is the date
 convention of every program of the system.
 
+A blank date keeps the separators when \fn{DTOC()} prints it. Numeric month
+and day components in \fn{CTOD()} roll over without an error: February 30,
+1992 becomes March 1, 1992. Check the components when the program must
+refuse an impossible calendar date.
+
+Comparing a blank date with a filled date returns false for every comparison
+operator, in either order. Comparing two blank dates returns true for every
+comparison operator, even \texttt{<>} and \texttt{<}. SET EXACT does not
+change these results; blank index keys still come last.
+
 \ATEHead{Choosing a Value}
 \fn{IIF()} returns its second argument when its first is true, and its third when
 it is false.  It chooses a word for a logical field without an \cmd{IF}.

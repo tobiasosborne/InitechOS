@@ -4,7 +4,7 @@ Converts a date to a character string.
 \Syntax
 \SyntaxLine{\kw{DTOC(}\xp{expD}\kw{)}}
 \Usage
-The form of the string is set by SET DATE, and its width by SET CENTURY. With SET CENTURY OFF the string is 8 characters and the year has two digits; with SET CENTURY ON it is 10 characters and the year has four digits. The blank date gives a string of blanks of that width.
+The form of the string is set by SET DATE, and its width by SET CENTURY. With SET CENTURY OFF the string is 8 characters and the year has two digits; with SET CENTURY ON it is 10 characters and the year has four digits. For a blank date, the digit positions are blank and the separators remain. In AMERICAN form, bracketed for clarity, this is \texttt{[~~/~~/~~]} with CENTURY OFF and \texttt{[~~/~~/~~~~]} with CENTURY ON.
 
 The forms are: AMERICAN, month/day/year; ANSI, year.month.day; BRITISH and FRENCH, day/month/year; ITALIAN, day-month-year; GERMAN, day.month.year; JAPAN, year/month/day; USA, month-day-year.
 

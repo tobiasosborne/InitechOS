@@ -1,0 +1,56 @@
+initech-bkmv -- real dBASE III PLUS 1.1 date contract
+
+Authority: PRD 6.6 / ADR-0008. DBASE.EXE and its three runtime companions
+were copied read-only from dbase3-decomp/mint/work; reference.sha256 pins
+their bytes. No sibling-repository files were changed.
+
+Recipe: dbase3-decomp/re/harness-setup.md sections 1-3 and 6.2. Fresh host
+directory mounted as C:, CONFIG.DB disables ASSIST/TALK/SAFETY/BELL;
+inline ON ERROR, SET ALTERNATE, close alternate and QUIT in every program.
+SDL dummy video/audio, dosbox-x -defaultconf -fastlaunch -nopromptfolder
+-conf <generated-config> -exit, timeout --foreground -k 5 50; no -silent.
+Normal core, 386, 60000 cycles, svga_s3, 8 MB. CMP2 additionally verifies
+the result with core=auto/cycles=max. The reproducible recipe pins the
+DOS date/time (07/24/1986, 00:00:00); these programs do not print the clock.
+
+Run from the InitechOS root:
+  sh harness/diff/dbf_diff/date_contract_mint.sh <absolute-dbase3-decomp-root>
+This replays and byte-compares all five captures using real DBASE.EXE.
+It never updates a golden. Copyrighted interpreter binaries stay in build/.
+The parent datatype_mint.sh route invokes this verification as well, before
+checking or updating its combined sha256.txt manifest.
+
+DATES.PRG / DATELOG.TXT: initial calendar/blank DTOC probe; comparisons
+used blank and dated memvars. CMP.PRG / CMPLOG.TXT: direct CTOD calls,
+then stored memvars. CMP2.PRG / CMP2LOG.TXT: independently typed program
+with numeric and valid-date controls, explicit space-only blank input,
+CRLF source and the alternate CPU core. All three are original captures.
+
+VERIFY.PRG / VERIFY.TXT: second independent verification. A fresh copy of
+the existing EDGE.DBF/.DBT input is E7. WHEN is a Date field, replaced with
+a blank date, copied to MBLANK; MDATE is 09/07/1985. Both EXACT modes test
+all six operators in both orders for CTOD(""), MBLANK and WHEN versus
+MDATE, plus all nine blank/blank source pairs for <, = and <=.
+
+DATECHK.PRG / DATECHK.TXT: final expanded verification, extending the
+blank/blank pairs to all six operators. Q001..Q036 and Q091..Q126 each
+have exactly one blank: EVERY result is .F. Q037..Q090 and Q127..Q180
+have two blanks: EVERY result is .T., even <> and >. EXACT has no effect.
+The earlier captures agree on every overlapping case. S01/S02 prove the
+field/memvar types and values; S03/S04 are non-blank comparison controls.
+B01..B03 preserve DTOC separators with CENTURY OFF/ON. C01..C16 cover
+calendar rollovers, I5's 13/40/85, zero/outsize month/day, empty input and
+the ANSI parser's 08/05/85 -> 1908-07-24. These are real output bytes,
+including CRLF and DOS EOF, not reconstructed expected text.
+
+The parent sha256.txt pins all sources and captures. test-samir-datatype
+datecontract replays DATECHK.PRG through the shipped dot prompt and
+compares every tagged line to DATECHK.TXT. Pure eval/fn-a/setfmt/coercion
+gates cite these captures for their literal expectations.
+
+RULING CONFLICT: the 2026-10-24 directive says "follow real dBASE III PLUS
+1.1", with a derived "blank date compares LOW" detail. The operator's
+clarification for this lane gives the real interpreter priority, requires
+the independent verification above, and supersedes that LOW detail.
+The observed comparison matrix is not a total order. NDX blank LAST is
+a separate contract; no index-order expectations are derived from it.

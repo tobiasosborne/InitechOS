@@ -6,7 +6,7 @@ Converts a character string to a date.
 \Usage
 \fn{CTOD()} reads the digits of \xp{expC}, ignores every character that is not a digit, and arranges them in the order given by the current SET DATE format. Exactly six digits (a two-digit year) or eight digits (a four-digit year) must be present. A two-digit year is taken as a year of the twentieth century, counted from 00 as 1900; there is no sliding window. Either form is accepted whether SET CENTURY is ON or OFF.
 
-The month must be 1 through 12 and the day must exist in that month and year, so that 02/29 is accepted in a leap year only. A string with any other number of digits, with an impossible month or day, or with a year outside the range of 256 years that begins with 1900, does not raise an error; the result is the blank date. An empty string also gives the blank date.
+Numeric month and day components roll over without an error. For example, 02/30/92 becomes March 1, 1992, and 02/29/85 becomes March 1, 1985. Even 13/40/85 becomes February 9, 1986. A string with any other number of digits, or with a year outside the range of 256 years that begins with 1900, gives the blank date. An empty string and the all-zero date also give the blank date.
 
 The order of the fields follows SET DATE: month, day, year for AMERICAN and USA; day, month, year for BRITISH, FRENCH, ITALIAN and GERMAN; year, month, day for ANSI and JAPAN. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
 \Tips

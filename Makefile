@@ -1582,9 +1582,11 @@ TEST_DBT_ROUNDTRIP_MUT := $(BUILD)/test_dbt_roundtrip_mut
 SAMIR_FN_SRC      := $(SAMIR_DIR)/core/fn_builtins.c
 TEST_XBASE_FN_A     := $(BUILD)/test_xbase_fn_a
 TEST_XBASE_FN_A_MUT := $(BUILD)/test_xbase_fn_a_mut
-# initech-9u0f (P1): separate mutant binary, -DXB_MUTATE_FN_CTOD_CALVALID (drops
-# the CTOD calendar day-cap, distinct from the pre-existing SUBSTR mutant above).
+# initech-bkmv: -DXB_MUTATE_FN_CTOD_CALVALID restores the old CTOD day cap.
 TEST_XBASE_FN_A_MUT_CTOD := $(BUILD)/test_xbase_fn_a_mut_ctod
+TEST_XBASE_EVAL_MUT_BLANKDATE := $(BUILD)/test_xbase_eval_mut_blankdate
+DBF_COERCE_FUZZ_MUT_BLANKDATE := $(BUILD)/dbf_coerce_fuzz_mut_blankdate
+TEST_INTERP_SETFMT_MUT_BLANKDTOC := $(BUILD)/test_interp_setfmt_mut_blankdtoc
 TEST_XBASE_FN_B     := $(BUILD)/test_xbase_fn_b
 TEST_XBASE_FN_B_MUT := $(BUILD)/test_xbase_fn_b_mut
 # initech-eyig (P1): separate mutant binary, -DXB_MUTATE_FN_ROUND_TRUNC (reverts
@@ -2904,8 +2906,8 @@ $(TEST_XBASE_FN_A): $(DBF_DIFF_DIR)/test_xbase_fn_a.c $(SAMIR_EVAL_SRC) $(SAMIR_
 $(TEST_XBASE_FN_A_MUT): $(DBF_DIFF_DIR)/test_xbase_fn_a.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_FN_SUBSTR -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_a.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
-# initech-9u0f (P1): CTOD calendar-validity mutant -- drops the day-cap check
-# (Feb 31 / Apr 31 / non-leap Feb 29 roll forward instead of returning blank).
+# initech-bkmv: CTOD calendar-validity mutant restores the old day-cap check
+# (Feb 31 / Apr 31 / non-leap Feb 29 return blank instead of rolling forward).
 $(TEST_XBASE_FN_A_MUT_CTOD): $(DBF_DIFF_DIR)/test_xbase_fn_a.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_FN_CTOD_CALVALID -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_a.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
@@ -2929,14 +2931,10 @@ test-xbase-fn-a-mutant: $(TEST_XBASE_FN_A_MUT)
 
 .PHONY: test-xbase-fn-a-mutant-ctod
 test-xbase-fn-a-mutant-ctod: $(TEST_XBASE_FN_A_MUT_CTOD)
-	@printf ">>> test-xbase-fn-a-mutant-ctod: confirming the CTOD calendar-cap mutant goes RED (Rule 6; initech-9u0f)\n"
-	@$(TEST_XBASE_FN_A_MUT_CTOD) 2>/dev/null | grep -q 'checks,' \
-		|| { printf '!!! test-xbase-fn-a-mutant-ctod FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
-	@if $(TEST_XBASE_FN_A_MUT_CTOD) >/dev/null 2>&1; then \
-		printf '!!! test-xbase-fn-a-mutant-ctod FAIL: mutant PASSED -- the CTOD calendar-cap check is decoration\n'; exit 1; \
-	else \
-		printf '>>> test-xbase-fn-a-mutant-ctod: green (calendar-invalid rollover correctly RED)\n'; \
-	fi
+	@log=$(BUILD)/ctod-cap-mut.log; set +e; $< > $$log 2>&1; rc=$$?; set -e; \
+	 test $$rc -eq 1 && grep -q 'checks,' $$log && grep -q 'FAIL.*CALVALID' $$log \
+	 || { cat $$log; printf '!!! CTOD mutant did not fail its minted rollover checks\n'; exit 1; }; \
+	 printf '>>> test-xbase-fn-a-mutant-ctod: green (old calendar cap correctly RED): '; grep -m1 'FAIL.*CALVALID' $$log
 
 # ---- SAMIR Phase-3 functions B (freestanding): ABS/INT/MOD/ROUND/MAX/MIN/DOW/CDOW/CMONTH (S3.6a / initech-7az.11) ----
 # The no-libm numeric/date half of S3.6 (transcendentals SQRT/LOG/EXP are 7az.13).
@@ -3911,6 +3909,33 @@ test-xbase-coercion-mutant: $(DBF_COERCE_FUZZ_MUT)
 	else \
 		printf '>>> test-xbase-coercion-mutant: green (fuzzer caught the C+N divergence)\n'; \
 	fi
+
+# initech-bkmv: each old date behavior must fail the independent mint.
+$(TEST_XBASE_EVAL_MUT_BLANKDATE): $(DBF_DIFF_DIR)/test_xbase_eval.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_BLANKDATE_HIGH -Iseed -I$(SAMIR_INC_DIR) -o $@ $^
+$(DBF_COERCE_FUZZ_MUT_BLANKDATE): $(DBF_DIFF_DIR)/dbf_coerce_fuzz.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_BLANKDATE_HIGH -Iseed -I$(SAMIR_INC_DIR) -o $@ $^
+$(TEST_INTERP_SETFMT_MUT_BLANKDTOC): $(DBF_DIFF_DIR)/test_interp_setfmt.c $(INTERP_SETFMT_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_DT_MUTANT_blankdtoc -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+.PHONY: test-xbase-eval-mutant-blankdate test-xbase-coercion-mutant-blankdate test-interp-setfmt-mutant-blankdtoc
+test-xbase-eval-mutant-blankdate: $(TEST_XBASE_EVAL_MUT_BLANKDATE)
+	@log=$(BUILD)/blankdate-eval-mut.log; set +e; $< > $$log 2>&1; rc=$$?; set -e; \
+	 test $$rc -eq 1 && grep -q 'checks,' $$log && grep -q 'FAIL.*BLANKCMP' $$log \
+	 || { cat $$log; printf '!!! blank-HIGH mutant did not fail its eval checks\n'; exit 1; }; \
+	 printf '>>> test-xbase-eval-mutant-blankdate: green (blank-HIGH correctly RED): '; grep -m1 'FAIL.*BLANKCMP' $$log
+test-xbase-coercion-mutant-blankdate: $(DBF_COERCE_FUZZ_MUT_BLANKDATE)
+	@log=$(BUILD)/blankdate-coercion-mut.log; set +e; $< > $$log 2>&1; rc=$$?; set -e; \
+	 test $$rc -eq 1 && grep -q 'checks,' $$log && grep -q 'FAIL.*BLANKCMP' $$log \
+	 || { cat $$log; printf '!!! blank-HIGH mutant did not fail its coercion checks\n'; exit 1; }; \
+	 printf '>>> test-xbase-coercion-mutant-blankdate: green (blank-HIGH correctly RED): '; grep -m1 'FAIL.*BLANKCMP' $$log
+test-interp-setfmt-mutant-blankdtoc: $(TEST_INTERP_SETFMT_MUT_BLANKDTOC)
+	@log=$(BUILD)/blankdtoc-setfmt-mut.log; set +e; $< $(DBASE3_DECOMP) > $$log 2>&1; rc=$$?; set -e; \
+	 test $$rc -eq 1 && grep -q 'checks,' $$log && grep -q 'FAIL.*bracketed blank DTOC' $$log \
+	 || { cat $$log; printf '!!! space-only DTOC mutant did not fail its setfmt checks\n'; exit 1; }; \
+	 printf '>>> test-interp-setfmt-mutant-blankdtoc: green (space-only DTOC correctly RED): '; grep -m1 'FAIL.*bracketed blank DTOC' $$log
+test-xbase-eval-mutant: test-xbase-eval-mutant-blankdate
+test-xbase-coercion-mutant: test-xbase-coercion-mutant-blankdate
+test-interp-setfmt-mutant: test-interp-setfmt-mutant-blankdtoc
 
 # dbf_ref.py (S6.1): the INDEPENDENT python .dbf/.dbt reader -- the oracle
 # independence barrier. Tier-1: its selftest asserts against the sister-corpus
@@ -35060,7 +35085,7 @@ TEST_EMU_GATES += test-samir-abbrev-emu
 # xbase_prog_diff/datatype-mint (sha256-pinned; mint-samir-datatype re-runs
 # dosbox-x and proves real III+ still reproduces them). Each mutant re-opens one
 # defect in dbf.c/mutate.c and must turn at least one L0nn check RED.
-SAMIR_DT_CASES := blankdate overflow dateindex dateindex-blank boundary blankdtoc numericfit valstar
+SAMIR_DT_CASES := blankdate overflow dateindex dateindex-blank boundary blankdtoc numericfit valstar datecontract
 SAMIR_DT_MUTANTS := blankwrite starread blankread blankkey cutoff
 SAMIR_DT_TEST := $(BUILD)/test_samir_datatype
 SAMIR_DT_MUTS := $(addprefix $(BUILD)/test_samir_datatype_, $(SAMIR_DT_MUTANTS))
