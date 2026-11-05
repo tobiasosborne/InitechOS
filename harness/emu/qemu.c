@@ -29,6 +29,9 @@
  *    waiting for us if we never connect (e.g. it triple-faults first).
  */
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE 700
 
@@ -45,6 +48,7 @@
 #include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <sys/wait.h>
@@ -2298,7 +2302,33 @@ bad:
 }
 
 enum { QEMU_LOG_OVERFLOW = 42, QEMU_LOG_WATCH_ERROR = 43 };
-static pid_t qemu_log_watch(pid_t qemu, const char *path,
+/* Pin the child identity before any waitpid can reap it. Use syscalls so
+ * libc need not provide pidfd wrappers; unsupported hosts fail the guard. */
+static int qemu_log_pidfd_open(pid_t qemu)
+{
+#if defined(SYS_pidfd_open) && defined(SYS_pidfd_send_signal)
+    return (int)syscall(SYS_pidfd_open, qemu, 0);
+#else
+    (void)qemu;
+    errno = ENOSYS;
+    return -1;
+#endif
+}
+
+#ifndef HARNESS_MUTATE_NO_QEMU_LOG_CAP
+static int qemu_log_pidfd_kill(int pidfd)
+{
+#ifdef SYS_pidfd_send_signal
+    return (int)syscall(SYS_pidfd_send_signal, pidfd, SIGKILL, NULL, 0);
+#else
+    (void)pidfd;
+    errno = ENOSYS;
+    return -1;
+#endif
+}
+#endif
+
+static pid_t qemu_log_watch(int pidfd, const char *path,
                             unsigned long long cap, int qmp_fd, int sync_fd,
                             int *stop_fd)
 {
@@ -2320,14 +2350,20 @@ static pid_t qemu_log_watch(pid_t qemu, const char *path,
 #ifndef HARNESS_MUTATE_NO_QEMU_LOG_CAP
             if (!found && st.st_size >= 0 &&
                 (unsigned long long)st.st_size > cap) {
-                /* EOF means the parent has already reaped QEMU. A final
-                 * size check catches writers that exit inside one poll. */
-                if (!ready) kill(qemu, SIGKILL);
+                /* Re-check EOF after poll/stat: the parent may have reaped
+                 * QEMU while this watcher was descheduled. The pidfd also
+                 * prevents signalling a reused PID if EOF races this check.
+                 * Still report overflow for writers exiting inside a poll. */
+                do { ready = poll(&p, 1, 0); }
+                while (ready < 0 && errno == EINTR);
+                if (ready < 0) _exit(QEMU_LOG_WATCH_ERROR);
+                if (!ready && qemu_log_pidfd_kill(pidfd) < 0 && errno != ESRCH)
+                    _exit(QEMU_LOG_WATCH_ERROR);
                 _exit(QEMU_LOG_OVERFLOW);
             }
 #else
             (void)cap;
-            (void)qemu;
+            (void)pidfd;
 #endif
             if (ready) _exit(0);
         }
@@ -2514,8 +2550,11 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
     if (qmp_pair[1] >= 0) close(qmp_pair[1]);
     out->launched = true;
     int log_stop;
-    pid_t log_watcher = qemu_log_watch(pid, out->log_path, log_cap,
-                                      qmp_pair[0], rec_sync_fd, &log_stop);
+    int log_pidfd = qemu_log_pidfd_open(pid);
+    pid_t log_watcher = log_pidfd < 0 ? -1 :
+        qemu_log_watch(log_pidfd, out->log_path, log_cap,
+                       qmp_pair[0], rec_sync_fd, &log_stop);
+    if (log_pidfd >= 0) close(log_pidfd); /* watcher owns its inherited fd */
     if (log_watcher < 0) {
         fprintf(stderr, "[harness] RED QEMU-LOG-GUARD: cannot start log monitor\n");
         kill(pid, SIGKILL);

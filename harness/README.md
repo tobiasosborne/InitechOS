@@ -43,12 +43,24 @@ every byte written. The threshold can be exceeded by writes during one
 poll interval and host scheduling delay. A final check also catches a
 short run that finishes between polls. No serial or disk file is capped.
 
-The default comes from a read-only survey of 1639 existing build logs:
+Target-scoped private assignments in `emu/qemu_log.mk` give
+`test-samir-forms-emu` and `test-samir-forms-emu-mutant` 536870912 bytes
+(512 MiB): historical GREEN forms logs were 270-350 MB each. The
+`test-samir-dml-%-emu` and `test-samir-dml-%-emu-mutant` patterns, plus
+the direct DML callers `test-samir-abbrev-emu` and
+`test-samir-print-emu-mutant`, get 2147483648 bytes (2 GiB): historical
+GREEN DML logs reached 1.3 GB. Other targets retain the 64 MiB default,
+including `ovl-lazy-leg-about` under `test-ovl-lazy-mutant`, whose 2.7 GB
+`ovl_lazy_nosave_about.qemu.log` was a reset loop the cap must stop.
+
+The default was based on a read-only survey of 1639 remaining build logs:
 1220 had matching `OK=1` reports, and the largest of those was
 `pubs/screens-check/tps-report-generator/tpsbak.qemu.log`, 9033431 bytes.
 The screen capture budgets are 60 s (DOS) and 120 s (FLAIR); compiler
 replays allow up to 240 s. The default gives over seven times the largest
-observed GREEN log. The largest log overall, 18576809 bytes, had `OK=0`
+surveyed GREEN log; the historical large logs above had already been
+deleted and were absent from this survey. The largest surveyed log overall,
+18576809 bytes, had `OK=0`
 and was excluded from the GREEN measurement. No surveyed file was changed.
 
 `make test-harness-qemu-log test-harness-qemu-log-mutant` exercises real

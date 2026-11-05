@@ -12019,8 +12019,6 @@ $(SEED_BIN): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
 $(HARNESS_BIN): $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
 
-include harness/emu/qemu_log.mk
-
 # initech-7r2; PRD Sec 8: slow serial progress is not a hung guest.
 $(BUILD)/test_qemu_progress: harness/emu/test_qemu_progress.c $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu -o $@ $<
@@ -35642,6 +35640,9 @@ include harness/emu/calcda_power.mk
 include harness/proptest/overlay.mk
 include harness/proptest/finder_overlay.mk
 include harness/proptest/power_overlay.mk
+
+# Log policy and gates must follow the TEST_EMU_GATES := assignment.
+include harness/emu/qemu_log.mk
 
 # Gate/mutant ordering for parallel vectors (initech-1x6x2.1). KEEP LAST:
 # it reads the complete TEST_UNIT_GATES / TEST_EMU_GATES lists.

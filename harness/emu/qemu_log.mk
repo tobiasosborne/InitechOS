@@ -3,6 +3,13 @@
 QEMU_LOG_CAP_BYTES ?= 67108864
 export INITECH_QEMU_LOG_CAP_BYTES = $(QEMU_LOG_CAP_BYTES)
 
+# Historical GREEN forms logs reached 350 MB; DML logs reached 1.3 GB.
+# Private scope keeps shared prerequisites and other families at 64 MiB.
+test-samir-forms-emu test-samir-forms-emu-mutant: private QEMU_LOG_CAP_BYTES = 536870912
+test-samir-dml-%-emu: private QEMU_LOG_CAP_BYTES = 2147483648
+test-samir-dml-%-emu-mutant: private QEMU_LOG_CAP_BYTES = 2147483648
+test-samir-abbrev-emu test-samir-print-emu-mutant: private QEMU_LOG_CAP_BYTES = 2147483648
+
 $(BUILD)/qemu_harness_mut_keep_log: $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
 	$(CC) $(CFLAGS) -DHARNESS_MUTATE_KEEP_GREEN_LOG -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
 $(BUILD)/qemu_harness_mut_no_log_cap: $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
