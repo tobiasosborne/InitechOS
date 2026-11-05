@@ -1,0 +1,3 @@
+? "CHILD"
+RETURN
+? "BAD CHILD"

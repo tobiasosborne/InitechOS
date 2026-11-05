@@ -1,0 +1,5 @@
+? "P"
+DO CHILD
+? "P RESUMED"
+RETURN
+? "BAD P"

@@ -35472,6 +35472,7 @@ TEST_UNIT_GATES += samir-w2-goldens test-samir-w2-host-adapter
 include harness/diff/dbf_diff/w2_set_unique.mk
 
 include harness/diff/dbf_diff/samir_size.mk
+include harness/diff/dbf_diff/do_file.mk
 include harness/diff/dbf_diff/samir_ovl.mk
 include harness/diff/dbf_diff/samir_w2_history.mk
 include harness/diff/fat_diff/dos_volumes.mk
