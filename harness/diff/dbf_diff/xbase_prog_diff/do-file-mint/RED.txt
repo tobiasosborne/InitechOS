@@ -1,0 +1,54 @@
+harness/diff/dbf_diff/xbase_prog_diff/do-file-mint/basic/GOLD.OUT build/do-file-test/host-test_interp_do_file-basic/GOLD.OUT differ: byte 23, line 4
+RED DO-FILE host basic: alternate differs from real III+
+. 
+[DO-BEGIN]
+MASTER
+MINT-ERROR         16 *** Unrecognized command verb.
+MASTER RESUMED
+[DO-END]harness/diff/dbf_diff/xbase_prog_diff/do-file-mint/depth/GOLD.OUT build/do-file-test/host-test_interp_do_file-depth/GOLD.OUT differ: byte 15, line 3
+RED DO-FILE host depth: alternate differs from real III+
+. 
+[DO-BEGIN]
+MINT-ERROR         10 Syntax error.          0
+MINT-ERROR         16 *** Unrecognized command verb.          0
+MASTER RESUMED          0         16
+[DO-END]harness/diff/dbf_diff/xbase_prog_diff/do-file-mint/handler/GOLD.OUT build/do-file-test/host-test_interp_do_file-handler/GOLD.OUT differ: byte 15, line 3
+RED DO-FILE host handler: alternate differs from real III+
+. 
+[DO-BEGIN]
+RESUMED         12 Variable not found.
+MASTER RESUMED         16
+[DO-END]harness/diff/dbf_diff/xbase_prog_diff/do-file-mint/master/GOLD.OUT build/do-file-test/host-test_interp_do_file-master/GOLD.OUT differ: byte 23, line 4
+RED DO-FILE host master: alternate differs from real III+
+. 
+[DO-BEGIN]
+MASTER
+MINT-ERROR         16 *** Unrecognized command verb.
+MASTER RESUMED
+[DO-END]harness/diff/dbf_diff/xbase_prog_diff/do-file-mint/missing/GOLD.OUT build/do-file-test/host-test_interp_do_file-missing/GOLD.OUT differ: byte 34, line 3
+RED DO-FILE host missing: alternate differs from real III+
+. 
+[DO-BEGIN]
+MINT-ERROR         16 *** Unrecognized command verb.
+MASTER AFTER MISSING
+MINT-ERROR         16 *** Unrecognized command verb.
+MASTER AFTER CHILD
+[DO-END]harness/diff/dbf_diff/xbase_prog_diff/do-file-mint/parameters/GOLD.OUT build/do-file-test/host-test_interp_do_file-parameters/GOLD.OUT differ: byte 15, line 3
+RED DO-FILE host parameters: alternate differs from real III+
+. 
+[DO-BEGIN]
+MINT-ERROR         16 *** Unrecognized command verb.
+OUTER          7
+MINT-ERROR         16 *** Unrecognized command verb.
+OUTER          7
+[DO-END]harness/diff/dbf_diff/xbase_prog_diff/do-file-mint/precedence/GOLD.OUT build/do-file-test/host-test_interp_do_file-precedence/GOLD.OUT differ: byte 15, line 3
+RED DO-FILE host precedence: alternate differs from real III+
+. 
+[DO-BEGIN]
+MINT-ERROR         10 Syntax error.
+MINT-ERROR         16 *** Unrecognized command verb.
+MINT-ERROR         16 *** Unrecognized command verb.
+MINT-ERROR         16 *** Unrecognized command verb.
+MINT-ERROR         10 Syntax error.
+MINT-ERROR         16 *** Unrecognized command verb.
+[DO-END]make: *** [harness/diff/dbf_diff/do_file.mk:17: test-interp-do-file] Error 1

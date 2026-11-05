@@ -1,0 +1,9 @@
+
+[DO-BEGIN]
+MINT-ERROR          1 File does not exist.
+MASTER AFTER MISSING
+CHILD
+MINT-ERROR          1 File does not exist.
+CHILD AFTER MISSING
+MASTER AFTER CHILD
+[DO-END]

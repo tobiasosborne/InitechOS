@@ -1,0 +1,13 @@
+
+[DO-BEGIN]
+HANDLER         12 Variable not found.
+HANDLER LEAF         12 Variable not found.
+HANDLER AFTER LEAF          0
+RESUMED          0 
+FAIL
+HANDLER         12 Variable not found.
+HANDLER LEAF         12 Variable not found.
+HANDLER AFTER LEAF          0
+FAIL RESUMED          0
+MASTER RESUMED          0
+[DO-END]
