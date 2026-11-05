@@ -110,9 +110,7 @@ typedef enum {
     /* S4.5: incremental maintenance error codes. */
     NDX_ERR_READONLY     = 11, /* write op on a read-only index (ndx_open, not
                                 * ndx_open_rw) */
-    NDX_ERR_NOROOM       = 12, /* split would require 3+ tree levels; corpus-open
-                                * (no minted golden for 3-level III+ split) --
-                                * fail loud (Law 1 / Rule 2) rather than guess. */
+    NDX_ERR_NOROOM       = 12, /* workspace or file offset cannot be represented */
     NDX_ERR_NOTFOUND     = 13, /* key+recno to delete not found in the index */
     NDX_ERR_NOENT        = 14  /* typed PAL open failure: the .ndx does not exist
                                 * (USE ... INDEX NOSUCH is DBASE.MSG #1, mint 005) */
@@ -592,15 +590,10 @@ typedef int (*ndx_key_provider)(void *user, uint32_t recno,
  *                          (non-zero) -- in the get_key case the callback's
  *                          non-zero code is returned NEGATED if it is positive,
  *                          else -NDX_ERR_IO. (Callers usually use a sentinel.)
- *   -NDX_ERR_PAGE_OVF      MULTI-LEVEL interior packing required: the number of
- *                          leaves L exceeds keys_per_page + 1, so the L-1 root
- *                          separators do not fit in ONE branch page and an
- *                          interior level above the root would be needed. That
- *                          packing geometry is corpus-OPEN (no minted golden
- *                          for a 3-level III+ .ndx), so the build FAILS LOUD
- *                          rather than guess (Law 1 / Rule 2). The single-leaf
- *                          and single-root-branch (two-level) cases are
- *                          byte-exact and fully supported.
+ *   -NDX_ERR_PAGE_OVF      the level workspace or a branch page would overflow.
+ * Multi-level builds stream full branches, promoting a lone final child:
+ * A00.NDX has root p22 over branch p20 and leaf p21 (343 C20 keys).
+ * Ref: ../dbase3-decomp/mint/work/M006A..B.PRG and their logs; initech-7tj3.
  *
  * Mutation hook (Rule 6 / plan S4.4 "50/50 split"):
  *   Build with -DNDX_MUTATE_SPLIT_5050. Leaves are packed ~50/50 (each leaf
@@ -638,10 +631,9 @@ int ndx_build_ex(samir_pal_t *pal, const char *out_name,
  * replaced, or deleted. They are the interface that S5.5 (REPLACE/APPEND
  * interpreter commands) calls to keep the index consistent.
  *
- * GATED (plan S4.5 + sec7): mid-leaf split byte-exactness is corpus-open.
- * The oracle asserts behavioral correctness (ndx_seek finds every key with
- * the right recno; ndx_inorder is fully sorted and contains exactly the
- * expected set) but LOUD-SKIPs byte-exact node layout after a split.
+ * Multi-level splits/deletes are byte-graded against 516 real III+ snapshots
+ * from ../dbase3-decomp/mint/work/M006A..D.PRG (and their logs). The oracle
+ * pins these independently minted bytes; no SAMIR output becomes a golden.
  *
  * Mutation hook (Rule 6):
  *   Build with -DNDX_MUTATE_INSERT_NOSORT. ndx_insert_key appends the new
@@ -663,15 +655,13 @@ int ndx_build_ex(samir_pal_t *pal, const char *out_name,
  *
  * Error code additions:
  *   NDX_ERR_READONLY  -- write attempted on a read-only fd.
- *   NDX_ERR_NOROOM    -- a split would require 3+ tree levels (corpus-open);
- *                        fails loud per Law 1 / Rule 2 rather than guessing.
+ *   NDX_ERR_NOROOM    -- workspace or file offset cannot be represented.
  *   NDX_ERR_NOTFOUND  -- key/recno to delete was not found in the index.
  *
  * Ref (Law 1):
  *   - docs/plans/SAMIR-implementation-plan.md S4.5 contract + sec7 GATED register.
  *   - ../dbase3-decomp/specs/file-formats/ndx.md ss3 (node layout), ss5 (B-tree
- *     ordering invariant); incremental-insert open questions (GATED: mid-leaf
- *     split byte-exact layout pending MINT).
+ *     ordering invariant); M006 I01/U005/U017 (splits), D09/E02 (delete).
  *   - CLAUDE.md Rule 2 (fail loud), Rule 3 (all bugs deep), Rule 6 (mutation-prove).
  * ----------------------------------------------------------------------- */
 
@@ -708,12 +698,11 @@ int ndx_open_rw(samir_pal_t *pal, const char *name, ndx_index **out);
  *      later entries right (maintains sorted invariant).
  *   3. If the leaf was already full (entry_count == keys_per_page):
  *      a. Allocate a new page (appended to the file; total_pages incremented).
- *      b. Split the overfull leaf. GATED: byte-exact split layout is corpus-open;
- *         the implementation uses a simple ~half split. The oracle loud-skips
- *         byte-exact split layout but asserts behavioral correctness.
- *      c. Update the parent branch: insert a new separator for the new page.
- *         If the parent (root) is also full -> -NDX_ERR_NOROOM (fail loud;
- *         3-level trees are corpus-open, Law 1).
+ *      b. Keep (keys_per_page+2)/2 entries in the old leaf, the rest in the new
+ *         leaf (I01: 10/9; U005: 3/2). Promote the old leaf's HIGH key.
+ *      c. Insert the separator and new child into the recorded parent. Carry
+ *         branch splits up the path, splitting by children; grow the root
+ *         when necessary (U017: 6 children -> 3/3, new root p9).
  *      d. Update the header (total_pages; possibly root_page when a new root
  *         branch is created).
  *   4. Write the modified page(s) back via the PAL.
@@ -737,8 +726,10 @@ int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno);
  *
  * Behaviour: seek the leaf for key_data, scan for the entry with matching
  * key_data (exact, ndx_key_cmp == 0) AND recno. If found, remove it by
- * shifting the remaining entries left. No re-balancing (dBASE III PLUS does
- * not re-balance on delete -- it leaves underfull nodes). Write the page back.
+ * shifting the remaining entries left. Walk equal-key runs at any depth to
+ * find the recno. No re-balancing: leave underfull nodes, propagate changed
+ * HIGH keys, and unhook empty subtrees without reclaiming pages. A branch
+ * with zero separators still has one trailing child (E02.NDX).
  *
  * If not found returns -NDX_ERR_NOTFOUND (fail loud -- the caller passed a
  * key that was never inserted, which is a coding bug in S5.5).
