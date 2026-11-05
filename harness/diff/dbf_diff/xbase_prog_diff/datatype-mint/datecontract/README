@@ -17,6 +17,8 @@ Run from the InitechOS root:
   sh harness/diff/dbf_diff/date_contract_mint.sh <absolute-dbase3-decomp-root>
 This replays and byte-compares all five captures using real DBASE.EXE.
 It never updates a golden. Copyrighted interpreter binaries stay in build/.
+The parent datatype_mint.sh route invokes this verification as well, before
+checking or updating its combined sha256.txt manifest.
 
 DATES.PRG / DATELOG.TXT: initial calendar/blank DTOC probe; comparisons
 used blank and dated memvars. CMP.PRG / CMPLOG.TXT: direct CTOD calls,

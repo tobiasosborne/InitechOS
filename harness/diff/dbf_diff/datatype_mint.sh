@@ -40,6 +40,11 @@ for f in $outs; do
     test -s "$work/$f" || { echo "RED: MINT impossible: $f missing; see $work/mint.log"; exit 1; }
 done
 (cd "$work" && sha256sum $outs) > "$work/sha256.txt"
+# initech-bkmv: the date gate's manifest also pins the independently minted
+# datecontract probes. Reproduce those with real III+ before hashing their
+# retained bytes, so the original datatype re-mint route remains complete.
+sh "$root/harness/diff/dbf_diff/date_contract_mint.sh" "$ref"
+(cd "$src" && sha256sum datecontract/*.PRG datecontract/*.TXT) >> "$work/sha256.txt"
 if [ "$mode" = update ]; then
     for f in $outs; do cp -f "$work/$f" "$src/$f"; done
     cp -f "$work/sha256.txt" "$src/sha256.txt"
