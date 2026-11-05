@@ -3723,6 +3723,14 @@ static void run_external(const char *command, const char *tail)
 #endif
             return;
         }
+        /* h4bk: a found image whose required address is occupied must fail
+         * loud with its name. DEC-13 controls message bytes: reuse the exact
+         * MSG-DOS-0035 instead of inventing a resident/format diagnostic. */
+        if (err == 8u) {
+            dos_puts_raw(prog);
+            dos_print(": " MSG_DOS_0035 "\r\n$");
+            return;
+        }
         /* Non-zero: file not found / bad format / load error -> try next. */
     }
 
