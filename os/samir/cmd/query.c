@@ -1797,9 +1797,8 @@ static SAMIR_OVL_TEXT(forms) int qf_fill(samir_pal_t *pal,int r,int c,char ch,in
 static SAMIR_OVL_TEXT(forms) int qf_cursor(xb_interp *ip)
 {
     xb_ctx *x=xb_interp_ctx(ip);
-    /* After a box ending in the last column ROW() can be 25 (TE): the BIOS
-     * cursor cannot be, and a following @ always repositions it. */
-    return xb_interp_pal(ip)->paint(xb_interp_pal(ip),(uint8_t)(x->screen_row<24?x->screen_row:24),
+    /* Real III+ at-to-b/TE, captured before any subsequent SAY: BIOS row 25. */
+    return xb_interp_pal(ip)->paint(xb_interp_pal(ip),(uint8_t)x->screen_row,
                                     (uint8_t)(x->screen_col<79?x->screen_col:79),"",0);
 }
 /* Ref: at-to-a TA/TB/TD, at-to-b TE/TF, at-to-c TI. Edges overwrite cells, the
@@ -1915,6 +1914,7 @@ static SAMIR_OVL_TEXT(forms) int qf_clear(xb_interp *ip,const char *args,int *ec
     (void)r;
 #endif
     x->screen_row=0;x->screen_col=0;
+    x->screen_cleared=1;
     if(qf_cursor(ip))return qf_fail(ec,29);
     samir_status_refresh(ip);
     if(ec)*ec=0;

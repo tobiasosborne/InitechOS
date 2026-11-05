@@ -197,6 +197,11 @@ struct samir_pal {
      * Hidden cooked input implements CONSOLE OFF's no-echo program input. */
     void (*status)(samir_pal_t *,int,const char *,uint32_t,uint32_t);
     int32_t (*conin_line_noecho)(samir_pal_t *,char *,uint32_t);
+    /* Real III+ at-dot/at-enter: prepare the bottom-row dot prompt; command
+     * input echoes CR only, leaving LF/scroll to the next prompt. Optional
+     * on stream PALs, where conin_line retains the transcript contract. */
+    void (*prompt)(samir_pal_t *,int scoreboard,int cleared);
+    int32_t (*conin_command)(samir_pal_t *,char *,uint32_t);
 
     /* ---- command processor: dBASE III PLUS RUN / ! (initech-n8q8) ----
      * exec: hand `cmdline` VERBATIM to a secondary command processor and

@@ -489,6 +489,27 @@ int main(void)
             console_set_cursor(&con, 9999, 9999);
             CHECK(con.cur_row == con.rows - 1 && con.cur_col == con.cols - 1,
                   "set_cursor clamps an out-of-range target to the last cell");
+            /* Real III+ at-to-b/TE: off-page cursor carries through SAVE and
+             * RESTORE; drawing, erase and blink must not touch even the spare
+             * framebuffer scanlines below the text band (Rule 2). */
+            {
+                uint8_t page[CONSOLE_PAGE_BYTES], after[CONSOLE_PAGE_BYTES];
+                console_set_cursor(&con,con.rows,0);
+                CHECK(con.cur_row==con.rows && con.cur_col==0,"BIOS off-grid cursor retained");
+                console_save_page(&con,page);
+                uint32_t before=0,now=0;
+                for(uint32_t j=0;j<con.pitch*con.height;j++) before=before*33u+fb[j];
+                console_cursor_wait(&con,0,1);
+                console_draw_glyph(&con,0,con.rows,GLYPH_SOLID,con.fg,con.bg);
+                console_erase_line(&con,2);
+                console_putc(&con,'X');
+                for(uint32_t j=0;j<con.pitch*con.height;j++) now=now*33u+fb[j];
+                CHECK(before==now && !con.cursor_on,"off-grid draw/erase/blink never index framebuffer");
+                console_save_page(&con,after);
+                CHECK(!memcmp(page,after,CONSOLE_PAGE_BYTES-2),"off-grid putc never indexes page");
+                console_restore_page(&con,page);
+                CHECK(con.cur_row==con.rows && con.cur_col==0,"page restore retains row 25");
+            }
 
             /* --- console_get_cursor reads it back --- */
             {

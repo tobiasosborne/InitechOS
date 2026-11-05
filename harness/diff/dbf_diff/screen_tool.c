@@ -137,7 +137,7 @@ int main(int argc,char **argv)
     }
     if (argc==3 && !strcmp(argv[1],"codec-test")) {
         for (int i=0;i<2000;i++) { g.bytes[2*i]=(unsigned char)i; g.bytes[2*i+1]=(unsigned char)(i/3); }
-        g.bytes[4000]=24; g.bytes[4001]=79;
+        g.bytes[4000]=25; g.bytes[4001]=0;
         screen_write(argv[2],&g); screen_read(argv[2],&a);
         if (memcmp(&g,&a,sizeof g)) screen_die("CP437/attribute round-trip failed");
         puts("GREEN: screen codec round-trips all 256 character and attribute bytes");

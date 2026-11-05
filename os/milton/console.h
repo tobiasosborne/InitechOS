@@ -70,7 +70,7 @@ typedef struct {
     uint32_t  cols;             /* CONSOLE_COLS                              */
     uint32_t  rows;             /* CONSOLE_ROWS                              */
     uint32_t  cur_col;          /* cursor column (0..cols-1)                 */
-    uint32_t  cur_row;          /* cursor row    (0..rows-1)                 */
+    uint32_t  cur_row;          /* 0..rows; rows is an off-grid BIOS cursor  */
 
     console_color_t fg;         /* packed foreground (ink) -- DEFAULT ink     */
     console_color_t bg;         /* packed background -- DEFAULT paper          */
@@ -163,7 +163,8 @@ void console_write(console_t *con, const char *buf, uint32_t len);
  * Passing ANSI_ATTR_DEFAULT (0x07) restores the default ink/paper exactly. */
 void console_set_attr(console_t *con, uint8_t cga_attr);
 
-/* Move the cursor to an ABSOLUTE 0-based (row, col), clamped to the grid. The
+/* Move the cursor to an ABSOLUTE 0-based (row, col); row==rows is off-grid.
+ * Other out-of-range values clamp to the last cell. The
  * console is the single source of truth for the cursor position (the ANSI FSM
  * reconciles to this -- see int21.c ansi_apply). */
 void console_set_cursor(console_t *con, uint32_t row, uint32_t col);

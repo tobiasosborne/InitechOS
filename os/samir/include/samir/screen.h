@@ -7,16 +7,18 @@
 #include <stdint.h>
 typedef void (*samir_screen_draw)(void *,uint8_t,uint8_t,uint8_t,const char *,uint32_t);
 typedef struct {
-    /* say-get-read.md section 1: @SAY can address rows 22..24 too.
-     * Normal dot-prompt scrolling still uses the original 22-row viewport. */
+    /* at-dot/at-dot-c: STATUS OFF uses all 25 rows; SCOREBOARD ON
+     * preserves row 0. Positioned output always addresses the whole page. */
     char text[25][80];
     char status[80], guidance[80];
-    uint8_t row,col,active;
+    uint8_t row,col,active,scoreboard;
     samir_screen_draw draw;
+    void (*scroll)(void *,uint8_t,uint8_t);
     void *user;
 } samir_screen;
 void samir_screen_init(samir_screen *,samir_screen_draw,void *);
 void samir_screen_status(samir_screen *,int,char,const char *,uint32_t,uint32_t);
 void samir_screen_at(samir_screen *,uint8_t,uint8_t,const char *,uint32_t);
 void samir_screen_write(samir_screen *,const char *,uint32_t);
+void samir_screen_prompt(samir_screen *,int,int);
 #endif

@@ -5,6 +5,13 @@ base=${1:-harness/diff/dbf_diff/xbase_prog_diff/screen-mint}
 work=$(mktemp -d build/screen-test.XXXXXX)
 trap 'rm -rf "$work"' EXIT HUP INT TERM
 "$tool" codec-test "$work/codec.screen"
+grep -q '^CURSOR 25 00$' "$work/codec.screen"
+"$tool" decode "$work/codec.screen" "$work/offpage.bin"
+printf '\032' | dd of="$work/offpage.bin" bs=1 seek=4000 conv=notrunc status=none
+rc=0
+"$tool" encode "$work/offpage.bin" "$work/invalid.screen" > "$work/bad-cursor" 2>&1 || rc=$?
+[ "$rc" = 2 ] && grep -q 'cursor outside' "$work/bad-cursor"
+printf 'GREEN: screen cursor row 25 round-trips; row 26 rejected\n'
 n=0
 for case_dir in "$base"/*; do
     [ -f "$case_dir/DUMPS" ] || continue

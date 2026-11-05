@@ -950,7 +950,8 @@ static SAMIR_OVL_TEXT(set) int set_opt_onoff_ctx(xb_interp *ip, const char *s, i
 #endif
     if(which==0) ctx->set_heading=(uint8_t)on;
     else if(which==1) ctx->set_console=(uint8_t)on;
-    else ctx->set_status=(uint8_t)on;
+    else if(which==2) ctx->set_status=(uint8_t)on;
+    else ctx->scoreboard_off=(uint8_t)!on;
     return CMD_OK;
 }
 static SAMIR_OVL_TEXT(set) int set_opt_heading(xb_interp *ip, set_state *ss, const char *s, int *err_code)
@@ -959,6 +960,8 @@ static SAMIR_OVL_TEXT(set) int set_opt_console(xb_interp *ip, set_state *ss, con
 { (void)ss; return set_opt_onoff_ctx(ip,s,err_code,1); }
 static SAMIR_OVL_TEXT(set) int set_opt_status(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 { (void)ss; return set_opt_onoff_ctx(ip,s,err_code,2); }
+static SAMIR_OVL_TEXT(set) int set_opt_scoreboard(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{ (void)ss; return set_opt_onoff_ctx(ip,s,err_code,3); }
 
 /* SET MEMOWIDTH TO <expN>. Ref: real III+ 1.1 captures set-mint/memowidth
  * (GOLD.OUT: errors 27/10/46) plus W2-mint probes: the operand is truncated
