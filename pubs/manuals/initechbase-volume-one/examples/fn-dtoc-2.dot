@@ -1,3 +1,8 @@
 SET CENTURY ON
 SET DATE ANSI
 ? DTOC(DATE())
+? "["+DTOC(CTOD(""))+"]"
+SET DATE AMERICAN
+? "["+DTOC(CTOD(""))+"]"
+SET CENTURY OFF
+? "["+DTOC(CTOD(""))+"]"

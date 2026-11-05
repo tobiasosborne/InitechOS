@@ -16,7 +16,7 @@ type with \cmd{REPLACE}.
 \DefineCoercionRule{R_concat_minus}{Trailing blanks of the left string moved to the end}
 \DefineCoercionRule{R_date_plus_num}{Days added or subtracted; a blank date stays blank}
 \DefineCoercionRule{R_date_minus_date}{Number of days; 0 when a date is blank}
-\DefineCoercionRule{R_blankdate_high}{A blank date is later than any date}
+\DefineCoercionRule{R_blankdate_high}{One blank date: false; two blank dates: true}
 \DefineCoercionRule{R_order_same_type}{Both sides must be of one type}
 \DefineCoercionRule{R_substr}{True when the left string occurs in the right}
 \DefineCoercionRule{R_no_truthiness}{A number is not a logical value}
@@ -39,3 +39,11 @@ the left string begins with the right one, so an empty string on the right
 equals every string.  With SET EXACT ON, the strings must be equal, apart from
 trailing blanks.  \texttt{<}, \texttt{>}, \texttt{<=} and \texttt{>=} compare the
 codes of the characters one by one, whatever the setting.
+
+\section{Comparing Blank Dates}
+The operators \texttt{=}, \texttt{<>}, \texttt{\#}, \texttt{<},
+\texttt{>}, \texttt{<=} and \texttt{>=} all return false when exactly one
+of the dates is blank. When both dates are blank, all of these operators
+return true, including \texttt{<>} and \texttt{<}. SET EXACT does not
+change these results. Comparisons between two filled dates follow the
+calendar. Index keys use a separate order: the blank date comes last.

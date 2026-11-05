@@ -325,7 +325,8 @@ static int cmp_double(double a, double b)
 /*
  * Date blank sentinel. value.h stores D as JDN-as-double. A blank date has no
  * natural JDN; the codec layer (S1.x) represents it. xbase_coercion.json
- * R_blankdate_high: in ordering a blank date is GREATER THAN any non-blank.
+ * R_blankdate_high (legacy name): the real III+ blank comparison matrix is
+ * handled before chronological comparison; it is not a total order.
  * R_date_minus_date: any subtraction touching a blank date = 0. We treat a
  * non-positive JDN (<= 0.0) as the blank sentinel: a real III+ date (1900..
  * 2155) has JDN 2415021..2508911, so 0 is unambiguous and matches xb_d(0).
@@ -398,14 +399,27 @@ static int apply_relational(xb_ctx *ctx, xb_token_type op,
         return 0;
     }
     case XB_D: {
-        /* R_blankdate_high: a blank date sorts GREATER than any non-blank. */
+        /* initech-bkmv, datatype-mint/datecontract/DATECHK.TXT Q001..Q180:
+         * exactly one blank -> .F.; both blank -> .T. for EVERY operator,
+         * including <>. Independent memvar/field/CTOD captures agree with
+         * EXACT OFF/ON. NDX blank LAST uses xb_date_key, not this relation. */
         int ba = date_is_blank(a->u.d);
         int bb = date_is_blank(b->u.d);
         int c;
+#ifdef XB_MUTATE_BLANKDATE_HIGH
+        /* Rule 6: restore the superseded blank-HIGH expression ordering. */
         if (ba && bb)      c = 0;
         else if (ba)       c = 1;          /* blank > non-blank */
         else if (bb)       c = -1;
         else               c = cmp_double(a->u.d, b->u.d);
+#else
+        if (ba || bb) {
+            *res = (uint8_t)(ba && bb);
+            *err = XBEE_OK;
+            return 0;
+        }
+        c = cmp_double(a->u.d, b->u.d);
+#endif
         switch (op) {
         case XBT_EQ:  *res = (uint8_t)(c == 0); break;
         case XBT_NEQ: case XBT_HASH: *res = (uint8_t)(c != 0); break;
