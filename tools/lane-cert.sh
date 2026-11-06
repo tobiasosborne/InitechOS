@@ -6,9 +6,7 @@ export LC_ALL
 refuse() { printf 'lane-cert: %s\n' "$1" >&2; exit 2; }
 required=${REQUIRED_GATES:-}
 scope=${CERT_SCOPE:-derived}
-case $scope in derived|required) ;; *) refuse 'invalid CERT_SCOPE (derived or required)';; esac
 jobs=${LANE_CERT_JOBS:-}
-case $jobs in ''|[1-8]) ;; *) refuse 'LANE_CERT_JOBS must be 1..8';; esac
 case $# in
     0) ;;
     2) [ "$1" = --require ] || refuse 'usage: lane-cert.sh [--require <gates>]'; required=$2;;
@@ -21,6 +19,9 @@ slug=$(printf '%s' "$branch" | sed 's/[^A-Za-z0-9._-]/-/g')
 cert=build/cert/$slug.cert
 # A failed attempt revokes the previous certificate for this branch.
 rm -f "$cert"
+case $scope in derived|required) ;; *) refuse 'invalid CERT_SCOPE (derived or required)';; esac
+case $jobs in ''|[1-8]) ;; *) refuse 'LANE_CERT_JOBS must be 1..8';; esac
+
 dirty=$(git status --porcelain --untracked-files=all) || refuse 'cannot inspect tree'
 if [ -n "$dirty" ]; then
     refuse 'dirty tree'
