@@ -93,10 +93,15 @@ path containing spaces (DIFF and the C tool's newline input can).
 The `pending` family has no path triggers (the resolver rejects any). Its
 members remain inventory-audited and are opt-in by explicit target name;
 consumer auto-selection is inapplicable to them, as with aggregate dispatchers.
-`test-samir-status-screen-pending` belongs there for initech-ebwsw: invoking
-it by name still compares both real captures and exits loudly RED. Existing
-`test-samir-status-emu`, `-mutant` and `test-samir-status-off-emu` remain
-required SAMIR gates. Ref: initech-0spyf/fzsvo pre-merge review item 7.
+The family contains suffix-named pending groups, non-vector FNS/W2 cases,
+and `test-flair-toolbox-captures`. Registered gates and their prerequisites
+remain required. The JSON note cites the Makefile PENDING sections,
+initech-1x6x2.16/.17, and the qg22/ucch/whs3 known-RED comment in
+`harness/toolbox_hardening.mk`. Their comparisons remain callable by name;
+no golden is changed and no missing capture is fabricated. STATUS remains
+under initech-ebwsw, while its existing serial/status-band gates stay required.
+The historical `test-bochs-pending` session alias is opt-in by its name; the
+direct `test-samir-boot-bochs` and mutant gates remain required and green.
 
 `test-for` resolves once, then runs the selected list in one `make -k -j16`,
 retaining the existing gate/mutant ordering. Successful completion targets

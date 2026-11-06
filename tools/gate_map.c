@@ -143,15 +143,17 @@ static void load_map(const char *path)
             key = string(); need(':');
             if (!strcmp(key, "gates")) bit = 1;
             else if (!strcmp(key, "paths")) bit = 2;
+            else if (!strcmp(key, "note")) bit = 4;
             else die("unknown member %s in family %s", key, row.name);
             if (seen & bit) die("duplicate member %s in family %s", key, row.name);
             seen |= bit; free(key);
             if (bit == 1) { ws(); row.gates_begin = pos; row.gates = array(); }
-            else row.paths = array();
+            else if (bit == 2) row.paths = array();
+            else { char *note = string(); free(note); }
             if (take('}')) break;
             need(',');
         } while (1);
-        if (seen != 3) die("family %s needs gates and paths", row.name);
+        if ((seen & 3) != 3) die("family %s needs gates and paths", row.name);
         if (!strcmp(row.name, "pending") && row.paths.n)
             die("pending family cannot have automatic path triggers");
         row.end = pos;
