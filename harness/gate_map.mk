@@ -61,6 +61,11 @@ test-gate-map: $(GATE_MAP_TOOL) $(GATE_MAP_INVENTORY) $(GATE_MAP_JSON)
 	 $(GATE_MAP_TOOL) --audit $(GATE_MAP_JSON) $(GATE_MAP_INVENTORY) < "$$p"; \
 	 $(GATE_MAP_TOOL) --audit-consumers $(GATE_MAP_JSON) $(GATE_MAP_INVENTORY) $(GATE_MAP_INVENTORY).db < "$$p"
 
+# initech-ebwsw is pending, never an automatic SAMIR requirement.
+	@$(MAKE) -s --no-print-directory gates-for FILES=os/samir/samir_main.c DIFF= > $(BUILD)/gate-map-samir-selection.txt
+	@if grep -qxF test-samir-status-screen-pending $(BUILD)/gate-map-samir-selection.txt; then \
+	 printf 'RED pending selection: STATUS must be opt-in\n'; exit 1; fi
+
 $(BUILD)/gate-map-%.json: $(GATE_MAP_TOOL) $(GATE_MAP)
 	@$(GATE_MAP_TOOL) --mutate $* $(GATE_MAP) > $@.tmp && mv -f $@.tmp $@
 

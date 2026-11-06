@@ -413,24 +413,7 @@ static void ansi_set_cursor(void *ctx, int row, int col)
         console_set_cursor((console_t *)ctx, row, col);
     }
 }
-static void ansi_cursor_rel(void *ctx, int drow, int dcol)
-{
-    console_t *con = (console_t *)ctx;
-    if (con) {
-        uint32_t r = 0, c = 0;
-        int nr, nc;
-        console_get_cursor(con, &r, &c);
-        /* Clamp the LOW edge here: console_set_cursor takes uint32_t and only
-         * clamps the HIGH edge, so a negative relative move (cursor up past row
-         * 0) must be pinned to 0 before the cast (else it wraps to ~UINT32 and
-         * clamps to the LAST row -- the wrong direction). */
-        nr = (int)r + drow;
-        nc = (int)c + dcol;
-        if (nr < 0) { nr = 0; }
-        if (nc < 0) { nc = 0; }
-        console_set_cursor(con, (uint32_t)nr, (uint32_t)nc);
-    }
-}
+#include "ansi_cursor.h"
 static void ansi_erase_display(void *ctx, int mode)
 {
     if (ctx) {
