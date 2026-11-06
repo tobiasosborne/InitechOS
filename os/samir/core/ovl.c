@@ -381,6 +381,13 @@ static int ovl_fetch(uint32_t id)
 
 int samir_ovl_call(unsigned id, int k, xb_interp *ip, const char *args, int *ec)
 {
+#if defined(SAMIR_OVL_MUTATE_SKIP_OPEN) || defined(SAMIR_OVL_MUTATE_NO_STAMP)
+    /* Cold SET construction now loads an overlay before the first prompt
+     * (initech-0spyf/fzsvo). These startup-verification fault injections must
+     * not enter unchecked code: SKIP_OPEN would be rescued by its second
+     * check, and NO_STAMP would execute a foreign resident ABI. */
+    if(id==SAMIR_OVL_SET && k==1)return 0;
+#endif
     const samir_ovl_slot_hdr *h = (const samir_ovl_slot_hdr *)(const void *)__ovl_slot;
     int rc;
 
