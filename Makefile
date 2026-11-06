@@ -26078,8 +26078,11 @@ test-absdisk-emu: $(HARNESS_BIN) $(ABSDISK_BOOT_IMG) $(FAT_ABSDISK_DATA_IMG)
 	@$(call fixture-preflight,$(ABSDISK_EMU_RUNDISK))
 	@$(HARNESS_BIN) --disk "$(ABSDISK_BOOT_IMG)" --disk2 "$(ABSDISK_EMU_RUNDISK)" \
 		--name "$(ABSDISK_EMU_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
-		2> "$(ABSDISK_EMU_REPORT)" || true
+		--expect "ABSDISK-EXIT rc=0" --quit-after "ABSDISK-EXIT rc=0" \
+		--screendump --screendump-after "ABSDISK-EXIT rc=0" \
+		2> "$(ABSDISK_EMU_REPORT)"
 	@cat "$(ABSDISK_EMU_REPORT)"
+	@grep -qxF '[harness] OK=1' "$(ABSDISK_EMU_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@if grep -q 'triple_fault=1' "$(ABSDISK_EMU_REPORT)"; then \
 		printf '!!! test-absdisk-emu FAIL: TRIPLE FAULT -- root-cause the int25/26 entry->dispatch->IRETD path (Rule 3)\n'; exit 1; \
@@ -26111,6 +26114,7 @@ test-absdisk-emu: $(HARNESS_BIN) $(ABSDISK_BOOT_IMG) $(FAT_ABSDISK_DATA_IMG)
 	@printf '            trap gates; the int26_entry/int25_entry -> dispatch -> IRETD round-trip\n'
 	@printf '            wrote and read back a sector (QEMU only; tri-emulator pending initech-x0i)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-absdisk-emu: green (five checks; completed guest trace)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-multiopen (beads initech-0qh; epic initech-6qy -- multi-tenant)
