@@ -680,7 +680,7 @@ static void milton_draw_cells(samir_pal_t *p,uint8_t row,uint8_t col,uint8_t att
     milton_page(page,0);
     /* CON still supplies the transcript, while the page owns every pixel.
      * FLAIR's native text tenant has no CONFIG.SYS ANSI driver installed. */
-    if(p && n) {
+    if(p && n && milton_is_console(1)) {
         uint8_t r=page[4000],c=page[4001];
         /* Real at-to-b/TE proves row 25 is a valid off-page BIOS cursor.
          * Forward printable CON bytes there without drawing or scrolling.
@@ -1013,7 +1013,7 @@ static void milton_gotoxy(samir_pal_t *p,uint8_t row,uint8_t col)
  * Milton protected mode (os/milton/idt.c), not the real-mode BIOS API. */
 static int milton_con_at(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n,int cells)
 {
-    if(cells && milton_is_console(1)) {
+    if(cells) {
 #ifdef SAMIR_FORMS_MUTANT_wrap
         milton_cursor(p,row,col);
         milton_rawout(p,text,n);
@@ -1036,14 +1036,18 @@ static int milton_con_at(samir_pal_t *p,uint8_t row,uint8_t col,const char *text
 }
 static int milton_say_screen(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
 {
-    if(milton_is_console(1)) {
+#ifdef SAMIR_REVIEW_MUTANT_REDIRECT
+    if(milton_is_console(1))
+#endif
+    {
         samir_screen *s=&state_of(p)->screen;
         samir_screen_at(s,row,col,text,n);
         milton_cursor(p,s->row,s->col);
         return 0;
     }
-    int result=milton_con_at(p,row,col,text,n,0);
-    return result;
+#ifdef SAMIR_REVIEW_MUTANT_REDIRECT
+    return milton_con_at(p,row,col,text,n,0);
+#endif
 }
 /* pal.h paint: literal native cells, so (24,79) never scrolls. */
 static int milton_paint(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
