@@ -4457,14 +4457,6 @@
         "tools/samir_ovl_pack.c",
         "tools/serial_trace_pack.c"
       ]
-    },
-    "pending": {
-      "gates": [
-        "test-bochs-pending",
-        "test-samir-fns-pending",
-        "test-samir-w2-pending"
-      ],
-      "paths": []
     }
   }
 }
