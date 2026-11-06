@@ -133,6 +133,7 @@
         "test-harness-quit-after",
         "test-harness-quit-after-mutant",
         "test-lane-cert",
+        "test-lane-cert-summaries",
         "test-lane-cert-mutant",
         "test-merge-train",
         "test-qemu-paths",

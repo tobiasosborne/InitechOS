@@ -196,3 +196,8 @@ test-lane-cert-mutant:
 	printf '>>> test-lane-cert-mutant: green (skip-dirty, certify-red, ignore MAKEFLAGS check, coverage fails open killed)\n'
 
 TEST_UNIT_GATES += test-lane-cert test-lane-cert-mutant
+
+.PHONY: test-lane-cert-summaries
+test-lane-cert-summaries:
+	@sh harness/test_cert_summaries.sh $(abspath tools/lane-cert.sh) $(abspath tools/cert-check.sh) $(abspath $(BUILD))/lane-cert/summaries
+TEST_UNIT_GATES += test-lane-cert-summaries
