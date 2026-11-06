@@ -119,7 +119,7 @@ void samir_screen_write(samir_screen *s,const char *text,uint32_t len)
     }
 }
 
-/* SAY paints through the PAL without terminal wrap, then owns its scrolling.
+/* SAY paints through the PAL without terminal wrap.
  * Ref: ../dbase3-decomp/specs/full-screen/say-get-read.md sections 1, 2.2:
  * @SAY addresses all 25 rows and leaves the cursor after its value. The
  * row-23 golden and test_samir_say require cells beyond the 22-row viewport.
@@ -128,9 +128,15 @@ void samir_screen_write(samir_screen *s,const char *text,uint32_t len)
 static void say_next_row(samir_screen *s)
 {
     s->col=0;
+#ifdef SAMIR_DOTPROMPT_MUTANT_saywrap
     if(s->row<24) { s->row++;return; }
     s->row=24;
     scroll(s,24);
+#else
+    /* Real III+ at-say-edge/edge: bottom overflow advances the BIOS
+     * cursor to (25,3), but neither paints hidden bytes nor scrolls. */
+    if(s->row<25) s->row++;
+#endif
 }
 void samir_screen_at(samir_screen *s,uint8_t row,uint8_t col,const char *text,uint32_t n)
 {
@@ -151,10 +157,12 @@ void samir_screen_at(samir_screen *s,uint8_t row,uint8_t col,const char *text,ui
             if(next>=80)say_next_row(s);else s->col=next;
         } else {
             uint32_t start=i,col=s->col;
-            while(i<n && s->col<80 && (uint8_t)text[i]>=32 && text[i]!=127)
-                s->text[s->row][s->col++]=text[i++];
-            if(i==start) { s->text[s->row][s->col++]=c;i++; }
-            if(s->draw) s->draw(s->user,s->row,(uint8_t)col,0x07,text+start,i-start);
+            while(i<n && s->col<80 && (uint8_t)text[i]>=32 && text[i]!=127) {
+                if(s->row<25) s->text[s->row][s->col]=text[i];
+                s->col++;i++;
+            }
+            if(i==start) { if(s->row<25)s->text[s->row][s->col]=c;s->col++;i++; }
+            if(s->draw && s->row<25) s->draw(s->user,s->row,(uint8_t)col,0x07,text+start,i-start);
             i--;
             if(s->col==80)say_next_row(s);
         }

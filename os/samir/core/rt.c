@@ -713,6 +713,8 @@ void rt_cursor_advance(uint16_t *row,uint16_t *col,const char *s,uint32_t n,int 
             if(*col<65535u) ++*col;
             if(screen && *col==80) { *col=0;++*row; }
         }
-        if(screen && *row>24) *row=24;
+        /* Real III+ at-say-edge/position: positioned SAY carries row 25;
+         * ordinary scrolling output still stops at row 24. */
+        if(screen && *row>(screen==2?25u:24u)) *row=(uint16_t)(screen==2?25u:24u);
     }
 }

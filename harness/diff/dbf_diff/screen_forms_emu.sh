@@ -1,18 +1,19 @@
 #!/bin/sh
 # W3 forms emu oracle (initech-p3nn0): replay a real III+ screen-mint case's KEYS
 # against SAMIR under QEMU and compare each gated dump with screen_tool compare
-# (no trimming or masking: docs/screen-mint.md). WAIT n = n BIOS ticks, 55 ms.
+# (no trimming or masking: docs/screen-mint.md). Replay the same paused states;
+# QEMU needs shorter settling waits than the real 386 reference. Polling INKEY
+# for full BIOS-tick waits would exhaust the unchanged QEMU debug-log cap.
 # usage: screen_forms_emu.sh [SAMIR.EXE] ; any differing dump is RED.
 set -u
 exe=${1:-build/SAMIR.EXE}
 ovl=${exe%.EXE}.OVL
 tag=$(basename "$exe" .EXE)
-root=build/samir-forms/$tag
 list=${SCREEN_FORMS_GATED:-harness/diff/dbf_diff/screen_forms_gated.txt}
 suite=${SCREEN_FORMS_SUITE:-forms-emu}
 root=build/samir-$suite/$tag
 mint=harness/diff/dbf_diff/xbase_prog_diff/screen-mint
-scale=${SCREEN_FORMS_WAIT_MS:-55}
+scale=${SCREEN_FORMS_WAIT_MS:-5}
 run_case() {
     case=$1; shift; gated=" $* "; out=$root/$case
     rm -rf "$out"; mkdir -p "$out"
@@ -38,11 +39,16 @@ run_case() {
     done < "$mint/$case/KEYS"
     # --legacy-quit: every asserted capture is a D token inside the stream, taken
     # before the last input; a host too slow to reach one is a missing dump = RED.
-    INITECH_QMP_STDIO=1 INITECH_TEXT_SCREEN_TOOL=build/screen_capture \
+    if ! INITECH_QMP_STDIO=1 INITECH_TEXT_SCREEN_TOOL=build/screen_capture \
     INITECH_TEXT_SCREEN_ELF=build/kernel_shell_secondary.elf \
     build/qemu_harness --disk build/tracer_secondary.img --disk2 "$out/data.img" \
         --name live --out "$out" --timeout-ms "${SCREEN_FORMS_TIMEOUT_MS:-60000}" \
-        --mouse "$spec" --keys-after SHELL-READY --legacy-quit > "$out/stdout" 2> "$out/report"
+        --mouse "$spec" --keys-after SHELL-READY --legacy-quit > "$out/stdout" 2> "$out/report"; then
+        echo "RED: $case capture run failed"; cat "$out/report"; return 1
+    fi
+    if ! grep -q '^\[harness\] OK=1$' "$out/report"; then
+        echo "RED: $case capture run incomplete"; cat "$out/report"; return 1
+    fi
     rc=0
     for d in "$@"; do
         if [ ! -s "$out/$d.ppm.screen" ]; then echo "RED: $case/$d not captured"; rc=1; continue; fi

@@ -215,8 +215,8 @@ int dec_format_display(double v, int width, int dec, char *out);
  */
 double dec_parse(const char *s, int len);
 
-/* 80x25 screen wraps/scrolls; printer has no screen edge.
- * Ref: say-get-read.md section 1, system-and-database-functions.md ROW/COL. */
+/* Last argument: 0 printer, 1 scrolling screen, 2 positioned SAY (row 25).
+ * Ref: say-get-read.md section 1, real III+ at-say-edge/position ROW/COL. */
 void rt_cursor_advance(uint16_t *,uint16_t *,const char *,uint32_t,int);
 
 #endif /* INITECH_SAMIR_RT_H */

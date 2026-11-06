@@ -1054,7 +1054,7 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
     } else {
         if(!pal->say_screen || pal->say_screen(pal,(uint8_t)coordinate[0],(uint8_t)coordinate[1],line,n))goto io_error;
         ctx->screen_row=(uint16_t)coordinate[0];ctx->screen_col=(uint16_t)coordinate[1];
-        rt_cursor_advance(&ctx->screen_row,&ctx->screen_col,line,n,1);
+        rt_cursor_advance(&ctx->screen_row,&ctx->screen_col,line,n,2);
     }
     if(ec)*ec=0;
     return INTERP_OK;

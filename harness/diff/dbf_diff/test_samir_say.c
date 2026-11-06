@@ -57,6 +57,9 @@ int main(void)
     CHECK(!strcmp(printed,"\r\n\r\n   X"),"PAL printer motion and value bytes");
     CHECK(samir_do(ip,"SET DEVICE TO SCREEN\n@ 23,78 SAY \"X\"\n")==INTERP_OK,"screen edge SAY");
     value(ip,"ROW()",23);value(ip,"COL()",79);
+    /* Independent real III+ at-say-edge/position: overflow is off-page. */
+    CHECK(samir_do(ip,"@ 24,75 SAY \"abcdefgh\"\n")==INTERP_OK,"bottom-edge SAY");
+    value(ip,"ROW()",25);value(ip,"COL()",3);
     CHECK(samir_do(ip,"@ 0,0 SAY \"\"\n?? \"ab\"\n? \"c\"\n")==INTERP_OK,"question cursor output");
     value(ip,"ROW()",1);value(ip,"COL()",1);
     CHECK(samir_do(ip,"@ 2.9,3.9 SAY .T.\n")==INTERP_OK,"fractional coordinates and logical formatting");

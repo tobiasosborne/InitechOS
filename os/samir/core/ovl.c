@@ -178,11 +178,13 @@ typedef struct {
     const char *names;
 } ovl_fields;
 #define FIELD_NAME(f) #f "\0"
-#define FIELD_DESC(t,f) { offsetof(t,f), sizeof(#f) },
-/* The byte offsets and uintptr_t loads are part of the flat x86 ABI. Check
- * each field, rather than silently truncating a future layout extension. */
+#define FIELD_DESC(t,f) { offsetof(t,f)/sizeof(uintptr_t), sizeof(#f) },
+/* Pointer-sized offsets keep the two-byte descriptor valid on both the
+ * flat x86 artifact and the host oracle as the PAL gains callbacks. Check
+ * alignment and range rather than truncating a future layout extension. */
 #define FIELD_ASSERT(t,f) \
-    _Static_assert(offsetof(t,f) < 255 && sizeof(((t *)0)->f) == sizeof(uintptr_t) \
+    _Static_assert(offsetof(t,f)/sizeof(uintptr_t) < 255 \
+        && offsetof(t,f)%sizeof(uintptr_t) == 0 && sizeof(((t *)0)->f) == sizeof(uintptr_t) \
         && sizeof(#f) <= 32, "overlay field descriptor: " #t "." #f);
 #define PAL_ASSERT(f) FIELD_ASSERT(samir_pal_t,f)
 #define CTX_ASSERT(f) FIELD_ASSERT(xb_ctx,f)
@@ -210,7 +212,7 @@ static void ovl_validate_fields(const void *base,const ovl_fields *audit,
         uintptr_t p;
         /* Copy the representation: no pointer-type aliasing or alignment
          * assumptions when reading function and data pointers alike. */
-        __builtin_memcpy(&p,(const char *)base + f->offset,sizeof p);
+        __builtin_memcpy(&p,(const char *)base + f->offset*sizeof(uintptr_t),sizeof p);
         if (p >= (uintptr_t)__ovl_slot && p < (uintptr_t)__ovl_slot_end) {
             char where[48]; /* longest prefix 10 + field including NUL <=32 */
             uint32_t n = rt_strlen(prefix);
