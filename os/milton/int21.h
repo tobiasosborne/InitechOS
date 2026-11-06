@@ -145,6 +145,17 @@ int21_exit_fn int21_get_exit(void);
 uint32_t int21_swap_dta(uint32_t dta);
 /* Allocate a nested native .COM's PSP/image/stack in the existing chain.
  * The block's owner is its new PSP paragraph (DOS 3.30 TR pp. 11-4/5). */
+/* DEC-03a.4/.5, initech-jarzu: full-width native process sidecar. Low PSP
+ * and the conventional MCB chain remain independent and representable. */
+typedef struct int21_high_context {
+    uint32_t psp,image_base,reserve_end;
+    uint32_t model,image_end,guard_base,guard_ceil,stack_base,stack_ceil;
+    void *heap_mem;
+    uint32_t heap_base,heap_bytes,heap_owner;
+} int21_high_context_t;
+int21_high_context_t *int21_high_swap(int21_high_context_t *context);
+void int21_high_init(int21_high_context_t *context,uint32_t base,uint32_t ceil);
+
 uint16_t int21_mcb_exec_alloc(uint32_t image_len, uint32_t *psp, uint32_t *end);
 /* Shrink an EXEC-owned image/BSS block, leaving its tail FREE for AH=48h.
  * Does not rebind or erase the chain (ADR-0009 DEC-04; initech-h4bk). */

@@ -214,6 +214,12 @@ Rationale:
 - **O-5 -- Emu behavioural app-switch gate** (extend `test-flair-drag`, ADR-0006 E-D5, two-tier): boot a multi-app desktop; inject a click on background app B while A is foreground; **screendump (Law 4)** asserts B's group is now front, B's menubar replaced A's in the bar, A's front window deactivated (hilite gone); **Tier-A damage law** asserts no over-repaint outside `(old front UNION new front)`. Independent **value** golden = a WDEF/chrome geometry scan graded against the `system7-decomp`/`win31-decomp` rendered goldens, **never `preview.webp`** (ADR-0010). Extend the markers to `FLAIR-DISPATCH app=<name>`. **Mutants:** "menubar does not swap on activate" -> bar-band assertion RED; "drop updateEvt routing" -> exposed area stays stale -> RED.
 - **O-6 -- Cross-emulator (Rule 5):** the switch + activate path runs on **QEMU and Bochs**; a disagreement is a stop-condition, not a QEMU-pin. The character-mode text-tenant path keeps its own ADR-0009 boot->USE->LIST gate unchanged.
 - **O-7 -- Emu char-tenant suspend/rebuild gate (the first text-tenant deliverable).** From the live desktop, launch SAMIR (Sec 3.2 class 2); assert (serial) the pump suspends + a `FLAIR-SUSPEND` marker; SAMIR runs its ADR-0009 boot->USE->LIST; on `loader_exit_hook` return assert (screendump) the rebuilt desktop is **bit-identical** to the pre-suspend dump and a `FLAIR-RESUME` marker fires. **Mutant:** "do not rebuild/repaint the desktop on return" -> post-return screendump != pre-suspend dump -> RED.
+  - Reconciliation: ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06),
+    DEC-03a.2/.5, initech-ayj36 / initech-jarzu: SAMIR's high module, reserve,
+    native heap, guard and stack in [0x600000,0x800000), plus owned low PSP and
+    environment controls, are disjoint from the preserved FLAIR heap. This
+    locked ownership proof replaces the former below-1-MiB rationale. O-7's
+    bit-identical desktop and no-rebuild mutant remain mandatory.
 - **O-8 -- Non-yielding watchdog (test-only):** a mutant tenant whose `event` loops must trip the bounded-tick timeout marker -- proving the *detector*, while confirming no preemptive kill ships.
 
 ## 8. Staging

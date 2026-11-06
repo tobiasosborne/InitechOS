@@ -528,6 +528,14 @@ static void test_flair_heap(const char *path)
  * ----------------------------------------------------------------------- */
 int main(int argc, char **argv)
 {
+    /* DEC-03a.2/.6: literal expectations, independent of memory_map.h. */
+    CHECK(file_contains_substr("spec/hardware.json", "\"minimum_ram_mib\": 8", -1) == 1,
+          "DEC-03a: hardware minimum is 8 MiB");
+    CHECK(file_contains_substr("spec/hardware.json", "0x00600000", -1) == 1 &&
+          file_contains_substr("spec/hardware.json", "0x00800000", -1) == 1,
+          "DEC-03a: hardware records the application window");
+    CHECK(INITECH_MIN_EXT_KB == 7168u, "DEC-03a: 7167 refuses, 7168 boots");
+
     const char *path;
 
     if (argc < 2) {

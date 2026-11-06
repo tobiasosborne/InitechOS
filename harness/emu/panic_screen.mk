@@ -1,3 +1,4 @@
+# DEC-03a.6: IO.SYS consumes the generated DEC-13 catalogue; all profiles need its include/dependency.
 # initech-s25. Gates FIRST: PRD Sec 5 / Appendix B, CLAUDE Rule 2.
 # PANIC.COM is a test fixture only; it never grows the shipped data volume.
 PANIC_SCREEN_DIR := $(BUILD)/panic-screen
@@ -32,8 +33,8 @@ endef
 $(eval $(call panic-screen-kernel,debug,-DPANIC_DEBUG=1))
 $(eval $(call panic-screen-kernel,no8,-DPANIC_DEBUG=1 -DPANIC_MUTATE_NO_8BPP))
 
-$(PANIC_SCREEN_DIR)/IO_vga13.SYS: $(BOOT_DIR)/io_sys.asm | $(PANIC_SCREEN_DIR)
-	$(NASM) -f bin -DFORCE_VBE_101 -DVBE_MUT_NO_101 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
+$(PANIC_SCREEN_DIR)/IO_vga13.SYS: $(BOOT_DIR)/io_sys.asm $(DOS_MESSAGES_INC) | $(PANIC_SCREEN_DIR)
+	$(NASM) -f bin -I$(BUILD)/ -DFORCE_VBE_101 -DVBE_MUT_NO_101 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
 $(PANIC_SCREEN_DIR)/stage2_vga13.bin: $(STAGE2_ASM) $(PANIC_SCREEN_DIR)/IO_vga13.SYS
 	$(NASM) -f bin -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) -DIO_SYS_PATH='"$(PANIC_SCREEN_DIR)/IO_vga13.SYS"' $< -o $@
 define panic-screen-image

@@ -224,11 +224,20 @@ if [ "$$loaded" -gt "$(KERNEL_OVL_RESIDENT_MAX)" ]; then \
 	printf '!!! kernel-size-ovl FAIL: %s loaded %s B > %s B (DEC-14-9(d): 196608 - 4096 - 2 x 11264)\n' "$(notdir $(1))" "$$loaded" '$(KERNEL_OVL_RESIDENT_MAX)'; exit 1; \
 fi
 endef
+# One producer when this gate shares a -j batch with headroom. A nested make
+# here races headroom's kernel ELF links (objcopy can see an empty ELF).
+# Match headroom's existing parse-time enumeration; the probe has no size goal.
+ifneq ($(filter test-kernel-size-ovl,$(MAKECMDGOALS)),)
+KERNEL_SIZE_OVL_BINS := $(shell $(MAKE) --no-print-directory -qp -f $(firstword $(MAKEFILE_LIST)) kernel-headroom-probe 2>/dev/null \
+    | sed -n 's|^\($(BUILD)/kernel[^ :%]*\.bin\):.*|\1|p' | LC_ALL=C sort -u | awk '$$0 !~ /mut|_record/')
+endif
+KERNEL_SIZE_OVL_BINS ?=
 .PHONY: test-kernel-size-ovl test-kernel-size-ovl-mutant
-test-kernel-size-ovl: | $(OVL_GATE_DIR)
+test-kernel-size-ovl: $(KERNEL_SIZE_OVL_BINS) | $(OVL_GATE_DIR)
 	@$(kernel-headroom-enum); \
 	prod=$$(for b in $$bins; do case "$$b" in *mut*|*_record*) ;; *) printf '%s ' "$$b";; esac; done); \
-	$(MAKE) --no-print-directory $$prod > $(OVL_GATE_DIR)/ksize.log 2>&1 || { cat $(OVL_GATE_DIR)/ksize.log; exit 1; }; \
+	for b in $$prod; do case ' $(KERNEL_SIZE_OVL_BINS) ' in *" $$b "*) ;; \
+	  *) printf '!!! test-kernel-size-ovl: %s not a declared production prerequisite\n' "$$b"; exit 1;; esac; done; \
 	n=0; bad=0; for b in $$prod; do e=$${b%.bin}.elf; n=$$((n+1)); ( $(call kernel-ovl-grade,$$e) ) || bad=$$((bad+1)); done; \
 	$(OBJCOPY) -O binary $(KERNEL_FLAIRTENANTS_ELF) $(OVL_GATE_DIR)/resident.bin; \
 	printf '    flagship %s loaded %s B; cap %s B; %s of %s production kernels over\n' kernel_flairtenants.elf "$$(wc -c < $(OVL_GATE_DIR)/resident.bin)" '$(KERNEL_OVL_RESIDENT_MAX)' "$$bad" "$$n"; \

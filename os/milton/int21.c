@@ -260,6 +260,28 @@ static uint8_t g_last_child_term_type = 0;
  * memory rather than fault (Rule 2). The arena is bound once at SYSINIT and
  * RE-INITIALIZED per program load (int21_mcb_reset) so each program starts
  * owning its whole window -- the authentic single-big-block. */
+/* ADR-0009 DEC-03a.4/.5, initech-jarzu. */
+#include "native.c"
+static int21_high_context_t *g_high;
+static native_arena_t high_arena(void)
+{
+    native_arena_t a={g_high->heap_mem,g_high->heap_base,g_high->heap_bytes,g_high->heap_owner};
+    return a;
+}
+int21_high_context_t *int21_high_swap(int21_high_context_t *context)
+{ int21_high_context_t *old=g_high; g_high=context; return old; }
+void int21_high_init(int21_high_context_t *c,uint32_t base,uint32_t ceil)
+{
+    native_arena_t a;
+    c->model=1u;
+    c->guard_base=EXT_APP_GUARD_BASE; c->guard_ceil=EXT_APP_STACK_BOT;
+    c->stack_base=EXT_APP_STACK_BOT; c->stack_ceil=EXT_APP_CEIL;
+    if((base & 15u) || (ceil & 15u) || ceil<=base || ceil>c->guard_base)
+        __builtin_trap(); /* internal load-plan invariant, never a user refusal */
+    native_init(&a,(void *)(uintptr_t)base,base,ceil-base,c->psp);
+    c->heap_mem=a.mem; c->heap_base=a.base; c->heap_bytes=a.bytes; c->heap_owner=a.owner;
+}
+
 static mcb_arena_t g_arena;
 static uint32_t    g_arena_base_linear = 0u;
 static int         g_arena_bound       = 0;
@@ -4465,6 +4487,15 @@ int int21_overlay_dest_ok(uint32_t linear, uint32_t len)
     if (!user_buf_ok(linear, len) || linear == 0u || g_cur_psp == 0) {
         return 0;
     }
+    if (g_high) {
+        uint32_t owner=(uint32_t)(uintptr_t)g_cur_psp;
+        native_arena_t a=high_arena();
+        if(owner!=g_high->psp || g_high->model!=1u) return 0;
+        if(linear>=g_high->guard_base && linear<g_high->stack_ceil) return 0;
+        if(linear>=g_high->image_base && linear<g_high->reserve_end &&
+           len<=g_high->reserve_end-linear) return 1;
+        return native_owns(&a,owner,linear,len);
+    }
     psp     = (uint32_t)(uintptr_t)g_cur_psp;
     img_end = g_arena_bound ? g_arena_base_linear : (uint32_t)PROGRAM_ARENA_CEIL;
     if (linear >= psp && linear - psp < 0x100u) {
@@ -4740,12 +4771,27 @@ static uint32_t arena_seg_base(void)
     return (g_arena_base_linear >> 4) & 0xFFFFu;
 }
 
+static int high_memory_call(int_frame_t *f,unsigned op)
+{
+    uint32_t out=0;
+    if(!g_high) return 0;
+    native_arena_t a=high_arena();
+    uint16_t err=native_call(&a,(uint32_t)(uintptr_t)g_cur_psp,op,f->ebx,
+                            op==0x48 ? f->ebx : f->ecx,&out);
+    if(err) {
+        set_ax(f,err); cf_set(f);
+        if(err==8) f->ebx=out;
+    } else { if(op==0x48) f->eax=out; cf_clear(f); }
+    return 1;
+}
+
 /* AH=48h ALLOCATE MEMORY: BX = paragraphs requested. On success AX = the DOS
  * segment of the allocated block, CF=0. On failure CF=1, AX=0x0008, BX = the
  * largest free block (paragraphs) so the caller can retry smaller (DOS contract).
  * Owner = the current PSP (a process must exist to own memory). */
 static void do_alloc(int_frame_t *f)
 {
+    if(high_memory_call(f,0x48)) return;
     uint16_t want = (uint16_t)(f->ebx & 0xFFFFu);
 
     /* No arena bound, or no owning process -> nothing can be allocated. Report
@@ -4785,6 +4831,7 @@ static void do_alloc(int_frame_t *f)
  * the owning PSP may free its block (MCB owner check). */
 static void do_free(int_frame_t *f)
 {
+    if(high_memory_call(f,0x49)) return;
     uint16_t seg = (uint16_t)(f->ebx & 0xFFFFu);
 
     if (!g_arena_bound || g_cur_psp == 0) {
@@ -4813,6 +4860,7 @@ static void do_free(int_frame_t *f)
  * grow to (DOS contract). Only the owning PSP may resize its block. */
 static void do_setblock(int_frame_t *f)
 {
+    if(high_memory_call(f,0x4a)) return;
     uint16_t seg  = (uint16_t)(f->ebx & 0xFFFFu);
     uint16_t want = frame_cx(f);
 
@@ -4952,6 +5000,7 @@ static void tsr_keep(uint8_t code, uint32_t paras)
 
 static void do_keep(int_frame_t *f)
 {
+    if(g_high) { set_ax(f,1); cf_set(f); return; } /* DEC-03a.5 */
 #ifdef TSR_MUT_NO_KEEP
     /* Rule 6 (test-tsr-unit-mutant / test-tsr-mutant): 31h acts as 4Ch. */
     do_terminate(f, frame_al(f));
@@ -4966,6 +5015,7 @@ static void do_keep(int_frame_t *f)
  * vectors are restored by the loader exactly as for INT 20h. */
 void KERNEL_ASM_ABI int27_dispatch(int_frame_t *frame)
 {
+    if(g_high) { set_ax(frame,1); cf_set(frame); return; } /* DEC-03a.5 */
     g_indos++;
     tsr_keep(0u, (frame->edx + 15u) >> 4);
     g_indos--;

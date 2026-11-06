@@ -915,21 +915,55 @@ static void p_release_args(samir_pal_t *pal, char **blk, int n)
  * p_do: handle DO <name> [WITH <arg expr list>]. Evaluates the WITH args (by
  * value -- by-ref is GATED), then calls the named procedure.
  */
-static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
+static int p_do_transfer(xb_interp *ip, proc_state *ps, const char *name,
+                         xb_val *argv, int nargs, int *ec)
 {
-    char name[P_MAX_FILE];
-    const char *p = p_skip_ws(args);
-    xb_val argv[P_MAX_ARGS];
+#if !defined(SAMIR_FNS_MUTANT_logdoarg) && !defined(SAMIR_FNS_MUTANT_sqrtdoarg) && !defined(SAMIR_FNS_MUTANT_ndxdoarg) && !defined(SAMIR_FNS_MUTANT_sqrtpass)
+    /* Argument blocks are owned before ON ERROR can reset expression scratch.
+     * Complete the caller's evaluation before any callee statement can run. */
+    int crc = samir_finish_transfer(ip, ec);
+    if (crc != INTERP_OK) {
+        if (crc == INTERP_TRAP_RETURN) crc = INTERP_OK;
+        return crc;
+    }
+#endif
+
+    return p_call(ip, ps, name, argv, nargs, ec);
+}
+
+/* DEC-03a.5, initech-jarzu: the 20-level oracle exhausted the checked
+ * 64 KiB stack. WITH-only expression/value arrays must not stay on every
+ * no-argument recursive DO frame. Keep their existing owned-heap semantics;
+ * separate this frame from the common no-argument transfer below. */
+static __attribute__((noinline)) int p_do_with(xb_interp *ip, proc_state *ps,
+                                              const char *name, const char *p, int *ec)
+{
+    /* DEC-03a.5: the WITH variant also overflowed the high stack at 20
+     * levels. Live values AND expression storage use the existing owned PAL
+     * heap. Reference: do-file-mint/depth-with (real III+ 1.1). */
+    typedef struct {
+        xb_val argv[P_MAX_ARGS];
+        char *argblk[P_MAX_ARGS];
+        char ebuf[P_MAX_EXPR + 1];
+    } with_frame;
     /* WITH values outlive each argument's expression buffer and scratch
      * reset. Using III+ U5-111: arbitrary expressions, including literals.
      * Their bytes go to one PAL heap block per call (acquire/release), not a
      * 4 KiB stack array per DO level (initech-39e5 stack budget). */
     samir_pal_t *pal = xb_interp_pal(ip);
-    char *argblk[P_MAX_ARGS];               /* one exact-size block per C arg */
+    if (rt_kw_word(p,"WITH\0",(int *)0) != 0) {
+        if (ec) *ec=10;
+        return -INTERP_ERR_SYNTAX;
+    }
+#ifdef PROC_MUTATE_STACK_ARGS
+    with_frame stack_frame, *frame=&stack_frame; /* Rule 6: obsolete stack frame */
+#else
+    with_frame *frame=(pal && pal->acquire && pal->release)
+        ? (with_frame *)pal->acquire(pal,(uint32_t)sizeof *frame) : (with_frame *)0;
+    if (!frame) { if (ec) *ec=43; return -INTERP_ERR_NOMEM; }
+#endif
     int nblk = 0;
     int nargs = 0, crc, ecode;
-    crc = p_file_word(&p, name, ec);
-    if (crc != INTERP_OK) return crc;
 
     /* optional WITH <expr>[, <expr>...] */
     if (rt_kw_word(p, "WITH\0", (int *)0) == 0) {
@@ -937,7 +971,7 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
         /* split the comma list at the top level (outside string literals/parens)
          * and evaluate each argument expression by value. */
         while (*p != '\0') {
-            char ebuf[P_MAX_EXPR + 1];
+            char *ebuf=frame->ebuf;
             xb_val v;
             if (rt_copy_expr(&p, ebuf, P_MAX_EXPR) < 0) { ecode = 0; goto syntax; }
             if (nargs >= P_MAX_ARGS) { ecode = P_MSG_WRONG_PARAM; goto syntax; }
@@ -957,40 +991,43 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
                 goto out;
             if(v.t==XB_C || v.t==XB_M) {
                 if(v.u.c.len>254){ecode=18;goto syntax;}
-                argblk[nblk]=(pal && pal->acquire)?(char *)pal->acquire(pal,(uint32_t)v.u.c.len+1u):(char *)0;
-                if(!argblk[nblk]){ecode=43;crc=-INTERP_ERR_NOMEM;goto fail;} /* #43 */
-                rt_memcpy(argblk[nblk],v.u.c.p,(uint32_t)v.u.c.len);
+                frame->argblk[nblk]=(pal && pal->acquire)?(char *)pal->acquire(pal,(uint32_t)v.u.c.len+1u):(char *)0;
+                if(!frame->argblk[nblk]){ecode=43;crc=-INTERP_ERR_NOMEM;goto fail;} /* #43 */
+                rt_memcpy(frame->argblk[nblk],v.u.c.p,(uint32_t)v.u.c.len);
 #ifndef SAMIR_FNS_MUTANT_with
-                v.u.c.p=argblk[nblk];
+                v.u.c.p=frame->argblk[nblk];
 #endif
                 nblk++;
             }
-            argv[nargs++] = v;
+            frame->argv[nargs++] = v;
             if (*p == ',') { p++; p = p_skip_ws(p); continue; }
             break;
         }
     }
     if (*p) { ecode = 10; goto syntax; }
 
-#if !defined(SAMIR_FNS_MUTANT_logdoarg) && !defined(SAMIR_FNS_MUTANT_sqrtdoarg) && !defined(SAMIR_FNS_MUTANT_ndxdoarg) && !defined(SAMIR_FNS_MUTANT_sqrtpass)
-    /* Argument blocks are owned before ON ERROR can reset expression scratch.
-     * Complete the caller's evaluation before any callee statement can run. */
-    crc = samir_finish_transfer(ip, ec);
-    if (crc != INTERP_OK) {
-        if (crc == INTERP_TRAP_RETURN) crc = INTERP_OK;
-        goto out;
-    }
-#endif
-
-    crc = p_call(ip, ps, name, argv, nargs, ec);
+    crc = p_do_transfer(ip,ps,name,frame->argv,nargs,ec);
 out:
-    p_release_args(pal, argblk, nblk);  /* every exit frees the WITH blocks */
+    p_release_args(pal, frame->argblk, nblk);  /* every exit frees the WITH blocks */
+#ifndef PROC_MUTATE_STACK_ARGS
+    pal->release(pal,frame);
+#endif
     return crc;
 syntax:
     crc = -INTERP_ERR_SYNTAX;
 fail:
     if (ec) *ec = ecode;
     goto out;
+}
+
+static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
+{
+    char name[P_MAX_FILE];
+    const char *p=p_skip_ws(args);
+    int rc=p_file_word(&p,name,ec);
+    if(rc!=INTERP_OK) return rc;
+    if(!*p) return p_do_transfer(ip,ps,name,(xb_val *)0,0,ec);
+    return p_do_with(ip,ps,name,p,ec);
 }
 
 /* ===================================================================== */

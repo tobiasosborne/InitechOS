@@ -2101,7 +2101,7 @@ int samir_last_error(xb_interp *ip)
  * after a few levels (audit 2026-10-23-samir L003: EIP/ESP garbage, session
  * lost). A count-only split_lines pass sizes the tables to the lines actually
  * present. Up to FLOW_STACK_LINES lines live in a fixed array on this call's
- * stack (384 bytes: 20 DO levels of it cost 7.5 KiB); a larger body takes its
+ * stack (12 bytes per level); a larger body takes its
  * tables from the PAL owned heap (acquire), released on every return, so a
  * long recursive procedure cannot run the stack into the program image --
  * when the heap is exhausted the DO fails with #43 "Insufficient memory." and
@@ -2110,7 +2110,12 @@ int samir_last_error(xb_interp *ip)
  * program is still capped at FLOW_MAX_LINES.
  */
 #ifndef FLOW_STACK_LINES
-#define FLOW_STACK_LINES 32
+/* DEC-03a.5, initech-jarzu: the checked 64 KiB high stack exposed the
+ * 20-level DO fixture using 71696 bytes with 32 local line-table entries.
+ * Keep only a one-line table on stack; multi-line bodies use the existing
+ * exact-size owned-heap path and release it on every return. Same III+ depth,
+ * limits, PAL heap and MEMVAR pool; no stack/window/cap enlargement. */
+#define FLOW_STACK_LINES 1
 #endif
 static int flow_exec_lines(xb_interp *ip, flow_state *fs, const char *prg,
                            uint32_t plen, int n, flow_line *s_lines,

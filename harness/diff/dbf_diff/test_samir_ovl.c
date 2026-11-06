@@ -152,8 +152,9 @@ int main(int argc, char **argv)
         hdr = ((uint32_t)e[8] | ((uint32_t)e[9] << 8)) * 16u;
         image = e[2] | (e[3] << 8) ? ((uint32_t)(e[4] | (e[5] << 8)) - 1u) * 512u + (uint32_t)(e[2] | (e[3] << 8))
                                    : (uint32_t)(e[4] | (e[5] << 8)) * 512u;
-        CHECK(e[0] == 'M' && e[1] == 'Z' && e[0x1C] == 0x43 && e[0x1D] == 0x49 && hdr <= image && image <= (uint32_t)el,
-              "B5 SAMIR.EXE is a tagged InitechMZ");
+        /* DEC-03a.8 KEEP/adapt tag: high resident, same overlay pair proof. */
+        CHECK(e[0] == 'M' && e[1] == 'Z' && e[0x1C] == 0x49 && e[0x1D] == 0x58 && hdr <= image && image <= (uint32_t)el,
+              "B5 SAMIR.EXE is extended InitechMZ (DEC-03a.8)");
         for (i = hdr; i + 4 <= image; i++) hits += rd32(e + i) == stamp;
         CHECK(hits == 1, "B5 the overlay stamp occurs once in the resident module (the pair is tied)");
         free(e); free(o);

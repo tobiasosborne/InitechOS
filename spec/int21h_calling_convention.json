@@ -1,5 +1,6 @@
 {
   "_comment": [
+    "ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36: deliberate locked memory/model/ABI reconciliation.",
     "InitechDOS INT 21h Flat 32-bit Calling Convention -- LOCKED spec-data",
     "(CLAUDE.md Rule 8). NEW locked file; companion to spec/int21h_register.json",
     "(the COARSE function set) -- this file pins the per-register ABI + the",
@@ -16,6 +17,7 @@
     "Every `ah` documented here MUST exist in spec/int21h_register.json",
     "(test-spec asserts this consistency)."
   ],
+  "extended_model": {"provenance": "ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36", "tag": "0x5849", "version": 1, "selection": "current EXEC context, never syscall pointer", "48h": {"input": "EBX uint32 paragraphs", "success": "CF=0 EAX flat usable pointer"}, "49h": {"input": "EBX exact flat pointer", "success": "CF=0, live block owned by current PSP only"}, "4Ah": {"input": "EBX flat pointer, ECX uint32 paragraphs", "success": "CF=0, resize in place preserving bytes"}, "failure": "CF=1 AX=0007h corrupt metadata, 0008h shortage or zero/overflow count, 0009h invalid block/owner. No mutation on refusal. 48h/4Ah shortage returns full EBX largest usable paragraphs.", "legacy": "BX/CX counts and AX fake segments unchanged"},
   "source": "docs/research/internals-int21h-ground-truth.md",
   "status": "ratified -- ADR-0003 amendment DEC-04a (OEA-ADR-0003-A1), ARB sign-off 2026-06-08 (beads initech-1f9)",
   "gate": {

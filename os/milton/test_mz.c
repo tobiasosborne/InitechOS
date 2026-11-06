@@ -668,10 +668,33 @@ static void test_integration_parse_and_reloc(void)
           "integration: site B relocated (RED under RELOC_NOADD + RELOC_PARAGRAPH)");
 }
 
+/* DEC-03a.3: hand-authored v1 descriptor, literal independent vectors. */
+static void test_extended_descriptor(void)
+{
+    uint8_t f[96] = {0};
+    mz_image_t m;
+    f[0]='M'; f[1]='Z'; f[2]=96; f[4]=1; f[8]=4; f[0x18]=0x38;
+    f[0x1c]=0x49; f[0x1d]=0x58;
+    f[0x20]=1; f[0x24]=24; f[0x2a]=1;
+    f[0x32]=1; f[0x35]=0x10;
+    CHECK(mz_parse_header(f, sizeof f, &m)==MZ_OK, "DEC-03a: extended tag v1 admitted");
+    for (unsigned i=0; i<4; i++) {
+        unsigned off[]={0x20,0x24,0x30,0x34};
+        f[off[i]]++;
+        CHECK(mz_parse_header(f,sizeof f,&m)==MZ_ERR_BAD_HEADER,
+              "DEC-03a: unknown version/length/stack/guard refused");
+        f[off[i]]--;
+    }
+    f[6]=1; f[0x18]=0x34;
+    CHECK(mz_parse_header(f,sizeof f,&m)==MZ_ERR_BAD_RELOC,
+          "DEC-03a: relocation table cannot overlap descriptor");
+}
+
 /* ---- main ---------------------------------------------------------------- */
 
 int main(void)
 {
+    test_extended_descriptor();
     test_is_mz();
     test_parse_partial_last_page();
     test_parse_full_last_page();

@@ -43,6 +43,7 @@ static uint32_t mz_rd32(const uint8_t *p)
 }
 
 /* Write a 32-bit little-endian dword to `p`. */
+#ifndef MZ_ONLY_PARSER
 static void mz_wr32(uint8_t *p, uint32_t v)
 {
     p[0] = (uint8_t)(v        & 0xFFu);
@@ -50,6 +51,8 @@ static void mz_wr32(uint8_t *p, uint32_t v)
     p[2] = (uint8_t)((v >> 16) & 0xFFu);
     p[3] = (uint8_t)((v >> 24) & 0xFFu);
 }
+
+#endif
 
 /* ---- MZ header field offsets (from the start of the file) ---------------- */
 /* Ref: IBM DOS 3.3 Technical Reference / standard MZ layout. */
@@ -67,13 +70,14 @@ static void mz_wr32(uint8_t *p, uint32_t v)
 #define MZ_OFF_CS        0x16u   /* 2 bytes: initial CS (segment relative) */
 #define MZ_OFF_LFARLC    0x18u   /* 2 bytes: file offset of reloc table    */
 #define MZ_OFF_OVNO      0x1Au   /* 2 bytes: overlay number                */
-#define MZ_OFF_RES0      0x1Cu   /* 2 bytes: e_res[0] -- InitechMZ TAG     */
+#define MZ_OFF_RES0      INITECHMZ_TAG_OFF   /* 2 bytes: e_res[0] -- InitechMZ TAG     */
 
 /* Minimum number of bytes we must read to check the tag (through offset 0x1D). */
 #define MZ_MIN_HDR_READ  0x1Eu
 
 /* ---- API implementations ------------------------------------------------- */
 
+#ifndef MZ_ONLY_PARSER
 int mz_is_mz(const uint8_t *file, uint32_t len)
 {
     if (file == (const uint8_t *)0 || len < 2u) {
@@ -86,6 +90,9 @@ int mz_is_mz(const uint8_t *file, uint32_t len)
     return 0;
 }
 
+#endif
+
+#ifndef MZ_PARSE_EXTERNAL
 int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out)
 {
     uint16_t e_cblp, e_cp, e_crlc, e_cparhdr;
@@ -116,7 +123,7 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out)
      * 16-bit DOS .EXE with paragraph fixups over 16-bit code -- running it
      * in 32-bit flat mode would silently misinterpret the instruction stream.
      * The kernel loader PANICS on MZ_ERR_FOREIGN (DEC-08a.5, Rule 2). */
-    if (e_res0 != MZ_INITECH_TAG) {
+    if (e_res0 != MZ_INITECH_TAG && e_res0 != INITECHMZ_EXT_TAG) {
         return MZ_ERR_FOREIGN;
     }
 #else
@@ -180,6 +187,26 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out)
         return MZ_ERR_BAD_RELOC;
     }
 
+    /* ADR-0009 DEC-03a.3/.4, initech-jarzu. The caller must supply the
+     * first min(file_len,56) bytes, even when streaming a large module. */
+    out->extended = e_res0 == INITECHMZ_EXT_TAG;
+    out->reserve_bytes = out->minimum_heap_bytes = 0;
+    if (out->extended) {
+        if (file_len < INITECHMZ_EXT_HEADER_MIN || header_bytes < INITECHMZ_EXT_HEADER_MIN ||
+            e_cblp > 511u || !e_cp ||
+            mz_rd32(file+INITECHMZ_EXT_VERSION_OFF) != INITECHMZ_EXT_VERSION ||
+#ifndef MZ_MUT_EXT_LENGTH
+            mz_rd32(file+INITECHMZ_EXT_LENGTH_OFF) != INITECHMZ_EXT_DESC_LEN ||
+#endif
+            mz_rd32(file+INITECHMZ_EXT_STACK_OFF) != INITECHMZ_EXT_STACK_BYTES ||
+            mz_rd32(file+INITECHMZ_EXT_GUARD_OFF) != INITECHMZ_EXT_GUARD_BYTES)
+            return MZ_ERR_BAD_HEADER;
+        if (e_lfarlc < INITECHMZ_EXT_HEADER_MIN || reloc_end > header_bytes)
+            return MZ_ERR_BAD_RELOC;
+        out->reserve_bytes = mz_rd32(file+INITECHMZ_EXT_RESERVE_OFF);
+        out->minimum_heap_bytes = mz_rd32(file+INITECHMZ_EXT_HEAP_OFF);
+    }
+
     /* 10. Fill output. */
     out->load_module_off  = header_bytes;
     out->load_module_len  = image_bytes - header_bytes;
@@ -194,6 +221,9 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out)
     return MZ_OK;
 }
 
+#endif
+
+#ifndef MZ_ONLY_PARSER
 int mz_apply_relocs(uint8_t *image, uint32_t image_len,
                     uint32_t load_base,
                     const uint8_t *reloc_table, uint16_t reloc_count)
@@ -247,3 +277,5 @@ int mz_apply_relocs(uint8_t *image, uint32_t image_len,
 
     return MZ_OK;
 }
+
+#endif

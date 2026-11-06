@@ -38,6 +38,15 @@
 #include "boot_info.h"
 
 /* The ROM font stash is 256 glyphs x 16 rows (boot_info.h: "4096 bytes"). */
+/* ADR-0009 Amendment DEC-03a.2/.6: independent ratified expectations. */
+#ifndef EXT_APP_BASE
+#error "DEC-03a: missing locked extended application region"
+#endif
+_Static_assert(EXT_APP_BASE == 0x600000u && EXT_APP_CEIL == 0x800000u,
+               "DEC-03a: application window must be 6-8 MiB");
+_Static_assert(INITECH_MIN_EXT_KB == 7168u, "DEC-03a: global 8 MiB floor");
+_Static_assert(EXT_APP_STACK_BOT == 0x7F0000u && EXT_APP_STACK_TOP == 0x7FFFFCu &&
+               EXT_APP_GUARD_BASE == 0x7EF000u, "DEC-03a: stack and guard");
 #define FONT_STASH_SIZE 4096u
 
 #define BI_LO   BOOT_INFO_ADDR
@@ -63,6 +72,7 @@ BI_FS_VS(KIMAGE);
 BI_FS_VS(TRANSIENT);
 BI_FS_VS(KSTACK);
 BI_FS_VS(OVERLAY);
+BI_FS_VS(EXT_APP);
 _Static_assert(DISJ(BI_LO, BI_HI, FS_LO, FS_HI),
                "memory map windows overlap: BOOT_INFO vs FONT_STASH");
 
@@ -85,6 +95,7 @@ int main(void)
         { "TRANSIENT",   MMAP_WIN_LO_TRANSIENT,  MMAP_WIN_HI_TRANSIENT },
         { "KSTACK",      MMAP_WIN_LO_KSTACK,     MMAP_WIN_HI_KSTACK },
         { "OVERLAY",     MMAP_WIN_LO_OVERLAY,    MMAP_WIN_HI_OVERLAY },
+        { "EXT_APP", EXT_APP_BASE, EXT_APP_CEIL },
     };
     const unsigned n = (unsigned)(sizeof w / sizeof w[0]);
     unsigned i, j, pairs = 0, bad = 0;

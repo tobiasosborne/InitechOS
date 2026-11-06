@@ -33,14 +33,14 @@ Software License Agreement (see [`LICENSE`](LICENSE)).
 ## System requirements
 
 - Intel 486-class or higher microprocessor (386 support desirable, non-blocking)
-- At least 4 MB of extended memory above 1 MB (5 MB total minimum)
+- At least 8 MB RAM (7 MB of extended memory above 1 MB; ADR-0009 DEC-03a.6)
 - Fixed-disk controller and one fixed disk
 - One 5.25-inch or 3.5-inch diskette drive
 - VGA-compatible display adapter and monitor
 - Serial pointing device (recommended)
 
 CPU and memory requirements follow [`spec/hardware.json`](spec/hardware.json)
-(`cpu`, `memory.flair_heap`) and
+(`cpu`, `memory.minimum_ram_mib`, `memory.extended_application`) and
 [ADR-0001 DEC-02](docs/adr/ADR-0001-Hardware-Target-386-Origin-486-Floor.md).
 The kernel checks the extended-memory minimum at boot.
 

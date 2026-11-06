@@ -281,7 +281,55 @@ int main(void)
           "Rule 11: deterministic PSP mapping, nonzero DOS owner");
     CHECK(g_psp != NULL, "PSP buffer in low 4 GiB");
     if (g_psp == NULL) {
-        return TEST_SUMMARY("test_arena_disjoint");
+        /* DEC-03a.2/.8: extend, never replace conventional arena checks. */
+    {
+        uint8_t file[96]={0}; loader_plan_t high;
+        file[0]='M';file[1]='Z';file[2]=96;file[4]=1;file[8]=4;
+        file[0xc]=file[0xd]=0xff;file[0x18]=0x38;
+        file[0x1c]=0x49;file[0x1d]=0x58;
+        file[0x20]=1;file[0x24]=24;file[0x2a]=1;
+        file[0x32]=1;file[0x35]=0x10;
+        CHECK(loader_prepare_mz(file,sizeof file,0,0,&high)==LOADER_OK,
+              "DEC-03a: extended image prepares");
+        CHECK(high.image_dst==0x600000u && high.arena_base==0x610020u &&
+              high.arena_ceil==0x7ef000u && high.stack_top==0x7ffffcu,
+              "DEC-03a: high image/reserve/heap/guard/stack disjoint");
+    }
+    /* DEC-03a.4/DEC-19: real dispatch and native ownership, including
+     * refusal of high guard/stack, metadata, free and foreign destinations. */
+    {
+        void *mem=mmap((void *)(uintptr_t)0x610000u,0x1df000u,
+                       PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE,-1,0);
+        CHECK(mem!=(void *)MAP_FAILED,"DEC-03a: native host backing mapped without replacement");
+        if(mem!=(void *)MAP_FAILED) {
+            int21_high_context_t c={0};
+            c.psp=(uint32_t)(uintptr_t)g_psp;c.image_base=0x600000;c.reserve_end=0x610000;
+            int21_high_init(&c,0x610000,0x7ef000);
+            CHECK(c.model==1u && c.guard_base==0x7ef000u && c.guard_ceil==0x7f0000u &&
+                  c.stack_base==0x7f0000u && c.stack_ceil==0x800000u,
+                  "DEC-03a: sidecar carries explicit model and full-width guard/stack bounds");
+            int21_high_context_t *old=int21_high_swap(&c);
+            int_frame_t f=call(0x48,0x10001,0);
+            CHECK(!frame_cf(&f) && f.eax==0x610010u,"DEC-03a: native 48h preserves full count and flat EAX");
+            uint32_t block=f.eax;
+            CHECK(int21_overlay_dest_ok(0x600000,0x10000),"DEC-19: high image + reserve owned");
+            CHECK(int21_overlay_dest_ok(block,0x100010),"DEC-19: individual native heap block owned");
+            CHECK(!int21_overlay_dest_ok(block,0x100011) &&
+                  !int21_overlay_dest_ok(0x610000,16) &&
+                  !int21_overlay_dest_ok(0x7ef000,1) && !int21_overlay_dest_ok(0x7f0000,1) &&
+                  !int21_overlay_dest_ok(0x100000,1) && !int21_overlay_dest_ok(0x500000,1),
+                  "DEC-19: refuse crossing block, metadata, guard, stack, FLAIR, kernel");
+            f=call(0x4a,block,32);
+            CHECK(!frame_cf(&f),"DEC-03a: native resize uses flat EBX and ECX");
+            f=call(0x49,block,0);
+            CHECK(!frame_cf(&f) && !int21_overlay_dest_ok(block,1),"DEC-19: free native block no longer owned");
+            f=call(0x49,block,0);
+            CHECK(frame_cf(&f) && (f.eax&0xffff)==9,"DEC-03a: native double-free returns 0009h");
+            (void)int21_high_swap(old);
+            munmap(mem,0x1df000);
+        }
+    }
+    return TEST_SUMMARY("test_arena_disjoint");
     }
     bind_psp();
 

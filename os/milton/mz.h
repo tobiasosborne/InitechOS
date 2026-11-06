@@ -27,6 +27,7 @@
 #define INITECH_MZ_H
 
 #include <stdint.h>
+#include "../../spec/initechmz_extended.h"
 
 /* MZ_INITECH_TAG -- the sentinel word written at e_res[0] (MZ header offset
  * 0x1C) by the InitechOS toolchain/Turbo Initech to mark a flat-32 InitechMZ
@@ -35,9 +36,10 @@
  *
  * Value 0x4943 == 'I','C' in little-endian (byte at 0x1C = 0x43 'C',
  * byte at 0x1D = 0x49 'I').  Mnemonic: "Initech Corporation".
- * Ref: DEC-08a.5.  LOCKED in this header; dtw.2 (loader.c) reads it via
+ * Ref: DEC-08a.5. DEC-03a.3/.4 moves the authority to the shared
+ * spec/initechmz_extended.h (initech-ayj36); dtw.2 (loader.c) reads it via
  * mz_parse_header() and needs no separate definition. */
-#define MZ_INITECH_TAG  ((uint16_t)0x4943u)
+#define MZ_INITECH_TAG  ((uint16_t)INITECHMZ_LEGACY_TAG)
 
 /* mz_image_t -- the parsed, normalised view of an InitechMZ image.
  * All offsets are flat byte offsets from the start of the MZ file unless
@@ -58,6 +60,8 @@ typedef struct {
     uint32_t stack_off;         /* flat offset from load base: e_ss*16 + e_sp   */
     uint16_t min_alloc_paras;   /* e_minalloc (paragraphs; DEC-08a.3)           */
     uint16_t max_alloc_paras;   /* e_maxalloc (paragraphs; DEC-08a.3)           */
+    /* DEC-03a.3/.4, initech-jarzu: parsed native descriptor; zero for legacy. */
+    uint32_t extended, reserve_bytes, minimum_heap_bytes;
     int      is_initechmz;      /* 1 -- always set on MZ_OK (sentinel verified) */
 } mz_image_t;
 
@@ -108,7 +112,9 @@ int mz_is_mz(const uint8_t *file, uint32_t len);
  *   entry_off         = (uint32_t)e_cs * 16 + e_ip   (flat from load base)
  *   stack_off         = (uint32_t)e_ss * 16 + e_sp   (flat from load base)
  *
- * `file` must point to the full file in memory; `file_len` is the byte count. */
+ * A header-only streaming view supplies min(file_len,56) readable bytes;
+ * extents are checked against full file_len. Legacy readers need only 30.
+ * DEC-03a v1 additionally validates the six fields at 0x20 and header fixups. */
 int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out);
 
 /* mz_apply_relocs -- apply flat-32 relocations to the load module (DEC-08a.1).
