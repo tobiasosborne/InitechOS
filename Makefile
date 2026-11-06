@@ -29066,19 +29066,20 @@ $(SAMIR_EXE) $(SAMIR_OVL) &: $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SA
 # -DSAMIR_W4. A SEPARATE binary: SAMIR.EXE and every existing gate are
 # untouched. New code is resident (no overlay placement; relaxed rules).
 SAMIR_UI_SRCS := $(sort $(wildcard $(SAMIR_DIR)/ui/*.c))
-SAMIRX_EXE    := $(BUILD)/SAMIRX.EXE
+SAMIRX_EXE    ?= $(BUILD)/SAMIRX.EXE
+SAMIRX_DIR    := $(BUILD)/samirx_$(notdir $(basename $(SAMIRX_EXE)))
 .PHONY: samirx-exe
 samirx-exe: $(SAMIRX_EXE)
 $(SAMIRX_EXE): $(SAMIR_HEADERS) $(wildcard $(SAMIR_DIR)/ui/*.h) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_EXE_CSRCS) $(SAMIR_UI_SRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_PACK_DEPS) | $(BUILD)
-	@mkdir -p $(BUILD)/samirx_exe && find $(BUILD)/samirx_exe -name '*.o' -delete
-	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samirx_exe/samir_crt0.o
+	@mkdir -p $(SAMIRX_DIR) && find $(SAMIRX_DIR) -name '*.o' -delete
+	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(SAMIRX_DIR)/samir_crt0.o
 	@set -e; for s in $(SAMIR_EXE_CSRCS) $(SAMIR_UI_SRCS); do \
-		o=$(BUILD)/samirx_exe/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
+		o=$(SAMIRX_DIR)/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
 		$(CC) $(SAMIR_EXE_PROFILE) -DSAMIR_W4 -I$(SAMIR_DIR)/ui -c $$s -o $$o; \
 	done
-	@$(SAMIR_LINK) -o $(BUILD)/samirx_exe/SAMIR.elf $(BUILD)/samirx_exe/samir_crt0.o $$(ls $(BUILD)/samirx_exe/*.o | grep -v 'samir_crt0\.o')
-	@$(call samir_pack,$(BUILD)/samirx_exe/SAMIR.elf,$(SAMIRX_EXE))
-	@printf '>>> SAMIRX.EXE: %s-byte resident module + SAMIRX.OVL (EXPERIMENT, -DSAMIR_W4)\n' "$$(stat -c%s $(BUILD)/samirx_exe/SAMIR.elf.res)"
+	@$(SAMIR_LINK) -o $(SAMIRX_DIR)/SAMIR.elf $(SAMIRX_DIR)/samir_crt0.o $$(ls $(SAMIRX_DIR)/*.o | grep -v 'samir_crt0\.o')
+	@$(call samir_pack,$(SAMIRX_DIR)/SAMIR.elf,$(SAMIRX_EXE))
+	@printf '>>> SAMIRX.EXE: %s-byte resident module + SAMIRX.OVL (EXPERIMENT, -DSAMIR_W4)\n' "$$(stat -c%s $(SAMIRX_DIR)/SAMIR.elf.res)"
 
 TEST_SAMIR_DBSAFE_EMU := $(BUILD)/test_samir_dbsafe_emu
 $(TEST_SAMIR_DBSAFE_EMU): $(DBF_DIFF_DIR)/test_samir_dbsafe_emu.c | $(BUILD)
