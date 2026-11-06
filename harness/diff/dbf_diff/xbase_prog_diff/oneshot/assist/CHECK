@@ -1,0 +1,25 @@
+#!/bin/sh
+# Initech-7cbu8: the Assistant must execute LIST against the chosen DBF.
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../../../../../.." && pwd)
+for word in 'Set Up' Create Update Position Retrieve Organize Modify Tools; do
+    grep -F "$word" menu1.txt >/dev/null
+done
+grep -F 'Database file' menu1.txt >/dev/null
+grep -F 'USE [<file>]' assisthelp.txt >/dev/null
+grep -F 'Rec: 2/3' goto.txt >/dev/null
+grep -F 'BROWSE' browse.txt >/dev/null
+grep -F 'WADDAMS' browse.txt >/dev/null
+grep -F 'Command: LIST' command.txt >/dev/null
+grep -F 'Execute the command' command.txt >/dev/null
+for name in PESTON WADDAMS LUMBERGH; do
+    grep -F "$name" list.txt >/dev/null
+done
+grep -F 'Press any key to continue work in ASSIST.' list.txt >/dev/null
+grep -F '.' after.txt >/dev/null
+if grep -F 'Database file' after.txt >/dev/null; then exit 1; fi
+python3 "$root/harness/diff/dbf_diff/dbf_ref.py" --schema files/CLIENTS.DBF > clients.schema
+python3 "$root/harness/diff/dbf_diff/dbf_ref.py" --records files/CLIENTS.DBF > clients.records
+grep -F 'NAME=PESTON' clients.records >/dev/null
+grep -F 'NAME=WADDAMS' clients.records >/dev/null
+grep -F 'NAME=LUMBERGH' clients.records >/dev/null

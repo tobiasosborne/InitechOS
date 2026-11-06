@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+ref="$OLDPWD/harness/diff/dbf_diff/dbf_ref.py"
+python3 "$ref" --schema files/WIDGETS.DBF > schema.txt
+python3 - "$ref" <<'PY'
+import importlib.util, pathlib, sys
+spec = importlib.util.spec_from_file_location('dbf_ref', sys.argv[1])
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+d = m.DbfFile('files/WIDGETS.DBF')
+assert [(f[0], f[1], f[2], f[3]) for f in d.fields] == [
+    ('PART', 'C', 10, 0), ('QTY', 'N', 5, 0),
+    ('DUE', 'D', 8, 0), ('OK', 'L', 1, 0)]
+assert d.record_count == 0
+raw = pathlib.Path('files/WIDGETS.DBF').read_bytes()
+assert len(raw) == d.header_length + 1
+assert raw[-1] == 0x1a and raw[0] == 3
+print('CREATE: four fields, zero records, valid DBF and exact EOF length')
+PY

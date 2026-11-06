@@ -1,0 +1,29 @@
+Tuse clients
+kret
+w400
+Tcreate label cllbl
+kret
+w400
+kright
+kret
+Tname
+kret
+Tcity
+kret
+Tstr
+kshift-9
+Tbal
+kcomma
+T8
+kcomma
+T2
+kshift-0
+kret
+Ddesign1
+kesc
+kright
+kret
+w500
+Tlabel form cllbl to file cllbl
+kret
+Dafter

@@ -1,0 +1,42 @@
+Tuse clients
+kret
+w400
+Tcreate report clrep
+kret
+w400
+kret
+Tclient balances
+kctrl-end
+kright
+kright
+kret
+Tname
+kret
+kctrl-y
+Tclient
+kret
+kctrl-y
+T10
+kret
+kpgdn
+Tbal
+kret
+kctrl-y
+Tbalance
+kret
+kctrl-y
+T12
+kret
+kctrl-y
+T2
+kret
+Ty
+Ddesign1
+kesc
+kright
+kright
+kret
+w500
+Treport form clrep to file clrep
+kret
+Dafter

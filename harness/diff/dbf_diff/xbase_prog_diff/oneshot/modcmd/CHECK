@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+python3 - <<'PY'
+from pathlib import Path
+raw = Path('files/HELLO.PRG').read_bytes()
+assert raw == b'? "HI"\r\nreturn\x1a', repr(raw)
+assert 'HI' in Path('after.txt').read_text()
+print('MODIFY COMMAND: exact two-line program, CRLF, DOS EOF, executed HI')
+PY

@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../../../../../.." && pwd)
+python3 -I "$root/harness/diff/dbf_diff/dbf_ref.py" --schema files/CLIENTS.DBF > schema.txt
+python3 -I "$root/harness/diff/dbf_diff/dbf_ref.py" --records files/CLIENTS.DBF > records.txt
+python3 -I - <<'PY'
+from pathlib import Path
+rows = Path('records.txt').read_text().splitlines()
+assert rows == [
+    'rec0 active NAME=PESTON CITY=HONOLULU BAL=1234.5',
+    'rec1 active NAME=WADDAMS CITY=berlin BAL=-42',
+    'rec2 active NAME=LUMBERGH CITY=DALLAS BAL=7777.77',
+], rows
+print('BROWSE: record 2 CITY saved; all other values and record count unchanged')
+PY

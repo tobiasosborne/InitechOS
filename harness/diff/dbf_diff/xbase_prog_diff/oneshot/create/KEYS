@@ -1,0 +1,35 @@
+Tcreate widgets
+kret
+w500
+Tpart
+kret
+Tc
+kret
+T10
+kret
+Tqty
+kret
+Tn
+kret
+T5
+kret
+T0
+kret
+Dcreate1
+Tdue
+kret
+Td
+kret
+Tok
+kret
+Tl
+kret
+kctrl-end
+w300
+kret
+w500
+Tn
+w500
+Tlist structure
+kret
+Dafter

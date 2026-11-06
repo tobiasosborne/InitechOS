@@ -1,0 +1,29 @@
+Thelp use
+kret
+w500
+Dhelp1
+kpgdn
+w250
+Dnext
+kpgup
+w250
+Dprevious
+kesc
+w250
+Thelp
+kret
+w500
+Dhelp2
+kdown
+kret
+w250
+Dselected
+kesc
+w250
+Thelp nonsense
+kret
+w350
+Dunknown
+kesc
+w250
+Dafter

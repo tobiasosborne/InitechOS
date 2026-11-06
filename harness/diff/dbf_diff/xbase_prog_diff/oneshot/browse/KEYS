@@ -1,0 +1,16 @@
+# Edit CITY of record 2, preserving the other records and field values.
+Tuse clients
+kret
+w500
+Tbrowse
+kret
+Dbrowse1
+kdown
+kright
+Tberlin
+Dediting
+kctrl-w
+w500
+Tlist
+kret
+Dafter

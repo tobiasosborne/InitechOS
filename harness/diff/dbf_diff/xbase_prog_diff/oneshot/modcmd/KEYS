@@ -1,0 +1,17 @@
+Tmodify command hello
+kret
+w500
+kshift-slash
+kspc
+kshift-apostrophe
+kshift-h
+kshift-i
+kshift-apostrophe
+kret
+Treturn
+Dedit1
+kctrl-w
+w500
+Tdo hello
+kret
+Dafter

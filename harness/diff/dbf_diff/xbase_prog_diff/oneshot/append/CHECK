@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+python3 - <<'PY'
+import importlib.util
+from pathlib import Path
+root = Path.cwd().parents[2]
+spec = importlib.util.spec_from_file_location('dbf_ref', root / 'harness/diff/dbf_diff/dbf_ref.py')
+ref = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(ref)
+path = Path('files/CLIENTS.DBF')
+table = ref.DbfFile(str(path))
+original = ref.DbfFile(str(root / 'build/CLIENTS.DBF'))
+records = list(table.iter_records())
+assert table.record_count == 4, table.record_count
+assert len(path.read_bytes()) == table.header_length + 4 * table.record_length + 1
+assert path.read_bytes()[-1:] == b'\x1a'
+assert records[:3] == list(original.iter_records()), records[:3]
+values = {name: table.decode_field(typ, width, decimals, raw)
+          for name, typ, width, decimals, raw in records[3][2]}
+assert records[3][1] == 0x20
+assert values == {'NAME': 'smythe', 'CITY': 'berlin', 'BAL': 125.50}, values
+print('APPEND: 4 records; typed values, original records and DBF length verified')
+PY

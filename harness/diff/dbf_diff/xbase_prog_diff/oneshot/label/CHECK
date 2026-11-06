@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+root=$(git rev-parse --show-toplevel)
+python3 -I "$root/harness/diff/dbf_diff/xbase_prog_diff/oneshot/label/lbl_check.py" files/CLLBL.LBL --acceptance
+python3 -I "$root/harness/diff/dbf_diff/dbf_ref.py" --schema files/CLIENTS.DBF
+python3 -I "$root/harness/diff/dbf_diff/dbf_ref.py" --records files/CLIENTS.DBF

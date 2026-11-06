@@ -1,0 +1,19 @@
+#!/bin/sh
+# Initech-7cbu8: authored help, topic/menu navigation, and unknown topics.
+set -eu
+grep -F 'InitechBase III PLUS - Help' help1.txt >/dev/null
+grep -F 'USE [<file>]' help1.txt >/dev/null
+grep -F 'Syntax :' help1.txt >/dev/null
+grep -F 'Description :' help1.txt >/dev/null
+grep -F 'Example :' help1.txt >/dev/null
+grep -F 'See also :' help1.txt >/dev/null
+grep -F 'LIST [<scope>]' next.txt >/dev/null
+grep -F 'USE [<file>]' previous.txt >/dev/null
+grep -F 'MAIN MENU' help2.txt >/dev/null
+for topic in USE LIST DISPLAY APPEND EDIT BROWSE REPLACE DELETE PACK INDEX SEEK GO SKIP REPORT ASSIST; do
+    grep -F "$topic" help2.txt >/dev/null
+done
+grep -F 'LIST [<scope>]' selected.txt >/dev/null
+grep -F 'No help available for' unknown.txt >/dev/null
+grep -F 'NONSENSE' unknown.txt >/dev/null
+grep -F '.' after.txt >/dev/null

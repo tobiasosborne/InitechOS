@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../../../../../.." && pwd)
+python3 -I "$root/harness/diff/dbf_diff/dbf_ref.py" --schema files/CLIENTS.DBF > schema.txt
+python3 -I "$root/harness/diff/dbf_diff/dbf_ref.py" --records files/CLIENTS.DBF > records.txt
+python3 -I - <<'PY'
+from pathlib import Path
+rows = Path('records.txt').read_text().splitlines()
+assert rows == [
+    'rec0 active NAME=PESTON CITY=HONOLULU BAL=1234.5',
+    'rec1 active NAME=WADDAMS CITY=berlin BAL=25.5',
+    'rec2 active NAME=LUMBERGH CITY=DALLAS BAL=7777.77',
+], rows
+screen = Path('kit-after.txt').read_text()
+assert 'PESTON' in screen and 'WADDAMS' in screen and 'LUMBERGH' in screen, screen
+assert '25.50' in screen or '25.5' in screen, screen
+print('KIT: menu and prompt restore; C/N field edits; Ctrl-End save; dot-prompt LIST')
+PY

@@ -1,0 +1,28 @@
+# Kit integration through BROWSE: menu/prompt restore, character and numeric
+# replacement, save with extended Ctrl-End, and usable dot prompt afterwards.
+Tuse clients
+kret
+w500
+Tbrowse
+kret
+Dkit-browse
+kf10
+Dkit-menu
+kright
+kright
+kret
+T2
+Dkit-prompt
+kret
+w400
+kright
+Tberlin
+Dkit-field
+kret
+T25.5
+Dkit-numeric
+kctrl-end
+w500
+Tlist
+kret
+Dkit-after
