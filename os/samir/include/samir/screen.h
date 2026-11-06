@@ -11,7 +11,7 @@ typedef struct {
      * preserves row 0. Positioned output always addresses the whole page. */
     char text[25][80];
     char status[80], guidance[80];
-    uint8_t row,col,active,scoreboard;
+    uint8_t row,col,active,scoreboard,attr;
     samir_screen_draw draw;
     void (*scroll)(void *,uint8_t,uint8_t);
     void *user;

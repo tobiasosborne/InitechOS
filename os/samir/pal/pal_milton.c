@@ -201,7 +201,6 @@ typedef struct {
     uint8_t      ta_head, ta_n;
     int8_t       con_in;    /* stdin is CON: -1 unknown, 0 no, 1 yes */
     uint8_t      poll_extended; /* An INKEY poll consumed a DOS 00 prefix. */
-    uint8_t      cell_attr; /* Native page painting, independent of ANSI.SYS. */
 } pal_milton_state_t;
 
 /* Recover the state block from the vtable pointer (vtable is first). */
@@ -1019,7 +1018,7 @@ static int milton_con_at(samir_pal_t *p,uint8_t row,uint8_t col,const char *text
         milton_cursor(p,row,col);
         milton_rawout(p,text,n);
 #else
-        if(n)milton_draw_cells((samir_pal_t *)0,row,col,state_of(p)->cell_attr,text,n);
+        if(n)milton_draw_cells((samir_pal_t *)0,row,col,state_of(p)->screen.attr,text,n);
         milton_cursor(p,row,(uint8_t)(col+n<80u?col+n:79u));
 #endif
         return 0;
@@ -1074,19 +1073,11 @@ static int milton_printout(samir_pal_t *p,const char *text,uint32_t n)
 
 static void milton_set_attr(samir_pal_t *p,uint8_t attr)
 {
-    state_of(p)->cell_attr=attr;
-    if(milton_is_console(1))return;
-    /* Existing CON ANSI transport: CGA -> SGR 30-37/40-47, 1 and 5.
-     * Ref: os/milton/ansi.c ansi_do_sgr, IBM DOS 3.30 TR Ch 4 tables 4-1/4-2.
-     * Reset first so a previous bright/blinking attribute cannot leak. */
-    static const char cga_to_ansi[]="04261537";
-    char seq[16]="\033[0;30;40";
-    unsigned n=9;
-    seq[5]=cga_to_ansi[attr&7];seq[8]=cga_to_ansi[(attr>>4)&7];
-    if(attr&8){seq[n++]=';';seq[n++]='1';}
-    if(attr&128){seq[n++]=';';seq[n++]='5';}
-    seq[n++]='m';
-    if(milton_is_console(1))milton_rawout(p,seq,n);
+#ifndef SAMIR_REVIEW_MUTANT_COLOR
+    state_of(p)->screen.attr=attr;
+#else
+    (void)p;(void)attr;
+#endif
 }
 
 /* PRD Sec 5 / spec/hardware.json video: every supported display is colour.
@@ -1367,7 +1358,6 @@ samir_pal_t *pal_milton_make(void)
     uint32_t heap_seg;
 
     samir_screen_init(&st->screen,milton_draw,&st->vtable);
-    st->cell_attr=7;
     st->screen.scroll=milton_scroll;
     st->vtable.prompt=milton_prompt;
     st->vtable.conin_command=milton_conin_command;

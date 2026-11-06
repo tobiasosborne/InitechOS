@@ -20,7 +20,7 @@ void samir_screen_init(samir_screen *s,samir_screen_draw draw,void *user)
     SAMIR_RETAIN(s); SAMIR_RETAIN(draw); SAMIR_RETAIN(user);
     rt_memset(s,0,sizeof(*s)); rt_memset(s->text,' ',sizeof(s->text));
     s->draw=draw;s->user=user;
-    s->scoreboard=1;
+    s->scoreboard=1;s->attr=7;
 }
 void samir_screen_status(samir_screen *s,int on,char drive,const char *db,uint32_t rec,uint32_t count)
 {
@@ -117,7 +117,7 @@ void samir_screen_write(samir_screen *s,const char *text,uint32_t len)
 #endif
             while(i<len && s->col<80 && text[i]!='\n' && text[i]!='\r' && text[i]!='\b')
                 s->text[s->row][s->col++]=text[i++];
-            s->draw(s->user,s->row,(uint8_t)col,0x07,text+start,i-start);
+            s->draw(s->user,s->row,(uint8_t)col,s->attr,text+start,i-start);
             if(s->col==80) next_row(s);
         }
     }
@@ -164,7 +164,7 @@ void samir_screen_at(samir_screen *s,uint8_t row,uint8_t col,const char *text,ui
                 if(s->row<25) s->text[s->row][s->col]=text[i];
                 s->col++;i++;
             }
-            if(s->draw && s->row<25) s->draw(s->user,s->row,(uint8_t)col,0x07,text+start,i-start);
+            if(s->draw && s->row<25) s->draw(s->user,s->row,(uint8_t)col,s->attr,text+start,i-start);
             i--;
             if(s->col==80)say_next_row(s);
         }
