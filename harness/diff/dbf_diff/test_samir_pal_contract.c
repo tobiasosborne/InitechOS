@@ -115,6 +115,10 @@ int main(void)
 	p->conout(p, "hello", 5u);   /* must be callable + return cleanly */
 	CHECK(p->conin_line(p, buf, (uint32_t)sizeof buf) < 0,
 	      "null conin_line() returns EOF (negative)");
+    CHECK(p->conin_command && p->conin_command(p,buf,sizeof buf)<0,
+          "null dot-command input returns EOF (at-enter PAL extension)");
+    CHECK(p->prompt!=NULL,"null dot-prompt preparation is callable");
+    if(p->prompt) p->prompt(p,1,0);
 
 	/* terminal extension: conin_char EOF (<0); gotoxy/set_attr void no-ops. */
 	CHECK(p->conin_char(p) < 0,
