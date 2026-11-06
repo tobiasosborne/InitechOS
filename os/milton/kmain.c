@@ -8085,33 +8085,14 @@ void kernel_main(void)
      * IRQ dependency, beads initech-yv9.) */
 
 #ifdef BOOT_KBD_ECHO
-    /* ECHO SELF-TEST BUILD ONLY (beads initech-3rs / initech-43b; make
-     * test-kbd). This is the BITING end-to-end oracle for BOTH the keyboard
-     * driver and the harness --keys injection: emit a serial marker the harness
-     * waits for, then echo every ASCII byte the IRQ1 path enqueues back to
-     * serial framed by BEGIN/END markers, until N chars have been echoed, then
-     * halt. The NORMAL image never defines this macro, so test-boot et al. are
-     * unaffected. We `hlt` between polls so the CPU sleeps until the next IRQ
-     * (PIT tick or a keystroke) -- proves IF is actually set and IRQ1 fires. */
-    serial_puts("KBD-ECHO-READY\n");
-    serial_puts("KBD-ECHO-BEGIN\n");
-    {
-        int echoed = 0;
-        const int want = 3;          /* the test injects "d,i,r" -> 3 chars */
-        while (echoed < want) {
-            int ch = kbd_getchar();
-            if (ch < 0) {
-                __asm__ __volatile__("hlt");  /* sleep until an IRQ wakes us */
-                continue;
-            }
-            serial_putc((char)ch);   /* echo the decoded ASCII to serial */
-            echoed++;
-        }
-    }
-    serial_puts("\nKBD-ECHO-END\n");
-    for (;;) {
-        __asm__ __volatile__("hlt");
-    }
+    /* initech-wuxo0: use a real INT 21h client, so the oracle covers the
+     * complete IRQ1 -> ring -> CON -> program path, including NUL bytes. */
+    extern const uint8_t g_kbd_echo_image[];
+    extern const uint32_t g_kbd_echo_image_len;
+    serial_puts("KBD-ECHO-READY\nKBD-ECHO-BEGIN\n");
+    run_baked("KBD-ECHO", g_kbd_echo_image, g_kbd_echo_image_len);
+    serial_puts("KBD-ECHO-END\n");
+    for (;;) __asm__ __volatile__("hlt");
 #elif defined(BOOT_SHELL)
 #ifdef BOOT_DOSMSG_FAULT
     /* Factory-only disconnected-media backend; not in any shipped image. */

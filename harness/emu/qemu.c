@@ -795,6 +795,15 @@ static int capture_is_menu_xdrop(const CaptureCtx *cap)
  */
 static const char *token_to_qcode(const char *tok)
 {
+    /* initech-wuxo0: keypad navigation uses the physical numeric keys. */
+    static const struct { const char *name, *qcode; } keypad[] = {
+        {"kp_home","kp_7"}, {"kp_up","kp_8"}, {"kp_pgup","kp_9"},
+        {"kp_left","kp_4"}, {"kp_right","kp_6"}, {"kp_end","kp_1"},
+        {"kp_down","kp_2"}, {"kp_pgdn","kp_3"}, {"kp_insert","kp_0"},
+        {"kp_delete","kp_decimal"}
+    };
+    for (unsigned i = 0; i < sizeof keypad / sizeof keypad[0]; i++)
+        if (!strcmp(tok, keypad[i].name)) return keypad[i].qcode;
     /* Single-character tokens: a-z, A-Z (folded to lower), 0-9. The qcode name
      * for a letter/digit IS that character, so we return a per-call static
      * 2-byte buffer. Not re-entrant, but the caller uses it immediately. */

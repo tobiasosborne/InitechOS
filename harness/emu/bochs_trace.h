@@ -9,7 +9,7 @@
 typedef struct {
     enum { BX_KEY, BX_MOVE, BX_BUTTON, BX_WAIT } kind;
     unsigned key;
-    int x, y, ctrl, delay;
+    int x, y, ctrl, shift, alt, delay;
 } BochsTraceStep;
 typedef struct {
     int x, y;                     /* the guest cursor this replay intends */
@@ -158,8 +158,26 @@ static inline int bochs_trace_parse(const char *s, size_t n, BochsTraceStep *v)
         v->kind = BX_WAIT; return 1;
     }
     const char *key = b;
-    if (n > 1 && *key == 'k') ++key;
+    if (n > 1 && *key == 'k' && strncmp(key, "kp_", 3)) ++key;
     if (!strncmp(key, "ctrl-", 5)) { v->ctrl = 1; key += 5; }
+    else if (!strncmp(key, "shift-", 6)) { v->shift = 1; key += 6; }
+    else if (!strncmp(key, "alt-", 4)) { v->alt = 1; key += 4; }
+    /* X11 keysyms from keysymdef.h (RFC 6143 Sec 7.5.4), independent
+     * transport values, not BIOS scans. initech-wuxo0. */
+    static const struct { const char *name; unsigned sym; } special[] = {
+        {"f1",0xffbe}, {"f2",0xffbf}, {"f3",0xffc0}, {"f4",0xffc1},
+        {"f5",0xffc2}, {"f6",0xffc3}, {"f7",0xffc4}, {"f8",0xffc5},
+        {"f9",0xffc6}, {"f10",0xffc7},
+        {"home",0xff50}, {"up",0xff52}, {"pgup",0xff55},
+        {"left",0xff51}, {"right",0xff53}, {"end",0xff57},
+        {"down",0xff54}, {"pgdn",0xff56}, {"insert",0xff63}, {"delete",0xffff},
+        {"kp_home",0xffb7}, {"kp_up",0xffb8}, {"kp_pgup",0xffb9},
+        {"kp_left",0xffb4}, {"kp_right",0xffb6}, {"kp_end",0xffb1},
+        {"kp_down",0xffb2}, {"kp_pgdn",0xffb3}, {"kp_insert",0xffb0},
+        {"kp_delete",0xffae}
+    };
+    for (unsigned i = 0; i < sizeof special / sizeof special[0]; i++)
+        if (!strcmp(key, special[i].name)) { v->key = special[i].sym; return 1; }
     if (strlen(key) == 1 && ((*key >= 'a' && *key <= 'z') ||
                             (*key >= '0' && *key <= '9'))) v->key = (unsigned char)*key;
     else if (!strcmp(key, "ret")) {

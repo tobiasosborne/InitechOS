@@ -104,8 +104,9 @@ void kbd_state_init(kbd_state_t *st);
 uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode);
 
 /* Translate and enqueue a Set-1 byte, including atomic 00,scan pairs for
- * template keys. Ref: IBM DOS 3.30 Technical Reference pp.6-11--6-12;
- * MS-DOS 3.3 User's Guide pp.154-155 (F3). No port I/O. */
+ * F1-F10 (base/Shift/Ctrl/Alt), navigation (base/defined Ctrl), Alt letters.
+ * Ref: IBM PC AT TR 6280070 Sep 1985, System BIOS pp.5-18--5-19 (uncited
+ * locally); IBM DOS 3.30 TR pp.6-11--6-12. No port I/O. */
 void kbd_scancode_put(kbd_ring_t *ring, kbd_state_t *state, uint8_t scancode);
 
 /* DAS L002 / PRD Sec 6.1,6.3: the active surface owns input. GUI command

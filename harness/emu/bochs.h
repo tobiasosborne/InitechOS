@@ -125,6 +125,7 @@ typedef struct {
     bool marker_found;         /* expect_marker present (false if NULL).     */
     bool quit_marker_found;    /* requested completion count reached.        */
     int quit_markers_seen;     /* complete exact quit_after lines captured.  */
+    int keys_sent;                 /* fully sent key press/release pairs */
     bool trace_late;           /* quit_after completed DURING the replay with
                                   steps still unsent: the guest finished
                                   before its input arrived (initech-kxrk).  */

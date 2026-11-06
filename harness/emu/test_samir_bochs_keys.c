@@ -45,6 +45,26 @@ int main(void)
           "ASCII letter and digit keysyms");
     check(!rfb_key("",0) && !rfb_key("rets",4) && !rfb_key("shift",5),
           "unknown tokens rejected");
+    /* initech-wuxo0: literal X11 keysyms, independent of the parser map. */
+    static const struct { const char *token; unsigned sym; } extended[] = {
+        {"home",0xff50}, {"up",0xff52}, {"pgup",0xff55}, {"left",0xff51},
+        {"right",0xff53}, {"end",0xff57}, {"down",0xff54}, {"pgdn",0xff56},
+        {"insert",0xff63}, {"delete",0xffff}, {"f1",0xffbe}, {"f10",0xffc7},
+        {"kp_home",0xffb7}, {"kp_up",0xffb8}, {"kp_pgup",0xffb9},
+        {"kp_left",0xffb4}, {"kp_right",0xffb6}, {"kp_end",0xffb1},
+        {"kp_down",0xffb2}, {"kp_pgdn",0xffb3}, {"kp_insert",0xffb0},
+        {"kp_delete",0xffae}
+    };
+    for (unsigned i = 0; i < sizeof extended / sizeof extended[0]; i++)
+        check(rfb_key(extended[i].token, strlen(extended[i].token)) == extended[i].sym,
+              "extended keysym, including unprefixed kp_ tokens");
+    BochsTraceStep step;
+    check(bochs_trace_parse("shift-f10",9,&step) && step.shift && !step.ctrl &&
+          !step.alt && step.key == 0xffc7, "Shift function chord");
+    check(bochs_trace_parse("alt-q",5,&step) && step.alt && !step.ctrl &&
+          !step.shift && step.key == 'q', "Alt-letter chord");
+    check(bochs_trace_parse("ctrl-kp_pgup",12,&step) && step.ctrl &&
+          step.key == 0xffb9, "Ctrl keypad chord");
     interrupt_once = 1;
     check(rfb_key_event(&r,rfb_key("ret",3),true), "Return press sent");
     check(rfb_key_event(&r,rfb_key("ret",3),false), "Return release sent");
