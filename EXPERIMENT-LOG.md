@@ -47,3 +47,17 @@ resident), B=create modcmd (102.1 KB), C=frmdesign lbldesign (106.5 KB),
 D=assist help (105.8 KB); ceiling ~126.7 KB. High-heap SAMIRX smoke leg GREEN
 in QEMU. A real loader-above-1MB (ADR-0009 DEC-03a) is what one integrated
 binary needs; not attempted in the hour.
+
+## Checkpoint 2 (2026-11-06 17:51-17:54, T+39 min)
+`make -j16 test-merge-samir` (2m01.8s), run WITH the kernel keyboard change:
+`>>> test-merge-samir: 410 gates ...` / `>>> test-merge-samir: ALL GREEN`.
+All six coders finished between 17:43 and 17:53 and every one reported its
+own QEMU legs GREEN (ASSIST/HELP 17:43, BROWSE 17:47, FRM/LBL 17:48, KIT 17:49,
+CREATE 17:50, EDIT 17:53); each was committed as it landed. Second blocker,
+reported by four coders: os/milton/kbd.c only delivered F1-F5/Ins/Del/Left as
+00,scan, so the physical Up/Down/Right/PgUp/PgDn/Home/End/Ctrl-End keys never
+reached a program. Fixed at 17:51 in kbd_scancode_put (F1-F10 + the whole nav
+cluster + IBM Ctrl scans); test-kbd-unit 490/0 green; new leg
+oneshot/browse/arrows proves physical kdown/kright move BROWSE. Coder KEYS
+still use the III+ Ctrl equivalents (Ctrl-X/E/D/S/W), which are authentic.
+Dispatcher: MODIFY FILE now routed to ui_modify_file (CREATE coder's request).
