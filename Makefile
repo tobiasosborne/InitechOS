@@ -4952,7 +4952,7 @@ test-absdisk-mutant: $(TEST_ABSDISK_MUT_LBA) $(TEST_ABSDISK_MUT_NOOP) \
 			printf '>>> test-absdisk-mutant: green (%s correctly RED)\n' "$$name"; \
 		fi; \
 	done
-	@printf '>>> test-absdisk-mutant: all 8 DEC-15 mutants correctly RED (the oracle bites)\n'
+	@printf '>>> test-absdisk-mutant: green (all 8 DEC-15 mutants correctly RED) (the oracle bites)\n'
 
 # --- FAT12 POSITIONED-WRITE oracle (beads initech-snk) ----------------------
 # The symmetric counterpart of fat12_read_partial: fat12_write_partial does a
@@ -29412,6 +29412,7 @@ test-samir-boot: $(HARNESS_BIN) $(SAMIRBOOT_CAPTURE_IMG) $(SECONDARY_TRACER_IMG)
 	@printf 'VERDICT   : PASS -- InitechBase (SAMIR) booted inside InitechOS, opened a .dbf and LISTed it\n'
 	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-samir-boot: green (production serial; steady capture; real LIST cells)\n'
 
 test-samir-boot-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_MUT_IMG)
 	@printf '>>> test-samir-boot-mutant: confirming the short-read pal_milton mutant goes RED (Rule 6)\n'
