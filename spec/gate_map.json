@@ -135,6 +135,8 @@
         "test-qemu-snapshot",
         "test-revert-merge",
         "test-revert-merge-mutant",
+        "test-sentinel",
+        "test-sentinel-mutant",
         "test-serial-trace-pack",
         "test-serial-trace-pack-mutant"
       ],
@@ -363,9 +365,11 @@
         "tools/*cert*",
         "tools/*merge-train*",
         "tools/bin2c.c",
+        "tools/culprit.sh",
         "tools/iword_fkeys_gen.c",
         "tools/mk_boot_system.sh",
         "tools/mzlink.c",
+        "tools/sentinel.sh",
         "tools/serial_trace_pack.c"
       ]
     },
