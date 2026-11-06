@@ -141,3 +141,48 @@ the sharded certificate, 86Box.
   merge workflow v2 usage, Muse budget.
 - Lane reports: build/*proof*.txt and build/*REPORT*.txt in the T3
   worktrees under /home/tobiasosborne/.t3/worktrees/InitechOS/.
+
+## Addendum (late 2026-11-06): everything landed
+
+All six Codex lanes in flight at the 18:30 directive landed on main,
+each reviewed (gpt-6-astra, or Muse Wonder Full for Lane R), merged as one
+no-ff commit, re-gated on main, pushed:
+
+- a22cbf22 F8 gate map (initech-fw3x0) after a review fix adding a
+  source-to-gate consumer audit (361,687 pairs) that caught three false
+  negatives; 3d2a10ea F11 sentinel + culprit (initech-3nc3v) after four
+  review fixes (BUILD isolation, guarded cd, missing-gate = UNTESTABLE,
+  red over deferred). Epic initech-0uphq CLOSED: merge workflow v2 is
+  complete on main.
+- 8011ad44 kbd extended keys (initech-wuxo0, from the experiment; margin
+  1,060 B); CON pair-aware follow-up initech-drm4v.
+- 5ae79486 W4 acceptance oracle (initech-9nzpr): locked
+  spec/samir/screen_regrade.json, nine real-III+ format comparators, the
+  w4_trace.sh harness with DO SETUP prelude and case-preserving TEXT after
+  four review fixes.
+- 1e29e4e8 DEC-03a Lane R (initech-jarzu, ayj36, fxolx CLOSED): the
+  extended-memory runtime, locked specs, size-gate retarget; SAMIR.EXE
+  tagged 0x5849 v1 running high (clip build/clips/samir_high.mp4); the EXEC
+  prologue moved to COLD; margin 184 B. First merge attempt conflicted in
+  the Makefile include block (seven merges in between) -- the aborted
+  merge's re-gate logs are quarantined under
+  build/pm-logs/invalid-conflicted-merge/; a rebase pass certified it
+  (59 gates). PM-side cert-check gap filed (initech-z17ji: the selector
+  must resolve against the proposed head's tree).
+- 33fdb5c9 Lane E1 (initech-0spyf, fzsvo CLOSED): dot-prompt placement
+  and the off-screen cursor, four finish passes and an eight-item review
+  fix (steady-cursor capture kernels make the Bochs boot leg pixel-exact;
+  off-screen continuation, ANSI CUD clamp, raw editor extended keys, SET
+  COLOR in native SAY, redirection-independent SAY); 36 pending gates
+  opt-in; certificate 92 gates, 29 proof records; merge set 441 ALL GREEN;
+  margin 120 B. One Codex continuation was stopped by the provider's
+  safety filter on kernel-fault wording and relaunched with neutral
+  wording. Findings filed: initech-i92wq (RECINT stack leaves the declared
+  window once the DO cap is removed), initech-xo63b (P1 kernel COLD round:
+  every future kernel lane is blocked on it at 120 B margin),
+  initech-9dbgc (MZ placement rules into the locked header).
+
+Kernel cap state at close: largest production kernel 169,864 B of
+169,984. Muse Wonder Full: 4 of 6 budgeted uses spent. Not run: full
+make test, the sharded certificate, 86Box, publication typesetting
+(gs-dir.txt re-mint owed on initech-j0x4o / z8lca).

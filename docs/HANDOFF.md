@@ -227,10 +227,13 @@ fallback, asserted on serial.)
 > lanes, no Claude-model work (reviews on gpt-6-astra, fix passes on gpt-6.1-sol only if a review
 > demands). Muse Wonder Full: xhigh, 3 of 6 budgeted uses spent; operator checks quota before more.
 >
-> **Running Codex lanes to land (see WL-0195 'In flight'):** samir-dotprompt-cursor25 (0spyf/fzsvo,
-> finish 4), mechanical-gate-map (fw3x0 fix), implement-local-sentinel (3nc3v fix),
-> implement-extended-memory (ayj36/jarzu/fxolx), W4 acceptance (9nzpr), kbd (wuxo0). Each gets a
-> gpt-6-astra review (or the PM's read for fix passes), merge, re-gate, push.
+> **All lanes landed (late 2026-11-06, WL-0195 addendum):** F8 gate map, F11 sentinel (epic
+> initech-0uphq CLOSED), kbd extended keys, W4 acceptance oracle, DEC-03a Lane R (SAMIR runs above
+> 1 MB; margin 184 B), Lane E1 dot-prompt/cursor (margin 120 B). Nothing is running. NEXT SESSION
+> START HERE: (1) initech-xo63b P1 kernel COLD round -- no kernel lane can land before it; (2) the
+> W3 slices 2-4 lane (initech-p3nn0) and the W4 app ports from exp/dbase-oneshot behind the new
+> oracle (designers first); (3) initech-z17ji cert-check selector gap; (4) pubs lockstep
+> initech-j0x4o with the single gs-dir.txt re-mint; (5) run tools/sentinel.sh once on main.
 >
 > **CURRENT STATE (2026-11-06, WL-0194 -- Codex quality-floor wave). Supersedes the 2026-11-02 block below for branch state.**
 >
