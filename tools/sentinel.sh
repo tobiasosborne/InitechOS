@@ -4,8 +4,21 @@
 set -eu
 export LC_ALL=C
 unset MAKEFLAGS MFLAGS MAKELEVEL MAKEOVERRIDES GNUMAKEFLAGS MAKEFILES
+# Never inherit writable paths from the PM checkout (including cert workers).
+unset BUILD PUBS_BUILD KERNEL_REPRO_DIR OVL_REPRO_B SCREEN_OUT FIXTURE_VOLUMES_SCAN
+unset CCACHE_DIR CCACHE_BASEDIR CCACHE_TEMPDIR CCACHE_CONFIGPATH
+unset CCACHE_LOGFILE CCACHE_DEBUGDIR CCACHE_STATSLOG
 jobs=8 once=0 no_cert=0
 die() { printf 'sentinel: %s\n' "$*" >&2; exit 2; }
+# A make failure is red; a lost/replaced worktree is a setup error. The marker
+# carries that distinction out of subshells even inside if/|| (errexit is off).
+tree_error() { : > "$run/worktree-error"; exit 2; }
+tree_command() (
+    cd "$tree" || tree_error
+    [ "$(git rev-parse --show-toplevel)" = "$tree" ] || tree_error
+    exec "$@"
+)
+check_tree() { [ ! -f "$run/worktree-error" ] || die 'build worktree disappeared or was replaced'; }
 while [ "$#" -gt 0 ]; do
     case $1 in
         --once) once=1;;
@@ -68,6 +81,7 @@ while :; do
     # including gates blocked by a failed prerequisite (no log-text guessing).
     cat > "$run/make-bounded" <<'MAKE'
 #!/bin/sh
+[ "$(git rev-parse --show-toplevel)" = "$SENTINEL_EXPECTED_TREE" ] || { : > "$SENTINEL_TREE_ERROR"; exit 2; }
 for arg do
     case $arg in */gate-map-run.*/done.mk) printf '%s\n' "${arg%/done.mk}" >> "$SENTINEL_GATE_RUNS";; esac
 done
@@ -75,15 +89,18 @@ exec make "$@" "-j${SENTINEL_MAKE_JOBS}"
 MAKE
     chmod +x "$run/make-bounded"
     SENTINEL_GATE_RUNS=$run/dispatches
-    export SENTINEL_GATE_RUNS
+    SENTINEL_EXPECTED_TREE=$tree SENTINEL_TREE_ERROR=$run/worktree-error
+    export SENTINEL_GATE_RUNS SENTINEL_EXPECTED_TREE SENTINEL_TREE_ERROR
     started=$(date +%s)
     stage1_rc=0
-    (cd "$tree"; SENTINEL_MAKE_JOBS=$jobs make --no-print-directory -s "-j$jobs" \
-        "MAKE=$run/make-bounded" gates-for "DIFF=$base..HEAD") > "$run/gates" 2>> "$log" || stage1_rc=$?
+    tree_command env SENTINEL_MAKE_JOBS=$jobs make --no-print-directory -s "-j$jobs" \
+        "MAKE=$run/make-bounded" gates-for "DIFF=$base..HEAD" > "$run/gates" 2>> "$log" || stage1_rc=$?
+    check_tree
     if [ "$stage1_rc" -eq 0 ]; then
         cat "$run/gates" >> "$log"
-        (cd "$tree"; SENTINEL_MAKE_JOBS=$jobs make --no-print-directory -k "-j$jobs" \
-            "MAKE=$run/make-bounded" test-for "DIFF=$base..HEAD") >> "$log" 2>&1 || stage1_rc=$?
+        tree_command env SENTINEL_MAKE_JOBS=$jobs make --no-print-directory -k "-j$jobs" \
+            "MAKE=$run/make-bounded" test-for "DIFF=$base..HEAD" >> "$log" 2>&1 || stage1_rc=$?
+        check_tree
         observed=0
         sort -u "$run/dispatches" > "$run/dispatches.sorted"
         while IFS= read -r dispatch; do
@@ -102,11 +119,12 @@ MAKE
         cp -f "$run/stage-1.red" "$run/solo"
         while IFS= read -r gate; do
             printf '\n[stage-1 solo %s]\n' "$gate" >> "$log"
-            if (cd "$tree"; SENTINEL_MAKE_JOBS=1 make --no-print-directory -j1 \
-                "MAKE=$run/make-bounded" "$gate") >> "$log" 2>&1; then
+            if tree_command env SENTINEL_MAKE_JOBS=1 make --no-print-directory -j1 \
+                "MAKE=$run/make-bounded" "$gate" >> "$log" 2>&1; then
                 printf 'FLAKY %s stage-1\n' "$gate" >> "$run/flakes"
                 : # FLAKE-KEEPS-RED
             fi
+            check_tree
         done < "$run/solo"
     fi
     stage1_seconds=$(( $(date +%s) - started ))
@@ -131,7 +149,8 @@ MAKE
         if [ "$deferred" -eq 1 ]; then stage2=deferred
         else
             cert_rc=0
-            (cd "$tree"; "${SENTINEL_CERT_CMD:-tools/cert-sharded.sh}" -j "$jobs" --out "$run/cert") >> "$log" 2>&1 || cert_rc=$?
+            tree_command "${SENTINEL_CERT_CMD:-tools/cert-sharded.sh}" -j "$jobs" --out "$run/cert" >> "$log" 2>&1 || cert_rc=$?
+            check_tree
             if [ -f "$run/cert/results.txt" ]; then
                 awk '$1=="FAIL" || $1=="FAIL-CONFIRMED" || $1=="FLAKY" {print $3}' "$run/cert/results.txt" | sort -u > "$run/stage-2.red"
                 awk '$1=="FLAKY" {print "FLAKY " $3 " stage-2"}' "$run/cert/results.txt" >> "$run/flakes"
@@ -175,8 +194,7 @@ MAKE
     fi
     cat "$summary"
     printf 'sentinel: summary build/sentinel/%s/summary\n' "$head"
-    [ "$deferred" -eq 0 ] || exit 3
-    [ "$result" = green ] || exit 1
+    case $result in red) exit 1;; deferred) exit 3;; esac
     [ "$once" -eq 0 ] || exit 0
     seen=$head
     sleep 60

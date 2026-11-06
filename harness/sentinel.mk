@@ -26,11 +26,17 @@ mkdir -p "$repo/tools" "$repo/harness" "$repo/spec"
 cp -f "$scripts/sentinel.sh" "$scripts/culprit.sh" "$repo/tools/"
 cp -f "$source_repo/tools/gate_map.c" "$repo/tools/"
 cp -f "$source_repo/harness/gate_map.mk" "$repo/harness/"
+# F8's real drop-consumer mutant requires this named consumer pair. The
+# fixture supplies tiny inputs/rules, while retaining the real mapper/audit.
+mkdir -p "$repo/harness/proptest"
+for name in serial tbx; do
+    printf '/* Sentinel fixture consumer. */\n' > "$repo/harness/proptest/${name}_trace_fixture.c"
+done
 cat > "$repo/Makefile" <<'MAKE'
-BUILD := build
+BUILD ?= build
 CC := cc
 CFLAGS := -std=c99 -Wall -Wextra -Werror
-TEST_UNIT_GATES := test-probe test-unrelated
+TEST_UNIT_GATES := test-probe test-unrelated test-serial-trace-pack
 TEST_EMU_GATES :=
 .PHONY: all test-probe test-unrelated
 all:
@@ -41,16 +47,19 @@ test-makefile-vars test-gate-honesty test-kernel-repro test-kernel-flair-repro t
 $(BUILD):
 	@mkdir -p $@
 test-probe: | $(BUILD)
-	@printf '%s\n' '$(MAKEFLAGS)' >> build/probe-jobs
+	@printf '%s\n' '$(MAKEFLAGS)' >> $(BUILD)/probe-jobs
 	@if [ "$${SENTINEL_FIXTURE_FLAKE:-0}" = 1 ]; then \
-	    if [ ! -f build/probe.once ]; then touch build/probe.once; exit 1; fi; \
+	    if [ ! -f $(BUILD)/probe.once ]; then touch $(BUILD)/probe.once; exit 1; fi; \
 	else test "$$(cat gate.state)" = green; fi
 test-unrelated:
 	@echo 'unrelated gate must not be selected'; exit 1
+.PHONY: test-serial-trace-pack
+test-serial-trace-pack: harness/proptest/serial_trace_fixture.c harness/proptest/tbx_trace_fixture.c
+	@:
 include harness/gate_map.mk
 MAKE
 cat > "$repo/spec/gate_map.json" <<'JSON'
-{"families":{"always":{"gates":["test-makefile-vars","test-gate-honesty","test-gate-map","test-gate-map-mutant"],"paths":[]},"build-system":{"gates":["test-kernel-repro","test-kernel-flair-repro","test-ovl-repro"],"paths":["Makefile","tools/**","harness/**","spec/**"]},"aggregates":{"gates":["test-for"],"paths":[]},"probe":{"gates":["test-probe"],"paths":["probe.txt","gate.state","notes.txt"]},"other":{"gates":["test-unrelated"],"paths":["other.txt"]}}}
+{"families":{"always":{"gates":["test-makefile-vars","test-gate-honesty","test-gate-map","test-gate-map-mutant"],"paths":[]},"build-system":{"gates":["test-kernel-repro","test-kernel-flair-repro","test-ovl-repro"],"paths":["Makefile","tools/**","harness/**","spec/**"]},"aggregates":{"gates":["test-for"],"paths":[]},"probe":{"gates":["test-probe"],"paths":["probe.txt","gate.state","notes.txt"]},"other":{"gates":["test-unrelated"],"paths":["other.txt"]},"harness":{"gates":["test-serial-trace-pack"],"paths":["harness/proptest/serial_trace_fixture.c","harness/proptest/tbx_trace_fixture.c"]}}}
 JSON
 printf 'build/\n' > "$repo/.gitignore"
 printf 'green\n' > "$repo/gate.state"
@@ -84,6 +93,13 @@ cat > "$SENTINEL_CERT_CMD" <<'CERT'
 set -eu
 printf '%s\n' "$*" >> "$SENTINEL_FIXTURE_CERT_LOG"
 [ "$1" = -j ] && [ "$2" = 3 ] && [ "$3" = --out ]
+# Stand in for a certificate worker's build without running a real certificate.
+if env | grep -Eq '^(BUILD|PUBS_BUILD|KERNEL_REPRO_DIR|OVL_REPRO_B|SCREEN_OUT|FIXTURE_VOLUMES_SCAN|CCACHE_(DIR|BASEDIR|TEMPDIR|CONFIGPATH|LOGFILE|DEBUGDIR|STATSLOG))='; then
+    printf 'inherited writable path reached certificate worker\n' >&2
+    exit 2
+fi
+mkdir -p "${BUILD:-build}"
+printf 'certificate build\n' > "${BUILD:-build}/cert-build"
 mkdir -p "$4"
 if [ "${SENTINEL_FIXTURE_CERT_RED:-0}" = 1 ]; then
     printf 'FAIL unit test-probe 0 w1\nFLAKY unit test-probe 0 w1\n' > "$4/results.txt"
@@ -99,6 +115,33 @@ run() {
     summary=build/sentinel/$(git rev-parse origin/main)/summary
     [ -f "$summary" ] || fail "$leg" 'missing summary'
 }
+# Sentinel/culprit reports are intentional PM writes; all build products are
+# forbidden. Check the listing (including metadata) AND the preserved bytes.
+pm_build_checksum() {
+    find build -mindepth 1 \( -path build/sentinel -o -path build/culprit \) -prune -o \
+        -mindepth 1 -printf '%P %y %m %s %T@\n' | sort | cksum
+    cksum build/pm-artifact
+}
+printf 'PM build must survive\n' > build/pm-artifact
+before=$(pm_build_checksum)
+export BUILD=$repo/build
+export PUBS_BUILD=$repo/build/pubs KERNEL_REPRO_DIR=$repo/build/repro
+export OVL_REPRO_B=$repo/build/ovl SCREEN_OUT=$repo/build/screen
+export FIXTURE_VOLUMES_SCAN=$repo/build/volumes
+export CCACHE_DIR=$repo/build/cache CCACHE_BASEDIR=$repo
+export CCACHE_TEMPDIR=$repo/build/tmp CCACHE_CONFIGPATH=$repo/build/ccache.conf
+export CCACHE_LOGFILE=$repo/build/ccache.log CCACHE_DEBUGDIR=$repo/build/debug
+export CCACHE_STATSLOG=$repo/build/stats
+leg=BUILD
+run 1
+[ "$(pm_build_checksum)" = "$before" ] || fail BUILD 'inherited BUILD changed PM build listing/checksum'
+need "$summary" 'stage-2 result green' BUILD
+SENTINEL_HEAD=$m3 tools/culprit.sh test-probe "$base" > "$fixture/build-culprit.log"
+[ "$(pm_build_checksum)" = "$before" ] || fail BUILD 'standalone culprit changed PM build listing/checksum'
+unset BUILD PUBS_BUILD KERNEL_REPRO_DIR OVL_REPRO_B SCREEN_OUT FIXTURE_VOLUMES_SCAN
+unset CCACHE_DIR CCACHE_BASEDIR CCACHE_TEMPDIR CCACHE_CONFIGPATH
+unset CCACHE_LOGFILE CCACHE_DEBUGDIR CCACHE_STATSLOG
+printf 'GREEN sentinel BUILD: PM build listing/checksum unchanged (sentinel, fake cert, standalone culprit)\n'
 leg=RED
 run 1
 need "$summary" "base $base" RANGE
@@ -154,6 +197,14 @@ need build/sentinel/last-green "$base" LOAD
 [ "$(sort -u "$SENTINEL_FIXTURE_SLEEP_LOG")" = 60 ] || fail LOAD 'retry interval was not 60 seconds'
 [ "$(wc -l < "$SENTINEL_FIXTURE_CERT_LOG")" = "$calls" ] || fail LOAD 'certificate ran under high load'
 git --git-dir="$fixture/origin.git" update-ref refs/heads/main "$m3"
+leg=RED-LOAD
+PATH="$fixture/bin:$PATH" SENTINEL_LOADAVG=999999999 run 1
+need "$summary" 'stage-1 result red' RED-LOAD
+need "$summary" 'stage-2 result deferred' RED-LOAD
+need "$summary" 'result red' RED-LOAD
+need build/sentinel/last-green "$base" RED-LOAD
+[ "$(wc -l < "$SENTINEL_FIXTURE_CERT_LOG")" = "$calls" ] || fail RED-LOAD 'certificate ran under high load'
+printf 'GREEN sentinel RED-LOAD: exit 1, result red, stage-2 result deferred\n'
 leg=FLAKE
 SENTINEL_FIXTURE_FLAKE=1 run 1 --no-cert
 need "$summary" 'FLAKY test-probe stage-1' FLAKE
@@ -168,6 +219,103 @@ cp -f "$summary" "$fixture/flake.summary"
 [ -z "$(git status --porcelain)" ] || fail SAFETY 'PM working tree changed'
 [ -z "$(git -C ../initech-os-sentinel symbolic-ref -q HEAD || :)" ] || fail SAFETY 'sentinel is attached'
 [ "$(git worktree list --porcelain | grep -c '^worktree ')" -eq 2 ] || fail SAFETY 'culprit leaked a worktree'
+# A separate history: the target does not exist at M1 and is introduced red
+# at M2. A missing prerequisite at M2 must still count as an existing red gate.
+git checkout -qb introduced-history "$base"
+for n in 1 2; do
+    git checkout -qb "introduced$n"
+    printf 'introduced lane %s\n' "$n" > introduced.txt
+    if [ "$n" = 2 ]; then
+        cat >> Makefile <<'MAKE'
+.PHONY: test-introduced test-broken-prereq
+test-introduced:
+	@exit 1
+test-broken-prereq: absent.input
+	@:
+MAKE
+    fi
+    git add Makefile introduced.txt
+    git commit -qm "introduce lane $n"
+    git checkout -q introduced-history
+    git merge -q --no-ff "introduced$n" -m "M$n introduced gate"
+    git rev-parse HEAD > "$fixture/introduced$n"
+done
+i1=$(cat "$fixture/introduced1"); i2=$(cat "$fixture/introduced2")
+for gate in test-introduced test-broken-prereq; do
+    SENTINEL_HEAD=$i2 tools/culprit.sh "$gate" "$base" > "$fixture/missing-$gate.log"
+    need "$fixture/missing-$gate.log" "UNTESTABLE $gate $i1 M1 introduced gate" MISSING-GATE
+    need "$fixture/missing-$gate.log" "CULPRIT $gate $i2 M2 introduced gate" MISSING-GATE
+    if grep -q "^CULPRIT $gate $i1 " "$fixture/missing-$gate.log"; then fail MISSING-GATE 'absent gate blamed at M1'; fi
+done
+git checkout -q main
+printf 'GREEN sentinel MISSING-GATE: M1 UNTESTABLE, M2 CULPRIT (red recipe and missing prerequisite)\n'
+# Deterministic disappearance at a command boundary, including calls whose
+# surrounding if/|| suppresses errexit. Never run the real make after removal.
+export SENTINEL_FIXTURE_REAL_MAKE=$(command -v make)
+export SENTINEL_FIXTURE_REAL_GIT=$(command -v git)
+export SENTINEL_FIXTURE_PM=$repo
+export SENTINEL_FIXTURE_VANISH_DIR=$fixture/vanish
+mkdir -p "$SENTINEL_FIXTURE_VANISH_DIR"
+cat > "$fixture/bin/make" <<'FAKE_MAKE'
+#!/bin/sh
+set -eu
+d=$SENTINEL_FIXTURE_VANISH_DIR
+printf '%s\n' "$PWD" >> "$d/make.calls"
+if [ -f "$d/moved-path" ]; then
+    printf '%s\n' "$PWD" >> "$d/after.calls"
+    exit 2
+fi
+gate= dry=0
+for arg do
+    case $arg in gates-for|test-for|test-probe) gate=$arg;; -n) dry=1;; esac
+done
+rc=0; "$SENTINEL_FIXTURE_REAL_MAKE" "$@" || rc=$?
+move=0
+case $SENTINEL_FIXTURE_VANISH:$gate:$dry in
+    dispatch:gates-for:0|identity:gates-for:0|solo:test-for:0|cert:test-for:0) move=1;;
+    culprit-solo:test-probe:0) [ "$rc" -eq 0 ] || move=1;;
+esac
+if [ "$move" -eq 1 ]; then
+    printf '%s\n' "$PWD" > "$d/moved-path"
+    mv -f "$PWD" "$d/tree"
+    if [ "$SENTINEL_FIXTURE_VANISH" = identity ]; then ln -s "$SENTINEL_FIXTURE_PM" "$PWD"; fi
+fi
+exit "$rc"
+FAKE_MAKE
+cat > "$fixture/bin/git" <<'FAKE_GIT'
+#!/bin/sh
+set -eu
+"$SENTINEL_FIXTURE_REAL_GIT" "$@"
+if [ "$SENTINEL_FIXTURE_VANISH" = culprit-first ] && [ "$1" = worktree ] && [ "$2" = add ]; then
+    printf '%s\n' "$5" > "$SENTINEL_FIXTURE_VANISH_DIR/moved-path"
+    mv -f "$5" "$SENTINEL_FIXTURE_VANISH_DIR/tree"
+fi
+FAKE_GIT
+chmod +x "$fixture/bin/make" "$fixture/bin/git"
+for mode in dispatch identity solo cert culprit-first culprit-solo; do
+    rm -f "$SENTINEL_FIXTURE_VANISH_DIR/moved-path" "$SENTINEL_FIXTURE_VANISH_DIR/after.calls"
+    if [ "$mode" = cert ]; then snapshot=$m1; else snapshot=$m3; fi
+    git --git-dir="$fixture/origin.git" update-ref refs/heads/main "$snapshot"
+    printf '%s\n' "$base" > build/sentinel/last-green
+    rc=0
+    cert_before=$(wc -l < "$SENTINEL_FIXTURE_CERT_LOG")
+    case $mode in
+        culprit-*) PATH="$fixture/bin:$PATH" SENTINEL_FIXTURE_VANISH=$mode SENTINEL_HEAD=$m3 \
+            tools/culprit.sh test-probe "$base" > "$fixture/vanish-$mode.log" 2>&1 || rc=$?;;
+        *) PATH="$fixture/bin:$PATH" SENTINEL_FIXTURE_VANISH=$mode \
+            tools/sentinel.sh --once --jobs 3 > "$fixture/vanish-$mode.log" 2>&1 || rc=$?;;
+    esac
+    [ -f "$SENTINEL_FIXTURE_VANISH_DIR/moved-path" ] || fail WORKTREE "injection missed $mode"
+    moved=$(cat "$SENTINEL_FIXTURE_VANISH_DIR/moved-path")
+    if [ -L "$moved" ]; then rm -f "$moved"; fi
+    mv -f "$SENTINEL_FIXTURE_VANISH_DIR/tree" "$moved"
+    git worktree prune
+    [ ! -s "$SENTINEL_FIXTURE_VANISH_DIR/after.calls" ] || fail WORKTREE "$mode ran make after worktree disappeared/replaced"
+    [ "$rc" -eq 2 ] || { cat "$fixture/vanish-$mode.log"; fail WORKTREE "$mode exit $rc, expected 2"; }
+    [ "$(wc -l < "$SENTINEL_FIXTURE_CERT_LOG")" = "$cert_before" ] || fail WORKTREE "$mode ran certificate after worktree disappeared/replaced"
+    case $mode in culprit-*) git worktree remove --force "$moved";; esac
+    printf 'GREEN sentinel WORKTREE: %s exits 2 with no make after disappearance/replacement\n' "$mode"
+done
 printf '>>> test-sentinel: green (range, M2 culprit/revert, green pointer, fake cert, load guard, FLAKY stays red)\n'
 printf 'Fixture artifacts: %s\n' "$fixture"
 endef
@@ -179,20 +327,26 @@ test-sentinel: | $(BUILD)
 
 test-sentinel-mutant: | $(BUILD)
 	@$(file >$(BUILD)/sentinel-selftest.sh,$(value SENTINEL_SELFTEST_SH))
-	@set -eu; for m in newest-first flake-excused; do \
+	@set -eu; for m in newest-first flake-excused build-inherited missing-gate-culprit; do \
 	    d="$(abspath $(BUILD))/sentinel-mutant-$$m"; mkdir -p "$$d/tools"; \
 	    cp -f tools/sentinel.sh tools/culprit.sh "$$d/tools/"; \
-	    if [ "$$m" = newest-first ]; then \
+	    case $$m in newest-first) \
 	        sed -e 's/--reverse --first-parent/--first-parent/' -e 's/: # GREEN-CONTINUE/break # mutant stops at first green/' tools/culprit.sh > "$$d/tools/culprit.sh"; \
-	        reason=CULPRIT; \
-	    else \
+	        reason=CULPRIT;; \
+	    flake-excused) \
 	        sed 's|: # FLAKE-KEEPS-RED|stage1_rc=0; sed "/^$$gate/d" "$$run/stage-1.red" > "$$run/red.next"; mv -f "$$run/red.next" "$$run/stage-1.red"|' tools/sentinel.sh > "$$d/tools/sentinel.sh"; \
-	        reason=FLAKE; \
-	    fi; \
+	        reason=FLAKE;; \
+	    build-inherited) \
+	        for tool in sentinel culprit; do sed 's/^unset BUILD /unset /' "tools/$$tool.sh" > "$$d/tools/$$tool.sh"; done; \
+	        reason=BUILD;; \
+	    missing-gate-culprit) \
+	        sed 's/if grep -Fq /if false \&\& grep -Fq /' tools/culprit.sh > "$$d/tools/culprit.sh"; \
+	        reason=MISSING-GATE;; \
+	    esac; \
 	    rc=0; sh $(BUILD)/sentinel-selftest.sh "$(CURDIR)" "$$d/tools" "$$d" > "$$d/oracle.log" 2>&1 || rc=$$?; \
 	    [ "$$rc" = 1 ] && grep -q "^RED sentinel $$reason:" "$$d/oracle.log" || { cat "$$d/oracle.log"; printf 'RED sentinel mutant survived or failed for wrong reason: %s\n' "$$m"; exit 1; }; \
 	    grep "^RED sentinel $$reason:" "$$d/oracle.log"; \
 	    printf 'Mutant %s: RED as required\n' "$$m"; \
-	done; printf '>>> test-sentinel-mutant: green (newest-first and flake-excused correctly RED)\n'
+	done; printf '>>> test-sentinel-mutant: green (all four mutants correctly RED)\n'
 
 TEST_UNIT_GATES += test-sentinel test-sentinel-mutant
