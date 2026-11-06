@@ -59,6 +59,7 @@ test-lane-cert:
 	printf '>>> test-lane-cert: MAKEFLAGS false-green refused (both variables; unsafe modes)\n'; \
 	rc=0; MAKEFLAGS=-k GATES='test-one test-two' MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/cert.log" 2>&1 || rc=$$?; \
 	refused 'red gate: test-one' || fail 'MAKEFLAGS=-k false-green accepted'; \
+	git reset -q --hard "$$mutant"; \
 	for state in false-green red-zero quiet; do \
 	    printf '%s\n' "$$state" > state; git commit -qam "fixture $$state"; run_cert; \
 	    refused 'red gate: test-one' || fail "$$state accepted"; \

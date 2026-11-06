@@ -20,8 +20,25 @@ head=$(git rev-parse --verify HEAD)
 merge_base=$(git merge-base "$base" "$head") || refuse 'rebase required: unrelated history'
 [ "$merge_base" = "$base" ] || refuse 'rebase required: origin/main advanced'
 make_cmd=${MAKE:-make}
-if "$make_cmd" -n gates-for >/dev/null 2>&1; then
-    gates=$("$make_cmd" -s --no-print-directory gates-for "DIFF=origin/main..HEAD") || refuse 'gate selection failed'
+# GNU make encodes inherited short options as a bare cluster (for example
+# "ik"), as well as accepting ordinary command-line option spellings.
+set -f
+check_make_flags() {
+    for flag in $2; do
+        case $flag in
+            --) break;;
+            --ignore-errors*|--dry-run*|--just-print*|--recon*|--question*|--touch*|--old-file*|--assume-old*|--what-if*|--new-file*|--assume-new*)
+                refuse "unsafe $1: $flag";;
+            --*|*=*) ;;
+            *) case ${flag#-} in *[inqtoW]*) refuse "unsafe $1: $flag";; esac;;
+        esac
+    done
+}
+check_make_flags MAKEFLAGS "${MAKEFLAGS:-}"
+check_make_flags GNUMAKEFLAGS "${GNUMAKEFLAGS:-}"
+clean_make() { env -u MAKEFLAGS -u GNUMAKEFLAGS "$make_cmd" "$@"; }
+if clean_make -n gates-for >/dev/null 2>&1; then
+    gates=$(clean_make -s --no-print-directory gates-for "DIFF=origin/main..HEAD") || refuse 'gate selection failed'
 else
     gates=${GATES:-}
 fi
@@ -45,7 +62,7 @@ printf 'base_sha: %s\nhead_sha: %s\nbranch: %s\ngate_count: %s\n' \
     "$base" "$head" "$branch" "$count" > "$scratch/cert"
 while IFS= read -r gate; do
     gate_rc=0
-    "$make_cmd" "$gate" > "$scratch/gate.log" 2>&1 || gate_rc=$?
+    clean_make "$gate" > "$scratch/gate.log" 2>&1 || gate_rc=$?
     # Only this target's FINAL summary can certify it; nested gates do not.
     final=$(grep -F ">>> $gate:" "$scratch/gate.log" | tail -n 1)
     gate_ok=no
