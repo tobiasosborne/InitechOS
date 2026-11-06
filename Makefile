@@ -35233,6 +35233,7 @@ $(BUILD)/test_samir_say: $(DBF_DIFF_DIR)/test_samir_say.c $(SAMIR_DIR)/core/scre
 .PHONY: test-samir-say
 test-samir-say: $(BUILD)/test_samir_say
 	@$<
+	@printf ">>> test-samir-say: green\n"
 TEST_UNIT_GATES += test-samir-say
 $(SAMIR_FNS_TEST): $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)

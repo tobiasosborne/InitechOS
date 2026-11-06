@@ -42,6 +42,11 @@ static void model_draw(void *u,uint8_t r,uint8_t c,uint8_t a,const char *text,ui
         exit(1);
     }
 }
+static samir_screen *continuation_model;
+static void continuation_output(samir_pal_t *p,const char *s,uint32_t n)
+{ (void)p;samir_screen_write(continuation_model,s,n); }
+static int continuation_at(samir_pal_t *p,uint8_t r,uint8_t c,const char *s,uint32_t n)
+{ (void)p;samir_screen_at(continuation_model,r,c,s,n);return 0; }
 static void value(xb_interp *ip,const char *expr,double expected)
 {
     xb_val v;int ec=0;
@@ -108,8 +113,11 @@ int main(void)
          * @ 24,75 SAY "abcdefgh" then ?? REPLICATE("X",80).
          * The native PAL must fail loud if a draw exceeds its one-row span. */
         samir_screen_init(&model,model_draw,NULL);
-        samir_screen_at(&model,24,75,"abcdefgh",8);
-        samir_screen_write(&model,"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",80);
+        continuation_model=&model;
+        p->say_screen=continuation_at;p->conout=continuation_output;
+        CHECK(samir_do(ip,"@ 24,75 SAY \"abcdefgh\"\n?? REPLICATE(\"X\",80)\n")==INTERP_OK,
+              "exact off-page continuation PRG succeeds");
+        p->say_screen=screen;p->conout=output;
         CHECK(model.row==24 && model.col==0 && model.text[23][79]=='X',
               "off-page continuation normalizes before drawing all 80 cells");
         /* PM scope regression: Using III+ U5-16/PDF128 reserves the status
