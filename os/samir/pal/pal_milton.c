@@ -673,7 +673,11 @@ static void milton_cursor(samir_pal_t *p,uint8_t row,uint8_t col)
 static void milton_draw_cells(samir_pal_t *p,uint8_t row,uint8_t col,uint8_t attr,const char *text,uint32_t n)
 {
     uint8_t page[4002];uint32_t i;
-    if(row>=25 || col>=80 || n>80u-col)milton_panic();
+    if(row>=25 || col>=80 || n>80u-col) {
+        static const char bad[]="SAMIR draw bound\r\n";
+        milton_rawout(p,bad,sizeof bad-1);
+        milton_panic();
+    }
     milton_page(page,0);
     /* CON still supplies the transcript, while the page owns every pixel.
      * FLAIR's native text tenant has no CONFIG.SYS ANSI driver installed. */

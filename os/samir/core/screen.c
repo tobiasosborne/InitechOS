@@ -111,6 +111,10 @@ void samir_screen_write(samir_screen *s,const char *text,uint32_t len)
         } else {
             uint32_t start=i,col=s->col;
             if(s->row>24) next_row(s);
+#ifndef SAMIR_REVIEW_MUTANT_CONTINUATION
+            /* next_row also resets col: bound the native draw AFTER it. */
+            col=s->col;
+#endif
             while(i<len && s->col<80 && text[i]!='\n' && text[i]!='\r' && text[i]!='\b')
                 s->text[s->row][s->col++]=text[i++];
             s->draw(s->user,s->row,(uint8_t)col,0x07,text+start,i-start);
