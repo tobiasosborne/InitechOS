@@ -55,6 +55,7 @@ $(BUILD)/dosutil_cache.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/dosutil_cache.bin 
 .PHONY: test-attrib test-attrib-mutant test-label-vol test-label-vol-mutant test-dosutil-emu test-dosutil-emu-mutant
 test-attrib: $(DOSUTIL_HOST)
 	@sh harness/diff/fat_diff/dosutil_diff.sh attrib $(DOSUTIL_HOST) attrib
+	@printf '>>> test-attrib: green (oracle completed)\n'
 test-label-vol: $(DOSUTIL_HOST) $(BUILD)/dosutil_vol
 	@$(BUILD)/dosutil_vol
 	@sh harness/diff/fat_diff/dosutil_diff.sh label $(DOSUTIL_HOST) label
@@ -66,6 +67,7 @@ test-attrib-mutant: $(foreach m,$(DOSUTIL_ATTR_MUTANTS),$(BUILD)/dosutil_host_$(
 	  grep "^FAIL: $$rule " $$log || { cat $$log; exit 1; }; \
 	  printf 'PASS: DU_MUTATE_%s caught RED\n' "$$m"; \
 	done
+	@printf '>>> test-attrib-mutant: green (oracle completed)\n'
 test-label-vol-mutant: $(foreach m,$(DOSUTIL_LABEL_MUTANTS),$(BUILD)/dosutil_host_$(m)) $(BUILD)/dosutil_vol_mut
 	@set -e; for m in $(DOSUTIL_LABEL_MUTANTS); do \
 	  log=$(BUILD)/dosutil_mut_$$m.log; \
