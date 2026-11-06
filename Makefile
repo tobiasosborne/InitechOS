@@ -29434,7 +29434,6 @@ test-samir-boot-stream-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LI
 		test $$rc -eq 1 && grep -q '^RED boot LIST opening after Enter: differs at byte 0' $(BUILD)/samir_boot_stream_mut.log || { cat $(BUILD)/samir_boot_stream_mut.log; exit 1; }
 	@cat $(BUILD)/samir_boot_stream_mut.log
 	@printf '>>> test-samir-boot-stream-mutant: green (dot LIST opening CR/LF removed, raw serial RED; clean guest return)\n'
-TEST_EMU_GATES += test-samir-boot-stream-mutant
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-samir-write (bead initech-g6wx) -- S8.2 deepening (WRITE)
@@ -31806,7 +31805,7 @@ TEST_EMU_GATES := \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-fpu test-fpu-mutant test-fpu-bochs test-fpu-absent test-fpu-absent-mutant test-fpu-mf test-fpu-mf-mutant \
 	test-kbd test-conin test-j1lu-control-emu test-j1lu-control-emu-mutant test-vect test-absdisk-emu test-int21-irqstorm test-int21-irqstorm-mutant \
-	test-samir-boot test-samir-boot-mutant \
+	test-samir-boot test-samir-boot-mutant test-samir-boot-stream-mutant \
 		test-seed-fileio-os test-seed-fileio-os-mutant \
 		test-tps-lex-os test-tps-parse-os test-tps-type-os \
 		test-tps-gen-os test-tps-gen-os-mutant \
