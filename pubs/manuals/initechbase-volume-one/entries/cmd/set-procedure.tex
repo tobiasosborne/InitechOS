@@ -1,0 +1,21 @@
+% SET PROCEDURE -- os/samir/cmd/proc.c p_set_procedure (the SET row in
+% os/samir/cmd/set.c passes the command to proc.c, which owns DO).  Real
+% III+ 1.1 captures: xbase_prog_diff/do-file-mint/precedence and depth
+% (initech-104j3).  Gate: test-interp-do-file.
+\begin{XbaseEntry}{PROCEDURE}{set}
+Opens a procedure file whose procedures \cmd{DO} can run by name.
+\Syntax
+\SyntaxLine{\kw{SET PROCEDURE TO} \opt{\xp{procedure file}}}
+\Defaults
+No procedure file open.
+\Usage
+A procedure file is a program file of \cmd{PROCEDURE} parts.  While one is
+open, \cmd{DO} \xp{name} first looks for a procedure of that name in the
+procedure file; only when there is none does it look in the program that is
+running and then for the program file \xp{name}\texttt{.PRG} on the disk.
+You need not type the extension.  Only one procedure file can be open at a
+time: opening another closes the first, and \cmd{SET PROCEDURE TO} with no
+file name closes it.  A procedure file that is not on the disk is refused
+with \xmsg{1}{File does not exist.}
+\SeeAlso{DO, PROCEDURE, RETURN}
+\end{XbaseEntry}

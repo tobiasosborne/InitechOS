@@ -798,6 +798,7 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
         int saved_n = ps->pending_nargs;
         xb_val *saved_args = ps->pending_args;
         int saved_seen = ps->params_seen;
+        int body_ec = 0;
 
         ps->pending_args  = args;
         ps->pending_nargs = nargs;
@@ -810,6 +811,12 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
           rc = samir_do_n(ip, body, p_body_len(body));
           xb_interp_ctx(ip)->dot_command=dot; }
         ps->do_depth = depth_before;
+        /* The nested samir_do recorded the failing statement's catalogue
+         * ordinal in samir_last_error; capture it before any outer layer
+         * re-derives one from the bare rc class (fl_catalog maps an eval
+         * failure to 10, losing e.g. 9 -- test-samir-console-emu, caught
+         * by test-merge-samir; initech-104j3). */
+        body_ec = samir_last_error(ip);
         if (rc == PROC_RC_RETURN)
             rc = INTERP_OK;                 /* a clean RETURN out of the body */
 #ifndef PROC_MUTATE_MASTER_ONE_LEVEL
@@ -832,6 +839,11 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
             rc  = -INTERP_ERR_SYNTAX;
             if (ec) *ec = P_MSG_NO_PARAM;
         }
+
+        /* Propagate the callee's catalogue ordinal to the DO statement
+         * (engine-error range only; sentinels/QUIT/CANCEL carry none). */
+        if (rc < 0 && rc >= -INTERP_ERR_DEPTH && ec && *ec == 0 && body_ec)
+            *ec = body_ec;
 
         /* restore the caller's pending-arg context. */
         ps->pending_args  = saved_args;
