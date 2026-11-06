@@ -47,6 +47,7 @@ typedef enum loader_status {
     LOADER_ERR_NOT_FOUND,    /* named .COM not in the (root) directory          */
     LOADER_ERR_READ,         /* FAT read error pulling the .COM bytes           */
     LOADER_ERR_BUSY,         /* fixed resident EXEC depth limit reached         */
+    LOADER_ERR_FIXED_BASE,   /* raw flat image cannot displace a KEEP resident */
     /* EXEC env inheritance (beads initech-1i0x Tranche E inc 3): a non-zero
      * env_block that is not the locked ENV_BLOCK region -- the caller asked the
      * child to inherit an env block at an address the loader never wrote. Fail
@@ -222,6 +223,17 @@ int loader_image_is_transient(const uint8_t *image, uint32_t image_len);
 loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
                                   const char *cmd_tail, uint32_t cmd_tail_len,
                                   loader_plan_t *out);
+
+/* h4bk: the same MZ prologue at an explicit conventional-memory load base.
+ * PSP = load_base - 100h; heap = roundup16(module end + BSS reserve)..ceil.
+ * The top-level stack stays in the disjoint PROGRAM_STACK window (DEC-08b).
+ * DEC-08a.1 flat dword fixups use load_base, including nonzero entry offsets.
+ * Insufficient dynamic BSS/minalloc returns NOMEM. Canonical wrapper above
+ * retains its existing layout/status contract. No transfer occurs here. */
+loader_status_t loader_prepare_mz_at(uint8_t *file_at, uint32_t file_len,
+                                     const char *cmd_tail, uint32_t cmd_tail_len,
+                                     uint32_t load_base, uint32_t arena_ceil,
+                                     loader_plan_t *out);
 
 /* load_program -- the full kernel loader: validate (via loader_prepare), copy
  * the image to PROGRAM_IMAGE, build the PSP at PROGRAM_BASE + the env block,

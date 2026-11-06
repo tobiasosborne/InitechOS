@@ -43,6 +43,11 @@
 bits 32
 org 0                          ; LINK BASE 0 -- forces the reloc (see header above)
 
+%ifdef MZEXEC_TSR_CHECK
+; h4bk: the post-KEEP fixture has entry 7, reloc 8. Ignoring e_ip traps.
+    times 7 db 0xCC
+%endif
+
 ; Entry is byte 0 of the load module (== PROGRAM_IMAGE == the loader's JMP
 ; target, DEC-08a.2). The `mov edx, msg` is FIRST so its imm32 reloc site is at
 ; the fixed file offset 1 (opcode 0xBA at 0, imm32 at 1) -- mzlink relocates
@@ -52,6 +57,42 @@ start:
     ; `msg` is an org-0 absolute (the reloc site); the loader adds PROGRAM_IMAGE
     ; so EDX is the real runtime address ONLY if the relocation was applied.
     mov edx, msg               ; <-- opcode 0xBA @0, imm32 (reloc site) @1
+%ifdef MZEXEC_TSR_CHECK
+    ; Independently recover the actual address. A wrong-base mutant exits
+    ; quietly instead of making AH=09h walk arbitrary resident/kernel bytes.
+    call .base
+.base:
+    pop eax
+    add eax, msg - .base
+    cmp eax, edx
+    jne .fail
+    cmp ebx, 0x40000           ; relocated PSP above the KEEP'd image
+    jbe .fail
+    cmp esp, 0x70000           ; canonical top-level stack, separate from MCBs
+    jb .fail
+    cmp esp, 0x80000
+    jae .fail
+    push edx
+    push ebx
+    mov ah, 0x48
+    mov ebx, 16               ; real AH=48h heap after relocated image+BSS
+    int 0x21
+    jc .fail
+    movzx edi, ax
+    shl edi, 4
+    mov eax, [esp]
+    add eax, 0x10100          ; PSP + 100h + independent 64 KiB BSS reserve
+    cmp edi, eax
+    jb .fail
+    cmp edi, 0x6EF00          ; 256 bytes stay below the environment ceiling
+    ja .fail
+    mov dword [edi], 0x5A16C0DE
+    cmp dword [edi], 0x5A16C0DE
+    jne .fail
+    ; Leave the allocation live: both successive executions must reclaim it.
+    pop ebx
+    pop edx
+%endif
     mov ah, 0x09
     int 0x21
 
@@ -66,6 +107,12 @@ start:
     ; routes to the loader's exit hook (exit code 0) rather than running off into
     ; the string bytes.
     int 0x20
+
+%ifdef MZEXEC_TSR_CHECK
+.fail:
+    mov ax, 0x4C01
+    int 0x21
+%endif
 
 ; The marker AH=09h prints. The '$' (0x24) is the DOS terminator and is NOT
 ; emitted. "MZEXEC-OK" is UNIQUE on the serial wire (no other gate prints it), so
