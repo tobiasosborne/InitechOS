@@ -104,3 +104,20 @@ The PM or verifier replays the manifest and checks the cert before a MERGE
 verdict. A reviewer checks that these checks actually occurred and that
 the certified head is the proposed lane head. Advancing main makes the
 old cert stale: rebase, rerun gates, regenerate the pack.
+
+## Explicit PM subset and batch execution
+
+When the operator explicitly authorizes a smaller list, set
+`CERT_SCOPE=required REQUIRED_GATES='<the authorized gates>'` for both
+lane-cert.sh and cert-check.sh. Selection is still probed and executed;
+broken selectors refuse, and every required gate must be in the selection.
+The certificate records `scope: required` and `derived_gate_count`, so it
+cannot be mistaken for coverage of the full selector. The checker refuses
+this scope without the explicit environment and verifies the supplied list.
+Default scope remains `derived`, including on older certificates.
+
+`LANE_CERT_JOBS=1..8` runs one make for all selected gates. Every gate must
+still have its own final green summary, and any nonzero batch exit refuses.
+The combined log is retained at `build/cert/<branch-slug>.log`. One make
+owns dependencies and gate-pair ordering, so shared prerequisites run once.
+Unset LANE_CERT_JOBS retains serial gate execution.

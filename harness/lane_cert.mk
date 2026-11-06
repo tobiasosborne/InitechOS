@@ -136,6 +136,21 @@ test-lane-cert:
 	if run_check "$$out/missing.cert" lane/mapped > "$$out/check.log" 2>&1; then fail 'missing gate accepted'; fi; \
 	grep -F 'missing gate: test-two' "$$out/check.log" >/dev/null || fail 'missing gate reason'; \
 	git switch -q lane/mapped; \
+	rc=0; CERT_SCOPE=required LANE_CERT_JOBS=2 REQUIRED_GATES=test-one MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/scoped.log" 2>&1 || rc=$$?; \
+	[ "$$rc" -eq 0 ] && grep -qxF 'scope: required' "$$mapped" && grep -qxF 'gate_count: 1' "$$mapped" || { cat "$$out/scoped.log"; fail 'explicit batch subset'; }; \
+	rc=0; env -u CERT_SCOPE sh "$$check_tool" "$$mapped" lane/mapped > "$$out/check.log" 2>&1 || rc=$$?; \
+	[ "$$rc" -eq 2 ] && grep -F 'scoped certificate needs' "$$out/check.log" >/dev/null || fail 'scoped certificate accepted as full coverage'; \
+	CERT_SCOPE=required REQUIRED_GATES=test-one sh "$$check_tool" "$$mapped" lane/mapped > "$$out/check.log" 2>&1 || fail 'explicit PM subset check'; \
+	rc=0; CERT_SCOPE=required REQUIRED_GATES='test-one test-two' sh "$$check_tool" "$$mapped" lane/mapped > "$$out/check.log" 2>&1 || rc=$$?; \
+	[ "$$rc" -eq 2 ] && grep -F 'missing gate: test-two' "$$out/check.log" >/dev/null || fail 'scoped certificate missing required gate'; \
+	rc=0; CERT_SCOPE=required REQUIRED_GATES=test-three MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/scoped.log" 2>&1 || rc=$$?; \
+	[ "$$rc" -eq 2 ] && grep -F 'required gate not selected' "$$out/scoped.log" >/dev/null && [ ! -f "$$mapped" ] || fail 'subset outside derived selection'; \
+	printf 'false-green\n' > state; git commit -qam 'batch false green'; \
+	rc=0; CERT_SCOPE=required LANE_CERT_JOBS=2 REQUIRED_GATES=test-one MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/scoped.log" 2>&1 || rc=$$?; \
+	[ "$$rc" -eq 2 ] && grep -F 'red gate batch' "$$out/scoped.log" >/dev/null && [ ! -f "$$mapped" ] || fail 'batch false green accepted'; \
+	printf 'green\n' > state; git commit -qam 'batch green restored'; \
+	printf '>>> test-lane-cert: explicit subset, full-coverage refusal, missing gate and false-green batch checked\n'; \
+	git switch -q lane/mapped; \
 	printf '%s\n' '.PHONY: gates-for' 'gates-for:' \
 	    ' @echo "test-two"' | sed 's/^ /\t/' > gate-map.mk; \
 	git commit -qam 'selector overrides GATES'; run_cert; \

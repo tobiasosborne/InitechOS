@@ -251,6 +251,17 @@ static void validate(const Strings *inventory, int *owners)
     for (size_t f = 0; f < nf; f++) {
         Family *row = &families[f];
         size_t hits = 0;
+        /* Pending oracles are opt-in, like the E1 lane's pending family.
+         * Keep ownership audited but forbid hiding a live gate here. */
+        if (!strcmp(row->name, "pending")) {
+            if (row->paths.n) red("pending family must have no path triggers");
+            for (size_t p = 0; p < row->gates.n; p++) {
+                const char *gate = row->gates.v[p];
+                size_t n = strlen(gate);
+                if (n < 8 || strcmp(gate + n - 8, "-pending"))
+                    red("active gate %s in opt-in pending family", gate);
+            }
+        }
         row->selected = !strcmp(row->name, "always");
         if (row->selected) always++;
         for (size_t p = 0; p < row->gates.n; p++) {
@@ -680,7 +691,8 @@ static void audit_consumers(const char *database, const Strings *inventory, cons
         if (owners[g] < 0) continue;
         /* Dispatchers deliberately have no automatic selection. Their
          * concrete gates are audited individually, including all twins. */
-        if (!strcmp(families[owners[g]].name, "aggregates")) continue;
+        if (!strcmp(families[owners[g]].name, "aggregates") ||
+            !strcmp(families[owners[g]].name, "pending")) continue;
         for (size_t p = 0; p < tracked.n; p++) if (coverage[g * tracked.n + p]) {
             int ok = !strcmp(families[owners[g]].name, "always") || matches[(size_t)owners[g] * tracked.n + p];
             consumer_pairs++;
@@ -712,6 +724,13 @@ static void mutant(const char *kind)
         }
         fputs("\",", stdout);
         fwrite(json + at + 1, 1, length - at - 1, stdout);
+    } else if (!strcmp(kind, "pending-active")) {
+        const char *name = "\"test-bochs-pending\"";
+        char *at = strstr(json, name);
+        if (!at) die("missing pending gate for mutant");
+        fwrite(json, 1, (size_t)(at - json), stdout);
+        fputs("\"test-boot\"", stdout);
+        fwrite(at + strlen(name), 1, length - (size_t)(at + strlen(name) - json), stdout);
     } else if (!strcmp(kind, "drop-consumer")) {
         const char *path = "\"harness/proptest/serial_trace_fixture.c\"";
         char *at = NULL, *end;

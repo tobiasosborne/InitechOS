@@ -31,7 +31,7 @@ test-exec-high: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/fat_exec_high.im
 	@printf '>>> test-exec-high: green (8 MiB, high fixup/entry/heap/stack, KEEP and second-high refusals, conventional child, reclaim, legacy low, oversize)\n'
 test-exec-high-lowmem: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
 	@INITECH_TEST_RAM_MB=$(EXEC_HIGH_LOW_RAM_MB) $(HARNESS_BIN) --disk $(SECONDARY_TRACER_IMG) --name exec_high_lowmem --out $(BUILD) --quit-after HALTED --timeout-ms 10000 2>$(BUILD)/exec_high_lowmem.report || true
-	@grep -q 'PC LOAD LETTER.*Insufficient memory' $(BUILD)/exec_high_lowmem.serial
+	@grep -q 'PC LOAD LETTER.*Insufficient memory' $(BUILD)/exec_high_lowmem.serial || { printf '!!! test-exec-high-lowmem RED: missing MSG-DOS-0035 before high copy\n'; exit 1; }
 	@grep -q 'ext_mem_kb=4096 required_kb=7168' $(BUILD)/exec_high_lowmem.serial
 	@! grep -q 'FLAIR-HEAP-OK\|SHELL-READY' $(BUILD)/exec_high_lowmem.serial
 	@printf '>>> test-exec-high-lowmem: green (5 MiB refuses with MSG-DOS-0035 before desktop/high writes)\n'

@@ -69,6 +69,20 @@ else
     case $required in *[![:space:]]*) ;; *) refuse 'coverage unchecked: gates-for absent; supply REQUIRED_GATES or --require';; esac
 fi
 case $required in *[![:space:]]*) ;; *) refuse 'no gate list from gates-for';; esac
+# A scoped certificate is accepted only with an explicit PM scope/list.
+# Older certificates have implicit derived scope.
+scope=derived
+if grep -q '^scope: ' "$cert"; then scope=$(field scope); fi
+case $scope in derived|required) ;; *) refuse 'invalid certificate scope';; esac
+if [ "$scope" = required ]; then
+    [ "${CERT_SCOPE:-derived}" = required ] || refuse 'scoped certificate needs CERT_SCOPE=required and REQUIRED_GATES'
+    required=${REQUIRED_GATES:-}
+    if [ "$#" -eq 4 ]; then required=$4; fi
+    case $required in *[![:space:]]*) ;; *) refuse 'coverage unchecked: required scope needs REQUIRED_GATES';; esac
+    coverage_source=REQUIRED_GATES-explicit-subset
+else
+    coverage_source=$selector
+fi
 missing=no
 set -f
 for gate in $required; do
@@ -79,5 +93,5 @@ for gate in $required; do
     fi
 done
 [ "$missing" = no ] || exit 2
-printf 'cert-check: coverage checked (%s; cert selector: %s)\n' "$selector" "$cert_selector"
+printf 'cert-check: coverage checked (%s; cert selector: %s)\n' "$coverage_source" "$cert_selector"
 printf 'cert-check: PASS (%s gates; base == main; head == proposed; base ancestor of head)\n' "$count"

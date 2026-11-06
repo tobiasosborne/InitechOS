@@ -19344,6 +19344,7 @@ test-boot-bochs: $(BOCHS_BIN) $(SECONDARY_TRACER_IMG)
 	@printf 'VERDICT   : PASS -- tracer booted under Bochs on the VESA 0101h 8bpp path,\n'
 	@printf '            reached the same kernel milestones as QEMU, no triple-fault\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-boot-bochs: green\n'
 endif
 
 # ---------------------------------------------------------------------------
@@ -19448,6 +19449,8 @@ test-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(PPM_TEXT_CHECK_BIN) $(SPEC_B
 	@printf 'VERDICT   : PASS -- InitechDOS banner printed (serial == spec, rendered on screen), no triple-fault\n'
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
 	@printf '======================================================================\n'
+
+	@printf '>>> test-boot: green\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-desktop (beads initech-re30.3, LANE 2 -- the FLAIR LIVE
@@ -25864,6 +25867,8 @@ test-exec: $(HARNESS_BIN) $(EXEC_IMG) $(FAT_EXEC_IMG)
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
 	@printf '======================================================================\n'
 
+	@printf '>>> test-exec: green\n'
+
 # ---------------------------------------------------------------------------
 # REAL gate: test-mcb-emu (beads initech-509.6 -- AH=48h/49h/4Ah in-emulator)
 # ---------------------------------------------------------------------------
@@ -28429,6 +28434,7 @@ print('    INT 25h/26h: 2 trap vectors (0x8F/DPL0/0x08); EBX-buffer swap pinned;
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- ADR-0003 spec-data parses, sizes hold, banner verbatim, INT 25h/26h locked\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-spec: green\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-dosmsg (beads initech-509.1 -- DEC-13 controlled vocabulary)
@@ -28676,6 +28682,7 @@ $(TEST_ARENADJ_MUT): $(MILTON_DIR)/test_arena_disjoint.c $(TEST_ARENADJ_DEPS) | 
 test-arena-disjoint: $(TEST_ARENADJ)
 	@printf '>>> test-arena-disjoint: AH=48h arena disjoint from program image+BSS / env / stack (DEC-04)\n'
 	@$(TEST_ARENADJ)
+	@printf '>>> test-arena-disjoint: green\n'
 test-arena-disjoint-mutant: $(TEST_ARENADJ_MUT)
 	@if $(TEST_ARENADJ_MUT) >/dev/null 2>&1; then printf '!!! test-arena-disjoint-mutant FAIL: overlap mutant PASSED -- oracle is decoration\n'; exit 1; \
 	else printf '>>> test-arena-disjoint-mutant: green (overlap mutant correctly RED)\n'; fi
@@ -28712,6 +28719,7 @@ $(TEST_HWSPEC_MUT_FPU): $(DBF_DIFF_DIR)/test_hardware_spec.c spec/memory_map.h s
 test-hardware-spec: $(TEST_HWSPEC)
 	@printf '>>> test-hardware-spec: spec/hardware.json contract (DEC-07)\n'
 	@$(TEST_HWSPEC) spec/hardware.json
+	@printf '>>> test-hardware-spec: green\n'
 # Two mutants: the historical all-arms flip, and (initech-zj6w) the ISOLATED
 # fpu.boot_control_word arm -- it must go RED on exactly that CHECK.
 test-hardware-spec-mutant: $(TEST_HWSPEC_MUT) $(TEST_HWSPEC_MUT_FPU)

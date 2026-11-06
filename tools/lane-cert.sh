@@ -5,6 +5,10 @@ LC_ALL=C
 export LC_ALL
 refuse() { printf 'lane-cert: %s\n' "$1" >&2; exit 2; }
 required=${REQUIRED_GATES:-}
+scope=${CERT_SCOPE:-derived}
+case $scope in derived|required) ;; *) refuse 'invalid CERT_SCOPE (derived or required)';; esac
+jobs=${LANE_CERT_JOBS:-}
+case $jobs in ''|[1-8]) ;; *) refuse 'LANE_CERT_JOBS must be 1..8';; esac
 case $# in
     0) ;;
     2) [ "$1" = --require ] || refuse 'usage: lane-cert.sh [--require <gates>]'; required=$2;;
@@ -66,6 +70,16 @@ else
     require_coverage
 fi
 [ -n "$gates" ] || refuse 'no gate list'
+derived_count=$(printf '%s\n' $gates | sort -u | wc -l | tr -d ' ')
+if [ "$scope" = required ]; then
+    case $required in *[![:space:]]*) ;; *) refuse 'coverage unchecked: CERT_SCOPE=required needs REQUIRED_GATES';; esac
+    # Still probe/run the selector: a broken selector never permits a subset.
+    printf '%s\n' $gates > "$scratch/derived"
+    for gate in $required; do
+        grep -qxF -- "$gate" "$scratch/derived" || refuse "required gate not selected: $gate"
+    done
+    gates=$required
+fi
 : > "$scratch/gates"
 count=0
 # No glob expansion or make options from a malformed selector/environment.
@@ -85,11 +99,27 @@ if [ "$selector" = absent ]; then
 fi
 printf 'base_sha: %s\nhead_sha: %s\nbranch: %s\nselector: %s\ngate_count: %s\n' \
     "$base" "$head" "$branch" "$selector" "$count" > "$scratch/cert"
+printf 'scope: %s\nderived_gate_count: %s\n' "$scope" "$derived_count" >> "$scratch/cert"
+# One make owns the whole batch and its dependency graph, including gate_pairs.
+# A failed batch refuses the certificate even if every summary says green.
+if [ -n "$jobs" ]; then
+    set --
+    while IFS= read -r gate; do set -- "$@" "$gate"; done < "$scratch/gates"
+    batch_rc=0
+    clean_make "-j$jobs" "$@" > "$scratch/batch.log" 2>&1 || batch_rc=$?
+    cp -f "$scratch/batch.log" "build/cert/$slug.log"
+    [ "$batch_rc" -eq 0 ] || refuse "red gate batch (exit $batch_rc; see build/cert/$slug.log)"
+fi
 while IFS= read -r gate; do
     gate_rc=0
-    clean_make "$gate" > "$scratch/gate.log" 2>&1 || gate_rc=$?
+    if [ -n "$jobs" ]; then
+        log=$scratch/batch.log
+    else
+        log=$scratch/gate.log
+        clean_make "$gate" > "$log" 2>&1 || gate_rc=$?
+    fi
     # Only this target's FINAL summary can certify it; nested gates do not.
-    final=$(grep -F ">>> $gate:" "$scratch/gate.log" | tail -n 1)
+    final=$(grep -F ">>> $gate:" "$log" | tail -n 1)
     gate_ok=no
     case $final in ">>> $gate: green"|">>> $gate: green "*)
         [ "$gate_rc" -ne 0 ] || gate_ok=yes;;

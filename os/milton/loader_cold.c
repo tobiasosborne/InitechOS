@@ -12,6 +12,223 @@
 #define mz_rd32 mz_cold_rd32
 #include "mz.c"
 #endif
+/* Pre-existing EXEC validation is cold too (DEC-03a.7; ADR-0014).
+ * It finishes before transfer; no allocator state or return frame lives here. */
+#include "transient.h"
+/* loader_prepare_core -- the shared validation + layout + psp_params + arena
+ * computation behind BOTH loader_prepare (baked path: image copied later) and
+ * loader_prepare_in_place (FAT path: image already at PROGRAM_IMAGE; beads
+ * initech-za4m). `in_place` selects whether an image pointer is expected:
+ *
+ *   in_place == 0 (baked):    `image` MUST be non-NULL; out->image_src = image.
+ *                             load_program copies image -> PROGRAM_IMAGE.
+ *   in_place == 1 (FAT/za4m):  `image` is the RESIDENT image (looked at, never
+ *                              copied; NULL is a caller bug); out->image_src = NULL.
+ *                             The bytes are ALREADY at PROGRAM_IMAGE -- no copy.
+ *
+ * EITHER way the ONLY size bound is PROGRAM_IMAGE_MAX (~188 KiB = ENV_BLOCK -
+ * PROGRAM_IMAGE). The old FAT path also rejected image_len > LOAD_STAGING_MAX
+ * (64 KiB), because it staged the .COM through [0x80000,0x90000) before copying
+ * down; za4m reads straight into PROGRAM_IMAGE, so that 64 KiB cap is GONE and
+ * a 77 KiB SAMIR.COM now loads (it used to fail LOADER_ERR_TOO_BIG). */
+int loader_image_is_transient(const uint8_t *image, uint32_t image_len)
+{
+    if (image == 0 || image_len < TRANSIENT_MAGIC_LEN) {
+        return 0;
+    }
+#ifndef LOADER_MUT_NO_OVERLAY_GUARD
+    /* ADR-0014 DEC-14-2: C:\FLAIR.OVL (spec/overlay_format.h, magic
+     * "FLAIROVL") is a kernel overlay, never a program: DOS EXEC error 11 like
+     * the transient. Compared as two little-endian dwords ("FLAI", "ROVL"), so
+     * the contiguous byte string stays out of every kernel that does not load
+     * the overlay (tools/mk_boot_system.sh keys on it). MUTANT
+     * LOADER_MUT_NO_OVERLAY_GUARD: test-loader-mutant only. */
+    if (((uint32_t)image[0] | (uint32_t)image[1] << 8 | (uint32_t)image[2] << 16 |
+         (uint32_t)image[3] << 24) == 0x49414C46u &&
+        ((uint32_t)image[4] | (uint32_t)image[5] << 8 | (uint32_t)image[6] << 16 |
+         (uint32_t)image[7] << 24) == 0x4C564F52u) {
+        return 1;
+    }
+#endif
+#ifndef LOADER_MUT_NO_TRANSIENT_GUARD
+    uint32_t m = 0u;
+    while (m < TRANSIENT_MAGIC_LEN && image[m] == (uint8_t)TRANSIENT_MAGIC[m]) {
+        m++;
+    }
+    return m == TRANSIENT_MAGIC_LEN;
+#else
+    /* MUTANT (Rule 6; make test-flair-execguard-mutant / test-loader-mutant
+     * only): the pre-13ig loader never recognises the overlay and runs its
+     * header as code. NEVER in a real build. */
+    return 0;
+#endif
+}
+
+loader_status_t loader_prepare_core(const uint8_t *image,
+                                           uint32_t image_len,
+                                           const char *cmd_tail,
+                                           uint32_t cmd_tail_len, int in_place,
+                                           loader_plan_t *out)
+{
+    /* Rule 2: fail loud on every bad input. The loader NEVER copies a NULL or
+     * oversized image into the program region -- that would clobber the kernel
+     * stack / framebuffer and silently corrupt the machine. */
+    if (out == 0) {
+        return LOADER_ERR_NULL_OUT;
+    }
+    /* The baked path needs source bytes to copy FROM; the in-place path needs
+     * the resident bytes to LOOK AT (the content refusal below) -- a NULL in
+     * either mode is a caller bug, never a program (initech-13ig). */
+    if (image == 0) {
+        return LOADER_ERR_NULL_IMAGE;
+    }
+    if (image_len == 0) {
+        return LOADER_ERR_ZERO_LEN;
+    }
+    if (image_len > PROGRAM_IMAGE_MAX) {
+        /* Would overrun the program region into the env/stack (Sec 3.2 gap
+         * proof). This is now the SOLE size bound on the FAT path too (za4m:
+         * the 64 KiB LOAD_STAGING_MAX cap is gone -- the .COM no longer transits
+         * the 64 KiB staging buffer; it is read straight into PROGRAM_IMAGE). */
+        return LOADER_ERR_TOO_BIG;
+    }
+#ifdef LOADER_MUTATE_REIMPOSE_STAGING_CAP
+    /* MUTANT (CLAUDE.md Rule 6; make test-loader-big-mutant only): re-impose the
+     * PRE-za4m 64 KiB LOAD_STAGING_MAX cap on the in-place path -- the EXACT bug
+     * that wrongly rejected a 77 KiB SAMIR.COM. The big-.COM oracle's "64 KiB + 1
+     * loads" case MUST go RED. NEVER define in a real build. */
+    if (in_place && image_len > LOAD_STAGING_MAX) {
+        return LOADER_ERR_TOO_BIG;
+    }
+#endif
+
+    /* THE TRANSIENT IS NOT A PROGRAM (bead initech-13ig). This is the ONE
+     * choke point every flat image passes before loader_run_plan's JMP --
+     * baked (load_program), FAT top-level and nested (load_program_from_fat ->
+     * load_program_in_place / loader_prepare_in_place) -- so the flagship's
+     * COMMAND.COM overlay (os/milton/transient.h: a COMMAND3 header linked at
+     * TRANSIENT_BASE, not a .COM), under its own name or any copy, is refused
+     * here: DOS EXEC error 11 "Invalid format" (IBM DOS 3.30 TR p. 6-200) at
+     * the EXEC seam, dBASE error 92 above it. The kernel's EXEC-by-name route
+     * to the RESIDENT interpreter lives in kmain.c and never reaches here. */
+    if (loader_image_is_transient(image, image_len)) {
+        return LOADER_ERR_BAD_FORMAT;
+    }
+
+    /* Layout from the LOCKED spec (spec/memory_map.h; Sec 3.2). */
+    out->psp_addr  = PROGRAM_BASE;
+#ifdef LOADER_MUTATE_NO_OFFSET
+    /* MUTANT (CLAUDE.md Rule 6; make test-loader-mutant only): load the image at
+     * PROGRAM_BASE instead of PROGRAM_BASE+0x100 -- destroying the authentic
+     * .COM offset. The layout oracle MUST go RED. NEVER define in a real build. */
+    out->image_dst = PROGRAM_BASE;
+    out->entry     = PROGRAM_BASE;
+#else
+    out->image_dst = PROGRAM_IMAGE;   /* PSP + 0x100 -- the authentic .COM offset */
+    out->entry     = PROGRAM_IMAGE;   /* flat entry EIP == image_dst              */
+#endif
+    out->extended = out->low_mcb_owned = out->reserve_end = 0u;
+    out->stack_top = PROGRAM_STACK_TOP;
+    out->image_len = image_len;
+    /* In-place (za4m): no source to copy FROM -- the bytes are already at
+     * out->image_dst (PROGRAM_IMAGE). load_program_in_place skips the copy and
+     * MUST see a NULL image_src so a stray copy can never be attempted. */
+    out->image_src = in_place ? (const uint8_t *)0 : image;
+
+    /* The psp_build inputs (Sec 2.2 / 2.5 / 2.7 / 2.11; psp.h). The vestigial
+     * segment fields are passed as flat LINEAR addresses; psp_build stores each
+     * as a fake paragraph (linear >> 4). */
+    out->params.alloc_end_linear  = PROGRAM_ALLOC_END;  /* 0x80000 -> seg 0x8000 */
+    out->params.env_linear        = ENV_BLOCK;          /* 0x6F000 -> seg 0x6F00 (2og) */
+    out->params.parent_psp_linear = 0u;                 /* no parent PSP yet (Sec 2.5) */
+    out->params.cmd_tail          = cmd_tail;           /* may be NULL (no args) */
+    out->params.cmd_tail_len      = cmd_tail_len;
+    /* JFT inheritance (beads initech-bsy.9): the PURE prep is parent-agnostic
+     * (it has no live PSP), so default to the CON standard handles (NULL). The
+     * kernel loader_run_plan overrides this from g_cur_psp->jft at EXEC time --
+     * exactly the pattern loader_decide_env uses for env inheritance. */
+    out->params.parent_jft        = 0;
+
+    /* Compute the AH=48h heap-arena window DISJOINT from the loaded program (beads
+     * initech-1q4u; ADR-0009 DEC-04). The arena starts paragraph-rounded ABOVE the
+     * loaded image + a conservative BSS reserve, and ends at PROGRAM_ARENA_CEIL
+     * (== ENV_BLOCK), so a 48h ALLOC can never return memory inside the program
+     * image+BSS, the env block, or the 64 KiB stack. See spec/memory_map.h's ARENA
+     * DISJOINTNESS INVARIANT for the proof. (Was: the arena overlaid the running
+     * program -- the latent corruption SAMIR would have hit.) */
+    {
+#ifdef LOADER_MUTATE_ARENA_OVERLAP
+        /* MUTANT (CLAUDE.md Rule 6; make test-arena-disjoint-mutant only): revert
+         * the arena base to PROGRAM_BASE -- the EXACT pre-fix bug (the arena
+         * overlays the PSP/image/stack). The disjointness oracle MUST go RED
+         * (an allocation lands inside [PROGRAM_IMAGE, image_end) or the stack).
+         * NEVER define in a real build. */
+        uint32_t arena_base = PROGRAM_BASE;
+#else
+        /* roundup_paragraph(PROGRAM_IMAGE + image_len + PROGRAM_BSS_RESERVE). The
+         * +0xF then mask-to-16 rounds UP to the next paragraph boundary so the DOS
+         * segment math (base_linear >> 4) is exact. */
+        uint32_t image_end  = PROGRAM_IMAGE + image_len;
+        uint32_t arena_base = (image_end + PROGRAM_BSS_RESERVE + 0xFu) & ~0xFu;
+#endif
+        uint32_t arena_ceil = PROGRAM_ARENA_CEIL;   /* == ENV_BLOCK (exclusive) */
+
+        if (arena_base < arena_ceil &&
+            (arena_ceil - arena_base) >= 32u) {     /* >= 2 paragraphs (hdr+data) */
+            out->arena_base    = arena_base;
+            out->arena_ceil    = arena_ceil;
+            out->arena_present = 1u;
+        } else {
+            /* Image too large to host a heap below the ceiling: no arena (fail
+             * loud -- 48h reports insufficient memory, never a corrupting
+             * overlap). The image itself already fit (PROGRAM_IMAGE_MAX check
+             * above); this only denies the *heap*, not the run. */
+            out->arena_base    = 0u;
+            out->arena_ceil    = 0u;
+            out->arena_present = 0u;
+        }
+    }
+
+    return LOADER_OK;
+}
+
+loader_status_t loader_prepare(const uint8_t *image, uint32_t image_len,
+                               const char *cmd_tail, uint32_t cmd_tail_len,
+                               loader_plan_t *out)
+{
+    /* Baked path: image copied to PROGRAM_IMAGE by load_program (in_place = 0). */
+    return loader_prepare_core(image, image_len, cmd_tail, cmd_tail_len,
+                               /*in_place=*/0, out);
+}
+
+loader_status_t loader_prepare_in_place(const uint8_t *resident, uint32_t image_len,
+                                        const char *cmd_tail, uint32_t cmd_tail_len,
+                                        loader_plan_t *out)
+{
+    /* FAT path (beads initech-za4m): the .COM is ALREADY resident (at
+     * PROGRAM_IMAGE, or a nested child's PSP+100h). Nothing is copied; the
+     * bytes are looked at only for the content refusal (initech-13ig); the only
+     * size bound is PROGRAM_IMAGE_MAX. */
+    return loader_prepare_core(resident, image_len, cmd_tail,
+                               cmd_tail_len, /*in_place=*/1, out);
+}
+
+/* ------------------------------------------------------------------------ *
+ * InitechMZ (.EXE) PROLOGUE -- the pure, host-testable content path (beads
+ * initech-wczy / dtw.2; ADR-0003 DEC-08a). Mutates the in-place buffer (memmove
+ * the load module over the header + apply flat relocs) and produces the SAME
+ * loader_plan_t loader_run_plan consumes -- a prologue on the single transfer
+ * path (Rule 3). See loader.h for the full contract.
+ * ------------------------------------------------------------------------ */
+
+loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
+                                  const char *cmd_tail, uint32_t cmd_tail_len,
+                                  loader_plan_t *out)
+{
+    return loader_prepare_mz_at(file_at, file_len, cmd_tail, cmd_tail_len,
+                                 PROGRAM_IMAGE, PROGRAM_ARENA_CEIL, out);
+}
+
 /* Forward (low-address-first) byte move for the load-module down-shift. The MZ
  * load module is moved from file_at+header_bytes DOWN to file_at (dst < src), so
  * a forward copy can never clobber a not-yet-read source byte (dst[i] is written
