@@ -17,7 +17,8 @@ assert '25.50' in screen or '25.5' in screen, screen
 raw_path = Path('kit-menu.ppm.raw')
 if raw_path.exists():
     raw = raw_path.read_bytes()
-    assert len(raw) == 25 * 80 * 2, len(raw)
+    # screen_tool appends row/column cursor bytes after the 4000 cell bytes.
+    assert len(raw) in (25 * 80 * 2, 25 * 80 * 2 + 2), len(raw)
     for row, col in ((0, 1), (2, 2), (22, 0)):
         assert raw[(row * 80 + col) * 2 + 1] == 0x70, (row, col)
     prompt = Path('kit-prompt.ppm.raw').read_bytes()
