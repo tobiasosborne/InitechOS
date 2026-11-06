@@ -207,3 +207,115 @@ still pass, while the consumer audit must name the missing consuming gate.
 It never edits spec/ and registers no additional test gate.
 The include must stay after the TEST_*_GATES assignments and before
 `include harness/gate_pairs.mk` so both new gates reach the final vectors.
+
+## W4 acceptance inventory (initech-9nzpr, DEC-03a.10)
+
+The ratified DEC-03a.10 table is locked in
+`spec/samir/screen_regrade.json`: ten W4 groups, all `not-started`.
+W3 GET/READ/@/generated-.FMT forms keep their existing byte-exact screens.
+An inventory GREEN certifies the inventory's shape and existing tool/reference
+paths. It does not certify an unimplemented application. The JSON uses a
+`_comment` provenance field so it remains plain, valid JSON.
+
+Run `. tools/lane-env.sh`, export an absolute `DBASE3_DECOMP` pointing at the
+sister repository, then `make -j8 test-w4-inventory test-w4-inventory-mutant
+test-w4-files test-w4-retained test-w4-structure-mutant`. These gates join the host/emulator
+vectors; no per-app `test-w4-<app>` target is instantiated yet. Missing real
+samples fail; no replacement samples or silent skips are manufactured.
+
+The new C comparators are built as `build/{frm,lbl,qry,scr,fmt,config,prg,vue,
+exact}_diff REFERENCE ACTUAL`. They return 0 for meaningful-byte equality,
+1 for a difference or invalid supported format, 2 for usage/I/O failure.
+They share factory-only `w4_file_diff.c`, and include no SAMIR code or tables.
+All unknown durable fields remain significant. Normalization is exhaustive:
+
+| Tool | Independent sister specification | Bytes ignored |
+| --- | --- | --- |
+| frm_diff | specs/file-formats/frm.md Sec 2-6 | `[0xE0+heap_bytes,0x68C)` and `[0x68C+12*ncols,0x7B6)` only: scratch gaps/unused column area. The uncertain USED-column byte +4 stays exact. Header, length/pointer tables, heap, used columns, footer stay exact. |
+| lbl_diff | specs/file-formats/lbl.md Sec 2-4 | Inactive slots `[0x49+60*height,0x409)` only. Active expressions, their spaces, remarks and dimensions stay exact. |
+| scr_diff | specs/file-formats/scr-and-fmt.md Sec 3.2-3.4 | Field-record alias/name bytes after their first NUL; descriptor address `[+0x18,+0x1C)`; runtime pointers `[+0x2C,+0x34)`; box trailer `[+0x0B,+0x13)`. Reserved bytes, flags, page, coordinates, masks and complete image remain exact. |
+| qry_diff | specs/file-formats/qry.md Sec 2 | None. `pad` and `pad2` are HIGH bytes of u16 length/operator words, not disposable padding. |
+| fmt_diff | specs/file-formats/scr-and-fmt.md Sec 2 | None. CRLF, whitespace, source case, trailing spaces and Ctrl-Z stay exact. |
+| config_diff | specs/environment/config-db.md | None. Parses text framing, preserves every directive byte; does not infer unresolved directive semantics. |
+| prg_diff | specs/file-formats/prg-and-aux-files.md Sec 1 | None. Source-text framing, OEM bytes preserved; linked/encrypted programs with NUL bytes are unsupported. |
+| vue_diff | specs/file-formats/vue.md Sec 3-8 | None, including reserved/unknown fields. Only the observed single-format, single-relation dialect has a proven parse. |
+| exact_diff | the caller's cited file/transcript specification | None; opaque bytes, also for unchanged re-save identity and backups. |
+
+These are additional W4 comparisons, not changes to existing DBF/DBT/NDX
+oracles or `dbf_normalization.json`. FRM/SCR reader normalizations follow the
+cited file specs; their inferred pointer/scratch semantics are explicitly
+limited to those specs. A designer's unchanged real-file re-save must ALSO
+pass `exact_diff` on the full file, including opaque bytes. Cross-runtime
+REPORT/LABEL output still needs real III+ transcript equality. A .FMT generated
+by a W4 painter still needs its W3 byte-exact screen. The file-tool tests use
+pristine III+ FLT_INFO/TRAVELER/TRIP.FRM, ADDRESS.LBL, NOTPAID.QRY,
+CLIENTS/TOURS/TRAVEL.SCR, CLIENTS/TOURS/TRAVEL/RESERVE.FMT, RESERVE.VUE,
+ADD.PRG and shipped CONFIG.DB, plus the corrupt UNIVERS.FRM control.
+Each tool first sees a meaningful-byte mutant, then the real sample self-pair.
+Padding/stale-byte positives and neighboring meaningful-byte negatives pin
+the normalization boundaries. Formats with no ignored bytes have no padding
+GREEN: QRY's misleadingly named pad bytes are specifically proven RED.
+These tests prove comparators; no SAMIR designer output is claimed yet.
+
+`sh harness/diff/dbf_diff/w4_trace.sh <app> [SAMIR.EXE]` uses the existing
+QEMU key runner, screen_capture's native console decoder, fresh data volume,
+before/after recursive extraction, required named captures, and mandatory
+per-app `CHECK`. Trace inputs live at
+`harness/diff/dbf_diff/xbase_prog_diff/w4/<app>/{KEYS,CHECK,SETUP/}`.
+CHECK runs in `build/w4/<app>` with `W4_ROOT`, `W4_CASE`, `W4_OUT` exported.
+It must grade L1 real-file/transcript effects and L2 independent assertions;
+it must not return success on a missing golden, dump, tool or expected effect.
+`KEYS` uses WAIT n (BIOS ticks at 55 ms), TEXT, KEY and DUMP; unsupported
+text/keys fail explicitly. Text supports letters, digits, spaces and periods;
+extend and prove the mapping before a future trace needs other punctuation.
+No directives or keys are silently ignored. DUMP yields both `.ppm` and
+`.ppm.screen`; runner errors, faults, missing captures and CHECK failures fail.
+An app lock refuses concurrent writes to the same evidence directory.
+
+`w4_screen_check SCREEN ASSERTIONS` reads the existing screen format and
+checks independent zero-based `TEXT row col literal`, `CURSOR row col`,
+`ATTR row col length hex`, and `BLANK row col length` statements. Ordered
+menu pads use several TEXT assertions at distinct columns. Field position
+uses a TEXT/CURSOR pair; highlight/status changes use ATTR/TEXT pairs.
+`--mutants SCREEN ASSERTIONS OUT` writes and re-reads a changed captured
+screen for EVERY assertion, including each assertion class. CHECK should
+also use `ppm_text_check --cells` (or a stronger existing raster checker)
+to verify visible presentation. A future navigation lane must additionally
+prove actual broken navigation/status/menu behavior, not merely tool mutants.
+
+The `smoke` case exercises existing CLEAR + USE CLIENTS + LIST, checks all
+file names/contents unchanged, the three independent fixture names, prompt
+row 6/column 2, normal attribute and blank row, plus PPM ink/blank cells.
+`test-w4-structure-mutant` proves text/cursor/attribute/blank assertions,
+a changed DBF record, and a full QEMU replay with LIST removed turn RED for
+the named reason. This is a harness smoke, not W4 app or Rule-14 acceptance.
+
+Future app lanes instantiate `$(eval $(call w4-acceptance,browse))` in a
+make fragment included AFTER `w4.mk`. This defines `test-w4-browse` only when
+the app lane exists. Supply the inventory's KEYS, CHECK, and every matching
+`mutants/<assertion>.sh`; each mutant script returns success only after it
+has demonstrated its named failing behavior. The macro fails closed on
+missing files, runs CHECK and all declared mutant proofs, compares retained
+screen dumps at matching DUMP basenames, then runs real
+`record-flair SCRIPT=browse` and `record-flair-repro SCRIPT=browse` and requires
+both nonempty clips. Register the corresponding record-flair script/image/
+trace before record-flair's parse-time prerequisite use, following its existing
+pattern. No substitute or placeholder clip is created. CONFIG.DB has no
+editor: its KEYS/CHECK covers startup settings/transcripts/effects/return.
+W5 must review complete evidence before changing any row's status; the macro
+does not silently mark an app complete.
+
+Retained reference minting uses the existing SCREEN.COM/screen_tool route:
+`sh harness/diff/dbf_diff/w4_retained_mint.sh retained build/w4-real-help`,
+or `create-retained` / `structure-retained` / `generated-form` with separate destinations.
+The real runtime/help files and pristine generated form are read from
+DBASE3_DECOMP; no sister files are changed. The startup license gets a delayed
+DOSBox AUTOTYPE Enter before SCREEN.COM is installed. No -silent mode is
+used. Fresh save markers, every declared dump, input/runtime hashes and two
+independent byte-identical captures are required before publishing references.
+`test-w4-retained` rechecks input/runtime provenance, capture identity and exact
+screen character/attribute/cursor mutants. Golden UTF-8/CP437 `.screen` files
+use the existing reversible capture format; the new factory sources are ASCII.
+HELP captures are III+ navigation/layout references, clearly NOT authored
+InitechBase text. The HELP implementation lane owes separately labelled
+InitechBase-authored exact content goldens before app certification.

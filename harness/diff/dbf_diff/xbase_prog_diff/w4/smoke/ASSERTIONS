@@ -1,0 +1,12 @@
+# DEC-03a.10 smoke: independent dot prompt, known three-row CLIENTS fixture.
+# CLEAR fixes the origin. USE/LIST occupy rows 0/1; header+3 records rows 2..5.
+TEXT 0 0 . use clients
+TEXT 1 0 . list
+TEXT 2 0 Record#
+TEXT 3 9 PESTON
+TEXT 4 9 WADDAMS
+TEXT 5 9 LUMBERGH
+TEXT 6 0 . 
+CURSOR 6 2
+ATTR 6 0 2 07
+BLANK 7 0 80

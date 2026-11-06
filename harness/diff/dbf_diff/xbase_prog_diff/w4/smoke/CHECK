@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+# This trace has no data effect: compare every extracted file and filename.
+if ! diff -r before files; then echo 'RED: L1 smoke changed files'; exit 1; fi
+echo 'GREEN: L1 smoke: no file changes (all names and bytes)'
+"$W4_ROOT/build/w4_screen_check" prompt.ppm.screen "$W4_CASE/ASSERTIONS"
+"$W4_ROOT/build/ppm_text_check" --cells prompt.ppm "$W4_CASE/CELLS"

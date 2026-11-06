@@ -1,0 +1,572 @@
+{
+  "_comment": "LOCKED Rule 8 data. Authority: ratified ADR-0009-AMENDMENT-DEC-03a-InitechMZ-Extended-Memory.md v1.0, DEC-03a.10; Seat B Sec 4; implementing bead initech-9nzpr. Only W4 screen grading changes. Per-app files, transcripts, retained screens and L3 evidence remain owed; status is not-started.",
+  "status": "locked",
+  "w3": {
+    "grading": "byte-exact-screens",
+    "apps": [
+      "@ SAY",
+      "@ GET",
+      "@ TO",
+      "@ CLEAR",
+      "READ",
+      "PICTURE",
+      "FUNCTION",
+      "RANGE",
+      "CLEAR GETS",
+      "generated .FMT forms"
+    ],
+    "gate_source": "harness/diff/dbf_diff/screen_mint.mk",
+    "gates": [
+      "test-samir-forms-emu",
+      "test-samir-forms-emu-mutant"
+    ]
+  },
+  "apps": [
+    {
+      "id": "browse",
+      "name": "BROWSE",
+      "dispatch_verbs": [
+        "BROWSE"
+      ],
+      "l1": [
+        {
+          "kind": ".DBF header and records",
+          "format_spec": "specs/file-formats/dbf.md",
+          "tool": "harness/diff/dbf_diff/dbf_ref.py",
+          "normalization": "existing spec/samir/dbf_normalization.json only",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": ".DBT memo effects",
+          "format_spec": "specs/file-formats/dbt.md",
+          "tool": "harness/diff/dbf_diff/dbf_ref.py",
+          "normalization": "existing III+ memo reader normalization only",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": ".NDX index effects",
+          "format_spec": "specs/file-formats/ndx.md",
+          "tool": "harness/diff/dbf_diff/ndx_ref.py",
+          "normalization": "existing NDX independent reader; no new normalization",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        }
+      ],
+      "l2": {
+        "keys": "harness/diff/dbf_diff/xbase_prog_diff/w4/browse/KEYS",
+        "check": "harness/diff/dbf_diff/xbase_prog_diff/w4/browse/CHECK",
+        "scope": "Locked injected trace; independent literal strings/regions/cursor/highlight/status assertions. CHECK must invoke file comparators and screen/raster checks.",
+        "assertions": [
+          "menu-toggle",
+          "cell-navigation",
+          "record-status",
+          "save"
+        ],
+        "mutants": [
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/browse/mutants/menu-toggle.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/browse/mutants/cell-navigation.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/browse/mutants/record-status.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/browse/mutants/save.sh"
+        ]
+      },
+      "l3": {
+        "script": "browse",
+        "command": "record-flair SCRIPT=browse",
+        "clip": "build/clips/browse.{gif,mp4}",
+        "repro_gate": "record-flair-repro SCRIPT=browse"
+      },
+      "retained_exact_screens": [],
+      "status": "not-started"
+    },
+    {
+      "id": "edit",
+      "name": "EDIT / CHANGE / APPEND",
+      "dispatch_verbs": [
+        "EDIT",
+        "CHANGE",
+        "APPEND"
+      ],
+      "l1": [
+        {
+          "kind": ".DBF header and records",
+          "format_spec": "specs/file-formats/dbf.md",
+          "tool": "harness/diff/dbf_diff/dbf_ref.py",
+          "normalization": "existing spec/samir/dbf_normalization.json only",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": ".DBT memo effects",
+          "format_spec": "specs/file-formats/dbt.md",
+          "tool": "harness/diff/dbf_diff/dbf_ref.py",
+          "normalization": "existing III+ memo reader normalization only",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        }
+      ],
+      "l2": {
+        "keys": "harness/diff/dbf_diff/xbase_prog_diff/w4/edit/KEYS",
+        "check": "harness/diff/dbf_diff/xbase_prog_diff/w4/edit/CHECK",
+        "scope": "Locked injected trace; independent literal strings/regions/cursor/highlight/status assertions. CHECK must invoke file comparators and screen/raster checks.",
+        "assertions": [
+          "field-navigation",
+          "key-help",
+          "append-count",
+          "save-abandon"
+        ],
+        "mutants": [
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/edit/mutants/field-navigation.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/edit/mutants/key-help.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/edit/mutants/append-count.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/edit/mutants/save-abandon.sh"
+        ]
+      },
+      "l3": {
+        "script": "edit",
+        "command": "record-flair SCRIPT=edit",
+        "clip": "build/clips/edit.{gif,mp4}",
+        "repro_gate": "record-flair-repro SCRIPT=edit"
+      },
+      "retained_exact_screens": [
+        {
+          "name": "shared-W3-READ",
+          "dump": "harness/diff/dbf_diff/xbase_prog_diff/screen-mint/get/read-typed.screen",
+          "provenance": "Real III+ W3 GET/READ capture; existing exact gate preserved."
+        }
+      ],
+      "status": "not-started"
+    },
+    {
+      "id": "structure",
+      "name": "CREATE / MODIFY STRUCTURE",
+      "dispatch_verbs": [
+        "CREATE <dbf>",
+        "MODIFY STRUCTURE"
+      ],
+      "l1": [
+        {
+          "kind": ".DBF header and records",
+          "format_spec": "specs/file-formats/dbf.md",
+          "tool": "harness/diff/dbf_diff/dbf_ref.py",
+          "normalization": "existing spec/samir/dbf_normalization.json only",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        }
+      ],
+      "l2": {
+        "keys": "harness/diff/dbf_diff/xbase_prog_diff/w4/structure/KEYS",
+        "check": "harness/diff/dbf_diff/xbase_prog_diff/w4/structure/CHECK",
+        "scope": "Locked injected trace; independent literal strings/regions/cursor/highlight/status assertions. CHECK must invoke file comparators and screen/raster checks.",
+        "assertions": [
+          "field-table",
+          "type-cycle",
+          "save-abandon"
+        ],
+        "mutants": [
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/structure/mutants/field-table.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/structure/mutants/type-cycle.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/structure/mutants/save-abandon.sh"
+        ]
+      },
+      "l3": {
+        "script": "structure",
+        "command": "record-flair SCRIPT=structure",
+        "clip": "build/clips/structure.{gif,mp4}",
+        "repro_gate": "record-flair-repro SCRIPT=structure"
+      },
+      "retained_exact_screens": [
+        {
+          "name": "create-empty",
+          "dump": "harness/diff/dbf_diff/xbase_prog_diff/w4/create-retained/create-empty.screen",
+          "provenance": "Real III+ retained reference; DEC-03a.10 and Seat B Sec 6.1. Not DISPLAY STRUCTURE."
+        },
+        {
+          "name": "modify-structure",
+          "dump": "harness/diff/dbf_diff/xbase_prog_diff/w4/structure-retained/modify-structure.screen",
+          "provenance": "Real III+ retained reference; DEC-03a.10 and Seat B Sec 6.1. Not DISPLAY STRUCTURE."
+        }
+      ],
+      "status": "not-started"
+    },
+    {
+      "id": "command",
+      "name": "MODIFY COMMAND",
+      "dispatch_verbs": [
+        "MODIFY COMMAND",
+        "MODIFY FILE"
+      ],
+      "l1": [
+        {
+          "kind": ".PRG and real-minted backup",
+          "format_spec": "specs/file-formats/prg-and-aux-files.md",
+          "tool": "build/prg_diff",
+          "normalization": "none; every byte remains significant",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        }
+      ],
+      "l2": {
+        "keys": "harness/diff/dbf_diff/xbase_prog_diff/w4/command/KEYS",
+        "check": "harness/diff/dbf_diff/xbase_prog_diff/w4/command/CHECK",
+        "scope": "Locked injected trace; independent literal strings/regions/cursor/highlight/status assertions. CHECK must invoke file comparators and screen/raster checks.",
+        "assertions": [
+          "text-edit",
+          "cursor",
+          "status",
+          "save-abandon"
+        ],
+        "mutants": [
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/command/mutants/text-edit.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/command/mutants/cursor.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/command/mutants/status.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/command/mutants/save-abandon.sh"
+        ]
+      },
+      "l3": {
+        "script": "command",
+        "command": "record-flair SCRIPT=command",
+        "clip": "build/clips/command.{gif,mp4}",
+        "repro_gate": "record-flair-repro SCRIPT=command"
+      },
+      "retained_exact_screens": [],
+      "status": "not-started"
+    },
+    {
+      "id": "report",
+      "name": "REPORT designer",
+      "dispatch_verbs": [
+        "CREATE REPORT",
+        "MODIFY REPORT"
+      ],
+      "l1": [
+        {
+          "kind": ".FRM",
+          "format_spec": "specs/file-formats/frm.md",
+          "tool": "build/frm_diff",
+          "normalization": "frm.md Sec 4/6: heap-to-column scratch gap and unused column area only; used +4 uncertain byte retained",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": ".FRM unchanged re-save identity",
+          "format_spec": "specs/file-formats/frm.md",
+          "tool": "build/exact_diff",
+          "normalization": "none; opaque scratch bytes must survive unchanged re-save",
+          "golden": "not-started: real original file before/after no-change edit; cross-runtime REPORT FORM output must also match"
+        }
+      ],
+      "l2": {
+        "keys": "harness/diff/dbf_diff/xbase_prog_diff/w4/report/KEYS",
+        "check": "harness/diff/dbf_diff/xbase_prog_diff/w4/report/CHECK",
+        "scope": "Locked injected trace; independent literal strings/regions/cursor/highlight/status assertions. CHECK must invoke file comparators and screen/raster checks.",
+        "assertions": [
+          "sections",
+          "box-edit",
+          "status"
+        ],
+        "mutants": [
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/report/mutants/sections.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/report/mutants/box-edit.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/report/mutants/status.sh"
+        ]
+      },
+      "l3": {
+        "script": "report",
+        "command": "record-flair SCRIPT=report",
+        "clip": "build/clips/report.{gif,mp4}",
+        "repro_gate": "record-flair-repro SCRIPT=report"
+      },
+      "retained_exact_screens": [],
+      "status": "not-started"
+    },
+    {
+      "id": "label",
+      "name": "LABEL designer",
+      "dispatch_verbs": [
+        "CREATE LABEL",
+        "MODIFY LABEL"
+      ],
+      "l1": [
+        {
+          "kind": ".LBL",
+          "format_spec": "specs/file-formats/lbl.md",
+          "tool": "build/lbl_diff",
+          "normalization": "lbl.md Sec 4: inactive slots beyond height only; active expressions and remarks including spaces exact",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": ".LBL unchanged re-save identity",
+          "format_spec": "specs/file-formats/lbl.md",
+          "tool": "build/exact_diff",
+          "normalization": "none; every byte preserved on unchanged re-save",
+          "golden": "not-started: real original file before/after no-change edit; cross-runtime LABEL FORM output must also match"
+        }
+      ],
+      "l2": {
+        "keys": "harness/diff/dbf_diff/xbase_prog_diff/w4/label/KEYS",
+        "check": "harness/diff/dbf_diff/xbase_prog_diff/w4/label/CHECK",
+        "scope": "Locked injected trace; independent literal strings/regions/cursor/highlight/status assertions. CHECK must invoke file comparators and screen/raster checks.",
+        "assertions": [
+          "dimensions",
+          "navigation",
+          "save-abandon"
+        ],
+        "mutants": [
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/label/mutants/dimensions.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/label/mutants/navigation.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/label/mutants/save-abandon.sh"
+        ]
+      },
+      "l3": {
+        "script": "label",
+        "command": "record-flair SCRIPT=label",
+        "clip": "build/clips/label.{gif,mp4}",
+        "repro_gate": "record-flair-repro SCRIPT=label"
+      },
+      "retained_exact_screens": [],
+      "status": "not-started"
+    },
+    {
+      "id": "query-screen-view",
+      "name": "CREATE / MODIFY QUERY / SCREEN / VIEW",
+      "dispatch_verbs": [
+        "CREATE QUERY",
+        "MODIFY QUERY",
+        "CREATE SCREEN",
+        "MODIFY SCREEN",
+        "CREATE VIEW",
+        "MODIFY VIEW"
+      ],
+      "l1": [
+        {
+          "kind": ".QRY",
+          "format_spec": "specs/file-formats/qry.md",
+          "tool": "build/qry_diff",
+          "normalization": "none; every byte remains significant; pad/pad2 are u16 high bytes",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": ".SCR",
+          "format_spec": "specs/file-formats/scr-and-fmt.md",
+          "tool": "build/scr_diff",
+          "normalization": "Sec 3.2-3.4: post-NUL alias/name tails, descriptor address, two field runtime pointers, box trailer only",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": ".FMT",
+          "format_spec": "specs/file-formats/scr-and-fmt.md",
+          "tool": "build/fmt_diff",
+          "normalization": "none; every byte remains significant",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": ".TXT screen documentation",
+          "format_spec": "specs/file-formats/scr-and-fmt.md",
+          "tool": "build/exact_diff",
+          "normalization": "none; every byte remains significant",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": ".VUE",
+          "format_spec": "specs/file-formats/vue.md",
+          "tool": "build/vue_diff",
+          "normalization": "none; every byte remains significant; single-format/single-relation dialect proven",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        }
+      ],
+      "l2": {
+        "keys": "harness/diff/dbf_diff/xbase_prog_diff/w4/query-screen-view/KEYS",
+        "check": "harness/diff/dbf_diff/xbase_prog_diff/w4/query-screen-view/CHECK",
+        "scope": "Locked injected trace; independent literal strings/regions/cursor/highlight/status assertions. CHECK must invoke file comparators and screen/raster checks.",
+        "assertions": [
+          "filter-rows",
+          "painter-cursor",
+          "draw-keys",
+          "view-workareas"
+        ],
+        "mutants": [
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/query-screen-view/mutants/filter-rows.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/query-screen-view/mutants/painter-cursor.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/query-screen-view/mutants/draw-keys.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/query-screen-view/mutants/view-workareas.sh"
+        ]
+      },
+      "l3": {
+        "script": "query-screen-view",
+        "command": "record-flair SCRIPT=query-screen-view",
+        "clip": "build/clips/query-screen-view.{gif,mp4}",
+        "repro_gate": "record-flair-repro SCRIPT=query-screen-view"
+      },
+      "retained_exact_screens": [
+        {
+          "name": "generated-fmt",
+          "dump": "harness/diff/dbf_diff/xbase_prog_diff/w4/generated-form/generated-fmt.screen",
+          "provenance": "Real III+ W3 screen from pristine CLIENTS.FMT and CLIENTS.DBF. W3 exact grading remains."
+        }
+      ],
+      "status": "not-started"
+    },
+    {
+      "id": "assist",
+      "name": "ASSIST",
+      "dispatch_verbs": [
+        "ASSIST",
+        "F2"
+      ],
+      "l1": [
+        {
+          "kind": "command/startup transcript",
+          "format_spec": "specs/full-screen/assist-ui-and-editors.md",
+          "tool": "build/exact_diff",
+          "normalization": "none; every byte remains significant",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": ".DBF header and records",
+          "format_spec": "specs/file-formats/dbf.md",
+          "tool": "harness/diff/dbf_diff/dbf_ref.py",
+          "normalization": "existing spec/samir/dbf_normalization.json only",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": ".DBT memo effects",
+          "format_spec": "specs/file-formats/dbt.md",
+          "tool": "harness/diff/dbf_diff/dbf_ref.py",
+          "normalization": "existing III+ memo reader normalization only",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": ".NDX index effects",
+          "format_spec": "specs/file-formats/ndx.md",
+          "tool": "harness/diff/dbf_diff/ndx_ref.py",
+          "normalization": "existing NDX independent reader; no new normalization",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        },
+        {
+          "kind": "designer output files",
+          "format_spec": "specs/file-formats/prg-and-aux-files.md",
+          "tool": "build/exact_diff",
+          "normalization": "none; every byte remains significant; each generated format also uses its typed comparator",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        }
+      ],
+      "l2": {
+        "keys": "harness/diff/dbf_diff/xbase_prog_diff/w4/assist/KEYS",
+        "check": "harness/diff/dbf_diff/xbase_prog_diff/w4/assist/CHECK",
+        "scope": "Locked injected trace; independent literal strings/regions/cursor/highlight/status assertions. CHECK must invoke file comparators and screen/raster checks.",
+        "assertions": [
+          "pad-order",
+          "menu-navigation",
+          "issued-command"
+        ],
+        "mutants": [
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/assist/mutants/pad-order.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/assist/mutants/menu-navigation.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/assist/mutants/issued-command.sh"
+        ]
+      },
+      "l3": {
+        "script": "assist",
+        "command": "record-flair SCRIPT=assist",
+        "clip": "build/clips/assist.{gif,mp4}",
+        "repro_gate": "record-flair-repro SCRIPT=assist"
+      },
+      "retained_exact_screens": [],
+      "status": "not-started"
+    },
+    {
+      "id": "help",
+      "name": "HELP",
+      "dispatch_verbs": [
+        "HELP",
+        "HELP <topic>",
+        "F1"
+      ],
+      "l1": [
+        {
+          "kind": "read-only; no file changes",
+          "format_spec": "specs/full-screen/assist-ui-and-editors.md",
+          "tool": "harness/diff/dbf_diff/w4_unchanged.sh",
+          "normalization": "none; recursively compare every file name and byte",
+          "golden": "before/after whole-volume snapshots; no output file expected"
+        }
+      ],
+      "l2": {
+        "keys": "harness/diff/dbf_diff/xbase_prog_diff/w4/help/KEYS",
+        "check": "harness/diff/dbf_diff/xbase_prog_diff/w4/help/CHECK",
+        "scope": "Locked injected trace; independent literal strings/regions/cursor/highlight/status assertions. CHECK must invoke file comparators and screen/raster checks.",
+        "assertions": [
+          "topic-index",
+          "f1-overlay",
+          "page-navigation",
+          "enter-prompt"
+        ],
+        "mutants": [
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/help/mutants/topic-index.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/help/mutants/f1-overlay.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/help/mutants/page-navigation.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/help/mutants/enter-prompt.sh"
+        ]
+      },
+      "l3": {
+        "script": "help",
+        "command": "record-flair SCRIPT=help",
+        "clip": "build/clips/help.{gif,mp4}",
+        "repro_gate": "record-flair-repro SCRIPT=help"
+      },
+      "retained_exact_screens": [
+        {
+          "name": "help-main",
+          "dump": "harness/diff/dbf_diff/xbase_prog_diff/w4/retained/help-main.screen",
+          "provenance": "Real III+ navigation/layout reference, NOT InitechBase-authored text. Authored content goldens remain owed by HELP lane; label them explicitly before acceptance."
+        },
+        {
+          "name": "help-use",
+          "dump": "harness/diff/dbf_diff/xbase_prog_diff/w4/retained/help-use.screen",
+          "provenance": "Real III+ navigation/layout reference, NOT InitechBase-authored text. Authored content goldens remain owed by HELP lane; label them explicitly before acceptance."
+        }
+      ],
+      "status": "not-started"
+    },
+    {
+      "id": "config",
+      "name": "CONFIG.DB",
+      "dispatch_verbs": [
+        "startup CONFIG.DB",
+        "DISPLAY STATUS",
+        "LIST MEMORY"
+      ],
+      "l1": [
+        {
+          "kind": "CONFIG.DB input text",
+          "format_spec": "specs/environment/config-db.md",
+          "tool": "build/config_diff",
+          "normalization": "none; every byte remains significant",
+          "golden": "goldens/dbase-iii-plus-1.1-pristine/files/System_1/CONFIG.DB in DBASE3_DECOMP; per-trace startup mints still owed"
+        },
+        {
+          "kind": "command/startup transcript",
+          "format_spec": "specs/environment/config-db.md",
+          "tool": "build/exact_diff",
+          "normalization": "none; every byte remains significant",
+          "golden": "not-started: mint identical locked KEYS on real DBASE.EXE"
+        }
+      ],
+      "l2": {
+        "keys": "harness/diff/dbf_diff/xbase_prog_diff/w4/config/KEYS",
+        "check": "harness/diff/dbf_diff/xbase_prog_diff/w4/config/CHECK",
+        "scope": "No interactive editor. N/A for interactive screen structure; locked startup/effect/return trace checks L1 settings and memory transcripts.",
+        "assertions": [
+          "startup-settings",
+          "startup-memory"
+        ],
+        "mutants": [
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/config/mutants/startup-settings.sh",
+          "harness/diff/dbf_diff/xbase_prog_diff/w4/config/mutants/startup-memory.sh"
+        ]
+      },
+      "l3": {
+        "script": "config",
+        "command": "record-flair SCRIPT=config",
+        "clip": "build/clips/config.{gif,mp4}",
+        "repro_gate": "record-flair-repro SCRIPT=config"
+      },
+      "retained_exact_screens": [],
+      "status": "not-started"
+    }
+  ]
+}

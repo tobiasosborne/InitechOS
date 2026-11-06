@@ -1,0 +1,17 @@
+# Real III+ HELP references. Authored InitechBase HELP content remains owed.
+WAIT 90
+TEXT HELP
+KEY ENTER
+WAIT 36
+DUMP help-main
+KEY ESC
+WAIT 18
+TEXT HELP USE
+KEY ENTER
+WAIT 36
+DUMP help-use
+KEY ESC
+WAIT 18
+TEXT QUIT
+KEY ENTER
+WAIT 18

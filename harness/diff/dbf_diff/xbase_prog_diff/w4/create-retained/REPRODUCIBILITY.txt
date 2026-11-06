@@ -1,0 +1,7 @@
+DEC-03a.10 / initech-9nzpr: independent real III+ captures, byte-identical.
+Latest INPUTS.sha256 and ORACLE.sha256 pin the committed trace, checks and current mint route.
+RUN 1
+1512e5e54847e994ef33b73631790c9d9e9704da436be785aacab33c164281ba  ./create-empty.screen
+RUN 2
+1512e5e54847e994ef33b73631790c9d9e9704da436be785aacab33c164281ba  ./create-empty.screen
+GREEN: every named screen byte-identical across two fresh DOSBox-X boots.
