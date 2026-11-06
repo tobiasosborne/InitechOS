@@ -55,9 +55,11 @@ static const char *ui_next(const char *s, char *w)
 #define C_ui_create(...) CMD_UNKNOWN
 #endif
 #ifdef UI_HAVE_modcmd
+#define C_ui_modify_file(...) ui_modify_file(__VA_ARGS__)
 #define C_ui_modify_command(...) ui_modify_command(__VA_ARGS__)
 #else
 #define C_ui_modify_command(...) CMD_UNKNOWN
+#define C_ui_modify_file(...) CMD_UNKNOWN
 #endif
 #ifdef UI_HAVE_frmdesign
 #define C_ui_create_report(...) ui_create_report(__VA_ARGS__)
@@ -86,7 +88,8 @@ static int ui_hook(void *user, xb_interp *ip, const char *verb, const char *args
         rest = ui_next(args, w);
         (void)rest;
         if (ui_word(w, "STRUCTURE")) return modify ? C_ui_create(ip, 1, rest, ec) : CMD_UNKNOWN;
-        if (ui_word(w, "COMMAND") || ui_word(w, "FILE")) return C_ui_modify_command(ip, rest, ec);
+        if (ui_word(w, "COMMAND")) return C_ui_modify_command(ip, rest, ec);
+        if (ui_word(w, "FILE")) return C_ui_modify_file(ip, rest, ec);
         if (ui_word(w, "REPORT")) return C_ui_create_report(ip, modify, rest, ec);
         if (ui_word(w, "LABEL")) return C_ui_create_label(ip, modify, rest, ec);
         if (ui_word(w, "QUERY") || ui_word(w, "SCREEN") || ui_word(w, "VIEW")) return CMD_UNKNOWN;

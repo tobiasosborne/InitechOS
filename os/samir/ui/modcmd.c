@@ -131,7 +131,7 @@ static void mc_draw(mc_editor *e)
     if (e->dirty) kit_put(k, 21, 55, "Modified", -1);
     kit_status(k, e->filemode ? "MODIFY FILE" : "MODIFY COMMAND", e->file, (uint32_t)line + 1,
                (uint32_t)mc_line(e, e->len) + 1, e->insert);
-    kit_message(k, 23, "Arrows: move   PgUp/PgDn: page   Home/End: line   Ins: insert/overwrite");
+    kit_message(k, 23, "Arrows: move   PgUp/PgDn: page   Home/End: word   Ins: insert/overwrite");
     kit_message(k, 24, "Ctrl-N: insert line   Ctrl-Y: delete line   Ctrl-W/Ctrl-End: save   Esc: abort");
     kit_cursor(k, line - e->top, column - e->left);
 }
@@ -247,8 +247,13 @@ static int mc_run(xb_interp *ip, const char *args, int *ec, int filemode)
             continue;
         } else if (key == KIT_K_LEFT) { if (e->pos) e->pos--; }
         else if (key == KIT_K_RIGHT) { if (e->pos < e->len) e->pos++; }
-        else if (key == KIT_K_HOME) e->pos = start;
-        else if (key == KIT_K_END) e->pos = end;
+        else if (key == KIT_K_HOME) {
+            while (e->pos > start && e->text[e->pos - 1] == ' ') e->pos--;
+            while (e->pos > start && e->text[e->pos - 1] != ' ') e->pos--;
+        } else if (key == KIT_K_END) {
+            while (e->pos < end && e->text[e->pos] != ' ') e->pos++;
+            while (e->pos < end && e->text[e->pos] == ' ') e->pos++;
+        }
         else if (key == KIT_K_CTRL_HOME) e->pos = 0;
         else if (key == KIT_K_INS) e->insert = !e->insert;
         else if (key == KIT_K_ENTER) { if (mc_insert(e, e->pos, '\n')) e->pos++; }
@@ -290,6 +295,5 @@ int ui_modify_command(xb_interp *ip, const char *args, int *ec)
 
 /* Shared dispatch currently discards COMMAND versus FILE. This entry lets
  * ui.c route FILE separately without changing the existing COMMAND ABI. */
-int ui_modify_file(xb_interp *ip, const char *args, int *ec);
 int ui_modify_file(xb_interp *ip, const char *args, int *ec)
 { return mc_run(ip, args, ec, 1); }

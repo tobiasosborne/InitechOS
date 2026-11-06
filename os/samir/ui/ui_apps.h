@@ -11,6 +11,7 @@ int ui_assist(xb_interp *ip, const char *args, int *ec);           /* ui/assist.
 int ui_help(xb_interp *ip, const char *args, int *ec);             /* ui/help.c */
 int ui_create(xb_interp *ip, int modify, const char *args, int *ec); /* ui/create.c: CREATE <f> / MODIFY STRUCTURE */
 int ui_modify_command(xb_interp *ip, const char *args, int *ec);   /* ui/modcmd.c */
+int ui_modify_file(xb_interp *ip, const char *args, int *ec);      /* ui/modcmd.c: no default ext */
 int ui_create_report(xb_interp *ip, int modify, const char *args, int *ec); /* ui/frmdesign.c */
 int ui_create_label(xb_interp *ip, int modify, const char *args, int *ec);  /* ui/lbldesign.c */
 #endif
