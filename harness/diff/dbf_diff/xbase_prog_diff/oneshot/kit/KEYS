@@ -1,27 +1,28 @@
-# Kit integration through BROWSE: menu/prompt restore, character and numeric
-# replacement, save with extended Ctrl-End, and usable dot prompt afterwards.
+# Current Milton drops F10, Right and Ctrl-End; use the supported III+
+# equivalents F1 (BROWSE menu), Ctrl-D (Right), Ctrl-W (save).
+# DOS extended scans remain covered by the fake-PAL host suite.
 Tuse clients
 kret
 w500
 Tbrowse
 kret
 Dkit-browse
-kf10
+kf1
 Dkit-menu
-kright
-kright
+kctrl-d
+kctrl-d
 kret
 T2
 Dkit-prompt
 kret
 w400
-kright
+kctrl-d
 Tberlin
 Dkit-field
 kret
 T25.5
 Dkit-numeric
-kctrl-end
+kctrl-w
 w500
 Tlist
 kret

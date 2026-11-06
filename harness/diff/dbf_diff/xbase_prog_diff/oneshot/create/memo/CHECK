@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+ref="$OLDPWD/harness/diff/dbf_diff/dbf_ref.py"
+python3 "$ref" --schema files/MEMOS.DBF > schema.txt
+python3 "$ref" --memo files/MEMOS.DBF > memo.txt
+python3 - "$ref" <<'PY'
+import importlib.util, pathlib, sys
+s=importlib.util.spec_from_file_location('r',sys.argv[1]); m=importlib.util.module_from_spec(s); s.loader.exec_module(m)
+d=m.DbfFile('files/MEMOS.DBF')
+assert d.version == 0x83 and d.record_count == 0 and d.fields == [('NOTE','M',10,0)]
+b=pathlib.Path('files/MEMOS.DBT').read_bytes()
+assert len(b) == 512 and b[:4] == b'\x01\x00\x00\x00'
+assert len(pathlib.Path('files/MEMOS.DBF').read_bytes()) == d.header_length + 1
+print('CREATE memo: version 0x83, M10, zero records, valid empty 512-byte DBT')
+PY

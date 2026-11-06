@@ -22,7 +22,7 @@ typedef struct {
     wa_env *env;
     dbf_table *table;
     int area, mode, fresh, deleted, old_deleted, typed;
-    int nf, nshow, selected[ED_FIELDS], widths[ED_FIELDS];
+    int nf, nshow, scope, empty_scope, selected[ED_FIELDS], widths[ED_FIELDS];
     char *text[ED_FIELDS];
     char *storage;
     unsigned char changed[ED_FIELDS];
@@ -79,21 +79,31 @@ static int ed_options(const char *args, int *ec)
         s = ed_space(s + k);
         if (wa_nav_go_top(ed.env, ed.area) != NAV_OK) return ed_error(ec, 4);
     } else if ((k = rt_kw_match(s, "REST")) != 0) {
+        ed.scope = 2;
         ed.first = wa_recno(ed.env, ed.area);
         s = ed_space(s + k);
     } else if ((k = rt_kw_match(s, "NEXT")) != 0) {
         s = ed_space(s + k);
         if (!ed_number(&s, &n)) return ed_error(ec, 10);
+        ed.scope = 3;
         ed.first = wa_recno(ed.env, ed.area);
-        ed.last = n && ed.first <= count && n - 1u < count - ed.first ? ed.first + n - 1u : count;
-        if (!n) ed.last = 0;
+        ed.last = ed.first;
+        if (!n) ed.empty_scope = 1;
+        else if (n > 1u && count) {
+            uint32_t step = n - 1u;
+            if (step > count) step = count;
+            if (wa_nav_skip(ed.env, ed.area, (int32_t)step) != NAV_OK)
+                return ed_error(ec, wa_view_error(ed.env));
+            ed.last = wa_eof(ed.env, ed.area) ? 0 : wa_recno(ed.env, ed.area);
+            (void)wa_nav_goto(ed.env, ed.area, ed.first);
+        }
     } else {
         k = rt_kw_match(s, "RECORD");
         if (k) s = ed_space(s + k);
         if (k || (*s >= '0' && *s <= '9')) {
             if (!ed_number(&s, &n) || n < 1 || n > count) return ed_error(ec, 4);
             if (wa_nav_goto(ed.env, ed.area, n) != NAV_OK) return ed_error(ec, 4);
-            ed.first = ed.last = n;
+            ed.scope = 1; ed.first = ed.last = n;
         }
     }
     ed.nshow = 0;
@@ -335,10 +345,13 @@ int ui_edit(xb_interp *ip, int mode, const char *args, int *ec)
     if (ed.insert_at > dbf_nrec(ed.table)) ed.insert_at = dbf_nrec(ed.table);
     ++ed.insert_at;
     if (ed.nf < 1 || ed.nf > ED_FIELDS) return ed_error(ec, 43);
+    count = dbf_nrec(ed.table);
+    if (mode == UI_EDIT_EDIT && count && wa_eof(ed.env, ed.area))
+        (void)wa_nav_goto(ed.env, ed.area, count);
     rc = ed_options(args, ec);
     if (rc < 0) return rc;
     count = dbf_nrec(ed.table);
-    if (mode == UI_EDIT_EDIT && (!count || !ed.last)) return CMD_OK;
+    if (mode == UI_EDIT_EDIT && (!count || ed.empty_scope)) return CMD_OK;
     if (mode == UI_EDIT_EDIT && wa_eof(ed.env, ed.area))
         (void)wa_nav_goto(ed.env, ed.area, count);
     for (i = 0; i < ed.nshow; ++i)
@@ -434,11 +447,15 @@ int ui_edit(xb_interp *ip, int mode, const char *args, int *ec)
                 rc = ed_load(0, ec);
             }
         } else {
-            rc = wa_nav_skip(ed.env, ed.area, key == KIT_K_PGUP ? -1 : 1);
-            if (rc != NAV_OK) { rc = ed_error(ec, wa_view_error(ed.env)); break; }
-            if (wa_eof(ed.env, ed.area) || wa_bof(ed.env, ed.area) ||
-                wa_recno(ed.env, ed.area) < ed.first || wa_recno(ed.env, ed.area) > ed.last)
-                (void)wa_nav_goto(ed.env, ed.area, oldrec);
+            int boundary = ed.scope && key == KIT_K_PGUP && oldrec == ed.first;
+            if ((ed.scope == 1 || ed.scope == 3) && key == KIT_K_PGDN && oldrec == ed.last)
+                boundary = 1;
+            if (!boundary) {
+                rc = wa_nav_skip(ed.env, ed.area, key == KIT_K_PGUP ? -1 : 1);
+                if (rc != NAV_OK) { rc = ed_error(ec, wa_view_error(ed.env)); break; }
+                if (wa_eof(ed.env, ed.area) || wa_bof(ed.env, ed.area))
+                    (void)wa_nav_goto(ed.env, ed.area, oldrec);
+            }
             rc = ed_load(0, ec);
         }
         if (rc < 0) break;

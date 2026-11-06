@@ -5,8 +5,9 @@ w500
 Tbrowse
 kret
 Dbrowse1
-kdown
-kright
+# The current kernel drops these physical extended keys; use III+ equivalents.
+kctrl-x
+kctrl-d
 Tberlin
 Dediting
 kctrl-w

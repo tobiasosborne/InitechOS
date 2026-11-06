@@ -261,7 +261,7 @@ static int br_draw(browse_state *b)
         kit_message(k, 10, "No records. Press Down to add a record.");
     }
     kit_status(k, "BROWSE", dbf_name(b->table), current, dbf_nrec(b->table), 0);
-    if (deleted) kit_put_attr(k, 22, 64, KIT_ATTR_REVERSE, "Del", 3);
+    if (deleted) kit_put_attr(k, 22, 74, KIT_ATTR_REVERSE, "Del", 3);
     kit_message(k, 23, "Up/Down: Record  PgUp/PgDn: Page  Left/Right: Field  Enter: Next field");
     kit_message(k, 24, "Type: Edit  Ctrl-U: Delete/Recall  Ctrl-W/Ctrl-End: Save  Esc: Exit");
     r = br_row(b, current);
@@ -340,14 +340,16 @@ static int br_edit(browse_state *b, int key, int *ec)
     if (br_run(b, command, ec) < 0) return KIT_K_EOF;
     if (wa_master_order(b->env, b->area) > 0) {
         uint32_t current = wa_recno(b->env, b->area), top;
-        /* REPLACE invalidates the index navigation cache. Rebuild it before
-         * deciding whether to follow the edited record or keep its ordinal. */
+        /* REPLACE updates the NDX bytes; explicitly invalidate the separate
+         * navigation cache before following the record or keeping its ordinal. */
+        wa_nav_reset(b->area);
         if (wa_nav_goto(b->env, b->area, current) != NAV_OK) return KIT_K_EOF;
         if (b->nofollow) {
             uint32_t next = wa_nav_seq_recno(b->area, ordinal);
             if (next && wa_nav_goto(b->env, b->area, next) != NAV_OK) return KIT_K_EOF;
         }
         ordinal = wa_nav_ordpos(b->area);
+        if (row < 0) row = 0;
         top = wa_nav_seq_recno(b->area, ordinal > (uint32_t)row ? ordinal - (uint32_t)row : 0);
         if (top) b->top = top;
     }

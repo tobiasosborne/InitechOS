@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+sh "$(dirname -- "$0")/../CHECK"
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../../../../../../.." && pwd)
+python3 -I "$root/harness/diff/dbf_diff/ndx_ref.py" --header files/BRCITY.NDX > index-header.txt
+python3 -I "$root/harness/diff/dbf_diff/ndx_ref.py" --index-dump files/BRCITY.NDX > index.txt
+python3 -I "$root/harness/diff/dbf_diff/ndx_ref.py" --seek files/BRCITY.NDX berlin > seek.txt
+python3 -I - <<'PY'
+from pathlib import Path
+assert Path('seek.txt').read_text().strip() == 'found: recno=2'
+text = Path('index.txt').read_text()
+assert 'AUSTIN' not in text and 'berlin  recno=2' in text, text
+assert '# total entries: 3' in text, text
+print('BROWSE: open NDX lost the old key and independently seeks the edited key to record 2')
+PY

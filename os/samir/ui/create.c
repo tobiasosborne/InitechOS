@@ -248,6 +248,8 @@ static int cr_write(cr_editor *e, xb_interp *ip, int modify)
     int map[CR_FIELDS];
     char temp[128], backup[128], dbt[128], mt[128], mb[128];
     cr_ext(temp, e->file, ".$S$"); cr_ext(backup, e->file, ".BAK");
+    if (cr_equal(temp, e->file)) cr_ext(temp, e->file, ".$T$");
+    if (cr_equal(backup, e->file)) cr_ext(backup, e->file, ".BK1");
     cr_ext(dbt, e->file, ".DBT"); cr_ext(mt, e->file, ".$M$");
     cr_ext(mb, e->file, ".TBK");
     for (int i = 0; i < e->count; i++) {
@@ -258,6 +260,7 @@ static int cr_write(cr_editor *e, xb_interp *ip, int modify)
             if (cr_equal(f->name, e->f[i].name) && f->type == e->f[i].type) map[i] = j;
         }
     }
+    if (memo && cr_equal(e->file, dbt)) return 0;
     if (!cr_empty(e, temp, &out)) return 0;
     for (uint32_t r = 1; src && r <= dbf_nrec(src); r++) {
         if (dbf_read_rec(src, r, old, &del)) { rc = 1; break; }

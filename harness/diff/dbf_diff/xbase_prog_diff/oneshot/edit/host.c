@@ -72,11 +72,20 @@ int main(void)
     edit(ip, UI_EDIT_APPEND, "", "smythe\rberlin\r125.50\027");
     need(wa_nrec(xb_interp_env(ip), 1) == 4, "append count"); city(ip, 4, "berlin", 0);
     open_table(ip, "build/oneshot/edit/host/edit.dbf");
+    {
+        xb_val sentinel = xb_c("retained", 8);
+        need(xb_interp_store(ip, "ZED000", &sentinel) == 0, "seed caller variable");
+    }
     edit(ip, UI_EDIT_EDIT, "2 FIELDS CITY", "\031discard\033"); city(ip, 2, "AUSTIN", 0);
     edit(ip, UI_EDIT_EDIT, "2 FIELDS CITY", "\031berlin\027"); city(ip, 2, "berlin", 0);
     edit(ip, UI_EDIT_EDIT, "2", "\025\027"); city(ip, 2, "berlin", 1);
     edit(ip, UI_EDIT_EDIT, "2", "\025\033"); city(ip, 2, "berlin", 1);
     edit(ip, UI_EDIT_EDIT, "2", "\025\027"); city(ip, 2, "berlin", 0);
+    {
+        xb_val sentinel;
+        need(xb_interp_get_memvar(ip, "ZED000", &sentinel) == 0 && sentinel.t == XB_C &&
+             sentinel.u.c.len == 8 && !memcmp(sentinel.u.c.p, "retained", 8), "caller variable survives private editor scratch");
+    }
     open_table(ip, "build/oneshot/edit/host/insert.dbf");
     need(wa_nav_goto(xb_interp_env(ip), 1, 1) == 0, "position before INSERT");
     edit(ip, UI_EDIT_INSERT, "", "inserted\rberlin\r20\027");
@@ -101,6 +110,9 @@ int main(void)
     edit(ip, UI_EDIT_APPEND, "", "newindex\rzurich\r1\027");
     need(samir_do(ip, "SEEK \"zurich\"") == 0 && wa_found(xb_interp_env(ip), 1) &&
          wa_recno(xb_interp_env(ip), 1) == 4, "APPEND maintains index key");
+    need(wa_nav_go_top(xb_interp_env(ip), 1) == 0, "indexed scope starts at top");
+    edit(ip, UI_EDIT_EDIT, "NEXT 2 FIELDS BAL", "\003\003\027");
+    need(wa_recno(xb_interp_env(ip), 1) == 1, "NEXT counts records in index order");
     need(ui_edit(ip, UI_EDIT_INSERT, "", &ec) < 0 && ec == 147, "indexed INSERT refused before mutation");
     need(wa_nrec(xb_interp_env(ip), 1) == 4, "indexed INSERT leaves records unchanged");
     {

@@ -11,7 +11,7 @@ cc -std=c11 -O1 -Wall -Wextra -Werror -Ios/samir/include -Ios/samir/ui -Ispec \
     os/samir/samir_main.c os/samir/pal/pal_host.c \
     os/samir/ui/kit.c os/samir/ui/edit.c -o build/oneshot_edit_host
 build/oneshot_edit_host
-python3 harness/diff/dbf_diff/dbf_ref.py --records build/oneshot/edit/host/append.dbf
-python3 harness/diff/dbf_diff/dbf_ref.py --records build/oneshot/edit/host/edit.dbf
-python3 harness/diff/dbf_diff/dbf_ref.py --records build/oneshot/edit/host/insert.dbf
+for dbf in build/oneshot/edit/host/*.dbf; do
+    python3 harness/diff/dbf_diff/dbf_ref.py --records "$dbf"
+done
 python3 harness/diff/dbf_diff/ndx_ref.py --index-dump build/oneshot/edit/host/CITY.NDX

@@ -4,7 +4,8 @@ w500
 Tedit 2
 kret
 w500
-kdown
+# Ctrl-X is III+ Down; the current DOS keyboard drops the physical Down key.
+kctrl-x
 kctrl-y
 Tberlin
 Dedit1

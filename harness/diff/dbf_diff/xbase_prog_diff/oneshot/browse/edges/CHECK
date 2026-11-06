@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../../../../../../.." && pwd)
+python3 -I "$root/harness/diff/dbf_diff/dbf_ref.py" --schema files/CLIENTS.DBF > schema.txt
+python3 -I "$root/harness/diff/dbf_diff/dbf_ref.py" --records files/CLIENTS.DBF > records.txt
+python3 -I - <<'PY'
+from pathlib import Path
+rows = Path('records.txt').read_text().splitlines()
+assert rows == [
+    'rec0 active NAME=PESTON CITY=HONOLULU BAL=1234.5',
+    'rec1 active NAME=WADDAMS CITY=AUSTIN BAL=-42',
+    'rec2 active NAME=LUMBERGH CITY=DALLAS BAL=7777.77',
+    'rec3 active NAME= CITY=rome BAL=(null)',
+], rows
+assert 'Del' in Path('deleted.txt').read_text()
+assert 'Add new records? (Y/N)' in Path('appendprompt.txt').read_text()
+print('BROWSE: Esc discarded edit, delete/recall toggled, append prompt added record 4')
+PY

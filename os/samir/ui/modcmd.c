@@ -10,7 +10,7 @@ typedef struct {
     kit k;
     char text[MC_MAX + 1];
     char file[128];
-    int len, pos, top, left, preferred, insert, dirty;
+    int len, pos, top, left, preferred, insert, dirty, filemode;
 } mc_editor;
 
 static void mc_num(char *s, unsigned n)
@@ -35,7 +35,7 @@ static void mc_ext(char *dst, const char *src, const char *ext)
     dst[n] = 0;
 }
 
-static int mc_name(char *dst, const char *src)
+static int mc_name(char *dst, const char *src, int filemode)
 {
     int n = 0, dot = 0; char quote = 0;
     while (*src == ' ') src++;
@@ -52,7 +52,7 @@ static int mc_name(char *dst, const char *src)
     while (*src == ' ') src++;
     if (!n || *src) return 0;
     dst[n] = 0;
-    if (!dot) rt_memcpy(dst + n, ".PRG", 5);
+    if (!dot && !filemode) rt_memcpy(dst + n, ".PRG", 5);
     return 1;
 }
 
@@ -129,7 +129,7 @@ static void mc_draw(mc_editor *e)
     kit_put(k, 21, 15, "Column:", -1); mc_num(num, (unsigned)column + 1); kit_put(k, 21, 23, num, -1);
     kit_put(k, 21, 34, "Bytes:", -1); mc_num(num, (unsigned)mc_disk_size(e)); kit_put(k, 21, 41, num, -1);
     if (e->dirty) kit_put(k, 21, 55, "Modified", -1);
-    kit_status(k, "MODIFY COMMAND", e->file, (uint32_t)line + 1,
+    kit_status(k, e->filemode ? "MODIFY FILE" : "MODIFY COMMAND", e->file, (uint32_t)line + 1,
                (uint32_t)mc_line(e, e->len) + 1, e->insert);
     kit_message(k, 23, "Arrows: move   PgUp/PgDn: page   Home/End: line   Ins: insert/overwrite");
     kit_message(k, 24, "Ctrl-N: insert line   Ctrl-Y: delete line   Ctrl-W/Ctrl-End: save   Esc: abort");
@@ -170,6 +170,7 @@ static int mc_save(mc_editor *e)
     samir_pal_t *p = e->k.pal; char tmp[128], bak[128], buf[512];
     int used = 0, ok = 1, existed = 0; pal_fd fd, old;
     mc_ext(tmp, e->file, ".$E$"); mc_ext(bak, e->file, ".BAK");
+    if (rt_strncmp(e->file, tmp, 128) == 0) mc_ext(tmp, e->file, ".$T$");
     if (rt_strncmp(e->file, bak, 128) == 0) mc_ext(bak, e->file, ".BK1");
     fd = p->open(p, tmp, PAL_WR | PAL_CREATE | PAL_TRUNC);
     if (fd < 0) return 0;
@@ -213,7 +214,7 @@ static int mc_abandon(mc_editor *e)
     }
 }
 
-int ui_modify_command(xb_interp *ip, const char *args, int *ec)
+static int mc_run(xb_interp *ip, const char *args, int *ec, int filemode)
 {
     samir_pal_t *p = xb_interp_pal(ip); mc_editor *e;
     int error = 0;
@@ -221,13 +222,15 @@ int ui_modify_command(xb_interp *ip, const char *args, int *ec)
     e = p->acquire(p, sizeof *e);
     if (!e) { *ec = 43; return -INTERP_ERR_EVAL; }
     rt_memset(e, 0, sizeof *e); e->insert = 1; e->preferred = -1;
+    e->filemode = filemode;
     kit_open(&e->k, ip);
     while (*args == ' ') args++;
     if (!*args) {
         char name[128]; name[0] = 0;
-        if (!kit_prompt(&e->k, 24, "Enter the name of the command file:", name, 40)) goto done;
-        if (!mc_name(e->file, name)) { error = 10; goto done; }
-    } else if (!mc_name(e->file, args)) { error = 10; goto done; }
+        if (!kit_prompt(&e->k, 24, filemode ? "Enter the name of the file:" :
+                        "Enter the name of the command file:", name, 40)) goto done;
+        if (!mc_name(e->file, name, filemode)) { error = 10; goto done; }
+    } else if (!mc_name(e->file, args, filemode)) { error = 10; goto done; }
     error = mc_load(e);
     if (error) goto done;
     for (;;) {
@@ -281,3 +284,12 @@ done:
     if (error) { *ec = error; return -INTERP_ERR_EVAL; }
     return CMD_OK;
 }
+
+int ui_modify_command(xb_interp *ip, const char *args, int *ec)
+{ return mc_run(ip, args, ec, 0); }
+
+/* Shared dispatch currently discards COMMAND versus FILE. This entry lets
+ * ui.c route FILE separately without changing the existing COMMAND ABI. */
+int ui_modify_file(xb_interp *ip, const char *args, int *ec);
+int ui_modify_file(xb_interp *ip, const char *args, int *ec)
+{ return mc_run(ip, args, ec, 1); }

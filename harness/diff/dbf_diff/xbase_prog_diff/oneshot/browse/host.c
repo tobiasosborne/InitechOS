@@ -16,15 +16,40 @@ extern int mutate_register(xb_interp *);
 extern int set_register(xb_interp *);
 extern int query_register(xb_interp *);
 static const unsigned char *keys;
-static int32_t input(samir_pal_t *p) { (void)p; return *keys ? *keys++ : -1; }
+static char screen[25][80];
+static int capture_screen;
+static int paint(samir_pal_t *p, uint8_t row, uint8_t col, const char *s, uint32_t n)
+{
+    (void)p;
+    if (row < 25 && col < 80) {
+        if (n > 80u - col) n = 80u - col;
+        memcpy(screen[row] + col, s, n);
+    }
+    return 0;
+}
+static int32_t input(samir_pal_t *p)
+{
+    (void)p;
+    if (capture_screen) {
+        FILE *out = fopen("build/oneshot/browse/host/browse1.txt", "wb");
+        int row;
+        if (!out || memcmp(screen[1], "Record", 6) || memcmp(screen[2] + 8, "PESTON", 6))
+            exit(1);
+        for (row = 0; row < 25; row++) {
+            fwrite(screen[row], 1, 80, out); fputc('\n', out);
+        }
+        fclose(out); capture_screen = 0;
+    }
+    return *keys ? *keys++ : -1;
+}
 static int escape(samir_pal_t *p) { (void)p; return 0; }
 static void quiet(samir_pal_t *p, const char *s, uint32_t n) { (void)p; (void)s; (void)n; }
 static void need(int condition, const char *message)
 { if (!condition) { fprintf(stderr, "FAIL: %s\n", message); exit(1); } }
-static void fixture(const char *out)
+static void copy_file(const char *source, const char *out)
 {
     char bytes[4096]; size_t n;
-    FILE *src = fopen("build/CLIENTS.DBF", "rb"), *dst = fopen(out, "wb");
+    FILE *src = fopen(source, "rb"), *dst = fopen(out, "wb");
     need(src && dst, "fixture opens");
     while ((n = fread(bytes, 1, sizeof(bytes), src)) != 0)
         need(fwrite(bytes, 1, n, dst) == n, "fixture copy");
@@ -52,18 +77,32 @@ int main(void)
     xb_interp *ip; wa_env *env; int ec = 0;
     need(pal != NULL, "host PAL");
     pal->conin_char = input; pal->conin_escape = escape; pal->conout = quiet;
+    pal->paint = paint;
     ip = xb_interp_make(pal); need(ip != NULL, "interpreter");
     env = xb_interp_env(ip);
     need(mutate_register(ip) == 0 && set_register(ip) == 0 && query_register(ip) == 0, "engine modules");
     need(ui_browse(ip, "", &ec) < 0 && ec == 52, "no database catalog error");
     (void)mkdir("build/oneshot/browse", 0775);
     (void)mkdir("build/oneshot/browse/host", 0775);
-    fixture("build/oneshot/browse/host/CLIENTS.DBF");
+    copy_file("build/CLIENTS.DBF", "build/oneshot/browse/host/CLIENTS.DBF");
     need(wa_set_open_rw(env, 1, "build/oneshot/browse/host/CLIENTS.DBF", "CLIENTS", NULL) == 0, "USE fixture");
     need(ui_browse(ip, "FIELDS MISSING", &ec) < 0 && ec == 48, "unknown field catalog error");
+    capture_screen = 1;
     browse(ip, "", "\030\004berlin\027");
     city(ip, 1, "HONOLULU", 0); city(ip, 2, "berlin", 0); city(ip, 3, "DALLAS", 0);
     need(wa_nrec(env, 1) == 3, "record count unchanged");
+    (void)mkdir("build/oneshot/browse/host/acceptance", 0775);
+    (void)mkdir("build/oneshot/browse/host/acceptance/files", 0775);
+    copy_file("build/oneshot/browse/host/CLIENTS.DBF",
+              "build/oneshot/browse/host/acceptance/files/CLIENTS.DBF");
+    {
+        xb_val original = xb_n(321), restored;
+        need(xb_interp_store(ip, "UIBR000000", &original) == 0, "caller variable");
+        browse(ip, "FIELDS CITY WIDTH 4", "\031a'\"[]\027"); city(ip, 2, "a'\"[]", 0);
+        need(xb_interp_get_memvar(ip, "UIBR000000", &restored) == 0 && restored.t == XB_N && restored.u.n == 321,
+             "temporary variable restores caller value");
+        browse(ip, "FIELDS CITY", "\031berlin\027");
+    }
     browse(ip, "FIELDS CITY", "discard\033"); city(ip, 2, "berlin", 0);
     browse(ip, "FIELDS CITY", "\025\027"); city(ip, 2, "berlin", 1);
     browse(ip, "FIELDS CITY", "\025\027"); city(ip, 2, "berlin", 0);

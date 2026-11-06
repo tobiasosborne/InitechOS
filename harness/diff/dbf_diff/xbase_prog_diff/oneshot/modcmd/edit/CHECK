@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+python3 - <<'PY'
+from pathlib import Path
+assert Path('files/EDITING.PRG').read_bytes() == b'!Zbcdef\r\nlast\x1a'
+assert Path('files/EDITING.BAK').read_bytes() == b'abc\r\ndef\r\nlast\x1a'
+print('Text editor: move, join, overwrite, insert, delete line, resume after Esc, BAK')
+PY

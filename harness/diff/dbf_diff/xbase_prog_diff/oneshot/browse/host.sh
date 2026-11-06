@@ -11,6 +11,8 @@ cc -std=c11 -O1 -Wall -Wextra -Werror -Ios/samir/include -Ios/samir/ui -Ispec \
     os/samir/samir_main.c os/samir/pal/pal_host.c \
     os/samir/ui/kit.c os/samir/ui/browse.c -o build/oneshot_browse_host
 build/oneshot_browse_host
+root=$(pwd)
+(cd build/oneshot/browse/host/acceptance && sh "$root/harness/diff/dbf_diff/xbase_prog_diff/oneshot/browse/CHECK")
 python3 -I harness/diff/dbf_diff/dbf_ref.py --schema build/oneshot/browse/host/CLIENTS.DBF
 python3 -I harness/diff/dbf_diff/dbf_ref.py --records build/oneshot/browse/host/CLIENTS.DBF
 python3 -I harness/diff/dbf_diff/ndx_ref.py --index-dump build/oneshot/browse/host/CITY.NDX

@@ -27,6 +27,8 @@ static fr_state *fr;
 #define F (*fr)
 static int fr_dispose(int result)
 { samir_pal_t *p=F.k->pal;p->release(p,fr);fr=0;return result; }
+static void fr_error(const char *message)
+{ kit_message(F.k,24,message);(void)kit_key(F.k); }
 
 static int fr_get(int off) { return F.raw[off] | (F.raw[off+1] << 8); }
 static void fr_set(int off, int n)
@@ -175,16 +177,16 @@ static int fr_save(void)
 {
     samir_pal_t *p=F.k->pal; pal_fd fd; int ok,closed;
     if(!fr_pack()) {
-        kit_message(F.k,24,"Define a column; keep expressions within 1452 bytes and subgroup under group.");
+        fr_error("Define a column; keep expressions within 1452 bytes and subgroup under group.");
         return 0;
     }
     if(fr_get(0x7BA)+fr_get(0x7BC)>=fr_get(0x7B6)) {
-        kit_message(F.k,24,"Left and right margins must leave room on the page.");return 0;
+        fr_error("Left and right margins must leave room on the page.");return 0;
     }
     fd=p->open(p,F.name,PAL_WR|PAL_CREATE|PAL_TRUNC);
-    if(fd<0){kit_message(F.k,24,"Unable to create report file.");return 0;}
+    if(fd<0){fr_error("Unable to create report file.");return 0;}
     ok=p->write(p,fd,F.raw,FR_SIZE)==FR_SIZE; closed=p->close(p,fd);
-    if(!ok || closed){kit_message(F.k,24,"Report file write failed.");return 0;}
+    if(!ok || closed){fr_error("Report file write failed.");return 0;}
     return 1;
 }
 static void fr_draw(void)
@@ -233,8 +235,8 @@ static int fr_numeric(const char *prompt,int value,int lo,int hi,int *out)
     if(!kit_prompt(F.k,24,prompt,b,5))return 0;
     while(b[i]==' ')i++;
     if(!b[i])return 0;
-    for(;b[i];i++){if(b[i]<'0' || b[i]>'9')return 0;n=n*10+b[i]-'0';}
-    if(n<lo || n>hi){kit_message(F.k,24,"Value outside the allowed range.");return 0;}
+    for(;b[i];i++){if(b[i]<'0' || b[i]>'9'){fr_error("Enter a whole number.");return 0;}n=n*10+b[i]-'0';}
+    if(n<lo || n>hi){fr_error("Value outside the allowed range.");return 0;}
     *out=n;return 1;
 }
 static int fr_multiline(char *s,int width,const char *caption)
@@ -300,9 +302,17 @@ static int fr_columns(int field)
             else fr_number(b,field==2?c->width:c->dec);
             key=fr_edit(b,4+field,23,field==4?1:3,field==4?'L':'N',&changed);
             if(changed) {
-                n=0;for(i=0;b[i];i++)if(b[i]>='0' && b[i]<='9')n=n*10+b[i]-'0';
-                if(field==2){if(n>=1 && n<=250)c->width=n;}
-                else if(field==3){if(n<=15)c->dec=n;}
+                n=0;
+                if(field!=4) {
+                    for(i=0;b[i]==' ';i++);
+                    if(!b[i])n=-1;
+                    for(;b[i];i++) {
+                        if(b[i]<'0' || b[i]>'9'){n=-1;break;}
+                        n=n*10+b[i]-'0';
+                    }
+                }
+                if(field==2){if(n>=1 && n<=250)c->width=n;else fr_error("Column width must be 1 to 250.");}
+                else if(field==3){if(n>=0 && n<=15)c->dec=n;else fr_error("Decimal places must be 0 to 15.");}
                 else if(b[0]=='Y' || b[0]=='y' || b[0]=='T' || b[0]=='t')c->total='Y';
                 else c->total='N';
             }
@@ -330,6 +340,24 @@ static int fr_columns(int field)
         else field=(field+1)%5;
     }
 }
+static void fr_options(char *buf)
+{
+    static const char *const names[]={"Page title","Page width","Left margin","Right margin","Lines per page","Double space","Page eject before","Page eject after","Plain page"};
+    int i,pos=0,j,start,n;char value[12];
+    for(i=0;i<9;i++) {
+        start=pos;for(j=0;names[i][j];j++)buf[pos++]=names[i][j];
+        while(pos-start<24)buf[pos++]=' ';
+        if(!i)fr_copy(value,"(4 lines)",11);
+        else if(i<5){n=fr_get(i==1?0x7B6:i==2?0x7BA:i==3?0x7BC:0x7B8);fr_number(value,n);}
+        else {
+            n=i==5?F.raw[0x7C0]=='Y':i==6?!(F.raw[0x7C3]&1):i==7?(F.raw[0x7C3]&2):(F.raw[0x7C3]&4);
+            value[0]=n?'Y':'N';value[1]=0;
+        }
+        for(j=0;value[j];j++)buf[pos++]=value[j];
+        buf[pos++]=0;
+    }
+    buf[pos]=0;
+}
 int ui_create_report(xb_interp *ip,int modify,const char *args,int *ec)
 {
     static const char *const titles[]={"Options","Groups","Columns","Locate","Exit"};
@@ -338,7 +366,7 @@ int ui_create_report(xb_interp *ip,int modify,const char *args,int *ec)
         "Group on expression\0Group heading\0Sub-group on expression\0Sub-group heading\0Summary report only\0Page eject after group\0",
         "Contents\0Heading\0Width\0Decimal places\0Total this column\0",
         "Select column\0","Save\0Abandon\0"};
-    kit screen;
+    kit screen;char options[384];const char *menus[5];
     wa_env *env=xb_interp_env(ip);int choice,pad=0,item,n,rc,done=0;
     *ec=0;
     if(!wa_is_open(env,wa_selected(env))){*ec=52;return -INTERP_ERR_EVAL;}
@@ -358,7 +386,9 @@ int ui_create_report(xb_interp *ip,int modify,const char *args,int *ec)
         rc=fr_load();if(rc && (rc!=1 || modify)){kit_close(F.k);*ec=rc;return fr_dispose(-INTERP_ERR_EVAL);}
     }
     while(!done) {
-        fr_draw();choice=kit_menu(F.k,titles,items,5,pad,0);
+        int i;for(i=0;i<5;i++)menus[i]=items[i];
+        fr_options(options);menus[0]=options;
+        fr_draw();choice=kit_menu(F.k,titles,menus,5,pad,0);
         if(choice<0) {
             static const char *const abandon[]={"Resume designing","Abandon changes"};
             if(kit_pick(F.k,7,20,abandon,2,0)==1)break;
@@ -369,13 +399,21 @@ int ui_create_report(xb_interp *ip,int modify,const char *args,int *ec)
             if(item==0)fr_multiline(F.title,59,"Enter report title. Exit - Ctrl-End.");
             else if(item<5) {
                 int off=item==1?0x7B6:item==2?0x7BA:item==3?0x7BC:0x7B8;
-                if(fr_numeric("New value: ",fr_get(off),item==2 || item==3?0:1,500,&n))fr_set(off,n);
+                if(fr_numeric("New value: ",fr_get(off),item==2 || item==3?0:1,500,&n)) {
+                    int old=fr_get(off);fr_set(off,n);
+                    if(fr_get(0x7BA)+fr_get(0x7BC)>=fr_get(0x7B6)) {
+                        fr_set(off,old);fr_error("Margins must leave at least one character on the page.");
+                    }
+                }
             } else if(item==5)F.raw[0x7C0]=F.raw[0x7C0]=='Y'?'N':'Y';
             else F.raw[0x7C3]^=(uint8_t)(item==6?1:item==7?2:4);
         } else if(pad==1) {
             if(item<4) {
                 char *s=(item&1)?F.gh[item/2]:F.gx[item/2];
-                if(kit_prompt(F.k,24,(item&1)?"Group heading: ":"Group expression: ",s,60))F.dirty=1;
+                char text[61];fr_copy(text,s,60);
+                if(kit_prompt(F.k,24,(item&1)?"Group heading: ":"Group expression: ",text,60)) {
+                    fr_copy(s,text,60);F.dirty=1;
+                }
             } else F.raw[item==4?0x7C1:0x7C2]=F.raw[item==4?0x7C1:0x7C2]=='Y'?'N':'Y';
         } else if(pad==2) {
             if(item==1)fr_multiline(F.col[F.current].head,65,"Enter column heading. Exit - Ctrl-End.");

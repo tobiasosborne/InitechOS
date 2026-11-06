@@ -156,6 +156,12 @@ static void fields(void)
     kit_edit_field(&screen, 2, 3, b, 8, 'N', 0, &changed); assert(!memcmp(b, "-12.5   ", 8));
     memcpy(b, "12345.67", 8); SEQ('2','5','.','5',13);
     kit_edit_field(&screen, 2, 3, b, 8, 'N', 0, &changed); assert(!memcmp(b, "25.5    ", 8));
+    memset(b, ' ', 6); SEQ('1','2','.','3','4');
+    kit_edit_field(&screen, 2, 3, b, 6, 'N', "999.99", &changed); assert(!memcmp(b, " 12.34", 6));
+    memset(b, ' ', 6); SEQ('-','1','.','5',13);
+    kit_edit_field(&screen, 2, 3, b, 6, 'N', "999.99", &changed); assert(!memcmp(b, " -1.5 ", 6));
+    memset(b, ' ', 6); SEQ('1','2',13);
+    kit_edit_field(&screen, 2, 3, b, 6, 'N', "999.99", &changed); assert(!memcmp(b, " 12.  ", 6));
     memset(b, ' ', 8); SEQ('x','1','2','/','3','1','/','8','6');
     kit_edit_field(&screen, 2, 3, b, 8, 'D', 0, &changed); assert(!memcmp(b, "12/31/86", 8));
     memcpy(b, "  /  /  ", 8); SEQ('1','2','3','1','8','6');
@@ -166,8 +172,17 @@ static void fields(void)
     kit_edit_field(&screen, 2, 3, b, 4, 'C', "@!A", &changed); assert(!memcmp(b, "ABCD", 4));
     memset(b, ' ', 4); SEQ('@','a','1','-','2','b');
     kit_edit_field(&screen, 2, 3, b, 4, 'C', "NNNN", &changed); assert(!memcmp(b, "a12b", 4));
-    memset(b, ' ', 4); SEQ('-','1','2','3','4');
-    kit_edit_field(&screen, 2, 3, b, 4, 'C', "####", &changed); assert(!memcmp(b, "1234", 4));
+    memset(b, ' ', 4); SEQ('a','1',' ','-','2');
+    kit_edit_field(&screen, 2, 3, b, 4, 'C', "####", &changed); assert(!memcmp(b, "1 -2", 4));
+    memset(b, ' ', 10); SEQ('8','0','0','8','6','7','5','3','0','9');
+    kit_edit_field(&screen, 2, 3, b, 10, 'C', "@R (999) 999-9999", &changed);
+    assert(!memcmp(b, "8008675309", 10));
+    assert(!memcmp(cells[2] + 3, "(800) 867-5309", 14));
+    memset(b, ' ', 6); kit_fill(&screen, 2, 3, 20, '.', KIT_ATTR_NORMAL);
+    SEQ('a','b','c','d','e','f');
+    kit_edit_field(&screen, 2, 3, b, 6, 'C', "@!S3", &changed);
+    assert(!memcmp(b, "ABCDEF", 6) && !memcmp(cells[2] + 3, "DEF", 3));
+    assert(cells[2][6] == '.');
     memset(b, ' ', sizeof(b));
     { int s[255], i; for (i = 0; i < 255; i++) s[i] = 'a' + i % 26; sequence(s, 255); }
     assert(kit_edit_field(&screen, 2, 72, b, 255, 'C', 0, &changed) == KIT_K_ENTER);

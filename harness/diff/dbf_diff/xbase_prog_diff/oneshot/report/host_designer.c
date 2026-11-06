@@ -13,6 +13,13 @@ void pal_host_free(samir_pal_t *);
 static int input[16384],used,pos;
 static char cells[25][80];
 static char dump[32][128];static int ndump;
+static pal_fd (*base_open)(samir_pal_t *,const char *,int);
+static pal_fd dos_open(samir_pal_t *p,const char *name,int mode)
+{
+    char upper[256];size_t i;
+    for(i=0;name[i] && i<sizeof upper-1;i++)upper[i]=name[i]>='a' && name[i]<='z'?name[i]-32:name[i];
+    upper[i]=0;return base_open(p,upper,mode);
+}
 static void quiet(samir_pal_t *p,const char *s,uint32_t n)
 {(void)p;fwrite(s,1,n,stdout);}
 static int paint(samir_pal_t *p,uint8_t row,uint8_t col,const char *s,uint32_t n)
@@ -87,6 +94,7 @@ int main(int argc,char **argv)
     load(argv[1]);memset(cells,' ',sizeof cells);
     samir_pal_t *p=pal_host_make((struct pal_host_cfg){86,7,24,1024*1024});
     if(!p)return 2;
+    base_open=p->open;p->open=dos_open;
     p->conin_char=key;p->conin_line=line;p->conout=quiet;p->paint=paint;
     xb_interp *ip=xb_interp_make(p);if(!ip)return 2;
     xb_interp_add_cmd_hook(ip,hook,0);

@@ -1,0 +1,18 @@
+Tuse clients
+kret
+w300
+Tindex on city to brcity
+kret
+w400
+Tgoto 2
+kret
+Tbrowse fields city
+kret
+Dindexed
+kctrl-y
+Tberlin
+kctrl-w
+w300
+Tlist
+kret
+Dafter

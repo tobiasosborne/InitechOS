@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+ref="$OLDPWD/harness/diff/dbf_diff/dbf_ref.py"
+python3 "$ref" --schema files/CLIENTS.DBF > schema.txt
+python3 "$ref" --schema files/CLIENTS.BAK > backup-schema.txt
+python3 - "$ref" <<'PY'
+import importlib.util, sys
+s=importlib.util.spec_from_file_location('r',sys.argv[1]); m=importlib.util.module_from_spec(s); s.loader.exec_module(m)
+a=m.DbfFile('files/CLIENTS.BAK'); b=m.DbfFile('files/CLIENTS.DBF')
+assert a.record_count == b.record_count == 3
+assert b.fields[0] == ('NAME','C',8,0)
+assert a.fields[1:] == b.fields[1:]
+for old, new in zip(a.iter_records(), b.iter_records()):
+    assert old[:2] == new[:2]
+    assert old[2][0][2][:8] == new[2][0][2]
+    assert old[2][1:] == new[2][1:]
+print('MODIFY STRUCTURE: resized NAME, all three records copied, original BAK valid')
+PY

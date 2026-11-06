@@ -1,5 +1,6 @@
 /* Full-screen kit: dbase3-decomp/specs/full-screen/assist-ui-and-editors.md
- * and picture-function-templates.md. Experimental SAMIR_W4 UI only.
+ * and picture-function-templates.md; Using III+ U5-18..19 (@R and @S).
+ * Experimental SAMIR_W4 UI only.
  * The PAL owns terminal transport; this module owns all 80x25 shadow cells. */
 #include "samir/kit.h"
 #include "samir/rt.h"
@@ -231,28 +232,58 @@ static int accept_char(int c, char type, int mask, int caps, int alpha)
     if ((mask == 'A' || alpha) && !letter) return -1;
     if (mask == 'N' && !letter && !digit) return -1;
     if (mask == '9' && !digit && !(type == 'N' && (c == '+' || c == '-' || c == '.' || c == ' '))) return -1;
-    if (mask == '#' && !digit && !(type == 'N' && (c == '+' || c == '-' || c == '.' || c == ' '))) return -1;
+    if (mask == '#' && !digit && c != '+' && c != '-' && c != ' ' && !(type == 'N' && c == '.')) return -1;
     return caps || mask == '!' ? u : c;
 }
-static void field_draw(kit *k, int row, int col, const char *buf, int w, int pos, int *offset)
+static void align_integer(char *buf, const char *pic, int len, int point)
+{
+    int from = next_slot(pic, len, point - 1, point, -1), to = from;
+    while (from >= 0 && buf[from] == ' ') from = next_slot(pic, len, from - 1, point, -1);
+    while (to >= 0) {
+        buf[to] = from >= 0 ? buf[from] : ' ';
+        if (from >= 0) from = next_slot(pic, len, from - 1, point, -1);
+        to = next_slot(pic, len, to - 1, point, -1);
+    }
+}
+static int picture_width(const char *picture)
+{
+    int width = KIT_COLS;
+    if (picture && *picture == '@') {
+        for (picture++; *picture && *picture != ' '; picture++) {
+            if (upper(*picture) == 'S' && picture[1] >= '0' && picture[1] <= '9') {
+                width = 0;
+                while (picture[1] >= '0' && picture[1] <= '9') {
+                    int digit = *++picture - '0';
+                    if (width < KIT_COLS) width = bound(width * 10 + digit, 0, KIT_COLS);
+                }
+                if (!width) width = KIT_COLS;
+            }
+        }
+    }
+    return width;
+}
+static void field_draw(kit *k, int row, int col, const char *buf, int w, int pos, int *offset, int limit)
 {
     int visible = KIT_COLS - col;
+    if (visible > limit) visible = limit;
     if (visible > w) visible = w;
     if (pos < *offset) *offset = pos;
     if (pos >= *offset + visible) *offset = pos - visible + 1;
     kit_put_attr(k, row, col, KIT_ATTR_REVERSE, buf + *offset, visible);
     kit_cursor(k, row, col + pos - *offset);
 }
-int kit_edit_field(kit *k, int row, int col, char *buf, int w, char type,
-                   const char *picture, int *changed)
+static int edit_field(kit *k, int row, int col, char *buf, int w, char type,
+                      const char *picture, int *changed)
 {
-    int pos, key, c, i, j, ins = 0, offset = 0, caps, alpha, len, dirty = 0, first = 1;
+    int pos, key, c, i, j, ins = 0, offset = 0, caps, alpha, len, dirty = 0, first = 1, point = -1;
     char datepic[11];
     const char *pic = template_start(picture, &caps, &alpha);
+    int limit = picture_width(picture);
     if (changed) *changed = 0;
     if (!buf || w <= 0) return KIT_K_ENTER;
     col = bound(col, 0, KIT_COLS - 1); row = bound(row, 0, KIT_ROWS - 1);
     type = (char)upper(type); len = length(pic);
+    if (type == 'N') for (i = 0; i < len && i < w; i++) if (pic[i] == '.') { point = i; break; }
     /* The engine formats dates according to SET DATE/CENTURY. Preserve its
      * separators and skip over them when the operator types only digits. */
     if (type == 'D' && !len && w <= 10) {
@@ -273,7 +304,7 @@ int kit_edit_field(kit *k, int row, int col, char *buf, int w, char type,
         return KIT_K_ENTER;
     }
     for (;;) {
-        field_draw(k, row, col, buf, w, pos, &offset);
+        field_draw(k, row, col, buf, w, pos, &offset, limit);
         key = kit_key(k);
         if (key == KIT_K_NONE) continue;
         if (key == KIT_K_LEFT) {
@@ -311,6 +342,15 @@ int kit_edit_field(kit *k, int row, int col, char *buf, int w, char type,
             }
             dirty = 1;
         } else if (key >= 32 && key <= 126) {
+            if (key == '.' && point >= 0) {
+                if (first) for (i = 0; i < w; i++) if (slot(pic, len, i)) buf[i] = ' ';
+                first = 0; dirty = 1;
+                align_integer(buf, pic, len, point);
+                if (changed) *changed = dirty;
+                i = next_slot(pic, len, point + 1, w, 1);
+                if (i >= w) return KIT_K_ENTER;
+                pos = i; continue;
+            }
             c = accept_char(key, type, pos < len ? pic[pos] : 0, caps, alpha);
             if (c < 0) continue;
             /* Numeric first-key replacement must remove the previous
@@ -327,16 +367,47 @@ int kit_edit_field(kit *k, int row, int col, char *buf, int w, char type,
             if (changed) *changed = dirty;
             i = next_slot(pic, len, pos + 1, w, 1);
             if (i >= w || type == 'L') {
-                field_draw(k, row, col, buf, w, pos, &offset);
+                field_draw(k, row, col, buf, w, pos, &offset, limit);
                 return KIT_K_ENTER;
             }
             pos = i;
         } else {
+            if (dirty && point >= 0) {
+                align_integer(buf, pic, len, point);
+                field_draw(k, row, col, buf, w, pos, &offset, limit);
+            }
             if (changed) *changed = dirty;
             return key;
         }
         if (changed) *changed = dirty;
     }
+}
+int kit_edit_field(kit *k, int row, int col, char *buf, int w, char type,
+                   const char *picture, int *changed)
+{
+    char display[512];
+    const char *p = picture, *pic;
+    int insert_literals = 0, caps, alpha, len, i, used = 0, width = 0, key;
+    if (p && *p == '@') {
+        for (p++; *p && *p != ' '; p++) if (upper(*p) == 'R') insert_literals = 1;
+    }
+    if (!insert_literals || upper(type) != 'C' || !buf || w <= 0 || w >= (int)sizeof(display))
+        return edit_field(k, row, col, buf, w, type, picture, changed);
+    pic = template_start(picture, &caps, &alpha); len = length(pic);
+    /* @R inserts literal positions only into the editing display. The
+     * caller's raw character field keeps all of its original data slots. */
+    while (used < w && width < (int)sizeof(display)) {
+        display[width] = slot(pic, len, width) ? buf[used++] : pic[width];
+        width++;
+    }
+    while (width < len && width < (int)sizeof(display) && !slot(pic, len, width)) {
+        display[width] = pic[width]; width++;
+    }
+    if (used < w) return edit_field(k, row, col, buf, w, type, picture, changed);
+    key = edit_field(k, row, col, display, width, type, picture, changed);
+    for (used = i = 0; i < width && used < w; i++)
+        if (slot(pic, len, i)) buf[used++] = display[i];
+    return key;
 }
 int kit_prompt(kit *k, int row, const char *prompt, char *buf, int w)
 {

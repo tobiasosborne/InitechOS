@@ -14,5 +14,13 @@ assert rows == [
 screen = Path('kit-after.txt').read_text()
 assert 'PESTON' in screen and 'WADDAMS' in screen and 'LUMBERGH' in screen, screen
 assert '25.50' in screen or '25.5' in screen, screen
-print('KIT: menu and prompt restore; C/N field edits; Ctrl-End save; dot-prompt LIST')
+raw_path = Path('kit-menu.ppm.raw')
+if raw_path.exists():
+    raw = raw_path.read_bytes()
+    assert len(raw) == 25 * 80 * 2, len(raw)
+    for row, col in ((0, 1), (2, 2), (22, 0)):
+        assert raw[(row * 80 + col) * 2 + 1] == 0x70, (row, col)
+    prompt = Path('kit-prompt.ppm.raw').read_bytes()
+    assert prompt[(24 * 80 + 13) * 2:(24 * 80 + 13) * 2 + 2] == b'2\x70'
+print('KIT: menu and prompt restore; C/N field edits; Ctrl-W save; dot-prompt LIST')
 PY

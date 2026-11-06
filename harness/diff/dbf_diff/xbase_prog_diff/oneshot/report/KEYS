@@ -6,9 +6,9 @@ kret
 w400
 kret
 Tclient balances
-kctrl-end
-kright
-kright
+kctrl-w
+kctrl-d
+kctrl-d
 kret
 Tname
 kret
@@ -18,7 +18,7 @@ kret
 kctrl-y
 T10
 kret
-kpgdn
+kctrl-c
 Tbal
 kret
 kctrl-y
@@ -33,10 +33,18 @@ kret
 Ty
 Ddesign1
 kesc
-kright
-kright
+kctrl-d
+kctrl-d
 kret
 w500
 Treport form clrep to file clrep
 kret
 Dafter
+Tmodify report round
+kret
+Dmodify1
+kctrl-d
+kctrl-d
+kctrl-d
+kctrl-d
+kret

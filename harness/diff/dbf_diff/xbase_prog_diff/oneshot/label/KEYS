@@ -4,7 +4,7 @@ w400
 Tcreate label cllbl
 kret
 w400
-kright
+kctrl-d
 kret
 Tname
 kret
@@ -21,9 +21,15 @@ kshift-0
 kret
 Ddesign1
 kesc
-kright
+kctrl-d
 kret
 w500
 Tlabel form cllbl to file cllbl
 kret
 Dafter
+Tmodify label round
+kret
+Dmodify1
+kctrl-d
+kctrl-d
+kret

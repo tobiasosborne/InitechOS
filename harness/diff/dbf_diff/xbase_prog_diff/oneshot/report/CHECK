@@ -2,5 +2,6 @@
 set -eu
 root=$(git rev-parse --show-toplevel)
 python3 -I "$root/harness/diff/dbf_diff/xbase_prog_diff/oneshot/report/frm_check.py" files/CLREP.FRM --acceptance
+cmp files/ROUND.FRM "$root/harness/diff/dbf_diff/xbase_prog_diff/oneshot/report/SETUP/ROUND.FRM"
 python3 -I "$root/harness/diff/dbf_diff/dbf_ref.py" --schema files/CLIENTS.DBF
 python3 -I "$root/harness/diff/dbf_diff/dbf_ref.py" --records files/CLIENTS.DBF

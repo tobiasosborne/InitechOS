@@ -19,6 +19,8 @@ static lb_state *lb;
 #define L (*lb)
 static int lb_dispose(int result)
 { samir_pal_t *p=L.k.pal;p->release(p,lb);lb=0;return result; }
+static void lb_error(const char *message)
+{kit_message(&L.k,24,message);(void)kit_key(&L.k);}
 static void lb_copy(char *d,const char *s,int cap)
 {int n=0;while(s[n] && n<cap){d[n]=s[n];n++;}d[n]=0;}
 static int lb_u16(int off){return L.raw[off]|(L.raw[off+1]<<8);}
@@ -102,7 +104,7 @@ static int lb_save(void)
 {
     samir_pal_t *p=L.k.pal;pal_fd fd;int i,ok,closed;
     if(!lb_valid()) {
-        kit_message(&L.k,24,"Invalid dimensions: all labels plus gaps and margin must fit 250 characters.");return 0;
+        lb_error("Invalid dimensions: all labels plus gaps and margin must fit 250 characters.");return 0;
     }
     if(L.dirty) {
         rt_memset(L.raw,' ',sizeof L.raw);L.raw[0]=L.raw[1033]=2;
@@ -111,9 +113,9 @@ static int lb_save(void)
         for(i=0;i<16;i++)rt_memcpy(L.raw+73+i*60,L.line[i],rt_strlen(L.line[i]));
     }
     fd=p->open(p,L.name,PAL_WR|PAL_CREATE|PAL_TRUNC);
-    if(fd<0){kit_message(&L.k,24,"Unable to create label file.");return 0;}
+    if(fd<0){lb_error("Unable to create label file.");return 0;}
     ok=p->write(p,fd,L.raw,LB_SIZE)==LB_SIZE;closed=p->close(p,fd);
-    if(!ok || closed){kit_message(&L.k,24,"Label file write failed.");return 0;}
+    if(!ok || closed){lb_error("Label file write failed.");return 0;}
     return 1;
 }
 static void lb_draw(void)
@@ -146,6 +148,7 @@ static int lb_field(void)
     pick=kit_pick(&L.k,3,5,list,n,0);
     if(pick<0)return 0;
     i=(int)rt_strlen(L.line[L.current]);
+    if(i+(i!=0)+(int)rt_strlen(list[pick])>60){lb_error("The label expression cannot exceed 60 characters.");return 0;}
     if(i && i<60)L.line[L.current][i++]=',';
     lb_copy(L.line[L.current]+i,list[pick],60-i);L.dirty=1;return 1;
 }
@@ -180,17 +183,36 @@ static void lb_option(int item)
         if(L.current>=L.dim[0])L.current=L.dim[0]-1;
         return;
     }
-    if(item==7){if(kit_prompt(&L.k,24,"Remarks: ",L.remarks,60))L.dirty=1;return;}
+    if(item==7){
+        char text[61];lb_copy(text,L.remarks,60);
+        if(kit_prompt(&L.k,24,"Remarks: ",text,60)){lb_copy(L.remarks,text,60);L.dirty=1;}
+        return;
+    }
     index=map[item];lb_num(b,L.dim[index]);
     if(!kit_prompt(&L.k,24,"New value: ",b,4))return;
     n=0;i=0;while(b[i]==' ')i++;
     if(!b[i])return;
-    for(;b[i];i++){if(b[i]<'0' || b[i]>'9')return;n=n*10+b[i]-'0';}
-    if(n<lo[index] || n>hi[index]){kit_message(&L.k,24,"Value outside the allowed range.");return;}
+    for(;b[i];i++){if(b[i]<'0' || b[i]>'9'){lb_error("Enter a whole number.");return;}n=n*10+b[i]-'0';}
+    if(n<lo[index] || n>hi[index]){lb_error("Value outside the allowed range.");return;}
     old=L.dim[index];L.dim[index]=n;
-    if(!lb_valid()){L.dim[index]=old;kit_message(&L.k,24,"Labels and spaces exceed the 250 character page width.");return;}
+    if(!lb_valid()){L.dim[index]=old;lb_error("Labels and spaces exceed the 250 character page width.");return;}
     if(L.current>=L.dim[0])L.current=L.dim[0]-1;
     L.dirty=1;
+}
+static void lb_options(char *buf)
+{
+    static const char *const names[]={"Predefined size","Label width","Label height","Left margin","Lines between labels","Spaces between labels","Labels across page","Remarks"};
+    static const int map[]={0,1,0,2,3,4,5};
+    int i,j,pos=0,start;char value[12];
+    for(i=0;i<8;i++) {
+        start=pos;for(j=0;names[i][j];j++)buf[pos++]=names[i][j];
+        if(i>0 && i<7) {
+            while(pos-start<25)buf[pos++]=' ';
+            lb_num(value,L.dim[map[i]]);for(j=0;value[j];j++)buf[pos++]=value[j];
+        }
+        buf[pos++]=0;
+    }
+    buf[pos]=0;
 }
 int ui_create_label(xb_interp *ip,int modify,const char *args,int *ec)
 {
@@ -198,6 +220,7 @@ int ui_create_label(xb_interp *ip,int modify,const char *args,int *ec)
     static const char *const items[]={
         "Predefined size\0Label width\0Label height\0Left margin\0Lines between labels\0Spaces between labels\0Labels across page\0Remarks\0",
         "Edit label expressions\0","Save\0Abandon\0"};
+    char options[320];const char *menus[3];
     wa_env *e=xb_interp_env(ip);int rc,choice,pad=0,done=0;
     *ec=0;
     if(!wa_is_open(e,wa_selected(e))){*ec=52;return -INTERP_ERR_EVAL;}
@@ -214,7 +237,8 @@ int ui_create_label(xb_interp *ip,int modify,const char *args,int *ec)
         rc=lb_load();if(rc && (rc!=1 || modify)){kit_close(&L.k);*ec=rc;return lb_dispose(-INTERP_ERR_EVAL);}
     }
     while(!done) {
-        lb_draw();choice=kit_menu(&L.k,titles,items,3,pad,0);
+        lb_options(options);menus[0]=options;menus[1]=items[1];menus[2]=items[2];
+        lb_draw();choice=kit_menu(&L.k,titles,menus,3,pad,0);
         if(choice<0) {
             static const char *const abandon[]={"Resume designing","Abandon changes"};
             if(kit_pick(&L.k,7,20,abandon,2,0)==1)break;

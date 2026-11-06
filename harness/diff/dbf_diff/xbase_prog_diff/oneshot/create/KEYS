@@ -27,6 +27,10 @@ kret
 kctrl-end
 w300
 kret
+w300
+# Blank-row Enter is also a documented save key. Until the kernel emits
+# Ctrl-End, the first Enter ends definition and this second Enter confirms.
+kret
 w500
 Tn
 w500
