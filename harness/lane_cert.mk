@@ -80,9 +80,16 @@ test-lane-cert:
 	printf 'red\n' > state; git commit -qam 'revoke previous green'; run_cert; \
 	refused 'red gate: test-one' || fail 'old certificate not revoked on red'; \
 	git reset -q --hard "$$head"; \
-	git switch -q main; sh "$$check_tool" "$$out/good.cert" > "$$out/check.log" 2>&1 || { cat "$$out/check.log"; fail 'fresh certificate check'; }; \
+	git commit -q --allow-empty -m 'lane advanced after certificate'; \
+	rc=0; sh "$$check_tool" "$$out/good.cert" lane/proof > "$$out/check.log" 2>&1 || rc=$$?; \
+	[ "$$rc" -eq 2 ] && grep -F 'head_sha mismatch' "$$out/check.log" >/dev/null || fail 'advanced lane head mismatch not rejected'; \
+	printf '>>> test-lane-cert: advanced lane head_sha mismatch refused\n'; \
+	git reset -q --hard "$$head"; \
+	rc=0; sh "$$check_tool" "$$out/good.cert" > "$$out/check.log" 2>&1 || rc=$$?; \
+	[ "$$rc" -eq 2 ] && grep -F 'usage:' "$$out/check.log" >/dev/null || fail 'lane argument not required'; \
+	git switch -q main; sh "$$check_tool" "$$out/good.cert" lane/proof > "$$out/check.log" 2>&1 || { cat "$$out/check.log"; fail 'fresh certificate check'; }; \
 	git commit -q --allow-empty -m 'stale certificate base'; \
-	if sh "$$check_tool" "$$out/good.cert" > "$$out/check.log" 2>&1; then fail 'stale base accepted'; fi; \
+	if sh "$$check_tool" "$$out/good.cert" lane/proof > "$$out/check.log" 2>&1; then fail 'stale base accepted'; fi; \
 	grep -F 'stale base_sha' "$$out/check.log" >/dev/null || fail 'stale base reason'; \
 	git reset -q --hard "$$base"; \
 	printf '%s\n' '.PHONY: gates-for' 'gates-for:' \
@@ -94,9 +101,9 @@ test-lane-cert:
 	run_cert; [ "$$rc" -eq 0 ] || { cat "$$out/cert.log"; fail 'gates-for certification'; }; \
 	mapped=build/cert/lane-mapped.cert; \
 	grep -qxF "base_sha: $$mapbase" "$$mapped" || fail 'mapped base'; \
-	git switch -q main; sh "$$check_tool" "$$mapped" > "$$out/check.log" 2>&1 || fail 'mapped superset'; \
+	git switch -q main; sh "$$check_tool" "$$mapped" lane/mapped > "$$out/check.log" 2>&1 || fail 'mapped superset'; \
 	sed '/^gate test-two /d; s/^gate_count: 2$$/gate_count: 1/' "$$mapped" > "$$out/missing.cert"; \
-	if sh "$$check_tool" "$$out/missing.cert" > "$$out/check.log" 2>&1; then fail 'missing gate accepted'; fi; \
+	if sh "$$check_tool" "$$out/missing.cert" lane/mapped > "$$out/check.log" 2>&1; then fail 'missing gate accepted'; fi; \
 	grep -F 'missing gate: test-two' "$$out/check.log" >/dev/null || fail 'missing gate reason'; \
 	git switch -q lane/mapped; \
 	printf '%s\n' '.PHONY: gates-for' 'gates-for:' \
