@@ -35705,6 +35705,9 @@ include harness/proptest/power_overlay.mk
 # Log policy and gates must follow the TEST_EMU_GATES := assignment.
 include harness/emu/qemu_log.mk
 
+# Merge-revert recovery gates (initech-ror2g). After every TEST_*_GATES assignment.
+include harness/revert_merge.mk
+
 # Gate/mutant ordering for parallel vectors (initech-1x6x2.1). KEEP LAST:
 # it reads the complete TEST_UNIT_GATES / TEST_EMU_GATES lists.
 include harness/gate_pairs.mk
