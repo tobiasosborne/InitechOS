@@ -11,6 +11,14 @@
  *       vectors (Sec 2) are InitechDOS deviations forced by ADR-0003 DEC-04a.2
  *       and are NOT period numbers; an operator ruling may renumber them.
  *
+ * AL=02h provenance (initech-0spyf, initech-fzsvo): the native SAMIR CON
+ * page decision adds changed-cell UPDATE beside SAVE and full RESTORE so
+ * text tenants can paint before ANSI.SYS is installed. The decision was
+ * documented for the WL shard in c9bbce1f; this header retains its local
+ * Rule-8 provenance. AL=00h/01h, KEEP, vectors and the 4002-byte page ABI
+ * retain their contracts; external LFB painters must still use full RESTORE.
+ * No worklog shard is added by this review lane (operator instruction).
+ *
  * Ref (local, Law 1):
  *   IBM 80X0945 DOS 3.30 Technical Reference (Apr 1987):
  *     p. 6-26/6-27  INT 27h Terminate but Stay Resident (DX = last address plus
@@ -64,6 +72,10 @@
  *   AL=00h SAVE    -- EDX -> TSR_SCREEN_BYTES writable bytes; CF=0
  *   AL=01h RESTORE -- EDX -> a buffer SAVE filled; redraws every cell and
  *                     the cursor; CF=0
+ *   AL=02h UPDATE  -- same buffer, redraw only cells changed from the visible
+ *                     console page, then set its cursor; CF=0. Native text
+ *                     clients only: use RESTORE after external LFB painting.
+ *                     Ref: initech-0spyf/fzsvo; real at-dot and at-to-b/TE.
  *   bad AL / EDX not a valid user buffer (DEC-14) -> CF=1, AX=0001h/0009h.
  * Trap gate. */
 #define TSR_VEC_SCREEN       0x39u

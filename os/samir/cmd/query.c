@@ -819,10 +819,16 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
 
     if(!wa_is_open(env,area)) { if(ec) *ec=3; return -INTERP_ERR_EVAL; }
 
-    /* M005U/M005N programs open LIST/DISPLAY with literal CR LF, including
-     * redirected output. A dot command already has the typed Enter's break. */
+    /* Real III+ M005ULOG.TXT starts each table with 0D 0A 52 65 63 6F
+     * 72 64 23. Dot Enter only returns the cursor (at-enter/entered);
+     * LIST supplies its own CR LF too (boot-list-real/list, rows 19..22).
+     * Ref: initech-0spyf/fzsvo; preserve both stream and screen semantics. */
 #ifndef SAMIR_LIST_MUTATE_OPENING
+#ifdef SAMIR_LIST_MUTATE_DOT_OPENING
     if(!xb_interp_ctx(ip)->dot_command) q_putn(ip,"\r\n",2);
+#else
+    q_putn(ip,"\r\n",2);
+#endif
 #endif
 
     /* QS_RECORD with scope_n==0 means "current record" (the DISPLAY default). */
@@ -1054,7 +1060,7 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
     } else {
         if(!pal->say_screen || pal->say_screen(pal,(uint8_t)coordinate[0],(uint8_t)coordinate[1],line,n))goto io_error;
         ctx->screen_row=(uint16_t)coordinate[0];ctx->screen_col=(uint16_t)coordinate[1];
-        rt_cursor_advance(&ctx->screen_row,&ctx->screen_col,line,n,1);
+        rt_cursor_advance(&ctx->screen_row,&ctx->screen_col,line,n,2);
     }
     if(ec)*ec=0;
     return INTERP_OK;
@@ -1797,9 +1803,8 @@ static SAMIR_OVL_TEXT(forms) int qf_fill(samir_pal_t *pal,int r,int c,char ch,in
 static SAMIR_OVL_TEXT(forms) int qf_cursor(xb_interp *ip)
 {
     xb_ctx *x=xb_interp_ctx(ip);
-    /* After a box ending in the last column ROW() can be 25 (TE): the BIOS
-     * cursor cannot be, and a following @ always repositions it. */
-    return xb_interp_pal(ip)->paint(xb_interp_pal(ip),(uint8_t)(x->screen_row<24?x->screen_row:24),
+    /* Real III+ at-to-b/TE, captured before any subsequent SAY: BIOS row 25. */
+    return xb_interp_pal(ip)->paint(xb_interp_pal(ip),(uint8_t)x->screen_row,
                                     (uint8_t)(x->screen_col<79?x->screen_col:79),"",0);
 }
 /* Ref: at-to-a TA/TB/TD, at-to-b TE/TF, at-to-c TI. Edges overwrite cells, the
@@ -1915,6 +1920,7 @@ static SAMIR_OVL_TEXT(forms) int qf_clear(xb_interp *ip,const char *args,int *ec
     (void)r;
 #endif
     x->screen_row=0;x->screen_col=0;
+    x->screen_cleared=1;
     if(qf_cursor(ip))return qf_fail(ec,29);
     samir_status_refresh(ip);
     if(ec)*ec=0;

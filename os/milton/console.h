@@ -70,7 +70,7 @@ typedef struct {
     uint32_t  cols;             /* CONSOLE_COLS                              */
     uint32_t  rows;             /* CONSOLE_ROWS                              */
     uint32_t  cur_col;          /* cursor column (0..cols-1)                 */
-    uint32_t  cur_row;          /* cursor row    (0..rows-1)                 */
+    uint32_t  cur_row;          /* 0..rows; rows is an off-grid BIOS cursor  */
 
     console_color_t fg;         /* packed foreground (ink) -- DEFAULT ink     */
     console_color_t bg;         /* packed background -- DEFAULT paper          */
@@ -111,6 +111,9 @@ typedef struct {
 #define CONSOLE_PAGE_BYTES (CONSOLE_COLS * CONSOLE_ROWS * 2 + 2)
 void console_save_page(const console_t *con, uint8_t *buf);
 void console_restore_page(console_t *con, const uint8_t *buf);
+/* Update an already visible text page: redraw changed cells, then restore
+ * the cursor. Use full restore after other clients have painted the LFB. */
+void console_update_page(console_t *con, const uint8_t *buf);
 
 /* Pack an (r,g,b) triple into the framebuffer pixel format for the given bpp.
  * Branches on bpp exactly like the blit (Sec 5 Risk 2). For 24bpp the result
@@ -163,7 +166,8 @@ void console_write(console_t *con, const char *buf, uint32_t len);
  * Passing ANSI_ATTR_DEFAULT (0x07) restores the default ink/paper exactly. */
 void console_set_attr(console_t *con, uint8_t cga_attr);
 
-/* Move the cursor to an ABSOLUTE 0-based (row, col), clamped to the grid. The
+/* Move the cursor to an ABSOLUTE 0-based (row, col); row==rows is off-grid.
+ * Other out-of-range values clamp to the last cell. The
  * console is the single source of truth for the cursor position (the ANSI FSM
  * reconciles to this -- see int21.c ansi_apply). */
 void console_set_cursor(console_t *con, uint32_t row, uint32_t col);

@@ -25,7 +25,7 @@ struct leg { const char *name, *image, *data, *end, *video, *checks; };
 #define DML(n) DOS("samir-dml-" n "-emu")
 static const struct leg legs[] = {
     /* ADR-0009 DEC-08 / initech-hdlb: SAMIR input and pixels, beyond boot. */
-    { "samir-boot", TRACER, "build/samir_list.img", "SHELL-READY", "vbe101", SHELL_CHECKS },
+    { "samir-boot", "build/samir_boot_capture.img", "build/samir_list.img", "SHELL-READY", "vbe101", SHELL_CHECKS },
     { "command-file-emu", "build/command-file/fragment.img", DATA, "FLAIR-LIVE-READY", "vbe101", FLAIR_CHECKS },
     FLAIR("command-file-negative"),
     /* The DAC row: the FORCE_VBE_101 gate IO.SYS pads the scanline to 648. */
@@ -133,7 +133,7 @@ int main(int argc, char **argv)
     for (size_t i = 0; i < count; i++) {
         const struct leg *l = &legs[i];
         int samir = strcmp(l->name, "samir-boot") == 0;
-        const char *image = samir ? "$(SECONDARY_TRACER_IMG)" : l->image;
+        const char *image = samir ? "$(SAMIRBOOT_CAPTURE_IMG)" : l->image;
         const char *data = samir ? "$(SAMIR_BOCHS_SOURCE)" : l->data;
         char target[160], needle[512], *row, *stop, *body;
         snprintf(target, sizeof target, "test-%s-bochs", l->name);
@@ -178,7 +178,7 @@ int main(int argc, char **argv)
         if (samir) {
             /* Preserve the independent concrete image/data expectation even
              * though this handwritten recipe uses Make variables (WL-0170). */
-            require(strstr(db, "\nSECONDARY_TRACER_IMG := build/tracer_secondary.img\n") &&
+            require(strstr(db, "\nSAMIRBOOT_CAPTURE_IMG := build/samir_boot_capture.img\n") &&
                     strstr(db, "\nSAMIR_LIST_IMG := build/samir_list.img\n") &&
                     strstr(db, "\nSAMIR_BOCHS_SOURCE = $(SAMIR_LIST_IMG)\n"), "IMAGE", target);
             require(strstr(body, "--keys \"$(SAMIRBOOT_SCRN_KEYS)\" --keys-after SHELL-READY") &&

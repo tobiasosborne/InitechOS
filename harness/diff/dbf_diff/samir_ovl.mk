@@ -129,6 +129,7 @@ $(BUILD)/test_samir_ovl_lifetime: $(DBF_DIFF_DIR)/test_samir_ovl_lifetime.c $(SA
 .PHONY: test-samir-ovl-lifetime
 test-samir-ovl-lifetime: $(BUILD)/test_samir_ovl_lifetime
 	@$<
+	@printf '>>> test-samir-ovl-lifetime: green\n'
 TEST_UNIT_GATES += test-samir-ovl-lifetime
 
 .PHONY: test-samir-ovl-output

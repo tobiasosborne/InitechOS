@@ -1,0 +1,12 @@
+# Real III+ command-entry, prompt, scoreboard, deferred CLEAR, column 79.
+at-dot d1 d2 d3 d4 d5 d6 d7 d8
+at-dot-c e1 e2 e3 e4 e5 e6 e7 e8
+at-enter entered prompt
+at-say-edge edge position prompt
+at-say-edge-controls controls prompt
+at-to-b TEd TFd TGd
+at-to-a TAd TBd TDd
+at-to-c THd TId TJd
+at-clear-a CAd CBd CCd CDd
+at-clear-b CEd CFd CGd CHd
+at-clear-c DAd DBd DCd dotat dotclr

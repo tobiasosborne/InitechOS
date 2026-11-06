@@ -181,6 +181,7 @@ test-lane-cert:
 
 test-lane-cert-mutant:
 	+@set -eu; out="$(abspath $(BUILD))/lane-cert/mutants"; mkdir -p "$$out"; \
+	cp -f tools/cert-summary.sh "$$out/cert-summary.sh"; \
 	sed 's/^if \[ -n "$$dirty" \]; then$$/if false; then # mutant: skip dirty check/' tools/lane-cert.sh > "$$out/dirty.sh"; \
 	sed 's/^    if \[ "$$gate_ok" != yes \]; then$$/    if false; then # mutant: certify red gate/' tools/lane-cert.sh > "$$out/red.sh"; \
 	sed 's/^check_make_flags .*$$/: # mutant: ignore MAKEFLAGS check/' tools/lane-cert.sh > "$$out/flags.sh"; \
@@ -196,3 +197,12 @@ test-lane-cert-mutant:
 	printf '>>> test-lane-cert-mutant: green (skip-dirty, certify-red, ignore MAKEFLAGS check, coverage fails open killed)\n'
 
 TEST_UNIT_GATES += test-lane-cert test-lane-cert-mutant
+
+.PHONY: test-lane-cert-summaries
+test-lane-cert-summaries:
+	@sh harness/test_cert_summaries.sh $(abspath tools/lane-cert.sh) $(abspath tools/cert-check.sh) $(abspath $(BUILD))/lane-cert/summaries
+TEST_UNIT_GATES += test-lane-cert-summaries
+.PHONY: test-lane-cert-summaries-mutant
+test-lane-cert-summaries-mutant: test-lane-cert-summaries
+	@sh harness/test_cert_summaries_mutant.sh $(abspath $(BUILD))/lane-cert/summaries-mutant
+TEST_UNIT_GATES += test-lane-cert-summaries-mutant

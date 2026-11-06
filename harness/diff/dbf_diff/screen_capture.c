@@ -165,7 +165,7 @@ int main(int argc,char **argv)
     /* i386 console_t prefix: lfb,pitch,bpp,width,height,bytes_per_pixel,font,
      * cols,rows,cur_col,cur_row. Fail closed on a different grid/ABI. */
     if (le32(head+28)!=80 || le32(head+32)!=25 ||
-        le32(head+36)>=80 || le32(head+40)>=25) screen_die("console geometry/ABI mismatch");
+        le32(head+36)>=80 || le32(head+40)>25) screen_die("console geometry/ABI mismatch");
     memory(page,4000,s.bytes);
     s.bytes[4000]=(unsigned char)le32(head+40);
     s.bytes[4001]=(unsigned char)le32(head+36);

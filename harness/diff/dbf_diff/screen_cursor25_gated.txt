@@ -1,0 +1,2 @@
+# TE pauses directly after CLEAR + @ 0,0 TO 24,79, before any reposition.
+at-to-b TE

@@ -88,6 +88,11 @@ static void grade(const char *got,int which,const char *transport)
             size_t j=0;
             if(p && q) while(j<n && p+j<q && p[j]==tables[which][i][j]) j++;
             fprintf(stderr,"LIST M005%c table %d %s differs at byte %lu\n",letter,i,transport,(unsigned long)j);
+            fprintf(stderr,"  real:");
+            for(j=0;j<12 && j<n;j++) fprintf(stderr," %02X",(unsigned char)tables[which][i][j]);
+            fprintf(stderr,"\n  got: ");
+            if(p && q) for(j=0;j<12 && p+j<q;j++) fprintf(stderr," %02X",(unsigned char)p[j]);
+            fprintf(stderr,"\n");
         }
         CHECK(equal,why);
     }
@@ -120,15 +125,17 @@ int main(int argc,char **argv)
     command("fsck.fat -n " D "/data.img > " D "/fsck-before.log");
     if(screen) {
         char source[2048],*p;int n;
-        /* Force a deterministic final 80x25 viewport with factory blank lines.
-         * Original U table then occupies rows 21..23; row 24 is the prompt. */
+        /* Real III+ list-layout-real/prompt, replaying this exact SCREEN.PRG:
+         * heading row 20, records 21/22, end marker 23, prompt/cursor (24,2).
+         * Ref: INPUTS.sha256 and prompt.screen SHA256SUMS in that capture.
+         * PM ruling for initech-0spyf/fzsvo: real III+ governs this projection. */
         snprintf(path,sizeof path,D "/U0.PRG");slurp(path,source,sizeof source);
         f=create(D "/SCREEN.PRG");if(!f) return 2;
         for(n=0;n<30;n++) fputs("? ''\r\n",f);
         fputs(source,f);fclose(f);plant(D "/SCREEN.PRG","SCREEN.PRG");
         f=create(D "/screen.cells");if(!f) return 2;
         p=tables[0][0]+2;
-        for(n=21;n<=23;n++) {
+        for(n=20;n<=22;n++) {
             char cell[81],*e=strstr(p,"\r\n");size_t len=e?(size_t)(e-p):0;
             CHECK(e && len<=80,"real U heading and two rows fit console cells");
             if(!e || len>80) return 2;

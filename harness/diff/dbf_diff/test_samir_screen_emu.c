@@ -85,9 +85,10 @@ int main(int argc,char **argv)
     } else if(status || off) {
         CHECK(strstr(serial,"Command Line")!=NULL,"status: serial Command Line");
         CHECK(strstr(serial,"CLIENTS")!=NULL,"status: serial database name");
-        /* STATUS draws positioned spans: CR LF moves its cursor without
-         * echoing newline bytes to serial. The next span is record 2. */
-        CHECK(strstr(serial,"Record#  NAME       CITY              BAL      2  WADDAMS")!=NULL,"heading: column-aligned DISPLAY titles");
+        /* Real III+ M005ULOG.TXT/M005NLOG.TXT retain 0D 0A between
+         * heading and record (initech-0spyf/fzsvo). STATUS positioning does
+         * not delete stream controls. Full STATUS layout: initech-ebwsw. */
+        CHECK(strstr(serial,"Record#  NAME       CITY              BAL\r\n      2  WADDAMS")!=NULL,"heading: column-aligned DISPLAY titles with real CR LF");
         CHECK(strstr(serial,"Rec: 2/3")!=NULL,"status: serial live record count");
         CHECK(strstr(serial,"Enter a dBASE III PLUS command.")!=NULL,"status: serial guidance");
         if(status) {

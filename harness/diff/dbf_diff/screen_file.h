@@ -21,8 +21,9 @@ static FILE *screen_open(const char *p, const char *mode)
 }
 static inline void screen_bounds(const screen_file *s)
 {
-    if (s->bytes[4000] >= 25 || s->bytes[4001] >= 80)
-        screen_die("cursor outside 80x25");
+    /* Real III+ at-to-b/TE: BIOS cursor may sit just below the page. */
+    if (s->bytes[4000] > 25 || s->bytes[4001] >= 80)
+        screen_die("cursor outside 80x25 plus off-page row 25");
 }
 static inline void screen_raw(const char *p, screen_file *s)
 {
@@ -121,7 +122,7 @@ static inline void screen_read(const char *p, screen_file *s)
     screen_line(f, b, sizeof b);
     unsigned row, col; int end = 0;
     if (sscanf(b, "CURSOR %2u %2u%n", &row, &col, &end) != 2 ||
-        strcmp(b+end, "\n") || row >= 25 || col >= 80) screen_die("bad CURSOR");
+        strcmp(b+end, "\n") || row > 25 || col >= 80) screen_die("bad CURSOR");
     char canonical[32];
     snprintf(canonical, sizeof canonical, "CURSOR %02u %02u\n", row, col);
     if (strcmp(b, canonical)) screen_die("noncanonical CURSOR");

@@ -489,6 +489,37 @@ int main(void)
             console_set_cursor(&con, 9999, 9999);
             CHECK(con.cur_row == con.rows - 1 && con.cur_col == con.cols - 1,
                   "set_cursor clamps an out-of-range target to the last cell");
+            /* Real III+ at-to-b/TE: off-page cursor carries through SAVE and
+             * RESTORE; drawing, erase and blink must not touch even the spare
+             * framebuffer scanlines below the text band (Rule 2). */
+            {
+                uint8_t page[CONSOLE_PAGE_BYTES], after[CONSOLE_PAGE_BYTES];
+                console_set_cursor(&con,con.rows,0);
+                CHECK(con.cur_row==con.rows && con.cur_col==0,"BIOS off-grid cursor retained");
+                console_save_page(&con,page);
+                uint32_t before=0,now=0;
+                for(uint32_t j=0;j<con.pitch*con.height;j++) before=before*33u+fb[j];
+                console_cursor_wait(&con,0,1);
+                console_draw_glyph(&con,0,con.rows,GLYPH_SOLID,con.fg,con.bg);
+                console_erase_line(&con,2);
+                console_putc(&con,'X');
+                for(uint32_t j=0;j<con.pitch*con.height;j++) now=now*33u+fb[j];
+                CHECK(before==now && !con.cursor_on,"off-grid draw/erase/blink never index framebuffer");
+                console_save_page(&con,after);
+                CHECK(!memcmp(page,after,CONSOLE_PAGE_BYTES-2),"off-grid putc never indexes page");
+                console_restore_page(&con,page);
+                CHECK(con.cur_row==con.rows && con.cur_col==0,"page restore retains row 25");
+                page[2*(2*CONSOLE_COLS+3)]=GLYPH_SOLID;
+                page[2*(2*CONSOLE_COLS+3)+1]=7;
+                console_update_page(&con,page);
+                CHECK(con.cur_row==con.rows && con.cur_col==0,"page update retains row 25");
+                console_save_page(&con,after);
+                CHECK(!memcmp(page,after,sizeof page),"page update preserves exact cells and attributes");
+                CHECK(fb_get(fb,con.pitch,con.bpp,3*8,2*16)==con.fg,"page update paints the changed solid cell");
+                uint32_t visible=fb_get(fb,con.pitch,con.bpp,3*8,2*16);
+                console_update_page(&con,page);
+                CHECK(fb_get(fb,con.pitch,con.bpp,3*8,2*16)==visible,"repeated page update leaves stable pixels");
+            }
 
             /* --- console_get_cursor reads it back --- */
             {

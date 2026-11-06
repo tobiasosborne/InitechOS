@@ -162,7 +162,8 @@ void samir_ovl_require_resident(uintptr_t p,const char *where)
     F(conout) F(conin_line) F(conin_char) F(gotoxy) F(set_attr) F(today) \
     F(alloc) F(reset) F(acquire) F(release) F(status) F(conin_line_noecho) \
     F(exec) F(conin_escape) F(curdrive) F(getenv) F(os_version) F(diskspace) \
-    F(conin_poll) F(time) F(iscolor) F(say_screen) F(printout) F(paint)
+    F(conin_poll) F(time) F(iscolor) F(say_screen) F(printout) F(paint) \
+    F(prompt) F(conin_command)
 #define CTX_FIELDS(F) \
     F(mirror_output) F(mirror_user) F(resolve) F(user) F(scratch) F(dbcur) \
     F(dbcur_user) F(file_pal) F(record_size) F(on_error) F(message) \
@@ -177,11 +178,13 @@ typedef struct {
     const char *names;
 } ovl_fields;
 #define FIELD_NAME(f) #f "\0"
-#define FIELD_DESC(t,f) { offsetof(t,f), sizeof(#f) },
-/* The byte offsets and uintptr_t loads are part of the flat x86 ABI. Check
- * each field, rather than silently truncating a future layout extension. */
+#define FIELD_DESC(t,f) { offsetof(t,f)/sizeof(uintptr_t), sizeof(#f) },
+/* Pointer-sized offsets keep the two-byte descriptor valid on both the
+ * flat x86 artifact and the host oracle as the PAL gains callbacks. Check
+ * alignment and range rather than truncating a future layout extension. */
 #define FIELD_ASSERT(t,f) \
-    _Static_assert(offsetof(t,f) < 255 && sizeof(((t *)0)->f) == sizeof(uintptr_t) \
+    _Static_assert(offsetof(t,f)/sizeof(uintptr_t) < 255 \
+        && offsetof(t,f)%sizeof(uintptr_t) == 0 && sizeof(((t *)0)->f) == sizeof(uintptr_t) \
         && sizeof(#f) <= 32, "overlay field descriptor: " #t "." #f);
 #define PAL_ASSERT(f) FIELD_ASSERT(samir_pal_t,f)
 #define CTX_ASSERT(f) FIELD_ASSERT(xb_ctx,f)
@@ -209,7 +212,7 @@ static void ovl_validate_fields(const void *base,const ovl_fields *audit,
         uintptr_t p;
         /* Copy the representation: no pointer-type aliasing or alignment
          * assumptions when reading function and data pointers alike. */
-        __builtin_memcpy(&p,(const char *)base + f->offset,sizeof p);
+        __builtin_memcpy(&p,(const char *)base + f->offset*sizeof(uintptr_t),sizeof p);
         if (p >= (uintptr_t)__ovl_slot && p < (uintptr_t)__ovl_slot_end) {
             char where[48]; /* longest prefix 10 + field including NUL <=32 */
             uint32_t n = rt_strlen(prefix);
@@ -378,6 +381,13 @@ static int ovl_fetch(uint32_t id)
 
 int samir_ovl_call(unsigned id, int k, xb_interp *ip, const char *args, int *ec)
 {
+#if defined(SAMIR_OVL_MUTATE_SKIP_OPEN) || defined(SAMIR_OVL_MUTATE_NO_STAMP)
+    /* Cold SET construction now loads an overlay before the first prompt
+     * (initech-0spyf/fzsvo). These startup-verification fault injections must
+     * not enter unchecked code: SKIP_OPEN would be rescued by its second
+     * check, and NO_STAMP would execute a foreign resident ABI. */
+    if(id==SAMIR_OVL_SET && k==1)return 0;
+#endif
     const samir_ovl_slot_hdr *h = (const samir_ovl_slot_hdr *)(const void *)__ovl_slot;
     int rc;
 

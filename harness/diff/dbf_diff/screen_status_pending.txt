@@ -1,0 +1,2 @@
+# initech-ebwsw: real III+ STATUS ON/OFF layout, deliberately pending.
+at-status-real status off

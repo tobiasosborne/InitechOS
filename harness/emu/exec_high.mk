@@ -124,6 +124,7 @@ TEST_UNIT_GATES += test-mz-extended-mutant
 # DEC-03a.5: desktop hotkey -> resume -> Exit to InitechDOS -> high prompt
 # launch twice -> legacy MZ. The final marker requires both high teardowns.
 SAMIR_HIGH_RETURN_KEYS = kctrl-alt-bsl,kq,ku,ki,kt,kret,WFLAIR-RESUME,$(FLAIR_EXIT_DOS_SPEC),ks,ka,km,ki,kr,kret,kq,ku,ki,kt,kret,ks,ka,km,ki,kr,kret,kq,ku,ki,kt,kret,km,kz,ke,kx,ke,kc,kret,WMZEXEC-OK
+SAMIR_HIGH_RETURN_MUTATE_CR ?=
 .PHONY: test-flair-samir-high-return
 test-flair-samir-high-return: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(SAMIR_LIST_IMG) $(BUILD)/exec_high_legacy.exe
 	@cp -f $(SAMIR_LIST_IMG) $(BUILD)/samir_high_return_data.img
@@ -131,12 +132,15 @@ test-flair-samir-high-return: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(SAMIR_LIST_IM
 	@printf '@echo off\r\n' >$(BUILD)/samir_high_return_autoexec.bat
 	@mcopy -o -i $(BUILD)/samir_high_return_data.img $(BUILD)/samir_high_return_autoexec.bat ::AUTOEXEC.BAT
 	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk $(FLAIRTENANTS_IMG) --disk2 $(BUILD)/samir_high_return_data.img --name samir_high_return --out $(BUILD) --mouse '$(SAMIR_HIGH_RETURN_KEYS)' --keys-after FLAIR-LIVE-READY --quit-after MZEXEC-OK --timeout-ms 60000 2>$(BUILD)/samir_high_return.report || true
-	@tr -d '\r' <$(BUILD)/samir_high_return.serial >$(BUILD)/samir_high_return.repl
+	@# Real III+ at-enter/entered: Enter is CR only. The native prompt first
+	@# emits its 79 cleanup spaces; this oracle grades commands, not cell layout.
+	@tr $(if $(SAMIR_HIGH_RETURN_MUTATE_CR),-d '\r','\r' '\n') <$(BUILD)/samir_high_return.serial | sed 's/^ *//' >$(BUILD)/samir_high_return.repl
 	@! grep -q '^PANIC' $(BUILD)/samir_high_return.repl
 	@grep -q 'triple_fault=0' $(BUILD)/samir_high_return.report
 	@grep -qx 'FLAIR-RESUME' $(BUILD)/samir_high_return.repl
 	@grep -qx 'FLAIR-EXIT-TO-DOS' $(BUILD)/samir_high_return.repl
-	@test $$(grep -c '^\. quit$$' $(BUILD)/samir_high_return.repl) -ge 3
+	@n=$$(grep -c '^\. quit$$' $(BUILD)/samir_high_return.repl); \
+	 [ "$$n" -ge 3 ] || { printf 'RED test-flair-samir-high-return: CR-delimited quit count %s < 3\n' "$$n"; exit 1; }
 	@grep -qx 'MZEXEC-OK' $(BUILD)/samir_high_return.repl
 	@grep -q 'quit_after_found=1' $(BUILD)/samir_high_return.report
 	@printf '>>> test-flair-samir-high-return: green (hotkey/resume, Exit to InitechDOS, two high prompt launches/reclaims, legacy MZ return)\n'

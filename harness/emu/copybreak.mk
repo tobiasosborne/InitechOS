@@ -102,6 +102,7 @@ $(BUILD)/test_bochs_trace_capture_mut: harness/emu/test_bochs_trace.c harness/em
 	$(CC) $(CFLAGS) -DCOPYBREAK_OPEN='"$(COPYBREAK_OPEN)"' -DCOPYBREAK_SPEC='"$(COPYBREAK_SPEC)"' -DCOPYBREAK_TICK_BUDGET=$(COPYBREAK_TICK_BUDGET) -DBOCHS_TRACE_MUT_NO_CAPTURE -Iharness/emu $< -o $@
 test-bochs-trace: $(BUILD)/test_bochs_trace
 	@$<
+	@printf '>>> test-bochs-trace: green (oracle completed)\n'
 test-bochs-trace-mutant: $(BUILD)/test_bochs_trace_mut $(BUILD)/test_bochs_trace_origin_mut $(BUILD)/test_bochs_trace_sync_mut $(BUILD)/test_bochs_trace_capture_mut
 	@if $< >$(BUILD)/bochs_trace_mut.log 2>&1; then echo 'FAIL Return mutant survived'; exit 1; fi
 	@grep -qx 'RED bochs trace parser' $(BUILD)/bochs_trace_mut.log
@@ -112,6 +113,7 @@ test-bochs-trace-mutant: $(BUILD)/test_bochs_trace_mut $(BUILD)/test_bochs_trace
 	@if $(BUILD)/test_bochs_trace_capture_mut >$(BUILD)/bochs_trace_capture_mut.log 2>&1; then echo 'FAIL uncaptured mouse mutant survived'; exit 1; fi
 	@grep -qx 'RED bochs pointer origin: opening step 0 at 320,240 want 220,140' $(BUILD)/bochs_trace_capture_mut.log
 	@echo 'GREEN bochs trace mutants: Return, unsynchronised pointer origin, free-running replay clock and uncaptured mouse rejected'
+	@printf '>>> test-bochs-trace-mutant: green (oracle completed)\n'
 
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_INPUT_HANDOFF_GATE -DFLAIR_TEN_TICK_BUDGET=3000,input_handoff))
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_NO_INPUT_REPLAY -DKMAIN_INPUT_HANDOFF_GATE -DFLAIR_TEN_TICK_BUDGET=3000,no_input_replay))

@@ -3,6 +3,7 @@
 set -eu
 LC_ALL=C
 export LC_ALL
+. "$(dirname "$0")/cert-summary.sh"
 refuse() { printf 'cert-check: %s\n' "$1" >&2; exit 2; }
 required=${REQUIRED_GATES:-}
 case $# in
@@ -41,13 +42,15 @@ scratch=$(mktemp -d build/cert/.cert-check-XXXXXX)
 trap 'rm -rf "$scratch"' 0
 trap 'exit 2' HUP INT TERM
 : > "$scratch/gates"
+asset_skip=no
 while IFS= read -r line; do
     case $line in 'gate '*)
         rest=${line#gate }
         gate=${rest%% *}
         final=${rest#* }
         case $gate in ''|[!A-Za-z0-9]*|*[!A-Za-z0-9_.-]*) refuse "invalid gate: $gate";; esac
-        case $final in ">>> $gate: green"|">>> $gate: green "*) ;; *) refuse "non-green gate: $gate";; esac
+        verdict=$(cert_summary_kind "$gate" "$final") || refuse "non-green gate: $gate"
+        [ "$verdict" != skip ] || asset_skip=yes
         grep -qxF "$gate" "$scratch/gates" && refuse "duplicate gate: $gate"
         printf '%s\n' "$gate" >> "$scratch/gates";;
     esac
@@ -94,4 +97,7 @@ for gate in $required; do
 done
 [ "$missing" = no ] || exit 2
 printf 'cert-check: coverage checked (%s; cert selector: %s)\n' "$coverage_source" "$cert_selector"
+if [ "$asset_skip" = yes ]; then
+    printf "cert-check: NOT PROVEN test-assets: SKIP, fixture absent on this host\n"
+fi
 printf 'cert-check: PASS (%s gates; base == main; head == proposed; base ancestor of head)\n' "$count"

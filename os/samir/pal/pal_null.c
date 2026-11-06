@@ -49,6 +49,10 @@ static int32_t null_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
 static int32_t null_conin_char(samir_pal_t *p)
 { (void)p; return -1; }                          /* EOF */
 
+/* at-dot/at-enter PAL extension (initech-0spyf/fzsvo): no display or input. */
+static void null_prompt(samir_pal_t *p,int scoreboard,int cleared)
+{ (void)p; (void)scoreboard; (void)cleared; }
+
 static void    null_gotoxy(samir_pal_t *p, uint8_t row, uint8_t col)
 { (void)p; (void)row; (void)col; }
 
@@ -110,7 +114,7 @@ static int     null_paint(samir_pal_t *p, uint8_t row, uint8_t col,
  * Designated initializers do not warn on an omitted slot, so completeness is
  * pinned by the slot count below: a member added to pal.h fails this build
  * until it is bound here AND counted (Rule 2: fail at compile time). */
-#define SAMIR_PAL_SLOTS 31u
+#define SAMIR_PAL_SLOTS 33u
 _Static_assert(sizeof(samir_pal_t) == SAMIR_PAL_SLOTS * sizeof(void (*)(void)),
                "samir_pal gained or lost a slot: bind it in samir_pal_null and update SAMIR_PAL_SLOTS");
 
@@ -145,5 +149,7 @@ samir_pal_t samir_pal_null = {
 	.iscolor           = null_iscolor,
 	.say_screen        = null_say_screen,
 	.printout          = null_printout,
-	.paint             = null_paint
+	.paint             = null_paint,
+	.prompt            = null_prompt,
+	.conin_command     = null_conin_line
 };

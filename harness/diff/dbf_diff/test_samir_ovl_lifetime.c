@@ -39,7 +39,7 @@ static const field pal_contract[] = {
     PAL(release), PAL(status), PAL(conin_line_noecho), PAL(exec),
     PAL(conin_escape), PAL(curdrive), PAL(getenv), PAL(os_version),
     PAL(diskspace), PAL(conin_poll), PAL(time), PAL(iscolor), PAL(say_screen),
-    PAL(printout)
+    PAL(printout), PAL(paint), PAL(prompt), PAL(conin_command)
 };
 #define CTX(f) {offsetof(xb_ctx,f), "c->" #f}
 static const field ctx_contract[] = {

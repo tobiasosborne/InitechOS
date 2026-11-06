@@ -13,10 +13,12 @@ $(LAUNCHKEY_DATA): $(FLAIR_DATA_IMG) $(BUILD)/SAMIR.EXE $(BUILD)/SAMIR.OVL
 LAUNCHKEY_IMAGE ?= $(BUILD)/flair_tenants_mut_launchkey_gate.img
 LAUNCHKEY_TAG ?= launchkey
 LAUNCHKEY_REPEAT = grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 .* fg=1 bg=0 -> 0$$' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="---------                                                               " fg=1 bg=0 -> 0'
+# Real III+ at-enter/entered: Enter is CR-only; preserve it as a delimiter
+# before matching kernel markers following native SAMIR output.
 LAUNCHKEY_RECOVERY = ! grep -q '^PANIC' $(1) && \
  [ "$$(grep -c '^FLAIR-SUSPEND$$' $(1))" = 1 ] && \
  [ "$$(grep -c '^FLAIR-RESUME$$' $(1))" = 1 ] && \
- grep -qx 'FLAIR-TEXT-EXIT rc=0' $(1) && $(call LAUNCHKEY_REPEAT,$(1)) && \
+ tr '\r' '\n' < $(1) | grep -qx 'FLAIR-TEXT-EXIT rc=0' && $(call LAUNCHKEY_REPEAT,$(1)) && \
  sed -n '/^FLAIR-RESUME$$/,$$p' $(1) | grep -q '^TENANT-GATE ax=0x0033 win=1 x=105 y=64 '
 
 .PHONY: test-flair-launchkey test-flair-launchkey-mutant
@@ -52,7 +54,9 @@ RECORD_DATA_launchkey = $(LAUNCHKEY_DATA)
 RECORD_MARKER_launchkey = FLAIR-RESUME
 RECORD_SETTLE_launchkey = 400
 .PHONY: test-flair-launchkey-record
-test-flair-launchkey-record:
+# Freeze every recursive record-flair input before another outer target can
+# link it; otherwise two makes concurrently write the same tenant ELF.
+test-flair-launchkey-record: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(LAUNCHKEY_DATA)
 	+@INITECH_QMP_STDIO=1 $(MAKE) --no-print-directory -j3 record-flair SCRIPT=launchkey
 	@# A recorder stops after its final frame, before the bounded LIVE-OK.
 	@grep -qx '\[harness\] OK=1' $(RECORD_CLIPS_DIR)/rec_launchkey.report

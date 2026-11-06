@@ -637,9 +637,9 @@ static void milton_rawout(samir_pal_t *p, const char *s, uint32_t n)
     (void)cf;
 }
 
-/* PAL terminal binding via installed ANSI.SYS, no kernel address coupling.
- * ADR-0008 DEC-02 terminal extension; row reservation is SAMIR policy.
- * The model owns scrolling only while STATUS is ON. ANSI never enters files. */
+/* Native BIOS-page terminal binding, without kernel address coupling.
+ * ADR-0008 DEC-02 terminal extension; spec/tsr_contract.h page service.
+ * The model owns scrolling and forwards plain transcript bytes through CON. */
 static int milton_is_console(uint32_t handle)
 {
     uint32_t dx=0;int cf=0;
@@ -659,24 +659,95 @@ static __attribute__((noinline)) uint32_t milton_cup(char *seq,uint8_t row,uint8
     seq[n++]=(char)('0'+col%10);seq[n++]='H';
     return n;
 }
+static void milton_page(uint8_t *page,uint32_t operation);
 static void milton_cursor(samir_pal_t *p,uint8_t row,uint8_t col)
 {
-    char seq[16];
-    milton_rawout(p,seq,milton_cup(seq,row,col));
+    uint8_t page[4002];(void)p;
+    milton_page(page,0);
+    page[4000]=row;page[4001]=col;
+    milton_page(page,1);
+}
+/* BIOS-page cell output bypasses ANSI control interpretation. Real III+
+ * at-say-edge-controls/controls contains literal 0D and 0A screen bytes. */
+static void milton_draw_cells(samir_pal_t *p,uint8_t row,uint8_t col,uint8_t attr,const char *text,uint32_t n)
+{
+    uint8_t page[4002];uint32_t i;
+    if(row>=25 || col>=80 || n>80u-col) {
+        static const char bad[]="SAMIR draw bound\r\n";
+        milton_rawout(p,bad,sizeof bad-1);
+        milton_panic();
+    }
+    milton_page(page,0);
+    /* CON still supplies the transcript, while the page owns every pixel.
+     * FLAIR's native text tenant has no CONFIG.SYS ANSI driver installed. */
+    if(p && n && milton_is_console(1)) {
+        uint8_t r=page[4000],c=page[4001];
+        /* Real at-to-b/TE proves row 25 is a valid off-page BIOS cursor.
+         * Forward printable CON bytes there without drawing or scrolling.
+         * Split an 80-cell span so CON never wraps the off-page row. */
+        page[4000]=25;page[4001]=0;milton_page(page,1);
+        milton_rawout(p,text,n==80?79:n);
+        if(n==80){milton_page(page,1);milton_rawout(p,text+79,1);}
+        page[4000]=r;page[4001]=c;
+    }
+    for(i=0;i<n;i++) { page[row*160+(col+i)*2]=(uint8_t)text[i];page[row*160+(col+i)*2+1]=attr; }
+    milton_page(page,1);
 }
 static void milton_draw(void *user,uint8_t row,uint8_t col,uint8_t attr,const char *text,uint32_t n)
 {
-    samir_pal_t *p=(samir_pal_t *)user;
-    milton_cursor(p,row,col);
-    milton_rawout(p,attr==0x70?"\033[0;7m":"\033[0m",attr==0x70?6u:4u);
-    milton_rawout(p,text,n);
-    milton_rawout(p,"\033[0m",4);
+    samir_pal_t *p=(samir_pal_t *)user;uint32_t i;
+    for(i=0;i<n;i++) if((uint8_t)text[i]<32 || text[i]==127) {
+        milton_draw_cells((samir_pal_t *)0,row,col,attr,text,n);return;
+    }
+    milton_draw_cells(p,row,col,attr,text,n);
+}
+/* BIOS-page equivalent, spec/tsr_contract.h sections 2/3. Copy attributes as
+ * well as characters, without echoing old rows into CON's serial transcript.
+ * The 4002-byte temporary lives on the guarded 64 KiB application stack. */
+static void milton_page(uint8_t *page,uint32_t operation)
+{
+    uint8_t failed;
+    /* UPDATE uses the existing page format without repainting unchanged
+     * cells. The console is visible throughout native command output. */
+    if(operation==1)operation=2;
+    __asm__ __volatile__("int $0x39; setc %0"
+        : "=qm"(failed), "+a"(operation) : "d"(page) : "cc", "memory");
+    if(failed) milton_panic();
+}
+static void milton_scroll(void *user,uint8_t top,uint8_t bottom)
+{
+    samir_screen *s=&state_of((samir_pal_t *)user)->screen;
+    uint8_t page[4002];uint32_t r,c;
+    milton_page(page,0);
+    for(r=top;r<bottom;r++) rt_memcpy(page+r*160,page+(r+1)*160,160);
+    for(c=0;c<80;c++) { page[bottom*160+c*2]=' ';page[bottom*160+c*2+1]=7; }
+    page[4000]=s->row;page[4001]=s->col;
+    milton_page(page,1);
 }
 static void milton_conout(samir_pal_t *p,const char *text,uint32_t n)
 {
     samir_screen *screen=&state_of(p)->screen;
-    if(screen->active) {
-        samir_screen_write(screen,text,n);
+    if(milton_is_console(1)) {
+        uint32_t i=0;
+        while(i<n) {
+            uint32_t start=i;
+            while(i<n && text[i]!='\r' && text[i]!='\n' && text[i]!='\b') i++;
+            samir_screen_write(screen,text+start,i-start);
+            if(i<n) {
+                /* M005ULOG.TXT and real list-layout-real/prompt: line CR/LF
+                 * belong to the stream even when the model owns scrolling.
+                 * Keep their order among drawn runs. Restore the page after
+                 * CON forwards the byte, then let the model apply its motion
+                 * once (including its reserved rows and bottom-row scroll). */
+#ifndef SAMIR_STREAM_MUTATE_DROP_CRLF
+                uint8_t page[4002];
+                milton_page(page,0);
+                milton_rawout(p,text+i,1);
+                milton_page(page,1);
+#endif
+                samir_screen_write(screen,text+i++,1);
+            }
+        }
         milton_cursor(p,screen->row,screen->col);
     } else milton_rawout(p,text,n);
 }
@@ -692,7 +763,14 @@ static void milton_status(samir_pal_t *p,int on,const char *path,uint32_t rec,ui
     db[i]=0;
     if(on && !screen->active) {
         /* Start a fresh command page with a bounded 22-row viewport. */
+        uint8_t attr=screen->attr;
         samir_screen_init(screen,milton_draw,p);
+#ifndef SAMIR_REVIEW_MUTANT_COLOR_RESET
+        screen->attr=attr;
+#else
+        (void)attr;
+#endif
+        screen->scroll=milton_scroll;
         milton_rawout(p,"\033[2J",4);
     }
     if(on || screen->active) {
@@ -708,15 +786,28 @@ static int32_t milton_terminal_line(samir_pal_t *p,char *buf,uint32_t cap,int ec
     for(;;) {
         c=milton_conin_char(p);
         if(c<0) return -1;
+#ifndef SAMIR_REVIEW_MUTANT_KEYS
+        /* IBM/DOS extended keys arrive as one 00,scan pair (8011ad44).
+         * Consume navigation/function scans as keys, never printable text.
+         * This line editor appends/erases; it has no interior insertion point. */
+        if(c==0) { if(milton_conin_char(p)<0)return -1;continue; }
+#endif
         if(c=='\r' || c=='\n') break;
         if(c=='\b') { if(n) { n--; if(echo) milton_conout(p,"\b \b",3); } continue; }
         if(c<32 || c>126) continue;
         if(n+1<cap) { buf[n++]=(char)c; if(echo) { char ch=(char)c;milton_conout(p,&ch,1); } }
         else overflow=1;
     }
-    if(echo) milton_conout(p,"\n",1);
+    if(echo) milton_conout(p,echo==2?"\r":"\n",1);
     buf[n]=0;
     return overflow?-1:(int32_t)n;
+}
+static void milton_prompt(samir_pal_t *p,int scoreboard,int cleared)
+{
+    samir_screen *s=&state_of(p)->screen;
+    if(!milton_is_console(1) || !milton_is_console(0)) return;
+    samir_screen_prompt(s,scoreboard,cleared);
+    milton_cursor(p,s->row,s->col);
 }
 
 /* Ref: pal.h conin_line and ADR-0009 DEC-06. AH=3Fh stdin is a byte
@@ -767,6 +858,17 @@ static int32_t milton_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
 static int32_t milton_conin_line_noecho(samir_pal_t *p,char *buf,uint32_t cap)
 {
     if(milton_is_console(0)) return milton_terminal_line(p,buf,cap,0);
+    return samir_line_read(&state_of(p)->input,milton_input_read,p,buf,cap);
+}
+static int32_t milton_conin_command(samir_pal_t *p,char *buf,uint32_t cap)
+{
+    if(milton_is_console(0)) {
+#ifdef SAMIR_DOTPROMPT_MUTANT_enter
+        return milton_terminal_line(p,buf,cap,1);
+#else
+        return milton_terminal_line(p,buf,cap,2);
+#endif
+    }
     return samir_line_read(&state_of(p)->input,milton_input_read,p,buf,cap);
 }
 
@@ -907,7 +1009,7 @@ static int milton_diskspace(samir_pal_t *p, uint32_t *bytes)
     return PAL_OK;
 }
 
-/* Terminal slots now bind to the same ANSI transport as STATUS. */
+/* Interactive terminal slots use the native page service. */
 static void milton_gotoxy(samir_pal_t *p,uint8_t row,uint8_t col)
 {
     if(milton_is_console(1)) milton_cursor(p,row,col);
@@ -917,6 +1019,16 @@ static void milton_gotoxy(samir_pal_t *p,uint8_t row,uint8_t col)
  * Milton protected mode (os/milton/idt.c), not the real-mode BIOS API. */
 static int milton_con_at(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n,int cells)
 {
+    if(cells) {
+#ifdef SAMIR_FORMS_MUTANT_wrap
+        milton_cursor(p,row,col);
+        milton_rawout(p,text,n);
+#else
+        if(n)milton_draw_cells((samir_pal_t *)0,row,col,state_of(p)->screen.attr,text,n);
+        milton_cursor(p,row,(uint8_t)(col+n<80u?col+n:79u));
+#endif
+        return 0;
+    }
     char seq[16];uint32_t pos=milton_cup(seq,row,col);int result=0;
     pal_fd fd=milton_open(p,"CON",PAL_WR);
     if(fd<0)return -PAL_EIO;
@@ -930,18 +1042,29 @@ static int milton_con_at(samir_pal_t *p,uint8_t row,uint8_t col,const char *text
 }
 static int milton_say_screen(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
 {
-    int result=milton_con_at(p,row,col,text,n,0);
-    if(!result && state_of(p)->screen.active)
-        samir_screen_at(&state_of(p)->screen,row,col,text,n);
-    return result;
+#ifdef SAMIR_REVIEW_MUTANT_REDIRECT
+    if(milton_is_console(1))
+#endif
+    {
+        samir_screen *s=&state_of(p)->screen;
+        samir_screen_at(s,row,col,text,n);
+        milton_cursor(p,s->row,s->col);
+        return 0;
+    }
+#ifdef SAMIR_REVIEW_MUTANT_REDIRECT
+    return milton_con_at(p,row,col,text,n,0);
+#endif
 }
-/* pal.h paint: ANSI.SYS wrap off around the cells, so (24,79) never scrolls. */
+/* pal.h paint: literal native cells, so (24,79) never scrolls. */
 static int milton_paint(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
 {
+#ifdef SAMIR_CURSOR25_MUTANT
+    if(row==25)row=24;
+#endif
     int result=milton_con_at(p,row,col,text,n,1);
-    if(!result && state_of(p)->screen.active) {
+    if(!result) {
         samir_screen *s=&state_of(p)->screen;
-        rt_memcpy(&s->text[row][col],text,n);
+        if(row<25 && col<80 && n<=80u-col) rt_memcpy(&s->text[row][col],text,n);
         s->row=row;s->col=(uint8_t)(col+n<80u?col+n:79u);
     }
     return result;
@@ -960,17 +1083,11 @@ static int milton_printout(samir_pal_t *p,const char *text,uint32_t n)
 
 static void milton_set_attr(samir_pal_t *p,uint8_t attr)
 {
-    /* Existing CON ANSI transport: CGA -> SGR 30-37/40-47, 1 and 5.
-     * Ref: os/milton/ansi.c ansi_do_sgr, IBM DOS 3.30 TR Ch 4 tables 4-1/4-2.
-     * Reset first so a previous bright/blinking attribute cannot leak. */
-    static const char cga_to_ansi[]="04261537";
-    char seq[16]="\033[0;30;40";
-    unsigned n=9;
-    seq[5]=cga_to_ansi[attr&7];seq[8]=cga_to_ansi[(attr>>4)&7];
-    if(attr&8){seq[n++]=';';seq[n++]='1';}
-    if(attr&128){seq[n++]=';';seq[n++]='5';}
-    seq[n++]='m';
-    if(milton_is_console(1))milton_rawout(p,seq,n);
+#ifndef SAMIR_REVIEW_MUTANT_COLOR
+    state_of(p)->screen.attr=attr;
+#else
+    (void)p;(void)attr;
+#endif
 }
 
 /* PRD Sec 5 / spec/hardware.json video: every supported display is colour.
@@ -1251,6 +1368,9 @@ samir_pal_t *pal_milton_make(void)
     uint32_t heap_seg;
 
     samir_screen_init(&st->screen,milton_draw,&st->vtable);
+    st->screen.scroll=milton_scroll;
+    st->vtable.prompt=milton_prompt;
+    st->vtable.conin_command=milton_conin_command;
     st->vtable.status=milton_status;
     st->vtable.conin_line_noecho=milton_conin_line_noecho;
     st->input.pos=st->input.len=0;

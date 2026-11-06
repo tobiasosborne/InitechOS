@@ -1,6 +1,10 @@
 /* initech-nstg; PRD Sec 8 + CLAUDE.md Rule 2. Host-only preflight test.
  * Include the implementation to exercise argv construction without QEMU.
  * Trap fork too: even the missing-preflight mutant must stay host-only. */
+/* qemu.c uses Linux pidfd syscalls; feature macros precede ALL libc headers. */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE 700
 #include <sys/types.h>

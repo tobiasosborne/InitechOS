@@ -1,15 +1,19 @@
 #!/bin/sh
 # W3 forms emu oracle (initech-p3nn0): replay a real III+ screen-mint case's KEYS
 # against SAMIR under QEMU and compare each gated dump with screen_tool compare
-# (no trimming or masking: docs/screen-mint.md). WAIT n = n BIOS ticks, 55 ms.
+# (no trimming or masking: docs/screen-mint.md). Replay the same paused states;
+# QEMU needs shorter settling waits than the real 386 reference. Polling INKEY
+# for full BIOS-tick waits would exhaust the unchanged QEMU debug-log cap.
 # usage: screen_forms_emu.sh [SAMIR.EXE] ; any differing dump is RED.
 set -u
 exe=${1:-build/SAMIR.EXE}
 ovl=${exe%.EXE}.OVL
 tag=$(basename "$exe" .EXE)
-root=build/samir-forms/$tag
+list=${SCREEN_FORMS_GATED:-harness/diff/dbf_diff/screen_forms_gated.txt}
+suite=${SCREEN_FORMS_SUITE:-forms-emu}
+root=build/samir-$suite/$tag
 mint=harness/diff/dbf_diff/xbase_prog_diff/screen-mint
-scale=${SCREEN_FORMS_WAIT_MS:-55}
+scale=${SCREEN_FORMS_WAIT_MS:-5}
 run_case() {
     case=$1; shift; gated=" $* "; out=$root/$case
     rm -rf "$out"; mkdir -p "$out"
@@ -21,20 +25,30 @@ run_case() {
         case $verb in
         WAIT) ms=$((arg * scale)); [ "$ms" -gt 3000 ] && ms=3000; spec="$spec,w$ms" ;;
         KEY) [ "$arg" = ENTER ] || { echo "RED: unsupported key $arg"; return 2; }; spec="$spec,kret" ;;
-        TEXT) t=$(printf '%s' "$arg" | tr 'A-Z' 'a-z')
-              case $t in *[!a-z0-9\ ]*) echo "RED: unsupported text $arg"; return 2;; esac
+        TEXT) t=$arg
               i=0; while [ $i -lt ${#t} ]; do i=$((i+1)); c=$(printf '%s' "$t" | cut -c$i)
-                  if [ "$c" = ' ' ] || [ -z "$c" ]; then spec="$spec,kspc"; else spec="$spec,k$c"; fi; done ;;
+                  case $c in
+                  ' ') k=spc;; '@') k=shift-2;; ',') k=comma;; '"') k=shift-apostrophe;;
+                  '?') k=shift-slash;; '=') k=equal;; '.') k=dot;; '-') k=minus;;
+                  [A-Z]) k=shift-$(printf '%s' "$c" | tr 'A-Z' 'a-z');;
+                  [a-z0-9]) k=$c;; *) echo "RED: unsupported text $arg"; return 2;;
+                  esac
+                  spec="$spec,k$k"; done ;;
         DUMP) case $gated in *" $arg "*) spec="$spec,D$out/$arg.ppm" ;; esac ;;
         esac
     done < "$mint/$case/KEYS"
     # --legacy-quit: every asserted capture is a D token inside the stream, taken
     # before the last input; a host too slow to reach one is a missing dump = RED.
-    INITECH_QMP_STDIO=1 INITECH_TEXT_SCREEN_TOOL=build/screen_capture \
+    if ! INITECH_QMP_STDIO=1 INITECH_TEXT_SCREEN_TOOL=build/screen_capture \
     INITECH_TEXT_SCREEN_ELF=build/kernel_shell_secondary.elf \
     build/qemu_harness --disk build/tracer_secondary.img --disk2 "$out/data.img" \
         --name live --out "$out" --timeout-ms "${SCREEN_FORMS_TIMEOUT_MS:-60000}" \
-        --mouse "$spec" --keys-after SHELL-READY --legacy-quit > "$out/stdout" 2> "$out/report"
+        --mouse "$spec" --keys-after SHELL-READY --legacy-quit > "$out/stdout" 2> "$out/report"; then
+        echo "RED: $case capture run failed"; cat "$out/report"; return 1
+    fi
+    if ! grep -q '^\[harness\] OK=1$' "$out/report"; then
+        echo "RED: $case capture run incomplete"; cat "$out/report"; return 1
+    fi
     rc=0
     for d in "$@"; do
         if [ ! -s "$out/$d.ppm.screen" ]; then echo "RED: $case/$d not captured"; rc=1; continue; fi
@@ -51,9 +65,9 @@ while IFS= read -r line; do
     case $line in ''|'#'*) continue;; esac
     ( run_case $line ) > "$root/$(echo "$line" | cut -d' ' -f1).log" 2>&1 &
     pids="$pids $!"
-done < harness/diff/dbf_diff/screen_forms_gated.txt
+done < "$list"
 fail=0
 for p in $pids; do wait "$p" || fail=1; done
 cat "$root"/*.log
-if [ "$fail" != 0 ]; then printf 'RED: test-samir-forms-emu (%s)\n' "$tag"; exit 1; fi
-printf '>>> test-samir-forms-emu: green (%s; every gated real III+ dump exact)\n' "$tag"
+if [ "$fail" != 0 ]; then printf 'RED: test-samir-%s (%s)\n' "$suite" "$tag"; exit 1; fi
+printf '>>> test-samir-%s: green (%s; every gated real III+ dump exact)\n' "$suite" "$tag"

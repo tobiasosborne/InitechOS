@@ -3314,6 +3314,7 @@ test-samir-set-color-mutant: test-samir-set-color $(BUILD)/test_samir_set_color_
 	@set +e; $(BUILD)/test_samir_set_color_mutant > $(BUILD)/set-color-mutant.log 2>&1; rc=$$?; set -e; \
 	 test $$rc -eq 1 && grep -q 'FAIL.*SET COLOR standard attribute reaches PAL' $(BUILD)/set-color-mutant.log || { cat $(BUILD)/set-color-mutant.log; exit 1; }; \
 	 printf '>>> SET_COLOR_MUTANT_BG RED: '; grep -m1 'FAIL.*SET COLOR standard attribute reaches PAL' $(BUILD)/set-color-mutant.log
+	@printf '>>> test-samir-set-color-mutant: green (SET_COLOR_MUTANT_BG rejected)\n'
 
 # ---- SAMIR S5.6 formatter wiring: SET DATE/CENTURY -> DTOC/CTOD (initech-7az.15) ----
 # SET DATE (8 formats) + SET CENTURY drive DTOC format + CTOD parse via xb_ctx fields
@@ -4951,7 +4952,7 @@ test-absdisk-mutant: $(TEST_ABSDISK_MUT_LBA) $(TEST_ABSDISK_MUT_NOOP) \
 			printf '>>> test-absdisk-mutant: green (%s correctly RED)\n' "$$name"; \
 		fi; \
 	done
-	@printf '>>> test-absdisk-mutant: all 8 DEC-15 mutants correctly RED (the oracle bites)\n'
+	@printf '>>> test-absdisk-mutant: green (all 8 DEC-15 mutants correctly RED) (the oracle bites)\n'
 
 # --- FAT12 POSITIONED-WRITE oracle (beads initech-snk) ----------------------
 # The symmetric counterpart of fat12_read_partial: fat12_write_partial does a
@@ -5243,6 +5244,16 @@ test-console: $(TEST_CONSOLE)
 	@printf ">>> test-console: 8x16 glyph blit (MSB-left, bpp 32/24) + cursor/wrap/scroll\n"
 	@$(TEST_CONSOLE)
 	@printf ">>> test-console: green\n"
+
+$(BUILD)/test_console_cursor25_mutant: $(TEST_CONSOLE_SRC) $(MILTON_DIR)/console.c $(MILTON_DIR)/console.h $(MILTON_DIR)/boot_info.h os/flair/surface.c os/flair/surface.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONSOLE_MUTATE_OFFGRID_CLAMP -I$(MILTON_DIR) -Iseed -Ios/flair \
+		-o $@ $(TEST_CONSOLE_SRC) $(MILTON_DIR)/console.c os/flair/surface.c
+.PHONY: test-console-cursor25-mutant
+test-console-cursor25-mutant: $(BUILD)/test_console_cursor25_mutant
+	@set +e; $< > $(BUILD)/console-cursor25-mutant.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && grep -q 'FAIL.*BIOS off-grid cursor retained' $(BUILD)/console-cursor25-mutant.log || { cat $(BUILD)/console-cursor25-mutant.log; exit 1; }; \
+	 printf 'CONSOLE_MUTATE_OFFGRID_CLAMP RED: '; grep -m1 'FAIL.*BIOS off-grid cursor retained' $(BUILD)/console-cursor25-mutant.log
+	@printf '>>> test-console-cursor25-mutant: green (off-grid clamp RED)\n'
 
 # fb-agree oracle (beads initech-k8o5.6, ADR-0004 D-2/D-8 + FO-1/AM-2): the ONE
 # surface invariant -- the console pixel path and the direct surface pixel path
@@ -8845,7 +8856,7 @@ $(DEMO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_S
 $(KERNEL_START_OBJ): $(KERNEL_START_ASM) Makefile spec/memory_map.h | $(BUILD)
 	$(NASM) -f elf32 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) -DMK_KERNEL_STACK_BOT=$(KERNEL_STACK_BOT) -DMK_KERNEL_STACK_TOP=$(KERNEL_STACK_TOP) $< -o $@
 
-$(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-Ispec -I$(KERNEL_DIR),$@)
 
 # FLAIR surface module (beads initech-k8o5.6, ADR-0004 D-2): the single pixel
@@ -9236,7 +9247,7 @@ $(KERNEL_ELF): $(KERNEL_OBJS) $(KERNEL_LD) | $(BUILD)
 # Same sources, but kmain.c compiled with -DBOOT_SELFTEST_FAULT so the boot
 # raises a deliberate #DE after the banner. Linked into a SEPARATE image so the
 # normal kernel/image (test-boot) never faults.
-$(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_SELFTEST_FAULT -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9286,7 +9297,7 @@ $(PANIC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FAULT_BIN) $(BOOT_SYSTEM_TOOL) $
 # Ref: PRD Sec 5; ADR-0001 DEC-02/DEC-04; spec/hardware.json "fpu";
 # spec/fpu_contract.h; CLAUDE.md Rule 5/6.
 KERNEL_FPU_BASE_OBJS := $(filter-out $(KERNEL_FAULT_MAIN_OBJ),$(KERNEL_FAULT_OBJS))
-KERNEL_FPU_KMAIN_DEPS := $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h
+KERNEL_FPU_KMAIN_DEPS := $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h
 KERNEL_FPU_SYSINIT_DEPS := $(KERNEL_SYSINIT_C) $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/fpu.h spec/fpu_contract.h \
                            $(KERNEL_DIR)/config_sys.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/int21.h \
                            $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h \
@@ -9339,7 +9350,7 @@ $(eval $(call fpu-kernel-rules,mf_mut_skip,$(BUILD)/kmain_fpu_mf.o,$(BUILD)/sysi
 # --- Spurious-vector kernel (bcg.6; make test-spurious) --------------------
 # Same sources, but kmain.c compiled with -DBOOT_SPURIOUS so the boot fires a
 # stray int $0x70 after the banner; the spurious handler must resume (no wedge).
-$(KERNEL_SPURIOUS_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_SPURIOUS_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_SPURIOUS -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_SPURIOUS_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SPURIOUS_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9381,7 +9392,7 @@ $(BUILD)/kbd_echo_blob.o: $(BUILD)/kbd_echo_blob.c
 # --- Keyboard-echo kernel (beads initech-3rs / initech-43b; make test-kbd) --
 # Same sources, but kmain.c compiled with -DBOOT_KBD_ECHO so the boot, after the
 # sti, emits KBD-ECHO-READY then echoes injected keys to serial. Separate image.
-$(KERNEL_ECHO_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_ECHO_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_KBD_ECHO -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_ECHO_OBJS := $(BUILD)/kbd_echo_blob.o $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9416,7 +9427,7 @@ $(KBD_ECHO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ECHO_BIN) $(BOOT_SYSTEM_TOOL)
 # Same sources, but kmain.c compiled with -DBOOT_CONIN so the boot, after
 # CONIN-LIVE, runs the baked CON-input program. The conin program blob is linked
 # in (it is referenced only under -DBOOT_CONIN). Separate image.
-$(KERNEL_CONIN_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_CONIN_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_CONIN -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9452,7 +9463,7 @@ $(CONIN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_CONIN_BIN) $(BOOT_SYSTEM_TOOL) $
 # test-vect). Same sources, but kmain.c compiled with -DBOOT_VECT so the boot
 # runs the baked vect program then reports V24POST. The vect program blob is
 # linked in (referenced only under -DBOOT_VECT). Separate image.
-$(KERNEL_VECT_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_VECT_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_VECT -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_VECT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_VECT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9488,7 +9499,7 @@ $(VECT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_VECT_BIN) $(BOOT_SYSTEM_TOOL) $(B
 # test-absdisk-emu). Same sources, but kmain.c compiled with -DBOOT_ABSDISK so the
 # boot runs the baked ABSDISK program. The absdisk program blob is linked in
 # (referenced only under -DBOOT_ABSDISK). Separate image.
-$(KERNEL_ABSDISK_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_ABSDISK_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_ABSDISK -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_ABSDISK_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ABSDISK_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9523,7 +9534,7 @@ $(ABSDISK_BOOT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ABSDISK_BIN) $(BOOT_SYSTE
 # --- MEMORY ARENA self-test kernel (beads initech-509.6; test-mcb-emu) -------
 # Same sources, but kmain.c compiled with -DBOOT_MEMTEST so the boot drives
 # AH=48h/4Ah/49h over the kernel-bound MCB arena via `int 0x21` and emits MEM-*.
-$(KERNEL_MEMTEST_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_MEMTEST_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_MEMTEST -Ispec -I$(KERNEL_DIR),$@)
 
 # The REAL int21.o + mcb.o (the standard kernel objects) link into this image --
@@ -9586,7 +9597,7 @@ $(MEMTEST_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_MUT_BIN) $(BOOT_SY
 # mount + loader-FAT bind, loads GREET.COM BY NAME and EXECs it via AH=4Bh.
 # Separate image so the normal boot never runs the EXEC demo. GREET.COM is NOT
 # baked -- it lives on the data disk (--disk2), so this proves a FROM-FAT load.
-$(KERNEL_EXEC_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_EXEC_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_EXEC -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9661,9 +9672,9 @@ KERNEL_MZFOREIGN_ELF      := $(BUILD)/kernel_mzforeign.elf
 KERNEL_MZFOREIGN_BIN      := $(BUILD)/kernel_mzforeign.bin
 MZFOREIGN_IMG             := $(BUILD)/mzforeign_boot.img
 
-$(KERNEL_MZEXEC_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_MZEXEC_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_MZEXEC -Ispec -I$(KERNEL_DIR),$@)
-$(KERNEL_MZFOREIGN_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_MZFOREIGN_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_MZFOREIGN -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_MZEXEC_OBJS    := $(KERNEL_START_OBJ) $(KERNEL_MZEXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9738,7 +9749,7 @@ $(FAT_MZFOREIGN_IMG): $(FAT12_FIXTURES) $(MZFOREIGN_EXE) | $(BUILD)
 # Same sources, kmain.c compiled with -DBOOT_WRITE so the boot runs the baked
 # WRITE program over a WRITABLE FAT12 data disk. The write_prog blob is linked
 # ONLY into this image. Mirrors the EXEC image structure.
-$(KERNEL_WRITE_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_WRITE_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_WRITE -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9773,7 +9784,7 @@ $(WRITE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_WRITE_BIN) $(BOOT_SYSTEM_TOOL) $
 # MULTI-OPEN program over a FAT12 data disk (HELLO.TXT + SECOND.TXT + >64 KiB
 # BIG.DAT). The multiopen_prog blob is linked ONLY into this image. Mirrors the
 # WRITE image structure.
-$(KERNEL_MULTIOPEN_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_MULTIOPEN_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_MULTIOPEN -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9807,7 +9818,7 @@ $(MULTIOPEN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MULTIOPEN_BIN) $(BOOT_SYSTEM
 # Same sources, kmain.c compiled with -DBOOT_DATETIME so the boot runs the baked
 # DATE/TIME program (AH=2Ah/2Ch/36h/62h -> serial). The datetime_prog blob is
 # linked ONLY into this image. Mirrors the MULTI-OPEN image structure.
-$(KERNEL_DATETIME_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/rtc.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_DATETIME_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/rtc.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_DATETIME -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_DATETIME_OBJS := $(KERNEL_START_OBJ) $(KERNEL_DATETIME_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9844,7 +9855,7 @@ $(DATETIME_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_DATETIME_BIN) $(BOOT_SYSTEM_T
 # harness storms keystrokes. The irqstorm_prog blob is linked ONLY into these
 # images. Mirrors the MULTI-OPEN image structure. THREE images: the REAL one and
 # two Rule-6 mutants (A: pit scribbles a DOS global; B: pit issues int 0x21).
-$(KERNEL_IRQSTORM_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/irq.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_IRQSTORM_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/irq.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR),$@)
 
 # Object list shared by all three irqstorm images (the per-image differences are
@@ -9892,7 +9903,7 @@ KERNEL_INT21_SEAM_OBJ := $(BUILD)/int21_seam.o
 $(KERNEL_INT21_SEAM_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/irq.h spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -DINT21_IRQTEST_SEAM -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
-$(KERNEL_IRQSTORM_MUTA_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
+$(KERNEL_IRQSTORM_MUTA_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_IRQSTORM_MUTA_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MUTA_MAIN_OBJ) \
@@ -9918,7 +9929,7 @@ $(IRQSTORM_MUTA_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTA_BIN) $(BOO
 $(KERNEL_PIT_MUT_INT21_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) -DPIT_MUTATE_ISSUE_INT21 -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
 
-$(KERNEL_IRQSTORM_MUTB_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
+$(KERNEL_IRQSTORM_MUTB_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_IRQSTORM_MUTB_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MUTB_MAIN_OBJ) \
@@ -9944,7 +9955,7 @@ $(IRQSTORM_MUTB_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTB_BIN) $(BOO
 # FAT-sourced leaky child EXITH.COM RUNS times. The leaky child is NOT baked --
 # it is loaded BY NAME off --disk2 (FAT_EXITH_IMG), exactly like the EXEC image
 # loads GREET.COM. So the object set is the EXEC object set (no baked prog blob).
-$(KERNEL_EXITH_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_EXITH_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_EXITH -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9982,7 +9993,7 @@ $(EXITH_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_BIN) $(BOOT_SYSTEM_TOOL) $
 $(KERNEL_SFT_MUT_OBJ): $(KERNEL_SFT_C) $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_SFT_OPT) -DSFT_MUTATE_NO_CLOSE_PROCESS -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SFT_C) -o $@
 
-$(KERNEL_EXITH_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_EXITH_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_EXITH -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -10017,7 +10028,7 @@ $(EXITH_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_MUT_BIN) $(BOOT_SYSTEM
 # CONFIG.SYS (FILES=8) off --disk2 and then the boot EXECs SYSI.COM to prove the
 # cap bites. The child is loaded BY NAME (load_program_from_fat), so the object set
 # is the EXEC object set (no baked prog blob).
-$(KERNEL_SYSI_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/config_sys.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_SYSI_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/config_sys.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_SYSINIT -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_SYSI_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SYSI_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -10054,7 +10065,7 @@ $(SYSI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SYSI_BIN) $(BOOT_SYSTEM_TOOL) $(B
 # NO key injection. Requires --disk2 (HELLO.TXT + GREET.COM). Mirrors the EXEC
 # image; -DBOOT_SHELL on kmain.c only (command.o is built with COMMAND_KERNEL_REPL
 # above and is BOOT_SHELL-agnostic).
-$(KERNEL_SHELL_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_SHELL_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_SHELL -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -10068,7 +10079,7 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
 # stays the permanent primary. All dispatcher, file and batch code is shared.
 KERNEL_SECONDARY_SHELL_MAIN_OBJ := $(BUILD)/kmain_shell_secondary.o
 KERNEL_SECONDARY_SHELL_OBJS := $(filter-out $(KERNEL_SHELL_MAIN_OBJ),$(KERNEL_SHELL_OBJS)) $(KERNEL_SECONDARY_SHELL_MAIN_OBJ)
-$(KERNEL_SECONDARY_SHELL_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h | $(BUILD)
+$(KERNEL_SECONDARY_SHELL_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) os/milton/ansi_cursor.h $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR),$@)
 $(BUILD)/kernel_shell_secondary.elf: $(KERNEL_SECONDARY_SHELL_OBJS) $(KERNEL_LD)
 	$(KERNEL_LINK) -o $@ $(KERNEL_SECONDARY_SHELL_OBJS)
@@ -10106,7 +10117,7 @@ $(KERNEL_SHELL_BIN): $(KERNEL_SHELL_ELF) | $(BUILD)
 # the desktop shell) -- the FIRST call site for the library linked at re30.2.
 # Separate image so the normal boot (A:\>) is byte-unchanged. The FLAIR + spec
 # headers are added as prereqs (they are #include'd only under -DBOOT_FLAIR_SHELL).
-$(KERNEL_FLAIRSHELL_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_FLAIRSHELL_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_SHELL -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRSHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -10143,7 +10154,7 @@ $(FLAIRSHELL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRSHELL_BIN) $(BOOT_SYST
 # kmain compiled with -DBOOT_FLAIR_LIVE. Same source + same FLAIR object set as
 # FLAIRSHELL (event.o supplies flair_tick_advance/flair_tick_count). Adds the
 # os/flair/event.h prereq the FLAIR-live arm includes. ADR-0006 FO-4.
-$(KERNEL_FLAIRLIVE_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 # The FLAIR-live kernel links the IDENTICAL object set as FLAIRSHELL, swapping
@@ -10208,7 +10219,7 @@ $(FLAIRLIVE_NOMODAL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_BI
 # is never installed, so flair_tick_advance never runs, so FLAIR-TICK never
 # appears -> test-flair-live goes RED. Its own main obj/elf/bin/image so it
 # cannot leak into the real build (the default kernel is GREEN).
-$(KERNEL_FLAIRLIVE_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h os/flair/event.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h os/flair/event.h spec/event_model.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRLIVE_MUT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MAIN_OBJ)
@@ -10232,7 +10243,7 @@ $(FLAIRLIVE_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_BIN) $(BOO
 	@printf ">>> flair-live MUTANT image: %s (no tick hook -- FLAIR-TICK never advances)\n" "$@"
 
 # --- FO-5 kbd-hook MUTANT flair_live kernel/image (beads initech-5l5z; Rule 6) -
-$(KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h os/flair/event.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h os/flair/event.h spec/event_model.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_KBD_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRLIVE_MUT_KBD_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ)
@@ -10259,7 +10270,7 @@ $(FLAIRLIVE_MUT_KBD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BI
 # ADR-0006 M1/BC-9). -DFLAIR_LIVE_MUTATE_DRAG_NOOP suppresses both document and
 # movable-modal commits while preserving their proposed markers. The modal-mode
 # PPM oracle sees the old all-black FILE COPY frame -> RED. Direct HER-14 mutant.
-$(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h spec/event_model.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_DRAG_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRLIVE_MUT_DRAG_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ)
@@ -10287,7 +10298,7 @@ $(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_
 # invalidated/restored. This is the mutation that intersects the new reverse
 # survival scene; the original IGNORE_OVERLAY mutant remains below and is
 # mutation-proven on the forward window-across-overlay HOST scene. -------------
-$(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h os/flair/dialog.h os/flair/shell.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h os/flair/dialog.h os/flair/shell.h spec/event_model.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_MODAL_NO_RESTORE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ)
@@ -10799,7 +10810,7 @@ $(FLAIR_DATA_CORRUPT_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 $(DESKTOP_DB_GOLDEN): | $(BUILD)
 	@printf 'IDB1\001\000\000\000' > $@
 
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/power_notice.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/power_notice.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 # The system APPLE MENU (beads initech-tdnl.47 / initech-tdnl.17): the rows of
@@ -10848,7 +10859,7 @@ $(BUILD)/finder_windows_ovl.o: os/flair/finder_windows_cold.c os/flair/finder_wi
 
 # Interactive film-scene kernel (tdnl.102-.104): the flagship tenants objects with the
 # film-scene kmain; placed after KERNEL_FLAIRTENANTS_OBJS (read-before-definition lint).
-$(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/cursors.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/cursors.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -DFLAIR_LIVE_INTERACTIVE -DFLAIR_LIVE_TENANTS -DFLAIR_FILM_SCENE $(KERNEL_TENANTS_OPT) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRLIVE_INT_OBJS = $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ)
@@ -11100,7 +11111,7 @@ KERNEL_FLAIRTENANTS_INT_ELF      := $(BUILD)/kernel_flairtenants_int.elf
 KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
 FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
 
-$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/power_notice.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/power_notice.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 # R0.1 CursorMgr is included by every FLAIR kmain variant. Keep the common
@@ -11228,7 +11239,7 @@ endef
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
 OVL_ACTION_FLAGS_$(2) := -D$(1)
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/power_notice.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/power_notice.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$$@)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -11609,7 +11620,7 @@ KERNEL_FLAIRLIVE_MUT_EOI_BIN        := $(BUILD)/kernel_flairlive_mut_eoi.bin
 FLAIRLIVE_MUT_EOI_IMG               := $(BUILD)/flair_live_mut_eoi.img
 
 # (1) no-mouse-hook mutant: swap ONLY the main obj (the kbd/tick hooks stay).
-$(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h spec/event_model.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_MOUSE_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ)
@@ -12121,15 +12132,12 @@ test-harness-progress-mutant: $(BUILD)/test_qemu_progress_mut
 	  || { printf '!!! test-harness-progress-mutant FAIL: missing expected progress-reset RED\n'; exit 1; }
 	@printf '>>> test-harness-progress-mutant: green (disabled progress-reset branch went RED)\n'
 
-# KNOWN RED, NAMED (house rule: never a loosened oracle): the SAMIR Bochs leg
-# grades the RFB BGR233 shadow frame too, and that frame catches the console
-# cursor in the other blink phase (8x2 cells at (16..23,158..159): golden
-# #C0C0C0 cursor ON, Bochs served 0xAB OFF) while the exact 32bpp snapshot
-# matches all 307200 pixels. Root cause (capture moment vs cursor phase, or a
-# steady-cursor gate kernel) is bead initech-hgmx; until
-# then the leg lives here by name, outside the default vector.
+# Historical per-session alias retained for callers (initech-hgmx).
+# initech-0spyf/fzsvo parks only capture kernels; exact snapshot/RFB and
+# wrong-data mutant legs now pass. Production blink has its own oracle.
 .PHONY: test-bochs-pending
 test-bochs-pending: test-samir-boot-bochs test-samir-boot-bochs-mutant
+	@printf '>>> test-bochs-pending: green (oracle completed)\n'
 
 # initech-ptzy; PRD Sec 6.3/8; spec/event_model.h Sec 5: pace on consumption.
 $(BUILD)/test_qemu_key_ack: harness/emu/test_qemu_key_ack.c $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
@@ -19339,7 +19347,7 @@ test-boot-bochs: $(BOCHS_BIN) $(SECONDARY_TRACER_IMG)
 		if [ "$$endv" -ge $$(( 0x00600000 )) ]; then \
 			printf '!!! test-boot-bochs FAIL: KAT end=%s reaches KERNEL_CEIL=0x00600000\n' "$$end"; exit 1; \
 		fi; \
-		printf '>>> test-boot-bochs: KHI + KAT placement green (%s)\n' "$$range"
+		printf '>>> test-boot-bochs: green KHI + KAT placement (%s)\n' "$$range"
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- tracer booted under Bochs on the VESA 0101h 8bpp path,\n'
 	@printf '            reached the same kernel milestones as QEMU, no triple-fault\n'
@@ -19449,7 +19457,7 @@ test-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(PPM_TEXT_CHECK_BIN) $(SPEC_B
 	@printf 'VERDICT   : PASS -- InitechDOS banner printed (serial == spec, rendered on screen), no triple-fault\n'
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
 	@printf '======================================================================\n'
-	@printf '>>> test-boot: green\n'
+	@printf '>>> test-boot: green (oracle completed)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-desktop (beads initech-re30.3, LANE 2 -- the FLAIR LIVE
@@ -26067,8 +26075,11 @@ test-absdisk-emu: $(HARNESS_BIN) $(ABSDISK_BOOT_IMG) $(FAT_ABSDISK_DATA_IMG)
 	@$(call fixture-preflight,$(ABSDISK_EMU_RUNDISK))
 	@$(HARNESS_BIN) --disk "$(ABSDISK_BOOT_IMG)" --disk2 "$(ABSDISK_EMU_RUNDISK)" \
 		--name "$(ABSDISK_EMU_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
-		2> "$(ABSDISK_EMU_REPORT)" || true
+		--expect "ABSDISK-EXIT rc=0" --quit-after "ABSDISK-EXIT rc=0" \
+		--screendump --screendump-after "ABSDISK-EXIT rc=0" \
+		2> "$(ABSDISK_EMU_REPORT)"
 	@cat "$(ABSDISK_EMU_REPORT)"
+	@grep -qxF '[harness] OK=1' "$(ABSDISK_EMU_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@if grep -q 'triple_fault=1' "$(ABSDISK_EMU_REPORT)"; then \
 		printf '!!! test-absdisk-emu FAIL: TRIPLE FAULT -- root-cause the int25/26 entry->dispatch->IRETD path (Rule 3)\n'; exit 1; \
@@ -26100,6 +26111,7 @@ test-absdisk-emu: $(HARNESS_BIN) $(ABSDISK_BOOT_IMG) $(FAT_ABSDISK_DATA_IMG)
 	@printf '            trap gates; the int26_entry/int25_entry -> dispatch -> IRETD round-trip\n'
 	@printf '            wrote and read back a sector (QEMU only; tri-emulator pending initech-x0i)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-absdisk-emu: green (five checks; completed guest trace)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-multiopen (beads initech-0qh; epic initech-6qy -- multi-tenant)
@@ -29102,8 +29114,11 @@ $(SAMIR_CTL_EMU_MUTS): $(BUILD)/SAMIR_CTL_%.EXE: $(SAMIR_HEADERS) $(SAMIR_EXE_CS
 	for src in $(SAMIR_EXE_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_EXE_PROFILE) -D$* -c $$src -o $$obj; done; \
 	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
 	$(call samir_pack,$$d/SAMIR.elf,$@)
-# $(call samir_ctl_emu_run,<samir.com>,<name>) -> $(BUILD)/<name>.samir (serial
-# from `A:\>samir` on, CR stripped) + $(BUILD)/<name>.report
+# $(call samir_ctl_emu_run,<samir.com>,<name>[,fault]) -> $(BUILD)/<name>.samir (serial
+# from `A:\>samir` on, CR line delimiters retained) + $(BUILD)/<name>.report
+# Deliberate faults: retain 89 s of observation (three valid wait tokens),
+# then capture through live QMP and quit without claiming guest completion.
+SAMIR_CTL_FAULT_OBSERVE = --mouse w30000,w30000,w29000 --legacy-quit --screendump
 define samir_ctl_emu_run
 	@dd if=/dev/zero of=$(BUILD)/$(2).img bs=512 count=2880 status=none
 	@mformat -i $(BUILD)/$(2).img -f 1440 ::
@@ -29111,13 +29126,13 @@ define samir_ctl_emu_run
 	@set -e; for f in $(SAMIR_CTL_EMU_PRGS); do mcopy -i $(BUILD)/$(2).img $(SAMIR_CTL_EMU_DIR)/$$f ::$$f; done
 	@$(call fixture-check,recipe,$(BUILD)/$(2).img)
 	@started=$$(date +%s); rc=0; $(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BUILD)/$(2).img" \
-		--name "$(2)" --out "$(BUILD)" --timeout-ms 90000 \
+		--name "$(2)" --out "$(BUILD)" --timeout-ms $(if $(3),150000,90000) \
 		--keys "$(SAMIR_CTL_EMU_KEYS)" --keys-after "SHELL-READY" \
-		$(SHELL_OS_COMPLETION) \
+		$(if $(3),$(SAMIR_CTL_FAULT_OBSERVE),$(SHELL_OS_COMPLETION)) \
 		2> "$(BUILD)/$(2).report" || rc=$$?; \
 	 printf '%s\n' "$$rc" > "$(BUILD)/$(2).report.status"; \
 	 printf '%s\n' "$$(( $$(date +%s) - started ))" > "$(BUILD)/$(2).report.elapsed"
-	@tr -d '\r' < "$(BUILD)/$(2).serial" 2>/dev/null | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(2).samir" || true
+	@tr '\r' '\n' < "$(BUILD)/$(2).serial" 2>/dev/null | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(2).samir" || true
 endef
 .PHONY: test-samir-ctl-emu test-samir-ctl-emu-mutant
 test-samir-ctl-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(SAMIR_OVL)
@@ -29143,16 +29158,16 @@ test-samir-ctl-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(SAMIR_
 	grep -q 'quit_after_found=1' "$$R" || fail 'the session never reached SHELL-DONE (EXIT after QUIT)'
 	@printf '>>> test-samir-ctl-emu: green (QEMU)\n'
 test-samir-ctl-emu-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_CTL_EMU_MUTS)
-	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_NO_ESCAPE.EXE,samir_ctl_emu_mut_esc)
+	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_NO_ESCAPE.EXE,samir_ctl_emu_mut_esc,fault)
 	@sh harness/emu/require_fault_trace.sh $(BUILD)/samir_ctl_emu_mut_esc.report $(BUILD)/samir_ctl_emu_mut_esc.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')" escape
 	@if grep -qxF '*** INTERRUPTED ***' $(BUILD)/samir_ctl_emu_mut_esc.samir; then printf '!!! test-samir-ctl-emu-mutant FAIL: no-Esc-poll mutant still interrupted\n'; exit 1; fi
 	@grep -q 'triple_fault=0' $(BUILD)/samir_ctl_emu_mut_esc.report || { printf '!!! no-Esc mutant run did not complete cleanly (harness)\n'; exit 1; }
 	@printf '>>> test-samir-ctl-emu-mutant: Esc-never-polled correctly RED (the loop cannot be stopped)\n'
-	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_PROC_MUTATE_NO_DO_CAP.EXE,samir_ctl_emu_mut_cap)
+	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_PROC_MUTATE_NO_DO_CAP.EXE,samir_ctl_emu_mut_cap,fault)
 	@sh harness/emu/require_fault_trace.sh $(BUILD)/samir_ctl_emu_mut_cap.report $(BUILD)/samir_ctl_emu_mut_cap.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')" cap
 	@if grep -qE 'RECOVERED +[1-9][0-9]*' $(BUILD)/samir_ctl_emu_mut_cap.samir && grep -qF 'DOs nested too deep.' $(BUILD)/samir_ctl_emu_mut_cap.samir && grep -q 'quit_after_found=1' $(BUILD)/samir_ctl_emu_mut_cap.report; then printf '!!! test-samir-ctl-emu-mutant FAIL: no-DO-cap mutant survived the recursion\n'; exit 1; fi
 	@printf '>>> test-samir-ctl-emu-mutant: no-20-level-cap correctly RED (recursion past the cap loses the session)\n'
-	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_STACK_LINES.EXE,samir_ctl_emu_mut_stk)
+	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_STACK_LINES.EXE,samir_ctl_emu_mut_stk,fault)
 	@sh harness/emu/require_fault_trace.sh $(BUILD)/samir_ctl_emu_mut_stk.report $(BUILD)/samir_ctl_emu_mut_stk.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')" stack
 	@if grep -qE 'RECOVERED +[1-9][0-9]*' $(BUILD)/samir_ctl_emu_mut_stk.samir && grep -q 'quit_after_found=1' $(BUILD)/samir_ctl_emu_mut_stk.report; then printf '!!! test-samir-ctl-emu-mutant FAIL: stack-line-table mutant survived BIGREC\n'; exit 1; fi
 	@printf '>>> test-samir-ctl-emu-mutant: per-call stack line tables correctly RED (500-line BIGREC loses the session)\n'
@@ -29280,14 +29295,25 @@ $(SAMIR_LIST_MUT_IMG): $(SAMIR_EXE_MUT) $(CLIENTS_DBF) | $(BUILD)
 #      record values (PESTON/HONOLULU/1234.50, WADDAMS/AUSTIN, LUMBERGH/DALLAS/
 #      7777.77) -- appear in the serial capture, scoped to AFTER `A:\>samir`.
 #   4. SCREENDUMP (Law 4): a SEPARATE keys+grab run renders the dot prompt + the
-#      LIST table on the LFB; ppm_text_check asserts the LIST-rows band [160,176)
-#      inks >= 300 fg pixels (it inks 745 with the rows, 0 without -- a clean
-#      discriminator; the band is empty if SAMIR did not USE+LIST).
+#      LIST table on the LFB; ppm_text_check grades 320 ink/blank cells from
+#      real III+ boot-list-real/list, heading row 19 and record rows 20..22.
 # It BITES (test-samir-boot-mutant): the short-read pal_milton mutant makes USE
 # report #15 and LIST emit no rows -> the serial row tokens VANISH + the screendump
 # band goes empty -> RED, with NO triple-fault (wrong data, not a crash; Rule 6).
 # TRI-EMULATOR: QEMU only -- Bochs/86Box deferred (bead initech-x0i, like test-shell).
 # Ref: ADR-0009 DEC-08; spec/int21h_calling_convention.json; os/samir/pal/pal_milton.c.
+# initech-0spyf/fzsvo: pixel comparison parks the cursor on BOTH emulators.
+# Production SECONDARY_TRACER_IMG and test-console retain PIT blink coverage.
+SAMIRBOOT_CAPTURE_IMG := $(BUILD)/samir_boot_capture.img
+$(BUILD)/kernel_samir_boot_capture.elf: $(filter-out $(KERNEL_CONSOLE_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/console_record.o $(KERNEL_LD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_CONSOLE_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/console_record.o
+$(BUILD)/kernel_samir_boot_capture.bin: $(BUILD)/kernel_samir_boot_capture.elf
+	$(OBJCOPY) -O binary $< $@
+	@set -e; sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); test $$sz -le $$max; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$((max - sz))" conv=notrunc status=none
+$(SAMIRBOOT_CAPTURE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_samir_boot_capture.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_samir_boot_capture.bin $(BOOT_SYSTEM_TOOL)
+
 SAMIRBOOT_NAME     := samir_boot
 SAMIRBOOT_SERIAL   := $(BUILD)/$(SAMIRBOOT_NAME).serial
 SAMIRBOOT_REPORT   := $(BUILD)/$(SAMIRBOOT_NAME).report
@@ -29304,8 +29330,10 @@ SAMIRBOOT_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,re
 # screen when the grab fires): samir / use clients.dbf / list
 SAMIRBOOT_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,ret
 
-.PHONY: test-samir-boot test-samir-boot-mutant
-test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
+$(BUILD)/samir_boot_stream: $(DBF_DIFF_DIR)/samir_boot_stream.c | $(BUILD)
+	$(CC) $(CFLAGS) -O2 -o $@ $<
+.PHONY: test-samir-boot test-samir-boot-mutant test-samir-boot-stream-mutant
+test-samir-boot: $(HARNESS_BIN) $(SAMIRBOOT_CAPTURE_IMG) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN) $(BUILD)/samir_boot_stream samir-use-goldens
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-samir-boot : SAMIR runs INSIDE InitechOS (S8.2)\n'
 	@printf '  Ref: bead initech-hdlb; ADR-0009 DEC-08. boot -> EXEC SAMIR.EXE -> USE -> LIST.\n'
@@ -29349,6 +29377,7 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 		       cat "$(BUILD)/$(SAMIRBOOT_NAME).samir"; exit 1; }; \
 	done
 	@printf '>>> test-samir-boot [4/5]: LIST rendered all 3 records on serial (PESTON / WADDAMS / LUMBERGH)\n'
+	@$(BUILD)/samir_boot_stream $(DBASE3_DECOMP)/mint/work/M005ULOG.TXT "$(SAMIRBOOT_SERIAL)"
 	@# initech-31d1 re-key: M005U/M005N's 7+2 prefix and unpadded final
 	@# heading, projected onto the existing CLIENTS value fixture.
 	@grep -Fxq 'Record#  NAME       CITY              BAL' "$(BUILD)/$(SAMIRBOOT_NAME).samir"
@@ -29358,15 +29387,13 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 	@# ---- 5. SCREENDUMP (Run 2; Law 4): a SEPARATE keys+grab run leaves SAMIR's
 	@# dot prompt + LIST table on the LFB. screendump-after SHELL-READY syncs the
 	@# grab AFTER the harness injects the keys (qemu.c qmp_session: keys then dump),
-	@# so the LIST rows are on screen. ppm_text_check asserts the LIST-rows band
-	@# y in [160,176) inks >= 300 fg pixels: it inks 745 with the three rows and 0
-	@# without (a clean discriminator -- the band is pure seafoam if SAMIR did not
-	@# USE+LIST). Deterministic across runs (verified). ----
+	@# so the LIST rows are on screen. ppm_text_check grades the exact real
+	@# table cells below, including blanks where a missing/wrong row must fail.
 	@$(call fixture-preflight,$(SAMIR_LIST_IMG))
-	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SAMIRBOOT_CAPTURE_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
 		--name "$(SAMIRBOOT_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRBOOT_SCRN_KEYS)" --keys-after "SHELL-READY" \
-		--screendump --screendump-after "SHELL-READY" \
+		--screendump --screendump-after "$$(printf '7777.77\r\n. ')" \
 		2> "$(SAMIRBOOT_SCRN_REPORT)" || true
 	@if grep -q 'triple_fault=1' "$(SAMIRBOOT_SCRN_REPORT)"; then \
 		printf '!!! test-samir-boot FAIL: TRIPLE FAULT on the screendump run\n'; exit 1; \
@@ -29374,16 +29401,18 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 	@if [ ! -s "$(SAMIRBOOT_PPM)" ]; then \
 		printf '!!! test-samir-boot FAIL: no screendump captured at %s (live guest required)\n' "$(SAMIRBOOT_PPM)"; exit 1; \
 	fi
-	@# PM RE-KEY 2026-10-17 (initech-31d1 merged): the real dBASE III PLUS LIST layout prints no
-	@# blank line before the table at the dot prompt (mint 005), so the three rows now ink
-	@# y in [112,160); the band [128,144) holds row 3 (LUMBERGH), pure seafoam without LIST.
-	@$(PPM_TEXT_CHECK_BIN) "$(SAMIRBOOT_PPM)" 128 144 300 \
-		|| { printf '!!! test-samir-boot FAIL: the LIST rows did not render on the framebuffer (band [128,144) < 300 fg)\n'; exit 1; }
+	@# Real III+ boot-list-real/list (initech-0spyf/fzsvo): heading row 19,
+	@# records 20..22. Project exact ink AND blank cells from the real capture.
+	@cmp $(CLIENTS_DBF) $(SCREEN_MINT_DIR)/boot-list-real/SETUP/CLIENTS.DBF
+	@sed -n '22,25p' $(SCREEN_MINT_DIR)/boot-list-real/list.screen | \
+		awk '{printf "%d 0 %s\n", NR+18, $$0}' > $(BUILD)/samir-boot.cells
+	@$(PPM_TEXT_CHECK_BIN) --cells "$(SAMIRBOOT_PPM)" $(BUILD)/samir-boot.cells
 	@printf '>>> test-samir-boot [5/5]: screendump shows SAMIR'"'"'s dot prompt + LIST table on the seafoam desktop\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- InitechBase (SAMIR) booted inside InitechOS, opened a .dbf and LISTed it\n'
 	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-samir-boot: green (production serial; steady capture; real LIST cells)\n'
 
 test-samir-boot-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_MUT_IMG)
 	@printf '>>> test-samir-boot-mutant: confirming the short-read pal_milton mutant goes RED (Rule 6)\n'
@@ -29407,6 +29436,22 @@ test-samir-boot-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_MUT_
 		exit 1; \
 	fi
 	@printf '>>> test-samir-boot-mutant: green (short-read mutant correctly RED -- LIST rows garbled/absent, no crash)\n'
+
+# Restore the broken dot-command assumption while retaining program CR/LF.
+# A completed guest must be rejected at the raw opening bytes, without a crash.
+test-samir-boot-stream-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(BUILD)/samir_boot_stream $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_DOT_OPENING.EXE samir-use-goldens
+	@cp -f $(SAMIR_LIST_IMG) $(BUILD)/samir_boot_stream_mut.img
+	@mcopy -o -i $(BUILD)/samir_boot_stream_mut.img $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_DOT_OPENING.EXE ::SAMIR.EXE
+	@mcopy -o -i $(BUILD)/samir_boot_stream_mut.img $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_DOT_OPENING.OVL ::SAMIR.OVL
+	@$(HARNESS_BIN) --disk $(SECONDARY_TRACER_IMG) --disk2 $(BUILD)/samir_boot_stream_mut.img \
+		--name samir_boot_stream_mut --out $(BUILD) --timeout-ms 60000 \
+		--keys "$(SAMIRBOOT_KEYS)" --keys-after SHELL-READY $(SHELL_OS_COMPLETION) \
+		> $(BUILD)/samir_boot_stream_mut.out 2> $(BUILD)/samir_boot_stream_mut.report
+	@sh harness/emu/require_trace.sh $(BUILD)/samir_boot_stream_mut.report $(BUILD)/samir_boot_stream_mut.serial "$$(printf '%s\n' '$(SAMIRBOOT_KEYS)' | awk -F, '{print NF}')"
+	@rc=0; $(BUILD)/samir_boot_stream $(DBASE3_DECOMP)/mint/work/M005ULOG.TXT $(BUILD)/samir_boot_stream_mut.serial > $(BUILD)/samir_boot_stream_mut.log || rc=$$?; \
+		test $$rc -eq 1 && grep -q '^RED boot LIST opening after Enter: differs at byte 0' $(BUILD)/samir_boot_stream_mut.log || { cat $(BUILD)/samir_boot_stream_mut.log; exit 1; }
+	@cat $(BUILD)/samir_boot_stream_mut.log
+	@printf '>>> test-samir-boot-stream-mutant: green (dot LIST opening CR/LF removed, raw serial RED; clean guest return)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-samir-write (bead initech-g6wx) -- S8.2 deepening (WRITE)
@@ -29618,6 +29663,7 @@ test-samir-write: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(SAMIR_OV
 	@printf '            round-tripped through pal_milton -> INT 21h -> the kernel FAT12 write path\n'
 	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-samir-write: green\n'
 
 test-samir-write-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE_DROPWRITE) $(CLIENTS_DBF)
 	@printf '>>> test-samir-write-mutant: confirming the drop-write pal_milton mutant goes RED (Rule 6)\n'
@@ -29836,7 +29882,7 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(SAMI
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CY2K_SCRN_IMG)" \
 		--name "$(CY2K_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CY2K_SCRN_KEYS)" --keys-after "SHELL-READY" \
-		--screendump --screendump-after "SHELL-READY" \
+		--screendump --screendump-after 'TOTAL UNPAID OVERDUE:       0.00. ' \
 		2> "$(CY2K_SCRN_REPORT)" || true
 	@if grep -q 'triple_fault=1' "$(CY2K_SCRN_REPORT)"; then \
 		printf '!!! test-samir-canon-y2k FAIL: TRIPLE FAULT on the screendump run\n'; exit 1; \
@@ -29853,6 +29899,7 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(SAMI
 	@printf '            (A1001/A1003 mis-aged to ~ -100 years; TOTAL UNPAID OVERDUE wrongly 0.00).\n'
 	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-samir-canon-y2k: green\n'
 
 # The mutant: the DO-file-READ bite (Rule 6, this bead's feature). SAMIR_DOTRUNC.EXE
 # (-DREPL_MUTATE_DO_TRUNC) reads only the FIRST HALF of Y2KACCT.PRG, so the report
@@ -30050,7 +30097,7 @@ test-samir-canon-salami: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(S
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CSAL_SCRN_IMG)" \
 		--name "$(CSAL_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CSAL_SCRN_KEYS)" --keys-after "SHELL-READY" \
-		--screendump --screendump-after "SHELL-READY" \
+		--screendump --screendump-after 'BOLTON SUSPENSE ACCOUNT:         0.38. ' \
 		2> "$(CSAL_SCRN_REPORT)" || true
 	@if grep -q 'triple_fault=1' "$(CSAL_SCRN_REPORT)"; then \
 		printf '!!! test-samir-canon-salami FAIL: TRIPLE FAULT on the screendump run\n'; exit 1; \
@@ -30621,7 +30668,7 @@ TEST_UNIT_GATES := \
 	test-fat-partial test-fat-write test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
-	test-console test-idt test-kbd-unit test-j1lu-con-unit test-j1lu-kbd-mutant test-j1lu-con-mutant test-conin-unit test-int21 test-redir test-er3h test-int24 \
+	test-console test-console-cursor25-mutant test-idt test-kbd-unit test-j1lu-con-unit test-j1lu-kbd-mutant test-j1lu-con-mutant test-conin-unit test-int21 test-redir test-er3h test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-tsr-unit test-tsr-io test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
@@ -30823,6 +30870,7 @@ test-autoexec: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GREET_PROG_BIN) $(AUTOEX
 	@printf 'VERDICT   : PASS -- AUTOEXEC.BAT ran end-to-end on the emulated 386\n'
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-autoexec: green (oracle completed)\n'
 
 # ----- Mutant kernel for test-autoexec-mutant (Rule 6) -----
 # command.c compiled with -DCMD_MUTATE_NO_AUTOEXEC: the AUTOEXEC.BAT hook in
@@ -31106,6 +31154,7 @@ test-bsy9-redir: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GREET_PROG_BIN) $(BSY9
 	@printf 'VERDICT   : PASS -- external `GREET.COM > file` really redirects on the 386\n'
 	@printf '            (child inherits parent JFT; QEMU only, tri-emulator pending initech-x0i)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-bsy9-redir: green (oracle completed)\n'
 
 # ----- Mutant kernel for test-bsy9-redir-mutant (Rule 6) -----
 # psp.c compiled with -DPSP_MUT_NO_JFT_INHERIT: psp_build IGNORES params.parent_jft
@@ -31260,6 +31309,7 @@ test-bsy7-redir: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GOBBLE_PROG_BIN) $(BSY
 	@printf 'VERDICT   : PASS -- external `GOBBLE.COM < file` really redirects stdin on the 386\n'
 	@printf '            (child inherits parent JFT; QEMU only, tri-emulator pending initech-x0i)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-bsy7-redir: green (oracle completed)\n'
 
 # ----- Mutant kernel for test-bsy7-redir-mutant (Rule 6) -----
 # command.c compiled with -DCMD_MUTATE_REDIR_NO_LT: cmd_redir_parse drops the `<`
@@ -31414,6 +31464,7 @@ test-bsy8-pipe: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GREET_PROG_BIN) $(GOBBL
 	@printf 'VERDICT   : PASS -- `GREET.COM | GOBBLE.COM` really pipes via a DOS temp file on the 386\n'
 	@printf '            (temp created, fed, and deleted; QEMU only, tri-emulator pending initech-x0i)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-bsy8-pipe: green (oracle completed)\n'
 
 # ----- Mutant kernel for test-bsy8-pipe-mutant (Rule 6) -----
 # command.c compiled with -DCMD_MUTATE_PIPE_NO_STDIN: run_pipeline never repoints
@@ -31778,7 +31829,7 @@ TEST_EMU_GATES := \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-fpu test-fpu-mutant test-fpu-bochs test-fpu-absent test-fpu-absent-mutant test-fpu-mf test-fpu-mf-mutant \
 	test-kbd test-conin test-j1lu-control-emu test-j1lu-control-emu-mutant test-vect test-absdisk-emu test-int21-irqstorm test-int21-irqstorm-mutant \
-	test-samir-boot test-samir-boot-mutant \
+	test-samir-boot test-samir-boot-mutant test-samir-boot-stream-mutant \
 		test-seed-fileio-os test-seed-fileio-os-mutant \
 		test-tps-lex-os test-tps-parse-os test-tps-type-os \
 		test-tps-gen-os test-tps-gen-os-mutant \
@@ -33687,7 +33738,7 @@ test-apple-menu-mutant: test-apple-menu $(foreach m,$(APPLE_HOST_MUTANTS),$(BUIL
 	 if $(BUILD)/test_apple_menu_mut_$$m "$(SYSTEM7_DECOMP)" > $(BUILD)/test_apple_menu_mut_$$m.log 2>&1; then \
 	   printf '!!! test-apple-menu-mutant: %s survived -- decoration\n' "$$m"; exit 1; fi; \
 	 grep -q "^FAIL $$leg" $(BUILD)/test_apple_menu_mut_$$m.log || { cat $(BUILD)/test_apple_menu_mut_$$m.log; exit 1; }; \
-	 printf '>>> test-apple-menu-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^FAIL $$leg" $(BUILD)/test_apple_menu_mut_$$m.log | cut -c1-100)"; done
+	 printf '>>> test-apple-menu-mutant: green (%s correctly RED: %s)\n' "$$m" "$$(grep -m1 "^FAIL $$leg" $(BUILD)/test_apple_menu_mut_$$m.log | cut -c1-100)"; done
 TEST_UNIT_GATES += test-apple-menu test-apple-menu-mutant
 
 # EMU: the gate image (the flagship kernel, pump life 10 s: a launch and a
@@ -33836,12 +33887,14 @@ $(BUILD)/samir_numeric_%: $(DBF_DIFF_DIR)/numeric_format_driver.c $(INTERP_LIST_
 .PHONY: test-samir-numeric-format test-samir-numeric-format-fraction-mutant test-samir-numeric-format-left-mutant
 test-samir-numeric-format: $(SAMIR_NUMERIC_DRIVER)
 	@python3 $(DBF_DIFF_DIR)/numeric_format_ref.py $< $(DBASE3_DECOMP)
+	@printf '>>> test-samir-numeric-format: green\n'
 test-samir-numeric-format-fraction-mutant: $(BUILD)/samir_numeric_FRACTION
 test-samir-numeric-format-left-mutant: $(BUILD)/samir_numeric_LEFT
 test-samir-numeric-format-fraction-mutant test-samir-numeric-format-left-mutant:
 	@set +e; python3 $(DBF_DIFF_DIR)/numeric_format_ref.py $< $(DBASE3_DECOMP) > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q 'descriptor differential' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (implementation mutant RED: descriptor differential)\n' '$@'
+	@printf '>>> %s: green\n' '$@'
 TEST_UNIT_GATES += test-samir-numeric-format test-samir-numeric-format-fraction-mutant test-samir-numeric-format-left-mutant
 
 # initech-vz6z: mutations of the implemented screen controls, same LIST oracle.
@@ -33868,6 +33921,7 @@ test-samir-status-mutant: $(BUILD)/test_samir_status_mutant
 	@set +e; $< $(DBASE3_DECOMP) > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q 'status: Command Line' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (status-band implementation mutant RED)\n' '$@'
+	@printf '>>> %s: green\n' '$@'
 TEST_UNIT_GATES += test-samir-status test-samir-status-mutant
 
 # Same implementation mutants in the flat COM. Dead sections are omitted;
@@ -33889,12 +33943,14 @@ test-samir-status-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_STATUS.EXE
 	@set +e; $(BUILD)/test_samir_screen_emu status $< > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings|heading)' $(BUILD)/$@.log && grep -q 'status: serial Command Line' $(BUILD)/$@.log && grep -q 'status: reverse band' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (same status-band mutant RED on serial and video)\n' '$@'
+	@printf '>>> %s: green\n' '$@'
 test-samir-numeric-format-emu-fraction-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_NUMERIC_MUTATE_FRACTION.EXE
 test-samir-numeric-format-emu-left-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_NUMERIC_MUTATE_LEFT.EXE
 test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant:
 	@set +e; $(BUILD)/test_samir_screen_emu numeric $< > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings)' $(BUILD)/$@.log && grep -q 'numeric: integral fraction and right alignment' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (same numeric implementation mutant RED in guest)\n' '$@'
+	@printf '>>> %s: green\n' '$@'
 # Mutant targets build the runner/fixture even when invoked alone.
 test-samir-status-emu-mutant test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant test-samir-console-emu-mutant: $(BUILD)/test_samir_screen_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
 TEST_EMU_GATES += test-samir-status-emu test-samir-status-off-emu test-samir-status-emu-mutant test-samir-numeric-format-emu test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant
@@ -33904,6 +33960,7 @@ test-samir-console-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.EXE
 	@set +e; $(BUILD)/test_samir_screen_emu console $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.EXE > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings)' $(BUILD)/$@.log && grep -q 'console: program output and prompt suppressed' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (same CONSOLE suppression mutant RED in guest)\n' '$@'
+	@printf '>>> %s: green\n' '$@'
 TEST_EMU_GATES += test-samir-console-emu test-samir-console-emu-mutant
 
 # M011/M012 (tdnl.99/.100), L023: boot the existing locked dirty-123 quit
@@ -34375,6 +34432,7 @@ $(TEST_SAMIR_LIST_LAYOUT_EMU): $(DBF_DIFF_DIR)/test_samir_list_layout_emu.c | $(
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
 SAMIR_LIST_LAYOUT_EMU_DEPS := $(TEST_SAMIR_LIST_LAYOUT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 SAMIR_LIST_LAYOUT_MUT_EXES := $(addprefix $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_,COLUMNS.EXE HEADING.EXE OPENING.EXE)
+SAMIR_LIST_LAYOUT_MUT_EXES += $(BUILD)/SAMIR_SCREEN_SAMIR_STREAM_MUTATE_DROP_CRLF.EXE
 .PHONY: test-samir-list-layout-emu test-samir-list-layout-emu-mutant
 test-samir-list-layout-emu: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_EXE) $(SAMIR_OVL) samir-use-goldens
 	@$(TEST_SAMIR_LIST_LAYOUT_EMU) files $(SAMIR_EXE) $(abspath $(DBASE3_DECOMP))
@@ -34391,7 +34449,12 @@ test-samir-list-layout-emu-mutant: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_LIST_LA
 	  printf '>>> test-samir-list-layout-emu-mutant: %s correctly RED: ' "$$kind"; \
 	  grep -m1 'LIST M005U table 0 stdout file differs' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
 	done
-	@printf '>>> test-samir-list-layout-emu-mutant: green (three clean guest returns; wrong bytes rejected)\n'
+	@set +e; $(TEST_SAMIR_LIST_LAYOUT_EMU) screen $(BUILD)/SAMIR_SCREEN_SAMIR_STREAM_MUTATE_DROP_CRLF.EXE $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-list-layout-emu-mut-STREAM.log 2>&1; rc=$$?; set -e; \
+	  test $$rc -eq 1 && grep -q 'screen): .*checks, 1 failures' $(BUILD)/samir-list-layout-emu-mut-STREAM.log && \
+	  grep -q 'FAIL .*M005U table 0 screen serial byte-identical' $(BUILD)/samir-list-layout-emu-mut-STREAM.log && \
+	  ! grep -q 'CELL RED' $(BUILD)/samir-list-layout-emu-mut-STREAM.log || { cat $(BUILD)/samir-list-layout-emu-mut-STREAM.log; exit 1; }; \
+	  printf '>>> SAMIR_STREAM_MUTATE_DROP_CRLF RED: '; grep -m1 'LIST M005U table 0 screen serial differs' $(BUILD)/samir-list-layout-emu-mut-STREAM.log
+	@printf '>>> test-samir-list-layout-emu-mutant: green (three clean guest returns; wrong bytes and dropped screen CR/LF rejected)\n'
 TEST_EMU_GATES += test-samir-list-layout-emu test-samir-list-layout-emu-mutant
 
 # initech-kdna: Using III+ U7-21 (PDF 509), Programming III+ N5-30 (PDF 418).
@@ -34765,7 +34828,7 @@ test-boot-logo: $(TEST_BOOT_LOGO) $(BOOT_LOGO_GEN_BIN)
 test-boot-logo-mutant: $(TEST_BOOT_LOGO_MUT)
 	@if $(TEST_BOOT_LOGO_MUT) > $(BUILD)/test_boot_logo_mut.log 2>&1; then printf '!!! test-boot-logo-mutant FAIL: BOOT_LOGO_MUT_NOTCH_ROW survived -- the geometry oracle is decoration\n'; exit 1; fi
 	@grep -q 'FAIL.*strike == geometry, pixel for pixel' $(BUILD)/test_boot_logo_mut.log || { cat $(BUILD)/test_boot_logo_mut.log; exit 1; }
-	@printf '>>> test-boot-logo-mutant: BOOT_LOGO_MUT_NOTCH_ROW correctly RED: %s\n' "$$(grep -m1 'DIFF' $(BUILD)/test_boot_logo_mut.log | sed 's/^ *//')"
+	@printf '>>> test-boot-logo-mutant: green BOOT_LOGO_MUT_NOTCH_ROW correctly RED: %s\n' "$$(grep -m1 'DIFF' $(BUILD)/test_boot_logo_mut.log | sed 's/^ *//')"
 test-boot-screen: $(TEST_BOOT_SCREEN) $(BOOT_SCREEN_CHECK)
 	@test -s "$(BOOT_SCREEN_PNG)" || { printf '!!! test-boot-screen FAIL: golden %s absent (system7-decomp mint-009)\n' "$(BOOT_SCREEN_PNG)"; exit 1; }
 	@$(TEST_BOOT_SCREEN) $(BUILD)/boot_screen_host.ppm
@@ -34775,7 +34838,7 @@ test-boot-screen-mutant: $(TEST_BOOT_SCREEN_NL) $(BOOT_SCREEN_CHECK)
 	@$(TEST_BOOT_SCREEN_NL) $(BUILD)/boot_screen_host_nologo.ppm >/dev/null
 	@if $(BOOT_SCREEN_CHECK) $(BUILD)/boot_screen_host_nologo.ppm "$(BOOT_SCREEN_PNG)" > $(BUILD)/boot_screen_host_nologo.log 2>&1; then printf '!!! test-boot-screen-mutant FAIL: FLAIR_BOOT_MUT_NO_LOGO survived\n'; exit 1; fi
 	@grep -q 'FAIL LOGO' $(BUILD)/boot_screen_host_nologo.log || { cat $(BUILD)/boot_screen_host_nologo.log; exit 1; }
-	@printf '>>> test-boot-screen-mutant: FLAIR_BOOT_MUT_NO_LOGO correctly RED: %s\n' "$$(grep -m1 'FAIL LOGO' $(BUILD)/boot_screen_host_nologo.log | sed 's/^ *//')"
+	@printf '>>> test-boot-screen-mutant: green FLAIR_BOOT_MUT_NO_LOGO correctly RED: %s\n' "$$(grep -m1 'FAIL LOGO' $(BUILD)/boot_screen_host_nologo.log | sed 's/^ *//')"
 TEST_UNIT_GATES += test-boot-logo test-boot-logo-mutant test-boot-screen test-boot-screen-mutant
 
 # $(call boot-screen-boot,<image>,<name>): boot without input, dump at
@@ -35188,6 +35251,7 @@ $(BUILD)/test_samir_say: $(DBF_DIFF_DIR)/test_samir_say.c $(SAMIR_DIR)/core/scre
 .PHONY: test-samir-say
 test-samir-say: $(BUILD)/test_samir_say
 	@$<
+	@printf ">>> test-samir-say: green\n"
 TEST_UNIT_GATES += test-samir-say
 $(SAMIR_FNS_TEST): $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
@@ -35416,7 +35480,7 @@ NEST_MAIN := $(BUILD)/kmain_exec_nested.o
 NEST_OBJS := $(filter-out $(KERNEL_EXEC_MAIN_OBJ),$(KERNEL_EXEC_OBJS)) $(NEST_MAIN)
 NEST_MUT_OBJS := $(filter-out $(KERNEL_LOADER_OBJ),$(NEST_OBJS)) $(BUILD)/loader_nested_mut.o
 $(eval $(call fixture-contract,$(BUILD)/fat_exec_nested.img,HELLO.TXT GREET.COM NEST.COM TERM20.COM DEPTH.COM SUB/KEEP.TXT))
-$(NEST_MAIN): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/loader.h os/milton/int21.h | $(BUILD)
+$(NEST_MAIN): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/loader.h os/milton/int21.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_EXEC_NESTED -Ispec -I$(KERNEL_DIR),$@)
 $(BUILD)/loader_nested_mut.o: $(KERNEL_LOADER_C) os/milton/loader.h os/milton/int21.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOADER_OPT) -DLOADER_MUT_NO_RESTORE -Ispec -I$(KERNEL_DIR) -c $< -o $@
@@ -35489,7 +35553,7 @@ TSR_INT21_NOKEEP := $(BUILD)/int21_tsr_nokeep.o
 TSR_NOKEEP_OBJS := $(filter-out $(KERNEL_INT21_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(TSR_INT21_NOKEEP)
 TSR_NOIDLE_OBJS := $(filter-out $(KERNEL_SECONDARY_SHELL_MAIN_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(TSR_MAIN_NOIDLE)
 $(eval $(call fixture-contract,$(BUILD)/fat_tsr.img,HELLO.TXT GREET.COM TSR.COM WAITKEY.COM))
-$(TSR_MAIN_NOIDLE): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h spec/tsr_contract.h | $(BUILD)
+$(TSR_MAIN_NOIDLE): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) os/milton/ansi_cursor.h $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h spec/tsr_contract.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_SHELL -DBOOT_SECONDARY_SHELL -DTSR_MUT_NO_IDLE -Ispec -I$(KERNEL_DIR),$@)
 $(TSR_INT21_NOKEEP): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h spec/tsr_contract.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -DTSR_MUT_NO_KEEP -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
@@ -35620,6 +35684,7 @@ include harness/merge_samir.mk
 
 # Real III PLUS 1.1 full-screen golden minter (W4.0).
 include harness/diff/dbf_diff/screen_mint.mk
+include harness/diff/dbf_diff/console_review.mk
 include harness/diff/dbf_diff/w4.mk
 
 # Calculator desk accessory lifecycle (initech-0xs6).

@@ -27,7 +27,7 @@ ifeq ($(SKIP_BOCHS),1)
 test-samir-boot-bochs test-samir-boot-bochs-mutant:
 	@printf '!!! %s SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run.\n' "$@"
 else
-test-samir-boot-bochs: test-samir-boot test-samir-bochs-keys $(BOCHS_BIN) $(BUILD)/ppm_bochs_check $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(SAMIR_BOCHS_SOURCE)
+test-samir-boot-bochs: test-samir-boot test-samir-bochs-keys $(BOCHS_BIN) $(BUILD)/ppm_bochs_check $(SAMIRBOOT_CAPTURE_IMG) $(SAMIR_LIST_IMG) $(SAMIR_BOCHS_SOURCE)
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! %s FAIL: bochs not found (apt install bochs)\n' "$@"; exit 1; }
 	@# The shared host has one RFB port. Poll before EVERY invocation; the
 	@# driver also holds its existing host lock through reaping (WL-0170).
@@ -37,7 +37,7 @@ test-samir-boot-bochs: test-samir-boot test-samir-bochs-keys $(BOCHS_BIN) $(BUIL
 	done
 	@$(call fixture-preflight,$(SAMIR_BOCHS_SOURCE))
 	cp -f $(SAMIR_BOCHS_SOURCE) $(SAMIR_BOCHS_DATA)
-	@$(BOCHS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_BOCHS_DATA)" \
+	@$(BOCHS_BIN) --disk "$(SAMIRBOOT_CAPTURE_IMG)" --disk2 "$(SAMIR_BOCHS_DATA)" \
 	 --expect SHELL-READY --quit-after SHELL-READY \
 	 --keys "$(SAMIRBOOT_SCRN_KEYS)" --keys-after SHELL-READY \
 	 --screendump-after SHELL-READY \

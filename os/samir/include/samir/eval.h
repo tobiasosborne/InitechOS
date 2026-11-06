@@ -635,6 +635,8 @@ typedef struct xb_ctx {
     /* Using III+ U5-210/235/259: screen controls. STATUS has no CONFIG.DB.
      * dot_command is set only around a command entered at the dot prompt. */
     uint8_t set_heading, set_console, set_status, dot_command;
+    /* Real III+ at-dot-c e1/e7: default SCOREBOARD ON; CLEAR defers cleanup. */
+    uint8_t scoreboard_off, screen_cleared;
     /* say-get-read.md sections 1-2; fns-mint row/col/prow/pcol.
      * Independent screen and printer positions, initially zero. */
     uint8_t device_print;

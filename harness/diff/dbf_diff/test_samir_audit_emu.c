@@ -120,7 +120,12 @@ int main(int argc,char **argv)
     snprintf(cmd,sizeof(cmd),"build/samir_audit_%s.serial",KEY);
     if(!emu_trace_complete(sp("report"),cmd,emu_trace_keys(keybuf)))return 2;
     n=read_file(cmd,raw,sizeof(raw));
-    for(i=0,j=0;i<n;i++) if(raw[i]!='\r') serial[j++]=raw[i];
+    /* at-enter/entered: dot Enter is CR-only. Keep command delimiters;
+     * collapse each real M005U CR LF to one LF (initech-0spyf/fzsvo). */
+    for(i=0,j=0;i<n;i++) {
+        if(raw[i]=='\r' && i+1<n && raw[i+1]=='\n') continue;
+        serial[j++]=raw[i]=='\r'?'\n':raw[i];
+    }
     serial[j]=0;
     CHECK(strstr(serial,"SHELL-READY")!=NULL,"OS shell booted");
     CHECK(strstr(serial,"SHELL-DONE")!=NULL,"SAMIR quit and shell returned cleanly");

@@ -90,6 +90,19 @@ An empty diff selects the `always` family. Paths outside the audited scope
 select `always` too. Paths must be printable ASCII; FILES cannot encode a
 path containing spaces (DIFF and the C tool's newline input can).
 
+The `pending` family has no path triggers (the resolver rejects any). Its
+members remain inventory-audited and are opt-in by explicit target name;
+consumer auto-selection is inapplicable to them, as with aggregate dispatchers.
+The family contains suffix-named pending groups, non-vector FNS/W2 cases,
+and `test-flair-toolbox-captures`. Registered gates and their prerequisites
+remain required. The JSON note cites the Makefile PENDING sections,
+initech-1x6x2.16/.17, and the qg22/ucch/whs3 known-RED comment in
+`harness/toolbox_hardening.mk`. Their comparisons remain callable by name;
+no golden is changed and no missing capture is fabricated. STATUS remains
+under initech-ebwsw, while its existing serial/status-band gates stay required.
+The historical `test-bochs-pending` session alias is opt-in by its name; the
+direct `test-samir-boot-bochs` and mutant gates remain required and green.
+
 `test-for` resolves once, then runs the selected list in one `make -k -j16`,
 retaining the existing gate/mutant ordering. Successful completion targets
 count green gates; failed prerequisites count as red, even if no gate recipe

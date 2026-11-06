@@ -13,12 +13,14 @@ $(BUILD)/batch_break: $(BATCH_BREAK_DEPS)
 .PHONY: test-batch-break-host
 test-batch-break-host: $(BUILD)/batch_break
 	@$<
+	@printf '>>> test-batch-break-host: green (oracle completed)\n'
 TEST_UNIT_GATES += test-batch-break-host
 .PHONY: test-batch-break-emu test-batch-break-mutant
 $(BUILD)/batch_break_child.bin: harness/diff/fat_diff/batch_break_mint/exec_child.asm | $(BUILD)
 	$(NASM) -f bin $< -o $@
 test-batch-break-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/batch_break_child.bin
 	@sh harness/diff/fat_diff/batch_break.sh $(SECONDARY_TRACER_IMG)
+	@printf '>>> test-batch-break-emu: green (oracle completed)\n'
 $(BUILD)/batch_break_mut_%: $(BATCH_BREAK_DEPS)
 	$(CC) $(CFLAGS) -Wno-unused-function -D$* -Ispec -Ios/milton -Ibuild -Iharness/diff/fat_diff $< -o $@
 test-batch-break-mutant: $(BUILD)/batch_break_mut_CMD_MUTATE_BATCH_ALWAYS_TERMINATE $(BUILD)/batch_break_mut_CMD_MUTATE_BATCH_ALWAYS_RESUME $(BUILD)/batch_break_mut_CMD_MUTATE_BATCH_DROP_CHILD_BREAK
@@ -29,6 +31,7 @@ test-batch-break-mutant: $(BUILD)/batch_break_mut_CMD_MUTATE_BATCH_ALWAYS_TERMIN
 	@rc=0; $(BUILD)/batch_break_mut_CMD_MUTATE_BATCH_DROP_CHILD_BREAK > $(BUILD)/batch_break_mut_CHILD.log 2>&1 || rc=$$?; test $$rc -eq 1
 	@grep '^RED batch-break: EXEC child asks after cleanup' $(BUILD)/batch_break_mut_CHILD.log
 	@echo 'GREEN batch-break-mutant: dropped EXEC child propagation caught'
+	@printf '>>> test-batch-break-mutant: green (oracle completed)\n'
 TEST_UNIT_GATES += test-batch-break-mutant
 TEST_EMU_GATES += test-batch-break-emu
 DEL_DIRECTORY_MUTANTS := CMD_MUTATE_DEL_DIRECTORY_UNLINK CMD_MUTATE_DEL_NO_CONFIRM CMD_MUTATE_DEL_DIRECTORY_RECURSE
@@ -55,6 +58,7 @@ test-batch-break-emu-mutant: $(HARNESS_BIN) $(BUILD)/batch_break_child.bin $(BUI
 	@rc=0; sh harness/diff/fat_diff/batch_break.sh $(BUILD)/tracer_mut_safety_batch_child.img drop-child exec-n >$(BUILD)/batch_break_emu_mut_child.log 2>&1 || rc=$$?; test $$rc -eq 1
 	@grep '^RED batch-break-emu: exec-n catalogue question missing' $(BUILD)/batch_break_emu_mut_child.log
 	@echo 'GREEN batch-break-emu-mutant: dropped EXEC child propagation caught'
+	@printf '>>> test-batch-break-emu-mutant: green (oracle completed)\n'
 TEST_UNIT_GATES += test-del-directory-mutant
 TEST_EMU_GATES += test-del-directory-emu-mutant test-batch-break-emu-mutant
 .PHONY: test-del-directory-b023

@@ -1,6 +1,7 @@
 /* Ref: say-get-read.md sections 1-2; real III+ fns-mint/{row,col,prow,pcol}.
  * Literal expectations exercise expressions, formatting, routing and errors. */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "test_assert.h"
 #include "samir/interp.h"
@@ -35,7 +36,17 @@ static void error(xb_interp *ip,const char *program,int code)
     CHECK(paints==before,"rejected SAY paints nothing");
 }
 static void model_draw(void *u,uint8_t r,uint8_t c,uint8_t a,const char *text,uint32_t n)
-{ (void)u;(void)r;(void)c;(void)a;(void)text;(void)n; }
+{ (void)u;(void)a;(void)text;
+    if(r>=25 || c>=80 || n>80u-c) {
+        fprintf(stderr,"RED continuation draw bound: row=%u col=%u n=%u\n",r,c,n);
+        exit(1);
+    }
+}
+static samir_screen *continuation_model;
+static void continuation_output(samir_pal_t *p,const char *s,uint32_t n)
+{ (void)p;samir_screen_write(continuation_model,s,n); }
+static int continuation_at(samir_pal_t *p,uint8_t r,uint8_t c,const char *s,uint32_t n)
+{ (void)p;samir_screen_at(continuation_model,r,c,s,n);return 0; }
 static void value(xb_interp *ip,const char *expr,double expected)
 {
     xb_val v;int ec=0;
@@ -57,6 +68,9 @@ int main(void)
     CHECK(!strcmp(printed,"\r\n\r\n   X"),"PAL printer motion and value bytes");
     CHECK(samir_do(ip,"SET DEVICE TO SCREEN\n@ 23,78 SAY \"X\"\n")==INTERP_OK,"screen edge SAY");
     value(ip,"ROW()",23);value(ip,"COL()",79);
+    /* Independent real III+ at-say-edge/position: overflow is off-page. */
+    CHECK(samir_do(ip,"@ 24,75 SAY \"abcdefgh\"\n")==INTERP_OK,"bottom-edge SAY");
+    value(ip,"ROW()",25);value(ip,"COL()",3);
     CHECK(samir_do(ip,"@ 0,0 SAY \"\"\n?? \"ab\"\n? \"c\"\n")==INTERP_OK,"question cursor output");
     value(ip,"ROW()",1);value(ip,"COL()",1);
     CHECK(samir_do(ip,"@ 2.9,3.9 SAY .T.\n")==INTERP_OK,"fractional coordinates and logical formatting");
@@ -81,19 +95,36 @@ int main(void)
         }
     }
     CHECK(samir_do(ip,"@ 2,3 SAY CHR(10)+\"X\"\n")==INTERP_OK,"SAY embedded LF");
-    value(ip,"ROW()",3);value(ip,"COL()",1);
+    /* Real III+ at-say-edge-controls/controls: SAY control bytes are cells. */
+    value(ip,"ROW()",2);value(ip,"COL()",5);
     CHECK(samir_do(ip,"@ 2,3 SAY CHR(13)+\"X\"+CHR(9)+CHR(7)\n")==INTERP_OK,"SAY CR TAB BEL");
-    value(ip,"ROW()",2);value(ip,"COL()",8);
+    value(ip,"ROW()",2);value(ip,"COL()",7);
+    CHECK(samir_do(ip,"@ 23,78 SAY \"XYZ\"+CHR(13)+\"Q\"+CHR(10)+\"R\"\n")==INTERP_OK,"captured SAY control cells");
+    value(ip,"ROW()",24);value(ip,"COL()",5);
     {
         samir_screen model;
         samir_screen_init(&model,NULL,NULL);
         samir_screen_at(&model,23,78,"XYZ\rQ\nR",7);
-        CHECK(model.row==24 && model.col==1,"STATUS model full grid and controls");
-        CHECK(model.text[23][0]=='Q' && model.text[24][0]=='R',"STATUS model scrolling cells");
+        /* Ref: real III+ at-say-edge-controls/controls (operator ruling). */
+        CHECK(model.row==24 && model.col==5,"SAY control cells advance cursor to captured (24,5)");
+        CHECK(!memcmp(model.text[23]+78,"XY",2) && !memcmp(model.text[24],"Z\rQ\nR",5),"SAY paints captured CR/LF bytes without motion");
+        CHECK(model.text[22][78]==' ' && model.text[23][0]==' ',"SAY control cells do not scroll");
+        /* initech-0spyf/fzsvo: same PRG as the emulated continuation probe:
+         * @ 24,75 SAY "abcdefgh" then ?? REPLICATE("X",80).
+         * The native PAL must fail loud if a draw exceeds its one-row span. */
+        samir_screen_init(&model,model_draw,NULL);
+        continuation_model=&model;
+        p->say_screen=continuation_at;p->conout=continuation_output;
+        CHECK(samir_do(ip,"@ 24,75 SAY \"abcdefgh\"\n?? REPLICATE(\"X\",80)\n")==INTERP_OK,
+              "exact off-page continuation PRG succeeds");
+        p->say_screen=screen;p->conout=output;
+        CHECK(model.row==24 && model.col==0 && model.text[23][79]=='X',
+              "off-page continuation normalizes before drawing all 80 cells");
         /* PM scope regression: Using III+ U5-16/PDF128 reserves the status
          * rows; the established writer's editing/control policy must survive
          * positioned SAY (say-get-read.md sections 1-2). */
         samir_screen_init(&model,model_draw,NULL);
+        model.active=1;
         model.row=1;model.col=0;
         samir_screen_write(&model,"\b",1);
         CHECK(model.row==0 && model.col==79,"dot-prompt backspace still wraps to previous row");

@@ -17,6 +17,7 @@ mint-screen-seeds: $(BUILD)/screen_tool $(BUILD)/SCREEN.COM
 	 sh harness/diff/dbf_diff/screen_mint.sh "$(SCREEN_MINT_DIR)/$$c" "$(BUILD)/screen-mint/seeds/$$c"; done
 test-screen-mint: $(BUILD)/screen_tool $(BUILD)/SCREEN.COM
 	@sh harness/diff/dbf_diff/screen_mint_test.sh
+	@printf '>>> test-screen-mint: green\n'
 test-screen-mint-repro: $(BUILD)/screen_tool $(BUILD)/SCREEN.COM
 	@sh harness/diff/dbf_diff/screen_mint_repro.sh
 
@@ -30,6 +31,7 @@ $(BUILD)/test_qemu_screen_helper: harness/emu/test_qemu_screen_helper.c harness/
 test-screen-mint-mutants: $(BUILD)/test_qemu_screen_helper $(BUILD)/screen_tool $(BUILD)/SCREEN.COM $(BUILD)/screen_capture $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG)
 	@$(BUILD)/test_qemu_screen_helper
 	@sh harness/diff/dbf_diff/screen_mint_mutants.sh
+	@printf '>>> test-screen-mint-mutants: green\n'
 
 # W3 forms (initech-p3nn0): SAMIR replayed against real III+ @...TO/@...CLEAR/CLEAR.
 .PHONY: test-samir-forms-emu
@@ -45,3 +47,32 @@ test-samir-forms-emu-mutant: $(BUILD)/screen_capture $(BUILD)/screen_tool $(HARN
 	  grep -q "^RED: $$want" $$log || { cat $$log; exit 1; }; \
 	  printf 'SAMIR_FORMS_MUTANT_%s RED: ' $$k; grep -m1 "^RED: $$want" $$log; done
 	@printf '>>> test-samir-forms-emu-mutant: green (glyph, cursor, clear, wrap, narrow, subcmd RED)\n'
+
+# initech-0spyf/fzsvo: exact real III+ prompt and off-page BIOS cursor.
+PROMPT_SCREEN_DEPS = $(BUILD)/screen_capture $(BUILD)/screen_tool $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG)
+.PHONY: test-samir-dotprompt test-samir-cursor25 test-samir-dotprompt-mutant test-samir-cursor25-mutant
+test-samir-dotprompt: $(PROMPT_SCREEN_DEPS) $(SAMIR_EXE) $(SAMIR_OVL)
+	@SCREEN_FORMS_SUITE=dotprompt SCREEN_FORMS_GATED=$(DBF_DIFF_DIR)/screen_dotprompt_gated.txt sh $(DBF_DIFF_DIR)/screen_forms_emu.sh
+test-samir-cursor25: $(PROMPT_SCREEN_DEPS) $(SAMIR_EXE) $(SAMIR_OVL)
+	@SCREEN_FORMS_SUITE=cursor25 SCREEN_FORMS_GATED=$(DBF_DIFF_DIR)/screen_cursor25_gated.txt sh $(DBF_DIFF_DIR)/screen_forms_emu.sh
+# Unmasked TE scrolls; edge/prompt exercises blanking while retaining col 79.
+DOTPROMPT_MUTANTS := bottom:at-dot/d2 blank79:at-say-edge/prompt scoreboard:at-dot-c/e1 clear:at-dot-c/e4 enter:at-enter/entered saywrap:at-say-edge/edge saycontrol:at-say-edge-controls/controls
+test-samir-dotprompt-mutant: $(PROMPT_SCREEN_DEPS) $(foreach m,$(DOTPROMPT_MUTANTS),$(BUILD)/SAMIR_SCREEN_SAMIR_DOTPROMPT_MUTANT_$(firstword $(subst :, ,$(m))).EXE)
+	@set -e; for m in $(DOTPROMPT_MUTANTS); do k=$${m%%:*}; want=$${m#*:}; log=$(BUILD)/samir-dotprompt-mut-$$k.log; \
+	  if SCREEN_FORMS_SUITE=dotprompt SCREEN_FORMS_GATED=$(DBF_DIFF_DIR)/screen_dotprompt_gated.txt sh $(DBF_DIFF_DIR)/screen_forms_emu.sh $(BUILD)/SAMIR_SCREEN_SAMIR_DOTPROMPT_MUTANT_$$k.EXE > $$log 2>&1; then cat $$log; exit 1; fi; \
+	  grep -q "^RED: $$want: RED: first difference" $$log || { cat $$log; exit 1; }; \
+	  printf 'SAMIR_DOTPROMPT_MUTANT_%s RED: ' $$k; grep -m1 "^RED: $$want" $$log; done
+	@printf '>>> test-samir-dotprompt-mutant: green (bottom, blank79, scoreboard, clear, enter, saywrap, saycontrol RED)\n'
+test-samir-cursor25-mutant: $(PROMPT_SCREEN_DEPS) $(BUILD)/SAMIR_SCREEN_SAMIR_CURSOR25_MUTANT.EXE
+	@log=$(BUILD)/samir-cursor25-mut.log; \
+	 if SCREEN_FORMS_SUITE=cursor25 SCREEN_FORMS_GATED=$(DBF_DIFF_DIR)/screen_cursor25_gated.txt sh $(DBF_DIFF_DIR)/screen_forms_emu.sh $(BUILD)/SAMIR_SCREEN_SAMIR_CURSOR25_MUTANT.EXE > $$log 2>&1; then cat $$log; exit 1; fi; \
+	 grep -q '^RED: at-to-b/TE: RED: first difference cursor-row golden=25 actual=24' $$log || { cat $$log; exit 1; }; \
+	 cat $$log
+	@printf '>>> test-samir-cursor25-mutant: green (row 25 clamped to 24 RED)\n'
+TEST_EMU_GATES += test-samir-dotprompt test-samir-dotprompt-mutant test-samir-cursor25 test-samir-cursor25-mutant test-samir-forms-emu test-samir-forms-emu-mutant
+
+# Real III+ STATUS layout is tracked separately (initech-ebwsw, not gated).
+# Keep this out of TEST_EMU_GATES until both dumps and a mutant pass.
+.PHONY: test-samir-status-screen-pending
+test-samir-status-screen-pending: $(PROMPT_SCREEN_DEPS) $(SAMIR_EXE) $(SAMIR_OVL)
+	@sh $(DBF_DIFF_DIR)/screen_status_pending.sh

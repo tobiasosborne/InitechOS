@@ -1,6 +1,10 @@
 /* initech-7r2; PRD Sec 8 serial milestones; CLAUDE.md Rules 1, 2, 6.
  * Exercise the real marker wait with a scripted serial producer and virtual
  * monotonic time. Host scheduling cannot make this regression test flaky. */
+/* qemu.c uses Linux pidfd syscalls; feature macros precede ALL libc headers. */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE 700
 #include <time.h>

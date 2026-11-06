@@ -113,7 +113,8 @@ void console_cursor_wait(console_t *con, uint32_t ticks, int active)
     bitmap_t bm = con_bitmap(con);
     if (con->cursor_on && (!want || con->cursor_col != con->cur_col ||
                                   con->cursor_row != con->cur_row)) {
-        for (uint32_t i = 0; i < 16; i++) {
+        for (uint32_t i = 0; i < 16 && con->cursor_col < con->cols &&
+                                   con->cursor_row < con->rows; i++) {
             uint32_t x = con->cursor_col*8u + i%8u;
             uint32_t y = con->cursor_row*16u + 14u + i/8u;
             surface_put_pixel(&bm, y*bm.pitch+x*bm.bytes_per_pixel, con->cursor_saved[i]);
@@ -487,15 +488,19 @@ void console_set_cursor(console_t *con, uint32_t row, uint32_t col)
     if (con == 0) {
         return;
     }
-    /* Clamp to the grid (Rule 2 -- never let the cursor address past the cells;
-     * a subsequent draw is also bounds-checked, but clamping keeps cur_row/col a
-     * valid coordinate for the next advance). cols/rows are >= 1 (console_init). */
+    /* Real III+ at-to-b/TE leaves its BIOS cursor one row below the grid.
+     * Carry exactly that position; drawing/page_fill/erase must stay bounded.
+     * Larger requests retain the ANSI driver's defensive last-cell clamp. */
     if (con->cols == 0u || con->rows == 0u) {
         return;
     }
     con->past_end = 0;
     con->cur_col = (col >= con->cols) ? (con->cols - 1u) : col;
+#ifdef CONSOLE_MUTATE_OFFGRID_CLAMP
     con->cur_row = (row >= con->rows) ? (con->rows - 1u) : row;
+#else
+    con->cur_row = (row > con->rows) ? (con->rows - 1u) : row;
+#endif
 }
 
 void console_get_cursor(const console_t *con, uint32_t *row, uint32_t *col)
@@ -516,6 +521,7 @@ void console_get_cursor(const console_t *con, uint32_t *row, uint32_t *col)
 static void console_fill_cells(console_t *con, uint32_t row,
                                uint32_t col0, uint32_t col1)
 {
+    if (row >= con->rows || con->cols == 0u) return;
     if (col1 >= con->cols) col1 = con->cols - 1u;
     if (col0 > col1) {
         return;
@@ -597,13 +603,14 @@ void console_save_page(const console_t *con, uint8_t *buf)
     buf[CONSOLE_PAGE_BYTES - 1] = (uint8_t)con->cur_col;
 }
 
-void console_restore_page(console_t *con, const uint8_t *buf)
+static __attribute__((noinline,noclone)) void console_copy_page(console_t *con,const uint8_t *buf,int changed_only)
 {
     if (!con || !con->cells || !buf) return;
     uint8_t attr = con->cur_attr;
     console_color_t fg = con->cur_fg, bg = con->cur_bg;
     for (uint32_t i = 0; i < CONSOLE_COLS * CONSOLE_ROWS; i++) {
         uint8_t ch = buf[i * 2u], a = buf[i * 2u + 1u];
+        if(changed_only && con->cells[i*2u]==ch && con->cells[i*2u+1u]==a)continue;
         console_set_attr(con, a);
         con->cells[i * 2u] = ch;
         con->cells[i * 2u + 1u] = a;
@@ -617,3 +624,7 @@ void console_restore_page(console_t *con, const uint8_t *buf)
     con->cur_bg = bg;
     console_set_cursor(con, buf[CONSOLE_PAGE_BYTES - 2], buf[CONSOLE_PAGE_BYTES - 1]);
 }
+void console_restore_page(console_t *con,const uint8_t *buf)
+{ console_copy_page(con,buf,0); }
+void console_update_page(console_t *con,const uint8_t *buf)
+{ console_copy_page(con,buf,1); }
