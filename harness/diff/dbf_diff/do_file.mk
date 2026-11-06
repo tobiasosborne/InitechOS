@@ -10,6 +10,8 @@ endef
 $(eval $(call do-file-mutant,skip,PROC_MUTATE_SKIP_DISK))
 $(eval $(call do-file-mutant,depth,PROC_MUTATE_DO_OFF_BY_ONE))
 $(eval $(call do-file-mutant,master,PROC_MUTATE_MASTER_ONE_LEVEL))
+$(eval $(call do-file-mutant,close,PROC_MUTATE_KEEP_LIBRARY_CLOSE))
+$(eval $(call do-file-mutant,active,PROC_MUTATE_CLOSE_ACTIVE))
 .PHONY: mint-interp-do-file test-interp-do-file test-interp-do-file-mutant test-interp-do-file-emu test-samir-do-file test-samir-do-file-mutant test-samir-do-file-emu
 mint-interp-do-file:
 	@sh $(DBF_DIFF_DIR)/do_file_mint.sh $(abspath $(DBASE3_DECOMP))
@@ -19,8 +21,8 @@ test-interp-do-file: $(DO_FILE_TEST)
 test-interp-do-file-emu: $(SAMIR_EXE) $(SAMIR_OVL) $(SECONDARY_TRACER_IMG) $(HARNESS_BIN)
 	@sh $(DBF_DIFF_DIR)/do_file_test.sh emu
 	@printf '>>> test-interp-do-file-emu: green\n'
-test-interp-do-file-mutant: test-interp-do-file $(addprefix $(BUILD)/test_interp_do_file_,skip depth master)
-	@set -e; for mutant in skip depth master; do \
+test-interp-do-file-mutant: test-interp-do-file $(addprefix $(BUILD)/test_interp_do_file_,skip depth master close active)
+	@set -e; for mutant in skip depth master close active; do \
 	 log=$(BUILD)/do-file-test/$$mutant.log; \
 	 set +e; sh $(DBF_DIFF_DIR)/do_file_test.sh host $(BUILD)/test_interp_do_file_$$mutant > $$log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q '^RED DO-FILE' $$log || { cat $$log; exit 1; }; \

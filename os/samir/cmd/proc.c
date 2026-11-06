@@ -624,6 +624,42 @@ static void p_library_release(xb_interp *ip, proc_library *library)
     }
 }
 
+/* Drop only the installed reference; active calls retain their own. */
+static void p_clear_library(xb_interp *ip, proc_state *ps)
+{
+    p_library_release(ip, ps->library);
+    ps->library = (proc_library *)0;
+}
+
+/* HELP.DBS _CLOSE / _SET PROCEDURE, and real III+ 1.1 do-file-mint/close:
+ * outside the library, CLOSE PROCEDURE / ALL restores disk lookup; inside
+ * an active library routine both leave the library selected, even after
+ * RETURN. This is not a deferred close. SET PROCEDURE retains its existing
+ * replacement semantics, with active references keeping the old text alive. */
+void proc_close_library(xb_interp *ip)
+{
+    proc_state *ps = proc_state_for(ip);
+#ifndef PROC_MUTATE_KEEP_LIBRARY_CLOSE
+    if (ps && ps->library
+#ifndef PROC_MUTATE_CLOSE_ACTIVE
+        && ps->library->refs == 1
+#endif
+        ) p_clear_library(ip, ps);
+#else
+    (void)ps;
+#endif
+}
+
+static void proc_teardown(xb_interp *ip)
+{
+#ifndef PROC_MUTATE_SKIP_LIBRARY_FREE
+    proc_state *ps = proc_state_for(ip);
+    if (ps) p_clear_library(ip, ps);
+#else
+    (void)ip;
+#endif
+}
+
 /* A running library routine retains its source across SET PROCEDURE changes.
  * The installed library and caller source must never alias freed storage. */
 static int p_set_procedure(xb_interp *ip, proc_state *ps, const char *args, int *ec)
@@ -653,7 +689,7 @@ static int p_set_procedure(xb_interp *ip, proc_state *ps, const char *args, int 
         library->text = source;
         library->refs = 1;
     }
-    p_library_release(ip, ps->library);
+    p_clear_library(ip, ps);
     ps->library = library;
     return INTERP_OK;
 }
@@ -1291,6 +1327,7 @@ int proc_register(xb_interp *ip)
         return -INTERP_ERR_NOMEM;
     rt_memset(ps, 0, (uint32_t)sizeof(*ps));   /* as proc_state_for's fresh slot */
 #endif
+    xb_interp_set_teardown(ip, proc_teardown);
     samir_bind_errors(xb_interp_ctx(ip),proc_trap,proc_escape,ps->onerr,ps->onesc);
     xb_interp_ctx(ip)->on_error_procedure = 0;
     xb_interp_ctx(ip)->program_name = ps->prgname;

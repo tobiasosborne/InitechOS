@@ -408,8 +408,8 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
     return INTERP_OK;
 }
 
-/* Ref: Using III+ U5-53; real mint samirdml/close. No FORMAT,
- * ALTERNATE or external PROCEDURE file is opened by the current engine. */
+/* Ref: Using III+ U5-53; real mint samirdml/close and do-file-mint/close.
+ * The proc module owns the selected library and its active references. */
 extern void wa_close_indexes(wa_env *, int);
 static int repl_do_close(xb_interp *ip, const char *args, int *ec)
 {
@@ -423,6 +423,7 @@ static int repl_do_close(xb_interp *ip, const char *args, int *ec)
     /* `type` is one repl_word token (no blank inside), so the leading-word
      * match repl_verb_eq made is the whole-token match of rt_kw_index. */
     k=rt_kw_index(type,"ALL\0DATABASES\0INDEX\0FORMAT\0PROCEDURE\0ALTERNATE\0");
+    if (k == 0 || k == 4) proc_close_library(ip);
     if (k == 0 || k == 1) {                     /* ALL DATABASES */
         for(area=1;area<=WA_NAREAS;area++)wa_nav_reset(area);
         wa_close_all(xb_interp_env(ip));

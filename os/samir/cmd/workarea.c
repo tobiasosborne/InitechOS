@@ -111,6 +111,7 @@ struct xb_interp {
     wa_env      *env;
     xb_ctx       ctx;
     char        *scratch;              /* eval scratch arena */
+    void       (*teardown)(xb_interp *);
 };
 
 /* Sizes for the resolve memo scratch + the per-table caches. */
@@ -1335,6 +1336,7 @@ xb_interp *xb_interp_make(samir_pal_t *pal)
         return (xb_interp *)0;
     ip->pal  = pal;
     ip->mark = mark;
+    ip->teardown = (void (*)(xb_interp *))0;
 
     ip->env = wa_env_make(pal);
     if (!ip->env)
@@ -1383,8 +1385,15 @@ void xb_interp_free(xb_interp *ip)
     if (!ip)
         return;
     (void)wa_close_all(ip->env);
+    if (ip->teardown) ip->teardown(ip);
     /* unwind the arena to the mark taken at make (frees env + scratch + caches). */
     ip->pal->reset(ip->pal, ip->mark);
+}
+
+void xb_interp_set_teardown(xb_interp *ip, void (*fn)(xb_interp *))
+{
+    SAMIR_RETAIN(fn);
+    if (ip) ip->teardown = fn;
 }
 
 wa_env *xb_interp_env(xb_interp *ip)

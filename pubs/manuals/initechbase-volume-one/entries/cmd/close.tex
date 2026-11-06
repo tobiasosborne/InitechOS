@@ -1,7 +1,8 @@
 % CLOSE -- os/samir/samir_main.c repl_do_close (Using III+ U5-53/PDF 165:
 % CLOSE <file type> / ALL.  ALL and DATABASES close every database with its
 % indexes; INDEX closes the index files of every work area and leaves the
-% databases open in natural order; ALTERNATE, FORMAT and PROCEDURE are
+% databases open in natural order; ALL and PROCEDURE also close a non-active
+% procedure library (real III+ do-file-mint/close). ALTERNATE and FORMAT are
 % accepted and close nothing -- SET ALTERNATE TO closes the alternate file,
 % observed in the replay; any other word, or none, is 10).  Lane samirdml 14a8fc75.
 % Gates: test-samir-repl, test-samir-dml, test-samir-dml-emu.
@@ -24,7 +25,12 @@ work area.
 databases open.  Each database is then read in the order of its records
 until an index file is opened again with \cmd{SET INDEX} or \cmd{USE}.
 
-\cmd{CLOSE ALTERNATE}, \cmd{CLOSE FORMAT} and \cmd{CLOSE PROCEDURE} are
+\cmd{CLOSE PROCEDURE} and \cmd{CLOSE ALL} also close the selected procedure
+file when executed outside an active library procedure.  Executed inside
+an active library procedure, they let it finish and leave the library
+selected for later calls; see \cmd{SET PROCEDURE}.
+
+\cmd{CLOSE ALTERNATE} and \cmd{CLOSE FORMAT} are
 accepted and close nothing in this version.  Close the alternate file with
 \cmd{SET ALTERNATE TO}, without a file name.  \cmd{CLOSE} without a word, or with any other word,
 is reported as \xmsg{10}{Syntax error.}
