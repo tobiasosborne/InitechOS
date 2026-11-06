@@ -19449,7 +19449,6 @@ test-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(PPM_TEXT_CHECK_BIN) $(SPEC_B
 	@printf 'VERDICT   : PASS -- InitechDOS banner printed (serial == spec, rendered on screen), no triple-fault\n'
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
 	@printf '======================================================================\n'
-
 	@printf '>>> test-boot: green\n'
 
 # ---------------------------------------------------------------------------
@@ -25274,6 +25273,7 @@ test-flair-samir-suspend: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(SAMIR_LIST_IMG)
 	@printf '            and the live FLAIR desktop returned BIT-IDENTICAL; O-7 holds (ADR-0013)\n'
 	@printf '            (QEMU; Bochs boot leg = make test-flair-samir-suspend-bochs)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-flair-samir-suspend: green\n'
 
 # REAL gate: test-flair-samir-suspend-mutant (Rule 6 -- MUTATION-PROVE the O-7 gate
 # BITES). Boots build/flair_tenants_mut_no_rebuild.img (-DFLAIR_LIVE_MUTATE_NO_REBUILD:
@@ -25365,6 +25365,7 @@ test-flair-samir-suspend-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IM
 	@printf '            kernel + FLAIR-heap milestones (== QEMU), and the 640x480 fail-loud\n'
 	@printf '            guard fired after MOUNT-OK but before SAMIR launch (no fault).\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-flair-samir-suspend-bochs: green\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-live-bochs (beads initech-5l5z FO-4; Rule 5 -- the BOCHS
@@ -25866,7 +25867,6 @@ test-exec: $(HARNESS_BIN) $(EXEC_IMG) $(FAT_EXEC_IMG)
 	@printf 'VERDICT   : PASS -- InitechDOS loaded a flat .COM BY NAME from a FAT12 volume and ran it (saw + AH=4Bh EXEC)\n'
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
 	@printf '======================================================================\n'
-
 	@printf '>>> test-exec: green\n'
 
 # ---------------------------------------------------------------------------

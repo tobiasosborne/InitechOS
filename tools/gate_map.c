@@ -699,7 +699,7 @@ static void audit_consumers(const char *database, const Strings *inventory, cons
             if (!ok) red("consumer %s -> %s (family %s not selected)", tracked.v[p], inventory->v[g], families[owners[g]].name);
         }
     }
-    if (!errors) printf(">>> test-gate-map: consumers green (%zu source/gate pairs, %zu recipe visits; %zu conservative/unresolved expansions)\n", consumer_pairs, recipe_rules, unresolved);
+    if (!errors) printf(">>> test-gate-map: green (consumers: %zu source/gate pairs, %zu recipe visits; %zu conservative/unresolved expansions)\n", consumer_pairs, recipe_rules, unresolved);
     free(matches);
 }
 
