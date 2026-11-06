@@ -99,6 +99,9 @@ extern int set_register(xb_interp *ip);
 extern void set_close_alternate(xb_interp *ip);
 extern int proc_register(xb_interp *ip);
 extern int report_register(xb_interp *ip);   /* cmd/report.c (initech-airx) */
+#ifdef SAMIR_W4
+extern int ui_register(xb_interp *ip);       /* ui/ui.c (EXPERIMENT initech-7cbu8, SAMIRX.EXE only) */
+#endif
 
 /*
  * proc_run(ip, line) is the proc module's program driver: it registers `line`
@@ -609,6 +612,11 @@ static int repl_register_modules(xb_interp *ip)
 
     rc = xb_interp_add_cmd_hook(ip, repl_area_hook, (void *)0);
     if (rc != INTERP_OK) return rc;
+
+#ifdef SAMIR_W4
+    rc = ui_register(ip);
+    if (rc != INTERP_OK) return rc;
+#endif
 
     rc = query_register(ip);
     if (rc != INTERP_OK) return rc;
