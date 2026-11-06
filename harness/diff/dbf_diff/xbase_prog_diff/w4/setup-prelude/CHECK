@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+"$W4_ROOT/build/w4_screen_check" setup-state.ppm.screen "$W4_CASE/ASSERTIONS" || {
+    echo 'RED: setup-prelude did not open CLIENTS before KEYS'; exit 1;
+}
+echo 'GREEN: setup-prelude selected CLIENTS before KEYS LIST'

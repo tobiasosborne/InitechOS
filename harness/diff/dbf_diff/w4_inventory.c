@@ -14,8 +14,47 @@ static size_t pos, len;
 typedef struct { size_t a,b; int type,first,next,count; } node;
 static node ns[8192];
 static int nn;
-static const char *ids[]={"browse","edit","structure","command","report","label",
-                          "query-screen-view","assist","help","config"};
+/* Independent minimum contract: ADR-0009 DEC-03a.10 / initech-9nzpr.
+ * Deliberately held in C, never read back from the inventory under audit.
+ * Rows may add evidence; removing/replacing a required pair must fail. */
+typedef struct {
+    const char *id;
+    const char *l1[6][2];
+    const char *assertions[5]; /* Each requires mutants/<assertion>.sh too. */
+    const char *screens[3][2];
+} required;
+#define DBF {".DBF header and records","harness/diff/dbf_diff/dbf_ref.py"}
+#define DBT {".DBT memo effects","harness/diff/dbf_diff/dbf_ref.py"}
+#define NDX {".NDX index effects","harness/diff/dbf_diff/ndx_ref.py"}
+#define TRANSCRIPT {"command/startup transcript","build/exact_diff"}
+#define W4 "harness/diff/dbf_diff/xbase_prog_diff/w4/"
+static const required requirements[]={
+    {"browse", {DBF, DBT, NDX},
+     {"menu-toggle","cell-navigation","record-status","save"}, {{0}}},
+    {"edit", {DBF, DBT},
+     {"field-navigation","key-help","append-count","save-abandon"},
+     {{"shared-W3-READ","harness/diff/dbf_diff/xbase_prog_diff/screen-mint/get/read-typed.screen"}}},
+    {"structure", {DBF}, {"field-table","type-cycle","save-abandon"},
+     {{"create-empty",W4 "create-retained/create-empty.screen"},
+      {"modify-structure",W4 "structure-retained/modify-structure.screen"}}},
+    {"command", {{".PRG and real-minted backup","build/prg_diff"}},
+     {"text-edit","cursor","status","save-abandon"}, {{0}}},
+    {"report", {{".FRM","build/frm_diff"},{".FRM unchanged re-save identity","build/exact_diff"}},
+     {"sections","box-edit","status"}, {{0}}},
+    {"label", {{".LBL","build/lbl_diff"},{".LBL unchanged re-save identity","build/exact_diff"}},
+     {"dimensions","navigation","save-abandon"}, {{0}}},
+    {"query-screen-view", {{".QRY","build/qry_diff"},{".SCR","build/scr_diff"},
+      {".FMT","build/fmt_diff"},{".TXT screen documentation","build/exact_diff"},{".VUE","build/vue_diff"}},
+     {"filter-rows","painter-cursor","draw-keys","view-workareas"},
+     {{"generated-fmt",W4 "generated-form/generated-fmt.screen"}}},
+    {"assist", {TRANSCRIPT, DBF, DBT, NDX, {"designer output files","build/exact_diff"}},
+     {"pad-order","menu-navigation","issued-command"}, {{0}}},
+    {"help", {{"read-only; no file changes","harness/diff/dbf_diff/w4_unchanged.sh"}},
+     {"topic-index","f1-overlay","page-navigation","enter-prompt"},
+     {{"help-main",W4 "retained/help-main.screen"},{"help-use",W4 "retained/help-use.screen"}}},
+    {"config", {{"CONFIG.DB input text","build/config_diff"}, TRANSCRIPT},
+     {"startup-settings","startup-memory"}, {{0}}}
+};
 static void die(const char *s) { fprintf(stderr,"RED: w4 inventory: %s\n",s); exit(1); }
 static void ws(void)
 {
@@ -132,10 +171,36 @@ static void path(int n,int exists)
         fprintf(stderr,"missing evidence/tool: %s\n",p); die("file absent/empty");
     }
 }
+static void require_pair(int array,const char *key,const char *val,
+                         const char *key2,const char *val2,const char *reason)
+{
+    for (int e=ns[array].first;e;e=ns[e].next)
+        if (equal(get(e,key),val) && equal(get(e,key2),val2)) return;
+    fprintf(stderr,"missing requirement: %s / %s\n",val,val2); die(reason);
+}
+static void require_assertion(int array,const char *assertion)
+{
+    for (int e=ns[array].first;e;e=ns[e].next) if (equal(e,assertion)) return;
+    fprintf(stderr,"missing requirement: %s\n",assertion);
+    die("required assertion/mutant pair dropped");
+}
+/* Test mutations remove complete JSON members, preserving valid JSON. */
+static void cut_member(int n,size_t *a,size_t *b)
+{
+    *a=ns[n].a-(ns[n].type=='s');
+    *b=ns[n].b+(ns[n].type=='s');
+    while (*b<len && isspace((unsigned char)data[*b])) (*b)++;
+    if (*b<len && data[*b]==',') (*b)++;
+    else {
+        while (*a && isspace((unsigned char)data[*a-1])) (*a)--;
+        if (*a && data[*a-1]==',') (*a)--;
+    }
+}
 int main(int argc,char **argv)
 {
     if (argc<2 || argc>4) { fputs("usage: w4_inventory JSON [--ready|--retained APP]\n",stderr); return 2; }
-    int mutation=argc==3 && (!strcmp(argv[1],"--remove-first") || !strcmp(argv[1],"--remove-mutant"));
+    int mutation=argc==3 && (!strcmp(argv[1],"--remove-first") || !strcmp(argv[1],"--remove-mutant") ||
+        !strcmp(argv[1],"--remove-l1") || !strcmp(argv[1],"--remove-pair") || !strcmp(argv[1],"--remove-retained"));
     FILE *f=fopen(argv[mutation?2:1],"rb");
     if (!f) { fprintf(stderr,"RED: w4 inventory: missing JSON %s\n",argv[1]); return 1; }
     len=fread(data,1,sizeof data-1,f);
@@ -144,18 +209,25 @@ int main(int argc,char **argv)
     int top=parse(0); ws(); if (pos!=len) die("trailing JSON");
     if (mutation) {
         int apps=get(top,"apps"), first=ns[apps].first;
-        size_t a=ns[first].a,b=ns[first].b;
+        size_t a,b,c=0,d=0;
         if (!strcmp(argv[1],"--remove-first")) {
-            while (b<len && isspace((unsigned char)data[b])) b++;
-            if (b==len || data[b]!=',') die("cannot remove first row");
-            b++;
+            cut_member(first,&a,&b);
+        } else if (!strcmp(argv[1],"--remove-l1")) {
+            cut_member(ns[ns[get(first,"l1")].first].next,&a,&b);
+        } else if (!strcmp(argv[1],"--remove-retained")) {
+            int structure=ns[ns[first].next].next;
+            cut_member(ns[get(structure,"retained_exact_screens")].first,&a,&b);
         } else {
             int mutants=get(get(first,"l2"),"mutants");
-            a=ns[ns[mutants].first].a-1; b=ns[ns[mutants].first].b+1;
-            while (b<len && isspace((unsigned char)data[b])) b++;
-            if (data[b]==',') b++;
+            cut_member(ns[mutants].first,&a,&b);
+            if (!strcmp(argv[1],"--remove-pair")) {
+                c=a; d=b;
+                cut_member(ns[get(get(first,"l2"),"assertions")].first,&a,&b);
+            }
         }
-        fwrite(data,1,a,stdout); fwrite(data+b,1,len-b,stdout); return ferror(stdout)?2:0;
+        fwrite(data,1,a,stdout);
+        if (d) { fwrite(data+b,1,c-b,stdout); b=d; }
+        fwrite(data+b,1,len-b,stdout); return ferror(stdout)?2:0;
     }
     if (!equal(get(top,"status"),"locked")) die("inventory not locked");
     char provenance[2048]; value(get(top,"_comment"),provenance,sizeof provenance);
@@ -167,8 +239,9 @@ int main(int argc,char **argv)
     if (ns[apps].type!='[' || ns[apps].count!=10) die("expected ten W4 app groups");
     for (int a=ns[apps].first;a;a=ns[a].next) {
         int id=get(a,"id"), ix=-1;
-        for (int i=0;i<10;i++) if (equal(id,ids[i])) ix=i;
+        for (int i=0;i<10;i++) if (equal(id,requirements[i].id)) ix=i;
         if (ix<0 || seen[ix]++) die("missing/duplicate/unknown W4 group");
+        const required *req=&requirements[ix];
         if (argc==4 && equal(id,argv[3])) selected=a;
         nonempty(get(a,"name")); strings(get(a,"dispatch_verbs")); nonempty(get(a,"dispatch_verbs"));
         if (!equal(get(a,"status"),"not-started") && !equal(get(a,"status"),"complete")) die("bad app status");
@@ -179,10 +252,12 @@ int main(int argc,char **argv)
             if (strncmp(s,"specs/",6) || strstr(s,"..")) die("expected sister specs path");
             path(get(e,"tool"),1); nonempty(get(e,"normalization")); nonempty(get(e,"golden"));
         }
+        for (int i=0;req->l1[i][0];i++)
+            require_pair(l1,"kind",req->l1[i][0],"tool",req->l1[i][1],"required L1 kind/tool dropped");
         int l2=get(a,"l2"); char expected[512],s[512];
         const char *keys[]={"keys","check"};
         for (int i=0;i<2;i++) {
-            snprintf(expected,sizeof expected,"harness/diff/dbf_diff/xbase_prog_diff/w4/%s/%s",ids[ix],i?"CHECK":"KEYS");
+            snprintf(expected,sizeof expected,"harness/diff/dbf_diff/xbase_prog_diff/w4/%s/%s",req->id,i?"CHECK":"KEYS");
             value(get(l2,keys[i]),s,sizeof s); if (strcmp(s,expected)) die("L2 trace convention drift");
         }
         nonempty(get(l2,"scope"));
@@ -192,19 +267,21 @@ int main(int argc,char **argv)
         int m=ns[mutants].first;
         for (int e=ns[asserts].first;e;e=ns[e].next,m=ns[m].next) {
             char assertion[128]; value(e,assertion,sizeof assertion);
-            snprintf(expected,sizeof expected,"harness/diff/dbf_diff/xbase_prog_diff/w4/%s/mutants/%s.sh",ids[ix],assertion);
+            snprintf(expected,sizeof expected,"harness/diff/dbf_diff/xbase_prog_diff/w4/%s/mutants/%s.sh",req->id,assertion);
             value(m,s,sizeof s);
             if (strcmp(expected,s)) die("missing/orphan structural mutant");
         }
+        for (int i=0;req->assertions[i];i++) require_assertion(asserts,req->assertions[i]);
         int l3=get(a,"l3"); value(get(l3,"script"),s,sizeof s);
-        if (strcmp(s,ids[ix])) die("L3 script convention drift");
+        if (strcmp(s,req->id)) die("L3 script convention drift");
         nonempty(get(l3,"clip")); nonempty(get(l3,"repro_gate"));
         int retained=get(a,"retained_exact_screens");
         if (ns[retained].type!='[') die("retained screens array required");
         for (int e=ns[retained].first;e;e=ns[e].next) {
             nonempty(get(e,"name")); path(get(e,"dump"),1); nonempty(get(e,"provenance"));
         }
-        if ((ix==2 || ix==6 || ix==8) && !ns[retained].count) die("required cheap exact screens dropped");
+        for (int i=0;req->screens[i][0];i++)
+            require_pair(retained,"name",req->screens[i][0],"dump",req->screens[i][1],"required retained screen dropped");
     }
     if (argc!=2) {
         if (argc!=4 || !selected) die("unknown app/argument");
@@ -222,5 +299,5 @@ int main(int argc,char **argv)
         int l2=get(selected,"l2"); path(get(l2,"keys"),1); path(get(l2,"check"),1);
         int m=get(l2,"mutants"); for (int e=ns[m].first;e;e=ns[e].next) path(e,1);
     }
-    puts("GREEN: w4 inventory: ten unique groups, L1/L2/L3, retained dumps, W3 exact"); return 0;
+    puts("GREEN: w4 inventory: ten unique groups, required L1/pairs/retained minima, W3 exact"); return 0;
 }

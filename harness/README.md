@@ -213,13 +213,21 @@ The include must stay after the TEST_*_GATES assignments and before
 The ratified DEC-03a.10 table is locked in
 `spec/samir/screen_regrade.json`: ten W4 groups, all `not-started`.
 W3 GET/READ/@/generated-.FMT forms keep their existing byte-exact screens.
-An inventory GREEN certifies the inventory's shape and existing tool/reference
-paths. It does not certify an unimplemented application. The JSON uses a
+An inventory GREEN certifies the independent C minimum contract for every
+app's L1 kind/tool pairs, L2 assertion/mutant pairs, retained names/dump paths,
+and existing tool/reference paths. Evidence can grow; deleting a requirement
+fails even when the resulting JSON has a valid shape. It does not certify an
+unimplemented application. The JSON uses a
 `_comment` provenance field so it remains plain, valid JSON.
 
-Run `. tools/lane-env.sh`, export an absolute `DBASE3_DECOMP` pointing at the
-sister repository, then `make -j8 test-w4-inventory test-w4-inventory-mutant
-test-w4-files test-w4-retained test-w4-structure-mutant`. These gates join the host/emulator
+Run `. tools/lane-env.sh`, set `DBASE3_DECOMP` to the sister repository, then
+`make -j8 test-w4-inventory test-w4-inventory-mutant test-w4-files
+test-w4-retained test-w4-trace-smoke test-w4-structure-mutant`. The file gate
+canonicalises existing paths relative to the repository root, including the
+default `../dbase3-decomp`. Its path regression runs that default with an
+existing sibling in a private repo-shaped root, plus an absolute path and a
+missing-reference control. Missing references fail with the explicit
+`SKIP_DBASE3_DECOMP=1` shouting opt-out. These gates join the host/emulator
 vectors; no per-app `test-w4-<app>` target is instantiated yet. Missing real
 samples fail; no replacement samples or silent skips are manufactured.
 
@@ -244,7 +252,13 @@ All unknown durable fields remain significant. Normalization is exhaustive:
 These are additional W4 comparisons, not changes to existing DBF/DBT/NDX
 oracles or `dbf_normalization.json`. FRM/SCR reader normalizations follow the
 cited file specs; their inferred pointer/scratch semantics are explicitly
-limited to those specs. A designer's unchanged real-file re-save must ALSO
+limited to those specs. In particular, scr-and-fmt.md Sec 5 (Open questions)
+labels the SCR field pointers (+0x2C/+0x30) and box trailer (+0x0B) as
+inferred stale memory. It is NOT proven that real dBASE ignores arbitrary
+values in them on reload. A future real-runtime mutant mint/load or OVL
+load-code analysis must close that question. Retained bytes immediately
+before these ranges (CLIENTS.SCR 0x2B and 0x22D) are proven RED controls.
+A designer's unchanged real-file re-save must ALSO
 pass `exact_diff` on the full file, including opaque bytes. Cross-runtime
 REPORT/LABEL output still needs real III+ transcript equality. A .FMT generated
 by a W4 painter still needs its W3 byte-exact screen. The file-tool tests use
@@ -262,11 +276,16 @@ QEMU key runner, screen_capture's native console decoder, fresh data volume,
 before/after recursive extraction, required named captures, and mandatory
 per-app `CHECK`. Trace inputs live at
 `harness/diff/dbf_diff/xbase_prog_diff/w4/<app>/{KEYS,CHECK,SETUP/}`.
+Before KEYS, a private driver runs `DO SETUP`, as the real minter does, then
+copies a 512-byte token to a fresh completion marker. Missing/invalid markers
+fail before CHECK. Reserved driver/marker names cannot come from SETUP.
+The marker is saved as `setup.ok` beside captures, outside extracted app files.
 CHECK runs in `build/w4/<app>` with `W4_ROOT`, `W4_CASE`, `W4_OUT` exported.
 It must grade L1 real-file/transcript effects and L2 independent assertions;
 it must not return success on a missing golden, dump, tool or expected effect.
 `KEYS` uses WAIT n (BIOS ticks at 55 ms), TEXT, KEY and DUMP; unsupported
-text/keys fail explicitly. Text supports letters, digits, spaces and periods;
+text/keys fail explicitly. TEXT preserves case using Shift chords for uppercase
+letters. It supports letters, digits, spaces, periods and double quotes;
 extend and prove the mapping before a future trace needs other punctuation.
 No directives or keys are silently ignored. DUMP yields both `.ppm` and
 `.ppm.screen`; runner errors, faults, missing captures and CHECK failures fail.
@@ -289,6 +308,10 @@ row 6/column 2, normal attribute and blank row, plus PPM ink/blank cells.
 `test-w4-structure-mutant` proves text/cursor/attribute/blank assertions,
 a changed DBF record, and a full QEMU replay with LIST removed turn RED for
 the named reason. This is a harness smoke, not W4 app or Rule-14 acceptance.
+The `mixed-case` smoke types `Ab` into a C(10) field and checks those exact
+extracted DBF bytes. The `setup-prelude` smoke inherits CLIENTS opened by
+SETUP and LISTs it without a USE in KEYS. Lowercasing TEXT and skipping the
+setup prelude are each proven RED by a complete QEMU replay.
 
 Future app lanes instantiate `$(eval $(call w4-acceptance,browse))` in a
 make fragment included AFTER `w4.mk`. This defines `test-w4-browse` only when

@@ -28,4 +28,30 @@ W4_TRACE_ROOT="$mut" sh harness/diff/dbf_diff/w4_trace.sh smoke-no-list > "$mut/
     cat "$mut/no-list.log"; echo 'RED: omit-LIST trace mutant survived/wrong reason'; exit 1;
 }
 echo 'RED proven: L2 omit-LIST replay rejected at expected text region'
-echo 'GREEN: test-w4-structure-mutant: text/cursor/highlight/blank + data and trace mutants RED'
+# Implementation mutants, with unchanged fixtures and byte expectations.
+trace=harness/diff/dbf_diff/w4_trace.sh
+base=harness/diff/dbf_diff/xbase_prog_diff/w4
+for tag in lowercase skip-prelude no-driver; do
+    case $tag in
+    lowercase)
+        fixture=mixed-case; reason='RED: mixed-case extracted NAME is not Ab'
+        sed 's/TEXT) t=$arg/TEXT) t=$(printf "%s" "$arg" | tr "A-Z" "a-z")/' "$trace" > "$mut/$tag.sh" ;;
+    skip-prelude)
+        fixture=setup-prelude; reason='RED: setup-prelude did not open CLIENTS before KEYS'
+        sed 's/DO SETUP/* skipped/' "$trace" > "$mut/$tag.sh" ;;
+    no-driver)
+        fixture=setup-prelude; reason='RED: W4 setup completion marker missing/invalid'
+        sed 's/,kd,ko,kspc,kw,k4,ki,kn,ki,kt,kret,w800//' "$trace" > "$mut/$tag.sh" ;;
+    esac
+    if cmp -s "$trace" "$mut/$tag.sh"; then echo "RED: $tag mutation not applied"; exit 1; fi
+    name=$fixture-$tag
+    rm -rf "$mut/$name"; mkdir "$mut/$name"
+    cp -rf "$base/$fixture/." "$mut/$name/"
+    rc=0
+    W4_TRACE_ROOT="$mut" sh "$mut/$tag.sh" "$name" > "$mut/$tag.log" 2>&1 || rc=$?
+    [ "$rc" = 1 ] && grep -Fq "$reason" "$mut/$tag.log" || {
+        cat "$mut/$tag.log"; echo "RED: $tag replay mutant survived/wrong reason"; exit 1;
+    }
+    echo "RED proven: $tag replay: $reason"
+done
+echo 'GREEN: test-w4-structure-mutant: text/cursor/highlight/blank + data/LIST/case/setup/marker mutants RED'

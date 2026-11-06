@@ -19,11 +19,13 @@ test-w4-inventory: $(BUILD)/w4_inventory $(W4_DIFFS)
 test-w4-inventory-mutant: $(BUILD)/w4_inventory $(W4_DIFFS) $(BUILD)/w4_mutate
 	@sh $(W4_DIR)/w4_inventory_test.sh
 test-w4-files: $(W4_DIFFS) $(BUILD)/w4_mutate
-	@DBASE3_DECOMP="$(DBASE3_DECOMP)" sh $(W4_DIR)/w4_files_test.sh
+	@DBASE3_DECOMP="$(DBASE3_DECOMP)" sh $(W4_DIR)/w4_files_paths_test.sh
 test-w4-retained: $(BUILD)/SCREEN.COM $(BUILD)/screen_tool $(BUILD)/w4_screen_check
 	@DBASE3_DECOMP="$(DBASE3_DECOMP)" sh $(W4_DIR)/w4_retained_test.sh
 test-w4-trace-smoke: $(W4_TRACE_INPUTS)
 	@sh $(W4_DIR)/w4_trace.sh smoke
+	@sh $(W4_DIR)/w4_trace.sh mixed-case
+	@sh $(W4_DIR)/w4_trace.sh setup-prelude
 test-w4-structure-mutant: test-w4-trace-smoke $(BUILD)/w4_mutate
 	@sh $(W4_DIR)/w4_smoke_mutants.sh
 

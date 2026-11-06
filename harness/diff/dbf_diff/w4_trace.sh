@@ -10,7 +10,7 @@ case $app in ''|*[!a-z0-9-]*) echo 'RED: unsafe W4 app'; exit 2;; esac
 root=$(pwd)
 src=${W4_TRACE_ROOT:-harness/diff/dbf_diff/xbase_prog_diff/w4}/$app
 out=build/w4/$app
-for f in "$src/KEYS" "$src/CHECK" "$exe" "$ovl"; do
+for f in "$src/KEYS" "$src/CHECK" "$src/SETUP/SETUP.PRG" "$exe" "$ovl"; do
     [ -s "$f" ] || { echo "RED: w4 trace missing $f"; exit 2; }
 done
 src=$(cd "$src" && pwd)
@@ -27,12 +27,23 @@ for f in "$src"/SETUP/*; do
     [ -e "$f" ] || continue
     [ -f "$f" ] && [ ! -L "$f" ] || { echo 'RED: W4 SETUP must contain regular files'; exit 2; }
     name=$(basename "$f" | tr 'a-z' 'A-Z')
-    case $name in SAMIR.EXE|SAMIR.OVL) echo 'RED: SETUP cannot replace SAMIR'; exit 2;; esac
+    case $name in SAMIR.EXE|SAMIR.OVL|W4INIT.PRG|W4TOKEN.TXT|W4READY.TXT)
+        echo 'RED: SETUP cannot replace SAMIR or W4 prelude evidence'; exit 2;; esac
     mcopy -o -i "$out/data.img" "$f" ::"$(basename "$f")"
 done
+# Same DO SETUP as w4_retained_mint.sh's MINT.PRG. COPY FILE marks return
+# without changing any SET option, memory variable, selected area or cursor.
+# A 512-byte token avoids COPY FILE's real III+ block-rounding ambiguity.
+if mdir -b -i "$out/data.img" ::W4READY.TXT > "$out/stale-marker.log" 2>&1; then
+    echo 'RED: stale W4 setup completion marker'; exit 2
+fi
+printf 'DO SETUP\r\nCOPY FILE W4TOKEN.TXT TO W4READY.TXT\r\nRETURN\r\n' > "$out/W4INIT.PRG"
+dd if=/dev/zero of="$out/W4TOKEN.TXT" bs=512 count=1 2>/dev/null
+printf 'W4-SETUP-OK\r\n' | dd of="$out/W4TOKEN.TXT" conv=notrunc 2>/dev/null
+for f in W4INIT.PRG W4TOKEN.TXT; do mcopy -o -i "$out/data.img" "$out/$f" ::"$f"; done
 mkdir "$out/before" "$out/files"
 mcopy -n -o -s -i "$out/data.img" '::*' "$out/before/"
-spec='ks,ka,km,ki,kr,kret,w2000'
+spec='ks,ka,km,ki,kr,kret,w2000,kd,ko,kspc,kw,k4,ki,kn,ki,kt,kret,w800'
 dumps=
 while IFS= read -r line || [ -n "$line" ]; do
     case $line in ''|'#'*) continue;; esac
@@ -42,11 +53,12 @@ while IFS= read -r line || [ -n "$line" ]; do
     WAIT) case $arg in ''|*[!0-9]*) echo 'RED: bad WAIT'; exit 2;; esac
         [ "$arg" -ge 1 ] && [ "$arg" -le 65535 ] || exit 2
         spec="$spec,w$((arg*55))" ;;
-    TEXT) t=$(printf '%s' "$arg" | tr 'A-Z' 'a-z')
+    TEXT) t=$arg
         # Reject unsupported characters rather than silently dropping keys.
-        case $t in *[!a-z0-9\ .]*) echo "RED: unsupported TEXT: $arg"; exit 2;; esac
         while [ -n "$t" ]; do c=${t%"${t#?}"}; t=${t#?}
-            case $c in ' ') c=spc;; .) c=dot;; esac
+            case $c in ' ') c=spc;; .) c=dot;; '"') c=shift-apostrophe;;
+                [A-Z]) c=shift-$(printf '%s' "$c" | tr 'A-Z' 'a-z');;
+                [a-z0-9]) ;; *) echo "RED: unsupported TEXT: $arg"; exit 2;; esac
             spec="$spec,k$c"
         done ;;
     KEY) case $arg in
@@ -64,6 +76,7 @@ while IFS= read -r line || [ -n "$line" ]; do
 done < "$src/KEYS"
 [ -n "$dumps" ] || { echo 'RED: KEYS has no capture'; exit 2; }
 spec="$spec,w800"
+[ "${#spec}" -lt 4096 ] || { echo 'RED: W4 key stream exceeds injector capacity'; exit 2; }
 INITECH_QMP_STDIO=1 INITECH_TEXT_SCREEN_TOOL=build/screen_capture \
 INITECH_TEXT_SCREEN_ELF=build/kernel_shell_secondary.elf \
 build/qemu_harness --disk build/tracer_secondary.img --disk2 "$out/data.img" \
@@ -77,6 +90,13 @@ fi
 for d in $dumps; do
     [ -s "$out/$d.ppm" ] && [ -s "$out/$d.ppm.screen" ] || { echo "RED: missing capture $d"; exit 1; }
 done
+if ! mcopy -o -i "$out/data.img" ::W4READY.TXT "$out/setup.ok" 2>/dev/null ||
+   ! cmp -s "$out/W4TOKEN.TXT" "$out/setup.ok"; then
+    echo 'RED: W4 setup completion marker missing/invalid'; exit 1
+fi
+echo 'GREEN: W4 DO SETUP returned before KEYS (fresh completion marker)'
+# Keep harness-only completion evidence beside captures, outside app files.
+mdel -i "$out/data.img" ::W4READY.TXT
 mcopy -n -o -s -i "$out/data.img" '::*' "$out/files/"
 W4_ROOT=$root W4_CASE=$src W4_OUT=$root/$out
 export W4_ROOT W4_CASE W4_OUT

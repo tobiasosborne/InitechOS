@@ -2,8 +2,16 @@
 # Real III+ samples are the oracle; no generated substitute. DEC-03a.10.
 set -eu
 export LC_ALL=C
-ref=${DBASE3_DECOMP:?absolute DBASE3_DECOMP required}
-case $ref in /*) ;; *) echo 'RED: DBASE3_DECOMP must be absolute'; exit 2;; esac
+if [ "${SKIP_DBASE3_DECOMP:-0}" = 1 ]; then
+    echo '!!! DBASE3_DECOMP SKIPPED (SKIP_DBASE3_DECOMP=1 opt-out): test-w4-files'
+    exit 0
+fi
+# Make's default is ../dbase3-decomp, relative to this repository root.
+ref=${DBASE3_DECOMP:-../dbase3-decomp}
+if ! ref=$(realpath -e -- "$ref") || [ ! -d "$ref/goldens" ]; then
+    echo '!!! DBASE3_DECOMP FAIL: test-w4-files: corpus/goldens absent -- set SKIP_DBASE3_DECOMP=1 to explicitly opt out.'
+    exit 1
+fi
 out=build/w4-files
 mkdir -p "$out"
 samples=$ref/goldens/dbase-iii-plus-1.1-pristine/files
@@ -58,7 +66,7 @@ red qry "$real/NOTPAID.QRY" 3 length-high-byte
 red qry "$real/NOTPAID.QRY" 0xa operator-high-byte
 one scr "$real/CLIENTS.SCR" 0x36
 for off in 9 0x16 0x18 0x1b 0x2c 0x33 0x22e 0x235; do green_pad scr "$real/CLIENTS.SCR" "$off"; done
-for off in 1 0x12 0x17 0x1c 0x20 0x34 0x35 0x3a 0x223 0x22c 0x250; do red scr "$real/CLIENTS.SCR" "$off" "durable-$off"; done
+for off in 1 0x12 0x17 0x1c 0x20 0x2b 0x34 0x35 0x3a 0x223 0x22c 0x22d 0x250; do red scr "$real/CLIENTS.SCR" "$off" "durable-$off"; done
 for name in TOURS TRAVEL; do build/scr_diff "$real/$name.SCR" "$real/$name.SCR"; done
 one fmt "$real/CLIENTS.FMT" 3
 for name in TOURS TRAVEL RESERVE; do build/fmt_diff "$real/$name.FMT" "$real/$name.FMT"; done

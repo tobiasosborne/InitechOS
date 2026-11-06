@@ -15,6 +15,14 @@ red "$out/missing.json" missing 'missing JSON'
 red "$out/row.json" drop-row 'expected ten W4 app groups'
 "$tool" --remove-mutant "$src" > "$out/mutant.json"
 red "$out/mutant.json" drop-mutant 'missing/orphan structural mutant'
+"$tool" --remove-l1 "$src" > "$out/l1.json"
+red "$out/l1.json" drop-dbt 'required L1 kind/tool dropped'
+"$tool" --remove-pair "$src" > "$out/pair.json"
+red "$out/pair.json" drop-pair 'required assertion/mutant pair dropped'
+"$tool" --remove-retained "$src" > "$out/retained.json"
+red "$out/retained.json" drop-retained 'required retained screen dropped'
+sed 's@harness/diff/dbf_diff/dbf_ref.py@harness/diff/dbf_diff/ndx_ref.py@g' "$src" > "$out/wrong-pair.json"
+red "$out/wrong-pair.json" wrong-tool-pair 'required L1 kind/tool dropped'
 sed 's/"id": "edit"/"id": "browse"/' "$src" > "$out/duplicate.json"
 red "$out/duplicate.json" duplicate 'missing/duplicate/unknown W4 group'
 sed 's/byte-exact-screens/structural-screens/' "$src" > "$out/w3.json"
@@ -28,4 +36,4 @@ red "$out/bad.json" malformed 'expected object key'
 printf '%s\n' '{"status":"locked","status":"unlocked"}' > "$out/keys.json"
 red "$out/keys.json" duplicate-key 'duplicate JSON key'
 "$tool" "$src"
-echo 'GREEN: test-w4-inventory-mutant: removed row/mutant and schema/evidence mutations RED'
+echo 'GREEN: test-w4-inventory-mutant: row/L1/pair/retained/tool and schema/evidence mutations RED'
