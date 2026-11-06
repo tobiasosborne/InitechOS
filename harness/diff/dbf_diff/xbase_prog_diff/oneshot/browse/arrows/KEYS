@@ -1,0 +1,14 @@
+# physical arrow keys (kernel kbd.c 00,scan fix)
+Tuse clients
+kret
+w500
+Tbrowse
+kret
+w800
+kdown
+kdown
+kright
+w300
+Darrows
+kesc
+w500

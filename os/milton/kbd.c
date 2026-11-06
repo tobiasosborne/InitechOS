@@ -285,10 +285,25 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
  * extended keys as 00,scan. Shared by IRQ1 and the host ring oracle. */
 void kbd_scancode_put(kbd_ring_t *ring, kbd_state_t *state, uint8_t sc)
 {
+    /* EXPERIMENT initech-7cbu8: F1-F10 and the whole navigation cluster
+     * (Home Up PgUp Left Right End Down PgDn Ins Del, grey or keypad) as
+     * 00,scan; with Ctrl held, Home/End/PgUp/PgDn/Left/Right take the
+     * IBM Ctrl scans 77h/75h/84h/76h/73h/74h (IBM PC AT Technical
+     * Reference, keyboard extended codes). Was: F1-F5, Ins, Del, Left. */
     int special = !(sc & SC_BREAK_FLAG) &&
-        ((!state->e0 && sc >= 0x3Bu && sc <= 0x3Fu) ||
-         (sc == 0x52u || sc == 0x53u || sc == 0x4Bu));
-    uint8_t ascii = kbd_translate(state, sc);
+        ((!state->e0 && sc >= 0x3Bu && sc <= 0x44u) ||
+         sc == 0x47u || sc == 0x48u || sc == 0x49u || sc == 0x4Bu ||
+         sc == 0x4Du || sc == 0x4Fu || sc == 0x50u || sc == 0x51u ||
+         sc == 0x52u || sc == 0x53u);
+    if (special && state->ctrl) {
+        switch (sc) {
+        case 0x47u: sc = 0x77u; break; case 0x4Fu: sc = 0x75u; break;
+        case 0x49u: sc = 0x84u; break; case 0x51u: sc = 0x76u; break;
+        case 0x4Bu: sc = 0x73u; break; case 0x4Du: sc = 0x74u; break;
+        default: break;
+        }
+    }
+    uint8_t ascii = special ? (uint8_t)(state->e0 = 0u) : kbd_translate(state, sc);
     if (special) {
 #ifdef KBD_MUT_DROP_EXTENDED
         return; /* Rule 6: restore the pre-template lost-function-key path. */
