@@ -27,7 +27,7 @@
 #     and every revert is itself one revertible commit. Newer merges go first,
 #     newest to oldest, then MERGE_SHA, so each revert applies to the tree it
 #     was merged onto.
-#   * Smoke set: $SMOKE if set; else `make -s gates-for DIFF=<merge>^1..<newest>`
+#   * Smoke set: $SMOKE if set; else `make test-for DIFF=<merge>^1..<newest>`
 #     if the Makefile has a gates-for target; else `make test-merge-samir` when
 #     the reverted diff touches only os/samir, harness/diff/dbf_diff or
 #     pubs/manuals/initechbase-*; else the trio
@@ -38,7 +38,7 @@
 #     recovered by reverting the revert commit (see the policy).
 #
 # EXIT: 0 reverted+smoke green+pushed (or -n plan); 1 usage; 2 refused;
-#       3 smoke red (not pushed); 4 a revert conflicted (aborted, tree clean);
+#       3 smoke red (not pushed); 4 revert/abort failed (inspect diagnostics);
 #       5 push failed.
 #
 # POSIX sh; needs git (and make for the smoke set).
@@ -88,7 +88,24 @@ nparents=$(git rev-list --parents -n 1 "$target" | wc -w)
 [ "$nparents" -ge 3 ] || refuse "$(short "$target") is not a merge commit"
 git rev-list --first-parent HEAD | grep -qx "$target" \
   || refuse "$(short "$target") is a merge but not on the first-parent history of main (reachable only through a side branch)"
-if git log --format=%B "$target..HEAD" | grep -qF "This reverts commit $target"; then
+# Walk main newest first. An active revert toggles its target's state; an
+# undone revert has no effect. This handles revert-of-revert chains without
+# treating messages reached only through a merge's side branch as main's
+# actions. Full object IDs are whitespace-free, so this set is shell-safe.
+undone=
+is_undone() { case " $undone " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+for c in $(git rev-list --first-parent "$target..HEAD"); do
+  is_undone "$c" && continue
+  reverted=$(git log -1 --format=%B "$c" |
+    sed -n 's/^This reverts commit \([0-9a-f][0-9a-f]*\)[,.].*$/\1/p' | head -n 1)
+  [ -n "$reverted" ] || continue
+  if is_undone "$reverted"; then
+    undone=$(printf '%s\n' "$undone" | sed "s/$reverted//g")
+  else
+    undone="$undone $reverted"
+  fi
+done
+if is_undone "$target"; then
   refuse "$(short "$target") is already reverted on main (to undo that revert, revert the revert commit)"
 fi
 git remote get-url origin >/dev/null 2>&1 || refuse 'no remote named origin'
@@ -97,7 +114,12 @@ ahead=$(git rev-list --count HEAD..origin/main)
 [ "$ahead" -eq 0 ] || refuse "origin/main is ahead of HEAD by $ahead commit(s): git pull --ff-only (or rebase) first, then retry"  # CHECK:origin-ahead
 
 # --- plan -------------------------------------------------------------------
-newer=$(git rev-list --first-parent --merges "$target..HEAD")   # newest first
+newer=
+for m in $(git rev-list --first-parent --merges "$target..HEAD"); do
+  is_undone "$m" && continue
+  newer="${newer:+$newer
+}$m"
+done
 plan=$newer
 plan="${plan:+$plan
 }$target"
@@ -123,8 +145,16 @@ fi
 reverts=
 for m in $plan; do
   if ! git revert -m 1 --no-edit "$m" >/dev/null 2>&1; then
-    git revert --abort >/dev/null 2>&1 || true
-    say "revert of $(short "$m") FAILED (conflict); aborted, tree clean."
+    say "revert of $(short "$m") FAILED (conflict)."
+    if git revert --abort; then
+      if [ -z "$(git status --porcelain --untracked-files=no)" ]; then
+        say 'revert aborted; tree clean.'
+      else
+        say 'abort returned success but tracked changes remain; inspect git status.'
+      fi
+    else
+      say 'revert --abort FAILED; conflicts may remain. Inspect git status before recovery.'
+    fi
     say "reverts already made stay LOCAL and unpushed; to drop them: git reset --hard $start"
     exit 4
   fi
@@ -137,17 +167,23 @@ done
 if [ -n "${SMOKE:-}" ]; then
   smoke_cmd=$SMOKE
 elif make -n gates-for >/dev/null 2>&1; then
-  smoke_cmd="make -s gates-for DIFF=$target^1..$newest"
+  smoke_cmd="make test-for DIFF=$target^1..$newest"  # CHECK:selected-gates
 else
-  files=$(git diff --name-only "$base" "$newest")
+  # Disable rename detection so both ends of a move select smoke. Read each
+  # path literally in POSIX sh: spaces and shell globs are not separators.
+  # Git quotes names containing newlines or escapes; those conservatively
+  # fall through to the trio rather than being mistaken for SAMIR-only.
+  files=$(git diff --no-renames --name-only "$base" "$newest")
   only_samir=1
   [ -n "$files" ] || only_samir=0
-  for f in $files; do
-    case $f in
+  while IFS= read -r f; do
+    case "$f" in
       os/samir/*|harness/diff/dbf_diff/*|pubs/manuals/initechbase-*) ;;
       *) only_samir=0 ;;
     esac
-  done
+  done <<EOF
+$files
+EOF
   if [ "$only_samir" -eq 1 ]; then
     smoke_cmd='make test-merge-samir'
   else

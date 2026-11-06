@@ -18,6 +18,7 @@ set -u
 
 tool=$1
 scratch=$2
+real_git=$(command -v git)
 case $tool in /*) ;; *) tool=$(pwd)/$tool ;; esac
 case $scratch in /*) ;; *) scratch=$(pwd)/$scratch ;; esac
 
@@ -44,7 +45,7 @@ mkfixture() {
     o=$d/origin.git
     w=$d/work
     mark=$d/smoke.mark
-    RS=; RG=
+    RS=; RG=; RPATH=
     mkdir -p "$d"
     git init -q --bare "$o"
     git -C "$o" symbolic-ref HEAD refs/heads/main
@@ -62,8 +63,12 @@ fake-red:
 test-kernel-repro test-kernel-flair-repro test-ovl-repro test-merge-samir:
 	@printf '%s\n' "$@" >> "$$SMOKE_MARK"
 ifeq ($(HAVE_GATES_FOR),1)
+SELECTED_GATES ?= fake-green
 gates-for:
 	@printf 'gates-for DIFF=%s\n' "$(DIFF)" >> "$$SMOKE_MARK"
+	@printf '%s\n' "$(SELECTED_GATES)"
+test-for:
+	@$(MAKE) --no-print-directory -s -k $$( $(MAKE) --no-print-directory -s gates-for DIFF="$(DIFF)" )
 endif
 EOF
     printf 'base\n' > "$w/log.txt"
@@ -97,7 +102,16 @@ msha() { git -C "$w" log --first-parent --format=%H --grep="^Merge lane $1\$" -n
 run() {
     want=$1; shift
     rc=0
-    (cd "$w" && { [ -z "${RS-}" ] || SMOKE=$RS; [ -z "${RG-}" ] || HAVE_GATES_FOR=$RG; export SMOKE HAVE_GATES_FOR; SMOKE_MARK=$mark; export SMOKE_MARK; exec sh "$tool" "$@"; }) > "$d/out" 2>&1 || rc=$?
+    (
+        cd "$w" || exit 1
+        [ -z "${RS-}" ] || SMOKE=$RS
+        [ -z "${RG-}" ] || HAVE_GATES_FOR=$RG
+        [ -z "${RPATH-}" ] || PATH=$RPATH:$PATH
+        SMOKE_MARK=$mark
+        REVERT_TEST_REAL_GIT=$real_git
+        export SMOKE HAVE_GATES_FOR SMOKE_MARK PATH REVERT_TEST_REAL_GIT
+        exec sh "$tool" "$@"
+    ) > "$d/out" 2>&1 || rc=$?
     if [ "$rc" -ne "$want" ]; then
         fail "expected exit $want, got $rc: $*"
         sed 's/^/    | /' "$d/out" >&2
@@ -180,7 +194,7 @@ if run 0 -n "$s"; then
         fail '-n left the tree dirty or ran smoke'
     else
         ok
-        cp "$d/out" "$scratch/plan-dry-run.out"
+        cp -f "$d/out" "$scratch/plan-dry-run.out"
     fi
 fi
 
@@ -254,7 +268,7 @@ fi
 # 10. default smoke selection (SMOKE unset).
 #   a) no gates-for, ordinary diff        -> the repro trio
 #   b) no gates-for, samir-only diff      -> test-merge-samir
-#   c) gates-for target exists            -> gates-for DIFF=<merge>^1..<merge>
+#   c) gates-for target exists            -> test-for executes selected gates
 mkfixture smoke-trio
 s=$(msha M3)
 if run 0 "$s"; then
@@ -275,8 +289,172 @@ mkfixture smoke-gates-for
 s=$(msha M3)
 RG=1
 if run 0 "$s"; then
-    if [ "$(cat "$mark")" = "gates-for DIFF=$s^1..$s" ]; then ok
-    else fail "gates-for not selected with the merge range: $(cat "$mark")"; fi
+    if [ "$(wc -l < "$mark")" != 2 ] \
+       || ! grep -qx "gates-for DIFF=$s^1..$s" "$mark" \
+       || ! grep -q '^fake-green HEAD=Revert "Merge lane M3"$' "$mark"; then
+        fail "selected gate not executed with the merge range: $(cat "$mark")"
+    else ok; fi
+fi
+
+# 11. A selector's successful resolution is not a smoke pass: its selected
+#     red gate must actually execute, leave the reverts local, and block push.
+mkfixture smoke-selected-red
+s=$(msha M3)
+printf '\nSELECTED_GATES = fake-red\n' >> "$w/Makefile"
+git -C "$w" commit -q -am 'select a failing gate'
+git -C "$w" push -q origin main
+oh=$(origin_main)
+RG=1
+if run 3 "$s"; then
+    if ! grep -q '^fake-red HEAD=' "$mark"; then fail 'selected red gate was not executed'
+    elif [ "$(origin_main)" != "$oh" ]; then fail 'origin moved although selected gate was red'
+    elif ! has 'NOT pushed'; then fail 'no "NOT pushed" message'
+    else ok; fi
+fi
+
+# 12. Skip a newer merge that is already undone, in both the dry-run plan and
+#     the actual revert. No -y is needed when only the active target remains.
+mkfixture newer-already-undone
+s=$(msha M2); m3=$(msha M3)
+git -C "$w" revert -m 1 --no-edit "$m3" >/dev/null
+git -C "$w" push -q origin main
+h=$(head_of); oh=$(origin_main)
+if run 0 -n "$s"; then
+    if ! has '1\..*Merge lane M2.*\[target\]' || has 'Merge lane M3' \
+       || [ "$(grep -c '\[[^]]*\]$' "$d/out")" != 1 ]; then
+        fail 'plan must contain only M2 after M3 was undone'
+    elif [ "$(head_of)" != "$h" ] || [ "$(origin_main)" != "$oh" ] || [ -s "$mark" ]; then
+        fail 'dry run changed HEAD, origin or smoke'
+    else
+        cp -f "$d/out" "$scratch/plan-newer-undone.out"
+        RS='make -s fake-green'
+        if run 0 "$s"; then
+            if [ "$(git -C "$w" rev-list --count "$h..HEAD")" != 1 ] \
+               || [ -e "$w/M2.txt" ] || [ -e "$w/M3.txt" ] \
+               || [ "$(origin_main)" != "$(head_of)" ]; then
+                fail 'expected only the M2 revert, followed by a green push'
+            else ok; fi
+        fi
+    fi
+fi
+
+# 13. Reverting a revert restores the target; it can be reverted again.
+#     The third reversal must then refuse another attempt (odd parity).
+mkfixture restored-target
+s=$(msha M2); m3=$(msha M3)
+git -C "$w" revert -m 1 --no-edit "$m3" >/dev/null
+git -C "$w" revert -m 1 --no-edit "$s" >/dev/null
+git -C "$w" revert --no-edit HEAD >/dev/null
+git -C "$w" push -q origin main
+h=$(head_of)
+RS='make -s fake-green'
+if run 0 "$s"; then
+    if [ "$(git -C "$w" rev-list --count "$h..HEAD")" != 1 ] \
+       || [ -e "$w/M2.txt" ] || [ -e "$w/M3.txt" ] \
+       || [ "$(origin_main)" != "$(head_of)" ]; then
+        fail 'restored target was not reverted exactly once and pushed'
+    else
+        ok
+        case_name=restored-target-again
+        h=$(head_of)
+        if run 2 "$s" && has 'already reverted'; then
+            [ "$(head_of)" = "$h" ] && ok || fail 'odd parity refusal moved HEAD'
+        else fail 'third reversal must mark the target undone'; fi
+    fi
+fi
+
+# 14. Revert messages reached only through a side branch are not main's
+#     active revert history. Undo the newer side merge before testing M3.
+mkfixture side-branch-revert
+s=$(msha M3)
+git -C "$w" checkout -q -b lane/roundtrip main
+git -C "$w" revert -m 1 --no-edit "$s" >/dev/null
+git -C "$w" revert --no-edit HEAD >/dev/null
+printf 'side\n' > "$w/side.txt"
+git -C "$w" add .
+git -C "$w" commit -q -m 'side work after roundtrip'
+git -C "$w" checkout -q main
+git -C "$w" merge -q --no-ff -m 'Merge side roundtrip' lane/roundtrip
+git -C "$w" revert -m 1 --no-edit HEAD >/dev/null
+git -C "$w" push -q origin main
+h=$(head_of)
+RS='make -s fake-green'
+if run 0 "$s"; then
+    if [ "$(git -C "$w" rev-list --count "$h..HEAD")" != 1 ] \
+       || [ -e "$w/M3.txt" ] || [ "$(origin_main)" != "$(head_of)" ]; then
+        fail 'side-branch history prevented the active target revert'
+    else ok; fi
+fi
+
+# 15. A rename across subsystem directories changes both the source and the
+#     destination. Rename detection must not hide FLAIR behind a SAMIR path.
+mkfixture smoke-cross-directory-rename
+addmerge 4 os/flair/a.c nolog
+git -C "$w" checkout -q -b lane/cross-directory main
+mkdir -p "$w/os/samir"
+git -C "$w" mv os/flair/a.c os/samir/a.c
+git -C "$w" commit -q -m 'move unchanged FLAIR file into SAMIR'
+git -C "$w" checkout -q main
+git -C "$w" merge -q --no-ff -m 'Merge lane M5' lane/cross-directory
+git -C "$w" push -q origin main
+s=$(msha M5)
+if run 0 "$s"; then
+    if [ "$(tr '\n' ' ' < "$mark")" = 'test-kernel-repro test-kernel-flair-repro test-ovl-repro ' ]; then ok
+    else fail "cross-directory rename did not select trio: $(cat "$mark")"; fi
+fi
+
+# 16. Spaces in a SAMIR pathname are literal, not shell field separators.
+mkfixture smoke-samir-space
+addmerge 4 'os/samir/space name.c' nolog
+git -C "$w" push -q origin main
+s=$(msha M4)
+if run 0 "$s"; then
+    if [ "$(cat "$mark")" = 'test-merge-samir' ]; then ok
+    else fail "SAMIR path with a space did not select SAMIR: $(cat "$mark")"; fi
+fi
+
+# 17. A real conflict is aborted, returns 4, and neither smokes nor pushes.
+mkfixture revert-conflict
+s=$(msha M3)
+printf 'base\nM1\nM2\nchanged by main\n' > "$w/log.txt"
+git -C "$w" commit -q -am 'main edit conflicts with reverting M3'
+git -C "$w" push -q origin main
+h=$(head_of); oh=$(origin_main)
+if run 4 "$s"; then
+    if [ "$(head_of)" != "$h" ] || [ "$(origin_main)" != "$oh" ] || [ -s "$mark" ]; then
+        fail 'conflict moved HEAD, pushed or ran smoke'
+    elif [ -n "$(git -C "$w" status --porcelain --untracked-files=no)" ]; then
+        fail 'successful abort did not restore a clean tree'
+    elif ! has 'tree clean'; then fail 'successful abort did not report clean recovery'
+    else ok; fi
+fi
+
+# 18. If abort itself fails, preserve its diagnostic and do not claim clean.
+#     This wrapper intercepts only --abort; the conflict is still real git.
+mkfixture revert-abort-failed
+s=$(msha M3)
+printf 'base\nM1\nM2\nchanged by main\n' > "$w/log.txt"
+git -C "$w" commit -q -am 'main edit conflicts with reverting M3'
+git -C "$w" push -q origin main
+mkdir -p "$d/bin"
+cat > "$d/bin/git" <<'EOF'
+#!/bin/sh
+if [ "${1-}" = revert ] && [ "${2-}" = --abort ]; then
+    printf 'fixture abort refused\n' >&2
+    exit 73
+fi
+exec "$REVERT_TEST_REAL_GIT" "$@"
+EOF
+chmod +x "$d/bin/git"
+RPATH=$d/bin
+h=$(head_of); oh=$(origin_main)
+if run 4 "$s"; then
+    if ! has 'fixture abort refused'; then fail 'abort error was discarded'
+    elif has 'tree clean'; then fail 'failed abort falsely claimed a clean tree'
+    elif [ -z "$(git -C "$w" ls-files --unmerged)" ]; then fail 'fixture did not retain its conflict'
+    elif [ "$(head_of)" != "$h" ] || [ "$(origin_main)" != "$oh" ] || [ -s "$mark" ]; then
+        fail 'failed abort moved HEAD, pushed or ran smoke'
+    else ok; fi
 fi
 
 # ----------------------------------------------------------------- verdict --

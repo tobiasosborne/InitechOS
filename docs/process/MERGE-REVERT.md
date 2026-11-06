@@ -29,24 +29,36 @@ Run in the PM's main checkout, on main, clean tree, after `git fetch`:
 
 The tool refuses (exit 2, named reason, nothing changed) when the tree is
 dirty, the branch is not main, the sha is not a first-parent merge of main,
-the merge is already reverted, or origin/main is ahead of HEAD.
+the merge is currently undone, or origin/main is ahead of HEAD. Revert state
+uses first-parent history only: active reverts toggle their targets, and an
+undone revert has no effect. A revert of a revert restores the merge, so it
+can be reverted again; side-branch revert messages do not change this state.
 
-If newer first-parent merges sit above the target, they are listed; with `-y`
+Already-undone merges are excluded from the plan. If active newer
+first-parent merges sit above the target, they are listed; with `-y`
 they are reverted FIRST, newest to oldest, each by `git revert -m 1 --no-edit`,
 then the target. Main stays linear and every revert is one revertible commit.
 Newer merges are collateral: re-land them after the fix.
 
-Smoke set (first that applies): `$SMOKE`; `make -s gates-for DIFF=<m>^1..<m>`
-when that target exists; `make test-merge-samir` when the diff is only
+Smoke set (first that applies): `$SMOKE`; `make test-for DIFF=<target>^1..<newest>`
+when the `gates-for` selector exists. `test-for` executes the selected gates
+with `-k` and fails if any gate is red; printing the names is not a smoke run.
+Otherwise, `make test-merge-samir` when the diff is only
 `os/samir`, `harness/diff/dbf_diff` or `pubs/manuals/initechbase-*`; otherwise
 `make test-kernel-repro test-kernel-flair-repro test-ovl-repro`.
+The fallback disables rename detection and reads pathnames without shell
+word splitting: a move out of another subsystem into SAMIR selects the trio.
+Git-quoted unusual pathnames also conservatively select the trio.
 
 Green: the tool pushes origin main (never forced) and prints a bead note with
 the reverted subject, the reason and the red-gate log path. Red: it stops
 before pushing, leaves the reverts local, and prints how to continue
 (fix, re-smoke, `git push origin main`) or abandon (`git reset --hard <start>`,
 which drops only unpushed local reverts). Exit codes: 0 ok, 2 refused, 3 smoke
-red, 4 revert conflict (aborted, tree clean), 5 push failed.
+red, 4 revert conflict or abort failure, 5 push failed. On conflict the tool
+attempts `git revert --abort`, preserves abort errors, and reports a clean
+tree only after a successful abort and a clean tracked-file status check.
+If abort fails, inspect `git status` before continuing recovery.
 
 ## 3. Recovering a wrong revert
 

@@ -5,8 +5,8 @@
 #   sh harness/test_revert_merge_mutant.sh TOOL TEST SCRATCH
 #
 # Each mutant is a sed-patched copy of TOOL under SCRATCH. The tool marks the
-# two guard lines with `# CHECK:<name>`; a mutant replaces that whole line by
-# `:`. The oracle TEST must then FAIL, and the FAIL line must name the case
+# guard and selector lines with `# CHECK:<name>`; a mutant replaces that line
+# by `:` or a print-only selector. TEST must FAIL, and the FAIL line names the case
 # that guards the mutated line.
 set -u
 tool=$1
@@ -16,11 +16,12 @@ rm -rf "$scratch"
 mkdir -p "$scratch"
 bad=0
 
-# mutant NAME MARKER CASE : drop the marked guard; expect `FAIL <CASE>`.
+# mutant NAME MARKER CASE [REPLACEMENT]: patch the marker; expect FAIL <CASE>.
 mutant() {
     name=$1; marker=$2; want=$3
+    replacement=${4-:}
     m=$scratch/$name.sh
-    sed "/# CHECK:$marker\$/s/.*/:/" "$tool" > "$m"
+    sed "/# CHECK:$marker\$/s/.*/$replacement/" "$tool" > "$m"
     if cmp -s "$tool" "$m"; then
         printf '!!! mutant %s: marker CHECK:%s not found in %s\n' "$name" "$marker" "$tool" >&2
         bad=$((bad + 1)); return
@@ -39,9 +40,11 @@ mutant() {
 
 mutant skip-origin-ahead origin-ahead origin-ahead
 mutant push-on-red-smoke smoke-red smoke-red
+mutant skip-executing-selected-gates selected-gates smoke-selected-red \
+    '  smoke_cmd="make -s gates-for DIFF=$target^1..$newest"'
 
 if [ "$bad" -ne 0 ]; then
     printf '!!! test-revert-merge-mutant: %s mutant(s) not killed\n' "$bad" >&2
     exit 1
 fi
-printf '>>> test-revert-merge-mutant: green (skip-origin-ahead and push-on-red-smoke both killed)\n'
+printf '>>> test-revert-merge-mutant: green (all three mutants killed)\n'
