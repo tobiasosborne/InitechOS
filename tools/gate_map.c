@@ -247,7 +247,7 @@ static int has_gate(const Strings *inventory, const char *name)
 {
     return bsearch(&name, inventory->v, inventory->n, sizeof *inventory->v, cmp) != NULL;
 }
-static void validate(const Strings *inventory, int *owners)
+static void validate(const Strings *inventory, const Strings *active, int *owners)
 {
     size_t unmapped = 0;
     int always = 0;
@@ -262,7 +262,15 @@ static void validate(const Strings *inventory, int *owners)
             for (size_t p = 0; p < row->gates.n; p++) {
                 const char *gate = row->gates.v[p];
                 size_t n = strlen(gate);
-                if (n < 8 || strcmp(gate + n - 8, "-pending"))
+                /* Operator 2026-11-06, gate_map.json pending note: the
+                 * legacy FNS/W2 cases and capture preflight have names
+                 * without a pending suffix. Audit them against make's
+                 * independent default vector; an accepted case stays active. */
+                int legacy = !strncmp(gate, "test-samir-fns-", 15) ||
+                             !strncmp(gate, "test-samir-w2-", 14) ||
+                             !strcmp(gate, "test-flair-toolbox-captures");
+                if ((n < 8 || strcmp(gate + n - 8, "-pending")) &&
+                    (!legacy || has_gate(active, gate)))
                     red("active gate %s in opt-in pending family", gate);
             }
         }
@@ -738,12 +746,13 @@ static void mutant(const char *kind)
         }
         fputs("\",", stdout);
         fwrite(json + at + 1, 1, length - at - 1, stdout);
-    } else if (!strcmp(kind, "pending-active")) {
-        const char *name = "\"test-bochs-pending\"";
+    } else if (!strcmp(kind, "pending-active") || !strcmp(kind, "pending-fns-active")) {
+        int fns = !strcmp(kind, "pending-fns-active");
+        const char *name = fns ? "\"test-samir-fns-century\"" : "\"test-bochs-pending\"";
         char *at = strstr(json, name);
         if (!at) die("missing pending gate for mutant");
         fwrite(json, 1, (size_t)(at - json), stdout);
-        fputs("\"test-boot\"", stdout);
+        fputs(fns ? "\"test-samir-fns-row\"" : "\"test-boot\"", stdout);
         fwrite(at + strlen(name), 1, length - (size_t)(at + strlen(name) - json), stdout);
     } else if (!strcmp(kind, "drop-consumer")) {
         const char *path = "\"harness/proptest/serial_trace_fixture.c\"";
@@ -763,7 +772,7 @@ static void mutant(const char *kind)
 }
 int main(int argc, char **argv)
 {
-    Strings inventory, paths;
+    Strings inventory, active, paths;
     FILE *f;
     int *owners;
     int audit;
@@ -780,9 +789,17 @@ int main(int argc, char **argv)
     qsort(inventory.v, inventory.n, sizeof *inventory.v, cmp);
     for (size_t i = 1; i < inventory.n; i++)
         if (!strcmp(inventory.v[i - 1], inventory.v[i])) die("duplicate inventory gate %s", inventory.v[i]);
+    char *active_path = resize(NULL, strlen(argv[3]) + 8);
+    sprintf(active_path, "%s.active", argv[3]);
+    f = fopen(active_path, "r");
+    if (!f) die("open default vector %s: %s", active_path, strerror(errno));
+    active = lines(f, 1); if (fclose(f)) die("close default vector");
+    free(active_path);
+    if (!active.n) die("empty default vector");
+    qsort(active.v, active.n, sizeof *active.v, cmp);
     owners = resize(NULL, inventory.n * sizeof *owners);
     for (size_t g = 0; g < inventory.n; g++) owners[g] = -1;
-    validate(&inventory, owners);
+    validate(&inventory, &active, owners);
     paths = lines(stdin, 0);
     if (!strcmp(argv[1], "--audit-consumers")) {
         audit_consumers(argv[4], &inventory, owners, paths);
