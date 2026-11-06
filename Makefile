@@ -35710,4 +35710,5 @@ include harness/revert_merge.mk
 
 # Gate/mutant ordering for parallel vectors (initech-1x6x2.1). KEEP LAST:
 # it reads the complete TEST_UNIT_GATES / TEST_EMU_GATES lists.
+include harness/lane_cert.mk
 include harness/gate_pairs.mk
