@@ -29376,7 +29376,7 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
 		--name "$(SAMIRBOOT_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRBOOT_SCRN_KEYS)" --keys-after "SHELL-READY" \
-		--screendump --screendump-after "SHELL-READY" \
+		--screendump --screendump-after "$$(printf '7777.77\r\n. ')" \
 		2> "$(SAMIRBOOT_SCRN_REPORT)" || true
 	@if grep -q 'triple_fault=1' "$(SAMIRBOOT_SCRN_REPORT)"; then \
 		printf '!!! test-samir-boot FAIL: TRIPLE FAULT on the screendump run\n'; exit 1; \
@@ -29864,7 +29864,7 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(SAMI
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CY2K_SCRN_IMG)" \
 		--name "$(CY2K_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CY2K_SCRN_KEYS)" --keys-after "SHELL-READY" \
-		--screendump --screendump-after "SHELL-READY" \
+		--screendump --screendump-after 'TOTAL UNPAID OVERDUE:       0.00. ' \
 		2> "$(CY2K_SCRN_REPORT)" || true
 	@if grep -q 'triple_fault=1' "$(CY2K_SCRN_REPORT)"; then \
 		printf '!!! test-samir-canon-y2k FAIL: TRIPLE FAULT on the screendump run\n'; exit 1; \
@@ -30078,7 +30078,7 @@ test-samir-canon-salami: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(S
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CSAL_SCRN_IMG)" \
 		--name "$(CSAL_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CSAL_SCRN_KEYS)" --keys-after "SHELL-READY" \
-		--screendump --screendump-after "SHELL-READY" \
+		--screendump --screendump-after 'BOLTON SUSPENSE ACCOUNT:         0.38. ' \
 		2> "$(CSAL_SCRN_REPORT)" || true
 	@if grep -q 'triple_fault=1' "$(CSAL_SCRN_REPORT)"; then \
 		printf '!!! test-samir-canon-salami FAIL: TRIPLE FAULT on the screendump run\n'; exit 1; \
