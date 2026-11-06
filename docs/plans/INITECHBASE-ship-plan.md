@@ -170,3 +170,60 @@ the diff, not gates).
 3. Whether the lane-owned integration run (section 5) is trusted for small
    lanes with the PM re-running only the train (Rule 4 still applies to the
    train result).
+
+## 7. Re-point (2026-11-06, DEC-03a)
+
+Status: DRAFT v0.9, pending operator ratification of
+[ADR-0009 Amendment DEC-03a](../adr/ADR-0009-AMENDMENT-DEC-03a-InitechMZ-Extended-Memory.md).
+The operator's 2026-11-06 "good, do it" authorizes this draft; the operator
+ratifies the contracts. Sections 0-6 above remain the dated record. On
+ratification this section supersedes their packaging/shrink dependencies,
+W4 screen bar and critical path, including section 6's overlay-slot question.
+Other historical choices are not reopened by this re-point.
+
+Replacement critical path (seven lines; Seat B's order retained):
+
+1. Finish W3 slices 2-4 (GET, READ, PICTURE/FUNCTION/RANGE, CLEAR GETS; initech-p3nn0), retaining byte-exact forms.
+2. Land DEC-03a: locked 6-8 MiB application region, global 8 MiB floor, tagged loader/native arena, size/link retarget and suspend/lifetime re-proof.
+3. Deliver W4.1 kit (initech-9x8cn): key loop, menus, field editor and status line, accepted by L1/L2/L3.
+4. Deliver W4 apps (initech-j7lld) in big strokes, up to four concurrent lanes; new code resident by default, no required overlay expansion or shrink rounds.
+5. Run W2a/W2b/W2c fan-outs on merge trains; packaging is no dependency, while W2c's actual key-loop/UI dependencies remain.
+6. W5 (initech-y29t4): bug sweep, message reachability, locked re-grade inventory, full local vector + Bochs + publications; record the owed 86Box authenticity evidence explicitly.
+7. Assign released packaging/shrink capacity to Turbo Initech M7/M8 (fpc differential, resident K2 == K3 fixpoint) and FLAIR fidelity.
+
+W2 reference minting and independent work can proceed alongside W3 and the
+loader lane; the numbering is not a new dependency serializing every train.
+
+Retired programme items and retained assets:
+
+| Item | Disposition after ratification |
+|---|---|
+| Packaging B / initech-5etom | Close delivered in part: credit DEC-19 Phase A and delivered initech-5etom.1. Retire remaining multi-overlay, per-image squeeze and DBASE.EXE/OVL runtime-parity work. |
+| Resident shrink / initech-1x6x2.18 | Close won't-do/superseded; end per-lane byte negotiation and the conventional 4 KiB headroom floor. |
+| Earlier size work / initech-1x6x2.6 | Already closed; keep its delivered guard/correctness work. Do not reopen or revert it. |
+| SAMIR.EXE + SAMIR.OVL | Keep both and all overlay correctness/refusal/repro gates. New code stays resident by default; proven cold leaf overlays remain optional. |
+| Size policy / build flags | Freeze SAMIR_SIZE_CFLAGS. Retarget test-samir-size and linker assertions to a 256 KiB module runaway ceiling plus declared-reserve/physical-containment/heap checks; keep slot/minalloc/repro and real-dBASE captures named "size". |
+| Kernel programme | ADR-0014 cap/FLAIR.OVL unchanged. Main 797d87c5 reports only 1,220 B remaining, versus the seats' earlier 2,624 B; loader work must fit or land separately authorized capacity work. |
+| W4.0 mint harness | Optional for blanket screen capture; still required where retained exact screens or independent real file/data effects need minting. |
+
+The W4 bar is the per-app table in DEC-03a.10: **L1** byte-exact output
+files after existing normalization (or explicitly specified transcripts/
+read-only effects), **L2** locked key replay with independent structural
+screen checks and named, proven mutants, and **L3** a reproducible Rule-14
+record-flair clip for each app group. HELP keeps a few cheap, explicitly
+InitechBase-authored exact pages; empty CREATE STRUCTURE and existing W3 /
+generated-.FMT forms keep their exact screens. CONFIG.DB is checked by
+startup transcripts and a recorded startup/effect trace, not an invented UI.
+The locked spec/samir/screen_regrade.json inventory must enumerate every
+group and its evidence. Missing rows or mutants must make W5 fail.
+
+Verbs, functions, SET options, messages, DBF/DBT/NDX and other output files
+retain the real-III+ compatibility bar; W3 is not re-graded. W5's certificate
+must explicitly disclose W4's non-byte-exact screen class. SAMIR remains a
+full-console class-2 tenant; desktop suspend/return stays bit-identical.
+
+Implementation lanes after ratification own code/Makefile/spec changes,
+README/hardware/PRD/manual requirements in lockstep, and gs-dir.txt re-mint.
+Flat CHKDSK memory screens remain unchanged. Freed capacity funds compiler
+and desktop work; it does not remove these acceptance obligations. This
+append-only planning entry changes no bead state or executable gate.
