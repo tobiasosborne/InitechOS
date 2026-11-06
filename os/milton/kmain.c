@@ -512,7 +512,7 @@ static int int21_conin_get_kbd(void)
 }
 
 /* Console page service (TSR_VEC_SCREEN; spec/tsr_contract.h Sec 2/3): AL=00h
- * SAVE / 01h RESTORE the 80x25 text page + cursor at EDX. A NULL or wrapping
+ * SAVE / 01h RESTORE / 02h UPDATE the text page + cursor at EDX. A NULL or wrapping
  * EDX is refused like every DEC-14 user pointer (CF=1, AX=0009h); an unknown
  * AL or no text console is CF=1, AX=0001h. Bead initech-6fdt. */
 void KERNEL_ASM_ABI tsr_screen_dispatch(int_frame_t *f)
@@ -520,10 +520,11 @@ void KERNEL_ASM_ABI tsr_screen_dispatch(int_frame_t *f)
     uint32_t p = f->edx;
     uint8_t al = (uint8_t)f->eax;
     uint16_t err = 0u;
-    if (!g_int21_con || al > 1u) err = 0x0001u;
+    if (!g_int21_con || al > 2u) err = 0x0001u;
     else if (p == 0u || p + TSR_SCREEN_BYTES < p) err = 0x0009u;
     else if (al == 0u) console_save_page(g_int21_con, (uint8_t *)(uintptr_t)p);
-    else console_restore_page(g_int21_con, (const uint8_t *)(uintptr_t)p);
+    else if(al==1u)console_restore_page(g_int21_con, (const uint8_t *)(uintptr_t)p);
+    else console_update_page(g_int21_con, (const uint8_t *)(uintptr_t)p);
     if (err) {
         f->eax = (f->eax & 0xFFFF0000u) | err;
         f->eflags |= 1u;

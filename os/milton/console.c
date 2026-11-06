@@ -603,13 +603,14 @@ void console_save_page(const console_t *con, uint8_t *buf)
     buf[CONSOLE_PAGE_BYTES - 1] = (uint8_t)con->cur_col;
 }
 
-void console_restore_page(console_t *con, const uint8_t *buf)
+static __attribute__((noinline,noclone)) void console_copy_page(console_t *con,const uint8_t *buf,int changed_only)
 {
     if (!con || !con->cells || !buf) return;
     uint8_t attr = con->cur_attr;
     console_color_t fg = con->cur_fg, bg = con->cur_bg;
     for (uint32_t i = 0; i < CONSOLE_COLS * CONSOLE_ROWS; i++) {
         uint8_t ch = buf[i * 2u], a = buf[i * 2u + 1u];
+        if(changed_only && con->cells[i*2u]==ch && con->cells[i*2u+1u]==a)continue;
         console_set_attr(con, a);
         con->cells[i * 2u] = ch;
         con->cells[i * 2u + 1u] = a;
@@ -623,3 +624,7 @@ void console_restore_page(console_t *con, const uint8_t *buf)
     con->cur_bg = bg;
     console_set_cursor(con, buf[CONSOLE_PAGE_BYTES - 2], buf[CONSOLE_PAGE_BYTES - 1]);
 }
+void console_restore_page(console_t *con,const uint8_t *buf)
+{ console_copy_page(con,buf,0); }
+void console_update_page(console_t *con,const uint8_t *buf)
+{ console_copy_page(con,buf,1); }

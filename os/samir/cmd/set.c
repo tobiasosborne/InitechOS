@@ -182,33 +182,22 @@ int set_history_record(xb_interp *ip, const char *line, int *ec)
 /* Small ASCII helpers (freestanding; no libc)                           */
 /* ===================================================================== */
 
-static char s_up1(char c)
+/* SET's cold token helpers stay with its parser (initech-0spyf/fzsvo).
+ * The resident hook uses the shared keyword matcher below. */
+static SAMIR_OVL_TEXT(set) char s_up1(char c)
 {
     if (c >= 'a' && c <= 'z')
         return (char)(c - 'a' + 'A');
     return c;
 }
 
-static int s_isspace(char c)
+static SAMIR_OVL_TEXT(set) int s_isspace(char c)
 {
     return c == ' ' || c == '\t';
 }
 
-/* case-insensitive equality of two NUL-terminated strings. */
-static int s_ci_eq(const char *a, const char *b)
-{
-    int i = 0;
-    for (;;) {
-        char ca = s_up1(a[i]);
-        char cb = s_up1(b[i]);
-        if (ca != cb) return 0;
-        if (ca == '\0') return 1;
-        i++;
-    }
-}
-
 /* skip leading blanks; return pointer past them. */
-static const char *s_skip_ws(const char *s)
+static SAMIR_OVL_TEXT(set) const char *s_skip_ws(const char *s)
 {
     while (*s != '\0' && s_isspace(*s)) s++;
     return s;
@@ -554,7 +543,9 @@ static SAMIR_OVL_TEXT(set) int do_set_safety(set_state *ss, const char *args, in
 /* Called by set_register. The MUTATION PROOF fires here.                */
 /* ===================================================================== */
 
-static void set_init_defaults(xb_interp *ip, set_state *ss)
+/* Construction is cold too; its callers enter through SET's overlay entry.
+ * Ref: mint-results-002/003 defaults; initech-0spyf/fzsvo size guard. */
+static SAMIR_OVL_TEXT(set) void set_init_defaults(xb_interp *ip, set_state *ss)
 {
     int i;
     ss->alternate=-1;ss->alternate_on=0;
@@ -1133,7 +1124,12 @@ static SAMIR_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
     char        opt[32];
     int         i, k, opt_len;
 
-    (void)k_unused;
+    if(k_unused==1) {
+        ss=set_state_for(ip,(int *)0);
+        if(!ss)return -INTERP_ERR_NOMEM;
+        set_init_defaults(ip,ss);
+        return INTERP_OK;
+    }
 #ifdef SAMIR_OVL_MUTATE_ESCAPE_HOOK
     xb_interp_add_cmd_hook(ip,ovl_bad_hook,ip);
 #endif
@@ -1225,7 +1221,7 @@ static int set_cmd_hook(void *user, xb_interp *ip,
     if (!ip || !verb) return CMD_UNKNOWN;
 
     /* Only handle the "SET" verb. */
-    if (!s_ci_eq(verb, "SET")) return CMD_UNKNOWN;
+    if (rt_kw_index(verb, "SET\0") != 0) return CMD_UNKNOWN;
     return SAMIR_OVL_CALL(SAMIR_OVL_SET, set_ovl_entry, 0, ip, args, err_code);
 }
 
@@ -1259,7 +1255,11 @@ int set_register(xb_interp *ip)
 #else
     (void)is_new;
 #endif
-        set_init_defaults(ip, ss);
+    {
+        int ec=0;
+        int rc=SAMIR_OVL_CALL(SAMIR_OVL_SET,set_ovl_entry,1,ip,"",&ec);
+        if(rc)return rc;
+    }
 
     return xb_interp_add_cmd_hook(ip, set_cmd_hook, (void *)0);
 }

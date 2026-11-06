@@ -64,6 +64,10 @@
  *   AL=00h SAVE    -- EDX -> TSR_SCREEN_BYTES writable bytes; CF=0
  *   AL=01h RESTORE -- EDX -> a buffer SAVE filled; redraws every cell and
  *                     the cursor; CF=0
+ *   AL=02h UPDATE  -- same buffer, redraw only cells changed from the visible
+ *                     console page, then set its cursor; CF=0. Native text
+ *                     clients only: use RESTORE after external LFB painting.
+ *                     Ref: initech-0spyf/fzsvo; real at-dot and at-to-b/TE.
  *   bad AL / EDX not a valid user buffer (DEC-14) -> CF=1, AX=0001h/0009h.
  * Trap gate. */
 #define TSR_VEC_SCREEN       0x39u

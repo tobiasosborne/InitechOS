@@ -111,6 +111,9 @@ typedef struct {
 #define CONSOLE_PAGE_BYTES (CONSOLE_COLS * CONSOLE_ROWS * 2 + 2)
 void console_save_page(const console_t *con, uint8_t *buf);
 void console_restore_page(console_t *con, const uint8_t *buf);
+/* Update an already visible text page: redraw changed cells, then restore
+ * the cursor. Use full restore after other clients have painted the LFB. */
+void console_update_page(console_t *con, const uint8_t *buf);
 
 /* Pack an (r,g,b) triple into the framebuffer pixel format for the given bpp.
  * Branches on bpp exactly like the blit (Sec 5 Risk 2). For 24bpp the result
