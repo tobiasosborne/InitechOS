@@ -34,6 +34,14 @@ and bite. You may run read-only commands (grep, make -n, git); do not
 build or run gates (the worker's gate log is in LANE-CONTEXT.txt and the
 PM re-runs the family on main).
 
+Before a MERGE verdict, check the lane's proof pack (format in
+docs/process/LANE-PROOF.md): the certificate must be present, name the
+proposed lane head, and have base_sha equal to current main; the PM or
+verifier must have replayed build/proof/manifest successfully. Require
+the recorded cert-check and replay results; missing or stale evidence
+blocks MERGE. The reviewer can inspect those results read-only under the
+build restriction above.
+
 Output, ASCII, at most 60 lines, in this exact shape:
 VERDICT: MERGE | FIX-THEN-MERGE | REJECT
 BLOCKING: numbered list (empty for MERGE) -- each item: file:line, what

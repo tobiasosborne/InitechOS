@@ -6,6 +6,7 @@ LANE_CERT_SCRIPT ?= tools/lane-cert.sh
 test-lane-cert:
 	+@set -eu; \
 	fail() { printf '!!! test-lane-cert FAIL: %s\n' "$$1"; exit 1; }; \
+	[ "$(filter test-lane-cert test-lane-cert-mutant,$(GATE_VECTOR))" = 'test-lane-cert test-lane-cert-mutant' ] || fail 'gate vector registration'; \
 	cert_tool="$(abspath $(LANE_CERT_SCRIPT))"; \
 	check_tool="$(abspath tools/cert-check.sh)"; \
 	replay_tool="$(abspath tools/proof-replay.sh)"; \
@@ -101,6 +102,10 @@ test-lane-cert:
 	sh "$$replay_tool" > "$$out/replay.log" 2>&1 || { cat "$$out/replay.log"; fail 'proof replay'; }; \
 	[ "$$(grep -c '^PASS ' "$$out/replay.log")" -eq 3 ] || fail 'proof replay PASS records'; \
 	sh "$$replay_tool" > "$$out/replay.log" 2>&1 || fail 'proof worktree reuse'; \
+	printf 'GREEN|%s|cat; make -s test-one|>>> test-one: green (fixture)\nGREEN|%s|make -s test-one|>>> test-one: green (fixture)\n' \
+	    "$$head" "$$head" > build/proof/manifest; \
+	sh "$$replay_tool" > "$$out/replay.log" 2>&1 || fail 'proof stdin isolation'; \
+	[ "$$(grep -c '^PASS ' "$$out/replay.log")" -eq 2 ] || fail 'proof stdin consumed records'; \
 	printf 'GREEN|%s|make -s test-one|wrong EXPECT\n' "$$head" > build/proof/manifest; \
 	if sh "$$replay_tool" > "$$out/replay.log" 2>&1; then fail 'wrong EXPECT accepted'; fi; \
 	grep -q '^FAIL ' "$$out/replay.log" || fail 'proof replay FAIL record'; \
