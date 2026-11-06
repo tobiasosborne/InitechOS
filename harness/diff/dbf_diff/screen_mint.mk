@@ -17,6 +17,7 @@ mint-screen-seeds: $(BUILD)/screen_tool $(BUILD)/SCREEN.COM
 	 sh harness/diff/dbf_diff/screen_mint.sh "$(SCREEN_MINT_DIR)/$$c" "$(BUILD)/screen-mint/seeds/$$c"; done
 test-screen-mint: $(BUILD)/screen_tool $(BUILD)/SCREEN.COM
 	@sh harness/diff/dbf_diff/screen_mint_test.sh
+	@printf '>>> test-screen-mint: green\n'
 test-screen-mint-repro: $(BUILD)/screen_tool $(BUILD)/SCREEN.COM
 	@sh harness/diff/dbf_diff/screen_mint_repro.sh
 
@@ -30,6 +31,7 @@ $(BUILD)/test_qemu_screen_helper: harness/emu/test_qemu_screen_helper.c harness/
 test-screen-mint-mutants: $(BUILD)/test_qemu_screen_helper $(BUILD)/screen_tool $(BUILD)/SCREEN.COM $(BUILD)/screen_capture $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG)
 	@$(BUILD)/test_qemu_screen_helper
 	@sh harness/diff/dbf_diff/screen_mint_mutants.sh
+	@printf '>>> test-screen-mint-mutants: green\n'
 
 # W3 forms (initech-p3nn0): SAMIR replayed against real III+ @...TO/@...CLEAR/CLEAR.
 .PHONY: test-samir-forms-emu

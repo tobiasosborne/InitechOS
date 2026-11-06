@@ -29663,6 +29663,7 @@ test-samir-write: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(SAMIR_OV
 	@printf '            round-tripped through pal_milton -> INT 21h -> the kernel FAT12 write path\n'
 	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-samir-write: green\n'
 
 test-samir-write-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE_DROPWRITE) $(CLIENTS_DBF)
 	@printf '>>> test-samir-write-mutant: confirming the drop-write pal_milton mutant goes RED (Rule 6)\n'
@@ -29898,6 +29899,7 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(SAMI
 	@printf '            (A1001/A1003 mis-aged to ~ -100 years; TOTAL UNPAID OVERDUE wrongly 0.00).\n'
 	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
 	@printf '======================================================================\n'
+	@printf '>>> test-samir-canon-y2k: green\n'
 
 # The mutant: the DO-file-READ bite (Rule 6, this bead's feature). SAMIR_DOTRUNC.EXE
 # (-DREPL_MUTATE_DO_TRUNC) reads only the FIRST HALF of Y2KACCT.PRG, so the report
@@ -33885,12 +33887,14 @@ $(BUILD)/samir_numeric_%: $(DBF_DIFF_DIR)/numeric_format_driver.c $(INTERP_LIST_
 .PHONY: test-samir-numeric-format test-samir-numeric-format-fraction-mutant test-samir-numeric-format-left-mutant
 test-samir-numeric-format: $(SAMIR_NUMERIC_DRIVER)
 	@python3 $(DBF_DIFF_DIR)/numeric_format_ref.py $< $(DBASE3_DECOMP)
+	@printf '>>> test-samir-numeric-format: green\n'
 test-samir-numeric-format-fraction-mutant: $(BUILD)/samir_numeric_FRACTION
 test-samir-numeric-format-left-mutant: $(BUILD)/samir_numeric_LEFT
 test-samir-numeric-format-fraction-mutant test-samir-numeric-format-left-mutant:
 	@set +e; python3 $(DBF_DIFF_DIR)/numeric_format_ref.py $< $(DBASE3_DECOMP) > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q 'descriptor differential' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (implementation mutant RED: descriptor differential)\n' '$@'
+	@printf '>>> %s: green\n' '$@'
 TEST_UNIT_GATES += test-samir-numeric-format test-samir-numeric-format-fraction-mutant test-samir-numeric-format-left-mutant
 
 # initech-vz6z: mutations of the implemented screen controls, same LIST oracle.
@@ -33917,6 +33921,7 @@ test-samir-status-mutant: $(BUILD)/test_samir_status_mutant
 	@set +e; $< $(DBASE3_DECOMP) > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q 'status: Command Line' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (status-band implementation mutant RED)\n' '$@'
+	@printf '>>> %s: green\n' '$@'
 TEST_UNIT_GATES += test-samir-status test-samir-status-mutant
 
 # Same implementation mutants in the flat COM. Dead sections are omitted;
@@ -33938,12 +33943,14 @@ test-samir-status-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_STATUS.EXE
 	@set +e; $(BUILD)/test_samir_screen_emu status $< > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings|heading)' $(BUILD)/$@.log && grep -q 'status: serial Command Line' $(BUILD)/$@.log && grep -q 'status: reverse band' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (same status-band mutant RED on serial and video)\n' '$@'
+	@printf '>>> %s: green\n' '$@'
 test-samir-numeric-format-emu-fraction-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_NUMERIC_MUTATE_FRACTION.EXE
 test-samir-numeric-format-emu-left-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_NUMERIC_MUTATE_LEFT.EXE
 test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant:
 	@set +e; $(BUILD)/test_samir_screen_emu numeric $< > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings)' $(BUILD)/$@.log && grep -q 'numeric: integral fraction and right alignment' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (same numeric implementation mutant RED in guest)\n' '$@'
+	@printf '>>> %s: green\n' '$@'
 # Mutant targets build the runner/fixture even when invoked alone.
 test-samir-status-emu-mutant test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant test-samir-console-emu-mutant: $(BUILD)/test_samir_screen_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
 TEST_EMU_GATES += test-samir-status-emu test-samir-status-off-emu test-samir-status-emu-mutant test-samir-numeric-format-emu test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant
@@ -33953,6 +33960,7 @@ test-samir-console-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.EXE
 	@set +e; $(BUILD)/test_samir_screen_emu console $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.EXE > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings)' $(BUILD)/$@.log && grep -q 'console: program output and prompt suppressed' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (same CONSOLE suppression mutant RED in guest)\n' '$@'
+	@printf '>>> %s: green\n' '$@'
 TEST_EMU_GATES += test-samir-console-emu test-samir-console-emu-mutant
 
 # M011/M012 (tdnl.99/.100), L023: boot the existing locked dirty-123 quit
