@@ -1,0 +1,11 @@
+
+[DO-BEGIN]
+PARAM          8 alpha .T.
+LEAF         10 alpha!
+PARAM RESUMED          8 alpha
+OUTER          7
+PARAM         42 beta .F.
+LEAF         44 beta!
+PARAM RESUMED         42 beta
+OUTER          7
+[DO-END]

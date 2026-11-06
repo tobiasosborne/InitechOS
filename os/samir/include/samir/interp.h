@@ -112,10 +112,14 @@ typedef struct xb_interp xb_interp;
 xb_interp *xb_interp_make(samir_pal_t *pal);
 
 /*
- * xb_interp_free: tear down the interpreter -- close all open work areas and
- * reset the PAL arena to the mark taken at make time. NULL is a no-op.
+ * xb_interp_free: close all work areas, run the optional module teardown,
+ * then reset the PAL arena to the make-time mark. NULL is a no-op.
  */
 void xb_interp_free(xb_interp *ip);
+/* The procedure owner releases persistent storage before scratch is reset.
+ * Optional so work-area-only interpreters need not link the proc module.
+ * The callback must remain resident for the interpreter's lifetime. */
+void xb_interp_set_teardown(xb_interp *ip, void (*fn)(xb_interp *));
 
 /* -----------------------------------------------------------------------
  * Accessors
@@ -204,6 +208,13 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip);
  * silent skip of a broken statement.
  */
 int samir_do(xb_interp *ip, const char *prg);
+/* Shared disk-program loader (dot prompt, nested DO and batch startup).
+ * Caller owns the returned PAL acquire block and must release it. Errors
+ * are existing catalogue ordinals; NULL never means a partial program. */
+char *proc_load_program(xb_interp *ip, const char *name, uint32_t *len, int *ec);
+/* CLOSE PROCEDURE / CLOSE ALL: an active library remains selected (real
+ * III+ do-file-mint/close); otherwise remove its installed ownership. */
+void proc_close_library(xb_interp *ip);
 
 /*
  * samir_do_n: samir_do over the first `len` bytes of `prg` (the slice need not

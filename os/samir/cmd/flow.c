@@ -68,8 +68,8 @@
 /* FLOW_MAX_REGISTRY: concurrent interpreters with flow state. Pure dimensioning
  * knob -- no target-only behavioral code paths (CLAUDE.md Law 3). */
 #define FLOW_MAX_SCOPE     64    /* max DO-call scope depth (Rule 2 fail-loud cap;
-                                  * the corpus DO-stack cap is 32 -- error 100 --
-                                  * so 64 is generous headroom) */
+                                  * the DO owner in proc.c enforces III+'s 20
+                                  * total levels -- error 103; do-file-mint/depth) */
 
 /* dBASE catalog ordinal used by the spine (not in eval.h). */
 #define FLOW_MSG_UNRECOGNIZED 16  /* "Unrecognized command verb." */

@@ -3552,15 +3552,15 @@ test-samir-append-safe-mutant: $(SAMIR_APPEND_MUTANTS)
 	done
 	@printf '>>> test-samir-append-safe-mutant: green\n'
 
-SAMIR_LIFETIME_MUTANTS := $(BUILD)/test_samir_lifetime_reset $(BUILD)/test_samir_lifetime_duplicate $(BUILD)/test_samir_lifetime_heap
+SAMIR_LIFETIME_MUTANTS := $(BUILD)/test_samir_lifetime_reset $(BUILD)/test_samir_lifetime_duplicate $(BUILD)/test_samir_lifetime_heap $(BUILD)/test_samir_lifetime_procedure
 $(SAMIR_LIFETIME_MUTANTS): $(DBF_DIFF_DIR)/test_samir_dbsafe.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
-	@case "$@" in *_reset) flag=SAMIR_MUTATE_OWNER_RESET;; *_heap) flag=SAMIR_MUTATE_HEAP_FREE;; *) flag=SAMIR_MUTATE_DUPLICATE_OPEN;; esac; \
+	@case "$@" in *_reset) flag=SAMIR_MUTATE_OWNER_RESET;; *_heap) flag=SAMIR_MUTATE_HEAP_FREE;; *_procedure) flag=PROC_MUTATE_SKIP_LIBRARY_FREE;; *) flag=SAMIR_MUTATE_DUPLICATE_OPEN;; esac; \
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$$flag $(SAMIR_DBSAFE_DEF) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
 .PHONY: test-samir-lifetime-mutant
 test-samir-lifetime-mutant: $(SAMIR_LIFETIME_MUTANTS)
 	@mkdir -p $(BUILD)/dbsafe
-	@set -e; for kind in reset duplicate heap; do \
-	  case $$kind in reset) reason='L003 reset cannot cross a live owner';; heap) reason='L003 reclaimed open';; *) reason='L003 exact duplicate refused';; esac; \
+	@set -e; for kind in reset duplicate heap procedure; do \
+	  case $$kind in reset) reason='L003 reset cannot cross a live owner';; heap) reason='L003 reclaimed open';; procedure) reason='procedure persistent heap high-water stable';; *) reason='L003 exact duplicate refused';; esac; \
 	  if $(BUILD)/test_samir_lifetime_$$kind lifetime > $(BUILD)/dbsafe/mut-$$kind.log 2>&1; then echo '!!! mutant passed'; exit 1; fi; \
 	  grep -q 'checks,.*failures' $(BUILD)/dbsafe/mut-$$kind.log; grep -Fq "$$reason" $(BUILD)/dbsafe/mut-$$kind.log; \
 	  printf '>>> test-samir-lifetime-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
@@ -35468,6 +35468,7 @@ TEST_UNIT_GATES += samir-w2-goldens test-samir-w2-host-adapter
 include harness/diff/dbf_diff/w2_set_unique.mk
 
 include harness/diff/dbf_diff/samir_size.mk
+include harness/diff/dbf_diff/do_file.mk
 include harness/diff/dbf_diff/samir_ovl.mk
 include harness/diff/dbf_diff/samir_w2_history.mk
 include harness/diff/fat_diff/dos_volumes.mk

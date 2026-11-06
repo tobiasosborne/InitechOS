@@ -1,0 +1,8 @@
+D=D+1
+? "ENTER",D
+IF D<22
+DO REC
+ENDIF
+? "LEAVE",D
+D=D-1
+RETURN

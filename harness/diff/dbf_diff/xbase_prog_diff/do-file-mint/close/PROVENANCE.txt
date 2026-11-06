@@ -1,0 +1,41 @@
+initech-104j3 review fix: CLOSE PROCEDURE / CLOSE ALL
+
+Reference: real dBASE III PLUS 1.1, captured 2026-11-06 with DOSBox-X.
+DOSBox-X version 2024.03.01, commit 02f36ba (Linux SDL2 64-bit).
+The four reference binaries are pinned by ../reference.sha256, verified
+against dbase3-decomp/mint/work before this capture. sha256.txt pins every
+PRG input and the complete flushed GOLD.OUT, including CR/LF and DOS EOF.
+No SAMIR output was used to create the golden.
+
+Authority: dbase3-decomp/mint/work/HELP.DBS _CLOSE says ALL closes all
+file types without affecting memory. _SET PROCEDURE says SET PROCEDURE TO
+or CLOSE PROCEDURE closes the open procedure file. Active-call behavior
+is determined by this capture, rather than inferred from those entries.
+
+MINT.PRG opens LIBRARY.PRG and calls SAME. Both CLOSE PROCEDURE and CLOSE
+ALL from this non-library program then restore disk SAME.PRG lookup:
+  BEFORE LIBRARY SAME
+  CLOSE PROCEDURE DISK SAME
+  CLOSE ALL DISK SAME
+
+FINISHP and FINISHA execute the respective close commands while running
+from LIBRARY.PRG. They finish, RETURN to MINT.PRG, and a later DO SAME
+still resolves to the library. The close is not deferred until RETURN:
+  ACTIVE PROCEDURE FINISHED LIBRARY SAME
+  ACTIVE ALL FINISHED LIBRARY SAME
+
+Reproduction from the worktree root (no -silent): copy the four reference
+binaries from dbase3-decomp/mint/work and this directory's PRGs into
+build/do-file-mint/close. CONFIG.DB sets STATUS, TALK, SAFETY and BELL OFF.
+Run:
+  MINT_TIMEOUT=30 sh harness/diff/dbf_diff/mint_capture.sh \
+    "$PWD/build/do-file-mint/close" \
+    harness/diff/dbf_diff/xbase_prog_diff/do-file-mint/close/MINT.PRG '[DO-END]'
+The shared route uses SDL dummy video/audio, DOSBox-X -defaultconf
+-fastlaunch -nopromptfolder -conf mint.conf -exit, DOS date 07/24/1986,
+and DBASE MINT. It requires normal exit, [DO-END], final byte 26, and no
+MINT-ERROR lines. make mint-interp-do-file remints the complete family.
+
+Replay: make test-interp-do-file and make test-interp-do-file-emu compare
+the entire alternate file byte for byte. Mutants KEEP_LIBRARY_CLOSE and
+CLOSE_ACTIVE must each differ from this golden.

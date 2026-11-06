@@ -21,12 +21,15 @@ struct pal_host_cfg { uint8_t yy,mm,dd; uint32_t heap_size; };
 extern samir_pal_t *pal_host_make(struct pal_host_cfg);
 extern void pal_host_free(samir_pal_t *);
 extern int samir_repl(samir_pal_t *,xb_interp *);
+extern int proc_register(xb_interp *);
 static struct {
     samir_pal_t p; samir_pal_t *inner; xb_interp *ip;
     const char *script[32]; int line;
     char out[16384]; size_t used;
     int armed, boundary, hit, calls, seek_fault, short_kind, error;
     void *live_mark; int reset_bad, closes, opens, objects;
+    uintptr_t heap_base;
+    uint32_t heap_high;
 } c;
 /* Sibling ground-truth root (Makefile DBASE3_DECOMP). Relative paths are
  * anchored to project_root because main() chdirs into a private sandbox
@@ -88,7 +91,16 @@ static void rs(samir_pal_t *p,void *m){
     if(at) memset(at,0xa5,(size_t)(end-at));
     c.inner->reset(c.inner,m);
 }
-static void *ac(samir_pal_t *p,uint32_t n){void *b;(void)p;b=c.inner->acquire(c.inner,n);if(b)c.objects++;return b;}
+static void *ac(samir_pal_t *p,uint32_t n){
+    void *b;uint32_t end;(void)p;b=c.inner->acquire(c.inner,n);
+    if(b){
+        c.objects++;
+        if(!c.heap_base)c.heap_base=(uintptr_t)b;
+        end=(uint32_t)((uintptr_t)b-c.heap_base)+((n+7u)&~7u);
+        if(end>c.heap_high)c.heap_high=end;
+    }
+    return b;
+}
 static void fr(samir_pal_t *p,void *b){(void)p;if(b)c.objects--;c.inner->release(c.inner,b);}
 static samir_pal_t *setup(void){
     struct pal_host_cfg cfg={85,10,30,4*1024*1024};
@@ -172,6 +184,32 @@ static void codec_lifetimes(samir_pal_t *p){
     ndx_node_free(ib,node);dbt_close(mb);ndx_close(ib);
     CHECK(c.objects==0,"L003 codec buffers reclaimed independently");
 }
+/* initech-104j3 review fix: persistent storage must outlive scratch resets
+ * only while owned. One PAL, 32 interpreter lifetimes, no CLOSE beforehand.
+ * Measure the highest acquired address + rounded size from the first block,
+ * including intervening heap headers; no production allocator test hooks. */
+static void procedure_lifetimes(void){
+    samir_pal_t *p=setup();FILE *f;uint32_t first=0;int i;
+    f=fopen("build/dbsafe/LIBRARY.PRG","wb");
+    CHECK(f!=NULL,"procedure lifetime fixture open");
+    if(!f){pal_host_free(c.inner);return;}
+    fputs("PROCEDURE SAME\nSTORE 1 TO FLAG\nRETURN\n",f);fclose(f);
+    for(i=0;i<32;i++){
+        c.ip=xb_interp_make(p);
+        CHECK(c.ip!=NULL,"procedure lifetime interpreter create");
+        if(!c.ip)break;
+        CHECK(proc_register(c.ip)==0,"procedure lifetime register");
+        CHECK(samir_do(c.ip,"SET PROCEDURE TO build/dbsafe/LIBRARY") == 0,
+              "procedure lifetime library open");
+        xb_interp_free(c.ip);
+        CHECK(c.objects==0,"procedure teardown releases persistent library");
+        if(!i)first=c.heap_high;
+        CHECK(c.heap_high==first,"procedure persistent heap high-water stable");
+    }
+    printf("PROCEDURE HEAP cycles=%d first=%u final=%u retained=%d bytes-from-first-block\n",
+           i,first,c.heap_high,c.objects);
+    pal_host_free(c.inner);
+}
 static void lifecycle_tests(void){
     samir_pal_t *p;wa_env *env;int first,second,i,rc;
     test_heap_size=32768u;p=setup();
@@ -207,6 +245,7 @@ static void lifecycle_tests(void){
     CHECK(c.objects==0,"L003 repeated work-area closes reclaim buffers");
     CHECK(c.opens==c.closes,"L003 all handles closed exactly once");
     xb_interp_free(c.ip);pal_host_free(c.inner);
+    procedure_lifetimes();
 }
 static void safety_case(const char *answer,int off,unsigned expected){
     samir_pal_t *p=setup();int i=0;size_t n;

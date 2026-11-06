@@ -52,7 +52,7 @@ static void limits(void)
     row("Characters in a memory variable name", FLOW_MAX_NAME - 1, "");
     row("Characters in a command line", FLOW_MAX_LINELEN, "");
     row("Lines in a program file", FLOW_MAX_LINES, "");
-    row("Size of a program file", (long)REPL_PRG_CAP - 1, "bytes");
+    row("Size of a program file", (long)P_PRG_CAP - 1, "bytes");
     row("Nested DO levels", FLOW_MAX_SCOPE, "");
     row("Arguments of DO ... WITH", P_MAX_ARGS, "");
     row("Columns in a report form", RP_COLS, "");

@@ -1,7 +1,10 @@
-% DO -- os/samir/samir_main.c repl_try_do_file (DO <name> at the dot prompt
-% runs <name>.PRG from the disk; 8191-byte cap, #18) and os/samir/cmd/proc.c
-% p_do / p_call (a PROCEDURE of the program running; WITH arguments by value;
-% #16 unknown target).  Gates: test-samir-canon-y2k, test-interp-proc.
+% DO -- os/samir/cmd/proc.c proc_load_program / p_do / p_call (one loader
+% for the dot prompt and for a program; a SET PROCEDURE file wins over a
+% same-named disk program. Current-source precedence is not captured. 8191-byte
+% cap, #18; WITH arguments by value).  Real III+ 1.1 captures:
+% xbase_prog_diff/do-file-mint/{basic,depth,handler,master,missing,
+% parameters,precedence,close} (initech-104j3).  Gates: test-interp-do-file,
+% test-samir-canon-y2k, test-interp-proc.
 \begin{XbaseEntry}{DO}{command}
 Runs a program file, or a procedure of the program that is running.
 \Syntax
@@ -16,10 +19,12 @@ extension.  The program runs from its first line until it reaches
 returns.  A program file may hold at most 8,191 characters; a larger file is
 refused with \xmsg{18}{Line exceeds maximum of 254 characters.}
 
-In a program, \cmd{DO} \xp{procedure} runs a procedure of the same program
-file: the lines that follow its \cmd{PROCEDURE} line, up to the next
-\cmd{RETURN}.  When the procedure returns, the program goes on with the line
-after the \cmd{DO}.  Procedures may call other procedures, and themselves.  At
+In a program, \cmd{DO} \xp{name} can run a procedure in the open procedure
+file (see \cmd{SET PROCEDURE}), a procedure in the same program file, or
+the program file \xp{name}\texttt{.PRG} on the disk.  A procedure in the
+open procedure file takes precedence over a disk program of the same name.
+When it returns, the program goes on with the line
+after the \cmd{DO}.  Procedures and programs may call others, and themselves.  At
 most 20 \cmd{DO} commands may be in progress at once, counting the program
 started at the dot prompt; the \cmd{DO} that would begin a twenty-first is
 refused with \xmsg{103}{DOs nested too deep.}
@@ -28,12 +33,13 @@ refused with \xmsg{103}{DOs nested too deep.}
 receives them in the memory variables of its \cmd{PARAMETERS} line, in order.
 The procedure receives a copy of each value: a change it makes to a parameter
 does not change the expression that was passed.
-\draft{a character constant written directly in the WITH list is not passed
-intact by this version (proc.c); pass a character value
-through a memory variable or an expression}
+% Real III+ do-file-mint/parameters/{MINT.PRG,GOLD.OUT}: 'alpha' is passed
+% literally, received intact, and remains intact after a nested disk DO.
+A character constant may be written directly in the \kw{WITH} list.
 
-A name that is neither a program file on the disk nor a procedure of the
-program running is refused with \xmsg{16}{*** Unrecognized command verb.}
+In a program, a name found in none of those places is refused with
+\xmsg{1}{File does not exist.}; at the dot prompt the refusal is
+\xmsg{16}{*** Unrecognized command verb.}
 \Tips
 The programs that come with InitechBase work on the database already in USE:
 open it at the dot prompt with \cmd{USE} before you type \cmd{DO}.

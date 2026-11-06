@@ -113,37 +113,18 @@ void w2_host_unbind(struct w2_host_env *env)
     env->pal->conin_line=env->conin_line;env->pal->conin_line_noecho=env->conin_line_noecho;
     active=NULL;
 }
-/* The existing session disk loader delivers DO-file inputs to the same proc
- * engine in batch mode. Do not enter repl_loop or its typed-command context.
- * This factory bridge supplies MINT.PRG's FNSTEST and nested fixture programs;
- * it does not implement any W2 SET/verb or replace the procedure fallback. */
-static int batch_disk_input(void *user,xb_interp *ip,const char *verb,const char *args,int *ec)
-{
-    char line[REPL_LINE_CAP];int rc=INTERP_OK,handled;
-    uint8_t dot=xb_interp_ctx(ip)->dot_command;(void)user;
-    if(!repl_verb_eq(verb,"DO",NULL))return CMD_UNKNOWN;
-    if(snprintf(line,sizeof line,"DO %s",args)>=(int)sizeof line){
-        if(ec)*ec=10;
-        return -INTERP_ERR_SYNTAX;
-    }
-    handled=repl_try_do_file(ip,line,&rc,ec);
-    xb_interp_ctx(ip)->dot_command=dot;
-    if(!handled)return CMD_UNKNOWN;
-    if(ec&&*ec)return -INTERP_ERR_UNKNOWN_CMD;
-    return rc;
-}
 int w2_host_startup(samir_pal_t *pal,xb_interp *ip,const char *file)
 {
     uint32_t len=0;int ec=0,rc;char *source;
     if(!pal||!ip||active==NULL||active->pal!=pal)return -INTERP_ERR_NOMEM;
-    rc=xb_interp_add_cmd_hook(ip,batch_disk_input,NULL);if(rc)return rc;
     rc=repl_register_modules(ip);if(rc)return rc;
     xb_interp_ctx(ip)->message=samir_message;
     xb_interp_ctx(ip)->dot_command=0;
     proc_set_suspend(ip,repl_suspend);
-    source=repl_load_prg(ip,file,&len,&ec);
+    source=proc_load_program(ip,file,&len,&ec);
     if(!source)return ec?-ec:-INTERP_ERR_NOMEM;
     rc=proc_run_program(ip,source,"MINT");
+    pal->release(pal,source);
     xb_interp_ctx(ip)->set_status=0;
     set_close_alternate(ip);samir_status_refresh(ip);wa_close_all(xb_interp_env(ip));
     return rc==INTERP_RC_QUIT?INTERP_OK:rc;

@@ -57,9 +57,9 @@
  *     Open-q 6/7 + memory-variables.md Open-q 5).
  *   - An unassigned PRIVATE declaration has no value; it hides the outer
  *     definition until assigned. PUBLIC starts .F. (real dml/memory mint).
- *   - DO-name precedence (open PROCEDURE vs disk <name>.prg) -- we resolve only
- *     against the registered source's PROCEDURE blocks
- *     (control-flow-and-procedures.md Open-q 1).
+ * Disk DO / SET PROCEDURE: real III+ do-file-mint/{basic,precedence,depth,
+ * handler,parameters,master,missing}/GOLD.OUT (initech-104j3). All DO calls
+ * share the loader, scope, transfer and error paths below.
  *
  * Ref (Law 1):
  *   - ../dbase3-decomp/specs/commands/control-flow-and-procedures.md sec 7-8
@@ -110,7 +110,9 @@
 /* dBASE catalog ordinals (spec/samir/dbase_msg_codes.tsv -- the ENGINE table). */
 #define P_MSG_NO_PARAM      93  /* "No PARAMETER statement found." */
 #define P_MSG_WRONG_PARAM   94  /* "Wrong number of parameters." */
-#define P_MSG_NOT_FOUND     16  /* an unknown DO target -> unrecognized */
+#define P_MSG_NOT_FOUND      1  /* "File does not exist." */
+#define P_MAX_FILE         128
+#define P_PRG_CAP         8192u /* existing dot-prompt loader bound */
 
 /* RETURN sentinel: a negative rc the flow executor bubbles up out of nested
  * control flow; proc_call maps it to a clean return. Chosen WELL outside the
@@ -145,7 +147,13 @@
 /* ===================================================================== */
 
 typedef struct {
+    char *text;
+    unsigned refs;              /* installed library + active calls */
+} proc_library;
+
+typedef struct {
     const char *source;          /* the registered program source (proc_run) */
+    proc_library *library;       /* SET PROCEDURE source, separate from caller */
     char        onerr[P_MAX_ONERR + 1]; /* installed ON ERROR command, "" = none */
     int         has_onerr;       /* 1 = an ON ERROR trap is installed */
     int         in_handler;      /* active handler; no re-entry */
@@ -529,6 +537,163 @@ static int p_each_param(xb_interp *ip, const char *nm, void *ud)
 /* DO <name> [WITH <arg list>]  + PROCEDURE-block lookup in the source     */
 /* ===================================================================== */
 
+/* Moved from samir_main.c's dot-only loader. Every disk DO uses this path;
+ * acquire/release bounds storage by the active DO stack, not session length.
+ * Ref: do-file-mint/basic and missing; previous 8192-byte bound retained. */
+char *proc_load_program(xb_interp *ip, const char *name, uint32_t *len, int *ec)
+{
+    samir_pal_t *pal = xb_interp_pal(ip);
+    char fn[P_MAX_FILE + 4];
+    char *buf;
+    pal_fd fd = -1;
+    int32_t total;
+    uint32_t used = 0, n = rt_strlen(name);
+    int attempt;
+    if (len) *len = 0;
+    if (ec) *ec = P_MSG_NOT_FOUND;
+    if (!pal || !pal->open || !pal->read || !pal->seek || !pal->close)
+        return (char *)0;
+    if (n >= P_MAX_FILE) { if (ec) *ec = 10; return (char *)0; }
+    rt_memcpy(fn, name, n + 1);
+    for (attempt = 0; attempt < 2 && fd < 0; attempt++) {
+        if (attempt) rt_memcpy(fn + n, ".PRG", 5);
+        fd = pal->open(pal, fn, PAL_RD);
+    }
+    if (fd < 0) return (char *)0;
+    total = pal->seek(pal, fd, 0, PAL_SEEK_END);
+    if (total < 0 || (uint32_t)total >= P_PRG_CAP) {
+        if (ec) *ec = 18;
+        pal->close(pal, fd);
+        return (char *)0;
+    }
+    if (pal->seek(pal, fd, 0, PAL_SEEK_SET) < 0) {
+        pal->close(pal, fd);
+        return (char *)0;
+    }
+    buf = pal->acquire && pal->release
+        ? (char *)pal->acquire(pal, (uint32_t)total + 1) : (char *)0;
+    if (!buf) {
+        if (ec) *ec = 43;
+        pal->close(pal, fd);
+        return (char *)0;
+    }
+#ifdef REPL_MUTATE_DO_TRUNC
+    total /= 2;                 /* existing canon DO-read mutation */
+#endif
+    while (used < (uint32_t)total) {
+        int32_t got = pal->read(pal, fd, buf + used, (uint32_t)total - used);
+        if (got <= 0) {
+            pal->close(pal, fd);
+            pal->release(pal, buf);
+            return (char *)0;   /* fail loud on premature EOF as well as I/O */
+        }
+        used += (uint32_t)got;
+    }
+    pal->close(pal, fd);
+    buf[used] = 0;
+    if (len) *len = used;
+    if (ec) *ec = 0;
+    return buf;
+}
+
+/* Copy the DO/SET PROCEDURE target word AS TYPED. Procedure lookup is
+ * case-insensitive (p_find_procedure), and the disk loader must see the
+ * original case: the host PAL is case-sensitive, so upper-casing broke
+ * `DO /tmp/.../GREET` at the dot prompt (test-samir-repl dofile session,
+ * initech-9a0f contract kept by initech-104j3). The FAT PAL folds case. */
+static int p_file_word(const char **s, char *name, int *ec)
+{
+    const char *p = p_skip_ws(*s);
+    unsigned n = 0;
+    while (*p && !p_isspace(*p)) {
+        if (n + 1 >= P_MAX_FILE) { if (ec) *ec = 10; return -INTERP_ERR_SYNTAX; }
+        name[n++] = *p++;
+    }
+    name[n] = 0;
+    *s = p_skip_ws(p);
+    if (!n) { if (ec) *ec = 10; return -INTERP_ERR_SYNTAX; }
+    return INTERP_OK;
+}
+
+static void p_library_release(xb_interp *ip, proc_library *library)
+{
+    samir_pal_t *pal = xb_interp_pal(ip);
+    if (library && --library->refs == 0) {
+        pal->release(pal, library->text);
+        pal->release(pal, library);
+    }
+}
+
+/* Drop only the installed reference; active calls retain their own. */
+static void p_clear_library(xb_interp *ip, proc_state *ps)
+{
+    p_library_release(ip, ps->library);
+    ps->library = (proc_library *)0;
+}
+
+/* HELP.DBS _CLOSE / _SET PROCEDURE, and real III+ 1.1 do-file-mint/close:
+ * outside the library, CLOSE PROCEDURE / ALL restores disk lookup; inside
+ * an active library routine both leave the library selected, even after
+ * RETURN. This is not a deferred close. SET PROCEDURE retains its existing
+ * replacement semantics, with active references keeping the old text alive. */
+void proc_close_library(xb_interp *ip)
+{
+    proc_state *ps = proc_state_for(ip);
+#ifndef PROC_MUTATE_KEEP_LIBRARY_CLOSE
+    if (ps && ps->library
+#ifndef PROC_MUTATE_CLOSE_ACTIVE
+        && ps->library->refs == 1
+#endif
+        ) p_clear_library(ip, ps);
+#else
+    (void)ps;
+#endif
+}
+
+static void proc_teardown(xb_interp *ip)
+{
+#ifndef PROC_MUTATE_SKIP_LIBRARY_FREE
+    proc_state *ps = proc_state_for(ip);
+    if (ps) p_clear_library(ip, ps);
+#else
+    (void)ip;
+#endif
+}
+
+/* A running library routine retains its source across SET PROCEDURE changes.
+ * The installed library and caller source must never alias freed storage. */
+static int p_set_procedure(xb_interp *ip, proc_state *ps, const char *args, int *ec)
+{
+    samir_pal_t *pal = xb_interp_pal(ip);
+    proc_library *library = (proc_library *)0;
+    char name[P_MAX_FILE], *source;
+    const char *p = p_skip_ws(args);
+    int rc;
+    if (rt_kw_word(p, "TO\0", (int *)0) != 0) {
+        if (ec) *ec = 10;
+        return -INTERP_ERR_SYNTAX;
+    }
+    p = p_skip_ws(p + 2);
+    if (*p) {
+        rc = p_file_word(&p, name, ec);
+        if (rc != INTERP_OK) return rc;
+        if (*p) { if (ec) *ec = 10; return -INTERP_ERR_SYNTAX; }
+        source = proc_load_program(ip, name, (uint32_t *)0, ec);
+        if (!source) return -INTERP_ERR_EVAL;
+        library = (proc_library *)pal->acquire(pal, sizeof(*library));
+        if (!library) {
+            pal->release(pal, source);
+            if (ec) *ec = 43;
+            return -INTERP_ERR_NOMEM;
+        }
+        library->text = source;
+        library->refs = 1;
+    }
+    p_clear_library(ip, ps);
+    ps->library = library;
+    return INTERP_OK;
+}
+
 /*
  * p_find_procedure: scan the registered source for a line "PROCEDURE <name>"
  * (case-insensitive, whole-word) and return a pointer to the FIRST byte AFTER
@@ -603,26 +768,65 @@ static uint32_t p_body_len(const char *body)
 static int p_call(xb_interp *ip, proc_state *ps, const char *name,
                   xb_val *args, int nargs, int *ec)
 {
-    const char *body;
-    int rc, depth_before;
-
-    body = p_find_procedure(ps->source, name);
-    if (!body) {
-        if (ec) *ec = P_MSG_NOT_FOUND;      /* unknown DO target */
-        return -INTERP_ERR_UNKNOWN_CMD;
-    }
+    const char *body, *saved_source = ps->source;
+    samir_pal_t *pal = xb_interp_pal(ip);
+    proc_library *library = ps->library;
+    char *disk = (char *)0;
+    char saved_name[P_MAX_PRGNAME];
+    int rc, scoped, depth_before = ps->do_depth, saved_master = ps->master_depth;
     /* Using III+ U7-4 [103] + mint samirctl NEST.TXT: at most 20 DO levels. */
 #ifndef PROC_MUTATE_NO_DO_CAP
-    if (ps->do_depth >= P_MAX_DO_NEST) {
+    if (ps->do_depth >= P_MAX_DO_NEST
+#ifdef PROC_MUTATE_DO_OFF_BY_ONE
+        + 1
+#endif
+        ) {
         if (ec) *ec = P_MSG_DO_DEEP;
         return -INTERP_ERR_DEPTH;
     }
 #endif
 
+    /* Selected procedure file wins over a same-named disk .PRG (real
+     * precedence/GOLD.OUT). Keep proc_run's in-memory source API for callers
+     * that supply PROCEDURE blocks directly, as the existing proc oracle does. */
+    body = p_find_procedure(library ? library->text : (const char *)0, name);
+    if (body) library->refs++;
+    else {
+        library = (proc_library *)0;
+        body = p_find_procedure(ps->source, name);
+    }
+    if (!body) {
+#ifdef PROC_MUTATE_SKIP_DISK
+        if (depth_before) { if (ec) *ec = 16; return -INTERP_ERR_UNKNOWN_CMD; }
+#endif
+        disk = proc_load_program(ip, name, (uint32_t *)0, ec);
+        if (!disk) {
+            /* In a running program a missing DO file is error 1 (real III+
+             * do-file-mint/missing GOLD.OUT). At the dot prompt main's
+             * committed contract renders 16 (test-samir-repl dofile,
+             * initech-9a0f); no real dot-prompt capture exists yet (the
+             * dosbox-x stdin probe hangs -- III+ reads the BIOS keyboard),
+             * so keep 16 only for a directly typed DO. initech-104j3. */
+            if (ec && *ec == P_MSG_NOT_FOUND &&
+                xb_interp_ctx(ip)->dot_command)
+                *ec = 16;       /* "Unrecognized command verb." */
+            return -INTERP_ERR_EVAL;
+        }
+        body = disk;
+        ps->source = disk;
+        rt_memcpy(saved_name, ps->prgname, sizeof(saved_name));
+        unsigned i;
+        for (i = 0; name[i] && i + 1 < sizeof(ps->prgname); i++)
+            ps->prgname[i] = p_up1(name[i]);
+        ps->prgname[i] = 0;
+    }
+    if (!depth_before && disk) ps->master_depth = 1;
+
     /* push a DO-call scope; bind PARAMETERS happens inside the body via the
      * PARAMETERS verb, which reads the pending arg vector below. */
-    rc = xb_interp_scope_enter(ip);
-    if (rc < 0) { if (ec) *ec = 0; return rc; }   /* DO nested too deep */
+    scoped = depth_before || !disk;
+    rc = scoped ? xb_interp_scope_enter(ip) : INTERP_OK;
+    if (rc < 0) { if (ec) *ec = 43; goto done; }
 
     /* stash the pending WITH args so a PARAMETERS line in the body can bind them
      * positionally (proc_state-level, since the body runs via a fresh samir_do). */
@@ -630,6 +834,7 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
         int saved_n = ps->pending_nargs;
         xb_val *saved_args = ps->pending_args;
         int saved_seen = ps->params_seen;
+        int body_ec = 0;
 
         ps->pending_args  = args;
         ps->pending_nargs = nargs;
@@ -642,6 +847,12 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
           rc = samir_do_n(ip, body, p_body_len(body));
           xb_interp_ctx(ip)->dot_command=dot; }
         ps->do_depth = depth_before;
+        /* The nested samir_do recorded the failing statement's catalogue
+         * ordinal in samir_last_error; capture it before any outer layer
+         * re-derives one from the bare rc class (fl_catalog maps an eval
+         * failure to 10, losing e.g. 9 -- test-samir-console-emu, caught
+         * by test-merge-samir; initech-104j3). */
+        body_ec = samir_last_error(ip);
         if (rc == PROC_RC_RETURN)
             rc = INTERP_OK;                 /* a clean RETURN out of the body */
 #ifndef PROC_MUTATE_MASTER_ONE_LEVEL
@@ -665,6 +876,11 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
             if (ec) *ec = P_MSG_NO_PARAM;
         }
 
+        /* Propagate the callee's catalogue ordinal to the DO statement
+         * (engine-error range only; sentinels/QUIT/CANCEL carry none). */
+        if (rc < 0 && rc >= -INTERP_ERR_DEPTH && ec && *ec == 0 && body_ec)
+            *ec = body_ec;
+
         /* restore the caller's pending-arg context. */
         ps->pending_args  = saved_args;
         ps->pending_nargs = saved_n;
@@ -674,11 +890,19 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
     /* leave the scope: release this routine's PRIVATE/PARAMETERS vars, restore
      * anything they shadowed. (Done even on an error -- the RETURN sentinel was
      * already mapped to INTERP_OK above.) */
-    xb_interp_scope_leave(ip);
+    if (scoped) xb_interp_scope_leave(ip);
 
     /* Real ndx/GOLD.OUT NORMAL-AFTER / HNEST-NORMAL-RETURN: every
      * successful routine return clears ERROR(), including nested helpers. */
     if (rc == INTERP_OK) xb_interp_ctx(ip)->error_number = 0;
+done:
+    ps->master_depth = saved_master;
+    if (disk) {
+        ps->source = saved_source;
+        rt_memcpy(ps->prgname, saved_name, sizeof(saved_name));
+        pal->release(pal, disk);
+    }
+    p_library_release(ip, library);
     return rc;                              /* INTERP_OK or a real error */
 }
 
@@ -693,7 +917,7 @@ static void p_release_args(samir_pal_t *pal, char **blk, int n)
  */
 static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
 {
-    char name[P_MAX_NAME];
+    char name[P_MAX_FILE];
     const char *p = p_skip_ws(args);
     xb_val argv[P_MAX_ARGS];
     /* WITH values outlive each argument's expression buffer and scratch
@@ -704,12 +928,8 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
     char *argblk[P_MAX_ARGS];               /* one exact-size block per C arg */
     int nblk = 0;
     int nargs = 0, crc, ecode;
-    uint32_t nlen;
-
-    nlen = p_take_name(p, name);
-    if (nlen == 0u) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
-    p += nlen;
-    p = p_skip_ws(p);
+    crc = p_file_word(&p, name, ec);
+    if (crc != INTERP_OK) return crc;
 
     /* optional WITH <expr>[, <expr>...] */
     if (rt_kw_word(p, "WITH\0", (int *)0) == 0) {
@@ -750,6 +970,7 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
             break;
         }
     }
+    if (*p) { ecode = 10; goto syntax; }
 
 #if !defined(SAMIR_FNS_MUTANT_logdoarg) && !defined(SAMIR_FNS_MUTANT_sqrtdoarg) && !defined(SAMIR_FNS_MUTANT_ndxdoarg) && !defined(SAMIR_FNS_MUTANT_sqrtpass)
     /* Argument blocks are owned before ON ERROR can reset expression scratch.
@@ -959,6 +1180,12 @@ static int proc_cmd_hook(void *user, xb_interp *ip,
     ps = proc_state_for(ip);
     if (!ps) { if (err_code) *err_code = 0; return -INTERP_ERR_NOMEM; }
 
+    /* SET owns its row; it delegates PROCEDURE to the source/DO owner. */
+    if (rt_kw_index(verb, "SET\0") == 0) {
+        int n = rt_kw_match(args, "PROCEDURE");
+        if (n) return p_set_procedure(ip, ps, args + n, err_code);
+    }
+
     k = rt_kw_index(verb, proc_verb_kw);
     {
         enum { PV_BASE = __COUNTER__ + 1 };
@@ -1100,6 +1327,7 @@ int proc_register(xb_interp *ip)
         return -INTERP_ERR_NOMEM;
     rt_memset(ps, 0, (uint32_t)sizeof(*ps));   /* as proc_state_for's fresh slot */
 #endif
+    xb_interp_set_teardown(ip, proc_teardown);
     samir_bind_errors(xb_interp_ctx(ip),proc_trap,proc_escape,ps->onerr,ps->onesc);
     xb_interp_ctx(ip)->on_error_procedure = 0;
     xb_interp_ctx(ip)->program_name = ps->prgname;

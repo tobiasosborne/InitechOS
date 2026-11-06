@@ -1,0 +1,43 @@
+
+[DO-BEGIN]
+ENTER          1
+ENTER          2
+ENTER          3
+ENTER          4
+ENTER          5
+ENTER          6
+ENTER          7
+ENTER          8
+ENTER          9
+ENTER         10
+ENTER         11
+ENTER         12
+ENTER         13
+ENTER         14
+ENTER         15
+ENTER         16
+ENTER         17
+ENTER         18
+ENTER         19
+MINT-ERROR        103 DOs nested too deep.         19
+LEAVE         19
+LEAVE         18
+LEAVE         17
+LEAVE         16
+LEAVE         15
+LEAVE         14
+LEAVE         13
+LEAVE         12
+LEAVE         11
+LEAVE         10
+LEAVE          9
+LEAVE          8
+LEAVE          7
+LEAVE          6
+LEAVE          5
+LEAVE          4
+LEAVE          3
+LEAVE          2
+LEAVE          1
+MASTER RESUMED          0          0
+[DO-END]
