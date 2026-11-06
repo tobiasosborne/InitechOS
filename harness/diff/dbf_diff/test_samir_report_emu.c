@@ -150,7 +150,9 @@ int main(int argc, char **argv)
               "guest console shows the TRIP grand total band");
         command("fsck.fat -n " D "/files.img > " D "/files-fsck-after.log");
     } else {
-        /* Cell manifest from the REAL golden: console projection, last 24 rows. */
+        /* Real R4S3.PNG: Larson at row 1, Arlich at row 22; row 23 blank.
+         * The old last-24-lines projection missed the prompt's scroll.
+         * G2TRV.TXT supplies the exact cells (initech-0spyf/fzsvo). */
         long nw, k = 0, s, e;
         char *line[512];
         int nl = 0, row;
@@ -182,9 +184,9 @@ int main(int argc, char **argv)
         m = fopen(D "/screen.cells", "w");
         CHECK(m != NULL, "cell manifest opened");
         if (!m) return 2;
-        fprintf(m, "# rows 0-23 = last 24 console lines of real G2TRV.TXT (FF dropped), cut after Arlich\n");
-        for (row = 0; row < 24; row++) {
-            const char *t = line[nl - 24 + row];
+        fprintf(m, "# real R4S3.PNG rows 1-22 = last 22 G2TRV.TXT lines through Arlich\n");
+        for (row = 1; row <= 23; row++) {
+            const char *t = row==23 ? "" : line[nl - 23 + row];
             char padded[81];
             memset(padded, ' ', 80); padded[80] = 0;
             memcpy(padded, t, strlen(t) > 80 ? 80 : strlen(t));
@@ -194,7 +196,7 @@ int main(int argc, char **argv)
         CHECK(!strcmp(line[nl - 1], "     Arlich               Kim                  11/23/85     1779.00 .T.") &&
               !strncmp(line[nl - 15], "     Page No.     2", 19) && !strncmp(line[nl - 16], "     Pope", 9), "manifest: page-2 header follows Pope with no FF row (as R4S3.PNG)");
         CHECK(system("build/ppm_text_check --cells build/samir_report_screen.ppm " D "/screen.cells") == 0,
-              "guest screendump rows 0-23 match the real report text cell for cell");
+              "guest screendump rows 1-23 match real R4S3.PNG/G2TRV.TXT cells");
     }
     snprintf(cmd, sizeof cmd, "fsck.fat -n " D "/%s.img > /dev/null", mode);
     command(cmd);
