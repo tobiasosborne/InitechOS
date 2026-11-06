@@ -142,6 +142,85 @@ static void test_extended_ring(void)
     CHECK(kbd_ring_get(&ring, &c) && c == 'd', "F3 transport: plain input after drop");
 }
 
+/* Independent literals from IBM PC AT TR 6280070 (Sep 1985), System
+ * BIOS "Extended Functions", pp.5-18--5-19 (uncited locally).
+ * initech-wuxo0: never obtain expected scans from kbd.c's mapping table. */
+static void extended_case(uint8_t scan, uint8_t prefix, uint8_t modifier,
+                          uint8_t right, uint8_t want)
+{
+    kbd_ring_t ring;
+    kbd_state_t st;
+    uint8_t c = 0xff;
+    kbd_ring_init(&ring);
+    kbd_state_init(&st);
+    if (modifier) {
+        if (right && modifier != 0x2a) kbd_scancode_put(&ring, &st, 0xe0);
+        kbd_scancode_put(&ring, &st, right && modifier == 0x2a ? 0x36 : modifier);
+    }
+    if (prefix) kbd_scancode_put(&ring, &st, 0xe0);
+    kbd_scancode_put(&ring, &st, scan);
+    int got_prefix = kbd_ring_get(&ring, &c);
+    CHECK(got_prefix && c == 0, "IBM extended pair: NUL prefix");
+    int got_scan = kbd_ring_get(&ring, &c);
+    CHECK(got_scan && c == want, "IBM extended pair: exact scan");
+    if (!got_prefix || !got_scan || c != want)
+        fprintf(stderr, "    key=%02X e0=%u mod=%02X right=%u want=00,%02X got=%s%02X\n",
+                scan, prefix, modifier, right, want, got_scan ? "" : "missing/", c);
+    if (prefix) kbd_scancode_put(&ring, &st, 0xe0);
+    kbd_scancode_put(&ring, &st, scan | 0x80);
+    if (modifier) {
+        if (right && modifier != 0x2a) kbd_scancode_put(&ring, &st, 0xe0);
+        kbd_scancode_put(&ring, &st, right && modifier == 0x2a ? 0xb6 : modifier | 0x80);
+    }
+    CHECK(kbd_ring_empty(&ring), "IBM extended pair: no modifier/release/extra bytes");
+    CHECK(st.e0 == 0 && st.ctrl == 0 && st.shift == 0 && st.alt == 0,
+          "IBM extended pair: all modifiers released");
+    kbd_scancode_put(&ring, &st, 0x20);
+    CHECK(kbd_ring_get(&ring, &c) && c == 'd', "IBM extended pair: next ordinary key intact");
+}
+
+static void test_ibm_extended(void)
+{
+    static const uint8_t functions[][4] = {
+        {0x3b,0x5e,0x54,0x68}, {0x3c,0x5f,0x55,0x69},
+        {0x3d,0x60,0x56,0x6a}, {0x3e,0x61,0x57,0x6b},
+        {0x3f,0x62,0x58,0x6c}, {0x40,0x63,0x59,0x6d},
+        {0x41,0x64,0x5a,0x6e}, {0x42,0x65,0x5b,0x6f},
+        {0x43,0x66,0x5c,0x70}, {0x44,0x67,0x5d,0x71}
+    };
+    static const uint8_t mods[] = {0,0x1d,0x2a,0x38};
+    static const uint8_t nav[][2] = {
+        {0x47,0x77}, {0x48,0}, {0x49,0x84}, {0x4b,0x73},
+        {0x4d,0x74}, {0x4f,0x75}, {0x50,0}, {0x51,0x76},
+        {0x52,0}, {0x53,0}
+    };
+    static const uint8_t letters[] = {
+        0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,
+        0x1e,0x1f,0x20,0x21,0x22,0x23,0x24,0x25,0x26,
+        0x2c,0x2d,0x2e,0x2f,0x30,0x31,0x32
+    };
+    for (unsigned right = 0; right < 2; right++) {
+        for (unsigned f = 0; f < 10; f++)
+            for (unsigned m = 0; m < 4; m++)
+                extended_case(functions[f][0], 0, mods[m], right, functions[f][m]);
+        for (unsigned e0 = 0; e0 < 2; e0++)
+            for (unsigned n = 0; n < 10; n++) {
+                extended_case(nav[n][0], e0, 0, right, nav[n][0]);
+                if (nav[n][1]) extended_case(nav[n][0], e0, 0x1d, right, nav[n][1]);
+            }
+        for (unsigned a = 0; a < sizeof letters; a++)
+            extended_case(letters[a], 0, 0x38, right, letters[a]);
+    }
+    /* Artificial E0 Shifts and E0-prefixed function/letter bytes are not
+     * function keys or Alt-letter aliases (IBM PS/2 HITR Figs.8-10). */
+    kbd_ring_t ring;
+    kbd_state_t st;
+    kbd_ring_init(&ring); kbd_state_init(&st);
+    static const uint8_t noise[] = {0xe0,0x2a,0xe0,0xaa,0xe0,0x3b,0xe0,0xbb};
+    for (unsigned i = 0; i < sizeof noise; i++) kbd_scancode_put(&ring, &st, noise[i]);
+    CHECK(kbd_ring_empty(&ring) && !st.shift && !st.e0, "IBM E0 noise: no spurious pair or Shift");
+}
+
 static void test_translate(void)
 {
     kbd_state_t st;
@@ -391,6 +470,7 @@ int main(void)
     }
     test_ring();
     test_extended_ring();
+    test_ibm_extended();
     test_translate();
     test_modifier_sequences();
     test_control();

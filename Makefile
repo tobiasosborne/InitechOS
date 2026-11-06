@@ -5335,6 +5335,8 @@ TEST_KBD_MUT_TABLE := $(BUILD)/test_kbd_mutant_table
 TEST_KBD_MUT_SHIFT := $(BUILD)/test_kbd_mutant_shift
 TEST_KBD_MUT_CAPS  := $(BUILD)/test_kbd_mutant_caps
 TEST_KBD_MUT_EXT   := $(BUILD)/test_kbd_mutant_extended
+TEST_KBD_MUT_NAV   := $(BUILD)/test_kbd_mutant_nav
+TEST_KBD_MUT_CTRL  := $(BUILD)/test_kbd_mutant_ctrl_scan
 
 $(TEST_KBD): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
@@ -5360,6 +5362,12 @@ $(TEST_KBD_MUT_EXT): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD
 	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_DROP_EXTENDED -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
 
+# initech-wuxo0: mutations target the newly repaired navigation mappings.
+$(TEST_KBD_MUT_NAV): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_DROP_NAV -I$(MILTON_DIR) -Iseed -o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
+$(TEST_KBD_MUT_CTRL): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(KERNEL_KBD_OPT) $(KERNEL_PURE_DECODE_FLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUT_WRONG_CTRL_SCAN -I$(MILTON_DIR) -Iseed -o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
+
 .PHONY: test-kbd-unit test-kbd-unit-mutant
 test-kbd-unit: $(TEST_KBD)
 	@printf ">>> test-kbd-unit: ring (enqueue/dequeue/empty/full/wrap) + scancode set 1 -> ASCII (+shift/caps) + PIT divisor math\n"
@@ -5367,7 +5375,7 @@ test-kbd-unit: $(TEST_KBD)
 	@printf ">>> test-kbd-unit: green\n"
 
 # Mutation-proof: ALL mutant builds MUST fail the oracle (Rule 6).
-test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE) $(TEST_KBD_MUT_SHIFT) $(TEST_KBD_MUT_CAPS) $(TEST_KBD_MUT_EXT)
+test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE) $(TEST_KBD_MUT_SHIFT) $(TEST_KBD_MUT_CAPS) $(TEST_KBD_MUT_EXT) $(TEST_KBD_MUT_NAV) $(TEST_KBD_MUT_CTRL)
 	@printf ">>> test-kbd-unit-mutant: confirming all mutants go RED (Rule 6)\n"
 	@if $(TEST_KBD_MUT_RING) >/dev/null 2>&1; then \
 		printf '!!! test-kbd-unit-mutant FAIL: ring off-by-one mutant PASSED -- the full/wrap test is decoration\n'; \
@@ -5397,6 +5405,16 @@ test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE) $(TEST_KBD_MUT_
 		printf '!!! test-kbd-unit-mutant FAIL: KBD_MUT_DROP_EXTENDED survived\n'; exit 1; fi
 	@grep -q 'FAIL.*F3 transport:' $(BUILD)/kbd_mut_extended.log
 	@printf '>>> test-kbd-unit-mutant: green (KBD_MUT_DROP_EXTENDED correctly RED)\n'
+	@if $(TEST_KBD_MUT_NAV) >$(BUILD)/kbd_mut_nav.log 2>&1; then \
+	 printf '!!! test-kbd-unit-mutant FAIL: KBD_MUT_DROP_NAV survived\n'; exit 1; fi
+	@grep -q 'FAIL.*IBM extended pair: NUL prefix' $(BUILD)/kbd_mut_nav.log
+	@grep -q 'key=48 .*missing/' $(BUILD)/kbd_mut_nav.log
+	@printf '>>> test-kbd-unit-mutant: green (KBD_MUT_DROP_NAV correctly RED: Up lost)\n'
+	@if $(TEST_KBD_MUT_CTRL) >$(BUILD)/kbd_mut_ctrl_scan.log 2>&1; then \
+	 printf '!!! test-kbd-unit-mutant FAIL: KBD_MUT_WRONG_CTRL_SCAN survived\n'; exit 1; fi
+	@grep -q 'FAIL.*IBM extended pair: exact scan' $(BUILD)/kbd_mut_ctrl_scan.log
+	@grep -q 'key=47 .*want=00,77 got=78' $(BUILD)/kbd_mut_ctrl_scan.log
+	@printf '>>> test-kbd-unit-mutant: green (KBD_MUT_WRONG_CTRL_SCAN correctly RED: Ctrl-Home 78 != 77)\n'
 
 # ---------------------------------------------------------------------------
 # INT 21h dispatch oracle (os/milton, beads initech-509.5)
@@ -8730,8 +8748,8 @@ help:
 	@printf '  test-absdisk-emu In-emulator INT 25h/26h asm-stub round-trip (initech-8403): a guest issues int $$0x26 WRITE then int $$0x25 READ on a SAFE scratch LBA -> ABS-W26/R25/RT=OK -- closes the int25_entry/int26_entry coverage gap. REAL (QEMU).\n'
 	@printf '  test-sft       SFT/JFT handle layer (initech-509.3 / DEC-06): predefined handles 0-4 + jft/sft alloc + DUP/DUP2 redirection + ref-counting. REAL.\n'
 	@printf '  test-kbd-unit  PS/2 keyboard + PIT pure logic (initech-3rs): ring (full/wrap) + scancode set 1 -> ASCII (+shift/caps) + PIT divisor math. REAL.\n'
-	@printf '  test-kbd       Keyboard IRQ1 end-to-end (initech-3rs/43b): first sti, QMP --keys "d,i,r" injected, echoed back via IRQ1; triple_fault=0. REAL (QEMU).\n'
-	@printf '  test-kbd-bochs Bochs leg of test-kbd (Rule 5): boots the echo image under Bochs; currently BLOCKED at ERR-VBE (pre-existing boot/VBE gap initech-x0i).\n'
+	@printf '  test-kbd       Keyboard IRQ1 -> INT 21h 07h/08h: exact IBM NUL/scan transcript for 102 injected keys; triple_fault=0 (QEMU).\n'
+	@printf '  test-kbd-bochs Bochs IRQ1 -> INT 21h 07h/08h: exact IBM NUL/scan transcript for 102 injected keys.\n'
 	@printf '  test-boot-bochs  BOCHS leg of the boot gate (initech-564): boots the tracer under Bochs (legacy BIOS + LGPL vgabios), asserts the VESA 0101h 640x480x8 LFB path (VBE-MODE=0101, 8-bit DAC; WL-0170) + the SAME kernel markers as QEMU + no triple-fault, to SHELL-READY. SERIAL (the FLAIR Bochs legs grade pixels). REAL. ~5s; IN the default `make test` vector (initech-in2g); LOUD FAIL if bochs is missing, SKIP_BOCHS=1 to opt out.\n'
 	@printf '  test           Run the whole gate vector (PRD Sec 8).\n'
 	@printf '\n'
@@ -9352,13 +9370,21 @@ $(SPURIOUS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SPURIOUS_BIN) $(BOOT_SYSTEM_T
 	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_SPURIOUS_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> spurious image: %s (self-test stray-int kernel @s17)\n" "$@"
 
+# initech-wuxo0: INT 21h byte echo fixture, independent of the decoder table.
+$(BUILD)/kbd_echo_program.bin: os/milton/kbd_echo_program.asm | $(BUILD)
+	$(NASM) -f bin $< -o $@
+$(BUILD)/kbd_echo_blob.c: $(BUILD)/kbd_echo_program.bin $(BIN2C_BIN)
+	$(BIN2C_BIN) $< g_kbd_echo_image > $@
+$(BUILD)/kbd_echo_blob.o: $(BUILD)/kbd_echo_blob.c
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $< -o $@
+
 # --- Keyboard-echo kernel (beads initech-3rs / initech-43b; make test-kbd) --
 # Same sources, but kmain.c compiled with -DBOOT_KBD_ECHO so the boot, after the
 # sti, emits KBD-ECHO-READY then echoes injected keys to serial. Separate image.
 $(KERNEL_ECHO_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_KBD_ECHO -Ispec -I$(KERNEL_DIR),$@)
 
-KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
+KERNEL_ECHO_OBJS := $(BUILD)/kbd_echo_blob.o $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -28013,74 +28039,21 @@ test-spurious: $(HARNESS_BIN) $(SPURIOUS_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
-# REAL gate: test-kbd (beads initech-3rs + initech-43b -- KEYBOARD IRQ1 echo)
-# ---------------------------------------------------------------------------
-# The BITING end-to-end oracle for BOTH the PS/2 keyboard driver (IRQ1) and the
-# harness QMP keystroke injection (--keys). This is the FIRST boot that enables
-# hardware interrupts (sti) -- the minefield (CLAUDE.md "real mode -> protected
-# is a minefield" / Rule 5). Boot the keyboard-echo image (kmain.c
-# -DBOOT_KBD_ECHO emits KBD-ECHO-READY after sti, then echoes kbd_getchar() to
-# serial), inject "d,i,r" via QMP send-key AFTER the KBD-ECHO-READY marker, and
-# assert, fail-loud (Rule 2 / Law 2):
-#   1. IRQ-LIVE + KBD-ECHO-READY on serial (sti succeeded; the boot did not
-#      triple-fault into a reboot the instant interrupts went live).
-#   2. the injected keys reached the guest, were decoded by the IRQ1 path, and
-#      echoed back as "dir" between KBD-ECHO-BEGIN/KBD-ECHO-END (this is what
-#      proves a key sent via QMP actually drives IRQ1 -- the honest oracle for
-#      --keys; a "QMP accepted the command" check alone would be decoration).
-#   3. triple_fault=0 AND keys_sent=3 in the harness report.
-# A key injected via QMP that is NOT echoed back fails the gate -- exactly the
-# biting property the bead demands.
-#
-# TRI-EMULATOR (Rule 5): this gate runs QEMU. The companion test-kbd-bochs
-# attempts the SAME boot under Bochs (the sti/PIC/IRQ path is precisely what
-# differs across emulators); see its note for the current Bochs status.
-KBD_NAME     := kbd_echo
-KBD_SERIAL   := $(BUILD)/$(KBD_NAME).serial
-KBD_REPORT   := $(BUILD)/$(KBD_NAME).report
-
+# REAL gate: test-kbd (initech-wuxo0). IBM PC AT TR 6280070 Sep 1985,
+# System BIOS "Extended Functions" pp.5-18--5-19 (uncited locally).
+# Locked literal keys/hex are independent of kbd.c. The client alternates
+# AH=07h/08h; every NUL and scan must survive the actual CON path.
+KBD_NAME := kbd_echo
+KBD_SERIAL := $(BUILD)/$(KBD_NAME).serial
+KBD_REPORT := $(BUILD)/$(KBD_NAME).report
+KBD_KEYS := $(shell cat harness/conkeys/extended.keys)
 .PHONY: test-kbd
 test-kbd: $(HARNESS_BIN) $(KBD_ECHO_IMG)
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-kbd : KEYBOARD IRQ1 echo (first sti)\n'
-	@printf '  Ref: 8042 PS/2 controller / scancode set 1 / 8254 PIT / 8259A EOI.\n'
-	@printf '  beads initech-3rs (driver) + initech-43b (QMP --keys). Rule 2/5/6.\n'
-	@printf '  TRI-EMULATOR: QEMU here; Bochs via make test-kbd-bochs.\n'
-	@printf '======================================================================\n'
-	@printf 'Booting   : %s (keyboard-echo kernel), injecting --keys "d,i,r"\n' "$(KBD_ECHO_IMG)"
-	@printf 'Expecting : IRQ-LIVE + KBD-ECHO-READY + echoed "dir" + triple_fault=0 + keys_sent=3\n'
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(KBD_ECHO_IMG)" \
-		--name "$(KBD_NAME)" --out "$(BUILD)" --timeout-ms 9000 \
-		--keys "d,i,r" --keys-after "KBD-ECHO-READY" \
-		--quit-after "KBD-ECHO-END" \
-		2> "$(KBD_REPORT)" || true
+	@$(HARNESS_BIN) --disk "$(KBD_ECHO_IMG)" --name "$(KBD_NAME)" --out "$(BUILD)" \
+	 --timeout-ms 60000 --keys "$(KBD_KEYS)" --keys-after KBD-ECHO-READY \
+	 --quit-after KBD-ECHO-END 2> "$(KBD_REPORT)" || { cat "$(KBD_REPORT)"; exit 1; }
 	@cat "$(KBD_REPORT)"
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@if [ ! -s "$(KBD_SERIAL)" ]; then \
-		printf '!!! test-kbd FAIL: no serial captured at %s\n' "$(KBD_SERIAL)"; \
-		exit 1; \
-	fi
-	@grep -q '^IRQ-LIVE$$' "$(KBD_SERIAL)" \
-		|| { printf '!!! test-kbd FAIL: IRQ-LIVE missing -- sti/PIC-unmask path did not complete\n'; exit 1; }
-	@grep -q '^KBD-ECHO-READY$$' "$(KBD_SERIAL)" \
-		|| { printf '!!! test-kbd FAIL: KBD-ECHO-READY missing -- echo loop never reached\n'; exit 1; }
-	@printf '>>> test-kbd [1/3]: IRQ-LIVE + KBD-ECHO-READY (first sti survived, no reboot)\n'
-	@# The echoed keys land on their own line between BEGIN/END. Assert "dir".
-	@awk '/^KBD-ECHO-BEGIN$$/{f=1;next} /^KBD-ECHO-END$$/{f=0} f{print}' "$(KBD_SERIAL)" \
-		| grep -q '^dir$$' \
-		|| { printf '!!! test-kbd FAIL: injected keys not echoed as "dir" -- a QMP key did NOT reach IRQ1 (root-cause the kbd path / --keys, Rule 3)\n'; exit 1; }
-	@printf '>>> test-kbd [2/3]: QMP-injected "d,i,r" decoded by IRQ1 and echoed as "dir"\n'
-	@if grep -q 'triple_fault=1' "$(KBD_REPORT)"; then \
-		printf '!!! test-kbd FAIL: TRIPLE FAULT -- enabling interrupts cascaded to a reboot\n'; \
-		exit 1; \
-	fi
-	@grep -q 'keys_sent=3' "$(KBD_REPORT)" \
-		|| { printf '!!! test-kbd FAIL: harness did not report keys_sent=3 (QMP send-key path)\n'; exit 1; }
-	@printf '>>> test-kbd [3/3]: triple_fault=0 + keys_sent=3 (sti clean, injection issued)\n'
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- PS/2 keyboard IRQ1 live; a QMP-injected key reached the guest and echoed\n'
-	@printf '======================================================================\n'
+	@sh harness/conkeys/extended_check.sh $@ "$(KBD_SERIAL)" "$(KBD_REPORT)"
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-conin (beads initech-n62 -- INT 21h CON INPUT end-to-end)
@@ -28226,90 +28199,18 @@ test-vect: $(HARNESS_BIN) $(VECT_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
-# Bochs leg of test-kbd (beads initech-3rs / Rule 5: the sti/PIC/IRQ path is
-# exactly what differs across emulators -- it MUST be checked on Bochs too).
-# ---------------------------------------------------------------------------
-# STATUS (honest, NOT silently skipped -- Rule 5 / Law 2): bochs IS installed in
-# this environment, but the InitechOS boot chain does NOT currently reach the C
-# kernel under Bochs -- stage2's VBE 640x480 LFB mode-set fails on the Bochs VGA
-# BIOS available here and the boot halts at the "ERR-VBE" serial marker, BEFORE
-# any C, the sti, or the IRQ path. This is a PRE-EXISTING boot/VBE gap (the same
-# reason test-boot is marked "QEMU only; tri-emulator pending beads initech-x0i")
-# and is INDEPENDENT of the keyboard/PIT work -- the unmodified tracer image hits
-# the identical ERR-VBE. Additionally the only Bochs display libraries built here
-# are 'x' (needs an X server) and 'rfb' (blocks on a VNC client), so a clean
-# headless Bochs harness is itself not yet available.
-#
-# Rather than fake a green, this gate BOOTS the echo image under Bochs and
-# reports what actually happens: if the boot ever reaches IRQ-LIVE the sti path
-# is confirmed on Bochs; until the VBE/boot gap (initech-x0i) closes it will
-# stop at ERR-VBE, which we surface loudly and treat as a KNOWN-BLOCKED (exit 0
-# with a visible BLOCKED verdict, so `make test` is not wedged by a pre-existing
-# unrelated boot gap; the QEMU test-kbd remains the binding oracle).
-BOCHS            ?= bochs
-BOCHS_SEABIOS    ?= /usr/share/seabios/bios.bin
-BOCHS_VGABIOS    ?= /usr/share/seabios/vgabios-stdvga.bin
-KBD_BOCHS_IMG    := $(BUILD)/$(KBD_NAME)_bochs.img
-KBD_BOCHS_SERIAL := $(BUILD)/$(KBD_NAME)_bochs.serial
-KBD_BOCHS_RC     := $(BUILD)/$(KBD_NAME)_bochs.rc
-KBD_BOCHS_CFG    := $(BUILD)/$(KBD_NAME)_bochsrc
-
+# Bochs uses the shared RFB harness and the identical INT 21h client/trace.
+BOCHS ?= bochs
 .PHONY: test-kbd-bochs
-test-kbd-bochs: $(KBD_ECHO_IMG)
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-kbd-bochs : Bochs leg (Rule 5)\n'
-	@printf '======================================================================\n'
-	@if ! command -v $(BOCHS) >/dev/null 2>&1; then \
-		printf '!!! test-kbd-bochs BLOCKED: bochs not installed in this environment.\n'; \
-		printf '    Install: sudo apt install bochs (CLAUDE.md Build & test). See initech-x0i.\n'; \
-		exit 0; \
-	fi
-	@if [ ! -f "$(BOCHS_SEABIOS)" ] || [ ! -f "$(BOCHS_VGABIOS)" ]; then \
-		printf '!!! test-kbd-bochs BLOCKED: Bochs BIOS images not found (%s / %s).\n' "$(BOCHS_SEABIOS)" "$(BOCHS_VGABIOS)"; \
-		exit 0; \
-	fi
-	@# Bochs locks the image file; run on a private copy. CHS 2/2/32 = 128 sectors
-	@# (== IMG_SECTORS), spt=32 >= 17 so stage2 fits on track 0.
-	@cp -f "$(KBD_ECHO_IMG)" "$(KBD_BOCHS_IMG)"
-	@rm -f "$(KBD_BOCHS_IMG).lock" "$(KBD_BOCHS_SERIAL)"
-	@printf 'c\n' > "$(KBD_BOCHS_RC)"
-	@printf 'romimage: file=%s\n' "$(BOCHS_SEABIOS)"            >  "$(KBD_BOCHS_CFG)"
-	@printf 'vgaromimage: file=%s\n' "$(BOCHS_VGABIOS)"         >> "$(KBD_BOCHS_CFG)"
-	@printf 'megs: 32\n'                                        >> "$(KBD_BOCHS_CFG)"
-	@printf 'cpu: model=pentium, ips=10000000\n'               >> "$(KBD_BOCHS_CFG)"
-	@printf 'ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14\n' >> "$(KBD_BOCHS_CFG)"
-	@printf 'ata0-master: type=disk, path="%s", mode=flat, cylinders=2, heads=2, spt=32\n' "$(KBD_BOCHS_IMG)" >> "$(KBD_BOCHS_CFG)"
-	@printf 'boot: disk\n'                                      >> "$(KBD_BOCHS_CFG)"
-	@printf 'com1: enabled=1, mode=file, dev=%s\n' "$(KBD_BOCHS_SERIAL)" >> "$(KBD_BOCHS_CFG)"
-	@printf 'display_library: x\n'                             >> "$(KBD_BOCHS_CFG)"
-	@printf 'clock: sync=none\n'                                >> "$(KBD_BOCHS_CFG)"
-	@printf 'Booting   : %s under Bochs (timeout 12s; serial -> %s)\n' "$(KBD_BOCHS_IMG)" "$(KBD_BOCHS_SERIAL)"
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@-timeout 12 $(BOCHS) -q -f "$(KBD_BOCHS_CFG)" -rc "$(KBD_BOCHS_RC)" >"$(BUILD)/$(KBD_NAME)_bochs.out" 2>&1 || true
-	@rm -f "$(KBD_BOCHS_IMG).lock"
-	@printf 'Serial captured:\n'
-	@cat "$(KBD_BOCHS_SERIAL)" 2>/dev/null || printf '(none)\n'
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@if grep -q '^IRQ-LIVE$$' "$(KBD_BOCHS_SERIAL)" 2>/dev/null; then \
-		printf '>>> test-kbd-bochs: IRQ-LIVE reached under Bochs -- the sti/PIC/IRQ path is confirmed cross-emulator.\n'; \
-		if grep -q '^KBD-ECHO-READY$$' "$(KBD_BOCHS_SERIAL)" 2>/dev/null; then \
-			printf 'VERDICT   : PASS -- Bochs reached the keyboard echo loop after sti.\n'; \
-		else \
-			printf 'VERDICT   : PARTIAL -- sti survived on Bochs but echo loop not reached; investigate.\n'; \
-		fi; \
-	elif grep -q 'ERR-VBE' "$(KBD_BOCHS_SERIAL)" 2>/dev/null; then \
-		printf '!!! test-kbd-bochs BLOCKED (KNOWN, beads initech-x0i): boot halted at ERR-VBE.\n'; \
-		printf '    stage2 VBE 640x480 LFB mode-set fails on the Bochs VGA BIOS here, BEFORE any C\n'; \
-		printf '    or the sti -- this is the SAME pre-existing boot/VBE gap that keeps test-boot\n'; \
-		printf '    QEMU-only; it is INDEPENDENT of the keyboard/PIT/sti work (the unmodified tracer\n'; \
-		printf '    image hits the identical ERR-VBE). The QEMU make test-kbd is the binding oracle.\n'; \
-		printf 'VERDICT   : BLOCKED (Bochs boot/VBE gap initech-x0i; NOT silently skipped -- Rule 5)\n'; \
-	else \
-		printf '!!! test-kbd-bochs INCONCLUSIVE: Bochs produced no IRQ-LIVE and no ERR-VBE.\n'; \
-		printf '    (Likely the headless display gap: only the X-server display lib is built here.)\n'; \
-		printf 'VERDICT   : BLOCKED (Bochs harness gap; see initech-x0i)\n'; \
-	fi
-	@printf '======================================================================\n'
+test-kbd-bochs: $(BOCHS_BIN) $(KBD_ECHO_IMG)
+	@$(BOCHS_BIN) --disk "$(KBD_ECHO_IMG)" --name kbd_echo_bochs --out "$(BUILD)" \
+	 --timeout-ms 60000 --keys "$(KBD_KEYS)" --keys-after KBD-ECHO-READY \
+	 --expect KBD-ECHO-END --quit-after KBD-ECHO-END \
+	 2> "$(BUILD)/kbd_echo_bochs.report" || { cat "$(BUILD)/kbd_echo_bochs.report"; exit 1; }
+	@cat "$(BUILD)/kbd_echo_bochs.report"
+	@sh harness/emu/bochs_leg_check.sh $@ "$(BUILD)/kbd_echo_bochs.report" \
+	 "$(BUILD)/kbd_echo_bochs.serial" vbe101 IRQ-LIVE CONIN-LIVE KBD-ECHO-READY KBD-ECHO-END !PANIC
+	@sh harness/conkeys/extended_check.sh $@ "$(BUILD)/kbd_echo_bochs.serial" "$(BUILD)/kbd_echo_bochs.report"
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-assets (beads initech-vcq)

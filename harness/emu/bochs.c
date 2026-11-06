@@ -874,8 +874,12 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
             int delay = BOCHS_TRACE_STEP_MS;
             if (step.kind == BX_KEY) {
                 if (step.ctrl && !key_down && !rfb_key_event(&rfb, 0xffe3, true)) break;
+                if (step.shift && !key_down && !rfb_key_event(&rfb, 0xffe1, true)) break;
+                if (step.alt && !key_down && !rfb_key_event(&rfb, 0xffe9, true)) break;
                 if (!rfb_key_event(&rfb, rfb_key(key_next, end ? (size_t)(end - key_next) : strlen(key_next)), !key_down)) break;
                 key_down = !key_down;
+                if (step.alt && !key_down && !rfb_key_event(&rfb, 0xffe9, false)) break;
+                if (step.shift && !key_down && !rfb_key_event(&rfb, 0xffe1, false)) break;
                 if (step.ctrl && !key_down && !rfb_key_event(&rfb, 0xffe3, false)) break;
                 delay = BOCHS_TRACE_KEY_MS;
             } else if (step.kind == BX_WAIT) delay = step.delay;
@@ -886,7 +890,10 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                 delay = pointer.hold_ms;
                 if (!consumed) { key_at = mono_ms() + delay; continue; }
             }
-            if (!key_down) key_next = end ? end + 1 : NULL;
+            if (!key_down) {
+                if (step.kind == BX_KEY) out->keys_sent++;
+                key_next = end ? end + 1 : NULL;
+            }
             key_at = mono_ms() + delay;
         }
         if (cfg->quit_after || (cfg->screendump_after && sd == SD_WAIT)) {

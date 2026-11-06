@@ -281,14 +281,50 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
 #pragma GCC pop_options
 #endif
 
-/* Ref: IBM DOS 3.30 Technical Reference pp.6-11--6-12: CON returns
- * extended keys as 00,scan. Shared by IRQ1 and the host ring oracle. */
+/* initech-wuxo0. Ref: IBM PC AT TR 6280070 (Sep 1985), System BIOS
+ * "Extended Functions", pp.5-18--5-19 and ROM tables K9/K12/K13/K15
+ * (uncited locally; docs/research/keyboard-extended-ground-truth.md).
+ * Columns: physical Set-1 scan, Ctrl, Shift, Alt second code. Zero means
+ * no AT extended result. Navigation's Shift column preserves the existing
+ * non-numeric keypad policy; NumLock/numeric mode is outside this driver.
+ * Keep resident: IRQ1 may run before ADR-0014's COLD overlay is loaded. */
+static const uint8_t KBD_EXTENDED[][4] = {
+    {0x3b,0x5e,0x54,0x68}, {0x3c,0x5f,0x55,0x69},
+    {0x3d,0x60,0x56,0x6a}, {0x3e,0x61,0x57,0x6b},
+    {0x3f,0x62,0x58,0x6c}, {0x40,0x63,0x59,0x6d},
+    {0x41,0x64,0x5a,0x6e}, {0x42,0x65,0x5b,0x6f},
+    {0x43,0x66,0x5c,0x70}, {0x44,0x67,0x5d,0x71},
+    {0x47,0x77,0x47,0}, {0x48,0,0x48,0}, {0x49,0x84,0x49,0},
+    {0x4b,0x73,0x4b,0}, {0x4d,0x74,0x4d,0}, {0x4f,0x75,0x4f,0},
+    {0x50,0,0x50,0}, {0x51,0x76,0x51,0},
+    {0x52,0,0x52,0}, {0x53,0,0x53,0}
+};
+
+/* IBM DOS 3.30 TR pp.6-11--6-12: CON serializes extended results as
+ * 00,scan. IRQ1 and the host ring oracle use this one publication path. */
 void kbd_scancode_put(kbd_ring_t *ring, kbd_state_t *state, uint8_t sc)
 {
-    int special = !(sc & SC_BREAK_FLAG) &&
-        ((!state->e0 && sc >= 0x3Bu && sc <= 0x3Fu) ||
-         (sc == 0x52u || sc == 0x53u || sc == 0x4Bu));
+    uint8_t special = 0;
+    if (!(sc & SC_BREAK_FLAG)) {
+        for (unsigned i = 0; i < sizeof KBD_EXTENDED / sizeof KBD_EXTENDED[0]; i++) {
+            if (sc != KBD_EXTENDED[i][0] || (state->e0 && sc < 0x47u)) continue;
+            /* IBM ROM priority: Alt, Ctrl, Shift, unmodified. */
+            unsigned col = state->alt ? 3u : state->ctrl ? 1u : state->shift ? 2u : 0u;
+            special = KBD_EXTENDED[i][col];
+        }
+        /* AT Alt-letter codes equal their physical Set-1 scans. */
+        if (!state->e0 && state->alt && sc < sizeof SC1_NORMAL &&
+            SC1_NORMAL[sc] >= 'a' && SC1_NORMAL[sc] <= 'z') special = sc;
+    }
+    /* Always decode the ORIGINAL input, even when the resulting BIOS code
+     * has bit 7 set (Ctrl-PgUp=84h). Consume E0 and update modifiers once. */
     uint8_t ascii = kbd_translate(state, sc);
+#ifdef KBD_MUT_DROP_NAV
+    if (sc == 0x48u) special = 0; /* Rule 6: lose Up again. */
+#endif
+#ifdef KBD_MUT_WRONG_CTRL_SCAN
+    if (special == 0x77u) special = 0x78u; /* Rule 6: wrong Ctrl-Home. */
+#endif
     if (special) {
 #ifdef KBD_MUT_DROP_EXTENDED
         return; /* Rule 6: restore the pre-template lost-function-key path. */
@@ -299,7 +335,7 @@ void kbd_scancode_put(kbd_ring_t *ring, kbd_state_t *state, uint8_t sc)
         if (next != ring->tail && end != ring->tail) {
             __asm__ __volatile__("" ::: "memory");
             ring->buf[head] = 0;
-            ring->buf[next] = sc;
+            ring->buf[next] = special;
             __asm__ __volatile__("" ::: "memory");
             ring->head = end;
         } else if (ring->dropped == 0) {
