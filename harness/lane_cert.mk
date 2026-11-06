@@ -33,7 +33,8 @@ test-lane-cert:
 	git switch -qc lane/proof; \
 	printf 'green\n' > state; git commit -qam 'fixture green lane'; \
 	head=$$(git rev-parse HEAD); cert=build/cert/lane-proof.cert; \
-	run_cert() { rc=0; GATES='test-one test-two' MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/cert.log" 2>&1 || rc=$$?; }; \
+	run_cert() { rc=0; REQUIRED_GATES='test-one test-two' GATES='test-one test-two' MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/cert.log" 2>&1 || rc=$$?; }; \
+	run_check() { REQUIRED_GATES='test-one test-two' sh "$$check_tool" "$$@"; }; \
 	refused() { [ "$$rc" -eq 2 ] && grep -F "$$1" "$$out/cert.log" >/dev/null && [ ! -f "$$cert" ]; }; \
 	printf 'dirty\n' >> state; run_cert; \
 	refused 'dirty tree' || fail 'dirty tree refusal'; git restore state; \
@@ -77,6 +78,29 @@ test-lane-cert:
 	[ -z "$$(LC_ALL=C tr -d '\011\012\015\040-\176' < "$$cert")" ] || fail 'non-ASCII certificate'; \
 	! grep -F "$$HOME" "$$cert" >/dev/null || fail 'home path in certificate'; \
 	cp -f "$$cert" "$$out/good.cert"; \
+	review_failed=0; \
+	review_bad() { printf '!!! test-lane-cert FAIL: coverage %s\n' "$$1"; review_failed=1; }; \
+	rc=0; env -u REQUIRED_GATES GATES='test-one test-two' MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/cert.log" 2>&1 || rc=$$?; \
+	if refused 'coverage unchecked'; then printf '>>> test-lane-cert: coverage absent lane without REQUIRED_GATES refused\n'; else review_bad 'absent lane without REQUIRED_GATES accepted'; fi; \
+	rc=0; env -u REQUIRED_GATES sh "$$check_tool" "$$out/good.cert" lane/proof > "$$out/check.log" 2>&1 || rc=$$?; \
+	if [ "$$rc" -eq 2 ] && grep -F 'coverage unchecked' "$$out/check.log" >/dev/null; then printf '>>> test-lane-cert: coverage absent checker without REQUIRED_GATES refused\n'; else review_bad 'absent checker without REQUIRED_GATES accepted'; fi; \
+	run_cert; \
+	if [ "$$rc" -eq 0 ] && grep -qxF 'selector: absent' "$$cert"; then printf '>>> test-lane-cert: coverage REQUIRED_GATES subset certified (selector: absent)\n'; else review_bad 'fallback selector provenance missing'; fi; \
+	rc=0; env -u REQUIRED_GATES sh "$$check_tool" "$$out/good.cert" lane/proof --require 'test-one' > "$$out/check.log" 2>&1 || rc=$$?; \
+	if [ "$$rc" -eq 0 ] && grep -F 'cert-check: PASS' "$$out/check.log" >/dev/null; then printf '>>> test-lane-cert: coverage PM --require subset PASS\n'; else review_bad 'PM --require subset rejected'; fi; \
+	rc=0; REQUIRED_GATES='test-one test-three' GATES='test-one test-two' MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/cert.log" 2>&1 || rc=$$?; \
+	if refused 'missing gate: test-three'; then printf '>>> test-lane-cert: coverage lane missing REQUIRED_GATES refused\n'; else review_bad 'lane missing REQUIRED_GATES accepted'; fi; \
+	rc=0; REQUIRED_GATES='test-one test-three' sh "$$check_tool" "$$out/good.cert" lane/proof > "$$out/check.log" 2>&1 || rc=$$?; \
+	if [ "$$rc" -eq 2 ] && grep -F 'missing gate: test-three' "$$out/check.log" >/dev/null; then printf '>>> test-lane-cert: coverage checker missing REQUIRED_GATES refused\n'; else review_bad 'checker missing REQUIRED_GATES accepted'; fi; \
+	printf '\n.PHONY: gates-for\ngates-for: missing-selector-input\n\t@echo test-one\n' >> Makefile; \
+	git commit -qam 'selector has broken prerequisite'; \
+	broken=$$(git rev-parse HEAD); run_cert; \
+	if refused 'gate selection failed' && grep -F 'missing-selector-input' "$$out/cert.log" >/dev/null; then printf '>>> test-lane-cert: coverage broken lane selector refused (stderr retained)\n'; else review_bad 'broken lane selector accepted'; fi; \
+	sed "s/^head_sha: .*/head_sha: $$broken/" "$$out/good.cert" > "$$out/broken.cert"; \
+	rc=0; run_check "$$out/broken.cert" lane/proof > "$$out/check.log" 2>&1 || rc=$$?; \
+	if [ "$$rc" -eq 2 ] && grep -F 'gate selection failed' "$$out/check.log" >/dev/null && grep -F 'missing-selector-input' "$$out/check.log" >/dev/null; then printf '>>> test-lane-cert: coverage broken checker selector refused (stderr retained)\n'; else review_bad 'broken checker selector accepted'; fi; \
+	git reset -q --hard "$$head"; \
+	[ "$$review_failed" -eq 0 ] || exit 1; \
 	printf 'red\n' > state; git commit -qam 'revoke previous green'; run_cert; \
 	refused 'red gate: test-one' || fail 'old certificate not revoked on red'; \
 	git reset -q --hard "$$head"; \
@@ -87,13 +111,13 @@ test-lane-cert:
 	git reset -q --hard "$$head"; \
 	rc=0; sh "$$check_tool" "$$out/good.cert" > "$$out/check.log" 2>&1 || rc=$$?; \
 	[ "$$rc" -eq 2 ] && grep -F 'usage:' "$$out/check.log" >/dev/null || fail 'lane argument not required'; \
-	git switch -q main; sh "$$check_tool" "$$out/good.cert" lane/proof > "$$out/check.log" 2>&1 || { cat "$$out/check.log"; fail 'fresh certificate check'; }; \
+	git switch -q main; run_check "$$out/good.cert" lane/proof > "$$out/check.log" 2>&1 || { cat "$$out/check.log"; fail 'fresh certificate check'; }; \
 	unrelated=$$(printf 'unrelated lane\n' | git commit-tree "$$(git rev-parse "$$head^{tree}")"); \
 	sed "s/^head_sha: .*/head_sha: $$unrelated/" "$$out/good.cert" > "$$out/unrelated.cert"; \
-	rc=0; sh "$$check_tool" "$$out/unrelated.cert" "$$unrelated" > "$$out/check.log" 2>&1 || rc=$$?; \
+	rc=0; run_check "$$out/unrelated.cert" "$$unrelated" > "$$out/check.log" 2>&1 || rc=$$?; \
 	[ "$$rc" -eq 2 ] && grep -F 'not an ancestor' "$$out/check.log" >/dev/null || fail 'unrelated base accepted'; \
 	git commit -q --allow-empty -m 'stale certificate base'; \
-	if sh "$$check_tool" "$$out/good.cert" lane/proof > "$$out/check.log" 2>&1; then fail 'stale base accepted'; fi; \
+	if run_check "$$out/good.cert" lane/proof > "$$out/check.log" 2>&1; then fail 'stale base accepted'; fi; \
 	grep -F 'stale base_sha' "$$out/check.log" >/dev/null || fail 'stale base reason'; \
 	git reset -q --hard "$$base"; \
 	printf '%s\n' '.PHONY: gates-for' 'gates-for:' \
@@ -105,9 +129,9 @@ test-lane-cert:
 	run_cert; [ "$$rc" -eq 0 ] || { cat "$$out/cert.log"; fail 'gates-for certification'; }; \
 	mapped=build/cert/lane-mapped.cert; \
 	grep -qxF "base_sha: $$mapbase" "$$mapped" || fail 'mapped base'; \
-	git switch -q main; sh "$$check_tool" "$$mapped" lane/mapped > "$$out/check.log" 2>&1 || fail 'mapped superset'; \
+	git switch -q main; run_check "$$mapped" lane/mapped > "$$out/check.log" 2>&1 || fail 'mapped superset'; \
 	sed '/^gate test-two /d; s/^gate_count: 2$$/gate_count: 1/' "$$mapped" > "$$out/missing.cert"; \
-	if sh "$$check_tool" "$$out/missing.cert" lane/mapped > "$$out/check.log" 2>&1; then fail 'missing gate accepted'; fi; \
+	if run_check "$$out/missing.cert" lane/mapped > "$$out/check.log" 2>&1; then fail 'missing gate accepted'; fi; \
 	grep -F 'missing gate: test-two' "$$out/check.log" >/dev/null || fail 'missing gate reason'; \
 	git switch -q lane/mapped; \
 	printf '%s\n' '.PHONY: gates-for' 'gates-for:' \
