@@ -282,6 +282,14 @@ static void validate(const Strings *inventory, int *owners)
     for (size_t g = 0; g < inventory->n; g++) if (owners[g] < 0) {
         red("unmapped gate %s", inventory->v[g]); unmapped++;
     }
+    /* Operator: suffix-named pending groups are opt-in, never selected by
+     * a subsystem path. Their direct comparisons keep their loud failures. */
+    for (size_t g = 0; g < inventory->n; g++) {
+        size_t n = strlen(inventory->v[g]);
+        if (n >= 8 && !strcmp(inventory->v[g] + n - 8, "-pending") &&
+            owners[g] >= 0 && strcmp(families[owners[g]].name, "pending"))
+            red("gate %s must belong to pending", inventory->v[g]);
+    }
     if (unmapped) fprintf(stderr, "gate-map RED: %zu unmapped gates\n", unmapped);
     if (always != 1) red("missing family always");
     for (size_t m = 0; m < sizeof mandatory / sizeof mandatory[0]; m++) {
