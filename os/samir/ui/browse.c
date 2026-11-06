@@ -272,7 +272,10 @@ static int br_draw(browse_state *b)
 static int br_run(browse_state *b, const char *command, int *ec)
 {
     int rc = samir_do(b->ip, command);
-    if (rc < 0 && ec) *ec = samir_last_error(b->ip);
+    if (rc < 0 && ec) {
+        *ec = samir_last_error(b->ip);
+        if (*ec <= 0) *ec = 29;
+    }
     b->table = wa_table(b->env, b->area);
     return rc;
 }
@@ -299,8 +302,10 @@ static int br_edit(browse_state *b, int key, int *ec)
         kit_message(k, 24, "Memo editing is unavailable in BROWSE.");
         return KIT_K_NONE;
     }
-    if (dbf_read_rec(b->table, wa_recno(b->env, b->area), b->values, &i) != DBF_OK)
+    if (dbf_read_rec(b->table, wa_recno(b->env, b->area), b->values, &i) != DBF_OK) {
+        *ec = 29;
         return KIT_K_EOF;
+    }
     n = br_value(b, b->fields[b->field], buf);
     /* The kit pans a full-width field through the remaining screen columns.
      * Do not shorten the stored/editable value to a WIDTH display clause. */
@@ -343,10 +348,10 @@ static int br_edit(browse_state *b, int key, int *ec)
         /* REPLACE updates the NDX bytes; explicitly invalidate the separate
          * navigation cache before following the record or keeping its ordinal. */
         wa_nav_reset(b->area);
-        if (wa_nav_goto(b->env, b->area, current) != NAV_OK) return KIT_K_EOF;
+        if (wa_nav_goto(b->env, b->area, current) != NAV_OK) { *ec = 29; return KIT_K_EOF; }
         if (b->nofollow) {
             uint32_t next = wa_nav_seq_recno(b->area, ordinal);
-            if (next && wa_nav_goto(b->env, b->area, next) != NAV_OK) return KIT_K_EOF;
+            if (next && wa_nav_goto(b->env, b->area, next) != NAV_OK) { *ec = 29; return KIT_K_EOF; }
         }
         ordinal = wa_nav_ordpos(b->area);
         if (row < 0) row = 0;
@@ -487,6 +492,7 @@ int ui_browse(xb_interp *ip, const char *args, int *ec)
             b->top = wa_recno(env, b->area);
         }
     }
+    if (rc < 0 && !*ec) *ec = 29;
     kit_close(&b->screen);
 leave:
     xb_interp_scope_leave(ip);
