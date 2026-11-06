@@ -49,6 +49,16 @@ test-lane-cert:
 	printf 'red\n' > state; git commit -qam 'fixture mutant red gate'; \
 	mutant=$$(git rev-parse HEAD); run_cert; \
 	refused 'red gate: test-one' || fail 'red gate refusal (no cert)'; \
+	printf 'false-green\n' > state; git commit -qam 'false green with inherited make modes'; \
+	for flags_env in MAKEFLAGS GNUMAKEFLAGS; do \
+	    for flags in -i --ignore-errors -n --dry-run -q -t --touch -oMakefile -WMakefile --old-file=Makefile --what-if=Makefile --assume-new=Makefile ik; do \
+	        rc=0; env "$$flags_env=$$flags" GATES='test-one test-two' MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/cert.log" 2>&1 || rc=$$?; \
+	        refused "unsafe $$flags_env" || fail "inherited $$flags_env=$$flags false-green accepted"; \
+	    done; \
+	done; \
+	printf '>>> test-lane-cert: MAKEFLAGS false-green refused (both variables; unsafe modes)\n'; \
+	rc=0; MAKEFLAGS=-k GATES='test-one test-two' MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/cert.log" 2>&1 || rc=$$?; \
+	refused 'red gate: test-one' || fail 'MAKEFLAGS=-k false-green accepted'; \
 	for state in false-green red-zero quiet; do \
 	    printf '%s\n' "$$state" > state; git commit -qam "fixture $$state"; run_cert; \
 	    refused 'red gate: test-one' || fail "$$state accepted"; \
