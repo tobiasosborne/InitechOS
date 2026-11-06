@@ -68,3 +68,78 @@ QEMU good/fault fixtures, a reboot loop during a QMP marker wait, a
 short-lived writer, invalid overrides, and both Rule-6 glue mutants
 (keep GREEN logs, disable the cap). It preserves the RED fixture artifacts
 under a private `build/qlog-*` directory for inspection.
+
+## Gate map
+
+`spec/gate_map.json` is locked spec data for initech-fw3x0 (PRD Sec 8/9/14;
+CLAUDE.md Rules 1, 6 and 8). It maps changed repository paths to mandatory
+families of gates. Lanes and the PM use the same map and resolver:
+
+```sh
+make gates-for DIFF=main..HEAD
+make gates-for FILES='os/samir/cmd/query.c spec/samir/error_codes.h'
+make test-for DIFF=main..HEAD
+make test-gate-map test-gate-map-mutant
+```
+
+`gates-for` accepts exactly one of DIFF (a git diff range) or FILES
+(space-separated canonical repository paths). It prints only gate names,
+one per line, sorted and unique. Git diffs disable rename detection, so both
+old and new paths trigger their families. Deleted paths still participate.
+An empty diff selects the `always` family. Paths outside the audited scope
+select `always` too. Paths must be printable ASCII; FILES cannot encode a
+path containing spaces (DIFF and the C tool's newline input can).
+
+`test-for` resolves once, then runs the selected list in one `make -k -j16`,
+retaining the existing gate/mutant ordering. Successful completion targets
+count green gates; failed prerequisites count as red, even if no gate recipe
+ran. It prints `>>> test-for: N gates, M red` and fails if any gate is red.
+The selected list and completion records remain under a private
+`build/gate-map-run.*` directory. Reproducibility gates always run at -j16.
+
+The map derives its families from TEST_UNIT_GATES / TEST_EMU_GATES,
+`harness/merge_samir.mk`, `harness/gate_pairs.mk`, and the subsystem recipes.
+SAMIR includes the dbf/dbt/ndx/interp/xbase gates and its FLAIR legs; TPS
+includes seed and compiler gates; i123 and iword retain their own host and
+FLAIR legs. Opaque issue-named FAT/INT21 gates belong to MILTON according to
+the C sources their recipes compile. Shared oracle, emulator, code generator
+and spec inputs can trigger several families. Broad subsystem paths are
+conservative, so some changes run additional gates. Aggregate entry points
+(`test-unit`, `test-emu`, `test-par`, `test-merge-samir`, `test-for`) have
+ownership but no automatic path triggers: concrete gates are selected from
+their subsystem families, avoiding recursive selection of `test-for`.
+
+The audit rules are mechanical:
+
+- Every concrete test-* target in `make -pq` belongs to exactly one family.
+  Pattern rules and unexpanded define bodies are not concrete targets.
+  Mutant, emulator and Bochs twins share their base gate's family. Duplicate
+  declarations, including overlapping globs inside one family, fail.
+- Every tracked path under os/, harness/, spec/, seed/, tools/ and pubs/,
+  plus Makefile and every .mk file, matches at least one family. A changed
+  path in that scope must match even if it was deleted or is not tracked yet.
+- Every family matches at least one real gate; every gate name/glob matches
+  the inventory. New or removed test targets require a deliberate map edit.
+- `always` owns test-makefile-vars, test-gate-honesty and test-gate-map,
+  together with their existing mutants, and runs for every diff.
+- `build-system` owns test-kernel-repro, test-kernel-flair-repro and
+  test-ovl-repro and their twins. Makefile, all .mk files, tools/**,
+  os/milton/** and os/flair/** trigger this family. The audit checks this
+  requirement for each tracked path; resolution checks changed paths too.
+- Malformed JSON, unknown schema members, duplicate keys, unknown gates,
+  missing coverage and empty results fail loudly. There is no fallback
+  family that silently accepts an unmapped source or gate.
+
+Gate globs use POSIX fnmatch syntax. Path globs use the same component
+syntax, with `*` confined to one component and `**` crossing directories;
+`**/` also matches zero directories. The always family and aggregate entry
+points have empty path lists. Keep map edits ASCII and cite their bead.
+
+`build/gate_inventory.txt` is regenerated on every request from a query-only
+make database with Bochs definitions exposed, after all gate-vector
+assignments. `test-gate-map` audits that full inventory and `git ls-files`.
+The Rule-6 gate uses `GATE_MAP_MUT=drop-family` and
+`GATE_MAP_MUT=duplicate-gate` to create JSON copies under build/, then
+requires the real audit to fail for the named reason. It never edits spec/.
+The include must stay after the TEST_*_GATES assignments and before
+`include harness/gate_pairs.mk` so both new gates reach the final vectors.
