@@ -33732,7 +33732,7 @@ test-apple-menu-mutant: test-apple-menu $(foreach m,$(APPLE_HOST_MUTANTS),$(BUIL
 	 if $(BUILD)/test_apple_menu_mut_$$m "$(SYSTEM7_DECOMP)" > $(BUILD)/test_apple_menu_mut_$$m.log 2>&1; then \
 	   printf '!!! test-apple-menu-mutant: %s survived -- decoration\n' "$$m"; exit 1; fi; \
 	 grep -q "^FAIL $$leg" $(BUILD)/test_apple_menu_mut_$$m.log || { cat $(BUILD)/test_apple_menu_mut_$$m.log; exit 1; }; \
-	 printf '>>> test-apple-menu-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^FAIL $$leg" $(BUILD)/test_apple_menu_mut_$$m.log | cut -c1-100)"; done
+	 printf '>>> test-apple-menu-mutant: green (%s correctly RED: %s)\n' "$$m" "$$(grep -m1 "^FAIL $$leg" $(BUILD)/test_apple_menu_mut_$$m.log | cut -c1-100)"; done
 TEST_UNIT_GATES += test-apple-menu test-apple-menu-mutant
 
 # EMU: the gate image (the flagship kernel, pump life 10 s: a launch and a

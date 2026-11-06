@@ -14,6 +14,7 @@ database() {
 }
 database Makefile "$work/legs.make-db"
 "$build/test_bochs_legs" "$work/legs.make-db"
+echo ">>> test-bochs-legs: green (named boot legs; images, boundaries and pixels)"
 [ "$mode" = mutants ] || exit 0
 for rule in MISSING VECTOR IMAGE BOUNDARY VIDEO DAC PIXEL SAMIR; do
     source=harness/bochs_legs.mk
@@ -42,4 +43,4 @@ for rule in MISSING VECTOR IMAGE BOUNDARY VIDEO DAC PIXEL SAMIR; do
     printf 'BOCHS_LEGS_%s: ' "$rule"
     cat "$work/$rule.log"
 done
-echo 'GREEN test-bochs-legs-mutant: all eight factory wiring mutants caught'
+echo '>>> test-bochs-legs-mutant: green (all eight factory wiring mutants caught)'
