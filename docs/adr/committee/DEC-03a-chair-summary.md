@@ -1,7 +1,7 @@
 <!-- INITECH CONFIDENTIAL -- INTERNAL USE ONLY -- CONTROLLED DOCUMENT -->
 # DEC-03a -- Chair's recommendation to the operator
 
-Date: 2026-11-06 | Bead: initech-yndl2 | Status: DRAFT v0.9, pending operator ratification.
+Date: 2026-11-06 | Bead: initech-yndl2 | Status: RATIFIED 2026-11-06 by the operator (as drafted); v1.0.
 Authority: the operator RATIFIES; the chair drafts. No implementation approval is claimed.
 Record: [amendment](../ADR-0009-AMENDMENT-DEC-03a-InitechMZ-Extended-Memory.md),
 [Seat A](DEC-03a-seat-A.md), [Seat B](DEC-03a-seat-B.md); memos copied byte-for-byte.

@@ -12,8 +12,8 @@
 | Field | Value |
 |---|---|
 | Document ID | OEA-ADR-0009-A2 |
-| Version | 0.9 |
-| Status | **DRAFT v0.9 -- pending operator ratification** |
+| Version | 1.0 |
+| Status | **RATIFIED** 2026-11-06 by the operator ("ratify as drafted", in session; committee: Seat A gpt-6.1-sol, Seat B Claude Sonnet 5.5, Chair gpt-6.1-sol; PM Claude Fable 5.1). Binding. The three open items in the chair summary are confirmed with the chair defaults: global 8 MiB floor and [0x600000,0x800000) window with contiguous-PC BIOS fallback and known-hole refusal; MZ tag 0x5849 v1, low PSP, native 48h/49h/4Ah, high 64 KiB stack with guard, second-high and KEEP refusals; 256 KiB module ceiling tied to the declared loader reserve, W4-only re-grade, retained W3 exact screens, authored HELP samples labelled. Implementation beads filed the same day. |
 | Date | 2026-11-06 |
 | Classification | Internal Use Only |
 | Document Owner | Office of Enterprise Architecture |
