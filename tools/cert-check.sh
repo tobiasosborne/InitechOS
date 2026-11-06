@@ -4,9 +4,10 @@ set -eu
 LC_ALL=C
 export LC_ALL
 refuse() { printf 'cert-check: %s\n' "$1" >&2; exit 2; }
-[ "$#" -eq 1 ] || refuse 'usage: cert-check.sh <cert>'
+[ "$#" -eq 2 ] || refuse 'usage: cert-check.sh <cert> <lane-ref-or-sha>'
 [ -f "$1" ] || refuse 'certificate missing'
 cert=$1
+lane=$2
 case $cert in /*) ;; *) cert=$PWD/$cert;; esac
 root=$(git rev-parse --show-toplevel 2>/dev/null) || refuse 'not a git worktree'
 cd "$root"
@@ -22,7 +23,10 @@ case $base in ''|*[!0-9a-f]*) refuse 'invalid base_sha';; esac
 case $head in ''|*[!0-9a-f]*) refuse 'invalid head_sha';; esac
 [ "${#base}" -eq 40 ] && [ "${#head}" -eq 40 ] || refuse 'invalid SHA length'
 main=$(git rev-parse --verify refs/heads/main^{commit} 2>/dev/null) || refuse 'main missing'
+proposed=$(git rev-parse --verify --end-of-options "$lane^{commit}" 2>/dev/null) || refuse 'invalid lane ref or SHA'
+[ "$head" = "$proposed" ] || refuse "head_sha mismatch: certificate $head; proposed $proposed"
 [ "$base" = "$main" ] || refuse "stale base_sha: $base; main is $main"
+git merge-base --is-ancestor "$base" "$head" || refuse 'base_sha is not an ancestor of head_sha'
 case $count in ''|*[!0-9]*) refuse 'invalid gate_count';; esac
 [ "$count" -gt 0 ] || refuse 'empty gate list'
 mkdir -p build/cert
@@ -57,4 +61,4 @@ if "$make_cmd" -n gates-for >/dev/null 2>&1; then
 else
     printf 'cert-check: gates-for absent; coverage not checked\n'
 fi
-printf 'cert-check: PASS (%s gates; base == main)\n' "$count"
+printf 'cert-check: PASS (%s gates; base == main; head == proposed; base ancestor of head)\n' "$count"

@@ -88,6 +88,10 @@ test-lane-cert:
 	rc=0; sh "$$check_tool" "$$out/good.cert" > "$$out/check.log" 2>&1 || rc=$$?; \
 	[ "$$rc" -eq 2 ] && grep -F 'usage:' "$$out/check.log" >/dev/null || fail 'lane argument not required'; \
 	git switch -q main; sh "$$check_tool" "$$out/good.cert" lane/proof > "$$out/check.log" 2>&1 || { cat "$$out/check.log"; fail 'fresh certificate check'; }; \
+	unrelated=$$(printf 'unrelated lane\n' | git commit-tree "$$(git rev-parse "$$head^{tree}")"); \
+	sed "s/^head_sha: .*/head_sha: $$unrelated/" "$$out/good.cert" > "$$out/unrelated.cert"; \
+	rc=0; sh "$$check_tool" "$$out/unrelated.cert" "$$unrelated" > "$$out/check.log" 2>&1 || rc=$$?; \
+	[ "$$rc" -eq 2 ] && grep -F 'not an ancestor' "$$out/check.log" >/dev/null || fail 'unrelated base accepted'; \
 	git commit -q --allow-empty -m 'stale certificate base'; \
 	if sh "$$check_tool" "$$out/good.cert" lane/proof > "$$out/check.log" 2>&1; then fail 'stale base accepted'; fi; \
 	grep -F 'stale base_sha' "$$out/check.log" >/dev/null || fail 'stale base reason'; \
