@@ -29297,6 +29297,18 @@ $(SAMIR_LIST_MUT_IMG): $(SAMIR_EXE_MUT) $(CLIENTS_DBF) | $(BUILD)
 # band goes empty -> RED, with NO triple-fault (wrong data, not a crash; Rule 6).
 # TRI-EMULATOR: QEMU only -- Bochs/86Box deferred (bead initech-x0i, like test-shell).
 # Ref: ADR-0009 DEC-08; spec/int21h_calling_convention.json; os/samir/pal/pal_milton.c.
+# initech-0spyf/fzsvo: pixel comparison parks the cursor on BOTH emulators.
+# Production SECONDARY_TRACER_IMG and test-console retain PIT blink coverage.
+SAMIRBOOT_CAPTURE_IMG := $(BUILD)/samir_boot_capture.img
+$(BUILD)/kernel_samir_boot_capture.elf: $(filter-out $(KERNEL_CONSOLE_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/console_record.o $(KERNEL_LD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_CONSOLE_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/console_record.o
+$(BUILD)/kernel_samir_boot_capture.bin: $(BUILD)/kernel_samir_boot_capture.elf
+	$(OBJCOPY) -O binary $< $@
+	@set -e; sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); test $$sz -le $$max; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$((max - sz))" conv=notrunc status=none
+$(SAMIRBOOT_CAPTURE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_samir_boot_capture.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_samir_boot_capture.bin $(BOOT_SYSTEM_TOOL)
+
 SAMIRBOOT_NAME     := samir_boot
 SAMIRBOOT_SERIAL   := $(BUILD)/$(SAMIRBOOT_NAME).serial
 SAMIRBOOT_REPORT   := $(BUILD)/$(SAMIRBOOT_NAME).report
@@ -29316,7 +29328,7 @@ SAMIRBOOT_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s
 $(BUILD)/samir_boot_stream: $(DBF_DIFF_DIR)/samir_boot_stream.c | $(BUILD)
 	$(CC) $(CFLAGS) -O2 -o $@ $<
 .PHONY: test-samir-boot test-samir-boot-mutant test-samir-boot-stream-mutant
-test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN) $(BUILD)/samir_boot_stream samir-use-goldens
+test-samir-boot: $(HARNESS_BIN) $(SAMIRBOOT_CAPTURE_IMG) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN) $(BUILD)/samir_boot_stream samir-use-goldens
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-samir-boot : SAMIR runs INSIDE InitechOS (S8.2)\n'
 	@printf '  Ref: bead initech-hdlb; ADR-0009 DEC-08. boot -> EXEC SAMIR.EXE -> USE -> LIST.\n'
@@ -29373,7 +29385,7 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 	@# so the LIST rows are on screen. ppm_text_check grades the exact real
 	@# table cells below, including blanks where a missing/wrong row must fail.
 	@$(call fixture-preflight,$(SAMIR_LIST_IMG))
-	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SAMIRBOOT_CAPTURE_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
 		--name "$(SAMIRBOOT_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRBOOT_SCRN_KEYS)" --keys-after "SHELL-READY" \
 		--screendump --screendump-after "$$(printf '7777.77\r\n. ')" \
