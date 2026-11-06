@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+# Independent fixed CLIENTS schema: header 129, deletion flag 1, NAME C(10).
+# The extracted record must contain the exact KEYS literal, including case.
+printf 'Ab        ' > expected-name
+dd if=files/CLIENTS.DBF of=actual-name bs=1 skip=130 count=10 2>/dev/null
+cmp expected-name actual-name || { echo 'RED: mixed-case extracted NAME is not Ab'; exit 1; }
+echo 'GREEN: mixed-case extracted CLIENTS.DBF NAME = Ab (C(10) padding exact)'

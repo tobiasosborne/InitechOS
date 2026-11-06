@@ -1,0 +1,15 @@
+# SETUP opens CLIENTS; replay must inherit the selected work area.
+WAIT 36
+TEXT CLEAR
+KEY ENTER
+WAIT 18
+TEXT LIST
+KEY ENTER
+WAIT 18
+DUMP setup-state
+TEXT USE
+KEY ENTER
+WAIT 18
+TEXT QUIT
+KEY ENTER
+WAIT 18

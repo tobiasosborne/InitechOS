@@ -35593,6 +35593,7 @@ include harness/merge_samir.mk
 
 # Real III PLUS 1.1 full-screen golden minter (W4.0).
 include harness/diff/dbf_diff/screen_mint.mk
+include harness/diff/dbf_diff/w4.mk
 
 # Calculator desk accessory lifecycle (initech-0xs6).
 include harness/emu/calcda_power.mk

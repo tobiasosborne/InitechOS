@@ -1,0 +1,15 @@
+# Preserve the literal bytes in a character-field edit (PRD 6.6).
+WAIT 36
+TEXT USE CLIENTS
+KEY ENTER
+WAIT 18
+TEXT REPLACE NAME WITH "Ab"
+KEY ENTER
+WAIT 18
+DUMP edited
+TEXT USE
+KEY ENTER
+WAIT 18
+TEXT QUIT
+KEY ENTER
+WAIT 18
