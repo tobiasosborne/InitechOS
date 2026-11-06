@@ -1,7 +1,7 @@
 # Review regression vector; PRD 6.6, initech-0spyf/fzsvo.
 $(BUILD)/test_console_review: $(DBF_DIFF_DIR)/test_console_review.c $(DBF_DIFF_DIR)/screen_file.h | $(BUILD)
 	$(CC) $(CFLAGS) -O2 -o $@ $<
-CONSOLE_REVIEW_CASES := continuation keys color controls
+CONSOLE_REVIEW_CASES := continuation keys color color-state controls
 .PHONY: $(addprefix test-samir-console-review-,$(CONSOLE_REVIEW_CASES))
 define console-review-case
 test-samir-console-review-$(1): $$(PROMPT_SCREEN_DEPS) $$(SAMIR_EXE) $$(SAMIR_OVL) $$(BUILD)/test_console_review

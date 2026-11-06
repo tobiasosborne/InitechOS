@@ -26,9 +26,9 @@ WAIT
 RETURN
 PRG
     ;;
-color)
+color|color-state)
+    if [ "$mode" = color ]; then echo 'SET COLOR TO W+/B' >> "$out/PROBE.PRG"; fi
     cat >> "$out/PROBE.PRG" <<'PRG'
-SET COLOR TO W+/B
 @ 2,3 SAY "S"
 ?? "O"
 WAIT
@@ -50,6 +50,13 @@ esac
 mcopy -o -i "$out/data.img" "$out/PROBE.PRG" ::PROBE.PRG
 if [ "$mode" = keys ]; then
     spec="$launch,w1500,kleft,w150,D$out/page.ppm"
+elif [ "$mode" = color-state ]; then
+    # SET COLOR is selected at the dot prompt, then the native status page
+    # is reinitialized. The standard attribute must survive that page change.
+    colors='ks,ke,kt,kspc,kc,ko,kl,ko,kr,kspc,kt,ko,kspc,kw,kshift-equal,kslash,kb,kret,w200'
+    off='ks,ke,kt,kspc,ks,kt,ka,kt,ku,ks,kspc,ko,kf,kf,kret,w200'
+    on='ks,ke,kt,kspc,ks,kt,ka,kt,ku,ks,kspc,ko,kn,kret,w200'
+    spec="$launch,w1500,$colors,$off,$on,kd,ko,kspc,kp,kr,ko,kb,ke,kret,w1500,D$out/page.ppm"
 else
     spec="$launch,w1500,kd,ko,kspc,kp,kr,ko,kb,ke,kret,w1500,D$out/page.ppm"
 fi

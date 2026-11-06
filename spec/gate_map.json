@@ -2145,6 +2145,7 @@
         "test-samir-console-emu",
         "test-samir-console-review-mutant",
         "test-samir-console-review-color",
+        "test-samir-console-review-color-state",
         "test-samir-console-review-continuation",
         "test-samir-console-review-controls",
         "test-samir-console-review-keys",

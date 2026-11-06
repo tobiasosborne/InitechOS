@@ -21,7 +21,7 @@ int main(int argc,char **argv)
         check(a.bytes[24*160]=='.' && a.bytes[24*160+2]==' ',"dot prompt present");
         check(a.bytes[24*160+4]==' ' && a.bytes[4001]==2,
               "Left pair is navigation, never text K");
-    } else if(!strcmp(argv[1],"color")) {
+    } else if((!strcmp(argv[1],"color") || !strcmp(argv[1],"color-state"))) {
         check(a.bytes[2*160+3*2]=='S' && a.bytes[2*160+3*2+1]==0x1f,
               "native SAY selected attribute 1F");
         check(a.bytes[2*160+4*2]=='O' && a.bytes[2*160+4*2+1]==0x1f,
