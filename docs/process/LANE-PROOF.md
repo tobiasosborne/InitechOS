@@ -22,8 +22,17 @@ touch, old-file and what-if modes in `MAKEFLAGS` or `GNUMAKEFLAGS` refuse
 before gate selection, including short-option clusters. Every selector
 probe, selector run and gate invocation clears both flag variables. Gates
 run serially with the remaining build environment. Each must exit zero and
-its final `>>> <gate>: ...` line must say `green`. A nonzero exit refuses
-even if the recipe printed a green summary. Missing summaries refuse.
+have a final named passing verdict: `>>> <gate>: green ...`, `GREEN <gate> ...`,
+or `<gate>: N checks, 0 failures` with N positive (the C unit-test spelling
+with underscores is accepted too). The actual verdict is retained, never
+invented from exit zero; wrong-target, quiet, zero-check and final RED output
+refuse. A nonzero exit refuses even after a passing summary.
+
+Operator exception, 2026-11-06 (initech-0spyf/fzsvo): only `test-assets` may
+retain its exact loud absent-`spec/assets/preview.webp` SKIP as certificate
+evidence. The selector and coverage still include it; generation checks that
+the local fixture is absent, and cert-check prints NOT PROVEN. No fabricated
+frame, other skip reason, other skipped gate or present-fixture SKIP qualifies.
 
 The ASCII certificate is `build/cert/<branch-slug>.cert`; the slug replaces
 each character outside letters, digits, dot, underscore and hyphen with a

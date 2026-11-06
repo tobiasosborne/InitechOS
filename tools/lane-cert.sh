@@ -3,6 +3,7 @@
 set -eu
 LC_ALL=C
 export LC_ALL
+. "$(dirname "$0")/cert-summary.sh"
 refuse() { printf 'lane-cert: %s\n' "$1" >&2; exit 2; }
 required=${REQUIRED_GATES:-}
 scope=${CERT_SCOPE:-derived}
@@ -120,11 +121,14 @@ while IFS= read -r gate; do
         clean_make "$gate" > "$log" 2>&1 || gate_rc=$?
     fi
     # Only this target's FINAL summary can certify it; nested gates do not.
-    final=$(grep -F ">>> $gate:" "$log" | tail -n 1)
+    final=$(cert_pick_summary "$gate" "$log")
     gate_ok=no
-    case $final in ">>> $gate: green"|">>> $gate: green "*)
-        [ "$gate_rc" -ne 0 ] || gate_ok=yes;;
-    esac
+    verdict=$(cert_summary_kind "$gate" "$final") || verdict=red
+    if [ "$gate_rc" -eq 0 ]; then
+        case $verdict in green) gate_ok=yes;;
+            skip) [ -f spec/assets/preview.webp ] || gate_ok=yes;;
+        esac
+    fi
     if [ "$gate_ok" != yes ]; then
         [ -z "$final" ] || printf '%s\n' "$final" >&2
         refuse "red gate: $gate (exit $gate_rc; missing or non-green final line)"
