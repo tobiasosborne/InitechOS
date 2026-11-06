@@ -84,15 +84,20 @@ int main(void)
         }
     }
     CHECK(samir_do(ip,"@ 2,3 SAY CHR(10)+\"X\"\n")==INTERP_OK,"SAY embedded LF");
-    value(ip,"ROW()",3);value(ip,"COL()",1);
+    /* Real III+ at-say-edge-controls/controls: SAY control bytes are cells. */
+    value(ip,"ROW()",2);value(ip,"COL()",5);
     CHECK(samir_do(ip,"@ 2,3 SAY CHR(13)+\"X\"+CHR(9)+CHR(7)\n")==INTERP_OK,"SAY CR TAB BEL");
-    value(ip,"ROW()",2);value(ip,"COL()",8);
+    value(ip,"ROW()",2);value(ip,"COL()",7);
+    CHECK(samir_do(ip,"@ 23,78 SAY \"XYZ\"+CHR(13)+\"Q\"+CHR(10)+\"R\"\n")==INTERP_OK,"captured SAY control cells");
+    value(ip,"ROW()",24);value(ip,"COL()",5);
     {
         samir_screen model;
         samir_screen_init(&model,NULL,NULL);
         samir_screen_at(&model,23,78,"XYZ\rQ\nR",7);
-        CHECK(model.row==24 && model.col==1,"STATUS model full grid and controls");
-        CHECK(model.text[23][0]=='Q' && model.text[24][0]=='R',"STATUS model scrolling cells");
+        /* Ref: real III+ at-say-edge-controls/controls (operator ruling). */
+        CHECK(model.row==24 && model.col==5,"SAY control cells advance cursor to captured (24,5)");
+        CHECK(!memcmp(model.text[23]+78,"XY",2) && !memcmp(model.text[24],"Z\rQ\nR",5),"SAY paints captured CR/LF bytes without motion");
+        CHECK(model.text[22][78]==' ' && model.text[23][0]==' ',"SAY control cells do not scroll");
         /* PM scope regression: Using III+ U5-16/PDF128 reserves the status
          * rows; the established writer's editing/control policy must survive
          * positioned SAY (say-get-read.md sections 1-2). */

@@ -664,9 +664,23 @@ static void milton_cursor(samir_pal_t *p,uint8_t row,uint8_t col)
     char seq[16];
     milton_rawout(p,seq,milton_cup(seq,row,col));
 }
+static void milton_page(uint8_t *page,uint32_t operation);
+/* BIOS-page cell output bypasses ANSI control interpretation. Real III+
+ * at-say-edge-controls/controls contains literal 0D and 0A screen bytes. */
+static void milton_draw_cells(uint8_t row,uint8_t col,uint8_t attr,const char *text,uint32_t n)
+{
+    uint8_t page[4002];uint32_t i;
+    if(row>=25 || col>=80 || n>80u-col)milton_panic();
+    milton_page(page,0);
+    for(i=0;i<n;i++) { page[row*160+(col+i)*2]=(uint8_t)text[i];page[row*160+(col+i)*2+1]=attr; }
+    milton_page(page,1);
+}
 static void milton_draw(void *user,uint8_t row,uint8_t col,uint8_t attr,const char *text,uint32_t n)
 {
-    samir_pal_t *p=(samir_pal_t *)user;
+    samir_pal_t *p=(samir_pal_t *)user;uint32_t i;
+    for(i=0;i<n;i++) if((uint8_t)text[i]<32 || text[i]==127) {
+        milton_draw_cells(row,col,attr,text,n);return;
+    }
     milton_cursor(p,row,col);
     milton_rawout(p,attr==0x70?"\033[0;7m":"\033[0m",attr==0x70?6u:4u);
     milton_rawout(p,"\033[=7l",5);

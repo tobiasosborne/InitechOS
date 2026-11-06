@@ -496,7 +496,11 @@ void console_set_cursor(console_t *con, uint32_t row, uint32_t col)
     }
     con->past_end = 0;
     con->cur_col = (col >= con->cols) ? (con->cols - 1u) : col;
+#ifdef CONSOLE_MUTATE_OFFGRID_CLAMP
+    con->cur_row = (row >= con->rows) ? (con->rows - 1u) : row;
+#else
     con->cur_row = (row > con->rows) ? (con->rows - 1u) : row;
+#endif
 }
 
 void console_get_cursor(const console_t *con, uint32_t *row, uint32_t *col)

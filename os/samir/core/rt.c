@@ -695,12 +695,14 @@ void pal_owned_free(samir_pal_t *pal, void **owner)
     while(b){pal_owned_block *next=b->next;pal->release(pal,b);b=next;}
 }
 
-/* Control motion matches os/milton/console.c console_putc and ANSI BEL. */
+/* Stream control motion matches console_putc/ANSI; positioned SAY counts
+ * literal cells (real III+ at-say-edge-controls/controls). */
 void rt_cursor_advance(uint16_t *row,uint16_t *col,const char *s,uint32_t n,int screen)
 {
     uint32_t i;
     for(i=0;i<n;i++) {
-        if(s[i]=='\r') *col=0;
+        if(screen==2) { if(++*col==80) { *col=0;++*row; } }
+        else if(s[i]=='\r') *col=0;
         else if(s[i]=='\n') { if(*row<65535u) ++*row;if(screen)*col=0; }
         else if(s[i]=='\f') { *row=*col=0; }
         else if(screen && s[i]=='\a') { }

@@ -53,13 +53,14 @@ test-samir-dotprompt: $(PROMPT_SCREEN_DEPS) $(SAMIR_EXE) $(SAMIR_OVL)
 	@SCREEN_FORMS_SUITE=dotprompt SCREEN_FORMS_GATED=$(DBF_DIFF_DIR)/screen_dotprompt_gated.txt sh $(DBF_DIFF_DIR)/screen_forms_emu.sh
 test-samir-cursor25: $(PROMPT_SCREEN_DEPS) $(SAMIR_EXE) $(SAMIR_OVL)
 	@SCREEN_FORMS_SUITE=cursor25 SCREEN_FORMS_GATED=$(DBF_DIFF_DIR)/screen_cursor25_gated.txt sh $(DBF_DIFF_DIR)/screen_forms_emu.sh
-DOTPROMPT_MUTANTS := bottom:at-dot/d2 blank79:at-to-b/TEd scoreboard:at-dot-c/e1 clear:at-dot-c/e4 enter:at-enter/entered saywrap:at-say-edge/edge
+# Unmasked TE scrolls; edge/prompt exercises blanking while retaining col 79.
+DOTPROMPT_MUTANTS := bottom:at-dot/d2 blank79:at-say-edge/prompt scoreboard:at-dot-c/e1 clear:at-dot-c/e4 enter:at-enter/entered saywrap:at-say-edge/edge saycontrol:at-say-edge-controls/controls
 test-samir-dotprompt-mutant: $(PROMPT_SCREEN_DEPS) $(foreach m,$(DOTPROMPT_MUTANTS),$(BUILD)/SAMIR_SCREEN_SAMIR_DOTPROMPT_MUTANT_$(firstword $(subst :, ,$(m))).EXE)
 	@set -e; for m in $(DOTPROMPT_MUTANTS); do k=$${m%%:*}; want=$${m#*:}; log=$(BUILD)/samir-dotprompt-mut-$$k.log; \
 	  if SCREEN_FORMS_SUITE=dotprompt SCREEN_FORMS_GATED=$(DBF_DIFF_DIR)/screen_dotprompt_gated.txt sh $(DBF_DIFF_DIR)/screen_forms_emu.sh $(BUILD)/SAMIR_SCREEN_SAMIR_DOTPROMPT_MUTANT_$$k.EXE > $$log 2>&1; then cat $$log; exit 1; fi; \
 	  grep -q "^RED: $$want: RED: first difference" $$log || { cat $$log; exit 1; }; \
 	  printf 'SAMIR_DOTPROMPT_MUTANT_%s RED: ' $$k; grep -m1 "^RED: $$want" $$log; done
-	@printf '>>> test-samir-dotprompt-mutant: green (bottom, blank79, scoreboard, clear, enter, saywrap RED)\n'
+	@printf '>>> test-samir-dotprompt-mutant: green (bottom, blank79, scoreboard, clear, enter, saywrap, saycontrol RED)\n'
 test-samir-cursor25-mutant: $(PROMPT_SCREEN_DEPS) $(BUILD)/SAMIR_SCREEN_SAMIR_CURSOR25_MUTANT.EXE
 	@log=$(BUILD)/samir-cursor25-mut.log; \
 	 if SCREEN_FORMS_SUITE=cursor25 SCREEN_FORMS_GATED=$(DBF_DIFF_DIR)/screen_cursor25_gated.txt sh $(DBF_DIFF_DIR)/screen_forms_emu.sh $(BUILD)/SAMIR_SCREEN_SAMIR_CURSOR25_MUTANT.EXE > $$log 2>&1; then cat $$log; exit 1; fi; \

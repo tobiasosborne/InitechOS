@@ -5244,6 +5244,16 @@ test-console: $(TEST_CONSOLE)
 	@$(TEST_CONSOLE)
 	@printf ">>> test-console: green\n"
 
+$(BUILD)/test_console_cursor25_mutant: $(TEST_CONSOLE_SRC) $(MILTON_DIR)/console.c $(MILTON_DIR)/console.h $(MILTON_DIR)/boot_info.h os/flair/surface.c os/flair/surface.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONSOLE_MUTATE_OFFGRID_CLAMP -I$(MILTON_DIR) -Iseed -Ios/flair \
+		-o $@ $(TEST_CONSOLE_SRC) $(MILTON_DIR)/console.c os/flair/surface.c
+.PHONY: test-console-cursor25-mutant
+test-console-cursor25-mutant: $(BUILD)/test_console_cursor25_mutant
+	@set +e; $< > $(BUILD)/console-cursor25-mutant.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && grep -q 'FAIL.*BIOS off-grid cursor retained' $(BUILD)/console-cursor25-mutant.log || { cat $(BUILD)/console-cursor25-mutant.log; exit 1; }; \
+	 printf 'CONSOLE_MUTATE_OFFGRID_CLAMP RED: '; grep -m1 'FAIL.*BIOS off-grid cursor retained' $(BUILD)/console-cursor25-mutant.log
+	@printf '>>> test-console-cursor25-mutant: green (off-grid clamp RED)\n'
+
 # fb-agree oracle (beads initech-k8o5.6, ADR-0004 D-2/D-8 + FO-1/AM-2): the ONE
 # surface invariant -- the console pixel path and the direct surface pixel path
 # MUST agree byte-for-byte on shared primitives, across bpp 32/24/8. The named
@@ -30621,7 +30631,7 @@ TEST_UNIT_GATES := \
 	test-fat-partial test-fat-write test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
-	test-console test-idt test-kbd-unit test-j1lu-con-unit test-j1lu-kbd-mutant test-j1lu-con-mutant test-conin-unit test-int21 test-redir test-er3h test-int24 \
+	test-console test-console-cursor25-mutant test-idt test-kbd-unit test-j1lu-con-unit test-j1lu-kbd-mutant test-j1lu-con-mutant test-conin-unit test-int21 test-redir test-er3h test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-tsr-unit test-tsr-io test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \

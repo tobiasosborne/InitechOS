@@ -142,26 +142,24 @@ void samir_screen_at(samir_screen *s,uint8_t row,uint8_t col,const char *text,ui
 {
     uint32_t i;
     s->row=row;s->col=col;
-    /* Only SAY takes the terminal's control motion here (Milton console.c
-     * console_putc and ansi.c BEL); the shared dot-prompt writer stays intact.
-     * This also preserves test_samir_say's embedded-control expectations. */
+    /* Real III+ at-say-edge-controls/controls: CR/LF are literal cells,
+     * just like printable bytes. Positioned output never scrolls the page. */
     for(i=0;i<n;i++) {
+#ifdef SAMIR_DOTPROMPT_MUTANT_saycontrol
         char c=text[i];
         if(c=='\n')say_next_row(s);
         else if(c=='\r')s->col=0;
-        else if(c=='\b') { if(s->col)s->col--; }
-        else if(c=='\a') { }
-        else if(c=='\f') { rt_memset(s->text,' ',sizeof s->text);s->row=s->col=0; }
-        else if(c=='\t') {
-            uint8_t next=(uint8_t)((s->col/8+1)*8);
-            if(next>=80)say_next_row(s);else s->col=next;
-        } else {
+        else
+#endif
+        {
             uint32_t start=i,col=s->col;
-            while(i<n && s->col<80 && (uint8_t)text[i]>=32 && text[i]!=127) {
+            while(i<n && s->col<80) {
+#ifdef SAMIR_DOTPROMPT_MUTANT_saycontrol
+                if(text[i]=='\r' || text[i]=='\n')break;
+#endif
                 if(s->row<25) s->text[s->row][s->col]=text[i];
                 s->col++;i++;
             }
-            if(i==start) { if(s->row<25)s->text[s->row][s->col]=c;s->col++;i++; }
             if(s->draw && s->row<25) s->draw(s->user,s->row,(uint8_t)col,0x07,text+start,i-start);
             i--;
             if(s->col==80)say_next_row(s);
