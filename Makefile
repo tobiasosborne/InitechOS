@@ -29114,8 +29114,11 @@ $(SAMIR_CTL_EMU_MUTS): $(BUILD)/SAMIR_CTL_%.EXE: $(SAMIR_HEADERS) $(SAMIR_EXE_CS
 	for src in $(SAMIR_EXE_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_EXE_PROFILE) -D$* -c $$src -o $$obj; done; \
 	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
 	$(call samir_pack,$$d/SAMIR.elf,$@)
-# $(call samir_ctl_emu_run,<samir.com>,<name>) -> $(BUILD)/<name>.samir (serial
-# from `A:\>samir` on, CR stripped) + $(BUILD)/<name>.report
+# $(call samir_ctl_emu_run,<samir.com>,<name>[,fault]) -> $(BUILD)/<name>.samir (serial
+# from `A:\>samir` on, CR line delimiters retained) + $(BUILD)/<name>.report
+# Deliberate faults: retain 89 s of observation (three valid wait tokens),
+# then capture through live QMP and quit without claiming guest completion.
+SAMIR_CTL_FAULT_OBSERVE = --mouse w30000,w30000,w29000 --legacy-quit --screendump
 define samir_ctl_emu_run
 	@dd if=/dev/zero of=$(BUILD)/$(2).img bs=512 count=2880 status=none
 	@mformat -i $(BUILD)/$(2).img -f 1440 ::
@@ -29123,13 +29126,13 @@ define samir_ctl_emu_run
 	@set -e; for f in $(SAMIR_CTL_EMU_PRGS); do mcopy -i $(BUILD)/$(2).img $(SAMIR_CTL_EMU_DIR)/$$f ::$$f; done
 	@$(call fixture-check,recipe,$(BUILD)/$(2).img)
 	@started=$$(date +%s); rc=0; $(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BUILD)/$(2).img" \
-		--name "$(2)" --out "$(BUILD)" --timeout-ms 90000 \
+		--name "$(2)" --out "$(BUILD)" --timeout-ms $(if $(3),150000,90000) \
 		--keys "$(SAMIR_CTL_EMU_KEYS)" --keys-after "SHELL-READY" \
-		$(SHELL_OS_COMPLETION) \
+		$(if $(3),$(SAMIR_CTL_FAULT_OBSERVE),$(SHELL_OS_COMPLETION)) \
 		2> "$(BUILD)/$(2).report" || rc=$$?; \
 	 printf '%s\n' "$$rc" > "$(BUILD)/$(2).report.status"; \
 	 printf '%s\n' "$$(( $$(date +%s) - started ))" > "$(BUILD)/$(2).report.elapsed"
-	@tr -d '\r' < "$(BUILD)/$(2).serial" 2>/dev/null | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(2).samir" || true
+	@tr '\r' '\n' < "$(BUILD)/$(2).serial" 2>/dev/null | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(2).samir" || true
 endef
 .PHONY: test-samir-ctl-emu test-samir-ctl-emu-mutant
 test-samir-ctl-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(SAMIR_OVL)
@@ -29155,16 +29158,16 @@ test-samir-ctl-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_EXE) $(SAMIR_
 	grep -q 'quit_after_found=1' "$$R" || fail 'the session never reached SHELL-DONE (EXIT after QUIT)'
 	@printf '>>> test-samir-ctl-emu: green (QEMU)\n'
 test-samir-ctl-emu-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_CTL_EMU_MUTS)
-	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_NO_ESCAPE.EXE,samir_ctl_emu_mut_esc)
+	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_NO_ESCAPE.EXE,samir_ctl_emu_mut_esc,fault)
 	@sh harness/emu/require_fault_trace.sh $(BUILD)/samir_ctl_emu_mut_esc.report $(BUILD)/samir_ctl_emu_mut_esc.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')" escape
 	@if grep -qxF '*** INTERRUPTED ***' $(BUILD)/samir_ctl_emu_mut_esc.samir; then printf '!!! test-samir-ctl-emu-mutant FAIL: no-Esc-poll mutant still interrupted\n'; exit 1; fi
 	@grep -q 'triple_fault=0' $(BUILD)/samir_ctl_emu_mut_esc.report || { printf '!!! no-Esc mutant run did not complete cleanly (harness)\n'; exit 1; }
 	@printf '>>> test-samir-ctl-emu-mutant: Esc-never-polled correctly RED (the loop cannot be stopped)\n'
-	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_PROC_MUTATE_NO_DO_CAP.EXE,samir_ctl_emu_mut_cap)
+	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_PROC_MUTATE_NO_DO_CAP.EXE,samir_ctl_emu_mut_cap,fault)
 	@sh harness/emu/require_fault_trace.sh $(BUILD)/samir_ctl_emu_mut_cap.report $(BUILD)/samir_ctl_emu_mut_cap.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')" cap
 	@if grep -qE 'RECOVERED +[1-9][0-9]*' $(BUILD)/samir_ctl_emu_mut_cap.samir && grep -qF 'DOs nested too deep.' $(BUILD)/samir_ctl_emu_mut_cap.samir && grep -q 'quit_after_found=1' $(BUILD)/samir_ctl_emu_mut_cap.report; then printf '!!! test-samir-ctl-emu-mutant FAIL: no-DO-cap mutant survived the recursion\n'; exit 1; fi
 	@printf '>>> test-samir-ctl-emu-mutant: no-20-level-cap correctly RED (recursion past the cap loses the session)\n'
-	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_STACK_LINES.EXE,samir_ctl_emu_mut_stk)
+	$(call samir_ctl_emu_run,$(BUILD)/SAMIR_CTL_FLOW_MUTATE_STACK_LINES.EXE,samir_ctl_emu_mut_stk,fault)
 	@sh harness/emu/require_fault_trace.sh $(BUILD)/samir_ctl_emu_mut_stk.report $(BUILD)/samir_ctl_emu_mut_stk.serial "$$(printf '%s\n' '$(SAMIR_CTL_EMU_KEYS)' | awk -F, '{print NF}')" stack
 	@if grep -qE 'RECOVERED +[1-9][0-9]*' $(BUILD)/samir_ctl_emu_mut_stk.samir && grep -q 'quit_after_found=1' $(BUILD)/samir_ctl_emu_mut_stk.report; then printf '!!! test-samir-ctl-emu-mutant FAIL: stack-line-table mutant survived BIGREC\n'; exit 1; fi
 	@printf '>>> test-samir-ctl-emu-mutant: per-call stack line tables correctly RED (500-line BIGREC loses the session)\n'
