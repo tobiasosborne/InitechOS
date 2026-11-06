@@ -820,7 +820,7 @@ GENEVA12_PACK_H := $(BUILD)/geneva12_packed_data.h
 # moves: kmain.c remains the original marker source; the host equality gate
 # compares the generated storage/formatter against original C calls.
 define kernel-main-compile
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(1) -E $(KERNEL_MAIN_C) os/milton/ansi_cursor.h -o $(2).i
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(1) -E $(KERNEL_MAIN_C) -o $(2).i
 	$(SERIAL_TRACE_PACK) $(2).i $(2).c
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(1) -c $(2).c -o $(2)
 endef
