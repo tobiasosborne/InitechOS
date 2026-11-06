@@ -1300,6 +1300,14 @@ samir_pal_t *pal_milton_make(void)
      * or CF=1, AX=0x0008, BX=largest free (on failure).
      * The flat ABI maps BX to EBX (int21.c do_alloc reads (uint16_t)(f->ebx)
      * for want). */
+#ifdef SAMIR_W4
+    /* EXPERIMENT initech-7cbu8 (SAMIRX.EXE only; ADR-0009 DEC-03a assumed):
+     * the resident module outgrows the conventional window, so the PAL heap
+     * lives at flat 8 MiB (QEMU default RAM 128 MiB; INT 21h does not range-
+     * check user buffers, int21.c user_buf_ok). No AH=48h. */
+    (void)result; (void)cf;
+    heap_seg = 0x00800000u >> 4;
+#else
     result = int21(0x48u, 0x00u,
                    0u,                           /* EDX unused */
                    PAL_MILTON_HEAP_PARAS,        /* EBX = paragraphs wanted */
@@ -1313,6 +1321,7 @@ samir_pal_t *pal_milton_make(void)
      * This is the "fake-paragraph = linear >> 4" convention documented in
      * spec/memory_map.h and os/milton/int21.c arena_seg_base / do_alloc. */
     heap_seg = result & 0xFFFFu;
+#endif
     /* AH=48h block: [region 2: 16528][bump arena: 16384]; region 1 (3952)
      * sits in the BSS reserve -- see the PAL_MILTON_HEAP_PARAS note. */
     st->heap_base = (uint8_t *)(uintptr_t)(heap_seg << 4) + PAL_MILTON_TAIL_BYTES;

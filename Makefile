@@ -29065,19 +29065,25 @@ $(SAMIR_EXE) $(SAMIR_OVL) &: $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SA
 # The shipped engine + the W4 full-screen layer (os/samir/ui/*.c) under
 # -DSAMIR_W4. A SEPARATE binary: SAMIR.EXE and every existing gate are
 # untouched. New code is resident (no overlay placement; relaxed rules).
-SAMIR_UI_SRCS := $(sort $(wildcard $(SAMIR_DIR)/ui/*.c))
+# SAMIRX_UI selects the apps linked (the whole layer exceeds the 188 KiB
+# program window): e.g. make samirx-exe SAMIRX_UI='browse edit' SAMIRX_EXE=build/SAMIRX_A.EXE
+SAMIRX_UI     ?= browse edit
+SAMIR_UI_SRCS := $(addprefix $(SAMIR_DIR)/ui/,$(addsuffix .c,ui kit $(SAMIRX_UI)))
 SAMIRX_EXE    ?= $(BUILD)/SAMIRX.EXE
 SAMIRX_DIR    := $(BUILD)/samirx_$(notdir $(basename $(SAMIRX_EXE)))
+SAMIRX_LD_SCRIPT := $(SAMIR_DIR)/boot/samirx.ld
+SAMIRX_LINK   = $(subst $(SAMIR_LD_SCRIPT),$(SAMIRX_LD_SCRIPT),$(SAMIR_LINK))
+$(SAMIRX_EXE): SAMIR_MINALLOC := 1
 .PHONY: samirx-exe
 samirx-exe: $(SAMIRX_EXE)
-$(SAMIRX_EXE): $(SAMIR_HEADERS) $(wildcard $(SAMIR_DIR)/ui/*.h) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_EXE_CSRCS) $(SAMIR_UI_SRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_PACK_DEPS) | $(BUILD)
+$(SAMIRX_EXE): $(SAMIR_HEADERS) $(wildcard $(SAMIR_DIR)/ui/*.h) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_EXE_CSRCS) $(SAMIR_UI_SRCS) $(SAMIR_CRT0_ASM) $(SAMIRX_LD_SCRIPT) $(SAMIR_PACK_DEPS) | $(BUILD)
 	@mkdir -p $(SAMIRX_DIR) && find $(SAMIRX_DIR) -name '*.o' -delete
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(SAMIRX_DIR)/samir_crt0.o
 	@set -e; for s in $(SAMIR_EXE_CSRCS) $(SAMIR_UI_SRCS); do \
 		o=$(SAMIRX_DIR)/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
-		$(CC) $(SAMIR_EXE_PROFILE) -DSAMIR_W4 -I$(SAMIR_DIR)/ui -c $$s -o $$o; \
+		$(CC) $(SAMIR_EXE_PROFILE) -DSAMIR_W4 $(foreach a,$(SAMIRX_UI),-DUI_HAVE_$(a)) -I$(SAMIR_DIR)/ui -c $$s -o $$o; \
 	done
-	@$(SAMIR_LINK) -o $(SAMIRX_DIR)/SAMIR.elf $(SAMIRX_DIR)/samir_crt0.o $$(ls $(SAMIRX_DIR)/*.o | grep -v 'samir_crt0\.o')
+	@$(SAMIRX_LINK) -o $(SAMIRX_DIR)/SAMIR.elf $(SAMIRX_DIR)/samir_crt0.o $$(ls $(SAMIRX_DIR)/*.o | grep -v 'samir_crt0\.o')
 	@$(call samir_pack,$(SAMIRX_DIR)/SAMIR.elf,$(SAMIRX_EXE))
 	@printf '>>> SAMIRX.EXE: %s-byte resident module + SAMIRX.OVL (EXPERIMENT, -DSAMIR_W4)\n' "$$(stat -c%s $(SAMIRX_DIR)/SAMIR.elf.res)"
 
