@@ -3314,6 +3314,7 @@ test-samir-set-color-mutant: test-samir-set-color $(BUILD)/test_samir_set_color_
 	@set +e; $(BUILD)/test_samir_set_color_mutant > $(BUILD)/set-color-mutant.log 2>&1; rc=$$?; set -e; \
 	 test $$rc -eq 1 && grep -q 'FAIL.*SET COLOR standard attribute reaches PAL' $(BUILD)/set-color-mutant.log || { cat $(BUILD)/set-color-mutant.log; exit 1; }; \
 	 printf '>>> SET_COLOR_MUTANT_BG RED: '; grep -m1 'FAIL.*SET COLOR standard attribute reaches PAL' $(BUILD)/set-color-mutant.log
+	@printf '>>> test-samir-set-color-mutant: green (SET_COLOR_MUTANT_BG rejected)\n'
 
 # ---- SAMIR S5.6 formatter wiring: SET DATE/CENTURY -> DTOC/CTOD (initech-7az.15) ----
 # SET DATE (8 formats) + SET CENTURY drive DTOC format + CTOD parse via xb_ctx fields

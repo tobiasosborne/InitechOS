@@ -65,6 +65,7 @@ test-gate-map: $(GATE_MAP_TOOL) $(GATE_MAP_INVENTORY) $(GATE_MAP_JSON)
 	@$(MAKE) -s --no-print-directory gates-for FILES=os/samir/samir_main.c DIFF= > $(BUILD)/gate-map-samir-selection.txt
 	@if grep -qxF test-samir-status-screen-pending $(BUILD)/gate-map-samir-selection.txt; then \
 	 printf 'RED pending selection: STATUS must be opt-in\n'; exit 1; fi
+	@printf '>>> test-gate-map: green (structural/consumer audit; pending STATUS opt-in)\n'
 
 $(BUILD)/gate-map-%.json: $(GATE_MAP_TOOL) $(GATE_MAP)
 	@$(GATE_MAP_TOOL) --mutate $* $(GATE_MAP) > $@.tmp && mv -f $@.tmp $@
