@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-11-02 (**WL-0193: order from chaos -- seven parked lanes landed and re-gated on main, 19 stale remote branches deleted after bundling, DEC-19 Load Overlay merged and ratified, four main-side reds found by the first test-par and fixed; see Sec 5. Previous: 2026-10-24, WL-0180: new WSL box certified gate by gate, 12 main regressions fixed, kernel size round 8, sharded certificate ratified on run 2, run 3 vetoed; WL-0181: r3 cap retired by ruling, overlays programme filed**)
+**Last Reconciled:** 2026-11-06 (**WL-0194: Codex quality-floor wave -- ndx incremental parity with real III+ (7tj3), date oracle re-keyed to real III+ with a ruling amendment to confirm (bkmv), factory -j producers + QEMU log retention (lroek, tfn6r), pubsdrift landed; three wave-2 lanes parked as origin/lane/*; see Sec 5. Previous: 2026-11-02, **WL-0193: order from chaos -- seven parked lanes landed and re-gated on main, 19 stale remote branches deleted after bundling, DEC-19 Load Overlay merged and ratified, four main-side reds found by the first test-par and fixed; see Sec 5. Previous: 2026-10-24, WL-0180: new WSL box certified gate by gate, 12 main regressions fixed, kernel size round 8, sharded certificate ratified on run 2, run 3 vetoed; WL-0181: r3 cap retired by ruling, overlays programme filed**)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -203,6 +203,30 @@ fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
 
+> **CURRENT STATE (2026-11-06, WL-0194 -- Codex quality-floor wave). Supersedes the 2026-11-02 block below for branch state.**
+>
+> **Landed on main (each merged by the PM, reviewed, re-gated on main):** c57b8400 ndx incremental
+> parity with all 516 minted III+ snapshots (initech-7tj3 closed; new test-ndx-incremental, RED
+> 249/529 before); 399680d8 SAMIR dates follow real III+ (initech-bkmv closed; Rule 8 edit to
+> spec/samir/xbase_coercion.json R_blankdate_high; **RULING AMENDMENT for the operator to confirm:**
+> one blank date operand -> every comparison .F., two blanks -> .T., per fresh captures, superseding
+> the 2026-10-24 'blank compares LOW' detail; INDEX order blank LAST unchanged); ce7a0a7a pubsdrift
+> (z8lca: 2 of 3 drifts; gs-dir.txt screen re-mint still owed); 43bbad93 factory -j producers + QEMU
+> -d log cap/retention (lroek, tfn6r closed; cap 64 MiB default, 512 MiB forms, 2 GiB dml);
+> 471267d2 Makefile read-before-definition fix. Full `make test` / certificate NOT run.
+>
+> **Parked, UNVERIFIED (operator wind-up 2026-11-05; gates not run; bundles + vs-main patches in
+> `../initech-lane-archive/branches-2026-11-06/`):** origin/lane/tsr-exec-relocation (h4bk),
+> origin/lane/samir-dotprompt-cursor25-fidelity (0spyf + fzsvo; rewrites screen-mint ORACLE.sha256
+> files -- verify against real dumps before trusting), origin/lane/fix-samir-do-file (104j3; collides
+> with the dotprompt lane on screen-mint SETUP .PRGs). Review each diff before any gate; merge the
+> dotprompt lane first, then rebase do-file onto it.
+>
+> **Process in force this wave:** Codex gpt-6.1-sol xhigh coding lanes in T3 worktrees (sister repos by
+> ABSOLUTE path), one review per lane (Muse Wonder Full for engine code, 2 of 4 uses spent;
+> gpt-6-astra otherwise), PM merges serially and re-gates on main. Every brief must list
+> test-makefile-vars when the Makefile is touched.
+>
 > **CURRENT STATE (2026-11-02, WL-0193 -- order from chaos). Supersedes the 2026-10-24 block below for branch state.**
 >
 > **Branches:** the remote went from 33 to 12 branches. Every unmerged branch was bundled under
