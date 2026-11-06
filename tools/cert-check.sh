@@ -4,7 +4,12 @@ set -eu
 LC_ALL=C
 export LC_ALL
 refuse() { printf 'cert-check: %s\n' "$1" >&2; exit 2; }
-[ "$#" -eq 2 ] || refuse 'usage: cert-check.sh <cert> <lane-ref-or-sha>'
+required=${REQUIRED_GATES:-}
+case $# in
+    2) ;;
+    4) [ "$3" = --require ] || refuse 'usage: cert-check.sh <cert> <lane-ref-or-sha> [--require <gates>]'; required=$4;;
+    *) refuse 'usage: cert-check.sh <cert> <lane-ref-or-sha> [--require <gates>]';;
+esac
 [ -f "$1" ] || refuse 'certificate missing'
 cert=$1
 lane=$2
@@ -27,6 +32,8 @@ proposed=$(git rev-parse --verify --end-of-options "$lane^{commit}" 2>/dev/null)
 [ "$head" = "$proposed" ] || refuse "head_sha mismatch: certificate $head; proposed $proposed"
 [ "$base" = "$main" ] || refuse "stale base_sha: $base; main is $main"
 git merge-base --is-ancestor "$base" "$head" || refuse 'base_sha is not an ancestor of head_sha'
+cert_selector=$(field selector)
+case $cert_selector in absent|gates-for) ;; *) refuse 'invalid selector';; esac
 case $count in ''|*[!0-9]*) refuse 'invalid gate_count';; esac
 [ "$count" -gt 0 ] || refuse 'empty gate list'
 mkdir -p build/cert
@@ -47,18 +54,30 @@ while IFS= read -r line; do
 done < "$cert"
 [ "$(wc -l < "$scratch/gates")" -eq "$count" ] || refuse 'gate_count mismatch'
 make_cmd=${MAKE:-make}
-if "$make_cmd" -n gates-for >/dev/null 2>&1; then
-    required=$("$make_cmd" -s --no-print-directory gates-for "DIFF=$base..$head") || refuse 'gate selection failed'
-    missing=no
-    set -f
-    for gate in $required; do
-        if ! grep -qxF -- "$gate" "$scratch/gates"; then
-            printf 'cert-check: missing gate: %s\n' "$gate" >&2
-            missing=yes
-        fi
-    done
-    [ "$missing" = no ] || exit 2
+clean_make() { env -u MAKEFLAGS -u GNUMAKEFLAGS "$make_cmd" "$@"; }
+if clean_make -n --no-print-directory gates-for "DIFF=$base..$head" > "$scratch/selector.out" 2> "$scratch/selector.err"; then
+    selector=gates-for
+    required=$(clean_make -s --no-print-directory gates-for "DIFF=$base..$head" 2> "$scratch/selector.err") || {
+        cat "$scratch/selector.err" >&2; refuse 'gate selection failed: gates-for';
+    }
 else
-    printf 'cert-check: gates-for absent; coverage not checked\n'
+    probe_rc=$?
+    if [ "$probe_rc" -ne 2 ] || ! grep -qF "No rule to make target 'gates-for'." "$scratch/selector.err"; then
+        cat "$scratch/selector.err" >&2; refuse 'gate selection failed: gates-for probe'
+    fi
+    selector=absent
+    case $required in *[![:space:]]*) ;; *) refuse 'coverage unchecked: gates-for absent; supply REQUIRED_GATES or --require';; esac
 fi
+case $required in *[![:space:]]*) ;; *) refuse 'no gate list from gates-for';; esac
+missing=no
+set -f
+for gate in $required; do
+    case $gate in ''|[!A-Za-z0-9]*|*[!A-Za-z0-9_.-]*) refuse "invalid required gate: $gate";; esac
+    if ! grep -qxF -- "$gate" "$scratch/gates"; then
+        printf 'cert-check: missing gate: %s\n' "$gate" >&2
+        missing=yes
+    fi
+done
+[ "$missing" = no ] || exit 2
+printf 'cert-check: coverage checked (%s; cert selector: %s)\n' "$selector" "$cert_selector"
 printf 'cert-check: PASS (%s gates; base == main; head == proposed; base ancestor of head)\n' "$count"

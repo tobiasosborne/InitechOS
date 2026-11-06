@@ -4,6 +4,12 @@ set -eu
 LC_ALL=C
 export LC_ALL
 refuse() { printf 'lane-cert: %s\n' "$1" >&2; exit 2; }
+required=${REQUIRED_GATES:-}
+case $# in
+    0) ;;
+    2) [ "$1" = --require ] || refuse 'usage: lane-cert.sh [--require <gates>]'; required=$2;;
+    *) refuse 'usage: lane-cert.sh [--require <gates>]';;
+esac
 root=$(git rev-parse --show-toplevel 2>/dev/null) || refuse 'not a git worktree'
 cd "$root"
 branch=$(git symbolic-ref --quiet --short HEAD) || refuse 'detached HEAD'
@@ -19,6 +25,10 @@ base=$(git rev-parse --verify origin/main^{commit} 2>/dev/null) || refuse 'origi
 head=$(git rev-parse --verify HEAD)
 merge_base=$(git merge-base "$base" "$head") || refuse 'rebase required: unrelated history'
 [ "$merge_base" = "$base" ] || refuse 'rebase required: origin/main advanced'
+mkdir -p build/cert
+scratch=$(mktemp -d build/cert/.lane-cert-XXXXXX)
+trap 'rm -rf "$scratch"' 0
+trap 'exit 2' HUP INT TERM
 make_cmd=${MAKE:-make}
 # GNU make encodes inherited short options as a bare cluster (for example
 # "ik"), as well as accepting ordinary command-line option spellings.
@@ -37,16 +47,25 @@ check_make_flags() {
 check_make_flags MAKEFLAGS "${MAKEFLAGS:-}"
 check_make_flags GNUMAKEFLAGS "${GNUMAKEFLAGS:-}"
 clean_make() { env -u MAKEFLAGS -u GNUMAKEFLAGS "$make_cmd" "$@"; }
-if clean_make -n gates-for >/dev/null 2>&1; then
-    gates=$(clean_make -s --no-print-directory gates-for "DIFF=origin/main..HEAD") || refuse 'gate selection failed'
+require_coverage() {
+    case $required in *[![:space:]]*) ;; *) refuse 'coverage unchecked: gates-for absent; supply REQUIRED_GATES or --require';; esac
+}
+# A missing prerequisite or a makefile error is not an absent selector.
+if clean_make -n --no-print-directory gates-for 'DIFF=origin/main..HEAD' > "$scratch/selector.out" 2> "$scratch/selector.err"; then
+    selector=gates-for
+    gates=$(clean_make -s --no-print-directory gates-for 'DIFF=origin/main..HEAD' 2> "$scratch/selector.err") || {
+        cat "$scratch/selector.err" >&2; refuse 'gate selection failed: gates-for';
+    }
 else
+    probe_rc=$?
+    if [ "$probe_rc" -ne 2 ] || ! grep -qF "No rule to make target 'gates-for'." "$scratch/selector.err"; then
+        cat "$scratch/selector.err" >&2; refuse 'gate selection failed: gates-for probe'
+    fi
+    selector=absent
     gates=${GATES:-}
+    require_coverage
 fi
 [ -n "$gates" ] || refuse 'no gate list'
-mkdir -p build/cert
-scratch=$(mktemp -d build/cert/.lane-cert-XXXXXX)
-trap 'rm -rf "$scratch"' 0
-trap 'exit 2' HUP INT TERM
 : > "$scratch/gates"
 count=0
 # No glob expansion or make options from a malformed selector/environment.
@@ -58,8 +77,14 @@ for gate in $gates; do
     count=$((count + 1))
 done
 [ "$count" -gt 0 ] || refuse 'no gate list'
-printf 'base_sha: %s\nhead_sha: %s\nbranch: %s\ngate_count: %s\n' \
-    "$base" "$head" "$branch" "$count" > "$scratch/cert"
+if [ "$selector" = absent ]; then
+    for gate in $required; do
+        case $gate in ''|[!A-Za-z0-9]*|*[!A-Za-z0-9_.-]*) refuse "invalid required gate: $gate";; esac
+        grep -qxF -- "$gate" "$scratch/gates" || refuse "missing gate: $gate (REQUIRED_GATES)"
+    done
+fi
+printf 'base_sha: %s\nhead_sha: %s\nbranch: %s\nselector: %s\ngate_count: %s\n' \
+    "$base" "$head" "$branch" "$selector" "$count" > "$scratch/cert"
 while IFS= read -r gate; do
     gate_rc=0
     clean_make "$gate" > "$scratch/gate.log" 2>&1 || gate_rc=$?

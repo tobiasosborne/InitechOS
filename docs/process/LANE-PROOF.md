@@ -7,28 +7,54 @@ the tests and implementation, never host metadata or generated proof files.
 Run `tools/lane-cert.sh` in a clean, committed lane descended from the
 current `origin/main`. Fetch before certification when the remote may have
 advanced. The script checks the local tracking ref and does not fetch.
-It selects gates with `make -s gates-for DIFF=origin/main..HEAD` when
-`make -n gates-for` succeeds, otherwise with space-separated `GATES`.
-`MAKE` may name the make executable. An empty selection refuses. Gates run
-serially with the inherited build environment. Each must exit zero and its
-final `>>> <gate>: ...` line must say `green`. Missing summaries refuse.
+It selects gates with `make -s gates-for DIFF=origin/main..HEAD` when the
+selector exists. A failed `make -n gates-for` probe means absent ONLY for
+exit 2 with make's exact missing-target diagnostic for `gates-for`. Broken
+prerequisites, makefile errors and failed selector recipes refuse and print
+the selector's stderr. Only a genuinely absent selector permits the
+space-separated `GATES` fallback. That fallback also requires nonempty
+`REQUIRED_GATES` from the PM (or `--require '<gates>'`); `GATES` must cover
+every required gate. Missing coverage refuses with `coverage unchecked`.
+An empty selection always refuses.
+
+`MAKE` may name the make executable. Error-ignoring, dry-run, question,
+touch, old-file and what-if modes in `MAKEFLAGS` or `GNUMAKEFLAGS` refuse
+before gate selection, including short-option clusters. Every selector
+probe, selector run and gate invocation clears both flag variables. Gates
+run serially with the remaining build environment. Each must exit zero and
+its final `>>> <gate>: ...` line must say `green`. A nonzero exit refuses
+even if the recipe printed a green summary. Missing summaries refuse.
 
 The ASCII certificate is `build/cert/<branch-slug>.cert`; the slug replaces
 each character outside letters, digits, dot, underscore and hyphen with a
 hyphen. Failed attempts revoke an older cert at that path. It records
-`base_sha`, `head_sha`, `branch`, `gate_count`, `toolchain`, `host`, `utc`
+`base_sha`, `head_sha`, `branch`, `selector`, `gate_count`, `toolchain`, `host`, `utc`
 as `key: value` lines, plus `gate <name> <final summary>` per unique gate.
 Tool versions, machine architecture and UTC are diagnostic metadata only.
-No environment dump, home path or non-ASCII data is accepted in a cert.
+`selector` is exactly `absent` or `gates-for`. No environment dump, home
+path or non-ASCII data is accepted in a cert.
 Slug collisions overwrite the earlier cert, so retain the branch/head
 fields when copying certificates into a review pack.
 
-In the PM checkout, run `tools/cert-check.sh <cert>`. It compares the base
-with local `refs/heads/main`, then requires coverage of
+In the PM checkout, run `tools/cert-check.sh <cert> <lane-ref-or-sha>`.
+The second argument is required: it resolves to a commit and must equal
+`head_sha` exactly. `base_sha` must equal local `refs/heads/main` and be an
+ancestor of that head. The checker then requires coverage of
 `make -s gates-for DIFF=<base_sha>..<head_sha>` when the selector exists.
-A missing selector is reported explicitly; only base and internal gate
-records can then be checked. It reports each missing gate. This checks a
-lane's recorded evidence, not a signature or a substitute for replay.
+The same strict absent-versus-broken distinction applies here. With an
+absent selector, the PM must supply nonempty `REQUIRED_GATES` or append
+`--require '<gates>'`; otherwise the checker exits 2, `coverage unchecked`.
+The certificate must contain every required gate. It reports each missing
+gate, and records the coverage source and certificate selector before PASS.
+For example, when neither checkout has a selector:
+
+```sh
+GATES='test-one test-two' REQUIRED_GATES='test-one test-two' tools/lane-cert.sh
+tools/cert-check.sh build/cert/lane-proof.cert lane/proof --require 'test-one test-two'
+```
+
+This checks a lane's recorded evidence, not a signature or a substitute for
+replay. A lane advancing after certification invalidates the certificate.
 
 Create `build/proof/manifest` as ASCII with one record per line:
 
@@ -70,7 +96,7 @@ BRANCH/COMMITS: branch; base, test-first and implementation SHAs
 RED FIRST: base/test-first SHA, command, nonzero exit, specific final line
 GREEN: head SHA, each gate command and its final summary
 MUTANTS: each actual mutation, command and specific RED observation
-CERT: path and contents; base == main; gate coverage result
+CERT: path and contents; cert-check command with lane ref/SHA and coverage source; output
 NOT PROVEN: omissions, external dependencies and remaining limitations
 ```
 

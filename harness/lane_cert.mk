@@ -58,7 +58,7 @@ test-lane-cert:
 	    done; \
 	done; \
 	printf '>>> test-lane-cert: MAKEFLAGS false-green refused (both variables; unsafe modes)\n'; \
-	rc=0; MAKEFLAGS=-k GATES='test-one test-two' MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/cert.log" 2>&1 || rc=$$?; \
+	rc=0; REQUIRED_GATES='test-one test-two' MAKEFLAGS=-k GATES='test-one test-two' MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/cert.log" 2>&1 || rc=$$?; \
 	refused 'red gate: test-one' || fail 'MAKEFLAGS=-k false-green accepted'; \
 	git reset -q --hard "$$mutant"; \
 	for state in false-green red-zero quiet; do \
@@ -66,7 +66,7 @@ test-lane-cert:
 	    refused 'red gate: test-one' || fail "$$state accepted"; \
 	done; \
 	git reset -q --hard "$$head"; \
-	rc=0; env -u GATES MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/cert.log" 2>&1 || rc=$$?; \
+	rc=0; env -u GATES REQUIRED_GATES='test-one test-two' MAKE="$(MAKE)" sh "$$cert_tool" > "$$out/cert.log" 2>&1 || rc=$$?; \
 	refused 'no gate list' || fail 'missing gate list refusal'; \
 	run_cert; [ "$$rc" -eq 0 ] && [ -f "$$cert" ] || { cat "$$out/cert.log"; fail 'green certification'; }; \
 	for field in "base_sha: $$base" "head_sha: $$head" 'branch: lane/proof' 'gate_count: 2' \
@@ -119,6 +119,7 @@ test-lane-cert:
 	git commit -q --allow-empty -m 'stale certificate base'; \
 	if run_check "$$out/good.cert" lane/proof > "$$out/check.log" 2>&1; then fail 'stale base accepted'; fi; \
 	grep -F 'stale base_sha' "$$out/check.log" >/dev/null || fail 'stale base reason'; \
+	printf '>>> test-lane-cert: stale base_sha refused (current main advanced)\n'; \
 	git reset -q --hard "$$base"; \
 	printf '%s\n' '.PHONY: gates-for' 'gates-for:' \
 	    ' @echo "test-one test-two"' | sed 's/^ /\t/' > gate-map.mk; \
@@ -129,6 +130,7 @@ test-lane-cert:
 	run_cert; [ "$$rc" -eq 0 ] || { cat "$$out/cert.log"; fail 'gates-for certification'; }; \
 	mapped=build/cert/lane-mapped.cert; \
 	grep -qxF "base_sha: $$mapbase" "$$mapped" || fail 'mapped base'; \
+	grep -qxF 'selector: gates-for' "$$mapped" || fail 'mapped selector provenance'; \
 	git switch -q main; run_check "$$mapped" lane/mapped > "$$out/check.log" 2>&1 || fail 'mapped superset'; \
 	sed '/^gate test-two /d; s/^gate_count: 2$$/gate_count: 1/' "$$mapped" > "$$out/missing.cert"; \
 	if run_check "$$out/missing.cert" lane/mapped > "$$out/check.log" 2>&1; then fail 'missing gate accepted'; fi; \
@@ -165,14 +167,16 @@ test-lane-cert-mutant:
 	+@set -eu; out="$(abspath $(BUILD))/lane-cert/mutants"; mkdir -p "$$out"; \
 	sed 's/^if \[ -n "$$dirty" \]; then$$/if false; then # mutant: skip dirty check/' tools/lane-cert.sh > "$$out/dirty.sh"; \
 	sed 's/^    if \[ "$$gate_ok" != yes \]; then$$/    if false; then # mutant: certify red gate/' tools/lane-cert.sh > "$$out/red.sh"; \
-	! cmp -s tools/lane-cert.sh "$$out/dirty.sh" && ! cmp -s tools/lane-cert.sh "$$out/red.sh"; \
-	for mutant in dirty red; do \
+	sed 's/^check_make_flags .*$$/: # mutant: ignore MAKEFLAGS check/' tools/lane-cert.sh > "$$out/flags.sh"; \
+	sed 's/^    require_coverage$$/    required=$$gates # mutant: coverage fails open/' tools/lane-cert.sh > "$$out/coverage.sh"; \
+	for mutant in dirty red flags coverage; do \
+	    ! cmp -s tools/lane-cert.sh "$$out/$$mutant.sh"; \
 	    rc=0; $(MAKE) --no-print-directory test-lane-cert \
 	        "LANE_CERT_SCRIPT=$$out/$$mutant.sh" "BUILD=$$out/$$mutant-build" > "$$out/$$mutant.log" 2>&1 || rc=$$?; \
-	    case $$mutant in dirty) reason='dirty tree refusal';; red) reason='red gate refusal (no cert)';; esac; \
+	    case $$mutant in dirty) reason='dirty tree refusal';; red) reason='red gate refusal (no cert)';; flags) reason='inherited MAKEFLAGS=-i false-green accepted';; coverage) reason='coverage absent lane without REQUIRED_GATES accepted';; esac; \
 	    [ "$$rc" -ne 0 ] && grep -qF "!!! test-lane-cert FAIL: $$reason" "$$out/$$mutant.log" || { cat "$$out/$$mutant.log"; exit 1; }; \
 	    printf '>>> test-lane-cert-mutant: %s RED (%s)\n' "$$mutant" "$$reason"; \
 	done; \
-	printf '>>> test-lane-cert-mutant: green (skip-dirty and certify-red killed by fixture)\n'
+	printf '>>> test-lane-cert-mutant: green (skip-dirty, certify-red, ignore MAKEFLAGS check, coverage fails open killed)\n'
 
 TEST_UNIT_GATES += test-lane-cert test-lane-cert-mutant

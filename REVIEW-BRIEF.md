@@ -38,9 +38,15 @@ Before a MERGE verdict, check the lane's proof pack (format in
 docs/process/LANE-PROOF.md): the certificate must be present, name the
 proposed lane head, and have base_sha equal to current main; the PM or
 verifier must have replayed build/proof/manifest successfully. Require
-the recorded cert-check and replay results; missing or stale evidence
-blocks MERGE. The reviewer can inspect those results read-only under the
-build restriction above.
+the recorded `tools/cert-check.sh <cert> <lane-ref-or-sha>` command and
+its PASS output, plus the replay results. The required lane argument must
+name the proposed merge head exactly; the base must equal current main
+and be its ancestor. Broken selectors refuse. If `gates-for` is genuinely
+absent, require the PM's explicit `REQUIRED_GATES` (or `--require '<gates>'`)
+and proof that the certificate covers it; `GATES` alone is insufficient.
+The certificate records `selector: absent` or `selector: gates-for`.
+Missing, unchecked or stale evidence blocks MERGE. The reviewer can inspect
+those results read-only under the build restriction above.
 
 Output, ASCII, at most 60 lines, in this exact shape:
 VERDICT: MERGE | FIX-THEN-MERGE | REJECT
