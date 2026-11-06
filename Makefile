@@ -34385,6 +34385,7 @@ $(TEST_SAMIR_LIST_LAYOUT_EMU): $(DBF_DIFF_DIR)/test_samir_list_layout_emu.c | $(
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
 SAMIR_LIST_LAYOUT_EMU_DEPS := $(TEST_SAMIR_LIST_LAYOUT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 SAMIR_LIST_LAYOUT_MUT_EXES := $(addprefix $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_,COLUMNS.EXE HEADING.EXE OPENING.EXE)
+SAMIR_LIST_LAYOUT_MUT_EXES += $(BUILD)/SAMIR_SCREEN_SAMIR_STREAM_MUTATE_DROP_CRLF.EXE
 .PHONY: test-samir-list-layout-emu test-samir-list-layout-emu-mutant
 test-samir-list-layout-emu: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_EXE) $(SAMIR_OVL) samir-use-goldens
 	@$(TEST_SAMIR_LIST_LAYOUT_EMU) files $(SAMIR_EXE) $(abspath $(DBASE3_DECOMP))
@@ -34401,7 +34402,12 @@ test-samir-list-layout-emu-mutant: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_LIST_LA
 	  printf '>>> test-samir-list-layout-emu-mutant: %s correctly RED: ' "$$kind"; \
 	  grep -m1 'LIST M005U table 0 stdout file differs' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
 	done
-	@printf '>>> test-samir-list-layout-emu-mutant: green (three clean guest returns; wrong bytes rejected)\n'
+	@set +e; $(TEST_SAMIR_LIST_LAYOUT_EMU) screen $(BUILD)/SAMIR_SCREEN_SAMIR_STREAM_MUTATE_DROP_CRLF.EXE $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-list-layout-emu-mut-STREAM.log 2>&1; rc=$$?; set -e; \
+	  test $$rc -eq 1 && grep -q 'screen): .*checks, 1 failures' $(BUILD)/samir-list-layout-emu-mut-STREAM.log && \
+	  grep -q 'FAIL .*M005U table 0 screen serial byte-identical' $(BUILD)/samir-list-layout-emu-mut-STREAM.log && \
+	  ! grep -q 'CELL RED' $(BUILD)/samir-list-layout-emu-mut-STREAM.log || { cat $(BUILD)/samir-list-layout-emu-mut-STREAM.log; exit 1; }; \
+	  printf '>>> SAMIR_STREAM_MUTATE_DROP_CRLF RED: '; grep -m1 'LIST M005U table 0 screen serial differs' $(BUILD)/samir-list-layout-emu-mut-STREAM.log
+	@printf '>>> test-samir-list-layout-emu-mutant: green (three clean guest returns; wrong bytes and dropped screen CR/LF rejected)\n'
 TEST_EMU_GATES += test-samir-list-layout-emu test-samir-list-layout-emu-mutant
 
 # initech-kdna: Using III+ U7-21 (PDF 509), Programming III+ N5-30 (PDF 418).

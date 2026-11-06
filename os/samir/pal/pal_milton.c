@@ -639,7 +639,7 @@ static void milton_rawout(samir_pal_t *p, const char *s, uint32_t n)
 
 /* PAL terminal binding via installed ANSI.SYS, no kernel address coupling.
  * ADR-0008 DEC-02 terminal extension; row reservation is SAMIR policy.
- * The model owns scrolling only while STATUS is ON. ANSI never enters files. */
+ * The model owns scrolling on CON. ANSI never enters files. */
 static int milton_is_console(uint32_t handle)
 {
     uint32_t dx=0;int cf=0;
@@ -712,7 +712,26 @@ static void milton_conout(samir_pal_t *p,const char *text,uint32_t n)
 {
     samir_screen *screen=&state_of(p)->screen;
     if(milton_is_console(1)) {
-        samir_screen_write(screen,text,n);
+        uint32_t i=0;
+        while(i<n) {
+            uint32_t start=i;
+            while(i<n && text[i]!='\r' && text[i]!='\n' && text[i]!='\b') i++;
+            samir_screen_write(screen,text+start,i-start);
+            if(i<n) {
+                /* M005ULOG.TXT and real list-layout-real/prompt: line CR/LF
+                 * belong to the stream even when the model owns scrolling.
+                 * Keep their order among drawn runs. Restore the page after
+                 * CON forwards the byte, then let the model apply its motion
+                 * once (including its reserved rows and bottom-row scroll). */
+#ifndef SAMIR_STREAM_MUTATE_DROP_CRLF
+                uint8_t page[4002];
+                milton_page(page,0);
+                milton_rawout(p,text+i,1);
+                milton_page(page,1);
+#endif
+                samir_screen_write(screen,text+i++,1);
+            }
+        }
         milton_cursor(p,screen->row,screen->col);
     } else milton_rawout(p,text,n);
 }
