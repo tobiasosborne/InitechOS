@@ -29290,9 +29290,8 @@ $(SAMIR_LIST_MUT_IMG): $(SAMIR_EXE_MUT) $(CLIENTS_DBF) | $(BUILD)
 #      record values (PESTON/HONOLULU/1234.50, WADDAMS/AUSTIN, LUMBERGH/DALLAS/
 #      7777.77) -- appear in the serial capture, scoped to AFTER `A:\>samir`.
 #   4. SCREENDUMP (Law 4): a SEPARATE keys+grab run renders the dot prompt + the
-#      LIST table on the LFB; ppm_text_check asserts the LIST-rows band [160,176)
-#      inks >= 300 fg pixels (it inks 745 with the rows, 0 without -- a clean
-#      discriminator; the band is empty if SAMIR did not USE+LIST).
+#      LIST table on the LFB; ppm_text_check grades 320 ink/blank cells from
+#      real III+ boot-list-real/list, heading row 19 and record rows 20..22.
 # It BITES (test-samir-boot-mutant): the short-read pal_milton mutant makes USE
 # report #15 and LIST emit no rows -> the serial row tokens VANISH + the screendump
 # band goes empty -> RED, with NO triple-fault (wrong data, not a crash; Rule 6).
@@ -29314,8 +29313,10 @@ SAMIRBOOT_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,re
 # screen when the grab fires): samir / use clients.dbf / list
 SAMIRBOOT_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,ret
 
-.PHONY: test-samir-boot test-samir-boot-mutant
-test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
+$(BUILD)/samir_boot_stream: $(DBF_DIFF_DIR)/samir_boot_stream.c | $(BUILD)
+	$(CC) $(CFLAGS) -O2 -o $@ $<
+.PHONY: test-samir-boot test-samir-boot-mutant test-samir-boot-stream-mutant
+test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN) $(BUILD)/samir_boot_stream samir-use-goldens
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-samir-boot : SAMIR runs INSIDE InitechOS (S8.2)\n'
 	@printf '  Ref: bead initech-hdlb; ADR-0009 DEC-08. boot -> EXEC SAMIR.EXE -> USE -> LIST.\n'
@@ -29359,6 +29360,7 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 		       cat "$(BUILD)/$(SAMIRBOOT_NAME).samir"; exit 1; }; \
 	done
 	@printf '>>> test-samir-boot [4/5]: LIST rendered all 3 records on serial (PESTON / WADDAMS / LUMBERGH)\n'
+	@$(BUILD)/samir_boot_stream $(DBASE3_DECOMP)/mint/work/M005ULOG.TXT "$(SAMIRBOOT_SERIAL)"
 	@# initech-31d1 re-key: M005U/M005N's 7+2 prefix and unpadded final
 	@# heading, projected onto the existing CLIENTS value fixture.
 	@grep -Fxq 'Record#  NAME       CITY              BAL' "$(BUILD)/$(SAMIRBOOT_NAME).samir"
@@ -29368,10 +29370,8 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 	@# ---- 5. SCREENDUMP (Run 2; Law 4): a SEPARATE keys+grab run leaves SAMIR's
 	@# dot prompt + LIST table on the LFB. screendump-after SHELL-READY syncs the
 	@# grab AFTER the harness injects the keys (qemu.c qmp_session: keys then dump),
-	@# so the LIST rows are on screen. ppm_text_check asserts the LIST-rows band
-	@# y in [160,176) inks >= 300 fg pixels: it inks 745 with the three rows and 0
-	@# without (a clean discriminator -- the band is pure seafoam if SAMIR did not
-	@# USE+LIST). Deterministic across runs (verified). ----
+	@# so the LIST rows are on screen. ppm_text_check grades the exact real
+	@# table cells below, including blanks where a missing/wrong row must fail.
 	@$(call fixture-preflight,$(SAMIR_LIST_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
 		--name "$(SAMIRBOOT_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
@@ -29384,11 +29384,12 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 	@if [ ! -s "$(SAMIRBOOT_PPM)" ]; then \
 		printf '!!! test-samir-boot FAIL: no screendump captured at %s (live guest required)\n' "$(SAMIRBOOT_PPM)"; exit 1; \
 	fi
-	@# PM RE-KEY 2026-10-17 (initech-31d1 merged): the real dBASE III PLUS LIST layout prints no
-	@# blank line before the table at the dot prompt (mint 005), so the three rows now ink
-	@# y in [112,160); the band [128,144) holds row 3 (LUMBERGH), pure seafoam without LIST.
-	@$(PPM_TEXT_CHECK_BIN) "$(SAMIRBOOT_PPM)" 128 144 300 \
-		|| { printf '!!! test-samir-boot FAIL: the LIST rows did not render on the framebuffer (band [128,144) < 300 fg)\n'; exit 1; }
+	@# Real III+ boot-list-real/list (initech-0spyf/fzsvo): heading row 19,
+	@# records 20..22. Project exact ink AND blank cells from the real capture.
+	@cmp $(CLIENTS_DBF) $(SCREEN_MINT_DIR)/boot-list-real/SETUP/CLIENTS.DBF
+	@sed -n '22,25p' $(SCREEN_MINT_DIR)/boot-list-real/list.screen | \
+		awk '{printf "%d 0 %s\n", NR+18, $$0}' > $(BUILD)/samir-boot.cells
+	@$(PPM_TEXT_CHECK_BIN) --cells "$(SAMIRBOOT_PPM)" $(BUILD)/samir-boot.cells
 	@printf '>>> test-samir-boot [5/5]: screendump shows SAMIR'"'"'s dot prompt + LIST table on the seafoam desktop\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- InitechBase (SAMIR) booted inside InitechOS, opened a .dbf and LISTed it\n'
@@ -29417,6 +29418,23 @@ test-samir-boot-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_MUT_
 		exit 1; \
 	fi
 	@printf '>>> test-samir-boot-mutant: green (short-read mutant correctly RED -- LIST rows garbled/absent, no crash)\n'
+
+# Restore the broken dot-command assumption while retaining program CR/LF.
+# A completed guest must be rejected at the raw opening bytes, without a crash.
+test-samir-boot-stream-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(BUILD)/samir_boot_stream $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_DOT_OPENING.EXE samir-use-goldens
+	@cp -f $(SAMIR_LIST_IMG) $(BUILD)/samir_boot_stream_mut.img
+	@mcopy -o -i $(BUILD)/samir_boot_stream_mut.img $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_DOT_OPENING.EXE ::SAMIR.EXE
+	@mcopy -o -i $(BUILD)/samir_boot_stream_mut.img $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_DOT_OPENING.OVL ::SAMIR.OVL
+	@$(HARNESS_BIN) --disk $(SECONDARY_TRACER_IMG) --disk2 $(BUILD)/samir_boot_stream_mut.img \
+		--name samir_boot_stream_mut --out $(BUILD) --timeout-ms 60000 \
+		--keys "$(SAMIRBOOT_KEYS)" --keys-after SHELL-READY $(SHELL_OS_COMPLETION) \
+		> $(BUILD)/samir_boot_stream_mut.out 2> $(BUILD)/samir_boot_stream_mut.report
+	@sh harness/emu/require_trace.sh $(BUILD)/samir_boot_stream_mut.report $(BUILD)/samir_boot_stream_mut.serial "$$(printf '%s\n' '$(SAMIRBOOT_KEYS)' | awk -F, '{print NF}')"
+	@rc=0; $(BUILD)/samir_boot_stream $(DBASE3_DECOMP)/mint/work/M005ULOG.TXT $(BUILD)/samir_boot_stream_mut.serial > $(BUILD)/samir_boot_stream_mut.log || rc=$$?; \
+		test $$rc -eq 1 && grep -q '^RED boot LIST opening after Enter: differs at byte 0' $(BUILD)/samir_boot_stream_mut.log || { cat $(BUILD)/samir_boot_stream_mut.log; exit 1; }
+	@cat $(BUILD)/samir_boot_stream_mut.log
+	@printf '>>> test-samir-boot-stream-mutant: green (dot LIST opening CR/LF removed, raw serial RED; clean guest return)\n'
+TEST_EMU_GATES += test-samir-boot-stream-mutant
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-samir-write (bead initech-g6wx) -- S8.2 deepening (WRITE)

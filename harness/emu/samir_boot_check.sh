@@ -3,6 +3,7 @@
 # LIST layout asserted by test-samir-boot (initech-31d1, mint-results-005).+# Scope past EXEC so a boot directory listing cannot supply a record token.
 set -eu
 name=$1; serial=$2
+build/samir_boot_stream "${DBASE3_DECOMP:-../dbase3-decomp}/mint/work/M005ULOG.TXT" "$serial"
 fail() { printf 'RED %s serial: %s\n' "$name" "$*"; exit 1; }
 body=$(tr -d '\r' < "$serial" | sed -n '/^A:\\>samir$/,$p')
 has() { printf '%s\n' "$body" | grep -qxF "$1"; }

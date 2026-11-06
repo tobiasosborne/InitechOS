@@ -1,0 +1,9 @@
+PRD 6.6; initech-0spyf/fzsvo. Real dBASE III PLUS 1.1, DOSBox-X.
+Capture: lane-stop-status/reference-list/list, screen_mint.sh.
+Exact SETUP/KEYS/DUMPS, input hashes and oracle tool hashes preserved.
+list.screen SHA256 ab9a3fa4528ed6edfea73473a9e59b786bbe4a62a3597bb0bd56ccde4a63c1f3
+CLIENTS.DBF is identical to the boot fixture. Heading row 19; records
+20,21,22; prompt row 24. The boot pixel gate projects these four rows.
+No full-page parity is claimed for SAMIR's different startup banner.
+The serial opening is independently pinned by real M005ULOG.TXT:
+0D 0A 52 65 63 6F 72 64 23, including the opening CR LF before Record#.

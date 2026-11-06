@@ -68,3 +68,9 @@ test-samir-cursor25-mutant: $(PROMPT_SCREEN_DEPS) $(BUILD)/SAMIR_SCREEN_SAMIR_CU
 	 cat $$log
 	@printf '>>> test-samir-cursor25-mutant: green (row 25 clamped to 24 RED)\n'
 TEST_EMU_GATES += test-samir-dotprompt test-samir-dotprompt-mutant test-samir-cursor25 test-samir-cursor25-mutant test-samir-forms-emu test-samir-forms-emu-mutant
+
+# Real III+ STATUS layout is tracked separately (initech-ebwsw, not gated).
+# Keep this out of TEST_EMU_GATES until both dumps and a mutant pass.
+.PHONY: test-samir-status-screen-pending
+test-samir-status-screen-pending: $(PROMPT_SCREEN_DEPS) $(SAMIR_EXE) $(SAMIR_OVL)
+	@sh $(DBF_DIFF_DIR)/screen_status_pending.sh

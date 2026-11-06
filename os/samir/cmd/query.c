@@ -819,10 +819,16 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
 
     if(!wa_is_open(env,area)) { if(ec) *ec=3; return -INTERP_ERR_EVAL; }
 
-    /* M005U/M005N programs open LIST/DISPLAY with literal CR LF, including
-     * redirected output. A dot command already has the typed Enter's break. */
+    /* Real III+ M005ULOG.TXT starts each table with 0D 0A 52 65 63 6F
+     * 72 64 23. Dot Enter only returns the cursor (at-enter/entered);
+     * LIST supplies its own CR LF too (boot-list-real/list, rows 19..22).
+     * Ref: initech-0spyf/fzsvo; preserve both stream and screen semantics. */
 #ifndef SAMIR_LIST_MUTATE_OPENING
+#ifdef SAMIR_LIST_MUTATE_DOT_OPENING
     if(!xb_interp_ctx(ip)->dot_command) q_putn(ip,"\r\n",2);
+#else
+    q_putn(ip,"\r\n",2);
+#endif
 #endif
 
     /* QS_RECORD with scope_n==0 means "current record" (the DISPLAY default). */

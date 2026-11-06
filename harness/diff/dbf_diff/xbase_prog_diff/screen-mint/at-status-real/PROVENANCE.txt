@@ -1,0 +1,12 @@
+PRD 6.6: real dBASE III PLUS 1.1 under DOSBox-X, screen_mint.sh.
+Preserved capture: lane-stop-status/reference-status; no SAMIR-derived bytes.
+SETUP, KEYS and DUMPS are the exact mint inputs (INPUTS.sha256).
+ORACLE.sha256 pins the interpreter, overlays, TSR, event stream and tools.
+SHA256SUMS pins the two decoded BIOS text pages and cursor positions.
+status: USE CLIENTS; SET STATUS ON; GO 2; DISPLAY, at the next prompt.
+off: SET STATUS OFF, at the next prompt in that same session.
+status.screen 61315833419bc429433bd02df383e56b6929b1421b17eaac3522957ac9b018f5
+off.screen 3f4b091efca71aba10cfb35633a81983316f0c2fd1e3b3e70eb3fced69b05638
+Known differences: heading/record/prompt rows, guidance row 24, separator
+0xBA, and STATUS OFF page clear. Tracked by initech-ebwsw, not gated.
+The pending gate compares all cells, attributes and cursor without masking.
