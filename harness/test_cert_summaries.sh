@@ -58,3 +58,16 @@ rc=0
 REQUIRED_GATES='test-one test-assets' sh "$check_tool" "$out/forged.cert" HEAD > "$out/check.log" 2>&1 || rc=$?
 [ "$rc" = 2 ] && grep -qF 'non-green gate: test-one' "$out/check.log" || red 'checker accepted unrelated SKIP'
 echo '>>> test-lane-cert-summaries: green (named GREEN/count; assets-only SKIP; nonzero, wrong target, quiet, zero checks, final RED refused)'
+# Local integration lanes can be ahead of the published origin/main. The
+# certificate must name the base cert-check compares with local main.
+git switch -q main
+git commit -q --allow-empty -m 'local integration base'
+local_base=$(git rev-parse HEAD)
+git switch -qC lane/summaries main
+git commit -q --allow-empty -m 'local integration lane'
+rc=0
+LANE_CERT_BASE=main GATES='test-one test-assets' REQUIRED_GATES='test-one test-assets' \
+    sh "$cert_tool" > "$out/cert.log" 2>&1 || rc=$?
+[ "$rc" = 0 ] && grep -qxF "base_sha: $local_base" "$cert" || red 'explicit local main base ignored'
+REQUIRED_GATES='test-one test-assets' sh "$check_tool" "$cert" HEAD > "$out/check.log" 2>&1 || { cat "$out/check.log"; red 'checker refused local integration base'; }
+echo '>>> test-lane-cert-summaries: green (named verdicts, assets-only SKIP, explicit local base)'
