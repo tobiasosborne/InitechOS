@@ -2,10 +2,10 @@ Thelp use
 kret
 w500
 Dhelp1
-kpgdn
+kctrl-c
 w250
 Dnext
-kpgup
+kctrl-r
 w250
 Dprevious
 kesc
@@ -14,7 +14,7 @@ Thelp
 kret
 w500
 Dhelp2
-kdown
+kctrl-x
 kret
 w250
 Dselected

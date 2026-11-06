@@ -166,7 +166,8 @@ static void help_draw(kit *k, int topic, int selected, const char *unknown,
     kit_put_attr(k, 0, 2, KIT_ATTR_REVERSE, "InitechBase III PLUS - Help", -1);
     kit_box(k, 2, 2, 21, 77, 0);
     kit_put_attr(k, 2, 5, KIT_ATTR_BRIGHT,
-                 topic >= 0 ? help_topics[topic].name : "MAIN MENU", -1);
+                 topic >= 0 ? help_topics[topic].name :
+                 topic == -1 ? "MAIN MENU" : "HELP TOPIC", -1);
     if (topic == -1) {
         for (i = 0; i < HELP_COUNT; i++) {
             uint8_t attr = i == selected ? KIT_ATTR_REVERSE : KIT_ATTR_NORMAL;

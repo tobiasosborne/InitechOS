@@ -1,0 +1,19 @@
+#!/bin/sh
+# Real engine + kit keyboard integration; complements the QEMU acceptance leg.
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../../../../../.." && pwd)
+cd "$root"
+cc -O1 -std=c11 -Wall -Wextra -Werror -DSAMIR_W4 \
+    -DUI_HAVE_assist -DUI_HAVE_help -DUI_HAVE_browse -DUI_HAVE_edit \
+    -DUI_HAVE_create -DUI_HAVE_modcmd -DUI_HAVE_frmdesign -DUI_HAVE_lbldesign \
+    -Ios/samir/include -Ios/samir/ui -Ispec -o build/assist_host_check \
+    harness/diff/dbf_diff/xbase_prog_diff/oneshot/assist/host_check.c \
+    os/samir/samir_main.c os/samir/core/*.c os/samir/fs/*.c \
+    os/samir/cmd/*.c os/samir/pal/pal_host.c os/samir/ui/*.c
+mkdir -p build/assist_host/files
+cp -f build/CLIENTS.DBF build/assist_host/CLIENTS.DBF
+cd build/assist_host
+../assist_host_check .
+cp -f CLIENTS.DBF files/CLIENTS.DBF
+sh "$root/harness/diff/dbf_diff/xbase_prog_diff/oneshot/assist/CHECK"
+sh "$root/harness/diff/dbf_diff/xbase_prog_diff/oneshot/help/CHECK"

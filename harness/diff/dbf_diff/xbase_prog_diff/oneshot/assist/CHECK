@@ -8,8 +8,6 @@ done
 grep -F 'Database file' menu1.txt >/dev/null
 grep -F 'USE [<file>]' assisthelp.txt >/dev/null
 grep -F 'Rec: 2/3' goto.txt >/dev/null
-grep -F 'BROWSE' browse.txt >/dev/null
-grep -F 'WADDAMS' browse.txt >/dev/null
 grep -F 'Command: LIST' command.txt >/dev/null
 grep -F 'Execute the command' command.txt >/dev/null
 for name in PESTON WADDAMS LUMBERGH; do

@@ -303,6 +303,7 @@ static int assist_execute(kit *k, const assist_action *action, const char *comma
         kit_message(k, 20, error);
     }
     if (action->mode == A_OUTPUT || rc < 0) {
+        assist_action_line(k, command);
         assist_status(k);
         kit_message(k, 23, "Press any key to continue work in ASSIST.");
         kit_message(k, 24, "Esc returns to the dot prompt.");
