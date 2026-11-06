@@ -90,6 +90,14 @@ An empty diff selects the `always` family. Paths outside the audited scope
 select `always` too. Paths must be printable ASCII; FILES cannot encode a
 path containing spaces (DIFF and the C tool's newline input can).
 
+The `pending` family has no path triggers (the resolver rejects any). Its
+members remain inventory-audited and are opt-in by explicit target name;
+consumer auto-selection is inapplicable to them, as with aggregate dispatchers.
+`test-samir-status-screen-pending` belongs there for initech-ebwsw: invoking
+it by name still compares both real captures and exits loudly RED. Existing
+`test-samir-status-emu`, `-mutant` and `test-samir-status-off-emu` remain
+required SAMIR gates. Ref: initech-0spyf/fzsvo pre-merge review item 7.
+
 `test-for` resolves once, then runs the selected list in one `make -k -j16`,
 retaining the existing gate/mutant ordering. Successful completion targets
 count green gates; failed prerequisites count as red, even if no gate recipe

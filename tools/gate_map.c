@@ -152,6 +152,8 @@ static void load_map(const char *path)
             need(',');
         } while (1);
         if (seen != 3) die("family %s needs gates and paths", row.name);
+        if (!strcmp(row.name, "pending") && row.paths.n)
+            die("pending family cannot have automatic path triggers");
         row.end = pos;
         families = resize(families, (nf + 1) * sizeof *families);
         families[nf++] = row;
@@ -690,7 +692,9 @@ static void audit_consumers(const char *database, const Strings *inventory, cons
     for (size_t g = 0; g < inventory->n; g++) {
         if (owners[g] < 0) continue;
         /* Dispatchers deliberately have no automatic selection. Their
-         * concrete gates are audited individually, including all twins. */
+         * concrete gates are audited individually, including all twins.
+         * Pending gates are named opt-ins, forbidden path triggers above;
+         * they still have an inventory owner and remain runnable by name. */
         if (!strcmp(families[owners[g]].name, "aggregates") ||
             !strcmp(families[owners[g]].name, "pending")) continue;
         for (size_t p = 0; p < tracked.n; p++) if (coverage[g * tracked.n + p]) {

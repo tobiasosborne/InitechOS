@@ -83,6 +83,10 @@
         "tools/**"
       ]
     },
+    "pending": {
+      "gates": ["test-samir-status-screen-pending"],
+      "paths": []
+    },
     "aggregates": {
       "gates": [
         "test-emu",
@@ -393,6 +397,7 @@
         "test-absdisk-mutant",
         "test-ansi",
         "test-ansi-bridge",
+        "test-ansi-bridge-mutant",
         "test-ansi-emu",
         "test-ansi-emu-bochs",
         "test-ansi-emu-mutant",
@@ -2098,6 +2103,7 @@
         "test-samir-canon-y2k",
         "test-samir-canon-y2k-mutant",
         "test-samir-console-emu",
+        "test-samir-console-review-mutant",
         "test-samir-console-review-color",
         "test-samir-console-review-continuation",
         "test-samir-console-review-controls",
@@ -2537,7 +2543,6 @@
         "test-samir-status-emu-mutant",
         "test-samir-status-mutant",
         "test-samir-status-off-emu",
-        "test-samir-status-screen-pending",
         "test-samir-trace",
         "test-samir-undefined",
         "test-samir-undefined-emu",
