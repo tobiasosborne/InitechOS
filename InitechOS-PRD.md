@@ -100,7 +100,7 @@ A graphical Toolbox layered on a DOS-like base. This is historically coherent �
 | Concern | Decision |
 |---|---|
 | CPU | 486-class authentic target (ADR-0001 DEC-02, 2026-09-25); 386 desirable, non-blocking; boot real->32-bit protected flat |
-| Memory | Flat 32-bit; bump + free-list allocator; no demand paging |
+| Memory | 8 MB RAM minimum; flat 32-bit; separate FLAIR and single-owner high application regions; no demand paging (ADR-0009 DEC-03a.2/.6, RATIFIED 2026-11-06; initech-ayj36) |
 | Display | VBE 2.0 **linear framebuffer**, 640×480 / 800×600 / 832×624 (Mac-ish) ×8/×32 |
 | Text | 80×25 rendered by blitting the VGA 8×16 ROM font into the LFB (no mode switch) |
 | Input | PS/2 keyboard + mouse (IRQ1/IRQ12) |
@@ -157,6 +157,13 @@ Scope: `.dbf` reader/writer (field types C/N/D/L/M, the documented header), `.db
 Oracle: real dBASE III+/IV under DOSBox-X / 86Box — **whatever it takes to make dBASE actually work.** The bar is **interoperable round-trips** (a `.dbf`/`.mdx` we write is read back correctly by real dBASE, and vice versa) and **differential program output** (generate xBase programs, run both, diff). Round-trips are compared on the *meaningful* bytes — header fields like the last-update date and reserved/language-driver bytes are normalized before diffing, since exact reproduction of those is neither possible nor the point. The xBase type-coercion table (string/number/date/logical, `SET EXACT`) is small; capture it as a data table and fuzz the evaluator against the real interpreter.
 
 > **M6 scope reconciliation (operator decision 2026-06-17; governed by ADR-0008, supersedes the "dBASE IV" / `.mdx` wording above and at §11-M6).** M6 targets **dBASE III PLUS 1.1 ONLY**. The entire ground-truth base (the `../dbase3-decomp` corpus, the golden fixtures, and the live dosbox-x mint harness) is III+ 1.1, and no dBASE IV golden exists. Consequently `.mdx`, the `F` (float) type, the `==` operator, and the `0x8B` IV memo dialect are **deferred to a post-M6 dBASE IV epic** — never half-built or guessed (Law 1). M6 ships `.ndx` only. The M6 Definition of Done reads "differential vs real dBASE **III PLUS 1.1** green; interoperable III+ round-trips." See `docs/adr/ADR-0008-SAMIR-InitechBase-Architecture.md` and `docs/plans/SAMIR-implementation-plan.md`.
+
+> **Runtime reconciliation (ADR-0009 Amendment DEC-03a, RATIFIED 2026-11-06;
+> initech-ayj36 / initech-jarzu):** SAMIR.EXE uses the native extended memory
+> model in [0x600000,0x800000), with a low PSP, full-width allocation ABI and
+> guarded high stack. It remains a class-2 full-console tenant: the desktop
+> suspends and its preserved offscreen is presented on return. SAMIR.OVL,
+> III+ semantics, soft-float and the 6000-byte MEMVAR pool remain supported.
 
 ### 6.7 Turbo Initech — compiler + IDE (codename TPS)
 

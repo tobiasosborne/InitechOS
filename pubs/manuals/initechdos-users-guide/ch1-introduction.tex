@@ -1,11 +1,11 @@
+% ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36: global 8 MB floor.
 % Chapter 1 -- Introduction to InitechDOS.
 % Sources (Law 1): ADR-0003 DEC-01/02/06/07/09/11/12/13; os/milton/command.c
 % (internal-command table cmd_classify, run_external search .COM .EXE .BAT,
 % AUTOEXEC.BAT probe); os/milton/devices.c (CON AUX PRN CLOCK$ NUL);
 % spec/hardware.json (cpu "486+ (386 desirable)", video VBE 2.0 LFB,
-% storage ATA PIO) and spec/memory_map.h FLAIR_HEAP_MIN (4 MiB of extended
-% memory, the boot panics below it) -- these govern the requirements list
-% where README.md still says 80386 / 2 MB; spec/dos_banner.txt.
+% storage ATA PIO) and spec/memory_map.h INITECH_MIN_EXT_KB (7168 KiB of extended
+% memory; the global 8 MiB boot floor); spec/dos_banner.txt.
 % GATES: test-boot test-shell test-command test-devices test-sysinit test-autoexec test-hardware-spec
 \Gates{test-boot, test-shell, test-command, test-devices, test-sysinit, test-autoexec, test-hardware-spec}
 \chapter{Introduction to InitechDOS}
@@ -61,7 +61,7 @@ To use InitechDOS Version~3.30 you need:
 \begin{itemize}
 \item An Initech workstation or a compatible personal computer with an
   Intel 80486 microprocessor
-\item At least 5~MB of memory: the first megabyte and 4~MB of extended
+\item At least 8~MB of memory: the first megabyte and 7~MB of extended
   memory above it
 \item A VGA display adapter with the VESA BIOS Extensions, Version~2.0,
   and a VGA monitor

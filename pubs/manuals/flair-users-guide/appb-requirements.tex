@@ -1,8 +1,9 @@
+% ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36: global 8 MB floor.
 % Appendix B -- What FLAIR Needs.  Sources (Law 1): spec/hardware.json (cpu
 % "486+ (386 desirable, non-blocking)", fpu optional and needed by Initech
 % 123, VBE 2.0 linear frame buffer, ATA PIO); spec/memory_map.h
-% FLAIR_HEAP_MIN (4 MiB of extended memory; kmain.c stops with PC LOAD
-% LETTER below it); os/milton/kmain.c (FLAIR needs a 640 x 480 frame
+% INITECH_MIN_EXT_KB (7168 KiB of extended memory; IO.SYS and kmain.c
+% stop with PC LOAD LETTER / Insufficient memory below it); os/milton/kmain.c (FLAIR needs a 640 x 480 frame
 % buffer); ADR-0004 OD-2/OD-3 (640 x 480, 256 colours); os/flair/event.c
 % (PS/2 keyboard and mouse); the same wording as the InitechDOS User's
 % Guide, Chapter 1 "What You Need".
@@ -15,7 +16,7 @@ To use FLAIR you need:
 \item An Initech workstation or a compatible personal computer with an
   Intel 80486 microprocessor.  A math coprocessor is not needed for FLAIR;
   Initech 123 needs one.
-\item At least 5~MB of memory: the first megabyte and 4~MB of extended
+\item At least 8~MB of memory: the first megabyte and 7~MB of extended
   memory above it.
 \item A VGA display adapter with the VESA BIOS Extensions, Version~2.0, able
   to show 640 by 480 dots in 256 colours, and a VGA monitor.

@@ -112,6 +112,9 @@ typedef struct loader_plan {
      * The host oracle asserts these directly (Law 2). */
     uint32_t     arena_base;   /* flat linear base of the disjoint heap arena     */
     uint32_t     arena_ceil;   /* flat linear ceiling (exclusive); == ENV_BLOCK   */
+    /* DEC-03a.4/.5, initech-jarzu: explicit model and low-control ownership.
+     * Never infer MCB ownership from PSP != PROGRAM_BASE. */
+    uint32_t extended, low_mcb_owned, reserve_end;
     uint8_t      arena_present; /* 1 if a positive-size arena was computed, else 0 */
 } loader_plan_t;
 
@@ -224,7 +227,9 @@ loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
                                   const char *cmd_tail, uint32_t cmd_tail_len,
                                   loader_plan_t *out);
 
-/* h4bk: the same MZ prologue at an explicit conventional-memory load base.
+/* DEC-03a.3, initech-jarzu: 0x5849/v1 dispatches to the high plan regardless
+ * of the canonical legacy wrapper. The kernel preflights/streams it separately.
+ * h4bk: the legacy MZ prologue at an explicit conventional-memory load base.
  * PSP = load_base - 100h; heap = roundup16(module end + BSS reserve)..ceil.
  * The top-level stack stays in the disjoint PROGRAM_STACK window (DEC-08b).
  * DEC-08a.1 flat dword fixups use load_base, including nonzero entry offsets.

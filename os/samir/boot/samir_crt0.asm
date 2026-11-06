@@ -23,8 +23,7 @@
 ;   (a) zeroes .bss from __bss_start to __bss_end (DEC-05 -- a flat .COM does
 ;       not carry .bss in its file; we must materialize it rather than rely on
 ;       the emulator's RAM reset, a latent Rule-3 bug);
-;   (b) sets ESP = PROGRAM_STACK_TOP defensively (the loader already did this;
-;       belt-and-braces so a stack-forgetting load path cannot crash here);
+;   (b) retains loader-supplied ESP (DEC-03a.5: high 64 KiB stack);
 ;   (c) calls samir_milton_entry;
 ;   (d) on return, exits via INT 21h AH=4Ch with AL = the return value (the exit
 ;       code). NASM cannot read the C header, so 0x4C / 0x21 are hardcoded with
@@ -70,10 +69,8 @@ _start:
     and     ecx, 3
     rep     stosb
 
-    ; (b) ESP defensively (the loader already set it to PROGRAM_STACK_TOP before
-    ; the JMP here -- os/milton/loader.c). Re-asserting it is harmless and makes
-    ; the stub robust to a load path that transfers without a stack (Rule 2).
-    mov     esp, PROGRAM_STACK_TOP
+    ; (b) DEC-03a.5: the loader owns the stack layout.
+    ; DEC-03a.5, initech-jarzu: retain loader-supplied high ESP.
     xor     ebp, ebp                ; null frame pointer => top of stack to debugger
     push    ebp
 

@@ -95,6 +95,7 @@
 #include "samir/screen.h"
 #include "samir/rt.h"
 #include "samir/ovl.h"
+#include "samir/memory_contract.h"
 #include "memory_map.h"     /* PROGRAM_STACK_BOT: the stack guard below */
 
 /* ---- Arena sizing constants ----------------------------------------------- *
@@ -122,7 +123,7 @@
  * list order (3952 first), and they are never adjacent (one in the reserve,
  * one in the arena), so pal_heap's neighbour coalescing still never joins them
  * and allocation behaviour is unchanged. samir.ld asserts both placements. */
-#define PAL_MILTON_HEAP_PARAS  2057u
+#define PAL_MILTON_HEAP_PARAS  (SAMIR_MINIMUM_HEAP_BYTES / 16u)
 #define PAL_MILTON_TAIL_BYTES  16528u
 #define PAL_MILTON_REGION1_BYTES 3952u
 extern uint8_t _samir_heap_tail[];      /* samir.ld: first 16-byte boundary after .bss */
@@ -734,17 +735,17 @@ static int32_t milton_input_read(void *user, void *buf, uint32_t cap)
  * stops SAMIR loudly instead of running on with corrupted memory. The
  * engine's own budget (20 DO levels, heap line tables) keeps the deepest
  * frame far above it; the guard only proves that. */
-#define MILTON_GUARD_WORDS 64u
-static uint32_t milton_guard_word(uint32_t i) { return 0x53414D49u ^ (i * 0x9E3779B1u); }
+#define MILTON_GUARD_WORDS (INITECHMZ_EXT_GUARD_BYTES / 4u)
+static uint32_t milton_guard_word(uint32_t i) { (void)i; return EXT_APP_GUARD_WORD; }
 static void milton_guard_set(void)
 {
-    volatile uint32_t *g = (volatile uint32_t *)(uintptr_t)PROGRAM_STACK_BOT;
+    volatile uint32_t *g = (volatile uint32_t *)(uintptr_t)EXT_APP_GUARD_BASE;
     uint32_t i;
     for (i = 0; i < MILTON_GUARD_WORDS; i++) g[i] = milton_guard_word(i);
 }
 static void milton_guard_check(samir_pal_t *p)
 {
-    volatile uint32_t *g = (volatile uint32_t *)(uintptr_t)PROGRAM_STACK_BOT;
+    volatile uint32_t *g = (volatile uint32_t *)(uintptr_t)EXT_APP_GUARD_BASE;
     uint32_t i;
     for (i = 0; i < MILTON_GUARD_WORDS; i++)
         if (g[i] != milton_guard_word(i)) {
@@ -1309,17 +1310,16 @@ samir_pal_t *pal_milton_make(void)
         milton_panic();
     }
 
-    /* Convert the DOS segment to a flat linear base: seg << 4.
-     * This is the "fake-paragraph = linear >> 4" convention documented in
-     * spec/memory_map.h and os/milton/int21.c arena_seg_base / do_alloc. */
-    heap_seg = result & 0xFFFFu;
+    /* DEC-03a.4, initech-jarzu: EAX is the native flat address. */
+    /* DEC-03a.4: native EAX is already a full-width flat pointer. */
+    heap_seg = result;
     /* AH=48h block: [region 2: 16528][bump arena: 16384]; region 1 (3952)
      * sits in the BSS reserve -- see the PAL_MILTON_HEAP_PARAS note. */
-    st->heap_base = (uint8_t *)(uintptr_t)(heap_seg << 4) + PAL_MILTON_TAIL_BYTES;
+    st->heap_base = (uint8_t *)(uintptr_t)heap_seg + PAL_MILTON_TAIL_BYTES;
     st->heap_ptr  = st->heap_base;
     st->heap_end  = st->heap_base + 16384u;
     st->blocks=pal_heap_init(_samir_heap_tail,PAL_MILTON_REGION1_BYTES);
-    pal_heap_add(st->blocks,(uint8_t *)(uintptr_t)(heap_seg << 4),PAL_MILTON_TAIL_BYTES);
+    pal_heap_add(st->blocks,(uint8_t *)(uintptr_t)heap_seg,PAL_MILTON_TAIL_BYTES);
 
     return &st->vtable;
 }

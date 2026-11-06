@@ -1,36 +1,32 @@
+# DEC-03a.8, initech-fxolx: size policy retargeted; behavioral gates retained.
 # ADR-0009 DEC-03/04/05. Factory-only diagnostics never relax samir.ld.
 # Overlays Phase B (initech-5etom.1; docs/design/samir-overlays.md Sec 5):
 # the oracle now reads SAMIR.EXE (resident module) and its sibling SAMIR.OVL
-# (slot = largest overlay); same physical window, same 4096 B floor.
+# (slot = largest overlay). DEC-03a.8 retires the old window/floor.
 SAMIR_SIZE_TEST := $(BUILD)/test_samir_size
 SAMIR_SIZE_IMAGE ?= $(SAMIR_EXE)
-$(SAMIR_SIZE_TEST): $(DBF_DIFF_DIR)/test_samir_size.c spec/memory_map.h spec/samir/ovl_format.h | $(BUILD)
+$(SAMIR_SIZE_TEST): $(DBF_DIFF_DIR)/test_samir_size.c spec/memory_map.h spec/samir/ovl_format.h spec/samir/memory_contract.h spec/initechmz_extended.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec -o $@ $<
 .PHONY: test-samir-size test-samir-size-mutant test-samir-size-repro test-samir-size-emu test-samir-size-emu-mutant
 test-samir-size: $(SAMIR_SIZE_TEST) $(SAMIR_SIZE_IMAGE) $(SAMIR_OVL)
 	@$(SAMIR_SIZE_TEST) $(SAMIR_SIZE_IMAGE)
-	@printf '>>> test-samir-size: green (resident >=4096 B headroom against the samir.ld PAL-memory budget; slot == largest overlay)\n'
+	@printf '>>> test-samir-size: green (DEC-03a.8: module <=256 KiB, declared high footprint/heap; slot == largest overlay)\n'
 
-# Rule 6, two size mutants built from the real artifacts:
-#  SAMIR_SIZE_PAD_4096: the real resident module zero-padded to 4095 B of
-#    headroom and re-wrapped by mzlink (RED), then to exactly 4096 B (GREEN);
-#  SAMIR_SIZE_SLOT: the real SAMIR.OVL with its slot length 16 B too large,
-#    so the slot is no longer the largest overlay (RED).
-# File-size mutants, not behaviour mutants; QEMU behaviour is separate.
+# DEC-03a.8 RETARGET: ceiling+1 RED / ceiling GREEN, including >old-window
+# images. KEEP SLOT mutant, byte reproducibility, all behavior aliases below.
 SAMIR_SIZE_RES := $(BUILD)/samir_exe/SAMIR.elf.res
 test-samir-size-mutant: test-samir-size $(MZLINK_BIN)
 	@mkdir -p $(BUILD)/samir-size
-	@set -e; budget=$$($(SAMIR_SIZE_TEST) $(SAMIR_EXE) | sed -n 's/.*(budget \([0-9][0-9]*\) B).*/\1/p'); \
-	 test -n "$$budget" || { printf 'samir-size-mutant: missing PAL-memory budget\n'; exit 1; }; \
-	 for v in red:1 floor:0; do n=$${v%%:*}; extra=$${v#*:}; \
+	@set -e; for v in red:262145 floor:262144 above-old:200000; do n=$${v%%:*}; bytes=$${v#*:}; \
 	   cp -f $(SAMIR_SIZE_RES) $(BUILD)/samir-size/$$n.res; \
-	   truncate -s $$(( budget - 4096 + extra )) $(BUILD)/samir-size/$$n.res; \
-	   $(MZLINK_BIN) $(BUILD)/samir-size/$$n.res $(BUILD)/samir-size/SAMIR_SIZE_PAD_$$n.EXE --header-relocs --minalloc $(SAMIR_MINALLOC) 2>/dev/null; \
+	   truncate -s $$bytes $(BUILD)/samir-size/$$n.res; \
+	   $(MZLINK_BIN) $(BUILD)/samir-size/$$n.res $(BUILD)/samir-size/SAMIR_SIZE_PAD_$$n.EXE --header-relocs --samir 2>/dev/null; \
 	   cp -f $(basename $(SAMIR_EXE)).OVL $(BUILD)/samir-size/SAMIR_SIZE_PAD_$$n.OVL; \
 	 done; \
 	 set +e; $(SAMIR_SIZE_TEST) $(BUILD)/samir-size/SAMIR_SIZE_PAD_red.EXE > $(BUILD)/samir-size/pad-red.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q '^RED SAMIR_SIZE:' $(BUILD)/samir-size/pad-red.log || { cat $(BUILD)/samir-size/pad-red.log; exit 1; }; \
 	 cat $(BUILD)/samir-size/pad-red.log
+	@$(SAMIR_SIZE_TEST) $(BUILD)/samir-size/SAMIR_SIZE_PAD_above-old.EXE
 	@$(SAMIR_SIZE_TEST) $(BUILD)/samir-size/SAMIR_SIZE_PAD_floor.EXE
 	@set -e; cp -f $(SAMIR_EXE) $(BUILD)/samir-size/SAMIR_SIZE_SLOT.EXE; \
 	 cp -f $(basename $(SAMIR_EXE)).OVL $(BUILD)/samir-size/SAMIR_SIZE_SLOT.OVL; \
@@ -40,7 +36,7 @@ test-samir-size-mutant: test-samir-size $(MZLINK_BIN)
 	 set +e; $(SAMIR_SIZE_TEST) $(BUILD)/samir-size/SAMIR_SIZE_SLOT.EXE > $(BUILD)/samir-size/slot-red.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && grep -q '^RED SAMIR_SLOT:' $(BUILD)/samir-size/slot-red.log || { cat $(BUILD)/samir-size/slot-red.log; exit 1; }; \
 	 cat $(BUILD)/samir-size/slot-red.log
-	@printf '>>> test-samir-size-mutant: green (SAMIR_SIZE_PAD floor-1 RED; floor GREEN; SAMIR_SIZE_SLOT RED)\n'
+	@printf '>>> test-samir-size-mutant: green (DEC-03a.8 ceiling+1 RED; ceiling and above-old GREEN; SAMIR_SIZE_SLOT RED)\n'
 # Reproducible (Rule 11): two forced rebuilds give byte-identical SAMIR.EXE AND
 # SAMIR.OVL (the stamp in each ties the pair).
 test-samir-size-repro: $(SAMIR_EXE)
@@ -131,3 +127,18 @@ samir-size-goldens: $(SAMIR_FNS_PROMOTED)
 	@sha256sum --quiet -c $(PROG_DIFF_DIR)/samir-size-real.sha256
 	@printf '>>> samir-size-goldens: green (SF-memwidth real III+ capture pinned)\n'
 TEST_UNIT_GATES += samir-size-goldens
+# DEC-03a.8, initech-fxolx: link reserve cannot outrun the declared loader
+# reserve. A synthetic link tests the ASSERT itself, independently of packer.
+$(BUILD)/samir_link_reserve.o: harness/emu/samir_link_reserve.asm | $(BUILD)
+	$(NASM) -f elf32 $< -o $@
+$(BUILD)/samir_link_reserve_big.o: harness/emu/samir_link_reserve.asm | $(BUILD)
+	$(NASM) -f elf32 -DRESERVE_OVERSIZE $< -o $@
+.PHONY: test-samir-link-reserve-mutant
+test-samir-link-reserve-mutant: $(SAMIR_LD_SCRIPT) $(BUILD)/samir_link_reserve.o $(BUILD)/samir_link_reserve_big.o
+	@$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) --defsym=__samir_link_reserve=65536 -o $(BUILD)/samir_link_reserve.elf $(BUILD)/samir_link_reserve.o
+	@if $(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) --defsym=__samir_link_reserve=65552 -o $(BUILD)/samir_link_reserve_bad.elf $(BUILD)/samir_link_reserve.o >$(BUILD)/samir_link_reserve.log 2>&1; then echo '!!! DEC-03a link reserve above declaration survived'; exit 1; fi
+	@grep 'link reserve exceeds declared loader reserve/window' $(BUILD)/samir_link_reserve.log
+	@if $(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_link_actual_bad.elf $(BUILD)/samir_link_reserve_big.o >$(BUILD)/samir_link_actual.log 2>&1; then echo '!!! DEC-03a actual reserve overflow survived'; exit 1; fi
+	@grep 'slot + BSS + PAL tail exceed declared loader reserve' $(BUILD)/samir_link_actual.log
+	@printf '>>> test-samir-link-reserve-mutant: green (link bound > declaration RED, actual reserve overflow RED, equal bound GREEN)\n'
+TEST_UNIT_GATES += test-samir-link-reserve-mutant

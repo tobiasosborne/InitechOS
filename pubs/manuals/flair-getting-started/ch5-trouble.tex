@@ -1,3 +1,4 @@
+% ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36: global 8 MB floor.
 % Chapter 5 -- Troubleshooting (Mac OS 8 Installation Ch. 6 form; AN-14:
 % bold symptom, then Cause / Solution).  The real messages, quoted from the
 % source: os/boot/stage2.asm (the Non-System disk message, then a halt);
@@ -51,10 +52,10 @@ computer again.
 InitechOS has stopped because of a problem it cannot work around.  The
 words in parentheses tell you which:
 \begin{TypeIn}
-PC LOAD LETTER  (FLAIR heap exhausted)
+PC LOAD LETTER  (Insufficient memory)
 \end{TypeIn}
 \Cause The computer has less memory than FLAIR needs.
-\Solution FLAIR needs 4~MB of extended memory.  Have more memory
+\Solution FLAIR needs 8~MB of memory.  Have more memory
 installed.
 \begin{TypeIn}
 PC LOAD LETTER  (FLAIR needs a 640x480 framebuffer)

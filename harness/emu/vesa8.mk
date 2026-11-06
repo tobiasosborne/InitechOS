@@ -1,3 +1,4 @@
+# DEC-03a.6: IO.SYS consumes the generated DEC-13 catalogue; all profiles need its include/dependency.
 # initech-2gva -- gates FIRST. See docs/research/vesa8-ground-truth.md.
 # FORCE_VBE_101 is ONLY in these independently named IO.SYS/stage2 images.
 VESA8_DIR := $(BUILD)/vesa8
@@ -43,8 +44,8 @@ test-flair-dac-mutant: test-flair-dac $(VESA8_HEADER) | $(VESA8_DIR)
 	 grep "^RED flair-dac idx=$$i " $(VESA8_DIR)/mut$$i/red.log; done
 	@echo 'GREEN test-flair-dac-mutant: both generated-table omissions RED'
 
-$(VESA8_DIR)/IO.SYS: $(BOOT_DIR)/io_sys.asm Makefile harness/emu/vesa8.mk | $(VESA8_DIR)
-	$(NASM) -f bin -DFORCE_VBE_101 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
+$(VESA8_DIR)/IO.SYS: $(BOOT_DIR)/io_sys.asm Makefile harness/emu/vesa8.mk $(DOS_MESSAGES_INC) | $(VESA8_DIR)
+	$(NASM) -f bin -I$(BUILD)/ -DFORCE_VBE_101 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
 $(VESA8_DIR)/stage2.bin: $(STAGE2_ASM) $(VESA8_DIR)/IO.SYS
 	$(NASM) -f bin -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) -DIO_SYS_PATH='"$(VESA8_DIR)/IO.SYS"' $< -o $@
 # Copy the ACTUAL shipped/scene images; alter only IO.SYS and its embedded
@@ -115,8 +116,8 @@ test-flair-desktop-8bpp-mutant: test-flair-desktop-8bpp $(foreach m,$(VESA8_MUTA
 # Boot selection rules have their own real IO.SYS mutants. The first removes
 # 0101h from the fallback; the second wrongly prefers indexed over direct.
 define vesa8-boot-mutant
-$(VESA8_DIR)/IO_$(1).SYS: $(BOOT_DIR)/io_sys.asm harness/emu/vesa8.mk | $(VESA8_DIR)
-	$(NASM) -f bin $(2) -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $$< -o $$@
+$(VESA8_DIR)/IO_$(1).SYS: $(BOOT_DIR)/io_sys.asm harness/emu/vesa8.mk $(DOS_MESSAGES_INC) | $(VESA8_DIR)
+	$(NASM) -f bin -I$(BUILD)/ $(2) -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $$< -o $$@
 $(VESA8_DIR)/stage2_$(1).bin: $(STAGE2_ASM) $(VESA8_DIR)/IO_$(1).SYS
 	$(NASM) -f bin -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) -DIO_SYS_PATH='"$(VESA8_DIR)/IO_$(1).SYS"' $$< -o $$@
 $(VESA8_DIR)/boot_$(1).img: $(MBR_BIN) $(VESA8_DIR)/stage2_$(1).bin $(KERNEL_FLAIRSHELL_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)

@@ -10,8 +10,8 @@
  *        to which the loader adds the load base).
  *
  * Linked at ORG 0 (with -q, so every relocation survives into the ELF): the
- * InitechMZ loader adds the load base B (PROGRAM_IMAGE, 0x40100, for a top-level
- * EXEC) to each relocated dword of the resident module, and the overlay manager
+ * InitechMZ loader adds the load base B (EXT_APP_BASE, 0x600000, for the extended
+ * EXEC; DEC-03a.3) to each relocated dword of the resident module, and the overlay manager
  * (os/samir/core/ovl.c) adds the same B to each relocated dword of an overlay
  * it reads into the slot. One factor serves both because the slot sits at a
  * fixed offset from B inside SAMIR's own image window.
@@ -26,7 +26,7 @@
  *   ... up to load_end + 64 KiB: the loader's BSS reserve; the AH=48h arena
  *   (the rest of the PAL heap, os/samir/pal/pal_milton.c) starts above it.
  * The slot and .bss are NOLOAD: they live in the BSS reserve that the loader
- * keeps free above the module (spec/memory_map.h PROGRAM_BSS_RESERVE).
+ * keeps free above the module (spec/samir/memory_contract.h).
  *
  * Section discipline (os/samir/include/samir/ovl.h): overlay code is
  * ".text.0ovl_<name>", its jump tables ".rodata.0ovl_<name>", its slot header
@@ -131,17 +131,21 @@ SECTIONS
     . = ALIGN(16);
     _samir_heap_tail = .;
 
-    /* Slot + .bss + heap region 1 must fit the loader's BSS reserve above the
-     * module (spec/memory_map.h PROGRAM_BSS_RESERVE = 64 KiB), or the AH=48h
-     * arena the loader places above it would overlap them (ADR-0009 DEC-04). */
-    ASSERT(_samir_heap_tail + 3952 - _samir_load_end <= 0x10000,
-           "SAMIR slot + BSS + PAL region 1 exceed the loader's 64 KiB BSS reserve")
-    /* The rest of the PAL heap is one AH=48h block of 2057 paragraphs
-     * (0x8090 B: pal_milton.c PAL_MILTON_HEAP_PARAS) plus its MCB and
-     * paragraph rounding (0x20); it must end below ENV_BLOCK (0x6F000) when the
-     * module is loaded at PROGRAM_IMAGE (0x40100). */
-    ASSERT(_samir_load_end + 0x10000 + 0x8090 + 0x20 <= 0x6F000 - 0x40100,
-           "SAMIR resident module leaves insufficient PAL memory")
+    /* ADR-0009 DEC-03a.8, initech-fxolx: RETARGET the reserve ASSERT to
+     * the loader declaration; RETIRE the conventional PAL-window equation.
+     * Generated symbols consume spec/samir/memory_contract.h. No new quota.
+     * The optional link reserve cannot exceed the declaration or high window. */
+    PROVIDE(__samir_link_reserve = SAMIR_DECLARED_RESERVE);
+    ASSERT(__samir_link_reserve <= SAMIR_DECLARED_RESERVE &&
+           __samir_link_reserve <= SAMIR_HIGH_WINDOW,
+           "SAMIR link reserve exceeds declared loader reserve/window (DEC-03a.8)")
+    ASSERT(_samir_heap_tail + SAMIR_PAL_REGION1 - _samir_load_end <= __samir_link_reserve,
+           "SAMIR slot + BSS + PAL tail exceed declared loader reserve (DEC-03a.8)")
+    ASSERT(_samir_load_end <= SAMIR_MODULE_CEILING,
+           "SAMIR resident exceeds 256 KiB module ceiling (DEC-03a.8)")
+    ASSERT(ALIGN(_samir_load_end + SAMIR_DECLARED_RESERVE, 16) +
+           SAMIR_NATIVE_METADATA + SAMIR_GUARANTEED_HEAP <= SAMIR_HIGH_WINDOW,
+           "SAMIR high footprint leaves insufficient declared heap (DEC-03a.8)")
     /* Nothing may sit above the slot at a lower address than the overlays'. */
     ASSERT(__ovl_slot_end > __ovl_slot, "no overlays linked")
 

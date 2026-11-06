@@ -1,5 +1,6 @@
 {
   "_comment": [
+    "ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36: deliberate locked memory/model/ABI reconciliation.",
     "InitechDOS INT 21h Function Register -- LOCKED spec-data (CLAUDE.md Rule 8).",
     "Machine-readable controlled scope for ADR-0003 Appendix A and ratified amendments.",
     "Reconciled 2026-10-17: Appendix-A AH=33h row restored per DEC-16 / initech-er3h / test-er3h.",
@@ -40,7 +41,7 @@
     { "ah": "44h", "mnemonic": "IOCTL", "description": "Device control", "class": "Core" },
     { "ah": "45h / 46h", "mnemonic": "DUP / DUP2", "description": "Duplicate / force-duplicate handle (redirection)", "class": "Core" },
     { "ah": "47h", "mnemonic": "GETCWD", "description": "Get current directory", "class": "Core" },
-    { "ah": "48h / 49h / 4Ah", "mnemonic": "ALLOC / FREE / SETBLOCK", "description": "Allocate / free / resize memory (arena)", "class": "Core" },
+    { "ah": "48h / 49h / 4Ah", "mnemonic": "ALLOC / FREE / SETBLOCK", "description": "Allocate / free / resize memory (arena)", "extended_model": "0x5849 v1: EBX paragraphs -> EAX flat pointer; FREE EBX pointer; SETBLOCK EBX pointer/ECX paragraphs; CF/errors 07/08/09, full EBX largest on shortage. ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36", "class": "Core" },
     { "ah": "4Bh", "mnemonic": "EXEC", "description": "Load and/or execute program", "class": "Core" },
     { "ah": "4Ch", "mnemonic": "EXIT", "description": "Terminate with return code", "class": "Core" },
     { "ah": "4Dh", "mnemonic": "WAIT", "description": "Get child return code", "class": "Core" },

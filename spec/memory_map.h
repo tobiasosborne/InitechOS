@@ -133,7 +133,7 @@
  * copied, and executed at KERNEL_BASE; KERNEL_CEIL is exclusive. stage2 still
  * performs the unchanged real-mode disk read into the vacated conventional
  * bounce, whose hard cap is exactly 384 sectors. ext_mem_kb counts KiB above
- * the 1 MiB line, hence the derived 5120 KiB installed-extended-memory minimum.
+ * the 1 MiB line, hence the historical 5120 KiB runway minimum (global floor now DEC-03a.6).
  * The adjacent FLAIR heap ends at KERNEL_BASE, exclusive; no PROGRAM_* constant
  * moves. STACK EXCEPTION: the design's proposed [0x4F0000,0x500000) stack is
  * inside that heap, so Step 0.3 stopped that sub-element (bead initech-tdnl.29).
@@ -165,8 +165,10 @@
 #define KERNEL_STACK_TOP    0x005FFFFCu
 #define KERNEL_BOUNCE_BASE  0x00010000u
 #define KERNEL_BOUNCE_CAP   0x00030000u
+/* ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36.
+ * DEC-03a.6: derive the global floor from the highest required ceiling. */
 #define INITECH_MIN_EXT_KB \
-    (((KERNEL_CEIL) - 0x00100000u) / 1024u)
+    (((EXT_APP_CEIL) - 0x00100000u) / 1024u)
 
 /* ------------------------------------------------------------------------ *
  * THE TRANSIENT COMMAND INTERPRETER (Rule-8 deliberate act; bead
@@ -464,7 +466,7 @@
  *
  * Bead initech-tdnl.29 leaves this window byte-identical and places the kernel
  * at its exclusive end, KERNEL_BASE == FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE.
- * The whole OS now requires INITECH_MIN_EXT_KB (5120), while this heap-only
+ * The whole OS now requires INITECH_MIN_EXT_KB (7168; DEC-03a.6), while this heap-only
  * threshold intentionally remains 4096 KiB. Ref: kernel-runway-relocation.md K1.
  *
  * Law 1 source citations (all local):
@@ -567,6 +569,20 @@ _Static_assert(KERNEL_STACK_TOP + 4u <= FLAIR_HEAP_BASE ||
  * the build guards it against PROGRAM_BASE, and it must never alias a window
  * that is live at handoff (the kernel stack, the heap, the image).
  * ------------------------------------------------------------------------ */
+/* ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36.
+ * DEC-03a.2/.5: MILTON EXEC owns this fixed reservation, lent to exactly ONE
+ * live native process. It is never FLAIR GENERAL, kernel runway or legacy MCB.
+ * Module begins at BASE; rounded module+declared reserve precedes native heap.
+ * Checked canaries (no paging) protect the downward 64 KiB stack. */
+#define EXT_APP_BASE       0x00600000u
+#define EXT_APP_CEIL       0x00800000u
+#define EXT_APP_STACK_BOT  0x007F0000u
+#define EXT_APP_STACK_TOP  0x007FFFFCu
+#define EXT_APP_GUARD_BASE 0x007EF000u
+#define EXT_APP_GUARD_WORD 0x58494744u
+#define MMAP_WIN_LO_EXT_APP EXT_APP_BASE
+#define MMAP_WIN_HI_EXT_APP EXT_APP_CEIL
+
 #define MMAP_WIN_LO_BOUNCE      KERNEL_BOUNCE_BASE
 #define MMAP_WIN_HI_BOUNCE      (KERNEL_BOUNCE_BASE + KERNEL_BOUNCE_CAP)
 #define MMAP_WIN_LO_PROGRAM     PROGRAM_BASE
@@ -628,6 +644,23 @@ MMAP_ASSERT_DISJOINT(OVERLAY,    FLAIR_HEAP);
 MMAP_ASSERT_DISJOINT(OVERLAY,    KIMAGE);
 MMAP_ASSERT_DISJOINT(OVERLAY,    TRANSIENT);
 MMAP_ASSERT_DISJOINT(OVERLAY,    KSTACK);
+
+/* DEC-03a.2: all named windows, including the entire kernel runway/guard. */
+MMAP_ASSERT_DISJOINT(EXT_APP, BOUNCE);
+MMAP_ASSERT_DISJOINT(EXT_APP, PROGRAM);
+MMAP_ASSERT_DISJOINT(EXT_APP, STAGING);
+MMAP_ASSERT_DISJOINT(EXT_APP, VGA);
+MMAP_ASSERT_DISJOINT(EXT_APP, FLAIR_HEAP);
+MMAP_ASSERT_DISJOINT(EXT_APP, KIMAGE);
+MMAP_ASSERT_DISJOINT(EXT_APP, TRANSIENT);
+MMAP_ASSERT_DISJOINT(EXT_APP, OVERLAY);
+MMAP_ASSERT_DISJOINT(EXT_APP, KSTACK);
+_Static_assert(KERNEL_CEIL <= EXT_APP_BASE &&
+               EXT_APP_BASE < EXT_APP_GUARD_BASE &&
+               EXT_APP_GUARD_BASE + 4096u == EXT_APP_STACK_BOT &&
+               EXT_APP_STACK_BOT + 65536u == EXT_APP_CEIL &&
+               EXT_APP_STACK_TOP + 4u == EXT_APP_CEIL,
+               "DEC-03a: application containment and kernel guard disjointness");
 
 /* Runway containment: image, transient and stack all live inside the
  * RAM-gated [KERNEL_BASE, KERNEL_CEIL); the image ceiling IS the transient

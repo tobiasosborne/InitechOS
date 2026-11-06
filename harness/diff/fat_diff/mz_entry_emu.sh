@@ -12,7 +12,10 @@ mcopy -o -i "$work/data.img" "$work/entry.exe" ::MZEXEC.EXE
     --expect MZEXEC-BEGIN --timeout-ms 6000 > "$work/stdout" 2> "$work/report" || true
 grep -qx MZEXEC-BEGIN "$work/entry.serial" \
     || { echo 'RED MZ fixture: kernel never reached the FAT load'; exit 1; }
-grep -qx 'MZEXEC-FAIL st=11' "$work/entry.serial" \
+# DEC-03a.8 KEEP legacy refusal: h4bk added FIXED_BASE to loader_status_t;
+# BAD_FORMAT is already 12 on ratified main. This internal trace pin follows
+# that existing enum; the entry-at-end refusal and mutant remain identical.
+grep -qx 'MZEXEC-FAIL st=12' "$work/entry.serial" \
     || { echo 'RED MZ entry at end: missing BAD_FORMAT rejection'; exit 1; }
 grep -qx MZEXEC-END "$work/entry.serial"
 ! grep -q 'triple_fault=1' "$work/report"

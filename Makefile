@@ -8798,8 +8798,8 @@ $(MBR_BIN): $(MBR_ASM) | $(BUILD)
 # Makefile is a prerequisite so editing KERNEL_SECTORS actually re-assembles
 # stage2 and re-runs the check (without it the stale stage2.bin would keep the
 # old read count and silently truncate or over-read the kernel window).
-$(IO_SYS_BIN): $(BOOT_DIR)/io_sys.asm Makefile | $(BUILD)
-	$(NASM) -f bin -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
+$(IO_SYS_BIN): $(BOOT_DIR)/io_sys.asm Makefile $(DOS_MESSAGES_INC) | $(BUILD)
+	$(NASM) -f bin -I$(BUILD)/ -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
 	@test $$(wc -c < $@) -le 4096
 
 $(STAGE2_BIN): $(STAGE2_ASM) $(IO_SYS_BIN) Makefile | $(BUILD)
@@ -10815,6 +10815,11 @@ $(KERNEL_WINDOW_OBJ) $(KERNEL_CHROME_OBJ) $(KERNEL_DESKTOP_OBJ): os/flair/rdoc.h
 
 # obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
 KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_OPS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ) $(KERNEL_TBXGATE_OBJ) $(KERNEL_TBXGATE_ASM_OBJ) $(KERNEL_SCRAP_OBJ) $(KERNEL_STDFILE_OBJ) $(KERNEL_LIST_OBJ) $(KERNEL_APPLE_MENU_OBJ)
+# DEC-03a.7: only desktop kernels reach validation through section COLD.
+KERNEL_TENANT_LOADER_OBJ := $(BUILD)/loader_tenant.o
+$(KERNEL_TENANT_LOADER_OBJ): $(KERNEL_LOADER_C) os/milton/loader_cold.h os/milton/loader.h os/milton/mz.c spec/initechmz_extended.h spec/memory_map.h
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOADER_OPT) -DLOADER_COLD_EXTERNAL -Ispec -I$(KERNEL_DIR) -c $< -o $@
+KERNEL_FLAIRTENANTS_OBJS := $(subst $(KERNEL_LOADER_OBJ),$(KERNEL_TENANT_LOADER_OBJ),$(KERNEL_FLAIRTENANTS_OBJS))
 KERNEL_FLAIRTENANTS_OBJS += $(BUILD)/egg_jtc_model.o $(BUILD)/egg_jtc_data.o
 # ADR-0014 lane 1 (epic initech-x8gsi): the JTC mat (egg_jtc.c) and About This
 # Computer (about_box.c + its formatter kmain_cold.c) are NOT resident. They are
@@ -10823,7 +10828,7 @@ KERNEL_FLAIRTENANTS_OBJS += $(BUILD)/egg_jtc_model.o $(BUILD)/egg_jtc_data.o
 # objects: plain ld links them against the kernel ELF's symbols. (kmain_cold.o
 # itself stays in the DOS kernels' object sets; in the tenant kernels nothing
 # resident calls it, so section GC drops it -- test-ovl-absence checks.)
-OVL_SECTION_OBJS := $(BUILD)/egg_jtc.o $(BUILD)/about_box_ovl.o $(BUILD)/kmain_cold_ovl.o $(BUILD)/finder_actions_ovl.o $(BUILD)/finder_ops_ovl.o $(BUILD)/finder_windows_ovl.o $(BUILD)/power_cold_ovl.o
+OVL_SECTION_OBJS := $(BUILD)/egg_jtc.o $(BUILD)/about_box_ovl.o $(BUILD)/kmain_cold_ovl.o $(BUILD)/finder_actions_ovl.o $(BUILD)/finder_ops_ovl.o $(BUILD)/finder_windows_ovl.o $(BUILD)/power_cold_ovl.o $(BUILD)/loader_cold_ovl.o
 # bead initech-qshpn (ADR-0014 DEC-14-8/-10 "shutdown and exit"): Special >
 # Restart / Shut Down / Exit to InitechDOS, once per session. The same flags
 # as finder_actions_ovl.o; its mutant kernels rebuild it with their own -D
@@ -10831,6 +10836,8 @@ OVL_SECTION_OBJS := $(BUILD)/egg_jtc.o $(BUILD)/about_box_ovl.o $(BUILD)/kmain_c
 POWER_COLD_DEPS := os/milton/power_cold.c os/milton/power_cold.h os/milton/finder_actions.h os/milton/power.h os/flair/power_notice.h os/milton/transient.h $(DOS_MESSAGES_H)
 $(BUILD)/power_cold_ovl.o: $(POWER_COLD_DEPS)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(OVL_SECTION_OPT) -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/milton -c $< -o $@
+$(BUILD)/loader_cold_ovl.o: os/milton/loader_cold.c os/milton/loader_cold.h os/milton/mz.c os/milton/mz.h spec/initechmz_extended.h spec/memory_map.h
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(OVL_SECTION_OPT) -DLOADER_COLD_EXTERNAL -Ispec -Ios/milton -c $< -o $@
 OVL_SECTION_OPT := -Oz -fomit-frame-pointer -fno-jump-tables -fno-strict-aliasing --param=min-pagesize=0
 $(BUILD)/finder_actions_ovl.o: os/milton/finder_actions.c os/milton/finder_actions.h
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(OVL_SECTION_OPT) -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/milton -c $< -o $@
@@ -25326,7 +25333,11 @@ test-flair-samir-suspend-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IM
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
 	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
-	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
+	@# DEC-03a.8 KEEP: every original fallback assertion remains. Modern
+	@# vgabios supports 0101h; the explicit negative-video fixture suppresses
+	@# that mode with the existing VBE_MUT_NO_101 hook. The same production
+	@# kernel/overlay run; test-exec-high-bochs separately proves native VBE/8 MiB.
+	@$(BOCHS_BIN) --disk "$(BUILD)/samir_suspend_bochs_fallback.img" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
 		--name "$(SAMIR_SUSP_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
 		2> "$(SAMIR_SUSP_BOCHS_REPORT)" || true
 	@cat "$(SAMIR_SUSP_BOCHS_REPORT)"
@@ -28361,6 +28372,7 @@ rs=set(); \
 [ rs.update(range(hx(t.split('-')[0]), hx(t.split('-')[1])+1)) if '-' in t else rs.add(hx(t)) for t in toks ]; \
 missing=[f['ah'] for f in ccf if hx(f['ah']) not in rs]; \
 assert not missing, 'cc AH(s) NOT in int21h_register.json (controlled scope!): %r'%missing; \
+assert 'extended_model' in cc and cc['extended_model']['tag']=='0x5849', 'DEC-03a native allocation ABI missing'; \
 print('    parsed %d cc functions; every AH exists in int21h_register.json (%d sanctioned AHs)'%(len(ccf),len(rs)))" \
 		|| { printf '!!! test-spec FAIL: %s invalid or documents an AH NOT in the locked register (Rule 8 / DEC-13)\n' "$(SPEC_INT21H_CC)"; exit 1; }
 	@printf '>>> test-spec [3/6]: diagnostic message catalogue JSON (Appendix C)\n'
@@ -28927,8 +28939,9 @@ SAMIR_OVL_FORBID   := --forbid samir_ovl_call --forbid samir_do --forbid samir_r
 # e_minalloc (DEC-08a.3): the PAL heap's arena part is one AH=48h block of
 # 2057 paragraphs (pal_milton.c PAL_MILTON_HEAP_PARAS) plus its MCB; the loader
 # refuses with DOS 08h rather than start SAMIR heap-starved.
-SAMIR_MINALLOC     := 2058
-SAMIR_PACK_DEPS    := $(SAMIR_OVL_PACK) $(MZLINK_BIN) spec/samir/ovl_format.h
+# DEC-03a.4/.8: keep the compatibility make variable tied to the shared lock.
+SAMIR_MINALLOC     := $(shell awk '$$2=="SAMIR_MINALLOC_PARAS"{gsub(/u/,"",$$3);print $$3}' spec/samir/memory_contract.h)
+SAMIR_PACK_DEPS    := $(SAMIR_OVL_PACK) $(MZLINK_BIN) spec/samir/ovl_format.h spec/samir/memory_contract.h spec/initechmz_extended.h
 $(SAMIR_OVL_PACK): tools/samir_ovl_pack.c spec/samir/ovl_format.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec -o $@ $<
 # samir_pack ELF,OUT.EXE: write OUT.EXE (InitechMZ, header-gap relocations)
@@ -28941,11 +28954,17 @@ $(SAMIR_OVL_PACK): tools/samir_ovl_pack.c spec/samir/ovl_format.h | $(BUILD)
 # reads a half-written SAMIR.EXE/SAMIR.OVL (neither file embeds its own name).
 samir_pack = { $(SAMIR_OVL_PACK) $(1) --res-bin $(1).res --res-rel $(1).rel --ovl $(1).pack.OVL \
              $(SAMIR_OVL_SECTIONS) $(SAMIR_OVL_FORBID) && \
-             $(MZLINK_BIN) $(1).res $(1).pack.EXE --reloc-file $(1).rel --header-relocs --minalloc $(SAMIR_MINALLOC) > $(1).mzlink.log 2>&1 && \
+             $(MZLINK_BIN) $(1).res $(1).pack.EXE --reloc-file $(1).rel --header-relocs --samir > $(1).mzlink.log 2>&1 && \
              mv -f $(1).pack.OVL $(basename $(2)).OVL && mv -f $(1).pack.EXE $(2); } \
              || { cat $(1).mzlink.log 2>/dev/null; rm -f $(2) $(basename $(2)).OVL $(1).pack.EXE $(1).pack.OVL; exit 1; }
 SAMIR_CRT0_ASM  := $(SAMIR_DIR)/boot/samir_crt0.asm
-SAMIR_LD_SCRIPT := $(SAMIR_DIR)/boot/samir.ld
+# DEC-03a.8: deterministic shared contract feeds every production/mutant link.
+$(BUILD)/samir_memory_ld: tools/samir_memory_ld.c spec/samir/memory_contract.h spec/initechmz_extended.h spec/memory_map.h | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+SAMIR_LD_SCRIPT := $(BUILD)/samir.ld
+$(SAMIR_LD_SCRIPT): $(SAMIR_DIR)/boot/samir.ld $(BUILD)/samir_memory_ld
+	@$(BUILD)/samir_memory_ld > $@
+	@cat $< >> $@
 SAMIR_EXE       := $(BUILD)/SAMIR.EXE
 SAMIR_OVL       := $(basename $(SAMIR_EXE)).OVL
 .PHONY: samir-exe
@@ -35609,6 +35628,7 @@ include harness/emu/qemu_log.mk
 
 # Merge-revert recovery gates (initech-ror2g). After every TEST_*_GATES assignment.
 include harness/revert_merge.mk
+include harness/emu/exec_high.mk
 
 # Gate/mutant ordering for parallel vectors (initech-1x6x2.1). KEEP LAST:
 # it reads the complete TEST_UNIT_GATES / TEST_EMU_GATES lists.
@@ -35616,3 +35636,8 @@ include harness/lane_cert.mk
 include harness/gate_map.mk
 include harness/sentinel.mk
 include harness/gate_pairs.mk
+
+
+# DEC-03a: same-TU code and locked ABI edits invalidate every direct consumer.
+$(KERNEL_LOADER_OBJ): os/milton/loader_cold.c os/milton/loader_cold.h spec/initechmz_extended.h
+$(KERNEL_INT21_OBJ): os/milton/native.c spec/initechmz_extended.h

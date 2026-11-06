@@ -20,6 +20,8 @@
  * see the fb_clear seam below. Do NOT implement text here.
  */
 
+/* DEC-03a.6, initech-ayj36: boot refusal uses the approved catalogue. */
+#include "dos_messages.h"
 #include <stdint.h>
 #include "io.h"
 
@@ -3035,17 +3037,17 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * only records state to be cooked without GUI delivery on resume.
  *
  * REBUILD = RE-PRESENT THE PRESERVED OFFSCREEN (Option A, stateless; the ADR's
- * "re-render the SAME scene + re-present"). SAMIR runs ENTIRELY below the 1 MiB
- * line -- image/BSS/env/stack at 0x40100..0x7FFFC, the AH=48h arena ceiling at
- * 0x6F000, and the load staging at 0x80000..0x90000 (spec/memory_map.h) -- all
- * DISJOINT from the FLAIR heap [0x100000,0x500000) the offscreen lives in. So
+ * "re-render the SAME scene + re-present"). DEC-03a.5, initech-jarzu:
+ * SAMIR's module/reserve/native heap/guard/stack occupy [0x600000,0x800000);
+ * its PSP/environment use owned conventional controls. The locked map proves
+ * all of these DISJOINT from the preserved FLAIR heap [0x100000,0x500000).
  * ctx->off STILL holds the EXACT pre-suspend co-resident desktop after SAMIR
  * returns; flair_desktop_present re-blits it to the LFB BIT-IDENTICALLY (the same
  * bytes SAMIR's text overwrote). No heap re-init, no tenant relaunch needed --
  * the tenants' WindowRecords/content are heap-resident and untouched.
  *
- * Ref: ADR-0013 Sec 3.2 (class-2 text tenants); spec/memory_map.h (the < 1 MiB
- *      vs FLAIR-heap disjointness proof); os/milton/kmain.c loader_exec_by_name
+ * Ref: ADR-0013 Sec 3.2 (class-2 text tenants); spec/memory_map.h (DEC-03a locked
+ *      high-application / low-control vs FLAIR-heap disjointness proof); os/milton/kmain.c loader_exec_by_name
  *      (the PSP/JFT/CWD save+restore wrapper this reuses); os/milton/kbd.c (the
  *      exclusive input owner). CLAUDE.md Law 2 (pre==post is real, not by luck), Law 4
  *      (full-screen app then back to the live desktop), Rule 2 (fail loud),
@@ -6189,6 +6191,7 @@ void kernel_main(void)
      * We do not have a CPU int_frame_t here
      * (this is a boot-policy panic, not a CPU exception), so we render the
      * PC LOAD LETTER line directly and dump the relevant values to serial. */
+    /* ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36. */
     if (b.ext_mem_kb < (uint32_t)INITECH_MIN_EXT_KB ||
         !flair_heap_ram_ok(b.ext_mem_kb)) {
         /* Grep-able marker first (the oracle keys on "PANIC"). */
@@ -6214,7 +6217,7 @@ void kernel_main(void)
          * g_panic_con is bound iff the console came up; render through it. */
         if (g_int21_con) {
             console_puts(g_int21_con,
-                "\nPC LOAD LETTER  (not enough memory for kernel/FLAIR)\n");
+                "\nPC LOAD LETTER  (" MSG_DOS_0035 ")\n");
         }
 
         /* Terminal: never proceed into FLAIR/heap work on a machine that

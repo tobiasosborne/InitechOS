@@ -174,11 +174,11 @@ static int write_bochsrc(const char *path, const BochsConfig *cfg,
     fprintf(f,
         "romimage: file=%s\n"
         "vgaromimage: file=%s\n"
-        "megs: 32\n"
+        "megs: %s\n"
         "vga: extension=%s\n"
         "cpu: model=pentium, ips=50000000\n"
         "ata0-master: type=disk, path=\"%s\", mode=flat, cylinders=%ld, heads=%d, spt=%d\n",
-        bios, vga, cfg->vga_extension ? cfg->vga_extension : "vbe",
+        bios, vga, getenv("INITECH_TEST_RAM_MB") ? getenv("INITECH_TEST_RAM_MB") : "32", cfg->vga_extension ? cfg->vga_extension : "vbe",
         cfg->disk_path, cylinders, BOCHS_HEADS, BOCHS_SPT);
     if (cfg->data_disk_path) {
         fprintf(f,

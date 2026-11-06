@@ -1,7 +1,8 @@
+% ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36: global 8 MB floor.
 % Chapter 2 -- Setting Up (Mac OS 8 Installation Ch. 2 form; the operations
 % chapter of this book, so it opens with the slogan, operator directive
 % 2026-10-17).  Sources (Law 1): spec/hardware.json and spec/memory_map.h
-% FLAIR_HEAP_MIN (the requirements, as the FLAIR User's Guide Appendix B);
+% INITECH_MIN_EXT_KB (7168 KiB above 1 MiB; the requirements, as the FLAIR User's Guide Appendix B);
 % os/milton/kmain.c (the startup disk: IO.SYS and INITDOS.SYS, FLAIR started
 % with no command; the data disk on the IDE primary slave mounted as drive
 % A, label INITECH; TRASH-CREATE and DESKTOP-DB-CREATE on a disk that has
@@ -22,7 +23,7 @@ To use FLAIR you need:
 \begin{itemize}
 \item An Initech workstation or a compatible personal computer with an
   Intel 80486 microprocessor.
-\item At least 5~MB of memory: the first megabyte and 4~MB of extended
+\item At least 8~MB of memory: the first megabyte and 7~MB of extended
   memory above it.
 \item A VGA display adapter with the VESA BIOS Extensions, Version~2.0,
   able to show 640 by 480 dots in 256 colours, and a VGA monitor.

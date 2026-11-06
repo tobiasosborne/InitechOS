@@ -82,7 +82,8 @@
 #include <string.h>
 #include <stdint.h>
 
-#define MZ_INITECH_TAG   0x4943u   /* mz.h: 'I','C' LE -- the flat-32 sentinel */
+#include "../spec/samir/memory_contract.h"
+#define MZ_INITECH_TAG   INITECHMZ_LEGACY_TAG   /* mz.h: 'I','C' LE -- the flat-32 sentinel */
 #define HDR_SIZE         0x20u     /* e_cparhdr = 2 paragraphs (canonical fixture) */
 /* 64 was enough for hand-assembled fixtures; a COMPILED C tenant (bead
  * initech-w96l: os/apps/tbx, Initech 123) references every global through an
@@ -145,6 +146,8 @@ int main(int argc, char **argv)
     uint32_t reloc_count = 0;
     int      no_reloc    = 0;
     int      foreign     = 0;
+    int extended=0;
+    uint32_t reserve=0,minimum_heap=0;
     uint32_t minalloc    = 0;
     uint32_t entry_off   = 0;
     int      header_relocs = 0;
@@ -156,6 +159,17 @@ int main(int argc, char **argv)
         if (strcmp(argv[i], "--reloc") == 0) {
             if (++i >= argc) die("--reloc needs an argument");
             reloc_count = parse_offsets(argv[i], reloc_off, MAX_RELOCS);
+        } else if (strcmp(argv[i], "--extended") == 0) {
+            extended=1;
+        } else if (strcmp(argv[i], "--samir") == 0) {
+            extended=1; reserve=SAMIR_LOADER_RESERVE;
+            minimum_heap=SAMIR_MINIMUM_HEAP_BYTES; minalloc=SAMIR_MINALLOC_PARAS;
+        } else if (strcmp(argv[i], "--reserve") == 0) {
+            if(++i>=argc) die("--reserve needs bytes");
+            reserve=(uint32_t)strtoul(argv[i],NULL,0);
+        } else if (strcmp(argv[i], "--minimum-heap") == 0) {
+            if(++i>=argc) die("--minimum-heap needs bytes");
+            minimum_heap=(uint32_t)strtoul(argv[i],NULL,0);
         } else if (strcmp(argv[i], "--foreign") == 0) {
             /* Emit an UNTAGGED MZ (e_res[0] == 0) -- a genuine 16-bit DOS .EXE as
              * far as the loader can tell. The kernel MUST panic 'PANIC foreign-mz'
@@ -274,10 +288,12 @@ int main(int argc, char **argv)
     /* ---- Compute the container layout: the trailer-reloc model, or with
      * --header-relocs the period header-gap model (table at 0x1C, header
      * rounded up to whole paragraphs, module after it). ---- */
+    /* DEC-03a.3/.4, initech-jarzu: v1 descriptor precedes ALL fixups. */
+    if(extended) header_relocs=1;
     uint32_t hdr_size     = HDR_SIZE;
     uint32_t reloc_table;
     if (header_relocs) {
-        reloc_table = 0x1Cu + 4u;          /* first dword after the tag word */
+        reloc_table = extended ? INITECHMZ_EXT_HEADER_MIN : 0x1Cu + 4u;          /* first dword after the tag word */
         hdr_size    = (reloc_table + reloc_count * 4u + 15u) & ~15u;
         if (hdr_size < HDR_SIZE) hdr_size = HDR_SIZE;
         if (hdr_size / 16u > 0xFFFFu) die("--header-relocs: header too large");
@@ -320,7 +336,13 @@ int main(int argc, char **argv)
     put16(buf, 0x18, (uint16_t)reloc_table);               /* e_lfarlc (reloc tbl) */
     /* e_res[0] -- the InitechMZ tag. --foreign writes 0 (an untagged 16-bit DOS
      * .EXE), which the loader rejects fail-loud (DEC-08a.5: 'PANIC foreign-mz'). */
-    put16(buf, 0x1C, (uint16_t)(foreign ? 0u : MZ_INITECH_TAG));
+    uint32_t tag=foreign ? 0u : extended ? INITECHMZ_EXT_TAG : MZ_INITECH_TAG;
+    put16(buf,INITECHMZ_TAG_OFF,(uint16_t)tag);
+    if(extended) {
+        put32(buf,INITECHMZ_EXT_VERSION_OFF,INITECHMZ_EXT_VERSION); put32(buf,INITECHMZ_EXT_LENGTH_OFF,INITECHMZ_EXT_DESC_LEN);
+        put32(buf,INITECHMZ_EXT_RESERVE_OFF,reserve); put32(buf,INITECHMZ_EXT_HEAP_OFF,minimum_heap);
+        put32(buf,INITECHMZ_EXT_STACK_OFF,INITECHMZ_EXT_STACK_BYTES); put32(buf,INITECHMZ_EXT_GUARD_OFF,INITECHMZ_EXT_GUARD_BYTES);
+    }
 
     /* ---- Place the load module after the header. ---- */
     memcpy(buf + hdr_size, module, mod_len);
@@ -343,7 +365,7 @@ int main(int argc, char **argv)
             out_path, total, hdr_size, mod_len, reloc_count,
             no_reloc ? " (NO-RELOC mutant)" : (foreign ? " (FOREIGN/untagged)" : ""),
             minalloc, entry_off,
-            (unsigned)(foreign ? 0u : MZ_INITECH_TAG));
+            (unsigned)tag);
 
     free(buf);
     free(module);

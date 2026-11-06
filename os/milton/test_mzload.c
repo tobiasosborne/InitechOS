@@ -49,7 +49,8 @@
  */
 
 #include <stdint.h>
-#include <string.h>   /* memset / memcmp -- libc OK in a host test (Law 3) */
+#include <string.h>
+#include <stdlib.h>   /* memset / memcmp -- libc OK in a host test (Law 3) */
 #include <stdio.h>
 
 #include "loader.h"
@@ -415,6 +416,66 @@ int main(int argc, char **argv)
                   plan.arena_present && plan.stack_top == PROGRAM_STACK_TOP,
                   "h4bk: heap above relocated BSS; separate top-level stack");
         }
+    }
+    /* DEC-03a.2-.4: high plan dispatch uses actual base and entry, even
+     * above the old whole-file bound. Never derive expected addresses. */
+    {
+        uint8_t *f = calloc(1, 200064u);
+        loader_plan_t p;
+        f[0]='M'; f[1]='Z';
+        put16(f,2,200064u%512u); put16(f,4,(200064u+511u)/512u);
+        put16(f,6,1); put16(f,8,4); put16(f,0xc,0xffff);
+        put16(f,0x14,7); put16(f,0x18,0x38); put16(f,0x1c,0x5849);
+        put32(f,0x20,1); put32(f,0x24,24); put32(f,0x28,65536);
+        put32(f,0x2c,32912); put32(f,0x30,65536); put32(f,0x34,4096);
+        put32(f,0x38,8); put32(f,0x48,0x1234);
+        loader_status_t st=loader_prepare_mz(f,200064u,0,0,&p);
+        CHECK(st==LOADER_OK,"DEC-03a: >old-window high module prepares");
+        if(st==LOADER_OK) {
+            CHECK(p.image_dst==0x600000u && p.entry==0x600007u &&
+                  p.stack_top==0x7ffffcu,"DEC-03a: high base, nonzero entry, high stack");
+            CHECK(get32(f,8)==0x601234u,"DEC-03a: actual high relocation factor");
+            CHECK(p.psp_addr < 0x100000u && p.arena_base==0x640d40u &&
+                  p.arena_ceil==0x7ef000u,"DEC-03a: low PSP and high disjoint arena");
+        }
+        free(f);
+    }
+    /* DEC-03a.3/.4: complete footprint boundaries and malformed extents;
+     * every refusal leaves the source/destination buffer byte-identical. */
+    {
+        uint8_t original[96]={0}, f[96], save[96];
+        loader_plan_t p;
+        original[0]='M'; original[1]='Z'; original[2]=96; original[4]=1;
+        original[8]=4; original[0x18]=0x38;
+        put16(original,0x1c,0x5849);put16(original,0xc,0xffff);
+        put32(original,0x20,1);put32(original,0x24,24);
+        put32(original,0x30,65536);put32(original,0x34,4096);
+        for(unsigned n=0;n<7;n++) {
+            memcpy(f,original,sizeof f);
+            if(n==0) put32(f,0x28,0xffffffff); /* wrapping reserve */
+            if(n==1) put32(f,0x2c,0xffffffff); /* wrapping usable heap */
+            if(n==2) put16(f,0xc,0);           /* no room for native metadata */
+            if(n==3) { put16(f,0xa,3);put16(f,0xc,2); } /* max < min */
+            if(n==4) { put32(f,0x2c,17);put16(f,0xc,2); } /* heap+header */
+            if(n==5) { put16(f,6,1);put32(f,0x38,29); } /* fixup over end */
+            if(n==6) { put16(f,6,1);put32(f,0x38,0);put32(f,64,0xffffffff); }
+            memcpy(save,f,sizeof f);
+            CHECK(loader_prepare_mz(f,sizeof f,0,0,&p)!=LOADER_OK,
+                  "DEC-03a: malformed/minimum/overflow refuses before transfer");
+            CHECK(!memcmp(f,save,sizeof f),"DEC-03a: no mutation on returning preflight refusal");
+        }
+        memcpy(f,original,sizeof f);put16(f,0xc,1);
+        CHECK(loader_prepare_mz(f,sizeof f,0,0,&p)==LOADER_OK && p.arena_ceil-p.arena_base==16,
+              "DEC-03a: zero usable heap with exactly native metadata fits");
+        memcpy(f,original,sizeof f);put16(f,0xc,3);put16(f,0xa,3);put32(f,0x2c,32);
+        CHECK(loader_prepare_mz(f,sizeof f,0,0,&p)==LOADER_OK && p.arena_ceil-p.arena_base==48,
+              "DEC-03a: finite max exact usable heap + native metadata fits");
+        memcpy(f,original,sizeof f);put32(f,0x28,0x1eefc0);put32(f,0x2c,16);
+        CHECK(loader_prepare_mz(f,sizeof f,0,0,&p)==LOADER_OK && p.arena_ceil-p.arena_base==32,
+              "DEC-03a: physical module + reserve + header + usable heap exact fit");
+        memcpy(f,original,sizeof f);put32(f,0x28,0x1eefc1);put32(f,0x2c,16);
+        CHECK(loader_prepare_mz(f,sizeof f,0,0,&p)==LOADER_ERR_NOMEM,
+              "DEC-03a: physical footprint exact fit plus one refuses");
     }
     return TEST_SUMMARY("test_mzload");
 }

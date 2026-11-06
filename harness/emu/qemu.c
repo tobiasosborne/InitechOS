@@ -2080,6 +2080,9 @@ static int build_argv(const QemuConfig *cfg, char **argv,
     } while (0)
 
     PUSH(QEMU_BIN);
+    /* DEC-03a test profiles only; general profile work: initech-r2lqd. */
+    const char *test_ram=getenv("INITECH_TEST_RAM_MB");
+    if(test_ram) { PUSH("-m"); PUSH(test_ram); PUSH("-no-acpi"); }
     /* Headless. NOTE: deliberately NOT `-nographic` -- that muxes the VGA
      * firmware/monitor banner onto the same stream as serial and pollutes
      * the capture. `-display none` keeps `-serial file:` clean (verified:

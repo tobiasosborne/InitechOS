@@ -1,0 +1,9 @@
+ADR-0009 DEC-03a.5, initech-jarzu: high-stack acceptance.
+Real dBASE III PLUS 1.1, the four binaries pinned in ../reference.sha256.
+Captured with the existing mint_capture.sh; stdout is not the golden.
+The flushed alternate GOLD.OUT ends in DOS EOF 1A and has expected error 103.
+Inputs extend the existing depth case with an unused PARAMETERS Q and an
+explicit by-value (D+0) argument on every call. By-reference stays deferred.
+The 800 captured bytes independently match the original depth/GOLD.OUT.
+Mutation: PROC_MUTATE_STACK_ARGS restores the obsolete per-call C stack frame;
+test-samir-high-stack-mutant must catch the real on-target guard corruption.
