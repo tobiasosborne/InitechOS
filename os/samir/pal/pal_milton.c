@@ -781,6 +781,12 @@ static int32_t milton_terminal_line(samir_pal_t *p,char *buf,uint32_t cap,int ec
     for(;;) {
         c=milton_conin_char(p);
         if(c<0) return -1;
+#ifndef SAMIR_REVIEW_MUTANT_KEYS
+        /* IBM/DOS extended keys arrive as one 00,scan pair (8011ad44).
+         * Consume navigation/function scans as keys, never printable text.
+         * This line editor appends/erases; it has no interior insertion point. */
+        if(c==0) { if(milton_conin_char(p)<0)return -1;continue; }
+#endif
         if(c=='\r' || c=='\n') break;
         if(c=='\b') { if(n) { n--; if(echo) milton_conout(p,"\b \b",3); } continue; }
         if(c<32 || c>126) continue;
