@@ -130,3 +130,9 @@ still have its own final green summary, and any nonzero batch exit refuses.
 The combined log is retained at `build/cert/<branch-slug>.log`. One make
 owns dependencies and gate-pair ordering, so shared prerequisites run once.
 Unset LANE_CERT_JOBS retains serial gate execution.
+
+For an authorized local integration ahead of the published remote, set
+`LANE_CERT_BASE=main` during generation. Selection and the certificate bind
+that exact local base; the generator checks it again after the gates.
+The default remains `origin/main`. `cert-check` always requires the recorded
+base to equal local `main`, including with an explicit base or gate scope.

@@ -6,6 +6,7 @@ export LC_ALL
 . "$(dirname "$0")/cert-summary.sh"
 refuse() { printf 'lane-cert: %s\n' "$1" >&2; exit 2; }
 required=${REQUIRED_GATES:-}
+base_ref=${LANE_CERT_BASE:-origin/main}
 scope=${CERT_SCOPE:-derived}
 jobs=${LANE_CERT_JOBS:-}
 case $# in
@@ -27,7 +28,7 @@ dirty=$(git status --porcelain --untracked-files=all) || refuse 'cannot inspect 
 if [ -n "$dirty" ]; then
     refuse 'dirty tree'
 fi
-base=$(git rev-parse --verify origin/main^{commit} 2>/dev/null) || refuse 'origin/main missing'
+base=$(git rev-parse --verify "$base_ref^{commit}" 2>/dev/null) || refuse "base ref missing: $base_ref"
 head=$(git rev-parse --verify HEAD)
 merge_base=$(git merge-base "$base" "$head") || refuse 'rebase required: unrelated history'
 [ "$merge_base" = "$base" ] || refuse 'rebase required: origin/main advanced'
@@ -57,9 +58,9 @@ require_coverage() {
     case $required in *[![:space:]]*) ;; *) refuse 'coverage unchecked: gates-for absent; supply REQUIRED_GATES or --require';; esac
 }
 # A missing prerequisite or a makefile error is not an absent selector.
-if clean_make -n --no-print-directory gates-for 'DIFF=origin/main..HEAD' > "$scratch/selector.out" 2> "$scratch/selector.err"; then
+if clean_make -n --no-print-directory gates-for "DIFF=$base..HEAD" > "$scratch/selector.out" 2> "$scratch/selector.err"; then
     selector=gates-for
-    gates=$(clean_make -s --no-print-directory gates-for 'DIFF=origin/main..HEAD' 2> "$scratch/selector.err") || {
+    gates=$(clean_make -s --no-print-directory gates-for "DIFF=$base..HEAD" 2> "$scratch/selector.err") || {
         cat "$scratch/selector.err" >&2; refuse 'gate selection failed: gates-for';
     }
 else
@@ -150,7 +151,7 @@ printf 'toolchain: gcc=%s; nasm=%s; qemu-system-i386=%s; bochs=%s\nhost: %s\nutc
 # Do not certify a gate which edits tracked files or moves the checkout.
 [ "$(git rev-parse HEAD)" = "$head" ] || refuse 'HEAD changed during gates'
 [ "$(git symbolic-ref --quiet --short HEAD)" = "$branch" ] || refuse 'branch changed during gates'
-[ "$(git rev-parse origin/main)" = "$base" ] || refuse 'origin/main changed during gates'
+[ "$(git rev-parse "$base_ref")" = "$base" ] || refuse "$base_ref changed during gates"
 [ -z "$(git status --porcelain --untracked-files=all)" ] || refuse 'dirty tree after gates'
 if grep -q '[^ -~]' "$scratch/cert"; then refuse 'non-ASCII certificate data'; fi
 if [ -n "${HOME:-}" ] && grep -qF "$HOME" "$scratch/cert"; then refuse 'home path in certificate data'; fi
