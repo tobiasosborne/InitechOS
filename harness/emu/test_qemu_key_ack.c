@@ -2,6 +2,10 @@
  * A scripted guest consumes each release after 175 virtual ms. QMP replies
  * and the old serial echo are already available: neither permits another key.
  * Exercise BOTH real injection loops without a scheduler-dependent sleep. */
+/* qemu.c uses Linux pidfd syscalls; feature macros precede ALL libc headers. */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE 700
 #include <time.h>
