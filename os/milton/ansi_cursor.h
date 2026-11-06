@@ -10,14 +10,16 @@ static void ansi_cursor_rel(void *ctx, int drow, int dcol)
         uint32_t r = 0, c = 0;
         int nr, nc;
         console_get_cursor(con, &r, &c);
-        /* Clamp the LOW edge here: console_set_cursor takes uint32_t and only
-         * clamps the HIGH edge, so a negative relative move (cursor up past row
-         * 0) must be pinned to 0 before the cast (else it wraps to ~UINT32 and
-         * clamps to the LAST row -- the wrong direction). */
+        /* DOS ANSI movement stays on the page; the native page API may
+         * carry real III+'s off-grid row 25 (initech-fzsvo). */
         nr = (int)r + drow;
         nc = (int)c + dcol;
         if (nr < 0) { nr = 0; }
         if (nc < 0) { nc = 0; }
+#ifndef ANSI_MUTATE_BRIDGE_CLAMP
+        if (nr >= (int)con->rows) nr = (int)con->rows - 1;
+        if (nc >= (int)con->cols) nc = (int)con->cols - 1;
+#endif
         console_set_cursor(con, (uint32_t)nr, (uint32_t)nc);
     }
 }
