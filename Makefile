@@ -35712,4 +35712,5 @@ include harness/revert_merge.mk
 # it reads the complete TEST_UNIT_GATES / TEST_EMU_GATES lists.
 include harness/lane_cert.mk
 include harness/gate_map.mk
+include harness/sentinel.mk
 include harness/gate_pairs.mk
