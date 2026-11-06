@@ -1,0 +1,30 @@
+#!/bin/sh
+# Host fallback using the same KEYS, kit, designer and engine as QEMU acceptance.
+set -eu
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
+  -Ios/samir/include -Ios/samir/ui -Ispec \
+  -o build/host_designer_frm \
+  harness/diff/dbf_diff/xbase_prog_diff/oneshot/report/host_designer.c \
+  os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c \
+  os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c \
+  os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/cmd/report.c \
+  os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c \
+  os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c \
+  os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c \
+  os/samir/pal/pal_host.c os/samir/ui/kit.c \
+  os/samir/ui/frmdesign.c os/samir/ui/lbldesign.c
+run=$(mktemp -d "$root/build/host-frmdesign.XXXXXX")
+for app in report label; do
+  mkdir -p "$run/$app/files"
+  cp -f build/CLIENTS.DBF "$run/$app/files/CLIENTS.DBF"
+  cp -f harness/diff/dbf_diff/xbase_prog_diff/oneshot/"$app"/SETUP/* "$run/$app/files/"
+  (
+    cd "$run/$app/files"
+    timeout 20 "$root/build/host_designer_frm" "$root/harness/diff/dbf_diff/xbase_prog_diff/oneshot/$app/KEYS" > ../transcript.txt
+    cd ..
+    sh "$root/harness/diff/dbf_diff/xbase_prog_diff/oneshot/$app/CHECK"
+  )
+done
+printf 'GREEN: host report/label integration (%s)\n' "$run"

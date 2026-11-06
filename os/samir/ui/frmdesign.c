@@ -215,10 +215,10 @@ static void fr_draw(void)
     kit_status(F.k,"Report",F.name,0,0,1);
     kit_message(F.k,23,"Select - Enter   Previous/next column - PgUp/PgDn   Save - Ctrl-W");
 }
-/* Preserve a long imported expression unless the visible field is changed. */
+/* The kit scrolls expressions wider than the visible portion of the line. */
 static int fr_edit(char *s,int row,int col,int width,char type,int *changed)
 {
-    char b[66]; int n=(int)rt_strlen(s),key;
+    char b[129]; int n=(int)rt_strlen(s),key;
     if(n>width)n=width;
     rt_memset(b,' ',(uint32_t)width);rt_memcpy(b,s,(uint32_t)n);
     key=kit_edit_field(F.k,row,col,b,width,type,0,changed);
@@ -296,7 +296,7 @@ static int fr_columns(int field)
         b[0]=(char)c->total;b[1]=0;kit_put(F.k,8,23,b,1);
         kit_message(F.k,24,"Enter/down - next option   F10 - fields   Esc - menu   Ctrl-U - delete column");
         changed=0;
-        if(field<2)key=fr_edit(field?c->head:c->expr,4+field,23,55,'C',&changed);
+        if(field<2)key=fr_edit(field?c->head:c->expr,4+field,23,field?55:128,'C',&changed);
         else {
             if(field==4){b[0]=(char)c->total;b[1]=0;}
             else fr_number(b,field==2?c->width:c->dec);
