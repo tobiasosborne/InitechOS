@@ -109,6 +109,19 @@ conservative, so some changes run additional gates. Aggregate entry points
 ownership but no automatic path triggers: concrete gates are selected from
 their subsystem families, avoiding recursive selection of `test-for`.
 
+Review fix for initech-fw3x0: FLAIR also covers `os/milton/**`. Any MILTON
+kernel edit therefore selects the whole FLAIR family, including kernel DF
+and native-boundary gates. This extra work is intentional: those gates link
+the MILTON kernel. TPS explicitly covers `os/milton/tpsrep_program.asm`;
+the harness family covers both `harness/proptest/serial_trace_fixture.c`
+and `harness/proptest/tbx_trace_fixture.c`. Shared boot images and make's
+global invalidation stamp expose further cross-family consumers. Their
+tracked inputs are listed in the map, so changes to shared kernel, font,
+definition-table and fixture inputs can select several subsystem families.
+The rebased inventory also registers the SAMIR DO-file, TSR-exec, lane
+certificate and merge-revert gates. The latter two belong to the harness
+family, including their directly consumed proof/revert scripts.
+
 The audit rules are mechanical:
 
 - Every concrete test-* target in `make -pq` belongs to exactly one family.
@@ -118,6 +131,10 @@ The audit rules are mechanical:
 - Every tracked path under os/, harness/, spec/, seed/, tools/ and pubs/,
   plus Makefile and every .mk file, matches at least one family. A changed
   path in that scope must match even if it was deleted or is not tracked yet.
+- Independently, each derived source/gate pair must select the consuming
+  gate's own family (the always family is selected unconditionally). Merely
+  mapping that source to another family does not satisfy this assertion.
+  This stricter check does not rely on another family's incidental calls.
 - Every family matches at least one real gate; every gate name/glob matches
   the inventory. New or removed test targets require a deliberate map edit.
 - `always` owns test-makefile-vars, test-gate-honesty and test-gate-map,
@@ -136,10 +153,57 @@ syntax, with `*` confined to one component and `**` crossing directories;
 points have empty path lists. Keep map edits ASCII and cite their bead.
 
 `build/gate_inventory.txt` is regenerated on every request from a query-only
-make database with Bochs definitions exposed, after all gate-vector
-assignments. `test-gate-map` audits that full inventory and `git ls-files`.
-The Rule-6 gate uses `GATE_MAP_MUT=drop-family` and
-`GATE_MAP_MUT=duplicate-gate` to create JSON copies under build/, then
-requires the real audit to fail for the named reason. It never edits spec/.
+make database (`make -p -q`) with Bochs definitions exposed, after all
+gate-vector assignments. `test-gate-map` runs both the structural audit
+(`--audit`) and the consumer audit (`--audit-consumers`) against that same
+database and a fresh `git ls-files` snapshot. Source evidence is derived
+without consulting the JSON paths: walk explicit normal and order-only
+prerequisites transitively, including generated outputs and the global
+makefile stamp, and collect tracked files under os/, harness/, spec/, seed/,
+tools/ and pubs/. Also inspect recipe paths and follow recipe references to
+file targets back to their inputs. Cycles terminate by visiting each rule
+once per gate; parsed recipe evidence is cached across gates.
+
+The C reader resolves named make variables, nested `$(call ...)` bodies
+with numbered arguments, `foreach` bindings, addprefix/addsuffix, filter /
+filter-out, patsubst/subst, basename/dir/notdir, firstword/words and strip.
+Sort retains all words; it need not order them for set membership. Other
+functions conservatively retain their expanded arguments (including both
+conditional branches), and recipe path globs match tracked files. No
+recipe or shell/eval/file function is executed by the reader. The green
+line reports the checked pair count and conservative/unresolved expansion
+count; it is not a claim that every make expression was evaluated exactly.
+
+Derivation limits (changes outside these observations still need review):
+
+- Only explicit rules in this make configuration's database are visible.
+  Other conditional configurations, implicit/pattern-rule instantiation,
+  target-specific variable overrides and make substitution references are
+  not fully evaluated. Expansion nesting is bounded at 64.
+- Shell-computed paths, dynamically assembled filenames and shell loops
+  that concatenate path fragments cannot generally be recovered. Unknown
+  make functions retain argument paths but may construct unseen outputs.
+  Shell/eval/file results and unbound variables are not evaluated.
+- File names containing whitespace or shell escapes are not tokenized as
+  complete paths. External corpora, untracked/generated file contents,
+  undeclared compiler includes and files opened inside scripts or programs
+  are not inspected. Known generated file targets are followed through
+  their declared prerequisites and visible recipe paths.
+- Recursive make recipes are not executed or interpreted as gate calls;
+  gate names in diagnostics must not create dependency edges. The five
+  aggregate dispatchers (test-unit, test-emu, test-par, test-merge-samir,
+  test-for) have structural ownership but no source-selection assertions;
+  their concrete test gates are checked individually. They retain empty
+  path lists to prevent full-suite selection and test-for recursion.
+- Literal paths in diagnostics and unused conditional branches can produce
+  extra obligations. This is deliberately conservative, not precise
+  command tracing or proof of complete compiler dependency information.
+
+The Rule-6 gate creates JSON copies under build/ with
+`GATE_MAP_MUT=drop-family`, `duplicate-gate` and `drop-consumer`, then
+requires the real gate to fail for the named reason. The third mutant
+removes the harness serial fixture path: the old structural audit must
+still pass, while the consumer audit must name the missing consuming gate.
+It never edits spec/ and registers no additional test gate.
 The include must stay after the TEST_*_GATES assignments and before
 `include harness/gate_pairs.mk` so both new gates reach the final vectors.

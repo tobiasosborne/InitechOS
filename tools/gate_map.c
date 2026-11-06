@@ -307,6 +307,390 @@ static void validate(const Strings *inventory, int *owners)
         }
     }
 }
+/* Consumer evidence comes from make, never from the path map. We interpret
+ * data only: no recipe, shell/eval/file function, or recursive make is run. */
+typedef struct { char *s; size_t n; } Text;
+typedef struct { char *name, *value; } Variable;
+typedef struct Rule {
+    char *name;
+    Text deps, recipe;
+    struct Rule **links;
+    size_t *sources, nlinks, nsources;
+    unsigned visited;
+    int prepared;
+} Rule;
+static Variable *variables;
+static size_t nv;
+static Rule *rules;
+static size_t nr;
+static unsigned walk_id;
+static Strings tracked;
+static unsigned char *coverage;
+static size_t consumer_pairs, recipe_rules, unresolved;
+static const char *expanding_rule;
+
+static void append(Text *t, const char *s, size_t n)
+{
+    if (t->n + n > 16 * 1024 * 1024) die("expanded make text exceeds 16 MiB in %s", expanding_rule ? expanding_rule : "database");
+    t->s = resize(t->s, t->n + n + 1);
+    memcpy(t->s + t->n, s, n); t->n += n; t->s[t->n] = 0;
+}
+static char *slice(const char *s, size_t n)
+{
+    char *p = resize(NULL, n + 1);
+    memcpy(p, s, n); p[n] = 0; return p;
+}
+static char *trim(char *s)
+{
+    size_t n;
+    while (isspace((unsigned char)*s)) s++;
+    n = strlen(s);
+    while (n && isspace((unsigned char)s[n - 1])) s[--n] = 0;
+    return s;
+}
+static char *variable(const char *name)
+{
+    for (size_t i = nv; i; i--)
+        if (!strcmp(name, variables[i - 1].name)) return variables[i - 1].value;
+    return NULL;
+}
+static void set_variable(const char *name, const char *value)
+{
+    variables = resize(variables, (nv + 1) * sizeof *variables);
+    variables[nv].name = strdup(name); variables[nv].value = strdup(value); nv++;
+}
+static int rule_cmp(const void *a, const void *b)
+{
+    return strcmp(((const Rule *)a)->name, ((const Rule *)b)->name);
+}
+static Rule *find_rule(const char *name)
+{
+    Rule key = {0}; key.name = (char *)name;
+    return bsearch(&key, rules, nr, sizeof *rules, rule_cmp);
+}
+static void load_database(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    char *line = NULL, *define_name = NULL;
+    size_t cap = 0;
+    Text body = {0};
+    Rule *current = NULL;
+    int files = 0;
+    if (!f) die("open make database %s: %s", path, strerror(errno));
+    while (getline(&line, &cap, f) >= 0) {
+        char *eq, *colon;
+        if (define_name) {
+            if (!strcmp(line, "endef\n") || !strcmp(line, "endef")) {
+                set_variable(define_name, body.s ? body.s : "");
+                free(define_name); define_name = NULL; free(body.s); body = (Text){0};
+            } else append(&body, line, strlen(line));
+            continue;
+        }
+        if (!strcmp(line, "# Files\n")) { files = 1; continue; }
+        if (!strncmp(line, "# files hash-table stats:", 25)) break;
+        if (!files) {
+            if (!strncmp(line, "define ", 7)) { define_name = strdup(trim(line + 7)); continue; }
+            if (line[0] == '#' || isspace((unsigned char)line[0])) continue;
+            eq = strchr(line, '=');
+            if (eq) {
+                char *end = eq;
+                if (end > line && strchr(":+?", end[-1])) end--;
+                *end = 0;
+                set_variable(trim(line), trim(eq + 1));
+            }
+            continue;
+        }
+        if (line[0] == '\t') {
+            if (current) append(&current->recipe, line + 1, strlen(line + 1));
+            continue;
+        }
+        if (line[0] == '#' || line[0] == '\n') continue;
+        current = NULL;
+        colon = strchr(line, ':');
+        if (!colon) continue;
+        *colon = 0;
+        /* Target-specific variable rows are not prerequisite edges. */
+        eq = strchr(colon + 1, '=');
+        if (eq) {
+            char *q = colon + 1;
+            while (*q && *q != '=' && !isspace((unsigned char)*q)) q++;
+            if (*q == '=' || strstr(colon + 1, " =") || strstr(colon + 1, " :=")) continue;
+        }
+        if (strpbrk(line, " \t%$") || !*line) continue;
+        /* GNU make prints :: rules separately; union their evidence below. */
+        rules = resize(rules, (nr + 1) * sizeof *rules);
+        current = &rules[nr++]; *current = (Rule){0}; current->name = strdup(line);
+        append(&current->deps, colon + 1 + (colon[1] == ':'), strlen(colon + 1 + (colon[1] == ':')));
+    }
+    if (ferror(f) || fclose(f)) die("read make database %s", path);
+    free(line);
+    if (!files || !nr || define_name) die("incomplete make database %s", path);
+    qsort(rules, nr, sizeof *rules, rule_cmp);
+    for (size_t i = 1; i < nr; i++) if (!strcmp(rules[i - 1].name, rules[i].name)) {
+        append(&rules[i].deps, " ", 1);
+        append(&rules[i].deps, rules[i - 1].deps.s ? rules[i - 1].deps.s : "", rules[i - 1].deps.n);
+        append(&rules[i].recipe, "\n", 1);
+        append(&rules[i].recipe, rules[i - 1].recipe.s ? rules[i - 1].recipe.s : "", rules[i - 1].recipe.n);
+        free(rules[i - 1].name); free(rules[i - 1].deps.s); free(rules[i - 1].recipe.s);
+        memmove(&rules[i - 1], &rules[i], (nr - i) * sizeof *rules); nr--; i--;
+    }
+}
+static char *expand_make(const char *s, const Strings *args, unsigned depth);
+static Strings arguments(char *s)
+{
+    Strings a = {0};
+    char *start = s;
+    unsigned nesting = 0;
+    for (char *p = s; ; p++) {
+        if ((*p == ',' && !nesting) || !*p) {
+            int last = !*p;
+            *p = 0; add(&a, strdup(trim(start))); start = p + 1;
+            if (last) break;
+        } else if (p[0] == '$' && (p[1] == '(' || p[1] == '{')) { nesting++; p++; }
+        else if (nesting && (*p == ')' || *p == '}')) nesting--;
+    }
+    return a;
+}
+static void free_strings(Strings *s)
+{
+    for (size_t i = 0; i < s->n; i++) free(s->v[i]);
+    free(s->v); *s = (Strings){0};
+}
+static int percent_match(const char *pattern, const char *word)
+{
+    const char *pct = strchr(pattern, '%');
+    size_t n = strlen(word), prefix, suffix;
+    if (!pct) return !strcmp(pattern, word);
+    prefix = (size_t)(pct - pattern); suffix = strlen(pct + 1);
+    return n >= prefix + suffix && !strncmp(pattern, word, prefix) && !strcmp(pct + 1, word + n - suffix);
+}
+static char *make_function(const char *name, Strings *a)
+{
+    Text out = {0};
+    if ((!strcmp(name, "filter") || !strcmp(name, "filter-out")) && a->n == 2) {
+        char *save, *word = strtok_r(a->v[1], " \t\n", &save);
+        for (; word; word = strtok_r(NULL, " \t\n", &save)) {
+            char *patterns = strdup(a->v[0]), *psave, *p = strtok_r(patterns, " \t\n", &psave);
+            int match = 0;
+            for (; p; p = strtok_r(NULL, " \t\n", &psave)) if (percent_match(p, word)) match = 1;
+            if (match == !strcmp(name, "filter")) { append(&out, word, strlen(word)); append(&out, " ", 1); }
+            free(patterns);
+        }
+    } else if (!strcmp(name, "patsubst") && a->n == 3) {
+        char *save, *word = strtok_r(a->v[2], " \t\n", &save);
+        for (; word; word = strtok_r(NULL, " \t\n", &save)) {
+            char *pct = strchr(a->v[0], '%'), *replace = strchr(a->v[1], '%');
+            if (percent_match(a->v[0], word)) {
+                if (pct && replace) {
+                    size_t prefix = (size_t)(pct - a->v[0]);
+                    append(&out, a->v[1], (size_t)(replace - a->v[1]));
+                    append(&out, word + prefix, strlen(word) - prefix - strlen(pct + 1));
+                    append(&out, replace + 1, strlen(replace + 1));
+                } else append(&out, a->v[1], strlen(a->v[1]));
+            } else append(&out, word, strlen(word));
+            append(&out, " ", 1);
+        }
+    } else if (!strcmp(name, "subst") && a->n == 3 && *a->v[0]) {
+        const char *s = a->v[2], *p;
+        while ((p = strstr(s, a->v[0])) != NULL) {
+            append(&out, s, (size_t)(p - s)); append(&out, a->v[1], strlen(a->v[1])); s = p + strlen(a->v[0]);
+        }
+        append(&out, s, strlen(s));
+    } else if ((!strcmp(name, "firstword") || !strcmp(name, "words") || !strcmp(name, "strip") ||
+                !strcmp(name, "sort") || !strcmp(name, "basename") || !strcmp(name, "notdir") || !strcmp(name, "dir")) && a->n == 1) {
+        char *save, *word = strtok_r(a->v[0], " \t\n", &save);
+        size_t n = 0;
+        for (; word; word = strtok_r(NULL, " \t\n", &save)) {
+            char *slash = strrchr(word, '/'), *dot = strrchr(word, '.');
+            n++;
+            if (!strcmp(name, "words")) continue;
+            if (!strcmp(name, "basename") && dot && (!slash || dot > slash)) *dot = 0;
+            if (!strcmp(name, "notdir") && slash) word = slash + 1;
+            if (!strcmp(name, "dir")) {
+                if (slash) slash[1] = 0; else word = "./";
+            }
+            if (out.n) append(&out, " ", 1);
+            append(&out, word, strlen(word));
+            if (!strcmp(name, "firstword")) break;
+        }
+        if (!strcmp(name, "words")) {
+            char number[32]; snprintf(number, sizeof number, "%zu", n); append(&out, number, strlen(number));
+        }
+    } else return NULL;
+    return out.s ? out.s : strdup("");
+}
+
+static char *expand_ref(char *ref, const Strings *args, unsigned depth)
+{
+    char *space = strpbrk(ref, " \t\n"), *value, *name;
+    Text out = {0};
+    char *function_result;
+    if (space) {
+        Strings raw, expanded = {0};
+        *space++ = 0; raw = arguments(space);
+        for (size_t i = 0; i < raw.n; i++) add(&expanded, expand_make(raw.v[i], args, depth + 1));
+        if ((function_result = make_function(ref, &expanded)) != NULL) {
+            append(&out, function_result, strlen(function_result)); free(function_result);
+        } else if (!strcmp(ref, "call") && expanded.n) {
+            value = variable(trim(expanded.v[0]));
+            if (value) {
+                Strings local = {expanded.v + 1, expanded.n - 1};
+                char *s = expand_make(value, &local, depth + 1);
+                append(&out, s, strlen(s)); free(s);
+            } else unresolved++;
+        } else if ((!strcmp(ref, "addprefix") || !strcmp(ref, "addsuffix")) && expanded.n == 2) {
+            char *save, *word = strtok_r(expanded.v[1], " \t\n", &save);
+            for (; word; word = strtok_r(NULL, " \t\n", &save)) {
+                const char *a = !strcmp(ref, "addprefix") ? expanded.v[0] : word;
+                const char *b = !strcmp(ref, "addprefix") ? word : expanded.v[0];
+                append(&out, a, strlen(a)); append(&out, b, strlen(b)); append(&out, " ", 1);
+            }
+        } else if (!strcmp(ref, "foreach") && raw.n == 3) {
+            size_t saved_nv = nv;
+            char *save, *word = strtok_r(expanded.v[1], " \t\n", &save);
+            for (; word; word = strtok_r(NULL, " \t\n", &save)) {
+                char *s;
+                set_variable(trim(expanded.v[0]), word);
+                s = expand_make(raw.v[2], args, depth + 1);
+                append(&out, s, strlen(s)); append(&out, " ", 1); free(s);
+                free(variables[nv - 1].name); free(variables[nv - 1].value); nv = saved_nv;
+            }
+        } else {
+            /* An over-approximation: preserve input paths from ALL branches.
+             * Never execute $(shell ...), $(eval ...), or $(file ...). */
+            unresolved++;
+            for (size_t i = 0; i < expanded.n; i++) {
+                append(&out, expanded.v[i], strlen(expanded.v[i])); append(&out, " ", 1);
+            }
+        }
+        free_strings(&raw); free_strings(&expanded);
+        return out.s ? out.s : strdup("");
+    }
+    if (args && isdigit((unsigned char)*ref)) {
+        char *end;
+        unsigned long i = strtoul(ref, &end, 10);
+        if (!*end) return strdup(i && i <= args->n ? args->v[i - 1] : "");
+    }
+    name = expand_make(ref, args, depth + 1);
+    value = variable(name); free(name);
+    return value ? expand_make(value, args, depth + 1) : strdup("");
+}
+static char *expand_make(const char *s, const Strings *args, unsigned depth)
+{
+    Text out = {0};
+    if (depth > 64) { unresolved++; return strdup(""); }
+    while (*s) {
+        if (s[0] == '$' && s[1] == '$') { append(&out, "$", 1); s += 2; }
+        else if (s[0] == '$' && (s[1] == '(' || s[1] == '{')) {
+            const char *start = s + 2, *p = start;
+            unsigned nesting = 1;
+            char close = s[1] == '(' ? ')' : '}';
+            for (; *p; p++) {
+                if (*p == s[1]) nesting++;
+                else if (*p == close && !--nesting) break;
+            }
+            if (!*p) { unresolved++; append(&out, s, strlen(s)); break; }
+            char *ref = slice(start, (size_t)(p - start));
+            char *value = expand_ref(ref, args, depth + 1);
+            append(&out, value, strlen(value)); free(value); free(ref); s = p + 1;
+        } else if (s[0] == '$' && s[1]) {
+            char ref[2] = {s[1], 0};
+            char *value = expand_ref(ref, args, depth + 1);
+            append(&out, value, strlen(value)); free(value); s += 2;
+        } else { append(&out, s, 1); s++; }
+    }
+    return out.s ? out.s : strdup("");
+}
+static int source_scope(const char *s)
+{
+    const char *dirs[] = {"os/", "harness/", "spec/", "seed/", "tools/", "pubs/"};
+    for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; i++)
+        if (!strncmp(s, dirs[i], strlen(dirs[i]))) return 1;
+    return 0;
+}
+static void consume_token(Rule *consumer, const char *s, int prerequisite)
+{
+    char **found;
+    Rule *r;
+    if (!strncmp(s, "./", 2)) s += 2;
+    found = bsearch(&s, tracked.v, tracked.n, sizeof *tracked.v, cmp);
+    if (found && source_scope(s)) {
+        size_t p = (size_t)(found - tracked.v);
+        consumer->sources = resize(consumer->sources, (consumer->nsources + 1) * sizeof *consumer->sources);
+        consumer->sources[consumer->nsources++] = p;
+    }
+    r = prerequisite || strchr(s, '/') ? find_rule(s) : NULL;
+    if (r) {
+        consumer->links = resize(consumer->links, (consumer->nlinks + 1) * sizeof *consumer->links);
+        consumer->links[consumer->nlinks++] = r;
+    }
+}
+static void consume_text(Rule *consumer, const char *s, int prerequisite)
+{
+    while (*s) {
+        const char *start;
+        char *word;
+        while (*s && !isalnum((unsigned char)*s) && !strchr("_./", *s)) s++;
+        start = s;
+        while (*s && (isalnum((unsigned char)*s) || strchr("_./+*-?[]", *s))) s++;
+        if (s == start) continue;
+        word = slice(start, (size_t)(s - start));
+        consume_token(consumer, word, prerequisite);
+        if (strchr(word, '/') && strpbrk(word, "*?[")) {
+            for (size_t i = 0; i < tracked.n; i++)
+                if (!fnmatch(word, tracked.v[i], FNM_PATHNAME)) consume_token(consumer, tracked.v[i], prerequisite);
+        }
+        free(word);
+    }
+}
+static void walk_rule(Rule *r, size_t gate)
+{
+    if (r->visited == walk_id) return;
+    r->visited = walk_id;
+    if (!r->prepared) {
+        r->prepared = 1;
+        if (r->deps.s) consume_text(r, r->deps.s, 1);
+        if (r->recipe.n) {
+            char *expanded;
+            expanding_rule = r->name;
+            expanded = expand_make(r->recipe.s, NULL, 0); recipe_rules++;
+            consume_text(r, expanded, 0); free(expanded);
+        }
+    }
+    for (size_t i = 0; i < r->nsources; i++) coverage[gate * tracked.n + r->sources[i]] = 1;
+    for (size_t i = 0; i < r->nlinks; i++) walk_rule(r->links[i], gate);
+}
+static void audit_consumers(const char *database, const Strings *inventory, const int *owners, Strings paths)
+{
+    unsigned char *matches;
+    tracked = paths; qsort(tracked.v, tracked.n, sizeof *tracked.v, cmp);
+    load_database(database);
+    coverage = calloc(inventory->n, tracked.n);
+    matches = calloc(nf, tracked.n);
+    if (!coverage || !matches) die("out of memory");
+    for (size_t f = 0; f < nf; f++) for (size_t p = 0; p < tracked.n; p++)
+        for (size_t k = 0; k < families[f].paths.n; k++)
+            if (path_match(families[f].paths.v[k], tracked.v[p])) { matches[f * tracked.n + p] = 1; break; }
+    for (size_t g = 0; g < inventory->n; g++) {
+        Rule *r = find_rule(inventory->v[g]);
+        if (!r) { red("no database rule for %s", inventory->v[g]); continue; }
+        walk_id++; walk_rule(r, g);
+    }
+    for (size_t g = 0; g < inventory->n; g++) {
+        if (owners[g] < 0) continue;
+        /* Dispatchers deliberately have no automatic selection. Their
+         * concrete gates are audited individually, including all twins. */
+        if (!strcmp(families[owners[g]].name, "aggregates")) continue;
+        for (size_t p = 0; p < tracked.n; p++) if (coverage[g * tracked.n + p]) {
+            int ok = !strcmp(families[owners[g]].name, "always") || matches[(size_t)owners[g] * tracked.n + p];
+            consumer_pairs++;
+            if (!ok) red("consumer %s -> %s (family %s not selected)", tracked.v[p], inventory->v[g], families[owners[g]].name);
+        }
+    }
+    if (!errors) printf(">>> test-gate-map: consumers green (%zu source/gate pairs, %zu recipe visits; %zu conservative/unresolved expansions)\n", consumer_pairs, recipe_rules, unresolved);
+    free(matches);
+}
+
 static void mutant(const char *kind)
 {
     /* Mutate parsed row spans, preserving every other byte of locked data. */
@@ -328,6 +712,20 @@ static void mutant(const char *kind)
         }
         fputs("\",", stdout);
         fwrite(json + at + 1, 1, length - at - 1, stdout);
+    } else if (!strcmp(kind, "drop-consumer")) {
+        const char *path = "\"harness/proptest/serial_trace_fixture.c\"";
+        char *at = NULL, *end;
+        for (size_t i = 0; i < nf; i++) if (!strcmp(families[i].name, "harness")) {
+            at = strstr(json + families[i].begin, path);
+            if (!at || at >= json + families[i].end) die("missing harness consumer path for mutant");
+            break;
+        }
+        if (!at) die("missing harness family for mutant");
+        end = at + strlen(path);
+        while (*end && isspace((unsigned char)*end)) end++;
+        if (*end != ',') die("consumer mutant requires a following path");
+        fwrite(json, 1, (size_t)(at - json), stdout);
+        fwrite(end + 1, 1, length - (size_t)(end + 1 - json), stdout);
     } else die("unknown mutant %s", kind);
 }
 int main(int argc, char **argv)
@@ -339,8 +737,9 @@ int main(int argc, char **argv)
     if (argc == 4 && !strcmp(argv[1], "--mutate")) {
         load_map(argv[3]); mutant(argv[2]); return ferror(stdout) ? 2 : 0;
     }
-    if (argc != 4 || (strcmp(argv[1], "--audit") && strcmp(argv[1], "--resolve")))
-        die("usage: gate_map --audit|--resolve MAP INVENTORY < paths; --mutate KIND MAP");
+    if (!((argc == 4 && (!strcmp(argv[1], "--audit") || !strcmp(argv[1], "--resolve"))) ||
+          (argc == 5 && !strcmp(argv[1], "--audit-consumers"))))
+        die("usage: gate_map --audit|--resolve MAP INVENTORY < paths; --audit-consumers MAP INVENTORY DATABASE < tracked; --mutate KIND MAP");
     audit = !strcmp(argv[1], "--audit"); load_map(argv[2]);
     f = fopen(argv[3], "r"); if (!f) die("open inventory %s: %s", argv[3], strerror(errno));
     inventory = lines(f, 1); if (fclose(f)) die("close inventory");
@@ -352,6 +751,10 @@ int main(int argc, char **argv)
     for (size_t g = 0; g < inventory.n; g++) owners[g] = -1;
     validate(&inventory, owners);
     paths = lines(stdin, 0);
+    if (!strcmp(argv[1], "--audit-consumers")) {
+        audit_consumers(argv[4], &inventory, owners, paths);
+        return errors ? 1 : 0;
+    }
     for (size_t p = 0; p < paths.n; p++) {
         int matched = 0, build_system = 0;
         size_t n = strlen(paths.v[p]);

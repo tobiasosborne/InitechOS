@@ -58,16 +58,19 @@ test-for: $(GATE_MAP_TOOL) $(GATE_MAP_INVENTORY)
 test-gate-map: $(GATE_MAP_TOOL) $(GATE_MAP_INVENTORY) $(GATE_MAP_JSON)
 	@set -eu; p=$$(mktemp $(BUILD)/gate-map-tracked.XXXXXX); trap 'rm -f "$$p"' EXIT HUP INT TERM; \
 	 git -c core.quotePath=false ls-files > "$$p"; \
-	 $(GATE_MAP_TOOL) --audit $(GATE_MAP_JSON) $(GATE_MAP_INVENTORY) < "$$p"
+	 $(GATE_MAP_TOOL) --audit $(GATE_MAP_JSON) $(GATE_MAP_INVENTORY) < "$$p"; \
+	 $(GATE_MAP_TOOL) --audit-consumers $(GATE_MAP_JSON) $(GATE_MAP_INVENTORY) $(GATE_MAP_INVENTORY).db < "$$p"
 
 $(BUILD)/gate-map-%.json: $(GATE_MAP_TOOL) $(GATE_MAP)
 	@$(GATE_MAP_TOOL) --mutate $* $(GATE_MAP) > $@.tmp && mv -f $@.tmp $@
 
 test-gate-map-mutant: test-gate-map
-	@set -eu; for m in drop-family duplicate-gate; do \
+	@set -eu; for m in drop-family duplicate-gate drop-consumer; do \
 	 if $(MAKE) --no-print-directory -f $(GATE_MAP_MAKEFILE) test-gate-map GATE_MAP_MUT=$$m > $(BUILD)/gate-map-$$m.log 2>&1; then \
 	 printf 'gate-map RED: %s mutant survived\n' "$$m"; exit 1; fi; \
-	 case $$m in drop-family) reason='unmapped gate';; duplicate-gate) reason='listed twice';; esac; \
+	 case $$m in drop-family) reason='unmapped gate';; duplicate-gate) reason='listed twice';; \
+	 drop-consumer) reason='consumer harness/proptest/serial_trace_fixture.c -> test-serial-trace-pack (family harness not selected)'; \
+	   git -c core.quotePath=false ls-files | $(GATE_MAP_TOOL) --audit $(BUILD)/gate-map-$$m.json $(GATE_MAP_INVENTORY);; esac; \
 	 grep -m1 "gate-map RED: .*$$reason" $(BUILD)/gate-map-$$m.log || { cat $(BUILD)/gate-map-$$m.log; exit 1; }; \
-	 done; printf '>>> test-gate-map-mutant: green (drop-family and duplicate-gate correctly RED)\n'
+	 done; printf '>>> test-gate-map-mutant: green (drop-family, duplicate-gate and drop-consumer correctly RED; drop-consumer passes structural audit)\n'
 TEST_UNIT_GATES += test-gate-map test-gate-map-mutant
