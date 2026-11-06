@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-11-06 (**WL-0194: Codex quality-floor wave -- ndx incremental parity with real III+ (7tj3), date oracle re-keyed to real III+ with a ruling amendment to confirm (bkmv), factory -j producers + QEMU log retention (lroek, tfn6r), pubsdrift landed; three wave-2 lanes parked as origin/lane/*; see Sec 5. Previous: 2026-11-02, **WL-0193: order from chaos -- seven parked lanes landed and re-gated on main, 19 stale remote branches deleted after bundling, DEC-19 Load Overlay merged and ratified, four main-side reds found by the first test-par and fixed; see Sec 5. Previous: 2026-10-24, WL-0180: new WSL box certified gate by gate, 12 main regressions fixed, kernel size round 8, sharded certificate ratified on run 2, run 3 vetoed; WL-0181: r3 cap retired by ruling, overlays programme filed**)
+**Last Reconciled:** 2026-11-06 evening (**WL-0195: DEC-03a InitechMZ extended memory RATIFIED v1.0 (committee + 7 implementation beads), merge workflow v2 (F9 certificate/proof + F10 revert landed; F8 gate map + F11 sentinel in review fix), the one-hour one-shot experiment (8/10 W4 apps at a relaxed bar, floor held; kbd bug initech-wuxo0 found), Lane D TSR-EXEC relocation + Lane E2 disk DO landed; see Sec 5. Previous: WL-0194: Codex quality-floor wave -- ndx incremental parity with real III+ (7tj3), date oracle re-keyed to real III+ with a ruling amendment to confirm (bkmv), factory -j producers + QEMU log retention (lroek, tfn6r), pubsdrift landed; three wave-2 lanes parked as origin/lane/*; see Sec 5. Previous: 2026-11-02, **WL-0193: order from chaos -- seven parked lanes landed and re-gated on main, 19 stale remote branches deleted after bundling, DEC-19 Load Overlay merged and ratified, four main-side reds found by the first test-par and fixed; see Sec 5. Previous: 2026-10-24, WL-0180: new WSL box certified gate by gate, 12 main regressions fixed, kernel size round 8, sharded certificate ratified on run 2, run 3 vetoed; WL-0181: r3 cap retired by ruling, overlays programme filed**)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -203,6 +203,35 @@ fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
 
+> **CURRENT STATE (2026-11-06 evening, WL-0195). Supersedes the WL-0194 block below.**
+>
+> **Process is now merge workflow v2 (epic initech-0uphq; read docs/process/LANE-PROOF.md,
+> MERGE-REVERT.md and, once F11 lands, SENTINEL.md):** a lane ends with `tools/lane-cert.sh` and a
+> proof pack (RED FIRST / GREEN / MUTANTS / CERT / NOT PROVEN); the PM runs `tools/cert-check.sh
+> <cert> <lane-sha>` (REQUIRED_GATES=... until the F8 gate map lands), merges ONE lane per no-ff
+> merge commit, smokes, pushes, then runs the sentinel; a bad merge is undone with
+> `tools/revert-merge.sh <sha> -y -r '<why>' -l <log>`. Goldens/locked-spec rows travel in the same
+> merge as their code. Every brief lists test-makefile-vars when the Makefile is touched.
+>
+> **Architecture change:** ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06 v1.0): InitechMZ images
+> tagged 0x5849 v1 load in [0x600000,0x800000) on an 8 MiB machine; packaging B and resident shrink
+> retired; W4 full-screen apps graded by output files + locked key traces + clips (DEC-03a.10), W3
+> keeps exact screens. Implementation beads: initech-jarzu/ayj36/fxolx (one lane running), 9nzpr
+> (running), r2lqd, j0x4o, 3gynk (not started). Kernel margin 1,220 B of 169,984 -- unchanged policy.
+>
+> **Experiment exp/dbase-oneshot (initech-7cbu8, CLOSED):** never merge as a branch; cherry-pick per
+> WL-0195 (key traces first, then apps behind L1/L2/L3 after the DEC-03a runtime and the W4 harness
+> land). Real bug found: kbd.c drops navigation keys (initech-wuxo0, lane running).
+>
+> **Operator directive in force (18:30):** Claude quota over pace -- land arriving work only, no new
+> lanes, no Claude-model work (reviews on gpt-6-astra, fix passes on gpt-6.1-sol only if a review
+> demands). Muse Wonder Full: xhigh, 3 of 6 budgeted uses spent; operator checks quota before more.
+>
+> **Running Codex lanes to land (see WL-0195 'In flight'):** samir-dotprompt-cursor25 (0spyf/fzsvo,
+> finish 4), mechanical-gate-map (fw3x0 fix), implement-local-sentinel (3nc3v fix),
+> implement-extended-memory (ayj36/jarzu/fxolx), W4 acceptance (9nzpr), kbd (wuxo0). Each gets a
+> gpt-6-astra review (or the PM's read for fix passes), merge, re-gate, push.
+>
 > **CURRENT STATE (2026-11-06, WL-0194 -- Codex quality-floor wave). Supersedes the 2026-11-02 block below for branch state.**
 >
 > **Landed on main (each merged by the PM, reviewed, re-gated on main):** c57b8400 ndx incremental
