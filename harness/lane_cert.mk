@@ -7,6 +7,7 @@ test-lane-cert:
 	+@set -eu; \
 	fail() { printf '!!! test-lane-cert FAIL: %s\n' "$$1"; exit 1; }; \
 	[ "$(filter test-lane-cert test-lane-cert-mutant,$(GATE_VECTOR))" = 'test-lane-cert test-lane-cert-mutant' ] || fail 'gate vector registration'; \
+	unset CERT_SCOPE LANE_CERT_JOBS REQUIRED_GATES GATES; \
 	cert_tool="$(abspath $(LANE_CERT_SCRIPT))"; \
 	check_tool="$(abspath tools/cert-check.sh)"; \
 	replay_tool="$(abspath tools/proof-replay.sh)"; \
