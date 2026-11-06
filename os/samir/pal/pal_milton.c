@@ -763,7 +763,13 @@ static void milton_status(samir_pal_t *p,int on,const char *path,uint32_t rec,ui
     db[i]=0;
     if(on && !screen->active) {
         /* Start a fresh command page with a bounded 22-row viewport. */
+        uint8_t attr=screen->attr;
         samir_screen_init(screen,milton_draw,p);
+#ifndef SAMIR_REVIEW_MUTANT_COLOR_RESET
+        screen->attr=attr;
+#else
+        (void)attr;
+#endif
         screen->scroll=milton_scroll;
         milton_rawout(p,"\033[2J",4);
     }

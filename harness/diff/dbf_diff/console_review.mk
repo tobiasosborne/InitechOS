@@ -36,7 +36,7 @@ TEST_UNIT_GATES += test-ansi-bridge test-ansi-bridge-mutant
 $(BUILD)/test_samir_continuation_mutant: $(DBF_DIFF_DIR)/test_samir_say.c $(SAMIR_DIR)/core/screen.c $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_REVIEW_MUTANT_CONTINUATION -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
 
-CONSOLE_REVIEW_MUTANTS := continuation:CONTINUATION keys:KEYS color:COLOR controls:REDIRECT
+CONSOLE_REVIEW_MUTANTS := continuation:CONTINUATION keys:KEYS color:COLOR color-state:COLOR_RESET controls:REDIRECT
 .PHONY: test-samir-console-review-mutant
 test-samir-console-review-mutant: $(BUILD)/test_samir_continuation_mutant $(PROMPT_SCREEN_DEPS) $(BUILD)/test_console_review $(foreach m,$(CONSOLE_REVIEW_MUTANTS),$(BUILD)/SAMIR_SCREEN_SAMIR_REVIEW_MUTANT_$(lastword $(subst :, ,$(m))).EXE)
 	@set +e; $(BUILD)/test_samir_continuation_mutant > $(BUILD)/console-review-host-bound.log 2>&1; rc=$$?; set -e; \
@@ -44,7 +44,7 @@ test-samir-console-review-mutant: $(BUILD)/test_samir_continuation_mutant $(PROM
 	@cat $(BUILD)/console-review-host-bound.log
 	@set -e; for m in $(CONSOLE_REVIEW_MUTANTS); do mode=$${m%%:*}; flag=$${m#*:}; log=$(BUILD)/console-review-mut-$$mode.log; \
 	 if sh $(DBF_DIFF_DIR)/console_review_emu.sh $$mode $(BUILD)/SAMIR_SCREEN_SAMIR_REVIEW_MUTANT_$$flag.EXE > $$log 2>&1; then cat $$log; printf '!!! console-review mutant %s survived\n' $$flag; exit 1; fi; \
-	 case $$mode in continuation) want='RED console-review: continuation native draw bound HALT';; keys) want='RED console-review: Left pair is navigation, never text K';; color) want='RED console-review: native SAY selected attribute 1F';; controls) want='RED console-review: redirected SAY paints real Z 0D Q 0A R cells';; esac; \
+	 case $$mode in continuation) want='RED console-review: continuation native draw bound HALT';; keys) want='RED console-review: Left pair is navigation, never text K';; color|color-state) want='RED console-review: native SAY selected attribute 1F';; controls) want='RED console-review: redirected SAY paints real Z 0D Q 0A R cells';; esac; \
 	 grep -m1 -F "$$want" $$log || { cat $$log; exit 1; }; done
 	@printf '>>> test-samir-console-review-mutant: green (continuation bound HALT, keys, color, redirected literals RED)\n'
 TEST_EMU_GATES += test-samir-console-review-mutant
