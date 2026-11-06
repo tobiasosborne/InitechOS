@@ -66,7 +66,10 @@ def main():
             result = subprocess.run([binary, str(path)], capture_output=True, text=True)
             expected = ''.join(DELETION_FIELD + c + '\n' for c in cells)
             # LIST, explicit-field LIST, DISPLAY ALL, and current DISPLAY.
-            expected = expected * 3 + DELETION_FIELD + cells[0] + '\n'
+            # Real III+ fns-mint/numlist (SET HEADING OFF) and M005ULOG:
+            # every LIST/DISPLAY supplies its own opening CR LF, also at
+            # the dot prompt (initech-0spyf/fzsvo). text=True normalizes it.
+            expected = ('\n' + expected) * 3 + '\n' + DELETION_FIELD + cells[0] + '\n'
             checks += len(cells) * 3 + 1
             if result.returncode or result.stdout != expected:
                 print(f'FAIL: N({width},{places}) descriptor differential', file=sys.stderr)
@@ -89,7 +92,7 @@ def main():
     path = root / 'WIDE.DBF'
     path.write_bytes(header + fields + b'\r ' + ''.join(cells).encode('ascii') + b'\x1a')
     result = subprocess.run([binary, str(path), 'wide'], capture_output=True, text=True)
-    expected = (DELETION_FIELD + ' '.join(cells) + '\n') * 3
+    expected = ('\n' + DELETION_FIELD + ' '.join(cells) + '\n') * 3
     checks += len(cells) * 3
     if result.returncode or result.stdout != expected:
         print('FAIL: wide-record descriptor differential', file=sys.stderr)
