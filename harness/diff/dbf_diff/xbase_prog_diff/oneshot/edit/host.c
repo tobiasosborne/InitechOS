@@ -18,7 +18,9 @@ extern int mutate_register(xb_interp *);
 extern int set_register(xb_interp *);
 extern int query_register(xb_interp *);
 static const unsigned char *keys;
-static int32_t input(samir_pal_t *p) { (void)p; return *keys ? *keys++ : -1; }
+static int eof_reads;
+static int32_t input(samir_pal_t *p)
+{ (void)p; if (*keys) return *keys++; ++eof_reads; return -1; }
 static int poll_escape(samir_pal_t *p) { (void)p; return 0; }
 static void quiet(samir_pal_t *p, const char *s, uint32_t n) { (void)p; (void)s; (void)n; }
 static void need(int ok, const char *message)
@@ -34,10 +36,11 @@ static void fixture(const char *out)
 static void edit(xb_interp *ip, int mode, const char *args, const char *script)
 {
     int ec = 0, rc;
-    keys = (const unsigned char *)script;
+    keys = (const unsigned char *)script; eof_reads = 0;
     rc = ui_edit(ip, mode, args, &ec);
     if (rc) fprintf(stderr, "editor rc=%d ec=%d\n", rc, ec);
     need(rc == 0, "editor succeeds"); need(!*keys, "all replay keys consumed");
+    need(eof_reads == 0, "editor exits on the requested key without exhausting input");
 }
 static void open_table(xb_interp *ip, const char *path)
 {
@@ -77,7 +80,7 @@ int main(void)
         need(xb_interp_store(ip, "ZED000", &sentinel) == 0, "seed caller variable");
     }
     edit(ip, UI_EDIT_EDIT, "2 FIELDS CITY", "\031discard\033"); city(ip, 2, "AUSTIN", 0);
-    edit(ip, UI_EDIT_EDIT, "2 FIELDS CITY", "\031berlin\027"); city(ip, 2, "berlin", 0);
+    edit(ip, UI_EDIT_EDIT, "2", "\340\120\031berlin\340\165"); city(ip, 2, "berlin", 0);
     edit(ip, UI_EDIT_EDIT, "2", "\025\027"); city(ip, 2, "berlin", 1);
     edit(ip, UI_EDIT_EDIT, "2", "\025\033"); city(ip, 2, "berlin", 1);
     edit(ip, UI_EDIT_EDIT, "2", "\025\027"); city(ip, 2, "berlin", 0);
@@ -124,6 +127,8 @@ int main(void)
         need(dbf_create(pal, "build/oneshot/edit/host/date.dbf", fields, 3, &table) == 0, "date fixture");
         need(dbf_append_blank_commit(table) == 0, "date blank record");
         need(wa_adopt_table(xb_interp_env(ip), 1, table, NULL, "DATES", "DATES.DBF", NULL, 0) == 0, "adopt date table");
+        edit(ip, UI_EDIT_APPEND, "", "\r");
+        need(dbf_nrec(table) == 1, "blank date mask does not keep APPEND open");
         memcpy(replay, "023186 \031022886y", 15);
         memset(replay + 15, 'x', 100); replay[115] = 23; replay[116] = 0;
         edit(ip, UI_EDIT_EDIT, "1", replay);

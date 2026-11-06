@@ -315,20 +315,24 @@ static void ed_draw(int active)
                dbf_name(ed.table), ed.fresh ? dbf_nrec(ed.table) + 1u : wa_recno(ed.env, ed.area),
                dbf_nrec(ed.table), 0);
     if (ed.deleted) kit_put_attr(k, 22, 61, KIT_ATTR_REVERSE, "Del", 3);
-    kit_message(k, 23, "Up/Down: field   PgUp/PgDn: record   Ctrl-U: delete/recall");
+    kit_message(k, 23, "Fields: ^E/^X or Up/Down   Records: ^R/^C or PgUp/PgDn   ^U: Del");
     kit_message(k, 24, "Ctrl-W/Ctrl-End: save and exit   Esc: abandon record");
 }
 
 static int ed_has_text(int i)
 {
     int j;
-    for (j = 0; j < ed.widths[i]; ++j) if (ed.text[i][j] != ' ') return 1;
+    for (j = 0; j < ed.widths[i]; ++j) {
+        char c = ed.text[i][j];
+        if (dbf_field(ed.table, i)->type == 'D' && (c == '/' || c == '.' || c == '-')) continue;
+        if (c != ' ') return 1;
+    }
     return 0;
 }
 
 int ui_edit(xb_interp *ip, int mode, const char *args, int *ec)
 {
-    int rc, active = 0, i, has_editable = 0;
+    int rc, active = 0, i, has_editable = 0, first_editable = 0;
     uint32_t count, bytes = 0;
     kit screen;
     samir_pal_t *pal = xb_interp_pal(ip);
@@ -368,16 +372,22 @@ int ui_edit(xb_interp *ip, int mode, const char *args, int *ec)
         ed.text[i] = ed.storage + bytes;
         bytes += (uint32_t)(w > 10 ? w : 10) + 1u;
     }
+    while (first_editable + 1 < ed.nshow &&
+           dbf_field(ed.table, ed.selected[first_editable])->type == 'M') ++first_editable;
     /* A private temporary avoids quoting user text and preserves caller vars. */
     if (xb_interp_scope_enter(ip) < 0) {
         pal->release(pal, ed.storage); return ed_error(ec, 43);
     }
-    for (i = 0; i <= ED_FIELDS; ++i) {
+    for (i = 0; i < 1000; ++i) {
+        xb_val existing;
         ed.temp[0] = 'Z'; ed.temp[1] = 'E'; ed.temp[2] = 'D';
         ed.temp[3] = (char)('0' + i / 100);
         ed.temp[4] = (char)('0' + (i / 10) % 10);
         ed.temp[5] = (char)('0' + i % 10); ed.temp[6] = 0;
-        if (ed_field(ed.temp, 6) < 0) break;
+        if (ed_field(ed.temp, 6) < 0 && xb_interp_get_memvar(ip, ed.temp, &existing) != 0) break;
+    }
+    if (i == 1000) {
+        xb_interp_scope_leave(ip); pal->release(pal, ed.storage); return ed_error(ec, 43);
     }
     rc = xb_interp_declare_private(ip, ed.temp);
     if (rc < 0) { xb_interp_scope_leave(ip); pal->release(pal, ed.storage); return ed_error(ec, 43); }
@@ -424,7 +434,8 @@ int ui_edit(xb_interp *ip, int mode, const char *args, int *ec)
             continue;
         }
         if (key == KIT_K_ENTER || key == KIT_K_DOWN || key == KIT_K_TAB) {
-            if (ed.fresh && !ed.typed && active == 0 && key == KIT_K_ENTER && !ed_has_text(f)) break;
+            if (ed.fresh && !ed.typed && key == KIT_K_ENTER &&
+                (!has_editable || (active == first_editable && !ed_has_text(f)))) break;
             i = active + 1;
             while (i < ed.nshow && dbf_field(ed.table, ed.selected[i])->type == 'M') ++i;
             if (i < ed.nshow) { active = i; continue; }
