@@ -47,7 +47,7 @@ image_smoke() {
     done
     return "$rc"
 }
-selfhost_ddc() { make -C turbo selfhost && make -C turbo ddc; }
+selfhost_ddc() { make -C turbo selfhost ddc; }
 board() {
     make status > "$work/board.txt" 2>&1 || return
     cat "$work/board.txt"
