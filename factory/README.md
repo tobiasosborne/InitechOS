@@ -54,6 +54,11 @@ QEMU W progress markers now stop replay rather than continuing input into an
 unexpected UI. trace-input-test.c pins the slash/chord RFB transport values.
 The image list is system/working-volume.list; AUTOEXEC.BAT ends with FLAIR.
 
+Bochs journey serial waits keep draining RFB framebuffer updates. A blocked
+display client can otherwise stop guest drawing before a serial marker is
+emitted. desktop-primitives-test.c proves progress requires transport pumping;
+ordinary factory tier 0 runs it. Marker and session timeout limits are unchanged.
+
 `make cert` composes clean/test, image/smoke, repro, patch mutation sweeps,
 Turbo Initech selfhost/DDC, oversized-kernel boot, status and clean git status.
 Every stage runs even after a failure; the final exit is nonzero if any failed.

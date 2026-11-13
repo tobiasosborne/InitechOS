@@ -870,6 +870,9 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         if (key_next && keys_started && rfb.have_init && mono_ms() >= key_at) {
             const char *end = strchr(key_next, ',');
             BochsTraceStep step;
+#ifdef BOCHS_TRACE_BIND_IDLE
+            BOCHS_TRACE_BIND_IDLE(&rfb);
+#endif
             if (!bochs_trace_parse(key_next, end ? (size_t)(end - key_next) : strlen(key_next), &step)) break;
             int delay = BOCHS_TRACE_STEP_MS;
             if (step.kind == BX_KEY) {

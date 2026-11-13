@@ -2,6 +2,11 @@
 #define main desktop_driver_main
 #include "desktop-bochs.c"
 #undef main
+static void pump_progress(void *context)
+{
+    FILE *transcript=context;
+    fputs("pumped\n",transcript);fflush(transcript);
+}
 int main(void)
 {
     BochsTraceStep step;
@@ -21,8 +26,14 @@ int main(void)
     }
     if(!journey_parse("Wprogress",9,&step)||step.kind!=BX_WAIT)return 1;
     int status;if(waitpid(child,&status,0)!=child||status||mono_ms()-start<40)return 1;
+    /* A display server may need its client drained before guest serial can
+     * progress. The independent transport publishes only when pumped. */
+    journey_idle=pump_progress;journey_context=f;
+    if(!journey_parse("Wpumped",7,&step)) {
+        fputs("FAIL: serial wait did not pump its display transport\n",stderr);return 1;
+    }
     if(journey_parse("not-a-key",9,&step))return 1;
     fclose(f);
-    puts("ok desktop primitives: validation, live marker waits, repeated progress, bad token");
+    puts("ok desktop primitives: validation, repeated progress, display pumping during serial waits, bad token");
     return 0;
 }

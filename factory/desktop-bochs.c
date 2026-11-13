@@ -1,8 +1,11 @@
 /* Journey-only frontend over the unchanged Bochs driver. W waits use the
  * serial transcript, as QEMU does; each repeated marker needs a new occurrence.
- * No emulator-driver source or product code is changed. */
+ * The shared loop binds its RFB pump so waiting never stalls guest drawing. */
 #include <time.h>
 #include "emu/bochs_trace.h"
+static void (*journey_idle)(void *);
+static void *journey_context;
+static void journey_rfb_pump(void *context);
 static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
 {
     static struct { char text[160]; unsigned count; } waits[64];
@@ -31,6 +34,9 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
     if(!path)return 0;
     struct timespec pause={0,20000000};
     for(unsigned poll=0;poll<500;poll++) {
+        /* RFB updates must keep flowing while the guest paints. Otherwise
+         * its display server can block before it reaches the serial marker. */
+        if(journey_idle)journey_idle(journey_context);
         FILE *f=fopen(path,"r");unsigned seen=0;char line[4096];
         if(f) {
             while(fgets(line,sizeof line,f))if(strstr(line,marker))seen++;
@@ -43,5 +49,9 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
     return 0;
 }
 #define bochs_trace_parse journey_parse
+#define BOCHS_TRACE_BIND_IDLE(transport) do { \
+    journey_idle=journey_rfb_pump; journey_context=(transport); \
+} while(0)
 #include "emu/bochs.c"
 #include "emu/bochs_main.c"
+static void journey_rfb_pump(void *context) { rfb_pump(context); }
