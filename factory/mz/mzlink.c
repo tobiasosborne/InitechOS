@@ -12,9 +12,9 @@
  *            the reloc table is a list of uint32 FLAT offsets into the module.
  *          DEC-08a.5: the InitechMZ tag word (0x4943) at e_res[0] (offset 0x1C)
  *            marks a flat-32 InitechMZ; an UNTAGGED MZ panics in the loader.
- *        os/milton/mz.h (MZ_INITECH_TAG = 0x4943; mz_parse_header field model);
- *        os/milton/mz.c (mz_apply_relocs: add load_base to the u32 dword);
- *        os/milton/test_mzload.c (the EXACT host fixture layout this mirrors --
+ *        kernel/mz.h (MZ_INITECH_TAG = 0x4943; mz_parse_header field model);
+ *        kernel/mz.c (mz_apply_relocs: add load_base to the u32 dword);
+ *        kernel/test_mzload.c (the EXACT host fixture layout this mirrors --
  *          32-byte header, e_cparhdr=2, a TRAILER reloc table past image_bytes);
  *        spec/memory_map.h (PROGRAM_IMAGE = 0x30100, the flat load base the
  *          LOADER adds at runtime -- NOT a value mzlink writes here).
@@ -54,8 +54,8 @@
  *     --minalloc   e_minalloc paragraphs (default 0).
  *     --entry      entry offset within the module -> e_ip (e_cs stays 0; default 0).
  *     --reloc-file F  read the reloc-site offsets from F: little-endian u32s,
- *                  one per site (bead initech-5etom.1: tools/samir_ovl_pack.c
- *                  writes SAMIR's ~1000 sites; too many for a command line).
+ *                  one per site (bead initech-5etom.1: tools/initechbase_ovl_pack.c
+ *                  writes InitechBase's ~1000 sites; too many for a command line).
  *     --header-relocs  put the reloc table in the HEADER (e_lfarlc = 0x1C, the
  *                  period layout: DBASE.EXE carries 2773 entries at 0x1C inside
  *                  an 11264-byte header, ../dbase3-decomp/re/ghidra-plan.md
@@ -82,7 +82,7 @@
 #include <string.h>
 #include <stdint.h>
 
-#include "../spec/samir/memory_contract.h"
+#include "initechmz_extended.h"
 #define MZ_INITECH_TAG   INITECHMZ_LEGACY_TAG   /* mz.h: 'I','C' LE -- the flat-32 sentinel */
 #define HDR_SIZE         0x20u     /* e_cparhdr = 2 paragraphs (canonical fixture) */
 /* 64 was enough for hand-assembled fixtures; a COMPILED C tenant (bead
@@ -161,9 +161,7 @@ int main(int argc, char **argv)
             reloc_count = parse_offsets(argv[i], reloc_off, MAX_RELOCS);
         } else if (strcmp(argv[i], "--extended") == 0) {
             extended=1;
-        } else if (strcmp(argv[i], "--samir") == 0) {
-            extended=1; reserve=SAMIR_LOADER_RESERVE;
-            minimum_heap=SAMIR_MINIMUM_HEAP_BYTES; minalloc=SAMIR_MINALLOC_PARAS;
+
         } else if (strcmp(argv[i], "--reserve") == 0) {
             if(++i>=argc) die("--reserve needs bytes");
             reserve=(uint32_t)strtoul(argv[i],NULL,0);

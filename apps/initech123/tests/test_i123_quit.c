@@ -5,10 +5,10 @@
  *
  * WHAT IS UNDER TEST. The real 123.EXE application source, apps/initech123/app/
  * face_a.c, compiled on the host over the real worksheet core, with the
- * Toolbox Gate (os/apps/tbx/tbx.h) replaced by a RECORDING MOCK: the cell
+ * Toolbox Gate (sdk/include/tbx.h) replaced by a RECORDING MOCK: the cell
  * text the app draws lands in a 76 x 24 character screen, EXIT / ALERT calls
- * are recorded, and the file verbs are served from a host directory with
- * injectable failures. Each LAUNCH is a fork()ed child, so every launch starts
+ * are recorded, and the file verbs use the shared memory volume with
+ * injectable failures and explicit fixture import/export. Each LAUNCH is a fork()ed child, so every launch starts
  * from the pristine image a real launch loads (zeroed BSS, initial .data) and
  * a relaunch reads what the previous launch saved to the same directory.
  *
@@ -52,7 +52,7 @@
 
 #include "../app/face_a.c"   /* the application under test */
 
-#include "fake_tbx/recording.h"
+#include "face_driver.h"
 
 /* ---- the traces --------------------------------------------------------- */
 /* Q1 CLEAN: a never-edited sheet quits at once by every route, never asks. */

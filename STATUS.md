@@ -36,9 +36,9 @@ imported yet.
 | `flair/region/` | host-green, mutants converted (8 patches, all killed). Not yet compiled for the target. |
 | `flair/` (the rest) | source moved |
 | `flair/desktop/` | parked, not built: the legacy `kmain.c` (as `kmain_legacy.c`) and the Finder/desktop pieces that were in the kernel. |
-| `sdk/` | source moved (`tbx.h`, runtime, linker script) |
-| `apps/initech123/` | host-green: 18 test programs, about a million checks, 59 real Lotus `.WK1` files, 15 seconds. Target objects compile; the EXE waits for `sdk/`. 41 mutation hooks still to convert (`tests/MUTANTS-TODO.md`). |
-| `apps/initechword/` | host-green: 13 test programs, 22,394 checks, 25 seconds. Target objects compile; the EXE waits for `sdk/`. 75 mutation hooks still to convert. Borrows shared headers from `attic/spec`. |
+| `sdk/` | host-green: self-contained app headers in `sdk/include`, the runtime, one shared fake Toolbox (`sdk/host`), the EXE build rule (`mk/tenant.mk`), ABI tests that pin trap numbers and i386 record layouts. Limits imposed by the OS side are in `sdk/README.md`. |
+| `apps/initech123/` | host-green: 18 test programs, about a million checks, 59 real Lotus `.WK1` files, 15 seconds. Builds the real `123.EXE` (73,552 bytes, validated by an independent reader) on the shared fake. 41 mutation hooks still to convert (`tests/MUTANTS-TODO.md`). |
+| `apps/initechword/` | host-green: 13 test programs, 22,394 checks, 25 seconds. Target objects compile against `sdk/include`; not yet on `mk/tenant.mk` or the shared fake. 75 mutation hooks still to convert. |
 | other `apps/*` | source moved; not started. **Frozen** until the vertical slice below works. |
 | `turbo/` | host-green: 44 test programs in 16 seconds (the seed's C tests, 17 Free Pascal differentials, 45 reproducibility comparisons, 7 Pascal mutants as patches). Codename removed (`turbo.pas`, `TURBO.COM`). 20 legacy gates need the booted OS and are listed in `tests/SMOKES.md`. Road to the finale: `turbo/ROADMAP.md`. |
 | `factory/` | QEMU and Bochs drivers, the image builder, the smoke session, the reproducibility and parity checks. |
@@ -46,7 +46,8 @@ imported yet.
 
 ## In flight
 
-- Imports on branches: InitechBase, the SDK, the FLAIR Toolbox.
+- Imports on branches: InitechBase, the FLAIR Toolbox.
+- Turbo Initech native emission toward self-host (owner of `turbo/`).
 - Conventions pass (owner of `mk/`, the top Makefile, `factory/testlib`,
   `goldens/`): target build fragment, per-test timeouts and component
   time budgets, rebuild on flag changes, pinned corpora, the import
@@ -61,6 +62,11 @@ the spine boots, the Toolbox and the desktop come up on it, and Initech
 123 is launched from the Finder, saves a worksheet, and the file is read
 back on the host, on QEMU and on Bochs. That run is the template for
 every other app.
+
+Known blocker for the slice: the OS-side loader refuses app files over
+64 KiB (`loader_load_tenant`), and `123.EXE` built with plain flags is
+73,552 bytes. That cap is policy from the old size regime and is lifted
+as part of the slice.
 
 ## Next
 

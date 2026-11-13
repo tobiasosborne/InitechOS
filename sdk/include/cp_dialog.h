@@ -11,6 +11,11 @@
 #define TBX_CLOCK 0x0094u
 #define TBX_MEMORY 0x0095u
 #define TBX_BEEP 0x0096u
+#define TBX_ARGC_DIALOG 6u
+#define TBX_ARGC_SETTINGS 2u
+#define TBX_ARGC_CLOCK 2u
+#define TBX_ARGC_MEMORY 1u
+#define TBX_ARGC_BEEP 0u
 /* SETTINGS(mode,record): mode0 encode current, mode1 validate/apply (no write).
  * CLOCK(mode,time): mode0 read, mode1 set date+time through DOS seam.
  * MEMORY(out[4]): total K, system K (total minus live MCB free), largest K,
@@ -23,17 +28,3 @@ typedef struct cp_item {
  const char *text;
 } cp_item_t;
 #endif /* flat ABI */
-#if defined(INITECH_OS_FLAIR_DIALOG_H) && !defined(INITECH_CP_DIALOG_ITEMS)
-#define INITECH_CP_DIALOG_ITEMS
-static inline void cp_dialog_items(DialogRecord *d,DialogItem *items,
-    ControlRecord *controls,const cp_item_t *flat,unsigned n,int x,int y) {
-    d->items=items; d->itemCount=(uint16_t)n;
-    for(unsigned i=0;i<n;i++) {
-        const cp_item_t *p=&flat[i];
-        rgn_rect_t r={(int16_t)(p->top+y),(int16_t)(p->left+x),
-                     (int16_t)(p->bottom+y),(int16_t)(p->right+x)};
-        items[i]=(DialogItem){p->type?ctrlItem:statText,r,p->text,0,(uint8_t)(p->type!=0),{0,0,0}};
-        if(p->type) {control_init(&controls[i],(flair_ctrl_type_t)(p->type-1),r,p->value,0,1,1,p->text);items[i].ctrl=&controls[i];}
-    }
-}
-#endif

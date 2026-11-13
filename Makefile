@@ -6,6 +6,7 @@
 # One per line so that parallel imports merge without conflicts.
 COMPONENTS :=
 COMPONENTS += flair/region
+COMPONENTS += sdk
 COMPONENTS += apps/initech123
 COMPONENTS += apps/initechword
 COMPONENTS += turbo

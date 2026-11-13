@@ -5,10 +5,8 @@ include $(TOP)/mk/config.mk
 CORE := $(wildcard core/*.c) fs/wp5.c
 LOCAL_INC := -Iinclude
 HOST_CORE := $(addprefix $(OUT)/host-core/,$(CORE:.c=.o))
-# TEMPORARY shared SDK contracts, owned by other importers.
-ATTIC_SPEC := $(TOP)/attic/spec
-BORROWED := $(OUT)/borrowed
-FACE_INC := -I$(TOP)/sdk -I$(BORROWED) -I$(ATTIC_SPEC)
+# The app interface. The face includes nothing else from outside.
+FACE_INC := -I$(TOP)/sdk/include
 HOST_INCLUDES := $(LOCAL_INC) -I$(TOP)/factory/testlib
 HOST_TESTS := test_iword_core test_iword_codes test_iword_wp5_roundtrip \
  test_iword_reveal_codes test_iword_face test_iword_face_small \
@@ -29,8 +27,8 @@ test_iword_search_corpus_SRCS := tests/diff/test_iword_search_corpus.c
 test_iword_search_corpus_OBJS := $(HOST_CORE)
 iword_fkeys_gen_SRCS := tests/tools/iword_fkeys_gen.c
 TEST_HDRS := $(shell find include tests -name '*.h') $(wildcard $(TOP)/factory/testlib/*.h)
-TEST_HDRS += $(wildcard $(TOP)/sdk/*.h) $(addprefix $(ATTIC_SPEC)/,cpanels_record.h toolbox_gate.h cp_dialog.h event_model.h grafport.h)
-$(foreach t,$(FACE_TESTS),$(eval test_iword_$(t)_DEPS := $(BORROWED)/event_model.h app/face_a.c tests/test_iword_face.c tests/run.sh))
+TEST_HDRS += $(wildcard $(TOP)/sdk/include/*.h)
+$(foreach t,$(FACE_TESTS),$(eval test_iword_$(t)_DEPS := app/face_a.c tests/test_iword_face.c tests/run.sh))
 test_iword_search_DEPS += $(OUT)/host/test_iword_search_corpus
 test_iword_fkeys_DEPS += $(OUT)/host/iword_fkeys_gen
 include $(TOP)/mk/host-test.mk
@@ -52,10 +50,6 @@ corpus:
 	@sh tests/corpus.sh "$(WORDPERFECT51_DECOMP)"
 test-build: corpus
 
-$(BORROWED)/event_model.h: $(ATTIC_SPEC)/event_model.h $(ATTIC_SPEC)/grafport.h tests/borrow-events.sh
-	@mkdir -p $(@D)
-	@sh tests/borrow-events.sh "$(ATTIC_SPEC)" > $@
-
 $(OUT)/host-core/%.o: %.c $(filter include/%,$(TEST_HDRS)) $(MAKEFILE_LIST)
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -MMD -MP -c $< -o $@
@@ -63,7 +57,6 @@ $(OUT)/host-core/%.o: %.c $(filter include/%,$(TEST_HDRS)) $(MAKEFILE_LIST)
 
 TARGET_OBJS := $(addprefix $(OUT)/,$(CORE:.c=.o) app/face_a.o)
 all: $(TARGET_OBJS)
-$(OUT)/app/face_a.o: $(BORROWED)/event_model.h
 $(OUT)/app/face_a.o: private TARGET_INC := $(FACE_INC)
 $(OUT)/%.o: %.c $(filter include/%,$(TEST_HDRS)) $(MAKEFILE_LIST)
 	@mkdir -p $(@D)

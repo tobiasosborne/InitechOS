@@ -1,10 +1,10 @@
 /*
- * os/apps/tbx/tenant.ld -- the link of a disk-launched C application (factory
+ * sdk/rt/tenant.ld -- the link of a disk-launched C application (factory
  * script for an artifact image; bead initech-w96l).
  *
  * Ref: ADR-0003-AMENDMENT-DEC-08a (InitechMZ: a FLAT 32-bit load module whose
  *      entry is its first byte, relocated by a table of absolute-dword sites);
- *      spec/toolbox_gate.h Sec 5 (imageBase / imageLen describe the LOADED
+ *      sdk/include/toolbox_gate.h Sec 5 (imageBase / imageLen describe the LOADED
  *      MODULE), Sec 8 (the e_minalloc area after it is zeroed by the loader);
  *      Makefile tenant-exe-rules (links this twice, at TBX_BASE = 0 and at the
  *      probe base, and lets mzlink --reloc-diff derive the relocation sites).

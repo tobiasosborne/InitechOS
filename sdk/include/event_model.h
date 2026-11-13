@@ -93,7 +93,8 @@
 
 /* flair_point_t is already defined in spec/grafport.h (the QuickDraw Point
  * record, v/h 2 x int16_t).  Include it here -- do NOT re-define Point. */
-#include "grafport.h"   /* flair_point_t (QuickDraw Point), GrafPort       */
+#include "geometry.h"
+#include <stddef.h>
 
 /* ===========================================================================
  * 1. EVENT `what` CODE CONSTANTS  (verbatim Inside Macintosh values)

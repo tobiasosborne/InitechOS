@@ -2,14 +2,11 @@ TOP := $(abspath ../..)
 COMPONENT := apps/initech123
 include $(TOP)/mk/config.mk
 
-# TEMPORARY until its owner is imported
-ATTIC_SPEC := $(TOP)/attic/spec
 CORE := $(wildcard core/*.c) fs/wk1.c
 HOST_CORE := $(addprefix $(OUT)/host-core/,$(CORE:.c=.o))
 X87_CORE := $(addprefix $(OUT)/host-x87/,$(CORE:.c=.o))
 LOCAL_INC := -Iinclude
-BORROWED := $(OUT)/borrowed
-FACE_INC := -I$(TOP)/sdk -I$(BORROWED) -I$(ATTIC_SPEC)
+FACE_INC := -I$(TOP)/sdk/include -I$(TOP)/sdk/host
 HOST_INCLUDES := $(LOCAL_INC) -Itests
 FACE_TESTS := quit range_menu entry clock keys hit resize cells
 DIFF_TESTS := wk1_roundtrip formula recalc_order copy_move transfer_baseline menu_tree
@@ -24,9 +21,10 @@ $(foreach cw,037F 027F,$(eval test_i123_formula_x87_$(cw)_CFLAGS := -mfpmath=387
 $(foreach mode,corpus tile,$(eval test_i123_copy_$(mode)_SRCS := $(test_i123_copy_move_SRCS)))
 test_i123_menu_tree_SRCS := tests/diff/test_i123_menu_tree.c core/menu.c
 test_i123_menu_tree_CFLAGS := -DI123_MENU_HOST
-TEST_HDRS := $(shell find include core tests/fake_tbx -name '*.h') tests/test_assert.h
-TEST_HDRS += $(wildcard $(TOP)/sdk/*.h) $(addprefix $(ATTIC_SPEC)/,cpanels_record.h toolbox_gate.h cp_dialog.h event_model.h grafport.h)
-$(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_DEPS := $(BORROWED)/event_model.h app/face_a.c tests/test_i123_quit.c tests/run.sh))
+TEST_HDRS := $(shell find include core -name '*.h') tests/test_assert.h tests/face_driver.h
+TEST_HDRS += $(wildcard $(TOP)/sdk/include/*.h) $(TOP)/sdk/host/tbx_host.h
+$(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_DEPS := $(TOP)/build/sdk/host/libtbx_host.a app/face_a.c tests/test_i123_quit.c tests/run.sh))
+$(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_LIBS := $(TOP)/build/sdk/host/libtbx_host.a))
 include $(TOP)/mk/host-test.mk
 
 # The suites also need fresh scratch directories and independent post-checks.
@@ -48,9 +46,8 @@ corpus:
 	@command -v python3 >/dev/null || { echo 'FAIL: python3 required for the independent Lotus reader' >&2; exit 1; }
 test: corpus
 
-$(BORROWED)/event_model.h: $(ATTIC_SPEC)/event_model.h $(ATTIC_SPEC)/grafport.h tests/borrow-events.sh
-	@mkdir -p $(@D)
-	@sh tests/borrow-events.sh "$(ATTIC_SPEC)" > $@
+$(TOP)/build/sdk/host/libtbx_host.a: $(wildcard $(TOP)/sdk/host/* $(TOP)/sdk/include/*.h) $(TOP)/sdk/Makefile $(TOP)/mk/config.mk
+	+$(MAKE) -C $(TOP)/sdk host
 
 $(OUT)/host-core/%.o: %.c $(filter include/% core/%,$(TEST_HDRS)) $(MAKEFILE_LIST)
 	@mkdir -p $(@D)
@@ -60,14 +57,14 @@ $(OUT)/host-x87/%.o: %.c $(filter include/% core/%,$(TEST_HDRS)) $(MAKEFILE_LIST
 	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -mfpmath=387 -MMD -MP -c $< -o $@
 -include $(HOST_CORE:.o=.d) $(X87_CORE:.o=.d)
 
-TARGET_OBJS := $(addprefix $(OUT)/,$(CORE:.c=.o) app/face_a.o)
-all: $(TARGET_OBJS)
-$(OUT)/app/face_a.o: $(BORROWED)/event_model.h
-$(OUT)/app/face_a.o: private TARGET_INC := $(FACE_INC)
-$(OUT)/%.o: %.c $(filter include/% core/%,$(TEST_HDRS)) $(MAKEFILE_LIST)
-	@mkdir -p $(@D)
-	$(TARGET_CC) $(TARGET_CFLAGS) -DI123_MENU_DISK $(LOCAL_INC) $(TARGET_INC) -MMD -MP -c $< -o $@
--include $(TARGET_OBJS:.o=.d)
+TENANT := 123
+TENANT_SRCS := $(CORE) app/face_a.c
+TENANT_EXE := 123.EXE
+TENANT_CPPFLAGS := -DI123_MENU_DISK $(LOCAL_INC)
+TENANT_RESOURCES := $(OUT)/123.MNU
+include $(TOP)/mk/tenant.mk
+$(OUT)/123.MNU: $(HOST_OUT)/test_i123_menu_tree
+	$< --resource > $@
 
 smoke:
-	@echo 'Tier 1 awaits the booted product and sdk tenant rules; see tests/SMOKES.md' >&2; exit 1
+	@echo 'Tier 1 awaits the booted desktop; see tests/SMOKES.md' >&2; exit 1

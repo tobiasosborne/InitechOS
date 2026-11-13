@@ -55,5 +55,8 @@ $(OUT):
 clean:
 	rm -rf "$(OUT)"
 
+# Missing dependency files are normal on a first build.
+%.d: ;
+
 .DEFAULT:
 	@echo "$(COMPONENT): '$@' is not implemented (or a file is missing)" >&2; exit 1

@@ -1,10 +1,10 @@
 /*
- * os/apps/tbx/tbx.h -- the C binding to the Initech Toolbox Gate (INT 81h):
+ * sdk/rt/tbx.h -- the C binding to the Initech Toolbox Gate (INT 81h):
  * what a disk-launched application written in C includes (THE ARTIFACT).
  *
  * bead: initech-w96l (I123 P1b -- the general part: a C application can be a
  *       disk tenant; reused by every later C application, InitechWord next).
- * Ref:  spec/toolbox_gate.h -- THE locked ABI; every number below is its
+ * Ref:  sdk/include/toolbox_gate.h -- THE locked ABI; every number below is its
  *         (the vector, the AX codes, the argument order and arity, the
  *         FlairTenantRec, the flat FlairEvent, the colour tokens, the MenuBar
  *         record layouts -- _Static_assert-pinned in tbx_rt.c);
@@ -28,13 +28,15 @@
  *                                drew once it returns -- bead initech-8zii).
  *                                TBX_EVT_MENU: Message = (menuID<<16)|item.
  *
- * THE ONE RULE OF MEMORY. The kernel validates every pointer an app hands the
- * Toolbox against the LOADED MODULE (spec Sec 5/Sec 7: the record, the event
+ * DRAWING MEMORY. The kernel validates drawing/menu/registration pointers
+ * against the LOADED MODULE (spec Sec 5/Sec 7: the record, the event
  * buffer, a string to draw, a MenuBar graph). Code, constants and initialised
  * data are in the module; zero-filled data (.bss, the InitechMZ e_minalloc
  * area) is NOT. So a buffer the app fills at run time and then passes to
  * tbx_draw_text / tbx_draw_cells must be declared TBX_IN_IMAGE; big private
  * state (a worksheet store) belongs in .bss, which costs no file bytes.
+ * File/scrap/clock transports instead accept module/BSS storage (see below);
+ * automatic shared-stack objects are refused by both validation paths.
  *
  * Freestanding C (no libc; tbx_rt.c supplies memcpy/memset/memmove/memcmp,
  * which the compiler may call for struct copies). ASCII-clean (Rule 12).
@@ -45,6 +47,7 @@
 #include <stdint.h>
 #include "toolbox_gate.h"
 #include "event_model.h"
+#include "cpanels_record.h"
 
 /* A writable object the Toolbox may read: forced into the loaded module. */
 #define TBX_IN_IMAGE __attribute__((section(".data")))
@@ -80,6 +83,23 @@ typedef struct tbx_menubar {
     uint16_t              n_menus;
     uint8_t               has_apple, pad;
 } tbx_menubar_t;
+
+/* Registration record: native i386 pointers, locked gate field order. */
+typedef struct tbx_rec {
+    uint32_t tag;
+    const char *name;
+    const void *image_base;
+    const void *image_len; /* absolute linker length, not a relocated pointer */
+    tbx_event_t *evbuf;
+    void (*proc)(void);
+} tbx_rec_t;
+/* DOS DTA payload; packed because time/date/size start at odd offsets. */
+typedef struct __attribute__((packed)) tbx_find_rec {
+    uint8_t attr;
+    uint16_t time, date;
+    uint32_t size;
+    char name[13];
+} tbx_find_rec_t;
 
 /* (menuID << 16) | item -- the TBX_EVT_MENU Message (spec Sec 6a). */
 #define TBX_MENU_WORD(id, item) ((int32_t)(((uint32_t)(id) << 16) | (uint32_t)(item)))
@@ -143,7 +163,7 @@ int32_t tbx_file_find(const char *pattern, uint32_t attr, void *recs, uint32_t m
 int32_t tbx_disk_free(void);
 /* TBX_CLOCK mode 0 (spec/cp_dialog.h, R4.5): the DOS date and time into
  * `t`, a cp_time_t (spec/cpanels_record.h) in module/BSS storage. */
-int32_t tbx_get_clock(void *t);
+
 
 /* The alert: spec Sec 11 (initech-fvnj). Lines of `text` are separated by
  * '\r'; `cancel` / `other` may be 0. Returns 0 when the alert is ASKED for;
@@ -176,6 +196,16 @@ int32_t tbx_global_to_local(int32_t win, int32_t h, int32_t v);
  * APPS\MICHAEL.CFG. Returns 0 when ASKED; the result arrives later as a
  * TBX_EVT_FILECOPY event (Message = bytes copied, or a negative error). */
 int32_t tbx_file_copy(const char *caption, const char *src, const char *dst);
+
+/* Existing Control Panels transports (cp_dialog.h); no new trap codes.
+ * CLOCK has one canonical binding with both read and set modes. */
+int32_t tbx_clock(uint32_t mode, cp_time_t *time);
+int32_t tbx_get_clock(void *time); /* compatibility alias: CLOCK read mode */
+int32_t tbx_settings(uint32_t mode, uint8_t record[CP_RECORD_BYTES]);
+int32_t tbx_memory(uint32_t out[4]);
+int32_t tbx_beep(void);
+int32_t tbx_dialog(int32_t win, const cp_item_t *items, uint32_t n,
+                   uint32_t def, uint32_t cancel, const tbx_event_t *event);
 
 /* The raw trap: AX = code, `argc` dwords pushed cdecl (args[0] lowest).
  * tbx_rt.c's asm reads its three arguments from the stack and returns with a

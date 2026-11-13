@@ -16,7 +16,7 @@ All paths here are relative to apps/initech123 unless otherwise stated.
   including capture provenance, steps, screenshots and WK1/ref files).
 - core/i123.h and menu.h -> include/; menu_data.h stays in core/.
 
-The test_assert.h macros are a local copy of tps/seed/test_assert.h; the seed
+The test_assert.h macros are a local copy of the Turbo Initech seed compiler test_assert.h; the seed
 owns that file, so it was not moved. The recording fake/driver was extracted
 unchanged from the moved quit suite into tests/fake_tbx/recording.h.
 No menu-data generator was found beyond the existing C --resource mode, which
@@ -182,3 +182,17 @@ were performed after restoring it. No broken code or red objects are committed.
 Product C/public headers contain no non-ASCII bytes. The core/fs compiler commands
 have only the component's include directory; app additionally has sdk and the
 explicit temporary shared-header borrowing. No attic C or make fragment is built.
+
+## SDK integration follow-up
+
+The earlier "borrowed SDK headers" and objects-only target paragraphs above
+record the first import. They are superseded by sdk/include and mk/tenant.mk:
+no attic include path, generated event header or private Toolbox fake remains.
+The app-facing header ownership and source/layout proofs are in sdk/README.md.
+The shared fake supplies all Toolbox behavior; tests/face_driver.h retains
+only the app-state driver/fork checks. All 18 invocation counts above and the
+independent saved-file post-checks are unchanged. `make` now emits 123.EXE and
+123.MNU and validates entry, payload, relocations and BSS with factory/mz.
+The 64 KiB policy lives in kernel/loader.c, so desktop launch awaits that OS
+change and the tier-1 desktop import. See sdk/tests/ACCEPTANCE.md for the
+measured EXE comparison, clean runs and negative controls.
