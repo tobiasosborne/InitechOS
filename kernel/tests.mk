@@ -2,6 +2,11 @@
 # alone, more when every component runs at once.
 TEST_BUDGET_S := 60
 include tests/tools.mk
+HOST_TESTS += review-handles
+review-handles_SRCS := tests/test_review_handles.c
+review-handles_OBJS := $(tool_test_fileio_OBJS)
+review-handles_CFLAGS := $(tool_test_fileio_CFLAGS)
+review-handles_DEPS := $(TOP)/build/kernel/dos_messages.h
 HOST_TESTS += test-40oq
 test-40oq_SRCS := tests/runner.c
 test-40oq_ARGS := tests/run.sh test-40oq

@@ -1110,8 +1110,8 @@ static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
         /* AH=3Dh AL=2 (RDWR) must permit writing, not only AL=1 (WRITE) per the
          * DOS 3.3 PRM (bcg.1). A read-only (AL=0) handle or a missing write
          * backend -> access denied (the repository contract). */
-        int writable = (e->open_mode == SFT_MODE_WRITE ||
-                        e->open_mode == SFT_MODE_RDWR);
+        unsigned access = e->open_mode & 3u;
+        int writable = (access == SFT_MODE_WRITE || access == SFT_MODE_RDWR);
         if (!writable || g_file == 0 || g_file->write_at == 0) {
             return INT21_ERR_ACCESS_DENIED;
         }
@@ -1728,6 +1728,9 @@ static void do_write(int_frame_t *f)
  * Programmer's Reference Manual AH=45h; fs-mount-sft-ground-truth.md Sec 3.4. */
 static void do_dup(int_frame_t *f)
 {
+    if (f->ebx > 0xFFu) {
+        set_ax(f, INT21_ERR_INVALID_HANDLE); cf_set(f); return;
+    }
     uint8_t src = (uint8_t)(f->ebx & 0xFFu);
     uint8_t newh = 0;
     uint16_t rc = sft_dup(g_cur_psp, src, &newh);
@@ -1736,7 +1739,7 @@ static void do_dup(int_frame_t *f)
         cf_set(f);
         return;
     }
-    f->eax = (f->eax & 0xFFFFFF00u) | (uint32_t)newh; /* EAX (AL) = new handle */
+    set_ax(f, newh);                 /* PRM AH=45h: AX is the new handle. */
     cf_clear(f);
 }
 
@@ -1746,6 +1749,9 @@ static void do_dup(int_frame_t *f)
  * Reference Manual AH=46h; fs-mount-sft-ground-truth.md Sec 3.4. */
 static void do_dup2(int_frame_t *f)
 {
+    if (f->ebx > 0xFFu || f->ecx > 0xFFu) {
+        set_ax(f, INT21_ERR_INVALID_HANDLE); cf_set(f); return;
+    }
     uint8_t src = (uint8_t)(f->ebx & 0xFFu);
     uint8_t dst = (uint8_t)(f->ecx & 0xFFu);
     uint16_t rc = sft_dup2(g_cur_psp, src, dst);
@@ -2367,6 +2373,12 @@ static void do_open(int_frame_t *f)
     const char *path = (const char *)(uintptr_t)f->edx;
     uint8_t mode = frame_al(f);
 
+    /* DOS 3.3 PRM AH=3Dh: access 0..2, bit 3 reserved, sharing 0..4.
+     * Retain inheritance/sharing fields separately from access checks. */
+    if ((mode & 7u) > 2u || (mode & 8u) || (mode & 0x70u) > 0x40u) {
+        set_ax(f, 12u); cf_set(f); return;
+    }
+
     if (path == 0 || *path == '\0') {
         set_ax(f, INT21_ERR_FILE_NOT_FOUND);
         cf_set(f);
@@ -2457,7 +2469,8 @@ static void do_open(int_frame_t *f)
 
     /* IBM 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf p. 5-11:
      * a read-only file cannot be opened for output. L005 / initech-1vcl. */
-    if ((mode & 3u) != 0u && (de.attribute & DIR_ATTR_READONLY) != 0u) {
+    if ((de.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u ||
+        ((mode & 3u) != 0u && (de.attribute & DIR_ATTR_READONLY) != 0u)) {
         set_ax(f, INT21_ERR_ACCESS_DENIED);
         int21_note_error(INT21_ERR_ACCESS_DENIED);
         cf_set(f);
@@ -3191,6 +3204,17 @@ static void do_read(int_frame_t *f)
         f->eax = 0u;
         cf_clear(f);
         return;
+    }
+
+    /* MS-DOS Encyclopedia AH=3Fh: a write-only file denies READ. */
+    if ((e->open_mode & 3u) == SFT_MODE_WRITE) {
+        set_ax(f, INT21_ERR_ACCESS_DENIED); cf_set(f); return;
+    }
+    if (count == 0u) {
+        f->eax = 0u; cf_clear(f); return;
+    }
+    if (g_file == 0 || g_file->read_at == 0) {
+        set_ax(f, INT21_ERR_ACCESS_DENIED); cf_set(f); return;
     }
 
     /* Validate the destination buffer before the backend writes into it
