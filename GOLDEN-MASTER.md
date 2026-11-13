@@ -37,7 +37,9 @@ legacy tree to find more is not.
 
 - The "Saving tables to disk..." frame as a live arrangement: the
   InitechCalc ledger and pie chart, the Finder's Drive A window, the
-  Photoshop menu bar, the FILE COPY dialog with the hourglass.
+  FILE COPY dialog with the hourglass. One menu bar, not the frame's
+  two (operator, 2026-11-13); InitechPaint's menus are the Photoshop
+  ones and show when it is in front.
 - The ledger shows real recovered or agreed content. No `TODO_FRAME`.
 - Windows drag, menus pull down, the copy really copies, and a failed
   or cancelled copy never destroys the destination.

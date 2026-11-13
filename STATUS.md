@@ -105,11 +105,6 @@ saved. App imports are unfrozen.
   and a COMMAND.COM stub. A single installable disk is still to design.
 - Bochs here has no 486 model and runs its Pentium model; QEMU runs
   `-cpu 486`.
-- Open question for the operator: Python is used by some inherited
-  tests as an independent reader of foreign file formats, which the
-  constitution's "C, make and POSIX shell" does not allow as written.
-  The kernel's uses are listed with port estimates in
-  `kernel/tests/PYTHON.md`.
 - 85 kernel and DOS mutants are converted to patches but not yet proven
   killed (`make -C kernel mutants`, `make -C dos mutants`). Each is
   either a test gap or a mutant that needs the emulator.

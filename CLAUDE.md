@@ -27,7 +27,12 @@ them.
    baked screenshots, no hallucinated behaviour.
 2. **Straight face.** Everything a user can see (the screen, the README,
    the manuals, the box) reads as a real corporate product of 1991-93 and
-   never admits the joke. The canon bugs are enforced, not fixed: the pie
+   never admits the joke. The marks are Initech's own: no other company's
+   logo appears anywhere. The product is framed as abandonware: the
+   found software of a company that no longer exists, preserved and
+   reconstructed. Its original "license agreement" is reproduced as a
+   period document and is not a licence; the real one is the AGPL in
+   `LICENSE`, mentioned once and discreetly. The canon bugs are enforced, not fixed: the pie
    chart sums to 116%, the busy cursor is an hourglass, negatives print
    as `570-`. Working documents (this file, STATUS, component READMEs,
    commit messages) are plain English.
@@ -48,7 +53,10 @@ them.
 6. **Three languages, never blurred.** The OS and its bundled apps are C
    and assembly. Turbo Initech and the programs it compiles are Pascal.
    The factory (everything that builds and judges the product) is C,
-   make and POSIX shell.
+   make and POSIX shell. One exception: a test may use a Python script
+   as an independent reader of a foreign file format, because a second
+   reader in another language is a stronger check. Python builds
+   nothing and ships nowhere.
 7. **Reproducible builds.** The same source produces the same bytes. The
    self-host proof (`K2 == K3`) depends on it.
 8. **Closed scope.** If it is not in `GOLDEN-MASTER.md` it is not being
@@ -197,7 +205,9 @@ records, not a format to keep producing: each is deleted once acted on.
   reboots: run with `-d int,guest_errors,cpu_reset`.
 - The frame is a Photoshop mock-up, not a screenshot. Its
   inconsistencies (a Photoshop menu bar on a Mac window over DOS) are
-  the spec. Do not correct them.
+  the spec. Do not correct them. One exception, by the operator: there
+  is one menu bar, not the frame's two. It shows the front program's
+  menus, so the Photoshop menus appear when InitechPaint is in front.
 - Glyphs are hand-authored and back-checked against the frame. The still
   is too low-resolution to extract them.
 - Regions are normalised on construction and asserted normal on entry to

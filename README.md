@@ -18,7 +18,7 @@ fully conformant computing platform suitable for the modern automated office.
 
 The product has been engineered in accordance with Initech Corporate Engineering
 Standard ES-1024 and is supplied subject to the Initech Systems Corporation
-Software License Agreement (see [`LICENSE`](LICENSE)).
+Software License Agreement (see [Form 1024-L](SOFTWARE-LICENSE-AGREEMENT.md)).
 
 ## Product configuration
 
@@ -116,6 +116,15 @@ The build is freestanding (`gcc -m32 -ffreestanding -nostdlib` + `nasm` + `ld`
 on the interim toolchain; `i686-elf` cross-compilation on the target toolchain).
 See [`CLAUDE.md`](CLAUDE.md) and [`InitechOS-PRD.md`](InitechOS-PRD.md) for the
 engineering standard and the product requirements.
+
+---
+
+### Preservation note
+
+Initech Systems Corporation is no longer in operation, and this product
+is no longer sold or supported. It is preserved here as abandonware,
+reconstructed from what was found. The original license agreement is
+reproduced for the record as [Form 1024-L](SOFTWARE-LICENSE-AGREEMENT.md).
 
 ---
 
