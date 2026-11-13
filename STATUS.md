@@ -6,8 +6,8 @@ Rewritten, never appended to. Last rewritten 2026-11-13.
 
 The reboot started today. The legacy tree is frozen at the tag
 `legacy-final` and runs from `../InitechOS-legacy`. `main` now holds the
-same source in the new layout, with no working build yet: components
-come back one at a time, each with its own Makefile and tests.
+same source in the new layout: components come back one at a time, each
+with its own Makefile and tests. ATKINSON is the first imported host core.
 
 Nothing on `main` boots yet. To see the product, use the legacy tree.
 
@@ -22,11 +22,12 @@ listed in `COMPONENTS` in the top Makefile.
 | `kernel/` | source moved (still contains the shell, the DOS utilities and the desktop glue in `kmain.c`) |
 | `dos/` | empty; to be split out of `kernel/` |
 | `flair/` | source moved |
+| `flair/atkinson/` | imported: 2 host suites (74 behavioral checks), 8 patch mutants; public headers in include/ |
 | `flair/desktop/` | empty; Finder files and the desktop half of `kmain.c` go here |
 | `sdk/` | source moved (`tbx.h`, runtime, linker script) |
 | `apps/*` | source moved; none imported |
 | `tps/` | source moved (`compiler/`, `seed/`) |
-| `goldens/`, `factory/` | empty; filled from `attic/` as components claim things |
+| `goldens/`, `factory/` | goldens empty; factory/testlib holds shared host assertions, abort probes, reference policy and the patch mutation runner |
 
 ## In flight
 
@@ -38,8 +39,9 @@ listed in `COMPONENTS` in the top Makefile.
 
 ## Next
 
-1. Pilot imports of two host-only cores to settle the conventions in
-   `mk/`: the region engine and Initech 123.
+1. Complete the Initech 123 pilot alongside the imported region engine.
+   Shared `mk/` now supports separate product objects, optional test
+   selections and patch mutants; documented host-test variables remain valid.
 2. The spine: `boot/` + `kernel/` + `factory/` to a booting
    `A:\>` prompt on QEMU and Bochs, as the first product image.
 3. The remaining host cores (InitechBase, InitechWord, the seed

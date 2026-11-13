@@ -1,0 +1,24 @@
+# Legacy RGN_MUTATE_NO_VRLE
+--- a/region.c
++++ b/region.c
+@@ -233,9 +233,6 @@
+         /* (3) vertical RLE: identical x-list to the previously-kept row. This
+          * subsumes empty-under-empty (two closers/gaps in a row) and span-
+          * under-identical-span -- the redundant row is dropped. */
+-        if (have_prev && xlist_equal(prev_x, prev_n, cur_x, cur_n)) {
+-            continue;
+-        }
+         /* A leading empty row (no live span opened yet) is dead space above the
+          * region -- drop it (it would otherwise be a spurious interior empty). */
+         if (!have_prev && cur_n == 0) {
+@@ -262,6 +259,10 @@
+         prev_n = cur_n;
+         have_prev = 1;
+     }
++    /* The vertical-RLE collapse above is #ifdef'd OUT for this mutant; prev_x/
++     * prev_n are then only written, never read. Mark them used so the mutant
++     * still COMPILES (it must build to be able to go RED at runtime). */
++    (void)prev_x; (void)prev_n;
+ 
+     /* Trim trailing empty rows to exactly ONE closing row. After the pass any
+      * empties at the tail are either the single closer (keep) or redundant

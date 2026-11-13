@@ -1,0 +1,17 @@
+# Legacy GDI_MUTATE_RECTIN
+--- a/region.c
++++ b/region.c
+@@ -935,7 +935,12 @@
+ 
+ int RectInRegion(const region_t *rgn, rgn_rect_t rect)
+ {
+-    return region_rect_overlaps(rgn, rect);
++    /* MUTANT (ADR-0005 Amendment AM-1 Sec 7.4, M-RECTIN): wire RectInRegion to
++     * CONTAINMENT (region_rect_fully_in) instead of OVERLAP -- re-introducing
++     * the pre-AM-4 deep bug. The RectInRegion-vs-wine-rect_in_region row of L2
++     * must go RED, proving the overlap value is graded against the EXTERNAL wine
++     * authority ("at least partially inside"), NOT by construction. */
++    return region_rect_fully_in(rgn, rect);
+ }
+ 
+ /* ===========================================================================

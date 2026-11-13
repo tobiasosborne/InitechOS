@@ -1,0 +1,21 @@
+# Legacy RGN_MUTATE_EMIT_NOCHANGE
+--- a/region.c
++++ b/region.c
+@@ -402,11 +402,12 @@
+         if (take_b) { inB ^= 1; ib++; }
+ 
+         int now = boolfn(op, inA, inB);
+-        if (now != prev_out) {
+-            if (no >= cap) { RGN_FAIL_LOUD(); return 0; } /* bead initech-mswo */
+-            out[no++] = x;
+-            prev_out = now;
+-        }
++        /* MUTANT: emit at EVERY boundary, even when the output did not change.
++         * This produces redundant toggles (e.g. coincident A/B edges emit a
++         * zero-width span) -> rasterize diverges from the pixel ground truth. */
++        if (no >= cap) { RGN_FAIL_LOUD(); return 0; } /* bead initech-mswo */
++        out[no++] = x;
++        prev_out = now;   /* keep prev_out coherent so the closing check holds */
+     }
+     /* After the last boundary the output must be back OUTSIDE (even count). */
+     if (prev_out != 0) { RGN_FAIL_LOUD(); return 0; }

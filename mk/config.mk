@@ -16,7 +16,8 @@ SHELL := /bin/sh
 .DELETE_ON_ERROR:
 MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
-OUT := $(TOP)/build/$(COMPONENT)
+# Override only for isolated builds (for example the mutation runner).
+OUT ?= $(TOP)/build/$(COMPONENT)
 
 # Host tools: tests and factory programs run on the build machine.
 HOSTCC      ?= cc
