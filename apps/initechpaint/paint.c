@@ -19,20 +19,15 @@
  * locked by ADR-0004 D-3 / AM-4 -- never "corrected" to a real Photoshop).
  * Item WORDS and the canvas title/rect are AUTHORED product policy in the
  * period's paint-program vocabulary; the film does not show any pulled menu,
- * so no item is claimed recovered from the frame (Law 1 honesty).
- * PAINT_MUT_BAR_TEXT / PAINT_MUT_ITEMS_ENABLED are the gate's named mutants.
- * ASCII-clean (Rule 12). Freestanding, deterministic (Rule 11).
+ * so no item is claimed recovered from the frame (CLAUDE.md, The constitution honesty).
+ * ASCII-clean (CLAUDE.md, The constitution). Freestanding, deterministic (CLAUDE.md, The constitution).
  */
 #include "tbx.h"
 #include "assets/menu_canon.h"
 
 const char tbx_app_name[] = "PAINT";
 
-#ifdef PAINT_MUT_ITEMS_ENABLED
-#define G 1   /* NAMED MUTANT: every item live */
-#else
 #define G 0   /* period-grayed */
-#endif
 #define ITEM(t) { t, 0, 0, 0, G, 0, { 0, 0, 0 } }
 
 static const tbx_menuitem_t file_items[] = {
@@ -62,11 +57,7 @@ static const tbx_menuitem_t help_items[] = {
 };
 #define N(a) ((uint16_t)(sizeof(a) / sizeof((a)[0])))
 
-#ifdef PAINT_MUT_BAR_TEXT
-#define T_LAYER "Layers"   /* NAMED MUTANT: a "corrected" title */
-#else
 #define T_LAYER FLAIR_CANON_MENU_ITEM_3
-#endif
 enum { PAINT_FILE = 128 };
 static const tbx_menuinfo_t menus[] = {
     { 128, 0, FLAIR_CANON_MENU_ITEM_0, file_items,   N(file_items),   0 },

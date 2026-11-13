@@ -27,7 +27,7 @@
  * keyUp delivery, which the App Contract does not route to tenants
  * (os/flair/process.c); the Edit menu's Copy/Paste need a tenant Scrap call.
  *
- * ASCII-clean (Rule 12).
+ * ASCII-clean (CLAUDE.md, The constitution).
  */
 #include "tbx.h"
 #include "calc_core.h"
@@ -46,9 +46,7 @@ static const tbx_menuitem_t file_items[] = {
     /* initech-0xs6: opt into tbx_ask_quit's existing explicit Quit contract.
      * Same documentless close action (Mac guide printed p.125), retaining W.
      * Never infer permission to terminate document tenants from a close box. */
-#ifndef CALCDA_MUT_CLOSE_ONLY
     { "Quit", 0, 'Q', 0, 1, 0, { 0, 0, 0 } },
-#endif
 };
 /* The DA's Edit menu: present (the capture's bar is File Edit Help), every
  * row dimmed until a tenant Scrap call exists (recorded gap). */

@@ -11,7 +11,7 @@
  * fidelity claims. No animation is claimed. Scrapbook stores TEXT only;
  * PICT and sound are not supported. Limits and on-disk bytes are locked.
  * No kernel additions, private clipboard, editor, or file implementation.
- * ASCII-only, deterministic, freestanding C (Laws 1-3, Rules 8/11/12).
+ * ASCII-only, deterministic, freestanding C (CLAUDE.md, The constitution, CLAUDE.md, The constitution).
  */
 #include "tbx.h"
 #include "tbx_save.h"   /* initech-mcep: the atomic document save */
@@ -26,7 +26,7 @@ const char tbx_app_name[] = "SCRAPBK";
 const char tbx_app_name[] = "NOTEPAD";
 #define DA_TITLE "Note Pad"
 #endif
-/* DOS AUX output, AH=04h (os/milton/int21.c do_aux_output), the existing
+/* DOS AUX output, AH=04h (kernel/int21.c do_aux_output), the existing
  * serial device seam. Host routing records it; no host env or paths. */
 #ifndef DA_AUX
 static void da_aux(const char *s)
@@ -92,11 +92,7 @@ static int valid(void)
     if(word(6)!=8) return 0;
 #endif
     for(int i=0;i<4;i++) h|=(uint32_t)g_disk[12+i]<<(i*8);
-#ifndef DA_MUT_ACCEPT_CORRUPT
     if(h!=hash()) return 0;
-#else
-    (void)h;
-#endif
     for(int p=0;p<DA_SLOTS;p++) {
         int off=16+p*DA_RECORD_BYTES, n=word(off);
         if(n>DA_TEXT_MAX || (p>=word(6) && n)) return 0;
@@ -121,9 +117,7 @@ static void load(void)
     if(fd<0) { g_keep=1; DA_AUX("DA-READ-ERROR " DA_PATH "\r\n"); return; }
     n=tbx_file_read(fd,g_disk,sizeof g_disk);
     if(tbx_file_close(fd)<0 || n!=DA_FILE_BYTES || !valid()) {
-#ifndef DA_MUT_OVERWRITE_DAMAGED
         g_keep=1;
-#endif
         DA_AUX("DA-CORRUPT " DA_PATH " empty pages\r\n");
         return;                              /* defaults remain intact */
     }
@@ -308,27 +302,16 @@ static void paste(void)
         notice("The Scrapbook is full, or this clip is too large.");return;
     }
     stash();g_page=g_count++;
-#ifdef DA_MUT_PASTE_WRONG_PAGE
-    int target=(g_page+1)%DA_SLOTS;
-#else
     int target=g_page;
-#endif
     g_len[target]=(uint16_t)k;bytes(g_pages[target],g_clip,k);read_page();
 #else
-#ifdef DA_MUT_PASTE_WRONG_PAGE
-    int target=(g_page+1)%DA_SLOTS;
-    if(k<=DA_TEXT_MAX) {g_len[target]=(uint16_t)k;bytes(g_pages[target],g_clip,k);}
-#else
     (void)replace(g_clip,k);
-#endif
 #endif
 }
 static void close_app(void)
 {
-#ifndef DA_MUT_SKIP_CLOSE_SAVE
     stash();
     if(!save()) return;
-#endif
     /* A kept (damaged) store: say so once, and close on the answer. */
     if(g_keep && !g_closing &&
        tbx_alert("The " DA_TITLE " file is damaged.\rIt was kept as it is; these\rpages were not saved.","OK",0,0)==TBX_OK) {
@@ -383,11 +366,7 @@ void tbx_app_event(const tbx_event_t *ev)
         if(ev->what==mouseDown && y>=DA_VIEW_H-DA_FOLD && y<DA_VIEW_H && x>=0 && x<DA_VIEW_W) {
             if(x<DA_FOLD) turn(g_page-1);
             else if(x>=DA_VIEW_W-DA_FOLD) {
-#ifdef DA_MUT_TURN_OFFBYONE
-                turn(g_page+2);
-#else
                 turn(g_page+1);
-#endif
             }
             refresh();break;
         }

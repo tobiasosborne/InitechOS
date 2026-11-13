@@ -1,0 +1,10 @@
+--- a/core.c
++++ b/core.c
+@@ -75,7 +75,6 @@
+     if(item==1) {
+         if(s->panel!=5) {
+             if(!o->save(o->user,&s->edit)){s->error=1;return;}
+-            if(s->panel==1 && !o->clock(o->user,&s->time)){s->error=1;return;}
+             if(!o->apply(o->user,&s->edit)){s->error=1;return;}
+             s->live=s->edit;
+         }

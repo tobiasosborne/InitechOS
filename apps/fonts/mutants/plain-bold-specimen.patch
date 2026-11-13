@@ -1,0 +1,11 @@
+--- a/fonts.c
++++ b/fonts.c
+@@ -67,7 +67,7 @@
+ {
+     (void)tbx_fill_rect(g_win, 0, 0, 400, 400, TBX_COLOR_WHITE);
+     line(2,   "Hamburger", 0u);
+-    line(20,  "Hamburger", TBX_TEXT_BOLD);
++    line(20,  "Hamburger", 0u);
+     line(38,  "Hamburger", TBX_TEXT_ITALIC);
+     line(56,  "jumpy gyp", 0u);
+     line(74,  "jumpy gyp", TBX_TEXT_UNDERLINE);

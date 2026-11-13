@@ -1,0 +1,10 @@
+--- a/calc_view.c
++++ b/calc_view.c
+@@ -101,6 +101,7 @@
+ calc_cmd_t calc_view_click_cmd(int idx)
+ {
+     if (idx < 0 || idx >= CALC_KEY_COUNT) return CALC_NONE;
++    if (g_keys[idx].cmd == CALC_SUB) return CALC_ADD;   /* MUTANT, never real */
+     return (calc_cmd_t)g_keys[idx].cmd;
+ }
+ 

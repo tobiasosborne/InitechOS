@@ -1,0 +1,10 @@
+--- a/ctenant.c
++++ b/ctenant.c
+@@ -112,7 +112,6 @@
+          * SAME File > Quit handler. Staying resident declines the request,
+          * as kmain.c finder_power_ask_apps specifies (Inside Macintosh VI,
+          * PDF p.345 Listing 6-8). Never defined for shipped CTENANT.EXE. */
+-        if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_QUIT)) (void)tbx_exit(0);
+         break;
+     default:
+         break;

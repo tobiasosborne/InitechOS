@@ -1,0 +1,58 @@
+--- a/calc_core.c
++++ b/calc_core.c
+@@ -328,17 +328,43 @@
+     c->pending = (uint8_t)CALC_NONE;
+     c->entering = 0u;
+     c->len = 0u;
++    c->lo_acc = 0.0L;
++    c->lo_op = (uint8_t)CALC_NONE;
+     c->entry[0] = '\0';
+     c->disp[0] = '0';
+     c->disp[1] = '\0';
+ }
+ 
++/* MUTANT (CLAUDE.md, The constitution): '*' and '/' bind tighter -- a deferred low-precedence
++ * side. NEVER in a real build. */
++static long double fold(calc_t *c, long double x, int to_low)
++{
++    if (c->pending == CALC_MUL || c->pending == CALC_DIV) {
++        x = apply(c->acc, c->pending, x);
++        c->pending = (uint8_t)CALC_NONE;
++    }
++    if (c->pending == CALC_ADD || c->pending == CALC_SUB) {
++        if (!to_low) {                     /* defer: a '*' or '/' follows */
++            c->lo_acc = c->acc;
++            c->lo_op = c->pending;
++            c->pending = (uint8_t)CALC_NONE;
++            return x;
++        }
++        x = apply(c->acc, c->pending, x);
++        c->pending = (uint8_t)CALC_NONE;
++    }
++    if (to_low && c->lo_op != CALC_NONE) {
++        x = apply(c->lo_acc, c->lo_op, x);
++        c->lo_op = (uint8_t)CALC_NONE;
++    }
++    return x;
++}
+ 
+ static void operate(calc_t *c, calc_cmd_t op)
+ {
+     if (c->entering) {
+         long double x = entry_value(c);
+-        c->acc = (c->pending != CALC_NONE) ? apply(c->acc, c->pending, x) : x;
++        c->acc = fold(c, x, op == CALC_ADD || op == CALC_SUB || op == CALC_EQ);
+         c->entering = 0u;
+     }
+     /* With no operand typed: an operator replaces the pending one, '='
+--- a/calc_core.h
++++ b/calc_core.h
+@@ -106,6 +106,8 @@
+     uint8_t     pending;             /* CALC_ADD..CALC_DIV, or CALC_NONE     */
+     uint8_t     entering;            /* 1 while a number is being typed      */
+     uint8_t     len;                 /* entry length (chars, as shown)       */
++    long double lo_acc;              /* mutant only: the deferred + / - side */
++    uint8_t     lo_op;
+     char        entry[CALC_DISPLAY_CAP];
+     char        disp[CALC_DISPLAY_CAP];   /* what the readout shows          */
+ } calc_t;

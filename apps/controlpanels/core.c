@@ -70,19 +70,12 @@ unsigned cp_items(cp_state_t *s,cp_item_t *p) {
 void cp_hit(cp_state_t *s,unsigned item,const cp_ops_t *o) {
     if(!s->panel) {if(item<=2)s->closed=1;else if(item<=7){s->panel=item-2;s->edit=s->live;s->original_time=s->time;s->error=0;s->clock_tab=0;}return;}
     if(item==2) {
-#ifdef CP_MUT_CANCEL_WRITES
-        (void)o->save(o->user,&s->edit);
-#endif
         s->edit=s->live;s->time=s->original_time;s->panel=0;s->error=0;return;
     }
     if(item==1) {
         if(s->panel!=5) {
-#ifndef CP_MUT_OK_NOTHING
             if(!o->save(o->user,&s->edit)){s->error=1;return;}
-#endif
-#ifndef CP_MUT_CLOCK_NOT_APPLIED
             if(s->panel==1 && !o->clock(o->user,&s->time)){s->error=1;return;}
-#endif
             if(!o->apply(o->user,&s->edit)){s->error=1;return;}
             s->live=s->edit;
         }

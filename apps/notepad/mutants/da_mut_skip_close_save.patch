@@ -1,0 +1,11 @@
+--- a/notepad.c
++++ b/notepad.c
+@@ -310,8 +310,6 @@
+ }
+ static void close_app(void)
+ {
+-    stash();
+-    if(!save()) return;
+     /* A kept (damaged) store: say so once, and close on the answer. */
+     if(g_keep && !g_closing &&
+        tbx_alert("The " DA_TITLE " file is damaged.\rIt was kept as it is; these\rpages were not saved.","OK",0,0)==TBX_OK) {

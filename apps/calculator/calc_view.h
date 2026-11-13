@@ -3,20 +3,12 @@
  * hit-test (THE ARTIFACT; bead initech-tdnl.17). Pure and freestanding, like
  * calc_core: CALCULAT.EXE sends its rects through TBX_FILLRECT, the host oracle
  * rasterizes the SAME rects into a bitmap and grades them against the real
- * Mac OS 8.1 capture (never against spec/calcda/calcda_layout.h -- Law 2).
+ * Mac OS 8.1 capture (never against spec/calcda/calcda_layout.h -- CLAUDE.md, The constitution).
  *
  * Colours are the gate's tokens (spec/toolbox_gate.h Sec 7): 0 white,
  * 1 black, 2 gray. Rects are content-local, right/bottom EXCLUSIVE.
  *
- * MUTANT KNOBS (Rule 6; -D on this TU only):
- *   CALCDA_MUT_KEY_CLICK_DIVERGE -- a click on the '-' key commands '+', while
- *                                 the keyboard's '-' still commands '-': the
- *                                 click and key paths disagree (the bead's
- *                                 named mutant). The parity leg goes RED.
- *   CALCDA_MUT_READOUT_SHIFT     -- the readout is right-aligned one pixel
- *                                 further left: every readout crop goes RED.
- *
- * ASCII-clean (Rule 12).
+ * ASCII-clean (CLAUDE.md, The constitution).
  */
 #ifndef INITECH_APPS_CALC_VIEW_H
 #define INITECH_APPS_CALC_VIEW_H

@@ -14,8 +14,8 @@ static tbx_event_t event TBX_IN_IMAGE={0};
 static const tbx_menuitem_t file_items[]={{"Quit",0,'Q',0,1,0,{0,0,0}}};
 static const tbx_menuinfo_t menus[]={{129,0,"File",file_items,1,0}};
 static const tbx_menubar_t bar={menus,1,1,0};
-static int32_t settings(unsigned mode) {uint32_t a[]={mode,(uint32_t)(uintptr_t)record};return tbx_trap(TBX_SETTINGS,2,a);}
-static int32_t clock(unsigned mode) {uint32_t a[]={mode,(uint32_t)(uintptr_t)&state.time};return tbx_trap(TBX_CLOCK,2,a);}
+static int32_t settings(unsigned mode) {return tbx_settings(mode,record);}
+static int32_t clock(unsigned mode) {return tbx_clock(mode,&state.time);}
 static int save(void *u,const cp_settings_t *s) {
  /* initech-mcep: the atomic save keeps the old record when a write fails. */
  (void)u;cp_encode(s,record);return tbx_file_save(CP_PATH,record,CP_RECORD_BYTES)==(int32_t)CP_RECORD_BYTES;
@@ -31,8 +31,8 @@ static void beep(void *u) {
 }
 static const cp_ops_t ops={save,apply,setclock,beep,0};
 static int dialog(const tbx_event_t *e) {
- unsigned n=cp_items(&state,items);uint32_t a[]={(uint32_t)win,(uint32_t)(uintptr_t)items,n,1,2,(uint32_t)(uintptr_t)e};
- return tbx_trap(TBX_DIALOG,6,a);
+ unsigned n=cp_items(&state,items);
+ return tbx_dialog(win,items,n,1,2,e);
 }
 static void paint(void) {
  (void)dialog(0);
@@ -50,7 +50,7 @@ int tbx_app_main(void) {
  if(tbx_register()!=0)return 1;
  if(settings(0)==0)(void)cp_decode(&p,record);
  cp_init(&state,&p);(void)clock(0);
- {uint32_t a[]={(uint32_t)(uintptr_t)state.memory};(void)tbx_trap(TBX_MEMORY,1,a);}
+ (void)tbx_memory(state.memory);
  (void)tbx_set_mbar(&bar);win=tbx_new_window(120,90,520,390,TBX_GOAWAY_ASK);
  if(win<=0)return 1;
  (void)tbx_set_wtitle(win,"Control Panels");return 0;

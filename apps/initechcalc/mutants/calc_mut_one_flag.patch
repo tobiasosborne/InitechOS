@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -197,7 +197,7 @@
+ static void do_save(void)
+ {
+     const char *from=copy_src;
+-    if(g_edited) {   /* an edited sheet ALWAYS saves the model, even after a save */
++    if(g_dirty) {
+         unsigned n=serialise(); int32_t h;
+         copy_stage=0;
+         for(unsigned i=0;i<sizeof stage_names/sizeof stage_names[0]&&!copy_stage;i++) if(!exists(stage_names[i])) copy_stage=stage_names[i];

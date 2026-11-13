@@ -1,0 +1,11 @@
+--- a/itext.c
++++ b/itext.c
+@@ -400,6 +400,8 @@
+ /* Unsaved work asks first (Save / Cancel / Don't Save), else acts now. */
+ static void guarded(int act, const char *why)
+ {
++    /* MUTANT (CLAUDE.md, The constitution): unsaved work is never asked about. NEVER real. */
++    if (act == ACT_QUIT) g_dirty = 0;
+     if (!g_dirty) { g_after = act; run_after(); return; }
+     {
+         int i = 0, k;

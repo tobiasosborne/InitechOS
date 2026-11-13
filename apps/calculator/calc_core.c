@@ -3,7 +3,7 @@
  * initech-tdnl.17). The rules, their ground truth and the mutant knobs are in
  * calc_core.h. Freestanding: no libc, no 64-bit division (uint16 limbs keep
  * every quotient a 32-by-32 one), no floating-point library call.
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution).
  */
 #include "calc_core.h"
 
@@ -222,11 +222,7 @@ void calc_format(long double v, char *out)
             if (i >= 0 && r[i] != '0') { integral = 0; break; }
     }
 
-#if defined(CALCDA_MUT_FIXED_E3)
-    int fixed_lo = -3;
-#else
     int fixed_lo = -2;
-#endif
     if (e_rec >= fixed_lo) {
         if (integral) {
             if (s + e_rec + 1 <= CALC_DISPLAY_W) {
@@ -310,9 +306,6 @@ static long double apply(long double a, uint8_t op, long double b)
     case CALC_SUB: return a - b;
     case CALC_MUL: return a * b;
     case CALC_DIV:
-#if defined(CALCDA_MUT_DIV0_ZERO)
-        if (b == 0.0L) return 0.0L;
-#endif
         return a / b;
     default:       return b;
     }
@@ -335,51 +328,17 @@ void calc_init(calc_t *c)
     c->pending = (uint8_t)CALC_NONE;
     c->entering = 0u;
     c->len = 0u;
-#if defined(CALCDA_MUT_PRECEDENCE)
-    c->lo_acc = 0.0L;
-    c->lo_op = (uint8_t)CALC_NONE;
-#endif
     c->entry[0] = '\0';
     c->disp[0] = '0';
     c->disp[1] = '\0';
 }
 
-#if defined(CALCDA_MUT_PRECEDENCE)
-/* MUTANT (Rule 6): '*' and '/' bind tighter -- a deferred low-precedence
- * side. NEVER in a real build. */
-static long double fold(calc_t *c, long double x, int to_low)
-{
-    if (c->pending == CALC_MUL || c->pending == CALC_DIV) {
-        x = apply(c->acc, c->pending, x);
-        c->pending = (uint8_t)CALC_NONE;
-    }
-    if (c->pending == CALC_ADD || c->pending == CALC_SUB) {
-        if (!to_low) {                     /* defer: a '*' or '/' follows */
-            c->lo_acc = c->acc;
-            c->lo_op = c->pending;
-            c->pending = (uint8_t)CALC_NONE;
-            return x;
-        }
-        x = apply(c->acc, c->pending, x);
-        c->pending = (uint8_t)CALC_NONE;
-    }
-    if (to_low && c->lo_op != CALC_NONE) {
-        x = apply(c->lo_acc, c->lo_op, x);
-        c->lo_op = (uint8_t)CALC_NONE;
-    }
-    return x;
-}
-#endif
 
 static void operate(calc_t *c, calc_cmd_t op)
 {
     if (c->entering) {
         long double x = entry_value(c);
-#if defined(CALCDA_MUT_PRECEDENCE)
-        c->acc = fold(c, x, op == CALC_ADD || op == CALC_SUB || op == CALC_EQ);
-#else
         c->acc = (c->pending != CALC_NONE) ? apply(c->acc, c->pending, x) : x;
-#endif
         c->entering = 0u;
     }
     /* With no operand typed: an operator replaces the pending one, '='
@@ -401,11 +360,7 @@ static void type_char(calc_t *c, char ch)
     } else if (c->len == 1u && c->entry[0] == '0') {
         c->len = 0u;                                 /* "007" -> "7" (q15) */
     }
-#if defined(CALCDA_MUT_ENTRY_CAP14)
-    if (c->len >= CALC_ENTRY_MAX + 1) return;
-#else
     if (c->len >= CALC_ENTRY_MAX) return;            /* 13 chars (p10/s05) */
-#endif
     c->entry[c->len++] = ch;
     c->entry[c->len] = '\0';
     show_entry(c);

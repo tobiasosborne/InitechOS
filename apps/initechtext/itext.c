@@ -14,7 +14,7 @@
  * Standard File (Sec 13), mouse tracking (Sec 14), the vertical scroll bar +
  * GlobalToLocal (Sec 15), the file verbs (Sec 10) and the alert (Sec 11).
  *
- * GROUND TRUTH (Law 1). ../system7-decomp specs/sys8/simpletext-stdfile.md
+ * GROUND TRUTH (CLAUDE.md, The constitution). ../system7-decomp specs/sys8/simpletext-stdfile.md
  * (mint-results-007, Mac OS 8.1 SimpleText under Basilisk II) [MEAS]:
  *   - the window is "untitled", sized nearly to the screen, one vertical
  *     scroll bar; text starts 5 px right of / 4 px below the content corner;
@@ -42,29 +42,6 @@
  *   line ends (the Mac TEXT convention) and an opened file's CR LF / LF ends
  *   become CR.
  *
- * Mutants (Rule 6), -D on this file, each RED in its named gate leg:
- *   ITEXT_MUT_COPY_NOTHING   Copy puts an empty run on the scrap
- *                            (test-itext-route, test-flair-itext)
- *   ITEXT_MUT_SAVE_NO_CR     Save writes the text with the CRs dropped
- *                            (test-itext-route, test-flair-itext FAT leg)
- *   ITEXT_MUT_QUIT_NO_ASK    Quit over unsaved work exits without the alert
- *                            (test-itext-route)
- *   ITEXT_MUT_SEL_NOT_INVERSE  a range is drawn as plain text
- *                            (test-itext-route, test-flair-itext PIXEL leg)
- *   ITEXT_MUT_LF_PAIR_OUTPUT  Open's CR LF test reads the normalised output
- *                            (L005; test-itext-route "linefeed")
- *   ITEXT_MUT_FULL_SILENT    a refused edit at the limit raises no notice
- *                            (L014; test-itext-route "full")
- *   ITEXT_MUT_SCROLL_NEVER_ENABLED  reports a fitting document forever
- *                            (test-itext-route, test-flair-itext-scroll)
- *   ITEXT_MUT_UNDO_NO_INVERSE  no edit keeps its inverse: Undo stays grayed
- *                            (L011; test-itext-route "undo", test-flair-itext-undo)
- *   ITEXT_MUT_UNDO_PER_KEY   every keystroke is its own undo step
- *                            (test-itext-route "undorun")
- *   ITEXT_MUT_UNDO_KEEPS_HISTORY  New / Open keep the old document's undo
- *                            (test-itext-route "undoreset")
- *
- * Freestanding C (Law 3). ASCII-clean (Rule 12). Deterministic (Rule 11).
  */
 #include "tbx.h"
 #include "tbx_save.h"   /* initech-mcep: the atomic document save */
@@ -140,7 +117,7 @@ static char    g_title[16] TBX_IN_IMAGE;
 static char    g_alert[96] TBX_IN_IMAGE;
 
 /* ---- Undo (bead initech-4hkk; audit 2026-10-23-das L011) ----------------
- * GROUND TRUTH (Law 1): Macintosh System Software User's Guide v6.0 p.118
+ * GROUND TRUTH (CLAUDE.md, The constitution): Macintosh System Software User's Guide v6.0 p.118
  * (initech-manuals-ref/macos): "Undo. This command undoes your last
  * text-editing action ... if you ... type something wrong ... you can choose
  * Undo to erase the typing and start fresh" -- ONE level, and a run of
@@ -178,10 +155,6 @@ static int draw_run(int a, int b, int x, int y, int hil)
         int n = 0, w = 0;
         while (a + n < b && n < 80) { g_run[n] = g_te.text[a + n]; w += adv(g_run[n]); n++; }
         g_run[n] = '\0';
-#ifdef ITEXT_MUT_SEL_NOT_INVERSE
-        /* MUTANT (Rule 6): a range is drawn as plain text. NEVER real. */
-        hil = 0;
-#endif
         (void)tbx_draw_text(g_win, x, y, g_run, hil ? FG_HIL : FG_TEXT,
                             hil ? TBX_COLOR_BLACK : TBX_COLOR_WHITE);
         x += w;
@@ -226,11 +199,7 @@ static void paint(void)
         x = draw_run(b, le, x, y, 0);
         /* a range that continues past this line's end runs to the edge */
         if (s < e && s <= le && e > le && x < TEXT_X + WRAP_W)
-#ifndef ITEXT_MUT_SEL_NOT_INVERSE
             (void)tbx_fill_rect(g_win, x, y, TEXT_X + WRAP_W, y + h, TBX_COLOR_BLACK);
-#else
-            { }
-#endif
     }
     bottom = TEXT_Y + g_te.nLines * h - g_scroll;   /* below the text */
     if (bottom < 0) bottom = 0;
@@ -259,10 +228,6 @@ static void show_caret(void)
     if (top - TEXT_Y < g_scroll) g_scroll = top - TEXT_Y;
     if (bot + TEXT_Y > g_scroll + CONT_H) g_scroll = bot + TEXT_Y - CONT_H;
     if (g_scroll < 0) g_scroll = 0;
-#ifdef ITEXT_MUT_SCROLL_NEVER_ENABLED
-    /* Rule 6 (ehq4): the shared bar is never given an overflowing extent. */
-    doc = CONT_H;
-#endif
     {
         int was = g_scroll;
         g_scroll = tbx_set_scroll(g_win, doc, g_scroll);
@@ -308,9 +273,7 @@ static void set_title(void)
 
 static void undo_forget(void)
 {
-#ifndef ITEXT_MUT_UNDO_KEEPS_HISTORY  /* MUTANT (Rule 6): New / Open keep the old undo. NEVER real. */
     g_undo_ok = 0;
-#endif
     g_undo_run = 0;
 }
 
@@ -355,11 +318,6 @@ static int doc_load(const char *path)
         for (i = 0; i < n; i++) {
             char c = g_io[i];
             int skip = (c == '\n' && prev == '\r');
-#ifdef ITEXT_MUT_LF_PAIR_OUTPUT
-            /* MUTANT (Rule 6): the pair test reads the normalised output (the
-             * L005 defect). NEVER real. */
-            skip = (c == '\n' && k > 0 && g_io[k - 1] == '\r');
-#endif
             prev = c;
             if (!skip) g_io[k++] = (c == '\n') ? '\r' : c;
         }
@@ -385,10 +343,6 @@ static int doc_write(void)
 {
     int32_t n = g_te.teLength, i, k = 0;
     for (i = 0; i < n; i++) {
-#ifdef ITEXT_MUT_SAVE_NO_CR
-        /* MUTANT (Rule 6): the line ends are dropped on the way out. */
-        if (g_te.text[i] == '\r') continue;
-#endif
         g_io[k++] = g_te.text[i];
     }
     /* initech-mcep (audit 2026-10-23-das L003): the atomic save -- a write
@@ -446,10 +400,6 @@ static void run_after(void)
 /* Unsaved work asks first (Save / Cancel / Don't Save), else acts now. */
 static void guarded(int act, const char *why)
 {
-#ifdef ITEXT_MUT_QUIT_NO_ASK
-    /* MUTANT (Rule 6): unsaved work is never asked about. NEVER real. */
-    if (act == ACT_QUIT) g_dirty = 0;
-#endif
     if (!g_dirty) { g_after = act; run_after(); return; }
     {
         int i = 0, k;
@@ -473,21 +423,13 @@ static void guarded(int act, const char *why)
 static void undo_note(int typing)
 {
     int i;
-#ifdef ITEXT_MUT_UNDO_PER_KEY
-    /* MUTANT (Rule 6): every keystroke is its own step. NEVER real. */
-    g_undo_run = 0;
-#endif
     if (!(typing && g_undo_run)) {
-#ifndef ITEXT_MUT_UNDO_NO_INVERSE   /* MUTANT (Rule 6): no inverse is kept (L011). NEVER real. */
         for (i = 0; i < g_te.teLength; i++) g_undo[i] = g_te.text[i];
         g_undo_len = g_te.teLength;
         g_undo_ss = g_te.selStart;
         g_undo_se = g_te.selEnd;
         g_undo_dirty = g_dirty;
         g_undo_ok = 1;
-#else
-        (void)i;
-#endif
     }
     g_undo_run = typing;
 }
@@ -519,9 +461,7 @@ static void replace_sel(const char *s, int n, int typing)
          * wording, which is from memory of TeachText's full-document notice
          * (unverified). The Toolbox Gate has no beep verb, so the notice is
          * the whole signal. */
-#ifndef ITEXT_MUT_FULL_SILENT      /* MUTANT (Rule 6): the refusal is silent (L014). NEVER real. */
         say("This document is full.", "The edit could not be made.");
-#endif
         return;
     }
     undo_note(typing);
@@ -532,10 +472,6 @@ static void replace_sel(const char *s, int n, int typing)
 static void copy_sel(void)
 {
     int n = g_te.selEnd - g_te.selStart;
-#ifdef ITEXT_MUT_COPY_NOTHING
-    /* MUTANT (Rule 6): an empty run goes to the scrap. NEVER real. */
-    n = 0;
-#endif
     if (tbx_scrap_put(g_te.text + g_te.selStart, (uint32_t)n) == TBX_OK)
         g_scrap_has = n > 0;
 }

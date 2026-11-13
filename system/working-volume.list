@@ -4,3 +4,12 @@ build/apps/initech123/123.MNU           APPS/123.MNU
 build/apps/initechbase/INITBASE.EXE     APPS/INITBASE.EXE
 build/apps/initechbase/INITBASE.OVL     APPS/INITBASE.OVL
 build/apps/initechword/WORD.EXE         APPS/WORD.EXE
+build/apps/calculator/CALCULAT.EXE     APPS/CALCULAT.EXE
+build/apps/notepad/NOTEPAD.EXE        APPS/NOTEPAD.EXE
+build/apps/notepad/scrapbook/SCRAPBK.EXE APPS/SCRAPBK.EXE
+build/apps/initechtext/TEXT.EXE       APPS/TEXT.EXE
+build/apps/controlpanels/CPANELS.EXE  APPS/CPANELS.EXE
+build/apps/initechcalc/CALC.EXE       APPS/CALC.EXE
+build/apps/initechcalc/LEDGER.TXT     APPS/LEDGER.TXT
+build/apps/initechcalc/MICHAEL.CFG     APPS/MICHAEL.CFG
+build/apps/initechpaint/PAINT.EXE     APPS/PAINT.EXE

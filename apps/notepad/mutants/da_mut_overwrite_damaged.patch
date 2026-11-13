@@ -1,0 +1,10 @@
+--- a/notepad.c
++++ b/notepad.c
+@@ -117,7 +117,6 @@
+     if(fd<0) { g_keep=1; DA_AUX("DA-READ-ERROR " DA_PATH "\r\n"); return; }
+     n=tbx_file_read(fd,g_disk,sizeof g_disk);
+     if(tbx_file_close(fd)<0 || n!=DA_FILE_BYTES || !valid()) {
+-        g_keep=1;
+         DA_AUX("DA-CORRUPT " DA_PATH " empty pages\r\n");
+         return;                              /* defaults remain intact */
+     }

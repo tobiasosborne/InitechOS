@@ -28,7 +28,7 @@
  * be able to redraw its content from its own data at any time. The tenant
  * gets its updateEvt through the gate per ADR-0013 (the App Contract).
  * Ref: os/apps/tbx/tbx.h; spec/toolbox_gate.h Sec 3/6a/7/9.
- * ASCII-clean (Rule 12).
+ * ASCII-clean (CLAUDE.md, The constitution).
  */
 #include "tbx.h"
 
@@ -93,15 +93,7 @@ void tbx_app_event(const tbx_event_t *ev)
 {
     switch (ev->what) {
     case updateEvt:
-#ifndef CTENANT_MUT_NO_RETAIN
         render();
-#else
-        /* MUTANT CTENANT_MUT_NO_RETAIN (Rule 6; test-flair-ctenant-mutant
-         * ONLY, built into its own fixture volume): the pre-6qsk update
-         * paint -- the clear and the startup line, no readouts -- so a drag
-         * or a reveal erases them. NEVER in the shipped CTENANT.EXE. */
-        paint_field();
-#endif
         break;
     case keyDown: {
         char c = (char)(ev->message & 0xFF);
@@ -120,9 +112,7 @@ void tbx_app_event(const tbx_event_t *ev)
          * SAME File > Quit handler. Staying resident declines the request,
          * as kmain.c finder_power_ask_apps specifies (Inside Macintosh VI,
          * PDF p.345 Listing 6-8). Never defined for shipped CTENANT.EXE. */
-#ifndef CTENANT_DECLINE_QUIT
         if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_QUIT)) (void)tbx_exit(0);
-#endif
         break;
     default:
         break;

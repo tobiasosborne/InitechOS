@@ -1,0 +1,11 @@
+--- a/calc_core.c
++++ b/calc_core.c
+@@ -360,7 +360,7 @@
+     } else if (c->len == 1u && c->entry[0] == '0') {
+         c->len = 0u;                                 /* "007" -> "7" (q15) */
+     }
+-    if (c->len >= CALC_ENTRY_MAX) return;            /* 13 chars (p10/s05) */
++    if (c->len >= CALC_ENTRY_MAX + 1) return;
+     c->entry[c->len++] = ch;
+     c->entry[c->len] = '\0';
+     show_entry(c);

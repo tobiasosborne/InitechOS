@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -21,7 +21,7 @@
+  * handle API, to a new file on the data volume (spec/toolbox_gate.h Sec 12).
+  * Paths are authored product policy (APPS holds the volume's data files; the
+  * root listing is locked). */
+-static const char copy_caption[]=CALC_COPY_CAPTION;
++static const char copy_caption[]="Saving tables to disk"; /* NAMED MUTANT */
+ static const char copy_src[]="APPS\\LEDGER.TXT";
+ static const char copy_dst[]="APPS\\TABLES.TXT";
+ /* initech-qxft (audit 2026-10-23-das L006/L007/L009). Ref: Macintosh Human

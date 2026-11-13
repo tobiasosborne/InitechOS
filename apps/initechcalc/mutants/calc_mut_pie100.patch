@@ -1,0 +1,10 @@
+--- a/calc.c
++++ b/calc.c
+@@ -53,6 +53,7 @@
+ static void copy(char *d,const char *s) { do { *d++=*s; } while(*s++); }
+ static int calc_slice(int i)
+ {
++    if(i==0) return calc_pie_slices[0]-16;
+     return calc_pie_slices[i];
+ }
+ static int calc_pie_sum(void) { int n=0; for(int i=0;i<5;i++) n+=calc_slice(i); return n; }

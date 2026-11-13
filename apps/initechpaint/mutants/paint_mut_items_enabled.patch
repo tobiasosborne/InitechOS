@@ -1,0 +1,11 @@
+--- a/paint.c
++++ b/paint.c
+@@ -28,7 +28,7 @@
+ 
+ const char tbx_app_name[] = "PAINT";
+ 
+-#define G 0   /* period-grayed */
++#define G 1   /* NAMED MUTANT: every item live */
+ #define ITEM(t) { t, 0, 0, 0, G, 0, { 0, 0, 0 } }
+ 
+ static const tbx_menuitem_t file_items[] = {

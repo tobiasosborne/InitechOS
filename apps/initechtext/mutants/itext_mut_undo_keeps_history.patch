@@ -1,0 +1,10 @@
+--- a/itext.c
++++ b/itext.c
+@@ -273,7 +273,6 @@
+ 
+ static void undo_forget(void)
+ {
+-    g_undo_ok = 0;
+     g_undo_run = 0;
+ }
+ 
