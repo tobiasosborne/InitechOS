@@ -2,13 +2,19 @@
 # Components own their selection; pending patches remain explicitly unproved.
 set -eu
 out=$1
-mkdir -p "$out/mutants"
-find . -type d \( -name build -o -name attic -o -name .git \) -prune -o -type d -name mutants -print |
+mkdir -p "$out"
+list=$(mktemp)
+find . -path "$out" -prune -o -type d \( -name build -o -name attic -o -name .git \) -prune -o -type d -name mutants -print |
 while read -r dir; do
     component=${dir%/mutants}
-    while [ ! -f "$component/Makefile" ]; do component=$(dirname "$component"); done
+    while [ ! -f "$component/Makefile" ]; do
+        [ "$component" != . ] || { echo "FAIL no component owns $dir" >&2; exit 1; }
+        component=$(dirname "$component")
+    done
     printf '%s\n' "${component#./}"
-done | sort -u > "$out/mutants/components"
+done | sort -u > "$list"
+mkdir -p "$out/mutants"
+mv "$list" "$out/mutants/components"
 # Bounded batches avoid multiple makes owning any component's OUT.
 pids= count=0
 wait_batch() {
@@ -19,7 +25,12 @@ while read -r component; do
     key=$(printf '%s' "$component" | tr / _)
     (
       rc=0
-      make --no-print-directory -C "$component" mutants > "$out/mutants/$key.log" 2>&1 || rc=$?
+      active=$(find "$component" -type f -path '*/mutants/*.patch' ! -path '*/mutants/pending/*' | wc -l)
+      if [ "$active" -eq 0 ]; then
+          echo "$component: 0 mutants, 0 killed, 0 survived, 0 errors" > "$out/mutants/$key.log"
+      else
+          make --no-print-directory -C "$component" mutants > "$out/mutants/$key.log" 2>&1 || rc=$?
+      fi
       echo "$rc" > "$out/mutants/$key.rc"
     ) &
     pids="$pids $!"; count=$((count+1))

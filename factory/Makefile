@@ -33,3 +33,4 @@ smoke-programs:
 test: testlib-test
 testlib-test:
 	sh testlib/tests/audit.sh
+	sh testlib/tests/mutants.sh
