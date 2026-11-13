@@ -10,12 +10,12 @@ and `include/region.h` (working-set storage and initialization). Other
 components use this include directory. The engine compiles separately with
 only `-I. -Iinclude`; factory include paths apply only to test sources.
 
-Run `make` to build host artifacts under `build/flair/region/`, `make test`
+Run `make` to build the freestanding 32-bit libregion.a under `build/flair/region/`, `make test`
 for tier 0, and `make mutants` for the mutation sweep. Both suites retain their
 full legacy iteration counts (4000 pairs per Boolean property, 150 high-count
 stress pairs, 3000 pairs per GDI leg); no reduced default is necessary. The
 clean build and tests take about one second here. No emulator is involved.
-The reboot has no bootable image or smoke target yet.
+The product smoke is run from the top level; this engine has no separate smoke.
 
 The behavioral authority is the existing region algebra contract, carried
 without changes from legacy `spec/region_algebra.h`: PRD section 6.2, Inside
@@ -29,9 +29,9 @@ The second oracle compiles the unchanged Wine server region implementation
 in a separate, namespaced host translation unit and compares pixel sets,
 complexity, bounding boxes, point membership and rectangle overlap. Its shim,
 opaque interface and header stubs are private to `tests/`.
-`WIN31_DECOMP` defaults through `mk/config.mk` to `~/Projects/win31-decomp`.
-Wine source must be present for acceptance; a missing reference fails loudly
-unless the legacy explicit `SKIP_WIN31_DECOMP=1` opt-out is set.
+Wine region.c, request.h, user.h and COPYING.LIB are vendored unchanged in
+`tests/wine/`; NOTICE records origin and licence. There is no sibling-corpus
+dependency and no missing-oracle opt-out. `goldens/CORPORA.lock` pins the files.
 
 ## Legacy test inventory
 
@@ -78,5 +78,11 @@ using the original TOP for shared make fragments and test helpers. Each exact
 test selection must pass unmodified, its patch must apply, and its mutated
 programs must build before a runtime failure counts as a kill. A survivor,
 patch error, baseline error or build error fails the sweep. Scratch sources
-and baseline/build/test logs remain under build for inspection; `make clean`
-removes them. The runner never edits the working source.
+and logs are removed on success and retained on failure; `make clean` removes
+them. Each kill must reproduce the same failing tests on a second run.
+Baselines run once per distinct selection. The runner never edits working source.
+
+The shared target, host-test, import-check and mutant fragments are used here.
+`make test` also builds the real target library and checks build isolation,
+product mutation hooks and escaping includes. The shared assertion header
+provides the machine-readable positive count; no custom count pattern is needed.
