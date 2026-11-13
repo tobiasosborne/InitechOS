@@ -36,6 +36,7 @@ static void event(int what,int msg) {
     for(unsigned i=0;i<tbx_host.nops;i++) {
         const tbx_host_op_t *o=&tbx_host.ops[i];
         int w=o->a[0];
+        if(!strcmp(o->name,"tbx_exit")) CHECK(o->a[0]==0,"exit status");
         if(!strcmp(o->name,"tbx_fill_rect")) {
             CHECK(w==1||w==2,"fill token");
             if(w==2) for(int y=o->a[2];y<o->a[4]&&y<217;y++)

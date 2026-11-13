@@ -38,9 +38,9 @@ int main(void)
     }
     CHECK(quit==0x00810002,"shutdown has an explicit enabled Quit route");
     menu(quit);
-    CHECK(exits==1,"shutdown quit closes the documentless Calculator");
+    CHECK(exits==1 && tbx_host.exit_rc==0,"shutdown quit closes the documentless Calculator");
     exits=0;menu(0x00810001);
-    CHECK(exits==1,"Close W closes Calculator");
+    CHECK(exits==1 && tbx_host.exit_rc==0,"Close W closes Calculator");
     exits=0;menu(0x00810003);
     CHECK(exits==0,"unrelated menu does not close Calculator");
     printf("test_calcda_route: %d checks, %d failures\n",checks,fails);

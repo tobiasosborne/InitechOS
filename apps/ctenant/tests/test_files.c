@@ -18,6 +18,6 @@ int main(void) {
  CHECK(f && f->size==17 && !memcmp(f->data,"Gate file bytes\r\n",17),"independent file bytes");
  CHECK(!tbx_host_file("DELE.DAT"),"delete");
  memcpy(name,"KEEP.DAT",9);e.message='o';tbx_app_event(&e);
- CHECK(tbx_host.exit_calls==1,"fifteen open handles then exit");
+ CHECK(tbx_host.exit_calls==1 && tbx_host.exit_rc==0,"fifteen open handles then exit");
  return TEST_SUMMARY("C file example");
 }

@@ -22,7 +22,7 @@ LEDGER.TXT and MICHAEL.CFG are byte copies of the already imported kernel
 fixtures, originally legacy-final's fat_diff flagship fixtures; no contents
 were invented. MICHAEL.CFG is the existing 8.3 alias for michael_bolton.conf.
 
-make test: two unit/regression suites, 422 drawing/guard checks and 30
+make test: two unit/regression suites, 424 drawing/guard checks and 30
 FILE COPY/stage/replace checks, <1 second. Tests use sdk/host, with explicit
 completion events and fixture copying; recorded rectangles are rasterized
 only in the checker. Expectations are independent PRD literals. Formatting

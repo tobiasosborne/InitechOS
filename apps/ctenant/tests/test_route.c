@@ -17,5 +17,5 @@ int main(void) {
  CHECK(drawn("tbx_draw_text","Key a"),"retain key after update");
  CHECK(drawn("tbx_draw_cells","Click"),"retain click after update");
  e.what=TBX_EVT_MENU;e.message=TBX_MENU_WORD(129,1);tbx_app_event(&e);
- CHECK(tbx_host.exit_calls==1,"quit");return TEST_SUMMARY("C example route");
+ CHECK(tbx_host.exit_calls==1 && tbx_host.exit_rc==0,"quit");return TEST_SUMMARY("C example route");
 }

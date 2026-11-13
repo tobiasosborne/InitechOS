@@ -58,7 +58,7 @@ int main(void)
         CHECK(exits == 0, "a non-Quit menu word does nothing");
         tbx_event_t quit = { TBX_EVT_MENU, TBX_MENU_WORD(128, 5), 0, 0, 0, 0 };
         tbx_app_event(&quit);
-        CHECK(exits == 1, "File > Quit exits");
+        CHECK(exits == 1 && tbx_host.exit_rc==0, "File > Quit exits");
     }
     printf("test_paint_tenant: %u checks, %u failures\n", checks, failures);
     return failures ? 1 : 0;

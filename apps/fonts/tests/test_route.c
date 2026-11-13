@@ -15,5 +15,5 @@ int main(void) {
  CHECK(n==7,"all specimens rendered");
  CHECK(tbx_host.bar && tbx_host.bar->menus[1].n_items==4,"four Style specimens");
  e.what=TBX_EVT_MENU;e.message=TBX_MENU_WORD(129,1);tbx_app_event(&e);
- CHECK(tbx_host.exit_calls==1,"quit");return TEST_SUMMARY("fonts route");
+ CHECK(tbx_host.exit_calls==1 && tbx_host.exit_rc==0,"quit");return TEST_SUMMARY("fonts route");
 }
