@@ -280,7 +280,7 @@ _Static_assert(ERA_SYS7_0_1 == 0 && ERA_WIN31 == 1 && ERA_SYS8_PLATINUM == 2,
  * oracle observes a non-zero exit / CHECK-fail). Freestanding: __builtin_trap()
  * raises #UD, which the IDT routes to the panic path (serial register dump + the
  * PC LOAD LETTER banner) and halts. No panic.c pull-in, so the header is purely
- * host-testable. (Mirrors os/flair/atkinson/region.c:41-46.)
+ * host-testable. (Mirrors os/flair/region/region.c:41-46.)
  * ------------------------------------------------------------------------- */
 #if defined(__STDC_HOSTED__) && __STDC_HOSTED__
 #include <stdlib.h>            /* abort */

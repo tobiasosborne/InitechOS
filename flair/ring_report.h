@@ -7,7 +7,7 @@
 #include <stdio.h>
 #define RING_REPORT(s) ((void)fputs((s), stderr))
 #else
-extern void serial_puts(const char *s);
-#define RING_REPORT(s) serial_puts(s)
+#include "flair_platform.h"
+#define RING_REPORT(s) flair_platform_serial(s)
 #endif
 #endif

@@ -14,14 +14,14 @@
  * the regions straight off their row / inversion lists (the test_blitter.c /
  * test_region.c idiom), never through region_contains_point, which is what the
  * artifact uses. The regions are random unions / differences of rectangles
- * built with the ATKINSON engine (seeded LCG, Rule 11), often non-rectangular,
+ * built with the REGION_ENGINE engine (seeded LCG, Rule 11), often non-rectangular,
  * with holes; strings, fonts, faces, pen positions (partly off the bitmap
  * included) and the box are random too.
  *
  * Mutant (Rule 6): TEXT_MUT_CLIP_IGNORE (text_draw_run ignores the regions and
  * the box) must go RED. FACTORY CODE (hosted C, Law 3). ASCII-clean (Rule 12).
  */
-#include "../oracle_policy.h"
+#include "oracle_policy.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

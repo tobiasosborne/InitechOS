@@ -39,14 +39,14 @@
  *
  * Compile (host, green):
  *   gcc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *       -Ispec -Ios/flair -Ios/flair/atkinson -Iseed \
+ *       -Ispec -Ios/flair -Ios/flair/region -Iseed \
  *       -o /tmp/laneD/test_textedit \
  *       harness/proptest/test_textedit.c \
  *       os/flair/textedit.c os/flair/scrap.c os/flair/heap.c
  *
  * Compile (kernel type-check):
  *   gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror -Ispec/assets \
- *       -Ispec -Ios/milton -Ios/flair -c os/flair/textedit.c
+ *       -Ispec -Ios/initechdos -Ios/flair -c os/flair/textedit.c
  *
  * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
  */

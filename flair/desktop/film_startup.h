@@ -4,9 +4,9 @@
  * remain in TENANT-LOAD-FAIL's serial rc (tbxgate.c). */
 #ifndef INITECH_FILM_STARTUP_H
 #define INITECH_FILM_STARTUP_H
-#include "../milton/panic_screen.h"
-#include "../milton/fat12.h"
-#include "../../spec/toolbox_gate.h"
+#include "../../kernel/panic_screen.h"
+#include "../../kernel/fat12.h"
+#include "toolbox_gate.h"
 static inline panic_reason_t film_startup_reason(int volume, int apps, int load)
 {
 #ifdef PANIC_MUTATE_STARTUP_OOM

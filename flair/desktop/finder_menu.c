@@ -52,7 +52,7 @@
  *   File > Get Info, Duplicate   (initech-p6st / initech-tdnl.16)
  * and File > Open is lit only by a selected FOLDER (initech-tdnl.38).
  * Special > Restart and Shut Down LEFT this list with bead initech-tdnl.78
- * (the kernel reset/halt primitives, os/milton/power.h): they are authored
+ * (the kernel reset/halt primitives, os/initechdos/power.h): they are authored
  * LIVE, always, like New Folder -- the period Special menu never grays them
  * (Macintosh User's Guide for desktop Macintosh computers Z030-1751-A, PDF
  * p. 25 / book p. 6, the Special menu art: Restart and Shut Down in black

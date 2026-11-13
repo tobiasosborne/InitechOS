@@ -16,7 +16,7 @@
  *        FLAIR_HEAP_SIZE (0x00400000) / FLAIR_HEAP_MIN window. The kernel binds
  *        this allocator to that window by passing the constants to
  *        flair_heap_init; this allocator NEVER hardcodes 0x100000 (it takes a
- *        caller-supplied base+size, exactly as the ATKINSON region engine takes
+ *        caller-supplied base+size, exactly as the REGION_ENGINE region engine takes
  *        caller-supplied rows[]/x_pool storage -- which is what makes it
  *        host-testable).
  * Ref:   PRD Sec 5 ("bump + free-list allocator").
@@ -90,7 +90,7 @@
  * requests may reuse it. The set mirrors DEC-03's enumeration of what FLAIR
  * allocates from this arena:
  *
- *   FLAIR_CLASS_REGION  -- ATKINSON region storage (rows[] + x_pool backing).
+ *   FLAIR_CLASS_REGION  -- REGION_ENGINE region storage (rows[] + x_pool backing).
  *   FLAIR_CLASS_BITMAP  -- indexed-8 offscreen bitmaps (back buffers,
  *                          save-unders; OD-2).
  *   FLAIR_CLASS_HANDLE  -- Manager records: WindowRecord / MenuInfo /

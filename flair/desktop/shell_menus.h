@@ -7,7 +7,7 @@
  * Band 1 is the static System-7 bar of the canon chimera frame (shell.h Sec 1
  * "TWO STACKED MENU BARS"); its titles are the frame's and stay (Law 4: the
  * chimera bar is part of the canon frame). Each title drops the same two-row
- * list, authored HERE so the live kernel (os/milton/kmain.c copies it into
+ * list, authored HERE so the live kernel (os/initechdos/kmain.c copies it into
  * every band-1 MenuInfo) and the handler guard
  * (harness/proptest/test_menu_handlers.c) read ONE list.
  *

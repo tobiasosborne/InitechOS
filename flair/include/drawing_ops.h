@@ -199,7 +199,7 @@ typedef enum flair_grafverb {
  * PaintRect/FillRect/EraseRect/InvertRect) and FrameRoundRect/PaintRoundRect.
  * The oval/arc/poly rows use NULL QDProcs slots (stable placeholders) to be
  * filled by Phase 3 without changing callers. Region verbs route through the
- * ATKINSON engine (region_algebra.h). [DP Sec 6 FLAIR scope note]
+ * REGION_ENGINE engine (region_algebra.h). [DP Sec 6 FLAIR scope note]
  *
  * era=system7.0-7.1
  * ===========================================================================*/

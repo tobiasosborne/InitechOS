@@ -22,9 +22,8 @@
 
 #include <stdint.h>
 
-/* noinline: every TU that unpacks carries this same body, and the kernel's
- * LTO identical-code folding keeps one copy instead of one per call site. */
-static __attribute__((noinline, unused)) void asset_lz_unpack(uint8_t *dst,
+/* Shared storage decoder, with no placement or inlining constraint. */
+static __attribute__((unused)) void asset_lz_unpack(uint8_t *dst,
                                                               uint32_t n,
                                                               const uint8_t *src)
 {

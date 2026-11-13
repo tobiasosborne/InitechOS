@@ -32,7 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../spec/assets/chicago12.h"
+#include "chicago12.h"
 
 /* ---- PPM (P6) loader (same logic as palette_extract) -------------------- */
 

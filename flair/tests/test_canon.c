@@ -40,13 +40,13 @@
  *         Law 4; gui-ground-truth.md Sec 4.3.
  *
  *   C-3 PC LOAD LETTER (FLAIR-LOCKED, source-string presence asserted here):
- *         The InitechDOS panic handler (os/milton/panic.c) renders the string
+ *         The InitechDOS panic handler (os/initechdos/panic.c) renders the string
  *         "PC LOAD LETTER" to the console on any fatal CPU exception. This is
  *         the in-universe panic screen text (PRD Appendix B; CLAUDE.md Law 4).
  *         At this harness layer (pure host C, no emulator boot) the canon can
  *         be asserted as SOURCE-STRING PRESENCE only: this test verifies that
  *         the canonical string matches the text used in panic.c (confirmed by
- *         grep: os/milton/panic.c line 157: console_puts(..., "PC LOAD LETTER")
+ *         grep: os/initechdos/panic.c line 157: console_puts(..., "PC LOAD LETTER")
  *         -- committed, canonical, ASCII). A rendered-screendump assertion
  *         (that the string actually appears on the VGA framebuffer during a
  *         real exception) belongs to the boot / emulator oracle (initech-s25,
@@ -54,7 +54,7 @@
  *         claim here without running QEMU or Bochs. We document this honestly
  *         per Law 1: "PC LOAD LETTER source string is present and correct" is
  *         what this gate asserts; the rendered-boot oracle is a separate gate.
- *         Ref: os/milton/panic.c ("PC LOAD LETTER  (exception 0x...)",
+ *         Ref: os/initechdos/panic.c ("PC LOAD LETTER  (exception 0x...)",
  *         confirmed grep 2026-06-20); PRD Appendix B; CLAUDE.md Law 4.
  *
  *   C-4 PIE CHART == 116% (APP CANON, pointed to; partially asserted here):
@@ -85,7 +85,7 @@
  *         The full rendering / display oracle lives in:
  *           test-canon-calc (future M5 gate, beads TBD):
  *             asserts TRANSFORM(-570, CANON_TRAILING_MINUS_FMT) == "570-"
- *             via the SAMIR TRANSFORM engine.
+ *             via the INITECHBASE TRANSFORM engine.
  *         Ref: PRD Sec 6.5, Appendix A; CLAUDE.md Law 4 ("the `570-`
  *         trailing-minus, the pie chart summing to 116% -- these are enforced,
  *         not fixed"); fn_builtins.c TRANSFORM tests (test_xbase_transform.c).
@@ -190,7 +190,7 @@
  * Ref: ADR-0004 D-8 (the canon oracle row); ADR-0004 AM-4 (canon as frozen
  * locked-data, beads initech-zaqj); CLAUDE.md Law 4, Rule 6, Rule 12;
  * PRD Appendix A/B; spec/assets/cursors.h; spec/assets/menu_canon.h;
- * os/milton/panic.c; harness/proptest/test_flair_headers.c (companion gate).
+ * os/initechdos/panic.c; harness/proptest/test_flair_headers.c (companion gate).
  *
  * ASCII-clean (Rule 12). Deterministic (Rule 11). No timestamps.
  */
@@ -239,7 +239,7 @@ TEST_HARNESS();
  * InitechCalc formats negative numbers with a trailing minus sign, not a
  * leading one. The canonical test pair: the value -570 renders as "570-".
  * The format string below is the dBASE/xBase PICTURE/TRANSFORM template that
- * produces this rendering; it is a FLAIR-and-SAMIR shared canon element.
+ * produces this rendering; it is a FLAIR-and-INITECHBASE shared canon element.
  *
  * "9999-" means: four digit positions, literal trailing "-" for negatives
  * (the dBASE/xBase PICTURE clause semantics verified in fn_builtins.c's
@@ -249,7 +249,7 @@ TEST_HARNESS();
  *
  * Ref: PRD Sec 6.5 ("570- trailing-minus cell format"); CLAUDE.md Law 4
  *      ("the `570-` trailing-minus -- enforced, not fixed");
- *      os/samir/core/fn_builtins.c (TRANSFORM / PICTURE implementation);
+ *      os/initechbase/core/fn_builtins.c (TRANSFORM / PICTURE implementation);
  *      harness/diff/dbf_diff/test_xbase_transform.c (TRANSFORM oracle).
  */
 #define CANON_TRAILING_MINUS_VALUE   (-570)      /* the canonical test value */
@@ -260,7 +260,7 @@ TEST_HARNESS();
  * C-3: PC LOAD LETTER string constant (the canonical panic-screen text).
  *
  * The exact string that panic.c emits to the console on a fatal CPU exception
- * (os/milton/panic.c line 157: console_puts(..., "PC LOAD LETTER  (exception
+ * (os/initechdos/panic.c line 157: console_puts(..., "PC LOAD LETTER  (exception
  * 0x...")); PRD Appendix B; CLAUDE.md Law 4). The constant below is the
  * canonical prefix (the part before the vector hex); the full console line
  * includes the vector. This gate asserts the canonical prefix string matches
@@ -442,7 +442,7 @@ static void test_photoshop_menu(void)
  * test_pc_load_letter -- C-3.
  *
  * Asserts the CANON_PANIC_TEXT constant above matches the string used in
- * os/milton/panic.c (confirmed by grep 2026-06-20: line 157 reads
+ * os/initechdos/panic.c (confirmed by grep 2026-06-20: line 157 reads
  * console_puts(g_panic_con, "\nPC LOAD LETTER  (exception 0x...")).
  *
  * This is a SOURCE-STRING PRESENCE assertion only. It does NOT assert that
@@ -452,7 +452,7 @@ static void test_photoshop_menu(void)
  *
  * The assertion value: "PC LOAD LETTER" matches the prefix of the string in
  * panic.c. The test verifies the constant itself is the correct 14-character
- * text (not "PC LOAD PAPER", not "PC LOAD STAPLER", not empty).
+ * text (not "PC LOAD PAPER", not "PC LOAD TURBO_INITECH", not empty).
  */
 static void test_pc_load_letter(void)
 {
@@ -526,7 +526,7 @@ static void test_pie_chart(void)
  *
  * Asserts the canonical trailing-minus format constants are present and
  * internally consistent. The full rendering oracle (TRANSFORM(-570,"9999-")
- * == "570-" via the SAMIR engine) is the future test-canon-calc gate (M5).
+ * == "570-" via the INITECHBASE engine) is the future test-canon-calc gate (M5).
  *
  * What is enforceable here (no engine link needed):
  *   - CANON_TRAILING_MINUS_VALUE is -570 (the canonical negative test value)
@@ -571,7 +571,7 @@ static void test_trailing_minus(void)
 
     /* Rendered-engine gate (not asserted here -- see documentation above):
      *   test-canon-calc (future M5, beads TBD) asserts:
-     *     TRANSFORM(-570, "9999-") == "570-" via the SAMIR engine. */
+     *     TRANSFORM(-570, "9999-") == "570-" via the INITECHBASE engine. */
 }
 
 

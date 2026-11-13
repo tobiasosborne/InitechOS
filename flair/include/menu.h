@@ -16,7 +16,7 @@
  *          for InitechPaint ('File Edit Image Layer Select View Window Help' --
  *          canon, NOT to be 'corrected'). MenuSelect returns (menuID<<16|item).")
  *        ADR-0004 D-1 (5-layer stack; Layer 3 Managers draw THROUGH a GrafPort
- *          clipped by an ATKINSON region; never touch the framebuffer directly).
+ *          clipped by an REGION_ENGINE region; never touch the framebuffer directly).
  *        ADR-0004 D-7 ("proportional NFNT text measurement -- Chicago ...; text
  *          width = sum of per-glyph advances; no fixed-pitch assumption").
  *        spec/assets/menu_canon.h (the FROZEN canon menu-bar string + items --
@@ -25,7 +25,7 @@
  *        os/flair/text.h (text_measure / text_draw -- proportional Chicago).
  *        os/flair/blitter.h (blitter_fill_rect_clipped -- region-clipped fill).
  *        os/flair/surface.h (bitmap_t; the ONE pixel writer).
- *        os/flair/atkinson/region.h, spec/region_algebra.h (region_t clip).
+ *        os/flair/region/region.h, spec/region_algebra.h (region_t clip).
  *        spec/grafport.h (GrafPort, flair_point_t).
  *        Inside Macintosh Vol I "Menu Manager" -- the MenuInfo record, the
  *          enableFlags / mark / cmdChar item attributes, NewMenuBar/DrawMenuBar,

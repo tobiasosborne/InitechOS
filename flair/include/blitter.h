@@ -18,7 +18,7 @@
  * THE CLIP RULE (ADR-0004 D-1/D-2, MTE Ch 4; grafport.h CLIPPING INVARIANT):
  *   ALL DRAWING IS CLIPPED BY  visRgn INTERSECT clipRgn.
  * The Manager intersects visRgn and clipRgn into one effective clip region (via
- * the ATKINSON region_op INTERSECT, ADR-0005) and hands it to the blitter. The
+ * the REGION_ENGINE region_op INTERSECT, ADR-0005) and hands it to the blitter. The
  * blitter writes a destination pixel IF AND ONLY IF that pixel is:
  *   (a) within the blit/fill rectangle, AND
  *   (b) inside the clip region.
@@ -27,7 +27,7 @@
  *
  * Ref: PRD Sec 6.2 (region algebra -- clipping reduces to region membership),
  *      Sec 6.3 (the Toolbox layer; the GrafPort is the sole conduit).
- *      ADR-0004 D-1 (5-layer stack; drawing clipped by an ATKINSON region),
+ *      ADR-0004 D-1 (5-layer stack; drawing clipped by an REGION_ENGINE region),
  *      D-2 (one surface module; no second pixel path; QDProcs bitsProc seam).
  *      spec/region_algebra.h (region_t; region_contains_point; per-scanline
  *      inversion-list rep -- a row valid for [y_top, next.y_top), half-open span

@@ -17,7 +17,7 @@
  *
  * THE TRACE SINK -- WHY IT IS CALLER-SUPPLIED (Law 3 / layering):
  *   os/flair layer files do NOT call serial_puts; the serial markers of the
- *   live system are emitted from os/milton/kmain.c (grep serial_ over os/flair:
+ *   live system are emitted from os/initechdos/kmain.c (grep serial_ over os/flair:
  *   no hits). Threading a serial dependency in here would make the Toolbox
  *   layer un-host-buildable and would put a kernel symbol in Layer 3/5 code.
  *   So FinderCtx carries a `trace` function pointer: the artifact side binds a
@@ -233,7 +233,7 @@ const finder_cmd_t *finder_cmd_lookup(int16_t menu_id, uint16_t item_1based);
  * MenuBar to scan." The bar now exists (os/flair/finder_menu.c), so the helper
  * is GONE rather than left as dead code with two ways to resolve a chord.
  *
- * The live path is: os/milton/kmain.c refreshes the Finder bar's enable bytes,
+ * The live path is: os/initechdos/kmain.c refreshes the Finder bar's enable bytes,
  * calls menu.h's MenuKey(finder_menu_bar(), ch) -- which returns the FIRST
  * ENABLED, non-divider item's result word, or 0 -- and hands that word to
  * finder_dispatch(..., "key"). STRICTLY STRONGER than the old lookup: a grayed

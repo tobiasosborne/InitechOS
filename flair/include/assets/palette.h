@@ -75,7 +75,7 @@
  * A palette INDEX (0..255) -> a canonical 0x00RRGGBB value, resolved by the ONE
  * color authority flair_canon_rgb (idx2 = Initech teal #8DDCDC, crisp white,
  * navy accent, System-7 pinstripe; gray ramp for idx>=9). The LIVE desktop
- * converter (os/milton/kmain.c BOOT_FLAIR_SHELL) and the host screendump oracle
+ * converter (os/initechdos/kmain.c BOOT_FLAIR_SHELL) and the host screendump oracle
  * call this name, so both route through the SAME locked table and the rendered
  * desktop reads back identical pixels on host and metal (Law 2; fb-agree).
  *

@@ -38,15 +38,15 @@
  *
  * Compile (host, green):
  *   gcc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *       -Ispec -Ios/flair -Ios/flair/atkinson -Iseed \
+ *       -Ispec -Ios/flair -Ios/flair/region -Iseed \
  *       -o /tmp/laneB/test_scrap \
  *       harness/proptest/test_scrap.c \
  *       os/flair/scrap.c os/flair/process.c os/flair/window.c \
- *       os/flair/heap.c os/flair/atkinson/region.c
+ *       os/flair/heap.c os/flair/region/region.c
  *
  * Compile (kernel type-check):
  *   gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror \
- *       -Ispec -Ios/milton -Ios/flair -c os/flair/scrap.c
+ *       -Ispec -Ios/initechdos -Ios/flair -c os/flair/scrap.c
  *
  * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
  */

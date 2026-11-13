@@ -21,16 +21,16 @@
  * FlairProcess_activate / teardown), window.c, heap.c, the region engine, and
  * the REAL DOS psp.c/sft.c the teardown reaches. Three seams are host fakes,
  * each the narrowest that can stand in for the guest:
- *   - loader_load_tenant: carves the block through the kernel's own carve
+ *   - flair_platform_load: carves the block through the kernel's own carve
  *     callback and writes a link-synthesized FlairTenantRec into the image
  *     (spec/toolbox_gate.h Sec 5) instead of reading TENANTFX.EXE off FAT;
- *   - tbx_tenant_call / tbx_tenant_abort (os/milton/tbx_gate.asm): call the
+ *   - flair_platform_tenant_call / flair_platform_tenant_abort (os/initechdos/tbx_gate.asm): call the
  *     host "tenant program" below for the entry / eventProc address, and
  *     unwind a triaged fault with longjmp (the asm unwinds the stack);
  *   - the tenant's `int 0x81` is a 68-byte int_frame_t image with EAX at +28
  *     and the cdecl args at +68 (spec/toolbox_gate.h Sec 2), handed to the
  *     REAL tbx_gate_dispatch.
- * The kmain pump step flair_live_tenant_service (os/milton/kmain.c) is
+ * The kmain pump step flair_live_tenant_service (os/initechdos/kmain.c) is
  * mirrored by service(): affirm (FlairProcess_activate) FIRST, then tbx_reap.
  *
  * INDEPENDENT GOLDEN (Law 2; the test_process idiom). The tenant program
@@ -75,7 +75,7 @@
  *
  * Ref: ADR-0013 Sec 3.3/3.4/7 (O-1); docs/design/GUI-remediation-ADR-
  *      reconciliation.md DEC-AC3-3/-4; spec/toolbox_gate.h Sec 2/3/5/6;
- *      os/flair/tbxgate.c; os/flair/process.c; os/milton/kmain.c
+ *      os/flair/tbxgate.c; os/flair/process.c; os/initechdos/kmain.c
  *      flair_live_tenant_service; harness/proptest/test_process.c (style).
  *      CLAUDE.md Law 2, Rules 1/2/6/11/12.
  */
@@ -98,8 +98,8 @@
 #include "process.h"
 #include "tbxgate.h"
 #include "toolbox_gate.h"
-#include "loader.h"
-#include "sft.h"             /* sft_init: the boot-time SFT the teardown reaps */
+#include "flair_platform.h"
+// #include "sft.h"             /* sft_init: the boot-time SFT the teardown reaps */
 #include "render.h"
 #include "chrome.h"
 #include "chrome_metrics.h"
@@ -351,19 +351,19 @@ static void tenant_eventproc(void)
     }
 }
 
-/* os/milton/tbx_gate.asm, host form. */
-int tbx_tenant_call(uint32_t fn, uint32_t psp)
+/* os/initechdos/tbx_gate.asm, host form. */
+int flair_platform_tenant_call(uint32_t fn, uint32_t psp)
 {
-    if (psp != g_psp) { fprintf(stderr, "  FAIL tbx_tenant_call: psp != the block's PSP\n"); abort(); }
+    if (psp != g_psp) { fprintf(stderr, "  FAIL flair_platform_tenant_call: psp != the block's PSP\n"); abort(); }
     if (setjmp(g_unwind) != 0) return 1;                 /* crashed */
     if (fn == g_base + IMG_ENTRY) tenant_entry();
     else if (fn == g_base + IMG_PROC) tenant_eventproc();
-    else { fprintf(stderr, "  FAIL tbx_tenant_call: fn +0x%x is no tenant entry point\n",
+    else { fprintf(stderr, "  FAIL flair_platform_tenant_call: fn +0x%x is no tenant entry point\n",
                    (unsigned)(fn - g_base)); abort(); }
     return 0;
 }
 
-void tbx_tenant_abort(void)
+void flair_platform_tenant_abort(void)
 {
     longjmp(g_unwind, 1);
 }
@@ -373,18 +373,18 @@ static void put32(uint32_t addr, uint32_t v)
     *(volatile uint32_t *)(uintptr_t)addr = v;
 }
 
-/* os/milton/loader.c loader_load_tenant, host form: carve through the KERNEL's
+/* os/initechdos/loader.c flair_platform_load, host form: carve through the KERNEL's
  * callback, then lay down the link-synthesized FlairTenantRec. */
-loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
-                                   loader_carve_fn carve, void *user,
-                                   void **out_block, tenant_plan_t *out)
+int flair_platform_load(const char *name83, uint16_t dir_start,
+                                   flair_platform_carve carve, void *user,
+                                   void **out_block, flair_platform_plan *out)
 {
     uint32_t blen = TBX_TENANT_PSP_BYTES + IMG_LEN;
     uint8_t *blk;
     (void)name83; (void)dir_start;
     blk = (uint8_t *)carve(blen, user);
     *out_block = blk;
-    if (blk == NULL) return LOADER_ERR_NOMEM;
+    if (blk == NULL) return FLAIR_PLATFORM_LOAD_NOMEM;
     memset(blk, 0, blen);
     memset(out, 0, sizeof *out);
     out->psp_addr = (uint32_t)(uintptr_t)blk;
@@ -401,7 +401,7 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
     put32(g_base + IMG_REC + FLAIR_TENANT_REC_EVB_OFF, g_base + IMG_EVB);
     put32(g_base + IMG_REC + FLAIR_TENANT_REC_PROC_OFF, g_base + IMG_PROC);
     memcpy((void *)(uintptr_t)(g_base + IMG_NAME), "TENANTFX", 9);
-    return LOADER_OK;
+    return FLAIR_PLATFORM_LOAD_OK;
 }
 
 /* ===========================================================================
@@ -415,7 +415,7 @@ static void world_init(void)
     memset(&TP, 0, sizeof TP);
     g_n = 0;
     g_serial_n = 0; g_serial[0] = '\0';
-    sft_init();     /* kmain does this at boot; tbxf_reap walks the JFT */
+    /* No open files in the routing scenario. */     /* kmain does this at boot; tbxf_reap walks the JFT */
     flair_heap_init(&W.master, g_master_mem, (uint32_t)sizeof g_master_mem);
     store_attach(&W.desk); store_attach(&W.sa);
     store_attach(&W.sb); store_attach(&W.sc);

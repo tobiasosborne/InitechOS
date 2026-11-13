@@ -45,7 +45,7 @@
  *     os/flair/dialog.h -- the Dialog Manager (ModalDialog; the FILE COPY
  *       shell-owned-modal precedent). The LIVE rendered ModalDialog wiring is a
  *       FOLLOW-UP (this first cut is the navigate/select/return LOGIC).
- *     os/milton/fat12.h -- the directory source ON THE REAL SYSTEM
+ *     os/initechdos/fat12.h -- the directory source ON THE REAL SYSTEM
  *       (fat12_read_root_dir + fat12_format_83 over dir_entry_t). We DO NOT call
  *       FAT here: the directory is abstracted behind a provider callback
  *       (FlairSFEnumProc) so the module is host-testable and decoupled from real
@@ -81,7 +81,7 @@
  * one test pass.
  *
  *   NAME_MAX 13   : a formatted 8.3 name "NAME.EXT" + NUL = 8 + 1 + 3 + 1.
- *                   Matches FAT12_NAME83_MAX (os/milton/fat12.h).
+ *                   Matches FAT12_NAME83_MAX (os/initechdos/fat12.h).
  *   MAX_ENTRIES 32: one directory's worth of entries; pinned <= the List
  *                   Manager's row cap (FLAIR_LIST_MAX_ROWS) so every entry maps
  *                   to one FlairList row.
@@ -155,7 +155,7 @@ typedef struct FlairSFReply {
  * `user` is the caller's opaque cookie.
  *
  * On the real system the provider wraps fat12_read_root_dir + fat12_format_83
- * (os/milton/fat12.h) over the directory at `path`; the oracle injects a
+ * (os/initechdos/fat12.h) over the directory at `path`; the oracle injects a
  * hand-authored fixture. THIS is what makes the module host-testable (Law 2 /
  * Law 3): no FAT, no block device, no emulator in the unit test.
  * ========================================================================== */

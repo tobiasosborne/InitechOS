@@ -17,7 +17,7 @@
  *   and os/flair/finder_cmd.c turns the resulting (menuID<<16|item) word into a
  *   command. THIS file is the DATA between them.
  *
- * STORAGE (menu.h Sec 3, the flair_ten_notes_bar idiom in os/milton/kmain.c):
+ * STORAGE (menu.h Sec 3, the flair_ten_notes_bar idiom in os/initechdos/kmain.c):
  *   caller-supplied static arrays; no malloc. The MenuItem arrays are MUTABLE
  *   because finder_menu_refresh_enables writes their `enabled` bytes -- that is
  *   the ONLY field any code mutates after load; text/mark/cmdChar/style/

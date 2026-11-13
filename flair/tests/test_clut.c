@@ -69,7 +69,7 @@
  * runtime entry point -- the -c compile check above confirms the header
  * compiles; runtime checks only run in hosted mode. */
 #if defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 1)
-#include "../oracle_policy.h"
+#include "oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 

@@ -49,7 +49,7 @@
  * Absent corpus: FAIL LOUD (oracle_policy.h). FACTORY CODE (hosted C, Law 3).
  * ASCII-clean (Rule 12).
  */
-#include "../oracle_policy.h"
+#include "oracle_policy.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

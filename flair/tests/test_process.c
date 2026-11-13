@@ -71,7 +71,7 @@
 #include <string.h>
 
 #include "region_algebra.h"   /* the LOCKED region contract (-Ispec)             */
-#include "region.h"           /* engine constructors (-Ios/flair/atkinson)       */
+#include "region.h"           /* engine constructors (-Ios/flair/region)       */
 #include "window_record.h"    /* WindowRecord, part-codes (-Ispec)               */
 #include "window.h"           /* the Window Manager (NewWindow/FindWindow/...)   */
 #include "event_model.h"      /* EventRecord, what-codes, active-flag (-Ispec)   */

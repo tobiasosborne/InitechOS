@@ -287,7 +287,7 @@ void shell_render_with_menubar(shell_scene_t *s, const bitmap_t *dst,
  * that view and drawn into by DrawMenuBar lands at rows [y_top, y_top +
  * FLAIR_MENUBAR_H) of `dst`. shell_render uses this for the SECOND (Photoshop)
  * bar at build time (y_top == SHELL_MENUBAR2_TOP); the live app-switch pump
- * (os/milton/kmain.c) MUST reuse this SAME helper for the SAME purpose (the
+ * (os/initechdos/kmain.c) MUST reuse this SAME helper for the SAME purpose (the
  * foreground-tenant menubar swap) rather than building a whole-bitmap port
  * that lands on row 0 -- row 0 is the SHELL-OWNED, STATIC retained heritage bar
  * (bar_sys) and must NEVER be repainted by the live switch (initech-4w15: a

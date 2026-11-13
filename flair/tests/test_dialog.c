@@ -75,7 +75,7 @@
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
 
 /* Region storage for dialog tests (pool sizes mirror test_control.c). */
-#include "region.h"             /* rgn_store_t + helpers (-Ios/flair/atkinson) */
+#include "region.h"             /* rgn_store_t + helpers (-Ios/flair/region) */
 
 TEST_HARNESS();
 

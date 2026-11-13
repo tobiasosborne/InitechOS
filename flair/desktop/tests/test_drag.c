@@ -76,7 +76,7 @@
 
 #include "render.h"             /* the host render skeleton (-Iharness/render)   */
 #include "region_algebra.h"     /* the LOCKED region contract (-Ispec)           */
-#include "region.h"             /* engine constructors (-Ios/flair/atkinson)     */
+#include "region.h"             /* engine constructors (-Ios/flair/region)     */
 #include "window_record.h"      /* WindowRecord, part-codes (-Ispec)             */
 #include "window.h"             /* Window Manager (-Ios/flair)                   */
 #include "event.h"              /* Event Manager: WaitNextEvent + ring           */

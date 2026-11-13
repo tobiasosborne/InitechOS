@@ -57,7 +57,7 @@
  */
 
 /* Include the locked spec first -- fires every _Static_assert at compile time. */
-#include "spec/drawing_ops.h"
+#include "drawing_ops.h"
 
 /* Hosted-only: stdio for result printing.
  * Under freestanding (-ffreestanding; __STDC_HOSTED__==0) stdio is unavailable.

@@ -6,7 +6,7 @@
  *
  * OVERLAID (ADR-0014 DEC-14-10 lane 1, epic initech-x8gsi): this file is the
  * JTC mat's part of section COLD of C:\FLAIR.OVL, linked at its overlay-window address against
- * the running kernel (os/milton/overlay.ld). It is NOT in the resident kernel.
+ * the running kernel (os/initechdos/overlay.ld). It is NOT in the resident kernel.
  * Its two entry points are reached only through the generated resident stubs
  * named egg_jtc_open / egg_jtc_event (DEC-14-6.1/.2: egg_jtc_procs holds stub
  * addresses); it calls the kernel directly through checked imports (6.3) and

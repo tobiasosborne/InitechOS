@@ -81,7 +81,7 @@
 #include "toolbox_gate.h"
 #include "text.h"            /* chicago_advance / chicago_cell_bits (Chicago 12;
                               * the tables are text.o's ONE copy)           */
-#include "loader.h"          /* loader_load_tenant (-Ios/milton)               */
+#include "flair_platform.h" /* host services; no kernel implementation headers */
 #include "menu.h"            /* MenuBar/MenuInfo/MenuItem + the Sec 5 layout   */
 #include "tbxmenu.h"         /* the menu route + the flat FlairEvent copy      */
 #include "tbxfile.h"         /* DOS adapter; spec Sec 10, initech-tdnl.91     */
@@ -90,7 +90,6 @@
 #include "dialog.h"
 #include "cp_dialog.h"
 #include "cpanels_record.h"
-#include "io.h"
 #include "winscroll.h"       /* the standard bars; spec Sec 15 (tdnl.16)     */
 
 /* spec/toolbox_gate.h Sec 9 IS menu.h Sec 3's i386 layout: pin every offset
@@ -116,11 +115,7 @@ _Static_assert(sizeof(MenuItem) == TBX_MITEM_BYTES, "MenuItem size (spec Sec 9)"
 _Static_assert(offsetof(MenuItem, text) == TBX_MITEM_TEXT_OFF, "MenuItem.text");
 #endif
 
-/* The two asm trampolines (os/milton/tbx_gate.asm). tbx_tenant_call reads
- * fn/psp off the stack ([ebp+8], [ebp+12]) and `ret`s without popping: the
- * cdecl ABI, pinned by KERNEL_ASM_ABI against the -mregparm/-mrtd image. */
-extern int KERNEL_ASM_ABI tbx_tenant_call(uint32_t fn, uint32_t psp);
-extern void tbx_tenant_abort(void) __attribute__((noreturn));
+/* Tenant transfer and non-returning crash unwind are platform services. */
 
 /* ===========================================================================
  * 1. STATE -- ONE slot (D1-3 / DEC-AC3-1 V1 scope).
@@ -144,8 +139,8 @@ typedef struct tbx_srgn {
 
 typedef struct tbx_slot {
     uint8_t      *block;        /* the carved code block (NULL == slot free)  */
-    tenant_plan_t plan;         /* psp / load base / module / entry           */
-    psp_t         files;       /* KERNEL-owned JFT; never the image PSP       */
+    flair_platform_plan plan;         /* psp / load base / module / entry           */
+    flair_platform_files         files;       /* KERNEL-owned JFT; never the image PSP       */
     FlairApp     *app;          /* non-NULL once REGISTERed                   */
     uint32_t      evbuf;        /* validated flat FlairEvent address          */
     uint32_t      eventproc;    /* validated flat eventProc address           */
@@ -237,9 +232,7 @@ __attribute__((noreturn)) static void tbx_panic(const char *why)
     tputs("PANIC tbx: ");
     tputs(why);
     tputs("\nHALTED\n");
-    for (;;) {
-        __asm__ __volatile__("cli; hlt");
-    }
+    flair_platform_panic(why);
 }
 
 /* ===========================================================================
@@ -312,14 +305,14 @@ static const FlairAppProcs disk_tenant_procs = {
     disk_tenant_close                                    /* close             */
 };
 
-/* Run tenant code at `fn`. A crash unwinds here (tbx_tenant_call returns 1)
+/* Run tenant code at `fn`. A crash unwinds here (flair_platform_tenant_call returns 1)
  * with the fault already recorded by tbx_fault_triage. */
 static void run_tenant(uint32_t fn)
 {
     int crashed;
     if (g_slot.in_call) tbx_panic("tenant code re-entered from inside a trap");
     g_slot.in_call = 1u;
-    crashed = tbx_tenant_call(fn, g_slot.plan.psp_addr);
+    crashed = flair_platform_tenant_call(fn, g_slot.plan.psp_addr);
     g_slot.in_call = 0u;
     g_slot.in_update = 0u;
     if (crashed) g_slot.crashed = 1u;
@@ -662,7 +655,7 @@ static int32_t v_textdraw(const uint32_t *a)
 
 /* DRAWCELLS (spec Sec 7a; bead initech-w96l): the run in the fixed 8x16 cell
  * font -- every cell opaque: its box in bg, then the strike's set bits in fg
- * (MSB = leftmost, os/milton/console.h's glyph format), through the same clip
+ * (MSB = leftmost, os/initechdos/console.h's glyph format), through the same clip
  * as TEXTDRAW. STYLE (bead initech-jojk): fg bits 8..15 are a txFace, each
  * glyph row synthesized by THE Font Manager rule text_synth_row (text.h) about
  * TBX_CELL_BASELINE, the underline drawn by the text_draw_run rule (offset,
@@ -1045,13 +1038,9 @@ static int32_t v_global_to_local(const uint32_t *a)
 
 /* One INT 21h call under the tenant's shadow PSP with the root CWD (the
  * tbxf_call discipline, spec Sec 10); the caller reads the whole frame. */
-static void tenant_dos(int_frame_t *f)
+static void tenant_dos(flair_platform_regs *f)
 {
-    psp_t *saved = int21_get_psp();
-    int21_cwd_snapshot_t cwd = int21_cwd_save();
-    int21_set_psp(&g_slot.files); int21_cwd_reset();
-    int21_dispatch(f);
-    int21_set_psp(saved); int21_cwd_restore(&cwd);
+    flair_platform_dos(&g_slot.files,f);
 }
 
 /* TBX_FILE_FIND / TBX_DISK_FREE (spec Sec 10a; bead initech-qvgd): the List
@@ -1063,7 +1052,7 @@ static find_data_t g_fd_dta;
 static char        g_fd_pat[TBX_FILE_PATH_MAX];
 static int32_t v_file_find(const uint32_t *a)
 {
-    int_frame_t f;
+    flair_platform_regs f;
     uint32_t n = 0u, old, i;
     const char *p = (const char *)(uintptr_t)a[0];
     if (!tbxf_path(img_lo(), img_len(), a[0]) || a[1] > 0xFFu || a[3] > TBX_FIND_MAX_RECS ||
@@ -1071,7 +1060,7 @@ static int32_t v_file_find(const uint32_t *a)
         return TBX_ERR_BADARG;
     for (i = 0u; p[i]; i++) g_fd_pat[i] = p[i];
     g_fd_pat[i] = 0;
-    old = int21_swap_dta((uint32_t)(uintptr_t)&g_fd_dta);
+    old = flair_platform_swap_dta((uint32_t)(uintptr_t)&g_fd_dta);
     tbx_zero(&f, (uint32_t)sizeof f);
     f.eax = 0x4E00u; f.ecx = a[1]; f.edx = (uint32_t)(uintptr_t)g_fd_pat;
     tenant_dos(&f);
@@ -1086,14 +1075,14 @@ static int32_t v_file_find(const uint32_t *a)
         f.eax = 0x4F00u;
         tenant_dos(&f);
     }
-    (void)int21_swap_dta(old);
+    (void)flair_platform_swap_dta(old);
     if (n == 0u && (f.eax & 0xFFFFu) != 0x12u && (f.eax & 0xFFFFu) != 0x02u)
         return TBX_ERR_DOS(f.eax & 0xFFFFu);
     return (int32_t)n;
 }
 static int32_t v_disk_free(void)
 {
-    int_frame_t f;
+    flair_platform_regs f;
     tbx_zero(&f, (uint32_t)sizeof f);
     f.eax = 0x3600u;                      /* DL 0: the default (data) drive */
     tenant_dos(&f);
@@ -1221,7 +1210,7 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
                                                     4u * i);
 #else
     /* MUTANT TBX_MUT_ARG_OFFSET (Rule 6; test-flair-routing-mutant leg X3):
-     * arg 0 is read one dword low -- the last int_frame_t slot, not the
+     * arg 0 is read one dword low -- the last flair_platform_regs slot, not the
      * interrupted ESP (spec/toolbox_gate.h Sec 2). NEVER in a real build. */
     for (uint32_t i = 0; i < argc; i++)
         a[i] = *(const volatile uint32_t *)(void *)(frame + TBX_GATE_ARG_OFFSET -
@@ -1402,7 +1391,7 @@ static void finish(const char *via, int32_t rc)
 int tbx_launch(const char *name83, uint16_t dir_start)
 {
     void *blk = (void *)0;
-    loader_status_t st;
+    int st;
     int i;
 
     if (g_host.master == (flair_heap_t *)0) tbx_panic("tbx_launch before tbx_bind");
@@ -1413,9 +1402,9 @@ int tbx_launch(const char *name83, uint16_t dir_start)
         return TBX_ERR_BUSY;
     }
     slot_clear();
-    st = loader_load_tenant(name83, dir_start, carve_code, (void *)0, &blk,
+    st = flair_platform_load(name83, dir_start, carve_code, (void *)0, &blk,
                             &g_slot.plan);
-    if (st != LOADER_OK) {
+    if (st != FLAIR_PLATFORM_LOAD_OK) {
         if (blk != (void *)0)
             flair_free(g_host.master, FLAIR_CLASS_GENERAL, blk);
         slot_clear();
@@ -1424,7 +1413,7 @@ int tbx_launch(const char *name83, uint16_t dir_start)
         tputs(" rc=");
         tputu((uint32_t)st);
         tputs("\n");
-        return (st == LOADER_ERR_NOMEM) ? TBX_ERR_NOMEM : TBX_ERR_BADARG;
+        return (st == FLAIR_PLATFORM_LOAD_NOMEM) ? TBX_ERR_NOMEM : TBX_ERR_BADARG;
     }
     g_slot.block = (uint8_t *)blk;
     tbxf_init(&g_slot.files);
@@ -1689,13 +1678,9 @@ static uint8_t g_fc_buf[TBX_FILECOPY_CHUNK];
  * discipline). Returns EAX, or TBX_ERR_DOS(code) on carry. */
 static int32_t fc_dos(uint32_t ax, uint32_t bx, uint32_t cx, uint32_t dx)
 {
-    int_frame_t f = { 0 };
-    psp_t *saved = int21_get_psp();
-    int21_cwd_snapshot_t cwd = int21_cwd_save();
+    flair_platform_regs f = { 0 };
     f.eax = ax; f.ebx = bx; f.ecx = cx; f.edx = dx;
-    int21_set_psp(&g_slot.files); int21_cwd_reset();
-    int21_dispatch(&f);
-    int21_set_psp(saved); int21_cwd_restore(&cwd);
+    flair_platform_dos(&g_slot.files,&f);
     return (f.eflags & 1u) ? TBX_ERR_DOS(f.eax & 0xffffu) : (int32_t)f.eax;
 }
 
@@ -1848,5 +1833,5 @@ void tbx_fault_triage(uint32_t vector, uint32_t eip)
     tputs(" eip=+0x");
     tputx(eip - lo, 4);
     tputs("\n");
-    tbx_tenant_abort();                  /* unwinds to run_tenant; noreturn */
+    flair_platform_tenant_abort();                  /* unwinds to run_tenant; noreturn */
 }

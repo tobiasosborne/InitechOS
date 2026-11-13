@@ -139,7 +139,7 @@ static const want_item_t WANT_VIEW[] = {
 static const want_item_t WANT_SPECIAL[] = {
     /* RE-KEY (bead initech-tdnl.36/.37): Clean Up needs a front disk window.
      * RE-KEY (bead initech-tdnl.78, stated): Restart and Shut Down are
-     * IMPLEMENTED now (the kernel reset/halt primitives, os/milton/power.h),
+     * IMPLEMENTED now (the kernel reset/halt primitives, os/initechdos/power.h),
      * so they are authored LIVE -- always, like New Folder: the period
      * Special menu never grays them (Macintosh User's Guide for desktop
      * Macintosh computers Z030-1751-A, p. 6, the Special menu art). */
@@ -470,7 +470,7 @@ static void leg_refresh(void)
  * non-divider item whose cmdChar matches (case-insensitive for letters)".
  * So a grayed row's command key does NOTHING -- which is exactly the property
  * that makes MenuKey over this bar STRICTLY STRONGER than the (menu,item)
- * table lookup it replaces in os/milton/kmain.c: the table lookup found the
+ * table lookup it replaces in os/initechdos/kmain.c: the table lookup found the
  * row regardless and let finder_dispatch report FINDER-CMD-DISABLED; MenuKey
  * never hands the chord out at all.
  *

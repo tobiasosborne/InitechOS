@@ -528,7 +528,7 @@ static inline int text_measure_face(text_font_t font, unsigned face,
  * empty box, right <= left, means no box). rgn_a/rgn_b are a port's visRgn and
  * clipRgn (grafport.h CLIPPING INVARIANT: all drawing is clipped by visRgn
  * INTERSECT clipRgn) or any one effective clip; the box is a sub-rect such as
- * a menu item row. The regions are ATKINSON region_t (spec/region_algebra.h),
+ * a menu item row. The regions are REGION_ENGINE region_t (spec/region_algebra.h),
  * named by tag here so this header keeps its include set.
  * -------------------------------------------------------------------------- */
 struct region;

@@ -132,7 +132,7 @@
  * global-coordinate point falls in. It returns one of these constants (stored
  * in an int16_t) and, via whichWindow, a pointer to the window (or NULL for
  * inDesk/inMenuBar). FLAIR's Window Manager implements FindWindow using
- * ATKINSON region membership tests (region_contains_point on strucRgn/contRgn)
+ * REGION_ENGINE region membership tests (region_contains_point on strucRgn/contRgn)
  * to locate the window and then tests chrome sub-regions to select the part.
  *
  * Values are verbatim from MTE Table 4-2 / IM-I p. I-280 (Pascal Integer).

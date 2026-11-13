@@ -68,7 +68,7 @@
 #include <string.h>
 
 #include "region_algebra.h"   /* the LOCKED spec (-Ispec)                        */
-#include "region.h"           /* engine constructors (-Ios/flair/atkinson)       */
+#include "region.h"           /* engine constructors (-Ios/flair/region)       */
 #include "window_record.h"    /* WindowRecord, part-codes (-Ispec)               */
 #include "chrome_metrics.h"   /* independent sampled widget/R1 policy geometry   */
 #include "window.h"           /* the Window Manager under test (-Ios/flair)      */
@@ -219,7 +219,7 @@ static void build_owner_grid(const WindowMgr *wm,
 /* ===========================================================================
  * Seeded LCG (Rule 11), mirroring test_region/test_blitter.
  * ===========================================================================*/
-static uint32_t g_seed = 0x57A91Eu;   /* a distinct seed (STAPLER-ish)          */
+static uint32_t g_seed = 0x57A91Eu;   /* a distinct seed (TURBO_INITECH-ish)          */
 static uint32_t lcg(void)
 {
     g_seed = g_seed * 1103515245u + 12345u;

@@ -44,7 +44,7 @@
 #include "finder_icons.h"
 #include "alert_icons.h"
 
-#include "../render/icon_capture.h"   /* the independent golden */
+#include "icon_capture.h"   /* the independent golden */
 
 static int g_fail;
 

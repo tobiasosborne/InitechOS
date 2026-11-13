@@ -1,7 +1,7 @@
 /*
  * os/flair/finder_icon.h -- the Finder desktop-icon blitter (THE ARTIFACT).
  *
- * beads: initech-tdnl.9 (R3 "STAPLER-DESK": desktop icon assets + their blit),
+ * beads: initech-tdnl.9 (R3 "TURBO_INITECH-DESK": desktop icon assets + their blit),
  *        initech-tdnl.53 (the v2 Platinum strikes + the selection function).
  *
  * WHAT THIS IS: the one routine that puts a 32x32 FLAIRDeskIcon strike

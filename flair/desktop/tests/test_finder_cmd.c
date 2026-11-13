@@ -7,7 +7,7 @@
  *
  * WHAT IT GRADES: os/flair/finder_cmd.c -- the EXACT symbol the live Finder
  * runs (`finder_dispatch`), driven through the caller-supplied trace sink of
- * FinderCtx. The artifact binds a serial-backed sink from os/milton/kmain.c;
+ * FinderCtx. The artifact binds a serial-backed sink from os/initechdos/kmain.c;
  * this oracle binds a capture buffer. Same spine, same lines (the ADR-0013
  * BC-2 single-spine idiom).
  *

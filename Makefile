@@ -3,7 +3,11 @@
 
 # Components that have been imported into the new tree, in dependency
 # order. Add a component here when its `make test` is green.
-COMPONENTS := flair/region apps/initech123
+COMPONENTS := flair/region flair apps/initech123
+
+# The earlier spreadsheet import borrows grafport.h by its old spec path.
+# Feed it the Toolbox header view until sdk owns the shared event contract.
+IMPORT_SPEC := $(abspath build/flair/borrowed/sdk)
 
 .DEFAULT_GOAL := help
 .PHONY: help all test smoke image cert clean
@@ -16,11 +20,11 @@ help:
 	@echo "imported components: $(COMPONENTS)"
 
 all:
-	@for c in $(COMPONENTS); do $(MAKE) --no-print-directory -C $$c all || exit 1; done
+	@for c in $(COMPONENTS); do $(MAKE) --no-print-directory -C $$c ATTIC_SPEC="$(IMPORT_SPEC)" all || exit 1; done
 
 test:
 	@fail=0; for c in $(COMPONENTS); do \
-	  $(MAKE) --no-print-directory -C $$c test || fail=$$((fail+1)); \
+	  $(MAKE) --no-print-directory -C $$c ATTIC_SPEC="$(IMPORT_SPEC)" test || fail=$$((fail+1)); \
 	done; \
 	if [ $$fail -eq 0 ]; then echo "ALL GREEN"; else echo "$$fail component(s) RED"; exit 1; fi
 

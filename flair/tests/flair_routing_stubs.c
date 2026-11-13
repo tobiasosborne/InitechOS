@@ -20,13 +20,11 @@
 
 #include "blitter.h"
 #include "control.h"
-#include "desktop.h"
 #include "dialog.h"
 #include "event.h"
 #include "scrap.h"
 #include "menu.h"
 #include "text.h"
-#include "int21.h"
 
 static void unreached(const char *what)
 {
@@ -48,7 +46,6 @@ void control_init(ControlRecord *ctrl, flair_ctrl_type_t type, rgn_rect_t rect,
     unreached("control_init");
 }
 
-void desktop_set_pattern(unsigned pattern) { (void)pattern; unreached("desktop_set_pattern"); }
 
 int DialogHandleEvent(DialogPtr dp, EventRecord *ev, dialog_filter_fn filterProc,
                       uint16_t *itemHit)
@@ -68,16 +65,3 @@ void MenuClock_enable(int enabled) { (void)enabled; unreached("MenuClock_enable"
 uint32_t MenuKey(const MenuBar *bar, char ch) { (void)bar; (void)ch; unreached("MenuKey"); return 0u; }
 
 text_font_t text_font_from_txfont(int txfont) { (void)txfont; unreached("text_font_from_txfont"); return FONT_CHICAGO; }
-
-void int21_cwd_reset(void) { unreached("int21_cwd_reset"); }
-int21_cwd_snapshot_t int21_cwd_save(void)
-{ int21_cwd_snapshot_t s = { 0 }; unreached("int21_cwd_save"); return s; }
-void int21_cwd_restore(const int21_cwd_snapshot_t *s) { (void)s; unreached("int21_cwd_restore"); }
-void int21_dispatch(int_frame_t *frame) { (void)frame; unreached("int21_dispatch"); }
-struct psp *int21_get_psp(void) { unreached("int21_get_psp"); return NULL; }
-/* initech-qvgd: TBX_FILE_FIND's DTA swap (spec Sec 10a); never reached here */
-uint32_t int21_swap_dta(uint32_t dta) { (void)dta; unreached("int21_swap_dta"); return 0; }
-void int21_set_psp(struct psp *psp) { (void)psp; unreached("int21_set_psp"); }
-int int21_mcb_usage(uint32_t *total, uint32_t *free_, uint32_t *largest)
-{ (void)total; (void)free_; (void)largest; unreached("int21_mcb_usage"); return 0; }
-int int21_path_is_device(const char *path) { (void)path; unreached("int21_path_is_device"); return 0; }

@@ -55,7 +55,7 @@
 /* NO PANIC MACRO HERE, DELIBERATELY. Every failure this file can meet is a
  * CONDITION, not a programming error: the window table is full, the binding
  * refused, a directory would not enumerate, the name ladder is exhausted. Each
- * one returns a named finder_win_status_t and the caller (os/milton/kmain.c)
+ * one returns a named finder_win_status_t and the caller (os/initechdos/kmain.c)
  * says so on serial. The one genuine invariant violation -- the tenant's
  * records arena being too small for the shell -- is reported by returning 1
  * from open(), which FlairProcess_launch turns into a launch failure and kmain
@@ -1892,7 +1892,7 @@ static int finder_shell_open(FlairApp *self, const FlairLaunchParams *lp)
 /* tdnl.64: Finder keyboard focus is the front window. Arrows follow the
  * icon geometry; a timed name prefix selects the first matching item. Ref:
  * issue G07 and MTE Event Manager keyDown/autoKey. The one-second prefix
- * interval is 100 ticks on this port (os/milton/pit.h PIT_TICK_HZ); the
+ * interval is 100 ticks on this port (os/initechdos/pit.h PIT_TICK_HZ); the
  * original Macintosh Event Manager's tick unit was 1/60 second. */
 static void fw_key(finder_shell_t *sh, const EventRecord *ev)
 {

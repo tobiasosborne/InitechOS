@@ -13,7 +13,7 @@
  *
  * FO-C / AM-1 (the load-bearing parameterization): the render context is built
  * from CALLER-SUPPLIED LFB geometry -- a `render_boot_info_t` that mirrors the
- * kernel's boot_info_t (os/milton/boot_info.h: lfb_addr/pitch/bpp/width/height).
+ * kernel's boot_info_t (os/initechdos/boot_info.h: lfb_addr/pitch/bpp/width/height).
  * There is NO hardcoded aperture, width, height, pitch, or bpp anywhere in this
  * skeleton: every pixel-buffer dimension flows from the caller's geometry exactly
  * as the kernel's surface state flows from the runtime boot_info_t the VBE/VGA
@@ -45,7 +45,7 @@
 /* ---------------------------------------------------------------------------
  * render_boot_info_t -- a FAKE boot_info, the caller-supplied LFB geometry.
  *
- * Mirrors os/milton/boot_info.h boot_info_t's LFB fields field-for-field (AM-1).
+ * Mirrors os/initechdos/boot_info.h boot_info_t's LFB fields field-for-field (AM-1).
  * The host has no real LFB, so `lfb_addr` is ignored on construction (the
  * skeleton allocates the offscreen and uses that base); every OTHER field --
  * pitch, bpp, width, height -- drives the offscreen exactly as the kernel's

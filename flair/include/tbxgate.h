@@ -3,7 +3,7 @@
  * (THE ARTIFACT; bead initech-tdnl.14, GUI-remediation R3.7).
  *
  * WHAT THIS IS. The kernel side of "double-click an app on disk and it runs as
- * a FLAIR tenant": the one-slot disk-tenant host (load through MILTON's
+ * a FLAIR tenant": the one-slot disk-tenant host (load through INITECHDOS's
  * InitechMZ loader into a block carved from the master FLAIR heap, run the
  * entry, reap on exit/close/crash) and the INT 81h dispatcher the tenant
  * reaches the Toolbox through. Everything routes through the EXISTING spines:
@@ -198,9 +198,9 @@ int32_t tbx_fc_step(uint32_t upto);
 void    tbx_fc_close(void);
 void    tbx_filecopy_answer(int32_t result);
 
-/* THE GATE (called by os/milton/tbx_gate.asm with &int_frame_t). The stub
+/* THE GATE (called by os/initechdos/tbx_gate.asm with &int_frame_t). The stub
  * pushes the frame pointer and pops it itself: the cdecl stack ABI, pinned
- * by KERNEL_ASM_ABI (os/milton/idt.h has the primary definition and the
+ * by KERNEL_ASM_ABI (os/initechdos/idt.h has the primary definition and the
  * rationale; repeated here under the same guard because this header does
  * not include idt.h). */
 /* KERNEL_ASM_ABI -- the calling convention of every C function the kernel's

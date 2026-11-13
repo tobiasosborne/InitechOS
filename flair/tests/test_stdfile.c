@@ -40,10 +40,10 @@
  *
  * Compile (host, green):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *      -Ispec -Ios/flair -Ios/flair/atkinson -Iseed \
+ *      -Ispec -Ios/flair -Ios/flair/region -Iseed \
  *      -o /tmp/laneF/test_stdfile \
  *      harness/proptest/test_stdfile.c os/flair/stdfile.c os/flair/list.c \
- *      os/flair/heap.c os/flair/atkinson/region.c
+ *      os/flair/heap.c os/flair/region/region.c
  *
  * Compile each mutant (each must exit non-zero = RED):
  *   cc ... -DSF_MUT_RETURN_WRONG_CELL -o /tmp/laneF/test_stdfile_mut_cell
@@ -52,7 +52,7 @@
  *
  * Kernel type-check (compile only, no link):
  *   gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror \
- *       -Ispec -Ios/milton -Ios/flair -Ios/flair/atkinson \
+ *       -Ispec -Ios/initechdos -Ios/flair -Ios/flair/region \
  *       -c os/flair/stdfile.c
  *
  * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).

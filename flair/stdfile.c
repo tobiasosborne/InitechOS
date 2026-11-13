@@ -5,7 +5,7 @@
  * beads: initech-gymo (FLAIR Phase 4.5 -- SFGetFile first cut).
  * Ref:   stdfile.h (the full Law-1 citation block: IM-I Standard File Package,
  *        the SFGetFile/SFReply model, ADR-0013 Sec 3.6, and the local building
- *        blocks os/flair/list.h + os/flair/dialog.h + os/milton/fat12.h).
+ *        blocks os/flair/list.h + os/flair/dialog.h + os/initechdos/fat12.h).
  *        CLAUDE.md Law 2 (oracle truth, never by-construction), Law 3 (artifact
  *        C, freestanding, no libc), Rule 2 (fail loud), Rule 6 (mutation-proven),
  *        Rule 11 (deterministic), Rule 12 (ASCII-clean).

@@ -10,7 +10,7 @@
  *   painter that puts icons on the desktop through the WindowMgr underlay seam.
  *   It owns NO storage (all arrays are caller-supplied, Law 3), calls NO serial
  *   (Layer 3/5 files never do -- kmain emits the markers, the finder_cmd.h
- *   banner rule), touches NO FAT (os/flair must not include os/milton headers),
+ *   banner rule), touches NO FAT (os/flair must not include os/initechdos headers),
  *   and names NO color (C-8: every tone resolves through flair_look_pixel_depth).
  *
  * THE FIVE RULES IT OBEYS
@@ -52,7 +52,7 @@
  * design doc is wrong on the point and a later reader would otherwise "fix" it.
  *
  * ------------------------------------------------------------------------
- * SERIAL MARKERS (emitted by os/milton/kmain.c; the emu-wiring slice keys its
+ * SERIAL MARKERS (emitted by os/initechdos/kmain.c; the emu-wiring slice keys its
  * gates on these EXACT lines -- ASCII, one per line, grep-able)
  * ------------------------------------------------------------------------
  *   FINDER-DESKTOP-ICONS n=<count>       once, when the Finder tenant opens
@@ -132,7 +132,7 @@
 /* Default placement offsets from the usable desktop bounds (design F1.1:
  * volume top-right, Trash bottom-right). Chosen so neither cell touches any
  * probe point of any locked emu trace/grader on the 640x480 tenants image --
- * see the placement note in os/milton/kmain.c and the bead report. With the
+ * see the placement note in os/initechdos/kmain.c and the bead report. With the
  * usable desktop [0,40)-(640,480) these resolve to:
  *     VOLUME sprite (584,48)..(616,80)
  *     TRASH  sprite (584,404)..(616,436)
@@ -147,7 +147,7 @@
  * control-panel capture, and becomes the R4.5 Mouse panel's slider variable.
  *
  * -D-OVERRIDABLE, and ONLY for the demo RECORD image (beads initech-tdnl.10),
- * exactly as os/milton/kmain.c's FLAIR_TEN_TICK_BUDGET and
+ * exactly as os/initechdos/kmain.c's FLAIR_TEN_TICK_BUDGET and
  * FLAIR_LIVE_DRAG_TRACK_TICKS are: record-flair dumps one PPM per injected
  * event, which stretches the gap between the two clicks of a double past 20
  * ticks, so a replay of a LOCKED trace would degrade every double-click into
@@ -389,9 +389,9 @@ void finder_desk_clamp(const finder_desk_t *fd, int16_t *x, int16_t *y);
 /* ===========================================================================
  * 9. THE DESKTOP.DB RECORD CODEC  (design F1.3 -- LOCKED layout, Rule 8)
  * ---------------------------------------------------------------------------
- * The FILE lives on MILTON's FAT volume and os/flair may not include os/milton
+ * The FILE lives on INITECHDOS's FAT volume and os/flair may not include os/initechdos
  * headers, so the split is: THIS module owns the BYTES (pure, host-gradable),
- * os/milton/desktop_db.c owns the FAT read/write of those bytes, and kmain
+ * os/initechdos/desktop_db.c owns the FAT read/write of those bytes, and kmain
  * joins them. (Deviation from the brief's "record I/O in desktop_db.c" -- the
  * I/O is there; the codec has to live where the icon records live.)
  *

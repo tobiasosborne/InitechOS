@@ -10,7 +10,7 @@
  * box -- into a GrafPort, using ONLY:
  *   - the LOCKED native metrics in spec/chrome_metrics.h,
  *   - the ONE surface module (os/flair/surface.h) for pixel writes, and
- *   - the ATKINSON regions (visRgn INTERSECT clipRgn) for clipping (D-1/D-2).
+ *   - the REGION_ENGINE regions (visRgn INTERSECT clipRgn) for clipping (D-1/D-2).
  * NO libc, NO direct framebuffer poking outside the surface module, NO 2026-isms.
  *
  * DUAL-COMPILE: freestanding (gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall
@@ -102,7 +102,7 @@ void flair_draw_document_window_scroll(GrafPort *port,
 /* flair_draw_window_scrollbar -- redraw ONLY the gutter bar `axis`
  * (WSCROLL_V / WSCROLL_H) of an ACTIVE document window from `ws`, in place
  * over the composed frame (the live TrackControl loop's per-step feedback;
- * os/milton/kmain.c). Touches no pixel outside wscroll_bar_rect. */
+ * os/initechdos/kmain.c). Touches no pixel outside wscroll_bar_rect. */
 void flair_draw_window_scrollbar(GrafPort *port, const flair_skin_t *skin,
                                  rgn_rect_t frame, int axis,
                                  const WindowScroll *ws);
@@ -115,7 +115,7 @@ void flair_draw_window_scrollbar(GrafPort *port, const flair_skin_t *skin,
  * draws there; pressed=1 is the held-down art (authored -- Platinum pressed
  * art is a golden gap; see chrome.c draw_platinum_widget). Pixels outside the
  * widget's 13x13 cell are never touched, so the live TrackGoAway/TrackBox
- * loop (os/milton/kmain.c, bead initech-tdnl.60) can toggle it in place over
+ * loop (os/initechdos/kmain.c, bead initech-tdnl.60) can toggle it in place over
  * the composed frame, clipped by the port's visRgn like every chrome draw.
  * ------------------------------------------------------------------------- */
 void flair_draw_window_widget(GrafPort *port, const flair_skin_t *skin,

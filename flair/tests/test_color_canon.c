@@ -66,7 +66,7 @@
  *       -Ispec/assets -c harness/proptest/test_color_canon.c -o /tmp/tcc_fs.o
  *   # Hosted binary (runs + prints result):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *       -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson \
+ *       -Ispec -Ispec/assets -Ios/flair -Ios/flair/region \
  *       -DSYSTEM7_DECOMP='"../system7-decomp"' -DWIN31_DECOMP='"../win31-decomp"' \
  *       harness/proptest/test_color_canon.c -o build/test_color_canon \
  *       && build/test_color_canon
@@ -157,7 +157,7 @@ static unsigned long canon_bevel_shadow(void)
 }
 
 #if defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 1)
-#include "../oracle_policy.h"
+#include "oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>

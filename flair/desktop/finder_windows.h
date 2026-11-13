@@ -16,17 +16,17 @@
  * ---------------------------------------------------------------------------
  * THE LAYERING RULE, AND HOW THIS FILE OBEYS IT
  * ---------------------------------------------------------------------------
- * os/flair includes NO os/milton header -- so this file cannot call fat12_*
+ * os/flair includes NO os/initechdos header -- so this file cannot call fat12_*
  * and cannot see a fat12_volume_t. Enumeration and directory creation arrive
  * through a CALLER-SUPPLIED BINDING (`finder_fs_t`): a small vtable of function
- * pointers the kernel wires to fat12_read_dir / fat12_mkdir in os/milton/kmain.c
+ * pointers the kernel wires to fat12_read_dir / fat12_mkdir in os/initechdos/kmain.c
  * and the host oracle wires to a hand-authored dirent stream. This is the
  * os/flair/stdfile.h precedent verbatim (FlairSFEnumProc: "the directory
  * provider (DECOUPLES the module from FAT I/O) ... THIS is what makes the module
  * host-testable"), and the same split R3.2 used for the DESKTOP.DB codec (bytes
- * in os/flair, FAT I/O in os/milton, kmain joins them).
+ * in os/flair, FAT I/O in os/initechdos, kmain joins them).
  *
- * THE CALLBACK-LIFETIME CONTRACT IS CARRIED THROUGH VERBATIM. os/milton/fat12.h
+ * THE CALLBACK-LIFETIME CONTRACT IS CARRIED THROUGH VERBATIM. os/initechdos/fat12.h
  * :: fat12_dirent_cb says the entry "is valid only for the duration of the call
  * (it lives in the caller's sector_buf, which the next sector read overwrites)".
  * finder_dirent_t therefore hands over a `const char *name83` that is likewise
@@ -62,7 +62,7 @@
  * There is no second compositor and the WL-0076 damage contract is untouched.
  *
  * ---------------------------------------------------------------------------
- * SERIAL MARKERS (emitted by os/milton/kmain.c; os/flair files never call
+ * SERIAL MARKERS (emitted by os/initechdos/kmain.c; os/flair files never call
  * serial_puts -- ASCII, one per line, grep-able)
  * ---------------------------------------------------------------------------
  *   FINDER-OPEN-VOLUME win=<slot> n=<icons>      root disk window opened
@@ -134,7 +134,7 @@
 
 #include "surface.h"            /* bitmap_t                                    */
 #include "region_algebra.h"     /* region_t / rgn_rect_t (-Ispec)               */
-#include "region.h"             /* rgn_row_t (-Ios/flair/atkinson)              */
+#include "region.h"             /* rgn_row_t (-Ios/flair/region)              */
 #include "window.h"             /* WindowMgr / WindowRecord                     */
 #include "process.h"            /* FlairApp / FlairAppProcs                     */
 #include "finder_desktop.h"     /* the icon model + trackers + the DB codec     */
@@ -257,7 +257,7 @@
 #define FINDER_NEWFOLDER_MAX_N  99
 
 /* ===========================================================================
- * 5. THE FAT BINDING SEAM  (see the banner: os/flair names no os/milton symbol)
+ * 5. THE FAT BINDING SEAM  (see the banner: os/flair names no os/initechdos symbol)
  * ===========================================================================*/
 
 /* The FAT attribute bits the Finder reads. Their VALUES are
@@ -265,7 +265,7 @@
  * restated here rather than included because spec/dos_structs.h is the DOS
  * on-disk layout and dragging it into the Toolbox would blur the boundary this
  * file exists to keep. The DRIFT TOOTH is a _Static_assert in the binding TU
- * (os/milton/kmain.c), where BOTH headers are legitimately in scope -- so a
+ * (os/initechdos/kmain.c), where BOTH headers are legitimately in scope -- so a
  * renumbering can never diverge silently (Law 1 / Rule 2). */
 #define FINDER_ATTR_VOLLABEL   0x08u
 #define FINDER_ATTR_READONLY   0x01u
@@ -647,8 +647,8 @@ int finder_win_skip_entry(uint8_t attribute);
  *   - finder_ops_drop (defence in depth): a move or trash whose SOURCE or
  *     resulting DESTINATION is a service identity is refused
  *     FINDER_WIN_ERR_SERVICE ("service") before the backend is touched.
- * The names restate os/milton/desktop_db.h's DESKTOP_DB_NAME /
- * DESKTOP_TRASH_NAME (os/flair may not include os/milton); kmain.c, which sees
+ * The names restate os/initechdos/desktop_db.h's DESKTOP_DB_NAME /
+ * DESKTOP_TRASH_NAME (os/flair may not include os/initechdos); kmain.c, which sees
  * both, carries the drift tooth. */
 #define FINDER_SVC_TRASH_NAME "TRASH"
 #define FINDER_SVC_DB_NAME    "DESKTOP.DB"
@@ -1028,7 +1028,7 @@ int finder_shell_save_view(finder_shell_t *sh, int slot);
  * (\TRASH itself is level 0). A folder nested deeper is REFUSED (counted in
  * refused=), never silently skipped (Rule 2).
  *
- * SERIAL (emitted by os/milton/kmain.c):
+ * SERIAL (emitted by os/initechdos/kmain.c):
  *   DESK-TRASH-ICON full|empty            the Trash's fullness flipped (once)
  *   FINDER-TRASH-ALERT n=<items> k=<K>    the confirm alert is up
  *   FINDER-TRASH-EMPTY-CANCEL             Cancel / Escape: nothing purged

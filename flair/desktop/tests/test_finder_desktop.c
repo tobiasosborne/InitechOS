@@ -73,7 +73,7 @@
 #include <string.h>
 
 #include "region_algebra.h"    /* the LOCKED region contract (-Ispec)          */
-#include "region.h"            /* rgn_row_t caps (-Ios/flair/atkinson)         */
+#include "region.h"            /* rgn_row_t caps (-Ios/flair/region)         */
 #include "surface.h"           /* bitmap_t + surface_get_pixel (-Ios/flair)    */
 #include "window.h"            /* WindowMgr + NewWindow (-Ios/flair)           */
 #include "desktop.h"           /* desktop_paint_all / _damage                  */

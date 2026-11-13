@@ -7,6 +7,8 @@
 #include "test_assert.h"
 #include "tbxfile.h"
 #include "devices.h"
+#include "int21.h"
+#include "sft.h"
 TEST_HARNESS();
 #define ASSERT_TRUE(msg, cond) CHECK(cond, msg)
 #define ASSERT_EQ(msg, got, want) CHECK((got) == (want), msg)
@@ -45,11 +47,12 @@ static uint16_t rename_file(const char *o, uint16_t od, const char *n, uint16_t 
     strncpy(ren_old, o, sizeof ren_old - 1); strncpy(ren_new, n, sizeof ren_new - 1);
     return strcmp(n, "NEW.DAT") == 0 ? 5 : 0;
 }
-static int32_t call(psp_t *p, uint32_t lo, uint32_t code, uint32_t a, uint32_t b, uint32_t c)
+static int32_t call(flair_platform_files *p, uint32_t lo, uint32_t code, uint32_t a, uint32_t b, uint32_t c)
 { uint32_t args[3] = { a, b, c }; return tbxf_call(p, lo, 4096, code, args); }
 int main(void)
 {
-    psp_t owner, other;
+    flair_platform_files owner, other;
+    psp_t caller = {0};
     int21_file_backend_t backend = { 0 };
     uint8_t *mem = mmap(0, 8192, PROT_READ|PROT_WRITE,
                         MAP_PRIVATE|MAP_ANONYMOUS|MAP_32BIT, -1, 0);
@@ -61,7 +64,7 @@ int main(void)
     backend.read_at = read_file; backend.write_at = write_file; backend.unlink = unlink_file;
     backend.rename = rename_file;
     sft_init(); tbxf_init(&owner); tbxf_init(&other);
-    int21_set_file_backend(&backend); int21_set_psp(&other);
+    int21_set_file_backend(&backend); int21_set_psp(&caller);
     int32_t h = call(&owner, lo, TBX_FILE_CREATE, lo, 0, 0);
     ASSERT_TRUE("F1 create returns owned file", h >= 5);
     ASSERT_EQ("F1 write BSS bytes", call(&owner, lo, TBX_FILE_WRITE, h, lo+2048, 5), 5);
@@ -88,7 +91,7 @@ int main(void)
     ASSERT_EQ("F2 bad mode", call(&owner, lo, TBX_FILE_OPEN, lo, 3, 0), TBX_ERR_BADARG);
     ASSERT_EQ("F3 standard handle", call(&owner, lo, TBX_FILE_CLOSE, 1, 0, 0), TBX_ERR_BADARG);
     ASSERT_EQ("F3 foreign handle", call(&other, lo, TBX_FILE_READ, h, lo+2048, 1), TBX_ERR_BADARG);
-    ASSERT_TRUE("F3 caller PSP restored", int21_get_psp() == &other);
+    ASSERT_TRUE("F3 caller PSP restored", int21_get_psp() == &caller);
     int21_cwd_snapshot_t cwd = { .start_cluster = 7, .path = "OTHER" }; int21_cwd_restore(&cwd);
     ASSERT_EQ("F3 DOS error encoding", call(&owner, lo, TBX_FILE_DELETE, lo, 0, 0), TBX_ERR_DOS(2));
     int21_cwd_snapshot_t now = int21_cwd_save();

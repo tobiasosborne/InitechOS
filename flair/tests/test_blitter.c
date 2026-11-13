@@ -46,7 +46,7 @@
 #include <string.h>
 
 #include "region_algebra.h"   /* the LOCKED spec (-Ispec)                       */
-#include "region.h"           /* the engine constructors (-Ios/flair/atkinson)  */
+#include "region.h"           /* the engine constructors (-Ios/flair/region)  */
 #include "surface.h"          /* bitmap_t + surface writers (-Ios/flair)        */
 #include "blitter.h"          /* the primitive under test (-Ios/flair)          */
 #include "test_assert.h"      /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)       */

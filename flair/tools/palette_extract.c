@@ -433,7 +433,7 @@ static void cmd_header(const char *jsonpath)
 " * A palette INDEX (0..255) -> a canonical 0x00RRGGBB value, resolved by the ONE\n"
 " * color authority flair_canon_rgb (idx2 = Initech teal #8DDCDC, crisp white,\n"
 " * navy accent, System-7 pinstripe; gray ramp for idx>=9). The LIVE desktop\n"
-" * converter (os/milton/kmain.c BOOT_FLAIR_SHELL) and the host screendump oracle\n"
+" * converter (os/initechdos/kmain.c BOOT_FLAIR_SHELL) and the host screendump oracle\n"
 " * call this name, so both route through the SAME locked table and the rendered\n"
 " * desktop reads back identical pixels on host and metal (Law 2; fb-agree).\n"
 " *\n"

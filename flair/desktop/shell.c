@@ -114,7 +114,7 @@ static void make_bar_port(GrafPort *port, const bitmap_t *dst)
  * height is dst->height - y_top. DrawMenuBar into a port over this view paints
  * rows [0, MENUBAR_H) of the view == rows [y_top, y_top+MENUBAR_H) of `dst`.
  * ------------------------------------------------------------------------- */
-/* EXPORTED (shell.h) -- initech-4w15: the live app-switch pump (os/milton/
+/* EXPORTED (shell.h) -- initech-4w15: the live app-switch pump (os/initechdos/
  * kmain.c) reuses this SAME technique to target the SECOND bar's band for the
  * foreground-tenant menu swap, instead of duplicating the offset-view math in
  * kmain.c (ADR-0004 D-2 "one surface module" spirit -- one place computes

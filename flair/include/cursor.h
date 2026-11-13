@@ -5,7 +5,7 @@
  * Ref: Inside Macintosh: Imaging With QuickDraw, cursor ('CURS') resource
  *      format and hotspot semantics; PRD Sec 6.3 (FLAIR Event/Window Managers);
  *      docs/plans/GUI-remediation-plan.md R0.1 (CursorMgr + ShieldCursor);
- *      os/milton/kmain.c:769 flair_desktop_present (final LFB present seam),
+ *      os/initechdos/kmain.c:769 flair_desktop_present (final LFB present seam),
  *      :1054 final-surface bind, and :2459/:2549/:2683 FLAIR-LIVE-READY plus
  *      the two WaitNextEvent pump tracking calls (mouse-position source).
  *

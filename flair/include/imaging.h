@@ -58,7 +58,7 @@
 #include <stddef.h>
 
 /* Pull in the ONE pixel-buffer type and the single Rect typedef. */
-#include "../os/flair/surface.h"     /* bitmap_t                   */
+#include "surface.h"     /* bitmap_t                   */
 #include "region_algebra.h"          /* rgn_rect_t (QuickDraw Rect) */
 
 /* ===========================================================================

@@ -5,7 +5,7 @@
  *        load-bearing M3/M4 logic behind the live, draggable desktop: the
  *        z-ordered window list, FindWindow part-code hit-testing, the visible-
  *        region overlap computation, and the region-difference DAMAGE model that
- *        drives minimal repaint (ADR-0004 D-5). Depends on the ATKINSON region
+ *        drives minimal repaint (ADR-0004 D-5). Depends on the REGION_ENGINE region
  *        engine (initech-b5g) and the locked WindowRecord (spec/window_record.h).
  *        Blocks the Control / Menu / Dialog Managers and the desktop shell.
  *
@@ -22,7 +22,7 @@
  *
  *   visible(W) = strucRgn(W)  DIFF  ( UNION of strucRgn(F) for every F in front )
  *
- * via the ATKINSON algebra (spec/region_algebra.h: region_op DIFF/UNION). This
+ * via the REGION_ENGINE algebra (spec/region_algebra.h: region_op DIFF/UNION). This
  * is the core overlap computation -- "the portion of the window not obscured by
  * windows in front of it" (MTE p. 4-15; ADR-0004 D-5).
  *
@@ -445,7 +445,7 @@ void WindowMgr_validate(WindowPtr w);
  * a given list: hide keeps them stable; dispose compacts the suffix; select
  * reflects the new z-order.
  *
- * Live serial ABI consumer (os/milton/kmain.c):
+ * Live serial ABI consumer (os/initechdos/kmain.c):
  *   FLAIR-DRAG win <id> (<old-left>,<old-top>)->(<new-left>,<new-top>)
  *   FLAIR-CLOSE win <id>
  * The shell's legacy store IDs remain primary; tenant records missing from

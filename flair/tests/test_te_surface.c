@@ -53,6 +53,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "textedit.h"
 #include "text.h"
@@ -351,6 +352,7 @@ static void p4_probe(void)
         for (int i = 0; i < n; i++) big[i] = (c & 1) ? ((i % 2) ? '\r' : 'a') : rchar();
         if (c & 1) n = n - (n % 2);
         /* load through the probe (a refusal is fine: it must agree) */
+        if (n < 0 || (size_t)n > sizeof big) abort();
         memcpy(g_ref.t, big, (size_t)n); g_ref.n = n; ref_layout(&g_ref);
         int ref_ok = g_ref.n <= RMAX && g_ref.nl <= RLINES;
         int ok = FlairTECanReplace(&g_te, 0, 0, big, (int16_t)n);

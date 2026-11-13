@@ -42,7 +42,7 @@
  *
  * Compile (host, green):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *      -Ispec -Ios/flair -Ios/flair/atkinson -Iseed \
+ *      -Ispec -Ios/flair -Ios/flair/region -Iseed \
  *      -o /tmp/laneE/test_list \
  *      harness/proptest/test_list.c os/flair/list.c os/flair/heap.c
  *
@@ -53,7 +53,7 @@
  *
  * Kernel type-check (compile only, no link):
  *   gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror \
- *       -Ispec -Ios/milton -Ios/flair -Ios/flair/atkinson \
+ *       -Ispec -Ios/initechdos -Ios/flair -Ios/flair/region \
  *       -c os/flair/list.c
  *
  * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).

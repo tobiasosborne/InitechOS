@@ -35,7 +35,7 @@
 #include "color_canon.h"
 #include "desk_icons.h"
 
-#include "../render/icon_capture.h"
+#include "icon_capture.h"
 
 #define SW 64
 #define SH 48
