@@ -66,6 +66,22 @@ static int21_coninpoll_fn g_conin_poll = 0;
 static int g_printer_echo;
 static unsigned g_input_echo;
 static int g_conin_pushback = -1;
+/* Encyclopedia AH=07h/08h: a zero prefix and its scan form one key.
+ * Lookahead rolls back the delivery state until that byte is consumed. */
+static int g_conin_scan_pending, g_conin_last_scan;
+static void conin_unget(int c)
+{
+    g_conin_pushback = c;
+    if (c >= 0) g_conin_scan_pending = g_conin_last_scan;
+}
+static int conin_consumed(int c)
+{
+    if (c >= 0) {
+        g_conin_last_scan = g_conin_scan_pending;
+        g_conin_scan_pending = !g_conin_last_scan && c == 0;
+    }
+    return c;
+}
 static int conin_poll_pb(void);
 static int conin_get_pb(void);
 static int con_control(int c);
@@ -660,6 +676,7 @@ void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll)
 void int21_conin_handoff(void)
 {
     g_conin_pushback = -1;
+    g_conin_scan_pending = g_conin_last_scan = 0;
 }
 void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set)
 {
@@ -898,7 +915,7 @@ static void con_putc(char c)
         int key = conin_poll_pb();
         while (key >= 0 && con_control(key)) key = conin_poll_pb();
         if (key >= 0) {
-            g_conin_pushback = key; /* lookahead shared with AH=0Bh */
+            conin_unget(key); /* lookahead shared with AH=0Bh */
         }
     }
     if (g_printer_echo && g_devio_bound && g_devio.prn_write) {
@@ -1258,9 +1275,9 @@ static int conin_get_pb(void)
     if (g_conin_pushback >= 0) {
         int c = g_conin_pushback;
         g_conin_pushback = -1;
-        return c & 0xFF;
+        return conin_consumed(c & 0xFF);
     }
-    return conin_get();
+    return conin_consumed(conin_get());
 }
 
 /* Non-blocking poll honoring the 0Bh pushback (06h-input / 0Bh / 0Ch drain). */
@@ -1269,15 +1286,16 @@ static int conin_poll_pb(void)
     if (g_conin_pushback >= 0) {
         int c = g_conin_pushback;
         g_conin_pushback = -1;
-        return c & 0xFF;
+        return conin_consumed(c & 0xFF);
     }
-    return conin_poll();
+    return conin_consumed(conin_poll());
 }
 
 /* MS-DOS 3.3 pp.158-159: display flow control and printer echo. This runs in
  * task context, never IRQ1. Raw AH=06h/07h retain their raw-byte contract. */
 static int con_control(int c)
 {
+    if (g_conin_last_scan) return 0;
     if (c == 0x10 || c == 0x0e) {
         g_printer_echo = c == 0x10 ? !g_printer_echo : 0;
         conkeys_trace(g_printer_echo ? "CONKEYS-PRN-ON\n" : "CONKEYS-PRN-OFF\n");
@@ -1321,7 +1339,7 @@ static int conin_check_ctrlc(int c, int_frame_t *f)
      * suppress the CON detection -- it is consulted, not a gate, on this path. */
     uint8_t brk = int21_get_break_flag();
     (void)brk;
-    if ((c & 0xFF) == 0x03) {            /* ^C (Ctrl-C) */
+    if (!g_conin_last_scan && (c & 0xFF) == 0x03) { /* ^C, not a scan */
         int23_dispatch(f);              /* the DOS Ctrl-Break abort (DEC-10) */
         return 1;
     }
@@ -1336,10 +1354,10 @@ void int21_batch_checkpoint(void)
     if (!g_break_recovery || g_break_recovery->owner != (struct psp *)g_cur_psp ||
         g_break_recovery->interrupted) return;
     int c = conin_poll_pb();
-    if (c == 3) {
+    if (c == 3 && !g_conin_last_scan) {
         int_frame_t f = {0};
         (void)conin_check_ctrlc(c, &f);
-    } else g_conin_pushback = c;
+    } else conin_unget(c);
 }
 
 /* AH=01h CHARACTER INPUT WITH ECHO: block for one char, echo it to CON, AL=char.
@@ -1431,9 +1449,9 @@ static void do_input_status(int_frame_t *f)
     if (g_conin_pushback >= 0) {
         avail = 1;                 /* already have one queued */
     } else {
-        int c = conin_poll();
+        int c = conin_poll_pb();
         if (c >= 0) {
-            g_conin_pushback = c & 0xFF;  /* park it -- do NOT consume */
+            conin_unget(c & 0xFF);  /* park it -- do NOT consume */
             avail = 1;
         } else {
             avail = 0;
@@ -1558,14 +1576,7 @@ static void do_buffered_input(int_frame_t *f)
 void int21_conin_discard_through(int c)
 {
     int k;
-    if (g_conin_pushback >= 0) {
-        k = g_conin_pushback;
-        g_conin_pushback = -1;
-        if (k == c) {
-            return;
-        }
-    }
-    while ((k = conin_poll()) >= 0) {
+    while ((k = conin_poll_pb()) >= 0) {
         if (k == c) {
             return;
         }
@@ -1584,6 +1595,7 @@ static void do_flush_then_input(int_frame_t *f)
     while (conin_poll() >= 0) {
         /* discard */
     }
+    g_conin_scan_pending = g_conin_last_scan = 0;
 
     uint8_t sub = frame_al(f);
     /* Re-dispatch by replacing AH with the chained function and clearing AL's
@@ -5188,11 +5200,11 @@ static void int21_dispatch_body(int_frame_t *frame)
              && g_break_recovery->interrupted)
         ) {
         int c = conin_poll_pb();
-        if (c == 3) {
+        if (c == 3 && !g_conin_last_scan) {
             int23_dispatch(frame);
             return; /* a returning recovery hook must not run the service */
         }
-        g_conin_pushback = c;
+        conin_unget(c);
     }
 
     switch (ah) {
