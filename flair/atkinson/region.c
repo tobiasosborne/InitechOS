@@ -1,5 +1,5 @@
 /*
- * os/flair/atkinson/region.c -- the ATKINSON region engine (the artifact).
+ * flair/atkinson/region.c -- the ATKINSON region engine (the artifact).
  *
  * beads: initech-jmo (rep + normalize-on-construction) / initech-b5g (scanline
  *        merge + derived ops + complement + queries).
@@ -10,8 +10,8 @@
  *        EVERY binary op is a SCANLINE MERGE of inversion lists. The normal form
  *        is the minimal inversion-point set (no redundant/adjacent toggles), and
  *        rasterization is a Boolean-algebra HOMOMORPHISM to the pixel powerset --
- *        the oracle (harness/proptest/test_region.c).
- * Ref:   spec/region_algebra.h -- the LOCKED contract: types, the 5 normal-form
+ *        the oracle (tests/test_region.c).
+ * Ref:   include/region_algebra.h -- the LOCKED contract: types, the 5 normal-form
  *        invariants (Sec 2), the 4 op truth tables (Sec 3), the storage caps
  *        (Sec 5), the explicit complement FRAME (Sec 3), the verbatim QuickDraw
  *        wrapper names (Sec 7). This file implements that header VERBATIM.
@@ -28,14 +28,6 @@
  * routes to the panic path (serial register dump + the PC LOAD LETTER banner)
  * and halts. region.c stays dependency-free (no panic.c / console.c pull-in) so
  * it is purely host-testable.
- *
- * MUTANTS (Rule 6, -DRGN_MUTATE_*): RGN_MUTATE_NO_VRLE (skip vertical-RLE
- * collapse), RGN_MUTATE_PARITY_OFF1 (off-by-one in the rasterize/contains-point
- * parity), RGN_MUTATE_EMIT_NOCHANGE (emit x even when boolfn output did not
- * change), RGN_MUTATE_NO_XMERGE_CAP (drop the per-band xmerge output-capacity
- * bound -- bead initech-mswo; caught by test-region's over-cap fail-loud probe
- * under ASAN, which sees the scratch overrun that the bound would have stopped).
- * Each must drive test-region RED, then restore GREEN.
  *
  * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
  */
@@ -200,7 +192,7 @@ static int xlist_equal(const int16_t *a, uint16_t na, const int16_t *b, uint16_t
  * (no live span opened yet) and a vertical-RLE-duplicate empty (an empty row
  * directly under another empty row). normalize drops exactly those, plus any
  * trailing empties beyond the single closing row.
- *   Ref: spec/region_algebra.h Sec 1 (row validity [y_top,next)) + Sec 2 inv.
+ *   Ref: include/region_algebra.h Sec 1 (row validity [y_top,next)) + Sec 2 inv.
  *        (3) vertical-RLE / (4) the closing-row clause. The literal phrase "no
  *        empty interior row" is scoped by its own justification ("a hole that
  *        (3) should have merged or normalize should have dropped") to REDUNDANT
@@ -241,11 +233,9 @@ void region_normalize(region_t *r)
         /* (3) vertical RLE: identical x-list to the previously-kept row. This
          * subsumes empty-under-empty (two closers/gaps in a row) and span-
          * under-identical-span -- the redundant row is dropped. */
-#ifndef RGN_MUTATE_NO_VRLE
         if (have_prev && xlist_equal(prev_x, prev_n, cur_x, cur_n)) {
             continue;
         }
-#endif
         /* A leading empty row (no live span opened yet) is dead space above the
          * region -- drop it (it would otherwise be a spurious interior empty). */
         if (!have_prev && cur_n == 0) {
@@ -272,12 +262,6 @@ void region_normalize(region_t *r)
         prev_n = cur_n;
         have_prev = 1;
     }
-#ifdef RGN_MUTATE_NO_VRLE
-    /* The vertical-RLE collapse above is #ifdef'd OUT for this mutant; prev_x/
-     * prev_n are then only written, never read. Mark them used so the mutant
-     * still COMPILES (it must build to be able to go RED at runtime). */
-    (void)prev_x; (void)prev_n;
-#endif
 
     /* Trim trailing empty rows to exactly ONE closing row. After the pass any
      * empties at the tail are either the single closer (keep) or redundant
@@ -377,7 +361,7 @@ static uint16_t active_xlist(const region_t *R, int16_t y, const int16_t **xp)
  * domain-respecting pair of normal-form rows -- at the pre-44ab cap (256) that
  * claim was FALSE and realizable (bead initech-mswo), which is why the cap was
  * raised to EXACTLY the domain bound as a deliberate Rule-8 locked-spec change
- * (initech-44ab; spec/region_algebra.h Sec 5 "two distinct bounds" carries the
+ * (initech-44ab; include/region_algebra.h Sec 5 "two distinct bounds" carries the
  * same derivation; ADR-0005 Sec 3.5 amendment).
  *
  * FAIL-LOUD BOUND (Rule 2; bead initech-mswo -- the check STAYS): the engine
@@ -385,7 +369,7 @@ static uint16_t active_xlist(const region_t *R, int16_t y, const int16_t **xp)
  * inputs could still emit more; checking `no >= cap` before each write makes
  * the (cap+1)-th slot unreachable -- fail loud, never the pre-mswo silent
  * stack overrun. Consistent with region_normalize, which already fail-louds a
- * row exceeding RGN_ROW_X_MAX. Ref: PRD Sec 6.2; spec/region_algebra.h Sec 2
+ * row exceeding RGN_ROW_X_MAX. Ref: PRD Sec 6.2; include/region_algebra.h Sec 2
  * (normal form) + Sec 5 (storage caps + the two-bounds note). */
 _Static_assert(RGN_ROW_X_MAX == 640u,
                "region_op's per-band scratch bound == the OD-3 640px domain "
@@ -401,12 +385,6 @@ static uint16_t xmerge(int16_t *out, uint16_t cap, rgn_op_t op,
     /* boolfn(op,0,0) is 0 for all four ops (truth tables have LSB 0); the region
      * is bounded, so we start OUTSIDE. We assert that to be safe. */
     if (prev_out != 0) { RGN_FAIL_LOUD(); return 0; }
-#ifdef RGN_MUTATE_NO_XMERGE_CAP
-    /* The per-write `no >= cap` bound below is #ifdef'd OUT for this mutant;
-     * `cap` is then never read. Mark it used so the mutant still COMPILES (it
-     * must build to go RED at runtime under ASAN -- Rule 6). */
-    (void)cap;
-#endif
 
     while (ia < na || ib < nb) {
         int16_t xa = (ia < na) ? a[ia] : 0;
@@ -424,24 +402,11 @@ static uint16_t xmerge(int16_t *out, uint16_t cap, rgn_op_t op,
         if (take_b) { inB ^= 1; ib++; }
 
         int now = boolfn(op, inA, inB);
-#ifdef RGN_MUTATE_EMIT_NOCHANGE
-        /* MUTANT: emit at EVERY boundary, even when the output did not change.
-         * This produces redundant toggles (e.g. coincident A/B edges emit a
-         * zero-width span) -> rasterize diverges from the pixel ground truth. */
-#ifndef RGN_MUTATE_NO_XMERGE_CAP
-        if (no >= cap) { RGN_FAIL_LOUD(); return 0; } /* bead initech-mswo */
-#endif
-        out[no++] = x;
-        prev_out = now;   /* keep prev_out coherent so the closing check holds */
-#else
         if (now != prev_out) {
-#ifndef RGN_MUTATE_NO_XMERGE_CAP
             if (no >= cap) { RGN_FAIL_LOUD(); return 0; } /* bead initech-mswo */
-#endif
             out[no++] = x;
             prev_out = now;
         }
-#endif
     }
     /* After the last boundary the output must be back OUTSIDE (even count). */
     if (prev_out != 0) { RGN_FAIL_LOUD(); return 0; }
@@ -682,8 +647,7 @@ void region_engine_reset(void)
 }
 
 /* Copy VALUES, never backing pointers: destinations retain caller storage.
- * Ref: spec/region_algebra.h Sec 1 and GDI CombineRgn's alias contract. */
-#ifndef RGN_MUT_ALIAS_RESET
+ * Ref: include/region_algebra.h Sec 1 and GDI CombineRgn's alias contract. */
 static void region_copy(region_t *out, const region_t *src)
 {
     region_set_empty(out);
@@ -691,11 +655,9 @@ static void region_copy(region_t *out, const region_t *src)
         region_push_row(out, src->rows[i].y_top, src->rows[i].x, src->rows[i].x_count);
     region_normalize(out);
 }
-#endif
 
 void region_op(region_t *out, const region_t *A, const region_t *B, rgn_op_t op)
 {
-#ifndef RGN_MUT_ALIAS_RESET
     if (out != 0 && (out == A || out == B)) {
         /* bz8f: merge into existing working storage BEFORE modifying either
          * source. The same one merge engine serves both heritage facades. */
@@ -707,7 +669,6 @@ void region_op(region_t *out, const region_t *A, const region_t *B, rgn_op_t op)
         rgn_ws_release();
         return;
     }
-#endif
     region_merge(out, A, B, op);
 }
 
@@ -727,26 +688,6 @@ void region_from_rects(region_t *r, const rgn_rect_t *rects, uint16_t n)
      * ONE rect: 2 rows + 2 x-slots on the stack (the region_complement
      * pattern; tweak W2). Acquire HERE (first touch), release at the ONE exit. */
     rgn_ws_acquire();
-#ifdef RGN_MUT_REPEATED_UNION
-    region_t acc, one, tmp;             /* 32 B headers; big storage is bound */
-    rgn_row_t one_rows[2];
-    int16_t   one_pool[2];
-    rgn_ws_attach(&acc, g_rgn_ws[0]);
-    rgn_ws_attach(&tmp, g_rgn_ws[1]);
-    rgn_zero(&one, sizeof one);
-    one.rows = one_rows; one.cap_rows = 2;
-    one.x_pool = one_pool; one.x_pool_cap = 2;
-    region_set_empty(&one);
-
-    for (uint16_t i = 0; i < n; i++) {
-        region_set_rect(&one, rects[i]);
-        region_op(&tmp, &acc, &one, RGN_OP_UNION);
-        /* copy tmp -> acc */
-        region_op(&acc, &tmp, &tmp, RGN_OP_UNION); /* self-union == identity copy */
-    }
-    /* copy acc -> r */
-    region_op(r, &acc, &acc, RGN_OP_UNION);
-#else
     /* 0i1m: sweep rectangle edges directly, emitting FINAL union bands.
      * No repeated self-union/copy and no intermediate-region capacity limit.
      * At each band, find the leftmost remaining interval and extend its union
@@ -797,7 +738,6 @@ void region_from_rects(region_t *r, const rgn_rect_t *rects, uint16_t n)
         region_push_row(r, (int16_t)y, xs, count);
     }
     region_normalize(r);
-#endif
     rgn_ws_release();
 }
 
@@ -827,11 +767,7 @@ int region_contains_point(const region_t *r, int16_t h, int16_t v)
     /* parity scan: inside iff h in [x[2k], x[2k+1)) for some k */
     int inside = 0;
     for (uint16_t k = 0; k < found->x_count; k++) {
-#ifdef RGN_MUTATE_PARITY_OFF1
-        if (h <= found->x[k]) break;   /* MUTANT: <= instead of < -> off-by-one */
-#else
         if (h < found->x[k]) break;
-#endif
         inside ^= 1;
     }
     return inside;
@@ -983,21 +919,7 @@ int CombineRgn(region_t *dst, const region_t *src1, const region_t *src2, int mo
     if (mode != RGN_AND && mode != RGN_OR &&
         mode != RGN_XOR && mode != RGN_DIFF) return RGN_TYPE_ERROR;
     if (src2 == 0) return RGN_TYPE_ERROR;
-#ifdef GDI_MUTATE_DISPATCH
-    /* MUTANT (ADR-0005 Amendment AM-1 Sec 7.4, M-DISPATCH): force ONE mode to
-     * the WRONG op at RUNTIME, bypassing the compile-checked RGN_OP_FROM_MODE
-     * map. RGN_OR is wired to INTERSECT here. This must drive BOTH the L1
-     * cross-family equality leg (CombineRgn(...,RGN_OR) vs UnionRgn) AND the L2
-     * wine differential (CombineRgn RGN_OR vs gdi_ref_union_region) RED --
-     * proving the mode->op SEMANTICS are graded, not just the plumbing. */
-    {
-        rgn_op_t op = (mode == RGN_OR) ? RGN_OP_INTERSECT
-                                       : rgn_op_from_combine_mode(mode);
-        region_op(dst, src1, src2, op);
-    }
-#else
     region_op(dst, src1, src2, rgn_op_from_combine_mode(mode));
-#endif
     return region_type_classify(dst);
 }
 
@@ -1013,16 +935,7 @@ int PtInRegion(const region_t *rgn, int16_t x, int16_t y)
 
 int RectInRegion(const region_t *rgn, rgn_rect_t rect)
 {
-#ifdef GDI_MUTATE_RECTIN
-    /* MUTANT (ADR-0005 Amendment AM-1 Sec 7.4, M-RECTIN): wire RectInRegion to
-     * CONTAINMENT (region_rect_fully_in) instead of OVERLAP -- re-introducing
-     * the pre-AM-4 deep bug. The RectInRegion-vs-wine-rect_in_region row of L2
-     * must go RED, proving the overlap value is graded against the EXTERNAL wine
-     * authority ("at least partially inside"), NOT by construction. */
-    return region_rect_fully_in(rgn, rect);
-#else
     return region_rect_overlaps(rgn, rect);
-#endif
 }
 
 /* ===========================================================================

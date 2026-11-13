@@ -1,10 +1,6 @@
 /*
- * test_assert.h -- tiny zero-dependency assert harness for the seed front end.
- *
- * beads: initech-znb ("Step A of the InitechOS seed cross-compiler")
- * Ref:   CLAUDE.md Rule 1 (Red->Green->Refactor), Law 2 (the oracle is the
- *        truth), Rule 2 (fail fast, fail loud). A test binary must exit
- *        NON-ZERO if any check fails, so `make test-seed` can never false-green.
+ * test_assert.h -- shared host assertion harness, originally from the seed.
+ * A test binary must exit nonzero if any check fails.
  *
  * No external framework (CLAUDE.md "no extra runtimes", Law 3). Each test
  * file defines a `static int g_checks` / `static int g_fails` pair via the

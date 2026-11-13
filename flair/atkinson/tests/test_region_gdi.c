@@ -17,7 +17,7 @@
  *        into the artifact -- the wine path is TEST-ONLY), Rule 6 (mutation-
  *        proven), Rule 11 (seeded LCG -> deterministic), Rule 12 (ASCII).
  *
- * THE THREE LEGS (AM-1 Sec 7.1-7.3):
+ * THE TWO BEHAVIORAL LEGS (AM-1 Sec 7.1-7.2):
  *   L1 -- cross-family equality (by-construction; necessary NOT sufficient):
  *         region_equal(CombineRgn(A,B,RGN_*), QuickDrawOp(A,B)) for AND/OR/DIFF/
  *         XOR/COPY. Both facades call the SAME region_op, so this only proves
@@ -29,17 +29,12 @@
  *         (the AM-4 OVERLAP semantic) against wine's point_in_region /
  *         rect_in_region. Missing wine source FAILS LOUD; SKIP_WIN31_DECOMP=1
  *         explicitly opts out of L2 with a shouting diagnostic.
- *   L3 -- single-engine structural gate: grep FAILS LOUD if any region_op /
- *         xmerge / band-sweep DEFINITION appears outside region.c (constraint
- *         C-7). The wine static region_op stays gdi_ref_-namespaced + host-only.
+ * The retired L3 layout checks are in attic/harness/proptest/test_region_meta.c.
  *
- * MUTANTS (Rule 6; AM-1 Sec 7.4), built with extra -D and required RED:
- *   -DGDI_MUTATE_DISPATCH     CombineRgn RGN_OR->INTERSECT  -> L1 AND L2 RED
- *   -DGDI_MUTATE_RECTIN       RectInRegion overlap->contain -> L2 RectInRegion RED
- *   -DRGN_MUTATE_EMIT_NOCHANGE (existing engine mutant)     -> L1 GREEN / L2 RED
- *   -DRGN_MUTATE_PARITY_OFF1   (existing engine mutant)     -> L2 RED (cross-redden)
+ * Patch mutants in ../mutants/ retain the legacy dispatch, overlap, emission
+ * and parity faults. No mutant definitions remain in the engine.
  */
-#include "../oracle_policy.h"
+#include "oracle_policy.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -290,76 +285,7 @@ static int wine_combine(gdi_ref_rgn dst, gdi_ref_rgn s1, gdi_ref_rgn s2, int mod
 }
 
 /* ===========================================================================
- * L3 -- the single-engine structural grep gate (load-bearing per AM-1 Sec 2.3 /
- * Sec 7.3 / constraint C-7). FAIL LOUD if any region_op / xmerge / band-sweep
- * DEFINITION appears OUTSIDE os/flair/atkinson/region.c. We scan os/ for a
- * C-function-DEFINITION of those names (a return-type line ending in the name +
- * '(' that is NOT a call and NOT a prototype ';'); region.c is the one allowed
- * site. The wine engine's own static region_op is gdi_ref_-namespaced and lives
- * under ../win31-decomp (outside os/), so it is invisible to this scan by both
- * its namespace AND its location.
- *
- * Implemented as a portable grep via system(): we search os/ (the artifact tree)
- * for a DEFINITION pattern, EXCLUDING region.c, and require zero hits. A
- * second-engine definition (a new region_op/xmerge in os/) makes this RED.
- * ===========================================================================*/
-static int l3_single_engine_gate(void)
-{
-    /* A definition looks like  "<type> region_op(" / "...xmerge(" at line start
-     * (allowing static/inline qualifiers + a return type), and crucially is NOT
-     * followed by ';' on the same logical line (a prototype) and is NOT a call
-     * (calls are indented and preceded by '=', 'return', etc.). We approximate
-     * "definition outside region.c" with: a line that matches the function-head
-     * regex for region_op|xmerge|active_xlist (the band-sweep helpers), in any
-     * os/ .c file whose path is NOT region.c. The engine's own region.c is the
-     * sole legal home; everything else is a second-engine violation.
-     *
-     * grep -rnE over os/ ; --include='*.c' ; exclude region.c ; the ERE matches
-     * a function head (start-of-line, optional qualifiers/type, the name, '('),
-     * NOT a call (no leading '.'/'->'/'=' and not 'return'). We additionally
-     * require the line to NOT end in ';' (prototype) by excluding ');' tails. */
-    const char *cmd =
-        "grep -rnE "
-        "'^[A-Za-z_][A-Za-z0-9_ \\t\\*]*[ \\t\\*](region_op|xmerge)[ \\t]*\\(' "
-        "os --include='*.c' "
-        "| grep -v 'os/flair/atkinson/region.c' "
-        "| grep -vE ';[ \\t]*$' "       /* drop prototype lines (end in ';')     */
-        "> /dev/null 2>&1";
-    int rc = system(cmd);
-    /* grep exits 0 when it FOUND a match (=> a violation), 1 when none. We want
-     * NONE outside region.c, so PASS iff grep found nothing (rc != 0). */
-    int found = (rc == 0);
-    if (found) {
-        fprintf(stderr,
-            "  L3 FAIL: a region_op/xmerge DEFINITION exists OUTSIDE "
-            "os/flair/atkinson/region.c -- a SECOND region engine (C-7 violation):\n");
-        /* re-run visibly so the operator sees the offending line(s). */
-        (void)system(
-            "grep -rnE "
-            "'^[A-Za-z_][A-Za-z0-9_ \\t\\*]*[ \\t\\*](region_op|xmerge)[ \\t]*\\(' "
-            "os --include='*.c' "
-            "| grep -v 'os/flair/atkinson/region.c' "
-            "| grep -vE ';[ \\t]*$' 1>&2");
-        return 0;
-    }
-    return 1;
-}
-
-/* Positive control for L3: confirm the gate actually SEES region.c's region_op
- * definition (so a gate that matches nothing -- e.g. a broken regex -- is caught
- * as decoration, not silently green). */
-static int l3_positive_control(void)
-{
-    const char *cmd =
-        "grep -rnE "
-        "'^[A-Za-z_][A-Za-z0-9_ \\t\\*]*[ \\t\\*](region_op|xmerge)[ \\t]*\\(' "
-        "os/flair/atkinson/region.c "
-        "| grep -vE ';[ \\t]*$' > /dev/null 2>&1";
-    return system(cmd) == 0;   /* must FIND region.c's own definitions */
-}
-
-/* ===========================================================================
- * MAIN -- the three legs.
+ * MAIN -- the two behavioral legs.
  * ===========================================================================*/
 int main(void)
 {
@@ -367,7 +293,7 @@ int main(void)
     const char *MNAME[5] = { "RGN_AND", "RGN_OR", "RGN_DIFF", "RGN_XOR", "RGN_COPY" };
 
     printf("test-region-gdi: dual-heritage conformance oracle "
-           "(ADR-0005 Amendment AM-1 L1/L2/L3)\n");
+           "(cross-family and Wine differential)\n");
 
     /* ---- generation sanity: an ATKINSON region built from a rectset must
      *      rasterize EXACTLY to the rectset's directly-painted bitmap (an
@@ -549,16 +475,6 @@ int main(void)
         CHECK(!l2_rir_bad,   "L2 [independent golden]: RectInRegion (OVERLAP) "
                              "matches wine rect_in_region");
     }
-
-    /* ======================================================================
-     * L3 -- single-engine structural gate.
-     * ====================================================================== */
-    CHECK(l3_positive_control(),
-          "L3 [control]: the grep gate SEES region.c's own region_op/xmerge "
-          "definitions (gate is not decoration)");
-    CHECK(l3_single_engine_gate(),
-          "L3 [structural]: no region_op/xmerge DEFINITION outside "
-          "os/flair/atkinson/region.c (constraint C-7)");
 
     return TEST_SUMMARY("test-region-gdi");
 }

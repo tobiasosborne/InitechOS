@@ -1,0 +1,31 @@
+# Legacy RGN_MUT_ALIAS_RESET
+--- a/region.c
++++ b/region.c
+@@ -648,27 +648,9 @@
+ 
+ /* Copy VALUES, never backing pointers: destinations retain caller storage.
+  * Ref: include/region_algebra.h Sec 1 and GDI CombineRgn's alias contract. */
+-static void region_copy(region_t *out, const region_t *src)
+-{
+-    region_set_empty(out);
+-    for (uint16_t i = 0; i < src->n_rows; i++)
+-        region_push_row(out, src->rows[i].y_top, src->rows[i].x, src->rows[i].x_count);
+-    region_normalize(out);
+-}
+ 
+ void region_op(region_t *out, const region_t *A, const region_t *B, rgn_op_t op)
+ {
+-    if (out != 0 && (out == A || out == B)) {
+-        /* bz8f: merge into existing working storage BEFORE modifying either
+-         * source. The same one merge engine serves both heritage facades. */
+-        rgn_ws_acquire();
+-        region_t tmp;
+-        rgn_ws_attach(&tmp, g_rgn_ws[0]);
+-        region_merge(&tmp, A, B, op);
+-        region_copy(out, &tmp);
+-        rgn_ws_release();
+-        return;
+-    }
+     region_merge(out, A, B, op);
+ }
+ 

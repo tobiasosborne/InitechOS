@@ -1,0 +1,23 @@
+# Legacy RGN_MUTATE_NO_XMERGE_CAP
+# test: region-asan
+--- a/region.c
++++ b/region.c
+@@ -385,6 +385,10 @@
+     /* boolfn(op,0,0) is 0 for all four ops (truth tables have LSB 0); the region
+      * is bounded, so we start OUTSIDE. We assert that to be safe. */
+     if (prev_out != 0) { RGN_FAIL_LOUD(); return 0; }
++    /* The per-write `no >= cap` bound below is #ifdef'd OUT for this mutant;
++     * `cap` is then never read. Mark it used so the mutant still COMPILES (it
++     * must build to go RED at runtime under ASAN -- Rule 6). */
++    (void)cap;
+ 
+     while (ia < na || ib < nb) {
+         int16_t xa = (ia < na) ? a[ia] : 0;
+@@ -403,7 +407,6 @@
+ 
+         int now = boolfn(op, inA, inB);
+         if (now != prev_out) {
+-            if (no >= cap) { RGN_FAIL_LOUD(); return 0; } /* bead initech-mswo */
+             out[no++] = x;
+             prev_out = now;
+         }

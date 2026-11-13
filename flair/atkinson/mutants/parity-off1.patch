@@ -1,0 +1,12 @@
+# Legacy RGN_MUTATE_PARITY_OFF1
+--- a/region.c
++++ b/region.c
+@@ -767,7 +767,7 @@
+     /* parity scan: inside iff h in [x[2k], x[2k+1)) for some k */
+     int inside = 0;
+     for (uint16_t k = 0; k < found->x_count; k++) {
+-        if (h < found->x[k]) break;
++        if (h <= found->x[k]) break;   /* MUTANT: <= instead of < -> off-by-one */
+         inside ^= 1;
+     }
+     return inside;
