@@ -1,0 +1,8 @@
+# test: test_ibase_ctl
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -1043,0 +1044,2 @@
++static IBASE_OVL_TEXT(set) int ovl_bad_suspend(xb_interp *ip) { (void)ip;return 0; }
++extern void proc_set_suspend(xb_interp *,int (*)(xb_interp *));
+@@ -1057,0 +1060 @@
++    proc_set_suspend(ip,ovl_bad_suspend);

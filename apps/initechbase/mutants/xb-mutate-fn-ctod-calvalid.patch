@@ -1,0 +1,38 @@
+# test: test_xbase_fn_a
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -111,0 +112,29 @@
++/*
++ * xb_is_leap_year: proleptic Gregorian leap-year rule.
++ * Ref: the same Meeus Ch.7 Gregorian formula already cited for
++ * jdn_from_ymd/ymd_from_jdn (os/ibase/include/ibase/rt.h S2). Divisible by 4,
++ * EXCEPT century years not divisible by 400: 1900 is NOT leap, 2000 IS leap,
++ * 2100 is NOT leap. All within the CTOD valid range 1900-2155 (rt.h).
++ *
++ * Only the CLAUDE.md, The constitution mutant uses this cap: real III+ rolls calendar-invalid
++ * CTOD input forward. The mutant restores the old inferred validation.
++ */
++static int xb_is_leap_year(int yy)
++{
++    return (yy % 4 == 0 && yy % 100 != 0) || (yy % 400 == 0);
++}
++
++/*
++ * xb_days_in_month: calendar day cap for a 1-based month in year yy.
++ * Ref: standard Gregorian calendar (same source as xb_is_leap_year above).
++ * Caller must already have range-checked mm to [1..12]; out-of-range mm
++ * returns 0 (fails any dd > 0 comparison, i.e. always calendar-invalid).
++ */
++static int xb_days_in_month(int mm, int yy)
++{
++    static const int days_tbl[13] =
++        { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
++    if (mm < 1 || mm > 12) return 0;
++    if (mm == 2 && xb_is_leap_year(yy)) return 29;
++    return days_tbl[mm];
++}
+@@ -498,0 +528,4 @@
++            *out = xb_d(0.0); *err = XBEE_OK; return 0;
++        }
++        /* CLAUDE.md, The constitution: restore the old calendar-invalid -> blank behavior. */
++        if (mm < 1 || mm > 12 || dd < 1 || dd > xb_days_in_month(mm, yy)) {

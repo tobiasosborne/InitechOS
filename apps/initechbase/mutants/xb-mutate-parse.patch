@@ -1,0 +1,12 @@
+# test: test_xbase_parse
+--- a/core/parse.c
++++ b/core/parse.c
+@@ -372 +372,7 @@
+-        right = parse_unary(p);
++        /*
++         * MUTATION HOOK (CLAUDE.md, The constitution): fold ^ RIGHT-associatively. The right
++         * operand recurses back into parse_pow instead of parse_unary, so
++         * 2^3^2 parses as 2^(3^2) and the structural assertion (root.^.left
++         * is itself a ^) goes RED. Exactly one perturbed branch.
++         */
++        right = parse_pow(p);

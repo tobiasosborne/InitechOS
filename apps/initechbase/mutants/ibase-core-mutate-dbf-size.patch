@@ -1,0 +1,6 @@
+# test: test_ibase_core
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -439,2 +438,0 @@
+-    if (nrec > (UINT32_MAX - (uint32_t)header_length) / record_length)
+-        return teardown(tbl, -DBF_ERR_BAD_FILESZ);

@@ -1,0 +1,6 @@
+# test: test_ibase_repl
+--- a/ibase_main.c
++++ b/ibase_main.c
+@@ -454,2 +453,0 @@
+-    rc = mutate_register(ip);
+-    if (rc != INTERP_OK) return rc;

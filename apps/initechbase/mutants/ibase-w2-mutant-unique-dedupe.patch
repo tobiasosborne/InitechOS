@@ -1,0 +1,6 @@
+# test: test_ibase_w2
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -1506 +1506 @@
+-    if (unique && nrec > 1u) {
++    if (0) {   /* mutant: duplicates NOT omitted */

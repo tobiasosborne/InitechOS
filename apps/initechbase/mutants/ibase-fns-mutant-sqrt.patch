@@ -1,0 +1,5 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2135,0 +2136 @@
++        return fn_fail(err, 61); /* MUTANT: raise before the result prints. */

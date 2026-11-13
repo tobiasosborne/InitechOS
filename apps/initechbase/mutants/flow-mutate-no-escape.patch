@@ -1,0 +1,17 @@
+# test: test_ibase_ctl
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -1541,11 +1541,2 @@
+-    xb_ctx *c = xb_interp_ctx(fp->ip);
+-    ibase_pal_t *pal;
+-    if (!c->on_escape || c->dot_command)
+-        return INTERP_OK;
+-    pal = xb_interp_pal(fp->ip);
+-    if (!pal || !pal->conin_escape || !set_get_escape(fp->ip))
+-        return INTERP_OK;
+-    if (!pal->conin_escape(pal))
+-        return INTERP_OK;
+-    if (ec) *ec = 0;
+-    return c->on_escape(fp->ip);
++    (void)fp; (void)ec;
++    return INTERP_OK;

@@ -1,0 +1,9 @@
+# test: test_dbt_read
+--- a/fs/dbt.c
++++ b/fs/dbt.c
+@@ -99,2 +99,3 @@
+-  /* Normal: 512 bytes per block (dbt.md sec 2, verified). */
+-  #define DBT_BLOCK_ACTUAL  DBT_BLOCK_SIZE   /* 512u */
++  /* Mutant: use 511 instead of 512.  Seek lands 1 byte before the real
++   * block boundary, pulling wrong bytes into the memo buffer. */
++  #define DBT_BLOCK_ACTUAL  511u

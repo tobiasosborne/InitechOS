@@ -1,0 +1,13 @@
+# test: test_ibase_fns
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -433,9 +432,0 @@
+-        union { double n; uint64_t bits; } picture;
+-        picture.n = stored->u.n;
+-        /* Real argpicture/GOLD.OUT: STORE and PARAMETERS both extend an
+-         * overflow value's existing picture by its decimal suffix (LOG(-100)
+-         * 7 -> 10, SQRT(-1) 5 -> 8). Finite values use ten integer columns.
+-         * IEEE exponent all-ones covers both infinity and NaN, independent
+-         * of the function or error code that produced the value. */
+-        if ((picture.bits >> 52 & 0x7ffu) == 0x7ffu)
+-            columns = stored->num_width;

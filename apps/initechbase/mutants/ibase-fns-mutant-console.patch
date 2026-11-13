@@ -1,0 +1,7 @@
+# test: test_ibase_fns
+--- a/cmd/workarea.c
++++ b/cmd/workarea.c
+@@ -1551,0 +1552,3 @@
++    /* SF-console bite: CONSOLE OFF wrongly silences ALTERNATE too; the real
++     * III+ capture keeps "HIDDEN" in the alternate file (fns-mint/console). */
++    if(!xb_interp_console_visible(ip)) return;

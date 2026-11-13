@@ -1,0 +1,6 @@
+# test: test_interp_list
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -910 +910 @@
+-        q_append_cstr(line, &pos, sizeof(line), "\r\n");
++        q_append_cstr(line, &pos, sizeof(line), "\n");

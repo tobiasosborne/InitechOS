@@ -1,0 +1,8 @@
+# test: test_ibase_fns
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -943,4 +942,0 @@
+-                /* Real argorder/GOLD.OUT: the last failing argument wins;
+-                 * a later valid argument preserves it. Each expression still
+-                 * keeps its first deferred error within its own phase. */
+-                ctx->deferred_error = 0;

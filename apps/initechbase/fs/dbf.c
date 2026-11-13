@@ -3,7 +3,7 @@
  *                      field-descriptor array (S1.2), record read (S1.3),
  *                      deterministic write + round-trip (S1.4).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus the engine headers (ibase/pal.h,
  * ibase/rt.h, ibase/value.h, ibase/dbf.h) and the LOCKED spec/ibase/dbf_format.h.
  * No libc, no int 0x21 -- all OS contact is through the PAL vtable (plan Sec
@@ -18,7 +18,7 @@
  * completes, re-read each descriptor in a second pass to decode the full
  * name/type/length/dec metadata into an arena-allocated dbf_field_t array.
  * S1.1 invariants are preserved; the field-count comes from S1.1's scan-to-0x0D
- * (NOT re-derived independently). The mutation hook (DBF_MUTATE_STRIDE) perturbs
+ * (NOT re-derived independently). The mutation hook (mutants/dbf-mutate-stride.patch) perturbs
  * the descriptor stride to the dBASE-7 48-byte value, shifting every field after
  * the first so decoded names/types/lengths mismatch the golden -> tests go RED.
  *
@@ -30,7 +30,7 @@
  *   L -> xb_l(1/0) for T/Y/F/N; xb_u() for '?'/space; fail loud otherwise
  *   M -> xb_m(raw10, 10) for block>0; xb_u() for block 0 / blanks
  * Delete flag: 0x20 -> *deleted=0, 0x2A -> *deleted=1; other bytes -> fail loud.
- * The mutation hook (DBF_MUTATE_RECOFF) shifts the record offset by +1 (skips
+ * The mutation hook (mutants/dbf-mutate-recoff.patch) shifts the record offset by +1 (skips
  * the delete-flag byte) so every decoded field value is wrong -> tests go RED.
  * Ref: dbf.md sec 6 (record layout) and sec 5 (field type encodings).
  *
@@ -39,12 +39,12 @@
  * file; dbf_append_rec formats typed values into an in-arena record region;
  * dbf_flush serializes the whole image (version 0x03/0x83, injected last-update
  * date, +1 terminator, records, trailing 0x1A) in one deterministic byte stream
- * (Rule 11). Every NORMALIZE byte (spec/ibase/dbf_normalization.json) is written
+ * (CLAUDE.md, The constitution). Every NORMALIZE byte (spec/ibase/dbf_normalization.json) is written
  * 0x00 (esp. the field RAM address 0x0C, work-area 0x14, LDID 0x1D). The mutation
- * hook (DBF_MUTATE_VERSION) drops the 0x80 memo bit so a memo schema round-trips
+ * hook (mutants/dbf-mutate-version.patch) drops the 0x80 memo bit so a memo schema round-trips
  * with has_memo=false -> RED. Ref: dbf.md sec 2/3/4/5/6/8.
  *
- * Fail loud (Rule 2): every malformed-input / violated-invariant path returns a
+ * Fail loud (CLAUDE.md, The constitution): every malformed-input / violated-invariant path returns a
  * negated dbf_err and leaves no half-open handle. A silently-wrong table would
  * corrupt everything built on top of it (Tool of last resort).
  *
@@ -52,9 +52,9 @@
  * not 0x03/0x83) are rejected with DBF_ERR_BAD_VERSION, not half-supported.
  * Unknown field type bytes (not C/N/D/L/M) fail loud with DBF_ERR_BAD_TYPE.
  *
- * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths / nondeterminism (CLAUDE.md, The constitution).
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/file-formats/dbf.md sec 2,3,4,5,6,8,9.
  *     sec 4 worked example: CLIENTS FIRSTNAME at offset 0x20
  *       46 49 52 53 54 4E 41 4D 45 00 00 / 43 / 23 00 2C 40 / 14 / 00 / ...
@@ -88,7 +88,7 @@
 #include "ibase/dbf_format.h"   /* LOCKED spec-data, on -Ispec/ibase or -Ispec */
 
 /*
- * S1.2 MUTATION HOOK (Rule 6): when -DDBF_MUTATE_STRIDE is defined, the
+ * S1.2 MUTATION HOOK (CLAUDE.md, The constitution): when mutants/dbf-mutate-stride.patch is defined, the
  * descriptor decode pass uses a 48-byte stride (the dBASE-7 descriptor size)
  * instead of the correct 32-byte III+ stride. This shifts the decode offset of
  * every descriptor after the first, so names/types/lengths read from wrong bytes
@@ -98,14 +98,10 @@
  * is perturbed. Exactly one constant is changed.
  * Ref: docs/plans/IBASE-implementation-plan.md S1.2 mutant (dBASE-7 stride -> RED).
  */
-#ifdef DBF_MUTATE_STRIDE
-#  define DECODE_STRIDE  48u   /* dBASE-7 descriptor size; NOT the III+ 32-byte form */
-#else
 #  define DECODE_STRIDE  ((uint32_t)DBF_DESC_STRIDE)   /* correct: 32 bytes (dbf.md sec 4) */
-#endif
 
 /*
- * S1.3 MUTATION HOOK (Rule 6): when -DDBF_MUTATE_RECOFF is defined,
+ * S1.3 MUTATION HOOK (CLAUDE.md, The constitution): when mutants/dbf-mutate-recoff.patch is defined,
  * dbf_read_rec reads the record starting one byte PAST the correct offset.
  * This effectively skips the delete-flag byte and reads field data shifted by
  * one, so decoded field values mismatch the golden -> Tier-0 checks go RED.
@@ -114,14 +110,10 @@
  * data it decodes comes from the next byte onward -- every field is shifted.
  * Ref: docs/plans/IBASE-implementation-plan.md S1.3 mutant (recoff -> RED).
  */
-#ifdef DBF_MUTATE_RECOFF
-#  define REC_OFFSET_EXTRA  1u   /* skip 1 extra byte -> field data is shifted */
-#else
 #  define REC_OFFSET_EXTRA  0u   /* correct: no extra offset */
-#endif
 
 /*
- * S1.4 MUTATION HOOK (Rule 6): when -DDBF_MUTATE_VERSION is defined, dbf_flush
+ * S1.4 MUTATION HOOK (CLAUDE.md, The constitution): when mutants/dbf-mutate-version.patch is defined, dbf_flush
  * writes 0x03 in the version byte EVEN WHEN a memo (M) field is present (it
  * drops the 0x80 memo bit). A round-trip of a memo-bearing schema then reads
  * back has_memo=false (and version 0x03), so the round-trip oracle goes RED.
@@ -130,14 +122,10 @@
  * only the memo schema bites, which is the point. Ref: plan S1.4 mutant
  * ("emit 0x03 where 0x83 required -> RED").
  */
-#ifdef DBF_MUTATE_VERSION
-#  define DBF_MEMO_VERSION_BIT  0x00u   /* mutant: drop the 0x80 memo bit */
-#else
 #  define DBF_MEMO_VERSION_BIT  0x80u   /* correct: dbf.md sec 3 bit 7 = has memo */
-#endif
 
 /*
- * 7az.16 MUTATION HOOK (Rule 6): when -DDBF_MUTATE_OPENRW_RO is defined,
+ * 7az.16 MUTATION HOOK (CLAUDE.md, The constitution): when mutants/dbf-mutate-openrw-ro.patch is defined,
  * dbf_open_rw opens the file PAL_RDWR + loads the record region (as normal) but
  * leaves tbl->writable = 0 (the read-only state dbf_open produces). Every S1.5
  * mutation verb (dbf_replace/dbf_append_blank/dbf_delete/...) and dbf_flush then
@@ -164,9 +152,6 @@ struct dbf_table {
     uint8_t       write_failed; /* failed rollback: refuse further writes */
     pal_fd        fd;         /* OPEN handle; S1.3 reads the record area */
     void         *owned;      /* buffers owned by this table only */
-#ifdef IBASE_MUTATE_OWNER_RESET
-    void *scratch_mark;
-#endif
 
     dbf_field_t  *fields;     /* S1.2: arena-allocated array of nfields decoded
                                * field descriptors; NULL until S1.2 decode pass runs.
@@ -264,9 +249,6 @@ static int teardown(dbf_table *tbl, int rc)
     if (tbl->fd >= 0)
         close_rc = pal->close(pal, tbl->fd);
     pal_owned_free(pal,&tbl->owned);
-#ifdef IBASE_MUTATE_OWNER_RESET
-    pal->reset(pal,tbl->scratch_mark); /* mutant: rewind across a later live owner */
-#endif
     pal->release(pal, table_memory);
 
     if (rc != DBF_OK)
@@ -284,7 +266,7 @@ static int teardown(dbf_table *tbl, int rc)
  * mutation verbs (dbf_replace/dbf_append_blank/dbf_delete/recall/pack/zap) and
  * dbf_flush operate on the opened table, NOT only on a dbf_create()'d one.
  *
- * Why the record region is loaded for the RW path (Law 1 / dbf.c S1.5 model):
+ * Why the record region is loaded for the RW path (CLAUDE.md, The constitution / dbf.c S1.5 model):
  * the mutation verbs all patch tbl->rec_region in-arena and dbf_flush rewrites
  * the WHOLE file from that region (build-in-arena/flush-to-disk). A table opened
  * RW with an empty rec_region would flush an empty file. So dbf_open_rw must
@@ -331,9 +313,6 @@ static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
         return -DBF_ERR_NOMEM;
     rt_memset(tbl, 0, (uint32_t)sizeof(*tbl));
     tbl->pal  = pal;
-#ifdef IBASE_MUTATE_OWNER_RESET
-    tbl->scratch_mark=pal->alloc(pal,0u);
-#endif
     if (rt_strlen(name) >= sizeof(tbl->name)) { pal->release(pal, tbl); return -DBF_ERR_IO; }
     rt_memcpy(tbl->name, name, rt_strlen(name) + 1u);
     tbl->fd   = -1;
@@ -437,18 +416,8 @@ static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
      * `sum_lens` already includes the +1 delete-flag byte. This is also how the
      * absence of a III+ NULL bitmap is confirmed (dbf.md sec 5).
      */
-#ifdef DBF_MUTATE_RECLEN
-    /* MUTATION HOOK (Rule 6): off-by-one in the invariant-1b check. Comparing
-     * against (sum_lens + 1) instead of sum_lens makes a VALID golden -- whose
-     * record_length equals exactly 1 + sum(field lengths) -- FAIL dbf_open with
-     * DBF_ERR_BAD_RECLEN, turning the mutant build RED. Exactly one perturbed
-     * branch; restored when the macro is undefined. */
-    if ((uint32_t)record_length != sum_lens + 1u)
-        return teardown(tbl, -DBF_ERR_BAD_RECLEN);
-#else
     if ((uint32_t)record_length != sum_lens)
         return teardown(tbl, -DBF_ERR_BAD_RECLEN);
-#endif
 
     /*
      * --- Invariant 2 (dbf.md sec 8): file_size == header_length +
@@ -465,12 +434,10 @@ static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
     filesz = pal->seek(pal, fd, 0, PAL_SEEK_END);
     if (filesz < 0)
         return teardown(tbl, -DBF_ERR_IO);
-    /* Ref: dbf.md ss8 invariant 2; Rule 2: validate before multiplying,
+    /* Ref: dbf.md ss8 invariant 2; CLAUDE.md, The constitution: validate before multiplying,
      * including the RW record allocation below (initech-ptqc). */
-#ifndef IBASE_CORE_MUTATE_DBF_SIZE
     if (nrec > (UINT32_MAX - (uint32_t)header_length) / record_length)
         return teardown(tbl, -DBF_ERR_BAD_FILESZ);
-#endif
     body = (uint32_t)header_length + nrec * (uint32_t)record_length;
     if ((uint32_t)filesz < body)
         return teardown(tbl, -DBF_ERR_BAD_FILESZ);
@@ -518,9 +485,9 @@ static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
      *   - dec    : 1 byte  (DBF_DESC_DEC_COUNT_OFF).
      *
      * The DECODE_STRIDE constant is 32 normally; when built with
-     * -DDBF_MUTATE_STRIDE it is 48 (the dBASE-7 stride) so every field after
+     * mutants/dbf-mutate-stride.patch it is 48 (the dBASE-7 stride) so every field after
      * the first is decoded from shifted bytes -> mismatch with the golden -> RED
-     * (mutation hook, Rule 6).
+     * (mutation hook, CLAUDE.md, The constitution).
      *
      * Ref: dbf.md sec 4/5/9; spec/ibase/dbf_format.h (all offset constants);
      *      plan S1.2 contract.
@@ -562,7 +529,7 @@ static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
             fa[fi].name[nul_found ? k : (uint32_t)DBF_DESC_NAME_SIZE] = '\0';
 
             /* Type: must be one of C/N/D/L/M (III+ only; dbf.md sec 5).
-             * Any other byte fails loud (plan Sec 2.C; Rule 2). */
+             * Any other byte fails loud (plan Sec 2.C; CLAUDE.md, The constitution). */
             ttype = dbuf[DBF_DESC_TYPE_OFF];
             if (ttype != (uint8_t)'C' && ttype != (uint8_t)'N' &&
                 ttype != (uint8_t)'D' && ttype != (uint8_t)'L' &&
@@ -584,15 +551,11 @@ static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
      * USE. The bytes are copied verbatim from disk via read_exact (the same
      * primitive dbf_read_rec uses) -- no decode/re-encode round-trip, so the
      * records flush back byte-for-byte unless a verb changed them.
-     * The DBF_MUTATE_OPENRW_RO mutation hook drops the writable flag so the verbs
-     * reject the table -> the RW-USE oracle goes RED (Rule 6; see hook below).
+     * The mutants/dbf-mutate-openrw-ro.patch mutation hook drops the writable flag so the verbs
+     * reject the table -> the RW-USE oracle goes RED (CLAUDE.md, The constitution; see hook below).
      */
     if (want_writable) {
-#ifdef DBF_MUTATE_OPENRW_RO
-        tbl->writable = 0u;          /* MUTANT: opened RW but flagged read-only */
-#else
         tbl->writable = 1u;
-#endif
         /* Load the existing records from the ORIGINAL header_length offset (the
          * value parsed from disk; the records start there regardless of the
          * +1/+2 terminator form). Read BEFORE the header_length normalization
@@ -651,21 +614,6 @@ static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
          * Ref: dbf.md sec 4 (+1/+2 forms); dbf.h dbf_open_rw contract;
          *      dbf_flush (the +1 emitter, below); bead initech-jf8p.
          */
-#ifdef DBF_MUTATE_OPENRW_EAGER_HDRLEN
-        /*
-         * MUTATION HOOK (Rule 6; initech-jf8p): restores the exact pre-fix bug
-         * -- eagerly normalize header_length/term_extra to the +1 form AT OPEN
-         * TIME, before any dbf_flush. For a +2-form file (BANK.DBF, TAX.DBF)
-         * this truncates the true on-disk record offset by one byte, so
-         * dbf_read_rec misreads the +2 terminator's padding 0x00 as the
-         * delete flag and fails loud with -DBF_ERR_BAD_REC for every record.
-         * Exactly the two lines the fix removed from this spot; NEVER defined
-         * in a real build. Ref: harness/diff/dbf_diff/test_dbf_read.c
-         * test_tax_rw_plus2form / test_synthetic_plus2_rw_roundtrip (must go RED).
-         */
-        tbl->header_length = (uint16_t)((uint32_t)DBF_HDR_SIZE + descbytes + 1u);
-        tbl->term_extra    = 1u;
-#endif
     }
 
     *out = tbl;
@@ -675,7 +623,7 @@ static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
 /*
  * dbf_open: open an existing .dbf read-only. Thin wrapper over dbf_open_common
  * (PAL_RD, want_writable=0). The shared parse path keeps dbf_open and dbf_open_rw
- * from drifting (Rule 3 / 7az.16 contract).
+ * from drifting (CLAUDE.md, The constitution / 7az.16 contract).
  */
 int dbf_open(ibase_pal_t *pal, const char *name, dbf_table **out)
 {
@@ -688,7 +636,7 @@ int dbf_open(ibase_pal_t *pal, const char *name, dbf_table **out)
  * as dbf_open, but opens PAL_RDWR, loads the on-disk records into rec_region, and
  * sets the writable flag so REPLACE/APPEND/DELETE/RECALL/PACK/ZAP + dbf_flush work
  * after a plain USE -- no dbf_create / wa_adopt_table seam required.
- * Fails loud (Rule 2) on a missing/unopenable file (teardown -> -DBF_ERR_IO) or a
+ * Fails loud (CLAUDE.md, The constitution) on a missing/unopenable file (teardown -> -DBF_ERR_IO) or a
  * malformed header, identically to dbf_open.
  */
 int dbf_open_rw(ibase_pal_t *pal, const char *name, dbf_table **out)
@@ -725,7 +673,7 @@ int      dbf_has_memo(const dbf_table *t)
  *
  * Returns NULL for out-of-range i (i < 0 or i >= nfields). This signals a
  * programming error (fail loud at the call site: callers must not pass a NULL
- * return as a valid descriptor, Rule 2).
+ * return as a valid descriptor, CLAUDE.md, The constitution).
  *
  * The returned pointer is owned by the table and is valid until dbf_close.
  * The fields array is populated during dbf_open (S1.2 decode pass); if a table
@@ -761,7 +709,7 @@ const dbf_field_t *dbf_field(const dbf_table *t, int i)
  *   L  -> xb_l(1) T/t/Y/y; xb_l(0) F/f/N/n; xb_u() '?'/space; else BAD_REC.
  *   M  -> xb_m(ptr, 10) block>0; xb_u() block==0 / blanks. S2.1 reads .dbt.
  *
- * Mutation hook (DBF_MUTATE_RECOFF): adds REC_OFFSET_EXTRA (=1 when mutant) to
+ * Mutation hook (mutants/dbf-mutate-recoff.patch): adds REC_OFFSET_EXTRA (=1 when mutant) to
  * the file seek offset, so field data is read from byte 1 of the record onward
  * (the delete-flag byte is consumed into field 0 rather than the flag slot, and
  * every subsequent field byte is shifted). All decoded values diverge -> RED.
@@ -769,7 +717,7 @@ const dbf_field_t *dbf_field(const dbf_table *t, int i)
  * dbf_read_rec is perturbed. The extra offset is applied to the byte address
  * passed to read_exact, not to the record-length count.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - dbf.md sec 5 (C/N/D/L/M on-disk encodings; blank date; L uninitialised).
  *   - dbf.md sec 6 (record layout; delete flag 0x20/0x2A).
  *   - spec/ibase/dbf_format.h (DBF_REC_DELETE_LIVE, DBF_REC_DELETE_DELETED,
@@ -798,7 +746,7 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
     /* Compute the byte offset of this record's first byte (the delete flag).
      * recno 1 -> header_length + 0*record_length; recno k -> + (k-1)*record_length.
      * Ref: dbf.md sec 6 "Record k begins at header_length + k*record_length" (0-based k).
-     * The REC_OFFSET_EXTRA mutation shifts this by +1 byte (DBF_MUTATE_RECOFF). */
+     * The REC_OFFSET_EXTRA mutation shifts this by +1 byte (mutants/dbf-mutate-recoff.patch). */
     rec_off = (int32_t)((uint32_t)tbl->header_length
                         + (recno - 1u) * (uint32_t)tbl->record_length
                         + REC_OFFSET_EXTRA);
@@ -820,7 +768,7 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
         if (deleted) *deleted = 1;
     } else {
         /* Corrupt record: delete flag is neither 0x20 nor 0x2A. Fail loud
-         * (Rule 2). A silently-wrong delete-flag interpretation corrupts pack/zap. */
+         * (CLAUDE.md, The constitution). A silently-wrong delete-flag interpretation corrupts pack/zap. */
         return -DBF_ERR_BAD_REC;
     }
 
@@ -862,7 +810,6 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
             {
                 uint32_t k = 0u;
                 while (k < (uint32_t)flen && raw[k] == (uint8_t)' ') k++;
-#ifndef IBASE_DT_MUTANT_starread
                 /* An overflowed field ("****", the stars_fill of
                  * xbase_coercion.json) reads back in real III+ as the
                  * largest double, 1.7976931348623157E308: ? SMALL prints
@@ -875,7 +822,6 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
                     out[fi] = xb_n(1.7976931348623157e308);
                     break;
                 }
-#endif
                 out[fi] = xb_n(dec_parse((const char *)raw, (int)flen));
             }
             break;
@@ -912,7 +858,6 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
                            raw[7] == (uint8_t)'0');
 
                 if (is_blank || is_zero) {
-#ifndef IBASE_DT_MUTANT_blankread
                     /* A blank D field is still a Date in real III+:
                      * TYPE("WHEN") = "D", DTOC() and date arithmetic work,
                      * and INDEX ON WHEN keys it (datatype-mint DT3 G8-G10,
@@ -921,9 +866,6 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
                      * INDEX ON <date> fail with #9 (audit 2026-10-23-ibase
                      * L016; initech-ylqs). */
                     out[fi] = xb_d(0.0);
-#else
-                    out[fi] = xb_u();
-#endif
                 } else {
                     /* Parse YYYYMMDD from ASCII digits. dec_parse on 4-char
                      * slice gives the integer year; same for month and day. */
@@ -940,7 +882,7 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
             /*
              * Logical: 1 byte. T/t/Y/y -> xb_l(1); F/f/N/n -> xb_l(0);
              * '?'/space (0x3F/0x20) -> xb_u() (uninitialised).
-             * Any other byte is corrupt -> fail loud (Rule 2).
+             * Any other byte is corrupt -> fail loud (CLAUDE.md, The constitution).
              * Ref: dbf.md sec 5 L; dbf_ref.py decode_field('L').
              * Note: corpus fixtures only exhibit T and F (no '?' seen in
              * TRAVEL.DBF PAID column), but we handle all defined values.
@@ -956,7 +898,7 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
                 } else if (lb == (uint8_t)'?' || lb == (uint8_t)' ') {
                     out[fi] = xb_u();   /* uninitialised L field */
                 } else {
-                    /* Unknown L byte: corrupt data. Fail loud (Rule 2). */
+                    /* Unknown L byte: corrupt data. Fail loud (CLAUDE.md, The constitution). */
                     return -DBF_ERR_BAD_REC;
                 }
             }
@@ -987,7 +929,7 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
 
         default:
             /* Should never reach here: dbf_open rejects non-C/N/D/L/M types
-             * with DBF_ERR_BAD_TYPE. If somehow reached, fail loud (Rule 2). */
+             * with DBF_ERR_BAD_TYPE. If somehow reached, fail loud (CLAUDE.md, The constitution). */
             return -DBF_ERR_BAD_REC;
         }
 
@@ -1003,9 +945,9 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
 /* Write model: build-in-arena, flush-to-disk (dbf.h S1.4 note). dbf_create  */
 /* lays out the header + descriptor metadata + opens the file; records are    */
 /* formatted into an arena record region by dbf_append_rec; dbf_flush         */
-/* serializes the whole image in one deterministic byte stream (Rule 11).     */
+/* serializes the whole image in one deterministic byte stream (CLAUDE.md, The constitution).     */
 /*                                                                          */
-/* Determinism (Rule 11): no malloc-address or wall-clock leakage. The only   */
+/* Determinism (CLAUDE.md, The constitution): no malloc-address or wall-clock leakage. The only   */
 /* date is pal->today() (INJECTABLE). Every NORMALIZE byte                    */
 /* (spec/ibase/dbf_normalization.json) is written 0x00. Same inputs + same    */
 /* injected date => byte-identical file every run.                            */
@@ -1066,11 +1008,7 @@ static void fmt_field(uint8_t *dst, uint8_t flen, char ftype, uint8_t dec,
          * as, so SORT/TOTAL/COPY rows carry it here), xb_u or a wrong type.
          * dbf.md sec 5 D; xbase_coercion.json D "blank":"8 spaces".
          * flen is 8 (create-asserted). initech-ylqs. */
-#ifndef IBASE_DT_MUTANT_blankwrite
         if (v && v->t == XB_D && !xb_date_blank(v->u.d)) {
-#else
-        if (v && v->t == XB_D) {
-#endif
             int32_t y, m, d;
             char    buf[8];
             ymd_from_jdn((int32_t)v->u.d, &y, &m, &d);
@@ -1155,7 +1093,7 @@ IBASE_OVL_TEXT(file) int dbf_create(ibase_pal_t *pal, const char *name,
     if (nfields < 1 || nfields > DBF_MAX_FIELDS)
         return -DBF_ERR_TOO_MANY;
 
-    /* Validate the schema BEFORE touching the arena/file (fail loud, Rule 2). */
+    /* Validate the schema BEFORE touching the arena/file (fail loud, CLAUDE.md, The constitution). */
     sum_lens = (uint32_t)DBF_REC_FLAG_SIZE;
     has_memo = 0;
     for (fi = 0; fi < nfields; fi++) {
@@ -1205,9 +1143,6 @@ IBASE_OVL_TEXT(file) int dbf_create(ibase_pal_t *pal, const char *name,
         return -DBF_ERR_NOMEM;
     rt_memset(tbl, 0, (uint32_t)sizeof(*tbl));
     tbl->pal  = pal;
-#ifdef IBASE_MUTATE_OWNER_RESET
-    tbl->scratch_mark=pal->alloc(pal,0u);
-#endif
     if (rt_strlen(name) >= sizeof(tbl->name)) { pal->release(pal, tbl); return -DBF_ERR_IO; }
     rt_memcpy(tbl->name, name, rt_strlen(name) + 1u);
     tbl->fd   = -1;
@@ -1223,7 +1158,7 @@ IBASE_OVL_TEXT(file) int dbf_create(ibase_pal_t *pal, const char *name,
     tbl->term_extra    = 1u;   /* S1.4 always emits the +1 (lone 0x0D) form */
     tbl->writable      = 1u;
 
-    /* Injected last-update date (INJECTABLE clock; Rule 11). */
+    /* Injected last-update date (INJECTABLE clock; CLAUDE.md, The constitution). */
     pal->today(pal, &tbl->year, &tbl->month, &tbl->day);
 
     /* Decode the schema into the dbf_field_t array (same shape S1.2 builds). */
@@ -1387,12 +1322,12 @@ int dbf_flush(dbf_table *tbl)
     rt_memset(hdr, 0, DBF_HDR_SIZE);
 
     /* Version: 0x03 or 0x83. The memo bit comes from DBF_MEMO_VERSION_BIT so the
-     * DBF_MUTATE_VERSION mutant drops it (Rule 6). tbl->version already encodes
+     * mutants/dbf-mutate-version.patch mutant drops it (CLAUDE.md, The constitution). tbl->version already encodes
      * has_memo, but we recompute the bit so the mutant perturbation is local. */
     memo_bit = (tbl->version & 0x80u) ? DBF_MEMO_VERSION_BIT : 0x00u;
     hdr[DBF_HDR_VERSION_OFF] = (uint8_t)(DBF_VERSION_NO_MEMO | memo_bit);
 
-    hdr[DBF_HDR_YEAR_OFF]  = tbl->year;   /* from pal->today() (Rule 11) */
+    hdr[DBF_HDR_YEAR_OFF]  = tbl->year;   /* from pal->today() (CLAUDE.md, The constitution) */
     hdr[DBF_HDR_MONTH_OFF] = tbl->month;
     hdr[DBF_HDR_DAY_OFF]   = tbl->day;
     wr_u32le(hdr + DBF_HDR_NREC_OFF,       tbl->nrec);
@@ -1494,7 +1429,7 @@ int dbf_flush(dbf_table *tbl)
 /* ======================================================================== */
 
 /*
- * S1.5 MUTATION HOOK (Rule 6): when -DDBF_MUTATE_DELFLAG is defined,
+ * S1.5 MUTATION HOOK (CLAUDE.md, The constitution): when mutants/dbf-mutate-delflag.patch is defined,
  * dbf_delete writes 0x20 (live) instead of 0x2A (deleted). The mutation
  * perturbs a single constant: the byte written to the delete-flag slot.
  * The test asserts that after dbf_delete the flag byte reads back as 0x2A;
@@ -1507,11 +1442,7 @@ int dbf_flush(dbf_table *tbl)
  * Ref: plan S1.5 mutant spec "dbf_delete writes 0x20 instead of 0x2A";
  *      dbf.md sec 6; spec/ibase/dbf_format.h DBF_REC_DELETE_DELETED=0x2A.
  */
-#ifdef DBF_MUTATE_DELFLAG
-#  define DELETE_FLAG_BYTE  ((uint8_t)DBF_REC_DELETE_LIVE)   /* mutant: 0x20 */
-#else
 #  define DELETE_FLAG_BYTE  ((uint8_t)DBF_REC_DELETE_DELETED) /* correct: 0x2A */
-#endif
 
 /*
  * rec_ptr: return a pointer to the start of the record at 1-based recno in
@@ -1610,9 +1541,6 @@ int dbf_append_blank_commit(dbf_table *tbl)
     old = tbl->nrec;
     rc = dbf_append_blank(tbl);
     if (rc != DBF_OK) return rc;
-#ifdef IBASE_MUTATE_APPEND_REWRITE
-    return dbf_flush(tbl); /* mutant: damages prior records and +2 geometry */
-#endif
     offset = (uint32_t)tbl->header_length + old * tbl->record_length;
     if (tbl->pal->seek(tbl->pal,tbl->fd,(int32_t)offset,PAL_SEEK_SET) != (int32_t)offset) {
         rc = -DBF_ERR_WRITE; goto refused;
@@ -1627,18 +1555,14 @@ int dbf_append_blank_commit(dbf_table *tbl)
     wr_u32le(prior,old); wr_u32le(count,tbl->nrec);
     rc = write_result(tbl->pal->write(tbl->pal,tbl->fd,count,4u),4u);
     if (rc == DBF_OK) return DBF_OK;
-#ifndef IBASE_MUTATE_APPEND_COUNT
     /* A short four-byte write can tear 255 -> 256. Restore the committed
      * bytes in the already allocated header sector before returning. */
     if (tbl->pal->seek(tbl->pal,tbl->fd,DBF_HDR_NREC_OFF,PAL_SEEK_SET) != DBF_HDR_NREC_OFF ||
         write_result(tbl->pal->write(tbl->pal,tbl->fd,prior,4u),4u) != DBF_OK) {
         tbl->write_failed=1u; rc=-DBF_ERR_WRITE;
     }
-#endif
 refused:
-#ifndef IBASE_MUTATE_APPEND_MEMORY
     tbl->nrec=old;
-#endif
     return rc;
 }
 
@@ -1698,11 +1622,7 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
          * 2026-10-23-ibase L001; initech-ylqs). */
         if (!v || (v->t != XB_D && v->t != XB_U))
             return -DBF_ERR_MISMATCH;
-#ifndef IBASE_DT_MUTANT_blankwrite
         if (v->t == XB_D && !xb_date_blank(v->u.d)) {
-#else
-        if (v->t == XB_D) {   /* mutant: the blank date is formatted as a date */
-#endif
             int32_t y, m, d;
             uint8_t digits[8];
             ymd_from_jdn((int32_t)v->u.d, &y, &m, &d);
@@ -1718,11 +1638,7 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
             /* Using III+ U1-1; malformed descriptors still cannot write
              * outside their slot. Same bound as fmt_field (initech-ifpd). */
             rt_memset(dst, ' ', flen);
-#ifdef IBASE_CORE_MUTATE_DATE_WIDTH
-            rt_memcpy(dst, digits, 8u);
-#else
             rt_memcpy(dst, digits, flen < 8u ? flen : 8u);
-#endif
         } else {
             /* blank date / xb_u -> 8 spaces. flen is 8 (asserted at create). */
             rt_memset(dst, ' ', (uint32_t)flen);
@@ -1750,17 +1666,7 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
          * decimal pointer (dbt.md ss4/8). A raw text slot is the named mutant. */
         if (!v || v->t != XB_C)
             return -DBF_ERR_MISMATCH;
-#ifndef IBASE_CORE_MUTATE_MEMO_POINTER
         return -DBF_ERR_IO;
-#else
-        rt_memset(dst, ' ', (uint32_t)flen);
-        if (v->u.c.p) {
-            uint32_t n = (uint32_t)v->u.c.len;
-            if (n > (uint32_t)flen) n = (uint32_t)flen;
-            rt_memcpy(dst, v->u.c.p, n);
-        }
-        return DBF_OK;
-#endif
     }
 
     default:
@@ -1793,7 +1699,6 @@ int dbf_replace(dbf_table *tbl, uint32_t recno, int field, const xb_val *v)
     rec  = rec_ptr(tbl, recno);
     dst  = rec + foff;
 
-#ifndef IBASE_CORE_MUTATE_MEMO_POINTER
     if (f->type == 'M') {
         char path[sizeof(tbl->name)];
         uint32_t n = rt_strlen(tbl->name), base = n, dot = n, block;
@@ -1821,7 +1726,6 @@ int dbf_replace(dbf_table *tbl, uint32_t recno, int field, const xb_val *v)
         rt_memcpy(dst, pointer, 10u);
         return DBF_OK;
     }
-#endif
 
     /* Apply assignment coercion and write the formatted bytes.
      * Returns DBF_OK or -DBF_ERR_MISMATCH for cross-type. */
@@ -1841,7 +1745,7 @@ int dbf_delete(dbf_table *tbl, uint32_t recno)
 
     rec = rec_ptr(tbl, recno);
     /* Write the delete flag. DELETE_FLAG_BYTE is 0x2A normally; 0x20 with
-     * -DDBF_MUTATE_DELFLAG (the mutation hook; Rule 6). */
+     * mutants/dbf-mutate-delflag.patch (the mutation hook; CLAUDE.md, The constitution). */
     rec[0] = DELETE_FLAG_BYTE;
     return DBF_OK;
 }
@@ -1895,7 +1799,7 @@ int dbf_pack(dbf_table *tbl)
     if (!new_region)
         return -DBF_ERR_NOMEM;
 
-    /* Copy survivors in original record order (deterministic; Rule 11).
+    /* Copy survivors in original record order (deterministic; CLAUDE.md, The constitution).
      * A deleted record (flag == 0x2A) is skipped. Any other flag byte
      * that survived earlier validation is treated as live (defensive). */
     {

@@ -1,0 +1,7 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2380,0 +2381,3 @@
++    /* CLAUDE.md, The constitution: the generic gates supply the lowercase case-name spelling.
++     * Perturb only FKLABEL(1), returning F3 in place of the real F2. */
++    if (key == 1) key = 2;

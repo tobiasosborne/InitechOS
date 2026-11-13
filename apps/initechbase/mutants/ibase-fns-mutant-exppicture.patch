@@ -1,0 +1,5 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2081,0 +2082 @@
++    result += 1.0; /* CLAUDE.md, The constitution: the EXP transcript must catch this perturbation. */

@@ -1,0 +1,21 @@
+# test: test_ndx_parse
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -587,7 +587,10 @@
+-    /* Correct sub-layout per ndx.md ss3.1 / spec/ibase/ndx_format.h NDX_GRP_*:
+-     *   child_page at  NDX_GRP_CHILD_PAGE_OFF = 0x00
+-     *   dbf_recno  at  NDX_GRP_DBF_RECNO_OFF  = 0x04
+-     *   key_data   at  NDX_GRP_KEY_DATA_OFF   = 0x08  */
+-    const uint32_t child_off_in_grp = (uint32_t)NDX_GRP_CHILD_PAGE_OFF;
+-    const uint32_t recno_off_in_grp = (uint32_t)NDX_GRP_DBF_RECNO_OFF;
+-    const uint32_t key_off_in_grp   = (uint32_t)NDX_GRP_KEY_DATA_OFF;
++    /* MUTATED layout -- implements clicketyclick's wrong "Size of key record
++     * as 4-byte long at bytes 18-21, unique at 23" sub-layout.
++     * child_page read from the dbf_recno slot (+4), dbf_recno from +0,
++     * key_data shifted to +12 instead of +8.
++     * [ndx.md Open questions: "the real bytes contradict it; see Open questions.
++     *  Recorded here so no one re-imports the bad layout."]
++     * Under this mutation every parsed field mismatches -> oracle goes RED. */
++    const uint32_t child_off_in_grp = (uint32_t)NDX_GRP_DBF_RECNO_OFF;    /* SWAPPED */
++    const uint32_t recno_off_in_grp = (uint32_t)NDX_GRP_CHILD_PAGE_OFF;   /* SWAPPED */
++    const uint32_t key_off_in_grp   = (uint32_t)NDX_GRP_KEY_DATA_OFF + 4u; /* SHIFTED */

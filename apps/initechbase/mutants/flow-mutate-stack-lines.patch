@@ -1,0 +1,28 @@
+# test: test_ibase_ctl
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -2000,19 +2000,5 @@
+-    flow_line  small_lines[FLOW_STACK_LINES];
+-    line_kind  small_kind[FLOW_STACK_LINES];
+-    ibase_pal_t *pal;
+-    void *blk;
+-    int rc;
+-    if (n <= FLOW_STACK_LINES)
+-        return flow_exec_lines(ip, fs, prg, plen, n, small_lines, small_kind);
+-    pal = xb_interp_pal(ip);
+-    blk = (pal && pal->acquire)
+-        ? pal->acquire(pal, (uint32_t)n * (uint32_t)(sizeof(flow_line) + sizeof(line_kind)))
+-        : (void *)0;
+-    if (!blk) {
+-        fs->last_error = 43;                /* Insufficient memory. */
+-        return -INTERP_ERR_NOMEM;
+-    }
+-    rc = flow_exec_lines(ip, fs, prg, plen, n, (flow_line *)blk,
+-                         (line_kind *)((flow_line *)blk + n));
+-    pal->release(pal, blk);
+-    return rc;
++    /* MUTANT (CLAUDE.md, The constitution): the pre-review per-call stack tables. A 500-line
++     * recursive procedure then overruns the 64 KiB guest stack. */
++    flow_line  vla_lines[n > 0 ? n : 1];
++    line_kind  vla_kind[n > 0 ? n : 1];
++    return flow_exec_lines(ip, fs, prg, plen, n, vla_lines, vla_kind);

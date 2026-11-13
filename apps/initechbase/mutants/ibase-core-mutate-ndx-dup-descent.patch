@@ -1,0 +1,50 @@
+# test: test_ibase_core
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -1919,27 +1918,0 @@
+-/* subtree_high: the (key, recno) of the LAST entry under PAGE_NO (follow the
+- * trailing children to the rightmost leaf). -NDX_ERR_NOTFOUND if that leaf is
+- * empty. */
+-static int subtree_high(ndx_index *idx, uint32_t page_no, uint8_t *key_out,
+-                        uint32_t *recno_out)
+-{
+-    uint8_t  page[NDX_PAGE_SIZE];
+-    uint32_t guard = 0u;
+-    for (;;) {
+-        uint16_t n;
+-        int rc = read_raw_page(idx, page_no, page);
+-        if (rc != NDX_OK) return rc;
+-        n = u16le(page + NDX_NODE_ENTRY_COUNT_OFF);
+-        if (n > idx->keys_per_page) return -NDX_ERR_BAD_PAGE;
+-        if (!page_is_branch(page)) {
+-            uint32_t off;
+-            if (n == 0u) return -NDX_ERR_NOTFOUND;
+-            off = slot_off(idx, (uint32_t)n - 1u);
+-            rt_memcpy(key_out, page + off + NDX_GRP_KEY_DATA_OFF,
+-                      (uint32_t)idx->key_length);
+-            *recno_out = u32le(page + off + NDX_GRP_DBF_RECNO_OFF);
+-            return NDX_OK;
+-        }
+-        page_no = u32le(page + slot_off(idx, n) + NDX_GRP_CHILD_PAGE_OFF);
+-        if (page_no == 0u || ++guard > NDX_MAX_DEPTH) return -NDX_ERR_CYCLE;
+-    }
+-}
+@@ -1997,0 +1971 @@
++    (void)hk;
+@@ -2022,16 +1995,0 @@
+-            if (cmp == 0) {
+-                /* Equal separator (a duplicate key). Branch recnos are zero
+-                 * (ndx.md ss3.1), so recover the subtree's upper (key,recno)
+-                 * pair and go further right when the new recno sorts after it:
+-                 * equal keys stay in ascending recno order across leaves
+-                 * (ndx.md ss5; initech-nrkx/68ox). Not minted [inferred]. */
+-                uint32_t hr = 0u;
+-                int hc;
+-                rc = subtree_high(idx, u32le(page + slot_off(idx, i)
+-                                             + NDX_GRP_CHILD_PAGE_OFF), hk, &hr);
+-                if (rc == -NDX_ERR_NOTFOUND) continue;
+-                if (rc != NDX_OK) return rc;
+-                hc = ndx_key_cmp(idx, hk, key_data);
+-                if (hc < 0 || (hc == 0 && recno > hr))
+-                    continue;
+-            }

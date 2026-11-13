@@ -1,0 +1,11 @@
+# test: test_ibase_ctl
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -1289,5 +1288,0 @@
+-    if (rc == INTERP_RC_RETRY) {
+-        if (ec) *ec = 0;
+-        *retry = 1;
+-        return INTERP_OK;
+-    }
+@@ -1298 +1292,0 @@
+-    if (t == 2) *retry = 1;

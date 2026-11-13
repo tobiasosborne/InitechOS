@@ -1,0 +1,6 @@
+# test: test_ibase_w2
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -152 +152 @@
+-    if (!ss || !ss->dohistory || !ss->history_on || !ss->hist_cap) return INTERP_OK;
++    if (!ss || !ss->history_on || !ss->hist_cap) return INTERP_OK;   /* MUTANT: ignore DOHISTORY */

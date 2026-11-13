@@ -1,0 +1,21 @@
+# test: test_interp_flow
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -506 +506,16 @@
+-    return xb_interp_cond(ip, expr, truth, ec);   /* #37 when not Logical */
++    /* MUTANT (CLAUDE.md, The constitution -- mutants/flow-mutate-guard-truthy.patch): accept a non-Logical guard
++     * as truthiness (N != 0, non-empty C) instead of failing loud #37. This
++     * breaks the guard-must-be-Logical rule -> the oracle's guard-type-error
++     * checks go RED. */
++    xb_val v;
++    int rc = xb_interp_eval(ip, expr, &v, ec);
++    if (rc != INTERP_OK)
++        return rc;
++    switch (v.t) {
++    case XB_L: *truth = v.u.l ? 1 : 0; break;
++    case XB_N: *truth = (v.u.n != 0.0) ? 1 : 0; break;
++    case XB_C: *truth = (v.u.c.len > 0u) ? 1 : 0; break;
++    default:   *truth = 0; break;
++    }
++    if (ec) *ec = 0;
++    return INTERP_OK;

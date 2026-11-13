@@ -2,11 +2,11 @@
  * os/ibase/ibase_main.c -- IBASE (InitechBase) dot-prompt REPL.
  *                          Step S5.8 (Phase 5 convergence finale; initech-7az.9).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): freestanding (-ffreestanding -nostdlib). Uses
  * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of I/O is through the PAL vtable carried by the interpreter. Memory comes
- * from the PAL arena (no malloc). ASCII-clean (Rule 12). Fail loud (Rule 2).
- * Reproducible (Rule 11): pure function of (typed lines, interp state, the
+ * from the PAL arena (no malloc). ASCII-clean (CLAUDE.md, The constitution). Fail loud (CLAUDE.md, The constitution).
+ * Reproducible (CLAUDE.md, The constitution): pure function of (typed lines, interp state, the
  * injected clock).
  *
  * dBASE III PLUS 1.1 ONLY (docs/plans/IBASE-implementation-plan.md Sec 2.C).
@@ -57,16 +57,16 @@
  *   PAL, supplied by whoever links it -- pal_host on the factory, pal_dos on
  *   InitechDOS at S8.2); it is NOT compiled into the oracle or the freestanding check.
  *
- * Mutation hooks (Rule 6 -- the oracle's mutant siblings):
- *   -DREPL_MUTATE_NO_MUTATE_MODULE : skip registering the mutate module, so a
+ * Fault patches (CLAUDE.md, The constitution):
+ *   mutants/repl-mutate-no-mutate-module.patch : skip registering the mutate module, so a
  *       REPLACE typed in the session fails (#16 unrecognized) -> the oracle's
  *       "REPLACE changed the field" assertions go RED (both the convergence
  *       session and the plain-USE-REPLACE-persists leg, initech-7az.19).
- *   -DREPL_MUTATE_ERR_RENDER : render code+1 instead of code, so the catalog
+ *   mutants/repl-mutate-err-render.patch : render code+1 instead of code, so the catalog
  *       message text for a forced error no longer matches -> the oracle's
  *       error-text assertion goes RED.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S5.8 ("read line via PAL, parse,
  *     execute, render via the 151-code error catalog") + Sec 8.2 (ibase_repl).
  *   - os/ibase/include/ibase/interp.h (ibase_repl decl; ibase_do; the hook chain;
@@ -155,7 +155,7 @@ static uint32_t repl_uitoa(uint32_t v, char *buf)
  * repl_render_error: emit "<code>  <message>" + newline for a dBASE catalog
  * ordinal (1..151). An out-of-range code (the engine's small interp_err
  * ordinals, or 0) renders a generic line so the loop never silently swallows a
- * failure (Rule 2). The -DREPL_MUTATE_ERR_RENDER mutant perturbs the looked-up
+ * failure (CLAUDE.md, The constitution). The mutants/repl-mutate-err-render.patch mutant perturbs the looked-up
  * code by +1 so the message text no longer matches (the oracle bites).
  */
 static void repl_render_error(ibase_pal_t *pal, int code)
@@ -163,9 +163,6 @@ static void repl_render_error(ibase_pal_t *pal, int code)
     char num[12];
     int lookup = code;
 
-#ifdef REPL_MUTATE_ERR_RENDER
-    lookup = code + 1;   /* MUTANT: wrong catalog code -> wrong message text */
-#endif
 
     repl_uitoa((uint32_t)(code < 0 ? -code : code), num);
     repl_puts(pal, num);
@@ -327,7 +324,7 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
                 il.count++;
             }
         } else {
-            /* an unrecognized USE clause word -- fail loud (Rule 2). */
+            /* an unrecognized USE clause word -- fail loud (CLAUDE.md, The constitution). */
             (void)save;
             if (ec) *ec = 36;                /* Unrecognized phrase/keyword */
             return -INTERP_ERR_SYNTAX;
@@ -335,13 +332,10 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
     }
 
     /* Ref: Using dBase III Plus.pdf U1-4: omitted extension defaults to .DBF. */
-#ifndef IBASE_MUTATE_USE_EXTENSION
     if (repl_default_ext(file, sizeof file, ".DBF") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
-#endif
     /* An index named without an extension is <name>.NDX: real dBASE III PLUS
      * 1.1 opens TRIPS.NDX for USE TRAVEL INDEX TRIPS (mint 005 M005U [U1],
      * dbase3-decomp/re/mint-results-005.md; initech-vfys). */
-#ifndef IBASE_MUTATE_USE_NDX_EXTENSION
     {
         int k;
         for (k = 0; k < il.count; k++) {
@@ -351,12 +345,9 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
             ndx_io_name(idxbuf[k]);
         }
     }
-#endif
 
-#ifndef IBASE_MUTATE_DUPLICATE_OPEN
     /* Ref: Using III+ U7-7, #3. Refuse before closing the selected area. */
     if (wa_name_is_open(env,file,area)) { if(ec)*ec=3;return -INTERP_ERR_EVAL; }
-#endif
     /* dBASE USE replaces the table in the current area: close it first. */
     wa_nav_reset(area);
     wa_close(env, area);
@@ -372,12 +363,8 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
          * The engine returns negated wa/codec codes;
          * we map to the user-facing catalog ordinal. */
         if (ec) {
-#ifndef IBASE_MUTATE_USE_ERROR
             *ec = rc == -WA_ERR_ALREADY_OPEN ? 3 : rc == -DBF_ERR_NOENT ? 1 :
                   (rc == -DBF_ERR_ACCESS || rc == -DBF_ERR_IO) ? 29 : 15;
-#else
-            *ec = 15;
-#endif
         }
         return -INTERP_ERR_EVAL;
     }
@@ -399,12 +386,10 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
      * USE TRAVEL INDEX TRIPS, 2 after USE AVAL_FLT INDEX AVAL_FLT, FLT_NO and 6
      * after INDEX FLT_NO, AVAL_FLT (mint 005 M005U [U1]/[U4]/[U5],
      * mint-results-005.md; initech-k7lc). Natural-order USE stays on record 1. */
-#ifndef IBASE_MUTATE_USE_INDEX_TOP
     if (wa_index_count(env, area) > 0 && wa_nav_index_top(env, area) != NAV_OK) {
         if (ec) *ec = 114;                    /* Index damaged */
         return -INTERP_ERR_EVAL;
     }
-#endif
     return INTERP_OK;
 }
 
@@ -417,9 +402,6 @@ static int repl_do_close(xb_interp *ip, const char *args, int *ec)
     if (!repl_word(&p,type,sizeof type) || repl_word(&p,extra,sizeof extra)) {
         *ec=10;return -INTERP_ERR_SYNTAX;
     }
-#ifdef IBASE_DML_MUTANT_close
-    wa_close_all(xb_interp_env(ip));return INTERP_OK;
-#endif
     /* `type` is one repl_word token (no blank inside), so the leading-word
      * match repl_verb_eq made is the whole-token match of rt_kw_index. */
     k=rt_kw_index(type,"ALL\0DATABASES\0INDEX\0FORMAT\0PROCEDURE\0ALTERNATE\0");
@@ -456,7 +438,7 @@ static int repl_area_hook(void *user,xb_interp *ip,const char *verb,
  * interp's hook chain, in dispatch order query -> mutate -> set -> proc. Returns
  * INTERP_OK if all registered, or the first negative interp_err.
  *
- * The -DREPL_MUTATE_NO_MUTATE_MODULE mutant SKIPS the mutate module, so a typed
+ * The mutants/repl-mutate-no-mutate-module.patch mutant SKIPS the mutate module, so a typed
  * REPLACE is then unrecognized (#16) -> the oracle bites.
  */
 static int repl_register_modules(xb_interp *ip)
@@ -469,10 +451,8 @@ static int repl_register_modules(xb_interp *ip)
     rc = query_register(ip);
     if (rc != INTERP_OK) return rc;
 
-#ifndef REPL_MUTATE_NO_MUTATE_MODULE
     rc = mutate_register(ip);
     if (rc != INTERP_OK) return rc;
-#endif
 
     rc = set_register(ip);
     if (rc != INTERP_OK) return rc;

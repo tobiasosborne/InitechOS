@@ -1,0 +1,10 @@
+# test: test_ibase_say
+--- a/core/screen.c
++++ b/core/screen.c
+@@ -118,3 +118,3 @@
+-    /* Real III+ at-say-edge/edge: bottom overflow advances the BIOS
+-     * cursor to (25,3), but neither paints hidden bytes nor scrolls. */
+-    if(s->row<25) s->row++;
++    if(s->row<24) { s->row++;return; }
++    s->row=24;
++    scroll(s,24);

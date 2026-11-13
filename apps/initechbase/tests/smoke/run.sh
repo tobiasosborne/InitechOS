@@ -6,8 +6,9 @@ out=$root/build/apps/initechbase/smoke
 src=$root/apps/initechbase
 mkdir -p "$out"
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1 MTOOLS_SKIP_CHECK=1
-fail() { echo "FAIL $*" >&2; exit 1; }
-line() { grep -Fx -- "$2" "$1" >/dev/null || fail "missing [$2] in $1"; echo "ok $emulator: $2"; }
+checks=0
+fail() { echo "FAIL $*" >&2; echo "InitechBase SMOKE: $checks checks completed, 1 failure" >&2; exit 1; }
+line() { grep -Fx -- "$2" "$1" >/dev/null || fail "missing [$2] in $1"; echo "ok $emulator: $2"; checks=$((checks+1)); }
 for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
  dir=$out/$emulator
  mkdir -p "$dir"
@@ -36,7 +37,7 @@ for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
  build/factory/keys < "$src/tests/smoke/session.txt" > "$dir/keys"
  extra=
  if [ "$emulator" = bochs ]; then
-  extra='--vga-ext none'
+  extra='--vga-ext none --rtc-time0 699440400'
   sed -i 's/ret/ret,w1000/g' "$dir/keys"
  fi
  if ! build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" \
@@ -49,18 +50,19 @@ for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
  if [ "$emulator" = qemu ]; then
   grep -F 'triple_fault=0 cpu_reset=2 guest_errors=0' "$dir/report" || fail 'QEMU faults'
   test "$(grep -c 'CPU Reset' "$dir/run.qemu.log")" -eq 2 || fail 'QEMU resets'
-  if grep -Ei 'triple fault|check_exception old: 0x8' "$dir/run.qemu.log"; then fail 'QEMU fault trace'; fi
+  if grep -Ei 'triple fault|check_exception old:' "$dir/run.qemu.log"; then fail 'QEMU fault trace'; fi
  else
   grep -Fx '[bochs] triple_fault=0' "$dir/report" || fail 'Bochs fault'
  fi
  # Literal lines come from real III+ captures; remove only transport CR/EOF.
+ checks=$((checks+1)) # the emulator fault verdict above
  tr -d '\r\032' < "$src/tests/xbase_prog_diff/mint/prog-mint/query/REAL.OUT" |
   sed -n '/^Record#/,/^      4/p' > "$dir/list.expected"
  while IFS= read -r expected; do line "$dir/serial.txt" "$expected"; done < "$dir/list.expected"
  tr -d '\r\032' < "$src/tests/xbase_prog_diff/mint/golden/index/GOLD.OUT" |
   sed 's/\[DML-BEGIN\]//; s/\[DML-END\]//' | sed '/^$/d' > "$dir/index.expected"
  printf "\n" >> "$dir/index.expected"
- while IFS= read -r expected; do line "$dir/serial.txt" "$expected"; done < "$dir/index.expected"
+ while IFS= read -r expected; do test -z "$expected" || line "$dir/serial.txt" "$expected"; done < "$dir/index.expected"
  while IFS= read -r expected; do
   test -z "$expected" || line "$dir/serial.txt" "$expected"
  done < "$src/tests/canon/y2k_accounting.out"
@@ -70,10 +72,13 @@ for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
  python3 "$src/tests/dbf_ref.py" --records "$dir/RESULT.DBF" > "$dir/records.txt"
  diff -u "$src/tests/xbase_prog_diff/mint/prog-mint/mutate/PARTS.records" "$dir/records.txt" || fail 'persisted REPLACE/APPEND/DELETE'
  echo "ok $emulator: mtools + independent DBF reader: all five records (REPLACE/APPEND/DELETE)"
+ checks=$((checks+1))
  mcopy -o -i "$disk" ::APPS/NAMES.NDX "$dir/NAMES.NDX"
  python3 "$src/tests/ndx_ref.py" --index-dump "$dir/NAMES.NDX" > "$dir/index.txt"
  python3 "$src/tests/ndx_ref.py" --index-dump "$src/tests/xbase_prog_diff/mint/golden/index/NAMES.NDX" > "$dir/index.want"
  diff -u "$dir/index.want" "$dir/index.txt" || fail 'persisted INDEX'
  echo "ok $emulator: mtools + independent NDX reader: index matches real III+"
+ checks=$((checks+1))
  echo "$emulator: InitechBase smoke GREEN (8 MiB)"
 done
+echo "InitechBase SMOKE: $checks checks, 0 failures (QEMU then Bochs at 8 MiB)"

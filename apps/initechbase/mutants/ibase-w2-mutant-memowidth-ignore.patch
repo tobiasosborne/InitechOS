@@ -1,0 +1,6 @@
+# test: test_ibase_w2
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -242 +242 @@
+-    return (ctx && ctx->memo_width1) ? (uint32_t)(ctx->memo_width1 - 1u) : 50u;
++    (void)ctx; return 50u;

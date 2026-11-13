@@ -3,7 +3,7 @@
 ; beads: initech-ap5g (IBASE InitechDOS integration -- the freestanding link
 ;        toolchain). ADR-0009 DEC-01/DEC-05.
 ;
-; Ref (Law 1):
+; Ref (CLAUDE.md, The constitution):
 ;   spec/memory_map.h : PROGRAM_IMAGE = 0x00040100 (the .COM load + entry
 ;     address; the loader JMPs to the first byte of the image). PROGRAM_STACK_TOP
 ;     = 0x0007FFFC (the initial program ESP).
@@ -12,7 +12,7 @@
 ;     PROGRAM_STACK_TOP) BEFORE the `jmp` to the program entry. So the loader
 ;     ALREADY sets ESP -- this stub does NOT depend on its own ESP setup. We set
 ;     ESP defensively anyway (see below) so a direct/standalone load path that
-;     forgets the stack still works (fail-safe, Rule 2).
+;     forgets the stack still works (fail-safe, CLAUDE.md, The constitution).
 ;   os/dos/kstart.asm : THE PRECEDENT -- a 32-bit nasm entry stub linked
 ;     first that sets ESP, calls a C entry, and guards with a hlt-loop. This
 ;     mirrors it at org 0x40100 and ADDS .bss zeroing (DEC-05).
@@ -30,7 +30,7 @@
 ;       this citation (DOS terminate-with-return-code; the loader's INT 21h
 ;       AH=4Ch exit hook in os/dos/loader.c unwinds back to the kernel).
 ;
-; Reproducible (Rule 11): no timestamps. ASCII-clean (Rule 12).
+; Reproducible (CLAUDE.md, The constitution): no timestamps. ASCII-clean (CLAUDE.md, The constitution).
 
 bits 32
 
@@ -80,16 +80,16 @@ _start:
     ; (d) Terminate. AH=4Ch, AL = exit code = the low byte of the int the entry
     ; returns in EAX: 0 after QUIT, 1 when the operator aborted at the
     ; overlays' "Insert System Disk" prompt (initech-5etom.1; os/ibase/core/
-    ; ovl.c). Deterministic either way (Rule 11).
+    ; ovl.c). Deterministic either way (CLAUDE.md, The constitution).
     mov     ah, DOS_FN_EXIT         ; AH = 0x4C  (spec: see DOS_FN_EXIT above)
     int     DOS_INT                 ; INT 0x21 -- terminate with return code
 
 .hang:
-    ; Not reached: INT 21h AH=4Ch does not return. Fail-loud guard (Rule 2) in
+    ; Not reached: INT 21h AH=4Ch does not return. Fail-loud guard (CLAUDE.md, The constitution) in
     ; case the exit hook is somehow unbound.
     hlt
     jmp     .hang
 
 ; Mark the stack non-executable (silences the ld GNU-stack warning). Harmless
-; for a flat binary; good hygiene. ASCII-only (Rule 12).
+; for a flat binary; good hygiene. ASCII-only (CLAUDE.md, The constitution).
 section .note.GNU-stack noalloc noexec nowrite progbits

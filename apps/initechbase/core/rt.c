@@ -1,7 +1,7 @@
 /*
  * os/ibase/core/rt.c -- IBASE freestanding runtime.
  *
- * THE ARTIFACT (CLAUDE.md Law 3): this file MUST compile freestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): this file MUST compile freestanding
  * (-ffreestanding -nostdlib -fno-stack-protector -fno-pic -std=c11
  *  -Wall -Wextra -Werror -c). No libc includes, no <math.h>.
  *
@@ -19,12 +19,12 @@
  *      transcript -- STR(2.5,2,0)="3", STR(-2.5,2,0)="-2". [verified]
  *      Overflow: '*'-fill (minted OTEST.DBF). [verified]
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S0.3.
  *   - dbase3-decomp/re/mint-results-001.md (rounding, overflow).
  *   - dbase3-decomp/specs/file-formats/ndx.md sec 4.2 (JDN).
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths (CLAUDE.md, The constitution).
  */
 
 #include <stdint.h>
@@ -430,11 +430,7 @@ static int dec_format_core(double v, int width, int dec, char *out, int even)
      * width, as real III+ does (DT1 B4). initech-ylqs. */
     {
         double mag = v < 0.0 ? -v : v;
-#ifndef IBASE_DT_MUTANT_cutoff
         if (!(mag * (double)pow10_tbl[dec] + 0.5 < 9223372036854775808.0)) {
-#else
-        if (!(mag * (double)pow10_tbl[dec] < 9.2e18)) {   /* mutant: early cutoff */
-#endif
             int i;
             for (i = 0; i < width; i++) out[i] = '*';
             return width;
@@ -445,14 +441,6 @@ static int dec_format_core(double v, int width, int dec, char *out, int even)
      * Safe for |v| < 2^53 / 10^dec -- well within dBASE N-field range. */
     if (even == 2) {
         scaled = display_scaled(v, dec);
-#ifdef IBASE_FNS_MUTANT_numconvert
-        /* Regression: preserve nearest-even but round the product to
-         * binary64 first, turning SQRT(.999999999) into a false tie. */
-        double x = v * (double)pow10_tbl[dec];
-        scaled = rt_floor64(x);
-        double fraction = x - (double)scaled;
-        if (fraction > 0.5 || (fraction == 0.5 && scaled % 2 != 0)) scaled++;
-#endif
     } else if (even) {
         /* The DBF/picture conversion uses nearest-even, unlike STR.
          * Real III+ datatype-mint DT6: N1..N4 (+/-1.25 -> +/-1.2),
@@ -570,9 +558,6 @@ int dec_format_fit(double v, int width, int dec, char *out, int ties_even)
     for (;;) {
         dec_format_core(v, width, dec, out, ties_even);
         if (width <= 0 || out[0] != '*' || dec == 0) return width;
-#ifdef IBASE_DT_MUTANT_numericfit
-        return width; /* mutant: discard a number whose integer part fits */
-#endif
         dec--;
     }
 }
@@ -589,9 +574,6 @@ int dec_format_display(double v, int width, int dec, char *out)
     for (i = 0; i < pad; i++) out[i] = ' ';
     out += pad;
     dec_format_fit(v, field, dec, out, 2);
-#ifdef IBASE_FNS_MUTANT_matrixb
-    return width; /* regression: star-fill instead of scientific fallback */
-#endif
     if (field < 7 || out[0] != '*' || !(mag > 0.0 && mag < 1e99))
         return width;
     while (mag >= 1.0) { mag /= 10.0; exponent++; }

@@ -1,0 +1,5 @@
+# test: test_ibase_use
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -483 +482,0 @@
+-        if(h==off_at) h=q_skip_ws(h+3);

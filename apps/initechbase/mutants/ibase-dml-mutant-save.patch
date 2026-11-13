@@ -1,0 +1,5 @@
+# test: test_ibase_dml
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -1030,0 +1031 @@
++            h[11]='C'|128; /* corrupt the saved scalar type, not the oracle */

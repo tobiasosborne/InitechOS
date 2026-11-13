@@ -1,0 +1,7 @@
+# test: test_ibase_ovl_lifetime
+--- a/cmd/report.c
++++ b/cmd/report.c
+@@ -587,0 +588,3 @@
++    /* MUTANT (CLAUDE.md, The constitution; test-ibase-ovl-static-mutant only): resident code names
++     * an overlay function -- the link must refuse (NOCROSSREFS_TO). */
++    if (!verb[0]) return (int)(uintptr_t)(void *)rp_run;

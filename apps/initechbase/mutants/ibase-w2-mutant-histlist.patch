@@ -1,0 +1,6 @@
+# test: test_ibase_w2
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1616 +1616 @@
+-        const char *e=ss->hist[(ss->hist_next+i)%ss->hist_cap];
++        const char *e=ss->hist[i];   /* MUTANT: list from slot 0, not the oldest */

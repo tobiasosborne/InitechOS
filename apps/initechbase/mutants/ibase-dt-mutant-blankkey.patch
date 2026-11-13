@@ -1,0 +1,6 @@
+# test: test_ibase_datatype
+--- a/core/value.c
++++ b/core/value.c
+@@ -76,2 +75,0 @@
+-    if (xb_date_blank(jdn))
+-        return 1e100;   /* real III+ BLANKDAT.NDX blank-date key */

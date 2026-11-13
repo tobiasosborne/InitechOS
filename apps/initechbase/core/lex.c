@@ -1,7 +1,7 @@
 /*
  * os/ibase/core/lex.c -- IBASE xBase III+ expression lexer (S3.1).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib -fno-stack-protector -fno-pic -std=c11 -Wall -Wextra -Werror).
  * Only <stdint.h> and rt.h/eval.h are included. No libc, no PAL, no INT 21h.
  *
@@ -95,15 +95,15 @@
  * Whitespace: ASCII space (0x20) and tab (0x09) are skipped between tokens.
  *
  * -------------------------------------------------------------------------
- * MUTATION HOOK (Rule 6):
+ * MUTATION HOOK (CLAUDE.md, The constitution):
  *
- * Compile with -DXB_MUTATE_LEX to enable a single perturbation: the lexer
+ * Compile with mutants/xb-mutate-lex.patch to enable a single perturbation: the lexer
  * ACCEPTS == (treats it as a valid EQ token) instead of rejecting it with
  * XBLE_EQ_EQ. The unit test's "== -> lex error" assertion then goes RED,
  * proving the test can catch the regression.
  *
  * -------------------------------------------------------------------------
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S3.1, sec.2.C, sec.3.3
  *   - ../dbase3-decomp/specs/language/expressions-and-operators.md sec.2-6
  *   - ../dbase3-decomp/specs/language/coercion-table.md sec.2 (op inventory)
@@ -111,7 +111,7 @@
  *   - spec/ibase/xbase_coercion.json not_in_iii_plus
  *   - re/mint-results-002.md (== not in III+ confirmed by omission)
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths (CLAUDE.md, The constitution).
  */
 
 #include <stdint.h>
@@ -404,21 +404,7 @@ int xb_lex(const char *src, uint32_t len,
 
         /* == -- dBASE IV operator; III+ lex error (plan sec.2.C, sec.3.3) */
         if (c == '=' && i + 1 < len && src[i + 1] == '=') {
-#ifdef XB_MUTATE_LEX
-            /*
-             * MUTATION HOOK (Rule 6): treat == as a valid EQ token instead
-             * of rejecting it. This makes the "== -> lex error" test go RED,
-             * proving the assertion can catch this regression.
-             * Compile with -DXB_MUTATE_LEX to activate.
-             */
-            {
-                xb_token t;
-                t.type = XBT_EQ; t.offset = i; t.len = 2; t.u.l = 0;
-                i += 2; EMIT(t); continue;
-            }
-#else
             EMIT_ERR(XBLE_EQ_EQ, i, 2);
-#endif
         }
 
         /* != -- not a III+ operator (coercion.json not_in_iii_plus) */

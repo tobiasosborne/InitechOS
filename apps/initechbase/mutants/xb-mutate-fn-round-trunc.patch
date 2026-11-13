@@ -1,0 +1,21 @@
+# test: test_xbase_fn_b
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -757,0 +758,9 @@
++    /*
++     * MUTATION (CLAUDE.md, The constitution, initech-eyig): revert to the pre-fix bare (int64_t)
++     * truncating cast (truncates toward zero instead of flooring), so
++     * negative-operand ROUND cases go wrong again -- ROUND(-2.7,0) would
++     * return -2.0 instead of the correct -3.0. Compile with
++     * mutants/xb-mutate-fn-round-trunc.patch. Positive-operand cases are UNAFFECTED by
++     * this mutant (truncation == floor for v >= 0), matching the fact that
++     * the original bug never manifested on positive input.
++     */
+@@ -759,2 +768 @@
+-        /* Round to `dec` decimal places. PROVISIONAL: ties -> +inf. */
+-        rounded = (double)rt_floor64(v * scale + 0.5) / scale;
++        rounded = (double)(int64_t)(v * scale + 0.5) / scale;
+@@ -762,2 +770 @@
+-        /* Round to |dec| whole-number places (e.g. dec=-2 -> nearest 100). */
+-        rounded = (double)rt_floor64(v / scale + 0.5) * scale;
++        rounded = (double)(int64_t)(v / scale + 0.5) * scale;

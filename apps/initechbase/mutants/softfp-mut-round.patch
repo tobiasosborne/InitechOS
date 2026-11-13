@@ -1,0 +1,10 @@
+# test: test_ibase_softfp
+--- a/boot/softfp.c
++++ b/boot/softfp.c
+@@ -212 +212,5 @@
+-    if (round_bit && (sticky || (mant & 1ULL)))
++    /* MUTANT (CLAUDE.md, The constitution): always round up on a set round bit -- drops the
++     * round-half-to-even tie-break (sticky-or-LSB-parity check). Wrong at
++     * exact tie boundaries; must turn test_ibase_softfp RED. */
++    (void)sticky;
++    if (round_bit)

@@ -1,0 +1,11 @@
+# test: test_ibase_use
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -1708,0 +1709,7 @@
++    /* MUTATION (CLAUDE.md, The constitution): at EOF, report RECCOUNT() instead of RECCOUNT()+1.
++     * The grounded assertion "RECNO()==RECCOUNT()+1 at EOF" then goes RED,
++     * proving the oracle catches a break in the load-bearing EOF rule
++     * (system-and-database-functions.md RECNO()/EOF()). Exactly one branch. */
++    if (ctx->dbcur->eof(ctx->dbcur_user) && r > 0u) {
++        r -= 1u;
++    }

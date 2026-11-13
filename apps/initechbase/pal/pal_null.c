@@ -1,18 +1,18 @@
 /*
  * os/ibase/pal/pal_null.c -- the null/stub PAL binding.
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding-legal. Includes ONLY ibase/pal.h
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): freestanding-legal. Includes ONLY ibase/pal.h
  * (which pulls <stdint.h>). NO libc -- this is the proof that the ibase_pal
  * contract (S0.1) is COMPLETE and LINKABLE without any platform support: a
- * binding that every slot fills, returning a PAL error (fail loud, Rule 2) or
+ * binding that every slot fills, returning a PAL error (fail loud, CLAUDE.md, The constitution) or
  * doing nothing, depending only on the contract itself. The real bindings
  * (pal_host.c S0.2, pal_dos.c S8.1) replace it.
  *
- * Ref (Law 1): IBASE-implementation-plan.md S0.1 oracle ("a pal_null impl
+ * Ref (CLAUDE.md, The constitution): IBASE-implementation-plan.md S0.1 oracle ("a pal_null impl
  * links; header is self-contained"); ADR-0008 Sec 5 (the contract is authored
  * on ratification).
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths (CLAUDE.md, The constitution).
  */
 #include "ibase/pal.h"
 
@@ -113,7 +113,7 @@ static int     null_paint(ibase_pal_t *p, uint8_t row, uint8_t col,
  * longer shift its neighbours into the wrong type (wave-1 review, 2026-10-25).
  * Designated initializers do not warn on an omitted slot, so completeness is
  * pinned by the slot count below: a member added to pal.h fails this build
- * until it is bound here AND counted (Rule 2: fail at compile time). */
+ * until it is bound here AND counted (CLAUDE.md, The constitution: fail at compile time). */
 #define IBASE_PAL_SLOTS 33u
 _Static_assert(sizeof(ibase_pal_t) == IBASE_PAL_SLOTS * sizeof(void (*)(void)),
                "ibase_pal gained or lost a slot: bind it in ibase_pal_null and update IBASE_PAL_SLOTS");

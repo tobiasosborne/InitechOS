@@ -1,0 +1,6 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2218,0 +2219,2 @@
++    /* Intentional off-by-one: the golden's indexed NDX(1) line must catch it. */
++    slot++;

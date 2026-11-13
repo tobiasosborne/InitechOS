@@ -1,0 +1,6 @@
+# test: test_ibase_w2
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -2397 +2397 @@
+-                   idx->unique_flag != 0u);
++                   0);   /* mutant: REINDEX forgets the index's own uniqueness */

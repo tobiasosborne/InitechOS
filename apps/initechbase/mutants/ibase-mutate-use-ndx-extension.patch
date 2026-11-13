@@ -1,0 +1,13 @@
+# test: test_ibase_use
+--- a/ibase_main.c
++++ b/ibase_main.c
+@@ -339,9 +338,0 @@
+-    {
+-        int k;
+-        for (k = 0; k < il.count; k++) {
+-            uint32_t before = rt_strlen(idxbuf[k]);
+-            if (repl_default_ext(idxbuf[k], REPL_TOK_CAP, ".NDX") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+-            idx_defaulted[k] = rt_strlen(idxbuf[k]) != before;
+-            ndx_io_name(idxbuf[k]);
+-        }
+-    }

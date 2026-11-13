@@ -1,0 +1,7 @@
+# test: test_ndx_incremental
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -893,2 +893 @@
+-    is_branch = node->entry_count ? node->entries[0].child_page != 0u
+-                                 : node->trail_child != 0u;
++    is_branch = node->entry_count > 0u && node->entries[0].child_page != 0u;

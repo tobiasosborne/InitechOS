@@ -1,0 +1,6 @@
+# test: test_ibase_dml
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -987 +987 @@
+-        if(!rc && !add)xb_interp_release_all(ip);
++        (void)add; /* retain old variables, incorrectly additive every time */

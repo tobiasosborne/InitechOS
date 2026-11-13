@@ -2,7 +2,7 @@
  * os/ibase/boot/softfp.c -- vendored soft-float + 64-bit integer runtime helpers
  *                           for the freestanding IBASE.COM link (ADR-0009 DEC-02).
  *
- * THE ARTIFACT (Law 3): freestanding C (-msoft-float -mno-80387). No libc, no
+ * THE ARTIFACT (CLAUDE.md, The constitution): freestanding C (-msoft-float -mno-80387). No libc, no
  * x87. Provides the exact set of libgcc helpers the IBASE engine references when
  * compiled -msoft-float, which the host toolchain on this box CANNOT supply: the
  * installed gcc-13 has NO usable static 32-bit libgcc.a (the x86_64 libgcc.a is
@@ -10,7 +10,7 @@
  * only the shared libgcc_s.so, unusable in a flat freestanding link). DEC-02
  * anticipated exactly this: "as a fallback, vendor a small audited softfp.c."
  *
- * WHY VENDORED (DEC-02 / Rule 11, pinned-libgcc): a floating system libgcc would
+ * WHY VENDORED (DEC-02 / CLAUDE.md, The constitution, pinned-libgcc): a floating system libgcc would
  * be a reproducibility hole even if it existed; vendoring pins the helper code in
  * the repo so the IBASE.COM bytes are a pure function of the source. The
  * provenance is THIS file (authored for initech-ap5g; no external binary blob),
@@ -32,17 +32,17 @@
  * infinity, NaN, and round-half-to-even. It is intentionally compact and
  * auditable; correctness is established by the differential proof oracle, which
  * fuzzes every helper against the host's hardware double over thousands of
- * random + edge-case inputs (Law 2 -- the oracle is the truth). NOT a dBASE-
+ * random + edge-case inputs (CLAUDE.md, The constitution -- the oracle is the truth). NOT a dBASE-
  * specific dialect: IBASE's numeric type is plain IEEE-754 binary64 end to
  * end (no divergence from host double for compat reasons), so the host's
  * hardware double is the correct AND ONLY reference for every helper class
  * below (add/sub/mul/div/compare/int-conversions) -- there is no "documented
  * dBASE semantics" fallback needed (audit: initech-quke).
  *
- * Reproducible (Rule 11): no globals, no timestamps, pure functions. ASCII (12).
+ * Reproducible (CLAUDE.md, The constitution): no globals, no timestamps, pure functions. ASCII (12).
  *
- * MUTATION hooks (CLAUDE.md Rule 6; audit: initech-quke):
- *   SOFTFP_MUT_ROUND -- df_round_pack's round-half-to-even tie-break becomes
+ * MUTATION hooks (CLAUDE.md CLAUDE.md, The constitution; audit: initech-quke):
+ *   mutants/softfp-mut-round.patch -- df_round_pack's round-half-to-even tie-break becomes
  *                        "always round up on a set round bit" (drops the
  *                        sticky/LSB-parity check). Breaks round-half-to-even
  *                        at exact tie boundaries (e.g. 1.0 + 2^-53 boundary
@@ -209,17 +209,8 @@ static uint64_t df_round_pack(int sign, int exp, uint64_t sig,
     uint64_t mant = sig >> 10;                       /* 53 bits, hidden at bit 52 */
     uint64_t round_bit = (sig >> 9) & 1ULL;
     uint64_t sticky = ((sig & 0x1FFULL) ? 1ULL : 0ULL) | extra_sticky;
-#ifdef SOFTFP_MUT_ROUND
-    /* MUTANT (Rule 6): always round up on a set round bit -- drops the
-     * round-half-to-even tie-break (sticky-or-LSB-parity check). Wrong at
-     * exact tie boundaries; must turn test_ibase_softfp RED. */
-    (void)sticky;
-    if (round_bit)
-        mant++;
-#else
     if (round_bit && (sticky || (mant & 1ULL)))
         mant++;
-#endif
     if (mant & (1ULL << 53)) {                       /* hidden-bit overflow */
         mant >>= 1;
         biased++;

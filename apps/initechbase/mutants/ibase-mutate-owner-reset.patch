@@ -1,0 +1,11 @@
+# test: test_ibase_dbsafe
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -154,0 +155 @@
++    void *scratch_mark;
+@@ -251,0 +253 @@
++    pal->reset(pal,tbl->scratch_mark); /* mutant: rewind across a later live owner */
+@@ -315,0 +318 @@
++    tbl->scratch_mark=pal->alloc(pal,0u);
+@@ -1145,0 +1149 @@
++    tbl->scratch_mark=pal->alloc(pal,0u);

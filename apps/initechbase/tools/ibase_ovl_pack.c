@@ -2,9 +2,9 @@
  * and INITBASE.OVL (host factory tool; InitechBase overlays Phase B, epic
  * initech-5etom; design docs/design/ibase-overlays.md).
  *
- * Factory C (libc OK; never ships, Law 3). Deterministic (Rule 11): the
+ * Factory C (libc OK; never ships, CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution): the
  * outputs are a pure function of the input ELF -- no time, no paths, no
- * environment. Fails loud (Rule 2) on anything it does not understand.
+ * environment. Fails loud (CLAUDE.md, The constitution) on anything it does not understand.
  *
  * INPUT: IBASE.elf, linked by os/ibase/boot/ibase.ld at ORG 0 with
  * --emit-relocs (-q) and -ffunction-sections, so every relocation the linker
@@ -39,7 +39,7 @@
  * references (ibase.ld NOCROSSREFS / NOCROSSREFS_TO); this tool proves the
  * third rule, which a linker cannot express.
  *
- * ASCII-clean (Rule 12).
+ * ASCII-clean (CLAUDE.md, The constitution).
  */
 #include <elf.h>
 #include <stdint.h>

@@ -1,0 +1,8 @@
+# test: test_w2_host
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1818,4 +1817,0 @@
+-        r=rt_kw_word(q_skip_ws(args),"ALL\0FIELDS\0GETS\0TYPEAHEAD\0",(int *)0);
+-        if(r==0) { wa_close_all(xb_interp_env(ip));xb_interp_release_all(ip); }
+-        if(r==3 && pal->conin_poll) while(pal->conin_poll(pal)>0) { }
+-        if(r>=0) { if(ec)*ec=0;return INTERP_OK; }

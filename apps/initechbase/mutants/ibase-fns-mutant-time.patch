@@ -1,0 +1,5 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2166,0 +2167 @@
++    dst[2] = ';'; /* The named gate passes the lower-case case name. */

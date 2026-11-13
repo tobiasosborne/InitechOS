@@ -1,0 +1,7 @@
+# test: prog_diff
+--- a/pal/pal_dos.c
++++ b/pal/pal_dos.c
+@@ -993,0 +994 @@
++    if(dos_is_console(1))
+@@ -999,0 +1001 @@
++    return dos_con_at(p,row,col,text,n,0);

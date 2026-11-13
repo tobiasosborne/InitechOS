@@ -1,0 +1,9 @@
+# test: test_interp_proc
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -519,0 +520,5 @@
++        /* MUTANT (CLAUDE.md, The constitution -- mutants/proc-mutate-param-order.patch): bind the args in REVERSE
++         * positional order. PARAMETERS is positional (control-flow-and-
++         * procedures.md sec 8.3), so a reversed bind swaps the param values ->
++         * the oracle's "param N has the N-th WITH value" check goes RED. */
++        v = pb->args[pb->nargs - 1 - pb->idx];

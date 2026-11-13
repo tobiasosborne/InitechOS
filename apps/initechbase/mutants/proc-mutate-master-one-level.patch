@@ -1,0 +1,10 @@
+# test: test_ibase_ctl
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -830,5 +830 @@
+-        /* RETURN TO MASTER: only the frame called FROM the highest-level
+-         * program resumes; deeper frames keep unwinding (U5-183; mint
+-         * ibasectl MASTER.TXT: MASTER FIRST SECOND MASTER RESUMED). */
+-        if (rc == PROC_RC_RETURN_MASTER && depth_before <= ps->master_depth)
+-            rc = INTERP_OK;
++        if (rc == PROC_RC_RETURN_MASTER) rc = INTERP_OK;

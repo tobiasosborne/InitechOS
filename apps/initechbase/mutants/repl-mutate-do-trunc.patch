@@ -1,0 +1,5 @@
+# test: test_ibase_ctl
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -572,0 +573 @@
++    total /= 2;                 /* existing canon DO-read mutation */

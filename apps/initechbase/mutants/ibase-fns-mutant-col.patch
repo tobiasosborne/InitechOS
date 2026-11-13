@@ -1,0 +1,5 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2257,0 +2258 @@
++    out->u.n+=1; /* Each independent real capture must catch this. */

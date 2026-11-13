@@ -1,0 +1,5 @@
+# test: test_ibase_repl
+--- a/ibase_main.c
++++ b/ibase_main.c
+@@ -165,0 +166 @@
++    lookup = code + 1;   /* MUTANT: wrong catalog code -> wrong message text */

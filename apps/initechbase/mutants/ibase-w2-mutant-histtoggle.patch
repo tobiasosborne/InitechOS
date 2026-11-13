@@ -1,0 +1,5 @@
+# test: test_ibase_w2
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -890 +889,0 @@
+-    ss->hist_next = 0u;

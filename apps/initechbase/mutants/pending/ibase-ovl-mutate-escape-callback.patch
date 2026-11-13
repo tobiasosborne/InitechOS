@@ -1,0 +1,11 @@
+# test: test_ibase_ovl_lifetime
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -100 +100 @@
+-static void alternate_output(
++static IBASE_OVL_TEXT(set) void alternate_output(
+@@ -537 +536,0 @@
+-    ibase_bind_output(xb_interp_ctx(ip),alternate_output,ip);
+@@ -1057,0 +1057,2 @@
++    /* CLAUDE.md, The constitution: a real callback escape, formerly accepted by the static graph. */
++    ibase_bind_output(xb_interp_ctx(ip),alternate_output,ip);

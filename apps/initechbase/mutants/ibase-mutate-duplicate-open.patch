@@ -1,0 +1,10 @@
+# test: test_ibase_dbsafe
+--- a/ibase_main.c
++++ b/ibase_main.c
+@@ -349,2 +348,0 @@
+-    /* Ref: Using III+ U7-7, #3. Refuse before closing the selected area. */
+-    if (wa_name_is_open(env,file,area)) { if(ec)*ec=3;return -INTERP_ERR_EVAL; }
+--- a/cmd/workarea.c
++++ b/cmd/workarea.c
+@@ -462 +461,0 @@
+-    if(wa_name_is_open(env,name,area)) return -WA_ERR_ALREADY_OPEN;

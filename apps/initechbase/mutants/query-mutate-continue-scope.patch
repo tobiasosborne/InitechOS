@@ -1,0 +1,17 @@
+# test: test_ibase_view
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1175,3 +1175,7 @@
+-    /* CONTINUE re-applies ONLY the stored FOR, from the record AFTER the current
+-     * one (start_here=0 -> skip one first). NOT the WHILE, NOT the scope -- so
+-     * NOT the original LOCATE's NEXT n bound either (max_visits=0, unbounded). */
++    /* MUTANT (CLAUDE.md, The constitution -- mutants/query-mutate-continue-scope.patch): CONTINUE wrongly RESTARTS
++     * from GO TOP and re-applies a scope/WHILE-like bound instead of resuming
++     * the FOR-only scan from the record AFTER the current one. This re-finds the
++     * SAME first match the LOCATE found, so a LOCATE/CONTINUE loop that should
++     * walk distinct recnos instead loops on the first one -> the oracle's
++     * "CONTINUE finds the NEXT match" recno checks go RED. */
++    (void)wa_nav_go_top(env, area);
+@@ -1179 +1183 @@
+-                       (const char *)0, /*apply_while=*/0, /*start_here=*/0,
++                       (const char *)0, /*apply_while=*/0, /*start_here=*/1,

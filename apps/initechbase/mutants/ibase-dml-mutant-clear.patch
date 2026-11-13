@@ -1,0 +1,5 @@
+# test: test_ibase_dml
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -1152 +1151,0 @@
+-        xb_interp_release_all(ip);

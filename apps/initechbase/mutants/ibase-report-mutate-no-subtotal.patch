@@ -1,0 +1,5 @@
+# test: test_ibase_report
+--- a/cmd/report.c
++++ b/cmd/report.c
+@@ -208,0 +209 @@
++    if (k < 2) return;   /* MUTANT: subtotal bands dropped */

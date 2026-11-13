@@ -1,0 +1,8 @@
+# test: test_xbase_parse
+--- a/core/parse.c
++++ b/core/parse.c
+@@ -402,2 +402,2 @@
+-#define PARSE_MUL_OP(t)  ((t) == XBT_STAR || (t) == XBT_SLASH)
+-#define PARSE_ADD_OP(t)  ((t) == XBT_PLUS || (t) == XBT_MINUS)
++#define PARSE_MUL_OP(t)  ((t) == XBT_PLUS || (t) == XBT_MINUS)
++#define PARSE_ADD_OP(t)  ((t) == XBT_STAR || (t) == XBT_SLASH)

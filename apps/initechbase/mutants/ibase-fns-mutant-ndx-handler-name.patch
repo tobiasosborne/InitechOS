@@ -1,0 +1,6 @@
+# test: test_ibase_fns
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -1024,0 +1025,2 @@
++            /* MUTANT: real ndx/GOLD.OUT R5-RENAMED uses OTHERNAME. */
++            && rt_kw_word(p_skip_ws(p+2), "GUARDTRAP\0", (int *)0) == 0

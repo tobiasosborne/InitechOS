@@ -1,0 +1,8 @@
+# test: test_ibase_ovl_lifetime
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -1043,0 +1044,2 @@
++static IBASE_OVL_TEXT(set) int ovl_bad_hook(void *u,xb_interp *ip,const char *v,const char *a,int *e)
++{ (void)u;(void)ip;(void)v;(void)a;(void)e;return CMD_UNKNOWN; }
+@@ -1057,0 +1060 @@
++    xb_interp_add_cmd_hook(ip,ovl_bad_hook,ip);

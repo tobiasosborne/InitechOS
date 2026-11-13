@@ -1,0 +1,6 @@
+# test: test_ibase_fns
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -1024,0 +1025,2 @@
++            /* MUTANT: real ndx/GOLD.OUT R5-NESTED installs at depth 2. */
++            && ps->do_depth == 1

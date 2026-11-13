@@ -2,11 +2,11 @@
  * os/ibase/cmd/mutate.c -- IBASE (InitechBase) record-mutation command module.
  *                           Step S5.5 (Phase 5 interpreter).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): freestanding (-ffreestanding -nostdlib). Uses
  * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of OS contact goes through the PAL carried by the interpreter. Memory is
- * fixed/static (no malloc). ASCII-clean (Rule 12). Fail loud (Rule 2).
- * Reproducible (Rule 11): deterministic writes (dbf_flush rewrites the whole
+ * fixed/static (no malloc). ASCII-clean (CLAUDE.md, The constitution). Fail loud (CLAUDE.md, The constitution).
+ * Reproducible (CLAUDE.md, The constitution): deterministic writes (dbf_flush rewrites the whole
  * image; no clock/host-path/RNG leak).
  *
  * dBASE III PLUS 1.1 ONLY (plan Sec 2.C).
@@ -76,7 +76,7 @@
  *   wa_refresh()es the area's cache + nrec. A NON-writable table -> fail loud #111
  *   "Cannot write to a read-only file." (mapped from the codec's -DBF_ERR_IO).
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
  *     (REPLACE sec 8; APPEND sec 4; DELETE/RECALL sec 9; PACK sec 10; ZAP; the
  *     shared scope/FOR/WHILE grammar sec 0; the type-compatibility rule sec 0).
@@ -112,7 +112,7 @@
 #include "ibase/ovl.h"
 
 /* ===================================================================== */
-/* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)            */
+/* Tunables (bounded -- CLAUDE.md, The constitution fail-loud on overflow, never UB)            */
 /* ===================================================================== */
 
 #define M_MAX_TOKS     128   /* per-expression token pool */
@@ -271,7 +271,6 @@ typedef struct {
     int      has_while;
 } m_clauses;
 
-#ifndef IBASE_DML_MUTANT_abbrscope
 /* Real III+ abbrscope mint: a trailing scope follows a COMPLETE WITH
  * expression, never a comma/field or an expression operand. Parse syntax
  * only (no evaluation or side effects), using the ordinary expression
@@ -296,7 +295,6 @@ static int m_after_replace_expr(const char *s, const char *end)
     return xb_parse(toks + pair + 2, (uint32_t)(nt - pair - 2),
                     nodes, M_MAX_NODES, &ec) >= 0;
 }
-#endif
 
 /*
  * m_split_clauses: parse `args` into scope + head + FOR + WHILE. The head is the
@@ -334,9 +332,7 @@ static int m_split_clauses(const char *args, m_clauses *mc)
              * prefix; keep it out of the WITH expression in either spelling. */
             if (!scope_at && !for_at && !while_at &&
                 rt_kw_word(p, "ALL\0REST\0NEXT\0RECORD\0", (int *)0) >= 0
-#ifndef IBASE_DML_MUTANT_abbrscope
                 && (p == s || m_after_replace_expr(s, p))
-#endif
                )
                 scope_at = p;
             if (!for_at && m_match_kw(p, "FOR"))     for_at = p;
@@ -435,7 +431,6 @@ static int m_field_index(wa_env *env, int area, const char *name, uint32_t nlen)
  *           BEFORE the field write (so the key reflects the OLD field value).
  * Returns INTERP_OK or a negative interp_err (with *ec) on a structural/eval fault.
  */
-#ifndef MUTATE_REPLACE_NO_INDEX   /* unused when the no-index mutant drops the call */
 static int m_index_after_replace(xb_interp *ip, int area, uint32_t recno,
                                  const uint8_t old_keys[][M_MAX_KEY], int *ec)
 {
@@ -462,7 +457,6 @@ static int m_index_after_replace(xb_interp *ip, int area, uint32_t recno,
     if (ec) *ec = 0;
     return INTERP_OK;
 }
-#endif /* !MUTATE_REPLACE_NO_INDEX */
 
 /* ===================================================================== */
 /* REPLACE                                                                 */
@@ -576,19 +570,11 @@ static int m_apply_replace_one(xb_interp *ip, int area, uint32_t recno,
     if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
     (void)wa_refresh(env, area, recno);
 
-#ifdef MUTATE_REPLACE_NO_INDEX
-    /* MUTANT (Rule 6 -- -DMUTATE_REPLACE_NO_INDEX): skip the open-index update
-     * after a REPLACE. The index then still points at the OLD key, so a SEEK on
-     * the NEW key after a key-field REPLACE no longer resolves the record ->
-     * the oracle's master-key-pointer-drift checks go RED. */
-    (void)old_keys;
-#else
     /* Re-file every open index entry for this record (master-key pointer drift). */
     rc = m_index_after_replace(ip, area, recno,
                                (const uint8_t (*)[M_MAX_KEY])old_keys, ec);
     if (rc != INTERP_OK)
         return rc;
-#endif
 
     if (ec) *ec = 0;
     return INTERP_OK;
@@ -607,25 +593,6 @@ static int m_replace_impl(xb_interp *ip, const char *args, int *ec)
 
     kind = mc.scope_kind;
 
-#ifdef MUTATE_REPLACE_NO_SCOPE
-    /* MUTANT (Rule 6 -- -DMUTATE_REPLACE_NO_SCOPE): ignore scope/FOR/WHILE and
-     * REPLACE EVERY record unconditionally. A "REPLACE <f> WITH <e>" with no
-     * scope (default = current record only) then clobbers all records, and a
-     * "REPLACE NEXT 1 ..." touches more than one -> the oracle's "only the
-     * targeted record(s) changed" checks go RED. */
-    {
-        uint32_t r;
-        uint32_t nrec = wa_nrec(env, area);
-        (void)kind;
-        for (r = 1u; r <= nrec; r++) {
-            (void)wa_nav_goto(env, area, r);
-            rc = m_apply_replace_one(ip, area, r, mc.head, ec);
-            if (rc != INTERP_OK) return rc;
-        }
-        if (ec) *ec = 0;
-        return INTERP_OK;
-    }
-#else
     /* FOR with no explicit scope -> ALL (implicit GO TOP). */
     if (kind == MS_DEFAULT && (mc.has_for || mc.has_while))
         kind = MS_ALL;
@@ -692,7 +659,6 @@ static int m_replace_impl(xb_interp *ip, const char *args, int *ec)
     }
     if (ec) *ec = 0;
     return INTERP_OK;
-#endif
 }
 
 /* ===================================================================== */
@@ -872,9 +838,8 @@ static int m_delete_recall_impl(xb_interp *ip, const char *args, int want_delete
  *
  * On any failure (bad GOTO or an eval/type fault) `failed` is set and the
  * catalog code (if any) captured in `ec`, and the callback returns -1 to
- * abort ndx_build/ndx_rebuild (fail loud; Rule 2).
+ * abort ndx_build/ndx_rebuild (fail loud; CLAUDE.md, The constitution).
  */
-#ifndef MUTATE_PACK_NO_REINDEX   /* unused when the no-reindex mutant drops the call */
 typedef struct {
     xb_interp  *ip;
     wa_env     *env;
@@ -899,7 +864,6 @@ static IBASE_OVL_TEXT(file) int m_pack_get_key(void *user, uint32_t recno,
 
     return 0;
 }
-#endif /* !MUTATE_PACK_NO_REINDEX */
 
 static IBASE_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
 {
@@ -926,7 +890,6 @@ static IBASE_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
      * stale, pre-refresh) nrec. */
     (void)wa_refresh(env, area, 1u);
 
-#ifndef MUTATE_PACK_NO_REINDEX
     /* PACK renumbers survivors -- a per-deleted-recno ndx_delete_key is
      * INSUFFICIENT (every surviving entry would still carry its OLD recno).
      * FULLY REINDEX every open .ndx from the freshly-packed table, matching
@@ -958,14 +921,6 @@ static IBASE_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
             }
         }
     }
-#else
-    /* MUTANT (Rule 6 -- -DMUTATE_PACK_NO_REINDEX): skip the open-index full
-     * REINDEX after PACK. Every open .ndx then keeps its PRE-pack recnos, so
-     * a SEEK for a renumbered survivor resolves the WRONG (or a now
-     * out-of-range/still-present deleted) record -> the oracle's post-PACK
-     * SEEK checks go RED. */
-    (void)new_nrec;
-#endif
 
     /* PACK rewinds to record 1 (data-definition sec 10). The reindex loop
      * above (get_key) walked the cursor across every packed record; restore
@@ -988,9 +943,6 @@ static IBASE_OVL_TEXT(file) int m_confirm_file(xb_interp *ip,const char *verb,co
     ibase_pal_t *pal=xb_interp_pal(ip);
     char answer[256];const char *s;uint32_t len;
     if (!set_get_safety(ip)) return 1;
-#ifdef IBASE_MUTATE_ZAP_SAFETY
-    return 1; /* mutant: stored SAFETY has no destructive consumer */
-#endif
     pal->conout(pal,verb,rt_strlen(verb));pal->conout(pal," ",1u);
     pal->conout(pal,dbf_name(tbl),rt_strlen(dbf_name(tbl)));
     pal->conout(pal,"? (Y/N)",7u);
@@ -1115,9 +1067,6 @@ static IBASE_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebui
     if(!t)return d_fail(ec,52);
     if(rebuild) {
         if(*m_skip_ws(args))return d_fail(ec,10);
-#ifdef IBASE_DML_MUTANT_reindex
-        if(count)count--; /* omit last record from every rebuilt index */
-#endif
         for(int i=0;i<wa_index_count(env,area);i++) {
             ndx_index *ix=wa_index(env,area,i);ctx.expr=ndx_key_expr(ix);ctx.type=ndx_key_type(ix);
             rc=ndx_rebuild(ix,count,d_key,&ctx);
@@ -1144,9 +1093,6 @@ static IBASE_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebui
         rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
         ctx.expr=expr;ctx.type=v.t==XB_C?0:1;
         if(v.t!=XB_C && v.t!=XB_N && v.t!=XB_D)return d_fail(ec,9);
-#ifdef IBASE_DML_MUTANT_index
-        if(count)count--; /* last physical record has no index entry */
-#endif
         rc=ndx_build_ex(pal,name,ctx.type,v.t==XB_C?v.u.c.len:8,expr,count,d_key,&ctx,unique);
         if(rc) { wa_nav_goto(env,area,keep);return d_fail(ec,ctx.ec?ctx.ec:29); }
         rc=ndx_open_rw(pal,name,&ix);
@@ -1213,9 +1159,6 @@ static IBASE_OVL_TEXT(file) int d_sort(xb_interp *ip,const char *args,int *ec)
             int cmp;
             if(dbf_field(src,fi)->type=='C')cmp=rt_memcmp(rows[j-1].key,v.key,dbf_field(src,fi)->field_len);
             else cmp=(rows[j-1].number>v.number)-(rows[j-1].number<v.number);
-#ifdef IBASE_DML_MUTANT_sort
-            cmp=-cmp; /* descending instead of the documented ascending default */
-#endif
             if(cmp<=0)break;
             rows[j]=rows[j-1];j--;
         }
@@ -1264,9 +1207,7 @@ static IBASE_OVL_TEXT(file) int d_total(xb_interp *ip,const char *args,int *ec)
             if(last.t==XB_C) {rt_memcpy(key,last.u.c.p,last.u.c.len);last.u.c.p=key;}
             have=1;
         } else for(int i=0;i<nf;i++)if(row[i].t==XB_N) {
-#ifndef IBASE_DML_MUTANT_total
             group[i].u.n+=row[i].u.n;
-#endif
         }
         if(rc || wa_nav_skip(env,area,1)!=NAV_OK){if(!rc)rc=29;break;}
     }
@@ -1299,17 +1240,11 @@ static IBASE_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,i
     in=pal->open(pal,src,PAL_RD);if(in<0)return d_fail(ec,in==-PAL_ENOENT?1:29);
     if(erase) {
         pal->close(pal,in);
-#ifdef IBASE_DML_MUTANT_erase
-        return INTERP_OK; /* leave the file present */
-#endif
         rc=pal->remove(pal,src);return rc?d_fail(ec,29):INTERP_OK;
     }
     if(!copy && !type) {
         pal->close(pal,in);
         out=pal->open(pal,dst,PAL_RD);if(out>=0){pal->close(pal,out);return d_fail(ec,7);}
-#ifdef IBASE_DML_MUTANT_rename
-        return INTERP_OK; /* skip the actual filesystem rename */
-#endif
         rc=pal->rename(pal,src,dst);return rc?d_fail(ec,29):INTERP_OK;
     }
     if(copy) {
@@ -1320,15 +1255,9 @@ static IBASE_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,i
     while((n=pal->read(pal,in,buf,sizeof buf))>0) {
         if(type) {
             int32_t j=0;while(j<n && (unsigned char)buf[j]!=26)j++;
-#ifdef IBASE_DML_MUTANT_type
-            j=0; /* suppress ASCII contents */
-#endif
             xb_interp_output(ip,buf,(uint32_t)j);
             if(j<n)break;
         } else {
-#ifdef IBASE_DML_MUTANT_copyfile
-            buf[0]^=1; /* copied bytes differ even though state is preserved */
-#endif
             if(pal->write(pal,out,buf,(uint32_t)n)!=n){rc=56;break;}
             total+=(uint32_t)n;
         }
@@ -1358,15 +1287,10 @@ static IBASE_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,i
 static IBASE_OVL_TEXT(file) int d_run(xb_interp *ip,const char *args,int *ec)
 {
     ibase_pal_t *pal=xb_interp_pal(ip);
-#ifdef IBASE_DML_MUTANT_run
-    (void)pal;(void)args;(void)ec;
-    return INTERP_OK; /* RUN_NOEXEC: no CR LFs, no child, no VERSION.TXT */
-#else
     xb_interp_output(ip,"\r\n",2);
     if(!pal->exec || pal->exec(pal,args)<0)return d_fail(ec,92);
     xb_interp_output(ip,"\r\n",2);
     return INTERP_OK;
-#endif
 }
 
 /* APPEND FROM DBF: Using III+ U5-28 (name matching, differing field order,
@@ -1394,9 +1318,6 @@ static IBASE_OVL_TEXT(file) int d_append_from(xb_interp *ip,const char *args,int
     for(uint32_t r=1;r<=dbf_nrec(src);r++) {
         if(dbf_read_rec(src,r,input,&del)){rc=29;break;}
         if(del && wa_get_deleted(env))continue;
-#ifdef IBASE_DML_MUTANT_append
-        if(r==dbf_nrec(src))break; /* drop the last incoming record */
-#endif
         /* Commit one blank through the existing index-maintaining adapter,
          * then fill matching fields. A failing later field leaves this row. */
         if(m_append(ip,"BLANK",ec)){rc=*ec;break;}

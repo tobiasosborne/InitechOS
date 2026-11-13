@@ -31,12 +31,29 @@ HOST_TESTS += $(filter-out core-live,$(SHELL_SUITES))
 TESTS := $(RUN_TESTS)
 HOST_TEST_BINS := $(addprefix $(HOST_OUT)/,$(TESTS))
 test-build: $(HOST_TEST_BINS)
+MUTANT_PATCHES ?= $(wildcard mutants/*.patch)
+MUTANT_JOBS ?= 4
+ifeq ($(MUTANT_SERIAL),1)
 include $(TOP)/mk/mutants.mk
+else
+.PHONY: mutants
+mutants:
+	+@sh tools/run-mutants.sh "$(TOP)" "$(OUT)" "$(MAKE)" "$(MUTANT_JOBS)" $(MUTANT_PATCHES)
+endif
+
+# Host-only sandbox compiles are identical except for debug paths. Cache them
+# when available; omit debug information there so scratch paths do not defeat
+# the cache. Product flags and the ordinary host oracle are unchanged.
+ifneq ($(shell command -v ccache 2>/dev/null),)
+mutants: export HOSTCC := $(if $(findstring ccache,$(HOSTCC)),$(HOSTCC),ccache $(HOSTCC))
+mutants: export HOST_CFLAGS := $(filter-out -g,$(HOST_CFLAGS))
+mutants: export CCACHE_DIR := $(OUT)/mutants/cache
+endif
 
 # Shell suites use the shared reporting protocol and retain independent postchecks.
 define host_test_run
 n=$$((n+1)); \
-if DBASE3_DECOMP="$(DBASE3_DECOMP)" sh tests/run.sh "$(1)" "$(abspath $(HOST_OUT))" > $(HOST_OUT)/$(1).log 2>&1; then \
+if INITECH_FACTORY_ROOT="$(TOP)" DBASE3_DECOMP="$(DBASE3_DECOMP)" sh tests/run.sh "$(1)" "$(abspath $(HOST_OUT))" > $(HOST_OUT)/$(1).log 2>&1; then \
  echo "  ok    $(1)"; \
 else \
  echo "  FAIL  $(1) (log: $(HOST_OUT)/$(1).log)"; \
@@ -106,7 +123,7 @@ $(OUT)/IBASE.elf: $(TARGET_OBJS) $(OUT)/target/crt0.o $(OUT)/target/ibase.ld
 	 required=$$(awk '$$2=="IBASE_REQUIRED_RESERVE" {print $$1; exit}' $(OUT)/target/link.map); \
 	 limit=$$(awk '$$2=="IBASE_DECLARED_RESERVE" {print $$1; exit}' $(OUT)/target/link.map); \
 	 if test -n "$$required" && test -n "$$limit" && test $$((required)) -gt $$((limit)); then \
-	  printf 'INITBASE.EXE packaging blocked: slot + BSS + PAL tail require %d bytes; IBASE_LOADER_RESERVE is %d bytes (%d over). See README.md, Known blockers, and target/link.map.\n' $$((required)) $$((limit)) $$((required-limit)) >&2; \
+	  printf 'INITBASE.EXE packaging blocked: slot + BSS + PAL tail require %d bytes; IBASE_LOADER_RESERVE is %d bytes (%d over). See README.md, Loader and overlay contract, and target/link.map.\n' $$((required)) $$((limit)) $$((required-limit)) >&2; \
 	 fi; exit 1; fi
 $(OUT)/target/ibase-mz.args: $(OUT)/tools/ibase_memory_ld
 	@mkdir -p $(@D)
@@ -131,8 +148,7 @@ test_ibase_ctl_LIBS := -pthread
 pending: test-build corpus
 	@DBASE3_DECOMP="$(DBASE3_DECOMP)" CASE="$(CASE)" sh tests/run.sh pending "$(abspath $(HOST_OUT))"
 
-# Full B5 container validation is also available against an explicitly supplied
-# pair while the new target cannot satisfy the loader's reserve declaration.
+# Full B5 validation is also available against an explicitly supplied pair.
 .PHONY: pair-test
 pair-test: $(HOST_OUT)/test_ibase_ovl
 	@test -n "$(EXE)" || { echo 'set EXE to an executable with its matching .OVL' >&2; exit 1; }
@@ -142,3 +158,12 @@ TEST_BUDGET_S := 30
 CORPORA := DBASE3_DECOMP
 include $(TOP)/mk/corpus.mk
 -include $(wildcard $(OUT)/tools/*.d $(OUT)/host/*.d)
+
+.PHONY: package-check
+package-check: package $(HOST_OUT)/test_ibase_ovl
+	$(MZ_OUT)/mzcheck $(OUT)/INITBASE.EXE $(OUT)/resident.bin $$(printf "%d" $$(awk '$$2=="IBASE_DECLARED_RESERVE" {print $$1; exit}' $(OUT)/target/link.map))
+	$(HOST_OUT)/test_ibase_ovl $(OUT)/INITBASE.EXE
+test: package-check
+smoke: pinned-corpus
+
+include $(TOP)/mk/import-check.mk

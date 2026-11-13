@@ -1,0 +1,16 @@
+# test: test_xbase_lex
+--- a/core/lex.c
++++ b/core/lex.c
+@@ -407 +407,11 @@
+-            EMIT_ERR(XBLE_EQ_EQ, i, 2);
++            /*
++             * MUTATION HOOK (CLAUDE.md, The constitution): treat == as a valid EQ token instead
++             * of rejecting it. This makes the "== -> lex error" test go RED,
++             * proving the assertion can catch this regression.
++             * Compile with mutants/xb-mutate-lex.patch to activate.
++             */
++            {
++                xb_token t;
++                t.type = XBT_EQ; t.offset = i; t.len = 2; t.u.l = 0;
++                i += 2; EMIT(t); continue;
++            }

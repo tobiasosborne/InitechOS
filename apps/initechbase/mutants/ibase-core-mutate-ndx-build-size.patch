@@ -1,0 +1,7 @@
+# test: test_ibase_core
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -1469,3 +1468,0 @@
+-    if (nrec > UINT32_MAX / key_len || nrec > UINT32_MAX / 4u ||
+-        nrec > UINT32_MAX - kpp + 1u)
+-        return -NDX_ERR_NOROOM;

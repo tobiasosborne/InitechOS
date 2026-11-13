@@ -1,0 +1,5 @@
+# test: test_interp_list
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -650 +649,0 @@
+-    while(pos>prefix && line[pos-1]==' ') pos--;

@@ -1,0 +1,7 @@
+# test: test_ndx_incremental
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -2224,0 +2225,3 @@
++        /* MUTANT (CLAUDE.md, The constitution -- initech-0g22): stop after the first candidate leaf.
++         * A pair in a LATER equal-key leaf is missed -> NOTFOUND -> RED. */
++        return -NDX_ERR_NOTFOUND;

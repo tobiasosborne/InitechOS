@@ -1,13 +1,13 @@
 /*
  * spec/ibase/dbf_format.h -- dBASE III PLUS 1.1 .dbf byte-offset constants.
  *
- * LOCKED spec-data (CLAUDE.md Rule 8). Source: ../dbase3-decomp/specs/file-formats/dbf.md
+ * LOCKED spec-data (CLAUDE.md CLAUDE.md, The constitution). Source: ../dbase3-decomp/specs/file-formats/dbf.md
  * sections 2 (32-byte file header), 4 (32-byte field descriptor), 6 (record layout),
  * 8 (structural invariants). Every value is byte-verified against six III+ 1.1
  * golden fixtures: BANK, CLIENTS, TOURS, TRAVEL, TAX, UNIVERSD.
  *
  * III+ ONLY. dBASE IV / VFP / dBASE-7 meanings for reserved fields are NOT imported.
- * ASCII-clean (CLAUDE.md Rule 12). No timestamps (Rule 11).
+ * ASCII-clean (CLAUDE.md CLAUDE.md, The constitution). No timestamps (CLAUDE.md, The constitution).
  *
  * Ref: dbf.md ss2 (header table), ss4 (field descriptor + terminator),
  *      ss6 (record layout), ss8 (invariants).

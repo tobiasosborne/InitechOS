@@ -1,0 +1,5 @@
+# test: test_ibase_report
+--- a/cmd/report.c
++++ b/cmd/report.c
+@@ -193,0 +194 @@
++    n--;   /* MUTANT: off-by-one room check */

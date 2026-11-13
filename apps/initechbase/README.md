@@ -1,120 +1,159 @@
 # InitechBase
 
-InitechBase is the dBASE III PLUS 1.1 work-alike: expression evaluation,
-work areas, command programs, dot prompt, DBF tables, DBT memos and NDX indexes.
-This import preserves the existing feature depth; it adds no language behaviour.
+InitechBase provides a dBASE III PLUS 1.1 command interpreter with DBF tables,
+DBT memos, NDX indexes, ten work areas, command programs and a dot prompt.
+This import adds packaging and boot validation; it adds no language features.
 
-`core/` owns values, lexer, parser, evaluator, built-ins, runtime and text screen;
-`cmd/` owns command dispatch and state; `fs/` owns the three file codecs.
-`include/` exports their contracts. `pal/` supplies host, null and InitechDOS
-bindings; `boot/` supplies startup, soft-float helpers and the linker script.
-`spec/` preserves coercion, normalization, message and memory/screen evidence.
-The verb/option `.def` files remain beside the command dispatchers.
+`make` builds INITBASE.EXE and INITBASE.OVL. `make test` runs the independent
+host corpus (75 suites, 30-second execution budget, excluding compilation).
+`make test THOROUGH=1` adds the live real-dBASE DOSBox differential. Missing
+references fail. `make pending CASE=...` exposes unfinished captures honestly;
+it is not part of the passing selection. `make pair-test EXE=/absolute/file.EXE`
+runs the 50 container/overlay checks. `make smoke` builds the product image,
+then drives the DOS session on QEMU and Bochs at 8 MiB. Test fixtures live on a
+separate TEST disk; the product working volume contains only the EXE/OVL pair.
+Logs and mtools readbacks are under build/apps/initechbase/smoke.
 
-All OS calls pass through the PAL vtable. It provides file handles, seek/read/
-write/close, allocation and ownership/reset, console input/output and painting,
-clock/environment/drive queries and child execution. The DOS binding issues
-INT 21h with flat pointers and CF/error returns; neither the interpreter nor the
-codecs include OS implementation headers. Host tests inject PAL clocks, input,
-output and failures. The host binding is never linked into the target.
+Core, command and codec sources include only this component's headers. The
+PAL vtable is the only platform interface; pal_dos uses INT 21h, flat pointers
+and CF/error returns. The host binding is never linked into the product.
+Dependencies: kernel/include/memory_map.h and initechmz_extended.h for the DOS
+PAL and packaging contract; factory/mz for the generic mzlink/mzcheck tools;
+factory/testlib and emu drivers for judging. No SDK or Toolbox dependency and
+no build input from attic. Host tests retain the inherited independent Python
+DBF/DBT/NDX readers; new orchestration is C, make and POSIX shell.
 
-Run `make test` for tier 0, `make test THOROUGH=1` to add the live real-dBASE
-DOSBox differential, or `make pending CASE=set-catalog` for a named unfinished
-capture. Pending cases retain their real expected output and may fail; they are
-not silently graded as passing. Set DBASE3_DECOMP to dbase3-decomp. Missing corpus
-or Python 3 is an error; the normal runner disables historical opt-outs.
-Existing independent Python readers are imported unchanged except for paths;
-new factory wiring is make and POSIX shell. Every suite has a separate log and
-fresh scratch tree under build/apps/initechbase/host. Case files replace the old
-per-command/function/SET make target matrices. Shared host objects avoid repeated
-compilation; `-j32` safely parallelizes compilation. Execution is sequential.
+## Loader and overlay contract
 
-The oracles are captured real III+ transcripts and binary files, independent
-Python DBF/DBT/NDX readers, the manual-derived numeric descriptor model, host
-hardware double for soft-float, and authored safety/property assertions. The
-provenance ledger is spec/ibase/README.md; test
-coverage, measured counts and every legacy gate's disposition are in
-`tests/IMPORT.md`. Real captures and their manifests stay together, including
-pending evidence and emulator screen captures. No expected real-dBASE text is
-rewritten. Two numeric-list captures were copied byte-for-byte from the existing
-research directory because those files are outside the permitted move scope;
-their original hashes remain in tests/list_off_real.sha256.
+The resident module is 107744 bytes with 792 relocations; INITBASE.EXE is
+110976 bytes, including its relocation header, and INITBASE.OVL is 39424 bytes.
+Above the resident bytes, the link needs a 13968-byte overlay slot, 16 bytes
+of BSS alignment, 47680 bytes of BSS, and a 3952-byte PAL heap region: 65616
+bytes total. Startup zeroes BSS; the PAL initializes that fixed first region
+and obtains its separate 32912-byte scratch/codec allocation through AH=48h.
 
-`make` builds every freestanding i386 translation unit and startup object under
-build/apps/initechbase/target using the shared TARGET_CC/TARGET_CFLAGS, plus the
-packaging tools, generated linker contract and MZ arguments. Target
-additions preserve soft-float ABI and the shipped overlay/variable-store profile:
--msoft-float -mno-80387, the overlay define, FLOW_MAX_REGISTRY=1 and
-FLOW_MEMVAR_ARENA=6000. Function/data sections are needed to put compiler-generated
-overlay jump tables in their overlay sections. The default C ABI replaces the
-old register/callee-pop convention coherently across all objects; the assembly
-entry calls only a no-argument C function and INT 21h uses explicit registers.
+The old app-owned 65536-byte reserve was 80 bytes short. App policy now gives
+the runtime tail the same budget as a maximum module: IBASE_LOADER_RESERVE
+follows INITECHMZ_EXT_MODULE_MAX (262144 bytes), with 196528 bytes of tail
+headroom. It leaves 1657616 usable bytes in the DOS arena (1624704 above the
+required minimum). tools/ibase_memory_ld.c generates both the linker symbols
+and the generic MZ descriptor arguments from include/ibase/memory_contract.h.
+boot/ibase.ld checks the actual tail, module ceiling and complete footprint
+against the high-memory guard and minimum heap. factory/mz/mzcheck checks the
+container independently. No kernel change or size-squeezing flags are needed.
 
-`make` (or `make package`) links and packages INITBASE.EXE and INITBASE.OVL.
-The resident module is 107744 bytes (792 relocations); the EXE is 110976 bytes
-and the overlay is 39424 bytes. The independent factory/mz/mzcheck accepts the
-container, and `make pair-test EXE=/absolute/file.EXE` checks all 50 pair
-properties. No size-squeezing flags are used. The linker map is in target/link.map.
+Ground truth: kernel/mz.c reads reserve_bytes from the extended descriptor;
+kernel/loader_validation.c:loader_high_plan places the allocation arena at
+ALIGN(EXT_APP_BASE + module length + reserve_bytes,16). It cannot infer BSS.
+The reserve protects our entire runtime tail from that arena, independently
+of LOAD_STAGING_MAX, PROGRAM_BSS_RESERVE and graphical tenant limits.
 
-The application overlay is separate from the kernel's graphical overlay.
-It was introduced for space limits; real dBASE also uses overlays, but the
-language semantics do not need them. Today's code still needs the file because
-six entry tables, relocation/stamp checks, load-on-demand calls and lifetime
-validation select its slot. Removing it entails resident dispatch, removing
-slot lifetime assumptions and startup file validation, a new linker/packaging
-path and host/boot regression comparisons. It is not part of this import.
+Six overlay entries reuse one fixed slot; on-disk overlay bytes do not live
+in BSS. Startup validates the matching file, and the manager checks lifetime,
+stamp, CRC and relocations when loading it. It is separate from FLAIR. Removing
+it would require resident dispatch and new lifetime/packaging proofs, outside
+this import. Target flags retain soft-float, section isolation and the shipped
+FLOW_MAX_REGISTRY=1/FLOW_MEMVAR_ARENA=6000 profile with the default C ABI.
 
-## Dependencies
+## Frozen feature inventory
 
-Core, commands and codecs depend on nothing outside this component and compile
-with only `-Iinclude`. The DOS platform layer depends on kernel/include for the
-loader's memory contract (memory_map.h and initechmz_extended.h). The host
-linker-contract generator uses those same public headers. No build reads attic.
-Packaging uses the shared factory/mz tool, built by that component's Makefile;
-its relocation I/O tests also live and run there. App policy remains in
-include/ibase/memory_contract.h: the generator supplies explicit --extended,
---reserve, --minimum-heap and --minalloc arguments to the generic mzlink.
-There are no SDK or Toolbox dependencies; this is an INT 21h DOS application.
+This is the present subset, not a promise of complete III+ compatibility.
+Sources: cmd/*_verbs.def, cmd/set_options.def, core/fn_builtins.c:fn_names,
+the accepted host capture lists, and attic/triage/triage.md's Base findings.
 
-## Loader reserve
+54 dispatch spellings (including aliases and punctuation):
 
-The plain-flags link needs 65616 bytes after the resident module: a 13968-byte
-overlay slot, 16 bytes of BSS alignment, 47680 bytes of BSS, and a 3952-byte PAL
-heap region. These are runtime allocations, absent from the resident payload.
-App policy now reserves a module-sized tail: IBASE_LOADER_RESERVE follows
-INITECHMZ_EXT_MODULE_MAX (262144 bytes), leaving 196528 bytes of tail headroom.
-This preserves the existing PAL allocation sizes and leaves 1657616 usable bytes
-in the loader arena, 1624704 above the declared 32912-byte minimum. The host
-generator supplies the same declaration to the linker and MZ wrapper. The
-linker checks the tail extent, module ceiling, guard and minimum heap together;
-the independent mzcheck separately validates the descriptor and relocations.
+- Query: LIST, DISPLAY, ?, ??, LOCATE, CONTINUE, SEEK, FIND, GO, GOTO, SKIP,
+  @ (SAY, not GET), EJECT, CLEAR.
+- Files/data: TYPE, RENAME, ERASE, COPY (FILE), RUN, !, SORT, TOTAL, INDEX,
+  REINDEX, REPLACE, APPEND (BLANK/FROM), DELETE, RECALL, PACK, ZAP.
+- Variables/areas: SAVE, RESTORE, STORE, SELECT, RELEASE; USE, CLOSE.
+- Programs/I/O: DO, PROCEDURE, PARAMETERS, PARAMETER, RETURN, RETRY, CANCEL,
+  QUIT, PUBLIC, PRIVATE, ACCEPT, INPUT, WAIT, ON (ERROR/ESCAPE); SET, REPORT,
+  LABEL. ON KEY is accepted but inert, a known defect.
 
-This reserve protects the overlay/BSS/PAL tail from the native AH=48h heap
-above it at runtime. It is not the unrelated 64 KiB LOAD_STAGING_MAX buffer or
-PROGRAM_BSS_RESERVE in kernel/include/memory_map.h, nor the desktop tenant's
-TBX_TENANT_IMAGE_MAX in kernel/loader.c. Ground truth: kernel/mz.c reads the
-extended descriptor's reserve_bytes; kernel/loader_validation.c:loader_high_plan
-places arena_base/reserve_end at ALIGN(EXT_APP_BASE + module length + declared
-reserve, 16), then checks the guard and minimum heap. It cannot infer the app's
-BSS extent. With 65536 declared here, the last 80 bytes would overlap that heap.
+The dot prompt also handles EXIT and RESUME directly (RESUME without a
+suspended program reports #101, `Not suspended.`).
 
-The extended loader accepts this declaration without kernel changes. Startup
-zeroes BSS, the PAL initializes its fixed first region in the reserved tail,
-and AH=48h supplies the separate scratch/codec block above the reserve. The
-overlay file's six linked entries all reuse the slot; it does not enlarge BSS
-or borrow the kernel's graphical overlay storage.
+Assignments, macro substitution, comments, IF/ELSE/ENDIF, DO WHILE/ENDDO,
+DO CASE/CASE/OTHERWISE/ENDCASE, LOOP and EXIT are structural program syntax.
+DO supports disk files, procedure libraries and WITH arguments. Program limits
+include 8191 bytes, 512 parsed lines and a 20-level DO cap; memory exhaustion
+can refuse earlier. The cap is production behavior; disabling it is not supported.
 
-Local extensions to mk/host-test.mk register shell suites after C suites,
-wrap each run with fresh scratch and independent postchecks, and cache product
-objects by profile (normal, DML arena, lifetime guard). Shared fragments supply command tracking, dependencies and test bounds. `make smoke` fails with a pointer to tests/SMOKES.md until the product
-boots. The large existing mutation-hook set is inventoried in
-`tests/MUTANTS-TODO.md`; patch conversion remains a follow-up.
+68 registered functions:
 
-Shared build conventions: command stamps rebuild on tool/flag changes; C
-translation units use -MMD dependencies. TEST_BUDGET_S is 30 seconds for the
-complete tier-0 selection; measured execution fits the default, excluding builds.
-Standalone tests verify their consumed files in goldens/CORPORA.lock; the
-top-level test run verifies the full lock once before parallel execution.
-All three host object profiles and target objects retain their flags.
-Product mutation hooks and the blocked INITBASE.EXE/OVL all outputs keep the
-import audit disabled. Shell suites retain the shared timeout/count runner.
+RECSIZE ERROR MESSAGE UPPER LOWER TRIM RTRIM LTRIM SUBSTR LEN SPACE CHR ASC
+STR VAL CTOD DTOC DATE DAY MONTH YEAR TYPE ABS INT MOD ROUND MAX MIN CDOW CMONTH
+DOW RECNO RECCOUNT EOF BOF FOUND DELETED FIELD DBF FILE LEFT RIGHT STUFF REPLICATE
+AT ISALPHA ISUPPER ISLOWER TRANSFORM EXP LOG SQRT TIME LUPDATE NDX ROW COL PROW
+PCOL INKEY READKEY LASTKEY ISCOLOR FKLABEL OS VERSION GETENV DISKSPACE.
+
+28 SET spellings (27 distinct options because HEADING/HEADINGS are aliases):
+
+ALTERNATE EXACT DECIMALS FIXED DATE CENTURY ORDER INDEX DELETED FILTER RELATION
+TALK SAFETY ESCAPE HEADING HEADINGS CONSOLE STATUS SCOREBOARD COLOR DEVICE
+UNIQUE MARGIN PRINT MEMOWIDTH HISTORY DOHISTORY PROCEDURE.
+
+RELATION and TALK currently store intent without the corresponding runtime
+behavior. The other 26 spellings have implemented effects, within the captured
+subset; pending history, numeric formatting and memo layout cases limit parity.
+
+Omissions and current refusals (the catalogue text is retained verbatim):
+
+- CALL, LOAD, IMPORT, EXPORT, CREATE, MODIFY, EDIT, BROWSE, ASSIST, READ,
+  COUNT, SUM, AVERAGE, JOIN, UPDATE, INSERT, TEXT, DIR: #16,
+  `*** Unrecognized command verb.` These have no command rows. The message
+  is generic, not yet an individual named refusal.
+- SET DEFAULT, PATH, FIELDS, VIEW and other unregistered SET options: #10,
+  `Syntax error.` Unknown function names: #31, `Invalid function name.`
+- COPY TO is outside the COPY FILE subset; unrecognised supported-verb
+  clauses use #36, `Unrecognized phrase/keyword in command.`, or #10 depending
+  on the parser. @ GET/READ forms and interactive table/schema editors do not
+  exist. CLEAR FIELDS/GETS are accepted with nothing to clear.
+- Unhandled program errors return to the dot prompt; the real III+ traceback
+  and Cancel/Ignore/Suspend recovery dialog are absent.
+
+Known parity limits, not silently promoted pending captures: STR scientific
+fallback/range/precision and rounding, exponent pictures, HISTORY growth and
+recording/paging, MEMOWIDTH wrapping/column padding, multi-area DISPLAY pauses,
+empty-table BOF, unique-index incremental duplicate handling, error routing,
+live-date century transport, and memo-reader refresh. SET INDEX preconditions,
+mutation NEXT scopes and bounded LOCATE misses still need independent capture
+qualification. Accepted captures stay unchanged. The smoke's LIST and INDEX/
+SEEK lines match real III+; its Y2K report uses the authored canon golden:
+CTOD('01/31/00') is 1900, A1001 ages -36477 days, and overdue total is 0.00.
+The period rollover bug is enforced.
+
+## Mutation and migration evidence
+
+Product faults live only as zero-fuzz patches under mutants/. `make mutants`
+groups identical host selections and invokes the shared strict factory runner
+with four workers (MUTANT_JOBS overrides; MUTANT_SERIAL=1 uses mk/mutants.mk
+alone). Where available, ccache caches sandbox host compiles without debug
+information, keeping scratch paths out of the cache key. Product flags and the
+ordinary host oracle keep their normal settings. Each selection has one passing
+baseline; every kill must compile and
+fail the same runtime suite twice. Pending patches are excluded, with their
+specific missing oracle recorded in mutants/pending/README.md. No survivor is
+reported as killed.
+
+`sh tests/smoke/red.sh` drops REPLACE's write, boots the same session, requires
+the independent DBF readback to reject it, and restores/rebuilds the product.
+The EXE and overlay hashes are compared across mutation-hook removal.
+The remaining legacy emulator scenarios are listed in tests/SMOKES.md;
+tests/IMPORT.md records host provenance and unfinished migration work.
+
+Qualification: 258 original fault names (including nine aliases), plus the
+write-loss control: 231 active patches killed, 28 pending. The four-worker
+`make mutants` sweep takes 208 seconds with the local cache. Product bytes
+before and after hook removal are identical:
+
+- INITBASE.EXE: `5a713213ab16795e8f9efd24ad0ce9121db34fb58ae544a2b25983aadd0f7501`
+- INITBASE.OVL: `015fd792d0b0d458761c956024250a41a620c53e6dc1fff1e9cad11b8929db1d`
+
+The product smoke passes 44 checks. The top-level parallel test run is ALL
+GREEN (11 components, 89 seconds); InitechBase executes its 75 suites in nine
+seconds. `make status` reports apps/initechbase as imported. This establishes
+the import conditions and the named DOS journey, not the deferred parity and
+screen qualification listed above.

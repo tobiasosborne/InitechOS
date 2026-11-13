@@ -1,0 +1,18 @@
+# test: test_interp_proc
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -395,0 +396,14 @@
++    /* MUTANT (CLAUDE.md, The constitution -- mutants/proc-mutate-assign-shadow-outer.patch; initech-0k2d): an
++     * assignment "<name> = <expr>" (or STORE ... TO) to a var VISIBLE from an
++     * OUTER scope level (a caller's PUBLIC, e.g. proc.prg's `PUBLIC R` read
++     * inside PROCEDURE DOUBLE) wrongly falls through to the "not visible"
++     * branch below and allocates a fresh SHADOWING auto-private at the
++     * current level instead of updating the outer var in place
++     * (memory-variables.md sec 3.1 rule 1: "STORE/= to a VISIBLE var modifies
++     * it"). The outer PUBLIC R then reads back unchanged after RETURN:
++     * golden/proc.out line 2 ("42") and line 3 ("47") both go RED. Exactly
++     * one perturbed branch (does not touch same-level assignment, so
++     * flow.prg's top-level X/I/N/J memvars -- all created and used at
++     * cur_level==0 -- are unaffected). */
++    if (slot >= 0 && fs->vars[slot].level != fs->cur_level)
++        slot = -1;

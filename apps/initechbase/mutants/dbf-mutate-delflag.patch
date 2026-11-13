@@ -1,0 +1,6 @@
+# test: test_dbf_mutate
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -1445 +1445 @@
+-#  define DELETE_FLAG_BYTE  ((uint8_t)DBF_REC_DELETE_DELETED) /* correct: 0x2A */
++#  define DELETE_FLAG_BYTE  ((uint8_t)DBF_REC_DELETE_LIVE)   /* mutant: 0x20 */

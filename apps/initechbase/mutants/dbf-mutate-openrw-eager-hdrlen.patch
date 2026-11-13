@@ -1,0 +1,17 @@
+# test: test_dbf_read
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -616,0 +617,13 @@
++        /*
++         * MUTATION HOOK (CLAUDE.md, The constitution; initech-jf8p): restores the exact pre-fix bug
++         * -- eagerly normalize header_length/term_extra to the +1 form AT OPEN
++         * TIME, before any dbf_flush. For a +2-form file (BANK.DBF, TAX.DBF)
++         * this truncates the true on-disk record offset by one byte, so
++         * dbf_read_rec misreads the +2 terminator's padding 0x00 as the
++         * delete flag and fails loud with -DBF_ERR_BAD_REC for every record.
++         * Exactly the two lines the fix removed from this spot; NEVER defined
++         * in a real build. Ref: harness/diff/dbf_diff/test_dbf_read.c
++         * test_tax_rw_plus2form / test_synthetic_plus2_rw_roundtrip (must go RED).
++         */
++        tbl->header_length = (uint16_t)((uint32_t)DBF_HDR_SIZE + descbytes + 1u);
++        tbl->term_extra    = 1u;

@@ -1,0 +1,5 @@
+# test: test_ibase_messages
+--- a/include/ibase/messages.h
++++ b/include/ibase/messages.h
+@@ -23,0 +24 @@
++            if (!token) { if (n + 1 >= cap) return 0; out[n++] = '!'; continue; }

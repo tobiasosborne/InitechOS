@@ -1,0 +1,10 @@
+# test: test_ibase_say
+--- a/core/screen.c
++++ b/core/screen.c
+@@ -128,0 +129,4 @@
++        char c=text[i];
++        if(c=='\n')say_next_row(s);
++        else if(c=='\r')s->col=0;
++        else
+@@ -131,0 +136 @@
++                if(text[i]=='\r' || text[i]=='\n')break;

@@ -1,0 +1,5 @@
+# test: test_ibase_dbsafe
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -945,0 +946 @@
++    return 1; /* mutant: stored SAFETY has no destructive consumer */

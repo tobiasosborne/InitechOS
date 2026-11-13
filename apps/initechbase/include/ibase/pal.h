@@ -1,7 +1,7 @@
 /*
  * os/ibase/include/ibase/pal.h -- IBASE (InitechBase) Platform Abstraction Layer.
  *
- * THE ARTIFACT (CLAUDE.md Law 3): this is the contract the shipped, freestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): this is the contract the shipped, freestanding
  * IBASE engine compiles against. It is the engine's ONLY OS surface -- engine
  * code (core/, fs/, cmd/, ui/) touches the operating system through this vtable
  * and NOTHING ELSE. The engine NEVER issues `int 0x21` directly. Two concrete
@@ -12,11 +12,11 @@
  * revert touches pal_dos.c and NOTHING else -- the engine + every host oracle
  * are insulated, and Phases 0-7 are fully host-developable/gradable.
  *
- * Freestanding-legal (CLAUDE.md Law 3 / DEC-04): no libc includes. Depends ONLY
+ * Freestanding-legal (CLAUDE.md CLAUDE.md, The constitution / DEC-04): no libc includes. Depends ONLY
  * on <stdint.h> -- the exact int-type convention the kernel uses (see
  * os/dos/blockdev.h). Do NOT introduce custom uintN typedefs here.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md Sec 8.1 (this contract sketch) +
  *     step S0.1; the seek=filesize idiom + the terminal extension slots.
  *   - docs/adr/ADR-0008-IBASE-InitechBase-Architecture.md DEC-02 (the PAL is the
@@ -26,8 +26,8 @@
  *     (3Dh/3Eh/3Fh/40h/42h/3Ch/41h/56h, 2Ah, CON, 07h, 48h); the calling
  *     convention is recorded in spec/int21h_calling_convention.json.
  *
- * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
- * Fail loud (Rule 2): every fd-returning / int-returning slot reports failure as
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths / nondeterminism (CLAUDE.md, The constitution).
+ * Fail loud (CLAUDE.md, The constitution): every fd-returning / int-returning slot reports failure as
  * a negative value; a binding MUST NOT report a short/garbage transfer as success.
  */
 #ifndef INITECH_IBASE_PAL_H
@@ -68,7 +68,7 @@ enum {
  * The file-SIZE primitive is seek(fd, 0, PAL_SEEK_END): it returns the new
  * absolute position, which at offset 0 from end IS the file length. There is no
  * separate "filesize" slot -- this is the documented idiom (ADR-0008 DEC-02 rev;
- * InitechDOS do_lseek). dbf_open's truncation-invariant check (Rule 2) and FILE()
+ * InitechDOS do_lseek). dbf_open's truncation-invariant check (CLAUDE.md, The constitution) and FILE()
  * both depend on it.
  */
 enum {
@@ -112,7 +112,7 @@ struct ibase_pal {
 
 	/* read: read up to `n` bytes into `buf`. Returns the byte count actually
 	 * read (>=0; 0 = EOF), or -(pal_err). A binding MUST NOT report a short
-	 * read as a full one (Rule 2). InitechDOS: AH=3Fh READ. */
+	 * read as a full one (CLAUDE.md, The constitution). InitechDOS: AH=3Fh READ. */
 	int32_t (*read)  (ibase_pal_t *, pal_fd fd, void *buf, uint32_t n);
 
 	/* write: write `n` bytes from `buf`. Returns the byte count actually
@@ -166,7 +166,7 @@ struct ibase_pal {
 	 * primitive, NOT INT 21h. */
 	void    (*set_attr)(ibase_pal_t *, uint8_t attr);
 
-	/* ---- clock: INJECTABLE for reproducibility (Rule 11) ---- */
+	/* ---- clock: INJECTABLE for reproducibility (CLAUDE.md, The constitution) ---- */
 
 	/* today: return the current date as packed two-digit YY (00-99 = 1900s/2000s
 	 * per CENTURY handling above the PAL), 1-based MM, 1-based DD. INJECTABLE so
@@ -248,7 +248,7 @@ struct ibase_pal {
      * Returns PAL_OK and writes *bytes, or -(pal_err) on failure.
      * Ref: ADR-0003 Appendix A; IBM DOS 3.30 Technical Reference INT 21h
      * AH=36h, DL=0: AX=sectors/cluster, BX=free clusters, CX=bytes/sector;
-     * AX=FFFFh means invalid drive. Host returns a fixed value (Rule 11). */
+     * AX=FFFFh means invalid drive. Host returns a fixed value (CLAUDE.md, The constitution). */
     int     (*diskspace)(ibase_pal_t *, uint32_t *bytes);
 
     /* Nonblocking keyboard FIFO poll: -1 if empty, 0..255 for an IBM
@@ -256,7 +256,7 @@ struct ibase_pal {
      * stdin. InitechDOS: INT 21h AH=0Bh status, AH=07h direct character input
      * without echo (unfiltered; no Ctrl-C check),
      * ADR-0003 Appendix A and DEC-04a flat ABI; IBM DOS 3.30 Technical
-     * Reference, these function entries. Host: fixed empty queue (Rule 11).
+     * Reference, these function entries. Host: fixed empty queue (CLAUDE.md, The constitution).
      * INKEY's III+ control-key translation belongs to the engine. */
     int32_t (*conin_poll)(ibase_pal_t *);
 
@@ -270,7 +270,7 @@ struct ibase_pal {
      * of SET COLOR. Ref: HELP.DBS line 1270; PRD Sec 5 / hardware.json video.
      * InitechDOS's boot selects colour via INT 10h AX=4F02h or AX=0013h
      * (os/boot/io_sys.asm); the protected-mode PAL reports that invariant
-     * without a BIOS call. Host: fixed colour capability (Rule 11). */
+     * without a BIOS call. Host: fixed colour capability (CLAUDE.md, The constitution). */
     int     (*iscolor)(ibase_pal_t *);
 
     /* Positioned screen output bypasses stdout and SET ALTERNATE.

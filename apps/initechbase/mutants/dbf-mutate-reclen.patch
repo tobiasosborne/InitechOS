@@ -1,0 +1,11 @@
+# test: test_dbf_read
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -419 +419,6 @@
+-    if ((uint32_t)record_length != sum_lens)
++    /* MUTATION HOOK (CLAUDE.md, The constitution): off-by-one in the invariant-1b check. Comparing
++     * against (sum_lens + 1) instead of sum_lens makes a VALID golden -- whose
++     * record_length equals exactly 1 + sum(field lengths) -- FAIL dbf_open with
++     * DBF_ERR_BAD_RECLEN, turning the mutant build RED. Exactly one perturbed
++     * branch; restored when the macro is undefined. */
++    if ((uint32_t)record_length != sum_lens + 1u)

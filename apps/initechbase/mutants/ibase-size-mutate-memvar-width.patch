@@ -1,0 +1,19 @@
+# test: test_ibase_ctl
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -430,15 +429,0 @@
+-    if (fs->vars[slot].val.t == XB_N) {
+-        xb_val *stored = &fs->vars[slot].val;
+-        unsigned dec = stored->num_dec, columns = 10;
+-        union { double n; uint64_t bits; } picture;
+-        picture.n = stored->u.n;
+-        /* Real argpicture/GOLD.OUT: STORE and PARAMETERS both extend an
+-         * overflow value's existing picture by its decimal suffix (LOG(-100)
+-         * 7 -> 10, SQRT(-1) 5 -> 8). Finite values use ten integer columns.
+-         * IEEE exponent all-ones covers both infinity and NaN, independent
+-         * of the function or error code that produced the value. */
+-        if ((picture.bits >> 52 & 0x7ffu) == 0x7ffu)
+-            columns = stored->num_width;
+-        columns += dec ? dec + 1 : 0;
+-        stored->num_width = (uint16_t)(columns > 255 ? 255 : columns);
+-    }

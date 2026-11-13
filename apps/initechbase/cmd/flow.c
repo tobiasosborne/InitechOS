@@ -2,11 +2,11 @@
  * os/ibase/cmd/flow.c -- IBASE (InitechBase) statement executor + control flow.
  *                        Step S5.3 (Phase 5 interpreter SPINE).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): freestanding (-ffreestanding -nostdlib). Uses
  * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- all OS
  * contact is through the PAL carried by the interpreter. Memory is bump-allocated
- * from the PAL arena (no malloc). ASCII-clean (Rule 12). Fail loud (Rule 2).
- * Reproducible (Rule 11): pure function of (program text, interp state).
+ * from the PAL arena (no malloc). ASCII-clean (CLAUDE.md, The constitution). Fail loud (CLAUDE.md, The constitution).
+ * Reproducible (CLAUDE.md, The constitution): pure function of (program text, interp state).
  *
  * dBASE III PLUS 1.1 ONLY (plan Sec 2.C).
  *
@@ -28,7 +28,7 @@
  *   resolve/user and install a COMPOSED resolver (memvars first, else delegate);
  *   restored on return. Every other ctx field is left untouched.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S5.3 contract + Phase 5 header.
  *   - os/ibase/include/ibase/interp.h  (the S5.3 API this file implements).
  *   - os/ibase/include/ibase/eval.h    (xb_lex/xb_parse/xb_eval; xb_ctx.resolve;
@@ -50,7 +50,7 @@
 #include "ibase/ovl.h"
 
 /* ===================================================================== */
-/* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)           */
+/* Tunables (bounded -- CLAUDE.md, The constitution fail-loud on overflow, never UB)           */
 /* ===================================================================== */
 
 #define FLOW_MAX_LINES     512   /* logical lines per program */
@@ -66,8 +66,8 @@
 # define FLOW_MAX_REGISTRY 16    /* host-test default; InitechDOS .COM build passes -DFLOW_MAX_REGISTRY=1 (ADR-0009 DEC-03) */
 #endif
 /* FLOW_MAX_REGISTRY: concurrent interpreters with flow state. Pure dimensioning
- * knob -- no target-only behavioral code paths (CLAUDE.md Law 3). */
-#define FLOW_MAX_SCOPE     64    /* max DO-call scope depth (Rule 2 fail-loud cap;
+ * knob -- no target-only behavioral code paths (CLAUDE.md CLAUDE.md, The constitution). */
+#define FLOW_MAX_SCOPE     64    /* max DO-call scope depth (CLAUDE.md, The constitution fail-loud cap;
                                   * the DO owner in proc.c enforces III+'s 20
                                   * total levels -- error 103; do-file-mint/depth) */
 
@@ -342,7 +342,6 @@ static void memvar_program(memvar *v, const char *s)
     v->program[n] = 0;
 }
 
-#ifndef IBASE_CORE_MUTATE_MEMVAR_RECLAIM
 static int memvar_reclaim(flow_state *fs, int slot, xb_val *value)
 {
     int i;
@@ -378,16 +377,12 @@ static int memvar_reclaim(flow_state *fs, int slot, xb_val *value)
     fs->arena_used = used;
     return INTERP_OK;
 }
-#endif
 
 static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
 {
     int slot, i;
     uint32_t nlen;
     xb_val value = *v;
-#ifdef IBASE_CORE_MUTATE_MEMVAR_RECLAIM
-    (void)value;
-#endif
 
     /* validate the name length (dBASE memvar names are <= 10 chars). */
     for (nlen = 0; name[nlen] != '\0'; nlen++) { }
@@ -398,22 +393,6 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
         return -INTERP_ERR_SYNTAX;
 
     slot = memvar_find(fs, name);
-#ifdef PROC_MUTATE_ASSIGN_SHADOW_OUTER
-    /* MUTANT (Rule 6 -- -DPROC_MUTATE_ASSIGN_SHADOW_OUTER; initech-0k2d): an
-     * assignment "<name> = <expr>" (or STORE ... TO) to a var VISIBLE from an
-     * OUTER scope level (a caller's PUBLIC, e.g. proc.prg's `PUBLIC R` read
-     * inside PROCEDURE DOUBLE) wrongly falls through to the "not visible"
-     * branch below and allocates a fresh SHADOWING auto-private at the
-     * current level instead of updating the outer var in place
-     * (memory-variables.md sec 3.1 rule 1: "STORE/= to a VISIBLE var modifies
-     * it"). The outer PUBLIC R then reads back unchanged after RETURN:
-     * golden/proc.out line 2 ("42") and line 3 ("47") both go RED. Exactly
-     * one perturbed branch (does not touch same-level assignment, so
-     * flow.prg's top-level X/I/N/J memvars -- all created and used at
-     * cur_level==0 -- are unaffected). */
-    if (slot >= 0 && fs->vars[slot].level != fs->cur_level)
-        slot = -1;
-#endif
     if (slot < 0) {
         /* reuse a released slot if any, else extend. */
         for (i = 0; i < fs->nvars; i++) {
@@ -424,10 +403,8 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
                 return -INTERP_ERR_DEPTH;
             slot = fs->nvars++;
         }
-#ifndef IBASE_CORE_MUTATE_MEMVAR_RECLAIM
         if (memvar_reclaim(fs, slot, &value) != INTERP_OK)
             return -INTERP_ERR_NOMEM;
-#endif
         /* copy the (upper-cased) name into the slot. */
         for (i = 0; (uint32_t)i < nlen; i++)
             fs->vars[slot].name[i] = fl_up1(name[i]);
@@ -442,39 +419,17 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
         fs->vars[slot].shadows   = -1;
         memvar_program(&fs->vars[slot], fs->program);
     } else {
-#ifndef IBASE_CORE_MUTATE_MEMVAR_RECLAIM
         if (memvar_reclaim(fs, slot, &value) != INTERP_OK)
             return -INTERP_ERR_NOMEM;
-#endif
     }
 
     /* copy the value; for C/M, copy the bytes into the memvar arena. */
-#ifdef IBASE_CORE_MUTATE_MEMVAR_RECLAIM
-    if (v->t == XB_C || v->t == XB_M) {
-        uint16_t len = v->u.c.len;
-        char *dst;
-        if ((uint32_t)len > fs->arena_cap - fs->arena_used)
-            return -INTERP_ERR_NOMEM;
-        dst = fs->arena + fs->arena_used;
-        if (len > 0u && v->u.c.p)
-            rt_memcpy(dst, v->u.c.p, (uint32_t)len);
-        fs->arena_used += (uint32_t)len;
-        fs->vars[slot].val.t = v->t;
-        fs->vars[slot].val.u.c.p = dst;
-        fs->vars[slot].val.u.c.len = len;
-    } else {
-        fs->vars[slot].val = *v;
-    }
-#else
     fs->vars[slot].val = value;
-#endif
     /* Real III+ DML-02/03 and PROG-04/05: ten integer columns regardless of
      * the assigning literal. Keep this outside the arena-reclaim branches. */
-#ifndef IBASE_SIZE_MUTATE_MEMVAR_WIDTH
     if (fs->vars[slot].val.t == XB_N) {
         xb_val *stored = &fs->vars[slot].val;
         unsigned dec = stored->num_dec, columns = 10;
-#ifndef IBASE_FNS_MUTANT_argpicture
         union { double n; uint64_t bits; } picture;
         picture.n = stored->u.n;
         /* Real argpicture/GOLD.OUT: STORE and PARAMETERS both extend an
@@ -484,11 +439,9 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
          * of the function or error code that produced the value. */
         if ((picture.bits >> 52 & 0x7ffu) == 0x7ffu)
             columns = stored->num_width;
-#endif
         columns += dec ? dec + 1 : 0;
         stored->num_width = (uint16_t)(columns > 255 ? 255 : columns);
     }
-#endif
     return INTERP_OK;
 }
 
@@ -550,26 +503,7 @@ static int flow_resolve(void *user, const char *name, uint16_t len, xb_val *out)
  */
 static int eval_guard(xb_interp *ip, const char *expr, int *truth, int *ec)
 {
-#ifdef FLOW_MUTATE_GUARD_TRUTHY
-    /* MUTANT (Rule 6 -- -DFLOW_MUTATE_GUARD_TRUTHY): accept a non-Logical guard
-     * as truthiness (N != 0, non-empty C) instead of failing loud #37. This
-     * breaks the guard-must-be-Logical rule -> the oracle's guard-type-error
-     * checks go RED. */
-    xb_val v;
-    int rc = xb_interp_eval(ip, expr, &v, ec);
-    if (rc != INTERP_OK)
-        return rc;
-    switch (v.t) {
-    case XB_L: *truth = v.u.l ? 1 : 0; break;
-    case XB_N: *truth = (v.u.n != 0.0) ? 1 : 0; break;
-    case XB_C: *truth = (v.u.c.len > 0u) ? 1 : 0; break;
-    default:   *truth = 0; break;
-    }
-    if (ec) *ec = 0;
-    return INTERP_OK;
-#else
     return xb_interp_cond(ip, expr, truth, ec);   /* #37 when not Logical */
-#endif
 }
 
 /* ===================================================================== */
@@ -1050,11 +984,7 @@ static IBASE_OVL_TEXT(memfile) int fl_memfile(xb_interp *ip,flow_state *fs,const
             at+=32+len;
         }
         if(!rc && (at+1!=(unsigned)size || b[at]!=26))rc=55;
-#ifndef IBASE_DML_MUTANT_restore
         if(!rc && !add)xb_interp_release_all(ip);
-#else
-        (void)add; /* retain old variables, incorrectly additive every time */
-#endif
         at=0;
         while(!rc && b[at]!=26) {
             xb_val v;char variable[11];unsigned type=b[at+11]&127;
@@ -1098,9 +1028,6 @@ static IBASE_OVL_TEXT(memfile) int fl_memfile(xb_interp *ip,flow_state *fs,const
             else {len=8;x.d=type=='D'?v->u.d:v->u.n;payload=x.b;
                 if(type=='N'){h[16]=(unsigned char)v->num_width;h[17]=(unsigned char)v->num_dec;}
             }
-#ifdef IBASE_DML_MUTANT_save
-            h[11]='C'|128; /* corrupt the saved scalar type, not the oracle */
-#endif
             if(p->write(p,fd,h,32)!=32 || p->write(p,fd,payload,len)!=(int32_t)len)rc=56;
         }
         if(!rc && p->write(p,fd,&eof,1)!=1)rc=56;
@@ -1222,9 +1149,7 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
     const char *clear_args = line + clear_len;
     while (fl_isspace(*clear_args)) clear_args++;
     if (clear_len && rt_kw_index(clear_args, "MEMORY\0") == 0) {
-#ifndef IBASE_DML_MUTANT_clear
         xb_interp_release_all(ip);
-#endif
         return INTERP_OK;
     }
 
@@ -1277,7 +1202,6 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
  * Bounded to the documented 254-character command line (U7, error #18). */
 static int flow_expand(xb_interp *ip, char *line, int *ec)
 {
-#ifndef IBASE_DML_MUTANT_macro
     char next[FLOW_MAX_LINELEN+1];
     unsigned pass;
     for(pass=0;pass<16;pass++) {
@@ -1309,9 +1233,6 @@ static int flow_expand(xb_interp *ip, char *line, int *ec)
         if(!changed)return INTERP_OK;
     }
     *ec=18;return -INTERP_ERR_DEPTH;
-#else
-    (void)ip;(void)line;(void)ec;return INTERP_OK;
-#endif
 }
 
 /* ===================================================================== */
@@ -1346,16 +1267,12 @@ int ibase_finish_transfer(xb_interp *ip, int *ec)
     if (rc == INTERP_OK) return rc;
     t = fl_trap(ip, rc, ec);
     while (t == 2) {
-#ifdef IBASE_FNS_MUTANT_retryconfirm
-        return INTERP_OK; /* MUTANT: ignore RETRY during argument completion. */
-#else
         /* Real retryconfirm/GOLD.OUT: this unfinished argument phase has no
          * completed command to restart. RETRY reports the ordinary unknown
          * command error, then resumes with the original argument vector. */
         rc = -INTERP_ERR_UNKNOWN_CMD;
         if (ec) *ec = 0;
         t = fl_trap(ip, rc, ec);
-#endif
     }
     if (t < 0 || t == INTERP_TRAP_RETURN) return t;
     return t ? INTERP_OK : rc;
@@ -1369,20 +1286,16 @@ static int fl_handle_statement(flow_prog *fp, int rc, int *ec, int *retry)
     int t;
     *retry = 0;
     rc = fl_finish_statement(fp->ip, rc, ec);
-#ifndef FLOW_MUTATE_NO_RETRY
     if (rc == INTERP_RC_RETRY) {
         if (ec) *ec = 0;
         *retry = 1;
         return INTERP_OK;
     }
-#endif
     if (rc == INTERP_OK) return rc;
     t = fl_trap(fp->ip, rc, ec);
     if (!t) return rc;
     if (t < 0) return t;
-#ifndef FLOW_MUTATE_NO_RETRY
     if (t == 2) *retry = 1;
-#endif
     return INTERP_OK;
 }
 
@@ -1445,19 +1358,6 @@ static int run_if(flow_prog *fp, int start, int endif, int *next,
             return rc;
     }
 
-#ifdef FLOW_MUTATE_IF_INVERT
-    /* MUTANT (Rule 6 -- -DFLOW_MUTATE_IF_INVERT; initech-0k2d): invert the
-     * evaluated guard, so IF takes the ELSE branch and vice versa (and a
-     * guardless-ELSE IF wrongly runs its body when the guard is FALSE). A
-     * "loop/IF branch inversion" (plan S6.4 flow.out cluster): flow.prg's
-     * leading `IF X > 5 ... ELSE ? 'SMALL' ENDIF` (X=3, guard false) then
-     * prints 'BIG' instead of 'SMALL' (golden/flow.out line 2), and the
-     * `IF J=2 LOOP` / `IF J=4 EXIT` guards inside the trailing DO WHILE .T.
-     * loop invert too (LOOP fires on J=1 before the "?" line runs; EXIT fires
-     * on J=2), so the loop's "1"/"3" lines vanish entirely. Exactly one
-     * perturbed value; no crash, no infinite loop (EXIT still terminates). */
-    truth = !truth;
-#endif
 
     else_at = find_top_level(fp, start + 1, endif, LK_ELSE, LK_OTHER, LK_OTHER);
 
@@ -1484,11 +1384,7 @@ static int run_docase(flow_prog *fp, int start, int endcase, int *next,
 {
     int i, rc;
     int otherwise_at = -1;
-#ifdef FLOW_MUTATE_DOCASE_ALL
-    int ran_any = 0;       /* MUTANT bookkeeping */
-#else
     int chosen = -1;       /* index of the chosen CASE/OTHERWISE line */
-#endif
 
     /* Walk top-level CASE / OTHERWISE lines in order. */
     for (i = start + 1; i < endcase; ) {
@@ -1522,36 +1418,9 @@ static int run_docase(flow_prog *fp, int start, int endcase, int *next,
                 if (rc != INTERP_OK) return rc;
                 if (retry) { *next = endcase + 1; return INTERP_OK; }
             }
-#ifdef FLOW_MUTATE_DOCASE_ALL
-            /* MUTANT (Rule 6 -- -DFLOW_MUTATE_DOCASE_ALL): run EVERY true CASE
-             * body instead of only the first -> a DO CASE that should pick one
-             * branch runs several; the oracle's "first true CASE only" check
-             * goes RED. */
-            if (truth) {
-                int body_end = endcase;
-                int j;
-                for (j = i + 1; j < endcase; ) {
-                    line_kind kk = fp->kind[j];
-                    if (kk == LK_IF || kk == LK_DOWHILE || kk == LK_DOCASE) {
-                        int e3 = match_block_end(fp, j);
-                        if (e3 < 0) return -INTERP_ERR_STRUCT;
-                        j = e3 + 1; continue;
-                    }
-                    if (kk == LK_CASE || kk == LK_OTHERWISE) { body_end = j; break; }
-                    j++;
-                }
-                rc = run_block(fp, i + 1, body_end, sig, ec);
-                if (rc != INTERP_OK) return rc;
-                if (*sig != SIG_NONE) { *next = endcase + 1; return INTERP_OK; }
-                ran_any = 1;
-            }
-            i++;
-            continue;
-#else
             if (truth) { chosen = i; break; }   /* first true CASE wins */
             i++;
             continue;
-#endif
         }
         /* a plain line between DO CASE and the first CASE is ignored by dBASE. */
         i++;
@@ -1564,17 +1433,6 @@ static int run_docase(flow_prog *fp, int start, int endcase, int *next,
         if (retry) { *next = endcase + 1; return INTERP_OK; }
     }
 
-#ifdef FLOW_MUTATE_DOCASE_ALL
-    if (!ran_any && otherwise_at >= 0) {
-        int body_end = find_top_level(fp, otherwise_at + 1, endcase,
-                                      LK_CASE, LK_OTHERWISE, LK_OTHER);
-        if (body_end < 0) body_end = endcase;
-        rc = run_block(fp, otherwise_at + 1, body_end, sig, ec);
-        if (rc != INTERP_OK) return rc;
-    }
-    *next = endcase + 1;
-    return INTERP_OK;
-#else
     if (chosen < 0)
         chosen = otherwise_at;     /* no true CASE: fall to OTHERWISE if present */
 
@@ -1590,7 +1448,6 @@ static int run_docase(flow_prog *fp, int start, int endcase, int *next,
     }
     *next = endcase + 1;
     return INTERP_OK;
-#endif
 }
 
 /*
@@ -1645,15 +1502,8 @@ static int fl_catalog(xb_interp *ip, int rc, int ec)
 {
     static const uint8_t m[9] = {0, 43, 10, 10, 10, 96, 16, 10, 103};
     if (ec != 0) return ec;
-#ifdef IBASE_FNS_MUTANT_struct
-    if (rc == -INTERP_ERR_STRUCT) return -rc;   /* MUTANT: the status leaks */
-#endif
-#ifndef IBASE_FNS_MUTANT_errors
     if (rc == -INTERP_ERR_STRUCT && xb_interp_ctx(ip)->dot_command) return 95;
     if (rc < 0 && rc >= -INTERP_ERR_DEPTH) return m[-rc];
-#else
-    (void)ip; (void)m;
-#endif
     return -rc;
 }
 
@@ -1688,7 +1538,6 @@ static int fl_trap(xb_interp *ip, int rc, int *ec)
  */
 static int fl_escape(flow_prog *fp, int *ec)
 {
-#ifndef FLOW_MUTATE_NO_ESCAPE
     xb_ctx *c = xb_interp_ctx(fp->ip);
     ibase_pal_t *pal;
     if (!c->on_escape || c->dot_command)
@@ -1700,10 +1549,6 @@ static int fl_escape(flow_prog *fp, int *ec)
         return INTERP_OK;
     if (ec) *ec = 0;
     return c->on_escape(fp->ip);
-#else
-    (void)fp; (void)ec;
-    return INTERP_OK;
-#endif
 }
 
 /*
@@ -1852,7 +1697,7 @@ int xb_interp_add_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user)
         return INTERP_OK;                  /* NULL append is a no-op */
     flow_mark_inuse(ip, fs);               /* keep the chain across the first ibase_do */
     if (fs->nhooks >= INTERP_MAX_CMD_HOOKS)
-        return -INTERP_ERR_DEPTH;          /* chain full: fail loud (Rule 2) */
+        return -INTERP_ERR_DEPTH;          /* chain full: fail loud (CLAUDE.md, The constitution) */
     fs->hooks[fs->nhooks]      = hook;
     fs->hook_users[fs->nhooks] = user;
     fs->nhooks++;
@@ -1906,9 +1751,6 @@ int xb_interp_memvar_next(xb_interp *ip, unsigned *cursor, xb_memvar_info *out)
         out->is_public = v->is_public;
         out->hidden = !v->live;
         out->level = v->level;
-#ifdef IBASE_DML_MUTANT_memory
-        out->is_public = !out->is_public; /* expose the wrong scope */
-#endif
         return 1;
     }
     return 0;
@@ -1950,19 +1792,10 @@ void xb_interp_scope_leave(xb_interp *ip)
         if (fs->vars[i].is_public)
             continue;
         if (fs->vars[i].level == lvl) {
-#ifdef PROC_MUTATE_PRIVATE_NORESTORE
-            /* MUTANT (Rule 6 -- -DPROC_MUTATE_PRIVATE_NORESTORE): drop the
-             * level var but DO NOT un-hide the var it shadowed. The caller's
-             * shadowed value then stays clobbered/invisible after RETURN, so
-             * the oracle's "outer x unchanged after a PRIVATE callee" check
-             * goes RED. */
-            fs->vars[i].live = 0;
-#else
             int sh = fs->vars[i].shadows;
             fs->vars[i].live = 0;
             if (sh >= 0 && sh < fs->nvars)
                 fs->vars[sh].live = 1;     /* un-hide the shadowed var */
-#endif
         }
     }
     fs->cur_level--;
@@ -2164,7 +1997,6 @@ int ibase_do_n(xb_interp *ip, const char *prg, uint32_t plen)
 static int flow_run_lines(xb_interp *ip, flow_state *fs, const char *prg,
                           uint32_t plen, int n)
 {
-#ifndef FLOW_MUTATE_STACK_LINES
     flow_line  small_lines[FLOW_STACK_LINES];
     line_kind  small_kind[FLOW_STACK_LINES];
     ibase_pal_t *pal;
@@ -2184,13 +2016,6 @@ static int flow_run_lines(xb_interp *ip, flow_state *fs, const char *prg,
                          (line_kind *)((flow_line *)blk + n));
     pal->release(pal, blk);
     return rc;
-#else
-    /* MUTANT (Rule 6): the pre-review per-call stack tables. A 500-line
-     * recursive procedure then overruns the 64 KiB guest stack. */
-    flow_line  vla_lines[n > 0 ? n : 1];
-    line_kind  vla_kind[n > 0 ? n : 1];
-    return flow_exec_lines(ip, fs, prg, plen, n, vla_lines, vla_kind);
-#endif
 }
 
 static int flow_exec_lines(xb_interp *ip, flow_state *fs, const char *prg,

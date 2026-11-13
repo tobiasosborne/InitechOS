@@ -1,0 +1,14 @@
+# test: test_interp_setfmt
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -426,2 +426,3 @@
+-    fmt     = ctx->set_date_fmt;
+-    century = ctx->set_century;
++    (void)ctx;      /* ctx not read under mutation; suppress -Wunused-parameter */
++    fmt     = (uint8_t)XB_DATE_AMERICAN;
++    century = 0;
+@@ -553,2 +554,2 @@
+-    fmt     = ctx->set_date_fmt;
+-    century = ctx->set_century;
++    fmt     = (uint8_t)XB_DATE_AMERICAN;
++    century = 0;

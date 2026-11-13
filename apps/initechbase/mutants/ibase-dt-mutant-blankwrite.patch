@@ -1,0 +1,9 @@
+# test: test_ibase_datatype
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -1011 +1011 @@
+-        if (v && v->t == XB_D && !xb_date_blank(v->u.d)) {
++        if (v && v->t == XB_D) {
+@@ -1625 +1625 @@
+-        if (v->t == XB_D && !xb_date_blank(v->u.d)) {
++        if (v->t == XB_D) {   /* mutant: the blank date is formatted as a date */

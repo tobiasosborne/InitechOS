@@ -1,0 +1,13 @@
+# test: test_ibase_ovl_lifetime
+--- a/core/ovl.c
++++ b/core/ovl.c
+@@ -321,0 +322,3 @@
++    /* MUTANT (CLAUDE.md, The constitution; test-ibase-ovl-emu-mutant only): no start-up check --
++     * a missing INITBASE.OVL reaches the dot prompt; the missing leg goes RED. */
++    return 0;
+@@ -362,0 +366,5 @@
++    /* Cold SET construction now loads an overlay before the first prompt
++     * (initech-0spyf/fzsvo). These startup-verification fault injections must
++     * not enter unchecked code: SKIP_OPEN would be rescued by its second
++     * check, and NO_STAMP would execute a foreign resident ABI. */
++    if(id==IBASE_OVL_SET && k==1)return 0;

@@ -1,0 +1,15 @@
+# test: test_interp_flow
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -1360,0 +1361,11 @@
++    /* MUTANT (CLAUDE.md, The constitution -- mutants/flow-mutate-if-invert.patch; initech-0k2d): invert the
++     * evaluated guard, so IF takes the ELSE branch and vice versa (and a
++     * guardless-ELSE IF wrongly runs its body when the guard is FALSE). A
++     * "loop/IF branch inversion" (plan S6.4 flow.out cluster): flow.prg's
++     * leading `IF X > 5 ... ELSE ? 'SMALL' ENDIF` (X=3, guard false) then
++     * prints 'BIG' instead of 'SMALL' (golden/flow.out line 2), and the
++     * `IF J=2 LOOP` / `IF J=4 EXIT` guards inside the trailing DO WHILE .T.
++     * loop invert too (LOOP fires on J=1 before the "?" line runs; EXIT fires
++     * on J=2), so the loop's "1"/"3" lines vanish entirely. Exactly one
++     * perturbed value; no crash, no infinite loop (EXIT still terminates). */
++    truth = !truth;

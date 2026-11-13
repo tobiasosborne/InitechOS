@@ -1,0 +1,6 @@
+# test: test_ibase_fns
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -686,2 +685,0 @@
+-    /* OFF keeps the one-column deletion field: real SF-listoff/SF-numlist. */
+-    else if(!pos) q_append_cstr(line,&pos,sizeof(line)," ");

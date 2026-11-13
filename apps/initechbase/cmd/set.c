@@ -2,10 +2,10 @@
  * os/ibase/cmd/set.c -- IBASE (InitechBase) SET command module.
  *                        Step S5.6 (Phase 5 interpreter).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): freestanding (-ffreestanding -nostdlib). Uses
  * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of OS contact goes through the PAL. Memory is fixed/static (no malloc).
- * ASCII-clean (Rule 12). Fail loud (Rule 2). Reproducible (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). Fail loud (CLAUDE.md, The constitution). Reproducible (CLAUDE.md, The constitution).
  *
  * dBASE III PLUS 1.1 ONLY (plan Sec 2.C).
  *
@@ -39,12 +39,12 @@
  *   TALK=ON    [verified: set-commands.md Sec 2 table]
  *   SAFETY=ON  [verified: set-commands.md Sec 2 table]
  *
- * MUTATION PROOF (Rule 6):
- *   -DSET_MUTATE_EXACT_DEFAULT: initialise set_exact to 1 (ON) instead of 0
+ * MUTATION PROOF (CLAUDE.md, The constitution):
+ *   mutants/set-mutate-exact-default.patch: initialise set_exact to 1 (ON) instead of 0
  *   (OFF). The EXACT-default assertion (set_get_exact==0) and the C= begins-with
  *   test ("ABC" = "AB" -> .T. under OFF) both go RED, proving the oracle bites.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S5.6 (SET state; contract + oracle).
  *   - ../dbase3-decomp/specs/commands/set-commands.md (full SET grammar; defaults;
  *     III+ vs IV flags; SET NEAR absent; SET DATE keyword list).
@@ -97,24 +97,16 @@ void set_close_alternate(xb_interp *ip)
         g_val[i].alternate=-1;g_val[i].alternate_on=0;
     }
 }
-#ifdef IBASE_OVL_MUTATE_ESCAPE_CALLBACK
-static IBASE_OVL_TEXT(set) void alternate_output(
-#else
 static void alternate_output(
-#endif
 void *user,const char *s,uint32_t n)
 {
     xb_interp *ip=user;ibase_pal_t *pal=xb_interp_pal(ip);int i;
     for(i=0;i<g_n;i++)if(g_key[i]==ip && g_val[i].alternate_on && g_val[i].alternate>=0) {
-#ifndef IBASE_FNS_MUTANT_alternate
         if(pal->write(pal,g_val[i].alternate,s,n)!=(int32_t)n) {
             g_val[i].alternate_on=0;
             /* Preserve a failed log rather than continuing silent partial I/O. */
             xb_interp_ctx(ip)->error_number=8;
         }
-#else
-        (void)pal;(void)s;(void)n;
-#endif
         return;
     }
 }
@@ -157,11 +149,7 @@ int set_history_record(xb_interp *ip, const char *line, int *ec)
     ibase_pal_t *pal;
     uint32_t n, i;
     char *copy;
-#ifndef IBASE_W2_MUTANT_dohistory
     if (!ss || !ss->dohistory || !ss->history_on || !ss->hist_cap) return INTERP_OK;
-#else
-    if (!ss || !ss->history_on || !ss->hist_cap) return INTERP_OK;   /* MUTANT: ignore DOHISTORY */
-#endif
     pal = xb_interp_pal(ip);
     if (!ss->hist) {
         ss->hist = (char **)pal->acquire(pal, ss->hist_cap * (uint32_t)sizeof(char *));
@@ -261,7 +249,7 @@ static IBASE_OVL_TEXT(set) int parse_on_off(const char *args, int *val)
  *
  * Ref: eval.h xb_ctx.set_exact; plan S5.6 "write xb_interp_ctx(ip)->set_exact".
  *
- * MUTATION PROOF: -DSET_MUTATE_EXACT_DEFAULT inverts the DEFAULT initialisation,
+ * MUTATION PROOF: mutants/set-mutate-exact-default.patch inverts the DEFAULT initialisation,
  * not the SET command itself. This function is correct; the mutant fires in
  * set_init_defaults where the initial set_exact is set.
  */
@@ -419,7 +407,6 @@ static IBASE_OVL_TEXT(set) int do_set_index(xb_interp *ip, set_state *ss, const 
     ss->have_index = 1;
     /* Using III+ U5-239; SF-index: replace this area's list, first is master,
      * omitted extensions are NDX, and position at the master beginning. */
-#ifndef IBASE_FNS_MUTANT_index
     {
         wa_env *env=xb_interp_env(ip);
         int area=wa_selected(env),count=0;
@@ -456,9 +443,6 @@ static IBASE_OVL_TEXT(set) int do_set_index(xb_interp *ip, set_state *ss, const 
             if(wa_nav_index_top(env,area)!=NAV_OK) {if(err_code)*err_code=114;return -INTERP_ERR_EVAL;}
         }
     }
-#else
-    (void)ip;
-#endif
     if (err_code) *err_code = 0;
     return INTERP_OK;
 }
@@ -550,21 +534,15 @@ static IBASE_OVL_TEXT(set) void set_init_defaults(xb_interp *ip, set_state *ss)
     int i;
     ss->alternate=-1;ss->alternate_on=0;
     ss->alternate_name[0]=0;
-#ifndef IBASE_OVL_MUTATE_ESCAPE_CALLBACK
     ibase_bind_output(xb_interp_ctx(ip),alternate_output,ip);
-#endif
 
     /*
      * SET EXACT default = OFF [verified: mint-results-002.md].
      * Write into the evaluator's ctx directly (the field the engine reads).
-     * MUTATION PROOF: -DSET_MUTATE_EXACT_DEFAULT: initialise to 1 (ON) instead
+     * MUTATION PROOF: mutants/set-mutate-exact-default.patch: initialise to 1 (ON) instead
      * of 0 (OFF). The default-is-OFF assertion and the C= begins-with test go RED.
      */
-#ifdef SET_MUTATE_EXACT_DEFAULT
-    xb_interp_ctx(ip)->set_exact = 1;    /* MUTANT: wrong default */
-#else
     xb_interp_ctx(ip)->set_exact = 0;    /* correct: EXACT OFF */
-#endif
 
     /* SET DECIMALS default = 2 [verified: mint-results-002.md].
      * Written into ss->decimals (stored state) AND ctx->set_decimals (the live field
@@ -665,9 +643,6 @@ static IBASE_OVL_TEXT(set) int color_attribute(const char **text,uint8_t *attr)
         s=s_skip_ws(s);
     } else if(!mono)return -1;
     if(*s && *s!=',')return -1;
-#ifdef SET_COLOR_MUTANT_BG
-    bg=0; /* Rule 6: drop only the parsed background nibble. */
-#endif
     *attr=(uint8_t)(fg|(bg<<4)|bits);
     *text=s;
     return 0;
@@ -843,9 +818,6 @@ static IBASE_OVL_TEXT(set) int set_opt_unique(xb_interp *ip, set_state *ss, cons
     int on;
     (void)ip;
     if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
-#ifdef IBASE_W2_MUTANT_unique_set
-    on = 0;   /* mutant: SET UNIQUE ON has no effect */
-#endif
     ss->unique = on;
     return CMD_OK;
 }
@@ -897,9 +869,6 @@ static IBASE_OVL_TEXT(set) int set_opt_history(xb_interp *ip, set_state *ss, con
         d = v.u.n;
         if (d < 0.0 || d >= 16001.0) { if (err_code) *err_code = 46; return -INTERP_ERR_EVAL; }
         n = (uint32_t)d;
-#ifdef IBASE_W2_MUTANT_histcap
-        return CMD_OK;   /* MUTANT: SET HISTORY TO n never resizes */
-#endif
         if (n == ss->hist_cap) return CMD_OK;
         if (ss->hist) {
             char **fresh = (char **)0;
@@ -912,21 +881,13 @@ static IBASE_OVL_TEXT(set) int set_opt_history(xb_interp *ip, set_state *ss, con
             pal->release(pal, ss->hist);
             ss->hist = fresh;
         }
-#if defined(IBASE_W2_MUTANT_histshrink)
-        ss->hist_next = 0u;   /* MUTANT: a shrink restarts the write slot */
-#elif defined(IBASE_W2_MUTANT_histgrow)
-        ss->hist_next = n ? ss->hist_next % n : 0u;   /* MUTANT: a grow keeps the write slot */
-#else
         ss->hist_next = (n && n < ss->hist_cap) ? ss->hist_next % n : 0u;
-#endif
         ss->hist_cap = n;
         return CMD_OK;
     }
     if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
     ss->history_on = on;
-#ifndef IBASE_W2_MUTANT_histtoggle
     ss->hist_next = 0u;
-#endif
     return CMD_OK;
 }
 
@@ -936,9 +897,6 @@ static IBASE_OVL_TEXT(set) int set_opt_onoff_ctx(xb_interp *ip, const char *s, i
     int on;
     xb_ctx *ctx=xb_interp_ctx(ip);
     if(parse_on_off(s,&on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
-#ifdef IBASE_MUTATE_SET_HEADINGS
-    if(which==0) on=!on;
-#endif
     if(which==0) ctx->set_heading=(uint8_t)on;
     else if(which==1) ctx->set_console=(uint8_t)on;
     else if(which==2) ctx->set_status=(uint8_t)on;
@@ -975,11 +933,7 @@ static IBASE_OVL_TEXT(set) int set_opt_memowidth(xb_interp *ip, set_state *ss, c
     if(v.t!=XB_N) { if(err_code) *err_code=27; return -INTERP_ERR_EVAL; }
     d = v.u.n;
     if(d<8.0) { if(err_code) *err_code=46; return -INTERP_ERR_EVAL; }
-#ifdef IBASE_W2_MUTANT_memowidth_nowrap256
-    xb_interp_ctx(ip)->memo_width1 = (uint16_t)((d>255.0 ? 255u : (uint32_t)d) + 1u);
-#else
     xb_interp_ctx(ip)->memo_width1 = (uint16_t)(((d>=4294967296.0 ? 0xFFFFFFFFu : (uint32_t)d) & 255u) + 1u);
-#endif
     return CMD_OK;
 }
 
@@ -1036,9 +990,6 @@ static IBASE_OVL_TEXT(set) int set_opt_margin(xb_interp *ip, set_state *ss, cons
     d=v.u.n;
     if(d<1.0 || d>=4294967296.0) d=0.0;
     w=(uint32_t)d&0xFFFFu;
-#ifdef IBASE_W2_MUTANT_margin
-    w=(uint32_t)(d+0.5)&0xFFFFu;       /* rounds instead of truncating */
-#endif
     xb_interp_ctx(ip)->set_margin=(uint16_t)(w>=32768u?0u:w);
     return CMD_OK;
 }
@@ -1090,32 +1041,6 @@ static IBASE_OVL_TEXT(set) int set_opt_lookup(const char *opt)
  * SET sub-option parser. set_cmd_hook (resident) claims the verb exactly as
  * before; everything after the claim runs here, unchanged. k is unused. */
 /* Deliberate retained-pointer regressions for the runtime gates. */
-#ifdef IBASE_OVL_MUTATE_ESCAPE_HOOK
-static IBASE_OVL_TEXT(set) int ovl_bad_hook(void *u,xb_interp *ip,const char *v,const char *a,int *e)
-{ (void)u;(void)ip;(void)v;(void)a;(void)e;return CMD_UNKNOWN; }
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_PAL
-static IBASE_OVL_TEXT(set) void ovl_bad_pal(ibase_pal_t *p,const char *s,uint32_t n)
-{ (void)p;(void)s;(void)n; }
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_SAY
-static IBASE_OVL_TEXT(set) int ovl_bad_say(ibase_pal_t *p,uint8_t r,uint8_t c,const char *s,uint32_t n)
-{ (void)p;(void)r;(void)c;(void)s;(void)n;return 0; }
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_PRINT
-static IBASE_OVL_TEXT(set) int ovl_bad_print(ibase_pal_t *p,const char *s,uint32_t n)
-{ (void)p;(void)s;(void)n;return 0; }
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_CURSOR
-static IBASE_OVL_TEXT(set) uint32_t ovl_bad_cursor(void *u) { (void)u;return 1; }
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_ERROR
-static IBASE_OVL_TEXT(set) int ovl_bad_error(void *u,int e) { (void)u;(void)e;return 0; }
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_SUSPEND
-static IBASE_OVL_TEXT(set) int ovl_bad_suspend(xb_interp *ip) { (void)ip;return 0; }
-extern void proc_set_suspend(xb_interp *,int (*)(xb_interp *));
-#endif
 static IBASE_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
                                              const char *args, int *err_code)
 {
@@ -1130,42 +1055,6 @@ static IBASE_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
         set_init_defaults(ip,ss);
         return INTERP_OK;
     }
-#ifdef IBASE_OVL_MUTATE_ESCAPE_HOOK
-    xb_interp_add_cmd_hook(ip,ovl_bad_hook,ip);
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_PAL
-    { ibase_pal_t hooks=*xb_interp_pal(ip);hooks.conout=ovl_bad_pal;
-      ibase_bind_pal(xb_interp_pal(ip),&hooks); }
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_SAY
-    { ibase_pal_t hooks=*xb_interp_pal(ip);hooks.say_screen=ovl_bad_say;
-      ibase_bind_pal(xb_interp_pal(ip),&hooks); }
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_PRINT
-    { ibase_pal_t hooks=*xb_interp_pal(ip);hooks.printout=ovl_bad_print;
-      ibase_bind_pal(xb_interp_pal(ip),&hooks); }
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_CURSOR
-    { static xb_dbcursor bad;xb_ctx *c=xb_interp_ctx(ip);bad=*c->dbcur;
-      bad.recno=ovl_bad_cursor;ibase_bind_cursor(c,&bad,c->dbcur_user); }
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_ERROR
-    { xb_ctx *c=xb_interp_ctx(ip);ibase_bind_errors(c,ovl_bad_error,c->on_escape,c->on_error_text,c->on_escape_text); }
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_SUSPEND
-    proc_set_suspend(ip,ovl_bad_suspend);
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_CALLBACK
-    /* Rule 6: a real callback escape, formerly accepted by the static graph. */
-    ibase_bind_output(xb_interp_ctx(ip),alternate_output,ip);
-#endif
-#ifdef IBASE_OVL_MUTATE_ESCAPE_RAW
-    xb_interp_ctx(ip)->mirror_user=(void *)(uintptr_t)set_ovl_entry;
-#endif
-#ifdef IBASE_OVL_MUTATE_LIVE
-    /* Indirect ON ERROR is invisible to static relocation reachability. */
-    xb_interp_ctx(ip)->on_error(ip,10);
-#endif
     /* Find the set_state for this interpreter. */
     ss = set_state_for(ip, (int *)0);
     if (!ss) {
@@ -1204,11 +1093,7 @@ static IBASE_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
 
     /* An unknown SET option (NEAR is dBASE IV / Clipper, not III+) is a
      * syntax error, #10: real III+ 1.1 SF-unknown and SF-errors. */
-#ifdef IBASE_FNS_MUTANT_unknown
-    if (err_code) *err_code = 16;
-#else
     if (err_code) *err_code = 10;
-#endif
     return -INTERP_ERR_SYNTAX;
 }
 IBASE_OVL_HEADER(set, IBASE_OVL_SET, set_ovl_entry);
@@ -1250,11 +1135,7 @@ int set_register(xb_interp *ip)
      * interpreter made on a reused arena gets the SAME address as a freed one:
      * a hit is not "this interpreter's" state (initech-x5cc -- SET CENTURY ON
      * leaked from one host session into the next). */
-#ifdef SET_MUTATE_KEEP_STALE
-    if (is_new)
-#else
     (void)is_new;
-#endif
     {
         int ec=0;
         int rc=IBASE_OVL_CALL(IBASE_OVL_SET,set_ovl_entry,1,ip,"",&ec);

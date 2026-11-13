@@ -1,0 +1,6 @@
+# test: test_ibase_use
+--- a/core/eval.c
++++ b/core/eval.c
+@@ -760 +760 @@
+-            return fail(err, XBEE_VAR_NOT_FOUND);
++            return fail(err, XBEE_UNBOUND); /* restore old error 1/Internal error */

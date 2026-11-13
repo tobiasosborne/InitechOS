@@ -2,12 +2,12 @@
  * os/ibase/cmd/proc.c -- IBASE (InitechBase) procedures + scope + keyboard-I/O
  *                         command module. Step S5.7 (Phase 5 interpreter).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): freestanding (-ffreestanding -nostdlib). Uses
  * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of OS contact goes through the PAL carried by the interpreter (cooked
  * line input via pal->conin_line, single key via pal->conin_char, prompts via
- * pal->conout). Memory is fixed/static (no malloc). ASCII-clean (Rule 12).
- * Fail loud (Rule 2). Reproducible (Rule 11): pure function of (program text,
+ * pal->conout). Memory is fixed/static (no malloc). ASCII-clean (CLAUDE.md, The constitution).
+ * Fail loud (CLAUDE.md, The constitution). Reproducible (CLAUDE.md, The constitution): pure function of (program text,
  * interp state, the PAL's scripted/injected console).
  *
  * dBASE III PLUS 1.1 ONLY (plan Sec 2.C).
@@ -41,7 +41,7 @@
  * (so DO can scan it for PROCEDURE blocks) and runs the MAIN body (the slice
  * before the first top-level PROCEDURE) through ibase_do. ibase_do is RE-ENTRANT
  * (flow.c keeps line pools on the stack), so DO recurses: a PROCEDURE body that
- * itself DOes another PROCEDURE works to FLOW_MAX_SCOPE depth (Rule 2 fail-loud
+ * itself DOes another PROCEDURE works to FLOW_MAX_SCOPE depth (CLAUDE.md, The constitution fail-loud
  * cap past that).
  *
  * RETURN. A RETURN inside a procedure body (possibly nested in an IF/DO WHILE)
@@ -61,7 +61,7 @@
  * handler,parameters,master,missing}/GOLD.OUT (initech-104j3). All DO calls
  * share the loader, scope, transfer and error paths below.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/commands/control-flow-and-procedures.md sec 7-8
  *     (DO/PROCEDURE/PARAMETERS/RETURN/DO WITH; by-ref/by-value; search order).
  *   - ../dbase3-decomp/specs/commands/programming-and-io.md sec 8-10,14
@@ -86,7 +86,7 @@
 #include "ibase/pal.h"
 
 /* ===================================================================== */
-/* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)            */
+/* Tunables (bounded -- CLAUDE.md, The constitution fail-loud on overflow, never UB)            */
 /* ===================================================================== */
 
 #define P_MAX_TOKS     128   /* per-expression token pool (INPUT eval) */
@@ -517,13 +517,6 @@ static int p_each_param(xb_interp *ip, const char *nm, void *ud)
     param_bind *pb = (param_bind *)ud;
     if (pb->idx < pb->nargs) {
         xb_val v = pb->args[pb->idx];
-#ifdef PROC_MUTATE_PARAM_ORDER
-        /* MUTANT (Rule 6 -- -DPROC_MUTATE_PARAM_ORDER): bind the args in REVERSE
-         * positional order. PARAMETERS is positional (control-flow-and-
-         * procedures.md sec 8.3), so a reversed bind swaps the param values ->
-         * the oracle's "param N has the N-th WITH value" check goes RED. */
-        v = pb->args[pb->nargs - 1 - pb->idx];
-#endif
         pb->idx++;
         return xb_interp_store_param(ip, nm, &v);
     }
@@ -577,9 +570,6 @@ char *proc_load_program(xb_interp *ip, const char *name, uint32_t *len, int *ec)
         pal->close(pal, fd);
         return (char *)0;
     }
-#ifdef REPL_MUTATE_DO_TRUNC
-    total /= 2;                 /* existing canon DO-read mutation */
-#endif
     while (used < (uint32_t)total) {
         int32_t got = pal->read(pal, fd, buf + used, (uint32_t)total - used);
         if (got <= 0) {
@@ -639,25 +629,15 @@ static void p_clear_library(xb_interp *ip, proc_state *ps)
 void proc_close_library(xb_interp *ip)
 {
     proc_state *ps = proc_state_for(ip);
-#ifndef PROC_MUTATE_KEEP_LIBRARY_CLOSE
     if (ps && ps->library
-#ifndef PROC_MUTATE_CLOSE_ACTIVE
         && ps->library->refs == 1
-#endif
         ) p_clear_library(ip, ps);
-#else
-    (void)ps;
-#endif
 }
 
 static void proc_teardown(xb_interp *ip)
 {
-#ifndef PROC_MUTATE_SKIP_LIBRARY_FREE
     proc_state *ps = proc_state_for(ip);
     if (ps) p_clear_library(ip, ps);
-#else
-    (void)ip;
-#endif
 }
 
 /* A running library routine retains its source across SET PROCEDURE changes.
@@ -775,16 +755,11 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
     char saved_name[P_MAX_PRGNAME];
     int rc, scoped, depth_before = ps->do_depth, saved_master = ps->master_depth;
     /* Using III+ U7-4 [103] + mint ibasectl NEST.TXT: at most 20 DO levels. */
-#ifndef PROC_MUTATE_NO_DO_CAP
     if (ps->do_depth >= P_MAX_DO_NEST
-#ifdef PROC_MUTATE_DO_OFF_BY_ONE
-        + 1
-#endif
         ) {
         if (ec) *ec = P_MSG_DO_DEEP;
         return -INTERP_ERR_DEPTH;
     }
-#endif
 
     /* Selected procedure file wins over a same-named disk .PRG (real
      * precedence/GOLD.OUT). Keep proc_run's in-memory source API for callers
@@ -796,9 +771,6 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
         body = p_find_procedure(ps->source, name);
     }
     if (!body) {
-#ifdef PROC_MUTATE_SKIP_DISK
-        if (depth_before) { if (ec) *ec = 16; return -INTERP_ERR_UNKNOWN_CMD; }
-#endif
         disk = proc_load_program(ip, name, (uint32_t *)0, ec);
         if (!disk) {
             /* In a running program a missing DO file is error 1 (real III+
@@ -855,15 +827,11 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
         body_ec = ibase_last_error(ip);
         if (rc == PROC_RC_RETURN)
             rc = INTERP_OK;                 /* a clean RETURN out of the body */
-#ifndef PROC_MUTATE_MASTER_ONE_LEVEL
         /* RETURN TO MASTER: only the frame called FROM the highest-level
          * program resumes; deeper frames keep unwinding (U5-183; mint
          * ibasectl MASTER.TXT: MASTER FIRST SECOND MASTER RESUMED). */
         if (rc == PROC_RC_RETURN_MASTER && depth_before <= ps->master_depth)
             rc = INTERP_OK;
-#else
-        if (rc == PROC_RC_RETURN_MASTER) rc = INTERP_OK;
-#endif
         /* RETRY (U5-182): back to the caller, re-running the calling DO; for
          * the routine an ON ERROR trap called, re-run the failed command. */
         if (rc == PROC_RC_RETRY)
@@ -918,7 +886,6 @@ static void p_release_args(ibase_pal_t *pal, char **blk, int n)
 static int p_do_transfer(xb_interp *ip, proc_state *ps, const char *name,
                          xb_val *argv, int nargs, int *ec)
 {
-#if !defined(IBASE_FNS_MUTANT_logdoarg) && !defined(IBASE_FNS_MUTANT_sqrtdoarg) && !defined(IBASE_FNS_MUTANT_ndxdoarg) && !defined(IBASE_FNS_MUTANT_sqrtpass)
     /* Argument blocks are owned before ON ERROR can reset expression scratch.
      * Complete the caller's evaluation before any callee statement can run. */
     int crc = ibase_finish_transfer(ip, ec);
@@ -926,7 +893,6 @@ static int p_do_transfer(xb_interp *ip, proc_state *ps, const char *name,
         if (crc == INTERP_TRAP_RETURN) crc = INTERP_OK;
         return crc;
     }
-#endif
 
     return p_call(ip, ps, name, argv, nargs, ec);
 }
@@ -955,13 +921,9 @@ static __attribute__((noinline)) int p_do_with(xb_interp *ip, proc_state *ps,
         if (ec) *ec=10;
         return -INTERP_ERR_SYNTAX;
     }
-#ifdef PROC_MUTATE_STACK_ARGS
-    with_frame stack_frame, *frame=&stack_frame; /* Rule 6: obsolete stack frame */
-#else
     with_frame *frame=(pal && pal->acquire && pal->release)
         ? (with_frame *)pal->acquire(pal,(uint32_t)sizeof *frame) : (with_frame *)0;
     if (!frame) { if (ec) *ec=43; return -INTERP_ERR_NOMEM; }
-#endif
     int nblk = 0;
     int nargs = 0, crc, ecode;
 
@@ -978,12 +940,10 @@ static __attribute__((noinline)) int p_do_with(xb_interp *ip, proc_state *ps,
             {
                 xb_ctx *ctx = xb_interp_ctx(ip);
                 int pending = ctx->deferred_error;
-#ifndef IBASE_FNS_MUTANT_argorder
                 /* Real argorder/GOLD.OUT: the last failing argument wins;
                  * a later valid argument preserves it. Each expression still
                  * keeps its first deferred error within its own phase. */
                 ctx->deferred_error = 0;
-#endif
                 crc = xb_interp_eval(ip, ebuf, &v, ec);
                 if (!ctx->deferred_error) ctx->deferred_error = pending;
             }
@@ -994,9 +954,7 @@ static __attribute__((noinline)) int p_do_with(xb_interp *ip, proc_state *ps,
                 frame->argblk[nblk]=(pal && pal->acquire)?(char *)pal->acquire(pal,(uint32_t)v.u.c.len+1u):(char *)0;
                 if(!frame->argblk[nblk]){ecode=43;crc=-INTERP_ERR_NOMEM;goto fail;} /* #43 */
                 rt_memcpy(frame->argblk[nblk],v.u.c.p,(uint32_t)v.u.c.len);
-#ifndef IBASE_FNS_MUTANT_with
                 v.u.c.p=frame->argblk[nblk];
-#endif
                 nblk++;
             }
             frame->argv[nargs++] = v;
@@ -1009,9 +967,7 @@ static __attribute__((noinline)) int p_do_with(xb_interp *ip, proc_state *ps,
     crc = p_do_transfer(ip,ps,name,frame->argv,nargs,ec);
 out:
     p_release_args(pal, frame->argblk, nblk);  /* every exit frees the WITH blocks */
-#ifndef PROC_MUTATE_STACK_ARGS
     pal->release(pal,frame);
-#endif
     return crc;
 syntax:
     crc = -INTERP_ERR_SYNTAX;
@@ -1066,14 +1022,6 @@ static int p_on(xb_interp *ip, proc_state *ps, const char *args, int *ec)
         *(k ? &ps->has_onesc : &ps->has_onerr) = (*p != '\0');
         if (!k) xb_interp_ctx(ip)->on_error_procedure =
             rt_kw_word(p, "DO\0", (int *)0) == 0
-#ifdef IBASE_FNS_MUTANT_ndx_handler_name
-            /* MUTANT: real ndx/GOLD.OUT R5-RENAMED uses OTHERNAME. */
-            && rt_kw_word(p_skip_ws(p+2), "GUARDTRAP\0", (int *)0) == 0
-#endif
-#ifdef IBASE_FNS_MUTANT_ndx_handler_depth
-            /* MUTANT: real ndx/GOLD.OUT R5-NESTED installs at depth 2. */
-            && ps->do_depth == 1
-#endif
             ;
     }
     /* ON KEY: parsed + accepted; the ON KEY trap is not modelled.
@@ -1154,11 +1102,7 @@ static inline __attribute__((always_inline)) int pv_quit(xb_interp *ip, proc_sta
      * from a program (audit L013; mint ibasectl QUITP.TXT: AFTER QUIT is
      * never printed). The dot prompt does the closing on this code. */
     (void)ip; (void)ps; (void)args; (void)err_code;
-#ifndef PROC_MUTATE_NO_QUIT
     return INTERP_RC_QUIT;
-#else
-    return CMD_UNKNOWN;                 /* MUTANT: the pre-fix #16 */
-#endif
 }
 static inline __attribute__((always_inline)) int pv_public(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
 {
@@ -1263,11 +1207,7 @@ static int proc_trap(void *vip, int code)
     if (rc == PROC_RC_RETRY_TRAP || rc == PROC_RC_RETRY)
         return 2;
     if (rc == PROC_RC_RETURN)
-#ifdef IBASE_FNS_MUTANT_returnarg
-        return 1; /* MUTANT: lose the inline handler's RETURN outcome. */
-#else
         return INTERP_TRAP_RETURN;
-#endif
     if (rc == INTERP_RC_QUIT || rc == INTERP_RC_CANCEL ||
         rc == PROC_RC_RETURN_MASTER)
         return rc;
@@ -1359,11 +1299,9 @@ int proc_register(xb_interp *ip)
     /* Registration is per-interpreter construction: drop any state a freed
      * interpreter at the same (reused-arena) address left behind -- its ON
      * ERROR trap must not fire in the new one (initech-x5cc). */
-#ifndef PROC_MUTATE_KEEP_STALE
     if (!ps)
         return -INTERP_ERR_NOMEM;
     rt_memset(ps, 0, (uint32_t)sizeof(*ps));   /* as proc_state_for's fresh slot */
-#endif
     xb_interp_set_teardown(ip, proc_teardown);
     ibase_bind_errors(xb_interp_ctx(ip),proc_trap,proc_escape,ps->onerr,ps->onesc);
     xb_interp_ctx(ip)->on_error_procedure = 0;

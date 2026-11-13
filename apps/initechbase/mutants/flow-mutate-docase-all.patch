@@ -1,0 +1,48 @@
+# test: test_interp_flow
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -1387 +1387 @@
+-    int chosen = -1;       /* index of the chosen CASE/OTHERWISE line */
++    int ran_any = 0;       /* MUTANT bookkeeping */
+@@ -1421 +1421,22 @@
+-            if (truth) { chosen = i; break; }   /* first true CASE wins */
++            /* MUTANT (CLAUDE.md, The constitution -- mutants/flow-mutate-docase-all.patch): run EVERY true CASE
++             * body instead of only the first -> a DO CASE that should pick one
++             * branch runs several; the oracle's "first true CASE only" check
++             * goes RED. */
++            if (truth) {
++                int body_end = endcase;
++                int j;
++                for (j = i + 1; j < endcase; ) {
++                    line_kind kk = fp->kind[j];
++                    if (kk == LK_IF || kk == LK_DOWHILE || kk == LK_DOCASE) {
++                        int e3 = match_block_end(fp, j);
++                        if (e3 < 0) return -INTERP_ERR_STRUCT;
++                        j = e3 + 1; continue;
++                    }
++                    if (kk == LK_CASE || kk == LK_OTHERWISE) { body_end = j; break; }
++                    j++;
++                }
++                rc = run_block(fp, i + 1, body_end, sig, ec);
++                if (rc != INTERP_OK) return rc;
++                if (*sig != SIG_NONE) { *next = endcase + 1; return INTERP_OK; }
++                ran_any = 1;
++            }
+@@ -1436,6 +1457,2 @@
+-    if (chosen < 0)
+-        chosen = otherwise_at;     /* no true CASE: fall to OTHERWISE if present */
+-
+-    if (chosen >= 0) {
+-        /* body runs from chosen+1 to the next top-level CASE/OTHERWISE or ENDCASE. */
+-        int body_end = find_top_level(fp, chosen + 1, endcase,
++    if (!ran_any && otherwise_at >= 0) {
++        int body_end = find_top_level(fp, otherwise_at + 1, endcase,
+@@ -1443,5 +1460,3 @@
+-        if (body_end < 0)
+-            body_end = endcase;
+-        rc = run_block(fp, chosen + 1, body_end, sig, ec);
+-        if (rc != INTERP_OK)
+-            return rc;
++        if (body_end < 0) body_end = endcase;
++        rc = run_block(fp, otherwise_at + 1, body_end, sig, ec);
++        if (rc != INTERP_OK) return rc;

@@ -1,0 +1,7 @@
+# test: test_xbase_fn_b
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -838,0 +839,3 @@
++    /* MUTATION (CLAUDE.md, The constitution): shift by 1, making Sunday report 2 instead of 1.
++     * The Sunday=1 grounded assertion goes RED. */
++    dow = (dow % 7) + 1;

@@ -1,0 +1,5 @@
+# test: test_ibase_core
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -1872,0 +1873 @@
++    if (!need_dbcur(ctx, err)) return *err;

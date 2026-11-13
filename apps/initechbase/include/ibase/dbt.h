@@ -2,7 +2,7 @@
  * os/ibase/include/ibase/dbt.h -- IBASE (InitechBase) .dbt memo file contract.
  *                                   Steps S2.1 (READ) + S2.2 (WRITE/APPEND).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus the engine headers. No libc, no
  * int 0x21 -- all OS contact is through the PAL vtable.
  *
@@ -10,7 +10,7 @@
  * The .dbt memo file for a .dbf with version byte 0x83. The dBASE IV .dbt
  * (version 0x8B with FF FF 08 00 per-block header) is OUT OF SCOPE for M6;
  * dbt_open rejects the 0x8B dialect with DBT_ERR_BAD_VERSION (fail loud,
- * Rule 2). The FoxPro .fpt format is out of scope entirely.
+ * CLAUDE.md, The constitution). The FoxPro .fpt format is out of scope entirely.
  *
  * S2.1 scope (READ only; write is S2.2):
  *   - dbt_open  : open a .dbt via the PAL; read and validate the block-0
@@ -45,14 +45,14 @@
  *   [verified: TOURS (01 00 00 00 -> 1), TRAVEL (03 00 00 00 -> 3),
  *    UNIVERS (01 00 00 00 -> 1); big-endian readings are absurd for file sizes]
  *
- * Fail loud (CLAUDE.md Rule 2): every structural violation (file too short,
+ * Fail loud (CLAUDE.md CLAUDE.md, The constitution): every structural violation (file too short,
  * bad version dialect, I/O error) is returned as a distinct dbt_err code.
  * A silently-wrong memo would corrupt every memo-field display built on top.
  *
- * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
- * Freestanding-legal (Law 3): only <stdint.h> and ibase/ headers.
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths / nondeterminism (CLAUDE.md, The constitution).
+ * Freestanding-legal (CLAUDE.md, The constitution): only <stdint.h> and ibase/ headers.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/file-formats/dbt.md:
  *     sec 2   (block model: 512-byte blocks, block n at n*512)
  *     sec 2.1 (block 0: uint32 LE next-free @0x00; remaining 508 = garbage)
@@ -110,7 +110,7 @@
 #define DBT_HDR_NEXT_OFF 0u
 
 /* -----------------------------------------------------------------------
- * Error codes (fail loud; Rule 2)
+ * Error codes (fail loud; CLAUDE.md, The constitution)
  * dbt_open / dbt_read return DBT_OK (0) on success or a NEGATED dbt_err
  * on failure (return -DBT_ERR_IO, etc.).  Callers compare symbolically.
  * ----------------------------------------------------------------------- */
@@ -126,7 +126,7 @@ typedef enum {
                                  * file (malformed / truncated file) */
     DBT_ERR_RDONLY      = 7    /* dbt_append called on a read-only handle
                                  * (opened with dbt_open, not dbt_create);
-                                 * S2.2 fail-loud guard (Rule 2). */
+                                 * S2.2 fail-loud guard (CLAUDE.md, The constitution). */
 } dbt_err;
 
 /* -----------------------------------------------------------------------
@@ -186,7 +186,7 @@ uint32_t dbt_next_free(const dbt_file *f);
  * Writes a 512-byte block 0 with:
  *   - next-free = 1 (LE uint32 at offset 0): the first memo will start at
  *     block 1.  Ref: dbt.md sec 2.1 / sec 8 "Append a memo" step 1.
- *   - Bytes 4..511: written as 0x00 (deterministic / reproducible; Rule 11).
+ *   - Bytes 4..511: written as 0x00 (deterministic / reproducible; CLAUDE.md, The constitution).
  *     The goldens contain leftover bytes here (dbt.md sec 6), but a freshly
  *     created file has no leftover text.  The round-trip oracle normalizes
  *     block-0 bytes 4..511 away (dbt.md sec 6 "NORMALIZE"), so 0x00 is the
@@ -223,7 +223,7 @@ int dbt_open_rw(ibase_pal_t *pal, const char *name, dbt_file **out);
  *   3. Write `len` bytes of `text` followed by two 0x1A bytes (the
  *      terminator).  Ref: dbt.md sec 5 "III+ memo ends at first 0x1A 0x1A".
  *   4. Pad the remainder of the last 512-byte block with 0x00 bytes so the
- *      file ends on a block boundary (deterministic tail; Rule 11).
+ *      file ends on a block boundary (deterministic tail; CLAUDE.md, The constitution).
  *      Ref: dbt.md sec 2 "the remainder ... is unused garbage";
  *           sec 8 step 2 "padding the final block's tail ... is don't-care."
  *      We emit 0x00 for reproducibility (the oracle normalizes the tail per
@@ -249,7 +249,7 @@ int dbt_open_rw(ibase_pal_t *pal, const char *name, dbt_file **out);
  *   -(dbt_err) on failure:
  *     -DBT_ERR_IO    : seek or write failure (short write = ENOSPC = IO here)
  *
- * Mutation hook (Rule 6 -- -DDBT_MUTATE_WRITE_PTR_ENDIAN):
+ * Mutation hook (CLAUDE.md, The constitution -- mutants/dbt-mutate-write-ptr-endian.patch):
  *   Writes the block-0 next-free pointer in BIG-ENDIAN instead of LE.
  *   A subsequent dbt_open (which reads it LE) will decode a wrong value ->
  *   the round-trip check goes RED (next_free mismatch + dbt_read returns
@@ -322,8 +322,8 @@ int dbt_flush(dbt_file *f);
  *   never reached).  The tolerance is kept for robustness against any file
  *   where a memo block exactly ends with a lone 0x1A at file-end.
  *
- * Mutation hook (Rule 6):
- *   -DDBT_MUTATE_BLOCKSIZE: uses 511 instead of 512 for all block boundary
+ * Mutation hook (CLAUDE.md, The constitution):
+ *   mutants/dbt-mutate-blocksize.patch: uses 511 instead of 512 for all block boundary
  *   arithmetic (seeks and block-read strides). With this mutant, the seek to
  *   block 1 lands at offset 511 instead of 512; the read pulls bytes that are
  *   shifted by one position relative to the actual memo content. The decoded

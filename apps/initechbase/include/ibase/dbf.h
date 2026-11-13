@@ -1,7 +1,7 @@
 /*
  * os/ibase/include/ibase/dbf.h -- IBASE (InitechBase) .dbf table contract.
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib) alongside the shipped IBASE engine. Depends ONLY on <stdint.h>
  * and ibase/pal.h (which itself depends only on <stdint.h>). No libc headers.
  *
@@ -9,7 +9,7 @@
  * header parser + structural invariants.
  *   - dbf_open  : open a .dbf via the PAL, read + validate the 32-byte header,
  *                 derive the field count and terminator form, assert the three
- *                 structural invariants (fail loud, Rule 2), keep the handle
+ *                 structural invariants (fail loud, CLAUDE.md, The constitution), keep the handle
  *                 open for the record area.
  *   - dbf_close : release the table + its PAL handle.
  *   - accessors : every header field S1.1 parses (version, date, nrec,
@@ -91,7 +91,7 @@
  *               (dbf.md sec 5 M note); both forms are treated as xb_u().
  *
  *   Delete flag: 0x20 -> *deleted=0, 0x2A -> *deleted=1. Any other byte ->
- *               fail loud with DBF_ERR_BAD_REC (Rule 2). dbf.md sec 6.
+ *               fail loud with DBF_ERR_BAD_REC (CLAUDE.md, The constitution). dbf.md sec 6.
  *               [verified: byte-checked CLIENTS/TOURS/TRAVEL records: all 0x20]
  *               [documented: 0x2A = deleted, from clicketyclick + dbf_ref.py]
  *
@@ -113,9 +113,9 @@
  * III+ 1.1 ONLY (plan Sec 2.C): dbf_open FAILS LOUD on dBASE IV version bytes
  * (0x04, 0x8B, and anything other than 0x03/0x83) with DBF_ERR_BAD_VERSION.
  *
- * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths / nondeterminism (CLAUDE.md, The constitution).
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/file-formats/dbf.md sec 2 (32-byte header),
  *     sec 3 (version byte), sec 4 (descriptor + terminator), sec 5 (field types
  *     C/N/D/L/M -- III+ only), sec 6 (record layout: 1 delete-flag byte then
@@ -141,7 +141,7 @@
 #include "ibase/pal.h"
 #include "ibase/value.h"   /* xb_val, xb_c/xb_n/xb_d/xb_l/xb_m/xb_u */
 
-/* ---- Error codes (fail loud; Rule 2) ----
+/* ---- Error codes (fail loud; CLAUDE.md, The constitution) ----
  *
  * dbf_open returns DBF_OK (0) on success or a NEGATED dbf_err on failure
  * (return -DBF_ERR_BAD_VERSION, etc.), matching the PAL convention of negated
@@ -167,7 +167,7 @@ typedef enum {
     DBF_ERR_ACCESS      = 14, /* typed PAL open failure: inaccessible */
     DBF_ERR_BAD_REC     = 12  /* S1.3: malformed record (bad delete flag or bad L byte).
                                * dbf.md sec 6: delete flag must be 0x20 or 0x2A; any other
-                               * byte is corrupt data -- fail loud (Rule 2). */
+                               * byte is corrupt data -- fail loud (CLAUDE.md, The constitution). */
 } dbf_err;
 
 /* ---- Opaque table handle ----
@@ -187,7 +187,7 @@ typedef struct dbf_table dbf_table;
  * On success returns DBF_OK and *out points to an arena-allocated dbf_table
  * whose PAL handle stays OPEN (the record area is read later by S1.2/S1.3).
  * On any failure returns -(dbf_err); *out is set to NULL and any partially
- * opened handle is closed. Fails loud (Rule 2): a malformed header, an
+ * opened handle is closed. Fails loud (CLAUDE.md, The constitution): a malformed header, an
  * unsupported (IV) version, or a violated invariant is an error, never a
  * silently-wrong table.
  *
@@ -220,11 +220,11 @@ int dbf_open(ibase_pal_t *pal, const char *name, dbf_table **out);
  *
  * On success returns DBF_OK and *out points to a WRITABLE arena-allocated table
  * whose PAL handle stays OPEN. On any failure returns -(dbf_err), sets *out to
- * NULL, and leaves no half-open handle -- fails loud (Rule 2) on a missing file
+ * NULL, and leaves no half-open handle -- fails loud (CLAUDE.md, The constitution) on a missing file
  * (-DBF_ERR_IO), an unsupported version, or a violated invariant, exactly like
  * dbf_open.
  *
- * Mutation hook (Rule 6): -DDBF_MUTATE_OPENRW_RO loads the records but leaves the
+ * Mutation hook (CLAUDE.md, The constitution): mutants/dbf-mutate-openrw-ro.patch loads the records but leaves the
  * table read-only, so the mutation verbs + flush reject it and nothing persists.
  *
  * Ref: dbf.md sec 2/3/4/5/6/8; dbf.h S1.5; pal.h (PAL_RDWR); plan 7az.16.
@@ -286,7 +286,7 @@ int      dbf_has_memo(const dbf_table *tbl);
  * first 0x00 byte; trailing garbage in the 11-byte name slot is discarded
  * (dbf.md sec 4 "read to first NUL; ignore trailing garbage").
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - dbf.md sec 4 (32-byte field descriptor table + worked example CLIENTS
  *     FIRSTNAME); sec 5 (field type codes C/N/D/L/M, III+ only).
  *   - spec/ibase/dbf_format.h: DBF_DESC_NAME_OFF, DBF_DESC_TYPE_OFF,
@@ -316,7 +316,7 @@ typedef struct {
  * Returns a non-NULL pointer to a dbf_field_t owned by the table (valid until
  * dbf_close) on success, or NULL if i is out of range (i < 0 or i >= nfields).
  * The caller MUST check for NULL (fail-loud contract: do not use a NULL return
- * as a value; it signals a programming error or out-of-bounds access, Rule 2).
+ * as a value; it signals a programming error or out-of-bounds access, CLAUDE.md, The constitution).
  *
  * Ref: dbf.md sec 4; spec/ibase/dbf_format.h; plan S1.2 contract.
  */
@@ -341,7 +341,7 @@ const dbf_field_t *dbf_field(const dbf_table *tbl, int i);
  *   -DBF_ERR_BAD_RECNO : recno < 1 or recno > dbf_nrec(tbl) (fail loud).
  *   -DBF_ERR_IO        : PAL seek or read failure.
  *   -DBF_ERR_BAD_REC   : delete flag byte is neither 0x20 nor 0x2A (corrupt
- *                         record; fail loud per Rule 2).
+ *                         record; fail loud per CLAUDE.md, The constitution).
  *
  * Per-field decode decisions (S1.3; all cited to dbf.md sec 5 + dbf_ref.py):
  *   C  -> xb_c(ptr, field_len).  Raw bytes in the arena record buffer (see
@@ -357,7 +357,7 @@ const dbf_field_t *dbf_field(const dbf_table *tbl, int i);
  *          "D", datatype-mint DT3 G8; initech-ylqs).
  *          Ref: dbf.md sec 5 D "blank/empty date is 8 spaces; 00000000 not valid".
  *   L  -> T/t/Y/y -> xb_l(1); F/f/N/n -> xb_l(0); '?'/space -> xb_u().
- *          Any other byte -> return -DBF_ERR_BAD_REC (fail loud, Rule 2).
+ *          Any other byte -> return -DBF_ERR_BAD_REC (fail loud, CLAUDE.md, The constitution).
  *          Ref: dbf.md sec 5 L; dbf_ref.py decode_field L.
  *   M  -> S1.3->S2.1 boundary: the .dbt is NOT opened here.
  *          Block 0 or all-blank 10-byte field -> xb_u() (no memo).
@@ -373,12 +373,12 @@ const dbf_field_t *dbf_field(const dbf_table *tbl, int i);
  *   dbf_read_rec for the SAME table. Callers that need stable C/M data must
  *   copy the bytes before calling dbf_read_rec again.
  *
- * Mutation hook (Rule 6):
- *   -DDBF_MUTATE_RECOFF: shifts the record read offset by +1, omitting the
+ * Mutation hook (CLAUDE.md, The constitution):
+ *   mutants/dbf-mutate-recoff.patch: shifts the record read offset by +1, omitting the
  *   delete-flag byte so field data is read from the wrong position. Every
  *   decoded field value diverges from the golden -> Tier-0 checks go RED.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - dbf.md sec 6 (record layout, delete flag, field byte packing).
  *   - dbf.md sec 5 (per-type on-disk encoding: C/N/D/L/M).
  *   - spec/ibase/dbf_format.h (DBF_REC_DELETE_LIVE/DELETED, DBF_REC_FLAG_SIZE).
@@ -413,10 +413,10 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
  *   appended into the arena (each is formatted into record_length bytes). One
  *   dbf_flush serializes the whole image with a single deterministic byte layout.
  *   Rationale: a single contiguous write is the simplest path to byte-determinism
- *   (Rule 11) and matches the "deterministic write" S1.4 contract; per-record
+ *   (CLAUDE.md, The constitution) and matches the "deterministic write" S1.4 contract; per-record
  *   seek-and-write (needed for in-place REPLACE/DELETE) is deferred to S1.5.
  *
- * Determinism (Rule 11): identical inputs + identical injected pal->today()
+ * Determinism (CLAUDE.md, The constitution): identical inputs + identical injected pal->today()
  *   date produce a byte-identical file every run. Specifically:
  *     - version    : 0x83 iff ANY field type is 'M' (memo), else 0x03.
  *     - last-update: from pal->today() (INJECTABLE; never a wall clock).
@@ -427,7 +427,7 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
  *       0x00: header reserved (0x0C..0x0F, 0x10..0x1B multiuser, MDX flag 0x1C,
  *       LDID 0x1D, 0x1E..0x1F); per-descriptor RAM address 0x0C (0x00000000),
  *       work-area id 0x14, and all reserved/flag bytes. There are NO live RAM
- *       pointers or timestamps in IBASE output (Rule 11) -- the writer is more
+ *       pointers or timestamps in IBASE output (CLAUDE.md, The constitution) -- the writer is more
  *       normalized than genuine III+, which leaves a live address at desc 0x0C.
  *       Ref: spec/ibase/dbf_normalization.json (MEANINGFUL vs NORMALIZE map).
  *
@@ -448,13 +448,13 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
  *   .dbf written by S1.4 has version 0x83 and valid M pointers but no sibling
  *   .dbt -- exercising it as a standalone memo store is the S2.2 contract.
  *
- * Mutation hook (Rule 6):
- *   -DDBF_MUTATE_VERSION: dbf_flush emits 0x03 in the version byte even when a
+ * Mutation hook (CLAUDE.md, The constitution):
+ *   mutants/dbf-mutate-version.patch: dbf_flush emits 0x03 in the version byte even when a
  *   memo (M) field is present (i.e. drops the 0x80 memo bit). A round-trip of a
  *   memo-bearing schema then reads back has_memo=false -> the oracle goes RED.
  *   Exactly one constant changes; no other byte is perturbed.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - dbf.md sec 2 (header), sec 3 (version byte / memo bit), sec 4 (descriptor +
  *     +1 terminator), sec 5 (C/N/D/L/M on-disk encodings), sec 6 (record layout),
  *     sec 8 (invariants + optional 0x1A EOF).
@@ -493,7 +493,7 @@ typedef struct {
  * in the PAL arena, opens the file via PAL_RDWR|PAL_CREATE|PAL_TRUNC, and
  * returns the handle in *out (nothing is written to disk until dbf_flush).
  *
- * Validates the schema (fail loud, Rule 2):
+ * Validates the schema (fail loud, CLAUDE.md, The constitution):
  *   - nfields in [1, DBF_MAX_FIELDS]                  -> DBF_ERR_TOO_MANY
  *   - every type is one of C/N/D/L/M                  -> DBF_ERR_BAD_TYPE
  *   - per-type length: D==8, L==1, M==10, C/N>=1      -> DBF_ERR_BAD_RECLEN
@@ -541,14 +541,14 @@ int dbf_append_rec(dbf_table *tbl, const xb_val *in, int deleted);
  * nrec, header_length, record_length, all NORMALIZE bytes 0x00) + nfields
  * 32-byte descriptors (name, type, length, dec; RAM addr/work-area/reserved all
  * 0x00) + the lone 0x0D terminator + every appended record + a trailing 0x1A
- * EOF byte. The write is one contiguous deterministic byte stream (Rule 11).
+ * EOF byte. The write is one contiguous deterministic byte stream (CLAUDE.md, The constitution).
  *
  * After a successful flush the open handle is repositioned to the file start so
  * dbf_read_rec can read the just-written records without re-open.
  *
  * Only valid on a table from dbf_create (a table from dbf_open is read-only in
  * S1.4; flushing it returns -DBF_ERR_IO). Returns DBF_OK or -(dbf_err); a short
- * PAL write is -DBF_ERR_IO (fail loud, Rule 2).
+ * PAL write is -DBF_ERR_IO (fail loud, CLAUDE.md, The constitution).
  *
  * Ref: dbf.md sec 2/4/6/8; spec/ibase/dbf_normalization.json; plan S1.4.
  */
@@ -606,7 +606,7 @@ int dbf_flush(dbf_table *tbl);
  * spec/ibase/xbase_coercion.json assignment_coercion array):
  *   C <- C : ok; truncate to field_len if too long; space-pad if too short.
  *   N <- N : ok; dec_format(v, field_len, dec) => may '*'-fill on overflow.
- *            The overflow is not a hard error (dec_format returns it; Rule 2
+ *            The overflow is not a hard error (dec_format returns it; CLAUDE.md, The constitution
  *            says fail loud on invariant violations, but '*' fill IS the dBASE
  *            III+ defined overflow behavior per xbase_coercion.json
  *            "on_overflow: stars_fill"). Returns DBF_OK even on overflow.
@@ -616,7 +616,7 @@ int dbf_flush(dbf_table *tbl);
  *            -DBF_ERR_MISMATCH. Per xbase_coercion.json: "result: error,
  *            error: mismatch". The caller must use STR()/VAL()/etc. first.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - dbf.md sec 6 (record layout: delete flag 0x20/0x2A).
  *   - dbf.md sec 8 (nrec invariant; PACK/ZAP behaviour).
  *   - spec/ibase/xbase_coercion.json assignment_coercion array (the locked
@@ -706,7 +706,7 @@ int dbf_replace(dbf_table *tbl, uint32_t recno, int field, const xb_val *v);
  *   -DBF_ERR_BAD_RECNO : recno < 1 or recno > nrec.
  *   -DBF_ERR_IO        : table not writable.
  *
- * Mutation hook (Rule 6): when -DDBF_MUTATE_DELFLAG is defined, dbf_delete
+ * Mutation hook (CLAUDE.md, The constitution): when mutants/dbf-mutate-delflag.patch is defined, dbf_delete
  * writes 0x20 (live) instead of 0x2A (deleted). The test asserts that after
  * dbf_delete the record's delete flag is 0x2A; with the mutant it remains 0x20
  * so the assertion goes RED.
@@ -740,7 +740,7 @@ int dbf_recall(dbf_table *tbl, uint32_t recno);
  * abandoned in the arena (arena bump allocator; no free). Returns DBF_OK or
  * -(dbf_err): -DBF_ERR_IO (table not writable), -DBF_ERR_NOMEM.
  *
- * Ref: plan S1.5; dbf.md sec 8; Rule 11 (deterministic output order).
+ * Ref: plan S1.5; dbf.md sec 8; CLAUDE.md, The constitution (deterministic output order).
  */
 int dbf_pack(dbf_table *tbl);
 

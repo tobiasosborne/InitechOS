@@ -1,0 +1,5 @@
+# test: test_ibase_w2
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -820,0 +821 @@
++    on = 0;   /* mutant: SET UNIQUE ON has no effect */

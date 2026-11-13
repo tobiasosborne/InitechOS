@@ -1,0 +1,11 @@
+# test: test_ibase_fns
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -889,7 +888,0 @@
+-    /* Argument blocks are owned before ON ERROR can reset expression scratch.
+-     * Complete the caller's evaluation before any callee statement can run. */
+-    int crc = ibase_finish_transfer(ip, ec);
+-    if (crc != INTERP_OK) {
+-        if (crc == INTERP_TRAP_RETURN) crc = INTERP_OK;
+-        return crc;
+-    }

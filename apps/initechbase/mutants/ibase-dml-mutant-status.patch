@@ -1,0 +1,5 @@
+# test: test_ibase_dml
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1534,0 +1535 @@
++        if(a==2)continue; /* omit one real open work area */

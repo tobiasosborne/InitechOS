@@ -1,0 +1,12 @@
+# test: test_ndx_build
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -1583,4 +1583,4 @@
+-            /* CORRECT bulk-build packing: fill this leaf to capacity, leaving the
+-             * remainder for the LAST leaf. [re/mint-results-003.md: 100%-pack,
+-             * remainder last; NOT 50/50.] */
+-            fill = (leaf + 1u < nleaf) ? kpp : remaining;
++            /* MUTATED ~50/50 split (CLAUDE.md, The constitution): spread the remaining keys evenly
++             * across the remaining leaves -> diverges from the golden -> RED. */
++            fill = (remaining + leaves_left - 1u) / leaves_left;
++            if (fill > kpp) fill = kpp;

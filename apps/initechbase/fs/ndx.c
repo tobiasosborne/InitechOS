@@ -4,7 +4,7 @@
  *                       collation), S4.3 (B-tree traverse + SEEK), and S4.4
  *                       (bulk INDEX ON build).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib, CDR-0001). Includes ONLY <stdint.h> plus engine headers and the
  * LOCKED spec/ibase/ndx_format.h. No libc, no int 0x21. All OS contact is
  * through the PAL vtable (plan Sec 2.B/2.D).
@@ -54,8 +54,8 @@
  *                    on delete). Fails loud (-NDX_ERR_NOTFOUND) if not found.
  *   ndx_update_key -- no-op if old == new; else delete-old + insert-new.
  *
- * S4.5 mutation hook (Rule 6 / plan S4.5 "INSERT_NOSORT"):
- *   Build with -DNDX_MUTATE_INSERT_NOSORT. ndx_insert_key appends the new entry
+ * S4.5 mutation hook (CLAUDE.md, The constitution / plan S4.5 "INSERT_NOSORT"):
+ *   Build with mutants/ndx-mutate-insert-nosort.patch. ndx_insert_key appends the new entry
  *   AT THE END of the target leaf without inserting in sorted order. After this
  *   mutation ndx_inorder is no longer monotonically ascending and ndx_seek fails
  *   to find some inserted keys -> the behavioral oracle goes RED. This is the
@@ -73,15 +73,15 @@
  *                 keys (N keys / N+1 children). [VERIFIED minted BIGIDX.NDX +
  *                 NCOST.NDX; re/mint-results-003.md]
  *
- * S4.4 mutation hook (Rule 6 / plan S4.4 "50/50 split"):
- *   Build with -DNDX_MUTATE_SPLIT_5050. Leaves are packed ~50/50 instead of
+ * S4.4 mutation hook (CLAUDE.md, The constitution / plan S4.4 "50/50 split"):
+ *   Build with mutants/ndx-mutate-split-5050.patch. Leaves are packed ~50/50 instead of
  *   100%-then-remainder; the leaf fill levels (and therefore the page bytes +
  *   the root separator set) diverge from the golden -> the byte-exact rebuild
  *   oracle goes RED. [re/mint-results-003.md: the bulk build packs to 100%,
  *   never 50/50.]
  *
- * S4.3 mutation hook (Rule 6 / plan S4.3 "wrong child descent"):
- *   Build with -DNDX_MUTATE_SEEK_CHILD. The branch descent follows the WRONG
+ * S4.3 mutation hook (CLAUDE.md, The constitution / plan S4.3 "wrong child descent"):
+ *   Build with mutants/ndx-mutate-seek-child.patch. The branch descent follows the WRONG
  *   child: it descends into entry[i+1]'s child (off-by-one) instead of the
  *   first separator entry whose key >= target. Per ndx.md ss5 the separator at
  *   entry i is the HIGH key of subtree child_page[i], so following child[i+1]
@@ -91,8 +91,8 @@
  *   oracle checks go RED. [ndx.md ss5 "descend into THAT entry's child_page";
  *   the mutation descends into the next entry's child.]
  *
- * S4.1 mutation hook (Rule 6 / plan S4.1 "clicketyclick wrong 18-23 sublayout"):
- *   Build with -DNDX_MUTATE_SUBLAYOUT. The perturbed read swaps the child_page
+ * S4.1 mutation hook (CLAUDE.md, The constitution / plan S4.1 "clicketyclick wrong 18-23 sublayout"):
+ *   Build with mutants/ndx-mutate-sublayout.patch. The perturbed read swaps the child_page
  *   and dbf_recno field offsets within each group AND shifts the key_data start
  *   by +4 bytes -- modeling the wrong clicketyclick header diagram that places
  *   "Size of key record" as a 4-byte long at bytes 18-21 and unique as a single
@@ -101,8 +101,8 @@
  *   diagram puts 'Size of key record' as a 4-byte long at bytes 18-21 ... The
  *   real bytes contradict it; the bytes win."]
  *
- * S4.2 mutation hook (Rule 6 / plan S4.2 "sign-flip that mint-001 disproved"):
- *   Build with -DNDX_MUTATE_KEY_SIGNFLIP. Applies a sign-flip transform (XOR
+ * S4.2 mutation hook (CLAUDE.md, The constitution / plan S4.2 "sign-flip that mint-001 disproved"):
+ *   Build with mutants/ndx-mutate-key-signflip.patch. Applies a sign-flip transform (XOR
  *   bit 7 of the highest byte) to numeric keys in ndx_key_cmp, implementing
  *   the hypothesis that re/mint-results-001.md was specifically minted to
  *   disprove. Under this mutation the numeric ordering assertions go RED because
@@ -110,12 +110,12 @@
  *   [re/mint-results-001.md "corrects the prior ndx.md speculation about a
  *   sign-flip transform -- there is none." VERIFIED minted NCOST.NDX 2026-06-16]
  *
- * Fail loud (CLAUDE.md Rule 2): every structural violation returns a negative
+ * Fail loud (CLAUDE.md CLAUDE.md, The constitution): every structural violation returns a negative
  * ndx_err. No half-open state is left on error.
  *
- * ASCII-clean (Rule 12). Deterministic (Rule 11): no timestamps, no wall-clock.
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution): no timestamps, no wall-clock.
  *
- * Ref (Law 1 -- cited per decision in comments):
+ * Ref (CLAUDE.md, The constitution -- cited per decision in comments):
  *   - spec/ibase/ndx_format.h     LOCKED byte-offset constants (used for every
  *                                  offset access; no hardcoded numbers).
  *   - ../dbase3-decomp/specs/file-formats/ndx.md  ss1 (page geometry),
@@ -169,7 +169,7 @@ static uint32_t ceil4(uint32_t n)
 /* Max stored .ndx path length (incl. NUL). DOS 8.3 paths are short; host
  * factory paths (/tmp/...) fit comfortably. ndx_open fails loud if a name is
  * longer, rather than truncate (a truncated path would rebuild the WRONG file
- * in ndx_rebuild -- Rule 2). */
+ * in ndx_rebuild -- CLAUDE.md, The constitution). */
 #define NDX_PATH_MAX 256
 
 struct ndx_index {
@@ -196,7 +196,7 @@ struct ndx_index {
 
     /* S4.5: flag set by ndx_open_rw; 0 for ndx_open (read-only).
      * ndx_insert_key / ndx_delete_key / ndx_update_key check this and return
-     * -NDX_ERR_READONLY if 0 (fail loud: Rule 2). */
+     * -NDX_ERR_READONLY if 0 (fail loud: CLAUDE.md, The constitution). */
     int      writable;
 
     /* The file path this index was opened from -- a private NUL-terminated
@@ -218,7 +218,7 @@ struct ndx_index {
 
 /*
  * read_exact: read exactly N bytes from FD.
- * Returns NDX_OK or -NDX_ERR_IO (fail loud on short read -- Rule 2).
+ * Returns NDX_OK or -NDX_ERR_IO (fail loud on short read -- CLAUDE.md, The constitution).
  */
 static int read_exact(ibase_pal_t *pal, pal_fd fd, void *buf, uint32_t n)
 {
@@ -266,7 +266,7 @@ static uint16_t u16le(const uint8_t *p)
 /*
  * ndx_open: open and parse the .ndx header page.
  *
- * Validation order (Rule 2 -- fail loud at the first violation):
+ * Validation order (CLAUDE.md, The constitution -- fail loud at the first violation):
  *   1. PAL open (PAL_RD) succeeds; fd kept open for ndx_read_node.
  *   2. File size = seek(fd,0,PAL_SEEK_END) >= 512 and a multiple of 512.
  *      [ndx.md ss1: "all fixture file sizes are multiples of 512";
@@ -326,11 +326,7 @@ static int ndx_open_impl(ibase_pal_t *pal, const char *name, int pal_mode,
 
     /* Step 2: file size. */
     fsize_raw = pal->seek(pal, fd, 0, PAL_SEEK_END);
-#ifdef IBASE_CORE_MUTATE_NDX_SIZE
-    if (fsize_raw <= 0) {
-#else
     if (fsize_raw < 0) { /* ndx.md ss1: zero bytes is BAD_SIZE, not failed I/O. */
-#endif
         pal->close(pal, fd);
         return -NDX_ERR_IO;
     }
@@ -439,7 +435,7 @@ static int ndx_open_impl(ibase_pal_t *pal, const char *name, int pal_mode,
     }
 
     /* Store a private copy of the file path for ndx_rebuild (initech-x87g).
-     * Fail loud on overflow rather than truncate (Rule 2). */
+     * Fail loud on overflow rather than truncate (CLAUDE.md, The constitution). */
     {
         uint32_t p = 0u;
         while (name[p] != '\0') {
@@ -557,7 +553,7 @@ const char *ndx_key_expr  (const ndx_index *idx) { return idx->key_expr;      }
  *    484+4=488<=512 -- safe. ndx.md ss3.2 overflow caveat applies when even the
  *    4-byte read would extend past 512 -- guard prevents that.]
  *
- * NDX_MUTATE_SUBLAYOUT (Rule 6):
+ * mutants/ndx-mutate-sublayout.patch (CLAUDE.md, The constitution):
  *   Swap child_page and dbf_recno read offsets, shift key_data start +4.
  *   [ndx.md Open questions: "clicketyclick's diagram puts 'Size of key record'
  *   as a 4-byte long at bytes 18-21 and unique as a single byte at 23 -- the
@@ -588,7 +584,6 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
     uint32_t    trail_child;
     uint32_t    i;
 
-#ifndef NDX_MUTATE_SUBLAYOUT
     /* Correct sub-layout per ndx.md ss3.1 / spec/ibase/ndx_format.h NDX_GRP_*:
      *   child_page at  NDX_GRP_CHILD_PAGE_OFF = 0x00
      *   dbf_recno  at  NDX_GRP_DBF_RECNO_OFF  = 0x04
@@ -596,18 +591,6 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
     const uint32_t child_off_in_grp = (uint32_t)NDX_GRP_CHILD_PAGE_OFF;
     const uint32_t recno_off_in_grp = (uint32_t)NDX_GRP_DBF_RECNO_OFF;
     const uint32_t key_off_in_grp   = (uint32_t)NDX_GRP_KEY_DATA_OFF;
-#else
-    /* MUTATED layout -- implements clicketyclick's wrong "Size of key record
-     * as 4-byte long at bytes 18-21, unique at 23" sub-layout.
-     * child_page read from the dbf_recno slot (+4), dbf_recno from +0,
-     * key_data shifted to +12 instead of +8.
-     * [ndx.md Open questions: "the real bytes contradict it; see Open questions.
-     *  Recorded here so no one re-imports the bad layout."]
-     * Under this mutation every parsed field mismatches -> oracle goes RED. */
-    const uint32_t child_off_in_grp = (uint32_t)NDX_GRP_DBF_RECNO_OFF;    /* SWAPPED */
-    const uint32_t recno_off_in_grp = (uint32_t)NDX_GRP_CHILD_PAGE_OFF;   /* SWAPPED */
-    const uint32_t key_off_in_grp   = (uint32_t)NDX_GRP_KEY_DATA_OFF + 4u; /* SHIFTED */
-#endif
 
     *node_out = (ndx_node_t *)0;
 
@@ -740,7 +723,7 @@ void ndx_node_free(ndx_index *idx, ndx_node_t *node)
 /*
  * read_le_double: decode 8 bytes at P as a little-endian IEEE-754 double.
  *
- * Uses rt_memcpy into a local double to avoid strict-aliasing UB (Rule 12;
+ * Uses rt_memcpy into a local double to avoid strict-aliasing UB (CLAUDE.md, The constitution;
  * freestanding discipline: no memcpy from libc). The compiler is free to
  * optimise this to a direct load on targets where alignment is not an issue.
  *
@@ -771,7 +754,7 @@ static double read_le_double(const uint8_t *p)
  *   For collation (ndx_key_cmp) the N/D distinction is irrelevant.
  *   [ndx.md ss4.2 / re/mint-results-001.md / plan Sec 3.3]
  *
- * Returns NDX_OK or -NDX_ERR_BAD_KEYTYPE (fail loud: Rule 2).
+ * Returns NDX_OK or -NDX_ERR_BAD_KEYTYPE (fail loud: CLAUDE.md, The constitution).
  */
 int ndx_key_decode(const ndx_index *idx, const uint8_t *key_data,
                    char *buf, xb_val *out)
@@ -793,7 +776,7 @@ int ndx_key_decode(const ndx_index *idx, const uint8_t *key_data,
         return NDX_OK;
     }
     /* key_type is always validated at ndx_open; reaching here indicates
-     * memory corruption. Fail loud (Rule 2). */
+     * memory corruption. Fail loud (CLAUDE.md, The constitution). */
     return -NDX_ERR_BAD_KEYTYPE;
 }
 
@@ -817,7 +800,7 @@ int ndx_key_decode(const ndx_index *idx, const uint8_t *key_data,
  *   that way. [re/mint-results-001.md "Key comparison is ARITHMETIC, not byte-wise,
  *   for key_type==1." / ndx.md ss4.2 VERIFIED minted NCOST.NDX 2026-06-16]
  *
- * Mutation hook -DNDX_MUTATE_KEY_SIGNFLIP (Rule 6):
+ * Mutation hook mutants/ndx-mutate-key-signflip.patch (CLAUDE.md, The constitution):
  *   XOR bit 7 of byte 7 before decoding either double. This implements the
  *   sign-flip transform that mint-001 was specifically minted to disprove.
  *   Under this mutation the leaf ordering check goes RED for NCOST.NDX because
@@ -843,32 +826,10 @@ int ndx_key_cmp(const ndx_index *idx, const uint8_t *a, const uint8_t *b)
     {
         double va, vb;
 
-#ifndef NDX_MUTATE_KEY_SIGNFLIP
         /* Correct path: raw LE double, NO sign-flip.
          * [re/mint-results-001.md VERIFIED minted NCOST.NDX 2026-06-16] */
         va = read_le_double(a);
         vb = read_le_double(b);
-#else
-        /* MUTATED: apply sign-flip (XOR bit 7 of byte 7) before decoding.
-         * This implements the hypothesis that mint-001 disproved. Under this
-         * mutation: for negative doubles (byte 7 has MSB set, e.g. 0xC0),
-         * XOR 0x80 clears the sign bit, turning -123.45 into a large positive.
-         * The leaf ordering -123.45 < -1 < 0 < ... will appear wrong because
-         * the mutated comparison puts negatives above positives -> RED.
-         * [re/mint-results-001.md "corrects the prior ndx.md speculation about
-         *  a sign-flip transform -- there is none."]
-         * The XOR modifies only the comparison bytes; we do NOT modify key_data
-         * in place (const pointer). Use local copies. */
-        {
-            uint8_t ma[8], mb[8];
-            rt_memcpy(ma, a, 8u);
-            rt_memcpy(mb, b, 8u);
-            ma[7] ^= 0x80u;
-            mb[7] ^= 0x80u;
-            va = read_le_double(ma);
-            vb = read_le_double(mb);
-        }
-#endif
         if (va < vb) return -1;
         if (va > vb) return  1;
         return 0;
@@ -891,7 +852,7 @@ int ndx_key_cmp(const ndx_index *idx, const uint8_t *a, const uint8_t *b)
  *   (child_page == 0), an exact key match returns dbf_recno."
  *
  * Both ndx_inorder and ndx_seek use the same shared node stepper so the S4.3
- * mutation (-DNDX_MUTATE_SEEK_CHILD wrong-child descent) bites BOTH the SEEK
+ * mutation (mutants/ndx-mutate-seek-child.patch wrong-child descent) bites BOTH the SEEK
  * recno resolution AND the in-order sortedness/completeness checks.
  * ----------------------------------------------------------------------- */
 
@@ -904,7 +865,7 @@ int ndx_key_cmp(const ndx_index *idx, const uint8_t *a, const uint8_t *b)
  * ndx_inorder
  *
  * In-order traversal. Recursion depth is bounded by total_pages (a cycle would
- * otherwise loop forever -- Rule 2). DEPTH is the remaining recursion budget;
+ * otherwise loop forever -- CLAUDE.md, The constitution). DEPTH is the remaining recursion budget;
  * each descent decrements it, and reaching 0 is a cycle/over-deep failure.
  *
  * Ref: ndx.md ss8 step 3 (recurse child before emitting separator (branch);
@@ -919,7 +880,7 @@ static int inorder_page(ndx_index *idx, uint32_t page_no, uint32_t depth,
     uint32_t    i;
     int         is_branch;
 
-    /* Bounded descent (Rule 2): a corrupt tree could cycle. */
+    /* Bounded descent (CLAUDE.md, The constitution): a corrupt tree could cycle. */
     if (depth == 0u)
         return -NDX_ERR_CYCLE;
 
@@ -929,28 +890,14 @@ static int inorder_page(ndx_index *idx, uint32_t page_no, uint32_t depth,
 
     /* A zero-separator branch still has a trailing child in slot 0 (E02).
      * An empty leaf's slot 0 child is zero. Ref: M006D.PRG / E02.NDX. */
-#ifndef NDX_MUTATE_ZERO_SEP_LEAF
     is_branch = node->entry_count ? node->entries[0].child_page != 0u
                                  : node->trail_child != 0u;
-#else
-    is_branch = node->entry_count > 0u && node->entries[0].child_page != 0u;
-#endif
 
     for (i = 0u; i < (uint32_t)node->entry_count; i++) {
         if (is_branch) {
-#ifndef NDX_MUTATE_SEEK_CHILD
             /* Correct: recurse into THIS entry's child before the separator.
              * Ref: ndx.md ss8 step 3 / ss5 descent rule. */
             uint32_t child = node->entries[i].child_page;
-#else
-            /* MUTATED wrong-child descent: recurse into the NEXT entry's child
-             * (off-by-one). For the last entry it folds onto the trailing child.
-             * This skips/duplicates subtrees -> the in-order sequence is no
-             * longer the sorted leaf order, and leaf counts go wrong. RED. */
-            uint32_t child = (i + 1u < (uint32_t)node->entry_count)
-                                 ? node->entries[i + 1u].child_page
-                                 : node->trail_child;
-#endif
             /* Free the current node before recursing: the arena is a bump stack
              * and the child allocation must sit above the freed mark. We re-read
              * the parent after the child subtree completes. */
@@ -978,7 +925,7 @@ static int inorder_page(ndx_index *idx, uint32_t page_no, uint32_t depth,
 
     /* After the last entry, if internal, recurse into the rightmost child.
      * Ref: ndx.md ss8 step 3 + ss3.2 (trailing child = keys > last separator).
-     * Under -DNDX_MUTATE_SEEK_CHILD the wrong-child loop already consumed the
+     * Under mutants/ndx-mutate-seek-child.patch the wrong-child loop already consumed the
      * trailing child as entry[last]'s "next", so emitting it again would be
      * wrong -- but the mutation's damage is already visible in the entry loop;
      * we keep the trailing recursion correct so the mutation's signature is the
@@ -1000,7 +947,7 @@ int ndx_inorder(ndx_index *idx, ndx_visit_fn visit, void *ctx)
     if (!idx || !visit)
         return -NDX_ERR_BAD_PAGE;
     /* Depth budget = total_pages: a well-formed tree never descends deeper than
-     * the number of pages, so exceeding it means a cycle (Rule 2). */
+     * the number of pages, so exceeding it means a cycle (CLAUDE.md, The constitution). */
     return inorder_page(idx, idx->root_page, idx->total_pages, visit, ctx);
 }
 
@@ -1029,7 +976,7 @@ int ndx_inorder(ndx_index *idx, ndx_visit_fn visit, void *ctx)
  * layout for IDX. On success returns NDX_OK and (for char keys) writes the
  * significant length (trailing-space-trimmed) of the search key to *sig_len.
  *
- * Type compatibility (Rule 2 fail-loud):
+ * Type compatibility (CLAUDE.md, The constitution fail-loud):
  *   key_type 0 (char): KEY must be XB_C or XB_M. Shorter than key_length is
  *     right-padded with spaces; longer is truncated to key_length.
  *   key_type 1 (num/date): KEY must be XB_N or XB_D. The double is stored LE.
@@ -1145,7 +1092,7 @@ int ndx_seek(ndx_index *idx, const xb_val *key, int set_exact,
     if (rc != NDX_OK)
         return rc;
 
-    /* Descend from the root to a leaf, bounded by total_pages (Rule 2). */
+    /* Descend from the root to a leaf, bounded by total_pages (CLAUDE.md, The constitution). */
     page_no = idx->root_page;
     depth   = idx->total_pages;
 
@@ -1176,18 +1123,7 @@ int ndx_seek(ndx_index *idx, const xb_val *key, int set_exact,
              * Ref: ndx.md ss5 search algorithm. */
             for (i = 0u; i < (uint32_t)node->entry_count; i++) {
                 if (ndx_key_cmp(idx, node->entries[i].key_data, skey) >= 0) {
-#ifndef NDX_MUTATE_SEEK_CHILD
                     next_page = node->entries[i].child_page;
-#else
-                    /* MUTATED wrong-child descent: take entry[i+1]'s child
-                     * (off-by-one) -- skips the subtree that holds K (whose HIGH
-                     * key is entry[i]), so SEEK lands in the wrong subtree and
-                     * resolves the wrong recno / EOFs. RED. For the last entry
-                     * this folds onto the trailing child. */
-                    next_page = (i + 1u < (uint32_t)node->entry_count)
-                                    ? node->entries[i + 1u].child_page
-                                    : node->trail_child;
-#endif
                     descended = 1;
                     break;
                 }
@@ -1240,7 +1176,7 @@ int ndx_seek(ndx_index *idx, const xb_val *key, int set_exact,
  * -----------------------------------------------------------------------
  *
  * The byte-exact bulk-build algorithm, grounded entirely in minted/pristine
- * bytes (NOT guessed -- Law 1):
+ * bytes (NOT guessed -- CLAUDE.md, The constitution):
  *
  *   - PACK leaves 100% left-to-right, remainder in the last leaf.
  *     [re/mint-results-003.md: BIGIDX 245 = 13*18 + 11; ndx.md Open questions
@@ -1255,7 +1191,7 @@ int ndx_seek(ndx_index *idx, const xb_val *key, int set_exact,
  *   - Equal-key tie-break = ascending recno (stable sort over physical order).
  *     [VERIFIED: BIGIDX five "Beman" entries in recno order 42,91,140,189,238.]
  *
- * NORMALIZE bytes are written 0x00 (Rule 11: IBASE is more normalized than
+ * NORMALIZE bytes are written 0x00 (CLAUDE.md, The constitution: IBASE is more normalized than
  * genuine III+; the oracle masks these before cmp -- header reserved/dummy,
  * header tail past the expr NUL, group filler, node filler word, page tails,
  * and the non-child bytes of the trailing slot).
@@ -1335,7 +1271,7 @@ static void stable_sort_keys(uint16_t key_type, uint16_t key_len,
 
 /*
  * write_page: seek to page PAGE_NO * 512 and write the 512-byte PAGE buffer.
- * Returns NDX_OK or -NDX_ERR_IO (fail loud on short write -- Rule 2).
+ * Returns NDX_OK or -NDX_ERR_IO (fail loud on short write -- CLAUDE.md, The constitution).
  */
 IBASE_OVL_TEXT(file) static int write_page(ibase_pal_t *pal, pal_fd fd, uint32_t page_no,
                       const uint8_t *page)
@@ -1428,7 +1364,7 @@ IBASE_OVL_TEXT(file) static int bld_push(ndx_bld *b, uint32_t lv, uint32_t page,
         uint32_t written;
         int      rc;
         if (lv >= b->nlev)
-            return -NDX_ERR_PAGE_OVF;   /* deeper than sized (Rule 2) */
+            return -NDX_ERR_PAGE_OVF;   /* deeper than sized (CLAUDE.md, The constitution) */
         if (lv + 1u > b->used)
             b->used = lv + 1u;
         base = lv * (b->kpp + 1u);
@@ -1462,7 +1398,6 @@ IBASE_OVL_TEXT(file) static int bld_finish(ndx_bld *b, uint32_t *root_out)
             if (b->cnt[j] != 0u) top = 0;
         if (c == 0u)
             continue;
-#ifndef NDX_MUTATE_BULK_NO_ELIDE
         if (c == 1u) {
             /* One child: promote it (minted B021: leaf p7 hangs off the root). */
             if (top) { *root_out = b->pg[base]; return NDX_OK; }
@@ -1471,11 +1406,6 @@ IBASE_OVL_TEXT(file) static int bld_finish(ndx_bld *b, uint32_t *root_out)
             if (rc != NDX_OK) return rc;
             continue;
         }
-#else
-        /* MUTANT (Rule 6): write a one-child node as a 0-separator branch
-         * instead of promoting the child -- diverges from B021/A00. */
-        if (c == 1u && top && lv == 0u) { *root_out = b->pg[base]; return NDX_OK; }
-#endif
         rc = bld_branch(b, lv, c, &written);
         if (rc != NDX_OK) return rc;
         b->cnt[lv] = 0u;
@@ -1516,7 +1446,7 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
     if (!pal || !out_name || !get_key)
         return -NDX_ERR_IO;
 
-    /* --- Validate key_type / key_len (Rule 2). --- */
+    /* --- Validate key_type / key_len (CLAUDE.md, The constitution). --- */
     if (key_type != (uint16_t)NDX_KEY_TYPE_CHAR
         && key_type != (uint16_t)NDX_KEY_TYPE_NUMERIC)
         return -NDX_ERR_BAD_KEYTYPE;
@@ -1534,13 +1464,11 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
     if (kpp == 0u)
         return -NDX_ERR_BAD_GROUP;     /* a single key does not fit a page */
 
-    /* ndx.md ss1/5 and Rule 2: reject unrepresentable workspace and leaf
+    /* ndx.md ss1/5 and CLAUDE.md, The constitution: reject unrepresentable workspace and leaf
      * counts BEFORE any allocation/provider call (initech-xiqz). */
-#ifndef IBASE_CORE_MUTATE_NDX_BUILD_SIZE
     if (nrec > UINT32_MAX / key_len || nrec > UINT32_MAX / 4u ||
         nrec > UINT32_MAX - kpp + 1u)
         return -NDX_ERR_NOROOM;
-#endif
 
     mark = pal->alloc(pal, 0u);        /* arena entry mark; reset before return */
 
@@ -1575,11 +1503,7 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
      * recno, the stable-sort tie order) record of each run of equal keys.
      * Ref: real III+ captures set-mint/unique + uniquerebuild: later duplicates are
      * omitted from the index; header unique flag bytes 0x16..0x17 = 00 01. */
-#ifdef IBASE_W2_MUTANT_unique_dedupe
-    if (0) {   /* mutant: duplicates NOT omitted */
-#else
     if (unique && nrec > 1u) {
-#endif
         uint32_t w = 1u;
         for (i = 1u; i < nrec; i++) {
             if (build_cmp(key_type, key_len, keys + (uint32_t)(w - 1u) * key_len,
@@ -1600,15 +1524,9 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
     if (nleaf == 0u)
         nleaf = 1u;
 
-    /* MUTATION -DNDX_MUTATE_NO_ROOT_SPLIT (Rule 6): revert to the OLD 2-level
+    /* MUTATION mutants/ndx-mutate-no-root-split.patch (CLAUDE.md, The constitution): revert to the OLD 2-level
      * ceiling -- fail loud with -NDX_ERR_PAGE_OVF the moment a 3rd level is
      * needed ((L-1) > kpp). test_ndx_multilevel.c then goes RED. */
-#ifdef NDX_MUTATE_NO_ROOT_SPLIT
-    if (nleaf > 1u && (nleaf - 1u) > kpp) {
-        pal->reset(pal, mark);
-        return -NDX_ERR_PAGE_OVF;
-    }
-#endif
 
     /* --- The level stacks: each level holds at most kpp+1 pending children;
      * the depth is at most ceil(log_{kpp+1}(nleaf)) + 1 (+1 slack). --- */
@@ -1662,17 +1580,10 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
             uint32_t g;
             uint32_t pno;
 
-#ifndef NDX_MUTATE_SPLIT_5050
             /* CORRECT bulk-build packing: fill this leaf to capacity, leaving the
              * remainder for the LAST leaf. [re/mint-results-003.md: 100%-pack,
              * remainder last; NOT 50/50.] */
             fill = (leaf + 1u < nleaf) ? kpp : remaining;
-#else
-            /* MUTATED ~50/50 split (Rule 6): spread the remaining keys evenly
-             * across the remaining leaves -> diverges from the golden -> RED. */
-            fill = (remaining + leaves_left - 1u) / leaves_left;
-            if (fill > kpp) fill = kpp;
-#endif
             (void)leaves_left;
             if (fill > remaining) fill = remaining;
 
@@ -1747,18 +1658,18 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
  *     is created and assigned a fresh page. root_page and total_pages in
  *     the header are updated.
  *
- * Mutation hook -DNDX_MUTATE_INSERT_NOSORT (Rule 6):
+ * Mutation hook mutants/ndx-mutate-insert-nosort.patch (CLAUDE.md, The constitution):
  *   In the insert path, the new entry is appended at the END of the leaf
  *   without shifting into sorted position. Post-insert, the leaf's entries
  *   are not in sorted order; ndx_inorder will return them in the wrong
  *   order and ndx_seek for keys that should land before the last position
  *   will miss them -> oracle goes RED.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/file-formats/ndx.md ss3 (node layout),
  *     ss3.1 (group layout), ss3.2 (trailing child), ss5 (B-tree ordering).
  *   - docs/plans/IBASE-implementation-plan.md S4.5 + sec7 GATED register.
- *   - CLAUDE.md Rule 2 (fail loud), Rule 6 (mutation-prove), Law 1 (ground truth).
+ *   - CLAUDE.md CLAUDE.md, The constitution (fail loud), CLAUDE.md, The constitution (mutation-prove), CLAUDE.md, The constitution (ground truth).
  * ======================================================================= */
 
 /*
@@ -1835,7 +1746,7 @@ static int read_raw_page(ndx_index *idx, uint32_t page_no, uint8_t *page)
     /* Validate every live pointer BEFORE the caller can modify a page.
      * A branch has n+1 nonzero children (including when n==0, E02);
      * a leaf's unused trailing slot is garbage and must be ignored.
-     * Ref: ndx.md ss3/3.2; M006D.PRG; CLAUDE.md Rule 2. */
+     * Ref: ndx.md ss3/3.2; M006D.PRG; CLAUDE.md CLAUDE.md, The constitution. */
     if (branch && NDX_NODE_ENTRIES_OFF + n * gl + 4u > NDX_PAGE_SIZE)
         return -NDX_ERR_PAGE_OVF;
     for (s = 0u; s < n + (branch ? 1u : 0u); s++) {
@@ -1888,7 +1799,7 @@ static int alloc_page(ndx_index *idx, uint32_t *page_no_out)
  * PAGE must contain a leaf node (entry_count < keys_per_page).
  * Returns the new entry_count (old + 1).
  *
- * Under -DNDX_MUTATE_INSERT_NOSORT the new entry is appended at the end
+ * Under mutants/ndx-mutate-insert-nosort.patch the new entry is appended at the end
  * without sorted placement (the mutation bites post-insert sortedness and
  * SEEK for keys that land non-last).
  */
@@ -1901,7 +1812,6 @@ static uint16_t insert_into_leaf(ndx_index *idx, uint8_t *page,
     uint32_t i;
     uint32_t ins;   /* insertion index */
 
-#ifndef NDX_MUTATE_INSERT_NOSORT
     /* Find the insertion slot: the first existing entry whose key > new_key,
      * or (key == new_key AND existing_recno > recno) -- ascending recno
      * tie-break, consistent with ndx_build's stable sort.
@@ -1925,14 +1835,6 @@ static uint16_t insert_into_leaf(ndx_index *idx, uint8_t *page,
             }
         }
     }
-#else
-    /* MUTATED: always append at the end without sorting.
-     * The leaf is no longer in sorted order after this point.
-     * ndx_inorder will return the unsorted sequence and ndx_seek for
-     * keys that should land before the last position will miss them. RED.
-     * [Rule 6 / plan S4.5 NDX_MUTATE_INSERT_NOSORT] */
-    ins = (uint32_t)count;
-#endif
 
     /* Shift entries [ins..count) right by one group to make room.
      * We iterate from the end to avoid overwriting uncopied data. */
@@ -2014,7 +1916,6 @@ static int page_is_branch(const uint8_t *page)
     return u32le(page + NDX_NODE_ENTRIES_OFF + NDX_GRP_CHILD_PAGE_OFF) != 0u;
 }
 
-#ifndef IBASE_CORE_MUTATE_NDX_DUP_DESCENT
 /* subtree_high: the (key, recno) of the LAST entry under PAGE_NO (follow the
  * trailing children to the rightmost leaf). -NDX_ERR_NOTFOUND if that leaf is
  * empty. */
@@ -2042,7 +1943,6 @@ static int subtree_high(ndx_index *idx, uint32_t page_no, uint8_t *key_out,
         if (page_no == 0u || ++guard > NDX_MAX_DEPTH) return -NDX_ERR_CYCLE;
     }
 }
-#endif
 
 /* read_big: read PAGE_NO into a NDX_BIGBUF buffer (the slots past 512 are 0,
  * room for a transient kpp+1-separator branch). */
@@ -2059,10 +1959,6 @@ static int sep_propagate(ndx_index *idx, const uint32_t *path_pg,
                          const uint32_t *path_ci, uint32_t depth,
                          const uint8_t *key)
 {
-#ifdef NDX_MUTATE_DELETE_NO_SEP_UPDATE
-    (void)idx; (void)path_pg; (void)path_ci; (void)depth; (void)key;
-    return NDX_OK;   /* MUTANT (Rule 6): leave the stale separator */
-#else
     uint8_t page[NDX_PAGE_SIZE];
     while (depth > 0u) {
         uint16_t n;
@@ -2078,7 +1974,6 @@ static int sep_propagate(ndx_index *idx, const uint32_t *path_pg,
         }
     }
     return NDX_OK;
-#endif
 }
 
 int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
@@ -2100,9 +1995,6 @@ int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
         return -NDX_ERR_BAD_PAGE;
     if (!idx->writable)
         return -NDX_ERR_READONLY;
-#ifdef IBASE_CORE_MUTATE_NDX_DUP_DESCENT
-    (void)hk;
-#endif
 
     kl  = (uint32_t)idx->key_length;
     gl  = (uint32_t)idx->group_length;
@@ -2127,7 +2019,6 @@ int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
                                   key_data);
             if (cmp < 0)
                 continue;
-#ifndef IBASE_CORE_MUTATE_NDX_DUP_DESCENT
             if (cmp == 0) {
                 /* Equal separator (a duplicate key). Branch recnos are zero
                  * (ndx.md ss3.1), so recover the subtree's upper (key,recno)
@@ -2144,7 +2035,6 @@ int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
                 if (hc < 0 || (hc == 0 && recno > hr))
                     continue;
             }
-#endif
             ci = i;
             break;
         }
@@ -2169,11 +2059,7 @@ int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
         rt_memset(big, 0, NDX_BIGBUF);
         rt_memcpy(big, page, (uint32_t)NDX_PAGE_SIZE);
         insert_into_leaf(idx, big, key_data, recno);
-#ifndef NDX_MUTATE_LEAF_SPLIT_LOW
         L = (kpp + 2u) / 2u;
-#else
-        L = (kpp + 1u) / 2u;   /* MUTANT (Rule 6): the smaller half stays left */
-#endif
         rt_memcpy(up, big + slot_off(idx, L - 1u) + NDX_GRP_KEY_DATA_OFF, kl);
 
         rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
@@ -2336,11 +2222,6 @@ int ndx_delete_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
         if (n == 0u || ndx_key_cmp(idx, page + slot_off(idx, (uint32_t)n - 1u)
                                    + NDX_GRP_KEY_DATA_OFF, key_data) != 0)
             return -NDX_ERR_NOTFOUND;   /* the run ended inside this leaf */
-#ifdef NDX_MUTATE_DELETE_NOSPAN
-        /* MUTANT (Rule 6 -- initech-0g22): stop after the first candidate leaf.
-         * A pair in a LATER equal-key leaf is missed -> NOTFOUND -> RED. */
-        return -NDX_ERR_NOTFOUND;
-#endif
         /* Next leaf in key order: climb to the first ancestor with a child to
          * the right, step right, then descend leftmost. */
         for (;;) {
@@ -2486,7 +2367,7 @@ int ndx_update_key(ndx_index *idx,
  * may have been rebuilt but the handle left with fd == -1 (fail loud; the caller
  * surfaces the error rather than seeking a half-open index).
  *
- * Ref (Law 1): ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
+ * Ref (CLAUDE.md, The constitution): ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
  * sec.10 (PACK rebuilds all open index files); ndx.h S4.5 maintenance contract.
  */
 IBASE_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx, uint32_t nrec,
@@ -2513,11 +2394,7 @@ IBASE_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx, uint32_t nrec,
     rc = ndx_build_ex(pal, idx->path,
                    idx->key_type, idx->key_length, idx->key_expr,
                    nrec, get_key, user,
-#ifdef IBASE_W2_MUTANT_unique_rebuild
-                   0);   /* mutant: REINDEX forgets the index's own uniqueness */
-#else
                    idx->unique_flag != 0u);
-#endif
     if (rc != NDX_OK)
         return rc;   /* fail loud; handle left fd == -1 */
 

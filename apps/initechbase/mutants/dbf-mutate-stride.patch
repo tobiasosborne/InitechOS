@@ -1,0 +1,6 @@
+# test: test_dbf_fields
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -101 +101 @@
+-#  define DECODE_STRIDE  ((uint32_t)DBF_DESC_STRIDE)   /* correct: 32 bytes (dbf.md sec 4) */
++#  define DECODE_STRIDE  48u   /* dBASE-7 descriptor size; NOT the III+ 32-byte form */

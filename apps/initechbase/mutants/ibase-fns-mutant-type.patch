@@ -1,0 +1,5 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -634,0 +635 @@
++    code='C';

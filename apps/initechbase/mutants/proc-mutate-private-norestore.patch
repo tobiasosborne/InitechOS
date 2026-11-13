@@ -1,0 +1,13 @@
+# test: test_interp_proc
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -1795 +1795,5 @@
+-            int sh = fs->vars[i].shadows;
++            /* MUTANT (CLAUDE.md, The constitution -- mutants/proc-mutate-private-norestore.patch): drop the
++             * level var but DO NOT un-hide the var it shadowed. The caller's
++             * shadowed value then stays clobbered/invisible after RETURN, so
++             * the oracle's "outer x unchanged after a PRIVATE callee" check
++             * goes RED. */
+@@ -1797,2 +1800,0 @@
+-            if (sh >= 0 && sh < fs->nvars)
+-                fs->vars[sh].live = 1;     /* un-hide the shadowed var */

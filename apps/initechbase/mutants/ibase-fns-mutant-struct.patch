@@ -1,0 +1,5 @@
+# test: test_ibase_fns
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -1504,0 +1505 @@
++    if (rc == -INTERP_ERR_STRUCT) return -rc;   /* MUTANT: the status leaks */

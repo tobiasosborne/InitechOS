@@ -1,0 +1,5 @@
+# test: test_ibase_core
+--- a/core/eval.c
++++ b/core/eval.c
+@@ -152 +151,0 @@
+-    if (tot > 254u) return fail(err, XBEE_CONCAT_PLUS);

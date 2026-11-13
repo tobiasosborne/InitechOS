@@ -1,0 +1,5 @@
+# test: test_interp_do_file
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -633 +632,0 @@
+-        && ps->library->refs == 1

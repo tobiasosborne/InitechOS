@@ -17,14 +17,6 @@ typedef int32_t (*ibase_input_read)(void *, void *, uint32_t);
 static int32_t ibase_line_read(ibase_line_state *st, ibase_input_read read,
                               void *user, char *buf, uint32_t cap)
 {
-#ifdef IBASE_MUTATE_STDIN_LINES
-    /* Ref: pal.h conin_line; audit K13's USE/LIST/QUIT input. Drop the
-     * unread suffix between calls: LIST and QUIT must not disappear after
-     * USE. Since 14a8fc75 routes USE through proc_run, returning the entire
-     * chunk lets it execute as a program, masking the missing-rows failure
-     * (initech-6ljt). Keep this mutation at the PAL framing boundary. */
-    st->pos=st->len;
-#endif
     uint32_t used=0;
     int overflow=0;
     if(!buf || !cap) return -PAL_EACCES;

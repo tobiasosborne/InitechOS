@@ -1,0 +1,6 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2119,0 +2120,2 @@
++    /* CLAUDE.md, The constitution mutation: perturb the numeric result so the pinned golden fails. */
++    value += 0.01;

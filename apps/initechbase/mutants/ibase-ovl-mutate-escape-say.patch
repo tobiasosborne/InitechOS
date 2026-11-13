@@ -1,0 +1,9 @@
+# test: test_ibase_say
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -1043,0 +1044,2 @@
++static IBASE_OVL_TEXT(set) int ovl_bad_say(ibase_pal_t *p,uint8_t r,uint8_t c,const char *s,uint32_t n)
++{ (void)p;(void)r;(void)c;(void)s;(void)n;return 0; }
+@@ -1057,0 +1060,2 @@
++    { ibase_pal_t hooks=*xb_interp_pal(ip);hooks.say_screen=ovl_bad_say;
++      ibase_bind_pal(xb_interp_pal(ip),&hooks); }

@@ -1,0 +1,5 @@
+# test: test_ibase_fns
+--- a/core/rt.c
++++ b/core/rt.c
+@@ -576,0 +577 @@
++    return width; /* regression: star-fill instead of scientific fallback */

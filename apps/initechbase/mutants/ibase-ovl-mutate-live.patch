@@ -1,0 +1,6 @@
+# test: test_ibase_say
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -1057,0 +1058,2 @@
++    /* Indirect ON ERROR is invisible to static relocation reachability. */
++    xb_interp_ctx(ip)->on_error(ip,10);

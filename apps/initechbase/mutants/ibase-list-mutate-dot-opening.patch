@@ -1,0 +1,6 @@
+# test: ibase_numeric_format
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -785 +785 @@
+-    q_putn(ip,"\r\n",2);
++    if(!xb_interp_ctx(ip)->dot_command) q_putn(ip,"\r\n",2);
