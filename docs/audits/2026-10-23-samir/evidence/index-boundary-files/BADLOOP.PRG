@@ -1,3 +1,0 @@
-I=0
-DO WHILE I<3
-I=I+1

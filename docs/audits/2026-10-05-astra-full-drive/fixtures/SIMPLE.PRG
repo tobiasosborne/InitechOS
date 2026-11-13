@@ -1,3 +1,0 @@
-STORE 5 TO X
-? X * 2
-RETURN
