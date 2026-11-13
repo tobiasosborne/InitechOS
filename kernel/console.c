@@ -9,7 +9,7 @@
  *        no timestamps), Rule 12 (ASCII source).
  * beads: initech-k8o5. Ref: ADR-0004 D-2 (console is a CLIENT of the one
  *        surface module; no second pixel writer). The pixel path is now owned
- *        by os/flair/surface.{c,h}; this file binds a bitmap_t over its LFB
+ *        by os/flair/surface.{c,h}; this file binds a console_bitmap_t over its LFB
  *        params and delegates all pixel writes to the surface primitives.
  *        The public API in console.h is BYTE-FOR-BYTE IDENTICAL to before;
  *        kmain.c and every other consumer is untouched.
@@ -20,7 +20,7 @@
  * casts a heap framebuffer's address into a fake boot_info). No host headers
  * here -- the only dependency is <stdint.h>, which is freestanding-provided.
  *
- * Pixel format (Sec 5 Risk 2, mirrored from os/milton/kmain.c fb_clear and
+ * Pixel format (Sec 5 Risk 2, mirrored from os/initechdos/kmain.c fb_clear and
  * stage2.asm fill32/fill24):
  *   32bpp -- one dword per pixel, XRGB8888 == little-endian 0x00RRGGBB, so the
  *            bytes at increasing addresses are B,G,R,X.
@@ -29,7 +29,7 @@
  */
 
 #include "console.h"
-#include "../flair/surface.h"
+#include "console_pixels.h"
 
 /* ---- color packing -------------------------------------------------------
  * Pack (r,g,b) for the bound bpp. Both formats place 0x00RRGGBB into the dword
@@ -76,12 +76,12 @@ static void page_fill(console_t *con, uint32_t row, uint32_t col0, uint32_t col1
     }
 }
 
-/* ---- bitmap_t helper ----------------------------------------------------- */
-/* Bind a bitmap_t from a console_t. Used internally so all surface calls
+/* ---- console_bitmap_t helper ----------------------------------------------------- */
+/* Bind a console_bitmap_t from a console_t. Used internally so all surface calls
  * receive the same descriptor (ADR-0004 D-2: one surface, no duplication). */
-static bitmap_t con_bitmap(const console_t *con)
+static console_bitmap_t con_bitmap(const console_t *con)
 {
-    bitmap_t bm;
+    console_bitmap_t bm;
     bm.base            = con->lfb;
     bm.pitch           = con->pitch;
     bm.bpp             = con->bpp;
@@ -110,14 +110,14 @@ void console_cursor_wait(console_t *con, uint32_t ticks, int active)
      * proof flap (tps_journey, 2026-10-17). The shipped kernel keeps the blink. */
     want = active;
 #endif
-    bitmap_t bm = con_bitmap(con);
+    console_bitmap_t bm = con_bitmap(con);
     if (con->cursor_on && (!want || con->cursor_col != con->cur_col ||
                                   con->cursor_row != con->cur_row)) {
         for (uint32_t i = 0; i < 16 && con->cursor_col < con->cols &&
                                    con->cursor_row < con->rows; i++) {
             uint32_t x = con->cursor_col*8u + i%8u;
             uint32_t y = con->cursor_row*16u + 14u + i/8u;
-            surface_put_pixel(&bm, y*bm.pitch+x*bm.bytes_per_pixel, con->cursor_saved[i]);
+            console_pixels_put_pixel(&bm, y*bm.pitch+x*bm.bytes_per_pixel, con->cursor_saved[i]);
         }
         con->cursor_on = 0;
     }
@@ -128,8 +128,8 @@ void console_cursor_wait(console_t *con, uint32_t ticks, int active)
             uint32_t x = con->cursor_col*8u + i%8u;
             uint32_t y = con->cursor_row*16u + 14u + i/8u;
             uint32_t off = y*bm.pitch+x*bm.bytes_per_pixel;
-            con->cursor_saved[i] = surface_get_pixel(&bm, off);
-            surface_put_pixel(&bm, off, con->cur_fg);
+            con->cursor_saved[i] = console_pixels_get_pixel(&bm, off);
+            console_pixels_put_pixel(&bm, off, con->cur_fg);
         }
         con->cursor_on = 1;
     }
@@ -152,9 +152,9 @@ void console_draw_glyph(console_t *con, uint32_t col, uint32_t row,
     uint32_t x0 = col * CONSOLE_CELL_W;
     uint32_t y0 = row * CONSOLE_CELL_H;
 
-    bitmap_t bm = con_bitmap(con);
+    console_bitmap_t bm = con_bitmap(con);
     /* Delegate to the one surface blit primitive (ADR-0004 D-2). */
-    surface_blit(&bm, x0, y0, glyph, CONSOLE_CELL_W, CONSOLE_CELL_H, fg, bg);
+    console_pixels_blit(&bm, x0, y0, glyph, CONSOLE_CELL_W, CONSOLE_CELL_H, fg, bg);
 }
 
 /* ---- clear --------------------------------------------------------------- */
@@ -163,13 +163,13 @@ void console_clear(console_t *con)
     if (con == 0 || con->lfb == 0) {
         return;
     }
-    bitmap_t bm = con_bitmap(con);
+    console_bitmap_t bm = con_bitmap(con);
     /* Fill every pixel of every scanline with bg. Honor pitch by using
-     * surface_fill_span which takes (x,y,len) and strides by pitch. Only
+     * console_pixels_fill_span which takes (x,y,len) and strides by pitch. Only
      * write the `width` visible pixels per row (padding bytes are off-screen;
      * leaving them avoids relying on pitch==width*bpp/8). */
     for (uint32_t y = 0; y < con->height; y++) {
-        surface_fill_span(&bm, 0u, y, con->width, con->bg);
+        console_pixels_fill_span(&bm, 0u, y, con->width, con->bg);
     }
     for (uint32_t r = 0; r < CONSOLE_ROWS; r++)
         page_fill(con, r, 0u, CONSOLE_COLS - 1u, ' ', 0x07u);
@@ -185,7 +185,7 @@ void console_scroll(console_t *con)
     if (con == 0 || con->lfb == 0) {
         return;
     }
-    bitmap_t bm = con_bitmap(con);
+    console_bitmap_t bm = con_bitmap(con);
     uint32_t text_h = con->rows * CONSOLE_CELL_H; /* 400 px */
     if (text_h > con->height) {
         text_h = con->height;
@@ -200,15 +200,15 @@ void console_scroll(console_t *con)
         uint32_t src_off = (y + CONSOLE_CELL_H) * bm.pitch;
         for (uint32_t x = 0; x < bm.width; x++) {
             uint32_t so = src_off + x * bm.bytes_per_pixel;
-            uint32_t px = surface_get_pixel(&bm, so);
-            surface_put_pixel(&bm, dst_off + x * bm.bytes_per_pixel, px);
+            uint32_t px = console_pixels_get_pixel(&bm, so);
+            console_pixels_put_pixel(&bm, dst_off + x * bm.bytes_per_pixel, px);
         }
     }
 
     /* Clear the freed last text row (the bottom CONSOLE_CELL_H scanlines of the
      * text band) to bg. */
     for (uint32_t y = move_rows; y < text_h; y++) {
-        surface_fill_span(&bm, 0u, y, bm.width, con->bg);
+        console_pixels_fill_span(&bm, 0u, y, bm.width, con->bg);
     }
     if (con->cells && con->rows > 0u) {
         uint32_t n = (con->rows - 1u) * CONSOLE_COLS * 2u;
@@ -526,7 +526,7 @@ static void console_fill_cells(console_t *con, uint32_t row,
     if (col0 > col1) {
         return;
     }
-    bitmap_t bm = con_bitmap(con);
+    console_bitmap_t bm = con_bitmap(con);
     uint32_t x0 = col0 * CONSOLE_CELL_W;
     uint32_t span = (col1 - col0 + 1u) * CONSOLE_CELL_W;
     uint32_t y0 = row * CONSOLE_CELL_H;
@@ -535,7 +535,7 @@ static void console_fill_cells(console_t *con, uint32_t row,
         if (y >= con->height) {
             break;
         }
-        surface_fill_span(&bm, x0, y, span, con->cur_bg);
+        console_pixels_fill_span(&bm, x0, y, span, con->cur_bg);
     }
     page_fill(con, row, col0, col1, ' ', con->cur_attr);
 }

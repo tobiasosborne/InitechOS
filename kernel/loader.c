@@ -1,13 +1,13 @@
 /* loader.c -- InitechDOS flat program loader (lay out PSP + image, run, return).
  *
- * beads: initech-509.5 (MILTON loader keystone; advances f8v.4). The milestone
+ * beads: initech-509.5 (INITECHDOS loader keystone; advances f8v.4). The milestone
  *        where InitechDOS RUNS A PROGRAM for the first time.
  *
  * Ref:   docs/research/psp-loader-ground-truth.md Sec 3 (flat program model +
  *        memory layout), Sec 4 (THE control-transfer + return-to-loader
  *        mechanism), Sec 5 (the baked test program), Sec 7 (Risk 1 the return
  *        path -- the load-bearing, bug-prone part); spec/memory_map.h (LOCKED
- *        addresses); os/milton/psp.h (psp_build); os/milton/int21.h
+ *        addresses); os/initechdos/psp.h (psp_build); os/initechdos/int21.h
  *        (int21_set_exit / int21_exit_fn). CLAUDE.md Law 1 (cite), Law 2
  *        (oracle), Law 3 (artifact = C), Rule 2 (fail loud), Rule 3 (root
  *        cause), Rule 8 (specs-as-data), Rule 11 (deterministic), Rule 12
@@ -25,8 +25,9 @@
 #include "int21.h"        /* int21_set_exit / int21_exit_fn (the repointed hook) */
 #include "fat12.h"        /* FAT-sourced load (beads initech-saw): find + read file */
 #include "psp.h"          /* psp_save_vectors / psp_load_vectors (beads 509.8)    */
-#include "toolbox_gate.h" /* TBX_TENANT_PSP_BYTES -- the tenant block layout (tdnl.14) */
-#include "transient.h"    /* TRANSIENT_MAGIC -- the COMMAND.COM overlay is not a .COM (13ig) */
+#define TBX_TENANT_IMAGE_MAX (64u*1024u)
+#define TBX_TENANT_BSS_MAX (512u*1024u)
+#define TBX_TENANT_PSP_BYTES 256u /* Existing native tenant PSP layout. */
 static void loader_move_down(uint8_t *dst,const uint8_t *src,uint32_t n)
 { for(uint32_t i=0;i<n;i++) dst[i]=src[i]; }
 /* InitechMZ parse + flat relocs (beads dtw.1; ADR-0003 DEC-08a). Pulled in via
@@ -44,11 +45,8 @@ static void loader_move_down(uint8_t *dst,const uint8_t *src,uint32_t n)
  * Ref: ADR-0003 DEC-08a.1-.5;
  * docs/design/kernel-size-policy-round2.md Sec 4 (loader_run_plan hazard).
  * The house macro defines this identically for every kernel that links us. */
-#ifdef LOADER_COLD_EXTERNAL
-#define MZ_PARSE_EXTERNAL
-#endif
 #include "mz.c"
-#include "loader_cold.h"
+#include "loader_validation.h"
 
 /* Host-visible bookkeeping used by the real transfer path; IBM DOS 3.30 TR
  * AH=4Bh/4Ch, pp. 6-196, 6-200: child termination resumes its invoking process. */
@@ -78,9 +76,7 @@ void loader_nest_leave(loader_state_t *active, const loader_state_t *saved)
 
 /* DEC-03a.7, initech-jarzu: DOS-only kernels retain cold bodies here;
  * desktop kernels use the ADR-0014 COLD exports (same transfer path). */
-#ifndef LOADER_COLD_EXTERNAL
-#include "loader_cold.c"
-#endif
+#include "loader_validation.c"
 
 /* loader_decide_env -- the PURE, host-testable EXEC env-inheritance decision
  * (beads initech-1i0x Tranche E inc 3). Given the caller's env_block (the flat
@@ -736,7 +732,7 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * there is nothing to AH=4Ah SETBLOCK-shrink -- the program's first AH=48h
      * carves its heap straight from the free region (bead hdlb, S8.2: handing the
      * whole arena to the PSP up front left zero free space and made a no-SETBLOCK
-     * heap user -- SAMIR -- get 48h insufficient-memory and panic). If the image
+     * heap user -- INITECHBASE -- get 48h insufficient-memory and panic). If the image
      * was too large to leave a positive arena (plan.arena_present == 0) the arena
      * is left UNBOUND -- a 48h ALLOC then reports insufficient memory rather than
      * overlapping (fail loud, Rule 2). */
@@ -979,7 +975,7 @@ static loader_status_t load_program_mz_in_place(uint32_t file_len,
  * the kernel stack at 0x90000, so it CANNOT grow) and then copied DOWN to
  * PROGRAM_IMAGE. That capped a FAT .COM at 64 KiB (LOAD_STAGING_MAX) even though
  * the program arena allows ~188 KiB (PROGRAM_IMAGE_MAX = ENV_BLOCK -
- * PROGRAM_IMAGE). A 77 KiB SAMIR.COM was wrongly rejected LOADER_ERR_TOO_BIG.
+ * PROGRAM_IMAGE). A 77 KiB INITECHBASE.COM was wrongly rejected LOADER_ERR_TOO_BIG.
  * Reading straight into PROGRAM_IMAGE makes PROGRAM_IMAGE_MAX the SOLE bound and
  * removes a whole 77+ KiB copy per EXEC. The LOAD_STAGING region is now UNUSED by
  * this path (its #defines remain in spec/memory_map.h, but no code writes it).

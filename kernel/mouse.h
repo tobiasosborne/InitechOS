@@ -2,7 +2,7 @@
  *
  * beads: initech-5l5z FO-6 (ADR-0006 E-D3(b) / FO-6 -- the mouse IRQ12 lane).
  * Ref (Law 1):
- *   - ADR-0006 E-D3(b)/BC-3: "a NEW os/milton/mouse.c plus an irq12_entry in
+ *   - ADR-0006 E-D3(b)/BC-3: "a NEW os/initechdos/mouse.c plus an irq12_entry in
  *     isr.asm ... reads the 3-byte PS/2 packet, posts ONE FLAIR_RAW_MOUSE event,
  *     and issues a DUAL-PIC EOI: slave 0xA0 THEN master 0x20." ISR-enqueue-only
  *     per ADR-0004 D-4 (read device, post raw, EOI, return; no Manager call,

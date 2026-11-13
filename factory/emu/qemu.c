@@ -1,0 +1,2779 @@
+/*
+ * qemu.c -- InitechOS QEMU oracle harness (implementation)
+ *
+ * beads: initech-f2s ("QEMU harness: boot, serial capture, gdb stub,
+ *        QMP screendump, triple-fault detect")
+ * Ref:   PRD Sec 8 "Oracle & Test Infrastructure": gdb stub (-s -S);
+ *          QMP `screendump`; `-serial` printf; `-d int,guest_errors,
+ *          cpu_reset`; triple-fault detect. `-no-reboot` makes a triple
+ *          fault exit QEMU instead of looping (CLAUDE.md hallucination
+ *          callout: "A triple-fault in QEMU silently reboots").
+ *        CLAUDE.md Law 2 (oracle is truth; never false-green),
+ *          Rule 2 (fail fast/loud), Rule 12 (ASCII-clean).
+ *
+ * FACTORY code, C11. POSIX.1-2008 used for fork/exec/waitpid, AF_UNIX
+ * sockets, nanosleep, clock_gettime.
+ *
+ * Design notes / decisions:
+ *  - Timeout mechanism: we fork/exec qemu, then poll waitpid(WNOHANG) in a
+ *    short nanosleep loop against a CLOCK_MONOTONIC deadline. On expiry we
+ *    SIGTERM, give a brief grace window, then SIGKILL, and always reap.
+ *    This is simpler and more portable than SIGALRM/timer_create and never
+ *    leaves a zombie or a runaway qemu. (The harness must never itself
+ *    hang -- a hung guest is the common case for freestanding code.)
+ *  - QMP handshake: connect AF_UNIX, read the greeting, send
+ *    {"execute":"qmp_capabilities"}, then {"execute":"screendump",...},
+ *    then {"execute":"quit"}. We do not parse JSON structurally; we drive
+ *    the (line-oriented) protocol and check for "error" / file existence.
+ *    QMP server is started with server=on,wait=off so qemu does not block
+ *    waiting for us if we never connect (e.g. it triple-faults first).
+ */
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
+
+#include "qemu.h"
+
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/file.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <sys/wait.h>
+#include <time.h>
+#include <unistd.h>
+
+/* ------------------------------------------------------------------ */
+/* small helpers                                                       */
+/* ------------------------------------------------------------------ */
+
+#define QEMU_BIN "qemu-system-i386"
+#define MAX_ARGV 48
+
+/* Compose <dir>/<name><suffix> into dst (bounded). Returns 0 on success. */
+static int join_path(char *dst, size_t cap, const char *dir,
+                     const char *name, const char *suffix)
+{
+    int n = snprintf(dst, cap, "%s/%s%s", dir, name, suffix);
+    if (n < 0 || (size_t)n >= cap) {
+        return -1;
+    }
+    return 0;
+}
+
+/* Monotonic milliseconds since an arbitrary epoch. */
+static long long mono_ms(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+/* initech-7r2; PRD Sec 8: charge a guest's idle allowance only for CPU time
+ * QEMU actually received. Host starvation before the first serial byte must
+ * not spend the whole boot budget. The monotonic ceiling remains separate.
+ * If the process clock is unavailable, retain the wall-clock fallback. */
+static long long guest_ms(const clockid_t *guest_clock)
+{
+    struct timespec ts;
+    if (guest_clock && clock_gettime(*guest_clock, &ts) == 0) {
+        return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+    }
+    return mono_ms();
+}
+
+/* Sleep for ms milliseconds (best-effort, restart-safe). */
+static void sleep_ms(int ms)
+{
+    struct timespec req;
+    req.tv_sec = ms / 1000;
+    req.tv_nsec = (long)(ms % 1000) * 1000000L;
+    while (nanosleep(&req, &req) != 0 && errno == EINTR) {
+        /* finish the remaining interval */
+    }
+}
+
+/* Read an entire file into a freshly malloc'd NUL-terminated buffer.
+ * Returns the buffer (caller frees) and sets *len, or NULL on error. */
+static char *read_file(const char *path, size_t *len)
+{
+    *len = 0;
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        return NULL;
+    }
+    size_t cap = 4096, used = 0;
+    char *buf = malloc(cap);
+    if (!buf) {
+        fclose(f);
+        return NULL;
+    }
+    for (;;) {
+        if (used + 4096 + 1 > cap) {
+            size_t ncap = cap * 2;
+            char *nb = realloc(buf, ncap);
+            if (!nb) {
+                free(buf);
+                fclose(f);
+                return NULL;
+            }
+            buf = nb;
+            cap = ncap;
+        }
+        size_t got = fread(buf + used, 1, 4096, f);
+        used += got;
+        if (got < 4096) {
+            if (ferror(f)) {
+                free(buf);
+                fclose(f);
+                return NULL;
+            }
+            break;
+        }
+    }
+    fclose(f);
+    buf[used] = '\0';
+    *len = used;
+    return buf;
+}
+
+/* Count non-overlapping occurrences of needle in haystack (which may
+ * contain embedded NULs is irrelevant here -- we treat it as a C string). */
+static int count_substr(const char *haystack, const char *needle)
+{
+    int n = 0;
+    size_t nl = strlen(needle);
+    if (nl == 0) {
+        return 0;
+    }
+    const char *p = haystack;
+    while ((p = strstr(p, needle)) != NULL) {
+        n++;
+        p += nl;
+    }
+    return n;
+}
+
+/* ------------------------------------------------------------------ */
+/* QMP screendump driver                                               */
+/* ------------------------------------------------------------------ */
+
+/* Send a NUL-terminated command over fd, appending nothing (caller
+ * includes the trailing newline). Returns 0 on success. */
+static int qmp_send(int fd, const char *cmd)
+{
+    size_t left = strlen(cmd);
+    const char *p = cmd;
+    long long deadline = mono_ms() + 1000;
+    while (left > 0) {
+        if (mono_ms() >= deadline) {
+            return -1; /* bounded: never block forever on a wedged peer */
+        }
+        ssize_t w = write(fd, p, left);
+        if (w < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                struct pollfd pfd = {fd, POLLOUT, 0};
+                poll(&pfd, 1, 100);
+                continue;
+            }
+            return -1;
+        }
+        p += w;
+        left -= (size_t)w;
+    }
+    return 0;
+}
+
+/* Drain whatever QMP has sent so far into a small scratch buffer, using a
+ * poll-bounded wait so it can NEVER block indefinitely (the original sin
+ * that wedged the harness). fd must be non-blocking. We do not parse JSON
+ * structurally; we just keep the socket flowing and let qemu act on the
+ * commands. Returns when budget_ms elapses or the peer closes. */
+static void qmp_drain(int fd, int budget_ms)
+{
+    long long deadline = mono_ms() + budget_ms;
+    char scratch[2048];
+    for (;;) {
+        long long now = mono_ms();
+        int remaining = (int)(deadline - now);
+        if (remaining <= 0) {
+            return;
+        }
+        struct pollfd pfd;
+        pfd.fd = fd;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        int pr = poll(&pfd, 1, remaining);
+        if (pr < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return;
+        }
+        if (pr == 0) {
+            return; /* budget elapsed with no more data */
+        }
+        ssize_t r = read(fd, scratch, sizeof(scratch));
+        if (r < 0) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
+                continue;
+            }
+            return;
+        }
+        if (r == 0) {
+            return; /* peer closed */
+        }
+        /* keep reading until poll reports no more within budget */
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Record mode: per-event frame dumps (beads initech-l9cd)             */
+/* ------------------------------------------------------------------ */
+
+/*
+ * RecordCtx -- the state for interaction-video frame capture. When non-NULL
+ * in the inject loops below, every successfully injected input event is
+ * followed by a paint-settle drain and ONE QMP screendump into
+ * <dir>/<name>_frame_%05d.ppm. The counter makes the sequence ffmpeg-ready
+ * (frame_%05d). NULL ctx == record mode off (zero overhead on every
+ * existing gate).
+ */
+typedef struct {
+    int fd;                /* the handshaked QMP socket                     */
+    const char *dir;       /* output dir (cfg->output_dir)                  */
+    const char *name;      /* run label (cfg->name)                         */
+    int settle_ms;         /* paint-settle drain before each grab           */
+    int count;             /* frames dumped so far                          */
+    /* End-of-life detection (bead initech-mfrb): see QemuConfig
+     * record_end_marker. NULL end_marker == no check.                     */
+    const char *serial_path;
+    const char *end_marker;
+    int events;            /* trace events about to be / already injected  */
+    int ended;             /* 1 once end_marker was seen on serial          */
+    int after_end;         /* events injected after end_marker              */
+    int first_dead;        /* 1-based index of the first such event, or 0   */
+    long long deadline;   /* the parent harness's absolute wall deadline */
+    int failed;
+    /* RECORD-SYNC (qemu.h record_sync): the COM2 FIFO the harness writes, or
+     * -1 (legacy wall-clock grabs). sync_n counts served sync points; the
+     * serial scan resumes at sync_scan so each wait reads only new bytes. */
+    int sync_fd;
+    int sync_n;
+    size_t sync_scan;
+    int halted_noted;
+    int blocked;           /* the guest sits blocked at a served sync point */
+    int barrier_n;         /* QMP barrier ids issued                        */
+} RecordCtx;
+
+/* RECORD-SYNC: every key token goes in as ONE QMP command (qmp_send_key_chord)
+ * so the guest cannot reach an input-idle point between a chord's make and
+ * break codes. Set for the session when record_sync is on. */
+static int g_atomic_keys;
+
+/* Issue one QMP screendump to path over an already-handshaked fd. Shared by
+ * the record-mode frame grabs and the legacy single --screendump. Returns 0
+ * on a successful send (file existence is the caller's check). */
+static int qmp_wait_reply(int fd, const char *id, long long deadline);
+
+static int qmp_do_screendump_id(int fd, const char *path, long long deadline,
+                                const char *id)
+{
+    /* W4.0: optional exact text page beside the PPM, on the same settled
+     * capture boundary. Inherit this QMP connection (also works with stdio
+     * transport); the parent waits, so replies cannot race between readers.
+     * The matching unstripped kernel ELF supplies the live console symbols.
+     * No overhead or new dependency on ordinary pixel-only harness runs. */
+    const char *text_elf = getenv("INITECH_TEXT_SCREEN_ELF");
+    if (text_elf && *text_elf) {
+        const char *tool = getenv("INITECH_TEXT_SCREEN_TOOL");
+        char output[QEMU_PATH_MAX + 16];
+        int len = snprintf(output, sizeof output, "%s.screen", path);
+        if (!tool || !*tool || len < 0 || (size_t)len >= sizeof output) return -1;
+        unlink(output);
+        pid_t child = fork();
+        if (child < 0) return -1;
+        if (child == 0) {
+            if (setpgid(0, 0) < 0) _exit(127);
+            if (dup2(fd, 3) < 0) _exit(127);
+            execl(tool, tool, "--fd", "3", text_elf, output, (char *)NULL);
+            _exit(127);
+        }
+        /* Kill a wrapper's descendants as well as the direct helper. */
+        (void)setpgid(child, child);
+        int status;
+        pid_t waited;
+        for (;;) {
+            waited = waitpid(child, &status, WNOHANG);
+            if (waited == child || (waited < 0 && errno != EINTR)) break;
+            if (mono_ms() >= deadline) {
+                kill(-child, SIGKILL);
+                kill(child, SIGKILL); /* also covers a failed setpgid race */
+                do { waited = waitpid(child, &status, 0); } while (waited < 0 && errno == EINTR);
+                unlink(output);
+                fprintf(stderr, "[harness] exact text-screen helper deadline expired (killed and reaped)\n");
+                return -1;
+            }
+            sleep_ms(5);
+        }
+        if (waited != child || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+            unlink(output);
+            fprintf(stderr, "[harness] exact text-screen capture FAILED\n");
+            return -1;
+        }
+        struct stat st;
+        if (stat(output, &st) || st.st_size == 0) {
+            fprintf(stderr, "[harness] exact text-screen capture missing\n");
+            return -1;
+        }
+    }
+    char cmd[QEMU_PATH_MAX + 128];
+    int n = id ? snprintf(cmd, sizeof(cmd),
+                     "{\"execute\":\"screendump\",\"arguments\":"
+                     "{\"filename\":\"%s\"},\"id\":\"%s\"}\n", path, id)
+               : snprintf(cmd, sizeof(cmd),
+                     "{\"execute\":\"screendump\",\"arguments\":"
+                     "{\"filename\":\"%s\"}}\n", path);
+    if (n < 0 || (size_t)n >= sizeof(cmd)) {
+        return -1;
+    }
+    if (qmp_send(fd, cmd) != 0) {
+        return -1;
+    }
+    if (id) {
+        /* RECORD-SYNC: the guest is held until we ack, so the ack must not
+         * overtake the dump. QEMU writes the PPM before it replies; wait for
+         * THIS command's reply (matched by id) instead of a timed drain. */
+        return qmp_wait_reply(fd, id, deadline);
+    }
+    qmp_drain(fd, 300);
+    return 0;
+}
+
+static int qmp_do_screendump(int fd, const char *path, long long deadline)
+{
+    return qmp_do_screendump_id(fd, path, deadline, NULL);
+}
+
+/* Read QMP output until the reply carrying "id":"<id>" arrives. Returns 0 on
+ * a {"return":...} reply, -1 on an {"error":...} reply, a closed peer, or the
+ * 10 s / harness deadline (Law 2: loud, never a hang). Other traffic (stale
+ * replies of earlier fire-and-forget commands, async events) is skipped. */
+static int qmp_wait_reply(int fd, const char *id, long long deadline)
+{
+    char buf[8192];
+    size_t used = 0;
+    char needle[96];
+    long long end = mono_ms() + 10000;
+    if (end > deadline) end = deadline;
+    snprintf(needle, sizeof(needle), "\"%s\"", id);
+    for (;;) {
+        char *nl;
+        while ((nl = memchr(buf, '\n', used)) != NULL) {
+            size_t line = (size_t)(nl - buf) + 1u;
+            *nl = '\0';
+            if (strstr(buf, needle)) {
+                int bad = strstr(buf, "\"error\"") != NULL;
+                if (bad) fprintf(stderr, "[harness] QMP %s failed: %s\n", id, buf);
+                return bad ? -1 : 0;
+            }
+            memmove(buf, buf + line, used - line);
+            used -= line;
+        }
+        if (used == sizeof(buf) - 1) used = 0;   /* overlong junk line */
+        long long now = mono_ms();
+        if (now >= end) {
+            fprintf(stderr, "[harness] QMP reply %s: none before deadline\n", id);
+            return -1;
+        }
+        struct pollfd pfd = {fd, POLLIN, 0};
+        int pr = poll(&pfd, 1, (int)(end - now));
+        if (pr <= 0) continue;   /* EINTR or timeout: the deadline decides */
+        ssize_t r = read(fd, buf + used, sizeof(buf) - 1 - used);
+        if (r == 0) return -1;
+        if (r < 0) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+            return -1;
+        }
+        used += (size_t)r;
+    }
+}
+
+/* Grab the next record-mode frame: settle-drain (the guest finishes painting
+ * the event we just injected), then dump frame_%05d.ppm. Silent no-op when
+ * rec is NULL. A failed dump is LOUD and marks the QMP session failed. */
+static void record_frame_sync(RecordCtx *rec);
+
+static void record_frame(RecordCtx *rec)
+{
+    if (!rec) {
+        return;
+    }
+    if (rec->sync_fd >= 0) {
+        record_frame_sync(rec);
+        return;
+    }
+    qmp_drain(rec->fd, rec->settle_ms);
+    char path[QEMU_PATH_MAX];
+    int n = snprintf(path, sizeof(path), "%s/%s_frame_%05d.ppm",
+                     rec->dir, rec->name, rec->count);
+    if (n < 0 || (size_t)n >= sizeof(path)) {
+        fprintf(stderr, "[harness] record: frame path too long (skipped)\n");
+        return;
+    }
+    if (qmp_do_screendump(rec->fd, path, rec->deadline) == 0) {
+        rec->count++;
+    } else {
+        rec->failed = 1;
+        fprintf(stderr, "[harness] record: frame %d dump FAILED\n",
+                rec->count);
+    }
+}
+
+/* ---- RECORD-SYNC frame capture (bead initech-x8gsi.1; qemu.h record_sync) --
+ * The protocol, harness side (the guest side and the byte codes are documented
+ * at os/initechdos/rec_sync.h). QEMU runs with -icount, so guest time is a
+ * function of the instructions it retires, never of host speed.
+ *   FRAME (after every token, plus the initial and final frame): write the
+ *     settle, converted to guest PIT ticks (settle_ms / 10, 1..250) -- the
+ *     between-event pacing the clips were authored against, now measured on the
+ *     GUEST's clock from the moment it consumed the input; wait for the guest's
+ *     "REC-SYNC n=<k> " line (served at its first input-idle point at least that
+ *     long after the input, everything it caused painted); screendump, waiting
+ *     for the QMP reply (the PPM is on disk). The guest stays BLOCKED, its clock
+ *     stopped.
+ *   NEXT TOKEN: its input is injected while the guest is still blocked (it
+ *     queues in the 8042 / the guest's ring), a QMP barrier proves QEMU has
+ *     processed it, and only then RESUME (0xFF) -- so the guest restarts (on a
+ *     PIT tick edge) with that input already queued: every stretch it runs
+ *     between two sync points is the same stretch in every capture.
+ *   "w<ms>" HOLD: 0xFE + ms/10 ticks (in chunks of <= 250): the guest resumes,
+ *     runs that many ticks of ITS clock and blocks again at a served sync point
+ *     (no frame is grabbed there). "W<marker>" / "S<path>": resume, then the
+ *     wall-clock wait as before (the guest's marker is the ordering).
+ * The one exception is a guest that already printed its end-of-life marker:
+ * it executes cli;hlt forever (kmain.c FLAIR-LIVE-OK), its framebuffer is
+ * frozen, so a direct grab is equally deterministic (the events-after-end
+ * count makes that run RED anyway, bead initech-mfrb). A sync that never
+ * comes is a FAILED capture, never a silent timed grab (Law 2). */
+#define REC_SYNC_BUDGET_MS 60000
+#define REC_SYNC_HOLD      0xFE
+#define REC_SYNC_RESUME    0xFF
+
+static int rec_sync_bytes(RecordCtx *rec, const unsigned char *b, size_t n)
+{
+    long long end = mono_ms() + 1000;
+    size_t done = 0;
+    while (done < n) {
+        ssize_t w = write(rec->sync_fd, b + done, n - done);
+        if (w > 0) { done += (size_t)w; continue; }
+        if (w < 0 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)
+            return -1;
+        if (mono_ms() >= end) return -1;
+        sleep_ms(1);
+    }
+    return 0;
+}
+
+/* Search the serial capture for `needle` from rec->sync_scan on; on a hit move
+ * sync_scan past it and return 1. Reads only the bytes not yet scanned (the
+ * capture only grows), keeping strlen(needle)-1 bytes of overlap. */
+static int rec_serial_find(RecordCtx *rec, const char *needle)
+{
+    char buf[65536];
+    size_t nl = strlen(needle);
+    int fd = open(rec->serial_path, O_RDONLY);
+    if (fd < 0) return 0;
+    for (;;) {
+        ssize_t r = pread(fd, buf, sizeof(buf), (off_t)rec->sync_scan);
+        if (r <= 0 || (size_t)r < nl) break;
+        for (size_t i = 0; i + nl <= (size_t)r; i++) {
+            if (buf[i] == needle[0] && memcmp(buf + i, needle, nl) == 0) {
+                rec->sync_scan += i + nl;
+                close(fd);
+                return 1;
+            }
+        }
+        rec->sync_scan += (size_t)r - (nl - 1u);
+        if ((size_t)r < sizeof(buf)) break;
+    }
+    close(fd);
+    return 0;
+}
+
+static int rec_guest_halted(RecordCtx *rec)
+{
+    size_t len = 0;
+    char *txt;
+    int seen;
+    if (!rec->end_marker || !rec->end_marker[0] || !rec->serial_path) return 0;
+    txt = read_file(rec->serial_path, &len);
+    if (!txt) return 0;
+    seen = strstr(txt, rec->end_marker) != NULL;
+    free(txt);
+    return seen;
+}
+
+/* Wait for the guest's next sync line. Returns 1 when served, 0 when the guest
+ * halted at its end of life first (frozen framebuffer), -1 on failure (loud).
+ * Per-sync budget, NOT the run's --timeout-ms deadline: exactly like the legacy
+ * timed grab, a recording outlives that wall clock (it bounds QEMU once the
+ * session is over); only a guest that never reaches idle may fail it. */
+static int rec_sync_wait(RecordCtx *rec)
+{
+    char want[48];
+    long long end = mono_ms() + REC_SYNC_BUDGET_MS;
+    long long next_halt_check = mono_ms() + 200;
+    snprintf(want, sizeof(want), "REC-SYNC n=%d ", rec->sync_n + 1);
+    for (;;) {
+        if (rec_serial_find(rec, want)) {
+            rec->sync_n++;
+            rec->blocked = 1;
+            return 1;
+        }
+        if (mono_ms() >= next_halt_check) {
+            next_halt_check = mono_ms() + 200;
+            if (rec_guest_halted(rec)) return 0;
+        }
+        if (mono_ms() >= end) {
+            fprintf(stderr, "[harness] record-sync: no '%.*s' within %d ms for "
+                    "frame %d -- the guest never reached an input-idle point "
+                    "(or the image lacks -DFLAIR_RECORD_SYNC); capture FAILED\n",
+                    (int)strlen(want) - 1, want, REC_SYNC_BUDGET_MS, rec->count);
+            rec->failed = 1;
+            return -1;
+        }
+        qmp_drain(rec->fd, 5);
+    }
+}
+
+/* Resume a blocked guest -- after a QMP barrier, so every input command sent
+ * before it has been processed (its bytes queued in the 8042) first. */
+static void rec_release(RecordCtx *rec)
+{
+    char cmd[96], id[32];
+    unsigned char b = REC_SYNC_RESUME;
+    if (!rec || rec->sync_fd < 0 || !rec->blocked) return;
+    snprintf(id, sizeof(id), "recbar-%d", ++rec->barrier_n);
+    snprintf(cmd, sizeof(cmd), "{\"execute\":\"query-status\",\"id\":\"%s\"}\n", id);
+    if (qmp_send(rec->fd, cmd) != 0 ||
+        qmp_wait_reply(rec->fd, id, mono_ms() + 10000) != 0 ||
+        rec_sync_bytes(rec, &b, 1) != 0) {
+        fprintf(stderr, "[harness] record-sync: resume FAILED\n");
+        rec->failed = 1;
+    }
+    rec->blocked = 0;
+}
+
+/* "w<ms>" in record-sync mode: hold every input state for ms/10 ticks of the
+ * GUEST's clock (chunks of <= 250 ticks), leaving it blocked at the end. */
+static void rec_hold(RecordCtx *rec, int ms)
+{
+    int ticks = (ms + 5) / 10;
+    if (ticks < 1) ticks = 1;
+    while (ticks > 0 && !rec->failed) {
+        unsigned char b[2];
+        int chunk = ticks > 250 ? 250 : ticks;
+        b[0] = REC_SYNC_HOLD;
+        b[1] = (unsigned char)chunk;
+        if (rec_guest_halted(rec)) return;   /* nothing left to hold */
+        if (rec_sync_bytes(rec, b, 2) != 0) {
+            fprintf(stderr, "[harness] record-sync: hold write FAILED\n");
+            rec->failed = 1;
+            return;
+        }
+        rec->blocked = 0;
+        if (rec_sync_wait(rec) <= 0) return;
+        ticks -= chunk;
+    }
+}
+
+static void record_frame_sync(RecordCtx *rec)
+{
+    char path[QEMU_PATH_MAX];
+    char id[32];
+    unsigned char settle;
+    int settle_ticks, r;
+    int n = snprintf(path, sizeof(path), "%s/%s_frame_%05d.ppm",
+                     rec->dir, rec->name, rec->count);
+    if (n < 0 || (size_t)n >= sizeof(path)) {
+        fprintf(stderr, "[harness] record: frame path too long\n");
+        rec->failed = 1;
+        return;
+    }
+    r = 0;
+    if (!rec_guest_halted(rec)) {
+        /* The request byte IS the settle, in guest PIT ticks (10 ms each). A
+         * guest blocked at a sync point whose settle is met re-serves at once. */
+        settle_ticks = (rec->settle_ms + 9) / 10;
+        if (settle_ticks < 1) settle_ticks = 1;
+        if (settle_ticks > 250) settle_ticks = 250;
+        settle = (unsigned char)settle_ticks;
+        if (rec_sync_bytes(rec, &settle, 1) != 0) {
+            fprintf(stderr, "[harness] record-sync: request write FAILED\n");
+            rec->failed = 1;
+            return;
+        }
+        rec->blocked = 0;
+        r = rec_sync_wait(rec);
+        if (r < 0) return;
+    }
+    if (r == 0) {
+        /* Halted at its end of life (cli;hlt): frozen, a direct grab. */
+        if (!rec->halted_noted) {
+            rec->halted_noted = 1;
+            fprintf(stderr, "[harness] record-sync: guest printed '%s' (halted, "
+                    "framebuffer frozen) -- frame %d on is a direct grab\n",
+                    rec->end_marker, rec->count);
+        }
+        snprintf(id, sizeof(id), "rechalt-%d", rec->count);
+    } else {
+        snprintf(id, sizeof(id), "recsync-%d", rec->sync_n);
+    }
+    if (qmp_do_screendump_id(rec->fd, path, mono_ms() + 10000, id) == 0) {
+        rec->count++;
+    } else {
+        rec->failed = 1;
+        fprintf(stderr, "[harness] record: frame %d dump FAILED\n", rec->count);
+    }
+}
+
+/* Call BEFORE injecting each trace event in record mode (bead initech-mfrb).
+ * A bounded record image prints its end-of-life marker (FLAIR-LIVE-OK) when
+ * its pump's tick budget runs out and then halts; an event sent after that is
+ * never delivered, yet the harness would keep dumping (frozen) frames as if it
+ * had been. Checking BEFORE the send makes the count definitive: the marker
+ * was already on serial, so this event went to a halted guest. Each one is
+ * shouted on stderr (Law 2: a lost event must never be silent). Silent no-op
+ * when rec is NULL or no end marker is configured. */
+static void record_pre_event(RecordCtx *rec)
+{
+    if (!rec) {
+        return;
+    }
+    rec->events++;
+    if (!rec->end_marker || rec->end_marker[0] == '\0' || !rec->serial_path) {
+        return;
+    }
+    if (!rec->ended) {
+        size_t len = 0;
+        char *txt = read_file(rec->serial_path, &len);
+        if (txt) {
+            rec->ended = strstr(txt, rec->end_marker) != NULL;
+            free(txt);
+        }
+        (void)len;
+    }
+    if (rec->ended) {
+        if (rec->after_end == 0) {
+            rec->first_dead = rec->events;
+            fprintf(stderr,
+                    "[harness] record: guest printed end marker '%s' before "
+                    "event %d -- this and every later event go to a HALTED "
+                    "guest (its pump life is too short for this trace)\n",
+                    rec->end_marker, rec->events);
+        }
+        rec->after_end++;
+    }
+}
+
+/* A marker-gated single-frame capture that can fire BETWEEN injected events.
+ * This is load-bearing for held-state oracles such as FLAIR-MENU-DROP/XDROP:
+ * waiting until the whole mouse trace has been sent would observe mouseUp's
+ * restored frame, not the marker's held panel (bead initech-b3hl; Law 2). */
+typedef struct {
+    int fd;
+    long long deadline;
+    const char *path;
+    const char *marker;
+    const char *serial_path;
+    int attempted;
+    int taken;
+    int midtrack;   /* 1 == a held-state marker (DROP/XDROP): capture BETWEEN
+                     * events. 0 == every other marker: keep the legacy
+                     * end-of-injection wait+dump semantics -- gates like
+                     * test-initechbase-boot pass a marker (SHELL-READY) that is
+                     * ALREADY on serial before injection starts and rely on
+                     * the dump landing AFTER all keys (their comment says so);
+                     * a between-events grab there dumps after key 1 and
+                     * grades a pre-LIST frame (caught 2026-08-18, cert red). */
+} CaptureCtx;
+
+static int capture_marker_seen(const CaptureCtx *cap)
+{
+    size_t len = 0;
+    char *txt;
+    int seen;
+    if (!cap || !cap->marker || cap->marker[0] == '\0') return 0;
+    txt = read_file(cap->serial_path, &len);
+    if (!txt) return 0;
+    seen = strstr(txt, cap->marker) != NULL;
+    free(txt);
+    (void)len;
+    return seen;
+}
+
+static void capture_take(CaptureCtx *cap)
+{
+    if (!cap || cap->attempted) return;
+    cap->attempted = 1;
+    qmp_drain(cap->fd, 150);
+    if (qmp_do_screendump(cap->fd, cap->path, cap->deadline) == 0) {
+        cap->taken = 1;
+    } else {
+        fprintf(stderr,
+                "[harness] marker-gated screendump for '%s' FAILED\n",
+                cap->marker);
+    }
+}
+
+static void capture_if_seen(CaptureCtx *cap)
+{
+    if (cap && cap->midtrack && !cap->attempted && capture_marker_seen(cap))
+        capture_take(cap);
+}
+
+static int capture_failed(const RecordCtx *rec, const CaptureCtx *cap)
+{
+    return (rec && rec->failed) || (cap && cap->attempted && !cap->taken);
+}
+
+static void capture_wait_after_event(CaptureCtx *cap, int budget_ms)
+{
+    long long deadline;
+    if (!cap || cap->attempted) return;
+    deadline = mono_ms() + budget_ms;
+    while (mono_ms() < deadline) {
+        if (capture_marker_seen(cap)) {
+            capture_take(cap);
+            return;
+        }
+        sleep_ms(10);
+    }
+}
+
+static int capture_is_menu_drop(const CaptureCtx *cap)
+{
+    return cap && cap->marker &&
+           strstr(cap->marker, "FLAIR-MENU-DROP") != NULL;
+}
+
+static int capture_is_menu_xdrop(const CaptureCtx *cap)
+{
+    return cap && cap->marker &&
+           strstr(cap->marker, "FLAIR-MENU-XDROP") != NULL;
+}
+
+/* ------------------------------------------------------------------ */
+/* QMP keystroke injection (beads initech-43b)                         */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Map ONE key token to its QMP qcode name (the QMP "key value qcode"
+ * vocabulary). Returns the qcode string for a recognized token, or NULL.
+ * Supported (sufficient to type letters + digits + Return + Space, per the
+ * bead): single chars a-z (lowercased A-Z too) and 0-9 -> the same character;
+ * the words "ret"/"enter"/"return" -> "ret"; "spc"/"space" -> "spc". This is
+ * the small qcode set the bead asks for; extend here as gates need more keys.
+ * Ref: QMP `send-key` command + the QKeyCode enum (qapi/ui.json: a..z, 0..9,
+ * ret, spc are all valid qcode names).
+ */
+static const char *token_to_qcode(const char *tok)
+{
+    /* initech-wuxo0: keypad navigation uses the physical numeric keys. */
+    static const struct { const char *name, *qcode; } keypad[] = {
+        {"kp_home","kp_7"}, {"kp_up","kp_8"}, {"kp_pgup","kp_9"},
+        {"kp_left","kp_4"}, {"kp_right","kp_6"}, {"kp_end","kp_1"},
+        {"kp_down","kp_2"}, {"kp_pgdn","kp_3"}, {"kp_insert","kp_0"},
+        {"kp_delete","kp_decimal"}
+    };
+    for (unsigned i = 0; i < sizeof keypad / sizeof keypad[0]; i++)
+        if (!strcmp(tok, keypad[i].name)) return keypad[i].qcode;
+    /* Single-character tokens: a-z, A-Z (folded to lower), 0-9. The qcode name
+     * for a letter/digit IS that character, so we return a per-call static
+     * 2-byte buffer. Not re-entrant, but the caller uses it immediately. */
+    if (tok[0] != '\0' && tok[1] == '\0') {
+        char c = tok[0];
+        if (c >= 'A' && c <= 'Z') {
+            c = (char)(c - 'A' + 'a');
+        }
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+            static char one[2];
+            one[0] = c;
+            one[1] = '\0';
+            return one;
+        }
+        return NULL;
+    }
+    if (strcmp(tok, "ret") == 0 || strcmp(tok, "enter") == 0 ||
+        strcmp(tok, "return") == 0) {
+        return "ret";
+    }
+    if (strcmp(tok, "spc") == 0 || strcmp(tok, "space") == 0) {
+        return "spc";
+    }
+    /* Punctuation needed by the COMMAND.COM shell oracle (beads initech-7pc):
+     * '.' for a filename like "hello.txt". The QMP QKeyCode name is "dot".
+     * Ref: QMP send-key + qapi/ui.json (QKeyCode includes "dot"). */
+    if (strcmp(tok, "dot") == 0 || strcmp(tok, ".") == 0) {
+        return "dot";
+    }
+    /* DOS path/wildcard injection: ':' = shift-semicolon, '?' = shift-slash.
+     * Ref: QMP QKeyCode (qapi/ui.json); audit K01/K03 keystroke oracles. */
+    /* The manual screens (bead initech-ipu5.7, pubs/screens/keys.sh) and EDLIN
+     * type the full DOS command syntax: '=' (SET NAME=VALUE, IF a==b), '+'
+     * (shift-equal, ATTRIB +R), ',' and '<' (shift-comma, EDLIN ranges, input
+     * redirection), '"' (shift-apostrophe). Ref: qapi/ui.json QKeyCode equal,
+     * comma, apostrophe. */
+    if (strcmp(tok, "semicolon") == 0 || strcmp(tok, "slash") == 0 ||
+        strcmp(tok, "comma") == 0 || strcmp(tok, "equal") == 0 ||
+        strcmp(tok, "apostrophe") == 0) {
+        return tok;
+    }
+    /* '\' for an ABSOLUTE DOS path like "\SUB\GREET" (beads initech-zs24: the
+     * subdir-EXEC oracle types an absolute program path at the shell). The QMP
+     * QKeyCode name is "backslash". Ref: QMP send-key + qapi/ui.json. */
+    if (strcmp(tok, "bsl") == 0 || strcmp(tok, "backslash") == 0 ||
+        strcmp(tok, "\\") == 0) {
+        return "backslash";
+    }
+    /* The worksheet keys (bead initech-9u8w, Initech 123 Face A): the four
+     * arrows move the cell pointer, Esc cancels an entry, Backspace edits it,
+     * '-' types a negative number. QEMU sends the arrows E0-prefixed through
+     * the 8042 (event.c cooks them to ascii 0, vkey = the make code).
+     * Ref: qapi/ui.json QKeyCode up, down, left, right, esc, backspace,
+     * minus, home. */
+    if (strcmp(tok, "up") == 0 || strcmp(tok, "down") == 0 ||
+        strcmp(tok, "left") == 0 || strcmp(tok, "right") == 0 ||
+        strcmp(tok, "esc") == 0 || strcmp(tok, "home") == 0) {
+        return tok;
+    }
+    if (strcmp(tok, "bspc") == 0 || strcmp(tok, "backspace") == 0) {
+        return "backspace";
+    }
+    if (strcmp(tok, "minus") == 0 || strcmp(tok, "-") == 0) {
+        return "minus";
+    }
+    /* The Calculator's keys (bead initech-tdnl.17): '=' and, as the chord
+     * "shift-equal", '+' (US set 1 make 0x0D; event.c cooks '=' / '+').
+     * Ref: qapi/ui.json QKeyCode equal. */
+    if (strcmp(tok, "equal") == 0) {
+        return "equal";
+    }
+    /* The word-processor keys (bead initech-l4tj, InitechWord Face A): the
+     * WordPerfect 5.1 function keys (F10 Save, Shift-F10 Retrieve as the
+     * chord "shift-f10", F7 Exit, F1 Cancel), Delete and End. QEMU sends F1..
+     * F12 as plain set-1 makes 0x3B..0x44 / 0x57 / 0x58 and Delete / End
+     * E0-prefixed (event.c cooks them to ascii 0, vkey = the make code).
+     * Ref: qapi/ui.json QKeyCode f1..f12, delete, end. */
+    if (tok[0] == 'f' && tok[1] >= '1' && tok[1] <= '9' &&
+        (tok[2] == '\0' || (tok[1] == '1' && tok[2] >= '0' && tok[2] <= '2' && tok[3] == '\0'))) {
+        return tok;
+    }
+    /* EDLIN's template insertion (MS-DOS 3.3 User's Guide p.168). */
+    if (strcmp(tok, "delete") == 0 || strcmp(tok, "end") == 0 ||
+        strcmp(tok, "insert") == 0) {
+        return tok;
+    }
+    /* Page Up / Page Down (bead initech-69mz, Initech 123 B11: 1-2-3's PGUP /
+     * PGDN, R2.2 Reference Manual p. 1-10). QEMU sends them E0-prefixed
+     * (E0 49 / E0 51; event.c cooks ascii 0, vkey = the make code).
+     * Ref: qapi/ui.json QKeyCode pgup, pgdn. */
+    if (strcmp(tok, "pgup") == 0 || strcmp(tok, "pgdn") == 0) {
+        return tok;
+    }
+    /* Tab (bead initech-jojk, IWORD P2 slice 2: WordPerfect's [Tab]). QEMU
+     * sends it as the plain set-1 make 0x0F (event.c cooks it to '\t').
+     * Ref: qapi/ui.json QKeyCode tab. */
+    if (strcmp(tok, "tab") == 0) {
+        return tok;
+    }
+    /* MODIFIERS (beads initech-tdnl.10, R3.3 emu wiring). These exist ONLY as
+     * members of a chord token (see qmp_send_key_chord): a bare "ctrl" would
+     * press-and-release Control with nothing else, which no gate wants. The
+     * QMP QKeyCode names are "ctrl" / "shift" / "alt" / "meta_l".
+     * Ref: QMP send-key + qapi/ui.json (QKeyCode ctrl, shift, alt, meta_l). */
+    if (strcmp(tok, "ctrl") == 0 || strcmp(tok, "control") == 0) {
+        return "ctrl";
+    }
+    if (strcmp(tok, "shift") == 0) {
+        return "shift";
+    }
+    if (strcmp(tok, "alt") == 0 || strcmp(tok, "option") == 0) {
+        return "alt";
+    }
+    if (strcmp(tok, "meta") == 0 || strcmp(tok, "cmd") == 0) {
+        return "meta_l";
+    }
+    /* RIGHT-hand modifiers (bead initech-tdnl.58): QEMU sends them E0-
+     * prefixed (E0 1D / E0 38) through the 8042, the path that latched in
+     * audit G11. Ref: qapi/ui.json QKeyCode ctrl_r, alt_r, shift_r. */
+    if (strcmp(tok, "ctrl_r") == 0) {
+        return "ctrl_r";
+    }
+    if (strcmp(tok, "shift_r") == 0) {
+        return "shift_r";
+    }
+    if (strcmp(tok, "alt_r") == 0) {
+        return "alt_r";
+    }
+    return NULL;
+}
+
+/*
+ * Send ONE explicit key transition (bead initech-tdnl.58): QMP
+ * `input-send-event` with an InputKeyEvent, so a modifier can be PRESSED in
+ * one event and RELEASED in a later one -- exactly the audit G11 replay
+ * ("keyheld ctrl true", "keyheld ctrl false", then a plain key), which
+ * `send-key` (press-all-then-release-all in one command) cannot express.
+ * Format: {"execute":"input-send-event","arguments":{"events":[{"type":"key",
+ * "data":{"down":<bool>,"key":{"type":"qcode","data":"<qcode>"}}}]}}.
+ * Ref: QMP input-send-event + qapi/ui.json (InputKeyEvent, KeyValue qcode).
+ */
+static int qmp_key_transition(int fd, const char *qcode, int down)
+{
+    char cmd[256];
+    int n = snprintf(cmd, sizeof(cmd),
+                     "{\"execute\":\"input-send-event\",\"arguments\":{\"events\":["
+                     "{\"type\":\"key\",\"data\":{\"down\":%s,\"key\":"
+                     "{\"type\":\"qcode\",\"data\":\"%s\"}}}]}}\n",
+                     down ? "true" : "false", qcode);
+    if (n < 0 || (size_t)n >= sizeof(cmd)) {
+        return -1;
+    }
+    return qmp_send(fd, cmd);
+}
+
+/*
+ * Send one QMP `send-key` event for a CHORD: a '-'-separated token such as
+ * "ctrl-n" (or a bare "n", which is the 1-member case).
+ *
+ * WHY THIS WORKS AND A "MODIFIER HOLD" DOES NOT (beads initech-tdnl.10; this
+ * supersedes the "no modifier tokens" note in spec/flair_desktop_icons_traces.mk
+ * lines 60-71 for KEY chords only -- shift-CLICK is still out of reach):
+ * QMP `send-key` takes an ARRAY of keys that are pressed TOGETHER and then
+ * released, so [ctrl, n] emits the real PS/2 SET-1 sequence
+ *     0x1D (Ctrl make) 0x31 (n make) ... breaks
+ * and os/flair/event.c's scancode cooker sets FLAIR_EVT_MOD_CONTROL_KEY on the
+ * Ctrl make, so the keyDown for 'n' carries the modifier bit that
+ * os/initechdos/kmain.c :: flair_live_finder_key tests. No held state has to
+ * survive between two separate QMP commands -- the whole chord IS one command.
+ * A shift-CLICK would need the modifier held ACROSS an input-send-event mouse
+ * button, which send-key cannot express; that omission stands.
+ *
+ * Format: {"execute":"send-key","arguments":{"keys":[{"type":"qcode",
+ * "data":"<qcode>"}, ...]}}. Returns 0 on a successful write, -1 on a bad
+ * member token or an oversized command.
+ */
+#define QMP_CHORD_MAX 4
+
+static int qmp_send_key_chord(int fd, const char *tok, int explicit_release)
+{
+    char parts[QMP_CHORD_MAX][24];
+    /* COPIED, never aliased: token_to_qcode returns a PER-CALL STATIC buffer for
+     * single-character tokens, so holding two of its return pointers at once
+     * ("ctrl-n" is fine, but a hypothetical "a-b" would not be) would make both
+     * members read the last one. Copy on resolve. */
+    char qcodes[QMP_CHORD_MAX][24];
+    char cmd[320];
+    size_t used;
+    int n_parts = 0;
+    const char *p = tok;
+    int i;
+
+    /* Split on '-'. A leading/trailing '-' or an empty member is a bad token. */
+    for (;;) {
+        const char *dash = strchr(p, '-');
+        size_t len = dash ? (size_t)(dash - p) : strlen(p);
+        if (len == 0 || len >= sizeof(parts[0])) {
+            return -1;
+        }
+        if (n_parts >= QMP_CHORD_MAX) {
+            return -1;
+        }
+        memcpy(parts[n_parts], p, len);
+        parts[n_parts][len] = '\0';
+        n_parts++;
+        if (!dash) {
+            break;
+        }
+        p = dash + 1;
+    }
+    for (i = 0; i < n_parts; i++) {
+        const char *qc = token_to_qcode(parts[i]);
+        if (!qc || strlen(qc) >= sizeof(qcodes[0])) {
+            return -1;
+        }
+        memcpy(qcodes[i], qc, strlen(qc) + 1u);
+    }
+
+    if (explicit_release) {
+        /* initech-ptzy; spec/flair_i123_menu_traces.mk's explicit make/break
+         * contract; PRD Sec 8. Guest backpressure replaces both send-key's
+         * implicit 100 ms hold and the fixed inter-stroke drain. Release the
+         * chord in reverse order so modifiers cover the character's break. */
+        for (i = 0; i < n_parts; i++)
+            if (qmp_key_transition(fd, qcodes[i], 1)) return -1;
+        for (i = n_parts - 1; i >= 0; i--)
+            if (qmp_key_transition(fd, qcodes[i], 0)) return -1;
+        return 0;
+    }
+
+    if (g_atomic_keys) {
+        /* RECORD-SYNC (bead initech-x8gsi.1): the whole chord -- makes in
+         * order, breaks in reverse -- in ONE input-send-event, so every
+         * scancode is queued in the 8042 before the frame request is sent
+         * and no input-idle point can fall between them (send-key's 100 ms
+         * hold releases on a QEMU timer, AFTER the request could be served).
+         * Ref: QMP input-send-event + qapi/ui.json InputKeyEvent. */
+        char acmd[1024];
+        size_t u = 0;
+        int w = snprintf(acmd, sizeof(acmd),
+                         "{\"execute\":\"input-send-event\",\"arguments\":{\"events\":[");
+        if (w < 0 || (size_t)w >= sizeof(acmd)) return -1;
+        u = (size_t)w;
+        for (i = 0; i < 2 * n_parts; i++) {
+            int down = i < n_parts;
+            int k = down ? i : 2 * n_parts - 1 - i;
+            w = snprintf(acmd + u, sizeof(acmd) - u,
+                         "%s{\"type\":\"key\",\"data\":{\"down\":%s,\"key\":"
+                         "{\"type\":\"qcode\",\"data\":\"%s\"}}}",
+                         i ? "," : "", down ? "true" : "false", qcodes[k]);
+            if (w < 0 || (size_t)w >= sizeof(acmd) - u) return -1;
+            u += (size_t)w;
+        }
+        w = snprintf(acmd + u, sizeof(acmd) - u, "]}}\n");
+        if (w < 0 || (size_t)w >= sizeof(acmd) - u) return -1;
+        return qmp_send(fd, acmd);
+    }
+
+    used = 0;
+    {
+        int w = snprintf(cmd, sizeof(cmd),
+                         "{\"execute\":\"send-key\",\"arguments\":{\"keys\":[");
+        if (w < 0 || (size_t)w >= sizeof(cmd)) {
+            return -1;
+        }
+        used = (size_t)w;
+    }
+    for (i = 0; i < n_parts; i++) {
+        int w = snprintf(cmd + used, sizeof(cmd) - used,
+                         "%s{\"type\":\"qcode\",\"data\":\"%s\"}",
+                         (i == 0) ? "" : ",", qcodes[i]);
+        if (w < 0 || (size_t)w >= sizeof(cmd) - used) {
+            return -1;
+        }
+        used += (size_t)w;
+    }
+    {
+        int w = snprintf(cmd + used, sizeof(cmd) - used, "]}}\n");
+        if (w < 0 || (size_t)w >= sizeof(cmd) - used) {
+            return -1;
+        }
+    }
+    return qmp_send(fd, cmd);
+}
+
+/* initech-ptzy; PRD Sec 6.3/8; spec/event_model.h Sec 5 (64 raw records).
+ * A QMP reply acknowledges injection, not guest consumption. Snapshot BEFORE
+ * sending, then wait for the next release echo: old/repeated markers cannot
+ * release the barrier. Reuse the existing progress/CPU/ceiling mechanism. */
+typedef struct {
+    const char *serial_path;
+    const char *marker;
+    int budget_ms;
+    long long deadline;
+    const clockid_t *guest_clock;
+    pid_t qemu_pid;
+} KeyAckCtx;
+
+/* initech-1x6x2.1; PRD Sec 8; precedent: the host-wide Bochs flock (d9tt).
+ * `make -j64 test-merge-initechbase` started up to 64 QEMUs at once on 64 logical
+ * CPUs, beside compilers and other lanes' clones. A guest that needs 20 s alone
+ * then missed its 60 s wall deadline (timed_out=1 with SHELL-DONE seen). Every
+ * deadline stays as it is; instead at most NPROC/3 QEMUs run host-wide, so each
+ * gets a CPU, and queueing for a slot is not charged to any deadline. The flock
+ * dies with the harness, so a crash leaks nothing, and QEMU never inherits it.
+ * Slots are held until the harness exits: one QEMU per harness process. */
+static void qemu_slot_acquire(void)
+{
+#ifndef HARNESS_MUTATE_NO_QEMU_SLOTS
+    static int g_qemu_slot_fd = -1;
+    long cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    int slots = cpus >= 3 ? (int)(cpus / 3) : 1;
+    const char *env = getenv("INITECH_QEMU_SLOTS");
+    if (env && atoi(env) > 0) slots = atoi(env);
+    if (g_qemu_slot_fd >= 0) return;
+    /* Host-wide, so not $TMPDIR (legs set private ones). The gate's own dir. */
+    const char *dir = getenv("INITECH_QEMU_SLOT_DIR");
+    char path[512];
+    for (;;) {
+        for (int i = 0; i < slots; i++) {
+            snprintf(path, sizeof(path), "%.400s/initech-qemu-slot-%ld.%d",
+                     dir && dir[0] ? dir : "/tmp", (long)getuid(), i);
+            int fd = open(path, O_CREAT | O_RDWR | O_CLOEXEC, 0600);
+            if (fd < 0) {
+                fprintf(stderr, "[harness] qemu slot %s: %s\n", path, strerror(errno));
+                exit(2);
+            }
+            if (flock(fd, LOCK_EX | LOCK_NB) == 0) {
+                g_qemu_slot_fd = fd;
+                return;
+            }
+            close(fd);
+        }
+        sleep_ms(50);
+    }
+#endif
+}
+
+/* initech-1x6x2.1; PRD Sec 8; os/initechdos/kmain.c (input waits spin on hlt).
+ * A blind-typed trace outran a guest starved by a parallel vector: wall-clock
+ * pacing filled the 32-byte kernel ring (KBD-RING-DROP) or INITECHBASE's
+ * 20-byte typeahead, which dies with QUIT, so "exit" never reached the shell
+ * (test-initechbase-input-emu / -core-emu timeouts, each green alone; also red alone
+ * under taskset + spinners). The next stroke therefore waits until QEMU is
+ * idle (no runnable thread: the guest sits in hlt, ready for input), or until
+ * QEMU received KEY_PACE_CPU_MS of CPU since this stroke (a guest computing or
+ * polling, e.g. a loop an Esc must break). On an unloaded host a guest at its
+ * prompt is idle at once, so the injected trace is unchanged. --keys-ack has
+ * true consumption backpressure and does not use this. */
+#define KEY_PACE_CPU_MS 200
+#define KEY_PACE_IDLE_SAMPLES 3 /* 5 ms apart */
+
+#ifndef HARNESS_MUTATE_NO_KEY_PACE
+/* 1 = a QEMU thread is on a CPU or waiting for one; 0 = all asleep; -1 unknown. */
+static int qemu_runnable(pid_t pid)
+{
+    char path[64];
+    snprintf(path, sizeof(path), "/proc/%ld/task", (long)pid);
+    DIR *d = opendir(path);
+    if (!d) return -1;
+    int runnable = 0;
+    struct dirent *e;
+    while (!runnable && (e = readdir(d)) != NULL) {
+        char stat_path[320], line[512];
+        if (e->d_name[0] == '.') continue;
+        snprintf(stat_path, sizeof(stat_path), "/proc/%ld/task/%s/stat",
+                 (long)pid, e->d_name);
+        FILE *f = fopen(stat_path, "r");
+        if (!f) continue;
+        size_t n = fread(line, 1, sizeof(line) - 1, f);
+        fclose(f);
+        line[n] = '\0';
+        /* comm may hold spaces and parens: state follows the LAST ')'. */
+        const char *rp = strrchr(line, ')');
+        if (rp && rp[1] == ' ' && rp[2] == 'R') runnable = 1;
+    }
+    closedir(d);
+    return runnable;
+}
+#endif
+
+static int qmp_peer_closed(int);
+
+static void key_pace_wait(int fd, const KeyAckCtx *ack, long long cpu_at_send)
+{
+#ifndef HARNESS_MUTATE_NO_KEY_PACE
+    int idle = 0;
+    if (!ack || !ack->guest_clock || ack->qemu_pid <= 0) return;
+    while (mono_ms() < ack->deadline && !qmp_peer_closed(fd)) {
+        if (guest_ms(ack->guest_clock) - cpu_at_send >= KEY_PACE_CPU_MS) return;
+        int r = qemu_runnable(ack->qemu_pid);
+        if (r < 0) return;
+        idle = r ? 0 : idle + 1;
+        if (idle >= KEY_PACE_IDLE_SAMPLES) return;
+        qmp_drain(fd, 5);
+    }
+#else
+    /* Rule 6: restore the wall-clock burst (a starved guest gets outrun). */
+    (void)fd; (void)ack; (void)cpu_at_send;
+#endif
+}
+
+static int key_ack_enabled(const KeyAckCtx *ack)
+{
+    return ack && ack->marker && ack->marker[0];
+}
+
+static int wait_for_serial_marker_live(int, const char *, const char *, int,
+                                       int, long long, const clockid_t *);
+
+static int key_ack_count(const KeyAckCtx *ack)
+{
+    if (!key_ack_enabled(ack)) return 0;
+    size_t len;
+    char *txt = read_file(ack->serial_path, &len);
+    if (!txt) {
+        fprintf(stderr, "[harness] --keys-ack: cannot read serial capture\n");
+        return -1;
+    }
+    int n = count_substr(txt, ack->marker);
+    free(txt);
+    return n;
+}
+
+static int key_ack_wait(int fd, const KeyAckCtx *ack, int before)
+{
+    if (!key_ack_enabled(ack)) return 1;
+#ifndef HARNESS_MUTATE_NO_KEY_ACK
+    if (!wait_for_serial_marker_live(fd, ack->serial_path, ack->marker,
+                                     ack->budget_ms, before + 1,
+                                     ack->deadline, ack->guest_clock)) {
+        fprintf(stderr, "[harness] --keys-ack: new release echo '%s' missing; "
+                "stopping input\n", ack->marker);
+        return 0;
+    }
+#else
+    /* Rule 6: restore the timed burst. The scripted slow consumer must catch
+     * the next stroke arriving before its previous release was consumed. */
+    (void)fd; (void)before;
+#endif
+    return 1;
+}
+
+/*
+ * Inject every key in keys_spec (comma-separated tokens) over an already-
+ * handshaked QMP fd. Unknown tokens are skipped with a stderr note (Law 2: be
+ * loud about a silently-ignored key). Returns the number of keys sent; *bad is
+ * set to the count of unrecognized tokens.
+ */
+static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
+                           RecordCtx *rec, CaptureCtx *cap, KeyAckCtx *ack)
+{
+    int sent = 0;
+    int unknown = 0;
+    /* 1024, not 256 (beads initech-tdnl.10): the R3.3 disk-window traces are
+     * 30+ tokens of "m<dx>:<dy>" and blew the old cap, which TRUNCATES -- i.e.
+     * silently replays a PREFIX of a locked trace and grades the wrong scene.
+     * The cap still exists and still shouts; it is simply above every trace the
+     * repo locks. 4096 since bead initech-ipu5.7: the manual screens type
+     * whole batch files through COPY CON. */
+    char buf[4096];
+    /* Copy so we can tokenize in place. Oversized specs are truncated loudly. */
+    size_t L = strlen(keys_spec);
+    if (L >= sizeof(buf)) {
+        fprintf(stderr, "[harness] --keys spec too long (max %zu); truncating\n",
+                sizeof(buf) - 1);
+        L = sizeof(buf) - 1;
+    }
+    memcpy(buf, keys_spec, L);
+    buf[L] = '\0';
+
+    char *save = NULL;
+    for (char *tok = strtok_r(buf, ",", &save); tok != NULL;
+         tok = strtok_r(NULL, ",", &save)) {
+        /* trim surrounding spaces */
+        while (*tok == ' ') {
+            tok++;
+        }
+        size_t tl = strlen(tok);
+        while (tl > 0 && tok[tl - 1] == ' ') {
+            tok[--tl] = '\0';
+        }
+        if (tok[0] == '\0') {
+            continue;
+        }
+        record_pre_event(rec);   /* initech-mfrb: is the guest still alive? */
+        /* Chord-aware since beads initech-tdnl.10: "n" and "ctrl-n" both go
+         * through the same array-of-qcodes send-key. */
+        int before = key_ack_count(ack);
+        if (before < 0) return -1;
+        long long cpu_at_send = ack ? guest_ms(ack->guest_clock) : 0;
+        if (qmp_send_key_chord(fd, tok, key_ack_enabled(ack)) != 0) {
+            fprintf(stderr, "[harness] --keys: unknown token '%s' (skipped)\n",
+                    tok);
+            unknown++;
+            continue;
+        }
+        {
+            sent++;
+            /* Drain any QMP reply + give the guest a beat to take the IRQ1
+             * before the next key (keeps the injection deterministic). */
+            if (!key_ack_enabled(ack)) qmp_drain(fd, 30);
+            rec_release(rec);   /* RECORD-SYNC: input queued, now run */
+            /* Pace only after the guest is released: it cannot consume the
+             * key while RECORD-SYNC holds it (initech-1x6x2.1 + x8gsi.1). */
+            if (!key_ack_enabled(ack)) key_pace_wait(fd, ack, cpu_at_send);
+            if (!key_ack_wait(fd, ack, before)) return -1;
+            capture_if_seen(cap);
+            if (capture_failed(rec, cap)) return -1;
+            /* Record mode (initech-l9cd): one frame per injected event. */
+            record_frame(rec);
+            if (capture_failed(rec, cap)) return -1;
+        }
+    }
+    if (bad) {
+        *bad = unknown;
+    }
+    return sent;
+}
+
+/* ------------------------------------------------------------------ */
+/* QMP relative-mouse injection (beads initech-5l5z FO-6 / FO-8)        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Send ONE QMP `input-send-event` carrying a relative mouse move by (dx,dy).
+ * Format: {"execute":"input-send-event","arguments":{"events":[
+ *   {"type":"rel","data":{"axis":"x","value":<dx>}},
+ *   {"type":"rel","data":{"axis":"y","value":<dy>}}]}}.
+ * QEMU translates this into a PS/2 mouse packet -> guest IRQ12. Returns 0 on a
+ * successful write. Ref: QMP input-send-event + qapi/ui.json (InputMoveEvent,
+ * axis x/y). */
+static int qmp_mouse_move(int fd, int dx, int dy)
+{
+    char cmd[256];
+    int n = snprintf(cmd, sizeof(cmd),
+                     "{\"execute\":\"input-send-event\",\"arguments\":{\"events\":["
+                     "{\"type\":\"rel\",\"data\":{\"axis\":\"x\",\"value\":%d}},"
+                     "{\"type\":\"rel\",\"data\":{\"axis\":\"y\",\"value\":%d}}]}}\n",
+                     dx, dy);
+    if (n < 0 || (size_t)n >= sizeof(cmd)) {
+        return -1;
+    }
+    return qmp_send(fd, cmd);
+}
+
+/*
+ * Send ONE QMP `input-send-event` carrying a mouse button up/down.
+ * Format: {"execute":"input-send-event","arguments":{"events":[
+ *   {"type":"btn","data":{"button":"<name>","down":<bool>}}]}}.
+ * Ref: QMP input-send-event + qapi/ui.json (InputBtnEvent, button left/right/
+ * middle). Returns 0 on a successful write. */
+static int qmp_mouse_button(int fd, const char *button, int down)
+{
+    char cmd[256];
+    int n = snprintf(cmd, sizeof(cmd),
+                     "{\"execute\":\"input-send-event\",\"arguments\":{\"events\":["
+                     "{\"type\":\"btn\",\"data\":{\"button\":\"%s\",\"down\":%s}}]}}\n",
+                     button, down ? "true" : "false");
+    if (n < 0 || (size_t)n >= sizeof(cmd)) {
+        return -1;
+    }
+    return qmp_send(fd, cmd);
+}
+
+/*
+ * Inject every mouse token in mouse_spec (comma-separated) over an already-
+ * handshaked QMP fd. Token grammar (sufficient for the FO-6 no-wedge gate):
+ *   "m<dx>:<dy>"  relative move by signed (dx,dy), e.g. "m20:0", "m0:-12";
+ *   "l1"/"l0"     left   button down/up;
+ *   "r1"/"r0"     right  button down/up;
+ *   "M1"/"M0"     middle button down/up;
+ *   "k<chord>"    ONE keystroke or modifier chord, e.g. "kctrl-n", "kret"
+ *                 (beads initech-tdnl.10).
+ *   "K<key>:<0|1>" ONE explicit key transition, e.g. "Kctrl:1" (press and
+ *                 HOLD Control) ... "Kctrl:0" (release it), the audit-G11
+ *                 replay shape (bead initech-tdnl.58).
+ *   "w<ms>"       HOLD: wait <ms> wall-clock milliseconds before the next
+ *                 token with every button/key state unchanged -- a user
+ *                 resting on a menu item or mid-drag (bead initech-tdnl.59).
+ *                 The guest PIT runs in real time, so a hold of N ms spans
+ *                 ~N/10 guest ticks; gates that rely on it also assert a
+ *                 guest-side ordering marker, never the wall clock alone.
+ *   "W<marker>"   WAIT FOR THE GUEST: hold every input state until <marker>
+ *                 (no ',' -- the token separator) appears on the serial
+ *                 capture, bounded by HARNESS_W_BUDGET_MS (bead initech-3p1a:
+ *                 the user exits the desktop to the DOS prompt, and the next
+ *                 keystrokes must reach COMMAND.COM, not the dying desktop --
+ *                 the ordering is the GUEST's SHELL-READY, never a guessed
+ *                 delay). A marker that never comes is LOUD on stderr and the
+ *                 stream goes on; the gate's own serial assertions go RED.
+ *   "S<path>"     attempt QMP blockdev-change-medium on the disk2 backend;
+ *                 use after a W prompt event. The response is logged and a
+ *                 rejected fixed-media swap is never reported as successful.
+ *
+ * WHY THE KEY TOKEN LIVES IN THE *MOUSE* GRAMMAR. The two injectors run in a
+ * fixed order -- ALL of --keys, then ALL of --mouse (see the caller) -- so a
+ * chord that must arrive AFTER a click ("open the disk window, THEN Ctrl-N")
+ * is unreachable with two separate specs. Rather than invent a third
+ * interleave flag and a new ordering rule, the ONE ordered stream that already
+ * exists gains a key token: a trace is a sequence of input events, and this is
+ * one. --keys keeps its exact meaning for every gate that uses it.
+ * Unknown tokens are skipped with a stderr note (Law 2: loud). Returns the
+ * number of events sent. The gate injects >=2 so the dual-PIC-EOI no-wedge
+ * property is assertable (a second distinct FLAIR-MOUSE line proves the slave
+ * EOI re-armed the line). cap, when armed, may take the one marker-gated frame
+ * between tokens so held-state pixels cannot race with mouseUp. */
+static int wait_for_serial_marker(const char *serial_path, const char *marker,
+                                  int budget_ms);
+#define HARNESS_W_BUDGET_MS 20000
+
+static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
+                            CaptureCtx *cap, const char *serial_path,
+                            KeyAckCtx *ack)
+{
+    int sent = 0;
+    int left_down = 0;
+    char buf[4096];   /* see qmp_inject_keys: 256 truncated the R3.3 traces */
+    size_t L = strlen(mouse_spec);
+    if (L >= sizeof(buf)) {
+        fprintf(stderr, "[harness] --mouse spec too long (max %zu); truncating\n",
+                sizeof(buf) - 1);
+        L = sizeof(buf) - 1;
+    }
+    memcpy(buf, mouse_spec, L);
+    buf[L] = '\0';
+
+    char *save = NULL;
+    for (char *tok = strtok_r(buf, ",", &save); tok != NULL;
+         tok = strtok_r(NULL, ",", &save)) {
+        while (*tok == ' ') {
+            tok++;
+        }
+        size_t tl = strlen(tok);
+        while (tl > 0 && tok[tl - 1] == ' ') {
+            tok[--tl] = '\0';
+        }
+        if (tok[0] == '\0') {
+            continue;
+        }
+        int ok = 0;
+        int is_move = 0;
+        int is_left_down = 0;
+        int is_release = tok[0] == 'k' ||
+                         (tok[0] == 'K' && tl >= 3 &&
+                          tok[tl - 2] == ':' && tok[tl - 1] == '0');
+        int before = is_release ? key_ack_count(ack) : 0;
+        if (before < 0) return -1;
+        record_pre_event(rec);   /* initech-mfrb: is the guest still alive? */
+        if (tok[0] == 'm') {
+            /* "m<dx>:<dy>" -- a relative move. */
+            int dx = 0, dy = 0;
+            const char *colon = strchr(tok + 1, ':');
+            if (colon != NULL) {
+                dx = atoi(tok + 1);
+                dy = atoi(colon + 1);
+                if (qmp_mouse_move(fd, dx, dy) == 0) {
+                    ok = 1;
+                    is_move = 1;
+                }
+            }
+        } else if (tok[0] == 'k' && tok[1] != '\0') {
+            /* "k<chord>" -- one keystroke/chord, in stream order. */
+            if (qmp_send_key_chord(fd, tok + 1, key_ack_enabled(ack)) == 0) {
+                ok = 1;
+            }
+        } else if (tok[0] == 'K' && tok[1] != '\0') {
+            /* "K<key>:<0|1>" -- one explicit key transition. */
+            char name[24];
+            const char *colon = strchr(tok + 1, ':');
+            size_t nl = colon ? (size_t)(colon - (tok + 1)) : 0u;
+            if (colon && nl > 0u && nl < sizeof(name) &&
+                (colon[1] == '0' || colon[1] == '1') && colon[2] == '\0') {
+                const char *qc;
+                memcpy(name, tok + 1, nl);
+                name[nl] = '\0';
+                qc = token_to_qcode(name);
+                if (qc && qmp_key_transition(fd, qc, colon[1] == '1') == 0) {
+                    ok = 1;
+                }
+            }
+        } else if (tok[0] == 'S' && tok[1] != '\0') {
+            /* DEC-18 factory event: replace the A: medium at a guest prompt.
+             * QMP blockdev-change-medium, device id set by build_argv below.
+             * Fixed ATA models can reject this; never count that as a swap. */
+            char cmd[QEMU_PATH_MAX + 256];
+            rec_release(rec);   /* RECORD-SYNC: the guest must run for this */
+            if (!strchr(tok + 1, '"') && !strchr(tok + 1, '\\') &&
+                snprintf(cmd, sizeof cmd,
+                    "{\"execute\":\"blockdev-change-medium\",\"arguments\":{"
+                    "\"device\":\"initech_disk2\",\"filename\":\"%s\","
+                    "\"format\":\"raw\",\"force\":true},\"id\":\"disk2swap\"}\n",
+                    tok + 1) < (int)sizeof cmd && qmp_send(fd, cmd) == 0) {
+                /* Read the response rather than dropping a QMP error in drain. */
+                char reply[4096]; size_t used = 0;
+                long long end = mono_ms() + 1000;
+                reply[0] = 0;
+                while (mono_ms() < end && used + 1 < sizeof reply) {
+                    struct pollfd pfd = {fd, POLLIN, 0};
+                    if (poll(&pfd, 1, 50) > 0) {
+                        ssize_t got = read(fd, reply + used, sizeof reply - used - 1);
+                        if (got <= 0) break;
+                        used += (size_t)got; reply[used] = 0;
+                        char *tag = strstr(reply, "disk2swap");
+                        if (tag && strchr(tag, '\n')) break;
+                    }
+                }
+                char *tag = strstr(reply, "disk2swap");
+                int success = tag && strchr(tag, '\n') &&
+                    strstr(reply, "\"return\"") && !strstr(reply, "\"error\"");
+                fprintf(stderr, "[harness] DISK2-SWAP-%s %s\n",
+                        success ? "GREEN" : "RED", reply);
+                ok = 1; /* Event attempted; transcript gate requires success. */
+            }
+        } else if (tok[0] == 'W' && tok[1] != '\0') {
+            /* "W<marker>" -- hold until the guest prints <marker>. */
+            rec_release(rec);   /* RECORD-SYNC: it cannot print it blocked */
+            if (serial_path != NULL &&
+                wait_for_serial_marker(serial_path, tok + 1,
+                                       HARNESS_W_BUDGET_MS)) {
+                ok = 1;
+            } else {
+                fprintf(stderr, "[harness] --mouse: W marker '%s' not seen "
+                        "within %d ms (stream continues; the gate decides)\n",
+                        tok + 1, HARNESS_W_BUDGET_MS);
+                ok = 1;   /* counted as sent: the token was honoured */
+            }
+        } else if (tok[0] == 'D' && tok[1] != '\0') {
+            /* "D<path>" -- one QMP screendump HERE in the stream, with the exact
+             * .screen beside it when INITECH_TEXT_SCREEN_* are set (W3 forms:
+             * several dumps of one keystroke-driven session). Failure is fatal. */
+            if (qmp_do_screendump(fd, tok + 1, mono_ms() + 15000) != 0) return -1;
+            ok = 1;
+        } else if (tok[0] == 'w' && tok[1] >= '0' && tok[1] <= '9') {
+            /* "w<ms>" -- hold every input state for <ms> milliseconds. */
+            int ms = atoi(tok + 1);
+            if (ms > 0 && ms <= 30000 && rec && rec->sync_fd >= 0) {
+                /* RECORD-SYNC: the hold is timed on the GUEST's clock. */
+                rec_hold(rec, ms);
+                if (capture_failed(rec, cap)) return -1;
+                ok = 1;
+            } else if (ms > 0 && ms <= 30000) {
+                long long until = mono_ms() + ms;
+                while (mono_ms() < until) {
+                    qmp_drain(fd, 20);
+                    capture_if_seen(cap);
+                    if (capture_failed(rec, cap)) return -1;
+                }
+                ok = 1;
+            }
+        } else if ((tok[0] == 'l' || tok[0] == 'r' || tok[0] == 'M') &&
+                   (tok[1] == '0' || tok[1] == '1') && tok[2] == '\0') {
+            const char *btn = (tok[0] == 'l') ? "left"
+                            : (tok[0] == 'r') ? "right" : "middle";
+            if (qmp_mouse_button(fd, btn, tok[1] == '1') == 0) {
+                ok = 1;
+                if (tok[0] == 'l') {
+                    left_down = tok[1] == '1';
+                    is_left_down = left_down;
+                }
+            }
+        }
+        if (ok) {
+            sent++;
+            /* Drain the QMP reply + give the guest a beat to take the 3 IRQ12s
+             * (one per PS/2 packet byte) before the next event, so each event's
+             * FLAIR-MOUSE line lands deterministically. */
+            if (!key_ack_enabled(ack) || (tok[0] != 'k' && tok[0] != 'K'))
+                qmp_drain(fd, 40);
+            /* RECORD-SYNC: an input token is queued while the guest is still
+             * blocked; resume it now (a hold leaves it blocked on purpose). */
+            if (tok[0] != 'w') rec_release(rec);
+            if (is_release && !key_ack_wait(fd, ack, before)) return -1;
+            /* A DROP is emitted in response to left-button-down; an XDROP is
+             * emitted in response to a move while that button remains held.
+             * Wait at precisely those event boundaries so the screenshot is
+             * taken before the next token can change/close the panel. The
+             * bounded wait is a harness budget only (tdnl.59: the live tracker holds to mouseUp). */
+            if (capture_is_menu_drop(cap) && is_left_down) {
+                capture_wait_after_event(cap, 750);
+            } else if (capture_is_menu_xdrop(cap) && is_move && left_down) {
+                capture_wait_after_event(cap, 750);
+            } else {
+                capture_if_seen(cap);
+            }
+            if (capture_failed(rec, cap)) return -1;
+            /* Record mode (initech-l9cd): one frame per injected event. */
+            record_frame(rec);
+            if (capture_failed(rec, cap)) return -1;
+        } else {
+            fprintf(stderr, "[harness] --mouse: unknown token '%s' (skipped)\n",
+                    tok);
+        }
+    }
+    return sent;
+}
+
+/*
+ * Wait until `marker` appears in the file at serial_path, or budget_ms
+ * elapses. Re-reads the (growing) serial capture file in a short poll loop.
+ * Returns 1 if the marker was seen, 0 on timeout. Used as the robust "guest is
+ * ready" trigger for key injection (beads initech-43b: --keys-after).
+ */
+/* --screendump-after-count (bead initech-ipu5.7); set from the config by the
+ * run function before the QMP session, read only by the screendump wait. */
+static int g_screendump_after_count = 1;
+static pid_t g_qemu_pid = -1; /* the running QEMU, for key_pace_wait */
+static int wait_for_serial_marker_n(const char *serial_path, const char *marker,
+                                    int budget_ms, int count)
+{
+    long long deadline = mono_ms() + budget_ms;
+    if (count < 1) {
+        count = 1;
+    }
+    for (;;) {
+        size_t len = 0;
+        char *txt = read_file(serial_path, &len);
+        if (txt) {
+            int hit = count_substr(txt, marker) >= count;
+            free(txt);
+            if (hit) {
+                return 1;
+            }
+        }
+        if (mono_ms() >= deadline) {
+            return 0;
+        }
+        sleep_ms(25);
+    }
+}
+static int wait_for_serial_marker(const char *serial_path, const char *marker,
+                                  int budget_ms)
+{
+    long long deadline = mono_ms() + budget_ms;
+    for (;;) {
+        size_t len = 0;
+        char *txt = read_file(serial_path, &len);
+        if (txt) {
+            int hit = strstr(txt, marker) != NULL;
+            free(txt);
+            if (hit) {
+                return 1;
+            }
+        }
+        if (mono_ms() >= deadline) {
+            return 0;
+        }
+        sleep_ms(25);
+    }
+}
+
+/* Return 1 if the QMP peer (qemu) has closed the socket, else 0. Drains any
+ * pending bytes without blocking (fd is non-blocking). A closed peer means
+ * qemu EXITED -- e.g. `-no-reboot` turned a triple fault into an exit. */
+static int qmp_peer_closed(int fd)
+{
+    char scratch[512];
+    for (;;) {
+        ssize_t r = read(fd, scratch, sizeof(scratch));
+        if (r > 0) {
+            continue;          /* discard QMP events; keep draining */
+        }
+        if (r == 0) {
+            return 1;          /* EOF: qemu is gone */
+        }
+        if (errno == EINTR) {
+            continue;
+        }
+        return 0;              /* EAGAIN / EWOULDBLOCK: alive, nothing queued */
+    }
+}
+
+/*
+ * The COMPLETION wait (beads initech-6gkm, --quit-after). Wait until `marker`
+ * appears on the growing serial capture, or budget_ms passes with NO new
+ * serial bytes (charged in QEMU CPU time), or the session's absolute wall
+ * ceiling expires, or qemu exits.
+ * Returns 1 if seen, 0 otherwise.
+ *
+ * WHY THIS EXISTS (the 6gkm root cause, first-person): qmp_session's step 5
+ * sends QMP `quit` ~400 ms after the LAST injected input. Every --keys gate
+ * therefore silently assumed the guest finishes its work inside that window.
+ * The M7 corpus rail violated it: kmain prints SHELL-READY BEFORE
+ * command_repl runs AUTOEXEC.BAT, so the harness injected `exit` at
+ * SHELL-READY and quit qemu while the 17-program batch was still running --
+ * the "batch stalls / programs silently skip, varies run-to-run" symptom was
+ * the harness truncating a healthy guest (the same boot with no keys runs all
+ * 17 programs byte-exact). A completion-gated gate names the marker the guest
+ * prints when its work is DONE (e.g. SHELL-EXIT after a typed-ahead `exit`),
+ * and the harness quits only after seeing it. The idle budget is tied to the
+ * wall-clock timeout; a dead qemu (peer closed) ends the wait at once so a
+ * crashing mutant never burns the budget. A marker that never appears leaves
+ * quit_marker_found=0 and OK=0 -- fail loud, never a truncated false-green.
+ */
+static int wait_for_serial_marker_live(int fd, const char *serial_path,
+                                       const char *marker, int budget_ms,
+                                       int count, long long absolute_deadline,
+                                       const clockid_t *guest_clock)
+{
+    long long deadline = guest_ms(guest_clock) + budget_ms;
+    size_t observed = 0;
+    /* count (bead initech-tdnl.78, --quit-after-count): the marker must be
+     * seen this many times -- a rebooted guest re-prints its boot markers on
+     * the same capture. <=1 is the original first-occurrence wait. */
+    if (count < 1) {
+        count = 1;
+    }
+    for (;;) {
+        if (mono_ms() >= absolute_deadline) {
+            return 0;
+        }
+        size_t len = 0;
+        char *txt = read_file(serial_path, &len);
+        if (txt) {
+            /* Ref: PRD Sec 8 serial milestones; initech-7r2 lane contract.
+             * Count ONLY guest output (including each echoed key) as progress,
+             * never a QMP reply or another read of the same bytes. Keep the
+             * existing idle budget; a slow, advancing guest earns more time.
+             * The absolute ceiling still bounds a chattering broken guest. */
+            if (len > observed) {
+#ifndef HARNESS_MUTATE_NO_PROGRESS_RESET
+                deadline = guest_ms(guest_clock) + budget_ms;
+#endif
+                observed = len;
+            }
+            int hit = count_substr(txt, marker) >= count;
+            free(txt);
+            if (hit) {
+                return 1;
+            }
+        }
+        if (qmp_peer_closed(fd)) {
+            /* qemu exited; one last look (the marker may have landed just
+             * before the exit), then give up without waiting out the budget. */
+            txt = read_file(serial_path, &len);
+            if (txt) {
+                int hit = count_substr(txt, marker) >= count;
+                free(txt);
+                return hit;
+            }
+            return 0;
+        }
+        if (guest_ms(guest_clock) >= deadline) {
+            return 0;
+        }
+        sleep_ms(25);
+    }
+}
+
+/*
+ * Connect to the QMP unix socket, do the capabilities handshake, request a
+ * screendump to ppm_path, then quit. Retries the connect briefly because
+ * qemu may not have created the socket the instant we return from fork.
+ * Returns 0 if the session completed (screendump-file existence + the
+ * keys-sent count are checked by / reported through the caller).
+ *
+ * Generalized for beads initech-43b: it now also injects keystrokes. After the
+ * capabilities handshake it optionally (1) waits for keys_after on the serial
+ * capture (else a fixed delay), (2) injects keys_spec via QMP send-key, taking
+ * a marker-gated frame between events when requested, then (3) performs any
+ * still-pending screendump and quits. ppm_path may be NULL (keys only);
+ * keys_spec may be NULL (screendump only) -- at least one is set by the caller.
+ * *keys_sent (if non-NULL) receives the count of keys injected.
+ */
+static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_path,
+                       const char *keys_spec, const char *keys_after,
+                       const char *keys_ack,
+                       const char *mouse_spec,
+                       const char *screendump_after, int screendump_budget_ms,
+                       const char *serial_path, int *keys_sent, int *mouse_sent,
+                       const char *record_dir, const char *record_name,
+                       int record_settle_ms, int *frames_taken,
+                       int keys_after_ms, const char *quit_after,
+                       int quit_budget_ms, int quit_count, int *quit_seen,
+                       const char *record_end_marker, int *rec_after_end,
+                       int *rec_first_dead, const clockid_t *guest_clock,
+                       long long harness_deadline, int rec_sync_fd)
+{
+    /* initech-7r2; PRD Sec 8 / Rule 2: the ready and completion waits share
+     * one 120 s ceiling. Serial growth renews their existing idle budgets,
+     * but cannot keep a guest with no completion marker alive indefinitely. */
+    long long serial_deadline = mono_ms() + 120000;
+    if (rec_after_end) {
+        *rec_after_end = 0;
+    }
+    if (rec_first_dead) {
+        *rec_first_dead = 0;
+    }
+    if (keys_sent) {
+        *keys_sent = 0;
+    }
+    if (mouse_sent) {
+        *mouse_sent = 0;
+    }
+    if (frames_taken) {
+        *frames_taken = 0;
+    }
+    if (quit_seen) {
+        *quit_seen = 0;
+    }
+    int fd = inherited_fd;
+    long long deadline = mono_ms() + 3000;
+    while (fd < 0 && mono_ms() < deadline) {
+        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd < 0) {
+            return -1;
+        }
+        struct sockaddr_un addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sun_family = AF_UNIX;
+        if (strlen(sock_path) >= sizeof(addr.sun_path)) {
+            close(fd);
+            return -1;
+        }
+        strcpy(addr.sun_path, sock_path);
+        if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
+            break;
+        }
+        close(fd);
+        fd = -1;
+        sleep_ms(50);
+    }
+    if (fd < 0) {
+        return -1;
+    }
+
+    /* Make the socket non-blocking so qmp_drain's poll loop fully bounds
+     * every read -- a blocking read here is what previously hung the whole
+     * harness (Law 2: never let the harness itself hang). */
+    int fl = fcntl(fd, F_GETFL, 0);
+    if (fl >= 0) {
+        fcntl(fd, F_SETFL, fl | O_NONBLOCK);
+    }
+
+    /* 1. read greeting */
+    qmp_drain(fd, 300);
+    /* 2. enter command mode */
+    if (qmp_send(fd, "{\"execute\":\"qmp_capabilities\"}\n") != 0) {
+        close(fd);
+        return -1;
+    }
+    qmp_drain(fd, 300);
+
+    CaptureCtx cap_store;
+    CaptureCtx *cap = NULL;
+    if (ppm_path && screendump_after && screendump_after[0] != '\0') {
+        cap_store.fd = fd;
+        cap_store.deadline = harness_deadline;
+        cap_store.path = ppm_path;
+        cap_store.marker = screendump_after;
+        cap_store.serial_path = serial_path;
+        cap_store.attempted = 0;
+        cap_store.taken = 0;
+        cap_store.midtrack = capture_is_menu_drop(&cap_store) ||
+                             capture_is_menu_xdrop(&cap_store);
+        cap = &cap_store;
+    }
+
+    /* 3. input injection (keystrokes: beads initech-43b; relative mouse: beads
+     * initech-5l5z FO-6). Trigger timing: if keys_after is set, WAIT for that
+     * substring on the serial capture ONCE (the guest tells us it is ready --
+     * the robust, deterministic choice; e.g. FLAIR-HOOK-SET); else fall back to
+     * a fixed 500 ms startup delay. Then inject keys (send-key) and/or mouse
+     * (input-send-event), keys first. The mouse half reuses the SAME trigger as
+     * the keys half (ADR-0006 E-D6 / FO-8). */
+    {
+        int want_keys  = (keys_spec  && keys_spec[0]  != '\0');
+        int want_mouse = (mouse_spec && mouse_spec[0] != '\0');
+        /* Record mode (beads initech-l9cd): a stack RecordCtx threaded through
+         * the inject loops; rec == NULL keeps every existing gate untouched. */
+        RecordCtx rec_store;
+        RecordCtx *rec = NULL;
+        if (record_dir && record_name) {
+            rec_store.fd = fd;
+            rec_store.dir = record_dir;
+            rec_store.name = record_name;
+            rec_store.settle_ms = record_settle_ms > 0 ? record_settle_ms : 120;
+            rec_store.count = 0;
+            rec_store.serial_path = serial_path;
+            rec_store.end_marker = record_end_marker;
+            rec_store.events = 0;
+            rec_store.ended = 0;
+            rec_store.after_end = 0;
+            rec_store.first_dead = 0;
+            rec_store.deadline = harness_deadline;
+            rec_store.failed = 0;
+            rec_store.sync_fd = rec_sync_fd;
+            rec_store.sync_n = 0;
+            rec_store.sync_scan = 0;
+            rec_store.halted_noted = 0;
+            rec_store.blocked = 0;
+            rec_store.barrier_n = 0;
+            rec = &rec_store;
+            g_atomic_keys = rec_sync_fd >= 0;
+        }
+        if (want_keys || want_mouse) {
+            if (keys_after && keys_after[0] != '\0') {
+                /* Same idle budget as before (--keys-after-ms, initech-6gkm),
+                 * renewed by boot serial progress instead of expiring while
+                 * a loaded host is still advancing toward the ready marker. */
+                int ka_budget = keys_after_ms > 0 ? keys_after_ms : 4000;
+                if (!wait_for_serial_marker_live(fd, serial_path, keys_after,
+                                                 ka_budget, 1,
+                                                 serial_deadline,
+                                                 guest_clock)) {
+                    fprintf(stderr,
+                            "[harness] --keys-after marker '%s' not seen before "
+                            "inject deadline; injecting anyway\n", keys_after);
+                }
+            } else {
+                sleep_ms(500);
+            }
+            /* Frame 0: the pre-interaction desktop (post ready-marker). */
+            record_frame(rec);
+            if (capture_failed(rec, cap)) { close(fd); return -1; }
+            KeyAckCtx ack = { serial_path, keys_ack,
+                keys_after_ms > 0 ? keys_after_ms : 4000,
+                serial_deadline, guest_clock, g_qemu_pid };
+            if (want_keys) {
+                int bad = 0;
+                int sent = qmp_inject_keys(fd, keys_spec, &bad, rec, cap, &ack);
+                if (sent < 0) { close(fd); return -1; }
+                if (keys_sent) {
+                    *keys_sent = sent;
+                }
+            }
+            if (want_mouse) {
+                int msent = qmp_inject_mouse(fd, mouse_spec, rec, cap,
+                                             serial_path, &ack);
+                if (msent < 0) { close(fd); return -1; }
+                if (mouse_sent) {
+                    *mouse_sent = msent;
+                }
+            }
+            /* Let the last event's IRQ + the guest's serial echo flush before we
+             * (optionally) screendump and quit. */
+            qmp_drain(fd, 100);
+            /* Final frame: the settled end state of the interaction. */
+            record_frame(rec);
+        }
+        if (rec && frames_taken) {
+            *frames_taken = rec->count;
+        }
+        if (rec && rec_after_end) {
+            *rec_after_end = rec->after_end;
+        }
+        if (rec && rec_first_dead) {
+            *rec_first_dead = rec->first_dead;
+        }
+        if (capture_failed(rec, cap)) {
+            close(fd); return -1;
+        }
+    }
+
+    /* 4. screendump (PPM), if requested. filename must be JSON-escaped; our
+     * paths are plain ASCII under build/ with no quotes/backslashes, so a
+     * direct embed is safe and reproducible. */
+    if (ppm_path) {
+        /* Synchronise the framebuffer grab to the guest's paint (beads
+         * initech-3pe). If a screendump_after marker is configured, WAIT for it
+         * on the growing serial capture BEFORE dumping -- the guest signals that
+         * the pixels the ppm gate asserts on are already blitted. The budget is
+         * tied to the wall-clock timeout, so a loaded host simply waits longer.
+         *
+         * CRITICAL (Law 2 -- fail loud, never hang, never false-green): an
+         * explicit marker is a capture precondition. If it never appears, do
+         * NOT dump an unrelated later frame; leave the PPM absent so the gate's
+         * missing-dump assertion is the deterministic RED. After the marker is
+         * seen, a brief qmp_drain lets the final blit settle before the grab. */
+        int capture_ready = (cap == NULL || !cap->attempted);
+        if (screendump_after && screendump_after[0] != '\0') {
+            int midtrack = capture_is_menu_drop(cap) || capture_is_menu_xdrop(cap);
+            int budget = screendump_budget_ms > 0 ? screendump_budget_ms : 4000;
+            if (cap && cap->taken) {
+                capture_ready = 0;  /* already captured between input events */
+            } else if (midtrack) {
+                /* A late grab would observe a later mouse state (often the
+                 * correctly closed menu) and falsely claim to represent DROP.
+                 * Leave the PPM absent so the gate fails loud instead. */
+                fprintf(stderr,
+                        "[harness] --screendump-after marker '%s' was not "
+                        "captured at its input-event boundary; no late "
+                        "screendump captured\n",
+                        screendump_after);
+                capture_ready = 0;
+            } else if (!wait_for_serial_marker_n(serial_path, screendump_after,
+                                                 budget, g_screendump_after_count)) {
+                fprintf(stderr,
+                        "[harness] --screendump-after marker '%s' not seen "
+                        "before deadline; no screendump captured\n",
+                        screendump_after);
+                capture_ready = 0;
+            } else {
+                /* Marker seen: let the blit fully settle before grabbing. */
+                qmp_drain(fd, 150);
+            }
+        }
+        if (capture_ready) {
+            if (qmp_do_screendump(fd, ppm_path, harness_deadline) != 0) {
+                close(fd);
+                return -1;
+            }
+            qmp_drain(fd, 200);
+        }
+    }
+
+    /* 4b. completion wait (beads initech-6gkm): a gate that names --quit-after
+     * does not let the harness quit until the guest says its work is done --
+     * see wait_for_serial_marker_live for the truncation class this closes. */
+    if (quit_after && quit_after[0] != '\0') {
+        int seen = 1;
+#ifndef HARNESS_MUTATE_NO_QUIT_WAIT
+        seen = wait_for_serial_marker_live(fd, serial_path, quit_after,
+                                           quit_budget_ms, quit_count,
+                                           serial_deadline, guest_clock);
+#else
+        /* MUTANT (Rule 6; make test-harness-quit-after-mutant only): restore
+         * the 6gkm bug -- quit right after the inputs, never waiting for the
+         * guest's completion marker, and CLAIM it was seen. The corpus rail's
+         * own marker/SHELL-EXIT assertions must then go RED. NEVER in a real
+         * build. */
+        (void)wait_for_serial_marker_live;
+        (void)quit_budget_ms;
+        (void)quit_count;
+#endif
+        if (!seen) {
+            fprintf(stderr,
+                    "[harness] --quit-after marker '%s' not seen before "
+                    "deadline (or qemu exited first)\n", quit_after);
+        }
+        if (quit_seen) {
+            *quit_seen = seen;
+        }
+    }
+
+    /* 5. quit cleanly so the guest does not have to be killed. */
+    qmp_send(fd, "{\"execute\":\"quit\"}\n");
+    qmp_drain(fd, 300);
+    close(fd);
+    return 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* argv construction                                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Build the qemu argv. Returns the argument count, or -1 on overflow.
+ * All strings either are literals or point into caller-owned / *_path
+ * buffers that outlive the exec. The exact command line emitted is:
+ *
+ *   qemu-system-i386 -display none -no-reboot
+ *     [-rtc base=<rtc_base>,clock=vm]        (if rtc_base)
+ *     [-icount shift=4,sleep=on -accel tcg]  (if rtc_deterministic)
+ *     -device isa-debug-exit,iobase=0xF4,iosize=0x04
+ *     -serial file:<serial>
+ *     -d int,guest_errors,cpu_reset -D <log>
+ *     [-kernel <elf> | -drive format=raw,file=<img>]
+ *     [-s -S]                              (if enable_gdb)
+ *     [-qmp unix:<sock>,server=on,wait=off]  (if enable_qmp_screendump)
+ */
+static int build_argv(const QemuConfig *cfg, char **argv,
+                      const char *serial_path, const char *log_path,
+                      const char *sock_path, const char *overlay,
+                      const char *rec_sync_base)
+{
+    int i = 0;
+#define PUSH(s)                          \
+    do {                                 \
+        if (i >= MAX_ARGV - 1) {         \
+            return -1;                   \
+        }                                \
+        argv[i++] = (char *)(s);         \
+    } while (0)
+
+    PUSH(QEMU_BIN);
+    /* DEC-03a test profiles only; general profile work: initech-r2lqd. */
+    const char *test_ram=getenv("INITECH_TEST_RAM_MB");
+    if(test_ram) { PUSH("-m"); PUSH(test_ram); PUSH("-machine"); PUSH("acpi=off"); }
+    PUSH("-cpu"); PUSH("486");
+    /* Headless. NOTE: deliberately NOT `-nographic` -- that muxes the VGA
+     * firmware/monitor banner onto the same stream as serial and pollutes
+     * the capture. `-display none` keeps `-serial file:` clean (verified:
+     * serial_hello.serial is exactly "HARNESS-OK\n"). */
+    PUSH("-display");
+    PUSH("none");
+    /* -no-reboot: a triple fault EXITS qemu (code 0) instead of looping
+     * (PRD Sec 8: triple-fault detect). The reset is still recorded in the
+     * -d log, which is our detector. NOTE: we deliberately do NOT pass
+     * -no-shutdown -- it keeps the VM paused after the reset request, so
+     * qemu hangs on the fault path and only the wall-clock timeout reaps
+     * it. With -no-reboot alone the bad fixture exits promptly AND the log
+     * carries "Triple fault" (verified). The timeout still guards genuine
+     * hangs (see the `hang` fixture). */
+    /* --allow-reboot (bead initech-tdnl.78; qemu.h allow_reboot): a gate that
+     * grades a guest-initiated RESTART must let the reset reboot. Detection
+     * of a triple fault does not depend on this flag (it parses the -d log). */
+    if (!cfg->allow_reboot) {
+        PUSH("-no-reboot");
+    }
+
+    /* Pinned RTC base (beads initech-yv9): `-rtc base=<ISO>` starts the guest's
+     * emulated MC146818 RTC at a FIXED instant so the clock oracle is
+     * deterministic (Rule 11). Omitted => QEMU uses host time. */
+    if (cfg->rtc_base && cfg->rtc_base[0] != '\0') {
+        /* clock=vm: drive the emulated RTC from the VM clock (guest execution
+         * time) rather than host wall-clock, so the reading is REPRODUCIBLE
+         * across runs (Rule 11) -- with clock=host the RTC advances with real
+         * time and the same image reads a different second each run. */
+        static char rtcbuf[80];
+        snprintf(rtcbuf, sizeof(rtcbuf), "base=%s,clock=vm", cfg->rtc_base);
+        PUSH("-rtc");
+        PUSH(rtcbuf);
+    }
+
+    /* Deterministic virtual time (beads initech-lmkp; see qemu.h). Fixed
+     * (non-auto) icount shift so vm_clock -- and therefore the `clock=vm`
+     * RTC above -- is a pure function of instructions retired, not host
+     * wall-clock speed; sleep=on makes a halted vCPU jump straight to the
+     * next timer deadline instead of accruing real elapsed time while
+     * parked. shift=4 (16 ns of virtual time per instruction) leaves ~5
+     * orders of magnitude of headroom between a realistic few-hundred-
+     * thousand-instruction boot path and the 1-second granularity the
+     * pinned-second assertion needs, without making a HLT-free busy-wait
+     * path (e.g. ata_delay_400ns's four port reads) burn an unreasonable
+     * number of real host instructions to advance virtual time. -accel tcg
+     * is forced alongside it because icount is incompatible with KVM (this
+     * harness never requests KVM by default, so today that is a no-op
+     * safety net, not a behavior change). */
+    if (cfg->rtc_deterministic) {
+        PUSH("-icount");
+        PUSH("shift=4,sleep=on");
+        PUSH("-accel");
+        PUSH("tcg");
+    }
+
+    /* isa-debug-exit: lets a guest request a clean QEMU exit by writing to
+     * I/O port 0xF4 (exit status = (value<<1)|1). Fixtures use this so the
+     * GOOD path stops promptly instead of relying on the wall-clock timeout
+     * (a timed-out run is by definition not `ok`). Harmless to a guest that
+     * never writes the port. */
+    PUSH("-device");
+    PUSH("isa-debug-exit,iobase=0xF4,iosize=0x04");
+
+    /* Serial capture to a file we read after reaping. */
+    PUSH("-serial");
+    static char serbuf[QEMU_PATH_MAX + 8];
+    snprintf(serbuf, sizeof(serbuf), "file:%s", serial_path);
+    PUSH(serbuf);
+
+    /* RECORD-SYNC (bead initech-x8gsi.1; qemu.h record_sync): COM2 -- the
+     * SECOND -serial, so it must follow COM1 above -- is a pipe chardev on the
+     * FIFO pair <base>.in/<base>.out the harness made. The harness writes the
+     * request/ack bytes into <base>.in; the guest never writes COM2. A pipe,
+     * not a listening socket, so it also works where bind(2) is forbidden
+     * (the INITECH_QMP_STDIO case). */
+    if (rec_sync_base) {
+        static char syncbuf[QEMU_PATH_MAX + 32];
+        snprintf(syncbuf, sizeof(syncbuf), "pipe,id=recsync,path=%s",
+                 rec_sync_base);
+        PUSH("-chardev");
+        PUSH(syncbuf);
+        PUSH("-serial");
+        PUSH("chardev:recsync");
+    }
+
+    /* Debug log: interrupts, guest errors, cpu resets -> the log we parse. */
+    PUSH("-d");
+    PUSH("int,guest_errors,cpu_reset");
+    PUSH("-D");
+    PUSH(log_path);
+
+    /* Boot mechanism. */
+    if (cfg->kernel_path) {
+        PUSH("-kernel");
+        PUSH(cfg->kernel_path);
+    } else {
+        /* disk_path validated non-NULL by caller. */
+        static char drvbuf[QEMU_PATH_MAX + 48];
+        snprintf(drvbuf, sizeof(drvbuf), "format=%s,cache=unsafe,file=%s",
+                 overlay ? "qcow2" : "raw", overlay ? overlay : cfg->disk_path);
+        PUSH("-drive");
+        PUSH(drvbuf);
+    }
+
+    /* Optional FAT12 data volume on the IDE primary SLAVE (if=ide,index=1).
+     * The boot drive above defaults to if=ide,index=0 (primary master), so
+     * index=1 reuses the same channel port base (0x1F0) with the slave
+     * drive-select bit -- exactly what os/initechdos/ata.c addresses. The boot
+     * disk is unaffected; the kernel mounts this second disk over ATA.
+     * (brief Sec 1.2: index 1 = primary slave.) Pushed for both -kernel and
+     * -drive boot modes, but only meaningful for the raw-disk OS boot. */
+    if (cfg->data_disk_path) {
+        static char drvbuf2[QEMU_PATH_MAX + 80];
+        snprintf(drvbuf2, sizeof(drvbuf2),
+                 "file=%s,format=raw,cache=unsafe,if=ide,index=1,id=initech_disk2", cfg->data_disk_path);
+        PUSH("-drive");
+        PUSH(drvbuf2);
+    }
+
+    /* gdb stub: stub on tcp::1234, CPU stopped at reset. We only wire the
+     * flags; driving gdb is out of scope (PRD Sec 8). Usage:
+     *   gdb -ex 'target remote :1234' build/<guest>.elf */
+    if (cfg->enable_gdb) {
+        PUSH("-s");
+        PUSH("-S");
+    }
+
+    /* QMP for screendump AND/OR keystroke AND/OR mouse injection (beads
+     * initech-43b: --keys; initech-5l5z FO-6: --mouse -- both need the same QMP
+     * socket). server=on,wait=off => qemu does not block on us. */
+    if (cfg->enable_qmp_screendump ||
+        (cfg->keys_spec && cfg->keys_spec[0] != '\0') ||
+        (cfg->mouse_spec && cfg->mouse_spec[0] != '\0')) {
+        static char qmpbuf[QEMU_PATH_MAX + 32];
+        if (getenv("INITECH_QMP_STDIO")) {
+            snprintf(qmpbuf, sizeof(qmpbuf), "stdio");
+        } else {
+            snprintf(qmpbuf, sizeof(qmpbuf), "unix:%s,server=on,wait=off",
+                     sock_path);
+        }
+        PUSH("-qmp");
+        PUSH(qmpbuf);
+        /* -display none is already pushed unconditionally above. */
+    }
+
+    argv[i] = NULL;
+    return i;
+#undef PUSH
+}
+
+/* ------------------------------------------------------------------ */
+/* public entry points                                                 */
+/* ------------------------------------------------------------------ */
+
+/* PRD 8 / Rules 2,11: preserve the read-only backing image without QEMU's
+ * implicit snapshot temp file (which some builds hardcode in /var/tmp).
+ * Each run owns its explicit overlay AND TMPDIR below the output build dir. */
+static void overlay_remove(const char *directory, const char *overlay)
+{
+    if (overlay[0]) unlink(overlay);
+    if (directory[0]) rmdir(directory);
+}
+
+static int overlay_create(const QemuConfig *cfg, const char *dir,
+                          char *directory, char *overlay)
+{
+    char parent[QEMU_PATH_MAX], pattern[QEMU_PATH_MAX], base[QEMU_PATH_MAX];
+    int n = snprintf(parent, sizeof parent, "%s/.qemu-tmp", dir);
+    if (n < 0 || n >= (int)sizeof parent) return -1;
+    if (mkdir(parent, 0700) && errno != EEXIST) { perror(parent); return -1; }
+    n = snprintf(pattern, sizeof pattern, "%s/run-XXXXXX", parent);
+    if (n < 0 || n >= (int)sizeof pattern || !mkdtemp(pattern)) return -1;
+    char *resolved = realpath(pattern, NULL), *backing = realpath(cfg->disk_path, NULL);
+    if (!resolved || !backing || strlen(resolved) >= QEMU_PATH_MAX || strlen(backing) >= sizeof base) {
+        fprintf(stderr, "qemu_run: invalid or oversized boot overlay path\n");
+        free(resolved); free(backing); rmdir(pattern); return -1;
+    }
+    strcpy(directory, resolved); strcpy(base, backing);
+    free(resolved); free(backing);
+    n = snprintf(overlay, QEMU_PATH_MAX, "%s/boot.qcow2", directory);
+    if (n < 0 || n >= QEMU_PATH_MAX) { overlay[0] = 0; overlay_remove(directory, overlay); return -1; }
+    pid_t child = fork();
+    if (child == 0) {
+        if (setenv("TMPDIR", directory, 1)) _exit(127);
+        execlp("qemu-img", "qemu-img", "create", "-q", "-f", "qcow2",
+               "-F", "raw", "-b", base, overlay, (char *)NULL);
+        _exit(127);
+    }
+    int status = 0;
+    pid_t reaped;
+    if (child < 0) { overlay_remove(directory, overlay); return -1; }
+    do { reaped = waitpid(child, &status, 0); } while (reaped < 0 && errno == EINTR);
+    if (reaped != child || !WIFEXITED(status) || WEXITSTATUS(status)) {
+        fprintf(stderr, "qemu_run: private boot overlay creation failed\n");
+        overlay_remove(directory, overlay); return -1;
+    }
+    return 0;
+}
+
+void qemu_result_free(QemuResult *out)
+{
+    if (!out) {
+        return;
+    }
+    free(out->serial_text);
+    out->serial_text = NULL;
+    out->serial_len = 0;
+}
+
+/* initech-tfn6r; PRD Sec 8 / Rule 2. Storage supervision is independent of
+ * QMP: its marker waits can occupy the parent for minutes. Never rotate or
+ * truncate a live log; the fault parser below still reads the whole file.
+ * The stop pipe also bounds the monitor's lifetime if the harness dies. */
+static int qemu_log_cap(unsigned long long *cap)
+{
+    const char *value = getenv("INITECH_QEMU_LOG_CAP_BYTES");
+    *cap = QEMU_DEFAULT_LOG_CAP_BYTES;
+    if (!value) return 0;
+    char *end;
+    errno = 0;
+    if (!value[0] || strspn(value, "0123456789") != strlen(value)) goto bad;
+    *cap = strtoull(value, &end, 10);
+    if (errno || *end || !*cap) goto bad;
+    return 0;
+bad:
+    fprintf(stderr, "[harness] RED QEMU-LOG-CAP: INITECH_QEMU_LOG_CAP_BYTES must be a positive decimal byte count\n");
+    return -1;
+}
+
+enum { QEMU_LOG_OVERFLOW = 42, QEMU_LOG_WATCH_ERROR = 43 };
+/* Pin the child identity before any waitpid can reap it. Use syscalls so
+ * libc need not provide pidfd wrappers; unsupported hosts fail the guard. */
+static int qemu_log_pidfd_open(pid_t qemu)
+{
+#if defined(SYS_pidfd_open) && defined(SYS_pidfd_send_signal)
+    return (int)syscall(SYS_pidfd_open, qemu, 0);
+#else
+    (void)qemu;
+    errno = ENOSYS;
+    return -1;
+#endif
+}
+
+#ifndef HARNESS_MUTATE_NO_QEMU_LOG_CAP
+static int qemu_log_pidfd_kill(int pidfd)
+{
+#ifdef SYS_pidfd_send_signal
+    return (int)syscall(SYS_pidfd_send_signal, pidfd, SIGKILL, NULL, 0);
+#else
+    (void)pidfd;
+    errno = ENOSYS;
+    return -1;
+#endif
+}
+#endif
+
+static pid_t qemu_log_watch(int pidfd, const char *path,
+                            unsigned long long cap, int qmp_fd, int sync_fd,
+                            int *stop_fd)
+{
+    int stop[2];
+    if (pipe(stop)) return -1;
+    pid_t watcher = fork();
+    if (watcher == 0) {
+        close(stop[1]);
+        if (qmp_fd >= 0) close(qmp_fd);
+        if (sync_fd >= 0) close(sync_fd);
+        struct pollfd p = { .fd = stop[0], .events = POLLIN };
+        for (;;) {
+            int ready = poll(&p, 1, 20);
+            if (ready < 0 && errno == EINTR) continue;
+            if (ready < 0) _exit(QEMU_LOG_WATCH_ERROR);
+            struct stat st;
+            int found = stat(path, &st);
+            if (found && errno != ENOENT) _exit(QEMU_LOG_WATCH_ERROR);
+#ifndef HARNESS_MUTATE_NO_QEMU_LOG_CAP
+            if (!found && st.st_size >= 0 &&
+                (unsigned long long)st.st_size > cap) {
+                /* Re-check EOF after poll/stat: the parent may have reaped
+                 * QEMU while this watcher was descheduled. The pidfd also
+                 * prevents signalling a reused PID if EOF races this check.
+                 * Still report overflow for writers exiting inside a poll. */
+                do { ready = poll(&p, 1, 0); }
+                while (ready < 0 && errno == EINTR);
+                if (ready < 0) _exit(QEMU_LOG_WATCH_ERROR);
+                if (!ready && qemu_log_pidfd_kill(pidfd) < 0 && errno != ESRCH)
+                    _exit(QEMU_LOG_WATCH_ERROR);
+                _exit(QEMU_LOG_OVERFLOW);
+            }
+#else
+            (void)cap;
+            (void)pidfd;
+#endif
+            if (ready) _exit(0);
+        }
+    }
+    close(stop[0]);
+    if (watcher < 0) { close(stop[1]); return -1; }
+    *stop_fd = stop[1];
+    return watcher;
+}
+
+int qemu_run(const QemuConfig *cfg, QemuResult *out)
+{
+    if (!cfg || !out) {
+        return -1;
+    }
+    memset(out, 0, sizeof(*out));
+    out->exit_code = -1;
+    unsigned long long log_cap;
+    if (qemu_log_cap(&log_cap)) return -1;
+
+    /* Never let a closed QMP/serial pipe kill the harness with SIGPIPE --
+     * the harness must always reach its reap+report (Law 2). */
+    signal(SIGPIPE, SIG_IGN);
+
+    if (!cfg->kernel_path && !cfg->disk_path) {
+        fprintf(stderr,
+                "qemu_run: config has neither kernel_path nor disk_path\n");
+        return -1;
+    }
+
+    const char *dir = cfg->output_dir ? cfg->output_dir : "build";
+    const char *name = cfg->name ? cfg->name : "qemu";
+    int timeout_ms = cfg->timeout_ms > 0 ? cfg->timeout_ms
+                                         : QEMU_DEFAULT_TIMEOUT_MS;
+
+    char sock_path[QEMU_PATH_MAX];
+    if (join_path(out->serial_path, sizeof(out->serial_path), dir, name,
+                  ".serial") != 0 ||
+        join_path(out->log_path, sizeof(out->log_path), dir, name,
+                  ".qemu.log") != 0 ||
+        join_path(out->screendump_path, sizeof(out->screendump_path), dir,
+                  name, ".ppm") != 0 ||
+        join_path(sock_path, sizeof(sock_path), dir, name, ".qmp.sock")
+            != 0) {
+        fprintf(stderr, "qemu_run: output path too long\n");
+        return -1;
+    }
+
+    /* initech-nstg; PRD Sec 8 / Rule 2. A filesystem path fitting our
+     * buffers can still exceed sockaddr_un.sun_path. Reject BEFORE unlink,
+     * fork or QEMU's own socket error; stdio has no Unix pathname limit. */
+#ifndef QEMU_MUTATE_PATH_PREFLIGHT
+    if (!getenv("INITECH_QMP_STDIO") &&
+        (cfg->enable_qmp_screendump ||
+         (cfg->keys_spec && cfg->keys_spec[0]) ||
+         (cfg->mouse_spec && cfg->mouse_spec[0])) &&
+        strlen(sock_path) >= sizeof(((struct sockaddr_un *)0)->sun_path)) {
+        fprintf(stderr, "qemu_run: QMP socket path too long (%zu bytes; maximum %zu); "
+                "use a shorter --out or INITECH_QMP_STDIO=1\n",
+                strlen(sock_path), sizeof(((struct sockaddr_un *)0)->sun_path)-1);
+        return -1;
+    }
+#endif
+
+    /* Fresh outputs: remove stale files so we never read a previous run's
+     * serial/log/ppm (a classic false-green source -- Law 2). */
+    unlink(out->serial_path);
+    unlink(out->log_path);
+    unlink(out->screendump_path);
+    unlink(sock_path);
+    /* Record mode (initech-l9cd): also purge stale frame PPMs -- a shorter
+     * re-run must never leave a previous run's tail frames in the sequence
+     * (the same false-green class as a stale serial capture). Frames are
+     * contiguous from 0, so delete until the first missing index (bounded). */
+    if (cfg->record_frames) {
+        for (int fi = 0; fi < 100000; fi++) {
+            char fp[QEMU_PATH_MAX];
+            int fn = snprintf(fp, sizeof(fp), "%s/%s_frame_%05d.ppm",
+                              dir, name, fi);
+            if (fn < 0 || (size_t)fn >= sizeof(fp) || unlink(fp) != 0) {
+                break;
+            }
+        }
+    }
+
+    char temporary[QEMU_PATH_MAX] = "", overlay[QEMU_PATH_MAX] = "";
+    if (!cfg->kernel_path && !cfg->boot_rw &&
+        overlay_create(cfg, dir, temporary, overlay)) return -1;
+    /* RECORD-SYNC FIFOs (qemu.h record_sync): <dir>/<name>.sync.{in,out}.
+     * Both ends open O_RDWR (QEMU's pipe chardev does too), so neither open
+     * blocks waiting for the other side. Fresh every run (Law 2: a stale
+     * byte from a previous run would be a request nobody sent). */
+    char sync_base[QEMU_PATH_MAX] = "";
+    char sync_in[QEMU_PATH_MAX + 4] = "", sync_out[QEMU_PATH_MAX + 4] = "";
+    int rec_sync_fd = -1;
+    if (cfg->record_frames && cfg->record_sync) {
+        if (join_path(sync_base, sizeof(sync_base), dir, name, ".sync") != 0) {
+            fprintf(stderr, "qemu_run: record-sync path too long\n");
+            overlay_remove(temporary, overlay);
+            return -1;
+        }
+        snprintf(sync_in, sizeof(sync_in), "%s.in", sync_base);
+        snprintf(sync_out, sizeof(sync_out), "%s.out", sync_base);
+        unlink(sync_in);
+        unlink(sync_out);
+        if (mkfifo(sync_in, 0600) != 0 || mkfifo(sync_out, 0600) != 0 ||
+            (rec_sync_fd = open(sync_in, O_RDWR | O_NONBLOCK)) < 0) {
+            fprintf(stderr, "qemu_run: record-sync FIFO setup failed: %s\n",
+                    strerror(errno));
+            unlink(sync_in);
+            unlink(sync_out);
+            overlay_remove(temporary, overlay);
+            return -1;
+        }
+    }
+    char *argv[MAX_ARGV];
+    if (build_argv(cfg, argv, out->serial_path, out->log_path, sock_path,
+                   overlay[0] ? overlay : NULL,
+                   rec_sync_fd >= 0 ? sync_base : NULL)
+        < 0) {
+        fprintf(stderr, "qemu_run: too many qemu arguments\n");
+        if (rec_sync_fd >= 0) {
+            close(rec_sync_fd);
+            unlink(sync_in);
+            unlink(sync_out);
+        }
+        overlay_remove(temporary, overlay);
+        return -1;
+    }
+
+    /* A sandbox may forbid bind(2) while allowing an inherited socketpair.
+     * QEMU's documented '-qmp stdio' uses the same QMP protocol/oracles.
+     * No listener/port, and only this run's child inherits the peer. */
+    int qmp_pair[2] = {-1, -1};
+    if (getenv("INITECH_QMP_STDIO") &&
+        (cfg->enable_qmp_screendump ||
+         (cfg->keys_spec && cfg->keys_spec[0]) ||
+         (cfg->mouse_spec && cfg->mouse_spec[0]))) {
+        if (socketpair(AF_UNIX, SOCK_STREAM, 0, qmp_pair) != 0) {
+            perror("qemu_run: QMP socketpair");
+            overlay_remove(temporary, overlay);
+            return -1;
+        }
+    }
+    qemu_slot_acquire(); /* before the deadline starts: waiting is not running */
+    long long harness_deadline = mono_ms() + timeout_ms;
+    pid_t pid = fork();
+    if (pid < 0) {
+        if (qmp_pair[0] >= 0) { close(qmp_pair[0]); close(qmp_pair[1]); }
+        if (rec_sync_fd >= 0) {
+            close(rec_sync_fd);
+            unlink(sync_in);
+            unlink(sync_out);
+        }
+        fprintf(stderr, "qemu_run: fork failed: %s\n", strerror(errno));
+        overlay_remove(temporary, overlay);
+        return -1;
+    }
+    if (pid == 0) {
+        if (temporary[0] && setenv("TMPDIR", temporary, 1)) _exit(127);
+        if (rec_sync_fd >= 0) close(rec_sync_fd);   /* QEMU opens the FIFOs */
+        /* child: silence qemu's stdout/stderr noise onto the log dir's
+         * null so -nographic monitor banner does not pollute our streams.
+         * Serial goes to a file already; QMP banner goes to the socket. */
+        char errors[sizeof out->log_path+8];
+        snprintf(errors,sizeof errors,"%s.stderr",out->log_path);
+        int devnull = open(errors, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+        if (devnull >= 0) {
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            if (devnull > STDERR_FILENO) {
+                close(devnull);
+            }
+        }
+        if (qmp_pair[0] >= 0) {
+            close(qmp_pair[0]);
+            dup2(qmp_pair[1], STDIN_FILENO);
+            dup2(qmp_pair[1], STDOUT_FILENO);
+            if (qmp_pair[1] > STDERR_FILENO) close(qmp_pair[1]);
+        }
+        execvp(QEMU_BIN, argv);
+        /* exec failed */
+        _exit(127);
+    }
+
+    if (qmp_pair[1] >= 0) close(qmp_pair[1]);
+    out->launched = true;
+    int log_stop;
+    int log_pidfd = qemu_log_pidfd_open(pid);
+    pid_t log_watcher = log_pidfd < 0 ? -1 :
+        qemu_log_watch(log_pidfd, out->log_path, log_cap,
+                       qmp_pair[0], rec_sync_fd, &log_stop);
+    if (log_pidfd >= 0) close(log_pidfd); /* watcher owns its inherited fd */
+    if (log_watcher < 0) {
+        fprintf(stderr, "[harness] RED QEMU-LOG-GUARD: cannot start log monitor\n");
+        kill(pid, SIGKILL);
+        while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
+        if (qmp_pair[0] >= 0) close(qmp_pair[0]);
+        if (rec_sync_fd >= 0) close(rec_sync_fd);
+        unlink(sync_in); unlink(sync_out); unlink(sock_path);
+        overlay_remove(temporary, overlay);
+        return -1;
+    }
+    clockid_t cpu_clock;
+    const clockid_t *guest_clock = NULL;
+    if (clock_getcpuclockid(pid, &cpu_clock) == 0) {
+        guest_clock = &cpu_clock;
+    }
+
+    /* If we are doing a screendump and/or keystroke and/or mouse injection,
+     * drive QMP from the parent while qemu runs: qmp_session retries the connect,
+     * optionally waits for the keys-after marker + injects keys + mouse,
+     * optionally screendumps, then quits (beads initech-f2s + initech-43b +
+     * initech-5l5z FO-6). */
+    bool want_keys  = cfg->keys_spec  && cfg->keys_spec[0]  != '\0';
+    bool want_mouse = cfg->mouse_spec && cfg->mouse_spec[0] != '\0';
+    bool qmp_failed = false;
+    if (cfg->enable_qmp_screendump || want_keys || want_mouse) {
+        const char *ppm = cfg->enable_qmp_screendump ? out->screendump_path
+                                                      : NULL;
+        /* The screendump-after wait runs in this parent WHILE qemu runs, so its
+         * budget must fit inside the wall-clock timeout with room to spare for
+         * the dump + quit + reap. Reserve a 1000 ms margin; the wall-clock loop
+         * below remains the hard backstop regardless (beads initech-3pe). */
+        int sd_budget = timeout_ms - 1000;
+        if (sd_budget < 500) {
+            sd_budget = 500;
+        }
+        int sent = 0;
+        int msent = 0;
+        int frames = 0;
+        int qseen = 0;
+        int after_end = 0;
+        int first_dead = 0;
+        g_screendump_after_count = cfg->screendump_after_count;
+        g_qemu_pid = pid;
+        if (qmp_session(qmp_pair[0], sock_path, ppm,
+                        want_keys ? cfg->keys_spec : NULL,
+                        (want_keys || want_mouse) ? cfg->keys_after : NULL,
+                        cfg->keys_ack,
+                        want_mouse ? cfg->mouse_spec : NULL,
+                        cfg->enable_qmp_screendump ? cfg->screendump_after
+                                                   : NULL,
+                        sd_budget,
+                        out->serial_path, &sent, &msent,
+                        cfg->record_frames ? dir : NULL,
+                        cfg->record_frames ? name : NULL,
+                        cfg->record_settle_ms, &frames,
+                        cfg->keys_after_ms, cfg->quit_after, sd_budget,
+                        cfg->quit_after_count, &qseen,
+                        cfg->record_frames ? cfg->record_end_marker : NULL,
+                        &after_end, &first_dead, guest_clock, harness_deadline,
+                        rec_sync_fd) == 0) {
+            out->quit_marker_found = qseen != 0;
+            out->record_events_after_end = after_end;
+            out->record_first_dead_event = first_dead;
+            out->keys_sent = sent;
+            out->mouse_events_sent = msent;
+            out->frames_taken = frames;
+            if (cfg->enable_qmp_screendump) {
+                struct stat st;
+                if (stat(out->screendump_path, &st) == 0 && st.st_size > 0) {
+                    out->screendump_taken = true;
+                }
+            }
+        } else {
+            qmp_failed = true;
+            kill(pid, SIGTERM);
+        }
+    }
+
+    /* Wall-clock timeout loop: poll waitpid, escalate SIGTERM -> SIGKILL. */
+    long long deadline = harness_deadline;
+    int status = 0;
+    bool reaped = false;
+    bool sent_term = qmp_failed;
+    long long term_at = qmp_failed ? mono_ms() : 0;
+    if (qmp_failed && mono_ms() >= deadline) out->timed_out = true;
+    for (;;) {
+        pid_t w = waitpid(pid, &status, WNOHANG);
+        if (w == pid) {
+            reaped = true;
+            break;
+        }
+        if (w < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            break; /* unexpected; treat as unreapable */
+        }
+        long long now = mono_ms();
+        if (!sent_term && now >= deadline) {
+            out->timed_out = true;
+            kill(pid, SIGTERM);
+            sent_term = true;
+            term_at = now;
+        } else if (sent_term && now >= term_at + 500) {
+            /* grace expired -> hard kill */
+            kill(pid, SIGKILL);
+        }
+        sleep_ms(20);
+    }
+
+    if (reaped) {
+        if (WIFEXITED(status)) {
+            out->exit_code = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            out->term_signal = WTERMSIG(status);
+            out->exit_code = -1;
+        }
+    }
+
+    close(log_stop);
+    int log_status = 0;
+    pid_t log_reaped;
+    do { log_reaped = waitpid(log_watcher, &log_status, 0); }
+    while (log_reaped < 0 && errno == EINTR);
+    out->log_limit_exceeded = log_reaped == log_watcher &&
+        WIFEXITED(log_status) && WEXITSTATUS(log_status) == QEMU_LOG_OVERFLOW;
+    bool log_guard_ok = log_reaped == log_watcher &&
+        WIFEXITED(log_status) && WEXITSTATUS(log_status) == 0;
+    if (out->log_limit_exceeded) {
+        fprintf(stderr, "[harness] RED QEMU-LOG-CAP: %s exceeded %llu bytes; full log retained\n",
+                out->log_path, log_cap);
+    } else if (!log_guard_ok) {
+        fprintf(stderr, "[harness] RED QEMU-LOG-GUARD: log monitor failed; full log retained\n");
+    }
+
+    /* Clean up the socket file regardless. */
+    unlink(sock_path);
+    if (rec_sync_fd >= 0) {
+        close(rec_sync_fd);
+        unlink(sync_in);
+        unlink(sync_out);
+    }
+    overlay_remove(temporary, overlay);
+
+    /* Capture serial. Missing file => empty capture (not an error). */
+    {
+        size_t len = 0;
+        char *txt = read_file(out->serial_path, &len);
+        if (txt) {
+            out->serial_text = txt;
+            out->serial_len = len;
+        } else {
+            out->serial_text = calloc(1, 1);
+            out->serial_len = 0;
+        }
+    }
+
+    /* Parse the -d log for triple-fault / reset / guest_error indicators.
+     * QEMU emits a "Triple fault" line and "CPU Reset" entries; guest
+     * errors appear under the guest_errors class. We count rather than
+     * just boolean so a gate can be precise. */
+    {
+        size_t llen = 0;
+        char *log = read_file(out->log_path, &llen);
+        if (log) {
+            out->cpu_reset_count = count_substr(log, "CPU Reset");
+            out->guest_errors = count_substr(log, "guest_error");
+            /* Triple-fault detection. IMPORTANT: cpu_reset_count is NOT a
+             * fault signal -- SeaBIOS issues ~2 normal "CPU Reset" events
+             * during boot in EVERY run (verified against both fixtures), so
+             * keying off it would false-positive on the GOOD guest, the
+             * worst outcome (Law 2). The reliable signals, emitted only on
+             * an actual triple fault:
+             *   - QEMU's explicit "Triple fault" log line; and
+             *   - the double-fault cascade "check_exception old: 0x8"
+             *     (a #DF that itself faults -> triple fault).
+             * We report the count for diagnostics only. */
+            if (strstr(log, "Triple fault") != NULL ||
+                strstr(log, "triple fault") != NULL ||
+                strstr(log, "check_exception old: 0x8") != NULL) {
+                out->triple_fault = true;
+            }
+            free(log);
+        }
+    }
+
+    /* Marker assertion. */
+    if (cfg->expect_marker && out->serial_text) {
+        out->marker_found =
+            strstr(out->serial_text, cfg->expect_marker) != NULL;
+    }
+
+    /* Overall verdict. */
+    out->ok = out->launched && reaped && out->term_signal == 0 &&
+              /* isa-debug-exit value 0 exits QEMU with status 1, in raw AND
+               * multiboot fixtures. A startup failure has no guest serial. */
+              (out->exit_code == 0 || (out->exit_code == 1 && out->serial_len > 0)) &&
+              !out->timed_out && !out->triple_fault &&
+              !qmp_failed && log_guard_ok &&
+              out->guest_errors == 0 &&
+              (cfg->expect_marker == NULL || out->marker_found) &&
+              (cfg->quit_after == NULL || cfg->quit_after[0] == '\0' ||
+               out->quit_marker_found) &&
+              out->record_events_after_end == 0;   /* initech-mfrb */
+
+    return 0;
+}

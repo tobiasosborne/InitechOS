@@ -10,8 +10,8 @@ COMPONENTS :=
 
 help:
 	@echo "make test    tier 0: host tests of every imported component"
-	@echo "make image   build the product image        (not yet: needs boot + kernel)"
-	@echo "make smoke   tier 1: drive the booted image (not yet)"
+	@echo "make image   build the product disk set"
+	@echo "make smoke   tier 1: drive QEMU and Bochs"
 	@echo "make cert    tier 2: the full certificate   (not yet)"
 	@echo "imported components: $(COMPONENTS)"
 
@@ -26,3 +26,25 @@ test:
 
 clean:
 	rm -rf build
+
+.PHONY: boot-build catalog dos-build kernel-build factory-build run run-bochs repro
+boot-build: catalog
+	$(MAKE) -C boot
+catalog:
+	$(MAKE) -C kernel ../build/kernel/dos_messages.h ../build/kernel/dos_messages.inc
+dos-build: catalog
+	$(MAKE) -C dos
+kernel-build: dos-build
+	$(MAKE) -C kernel
+factory-build:
+	$(MAKE) -C factory
+image: boot-build kernel-build factory-build
+	$(MAKE) -C factory image
+smoke: image
+	$(MAKE) -C factory smoke
+run: image
+	qemu-system-i386 -m 8 -machine acpi=off -cpu 486 -drive file=build/image/boot.img,format=raw,index=0 -drive file=build/image/data.img,format=raw,index=1 -serial stdio -d int,guest_errors,cpu_reset -D build/qemu.log -no-reboot
+run-bochs: image
+	INITECH_TEST_RAM_MB=8 build/factory/bochs_harness --disk build/image/boot.img --disk2 build/image/data.img --serial-stdout --timeout-ms 3600000 --out build/factory
+repro:
+	sh factory/repro.sh

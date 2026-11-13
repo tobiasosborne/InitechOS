@@ -130,7 +130,7 @@ static const char *exc_name(uint32_t vec)
 
 static const boot_info_t *panic_video(void)
 {
-    const boot_info_t *b=(const boot_info_t *)(uintptr_t)BOOT_INFO_ADDR;
+    const boot_info_t *b=(const boot_info_t *)boot_info();
     if (b->lfb_bpp==8u) {
         /* Reset our two indices even if FLAIR replaced the entire palette.
          * Ref: kmain.c vga_set_dac; boot_info.h lfb_dac_bits (6/8).
@@ -149,15 +149,10 @@ static const boot_info_t *panic_video(void)
 void panic_show_reason(panic_reason_t reason, const char *subject)
 {
     g_panic_active = 1u;
-#ifndef PANIC_MUTATE_SKIP_REASON
     const boot_info_t *b=panic_video();
     panic_screen_reason((volatile uint8_t *)(uintptr_t)b->lfb_addr,
                         b->lfb_pitch,b->lfb_bpp,b->lfb_width,b->lfb_height,
                         (const uint8_t *)(uintptr_t)b->font_addr,reason,subject);
-#else
-    /* Rule 6: retain serial PANIC/HALTED while omitting the physical paint. */
-    (void)reason; (void)subject;
-#endif
 }
 
 static void panic_draw(uint32_t vector)

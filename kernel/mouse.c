@@ -19,7 +19,7 @@
  *     cascaded ISR sends a non-specific EOI (OCW2 0x20) to the SLAVE command
  *     port (0xA0) THEN the MASTER command port (0x20).
  *   - spec/event_model.h Sec 5: flair_raw_event_t MOUSE payload layout.
- *   - os/milton/kbd.c / pit.c: the function-pointer-hook + bounded-spin idioms
+ *   - os/initechdos/kbd.c / pit.c: the function-pointer-hook + bounded-spin idioms
  *     (FO-4/FO-5) mirrored here. CLAUDE.md Law 1/2/3, Rule 2/11/12.
  *
  * ARTIFACT code (Law 3): freestanding, io.h only, no libc.
@@ -226,7 +226,7 @@ void mouse_irq_handler(void)
                  * raw; it does no cooking). dy is still "+ = up" PS/2
                  * convention here. The HOOK (the producer, e.g.
                  * flair_live_mouse_post/mouse_pack_raw_payload,
-                 * os/milton/mouse_pack.h) MUST perform the PS/2->screen Y
+                 * os/initechdos/mouse_pack.h) MUST perform the PS/2->screen Y
                  * flip BEFORE the value enters the SPSC ring
                  * (spec/event_model.h Sec 5, LOCKED contract). The
                  * WaitNextEvent pump (cook_raw, os/flair/event.c) only
@@ -249,8 +249,6 @@ void mouse_irq_handler(void)
      * set and SILENTLY WEDGES every further slave IRQ -- no second mouse event
      * ever fires (Bochs/real-hardware accurate; QEMU is more forgiving).
      * Ref: Intel 8259A datasheet (cascaded EOI). */
-#ifndef FLAIR_LIVE_MUTATE_MASTER_ONLY_EOI
     outb(PIC2_CMD, PIC_EOI);   /* SLAVE EOI FIRST (0xA0)  -- the non-negotiable */
-#endif
     outb(PIC1_CMD, PIC_EOI);   /* MASTER EOI (0x20)                              */
 }

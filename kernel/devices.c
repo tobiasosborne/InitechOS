@@ -138,11 +138,7 @@ static void dev_nul_handler(device_header_t *dev,
         /* NUL READ: return EOF immediately (0 bytes transferred).
          * MUTANT DEVICES_MUTATE_NUL_READ_BYTE: return 1 instead of 0 so the
          * oracle that checks NUL READ yields 0 bytes goes RED (Rule 6). */
-#ifdef DEVICES_MUTATE_NUL_READ_BYTE
-        pkt->data.rw.count = 1u;  /* mutant: claim one byte was read (wrong) */
-#else
         pkt->data.rw.count = 0u;  /* correct: EOF, zero bytes                */
-#endif
         pkt->status = 0u;
         break;
 
@@ -704,7 +700,5 @@ void devices_request(device_header_t    *dev,
      *
      * MUTANT DEVICES_MUTATE_NO_DONE_BIT: skip this OR-in -- the oracle goes
      * RED on every check for DONE (Rule 6).  NEVER in a real build. */
-#ifndef DEVICES_MUTATE_NO_DONE_BIT
     pkt->status |= (uint16_t)DEVST_DONE;
-#endif
 }

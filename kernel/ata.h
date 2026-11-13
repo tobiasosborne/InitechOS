@@ -1,9 +1,9 @@
 /*
- * os/milton/ata.h -- minimal ATA PIO LBA28 sector read backend (MILTON).
+ * os/initechdos/ata.h -- minimal ATA PIO LBA28 sector read backend (INITECHDOS).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code, freestanding
  * (only <stdint.h>). This is the REAL-HARDWARE sector backend that satisfies
- * the blockdev_t read contract (os/milton/blockdev.h) on the primary ATA
+ * the blockdev_t read contract (os/initechdos/blockdev.h) on the primary ATA
  * channel. test-ata scripts the I/O ports through a factory-only seam;
  * test-fs/test-block-device-emu exercise the real instructions under QEMU.
  *
@@ -14,8 +14,8 @@
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  */
-#ifndef INITECH_MILTON_ATA_H
-#define INITECH_MILTON_ATA_H
+#ifndef INITECH_INITECHDOS_ATA_H
+#define INITECH_INITECHDOS_ATA_H
 
 #include <stdint.h>
 
@@ -156,4 +156,4 @@ void crit_blockdev_init(crit_blockdev_t *cb, const blockdev_t *inner);
  * One process-wide hook (the single-tenant DOS model). */
 void crit_blockdev_set_hook(crit_blockdev_hook_t hook);
 
-#endif /* INITECH_MILTON_ATA_H */
+#endif /* INITECH_INITECHDOS_ATA_H */

@@ -46,14 +46,7 @@ void idt_set_gate(uint8_t vec, void *handler, uint16_t sel, uint8_t type_attr)
     g_idt[vec].selector  = sel;
     g_idt[vec].zero      = 0u;
     g_idt[vec].type_attr = type_attr;
-#ifdef IDT_MUTATE_OFFSET_HI
-    /* MUTANT (CLAUDE.md Rule 6 mutation-proof; defined only by the host oracle's
-     * `make test-idt-mutant` run): wrong shift -- the encode oracle must go RED.
-     * NEVER define this in a real build. */
-    g_idt[vec].offset_hi = (uint16_t)((off >> 8) & 0xFFFFu);
-#else
     g_idt[vec].offset_hi = (uint16_t)((off >> 16) & 0xFFFFu);
-#endif
 }
 
 /* Read back a gate (a copy) -- a host-oracle hook so test_idt.c can assert the

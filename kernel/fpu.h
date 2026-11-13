@@ -3,7 +3,7 @@
  * THE ARTIFACT (CLAUDE.md Law 3): freestanding, <stdint.h> only, header-only
  * static inlines. Shared VERBATIM by the kernel (sysinit.c sysinit_fpu_init,
  * which owns the CR0 / x87 instructions) and the host oracle
- * (os/milton/test_fpu.c), so the probe verdict and the CR0 arithmetic the boot
+ * (os/initechdos/test_fpu.c), so the probe verdict and the CR0 arithmetic the boot
  * path uses are exactly what the host gate grades (the flair_heap_ram_ok
  * pattern, spec/memory_map.h).
  *
@@ -17,7 +17,7 @@
  *   - FPU absent (386SX/486SX class; "386 desirable, non-blocking", ADR-0001):
  *     the OS must still boot. CR0.EM=1, CR0.MP=0, TS=0 -> the FIRST x87
  *     instruction traps #NM (vector 7) and panics there, loudly. No boot
- *     panic, no software emulator (SAMIR is soft-float, ADR-0009 DEC-01).
+ *     panic, no software emulator (INITECHBASE is soft-float, ADR-0009 DEC-01).
  *
  * Intel references (Law 1). NO local copy of the Intel SDM exists under docs/
  * or spec/ (checked 2026-10-03); the citations below are recorded so a
@@ -36,8 +36,8 @@
  *
  * Rule 2 (fail loud), Rule 11 (deterministic), Rule 12 (ASCII).
  */
-#ifndef INITECH_MILTON_FPU_H
-#define INITECH_MILTON_FPU_H
+#ifndef INITECH_INITECHDOS_FPU_H
+#define INITECH_INITECHDOS_FPU_H
 
 #include <stdint.h>
 
@@ -57,14 +57,7 @@
  * FNINIT defines (exception masks 0-5 + bit 12), reads 003FH. */
 static inline int fpu_probe_present(uint16_t sw, uint16_t cw)
 {
-#ifdef FPU_MUTATE_PROBE_SW_ONLY
-    /* MUTANT (host oracle only, make test-fpu-probe-mutant): trust the status
-     * word alone -- a bus that reads back zeros would pass as an FPU. */
-    (void)cw;
-    return (sw & 0x00FFu) == 0u;
-#else
     return ((sw & 0x00FFu) == 0u) && ((cw & 0x103Fu) == 0x003Fu);
-#endif
 }
 
 /* CR0 for an FPU-present machine (also the state the probe runs in): EM=0 so
@@ -79,13 +72,7 @@ static inline uint32_t fpu_cr0_present(uint32_t cr0)
  * MP=0, TS=0. NE is left set (no effect without an FPU). */
 static inline uint32_t fpu_cr0_absent(uint32_t cr0)
 {
-#ifdef FPU_MUTATE_ABSENT_KEEPS_EM_CLEAR
-    /* MUTANT (host oracle only): leave EM clear -- x87 ops on a machine with
-     * no coprocessor would then silently do nothing instead of trapping. */
-    return (cr0 & ~(CR0_MP | CR0_TS | CR0_EM)) | CR0_NE;
-#else
     return (cr0 & ~(CR0_MP | CR0_TS)) | CR0_EM | CR0_NE;
-#endif
 }
 
-#endif /* INITECH_MILTON_FPU_H */
+#endif /* INITECH_INITECHDOS_FPU_H */

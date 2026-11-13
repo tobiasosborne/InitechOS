@@ -19,7 +19,7 @@
  * No libc: hand-rolled helpers (same discipline as batch.c / env.c).
  *
  * HOST-TESTABILITY SEAM: all ansi_* functions are PURE (no asm, no I/O), so
- * the SAME translation unit compiles HOSTED for os/milton/test_ansi.c.  The
+ * the SAME translation unit compiles HOSTED for os/initechdos/test_ansi.c.  The
  * test file #includes ansi.c directly (the same TU trick as test_batch.c /
  * test_env.c / test_mz.c).
  *

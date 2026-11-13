@@ -8,7 +8,7 @@
  *
  * Ref (Law 1): kmain.c kernel_main (the original ordered init); ADR-0003 DEC-06
  *   (FILES= governs the SFT capacity) + Appendix D.2; spec/dos_config_sys_baseline.txt
- *   (the LOCKED baseline, embedded below); os/milton/config_sys.h; os/milton/sft.h.
+ *   (the LOCKED baseline, embedded below); os/initechdos/config_sys.h; os/initechdos/sft.h.
  *   Rule 2 (fail loud), Rule 11 (deterministic), Rule 12 (ASCII).
  */
 
@@ -174,17 +174,6 @@ static void sysinit_fpu_init(sysinit_serial_fn serial)
 {
     char hx[5];
 
-#ifdef FPU_MUTATE_SKIP_INIT
-    /* MUTANT (make test-fpu-mutant only; NEVER in a real build): skip every
-     * hardware step but still CLAIM success, so the emulator gate has to catch
-     * the missing init from the hardware state it reads back, not from the
-     * boot log's self-report. */
-    sysinit_hex16((uint16_t)X87_BOOT_CONTROL_WORD, hx);
-    serial("FPU-INIT present cw=");
-    serial(hx);
-    serial("\n");
-    return;
-#endif
 
     /* 1. Probe in the FPU-present configuration: EM=0 (x87 opcodes go to the
      *    coprocessor), TS=0, MP=1, NE=1. */
@@ -200,12 +189,6 @@ static void sysinit_fpu_init(sysinit_serial_fn serial)
                          : "=m"(sw), "=m"(cw) : : "memory");
 
     int present = fpu_probe_present(sw, cw);
-#ifdef FPU_FORCE_ABSENT
-    /* FAULT INJECTION (make test-fpu-absent only; NEVER in a real build):
-     * neither QEMU TCG nor Bochs can remove the x87 unit, so force the probe
-     * verdict to drive the absent branch on an emulator that has one. */
-    present = 0;
-#endif
 
     if (!present) {
         /* 3a. No coprocessor (386SX/486SX class): the OS still boots. EM=1 so
@@ -217,13 +200,6 @@ static void sysinit_fpu_init(sysinit_serial_fn serial)
 
     /* 3b. Present: load the locked boot control word and read it back. */
     volatile uint16_t want = (uint16_t)X87_BOOT_CONTROL_WORD;
-#ifdef FPU_MUTATE_BOOT_CW
-    /* MUTANT (make test-fpu-mutant only; NEVER in a real build): load the
-     * 53-bit-precision word an application might choose (PC=10B) instead of
-     * the spec constant. The emulator gate compares against
-     * spec/hardware.json and must go RED. */
-    want = (uint16_t)0x027Fu;
-#endif
     volatile uint16_t got = (uint16_t)FPU_PROBE_SENTINEL;
     __asm__ __volatile__("fldcw %1\n\t"
                          "fnstcw %0\n\t"

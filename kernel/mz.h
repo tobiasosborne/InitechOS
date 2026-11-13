@@ -27,7 +27,7 @@
 #define INITECH_MZ_H
 
 #include <stdint.h>
-#include "../../spec/initechmz_extended.h"
+#include "initechmz_extended.h"
 
 /* MZ_INITECH_TAG -- the sentinel word written at e_res[0] (MZ header offset
  * 0x1C) by the InitechOS toolchain/Turbo Initech to mark a flat-32 InitechMZ

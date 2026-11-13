@@ -1,0 +1,74 @@
+TOP := ..
+COMPONENT := dos
+include $(TOP)/mk/config.mk
+TARGET_INCLUDES := -I$(TOP)/kernel/include -I$(TOP)/build/kernel -Icommand -Icommon -Ichkdsk -Idiskutil -Ifdisk -Iedlin -Ixcopy
+include $(TOP)/mk/target.mk
+PROGRAMS := MORE FIND SORT TPSREP CHKDSK EDLIN FDISK FORMAT SYS DISKCOPY DISKCOMP XCOPY TREE ATTRIB LABEL
+all: $(TOP)/build/kernel/dos_messages.h resident $(addprefix $(OUT)/,$(addsuffix .COM,$(PROGRAMS)))
+resident: $(OUT)/command.o $(OUT)/batch.o $(OUT)/env.o
+$(OUT)/command.o: command/command.c $(MAKEFILE_LIST) | $(OUT)
+	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -DCOMMAND_KERNEL_REPL -MMD -MP -c $< -o $@
+$(OUT)/batch.o: command/batch.c $(MAKEFILE_LIST) | $(OUT)
+	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
+$(OUT)/env.o: command/env.c $(MAKEFILE_LIST) | $(OUT)
+	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
+$(OUT)/MORE.COM: more/more_program.asm | $(OUT)
+	$(NASM) -f bin $< -o $@
+$(OUT)/FIND.COM: find/find_program.asm $(TOP)/build/kernel/dos_messages.inc | $(OUT)
+	$(NASM) -I$(TOP)/build/kernel/ -f bin $< -o $@
+$(OUT)/SORT.COM: sort/sort_program.asm $(TOP)/build/kernel/dos_messages.inc | $(OUT)
+	$(NASM) -I$(TOP)/build/kernel/ -f bin $< -o $@
+$(OUT)/TPSREP.COM: tpsrep/tpsrep_program.asm | $(OUT)
+	$(NASM) -f bin $< -o $@
+define c_program
+$(OUT)/$(1).elf: $(addprefix $(OUT)/,$(2)) $(3)
+	$$(TARGET_LD) $$(TARGET_LDFLAGS) -T $(3) -o $$@ $(addprefix $(OUT)/,$(2))
+$(OUT)/$(1).COM: $(OUT)/$(1).elf
+	objcopy -O binary $$< $$@
+endef
+$(eval $(call c_program,CHKDSK,chkdsk/chkdsk_start.o chkdsk/chkdsk.o chkdsk/chkdsk_program.o chkdsk/mcb.o,chkdsk/chkdsk.ld))
+$(eval $(call c_program,EDLIN,edlin/edlin_start.o edlin/edlin.o edlin/edlin_program.o,edlin/edlin.ld))
+$(eval $(call c_program,FDISK,fdisk/fdisk_start.o fdisk/fdisk.o fdisk/fdisk_program.o,fdisk/fdisk.ld))
+$(OUT)/%_start.o: %_start.asm | $(OUT)
+	@mkdir -p $(@D)
+	$(NASM) -f elf32 $< -o $@
+$(OUT)/xcopy/xcopy_tree_entry.o: xcopy/xcopy_tree_entry.asm | $(OUT)
+	@mkdir -p $(@D)
+	$(NASM) -f elf32 $< -o $@
+$(OUT)/xcopy/tree_entry.o: xcopy/xcopy_tree_entry.asm | $(OUT)
+	@mkdir -p $(@D)
+	$(NASM) -DTREE_PROGRAM -f elf32 $< -o $@
+$(eval $(call c_program,XCOPY,xcopy/xcopy_tree_entry.o xcopy/xcopy_tree.o,xcopy/xcopy_tree.ld))
+$(eval $(call c_program,TREE,xcopy/tree_entry.o xcopy/xcopy_tree.o,xcopy/xcopy_tree.ld))
+define disk_program
+$(OUT)/diskutil/$(1).o: diskutil/diskutil_program.c $$(MAKEFILE_LIST) | $(OUT)
+	@mkdir -p $$(@D)
+	$$(TARGET_CC) $$(TARGET_CFLAGS) $$(TARGET_INCLUDES) -DDU_KIND=$(2) -MMD -MP -c $$< -o $$@
+$(eval $(call c_program,$(1),diskutil/diskutil_start.o diskutil/diskutil.o diskutil/$(1).o,chkdsk/chkdsk.ld))
+endef
+$(eval $(call disk_program,FORMAT,0))
+$(eval $(call disk_program,SYS,1))
+$(eval $(call disk_program,DISKCOPY,2))
+$(eval $(call disk_program,DISKCOMP,3))
+$(OUT)/common/attrib.o: common/dosutil_target.c $(MAKEFILE_LIST) | $(OUT)
+	@mkdir -p $(@D)
+	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -DDOSUTIL_ATTRIB -MMD -MP -c $< -o $@
+$(OUT)/common/label.o: common/dosutil_target.c $(MAKEFILE_LIST) | $(OUT)
+	@mkdir -p $(@D)
+	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
+$(eval $(call c_program,ATTRIB,common/attrib.o common/dosutil.o,common/dosutil.ld))
+$(eval $(call c_program,LABEL,common/label.o common/dosutil.o,common/dosutil.ld))
+test:
+	@echo "dos: tier 0 import pending"
+smoke:
+	$(MAKE) -C $(TOP) smoke
+$(OUT)/chkdsk/mcb.o: $(TOP)/kernel/mcb.c $(MAKEFILE_LIST) | $(OUT)
+	@mkdir -p $(@D)
+	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
+all: $(OUT)/COMMAND.COM
+$(OUT)/COMMAND.COM: command/forward.asm | $(OUT)
+	$(NASM) -f bin $< -o $@
+
+$(TOP)/build/kernel/dos_messages.h $(TOP)/build/kernel/dos_messages.inc:
+	$(MAKE) -C $(TOP)/kernel ../build/kernel/dos_messages.h ../build/kernel/dos_messages.inc
+$(OUT)/command.o $(OUT)/common/dosutil.o $(OUT)/edlin/edlin.o $(OUT)/chkdsk/chkdsk.o $(OUT)/xcopy/xcopy_tree.o: $(TOP)/build/kernel/dos_messages.h

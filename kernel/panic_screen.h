@@ -40,9 +40,6 @@ static inline panic_origin_t panic_origin(uint32_t w, uint32_t h,
     uint32_t width=chars*8u*scale;
     panic_origin_t p = {w>=width ? (w-width)/2u : 0u,
                         h>=64u ? (h-64u)/2u+line*48u : 0u};
-#ifdef PANIC_MUTATE_OFF_CENTRE
-    p.x+=8u;
-#endif
     return p;
 }
 
@@ -68,9 +65,6 @@ static inline void panic_screen_lines(volatile uint8_t *lfb, uint32_t pitch,
     uint32_t bytes=bpp/8u;
     if (!lfb || !font || w<224u || h<64u ||
         (bpp!=8u && bpp!=24u && bpp!=32u) || pitch/bytes<w) return;
-#ifdef PANIC_MUTATE_NO_8BPP
-    if (bpp==8u) return;
-#endif
     /* Every supported black pixel is all zero bytes. Clear exactly the
      * visible bytes; the pitch guard above bounds w*bytes and preserves padding.
      * Ref: PRD Sec 5; round-8 size policy Part 2. */

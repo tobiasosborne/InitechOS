@@ -6,7 +6,7 @@
  *        (glyph format: 256 glyphs x 16 bytes, 1 byte/row, MSB=0x80=leftmost
  *        pixel, set bit = ink) + Sec 5 Risk 2 (the blitter MUST branch on
  *        lfb_bpp -- 32 vs 24 -- never assume 32; Bochs/86Box may give 24);
- *        os/milton/boot_info.h (the handoff contract). CLAUDE.md Law 2 (oracle
+ *        os/initechdos/boot_info.h (the handoff contract). CLAUDE.md Law 2 (oracle
  *        is truth), Rule 2 (fail loud), Rule 11 (reproducible), Rule 12 (ASCII).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only, no

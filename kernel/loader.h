@@ -1,6 +1,6 @@
 /* loader.h -- InitechDOS flat program loader (lay out PSP + image, run, return).
  *
- * beads: initech-509.5 (the MILTON loader keystone; advances f8v.4). This is the
+ * beads: initech-509.5 (the INITECHDOS loader keystone; advances f8v.4). This is the
  *        milestone where InitechDOS RUNS A PROGRAM for the first time: a flat
  *        (.COM-equivalent) loader that builds a PSP + program image at the locked
  *        addresses, transfers control to the program, and handles the program's
@@ -12,8 +12,8 @@
  *        stack-restore jump), Sec 5 (the baked test program), Sec 6 (scope --
  *        FAT-sourcing, full SFT/JFT, FCB, INT 22/23/24 all deferred), Sec 7
  *        (Risk 1 the return path, Risk 2 the 0x100 offset, Risk 3 the 4Ch
- *        contract); spec/memory_map.h (the LOCKED addresses); os/milton/psp.h
- *        (psp_build + psp_params_t); os/milton/int21.h (int21_set_exit /
+ *        contract); spec/memory_map.h (the LOCKED addresses); os/initechdos/psp.h
+ *        (psp_build + psp_params_t); os/initechdos/int21.h (int21_set_exit /
  *        int21_exit_fn -- the hook we repoint). CLAUDE.md Law 1 (cite), Law 2
  *        (oracle is truth), Law 3 (artifact = C), Rule 2 (fail loud), Rule 8
  *        (specs-as-data), Rule 11 (deterministic), Rule 12 (ASCII).
@@ -21,7 +21,7 @@
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only. The
  * HOST-TESTABLE prep (loader_prepare: input validation + layout + the psp_params
  * the loader feeds psp_build) is split out so the factory oracle
- * (os/milton/test_loader.c) can verify it deterministically WITHOUT performing
+ * (os/initechdos/test_loader.c) can verify it deterministically WITHOUT performing
  * the asm stack-switch + jump (which only makes sense in the kernel). The asm
  * control transfer + the non-returning return-to-loader live in load_program()
  * (kernel only), guarded by #ifndef __STDC_HOSTED__-style compilation: the host
@@ -174,7 +174,7 @@ loader_status_t loader_prepare_in_place(const uint8_t *resident,
 
 /* loader_image_is_transient -- 1 iff the first bytes of `image` are the
  * COMMAND3 magic of the flagship's transient command interpreter
- * (os/milton/transient.h): the boot volume's COMMAND.COM is that overlay,
+ * (os/initechdos/transient.h): the boot volume's COMMAND.COM is that overlay,
  * linked at TRANSIENT_BASE, not a flat .COM. PURE, host-testable. Every
  * flat-image entry (loader_prepare / loader_prepare_in_place, i.e. the baked,
  * FAT, nested and in-place paths) refuses such an image LOADER_ERR_BAD_FORMAT
@@ -301,7 +301,7 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
  * SIZE BOUND (beads initech-za4m): because the .COM is read straight into the
  * program arena, the ONLY size limit is PROGRAM_IMAGE_MAX (~188 KiB). The OLD
  * path staged through a 64 KiB buffer (LOAD_STAGING_MAX) that abutted the kernel
- * stack and could not grow -- it wrongly rejected a 77 KiB SAMIR.COM. That cap is
+ * stack and could not grow -- it wrongly rejected a 77 KiB INITECHBASE.COM. That cap is
  * gone; LOAD_STAGING is now UNUSED by this path.
  *
  * SUBDIR EXEC (beads initech-zs24, Landing 2): `dir_start` is the containing
@@ -339,7 +339,7 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
  * it is a no-op stub returning LOADER_ERR_NO_VOLUME (the host oracle drives the
  * AH=4Bh register/validation logic through int21's mock EXEC backend instead).
  * Ref: beads initech-saw; fs-mount-sft-ground-truth.md; spec/memory_map.h. */
-struct fat12_volume;   /* full type in os/milton/fat12.h (kernel-only) */
+struct fat12_volume;   /* full type in os/initechdos/fat12.h (kernel-only) */
 
 /* Bind the mounted FAT12 volume the loader reads .COMs from (caller-owned,
  * outlives the binding). NULL clears it -> load_program_from_fat returns

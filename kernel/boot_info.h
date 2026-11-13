@@ -10,7 +10,7 @@
  * ARTIFACT code: freestanding, <stdint.h> only, no libc.
  *
  * The block lives at a fixed physical address (BOOT_INFO_ADDR). stage2 writes
- * the 36 bytes in field order in real mode (before the PM switch); the flat C
+ * the 40 bytes in field order in real mode (before the PM switch); the flat C
  * kernel reads them by casting the constant to a volatile pointer -- no
  * register convention, no relocation (a physical constant, flat-binary safe).
  *
@@ -55,15 +55,19 @@ typedef struct {
                           /* append-only (tdnl.29 / runway design K2).        */
     uint32_t lfb_dac_bits; /* appended by initech-2gva: 6 or 8 bits/channel; */
                           /* VBE 4F08h result, or VGA default 6.             */
+    uint32_t loaded_bytes; /* exact INITDOS.SYS dirent length, appended +36 */
 } boot_info_t;
 
 /* Pin the append-only ABI consumed by stage2's literal +28 write. Ref:
  * kernel-runway-relocation.md K2 / bead initech-tdnl.29 (Rule 2 fail loud). */
-_Static_assert(sizeof(boot_info_t) == 36, "boot_info_t must remain 36 bytes");
+_Static_assert(sizeof(boot_info_t) == 40, "boot_info_t must remain 40 bytes");
 _Static_assert(__builtin_offsetof(boot_info_t, kernel_base) == 28,
                "boot_info_t.kernel_base must remain append-only at offset 28");
 _Static_assert(__builtin_offsetof(boot_info_t, lfb_dac_bits) == 32,
                "boot_info_t.lfb_dac_bits must remain append-only at offset 32");
+
+_Static_assert(__builtin_offsetof(boot_info_t, loaded_bytes) == 36,
+               "boot_info_t.loaded_bytes must remain append-only at offset 36");
 
 /* Fixed physical address of the boot_info block (above the BDA at 0x4FF). */
 #define BOOT_INFO_ADDR  0x00000500u
@@ -71,4 +75,12 @@ _Static_assert(__builtin_offsetof(boot_info_t, lfb_dac_bits) == 32,
 /* Fixed physical address of the captured ROM font (4096 bytes). */
 #define FONT_STASH_ADDR 0x00001000u
 
+/* The firmware owns this low physical address, outside any C object.
+ * Hide the numeric address from GCC's hosted-object bounds inference. */
+static inline const volatile boot_info_t *boot_info(void)
+{
+    uintptr_t address = BOOT_INFO_ADDR;
+    __asm__ __volatile__("" : "+r"(address));
+    return (const volatile boot_info_t *)address;
+}
 #endif /* INITECH_BOOT_INFO_H */

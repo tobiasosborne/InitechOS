@@ -15,8 +15,8 @@
  */
 
 #include "kbd.h"
-#include "../flair/ring_report.h"
-#include "../../spec/tsr_contract.h"   /* TSR_KBD_FLAGS_LINEAR (bead initech-6fdt) */
+#include "ring_report.h"
+#include "tsr_contract.h"   /* TSR_KBD_FLAGS_LINEAR (bead initech-6fdt) */
 #include "io.h"
 
 /* 8042 keyboard data port (the controller output buffer). Ref: 8042 datasheet. */

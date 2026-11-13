@@ -13,7 +13,7 @@
  *        controlled scope), Rule 8, Rule 11, Rule 12.
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only. The
- * SAME TU compiles HOSTED for os/milton/test_int21.c. All "display" bytes go
+ * SAME TU compiles HOSTED for os/initechdos/test_int21.c. All "display" bytes go
  * through g_sink; terminate goes through g_exit -- so the dispatch logic never
  * calls the console/serial directly and is fully host-testable.
  */
@@ -630,10 +630,10 @@ int int21_mcb_bind_program(uint32_t arena_base_linear, uint32_t arena_ceil_linea
      * shrink. It must be left FREE so the program's first AH=48h allocates straight
      * from it (the allocation is then stamped with the program's PSP owner by
      * mcb_alloc). Handing the whole arena to the PSP up front (int21_mcb_reset)
-     * would leave zero FREE space, and a heap-using program (SAMIR) that -- per its
+     * would leave zero FREE space, and a heap-using program (INITECHBASE) that -- per its
      * documented contract -- does NOT SETBLOCK first would get AH=48h "insufficient
      * memory" and panic. So we deliberately do NOT call int21_mcb_reset here.
-     * Ref: ADR-0009 DEC-04 ("the arena's FREE region"); pal_milton.c pal_milton_make
+     * Ref: ADR-0009 DEC-04 ("the arena's FREE region"); pal_initechdos.c pal_initechdos_make
      * ("AH=48h draws straight from it; no AH=4Ah SETBLOCK first"); the S8.2 in-emu
      * gate (bead hdlb) forces this real allocation. */
     int21_set_mcb_arena((void *)(uintptr_t)arena_base_linear, total_paras,
@@ -1542,7 +1542,7 @@ static void do_input_status(int_frame_t *f)
  * layout. `f` is the trap frame threaded through for int23_dispatch. `broke` may
  * be NULL only if the caller cannot reach a ^C (none today; both callers pass it).
  * Ref: DOS 3.3 PRM AH=0Ah; Microsoft KB Q113058 (AH=3Fh CON read);
- * os/milton/kbd.c SC1_NORMAL[0x1C] == '\r'. */
+ * os/initechdos/kbd.c SC1_NORMAL[0x1C] == '\r'. */
 static void conedit_console_emit(uint8_t c, void *ctx)
 {
     (void)ctx;
@@ -2942,7 +2942,7 @@ static void do_unlink(int_frame_t *f)
  *        passes the new name in ES:DI; on this 32-bit protected-flat kernel the
  *        segment is collapsed and EDI carries the flat linear address directly --
  *        the SAME convention EDX already uses for the primary pointer. int_frame_t
- *        carries both edx and edi (os/milton/idt.h).
+ *        carries both edx and edi (os/initechdos/idt.h).
  *   OUT: success -> CF=0 (AX left untouched, the do_unlink/do_mkdir pattern).
  * ERRORS (CF=1):
  *   - NULL/empty EDX or EDI                     -> AX=0x0002 (file not found)
@@ -5028,7 +5028,7 @@ void KERNEL_ASM_ABI int27_dispatch(int_frame_t *frame)
  * Ref (Law 1): DOS 3.3 Programmer's Reference Manual, the named function pages;
  *   spec/int21h_register.json (all are in the locked register). The DATE/TIME
  *   functions reach the wall clock through the CLOCK seam (g_clock_get/set ->
- *   the MC146818 RTC, os/milton/rtc.c).
+ *   the MC146818 RTC, os/initechdos/rtc.c).
  * ===========================================================================*/
 
 /* ---- the last DOS error (AH=59h GET EXTENDED ERROR; beads initech-yv9) ----

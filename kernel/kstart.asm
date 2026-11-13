@@ -1,21 +1,12 @@
 ; kstart.asm -- InitechDOS flat C kernel entry stub (32-bit protected/flat).
 ;
-; beads: initech-d00 ("stage2 -> C kernel handoff").
-; Ref:   PRD Sec 5 (flat binary kernel handed off by stage2; ADR-0003 DEC-08);
-;        docs/research/boot-to-text-ground-truth.md Sec 3.2 (entry stub) +
-;        docs/design/kernel-runway-relocation.md K2 (bead initech-tdnl.29:
-;        deterministic post-image runway zero). The design's proposed high
-;        stack [0x4F0000,0x500000) was stopped by Step 0.3 (it overlaps the
-;        locked FLAIR heap); bead initech-xu97 ratified the disjoint home
-;        [0x5F0000,0x600000) instead (docs/adr/ADR-0003-AMENDMENT-DEC-08b-
-;        Kernel-Stack-Window.md). CLAUDE.md Rule 2 (fail loud), Rule 12 (ASCII).
-;
-; stage2 far-jumps here (CODE_SEL:0x00500000) in 32-bit flat protected mode:
-; CR0.PE=1, A20 on, flat GDT loaded, DS/ES/FS/GS/SS = DATA_SEL. We are linked
-; FIRST in the flat binary so physical KERNEL_BASE == _start (kernel.ld).
-;
-; We set our OWN stack (stage2's ESP=0x90000 region is now abandoned) and call
-; the C entry. kernel_main never returns; the hlt-loop is a fail-loud guard.
+; Boot contract: IO.SYS enters 08:00500000 with CR0.PE=1, A20 on,
+; IF=0, flat DS/ES/FS/GS/SS=10. This entry is first in the linked image.
+; The first 16 bytes are EB 0E, K386, loaded byte count, absolute BSS end,
+; and a reserved zero word. Stage2 checks these BEFORE copying the image.
+; boot_info at 0x500 appends loaded_bytes (+36) to the existing 9 dwords.
+; Clear BSS, alignment gap and unused runway from linker symbols, before
+; using the stack [0x5f0000,0x600000); never clear loaded .rodata.
 
 bits 32
 
@@ -28,7 +19,7 @@ KERNEL_STACK_BOT  equ 0x005F0000
 KERNEL_STACK_TOP  equ 0x005FFFFC
 
 ; The stack equates are a duplicate of spec/memory_map.h, so they carry the
-; same drift guard as KERNEL_SECTORS below: the Makefile parses the header's
+; drift guard: the Makefile parses the header's
 ; KERNEL_STACK_BOT/TOP and passes them as MK_KERNEL_STACK_BOT/TOP; any
 ; disagreement is an assembly error, never a silently-misplaced ESP
 ; (bead initech-xu97; CLAUDE.md Rule 2).
@@ -43,42 +34,18 @@ KERNEL_STACK_TOP  equ 0x005FFFFC
   %error "KERNEL_STACK_BOT MISMATCH: spec/memory_map.h (MK_KERNEL_STACK_BOT) differs from this kstart.asm equate -- move BOTH."
 %endif
 
-; ---------------------------------------------------------------------------
-; KERNEL_SECTORS -- the padded disk window, and THE THIRD COPY OF IT.
-;
-; This value is load-bearing in a way that is easy to miss: the stosd below
-; starts zeroing at KERNEL_BASE + KERNEL_SECTORS*512, so a value SMALLER than
-; the Makefile's does not merely under-zero the runway -- it ZEROES THE TOP OF
-; THE KERNEL'S OWN LOADED IMAGE, in place, before kernel_main runs.
-;
-; That is exactly what happened. Bead initech-uzjc bumped KERNEL_SECTORS
-; 352 -> 384 and mechanised the Makefile <-> stage2.asm pairing (stage2 gets
-; -DMK_KERNEL_SECTORS and %errors on a mismatch) -- but THIS third copy was
-; missed and stayed at 352. The bug was LATENT only because the kernel image
-; was still smaller than 352 sectors: the wiped range 0x52C000.. held nothing
-; but padding. Bead initech-tdnl.10 grew the image past that line and the
-; kernel started erasing its own .rodata tail (the symptom: serial_puthex32
-; printing NULs because its digit table read as zero, and the second banner
-; line printing garbage) with no fault and no marker -- the quietly-wrong
-; failure Rule 2 exists to make impossible.
-;
-; ROOT-CAUSE FIX (Rule 3, and the uzjc mechanisation finished): the Makefile
-; passes its KERNEL_SECTORS as MK_KERNEL_SECTORS and this file %errors if the
-; two disagree -- the SAME guard stage2.asm carries, now on all three copies,
-; so the constant can never drift silently again.
-; ---------------------------------------------------------------------------
-KERNEL_SECTORS    equ 384
-
-%ifndef MK_KERNEL_SECTORS
-  %error "MK_KERNEL_SECTORS not defined: kstart.asm must be assembled by the Makefile rule so its KERNEL_SECTORS equate can be checked against the Makefile's KERNEL_SECTORS."
-%elif MK_KERNEL_SECTORS != KERNEL_SECTORS
-  %error "KERNEL_SECTORS MISMATCH: the Makefile's KERNEL_SECTORS (MK_KERNEL_SECTORS) differs from this kstart.asm equate. Bump BOTH -- the Makefile pads the kernel .bin to its value and THIS file starts the runway zeroing just past it; a stale value here erases the top of the loaded kernel."
-%endif
-
 global _start
 extern kernel_main
+extern _kernel_image_end, _bss_start, _bss_end, _kernel_end
+section .text._start
 
 _start:
+    jmp short .entry
+    db 'K386'
+    dd _kernel_image_end - KERNEL_BASE
+    dd _bss_end
+    dw 0
+.entry:
     ; Kernel-private 64 KiB stack [0x5F0000,0x600000): the top of the RAM-gated
     ; kernel runway, above the transient COMMAND.COM window and disjoint from
     ; the FLAIR heap, the kernel image, the program window and the staging
@@ -89,17 +56,26 @@ _start:
     mov esp, KERNEL_STACK_TOP
     xor ebp, ebp                ; null frame pointer => top of stack to debugger
 
-    ; Zero the post-image runway slack [KERNEL_BASE + padded disk window,
-    ; KERNEL_CEIL). stage2 copied the entire padded KERNEL_SECTORS window, whose
-    ; deterministic zero padding covers objcopy's dropped NOBITS/.bss bytes;
-    ; this stosd completes the remaining runway. Together they make BSS and all
-    ; post-image slack zero on real hardware, independent of emulator RAM init.
-    ; Ref: kernel-runway-relocation.md K2; bead initech-tdnl.29.
+    ; Linker boundaries, never a padded disk size: clear BSS explicitly,
+    ; then the unused runway through 0x600000 before the first stack push.
+    ; _kernel_image_end follows ALL loaded sections, including .rodata.
     cld
-    mov edi, KERNEL_BASE + (KERNEL_SECTORS * 512)
-    mov ecx, (KERNEL_RUNWAY - (KERNEL_SECTORS * 512)) / 4
     xor eax, eax
-    rep stosd
+    mov edi, _bss_start
+    mov ecx, _bss_end
+    sub ecx, edi
+    rep stosb
+    mov edi, _kernel_image_end
+    mov ecx, _bss_start
+    sub ecx, edi
+    rep stosb
+    mov edi, _kernel_end
+    mov ecx, KERNEL_CEIL
+    sub ecx, edi
+    rep stosb
+%ifdef MK_BIG_KERNEL
+    call bigkernel_check
+%endif
 
     push ebp
     call kernel_main            ; void kernel_main(void) -- never returns
@@ -107,6 +83,99 @@ _start:
 .hang:
     hlt
     jmp .hang
+
+%ifdef MK_BIG_KERNEL
+; Opt-in reproducible load proof: 128KiB with every byte value repeated 512
+; times. Read every byte from high .rodata after BSS/runway clearing. A failure
+; halts before kernel_main; normal images contain neither blob nor checker.
+bigkernel_check:
+    mov esi, bigkernel_blob
+    mov ecx, 131072
+    xor ebx, ebx
+.sum:
+    lodsb
+    movzx eax, al
+    add ebx, eax
+    loop .sum
+    cmp ebx, 0x00ff0000
+    jne .bad
+    mov esi, bigkernel_ok
+    call .puts
+    mov eax, [0x500+36]
+    mov edi, 10
+    xor ecx, ecx
+.decimal:
+    xor edx, edx
+    div edi
+    push edx
+    inc ecx
+    test eax, eax
+    jnz .decimal
+.digit:
+    pop eax
+    add al, '0'
+    call .putc
+    loop .digit
+    mov esi, bigkernel_sum
+    call .puts
+    mov ecx, 8
+.hex:
+    rol ebx, 4
+    mov eax, ebx
+    and al, 15
+    add al, '0'
+    cmp al, '9'
+    jbe .emit
+    add al, 7
+.emit:
+    call .putc
+    loop .hex
+    mov al, 10
+    call .putc
+    ret
+.bad:
+    mov esi, bigkernel_bad
+    call .puts
+    cli
+.halt:
+    hlt
+    jmp .halt
+.puts:
+    lodsb
+    test al, al
+    jz .done
+    call .putc
+    jmp .puts
+.done:
+    ret
+.putc:
+    push eax
+    push edx
+    mov ah, al
+.wait:
+    mov dx, 0x3fd
+    in al, dx
+    test al, 0x20
+    jz .wait
+    mov al, ah
+    mov dx, 0x3f8
+    out dx, al
+    pop edx
+    pop eax
+    ret
+section .rodata
+bigkernel_ok: db 'BIGKERNEL-OK size=',0
+bigkernel_sum: db ' sum=',0
+bigkernel_bad: db 'BIGKERNEL-BAD',10,0
+bigkernel_blob:
+%rep 512
+%assign byteval 0
+%rep 256
+    db byteval
+%assign byteval byteval+1
+%endrep
+%endrep
+%endif
 
 ; Mark the stack non-executable (silences the ld GNU-stack warning). Harmless
 ; for a flat binary; good hygiene. ASCII-only (Rule 12).

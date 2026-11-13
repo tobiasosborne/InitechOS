@@ -147,13 +147,6 @@ int mcb_stats(const mcb_arena_t *a, uint32_t *free_paras, uint32_t *largest_para
  * chain is intact (callers check first). */
 static void mcb_coalesce(mcb_arena_t *a)
 {
-#ifdef MCB_MUTATE_NO_COALESCE
-    /* MUTANT (Rule 6; make test-mcb-mutant only): never merge free neighbours,
-     * so "free everything -> one terminal block" leaves a fragmented chain and
-     * the round-trip oracle goes RED. NEVER define in a real build. */
-    (void)a;
-    return;
-#else
     uint32_t para = 0u;
     for (;;) {
         mcb_t *h = mcb_hdr(a, para);
@@ -172,7 +165,6 @@ static void mcb_coalesce(mcb_arena_t *a)
             para = npara;
         }
     }
-#endif
 }
 
 /* Confirm header_para is a real block boundary by walking from the start. */
@@ -269,16 +261,9 @@ uint16_t mcb_free(mcb_arena_t *a, uint32_t data_para, uint16_t owner)
     if (h->owner == MCB_OWNER_FREE) {
         return MCB_ERR_BAD_BLOCK;                        /* already free         */
     }
-#ifndef MCB_MUTATE_NO_OWNER_CHECK
     if (owner != MCB_OWNER_ANY && h->owner != owner) {
         return MCB_ERR_BAD_BLOCK;                        /* not the caller's     */
     }
-#else
-    /* MUTANT (Rule 6; make test-mcb-mutant only): free WITHOUT the owner check,
-     * so a cross-owner free is wrongly accepted and the owner-guard oracle goes
-     * RED. NEVER define in a real build. */
-    (void)owner;
-#endif
     h->owner = MCB_OWNER_FREE;
     mcb_coalesce(a);
     return MCB_OK;
@@ -388,16 +373,7 @@ uint16_t mcb_keep_resident(mcb_arena_t *a, uint16_t psp_owner,
         mcb_split(a, para, h, cur, keep_data_paras);    /* free the shrunk tail  */
     }
 
-#ifdef MCB_MUTATE_KEEP_NO_RESIDENT
-    /* MUTANT (Rule 6; make test-keep-mutant only): shrink but FAIL to re-own the
-     * block resident -- it stays owned by the terminating PSP, so the terminate-
-     * time mcb_free_owner reclaims it and a later mcb_alloc re-hands the kept
-     * region. The "kept region survives terminate + ALLOC avoids it" assertions go
-     * RED. NEVER define in a real build. */
-    (void)0;
-#else
     h->owner = MCB_OWNER_SYSTEM;                        /* RESIDENT: never freed */
-#endif
 
     mcb_coalesce(a);                                    /* normal form (R2)      */
     return MCB_OK;

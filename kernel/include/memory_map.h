@@ -1,0 +1,135 @@
+/* Machine placement contract; derived from legacy-final spec/memory_map.h.
+ * Kernel overlay/transient reservations retired: image and BSS may extend to
+ * the fixed stack at 0x5f0000. Conventional program/native heap unchanged. */
+
+#ifndef INITECH_SPEC_MEMORY_MAP_H
+#define INITECH_SPEC_MEMORY_MAP_H
+
+#define KERNEL_BASE         0x00500000u
+#define KERNEL_RUNWAY       0x00100000u
+#define KERNEL_CEIL         0x00600000u
+#define KERNEL_IMAGE_CEIL   0x005F0000u
+#define KERNEL_STACK_BOT    0x005F0000u
+#define KERNEL_STACK_TOP    0x005FFFFCu
+#define KERNEL_BOUNCE_BASE  0x00010000u
+#define KERNEL_BOUNCE_CAP   0x00000200u
+
+#define INITECH_MIN_EXT_KB \
+    (((EXT_APP_CEIL) - 0x00100000u) / 1024u)
+
+#define PROGRAM_BASE        0x00040000u
+
+#define PROGRAM_IMAGE       0x00040100u
+
+#define ENV_BLOCK           0x0006F000u
+
+#define ENV_BLOCK_LEN       2u
+
+#define ENV_BLOCK_CAP       (PROGRAM_STACK_BOT - ENV_BLOCK)
+
+#define PROGRAM_ALLOC_END   0x00080000u
+
+#define PROGRAM_STACK_TOP   0x0007FFFCu
+
+#define PROGRAM_STACK_BOT   0x00070000u
+
+#define PROGRAM_IMAGE_MAX   (ENV_BLOCK - PROGRAM_IMAGE)
+
+#define PROGRAM_BSS_RESERVE 0x00010000u
+
+#define PROGRAM_ARENA_CEIL  ENV_BLOCK
+
+#define LOAD_STAGING_BASE   0x00080000u
+#define LOAD_STAGING_MAX    0x00010000u   
+
+#define FLAIR_HEAP_BASE     0x00100000u
+#define FLAIR_HEAP_SIZE     0x00400000u
+#define FLAIR_HEAP_MIN      0x00400000u
+
+_Static_assert(KERNEL_BASE == FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE,
+               "kernel base must remain adjacent to the FLAIR heap ceiling");
+_Static_assert(KERNEL_STACK_TOP + 4u <= FLAIR_HEAP_BASE ||
+               KERNEL_STACK_BOT >= FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE,
+               "kernel stack must not overlap the locked FLAIR heap");
+
+#define LEGACY_VGA_BASE     0x000A0000u
+#define LEGACY_VGA_CEIL     0x000C0000u
+
+#define EXT_APP_BASE       0x00600000u
+#define EXT_APP_CEIL       0x00800000u
+#define EXT_APP_STACK_BOT  0x007F0000u
+#define EXT_APP_STACK_TOP  0x007FFFFCu
+#define EXT_APP_GUARD_BASE 0x007EF000u
+#define EXT_APP_GUARD_WORD 0x58494744u
+#define MMAP_WIN_LO_EXT_APP EXT_APP_BASE
+#define MMAP_WIN_HI_EXT_APP EXT_APP_CEIL
+
+#define MMAP_WIN_LO_BOUNCE      KERNEL_BOUNCE_BASE
+#define MMAP_WIN_HI_BOUNCE      (KERNEL_BOUNCE_BASE + KERNEL_BOUNCE_CAP)
+#define MMAP_WIN_LO_PROGRAM     PROGRAM_BASE
+#define MMAP_WIN_HI_PROGRAM     PROGRAM_ALLOC_END
+#define MMAP_WIN_LO_STAGING     LOAD_STAGING_BASE
+#define MMAP_WIN_HI_STAGING     (LOAD_STAGING_BASE + LOAD_STAGING_MAX)
+#define MMAP_WIN_LO_VGA         LEGACY_VGA_BASE
+#define MMAP_WIN_HI_VGA         LEGACY_VGA_CEIL
+#define MMAP_WIN_LO_FLAIR_HEAP  FLAIR_HEAP_BASE
+#define MMAP_WIN_HI_FLAIR_HEAP  (FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE)
+#define MMAP_WIN_LO_KIMAGE      KERNEL_BASE
+#define MMAP_WIN_HI_KIMAGE      KERNEL_IMAGE_CEIL
+#define MMAP_WIN_LO_KSTACK      KERNEL_STACK_BOT
+#define MMAP_WIN_HI_KSTACK      (KERNEL_STACK_TOP + 4u)
+
+#define MMAP_ASSERT_DISJOINT(A, B)                                          \
+    _Static_assert(MMAP_WIN_HI_##A <= MMAP_WIN_LO_##B ||                    \
+                   MMAP_WIN_HI_##B <= MMAP_WIN_LO_##A,                      \
+                   "memory map windows overlap: " #A " vs " #B)
+
+MMAP_ASSERT_DISJOINT(BOUNCE,     PROGRAM);
+MMAP_ASSERT_DISJOINT(BOUNCE,     STAGING);
+MMAP_ASSERT_DISJOINT(BOUNCE,     VGA);
+MMAP_ASSERT_DISJOINT(BOUNCE,     FLAIR_HEAP);
+MMAP_ASSERT_DISJOINT(BOUNCE,     KIMAGE);
+MMAP_ASSERT_DISJOINT(BOUNCE,     KSTACK);
+MMAP_ASSERT_DISJOINT(PROGRAM,    STAGING);
+MMAP_ASSERT_DISJOINT(PROGRAM,    VGA);
+MMAP_ASSERT_DISJOINT(PROGRAM,    FLAIR_HEAP);
+MMAP_ASSERT_DISJOINT(PROGRAM,    KIMAGE);
+MMAP_ASSERT_DISJOINT(PROGRAM,    KSTACK);
+MMAP_ASSERT_DISJOINT(STAGING,    VGA);
+MMAP_ASSERT_DISJOINT(STAGING,    FLAIR_HEAP);
+MMAP_ASSERT_DISJOINT(STAGING,    KIMAGE);
+MMAP_ASSERT_DISJOINT(STAGING,    KSTACK);
+MMAP_ASSERT_DISJOINT(VGA,        FLAIR_HEAP);
+MMAP_ASSERT_DISJOINT(VGA,        KIMAGE);
+MMAP_ASSERT_DISJOINT(VGA,        KSTACK);
+MMAP_ASSERT_DISJOINT(FLAIR_HEAP, KIMAGE);
+MMAP_ASSERT_DISJOINT(FLAIR_HEAP, KSTACK);
+MMAP_ASSERT_DISJOINT(KIMAGE,     KSTACK);
+
+MMAP_ASSERT_DISJOINT(EXT_APP, BOUNCE);
+MMAP_ASSERT_DISJOINT(EXT_APP, PROGRAM);
+MMAP_ASSERT_DISJOINT(EXT_APP, STAGING);
+MMAP_ASSERT_DISJOINT(EXT_APP, VGA);
+MMAP_ASSERT_DISJOINT(EXT_APP, FLAIR_HEAP);
+MMAP_ASSERT_DISJOINT(EXT_APP, KIMAGE);
+MMAP_ASSERT_DISJOINT(EXT_APP, KSTACK);
+_Static_assert(KERNEL_CEIL <= EXT_APP_BASE &&
+               EXT_APP_BASE < EXT_APP_GUARD_BASE &&
+               EXT_APP_GUARD_BASE + 4096u == EXT_APP_STACK_BOT &&
+               EXT_APP_STACK_BOT + 65536u == EXT_APP_CEIL &&
+               EXT_APP_STACK_TOP + 4u == EXT_APP_CEIL,
+               "DEC-03a: application containment and kernel guard disjointness");
+
+_Static_assert(KERNEL_STACK_TOP + 4u - KERNEL_STACK_BOT == 0x00010000u &&
+               (KERNEL_STACK_TOP & 3u) == 0u,
+               "kernel stack must be a 4-aligned 64 KiB window");
+
+#define FLAIR_HEAP_REQUIRED_EXT_KB \
+    (((FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE) - 0x00100000u) / 1024u)
+
+static inline int flair_heap_ram_ok(unsigned long ext_mem_kb)
+{
+    return (ext_mem_kb >= (unsigned long)FLAIR_HEAP_REQUIRED_EXT_KB) ? 1 : 0;
+}
+
+#endif 
