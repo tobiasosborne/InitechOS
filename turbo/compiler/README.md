@@ -32,3 +32,10 @@ free window after aligned resident and heap header 1741440. Pascal-generated
 module 149219, reserve 174409, module headroom 112925, free window 1703872.
 Both have separate 65536-byte stack and 4096-byte guard. These are mechanical
 layout limits, not a measured worst-case stack-usage claim.
+
+The parent smoke now compiles and executes the complete 17-program corpus on
+QEMU and three cases on Bochs, with no host assembler/linker finishing programs.
+Stdout is compared with the independent goldens and FPC reference executions;
+mtools checks the on-disk payloads. Guest DOS GET TIME brackets each compile
+at its documented 1-second resolution. Tests use a separate 8 MiB FAT12 TEST
+volume (8 sectors/cluster); the inherited executable loader does not bind FAT16.

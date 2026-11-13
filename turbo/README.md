@@ -23,10 +23,13 @@ small conventional programs still use their original runtime/link script.
 
 `make smoke` builds the product image, boots it on QEMU and Bochs with 8 MiB,
 and runs the packaged compiler from a separate TEST data disk. mtools extracts
-its assembly and cmp compares it with the host Pascal compiler's output for
-that source. No test material is placed on the product boot disk. Logs and
-images remain in build/turbo/smoke. This proves the extended compiler
-runs; native generated-program execution is the next milestone. Emulator work never runs in tier 0.
+the generated programs and validates the extended containers. QEMU compiles
+and runs all 17 corpus programs; Bochs runs control, file and tiny cases. Stdout
+is compared with independently authored goldens, also executed under FPC;
+mtools compares file payloads with those written by FPC. No test material is placed on the product boot disk. Logs and
+images remain in build/turbo/smoke. This proves native compilation and execution
+without a host assembler/linker in the loop. The separate guest TIMER utility
+uses INT 21h GET TIME to bracket compilation (1-second clock resolution). Emulator work never runs in tier 0.
 
 FPC, NASM, GNU binutils and mtools are required; missing tools fail. The source
 semantics and independently authored corpus/protocol goldens are unchanged.

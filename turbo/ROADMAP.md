@@ -12,21 +12,19 @@ The resident compiler now uses extended InitechMZ placement. The independent
 factory/mz reader checks the descriptor, sites and memory plan; the factory
 links at zero and a second base to derive relocations independently. Both
 seed-built and Pascal-generated compiler memory checks package their real
-images and enforce the extended window/module limits. QEMU and Bochs run
-TURBO.COM from a separate TEST disk and return assembly identical to the host
-Pascal compiler. Those runs do not prove the generated code executes.
+images and enforce the extended window/module limits. QEMU compiles and runs all 17 corpus programs from a separate TEST disk;
+Bochs runs three cases. Stdout agrees with the authored FPC-checked goldens,
+and file bytes are extracted with mtools. Native containers pass mzcheck.
+Compilation is timed with DOS GET TIME, whose resolution is one second.
 
 Remaining milestones, in order:
 
-1. In-OS corpus: QEMU compiles all 17 programs directly to executables and runs
-   them against the FPC-checked, hand-authored stdout goldens. Bochs runs a
-   subset. Extract file output independently and report compile times.
-2. Self-host: K1 is host seed-built. In the OS K1(S) -> K2, K2(S) -> K3.
+1. Self-host: K1 is host seed-built. In the OS K1(S) -> K2, K2(S) -> K3.
    Extract with mtools, compare whole containers byte for byte, print SHA-256.
    K1==K2 is not the certificate. Keep transcripts under build/.
-3. DDC: independent host FPC(S) -> D1, in-OS D1(S) -> D2. Compare D2 with the
+2. DDC: independent host FPC(S) -> D1, in-OS D1(S) -> D2. Compare D2 with the
    seed path fixed point. Include contaminated-path and changed-source controls.
-4. Minimal blue IDE/finale: edit, safe save, compile diagnostics, run and return,
+3. Minimal blue IDE/finale: edit, safe save, compile diagnostics, run and return,
    then a boot-to-self-reproduction session. All OS calls use INT 21h.
 
 Capacity and semantics remain intentionally bounded: signed integers, booleans,
