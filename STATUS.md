@@ -1,7 +1,9 @@
 # Status
 
 Rewritten, never appended to. Last rewritten 2026-11-13, end of the
-first day of the reboot. A new machine: start with `docs/SETUP.md`.
+first day of the reboot. A new machine: start with `docs/SETUP.md`. A fresh clone from GitHub
+at `~/Projects/` was checked at this commit: `make -j16 test`, `make
+image` and `make smoke` are green.
 
 ## Where we are
 
@@ -108,6 +110,8 @@ here. Then run `make cert` for the first time.
   operator (CLAUDE.md, constitution point 2); to be replaced with
   Initech's mark derived from the boot logo.
 - Finder icon labels overlap when names are long (`ATTRIB.COM`).
+- `test_iword_listfiles_ops` fails when the checkout path is very long
+  (seen in a deep scratch directory; green at `~/Projects/InitechOS`).
 - FIND ignores file name operands; the kernel's overlay loading differs
   from captured DOS 3.30 (both noted by the kernel test import).
 - The film frame's ledger still has `TODO_FRAME` cells. Under the lore

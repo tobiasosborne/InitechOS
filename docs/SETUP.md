@@ -26,6 +26,10 @@ cd InitechOS
 git worktree add --detach ../InitechOS-legacy legacy-final
 ```
 
+Clone to a short path such as `~/Projects/InitechOS`. One InitechWord
+test (`test_iword_listfiles_ops`) fails when the checkout's absolute
+path is very long; that is a defect in the test, tracked in `bd`.
+
 `../InitechOS-legacy` is the frozen old tree. It is the reference for
 behaviour and is never edited. To build it:
 `cd ../InitechOS-legacy && . tools/lane-env.sh && make -j32 factory image`.
