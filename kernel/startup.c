@@ -14,6 +14,7 @@
 #include "loader.h"
 #include "ata.h"
 #include "block_device.h"
+#include "absdisk_binding.h"
 #include "kbd.h"
 #include "pit.h"
 #include "rtc.h"
@@ -353,22 +354,6 @@ static void mount_fixed_volumes(void)
     }
 }
 
-static void bind_absdisk_volume(const fat12_volume_t *vol, const blockdev_t *raw)
-{
-    int21_absdisk_backend_t backend;
-    
-    g_absdisk_vol = *vol;
-    g_absdisk_vol.dev = raw;
-    
-    block_device_mounted(0x81,vol->base_lba,vol->total_sectors,
-                         fileio_fat_absdisk_written);
-    backend.read = int21_absdisk_read;
-    backend.write = raw->write_sectors ? int21_absdisk_write : 0;
-    backend.total_sectors = vol->total_sectors;
-    int21_set_blockdev(&backend);
-    mount_fixed_volumes();
-}
-
 static void mount_context(int rc, const fat12_volume_t *vol)
 {
     serial_puti((int32_t)rc);
@@ -575,6 +560,7 @@ void startup(void)
             serial_puts("LOADER-FAT-BIND-OK\n");
 
             bind_absdisk_volume(&vol, &fatdev);
+            mount_fixed_volumes();
             serial_puts("ABSDISK-BIND-OK\n");
         } else {
             
