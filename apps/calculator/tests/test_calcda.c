@@ -29,7 +29,7 @@
  *                equals the capture's readout interior pixel for pixel
  *                (black vs not-black); (b) the whole content painted idle
  *                equals s8_calc_idle's content (black / white / other) pixel
- *                for pixel. LOUD-SKIP (ADR-0010 CD-8) when absent.
+ *                for pixel. FAIL missing reference (ADR-0010 CD-8) when absent.
  *
  * Mutants (Rule 6; each -D on the artifact TUs; the Makefile proves each RED
  * on its leg): CALCDA_MUT_PRECEDENCE (C1/C3), CALCDA_MUT_DIV0_ZERO (C1),
@@ -441,8 +441,9 @@ static int leg_capture(const char *root)
     } else {
         skipped++;
     }
+    CHECK("C5 required captures", skipped == 0, "%d missing captures", skipped);
     if (skipped)
-        printf("LOUD-SKIP C5 CAPTURE: %d capture(s) absent under %s/goldens/captures "
+        printf("FAIL missing reference C5 CAPTURE: %d capture(s) absent under %s/goldens/captures "
                "(override SYSTEM7_DECOMP=...); %d rows NOT graded against the Mac pixels\n",
                skipped, root, skipped);
     return graded;

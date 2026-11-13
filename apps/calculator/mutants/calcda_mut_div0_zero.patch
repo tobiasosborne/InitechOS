@@ -1,0 +1,10 @@
+--- a/calc_core.c
++++ b/calc_core.c
+@@ -306,6 +306,7 @@
+     case CALC_SUB: return a - b;
+     case CALC_MUL: return a * b;
+     case CALC_DIV:
++        if (b == 0.0L) return 0.0L;
+         return a / b;
+     default:       return b;
+     }

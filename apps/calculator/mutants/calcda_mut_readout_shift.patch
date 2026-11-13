@@ -1,0 +1,11 @@
+--- a/calc_view.c
++++ b/calc_view.c
+@@ -41,7 +41,7 @@
+ {
+     int w = 0;
+     for (int i = 0; s[i]; i++) w += glyph(s[i])->adv;
+-    return CALC_DISP_TEXT_RIGHT - w;
++    return CALC_DISP_TEXT_RIGHT - w - 1;
+ }
+ 
+ void calc_view_paint_readout(const char *readout, calc_rect_fn fn, void *user)

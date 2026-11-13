@@ -2,7 +2,7 @@
  * os/apps/calcda/calc_view.c -- the Calculator's face (THE ARTIFACT; bead
  * initech-tdnl.17). See calc_view.h. The geometry is the locked
  * spec/calcda/calcda_layout.h; the glyphs the locked spec/assets/calcda_geneva9.h.
- * ASCII-clean (Rule 12).
+ * ASCII-clean (CLAUDE.md, The constitution).
  */
 #include "calc_view.h"
 #include "calcda/calcda_layout.h"
@@ -41,11 +41,7 @@ int calc_view_text_left(const char *s)
 {
     int w = 0;
     for (int i = 0; s[i]; i++) w += glyph(s[i])->adv;
-#if defined(CALCDA_MUT_READOUT_SHIFT)
-    return CALC_DISP_TEXT_RIGHT - w - 1;
-#else
     return CALC_DISP_TEXT_RIGHT - w;
-#endif
 }
 
 void calc_view_paint_readout(const char *readout, calc_rect_fn fn, void *user)
@@ -105,9 +101,6 @@ int calc_view_hit(int x, int y)
 calc_cmd_t calc_view_click_cmd(int idx)
 {
     if (idx < 0 || idx >= CALC_KEY_COUNT) return CALC_NONE;
-#if defined(CALCDA_MUT_KEY_CLICK_DIVERGE)
-    if (g_keys[idx].cmd == CALC_SUB) return CALC_ADD;   /* MUTANT, never real */
-#endif
     return (calc_cmd_t)g_keys[idx].cmd;
 }
 

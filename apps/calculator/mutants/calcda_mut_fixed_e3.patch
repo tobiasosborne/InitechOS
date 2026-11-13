@@ -1,0 +1,11 @@
+--- a/calc_core.c
++++ b/calc_core.c
+@@ -222,7 +222,7 @@
+             if (i >= 0 && r[i] != '0') { integral = 0; break; }
+     }
+ 
+-    int fixed_lo = -2;
++    int fixed_lo = -3;
+     if (e_rec >= fixed_lo) {
+         if (integral) {
+             if (s + e_rec + 1 <= CALC_DISPLAY_W) {

@@ -1,0 +1,10 @@
+--- a/calcda.c
++++ b/calcda.c
+@@ -46,7 +46,6 @@
+     /* initech-0xs6: opt into tbx_ask_quit's existing explicit Quit contract.
+      * Same documentless close action (Mac guide printed p.125), retaining W.
+      * Never infer permission to terminate document tenants from a close box. */
+-    { "Quit", 0, 'Q', 0, 1, 0, { 0, 0, 0 } },
+ };
+ /* The DA's Edit menu: present (the capture's bar is File Edit Help), every
+  * row dimmed until a tenant Scrap call exists (recorded gap). */

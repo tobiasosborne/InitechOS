@@ -5,20 +5,13 @@
  * No clipboard syntax is invented here (B13 still needs a real-Mac mint). */
 #include <stdio.h>
 #include <string.h>
-#include "../../os/apps/calcda/calcda.c"
+#include "../calcda.c"
+#include "tbx_host.h"
 
-static const tbx_menubar_t *installed;
-static int exits, fails;
+static int fails;
+#define installed tbx_host.bar
+#define exits tbx_host.exit_calls
 #define CHECK(c, why) do { if (!(c)) { puts("FAIL " why); fails++; } } while (0)
-int32_t tbx_register(void) { return TBX_OK; }
-int32_t tbx_set_mbar(const tbx_menubar_t *b) { installed=b; return TBX_OK; }
-int32_t tbx_new_window(int32_t l,int32_t t,int32_t r,int32_t b,int32_t g)
-{ (void)l;(void)t;(void)r;(void)b;(void)g;return 1; }
-int32_t tbx_set_wtitle(int32_t w,const char *s) { (void)w;(void)s;return TBX_OK; }
-int32_t tbx_fill_rect(int32_t w,int32_t l,int32_t t,int32_t r,int32_t b,uint32_t c)
-{ (void)w;(void)l;(void)t;(void)r;(void)b;(void)c;return TBX_OK; }
-int32_t tbx_content_origin(int32_t w) { (void)w;return (113<<16)|268; }
-int32_t tbx_exit(int32_t rc) { CHECK(rc==0,"quit status");exits++;return TBX_OK; }
 
 static void menu(int32_t word)
 {
@@ -26,6 +19,7 @@ static void menu(int32_t word)
 }
 int main(void)
 {
+    tbx_host_reset();
     int32_t quit=0;
     CHECK(tbx_app_main()==0 && installed,"launch");
     CHECK(!strcmp(calc_display(&g_calc),"0"),"initial readout");

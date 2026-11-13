@@ -10,7 +10,7 @@
  * keyboard path are the SAME call (calc_press) by construction of the tenant
  * and by test (the parity leg).
  *
- * GROUND TRUTH (Law 1). The behaviour is the real Mac OS 8.1 Calculator run
+ * GROUND TRUTH (CLAUDE.md, The constitution). The behaviour is the real Mac OS 8.1 Calculator run
  * under Basilisk II (../system7-decomp re/mint-results-007.md, captures
  * goldens/captures/s8_calc_* and s8_calcprobe_*), 101 key sequences typed into
  * it and the 12-character readout read back. Every rule below cites the probe
@@ -74,15 +74,7 @@
  * (calc_format's big-integer expansion; ties to even), never from a scaled
  * approximation.
  *
- * MUTANT KNOBS (Rule 6; -D on this TU only, harness/proptest/test_calcda.c and
- * the CALCULAT.EXE mutant builds):
- *   CALCDA_MUT_PRECEDENCE  -- '*' and '/' bind tighter than '+' and '-' (the
- *                           pocket-calculator-with-memory rule, not the Mac's).
- *   CALCDA_MUT_DIV0_ZERO   -- division by zero yields 0 instead of infinity.
- *   CALCDA_MUT_ENTRY_CAP14 -- the entry accepts 14 characters.
- *   CALCDA_MUT_FIXED_E3    -- the fixed range starts at e >= -3 (.001 fixed).
- *
- * ASCII-clean (Rule 12). No timestamps, no nondeterminism (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps, no nondeterminism (CLAUDE.md, The constitution).
  */
 #ifndef INITECH_APPS_CALC_CORE_H
 #define INITECH_APPS_CALC_CORE_H
@@ -114,10 +106,6 @@ typedef struct calc {
     uint8_t     pending;             /* CALC_ADD..CALC_DIV, or CALC_NONE     */
     uint8_t     entering;            /* 1 while a number is being typed      */
     uint8_t     len;                 /* entry length (chars, as shown)       */
-#if defined(CALCDA_MUT_PRECEDENCE)
-    long double lo_acc;              /* mutant only: the deferred + / - side */
-    uint8_t     lo_op;
-#endif
     char        entry[CALC_DISPLAY_CAP];
     char        disp[CALC_DISPLAY_CAP];   /* what the readout shows          */
 } calc_t;

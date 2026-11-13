@@ -17,6 +17,7 @@ override COMPONENTS += sdk
 override COMPONENTS += apps/initech123
 override COMPONENTS += apps/initechword
 override COMPONENTS += apps/initechbase
+override COMPONENTS += apps/calculator
 override COMPONENTS += turbo
 override COMPONENTS += system
 override REGISTERED_COMPONENTS := $(COMPONENTS)
