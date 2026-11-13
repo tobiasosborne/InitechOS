@@ -1,11 +1,11 @@
 /* test_process_teardown.c -- the FLAIR App Contract O-3 teardown / leak oracle.
  *
- * beads: the FLAIR App Contract epic initech-4e35 (ADR-0013 Sec 7 O-3), Wave 3a.
+ * the FLAIR App Contract epic  (tenant lifecycle O-3), Wave 3a.
  *        The HOST oracle for the ARENA memory model: FlairProcess_launch carves a
  *        HANDLE FlairApp + a GENERAL child block from the master FLAIR heap and
- *        FlairProcess_terminate one-shot-frees them (ADR-0013 Sec 3.2/3.4/3.6).
+ *        FlairProcess_terminate one-shot-frees them (tenant lifecycle/3.4/3.6).
  *
- * THE REFRAMED LEAK INVARIANT (folded fix; ADR-0013 Sec 3.6 + Sec 7 O-3).
+ * THE REFRAMED LEAK INVARIANT (folded fix; tenant lifecycle + Sec 7 O-3).
  *   The FLAIR heap is a BUMP allocator with per-class LIFO free-lists: flair_free
  *   pushes the freed block onto its class free-list and does NOT roll the bump
  *   cursor back, and flair_heap_avail reports size-used = the bump TAIL only, not
@@ -22,18 +22,18 @@
  *
  *   A LEAK (terminate forgetting flair_free(app->block)) leaves the GENERAL
  *   free-list empty, so every cycle BUMPS a fresh GENERAL span and avail DRIFTS
- *   MONOTONICALLY DOWN -- which the artifact mutant TEARDOWN_MUT_LEAK_BLOCK (a
+ *   MONOTONICALLY DOWN -- which the artifact mutant leak block patch (a
  *   #ifdef in os/flair/process.c FlairProcess_terminate) makes happen, turning the
- *   "avail stable across cycles" check RED (Rule 6).
+ *   "avail stable across cycles" check RED.
  *
- * INDEPENDENT-BY-RECOMPUTATION (Law 2). The expected cycle-1 drop is recomputed
+ * INDEPENDENT-BY-RECOMPUTATION. The expected cycle-1 drop is recomputed
  *   HERE from the documented heap span formula (header rounded to FLAIR_HEAP_ALIGN
  *   + payload aligned up), NOT read back from heap internals; the stability across
  *   cycles is a structural invariant independent of the artifact's counters. An
  *   oracle that asked the heap what the heap did would agree BY CONSTRUCTION and is
- *   forbidden (Law 2; HER-02).
+ *   forbidden (independent checks; HER-02).
  *
- * THE WINDOW PATH (faithful clean teardown). open() builds ONE real document
+ * THE WINDOW PATH (faithful clean teardown). open builds ONE real document
  *   window FROM THE RECORDS ARENA (the test_interact/test_process region-backing
  *   idiom: a caller-supplied rows[]/x_pool per region) and binds w->refCon =
  *   (int32_t)(uintptr_t)self; terminate finds it by that refCon and DisposeWindow's
@@ -42,8 +42,8 @@
  *   and so do NOT perturb the MASTER avail accounting (they are inside the blocks
  *   already counted by the RECORDS + GENERAL spans).
  *
- * SPLIT-ARENA + THE DEATH-SURVIVAL SUB-TEST (ADR-0013 Amendment AC-2, bead
- *   initech-ubd0 -- the deferred corrupt-arena death path, now REQUIRED). Under
+ * SPLIT-ARENA + THE DEATH-SURVIVAL SUB-TEST (tenant lifecycle Amendment AC-2,
+ *    -- the deferred corrupt-arena death path, now REQUIRED). Under
  *   AC-2 a tenant owns TWO child blocks: a RECORDS block (HANDLE; WindowRecord +
  *   region pools) and a DATA block (GENERAL; per-instance state). The cycle-1 drop
  *   is therefore THREE spans (handle + records + data). The death sub-test launches
@@ -51,16 +51,16 @@
  *   crash, calls FlairProcess_kill, and asserts the z-order + process list go empty
  *   with NO panic and avail STABLE across N>=3 cycles -- a NON-by-construction proof
  *   that app death survives a corrupted DATA arena (BC-6) because the WindowRecords
- *   live in the SEPARATE records arena. The UBD0_MUT_RECORDS_IN_DATA_ARENA mutant
+ *   live in the SEPARATE records arena. The records in data arena patch mutant
  *   (records carved from the DATA arena) makes the scribble corrupt them -> kill
- *   reads a corrupted z-order -> RED. The TEARDOWN_MUT_LEAK_RECORDS artifact mutant
+ *   reads a corrupted z-order -> RED. The leak records patch artifact mutant
  *   (skip the records-block free) drifts avail down -> RED.
  *
- * Ref: ADR-0013 Sec 3.2 (launch a-g), Sec 3.4 (clean teardown), Sec 3.6 (child
+ * Ref: tenant lifecycle (launch a-g), Sec 3.4 (clean teardown), Sec 3.6 (child
  *      sub-arena + the heap-contract note), Sec 7 O-3; heap.h (flair_heap_t,
  *      flair_alloc/free/init, flair_heap_avail, FLAIR_HEAP_ALIGN, flair_blk_t);
  *      window.h (NewWindow/DisposeWindow). Mirrors harness/proptest/test_interact.c
- *      + test_process.c scaffolding. CLAUDE.md Law 2, Rule 1, Rule 6, Rule 11, 12.
+ *      + test_process.c scaffolding. independent checks, mutation checks, reproducibility, 12.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -79,7 +79,7 @@
 TEST_HARNESS();
 
 /* ===========================================================================
- * Independent heap-span recomputation (NOT read from heap internals -- Law 2).
+ * Independent heap-span recomputation (NOT read from heap internals -- independent checks).
  * Mirrors heap.c's FLAIR_HEAP_HDR_BYTES + flair_align_up, the documented model
  * (heap.h: header rounded to FLAIR_HEAP_ALIGN, payload aligned up).
  * ===========================================================================*/
@@ -131,7 +131,7 @@ static void mgr_attach(mgr_store_t *m, rgn_rect_t frame)
 }
 
 /* ===========================================================================
- * The tenant's window bundle, allocated FROM THE CHILD ARENA in open(). Small
+ * The tenant's window bundle, allocated FROM THE CHILD ARENA in open. Small
  * region caps (a single rectangular document window needs only a couple of rows
  * / x-points) keep the child budget modest; the WindowMgr's own scratch + the
  * desktop-update region above carry full caps for the damage algebra.
@@ -192,13 +192,13 @@ static void tenant_close(FlairApp *self)
         g_close_hook_notes++;
 }
 
-/* open(): build ONE document window from the RECORDS arena + bind its refCon
- * (ADR-0013 Amendment AC-2: the WindowRecord + regions carve from records_arena,
+/* open: build ONE document window from the RECORDS arena + bind its refCon
+ * (tenant lifecycle Amendment AC-2: the WindowRecord + regions carve from records_arena,
  * NOT the DATA arena -- so a scribbled DATA arena cannot corrupt them, BC-6). */
 static int tenant_open(FlairApp *self, const FlairLaunchParams *lp)
 {
 #ifdef UBD0_MUT_RECORDS_IN_DATA_ARENA
-    /* MUTANT (Rule 6; AC-2 records-placement mutant, records-mutant build only):
+    /* regression patches (mutation checks; AC-2 records-placement mutant, records-mutant build only):
      * carve the WindowRecord + regions from the DATA arena instead of the RECORDS
      * arena. After the death sub-test scribbles app->block (the DATA block),
      * FlairProcess_kill then reads a corrupted nextWindow/refCon -> the
@@ -240,7 +240,7 @@ static const FlairAppProcs g_tenant_procs = {
 /* ===========================================================================
  * MAIN -- the O-3 teardown / leak oracle.
  * ===========================================================================*/
-enum { NCYCLES = 4 };                 /* >= 3 cycles (ADR-0013 Sec 7 O-3)        */
+enum { NCYCLES = 4 };                 /* >= 3 cycles (tenant lifecycle O-3)        */
 enum { DCYCLES = 3 };                 /* >= 3 death-survival cycles (AC-2 / BC-6)  */
 enum { BUDGET  = 4096 };              /* per-tenant DATA-arena byte budget         */
 /* RECORDS-arena budget (AC-2): the WindowRecord + region pools carve from here. */
@@ -268,7 +268,7 @@ int main(void)
     CHECK(alloc_span((uint32_t)sizeof(tw_win_t)) <= (uint32_t)RECORDS_BUDGET,
           "setup: RECORDS_BUDGET holds one window bundle (alloc_span(sizeof tw_win_t) <= RECORDS_BUDGET)");
     /* the DATA budget must hold the same bundle too, so the UBD0 records-in-data
-     * mutant's open() can still build the window (from the DATA arena). */
+     * mutant's open can still build the window (from the DATA arena). */
     CHECK(alloc_span((uint32_t)sizeof(tw_win_t)) <= (uint32_t)BUDGET,
           "setup: BUDGET holds one window bundle (the UBD0 records-in-data mutant builds it from DATA)");
     /* the LIFO free-order coupling precondition (process.c teardown_common). */
@@ -311,8 +311,8 @@ int main(void)
 
     /* --- cycles k >= 2: avail is STABLE (the freed handle + RECORDS + DATA blocks
      *     are reused from the class free-lists; the bump cursor never advances
-     *     again). TEARDOWN_MUT_LEAK_BLOCK bumps a fresh DATA span every cycle and
-     *     TEARDOWN_MUT_LEAK_RECORDS bumps a fresh RECORDS span every cycle, so this
+     *     again). leak block patch bumps a fresh DATA span every cycle and
+     *     leak records patch bumps a fresh RECORDS span every cycle, so this
      *     is the check that goes RED under EITHER artifact leak mutant. --- */
     int stable = 1;
     for (int k = 2; k <= NCYCLES; k++)
@@ -326,18 +326,18 @@ int main(void)
           "O-3: avail after the last cycle == avail after cycle 1 (no monotonic drift)");
 
     /* =======================================================================
-     * THE DEATH-SURVIVAL SUB-TEST (ADR-0013 Amendment AC-2 / BC-6 -- the deferred
+     * THE DEATH-SURVIVAL SUB-TEST (tenant lifecycle Amendment AC-2 / BC-6 -- the deferred
      * corrupt-arena death path, now REQUIRED; the NON-by-construction proof).
      *
      * Launch a tenant; SCRIBBLE its DATA arena (memset app->block, 0xFF) to
      * simulate a crash that corrupted the data heap; call FlairProcess_kill (NOT
-     * terminate -- death never runs the dead app's close()). Assert the z-order +
+     * terminate -- death never runs the dead app's close). Assert the z-order +
      * process list go EMPTY, NO panic fired (the CHECKs below only execute if kill
      * neither aborted nor crashed), and avail STABLE across DCYCLES.
      *
      * CORRECT build: the WindowRecord + regions live in records_arena (a SEPARATE
      * block), so kill's DisposeWindow loop reads INTACT records and the scribble is
-     * harmless -> empties the z-order, avail stable. The UBD0_MUT_RECORDS_IN_DATA_-
+     * harmless -> empties the z-order, avail stable. The records in data  patch-
      * ARENA mutant puts the records in the DATA arena -> the 0xFF scribble corrupts
      * nextWindow/refCon -> kill reads the corrupted z-order (never disposes the
      * window, or crashes) -> these asserts go RED. That bite is what proves BC-6 is
@@ -359,7 +359,7 @@ int main(void)
         memset(app->block, 0xFF, (size_t)BUDGET);
 
         /* DEATH: remove the window(s) from the z-order + one-shot free WITHOUT
-         * running close() and WITHOUT trusting the scribbled data heap (BC-6). */
+         * running close and WITHOUT trusting the scribbled data heap (BC-6). */
         FlairProcess_kill(&plist, &M.wm, &master, app);
 
         CHECK(plist.head == NULL,
@@ -379,9 +379,9 @@ int main(void)
           "AC-2/BC-6: avail STABLE across N>=3 death (kill) cycles (free-list reuse; no leak)");
 
     /* =======================================================================
-     * OWNER-IDENTITY CLOSE (ADR-0013 Sec 3.4; beads initech-8fhu).
+     * OWNER-IDENTITY CLOSE (tenant lifecycle; ).
      * Launch NOTES then HELLO so HELLO is foreground. Closing HELLO through the
-     * dispatch verb must run close(), dispose its window, unlink it, promote +
+     * dispatch verb must run close, dispose its window, unlink it, promote +
      * group-raise NOTES, and route the next key only to NOTES. Then prove an
      * unowned shell-furniture window is merely hidden, and closing NOTES reaches
      * the legitimate zero-tenant state without routing a later key anywhere.

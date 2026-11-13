@@ -1,0 +1,15 @@
+# Legacy EVENT_MUT_TICK_WRAP
+# test: test_event
+--- a/event.c
++++ b/event.c
+@@ -682,9 +682,7 @@
+         }
+ 
+         /* Ring empty: check timeout. */
+-        /* gwts: elapsed unsigned subtraction survives the PIT tick wrap.
+-         * Ref: clipped Toolbox drawing and the existing live-pump budget idiom. */
+-        if ((uint32_t)(g_tick - start) >= sleepTicks) {
++        if (sleepTicks == 0u || g_tick >= start + sleepTicks) {
+             theEvent->what      = (uint16_t)nullEvent;
+             theEvent->message   = 0u;
+             theEvent->when      = g_tick;

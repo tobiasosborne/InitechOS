@@ -1,0 +1,21 @@
+# Legacy MENU_MUT_SEP_PLAIN
+# test: test_menu
+--- a/menu.c
++++ b/menu.c
+@@ -822,12 +822,10 @@
+         if (!m->items[k].is_divider) continue;
+         int row_top = item_row_top(m, k);
+         int inset = 1;
+-        rgn_rect_t dark = { (int16_t)(row_top + 1), (int16_t)(panel.left + inset),
+-                            (int16_t)(row_top + 2), (int16_t)(panel.right - inset) };
+-        rgn_rect_t light = { (int16_t)(row_top + 2), (int16_t)(panel.left + inset),
+-                             (int16_t)(row_top + 3), (int16_t)(panel.right - inset) };
+-        blitter_fill_rect_clipped(bm, dark, disabled, clip);
+-        blitter_fill_rect_clipped(bm, light, bevel_hl, clip);
++        int y = row_top + item_row_h(&m->items[k]) / 2;
++        rgn_rect_t plain = { (int16_t)y, (int16_t)(panel.left + inset),
++                             (int16_t)(y + 1), (int16_t)(panel.right - inset) };
++        blitter_fill_rect_clipped(bm, plain, disabled, clip);
+     }
+ 
+     rgn_rect_t fr_top = { panel.top, panel.left,

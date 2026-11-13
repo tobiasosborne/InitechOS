@@ -1,0 +1,40 @@
+# pending: legacy test-flair-file-copy-mutant: progress/tick-rate trace and independent progress pixels
+# Legacy TBX_MUT_FILECOPY_RATE_IGNORED
+# test: test_flair_routing
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -1597,31 +1597,9 @@
+ 
+ int32_t tbx_fc_rate(void)
+ {
+-    static const char key[] = TBX_FILECOPY_RATE_KEY;
+-    static char cfg[TBX_FILECOPY_CFG_MAX + 1];
+-    int32_t h = fc_dos(0x3d00u, 0u, 0u, (uint32_t)(uintptr_t)TBX_FILECOPY_CFG_PATH);
+-    int32_t n, rate = -1;
+-    if (h < 0) return h;
+-    n = fc_dos(0x3f00u, (uint32_t)h, TBX_FILECOPY_CFG_MAX, (uint32_t)(uintptr_t)cfg);
+-    (void)fc_dos(0x3e00u, (uint32_t)h, 0u, 0u);
+-    if (n < 0) return n;
+-    cfg[n] = 0;
+-    for (int32_t i = 0; i < n && rate < 0; ) {
+-        uint32_t k = 0u;
+-        while (key[k] && cfg[i + (int32_t)k] == key[k]) k++;
+-        if (!key[k]) {
+-            int32_t j = i + (int32_t)k;
+-            rate = 0;
+-            if (cfg[j] < '0' || cfg[j] > '9') return TBX_ERR_BADARG;
+-            while (cfg[j] >= '0' && cfg[j] <= '9' && rate <= (int32_t)TBX_FILECOPY_RATE_MAX)
+-                rate = rate * 10 + (cfg[j++] - '0');
+-        }
+-        while (i < n && cfg[i] != '\n') i++;   /* next line */
+-        i++;
+-    }
+-    if (rate < (int32_t)TBX_FILECOPY_RATE_MIN || rate > (int32_t)TBX_FILECOPY_RATE_MAX)
+-        return TBX_ERR_BADARG;
+-    return rate;
++    /* NAMED regression patches (mutation checks; test-flair-file-copy-mutant): the configured
++     * PROGRESS_BAR_RATE is never read -- a compiled-in 100 %/s. */
++    return 100;
+ }
+ 
+ int32_t tbx_fc_open(uint32_t *size)

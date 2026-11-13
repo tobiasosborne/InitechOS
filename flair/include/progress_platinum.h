@@ -1,21 +1,21 @@
 /*
  * spec/progress_platinum.h -- the Mac OS 8.1 Platinum DETERMINATE PROGRESS
- * BAR (Appearance CDEF 5) as locked spec-data (Rule 8).
+ * BAR (Appearance CDEF 5) as locked spec-data (pinned inputs).
  *
- * bead: initech-bf2 (the FILE COPY dialog). Deliberate Rule-8 act: this file
+ *  (the FILE COPY dialog). Deliberate pinned inputs act: this file
  *       is NEW; it replaces the authored flat bar (black frame, white well,
  *       one navy fill) that docs/design/GUI-remediation-D1-D2-D3-design.md
  *       row 60 called "unverifiable against Platinum -- leave to FILE COPY
  *       canon grading, do not invent Platinum art".
  *
- * SOURCE (Law 1): ../system7-decomp/re/mint-results-s8-progress.md -- a
+ * SOURCE:../system7-decomp/re/mint-results-s8-progress.md -- a
  * one-shot Basilisk II mint of the real Mac OS 8.1 Finder copy window
  * (`Copy to "Initech81"`), captures goldens/captures/
- * s8_progress_determinate{_start,,_full}.png (+ _start_run2, the repro run).
+ * s8_progress_determinate{_start,_full}.png (+ _start_run2, the repro run).
  * Every row/column class below is TRANSCRIBED from that ledger's run-length
  * scans; the host oracle (harness/proptest/test_control.c PROPERTY 6) and the
  * emu oracle (tools/ppm_flair_file_copy_check.c) never read this file -- they
- * read the PNGs (Law 2: an independent golden, not the artifact's table).
+ * read the PNGs (independent checks: an independent golden, not the artifact's table).
  *
  * GEOMETRY (golden x=190..377, y=133..146 -> rect-relative):
  *   contrlRect = the ETCHED OUTER bounds, FLAIR_PROGRESS_H rows tall.
@@ -50,14 +50,14 @@
  * RUNG CODES -- the measured RGBs (sampled domain, platinum-palette.md
  * Sec 1). Lavender rungs are clut 208 (platinum-palette.md Sec 3) and are
  * SUBSTITUTED at the policy seam by the ratified lavender->teal rule
- * (ADR-0004-AMENDMENT-DEC-10 Sec 6 OQ-2/OQ-3), using the SAME H/P/S/R role
- * mapping the scroll thumb ratified (tdnl.96/.97, os/flair/flair_look.c):
+ * (clipped Toolbox drawing OQ-2/OQ-3), using the SAME H/P/S/R role
+ * mapping the scroll thumb ratified (, os/flair/flair_look.c):
  *   'W' #FFFFFF  '1' #DADAFF (H)  '2' #B3B3FF (P)  '3' #8787DA (S)
  *   '4' #5454B3 (R)  'D' #000077 (the dark cap; the menu-title dark edge)
  *   'K' #000000  '7' #777777  'A' #A5A5A5  'C' #CDCDCD  'E' #E7E7E7
  *   'L' #C0C0C0
  *
- * ASCII-clean (Rule 12). Freestanding: no includes.
+ * ASCII-clean. Freestanding: no includes.
  */
 #ifndef INITECH_SPEC_PROGRESS_PLATINUM_H
 #define INITECH_SPEC_PROGRESS_PLATINUM_H

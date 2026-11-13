@@ -1,8 +1,8 @@
 /*
  * spec/menu_record.h -- FLAIR Menu Manager: the LOCKED contract.
  *
- * LOCKED spec-data (CLAUDE.md Rule 8; PRD Sec 6.3 -- "the Toolbox layer").
- * beads: initech-dh5k.2 (P1-2: spec/menu_record.h -- MenuInfo, item attrs,
+ * LOCKED spec-data (pinned inputs; PRD Sec 6.3 -- "the Toolbox layer").
+ *  (P1-2: spec/menu_record.h -- MenuInfo, item attrs,
  *        enableFlags, MenuSelect result word + oracle).
  *
  * This header locks the MenuInfo data structure (verbatim Inside Macintosh
@@ -10,13 +10,13 @@
  * bit-assignment convention, the mark/style constant catalogs, the MDEF
  * message constants, and the MenuSelect / MenuKey result-word packing.
  *
- * ERA AXIS: era=system8-platinum is the Mac OS 8 Platinum (DEC-10) BASE.
+ * ERA AXIS: era=system8-platinum is the Mac OS 8 Platinum BASE.
  * This unchanged MenuInfo layout is retained from the System 7.0/7.1 heritage
  * contract; its source tags remain visible under BC-10.10.
  *
- * SOURCE CITATIONS (Law 1 -- all local or free Apple developer archive):
+ * SOURCE CITATIONS (source provenance -- all local or free Apple developer archive):
  *
- *   ../system7-decomp/specs/toolbox/menu-manager.md [PRIMARY; LOCAL]
+ *../system7-decomp/specs/toolbox/menu-manager.md [PRIMARY; LOCAL]
  *     The verbatim MenuInfo Pascal record (Sec 1 of that doc):
  *       menuID, menuWidth, menuHeight, menuProc, enableFlags, menuData.
  *     The per-item attribute model (Sec 2): text, mark, cmdChar, style,
@@ -68,15 +68,15 @@
  * SPEC.  Do NOT re-author, "correct", or duplicate it here.  Include
  * spec/assets/menu_canon.h and reference FLAIR_CANON_PHOTOSHOP_MENUBAR.
  *
- * Ref: ADR-0004 D-3 / AM-4; spec/chimera_element_map.json element 9;
- *      CLAUDE.md Law 4; PRD Appendix A.
+ * Ref: clipped Toolbox drawing / AM-4; spec/chimera_element_map.json element 9;
+ *      film canon; PRD Appendix A.
  *
  * =========================================================================
  *
  * DUAL-COMPILE: freestanding (gcc -m32 -ffreestanding -nostdlib -std=c11)
  * AND hosted (gcc -m32 -std=c11).  Only <stdint.h> + <stddef.h>.
- * No malloc; no libc beyond stdint/stddef.  Rule 11 (reproducible).
- * ASCII-clean (Rule 12).  Changing this file is a deliberate Rule 8 act.
+ * No malloc; no libc beyond stdint/stddef.  reproducible output.
+ * ASCII-clean.  Changing this file is a deliberate pinned inputs act.
  */
 
 #ifndef INITECH_SPEC_MENU_RECORD_H
@@ -88,27 +88,27 @@
 /*
  * Bring in the FROZEN canon.  Do NOT re-author the Photoshop menu string.
  * See CANON WARNING above.
- * Ref: spec/assets/menu_canon.h (ADR-0004 AM-4; beads initech-zaqj).
+ * Ref: spec/assets/menu_canon.h (clipped Toolbox drawing AM-4; ).
  */
 #include "assets/menu_canon.h"
 
 /* ===========================================================================
  * 0. ERA ANNOTATION
  * ---------------------------------------------------------------------------
- * Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. This compiled string names
+ * Mac OS 8 Platinum is the FLAIR BASE. This compiled string names
  * the unchanged heritage layout locked by this header; it is not the default-
  * appearance selector and is deliberately not rewritten by this prose sweep.
  * Do not remove its provenance tag (BC-10.10).
  *
- * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and BC-10.10;
- *      ../system7-decomp/specs/toolbox/menu-manager.md (heritage source).
+ * Ref: clipped Toolbox drawing and BC-10.10;
+ *../system7-decomp/specs/toolbox/menu-manager.md (heritage source).
  * ===========================================================================*/
 #define FLAIR_MENU_RECORD_ERA "system7.0-7.1"   /* era=system7.0-7.1 */
 
 /* ===========================================================================
  * 1. MenuInfo FIELD SIZES (verbatim Inside Macintosh 68K types)
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/menu-manager.md Sec 1 (field table).
+ * Ref:../system7-decomp/specs/toolbox/menu-manager.md Sec 1 (field table).
  *      IM-I Ch 13 p. I-344 ("MenuInfo").
  *
  * Pascal types used in the IM record:
@@ -125,7 +125,7 @@
  *   enableFlags LONGINT    offset 10  (4 bytes)
  *   menuData    Str255     offset 14  (variable)
  *
- * FLAIR DEVIATIONS (all documented; Law 3 / freestanding / no-malloc):
+ * FLAIR DEVIATIONS (all documented; language boundary / freestanding / no-malloc):
  *   - menuHeight: DROPPED (computed from item count; no stored height needed).
  *   - menuProc (Handle to MDEF): DROPPED (built-in MDEF dispatch; no heap
  *     handle table).
@@ -147,7 +147,7 @@
 /* IM-I 68K field offsets (verbatim order; [inferred] from published sizes).
  * The verbatim ORDER is the authority; offsets are [inferred] arithmetic and
  * are NOT load-bearing for FLAIR (which re-types the record).
- * Ref: ../system7-decomp/specs/toolbox/menu-manager.md Sec 1 "[offsets: inferred]" */
+ * Ref:../system7-decomp/specs/toolbox/menu-manager.md Sec 1 "[offsets: inferred]" */
 #define FLAIR_MENUREC_OFF_MENUID        0
 #define FLAIR_MENUREC_OFF_MENUWIDTH     2
 #define FLAIR_MENUREC_OFF_MENUHEIGHT    4
@@ -158,7 +158,7 @@
 /* ===========================================================================
  * 2. MARK-CHARACTER CONSTANTS  (verbatim Inside Macintosh / Mac Roman)
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/menu-manager.md Sec 2.1:
+ * Ref:../system7-decomp/specs/toolbox/menu-manager.md Sec 2.1:
  *   "noMark=0, commandMark=17 (0x11), checkMark=18 (0x12),
  *    diamondMark=19 (0x13), appleMark=20 (0x14)"
  *   [verified: A+B; local + web cross-check; commandMark=17/checkMark=18/
@@ -186,7 +186,7 @@
 /* ===========================================================================
  * 3. ITEM STYLE BYTE (QuickDraw Style -- per-item text face)
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/menu-manager.md Sec 2.2:
+ * Ref:../system7-decomp/specs/toolbox/menu-manager.md Sec 2.2:
  *   "plain=0, bold=bit0=1, italic=bit1=2, underline=bit2=4, outline=bit3=8,
  *    shadow=bit4=16, condense=bit5=32, extend=bit6=64"
  *   [verified: A+B; QuickDraw Style shared with TERec txFace; local +
@@ -210,7 +210,7 @@
 /* ===========================================================================
  * 4. enableFlags BIT CONVENTION  (per-menu/per-item enable bitfield)
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/menu-manager.md Sec 3:
+ * Ref:../system7-decomp/specs/toolbox/menu-manager.md Sec 3:
  *   "enableFlags is a 32-bit field.  Bit 0 enables the whole menu (the TITLE
  *    in the bar); bit i (1..31) enables item i.  Items numbered above 31 are
  *    ALWAYS enabled (there are only 31 maskable bits after the title bit)."
@@ -248,7 +248,7 @@
 /* ===========================================================================
  * 5. MenuSelect / MenuKey RESULT-WORD PACKING
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/menu-manager.md Sec 4:
+ * Ref:../system7-decomp/specs/toolbox/menu-manager.md Sec 4:
  *   "result = (menuID << 16) | item   (item is 1-based; 0 == no selection)"
  *   "menuID = (result >> 16) & 0xFFFF  (HiWord)"
  *   "item   = result & 0xFFFF          (LoWord; 1-based, 0 == nothing chosen)"
@@ -271,7 +271,7 @@
 
 /* Pack a (menuID, 1-based item) pair into the IM result word.
  * menuID is int16_t; item is uint16_t (1-based; 0 = nothing).
- * Ref: ../system7-decomp/specs/toolbox/menu-manager.md Sec 4 formula. */
+ * Ref:../system7-decomp/specs/toolbox/menu-manager.md Sec 4 formula. */
 static inline uint32_t flair_menu_result_pack(int16_t menuID, uint16_t item1)
 {
     return ((uint32_t)(uint16_t)menuID << 16) | (uint32_t)item1;
@@ -299,7 +299,7 @@ static inline uint16_t flair_menu_result_item(uint32_t r)
 /* ===========================================================================
  * 6. MDEF MESSAGE CONSTANTS
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/menu-manager.md Sec 5:
+ * Ref:../system7-decomp/specs/toolbox/menu-manager.md Sec 5:
  *   "mDrawMsg=0, mChooseMsg=1, mSizeMsg=2, mPopUpMsg=3"
  *   [verified: A+B; WebSearch (mDrawMsg=0..mPopUpMsg=3) +
  *    im-toolbox-records-verbatim.md MDEF note; IM-I Ch 13]
@@ -330,7 +330,7 @@ static inline uint16_t flair_menu_result_item(uint32_t r)
 /* ===========================================================================
  * 7. DIVIDER CONVENTION
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/menu-manager.md Sec 2:
+ * Ref:../system7-decomp/specs/toolbox/menu-manager.md Sec 2:
  *   "a menu item whose text begins with the two characters '(-' is a DISABLED
  *    gray separator line (a 'divider').  It is never selectable and is drawn
  *    as a horizontal gray rule spanning the menu width."
@@ -352,12 +352,12 @@ static inline uint16_t flair_menu_result_item(uint32_t r)
 /* ===========================================================================
  * 8. MENU BAR HEIGHT (pointer from chrome_metrics; authoritative there)
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/menu-manager.md Sec 6:
- *   "GetMBarHeight() == 20 px for the Roman script system."
+ * Ref:../system7-decomp/specs/toolbox/menu-manager.md Sec 6:
+ *   "GetMBarHeight == 20 px for the Roman script system."
  *   [documented: research/system7-gui-ground-truth.md Sec 1.1
  *    (menubar_height=20, [verified: S1+IM-128]); IM Toolbox-128]
  *
- * 20 px is a CHROME metric owned by ../chrome/menu-bar-geometry.md and
+ * 20 px is a CHROME metric owned by../chrome/menu-bar-geometry.md and
  * locked in spec/chrome_metrics.h (FLAIR_CHROME_MENUBAR_H).  We restate
  * it here only as a comment pointer so the spec is self-contained; the
  * AUTHORITATIVE macro is in chrome_metrics.h.  Do NOT define a second
@@ -371,7 +371,7 @@ static inline uint16_t flair_menu_result_item(uint32_t r)
  * 9. COMPILE-TIME CONTRACT CHECKS  (the oracle bites at build time)
  * ---------------------------------------------------------------------------
  * Style follows spec/window_record.h (the style exemplar).
- * Ref: ../system7-decomp/specs/toolbox/menu-manager.md (all sections cited
+ * Ref:../system7-decomp/specs/toolbox/menu-manager.md (all sections cited
  *      inline above; local source is the authority).
  * ===========================================================================*/
 

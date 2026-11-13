@@ -1,0 +1,20 @@
+# Legacy BLITTER_MUTATE_OFF_BY_ONE
+# test: test_blitter
+--- a/blitter.c
++++ b/blitter.c
+@@ -122,6 +122,7 @@
+     for (uint16_t k = 0; k + 1 < r->x_count; k += 2) {
+         int sx0 = r->x[k];
+         int sx1 = r->x[k + 1];
++        sx1 = sx1 + 1;                           /* regression patches: right edge inclusive */
+         int lo = sx0 > col_lo ? sx0 : col_lo;   /* max(span.lo, interval.lo)   */
+         int hi = sx1 < col_hi ? sx1 : col_hi;   /* min(span.hi, interval.hi)   */
+         if (lo < 0) {
+@@ -194,6 +195,7 @@
+     for (uint16_t k = 0; k + 1 < r->x_count; k += 2) {
+         int sx0 = r->x[k];
+         int sx1 = r->x[k + 1];
++        sx1 = sx1 + 1;                           /* regression patches: right edge inclusive */
+         int lo = sx0 > col_lo ? sx0 : col_lo;
+         int hi = sx1 < col_hi ? sx1 : col_hi;
+         if (lo < 0) {

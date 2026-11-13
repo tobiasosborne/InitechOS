@@ -1,0 +1,14 @@
+# Legacy BLITTER_MUTATE_IGNORE_CLIP
+# test: test_blitter
+--- a/blitter.c
++++ b/blitter.c
+@@ -82,7 +82,8 @@
+  * ------------------------------------------------------------------------- */
+ static const region_t *effective_clip(const region_t *clip)
+ {
+-    return clip;
++    (void)clip;
++    return 0;                                   /* regression patches: clip ignored        */
+ }
+ 
+ /* ---------------------------------------------------------------------------

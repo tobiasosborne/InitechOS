@@ -1,71 +1,71 @@
 /*
  * test_skin_era_frozen.c -- the ACCRETION digest oracle (test-skin-era-frozen).
  *
- * beads: initech-3knt (DEC-10 Sec 3.5.2 oracle re-key).
- * Ref:   ADR-0004-AMENDMENT-DEC-10 Sec 3.5.2 (the Platinum row-count,
- *        default-selector, and locked-row digest obligations). ADR-0006 Sec
+ *  (Platinum base oracle re-key).
+ * Ref:   clipped Toolbox drawing (the Platinum row-count,
+ *        default-selector, and locked-row digest obligations). appearance registry Sec
  *        4.6 (test-skin-era-frozen -- the accretion guardrail: a
  *        frozen-row digest-of-fields over the LOCKED ERA_SYS7_0_1 + ERA_WIN31
- *        registry rows). ADR-0004-
- *        AMENDMENT-DEC-09 Sec 3.7 D-9 P5 (accretion = APPEND, never MUTATE a
- *        locked base row). CLAUDE.md Law 2, Rule 6 (mutation-proven), Rule 11.
+ *        registry rows). clipped Toolbox drawing-
+ *        AMENDMENT-authored teal D-9 P5 (accretion = APPEND, never MUTATE a
+ *        locked base row). independent checks, mutation checks (mutation-proven), reproducibility.
  *
  * WHAT IT GRADES. It computes a deterministic digest-of-fields (FNV-1a-32) over
  * the LOCKED base rows of flair_skin_registry[] -- ERA_SYS7_0_1/QUICKDRAW and
  * ERA_WIN31/GDI, every color slot (idx + rgb) and every scalar field -- and
  * asserts it equals the COMMITTED expected digest below. Mutating ANY base-row
  * field changes the digest -> RED. This mechanically enforces the additive-only
- * accretion rule: DEC-10 may APPEND the ERA_SYS8_PLATINUM row (which this
+ * accretion rule: Platinum base may APPEND the ERA_SYS8_PLATINUM row (which this
  * digest, computed over ONLY the two locked rows, ignores) but must NOT mutate
  * a locked base-row field. It separately asserts the exact three-row registry,
  * the sole ERA_SYS8_PLATINUM row, and the explicit Platinum default selector.
  *
- * WHY IT IS NOT BY-CONSTRUCTION (Law 2). The EXPECTED side is a frozen constant
+ * WHY IT IS NOT BY-CONSTRUCTION. The EXPECTED side is a frozen constant
  * (SKIN_FROZEN_DIGEST) committed once. The VALUE-UNDER-TEST is the live
  * registry's bytes. The oracle does not recompute "expected" from the same
  * source on every run; it compares the live digest to a pinned number. A drift
  * in any locked field diverges from the pin and bites.
  *
- * THE DIGEST IS DETERMINISTIC (Rule 11). FNV-1a-32 over a fixed, ordered byte
+ * THE DIGEST IS DETERMINISTIC. FNV-1a-32 over a fixed, ordered byte
  * stream of the row fields (each multi-byte field emitted little-end-first); no
  * struct padding is hashed (fields are fed explicitly), no timestamps, no host
- * paths. The stream order is the field order of feed_row() below and is part of
+ * paths. The stream order is the field order of feed_row below and is part of
  * the contract; changing the field set or order is a deliberate re-pin.
  *
- * MUTATION PROOF (Rule 6): -DSKIN_FROZEN_MUTANT perturbs the System-7 desktop
- * slot rgb; -DSKIN_FROZEN_MUTANT_BASEROW perturbs its caption-navy rgb. Each
+ * MUTATION PROOF: -dskin frozen mutant patch perturbs the System-7 desktop
+ * slot rgb; -baserow patch perturbs its caption-navy rgb. Each
  * changes only a LOCAL copy before hashing, and each MUST make the pinned
  * digest go RED after the Platinum re-key.
  *
  * COMPUTING / RE-PINNING THE DIGEST. The expected digest is the value this same
  * program prints on its "live_digest=0x........" line in a NON-mutant build. To
- * (re-)pin after a DELIBERATE, ADR-sanctioned base-row change: build without
- * -DSKIN_FROZEN_MUTANT, read the printed live_digest, and set SKIN_FROZEN_DIGEST
- * to it (a deliberate Rule-8 re-pin with a beads issue + worklog note). An
+ * (re-)pin after a DELIBERATE, approved base-row change: build without
+ * -dskin frozen mutant patch, read the printed live_digest, and set SKIN_FROZEN_DIGEST
+ * to it (a deliberate pinned inputs re-pin with a issue + worklog note). An
  * accidental edit is exactly what the un-changed pin catches.
  *
  * DUAL-COMPILE / HOSTED RUN (mirrors test_color_canon.c):
  *   gcc -std=c11 -Wall -Wextra -Werror -Ispec -Ispec/assets \
  *       harness/proptest/test_skin_era_frozen.c -o build/test_skin_era_frozen \
  *       && build/test_skin_era_frozen
- *   Mutants: add -DSKIN_FROZEN_MUTANT or -DSKIN_FROZEN_MUTANT_BASEROW
+ *   Mutants: add -dskin frozen mutant patch or -baserow patch
  *            (each MUST exit non-zero / RED).
  *
- * ASCII-clean (Rule 12). Deterministic / no timestamps (Rule 11).
+ * ASCII-clean. Deterministic / no timestamps.
  */
 #include "flair_skins.h"   /* the VALUE-UNDER-TEST: the registry VIEW. */
 
 #include <stdio.h>
 
 /* ---------------------------------------------------------------------------
- * THE COMMITTED EXPECTED DIGEST (Rule 8 locked-data). This is the FNV-1a-32 of
- * the two LOCKED base rows under the field order of feed_row() below. It is
- * re-pinned ONLY by a deliberate ADR-sanctioned base-row change (a beads issue
+ * THE COMMITTED EXPECTED DIGEST (pinned inputs locked-data). This is the FNV-1a-32 of
+ * the two LOCKED base rows under the field order of feed_row below. It is
+ * re-pinned ONLY by a deliberate approved base-row change (a issue
  * + worklog note); an accidental base-row edit diverges from it and goes RED.
  * ------------------------------------------------------------------------- */
 #define SKIN_FROZEN_DIGEST 0xDEF099ACu
 
-/* FNV-1a-32 (deterministic, no libc, ASCII; Rule 11). */
+/* FNV-1a-32 (deterministic, no libc, ASCII; reproducibility). */
 #define FNV1A32_OFFSET 0x811C9DC5u
 #define FNV1A32_PRIME  0x01000193u
 
@@ -93,8 +93,8 @@ static uint32_t fnv_slot(uint32_t h, const flair_skin_slot_t *s)
     return h;
 }
 
-/* feed_row() -- the FIXED field-order byte stream of one locked row. The order
- * here IS the digest contract (Rule 11); it matches flair_skin_t's field order. */
+/* feed_row -- the FIXED field-order byte stream of one locked row. The order
+ * here IS the digest contract; it matches flair_skin_t's field order. */
 static uint32_t feed_row(uint32_t h, const flair_skin_t *r)
 {
     h = fnv_u32(h, (uint32_t)r->era);
@@ -119,7 +119,7 @@ int main(void)
 {
     int fails = 0, checks = 0;
 
-    /* DEC-10 Sec 3.5.2 / initech-3knt: exactly two locked heritage rows plus
+    /* Platinum base /: exactly two locked heritage rows plus
      * the one Platinum base row. The exact count makes a stray fourth row RED. */
     checks++;
     if (FLAIR_SKIN_REGISTRY_COUNT != 3u) {
@@ -128,7 +128,7 @@ int main(void)
                "WIN31 peer + Platinum base)\n",
                (unsigned)FLAIR_SKIN_REGISTRY_COUNT);
     }
-    /* DEC-10 Sec 3.5.2: exactly ONE row carries ERA_SYS8_PLATINUM, and it is
+    /* Platinum base: exactly ONE row carries ERA_SYS8_PLATINUM, and it is
      * precisely the row returned by the Platinum/QuickDraw key resolver. */
     {
         uint16_t i;
@@ -154,7 +154,7 @@ int main(void)
         }
     }
 
-    /* DEC-10 D-10.1: the explicit default selector mechanically resolves to
+    /* Platinum base D-10.1: the explicit default selector mechanically resolves to
      * the Platinum/QuickDraw row, independent of enum and registry ordering. */
     {
         const flair_skin_t *selected =
@@ -177,12 +177,12 @@ int main(void)
 
 #ifdef SKIN_FROZEN_MUTANT
         /* Perturb ONE base-row field by one count (a LOCAL copy) so the digest
-         * diverges from the pin and the assert bites (Rule 6). */
+         * diverges from the pin and the assert bites. */
         base.desktop.rgb ^= 0x000001u;
 #endif
 
 #ifdef SKIN_FROZEN_MUTANT_BASEROW
-        /* DEC-10 Sec 3.5.2 / Rule 6: perturb a DIFFERENT System-7 field on the
+        /* Platinum base / mutation checks: perturb a DIFFERENT System-7 field on the
          * LOCAL copy, proving the frozen digest still bites after the re-key. */
         base.caption_navy.rgb ^= 0x000001u;
 #endif

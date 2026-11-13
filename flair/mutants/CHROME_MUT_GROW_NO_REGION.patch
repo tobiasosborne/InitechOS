@@ -1,0 +1,12 @@
+# Legacy CHROME_MUT_GROW_NO_REGION
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -841,6 +841,7 @@
+                                   grow_y - FLAIR_CHROME_FRAME,
+                                   grow_x, bi - 5, active, &sbh);
+         if ((widget_flags & FLAIR_WINDOW_WIDGET_GROW) != 0u
++            || 1
+         )
+             draw_grow_box(port, skin, grow_x, grow_y, active);
+     }

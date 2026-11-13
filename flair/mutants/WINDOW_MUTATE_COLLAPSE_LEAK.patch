@@ -1,0 +1,13 @@
+# Legacy WINDOW_MUTATE_COLLAPSE_LEAK
+# test: test_window
+--- a/window.c
++++ b/window.c
+@@ -812,7 +812,7 @@
+     rgn_copy(w->strucRgn,
+              structure_scratch(wm, next, w->windowDefProcVariant));
+     if (collapsed) {
+-        region_set_empty(w->contRgn);
++        /* mutation checks mutant: body ownership leaks through the shade state. */
+     } else {
+         region_set_rect(w->contRgn, CalcDocContentRect(next));
+         /*: chrome paints BEFORE the client's updateEvt. Settle the

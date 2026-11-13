@@ -1,17 +1,17 @@
 /* test_menu_record.c -- oracle for spec/menu_record.h (FLAIR P1-2).
  *
- * beads: initech-dh5k.2 (P1-2: spec/menu_record.h + host oracle).
+ *  (P1-2: spec/menu_record.h + host oracle).
  *
  * Ref:   spec/menu_record.h (the locked spec-data under test; all constants
  *          and invariants asserted here are grounded in menu-manager.md).
- *        ../system7-decomp/specs/toolbox/menu-manager.md (PRIMARY source;
+ *../system7-decomp/specs/toolbox/menu-manager.md (PRIMARY source;
  *          verbatim MenuInfo record, mark/style/enableFlags/result-word).
  *        spec/assets/menu_canon.h (FROZEN Photoshop bar -- CANON WARNING:
- *          do NOT "correct" to any real Photoshop version; Law 4).
+ *          do NOT "correct" to any real Photoshop version; film canon).
  *        os/flair/menu.h (the FLAIR impl; READ-ONLY cross-check).
- *        CLAUDE.md Law 1 (ground truth before code), Law 2 (oracle is truth),
- *          Law 4 (fidelity), Rule 1 (red->green), Rule 4 (skepticism),
- *          Rule 6 (mutation-proven), Rule 11 (deterministic), Rule 12 (ASCII).
+ *        source provenance (ground truth before code), independent checks (oracle is truth),
+ *          film canon (fidelity),  (red->green),  (skepticism),
+ *          mutation checks (mutation-proven), deterministic output, ASCII source (ASCII).
  *
  * PROPERTIES CHECKED (ordered by decisiveness):
  *
@@ -42,10 +42,10 @@
  *
  *  P8. CANON CROSS-CHECK.  FLAIR_CANON_PHOTOSHOP_MENU_COUNT == 8;
  *      FLAIR_CANON_PHOTOSHOP_MENUBAR_LEN == 45; the flat string matches
- *      the expected literal.  (This fires the canonical canon oracle; Law 4.)
+ *      the expected literal.  (This fires the canonical canon oracle; film canon.)
  *
- * MUTANT SMOKE TEST (Rule 6 -- included at the bottom):
- *  If MENU_REC_MUTATE_CHECKCONSTANT is defined, checkMark is forced to a
+ * regression patches SMOKE TEST (mutation checks -- included at the bottom):
+ *  If checkconstant patch is defined, checkMark is forced to a
  *  wrong value (17) so the P1 check on checkMark goes RED.  The Makefile
  *  gate drives this mutant and confirms the oracle bites.
  *
@@ -99,10 +99,10 @@ int main(int argc, char **argv)
     (void)argc; (void)argv;
 
 #ifdef MENU_REC_MUTATE_CHECKCONSTANT
-    /* Rule 6 mutant smoke: assert a value we KNOW is false (checkMark is 18,
+    /* mutation checks mutant smoke: assert a value we KNOW is false (checkMark is 18,
      * not 17) so the oracle MUST report a failure and exit non-zero. If this
      * passes, the gate is decoration. (Wired by the orchestrator during Wave-1
-     * grading -- the lane left this hook as a comment only.) */
+     * grading -- the implementation left this hook as a comment only.) */
     CHECK(checkMark == 17, "MUTANT: checkMark forced-wrong (must FAIL -- Rule 6)");
 #endif
 
@@ -135,7 +135,7 @@ int main(int argc, char **argv)
     CHECK(diamondMark <= 255, "diamondMark fits in uint8_t");
     CHECK(appleMark   <= 255, "appleMark fits in uint8_t");
 
-    /* Mark constants are strictly increasing (noMark < commandMark < ... < appleMark). */
+    /* Mark constants are strictly increasing (noMark < commandMark <... < appleMark). */
     CHECK(noMark < commandMark,  "noMark < commandMark");
     CHECK(commandMark < checkMark,  "commandMark < checkMark");
     CHECK(checkMark < diamondMark, "checkMark < diamondMark");
@@ -363,7 +363,7 @@ int main(int argc, char **argv)
           "divider prefix strlen == 2 (Sec 2)");
 
     /* ======================================================================
-     * P8. CANON CROSS-CHECK (Law 4; ADR-0004 D-3 / AM-4)
+     * P8. CANON CROSS-CHECK (film canon; clipped Toolbox drawing / AM-4)
      * Ref: spec/assets/menu_canon.h (the FROZEN InitechPaint bar string);
      *      menu-manager.md Sec 7 (CANON WARNING).
      *
@@ -418,7 +418,7 @@ int main(int argc, char **argv)
 
     /* Chimera signal: Layer AND View are BOTH present simultaneously.
      * This is the key canon invariant -- it is historically impossible in
-     * any real Photoshop version, and that is exactly the point (Law 4). */
+     * any real Photoshop version, and that is exactly the point. */
     CHECK(strcmp(FLAIR_CANON_PHOTOSHOP_MENU_ITEMS[3], "Layer") == 0 &&
           strcmp(FLAIR_CANON_PHOTOSHOP_MENU_ITEMS[5], "View")  == 0,
           "chimera signal: Layer AND View both present simultaneously (canon)");

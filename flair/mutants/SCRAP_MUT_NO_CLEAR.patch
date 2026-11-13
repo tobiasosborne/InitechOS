@@ -1,0 +1,12 @@
+# Legacy SCRAP_MUT_NO_CLEAR
+# test: test_scrap
+--- a/scrap.c
++++ b/scrap.c
+@@ -110,7 +110,6 @@
+ void FlairZeroScrap(FlairScrap *s)
+ {
+     if (s == NULL) SCRAP_PANIC("FlairZeroScrap: NULL argument (contract error)");
+-    s->n_flavors = 0u;
+     s->scrapCount++;
+ }
+ 

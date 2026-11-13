@@ -1,0 +1,15 @@
+# Legacy CHROME_FID_MUT_CENTER_OFF
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -327,6 +327,10 @@
+     if (shown == 0) {
+         return 0;
+     }
++    /* mutation checks R0.2 mutant: displace the entire centered title treatment +7px. */
++    out->x += 7;
++    out->gap_left += 7;
++    out->gap_right += 7;
+     return 1;
+ }
+ 

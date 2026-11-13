@@ -1,5 +1,5 @@
-/* Independent runtime oracle input for tdnl.99/.100 and L023 (Law 2).
- * Ref: ../system7-decomp/goldens/captures/s8_alert_modal.png, 640x480;
+/* Independent runtime oracle input for  and L023.
+ * Ref:../system7-decomp/goldens/captures/s8_alert_modal.png, 640x480;
  * sys8/controls.md Sec 5.1 and 6. Never include artifact drawing tables here.
  */
 #ifndef INITECH_HARNESS_ALERT_CAPTURE_H
@@ -49,7 +49,7 @@ static uint32_t alert_capture_rgb(const unsigned char *pixels, int x, int y)
     return (uint32_t)p[0] * 65536u + (uint32_t)p[1] * 256u + p[2];
 }
 
-/* tdnl.88: the Mac OS 8.1 PRESSED default OK (system7-decomp
+/*: the Mac OS 8.1 PRESSED default OK (system7-decomp
  * re/mint-results-010.md). Two real captures of the same held button with
  * the Mac pointer at two DISJOINT places: A = s8_alert_ok_pressed.png
  * (hotspot 464,168), B = s8_alert_ok_pressed_tl.png (hotspot 440,161). The

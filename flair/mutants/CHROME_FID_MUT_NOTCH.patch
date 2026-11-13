@@ -1,0 +1,13 @@
+# Legacy CHROME_FID_MUT_NOTCH
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -873,7 +873,7 @@
+     }
+ 
+     {
+-        int notch = FLAIR_CHROME_SHADOW_NOTCH;
++        int notch = 1;
+         for (int y = top + notch; y <= bottom; y++) {
+             cfill(port, right, y, 1, frame_part);
+         }

@@ -1,0 +1,19 @@
+# Legacy TE_MUT_EXTEND_ANCHOR
+# test: test_te_surface
+--- a/textedit.c
++++ b/textedit.c
+@@ -385,11 +385,9 @@
+     if (!extend) {
+         anchor = off;
+     } else {
+-        /* keep the end FARTHER from the point */
+-        int da = off - te->selStart, db = te->selEnd - off;
+-        if (da < 0) da = -da;
+-        if (db < 0) db = -db;
+-        anchor = (da >= db) ? te->selStart : te->selEnd;
++        /* regression patches: the anchor is always selStart -- a shift-click
++         * before the selection throws its end away. */
++        anchor = te->selStart;
+     }
+     FlairTESetSelect(te, (int16_t)anchor, (int16_t)off);
+     return (int16_t)anchor;

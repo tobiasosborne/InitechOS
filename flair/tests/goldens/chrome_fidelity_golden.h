@@ -1,9 +1,9 @@
 /*
  * spec/chrome_fidelity_golden.h -- INDEPENDENT Mac OS 8.1 Platinum golden.
  *
- * Route-2 re-key: ADR-0004-AMENDMENT-DEC-10 Sec 4 / OQ-7, beads
- * initech-3knt.  Values are pixel-measured in ../system7-decomp and are never
- * derived from chrome_metrics.h, which the renderer consumes (Law 2 / HER-02).
+ * Route-2 re-key: clipped Toolbox drawing / OQ-7,
+ *.  Values are pixel-measured in../system7-decomp and are never
+ * derived from chrome_metrics.h, which the renderer consumes (independent checks / HER-02).
  * Every Platinum color class is in the SAMPLED framebuffer domain established
  * by sys8/platinum-palette.md Sec 1 and Sec 2.
  *
@@ -17,7 +17,7 @@
 
 /* -------------------------------------------------------------------------
  * PLATINUM TITLE BAND.
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1 and Sec 2.2.
+ * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 2.1 and Sec 2.2.
  * Legend: K=black frame, H=white highlight, F=frame face, L=white stripe,
  * D=dark stripe, S=frame shadow.  The 12 stripe rows start L and end D;
  * face rows are asymmetric (2 above, 4 below).
@@ -50,31 +50,31 @@
 #define FG_TITLE_DARK_GAP_SHIFT     1
 /* The SAMPLED title ink top: T+6 (window-chrome.md Sec 2.3, "ascender T+6").
  * The oracle places the Chicago cell at INK_TOP - CHICAGO_CAP_TOP (the locked
- * strike's first cap row). Bead initech-tdnl.33: was FG_TITLE_TEXT_TOP_OFF 4,
+ * strike's first cap row).: was FG_TITLE_TEXT_TOP_OFF 4,
  * a CELL offset that only matched the sample for the retired 8x16 strike. */
 #define FG_TITLE_INK_TOP_OFF        6
 #define FG_TITLE_RUN_LEFT_OFF      21
 #define FG_TITLE_RUN_RIGHT_OFF     38
 #define FG_TITLE_FIXED_TEXT       "TITLE"
 #define FG_TITLE_TRUNC_SOURCE     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-/* RE-KEYED 2026-10-15 (bead initech-tdnl.68): the truncation marker is the
+/* RE-KEYED 2026-10-15: the truncation marker is the
  * Chicago ellipsis 0xC9 (NFNT 5478 lb 2 aw 14; spec/chrome_metrics.h), no
  * longer one period. Re-derived from the NFNT 5478 advances below: the 150-px
  * frame's safe run is [421,512); "ABCDEFG" + 0xC9 is 8+8+8+8+7+7+8 + 14 = 68
  * px, centered at 400 + (150-68)/2 = 441, ink [442,507) (A lb 1; the
  * ellipsis pen 495 + lb 2 + 10 ink columns), gap [436,512) fits; one more
  * letter ("ABCDEFGH" + 0xC9, 76 px at 437, ink to 511, gap to 516) does not.
- * (Was "ABCDEFGH." at 442 under bead initech-tdnl.33.) */
+ * (Was "ABCDEFGH." at 442 under.) */
 #define FG_TITLE_TRUNC_EXPECTED   "ABCDEFG\xC9"
 #define FG_TITLE_TRUNC_X          441
 
-/* TITLE GLYPH RUN METRICS (bead initech-tdnl.33): the oracle places each
+/* TITLE GLYPH RUN METRICS: the oracle places each
  * glyph of the expected title run with the REAL NFNT 5478 advances and
  * bearings from spec/chicago12_nfnt_golden.h (proven equal to the Apple
  * resource by test-chicago-metrics leg G), never with the artifact's
  * chicago12_aw/_lb; only the glyph ART comes from spec/assets/chicago12.h. */
 #include "chicago12_nfnt_golden.h"
-/* Independent menu extension2026-10-15 tdnl.93/.94/.95/.70: sampled column
+/* Independent menu extension2026-10-15 : sampled column
  * classes and NFNT check. Used by menu-look graders; no artifact inputs. */
 #include "menu_look_golden.h"
 
@@ -120,7 +120,7 @@ static const uint8_t FG_BOX_RAMP_IDX[FG_BOX_RAMP_RUNGS] = {
 
 /* -------------------------------------------------------------------------
  * PLATINUM BODY FRAME + CONTENT INSET.
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 4.
+ * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 4.
  */
 #define FG_BODY_BAR_ROWS              4
 static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
@@ -135,7 +135,7 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 /* -------------------------------------------------------------------------
  * PLATINUM DROP SHADOW.
  * Active black, inactive frame-gray, (+1,+1), two-pixel near-corner notch.
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 1.
+ * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 1.
  */
 #define FG_SHADOW_INK_IDX             0
 #define FG_SHADOW_OFFSET              1
@@ -149,7 +149,7 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
  *
  * Scene choice: the active window gutter uses the ENABLED well/tile anatomy
  * but deliberately has no thumb: Window Manager has no scroll-position model
- * until R1.5 / initech-tdnl.4.  This composition is an explicit product-state
+ * until R1.5 /.  This composition is an explicit product-state
  * substitution; each rendered element is still independently sampled from the
  * Sec 2 enabled capture.  The hilited=0 gutter remains the exact HOLLOW Sec 4
  * state.  Stateful enabled/disabled thumbs are graded in test-control.
@@ -181,7 +181,7 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 #define FG_SB_ENABLED_WELL_HILITE1_IDX 218
 #define FG_SB_ENABLED_NO_THUMB          1
 #define FG_SB_ENABLED_THUMB_TEAL_IDX    2
-/* Dated re-key 2026-10-15, tdnl.96/.97: retain face idx2 but restore the
+/* Dated re-key 2026-10-15, : retain face idx2 but restore the
  * independent crop's leading highlight / dark grip classes. See the literal
  * Mac matrices in scrollbar_look_golden.h (verified against the corpus PNG),
  * 49 highlight, 102 face, 26 shadow, 28 grip, 5 F3 pixels per thumb.
@@ -195,7 +195,7 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 
 /* -------------------------------------------------------------------------
  * PLATINUM CHECKED CHECKBOX + PUSH BUTTON + DEFAULT RING.
- * Ref: ../system7-decomp/specs/sys8/controls.md Sec 1, Sec 2, Sec 5.1,
+ * Ref:../system7-decomp/specs/sys8/controls.md Sec 1, Sec 2, Sec 5.1,
  * Sec 5.2. These are independent SAMPLED-framebuffer expectations; the
  * renderer consumes PARTs and does not include this header.
  */
@@ -230,7 +230,7 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 
 /* -------------------------------------------------------------------------
  * PLATINUM INACTIVE DELTA.
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 6 and
+ * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 6 and
  * scrollbars.md Sec 4.  Explicit era change: System-7 inactive title fill was
  * white; Platinum is sampled face index 231.
  */
@@ -244,7 +244,7 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 
 /* -------------------------------------------------------------------------
  * PLATINUM GROW BOX.
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 5.
+ * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 5.
  */
 #define FG_GROW_CELL                  18
 #define FG_GROW_FILL_IDX             218
@@ -282,7 +282,7 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
  * RETAINED SYSTEM-7 GOLDEN (BC-10.10).
  * ========================================================================= */
 /* Stripe classes, exact 15-row phase signature, and counts.
- * Original citation: ../system7-decomp/specs/chrome/pinstripe.md Geometry,
+ * Original citation:../system7-decomp/specs/chrome/pinstripe.md Geometry,
  * s7_doc_window.png x=450 y=166..180, plus StandardWDEF_a.txt @77-78 and
  * patAlign @891-894. */
 #define FG_SYS7_STRIPE_LIGHT_IDX             7
@@ -294,14 +294,14 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 #define FG_SYS7_PHASE_DOUBLED_LIGHT_AT_EDGES  1
 
 /* Title bevel and shared line.
- * Original citation: ../system7-decomp/specs/chrome/window-frame.md Sec 2a
+ * Original citation:../system7-decomp/specs/chrome/window-frame.md Sec 2a
  * and Sec 2b, and pinstripe.md Geometry. */
 #define FG_SYS7_TITLE_BEVEL_HI_IDX            2
 #define FG_SYS7_TITLE_BEVEL_LO_IDX            4
 #define FG_SYS7_TITLE_SHARED_FRAME_IDX        0
 
 /* Shadow and single-line body.
- * Original citation: ../system7-decomp/specs/chrome/window-frame.md Sec 1,
+ * Original citation:../system7-decomp/specs/chrome/window-frame.md Sec 1,
  * Sec 2a, and Sec 4; StandardWDEF_a.txt L515 and L578-594. */
 #define FG_SYS7_SHADOW_INK_IDX                0
 #define FG_SYS7_SHADOW_OFFSET                 1
@@ -309,13 +309,13 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 #define FG_SYS7_BODY_INNER_IDX                1
 
 /* Active title text and knockout.
- * Original citation: ../system7-decomp/specs/chrome/title-bar.md Sec 3 and
+ * Original citation:../system7-decomp/specs/chrome/title-bar.md Sec 3 and
  * pinstripe.md, s7_doc_window.png title-gap scan. */
 #define FG_SYS7_TITLE_INK_IDX                 4
 #define FG_SYS7_TITLE_KNOCKOUT_IDX            7
 
 /* Close/zoom geometry and anatomy.
- * Original citation: ../system7-decomp/specs/chrome/close-zoom-box.md Geometry
+ * Original citation:../system7-decomp/specs/chrome/close-zoom-box.md Geometry
  * and Rendered colors; StandardWDEF_a.txt @1675-1707. */
 #define FG_SYS7_BOX_RENDER_SIZE              11
 #define FG_SYS7_CLOSE_BOX_LEFT_OFF            9
@@ -327,7 +327,7 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 #define FG_SYS7_ZOOM_HAS_NESTED_GLYPH         1
 
 /* Inactive/no-thumb scrollbar classes and arrow minimum.
- * Original citation: ../system7-decomp/specs/chrome/scrollbar.md Geometry,
+ * Original citation:../system7-decomp/specs/chrome/scrollbar.md Geometry,
  * Rendered colors, and arrow-glyph shape; StandardWDEF_a.txt @73/@1310-1338. */
 #define FG_SYS7_SB_OUTER_EDGE_IDX             0
 #define FG_SYS7_SB_SEPARATOR_IDX              8
@@ -337,7 +337,7 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 #define FG_SYS7_SB_INACTIVE_NO_THUMB           1
 
 /* Inactive title delta and gadget absence.
- * Original citation: ../system7-decomp/specs/chrome/title-bar.md Sec 2 and
+ * Original citation:../system7-decomp/specs/chrome/title-bar.md Sec 2 and
  * Sec 2.1, plus close-zoom-box.md Mechanism. */
 #define FG_SYS7_INACTIVE_TITLE_FILL_IDX        1
 #define FG_SYS7_HILITE_FRAME_IDX             119

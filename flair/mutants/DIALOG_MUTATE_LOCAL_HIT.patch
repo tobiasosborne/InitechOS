@@ -1,0 +1,13 @@
+# Legacy DIALOG_MUTATE_LOCAL_HIT
+# test: test_dialog
+--- a/dialog.c
++++ b/dialog.c
+@@ -835,6 +835,8 @@
+          * regression patches local hit patch restores the subtraction:
+          * test-dialog's click legs go RED. */
+         flair_point_t pt = ev->where;
++        pt.h -= dp->window.port.portRect.left;
++        pt.v -= dp->window.port.portRect.top;
+         uint16_t idx = FindDialogItem(dp, pt);
+         if (idx == 0) break;
+         DialogItem *item = &dp->items[idx - 1];

@@ -1,25 +1,25 @@
 /* test_interact.c -- the FLAIR live-loop INTERACTION oracle (HOST; FO-9 HOST leg).
  *
- * beads: initech-5l5z step FO-9 (the `test-interact` behavioural oracle, HOST).
- *        ADR-0006 E-D5(A) / Sec 4.1: the HOST internal-geometry oracle for the
+ *  step FO-9 (the `test-interact` behavioural oracle, HOST).
+ *        appearance registry E-D5(A) / Sec 4.1: the HOST internal-geometry oracle for the
  *        FLAIR live cooperative WaitNextEvent pump (FO-7/8). It grades the SAME
  *        window.c verbs the live pump will drive (FindWindow part-code routing,
  *        DragWindow geometry, z-order visible regions) -- the BINDING leg for the
  *        ungoldenable INTERNAL geometry (the EMU look-leg `test-flair-drag` comes
- *        LATER and is NOT graded here; ADR-0006 E-D5/E-D8, BC-5/BC-6).
+ *        LATER and is NOT graded here; appearance registry E-D5/E-D8, BC-5/BC-6).
  *
- * WHY HOST + INDEPENDENT-BY-RECOMPUTATION (Law 2; ADR-0006 E-D5(A), Sec 2.3):
+ * WHY HOST + INDEPENDENT-BY-RECOMPUTATION (independent checks; appearance registry E-D5(A), Sec 2.3):
  *   The post-interaction internal state (which window/part a click routes to, the
  *   exact drag delta, the visible/occluded region) is NOT externally observable in
- *   any period capture -- the same reason ADR-0005 ratified the region homomorphism
+ *   any period capture -- the same reason  ratified the region homomorphism
  *   suite as the ENTIRE region signal. It can only be graded against a SECOND,
  *   DIFFERENT in-host recomputation. So this oracle NEVER reads the answer back out
  *   of the verb under test: every expected value is recomputed HERE by independent
  *   arithmetic / an independent front-to-back owner-grid, and diffed against the
  *   artifact (window.c). An oracle that asked FindWindow what FindWindow returned
- *   would agree BY CONSTRUCTION and is forbidden (Law 2; HER-02/HER-14).
+ *   would agree BY CONSTRUCTION and is forbidden (independent checks; HER-02/HER-14).
  *
- * THE THREE LEGS (ADR-0006 Sec 4.1; window.h Sec 3/4/5):
+ * THE THREE LEGS (appearance registry; window.h Sec 3/4/5):
  *
  *   LEG 1 -- FindWindow part-code routing.  A 2-window z-ordered scene; every
  *     probe point (a FULL deterministic grid sweep, plus directed hand-known
@@ -42,46 +42,46 @@
  *     dragged out from under the FRONT one and visible(W) is re-graded -- the
  *     occlusion-changing drag the live desktop must get right (window.h Sec 3/5).
  *
- * RED -> GREEN (Rule 1).  This oracle is GREEN against the current CORRECT window.c
+ * RED -> GREEN.  This oracle is GREEN against the current CORRECT window.c
  *   (it grades existing, ratified behaviour the pump will merely DRIVE; the wiring
- *   is FO-7/8, not new algorithm -- ADR-0006 E-D2/E-D4).
+ *   is FO-7/8, not new algorithm -- appearance registry E-D2/E-D4).
  *
- * MUTATION-PROVEN (Rule 6; the self-mutation pattern).  This file's only editable
+ * MUTATION-PROVEN (mutation checks; the self-mutation pattern).  This file's only editable
  *   surface is the oracle ITSELF (window.c is owned by a parallel lane and is NOT
  *   touched here), so the mutants perturb the INDEPENDENT EXPECTED-value
  *   recomputation -- a self-mutation that proves each check is a LIVE comparison
  *   between two independently-computed values, not a tautology.  The orchestrator
- *   compiles each `-DINTERACT_MUT_*` and confirms the binary goes RED (exit != 0):
+ *   compiles each `-regression patches` and confirms the binary goes RED (exit != 0):
  *
- *     INTERACT_MUT_DRAG_NOOP        -- the expected drag delta is forced to (0,0)
+ *     drag noop patch        -- the expected drag delta is forced to (0,0)
  *       (the window is EXPECTED to stay put).  The CORRECT DragWindow still moves
  *       by (dh,dv), so LEG 2's bbox equality goes RED.  Proves the geometry check
  *       actually demands movement -- i.e. it would catch the HER-14 static-frame
- *       drag-noop (a DragWindow that ignored its delta).  (ADR-0006 M1 analogue.)
+ *       drag-noop (a DragWindow that ignored its delta).  (appearance registry M1 analogue.)
  *
- *     INTERACT_MUT_FINDWINDOW_OFFBYONE -- the independent classifier's close/zoom
+ *     findwindow offbyone patch -- the independent classifier's close/zoom
  *       box width (tb) is biased by +1px.  The CORRECT FindWindow uses the true
  *       band, so at the perturbed boundary the two disagree and LEG 1's sweep goes
  *       RED.  Proves the part-code routing check is a live differential that bites
  *       a 1px hit-test error (an inGoAway-vs-inDrag boundary slip).
  *
- *     INTERACT_MUT_VISIBLE_IGNORE_FRONT -- the independent owner-grid skips the
+ *     visible ignore front patch -- the independent owner-grid skips the
  *       FRONT window, so the EXPECTED visible set ignores occlusion.  The CORRECT
  *       ComputeVisible subtracts the front, so LEG 3's occluded-scene check goes
  *       RED.  Proves the visible-region check actually subtracts union-of-fronts
- *       -- it would catch the z-order-ignoring bug (window.c WINDOW_MUTATE_ZORDER).
+ *       -- it would catch the z-order-ignoring bug (window.c zorder patch).
  *
  *   Each mutant introduces >=1 failing CHECK; any failure makes TEST_SUMMARY return
  *   non-zero (test_assert.h), so the mutant build is RED while the default is GREEN.
  *
- * Ref:  ADR-0006 E-D1 (oracle-first), E-D2 (single spine -- the live binary runs
+ * Ref:  appearance registry E-D1 (oracle-first), E-D2 (single spine -- the live binary runs
  *       these exact symbols, inheriting this proof), E-D5(A) (HOST internal
  *       geometry, independent-by-recomputation), Sec 4.1; window.h Sec 3/4/5;
  *       spec/window_record.h Sec 1 (part-codes); spec/region_algebra.h
  *       (region_get_bbox / region_contains_point / half-open span convention).
- *       CLAUDE.md Law 2 (oracle is truth, independent golden), Rule 1 (RED->GREEN),
- *       Rule 6 (mutation-proven), Rule 11 (deterministic -- fixed scenes/deltas +
- *       a full deterministic grid sweep, no randomness), Rule 12 (ASCII-clean).
+ *       independent checks (oracle is truth, independent golden),  (RED->GREEN),
+ *       mutation checks (mutation-proven), reproducibility (deterministic -- fixed scenes/deltas +
+ *       a full deterministic grid sweep, no randomness), ASCII source.
  *       Mirrors harness/proptest/test_window.c + test_drag.c scaffolding so this
  *       dual-compiles the same way (the orchestrator models the target on test-window).
  */
@@ -100,8 +100,8 @@
 TEST_HARNESS();
 
 /* ===========================================================================
- * Self-mutation knobs (Rule 6).  Default 0 / disabled; the orchestrator flips
- * exactly one `-DINTERACT_MUT_*` to prove the matching check BITES.  See file
+ * Self-mutation knobs.  Default 0 / disabled; the orchestrator flips
+ * exactly one `-regression patches` to prove the matching check BITES.  See file
  * header for what each mutant proves.
  * ===========================================================================*/
 #ifdef INTERACT_MUT_FINDWINDOW_OFFBYONE
@@ -200,7 +200,7 @@ static void rasterize_set(const region_t *r, uint8_t *grid /* GW*GH */)
  * OWNER_NONE. Rasterized from the exact strucRgn inversion rows so the
  * document shadow notch is not inflated to its bounding rectangle.
  *
- * MUTANT INTERACT_MUT_VISIBLE_IGNORE_FRONT (Rule 6): SKIP the front-most window so
+ * regression patches visible ignore front patch: SKIP the front-most window so
  * the EXPECTED visible set ignores occlusion.  The CORRECT ComputeVisible still
  * subtracts the front, so LEG 3's occluded-scene check goes RED -- proving the
  * visible-region check truly subtracts union-of-fronts.
@@ -413,7 +413,7 @@ static void leg1_findwindow(void)
     SelectWindow(&M.wm, &W[1].rec);                 /* restore B front for the sweep*/
 
     /* --- the FULL deterministic grid sweep: every pixel diffed FindWindow vs the
-     *     independent classifier (part-code AND which-window). Rule 11: exhaustive,
+     *     independent classifier (part-code AND which-window). reproducibility: exhaustive,
      *     not random. --- */
     int part_bad = 0, which_bad = 0, first_v = -1, first_h = -1;
     for (int v = 0; v < GH; v++) {
@@ -445,7 +445,7 @@ static void leg1_findwindow(void)
  * Several deltas incl. negative + mixed; the expected bbox is recomputed HERE as
  * old + delta, NOT read from DragWindow's own path.
  *
- * MUTANT INTERACT_MUT_DRAG_NOOP (Rule 6): the EXPECTED delta is forced to (0,0)
+ * regression patches drag noop patch: the EXPECTED delta is forced to (0,0)
  * (the window is expected to stay put).  The CORRECT DragWindow still moves by
  * (dh,dv), so the bbox equality goes RED -- proving the check demands real
  * movement (it would catch a HER-14 drag-noop / static frame).
@@ -461,7 +461,7 @@ static void leg2_drag_geometry(void)
     win_attach(&W);
     NewWindow(&M.wm, &W.rec, s0, c0, documentKind, documentProc, 1);
 
-    /* fixed deltas: +, -, mixed (Rule 11). Cumulative, since DragWindow is a
+    /* fixed deltas: +, -, mixed. Cumulative, since DragWindow is a
      * delta from the window's CURRENT position. */
     static const int16_t DH[] = {  8, -3,  6, -9 };
     static const int16_t DV[] = {  5, -2, -4,  7 };

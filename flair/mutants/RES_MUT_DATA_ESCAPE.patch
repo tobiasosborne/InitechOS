@@ -1,0 +1,13 @@
+# Legacy RES_MUT_DATA_ESCAPE
+# test: test_resource
+--- a/resource.c
++++ b/resource.c
+@@ -170,7 +170,7 @@
+     uint32_t abs = m->data_off + off;
+     if (abs > m->len || m->len - abs < 4u) return NULL;
+     uint32_t size = rd_u32(m->fork + abs);
+-    if (size > m->data_len - off - 4u) return NULL;
++    if (size > m->len - abs - 4u) return NULL;
+     if (length) *length = size;
+     return m->fork + abs + 4u;
+ }

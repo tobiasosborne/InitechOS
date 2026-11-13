@@ -1,0 +1,25 @@
+# Legacy LIST_MUT_HIT_OFFBYONE
+# test: test_list
+--- a/list.c
++++ b/list.c
+@@ -220,9 +220,17 @@
+     }
+ 
+     /* Compute cell offsets from the top-left of the visible area. */
+-    /* Canonical: subtract rView origin to get offset within the visible area. */
+-    col_off = (int16_t)((localPt.h - l->rView.left) / l->cellSize.h);
+-    row_off = (int16_t)((localPt.v - l->rView.top)  / l->cellSize.v);
++    /*
++     * regression patches hit offbyone patch: omit rView.top / rView.left subtraction.
++     * The pixel coordinates are used raw, giving a row/col that corresponds
++     * to a different (wrong) cell.
++     * Oracle step 4: localPt=(15,38), rView.top=20, cellSize.v=16:
++     *   canonical row = (38-20)/16 = 1; mutant row = 38/16 = 2 -> hit.v=2.
++     *   Test checks hit.v == 1 -> FAIL -> RED.
++     * Ref: mutation checks.
++     */
++    col_off = (int16_t)(localPt.h / l->cellSize.h);
++    row_off = (int16_t)(localPt.v / l->cellSize.v);
+ 
+     /* Map offset to absolute cell coordinates using visible's top-left.
+      * (First cut: visible.top == dataBounds.top == 0; no scroll offset.) */

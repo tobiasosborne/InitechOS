@@ -1,4 +1,4 @@
-/* Independent menu crops, transcribed 2026-10-15 for tdnl.93/.94/.95/.70.
+/* Independent menu crops, transcribed 2026-10-15 for .
  * SOURCE: system7-decomp s8_menu_dropped.png x34 y0..19 and NFNT_5478.bin
  * code18: locTable @2126, loc[18]=18, loc[19]=27, ow @2648=0x010B.
  * No artifact header or renderer supplies these expectations.

@@ -1,5 +1,5 @@
 /* harness/proptest/test_asset_lz.c -- storage equality for the packed strikes
- * (kernel size round 5, WL-0168; the test-chicago-pack shape of WL-0152).
+ * (compact storage, packed storage; the test-chicago-pack shape of packed font rows).
  *
  * Decodes every block of the COMMITTED os/flair/asset_lz_data.h with the
  * kernel's own decoder (os/flair/asset_lz.h, compiled here unchanged) and
@@ -7,7 +7,7 @@
  * spec/assets. The locked tables are the oracle; nothing here is reconstructed
  * through the packer. The strikes' appearance stays graded by the historical
  * pixel gates (test-finder-icon-art, test-flair-finder-icons, the boot-screen
- * gate) against their captures (Law 2).
+ * gate) against their captures.
  */
 #define ASSET_LZ_DESK
 #define ASSET_LZ_ALERT

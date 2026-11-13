@@ -1,23 +1,23 @@
 /*
  * os/flair/text.h -- FLAIR text rendering API (proportional bitmap fonts).
  *
- * Ref: ADR-0004 D-7 ("proportional NFNT text measurement -- Chicago (system/
+ * Ref: clipped Toolbox drawing ("proportional NFNT text measurement -- Chicago (system/
  *      dialog) and Geneva 9 (cell), hand-authored strikes; text width = sum
  *      of per-glyph advances; no fixed-pitch assumption");
  *      PRD Sec 6.4 (font resources); PRD Sec 6.3 (Toolbox layer).
  *      docs/research/gui-ground-truth.md Sec 3.5 (Chicago 12 and Geneva 9).
  *      spec/assets/chicago12.h (Chicago 12 strike: REAL NFNT 5478 advances +
- *        left bearings, hand-authored art; bead initech-tdnl.33).
+ *        left bearings, hand-authored art; ).
  *      spec/assets/geneva9.h (Geneva 9 strike, proportional v0 -- this module).
  *      spec/assets/geneva12.h (Geneva 12 strike: REAL Mac OS 8.1 NFNT 12112
  *        advances + left bearings + ascent/descent/leading, hand-authored art;
- *        bead initech-uelk -- the SimpleText document face).
+ *         -- the SimpleText document face).
  *      os/flair/surface.h (bitmap_t; surface_blit -- the ONE glyph-blit primitive).
  *      spec/grafport.h (GrafPort: txFont, txFace, txSize, txMode).
- *      CLAUDE.md Law 1 (ground truth before code), Law 3 (freestanding artifact;
- *      no libc), Rule 11 (reproducible), Rule 12 (ASCII-clean source).
+ *      source provenance (ground truth before code), language boundary (freestanding artifact;
+ *      no libc), reproducible output, ASCII source.
  *
- * ARTIFACT CODE: freestanding C (ADR-0002). No libc. No malloc. No 2026-isms.
+ * ARTIFACT CODE: freestanding C (freestanding C build). No libc. No malloc. No 2026-isms.
  * Dual-compile: kernel (gcc -m32 -ffreestanding -nostdlib -DFLAIR_HOSTED=0)
  *               hosted  (gcc -DFLAIR_HOSTED=1) for the oracle harness.
  *
@@ -27,7 +27,7 @@
  *   (-Ios/flair) and the oracle build (-Ios/flair from the repo root)
  *   satisfy this requirement.
  *
- * API CONTRACT (ADR-0004 D-7):
+ * API CONTRACT (clipped Toolbox drawing):
  *
  *   text_measure(font, str) -> int
  *     Returns the pixel width of 'str' rendered in 'font':
@@ -43,7 +43,7 @@
  *   text_center_in(rect_w, str, font) -> int
  *     Returns the x offset within a rectangle of width rect_w at which
  *     to start rendering 'str' so that it is centered (for title-bar
- *     chrome and dialog label centering; ADR-0004 D-7 chrome).
+ *     chrome and dialog label centering; clipped Toolbox drawing chrome).
  *     x = (rect_w - text_measure(font, str)) / 2  (integer division).
  *     If the string is wider than rect_w, returns 0 (left-justified fallback).
  *
@@ -52,13 +52,13 @@
  *   or Geneva 12 (FONT_GENEVA12). All are backed by hand-authored clean-room
  *   strikes (spec/assets/chicago12.h, geneva9.h, geneva12.h).
  *
- * GENEVA 12 CELL MODEL (bead initech-uelk): exactly the Chicago model with
+ * GENEVA 12 CELL MODEL: exactly the Chicago model with
  *   the Mac OS 8.1 NFNT 12112 values -- opaque cell [pen, pen + aw) x 16 rows,
  *   ink image at pen + lb, baseline row GENEVA12_ASCENT (12), descenders on
  *   rows 12..14, row 15 the leading row (12 + 3 + 1 = the 16-px SimpleText
  *   line, simpletext-stdfile.md Sec 1.2).
  *
- * CHICAGO CELL MODEL (bead initech-tdnl.33; NFNT owTable semantics, font-
+ * CHICAGO CELL MODEL (; NFNT owTable semantics, font-
  *   manager.md Sec 1.1): glyph c owns the OPAQUE cell [pen, pen + aw(c)) x
  *   CHICAGO_CELL_H rows; its ink image starts at pen + lb(c). aw and lb are the
  *   real System 7.0.1 Chicago 12 values. The baseline is row CHICAGO_ASCENT
@@ -67,11 +67,11 @@
  *   (MSB = cell column 0) for the clipped glyph walkers in chrome.c/tbxgate.c.
  *
  *   txFont in GrafPort (spec/grafport.h) maps to:
- *     0 (systemFont) -> Chicago  (ADR-0004 D-7 "Chicago (system/dialog)")
- *     1 (applFont)   -> Geneva 9 (ADR-0004 D-7 "Geneva 9 (cell)")
- *   The text_font_from_txfont() helper performs this mapping (text.c).
+ *     0 (systemFont) -> Chicago  (clipped Toolbox drawing "Chicago (system/dialog)")
+ *     1 (applFont)   -> Geneva 9 (clipped Toolbox drawing "Geneva 9 (cell)")
+ *   The text_font_from_txfont helper performs this mapping (text.c).
  *
- * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
+ * ASCII-clean. No nondeterminism / no timestamps.
  */
 #ifndef INITECH_OS_FLAIR_TEXT_H
 #define INITECH_OS_FLAIR_TEXT_H
@@ -80,17 +80,17 @@
 #include <stddef.h>
 
 /* Pull in the ONE pixel-buffer type and surface_blit declaration.
- * Ref: os/flair/surface.h (ADR-0004 D-2; bitmap_t; surface_blit). */
+ * Ref: os/flair/surface.h (clipped Toolbox drawing; bitmap_t; surface_blit). */
 #include "surface.h"      /* bitmap_t, surface_blit (found via -Ios/flair) */
 
 /* Pull in Chicago and Geneva strikes (header-only static data).
  * Ref: spec/assets/chicago12.h, spec/assets/geneva9.h (found via -Ispec/assets). */
 #include "chicago12.h"    /* chicago12_aw/_lb/_rows, CHICAGO_CELL_H/_ASCENT    */
-#include "geneva9.h"      /* geneva9_glyph(), geneva9_advance_w(), GENEVA9_CELL_H */
+#include "geneva9.h"      /* geneva9_glyph, geneva9_advance_w, GENEVA9_CELL_H */
 #include "geneva12.h"     /* geneva12_aw/_lb/_rows, GENEVA12_CELL_H/_ASCENT    */
 
 /* --------------------------------------------------------------------------
- * text_font_t -- font selector (ADR-0004 D-7).
+ * text_font_t -- font selector (clipped Toolbox drawing).
  *
  * Maps to the GrafPort txFont values:
  *   0 (systemFont) -> FONT_CHICAGO
@@ -104,10 +104,10 @@ typedef enum text_font {
 } text_font_t;
 
 /* --------------------------------------------------------------------------
- * Chicago 12 per-glyph accessors (bead initech-tdnl.33).
+ * Chicago 12 per-glyph accessors.
  *
  * chicago_advance(c) -- the pen advance (NFNT owTable aw); the opaque cell
- *   width. CHICAGO_MUT_ONE_ADVANCE=<code> (Rule 6; the font mutants of
+ *   width. one advance patch (mutation checks; the font mutants of
  *   test-chicago-metrics / test-chrome-fidelity / the re-keyed layout gates,
  *   hooked in chicago12.h's chicago12_advance so window.c is covered too)
  *   widens ONE glyph by 1 px in measure AND draw; NEVER in a real build.
@@ -144,7 +144,7 @@ static inline unsigned int chicago_cell_bits(int c, int r)
     return (unsigned int)text_chicago_row((unsigned)g,(unsigned)r) >> chicago12_lb[g];
 }
 
-/* Geneva 12 (bead initech-uelk): the same storage split as Chicago -- the
+/* Geneva 12: the same storage split as Chicago -- the
  * kernel decodes a dictionary generated from the locked strike
  * (os/flair/geneva12_packed.h; test-geneva12-pack compares EVERY row), the
  * host reads the locked rows. */
@@ -181,14 +181,14 @@ static inline int text_cell_height(text_font_t font)
 /* --------------------------------------------------------------------------
  * text_measure -- pixel width of string 'str' in the given font.
  *
- * ADR-0004 D-7: "text width = sum of per-glyph advances; no fixed-pitch
+ * clipped Toolbox drawing: "text width = sum of per-glyph advances; no fixed-pitch
  * assumption." Returns 0 for NULL or empty str.
  *
  * For Chicago 12: advance is per-glyph chicago_advance (NFNT 5478 aw).
  * For Geneva 9 (proportional): advance is per-glyph from geneva9_advance[].
  *
- * TEXT_MUTATE_FIXED_PITCH (mutation oracle -- Rule 6):
- *   When compiled with -DTEXT_MUTATE_FIXED_PITCH=1, text_measure uses a
+ * fixed pitch patch (mutation oracle -- mutation checks):
+ *   When compiled with -fixed pitch patch=1, text_measure uses a
  *   fixed advance of 6 px for EVERY glyph of EVERY font, ignoring the
  *   per-glyph advance table. This mutant MUST make the proportional
  *   property tests RED, proving the oracle catches fixed-pitch drift.
@@ -200,12 +200,6 @@ static inline int text_measure(text_font_t font, const char *str)
         return 0;
     while (*str) {
         int c = (unsigned char)*str;
-#if defined(TEXT_MUTATE_FIXED_PITCH) && TEXT_MUTATE_FIXED_PITCH
-        /* NAMED MUTANT: ignores per-glyph advance; uses fixed 6px. */
-        (void)font;
-        (void)c;
-        width += 6;
-#else
         if (font == FONT_CHICAGO) {
             width += chicago_advance(c);
         } else if (font == FONT_GENEVA12) {
@@ -213,7 +207,6 @@ static inline int text_measure(text_font_t font, const char *str)
         } else {
             width += (int)geneva9_advance_w(c);
         }
-#endif
         ++str;
     }
     return width;
@@ -224,10 +217,10 @@ static inline int text_measure(text_font_t font, const char *str)
  *
  * 'y' is the top of the cell (row 0 of the glyph bitmap).
  * Renders left-to-right; x advances by each glyph's advance width.
- * Delegates clipping to surface_blit (bounds-safe; Rule 2).
+ * Delegates clipping to surface_blit (bounds-safe; explicit error handling).
  * 'fg'/'bg' are packed 0x00RRGGBB (surface.h canonical format).
  *
- * When TEXT_MUTATE_FIXED_PITCH is defined, advance is fixed 6 px (matching
+ * When fixed pitch patch is defined, advance is fixed 6 px (matching
  * text_measure's mutant so the pair stays consistent under mutation).
  * -------------------------------------------------------------------------- */
 static inline void text_draw(const bitmap_t *bm,
@@ -244,7 +237,7 @@ static inline void text_draw(const bitmap_t *bm,
 
         if (font == FONT_CHICAGO) {
             /* The opaque aw-wide cell, as at most two 8-column halves through
-             * surface_blit (the ONE glyph-blit primitive, ADR-0004 D-2). */
+             * surface_blit (the ONE glyph-blit primitive, clipped Toolbox drawing). */
             /* A cell starting above row 0 is TOP-CLIPPED (its first -y rows
              * dropped), so a caller can place a sampled cap row inside a
              * sub-bitmap view (menu.c item rows). */
@@ -268,7 +261,7 @@ static inline void text_draw(const bitmap_t *bm,
             }
             adv = aw;
         } else if (font == FONT_GENEVA12) {
-            /* The Chicago cell model with the NFNT 12112 lb/aw (initech-uelk). */
+            /* The Chicago cell model with the NFNT 12112 lb/aw. */
             unsigned char lo[GENEVA12_CELL_H], hi[GENEVA12_CELL_H];
             unsigned int aw = (unsigned int)geneva12_advance(c);
             int r0 = (y < 0) ? -y : 0;
@@ -293,9 +286,6 @@ static inline void text_draw(const bitmap_t *bm,
             adv = geneva9_advance_w(c);
         }
 
-#if defined(TEXT_MUTATE_FIXED_PITCH) && TEXT_MUTATE_FIXED_PITCH
-        adv = 6u; /* named mutant: fixed advance */
-#endif
 
         x += (int)adv;
         ++str;
@@ -308,7 +298,7 @@ static inline void text_draw(const bitmap_t *bm,
  * Returns (rect_w - text_measure(font, str)) / 2. If the string is wider
  * than rect_w, returns 0 (left-justified; never returns negative).
  *
- * Used by title-bar chrome rendering (ADR-0004 D-7) and dialog labels.
+ * Used by title-bar chrome rendering (clipped Toolbox drawing) and dialog labels.
  * -------------------------------------------------------------------------- */
 static inline int text_center_in(int rect_w, const char *str, text_font_t font)
 {
@@ -321,7 +311,7 @@ static inline int text_center_in(int rect_w, const char *str, text_font_t font)
  * text_font_from_txfont -- map GrafPort txFont integer to text_font_t.
  *
  * Ref: spec/grafport.h (txFont; "0=systemFont (Chicago); 1=applFont");
- *      ADR-0004 D-7 ("Chicago (system/dialog) and Geneva 9 (cell)").
+ *      clipped Toolbox drawing ("Chicago (system/dialog) and Geneva 9 (cell)").
  *
  * txFont 0 (systemFont) -> FONT_CHICAGO  (safe default + unknown values)
  * txFont 1 (applFont)   -> FONT_GENEVA9
@@ -331,8 +321,8 @@ static inline int text_center_in(int rect_w, const char *str, text_font_t font)
 text_font_t text_font_from_txfont(int txfont);
 
 /* --------------------------------------------------------------------------
- * text_font_from_txfont_size -- the (txFont, txSize) pair to a strike (bead
- * initech-uelk). QuickDraw picks a family by txFont and a strike by txSize;
+ * text_font_from_txfont_size -- the (txFont, txSize) pair to a strike (
+ * ). QuickDraw picks a family by txFont and a strike by txSize;
  * InitechOS owns three strikes, so: txSize 0 (the family default) is exactly
  * text_font_from_txfont; applFont (1) at txSize 12 is FONT_GENEVA12 (the
  * Mac OS 8.1 SimpleText face); every other pair falls back to
@@ -352,14 +342,14 @@ static inline text_font_t text_font_from_txfont_size(int txfont, int txsize)
 }
 
 /* ==========================================================================
- * FONT MANAGER SLICE 2 (bead initech-tdnl.68): txFace synthesis, styled
+ * FONT MANAGER SLICE 2: txFace synthesis, styled
  * advances, and THE ONE region-clipped text run.
  *
- * GROUND TRUTH (Law 1), per style -- the rule, its source, and what grades it:
+ * GROUND TRUTH, per style -- the rule, its source, and what grades it:
  *
  *   BOLD   = OR each glyph row with a copy shifted TEXT_BOLD_SMEAR (1) px
  *            right; the pen advance grows by the same 1 px per glyph.
- *            [documented: ../system7-decomp/specs/fonts/font-manager.md Sec 6.1
+ *            [documented:../system7-decomp/specs/fonts/font-manager.md Sec 6.1
  *            + chicago.md "Synthesis algorithm" (FMOutRec.bold "how much to
  *            smear horiz", refs/quickdraw/Apple-QuickDraw2.p); GOLDEN-VERIFIED:
  *            test-font-styles leg G1 feeds THIS synthesis the real Geneva 9
@@ -434,15 +424,11 @@ static inline int text_baseline_row(text_font_t font)
 }
 
 /* The italic shear of a row d rows above the baseline (d <= 0: on or below):
- * floor(d / TEXT_ITALIC_RUN). TEXT_MUT_ITALIC_RUN4 (Rule 6, test-font-styles)
+ * floor(d / TEXT_ITALIC_RUN). italic run4 patch (mutation checks, test-font-styles)
  * uses 1:4 -- the measured mode disagrees with it. */
 static inline int text_italic_shift(int d)
 {
-#if defined(TEXT_MUT_ITALIC_RUN4)
-    const int run = 4;
-#else
     const int run = TEXT_ITALIC_RUN;
-#endif
     return (d >= 0) ? d / run : -((-d + run - 1) / run);
 }
 
@@ -451,7 +437,7 @@ static inline int text_italic_shift(int d)
  * baseline. Italic shears first, then bold smears (Geneva 9 bold+italic is
  * the italic strike plus the smear, font-manager.md Sec 6.3). Underline is a
  * RUN decoration (text_draw_run), not a glyph-row transform.
- * TEXT_MUT_SMEAR_OFF (Rule 6): bold keeps its +1 advance but loses the smear. */
+ * smear off patch: bold keeps its +1 advance but loses the smear. */
 static inline uint32_t text_synth_row(uint32_t plain, unsigned face, int d)
 {
     uint32_t m = plain;
@@ -459,10 +445,8 @@ static inline uint32_t text_synth_row(uint32_t plain, unsigned face, int d)
         int s = text_italic_shift(d);
         m = (s >= 0) ? (m >> s) : (m << -s);
     }
-#if !defined(TEXT_MUT_SMEAR_OFF)
     if (face & TEXT_FACE_BOLD)
         m |= m >> TEXT_BOLD_SMEAR;
-#endif
     return m;
 }
 
@@ -491,19 +475,15 @@ static inline uint32_t text_face_row(text_font_t font, unsigned face, int c,
 
 /* The styled pen advance of byte c: plain advance + TEXT_BOLD_SMEAR when bold
  * (font-manager.md Sec 6: synth_aw = plain_aw + FMOutRec.bold + extra; italic
- * and underline never change it). TEXT_MUT_BOLD_ADVANCE_PLAIN (Rule 6) drops
+ * and underline never change it). bold advance plain patch  drops
  * the +1. */
 static inline int text_face_advance(text_font_t font, unsigned face, int c)
 {
     int aw = (font == FONT_CHICAGO)  ? chicago_advance(c)
            : (font == FONT_GENEVA12) ? geneva12_advance(c)
                                      : (int)geneva9_advance_w(c);
-#if !defined(TEXT_MUT_BOLD_ADVANCE_PLAIN)
     if (face & TEXT_FACE_BOLD)
         aw += TEXT_BOLD_SMEAR;
-#else
-    (void)face;
-#endif
     return aw;
 }
 
@@ -554,7 +534,7 @@ typedef struct text_clip {
 #endif
 
 /* --------------------------------------------------------------------------
- * text_draw_run -- THE styled, clipped text run (bead initech-tdnl.68).
+ * text_draw_run -- THE styled, clipped text run.
  *
  * Draws `str` with its cell top at (x, y) in `font` / `face` (TEXT_FACE_*;
  * other bits ignored): first the OPAQUE box [x, x + W) x [y, y + cell_h) in
@@ -563,7 +543,7 @@ typedef struct text_clip {
  * box), then the underline. Every write passes the text_clip_t test (clip
  * NULL = bitmap bounds only). Returns W. For the plain face the pixels are
  * exactly text_draw's (opaque advance-wide cells, ink on the strike's bits).
- * TEXT_MUT_CLIP_IGNORE (Rule 6, test-text-clip) ignores the regions + box.
+ * clip ignore patch (mutation checks, test-text-clip) ignores the regions + box.
  * -------------------------------------------------------------------------- */
 #if TEXT_RUN_EMIT
 static inline int text_clip_in(const bitmap_t *bm, const text_clip_t *k,
@@ -571,7 +551,6 @@ static inline int text_clip_in(const bitmap_t *bm, const text_clip_t *k,
 {
     if (px < 0 || py < 0 || px >= (int)bm->width || py >= (int)bm->height)
         return 0;
-#if !defined(TEXT_MUT_CLIP_IGNORE)
     if (k != (const text_clip_t *)0) {
         if (k->right > k->left &&
             (px < k->left || px >= k->right || py < k->top || py >= k->bottom))
@@ -581,9 +560,6 @@ static inline int text_clip_in(const bitmap_t *bm, const text_clip_t *k,
         if (k->rgn_b && !region_contains_point(k->rgn_b, (int16_t)px, (int16_t)py))
             return 0;
     }
-#else
-    (void)k;
-#endif
     return 1;
 }
 
@@ -636,11 +612,7 @@ TEXT_RUN_FN int text_draw_run(const bitmap_t *bm, int x, int y,
      * by a TEXT_UL_SHADOW halo around the ink on each of those rows. */
     if (face & TEXT_FACE_UNDERLINE) {
         for (int t = 0; t < TEXT_UL_THICK; t++) {
-#if defined(TEXT_MUT_UL_OFFSET)
-            int ur = base + TEXT_UL_OFFSET + 1 + t;   /* named mutant: 1 low */
-#else
             int ur = base + TEXT_UL_OFFSET + t;
-#endif
             uint32_t ink[TEXT_RUN_MAX_W / 32 + 2];
             int iw = (int)(sizeof ink / sizeof ink[0]);
             if (ur >= h)

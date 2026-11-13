@@ -1,0 +1,35 @@
+# Legacy FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE
+# test: test_process
+--- a/process.c
++++ b/process.c
+@@ -660,7 +660,8 @@
+         if (owner != old_fg) {
+             /* DQ5 mutant restores only the pre-fix background-title no-op. The
+              * content-click switch remains fully live in the same build. */
+-            switch_foreground(list, wm, ev, owner, old_fg);
++            if (part != inDrag)
++                switch_foreground(list, wm, ev, owner, old_fg);
+         }
+ 
+         /* --- THE CLICKED WINDOW ITSELF COMES FORWARD (bug ) -----
+@@ -704,7 +705,19 @@
+          * app->windows is the group head (process.h Sec "windows"), and the
+          * clicked window is now that head, so it is re-pointed in the same
+          * breath -- a stale head after a raise is the 8fhu class of bug. */
+-        if (w != wm->front) {
++        /* regression patches no raise on title patch (mutation checks; the DQ5
++         *  emu-mutant image ONLY) -- SCOPE EXTENDED BY,
++         * and here is why, because it is exactly the way a mutant quietly stops
++         * being a mutant. The knob models the pre-DQ5 bug "a title mouseDown on
++         * a NON-FRONT window does nothing". Before tpzf that was one behaviour
++         * (the tenant switch above) and suppressing it was enough. tpzf added a
++         * SECOND half -- the window raise -- and the raise alone is enough to
++         * carry the gesture: MEASURED, test-flair-solid leg H went GREEN under
++         * this mutant, i.e. the leg-H oracle had become decoration. So the knob
++         * suppresses BOTH halves for a title click, which is what its name says
++         * and what the original bug did. The CONTENT click keeps both halves in
++         * the same build (leg(c) stays live). NEVER in a real build. */
++        if (part != inDrag && w != wm->front) {
+             SelectWindow(wm, w);
+             owner->windows = w;
+         }

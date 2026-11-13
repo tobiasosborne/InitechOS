@@ -1,0 +1,27 @@
+# Legacy FLAIR_LIVE_MUTATE_IGNORE_REFCON
+# test: test_process
+--- a/process.c
++++ b/process.c
+@@ -477,13 +477,15 @@
+ static FlairApp *owner_of_window(FlairProcessList *list, WindowPtr w)
+ {
+     if (w == NULL) PROC_PANIC("dispatch: NULL hit tenant window");
+-    for (FlairApp *a = list->head; a != NULL; a = a->nextApp) {
+-        if (a->magic == FLAIR_APP_MAGIC &&
+-            (int32_t)(uintptr_t)a == w->refCon)
+-            return a;
+-    }
+-    PROC_PANIC("dispatch: hit window owned by no resident app");
+-    return NULL;   /* unreachable (PROC_PANIC does not return) */
++    /* regression patches ignore refcon patch (mutation checks; the O-5 tenants emu-mutant
++     * image ONLY): IGNORE the refCon binding rule and always return the FOREGROUND
++     * app, never the clicked background tenant. A click on HELLO's visible sliver
++     * then "belongs to" the foreground NOTES, so flair_app_dispatch sees
++     * owner == old_fg, takes NO switch (no raise / no activate / no promote), and
++     * HELLO is never raised or repainted -> the booted O-5 gate's TIER-A overlap
++     * probe stays NOTES_FILL (RED). NEVER define in a real build. */
++    (void)w;
++    return list->head;
+ }
+ 
+ /* deliver one cooked EventRecord to a tenant's REQUIRED `event` entry-point. */

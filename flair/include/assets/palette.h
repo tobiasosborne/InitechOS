@@ -8,7 +8,7 @@
  * Source fixture: spec/assets/preview.webp. Each color was 3x3-sampled at the (x,y)
  * recorded in palette.json (auditable; test-assets re-checks it).
  *
- * REVOKED provenance (ADR-0004-AMENDMENT-DEC-09 / ADR-0010, HER-03):
+ * REVOKED provenance (clipped Toolbox drawing / independent reference checks, HER-03):
  * the frame-sampled INITECH_*_FRAME_V0 constants below are the dim
  * Office-Space CRT MOCK-UP samples. They are PROVENANCE ONLY -- NOTHING
  * renders or grades against them. The ONE color authority is
@@ -77,13 +77,13 @@
  * navy accent, System-7 pinstripe; gray ramp for idx>=9). The LIVE desktop
  * converter (os/initechdos/kmain.c BOOT_FLAIR_SHELL) and the host screendump oracle
  * call this name, so both route through the SAME locked table and the rendered
- * desktop reads back identical pixels on host and metal (Law 2; fb-agree).
+ * desktop reads back identical pixels on host and metal (independent checks; fb-agree).
  *
  * Provenance: the old switch read the REVOKED preview/seafoam samples; it is
- * retired (ADR-0004-AMENDMENT-DEC-09 ARB-1, ADR-0010 HER-02/HER-03). Pure,
+ * retired (clipped Toolbox drawing ARB-1, independent reference checks HER-02/HER-03). Pure,
  * freestanding-safe (color_canon.h pulls <stdint.h> only): callable from the
- * kernel AND the host. Ref: spec/assets/color_canon.json (LOCKED, Rule 8);
- * CLAUDE.md Law 2, Rule 11 (deterministic), Rule 12 (ASCII-clean). */
+ * kernel AND the host. Ref: spec/assets/color_canon.json (LOCKED, pinned inputs);
+ * independent checks, deterministic output, ASCII source. */
 static inline uint32_t flair_palette_rgb(uint8_t index)
 {
     return flair_canon_rgb(index);

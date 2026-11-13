@@ -1,0 +1,17 @@
+# Legacy CHROME_MUTATE_NO_FRAME
+# test: test_chrome
+--- a/chrome.c
++++ b/chrome.c
+@@ -865,12 +865,6 @@
+                                  by, PLAT_WIDGET_COLLAPSE, 0);
+     }
+ 
+-    cfill(port, left, top, w, frame_part);
+-    cfill(port, left, bi, w, frame_part);
+-    for (int y = top; y < bottom; y++) {
+-        cfill(port, left, y, 1, frame_part);
+-        cfill(port, ri, y, 1, frame_part);
+-    }
+ 
+     {
+         int notch = FLAIR_CHROME_SHADOW_NOTCH;

@@ -1,10 +1,10 @@
 /*
  * os/flair/chrome.h -- the FLAIR Mac OS 8 Platinum chrome drawer (ARTIFACT).
  *
- * beads: initech-k8o5.8 (original heritage renderer); initech-i3si (DEC-10
+ *  (original heritage renderer);  (Platinum base
  *        Platinum render re-key).
  *
- * THE ARTIFACT (Law 3): this is freestanding C that will run in the kernel. It
+ * THE ARTIFACT: this is freestanding C that will run in the kernel. It
  * draws one Mac OS 8 Platinum document window -- 22-row title band, three
  * widgets, raised body bar, content inset, notched shadow, scrollbar, and grow
  * box -- into a GrafPort, using ONLY:
@@ -18,17 +18,17 @@
  * host render skeleton harness/render). It does NO allocation -- it draws into a
  * caller-supplied GrafPort whose portBits/visRgn/clipRgn are already set up.
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the BASE; System 7 remains retained
+ * ERA AXIS: Mac OS 8 Platinum is the BASE; System 7 remains retained
  * heritage under BC-10.10. The mechanism contains no era branch and all color
  * roles resolve through flair_look (C-8).
  *
  * Ref: spec/chrome_metrics.json + spec/chrome_metrics.h (its C form);
- *      ADR-0004 D-1/D-2 (all drawing through a GrafPort clipped by
- *      visRgn INTERSECT clipRgn; one surface module); ADR-0004-AMENDMENT-DEC-10
- *      Sec 4 (Platinum base); ../system7-decomp/specs/sys8/window-chrome.md
+ *      clipped Toolbox drawing/D-2 (all drawing through a GrafPort clipped by
+ *      visRgn INTERSECT clipRgn; one surface module); clipped Toolbox drawing
+ *      Sec 4 (Platinum base);../system7-decomp/specs/sys8/window-chrome.md
  *      Sec 1-6 and scrollbars.md Sec 1-5 (sampled Platinum contract).
- *      CLAUDE.md Law 1 (ground truth), Law 2 (oracle is truth), Law 4 (look like
- *      the frame), Rule 2 (fail loud), Rule 11 (deterministic), Rule 12 (ASCII).
+ *      source provenance (ground truth), independent checks (oracle is truth), film canon (look like
+ *      the frame), fail loudly, deterministic output, ASCII source (ASCII).
  */
 #ifndef INITECH_OS_FLAIR_CHROME_H
 #define INITECH_OS_FLAIR_CHROME_H
@@ -60,7 +60,7 @@
  *
  * `skin` is the caller-selected D-9 data row. The mechanism never inspects its
  * era tag; it passes the pointer beside `port` to flair_look, where matching
- * named color slots are resolved. Desktop setup supplies flair_skin_default().
+ * named color slots are resolved. Desktop setup supplies flair_skin_default.
  *
  * `title` is the window's name (the kernel-held WindowRecord titleHandle),
  * drawn CENTERED on the whole title bar in Chicago and constrained between the
@@ -86,7 +86,7 @@ void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
                                 uint8_t widget_flags);
 
 /* flair_draw_document_window_scroll -- the same chrome, with the two gutter
- * bars drawn from `ws` (bead initech-tdnl.35; os/flair/winscroll.h): an
+ * bars drawn from `ws` (; os/flair/winscroll.h): an
  * active window's bar is ENABLED (tiles, wells, the 15-px thumb at the
  * value's position, a held arrow PRESSED) when its axis has something to
  * scroll, else DISABLED (scrollbars.md Sec 3: no thumb). `ws` NULL == no
@@ -115,7 +115,7 @@ void flair_draw_window_scrollbar(GrafPort *port, const flair_skin_t *skin,
  * draws there; pressed=1 is the held-down art (authored -- Platinum pressed
  * art is a golden gap; see chrome.c draw_platinum_widget). Pixels outside the
  * widget's 13x13 cell are never touched, so the live TrackGoAway/TrackBox
- * loop (os/initechdos/kmain.c, bead initech-tdnl.60) can toggle it in place over
+ * loop (os/initechdos/kmain.c, ) can toggle it in place over
  * the composed frame, clipped by the port's visRgn like every chrome draw.
  * ------------------------------------------------------------------------- */
 void flair_draw_window_widget(GrafPort *port, const flair_skin_t *skin,
@@ -123,7 +123,7 @@ void flair_draw_window_widget(GrafPort *port, const flair_skin_t *skin,
 
 /* ---------------------------------------------------------------------------
  * flair_draw_movable_dbox_chrome -- draw one Platinum movableDBoxProc (5)
- * window's chrome: a moveable TITLED modal dialog box (beads initech-zvo6).
+ * window's chrome: a moveable TITLED modal dialog box.
  *
  * Draws into `port` over the rectangle `frame`, composed of:
  *   - the SAME Platinum title band flair_draw_document_window draws, reusing the
@@ -137,25 +137,25 @@ void flair_draw_window_widget(GrafPort *port, const flair_skin_t *skin,
  * dBoxProc division of labor: caller fills content, this draws the border).
  *
  * `title` is drawn ALWAYS-HILITED (this variant's window is always the
- * frontmost overlay when drawn -- ADR-0004 D-5 -- so there is no inactive
+ * frontmost overlay when drawn -- clipped Toolbox drawing -- so there is no inactive
  * state). A NULL or empty title draws no text (same contract as
  * flair_draw_document_window).
  * `skin` has the same explicit D-9 data-row contract as the document entry.
  *
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 2 (title band);
- *      ../system7-decomp/specs/toolbox/window-manager.md line 173
+ * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 2 (title band);
+ *../system7-decomp/specs/toolbox/window-manager.md line 173
  *      ("movableDBoxProc | 5 | movable modal dialog box (title bar, no
- *      grow/zoom)"); ../system7-decomp/specs/chrome/wdef-variant-geometry.md
+ *      grow/zoom)");../system7-decomp/specs/chrome/wdef-variant-geometry.md
  *      Sec 1 (variant catalog) + Sec 4 (heritage variant geometry, retained
  *      under BC-10.10); spec/window_record.h (movableDBoxProc = 5);
- *      CLAUDE.md Law 1/2/4.
+ *      source provenance/2/4.
  * ------------------------------------------------------------------------- */
 void flair_draw_movable_dbox_chrome(GrafPort *port, const flair_skin_t *skin,
                                     rgn_rect_t frame,
                                     const char *title);
 
-/* flair_draw_rdoc_window -- the rDocProc (16) rounded window's WDEF (bead
- * initech-tdnl.17; os/flair/rdoc.h): outline, title band (active: black with
+/* flair_draw_rdoc_window -- the rDocProc (16) rounded window's WDEF (
+ *; os/flair/rdoc.h): outline, title band (active: black with
  * the white close-box ring and a white title; inactive: outlined white with
  * a black title), and the body's sides. Never paints the content. */
 void flair_draw_rdoc_window(GrafPort *port, const flair_skin_t *skin,

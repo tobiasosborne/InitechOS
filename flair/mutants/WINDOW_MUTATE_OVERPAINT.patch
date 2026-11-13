@@ -1,0 +1,29 @@
+# Legacy WINDOW_MUTATE_OVERPAINT
+# test: test_window
+--- a/window.c
++++ b/window.c
+@@ -480,18 +480,12 @@
+         if (p == departing) continue;
+         if (!p->visible) continue;
+ 
+-        if (region_is_empty(exposed)) break;
+-        /* claim:= exposed SECT p->strucRgn  (scratch_c). */
+-        region_t *claim = wm->scratch_c;
+-        region_op(claim, exposed, p->strucRgn, RGN_OP_INTERSECT);
+-        if (region_is_empty(claim)) continue;
+-        /* p->updateRgn += claim  (scratch_a as the accumulate temp; distinct
+-         * from updateRgn and claim). */
+-        rgn_accumulate(p->updateRgn, claim, RGN_OP_UNION, wm->scratch_a);
+-        /* exposed -= p->strucRgn  (a window behind cannot re-claim these). The
+-         * out (scratch_a) is distinct from exposed and the operand. */
+-        region_op(wm->scratch_a, exposed, p->strucRgn, RGN_OP_DIFF);
+-        rgn_copy(exposed, wm->scratch_a);
++        /* OVERPAINT mutant: mark p's WHOLE structure dirty, not just the diff. */
++        region_t *frame = wm->scratch_c;
++        region_set_rect(frame, wm->desktop_frame);
++        region_t *whole = wm->scratch_b;
++        region_op(whole, p->strucRgn, frame, RGN_OP_INTERSECT);   /* struc ^ frame */
++        rgn_accumulate(p->updateRgn, whole, RGN_OP_UNION, wm->scratch_a);
+     }
+ 
+     /* Whatever exposure remains damages the bare desktop. (Under the mutant,

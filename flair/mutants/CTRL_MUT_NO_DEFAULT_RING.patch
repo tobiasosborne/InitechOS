@@ -1,0 +1,71 @@
+# Legacy CTRL_MUT_NO_DEFAULT_RING
+# test: test_dialog
+--- a/control.c
++++ b/control.c
+@@ -918,64 +918,8 @@
+         !ctrl->contrlVis) {
+         return;
+     }
+-    int bx0 = (int)ctrl->contrlRect.left;
+-    int by0 = (int)ctrl->contrlRect.top;
+-    int bx1 = (int)ctrl->contrlRect.right;
+-    int by1 = (int)ctrl->contrlRect.bottom;
+-    int x0 = bx0 - 3;
+-    int y0 = by0 - 3;
+-    int x1 = bx1 + 3;
+-    int y1 = by1 + 3;
+-
+-    if (bx1 <= bx0 || by1 <= by0) {
+-        return;
+-    }
+-
+-    /* The expanded bounds [x0,x1) x [y0,y1) (x0 = bx0 - 3...) as one run
+-     * table, in the original paint order: the sampled E7 field, the
+-     * one-pixel rounded black ring with its 3F smoothing pixels, then the
+-     * straight moat legs (E7/C0 top+left, C0/96 bottom+right); DrawControl
+-     * overlays the central button next. */
+-    static const btn_run_t ring[] = {
+-        BR(R_TOP, 0, 0, CTRL_PLAT_FACE), BR(R_1, 0, 0, CTRL_PLAT_FACE),
+-        BR(R_2, 0, 0, CTRL_PLAT_FACE),
+-        BR(R_B3, 0, 0, CTRL_PLAT_FACE), BR(R_B2, 0, 0, CTRL_PLAT_FACE),
+-        BR(R_BOT, 0, 0, CTRL_PLAT_FACE),
+-        BR(R_BODY, 0, 3, CTRL_PLAT_FACE), BR(R_BODY, -3, 3, CTRL_PLAT_FACE),
+-        BR(R_TOP, 3, -6, CTRL_BLACK), BR(R_BOT, 3, -6, CTRL_BLACK),
+-        BR(R_BODY, 0, 1, CTRL_BLACK), BR(R_BODY, -1, 1, CTRL_BLACK),
+-        BR(R_TOP, 2, 1, CTRL_PLAT_DARK_RING), BR(R_TOP, -3, 1, CTRL_PLAT_DARK_RING),
+-        BR(R_BOT, 2, 1, CTRL_PLAT_DARK_RING), BR(R_BOT, -3, 1, CTRL_PLAT_DARK_RING),
+-        BR(R_1, 1, 1, CTRL_BLACK), BR(R_1, -2, 1, CTRL_BLACK),
+-        BR(R_B2, 1, 1, CTRL_BLACK), BR(R_B2, -2, 1, CTRL_BLACK),
+-        BR(R_2, 0, 1, CTRL_PLAT_DARK_RING), BR(R_2, -1, 1, CTRL_PLAT_DARK_RING),
+-        BR(R_B3, 0, 1, CTRL_PLAT_DARK_RING), BR(R_B3, -1, 1, CTRL_PLAT_DARK_RING),
+-        BR(R_1, 3, -6, CTRL_PLAT_FACE), BR(R_2, 3, -6, CTRL_PLAT_SHADOW),
+-        BR(R_BODY, 1, 1, CTRL_PLAT_FACE), BR(R_BODY, 2, 1, CTRL_PLAT_SHADOW),
+-        BR(R_BODY, -3, 1, CTRL_PLAT_SHADOW), BR(R_BODY, -2, 1, CTRL_PLAT_DARK_SHADOW),
+-        BR(R_B3, 3, -6, CTRL_PLAT_SHADOW), BR(R_B2, 3, -6, CTRL_PLAT_DARK_SHADOW)
+-    };
+-    ctrl_runs(port, x0, y0, x1, y1, ring, (int)(sizeof ring / sizeof ring[0]));
+-    /* R4.5 independent whole-ring gate exposed the old radius-3 corners.
+-     * Ref: s8_alert_modal.png x432..496,y155..180: radius4, asymmetric
+-     * sampled smoothing/moat. These are the four 5x5 corner crops; straight
+-     * legs above remain stretchable. The oracle reads the PNG independently.
+-     * Named mutant restores the old corners. */
+-    static const char corners[4][5][6]={
+-        {"...dK","..K..",".K..C","d..CS","K.CSK"},
+-        {"Kd...",".AK..","CCHK.","SCCGd","KSCSK"},
+-        {"K.CSK","dACCS",".KHCC","..KGS","...dK"},
+-        {"KSCSK","SCGSd","CGSK.","SSK..","Kd..."}
+-    };
+-    for(unsigned k=0;k<4;k++)for(int y=0;y<5;y++)for(int x=0;x<5;x++) {
+-        char c=corners[k][y][x];int part=CTRL_PLAT_FACE;
+-        if(c=='K')part=CTRL_BLACK;else if(c=='d')part=CTRL_PLAT_DARK_RING;
+-        else if(c=='C')part=CTRL_PLAT_SHADOW;else if(c=='S')part=CTRL_PLAT_DARK_SHADOW;
+-        else if(c=='A')part=FLAIR_PART_PLAT_FRAME_FACE;else if(c=='H')part=CTRL_PLAT_CORNER;
+-        else if(c=='G')part=CTRL_PLAT_WIDGET_EDGE;
+-        cfill_ctrl(port,(k&1?x1-5:x0)+x,(k&2?y1-5:y0)+y,1,part);
+-    }
+-
++    /* NAMED regression patches: defaultItem no longer reaches visible ring pixels. */
++    return;
+ }
+ 
+ /* ===========================================================================

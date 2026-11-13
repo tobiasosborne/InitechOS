@@ -1,7 +1,7 @@
 /*
  * test_tbx_menu.c -- A DISK TENANT HEARS ITS OWN MENU CHOICES (HOST oracle, C).
  *
- * bead: initech-tdnl.31 (audit 2026-10-04 pass 2 G03: the tenant's File > Quit
+ *  (audit 2026-10-04 pass 2 G03: the tenant's File > Quit
  *       (^Q) and Fixture > About were enabled, selectable, logged -- and inert;
  *       Ctrl-Q arrived as plain key events).
  *
@@ -27,15 +27,15 @@
  *   M4 THE VALUE: TBX_EVT_MENU == 0x0051 and aliases no Event Manager code
  *      (MTE Table 2-1: 0..15, kHighLevelEvent 23) -- hand-typed list.
  *
- * Expectations are HAND-TYPED (Law 2): the result words, the item/key tables
+ * Expectations are HAND-TYPED: the result words, the item/key tables
  * (transcribed from os/apps/tenantfx.asm's `mbar` resource by hand), the
  * event codes.
  *
- * MUTANTS (Rule 6; -D on this TU, which reaches tbxmenu.h):
- *   TBX_MUT_MENU_KEY_PLAIN  -- the chord is never resolved (M1 RED: "Ctrl-q")
- *   TBX_MUT_MENU_ANY_BAR    -- the identity guard is gone (M3 RED: "another")
+ * regression patches (mutation checks; -D on this TU, which reaches tbxmenu.h):
+ *   menu key plain patch  -- the chord is never resolved (M1 RED: "Ctrl-q")
+ *   menu any bar patch    -- the identity guard is gone (M3 RED: "another")
  *
- * ASCII-clean (Rule 12).
+ * ASCII-clean.
  */
 #include <stdint.h>
 #include <stdio.h>

@@ -1,0 +1,16 @@
+# Legacy CURSOR_MUT_HOTSPOT
+# test: test_cursor
+--- a/cursor.c
++++ b/cursor.c
+@@ -34,8 +34,9 @@
+ #define cursor_data (g_cursor_shape->data)
+ #define cursor_mask (g_cursor_shape->mask)
+ 
+-#define CURSOR_HOT_X ((int)g_cursor_shape->hot_col)
+-#define CURSOR_HOT_Y ((int)g_cursor_shape->hot_row)
++/* mutation checks knob: +3,+3 off the locked hotspot. */
++#define CURSOR_HOT_X ((int)g_cursor_shape->hot_col + 3)
++#define CURSOR_HOT_Y ((int)g_cursor_shape->hot_row + 3)
+ 
+ typedef struct flair_cursor_state {
+     bitmap_t surface;

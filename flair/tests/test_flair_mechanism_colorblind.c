@@ -2,10 +2,10 @@
  * test_flair_mechanism_colorblind.c -- the C-8 SENTINEL-RENDER boundary proof
  *                                       (THE ORACLE; the behavioral tooth).
  *
- * beads: initech-6bq2 (C-8 MECHANISM/POLICY enforcement); epic initech-qipc.
- * Ref:   ADR-0004-AMENDMENT-DEC-09 Sec 3.10 (DEC-09-D4 #2); CLAUDE.md Law 2
- *        (the oracle is the truth), Law 4 (the live arrangement), Rule 6
- *        (mutation-proven), Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ *  (C-8 MECHANISM/POLICY enforcement); epic.
+ * Ref:   clipped Toolbox drawing (authored teal-D4 #2); independent checks
+ *        (the oracle is the truth), film canon (the live arrangement), mutation checks
+ *        (mutation-proven), deterministic output, ASCII source.
  *
  * WHAT IT PROVES (behavior, NOT source): it compiles the REAL artifact
  * decoration drawer (os/flair/chrome.c) against a STUB policy
@@ -26,7 +26,7 @@
  * grader -- a hard-coded color in the artifact appears as a third color the
  * grader did not put there.
  *
- * MUTATION (Rule 6): built with -DFLAIR_COLORBLIND_MUTANT, chrome.c draws one
+ * MUTATION: built with -dflair colorblind mutant patch, chrome.c draws one
  * span with a COMPUTED non-sentinel color straight to the surface, bypassing
  * the seam (the obfuscated-literal case the source scanner cannot see).  This
  * oracle MUST then go RED.  Default builds never define it.
@@ -66,7 +66,7 @@ static void draw_window(GrafPort *port)
      * ink + knockout resolve via flair_look_pixel, so under the sentinel stub the
      * title pixels are the sentinel too (proves the title is colorblind-clean). */
     /* hilited=1: the active render (byte-identical to pre-fix); the C-8 seam is
-     * exercised the same way regardless of hilited state (beads initech-a9iq). */
+     * exercised the same way regardless of hilited state. */
     flair_draw_document_window(port, flair_look_default_skin(),
                                win_frame(), "untitled", 1,
                                FLAIR_WINDOW_WIDGET_ALL);

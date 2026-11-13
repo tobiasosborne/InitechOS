@@ -1,0 +1,27 @@
+# Legacy LIST_MUT_CELL_INDEX_SWAP
+# test: test_list
+--- a/list.c
++++ b/list.c
+@@ -162,9 +162,19 @@
+     if (!cell_in_bounds(l, c)) return FLAIR_LIST_ERR_BOUNDS;
+     if (len < 0 || len > (int16_t)FLAIR_LIST_CELL_MAX) return FLAIR_LIST_ERR_DATA_LEN;
+ 
+-    /* Canonical: ROW-major indexing [row][col] = [c.v][c.h]. */
+-    list_memcpy(l->cells[c.v][c.h], data, (size_t)(uint16_t)len);
+-    l->cell_len[c.v][c.h] = (uint8_t)len;
++    /*
++     * regression patches cell index swap patch: index the store as [col][row] =
++     * [c.h][c.v] instead of the canonical [row][col] = [c.v][c.h].
++     * The WRITE goes to the wrong memory location.  FlairLGetCell is NOT
++     * mutated (it always reads [c.v][c.h]).  A subsequent FlairLGetCell on
++     * the same cell finds cells[c.v][c.h] still zero (never written by the
++     * mutated path) and returns 0 bytes.  Oracle step 2 checks for 5 bytes
++     * ("Trash") -> RED.
++     *
++     * Ref: mutation checks (mutation-proven golden).
++     */
++    list_memcpy(l->cells[c.h][c.v], data, (size_t)(uint16_t)len);
++    l->cell_len[c.h][c.v] = (uint8_t)len;
+ 
+     return FLAIR_LIST_OK;
+ }

@@ -1,0 +1,14 @@
+# Legacy RES_MUT_MAP_PREAMBLE
+# test: test_resource
+--- a/resource.c
++++ b/resource.c
+@@ -132,8 +132,7 @@
+ 
+     /* The 24-byte preamble + the 2 offset words at MAP offsets 24..27 (Sec 1.3).
+      * (24, NOT 22: the preamble counts the 16-byte fork-header copy.) */
+-    /* map header must fit its SECTION, without additive overflow. */
+-    if (m->map_len < 28u)                                  goto bad;
++    if (m->map_off + 28u > len)                             goto bad;
+     {
+         uint16_t tlo = rd_u16(copy + m->map_off + 24u);     /* typeListOffset    */
+         uint16_t nlo = rd_u16(copy + m->map_off + 26u);     /* nameListOffset    */

@@ -1,0 +1,17 @@
+# Legacy TE_MUT_PROBE_NO_LINES
+# test: test_te_surface
+--- a/textedit.c
++++ b/textedit.c
+@@ -410,8 +410,10 @@
+     view.a = te->text;      view.na = x;
+     view.b = s;             view.nb = len;
+     view.c = te->text + y;  view.nc = te->teLength - y;
+-    n = te_layout(te, &view, NULL, FLAIR_TE_MAX_LINES);
+-    return n >= 0;
++    /* regression patches: the probe checks the length only -- an edit that needs
++     * a line past FLAIR_TE_MAX_LINES is let through (and the edit panics). */
++    (void)view; (void)n;
++    return 1;
+ }
+ 
+ /* ===========================================================================

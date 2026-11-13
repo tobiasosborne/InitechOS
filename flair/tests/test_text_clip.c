@@ -1,25 +1,25 @@
 /*
  * harness/proptest/test_text_clip.c -- text never paints outside its clip
- * (bead initech-tdnl.68, Font Manager slice 2).
+ * (, Font Manager slice 2).
  *
  * THE PROPERTY (grafport.h CLIPPING INVARIANT, "ALL DRAWING IS CLIPPED BY
  * visRgn INTERSECT clipRgn"; blitter.h THE CLIP RULE): for every pixel P,
- *     clipped_run(P) == (P in A AND P in B AND P in box) ? free_run(P) : untouched
+ *     clipped_run(P) == (P in A AND P in B AND P in box) ? free_run(P): untouched
  * where free_run is the SAME text_draw_run call with no clip. So the clip may
  * only REMOVE pixels, never move or add one, and nothing lands outside it --
  * the opaque box, the styled ink (italic overhangs past the box included) and
  * the underline alike.
  *
- * INDEPENDENCE (Law 2): membership in A and B is computed HERE by rasterizing
+ * INDEPENDENCE: membership in A and B is computed HERE by rasterizing
  * the regions straight off their row / inversion lists (the test_blitter.c /
  * test_region.c idiom), never through region_contains_point, which is what the
  * artifact uses. The regions are random unions / differences of rectangles
- * built with the REGION_ENGINE engine (seeded LCG, Rule 11), often non-rectangular,
+ * built with the REGION_ENGINE engine (seeded LCG, reproducibility), often non-rectangular,
  * with holes; strings, fonts, faces, pen positions (partly off the bitmap
  * included) and the box are random too.
  *
- * Mutant (Rule 6): TEXT_MUT_CLIP_IGNORE (text_draw_run ignores the regions and
- * the box) must go RED. FACTORY CODE (hosted C, Law 3). ASCII-clean (Rule 12).
+ * Mutant: clip ignore patch (text_draw_run ignores the regions and
+ * the box) must go RED. FACTORY CODE (hosted C, language boundary). ASCII-clean.
  */
 #include "oracle_policy.h"
 #include <stdint.h>
@@ -92,7 +92,7 @@ static void random_region(rgn_store_t *out)
         store_attach(&t);
         region_op(&t.r, &out->r, &a.r, (k > 0 && rnd(0, 2) == 0) ? RGN_OP_DIFF : RGN_OP_UNION);
         store_attach(out);
-        region_op(&out->r, &t.r, &t.r, RGN_OP_UNION);       /* out := t */
+        region_op(&out->r, &t.r, &t.r, RGN_OP_UNION);       /* out:= t */
     }
 }
 

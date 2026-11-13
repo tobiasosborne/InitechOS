@@ -1,0 +1,12 @@
+# Legacy FLAIR_HEAP_MUTATE_SPAN_OVERFLOW
+# test: test_flair_heap
+--- a/heap.c
++++ b/heap.c
+@@ -89,7 +89,6 @@
+     if (size > UINT32_MAX - (FLAIR_HEAP_ALIGN - 1u)) return (void *)0;
+ 
+     uint32_t need = flair_align_up(size);         /* aligned payload bytes        */
+-    if (need > UINT32_MAX - FLAIR_HEAP_HDR_BYTES) return (void *)0;
+ 
+     /* ---- 1. REUSE: pop a fitting block off THIS class's free-list (LIFO).
+      *      CLASS ISOLATION -- only freelist[klass] is consulted, so a freed

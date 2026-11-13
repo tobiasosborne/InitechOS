@@ -6,20 +6,20 @@
  * See resource.h for the full spec citations (resource-manager.md Sec 1.1-1.6,
  * Sec 2; wind-menu-dlog-ditl.md Sec 1a). Every multibyte field is read by
  * POSITIONAL byte assembly so the reader is endian-neutral (host==kernel) and
- * an on-disk OSType compares EQUAL to a FLAIR_OSTYPE() literal.
+ * an on-disk OSType compares EQUAL to a FLAIR_OSTYPE literal.
  *
- * FAIL LOUD (Rule 2): every offset is bounds-checked against `len`; a truncated
+ * FAIL LOUD: every offset is bounds-checked against `len`; a truncated
  * or out-of-bounds or internally-inconsistent fork fails loud (load <0, lookups
- * NULL). FREESTANDING (Law 3): <stdint.h> only; no libc -- a local libc-free
+ * NULL). FREESTANDING: <stdint.h> only; no libc -- a local libc-free
  * byte copy/zero, matching process.c (proc_zero) and heap.c discipline.
  *
- * Two #ifdef-guarded SELF-MUTANTS prove the oracle bites (Rule 6):
- *   RES_MUT_IGNORE_TYPE      -- the type-list match ignores the 4-char type key
+ * Two #ifdef-guarded SELF-regression patches prove the oracle bites:
+ *   ignore type patch      -- the type-list match ignores the 4-char type key
  *                               (matches the first type regardless).
- *   RES_MUT_COUNT_OFF_BY_ONE -- the type-list walk iterates numTypes-1 entries
+ *   count off by one patch -- the type-list walk iterates numTypes-1 entries
  *                               instead of numTypes (drops the last type).
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #include "resource.h"
 
@@ -27,7 +27,7 @@
 #include <stddef.h>   /* NULL (freestanding-safe; window.h/menu.h convention) */
 
 /* ==========================================================================
- * Positional big-endian readers (endian-NEUTRAL; host==kernel -- Law 3).
+ * Positional big-endian readers (endian-NEUTRAL; host==kernel -- language boundary).
  * The fork is big-endian on disk; assemble from bytes, never reinterpret-cast.
  * ==========================================================================*/
 static uint16_t rd_u16(const uint8_t *p)
@@ -56,7 +56,7 @@ static flair_ostype_t rd_ostype(const uint8_t *p)
 }
 
 /* ==========================================================================
- * Libc-free byte helpers (Law 3 -- no memcpy/memset dependency).
+ * Libc-free byte helpers (language boundary -- no memcpy/memset dependency).
  * ==========================================================================*/
 static void res_zero(void *p, uint32_t n)
 {
@@ -71,7 +71,7 @@ static void res_copy(uint8_t *dst, const uint8_t *src, uint32_t n)
 /* ==========================================================================
  * find_type -- walk the type list (Sec 1.4) for `type`; on a match, hand back
  * the resCount-1 and refListOffset fields and return a pointer to the 8-byte
- * type entry; else NULL. Bounds-checked (Rule 2).
+ * type entry; else NULL. Bounds-checked.
  *
  * BOTH self-mutants live here so they perturb every type-keyed call (GetResource
  * and CountResources) consistently.
@@ -81,13 +81,7 @@ static const uint8_t *find_type(const FlairResMap *m, flair_ostype_t type,
 {
     uint16_t ntypes = m->n_types;          /* = numTypes-1 + 1 (decoded in load) */
 
-#ifdef RES_MUT_COUNT_OFF_BY_ONE
-    /* MUTANT: iterate (numTypes-1) entries instead of numTypes -> the LAST type
-     * is never visited. Proves the count-1 decode (+1) is load-bearing. */
-    uint16_t limit = (ntypes > 0u) ? (uint16_t)(ntypes - 1u) : 0u;
-#else
     uint16_t limit = ntypes;
-#endif
 
     for (uint16_t i = 0; i < limit; i++) {
         uint32_t e = m->type_list_abs + 2u + (uint32_t)i * 8u;  /* skip numTypes-1 */
@@ -97,16 +91,7 @@ static const uint8_t *find_type(const FlairResMap *m, flair_ostype_t type,
         uint16_t       cm1  = rd_u16(m->fork + e + 4u);
         uint16_t       rlo  = rd_u16(m->fork + e + 6u);
 
-#ifdef RES_MUT_IGNORE_TYPE
-        /* MUTANT: ignore the type key -- match the FIRST type regardless. Proves
-         * the 4-char type comparison is load-bearing (wrong-type lookups must
-         * miss; cross-type lookups must not leak the first type's resources). */
-        (void)et;
-        (void)type;   /* the discarded key (keeps the mutant -Werror-clean) */
-        int matched = 1;
-#else
         int matched = (et == type);
-#endif
         if (matched) {
             if (count_m1_out)    *count_m1_out = cm1;
             if (reflist_off_out) *reflist_off_out = rlo;
@@ -126,7 +111,7 @@ int FlairResMap_load(FlairResMap *m, flair_heap_t *arena,
     res_zero(m, (uint32_t)sizeof *m);
     if (len < 16u) return -1;              /* need the 16-byte fork header (1.1) */
 
-    /* Copy the fork into the tenant DATA arena (ADR-0013 Sec 3.6). Fail loud on
+    /* Copy the fork into the tenant DATA arena (tenant lifecycle). Fail loud on
      * OOM -- never parse the caller's transient buffer in place. */
     uint8_t *copy = (uint8_t *)flair_alloc(arena, FLAIR_CLASS_GENERAL, len);
     if (copy == NULL) return -1;
@@ -147,12 +132,8 @@ int FlairResMap_load(FlairResMap *m, flair_heap_t *arena,
 
     /* The 24-byte preamble + the 2 offset words at MAP offsets 24..27 (Sec 1.3).
      * (24, NOT 22: the preamble counts the 16-byte fork-header copy.) */
-#ifdef RES_MUT_MAP_PREAMBLE
-    if (m->map_off + 28u > len)                             goto bad;
-#else
-    /* 6mfi: map header must fit its SECTION, without additive overflow. */
+    /* map header must fit its SECTION, without additive overflow. */
     if (m->map_len < 28u)                                  goto bad;
-#endif
     {
         uint16_t tlo = rd_u16(copy + m->map_off + 24u);     /* typeListOffset    */
         uint16_t nlo = rd_u16(copy + m->map_off + 26u);     /* nameListOffset    */
@@ -165,9 +146,7 @@ int FlairResMap_load(FlairResMap *m, flair_heap_t *arena,
     /* The numTypes-1 word at the start of the type list (Sec 1.4). */
     if (m->type_list_abs > len || len - m->type_list_abs < 2u) goto bad;
     uint32_t ntypes = (uint32_t)rd_u16(copy + m->type_list_abs) + 1u;
-#ifndef RES_MUT_TYPE_WRAP
-    if (ntypes > UINT16_MAX) goto bad; /* s3bh: never truncate count to zero. */
-#endif
+    if (ntypes > UINT16_MAX) goto bad; /* never truncate count to zero. */
     m->n_types = (uint16_t)ntypes;
     return 0;
 
@@ -180,24 +159,18 @@ bad:
 /* ==========================================================================
  * FlairGetResource -- type + ID lookup (resource.h contract).
  * ==========================================================================*/
-/* nc0z/u37e: one bounded decoder for forward AND reverse lookup. Every
+/* one bounded decoder for forward AND reverse lookup. Every
  * subtraction is guarded; the length prefix and body stay in the data area.
  * Ref: resource.h Sec 1.2 and Resource Manager Sec 1.1-1.5. */
 static const uint8_t *resource_data(const FlairResMap *m, uint32_t off,
                                    uint32_t *length)
 {
-#ifndef RES_MUT_DATA_WRAP
     if (m->data_off > m->len || m->data_len > m->len - m->data_off ||
         off > m->data_len || m->data_len - off < 4u) return NULL;
-#endif
     uint32_t abs = m->data_off + off;
     if (abs > m->len || m->len - abs < 4u) return NULL;
     uint32_t size = rd_u32(m->fork + abs);
-#if defined(RES_MUT_DATA_ESCAPE) || defined(RES_MUT_DATA_WRAP)
-    if (size > m->len - abs - 4u) return NULL;
-#else
     if (size > m->data_len - off - 4u) return NULL;
-#endif
     if (length) *length = size;
     return m->fork + abs + 4u;
 }

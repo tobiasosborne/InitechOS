@@ -1,14 +1,14 @@
 /*
  * test_cursor.c -- independent host oracle for FLAIR CursorMgr.
  *
- * beads: initech-tdnl.1 (GUI remediation R0.1).
+ *  (GUI remediation R0.1).
  * Ref: PRD Sec 6.3 (FLAIR Event/Window Managers and event-trace oracles);
  *      docs/plans/GUI-remediation-plan.md R0.1 (16x16 CURS, hotspot,
  *      save-under, ShieldCursor); Inside Macintosh: Imaging With QuickDraw,
  *      cursor ('CURS') resource layout (16 data words, 16 mask words, MSB-left,
- *      then hotspot). CLAUDE.md Law 2 / Rules 1, 6, 11, and 12.
+ *      then hotspot). independent checks / Rules 1, 6, 11, and 12.
  *
- * M009 (initech-tdnl.98): expected cells are recovered at runtime from the
+ * M009: expected cells are recovered at runtime from the
  * independent Mac OS 8 captures (cursor_capture.h), never artifact constants.
  * A trivial reference blitter also checks clipping, placement and restoration.
  */
@@ -252,5 +252,26 @@ int main(int argc, char **argv)
     canonical_golden_and_hotspot();
     shield_nesting();
     move_restores_old_site();
+    /* PRD Appendix A hourglass pixels; retained from the legacy film host
+     * gate's BUSY_HOURGLASS and BUSY_RESTORE legs. */
+    {
+        uint32_t fb[40 * 40];
+        for (int i = 0; i < 40 * 40; i++) fb[i] = 0x123456;
+        flair_cursor_init(fb, 160, 40, 40, 32);
+        flair_cursor_show(20, 20);
+        flair_cursor_set_busy(1);
+        CHECK(fb[12 * 40 + 12] == 0 && fb[12 * 40 + 27] == 0 &&
+              fb[19 * 40 + 19] == 0,
+              "Saving selects hourglass at hotspot 8,8");
+        flair_cursor_shield();
+        flair_cursor_set_busy(0);
+        flair_cursor_unshield();
+        CHECK(fb[12 * 40 + 12] == 0x123456,
+              "changing shape restores the previous save-under");
+        flair_cursor_hide();
+        int bad = 0;
+        for (int i = 0; i < 40 * 40; i++) bad |= fb[i] != 0x123456;
+        CHECK(!bad, "busy cursor leaves no trails");
+    }
     return TEST_SUMMARY("test_cursor");
 }

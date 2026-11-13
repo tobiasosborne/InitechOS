@@ -1,0 +1,13 @@
+# Legacy EVENT_MUT_NO_KEY_OBSERVER
+# test: test_event
+--- a/event.c
++++ b/event.c
+@@ -462,8 +462,6 @@
+         uint8_t  ascii     = 0u;
+         uint16_t vkey;
+ 
+-        if (g_keyboard_observer)
+-            g_keyboard_observer((uint8_t)(byte | (is_break ? 0x80u : 0u)));
+         if (g_kbd_skip != 0u) {          /* inside E1 1D 45 / E1 9D C5 */
+             g_kbd_skip--;
+             break;

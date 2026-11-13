@@ -1,0 +1,34 @@
+# Legacy CTRL_MUT_PRESS_ACCENT
+# test: test_control
+--- a/control.c
++++ b/control.c
+@@ -455,8 +455,18 @@
+     }
+ 
+     int hilited = (ctrl->contrlHilite == inButton);
+-    int face_part = hilited ? CTRL_PRESS_FACE : CTRL_PLAT_FACE;
++    int face_part = hilited ? CTRL_ACCENT : CTRL_PLAT_FACE;
+ 
++    if (hilited) {
++        /* NAMED regression patches (mutation checks, ): the retired pre-mint heritage
++         * accent fill; test-flair-dialog-pressed-golden must go RED. */
++        crect_ctrl(port, x0, y0, x1, y1, CTRL_ACCENT);
++        cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
++        cfill_ctrl(port, x0,     y0,     1, CTRL_DESKTOP);
++        cfill_ctrl(port, x1 - 1, y0,     1, CTRL_DESKTOP);
++        cfill_ctrl(port, x0,     y1 - 1, 1, CTRL_DESKTOP);
++        cfill_ctrl(port, x1 - 1, y1 - 1, 1, CTRL_DESKTOP);
++    } else
+     {
+         crect_ctrl(port, x0, y0, x1, y1, CTRL_PLAT_FACE);
+         /* The anatomy as run tables (kernel size, drawing tables): one row code,
+@@ -545,6 +555,9 @@
+         ly = y0 + 1;
+     }
+     if (label_w > 0) {
++        if (hilited) {
++            ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
++        } else
+         if (w > 6 && h > 6) {
+             /* M011 /: s8_alert_modal.png x365..418 has 54 white
+              * pixels at y160 and 53 C0 + one E7 at y175. The Chicago cell

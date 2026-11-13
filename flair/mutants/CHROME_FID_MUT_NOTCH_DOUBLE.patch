@@ -1,0 +1,12 @@
+# Legacy CHROME_FID_MUT_NOTCH_DOUBLE
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -832,6 +832,7 @@
+         sb_left = grow_x - FLAIR_CHROME_FRAME;
+         {
+             int sb_top = shared_line;
++            sb_top++;
+             sb_state_of(&sbv, frame, WSCROLL_V, ws);
+             draw_vertical_scrollbar(port, skin, sb_left, sb_top,
+                                     ri - 5, grow_y, active, &sbv);

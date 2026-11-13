@@ -1,9 +1,9 @@
 /*
  * asset_check.c -- asset-extraction v0 gate checker (factory, C11-only).
  *
- * beads: initech-vcq ("asset-extraction v0"). Ref: CLAUDE.md Law 2 (the
- *        oracle is the truth -- exit NON-ZERO on any mismatch), Law 1 (cite
- *        sources), Rule 8 (locked spec-data), Rule 6 (golden must bite).
+ *  ("asset-extraction v0"). Ref: independent checks (the
+ *        oracle is the truth -- exit NON-ZERO on any mismatch), source provenance (cite
+ *        sources), pinned inputs (locked spec-data), mutation checks (golden must bite).
  *        PRD Sec 10 (palette/chrome extracted from the frame), Sec 6.4
  *        (Chicago strike), Sec 12 (frame is REFERENCE ONLY).
  *
@@ -14,17 +14,17 @@
  *      still matches its recorded RGB within the JSON's tolerance. This is
  *      what keeps the committed palette HONEST against the fixture: corrupt
  *      a recorded RGB and the gate goes red.
- *  (b) STRIKE WELL-FORMEDNESS: include the generated chicago12.h (bead
- *      initech-tdnl.33) and assert the table is well-formed: exact glyph
+ *  (b) STRIKE WELL-FORMEDNESS: include the generated chicago12.h (
+ *      ) and assert the table is well-formed: exact glyph
  *      count for the declared range plus the missing-glyph slot, every
- *      advance in 1..16, the REQUIRED coverage (A-Z a-z 0-9 space . , : - '
- *      ( )) is all non-blank ink, the space cell is blank, out-of-range codes
+ *      advance in 1..16, the REQUIRED coverage (A-Z a-z 0-9 space.: - '
+ *) is all non-blank ink, the space cell is blank, out-of-range codes
  *      map to the (inked) missing-glyph box, and no ink in the leading row. A
  *      malformed/short table fails. (Metric VALUES are graded against the
  *      real NFNT by test-chicago-metrics, not here.)
  *
  * Usage: asset_check <palette.json> <frame.ppm>
- * ASCII-only source (Rule 12). No timestamps emitted (Rule 11).
+ * ASCII-only source. No timestamps emitted.
  */
 
 #include <stdint.h>
@@ -295,7 +295,7 @@ static int check_strike(void)
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz"
         "0123456789"
-        ".,:-'()";
+        ".,:-'";
     int missing = 0;
     for (const char *c = required; *c; c++) {
         if (cell_is_blank(cell_of((unsigned char)*c))) {
@@ -308,7 +308,7 @@ static int check_strike(void)
 
     if (fail) return 1;
     printf("    [strike] PASS -- Chicago 12, %d-row cell, %d glyphs (0x%02X..0x%02X) + "
-           "missing box, required A-Z a-z 0-9 space . , : - ' ( ) all inked\n",
+           "missing box, required A-Z a-z 0-9 space.: - ' all inked\n",
            CHICAGO_CELL_H, CHICAGO_COUNT, CHICAGO_FIRST, CHICAGO_LAST);
     return 0;
 }

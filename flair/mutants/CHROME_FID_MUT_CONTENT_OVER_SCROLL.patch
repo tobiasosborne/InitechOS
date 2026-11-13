@@ -1,0 +1,15 @@
+# Legacy CHROME_FID_MUT_CONTENT_OVER_SCROLL
+# test: test_window
+--- a/window.c
++++ b/window.c
+@@ -211,9 +211,7 @@
+                                FLAIR_CHROME_BODY_BAR -
+                                FLAIR_CHROME_SCROLLBAR_W);
+     if (content.bottom < content.top) content.bottom = content.top;
+-    content.right = (int16_t)(frame.right - FLAIR_CHROME_FRAME -
+-                              FLAIR_CHROME_BODY_BAR -
+-                              FLAIR_CHROME_SCROLLBAR_W);
++    content.right = (int16_t)(frame.right - FLAIR_CHROME_FRAME);
+     return content;
+ }
+ 

@@ -1,0 +1,13 @@
+# Legacy TEXT_MUT_ITALIC_RUN4
+# test: test_font_styles
+--- a/include/text.h
++++ b/include/text.h
+@@ -428,7 +428,7 @@
+  * uses 1:4 -- the measured mode disagrees with it. */
+ static inline int text_italic_shift(int d)
+ {
+-    const int run = TEXT_ITALIC_RUN;
++    const int run = 4;
+     return (d >= 0) ? d / run : -((-d + run - 1) / run);
+ }
+ 

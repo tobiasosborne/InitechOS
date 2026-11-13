@@ -1,0 +1,12 @@
+# Legacy WINDOW_MUTATE_NO_ACTIVATE_INVAL
+# test: test_window
+--- a/window.c
++++ b/window.c
+@@ -440,7 +440,6 @@
+         if (was_hilited && !p->hilited) {
+             WindowMgr_invalidate(wm, p, region_get_bbox(p->strucRgn));
+         } else if (!was_hilited && p->hilited) {
+-            WindowMgr_invalidate(wm, p, region_get_bbox(p->strucRgn));
+         }
+     }
+ }

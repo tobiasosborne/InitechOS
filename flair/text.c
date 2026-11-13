@@ -1,7 +1,7 @@
 /*
  * os/flair/text.c -- FLAIR text rendering (proportional bitmap fonts).
  *
- * Ref: ADR-0004 D-7 ("proportional NFNT text measurement -- Chicago (system/
+ * Ref: clipped Toolbox drawing ("proportional NFNT text measurement -- Chicago (system/
  *      dialog) and Geneva 9 (cell), hand-authored strikes; text width = sum
  *      of per-glyph advances; no fixed-pitch assumption");
  *      PRD Sec 6.4 (font resources); PRD Sec 6.3 (Toolbox layer).
@@ -10,20 +10,20 @@
  *      os/flair/surface.h (surface_blit -- the ONE glyph-blit primitive).
  *      os/flair/text.h (API declarations -- all implementations are inline
  *        in the header for dual-compile freestanding/hosted simplicity).
- *      CLAUDE.md Law 1 (ground truth before code), Law 3 (freestanding
- *      artifact; no libc, no malloc, no 2026-isms), Rule 11 (reproducible),
- *      Rule 12 (ASCII-clean source).
+ *      source provenance (ground truth before code), language boundary (freestanding
+ *      artifact; no libc, no malloc, no 2026-isms), reproducible output,
+ *      ASCII source.
  *
- * ARTIFACT CODE: freestanding C (ADR-0002). No libc. No malloc. No host paths
+ * ARTIFACT CODE: freestanding C (freestanding C build). No libc. No malloc. No host paths
  * or timestamps baked in. Compiles BOTH under kernel flags:
  *   gcc -m32 -ffreestanding -nostdlib -fno-builtin -DFLAIR_HOSTED=0 \
  *       -Ios/flair -Ispec/assets -Ispec -c text.c
  * AND hosted for the oracle harness:
  *   gcc -DFLAIR_HOSTED=1 -Ios/flair -Ispec/assets -Ispec -c text.c
  *
- * MUTATION ORACLE NOTE (Rule 6):
- *   Build with -DTEXT_MUTATE_FIXED_PITCH=1 to activate the named mutant
- *   in text_measure() and text_draw(): every glyph gets a fixed 6px advance
+ * MUTATION ORACLE NOTE:
+ *   Build with -fixed pitch patch=1 to activate the named mutant
+ *   in text_measure and text_draw: every glyph gets a fixed 6px advance
  *   instead of the per-glyph value. The proportional property tests in
  *   harness/proptest/test_text.c MUST go RED under this mutant, proving the
  *   oracle catches fixed-pitch drift.
@@ -35,13 +35,13 @@
  * object file for the kernel link that carries the font data: chicago12.h and
  * geneva9.h are DEFINED here (FONT_TABLES_DEFINE) and only declared elsewhere.
  * The same switch makes this the ONE kernel definition of text_draw_run, the
- * styled, region-clipped Font Manager run (text.h; bead initech-tdnl.68).
+ * styled, region-clipped Font Manager run (text.h; ).
  *
- * ASCII-clean (Rule 12). No nondeterminism (Rule 11).
+ * ASCII-clean. No nondeterminism.
  */
 
-/* THE one definition site of the font tables in a kernel image (bead
- * initech-tdnl.33 ruling 3; spec/assets/font_linkage.h): every other kernel TU
+/* THE one definition site of the font tables in a kernel image (
+ *  ruling 3; spec/assets/font_linkage.h): every other kernel TU
  * sees an extern declaration and links against this TU's single copy. */
 #define FONT_TABLES_DEFINE 1
 
@@ -54,7 +54,7 @@ uint16_t text_chicago_row(unsigned g,unsigned r)
 {
     return chicago_packed_row(g,r);
 }
-/* Geneva 12 (bead initech-uelk): the same generated-dictionary storage. */
+/* Geneva 12: the same generated-dictionary storage. */
 #include "geneva12_packed.h"
 uint16_t text_geneva12_row(unsigned g,unsigned r)
 {
@@ -66,7 +66,7 @@ uint16_t text_geneva12_row(unsigned g,unsigned r)
  * text_font_from_txfont -- map a GrafPort txFont integer to text_font_t.
  *
  * Ref: spec/grafport.h (txFont field; "0 = systemFont (Chicago 12); 1 =
- * applFont"); ADR-0004 D-7 ("Chicago (system/dialog) and Geneva 9 (cell)").
+ * applFont"); clipped Toolbox drawing ("Chicago (system/dialog) and Geneva 9 (cell)").
  *
  * txFont 0 (systemFont) -> FONT_CHICAGO  (system/menu/dialog/title text)
  * txFont 1 (applFont)   -> FONT_GENEVA9  (small cell/UI labels)

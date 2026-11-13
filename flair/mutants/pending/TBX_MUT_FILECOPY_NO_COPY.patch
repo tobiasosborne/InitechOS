@@ -1,0 +1,25 @@
+# pending: legacy test-flair-file-copy-mutant: destination disk bytes after FILE COPY
+# Legacy TBX_MUT_FILECOPY_NO_COPY
+# test: test_flair_routing
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -1636,8 +1636,6 @@
+         return end < 0 ? end : TBX_ERR_BADARG;
+     }
+     g_fc.size = (uint32_t)end;
+-    g_fc.dst = fc_dos(0x3c00u, 0u, 0u, (uint32_t)(uintptr_t)g_slot.fc_dst);
+-    if (g_fc.dst < 0) { int32_t e = g_fc.dst; g_fc.dst = -1; tbx_fc_close(); return e; }
+     *size = g_fc.size;
+     return TBX_OK;
+ }
+@@ -1650,9 +1648,7 @@
+         if (want > TBX_FILECOPY_CHUNK) want = TBX_FILECOPY_CHUNK;
+         int32_t got = fc_dos(0x3f00u, (uint32_t)g_fc.src, want, (uint32_t)(uintptr_t)g_fc_buf);
+         if (got <= 0) return got < 0 ? got : TBX_ERR_BADARG;   /* short source */
+-        int32_t put = fc_dos(0x4000u, (uint32_t)g_fc.dst, (uint32_t)got,
+-                             (uint32_t)(uintptr_t)g_fc_buf);
+-        if (put != got) return put < 0 ? put : TBX_ERR_DOS(0x1d);  /* write fault */
++        /* NAMED regression patches: the bar runs, the bytes never reach disk. */
+         g_fc.done += (uint32_t)got;
+     }
+     return (int32_t)g_fc.done;

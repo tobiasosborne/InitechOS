@@ -1,19 +1,19 @@
 /*
  * spec/window_record.h -- FLAIR Window Manager: the LOCKED contract.
  *
- * LOCKED spec-data (CLAUDE.md Rule 8; PRD Sec 6.3 -- "the Toolbox layer").
- * beads: initech-k8o5.4 (FLAIR event + window model as spec-data).
+ * LOCKED spec-data (pinned inputs; PRD Sec 6.3 -- "the Toolbox layer").
+ *  (FLAIR event + window model as spec-data).
  *
  * This header locks the WindowRecord, the FindWindow part-codes, the window-
  * kind constants, and the windowDefProc variant codes -- all verbatim from
- * Inside Macintosh (ADR-0004 D-3).
+ * Inside Macintosh (clipped Toolbox drawing).
  *
- * ERA AXIS: era=system8-platinum is the Mac OS 8 Platinum (DEC-10) BASE.
+ * ERA AXIS: era=system8-platinum is the Mac OS 8 Platinum BASE.
  * These record layouts and numeric part/variant codes are unchanged from the
  * retained System 7.0/7.1 heritage contract; BC-10.10 preserves those source
  * tags without making System 7 the default appearance.
  *
- * SOURCE CITATIONS (Law 1 -- all local or free Apple developer archive):
+ * SOURCE CITATIONS (source provenance -- all local or free Apple developer archive):
  *
  *   Inside Macintosh: Macintosh Toolbox Essentials (1992) [MTE; free Apple
  *     dev archive; docs/research/gui-ground-truth.md Sec 3.2]:
@@ -44,7 +44,7 @@
  *         value (per MTE Ch 4 "documentKind" constant listing).
  *       FindWindow part-codes (IM-I p. I-280): same values as MTE, verbatim.
  *
- *   ADR-0004 (FLAIR Toolbox Architecture, RATIFIED 2026-06-19):
+ *   clipped Toolbox drawing (FLAIR Toolbox Architecture, RATIFIED 2026-06-19):
  *     D-3 (Manager decomposition with verbatim Inside Macintosh records and
  *       part-codes): "Window Manager -- WindowRecord (port, strucRgn/contRgn/
  *       updateRgn, windowKind, visibility, title); FindWindow part-codes
@@ -73,10 +73,10 @@
  * FLAIR EMBEDS (not pointers to) the GrafPort for the same reason:
  *   (a) Verbatim IM-I field name and layout: port at offset 0, WindowPtr
  *       castable to GrafPort * (IM-I p. I-268 contract).
- *   (b) Freestanding / no-malloc discipline (Rule 11, Law 3): embedding the
- *       port avoids a separate allocation from the FLAIR heap (ADR-0004 DEC-03).
+ *   (b) Freestanding / no-malloc discipline (reproducibility, language boundary): embedding the
+ *       port avoids a separate allocation from the FLAIR heap (clipped Toolbox drawing arena lifetime).
  *       The WindowRecord is itself allocated from the FLAIR heap arena
- *       (bump + typed free-list; ADR-0004 DEC-03); the embedded GrafPort is
+ *       (bump + typed free-list; clipped Toolbox drawing arena lifetime); the embedded GrafPort is
  *       part of that single allocation. This is simpler, more cache-friendly,
  *       and avoids two-level indirection.
  *   (c) Period-authentic: Mac OS never heap-allocated GrafPorts separately
@@ -89,8 +89,8 @@
  * indirected heap handles; IM-I p. I-268). FLAIR uses DIRECT POINTERS
  * (region_t *) to arena-allocated region_t instances for the same reason as
  * in grafport.h (spec/grafport.h design note): FLAIR has no heap-handle table;
- * region storage is caller-supplied from the FLAIR arena (ADR-0004 DEC-03;
- * spec/region_algebra.h arena-backed model; Law 3 freestanding). The Window
+ * region storage is caller-supplied from the FLAIR arena (clipped Toolbox drawing arena lifetime;
+ * spec/region_algebra.h arena-backed model; language boundary freestanding). The Window
  * Manager owns these region_t instances and initializes them from the arena
  * at window creation; they are valid for the window's lifetime.
  * QuickDraw NAMES (strucRgn, contRgn, updateRgn) are preserved verbatim.
@@ -106,12 +106,12 @@
  * array, not a double-pointer. This is an acknowledged FLAIR deviation from
  * the verbatim QuickDraw handle model, justified by freestanding constraints.
  * A follow-up may add a StringHandle-equivalent once the FLAIR heap handle
- * table is authored (ADR-0004 FO-5; beads initech-k8o5.5).
+ * table is authored (clipped Toolbox drawing FO-5; ).
  *
  * DUAL-COMPILE: freestanding (gcc -m32 -ffreestanding -nostdlib -std=c11)
  * AND hosted (cc -std=c11). Only <stdint.h> + <stddef.h> + local headers.
- * No host malloc; no libc beyond stdint/stddef. Rule 11 (reproducible).
- * ASCII-clean (Rule 12). Changing this file is a deliberate, Rule 8 act.
+ * No host malloc; no libc beyond stdint/stddef. reproducible output.
+ * ASCII-clean. Changing this file is a deliberate, pinned inputs act.
  */
 #ifndef INITECH_SPEC_WINDOW_RECORD_H
 #define INITECH_SPEC_WINDOW_RECORD_H
@@ -149,14 +149,14 @@ typedef enum flair_part_code {
     inGoAway   = 6,  /* point is in the window's close (goAway) box             */
     inZoomIn   = 7,  /* point is in the zoom-in box             (MTE Table 4-2) */
     inZoomOut  = 8,  /* point is in the zoom-out box            (MTE Table 4-2) */
-    inCollapse = 9   /* FLAIR Platinum collapse box (sys8 Sec 3.1; tdnl.2)     */
+    inCollapse = 9   /* FLAIR Platinum collapse box (sys8 Sec 3.1; )     */
 } flair_part_code_t;
 
 /* Per-window Platinum widget flags.  Appearance Manager windows can select
  * close+collapse without zoom (the control-panel example), so rendering and
  * hit-testing consume this record datum instead of inferring different gadget
  * sets independently. Ref: sys8/window-chrome.md Sec 3.1; D3.a row 16;
- * beads initech-tbef/ci4o/cjfr/tdnl.2. */
+ * /. */
 #define FLAIR_WINDOW_WIDGET_CLOSE     0x01u
 #define FLAIR_WINDOW_WIDGET_ZOOM      0x02u
 #define FLAIR_WINDOW_WIDGET_COLLAPSE  0x04u
@@ -217,19 +217,19 @@ typedef enum flair_part_code {
  *                          as the entries above -- this repo's original
  *                          transcription of the table skipped this row, a
  *                          source gap now closed). INDEPENDENTLY confirmed
- *                          local (Law 1): ../system7-decomp/specs/toolbox/
+ *                          local:../system7-decomp/specs/toolbox/
  *                          window-manager.md line 173 "movableDBoxProc | 5 |
  *                          movable modal dialog box (title bar, no grow/
  *                          zoom)" [verified: A+B, refs/IM_Tb_TypesOfWindows.txt
  *                          + refs/StandardWDEF_a.txt `dboxWithTitle EQU 5`];
- *                          ../system7-decomp/specs/chrome/wdef-variant-
+ *../system7-decomp/specs/chrome/wdef-variant-
  *                          geometry.md Sec 1/4 (the RENDERED golden
  *                          s7_about.png shows a PLAIN 1px frame + pinstripe
  *                          title bar identical to documentProc's, no close/
  *                          zoom/grow -- the FLAIR chrome this variant selects,
  *                          os/flair/chrome.h flair_draw_movable_dbox_chrome).
  *                          FLAIR consumer: os/flair/dialog.c FileCopyDialog
- *                          (beads initech-zvo6).
+ *.
  *   zoomDocProc     = 8:  Document window with zoom box (same chrome as
  *                          documentProc on most WDEF implementations; zoom
  *                          box + grow box present)
@@ -247,13 +247,13 @@ typedef enum flair_part_code {
 #define FLAIR_WDEF_ALT_DBOX_PROC     3   /* altDBoxProc     = 3  (MTE Table 4-1) */
 #define FLAIR_WDEF_NO_GROW_DOC       4   /* noGrowDocProc   = 4  (MTE Table 4-1) */
 #define FLAIR_WDEF_MOVABLE_DBOX      5   /* movableDBoxProc = 5  (MTE Table 4-1;
-                                           * ../system7-decomp/specs/toolbox/
+                                           *../system7-decomp/specs/toolbox/
                                            * window-manager.md line 173)          */
 #define FLAIR_WDEF_ZOOM_DOC_PROC     8   /* zoomDocProc     = 8  (MTE Table 4-1) */
 #define FLAIR_WDEF_ZOOM_NO_GROW     12   /* zoomNoGrow      = 12 (MTE Table 4-1) */
 /* rDocProc = 16 (MTE Table 4-1: the rounded-corner window, WDEF resource 1,
- * variant 0). Deliberate Rule-8 addition, bead initech-tdnl.17: the
- * Calculator desk accessory's window. ../system7-decomp GAPS wind-1 confirms
+ * variant 0). Deliberate pinned inputs addition,: the
+ * Calculator desk accessory's window.../system7-decomp GAPS wind-1 confirms
  * the real Calculator's WIND carries procID 16 (mint-006), and the Mac OS 8.1
  * capture s8_calc_idle.png (mint-007) is the drawing it is graded against. */
 #define FLAIR_WDEF_RDOC_PROC        16   /* rDocProc        = 16 (MTE Table 4-1) */
@@ -277,24 +277,24 @@ typedef enum flair_part_code {
  *
  * The verbatim Pascal WindowRecord in Inside Macintosh (IM-I p. I-268):
  *
- *   port          GrafPort      ; the window's grafPort (FIRST; WindowPtr
- *                               ; casts to GrafPtr -- IM-I p. I-268 contract)
- *   windowKind    Integer       ; window type identifier
- *   visible       Boolean       ; whether the window is visible
- *   hilited       Boolean       ; whether the window is highlighted (active)
- *   goAwayFlag    Boolean       ; whether the window has a close box
- *   spareFlag     Boolean       ; reserved (MTE p. 4-81: "reserved")
- *   strucRgn      RgnHandle     ; region covering the window's complete structure
- *   contRgn       RgnHandle     ; region of the window's content area
- *   updateRgn     RgnHandle     ; region of the content area needing update
- *   windowDefProc Handle        ; handle to the window definition procedure
- *   dataHandle    Handle        ; reserved / private (MTE p. 4-81)
- *   titleHandle   StringHandle  ; handle to the window's title string
- *   titleWidth    Integer       ; pixel width of the window's title
- *   nextWindow    WindowPtr     ; next window in the window list (linked list)
- *   refCon        LongInt       ; application-specific data (32-bit)
+ *   port          GrafPort; the window's grafPort (FIRST; WindowPtr
+ *; casts to GrafPtr -- IM-I p. I-268 contract)
+ *   windowKind    Integer; window type identifier
+ *   visible       Boolean; whether the window is visible
+ *   hilited       Boolean; whether the window is highlighted (active)
+ *   goAwayFlag    Boolean; whether the window has a close box
+ *   spareFlag     Boolean; reserved (MTE p. 4-81: "reserved")
+ *   strucRgn      RgnHandle; region covering the window's complete structure
+ *   contRgn       RgnHandle; region of the window's content area
+ *   updateRgn     RgnHandle; region of the content area needing update
+ *   windowDefProc Handle; handle to the window definition procedure
+ *   dataHandle    Handle; reserved / private (MTE p. 4-81)
+ *   titleHandle   StringHandle; handle to the window's title string
+ *   titleWidth    Integer; pixel width of the window's title
+ *   nextWindow    WindowPtr; next window in the window list (linked list)
+ *   refCon        LongInt; application-specific data (32-bit)
  *
- * FLAIR DEVIATIONS (all justified, Law 3 / freestanding):
+ * FLAIR DEVIATIONS (all justified, language boundary / freestanding):
  *   - port: EMBEDDED (not a pointer); see design note in file header.
  *   - strucRgn/contRgn/updateRgn: region_t * (direct pointer, not RgnHandle);
  *     see design note in file header.
@@ -305,15 +305,15 @@ typedef enum flair_part_code {
  *   - dataHandle: omitted (no heap handles in current release).
  *   - titleWidth: carried as int16_t (verbatim IM-I name); set by the Window
  *     Manager when the title is installed (proportional NFNT measurement,
- *     ADR-0004 D-7).
+ *     clipped Toolbox drawing).
  *   - nextWindow: struct WindowRecord * (typed pointer for the linked list;
  *     verbatim IM-I name; NULL for the last window).
  * ===========================================================================*/
 
 /* Maximum window title length (bytes, including null terminator).
- * Enough for Chicago 12 proportional text in a 640-px title bar (ADR-0004 D-7;
+ * Enough for Chicago 12 proportional text in a 640-px title bar (clipped Toolbox drawing;
  * a 63-char title at min ~5 px/char = 315 px, well under the 640 px bar width
- * minus close/zoom boxes). Locked (Rule 8).                                   */
+ * minus close/zoom boxes). Locked (pinned inputs).                                   */
 #define FLAIR_WINDOW_TITLE_MAX  64u   /* 63 chars + null terminator (bytes)   */
 
 /* Forward-declare WindowRecord so nextWindow can self-reference. */
@@ -321,8 +321,8 @@ typedef struct WindowRecord WindowRecord;
 
 /*
  * WindowRecord (verbatim QuickDraw name, IM-I Ch 4 p. I-268; MTE Ch 4 p. 4-78):
- *   "The Window Manager maintains a linked list of window records ..."
- *   All FLAIR windows are allocated from the FLAIR heap arena (ADR-0004 DEC-03)
+ *   "The Window Manager maintains a linked list of window records..."
+ *   All FLAIR windows are allocated from the FLAIR heap arena (clipped Toolbox drawing arena lifetime)
  *   and are linked through nextWindow. The front window is at the head of the
  *   list (lowest z-order = top of the screen).
  *
@@ -333,7 +333,7 @@ typedef struct WindowRecord WindowRecord;
  *   - visible == 0 means the window is hidden; the Window Manager does not
  *     include hidden windows in the front-to-back z-order paint pass.
  *   - hilited == 1 for the frontmost (active) window; all others have hilited=0.
- *   - updateRgn starts empty; the damage model (ADR-0004 D-5, DiffRgn) adds
+ *   - updateRgn starts empty; the damage model (clipped Toolbox drawing, DiffRgn) adds
  *     to it; the pump issues updateEvt when updateRgn is non-empty.
  */
 struct WindowRecord {
@@ -394,7 +394,7 @@ struct WindowRecord {
     /* --- Update region (IM-I p. I-268: "updateRgn") -------------------------
      * Ref: IM-I "updateRgn: RgnHandle. The update region, which is the part
      *      of the content region that must be redrawn."
-     * Starts empty on window creation; the damage model (ADR-0004 D-5, DiffRgn)
+     * Starts empty on window creation; the damage model (clipped Toolbox drawing, DiffRgn)
      * accumulates newly-exposed areas into it; the pump issues updateEvt when
      * updateRgn is non-empty; the app draws clipped to updateRgn and calls
      * BeginUpdate/EndUpdate to clear it. Never NULL (may be the empty region). */
@@ -404,7 +404,7 @@ struct WindowRecord {
      * Ref: IM-I p. I-268 "windowDefProc: Handle. A handle to the window's
      *      definition procedure."
      * FLAIR substitution: int16_t holding the WDEF variant code from Section 3
-     * (documentProc=0, dBoxProc=1, ..., zoomNoGrow=12). FLAIR has a built-in
+     * (documentProc=0, dBoxProc=1,..., zoomNoGrow=12). FLAIR has a built-in
      * WDEF dispatch keyed by this value; no heap handle is needed. The Window
      * Manager reads windowDefProcVariant to select chrome drawing and hit-
      * testing sub-regions (title bar / drag / grow / goAway / zoom boxes). */
@@ -422,18 +422,18 @@ struct WindowRecord {
     /* --- Title pixel width (IM-I p. I-268: "titleWidth") --------------------
      * Ref: IM-I "titleWidth: Integer. The width in pixels of the window title."
      * Set by the Window Manager using proportional NFNT text measurement
-     * (ADR-0004 D-7: "proportional NFNT text measurement ... text width is
+     * (clipped Toolbox drawing: "proportional NFNT text measurement... text width is
      * the sum of per-glyph advances"). 0 if no title. */
     int16_t      titleWidth;
 
     /* Pad for alignment after titleWidth (int16_t) to keep nextWindow pointer
-     * aligned to 4 bytes on 32-bit flat (ADR-0001). */
+     * aligned to 4 bytes on 32-bit flat. */
     uint8_t      _pad_title[2];
 
     /* --- Next window in the z-order list (IM-I p. I-268: "nextWindow") ------
      * Ref: IM-I "nextWindow: WindowPtr. A pointer to the next window in the
      *      window list (behind this window in the z-order)."
-     * NULL for the backmost window. The desktop shell (Layer 5, ADR-0004 D-1)
+     * NULL for the backmost window. The desktop shell (Layer 5, clipped Toolbox drawing)
      * maintains the list head (frontmost window pointer). The Window Manager
      * traverses this linked list for z-order operations (BringToFront,
      * SendBehind, SelectWindow). */
@@ -451,7 +451,7 @@ struct WindowRecord {
      * windowshade click. widgetFlags is the single render/hit-test capability
      * datum. These are FLAIR extensions after the verbatim IM record prefix.
      * Ref: GUI-remediation-plan.md R1.1/R1.2; sys8 window-chrome.md Sec 3.1/7;
-     * bead initech-tdnl.2. */
+     *. */
     rgn_rect_t   userState;
     rgn_rect_t   collapseState;
     uint8_t      widgetFlags;

@@ -1,46 +1,46 @@
 /*
  * os/flair/scrap.c -- the FLAIR Scrap Manager implementation -- THE ARTIFACT.
  *
- * beads: initech-b2vk (FLAIR Phase 4.5 -- Platform Services: Scrap).
- * Ref:   scrap.h (the full contract + heap-seam rationale); ADR-0013 Sec 6
+ *  (FLAIR Phase 4.5 -- Platform Services: Scrap).
+ * Ref:   scrap.h (the full contract + heap-seam rationale); tenant lifecycle
  *        (shell-owned cross-tenant Scrap); Inside Macintosh Vol I Scrap Mgr.
- *        CLAUDE.md Law 1 (ground truth before code), Law 2 (oracle is truth),
- *        Law 3 (freestanding artifact; no libc, no malloc; dual-compile),
- *        Rule 2 (fail loud), Rule 6 (mutants: each #ifdef MUST compile and go
- *        RED), Rule 11 (deterministic), Rule 12 (ASCII-clean source).
+ *        source provenance (ground truth before code), independent checks (oracle is truth),
+ *        language boundary (freestanding artifact; no libc, no malloc; dual-compile),
+ *        fail loudly, mutation checks (mutants: each patch MUST compile and go
+ *        RED), deterministic output, ASCII source.
  *
- * MUTANT GUARDS (Rule 6 -- mutation-proven oracle):
- *   SCRAP_MUT_IGNORE_FLAVOR  -- ignore the type key in flavor lookup; match
+ * regression patches GUARDS (mutation checks -- mutation-proven oracle):
+ *   ignore flavor patch  -- ignore the type key in flavor lookup; match
  *       the first flavor regardless. PutScrap(PICT) then overwrites the TEXT
  *       slot, so GetScrap(TEXT) returns the PICT bytes -> step 3 RED.
- *   SCRAP_MUT_NO_INCREMENT   -- FlairZeroScrap skips scrapCount++.
+ *   no increment patch   -- FlairZeroScrap skips scrapCount++.
  *       FlairInfoScrap returns 1 instead of 2 after two ZeroScraps -> RED.
- *   SCRAP_MUT_NO_CLEAR       -- FlairZeroScrap bumps the count but leaves
+ *   no clear patch       -- FlairZeroScrap bumps the count but leaves
  *       n_flavors unchanged. GetScrap after ZeroScrap returns stale -> RED.
  *
- * ERA CEILING (Law 3): No Win32 clipboard names (CF_TEXT / CF_BITMAP /
+ * ERA CEILING: No Win32 clipboard names (CF_TEXT / CF_BITMAP /
  *   OpenClipboard / EmptyClipboard / SetClipboardData). Mac Scrap Manager
  *   model only.
  *
- * FREESTANDING (Law 3): <stdint.h> only (via scrap.h). No string.h / libc /
+ * FREESTANDING: <stdint.h> only (via scrap.h). No string.h / libc /
  *   malloc. Byte operations are provided by the internal scrap_memcpy helper.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #include <stddef.h>   /* NULL -- freestanding-safe (C11 S4p6 required header) */
 #include "scrap.h"
 
 /* ---------------------------------------------------------------------------
  * Fail-loud dual-compile pattern (mirrors os/flair/process.c PROC_PANIC and
- * os/flair/window.c WIN_PANIC). On the hosted test build, abort() gives a
+ * os/flair/window.c WIN_PANIC). On the hosted test build, abort gives a
  * clean crash with a traceable cause. In the freestanding kernel, a deliberate
- * infinite loop is the loud deterministic halt (Rule 2 / Rule 11).
+ * infinite loop is the loud deterministic halt (explicit error handling / reproducibility).
  * ------------------------------------------------------------------------- */
 #if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1 && !defined(__KERNEL_FREESTANDING__)
-#  include <stdlib.h>   /* abort() -- hosted only */
+#  include <stdlib.h>   /* abort -- hosted only */
 #  define SCRAP_PANIC(msg)  abort()
 #else
-/* Freestanding: deliberate, loud, deterministic hang (Rule 2 / Rule 11). */
+/* Freestanding: deliberate, loud, deterministic hang (explicit error handling / reproducibility). */
 #  define SCRAP_PANIC(msg)  do { (void)(msg); __builtin_trap(); } while (0)
 #endif
 
@@ -62,9 +62,9 @@ static void scrap_memcpy(void *dst, const void *src, uint32_t n)
 /* ---------------------------------------------------------------------------
  * find_flavor -- search flavors[0..n_flavors) for type; return the index or
  * -1 if absent. This is the ONLY location where the type-key comparison
- * lives, so SCRAP_MUT_IGNORE_FLAVOR perturbs it in exactly one place.
+ * lives, so ignore flavor patch perturbs it in exactly one place.
  *
- * MUTANT SCRAP_MUT_IGNORE_FLAVOR: ignore the type key and always "match"
+ * regression patches ignore flavor patch: ignore the type key and always "match"
  * index 0 when any flavor exists. Effect on the test steps:
  *   PutScrap(PICT): find_flavor returns 0 (TEXT slot) -> replaces TEXT slot
  *     payload with PICT bytes (type field stays TEXT).
@@ -73,20 +73,12 @@ static void scrap_memcpy(void *dst, const void *src, uint32_t n)
  * ------------------------------------------------------------------------- */
 static int find_flavor(const FlairScrap *s, flair_ostype_t type)
 {
-#ifdef SCRAP_MUT_IGNORE_FLAVOR
-    /* MUTANT (Rule 6 -- NEVER define in a real build): ignore the type key;
-     * always return index 0 if any flavor exists. Causes PutScrap(PICT) to
-     * overwrite the TEXT slot, so GetScrap(TEXT) yields PICT bytes -> RED. */
-    (void)type;
-    return (s->n_flavors > 0) ? 0 : -1;
-#else
     uint32_t i;
     for (i = 0; i < s->n_flavors; i++) {
         if (s->flavors[i].type == type)
             return (int)i;
     }
     return -1;
-#endif
 }
 
 /* ---------------------------------------------------------------------------
@@ -110,20 +102,16 @@ void FlairScrap_init(FlairScrap *s)
 /* ---------------------------------------------------------------------------
  * FlairZeroScrap -- discard all flavors and increment the generation count.
  *
- * MUTANT SCRAP_MUT_NO_CLEAR: skip n_flavors=0 (leave stale flavors) ->
+ * regression patches no clear patch: skip n_flavors=0 (leave stale flavors) ->
  *   GetScrap after ZeroScrap returns stale data instead of -1 -> RED.
- * MUTANT SCRAP_MUT_NO_INCREMENT: skip scrapCount++ ->
+ * regression patches no increment patch: skip scrapCount++ ->
  *   FlairInfoScrap returns the wrong generation number -> RED.
  * ------------------------------------------------------------------------- */
 void FlairZeroScrap(FlairScrap *s)
 {
     if (s == NULL) SCRAP_PANIC("FlairZeroScrap: NULL argument (contract error)");
-#ifndef SCRAP_MUT_NO_CLEAR
     s->n_flavors = 0u;
-#endif
-#ifndef SCRAP_MUT_NO_INCREMENT
     s->scrapCount++;
-#endif
 }
 
 /* ---------------------------------------------------------------------------
@@ -139,12 +127,10 @@ int32_t FlairPutScrap(FlairScrap *s, flair_ostype_t type,
     int idx;
 
     if (s == NULL) SCRAP_PANIC("FlairPutScrap: NULL argument (contract error)");
-#ifndef SCRAP_MUT_NULL_DATA
-    /* m1ry: address zero is readable IVT memory in the flat kernel. */
+    /* address zero is readable IVT memory in the flat kernel. */
     if (data == NULL && len != 0u) SCRAP_PANIC("FlairPutScrap: NULL data");
-#endif
 
-    /* Rule 2: fail loud on over-size -- NEVER silently truncate. */
+    /* explicit error handling: fail loud on over-size -- NEVER silently truncate. */
     if (len > FLAIR_SCRAP_MAX_PAYLOAD)
         return FLAIR_SCRAP_ERR_TOO_LARGE;
 
@@ -158,10 +144,8 @@ int32_t FlairPutScrap(FlairScrap *s, flair_ostype_t type,
     }
 
     /* APPEND a new flavor. */
-#ifndef SCRAP_MUT_FULL_FLAVOR
     if (s->n_flavors >= FLAIR_SCRAP_MAX_FLAVORS)
         return FLAIR_SCRAP_ERR_NO_FLAVOR;
-#endif
 
     {
         uint32_t slot = s->n_flavors;
@@ -177,7 +161,7 @@ int32_t FlairPutScrap(FlairScrap *s, flair_ostype_t type,
  * FlairGetScrap -- retrieve flavor `type` into `buf` (bufsz bytes available).
  *
  * Returns the byte count on success; -1 if type absent; FLAIR_SCRAP_ERR_BUF
- * if bufsz < length (Rule 2: fail loud, NO partial copy).
+ * if bufsz < length (explicit error handling: fail loud, NO partial copy).
  * ------------------------------------------------------------------------- */
 int32_t FlairGetScrap(const FlairScrap *s, flair_ostype_t type,
                       void *buf, uint32_t bufsz, uint32_t *len_out)
@@ -193,7 +177,7 @@ int32_t FlairGetScrap(const FlairScrap *s, flair_ostype_t type,
 
     flen = s->flavors[(uint32_t)idx].length;
 
-    /* Rule 2: fail loud if the caller's buffer is too small -- NO partial copy. */
+    /* explicit error handling: fail loud if the caller's buffer is too small -- NO partial copy. */
     if (bufsz < flen)
         return FLAIR_SCRAP_ERR_BUF;
 

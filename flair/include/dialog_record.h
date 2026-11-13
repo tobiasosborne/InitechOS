@@ -1,20 +1,20 @@
 /*
  * spec/dialog_record.h -- FLAIR Dialog Manager: the LOCKED contract.
  *
- * LOCKED spec-data (CLAUDE.md Rule 8; PRD Sec 6.5 -- "the Dialog Manager").
- * ERA AXIS: era=system8-platinum is the Mac OS 8 Platinum (DEC-10) BASE.
+ * LOCKED spec-data (pinned inputs; PRD Sec 6.5 -- "the Dialog Manager").
+ * ERA AXIS: era=system8-platinum is the Mac OS 8 Platinum BASE.
  * The unchanged DialogRecord/DITL constants retain their System 7.0/7.1
  * source tags as heritage provenance under BC-10.10.
- * beads: initech-dh5k.3 (P1-3: spec/dialog_record.h + oracle).
+ *  (P1-3: spec/dialog_record.h + oracle).
  *
  * This header locks the DialogRecord layout invariants, the DITL item-type byte
  * catalog, the alert-type selectors and 4-stage escalation mechanism, the
  * ok=1/cancel=2 standard-button result codes, and the ModalDialog cooperative-
  * loop contract -- all verbatim from Inside Macintosh, System 7.0/7.1 era.
  *
- * SOURCE CITATIONS (Law 1 -- local corpus is authority):
+ * SOURCE CITATIONS (source provenance -- local corpus is authority):
  *
- *   ../system7-decomp/specs/toolbox/dialog-manager.md (heritage layout authority):
+ *../system7-decomp/specs/toolbox/dialog-manager.md (heritage layout authority):
  *     Sec 1: DialogRecord verbatim Pascal layout (window@0, items, textH,
  *       editField, editOpen, aDefItem); windowKind=dialogKind(2) inside window.
  *     Sec 2: DITL item-type byte catalog (userItem=0, helpItem=1, ctrlItem=4,
@@ -37,18 +37,18 @@
  *   spec/chrome_metrics.h (FLAIR_CHROME_DIALOG_BORDER=7 -- dBoxBorderSize EQU 7;
  *     not redefined here; this file relies on chrome_metrics.h for that constant).
  *   os/flair/dialog.h (FLAIR implementation; READ-ONLY reference for deviations;
- *     FLAIR_CANON_FILECOPY_MSG "Saving tables to disk...", Law 4 canon).
+ *     FLAIR_CANON_FILECOPY_MSG "Saving tables to disk...", film canon canon).
  *
  *   Inside Macintosh Vol I Ch 13 (IM-I) + MTE Ch 6 "Dialog Manager" (cross-
  *     check; the system7-decomp corpus is the local authority, not re-read here).
  *
- * CANON WARNING (Law 4 -- PRD Sec 6.5 / Appendix A/B):
+ * CANON WARNING (film canon -- PRD Sec 6.5 / Appendix A/B):
  *   The FILE COPY dialog message string ("Saving tables to disk...") is LOCKED
  *   in os/flair/dialog.h FLAIR_CANON_FILECOPY_MSG. This spec carries no
  *   duplicate definition -- the implementation header is the single source of
  *   truth for that string. The oracle (harness/proptest/test_dialog_record.c)
- *   checks the spec constants only; the full Law-4 byte-exact assertion is in
- *   harness/proptest/test_dialog.c (DIALOG_MUTATE_FILECOPY_MSG).
+ *   checks the spec constants only; the full film canon byte-exact assertion is in
+ *   harness/proptest/test_dialog.c (filecopy msg patch).
  *
  * WHAT THIS HEADER LOCKS:
  *   1. DITL item-type byte values (all [verified: A+B]).
@@ -73,8 +73,8 @@
  *
  * DUAL-COMPILE: freestanding (gcc -m32 -ffreestanding -nostdlib -std=c11)
  * AND hosted (cc -std=c11). Only <stdint.h> + <stddef.h> + local spec headers.
- * No host malloc; no libc beyond stdint/stddef. Rule 11 (reproducible).
- * ASCII-clean (Rule 12). Changing this file is a deliberate, Rule 8 act.
+ * No host malloc; no libc beyond stdint/stddef. reproducible output.
+ * ASCII-clean. Changing this file is a deliberate, pinned inputs act.
  */
 #ifndef INITECH_SPEC_DIALOG_RECORD_H
 #define INITECH_SPEC_DIALOG_RECORD_H
@@ -89,7 +89,7 @@
  * 1. DITL ITEM-TYPE BYTE CATALOG  (verbatim Inside Macintosh values)
  *    era=system7.0-7.1
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/dialog-manager.md Sec 2
+ * Ref:../system7-decomp/specs/toolbox/dialog-manager.md Sec 2
  *      [verified: A+B; im-toolbox-records-verbatim.md + Toolbox-442]:
  *
  * The item-type byte = a base type OR'd with itemDisable(0x80).
@@ -165,16 +165,16 @@
  * 2. ALERT TYPE SELECTORS -- standard alert icon ICON resource IDs
  *    era=system7.0-7.1
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/dialog-manager.md Sec 4.1
+ * Ref:../system7-decomp/specs/toolbox/dialog-manager.md Sec 4.1
  *      [verified: A+B; im-toolbox-records-verbatim.md (stopIcon=0 noteIcon=1
  *       cautionIcon=2) + IM-I p. I-409]:
  *
  * StopAlert/NoteAlert/CautionAlert draw the standard icon in the alert's
  * top-left corner. The values are indices/resource IDs into the System-file
- * ICON resources. Alert() (no icon) uses none of these.
+ * ICON resources. Alert (no icon) uses none of these.
  *
  * The RENDERED icon bitmaps (stop sign / note / caution triangle) are
- * [golden-resolves] owned by ../system7-decomp/specs/desktop/alerts.md;
+ * [golden-resolves] owned by../system7-decomp/specs/desktop/alerts.md;
  * this spec carries ONLY the selector constants.
  * ===========================================================================*/
 
@@ -194,7 +194,7 @@
  * 3. ALERT STAGE MECHANISM  (4-stage StageList escalation)
  *    era=system7.0-7.1
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/dialog-manager.md Sec 4.2
+ * Ref:../system7-decomp/specs/toolbox/dialog-manager.md Sec 4.2
  *      [documented: single src -- Toolbox-442 + WebSearch IM:Tb; Sec 7 ledger]:
  *
  * An ALRT resource carries a StageList of 4 stages (1..4). Each stage applies
@@ -204,9 +204,9 @@
  *   - which of the 4 sound selectors (0..3) to play (0 = silent)
  *
  * The Dialog Manager auto-escalates: repeated alerts climb 1->2->3->4 (stick
- * at 4). GetAlertStage() queries the current stage. The per-stage BIT layout
+ * at 4). GetAlertStage queries the current stage. The per-stage BIT layout
  * (boldItm/visible/soundNum packed per stage) is the resource format, owned by
- * ../system7-decomp/specs/resources/wind-menu-dlog-ditl.md.
+ *../system7-decomp/specs/resources/wind-menu-dlog-ditl.md.
  * ===========================================================================*/
 
 #define FLAIR_ALERT_STAGE_COUNT    4   /* 4 stages per ALRT StageList          */
@@ -220,7 +220,7 @@
  * 4. STANDARD RESULT CODES  (ok=1, cancel=2)
  *    era=system7.0-7.1
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/dialog-manager.md Sec 4.3
+ * Ref:../system7-decomp/specs/toolbox/dialog-manager.md Sec 4.3
  *      [verified: A+B; im-toolbox-records-verbatim.md (ok=1 cancel=2) +
  *       Toolbox-442 (ok=1 first button, cancel=2 second button)]:
  *
@@ -245,7 +245,7 @@
  * 5. DIALOGRECORD LAYOUT INVARIANTS
  *    era=system7.0-7.1
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/dialog-manager.md Sec 1 + Sec 6
+ * Ref:../system7-decomp/specs/toolbox/dialog-manager.md Sec 1 + Sec 6
  *      [verified: A+B; im-toolbox-records-verbatim.md + Toolbox-442 assembly-
  *       language summary (dWindow@0 size 156, items@156, teHandle@160,
  *       editField@164, editOpen@166, aDefItem@168)]:
@@ -271,7 +271,7 @@
  *     (drawn but ModalDialog will NOT return it).
  *     [verified: dialog-manager.md Sec 6 deviations table]
  *
- * NOTE: The 68K offsets (dWindow@0/156, items@156, ...) are documented and
+ * NOTE: The 68K offsets (dWindow@0/156, items@156,...) are documented and
  * cited above for audit trail; they are NOT load-bearing for FLAIR because
  * FLAIR re-types the fields in C (dialog-manager.md Sec 1 says "not load-
  * bearing for FLAIR (which re-types the fields, Sec 6)").
@@ -281,14 +281,14 @@
  * 6. MODALDIALOG COOPERATIVE-LOOP CONTRACT
  *    era=system7.0-7.1
  * ---------------------------------------------------------------------------
- * Ref: ../system7-decomp/specs/toolbox/dialog-manager.md Sec 3
+ * Ref:../system7-decomp/specs/toolbox/dialog-manager.md Sec 3
  *      [verified: A+B; Toolbox-442 signature + dialog-manager.md Sec 3]:
  *
  * ModalDialog(filterProc, VAR itemHit): repeatedly fetches events, optionally
  * passes them through the caller's filterProc, and returns the 1-based item
  * number of the first ENABLED item the user activated.
  *
- * FLAIR cooperative form (ADR-0004 D-6):
+ * FLAIR cooperative form (clipped Toolbox drawing):
  *   - Drains flair_raw_ring_t via WaitNextEvent (task context, non-preemptive).
  *   - Takes a dialog_filter_fn (== filterProc).
  *   - Returns via *itemHit (1-based). 0 = no item (ring empty, sleepTicks=0).
@@ -314,7 +314,7 @@
  *   - the IM source,
  *   - the dialog-manager.md section.
  * Any change to a value above MUST update the matching assert and carry a
- * Rule 8 worklog note + deliberate beads-issue justification.
+ * pinned inputs worklog note + deliberate -issue justification.
  * ===========================================================================*/
 
 /* --- DITL item-type byte values ------------------------------------------- */

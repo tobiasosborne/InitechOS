@@ -1,0 +1,13 @@
+# Legacy FLAIR_MUT_SKIN_WRONG_ERA
+# test: test_chrome_fidelity
+--- a/flair_look.c
++++ b/flair_look.c
+@@ -248,7 +248,7 @@
+  * untouched. There is deliberately no runtime era branch. */
+ const flair_skin_t *flair_look_default_skin(void)
+ {
+-    return flair_skin_default();
++    return flair_skin_resolve(ERA_SYS7_0_1, HERITAGE_QUICKDRAW);
+ }
+ 
+ /* Return the row-carried slot for a PART whose default Platinum value already

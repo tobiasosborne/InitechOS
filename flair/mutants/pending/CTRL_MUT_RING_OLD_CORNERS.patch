@@ -1,0 +1,26 @@
+# pending: legacy test-flair-cpanels-date-mutant: independent default-ring corner pixels (also patterns/mouse/sound/memory)
+# Legacy CTRL_MUT_RING_OLD_CORNERS
+# test: test_control test_scrollbar_look
+--- a/control.c
++++ b/control.c
+@@ -961,20 +961,6 @@
+      * sampled smoothing/moat. These are the four 5x5 corner crops; straight
+      * legs above remain stretchable. The oracle reads the PNG independently.
+      * Named mutant restores the old corners. */
+-    static const char corners[4][5][6]={
+-        {"...dK","..K..",".K..C","d..CS","K.CSK"},
+-        {"Kd...",".AK..","CCHK.","SCCGd","KSCSK"},
+-        {"K.CSK","dACCS",".KHCC","..KGS","...dK"},
+-        {"KSCSK","SCGSd","CGSK.","SSK..","Kd..."}
+-    };
+-    for(unsigned k=0;k<4;k++)for(int y=0;y<5;y++)for(int x=0;x<5;x++) {
+-        char c=corners[k][y][x];int part=CTRL_PLAT_FACE;
+-        if(c=='K')part=CTRL_BLACK;else if(c=='d')part=CTRL_PLAT_DARK_RING;
+-        else if(c=='C')part=CTRL_PLAT_SHADOW;else if(c=='S')part=CTRL_PLAT_DARK_SHADOW;
+-        else if(c=='A')part=FLAIR_PART_PLAT_FRAME_FACE;else if(c=='H')part=CTRL_PLAT_CORNER;
+-        else if(c=='G')part=CTRL_PLAT_WIDGET_EDGE;
+-        cfill_ctrl(port,(k&1?x1-5:x0)+x,(k&2?y1-5:y0)+y,1,part);
+-    }
+ 
+ }
+ 

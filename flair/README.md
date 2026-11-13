@@ -88,18 +88,36 @@ The target never sees kernel include paths. Move the host adapter into the
 kernel's host binding when that binding is published. The diagnostic catalog
 in tests/platform is a frozen legacy fixture, not product code or an oracle.
 
-Other debts: the target platform binding and INT 81h assembly are integrated in
-desktop/; 202 distinct conditional mutant macros await
-conversion to patches (243 guard locations, tests/MUTANTS-TODO.md); disabled and
-pressed CDEF capture gaps remain explicit. make mutants and make smoke fail
-loudly with the relevant inventory. tests/SMOKES.md indexes 250 deferred emulator
-gates and their traces/checkers. This import does not certify the booted pump.
+The target platform binding and INT 81h assembly are integrated in desktop/.
+Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
+250 legacy emulator gates and their traces/checkers; those individual checks
+remain with the factory and desktop owners. The product smoke exercises the
+current booted pump, rather than certifying every historical scenario.
+
+make mutants runs 191 patches through the shared strict runner: passing baseline,
+zero-fuzz application, successful compilation, and the same runtime failure twice.
+Each patch selects a killing host program. tools/run-mutants.sh groups exact
+selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;
+the measured sweep is 85 seconds on this machine. The shared runner itself is
+serial; native parallel scheduling and baseline sharing across patch workers
+would remove this local wrapper and the serial tail of large selection groups.
+Sixteen patches under mutants/pending/ need their named legacy emulator gates.
+None was deleted as equivalent. tests/MUTATION-RESULTS.tsv records all 207 macros,
+their original 248 guard entries, test selection, disposition and recipe evidence.
+This includes five hooks omitted from the original 202-macro/243-entry inventory:
+the two clock faults, modal passthrough, close hiding and update visibility.
+Shared scrollbar patches are counted once under control; surface/asset decoding
+under blitter, look resolution under chrome, font storage under text, and the
+menu gate helpers under menu. No product behavior changes.
 
 Shared build conventions: command stamps rebuild on tool/flag changes; C
 translation units use -MMD dependencies. TEST_BUDGET_S is 30 seconds for the
 complete tier-0 selection; measured execution fits the default, excluding builds.
 Standalone tests verify their consumed files in goldens/CORPORA.lock; the
 top-level test run verifies the full lock once before parallel execution.
-Import audit stays disabled: product mutation hooks and the parked desktop
-subtree's escaping includes remain. libflair.a uses the shared target rules;
-region-target asks the region component for its single library/object build.
+Import audit adoption is blocked by its recursive scan of separately owned
+desktop/ and region/, and its treatment of host-only tools as product sources.
+The shared import checker needs an explicit product-source list or component
+boundary exclusions before this component can include mk/import-check.mk without
+grading its neighbors. No scan pattern is weakened here. libflair.a uses the
+shared target rules; region-target asks region for its single library/object build.

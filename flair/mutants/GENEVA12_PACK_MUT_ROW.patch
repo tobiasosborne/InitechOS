@@ -1,0 +1,12 @@
+# Legacy GENEVA12_PACK_MUT_ROW
+# test: test_geneva12_pack
+--- a/include/geneva12_packed.h
++++ b/include/geneva12_packed.h
+@@ -20,6 +20,7 @@
+     uint16_t v=0;
+     if(r>=first && r-first<geneva_pack_count[g])
+         v=geneva_pack_values[geneva_pack_rows[geneva_pack_offsets[g]+r-first]];
++    if(g==(unsigned)('S'-0x20) && r==2u) v^=0x8000u;
+     return v;
+ }
+ #endif

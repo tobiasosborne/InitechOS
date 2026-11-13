@@ -1,0 +1,28 @@
+# Legacy LIST_MUT_NO_DESELECT
+# test: test_list
+--- a/list.c
++++ b/list.c
+@@ -236,15 +236,14 @@
+      * lOnlyOne (0x80): deselect ALL cells before selecting the hit cell.
+      * Checked as an unsigned bit test to avoid signed-byte sign-extension. */
+     if ((uint8_t)l->selFlags & 0x80u) {
+-        /* Canonical: deselect every cell in the grid (block-scoped vars). */
+-        {
+-            int16_t ri, ci;
+-            for (ri = l->dataBounds.top; ri < l->dataBounds.bottom; ri++) {
+-                for (ci = l->dataBounds.left; ci < l->dataBounds.right; ci++) {
+-                    l->selected[ri][ci] = 0;
+-                }
+-            }
+-        }
++        /*
++         * regression patches no deselect patch: skip the deselect loop.  With lOnlyOne,
++         * previously-selected cells are NOT cleared.
++         * Oracle step 5: click (0,0) then click (0,2); check (0,0) is now
++         * deselected.  Mutant: (0,0) stays selected (1) -> FAIL -> RED.
++         * Ref: mutation checks.
++         */
++        (void)0; /* suppress empty-body warning in the mutant path */
+     }
+ 
+     /* Select the hit cell and record lastClick. */

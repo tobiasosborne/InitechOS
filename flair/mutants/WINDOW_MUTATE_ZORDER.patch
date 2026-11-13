@@ -1,0 +1,20 @@
+# Legacy WINDOW_MUTATE_ZORDER
+# test: test_interact
+--- a/window.c
++++ b/window.c
+@@ -245,14 +245,7 @@
+ static void fronts_union(const WindowMgr *wm, const WindowPtr w, region_t *out)
+ {
+     region_set_empty(out);
+-    /* `out` is the accumulator; rgn_accumulate needs a scratch distinct from
+-     * `out` and from the operand (f->strucRgn). scratch_c is reserved for this;
+-     * if a caller passed scratch_c AS `out`, fall back to scratch_b. */
+-    region_t *sc = (out == wm->scratch_c) ? wm->scratch_b : wm->scratch_c;
+-    for (WindowPtr f = wm->front; f != NULL && f != w; f = f->nextWindow) {
+-        if (!f->visible) continue;
+-        rgn_accumulate(out, f->strucRgn, RGN_OP_UNION, sc);
+-    }
++    (void)wm; (void)w;   /* z-order ignored: union-of-fronts stays empty */
+ 
+     /* ALIASING-CRITICAL: rgn_accumulate(out, overlay, UNION, sc2) does
+      * `sc2:= out UNION overlay; out:= sc2`, so sc2 MUST be distinct from BOTH

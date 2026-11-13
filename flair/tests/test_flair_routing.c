@@ -1,7 +1,7 @@
 /* test_flair_routing.c -- the R3.7 O-1-style HOST routing suite over
- * disk_tenant_event (bead initech-2svz).
+ * disk_tenant_event.
  *
- * WHY THIS EXISTS. R3.7 (bead initech-tdnl.14, WL-0091 item 8) landed the
+ * WHY THIS EXISTS. R3.7 (,  item 8) landed the
  * disk-tenant host with an emulator gate only; two guest bugs were found and
  * fixed on the real guest WITHOUT a host oracle or a mutant pinning them:
  *   (1) chrome.c drew a window's TITLE TEXT UNCLIPPED, so repainting a partly
@@ -10,10 +10,10 @@
  *   (2) a tenant that REGISTERs without opening a window must NOT become the
  *       foreground: FlairProcess_admit links it BEHIND the head, and the first
  *       NEWWINDOW is affirmed through FlairProcess_activate once the tenant has
- *       returned (DEC-AC3-4).
- * The reconciliation's DEC-AC3-3 names the oracle this file is: "O-1-style
+ *       returned (disk tenant lifecycle).
+ * The reconciliation's disk tenant lifecycle names the oracle this file is: "O-1-style
  * host routing suite over disk_tenant_event"
- * (docs/design/GUI-remediation-ADR-reconciliation.md Part B).
+ * (Toolbox gate records in tbxgate.h).
  *
  * WHAT RUNS. The REAL os/flair/tbxgate.c (disk_tenant_event, the INT 81h
  * dispatcher tbx_gate_dispatch, tbx_launch / tbx_take_affirm / tbx_reap), the
@@ -31,14 +31,14 @@
  *     and the cdecl args at +68 (spec/toolbox_gate.h Sec 2), handed to the
  *     REAL tbx_gate_dispatch.
  * The kmain pump step flair_live_tenant_service (os/initechdos/kmain.c) is
- * mirrored by service(): affirm (FlairProcess_activate) FIRST, then tbx_reap.
+ * mirrored by service: affirm (FlairProcess_activate) FIRST, then tbx_reap.
  *
- * INDEPENDENT GOLDEN (Law 2; the test_process idiom). The tenant program
+ * INDEPENDENT GOLDEN (independent checks; the test_process idiom). The tenant program
  * appends what it READ OUT OF ITS OWN FlairEvent buffer (what / message /
  * modifiers / where, the widened int32 slots of spec/toolbox_gate.h Sec 6) to
  * the delivery log; the resident Finder stub appends the EventRecord it was
- * handed. Every expected sequence below is HAND-AUTHORED from ADR-0013 Sec 3.3
- * / 3.4 and DEC-AC3-3/-4 -- never read back out of the router.
+ * handed. Every expected sequence below is HAND-AUTHORED from tenant lifecycle
+ * / 3.4 and disk tenant lifecycle/-4 -- never read back out of the router.
  *
  * THE ADDRESS MODEL. tbxgate.c holds tenant addresses as uint32_t (the flat-32
  * guest). This suite links -no-pie and keeps the master heap -- hence every
@@ -48,36 +48,36 @@
  *
  * LEGS:
  *   A  windowless REGISTER: the Finder stays foreground; no pair; keys reach
- *      the Finder (DEC-AC3-4).                     MUTANT ADMIT_IS_FOREGROUND
+ *      the Finder (disk tenant lifecycle).                     regression patches ADMIT_IS_FOREGROUND
  *   B  first NEWWINDOW: no switch while the tenant's own entry runs; the pump
  *      affirms with exactly one deactivate THEN one activate, the activate
  *      delivered through disk_tenant_event into the tenant's FlairEvent.
  *   C  routing: keyDown to the foreground tenant regardless of the cursor;
  *      content clicks with GLOBAL where; title clicks never delivered;
- *      click-to-activate both ways (ADR-0013 Sec 3.3).
+ *      click-to-activate both ways (tenant lifecycle).
  *   L  plain backslash reaches the tenant; Ctrl+Alt+backslash launches with
  *      either physical modifier side; resume cooks releases without delivery.
- *                                        MUTANT FLAIR_MUT_PLAIN_BSL_LAUNCH
+ *                                        regression patches plain bsl launch patch
  *   G  a second launch while resident: TENANT-SLOT-BUSY, nothing installed.
  *   D  EXIT inside a handler: the dying tenant hears nothing more; teardown
  *      promotes the Finder with ONE activate; the next key is the Finder's.
  *   E  a fault inside the eventProc: FlairProcess_kill, no further delivery;
  *      a fault OUTSIDE the image is not triaged as the tenant's.
  *   H  an entry that never REGISTERs: TENANT-UNREGISTERED, nothing installed.
- *   P  an event aimed at a non-resident app is a fail-loud PANIC (Rule 2).
+ *   P  an event aimed at a non-resident app is a fail-loud PANIC.
  *   T  the title run of a partly covered window writes NO pixel inside the
- *      window in front (chrome.c).                     MUTANT TITLE_UNCLIPPED
- *   X  the INT 81h dispatcher itself (DEC-AC3-2's oracle line): the AX demux
+ *      window in front (chrome.c).                     regression patches TITLE_UNCLIPPED
+ *   X  the INT 81h dispatcher itself (disk tenant lifecycle's oracle line): the AX demux
  *      is total over all 65536 codes, AX is EAX's low word, args come from
  *      frame+68 under a poisoned frame, errors are negative in EAX, a stray
  *      int 81h is NOTTENANT, the TENANT-GATE trace is exact.
- *                              MUTANTS TBX_MUT_AX_FULL_EAX, TBX_MUT_ARG_OFFSET
+ *                              regression patches ax full eax patch, arg offset patch
  *
- * Ref: ADR-0013 Sec 3.3/3.4/7 (O-1); docs/design/GUI-remediation-ADR-
- *      reconciliation.md DEC-AC3-3/-4; spec/toolbox_gate.h Sec 2/3/5/6;
+ * Ref: tenant lifecycle/3.4/7 (O-1); docs/design/GUI-remediation-ADR-
+ *      reconciliation.md disk tenant lifecycle/-4; spec/toolbox_gate.h Sec 2/3/5/6;
  *      os/flair/tbxgate.c; os/flair/process.c; os/initechdos/kmain.c
  *      flair_live_tenant_service; harness/proptest/test_process.c (style).
- *      CLAUDE.md Law 2, Rules 1/2/6/11/12.
+ *      independent checks, Rules 1/2/6/11/12.
  */
 #include <setjmp.h>
 #include <stdint.h>
@@ -472,7 +472,7 @@ static void pump(EventRecord ev)
 }
 
 /* Ref: R2.2 Reference Manual p. 1-17 (PDF 33): backslash repeats a label.
- * ADR-0013 Sec 3.3 keys belong to the foreground; event_model.h Sec 2/5
+ * tenant lifecycle keys belong to the foreground; event_model.h Sec 2/5
  * and event.c SET-1 decoder unify left/right Ctrl and Alt (E0 1D/38).
  * All expected deliveries/counts here are literal, independent of routing. */
 static void leg_launchkey(void)
@@ -669,11 +669,11 @@ static void leg_route(FlairApp *t)
     /* C4: click the background Finder's content. */
     b = g_n;
     pump(mk(mouseDown, 0u, F_PROBE_H, F_PROBE_V));
-    /* Rule-8 re-key 2026-10-20 (initech-tdnl.65, merged with the Finder alerts
+    /* pinned inputs re-key 2026-10-20 (, merged with the Finder alerts
      * bundle): SelectWindow CONSUMES a document's activating content click
      * (IM: Macintosh Toolbox Essentials, Window Manager, Activating a window;
-     * process.c tdnl.65). The click used to be delivered after the activate
-     * pair, the audit G11/tdnl.65 defect, so the leg now expects exactly the
+     * process.c ). The click used to be delivered after the activate
+     * pair, the audit G11/ defect, so the leg now expects exactly the
      * deactivate/activate pair and NO mouseDown to the newly active app. */
     CHECK(g_n == b + 2 && is(b, WHO_T, activateEvt, 0, 0, 0) &&
           is(b + 1, WHO_F, activateEvt, 1, 0, 0),
@@ -933,22 +933,22 @@ static void leg_title(void)
     render_ctx_free(&b);
 }
 
-/* --- leg X: the INT 81h dispatcher itself (DEC-AC3-2's oracle line) ------
- * docs/design/GUI-remediation-ADR-reconciliation.md DEC-AC3-2 *Oracle*: "host
+/* --- leg X: the INT 81h dispatcher itself (disk tenant lifecycle's oracle line) ------
+ * docs/design/GUI-remediation-ADR-reconciliation.md disk tenant lifecycle *Oracle*: "host
  * property suite over the gate dispatcher (AX demux, frame-relative arg reads,
  * negative-error convention) + the TENANT-GATE trace". The callable-code list
  * below is HAND-COPIED from spec/toolbox_gate.h Sec 3/9-16 and spec/
  * cp_dialog.h (the rows marked V1..V4 plus the Sec 10-16 additions, and
- * CONTENT_SIZE 0x0024 of bead initech-89rc); the
+ * CONTENT_SIZE 0x0024 of ); the
  * RESERVED / DISSOLVED rows (0x0002, 0x0010, 0x0021, 0x0032, 0x0051) are
- * deliberately absent -- Sec 3: "Every other code ... returns TBX_ERR_BADCODE
+ * deliberately absent -- Sec 3: "Every other code... returns TBX_ERR_BADCODE
  * (the demux is total, never a silent no-op)". */
 static const uint16_t k_callable[] = {
     0x0001u, 0x0020u, 0x0022u, 0x0023u, 0x0024u, 0x0030u, 0x0031u, 0x0033u,
     0x0050u, 0x0052u, 0x0070u,
     0x0080u, 0x0081u, 0x0082u, 0x0083u, 0x0084u, 0x0085u, 0x0086u,
-    0x0087u, 0x0088u,   /* Sec 10a FILE_FIND / DISK_FREE (initech-qvgd) */
-    0x0089u, 0x008Au,   /* Sec 10b FILE_RENAME / FILE_CREATE_NEW (initech-mcep) */
+    0x0087u, 0x0088u,   /* Sec 10a FILE_FIND / DISK_FREE */
+    0x0089u, 0x008Au,   /* Sec 10b FILE_RENAME / FILE_CREATE_NEW */
     0x0090u, 0x0091u, 0x0092u, 0x0093u, 0x0094u, 0x0095u, 0x0096u,
     0x00A0u, 0x00A1u, 0x00B0u, 0x00B1u,
     0x00C0u, 0x00C1u, 0x00C2u, 0x00C3u

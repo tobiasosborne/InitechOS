@@ -1,6 +1,6 @@
 /*
  * harness/proptest/test_geneva12_metrics.c -- the INDEPENDENT Geneva 12
- * metrics + ink-extent oracle (bead initech-uelk; the test_chicago_metrics.c
+ * metrics + ink-extent oracle (; the test_chicago_metrics.c
  * pattern).
  *
  * WHAT IT GRADES: the artifact's Geneva 12 text path (os/flair/text.h --
@@ -12,12 +12,12 @@
  * (FOND 3 "Geneva", FAT entry size 12 style 0, extracted from
  * goldens/work/boot81.img System Folder:Fonts:Geneva; md5
  * 3e289fee44b6f1b9b89ac5343647ef2b; mint/work/geneva12/mint-results-011.md).
- * NOT against the artifact's own tables (Law 2 / ADR-0010 HER-02): every
+ * NOT against the artifact's own tables (independent checks / independent reference checks HER-02): every
  * expected number is parsed here from the NFNT bytes, or is a [MEAS] figure
  * of the SimpleText capture; this file includes text.h only to CALL the code
  * under test.
  *
- * Ref: ../system7-decomp specs/fonts/font-manager.md Sec 1.1 (owTable: high
+ * Ref:../system7-decomp specs/fonts/font-manager.md Sec 1.1 (owTable: high
  *      byte lb, low byte aw; 0xFFFF missing), Sec 1.2 (owTable at 16 +
  *      2*owTLoc; bitImage at 26, rowWords*2 bytes a row, fRectHeight rows;
  *      locationTable after it), Sec 7.1 (ascent/descent/leading at header
@@ -45,11 +45,11 @@
  *
  * Absent corpus: FAIL LOUD; SKIP_SYSTEM7_DECOMP=1 is the explicit opt-out.
  * Mutant (test-geneva12-metrics-mutant): the Makefile flips one paper pixel
- * of 'S' row 2 (one row above its cap line) to ink in a COPY of the .art,
+ * of 'S' row 2 (one row above its cap line) to ink in a COPY of the.art,
  * transcribes it into a mutant geneva12.h and compiles this unchanged file
  * against it: leg C must go RED for 'S' (ink box y 2..11 vs NFNT 3..11).
  *
- * FACTORY CODE (hosted C, Law 3). ASCII-clean (Rule 12).
+ * FACTORY CODE (hosted C, language boundary). ASCII-clean.
  */
 #include "oracle_policy.h"
 #include <stdint.h>

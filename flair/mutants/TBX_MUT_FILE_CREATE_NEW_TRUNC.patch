@@ -1,0 +1,14 @@
+# Legacy TBX_MUT_FILE_CREATE_NEW_TRUNC
+# test: test_tbx_file
+--- a/tbxfile.h
++++ b/tbxfile.h
+@@ -47,7 +47,8 @@
+         if (code == TBX_FILE_OPEN && a[1] > TBX_FILE_READ_WRITE) return TBX_ERR_BADARG;
+         f.edx = a[0];
+         f.eax = code == TBX_FILE_CREATE ? 0x3c00u :
+-                 code == TBX_FILE_CREATE_NEW ? 0x5b00u :
++                 /* regression patches (test-tbx-file-mutant F6): CREATE_NEW truncates. */
++                 code == TBX_FILE_CREATE_NEW ? 0x3c00u :
+                  code == TBX_FILE_DELETE ? 0x4100u :
+                  code == TBX_FILE_RENAME ? 0x5600u : 0x3d00u+a[1];
+     } else {

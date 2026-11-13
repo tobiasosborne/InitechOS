@@ -1,21 +1,21 @@
 /*
  * cursors.h -- InitechOS FLAIR cursor assets (LOCKED: busy v1, arrow v3).
  *
- * beads: initech-zaqj (canon assets: hourglass CURS bytes + Photoshop menu
- *        string, ADR-0004 AM-4 / FO-E).
+ *  (canon assets: hourglass CURS bytes + Photoshop menu
+ *        string, clipped Toolbox drawing AM-4 / FO-E).
  *
- * Ref: CLAUDE.md Law 4 ("the hourglass cursor (not a wristwatch) ... are
- *      enforced, not fixed"), Law 1 (ground truth before code), Rule 11
- *      (byte-stable), Rule 12 (ASCII-clean).
- *      ADR-0004 D-7 ("the hourglass is canon ... shipped as FIXED BYTES
- *      in spec/assets/, byte-stable per Rule 11; FROZEN locked-data per
+ * Ref: film canon ("the hourglass cursor (not a wristwatch)... are
+ *      enforced, not fixed"), source provenance (ground truth before code), reproducibility
+ *      (byte-stable), ASCII source.
+ *      clipped Toolbox drawing ("the hourglass is canon... shipped as FIXED BYTES
+ *      in spec/assets/, byte-stable per reproducibility; FROZEN locked-data per
  *      AM-4, gated by the canon oracle").
- *      ADR-0004 AM-4 ("D-7's hourglass cursor must be FROZEN locked-data
+ *      clipped Toolbox drawing AM-4 ("D-7's hourglass cursor must be FROZEN locked-data
  *      (named spec/assets/ files or named locked constants), not prose an
  *      agent may silently 'correct'").
  *      docs/research/gui-ground-truth.md Sec 3.6 ("the real System 7 busy
- *      cursor is an animated WRISTWATCH ... InitechOS canon is the HOURGLASS
- *      -- the wristwatch is 'the bug', the deliberate frame anachronism ...
+ *      cursor is an animated WRISTWATCH... InitechOS canon is the HOURGLASS
+ *      -- the wristwatch is 'the bug', the deliberate frame anachronism...
  *      do not implement it").
  *      PRD Appendix A (the canon frame); PRD Sec 6.3.
  *
@@ -31,21 +31,21 @@
  * gui-ground-truth.md Sec 3.6 only to confirm that the anachronism is real.
  * Any agent reading this file MUST NOT replace the hourglass with a
  * wristwatch -- doing so would "fix" a deliberate canon element and violate
- * Law 4 + ADR-0004 D-7 / AM-4. This is a Stop Condition.
+ * film canon + clipped Toolbox drawing / AM-4. This is a Stop Condition.
  *
  * These bytes are HAND-AUTHORED canon, NOT extracted from the frame still
  * (which is a dim, compressed CRT photo -- pixel recovery is impossible and
  * would be an IP violation; CLAUDE.md hallucination-risk callout). They are
  * also NOT lifted from any ROM dump or real Mac CURS resource. They are a
  * fresh, clean-room authored 16x16 hourglass / sandglass shape authored to
- * be recognizable and byte-stable (Rule 11).
+ * be recognizable and byte-stable.
  *
- * The canon oracle (ADR-0004 D-8 "canon" gate, beads initech-k8o5.10) asserts
+ * The canon oracle (clipped Toolbox drawing "canon" gate, ) asserts
  * these exact bytes; a test that includes this header checks
- * FLAIR_CURSOR_BUSY.data[] and .mask[] against expected values to ensure
+ * FLAIR_CURSOR_BUSY.data[] and.mask[] against expected values to ensure
  * they have not drifted.
  *
- * Changing these bytes is a DELIBERATE, issue-tracked Rule 8 act. Never
+ * Changing these bytes is a DELIBERATE, issue-tracked pinned inputs act. Never
  * silently edit to "improve" the appearance.
  *
  * =========================================================================
@@ -65,7 +65,7 @@
  *
  * Encoding: uint16_t in native byte order of the host rendering code.
  * The CURS resource body is big-endian on the Mac; here we use uint16_t
- * and let the blitter read it correctly (the harness is host-code, Law 3).
+ * and let the blitter read it correctly (the harness is host-code, language boundary).
  *
  * All identifiers are prefixed FLAIR_ to stay in the InitechOS namespace.
  */
@@ -77,9 +77,9 @@
 
 /* A CURS-style 16x16 monochrome cursor descriptor.
  *
- * data[r] : ink row r, MSB = col 0.
- * mask[r] : opaque region row r, MSB = col 0.
- * hot_row / hot_col : hotspot (0-indexed). */
+ * data[r]: ink row r, MSB = col 0.
+ * mask[r]: opaque region row r, MSB = col 0.
+ * hot_row / hot_col: hotspot (0-indexed). */
 typedef struct {
     uint16_t data[16];
     uint16_t mask[16];
@@ -94,25 +94,25 @@ typedef struct {
  *
  * PROVENANCE: HAND-AUTHORED clean-room. NOT the System-7 wristwatch (which
  * is the deliberate frame bug; see file header above). NOT extracted from
- * any frame still or ROM. Authored 2026-06-19, beads initech-zaqj.
+ * any frame still or ROM. Authored 2026-06-19,.
  *
  * Shape (16x16 pixel map; '#' = ink, '.' = paper):
  *
  *   col:  0123456789012345
  *   row 0: ################   top bar (solid)
  *   row 1: ################   top bar (solid)
- *   row 2: .##############.   taper in by 1 each side
- *   row 3: ..############..   taper in by 2 each side
- *   row 4: ...##########...   taper in by 3 each side
- *   row 5: ....########....   taper in by 4 each side
- *   row 6: .....######.....   taper in by 5 each side
- *   row 7: .......##.......   2-pixel waist (neck of the glass)
- *   row 8: .......##.......   2-pixel waist (neck of the glass)
- *   row 9: .....######.....   expand by 5 each side (sand builds)
- *   row10: ....########....   expand by 4 each side
- *   row11: ...##########...   expand by 3 each side
- *   row12: ..############..   expand by 2 each side
- *   row13: .##############.   expand by 1 each side
+ *   row 2:.##############.   taper in by 1 each side
+ *   row 3:..############..   taper in by 2 each side
+ *   row 4:...##########...   taper in by 3 each side
+ *   row 5:....########....   taper in by 4 each side
+ *   row 6:.....######.....   taper in by 5 each side
+ *   row 7:.......##.......   2-pixel waist (neck of the glass)
+ *   row 8:.......##.......   2-pixel waist (neck of the glass)
+ *   row 9:.....######.....   expand by 5 each side (sand builds)
+ *   row10:....########....   expand by 4 each side
+ *   row11:...##########...   expand by 3 each side
+ *   row12:..############..   expand by 2 each side
+ *   row13:.##############.   expand by 1 each side
  *   row14: ################   bottom bar (solid)
  *   row15: ################   bottom bar (solid)
  *
@@ -120,31 +120,31 @@ typedef struct {
  * HotSpot = (8, 8) -- center / waist of the glass.
  *
  * Bit arithmetic (MSB=col0, 16 bits):
- *   Full 16 cols      : 0xFFFF
- *   14 wide (col1-14) : 0x7FFE
- *   12 wide (col2-13) : 0x3FFC
- *   10 wide (col3-12) : 0x1FF8
- *    8 wide (col4-11) : 0x0FF0
- *    6 wide (col5-10) : 0x07E0
- *    2 wide (col7-8)  : 0x0180
+ *   Full 16 cols: 0xFFFF
+ *   14 wide (col1-14): 0x7FFE
+ *   12 wide (col2-13): 0x3FFC
+ *   10 wide (col3-12): 0x1FF8
+ *    8 wide (col4-11): 0x0FF0
+ *    6 wide (col5-10): 0x07E0
+ *    2 wide (col7-8): 0x0180
  */
 static const FLAIRCursor FLAIR_CURSOR_BUSY = {
     /* data[16] -- ink */
     {
         /* row  0 */ 0xFFFF, /* ################ */
         /* row  1 */ 0xFFFF, /* ################ */
-        /* row  2 */ 0x7FFE, /* .##############. */
-        /* row  3 */ 0x3FFC, /* ..############.. */
-        /* row  4 */ 0x1FF8, /* ...##########... */
-        /* row  5 */ 0x0FF0, /* ....########.... */
-        /* row  6 */ 0x07E0, /* .....######..... */
-        /* row  7 */ 0x0180, /* .......##....... */
-        /* row  8 */ 0x0180, /* .......##....... */
-        /* row  9 */ 0x07E0, /* .....######..... */
-        /* row 10 */ 0x0FF0, /* ....########.... */
-        /* row 11 */ 0x1FF8, /* ...##########... */
-        /* row 12 */ 0x3FFC, /* ..############.. */
-        /* row 13 */ 0x7FFE, /* .##############. */
+        /* row  2 */ 0x7FFE, /*.##############. */
+        /* row  3 */ 0x3FFC, /*..############.. */
+        /* row  4 */ 0x1FF8, /*...##########... */
+        /* row  5 */ 0x0FF0, /*....########.... */
+        /* row  6 */ 0x07E0, /*.....######..... */
+        /* row  7 */ 0x0180, /*.......##....... */
+        /* row  8 */ 0x0180, /*.......##....... */
+        /* row  9 */ 0x07E0, /*.....######..... */
+        /* row 10 */ 0x0FF0, /*....########.... */
+        /* row 11 */ 0x1FF8, /*...##########... */
+        /* row 12 */ 0x3FFC, /*..############.. */
+        /* row 13 */ 0x7FFE, /*.##############. */
         /* row 14 */ 0xFFFF, /* ################ */
         /* row 15 */ 0xFFFF  /* ################ */
     },
@@ -176,15 +176,15 @@ static const FLAIRCursor FLAIR_CURSOR_BUSY = {
  * FLAIR_CURSOR_ARROW -- standard northwest-pointing arrow (period-standard)
  * =========================================================================
  *
- * v3: DELIBERATE Rule-8 correction, initech-tdnl.98 (audit M009).
- * Ref: ../system7-decomp/goldens/captures/s8_alert_modal.png
+ * v3: DELIBERATE pinned inputs correction,  (audit M009).
+ * Ref:../system7-decomp/goldens/captures/s8_alert_modal.png
  * [229,28,245,44), subtracting the identical wallpaper patch in
  * s8_desktop_menubar.png. This is a pixel transcription of a real capture,
  * not a ROM/CURS-resource copy or a mask inferred by dilating the ink.
  * The v2 hand-authored squared stem differed in 48/256 cells. The captured
  * angled stem has 54 black, 43 white and 159 transparent cells; hotspot
  * remains (1,1). Includes the isolated white cell at (0,13), as captured.
- * Worklog: docs/worklog/WL-0122-arrow-cursor.md.
+ * Worklog: docs/worklog/-arrow-cursor.md.
  *
  * Shape v3 (16x16; '#' = ink, 'o' = white paper, '.' = transparent):
  *
@@ -202,31 +202,31 @@ static const FLAIRCursor FLAIR_CURSOR_BUSY = {
  *   row 11: o#o.o##o........
  *   row 12: oo..o##o........
  *   row 13: o....o##o.......
- *   row 14: .....o##o.......
- *   row 15: ......ooo.......
+ *   row 14:.....o##o.......
+ *   row 15:......ooo.......
  *
  * test_cursor.c and ppm_flair_cursor_check.c decode the independent capture
- * pair at runtime and compare every cell at zero tolerance (Law 2).
+ * pair at runtime and compare every cell at zero tolerance.
  */
 static const FLAIRCursor FLAIR_CURSOR_ARROW = {
     /* data[16] -- captured ink */
     {
-        /* row  0 */ 0x0000, /* ................ */
-        /* row  1 */ 0x4000, /* .#.............. */
-        /* row  2 */ 0x6000, /* .##............. */
-        /* row  3 */ 0x7000, /* .###............ */
-        /* row  4 */ 0x7800, /* .####........... */
-        /* row  5 */ 0x7C00, /* .#####.......... */
-        /* row  6 */ 0x7E00, /* .######......... */
-        /* row  7 */ 0x7F00, /* .#######........ */
-        /* row  8 */ 0x7F80, /* .########....... */
-        /* row  9 */ 0x7C00, /* .#####.......... */
-        /* row 10 */ 0x6C00, /* .##.##.......... */
-        /* row 11 */ 0x4600, /* .#...##......... */
-        /* row 12 */ 0x0600, /* .....##......... */
-        /* row 13 */ 0x0300, /* ......##........ */
-        /* row 14 */ 0x0300, /* ......##........ */
-        /* row 15 */ 0x0000  /* ................ */
+        /* row  0 */ 0x0000, /*................ */
+        /* row  1 */ 0x4000, /*.#.............. */
+        /* row  2 */ 0x6000, /*.##............. */
+        /* row  3 */ 0x7000, /*.###............ */
+        /* row  4 */ 0x7800, /*.####........... */
+        /* row  5 */ 0x7C00, /*.#####.......... */
+        /* row  6 */ 0x7E00, /*.######......... */
+        /* row  7 */ 0x7F00, /*.#######........ */
+        /* row  8 */ 0x7F80, /*.########....... */
+        /* row  9 */ 0x7C00, /*.#####.......... */
+        /* row 10 */ 0x6C00, /*.##.##.......... */
+        /* row 11 */ 0x4600, /*.#...##......... */
+        /* row 12 */ 0x0600, /*.....##......... */
+        /* row 13 */ 0x0300, /*......##........ */
+        /* row 14 */ 0x0300, /*......##........ */
+        /* row 15 */ 0x0000  /*................ */
     },
     /* mask[16] -- captured opacity; mask&~data = white paper */
     {
@@ -252,17 +252,17 @@ static const FLAIRCursor FLAIR_CURSOR_ARROW = {
 };
 
 /* =========================================================================
- * Canon-assertion helpers (for use by the canon oracle, beads k8o5.10)
+ * Canon-assertion helpers (for use by the canon oracle, )
  * =========================================================================
  *
  * The oracle includes this header and calls:
- *   FLAIR_CURSOR_BUSY_ASSERT_CANON()  -- verifies exact hourglass bytes.
+ *   FLAIR_CURSOR_BUSY_ASSERT_CANON  -- verifies exact hourglass bytes.
  *
  * The macro expands to a series of compile-time and run-time assertions.
  * It is NOT meant to be called in shipping OS code (it uses comparison
  * loops); it lives in the harness.
  *
- * The hourglass data bytes (frozen, ADR-0004 AM-4):
+ * The hourglass data bytes (frozen, clipped Toolbox drawing AM-4):
  *   {0xFFFF,0xFFFF,0x7FFE,0x3FFC,0x1FF8,0x0FF0,0x07E0,0x0180,
  *    0x0180,0x07E0,0x0FF0,0x1FF8,0x3FFC,0x7FFE,0xFFFF,0xFFFF}
  * The mask equals the data array above (solid silhouette).

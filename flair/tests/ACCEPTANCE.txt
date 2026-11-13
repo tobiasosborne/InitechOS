@@ -1,86 +1,102 @@
-FLAIR Toolbox import acceptance, 2026-11-13
-Baseline legacy-final: c5d18538049986bbbb27018c351405acf814ebbc.
-Worktree: /home/tobiasosborne/.t3/worktrees/InitechOS/t3-b58879e2-0080b4e7d813a8ff
-Local branch: import/flair. No push, no tracker use, no subagents.
+FLAIR Toolbox mutation import acceptance
 
-A. Clean builds and tier 0
-  make -C flair clean
-  /usr/bin/time -f 'wall %e seconds' make -C flair test
-    flair: 52 tests, 0 failures
-    wall 24.57 seconds (serial compilation and the full legacy sweeps)
-  /usr/bin/time -f 'wall %e seconds' make -C flair
-    ar rcsD ../build/flair/libflair.a [19 target objects]
-    wall 2.04 seconds
-    target objects: ELF 32-bit LSB relocatable, Intel 80386
-  make -C flair/region test
-    flair/region: 2 tests, 0 failures
-  /usr/bin/time -f 'wall %e seconds' make test
-    region: 2; flair: 52; apps/initech123: 18; all zero failures
-    ALL GREEN
-    wall 7.71 seconds (warm imported components)
+Baseline: the parent of the conversion commit 2e028541 on wave2/flair.
+Only flair sources, headers, tests, tools, mutants, Makefile and README changed.
+No flair/region, flair/desktop or shared infrastructure edits; no push, tracker
+use, or subagents. The comment cleanup is a separate logical commit.
 
-B. Three independent manager controls, each isolated in its own output directory
-  make -C flair -j16 test TESTS=test_window OUT=../build/flair-red-window \
-    HOST_CFLAGS='-std=c11 -O1 -g -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -DWINDOW_MUTATE_ZORDER=1'
-    RED: 68 checks, 5 failures, exit 2.
-    Includes: SelectWindow deactivated updateRgn differs from owner-grid truth
-    over 800 stacks; HideWindow damage mismatch.
-  Same command, TESTS=test_menu, OUT=../build/flair-red-menu,
-    -DMENU_MUTATE_FIXED_WIDTH=1
-    RED: 83 checks, 6 failures, exit 2.
-    Includes: proportional slot hit, 10px pulled-title pads and title ink.
-  Same command, TESTS=test_chrome, OUT=../build/flair-red-chrome,
-    -DCHROME_MUTATE_TITLEBAR_H=1
-    RED: 55 checks, 2 failures, exit 2.
-    Exact 22-row Platinum title profile and first body row both fail.
-  Normal source was never modified for these controls. All three were rerun
-  after the final implementation edit. Restored default output was tested green.
+Host tests
+  make -C flair test: 52 invocations, 451,957 numbered checks, 0 failures.
+  Original denominator: 451,944. Added 13; removed 0.
+  Busy cursor: +3. Apple slot and all clock minutes/transitions: +9. Overlay: +1.
+  All original reference inputs and property sweeps retained.
+  Restored legacy host coverage: test-film-scene-mutant BUSY_HOURGLASS;
+  test-apple-menu-mutant A4; test-menubar-clock-mutant MC1/MC4;
+  test-flair-shell-mutant overlay occlusion. Cases now run in their manager tests.
+  Chicago's generator and checked header are patched together so the generated
+  include no longer hides the wrong advance. Generator baseline emits no hook.
+  Default ring selects test_dialog; wrong skin selects test_chrome_fidelity.
 
-  make -C flair test SYSTEM7_DECOMP=/no/such/system7-corpus
-    exit 2, before a test executable runs:
-    FAIL: System 7 corpus missing; set SYSTEM7_DECOMP
-  make -C flair -j32 test
-    flair: 52 tests, 0 failures (after the negative corpus control)
+Mutants
+  make -C flair mutants:
+  flair sweep: 191 patches, 191 killed, 0 survived, 0 errors; 85s wall.
+  Earlier selected sweep before comment cleanup: 83s wall.
+  Converted: 207 macros, 248 guard entries (original 202/243 plus five omitted
+  clock/modal/close/update hooks). 191 killed (230 entries), 16 pending (18
+  entries), 0 deleted as equivalent. Every pending patch applies with zero fuzz.
+  MUTATION-RESULTS.tsv maps each macro to its original locations, killing
+  selection or exact pending legacy gate, and legacy makefile line evidence.
+  Each patch built successfully and failed the same selected program twice.
+  Up to sixteen exact-selection groups run concurrently; mktemp-private roots
+  contain each shared-runner invocation's baselines and per-patch scratch.
+  Shared runner lacks native patch parallelism and shared baselines across
+  workers; the component wrapper delegates every validation step to it.
 
-C. Legacy and imported parity
-  51 source programs / 52 invocations, 451944 numbered checks in each build.
-  24 strong source programs / 25 strong invocations; 27 UNIT/REGRESSION programs.
-  Separate checks: 1568 Chicago rows; 1536 Geneva rows; 4 LZ blocks / 6320 bytes;
-  256 DAC entries plus shape; 405 part-map transcript rows; generation equality.
-  5 reference-derived golden headers, 20 pinned external reference files;
-  2 self-derived regression fixtures. See IMPORT.md for every program/count,
-  provenance and exclusions, LEGACY-HOST-GATES.tsv for 165 host gate dispositions.
+  Primary manager       converted  killed  pending  equivalent/deleted
+  window                      20      20        0                   0
+  menu                        19      19        0                   0
+  control                     23      21        2                   0
+  dialog                      10       9        1                   0
+  event                        7       7        0                   0
+  text                         9       9        0                   0
+  textedit                     9       9        0                   0
+  blitter                      7       7        0                   0
+  chrome                      38      37        1                   0
+  list                         7       7        0                   0
+  scrap                        5       5        0                   0
+  resource                     6       6        0                   0
+  heap                         5       5        0                   0
+  cursor                       4       4        0                   0
+  process                     12      12        0                   0
+  stdfile                      4       4        0                   0
+  gate                        22      10       12                   0
+  TOTAL                      207     191       16                   0
 
-D. Boundary and placement
-Toolbox C/public/private header quote-include audit: 76 files
-Direct kernel/attic includes or undeclared headers: 0
-Borrowed SDK names: cp_dialog.h, cpanels_record.h, event_model.h, find_data.h, toolbox_gate.h
-ASCII-only Toolbox source: PASS
-  The scan checks actual quoted includes in flair/*.[ch] and include/**/*.h
-  against Toolbox/private/public, region public and generated headers, allowing
-  only the five named borrowed SDK contracts. No kernel include search path
-  appears in any target compile command. The only kernel includes are host-test
-  adapters, listed with locations in NOTES-FOR-KERNEL.md. Those host tests also
-  borrow four kernel contracts, explicitly documented and isolated from target.
-  mk/*.mk, kernel/, sdk/, apps/, boot/ and dos/ are unmodified.
-  No COLD annotations or executable overlay imports existed in Toolbox source;
-  zero such annotations/import stubs had to be removed. Desktop halves are parked.
-  Size-driven asset decoder noinline attribute removed; all legacy size flags
-  absent from the target command. Platform functions are listed in the kernel note.
+  Shared scrollbar patches count under control; surface and asset decoding
+  under blitter, look under chrome, font storage under text, menu helpers under
+  menu. Per-location manager boundaries are explicit in the TSV.
+  Pending: control radio/ring crops (2), caution icon crop (1), rDoc close crop
+  (1), and gate presentation/text/menu/Control Panels/file-copy/exit checks (12).
+  They need external emulator driving with independent pixel crops, delivery/
+  timing/heap traces, or saved destination bytes as each patch header states.
 
-E. History and hygiene
-  git log --follow -- flair/include/grafport.h
-    follows move-only import through the layout reboot into the original
-    5580ef7b GrafPort/imaging contract commit.
-  git log --follow -- flair/tests/test_window.c
-    follows the import/reboot into pre-restructure history (including d2206644).
-  git diff --check; sh -n flair/tests/*.sh: pass.
-  All imported product/test/tool C, headers and shell source are ASCII-only.
-  Final documentation/status commit leaves git status --short empty.
+Product identity
+  SHA-256 before conversion, after conversion, and after comment cleanup:
+  libflair.a   6d2a0ea672b1d331cada508633df0398ab5a252d4f38768d858e6fb6580d4043
+  INITDOS.SYS  74709462e8adb65539d49fad452c13865d4bb4741723e1a7a5a420040b1c0d4b
+  cmp confirms both complete files are identical at all three points.
+  A lexical comparison stripping comments/whitespace confirms all manager,
+  public-header and test C code is unchanged by the comment cleanup. Factory
+  generators also change emitted comments; JSON/art provenance metadata changes
+  no colors, glyphs, tables or executable bytes. Real reference citations remain.
+  Product-source grep for _MUT_ or MUTANT is empty (including include/).
+  Host-only tools/flair_dac_gen.c retains its generator-only omission probe.
+  Runtime assertion/panic diagnostic strings retain old labels where changing
+  a string would go beyond the requested removal of comment citations.
 
-Deferred, not a passing acceptance claim:
-  make -C flair smoke exits 2 with:
-    FAIL: booted-image Toolbox smoke awaits kernel/desktop import; see tests/SMOKES.md
-  250 emulator rules indexed by group in SMOKES.md/SMOKES.tsv. No traces moved.
-  243 mutation guard locations / 202 distinct macros catalogued; no full mutation
-  sweep claimed. Missing disabled/pressed CDEF captures remain fidelity debt.
+Integration
+  make image: green, byte-identical product.
+  make smoke: green, QEMU and Bochs at 8 MiB; DOS/test-disk sessions, Finder
+  launches Initech 123 and independently checked saved worksheet, native Turbo
+  Initech compile/run/FPC comparisons (QEMU 17/17, Bochs 3/3).
+  make -j16 test: ALL GREEN (before and after comment cleanup).
+
+Import blocker, outside this ownership
+  make status: flair: host-green; FAIL mutation: product mutation hook.
+  Enabling mk/import-check.mk for diagnosis confirms that the default recursive
+  scan grades desktop's hooks and the host-only DAC generator as product code.
+  No Toolbox product hook remains. The shared checker needs a declared product
+  source list (TARGET_SRCS plus local public/private headers), or explicit nested
+  component and host-tool exclusions. Its graph/artifact checks must remain.
+  Until its owner supplies that scope, the include stays disabled at the last
+  green state, rather than weakening IMPORT_MUT_PATTERN or editing neighbors.
+  STATUS.md is outside this task's ownership; the orchestrator should replace
+  its stale 243-hooks statement with this disposition and the audit blocker.
+
+Post-cleanup patch verification
+  All 207 patches still apply with zero fuzz. Product C tokens of every patched
+  variant match the conversion commit's corresponding variant after removing
+  comments/whitespace. The final cosmetic comment edits therefore preserve both
+  the product baseline and each measured mutation; generator header-sync checks
+  remain green. The authored-logo TikZ filename and real reference citations are
+  retained verbatim.

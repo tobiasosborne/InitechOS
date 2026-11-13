@@ -1,0 +1,208 @@
+manager	macro	guards	original_locations	classification	tests_or_pending_reason	legacy_recipe_evidence
+blitter	ASSET_LZ_MUT_BYTE	1	include/asset_lz.h:48	killed	test_asset_lz	harness/proptest/kernel_size_r5.mk:15,harness/proptest/kernel_size_r5.mk:38
+blitter	BLITTER_MUTATE_IGNORE_CLIP	1	blitter.c:85	killed	test_blitter	Makefile:13226
+blitter	BLITTER_MUTATE_OFF_BY_ONE	2	blitter.c:130,blitter.c:208	killed	test_blitter	Makefile:13228
+blitter	BLITTER_MUT_COPY32_ZERO	2	blitter.c:190,blitter.c:222	killed	test_blitter	harness/toolbox_hardening.mk:37
+process	BUDGET_MUT_OVERCOMMIT	2	process.c:185,process.c:234	killed	test_process_budget	Makefile:14378,Makefile:14393,Makefile:14401
+text	CHICAGO_MUT_ONE_ADVANCE	1	include/assets/chicago12.h:192	killed	test_chicago_metrics	Makefile:13060,Makefile:13204,Makefile:13206,Makefile:13250,Makefile:13296,Makefile:33878
+text	CHICAGO_PACK_MUT_ROW	1	include/chicago_packed.h:15	killed	test_chicago_pack	harness/proptest/kernel_size_r4.mk:128
+chrome	CHROME_FID_MUT_BODYBAR	2	chrome.c:831,chrome.c:985	killed	test_chrome_fidelity	Makefile:13009,Makefile:13185,Makefile:13188
+chrome	CHROME_FID_MUT_BOX_GEOM	3	chrome.c:171,chrome.c:897,chrome.c:1051	killed	test_chrome	Makefile:12927,Makefile:12931,Makefile:13125,Makefile:13128
+chrome	CHROME_FID_MUT_CBOX_CORNER	1	chrome.c:265	killed	test_chrome_fidelity	Makefile:13025,Makefile:13199
+chrome	CHROME_FID_MUT_CENTER_OFF	1	chrome.c:369	killed	test_chrome_fidelity	Makefile:12918,Makefile:13113,Makefile:13116
+chrome	CHROME_FID_MUT_COLLAPSE	1	chrome.c:1068	killed	test_chrome	Makefile:12997,Makefile:13167,Makefile:13170
+window	CHROME_FID_MUT_CONTENT_LEFT_THIN	1	window.c:200	killed	test_window	Makefile:13043,Makefile:13047,Makefile:13087,Makefile:13089
+window	CHROME_FID_MUT_CONTENT_OVER_SCROLL	1	window.c:242	killed	test_window	Makefile:13647,Makefile:13675
+window	CHROME_FID_MUT_CONTENT_TOP_STALE	1	window.c:194	killed	test_window	Makefile:13645,Makefile:13674
+chrome	CHROME_FID_MUT_DARK_RING_BLACK	1	chrome.c:152	killed	test_chrome_fidelity	Makefile:13021,Makefile:13198
+chrome	CHROME_FID_MUT_INACTIVE_BLACK_FRAME	2	chrome.c:442,chrome.c:978	killed	test_chrome_fidelity	Makefile:12972,Makefile:12976,Makefile:13149,Makefile:13152
+chrome	CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE	1	chrome.c:468	killed	test_chrome_fidelity	Makefile:12979,Makefile:12983,Makefile:13155,Makefile:13158
+chrome	CHROME_FID_MUT_KEEP_GADGETS	1	chrome.c:1046	killed	test_chrome_fidelity	Makefile:12986,Makefile:12991,Makefile:13161,Makefile:13164
+chrome	CHROME_FID_MUT_NOTCH	1	chrome.c:1088	killed	test_chrome_fidelity	Makefile:13005,Makefile:13017,Makefile:13179,Makefile:13182,Makefile:13197
+chrome	CHROME_FID_MUT_NOTCH_DOUBLE	1	chrome.c:1023	killed	test_chrome_fidelity	Makefile:13017,Makefile:13197
+chrome	CHROME_FID_MUT_NO_BEVEL	1	chrome.c:398	killed	test_chrome	Makefile:12955,Makefile:12960,Makefile:13137,Makefile:13140
+chrome	CHROME_FID_MUT_NO_INACTIVE	2	chrome.c:390,chrome.c:969	killed	test_chrome_fidelity	Makefile:12963,Makefile:12969,Makefile:13143,Makefile:13146
+chrome	CHROME_FID_MUT_NO_SHADOW	1	chrome.c:1086	killed	test_chrome_fidelity	Makefile:12921,Makefile:12924,Makefile:13119,Makefile:13122
+chrome	CHROME_FID_MUT_NO_TITLE	1	chrome.c:487	killed	test_chrome_fidelity	
+chrome	CHROME_FID_MUT_PHASE	1	chrome.c:414	killed	test_chrome	Makefile:12910,Makefile:13101,Makefile:13104
+chrome	CHROME_FID_MUT_RAMP	2	chrome.c:182,chrome.c:228	killed	test_chrome_fidelity	Makefile:13001,Makefile:13173,Makefile:13176
+chrome	CHROME_FID_MUT_SCROLL_FLAT	3	chrome.c:513,chrome.c:622,chrome.c:709	killed	test_chrome	Makefile:12934,Makefile:12939,Makefile:13131,Makefile:13134
+window	CHROME_FID_MUT_SHADOW_CLIPPED	2	window.c:147,window.c:182	killed	test_interact	Makefile:13643,Makefile:13673
+chrome	CHROME_FID_MUT_STRIPE_UNSHIFTED	1	chrome.c:420	killed	test_chrome_fidelity	Makefile:13013,Makefile:13196
+chrome	CHROME_FID_MUT_TITLE_BLANK	1	chrome.c:487	killed	test_chrome_fidelity	Makefile:12914,Makefile:13107,Makefile:13110
+chrome	CHROME_FID_MUT_WIDGET_CORNERS_EDGE	1	chrome.c:213	killed	test_chrome_fidelity	Makefile:13049,Makefile:13053,Makefile:13090,Makefile:13092
+chrome	CHROME_FID_MUT_ZOOM_CENTERED	1	chrome.c:241	killed	test_chrome_fidelity	Makefile:13029,Makefile:13200
+chrome	CHROME_MUTATE_NO_FRAME	1	chrome.c:1077	killed	test_chrome	Makefile:12732,Makefile:12770,Makefile:12847
+chrome	CHROME_MUTATE_SCROLLBAR_W	1	chrome.c:1018	killed	test_chrome	Makefile:12732,Makefile:12774,Makefile:12853
+chrome	CHROME_MUTATE_TITLEBAR_H	2	chrome.c:393,chrome.c:432	killed	test_chrome	Makefile:12732,Makefile:12766,Makefile:12841
+chrome	CHROME_MUT_GROW_FIGURE_SWAP	1	chrome.c:793	killed	test_chrome_fidelity	Makefile:34558,Makefile:34596,Makefile:34605
+chrome	CHROME_MUT_GROW_INACTIVE_ACTIVE	1	chrome.c:790	killed	test_chrome_fidelity	Makefile:34558
+chrome	CHROME_MUT_GROW_NO_REGION	1	chrome.c:1035	killed	test_chrome_fidelity	Makefile:34558
+chrome	CHROME_MUT_GROW_OMIT	1	chrome.c:787	killed	test_chrome_fidelity	Makefile:34558
+chrome	CHROME_MUT_PRESSED_IDLE	1	chrome.c:177	killed	test_chrome	Makefile:12779,Makefile:12835
+chrome	CHROME_MUT_RDOC_NO_CLOSE	1	chrome.c:1204	pending	legacy test-flair-calcda-mutant: independent rDocProc close-widget pixels	Makefile:33776,Makefile:33844,Makefile:33872,Makefile:33873
+chrome	CHROME_MUT_SCROLL_ALWAYS_ENABLED	1	chrome.c:609	killed	test_chrome	Makefile:12942,Makefile:12949,Makefile:13094,Makefile:13096
+chrome	CHROME_MUT_SCROLL_PRESSED_IDLE	1	chrome.c:691	killed	test_chrome_fidelity	Makefile:12944,Makefile:12952,Makefile:13097,Makefile:13099
+chrome	CHROME_MUT_TITLE_UNCLIPPED	1	chrome.c:474	killed	test_flair_routing	Makefile:15059,Makefile:15091,Makefile:15095
+chrome	CHROME_MUT_TRUNC_PERIOD	1	chrome.c:343	killed	test_chrome_fidelity	Makefile:32827
+menu	CLOCK_STUCK	1	menu.c:107	killed	test_menu	Makefile:34323,Makefile:34324,Makefile:34326,Makefile:34366,Makefile:34375
+menu	CLOCK_WRONG_HOUR	1	menu.c:86	killed	test_menu	Makefile:34323,Makefile:34324,Makefile:34326,Makefile:34365,Makefile:34374
+process	CLOSE_HIDE_ONLY	1	process.c:911	killed	test_process_teardown	spec/flair_fg_close_traces.mk:23,Makefile:11348,Makefile:14352,Makefile:14366,Makefile:14370,Makefile:22861,Makefile:22865,Makefile:22866
+control	CONTROL_MUTATE_NO_CLAMP	1	control.c:261	killed	test_control	Makefile:15687
+control	CONTROL_MUTATE_THUMB_OFF	2	control.c:325,control.c:367	killed	test_control	Makefile:15685
+gate	CP_MUT_MOUSE_INERT	1	cp_service.h:14	pending	legacy test-flair-cpanels-mouse-apply-mutant: cursor movement and settings trace	Makefile:34736,Makefile:34743
+control	CTRL_MUT_BTN_FLAT	1	control.c:501	killed	test_control	Makefile:15695,Makefile:15719
+control	CTRL_MUT_BTN_FRINGE	1	control.c:578	killed	test_control	Makefile:15700,Makefile:15724,Makefile:33987,Makefile:34008
+control	CTRL_MUT_CHECK_FILL	1	control.c:667	killed	test_control	Makefile:15693,Makefile:15718
+control	CTRL_MUT_DISABLED_HIT	2	control.c:1153,control.c:1238	killed	test_control	harness/toolbox_hardening.mk:31
+control	CTRL_MUT_LABEL_OPAQUE	1	control.c:608	killed	test_control	Makefile:15698,Makefile:15722,Makefile:33986,Makefile:34007
+control	CTRL_MUT_NO_DEFAULT_RING	1	control.c:1037	killed	test_dialog	Makefile:15849,Makefile:15887,Makefile:15888
+control	CTRL_MUT_NULL_SILENT	1	control.c:68	killed	test_control	harness/toolbox_hardening.mk:30
+control	CTRL_MUT_PRESS_ACCENT	3	control.c:481,control.c:487,control.c:612	killed	test_control	harness/finder_alerts.mk:62,harness/finder_alerts.mk:65,harness/finder_alerts.mk:67,harness/finder_alerts.mk:341,harness/finder_alerts.mk:344,harness/finder_alerts.mk:349,harness/finder_alerts.mk:351
+control	CTRL_MUT_PROGRESS_FLAT	1	control.c:969	killed	test_control	harness/frameapps.mk:152,harness/frameapps.mk:223,harness/frameapps.mk:225,Makefile:15703,Makefile:15726
+control	CTRL_MUT_RADIO_DESKTOP_BG	1	control.c:724	pending	legacy test-flair-cpanels-radio-mutant: independent radio background pixels	Makefile:34760,Makefile:34768
+control	CTRL_MUT_RING_OLD_CORNERS	1	control.c:1084	pending	legacy test-flair-cpanels-date-mutant: independent default-ring corner pixels (also patterns/mouse/sound/memory)	Makefile:34665,Makefile:34673
+control	CTRL_MUT_SHORT_BUTTON	1	control.c:1182	killed	test_control	harness/toolbox_hardening.mk:32
+control	CTRL_MUT_SHORT_LIVE	1	control.c:1185	killed	test_control	harness/toolbox_hardening.mk:33
+cursor	CURSOR_MUT_BUSY_ARROW	1	cursor.c:226	killed	test_cursor	harness/film_scene.mk:36,harness/film_scene.mk:39,harness/film_scene.mk:47,harness/film_scene.mk:66
+cursor	CURSOR_MUT_HOTSPOT	1	cursor.c:50	killed	test_cursor	Makefile:13464,Makefile:13478,Makefile:13479,Makefile:13493,Makefile:13496
+cursor	CURSOR_MUT_NO_ERASE	1	cursor.c:199	killed	test_cursor	Makefile:13463,Makefile:13475,Makefile:13476,Makefile:13493,Makefile:13495
+cursor	CURSOR_MUT_SQUARED_STEM	1	cursor.c:32	killed	test_cursor	Makefile:11767,Makefile:11782,Makefile:13483,Makefile:13500
+dialog	DIALOG_MUTATE_BORDER	1	dialog.c:451	killed	test_dialog	Makefile:15839,Makefile:15873
+dialog	DIALOG_MUTATE_FILECOPY_MSG	1	dialog.c:1011	killed	test_dialog	Makefile:15843,Makefile:15879
+dialog	DIALOG_MUTATE_HIT_STATIC	1	dialog.c:872	killed	test_dialog	Makefile:15841,Makefile:15876
+dialog	DIALOG_MUTATE_LOCAL_HIT	1	dialog.c:865	killed	test_dialog	Makefile:15853,Makefile:15869
+dialog	DIALOG_MUTATE_PROGRESS_ZERO	1	dialog.c:1057	killed	test_dialog	Makefile:15847,Makefile:15885
+dialog	DIALOG_MUTATE_TITLELESS_MODAL	2	dialog.c:1088,dialog.c:1107	killed	test_dialog	Makefile:15845,Makefile:15882
+dialog	DIALOG_MUT_ALERT_SLAB	3	dialog.c:449,dialog.c:466,dialog.c:477	killed	test_dialog	Makefile:15856,Makefile:15894,Makefile:33988,Makefile:34009
+dialog	DIALOG_MUT_NO_ICON	2	dialog.c:402,dialog.c:425	pending	legacy test-flair-trash-full-mutant: independent CAUTION icon pixels	Makefile:21814,Makefile:21938,Makefile:21939,Makefile:21960
+dialog	DIALOG_MUT_ON_PRESS	2	dialog.c:816,dialog.c:878	killed	test_dialog_tracking	harness/finder_alerts.mk:49,harness/finder_alerts.mk:57,harness/finder_alerts.mk:209,harness/finder_alerts.mk:260
+event	EVENT_MUTATE_DROP_SYNTH	1	event.c:527	killed	test_event	Makefile:14810
+event	EVENT_MUTATE_SET1_BREAK_BLIND	1	event.c:486	killed	test_event	Makefile:14815,Makefile:30184,Makefile:30198,Makefile:30200,Makefile:30237
+event	EVENT_MUTATE_STALE_WHERE	1	event.c:580	killed	test_event	Makefile:14812
+event	EVENT_MUT_NO_KEY_OBSERVER	1	event.c:467	killed	test_event	harness/emu/copybreak.mk:88
+event	EVENT_MUT_SILENT_DROP	1	event.c:388	killed	test_event	harness/toolbox_hardening.mk:41
+event	EVENT_MUT_TICK_WRAP	1	event.c:709	killed	test_event	harness/toolbox_hardening.mk:40
+chrome	FLAIR_COLORBLIND_MUTANT	1	chrome.c:1001	killed	test_flair_mechanism_colorblind	Makefile:16110
+heap	FLAIR_HEAP_MUTATE_ALIGN_OVERFLOW	1	heap.c:89	killed	test_flair_heap	harness/toolbox_hardening.mk:25
+heap	FLAIR_HEAP_MUTATE_NO_BOUNDS	1	heap.c:143	killed	test_flair_heap	Makefile:12685
+heap	FLAIR_HEAP_MUTATE_NO_REUSE	1	heap.c:101	killed	test_flair_heap	Makefile:12689
+heap	FLAIR_HEAP_MUTATE_SPAN_OVERFLOW	1	heap.c:94	killed	test_flair_heap	harness/toolbox_hardening.mk:26
+heap	FLAIR_HEAP_MUTATE_WALK_REUSE	1	heap.c:104	killed	test_flair_heap	harness/toolbox_hardening.mk:27
+process	FLAIR_LIVE_MUTATE_IGNORE_REFCON	1	process.c:536	killed	test_process	Makefile:11346,Makefile:20345
+process	FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE	2	process.c:750,process.c:799	killed	test_process	Makefile:11381,Makefile:22898
+process	FLAIR_LIVE_MUTATE_SKIP_ACTIVATE	1	process.c:612	killed	test_process	Makefile:11347,Makefile:20346
+gate	FLAIR_MUT_PLAIN_BSL_LAUNCH	1	include/system_key.h:13	killed	test_flair_routing	harness/emu/flair_launchkey.mk:47,Makefile:11590,Makefile:15063,Makefile:15093,Makefile:15098
+chrome	FLAIR_MUT_SKIN_WRONG_ERA	1	flair_look.c:257	killed	test_chrome_fidelity	Makefile:13063,Makefile:13068,Makefile:13191,Makefile:13194
+chrome	FLAIR_PART_MAP_MUT_DERIVED	1	flair_look.c:84	killed	test_flair_part_map	harness/proptest/kernel_size_r5.mk:58,harness/proptest/kernel_size_r5.mk:70
+text	GENEVA12_PACK_MUT_ROW	1	include/geneva12_packed.h:23	killed	test_geneva12_pack	harness/proptest/geneva12.mk:10,harness/proptest/geneva12.mk:57,harness/proptest/geneva12.mk:61,Makefile:34075,Makefile:34082,Makefile:34085,Makefile:34086,Makefile:34098,Makefile:34160
+list	LIST_MUT_CELL_INDEX_SWAP	1	list.c:173	killed	test_list	Makefile:14623,Makefile:14638
+list	LIST_MUT_COLUMN_HEADROOM	1	list.c:138	killed	test_list	harness/toolbox_hardening.mk:18
+list	LIST_MUT_HIT_OFFBYONE	1	list.c:251	killed	test_list	Makefile:14623,Makefile:14640
+list	LIST_MUT_NO_DESELECT	1	list.c:281	killed	test_list	Makefile:14624,Makefile:14642
+list	LIST_MUT_NO_OVERFLOW_CHECK	1	list.c:133	killed	test_list	harness/toolbox_hardening.mk:17
+list	LIST_MUT_NULL_CLICK_MISS	1	list.c:233	killed	test_list	harness/toolbox_hardening.mk:15
+list	LIST_MUT_ROW_WRAP	1	list.c:127	killed	test_list	harness/toolbox_hardening.mk:16
+menu	MENU_LOOK_MUT_FLAT_HILITE	2	menu.c:627,menu.c:711	killed	test_menu	Makefile:33628,Makefile:33668,Makefile:33677
+menu	MENU_LOOK_MUT_OLD_DIVIDER_INSET	1	menu.c:895	killed	test_menu_look	Makefile:33628,Makefile:33671,Makefile:33682
+menu	MENU_LOOK_MUT_V_MARK	1	menu.c:832	killed	test_menu_look	Makefile:33628
+menu	MENU_LOOK_MUT_WRONG_RPAD	1	include/menu.h:130	killed	test_menu	Makefile:33628
+menu	MENU_MUTATE_FIXED_WIDTH	2	menu.c:147,menu.c:260	killed	test_menu	Makefile:14961
+menu	MENU_MUTATE_SELECT_DISABLED	1	menu.c:373	killed	test_menu	Makefile:14963
+menu	MENU_MUT_APPLE_DEAD	1	menu.c:212	killed	test_menu	Makefile:33731,Makefile:33774,Makefile:33805,Makefile:33828,Makefile:33830
+menu	MENU_MUT_APPLE_SQUARE	1	menu.c:687	killed	test_menu	Makefile:14967
+menu	MENU_MUT_BAR_FLAT	3	menu.c:567,menu.c:631,menu.c:655	killed	test_menu	Makefile:14969,Makefile:14994
+menu	MENU_MUT_DISABLED_NORMAL_INK	1	menu.c:813	killed	test_menu	Makefile:14975,Makefile:14997
+menu	MENU_MUT_NO_PANEL_BEVEL	2	menu.c:768,menu.c:865	killed	test_menu	Makefile:14971,Makefile:14995
+menu	MENU_MUT_NO_REHIT	1	menu.c:515	killed	test_menu	Makefile:14965
+menu	MENU_MUT_SEP_PLAIN	1	menu.c:900	killed	test_menu	Makefile:14973,Makefile:14996
+menu	MENU_MUT_TITLE_NO_HILITE	1	menu.c:659	killed	test_menu	Makefile:14977,Makefile:14998
+menu	MENU_MUT_TRACK_CAP	1	menu.c:521	killed	test_menu	Makefile:14979,Makefile:14999,Makefile:30341,Makefile:30352,Makefile:30363,Makefile:30379
+dialog	MODAL_PASSTHROUGH	1	dialog.c:605	killed	test_dialog	Makefile:15851,Makefile:15890,Makefile:15891
+process	PROC_MUT_ADMIT_IS_FOREGROUND	1	process.c:320	killed	test_flair_routing	Makefile:15057,Makefile:15091,Makefile:15094
+process	PROC_MUT_CLICK_THROUGH	1	process.c:838	killed	test_process	harness/finder_alerts.mk:47,harness/finder_alerts.mk:53,harness/finder_alerts.mk:208,harness/finder_alerts.mk:254
+process	PROC_MUT_FRONT_STAYS_ACTIVE	1	process.c:678	killed	test_process	Makefile:14294,Makefile:22295
+process	PROC_MUT_REGISTERED_FREE	1	process.c:475	killed	test_process	harness/toolbox_hardening.mk:28
+process	PROC_MUT_STALE_MAGIC	1	process.c:450	killed	test_process	harness/toolbox_hardening.mk:29
+event	RECORD_MUT_IGNORE_DBLCLICK_DEFINE	2	event.c:159,event.c:360	killed	test_event_record	Makefile:14808,Makefile:14830,Makefile:14832,Makefile:24298,Makefile:24344,Makefile:24347
+resource	RES_MUT_COUNT_OFF_BY_ONE	1	resource.c:84	killed	test_resource	Makefile:14415,Makefile:14431,Makefile:14439
+resource	RES_MUT_DATA_ESCAPE	1	resource.c:196	killed	test_resource	harness/toolbox_hardening.mk:22
+resource	RES_MUT_DATA_WRAP	2	resource.c:189,resource.c:196	killed	test_resource	harness/toolbox_hardening.mk:21
+resource	RES_MUT_IGNORE_TYPE	1	resource.c:100	killed	test_resource	Makefile:14414,Makefile:14429,Makefile:14439
+resource	RES_MUT_MAP_PREAMBLE	1	resource.c:150	killed	test_resource	harness/toolbox_hardening.mk:19
+resource	RES_MUT_TYPE_WRAP	1	resource.c:168	killed	test_resource	harness/toolbox_hardening.mk:20
+control	SB_LOOK_MUT_CORNERS_BEVELLED	2	chrome.c:542,control.c:791	killed	test_scrollbar_look	Makefile:32882
+control	SB_LOOK_MUT_GRIPS_MISSING	2	chrome.c:667,control.c:854	killed	test_scrollbar_look	Makefile:32882
+control	SB_LOOK_MUT_RAMP_FLAT	2	chrome.c:653,control.c:841	killed	test_scrollbar_look	Makefile:32882,Makefile:32930,Makefile:32940
+control	SB_MUT_DISABLED_ENABLED_LOOK	1	control.c:878	killed	test_control	Makefile:15691,Makefile:15717
+control	SB_MUT_FLAT_WELL	2	chrome.c:560,control.c:806	killed	test_chrome_fidelity	Makefile:13033,Makefile:13201
+control	SB_MUT_SEP_GRAY	2	chrome.c:743,control.c:914	killed	test_chrome_fidelity	Makefile:13041,Makefile:13203
+control	SB_MUT_THUMB_16	1	include/control.h:216	killed	test_control	Makefile:15689,Makefile:15716
+control	SB_MUT_TILE_FLAT	2	chrome.c:537,control.c:786	killed	test_chrome_fidelity	Makefile:13037,Makefile:13202
+scrap	SCRAP_MUT_FULL_FLAVOR	1	scrap.c:161	killed	test_scrap	harness/toolbox_hardening.mk:23
+scrap	SCRAP_MUT_IGNORE_FLAVOR	1	scrap.c:76	killed	test_scrap	Makefile:14452,Makefile:14472
+scrap	SCRAP_MUT_NO_CLEAR	1	scrap.c:121	killed	test_scrap	Makefile:14454,Makefile:14476
+scrap	SCRAP_MUT_NO_INCREMENT	1	scrap.c:124	killed	test_scrap	Makefile:14453,Makefile:14474
+scrap	SCRAP_MUT_NULL_DATA	1	scrap.c:142	killed	test_scrap	harness/toolbox_hardening.mk:24
+stdfile	SF_MUT_CANCEL_GOOD	1	stdfile.c:460	killed	test_stdfile	Makefile:14666,Makefile:14685,Makefile:14696
+stdfile	SF_MUT_NO_NAVIGATE	1	stdfile.c:356	killed	test_stdfile	Makefile:14665,Makefile:14683,Makefile:14695
+stdfile	SF_MUT_RETURN_WRONG_CELL	1	stdfile.c:409	killed	test_stdfile	Makefile:14665,Makefile:14681,Makefile:14694
+stdfile	SF_MUT_SWALLOW_NAV_ERROR	1	stdfile.c:433	killed	test_stdfile	harness/toolbox_hardening.mk:45
+blitter	SURFACE_MUT_BGR_SWAP	1	include/surface.h:88	killed	test_blitter	harness/toolbox_hardening.mk:36
+blitter	SURFACE_MUT_CLEAR_FLAT	1	surface.c:27	killed	test_blitter	harness/toolbox_hardening.mk:39
+blitter	SURFACE_MUT_INDEX_ZERO	1	include/surface.h:109	killed	test_blitter	harness/toolbox_hardening.mk:38
+gate	TBXGATE_MUT_CELL_UL_LOW	1	tbxgate.c:695	pending	legacy test-flair-iword-codes-mutant: independent underline pixels, other serial/style legs green	Makefile:32442,Makefile:32456,Makefile:32459,Makefile:32473
+gate	TBX_MUT_ARG_OFFSET	1	tbxgate.c:1207	killed	test_flair_routing	Makefile:15062,Makefile:15092,Makefile:15097
+gate	TBX_MUT_AX_FULL_EAX	1	tbxgate.c:1152	killed	test_flair_routing	Makefile:15061,Makefile:15092,Makefile:15096
+gate	TBX_MUT_DRAWMBAR_NOOP	1	tbxgate.c:859	pending	legacy test-flair-tenant-menu-mutant: presented tenant menu-bar pixels	Makefile:23454
+gate	TBX_MUT_DRAW_NOT_PRESENTED	1	tbxgate.c:1455	pending	legacy test-flair-ctenant-mutant: framebuffer repaint pixels	Makefile:23560,Makefile:23566
+gate	TBX_MUT_EXIT_LEAK	1	tbxgate.c:1373	pending	legacy test-flair-app-launch-mutant: exit reclaims the tenant slot and arena	Makefile:23257
+gate	TBX_MUT_FILECOPY_NO_COPY	2	tbxgate.c:1744,tbxgate.c:1760	pending	legacy test-flair-file-copy-mutant: destination disk bytes after FILE COPY	harness/frameapps.mk:150,harness/frameapps.mk:213,harness/frameapps.mk:214
+gate	TBX_MUT_FILECOPY_RATE_IGNORED	1	tbxgate.c:1699	pending	legacy test-flair-file-copy-mutant: progress/tick-rate trace and independent progress pixels	harness/frameapps.mk:149,harness/frameapps.mk:208,harness/frameapps.mk:210
+gate	TBX_MUT_FILE_BOUNDS	1	tbxfile.h:15	killed	test_tbx_file	Makefile:31957,Makefile:31958
+gate	TBX_MUT_FILE_CREATE_NEW_TRUNC	1	tbxfile.h:58	killed	test_tbx_file	Makefile:31957,Makefile:31958
+gate	TBX_MUT_FILE_LEAK	1	tbxfile.h:127	killed	test_tbx_file	Makefile:31957,Makefile:31958,Makefile:31977
+gate	TBX_MUT_FILE_OWNER	2	tbxfile.h:48,tbxfile.h:67	killed	test_tbx_file	Makefile:31957,Makefile:31958
+gate	TBX_MUT_FILE_RENAME_EDI	1	tbxfile.h:45	killed	test_tbx_file	Makefile:31957,Makefile:31958
+gate	TBX_MUT_FILE_WRITE_NOOP	1	tbxfile.h:102	killed	test_tbx_file	Makefile:31976
+gate	TBX_MUT_GENEVA_IGNORED	1	tbxgate.c:646	pending	legacy test-flair-calc-mutant: independent Geneva glyph pixels	harness/frameapps.mk:79,harness/frameapps.mk:91
+gate	TBX_MUT_MBAR_NOT_SWAPPED	1	tbxgate.c:841	pending	legacy test-flair-app-launch-mutant: foreground tenant menu-bar pixels	Makefile:23259
+gate	TBX_MUT_MBAR_NO_BOUNDS	1	tbxgate.c:771	pending	legacy test-flair-app-launch-mutant: out-of-image SETMBAR rejected in gate trace	Makefile:23260
+menu	TBX_MUT_MENU_ANY_BAR	1	tbxmenu.h:84	killed	test_tbx_menu	Makefile:15026,Makefile:15027
+menu	TBX_MUT_MENU_KEY_PLAIN	1	tbxmenu.h:60	killed	test_tbx_menu	Makefile:15026,Makefile:15027,Makefile:23452
+gate	TBX_MUT_MENU_NOT_DELIVERED	1	tbxgate.c:1475	pending	legacy test-flair-tenant-menu-mutant: mouse/key menu events delivered to tenant trace	Makefile:23453
+gate	TBX_MUT_NO_SLOT_GUARD	2	tbxgate.c:278,tbxgate.c:424	killed	test_flair_routing	Makefile:23256,Makefile:23360
+gate	TBX_MUT_TOKEN_ALIAS	1	tbxgate.c:538	pending	legacy test-flair-calc-mutant: independent window-token assignment pixels	harness/frameapps.mk:78,harness/frameapps.mk:90
+process	TEARDOWN_MUT_LEAK_BLOCK	1	process.c:429	killed	test_process_teardown	Makefile:14328,Makefile:14346
+process	TEARDOWN_MUT_LEAK_RECORDS	1	process.c:439	killed	test_process_teardown	Makefile:14348
+text	TEXT_MUTATE_FIXED_PITCH	2	include/text.h:203,include/text.h:296	killed	test_font_styles	Makefile:13314,Makefile:13325
+text	TEXT_MUT_BOLD_ADVANCE_PLAIN	1	include/text.h:501	killed	test_font_styles	
+text	TEXT_MUT_CLIP_IGNORE	1	include/text.h:574	killed	test_text_clip	Makefile:13395,Makefile:32788,Makefile:32829
+text	TEXT_MUT_ITALIC_RUN4	1	include/text.h:441	killed	test_font_styles	
+text	TEXT_MUT_SMEAR_OFF	1	include/text.h:462	killed	test_font_styles	Makefile:32788,Makefile:32828
+text	TEXT_MUT_UL_OFFSET	1	include/text.h:639	killed	test_font_styles	
+textedit	TE_MUT_ARROW_NO_COLLAPSE	1	textedit.c:357	killed	test_te_surface	Makefile:14546,Makefile:14564
+textedit	TE_MUT_EXTEND_ANCHOR	1	textedit.c:417	killed	test_te_surface	Makefile:14547,Makefile:14564
+textedit	TE_MUT_HIT_FLOOR	1	textedit.c:338	killed	test_te_surface	Makefile:14545,Makefile:14564
+textedit	TE_MUT_HIT_PAST_CR	1	textedit.c:315	killed	test_te_surface	Makefile:14546,Makefile:14564
+textedit	TE_MUT_LINEBREAK_OFF	1	textedit.c:174	killed	test_te_surface	Makefile:14500,Makefile:14519
+textedit	TE_MUT_PASTE_NO_DELETE	2	textedit.c:562,textedit.c:574	killed	test_te_surface	Makefile:14499,Makefile:14517
+textedit	TE_MUT_PROBE_NO_LINES	1	textedit.c:448	killed	test_te_surface	Makefile:14547,Makefile:14564
+textedit	TE_MUT_SEL_INCLUSIVE	1	textedit.c:248	killed	test_te_surface	Makefile:14498,Makefile:14515
+textedit	TE_MUT_WRAP_CHARS	1	textedit.c:188	killed	test_te_surface	Makefile:14521
+window	UPDATE_NO_VISCLIP	1	window.c:370	killed	test_process_update	Makefile:14774,Makefile:14782,Makefile:14785
+window	WINDOW_MUTATE_COLLAPSE_LEAK	1	window.c:874	killed	test_window	Makefile:13653
+window	WINDOW_MUTATE_CONTENT_OVER_HSCROLL	1	window.c:221	killed	test_window	Makefile:13657
+window	WINDOW_MUTATE_GROW_NO_MIN	1	window.c:940	killed	test_window	Makefile:13655,Makefile:13693,Makefile:13715,Makefile:32928,Makefile:32945,Makefile:34576
+window	WINDOW_MUTATE_IGNORE_OVERLAY	1	window.c:293	killed	test_window	Makefile:15773
+window	WINDOW_MUTATE_NO_ACTIVATE_INVAL	1	window.c:490	killed	test_window	Makefile:11382,Makefile:13641,Makefile:22894
+window	WINDOW_MUTATE_NO_DEACT_INVAL	1	window.c:486	killed	test_window	Makefile:13639
+window	WINDOW_MUTATE_OVERPAINT	1	window.c:532	killed	test_window	Makefile:13637
+window	WINDOW_MUTATE_SCROLL_DRAG	1	window.c:1106	killed	test_winscroll	Makefile:13688,Makefile:13693,Makefile:13711,Makefile:22070,Makefile:22160
+window	WINDOW_MUTATE_ZONE_OFF	1	window.c:1125	killed	test_interact	Makefile:13649
+window	WINDOW_MUTATE_ZOOM_NO_RESTORE	1	window.c:997	killed	test_window	Makefile:13651
+window	WINDOW_MUTATE_ZORDER	1	window.c:280	killed	test_interact	Makefile:13635
+window	WINDOW_MUT_GROW_NO_COMMIT	1	window.c:955	killed	test_window	Makefile:34564,Makefile:34576,Makefile:34598,Makefile:34611
+window	WINDOW_MUT_SCROLL_STALE_RESIZE	1	window.c:881	killed	test_winscroll	Makefile:13693,Makefile:13714,Makefile:32927,Makefile:32936
+window	WSCROLL_MUT_PAGE_WRONG_DIR	1	include/winscroll.h:288	killed	test_winscroll	Makefile:13689,Makefile:13693,Makefile:13713
+window	WSCROLL_MUT_THUMB_UNSCALED	1	include/winscroll.h:220	killed	test_winscroll	Makefile:13689,Makefile:13693,Makefile:13712

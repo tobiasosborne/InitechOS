@@ -1,0 +1,14 @@
+# Legacy TBX_MUT_FILE_BOUNDS
+# test: test_tbx_file
+--- a/tbxfile.h
++++ b/tbxfile.h
+@@ -12,8 +12,7 @@
+ }
+ static int tbxf_span(uint32_t lo, uint32_t len, uint32_t ptr, uint32_t n)
+ {
+-    if (n == 0) return 1;
+-    return len <= 0xffffffffu-lo && ptr >= lo && ptr-lo <= len && n <= len-(ptr-lo);
++    (void)lo; (void)len; (void)ptr; (void)n; return 1;
+ }
+ static int tbxf_path(uint32_t lo, uint32_t len, uint32_t ptr)
+ {

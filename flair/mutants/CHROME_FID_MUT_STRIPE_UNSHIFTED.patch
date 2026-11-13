@@ -1,0 +1,12 @@
+# Legacy CHROME_FID_MUT_STRIPE_UNSHIFTED
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -355,6 +355,7 @@
+         for (int row = 0; row < FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS; row++) {
+             int light = (row & 1) == 0;
+             int shift = row & 1;
++            shift = 0;
+             cfill(port, title_safe_left + shift,
+                   top + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF + row,
+                   title_safe_right - title_safe_left,

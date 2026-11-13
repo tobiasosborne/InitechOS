@@ -1,0 +1,19 @@
+# Legacy CHROME_FID_MUT_NO_SHADOW
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -872,14 +872,6 @@
+         cfill(port, ri, y, 1, frame_part);
+     }
+ 
+-    {
+-        int notch = FLAIR_CHROME_SHADOW_NOTCH;
+-        for (int y = top + notch; y <= bottom; y++) {
+-            cfill(port, right, y, 1, frame_part);
+-        }
+-        cfill(port, left + notch, bottom, right - left - notch + 1,
+-              frame_part);
+-    }
+ }
+ 
+ /* movableDBoxProc shares the Platinum title-band mechanism. Its untitled body

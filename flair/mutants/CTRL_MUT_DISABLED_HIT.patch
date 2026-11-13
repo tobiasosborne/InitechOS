@@ -1,0 +1,20 @@
+# Legacy CTRL_MUT_DISABLED_HIT
+# test: test_control
+--- a/control.c
++++ b/control.c
+@@ -1027,7 +1027,6 @@
+ int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt)
+ {
+     CTRL_REQUIRE(ctrl);
+-    if (ctrl && ctrl->contrlHilite == 255) return 0;
+     if (ctrl == 0 || !ctrl->contrlVis) {
+         return 0;
+     }
+@@ -1103,7 +1102,6 @@
+                      const flair_point_t *pts, uint32_t n_pts)
+ {
+     CTRL_REQUIRE(ctrl && pts);
+-    if (ctrl && ctrl->contrlHilite == 255) return 0;
+     if (ctrl == 0 || pts == 0 || n_pts == 0) {
+         return 0;
+     }

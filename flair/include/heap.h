@@ -1,16 +1,16 @@
 /*
  * os/flair/heap.h -- the FLAIR Toolbox heap allocator (the artifact).
  *
- * beads: initech-k8o5.5 (DEC-03 allocator deliverable; the spec-lock + boot
+ *  (arena lifetime allocator deliverable; the spec-lock + boot
  *        probe landed first, commit 033e2fd).
- * Ref:   ADR-0004 Sec 8.1 DEC-03 *Allocator* (verbatim intent): "A single flat
+ * Ref:   clipped Toolbox drawing arena lifetime *Allocator* (verbatim intent): "A single flat
  *        arena owned by FLAIR over the fixed [FLAIR_HEAP_BASE,
  *        FLAIR_HEAP_BASE+FLAIR_HEAP_SIZE) window: bump-pointer for allocation,
  *        typed free-list per allocation class (region rows[]/x_pool backing,
  *        indexed-8 offscreen bitmaps, WindowRecord/MenuInfo/ControlRecord/
  *        DialogRecord handles, NFNT strikes) for frees -- matching PRD Sec 5
- *        'bump + free-list allocator'. NO per-row / per-handle malloc (Rule 11
- *        deterministic layout; freestanding, no libc). Fail-loud (Rule 2) on
+ *        'bump + free-list allocator'. NO per-row / per-handle malloc (reproducibility
+ *        deterministic layout; freestanding, no libc). Fail-loud  on
  *        exhaustion -- never silent truncation."
  * Ref:   spec/memory_map.h -- the LOCKED FLAIR_HEAP_BASE (0x00100000) /
  *        FLAIR_HEAP_SIZE (0x00400000) / FLAIR_HEAP_MIN window. The kernel binds
@@ -20,20 +20,20 @@
  *        caller-supplied rows[]/x_pool storage -- which is what makes it
  *        host-testable).
  * Ref:   PRD Sec 5 ("bump + free-list allocator").
- *        CLAUDE.md Law 1 (ground truth before code), Law 2 (the oracle is the
- *        truth -- harness/proptest/test_flair_heap.c), Law 3 (freestanding
- *        artifact; dual-compile for the host oracle), Rule 2 (fail loud: NULL on
- *        exhaustion, never silent truncation/wrap; bounds-checked), Rule 11
+ *        source provenance (ground truth before code), independent checks (the oracle is the
+ *        truth -- harness/proptest/test_flair_heap.c), language boundary (freestanding
+ *        artifact; dual-compile for the host oracle), explicit error handling (fail loud: NULL on
+ *        exhaustion, never silent truncation/wrap; bounds-checked), reproducibility
  *        (deterministic layout: the same call sequence yields the identical
  *        layout every run -- the self-host fixpoint K2==K3 depends on it),
- *        Rule 12 (ASCII-clean source).
+ *        ASCII source.
  *
  * ARTIFACT code: freestanding, <stdint.h> only, no libc, no malloc. Compiles
  * BOTH under kernel flags (gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall
  * -Wextra -Werror) AND hosted for the property suite (the dual-compile pattern
- * region.c/surface.c follow; CLAUDE.md Law 3).
+ * region.c/surface.c follow; language boundary).
  *
- * THE MODEL (DEC-03)
+ * THE MODEL (arena lifetime)
  * ------------------
  * One FLAIR-owned flat arena over a caller-supplied [base, base+size) window.
  *
@@ -47,22 +47,22 @@
  *     first tries to REUSE the head of class C's free-list IF the request fits
  *     the freed block's capacity; otherwise it BUMPS a fresh block. A freed
  *     block is NEVER handed to a different class (CLASS ISOLATION) -- the typed
- *     free-list is the per-class reuse pool, exactly as DEC-03 specifies.
+ *     free-list is the per-class reuse pool, exactly as arena lifetime specifies.
  *
- *   - FAIL LOUD ON EXHAUSTION (Rule 2): when neither a fitting same-class
+ *   - FAIL LOUD ON EXHAUSTION: when neither a fitting same-class
  *     free-list block exists NOR a fresh bump fits inside the window, flair_alloc
  *     returns NULL. It NEVER truncates, wraps, or scribbles past base+size. The
  *     in-kernel caller treats NULL as a panic-worthy condition (PC LOAD LETTER);
  *     the host oracle asserts NULL.
  *
- * DETERMINISM (Rule 11): base is caller-supplied and the bump cursor + the LIFO
+ * DETERMINISM: base is caller-supplied and the bump cursor + the LIFO
  * free-list policy are pure functions of the call sequence -- no timestamps, no
  * nondeterminism, no address-derived hashing. Two fresh heaps init'd over two
  * buffers and driven by the SAME call sequence produce the SAME *relative*
  * layout (identical offsets-from-base for every allocation). The kernel binds
  * the fixed spec window, so its absolute layout is identical every boot.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #ifndef INITECH_OS_FLAIR_HEAP_H
 #define INITECH_OS_FLAIR_HEAP_H
@@ -77,17 +77,17 @@
  * scanline math is friendliest on a 16-byte boundary, and 16 is the natural
  * paragraph granularity already used across the conventional memory map
  * (spec/memory_map.h, MCB_PARA). Both the block header and every returned
- * payload pointer are 16-aligned. (DEC-03 left the alignment open: "choose a
+ * payload pointer are 16-aligned. (arena lifetime left the alignment open: "choose a
  * sane alignment, e.g. 8 or 16 bytes; document it" -- 16 is the choice.)
  * -------------------------------------------------------------------------- */
 #define FLAIR_HEAP_ALIGN 16u
 
 /* --------------------------------------------------------------------------
- * Allocation classes (DEC-03: "typed free-list per allocation class").
+ * Allocation classes (arena lifetime: "typed free-list per allocation class").
  *
  * Each FLAIR allocation belongs to exactly one class. The class selects which
  * typed free-list a freed block returns to and, by CLASS ISOLATION, which
- * requests may reuse it. The set mirrors DEC-03's enumeration of what FLAIR
+ * requests may reuse it. The set mirrors arena lifetime's enumeration of what FLAIR
  * allocates from this arena:
  *
  *   FLAIR_CLASS_REGION  -- REGION_ENGINE region storage (rows[] + x_pool backing).
@@ -116,7 +116,7 @@ typedef enum {
  * the aligned payload capacity in bytes (the bump path may round a request up to
  * FLAIR_HEAP_ALIGN, so a recycled block can satisfy any request <= cap). `klass`
  * records the owning class so flair_free can route the block to the right
- * free-list WITHOUT trusting the caller's class argument blindly (Rule 2: a
+ * free-list WITHOUT trusting the caller's class argument blindly (explicit error handling: a
  * cross-class free is rejected). `next` links the per-class free-list (LIFO);
  * it is meaningful only while the block sits on a free-list.
  *
@@ -142,7 +142,7 @@ typedef struct {
     uint32_t     used;    /* bump cursor: bytes consumed from base (aligned)  */
     flair_blk_t *freelist[FLAIR_CLASS_COUNT]; /* per-class LIFO free-lists     */
     /* Stats (deterministic; for the oracle + future diagnostics, never used in
-     * an allocation decision -- so they cannot perturb the layout, Rule 11). */
+     * an allocation decision -- so they cannot perturb the layout, reproducibility). */
     uint32_t     n_bump;  /* count of fresh bump allocations                  */
     uint32_t     n_reuse; /* count of free-list reuse allocations             */
     uint32_t     n_free;  /* count of frees                                   */
@@ -162,13 +162,13 @@ void flair_heap_init(flair_heap_t *heap, void *base, uint32_t size);
 /* --------------------------------------------------------------------------
  * flair_alloc -- allocate `size` payload bytes for allocation class `klass`.
  *
- * Policy (DEC-03, deterministic -- Rule 11):
+ * Policy (arena lifetime, deterministic -- reproducibility):
  *   1. REUSE: if class `klass`'s free-list head has cap >= the aligned request,
  *      pop it and return its payload (CLASS ISOLATION -- only this class's list
  *      is consulted).
  *   2. BUMP: else advance the bump cursor by the aligned (header + payload) span
  *      if it fits inside [base, base+size); return the fresh payload.
- *   3. FAIL LOUD: else return NULL (Rule 2 -- never truncate/wrap/overrun).
+ *   3. FAIL LOUD: else return NULL (explicit error handling -- never truncate/wrap/overrun).
  *
  * Returns a 16-aligned payload pointer, or NULL on exhaustion or a bad argument
  * (size==0, klass out of range). The returned bytes are NOT zeroed (the caller
@@ -182,7 +182,7 @@ void *flair_alloc(flair_heap_t *heap, flair_class_t klass, uint32_t size);
  *
  * `klass` MUST match the class the block was allocated with; `ptr` MUST be a
  * payload pointer this heap returned. flair_free pushes the block onto class
- * `klass`'s LIFO free-list for later same-class reuse. Fail loud (Rule 2): a
+ * `klass`'s LIFO free-list for later same-class reuse. Fail loud: a
  * NULL ptr, a ptr outside the window, a misaligned ptr, or a class mismatch is
  * REJECTED (no-op) rather than corrupting a free-list. Returns 1 on success,
  * 0 on a rejected free.

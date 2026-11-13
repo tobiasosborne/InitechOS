@@ -1,0 +1,24 @@
+# Legacy CHROME_FID_MUT_INACTIVE_BLACK_FRAME
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -369,8 +369,7 @@
+               FLAIR_PART_PLAT_FACE);
+     }
+ 
+-    cfill(port, left + 1, shared_line, w - 2,
+-          active ? FLAIR_PART_FRAME : FLAIR_PART_PLAT_INACTIVE_FRAME);
++    cfill(port, left + 1, shared_line, w - 2, FLAIR_PART_FRAME);
+ 
+     {
+         title_layout_t layout;
+@@ -812,6 +811,9 @@
+         right - FLAIR_CHROME_TITLE_RUN_RIGHT_OFF);
+     frame_part = active ? FLAIR_PART_FRAME
+                         : FLAIR_PART_PLAT_INACTIVE_FRAME;
++    if (!active) {
++        frame_part = FLAIR_PART_FRAME;
++    }
+ 
+     if (!collapsed) {
+         content_left = left + 6;

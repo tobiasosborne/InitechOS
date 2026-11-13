@@ -1,8 +1,8 @@
 /*
  * harness/proptest/test_winscroll.c -- host oracle for the STANDARD WINDOW
- * SCROLL BARS (bead initech-tdnl.35; audit F02).
+ * SCROLL BARS (; audit F02).
  *
- * WHAT IS GRADED, and where every expected value comes from (Law 2): the
+ * WHAT IS GRADED, and where every expected value comes from: the
  * numbers are HAND-DERIVED below from the default Finder frame
  * (finder_windows.h Sec 3: (20,60)..(380,280)) and spec/chrome_metrics.h --
  * frame 1, body rail 4, bar 16, arrow tile 16, thumb 15, grow offsets 19,
@@ -31,15 +31,15 @@
  *                 enabled -> the W3 parts; an INACTIVE window -> 0;
  *                 DisposeWindow detaches the record.
  *
- * MUTANTS (Rule 6; Makefile test-winscroll-mutant):
- *   WINDOW_MUTATE_SCROLL_DRAG   bands fall through to inDrag   -> W5 RED
- *   WSCROLL_MUT_THUMB_UNSCALED  thumb ignores the range        -> W2 RED
- *   WSCROLL_MUT_PAGE_WRONG_DIR  page regions scroll backwards  -> W4 RED
+ * regression patches (mutation checks; Makefile test-winscroll-mutant):
+ *   scroll drag patch   bands fall through to inDrag   -> W5 RED
+ *   thumb unscaled patch  thumb ignores the range        -> W2 RED
+ *   page wrong dir patch  page regions scroll backwards  -> W4 RED
  *
  * Ref: os/flair/winscroll.h, os/flair/window.h Sec 4b;
- *      ../system7-decomp/specs/sys8/scrollbars.md Sec 1-3;
- *      ../system7-decomp/specs/toolbox/control-manager.md.
- * ASCII-clean (Rule 12).
+ *../system7-decomp/specs/sys8/scrollbars.md Sec 1-3;
+ *../system7-decomp/specs/toolbox/control-manager.md.
+ * ASCII-clean.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -253,8 +253,8 @@ int main(void)
         g_rec.hilited = 1;
         /* Resize must settle the model BEFORE chrome or content paints.
          * Original view 333x177; content 300x100 fits. At 160x100 the
-         * view is 133x57, hence H max167, V max43. RE-KEYED (bead
-         * initech-tdnl.51, stated): the content's left edge moved from L+1
+         * view is 133x57, hence H max167, V max43. RE-KEYED (
+         *, stated): the content's left edge moved from L+1
          * to L+6 (inside the left body rail), so every view is 5 px narrower
          * (was 338 / 138 / max162). */
         wscroll_set_extent(&ws.axis[WSCROLL_H], 300, 333);

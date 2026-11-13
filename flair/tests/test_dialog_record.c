@@ -1,6 +1,6 @@
 /* test_dialog_record.c -- spec/dialog_record.h LOCKED spec oracle.
  *
- * beads: initech-dh5k.3 (P1-3: spec/dialog_record.h + oracle).
+ *  (P1-3: spec/dialog_record.h + oracle).
  * era=system7.0-7.1
  *
  * This oracle tests the LOCKED SPEC CONSTANTS in spec/dialog_record.h:
@@ -15,24 +15,24 @@
  * at compile time; the runtime CHECK calls here provide the named-mutant
  * oracle output ("N checks, 0 failures, green") and exercice named mutants.
  *
- * SOURCE CITATIONS (Law 1):
- *   ../system7-decomp/specs/toolbox/dialog-manager.md Sec 2 (DITL types),
+ * SOURCE CITATIONS:
+ *../system7-decomp/specs/toolbox/dialog-manager.md Sec 2 (DITL types),
  *     Sec 4.1 (alert icons), Sec 4.2 (stage count, sound range),
  *     Sec 4.3 (ok=1/cancel=2), Sec 7 (certainty ledger -- [verified: A+B]).
  *   spec/dialog_record.h (the LOCKED spec; this file is its oracle harness).
  *   seed/test_assert.h (TEST_HARNESS/CHECK/TEST_SUMMARY harness).
  *
- * MUTANTS (Rule 6 -- each MUST drive this oracle RED):
- *   DIALOG_REC_MUTATE_CTRL   -- FLAIR_DITL_CTRL_ITEM wrong (not 4).
- *   DIALOG_REC_MUTATE_STAT   -- FLAIR_DITL_STAT_TEXT wrong (not 8).
- *   DIALOG_REC_MUTATE_EDIT   -- FLAIR_DITL_EDIT_TEXT wrong (not 16).
- *   DIALOG_REC_MUTATE_OK     -- FLAIR_DIALOG_OK wrong (not 1).
- *   DIALOG_REC_MUTATE_CANCEL -- FLAIR_DIALOG_CANCEL wrong (not 2).
- *   DIALOG_REC_MUTATE_DISABLE-- FLAIR_DITL_ITEM_DISABLE wrong (not 0x80).
+ * regression patches (mutation checks -- each MUST drive this oracle RED):
+ *   ctrl patch   -- FLAIR_DITL_CTRL_ITEM wrong (not 4).
+ *   stat patch   -- FLAIR_DITL_STAT_TEXT wrong (not 8).
+ *   edit patch   -- FLAIR_DITL_EDIT_TEXT wrong (not 16).
+ *   ok patch     -- FLAIR_DIALOG_OK wrong (not 1).
+ *   cancel patch -- FLAIR_DIALOG_CANCEL wrong (not 2).
+ *   disable patch-- FLAIR_DITL_ITEM_DISABLE wrong (not 0x80).
  *
  * DUAL-COMPILE: hosted (gcc -std=c11) and freestanding
  *   (gcc -m32 -ffreestanding -nostdlib -std=c11).
- *   No host malloc; no libc beyond stdio + string. Rule 11 + Rule 12.
+ *   No host malloc; no libc beyond stdio + string. reproducibility + ASCII source.
  *
  * SELF-VERIFY (no make):
  *   gcc -std=c11 -Wall -Wextra -Ispec -Iseed \
@@ -42,7 +42,7 @@
  *   gcc -m32 -ffreestanding -nostdlib -std=c11 -Ispec -Iseed \
  *       -c harness/proptest/test_dialog_record.c -o /tmp/test_dialog_record_fs.o
  *
- * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
+ * ASCII-clean. No nondeterminism / no timestamps.
  */
 #include <stdint.h>
 #include <stddef.h>
@@ -59,13 +59,13 @@ TEST_HARNESS();
 /* ===========================================================================
  * PROPERTY 1 -- DITL item-type base values
  *
- * Ref: ../system7-decomp/specs/toolbox/dialog-manager.md Sec 2
+ * Ref:../system7-decomp/specs/toolbox/dialog-manager.md Sec 2
  *      [verified: A+B; im-toolbox-records-verbatim.md + Toolbox-442].
  *
- * MUTANTS TESTED:
- *   DIALOG_REC_MUTATE_CTRL  -- ctrlItem not 4   => CHECK(FLAIR_DITL_CTRL_ITEM==4) RED
- *   DIALOG_REC_MUTATE_STAT  -- statText not 8   => CHECK(FLAIR_DITL_STAT_TEXT==8) RED
- *   DIALOG_REC_MUTATE_EDIT  -- editText not 16  => CHECK(FLAIR_DITL_EDIT_TEXT==16) RED
+ * regression patches TESTED:
+ *   ctrl patch  -- ctrlItem not 4   => CHECK(FLAIR_DITL_CTRL_ITEM==4) RED
+ *   stat patch  -- statText not 8   => CHECK(FLAIR_DITL_STAT_TEXT==8) RED
+ *   edit patch  -- editText not 16  => CHECK(FLAIR_DITL_EDIT_TEXT==16) RED
  * ===========================================================================*/
 static void test_ditl_base_types(void)
 {
@@ -84,21 +84,21 @@ static void test_ditl_base_types(void)
     CHECK(FLAIR_DITL_HELP_ITEM == 1u, msg);
 
     /* ctrlItem = 4 [verified: A+B dialog-manager.md Sec 2]
-     * MUTANT: DIALOG_REC_MUTATE_CTRL changes this => CHECK goes RED. */
+     * regression patches: ctrl patch changes this => CHECK goes RED. */
     snprintf(msg, sizeof msg,
              "FLAIR_DITL_CTRL_ITEM must be 4 (ctrlItem base), got %u",
              (unsigned)FLAIR_DITL_CTRL_ITEM);
     CHECK(FLAIR_DITL_CTRL_ITEM == 4u, msg);
 
     /* statText = 8 [verified: A+B dialog-manager.md Sec 2]
-     * MUTANT: DIALOG_REC_MUTATE_STAT changes this => CHECK goes RED. */
+     * regression patches: stat patch changes this => CHECK goes RED. */
     snprintf(msg, sizeof msg,
              "FLAIR_DITL_STAT_TEXT must be 8 (statText), got %u",
              (unsigned)FLAIR_DITL_STAT_TEXT);
     CHECK(FLAIR_DITL_STAT_TEXT == 8u, msg);
 
     /* editText = 16 [verified: A+B dialog-manager.md Sec 2]
-     * MUTANT: DIALOG_REC_MUTATE_EDIT changes this => CHECK goes RED. */
+     * regression patches: edit patch changes this => CHECK goes RED. */
     snprintf(msg, sizeof msg,
              "FLAIR_DITL_EDIT_TEXT must be 16 (editText), got %u",
              (unsigned)FLAIR_DITL_EDIT_TEXT);
@@ -133,7 +133,7 @@ static void test_ditl_base_types(void)
  *   itemDisable = 0x80 (128). When OR'd with any base type, marks the item
  *   disabled: drawn but never returned by ModalDialog.
  *
- * MUTANT: DIALOG_REC_MUTATE_DISABLE -- FLAIR_DITL_ITEM_DISABLE != 0x80
+ * regression patches: disable patch -- FLAIR_DITL_ITEM_DISABLE != 0x80
  *         => CHECK goes RED.
  * ===========================================================================*/
 static void test_item_disable(void)
@@ -141,7 +141,7 @@ static void test_item_disable(void)
     char msg[256];
 
     /* itemDisable = 0x80 = 128 [verified: A+B dialog-manager.md Sec 2]
-     * MUTANT: DIALOG_REC_MUTATE_DISABLE => CHECK goes RED. */
+     * regression patches: disable patch => CHECK goes RED. */
     snprintf(msg, sizeof msg,
              "FLAIR_DITL_ITEM_DISABLE must be 0x80 (128), got 0x%02x",
              (unsigned)FLAIR_DITL_ITEM_DISABLE);
@@ -352,31 +352,31 @@ static void test_alert_stages(void)
  * Ref: dialog-manager.md Sec 4.3 [verified: A+B; im-toolbox-records-
  *      verbatim.md (ok=1 cancel=2) + Toolbox-442].
  *
- * MUTANTS:
- *   DIALOG_REC_MUTATE_OK     => CHECK(ok==1) RED
- *   DIALOG_REC_MUTATE_CANCEL => CHECK(cancel==2) RED
+ * regression patches:
+ *   ok patch     => CHECK(ok==1) RED
+ *   cancel patch => CHECK(cancel==2) RED
  * ===========================================================================*/
 static void test_result_codes(void)
 {
     char msg[256];
 
 #ifdef DIALOG_REC_MUTATE_OK
-    /* Rule 6 mutant smoke: FLAIR_DIALOG_OK is 1, never 99, so this CHECK MUST
+    /* mutation checks mutant smoke: FLAIR_DIALOG_OK is 1, never 99, so this CHECK MUST
      * fail and the gate MUST exit non-zero. If it passes, the gate is
-     * decoration. (Wired by the orchestrator during Wave-1 grading -- the lane
+     * decoration. (Wired by the orchestrator during Wave-1 grading -- the implementation
      * left this hook as a comment only, not a real #ifdef.) */
     CHECK(FLAIR_DIALOG_OK == 99, "MUTANT: forced-wrong OK code (must FAIL -- Rule 6)");
 #endif
 
     /* ok = 1 (default OK button is DITL item 1; 1-based)
-     * MUTANT: DIALOG_REC_MUTATE_OK => CHECK goes RED. */
+     * regression patches: ok patch => CHECK goes RED. */
     snprintf(msg, sizeof msg,
              "FLAIR_DIALOG_OK must be 1 (ok; 1-based DITL item index), got %d",
              FLAIR_DIALOG_OK);
     CHECK(FLAIR_DIALOG_OK == 1, msg);
 
     /* cancel = 2 (Cancel button is DITL item 2 by convention)
-     * MUTANT: DIALOG_REC_MUTATE_CANCEL => CHECK goes RED. */
+     * regression patches: cancel patch => CHECK goes RED. */
     snprintf(msg, sizeof msg,
              "FLAIR_DIALOG_CANCEL must be 2 (cancel; 1-based DITL item index), got %d",
              FLAIR_DIALOG_CANCEL);

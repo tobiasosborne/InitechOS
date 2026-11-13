@@ -4,8 +4,8 @@
  * The renderer owns geometry only. Every color role crosses the C-8 policy
  * seam as a FLAIR_PART_* key; this file contains no palette table and no era
  * selection. Geometry is the sampled Mac OS 8.1 base-era contract in
- * ../system7-decomp/specs/sys8/window-chrome.md Sec 1-6 and scrollbars.md
- * Sec 1-5, selected by ADR-0004-AMENDMENT-DEC-10 Sec 4 / OQ-7.
+ *../system7-decomp/specs/sys8/window-chrome.md Sec 1-6 and scrollbars.md
+ * Sec 1-5, selected by clipped Toolbox drawing / OQ-7.
  */
 
 #include <stdint.h>
@@ -17,7 +17,7 @@
 #include "flair_look.h"
 #include "text.h"
 #include "window_record.h"  /* FLAIR_WINDOW_TITLE_MAX: kernel-held title seam */
-#include "rdoc.h"           /* rDocProc geometry (bead initech-tdnl.17)        */
+#include "rdoc.h"           /* rDocProc geometry        */
 
 /* True when a port-local pixel is in visRgn INTERSECT clipRgn. */
 static int clip_in(const GrafPort *port, int x, int y)
@@ -61,14 +61,14 @@ static void chrome_cfill(GrafPort *port, const flair_skin_t *skin,
     }
 }
 
-/* The title run, CLIPPED like every other chrome primitive (bead
- * initech-tdnl.14). text_draw -> surface_blit has no region clip, so a WDEF
+/* The title run, CLIPPED like every other chrome primitive (
+ * ). text_draw -> surface_blit has no region clip, so a WDEF
  * repaint of a PARTLY COVERED window's title bar used to stamp the whole
  * Chicago cell run -- ink AND background -- over the window in front of it.
  * Found on the real guest: a disk tenant's exit exposed part of NOTES' title
  * bar, and NOTES' "NOTES" run overdrew the APPS window's frame + scrollbar
- * (the test-flair-app-launch RESTORE leg's byte-compare caught it). Since bead
- * initech-tdnl.68 it is the Font Manager's ONE clipped run, text_draw_run,
+ * (the test-flair-app-launch RESTORE leg's byte-compare caught it). Since
+ *  it is the Font Manager's ONE clipped run, text_draw_run,
  * under the port's visRgn INTERSECT clipRgn: the same pixels as text_draw
  * wherever they are visible (the opaque advance-wide box in bg, the strike's
  * ink in fg), nothing where they are not. */
@@ -113,7 +113,7 @@ static void chrome_cframe(GrafPort *port, const flair_skin_t *skin,
 #define cframe(port, x0, y0, x1, y1, part) \
     chrome_cframe((port), skin, (x0), (y0), (x1), (y1), (part))
 
-/* Rect tables (size round 6, WL-0162): each entry is one crect whose edges
+/* Rect tables (compact storage, drawing tables): each entry is one crect whose edges
  * are offsets from the box's left/top or (CR_*R/B) right/bottom edge, painted
  * in table order; CR_ACT / CR_INA restrict it to the active / inactive
  * frame, and part CR_DYN takes the caller's dynamic PART. */
@@ -149,17 +149,13 @@ enum {
 
 /* Sampled Platinum widget ink is #3F3F3F (idx63), not frame black.
  * Ref: sys8/window-chrome.md Sec 3.2-3.3 (SAMPLED domain). */
-#if defined(CHROME_FID_MUT_DARK_RING_BLACK)
-#define PLAT_DARK_RING_PART FLAIR_PART_FRAME
-#else
 #define PLAT_DARK_RING_PART FLAIR_PART_PLAT_DARK_RING
-#endif
 
 /* Platinum 12x12 widget plus the one-pixel right/bottom highlight.
  * Ref: window-chrome.md Sec 3.1-3.3. The seven ramp roles are the sampled
  * diagonal sequence documented at Sec 3.2 and reuse existing policy parts.
  *
- * `pressed` (bead initech-tdnl.60, TrackGoAway/TrackBox feedback) draws the
+ * `pressed` (, TrackGoAway/TrackBox feedback) draws the
  * box held down. Platinum pressed widget art is a documented GOLDEN GAP
  * (sys8/window-chrome.md Sec 8: "No golden shows a close/zoom/collapse box
  * under the mouse button"), so this is AUTHORED after the one local pressed
@@ -168,18 +164,11 @@ enum {
  * tone, the box does not move): the dark ring becomes frame black and the
  * face ramp shifts two rungs darker. [golden-resolves: a mouse-down capture
  * of each Platinum widget.] */
-#if !defined(CHROME_FID_MUT_BOX_GEOM)
 static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
                                  int bx, int by, int kind, int pressed)
 {
     const int box = FLAIR_CHROME_WIDGET_BOX;
     const int interior = FLAIR_CHROME_WIDGET_INTERIOR;
-#if defined(CHROME_MUT_PRESSED_IDLE)
-    /* MUTANT (Rule 6; test-chrome-mutant, initech-tdnl.60): no press
-     * feedback -- the held box looks idle. NEVER in a real build. */
-    pressed = 0;
-#endif
-#if !defined(CHROME_FID_MUT_RAMP)
     static const int ramp_part[FLAIR_CHROME_WIDGET_RAMP_RUNGS] = {
         FLAIR_PART_PLAT_FRAME_SHADOW,
         FLAIR_PART_PLAT_WELL,
@@ -189,9 +178,8 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
         FLAIR_PART_PLAT_TROUGH,
         FLAIR_PART_CONTENT
     };
-#endif
 
-    /* The fixed 13x13 cell as a rect table (size round 6, WL-0162), offsets
+    /* The fixed 13x13 cell as a rect table (compact storage, drawing tables), offsets
      * from (bx,by): E7-less DA face, A5 outer highlight, the 1-px ring
      * (black when pressed), the DA interior, its A5 shadow and the white
      * top-left pixel. The redundant DA re-fills of the interior's first
@@ -208,16 +196,10 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
          * column (dx=8) runs dy=1..8. The two off-diagonal corners (8,0) and
          * (0,8) stay #DADADA -- they belong to the top-row/left-column
          * highlight (window-chrome.md Sec 3.2 transcription, y=76 x=79 'd'
-         * and y=84 x=71 'd'; bead initech-tdnl.52, the LOOK pass 6 2/169
+         * and y=84 x=71 'd';, the LOOK pass 6 2/169
          * residual). */
-#if defined(CHROME_FID_MUT_WIDGET_CORNERS_EDGE)
-        /* Rule-6 restoration of the pre-tdnl.52 full-length shadow strokes. */
-        WX(2, 1 + interior, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
-        WX(1 + interior, 2, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
-#else
         WX(3, 1 + interior, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
         WX(1 + interior, 3, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
-#endif
         WX(2, 2, 3, 3, FLAIR_PART_CONTENT)
     };
     chrome_rects(port, skin, bx, by, 0, 0, cell, CRN(cell), 0,
@@ -225,30 +207,21 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
 
     for (int dy = 1; dy <= FLAIR_CHROME_WIDGET_RAMP_FACE; dy++) {
         for (int dx = 1; dx <= FLAIR_CHROME_WIDGET_RAMP_FACE; dx++) {
-#if defined(CHROME_FID_MUT_RAMP)
-            int part = FLAIR_PART_PLAT_FRAME_FACE;
-#else
             int rung = (dx + dy - 2) /
                        FLAIR_CHROME_WIDGET_RAMP_PX_PER_STEP;
             if (pressed) rung = (rung >= 2) ? rung - 2 : 0;
             int part = ramp_part[rung];
-#endif
             cfill(port, bx + 2 + dx, by + 2 + dy, 1, part);
         }
     }
 
     if (kind == PLAT_WIDGET_ZOOM) {
-#if defined(CHROME_FID_MUT_ZOOM_CENTERED)
-        cframe(port, bx + 4, by + 4, bx + 7, by + 7,
-               PLAT_DARK_RING_PART);
-#else
         for (int d = 0; d < FLAIR_CHROME_ZOOM_GLYPH_EDGE; d++) {
             cfill(port, bx + 2 + 5, by + 2 + d, 1,
                   PLAT_DARK_RING_PART);
             cfill(port, bx + 2 + d, by + 2 + 5, 1,
                   PLAT_DARK_RING_PART);
         }
-#endif
     } else if (kind == PLAT_WIDGET_COLLAPSE) {
         cfill(port, bx + 2,
               by + 2 + FLAIR_CHROME_COLLAPSE_GLYPH_ROW_0,
@@ -262,13 +235,7 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
         cfill(port, bx + box, y, 1, FLAIR_PART_CONTENT);
     }
     cfill(port, bx + 1, by + box, box, FLAIR_PART_CONTENT);
-#if defined(CHROME_FID_MUT_CBOX_CORNER)
-    /* Rule-6 restoration of the old sz-4 corner gap (bead initech-hber). */
-    cfill(port, bx + box - 1, by + box - 1, 1,
-          FLAIR_PART_PLAT_WIDGET_EDGE);
-#endif
 }
-#endif
 
 typedef struct title_layout {
     char text[FLAIR_WINDOW_TITLE_MAX];
@@ -313,10 +280,10 @@ static void chicago_ink_bounds(const char *text, int width,
  * close and zoom clusters (Sec 2.2 / Sec 3.1).  Overlong titles are truncated
  * at a whole-character boundary and END IN THE ELLIPSIS, the single Chicago
  * glyph 0xC9 (FLAIR_CHROME_TITLE_TRUNC_MARKER; NFNT 5478 lb 2 aw 14), the way
- * TruncString(smTruncEnd) ends a System 7 / Mac OS 8 title (bead
- * initech-tdnl.68; it was one period, the R0.2 simplification, before the
+ * TruncString(smTruncEnd) ends a System 7 / Mac OS 8 title (
+ *; it was one period, the R0.2 simplification, before the
  * strike had the glyph). Widths are the proportional Chicago 12 advances
- * (initech-tdnl.33). No font condensation. */
+ *. No font condensation. */
 static int title_layout_make(title_layout_t *out, const char *title,
                              int left, int right,
                              int safe_left, int safe_right)
@@ -340,13 +307,7 @@ static int title_layout_make(title_layout_t *out, const char *title,
             out->text[i] = title[i];
         }
         if (source_truncated || shown < n) {
-#if defined(CHROME_MUT_TRUNC_PERIOD)
-            /* Rule-6 restoration of the retired R0.2 marker (test-flair-fonts
-             * W3 must go RED): one period instead of the 0xC9 ellipsis. */
-            out->text[shown - 1] = '.';
-#else
             out->text[shown - 1] = FLAIR_CHROME_TITLE_TRUNC_MARKER;
-#endif
         }
         out->text[shown] = '\0';
         int width = text_measure(FONT_CHICAGO, out->text);
@@ -366,12 +327,6 @@ static int title_layout_make(title_layout_t *out, const char *title,
     if (shown == 0) {
         return 0;
     }
-#if defined(CHROME_FID_MUT_CENTER_OFF)
-    /* Rule-6 R0.2 mutant: displace the entire centered title treatment +7px. */
-    out->x += 7;
-    out->gap_left += 7;
-    out->gap_right += 7;
-#endif
     return 1;
 }
 
@@ -387,21 +342,8 @@ static int draw_titlebar_band(GrafPort *port, const flair_skin_t *skin,
     int shared_line = top + FLAIR_CHROME_TITLEBAR_H - 1;
     int w = right - left;
 
-#if defined(CHROME_FID_MUT_NO_INACTIVE)
-    active = 1;
-#endif
-#if defined(CHROME_MUTATE_TITLEBAR_H)
-    shared_line++;
-#endif
 
     if (active) {
-#if defined(CHROME_FID_MUT_NO_BEVEL)
-        for (int y = top + 1; y < shared_line; y++) {
-            int part = ((y - top) & 1) ? FLAIR_PART_CONTENT
-                                       : FLAIR_PART_PLAT_STRIPE_DARK;
-            cfill(port, left + 1, y, w - 2, part);
-        }
-#else
         cfill(port, left + 1, top + 1, w - 2, FLAIR_PART_CONTENT);
         crect(port, left + 1, top + 2, right - 1, top + 4,
               FLAIR_PART_PLAT_FRAME_FACE);
@@ -411,15 +353,8 @@ static int draw_titlebar_band(GrafPort *port, const flair_skin_t *skin,
                     FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS,
               FLAIR_PART_PLAT_FRAME_FACE);
         for (int row = 0; row < FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS; row++) {
-#if defined(CHROME_FID_MUT_PHASE)
-            int light = (row & 1) != 0;
-#else
             int light = (row & 1) == 0;
-#endif
             int shift = row & 1;
-#if defined(CHROME_FID_MUT_STRIPE_UNSHIFTED)
-            shift = 0;
-#endif
             cfill(port, title_safe_left + shift,
                   top + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF + row,
                   title_safe_right - title_safe_left,
@@ -429,22 +364,13 @@ static int draw_titlebar_band(GrafPort *port, const flair_skin_t *skin,
               FLAIR_PART_PLAT_FRAME_FACE);
         cfill(port, left + 1, top + 20, w - 2,
               FLAIR_PART_PLAT_FRAME_SHADOW);
-#if defined(CHROME_MUTATE_TITLEBAR_H)
-        cfill(port, left + 1, top + 21, w - 2,
-              FLAIR_PART_PLAT_FRAME_FACE);
-#endif
-#endif
     } else {
         crect(port, left + 1, top + 1, right - 1, shared_line,
               FLAIR_PART_PLAT_FACE);
     }
 
-#if defined(CHROME_FID_MUT_INACTIVE_BLACK_FRAME)
-    cfill(port, left + 1, shared_line, w - 2, FLAIR_PART_FRAME);
-#else
     cfill(port, left + 1, shared_line, w - 2,
           active ? FLAIR_PART_FRAME : FLAIR_PART_PLAT_INACTIVE_FRAME);
-#endif
 
     {
         title_layout_t layout;
@@ -465,42 +391,20 @@ static int draw_titlebar_band(GrafPort *port, const flair_skin_t *skin,
                 }
             }
 
-#if defined(CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE)
-            ink_part = FLAIR_PART_TEXT;
-#else
             ink_part = active ? FLAIR_PART_TEXT
                               : FLAIR_PART_PLAT_INACTIVE_TEXT;
-#endif
-#if defined(CHROME_MUT_TITLE_UNCLIPPED)
-            /* MUTANT CHROME_MUT_TITLE_UNCLIPPED (Rule 6; test-flair-routing-
-             * mutant leg T): the pre-tdnl.14 title run -- text_draw has no
-             * region clip, so a partly covered window's repaint stamps its
-             * whole Chicago cell run over the window in front. NEVER in a real
-             * build. */
-            text_draw(&port->portBits.bm, layout.x, ty, layout.text,
-                      FONT_CHICAGO,
-                      flair_look_pixel_for_skin(port, skin, ink_part),
-                      flair_look_pixel_for_skin(
-                          port, skin,
-                          active ? FLAIR_PART_PLAT_FRAME_FACE
-                                 : FLAIR_PART_PLAT_FACE));
-#elif !defined(CHROME_FID_MUT_TITLE_BLANK) && !defined(CHROME_FID_MUT_NO_TITLE)
             chrome_ctext(port, layout.x, ty, layout.text,
                          flair_look_pixel_for_skin(port, skin, ink_part),
                          flair_look_pixel_for_skin(
                              port, skin,
                              active ? FLAIR_PART_PLAT_FRAME_FACE
                                     : FLAIR_PART_PLAT_FACE));
-#else
-            (void)ty;
-            (void)ink_part;
-#endif
         }
     }
     return shared_line;
 }
 
-/* Axis-generic rect (size round 6, WL-0162): along [a0,a1) x cross [c0,c1).
+/* Axis-generic rect (compact storage, drawing tables): along [a0,a1) x cross [c0,c1).
  * V: along = y, cross = x; H: along = x, cross = y. One colour per call, so
  * the decomposition into spans never changes a pixel. */
 static void sb_rect(GrafPort *port, const flair_skin_t *skin, int axis,
@@ -510,7 +414,6 @@ static void sb_rect(GrafPort *port, const flair_skin_t *skin, int axis,
     else                   crect(port, a0, c0, a1, c1, part);
 }
 
-#if !defined(CHROME_FID_MUT_SCROLL_FLAT)
 /* The 4-step arrow glyph: up (V) / left (H) when `grow`, else down / right;
  * step i spans 2+2i (or 8-2i) cross pixels centred on `cc`. */
 static void sb_tri(GrafPort *port, const flair_skin_t *skin, int axis,
@@ -524,26 +427,22 @@ static void sb_tri(GrafPort *port, const flair_skin_t *skin, int axis,
 }
 
 /* Raised 14x14 Platinum arrow tile. Off-diagonal corners retain the face.
- * Ref: ../system7-decomp/specs/sys8/scrollbars.md Sec 2.2 (SAMPLED). */
+ * Ref:../system7-decomp/specs/sys8/scrollbars.md Sec 2.2 (SAMPLED). */
 static void draw_scroll_tile(GrafPort *port, const flair_skin_t *skin,
                              int x0, int y0, int x1, int y1)
 {
-    /* Rect table (size round 6, WL-0162), box (x0,y0)-(x1,y1): face, white
+    /* Rect table (compact storage, drawing tables), box (x0,y0)-(x1,y1): face, white
      * top row + left column, CD bottom row + right column, the two
      * off-diagonal corners back to the face. */
 #define TX(a, b, c, d, f, p) { (int8_t)(a), (int8_t)(b), (int8_t)(c), (int8_t)(d), (uint8_t)(f), (uint8_t)(p) }
     static const chrome_rect_t tile[] = {
         TX(0, 0, 0, 0, CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FACE),
-#if !defined(SB_MUT_TILE_FLAT)
         TX(0, 0, -1, 1, CR_X1R, FLAIR_PART_CONTENT),
         TX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_CONTENT),
         TX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
         TX(-1, 0, 0, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
-#if !defined(SB_LOOK_MUT_CORNERS_BEVELLED)
         TX(-1, 0, 0, 1, CR_X0R | CR_X1R, FLAIR_PART_PLAT_FACE),
         TX(0, -1, 1, 0, CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FACE),
-#endif
-#endif
     };
     chrome_rects(port, skin, x0, y0, x1, y1, tile, CRN(tile), 0, 0);
 }
@@ -557,9 +456,6 @@ static void sb_well(GrafPort *port, const flair_skin_t *skin, int axis,
     if (c1 <= c0 || a1 <= a0) {
         return;
     }
-#if defined(SB_MUT_FLAT_WELL)
-    sb_rect(port, skin, axis, a0, a1, c0, c1, FLAIR_PART_PLAT_WELL);
-#else
     sb_rect(port, skin, axis, a0, a1, c0, c0 + 1, FLAIR_PART_PLAT_STRIPE_DARK);
     sb_rect(port, skin, axis, a0, a1, c0 + 1, c0 + 2, FLAIR_PART_PLAT_WIDGET_EDGE);
     sb_rect(port, skin, axis, a0, a1, c0 + 2,
@@ -571,18 +467,16 @@ static void sb_well(GrafPort *port, const flair_skin_t *skin, int axis,
         sb_rect(port, skin, axis, a0 + 1, a0 + 2, c0, c1,
                 FLAIR_PART_PLAT_WIDGET_EDGE);
     }
-#endif
 }
-#endif
 
 /* ---------------------------------------------------------------------------
- * The window gutters' THREE states (bead initech-tdnl.35; scrollbars.md Sec 5):
+ * The window gutters' THREE states (; scrollbars.md Sec 5):
  *   HOLLOW   inactive window: gray outer lines, flat F3 interior, nothing else
  *            (Sec 4).
  *   DISABLED active window whose content FITS (no WindowScroll record, or its
  *            max == 0): black outer lines, flat F3 interior, #777777 arrow-box
  *            separators, #A5A5A5 arrows, NO thumb (Sec 3 -- "Both bars of the
- *            'Initech81' window ... are disabled: the folder contents fit the
+ *            'Initech81' window... are disabled: the folder contents fit the
  *            view").
  *   ENABLED  active window with something to scroll: raised arrow tiles,
  *            recessed wells, black separators and the 15-px accent thumb at
@@ -606,20 +500,12 @@ static void sb_state_of(sb_draw_t *st, rgn_rect_t frame, int axis,
     const WindowScrollAxis *a = (ws != (const WindowScroll *)0)
                                     ? &ws->axis[axis] : (const WindowScrollAxis *)0;
     rgn_rect_t bar = wscroll_bar_rect(frame, axis);
-#if defined(CHROME_MUT_SCROLL_ALWAYS_ENABLED)
-    /* MUTANT (Rule 6; test-chrome-fidelity SCROLL-DISABLED leg): the pre-
-     * tdnl.35 composition -- every active gutter draws the ENABLED anatomy
-     * even when nothing can scroll. NEVER in a real build. */
-    st->enabled = 1;
-#else
     st->enabled = wscroll_enabled(a);
-#endif
     st->thumb = (a != (const WindowScrollAxis *)0 && a->drag_pos >= 0)
                     ? a->drag_pos : wscroll_thumb_pos(bar, axis, a);
     st->hilite = (a != (const WindowScrollAxis *)0) ? a->hilite : 0;
 }
 
-#if !defined(CHROME_FID_MUT_SCROLL_FLAT)
 /* Axis-generic plot: along/cross -> (x,y). V: along = y, cross = x. */
 static void sb_plot(GrafPort *port, const flair_skin_t *skin, int axis,
                     int along, int cross, int part)
@@ -650,9 +536,6 @@ static void draw_sb_thumb(GrafPort *port, const flair_skin_t *skin, int axis,
             if (a == 0 && c == 0) part = FLAIR_PART_PLAT_TROUGH;
             if (a == len - 1 && c == 0) part = FLAIR_PART_SB_THUMB_FACE;
             if (a == 0 && c == wid - 1) part = FLAIR_PART_SB_THUMB_FACE;
-#if defined(SB_LOOK_MUT_RAMP_FLAT)
-            if (part != FLAIR_PART_PLAT_TROUGH) part = FLAIR_PART_SB_THUMB_FACE;
-#endif
             sb_plot(port, skin, axis, a0 + a, c0 + c, part);
         }
     }
@@ -664,10 +547,8 @@ static void draw_sb_thumb(GrafPort *port, const flair_skin_t *skin, int axis,
         sb_plot(port, skin, axis, ac, c0 + 3, FLAIR_PART_PLAT_TROUGH);
         for (int c = 4; c <= 9; c++)
             sb_plot(port, skin, axis, ac, c0 + c, FLAIR_PART_SB_THUMB_HL);
-#if !defined(SB_LOOK_MUT_GRIPS_MISSING)
         for (int c = 4; c <= 10; c++)
             sb_plot(port, skin, axis, ac + 1, c0 + c, FLAIR_PART_SB_THUMB_GRIP);
-#endif
     }
 }
 
@@ -688,17 +569,11 @@ static void draw_scroll_tile_pressed(GrafPort *port, const flair_skin_t *skin,
 static void draw_arrow_tile(GrafPort *port, const flair_skin_t *skin,
                             int x0, int y0, int x1, int y1, int pressed)
 {
-#if defined(CHROME_MUT_SCROLL_PRESSED_IDLE)
-    /* MUTANT (Rule 6; test-chrome-fidelity SCROLL-PRESSED leg): a held arrow
-     * looks idle. NEVER in a real build. */
-    pressed = 0;
-#endif
     if (pressed) draw_scroll_tile_pressed(port, skin, x0, y0, x1, y1);
     else         draw_scroll_tile(port, skin, x0, y0, x1, y1);
 }
-#endif
 
-/* One gutter bar, axis-generic (size round 6, WL-0162): along [a0,a1),
+/* One gutter bar, axis-generic (compact storage, drawing tables): along [a0,a1),
  * cross [c0,c1] INCLUSIVE (the V bar's right line / the H bar's bottom line).
  * V: a = top..bottom, c = left..right; H: a = left..right, c = top..bottom.
  * The arrow tiles keep their x/y bevel (light top+left) on both axes. */
@@ -706,17 +581,10 @@ static void draw_scrollbar(GrafPort *port, const flair_skin_t *skin, int axis,
                            int a0, int a1, int c0, int c1,
                            int active, const sb_draw_t *st)
 {
-#if defined(CHROME_FID_MUT_SCROLL_FLAT)
-    (void)active; (void)st;
-    sb_rect(port, skin, axis, a0, a1, c0, c1 + 1, FLAIR_PART_BTNFACE);
-    if (axis == WSCROLL_V) cframe(port, c0, a0, c1 + 1, a1, FLAIR_PART_FRAME);
-    else                   cframe(port, a0, c0, a1, c1 + 1, FLAIR_PART_FRAME);
-    return;
-#else
     int frame_part = active ? FLAIR_PART_FRAME
                             : FLAIR_PART_PLAT_INACTIVE_FRAME;
     /* All interior rows, including the old well's final row when an
-     * enabled bar becomes disabled (tdnl.82). */
+     * enabled bar becomes disabled. */
     sb_rect(port, skin, axis, a0 + 1, a1 - 1, c0 + 1, c1, FLAIR_PART_PLAT_TROUGH);
     sb_rect(port, skin, axis, a0, a1, c0, c0 + 1, frame_part);
     sb_rect(port, skin, axis, a0, a1, c1, c1 + 1, frame_part);
@@ -740,9 +608,6 @@ static void draw_scrollbar(GrafPort *port, const flair_skin_t *skin, int axis,
             return;
         }
         int sep_part = FLAIR_PART_FRAME;
-#if defined(SB_MUT_SEP_GRAY)
-        sep_part = FLAIR_PART_PLAT_INACTIVE_FRAME;
-#endif
         int t = st->thumb;
         sb_well(port, skin, axis, s0 + 1, t - 1, c0 + 1, c1);
         sb_well(port, skin, axis, t + FLAIR_CHROME_SCROLL_THUMB_MIN + 1, s1,
@@ -767,7 +632,6 @@ static void draw_scrollbar(GrafPort *port, const flair_skin_t *skin, int axis,
         sb_tri(port, skin, axis, a0 + 6, cc, 1, FLAIR_PART_FRAME);
         sb_tri(port, skin, axis, a1 - 10, cc, 0, FLAIR_PART_FRAME);
     }
-#endif
 }
 #define draw_vertical_scrollbar(p, k, l, t, r, b, act, st) \
     draw_scrollbar((p), (k), WSCROLL_V, (t), (b), (l), (r), (act), (st))
@@ -782,17 +646,8 @@ static void draw_grow_box(GrafPort *port, const flair_skin_t *skin,
     const int cell = FLAIR_CHROME_GROW;
     int trail_part = FLAIR_PART_PLAT_STRIPE_DARK;
 
-    /* h6y1 Rule-6 perturbations. Default art remains the independent
+    /* mutation checks perturbations. Default art remains the independent
      * Mac OS 8.1 cell (sys8/window-chrome.md Sec 5/6), not System-7 art. */
-#if defined(CHROME_MUT_GROW_OMIT)
-    return;
-#endif
-#if defined(CHROME_MUT_GROW_INACTIVE_ACTIVE)
-    active = 1;
-#endif
-#if defined(CHROME_MUT_GROW_FIGURE_SWAP)
-    trail_part = FLAIR_PART_PLAT_FACE;
-#endif
 
     crect(port, gx, gy, gx + cell, gy + cell,
           active ? FLAIR_PART_PLAT_FRAME_FACE : FLAIR_PART_PLAT_FACE);
@@ -828,20 +683,10 @@ static void draw_body_structure(GrafPort *port, const flair_skin_t *skin,
                                 int left, int shared_line, int right, int bottom,
                                 int active, int frame_part)
 {
-#if defined(CHROME_FID_MUT_BODYBAR)
-    (void)port;
-    (void)skin;
-    (void)left;
-    (void)shared_line;
-    (void)right;
-    (void)bottom;
-    (void)active;
-    (void)frame_part;
-#else
     /* Box: l = left, t = shared_line, r = right, b = bottom - 1. */
 #define BX(x0, y0, x1, y1, f, p) { (int8_t)(x0), (int8_t)(y0), (int8_t)(x1), (int8_t)(y1), (uint8_t)(f), (uint8_t)(p) }
     static const chrome_rect_t body[] = {
-        /* the rails, rows t+1 .. b-1 */
+        /* the rails, rows t+1.. b-1 */
         BX(1, 1, 2, 0, CR_ACT | CR_Y1B, FLAIR_PART_CONTENT),
         BX(2, 1, 4, 0, CR_ACT | CR_Y1B, FLAIR_PART_PLAT_FRAME_FACE),
         BX(4, 1, 5, 0, CR_ACT | CR_Y1B, FLAIR_PART_PLAT_FRAME_SHADOW),
@@ -850,7 +695,7 @@ static void draw_body_structure(GrafPort *port, const flair_skin_t *skin,
         BX(-4, 1, -2, 0, CR_ACT | CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FRAME_FACE),
         BX(-2, 1, -1, 0, CR_ACT | CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FRAME_SHADOW),
         BX(-5, 1, -5 + FLAIR_CHROME_BODY_BAR, 0, CR_INA | CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FACE),
-        /* the bottom band, rows b-4 .. b-1 */
+        /* the bottom band, rows b-4.. b-1 */
         BX(1, -4, -1, -3, CR_ACT | CR_X1R | CR_Y0B | CR_Y1B, FLAIR_PART_CONTENT),
         BX(1, -3, -1, -1, CR_ACT | CR_X1R | CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FRAME_FACE),
         BX(1, -1, -1, 0, CR_ACT | CR_X1R | CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FRAME_SHADOW),
@@ -866,7 +711,6 @@ static void draw_body_structure(GrafPort *port, const flair_skin_t *skin,
     };
     chrome_rects(port, skin, left, shared_line, right, bottom - 1,
                  body, CRN(body), active, frame_part);
-#endif
 }
 
 void flair_draw_window_scrollbar(GrafPort *port, const flair_skin_t *skin,
@@ -894,7 +738,6 @@ void flair_draw_window_scrollbar(GrafPort *port, const flair_skin_t *skin,
 void flair_draw_window_widget(GrafPort *port, const flair_skin_t *skin,
                               rgn_rect_t frame, int part, int pressed)
 {
-#if !defined(CHROME_FID_MUT_BOX_GEOM)
     int by = frame.top + FLAIR_CHROME_WIDGET_TOP_OFF;
     int ri = frame.right - 1;
     if (port == 0 || skin == (const flair_skin_t *)0) return;
@@ -907,9 +750,6 @@ void flair_draw_window_widget(GrafPort *port, const flair_skin_t *skin,
     else if (part == (int)inCollapse)
         draw_platinum_widget(port, skin, ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF,
                              by, PLAT_WIDGET_COLLAPSE, pressed);
-#else
-    (void)port; (void)skin; (void)frame; (void)part; (void)pressed;
-#endif
 }
 
 void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
@@ -966,31 +806,17 @@ void flair_draw_document_window_scroll(GrafPort *port,
     }
 
     active = hilited;
-#if defined(CHROME_FID_MUT_NO_INACTIVE)
-    active = 1;
-#endif
     shared_line = draw_titlebar_band(
         port, skin, left, top, right, title, active,
         left + FLAIR_CHROME_TITLE_RUN_LEFT_OFF,
         right - FLAIR_CHROME_TITLE_RUN_RIGHT_OFF);
     frame_part = active ? FLAIR_PART_FRAME
                         : FLAIR_PART_PLAT_INACTIVE_FRAME;
-#if defined(CHROME_FID_MUT_INACTIVE_BLACK_FRAME)
-    if (!active) {
-        frame_part = FLAIR_PART_FRAME;
-    }
-#endif
 
     if (!collapsed) {
-#if defined(CHROME_FID_MUT_BODYBAR)
-        content_left = left + 1;
-        content_right = right - 1;
-        content_bottom = bottom - 1;
-#else
         content_left = left + 6;
         content_right = right - 6;
         content_bottom = bottom - 6;
-#endif
         content_top = shared_line + 1;
         crect(port, content_left, content_top, content_right, content_bottom,
               FLAIR_PART_CONTENT);
@@ -998,31 +824,14 @@ void flair_draw_document_window_scroll(GrafPort *port,
         draw_body_structure(port, skin, left, shared_line, right, bottom,
                             active, frame_part);
 
-#if defined(FLAIR_COLORBLIND_MUTANT)
-    /* Named behavioral mutant: bypass the policy seam with a computed value.
-     * Default builds do not compile this oracle-only perturbation. */
-    {
-        uint32_t orange = ((uint32_t)0xFFu << 16) |
-                          ((uint32_t)0x88u << 8);
-        surface_fill_span(&port->portBits.bm,
-                          (uint32_t)content_left, (uint32_t)content_top,
-                          (uint32_t)(content_right - content_left), orange);
-    }
-#endif
 
         ri = right - 1;
         bi = bottom - 1;
         grow_x = ri - FLAIR_CHROME_GROW_RIGHT_OFF;
         grow_y = bi - FLAIR_CHROME_GROW_BOTTOM_OFF;
         sb_left = grow_x - FLAIR_CHROME_FRAME;
-#if defined(CHROME_MUTATE_SCROLLBAR_W)
-        sb_left++;
-#endif
         {
             int sb_top = shared_line;
-#if defined(CHROME_FID_MUT_NOTCH_DOUBLE)
-            sb_top++;
-#endif
             sb_state_of(&sbv, frame, WSCROLL_V, ws);
             draw_vertical_scrollbar(port, skin, sb_left, sb_top,
                                     ri - 5, grow_y, active, &sbv);
@@ -1032,9 +841,6 @@ void flair_draw_document_window_scroll(GrafPort *port,
                                   grow_y - FLAIR_CHROME_FRAME,
                                   grow_x, bi - 5, active, &sbh);
         if ((widget_flags & FLAIR_WINDOW_WIDGET_GROW) != 0u
-#if defined(CHROME_MUT_GROW_NO_REGION)
-            || 1
-#endif
         )
             draw_grow_box(port, skin, grow_x, grow_y, active);
     }
@@ -1043,20 +849,8 @@ void flair_draw_document_window_scroll(GrafPort *port,
     bi = bottom - 1;
 
     if (active
-#if defined(CHROME_FID_MUT_KEEP_GADGETS)
-        || !active
-#endif
        ) {
         int by = top + FLAIR_CHROME_WIDGET_TOP_OFF;
-#if defined(CHROME_FID_MUT_BOX_GEOM)
-        int old_box = FLAIR_CHROME_SYS7_WBOX_DELTA;
-        if ((widget_flags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u)
-            cframe(port, left + 4, by, left + 4 + old_box, by + old_box,
-                   FLAIR_PART_FRAME);
-        if ((widget_flags & FLAIR_WINDOW_WIDGET_ZOOM) != 0u)
-            cframe(port, ri - 20, by, ri - 20 + old_box, by + old_box,
-                   FLAIR_PART_FRAME);
-#else
         if ((widget_flags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u)
             draw_platinum_widget(port, skin,
                                  left + FLAIR_CHROME_CLOSE_LEFT_OFF,
@@ -1065,38 +859,27 @@ void flair_draw_document_window_scroll(GrafPort *port,
             draw_platinum_widget(port, skin,
                                  ri - FLAIR_CHROME_ZOOM_RIGHT_OFF,
                                  by, PLAT_WIDGET_ZOOM, 0);
-#if !defined(CHROME_FID_MUT_COLLAPSE)
         if ((widget_flags & FLAIR_WINDOW_WIDGET_COLLAPSE) != 0u)
             draw_platinum_widget(port, skin,
                                  ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF,
                                  by, PLAT_WIDGET_COLLAPSE, 0);
-#endif
-#endif
     }
 
-#if !defined(CHROME_MUTATE_NO_FRAME)
     cfill(port, left, top, w, frame_part);
     cfill(port, left, bi, w, frame_part);
     for (int y = top; y < bottom; y++) {
         cfill(port, left, y, 1, frame_part);
         cfill(port, ri, y, 1, frame_part);
     }
-#endif
 
-#if !defined(CHROME_FID_MUT_NO_SHADOW)
     {
-#if defined(CHROME_FID_MUT_NOTCH)
-        int notch = 1;
-#else
         int notch = FLAIR_CHROME_SHADOW_NOTCH;
-#endif
         for (int y = top + notch; y <= bottom; y++) {
             cfill(port, right, y, 1, frame_part);
         }
         cfill(port, left + notch, bottom, right - left - notch + 1,
               frame_part);
     }
-#endif
 }
 
 /* movableDBoxProc shares the Platinum title-band mechanism. Its untitled body
@@ -1134,7 +917,7 @@ void flair_draw_movable_dbox_chrome(GrafPort *port, const flair_skin_t *skin,
 
 /* ===========================================================================
  * flair_draw_rdoc_window -- the rDocProc (16) WDEF: the Calculator's rounded
- * window (bead initech-tdnl.17; geometry and its ground truth: rdoc.h).
+ * window (; geometry and its ground truth: rdoc.h).
  * Paints the outline + title band + the body's sides, NEVER the content (the
  * owner paints that through contRgn). Every span is clipped like the rest of
  * the chrome (chrome_cfill). Inks resolve through the C-8 seam: FRAME black,
@@ -1144,7 +927,7 @@ void flair_draw_movable_dbox_chrome(GrafPort *port, const flair_skin_t *skin,
  * same rdoc.h insets into strucRgn), so the drawer can never paint outside
  * it; the insets here pick the outline's own pixels.
  *
- * CHROME_MUT_RDOC_NO_CLOSE (Rule 6; test-flair-calc-mutant): the active band
+ * rdoc no close patch (mutation checks; test-flair-calc-mutant): the active band
  * loses its close-box ring (a solid black band, as a window without a go-away
  * box). NEVER in a real build.
  * =========================================================================*/
@@ -1201,11 +984,7 @@ void flair_draw_rdoc_window(GrafPort *port, const flair_skin_t *skin,
         }
     }
 
-#if !defined(CHROME_MUT_RDOC_NO_CLOSE)
     if (hilited && (widget_flags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u) {
-#else
-    if (0 && widget_flags) {
-#endif
         int x0 = L + FLAIR_RDOC_CLOSE_L, y0 = T + FLAIR_RDOC_CLOSE_T;
         chrome_cframe(port, skin, x0, y0, x0 + FLAIR_RDOC_CLOSE_W,
                       y0 + FLAIR_RDOC_CLOSE_W, FLAIR_PART_CONTENT);

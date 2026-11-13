@@ -1,7 +1,7 @@
 /*
  * os/flair/resource.h -- the FLAIR Resource Manager (the artifact).
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The resource-fork
+ * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE. The resource-fork
  * addressing model is retained Toolbox heritage and remains era-stable here.
  *
  * A clean-room reader for a REAL big-endian Macintosh resource-fork SUBSET:
@@ -12,12 +12,12 @@
  * the actual on-disk format so a hand-authored fork goes in and the resource
  * bytes the tenant authored come back out.
  *
- * beads: initech-0w45 (FLAIR Phase 4.5 -- Platform Services, Resource Manager).
- *        Sibling of the Scrap (initech-b2vk); both key by the shared 4-char
+ *  (FLAIR Phase 4.5 -- Platform Services, Resource Manager).
+ *        Sibling of the Scrap; both key by the shared 4-char
  *        OSType from os/flair/ostype.h.
  *
- * GROUND TRUTH (Law 1):
- *   ../system7-decomp/specs/resources/resource-manager.md
+ * GROUND TRUTH:
+ *../system7-decomp/specs/resources/resource-manager.md
  *     Sec 1.1  fork header (16 bytes: dataOffset/mapOffset/dataLength/mapLength,
  *              all big-endian u32).
  *     Sec 1.2  data area: each resource = 4-byte BE length prefix + data bytes;
@@ -35,28 +35,28 @@
  *              entries (resID i16 SIGNED, resNameOffset u16 / 0xFFFF if unnamed,
  *              resAttrs 1 byte, resDataOffset24 3-byte BE, 4 bytes reserved).
  *     Sec 2    addressing is (ResType, Int16 ID); IDs may be negative.
- *   ../system7-decomp/specs/resources/wind-menu-dlog-ditl.md Sec 1a
+ *../system7-decomp/specs/resources/wind-menu-dlog-ditl.md Sec 1a
  *              the 24-byte WIND template layout (boundsRect/procID/visible/
  *              goAwayFlag/refCon/Pascal title) -- grounds the oracle fixture.
  *
- * ENDIAN DISCIPLINE (Law 3 / Rule 11): every multibyte field is read by
- *   POSITIONAL byte assembly (b[0]<<24 | ... | b[3]), endian-NEUTRAL, so the
+ * ENDIAN DISCIPLINE (language boundary / reproducibility): every multibyte field is read by
+ *   POSITIONAL byte assembly (b[0]<<24 |... | b[3]), endian-NEUTRAL, so the
  *   reader dual-compiles host(LE) + flat-32 kernel identically and an on-disk
- *   OSType compares EQUAL to a FLAIR_OSTYPE() literal on either build
+ *   OSType compares EQUAL to a FLAIR_OSTYPE literal on either build
  *   (ostype.h). The fork bytes are big-endian on disk; the reader never does a
  *   `char[4]` reinterpret-cast.
  *
- * MEMORY (ADR-0013 Sec 3.6): FlairResMap_load copies the source fork into the
+ * MEMORY (tenant lifecycle): FlairResMap_load copies the source fork into the
  *   caller's arena (FLAIR_CLASS_GENERAL) -- resources are tenant DATA, read only
  *   by the tenant, so the DATA arena is correct; resource lifetime == tenant
  *   lifetime, which is why ReleaseResource is a documented no-op here.
  *
- * FAIL LOUD (Rule 2): NULL args, a truncated/malformed/internally-inconsistent
+ * FAIL LOUD: NULL args, a truncated/malformed/internally-inconsistent
  *   fork, an out-of-bounds offset, or an OOM on the arena copy all fail loud
  *   (load returns <0; lookups return NULL). The reader bounds-checks every
  *   offset against `len` and NEVER reads past the loaded buffer.
  *
- * FREESTANDING (Law 3): <stdint.h> only; no libc (no memcpy -- a local libc-free
+ * FREESTANDING: <stdint.h> only; no libc (no memcpy -- a local libc-free
  *   byte copy, matching process.c/heap.c). Compiles BOTH under the kernel flags
  *   (gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror) AND
  *   hosted for the property suite (harness/proptest/test_resource.c).
@@ -65,12 +65,12 @@
  *   constants, NO Win resource/clipboard API names (self-policed; the check-
  *   win95isms gate is color-only and would not catch a naming Win-ism).
  *
- * Ref: CLAUDE.md Law 1 (ground truth), Law 2 (independent golden -- the oracle
+ * Ref: source provenance (ground truth), independent checks (independent golden -- the oracle
  *      grades the real parser against a hand-authored fork + an independent
- *      hand-authored expected payload), Law 3 (freestanding, host==kernel),
- *      Rule 2 (fail loud), Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ *      hand-authored expected payload), language boundary (freestanding, host==kernel),
+ *      fail loudly, deterministic output, ASCII source.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #ifndef INITECH_OS_FLAIR_RESOURCE_H
 #define INITECH_OS_FLAIR_RESOURCE_H
@@ -98,7 +98,7 @@
  * `fork` points at the arena-resident COPY of the fork (FlairResMap_load owns
  * the copy). The remaining fields are the parsed header/map offsets; lookups
  * walk the parsed structure directly against `fork`, so the view is a pure
- * function of the loaded bytes (Rule 11). NULL `fork` means "not loaded".
+ * function of the loaded bytes. NULL `fork` means "not loaded".
  * -------------------------------------------------------------------------- */
 typedef struct {
     const uint8_t *fork;            /* arena-resident fork copy (NULL if unloaded)*/
@@ -117,7 +117,7 @@ typedef struct {
  * (FLAIR_CLASS_GENERAL, the tenant DATA class) and parse the fork header + map.
  *
  * Returns 0 on success, <0 on a NULL argument, an OOM on the arena copy, or a
- * truncated / out-of-bounds / internally-inconsistent fork (fail loud, Rule 2).
+ * truncated / out-of-bounds / internally-inconsistent fork (fail loud, explicit error handling).
  * On failure `*m` is left zeroed (fork == NULL) and any arena copy is released.
  * -------------------------------------------------------------------------- */
 int FlairResMap_load(FlairResMap *m, flair_heap_t *arena,

@@ -1,0 +1,13 @@
+# Legacy TEXT_MUT_SMEAR_OFF
+# test: test_font_styles
+--- a/include/text.h
++++ b/include/text.h
+@@ -445,8 +445,6 @@
+         int s = text_italic_shift(d);
+         m = (s >= 0) ? (m >> s) : (m << -s);
+     }
+-    if (face & TEXT_FACE_BOLD)
+-        m |= m >> TEXT_BOLD_SMEAR;
+     return m;
+ }
+ 

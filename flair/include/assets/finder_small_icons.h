@@ -1,4 +1,4 @@
-/* tdnl.44 LOCKED 16x16 art, minted by tools/mint_finder_small_icons.c.
+/*  LOCKED 16x16 art, minted by tools/mint_finder_small_icons.c.
  * Source: s8_finder_list_view{,_bysize}.png, mint-results-008 Sec6.
  * Paired backgrounds independently separate clear from opaque pixels.
  * These are native small strikes, NOT a downsample of the old 32px art. */

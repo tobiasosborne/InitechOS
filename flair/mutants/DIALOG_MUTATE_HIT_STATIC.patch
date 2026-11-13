@@ -1,0 +1,13 @@
+# Legacy DIALOG_MUTATE_HIT_STATIC
+# test: test_dialog
+--- a/dialog.c
++++ b/dialog.c
+@@ -838,7 +838,7 @@
+         uint16_t idx = FindDialogItem(dp, pt);
+         if (idx == 0) break;
+         DialogItem *item = &dp->items[idx - 1];
+-        if (item->enabled && item->type != statText) {
++        if (item->enabled || item->type == statText) {
+             if (item->type == ctrlItem && item->ctrl) {
+                 if (TestControl(item->ctrl, pt)) {
+                     dp->trackingItem = idx;

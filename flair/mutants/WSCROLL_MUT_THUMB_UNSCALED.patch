@@ -1,0 +1,15 @@
+# Legacy WSCROLL_MUT_THUMB_UNSCALED
+# test: test_winscroll
+--- a/include/winscroll.h
++++ b/include/winscroll.h
+@@ -217,7 +217,9 @@
+     v = a->value;
+     if (v < 0) v = 0;
+     if (v > a->max) v = a->max;
+-    return lo + (int)((int32_t)v * (int32_t)span / (int32_t)a->max);
++    /* regression patches (mutation checks; test-winscroll): the thumb ignores the range -- one
++     * value unit per pixel, the pre-proportional-mapping slip. NEVER real. */
++    return lo + (v > span ? span : v);
+ }
+ 
+ /* thumb leading edge -> value, the inverse, clamped to [0, max]

@@ -1,0 +1,12 @@
+# Legacy CLOCK_WRONG_HOUR
+# test: test_menu
+--- a/menu.c
++++ b/menu.c
+@@ -82,6 +82,7 @@
+     if (!out || hour > 23 || minute > 59) return 0;
+     unsigned h = hour % 12;
+     if (!h) h = 12;
++    h = hour;                 /* mutation checks: incorrect twenty-four-hour display */
+     int i = 0;
+     if (h >= 10) out[i++] = (char)('0' + h / 10);
+     out[i++] = (char)('0' + h % 10);

@@ -1,14 +1,14 @@
 /*
  * os/flair/dialog.h -- FLAIR Dialog Manager (THE ARTIFACT).
  *
- * beads: (Dialog Manager: ModalDialog, FILE COPY box, item lists)
+ * (Dialog Manager: ModalDialog, FILE COPY box, item lists)
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The movable FILE
+ * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE. The movable FILE
  * COPY title band uses the Platinum chrome composer; unchanged DialogRecord,
  * DITL, and dBoxProc semantics retain their Inside Macintosh heritage tags
  * under BC-10.10.
  *
- * Ref: ADR-0004 D-3 ("Dialog Manager -- DialogRecord + item lists;
+ * Ref: clipped Toolbox drawing ("Dialog Manager -- DialogRecord + item lists;
  *        ModalDialog; the modal FILE COPY box ('Saving tables to disk...',
  *        the comedic centerpiece, PRD Sec 6.5 / Appendix B).");
  *      Inside Macintosh: Macintosh Toolbox Essentials (MTE) Ch 6 "The
@@ -20,7 +20,7 @@
  *        original verbatim record, item list, and ModalDialog filter proc.
  *      PRD Sec 6.5 (FILE COPY dialog, the canon "Saving tables to disk...");
  *      PRD Appendix A / Appendix B (the comedic Office Space frame canon).
- *      Law 4 (canon constants MUST NOT be paraphrased or corrected).
+ *      film canon (canon constants MUST NOT be paraphrased or corrected).
  *      spec/chrome_metrics.h (FLAIR_CHROME_DIALOG_BORDER = 7 px dBoxProc);
  *      spec/window_record.h (dBoxProc = 1, dialogKind = 2);
  *      os/flair/window.h (WindowRecord + WindowMgr);
@@ -28,16 +28,16 @@
  *      os/flair/text.h (text_draw, text_measure, FONT_CHICAGO);
  *      os/flair/blitter.h (blitter_fill_rect_clipped);
  *      os/flair/event.h (WaitNextEvent, EventRecord, flair_raw_ring_t);
- *      ADR-0004 D-6 (cooperative WaitNextEvent, non-preemptive).
- *      CLAUDE.md Law 1 (ground truth), Law 2 (oracle is truth), Law 3
- *        (freestanding dual-compile), Law 4 (canon must not be paraphrased),
- *        Rule 2 (fail loud), Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ *      clipped Toolbox drawing (cooperative WaitNextEvent, non-preemptive).
+ *      source provenance (ground truth), independent checks (oracle is truth), language boundary
+ *        (freestanding dual-compile), film canon (canon must not be paraphrased),
+ *        fail loudly, deterministic output, ASCII source.
  *
- * ARTIFACT CODE: freestanding C (ADR-0002). No libc. No malloc. No 2026-isms.
+ * ARTIFACT CODE: freestanding C (freestanding C build). No libc. No malloc. No 2026-isms.
  * Dual-compile: kernel (-m32 -ffreestanding -nostdlib -DFLAIR_HOSTED=0)
  *               hosted  (cc -DFLAIR_HOSTED=1) for the oracle harness.
  *
- * VERBATIM INSIDE MACINTOSH NAMES (ADR-0004 D-3):
+ * VERBATIM INSIDE MACINTOSH NAMES (clipped Toolbox drawing):
  *   DialogRecord fields: window (embedded WindowRecord), items, numItems,
  *     defaultItem, cancelItem.
  *   Routines: NewDialog, GetNewDialog, DisposeDialog, DrawDialog,
@@ -48,23 +48,23 @@
  *   DialogRecord, item array, and any ControlRecords are provided by the
  *   caller. The Dialog Manager performs no heap allocation.
  *
- * COOPERATIVE ModalDialog (ADR-0004 D-6):
+ * COOPERATIVE ModalDialog (clipped Toolbox drawing):
  *   ModalDialog drains events via flair_raw_ring / WaitNextEvent in task
  *   context. It is a cooperative blocking loop: it holds the CPU until a
  *   dismissal event (enabled item click, Return -> default, Escape -> cancel).
  *   An app that enters ModalDialog without a dismissal event eventually
  *   queued will hold the CPU indefinitely -- that is period-authentic
- *   (ADR-0004 D-6 non-goal: "An app that doesn't yield hangs the desktop;
+ *   (clipped Toolbox drawing non-goal: "An app that doesn't yield hangs the desktop;
  *   that's authentic, not a bug").
  *   In the test harness the ring is pre-loaded with a deterministic event
  *   sequence and a sleepTicks of 0 is used (returns immediately on empty
  *   ring after draining all events).
  *
- * FILE COPY CANON (Law 4 -- PRD Sec 6.5 / Appendix A/B):
+ * FILE COPY CANON (film canon -- PRD Sec 6.5 / Appendix A/B):
  *   The canonical message string is LOCKED below. It MUST NOT be paraphrased,
  *   corrected, or shortened. The test oracle asserts it byte-exactly.
  *
- * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
+ * ASCII-clean. No nondeterminism / no timestamps.
  */
 #ifndef INITECH_OS_FLAIR_DIALOG_H
 #define INITECH_OS_FLAIR_DIALOG_H
@@ -82,49 +82,49 @@
 #include "event.h"            /* flair_raw_ring_t, EventRecord, WaitNextEvent */
 
 /* ===========================================================================
- * 1. CANONICAL FILE COPY STRING (Law 4 -- PRD Sec 6.5 / Appendix A/B)
+ * 1. CANONICAL FILE COPY STRING (film canon -- PRD Sec 6.5 / Appendix A/B)
  * ---------------------------------------------------------------------------
  * This string is the comedic centerpiece of the Office Space reference frame.
  * It MUST be byte-exact. Do NOT paraphrase, correct, shorten, or modify.
- * The oracle (test_dialog.c DIALOG_MUTATE_FILECOPY_MSG) asserts it is present
+ * The oracle (test_dialog.c filecopy msg patch) asserts it is present
  * in the rendered FILE COPY dialog item list.
  *
  * Ref: PRD Sec 6.5 / Appendix A -- "Saving tables to disk..." (canon).
- *      Law 4: "The canonical bugs are canon ... enforced, not fixed."
+ *      film canon: "The canonical bugs are canon... enforced, not fixed."
  * ===========================================================================*/
 #define FLAIR_CANON_FILECOPY_MSG "Saving tables to disk..."
 /* Ref: PRD Sec 6.5 / Appendix A -- Office Space frame canon; do NOT paraphrase */
 
 /* ---------------------------------------------------------------------------
- * 1a. CANONICAL FILE COPY TITLE (Law 4 -- beads initech-zvo6)
+ * 1a. CANONICAL FILE COPY TITLE (film canon -- )
  * ---------------------------------------------------------------------------
  * The FILE COPY modal's window title, drawn in its moveable titled chrome
  * (movableDBoxProc; spec/window_record.h; os/flair/chrome.h
  * flair_draw_movable_dbox_chrome). Byte-exact per PRD Appendix A's frame tell
  * "FILE COPY: 'Saving tables to disk...' + progress bar" -- the dialog's NAME
  * as it appears in the reference frame, distinct from FLAIR_CANON_FILECOPY_MSG
- * (the statText body). The oracle (test_dialog.c DIALOG_MUTATE_TITLELESS_MODAL)
+ * (the statText body). The oracle (test_dialog.c titleless modal patch)
  * asserts this title is present and rendered.
  * ===========================================================================*/
 #define FLAIR_CANON_FILECOPY_TITLE "FILE COPY"
-/* Ref: PRD Appendix A "FILE COPY: ... + progress bar"; do NOT paraphrase */
+/* Ref: PRD Appendix A "FILE COPY:... + progress bar"; do NOT paraphrase */
 
 /* ---------------------------------------------------------------------------
- * 1b. CANONICAL FILE COPY PROGRESS VALUE (Law 4 -- beads initech-a90f)
+ * 1b. CANONICAL FILE COPY PROGRESS VALUE (film canon -- )
  * ---------------------------------------------------------------------------
  * FileCopyDialog previously initialized the progress bar control at value=0,
  * which never renders any blue fill (control.c ctrl_progress_fill_px returns 0
- * for v<=0) -- a Law-4 miss vs the reference frame, which shows the bar
+ * for v<=0) -- a film canon miss vs the reference frame, which shows the bar
  * ~65-70% filled.
  *
- * Ref: docs/FLAIR-GUI-bug-hunt-2026-06-28.md #25 (initech-a90f evidence):
+ * Ref: docs/FLAIR-GUI-bug-hunt-2026-06-28.md #25 ( evidence):
  *   "preview.png reference shows the bar ~65-70% filled solid blue."
  * Canon = the documented range's MIDPOINT: (65 + 70) / 2 = 67.5, rounded to
  * the nearest integer (round-half-up) = 68. This is a deliberate choice of a
  * single representative value from a range the source itself gives as
  * approximate ("~65-70%") -- not a re-measurement; if a tighter golden is
  * minted later (a real screendump pixel-count), replace this constant and its
- * citation together (Rule 8).
+ * citation together (pinned inputs).
  * ===========================================================================*/
 #define FLAIR_CANON_FILECOPY_PROGRESS 68
 
@@ -165,7 +165,7 @@ typedef enum flair_dialog_item_type {
 #define DIALOG_ITEM_TEXT_MAX  128u  /* max inline text length for editText    */
 
 typedef struct DialogItem {
-    flair_dialog_item_type_t type;      /* item type (statText, ctrlItem ...) */
+    flair_dialog_item_type_t type;      /* item type (statText, ctrlItem...) */
     rgn_rect_t               rect;      /* item bounding rect in dialog coords */
     const char              *text;      /* statText / editText string (NOT copied) */
     ControlRecord           *ctrl;      /* ctrlItem: pointer to ControlRecord */
@@ -175,7 +175,7 @@ typedef struct DialogItem {
                                          * resource ID (DIALOG_ITEM_ICON_ID) */
 } DialogItem;
 
-/* An iconItem's ICON resource ID (bead initech-tdnl.87). Inside Macintosh
+/* An iconItem's ICON resource ID. Inside Macintosh
  * Vol I p. I-419 numbers the standard alert icons Stop 0, Note 1, Caution 2
  * (DIALOG_ICON_ID_* below); the DITL item carries
  * the ID as its data. FLAIR's item record has no data field, so the ID rides
@@ -193,14 +193,14 @@ typedef struct DialogItem {
  *      IM-I Ch 6 p. I-408 "Dialog Records."
  *
  * The verbatim IM-I Pascal DialogRecord:
- *   window        DialogWindow  ; the dialog's window (WindowRecord at offset 0)
- *   items         Handle        ; handle to item list (DITL resource)
- *   textH         TEHandle      ; TextEdit handle for editable text
- *   editField     Integer       ; index of the active editText item (or -1)
- *   editOpen      Integer       ; non-zero while editText is active
- *   aDefItem      Integer       ; default item number
+ *   window        DialogWindow; the dialog's window (WindowRecord at offset 0)
+ *   items         Handle; handle to item list (DITL resource)
+ *   textH         TEHandle; TextEdit handle for editable text
+ *   editField     Integer; index of the active editText item (or -1)
+ *   editOpen      Integer; non-zero while editText is active
+ *   aDefItem      Integer; default item number
  *
- * FLAIR DEPARTURES (Law 3 justification):
+ * FLAIR DEPARTURES (language boundary justification):
  *   - window: EMBEDDED WindowRecord (verbatim IM-I "the dialog's window
  *     record"), at offset 0 so DialogPtr casts to WindowPtr (= GrafPtr).
  *   - items: caller-supplied DialogItem * array + itemCount (no heap handle).
@@ -252,7 +252,7 @@ struct DialogRecord {
     /* --- Active edit item index (1-based; 0 = no active editText) --------- */
     uint16_t      editField;
 
-    /* tdnl.88: the original control while the mouse is held. IM Control
+    /*: the original control while the mouse is held. IM Control
      * Manager TrackControl: only release inside that control fires. */
     uint16_t      trackingItem;
 
@@ -342,9 +342,9 @@ void DisposeDialog(DialogPtr dp, WindowMgr *wm);
  * Dispatches on the dialog window's windowDefProcVariant:
  *   dBoxProc (1, the default for all NewDialog callers): sampled Platinum
  *     black outline + tinted outer bevel + white/B3 inner bevel (L023;
- *     ../system7-decomp/specs/sys8/controls.md Sec 6). The heritage layout
+ *../system7-decomp/specs/sys8/controls.md Sec 6). The heritage layout
  *     inset FLAIR_CHROME_DIALOG_BORDER remains unchanged.
- *   movableDBoxProc (5, the FILE COPY modal; beads initech-zvo6): a pinstripe
+ *   movableDBoxProc (5, the FILE COPY modal; ): a pinstripe
  *     title bar + a PLAIN 1-px frame via os/flair/chrome.h
  *     flair_draw_movable_dbox_chrome, with the sampled E7 content face and
  *     white top/left, C0 bottom/right inset bevel (sys8/controls.md Sec 1).
@@ -355,9 +355,9 @@ void DisposeDialog(DialogPtr dp, WindowMgr *wm);
  *                defaultItem (the sampled corner moat overlaps the button).
  *   userItem  -> no-op (caller handles).
  *   iconItem  -> the 32x32 alert icon DIALOG_ITEM_ICON_ID names, at the item's
- *                top-left (only Caution has a strike; tdnl.87).
+ *                top-left (only Caution has a strike; ).
  *
- * All drawing goes through the dialog's GrafPort (ADR-0004 D-1/D-2; the
+ * All drawing goes through the dialog's GrafPort (clipped Toolbox drawing/D-2; the
  * surface module enforces clip).
  *
  * Ref: IM-I Ch 6 "DrawDialog"; MTE Ch 6 "DrawDialog."
@@ -374,7 +374,7 @@ void DrawDialog(DialogPtr dp);
  * -------------------------------------------------------------------------- */
 void ShowDialog(DialogPtr dp);
 
-/* True-modal dispatch classification (bead initech-zn61). This is a wrapper
+/* True-modal dispatch classification. This is a wrapper
  * seam above FindWindow, not a geometry change: while `dp` is visible, clicks
  * outside it are swallowed (the block callback replaces SysBeep), inside input
  * is captured by the dialog, and a movableDBoxProc title hit remains draggable
@@ -399,7 +399,7 @@ void MoveDialog(DialogPtr dp, int16_t dh, int16_t dv);
 /* --------------------------------------------------------------------------
  * ModalDialog -- cooperative modal event loop.
  *
- * Drains events from `ring` via WaitNextEvent (ADR-0004 D-4/D-6; task
+ * Drains events from `ring` via WaitNextEvent (clipped Toolbox drawing/D-6; task
  * context; cooperative). For each event:
  *   - mouseDown in an ENABLED ctrlItem -> TrackControl; if TrackControl
  *     returns non-zero, sets *itemHit to the item's 1-based index and
@@ -467,8 +467,8 @@ void GetDialogItem(const DialogPtr            dp,
 /* --------------------------------------------------------------------------
  * SetDialogItem -- replace item attributes.
  *
- * `itemIndex` is 1-based. Updates items[itemIndex-1].type, .rect, .text,
- * .ctrl as directed. Panics if dp is NULL or itemIndex is out of range.
+ * `itemIndex` is 1-based. Updates items[itemIndex-1].type,.rect,.text,
+ *.ctrl as directed. Panics if dp is NULL or itemIndex is out of range.
  *
  * Ref: IM-I Ch 6 "SetDItem"; MTE Ch 6 "SetDialogItem."
  * -------------------------------------------------------------------------- */
@@ -518,12 +518,12 @@ void SetDialogItemText(DialogPtr dp, uint16_t itemIndex, const char *text);
  * window is a MOVEABLE TITLED modal: windowDefProcVariant = movableDBoxProc
  * (5), title = FLAIR_CANON_FILECOPY_TITLE ("FILE COPY"), drawn by DrawDialog
  * via os/flair/chrome.h flair_draw_movable_dbox_chrome (a pinstripe title
- * bar + a PLAIN 1 px frame -- NOT the dBoxProc 7-px solid border; beads
- * initech-zvo6).
+ * bar + a PLAIN 1 px frame -- NOT the dBoxProc 7-px solid border;
+ * ).
  *
  * Returns the initialized DialogPtr (= storage).
  *
- * Ref: PRD Sec 6.5 / Appendix A/B (the canon FILE COPY box, Law 4).
+ * Ref: PRD Sec 6.5 / Appendix A/B (the canon FILE COPY box, film canon).
  *      FLAIR_CANON_FILECOPY_MSG, FLAIR_CANON_FILECOPY_TITLE,
  *      FLAIR_CANON_FILECOPY_PROGRESS (Section 1/1a/1b above).
  * -------------------------------------------------------------------------- */
@@ -557,7 +557,7 @@ _Static_assert(FLAIR_CHROME_DIALOG_BORDER == 7,
 _Static_assert(dBoxProc == 1,
                "dBoxProc must be 1 (MTE Table 4-1; spec/window_record.h)");
 
-/* movableDBoxProc variant code must be 5 (MTE Table 4-1; beads initech-zvo6). */
+/* movableDBoxProc variant code must be 5 (MTE Table 4-1; ). */
 _Static_assert(movableDBoxProc == 5,
                "movableDBoxProc must be 5 (MTE Table 4-1; spec/window_record.h; "
                "../system7-decomp/specs/toolbox/window-manager.md line 173)");
@@ -577,7 +577,7 @@ _Static_assert(sizeof(FLAIR_CANON_FILECOPY_TITLE) > 1u,
 /* FLAIR_CANON_FILECOPY_PROGRESS must stay within the documented "~65-70%"
  * range (docs/FLAIR-GUI-bug-hunt-2026-06-28.md #25) and within [0,100]. If a
  * future golden pins a tighter value outside this band, update this bound
- * and its citation TOGETHER (Rule 8 -- a deliberate act, not a silent widen). */
+ * and its citation TOGETHER (pinned inputs -- a deliberate act, not a silent widen). */
 _Static_assert(FLAIR_CANON_FILECOPY_PROGRESS >= 65 &&
                FLAIR_CANON_FILECOPY_PROGRESS <= 70,
                "FLAIR_CANON_FILECOPY_PROGRESS must stay within the documented "

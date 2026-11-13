@@ -5,24 +5,24 @@
  * DO NOT EDIT BY HAND.
  * Regenerate: tools/color_canon_extract spec/assets/color_canon.json > spec/assets/color_canon.h
  *
- * Canon version: WL-0053 (Initech Color Canon, operator-ratified 2026-06-21)
+ * Canon version: authored teal (Initech Color Canon, operator-ratified 2026-06-21)
  *
  * THE single color-policy authority for FLAIR.  Exposes flair_canon_rgb(idx):
  * idx 0..26 -> the 27-entry color_canon table;
  * idx >= 27 -> deterministic gray ramp (v<<16)|(v<<8)|v  (v = idx),
  *              via the shared palette.h flair_palette_rgb alias
- *              (ADR-0004-AMENDMENT-DEC-09 ARB-1).
+ *              (clipped Toolbox drawing ARB-1).
  * Freestanding-safe: <stdint.h> only, no libc.
  *
- * HONESTY (ADR-0004-AMENDMENT-DEC-09 FO-9 / P4):
+ * HONESTY (clipped Toolbox drawing FO-9 / P4):
  * idx2 (CIDX_DESKTOP teal) and both bevel derived rows are
  * graded_by:authored (Initech-identity injections; no upstream decomp
  * golden exists).  Gated against drift by VALUE mutants (seafoam/lavender
  * relapse MUST go RED).  Never claimed decomp-sourced.
  *
- * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.2 (ARB-1) + Sec 3.9 (index table);
- *      spec/assets/color_canon.json (LOCKED, CLAUDE.md Rule 8);
- *      CLAUDE.md Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ * Ref: clipped Toolbox drawing (ARB-1) + Sec 3.9 (index table);
+ *      spec/assets/color_canon.json (LOCKED, pinned inputs);
+ *      deterministic output, ASCII source.
  */
 #ifndef INITECH_COLOR_CANON_H
 #define INITECH_COLOR_CANON_H
@@ -31,7 +31,7 @@
 
 /* ---------------------------------------------------------------------------
  * color_canon[idx][0..2] = {R, G, B} -- 27 entries, idx 0..26, index order.
- * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.9; color_canon.json "entries".
+ * Ref: clipped Toolbox drawing; color_canon.json "entries".
  */
 static const unsigned char color_canon[27][3] = {
     /* [0] CIDX_BLACK       */ {   0,   0,   0 },
@@ -132,15 +132,15 @@ _Static_assert(sizeof(color_canon) == 81, "27 x 3 canon bytes");
 #define INITECH_CANON_ICON_SMALL_YELLOW_RGB  0xFFFF54u
 
 /* ---------------------------------------------------------------------------
- * Derived bevel rows  (WL-0053 lavender->teal swap; graded_by:authored).
+ * Derived bevel rows  (authored teal lavender->teal swap; graded_by:authored).
  * bevel_light  == idx2 teal #8DDCDC;  bevel_shadow == darkened teal #4E9BA3.
  * Neither is wired to a wctb decomp golden; both gated by VALUE mutants.
- * 2026-10-15 tdnl.93: MENU_DARK/MENU_SHADOW are dark teal title derivatives.
+ * 2026-10-15: MENU_DARK/MENU_SHADOW are dark teal title derivatives.
  * White/face contrast6.56 >= captured6.37; indexed fallbacks63/0 add no slots.
  * L023: sampled ALERT_LIGHT/SHADOW are indexed entries 9/10 above.
  * Ref: s8_alert_modal.png (300,88)/(300,189), controls.md Sec 6.
  * Slots 9/10 are product allocations, not reference palette indices.
- * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.4 (ARB-5); color_canon.json derived_rows.
+ * Ref: clipped Toolbox drawing (ARB-5); color_canon.json derived_rows.
  */
 #define INITECH_CANON_BEVEL_LIGHT_RGB        0x8DDCDCu
 #define INITECH_CANON_BEVEL_SHADOW_RGB       0x4E9BA3u
@@ -148,7 +148,7 @@ _Static_assert(sizeof(color_canon) == 81, "27 x 3 canon bytes");
 #define INITECH_CANON_MENU_SHADOW_RGB        0x003F45u
 
 /* ---------------------------------------------------------------------------
- * Named ramp indices -- the idx>=9 gray-ramp EXTENSION (Rule 8; NOT a new
+ * Named ramp indices -- the idx>=9 gray-ramp EXTENSION (pinned inputs; NOT a new
  * 9-entry table slot). Each constant below names an index >= 9 whose
  * (idx<<16)|(idx<<8)|idx value ALREADY equals the cited decomp golden RGB
  * (a neutral gray, R==G==B) via flair_canon_rgb's existing idx>=9 branch
@@ -234,11 +234,11 @@ _Static_assert(((uint32_t)CIDX_ICON_GRAY_66 << 16 | (uint32_t)CIDX_ICON_GRAY_66 
  * idx >= 27 -> deterministic gray ramp: (v<<16)|(v<<8)|v  where v = idx.
  *              This is the IDENTICAL default branch from palette.h
  *              flair_palette_rgb; L023 deliberately allocates slots 9/10,
- *              WL-0140 slots 11..25 (the Finder icon colours).
- *              tdnl.44 appends native16 pencil yellow at slot 26.
+ *              Finder icon colors slots 11..25 (the Finder icon colours).
+ *               appends native16 pencil yellow at slot 26.
  *
  * Freestanding-safe (no libc).  Callable from the kernel (kmain.c live-DAC
- * path) and the host harness.  Ref: ADR-0004-AMENDMENT-DEC-09 ARB-1;
+ * path) and the host harness.  Ref: clipped Toolbox drawing ARB-1;
  * palette.h flair_palette_rgb default branch (gray ramp shared verbatim).
  */
 static inline uint32_t flair_canon_rgb(uint8_t idx)

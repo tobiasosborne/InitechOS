@@ -1,0 +1,12 @@
+# Legacy WINDOW_MUTATE_NO_DEACT_INVAL
+# test: test_window
+--- a/window.c
++++ b/window.c
+@@ -438,7 +438,6 @@
+         if (!seen_front && p->visible) { p->hilited = 1; seen_front = 1; }
+         else p->hilited = 0;
+         if (was_hilited && !p->hilited) {
+-            WindowMgr_invalidate(wm, p, region_get_bbox(p->strucRgn));
+         } else if (!was_hilited && p->hilited) {
+             WindowMgr_invalidate(wm, p, region_get_bbox(p->strucRgn));
+         }

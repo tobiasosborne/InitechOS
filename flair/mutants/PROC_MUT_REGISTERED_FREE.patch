@@ -1,0 +1,13 @@
+# Legacy PROC_MUT_REGISTERED_FREE
+# test: test_process
+--- a/process.c
++++ b/process.c
+@@ -418,8 +418,6 @@
+      * HANDLE block, NOT the DATA arena, so a scribbled DATA arena leaves it intact. */
+     if (app->magic != FLAIR_APP_MAGIC)
+         PROC_PANIC("teardown: app->magic mismatch (BC-3)");
+-    if (app->block == NULL || app->records_block == NULL)
+-        PROC_PANIC("teardown: caller-owned registered app (k0n8)");
+ 
+     app->state = (uint8_t)FLAIR_APP_DYING;
+     return 1;

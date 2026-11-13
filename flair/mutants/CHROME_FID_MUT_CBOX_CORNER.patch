@@ -1,0 +1,14 @@
+# Legacy CHROME_FID_MUT_CBOX_CORNER
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -235,6 +235,9 @@
+         cfill(port, bx + box, y, 1, FLAIR_PART_CONTENT);
+     }
+     cfill(port, bx + 1, by + box, box, FLAIR_PART_CONTENT);
++    /* mutation checks restoration of the old sz-4 corner gap. */
++    cfill(port, bx + box - 1, by + box - 1, 1,
++          FLAIR_PART_PLAT_WIDGET_EDGE);
+ }
+ 
+ typedef struct title_layout {

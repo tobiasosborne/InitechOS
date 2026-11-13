@@ -1,7 +1,7 @@
 /*
  * apple_glyph.h -- InitechOS FLAIR Apple-menu glyph strike v0 (LOCKED asset).
  *
- * beads: initech-yx4v ("Apple menu slot rendered as a solid black filled
+ *  ("Apple menu slot rendered as a solid black filled
  *        square, not an apple glyph"). Ref: os/flair/menu.h (FLAIR_MENU_APPLE_W
  *        / FLAIR_MENU_TITLE_VPAD -- the Apple slot is exactly APPLE_GLYPH_W x
  *        APPLE_GLYPH_H = 16x15 px, top-left at (FLAIR_MENU_TITLE_VPAD,
@@ -9,17 +9,17 @@
  *        consumer -- a masked/transparent blit, ink-on-bar, NOT a filled rect).
  *        CLAUDE.md hallucination-risk callout "Glyphs are hand-authored, not
  *        pixel-extracted" (this file follows the SAME provenance discipline as
- *        spec/assets/chicago8x16.h / geneva9.h / cursors.h); Law 1 (ground
- *        truth before code); Rule 8 (locked spec-data); Rule 11 (byte-stable,
- *        no timestamps); Rule 12 (ASCII-clean; this file is bit-pattern data
+ *        spec/assets/chicago8x16.h / geneva9.h / cursors.h); source provenance (ground
+ *        truth before code); pinned inputs (locked spec-data); reproducibility (byte-stable,
+ *        no timestamps); ASCII source (ASCII-clean; this file is bit-pattern data
  *        with ASCII-art comments only).
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE, but the menu-bar
+ * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE, but the menu-bar
  * Platinum face is not shipped in this arc. TODO_GOLDEN: this hand-authored
  * glyph remains in the explicit System 7 heritage bar until that face lands;
  * the locked strike bytes do not change (BC-10.10).
  *
- * PROVENANCE (Law 1 honesty) -- READ BEFORE ANY EDIT:
+ * PROVENANCE (source provenance honesty) -- READ BEFORE ANY EDIT:
  *
  * The bit pattern below was HAND-AUTHORED, row by row, to match the classic
  * "apple with a bite taken out of the right side, plus a leaf" silhouette used
@@ -31,10 +31,10 @@
  * BACK-CHECK (not extraction): after hand-authoring, the strike was visually
  * compared against two INDEPENDENT reference captures that are NOT part of
  * this codebase's render path (so they cannot agree with the artifact "by
- * construction", Law 2):
- *   ../system7-decomp/goldens/captures/s7_701_8bit_docwindow.png (top-left of
+ * construction", independent checks):
+ *../system7-decomp/goldens/captures/s7_701_8bit_docwindow.png (top-left of
  *     the small "m" disk-image window's menu bar, ~ x[16,32) y[0,20))
- *   ../system7-decomp/goldens/captures/cal_filemenu.png (top-left of the
+ *../system7-decomp/goldens/captures/cal_filemenu.png (top-left of the
  *     desktop menu bar, same crop window)
  * Both captures show the SAME canon proportions (confirmed by eye, cropped and
  * pixel-gridded for counting, NOT copied bit-for-bit into this file): a small
@@ -54,7 +54,7 @@
  * (94 ink pixels) -- inside the property oracle's asserted 25-60% band
  * (harness/proptest/test_menu.c "APPLE GLYPH" property): dense enough to read
  * as a solid-ish silhouette (like the real glyph), sparse enough that it is
- * NOT the old solid-square bug (initech-yx4v) it replaces.
+ * NOT the old solid-square bug it replaces.
  *
  * FORMAT (v0; mirrors spec/assets/cursors.h's CURS-style row format, generalized
  * to a THE bar's 16px Apple slot rather than a 16x16 cursor):
@@ -65,7 +65,7 @@
  *     0x8000) is the LEFTMOST column (col 0); a set bit is INK, a clear bit is
  *     BACKGROUND (transparent -- the bar fill shows through; menu.c's masked
  *     blit draws ONLY the set bits, in the bar's ink color).
- *   - Byte-stable (Rule 11): pure static const data, no timestamps.
+ *   - Byte-stable: pure static const data, no timestamps.
  *
  * ASCII-art key (ROW COMMENTS): '#' = ink (set bit), '.' = background. Each
  * row shown as 16 columns (0..15) left to right. The leaf is rows 0-2; the top
@@ -88,21 +88,21 @@
  * pixel-extracted.
  */
 static const uint16_t APPLE_GLYPH_ROWS[APPLE_GLYPH_H] = {
-    /* row  0 */ 0x00C0, /* ........##...... -- leaf tip                    */
-    /* row  1 */ 0x0180, /* .......##....... -- leaf mid                   */
-    /* row  2 */ 0x0200, /* ......#......... -- leaf stem into the body    */
-    /* row  3 */ 0x1C70, /* ...###...###.... -- top dip: two lobes         */
-    /* row  4 */ 0x1FF0, /* ...#########.... -- body (pre-bite)            */
-    /* row  5 */ 0x1FF0, /* ...#########.... -- body (pre-bite)            */
-    /* row  6 */ 0x1FC0, /* ...#######...... -- BITE: right flank recedes  */
-    /* row  7 */ 0x1FC0, /* ...#######...... -- BITE: right flank recedes  */
-    /* row  8 */ 0x1FF0, /* ...#########.... -- body (post-bite, puffs out)*/
-    /* row  9 */ 0x3FF0, /* ..##########.... -- widest row (left bulges)   */
-    /* row 10 */ 0x1FF0, /* ...#########.... -- body                       */
-    /* row 11 */ 0x0FE0, /* ....#######..... -- taper                      */
-    /* row 12 */ 0x0FE0, /* ....#######..... -- taper                      */
-    /* row 13 */ 0x07C0, /* .....#####...... -- taper                      */
-    /* row 14 */ 0x0C60, /* ....##...##..... -- base: center dimple        */
+    /* row  0 */ 0x00C0, /*........##...... -- leaf tip                    */
+    /* row  1 */ 0x0180, /*.......##....... -- leaf mid                   */
+    /* row  2 */ 0x0200, /*......#......... -- leaf stem into the body    */
+    /* row  3 */ 0x1C70, /*...###...###.... -- top dip: two lobes         */
+    /* row  4 */ 0x1FF0, /*...#########.... -- body (pre-bite)            */
+    /* row  5 */ 0x1FF0, /*...#########.... -- body (pre-bite)            */
+    /* row  6 */ 0x1FC0, /*...#######...... -- BITE: right flank recedes  */
+    /* row  7 */ 0x1FC0, /*...#######...... -- BITE: right flank recedes  */
+    /* row  8 */ 0x1FF0, /*...#########.... -- body (post-bite, puffs out)*/
+    /* row  9 */ 0x3FF0, /*..##########.... -- widest row (left bulges)   */
+    /* row 10 */ 0x1FF0, /*...#########.... -- body                       */
+    /* row 11 */ 0x0FE0, /*....#######..... -- taper                      */
+    /* row 12 */ 0x0FE0, /*....#######..... -- taper                      */
+    /* row 13 */ 0x07C0, /*.....#####...... -- taper                      */
+    /* row 14 */ 0x0C60, /*....##...##..... -- base: center dimple        */
 };
 
 /*

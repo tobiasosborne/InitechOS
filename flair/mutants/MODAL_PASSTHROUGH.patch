@@ -1,0 +1,41 @@
+# Legacy MODAL_PASSTHROUGH
+# test: test_dialog
+--- a/dialog.c
++++ b/dialog.c
+@@ -585,31 +585,11 @@
+         !dp->window.visible)
+         return FLAIR_MODAL_PASSTHROUGH;
+ 
+-    if (dp->trackingItem && (ev->what == mouseUp || ev->what == nullEvent))
+-        return FLAIR_MODAL_CAPTURE;
+-    if (ev->what == (uint16_t)mouseDown ||
+-        ev->what == (uint16_t)mouseUp) {
+-        if (!region_contains_point(dp->window.strucRgn,
+-                                   ev->where.h, ev->where.v)) {
+-            if (ev->what == (uint16_t)mouseDown && blockProc != 0)
+-                blockProc(ev->where, blockUser);
+-            return FLAIR_MODAL_BLOCK;
+-        }
+-
+-        if (ev->what == (uint16_t)mouseDown &&
+-            dp->window.windowDefProcVariant == (int16_t)movableDBoxProc) {
+-            rgn_rect_t bounds = region_get_bbox(dp->window.strucRgn);
+-            if (ev->where.v >= bounds.top &&
+-                ev->where.v < (int16_t)(bounds.top +
+-                                         FLAIR_CHROME_TITLEBAR_H))
+-                return FLAIR_MODAL_DRAG;
+-        }
+-        return FLAIR_MODAL_CAPTURE;
+-    }
+-
+-    /* keyDown/autoKey and every other cooked event stay on the modal side of
+-     * the seam. In particular, no key can reach the active document behind it. */
+-    return FLAIR_MODAL_CAPTURE;
++    /* Named mutation checks mutant: restore the pre-fix pump behavior. An outside click
++     * reaches FindWindow and raises/drags the document behind the modal. */
++    (void)blockProc;
++    (void)blockUser;
++    return FLAIR_MODAL_PASSTHROUGH;
+ }
+ 
+ static rgn_rect_t dialog_offset_rect(rgn_rect_t r, int16_t dh, int16_t dv)

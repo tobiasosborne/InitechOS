@@ -1,0 +1,12 @@
+# Legacy CHROME_MUT_GROW_FIGURE_SWAP
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -648,6 +648,7 @@
+ 
+     /* mutation checks perturbations. Default art remains the independent
+      * Mac OS 8.1 cell (sys8/window-chrome.md Sec 5/6), not System-7 art. */
++    trail_part = FLAIR_PART_PLAT_FACE;
+ 
+     crect(port, gx, gy, gx + cell, gy + cell,
+           active ? FLAIR_PART_PLAT_FRAME_FACE : FLAIR_PART_PLAT_FACE);

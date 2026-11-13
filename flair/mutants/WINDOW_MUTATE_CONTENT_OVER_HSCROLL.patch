@@ -1,0 +1,29 @@
+# Legacy WINDOW_MUTATE_CONTENT_OVER_HSCROLL
+# test: test_window
+--- a/window.c
++++ b/window.c
+@@ -198,19 +198,11 @@
+      * whites). */
+     content.left = (int16_t)(frame.left + FLAIR_CHROME_FRAME +
+                              FLAIR_CHROME_BODY_BAR + FLAIR_CHROME_FRAME);
+-    /* The content stops at the horizontal scroll bar's outer line, exactly as
+-     * the right edge stops at the vertical bar's: contRgn is
+-     * "the area inside the window frame (excluding the title bar and scroll
+-     * bars)" -- spec/window_record.h contRgn, IM-I p. I-268. The bar's outer
+-     * line is the bottom body rail's inner line (FRAME + BODY_BAR) plus the
+-     * 16-px bar: B-21, the row winscroll.h wscroll_bar_rect(WSCROLL_H) starts
+-     * on. Before this, contRgn ran to frame.bottom-1, so every owner's content
+-     * paint (Finder fill, tenants) overwrote the horizontal bar (audit pass 3
+-     * H06, ) and a click on it reached the owner as content. */
+-    content.bottom = (int16_t)(frame.bottom - FLAIR_CHROME_FRAME -
+-                               FLAIR_CHROME_BODY_BAR -
+-                               FLAIR_CHROME_SCROLLBAR_W);
+-    if (content.bottom < content.top) content.bottom = content.top;
++    /* regression patches (mutation checks; test-window CalcDoc leg + test-flair-scroll): the
++     * pre- bottom edge, frame.bottom - 1 -- contRgn swallows the
++     * horizontal scroll bar, so content painting erases it and FindWindow
++     * reports it as content. NEVER in a real build. */
++    content.bottom = (int16_t)(frame.bottom - FLAIR_CHROME_FRAME);
+     content.right = (int16_t)(frame.right - FLAIR_CHROME_FRAME -
+                               FLAIR_CHROME_BODY_BAR -
+                               FLAIR_CHROME_SCROLLBAR_W);

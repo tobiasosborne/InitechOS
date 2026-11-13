@@ -2,7 +2,7 @@
  * os/flair/stdfile.h -- FLAIR Standard File (SFGetFile): the shell-owned
  * Open-file modal's navigate/select/return logic.
  *
- * beads: initech-gymo (FLAIR Phase 4.5 -- SFGetFile first cut).
+ *  (FLAIR Phase 4.5 -- SFGetFile first cut).
  *
  * LAW 1 ACQUISITION GATE (committee flag): there is NO SFGetFile spec in the
  * decomp corpus, so the model is GROUNDED from Inside Macintosh + the LOCAL
@@ -33,7 +33,7 @@
  *   double-click to descend). We DO NOT import the Win API names (era ceiling):
  *   the names here are the Macintosh Standard File names.
  *
- *   ADR-0013 Sec 3.6 -- "Standard File is a shell modal helper like FILE COPY,
+ *   tenant lifecycle -- "Standard File is a shell modal helper like FILE COPY,
  *   NOT a tenant." The shell OWNS this modal (the FILE COPY box is the
  *   precedent; os/flair/dialog.h FileCopyDialog).
  *
@@ -52,11 +52,11 @@
  *       FAT I/O. The real provider wraps fat12_read_root_dir + fat12_format_83;
  *       the oracle injects a hand-authored fixture.
  *
- *   CLAUDE.md Law 1 (ground truth before code -- this header IS the citation),
- *     Law 2 (the oracle is truth; the golden is INDEPENDENT, never
- *     by-construction -- test_stdfile.c), Law 3 (artifact C, freestanding,
- *     dual-compile, no libc), Rule 2 (fail loud), Rule 8 (locked first-cut
- *     caps), Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ *   source provenance (ground truth before code -- this header IS the citation),
+ *     independent checks (the oracle is truth; the golden is INDEPENDENT, never
+ *     by-construction -- test_stdfile.c), language boundary (artifact C, freestanding,
+ *     dual-compile, no libc), fail loudly, pinned inputs (locked first-cut
+ *     caps), deterministic output, ASCII source.
  *
  * ARTIFACT code: freestanding. Dual-compiles for the host oracle
  * (cc -std=c11 -Wall -Wextra -Werror) AND the kernel type-check
@@ -64,7 +64,7 @@
  * Only <stdint.h> + <stddef.h> (+ list.h, itself freestanding). No malloc, no
  * libc (a small static byte-copy/compare handles the 8.3 names; no string.h).
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #ifndef INITECH_OS_FLAIR_STDFILE_H
 #define INITECH_OS_FLAIR_STDFILE_H
@@ -75,17 +75,17 @@
 #include "list.h"   /* FlairList, Cell, rgn_rect_t, FlairL* API (-Ios/flair) */
 
 /* ==========================================================================
- * First-cut reduction caps (LOCKED spec-data; CLAUDE.md Rule 8).
+ * First-cut reduction caps (LOCKED spec-data; pinned inputs).
  *
- * Raise only with a beads issue + worklog note -- never a silent bump to make
+ * Raise only with a issue + worklog note -- never a silent bump to make
  * one test pass.
  *
- *   NAME_MAX 13   : a formatted 8.3 name "NAME.EXT" + NUL = 8 + 1 + 3 + 1.
+ *   NAME_MAX 13: a formatted 8.3 name "NAME.EXT" + NUL = 8 + 1 + 3 + 1.
  *                   Matches FAT12_NAME83_MAX (os/initechdos/fat12.h).
  *   MAX_ENTRIES 32: one directory's worth of entries; pinned <= the List
  *                   Manager's row cap (FLAIR_LIST_MAX_ROWS) so every entry maps
  *                   to one FlairList row.
- *   PATH_MAX 128  : the current-directory path buffer ("/" + components).
+ *   PATH_MAX 128: the current-directory path buffer ("/" + components).
  * ========================================================================== */
 #define FLAIR_SF_NAME_MAX     13   /* 8 + '.' + 3 + NUL (== FAT12_NAME83_MAX)   */
 #define FLAIR_SF_MAX_ENTRIES  32   /* entries per directory (first-cut cap)     */
@@ -103,7 +103,7 @@ _Static_assert(FLAIR_SF_PATH_MAX >= (1 + FLAIR_SF_NAME_MAX),
                "SF path buffer must hold root '/' + one 8.3 component");
 
 /* ==========================================================================
- * Fail-loud error codes (CLAUDE.md Rule 2). All negative; 0 == success.
+ * Fail-loud error codes. All negative; 0 == success.
  * Mirrors the os/flair/list.h convention (FLAIR_LIST_ERR_*).
  * ========================================================================== */
 #define FLAIR_SF_OK            0   /* success                                   */
@@ -118,11 +118,11 @@ _Static_assert(FLAIR_SF_PATH_MAX >= (1 + FLAIR_SF_NAME_MAX),
 /* ==========================================================================
  * FlairSFEntry -- one directory entry (the provider's unit of output).
  *
- *   name   : a NUL-terminated formatted 8.3 name, e.g. "REPORT.DBF" (the same
+ *   name: a NUL-terminated formatted 8.3 name, e.g. "REPORT.DBF" (the same
  *            shape fat12_format_83 produces).
- *   is_dir : 1 if this entry is a FOLDER (double-click / Open navigates into
+ *   is_dir: 1 if this entry is a FOLDER (double-click / Open navigates into
  *            it), 0 for a regular file.
- *   size   : the file size in bytes (0 for a folder); carried for the future
+ *   size: the file size in bytes (0 for a folder); carried for the future
  *            live list (size column) -- not used by the navigate/select logic.
  * ========================================================================== */
 typedef struct FlairSFEntry {
@@ -134,10 +134,10 @@ typedef struct FlairSFEntry {
 /* ==========================================================================
  * FlairSFReply -- the SFGetFile result (the IM-I SFReply analogue).
  *
- *   good   : 1 if Open was clicked on a FILE (confirmed); 0 if Cancel, or if
+ *   good: 1 if Open was clicked on a FILE (confirmed); 0 if Cancel, or if
  *            Open navigated into a folder (not-yet-confirmed). [IM-I SFReply.good]
- *   fName  : the chosen entry's NUL-terminated 8.3 name (IM-I SFReply.fName).
- *   is_dir : 1 if the chosen entry is a folder, 0 if a file (FLAIR extension to
+ *   fName: the chosen entry's NUL-terminated 8.3 name (IM-I SFReply.fName).
+ *   is_dir: 1 if the chosen entry is a folder, 0 if a file (FLAIR extension to
  *            make the folder-on-Open rule observable to the oracle/caller).
  * ========================================================================== */
 typedef struct FlairSFReply {
@@ -156,8 +156,8 @@ typedef struct FlairSFReply {
  *
  * On the real system the provider wraps fat12_read_root_dir + fat12_format_83
  * (os/initechdos/fat12.h) over the directory at `path`; the oracle injects a
- * hand-authored fixture. THIS is what makes the module host-testable (Law 2 /
- * Law 3): no FAT, no block device, no emulator in the unit test.
+ * hand-authored fixture. THIS is what makes the module host-testable (independent checks /
+ * language boundary): no FAT, no block device, no emulator in the unit test.
  * ========================================================================== */
 typedef int (*FlairSFEnumProc)(const char *path, FlairSFEntry *out,
                                int16_t max, void *user);
@@ -165,17 +165,17 @@ typedef int (*FlairSFEnumProc)(const char *path, FlairSFEntry *out,
 /* ==========================================================================
  * FlairStandardFile -- the modal's navigate/select/return state.
  *
- *   list     : the single-column FlairList shown in the dialog (one row per
+ *   list: the single-column FlairList shown in the dialog (one row per
  *              entry; the entry's 8.3 name lives in column 0). Built ON the
  *              real List Manager (no second list type).
- *   entries  : the current directory's entries, as the provider returned them.
- *   count    : how many of entries[]/list rows are live.
- *   path     : the current-directory path, a "/"-rooted component stack
+ *   entries: the current directory's entries, as the provider returned them.
+ *   count: how many of entries[]/list rows are live.
+ *   path: the current-directory path, a "/"-rooted component stack
  *              (e.g. "/" or "/DATA" or "/DATA/SUB"); NUL-terminated.
- *   path_len : length of path (not counting the NUL).
- *   provider : the directory provider + its opaque user cookie.
- *   cellSize : the FlairList cell pixel size (re-applied on every re-enumerate).
- *   rView    : the FlairList display rect, pixel coords (likewise re-applied).
+ *   path_len: length of path (not counting the NUL).
+ *   provider: the directory provider + its opaque user cookie.
+ *   cellSize: the FlairList cell pixel size (re-applied on every re-enumerate).
+ *   rView: the FlairList display rect, pixel coords (likewise re-applied).
  * ========================================================================== */
 typedef struct FlairStandardFile {
     FlairList       list;                       /* the file list (List Manager)  */
@@ -198,7 +198,7 @@ typedef struct FlairStandardFile {
  *
  * Enumerates "/" via `provider` into entries[] and populates the FlairList (one
  * row per entry, the 8.3 name in column 0), binding the list to `cellSize` /
- * `rView`. Fail loud (Rule 2): NULL sf/provider -> FLAIR_SF_ERR_NULL; a provider
+ * `rView`. Fail loud: NULL sf/provider -> FLAIR_SF_ERR_NULL; a provider
  * error -> FLAIR_SF_ERR_PROVIDER; count > FLAIR_SF_MAX_ENTRIES ->
  * FLAIR_SF_ERR_OVERFLOW; an underlying FlairList failure -> FLAIR_SF_ERR_LIST.
  * Returns FLAIR_SF_OK on success. Ref: IM-I SFGetFile (initial display).
@@ -236,7 +236,7 @@ int FlairSF_click(FlairStandardFile *sf, flair_point_t localPt);
 /*
  * FlairSF_navigate -- DOUBLE-CLICK-FOLDER behavior: if entry `index` is a
  * FOLDER, push it onto the path and RE-ENUMERATE that subdirectory via the
- * provider, rebuilding the FlairList. Fail loud (Rule 2): NULL sf ->
+ * provider, rebuilding the FlairList. Fail loud: NULL sf ->
  * FLAIR_SF_ERR_NULL; index out of range -> FLAIR_SF_ERR_RANGE; a non-folder
  * target -> FLAIR_SF_ERR_NOTDIR; a path overflow -> FLAIR_SF_ERR_PATH; a
  * provider/list error propagated. Returns FLAIR_SF_OK on success.

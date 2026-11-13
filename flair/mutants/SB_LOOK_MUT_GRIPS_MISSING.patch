@@ -1,0 +1,24 @@
+# Legacy SB_LOOK_MUT_GRIPS_MISSING
+# test: test_scrollbar_look
+--- a/control.c
++++ b/control.c
+@@ -757,7 +757,7 @@
+         cfill_ctrl(port, x0 + 3, companion_y, 1,
+                    FLAIR_PART_PLAT_TROUGH);
+         cfill_ctrl(port, x0 + 4, companion_y, 6, CTRL_SB_THUMB_HL);
+-        cfill_ctrl(port, x0 + 4, grip_y, 7, CTRL_SB_THUMB_GRIP);
++        (void)grip_y;
+     }
+ }
+ 
+--- a/chrome.c
++++ b/chrome.c
+@@ -547,8 +547,6 @@
+         sb_plot(port, skin, axis, ac, c0 + 3, FLAIR_PART_PLAT_TROUGH);
+         for (int c = 4; c <= 9; c++)
+             sb_plot(port, skin, axis, ac, c0 + c, FLAIR_PART_SB_THUMB_HL);
+-        for (int c = 4; c <= 10; c++)
+-            sb_plot(port, skin, axis, ac + 1, c0 + c, FLAIR_PART_SB_THUMB_GRIP);
+     }
+ }
+ 

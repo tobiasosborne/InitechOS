@@ -1,21 +1,21 @@
 ; spec/assets/geneva12.art -- InitechOS "Geneva 12" application-font strike,
-; the LOCKED hand-authored source (bead initech-uelk). Rule 8: this file is
+; the LOCKED hand-authored source. pinned inputs: this file is
 ; the contract; spec/assets/geneva12.h is GENERATED from it by
 ; tools/geneva12_art2h.c (make gen-geneva12; test-geneva12-art proves the
 ; committed header is byte-identical to a fresh transcription).
 ;
 ; WHY: Mac OS 8.1 SimpleText draws its document in Geneva 12 (16-px lines),
-; ../system7-decomp specs/sys8/simpletext-stdfile.md Sec 1.2 [MEAS] (mint-007)
+;../system7-decomp specs/sys8/simpletext-stdfile.md Sec 1.2 [MEAS] (mint-007)
 ; (Font menu check on Geneva, Size menu check on 12 Point; line pitch 16;
 ; "Saving " 45 px, "tables" 39 px, "PC LOAD LETTER" 101 px). InitechText
 ; (TEXT.EXE) drew Geneva 9 because no Geneva 12 strike existed here.
 ;
-; PROVENANCE (Law 1 honesty) -- two different kinds of data live here:
+; PROVENANCE (source provenance honesty) -- two different kinds of data live here:
 ;   METRICS (the "lb"/"aw" numbers on every glyph line) are MEASUREMENTS of the
 ;     real Mac OS 8.1 Geneva 12 strike: NFNT 12112 of the "Geneva" suitcase
 ;     (FOND 3, FAT entry size 12 style 0 -> NFNT 12112) in System Folder:Fonts
-;     of ../system7-decomp goldens/work/boot81.img, extracted to
-;     ../system7-decomp mint/work/geneva12/NFNT_12112.bin (md5
+;     of../system7-decomp goldens/work/boot81.img, extracted to
+;../system7-decomp mint/work/geneva12/NFNT_12112.bin (md5
 ;     3e289fee44b6f1b9b89ac5343647ef2b; mint/work/geneva12/mint-results-011.md).
 ;     owTable: high byte = left bearing lb, low byte = advance aw (font-
 ;     manager.md Sec 1.1); FontRec ascent 12, descent 3, leading 1, widMax 15,
@@ -45,7 +45,7 @@
 ;   columns. The leftmost ink column of every inked printable glyph MUST equal
 ;   lb (the transcriber fails loud otherwise); the missing box may start right
 ;   of lb (its NFNT image carries a blank first column). No ink at or beyond aw.
-; ASCII-clean (Rule 12). Lines starting ';' are comments.
+; ASCII-clean. Lines starting ';' are comments.
 glyph 0x20 lb 4 aw 4
 ....
 ....

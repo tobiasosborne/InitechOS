@@ -1,0 +1,20 @@
+# Legacy WINDOW_MUTATE_ZOOM_NO_RESTORE
+# test: test_window
+--- a/window.c
++++ b/window.c
+@@ -920,7 +920,14 @@
+         w->zoomed = 1;
+     } else {
+         if (!w->userStateValid) WIN_PANIC("ZoomWindow: missing userState");
+-        target = w->userState;
++        target.top = (int16_t)(wm->desktop_frame.top +
++                               FLAIR_CHROME_ZOOM_MARGIN_TOP);
++        target.left = (int16_t)(wm->desktop_frame.left +
++                                FLAIR_CHROME_ZOOM_MARGIN_LEFT);
++        target.bottom = (int16_t)(wm->desktop_frame.bottom -
++                                  FLAIR_CHROME_ZOOM_MARGIN_BOTTOM);
++        target.right = (int16_t)(wm->desktop_frame.right -
++                                 FLAIR_CHROME_ZOOM_MARGIN_RIGHT);
+         w->zoomed = 0;
+     }
+     set_document_frame(wm, w, target, 0);

@@ -1,0 +1,15 @@
+# Legacy RES_MUT_COUNT_OFF_BY_ONE
+# test: test_resource
+--- a/resource.c
++++ b/resource.c
+@@ -81,7 +81,9 @@
+ {
+     uint16_t ntypes = m->n_types;          /* = numTypes-1 + 1 (decoded in load) */
+ 
+-    uint16_t limit = ntypes;
++    /* regression patches: iterate (numTypes-1) entries instead of numTypes -> the LAST type
++     * is never visited. Proves the count-1 decode (+1) is load-bearing. */
++    uint16_t limit = (ntypes > 0u) ? (uint16_t)(ntypes - 1u) : 0u;
+ 
+     for (uint16_t i = 0; i < limit; i++) {
+         uint32_t e = m->type_list_abs + 2u + (uint32_t)i * 8u;  /* skip numTypes-1 */

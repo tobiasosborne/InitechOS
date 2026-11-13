@@ -1,18 +1,18 @@
 /* flair_routing_stubs.c -- the link seams test-flair-routing does NOT grade.
  *
- * bead initech-2svz (R3.7 follow-up). The routing suite links the REAL
+ *  (R3.7 follow-up). The routing suite links the REAL
  * os/flair/tbxgate.c (the disk-tenant host: disk_tenant_event, the INT 81h
  * dispatcher, the slot lifecycle) over the REAL Layer-5 spine (process.c,
  * window.c, heap.c, the region engine) and the REAL DOS PSP/SFT layer the
  * teardown reaches (psp.c, sft.c). tbxgate.c also references the drawing,
  * dialog, scrap, control-panel and file-copy surfaces; the routing suite never
- * drives those verbs, so each is a FAIL-LOUD stub here (Rule 2): reaching one
+ * drives those verbs, so each is a FAIL-LOUD stub here: reaching one
  * means the suite strayed outside its scope, and it aborts rather than
  * returning a plausible value. Each stub includes the artifact header that
  * declares it, so a drifted prototype is a compile error, not a silent ABI
  * mismatch.
  *
- * Factory code (Law 3): hosted C, never linked into the artifact. ASCII-only.
+ * Factory code: hosted C, never linked into the artifact. ASCII-only.
  */
 #include <stdint.h>
 #include <stdio.h>

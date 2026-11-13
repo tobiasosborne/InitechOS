@@ -1,0 +1,14 @@
+# Legacy MENU_MUT_DISABLED_NORMAL_INK
+# test: test_menu
+--- a/menu.c
++++ b/menu.c
+@@ -748,8 +748,7 @@
+         const int text_y = row_top + FLAIR_MENU_ITEM_TEXT_TOP - CHICAGO_CAP_TOP;
+         text_clip_t rk = { clip, 0, panel.left, row_top, panel.right,
+                            row_top + h };
+-        if (!it->enabled)
+-            row_fg = disabled;
++        (void)disabled;
+         if (k == draw_hi) {
+             rgn_rect_t band = { (int16_t)row_top,
+                                 (int16_t)(panel.left + FLAIR_MENU_PANEL_INSET),

@@ -2,15 +2,15 @@
  * os/flair/process.h -- the FLAIR App Contract: the tenant ABI + the Layer-5
  * event dispatcher (THE ARTIFACT).
  *
- * beads: the FLAIR App Contract epic initech-4e35 (ADR-0013, RATIFIED 2026-06-27).
+ * the FLAIR App Contract epic  (tenant lifecycle, RATIFIED 2026-06-27).
  *        This is the ORACLE-FIRST (Wave 1) deliverable: the locked C contract
  *        surface + the host-buildable dispatcher entry point. The routing /
  *        activation BODY is a STUB here (process.c); Wave 2 fills it in, gated
  *        GREEN by the O-1 host oracle (harness/proptest/test_process.c) first.
  *
- * WHAT THIS IS (ADR-0013 Sec 2, Sec 3.1):
+ * WHAT THIS IS (tenant lifecycle, Sec 3.1):
  *   A FLAIR tenant is a RECORD OF ENTRY-POINTS PLUS AN ARENA -- not a process,
- *   not a thread, not a loaded program (ADR-0001: flat-32, one address space, no
+ *   not a thread, not a loaded program (: flat-32, one address space, no
  *   v8086, no isolation). It is the Apple Process Manager / MultiFinder MODEL
  *   (a process list, app-grouped z-order, one foreground app, activate/deactivate
  *   on switch, clean application-death) realized with minimal-cooperative
@@ -18,13 +18,13 @@
  *   links, a per-tenant child heap carved from the FLAIR arena, and the window(s)
  *   it owns -- bound to each of its windows through the WindowRecord.refCon slot.
  *
- * THE BINDING RULE / DEMUX KEY (ADR-0013 Sec 3.1):
+ * THE BINDING RULE / DEMUX KEY (tenant lifecycle):
  *   Every WindowRecord a tenant creates carries
  *       w->refCon = (int32_t)(uintptr_t)self
- *   (spec/window_record.h:400; the 4-byte assert at :468 guarantees a flat-32
+ *   (spec/window_record.h:400; the 4-byte assert at:468 guarantees a flat-32
  *   pointer fits). FindWindow -> WindowPtr -> refCon -> FlairApp* is the O(1)
  *   demux with no new field in the locked WindowRecord. Every routed cast asserts
- *   `app->magic == FLAIR_APP_MAGIC` before use (BC-3 / Rule 2 fail-loud).
+ *   `app->magic == FLAIR_APP_MAGIC` before use (BC-3 / explicit error handling fail-loud).
  *
  *   HOST-SAFETY NOTE (Wave-2 grading hazard, surfaced by the O-1 oracle): on a
  *   flat-32 kernel a pointer fits in int32_t and the cast round-trips. On a
@@ -36,31 +36,31 @@
  *   fail-loud tag, OR test-process must build -m32. This header sets refCon per
  *   the contract regardless (the value is the kernel's demux key).
  *
- * SINGLE SPINE (ADR-0006 E-D2 / ADR-0013 Sec 2, BC-1/BC-2):
+ * SINGLE SPINE (appearance registry E-D2 / tenant lifecycle, BC-1/BC-2):
  *   The refCon demux and the activateEvt synthesis live HERE, in the Layer-5
  *   `flair_app_dispatch`, called IDENTICALLY by the live kmain pump and by the
  *   host O-1 oracle. kmain stays a thin source/sink adapter -- it cooks one
  *   EventRecord off the ring and hands it to flair_app_dispatch; it carries NO
  *   routing/activation logic of its own.
  *
- * FREESTANDING (Law 3): this header includes ONLY <stdint.h> + the locked spec
+ * FREESTANDING: this header includes ONLY <stdint.h> + the locked spec
  * headers + window.h / heap.h; no host libc. It compiles BOTH under the kernel
  * flags and hosted for the property suite (the window.c / heap.c dual-compile
  * pattern). MenuBar is forward-declared (the Menu Manager surface is heavy and
  * the contract only needs a pointer slot).
  *
- * Ref: ADR-0013 Sec 2 (decision), Sec 3.1 (tenant ABI), Sec 3.3 (event routing
+ * Ref: tenant lifecycle (decision), Sec 3.1 (tenant ABI), Sec 3.3 (event routing
  *      & activation), Sec 3.4 (yield + clean-exit), Sec 3.5 (co-residency),
  *      Sec 3.6 (memory model), Sec 7 O-1 (the host oracle), Sec 8 (staging).
- *      spec/window_record.h Sec 1 (part-codes), :387-400 (nextWindow + refCon).
- *      spec/event_model.h Sec 1 (what-codes), :155 (FLAIR_EVT_MOD_ACTIVE_FLAG),
- *      :265-271 (EventRecord). os/flair/window.h (WindowMgr, FindWindow, ...).
+ *      spec/window_record.h Sec 1 (part-codes),:387-400 (nextWindow + refCon).
+ *      spec/event_model.h Sec 1 (what-codes),:155 (FLAIR_EVT_MOD_ACTIVE_FLAG),
+ *:265-271 (EventRecord). os/flair/window.h (WindowMgr, FindWindow,...).
  *      os/flair/heap.h (flair_heap_t, FLAIR_CLASS_GENERAL, the child sub-arena).
- *      CLAUDE.md Law 1 (ground truth), Law 2 (the oracle is truth), Law 3
- *      (freestanding artifact), Rule 2 (fail loud), Rule 11 (deterministic),
- *      Rule 12 (ASCII-clean).
+ *      source provenance (ground truth), independent checks (the oracle is truth), language boundary
+ *      (freestanding artifact), fail loudly, deterministic output,
+ *      ASCII source.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #ifndef INITECH_OS_FLAIR_PROCESS_H
 #define INITECH_OS_FLAIR_PROCESS_H
@@ -75,22 +75,22 @@
 /* MenuBar is defined by os/flair/menu.h (the whole Menu Manager surface). The
  * contract only needs a pointer slot ("swapped in when foreground"), so we
  * forward-declare the tag to keep this header freestanding/kernel-buildable
- * without pulling the Menu Manager in (ADR-0013 Sec 3.1). */
+ * without pulling the Menu Manager in (tenant lifecycle). */
 struct MenuBar;
 
 typedef struct FlairApp FlairApp;
 
 /* ===========================================================================
- * 1. THE TENANT ABI  (ADR-0013 Sec 3.1 -- locked C surface, verbatim)
+ * 1. THE TENANT ABI  (tenant lifecycle -- locked C surface, verbatim)
  * ===========================================================================*/
 
-/* FLAIR_APP_MAGIC -- the refCon-tag sentinel (Rule 2 / BC-3). Stamped into
+/* FLAIR_APP_MAGIC -- the refCon-tag sentinel (explicit error handling / BC-3). Stamped into
  * FlairApp.magic at launch; every refCon->FlairApp* cast asserts it before use,
  * so a tenant that scribbles its own refCon fails LOUD instead of mis-routing
  * silently. ASCII 'F','L','A','P' (0x46 0x4C 0x41 0x50). */
 #define FLAIR_APP_MAGIC  0x464C4150u   /* 'FLAP' */
 
-/* Tenant lifecycle state (ADR-0013 Sec 3.1 FlairApp.state). Exactly one app is
+/* Tenant lifecycle state (tenant lifecycle FlairApp.state). Exactly one app is
  * FLAIR_APP_FG at any instant (Sec 3.3 ruling). */
 enum {
     FLAIR_APP_FG    = 0,   /* foreground (front contiguous window run; has menubar) */
@@ -100,7 +100,7 @@ enum {
 
 /* FLAIR_TENANT_RECORDS_DEFAULT -- the default RECORDS-arena budget (bytes) carved
  * as a FLAIR_CLASS_HANDLE block from the master FLAIR heap and laid over with
- * `records_arena` (ADR-0013 Amendment AC-2, the initech-ubd0 split-arena
+ * `records_arena` (tenant lifecycle Amendment AC-2, the  split-arena
  * resolution). The RECORDS arena holds a tenant's WindowRecord(s) + ALL its
  * region_t pools (strucRgn/contRgn/updateRgn + the clip scratch); the shell reads
  * ONLY these during teardown, so app DEATH survives a scribbled DATA arena (BC-6).
@@ -124,32 +124,32 @@ enum {
  *   passes FLAIR_TENANT_RECORDS_DEFAULT (spec/flair_tenants_demo.h sizing note). */
 #define FLAIR_TENANT_RECORDS_DEFAULT  (16u * 1024u)
 
-/* FlairLaunchParams -- the open() build parameters (ADR-0013 Sec 3.2). */
+/* FlairLaunchParams -- the open build parameters (tenant lifecycle). */
 typedef struct FlairLaunchParams {
-    rgn_rect_t bounds;   /* initial structure bounds the app's open() builds into */
+    rgn_rect_t bounds;   /* initial structure bounds the app's open builds into */
     uint32_t   budget;   /* child-arena byte budget; over-budget = fail-loud (BC-5)*/
-    WindowMgr  *wm;      /* the shell Window Manager the tenant's open() builds its
-                          * window(s) into -- NewWindow(lp->wm, ...). Threaded in by
+    WindowMgr  *wm;      /* the shell Window Manager the tenant's open builds its
+                          * window(s) into -- NewWindow(lp->wm,...). Threaded in by
                           * FlairProcess_launch (the kernel passes the live shell wm);
-                          * the demux refCon still binds open()'s windows to `self`.
-                          * Ref: ADR-0013 amendment, bead initech-fka6 (FlairLaunch-
-                          * Params.wm -- the locked-contract edit, Rule 8). */
-    const bitmap_t *surface; /* the OFFSCREEN the tenant's open()/event() draws its
+                          * the demux refCon still binds open's windows to `self`.
+                          * Ref: tenant lifecycle amendment,  (FlairLaunch-
+                          * Params.wm -- the locked-contract edit, pinned inputs). */
+    const bitmap_t *surface; /* the OFFSCREEN the tenant's open/event draws its
                           * content into (global coords; blitter_fill_rect_clipped on
                           * lp->surface clipped to the window's content region). The
                           * compositor composites the live z-order from this surface;
                           * a tenant that does NOT draw (the O-1/O-3/O-4 stub tenants)
                           * is launched with surface==NULL and ignores it. Additive,
-                          * ADR-0013 amendment bead initech-fka6 (Wave-4 Step 1). */
+                          * tenant lifecycle amendment  (Wave-4 Step 1). */
 } FlairLaunchParams;
 
 /* FlairAppProcs -- the const vtable of tenant entry-points (the A5 jump-table
  * analogue). `event` is the one REQUIRED entry; `idle`/`close` may be NULL;
- * `open` builds the world. (ADR-0013 Sec 3.1, verbatim contract.) */
+ * `open` builds the world. (tenant lifecycle, verbatim contract.) */
 typedef struct FlairAppProcs {
     /* open: build windows/menus from self->arena; set every window's
        refCon = (int32_t)(uintptr_t)self. Return 0 on success, !=0 = launch fail
-       (the shell reclaims the partition and reports, Rule 2). */
+       (the shell reclaims the partition and reports, explicit error handling). */
     int  (*open) (FlairApp *self, const FlairLaunchParams *lp);
     /* event: handle exactly ONE cooked EventRecord aimed at this tenant
        (mouseDown inContent / keyDown / updateEvt / activateEvt). REQUIRED.
@@ -162,38 +162,38 @@ typedef struct FlairAppProcs {
     void (*close)(FlairApp *self);
 } FlairAppProcs;
 
-/* FlairApp -- one tenant instance (ADR-0013 Sec 3.1, verbatim layout). */
+/* FlairApp -- one tenant instance (tenant lifecycle, verbatim layout). */
 struct FlairApp {
-    uint32_t             magic;    /* FLAIR_APP_MAGIC -- refCon-tag check (Rule 2) */
+    uint32_t             magic;    /* FLAIR_APP_MAGIC -- refCon-tag check  */
     const char          *name;
     const FlairAppProcs *procs;    /* the code surface (the A5 jump-table analogue) */
     flair_heap_t         arena;    /* per-tenant DATA child heap (GENERAL block):    */
                                    /* per-instance private state, TERec, userData,   */
-                                   /* future resource blobs (ADR-0013 AC-2 DATA side)*/
+                                   /* future resource blobs (tenant lifecycle AC-2 DATA side)*/
     void                *block;    /* the parent GENERAL block backing `arena` (free)*/
     flair_heap_t         records_arena; /* per-tenant RECORDS child heap (HANDLE     */
                                    /* block): the WindowRecord(s) + ALL region_t      */
                                    /* pools (strucRgn/contRgn/updateRgn + clip        */
                                    /* scratch). The shell reads ONLY these during     */
                                    /* teardown, so app DEATH survives a scribbled     */
-                                   /* DATA arena (ADR-0013 Amendment AC-2; BC-6).     */
+                                   /* DATA arena (tenant lifecycle Amendment AC-2; BC-6).     */
     void                *records_block; /* the parent HANDLE block backing            */
                                    /* records_arena (for free). AC-2.                 */
     struct MenuBar      *menubar;  /* this app's menu set; swapped in when foreground */
     WindowPtr            windows;  /* head of THIS app's window group (z-order run)  */
     int32_t              refCon;   /* per-app datum                                 */
     void                *userData; /* per-INSTANCE tenant state (FULL-WIDTH pointer, */
-                                   /* NOT refCon/int32): a tenant's open() stashes a */
+                                   /* NOT refCon/int32): a tenant's open stashes a */
                                    /* heap-allocated private struct here and recovers */
                                    /* it in event(self,ev) as self->userData. Zeroed */
-                                   /* by FlairProcess_launch; additive, ADR-0013      */
-                                   /* amendment bead initech-fka6 (Wave-4 Step 1).    */
+                                   /* by FlairProcess_launch; additive, tenant lifecycle      */
+                                   /* amendment  (Wave-4 Step 1).    */
     uint8_t              state;    /* FLAIR_APP_FG / FLAIR_APP_BG / FLAIR_APP_DYING */
     FlairApp            *nextApp;  /* the resident-app (process) list               */
 };
 
 /* ===========================================================================
- * 2. THE RESIDENT-APP (PROCESS MANAGER) LIST  (ADR-0013 Sec 3.5)
+ * 2. THE RESIDENT-APP (PROCESS MANAGER) LIST  (tenant lifecycle)
  * ---------------------------------------------------------------------------
  * The process list IS the FlairApp.nextApp chain; its head is the foreground
  * app, and the chain runs back through the app-grouped z-order. The single
@@ -207,7 +207,7 @@ typedef struct FlairProcessList {
 void FlairProcessList_init(FlairProcessList *list);
 
 /* ===========================================================================
- * 3. LIFECYCLE + THE LAYER-5 DISPATCHER  (ADR-0013 Sec 3.2/3.3/3.4, BC-2)
+ * 3. LIFECYCLE + THE LAYER-5 DISPATCHER  (tenant lifecycle/3.3/3.4, BC-2)
  * ===========================================================================*/
 
 /* FlairProcess_register -- caller-storage registration (the O-1 host-oracle path).
@@ -218,7 +218,7 @@ void FlairProcessList_init(FlairProcessList *list);
  * window's refCon = (int32_t)(uintptr_t)app (the demux key, Sec 3.1), demotes the
  * previous foreground to FLAIR_APP_BG, links the app at the list head as
  * FLAIR_APP_FG, and returns it (NULL on a NULL argument). It does NOT carve a
- * child arena and does NOT call procs->open(): it is the thin no-allocation
+ * child arena and does NOT call procs->open: it is the thin no-allocation
  * registrar the dispatch oracle (test_process.c O-1) uses to wire stub tenants
  * over caller-built windows. The arena-allocating production launch is
  * FlairProcess_launch below; an app installed by _register has app->block == NULL
@@ -226,11 +226,11 @@ void FlairProcessList_init(FlairProcessList *list);
  * child block). */
 FlairApp *FlairProcess_register(FlairProcessList *list, FlairApp *app);
 
-/* FlairProcess_launch -- the ARENA-ALLOCATING Toolbox launch (ADR-0013 Sec 3.2).
+/* FlairProcess_launch -- the ARENA-ALLOCATING Toolbox launch (tenant lifecycle).
  *
  * Carves a tenant out of the master FLAIR heap and brings it up as the new
  * foreground (the MultiFinder "partition" is a convention, not hardware -- Sec
- * 3.6). SPLIT-ARENA carve (ADR-0013 Amendment AC-2, the initech-ubd0 resolution):
+ * 3.6). SPLIT-ARENA carve (tenant lifecycle Amendment AC-2, the  resolution):
  * a tenant owns TWO child blocks -- a RECORDS block (HANDLE; WindowRecord(s) +
  * region pools) and a DATA block (GENERAL; per-instance state). Steps:
  *   (a) flair_alloc(master, FLAIR_CLASS_HANDLE, sizeof(FlairApp))   -- the handle;
@@ -240,11 +240,11 @@ FlairApp *FlairProcess_register(FlairProcessList *list, FlairApp *app);
  *       then flair_heap_init(&app->arena, block, budget);
  *   (O-4 / BC-5) if ANY alloc fails: reclaim whatever was carved IN REVERSE carve
  *       order, install NOTHING, leave `list`/`wm` unchanged, return NULL (fail-loud
- *       budget -- never overcommit, never partially install; Rule 2);
+ *       budget -- never overcommit, never partially install; explicit error handling);
  *       stamp magic, name, procs, block, records_block, state;
  *   (d) procs->open(app, &lp) -- builds the window(s): the WindowRecord + region
  *       pools from app->records_arena (AC-2), per-instance state from app->arena,
- *       and sets each w->refCon = (int32_t)(uintptr_t)app; if open() returns != 0
+ *       and sets each w->refCon = (int32_t)(uintptr_t)app; if open returns != 0
  *       the launch FAILS: reclaim data + records + handle, install nothing, NULL;
  *   (e) SelectWindow the app's front window (raise z-order + activate);
  *   (f) link at the list head as the new foreground, demoting the old head to BG;
@@ -252,10 +252,10 @@ FlairApp *FlairProcess_register(FlairProcessList *list, FlairApp *app);
  *
  * `records_budget` sizes the RECORDS arena (WindowRecord + region pools; the demo
  * passes FLAIR_TENANT_RECORDS_DEFAULT); `budget` sizes the DATA arena. `surface`
- * is the offscreen the launched tenant's open() draws its content into (threaded
+ * is the offscreen the launched tenant's open draws its content into (threaded
  * into lp->surface before procs->open; the kernel passes the live FLAIR compositor
- * surface, the host stub oracles pass NULL -- their open() does not draw). Additive,
- * ADR-0013 amendment bead initech-fka6; split-arena AC-2 (bead initech-ubd0).
+ * surface, the host stub oracles pass NULL -- their open does not draw). Additive,
+ * tenant lifecycle amendment; split-arena AC-2.
  *
  * Teardown is FlairProcess_terminate (clean) / FlairProcess_kill (death); both
  * one-shot free the data block + records block + handle (Sec 3.4 / AC-2). */
@@ -265,10 +265,10 @@ FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
                              const char *name, rgn_rect_t bounds,
                              uint32_t records_budget, uint32_t budget);
 
-/* FlairProcess_admit -- WINDOWLESS registration (bead initech-tdnl.14;
- * DEC-AC3-3/DEC-AC3-4). Carves the AC-2 trio exactly as FlairProcess_launch
+/* FlairProcess_admit -- WINDOWLESS registration (;
+ * disk tenant lifecycle/disk tenant lifecycle). Carves the AC-2 trio exactly as FlairProcess_launch
  * steps (a)-(c) do (all-or-nothing, reverse reclaim, BC-5), stamps magic/name/
- * procs, calls NO open(), and links the app BEHIND the current head as
+ * procs, calls NO open, and links the app BEHIND the current head as
  * FLAIR_APP_BG -- no SelectWindow, no foreground affirmation, the head is
  * undisturbed (an empty list makes it the head). The first window's
  * affirmation goes through FlairProcess_activate. NULL = nothing installed. */
@@ -276,7 +276,7 @@ FlairApp *FlairProcess_admit(FlairProcessList *list, flair_heap_t *master,
                              const FlairAppProcs *procs, const char *name,
                              uint32_t records_budget, uint32_t budget);
 
-/* FlairProcess_terminate -- CLEAN teardown (ADR-0013 Sec 3.4), for tenants brought
+/* FlairProcess_terminate -- CLEAN teardown (tenant lifecycle), for tenants brought
  * up by FlairProcess_launch (app->block / app->records_block carved from `master`).
  *
  *   (1) procs->close(app) if non-NULL (flush docs);
@@ -290,7 +290,7 @@ FlairApp *FlairProcess_admit(FlairProcessList *list, flair_heap_t *master,
  *   (5) if app was the foreground head, promote the next app (SelectWindow its
  *       front window + foreground state).
  *
- * SPLIT-ARENA (ADR-0013 Amendment AC-2, bead initech-ubd0): the WindowRecord(s) +
+ * SPLIT-ARENA (tenant lifecycle Amendment AC-2, ): the WindowRecord(s) +
  * region pools live in app->records_arena (a SEPARATE HANDLE block), NOT in the
  * DATA arena, so step (2) reads only intact records and the data block is freed
  * WITHOUT reading its (possibly corrupt) payload -- which is exactly what makes
@@ -298,14 +298,14 @@ FlairApp *FlairProcess_admit(FlairProcessList *list, flair_heap_t *master,
 void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
                             flair_heap_t *master, FlairApp *app);
 
-/* FlairProcess_kill -- the DEATH path (ADR-0013 Sec 3.4 application-death; AC-2 /
- * BC-6). Identical to FlairProcess_terminate EXCEPT it NEVER calls procs->close():
+/* FlairProcess_kill -- the DEATH path (tenant lifecycle application-death; AC-2 /
+ * BC-6). Identical to FlairProcess_terminate EXCEPT it NEVER calls procs->close:
  * a crashed app's code must not run again. The shared teardown helper removes the
  * app's windows from the z-order (reading ONLY records_arena-resident structural
  * fields -- intact even if the DATA arena was scribbled), promotes the successor,
  * and one-shot-frees the data block + records block + handle WITHOUT reading the
- * data payload. This is the corrupt-arena death path that ADR-0013 Sec 3.4 claims
- * and the initech-ubd0 split-arena ruling (AC-2) finally makes TRUE: app death
+ * data payload. This is the corrupt-arena death path that tenant lifecycle claims
+ * and the  split-arena ruling (AC-2) finally makes TRUE: app death
  * survives a corrupted DATA arena because no dead-heap byte is ever trusted. */
 void FlairProcess_kill(FlairProcessList *list, WindowMgr *wm,
                        flair_heap_t *master, FlairApp *app);
@@ -316,13 +316,13 @@ void FlairProcess_kill(FlairProcessList *list, WindowMgr *wm,
  * arena frees). An unowned WindowRecord is shell furniture and keeps the legacy
  * HideWindow disposition. Returns 1 when a tenant terminated, 0 for furniture;
  * `terminated_name` receives the stable app-name pointer before the handle is
- * freed (or NULL for furniture). Ref: ADR-0013 Sec 3.4; DEC-AC3-3 subset;
- * GUI-remediation-R3-finder-design.md F2-3; bead initech-8fhu. */
+ * freed (or NULL for furniture). Ref: tenant lifecycle; disk tenant lifecycle subset;
+ * GUI-remediation-R3-finder-design.md F2-3;. */
 int FlairProcess_close_window(FlairProcessList *list, WindowMgr *wm,
                               flair_heap_t *master, WindowPtr w,
                               const char **terminated_name);
 
-/* flair_app_dispatch -- THE single Layer-5 dispatcher (ADR-0013 Sec 3.3, BC-2).
+/* flair_app_dispatch -- THE single Layer-5 dispatcher (tenant lifecycle, BC-2).
  *
  * Demuxes ONE cooked EventRecord to the owning tenant and performs activation,
  * called IDENTICALLY by the live kmain pump and the host O-1 oracle:
@@ -335,15 +335,15 @@ int FlairProcess_close_window(FlairProcessList *list, WindowMgr *wm,
  *   - updateEvt: each damaged window's owning app (background apps included).
  *   - activateEvt: synthesized on a foreground change A->B as EXACTLY two records
  *     in deterministic order -- deactivate (activeFlag=0) to A, then activate
- *     (activeFlag=1) to B (ADR-0013 Sec 3.3; Rule 11).
+ *     (activeFlag=1) to B (tenant lifecycle; reproducibility).
  *
  * WAVE 1: process.c ships a STUB body (no routing/activation) so the O-1 oracle
- * goes RED for the right reason before Wave 2 lands the real logic (Law 2). */
+ * goes RED for the right reason before Wave 2 lands the real logic. */
 void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
                         const EventRecord *ev);
 
 /* FlairProcess_activate -- promote `app` to the foreground through THE ONE
- * switch sequence (bead initech-tdnl.12).
+ * switch sequence.
  *
  * WHY IT EXISTS. flair_app_dispatch reaches the four ordered activation steps
  * only from a mouseDown that FindWindow resolves to an owned window. The always-
@@ -353,7 +353,7 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
  * Rather than let the shell re-implement raise/deactivate/activate/promote (a
  * second, subtly-different activation path is exactly what switch_foreground's
  * banner exists to prevent), it calls THIS, which runs the identical sequence.
- * Since bead initech-tdnl.40 the pump also calls it for ANY desktop mouseDown
+ * Since  the pump also calls it for ANY desktop mouseDown
  * (the desktop is the Finder's; kmain flair_live_desk_activate), where the
  * Finder may own no window at all -- the sequence's agreement step
  * (FlairProcess_sync_active) then leaves no window active.
@@ -367,7 +367,7 @@ int FlairProcess_activate(FlairProcessList *list, WindowMgr *wm,
                           const EventRecord *ev, FlairApp *app);
 
 /* FlairProcess_sync_active -- ONLY THE FOREGROUND APP'S FRONT WINDOW IS DRAWN
- * ACTIVE (bead initech-tdnl.40; audit 2026-10-03 F06).
+ * ACTIVE (; audit 2026-10-03 F06).
  *
  * The application model (Macintosh Toolbox Essentials p.2-4: "The foreground
  * process displays its menu bar, and its windows are in front of the windows
@@ -393,16 +393,16 @@ int FlairProcess_activate(FlairProcessList *list, WindowMgr *wm,
 int FlairProcess_sync_active(FlairProcessList *list, WindowMgr *wm);
 
 /* flair_route_updates -- the updateEvt SPINE: route pending window DAMAGE to each
- * damaged window's owning tenant (ADR-0013 Sec 3.3 -- "updateEvt: each damaged
+ * damaged window's owning tenant (tenant lifecycle -- "updateEvt: each damaged
  * window's owning app, background apps included").
  *
- * Walks the WindowMgr z-order (wm->front .. nextWindow) and, for every VISIBLE
+ * Walks the WindowMgr z-order (wm->front.. nextWindow) and, for every VISIBLE
  * window whose updateRgn is NON-EMPTY, first replaces the pending seed with
  * updateRgn INTERSECT the window's CURRENT visible region (BeginUpdate fidelity;
  * a z-order change may have covered an older seed), then synthesizes ONE
  * updateEvt EventRecord
  * (what=updateEvt; message = the affected window's identity, (uint32_t)(uintptr_t)w
- * per MTE Ch 2 -- exact on flat-32; where/when best-effort/zero, Rule 11),
+ * per MTE Ch 2 -- exact on flat-32; where/when best-effort/zero, reproducibility),
  * recovers the owning FlairApp by the SAME refCon-match rule the dispatcher uses
  * (magic-tag + truncated-identity match, width-portable), delivers it to that
  * tenant's `event` entry-point, and then WindowMgr_validate(w) clears the
@@ -414,7 +414,7 @@ int FlairProcess_sync_active(FlairProcessList *list, WindowMgr *wm);
  * instead PANICS on an unowned hit, because a content click on an ownerless
  * window IS a bug; an unowned window merely carrying damage is NOT.
  *
- * VALIDATION (initech-gofc / DQ1, ratified 2026-07-31; absorbs initech-0zxp):
+ * VALIDATION ( / DQ1, ratified 2026-07-31; absorbs ):
  * EVERY damaged visible window walked is validated, owned or not -- this is the
  * pump's CONTENT phase, and it runs after desktop_paint_damage's chrome phase
  * has already painted the WDEF for every damaged window, which for unowned

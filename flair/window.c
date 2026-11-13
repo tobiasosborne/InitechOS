@@ -1,43 +1,43 @@
 /*
  * os/flair/window.c -- the FLAIR Window Manager (THE ARTIFACT).
  *
- * beads: initech-9qf. The z-ordered window list, FindWindow part-code hit-test,
+ *. The z-ordered window list, FindWindow part-code hit-test,
  *        the visible-region overlap computation, and the region-difference DAMAGE
- *        model (ADR-0004 D-5) that drives minimal repaint. See window.h for the
+ *        model (clipped Toolbox drawing) that drives minimal repaint. See window.h for the
  *        full contract and references.
  *
- * Ref:   PRD Sec 6.2 (region algebra), Sec 6.3 (Toolbox). ADR-0004 D-1 (5-layer
+ * Ref:   PRD Sec 6.2 (region algebra), Sec 6.3 (Toolbox). clipped Toolbox drawing (5-layer
  *        stack), D-3 (Window Manager records + part-codes), D-5 (DiffRgn damage
  *        model: newly-exposed = (old-covered) DIFF (now-covered), accumulated
  *        into updateRgn, NO over-repaint). spec/window_record.h (WindowRecord +
  *        part-codes), spec/region_algebra.h (region_op UNION/DIFF/SECT,
  *        region_set_empty, region_contains_point, region_is_empty,
  *        region_get_bbox), spec/grafport.h (embedded GrafPort + visRgn).
- *        CLAUDE.md Law 2 (oracle is truth), Law 3 (freestanding dual-compile),
- *        Rule 2 (fail loud), Rule 3 (all bugs deep), Rule 11 (deterministic),
- *        Rule 12 (ASCII).
+ *        independent checks (oracle is truth), language boundary (freestanding dual-compile),
+ *        fail loudly, bounded storage (all bugs deep), deterministic output,
+ *        ASCII source (ASCII).
  *
- * STORAGE DISCIPLINE (Law 3): this module mallocs nothing. Every WindowRecord
+ * STORAGE DISCIPLINE: this module mallocs nothing. Every WindowRecord
  * and every region (strucRgn/contRgn/updateRgn, the desktop update, the THREE
  * manager scratch regions) is caller-supplied from the FLAIR arena with its
  * rows[]/x_pool already attached. The REGION_ENGINE engine writes into that storage
- * and FAILS LOUD on cap overflow (Rule 2).
+ * and FAILS LOUD on cap overflow.
  *
  * THE ALIASING RULE: region_op(out, A, B, op) requires `out` DISTINCT from both
  * A and B (spec/region_algebra.h Section 6b: "default contract: out is
  * distinct"). Every chained computation here uses the three rotating scratch
  * regions so no op ever writes its output over one of its inputs.
  *
- * FAIL-LOUD (Rule 2): WIN_PANIC() halts (kernel) / aborts (hosted) on an
+ * FAIL-LOUD: WIN_PANIC halts (kernel) / aborts (hosted) on an
  * invariant violation -- a NULL manager, an unattached region, a window not in
  * the list. A panic with context beats a silently-wrong damage region.
  *
  * DUAL-COMPILE: freestanding (kernel) AND hosted (test_window.c). Only
  * <stdint.h>/<stddef.h> + the locked headers.
  *
- * THE MUTATION SWITCHES (Rule 6): test_window.c compiles this file with
- * -DWINDOW_MUTATE_OVERPAINT/-DWINDOW_MUTATE_ZORDER and the activation plus
- * CHROME_FID_MUT_* CalcDoc restorations to prove the oracle bites. The switches
+ * THE REGRESSION PATCHES: The window suite checks
+ * -overpaint patch/-zorder patch and the activation plus
+ * regression patches CalcDoc restorations to prove the oracle bites. These patches
  * are documented at their use sites; the default build defines none of them.
  * UPDATE_NO_VISCLIP restores the pre-wlzp delivery contract and is graded by
  * the Process Manager's three-window stale-seed stomp case.
@@ -47,11 +47,11 @@
 
 #include "region_algebra.h"   /* the LOCKED region contract (-Ispec)             */
 #include "window.h"
-#include "rdoc.h"             /* rDocProc geometry (bead initech-tdnl.17)       */           /* the Window Manager API (-Ios/flair)             */
+#include "rdoc.h"             /* rDocProc geometry       */           /* the Window Manager API (-Ios/flair)             */
 #include "chrome_metrics.h"    /* SetWTitle title-band invalidation height         */
 #include "chicago12.h" /* titleWidth = sum of Chicago 12 advances
                                               * (relative: window.c builds without
-                                              * -Ispec/assets; initech-tdnl.33)     */
+                                              * -Ispec/assets; )     */
 
 /* ---------------------------------------------------------------------------
  * Fail-loud (dual fail-loud, mirroring the region engine: panic in-kernel /
@@ -62,7 +62,7 @@
 #  include <stdlib.h>   /* abort -- hosted only */
 #  define WIN_PANIC(msg)  abort()
 #else
-/* Freestanding: a deliberate, loud, deterministic hang (Rule 2 / Rule 11). */
+/* Freestanding: a deliberate, loud, deterministic hang (explicit error handling / reproducibility). */
 #  define WIN_PANIC(msg)  do { for (;;) { } } while (0)
 #endif
 
@@ -70,15 +70,15 @@
  * Region helpers built on the REGION_ENGINE engine, respecting the aliasing rule.
  * ===========================================================================*/
 
-/* dst := src (the engine's identity-copy idiom: self-union, exactly as region.c
+/* dst:= src (the engine's identity-copy idiom: self-union, exactly as region.c
  * documents and test_region.c uses). dst must be distinct from src. */
 static void rgn_copy(region_t *dst, const region_t *src)
 {
     region_op(dst, src, src, RGN_OP_UNION);   /* self-union == identity copy */
 }
 
-/* dst := dst OP other, using a scratch DISTINCT from dst and other:
- *   scratch := dst OP other;  dst := scratch. */
+/* dst:= dst OP other, using a scratch DISTINCT from dst and other:
+ *   scratch:= dst OP other;  dst:= scratch. */
 static void rgn_accumulate(region_t *dst, const region_t *other,
                            rgn_op_t op, region_t *scratch)
 {
@@ -102,7 +102,7 @@ static int document_variant(int16_t variant)
  * keeps collapse in its fixed R-16 slot even when zoom is absent (the sampled
  * control-panel case). NewDocumentWindow selects zoomDocProc for the full
  * document set; direct NewWindow callers retain the verbatim variant split.
- * Ref: sys8/window-chrome.md Sec 3.1; D3.a row 16; beads tbef/tdnl.2. */
+ * Ref: sys8/window-chrome.md Sec 3.1; D3.a row 16; . */
 static uint8_t widget_flags_for_variant(int16_t variant, uint8_t go_away)
 {
     uint8_t flags = 0u;
@@ -144,7 +144,6 @@ static region_t *structure_scratch(WindowMgr *wm, rgn_rect_t frame,
         }
         return a;
     }
-#if !defined(CHROME_FID_MUT_SHADOW_CLIPPED)
     if (document_variant(variant)) {
         region_t *b = wm->scratch_b;
         region_t *c = wm->scratch_c;
@@ -167,10 +166,6 @@ static region_t *structure_scratch(WindowMgr *wm, rgn_rect_t frame,
         region_set_rect(b, shadow);
         region_op(a, c, b, RGN_OP_UNION);
     }
-#else
-    /* Rule-6 mutant (initech-9d0e): restore frame-only strucRgn clipping. */
-    (void)document_variant(variant);
-#endif
     return a;
 }
 
@@ -179,35 +174,21 @@ rgn_rect_t WindowFrameRect(const WindowPtr w)
     rgn_rect_t frame;
     if (w == NULL || w->strucRgn == NULL) WIN_PANIC("WindowFrameRect: NULL");
     frame = region_get_bbox(w->strucRgn);
-#if !defined(CHROME_FID_MUT_SHADOW_CLIPPED)
     if (document_variant(w->windowDefProcVariant) && !region_is_empty(w->strucRgn)) {
         frame.right = (int16_t)(frame.right - FLAIR_CHROME_SHADOW_OFFSET);
         frame.bottom = (int16_t)(frame.bottom - FLAIR_CHROME_SHADOW_OFFSET);
     }
-#endif
     return frame;
 }
 
 rgn_rect_t CalcDocContentRect(rgn_rect_t frame)
 {
     rgn_rect_t content;
-#if defined(CHROME_FID_MUT_CONTENT_TOP_STALE)
-    content.top = (int16_t)(frame.top + FLAIR_CHROME_FRAME +
-                            FLAIR_CHROME_TITLEBAR_H);
-#else
     content.top = (int16_t)(frame.top + FLAIR_CHROME_TITLEBAR_H);
-#endif
-#if defined(CHROME_FID_MUT_CONTENT_LEFT_THIN)
-    /* MUTANT (Rule 6; test-chrome-fidelity CAPTURE-BODY legs, bead
-     * initech-tdnl.51): the pre-tdnl.51 one-pixel left inset -- every owner's
-     * content paint erases the left raised bar and its inner black line.
-     * NEVER in a real build. */
-    content.left = (int16_t)(frame.left + FLAIR_CHROME_FRAME);
-#else
     /* The content starts just inside the left body rail's INNER black line,
      * exactly as the top starts just below the title's shared bottom line and
      * the right/bottom stop at the scroll bars' outer lines: outer line (1) +
-     * the 4-px raised bar + inner line (1) = L+6 (bead initech-tdnl.51;
+     * the 4-px raised bar + inner line (1) = L+6 (;
      * sys8/window-chrome.md Sec 4, s8_doc_window_active hscan y=150: black 65,
      * bar 66..69, black 70, content 71 = L+6). The 1-px content-inset
      * highlight (Sec 4 "Content inset") is the first content column, as at the
@@ -217,35 +198,22 @@ rgn_rect_t CalcDocContentRect(rgn_rect_t frame)
      * whites). */
     content.left = (int16_t)(frame.left + FLAIR_CHROME_FRAME +
                              FLAIR_CHROME_BODY_BAR + FLAIR_CHROME_FRAME);
-#endif
-#if defined(WINDOW_MUTATE_CONTENT_OVER_HSCROLL)
-    /* MUTANT (Rule 6; test-window CalcDoc leg + test-flair-scroll): the
-     * pre-tdnl.35 bottom edge, frame.bottom - 1 -- contRgn swallows the
-     * horizontal scroll bar, so content painting erases it and FindWindow
-     * reports it as content. NEVER in a real build. */
-    content.bottom = (int16_t)(frame.bottom - FLAIR_CHROME_FRAME);
-#else
     /* The content stops at the horizontal scroll bar's outer line, exactly as
-     * the right edge stops at the vertical bar's (initech-tdnl.35): contRgn is
+     * the right edge stops at the vertical bar's: contRgn is
      * "the area inside the window frame (excluding the title bar and scroll
      * bars)" -- spec/window_record.h contRgn, IM-I p. I-268. The bar's outer
      * line is the bottom body rail's inner line (FRAME + BODY_BAR) plus the
      * 16-px bar: B-21, the row winscroll.h wscroll_bar_rect(WSCROLL_H) starts
      * on. Before this, contRgn ran to frame.bottom-1, so every owner's content
      * paint (Finder fill, tenants) overwrote the horizontal bar (audit pass 3
-     * H06, initech-tdnl.76) and a click on it reached the owner as content. */
+     * H06, ) and a click on it reached the owner as content. */
     content.bottom = (int16_t)(frame.bottom - FLAIR_CHROME_FRAME -
                                FLAIR_CHROME_BODY_BAR -
                                FLAIR_CHROME_SCROLLBAR_W);
     if (content.bottom < content.top) content.bottom = content.top;
-#endif
-#if defined(CHROME_FID_MUT_CONTENT_OVER_SCROLL)
-    content.right = (int16_t)(frame.right - FLAIR_CHROME_FRAME);
-#else
     content.right = (int16_t)(frame.right - FLAIR_CHROME_FRAME -
                               FLAIR_CHROME_BODY_BAR -
                               FLAIR_CHROME_SCROLLBAR_W);
-#endif
     return content;
 }
 
@@ -254,12 +222,12 @@ rgn_rect_t CalcDocContentRect(rgn_rect_t frame)
  * of `w`. Writes into `out` (distinct from scratch_b and scratch_c, which it
  * uses internally). The occlusion the visible-region + damage model subtract.
  *
- * MUTANT WINDOW_MUTATE_ZORDER (Rule 6): pretend NOTHING is in front -- the
+ * regression patches zorder patch: pretend NOTHING is in front -- the
  * union is always empty, so visible(W) == strucRgn(W) for every window: z-order
  * is ignored and a covered window claims its full structure. The visible-region
  * oracle (independent rasterize-and-compare) goes RED.
  *
- * THE ALWAYS-ON-TOP OVERLAY (beads initech-pipa; ADR-0005 region spine): after the
+ * THE ALWAYS-ON-TOP OVERLAY (;  region spine): after the
  * z-order union, fold in wm->overlay_rgn (the shell's menu bars + modal, a layer
  * ABOVE every window but OUTSIDE the WindowMgr list). Because fronts_union feeds
  * the WHOLE damage chain (visible_into -> exposed -> distribute_exposure ->
@@ -270,14 +238,13 @@ rgn_rect_t CalcDocContentRect(rgn_rect_t frame)
  * seafoam-fills it (defect a). The overlay pixels are simply never written by
  * desktop_paint_damage and survive from the initial shell_render.
  *
- * MUTANT WINDOW_MUTATE_IGNORE_OVERLAY (Rule 6): compile the fold out so a SET
+ * regression patches ignore overlay patch: compile the fold out so a SET
  * overlay_rgn is IGNORED -- the pre-fix compositor (windows overpaint / desktop
- * seafoam-erases the bars + modal). The EMU survival oracle (initech-dc4v) RED.
+ * seafoam-erases the bars + modal). The EMU survival oracle RED.
  * ===========================================================================*/
 static void fronts_union(const WindowMgr *wm, const WindowPtr w, region_t *out)
 {
     region_set_empty(out);
-#ifndef WINDOW_MUTATE_ZORDER
     /* `out` is the accumulator; rgn_accumulate needs a scratch distinct from
      * `out` and from the operand (f->strucRgn). scratch_c is reserved for this;
      * if a caller passed scratch_c AS `out`, fall back to scratch_b. */
@@ -286,13 +253,9 @@ static void fronts_union(const WindowMgr *wm, const WindowPtr w, region_t *out)
         if (!f->visible) continue;
         rgn_accumulate(out, f->strucRgn, RGN_OP_UNION, sc);
     }
-#else
-    (void)wm; (void)w;   /* z-order ignored: union-of-fronts stays empty */
-#endif
 
-#ifndef WINDOW_MUTATE_IGNORE_OVERLAY
-    /* ALIASING-CRITICAL (Rule 3): rgn_accumulate(out, overlay, UNION, sc2) does
-     * `sc2 := out UNION overlay; out := sc2`, so sc2 MUST be distinct from BOTH
+    /* ALIASING-CRITICAL: rgn_accumulate(out, overlay, UNION, sc2) does
+     * `sc2:= out UNION overlay; out:= sc2`, so sc2 MUST be distinct from BOTH
      * `out` and overlay_rgn -- the naive region_op(out, out, overlay) self-alias
      * corrupts on OVERLAP (the exact drag-across-overlay case under test). `out`
      * is scratch_a at every call site (visible_into passes fu==scratch_a), so sc2
@@ -302,7 +265,6 @@ static void fronts_union(const WindowMgr *wm, const WindowPtr w, region_t *out)
         region_t *sc2 = (out == wm->scratch_c) ? wm->scratch_b : wm->scratch_c;
         rgn_accumulate(out, wm->overlay_rgn, RGN_OP_UNION, sc2);
     }
-#endif
 }
 
 /* ===========================================================================
@@ -314,11 +276,11 @@ static void fronts_union(const WindowMgr *wm, const WindowPtr w, region_t *out)
  * exposed-carrier callers pass w->updateRgn, ComputeVisible passes an external
  * region). visible_into then has all three scratch regions free for its chained
  * computation, so no engine op ever aliases its output with an input:
- *   scratch_a := fronts-union;  scratch_b := struc DIFF fronts;
- *   [clip] scratch_c := frame rect;  out := scratch_b SECT scratch_c.
+ *   scratch_a:= fronts-union;  scratch_b:= struc DIFF fronts;
+ *   [clip] scratch_c:= frame rect;  out:= scratch_b SECT scratch_c.
  *
  * When `clip_to_frame` is 0, no frame clip is applied (ComputeVisible for the
- * shell wants the raw visible region): out := struc DIFF fronts.
+ * shell wants the raw visible region): out:= struc DIFF fronts.
  * ===========================================================================*/
 static void visible_into(const WindowMgr *wm, const WindowPtr w, region_t *out,
                          int clip_to_frame)
@@ -326,14 +288,14 @@ static void visible_into(const WindowMgr *wm, const WindowPtr w, region_t *out,
     region_t *fu = wm->scratch_a;
     fronts_union(wm, w, fu);                                  /* scratch_a (uses scratch_c) */
     if (!clip_to_frame) {
-        region_op(out, w->strucRgn, fu, RGN_OP_DIFF);        /* out := struc DIFF fronts */
+        region_op(out, w->strucRgn, fu, RGN_OP_DIFF);        /* out:= struc DIFF fronts */
         return;
     }
     region_t *vis = wm->scratch_b;
-    region_op(vis, w->strucRgn, fu, RGN_OP_DIFF);            /* scratch_b := struc DIFF fronts */
+    region_op(vis, w->strucRgn, fu, RGN_OP_DIFF);            /* scratch_b:= struc DIFF fronts */
     region_t *frame = wm->scratch_c;
-    region_set_rect(frame, wm->desktop_frame);               /* scratch_c := frame rect */
-    region_op(out, vis, frame, RGN_OP_INTERSECT);            /* out := vis SECT frame */
+    region_set_rect(frame, wm->desktop_frame);               /* scratch_c:= frame rect */
+    region_op(out, vis, frame, RGN_OP_INTERSECT);            /* out:= vis SECT frame */
 }
 
 void ComputeVisible(const WindowMgr *wm, const WindowPtr w, region_t *out)
@@ -344,7 +306,7 @@ void ComputeVisible(const WindowMgr *wm, const WindowPtr w, region_t *out)
     visible_into(wm, w, out, 0);
 }
 
-/* BeginUpdate fidelity at the delivery seam (bead initech-wlzp): pending damage
+/* BeginUpdate fidelity at the delivery seam: pending damage
  * is only a seed. A z-order operation may cover part of that seed before the
  * event pump routes it, so the paint clip must be updateRgn INTERSECT the
  * window's CURRENT visible region. Keeping this in window.c lets the operation
@@ -352,22 +314,21 @@ void ComputeVisible(const WindowMgr *wm, const WindowPtr w, region_t *out)
  * allocating from a tenant arena.
  *
  * Scratch order (region_op outputs are always distinct from both inputs):
- *   scratch_a := union of visible fronts
- *   scratch_b := strucRgn DIFF scratch_a             (current visRgn)
- *   scratch_c := updateRgn INTERSECT scratch_b       (delivery clip)
- *   updateRgn := copy(scratch_c)
- *   scratch_a := updateRgn DIFF scratch_b            (Rule-2 assertion)
+ *   scratch_a:= union of visible fronts
+ *   scratch_b:= strucRgn DIFF scratch_a             (current visRgn)
+ *   scratch_c:= updateRgn INTERSECT scratch_b       (delivery clip)
+ *   updateRgn:= copy(scratch_c)
+ *   scratch_a:= updateRgn DIFF scratch_b            (explicit error handling assertion)
  *
- * Ref: ADR-0013 Sec 3.3 (updateEvt to damaged owner); PRD Sec 6.2 (region
+ * Ref: tenant lifecycle (updateEvt to damaged owner); PRD Sec 6.2 (region
  * algebra); docs/design/GUI-remediation-R3-finder-design.md F2.3 redraw
- * discipline; CLAUDE.md Rule 2; bead initech-wlzp proper-fix note. */
+ * discipline; explicit error handling;  proper-fix note. */
 void WindowMgr_clip_update_to_visible(WindowMgr *wm, WindowPtr w)
 {
     if (wm == NULL || w == NULL) WIN_PANIC("clip_update_visible: NULL");
     if (!list_contains(wm, w)) WIN_PANIC("clip_update_visible: not in list");
     if (w->updateRgn == NULL) WIN_PANIC("clip_update_visible: NULL updateRgn");
 
-#ifndef UPDATE_NO_VISCLIP
     region_t *fronts = wm->scratch_a;
     region_t *vis = wm->scratch_b;
     region_t *clip = wm->scratch_c;
@@ -382,17 +343,11 @@ void WindowMgr_clip_update_to_visible(WindowMgr *wm, WindowPtr w)
     region_op(clip, w->updateRgn, vis, RGN_OP_INTERSECT);
     rgn_copy(w->updateRgn, clip);
 
-    /* Rule 2: delivery paint must be a subset of current visibility. This is a
+    /* explicit error handling: delivery paint must be a subset of current visibility. This is a
      * distinct set-difference check, not a bbox approximation. */
     region_op(fronts, w->updateRgn, vis, RGN_OP_DIFF);
     if (!region_is_empty(fronts))
         WIN_PANIC("clip_update_visible: delivery clip escaped visRgn");
-#else
-    /* Named Rule-6 mutant: resurrect the pre-fix delivery path. The directed
-     * three-window stale-seed oracle must go RED via a BACK-over-FRONT stomp. */
-    (void)wm;
-    (void)w;
-#endif
 }
 
 /* ===========================================================================
@@ -433,7 +388,7 @@ static void list_push_front(WindowMgr *wm, WindowPtr w)
 
 /* The frontmost VISIBLE window is active; every other window inactive.
  *
- * Ref: bead initech-v6t2; ADR-0004 D-5. BUG (fixed here): this loop used to
+ * Ref:; clipped Toolbox drawing. BUG (fixed here): this loop used to
  * only flip the in-memory `hilited` flag -- a window whose hilited went
  * 1->0 (it WAS the active window and just lost that status) never had any
  * repaint seeded, so its active-style chrome stayed on screen until an
@@ -455,9 +410,9 @@ static void list_push_front(WindowMgr *wm, WindowPtr w)
  * check always succeeds (a DisposeWindow'd window is unlinked BEFORE this
  * loop runs, per window.c:336, so it is never visited here at all).
  *
- * BOTH transitions are seeded (bead initech-rqz5; epic initech-av7s DQ3,
+ * BOTH transitions are seeded (; epic  DQ3,
  * ratified 2026-07-31). The 1->0 (deactivation) half is the original
- * initech-v6t2 fix. The 0->1 (activation) half was originally left to the
+ *  fix. The 0->1 (activation) half was originally left to the
  * caller ("the caller seeds updateRgn via WindowMgr_invalidate") -- and the
  * 2026-07-21 drive battery proved every live caller forgot: newly-active
  * windows kept flat inactive title bars (s02/s08), exposed strips painted
@@ -470,7 +425,7 @@ static void list_push_front(WindowMgr *wm, WindowPtr w)
  * implies activation there). Callers that ALSO invalidate (a moved window's
  * self-repaint) stay correct -- updateRgn accumulation is a union.
  *
- * MUTANT WINDOW_MUTATE_NO_ACTIVATE_INVAL (Rule 6; the initech-rqz5 bug
+ * regression patches no activate inval patch (mutation checks; the  bug
  * restored): suppresses ONLY the 0->1 seed -- newly-active windows keep
  * whatever chrome/content pixels they had. Bites the host activation
  * checks in test_window.c and the emu test-flair-solid leg C. NEVER in a
@@ -483,13 +438,9 @@ static void reaffirm_active(WindowMgr *wm)
         if (!seen_front && p->visible) { p->hilited = 1; seen_front = 1; }
         else p->hilited = 0;
         if (was_hilited && !p->hilited) {
-#ifndef WINDOW_MUTATE_NO_DEACT_INVAL
             WindowMgr_invalidate(wm, p, region_get_bbox(p->strucRgn));
-#endif
         } else if (!was_hilited && p->hilited) {
-#ifndef WINDOW_MUTATE_NO_ACTIVATE_INVAL
             WindowMgr_invalidate(wm, p, region_get_bbox(p->strucRgn));
-#endif
         }
     }
 }
@@ -512,7 +463,7 @@ static void reaffirm_active(WindowMgr *wm)
  * (desktop_update added) == `exposed` on entry, EXACTLY, with no pixel counted
  * twice -- no over-repaint (D-5 / Rationale 4.3).
  *
- * MUTANT WINDOW_MUTATE_OVERPAINT (Rule 6): the bandaid the damage model exists
+ * regression patches overpaint patch: the bandaid the damage model exists
  * to forbid -- repaint the WHOLE window, not just the diff. Each window behind
  * the departing one gets its ENTIRE structure marked dirty (clipped to the
  * frame), regardless of whether those pixels were actually exposed. This is the
@@ -529,9 +480,8 @@ static void distribute_exposure(WindowMgr *wm, const WindowPtr departing,
         if (p == departing) continue;
         if (!p->visible) continue;
 
-#ifndef WINDOW_MUTATE_OVERPAINT
         if (region_is_empty(exposed)) break;
-        /* claim := exposed SECT p->strucRgn  (scratch_c). */
+        /* claim:= exposed SECT p->strucRgn  (scratch_c). */
         region_t *claim = wm->scratch_c;
         region_op(claim, exposed, p->strucRgn, RGN_OP_INTERSECT);
         if (region_is_empty(claim)) continue;
@@ -542,14 +492,6 @@ static void distribute_exposure(WindowMgr *wm, const WindowPtr departing,
          * out (scratch_a) is distinct from exposed and the operand. */
         region_op(wm->scratch_a, exposed, p->strucRgn, RGN_OP_DIFF);
         rgn_copy(exposed, wm->scratch_a);
-#else
-        /* OVERPAINT mutant: mark p's WHOLE structure dirty, not just the diff. */
-        region_t *frame = wm->scratch_c;
-        region_set_rect(frame, wm->desktop_frame);
-        region_t *whole = wm->scratch_b;
-        region_op(whole, p->strucRgn, frame, RGN_OP_INTERSECT);   /* struc ^ frame */
-        rgn_accumulate(p->updateRgn, whole, RGN_OP_UNION, wm->scratch_a);
-#endif
     }
 
     /* Whatever exposure remains damages the bare desktop. (Under the mutant,
@@ -582,16 +524,16 @@ void WindowMgr_init(WindowMgr *wm, rgn_rect_t desktop_frame,
     wm->scratch_b      = scratch_b;
     wm->scratch_c      = scratch_c;
     wm->overlay_rgn    = NULL;   /* no always-on-top overlay until the caller sets
-                                  * it (initech-pipa). MUST be zeroed: fronts_union
+                                  * it. MUST be zeroed: fronts_union
                                   * dereferences it only when non-NULL -- an
-                                  * uninitialized pointer is UB (Rule 2). */
-    /* No desktop underlay until a caller installs one (beads initech-tdnl.9;
+                                  * uninitialized pointer is UB. */
+    /* No desktop underlay until a caller installs one (;
      * window.h WindowMgr.desktop_underlay). MUST be zeroed for the same reason
      * as overlay_rgn: desktop.c calls it only when non-NULL, and a NULL hook is
      * what keeps every non-Finder build byte-identical. */
     wm->desktop_underlay      = NULL;
     wm->desktop_underlay_user = NULL;
-    wm->scrolls               = NULL;   /* no scroll records (tdnl.35) */
+    wm->scrolls               = NULL;   /* no scroll records */
     region_set_empty(desktop_update);
     region_set_empty(scratch_a);
     region_set_empty(scratch_b);
@@ -608,7 +550,7 @@ rgn_rect_t CalcRDocContentRect(rgn_rect_t frame)
     return c;
 }
 
-/* contRgn := the content rect; an rDocProc window gives up the inner-corner
+/* contRgn:= the content rect; an rDocProc window gives up the inner-corner
  * pixels its WDEF paints black (rdoc.h), so a tenant's content draw -- clipped
  * to contRgn -- can never overpaint them. Uses scratch b/c only. */
 static void set_content(WindowMgr *wm, WindowPtr w, rgn_rect_t content)
@@ -694,7 +636,7 @@ void SetWTitle(WindowMgr *wm, WindowPtr w, const char *title)
     }
     w->titleHandle[n] = '\0';
     /* IM-I titleWidth: the title's pixel width in the system font -- the
-     * sum of the Chicago 12 advances (ADR-0004 D-7; bead initech-tdnl.33;
+     * sum of the Chicago 12 advances (clipped Toolbox drawing;
      * was n * the retired fixed 8-px cell). */
     w->titleWidth = 0;
     for (int k = 0; k < n; k++)
@@ -716,7 +658,7 @@ void HideWindow(WindowMgr *wm, WindowPtr w)
     if (!list_contains(wm, w)) WIN_PANIC("HideWindow: not in list");
     if (!w->visible) return;
 
-    /* exposed := visible(w) clipped to frame, BEFORE flipping visibility. We use
+    /* exposed:= visible(w) clipped to frame, BEFORE flipping visibility. We use
      * w's OWN updateRgn as the exposed carrier (it owes no repaint once hidden,
      * and is reset to empty below), which frees all three scratch regions for
      * visible_into's chained algebra (no aliasing). */
@@ -734,10 +676,10 @@ void DisposeWindow(WindowMgr *wm, WindowPtr w)
 {
     if (wm == NULL || w == NULL) WIN_PANIC("DisposeWindow: NULL");
     if (!list_contains(wm, w)) WIN_PANIC("DisposeWindow: not in list");
-    WindowScrollDetach(wm, w);   /* no dangling scroll record (tdnl.35) */
+    WindowScrollDetach(wm, w);   /* no dangling scroll record */
 
     if (w->visible) {
-        /* exposed := visible(w) clipped to frame, BEFORE unlinking (fronts need
+        /* exposed:= visible(w) clipped to frame, BEFORE unlinking (fronts need
          * w in the list). Carry it in w's OWN updateRgn so all scratch is free. */
         region_t *exposed = w->updateRgn;
         visible_into(wm, w, exposed, 1);
@@ -760,7 +702,7 @@ void ShowWindow(WindowMgr *wm, WindowPtr w)
     w->visible = 1;
     /* The newly-shown window owes a full repaint of its visible region. If the
      * show ACTIVATES it (it is the front-most visible window), reaffirm_active's
-     * 0->1 branch seeds that repaint (initech-rqz5 / DQ3). If it re-appears as a
+     * 0->1 branch seeds that repaint ( / DQ3). If it re-appears as a
      * BACKGROUND window (an active window still sits in front of it), no hilited
      * transition fires and the caller still seeds updateRgn via
      * WindowMgr_invalidate. Covering windows behind it are unaffected (showing
@@ -779,7 +721,7 @@ void SelectWindow(WindowMgr *wm, WindowPtr w)
          * so no D-5 exposure damage is generated for the windows behind it.
          * The raised window's OWN repaint (the previously-covered part + the
          * active-chrome flip) is seeded by reaffirm_active's 0->1 branch below
-         * (bead initech-rqz5 / DQ3): raising a non-front window always flips
+         * ( / DQ3): raising a non-front window always flips
          * its hilited 0->1, and the seed is its full post-raise visible
          * region. D-5 exposure remains move/hide/dispose-only. */
     }
@@ -787,7 +729,7 @@ void SelectWindow(WindowMgr *wm, WindowPtr w)
 }
 
 /* ===========================================================================
- * MoveWindow / DragWindow -- the damage payoff (ADR-0004 D-5).
+ * MoveWindow / DragWindow -- the damage payoff (clipped Toolbox drawing).
  * ===========================================================================*/
 
 void MoveWindow(WindowMgr *wm, WindowPtr w, int16_t newLeft, int16_t newTop)
@@ -801,7 +743,7 @@ void MoveWindow(WindowMgr *wm, WindowPtr w, int16_t newLeft, int16_t newTop)
     int16_t dv = (int16_t)(newTop  - s.top);
     if (dh == 0 && dv == 0) return;
 
-    /* exposed := visible(w_old) clipped to frame. A window only exposes pixels
+    /* exposed:= visible(w_old) clipped to frame. A window only exposes pixels
      * it actually OWNED (its visible region), never pixels a front window owned.
      * Carry it in w's OWN updateRgn so all three scratch are free for the
      * chained algebra (visible_into + the new-struc subtraction). */
@@ -809,7 +751,7 @@ void MoveWindow(WindowMgr *wm, WindowPtr w, int16_t newLeft, int16_t newTop)
     visible_into(wm, w, exposed, 1);
 
     /* The pixels w_old owned that w_new STILL covers did not change owner, so
-     * they are not damage:  exposed := exposed DIFF region(w_new_struc). */
+     * they are not damage:  exposed:= exposed DIFF region(w_new_struc). */
     rgn_rect_t ns = { (int16_t)(s.top + dv), (int16_t)(s.left + dh),
                       (int16_t)(s.bottom + dv), (int16_t)(s.right + dh) };
     rgn_rect_t nc = { (int16_t)(c.top + dv), (int16_t)(c.left + dh),
@@ -847,7 +789,7 @@ void DragWindow(WindowMgr *wm, WindowPtr w, int16_t dh, int16_t dv)
  * consumed do we seed the actor's exact new visible footprint. This is the
  * SizeWindow-class counterpart to MoveWindow, with no intermediate geometry
  * (and therefore no over-damage when position and size both change for zoom).
- * Ref: window.h Sec 3; WL-0076; GUI-remediation-plan.md R1.2. */
+ * Ref: window.h Sec 3; GUI-remediation-plan.md R1.2. */
 static void set_document_frame(WindowMgr *wm, WindowPtr w,
                                rgn_rect_t next, int collapsed)
 {
@@ -870,15 +812,10 @@ static void set_document_frame(WindowMgr *wm, WindowPtr w,
     rgn_copy(w->strucRgn,
              structure_scratch(wm, next, w->windowDefProcVariant));
     if (collapsed) {
-#ifndef WINDOW_MUTATE_COLLAPSE_LEAK
         region_set_empty(w->contRgn);
-#else
-        /* Rule-6 mutant: body ownership leaks through the shade state. */
-#endif
     } else {
         region_set_rect(w->contRgn, CalcDocContentRect(next));
-#ifndef WINDOW_MUT_SCROLL_STALE_RESIZE
-        /* tdnl.82: chrome paints BEFORE the client's updateEvt. Settle the
+        /*: chrome paints BEFORE the client's updateEvt. Settle the
          * cached document extents now, not during Finder content painting.
          * Grow, zoom and unshade all take this transaction. The full new
          * structure is damaged below, so both bars repaint the same model
@@ -893,7 +830,6 @@ static void set_document_frame(WindowMgr *wm, WindowPtr w,
                 ws->axis[a].drag_pos = -1;
             }
         }
-#endif
     }
 
     distribute_exposure(wm, w, exposed);
@@ -936,12 +872,8 @@ void ConstrainWindowSize(const WindowMgr *wm, const WindowPtr w,
     if (max_h < min_h) max_h = min_h;
     want_w = *width;
     want_h = *height;
-#ifndef WINDOW_MUTATE_GROW_NO_MIN
     if (want_w < min_w) want_w = min_w;
     if (want_h < min_h) want_h = min_h;
-#else
-    /* Rule-6 mutant: restore the unusable sub-chrome grow result. */
-#endif
     if (want_w > max_w) want_w = max_w;
     if (want_h > max_h) want_h = max_h;
     *width = (int16_t)want_w;
@@ -951,11 +883,6 @@ void ConstrainWindowSize(const WindowMgr *wm, const WindowPtr w,
 void SizeWindow(WindowMgr *wm, WindowPtr w, int16_t width, int16_t height)
 {
     rgn_rect_t frame;
-#if defined(WINDOW_MUT_GROW_NO_COMMIT)
-    /* h6y1 Rule 6: the tracked proposal/serial marker alone is not a resize.
-     * The emu pixel gate must see SizeWindow's committed frame and content. */
-    return;
-#endif
     if (wm == NULL || w == NULL) WIN_PANIC("SizeWindow: NULL");
     if (w->collapsed) WIN_PANIC("SizeWindow: collapsed window");
     ConstrainWindowSize(wm, w, &width, &height);
@@ -993,18 +920,7 @@ int ZoomWindow(WindowMgr *wm, WindowPtr w)
         w->zoomed = 1;
     } else {
         if (!w->userStateValid) WIN_PANIC("ZoomWindow: missing userState");
-#ifndef WINDOW_MUTATE_ZOOM_NO_RESTORE
         target = w->userState;
-#else
-        target.top = (int16_t)(wm->desktop_frame.top +
-                               FLAIR_CHROME_ZOOM_MARGIN_TOP);
-        target.left = (int16_t)(wm->desktop_frame.left +
-                                FLAIR_CHROME_ZOOM_MARGIN_LEFT);
-        target.bottom = (int16_t)(wm->desktop_frame.bottom -
-                                  FLAIR_CHROME_ZOOM_MARGIN_BOTTOM);
-        target.right = (int16_t)(wm->desktop_frame.right -
-                                 FLAIR_CHROME_ZOOM_MARGIN_RIGHT);
-#endif
         w->zoomed = 0;
     }
     set_document_frame(wm, w, target, 0);
@@ -1039,11 +955,11 @@ void WindowMgr_invalidate(WindowMgr *wm, WindowPtr w, rgn_rect_t rect)
     if (!list_contains(wm, w)) WIN_PANIC("invalidate: not in list");
     if (!w->visible) return;
 
-    /* vis := visible(w) (raw, not frame-clipped) into scratch_b. */
+    /* vis:= visible(w) (raw, not frame-clipped) into scratch_b. */
     region_t *vis = wm->scratch_b;
     visible_into(wm, w, vis, 0);
 
-    /* product := region(rect) SECT vis  (scratch_c). region(rect) is in
+    /* product:= region(rect) SECT vis  (scratch_c). region(rect) is in
      * scratch_a; vis is scratch_b; product is scratch_c -- all distinct. */
     region_t *rr = wm->scratch_a;
     region_set_rect(rr, rect);
@@ -1059,7 +975,7 @@ void WindowMgr_invalidate_desktop(WindowMgr *wm, rgn_rect_t rect)
 {
     if (wm == NULL) WIN_PANIC("invalidate_desktop: NULL");
 
-    /* damage := region(rect) INTERSECT desktop_frame. scratch_b is the
+    /* damage:= region(rect) INTERSECT desktop_frame. scratch_b is the
      * exposure carrier expected by distribute_exposure; scratch_a/scratch_c
      * are free for its front-to-back owner partition after this intersection. */
     region_t *rr = wm->scratch_a;
@@ -1101,13 +1017,11 @@ flair_part_code_t FindWindow(const WindowMgr *wm, flair_point_t pt,
 
         if (whichWindow) *whichWindow = p;
 
-#if !defined(WINDOW_MUTATE_SCROLL_DRAG)
         /* The standard scroll bars are CONTROLS IN THE CONTENT (window.h Sec
          * 4b; control-manager.md): inContent, then FindControl. Checked first
          * because neither gutter lies in contRgn. */
         if (WindowScrollBand(p, pt) >= 0)
             return inContent;
-#endif
 
         /* content first (most common). */
         if (region_contains_point(p->contRgn, h, v))
@@ -1120,11 +1034,7 @@ flair_part_code_t FindWindow(const WindowMgr *wm, flair_point_t pt,
         int16_t ri = (int16_t)(s.right - 1);
         int16_t bi = (int16_t)(s.bottom - 1);
         int16_t by = (int16_t)(s.top + FLAIR_CHROME_WIDGET_TOP_OFF);
-#if defined(WINDOW_MUTATE_ZONE_OFF)
-        int16_t zone_shift = 3;
-#else
         int16_t zone_shift = 0;
-#endif
 
         if (p->windowDefProcVariant == rDocProc) {
             /* the rounded window's one widget: its 10x10 close box (rdoc.h) */

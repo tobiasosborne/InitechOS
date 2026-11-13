@@ -1,0 +1,32 @@
+# Legacy CHROME_FID_MUT_RAMP
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -169,15 +169,6 @@
+ {
+     const int box = FLAIR_CHROME_WIDGET_BOX;
+     const int interior = FLAIR_CHROME_WIDGET_INTERIOR;
+-    static const int ramp_part[FLAIR_CHROME_WIDGET_RAMP_RUNGS] = {
+-        FLAIR_PART_PLAT_FRAME_SHADOW,
+-        FLAIR_PART_PLAT_WELL,
+-        FLAIR_PART_PLAT_TILE_SHADOW,
+-        FLAIR_PART_PLAT_FRAME_FACE,
+-        FLAIR_PART_PLAT_FACE,
+-        FLAIR_PART_PLAT_TROUGH,
+-        FLAIR_PART_CONTENT
+-    };
+ 
+     /* The fixed 13x13 cell as a rect table (compact storage, drawing tables), offsets
+      * from (bx,by): E7-less DA face, A5 outer highlight, the 1-px ring
+@@ -207,10 +198,7 @@
+ 
+     for (int dy = 1; dy <= FLAIR_CHROME_WIDGET_RAMP_FACE; dy++) {
+         for (int dx = 1; dx <= FLAIR_CHROME_WIDGET_RAMP_FACE; dx++) {
+-            int rung = (dx + dy - 2) /
+-                       FLAIR_CHROME_WIDGET_RAMP_PX_PER_STEP;
+-            if (pressed) rung = (rung >= 2) ? rung - 2 : 0;
+-            int part = ramp_part[rung];
++            int part = FLAIR_PART_PLAT_FRAME_FACE;
+             cfill(port, bx + 2 + dx, by + 2 + dy, 1, part);
+         }
+     }

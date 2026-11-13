@@ -1,0 +1,18 @@
+# Legacy RES_MUT_IGNORE_TYPE
+# test: test_resource
+--- a/resource.c
++++ b/resource.c
+@@ -91,7 +91,12 @@
+         uint16_t       cm1  = rd_u16(m->fork + e + 4u);
+         uint16_t       rlo  = rd_u16(m->fork + e + 6u);
+ 
+-        int matched = (et == type);
++        /* regression patches: ignore the type key -- match the FIRST type regardless. Proves
++         * the 4-char type comparison is load-bearing (wrong-type lookups must
++         * miss; cross-type lookups must not leak the first type's resources). */
++        (void)et;
++        (void)type;   /* the discarded key (keeps the mutant -Werror-clean) */
++        int matched = 1;
+         if (matched) {
+             if (count_m1_out)    *count_m1_out = cm1;
+             if (reflist_off_out) *reflist_off_out = rlo;

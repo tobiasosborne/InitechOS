@@ -2,9 +2,9 @@
  * flair_look_sentinel_stub.c -- the SENTINEL policy stub for
  *                               test-flair-mechanism-colorblind (THE ORACLE STUB).
  *
- * beads: initech-6bq2 (C-8 MECHANISM/POLICY enforcement); epic initech-qipc.
- * Ref:   ADR-0004-AMENDMENT-DEC-09 Sec 3.10 (DEC-09-D4 #2); CLAUDE.md Law 2,
- *        Rule 6, Rule 12.
+ *  (C-8 MECHANISM/POLICY enforcement); epic.
+ * Ref:   clipped Toolbox drawing (authored teal-D4 #2); independent checks,
+ *        mutation checks, ASCII source.
  *
  * This stub REPLACES the real flair_look resolver (os/flair/flair_look.c) at
  * link time for the colorblind oracle.  It makes the ONE policy seam
@@ -19,7 +19,7 @@
  * grep cannot give (it catches an obfuscated or computed literal too).
  *
  * Host-only factory code (the oracle's stub policy); not compiled into the OS.
- * ASCII-clean (Rule 12).
+ * ASCII-clean.
  */
 
 #include <stdint.h>

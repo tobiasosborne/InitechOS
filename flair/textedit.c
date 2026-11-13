@@ -1,46 +1,46 @@
 /*
  * os/flair/textedit.c -- FLAIR TextEdit (TERec) implementation -- THE ARTIFACT.
  *
- * beads: initech-77dj (FLAIR Phase 4.5 -- the TextEdit half). REDUCED first cut
+ *  (FLAIR Phase 4.5 -- the TextEdit half). REDUCED first cut
  *        (committee ruling wf_00931e9e); see textedit.h for the full contract +
  *        the deferred-full-TERec note.
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE; this unchanged
+ * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE; this unchanged
  * TextEdit semantic core remains retained Toolbox heritage (BC-10.10).
- * Ref:   ../system7-decomp/specs/toolbox/textedit.md -- Sec 2 (half-open
+ * Ref:../system7-decomp/specs/toolbox/textedit.md -- Sec 2 (half-open
  *        [selStart,selEnd) selection), Sec 4 (CR-delimited + crOnly<0 + word-wrap
  *        line layout; lineStarts/nLines), Sec 6 (TEKey/TECut/TECopy/TEPaste/
  *        TESetSelect semantics). os/flair/scrap.h (FlairPutScrap/FlairGetScrap --
  *        cut/copy/paste route through the shell-owned Scrap; FLAIR_SCRAP_TYPE_TEXT).
- *        CLAUDE.md Law 1 (ground truth), Law 2 (oracle is truth, not the agent),
- *        Law 3 (freestanding artifact; no libc, no malloc; dual-compile), Rule 2
- *        (fail loud), Rule 6 (mutants: each #ifdef MUST compile + go RED), Rule 11
- *        (deterministic), Rule 12 (ASCII-clean).
+ *        source provenance (ground truth), independent checks (oracle is truth, not the agent),
+ *        language boundary (freestanding artifact; no libc, no malloc; dual-compile), explicit error handling
+ *        (fail loud), mutation checks (mutants: each patch MUST compile + go RED), reproducibility
+ *        (deterministic), ASCII source.
  *
- * MUTANT GUARDS (Rule 6 -- mutation-proven oracle; NEVER define in a real build):
- *   TE_MUT_SEL_INCLUSIVE   -- treat the selection as inclusive [selStart,selEnd]
+ * regression patches GUARDS (mutation checks -- mutation-proven oracle; NEVER define in a real build):
+ *   sel inclusive patch   -- treat the selection as inclusive [selStart,selEnd]
  *       (delete selEnd-selStart+1 chars). The half-open delete in
- *       te_delete_range() over-deletes by one -> step 5 / step 6 RED.
- *   TE_MUT_PASTE_NO_DELETE -- TEKey / TEInsert / TEPaste insert WITHOUT first
+ *       te_delete_range over-deletes by one -> step 5 / step 6 RED.
+ *   paste no delete patch -- TEKey / TEInsert / TEPaste insert WITHOUT first
  *       deleting the selected range -> the range survives the insert -> step 5 RED.
- *   TE_MUT_LINEBREAK_OFF   -- the CR line break records the CR offset instead of
+ *   linebreak off patch   -- the CR line break records the CR offset instead of
  *       the offset PAST it (off-by-one lineStarts) -> step 9 (CR test) RED.
- *   TE_MUT_WRAP_CHARS      -- the retired monospaced rule: wrap when a line
+ *   wrap chars patch      -- the retired monospaced rule: wrap when a line
  *       reaches wrapWidth / 8 CHARACTERS instead of measuring proportional
- *       pixels -> the pixel-wrap steps (10-12) RED (bead initech-tdnl.68).
- *   The editing surface (bead initech-tdnl.16; harness/proptest/
+ *       pixels -> the pixel-wrap steps (10-12) RED.
+ *   The editing surface (; harness/proptest/
  *   test_te_surface.c, each RED for its named reason):
- *   TE_MUT_HIT_FLOOR / TE_MUT_HIT_PAST_CR / TE_MUT_ARROW_NO_COLLAPSE /
- *   TE_MUT_EXTEND_ANCHOR / TE_MUT_PROBE_NO_LINES (see each site).
+ *   hit floor patch / hit past cr patch / arrow no collapse patch /
+ *   extend anchor patch / probe no lines patch (see each site).
  *
- * ERA CEILING (Law 3): monostyled, Mac TextEdit model only -- no Win32 edit
+ * ERA CEILING: monostyled, Mac TextEdit model only -- no Win32 edit
  *   control names, no styled (txSize==-1) runs (textedit.md Sec 5, out of scope).
  *
- * FREESTANDING (Law 3): <stdint.h> (via textedit.h) + <stddef.h> (NULL) + the
+ * FREESTANDING: <stdint.h> (via textedit.h) + <stddef.h> (NULL) + the
  *   Font Manager's header-only metrics (text.h: text_face_advance) only.
  *   No string.h / libc / malloc. The in-place insert/delete shifts use the
  *   overlap-safe te_memmove helper below (forward when dst<src, backward else).
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #include <stddef.h>   /* NULL -- freestanding-safe (C11 S4p6 required header) */
 #include "textedit.h"
@@ -48,13 +48,13 @@
 
 /* ---------------------------------------------------------------------------
  * Fail-loud dual-compile pattern (mirrors scrap.c SCRAP_PANIC / process.c
- * PROC_PANIC). Hosted: abort() crashes cleanly so the oracle traces the cause.
+ * PROC_PANIC). Hosted: abort crashes cleanly so the oracle traces the cause.
  * Freestanding kernel: a deliberate infinite loop is the loud deterministic
- * halt (Rule 2 / Rule 11). The (msg) is documentation; it is intentionally not
+ * halt (explicit error handling / reproducibility). The (msg) is documentation; it is intentionally not
  * emitted (no serial here -- the in-kernel caller surfaces PC LOAD LETTER).
  * ------------------------------------------------------------------------- */
 #if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1 && !defined(__KERNEL_FREESTANDING__)
-#  include <stdlib.h>   /* abort() -- hosted only */
+#  include <stdlib.h>   /* abort -- hosted only */
 #  define TE_PANIC(msg)  abort()
 #else
 #  define TE_PANIC(msg)  do { for (;;) { } } while (0)
@@ -92,8 +92,8 @@ static void te_memmove(char *dst, const char *src, int n)
  * the current line; the next line begins PAST the CR. crOnly < 0 == Return-only,
  * no word wrap (the line may run past the width) -- textedit.md Sec 4 step 1.
  *
- * WORD WRAP IN PIXELS (bead initech-tdnl.68; textedit.md Sec 4 step 1: "lines
- * whose width is bounded by destRect's width ... Breaking is by WORD", the
+ * WORD WRAP IN PIXELS (; textedit.md Sec 4 step 1: "lines
+ * whose width is bounded by destRect's width... Breaking is by WORD", the
  * widths "from the NFNT owTable"): wrapWidth is the destRect width in PIXELS
  * and every char costs its styled proportional advance in (txFont, txFace)
  * (text_face_advance: the real NFNT 5478 advances for Chicago, +1 when bold).
@@ -109,7 +109,7 @@ static void te_memmove(char *dst, const char *src, int n)
  * nLines+1 sentinel form -- the capped first cut.
  * ------------------------------------------------------------------------- */
 /* The record's strike: (txFont, txSize) through the ONE text.h mapping
- * (bead initech-uelk: applFont at 12 = Geneva 12). */
+ * (: applFont at 12 = Geneva 12). */
 static text_font_t te_font(const FlairTE *te)
 {
     return text_font_from_txfont_size((int)te->txFont, (int)te->txSize);
@@ -122,7 +122,7 @@ static int te_char_w(const FlairTE *te, char ch)
                              (int)(unsigned char)ch);
 }
 
-/* THE TEXT A LAYOUT READS (bead initech-tdnl.16). The live buffer, or the
+/* THE TEXT A LAYOUT READS. The live buffer, or the
  * buffer AS IT WOULD BE after replacing [selA, selB) with an inserted run: a
  * three-piece view (head | run | tail) read char by char, so the capacity
  * probe FlairTECanReplace lays out the hypothetical text WITHOUT writing it
@@ -171,13 +171,7 @@ static int te_layout(const FlairTE *te, const te_view_t *v, int16_t *starts,
         char ch = te_view_at(v, i);
 
         if (ch == TE_CH_CR) {
-#ifdef TE_MUT_LINEBREAK_OFF
-            /* MUTANT (Rule 6): record the CR offset instead of the offset PAST
-             * it -- an off-by-one lineStarts. Step 9 (CR) RED. */
-            TE_EMIT(i);
-#else
             TE_EMIT(i + 1);   /* next line starts past the CR */
-#endif
             s = i + 1;
             last_break = -1;
             w = 0;
@@ -185,13 +179,8 @@ static int te_layout(const FlairTE *te, const te_view_t *v, int16_t *starts,
             continue;
         }
 
-#ifdef TE_MUT_WRAP_CHARS
-        /* MUTANT (Rule 6): the retired monospaced rule, wrapWidth/8 chars. */
-        if (wrap_on && ch != TE_CH_SP && (i - s) >= te->wrapWidth / 8 && i > s) {
-#else
         if (wrap_on && ch != TE_CH_SP && w + te_char_w(te, ch) > te->wrapWidth &&
             i > s) {
-#endif
             int brk = (last_break > s) ? last_break : i;
             TE_EMIT(brk);
             s = brk;
@@ -239,16 +228,12 @@ static void te_delete_span(FlairTE *te, int16_t a, int16_t count)
 /* ---------------------------------------------------------------------------
  * te_delete_range -- delete the half-open range [a, b) (a <= b, both in
  * [0, teLength]). This is the ONE place the selection span is measured, so
- * TE_MUT_SEL_INCLUSIVE perturbs it in exactly one spot. The count is clamped to
+ * sel inclusive patch perturbs it in exactly one spot. The count is clamped to
  * stay in-bounds so the mutant produces a WRONG ANSWER, not a memory fault.
  * ------------------------------------------------------------------------- */
 static void te_delete_range(FlairTE *te, int16_t a, int16_t b)
 {
     int16_t count = (int16_t)(b - a);
-#ifdef TE_MUT_SEL_INCLUSIVE
-    /* MUTANT (Rule 6): inclusive [a,b] -- delete one extra char. Step 5/6 RED. */
-    count = (int16_t)(count + 1);
-#endif
     if (count < 0)
         count = 0;
     if ((int)a + (int)count > (int)te->teLength)
@@ -258,7 +243,7 @@ static void te_delete_range(FlairTE *te, int16_t a, int16_t b)
 
 /* ---------------------------------------------------------------------------
  * te_insert_at -- insert `len` bytes from `s` at offset `pos`, shifting the tail
- * right. Fail loud (Rule 2) if the result would exceed FLAIR_TE_TEXT_MAX. The
+ * right. Fail loud  if the result would exceed FLAIR_TE_TEXT_MAX. The
  * caret advances past the inserted run (selStart=selEnd=pos+len).
  * ------------------------------------------------------------------------- */
 static void te_insert_at(FlairTE *te, int16_t pos, const char *s, int16_t len)
@@ -287,7 +272,7 @@ static void te_insert_at(FlairTE *te, int16_t pos, const char *s, int16_t len)
 }
 
 /* ===========================================================================
- * THE EDITING SURFACE (bead initech-tdnl.16) -- see textedit.h for the rules.
+ * THE EDITING SURFACE -- see textedit.h for the rules.
  * ===========================================================================*/
 static int te_line_h(const FlairTE *te)
 {
@@ -312,10 +297,8 @@ static int te_line_reach(const FlairTE *te, int L)
     if (L + 1 >= te->nLines)
         return te->teLength;
     e = te->lineStarts[L + 1];
-#ifndef TE_MUT_HIT_PAST_CR
     if (e > 0 && te->text[e - 1] == TE_CH_CR)
         e--;                               /* the caret stops before the CR */
-#endif
     return e;
 }
 
@@ -335,13 +318,7 @@ static int te_offset_at(const FlairTE *te, int h, int v)
     e = te_line_reach(te, L);
     for (i = te->lineStarts[L]; i < e; i++) {
         int w = te_char_w(te, te->text[i]);
-#ifdef TE_MUT_HIT_FLOOR
-        /* MUTANT (Rule 6): the char under the point, never the NEAREST
-         * boundary -- a click on a char's right half lands before it. */
-        if (h < x + w)
-#else
         if (2 * h < 2 * x + w)             /* nearer the left boundary */
-#endif
             return i;
         x += w;
     }
@@ -354,13 +331,7 @@ static void te_arrow(FlairTE *te, char ch)
     int16_t h, v;
 
     if (ch == FLAIR_TE_CH_LEFT) {
-#ifdef TE_MUT_ARROW_NO_COLLAPSE
-        /* MUTANT (Rule 6): a range is not collapsed -- the caret steps left of
-         * its start as if it were an insertion point. */
-        off = a - 1;
-#else
         off = (a < b) ? a : a - 1;
-#endif
     } else if (ch == FLAIR_TE_CH_RIGHT) {
         off = (a < b) ? b : b + 1;
     } else {
@@ -414,17 +385,11 @@ int16_t FlairTEClick(FlairTE *te, int16_t h, int16_t v, int extend)
     if (!extend) {
         anchor = off;
     } else {
-#ifdef TE_MUT_EXTEND_ANCHOR
-        /* MUTANT (Rule 6): the anchor is always selStart -- a shift-click
-         * before the selection throws its end away. */
-        anchor = te->selStart;
-#else
         /* keep the end FARTHER from the point */
         int da = off - te->selStart, db = te->selEnd - off;
         if (da < 0) da = -da;
         if (db < 0) db = -db;
         anchor = (da >= db) ? te->selStart : te->selEnd;
-#endif
     }
     FlairTESetSelect(te, (int16_t)anchor, (int16_t)off);
     return (int16_t)anchor;
@@ -445,15 +410,8 @@ int FlairTECanReplace(const FlairTE *te, int16_t a, int16_t b, const char *s,
     view.a = te->text;      view.na = x;
     view.b = s;             view.nb = len;
     view.c = te->text + y;  view.nc = te->teLength - y;
-#ifdef TE_MUT_PROBE_NO_LINES
-    /* MUTANT (Rule 6): the probe checks the length only -- an edit that needs
-     * a line past FLAIR_TE_MAX_LINES is let through (and the edit panics). */
-    (void)view; (void)n;
-    return 1;
-#else
     n = te_layout(te, &view, NULL, FLAIR_TE_MAX_LINES);
     return n >= 0;
-#endif
 }
 
 /* ===========================================================================
@@ -466,7 +424,7 @@ void FlairTE_init(FlairTE *te, int16_t wrapWidth, int16_t just)
     if (te == NULL)
         TE_PANIC("FlairTE_init: NULL te (contract error)");
     for (i = 0; i < FLAIR_TE_TEXT_MAX; i++)
-        te->text[i] = 0;                 /* deterministic empty buffer (Rule 11) */
+        te->text[i] = 0;                 /* deterministic empty buffer  */
     te->selStart  = 0;
     te->selEnd    = 0;
     te->teLength  = 0;
@@ -487,7 +445,7 @@ void FlairTESetText(FlairTE *te, const char *s, int16_t len)
     int i;
     if (te == NULL || (s == NULL && len > 0))
         TE_PANIC("FlairTESetText: NULL argument (contract error)");
-    /* Rule 2: fail loud on a bad length -- NEVER silently truncate. */
+    /* explicit error handling: fail loud on a bad length -- NEVER silently truncate. */
     if (len < 0 || (int)len > FLAIR_TE_TEXT_MAX)
         TE_PANIC("FlairTESetText: len out of [0, FLAIR_TE_TEXT_MAX]");
 
@@ -510,7 +468,7 @@ int16_t FlairTEGetText(const FlairTE *te, char *buf, int16_t bufsz)
     int i;
     if (te == NULL || buf == NULL)
         TE_PANIC("FlairTEGetText: NULL argument (contract error)");
-    /* Rule 2: fail loud if the caller's buffer is too small -- NO partial copy. */
+    /* explicit error handling: fail loud if the caller's buffer is too small -- NO partial copy. */
     if (bufsz < te->teLength)
         TE_PANIC("FlairTEGetText: bufsz < teLength (fail loud, no partial copy)");
     for (i = 0; i < te->teLength; i++)
@@ -559,10 +517,8 @@ void FlairTEKey(FlairTE *te, char ch)
     }
 
     /* Normal char: delete any range first, then insert at the insertion point. */
-#ifndef TE_MUT_PASTE_NO_DELETE
     if (te->selStart < te->selEnd)
         te_delete_range(te, te->selStart, te->selEnd);
-#endif
     te_insert_at(te, te->selStart, &ch, 1);
     te_recompute_lines(te);
 }
@@ -571,10 +527,8 @@ void FlairTEInsert(FlairTE *te, const char *s, int16_t len)
 {
     if (te == NULL || (s == NULL && len > 0))
         TE_PANIC("FlairTEInsert: NULL argument (contract error)");
-#ifndef TE_MUT_PASTE_NO_DELETE
     if (te->selStart < te->selEnd)
         te_delete_range(te, te->selStart, te->selEnd);
-#endif
     te_insert_at(te, te->selStart, s, len);
     te_recompute_lines(te);
 }
@@ -623,7 +577,7 @@ int FlairTECut(FlairTE *te, FlairScrap *scrap)
 int FlairTEPaste(FlairTE *te, const FlairScrap *scrap)
 {
     /* The paste staging buffer is the text-buffer size: a TEXT flavor larger
-     * than the FlairTE can ever hold is a fail-loud condition (Rule 2). */
+     * than the FlairTE can ever hold is a fail-loud condition. */
     char     tmp[FLAIR_TE_TEXT_MAX];
     uint32_t got = 0;
     int32_t  r;
@@ -638,7 +592,7 @@ int FlairTEPaste(FlairTE *te, const FlairScrap *scrap)
         TE_PANIC("FlairTEPaste: TEXT flavor exceeds the FlairTE text buffer");
 
     /* Insert the pasted bytes at the selection (replacing any range). Reusing
-     * FlairTEInsert keeps the TE_MUT_PASTE_NO_DELETE guard in one place. */
+     * FlairTEInsert keeps the paste no delete patch guard in one place. */
     FlairTEInsert(te, tmp, (int16_t)got);
     return 0;
 }

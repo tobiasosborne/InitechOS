@@ -1,11 +1,11 @@
 /* tools/asset_lz.c -- build-time STORAGE packing of locked strike data for
- * the kernel (kernel size round 5, WL-0168). FACTORY C, host only.
+ * the kernel (compact storage, packed storage). FACTORY C, host only.
  *
  * Ref: PRD Sec 5/6.4 (the kernel window is a gated resource); the round-4
- *      chicago_pack precedent (tools/chicago_pack.c, WL-0152): the LOCKED
+ *      chicago_pack precedent (tools/chicago_pack.c, packed font rows): the LOCKED
  *      headers stay the only source of every byte; this tool emits a packed
  *      copy and harness/proptest/test_asset_lz.c proves decode == locked.
- *      Locked sources (UNCHANGED, Rule 8): spec/assets/desk_icons.h,
+ *      Locked sources (UNCHANGED, pinned inputs): spec/assets/desk_icons.h,
  *      finder_icons.h, alert_icons.h, finder_small_icons.h, boot_logo.h.
  *
  * The packed form is LZSS (os/flair/asset_lz.h is the decoder and the format
@@ -14,7 +14,7 @@
  * (w >> 4) + 1 (1..4096) and length (w & 15) + 3 (3..18). The parse is an
  * exact shortest-path (literal 9 bits, match 17 bits), ties broken toward the
  * literal and then the shortest distance -- deterministic, no timestamps
- * (Rule 11). Output: the committed os/flair/asset_lz_data.h; the drift tooth
+ *. Output: the committed os/flair/asset_lz_data.h; the drift tooth
  * (test-asset-lz) regenerates it and compares byte for byte.
  */
 #include <stddef.h>
@@ -106,7 +106,7 @@ int main(void)
          " * (make gen-asset-lz). DO NOT EDIT: the locked spec/assets headers are the\n"
          " * source of every byte; test-asset-lz regenerates this file and proves\n"
          " * decode == locked. Packed storage only (os/flair/asset_lz.h); no\n"
-         " * timestamps (Rule 11). Each block is compiled only by the TU that names\n"
+         " * timestamps. Each block is compiled only by the TU that names\n"
          " * its guard. */\n"
          "#ifndef INITECH_ASSET_LZ_DATA_H\n#define INITECH_ASSET_LZ_DATA_H\n"
          "#include <stdint.h>");

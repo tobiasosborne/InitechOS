@@ -1,11 +1,11 @@
 /* harness/render/icon_capture.h -- the INDEPENDENT Finder-icon golden
- * (factory only; beads initech-tdnl.53 / tdnl.74 / tdnl.87).
+ * (factory only;  /  / ).
  *
- * Ref: ../system7-decomp/re/mint-results-008.md (mint-008: the Mac OS 8.1
+ * Ref:../system7-decomp/re/mint-results-008.md (mint-008: the Mac OS 8.1
  *      Finder icon captures, their 32x32 cells and the opacity evidence);
- *      harness/render/cursor_capture.h (the WL-0126 pattern this follows);
- *      CLAUDE.md Law 1 (ground truth), Law 2 (an oracle must not read the
- *      artifact it grades), Rule 2 (missing / malformed captures FAIL).
+ *      harness/render/cursor_capture.h (the capture fixture pattern this follows);
+ *      source provenance (ground truth), independent checks (an oracle must not read the
+ *      artifact it grades), explicit error handling (missing / malformed captures FAIL).
  *
  * WHAT IT DOES: decodes the named s8_icons_*.png captures and recovers, for
  * each icon kind and state, the 32x32 cell the Mac OS 8.1 Finder drew --

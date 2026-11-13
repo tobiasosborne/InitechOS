@@ -1,11 +1,11 @@
 /*
  * os/flair/cursor.c -- 16x16 classic Mac arrow with save-under + ShieldCursor.
  *
- * beads: initech-tdnl.1 (GUI remediation R0.1).
+ *  (GUI remediation R0.1).
  * Ref: Inside Macintosh: Imaging With QuickDraw, cursor ('CURS') resource:
  *      sixteen 16-bit data rows, sixteen 16-bit mask rows, MSB-left, followed
  *      by a hotspot. Arrow v3 is transcribed from the Mac OS 8 capture
- *      pair cited in spec/assets/cursors.h (initech-tdnl.98, audit M009).
+ *      pair cited in spec/assets/cursors.h (, audit M009).
  * Ref: PRD Sec 6.3; docs/plans/GUI-remediation-plan.md R0.1; surface.h
  *      (8/24/32bpp final-surface format and the sole pixel read/write seam).
  *
@@ -14,13 +14,13 @@
  * do not derive the white paper by dilating the black body.
  * Hotspot = arrow tip at (x=1,y=1).
  *
- * Artifact C per ADR-0002: freestanding, no allocation/libc, deterministic,
- * ASCII-only. Mutation knobs are oracle builds only (Rule 6).
+ * Artifact C per freestanding C build: freestanding, no allocation/libc, deterministic,
+ * ASCII-only. Mutation knobs are oracle builds only.
  */
 #include "cursor.h"
 #include "surface.h"
-#include "cursors.h"   /* LOCKED FLAIR_CURSOR_ARROW v3, tdnl.98 (Rule 8).
-                        * Host + QEMU grade the independent capture (Law 2). */
+#include "cursors.h"   /* LOCKED FLAIR_CURSOR_ARROW v3,  (pinned inputs).
+                        * Host + QEMU grade the independent capture. */
 
 enum { CURSOR_DIM = 16, CURSOR_SAVE_PIXELS = 16 * 16 };
 
@@ -29,32 +29,13 @@ enum { CURSOR_DIM = 16, CURSOR_SAVE_PIXELS = 16 * 16 };
 #define CURSOR_BLACK_IDX  0u
 #define CURSOR_WHITE_IDX  1u
 
-#if defined(CURSOR_MUT_SQUARED_STEM)
-/* Rule 6 M009: restore the complete v2 squared stem and dilated white mask.
- * The same knob is compiled into the host suite and the QEMU mutant image. */
-static const uint16_t cursor_data[16] = {
-    0x0000, 0x4000, 0x6000, 0x7000, 0x7800, 0x7C00, 0x7E00, 0x7F00,
-    0x7F80, 0x7FC0, 0x7C00, 0x6C00, 0x4C00, 0x0C00, 0x0C00, 0x0000
-};
-static const uint16_t cursor_mask[16] = {
-    0xE000, 0xF000, 0xF800, 0xFC00, 0xFE00, 0xFF00, 0xFF80, 0xFFC0,
-    0xFFE0, 0xFFE0, 0xFFE0, 0xFE00, 0xFE00, 0xFE00, 0x1E00, 0x1E00
-};
-#else
-/* Film scene (tdnl.102-.104): the shape is selected at run time (arrow; hourglass
- * while Saving -- canon). The Rule-6 squared-stem twin above pins the arrow. */
+/* Film scene (-.104): the shape is selected at run time (arrow; hourglass
+ * while Saving -- canon). The mutation checks squared-stem twin above pins the arrow. */
 #define cursor_data (g_cursor_shape->data)
 #define cursor_mask (g_cursor_shape->mask)
-#endif
 
-#if defined(CURSOR_MUT_HOTSPOT)
-/* Rule-6 knob: +3,+3 off the locked hotspot. */
-#define CURSOR_HOT_X ((int)g_cursor_shape->hot_col + 3)
-#define CURSOR_HOT_Y ((int)g_cursor_shape->hot_row + 3)
-#else
 #define CURSOR_HOT_X ((int)g_cursor_shape->hot_col)
 #define CURSOR_HOT_Y ((int)g_cursor_shape->hot_row)
-#endif
 
 typedef struct flair_cursor_state {
     bitmap_t surface;
@@ -196,12 +177,7 @@ void flair_cursor_move(int x, int y)
         return;
     }
 
-#if !defined(CURSOR_MUT_NO_ERASE)
     cursor_erase();
-#else
-    /* Rule-6 host mutant: abandon the old save-under, leaving a visible trail. */
-    g_cursor.drawn = 0;
-#endif
     g_cursor.x = x;
     g_cursor.y = y;
     cursor_draw();
@@ -223,9 +199,6 @@ void flair_cursor_unshield(void)
 /* PRD Appendix A: hourglass, never the Mac wristwatch. Same CURS compositor. */
 void flair_cursor_set_busy(int busy)
 {
-#ifdef CURSOR_MUT_BUSY_ARROW
-    busy = 0;
-#endif
     const FLAIRCursor *shape = busy ? &FLAIR_CURSOR_BUSY : &FLAIR_CURSOR_ARROW;
     if (shape == g_cursor_shape) return;
     cursor_erase();

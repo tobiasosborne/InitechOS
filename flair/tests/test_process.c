@@ -1,30 +1,30 @@
 /* test_process.c -- the FLAIR App Contract O-1 host routing/dispatch oracle.
  *
- * beads: the FLAIR App Contract epic initech-4e35 (ADR-0013 Sec 7 O-1).
+ * the FLAIR App Contract epic  (tenant lifecycle O-1).
  *        The HOST oracle for the Layer-5 dispatcher `flair_app_dispatch`
  *        (os/flair/process.c) -- the refCon demux + click-to-activate + the
- *        activateEvt deactivate/activate pair (ADR-0013 Sec 3.3). It runs the
+ *        activateEvt deactivate/activate pair (tenant lifecycle). It runs the
  *        EXACT symbol the live kmain pump runs (BC-2 single spine), so a green
  *        O-1 certifies the live routing too.
  *
- * ORACLE-FIRST (Rule 1, Law 2). Wave 1 ships a STUB dispatcher (process.c does
+ * ORACLE-FIRST (, independent checks). Wave 1 ships a STUB dispatcher (process.c does
  * NO routing/activation), so THIS oracle is RED for the RIGHT reason: the
  * delivery log stays empty and every routing/activation assertion fails. Wave 2
  * fills in flair_app_dispatch and this oracle turns GREEN. (The mutants below
  * prove the checks are live differentials once that real dispatcher exists.)
  *
- * INDEPENDENT-BY-RECOMPUTATION (Law 2; the test_interact idiom). The expected
+ * INDEPENDENT-BY-RECOMPUTATION (independent checks; the test_interact idiom). The expected
  * delivery sequence is a HAND-AUTHORED golden -- never read back out of the
  * dispatcher. Each stub tenant's `event` handler APPENDS (app-id, what,
  * where/active-flag) to a global log; the oracle diffs that log against the
  * by-hand expected sequence. An oracle that asked the dispatcher what the
- * dispatcher did would agree BY CONSTRUCTION and is forbidden (Law 2; HER-02).
+ * dispatcher did would agree BY CONSTRUCTION and is forbidden (independent checks; HER-02).
  *
  * THE SCENE: two single-window tenants, A (foreground/front) and B (background/
  * behind), DISJOINT in x so a click in B's content is unambiguously B's even
  * though B is behind (no overlap that would let front A win the hit-test).
  *
- * THE SCRIPTED TRACE + HAND-AUTHORED GOLDEN (ADR-0013 Sec 7 O-1):
+ * THE SCRIPTED TRACE + HAND-AUTHORED GOLDEN (tenant lifecycle O-1):
  *   (a) mouseDown inContent over A (already fg) -> A.event(mouseDown); B silent.
  *   (b) keyDown (cursor over B) -> the FOREGROUND app A only; never the window
  *       under the cursor (System 7: the active window IS keyboard focus).
@@ -38,32 +38,32 @@
  *       one deactivate to B THEN one activate to A, promotion + raise, and NO
  *       delivered mouseDown (a title drag is never a content click).
  *
- * MUTATION-PROVEN (Rule 6; self-mutation -- the test_interact convention). The
+ * MUTATION-PROVEN (mutation checks; self-mutation -- the test_interact convention). The
  * mutants perturb the INDEPENDENT EXPECTED golden (NOT the dispatcher), each so
  * that against the CORRECT future dispatcher it disagrees on a DISTINCT leg:
  *
- *   PROC_MUT_IGNORE_REFCON    -- leg (c)'s click is EXPECTED at the foreground A
+ *   ignore refcon patch    -- leg (c)'s click is EXPECTED at the foreground A
  *     (refCon ignored) instead of the clicked owner B. The correct dispatcher
  *     routes to B, so leg (c) ROUTING goes RED. Proves the click reaches the
  *     refCon-demuxed owner, not blindly the foreground.
  *
- *   PROC_MUT_SKIP_ACTIVATE_PAIR -- leg (c)'s golden OMITS the deactivate/activate
+ *   skip activate pair patch -- leg (c)'s golden OMITS the deactivate/activate
  *     pair (expects only the click). The correct dispatcher emits the pair, so
  *     the leg (c) length + pair assertions go RED. Proves the switch synthesizes
  *     exactly one deactivate THEN one activate, in order.
  *
- *   PROC_MUT_KEY_TO_UNDER_CURSOR -- leg (b)'s keyDown is EXPECTED at the window
+ *   key to under cursor patch -- leg (b)'s keyDown is EXPECTED at the window
  *     under the cursor (B) instead of the foreground (A). The correct dispatcher
  *     delivers to A, so leg (b) goes RED. Proves keyboard focus follows the
  *     foreground app, not the cursor.
  *
- * Ref: ADR-0013 Sec 3.1 (tenant ABI + binding rule), Sec 3.3 (event routing &
- *      activation), Sec 7 O-1; spec/window_record.h Sec 1 (part-codes), :400
- *      (refCon); spec/event_model.h Sec 1 (what-codes), :155 (active-flag),
- *      :265-271 (EventRecord). os/flair/window.h (FindWindow/NewWindow/...).
+ * Ref: tenant lifecycle (tenant ABI + binding rule), Sec 3.3 (event routing &
+ *      activation), Sec 7 O-1; spec/window_record.h Sec 1 (part-codes),:400
+ *      (refCon); spec/event_model.h Sec 1 (what-codes),:155 (active-flag),
+ *:265-271 (EventRecord). os/flair/window.h (FindWindow/NewWindow/...).
  *      Mirrors harness/proptest/test_interact.c (three-leg host oracle, the
  *      rgn_store/win_store/mgr_store arena scaffolding, the self-mutation
- *      convention). CLAUDE.md Law 2, Rule 1, Rule 6, Rule 11, Rule 12.
+ *      convention). independent checks, mutation checks, reproducibility, ASCII source.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -155,7 +155,7 @@ static int rect_contains(rgn_rect_t r, int16_t h, int16_t v)
 
 /* ===========================================================================
  * The delivery log -- the SOLE observable. Each tenant `event` appends one
- * entry; the oracle diffs the log against the hand-authored golden (Law 2).
+ * entry; the oracle diffs the log against the hand-authored golden.
  * ===========================================================================*/
 typedef struct log_entry {
     int      app_id;     /* which tenant's event handler fired (A_ID / B_ID)     */
@@ -197,7 +197,7 @@ static void stub_event(FlairApp *self, const EventRecord *ev)
     log_append(app_id_of(self), ev);
 }
 
-/* A no-op open() (the Wave-1 oracle builds the windows itself; Sec 3.2). */
+/* A no-op open (the Wave-1 oracle builds the windows itself; Sec 3.2). */
 static int stub_open(FlairApp *self, const FlairLaunchParams *lp)
 {
     (void)self; (void)lp;
@@ -239,7 +239,7 @@ static EventRecord mk_event(uint16_t what, int16_t v, int16_t h, uint16_t mods)
 }
 
 /* ===========================================================================
- * leg (f) -- THE RAISE (bug initech-tpzf): the CLICKED window comes forward.
+ * leg (f) -- THE RAISE (bug ): the CLICKED window comes forward.
  * ---------------------------------------------------------------------------
  * Inside Macintosh, Macintosh Toolbox Essentials, Event Manager: a mouseDown
  * anywhere in a window that is not the active one activates it first
@@ -258,15 +258,15 @@ static EventRecord mk_event(uint16_t what, int16_t v, int16_t h, uint16_t mods)
  * tenant P owns TWO windows P1 (front) and P2 (behind), tenant Q owns one.
  * All three DISJOINT in x, so the hit-test is unambiguous.
  *
- * SELF-MUTATION (Rule 6; the convention this file already uses -- the mutant
+ * SELF-MUTATION (mutation checks; the convention this file already uses -- the mutant
  * perturbs the GOLDEN, not the dispatcher):
- *   PROC_MUT_NO_SAMETENANT_RAISE -- the golden EXPECTS the pre-fix behaviour
+ *   no sametenant raise patch -- the golden EXPECTS the pre-fix behaviour
  *     (the clicked window stays buried; the group head never moves). The fixed
  *     dispatcher raises it, so f1/f2/f3 go RED. Restore the bug in
  *     os/flair/process.c and the ordinary (non-mutant) golden goes RED instead
  *     -- the same discriminating assertion, from either side.
  *
- * WL-0076 ACTIVATION CONTRACT: a same-tenant raise is NOT an app switch, so it
+ *  ACTIVATION CONTRACT: a same-tenant raise is NOT an app switch, so it
  * must emit NO activateEvt pair (both windows belong to the same tenant, which
  * never stopped being foreground). Asserted explicitly below; the cross-tenant
  * leg still emits exactly one deactivate THEN one activate, unchanged.
@@ -411,10 +411,10 @@ static void leg_same_tenant_raise(void)
 /* ===========================================================================
  * leg(g) -- THE FOREGROUND APP KEEPS THE FOREGROUND WHEN ITS LAST WINDOW
  * CLOSES, AND ONLY ITS OWN FRONT WINDOW IS EVER DRAWN ACTIVE
- * (bead initech-tdnl.40; audit 2026-10-03 F06).
+ * (; audit 2026-10-03 F06).
  *
  * THE REFERENCE (Macintosh Toolbox Essentials, local copy
- * ../system7-decomp/refs/MacintoshToolboxEssentials.pdf):
+ *../system7-decomp/refs/MacintoshToolboxEssentials.pdf):
  *   p.2-4  "The active application (or foreground process) is the one currently
  *          interacting with the user. The foreground process displays its menu
  *          bar, and its windows are in front of the windows of all other
@@ -431,7 +431,7 @@ static void leg_same_tenant_raise(void)
  * is resolved from THAT side, never by demoting the foreground app.
  *
  * FlairProcess_sync_active is the policy (process.h); the scene facts below
- * are hand-authored, never read back out of process.c (Law 2):
+ * are hand-authored, never read back out of process.c:
  *   g1  P (two windows, front) is foreground; Q's window is behind. P1 is the
  *       one hilited window; sync_active is a no-op (nothing to correct).
  *   g2  dispose BOTH of P's windows (P stays resident with no window, exactly
@@ -445,7 +445,7 @@ static void leg_same_tenant_raise(void)
  *       makes P the head again and leaves Q's window front but INACTIVE (the
  *       activation itself runs the agreement); the pair is deactivate Q,
  *       activate P.
- * MUTANT PROC_MUT_FRONT_STAYS_ACTIVE (os/flair/process.c: sync_active does
+ * regression patches front stays active patch (os/flair/process.c: sync_active does
  * nothing -- the F06 picture, another app's window drawn active under the
  * foreground app's bar) goes RED on g2.
  * ===========================================================================*/
@@ -682,7 +682,7 @@ int main(void)
           "leg(c): FIRST a deactivate (activateEvt, active-flag=0) to old-foreground A");
     CHECK(g_log_n >= 4 && entry_match(&g_log[3], B_ID, activateEvt, 1, 0, 0),
           "leg(c): THEN an activate (activateEvt, active-flag=1) to new-foreground B");
-    /* ordering capstone: EXACTLY one deactivate THEN one activate (Rule 11). */
+    /* ordering capstone: EXACTLY one deactivate THEN one activate. */
     CHECK(g_log_n >= 4 &&
           g_log[2].what == activateEvt &&
           (g_log[2].modifiers & FLAIR_EVT_MOD_ACTIVE_FLAG) == 0 &&

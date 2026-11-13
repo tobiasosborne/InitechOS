@@ -1,0 +1,19 @@
+# Legacy EVENT_MUTATE_SET1_BREAK_BLIND
+# test: test_event
+--- a/event.c
++++ b/event.c
+@@ -479,10 +479,10 @@
+         }
+         ext = (int)g_kbd_ext;
+         g_kbd_ext = 0u;
+-        if (byte & SC_BREAK) {
+-            is_break = 1;
+-            sc = (uint8_t)(byte & (uint8_t)~SC_BREAK);
+-        }
++        /* regression patches (mutation checks; test-event-mutant): the pre- decoder -- the
++         * SET-1 break bit is ignored, so 0x9D is not "Ctrl up". Group I of
++         * test_event.c must go RED. NEVER define in a real build. */
++        (void)ext;
+         vkey = (uint16_t)sc;
+ 
+         /* Modifier-key tracking: a modifier press/release is NOT a keyDown/

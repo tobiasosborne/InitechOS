@@ -1,4 +1,4 @@
-/* Independent scroll-bar crops, initech-tdnl.96/.97/.101.
+/* Independent scroll-bar crops, .
  * Transcribed from system7-decomp/goldens/captures/s8_doc_window_inactive.png.
  * Half-open crops: V thumb (608,311,622,326), H thumb (330,401,345,415),
  * arrows up/down (608,296/386,622,310/400), left/right

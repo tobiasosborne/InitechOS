@@ -1,0 +1,13 @@
+# Legacy PROC_MUT_CLICK_THROUGH
+# test: test_process
+--- a/process.c
++++ b/process.c
+@@ -724,7 +724,7 @@
+ 
+         /*: SelectWindow consumes a document's activating click.
+          * Ref: MTE Event Manager; the following click reaches its content. */
+-        if (!was_active) return;
++        (void)was_active;
+ 
+         /* The window was already active: deliver this content click. */
+         deliver(owner, ev);

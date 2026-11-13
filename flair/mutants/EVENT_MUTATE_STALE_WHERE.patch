@@ -1,0 +1,17 @@
+# Legacy EVENT_MUTATE_STALE_WHERE
+# test: test_event
+--- a/event.c
++++ b/event.c
+@@ -559,9 +559,9 @@
+         int      was_down = !(g_modifiers & FLAIR_EVT_MOD_BTN_STATE); /* 0=down */
+         int      is_down  = (int)(buttons & 0x01u);                   /* left btn */
+ 
+-        /* Update tracked cursor position from the delta (clamp to frame). */
+-        g_cursor_h = clamp_coord(g_cursor_h, dx, (int16_t)FLAIR_SCREEN_W);
+-        g_cursor_v = clamp_coord(g_cursor_v, dy, (int16_t)FLAIR_SCREEN_H);
++        /* regression patches: do NOT update cursor position from mouse deltas.
++         * The `where` field will be stale. This MUST drive the replay RED. */
++        (void)dx; (void)dy;
+ 
+         /* Update btnState modifier bit (MTE 2-6: 1 = button UP, inverted). */
+         if (is_down) g_modifiers &= (uint16_t)~FLAIR_EVT_MOD_BTN_STATE;

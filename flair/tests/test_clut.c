@@ -1,7 +1,7 @@
 /*
  * test_clut.c -- round-trip oracle for spec/assets/clut.h
  *
- * beads: initech-dh5k.5 (P1-5: spec/assets/clut.json + clut.h + oracle).
+ *  (P1-5: spec/assets/clut.json + clut.h + oracle).
  * era=system7.0-7.1
  *
  * PURPOSE: exercises every structural invariant of the LOCKED System-7 ROM
@@ -9,11 +9,11 @@
  *   contract, including an entry-by-entry diff against the ROM binary golden
  *   when it is present.
  *
- * SOURCE CITATIONS (Law 1):
- *   ../system7-decomp/specs/resources/clut-pltt-format.md Sec 2 (byte layout),
+ * SOURCE CITATIONS:
+ *../system7-decomp/specs/resources/clut-pltt-format.md Sec 2 (byte layout),
  *     Sec 4.2 (sentinels: idx0=white, idx255=black, idx161=#339900),
  *     Sec 4.3 (cube structure + ramp values).
- *   ../system7-decomp/goldens/resources/clut_8_rom.bin (ground-truth binary,
+ *../system7-decomp/goldens/resources/clut_8_rom.bin (ground-truth binary,
  *     gitignored; 2056 bytes; extracted from Quadra 650 ROM F1ACAD13 offset
  *     0x072F90, ctSeed=8, ctFlags=0x8000, ctSize=255).
  *   refs/ImagingWithQuickDraw.pdf (cached) -- entry-161 "medium green" example.
@@ -37,28 +37,28 @@
  *       harness/proptest/test_clut.c \
  *       -o /tmp/test_clut && /tmp/test_clut
  *   # Mutation probe (must exit 1; proves oracle bites):
- *   gcc -std=c11 -Wall -DTEST_CLUT_MUTANT \
+ *   gcc -std=c11 -Wall -dtest clut mutant patch \
  *       -Ispec/assets \
  *       harness/proptest/test_clut.c \
  *       -o /tmp/test_clut_mutant && /tmp/test_clut_mutant; \
  *       test $? -ne 0 && echo "MUTATION RED (correct)" || echo "MUTATION GREEN (BUG)"
  *
- * MUTATION PROOF (Rule 6): build with -DTEST_CLUT_MUTANT to flip ONE bit in
+ * MUTATION PROOF: build with -dtest clut mutant patch to flip ONE bit in
  *   the idx161 check. This MUST drive the oracle RED (exit 1). The
  *   _Static_assert in clut.h is a separate compile-time layer.
  *
- * GOLDEN DIFF: if ../system7-decomp/goldens/resources/clut_8_rom.bin is
+ * GOLDEN DIFF: if../system7-decomp/goldens/resources/clut_8_rom.bin is
  *   present, every entry is diffed against the ROM bytes. If absent, the test
  *   FAILS LOUD unless SKIP_SYSTEM7_DECOMP=1 explicitly opts out. The
  *   structural checks still run with that shouting opt-out. Override path via:
  *     -DCLUT_ROM_GOLDEN_PATH="<absolute_path>"
  *   or the SYSTEM7_DECOMP macro:
  *     -DSYSTEM7_DECOMP="<path_to_system7-decomp>"
- *   (Makefile target test-clut passes SYSTEM7_DECOMP ?= ../system7-decomp.)
+ *   (Makefile target test-clut passes SYSTEM7_DECOMP ?=../system7-decomp.)
  *
  * OUTPUT: "test-clut: N checks, 0 failures, green"
  *
- * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
+ * ASCII-clean. No nondeterminism / no timestamps.
  */
 
 /* Pull in the LOCKED CLUT spec. All _Static_asserts fire at compile time. */

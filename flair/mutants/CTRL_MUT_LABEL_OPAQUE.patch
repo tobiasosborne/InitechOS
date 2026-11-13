@@ -1,0 +1,24 @@
+# Legacy CTRL_MUT_LABEL_OPAQUE
+# test: test_control
+--- a/control.c
++++ b/control.c
+@@ -545,17 +545,8 @@
+         ly = y0 + 1;
+     }
+     if (label_w > 0) {
+-        if (w > 6 && h > 6) {
+-            /* M011 /: s8_alert_modal.png x365..418 has 54 white
+-             * pixels at y160 and 53 C0 + one E7 at y175. The Chicago cell
+-             * includes blank rows outside its ink; clip its opaque erase to
+-             * the inner face, preserving both bevel rows and columns.
+-             * Ref: controls.md Sec 5.1 (Cancel x363..421,y158..177). */
+-            text_clip_t k = {port->visRgn, port->clipRgn,
+-                             x0 + 3, y0 + 3, x1 - 3, y1 - 3};
+-            (void)text_draw_run(&port->portBits.bm, lx, ly, ctrl->contrlTitle,
+-                                FONT_CHICAGO, 0u, fg, bg, &k);
+-        }
++        /* mutation checks: restore the pre-M011 opaque run over the bevel rows. */
++        ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
+     }
+ }
+ 

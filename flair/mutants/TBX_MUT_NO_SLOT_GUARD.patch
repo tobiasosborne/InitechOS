@@ -1,0 +1,28 @@
+# Legacy TBX_MUT_NO_SLOT_GUARD
+# test: test_flair_routing
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -253,7 +253,11 @@
+  * ===========================================================================*/
+ static int slot_occupied(void)
+ {
+-    return g_slot.block != 0;
++    /* regression patches no slot guard patch (mutation checks; test-flair-app-launch-mutant):
++     * the one-slot model is never enforced, so a second double-click loads and
++     * REGISTERs a second copy over the first -- two TENANT-REGISTER ok lines and
++     * no TENANT-SLOT-BUSY. NEVER in a real build. */
++    return 0;
+ }
+ 
+ static void *carve_code(uint32_t len, void *user)
+@@ -391,10 +395,6 @@
+ 
+     if (g_slot.exit_req || g_slot.crashed) return TBX_ERR_NOTREG;
+     if (g_slot.app != (FlairApp *)0) {
+-        tputs("TENANT-SLOT-BUSY name=");
+-        tputs(g_slot.file);
+-        tputs("\n");
+-        return TBX_ERR_BUSY;
+     }
+     if (!in_image(rec, WIRE_SIZE(tbx_rec_t, FLAIR_TENANT_REC_BYTES))) {
+         tputs("TENANT-REGISTER-BAD why=rec-outside-image\n");

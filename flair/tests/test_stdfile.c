@@ -1,16 +1,16 @@
 /*
  * harness/proptest/test_stdfile.c -- FLAIR Standard File (SFGetFile) host
- * oracle (initech-gymo).
+ * oracle.
  *
- * beads:  initech-gymo (FLAIR Phase 4.5 -- SFGetFile first cut).
+ *  (FLAIR Phase 4.5 -- SFGetFile first cut).
  * Ref:    stdfile.h / stdfile.c (the API under test).
  *         IM-I Standard File Package (SFGetFile / SFReply): a modal list of the
  *         current directory; Open returns on a file and descends on a folder;
  *         SFReply.good / SFReply.fName.
- *         CLAUDE.md Law 2 (oracle truth -- NOT by-construction), Rule 1
- *         (Red->Green->Refactor), Rule 6 (mutation-proven), Rule 12 (ASCII).
+ *         independent checks (oracle truth -- NOT by-construction),
+ *         (Red->Green->Refactor), mutation checks (mutation-proven), ASCII source (ASCII).
  *
- * ANTI-BY-CONSTRUCTION (Law 2, the central discipline):
+ * ANTI-BY-CONSTRUCTION (independent checks, the central discipline):
  *   The INDEPENDENT golden is a hand-authored FIXTURE PROVIDER (the directory
  *   source the SUT navigates) PLUS an op/expected sequence whose EXPECTED values
  *   are LITERAL constants in THIS file -- never read back from the
@@ -28,34 +28,34 @@
  *     "/DATA"  -> [ "Q1.WKS"(file), "Q2.WKS"(file) ]
  *
  * COORDINATE CONVENTION (from list.h; do NOT use positional initializers):
- *   Cell = flair_point_t { int16_t v; int16_t h; }; Cell.h = COLUMN, .v = ROW.
- *   Pixel point likewise: flair_point_t { .v = y, .h = x }.
+ *   Cell = flair_point_t { int16_t v; int16_t h; }; Cell.h = COLUMN,.v = ROW.
+ *   Pixel point likewise: flair_point_t {.v = y,.h = x }.
  *
- * MUTANT COVERAGE (Rule 6 -- each mutant must COMPILE and go RED):
- *   SF_MUT_RETURN_WRONG_CELL  doOpen returns entry 0 regardless of selection ->
+ * regression patches COVERAGE (mutation checks -- each mutant must COMPILE and go RED):
+ *   return wrong cell patch  doOpen returns entry 0 regardless of selection ->
  *                             step 5 returns "REPORT.DBF" not "TPS.TXT" -> RED.
- *   SF_MUT_NO_NAVIGATE        navigate does not re-enumerate -> step 3 count
+ *   no navigate patch        navigate does not re-enumerate -> step 3 count
  *                             stays 3 / row 0 != "Q1.WKS" -> RED.
- *   SF_MUT_CANCEL_GOOD        doCancel sets good=1 -> step 6 good != 0 -> RED.
+ *   cancel good patch        doCancel sets good=1 -> step 6 good != 0 -> RED.
  *
  * Compile (host, green):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
  *      -Ispec -Ios/flair -Ios/flair/region -Iseed \
- *      -o /tmp/laneF/test_stdfile \
+ *      -o /tmp/flair-tests/test_stdfile \
  *      harness/proptest/test_stdfile.c os/flair/stdfile.c os/flair/list.c \
  *      os/flair/heap.c os/flair/region/region.c
  *
  * Compile each mutant (each must exit non-zero = RED):
- *   cc ... -DSF_MUT_RETURN_WRONG_CELL -o /tmp/laneF/test_stdfile_mut_cell
- *   cc ... -DSF_MUT_NO_NAVIGATE       -o /tmp/laneF/test_stdfile_mut_nav
- *   cc ... -DSF_MUT_CANCEL_GOOD       -o /tmp/laneF/test_stdfile_mut_cancel
+ *   cc... -return wrong cell patch -o /tmp/flair-tests/test_stdfile_mut_cell
+ *   cc... -no navigate patch       -o /tmp/flair-tests/test_stdfile_mut_nav
+ *   cc... -cancel good patch       -o /tmp/flair-tests/test_stdfile_mut_cancel
  *
  * Kernel type-check (compile only, no link):
  *   gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror \
  *       -Ispec -Ios/initechdos -Ios/flair -Ios/flair/region \
  *       -c os/flair/stdfile.c
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -77,7 +77,7 @@ TEST_HARNESS();
 static void fx_set(FlairSFEntry *e, const char *name, uint8_t is_dir,
                    uint32_t size)
 {
-    /* host-side helper: libc string.h is fine in the harness (Law 3 forbids it
+    /* host-side helper: libc string.h is fine in the harness (freestanding product C excludes it
      * only in the ARTIFACT, stdfile.c). */
     memset(e->name, 0, sizeof(e->name));
     strncpy(e->name, name, sizeof(e->name) - 1);
@@ -184,7 +184,7 @@ int main(void)
     /* -----------------------------------------------------------------------
      * STEP 3: navigate(1) into the "DATA" folder -> count==2; row 0 == "Q1.WKS";
      *         select(0); doOpen -> fName=="Q1.WKS".
-     *   FAILS under SF_MUT_NO_NAVIGATE (count stays 3 / row 0 == "REPORT.DBF").
+     *   FAILS under no navigate patch (count stays 3 / row 0 == "REPORT.DBF").
      * ----------------------------------------------------------------------- */
     r = FlairSF_navigate(&sf, 1);
     CHECK(r == FLAIR_SF_OK, "step-3: FlairSF_navigate(1) [DATA] returns OK");
@@ -222,7 +222,7 @@ int main(void)
      *     v = rView.top(40) + 2*cellSize.v(16) + 4 = 76  (in [72,88) -> row 2)
      *     h = rView.left(20) + 10               = 30  (in [20,220) -> col 0)
      *     row_off = (76-40)/16 = 2; col_off = (30-20)/200 = 0 -> cell (h=0,v=2).
-     *   FAILS under SF_MUT_RETURN_WRONG_CELL (returns entry 0 "REPORT.DBF").
+     *   FAILS under return wrong cell patch (returns entry 0 "REPORT.DBF").
      * ----------------------------------------------------------------------- */
     {
         flair_point_t pt;
@@ -243,7 +243,7 @@ int main(void)
 
     /* -----------------------------------------------------------------------
      * STEP 6: doCancel -> reply.good == 0.
-     *   FAILS under SF_MUT_CANCEL_GOOD (good == 1).
+     *   FAILS under cancel good patch (good == 1).
      * ----------------------------------------------------------------------- */
     memset(&reply, 0xCC, sizeof(reply));
     FlairSF_doCancel(&sf, &reply);
@@ -256,7 +256,7 @@ int main(void)
      *   We are at root (3 entries). Select row 1 ("DATA", a folder), doOpen:
      *     reply.good == 0 (not confirmed) AND count becomes 2 (descended into
      *     DATA) AND row 0 == "Q1.WKS".
-     *   ALSO FAILS under SF_MUT_NO_NAVIGATE (doOpen's navigate is the no-op,
+     *   ALSO FAILS under no navigate patch (doOpen's navigate is the no-op,
      *   count stays 3) -- a second independent witness for that mutant.
      * ----------------------------------------------------------------------- */
     FlairSF_select(&sf, 1);            /* "DATA" -- the folder */
@@ -275,7 +275,7 @@ int main(void)
     CHECK(row_equals(&sf, 0, "Q1.WKS"),
           "step-7: after folder-Open, row 0 == \"Q1.WKS\" (descended into DATA)");
 
-    /* q9cr: a rejected folder navigation cannot describe a successful descent. */
+    /* a rejected folder navigation cannot describe a successful descent. */
     CHECK(FlairSF_open(&sf, fixture_provider, &sf, cs, rv) == FLAIR_SF_OK,
           "q9cr provider setup");
     FlairSF_select(&sf, 1);

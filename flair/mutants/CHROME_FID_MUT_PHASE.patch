@@ -1,0 +1,13 @@
+# Legacy CHROME_FID_MUT_PHASE
+# test: test_chrome
+--- a/chrome.c
++++ b/chrome.c
+@@ -353,7 +353,7 @@
+                     FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS,
+               FLAIR_PART_PLAT_FRAME_FACE);
+         for (int row = 0; row < FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS; row++) {
+-            int light = (row & 1) == 0;
++            int light = (row & 1) != 0;
+             int shift = row & 1;
+             cfill(port, title_safe_left + shift,
+                   top + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF + row,

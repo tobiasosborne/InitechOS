@@ -1,0 +1,13 @@
+# Legacy CHROME_FID_MUT_DARK_RING_BLACK
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -149,7 +149,7 @@
+ 
+ /* Sampled Platinum widget ink is #3F3F3F (idx63), not frame black.
+  * Ref: sys8/window-chrome.md Sec 3.2-3.3 (SAMPLED domain). */
+-#define PLAT_DARK_RING_PART FLAIR_PART_PLAT_DARK_RING
++#define PLAT_DARK_RING_PART FLAIR_PART_FRAME
+ 
+ /* Platinum 12x12 widget plus the one-pixel right/bottom highlight.
+  * Ref: window-chrome.md Sec 3.1-3.3. The seven ramp roles are the sampled

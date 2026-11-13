@@ -1,7 +1,7 @@
-/* Independent runtime oracle input for initech-bf2 (Law 2): the Mac OS 8.1
+/* Independent runtime oracle input for: the Mac OS 8.1
  * Platinum determinate progress bar, read from the PNG captures themselves.
- * Ref: ../system7-decomp/re/mint-results-s8-progress.md;
- *      goldens/captures/s8_progress_determinate{_start,,_full}.png, 640x480.
+ * Ref:../system7-decomp/re/mint-results-s8-progress.md;
+ *      goldens/captures/s8_progress_determinate{_start,_full}.png, 640x480.
  * The bar's etched rect is x=190..377, y=133..146 in all three captures
  * (interior L=192..R=375, rows 135..144; fill edge E=193 / 274 / 375).
  *
@@ -11,7 +11,7 @@
  * every expected value is copied from a golden column of the same class
  * (frame/etch ends, fill left columns, body, cap relative to E, track
  * relative to T, the last track column), then the clut-208 lavender rungs are
- * mapped through the ratified lavender->teal rule (DEC-10 OQ-2/OQ-3; the SAME
+ * mapped through the ratified lavender->teal rule (Platinum base OQ-2/OQ-3; the SAME
  * H/P/S/R mapping spec/scrollbar_look_golden.h sl_mapped_rgb grades, plus the
  * #000077 cap -> the menu title's dark edge). Factory C, hosted. ASCII. */
 #ifndef INITECH_HARNESS_PROGRESS_GOLDEN_H

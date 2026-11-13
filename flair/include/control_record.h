@@ -1,8 +1,8 @@
 /*
  * spec/control_record.h -- FLAIR Control Manager: LOCKED spec-data.
  *
- * LOCKED spec-data (CLAUDE.md Rule 8; PRD Sec 6.4 -- "the Control Manager").
- * beads: initech-dh5k.1 (P1-1: control_record.h + oracle).
+ * LOCKED spec-data (pinned inputs; PRD Sec 6.4 -- "the Control Manager").
+ *  (P1-1: control_record.h + oracle).
  *
  * This header locks:
  *   (A) The verbatim Inside Macintosh ControlRecord field layout (IM-I Vol I
@@ -12,15 +12,15 @@
  *   (B) The Win 3.1 flat push-button accent constants (chimera element 10;
  *       Win31-ACCENT sub-section) -- bevel colors, render order, and the
  *       hard NO-#DFDFDF rule -- from:
- *       ../win31-decomp/specs/chrome/button-bevel.md
- *       ../win31-decomp/specs/user/button-control.md
+ *../win31-decomp/specs/chrome/button-bevel.md
+ *../win31-decomp/specs/user/button-control.md
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the BASE. System 7.0/7.1 remains
+ * ERA AXIS: Mac OS 8 Platinum is the BASE. System 7.0/7.1 remains
  * retained heritage, and every constant below keeps its era= provenance tag
  * under the unchanged BC-10.10 tagging rule. The Win 3.1 accent remains tagged
  * era=win31 (a confined chimera element, not the base layer).
  *
- * SOURCE CITATIONS (Law 1 -- cite local or cached source; do NOT guess):
+ * SOURCE CITATIONS (source provenance -- cite local or cached source; do NOT guess):
  *
  *   Inside Macintosh Vol I Ch 10 (IM-I) -- the Control Manager:
  *     "The ControlRecord Data Structure" (IM-I p. I-318): nextControl,
@@ -37,22 +37,22 @@
  *     Verbatim field TYPES / sizes: Handle/Ptr/ProcPtr=4B, Rect=8B,
  *       INTEGER=2B, Byte=1B, LONGINT=4B, Str255=256B. The record is PACKED
  *       (Pascal PACKED RECORD; no inter-field padding). Total=296 bytes.
- *     Verified against: ../system7-decomp/specs/toolbox/control-manager.md
+ *     Verified against:../system7-decomp/specs/toolbox/control-manager.md
  *       (local verbatim cache; refs/im-toolbox/im-toolbox-records-verbatim.md;
  *       MacTech Vol.03.04; dev.os9.ca Toolbox-317; dev.os9.ca ControlMgrRef).
  *
- *   APPEARANCE-ERA IN-TARGET ALIASES (DEC-10 OQ-9): the System 7.5+ /
+ *   APPEARANCE-ERA IN-TARGET ALIASES (Platinum base OQ-9): the System 7.5+ /
  *     Appearance Manager names kControlNoPart, kControlButtonPart, and
  *     kControlIndicatorPart are accepted aliases for the unchanged numeric
  *     part codes (0, the button-family parts, and 129 respectively). The C
  *     constants retain their original spellings; no code rename or value
- *     change is implied. Source: ../system7-decomp/specs/toolbox/
- *     control-manager.md Sec 2; ADR-0004-AMENDMENT-DEC-10 OQ-9.
+ *     change is implied. Source:../system7-decomp/specs/toolbox/
+ *     control-manager.md Sec 2; clipped Toolbox drawing OQ-9.
  *
  *   Win 3.1 flat push-button accent (chimera element 10; era=win31):
- *     ../win31-decomp/specs/chrome/button-bevel.md -- pixel render order,
+ *../win31-decomp/specs/chrome/button-bevel.md -- pixel render order,
  *       color roles, bevel structure, NO-#DFDFDF ruling.
- *     ../win31-decomp/specs/user/button-control.md -- BS_PUSHBUTTON flat
+ *../win31-decomp/specs/user/button-control.md -- BS_PUSHBUTTON flat
  *       render, COLOR_* role index-to-documented-RGB table.
  *     Verified: real Win 3.1 DOSBox-X VGA screendump (w31_run_dialog.png
  *       pixel scan: Cancel button x=398..467, y=133..155). Color roles:
@@ -61,7 +61,7 @@
  *     Hard guardrail: #DFDFDF = COLOR_3DLIGHT (Win 95 slot 22). That slot
  *       does NOT exist in Win 3.1 (table only goes to index 20). Any spec
  *       that cites #DFDFDF for Win 3.1 must be rejected (M-B WARNING 1 +
- *       Law 3). Source: refs/w31-user-gdi/getsyscolor-indices.txt.
+ *       language boundary). Source: refs/w31-user-gdi/getsyscolor-indices.txt.
  *
  *   spec/control.h (os/flair/control.h) -- FLAIR's live implementation of
  *     the ControlRecord. Read for cross-check (READ-ONLY from this lane).
@@ -69,7 +69,7 @@
  *     enum dispatch; contrlData/contrlAction omitted (no handle table);
  *     contrlTitle stored as fixed char[] not Str255; contrlOwner omitted.
  *     Part-codes and proc-IDs kept EXACTLY and asserted at build time.
- *     Source: ../system7-decomp/specs/toolbox/control-manager.md Sec "FLAIR
+ *     Source:../system7-decomp/specs/toolbox/control-manager.md Sec "FLAIR
  *     mapping and deliberate deviations"; os/flair/control.h (verified read).
  *
  * SCOPE: this header is SPEC-DATA, not the live artifact. It locks the
@@ -80,7 +80,7 @@
  * DUAL-COMPILE: freestanding (gcc -m32 -ffreestanding -nostdlib
  *   -fno-stack-protector -std=c11 -c) AND hosted (gcc -m32 -std=c11 -c).
  *   Only <stdint.h> + <stddef.h>. No libc beyond stdint/stddef.
- *   ASCII-clean (Rule 12). Changing this file is a deliberate Rule 8 act.
+ *   ASCII-clean. Changing this file is a deliberate pinned inputs act.
  */
 #ifndef INITECH_SPEC_CONTROL_RECORD_H
 #define INITECH_SPEC_CONTROL_RECORD_H
@@ -94,8 +94,8 @@
  * Returned by FindControl / TestControl; also stored in contrlHilite while a
  * part is pressed (0 = normal, 255 = inactive, part-code = that part pressed).
  *
- * era=system7.0-7.1 (two independent cached sources confirm; Law 1 verified).
- * Source: ../system7-decomp/specs/toolbox/control-manager.md Sec 2.
+ * era=system7.0-7.1 (two independent cached sources confirm; source provenance verified).
+ * Source:../system7-decomp/specs/toolbox/control-manager.md Sec 2.
  *
  * IMPORTANT: 0 = NOT in any active control (FindControl returns 0 + NULL ctrl).
  *   A point in an INACTIVE control (contrlHilite==255) also returns 0.
@@ -113,7 +113,7 @@
 #define CTRL_IN_THUMB       129  /* scroll-bar thumb (draggable indicator)    */
 
 /* Verbatim IM-I names as aliases (for cross-reference searches against IM).
- * These match the names in os/flair/control.h (verified read, CLAUDE Law 1). */
+ * These match the names in os/flair/control.h (verified read, CLAUDE source provenance). */
 #define inButton     CTRL_IN_BUTTON
 #define inCheckBox   CTRL_IN_CHECKBOX
 #define inUpButton   CTRL_IN_UP_BUTTON
@@ -135,7 +135,7 @@
  * the scroll bar is a SEPARATE CDEF (resID=1), giving scrollBarProc=16.
  *
  * era=system7.0-7.1.
- * Source: ../system7-decomp/specs/toolbox/control-manager.md Sec 3.
+ * Source:../system7-decomp/specs/toolbox/control-manager.md Sec 3.
  * Two cached sources: MacTech Vol.03.04 + dev.os9.ca Toolbox-317.
  *
  * ERA DELTA: popupMenuProc=1008 (resID=63, variant=0) exists in System 7
@@ -169,11 +169,11 @@
  * era=system7.0-7.1.
  *
  * FLAIR DEVIATIONS from IM-I (documented in os/flair/control.h and
- *   ../system7-decomp/specs/toolbox/control-manager.md Sec "FLAIR mapping"):
+ *../system7-decomp/specs/toolbox/control-manager.md Sec "FLAIR mapping"):
  *   - nextControl/contrlOwner: omitted (single-threaded cooperative; no
  *     per-window linked-list handle model).
  *   - contrlDefProc: replaced by flair_ctrl_type_t dispatch enum.
- *   - contrlData: omitted (no heap handle table, ADR-0004 DEC-03).
+ *   - contrlData: omitted (no heap handle table, clipped Toolbox drawing arena lifetime).
  *   - contrlAction: omitted (TrackControl takes action fn as parameter).
  *   - contrlTitle: stored as fixed char[64] not Str255 (freestanding C).
  *   - contrlVis/contrlHilite: stored as int16_t not Byte (alignment neutral
@@ -187,7 +187,7 @@
  * ===========================================================================*/
 
 /* Canonical IM-I PACKED ControlRecord byte offsets (era=system7.0-7.1).
- * Source: ../system7-decomp/specs/toolbox/control-manager.md Table. */
+ * Source:../system7-decomp/specs/toolbox/control-manager.md Table. */
 #define CTRL_IM_OFF_NEXT_CONTROL   0   /* nextControl:  ControlHandle (4B)    */
 #define CTRL_IM_OFF_CTRL_OWNER     4   /* contrlOwner:  WindowPtr     (4B)    */
 #define CTRL_IM_OFF_CTRL_RECT      8   /* contrlRect:   Rect          (8B)    */
@@ -227,9 +227,9 @@
  * 5. WIN 3.1 FLAT PUSH-BUTTON ACCENT (chimera element 10; era=win31)
  * ---------------------------------------------------------------------------
  * SCOPE: confined Win 3.1 ACCENT sub-section for FLAIR chimera element 10.
- *   Source of truth: ../win31-decomp/specs/chrome/button-bevel.md (the pixel
+ *   Source of truth:../win31-decomp/specs/chrome/button-bevel.md (the pixel
  *   render order + exact color roles, verified against w31_run_dialog.png) and
- *   ../win31-decomp/specs/user/button-control.md (BS_PUSHBUTTON flat render,
+ *../win31-decomp/specs/user/button-control.md (BS_PUSHBUTTON flat render,
  *   COLOR_* index table). This is a win31 accent, never the FLAIR base era.
  *
  * RENDER ORDER (normal, unpushed BS_PUSHBUTTON; era=win31):
@@ -244,14 +244,14 @@
  * Source: button-bevel.md Sec 2 + Sec 3 (pixel offset table); verified via
  *   real Win 3.1 DOSBox-X VGA screendump pixel scan (Cancel button crop).
  *
- * HARD GUARDRAIL -- NO #DFDFDF (era=win31; Law 3):
+ * HARD GUARDRAIL -- NO #DFDFDF (era=win31; language boundary):
  *   #DFDFDF = COLOR_3DLIGHT, Win 95 GetSysColor index 22. This color index
  *   does NOT exist in Win 3.1 (the Win 3.1 GetSysColor table ends at index 20).
  *   Any FLAIR code that writes #DFDFDF on the flat Win31 button is a Win 95
  *   ism and MUST be rejected. Source: button-bevel.md Sec 1 + Sec 8 era table;
  *   button-control.md Sec 7 era table; refs/w31-user-gdi/getsyscolor-indices.txt
  *   (Win 3.1 table goes to index 20 only; no COLOR_3DLIGHT slot exists).
- *   [M-B WARNING 1 + Law 3]
+ *   [M-B WARNING 1 + language boundary]
  * ===========================================================================*/
 
 /* era=win31 -- flat BS_PUSHBUTTON face color (COLOR_BTNFACE).
@@ -281,7 +281,7 @@
 
 /* era=win31 -- FORBIDDEN color: #DFDFDF = COLOR_3DLIGHT (Win 95 ONLY).
  * Presence of this value in a Win31 button render is a Win95-ism and a
- * hard Law-3 violation. Defined here as a named sentinel so an assert can
+ * hard language boundary violation. Defined here as a named sentinel so an assert can
  * check: (actual_color != W31_BTN_FORBIDDEN_INNER_RING).
  * Source: button-bevel.md Sec 1 "If you see #DFDFDF in a Win 3.1 spec claim,
  *   reject it -- Win95 artifact."; Sec 8 era table; [M-B WARNING 1]. */
@@ -308,7 +308,7 @@
  * ---------------------------------------------------------------------------
  * Mirror the window_record.h / event_model.h style: every locked numeric
  * constant gets a _Static_assert so a silent edit to the value fires at
- * compile time. References cite the local source per Law 1.
+ * compile time. References cite the local source per source provenance.
  * ===========================================================================*/
 
 /* --- Part-code constants (IM-I p. I-327; control-manager.md Sec 2) ---    */
@@ -397,7 +397,7 @@ _Static_assert(CTRL_IN_PAGE_UP < CTRL_IN_PAGE_DOWN,
 _Static_assert(CTRL_IN_THUMB > CTRL_IN_PAGE_DOWN,
     "inThumb(129) > inPageDown(23): thumb high so drag-vs-autotrack distinct");
 
-/* --- Win 3.1 accent: bevel ring count (era=win31; Law 3 guardrail) ---   */
+/* --- Win 3.1 accent: bevel ring count (era=win31; language boundary guardrail) ---   */
 _Static_assert(W31_BTN_BEVEL_RINGS == 1,
     "Win31 flat button: EXACTLY 1 bevel ring (era=win31; button-bevel.md Sec 1)");
 

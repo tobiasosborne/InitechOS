@@ -1,24 +1,24 @@
 /* test_event.c -- the FLAIR Event Manager's deterministic-replay oracle (D-8).
  *
- * beads: initech-8b7 (FLAIR Event Manager: WaitNextEvent + SPSC ring).
- * Ref:   ADR-0004 D-8 (the test-event oracle row):
+ *  (FLAIR Event Manager: WaitNextEvent + SPSC ring).
+ * Ref:   clipped Toolbox drawing (the test-event oracle row):
  *          "A recorded raw-input trace replays to a deterministic EventRecord/
  *           dispatch sequence."
- *        ADR-0004 D-4 (ISR enqueue-only; EventRecord synthesis in task context).
- *        ADR-0004 D-6 (cooperative, non-preemptive WaitNextEvent on PIT tick).
+ *        clipped Toolbox drawing (ISR enqueue-only; EventRecord synthesis in task context).
+ *        clipped Toolbox drawing (cooperative, non-preemptive WaitNextEvent on PIT tick).
  *        spec/event_model.h (LOCKED: EventRecord, flair_raw_event_t, what codes,
  *          modifier bits, mask bits, FLAIR_RAW_RING_CAP).
- *        CLAUDE.md Law 2 (the oracle is the truth), Rule 1 (RED->GREEN),
- *        Rule 6 (oracle mutation-proven), Rule 11 (seeded LCG -> deterministic),
- *        Rule 12 (ASCII-clean).
+ *        independent checks (the oracle is the truth),  (RED->GREEN),
+ *        mutation checks (oracle mutation-proven), reproducibility (seeded LCG -> deterministic),
+ *        ASCII source.
  *
- * ORACLE MODEL (ADR-0004 D-8 -- "the decisive property"):
+ * ORACLE MODEL (clipped Toolbox drawing -- "the decisive property"):
  *   A RECORDED raw-input trace (sequence of flair_raw_event_t records) is
  *   posted into the SPSC ring (producer side, simulating ISRs), then drained
  *   via WaitNextEvent (consumer side, task context). The EXACT synthesized
  *   EventRecord sequence -- what/message/where/when/modifiers -- must be
  *   BIT-DETERMINISTIC: the same trace always produces the same events,
- *   every run (Rule 11). There is no nondeterminism in the Event Manager.
+ *   every run. There is no nondeterminism in the Event Manager.
  *
  * TEST GROUPS:
  *   (A) DETERMINISTIC REPLAY: key press/release, mouse move + click, ticks.
@@ -31,8 +31,8 @@
  *       the `where` field tracks cursor position across events.
  *   (E) MODIFIER REFLECTION: shift/ctrl held -> EventRecord.modifiers bits set.
  *   (F) SPSC RING CORRECTNESS: interleaved post/drain, full-ring handling.
- *   (G) MUTATION PROOF: compile with EVENT_MUTATE_DROP_SYNTH (or
- *       EVENT_MUTATE_STALE_WHERE) and run -- this oracle MUST report failures.
+ *   (G) MUTATION PROOF: compile with drop synth patch (or
+ *       stale where patch) and run -- this oracle MUST report failures.
  *       See "make test-event-mutant" Makefile recipe (gate name: test-event-mutant).
  *
  * AUTOKEY (auto-repeat): DEFERRED. Inside Macintosh autoKey fires after a
@@ -52,12 +52,12 @@
  *
  *   Mutant (must exit NON-ZERO):
  *     gcc -std=c11 -Wall -Wextra -Werror -Ios/flair -Ispec -Iseed \
- *         -DEVENT_MUTATE_DROP_SYNTH \
+ *         -drop synth patch \
  *         harness/proptest/test_event.c os/flair/event.c -o /tmp/test_event_mut
  *     /tmp/test_event_mut      # must exit NON-ZERO (red)
  *
  *     gcc -std=c11 -Wall -Wextra -Werror -Ios/flair -Ispec -Iseed \
- *         -DEVENT_MUTATE_STALE_WHERE \
+ *         -stale where patch \
  *         harness/proptest/test_event.c os/flair/event.c -o /tmp/test_event_mut2
  *     /tmp/test_event_mut2     # must exit NON-ZERO (red)
  *
@@ -70,12 +70,12 @@
  *
  *   test-event-mutant:
  *       gcc -std=c11 -Wall -Wextra -Werror -Ios/flair -Ispec -Iseed \
- *           -DEVENT_MUTATE_DROP_SYNTH \
+ *           -drop synth patch \
  *           harness/proptest/test_event.c os/flair/event.c \
  *           -o $(BUILD)/test_event_mut
  *       ! $(BUILD)/test_event_mut
  *       gcc -std=c11 -Wall -Wextra -Werror -Ios/flair -Ispec -Iseed \
- *           -DEVENT_MUTATE_STALE_WHERE \
+ *           -stale where patch \
  *           harness/proptest/test_event.c os/flair/event.c \
  *           -o $(BUILD)/test_event_mut2
  *       ! $(BUILD)/test_event_mut2
@@ -140,12 +140,12 @@ static int drain1(flair_raw_ring_t *ring, uint16_t mask, EventRecord *out)
 }
 
 /* ===========================================================================
- * SEEDED LCG (Rule 11: deterministic fuzz)
+ * SEEDED LCG (reproducibility: deterministic fuzz)
  * ---------------------------------------------------------------------------
  * Same LCG idiom as test_region.c / test_flair_heap.c. Seed chosen by
  * inspection; produces a stable sequence across runs and architectures.
  * ===========================================================================*/
-static uint32_t g_lcg = 0xC0FFEE1Du;  /* deterministic seed (Rule 11) */
+static uint32_t g_lcg = 0xC0FFEE1Du;  /* deterministic seed  */
 
 static uint32_t lcg_next(void)
 {
@@ -154,11 +154,11 @@ static uint32_t lcg_next(void)
 }
 
 /* ===========================================================================
- * GROUP A -- DETERMINISTIC REPLAY (the decisive property; ADR-0004 D-8)
+ * GROUP A -- DETERMINISTIC REPLAY (the decisive property; clipped Toolbox drawing)
  * ---------------------------------------------------------------------------
  * Post a fixed-known raw trace; drain it; assert the EXACT EventRecord
  * sequence (what, message, where.h, where.v, when, modifiers) field by field.
- * Same trace -> same events, every run, every machine (Rule 11).
+ * Same trace -> same events, every run, every machine.
  *
  * Trace:
  *   [0] TICK (tick=1)                   -> nullEvent (no event synthesized)
@@ -228,7 +228,7 @@ static void test_deterministic_replay(void)
     CHECK(ev.what == mouseDown,  "replay[3]: what = mouseDown");
     CHECK(ev.when == 4u,         "replay[3]: when = 4");
     /* where must be updated by dx=+10, dy=+5 from cursor start (320,240).
-     * MUTANT EVENT_MUTATE_STALE_WHERE: clamp_coord is not called, so
+     * regression patches stale where patch: clamp_coord is not called, so
      * where.h stays 320 and where.v stays 240 -- these CHECKs go RED. */
     CHECK(ev.where.h == 330,     "replay[3]: where.h = 320+10 = 330");
     CHECK(ev.where.v == 245,     "replay[3]: where.v = 240+5 = 245");
@@ -255,7 +255,7 @@ static void test_deterministic_replay(void)
     CHECK((ev.message & 0xFFu) == 'q',   "replay[5]: message low byte = 'q'");
     CHECK(ev.when == 6u,         "replay[5]: when = 6");
 #else
-    /* MUTANT EVENT_MUTATE_DROP_SYNTH: keyboard events are not cooked. */
+    /* regression patches drop synth patch: keyboard events are not cooked. */
     rc = drain1(&ring, everyEvent, &ev);
     CHECK(ev.what == nullEvent,  "MUTANT replay[5]: DROP_SYNTH must suppress keyDown (RED)");
 #endif
@@ -270,7 +270,7 @@ static void test_deterministic_replay(void)
  * GROUP A2 -- SECOND FIXED TRACE: verifies identical output on second run
  * ---------------------------------------------------------------------------
  * Run the same trace as Group A from a fresh ring. The outputs must be
- * bit-identical (Rule 11 determinism). We re-verify the critical fields.
+ * bit-identical (reproducibility determinism). We re-verify the critical fields.
  * ===========================================================================*/
 static void test_deterministic_replay2(void)
 {
@@ -303,7 +303,7 @@ static void test_deterministic_replay2(void)
     rc = drain1(&ring, everyEvent, &ev);
     CHECK(rc == 1,               "replay2: mouseDown rc=1");
     CHECK(ev.what == mouseDown,  "replay2: what=mouseDown (deterministic)");
-    /* MUTANT EVENT_MUTATE_STALE_WHERE: these go RED (cursor not updated). */
+    /* regression patches stale where patch: these go RED (cursor not updated). */
     CHECK(ev.where.h == 330,     "replay2: where.h=330 (deterministic delta)");
     CHECK(ev.where.v == 245,     "replay2: where.v=245 (deterministic delta)");
 }
@@ -414,7 +414,7 @@ static void test_where_tracking(void)
           ((uint32_t)(uint8_t)(int8_t)0 << 16u));
 
     /* Pure moves (no button transition) -> nullEvent. State still updates.
-     * MUTANT EVENT_MUTATE_STALE_WHERE: cursor not updated; where.h stays 320;
+     * regression patches stale where patch: cursor not updated; where.h stays 320;
      * the CHECK(where.h == 420) goes RED, proving the mutant is caught. */
     rc = drain1(&ring, everyEvent, &ev);
     (void)rc;
@@ -597,7 +597,7 @@ static void test_spsc_ring(void)
 }
 
 /* ===========================================================================
- * GROUP G -- RANDOMISED REPLAY DETERMINISM (Rule 11)
+ * GROUP G -- RANDOMISED REPLAY DETERMINISM
  * ---------------------------------------------------------------------------
  * Generate a random trace with the seeded LCG; replay it; store the output
  * EventRecord sequence. Reset to the same seed; replay the identical trace.
@@ -689,7 +689,7 @@ static void test_random_determinism(void)
     }
 
     /* Bit-identical: both runs must produce the same number of events and
-     * the same EventRecord contents (Rule 11 determinism). */
+     * the same EventRecord contents (reproducibility determinism). */
     CHECK(n1 == n2, "random: both runs produce same event count (Rule 11)");
     {
         uint32_t ok = 1u;
@@ -706,7 +706,7 @@ static void test_random_determinism(void)
 
 /* ===========================================================================
  * GROUP I -- THE REAL PRODUCER'S ENCODING: raw PS/2 SET-1 bytes
- * (bead initech-tdnl.58; audit G11, docs/audits/2026-10-04-flair-gui-codex-
+ * (; audit G11, docs/audits/2026-10-04-flair-gui-codex-
  * pass2/REPORT.md -- "Ctrl and Shift remain active after key release").
  * ---------------------------------------------------------------------------
  * The ONE producer on metal, kmain.c flair_live_kbd_post, posts the byte read
@@ -715,7 +715,7 @@ static void test_random_determinism(void)
  * 0xAA = LShift up) and the right-hand keys arrive behind an 0xE0 prefix
  * byte. Groups A/E above post breaks in the spec/event_model.h bit-8 form,
  * which no producer emits -- so they agreed with the cooker by construction
- * while every real release went unrecognised (Law 2, HER-02 shape). This group
+ * while every real release went unrecognised (independent checks, HER-02 shape). This group
  * posts exactly what the wire carries.
  *
  * The expected values are read off the IBM reference, NOT off event.c:
@@ -891,26 +891,26 @@ static void test_set1_producer_encoding(void)
 }
 
 /* ===========================================================================
- * GROUP H -- NAMED MUTANT PROBE (Rule 6: mutation-proven oracle discipline)
+ * GROUP H -- NAMED regression patches PROBE (mutation checks: mutation-proven oracle discipline)
  * ---------------------------------------------------------------------------
- * The mutant probes (EVENT_MUTATE_DROP_SYNTH, EVENT_MUTATE_STALE_WHERE) are
+ * The mutant probes (drop synth patch, stale where patch) are
  * NAMED mutants in os/flair/event.c. Each mutant MUST drive THIS oracle RED
  * (exit non-zero). The mechanism:
  *
- *   EVENT_MUTATE_DROP_SYNTH: the keyboard-synthesis block in cook_raw() is
+ *   drop synth patch: the keyboard-synthesis block in cook_raw is
  *     skipped entirely; all FLAIR_RAW_KEYBOARD events cook to nullEvent.
  *     Groups A, A2, E, G assert the CORRECT EventRecord sequence, which will
  *     fail because expected keyDown/keyUp events are not produced. This group
  *     adds an explicit confirmation check so the failure path is visible even
  *     if groups A/A2 are reordered.
  *
- *   EVENT_MUTATE_STALE_WHERE: clamp_coord() is not called in the MOUSE branch;
+ *   stale where patch: clamp_coord is not called in the MOUSE branch;
  *     g_cursor_h/v are never updated from mouse deltas; `where` is always stale.
  *     Groups A (replay[3,4]), A2, D (where_tracking) assert where.h==330 etc.,
  *     which fail because the cursor stays at (320,240). Explicit confirmations
  *     are in those groups (the CHECKs are unconditional).
  *
- * Rule 6 verification: after mutation-proving, RESTORE the event.c source and
+ * mutation checks verification: after mutation-proving, RESTORE the event.c source and
  * confirm this oracle returns to GREEN (exit 0). That is the full discipline.
  *
  * In the NON-mutant build this group is empty (the DROP_SYNTH confirmation
@@ -972,7 +972,7 @@ static void test_drop_marker(void)
                   "FLAIR-EVT-DROP\n", "owpg event drop reported exactly once in task context");
 }
 
-/* Ref: spec/cpanels/record.json (normal = 20 ticks), event.c DEC-10,
+/* Ref: spec/cpanels/record.json (normal = 20 ticks), event.c Platinum base,
  * finder_desktop.h F2-5 and Makefile's DBL record-image contract.
  * Preferences load before Event Manager init: the record seed must also
  * survive that startup ordering, not merely a static initializer. */

@@ -1,49 +1,49 @@
 /*
  * os/flair/control.c -- FLAIR Control Manager (THE ARTIFACT).
  *
- * beads: initech-8h9 ("FLAIR Control Manager: buttons, scrollbars, progress
- *        bar"). See control.h for the full contract, Law-3 separation, and
+ *  ("FLAIR Control Manager: buttons, scrollbars, progress
+ *        bar"). See control.h for the full contract, separation of product C from host tools, and
  *        verbatim Inside Macintosh source citations.
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The scrollbar,
+ * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE. The scrollbar,
  * unpressed push button, and checked checkbox use sampled Platinum anatomy.
  * The unchecked checkbox, pressed button, and radio remain explicitly tagged
  * golden gaps; their retained heritage paths are not promoted as Platinum.
  *
  * Freestanding artifact code: draws push buttons, check boxes, radio buttons,
  * vertical scrollbars, and the FILE COPY progress bar into a GrafPort, writing
- * ONLY through the surface module + blitter (ADR-0004 D-2/C-2: no second pixel
+ * ONLY through the surface module + blitter (clipped Toolbox drawing/C-2: no second pixel
  * path). Dimensions derive from the LOCKED constants in spec/chrome_metrics.h.
  * Hit-testing and tracking are pure geometry + value math (deterministic;
- * Rule 11). No libc. No malloc. No 2026-isms.
+ * reproducibility). No libc. No malloc. No 2026-isms.
  *
- * COLOR MODEL (C-8; ADR-0004-AMENDMENT-DEC-09 Sec 3.1/3.3). control.c is a
+ * COLOR MODEL (C-8; clipped Toolbox drawing/3.3). control.c is a
  * DECORATION policy: it keeps control GEOMETRY but names NO color.  It names a
  * wctb-keyed PART (FLAIR_PART_*) and resolves PART -> destination pixel ONLY
  * through the ONE policy seam flair_look_pixel(port, PART)
  * (os/flair/flair_look.h).  This TU ships ZERO 0xRRGGBB literal, ZERO
  * INITECH_*_RGB, ZERO index->RGB switch -- the C-8 cut-line.
  *
- * MUTATION HOOKS (Rule 6):
- *   CONTROL_MUTATE_THUMB_OFF  -- thumb position math uses wrong scale factor
+ * REGRESSION PATCHES:
+ *   thumb off patch  -- thumb position math uses wrong scale factor
  *                                (multiply by 2 instead of divide by range);
  *                                => scrollbar thumb y and value<->thumb tests RED.
- *   CONTROL_MUTATE_NO_CLAMP   -- SetControlValue does NOT clamp to [min,max];
+ *   no clamp patch   -- SetControlValue does NOT clamp to [min,max];
  *                                => clamping tests RED.
- *   SB_MUT_THUMB_16           -- heritage 16px thumb replaces sampled 15px.
- *   SB_MUT_DISABLED_ENABLED_LOOK -- disabled bar paints the enabled anatomy.
- *   CTRL_MUT_CHECK_FILL -- checked checkbox relapses to the accent fill.
- *   CTRL_MUT_BTN_FLAT -- unpressed push button loses its sampled bevel.
- *   CTRL_MUT_NO_DEFAULT_RING -- Dialog Manager default ring is suppressed.
- *   CTRL_MUT_PROGRESS_FLAT -- the progress bar relapses to the retired flat bar.
+ *   thumb 16 patch           -- heritage 16px thumb replaces sampled 15px.
+ *   disabled enabled look patch -- disabled bar paints the enabled anatomy.
+ *   check fill patch -- checked checkbox relapses to the accent fill.
+ *   btn flat patch -- unpressed push button loses its sampled bevel.
+ *   no default ring patch -- Dialog Manager default ring is suppressed.
+ *   progress flat patch -- the progress bar relapses to the retired flat bar.
  *
- * Ref: control.h (the full API contract + Law 1 citations);
+ * Ref: control.h (the full API contract + source provenance citations);
  *      spec/chrome_metrics.h (LOCKED native metrics);
  *      os/flair/blitter.h (region-clipped fill);
  *      os/flair/text.h (Chicago button label + centering);
  *      os/flair/surface.h (the ONE pixel writer);
  *      spec/grafport.h (GrafPort, flair_point_t);
- *      CLAUDE.md Law 1/2/3, Rule 2/6/11/12.
+ *      source provenance/2/3, explicit error handling/6/11/12.
  */
 
 #include <stdint.h>
@@ -58,25 +58,21 @@
 #include "flair_look.h"         /* flair_look_pixel + FLAIR_PART_* (the seam)   */
 #include "progress_platinum.h"   /* CDEF 5 anatomy, locked spec-data (-Ispec)    */
 
-/* gxo2: same fail-loud path as REGION_ENGINE (Rule 2, PRD Appendix B). */
+/* same fail-loud path as REGION_ENGINE (explicit error handling, PRD Appendix B). */
 #if defined(__STDC_HOSTED__) && __STDC_HOSTED__
 #include <stdlib.h>
 #define CTRL_PANIC() abort()
 #else
 #define CTRL_PANIC() __builtin_trap()
 #endif
-#ifdef CTRL_MUT_NULL_SILENT
-#define CTRL_REQUIRE(p) ((void)0)
-#else
 #define CTRL_REQUIRE(p) do { if (!(p)) CTRL_PANIC(); } while (0)
-#endif
 
 /* ===========================================================================
  * PART NAMESPACE  (C-8; the wctb-keyed roles control draw names -- NOT colors)
  * The control draw code names these semantic PARTs and resolves PART ->
  * destination pixel through the ONE policy seam flair_look_pixel.  The names
  * below are local aliases onto FLAIR_PART_* so the draw code reads naturally
- * (CTRL_BLACK == frame ink, CTRL_WHITE == content, ...).  No index, no color.
+ * (CTRL_BLACK == frame ink, CTRL_WHITE == content,...).  No index, no color.
  * ===========================================================================*/
 enum {
     CTRL_BLACK      = FLAIR_PART_FRAME,        /* frame lines / borders         */
@@ -96,15 +92,15 @@ enum {
     CTRL_SB_THUMB_SHADOW = FLAIR_PART_SB_THUMB_SHADOW,
     CTRL_SB_THUMB_GRIP = FLAIR_PART_SB_THUMB_GRIP,
     /* Progress bar (spec/progress_platinum.h): the clut-208 rungs take the
-     * scroll thumb's ratified H/P/S/R roles (DEC-10 OQ-2/OQ-3, flair_look.c
-     * tdnl.96/.97); the #000077 cap takes the menu title's dark edge. */
+     * scroll thumb's ratified H/P/S/R roles (Platinum base OQ-2/OQ-3, flair_look.c
+     * ); the #000077 cap takes the menu title's dark edge. */
     CTRL_PROG_H     = FLAIR_PART_SB_THUMB_HL,
     CTRL_PROG_P     = FLAIR_PART_SB_THUMB_FACE,
     CTRL_PROG_S     = FLAIR_PART_SB_THUMB_SHADOW,
     CTRL_PROG_R     = FLAIR_PART_SB_THUMB_GRIP,
     CTRL_PROG_CAP   = FLAIR_PART_MENU_TITLE_HILITE_SHADOW,
     CTRL_PROG_TRACK_EDGE = FLAIR_PART_PLAT_INACTIVE_FRAME, /* #777777 */
-    /* Pressed push button (tdnl.88; mint-010, sys8/controls.md Sec 5.3):
+    /* Pressed push button (; mint-010, sys8/controls.md Sec 5.3):
      * the sunken rims and the darkened face, each an existing ramp row. */
     CTRL_PRESS_RIM   = FLAIR_PART_PLAT_PRESSED_RIM,    /* #666666 outer TL */
     CTRL_PRESS_LIGHT = FLAIR_PART_PLAT_INACTIVE_FRAME, /* #777777 inner TL */
@@ -142,8 +138,8 @@ static int ctrl_in_clip(const GrafPort *port, int x, int y)
 }
 
 /* ctrl_text -- a Chicago label CLIPPED like every other control primitive:
- * the Font Manager's text_draw_run under visRgn INTERSECT clipRgn (bead
- * initech-tdnl.68; it was text_draw, which ignored the port's regions). */
+ * the Font Manager's text_draw_run under visRgn INTERSECT clipRgn (
+ *; it was text_draw, which ignored the port's regions). */
 static void ctrl_text(GrafPort *port, int x, int y, const char *s,
                       uint32_t fg, uint32_t bg)
 {
@@ -228,7 +224,7 @@ void control_init(ControlRecord *ctrl,
 {
     CTRL_REQUIRE(ctrl);
     if (ctrl == 0) {
-        return;                                 /* fail-loud guard (Rule 2)     */
+        return;                                 /* fail-loud guard      */
     }
     ctrl->contrlType    = type;
     ctrl->contrlRect    = rect;
@@ -250,19 +246,14 @@ void control_init(ControlRecord *ctrl,
 }
 
 /* ===========================================================================
- * SetControlValue  (clamped to [min,max]; Rule 2)
+ * SetControlValue  (clamped to [min,max]; explicit error handling)
  * ===========================================================================*/
 void SetControlValue(ControlRecord *ctrl, int16_t value)
 {
     CTRL_REQUIRE(ctrl);
     if (ctrl == 0) {
-        return;                                 /* fail-loud guard (Rule 2)     */
+        return;                                 /* fail-loud guard      */
     }
-#if defined(CONTROL_MUTATE_NO_CLAMP) && CONTROL_MUTATE_NO_CLAMP
-    /* NAMED MUTANT: no clamping. SetControlValue stores the value verbatim
-     * even if out of [min,max]. test_control MUST catch this (Rule 6). */
-    ctrl->contrlValue = value;
-#else
     if (value < ctrl->contrlMin) {
         value = ctrl->contrlMin;
     }
@@ -270,7 +261,6 @@ void SetControlValue(ControlRecord *ctrl, int16_t value)
         value = ctrl->contrlMax;
     }
     ctrl->contrlValue = value;
-#endif
 }
 
 /* ===========================================================================
@@ -286,7 +276,7 @@ int16_t GetControlValue(const ControlRecord *ctrl)
 }
 
 /* ===========================================================================
- * THUMB MATH  (value <-> pixel; Law 1: Inside Macintosh IV thumb convention)
+ * THUMB MATH  (value <-> pixel; source provenance: Inside Macintosh IV thumb convention)
  *
  * Track region (port-local):
  *   track_top = contrlRect.top + SB_ARROW
@@ -294,7 +284,7 @@ int16_t GetControlValue(const ControlRecord *ctrl)
  *   track_h   = track_bot - track_top
  *
  * Thumb height: SB_THUMB_MIN (15 px -- fixed until R1.5 supplies a content
- * range for proportional sizing; initech-tdnl.4).
+ * range for proportional sizing; ).
  *
  * Thumb top y (forward, value -> pixel):
  *   range = contrlMax - contrlMin
@@ -322,14 +312,8 @@ int16_t ctrl_thumb_y(const ControlRecord *ctrl)
         return (int16_t)track_top;
     }
 
-#if defined(CONTROL_MUTATE_THUMB_OFF) && CONTROL_MUTATE_THUMB_OFF
-    /* NAMED MUTANT: wrong scale factor -- multiply by 2 instead of dividing
-     * correctly. test_control MUST catch this divergence (Rule 6). */
-    int offset = ((int)ctrl->contrlValue - (int)ctrl->contrlMin) * 2;
-#else
     int offset = ((int)ctrl->contrlValue - (int)ctrl->contrlMin)
                  * (track_h - thumb_h) / range;
-#endif
 
     int ty = track_top + offset;
     if (ty < track_top) {
@@ -364,14 +348,7 @@ int16_t ctrl_value_from_thumb_y(const ControlRecord *ctrl, int16_t thumb_y)
         offset = moveable;
     }
 
-#if defined(CONTROL_MUTATE_THUMB_OFF) && CONTROL_MUTATE_THUMB_OFF
-    /* NAMED MUTANT: inverse uses same wrong formula to stay "consistent" with
-     * the mutated forward pass. The forward+inverse pair is tested together so
-     * the mutant ensures the ratio is wrong in both directions (Rule 6). */
-    int v = (int)ctrl->contrlMin + offset / 2;
-#else
     int v = (int)ctrl->contrlMin + offset * range / moveable;
-#endif
 
     if (v < (int)ctrl->contrlMin) {
         v = (int)ctrl->contrlMin;
@@ -409,7 +386,7 @@ int16_t ctrl_progress_fill_px(const ControlRecord *ctrl)
  * DRAW DISPATCH
  * ===========================================================================*/
 
-/* Run tables (kernel size, WL-0162): one row code, a start (>= 0: x0 + n;
+/* Run tables (kernel size, drawing tables): one row code, a start (>= 0: x0 + n;
  * < 0: x1 + n), a length (> 0: n px; <= 0: w + n px) and a PART, painted in
  * table order over the rect [x0,x1) x [y0,y1). Row codes: y0, y1-1, y0+1,
  * y0+2, the straight body y0+3..y1-4, y0+3, y1-4, y1-3, y1-2. */
@@ -433,7 +410,7 @@ static void ctrl_runs(GrafPort *port, int x0, int y0, int x1, int y1,
     }
 }
 
-/* 2-D rect tables (size round 6, WL-0162): each entry is one crect_ctrl
+/* 2-D rect tables (compact storage, drawing tables): each entry is one crect_ctrl
  * whose edges are offsets from the box's left/top or (CR_*R/B) its
  * right/bottom edge, painted in table order. */
 typedef struct { int8_t x0, y0, x1, y1; uint8_t f, part; } ctrl_rect_t;
@@ -463,8 +440,8 @@ static void ctrl_rects(GrafPort *port, int l, int t, int r, int b,
  * (s8_alert_ok_pressed.png): the same black frame and 3F corners, the inside
  * sunk -- 66 outer / 77 inner on the top+left, 87 face, 96 inner / A5 outer
  * on the bottom+right, white label. Default and plain buttons press alike.
- * Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.1/5.3;
- *      ../system7-decomp/re/mint-results-010.md Sec 2. */
+ * Ref:../system7-decomp/specs/sys8/controls.md Sec 5.1/5.3;
+ *../system7-decomp/re/mint-results-010.md Sec 2. */
 static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
 {
     int x0 = (int)ctrl->contrlRect.left;
@@ -478,44 +455,24 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
     }
 
     int hilited = (ctrl->contrlHilite == inButton);
-#if defined(CTRL_MUT_PRESS_ACCENT) && CTRL_MUT_PRESS_ACCENT
-    int face_part = hilited ? CTRL_ACCENT : CTRL_PLAT_FACE;
-#else
     int face_part = hilited ? CTRL_PRESS_FACE : CTRL_PLAT_FACE;
-#endif
 
-#if defined(CTRL_MUT_PRESS_ACCENT) && CTRL_MUT_PRESS_ACCENT
-    if (hilited) {
-        /* NAMED MUTANT (Rule 6, tdnl.88): the retired pre-mint heritage
-         * accent fill; test-flair-dialog-pressed-golden must go RED. */
-        crect_ctrl(port, x0, y0, x1, y1, CTRL_ACCENT);
-        cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
-        cfill_ctrl(port, x0,     y0,     1, CTRL_DESKTOP);
-        cfill_ctrl(port, x1 - 1, y0,     1, CTRL_DESKTOP);
-        cfill_ctrl(port, x0,     y1 - 1, 1, CTRL_DESKTOP);
-        cfill_ctrl(port, x1 - 1, y1 - 1, 1, CTRL_DESKTOP);
-    } else
-#endif
     {
         crect_ctrl(port, x0, y0, x1, y1, CTRL_PLAT_FACE);
-#if defined(CTRL_MUT_BTN_FLAT) && CTRL_MUT_BTN_FLAT
-        /* NAMED MUTANT: remove the sampled bevel/corner anatomy. */
-        cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
-#else
-        /* The anatomy as run tables (kernel size, WL-0162): one row code,
+        /* The anatomy as run tables (kernel size, drawing tables): one row code,
          * a start (>= 0: x0 + n; < 0: x1 + n), a length (> 0: n px;
          * <= 0: w + n px) and a PART. Both tables are transcriptions of the
          * captures; the order is the paint order (the two inner corner
          * steps land after the straight body).
          *
-         * IDLE -- M012 / tdnl.100: decoded s8_alert_modal.png four 4x4
+         * IDLE -- M012 /: decoded s8_alert_modal.png four 4x4
          * patches x363..366 / x418..421, y158..161 / y174..177.
          * Legend: e=E7E7E7, k=000000, d=3F3F3F, c=CDCDCD, w=FFFFFF,
          * s=C0C0C0, g=969696. Rows are left-to-right, top-to-bottom:
          * TL eedk ekce dcww keww     TR kdee ecke wecd esgk
          * BL kewe dces ekcg eedk     BR ssgk sggd ggke kdee
          * The outer two top/bottom corner pixels are FACE, not a gray
-         * fringe. Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.1.
+         * fringe. Ref:../system7-decomp/specs/sys8/controls.md Sec 5.1.
          *
          * PRESSED -- mint-010 Sec 2 (s8_alert_ok_pressed.png, OK
          * x435..493 y158..177): the same black frame and 3F corners, the
@@ -523,7 +480,7 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
          * 96 inner / A5 outer on the bottom+right. The 12 pixels outside
          * the rounded frame keep the idle face (the dialog face, or the
          * default ring's moat drawn after this). Ref: controls.md Sec 5.3;
-         * ../system7-decomp/re/mint-results-010.md Sec 2. */
+         *../system7-decomp/re/mint-results-010.md Sec 2. */
         static const btn_run_t idle[] = {
             BR(R_TOP, 2, 1, CTRL_PLAT_DARK_RING), BR(R_TOP, 3, -6, CTRL_BLACK),
             BR(R_TOP, -3, 1, CTRL_PLAT_DARK_RING),
@@ -553,7 +510,7 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
             /* y0+1: black corner steps around a full 66 rim row. */
             BR(R_1, 1, 1, CTRL_BLACK), BR(R_1, 2, -4, CTRL_PRESS_RIM),
             BR(R_1, -2, 1, CTRL_BLACK),
-            /* y0+2: 3F | 66 66 | 77 ... 77 | 87 | 96 | 3F */
+            /* y0+2: 3F | 66 66 | 77... 77 | 87 | 96 | 3F */
             BR(R_2, 0, 1, CTRL_PLAT_DARK_RING), BR(R_2, 1, 2, CTRL_PRESS_RIM),
             BR(R_2, 3, -6, CTRL_PRESS_LIGHT), BR(R_2, -3, 1, CTRL_PRESS_FACE),
             BR(R_2, -2, 1, CTRL_PLAT_DARK_SHADOW), BR(R_2, -1, 1, CTRL_PLAT_DARK_RING),
@@ -563,11 +520,11 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
             BR(R_BODY, -3, 1, CTRL_PLAT_DARK_SHADOW),
             BR(R_BODY, -2, 1, CTRL_PLAT_WIDGET_EDGE), BR(R_BODY, -1, 1, CTRL_BLACK),
             BR(R_3, 3, 1, CTRL_PRESS_LIGHT), BR(R_B4, -4, 1, CTRL_PLAT_DARK_SHADOW),
-            /* y1-3: 3F | 66 | 87 | 96 ... 96 | A5 A5 | 3F */
+            /* y1-3: 3F | 66 | 87 | 96... 96 | A5 A5 | 3F */
             BR(R_B3, 0, 1, CTRL_PLAT_DARK_RING), BR(R_B3, 1, 1, CTRL_PRESS_RIM),
             BR(R_B3, 2, 1, CTRL_PRESS_FACE), BR(R_B3, 3, -6, CTRL_PLAT_DARK_SHADOW),
             BR(R_B3, -3, 2, CTRL_PLAT_WIDGET_EDGE), BR(R_B3, -1, 1, CTRL_PLAT_DARK_RING),
-            /* y1-2: black | 96 | A5 ... A5 | black */
+            /* y1-2: black | 96 | A5... A5 | black */
             BR(R_B2, 1, 1, CTRL_BLACK), BR(R_B2, 2, 1, CTRL_PLAT_DARK_SHADOW),
             BR(R_B2, 3, -5, CTRL_PLAT_WIDGET_EDGE), BR(R_B2, -2, 1, CTRL_BLACK)
         };
@@ -575,23 +532,6 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
         int nt = hilited ? (int)(sizeof pressed / sizeof pressed[0])
                          : (int)(sizeof idle / sizeof idle[0]);
         ctrl_runs(port, x0, y0, x1, y1, t, nt);
-#if defined(CTRL_MUT_BTN_FRINGE) && CTRL_MUT_BTN_FRINGE
-        if (!hilited) {
-            /* Rule 6: restore the thirteen pre-M012 corner errors. */
-            for (int y = y0; y < y1; y += h - 1) {
-                cfill_ctrl(port, x0, y, 1, CTRL_PLAT_SHADOW);
-                cfill_ctrl(port, x0 + 1, y, 1, CTRL_PLAT_DARK_SHADOW);
-                cfill_ctrl(port, x1 - 2, y, 1, CTRL_PLAT_DARK_SHADOW);
-                cfill_ctrl(port, x1 - 1, y, 1, CTRL_PLAT_SHADOW);
-            }
-            cfill_ctrl(port, x0, y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
-            cfill_ctrl(port, x1 - 1, y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
-            cfill_ctrl(port, x0, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
-            cfill_ctrl(port, x1 - 1, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
-            cfill_ctrl(port, x1 - 3, y1 - 2, 1, CTRL_PLAT_FACE);
-        }
-#endif
-#endif
     }
 
     /* Chicago label, centered. */
@@ -605,17 +545,8 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
         ly = y0 + 1;
     }
     if (label_w > 0) {
-#if defined(CTRL_MUT_LABEL_OPAQUE) && CTRL_MUT_LABEL_OPAQUE
-        /* Rule 6: restore the pre-M011 opaque run over the bevel rows. */
-        ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
-#else
-#if defined(CTRL_MUT_PRESS_ACCENT) && CTRL_MUT_PRESS_ACCENT
-        if (hilited) {
-            ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
-        } else
-#endif
         if (w > 6 && h > 6) {
-            /* M011 / tdnl.99: s8_alert_modal.png x365..418 has 54 white
+            /* M011 /: s8_alert_modal.png x365..418 has 54 white
              * pixels at y160 and 53 C0 + one E7 at y175. The Chicago cell
              * includes blank rows outside its ink; clip its opaque erase to
              * the inner face, preserving both bevel rows and columns.
@@ -625,7 +556,6 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
             (void)text_draw_run(&port->portBits.bm, lx, ly, ctrl->contrlTitle,
                                 FONT_CHICAGO, 0u, fg, bg, &k);
         }
-#endif
     }
 }
 
@@ -664,13 +594,6 @@ static void draw_check_box(GrafPort *port, const ControlRecord *ctrl)
     }
 
     if (ctrl->contrlValue != 0) {
-#if defined(CTRL_MUT_CHECK_FILL) && CTRL_MUT_CHECK_FILL
-        /* NAMED MUTANT: relapse to the old solid accent-fill interior. */
-        crect_ctrl(port,  x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_WHITE);
-        cframe_ctrl(port, x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_BLACK);
-        crect_ctrl(port, x0 + 2, box_y + 2, x0 + BOX_SZ - 2,
-                   box_y + BOX_SZ - 2, CTRL_ACCENT);
-#else
         static const char profile[BOX_SZ * BOX_SZ + 1] =
             "KKKKKKKKKKKK"
             "KWWWWWWWWWeK"
@@ -690,7 +613,6 @@ static void draw_check_box(GrafPort *port, const ControlRecord *ctrl)
                            checked_box_part(profile[y * BOX_SZ + x]));
             }
         }
-#endif
     } else {
         /* Unchecked Platinum art is a golden GAP: preserve heritage output. */
         crect_ctrl(port,  x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_WHITE);
@@ -721,11 +643,7 @@ static void draw_radio_button(GrafPort *port, const ControlRecord *ctrl)
     /* R4.5: a radio is embedded in a dialog, not on the desktop. Keep the
      * existing unminted shape; its ambient face follows the already sampled
      * control/dialog face (s8_controls_dialog.png, sys8/controls.md sec1). */
-#ifdef CTRL_MUT_RADIO_DESKTOP_BG
-    const int background=CTRL_DESKTOP;
-#else
     const int background=CTRL_PLAT_FACE;
-#endif
     int x0 = (int)ctrl->contrlRect.left;
     int y0 = (int)ctrl->contrlRect.top;
     int y1 = (int)ctrl->contrlRect.bottom;
@@ -783,16 +701,12 @@ static void draw_ctrl_scroll_tile(GrafPort *port,
     /* The same raised tile as chrome.c draw_scroll_tile, as a rect table. */
     static const ctrl_rect_t tile[] = {
         CRX(0, 0, 0, 0, CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FACE),
-#if !defined(SB_MUT_TILE_FLAT)
         CRX(0, 0, -1, 1, CR_X1R, FLAIR_PART_CONTENT),
         CRX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_CONTENT),
         CRX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
         CRX(-1, 0, 0, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
-#if !defined(SB_LOOK_MUT_CORNERS_BEVELLED)
         CRX(-1, 0, 0, 1, CR_X0R | CR_X1R, FLAIR_PART_PLAT_FACE),
         CRX(0, -1, 1, 0, CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FACE),
-#endif
-#endif
     };
     ctrl_rects(port, x0, y0, x1, y1, tile, (int)(sizeof tile / sizeof tile[0]));
 }
@@ -803,9 +717,6 @@ static void draw_ctrl_scroll_well(GrafPort *port,
     if (x1 <= x0 || y1 <= y0) {
         return;
     }
-#if defined(SB_MUT_FLAT_WELL)
-    crect_ctrl(port, x0, y0, x1, y1, FLAIR_PART_PLAT_WELL);
-#else
     static const ctrl_rect_t well[] = {
         CRX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_PLAT_STRIPE_DARK),
         CRX(1, 0, 2, 0, CR_Y1B, FLAIR_PART_PLAT_WIDGET_EDGE),
@@ -819,7 +730,6 @@ static void draw_ctrl_scroll_well(GrafPort *port,
         cfill_ctrl(port, x0, y0 + 1, x1 - x0,
                    FLAIR_PART_PLAT_WIDGET_EDGE);
     }
-#endif
 }
 
 /* Transpose of the sampled horizontal 15x14 thumb matrix. Colour substitution
@@ -838,10 +748,6 @@ static void draw_ctrl_scroll_thumb(GrafPort *port,
         CRX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, CTRL_SB_THUMB_SHADOW)
     };
     ctrl_rects(port, x0, ty, x1, ty + thumb_h, ramp, (int)(sizeof ramp / sizeof ramp[0]));
-#if defined(SB_LOOK_MUT_RAMP_FLAT)
-    crect_ctrl(port, x0, ty, x1, ty + thumb_h, CTRL_SB_THUMB_FACE);
-    cfill_ctrl(port, x0, ty, 1, FLAIR_PART_PLAT_TROUGH);
-#endif
 
     /* Four dark seven-pixel grip lines, with six-pixel highlight companions
      * one axis pixel earlier and an F3 cap at cross offset 3. */
@@ -851,11 +757,7 @@ static void draw_ctrl_scroll_thumb(GrafPort *port,
         cfill_ctrl(port, x0 + 3, companion_y, 1,
                    FLAIR_PART_PLAT_TROUGH);
         cfill_ctrl(port, x0 + 4, companion_y, 6, CTRL_SB_THUMB_HL);
-#if !defined(SB_LOOK_MUT_GRIPS_MISSING)
         cfill_ctrl(port, x0 + 4, grip_y, 7, CTRL_SB_THUMB_GRIP);
-#else
-        (void)grip_y;
-#endif
     }
 }
 
@@ -864,8 +766,8 @@ static void draw_ctrl_scroll_thumb(GrafPort *port,
  * Enabled: black frame/separators, raised arrow tiles, recessed five-value
  * well, and a fixed 15px accent thumb positioned by value/min/max.
  * Disabled (contrlHilite==255): flat F3 interior, gray separators/arrows, no
- * thumb. Proportional sizing is honestly deferred to R1.5 / initech-tdnl.4.
- * Ref: ../system7-decomp/specs/sys8/scrollbars.md Sec 1-5 (SAMPLED). */
+ * thumb. Proportional sizing is honestly deferred to R1.5 /.
+ * Ref:../system7-decomp/specs/sys8/scrollbars.md Sec 1-5 (SAMPLED). */
 static void draw_scrollbar(GrafPort *port, const ControlRecord *ctrl)
 {
     int x0 = (int)ctrl->contrlRect.left;
@@ -875,9 +777,6 @@ static void draw_scrollbar(GrafPort *port, const ControlRecord *ctrl)
     int h = y1 - y0;
     int btn = SB_ARROW;
     int disabled = ctrl->contrlHilite == 255;
-#if defined(SB_MUT_DISABLED_ENABLED_LOOK)
-    disabled = 0;
-#endif
 
     if (x1 - x0 != FLAIR_CHROME_SCROLLBAR_W ||
         h < 2 * btn + SB_THUMB_MIN) {
@@ -911,9 +810,6 @@ static void draw_scrollbar(GrafPort *port, const ControlRecord *ctrl)
     int leading_sep = ty - 1;
     int trailing_sep = ty + thumb_h;
     int sep_part = FLAIR_PART_FRAME;
-#if defined(SB_MUT_SEP_GRAY)
-    sep_part = FLAIR_PART_PLAT_INACTIVE_FRAME;
-#endif
 
     draw_ctrl_scroll_well(port, x0 + 1, track_top,
                           x1 - 1, leading_sep);
@@ -933,15 +829,15 @@ static void draw_scrollbar(GrafPort *port, const ControlRecord *ctrl)
 }
 
 /* draw_progress_bar -- the Mac OS 8.1 Platinum DETERMINATE progress bar
- * (Appearance CDEF 5), the FILE COPY bar (PRD Sec 6.5, initech-bf2).
+ * (Appearance CDEF 5), the FILE COPY bar (PRD Sec 6.5, ).
  *
  * Every pixel class is spec/progress_platinum.h, transcribed from the minted
  * Finder copy window (../system7-decomp/re/mint-results-s8-progress.md). The
- * lavender rungs resolve through the ratified lavender->teal roles (DEC-10
- * OQ-2/OQ-3; the scroll thumb's H/P/S/R mapping, flair_look.c tdnl.96/.97):
+ * lavender rungs resolve through the ratified lavender->teal roles (Platinum base
+ * OQ-2/OQ-3; the scroll thumb's H/P/S/R mapping, flair_look.c ):
  * no new colour row. A rect that is not FLAIR_PROGRESS_H tall draws nothing
- * (the only measured CDEF 5 height; never a guessed stretch, Law 1).
- * CTRL_MUT_PROGRESS_FLAT (Rule 6) relapses to the retired flat bar. */
+ * (the only measured CDEF 5 height; never a guessed stretch, source provenance).
+ * progress flat patch  relapses to the retired flat bar. */
 static int prog_part(char c)
 {
     switch (c) {
@@ -966,18 +862,6 @@ static void draw_progress_bar(GrafPort *port, const ControlRecord *ctrl)
     int y0 = (int)ctrl->contrlRect.top;
     int x1 = (int)ctrl->contrlRect.right;
     int y1 = (int)ctrl->contrlRect.bottom;
-#if defined(CTRL_MUT_PROGRESS_FLAT)
-    /* NAMED MUTANT: the retired authored flat bar (black frame, white well,
-     * one accent fill). The golden-derived oracle must go RED. */
-    if (x1 - x0 < 4 || y1 - y0 < 3) return;
-    cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
-    crect_ctrl(port, x0 + 1, y0 + 1, x1 - 1, y1 - 1, CTRL_WHITE);
-    {
-        int flat = (int)ctrl_progress_fill_px(ctrl);
-        if (flat > 0) crect_ctrl(port, x0 + 1, y0 + 1, x0 + 1 + flat, y1 - 1, CTRL_ACCENT);
-    }
-    return;
-#endif
     if (y1 - y0 != FLAIR_PROGRESS_H || x1 - x0 < 2 * FLAIR_PROGRESS_INSET + 1) {
         return;
     }
@@ -1034,10 +918,6 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
         !ctrl->contrlVis) {
         return;
     }
-#if defined(CTRL_MUT_NO_DEFAULT_RING) && CTRL_MUT_NO_DEFAULT_RING
-    /* NAMED MUTANT: defaultItem no longer reaches visible ring pixels. */
-    return;
-#else
     int bx0 = (int)ctrl->contrlRect.left;
     int by0 = (int)ctrl->contrlRect.top;
     int bx1 = (int)ctrl->contrlRect.right;
@@ -1051,7 +931,7 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
         return;
     }
 
-    /* The expanded bounds [x0,x1) x [y0,y1) (x0 = bx0 - 3 ...) as one run
+    /* The expanded bounds [x0,x1) x [y0,y1) (x0 = bx0 - 3...) as one run
      * table, in the original paint order: the sampled E7 field, the
      * one-pixel rounded black ring with its 3F smoothing pixels, then the
      * straight moat legs (E7/C0 top+left, C0/96 bottom+right); DrawControl
@@ -1080,8 +960,7 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
      * Ref: s8_alert_modal.png x432..496,y155..180: radius4, asymmetric
      * sampled smoothing/moat. These are the four 5x5 corner crops; straight
      * legs above remain stretchable. The oracle reads the PNG independently.
-     * Named mutant restores the old corners (Rule6). */
-#ifndef CTRL_MUT_RING_OLD_CORNERS
+     * Named mutant restores the old corners. */
     static const char corners[4][5][6]={
         {"...dK","..K..",".K..C","d..CS","K.CSK"},
         {"Kd...",".AK..","CCHK.","SCCGd","KSCSK"},
@@ -1096,9 +975,7 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
         else if(c=='G')part=CTRL_PLAT_WIDGET_EDGE;
         cfill_ctrl(port,(k&1?x1-5:x0)+x,(k&2?y1-5:y0)+y,1,part);
     }
-#endif
 
-#endif
 }
 
 /* ===========================================================================
@@ -1108,7 +985,7 @@ void DrawControl(GrafPort *port, ControlRecord *ctrl)
 {
     CTRL_REQUIRE(port && ctrl);
     if (port == 0 || ctrl == 0) {
-        return;                                 /* fail-loud guard (Rule 2)     */
+        return;                                 /* fail-loud guard      */
     }
     if (!ctrl->contrlVis) {
         return;
@@ -1150,9 +1027,7 @@ static int pt_in_rect(flair_point_t pt, rgn_rect_t r)
 int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt)
 {
     CTRL_REQUIRE(ctrl);
-#ifndef CTRL_MUT_DISABLED_HIT
     if (ctrl && ctrl->contrlHilite == 255) return 0;
-#endif
     if (ctrl == 0 || !ctrl->contrlVis) {
         return 0;
     }
@@ -1179,16 +1054,9 @@ int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt)
         int h   = y1 - y0;
 
         /* Must be at least wide enough to have a scrollbar. */
-#ifdef CTRL_MUT_SHORT_BUTTON
-        if (h < 2 * btn) return inButton;
-#endif
-#ifndef CTRL_MUT_SHORT_LIVE
-        /* mktj/44la: exactly the draw_scrollbar geometry predicate. */
+        /* exactly the draw_scrollbar geometry predicate. */
         if (x1 - x0 != FLAIR_CHROME_SCROLLBAR_W || h < 2 * btn + SB_THUMB_MIN)
             return 0;
-#else
-        (void)h;
-#endif
 
         int y = (int)pt.v;
         (void)x0; (void)x1;
@@ -1228,16 +1096,14 @@ int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt)
 /* ===========================================================================
  * TrackControl -- follow a point sequence; return final part code.
  *
- * Deterministic (Rule 11): pure function of pts[] and ctrl state. No hardware,
+ * Deterministic: pure function of pts[] and ctrl state. No hardware,
  * no ISR, no PIT. For thumb drag, updates contrlValue proportionally.
  * ===========================================================================*/
 int16_t TrackControl(ControlRecord *ctrl,
                      const flair_point_t *pts, uint32_t n_pts)
 {
     CTRL_REQUIRE(ctrl && pts);
-#ifndef CTRL_MUT_DISABLED_HIT
     if (ctrl && ctrl->contrlHilite == 255) return 0;
-#endif
     if (ctrl == 0 || pts == 0 || n_pts == 0) {
         return 0;
     }

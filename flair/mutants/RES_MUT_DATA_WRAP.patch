@@ -1,0 +1,18 @@
+# Legacy RES_MUT_DATA_WRAP
+# test: test_resource
+--- a/resource.c
++++ b/resource.c
+@@ -165,12 +165,10 @@
+ static const uint8_t *resource_data(const FlairResMap *m, uint32_t off,
+                                    uint32_t *length)
+ {
+-    if (m->data_off > m->len || m->data_len > m->len - m->data_off ||
+-        off > m->data_len || m->data_len - off < 4u) return NULL;
+     uint32_t abs = m->data_off + off;
+     if (abs > m->len || m->len - abs < 4u) return NULL;
+     uint32_t size = rd_u32(m->fork + abs);
+-    if (size > m->data_len - off - 4u) return NULL;
++    if (size > m->len - abs - 4u) return NULL;
+     if (length) *length = size;
+     return m->fork + abs + 4u;
+ }

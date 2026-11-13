@@ -2,9 +2,9 @@
  * os/flair/flair_look.h -- the FLAIR policy seam: the PART->pixel resolver
  *                          (THE ARTIFACT; the ONE color seam below the C-8 cut).
  *
- * beads: initech-6bq2 (C-8 MECHANISM/POLICY enforcement); epic initech-qipc.
+ *  (C-8 MECHANISM/POLICY enforcement); epic.
  *
- * THE C-8 CUT-LINE (ADR-0004-AMENDMENT-DEC-09 Sec 3.1 / Sec 5.1, constraint
+ * THE C-8 CUT-LINE (clipped Toolbox drawing / Sec 5.1, constraint
  * C-8): no mechanism module names a color.  The imaging MECHANISM names a
  * palette PART (a wctb-keyed semantic role) and converts PART -> destination
  * pixel ONLY through flair_look_pixel(port, PART) -- the single policy seam.
@@ -26,11 +26,11 @@
  * flair_look_pixel_for_skin: D-9 era selection is DATA at the policy seam,
  * never a switch(era) in mechanism code.
  *
- * Freestanding-safe (Law 3): <stdint.h> + the locked spec headers only; no
+ * Freestanding-safe: <stdint.h> + the locked spec headers only; no
  * libc, no malloc.  Dual-compiles under kernel flags and hosted.
- * ASCII-clean (Rule 12).  Deterministic (Rule 11).
+ * ASCII-clean.  Deterministic.
  *
- * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.1 (C-8), Sec 3.3 (ARB-3), Sec 5.1;
+ * Ref: clipped Toolbox drawing (C-8), Sec 3.3 (ARB-3), Sec 5.1;
  *      spec/assets/color_canon.h (flair_canon_rgb + CIDX_*);
  *      spec/grafport.h (GrafPort; the policy seam surface);
  *      os/flair/chrome.c (chrome_px -- the depth logic mirrored here).
@@ -48,14 +48,14 @@
 typedef struct flair_skin flair_skin_t;
 
 /* ---------------------------------------------------------------------------
- * FLAIR_PART -- the wctb-keyed PART namespace (ADR-0004-AMENDMENT-DEC-09
+ * FLAIR_PART -- the wctb-keyed PART namespace (clipped Toolbox drawing
  * Sec 3.1 / ARB-3).  Each PART is a SEMANTIC role the decoration names; the
  * resolver maps it to a canon index.  Keying PART on the wctb namespace makes
  * the resolver KEY identical to the golden KEY (the value oracle diffs
- * key-for-key; ADR-0010).
+ * key-for-key; independent reference checks).
  *
  * The enum VALUES are an internal contiguous index into the static PART->idx
- * map below; they are NOT palette indices and NOT colors (Rule 11 stable).
+ * map below; they are NOT palette indices and NOT colors (reproducibility stable).
  * ------------------------------------------------------------------------- */
 typedef enum {
     FLAIR_PART_CONTENT = 0,   /* window/content body white   -> CIDX_WHITE   (1) */
@@ -70,11 +70,11 @@ typedef enum {
     FLAIR_PART_BEVEL_LIGHT,   /* title bevel light (teal)    -> bevel_light row  */
     FLAIR_PART_BEVEL_SHADOW,  /* title bevel shadow          -> bevel_shadow row */
     FLAIR_PART_HILITE_FRAME,  /* inactive title frame (gray) -> CIDX_HILITE_FRAME
-                               * (idx>=9 ramp, #777777; beads initech-hv7u)      */
+                               * (idx>=9 ramp, #777777; )      */
     FLAIR_PART_HILITE_TEXT,   /* inactive title ink (dimmed) -> CIDX_HILITE_TEXT
-                               * (idx>=9 ramp, #A5A5A5; beads initech-hv7u)      */
+                               * (idx>=9 ramp, #A5A5A5; )      */
     /* Platinum rows append only: existing PART ordinals stay frozen.
-     * Ref: ../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
+     * Ref:../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
     FLAIR_PART_PLAT_STRIPE_DARK,    /* title dark stripe                         */
     FLAIR_PART_PLAT_FRAME_FACE,     /* frame-bar face / title gap / grow fill    */
     FLAIR_PART_PLAT_FACE,           /* inactive + dialog/menu face               */
@@ -87,9 +87,9 @@ typedef enum {
     FLAIR_PART_PLAT_WELL,           /* enabled scrollbar page well                */
     FLAIR_PART_PLAT_TILE_SHADOW,    /* enabled arrow-tile shadow                  */
     /* Platinum Menu Manager rows append only.  These names keep menu.c on the
-     * mechanism side of the DEC-09 C-8 cut: it names semantic menu roles, never
+     * mechanism side of the authored teal C-8 cut: it names semantic menu roles, never
      * palette indices or RGB values.  Ref: sys8/menus.md Sec 1.1-1.4, Sec 2.1
-     * and Sec 2.3; bead initech-sjvq. */
+     * and Sec 2.3;. */
     FLAIR_PART_MENU_BAR_HL,          /* bar row 0                                  */
     FLAIR_PART_MENU_BAR_FACE,        /* bar rows 1..17                             */
     FLAIR_PART_MENU_BAR_SHADOW,      /* bar row 18                                 */
@@ -109,20 +109,20 @@ typedef enum {
     FLAIR_PART_SB_THUMB_SHADOW,       /* trailing edge                              */
     FLAIR_PART_SB_THUMB_GRIP,         /* four grip lines                            */
     /* Finder desktop-icon tone roles append after all previously shipped PART
-     * ordinals (bead initech-tdnl.9).  The three tones of a FLAIRDeskIcon strike
+     * ordinals.  The three tones of a FLAIRDeskIcon strike
      * (spec/assets/desk_icons.h) are SEMANTIC roles so os/flair/finder_icon.c
      * names a tone, never a color or an index (C-8).  All three collapse onto
      * EXISTING canon rows -- black ink, white face, and the same C0C0C0 control
      * gray the button face already uses -- so no color row is accreted, exactly
-     * as the Menu Manager and scrollbar-accent roles did before them (DEC-10
+     * as the Menu Manager and scrollbar-accent roles did before them (Platinum base
      * Sec 6 OQ-2/OQ-3). */
     FLAIR_PART_ICON_INK,              /* desktop-icon black outline                 */
     FLAIR_PART_ICON_FACE,             /* desktop-icon white body                    */
     FLAIR_PART_ICON_SHADE,            /* desktop-icon mid-gray detail               */
-    /* Finder icon HIGHLIGHTED-state tones (bead initech-34dh): the drop-target
+    /* Finder icon HIGHLIGHTED-state tones: the drop-target
      * look while an icon is dragged over a folder / the volume / the Trash.
      * Inside Macintosh VI p. 2-19..2-20: "The selection mechanism for color
-     * icons lowers the brightness of colors to indicate selection ... On a
+     * icons lowers the brightness of colors to indicate selection... On a
      * color monitor, a black-and-white icon turns gray when selected."  The
      * white body and the gray detail each resolve to an EXISTING darker canon
      * gray row; the black ink stays ICON_INK.  Zero color rows accreted. */
@@ -135,7 +135,7 @@ typedef enum {
     FLAIR_PART_LIST_PRESSED_EDGE,
     FLAIR_PART_LIST_EDGE,
     FLAIR_PART_LIST_PRESSED_BOTTOM,
-    /* Finder icon colour roles (bead initech-tdnl.53; spec/assets/desk_icons.h
+    /* Finder icon colour roles (; spec/assets/desk_icons.h
      * DESK_IC_*).  ONE role per non-clear icon colour ordinal k, at
      * FLAIR_PART_ICON_CLUT + (k - 1), in ordinal order: os/flair/finder_icon.c
      * names an ordinal, never a colour or an index (C-8).  The measured Mac OS
@@ -147,11 +147,11 @@ typedef enum {
     FLAIR_PART__COUNT         /* sentinel: number of PARTs                       */
 } FLAIR_PART;
 
-/* tdnl.88: the PRESSED push button's outer top/left rim, #666666
+/*: the PRESSED push button's outer top/left rim, #666666
  * (system7-decomp re/mint-results-010.md Sec 2; sys8/controls.md 5.3). It is
  * the existing icon-ramp role DESK_IC_GRAY_66 (ordinal 11 -> ICON_CLUT + 10,
  * resolved to CIDX_ICON_GRAY_66 at every depth): no new PART, no new map row
- * (the WL-0168 part-map transcript is unchanged). finder_icon.c asserts the
+ * (the packed storage part-map transcript is unchanged). finder_icon.c asserts the
  * ordinal against desk_icons.h. */
 #define FLAIR_PART_PLAT_PRESSED_RIM ((FLAIR_PART)(FLAIR_PART_ICON_CLUT + 10))
 
@@ -164,11 +164,11 @@ typedef enum {
  * - The real Platinum Lavender thumb is the OQ-2 authored substitution. Its
  *   four semantic SB_THUMB roles resolve to white / existing bevel_light /
  *   bevel_shadow (dark gray in indexed colour); sampled clut-208 structure
- *   is preserved without authoring a third accent row (DEC-10 Sec 6 OQ-2/OQ-3;
+ *   is preserved without authoring a third accent row (Platinum base OQ-2/OQ-3;
  *   scrollbars.md Sec 2.4 records the source accent).
  * - The pulled menu title applies that same ratified two-tone teal pair to the
  *   clut-208 accent structure.  No third accent row is authored or accreted
- *   (DEC-10 Sec 6 OQ-2/OQ-3; sys8/menus.md Sec 1.4; bead initech-sjvq).
+ *   (Platinum base OQ-2/OQ-3; sys8/menus.md Sec 1.4; ).
  */
 
 /* ---------------------------------------------------------------------------
@@ -186,7 +186,7 @@ uint32_t flair_look_small_icon_pixel(uint32_t bpp,unsigned index);
 
 /* Resolve the default policy row once at a drawing-context boundary. The named
  * mutant deliberately selects retained SYS7 so the independent Platinum
- * fidelity oracle proves this pointer reaches pixels (Rule 6). */
+ * fidelity oracle proves this pointer reaches pixels. */
 const flair_skin_t *flair_look_default_skin(void);
 
 /* Explicit D-9 era-data seam used by chrome. Only roles carried by the row at

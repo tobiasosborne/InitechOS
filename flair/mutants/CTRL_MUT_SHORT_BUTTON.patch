@@ -1,0 +1,12 @@
+# Legacy CTRL_MUT_SHORT_BUTTON
+# test: test_control
+--- a/control.c
++++ b/control.c
+@@ -1054,6 +1054,7 @@
+         int h   = y1 - y0;
+ 
+         /* Must be at least wide enough to have a scrollbar. */
++        if (h < 2 * btn) return inButton;
+         /* exactly the draw_scrollbar geometry predicate. */
+         if (x1 - x0 != FLAIR_CHROME_SCROLLBAR_W || h < 2 * btn + SB_THUMB_MIN)
+             return 0;

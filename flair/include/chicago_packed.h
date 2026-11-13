@@ -12,9 +12,6 @@ static inline uint16_t chicago_packed_row(unsigned g,unsigned r)
     unsigned first=chicago_pack_first[g];
     if(r<first || r-first>=chicago_pack_count[g]) return 0;
     uint16_t v=chicago_pack_values[chicago_pack_rows[chicago_pack_offsets[g]+r-first]];
-#ifdef CHICAGO_PACK_MUT_ROW
-    if(g==1 && r==3) v^=1u;
-#endif
     return v;
 }
 #endif

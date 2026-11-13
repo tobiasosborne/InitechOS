@@ -1,4 +1,4 @@
-/* tdnl.44 factory transcriber. Both independent Mac OS8.1 list captures
+/*  factory transcriber. Both independent Mac OS8.1 list captures
  * separate opaque art from background: Name's sorted body is E7E7E7, Size's
  * unsorted Name body F3F3F3. Every opaque pixel must agree across both.
  * Ref: mint-results-008 Sec6. No ROM or font resources are read. */
@@ -26,7 +26,7 @@ int main(int n,char**v)
         }
         art[k][y*16+x]=(unsigned char)c;
     }
-    puts("/* tdnl.44 LOCKED 16x16 art, minted by tools/mint_finder_small_icons.c.\n * Source: s8_finder_list_view{,_bysize}.png, mint-results-008 Sec6.\n * Paired backgrounds independently separate clear from opaque pixels.\n * These are native small strikes, NOT a downsample of the old 32px art. */\n#ifndef INITECH_FINDER_SMALL_ICONS_H\n#define INITECH_FINDER_SMALL_ICONS_H\n#include <stdint.h>");
+    puts("/*  LOCKED 16x16 art, minted by tools/mint_finder_small_icons.c.\n * Source: s8_finder_list_view{,_bysize}.png, mint-results-008 Sec6.\n * Paired backgrounds independently separate clear from opaque pixels.\n * These are native small strikes, NOT a downsample of the old 32px art. */\n#ifndef INITECH_FINDER_SMALL_ICONS_H\n#define INITECH_FINDER_SMALL_ICONS_H\n#include <stdint.h>");
     printf("#define FINDER_SMALL_COLORS %d\n",np);
     printf("static const uint8_t finder_small_canon[%d] = {",np);
     for(int c=0;c<np;c++) {

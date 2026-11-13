@@ -1,22 +1,22 @@
 /*
- * harness/proptest/test_canon.c -- FLAIR-layer canon oracle (ADR-0004 D-8
- * "canon" gate; beads initech-k8o5.10).
+ * harness/proptest/test_canon.c -- FLAIR-layer canon oracle (clipped Toolbox drawing
+ * "canon" gate; ).
  *
- * FACTORY / GRADER code (CLAUDE.md Law 3): the C harness, NOT the artifact --
+ * FACTORY / GRADER code: the C harness, NOT the artifact --
  * libc/stdio are fine here. Single TU, hosted.
  *
  * PURPOSE:
  *   ONE place that enumerates every InitechOS canon invariant, asserts those
  *   that are enforceable from locked data or source constants at this layer,
  *   and explicitly points to the existing gate that enforces each of the rest.
- *   The discipline: the canon oracle does not merely exist, it BITES (Rule 6).
+ *   The discipline: the canon oracle does not merely exist, it BITES.
  *
  * CANON ITEMS COVERED BY THIS GATE:
  *
  *   C-1 HOURGLASS CURSOR (FLAIR-LOCKED, asserted here):
  *         The FLAIR_CURSOR_BUSY defined in spec/assets/cursors.h is the
  *         HOURGLASS, NOT the System-7 wristwatch. The wristwatch is the
- *         deliberate frame anachronism -- the WRONG cursor. ADR-0004 D-7/AM-4
+ *         deliberate frame anachronism -- the WRONG cursor. clipped Toolbox drawing/AM-4
  *         freezes the hourglass bytes as locked spec-data. This gate asserts:
  *           data[0]  == 0xFFFF (solid top bar, both rows 0 and 1)
  *           data[7]  == data[8] == 0x0180 (2-pixel waist -- neck of the glass)
@@ -24,9 +24,9 @@
  *           mask[]   == data[] (solid silhouette; the busy cursor has no
  *                               transparency)
  *         HotSpot == (8, 8) (center / waist, the click-tracking point).
- *         Ref: cursors.h (frozen 2026-06-19, beads initech-zaqj); ADR-0004
+ *         Ref: cursors.h (frozen 2026-06-19, ); clipped Toolbox drawing
  *         D-7 ("the hourglass is canon... NOT the wristwatch"); CLAUDE.md
- *         Law 4 ("the hourglass cursor (not a wristwatch) ... enforced, not
+ *         film canon ("the hourglass cursor (not a wristwatch)... enforced, not
  *         fixed"); docs/research/gui-ground-truth.md Sec 3.6.
  *
  *   C-2 PHOTOSHOP MENU BAR (FLAIR-LOCKED, asserted here):
@@ -34,42 +34,42 @@
  *         Window Help" exactly (45 chars, NUL-terminated). The chimera
  *         invariant: item[3]=="Layer" AND item[5]=="View" BOTH present -- no
  *         single real Photoshop version ever had both simultaneously. THAT
- *         IMPOSSIBILITY IS THE CANON. ADR-0004 D-3/AM-4 freezes this string.
- *         Ref: menu_canon.h (frozen 2026-06-19, beads initech-zaqj); ADR-0004
- *         D-3 ("Photoshop-exact bar ... canon, NOT to be 'corrected'"); CLAUDE.md
- *         Law 4; gui-ground-truth.md Sec 4.3.
+ *         IMPOSSIBILITY IS THE CANON. clipped Toolbox drawing/AM-4 freezes this string.
+ *         Ref: menu_canon.h (frozen 2026-06-19, ); clipped Toolbox drawing
+ *         D-3 ("Photoshop-exact bar... canon, NOT to be 'corrected'"); CLAUDE.md
+ *         film canon; gui-ground-truth.md Sec 4.3.
  *
  *   C-3 PC LOAD LETTER (FLAIR-LOCKED, source-string presence asserted here):
  *         The InitechDOS panic handler (os/initechdos/panic.c) renders the string
  *         "PC LOAD LETTER" to the console on any fatal CPU exception. This is
- *         the in-universe panic screen text (PRD Appendix B; CLAUDE.md Law 4).
+ *         the in-universe panic screen text (PRD Appendix B; film canon).
  *         At this harness layer (pure host C, no emulator boot) the canon can
  *         be asserted as SOURCE-STRING PRESENCE only: this test verifies that
  *         the canonical string matches the text used in panic.c (confirmed by
  *         grep: os/initechdos/panic.c line 157: console_puts(..., "PC LOAD LETTER")
  *         -- committed, canonical, ASCII). A rendered-screendump assertion
  *         (that the string actually appears on the VGA framebuffer during a
- *         real exception) belongs to the boot / emulator oracle (initech-s25,
+ *         real exception) belongs to the boot / emulator oracle (,
  *         the full PC LOAD LETTER screen milestone) and CANNOT be a unit-test
  *         claim here without running QEMU or Bochs. We document this honestly
- *         per Law 1: "PC LOAD LETTER source string is present and correct" is
+ *         per source provenance: "PC LOAD LETTER source string is present and correct" is
  *         what this gate asserts; the rendered-boot oracle is a separate gate.
  *         Ref: os/initechdos/panic.c ("PC LOAD LETTER  (exception 0x...)",
- *         confirmed grep 2026-06-20); PRD Appendix B; CLAUDE.md Law 4.
+ *         confirmed grep 2026-06-20); PRD Appendix B; film canon.
  *
  *   C-4 PIE CHART == 116% (APP CANON, pointed to; partially asserted here):
  *         The InitechCalc pie chart slices sum to 116% (40+35+18+14+9=116),
  *         not 100%. This is an enforced canon bug (PRD Appendix B; CLAUDE.md
- *         Law 4: "the pie chart summing to 116% -- enforced, not fixed").
+ *         film canon: "the pie chart summing to 116% -- enforced, not fixed").
  *         The app (os/apps/initech_calc.c) and its rendering gate are M5
  *         deliverables; as of this writing os/apps/ is a stub (.gitkeep only).
  *         THIS GATE asserts the CANONICAL SLICE VALUES as named constants
  *         (CANON_PIE_SLICE_{0..4} defined below) and verifies their sum is
  *         116, so the arithmetic is locked even before the app exists. The
  *         full rendering / display oracle lives in:
- *           test-canon-calc (future M5 gate, beads TBD):
+ *           test-canon-calc (future M5 gate, TBD):
  *             asserts the rendered pie chart sums to 116% on screen.
- *         Ref: PRD Appendix A/B; CLAUDE.md Law 4 ("40+35+18+14+9=116. There
+ *         Ref: PRD Appendix A/B; film canon ("40+35+18+14+9=116. There
  *         is a test asserting sum(slices)==116. The wristwatch cursor is the
  *         bug; the hourglass is correct. Don't 'fix' canon.").
  *
@@ -77,16 +77,16 @@
  *         InitechCalc uses a trailing-minus cell format for negative numbers:
  *         the value -570 is displayed as "570-" (minus sign TRAILS, not leads).
  *         This is an enforced canon element from the reference frame (PRD
- *         Appendix A; CLAUDE.md Law 4; PRD Sec 6.5). The canonical format string
+ *         Appendix A; film canon; PRD Sec 6.5). The canonical format string
  *         is CANON_TRAILING_MINUS_FMT defined below; the canonical test value
  *         is -570 -> "570-". As with C-4, the full cell-rendering oracle is M5;
  *         this gate asserts the canonical constants and format contract are in
  *         place and correct so they cannot silently drift before the app lands.
  *         The full rendering / display oracle lives in:
- *           test-canon-calc (future M5 gate, beads TBD):
+ *           test-canon-calc (future M5 gate, TBD):
  *             asserts TRANSFORM(-570, CANON_TRAILING_MINUS_FMT) == "570-"
  *             via the INITECHBASE TRANSFORM engine.
- *         Ref: PRD Sec 6.5, Appendix A; CLAUDE.md Law 4 ("the `570-`
+ *         Ref: PRD Sec 6.5, Appendix A; film canon ("the `570-`
  *         trailing-minus, the pie chart summing to 116% -- these are enforced,
  *         not fixed"); fn_builtins.c TRANSFORM tests (test_xbase_transform.c).
  *
@@ -105,28 +105,28 @@
  *   Existing gate: test-flair-headers (harness/proptest/test_flair_headers.c)
  *     Enforces: grafport.h + imaging.h compile-contract static_asserts;
  *     hourglass top/bottom bar + waist (subset); Photoshop menu string
- *     (subset). That gate's mutation is FLAIR_HEADERS_MUTANT (R7 xor).
+ *     (subset). That gate's mutation is flair headers mutant patch (R7 xor).
  *     NOTE: test_flair_headers.c asserts a SUBSET of the hourglass + menu
  *     canon. THIS gate (test_canon.c) is the AUTHORITATIVE, COMPLETE canon
- *     oracle (initech-k8o5.10); test_flair_headers is the compile-contract
+ *     oracle; test_flair_headers is the compile-contract
  *     smoke-test that happens to also check a few canon bytes. They do not
  *     duplicate each other: test_flair_headers ensures the headers compile and
  *     their types are correct; test_canon.c ensures every canon invariant is
  *     asserted and mutation-proven as a single named gate.
  *
- * MUTATION PROOF (Rule 6 -- "a test that has never failed has proven nothing"):
+ * MUTATION PROOF (mutation checks -- "a test that has never failed has proven nothing"):
  *
- *   CANON_MUTATE_WATCH (defined at compile time with -DCANON_MUTATE_WATCH):
+ *   watch patch (defined at compile time with -watch patch):
  *     Simulates an agent that "corrects" the busy cursor to the System-7
  *     wristwatch shape: corrupts the expected comparison values for the
  *     hourglass waist rows (data[7] and data[8]) to a wristwatch-like value
  *     (0x1C38 -- a clock-face oval, not a glass neck). With this mutant, the
  *     hourglass waist assertions MUST go RED. This proves the hourglass canon
- *     is enforced, not decoration. Law 4: the wristwatch is THE BUG; the
+ *     is enforced, not decoration. film canon: the wristwatch is THE BUG; the
  *     hourglass is correct. A real wristwatch commit would make THIS check
  *     pass and the oracle go red -- which is exactly the signal we want.
  *
- *   CANON_MUTATE_FIX_MENU (defined at compile time with -DCANON_MUTATE_FIX_MENU):
+ *   fix menu patch (defined at compile time with -fix menu patch):
  *     Simulates an agent that "corrects" the Photoshop menu bar to a
  *     historically-valid real Photoshop 3.0 string (replacing "View" at
  *     position 5 with "Mode" -- what Photoshop 3.0 actually had). With this
@@ -142,15 +142,15 @@
  *
  *   Mutant WATCH (expect RED -- hourglass waist assertions fail):
  *     gcc -std=c11 -Wall -Wextra -Werror -Ispec/assets -Iseed \
- *         -DCANON_MUTATE_WATCH \
+ *         -watch patch \
  *         -o /tmp/test_canon_mutant_watch harness/proptest/test_canon.c && \
- *     /tmp/test_canon_mutant_watch ; echo "exit=$?"
+ *     /tmp/test_canon_mutant_watch; echo "exit=$?"
  *
  *   Mutant FIX_MENU (expect RED -- menu bar equality and chimera fail):
  *     gcc -std=c11 -Wall -Wextra -Werror -Ispec/assets -Iseed \
- *         -DCANON_MUTATE_FIX_MENU \
+ *         -fix menu patch \
  *         -o /tmp/test_canon_mutant_fixmenu harness/proptest/test_canon.c && \
- *     /tmp/test_canon_mutant_fixmenu ; echo "exit=$?"
+ *     /tmp/test_canon_mutant_fixmenu; echo "exit=$?"
  *
  * Makefile recipe (for the orchestrator to wire; do NOT touch the Makefile):
  *   Gate name: test-canon
@@ -168,31 +168,31 @@
  *
  *   test-canon-mutant-watch:
  *       gcc -std=c11 -Wall -Wextra -Werror -Ispec/assets -Iseed \
- *           -DCANON_MUTATE_WATCH \
+ *           -watch patch \
  *           -o /tmp/test_canon_mw harness/proptest/test_canon.c
- *       /tmp/test_canon_mw ; test $$? -ne 0
+ *       /tmp/test_canon_mw; test $$? -ne 0
  *
  *   test-canon-mutant-fixmenu:
  *       gcc -std=c11 -Wall -Wextra -Werror -Ispec/assets -Iseed \
- *           -DCANON_MUTATE_FIX_MENU \
+ *           -fix menu patch \
  *           -o /tmp/test_canon_mf harness/proptest/test_canon.c
- *       /tmp/test_canon_mf ; test $$? -ne 0
+ *       /tmp/test_canon_mf; test $$? -ne 0
  *
- * HONESTY NOTE on PC LOAD LETTER (Law 1):
+ * HONESTY NOTE on PC LOAD LETTER:
  *   The "PC LOAD LETTER" string in panic.c is asserted here as a string
  *   constant match only. This gate does NOT and CANNOT assert that the panic
  *   screen is actually RENDERED to the VGA framebuffer during a real exception
  *   -- that requires booting in QEMU/Bochs and triggering an exception, which
- *   is out of scope for a unit harness. The rendered-boot oracle is beads
- *   initech-s25. This is documented to prevent a future agent from inflating
+ *   is out of scope for a unit harness. The rendered-boot oracle is
+ *. This is documented to prevent a future agent from inflating
  *   the claim.
  *
- * Ref: ADR-0004 D-8 (the canon oracle row); ADR-0004 AM-4 (canon as frozen
- * locked-data, beads initech-zaqj); CLAUDE.md Law 4, Rule 6, Rule 12;
+ * Ref: clipped Toolbox drawing (the canon oracle row); clipped Toolbox drawing AM-4 (canon as frozen
+ * locked-data, ); film canon, mutation checks, ASCII source;
  * PRD Appendix A/B; spec/assets/cursors.h; spec/assets/menu_canon.h;
  * os/initechdos/panic.c; harness/proptest/test_flair_headers.c (companion gate).
  *
- * ASCII-clean (Rule 12). Deterministic (Rule 11). No timestamps.
+ * ASCII-clean. Deterministic. No timestamps.
  */
 
 #include "cursors.h"     /* FLAIR_CURSOR_BUSY, FLAIRCursor, FLAIR_CURSOR_BUSY_DATA_R* */
@@ -209,9 +209,9 @@ TEST_HARNESS();
  * APP CANON CONSTANTS (C-4, C-5): locked here for the oracle even though
  * the InitechCalc app (os/apps/initech_calc.c) is an M5 deliverable.
  *
- * These are the canonical values from PRD Appendix A/B and CLAUDE.md Law 4.
+ * These are the canonical values from PRD Appendix A/B and film canon.
  * When the app lands, its implementation must agree with these constants.
- * The full rendered gate is test-canon-calc (future, beads TBD).
+ * The full rendered gate is test-canon-calc (future, TBD).
  * ========================================================================= */
 
 /*
@@ -219,12 +219,12 @@ TEST_HARNESS();
  *
  * The pie chart in InitechCalc shows five budget slices. They sum to 116%,
  * not 100%. This is enforced canon: a deliberate overshoot from the reference
- * frame. DO NOT "fix" these to sum to 100 -- that would violate Law 4 and
+ * frame. DO NOT "fix" these to sum to 100 -- that would violate film canon and
  * break this gate (which is the correct behavior).
  *
  * Ref: PRD Appendix B ("Pie chart invariant: @test sum(slices) == 116");
- *      CLAUDE.md Law 4 ("40+35+18+14+9 = 116. There is a test asserting
- *      sum(slices) == 116. ... Don't 'fix' canon.").
+ *      film canon ("40+35+18+14+9 = 116. There is a test asserting
+ *      sum(slices) == 116.... Don't 'fix' canon.").
  */
 #define CANON_PIE_SLICE_0  40   /* slice 0: 40% */
 #define CANON_PIE_SLICE_1  35   /* slice 1: 35% */
@@ -234,7 +234,7 @@ TEST_HARNESS();
 #define CANON_PIE_SLICE_SUM 116 /* enforced invariant: 40+35+18+14+9 = 116 */
 
 /*
- * C-5: Trailing-minus cell format (PRD Sec 6.5, Appendix A; CLAUDE.md Law 4).
+ * C-5: Trailing-minus cell format (PRD Sec 6.5, Appendix A; film canon).
  *
  * InitechCalc formats negative numbers with a trailing minus sign, not a
  * leading one. The canonical test pair: the value -570 renders as "570-".
@@ -247,7 +247,7 @@ TEST_HARNESS();
  * a four-position field is wide enough: STR(-570,4)="-570" with leading
  * minus; TRANSFORM(-570,"9999-")="570-" with trailing minus.
  *
- * Ref: PRD Sec 6.5 ("570- trailing-minus cell format"); CLAUDE.md Law 4
+ * Ref: PRD Sec 6.5 ("570- trailing-minus cell format"); film canon
  *      ("the `570-` trailing-minus -- enforced, not fixed");
  *      os/initechbase/core/fn_builtins.c (TRANSFORM / PICTURE implementation);
  *      harness/diff/dbf_diff/test_xbase_transform.c (TRANSFORM oracle).
@@ -261,15 +261,15 @@ TEST_HARNESS();
  *
  * The exact string that panic.c emits to the console on a fatal CPU exception
  * (os/initechdos/panic.c line 157: console_puts(..., "PC LOAD LETTER  (exception
- * 0x...")); PRD Appendix B; CLAUDE.md Law 4). The constant below is the
+ * 0x...")); PRD Appendix B; film canon). The constant below is the
  * canonical prefix (the part before the vector hex); the full console line
  * includes the vector. This gate asserts the canonical prefix string matches
  * the string known to be in panic.c (confirmed by grep, 2026-06-20).
  *
- * HONESTY NOTE (Law 1): this is a source-string presence assertion -- the
+ * HONESTY NOTE: this is a source-string presence assertion -- the
  * harness verifies that the constant below matches the canonical text. It does
  * NOT assert the string is rendered to a VGA framebuffer during a real boot
- * exception; that belongs to the rendered-boot oracle (beads initech-s25).
+ * exception; that belongs to the rendered-boot oracle.
  */
 #define CANON_PANIC_TEXT  "PC LOAD LETTER"
 
@@ -288,10 +288,10 @@ TEST_HARNESS();
  *   - mask[r] == data[r] for ALL rows (solid silhouette, no transparency)
  *   - hotspot at (8, 8) (center / waist)
  *
- * MUTANT CANON_MUTATE_WATCH: simulates replacing the hourglass with a
+ * regression patches watch patch: simulates replacing the hourglass with a
  * wristwatch-like cursor (oval clock face; 0x1C38 at the waist rows). The
  * waist checks fire RED, proving the hourglass canon is enforced, not
- * decoration. The wristwatch is THE BUG (Law 4, ADR-0004 D-7).
+ * decoration. The wristwatch is THE BUG (film canon, clipped Toolbox drawing).
  */
 static void test_hourglass_cursor(void)
 {
@@ -303,7 +303,7 @@ static void test_hourglass_cursor(void)
 #ifdef CANON_MUTATE_WATCH
     /* A wristwatch clock-face oval at the center rows: NOT the correct canon.
      * This mutant MUST drive the waist checks RED. The wristwatch is the bug
-     * (ADR-0004 D-7; CLAUDE.md Law 4). If you see RED here, the ORACLE is
+     * (clipped Toolbox drawing; film canon). If you see RED here, the ORACLE is
      * working correctly -- it caught a bad cursor. */
     const uint16_t expected_waist = 0x1C38u; /* wristwatch oval, NOT canon */
 #else
@@ -357,7 +357,7 @@ static void test_hourglass_cursor(void)
 /*
  * test_photoshop_menu -- C-2.
  *
- * Asserts the frozen Photoshop menu bar string (ADR-0004 D-3/AM-4):
+ * Asserts the frozen Photoshop menu bar string (clipped Toolbox drawing/AM-4):
  *   - the full flat string matches "File Edit Image Layer Select View Window Help"
  *   - string length is exactly FLAIR_CANON_PHOTOSHOP_MENUBAR_LEN (45) chars
  *   - item count is FLAIR_CANON_PHOTOSHOP_MENU_COUNT (8)
@@ -368,11 +368,11 @@ static void test_hourglass_cursor(void)
  * The chimera invariant: Layer@3 AND View@5 BOTH present simultaneously is
  * historically impossible in any real Photoshop version. THAT IS THE CANON.
  *
- * MUTANT CANON_MUTATE_FIX_MENU: simulates an agent that "corrects" the menu
+ * regression patches fix menu patch: simulates an agent that "corrects" the menu
  * bar to a valid Photoshop 3.0 string (replacing "View" with "Mode" -- what
  * Photoshop 3.0 actually shipped). The string equality check and the chimera
  * invariant (item[5]=="View") MUST go RED. The impossible chimera is the
- * contract (Law 4, ADR-0004 D-3/AM-4).
+ * contract (film canon, clipped Toolbox drawing/AM-4).
  */
 static void test_photoshop_menu(void)
 {
@@ -429,7 +429,7 @@ static void test_photoshop_menu(void)
           "C-2 Photoshop menu: item[8] == NULL (array sentinel present)");
 
     /* The chimera invariant (the headline signal): BOTH Layer AND View present.
-     * Under CANON_MUTATE_FIX_MENU, item[5]=="Mode" != "View" -> RED, as required. */
+     * Under fix menu patch, item[5]=="Mode" != "View" -> RED, as required. */
     CHECK(strcmp(FLAIR_CANON_PHOTOSHOP_MENU_ITEMS[3], "Layer") == 0 &&
           strcmp(FLAIR_CANON_PHOTOSHOP_MENU_ITEMS[5], expected_item5) == 0,
           "C-2 Photoshop menu CHIMERA: item[3]==\"Layer\" AND item[5]==\"View\" "
@@ -447,8 +447,8 @@ static void test_photoshop_menu(void)
  *
  * This is a SOURCE-STRING PRESENCE assertion only. It does NOT assert that
  * the text is rendered to the VGA framebuffer during a real exception -- that
- * requires booting in QEMU or Bochs (beads initech-s25). We document this
- * distinction honestly (Law 1): the rendered-boot oracle is a separate gate.
+ * requires booting in QEMU or Bochs. We document this
+ * distinction honestly: the rendered-boot oracle is a separate gate.
  *
  * The assertion value: "PC LOAD LETTER" matches the prefix of the string in
  * panic.c. The test verifies the constant itself is the correct 14-character
@@ -456,7 +456,7 @@ static void test_photoshop_menu(void)
  */
 static void test_pc_load_letter(void)
 {
-    /* The canonical string is 14 ASCII characters (Rule 12: no Unicode). */
+    /* The canonical string is 14 ASCII characters (ASCII source: no Unicode). */
     CHECK(strlen(CANON_PANIC_TEXT) == 14u,
           "C-3 PC LOAD LETTER: canonical string is 14 chars");
 
@@ -476,7 +476,7 @@ static void test_pc_load_letter(void)
      * expected string to "PC LOAD PAPER" would pass the mutant build but prove
      * nothing beyond string comparison tautology. The real mutation risk for
      * this canon element is panic.c itself -- caught by grep-gating the source
-     * file in the commit hook and by the rendered-boot oracle (initech-s25). */
+     * file in the commit hook and by the rendered-boot oracle. */
 }
 
 
@@ -485,10 +485,10 @@ static void test_pc_load_letter(void)
  *
  * Asserts the canonical pie-chart slice values and their enforced sum (116).
  * The full rendered oracle (that the chart actually DISPLAYS 116%) is the
- * future test-canon-calc gate (M5 milestone, beads TBD).
+ * future test-canon-calc gate (M5 milestone, TBD).
  *
  * DO NOT change these values to sum to 100. The 116% sum is enforced canon.
- * Ref: PRD Appendix B; CLAUDE.md Law 4.
+ * Ref: PRD Appendix B; film canon.
  */
 static void test_pie_chart(void)
 {
@@ -507,7 +507,7 @@ static void test_pie_chart(void)
 
     /* THE ENFORCED INVARIANT: slices sum to 116, not 100.
      * If you see this fail, do NOT adjust slices to sum to 100.
-     * The 116% total is canon (PRD Appendix B; CLAUDE.md Law 4). */
+     * The 116% total is canon (PRD Appendix B; film canon). */
     CHECK(sum == CANON_PIE_SLICE_SUM,
           "C-4 pie: 40+35+18+14+9 == 116 (enforced canon; NOT a rounding error; "
           "DO NOT fix to 100 -- that violates Law 4 and breaks this gate)");
@@ -516,7 +516,7 @@ static void test_pie_chart(void)
           "C-4 pie: CANON_PIE_SLICE_SUM constant == 116");
 
     /* Rendered-display gate (not asserted here -- see documentation above):
-     *   test-canon-calc (future M5, beads TBD) asserts that the InitechCalc
+     *   test-canon-calc (future M5, TBD) asserts that the InitechCalc
      *   pie chart renders with slices summing to 116% on screen. */
 }
 
@@ -536,7 +536,7 @@ static void test_pie_chart(void)
  *   - the RESULT string ends with '-'
  *   - the RESULT string contains "570" (the absolute value of the test input)
  *
- * Ref: PRD Sec 6.5, Appendix A; CLAUDE.md Law 4; fn_builtins.c TRANSFORM;
+ * Ref: PRD Sec 6.5, Appendix A; film canon; fn_builtins.c TRANSFORM;
  *      test_xbase_transform.c (TRANSFORM oracle, existing gate).
  */
 static void test_trailing_minus(void)
@@ -570,7 +570,7 @@ static void test_trailing_minus(void)
           "(the canon trailing-minus format for -570; enforced, not fixed)");
 
     /* Rendered-engine gate (not asserted here -- see documentation above):
-     *   test-canon-calc (future M5, beads TBD) asserts:
+     *   test-canon-calc (future M5, TBD) asserts:
      *     TRANSFORM(-570, "9999-") == "570-" via the INITECHBASE engine. */
 }
 

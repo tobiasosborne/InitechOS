@@ -1,9 +1,9 @@
 /*
  * spec/drawing_ops.h -- QuickDraw OPERATION SEMANTICS: the LOCKED contract.
  *
- * LOCKED spec-data (CLAUDE.md Rule 8; PRD Sec 6.3 -- "the Toolbox layer").
- * beads: initech-dh5k.6 (P1-6: drawing_ops.h + compile oracle).
- * ERA AXIS: era=system8-platinum is the Mac OS 8 Platinum (DEC-10) BASE.
+ * LOCKED spec-data (pinned inputs; PRD Sec 6.3 -- "the Toolbox layer").
+ *  (P1-6: drawing_ops.h + compile oracle).
+ * ERA AXIS: era=system8-platinum is the Mac OS 8 Platinum BASE.
  * The QuickDraw verb contract is unchanged from the retained System 7.0/7.1
  * heritage API; its section-level source tags remain under BC-10.10.
  *
@@ -40,12 +40,12 @@
  *     Those headers define: GrafPort, QDProcs, flair_point_t, flair_xfer_mode_t,
  *     Pattern / flair_pattern_t, FLAIR_BitMap, RGBColor.
  *     We INCLUDE them here and REFERENCE their names.
- *   - Any pixel value or golden (Law 2 -- no pixel values from prose; those
+ *   - Any pixel value or golden (independent checks -- no pixel values from prose; those
  *     are [golden-resolves]).
  *
- * SOURCE / LAW 1 CITATIONS (all from ../system7-decomp; local corpus):
+ * SOURCE / LAW 1 CITATIONS (all from../system7-decomp; local corpus):
  *
- *   [DP]  ../system7-decomp/specs/quickdraw/drawing-primitives.md
+ *   [DP]../system7-decomp/specs/quickdraw/drawing-primitives.md
  *           Sec 2  -- pen initial state (pnSize=(1,1)/pnPat=black/pnMode=patCopy)
  *           Sec 3  -- PenState record layout (pnLoc+pnSize+pnMode+pnPat, 18B)
  *           Sec 5  -- the five verbs, which slot each reads
@@ -54,26 +54,26 @@
  *           Sec 8  -- QDProcs dispatch (rectProc/rgnProc/bitsProc/textProc)
  *           Sec 9  -- era deltas (verb API invariant 6->7->7.5)
  *
- *   [CB]  ../system7-decomp/specs/quickdraw/copybits.md
+ *   [CB]../system7-decomp/specs/quickdraw/copybits.md
  *           Sec 1  -- BitMap record (baseAddr/rowBytes/bounds)
  *           Sec 2  -- CopyBits signature + parameter semantics
  *           Sec 3  -- operation order (map, depth-convert, colorize, mode, clip)
  *           Sec 4  -- CopyBits mode constants (srcCopy=0..notSrcBic=7, ditherCopy=64)
  *           Sec 6  -- era delta: ditherCopy is System-7-only
  *
- *   [CS]  ../system7-decomp/specs/quickdraw/coordinate-system.md
+ *   [CS]../system7-decomp/specs/quickdraw/coordinate-system.md
  *           Sec 1  -- int16 plane, top-left origin, +v=down, +h=right
  *           Sec 2  -- Point record (v at 0, h at 2; v-first storage)
  *           Sec 3  -- Rect record (top,left,bottom,right; HALF-OPEN)
  *           Sec 4  -- SetRect arg order (left,top,right,bottom -- "litterbug")
  *           Sec 5  -- local vs global; visRgn/clipRgn in local coords
  *
- *   [PA]  ../system7-decomp/specs/quickdraw/patterns.md
+ *   [PA]../system7-decomp/specs/quickdraw/patterns.md
  *           Sec 2  -- three port slots (pnPat/bkPat/fillPat) + verb mapping
  *           Sec 3  -- port-origin phase-lock rule (verbatim Apple cite)
  *           Sec 4  -- five predefined system patterns + byte values
  *
- *   [QDp] ../system7-decomp/refs/quickdraw/Apple-QuickDraw.p
+ *   [QDp]../system7-decomp/refs/quickdraw/Apple-QuickDraw.p
  *           L54    -- Pattern = PACKED ARRAY[0..7] OF 0..255
  *           L57    -- GrafVerb = (frame,paint,erase,invert,fill)
  *           L189-193 -- white/black/gray/ltGray/dkGray global decls
@@ -90,10 +90,10 @@
  * DUAL-COMPILE: freestanding (gcc -m32 -ffreestanding -nostdlib -fno-stack-protector
  * -std=c11) AND hosted (gcc -m32 -std=c11).  Only <stdint.h>+<stddef.h> plus
  * the three local headers above.  No host malloc; no libc beyond stdint/stddef.
- * Rule 11 (reproducible).
+ * reproducible output.
  *
- * ASCII-clean (Rule 12).  No nondeterminism / no timestamps (Rule 11).
- * Changing this file is a deliberate, beads-tracked Rule 8 act.
+ * ASCII-clean.  No nondeterminism / no timestamps.
+ * Changing this file is a deliberate, reviewed data change.
  */
 #ifndef INITECH_SPEC_DRAWING_OPS_H
 #define INITECH_SPEC_DRAWING_OPS_H
@@ -179,8 +179,8 @@ typedef enum flair_grafverb {
      *   [DP Sec 5 verbatim: "Fill draws both its outline and its interior
      *   with any pattern you specify. The procedure transfers the pattern
      *   with the patCopy pattern mode."]
-     *   [PA Sec 2 verbatim: "Fill* takes the pattern as a call argument ...
-     *   stores that argument into fillPat ... always uses the patCopy
+     *   [PA Sec 2 verbatim: "Fill* takes the pattern as a call argument...
+     *   stores that argument into fillPat... always uses the patCopy
      *   pattern mode."]
      */
     kGrafVerbFill   = 4
@@ -371,7 +371,7 @@ typedef enum flair_shape_family {
  * FLAIR_SYSPAT_DKGRAY_BYTES -- 75% gray. [PA Sec 4, inferred: conventional
  * 75% bytes; golden-resolves: dkGray PAT -- must be verified against a real
  * extracted PAT resource before this constant is used in a pixel-exact path.
- * Law 2: do NOT assert exact pixels based on this value alone.
+ * independent checks: do NOT assert exact pixels based on this value alone.
  */
 #define FLAIR_SYSPAT_DKGRAY_BYTES \
     { 0x77u, 0xDDu, 0x77u, 0xDDu, 0x77u, 0xDDu, 0x77u, 0xDDu }
@@ -405,9 +405,9 @@ typedef enum flair_shape_family {
 
 /*
  * FLAIR_PAT_ROW(p_, y_local)  -- the pattern byte for port-local row y.
- *   p_      : const Pattern * (see imaging.h)
- *   y_local : int-typed port-local y coordinate
- * Result : uint8_t pattern byte (MSB = leftmost pixel).  [PA Sec 1 + Sec 3]
+ *   p_: const Pattern * (see imaging.h)
+ *   y_local: int-typed port-local y coordinate
+ * Result: uint8_t pattern byte (MSB = leftmost pixel).  [PA Sec 1 + Sec 3]
  *
  * NOTE: the macro parameter is named `p_` (not `pat`) to avoid any collision
  * with the Pattern struct's own `pat` field name in the macro body.
@@ -564,7 +564,7 @@ typedef enum flair_shape_family {
 /*
  * FLAIR_COPYBITS_COLORIZE(src_bit, fg_idx, bk_idx)
  *   The colorize formula for a 1-bit-to-indexed-8 blit:
- *     result_index = src_bit ? fg_idx : bk_idx
+ *     result_index = src_bit ? fg_idx: bk_idx
  *   At indexed-8, foreground replaces set bits (1), background replaces clear
  *   bits (0).  [CB Sec 3 step 3; web corroboration: ColoredPixelValue =
  *   (NOT(s) AND bg) OR (s AND fg) -- consistent at 1-bit depth]

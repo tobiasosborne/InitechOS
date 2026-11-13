@@ -1,0 +1,21 @@
+# Legacy TBX_MUT_MENU_KEY_PLAIN
+# test: test_tbx_menu
+--- a/tbxmenu.h
++++ b/tbxmenu.h
+@@ -57,12 +57,10 @@
+ {
+     if (bar == (const MenuBar *)0 || ev == (const EventRecord *)0) return 0u;
+     if (ev->what != (uint16_t)keyDown) return 0u;   /* not autoKey/keyUp */
+-    if ((ev->modifiers & (uint16_t)(FLAIR_EVT_MOD_CONTROL_KEY |
+-                                    FLAIR_EVT_MOD_CMD_KEY)) == 0u)
+-        return 0u;
+-    /* event.c cooks message = (vkey << 8) | ascii; MenuKey folds case and
+-     * hands out only ENABLED, non-divider items (menu.c). */
+-    return MenuKey(bar, (char)(ev->message & 0xFFu));
++    /* regression patches menu key plain patch: no chord is ever a menu
++     * command; it falls through to the plain keyDown delivery. NEVER in a
++     * real build. */
++    return 0u;
+ }
+ 
+ /* The CONVERGENCE. `owner` is the tenant's installed bar, `tracked` the bar

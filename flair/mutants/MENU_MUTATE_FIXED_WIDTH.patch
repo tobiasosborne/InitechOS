@@ -1,0 +1,28 @@
+# Legacy MENU_MUTATE_FIXED_WIDTH
+# test: test_menu
+--- a/menu.c
++++ b/menu.c
+@@ -137,8 +137,8 @@
+  * -------------------------------------------------------------------------- */
+ static int title_slot_w(const char *title)
+ {
+-    int tw = text_measure(FONT_CHICAGO, title);
+-    return tw + 2 * FLAIR_MENU_TITLE_PAD;
++    (void)title;
++    return 48;
+ }
+ 
+ /* --------------------------------------------------------------------------
+@@ -243,11 +243,7 @@
+     for (int k = 0; k < (int)m->n_items; k++) {
+         if (m->items[k].is_divider)
+             continue;
+-        /* the item's own face (MenuItem.style, txFace bits): bold widens
+-         * every glyph by 1 px (font-manager.md Sec 6.1; ) */
+-        int w = text_measure_face(FONT_CHICAGO,
+-                                  (unsigned)m->items[k].style & TEXT_FACE_SYNTH,
+-                                  m->items[k].text);
++        int w = 48;
+         int needed = FLAIR_MENU_ITEM_LPAD + w + FLAIR_MENU_ITEM_RPAD;
+         if (m->items[k].cmdChar != 0) {
+             needed = FLAIR_MENU_ITEM_LPAD + w + FLAIR_MENU_CMD_GAP +

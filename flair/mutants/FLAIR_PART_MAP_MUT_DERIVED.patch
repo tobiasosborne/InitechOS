@@ -1,0 +1,15 @@
+# Legacy FLAIR_PART_MAP_MUT_DERIVED
+# test: test_flair_part_map
+--- a/flair_look.c
++++ b/flair_look.c
+@@ -81,7 +81,9 @@
+ #define FLAIR_DERIVED_BEVEL_SHADOW  2u
+ #define FLAIR_DERIVED_MENU_DARK     3u
+ #define FLAIR_DERIVED_MENU_SHADOW   4u
+-#define FLAIR_DERIVED_BEVEL_SHADOW_ROW FLAIR_DERIVED_BEVEL_SHADOW
++/* regression patches (mutation checks; test-flair-part-map-mutant): the BEVEL_SHADOW row names the
++ * LIGHT ordinal -- the differential must go RED. NEVER in a real build. */
++#define FLAIR_DERIVED_BEVEL_SHADOW_ROW FLAIR_DERIVED_BEVEL_LIGHT
+ 
+ #define FLAIR_NO_SKIN_SLOT       ((uint8_t)0xFFu)
+ #define FLAIR_SKIN_SLOT(member)  ((uint8_t)offsetof(flair_skin_t, member))

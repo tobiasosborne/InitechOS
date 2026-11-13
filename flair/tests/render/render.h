@@ -1,10 +1,10 @@
 /*
  * harness/render/render.h -- the FLAIR host-render skeleton (FACTORY, host-only).
  *
- * beads: initech-k8o5.7 (host render skeleton) -- the crown-jewel step that lets
+ *  (host render skeleton) -- the crown-jewel step that lets
  *        the artifact chrome-drawing code (os/flair/chrome.c) run on a host
  *        offscreen bitmap and emit a deterministic PPM, so test-chrome can make
- *        structural assertions against chrome_metrics v1 (ADR-0004 D-8/FO-2).
+ *        structural assertions against chrome_metrics v1 (clipped Toolbox drawing/FO-2).
  *
  * LAW 3 SEPARATION: this is FACTORY code. It HOSTS the artifact draw routines on
  * an offscreen bitmap and dumps a PPM. It may use libc (malloc/stdio). It is NOT
@@ -22,15 +22,15 @@
  * by the host offscreen base -- the ONLY field that cannot be a physical address
  * on the host, since the host has no LFB; everything else is the caller's).
  *
- * Ref: ADR-0004 D-1/D-2 (all drawing through a GrafPort clipped by
+ * Ref: clipped Toolbox drawing/D-2 (all drawing through a GrafPort clipped by
  *      visRgn INTERSECT clipRgn; one surface module), AM-1/FO-C (host model
  *      parameterized by runtime boot_info geometry, never a hardcoded aperture),
  *      D-8 (the oracle vector: test-chrome is a hard structural gate).
  *      spec/grafport.h (GrafPort), spec/imaging.h (FLAIR_BitMap), os/flair/
  *      surface.h (bitmap_t -- the ONE pixel buffer), os/flair/heap.h (the FLAIR
  *      arena), spec/region_algebra.h (region_t for visRgn/clipRgn).
- *      CLAUDE.md Law 2 (oracle is truth), Rule 11 (deterministic: fixed palette,
- *      no timestamps, byte-identical PPM across runs), Rule 12 (ASCII-clean).
+ *      independent checks (oracle is truth), reproducibility (deterministic: fixed palette,
+ *      no timestamps, byte-identical PPM across runs), ASCII source.
  */
 #ifndef INITECH_HARNESS_RENDER_H
 #define INITECH_HARNESS_RENDER_H
@@ -55,7 +55,7 @@
 typedef struct {
     uint32_t lfb_addr;    /* (ignored on host -- the offscreen base is used)   */
     uint32_t lfb_pitch;   /* bytes per scanline (>= width * bpp/8); 0 => tight */
-    uint32_t lfb_bpp;     /* 8 or 32 (the two modes ADR-0004 D-8/k8o5.7 name)  */
+    uint32_t lfb_bpp;     /* 8 or 32 (the two modes clipped Toolbox drawing/name)  */
     uint32_t lfb_width;   /* horizontal resolution in pixels                   */
     uint32_t lfb_height;  /* vertical resolution in pixels                     */
 } render_boot_info_t;
@@ -102,11 +102,11 @@ typedef void (*render_draw_fn)(GrafPort *port);
  * defaults to a tight `width * bpp/8` if the caller passes 0), wraps it as a
  * FLAIR_BitMap, opens a GrafPort over it (portRect = whole bitmap, visRgn = the
  * whole port, clipRgn = the whole port), and binds a FLAIR heap over a separate
- * arena window. The offscreen is zero-filled (deterministic blank, Rule 11).
+ * arena window. The offscreen is zero-filled (deterministic blank, reproducibility).
  *
  * Returns 0 on success, non-zero on a bad geometry or allocation failure
- * (fail-loud, Rule 2 -- the caller/oracle treats non-zero as a hard error).
- * The bpp MUST be 8 or 32 (the two modes named by k8o5.7); other values FAIL.
+ * (fail-loud, explicit error handling -- the caller/oracle treats non-zero as a hard error).
+ * The bpp MUST be 8 or 32 (the two modes named by ); other values FAIL.
  * ------------------------------------------------------------------------- */
 int render_ctx_init(render_ctx_t *ctx, const render_boot_info_t *boot);
 
@@ -118,7 +118,7 @@ void render_ctx_free(render_ctx_t *ctx);
 /* ---------------------------------------------------------------------------
  * render_run -- SetPort over the offscreen and run the draw program.
  *
- * Equivalent to the kernel's SetPort(myPort); draw(); discipline: it makes
+ * Equivalent to the kernel's SetPort(myPort); draw; discipline: it makes
  * ctx->port the current FLAIR port, invokes `draw(&ctx->port)`, then leaves the
  * offscreen holding the rendered pixels. The draw program clips through
  * visRgn INTERSECT clipRgn (D-1/D-2).
@@ -148,7 +148,7 @@ uint32_t render_pixel_index(const render_ctx_t *ctx, uint32_t x, uint32_t y);
 /* ---------------------------------------------------------------------------
  * render_palette_rgb -- the deterministic indexed-8 palette: index -> 0x00RRGGBB.
  *
- * A fixed, byte-stable ramp (Rule 11) so the PPM is identical across runs. A few
+ * A fixed, byte-stable ramp  so the PPM is identical across runs. A few
  * indices are pinned to named FLAIR colors (the spec/assets/palette.h samples and
  * the WDEF pinstripe shade indices 7/8) so the rendered window reads correctly to
  * a human and the oracle's index<->rgb mapping is stable. Pure function.
@@ -160,7 +160,7 @@ uint32_t render_palette_rgb(uint8_t index);
  *
  * 8bpp indices are mapped through render_palette_rgb; 32bpp is written directly.
  * The PPM header is "P6\n<w> <h>\n255\n" -- NO timestamp, NO comment line, so the
- * output is byte-identical across runs (Rule 11). Returns 0 on success.
+ * output is byte-identical across runs. Returns 0 on success.
  * ------------------------------------------------------------------------- */
 int render_write_ppm(const render_ctx_t *ctx, const char *path);
 

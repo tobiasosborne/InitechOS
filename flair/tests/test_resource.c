@@ -1,10 +1,10 @@
 /*
- * test_resource.c -- the FLAIR Resource Manager host oracle (initech-0w45).
+ * test_resource.c -- the FLAIR Resource Manager host oracle.
  *
- * THE ANTI-BY-CONSTRUCTION DESIGN (Law 2 / HER-02):
+ * THE ANTI-BY-CONSTRUCTION DESIGN (independent checks / HER-02):
  *   GOLDEN INPUT  -- a hand-authored mini Mac resource fork, FORK[], whose bytes
  *                    are written DIRECTLY from the offset tables in
- *                    ../system7-decomp/specs/resources/resource-manager.md
+ *../system7-decomp/specs/resources/resource-manager.md
  *                    Sec 1.1-1.6 and wind-menu-dlog-ditl.md Sec 1a (byte-by-byte
  *                    commented below).
  *   GENUINE PARSER -- os/flair/resource.c walks that fork (positional BE reads,
@@ -20,7 +20,7 @@
  * count-1 decode (+1), the ref-list iteration, the 3-byte data offset, the
  * multi-type type-list walk, and the signed/positive ID compare are all
  * non-trivially exercised:
- *   type WIND { id 128 (a real 24-byte WIND template), id 129 } ; type MENU { id 1 }.
+ *   type WIND { id 128 (a real 24-byte WIND template), id 129 }; type MENU { id 1 }.
  *
  * SELF-CHECK (verifier amendment): the fork's map preamble is EXACTLY 24 bytes
  *   per resource-manager.md Sec 1.3 -- 16 (fork-header copy) + 4 (nextMapHandle)
@@ -28,14 +28,14 @@
  *   (NOT 22) and nameListOffset at 26. Asserted directly on the fixture bytes +
  *   on the parser's computed type_list_abs (= mapOffset + 28).
  *
- * Self-mutants (compile + go RED -- Rule 6; #ifdef in os/flair/resource.c):
- *   RES_MUT_IGNORE_TYPE      -- match the first type regardless of the type key.
- *   RES_MUT_COUNT_OFF_BY_ONE -- iterate numTypes-1 type entries (drop the last).
+ * Self-mutants (compile + go RED -- mutation checks; #ifdef in os/flair/resource.c):
+ *   ignore type patch      -- match the first type regardless of the type key.
+ *   count off by one patch -- iterate numTypes-1 type entries (drop the last).
  *
- * Ref: CLAUDE.md Law 1/Law 2/Law 3, Rule 1, Rule 6, Rule 11, Rule 12;
- *      ../system7-decomp/specs/resources/resource-manager.md Sec 1.1-1.6, Sec 2;
- *      ../system7-decomp/specs/resources/wind-menu-dlog-ditl.md Sec 1a/2a.
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * Ref: source provenance/independent checks/language boundary, mutation checks, reproducibility, ASCII source;
+ *../system7-decomp/specs/resources/resource-manager.md Sec 1.1-1.6, Sec 2;
+ *../system7-decomp/specs/resources/wind-menu-dlog-ditl.md Sec 1a/2a.
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -156,7 +156,7 @@ static const uint8_t FORK[] = {
 /* ===========================================================================
  * GOLDEN OUTPUT -- INDEPENDENT hand-authored expected payloads.
  * These are written as plain literals (NOT produced by the parser or any
- * encoder); FlairGetResource must reproduce them byte-for-byte (Law 2).
+ * encoder); FlairGetResource must reproduce them byte-for-byte.
  * ===========================================================================*/
 
 /* The exact 24 payload bytes FlairGetResource(WIND, 128) must return. */

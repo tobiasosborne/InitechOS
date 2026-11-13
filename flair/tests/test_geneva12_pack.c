@@ -1,4 +1,4 @@
-/* Storage oracle (bead initech-uelk): the LOCKED Geneva 12 row table
+/* Storage oracle: the LOCKED Geneva 12 row table
  * (spec/assets/geneva12.h, transcribed from geneva12.art) is the independent
  * input; no expected row is computed through the decoder under test.
  * PRD Sec 6.4; the test_chicago_pack.c pattern. */

@@ -1,0 +1,79 @@
+# Legacy MENU_MUT_BAR_FLAT
+# test: test_menu
+--- a/menu.c
++++ b/menu.c
+@@ -531,46 +531,6 @@
+     return flair_menu_track(bar, startPt, pts, n_pts, NULL);
+ }
+ 
+-/* One-pixel corner transcription from sys8/menus.md Sec 1.2. Entries not in a
+- * row's prefix retain the sampled vertical bar profile. The right corner is the
+- * exact mirror. Values are PART names, never palette indices (authored teal C-8). */
+-static const uint8_t menu_corner_n[9] = { 8u, 8u, 5u, 4u, 3u, 2u, 2u, 2u, 1u };
+-static const uint8_t menu_corner_part[9][8] = {
+-    { FLAIR_PART_FRAME, FLAIR_PART_FRAME, FLAIR_PART_FRAME, FLAIR_PART_FRAME,
+-      FLAIR_PART_FRAME, FLAIR_PART_PLAT_INACTIVE_FRAME, FLAIR_PART_PLAT_WELL,
+-      FLAIR_PART_MENU_BAR_FACE },
+-    { FLAIR_PART_FRAME, FLAIR_PART_FRAME, FLAIR_PART_FRAME,
+-      FLAIR_PART_PLAT_INACTIVE_FRAME, FLAIR_PART_PLAT_WELL,
+-      FLAIR_PART_MENU_BAR_HL, FLAIR_PART_MENU_BAR_HL, FLAIR_PART_MENU_BAR_HL },
+-    { FLAIR_PART_FRAME, FLAIR_PART_FRAME, FLAIR_PART_PLAT_INACTIVE_FRAME,
+-      FLAIR_PART_MENU_BAR_FACE, FLAIR_PART_MENU_BAR_HL },
+-    { FLAIR_PART_FRAME, FLAIR_PART_PLAT_INACTIVE_FRAME,
+-      FLAIR_PART_MENU_BAR_FACE, FLAIR_PART_MENU_BAR_HL },
+-    { FLAIR_PART_FRAME, FLAIR_PART_PLAT_WELL, FLAIR_PART_MENU_BAR_HL },
+-    { FLAIR_PART_PLAT_INACTIVE_FRAME, FLAIR_PART_MENU_BAR_HL },
+-    { FLAIR_PART_PLAT_WELL, FLAIR_PART_MENU_BAR_HL },
+-    { FLAIR_PART_MENU_BAR_FACE, FLAIR_PART_MENU_BAR_HL },
+-    { FLAIR_PART_MENU_BAR_HL }
+-};
+-
+-static void draw_menu_bar_corners(GrafPort *port, const region_t *clip)
+-{
+-    const bitmap_t *bm = &port->portBits.bm;
+-    for (int y = 0; y < 9; y++) {
+-        for (int x = 0; x < (int)menu_corner_n[y]; x++) {
+-            uint32_t pxv = flair_look_pixel(port, menu_corner_part[y][x]);
+-            rgn_rect_t lpx = { (int16_t)y, (int16_t)x,
+-                               (int16_t)(y + 1), (int16_t)(x + 1) };
+-            blitter_fill_rect_clipped(bm, lpx, pxv, clip);
+-            if ((uint32_t)x < bm->width) {
+-                int rx = (int)bm->width - 1 - x;
+-                rgn_rect_t rpx = { (int16_t)y, (int16_t)rx,
+-                                   (int16_t)(y + 1), (int16_t)(rx + 1) };
+-                blitter_fill_rect_clipped(bm, rpx, pxv, clip);
+-            }
+-        }
+-    }
+-}
+ 
+ /* --------------------------------------------------------------------------
+  * DrawMenuBar -- sampled Platinum 20px profile + explicit pulled-title state.
+@@ -590,22 +550,18 @@
+     uint32_t bar_shadow = flair_look_pixel(port, FLAIR_PART_MENU_BAR_SHADOW);
+     uint32_t pulled_face = flair_look_pixel(port, FLAIR_PART_MENU_TITLE_HILITE_FACE);
+ 
+-    rgn_rect_t top = { 0, 0, 1, (int16_t)bm->width };
+-    rgn_rect_t face = { 1, 0, (int16_t)(FLAIR_MENUBAR_H - 2),
++    /* NAMED regression patches: the old flat face, with neither sampled profile nor round. */
++    (void)bar_hl;
++    (void)bar_shadow;
++    rgn_rect_t flat = { 0, 0, (int16_t)(FLAIR_MENUBAR_H - 1),
+                         (int16_t)bm->width };
+-    rgn_rect_t shadow = { (int16_t)(FLAIR_MENUBAR_H - 2), 0,
+-                          (int16_t)(FLAIR_MENUBAR_H - 1),
+-                          (int16_t)bm->width };
+-    blitter_fill_rect_clipped(bm, top, bar_hl, clip);
+-    blitter_fill_rect_clipped(bm, face, bar_face, clip);
+-    blitter_fill_rect_clipped(bm, shadow, bar_shadow, clip);
++    blitter_fill_rect_clipped(bm, flat, bar_face, clip);
+ 
+     rgn_rect_t baseline = { (int16_t)(FLAIR_MENUBAR_H - 1), 0,
+                             (int16_t)FLAIR_MENUBAR_H,
+                             (int16_t)bm->width };
+     blitter_fill_rect_clipped(bm, baseline, ink, clip);
+ 
+-    draw_menu_bar_corners(port, clip);
+ 
+     /* The pulled Apple slot (menu.h Sec 3a): the accent block first, the
+      * glyph over it in white -- the same inversion a pulled title gets. */

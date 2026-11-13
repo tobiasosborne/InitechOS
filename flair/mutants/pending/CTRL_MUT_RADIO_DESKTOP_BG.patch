@@ -1,0 +1,14 @@
+# pending: legacy test-flair-cpanels-radio-mutant: independent radio background pixels
+# Legacy CTRL_MUT_RADIO_DESKTOP_BG
+# test: test_control test_scrollbar_look
+--- a/control.c
++++ b/control.c
+@@ -643,7 +643,7 @@
+     /* R4.5: a radio is embedded in a dialog, not on the desktop. Keep the
+      * existing unminted shape; its ambient face follows the already sampled
+      * control/dialog face (s8_controls_dialog.png, sys8/controls.md sec1). */
+-    const int background=CTRL_PLAT_FACE;
++    const int background=CTRL_DESKTOP;
+     int x0 = (int)ctrl->contrlRect.left;
+     int y0 = (int)ctrl->contrlRect.top;
+     int y1 = (int)ctrl->contrlRect.bottom;

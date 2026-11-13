@@ -1,26 +1,26 @@
 /*
  * os/flair/menu.h -- the FLAIR Menu Manager (THE ARTIFACT, FLAIR Layer 3).
  *
- * beads: initech-n3e ("FLAIR Menu Manager: pull-down menus + the menu bar,
- *        Photoshop-exact"). The Menu Manager (ADR-0004 D-3) owns the menu bar
+ *  ("FLAIR Menu Manager: pull-down menus + the menu bar,
+ *        Photoshop-exact"). The Menu Manager (clipped Toolbox drawing) owns the menu bar
  *        and the pull-down menus: the verbatim Inside Macintosh MenuInfo record,
  *        the proportional-text bar layout, the click-to-drop pull-down tracking,
  *        and MenuSelect / MenuKey returning the (menuID<<16 | item) packing.
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The bar and panel
+ * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE. The bar and panel
  * decoration use the sampled Platinum anatomy in sys8/menus.md; MenuInfo
- * semantics and the frozen Photoshop bar remain invariant (bead initech-sjvq).
+ * semantics and the frozen Photoshop bar remain invariant.
  *
- * Ref:   ADR-0004 D-3 ("Menu Manager -- MenuInfo (menu ID, title, items with
+ * Ref:   clipped Toolbox drawing ("Menu Manager -- MenuInfo (menu ID, title, items with
  *          mark/style/cmd-char); the menu bar including the Photoshop-exact bar
  *          for InitechPaint ('File Edit Image Layer Select View Window Help' --
  *          canon, NOT to be 'corrected'). MenuSelect returns (menuID<<16|item).")
- *        ADR-0004 D-1 (5-layer stack; Layer 3 Managers draw THROUGH a GrafPort
+ *        clipped Toolbox drawing (5-layer stack; Layer 3 Managers draw THROUGH a GrafPort
  *          clipped by an REGION_ENGINE region; never touch the framebuffer directly).
- *        ADR-0004 D-7 ("proportional NFNT text measurement -- Chicago ...; text
+ *        clipped Toolbox drawing ("proportional NFNT text measurement -- Chicago...; text
  *          width = sum of per-glyph advances; no fixed-pitch assumption").
  *        spec/assets/menu_canon.h (the FROZEN canon menu-bar string + items --
- *          USED here, NOT re-authored; CLAUDE.md Law 4 / AM-4).
+ *          USED here, NOT re-authored; film canon / AM-4).
  *        spec/chrome_metrics.h (FLAIR_CHROME_MENUBAR_H = 20; GetMBarHeight).
  *        os/flair/text.h (text_measure / text_draw -- proportional Chicago).
  *        os/flair/blitter.h (blitter_fill_rect_clipped -- region-clipped fill).
@@ -30,17 +30,17 @@
  *        Inside Macintosh Vol I "Menu Manager" -- the MenuInfo record, the
  *          enableFlags / mark / cmdChar item attributes, NewMenuBar/DrawMenuBar,
  *          MenuSelect/MenuKey verbatim names and the (menuID<<16|item) result.
- *        CLAUDE.md Law 2 (oracle is truth), Law 3 (freestanding artifact +
- *        dual-compile), Law 4 (look like the frame -- the canon bar), Rule 2
- *        (fail loud), Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ *        independent checks (oracle is truth), language boundary (freestanding artifact +
+ *        dual-compile), film canon (look like the frame -- the canon bar), explicit error handling
+ *        (fail loud), deterministic output, ASCII source.
  *
- * ARTIFACT code: freestanding C (ADR-0002). No libc. No malloc -- ALL storage is
+ * ARTIFACT code: freestanding C (freestanding C build). No libc. No malloc -- ALL storage is
  * CALLER-supplied (the FLAIR heap backs the MenuInfo/MenuBar arrays; this module
  * allocates nothing). Compiles BOTH under kernel flags (gcc -m32 -ffreestanding
  * -nostdlib -std=c11 -Wall -Wextra -Werror) AND hosted for the property suite
  * (harness/proptest/test_menu.c), the region.c / blitter.c / window.c pattern.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #ifndef INITECH_OS_FLAIR_MENU_H
 #define INITECH_OS_FLAIR_MENU_H
@@ -55,7 +55,7 @@
 #include "grafport.h"           /* GrafPort, flair_point_t (-Ispec)           */
 
 /* ===========================================================================
- * 1. MENU-BAR LAYOUT CONSTANTS  (Law 1 -- grounded in chrome_metrics + IM)
+ * 1. MENU-BAR LAYOUT CONSTANTS  (source provenance -- grounded in chrome_metrics + IM)
  * ---------------------------------------------------------------------------
  * The menu bar is FLAIR_CHROME_MENUBAR_H (20) px tall (GetMBarHeight, Roman
  * script; chrome_metrics.h). Inside Macintosh draws each title with a small
@@ -70,10 +70,10 @@
 #include "chrome_metrics.h"     /* FLAIR_CHROME_MENUBAR_H = 20 (-Ispec)       */
 #define FLAIR_MENUBAR_H          FLAIR_CHROME_MENUBAR_H
 
-/* Deliberate re-key 2026-10-15 tdnl.70/.94, sys8/menus.md1.3/1.4/2.2:
+/* Deliberate re-key 2026-10-15, sys8/menus.md1.3/1.4/2.2:
  * File block/panel begins33; ink43 ->10px ink pad minus Chicago bearing1
  * =9px cell pad. File23px advance includes two blank outer columns, so its
- * substituted slot is41px (capture Charcoal40px; tdnl.69 remains separate).
+ * substituted slot is41px (capture Charcoal40px;  remains separate).
  * Apple ink begins17; retained art first ink column2 -> cell origin15.
  * Apple slot ends at File block33, not at the bar height20.
  */
@@ -86,7 +86,7 @@
  * (CHICAGO_CELL_H = 16) is vertically centered: (20 - 16) / 2 = 2. With the
  * NFNT 5478 ascent of 12 the baseline lands on bar row 14 and the 9-row caps on
  * rows 5..13 -- the rows real System 7 uses (goldens/captures/s7_menu_file.png:
- * "Edit" ink rows 5..13; initech-tdnl.33). */
+ * "Edit" ink rows 5..13; ). */
 #define FLAIR_MENU_TITLE_VPAD    ((FLAIR_MENUBAR_H - 16) / 2)
 
 /* R3.6 shell-owned clock (PRD Sec 6.3; GUI-remediation-plan R3.6).
@@ -115,23 +115,19 @@ void MenuClock_draw(GrafPort *port, const region_t *clip);
 #define FLAIR_MENU_ITEM_RPAD     12   /* retained no-command policy; uncaptured width */
 /* Item text CAP TOP inside the item rect (sys8/menus.md Sec 2.2: "text top
  * inside an item rect +2", text top 23 = rect top 21 + 2). The Chicago cell is
- * placed CHICAGO_CAP_TOP rows above it (menu.c; bead initech-tdnl.33). */
+ * placed CHICAGO_CAP_TOP rows above it (menu.c; ). */
 #define FLAIR_MENU_ITEM_TEXT_TOP  2
 /* Additive-superseding locked metric: 8 -> 6 for the Platinum base era.
- * Ref: sys8/menus.md Sec 2.2; bead initech-sjvq (D3.b row 41). */
+ * Ref: sys8/menus.md Sec 2.2;  (D3.b row 41). */
 #define FLAIR_MENU_DIV_H          6
 #define FLAIR_MENU_PANEL_FRAME    1   /* outer black frame, Sec 2.1             */
 #define FLAIR_MENU_PANEL_INSET    2   /* first item / interior begins at +2     */
 #define FLAIR_MENU_DROP_SHADOW    1   /* dark-gray right/bottom footprint       */
 #define FLAIR_MENU_CMD_GAP        8   /* item ink -> caret-letter run           */
 /* The command column is the period-plausible "^X" substitution (2 chars),
- * measured proportionally per item (menu.c cmd_run_w; initech-tdnl.33). */
+ * measured proportionally per item (menu.c cmd_run_w; ). */
 #define FLAIR_MENU_CMD_CHARS      2   /* period-plausible "^X" substitution     */
-#if defined(MENU_LOOK_MUT_WRONG_RPAD)
-#define FLAIR_MENU_CMD_RPAD      16
-#else
 #define FLAIR_MENU_CMD_RPAD      FLAIR_CHROME_MENU_CMD_RPAD
-#endif /* frame230 - ink216=14; Chicago N right bearing1, frame1 ->13 cell pad */
 
 /* ===========================================================================
  * 3. MENU ITEM + MENU + MENU BAR RECORDS  (verbatim Inside Macintosh)
@@ -145,7 +141,7 @@ void MenuClock_draw(GrafPort *port, const region_t *clip);
  * ===========================================================================*/
 
 typedef struct MenuItem {
-    const char *text;       /* item text (NUL-terminated, ASCII; Rule 12)      */
+    const char *text;       /* item text (NUL-terminated, ASCII; ASCII source)      */
     char        mark;       /* mark char in the mark column (0 == no mark)      */
     char        cmdChar;    /* command-key equivalent (0 == none); MenuKey key  */
     uint8_t     style;      /* FLAIR_STYLE_* bits (bold/italic/...) for drawing */
@@ -183,7 +179,7 @@ typedef struct MenuBar {
 void MenuClock_attach(const MenuBar *bar);
 
 /* ===========================================================================
- * 3a. THE APPLE MENU  (bead initech-tdnl.47; the system menu behind the glyph)
+ * 3a. THE APPLE MENU  (; the system menu behind the glyph)
  * ---------------------------------------------------------------------------
  * The Apple glyph slot of every has_apple bar (menu bands 1 AND 2) drops ONE
  * system Apple menu, registered once by the shell (MenuBar_set_apple_menu;
@@ -201,7 +197,7 @@ void MenuClock_attach(const MenuBar *bar);
  * pulled block is x 9..37 (the 10-px ink pad around the glyph's ink, like a
  * title's), and the panel's left edge is that block's left, x 9 (a titled
  * menu's panel starts at its slot left instead).
- * MENU_MUT_APPLE_DEAD (Rule 6): MenuBar_hit never answers the Apple slot --
+ * apple dead patch: MenuBar_hit never answers the Apple slot --
  * the audited F13 bug (both glyphs open nothing). NEVER in a real build.
  * ===========================================================================*/
 #define FLAIR_MENU_APPLE_MI        (-2)
@@ -220,7 +216,7 @@ const MenuInfo *MenuBar_menu(const MenuBar *bar, int mi);
 int16_t MenuBar_menu_id(const MenuBar *bar, int mi);
 
 /* ===========================================================================
- * 4. RESULT WORD HELPERS  (ADR-0004 D-3: result == menuID<<16 | item)
+ * 4. RESULT WORD HELPERS  (clipped Toolbox drawing: result == menuID<<16 | item)
  * ---------------------------------------------------------------------------
  * MenuSelect / MenuKey pack the chosen (menuID, item) into a uint32_t exactly
  * as Inside Macintosh: the high 16 bits are the menuID, the low 16 bits are the
@@ -286,7 +282,7 @@ rgn_rect_t MenuInfo_panel_rect(const MenuBar *bar, int mi);
 
 /* The complete temporary-ink footprint: panel rect plus its one-pixel right and
  * bottom drop shadow. Compositor restore code must invalidate this rect, never
- * only MenuInfo_panel_rect. Ref: sys8/menus.md Sec 2.1; bead initech-sjvq. */
+ * only MenuInfo_panel_rect. Ref: sys8/menus.md Sec 2.1;. */
 rgn_rect_t MenuInfo_panel_footprint_rect(const MenuBar *bar, int mi);
 
 /*
@@ -304,7 +300,7 @@ int MenuInfo_item_at(const MenuBar *bar, int mi, int x, int y);
 int MenuInfo_item_selectable(const MenuBar *bar, int mi, int it);
 
 /* ===========================================================================
- * 7. DRAWING  (through a GrafPort, clipped; ADR-0004 D-1/D-2)
+ * 7. DRAWING  (through a GrafPort, clipped; clipped Toolbox drawing/D-2)
  * ---------------------------------------------------------------------------
  * DrawMenuBar paints the sampled Platinum 20px bar across the top of the port's
  * bitmap. `hilited_menu` is a 0-based menu index, or -1 for the idle bar; this
@@ -333,8 +329,8 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
  * 8. TRACKING  (MenuSelect / MenuKey -- the verbatim Inside Macintosh API)
  * ---------------------------------------------------------------------------
  * MenuSelect is driven by a SUPPLIED POINT SEQUENCE (the event deltas the Event
- * Manager would feed in task context; ADR-0004 D-4). This keeps the Menu Manager
- * host-testable (deterministic, Rule 11) without baking in an event-pump
+ * Manager would feed in task context; clipped Toolbox drawing). This keeps the Menu Manager
+ * host-testable (deterministic, reproducibility) without baking in an event-pump
  * dependency: the caller hands MenuSelect the click point and a sequence of
  * cursor points ending in the release point. MenuSelect hit-tests the bar at the
  * click, drops that menu, tracks the cursor through the points hiliting the item
@@ -354,7 +350,7 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
  *                CURRENTLY tracked at that point -- or -1 if none (for the
  *                drawer).
  *
- * CROSS-MENU DRAG (initech-rl4v; Inside Macintosh Vol I "Menu Manager"
+ * CROSS-MENU DRAG (; Inside Macintosh Vol I "Menu Manager"
  * MenuSelect): the tracked menu is NOT fixed at startPt. Every point in pts[]
  * whose y is still within the bar band re-hits the bar; landing on a
  * DIFFERENT title switches the tracked menu (closes the old pull-down, opens
@@ -376,7 +372,7 @@ uint32_t flair_menu_track(const MenuBar *bar,
                           int *out_hi);
 
 /*
- * MenuTrack -- the STREAMING form of flair_menu_track (bead initech-tdnl.71).
+ * MenuTrack -- the STREAMING form of flair_menu_track.
  * The track is a fold whose whole state is the dropped menu and the item under
  * the latest point, so a live tracker steps each cursor sample and keeps no
  * history: begin at the click, step every point (the last is the release),

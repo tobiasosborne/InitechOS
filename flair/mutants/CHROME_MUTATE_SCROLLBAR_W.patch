@@ -1,0 +1,12 @@
+# Legacy CHROME_MUTATE_SCROLLBAR_W
+# test: test_chrome
+--- a/chrome.c
++++ b/chrome.c
+@@ -830,6 +830,7 @@
+         grow_x = ri - FLAIR_CHROME_GROW_RIGHT_OFF;
+         grow_y = bi - FLAIR_CHROME_GROW_BOTTOM_OFF;
+         sb_left = grow_x - FLAIR_CHROME_FRAME;
++        sb_left++;
+         {
+             int sb_top = shared_line;
+             sb_state_of(&sbv, frame, WSCROLL_V, ws);

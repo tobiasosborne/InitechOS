@@ -1,0 +1,18 @@
+# Legacy SF_MUT_CANCEL_GOOD
+# test: test_stdfile
+--- a/stdfile.c
++++ b/stdfile.c
+@@ -433,7 +433,12 @@
+         return;                      /* defensive NULL guard                     */
+     }
+ 
+-    reply->good = 0;                 /* SFReply.good = FALSE on Cancel (IM-I)    */
++    /*
++     * regression patches cancel good patch: set good = 1 on Cancel. Oracle step 6 expects
++     * good == 0 after Cancel -> RED.
++     * Ref: mutation checks (mutation-proven golden).
++     */
++    reply->good = 1;
+     reply->fName[0] = '\0';
+     reply->is_dir = 0;
+ }

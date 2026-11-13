@@ -1,0 +1,13 @@
+# Legacy SB_MUT_THUMB_16
+# test: test_control
+--- a/include/control.h
++++ b/include/control.h
+@@ -213,7 +213,7 @@
+  *   Ref:../system7-decomp/specs/sys8/scrollbars.md Sec 1/Sec 2.4.
+  * ===========================================================================*/
+ #define SB_ARROW      FLAIR_CHROME_SCROLLBAR_W  /* 16 px; square arrow buttons  */
+-#define SB_THUMB_MIN  FLAIR_CHROME_SCROLL_THUMB_MIN
++#define SB_THUMB_MIN  16  /* named mutation checks relapse to the System-7 thumb floor   */
+ 
+ /* ===========================================================================
+  * 5. CONTROL MANAGER API (verbatim Inside Macintosh routine names; MTE Ch 5)

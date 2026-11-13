@@ -2,24 +2,24 @@
  * os/flair/textedit.h -- FLAIR TextEdit (TERec): the shared editable-text
  * engine -- THE ARTIFACT.
  *
- * beads: initech-77dj (FLAIR Phase 4.5 -- the TextEdit half of the shared
+ *  (FLAIR Phase 4.5 -- the TextEdit half of the shared
  *        editable-text engine). Committee ruling wf_00931e9e: a REDUCED first
  *        cut of the Inside Macintosh TERec (a flat fixed text buffer + the
  *        half-open selection + CR/word-wrap line breaking + cut/copy/paste
  *        against the shell-owned Scrap), explicitly capped and labelled.
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The unchanged TERec
+ * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE. The unchanged TERec
  * field and editing semantics are retained Toolbox heritage under BC-10.10.
  *
- * GROUND TRUTH (Law 1):
- *   ../system7-decomp/specs/toolbox/textedit.md -- the VERBATIM TERec layout
+ * GROUND TRUTH:
+ *../system7-decomp/specs/toolbox/textedit.md -- the VERBATIM TERec layout
  *   and semantics. This header mirrors the IM field NAMES (Sec 1), the
  *   half-open [selStart,selEnd) selection model (Sec 2), the just constants
  *   teJustLeft=0/teJustCenter=1/teJustRight=-1 (Sec 3), and the CR-delimited /
  *   crOnly<0 / lineStarts+nLines line-layout rule (Sec 4). It implements only
  *   the MONOSTYLED model (Sec 5); styled runs are out of scope.
  *
- * THE REDUCTION (committee ruling wf_00931e9e; Rule 8 -- locked, deliberate):
+ * THE REDUCTION (committee ruling wf_00931e9e; pinned inputs -- locked, deliberate):
  *   The full IM TERec carries `lineStarts: ARRAY[0..16000] OF INTEGER` (~32 KB)
  *   plus the QuickDraw rects/hooks/blink machinery (textedit.md Sec 1). This
  *   FIRST CUT keeps a flat fixed `char text[FLAIR_TE_TEXT_MAX]` buffer, the
@@ -28,17 +28,17 @@
  *   the proc hooks, caret-blink timing, and the styled (txSize==-1) path.
  *   FOLLOW-UP (deferred full TERec): restore the QuickDraw rects, the heap-handle
  *   hText, the caret/highlight hooks and
- *   TEClick/TEIdle/TEActivate -- a Rule-8 deliberate act with its own bead +
+ *   TEClick/TEIdle/TEActivate -- a pinned inputs deliberate act with its own +
  *   worklog note, NOT a silent edit. The IM field NAMES + the load-bearing `just`
  *   triple are preserved here so the M5+ record is a superset (textedit.md Sec 7).
  *
- * FREESTANDING (Law 3): <stdint.h> + the Scrap header only; no libc, no malloc.
+ * FREESTANDING: <stdint.h> + the Scrap header only; no libc, no malloc.
  *   Compiles BOTH under the kernel flags (gcc -m32 -ffreestanding -nostdlib
  *   -std=c11 -Wall -Wextra -Werror) AND hosted for the property suite
  *   (harness/proptest/test_textedit.c). The dual-compile pattern of scrap.c /
  *   heap.c / process.c.
  *
- * CAPACITY CONSTANTS (Rule 8: raising either is a DELIBERATE ACT with an issue +
+ * CAPACITY CONSTANTS (pinned inputs: raising either is a DELIBERATE ACT with an issue +
  *   worklog note -- never a silent edit. The `_Static_assert` ceilings below pin
  *   the reduction):
  *   FLAIR_TE_TEXT_MAX  = 4096  (flat text buffer; teLength <= this)
@@ -47,13 +47,13 @@
  * Ref: os/flair/scrap.h (FlairScrap, FlairPutScrap/FlairGetScrap,
  *      FLAIR_SCRAP_TYPE_TEXT -- the shared clipboard cut/copy/paste route
  *      through THIS API, proving the Scrap is the shared seam); os/flair/ostype.h
- *      (flair_ostype_t). CLAUDE.md Law 1 (ground truth before code), Law 2 (the
- *      oracle vs an INDEPENDENT golden -- never by-construction), Law 3
- *      (freestanding artifact, no 2026-ism), Rule 2 (fail loud: over-MAX,
- *      bufsz-too-small, NULL arg -> panic; never silent truncation), Rule 8
- *      (spec as locked data), Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ *      (flair_ostype_t). source provenance (ground truth before code), independent checks (the
+ *      oracle vs an INDEPENDENT golden -- never by-construction), language boundary
+ *      (freestanding artifact, no 2026-ism), explicit error handling (fail loud: over-MAX,
+ *      bufsz-too-small, NULL arg -> panic; never silent truncation), pinned inputs
+ *      (spec as locked data), deterministic output, ASCII source.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #ifndef INITECH_OS_FLAIR_TEXTEDIT_H
 #define INITECH_OS_FLAIR_TEXTEDIT_H
@@ -62,7 +62,7 @@
 #include "scrap.h"   /* FlairScrap, FlairPutScrap/FlairGetScrap, FLAIR_SCRAP_TYPE_TEXT */
 
 /* --------------------------------------------------------------------------
- * Capacity constants (Rule 8: locked; raise only with issue + worklog note).
+ * Capacity constants (pinned inputs: locked; raise only with issue + worklog note).
  * -------------------------------------------------------------------------- */
 #define FLAIR_TE_TEXT_MAX   4096   /* flat text buffer length ceiling           */
 #define FLAIR_TE_MAX_LINES  128    /* capped lineStarts entries (reduced cut)   */
@@ -76,12 +76,12 @@
 #define FLAIR_TE_JUST_RIGHT  (-1)   /* teJustRight  -- flush right               */
 
 /* --------------------------------------------------------------------------
- * REDUCTION CEILINGS (Rule 8 -- pin the first cut at build time).
+ * REDUCTION CEILINGS (pinned inputs -- pin the first cut at build time).
  *
  * The line cap is the headline reduction: the full IM TERec's lineStarts is
  * ARRAY[0..16000] (16001 entries). FLAIR_TE_MAX_LINES must stay at or below that
- * full ceiling -- raising it toward the full TERec is a deliberate Rule-8 act
- * with a follow-up bead, not a silent edit. The int16_t offsets/indices require
+ * full ceiling -- raising it toward the full TERec is a deliberate pinned inputs act
+ * with a follow-up, not a silent edit. The int16_t offsets/indices require
  * both caps to fit a signed 16-bit value.
  * -------------------------------------------------------------------------- */
 _Static_assert(FLAIR_TE_MAX_LINES <= 16001,
@@ -119,14 +119,14 @@ typedef struct {
     int16_t crOnly;                      /* IM crOnly: <0 == Return-only (no word wrap) */
     int16_t nLines;                      /* IM nLines: number of laid-out lines         */
     int16_t wrapWidth;                   /* FLAIR: word-wrap width in PIXELS -- the IM   */
-                                         /*   destRect width (textedit.md Sec 4; bead    */
-                                         /*   initech-tdnl.68: proportional, styled)     */
+                                         /*   destRect width (textedit.md Sec 4; */
+                                         /*: proportional, styled)     */
     int16_t txFont;                      /* IM txFont: 0 systemFont (Chicago 12), 1     */
                                          /*   applFont (Geneva 9) -- text.h mapping      */
     int16_t txFace;                      /* IM txFace: style bits (TEXT_FACE_*; bold    */
                                          /*   widens every advance by 1 px)             */
     int16_t txSize;                      /* IM txSize: 0 the family default; 12 with    */
-                                         /*   applFont = Geneva 12 (bead initech-uelk; */
+                                         /*   applFont = Geneva 12 (; */
                                          /*   text.h text_font_from_txfont_size)       */
     int16_t lineStarts[FLAIR_TE_MAX_LINES]; /* IM lineStarts: char offset of each line  */
                                             /*   start; N == nLines (Sec 4; CAPPED cut) */
@@ -135,7 +135,7 @@ typedef struct {
 /* --------------------------------------------------------------------------
  * API -- the IM TextEdit subset (textedit.md Sec 6 semantics). Every routine
  * takes an explicit FlairTE * (no implicit global in the artifact); a NULL
- * pointer argument is a contract violation and fails loud (Rule 2).
+ * pointer argument is a contract violation and fails loud.
  * -------------------------------------------------------------------------- */
 
 /* FlairTE_init -- empty record: teLength=0, caret at 0, the given just +
@@ -146,12 +146,12 @@ typedef struct {
 void FlairTE_init(FlairTE *te, int16_t wrapWidth, int16_t just);
 
 /* FlairTESetText -- replace the buffer with `len` bytes from `s`. Fail loud
- * (Rule 2) if len < 0 or len > FLAIR_TE_TEXT_MAX -- never silent truncation.
+ *  if len < 0 or len > FLAIR_TE_TEXT_MAX -- never silent truncation.
  * Recomputes the line breakdown and clamps the selection into [0, len]. */
 void FlairTESetText(FlairTE *te, const char *s, int16_t len);
 
 /* FlairTEGetText -- copy the buffer out into `buf` (bufsz bytes available).
- * Fail loud (Rule 2) if bufsz < teLength -- NO partial copy. Returns teLength.
+ * Fail loud  if bufsz < teLength -- NO partial copy. Returns teLength.
  * Does NOT null-terminate (teLength is the length; no terminator reliance). */
 int16_t FlairTEGetText(const FlairTE *te, char *buf, int16_t bufsz);
 
@@ -164,7 +164,7 @@ void FlairTESetSelect(FlairTE *te, int16_t selStart, int16_t selEnd);
  * caret advances past it (selStart=selEnd=insertion+1). Backspace (0x08) deletes
  * the selected range if any, else the char before the caret. Recomputes lines.
  * The arrow charCodes FLAIR_TE_CH_LEFT..DOWN move the selection instead (the
- * editing-surface rules below; bead initech-tdnl.16) and change no text. */
+ * editing-surface rules below; ) and change no text. */
 void FlairTEKey(FlairTE *te, char ch);
 
 /* FlairTEInsert -- insert `len` bytes from `s` at the insertion point (deleting
@@ -186,12 +186,12 @@ int FlairTECut(FlairTE *te, FlairScrap *scrap);
 
 /* FlairTEPaste -- GetScrap the FLAIR_SCRAP_TYPE_TEXT flavor and INSERT it at the
  * selection (replacing any range), like FlairTEInsert. Returns 0 on success;
- * -1 if the scrap has no TEXT flavor. Fails loud (Rule 2) if the TEXT flavor is
+ * -1 if the scrap has no TEXT flavor. Fails loud  if the TEXT flavor is
  * larger than the FlairTE text buffer can hold. */
 int FlairTEPaste(FlairTE *te, const FlairScrap *scrap);
 
 /* ==========================================================================
- * THE EDITING SURFACE (bead initech-tdnl.16, R4.2 InitechText -- the
+ * THE EDITING SURFACE (, R4.2 InitechText -- the
  * SimpleText-alike is the first REAL client of this record). The IM routines
  * an application needs to put a caret and a selection on the screen and take
  * them off the mouse and the arrow keys (textedit.md Sec 2 selPoint/TEClick,
@@ -204,7 +204,7 @@ int FlairTEPaste(FlairTE *te, const FlairScrap *scrap);
  * lineHeight/fontAscent "actual values" for monostyled; text.h
  * text_cell_height: Geneva 9 11, Chicago 12 and Geneva 12 16).
  *
- * WHAT THE REFERENCES DO NOT SAY, AND WHAT WAS CHOSEN (Law 1, stated):
+ * WHAT THE REFERENCES DO NOT SAY, AND WHAT WAS CHOSEN (source provenance, stated):
  *   - hit-testing (TEGetOffset): the point's line is v / lineHeight clamped to
  *     [0, nLines - 1] (above the text -> line 0, below -> the last line); on
  *     that line the offset is the character BOUNDARY nearest h, a character
@@ -220,7 +220,7 @@ int FlairTEPaste(FlairTE *te, const FlairScrap *scrap);
  *     up / down keep the caret's h on the line above / below; up on line 0 goes
  *     to offset 0 and down on the last line to teLength [INF].
  *   - FlairTECanReplace is the NON-PANICKING capacity probe the fail-loud
- *     caps need (Rule 2 stays: an edit past a cap still panics): an
+ *     caps need (explicit error handling stays: an edit past a cap still panics): an
  *     application asks before every mutation and refuses one that cannot fit
  *     (the IM 32 K TEKey limit behaves the same way -- the keystroke is
  *     dropped) [INF].

@@ -1,10 +1,10 @@
 /*
  * harness/proptest/font_styles_golden.h -- INDEPENDENT golden crops of styled
- * text that System 7.5.3 drew (bead initech-tdnl.68, Font Manager slice 2).
+ * text that System 7.5.3 drew (, Font Manager slice 2).
  *
- * NOT produced by InitechOS (Law 2 / ADR-0010 HER-02). Each crop is a
+ * NOT produced by InitechOS (independent checks / independent reference checks HER-02). Each crop is a
  * mechanical TRANSCRIPTION of a rectangle of a real Basilisk II screendump in
- * ../system7-decomp/goldens/captures/ ('#' = pixel #000000, '.' = #FFFFFF; no
+ *../system7-decomp/goldens/captures/ ('#' = pixel #000000, '.' = #FFFFFF; no
  * other colour occurs in any crop below). Method (scratch, 2026-10-15): render
  * the label from the REAL Geneva 9 strike (NFNT 5415) with the documented bold
  * rule, slide it over the capture, take the zero-mismatch position, and copy
@@ -23,7 +23,7 @@
  *
  * Small crops of rendered text, factory-only (never compiled into the
  * artifact); the same transcription practice as test_control.c's
- * s8_controls_dialog.png checkbox profile. ASCII-clean (Rule 12).
+ * s8_controls_dialog.png checkbox profile. ASCII-clean.
  */
 #ifndef INITECH_FONT_STYLES_GOLDEN_H
 #define INITECH_FONT_STYLES_GOLDEN_H

@@ -1,13 +1,13 @@
 /* tools/boot_logo_gen.c -- factory-only generator for spec/assets/boot_logo.h,
- * the FLAIR boot-screen strike of the Initech logo (bead initech-tdnl.105).
+ * the FLAIR boot-screen strike of the Initech logo.
  *
  * Ref: pubs/common/initech-logo.tex (the TikZ drawing: block faces, the mark
  *      shift, the logotype outlines and the 0.207 slant), docs/pubs/
  *      DESIGN-REFERENCE.md Sec 7.0 (the measured geometry: 2:1 dimetric,
  *      receding edges 1 in 2, cube edge 2 with a unit notch, mark 9u x 6.449u,
- *      lockup 15.264u x 10.459u). CLAUDE.md Law 1 (the strike is AUTHORED from
- *      the measured geometry, never extracted from an image), Rule 11
- *      (deterministic output: no paths, no timestamps), Rule 12 (ASCII).
+ *      lockup 15.264u x 10.459u). source provenance (the strike is AUTHORED from
+ *      the measured geometry, never extracted from an image), reproducibility
+ *      (deterministic output: no paths, no timestamps), ASCII source (ASCII).
  *
  * RASTER RULE (shared with the oracle, implemented differently there): a
  * strike pixel (i,j) takes a face's code iff its CENTRE (i+0.5, j+0.5) lies
@@ -26,7 +26,7 @@
 #include <stdlib.h>
 
 #define U      16          /* px per unit edge (the logo-cell scale)        */
-#define LOCK_W 15.264      /* lockup width in u (initech-logo.tex)          */
+#define LOCK_W 15.264      /* lockup width in u (.tex)          */
 #define LOCK_H 10.459      /* lockup height in u, baseline to apex          */
 #define SLANT  0.207       /* \im@lg@letters xslant                         */
 #define MAXV   32768
@@ -121,7 +121,7 @@ static void c_arc(double cx, double cy, double rx, double ry, double a0, double 
 
 int main(void)
 {
-    /* initech-logo.tex \im@lg@block: the six faces of one block. */
+    /*.tex \im@lg@block: the six faces of one block. */
     static const double L1[6][2] = {{2,-1},{0,-2},{0,-0.775},{1,-0.275},{1,0.949},{2,1.449}};
     static const double L2[4][2] = {{0,0.225},{-1,-0.275},{-1,0.949},{0,1.449}};
     static const double D1[6][2] = {{-2,-1},{0,-2},{0,-0.775},{-1,-0.275},{-1,0.949},{-2,1.449}};
@@ -167,7 +167,7 @@ int main(void)
     letter(I2, 4);
     letter(T3, 8);
     letter(E1, 12);
-    /* The C (initech-logo.tex): outer ellipse arc, the lower terminal, the
+    /* The C (.tex): outer ellipse arc, the lower terminal, the
      * four quarter-ellipse counter arcs and its straight left side. */
     cn = 0;
     c_arc(10.908, 1.272, 1.209, 1.304, 15.563, 347.320);
@@ -199,9 +199,9 @@ int main(void)
     printf(" * (make gen-boot-logo). DO NOT EDIT: change the geometry there.\n");
     printf(" *\n");
     printf(" * The Initech logo lockup (three-cube mark + INITECH logotype) for the FLAIR\n");
-    printf(" * boot screen (bead initech-tdnl.105), an 8-bit-index strike at u = %d px.\n", U);
+    printf(" * boot screen, an 8-bit-index strike at u = %d px.\n", U);
     printf(" *\n");
-    printf(" * PROVENANCE (Law 1): AUTHORED from the measured geometry -- the TikZ\n");
+    printf(" * PROVENANCE: AUTHORED from the measured geometry -- the TikZ\n");
     printf(" * drawing pubs/common/initech-logo.tex and docs/pubs/DESIGN-REFERENCE.md\n");
     printf(" * Sec 7.0 (2:1 dimetric, receding edges 1 in 2, cube edge 2 with a unit\n");
     printf(" * notch, mark 9u x 6.449u, lockup 15.264u x 10.459u, logotype oblique\n");

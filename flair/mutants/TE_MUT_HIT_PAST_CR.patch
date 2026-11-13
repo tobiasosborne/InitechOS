@@ -1,0 +1,13 @@
+# Legacy TE_MUT_HIT_PAST_CR
+# test: test_te_surface
+--- a/textedit.c
++++ b/textedit.c
+@@ -297,8 +297,6 @@
+     if (L + 1 >= te->nLines)
+         return te->teLength;
+     e = te->lineStarts[L + 1];
+-    if (e > 0 && te->text[e - 1] == TE_CH_CR)
+-        e--;                               /* the caret stops before the CR */
+     return e;
+ }
+ 

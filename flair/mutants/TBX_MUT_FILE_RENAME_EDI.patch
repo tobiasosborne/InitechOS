@@ -1,0 +1,12 @@
+# Legacy TBX_MUT_FILE_RENAME_EDI
+# test: test_tbx_file
+--- a/tbxfile.h
++++ b/tbxfile.h
+@@ -38,7 +38,6 @@
+          * flat form of ES:DI, int21.c do_rename); it refuses an existing
+          * target exactly as DOS 3.3 does (Tech Ref 6-206; AX=5). */
+         if (code == TBX_FILE_RENAME && !tbxf_path(lo,len,a[1])) return TBX_ERR_BADARG;
+-        f.edi = a[1];   /* regression patches (test-tbx-file-mutant F5) drops the new name */
+         /* Ref: DOS OPEN's device precedence, int21.c dev_open_lookup.
+          * Authored file-only gate policy: never CREATE an unreadable disk file
+          * whose basename OPEN resolves as a character device. */

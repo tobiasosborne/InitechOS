@@ -1,15 +1,15 @@
 /*
  * os/flair/blitter.c -- the FLAIR region-clipped blitter (THE ARTIFACT).
  *
- * beads: initech-i50. See blitter.h for the full contract + Law-3 separation.
+ *. See blitter.h for the full contract + separation of product C from host tools.
  *
  * Freestanding artifact code: a thin LAYER OVER the ONE surface module
  * (os/flair/surface.h). It computes WHICH pixels are inside the effective clip
  * region (visRgn INTERSECT clipRgn the Manager passes) and writes ONLY those,
  * exclusively via surface_fill_span / surface_put_pixel -- never base[] directly
- * (ADR-0004 D-2 / C-2: no second pixel path).
+ * (clipped Toolbox drawing / C-2: no second pixel path).
  *
- * THE CLIP RULE (ADR-0004 D-1/D-2; grafport.h): write a pixel IFF it is BOTH in
+ * THE CLIP RULE (clipped Toolbox drawing/D-2; grafport.h): write a pixel IFF it is BOTH in
  * the blit/fill rect AND inside the clip region; clip == NULL means no clip.
  *
  * THE SPAN WALK (efficiency, PRD Sec 6.2): a region row is a sorted inversion
@@ -19,15 +19,15 @@
  * overlap as one surface_fill_span. This is the SAME pixel set a per-pixel
  * region_contains_point loop would write (the oracle proves it bit-exact), but
  * it pays O(spans) per scanline, not O(width). This generalizes chrome.c's
- * ad-hoc per-pixel clip_in()/cfill() into one reusable primitive.
+ * ad-hoc per-pixel clip_in/cfill into one reusable primitive.
  *
- * MUTATION HOOKS (Rule 6; mirroring chrome.c CHROME_MUTATE_* / region.c
- * RGN_MUTATE_*): two named mutants compiled via -D, each a single deliberate
+ * REGRESSION PATCHES (mutation checks; mirroring chrome.c regression patches / region.c
+ * regression patches): two named mutants applied by the mutation runner, each a single deliberate
  * clip defect test-blitter must catch:
- *   BLITTER_MUTATE_IGNORE_CLIP -- treat every clip as "no clip" (draw the whole
+ *   ignore clip patch -- treat every clip as "no clip" (draw the whole
  *                                 rect regardless of the clip); the load-bearing
  *                                 clip rule is violated outright.
- *   BLITTER_MUTATE_OFF_BY_ONE  -- the clip span's right edge is treated as
+ *   off by one patch  -- the clip span's right edge is treated as
  *                                 inclusive (x < x1+1 instead of x < x1), so one
  *                                 extra column past each clip span is written.
  * In a normal build neither is defined and the clip is exact. The IGNORE_CLIP
@@ -36,7 +36,7 @@
  *
  * Ref: spec/region_algebra.h (region_t rep + region_contains_point); surface.h
  *      (the ONE writer); chrome.c (the generalized-from source). CLAUDE.md
- *      Law 1/2/3, Rule 2/3/6/11/12.
+ *      source provenance/2/3, explicit error handling/3/6/11/12.
  */
 
 #include <stdint.h>
@@ -74,20 +74,15 @@ static int clip_row_for_y(const region_t *clip, int y)
 }
 
 /* ---------------------------------------------------------------------------
- * apply_ignore_clip_mutant -- under BLITTER_MUTATE_IGNORE_CLIP the clip is
+ * apply_ignore_clip_mutant -- under ignore clip patch the clip is
  * dropped (treated as "no clip"); otherwise the clip is returned unchanged.
  * Keeping this a function (not a per-callsite #if) leaves the real clipped path
- * compiled in every build, so clip_row_for_y is always referenced (Rule 12 /
- * -Werror clean) and the mutant is a single deliberate defect (Rule 6).
+ * compiled in every build, so clip_row_for_y is always referenced (ASCII source /
+ * -Werror clean) and the mutant is a single deliberate defect.
  * ------------------------------------------------------------------------- */
 static const region_t *effective_clip(const region_t *clip)
 {
-#if defined(BLITTER_MUTATE_IGNORE_CLIP)
-    (void)clip;
-    return 0;                                   /* MUTANT: clip ignored        */
-#else
     return clip;
-#endif
 }
 
 /* ---------------------------------------------------------------------------
@@ -98,7 +93,7 @@ static const region_t *effective_clip(const region_t *clip)
  *   clip != NULL -> the interval INTERSECT the clip row's inside-spans.
  *
  * Writes each maximal in-clip run as ONE surface_fill_span (the surface module
- * clips that span to the bitmap bounds, Rule 2). Negative columns are clamped to
+ * clips that span to the bitmap bounds, explicit error handling). Negative columns are clamped to
  * 0 (surface_fill_span takes uint32_t and itself rejects x >= width).
  * ------------------------------------------------------------------------- */
 static void fill_clipped_run(const bitmap_t *dst, int y,
@@ -127,9 +122,6 @@ static void fill_clipped_run(const bitmap_t *dst, int y,
     for (uint16_t k = 0; k + 1 < r->x_count; k += 2) {
         int sx0 = r->x[k];
         int sx1 = r->x[k + 1];
-#if defined(BLITTER_MUTATE_OFF_BY_ONE)
-        sx1 = sx1 + 1;                           /* MUTANT: right edge inclusive */
-#endif
         int lo = sx0 > col_lo ? sx0 : col_lo;   /* max(span.lo, interval.lo)   */
         int hi = sx1 < col_hi ? sx1 : col_hi;   /* min(span.hi, interval.hi)   */
         if (lo < 0) {
@@ -168,7 +160,7 @@ void blitter_fill_rect_clipped(const bitmap_t *dst, rgn_rect_t rect,
  * in-clip destination pixel (dx,dy) takes src[srow*src_pitch_px + (dx - x0)].
  * Per-pixel write (the source varies) but the IN-CLIP COLUMNS are still resolved
  * by the same span walk (no region query per pixel). Bounds-checked against the
- * dst width (Rule 2 -- never write past the buffer).
+ * dst width (explicit error handling -- never write past the buffer).
  * ------------------------------------------------------------------------- */
 static void copy_clipped_run(const bitmap_t *dst, int dy,
                              int col_lo, int col_hi,
@@ -187,9 +179,6 @@ static void copy_clipped_run(const bitmap_t *dst, int dy,
             }
             uint32_t sx = (uint32_t)(dx - x0);
             uint32_t sp = src[srow * src_pitch_px + sx];
-#ifdef BLITTER_MUT_COPY32_ZERO
-            if (dst->bpp == 32) sp = 0;
-#endif
             uint32_t off = (uint32_t)dy * dst->pitch +
                            (uint32_t)dx * dst->bytes_per_pixel;
             surface_put_pixel(dst, off, sp);
@@ -205,9 +194,6 @@ static void copy_clipped_run(const bitmap_t *dst, int dy,
     for (uint16_t k = 0; k + 1 < r->x_count; k += 2) {
         int sx0 = r->x[k];
         int sx1 = r->x[k + 1];
-#if defined(BLITTER_MUTATE_OFF_BY_ONE)
-        sx1 = sx1 + 1;                           /* MUTANT: right edge inclusive */
-#endif
         int lo = sx0 > col_lo ? sx0 : col_lo;
         int hi = sx1 < col_hi ? sx1 : col_hi;
         if (lo < 0) {
@@ -219,9 +205,6 @@ static void copy_clipped_run(const bitmap_t *dst, int dy,
             }
             uint32_t sx = (uint32_t)(dx - x0);
             uint32_t sp = src[srow * src_pitch_px + sx];
-#ifdef BLITTER_MUT_COPY32_ZERO
-            if (dst->bpp == 32) sp = 0;
-#endif
             uint32_t off = (uint32_t)dy * dst->pitch +
                            (uint32_t)dx * dst->bytes_per_pixel;
             surface_put_pixel(dst, off, sp);

@@ -188,9 +188,11 @@ endef
 smoke:
 	@echo 'FAIL: booted-image Toolbox smoke awaits kernel/desktop import; see tests/SMOKES.md' >&2
 	@exit 1
+MUTANT_PATCHES ?= $(wildcard mutants/*.patch)
+MUTANT_JOBS ?= 16
+.PHONY: mutants
 mutants:
-	@echo 'FAIL: conditional mutation hooks await patch conversion; see tests/MUTANTS-TODO.md' >&2
-	@exit 1
+	+@sh tools/run-mutants.sh "$(abspath $(TOP))" "$(abspath $(OUT))" "$(MAKE)" "$(MUTANT_JOBS)" $(MUTANT_PATCHES)
 
 
 

@@ -1,21 +1,21 @@
 /* os/flair/surface.c -- the ONE pixel-write module for InitechOS (FLAIR Layer 1).
  *
- * beads: initech-k8o5. Ref: ADR-0004 D-2 ("exactly one surface module; no second
- *        pixel writer"); ADR-0004 D-2 OD-2 (indexed-8 offscreen); ADR-0004 FO-1
+ *. Ref: clipped Toolbox drawing ("exactly one surface module; no second
+ *        pixel writer"); clipped Toolbox drawing OD-2 (indexed-8 offscreen); clipped Toolbox drawing FO-1
  *        (fb-agree gate GREEN + mutation-proven before any Manager code).
  * Ref:   PRD Sec 5 (hardware contract: VBE 2.0 LFB, 8/24/32bpp);
  *        docs/research/boot-to-text-ground-truth.md Sec 1.2 (glyph format:
  *        MSB=0x80=leftmost pixel, set bit = ink) + Sec 5 Risk 2 (bpp branch;
  *        pixel addr = base + y*pitch + x*(bpp/8); 32bpp XRGB8888 LE; 24bpp BGR).
- *        CLAUDE.md Law 1 (ground truth before code), Law 2 (oracle is truth),
- *        Law 3 (freestanding; dual-compile for oracle), Rule 2 (fail loud -- no
- *        write past the buffer), Rule 11 (reproducible), Rule 12 (ASCII-clean).
+ *        source provenance (ground truth before code), independent checks (oracle is truth),
+ *        language boundary (freestanding; dual-compile for oracle), explicit error handling (fail loud -- no
+ *        write past the buffer), reproducible output, ASCII source.
  *
  * ARTIFACT code: freestanding, <stdint.h> only, no libc, no malloc. Compiles BOTH
  * under kernel flags (gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra
  * -Werror) AND hosted for the factory fb-agree oracle.
  *
- * ONE-SURFACE INVARIANT (ADR-0004 D-2): surface_put_pixel (inline in surface.h)
+ * ONE-SURFACE INVARIANT (clipped Toolbox drawing): surface_put_pixel (inline in surface.h)
  * is the only site that writes pixels. surface_fill_span and surface_blit call
  * through it. console.c is a CLIENT; no second pixel writer exists.
  */
@@ -24,20 +24,13 @@
 
 void surface_clear(const bitmap_t *bm, uint32_t px)
 {
-#ifdef SURFACE_MUT_CLEAR_FLAT
-    if (bm->bpp == 24) {
-        for (uint32_t off = 0; off + 3u <= bm->pitch * bm->height; off += 3u)
-            surface_put_pixel(bm, off, px);
-        return;
-    }
-#endif
     for (uint32_t y = 0; y < bm->height; y++)
         surface_fill_span(bm, 0, y, bm->width, px);
 }
 
 /* ---- surface_fill_span --------------------------------------------------- */
 /* Horizontal run of `len` pixels starting at (x,y). Clips to bitmap width so
- * no write exceeds pitch*height (Rule 2 -- no overdraw). */
+ * no write exceeds pitch*height (explicit error handling -- no overdraw). */
 void surface_fill_span(const bitmap_t *bm,
                        uint32_t x, uint32_t y,
                        uint32_t len, uint32_t px)
@@ -64,11 +57,11 @@ void surface_fill_span(const bitmap_t *bm,
 /* Blit one 8-pixel-wide font glyph at pixel origin (x0, y0). The glyph data
  * is cell_h bytes; each byte is a row bitmap (MSB=0x80=leftmost pixel, set=ink).
  * Ink pixels get fg; background pixels get bg. Bounds-checked: cells clipped to
- * the bitmap boundary are silently truncated (Rule 2 -- never write past buffer).
+ * the bitmap boundary are silently truncated (explicit error handling -- never write past buffer).
  *
  * This is the load-bearing math lifted from console_draw_glyph. The inner loop
  * is structurally identical; the fb-agree oracle proves bit-exact agreement
- * between this primitive and the console path (ADR-0004 AM-2). */
+ * between this primitive and the console path (clipped Toolbox drawing AM-2). */
 void surface_blit(const bitmap_t *bm,
                   uint32_t x0, uint32_t y0,
                   const uint8_t *glyph,

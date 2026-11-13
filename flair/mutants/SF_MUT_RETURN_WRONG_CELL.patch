@@ -1,0 +1,18 @@
+# Legacy SF_MUT_RETURN_WRONG_CELL
+# test: test_stdfile
+--- a/stdfile.c
++++ b/stdfile.c
+@@ -395,6 +395,13 @@
+ 
+     sel = sf_current_sel(sf);        /* canonical: read the List Manager state   */
+ 
++    /*
++     * regression patches return wrong cell patch: ignore the real selection and use the
++     * FIXED index 0. Oracle step 5 selects row 2 ("TPS.TXT") and expects doOpen
++     * to return "TPS.TXT"; the mutant returns entries[0] = "REPORT.DBF" -> RED.
++     * Ref: mutation checks (mutation-proven golden).
++     */
++    sel = 0;
+ 
+     if (sel < 0 || sel >= sf->count) {
+         /* Nothing selected: Open confirms nothing (IM-I: Open is disabled). */

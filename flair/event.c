@@ -1,12 +1,12 @@
 /*
  * os/flair/event.c -- FLAIR Event Manager: Layer 4 cooperative event core.
  *
- * beads: initech-8b7 (FLAIR Event Manager: WaitNextEvent + SPSC ring).
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE; the unchanged
+ *  (FLAIR Event Manager: WaitNextEvent + SPSC ring).
+ * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE; the unchanged
  * WaitNextEvent/EventRecord contract is retained Toolbox heritage (BC-10.10).
- * Ref:   ADR-0004 D-4 (ISR enqueue-only; EventRecord synthesis in task context).
- * Ref:   ADR-0004 D-6 (cooperative, non-preemptive WaitNextEvent on PIT tick).
- * Ref:   ADR-0004 D-8 (test-event oracle: recorded raw trace -> deterministic
+ * Ref:   clipped Toolbox drawing (ISR enqueue-only; EventRecord synthesis in task context).
+ * Ref:   clipped Toolbox drawing (cooperative, non-preemptive WaitNextEvent on PIT tick).
+ * Ref:   clipped Toolbox drawing (test-event oracle: recorded raw trace -> deterministic
  *          EventRecord sequence).
  * Ref:   spec/event_model.h (LOCKED: EventRecord, flair_raw_event_t,
  *          flair_event_what_t, modifier bits, mask bits, FLAIR_RAW_RING_CAP).
@@ -15,19 +15,19 @@
  *          "Event Manager" -- WaitNextEvent/GetNextEvent semantics.
  * Ref:   Intel 8259A PRM / IBM PC AT Technical Reference (IRQ0 PIT tick;
  *          IRQ1 PS/2 keyboard; IRQ12 PS/2 mouse via slave PIC cascade --
- *          dual-PIC EOI: slave-EOI then master-EOI; ADR-0004 D-7 / AM-7).
+ *          dual-PIC EOI: slave-EOI then master-EOI; clipped Toolbox drawing / AM-7).
  *
  * ARTIFACT code: freestanding, <stdint.h> only, no libc, no malloc.
  * Compiles BOTH under kernel flags:
  *   gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror
  *       -Ios/flair -Ispec
  * AND hosted for the test oracle (harness/proptest/test_event.c).
- * Rule 11 (reproducible / deterministic). Rule 12 (ASCII-clean). Law 3.
+ * reproducibility (reproducible / deterministic). ASCII source. language boundary.
  *
- * ISR / TASK-CONTEXT SPLIT (ADR-0004 D-4 / C-3)
+ * ISR / TASK-CONTEXT SPLIT (clipped Toolbox drawing / C-3)
  * -----------------------------------------------
  * ISR context  -> flair_raw_post(ring, raw)  -- enqueue ONLY; never Toolbox.
- *             + flair_tick_advance()          -- increment tick counter ONLY.
+ *             + flair_tick_advance          -- increment tick counter ONLY.
  * Task context -> WaitNextEvent / GetNextEvent -- drain ring, synthesize,
  *                 filter, deliver. An ISR can interrupt the pump between
  *                 instructions; interrupt gates serialize the producers.
@@ -41,13 +41,13 @@
  * Table B-3). Non-printable / unmapped scancodes yield ASCII 0.
  * Ref: IBM PC AT Technical Reference (1984) keyboard appendix, Table B-3.
  *
- * MOUSE DELTA -> CURSOR POSITION (ADR-0004 D-7 / OD-3)
+ * MOUSE DELTA -> CURSOR POSITION (clipped Toolbox drawing / OD-3)
  * ------------------------------------------------------
  * Mouse deltas are signed bytes packed in the FLAIR_RAW_MOUSE payload
  * (spec/event_model.h Sec 5, bits 8..15 = delta X, bits 16..23 = delta Y,
  * already sign-extended and Y-inverted from PS/2 convention to screen-down-
  * positive). The cursor position is clamped to [0, FLAIR_SCREEN_W-1] x
- * [0, FLAIR_SCREEN_H-1] (640x480, ADR-0004 OD-3).
+ * [0, FLAIR_SCREEN_H-1] (640x480, clipped Toolbox drawing OD-3).
  */
 #include "event.h"        /* os/flair/event.h (-Ios/flair)                  */
 #include "ring_report.h"
@@ -55,7 +55,7 @@
 /* ===========================================================================
  * MINIMAL PANIC STUB (freestanding; host builds shadow with assert/fprintf)
  * ---------------------------------------------------------------------------
- * On bare metal a real panic renders "PC LOAD LETTER" and halts (Rule 2;
+ * On bare metal a real panic renders "PC LOAD LETTER" and halts (explicit error handling;
  * PRD Appendix B). In this translation unit the macro is used only for
  * invariant violations that should never fire in a correct build. The
  * definition below is a bare-metal stub (infinite loop); the test harness
@@ -72,8 +72,8 @@
  * it only through the public API (no extern hacks).
  * ===========================================================================*/
 
-/* Global PIT tick counter (Rule 11: monotonic, starts at 0, advanced ONLY
- * by flair_tick_advance() which is called from the PIT ISR). */
+/* Global PIT tick counter (reproducibility: monotonic, starts at 0, advanced ONLY
+ * by flair_tick_advance which is called from the PIT ISR). */
 static volatile uint32_t g_tick;
 #if defined(__STDC_HOSTED__) && __STDC_HOSTED__
 /* Test fixture clock injection for the uint32 wrap boundary (gwts).
@@ -91,7 +91,7 @@ static int16_t g_cursor_v;   /* vertical   (y) */
 /* Current modifier-key state maintained across raw keyboard events. */
 static uint16_t g_modifiers;
 
-/* SET-1 decoder state (bead initech-tdnl.58; see cook_raw's KEYBOARD arm).
+/* SET-1 decoder state (; see cook_raw's KEYBOARD arm).
  * g_kbd_held: one bit per PHYSICAL modifier key (KH_*), so releasing one of
  *   two held Shifts leaves Shift down and Caps Lock's typematic repeat is
  *   seen as "still held". The modifier word is derived from it.
@@ -122,7 +122,7 @@ static flair_event_yield_fn g_yield_fn;
 void flair_tick_advance(void)
 {
     /* ISR-safe: single 32-bit write, no lock needed (cooperative single-CPU,
-     * ADR-0004 D-6). Overflow wraps; after ~828 days at 60 Hz, acceptable
+     * clipped Toolbox drawing). Overflow wraps; after ~828 days at 60 Hz, acceptable
      * for a cooperative desktop session (PRD era authenticity). */
     g_tick++;
 }
@@ -156,12 +156,12 @@ void flair_event_init(flair_raw_ring_t *ring)
 {
     uint32_t i;
     if (!ring) { FLAIR_PANIC("flair_event_init: NULL ring"); }
-#if defined(FINDER_DBLCLICK_TICKS) && !defined(RECORD_MUT_IGNORE_DBLCLICK_DEFINE)
+#if defined(FINDER_DBLCLICK_TICKS)
     /* Ref: finder_desktop.h F2-5 / Makefile DBL record-image contract.
      * Preferences load before this init; seed the recording interval here
      * so their normal slider value cannot undo per-frame capture pacing.
      * The normal build retains its loaded Mouse setting (20 by default;
-     * spec/cpanels/record.json, ADR-0004 DEC-10 Platinum base era). */
+     * spec/cpanels/record.json, clipped Toolbox drawing Platinum base Platinum base era). */
     flair_double_click_ticks = FINDER_DBLCLICK_TICKS;
 #endif
     ring->head       = 0u;
@@ -196,7 +196,7 @@ void flair_event_init(flair_raw_ring_t *ring)
  *   "Empty" = (head == tail).
  *
  * X86 SINGLE-CORE ATOMICITY:
- *   On the 386+ cooperative desktop (ADR-0004 D-6 / C-5), a single-core ISR
+ *   On the 386+ cooperative desktop (clipped Toolbox drawing / C-5), a single-core ISR
  *   and the pump cannot execute simultaneously: an ISR suspends the pump.
  *   The pump can be interrupted partway through a copy, so the slot must be
  *   fully copied before publishing head or releasing tail for reuse.
@@ -206,7 +206,7 @@ void flair_event_init(flair_raw_ring_t *ring)
  *   ordinary slot copy against those index accesses under optimization.
  *   No CPU fence is needed on this single x86 core (round-2 policy Sec 4).
  *
- * FULL-RING: drop + increment drop_count (Rule 2 -- defined, non-silent
+ * FULL-RING: drop + increment drop_count (explicit error handling -- defined, non-silent
  * failure; see event.h Sec 1 rationale). Returns 0 (dropped) or 1 (queued).
  * ===========================================================================*/
 
@@ -226,7 +226,7 @@ int flair_raw_post(flair_raw_ring_t *ring, const flair_raw_event_t *raw)
      * This is the standard LMAX Disruptor-style single-CPU SPSC full check. */
     if ((h - t) >= FLAIR_RAW_RING_CAP) {
         ring->drop_count++;
-        return 0;   /* ring full: drop + telemetry (Rule 2, defined non-silent) */
+        return 0;   /* ring full: drop + telemetry (explicit error handling, defined non-silent) */
     }
 
     /* Write the slot at the masked head index, then advance head (unmasked). */
@@ -252,7 +252,7 @@ int flair_raw_post(flair_raw_ring_t *ring, const flair_raw_event_t *raw)
 
 /* Unshifted ASCII for PS/2 SET-1 make codes 0x00..0x7F.
  * Entries are set to the printable character or 0 for non-printable.
- * Suppress unused-variable warnings when EVENT_MUTATE_DROP_SYNTH skips
+ * Suppress unused-variable warnings when drop synth patch skips
  * the synthesis block (the tables are logically part of the translation
  * unit; the mutant suppresses their use at compile time). */
 #ifdef __GNUC__
@@ -346,22 +346,22 @@ static uint8_t kbd_modifier_bit(uint8_t make, int ext)
  * (keyboard modifier state). Returns the event `what` code. Returns
  * (uint16_t)nullEvent if the ring is empty.
  *
- * This function is the SYNTHESIS step of ADR-0004 D-4: it runs in task
+ * This function is the SYNTHESIS step of clipped Toolbox drawing: it runs in task
  * context (inside WaitNextEvent / GetNextEvent). ISRs NEVER call this.
  *
- * NOTE on mutation probe injection (EVENT_MUTATE_DROP_SYNTH / STALE_WHERE):
+ * NOTE on mutation probe injection (drop synth patch / STALE_WHERE):
  *   These preprocessor guards let test_event.c compile in a mutant build
- *   by defining the relevant macro. See harness/proptest/test_event.c.
+ *   by applying the relevant patch. See harness/proptest/test_event.c.
  * ===========================================================================*/
 
 /* Apply a signed 8-bit delta (packed as int8_t in a uint8_t slot) to a
  * coordinate and clamp to [0, max-1]. Returns the new clamped position. */
 unsigned flair_mouse_tracking=1;
-#if defined(FINDER_DBLCLICK_TICKS) && !defined(RECORD_MUT_IGNORE_DBLCLICK_DEFINE)
+#if defined(FINDER_DBLCLICK_TICKS)
 unsigned flair_double_click_ticks=FINDER_DBLCLICK_TICKS;
 #else
 /* Ref: spec/cpanels/record.json: normal Mouse interval is 20 ticks.
- * RECORD_MUT_IGNORE_DBLCLICK_DEFINE restores the broken record seed only. */
+ * ignore dblclick define patch restores the broken record seed only. */
 unsigned flair_double_click_ticks=20;
 #endif
 
@@ -385,12 +385,10 @@ static int16_t clamp_coord(int16_t cur, int8_t delta, int16_t max)
  */
 static int drain_one(flair_raw_ring_t *ring, flair_raw_event_t *out)
 {
-#ifndef EVENT_MUT_SILENT_DROP
     if (ring->drop_count != 0u && !ring->drop_reported) {
         ring->drop_reported = 1;
         RING_REPORT("FLAIR-EVT-DROP\n");
     }
-#endif
     uint32_t h, t;
     h = ring->head;   /* volatile read -- see consumer note above */
     t = ring->tail;
@@ -412,11 +410,11 @@ static int drain_one(flair_raw_ring_t *ring, flair_raw_event_t *out)
  *           when, where, modifiers). Returns the `what` code.
  *
  * MUTATION PROBES (compile-time, for test_event.c):
- *   EVENT_MUTATE_DROP_SYNTH  -- for FLAIR_RAW_KEYBOARD events, skip
+ *   drop synth patch  -- for FLAIR_RAW_KEYBOARD events, skip
  *     writing the EventRecord fields (returns nullEvent instead of keyDown/
  *     keyUp). This makes the replay oracle go RED because expected keyDown
  *     events are not produced.
- *   EVENT_MUTATE_STALE_WHERE -- do NOT update g_cursor_h/v from mouse
+ *   stale where patch -- do NOT update g_cursor_h/v from mouse
  *     deltas. The `where` field in mouse events remains stale. Makes the
  *     replay oracle go RED because expected cursor positions are wrong.
  */
@@ -445,7 +443,7 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
      *   bits 9..31 = reserved/zero.
      * Both break encodings are honoured.
      *
-     * BUG FIXED HERE (bead initech-tdnl.58; audit G11): this arm used to
+     * BUG FIXED HERE (; audit G11): this arm used to
      * take the break flag from bit 8 ONLY and compare the WHOLE byte with
      * the make codes. The real producer never sets bit 8, so a Ctrl release
      * (0x9D) matched nothing: Control stayed latched forever and the 0x9D
@@ -464,10 +462,8 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
         uint8_t  ascii     = 0u;
         uint16_t vkey;
 
-#ifndef EVENT_MUT_NO_KEY_OBSERVER
         if (g_keyboard_observer)
             g_keyboard_observer((uint8_t)(byte | (is_break ? 0x80u : 0u)));
-#endif
         if (g_kbd_skip != 0u) {          /* inside E1 1D 45 / E1 9D C5 */
             g_kbd_skip--;
             break;
@@ -483,17 +479,10 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
         }
         ext = (int)g_kbd_ext;
         g_kbd_ext = 0u;
-#ifndef EVENT_MUTATE_SET1_BREAK_BLIND
         if (byte & SC_BREAK) {
             is_break = 1;
             sc = (uint8_t)(byte & (uint8_t)~SC_BREAK);
         }
-#else
-        /* MUTANT (Rule 6; test-event-mutant): the pre-tdnl.58 decoder -- the
-         * SET-1 break bit is ignored, so 0x9D is not "Ctrl up". Group I of
-         * test_event.c must go RED. NEVER define in a real build. */
-        (void)ext;
-#endif
         vkey = (uint16_t)sc;
 
         /* Modifier-key tracking: a modifier press/release is NOT a keyDown/
@@ -524,12 +513,6 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
             break;
         }
 
-#ifdef EVENT_MUTATE_DROP_SYNTH
-        /* MUTANT: skip cooking keyboard events -> nullEvent.
-         * This MUST drive the replay oracle RED (Rule 6). */
-        (void)ascii; (void)vkey; (void)is_break;
-        break;
-#else
         /* Cook ASCII from the scancode table. An E0 key is NOT its keypad
          * twin (E0 48 is Up, not '8'); only keypad Enter (E0 1C) and keypad
          * '/' (E0 35) carry a character. */
@@ -557,7 +540,6 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
         } else {
             what = (uint16_t)keyDown;
         }
-#endif /* EVENT_MUTATE_DROP_SYNTH */
         break;
     }
 
@@ -565,7 +547,7 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
      * MOUSE raw event
      * ------------------------------------------------------------------
      * Payload layout (spec/event_model.h Sec 5 MOUSE):
-     *   bits  0..7  = raw button byte (bit 0 = left; bit 1 = right; ...).
+     *   bits  0..7  = raw button byte (bit 0 = left; bit 1 = right;...).
      *   bits  8..15 = signed delta X as int8_t.
      *   bits 16..23 = signed delta Y as int8_t (already Y-inverted).
      *   bits 24..31 = reserved/zero.
@@ -577,15 +559,9 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
         int      was_down = !(g_modifiers & FLAIR_EVT_MOD_BTN_STATE); /* 0=down */
         int      is_down  = (int)(buttons & 0x01u);                   /* left btn */
 
-#ifdef EVENT_MUTATE_STALE_WHERE
-        /* MUTANT: do NOT update cursor position from mouse deltas.
-         * The `where` field will be stale. This MUST drive the replay RED. */
-        (void)dx; (void)dy;
-#else
         /* Update tracked cursor position from the delta (clamp to frame). */
         g_cursor_h = clamp_coord(g_cursor_h, dx, (int16_t)FLAIR_SCREEN_W);
         g_cursor_v = clamp_coord(g_cursor_v, dy, (int16_t)FLAIR_SCREEN_H);
-#endif
 
         /* Update btnState modifier bit (MTE 2-6: 1 = button UP, inverted). */
         if (is_down) g_modifiers &= (uint16_t)~FLAIR_EVT_MOD_BTN_STATE;
@@ -618,13 +594,13 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
      * returned when the caller finds no other event pending.
      * ------------------------------------------------------------------ */
     case FLAIR_RAW_TICK:
-        /* g_tick is already advanced by flair_tick_advance() in the ISR.
+        /* g_tick is already advanced by flair_tick_advance in the ISR.
          * Nothing additional to do in synthesis; return nullEvent. */
         what = (uint16_t)nullEvent;
         break;
 
     default:
-        /* Unknown raw kind -- fail loud (Rule 2). */
+        /* Unknown raw kind -- fail loud. */
         FLAIR_PANIC("cook_raw: unknown flair_raw_kind_t");
         break;
     }
@@ -706,13 +682,9 @@ int WaitNextEvent(flair_raw_ring_t *ring,
         }
 
         /* Ring empty: check timeout. */
-#ifdef EVENT_MUT_TICK_WRAP
-        if (sleepTicks == 0u || g_tick >= start + sleepTicks) {
-#else
         /* gwts: elapsed unsigned subtraction survives the PIT tick wrap.
-         * Ref: ADR-0004 D-6 and the existing live-pump budget idiom. */
+         * Ref: clipped Toolbox drawing and the existing live-pump budget idiom. */
         if ((uint32_t)(g_tick - start) >= sleepTicks) {
-#endif
             theEvent->what      = (uint16_t)nullEvent;
             theEvent->message   = 0u;
             theEvent->when      = g_tick;
