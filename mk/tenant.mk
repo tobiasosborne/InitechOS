@@ -14,18 +14,19 @@ MZ_OUT := $(TOP)/build/factory/mz
 TENANT_IMAGE := $(OUT)/$(TENANT_EXE)
 
 all: $(TENANT_IMAGE) $(TENANT_RESOURCES)
-$(OUT)/tenant/%.o: %.c $(TENANT_HEADERS) $(MAKEFILE_LIST)
+TARGET_OUT := $(OUT)/tenant
+TARGET_SRCS := $(TENANT_SRCS)
+TARGET_INCLUDES := $(TENANT_CPPFLAGS) -I$(TOP)/sdk/include
+include $(TOP)/mk/target.mk
+$(OUT)/tenant/tbx_rt.o: $(TOP)/sdk/rt/tbx_rt.c FORCE
 	@mkdir -p $(@D)
-	$(TARGET_CC) $(TARGET_CFLAGS) $(TENANT_CPPFLAGS) -I$(TOP)/sdk/include -MMD -MP -c $< -o $@
-$(OUT)/tenant/tbx_rt.o: $(TOP)/sdk/rt/tbx_rt.c $(TENANT_HEADERS) $(MAKEFILE_LIST)
-	@mkdir -p $(@D)
-	$(TARGET_CC) $(TARGET_CFLAGS) -I$(TOP)/sdk/include -MMD -MP -c $< -o $@
-$(OUT)/$(TENANT).base.elf: $(TENANT_OBJ) $(TOP)/sdk/rt/tenant.ld $(MAKEFILE_LIST)
-	$(TARGET_LD) $(TARGET_LDFLAGS) -T $(TOP)/sdk/rt/tenant.ld --defsym=TBX_BASE=0 -o $@ $(TENANT_OBJ)
-$(OUT)/$(TENANT).probe.elf: $(TENANT_OBJ) $(TOP)/sdk/rt/tenant.ld $(MAKEFILE_LIST)
-	$(TARGET_LD) $(TARGET_LDFLAGS) -T $(TOP)/sdk/rt/tenant.ld --defsym=TBX_BASE=$(TENANT_PROBE) -o $@ $(TENANT_OBJ)
-$(OUT)/$(TENANT).%.bin: $(OUT)/$(TENANT).%.elf
-	$(TARGET_OBJCOPY) -O binary $< $@
+	$(call run-command,$(TARGET_CC) $(TARGET_CFLAGS) -I$(TOP)/sdk/include -MMD -MP -c $< -o $@)
+$(OUT)/$(TENANT).base.elf: $(TENANT_OBJ) $(TOP)/sdk/rt/tenant.ld FORCE
+	$(call run-command,$(TARGET_LD) $(TARGET_LDFLAGS) -T $(TOP)/sdk/rt/tenant.ld --defsym=TBX_BASE=0 -o $@ $(TENANT_OBJ))
+$(OUT)/$(TENANT).probe.elf: $(TENANT_OBJ) $(TOP)/sdk/rt/tenant.ld FORCE
+	$(call run-command,$(TARGET_LD) $(TARGET_LDFLAGS) -T $(TOP)/sdk/rt/tenant.ld --defsym=TBX_BASE=$(TENANT_PROBE) -o $@ $(TENANT_OBJ))
+$(OUT)/$(TENANT).%.bin: $(OUT)/$(TENANT).%.elf FORCE
+	$(call run-command,$(TARGET_OBJCOPY) -O binary $< $@)
 .PHONY: tenant-tools tenant-check
 tenant-tools:
 	+$(MAKE) -C $(TOP)/factory/mz all

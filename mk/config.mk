@@ -11,6 +11,7 @@ ifndef COMPONENT
 $(error set COMPONENT before including mk/config.mk)
 endif
 
+override TOP := $(abspath $(TOP))
 SHELL := /bin/sh
 .DEFAULT_GOAL := all
 .DELETE_ON_ERROR:
@@ -18,8 +19,17 @@ MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
 # Override only for isolated builds (for example the mutation runner).
 OUT ?= $(TOP)/build/$(COMPONENT)
+override OUT := $(abspath $(OUT))
+ifeq ($(strip $(OUT)),)
+$(error OUT must live under $(TOP)/build/: OUT is empty)
+endif
+# clean must never remove the root, build itself, or an external directory.
 
 # Host tools: tests and factory programs run on the build machine.
+TEST_TIMEOUT_S ?= 20
+TEST_BUDGET_S ?= 30
+export TEST_TIMEOUT_S TEST_BUDGET_S
+
 HOSTCC      ?= cc
 HOST_CFLAGS ?= -std=c11 -O1 -g -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L
 
@@ -31,12 +41,14 @@ TARGET_CC      ?= gcc
 TARGET_CFLAGS  ?= -m32 -march=i386 -std=c11 -Os -ffreestanding -nostdlib \
                   -fno-stack-protector -fno-pic -fno-asynchronous-unwind-tables \
                   -Wall -Wextra -Werror
+TARGET_PATH_FLAGS = -ffile-prefix-map=$(TOP)=. -fdebug-prefix-map=$(TOP)=.
+override TARGET_CFLAGS += $(TARGET_PATH_FLAGS)
+TARGET_AR      ?= ar
 TARGET_LD      ?= ld
 TARGET_LDFLAGS ?= -m elf_i386 --build-id=none
 NASM           ?= nasm
 
-# Reference corpora captured from real period software live outside the
-# repository until they are pinned under goldens/. Override
+# Reference roots; goldens/CORPORA.lock pins consumed files. Override
 # INITECH_CORPUS, or the individual variables, to relocate them.
 INITECH_CORPUS       ?= $(HOME)/Projects
 SYSTEM7_DECOMP       ?= $(INITECH_CORPUS)/system7-decomp
@@ -53,10 +65,14 @@ $(OUT):
 # silently. Components declare their own targets .PHONY.
 .PHONY: clean
 clean:
+	@case "$$(realpath -m "$(OUT)")" in "$(TOP)/build/"*) ;; *) echo "OUT must live under $(TOP)/build/: $(OUT)" >&2; exit 1;; esac
 	rm -rf "$(OUT)"
 
 # Missing dependency files are normal on a first build.
 %.d: ;
 
 .DEFAULT:
-	@echo "$(COMPONENT): '$@' is not implemented (or a file is missing)" >&2; exit 1
+	@case "$@" in *.d) [ -n "$(filter $@,$(MAKECMDGOALS))" ] || exit 1;; esac; \
+	echo "$(COMPONENT): '$@' is not implemented (or a file is missing)" >&2; exit 1
+
+include $(TOP)/mk/command.mk

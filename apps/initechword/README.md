@@ -73,3 +73,11 @@ adaptations remain; full WordPerfect parity is outside this import. Fixture
 minting is manual and excluded from all/test; its C SDL driver and provenance
 are retained with the captures. Pending SDK linking, fake consolidation, corpus
 pinning and mutation/smoke conversion are explicit follow-up work here.
+
+Shared build conventions: command stamps rebuild on tool/flag changes; C
+translation units use -MMD dependencies. TEST_BUDGET_S is 30 seconds for the
+complete tier-0 selection; measured execution fits the default, excluding builds.
+Standalone tests verify their consumed files in goldens/CORPORA.lock; the
+top-level test run verifies the full lock once before parallel execution.
+Target objects use target.mk. WORD.EXE is not yet an all output; that and
+product mutation hooks keep import audit disabled.

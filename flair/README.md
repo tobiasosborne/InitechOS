@@ -94,3 +94,12 @@ conversion to patches (243 guard locations, tests/MUTANTS-TODO.md); disabled and
 pressed CDEF capture gaps remain explicit. make mutants and make smoke fail
 loudly with the relevant inventory. tests/SMOKES.md indexes 250 deferred emulator
 gates and their traces/checkers. This import does not certify the booted pump.
+
+Shared build conventions: command stamps rebuild on tool/flag changes; C
+translation units use -MMD dependencies. TEST_BUDGET_S is 30 seconds for the
+complete tier-0 selection; measured execution fits the default, excluding builds.
+Standalone tests verify their consumed files in goldens/CORPORA.lock; the
+top-level test run verifies the full lock once before parallel execution.
+Import audit stays disabled: product mutation hooks and the parked desktop
+subtree's escaping includes remain. libflair.a uses the shared target rules;
+region-target asks the region component for its single library/object build.

@@ -1,53 +1,81 @@
 # InitechOS -- top level. This file only composes components. Each
 # component builds and tests itself; see CLAUDE.md.
-
-# Components that have been imported into the new tree, in dependency
-# order. Add a component here when its `make test` is green.
-# One per line so that parallel imports merge without conflicts.
-COMPONENTS :=
-COMPONENTS += kernel
-COMPONENTS += dos
-COMPONENTS += flair/region
-COMPONENTS += flair
-COMPONENTS += flair/desktop
-COMPONENTS += sdk
-COMPONENTS += apps/initech123
-COMPONENTS += apps/initechword
-COMPONENTS += apps/initechbase
-COMPONENTS += turbo
-COMPONENTS += system
-
+override TOP := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+# Preserve an optional subset while registering the complete list.
+ifneq ($(origin COMPONENTS),undefined)
+override SELECTED_COMPONENTS := $(COMPONENTS)
+endif
+# Components in the new tree, in dependency order, one per line so that
+# parallel imports merge without conflicts.
+override COMPONENTS :=
+override COMPONENTS += kernel
+override COMPONENTS += dos
+override COMPONENTS += flair/region
+override COMPONENTS += flair
+override COMPONENTS += flair/desktop
+override COMPONENTS += sdk
+override COMPONENTS += apps/initech123
+override COMPONENTS += apps/initechword
+override COMPONENTS += apps/initechbase
+override COMPONENTS += turbo
+override COMPONENTS += system
+override REGISTERED_COMPONENTS := $(COMPONENTS)
+ifneq ($(origin SELECTED_COMPONENTS),undefined)
+override COMPONENTS := $(SELECTED_COMPONENTS)
+endif
 .DEFAULT_GOAL := help
-.PHONY: help all test smoke image cert clean
-
-# Not built yet. A target that does nothing must fail, never succeed.
-cert:
-	@echo "make $@: not implemented yet (see STATUS.md)" >&2; exit 1
-
+.PHONY: help all test smoke image cert clean status corpus test-start $(addprefix test-,$(COMPONENTS))
 help:
-	@echo "make test    tier 0: host tests of every imported component"
-	@echo "make image   build the product disk set"
-	@echo "make smoke   tier 1: drive QEMU and Bochs"
-	@echo "make cert    tier 2: the full certificate   (not yet)"
-	@echo "imported components: $(COMPONENTS)"
-
+	@echo 'make [-j] test | image | smoke | repro | status | cert (not implemented)'
+	@echo 'registered components: $(REGISTERED_COMPONENTS)'
+cert:
+	@echo 'make cert: not implemented yet (see STATUS.md)' >&2; exit 1
 all:
 	@for c in $(COMPONENTS); do $(MAKE) --no-print-directory -C $$c all || exit 1; done
-
-test:
-	@fail=0; for c in $(COMPONENTS); do \
-	  $(MAKE) --no-print-directory -C $$c test || fail=$$((fail+1)); \
-	done; \
-	if [ $$fail -eq 0 ]; then echo "ALL GREEN"; else echo "$$fail component(s) RED"; exit 1; fi
-
+# Per-invocation scratch, removed after summary; never a global green stamp.
+ifneq ($(filter test%,$(MAKECMDGOALS)),)
+override TEST_RUN := $(shell mkdir -p $(TOP)/build/test && mktemp -d $(TOP)/build/test/run.XXXXXX)
+endif
+corpus:
+	@$(MAKE) --no-print-directory -f goldens/preflight.mk verify
+test-start:
+	@date +%s > $(TEST_RUN)/start
+	@$(MAKE) --no-print-directory -f goldens/preflight.mk verify
+# One producer per output: a component that builds on another's outputs
+# waits for it, so two makes never write the same file at once. Keep in
+# step with the dependencies each component's README declares.
+DEPENDS_dos                := kernel
+DEPENDS_flair              := flair/region
+DEPENDS_flair/desktop      := kernel flair sdk
+DEPENDS_apps/initech123    := sdk
+DEPENDS_apps/initechword   := sdk
+DEPENDS_apps/initechbase   := sdk kernel
+DEPENDS_turbo              := sdk kernel dos
+DEPENDS_system             := kernel dos flair flair/desktop sdk apps/initech123
+$(foreach c,$(COMPONENTS),$(eval test-$(c): $(addprefix test-,$(filter $(COMPONENTS),$(DEPENDS_$(c))))))
+$(addprefix test-,$(COMPONENTS)): private export INITECH_CORPUS_VERIFIED := 1
+$(addprefix test-,$(COMPONENTS)): test-%: | test-start
+	+@rc=0; $(MAKE) --no-print-directory -C $* test || rc=1; \
+	  echo $$rc > $(TEST_RUN)/$(subst /,_,$*).result
+test: test-start $(addprefix test-,$(COMPONENTS))
+	@fail=0; run=0; for f in $(TEST_RUN)/*.result; do \
+	  [ -f "$$f" ] || continue; run=$$((run+1)); fail=$$((fail+$$(cat "$$f"))); done; \
+	echo "registered $(words $(REGISTERED_COMPONENTS)), run $$run; elapsed $$(($$(date +%s)-$$(cat $(TEST_RUN)/start)))s"; \
+	rm -rf $(TEST_RUN); \
+	if [ $$fail -ne 0 ]; then echo "$$fail component(s) RED"; exit 1; \
+	elif [ $$run -ne $(words $(REGISTERED_COMPONENTS)) ] || [ "$(sort $(COMPONENTS))" != "$(sort $(REGISTERED_COMPONENTS))" ] || [ "$(origin TESTS)" != undefined ]; then echo 'SUBSET GREEN (not ALL GREEN)'; \
+	else echo 'ALL GREEN'; fi
+status: export INITECH_CORPUS_VERIFIED := 1
+status: corpus
+	@sh factory/testlib/status.sh $(COMPONENTS)
 clean:
-	rm -rf build
+	rm -rf -- "$(TOP)/build"
 
 .PHONY: boot-build catalog dos-build kernel-build factory-build run run-bochs repro
 boot-build: catalog
 	$(MAKE) -C boot
 catalog:
-	$(MAKE) -C kernel ../build/kernel/dos_messages.h ../build/kernel/dos_messages.inc
+	$(MAKE) -C kernel $(TOP)/build/kernel/dos_messages.h $(TOP)/build/kernel/dos_messages.inc
 dos-build: catalog
 	$(MAKE) -C dos
 kernel-build: dos-build

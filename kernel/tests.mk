@@ -1,3 +1,6 @@
+# 86 gates, 11,214 checks including the FAT differential: about 24 s
+# alone, more when every component runs at once.
+TEST_BUDGET_S := 60
 include tests/tools.mk
 HOST_TESTS += test-40oq
 test-40oq_SRCS := tests/runner.c

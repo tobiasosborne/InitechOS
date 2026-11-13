@@ -20,7 +20,6 @@ EXTRA_HOST_TESTS := ibase_core_ref
 ifeq ($(THOROUGH),1)
 TESTS := $(HOST_TESTS) core-live
 endif
-TEST_HDRS := $(wildcard include/ibase/*.h tests/*.h pal/*.h cmd/*.def) tests/run.sh tests/sources.mk
 SHELL_SUITES := readers captured-hashes w4-files retained-screens mzlink-io messages-generated core-live
 # The fragment registers C entries. Shell entries are added to its run vector
 # after inclusion so no empty compiler command is generated.
@@ -53,26 +52,23 @@ $(addprefix $(HOST_OUT)/,$(SHELL_SUITES)):
 $(HOST_OUT)/messages-generated: $(OUT)/tools/ibase_msg_pack
 $(HOST_OUT)/w4-files: $(addprefix $(HOST_OUT)/,$(addsuffix _diff,frm lbl qry scr fmt config prg vue exact)) $(HOST_OUT)/w4_mutate
 $(HOST_OUT)/core-live: $(HOST_OUT)/ibase_core_ref $(HOST_OUT)/test_ibase_core
-$(HOST_OUT)/w4_mutate: tests/w4_mutate.c | $(HOST_OUT)
-	$(HOSTCC) $(HOST_CFLAGS) -o $@ $<
-$(HOST_OUT)/%_diff: tests/w4_file_diff.c | $(HOST_OUT)
-	$(HOSTCC) $(HOST_CFLAGS) -DKIND='"$*"' -o $@ $<
+$(HOST_OUT)/w4_mutate: tests/w4_mutate.c FORCE | $(HOST_OUT)
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -MMD -MP -MF $@.d -o $@ $<)
+$(HOST_OUT)/%_diff: tests/w4_file_diff.c FORCE | $(HOST_OUT)
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -DKIND='"$*"' -MMD -MP -MF $@.d -o $@ $<)
 test-build: $(HOST_OUT)/mint_clients_dbf $(HOST_OUT)/w2_fixture
-$(HOST_OUT)/mint_clients_dbf: $(mint_clients_dbf_SRCS) $(mint_clients_dbf_OBJS) | $(HOST_OUT)
-	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -o $@ $^
-$(HOST_OUT)/w2_fixture: $(w2_fixture_SRCS) $(w2_fixture_OBJS) | $(HOST_OUT)
-	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -o $@ $^
+$(HOST_OUT)/mint_clients_dbf: $(mint_clients_dbf_SRCS) $(mint_clients_dbf_OBJS) FORCE | $(HOST_OUT)
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -MMD -MP -MF $@.d -o $@ $(filter %.c %.o,$^))
+$(HOST_OUT)/w2_fixture: $(w2_fixture_SRCS) $(w2_fixture_OBJS) FORCE | $(HOST_OUT)
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -MMD -MP -MF $@.d -o $@ $(filter %.c %.o,$^))
 
-$(OUT)/host-core/%.o: %.c $(TEST_HDRS)
-	@mkdir -p $(@D)
-	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -MMD -MP -c $< -o $@
-$(OUT)/host-core/dml/%.o: %.c $(TEST_HDRS)
-	@mkdir -p $(@D)
-	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -DFLOW_MEMVAR_ARENA=6000 -MMD -MP -c $< -o $@
-$(OUT)/host-core/lifetime/%.o: %.c $(TEST_HDRS)
-	@mkdir -p $(@D)
-	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -DIBASE_OVERLAYS -ffunction-sections -fdata-sections -MMD -MP -c $< -o $@
--include $(shell find $(OUT)/host-core -name '*.d' 2>/dev/null)
+$(OUT)/host-core/%.o: %.c FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -MMD -MP -c $< -o $@)
+$(OUT)/host-core/dml/%.o: %.c FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -DFLOW_MEMVAR_ARENA=6000 -MMD -MP -c $< -o $@)
+$(OUT)/host-core/lifetime/%.o: %.c FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -DIBASE_OVERLAYS -ffunction-sections -fdata-sections -MMD -MP -c $< -o $@)
+-include $(wildcard $(OUT)/host-core/*/*.d $(OUT)/host-core/*/*/*.d)
 
 .PHONY: corpus
 corpus:
@@ -81,7 +77,11 @@ corpus:
 test-run: corpus
 
 TARGET_SRCS := $(wildcard core/*.c cmd/*.c fs/*.c) ibase_main.c pal/pal_dos.c boot/softfp.c
-TARGET_OBJS := $(addprefix $(OUT)/target/,$(TARGET_SRCS:.c=.o))
+TARGET_OUT := $(OUT)/target
+TARGET_INCLUDES := $(LOCAL_INC)
+TARGET_EXTRA_CFLAGS = $(TARGET_PROFILE) $(TARGET_INC)
+include $(TOP)/mk/target.mk
+TARGET_ARTIFACTS := $(OUT)/INITBASE.EXE $(OUT)/INITBASE.OVL
 # Soft-float is a semantic ABI contract, not a size optimisation. Keep all
 # linked TUs coherent. FLOW settings preserve the shipped runtime profile.
 TARGET_PROFILE := -msoft-float -mno-80387 -ffunction-sections -fdata-sections -DIBASE_OVERLAYS -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000
@@ -90,16 +90,10 @@ all: $(TARGET_OBJS) $(OUT)/target/crt0.o $(OUT)/target/ibase.ld $(OUT)/target/ib
 package: $(OUT)/INITBASE.EXE $(OUT)/INITBASE.OVL
 $(OUT)/target/pal/pal_dos.o: private TARGET_INC := $(LOADER_INC)
 $(OUT)/target/pal/pal_dos.o: $(LOADER_HDRS)
-$(OUT)/target/%.o: %.c $(MAKEFILE_LIST) $(wildcard include/ibase/*.h pal/*.h cmd/*.def)
-	@mkdir -p $(@D)
-	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_PROFILE) $(LOCAL_INC) $(TARGET_INC) -MMD -MP -c $< -o $@
--include $(TARGET_OBJS:.o=.d)
-$(OUT)/target/crt0.o: boot/ibase_crt0.asm
-	@mkdir -p $(@D)
-	$(NASM) -f elf32 $< -o $@
-$(OUT)/tools/%: tools/%.c $(wildcard include/ibase/*.h) $(LOADER_HDRS) $(MAKEFILE_LIST)
-	@mkdir -p $(@D)
-	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) $(LOADER_INC) -o $@ $<
+$(OUT)/target/crt0.o: boot/ibase_crt0.asm FORCE
+	$(call run-command,$(NASM) -f elf32 $< -o $@)
+$(OUT)/tools/%: tools/%.c $(LOADER_HDRS) FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) $(LOADER_INC) -MMD -MP -MF $@.d -o $@ $<)
 .PHONY: mz-tools
 mz-tools:
 	+$(MAKE) -C $(TOP)/factory/mz all
@@ -124,10 +118,10 @@ smoke:
 	@echo 'Tier 1 awaits the booted product; see tests/SMOKES.md' >&2; exit 1
 
 $(HOST_OUT)/retained-screens: $(HOST_OUT)/screen_tool $(HOST_OUT)/w4_screen_check
-$(HOST_OUT)/screen_tool: tests/screen_tool.c tests/screen_file.h | $(HOST_OUT)
-	$(HOSTCC) $(HOST_CFLAGS) -o $@ $<
-$(HOST_OUT)/w4_screen_check: tests/w4_screen_check.c tests/screen_file.h | $(HOST_OUT)
-	$(HOSTCC) $(HOST_CFLAGS) -o $@ $<
+$(HOST_OUT)/screen_tool: tests/screen_tool.c tests/screen_file.h FORCE | $(HOST_OUT)
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -MMD -MP -MF $@.d -o $@ $<)
+$(HOST_OUT)/w4_screen_check: tests/w4_screen_check.c tests/screen_file.h FORCE | $(HOST_OUT)
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -MMD -MP -MF $@.d -o $@ $<)
 
 test_ibase_ctl_LIBS := -pthread
 .PHONY: pending
@@ -140,3 +134,8 @@ pending: test-build corpus
 pair-test: $(HOST_OUT)/test_ibase_ovl
 	@test -n "$(EXE)" || { echo 'set EXE to an executable with its matching .OVL' >&2; exit 1; }
 	@$(HOST_OUT)/test_ibase_ovl "$(EXE)"
+
+TEST_BUDGET_S := 30
+CORPORA := DBASE3_DECOMP
+include $(TOP)/mk/corpus.mk
+-include $(wildcard $(OUT)/tools/*.d $(OUT)/host/*.d)

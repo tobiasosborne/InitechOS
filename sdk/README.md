@@ -211,3 +211,10 @@ Calls through tbx_file_save/tbx_file_copy_save are indirect: controlpanels,
 initech123, initechtext, initechword and notepad also use CREATE_NEW, WRITE,
 CLOSE, DELETE and RENAME through sdk/include/tbx_save.h. The table shows direct
 callers so the source grep remains reproducible.
+
+Shared build conventions: command stamps rebuild on tool/flag changes; C
+translation units use -MMD dependencies. TEST_BUDGET_S is 30 seconds for the
+complete tier-0 selection; measured execution fits the default, excluding builds.
+The hosted i386 probe/layout/fake are cached by dependencies and commands;
+the mandatory target ABI compiles and all six existing check groups remain.
+Import audit stays disabled: tbx_save.h retains three TBX_MUT_ hooks.

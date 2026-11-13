@@ -3,12 +3,12 @@
 set -eu
 cc=$1; out=$2
 mkdir -p "$out"
-printf 'int main(void){return 0;}\n' > "$out/probe.c"
-if "$cc" -m32 "$out/probe.c" -o "$out/probe" > "$out/probe.log" 2>&1 && "$out/probe"; then
- printf '#include "layout.c"\nint main(void){return 0;}\n' > "$out/layout-main.c"
- "$cc" -m32 -std=c11 -Wall -Wextra -Werror -Iinclude -Itests "$out/layout-main.c" -o "$out/layout"
+test -f "$out/probe.c" || printf 'int main(void){return 0;}\n' > "$out/probe.c"
+make --no-print-directory -f tests/host32.mk OUT="$out" HOSTCC="$cc" "$out/probe"
+if test -x "$out/probe" && "$out/probe"; then
+ test -f "$out/layout-main.c" || printf '#include "layout.c"\nint main(void){return 0;}\n' > "$out/layout-main.c"
+ make --no-print-directory -f tests/host32.mk OUT="$out" HOSTCC="$cc" available
  "$out/layout"
- "$cc" -m32 -std=c11 -O1 -g -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iinclude -Ihost tests/host.c host/tbx_host.c -o "$out/host"
  "$out/host"
  echo 'ABI: hosted i386 layouts and shared fake executed'
 else

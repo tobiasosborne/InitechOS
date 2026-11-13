@@ -62,3 +62,11 @@ This component retains all app-specific test driving and assertions.
 
 Mutation hooks remain unchanged pending patch conversion (tests/MUTANTS-TODO.md).
 Tier 1 is not ported; `make smoke` fails with a pointer to tests/SMOKES.md.
+
+Shared build conventions: command stamps rebuild on tool/flag changes; C
+translation units use -MMD dependencies. TEST_BUDGET_S is 30 seconds for the
+complete tier-0 selection; measured execution fits the default, excluding builds.
+Standalone tests verify their consumed files in goldens/CORPORA.lock; the
+top-level test run verifies the full lock once before parallel execution.
+The canonical factory assertion header replaces the private copy. Tenant
+linking retains 123.EXE and 123.MNU. Product mutation hooks block import audit.

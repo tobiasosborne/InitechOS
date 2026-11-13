@@ -27,8 +27,7 @@
  *         compare BIT-EXACT on the RASTERIZED pixel sets over a bounded grid
  *         (memcmp), plus GetRgnBox complexity, PtInRegion, and RectInRegion
  *         (the AM-4 OVERLAP semantic) against wine's point_in_region /
- *         rect_in_region. Missing wine source FAILS LOUD; SKIP_WIN31_DECOMP=1
- *         explicitly opts out of L2 with a shouting diagnostic.
+ *         rect_in_region. Missing vendored Wine source fails compilation.
  * The retired L3 layout checks are in attic/harness/proptest/test_region_meta.c.
  *
  * Patch mutants in ../mutants/ retain the legacy dispatch, overlap, emission

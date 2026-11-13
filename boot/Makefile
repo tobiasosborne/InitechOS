@@ -22,4 +22,4 @@ smoke:
 	$(MAKE) -C $(TOP) smoke
 
 $(TOP)/build/kernel/dos_messages.inc: $(TOP)/kernel/include/dos_messages.json $(TOP)/kernel/gen_messages.c
-	$(MAKE) -C $(TOP)/kernel ../build/kernel/dos_messages.h ../build/kernel/dos_messages.inc
+	$(MAKE) -C $(TOP)/kernel $(TOP)/build/kernel/dos_messages.h $(TOP)/build/kernel/dos_messages.inc

@@ -1,59 +1,50 @@
-# mk/host-test.mk -- tier 0: host tests for one component.
-#
-# Before including, set:
-#   HOST_TESTS    := names of test programs
-#   <name>_SRCS   := C sources of that program (test file + code under test)
-# and optionally:
-#   <name>_CFLAGS := extra compiler flags (-I, -D)
-#   <name>_LIBS   := extra link flags (-lm)
-#   <name>_ARGS   := arguments passed when the test runs
-#   <name>_DEPS   := extra files that should trigger a rebuild
-#   <name>_OBJS   := separately compiled objects to link (with their own rules)
-#   <name>_ENV    := environment assignments for the test run
-#   EXTRA_HOST_TESTS := optional programs, excluded from the default run
-#   TESTS        := programs to build/run (default: HOST_TESTS)
-#   HOST_INCLUDES := -I flags shared by every test of the component
-#   TEST_HDRS     := headers every test depends on (default: all *.h here)
-#
-# Each test is one compiler invocation, built into build/<component>/host/.
-# A test passes when it exits 0. `make test` runs every test, prints one
-# line per test and a summary, and fails if any test failed.
-
-HOST_OUT  := $(OUT)/host
-TEST_HDRS ?= $(shell find . -name '*.h' 2>/dev/null)
+# HOST_TESTS / EXTRA_HOST_TESTS register programs; TESTS selects the run.
+# <name>_{SRCS,OBJS,CFLAGS,LIBS,ARGS,DEPS,ENV} and HOST_INCLUDES unchanged.
+# TEST_HDRS is an optional explicit dependency list (no directory scan).
+# TEST_TIMEOUT_S=20, <name>_TIMEOUT_S overrides; TEST_BUDGET_S=30 (run only).
+# <name>_COUNT_PATTERN: ERE with one numeric capture; auto for shared header.
+# host_test_run may still be overridden (n/fail shell counters and per-test log).
+HOST_OUT := $(OUT)/host
+$(HOST_OUT):
+	@mkdir -p $@
 TESTS ?= $(HOST_TESTS)
+TEST_TIMEOUT_S ?= 20
+TEST_BUDGET_S ?= 30
 ifneq ($(filter-out $(HOST_TESTS) $(EXTRA_HOST_TESTS),$(TESTS)),)
 $(error unknown TESTS: $(filter-out $(HOST_TESTS) $(EXTRA_HOST_TESTS),$(TESTS)))
 endif
 
-$(HOST_OUT):
-	@mkdir -p $@
-
-define host_test_rule
-$(HOST_OUT)/$(1): $$($(1)_SRCS) $$($(1)_OBJS) $$($(1)_DEPS) $$(TEST_HDRS) $$(MAKEFILE_LIST) | $(HOST_OUT)
-	$$(HOSTCC) $$(HOST_CFLAGS) $$(HOST_INCLUDES) $$($(1)_CFLAGS) -o $$@ $$($(1)_SRCS) $$($(1)_OBJS) $$($(1)_LIBS)
+define host_source_rule
+$(HOST_OUT)/$(1).objs/$(2:.c=.o): private command = $$(HOSTCC) $$(HOST_CFLAGS) $$(HOST_INCLUDES) $$($(1)_CFLAGS) -MMD -MP -c $$< -o $$@
+$(HOST_OUT)/$(1).objs/$(2:.c=.o): $(2) $$($(1)_DEPS) $$(TEST_HDRS) FORCE
+	$$(run-command)
 endef
-$(foreach t,$(sort $(HOST_TESTS) $(EXTRA_HOST_TESTS)),$(eval $(call host_test_rule,$(t))))
-
+define host_test_rule
+$(1)_C_OBJS := $(addprefix $(HOST_OUT)/$(1).objs/,$(patsubst %.c,%.o,$(filter %.c,$($(1)_SRCS))))
+$(HOST_OUT)/$(1): private command = $$(HOSTCC) $$(HOST_CFLAGS) $$(HOST_INCLUDES) $$($(1)_CFLAGS) -o $$@ $$($(1)_C_OBJS) $(filter-out %.c,$($(1)_SRCS)) $$($(1)_OBJS) $$($(1)_LIBS)
+$(HOST_OUT)/$(1): $$($(1)_C_OBJS) $(filter-out %.c,$($(1)_SRCS)) $$($(1)_OBJS) $$($(1)_DEPS) $$(TEST_HDRS) FORCE
+	$$(run-command)
+endef
+$(foreach t,$(sort $(HOST_TESTS) $(EXTRA_HOST_TESTS)),$(foreach s,$(filter %.c,$($(t)_SRCS)),$(eval $(call host_source_rule,$(t),$(s))))$(eval $(call host_test_rule,$(t))))
+# Read dep rules without adding generated files to legacy MAKEFILE_LIST lists.
+$(foreach d,$(wildcard $(foreach t,$(HOST_TESTS) $(EXTRA_HOST_TESTS),$($(t)_C_OBJS:.o=.d))),$(eval $(file <$(d))))
 HOST_TEST_BINS := $(addprefix $(HOST_OUT)/,$(TESTS))
 
 define host_test_run
-n=$$((n+1)); \
-if $($(1)_ENV) $(HOST_OUT)/$(1) $($(1)_ARGS) > $(HOST_OUT)/$(1).log 2>&1; then \
-  echo "  ok    $(1)"; \
-else \
-  echo "  FAIL  $(1)   (log: $(HOST_OUT)/$(1).log)"; \
-  tail -n 15 $(HOST_OUT)/$(1).log | sed 's/^/        /'; \
-  fail=$$((fail+1)); \
-fi;
+$($(1)_ENV) $(HOST_OUT)/$(1) $($(1)_ARGS) > $(HOST_OUT)/$(1).log 2>&1 || fail=1;
 endef
-
-.PHONY: test-build test-run
-all test-build: $(HOST_TEST_BINS)
+# Isolate inherited runners under the same timeout/count/timing wrapper.
+define timed_test
+if sh $(TOP)/factory/testlib/run-test.sh $(1) $(or $($(1)_TIMEOUT_S),$(TEST_TIMEOUT_S)) $(call shquote,$($(1)_COUNT_PATTERN)) $(HOST_OUT)/$(1) sh -c $(call shquote,n=0; fail=0; $(call host_test_run,$(1)) test $$fail -eq 0); then :; else fail=$$((fail+1)); fi;
+endef
+.PHONY: test test-build test-run
+test-build: $(HOST_TEST_BINS)
 test: test-run
 test-run: test-build
-	@n=0; fail=0; \
-	ulimit -c 0; \
-	$(foreach t,$(TESTS),$(call host_test_run,$(t))) \
-	echo "$(COMPONENT): $$n tests, $$fail failures"; \
-	test $$fail -eq 0
+	@start=$$(date +%s); fail=0; ulimit -c 0; \
+	$(foreach t,$(TESTS),$(call timed_test,$(t))) \
+	elapsed=$$(($$(date +%s)-start)); \
+	echo "$(COMPONENT): $(words $(TESTS)) tests, $$fail failures ($${elapsed}s; budget $(TEST_BUDGET_S)s)"; \
+	if [ $$elapsed -gt $(TEST_BUDGET_S) ]; then \
+	  echo 'FAIL budget: speed the suite up or raise TEST_BUDGET_S with a reason in the component README'; fail=1; \
+	fi; test $$fail -eq 0

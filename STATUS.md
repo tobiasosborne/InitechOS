@@ -12,7 +12,11 @@ to InitechDOS, `AUTOEXEC.BAT` runs `FLAIR`, and the desktop comes up
 with the Finder. Initech 123 launches from the `APPS` folder, saves a
 worksheet, and Special > Exit to DOS returns to the prompt.
 
-- `make test`: every component's host tests, about 100 seconds.
+- `make -j16 test`: every component's host tests, about 75 seconds from
+  clean, with per-test timeouts, a time budget per component and the
+  reference corpora verified against `goldens/CORPORA.lock` first.
+- `make status`: the import board, generated. Use it instead of trusting
+  the table below.
 - `make smoke`: three sessions on QEMU and Bochs at 8 MiB, about 100
   seconds: a scripted DOS session; test programs run from a separate
   test disk; and the desktop journey (open the disk, open APPS, launch
@@ -56,11 +60,7 @@ imported yet.
 
 ## In flight
 
-- Import on a branch: the FLAIR Toolbox.
-- Conventions integration (owner of `mk/`, the top Makefile,
-  `factory/testlib`, `goldens/`, and the Makefiles of `flair`, `sdk`
-  and the three imported apps): the hardened build fragments merged
-  and adopted, `make status`, pinned corpora.
+Nothing. All branches from day one are merged.
 
 ## The vertical slice is done
 
@@ -72,9 +72,11 @@ saved. App imports are unfrozen.
 
 ## Next
 
-1. Merge the conventions integration (in flight), then convert the
+1. Make `make status` say "imported" for every component: convert the
    remaining mutation hooks to patches (Initech 123, InitechWord,
-   InitechBase, the Toolbox) so those components can be called imported.
+   InitechBase, the Toolbox, the SDK's three, the seed), declare each
+   component's target artifacts, and check why the audit still flags
+   the kernel after its hooks were converted (likely the pattern).
 2. Put InitechWord and InitechBase on the disk and into the smoke, each
    with a host-side check of a saved file. InitechBase first needs its
    loader reserve raised (`apps/initechbase/README.md`).

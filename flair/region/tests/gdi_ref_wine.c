@@ -7,31 +7,13 @@
  * gdi_ref_wine.h interface. It is a SEPARATE TU from the oracle so the wine
  * `struct region` never clashes with FLAIR's `struct region` (region_t).
  *
- * If the wine source is absent, this TU provides unavailable stub accessors.
- * The oracle FAILS LOUD unless SKIP_WIN31_DECOMP=1 explicitly opts out of L2.
- * Test-only; never linked into a kernel/artifact line
- * (Law 3). ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * The vendored Wine source is required; an absent file fails compilation.
+ * Test-only; never linked into the product.
  */
 #include "gdi_ref_wine.h"
 
-/* Form WINE_REGION_C as a SINGLE string literal from -DWIN31_DECOMP=<base>
- * (UNQUOTED). Gate the whole wine include behind __has_include so an absent
- * tree still compiles; the oracle enforces the missing-reference policy at run time. */
-#ifdef WIN31_DECOMP
-#  define GDI_STR2(s) #s
-#  define GDI_STR(s)  GDI_STR2(s)
-#  define WINE_REGION_PATH WIN31_DECOMP/oracles/wine/server/region.c
-#  define WINE_REGION_C    GDI_STR(WINE_REGION_PATH)
-#  if defined(__has_include)
-#    if __has_include(WINE_REGION_C)
-#      define GDI_REF_HAVE_WINE 1
-#    endif
-#  endif
-#endif
-
-#ifdef GDI_REF_HAVE_WINE
-
-#include "gdi_ref_wine_shim.h"   /* stubs + namespacing + #include the wine .c */
+#define WINE_REGION_C "wine/region.c"
+#include "gdi_ref_wine_shim.h"
 
 const int gdi_ref_wine_available = 1;
 
@@ -86,31 +68,3 @@ int gdi_ref_wine_rect_in(gdi_ref_rgn r, int l, int t, int rr, int b)
     rc.left = l; rc.top = t; rc.right = rr; rc.bottom = b;
     return gdi_ref_rect_in_region((struct region *)r, &rc) ? 1 : 0;
 }
-
-#else  /* !GDI_REF_HAVE_WINE -- ../win31-decomp absent: stubs, oracle enforces missing-reference policy */
-
-const int gdi_ref_wine_available = 0;
-
-gdi_ref_rgn gdi_ref_wine_create(void) { return 0; }
-void gdi_ref_wine_free(gdi_ref_rgn r) { (void)r; }
-void gdi_ref_wine_set_rect(gdi_ref_rgn r, int left, int top, int right, int bottom)
-{ (void)r; (void)left; (void)top; (void)right; (void)bottom; }
-int gdi_ref_wine_union(gdi_ref_rgn d, gdi_ref_rgn a, gdi_ref_rgn b)
-{ (void)d; (void)a; (void)b; return 0; }
-int gdi_ref_wine_intersect(gdi_ref_rgn d, gdi_ref_rgn a, gdi_ref_rgn b)
-{ (void)d; (void)a; (void)b; return 0; }
-int gdi_ref_wine_subtract(gdi_ref_rgn d, gdi_ref_rgn a, gdi_ref_rgn b)
-{ (void)d; (void)a; (void)b; return 0; }
-int gdi_ref_wine_xor(gdi_ref_rgn d, gdi_ref_rgn a, gdi_ref_rgn b)
-{ (void)d; (void)a; (void)b; return 0; }
-int gdi_ref_wine_copy(gdi_ref_rgn d, gdi_ref_rgn a)
-{ (void)d; (void)a; return 0; }
-int gdi_ref_wine_num_rects(gdi_ref_rgn r) { (void)r; return 0; }
-int gdi_ref_wine_get_rect(gdi_ref_rgn r, int i, int *l, int *t, int *rr, int *b)
-{ (void)r; (void)i; (void)l; (void)t; (void)rr; (void)b; return 0; }
-int gdi_ref_wine_point_in(gdi_ref_rgn r, int x, int y)
-{ (void)r; (void)x; (void)y; return 0; }
-int gdi_ref_wine_rect_in(gdi_ref_rgn r, int l, int t, int rr, int b)
-{ (void)r; (void)l; (void)t; (void)rr; (void)b; return 0; }
-
-#endif /* GDI_REF_HAVE_WINE */
