@@ -26,3 +26,10 @@ smoke:
 all: $(OUT)/dos_messages.inc
 $(OUT)/dos_messages.inc: $(OUT)/dos_messages.h
 	sed -n 's/^#define \(MSG_DOS_[0-9]*\) "\(.*\)"$$/%define \1 `\2`/p' $< > $@
+# A direct component build also refreshes the temporary resident shell objects.
+.PHONY: resident-command
+resident-command: $(OUT)/dos_messages.h
+	$(MAKE) -C $(TOP)/dos resident
+$(OUT)/kernel.elf: $(wildcard $(TOP)/dos/command/*.[ch]) | resident-command
+$(TOP)/build/dos/command.o $(TOP)/build/dos/batch.o $(TOP)/build/dos/env.o: | resident-command
+	@test -f $@

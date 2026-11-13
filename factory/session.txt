@@ -1,0 +1,28 @@
+
+
+ver
+dir
+md check
+cd check
+echo written-by-command > proof.txt
+type proof.txt
+copy proof.txt copy.txt
+ren copy.txt renamed.txt
+del renamed.txt
+cd ..
+md empty
+rd empty
+echo @echo off > flow.bat
+echo if exist check\proof.txt goto good >> flow.bat
+echo echo batch-failed >> flow.bat
+echo :good >> flow.bat
+echo echo batch-ok >> flow.bat
+flow
+echo zebra > words.txt
+echo apple >> words.txt
+type words.txt | sort > sorted.txt
+type sorted.txt
+type words.txt | more > more.txt
+find "apple" < words.txt
+chkdsk
+echo smoke-complete

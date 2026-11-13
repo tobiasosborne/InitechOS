@@ -69,6 +69,6 @@ all: $(OUT)/COMMAND.COM
 $(OUT)/COMMAND.COM: command/forward.asm | $(OUT)
 	$(NASM) -f bin $< -o $@
 
-$(TOP)/build/kernel/dos_messages.h $(TOP)/build/kernel/dos_messages.inc:
+$(TOP)/build/kernel/dos_messages.h $(TOP)/build/kernel/dos_messages.inc: $(TOP)/kernel/include/dos_messages.json $(TOP)/kernel/gen_messages.c
 	$(MAKE) -C $(TOP)/kernel ../build/kernel/dos_messages.h ../build/kernel/dos_messages.inc
 $(OUT)/command.o $(OUT)/common/dosutil.o $(OUT)/edlin/edlin.o $(OUT)/chkdsk/chkdsk.o $(OUT)/xcopy/xcopy_tree.o: $(TOP)/build/kernel/dos_messages.h
