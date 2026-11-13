@@ -1,27 +1,27 @@
 /*
- * os/apps/tbx/tbx_rt.c -- the run-time half of the C Toolbox binding: the
+ * sdk/rt/tbx_rt.c -- the run-time half of the C Toolbox binding: the
  * entry, the link-synthesized FlairTenantRec, the event buffer, the INT 81h
  * trap and the four memory routines a freestanding C program needs
  * (THE ARTIFACT; bead initech-w96l).
  *
- * Ref: spec/toolbox_gate.h Sec 2 (cdecl args at the interrupted ESP), Sec 3
+ * Ref: sdk/include/toolbox_gate.h Sec 2 (cdecl args at the interrupted ESP), Sec 3
  *      (AX codes, arity), Sec 5 (the record: tag, namePtr, imageBase,
  *      imageLen, evBufPtr, eventProc -- every pointer a relocation site the
  *      InitechMZ table covers, imageLen a plain length), Sec 6 (the flat
  *      event), Sec 9 (the MenuBar layouts); os/apps/tenantfx.asm (the same
  *      record and the same entry/eventProc split, hand-assembled);
- *      os/apps/tbx/tenant.ld (where __image_start / __image_len come from).
+ *      sdk/rt/tenant.ld (where __image_start / __image_len come from).
  *
  * THE ENTRY is tbx_entry, placed at module byte 0 by tenant.ld's .text.entry
  * (ADR-0003 DEC-08a.2: entry == load base). It runs the app's main to its
- * RETURN; the kernel's trampoline (os/milton/tbx_gate.asm tbx_tenant_call)
+ * RETURN; the kernel's trampoline (kernel/tbx_gate.asm tbx_tenant_call)
  * saved every callee-saved register, so a plain C function is a valid entry.
  *
  * Freestanding (Law 3): no libc. ASCII-clean (Rule 12). Deterministic.
  */
 #include "tbx.h"
 
-/* ---- the locked layouts (spec/toolbox_gate.h Sec 6, Sec 9) ------------- */
+/* ---- the locked layouts (sdk/include/toolbox_gate.h Sec 6, Sec 9) ------------- */
 _Static_assert(sizeof(tbx_event_t) == FLAIR_EVBUF_BYTES, "FlairEvent size");
 _Static_assert(__builtin_offsetof(tbx_event_t, message) == FLAIR_EVBUF_MSG_OFF, "Message");
 _Static_assert(__builtin_offsetof(tbx_event_t, whereh) == FLAIR_EVBUF_WHEREH_OFF, "WhereH");
@@ -36,16 +36,6 @@ _Static_assert(__builtin_offsetof(tbx_menuinfo_t, n_items) == TBX_MINFO_COUNT_OF
 _Static_assert(sizeof(tbx_menuitem_t) == TBX_MITEM_BYTES, "MenuItem size");
 
 /* ---- the record (spec Sec 5), synthesized at link time ------------------ */
-typedef struct tbx_rec {
-    uint32_t    tag;
-    const char *name;
-    const void *image_base;
-    const void *image_len;    /* an ABSOLUTE linker symbol: its "address" IS
-                               * the length, identical at every link base, so
-                               * the relocation derivation never marks it */
-    tbx_event_t *evbuf;
-    void       (*proc)(void);
-} tbx_rec_t;
 _Static_assert(sizeof(tbx_rec_t) == FLAIR_TENANT_REC_BYTES, "FlairTenantRec size");
 _Static_assert(__builtin_offsetof(tbx_rec_t, evbuf) == FLAIR_TENANT_REC_EVB_OFF, "evBufPtr");
 _Static_assert(__builtin_offsetof(tbx_rec_t, proc) == FLAIR_TENANT_REC_PROC_OFF, "eventProc");
@@ -75,7 +65,7 @@ void tbx_entry(void)
  * int32_t tbx_trap(uint32_t code, uint32_t argc, const uint32_t *args):
  * push args[argc-1] .. args[0] (so arg 0 sits at the interrupted ESP, spec
  * Sec 2), AX = code, INT 81h, pop them, return EAX. The gate's own stub
- * (os/milton/tbx_gate.asm) restores every other register (pushad/popad). */
+ * (kernel/tbx_gate.asm) restores every other register (pushad/popad). */
 __asm__(
     ".text\n"
     ".globl tbx_trap\n"
@@ -170,7 +160,7 @@ int32_t tbx_exit(int32_t rc)
     return tbx_trap(TBX_EXIT, TBX_ARGC_EXIT, a);
 }
 
-/* Ref: spec/toolbox_gate.h Sec 10, deliberately extended in initech-tdnl.91. */
+/* Ref: sdk/include/toolbox_gate.h Sec 10, deliberately extended in initech-tdnl.91. */
 int32_t tbx_file_create(const char *path)
 { uint32_t a[] = { (uint32_t)(uintptr_t)path }; return tbx_trap(TBX_FILE_CREATE,1,a); }
 int32_t tbx_file_open(const char *path, uint32_t mode)
@@ -185,7 +175,7 @@ int32_t tbx_file_close(int32_t h)
 { uint32_t a[] = { (uint32_t)h }; return tbx_trap(TBX_FILE_CLOSE,1,a); }
 int32_t tbx_file_delete(const char *path)
 { uint32_t a[] = { (uint32_t)(uintptr_t)path }; return tbx_trap(TBX_FILE_DELETE,1,a); }
-/* Ref: spec/toolbox_gate.h Sec 10b, deliberately extended in initech-mcep. */
+/* Ref: sdk/include/toolbox_gate.h Sec 10b, deliberately extended in initech-mcep. */
 int32_t tbx_file_rename(const char *old_path, const char *new_path)
 {
     uint32_t a[] = { (uint32_t)(uintptr_t)old_path, (uint32_t)(uintptr_t)new_path };
@@ -193,17 +183,28 @@ int32_t tbx_file_rename(const char *old_path, const char *new_path)
 }
 int32_t tbx_file_create_new(const char *path)
 { uint32_t a[] = { (uint32_t)(uintptr_t)path }; return tbx_trap(TBX_FILE_CREATE_NEW, TBX_ARGC_FILE_CREATE_NEW, a); }
-/* Ref: spec/toolbox_gate.h Sec 10a, deliberately extended in initech-qvgd. */
+/* Ref: sdk/include/toolbox_gate.h Sec 10a, deliberately extended in initech-qvgd. */
 int32_t tbx_file_find(const char *pattern, uint32_t attr, void *recs, uint32_t max)
 {
     uint32_t a[4] = { (uint32_t)(uintptr_t)pattern, attr, (uint32_t)(uintptr_t)recs, max };
     return tbx_trap(TBX_FILE_FIND, TBX_ARGC_FILE_FIND, a);
 }
 int32_t tbx_disk_free(void) { return tbx_trap(TBX_DISK_FREE, TBX_ARGC_DISK_FREE, 0); }
-int32_t tbx_get_clock(void *t)
-{ uint32_t a[2] = { 0u, (uint32_t)(uintptr_t)t }; return tbx_trap(TBX_CLOCK, 2u, a); }
+int32_t tbx_clock(uint32_t mode, cp_time_t *t)
+{ uint32_t a[2] = { mode, (uint32_t)(uintptr_t)t }; return tbx_trap(TBX_CLOCK, 2u, a); }
+int32_t tbx_get_clock(void *time) { return tbx_clock(0, time); }
+int32_t tbx_settings(uint32_t mode, uint8_t record[CP_RECORD_BYTES])
+{ uint32_t a[2] = { mode, (uint32_t)(uintptr_t)record }; return tbx_trap(TBX_SETTINGS, 2u, a); }
+int32_t tbx_memory(uint32_t out[4])
+{ uint32_t a[1] = { (uint32_t)(uintptr_t)out }; return tbx_trap(TBX_MEMORY, 1u, a); }
+int32_t tbx_beep(void) { return tbx_trap(TBX_BEEP, 0u, 0); }
+int32_t tbx_dialog(int32_t win, const cp_item_t *items, uint32_t n,
+                   uint32_t def, uint32_t cancel, const tbx_event_t *event)
+{ uint32_t a[6] = { (uint32_t)win, (uint32_t)(uintptr_t)items, n, def,
+                    cancel, (uint32_t)(uintptr_t)event };
+  return tbx_trap(TBX_DIALOG, 6u, a); }
 
-/* Ref: spec/toolbox_gate.h Sec 11, deliberately extended in initech-fvnj. */
+/* Ref: sdk/include/toolbox_gate.h Sec 11, deliberately extended in initech-fvnj. */
 int32_t tbx_alert(const char *text, const char *def, const char *cancel,
                   const char *other)
 {
@@ -212,7 +213,7 @@ int32_t tbx_alert(const char *text, const char *def, const char *cancel,
     return tbx_trap(TBX_ALERT, TBX_ARGC_ALERT, a);
 }
 
-/* Ref: spec/toolbox_gate.h Sec 12, deliberately extended in initech-bf2. */
+/* Ref: sdk/include/toolbox_gate.h Sec 12, deliberately extended in initech-bf2. */
 int32_t tbx_file_copy(const char *caption, const char *src, const char *dst)
 {
     uint32_t a[3] = { (uint32_t)(uintptr_t)caption, (uint32_t)(uintptr_t)src,
@@ -255,7 +256,7 @@ int memcmp(const void *a, const void *b, uint32_t n)
     return 0;
 }
 
-/* Ref: spec/toolbox_gate.h Sec 12-15, deliberately extended in initech-tdnl.16. */
+/* Ref: sdk/include/toolbox_gate.h Sec 12-15, deliberately extended in initech-tdnl.16. */
 int32_t tbx_scrap_put(const void *buf, uint32_t len)
 { uint32_t a[] = { (uint32_t)(uintptr_t)buf, len }; return tbx_trap(TBX_SCRAP_PUT, TBX_ARGC_SCRAP_PUT, a); }
 int32_t tbx_scrap_get(void *buf, uint32_t bufsz)

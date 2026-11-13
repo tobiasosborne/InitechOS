@@ -1,5 +1,5 @@
 /*
- * spec/toolbox_gate.h -- THE INITECH TOOLBOX GATE: the locked ABI a disk-
+ * sdk/include/toolbox_gate.h -- THE INITECH TOOLBOX GATE: the locked ABI a disk-
  * launched FLAIR tenant uses to reach the Toolbox (LOCKED SPEC-DATA, Rule 8).
  *
  * bead: initech-tdnl.14 (R3.7 app launch from disk). This file IS the Rule-8
@@ -71,7 +71,7 @@
  *       because CREATE truncates before the first WRITE). Deliberate Rule-8
  *       addition: TBX_FILE_RENAME 0x0089 and TBX_FILE_CREATE_NEW 0x008A +
  *       their arities (Sec 10b) -- the DOS 3.3 AH=56h and AH=5Bh the tenant
- *       runtime's atomic save (os/apps/tbx/tbx_save.h) needs: a temporary
+ *       runtime's atomic save (sdk/rt/tbx_save.h) needs: a temporary
  *       name proven unused, then the fully written file put in the old one's
  *       place. CREATE keeps its Sec 10 truncate meaning; no old value moved.
  *
@@ -129,7 +129,7 @@
  * A tenant pushes its arguments cdecl (arg 0 at the LOWEST address) and
  * executes `int 0x81` with the function code in AX. Ring 0 -> ring 0 delivery
  * pushes no SS:ESP, so the interrupted ESP -- where arg 0 sits -- is exactly
- * the end of the locked 68-byte int_frame_t (os/milton/idt.h, _Static_assert-
+ * the end of the locked 68-byte int_frame_t (kernel/idt.h, _Static_assert-
  * pinned). Arg i is the dword at frame + TBX_GATE_ARG_OFFSET + 4*i.
  * ------------------------------------------------------------------------- */
 #define TBX_GATE_FRAME_BYTES  68u
@@ -305,14 +305,14 @@
  * ADR-0003 Appendix A: 56h RENAME, 5Bh CREATNEW), both under the Sec 10
  * discipline (shadow PSP, root CWD, paths checked exactly like a Sec 10 path,
  * module or BSS). FILE_RENAME(oldPath, newPath) is AH=56h (Technical
- * Reference p. 6-206; os/milton/int21.c do_rename): a missing source is
+ * Reference p. 6-206; kernel/int21.c do_rename): a missing source is
  * TBX_ERR_DOS(2); an existing target or a device name on either side is
  * TBX_ERR_DOS(5). A cross-directory pair is TBX_ERR_DOS(0x11) -- a local
  * same-directory restriction of this kernel (do_rename; beads initech-ycb3),
  * not DOS 3.3's rule, which permits a same-drive move. There is no
  * rename-over-an-existing-file. FILE_CREATE_NEW(path) is AH=5Bh: CREATE's
  * checks, but an existing file is TBX_ERR_DOS(0x50) and is never truncated.
- * The replacing save is the tenant runtime's tbx_file_save (os/apps/tbx/
+ * The replacing save is the tenant runtime's tbx_file_save (sdk/rt/
  * tbx_save.h): it CREATE_NEWs an unused <name>.$$$ (or .$$0 .. .$$9) in the
  * same directory, writes and closes it, DELETEs the old file and then
  * RENAMEs -- the old file, and any file already under a temporary name,
@@ -362,7 +362,7 @@
 /* ---------------------------------------------------------------------------
  * 5. THE LINK-SYNTHESIZED REGISTRATION RECORD (DEC-AC3-3; Part C item 4)
  *
- * Emitted as DATA by the tenant's toolchain (seed_flair.ld / the TPS MZ-wrap
+ * Emitted as DATA by the tenant's toolchain (seed_flair.ld / the Pascal MZ-wrap
  * pass / a hand-assembled fixture); every pointer field is an absolute dword
  * the InitechMZ relocation table covers, so the loader's flat relocation makes
  * it correct at whatever base the image lands. No Pascal source ever forms an
@@ -533,7 +533,7 @@
  * run in the FIXED 8x16 cell font InitechOS already owns: the VGA ROM 8x16
  * strike stage2 captures before protected mode (boot_info.font_addr; PRD
  * Sec 5 "80x25 rendered by blitting the VGA 8x16 ROM font"; the strike the
- * MILTON console blits, os/milton/console.h). Glyph k occupies the cell
+ * InitechDOS console blits, kernel/console.h). Glyph k occupies the cell
  * [x + 8k, x + 8k + 8) x [y, y + 16) CONTENT-LOCAL; every cell is opaque
  * (bg, then the set bits in fg; MSB = leftmost pixel); at most
  * TBX_CELLS_MAX_RUN glyphs; the same clip as TEXTDRAW (visible INTERSECT

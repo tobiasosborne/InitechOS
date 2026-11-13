@@ -1,7 +1,7 @@
 /* tbx_save.h -- the tenant runtime's atomic document save (bead initech-mcep).
  *
  * WHY. TBX_FILE_CREATE is DOS AH=3Ch: it truncates an existing file before
- * the first byte of the new one is written (spec/toolbox_gate.h Sec 10). A
+ * the first byte of the new one is written (sdk/include/toolbox_gate.h Sec 10). A
  * save that then runs out of disk left a zero-byte file where the user's last
  * saved version had been -- audits 2026-10-23 iword L001/L002 (twice
  * reproduced), das L003 (InitechText), i123 L001 (Initech 123).
@@ -18,9 +18,9 @@
  *   2. DELETE <name> (DOS error 2, no such file, is a new save, not a
  *      failure). A refused DELETE (a read-only file: DOS error 5) DELETEs the
  *      temporary file and returns the error -- the old file is untouched.
- *   3. RENAME <name>.$$$ -> <name> (AH=56h, spec/toolbox_gate.h Sec 10b).
+ *   3. RENAME <name>.$$$ -> <name> (AH=56h, sdk/include/toolbox_gate.h Sec 10b).
  * DOS 3.3 has no rename-over-an-existing-file (Technical Reference p. 6-206;
- * os/milton/int21.c do_rename refuses an existing target with AX=5), hence
+ * kernel/int21.c do_rename refuses an existing target with AX=5), hence
  * delete-THEN-rename. THE WINDOW: between steps 2 and 3 only <name>.$$$ holds
  * the document; a machine reset exactly there leaves it under that name (the
  * EDLIN-style recoverable remnant). Gate calls are synchronous and the
