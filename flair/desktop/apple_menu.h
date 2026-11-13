@@ -6,11 +6,11 @@
  * answers from a fixture), and a chosen row is turned back into an action.
  * menu.c drops it behind every bar's Apple glyph (MenuBar_set_apple_menu).
  *
- * MUTANT KNOB (Rule 6): APPLE_MENU_MUT_LIST_ALL -- every table row is listed
+ * MUTANT KNOB (contract): APPLE_MENU_MUT_LIST_ALL -- every table row is listed
  * whether or not its program is installed (the F4-3 omit rule broken: a
  * row that cannot launch). NEVER in a real build.
  *
- * ASCII-clean (Rule 12).
+ * ASCII-clean (contract).
  */
 #ifndef INITECH_OS_FLAIR_APPLE_MENU_H
 #define INITECH_OS_FLAIR_APPLE_MENU_H

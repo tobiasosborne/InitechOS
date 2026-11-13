@@ -1,7 +1,7 @@
 /*
  * Boot-time DESKTOP.DB/TRASH persistence skeleton (beads initech-tdnl.8).
  * Ref: GUI-remediation-R3-finder-design.md F1.3/F1-2 and F1.4/F1-3.
- * Rule 11: header assembly is byte-explicit and contains no timestamp.
+ * contract: header assembly is byte-explicit and contains no timestamp.
  */
 
 #include "desktop_db.h"
@@ -19,7 +19,7 @@ static void desktop_db_empty_header(uint8_t out[DESKTOP_DB_HEADER_SIZE])
 	out[2] = (uint8_t)'B';
 	out[3] = (uint8_t)'1';
 #ifdef DB_MAGIC_FLIP
-	/* Rule-6 mutant: creation emits a corrupt magic byte. The next boot must
+	/* contract mutant: creation emits a corrupt magic byte. The next boot must
 	 * take DESKTOP-DB-REGEN (or the persistence oracle goes RED). */
 	out[0] = (uint8_t)'X';
 #endif
@@ -70,7 +70,6 @@ desktop_db_validation_t desktop_db_validate(const void *data, uint32_t len,
 static int db_space(const fat12_volume_t *vol,const void *fat,uint32_t fat_len,
                      void *sector_buf,uint32_t len)
 {
-#ifndef DB_MUT_PHANTOM
     dir_entry_t old;
     uint32_t bytes=(uint32_t)vol->bpb.bytes_per_sector*vol->bpb.sectors_per_cluster;
     uint32_t need=(len+bytes-1u)/bytes, free=0u;
@@ -91,10 +90,6 @@ static int db_space(const fat12_volume_t *vol,const void *fat,uint32_t fat_len,
         if(!next) free++;
     }
     return free>=need?FAT12_OK:FAT12_ERR_NO_SPACE;
-#else
-    (void)vol;(void)fat;(void)fat_len;(void)sector_buf;(void)len;
-    return FAT12_OK;
-#endif
 }
 
 static int desktop_db_write_default(const fat12_volume_t *vol, void *fat,
@@ -102,7 +97,7 @@ static int desktop_db_write_default(const fat12_volume_t *vol, void *fat,
 	                                void *cluster_buf)
 {
 #ifdef DB_WRITE_SKIP
-	/* Rule-6 mutant: report success while skipping creation. The mtools
+	/* contract mutant: report success while skipping creation. The mtools
 	 * differential must find DESKTOP.DB absent/wrong and go RED. */
 	(void)vol;
 	(void)fat;

@@ -1527,9 +1527,9 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
                 ok = 1;
             } else {
                 fprintf(stderr, "[harness] --mouse: W marker '%s' not seen "
-                        "within %d ms (stream continues; the gate decides)\n",
+                        "within %d ms (input stopped)\n",
                         tok + 1, HARNESS_W_BUDGET_MS);
-                ok = 1;   /* counted as sent: the token was honoured */
+                return -1; /* Missing guest progress is a failed session. */
             }
         } else if (tok[0] == 'D' && tok[1] != '\0') {
             /* "D<path>" -- one QMP screendump HERE in the stream, with the exact

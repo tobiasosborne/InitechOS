@@ -4,7 +4,7 @@
  * beads: initech-87a (original drag capstone), re-keyed to the Mac OS 8
  *        Platinum (DEC-10) BASE while System 7 remains retained heritage
  *        -- the M3 drag-gate capstone. ADR-0004 AM-8: the earliest human-verifiable
- *        Law-4 fidelity moment. This module is the COMPOSITOR that ties the FLAIR
+ *        contract fidelity moment. This module is the COMPOSITOR that ties the FLAIR
  *        Managers (Window Manager z-order + DiffRgn damage) to the ONE surface
  *        (via the region-clipped blitter + the Platinum chrome drawer) so a window
  *        drags across the desktop with correct update regions, NO over-repaint, and
@@ -38,7 +38,7 @@
  *                            This is the headline drag-gate behaviour: no
  *                            over-repaint, chrome unchanged outside the damage.
  *
- * STORAGE DISCIPLINE (Law 3, freestanding; ADR-0004 DEC-03 FLAIR heap): this module
+ * STORAGE DISCIPLINE (contract, freestanding; ADR-0004 DEC-03 FLAIR heap): this module
  * mallocs nothing. Like the Window Manager and the region engine, it takes a
  * CALLER-SUPPLIED scratch region (arena-backed; rows[]/x_pool attached) to hold the
  * per-window visible region while painting. The Window Manager's own three scratch
@@ -55,11 +55,11 @@
  * case). The desktop background fill goes through the blitter, clipped to the
  * desktop frame (full paint) or the desktop update region (damage paint).
  *
- * DUAL-COMPILE (the window.c / blitter.c / chrome.c pattern; Law 3): desktop.c
+ * DUAL-COMPILE (the window.c / blitter.c / chrome.c pattern; contract): desktop.c
  * compiles BOTH freestanding for the kernel (gcc -m32 -ffreestanding -nostdlib
  * -std=c11 -Wall -Wextra -Werror) AND hosted for the drag gate
  * (harness/proptest/test_drag.c). It uses only <stdint.h> + the FLAIR/spec headers;
- * no host malloc; no libc. Fail-loud (Rule 2) on a NULL manager / NULL dst /
+ * no host malloc; no libc. Fail-loud (contract) on a NULL manager / NULL dst /
  * unattached scratch.
  *
  * Ref: ADR-0004 D-1 (5-layer stack; all drawing through a region clip), D-2 (one
@@ -69,11 +69,11 @@
  *      os/flair/blitter.h (blitter_fill_rect_clipped), os/flair/chrome.h
  *      (flair_draw_document_window), os/flair/surface.h (bitmap_t), spec/grafport.h
  *      (GrafPort), spec/region_algebra.h (region_t), spec/assets/palette.h
- *      (INITECH_DESKTOP_BG_RGB seafoam). CLAUDE.md Law 2 (oracle is truth), Law 3
- *      (freestanding dual-compile), Law 4 (look like the frame), Rule 2 (fail loud),
- *      Rule 3 (all bugs deep), Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ *      (INITECH_DESKTOP_BG_RGB seafoam). CLAUDE.md (The constitution) (oracle is truth), contract
+ *      (freestanding dual-compile), contract (look like the frame), contract (fail loud),
+ *      contract (all bugs deep), contract (deterministic), contract (ASCII-clean).
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean (contract). No timestamps / no nondeterminism (contract).
  */
 #ifndef INITECH_OS_FLAIR_DESKTOP_H
 #define INITECH_OS_FLAIR_DESKTOP_H
@@ -118,7 +118,7 @@
  * it) -- the initech-jmc5 (app-switch) / initech-qi8v (drag) erasure. See
  * desktop_paint_damage below for the mutation-switch this pairs with.
  *
- * Fail-loud (Rule 2) on a NULL manager / NULL dst / NULL or unattached scratch.
+ * Fail-loud (contract) on a NULL manager / NULL dst / NULL or unattached scratch.
  * ------------------------------------------------------------------------- */
 /* R4.5 optional PAT# desktop; zero retains locked teal. */
 void desktop_set_pattern(unsigned pattern);
@@ -150,7 +150,7 @@ void desktop_paint_all(WindowMgr *wm, const bitmap_t *dst, region_t *scratch);
  * damaged pixels, so the chrome is unchanged outside the damaged area and there is
  * no over-repaint / flicker. `dst` and `scratch` are as in desktop_paint_all.
  *
- * Fail-loud (Rule 2) on a NULL manager / NULL dst / NULL or unattached scratch.
+ * Fail-loud (contract) on a NULL manager / NULL dst / NULL or unattached scratch.
  * ------------------------------------------------------------------------- */
 void desktop_paint_damage(WindowMgr *wm, const bitmap_t *dst, region_t *scratch);
 
@@ -166,7 +166,7 @@ void desktop_paint_damage(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
  * FIRST if it runs at all, else the content damage is destroyed undelivered
  * (the exact initech-gofc bug).
  *
- * Fail-loud (Rule 2) on a NULL manager.
+ * Fail-loud (contract) on a NULL manager.
  * ------------------------------------------------------------------------- */
 void desktop_validate_all(WindowMgr *wm);
 

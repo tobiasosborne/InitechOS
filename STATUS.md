@@ -7,21 +7,25 @@ Rewritten, never appended to. Last rewritten 2026-11-13.
 The reboot started on 2026-11-13. The legacy tree is frozen at the tag
 `legacy-final` and runs from `../InitechOS-legacy`.
 
-`main` boots. `make image` builds the product disk set from clean in
-about 7 seconds; `make smoke` boots it on QEMU and Bochs at 8 MiB, runs
-a scripted DOS session (VER, DIR, directories, COPY, REN, DEL, a batch
-file, SORT, MORE, FIND, CHKDSK), reads the written files back on the
-host with mtools and checks for CPU faults; then runs test programs
-from a separate test disk on the same product image (file handles, FCB
-I/O, nested EXEC and exit codes, memory, clock, vectors, console
-input). About 75 seconds for both, on both emulators.
-`make test` runs every component's host tests. There is no desktop on
-`main` yet; for the GUI, use the legacy tree.
+`main` is the product again. `make image` builds the disk set. It boots
+to InitechDOS, `AUTOEXEC.BAT` runs `FLAIR`, and the desktop comes up
+with the Finder. Initech 123 launches from the `APPS` folder, saves a
+worksheet, and Special > Exit to DOS returns to the prompt.
 
-The kernel is 105,848 bytes with one 14-line entry point and no test
-scenarios in it. The loader takes a kernel of any size up to its
-512 KiB window (`make -C boot bigkernel-check` proves it with a
-237,112-byte kernel on both emulators).
+- `make test`: every component's host tests, about 100 seconds.
+- `make smoke`: three sessions on QEMU and Bochs at 8 MiB, about 100
+  seconds: a scripted DOS session; test programs run from a separate
+  test disk; and the desktop journey (open the disk, open APPS, launch
+  123, enter two numbers and a sum, save, quit, exit to DOS, start
+  FLAIR again) with the saved file checked on the host by an
+  independent `.WK1` reader.
+- `make -C turbo selfhost` and `ddc`: Turbo Initech compiles itself
+  inside the OS to a fixed point (`K2 == K3`), and the Free Pascal
+  bootstrap reaches the same bytes.
+
+The product kernel image is 268,670 bytes (kernel, shell, Toolbox,
+desktop); the kernel alone is 106,116 bytes and still links and boots.
+The loader takes any size up to its 512 KiB window.
 
 ## Import board
 
@@ -38,7 +42,8 @@ imported yet.
 | `dos/` | COMMAND.COM (still linked into the kernel image) and fifteen external utilities, built and on the disk. Host tests run: 31 gates, 676 checks, 12 seconds. Mutants: 114 of 160 killed, 46 not yet proven. Known debts in `dos/README.md`: the shell calls kernel internals; the disk utilities use INT 13h/25h/26h directly; FIND ignores file name operands. |
 | `flair/region/` | host-green, mutants converted (8 patches, all killed), compiles for the target. |
 | `flair/` | host-green: 52 test runs, 451,944 checks, 25 seconds; builds `libflair.a` for the target. Everything it needs from the kernel is one explicit interface (`flair_platform_*`, 15 functions; `NOTES-FOR-KERNEL.md`). Gate record layouts are pinned against the SDK in target builds. 243 mutation hooks still to convert. |
-| `flair/desktop/` | parked, not built: the legacy `kmain.c` (as `kmain_legacy.c`) and the Finder/desktop pieces that were in the kernel. |
+| `flair/desktop/` | builds and runs: the Finder, the event pump, tracking, launching, volumes, dialogs, extracted from the legacy `kmain.c` into eight files; the platform binding to the kernel. 17 host suites. `kmain_legacy.c` is down from 8,207 lines to 335 (film scene and text-app hand-off fragments, not built). Parked, not built: film scene, easter eggs, about box. |
+| `system/` | the final link of the product kernel image and the list of what goes on the working volume. |
 | `sdk/` | host-green: self-contained app headers in `sdk/include`, the runtime, one shared fake Toolbox (`sdk/host`), the EXE build rule (`mk/tenant.mk`), ABI tests that pin trap numbers and i386 record layouts. Limits imposed by the OS side are in `sdk/README.md`. |
 | `apps/initech123/` | host-green: 18 test programs, about a million checks, 59 real Lotus `.WK1` files, 15 seconds. Builds the real `123.EXE` (73,552 bytes, validated by an independent reader) on the shared fake. 41 mutation hooks still to convert (`tests/MUTANTS-TODO.md`). |
 | `apps/initechword/` | host-green: 13 test programs, 22,394 checks, 25 seconds. Target objects compile against `sdk/include`; not yet on `mk/tenant.mk` or the shared fake. 75 mutation hooks still to convert. |
@@ -52,33 +57,35 @@ imported yet.
 ## In flight
 
 - Import on a branch: the FLAIR Toolbox.
-- Conventions pass (owner of `mk/`, the top Makefile, `factory/testlib`,
-  `goldens/`): target build fragment, per-test timeouts and component
-  time budgets, rebuild on flag changes, pinned corpora, the import
-  checks.
+- Conventions integration (owner of `mk/`, the top Makefile,
+  `factory/testlib`, `goldens/`, and the Makefiles of `flair`, `sdk`
+  and the three imported apps): the hardened build fragments merged
+  and adopted, `make status`, pinned corpora.
 
-## The vertical slice comes first
+## The vertical slice is done
 
-Host-green components prove nothing about the product until one app
-runs on the new tree end to end. Before any further app is imported:
-the spine boots, the Toolbox and the desktop come up on it, and Initech
-123 is launched from the Finder, saves a worksheet, and the file is read
-back on the host, on QEMU and on Bochs. That run is the template for
-every other app.
-
-Known blocker for the slice: the OS-side loader refuses app files over
-64 KiB (`loader_load_tenant`), and `123.EXE` built with plain flags is
-73,552 bytes. That cap is policy from the old size regime and is lifted
-as part of the slice.
+One app runs end to end on the new tree, on both emulators, checked
+mechanically. That run is the template for every other app: build the
+executable with `mk/tenant.mk`, add it to `system/working-volume.list`,
+add its journey to the desktop smoke with a host-side check of what it
+saved. App imports are unfrozen.
 
 ## Next
 
-1. The vertical slice: Toolbox + desktop on the booting kernel, Initech
-   123 launched, saved and read back.
-2. The remaining host cores (InitechBase, InitechWord, the seed
-   compiler, the Toolbox managers), then the desktop and the apps.
-3. Product work against `GOLDEN-MASTER.md`, starting with the frame's
-   ledger and the FILE COPY data-loss bug.
+1. Merge the conventions integration (in flight), then convert the
+   remaining mutation hooks to patches (Initech 123, InitechWord,
+   InitechBase, the Toolbox) so those components can be called imported.
+2. Put InitechWord and InitechBase on the disk and into the smoke, each
+   with a host-side check of a saved file. InitechBase first needs its
+   loader reserve raised (`apps/initechbase/README.md`).
+3. Import the remaining apps: InitechCalc, InitechPaint, InitechText,
+   Calculator, Note Pad and Scrapbook, Control Panels.
+4. The frame (GOLDEN-MASTER item 3): the film scene on the new desktop,
+   the real ledger in place of `TODO_FRAME`, FILE COPY made safe.
+5. The Turbo Initech IDE; the runtime emitted by the compiler's own
+   encoders; the fixed point on Bochs.
+6. Tier 2 (`make cert`) and the first end-of-day run.
+7. The golden-master bugs in `bd ready`, data loss first.
 
 ## Notes for this week
 

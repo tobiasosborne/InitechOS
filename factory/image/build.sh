@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")/../.."
 mkdir -p build/image
-sh factory/image/mk_boot_system.sh build/image/boot.img build/boot/mbr.bin build/boot/stage2.bin build/boot/IO.SYS build/kernel/INITDOS.SYS build/factory/boot_system
+sh factory/image/mk_boot_system.sh build/image/boot.img build/boot/mbr.bin build/boot/stage2.bin build/boot/IO.SYS build/system/INITDOS.SYS build/factory/boot_system
 work=$(mktemp -d build/image/mint.XXXXXX)
 trap 'rm -rf "$work"' EXIT HUP INT TERM
 export SOURCE_DATE_EPOCH=315532800 TZ=UTC LC_ALL=C MTOOLS_SKIP_CHECK=1
@@ -17,9 +17,18 @@ printf 'FILES=20\r\nSHELL=COMMAND.COM /P\r\nDEVICE=ANSI.SYS\r\n' > "$work/CONFIG
 # to the resident interpreter through the real INT21 EXEC route.
 cp build/dos/COMMAND.COM "$work/COMMAND.COM"
 printf 'Hello from InitechDOS.\r\n' > "$work/HELLO.TXT"
+printf '@ECHO OFF\r\nFLAIR\r\n' > "$work/AUTOEXEC.BAT"
+# Product disk contents are component artifacts listed by system/.
+while read -r source destination rest; do
+ case "$source" in ""|\#*) continue;; esac
+ test -z "$rest"
+ mkdir -p "$work/$(dirname "$destination")"
+ cp "$source" "$work/$destination"
+done < system/working-volume.list
+find "$work" -exec touch -d '@315532800' {} +
 for f in "$work"/*; do
  [ "$f" = "$work/data.img" ] && continue
  touch -d '@315532800' "$f"
- mcopy -m -i "$work/data.img" "$f" ::
+ mcopy -s -m -i "$work/data.img" "$f" ::
 done
 mv "$work/data.img" build/image/data.img

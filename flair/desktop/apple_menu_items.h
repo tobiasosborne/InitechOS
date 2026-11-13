@@ -1,8 +1,8 @@
 /*
  * spec/apple_menu_items.h -- the Apple menu's rows (LOCKED spec-data; beads
- * initech-tdnl.47 / initech-tdnl.17; CLAUDE.md Rule 8).
+ * initech-tdnl.47 / initech-tdnl.17; CLAUDE.md (The constitution)).
  *
- * GROUND TRUTH (Law 1): the real Mac OS 8.1 Apple menu,
+ * GROUND TRUTH (contract): the real Mac OS 8.1 Apple menu,
  * ../system7-decomp/goldens/captures/s8_apple_menu.png (mint-007): row 1
  * "About This Computer..." (the MacRoman ellipsis 0xC9), a divider, then the
  * installed items of System Folder:Apple Menu Items in ALPHABETICAL order
@@ -16,7 +16,7 @@
  * program -- no code changes. Rows stay sorted by title (the oracle
  * harness/proptest/test_apple_menu.c holds the order).
  *
- * ASCII-clean (Rule 12): the ellipsis is the octal escape \311 (0xC9).
+ * ASCII-clean (contract): the ellipsis is the octal escape \311 (0xC9).
  */
 #ifndef INITECH_SPEC_APPLE_MENU_ITEMS_H
 #define INITECH_SPEC_APPLE_MENU_ITEMS_H

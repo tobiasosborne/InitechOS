@@ -1,0 +1,8 @@
+--- a/apps/initech123/app/face_a.c
++++ b/apps/initech123/app/face_a.c
+@@ -729,6 +729,7 @@
+     int rc = i123_wk1_write(&empty, g_wk, sizeof g_wk, &g_wk_len);
+ #else
+     int rc = i123_wk1_write(&g_sheet, g_wk, sizeof g_wk, &g_wk_len);
++    g_wk_len = 0;
+ #endif

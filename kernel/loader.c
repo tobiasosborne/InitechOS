@@ -25,7 +25,6 @@
 #include "int21.h"        /* int21_set_exit / int21_exit_fn (the repointed hook) */
 #include "fat12.h"        /* FAT-sourced load (beads initech-saw): find + read file */
 #include "psp.h"          /* psp_save_vectors / psp_load_vectors (beads 509.8)    */
-#define TBX_TENANT_IMAGE_MAX (64u*1024u)
 #define TBX_TENANT_BSS_MAX (512u*1024u)
 #define TBX_TENANT_PSP_BYTES 256u /* Existing native tenant PSP layout. */
 static void loader_move_down(uint8_t *dst,const uint8_t *src,uint32_t n)
@@ -1359,13 +1358,18 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
     if (st != LOADER_OK) {
         return st;                     /* no volume / absent / a folder / read */
     }
-    if (de.file_size == 0u || de.file_size > (uint32_t)TBX_TENANT_IMAGE_MAX) {
+    if (de.file_size == 0u) {
         return LOADER_ERR_TOO_BIG;
     }
 
     /* Constant for a given file (the O-3 avail-stable invariant needs the code
      * block to be the same size every launch, so its GENERAL free-list slot is
      * reused exactly -- DEC-AC3-1's carve/free discipline). */
+    /* Slice: there is no staging buffer or 16-bit file-size field. The
+     * caller carves the complete PSP + rounded file + BSS from its heap.
+     * Protect rounding/addition before asking it for memory. */
+    if (de.file_size > UINT32_MAX - TBX_TENANT_PSP_BYTES - 15u)
+        return LOADER_ERR_NOMEM;
     block_len = (uint32_t)TBX_TENANT_PSP_BYTES + ((de.file_size + 15u) & ~15u);
     {
         /* spec/toolbox_gate.h Sec 8 (bead initech-w96l): the BSS a compiled
@@ -1385,6 +1389,7 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
             if (bss > (uint32_t)TBX_TENANT_BSS_MAX) {
                 return LOADER_ERR_TOO_BIG;
             }
+            if (bss > UINT32_MAX - block_len) return LOADER_ERR_NOMEM;
             block_len += bss;
         }
     }

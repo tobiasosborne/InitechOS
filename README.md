@@ -69,8 +69,8 @@ The kernel checks the extended-memory minimum at boot.
    files to your fixed disk and configure `CONFIG.SYS` and `AUTOEXEC.BAT`.
 4. Remove the diskette and restart the workstation.
 
-Upon restart the system displays the InitechDOS banner and the `A:\>` command
-prompt. Type `WIN` to start the FLAIR graphical operating environment.
+Upon restart the system displays the InitechDOS banner and starts FLAIR. At the
+InitechDOS prompt, type `FLAIR` to start the FLAIR graphical operating environment.
 
 ## Conformance
 

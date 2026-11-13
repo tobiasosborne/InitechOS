@@ -15,7 +15,7 @@
  *   (finder_cmd_t[]), one dispatch function, both input paths converge, every
  *   dispatch emits FINDER-CMD."
  *
- * THE TRACE SINK -- WHY IT IS CALLER-SUPPLIED (Law 3 / layering):
+ * THE TRACE SINK -- WHY IT IS CALLER-SUPPLIED (contract / layering):
  *   os/flair layer files do NOT call serial_puts; the serial markers of the
  *   live system are emitted from os/initechdos/kmain.c (grep serial_ over os/flair:
  *   no hits). Threading a serial dependency in here would make the Toolbox
@@ -40,11 +40,11 @@
  *        predicates + trace + the named mutants), F5.2 (slice tdnl.9a).
  *      os/flair/menu.h Sec 3 (MenuItem: text/cmdChar/enabled/is_divider),
  *        Sec 4 (MenuResult / MenuResultID / MenuResultItem).
- *      CLAUDE.md Law 1 (ground truth), Law 2 (the oracle is truth -- the trace
+ *      CLAUDE.md (The constitution) (ground truth), contract (the oracle is truth -- the trace
  *        golden is HAND-AUTHORED in the oracle, never read back off this
- *        table), Law 3 (freestanding artifact, dual-compile), Rule 2 (fail
+ *        table), contract (freestanding artifact, dual-compile), contract (fail
  *        loud -- an unknown (menu,item) SAYS SO on the trace, never silently
- *        no-ops), Rule 6 (mutation-proven), Rule 11, Rule 12 (ASCII-clean).
+ *        no-ops), contract (mutation-proven), contract, contract (ASCII-clean).
  *
  * ARTIFACT code: freestanding C (ADR-0002). No libc, no malloc, no printf --
  * all storage is static const table data plus a caller-owned FinderCtx.
@@ -52,7 +52,7 @@
  * -nostdlib -std=c11 -Wall -Wextra -Werror) AND hosted for the property suite
  * (the window.c / process.c dual-compile pattern).
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean (contract). No timestamps / no nondeterminism (contract).
  */
 #ifndef INITECH_OS_FLAIR_FINDER_CMD_H
 #define INITECH_OS_FLAIR_FINDER_CMD_H
@@ -267,7 +267,7 @@ uint8_t finder_cmd_enabled(const finder_cmd_t *c, const FinderCtx *fx);
  * Emits, on the fx->trace sink, EXACTLY:
  *   - unknown (menu,item):
  *         FINDER-CMD-UNKNOWN menu=<menu_id> item=<item_1based>
- *     and no-ops (Rule 2 -- loud on the trace, never silent).
+ *     and no-ops (contract -- loud on the trace, never silent).
  *   - a known command:
  *         FINDER-CMD id=<decimal> name=<serial_name> src=<src> sel=<n>
  *     then, if its predicate says disabled:

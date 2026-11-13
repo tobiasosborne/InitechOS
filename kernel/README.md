@@ -55,7 +55,7 @@ lists every one. Conversion is not a complete mutation certificate.
 Follow-up work:
 
 - loader.c still exposes native tenant layout helpers and carries the old
-  256-byte PSP / 64 KiB file / 512 KiB BSS limits from toolbox_gate.h. They are
+  256-byte PSP / 512 KiB BSS limits from toolbox_gate.h. They are
   DOS executable-format/layout operations, with no GUI dependency, but the
   future SDK/kernel contract should own these constants explicitly.
 - loader_validation.c retains rejection of COMMAND3 and FLAIROVL content, so
@@ -66,3 +66,17 @@ Follow-up work:
   low-memory 8 MiB requirement remain unchanged. These need later scope work.
 - The parked desktop quarry belongs to the FLAIR desktop owner and is not built.
   Diagnostic-image and remaining program/session work is mapped in tests/SMOKES.md.
+
+The optional environment hook is kernel_graphical_environment (public
+include/environment.h). Its weak DOS-only default reports FLAIR is not
+installed and returns. The desktop supplies the strong implementation only
+in the system/ composition. desktop_console_restore restores the original
+framebuffer console and indexed palette after that implementation returns.
+The kernel has no Toolbox include or link dependency.
+
+loader_load_tenant no longer limits complete application files to 64 KiB.
+There was no fixed staging buffer: the supplied callback carves PSP + rounded
+file + BSS. 32-bit addition/rounding is checked for overflow, and allocation
+failure returns LOADER_ERR_NOMEM. Existing EXE validation, e_minalloc format
+and 512 KiB BSS policy remain. include/ now publishes the unchanged hardware,
+loader, framebuffer and input/timer contracts used by the desktop binding.

@@ -12,15 +12,15 @@
  *      os/flair/menu.h Sec 4 lines 171-179 (MenuResult / MenuResultID /
  *        MenuResultItem -- the (menuID<<16 | item_1based) packing this file
  *        unpacks; see fcmd_result_* below for why it is re-derived here).
- *      CLAUDE.md Law 1, Law 2, Law 3, Rule 2 (fail loud), Rule 6, Rule 11,
- *        Rule 12 (ASCII-clean).
+ *      CLAUDE.md (The constitution), contract, contract, contract (fail loud), contract, contract,
+ *        contract (ASCII-clean).
  *
- * FREESTANDING (Law 3): includes ONLY finder_cmd.h (<stdint.h>). No libc -- the
+ * FREESTANDING (contract): includes ONLY finder_cmd.h (<stdint.h>). No libc -- the
  * decimal formatting and the string append below are hand-rolled because
  * os/flair has no formatting helper of its own (grep: no u32_to_dec / itoa /
  * sprintf anywhere under os/flair) and libc is not available in the kernel.
  *
- * MUTANT KNOBS (Rule 6; -D on the same TU, from the Makefile only -- they
+ * MUTANT KNOBS (contract; -D on the same TU, from the Makefile only -- they
  * perturb THIS IMPLEMENTATION, never the oracle's hand-authored golden):
  *   FINDER_CMD_MUT_TABLE_BYPASS      -- the key-source path calls the handler
  *                                       directly, skipping the table lookup's
@@ -32,7 +32,7 @@
  * These are the design's CMD_TABLE_BYPASS / CMD_SILENT_UNKNOWN /
  * PRED_STUCK_ENABLED (F4.4 "Traceability"), namespaced to this TU.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean (contract). No timestamps / no nondeterminism (contract).
  */
 #include "finder_cmd.h"
 
@@ -48,7 +48,7 @@
  * nothing; (b) it makes the host oracle a REAL differential -- test_finder_cmd.c
  * builds every result word with menu.h's MenuResult() and this file takes it
  * apart with its own arithmetic, so a divergence between the two is RED rather
- * than agreeing by construction (Law 2 / HER-02).
+ * than agreeing by construction (contract / HER-02).
  * ------------------------------------------------------------------------- */
 static int16_t fcmd_result_id(uint32_t r)   { return (int16_t)(uint16_t)(r >> 16); }
 static uint16_t fcmd_result_item(uint32_t r){ return (uint16_t)(r & 0xFFFFu); }
@@ -56,7 +56,7 @@ static uint16_t fcmd_result_item(uint32_t r){ return (uint16_t)(r & 0xFFFFu); }
 /* ---------------------------------------------------------------------------
  * Libc-free line building. FCMD_LINE_CAP is generous for the longest line the
  * contract can produce; the appenders TRUNCATE rather than overrun, and the
- * buffer is always NUL-terminated (Rule 2 -- a truncated marker is visible on
+ * buffer is always NUL-terminated (contract -- a truncated marker is visible on
  * the trace, a smashed stack is not).
  * ------------------------------------------------------------------------- */
 #define FCMD_LINE_CAP 96
@@ -107,16 +107,6 @@ static void fcmd_emit(const FinderCtx *fx, const fcmd_line_t *l)
     fx->trace(fx->trace_user, l->buf);
 }
 
-#ifdef FINDER_CMD_MUT_TABLE_BYPASS
-/* Libc-free equality, used ONLY by the TABLE_BYPASS mutant to recognize the
- * keyboard source. The correct build never needs to inspect `src`. */
-static int fcmd_streq(const char *a, const char *b)
-{
-    if (a == 0 || b == 0) return 0;
-    while (*a != '\0' && *a == *b) { a++; b++; }
-    return (*a == '\0' && *b == '\0');
-}
-#endif
 
 /* ===========================================================================
  * THE PREDICATES  (design F4.4)
@@ -157,7 +147,7 @@ uint8_t finder_pred_front_is_diskwin(const FinderCtx *fx)
  * Empty Trash), tdnl.12 (menu resource + Select All / view modes) and tdnl.14
  * (Apple launch). Until then EVERY command routes to one honest stub that says
  * so on the trace: a command that silently did nothing would be indisting-
- * uishable from a command that was never dispatched (Rule 2).
+ * uishable from a command that was never dispatched (contract).
  * ===========================================================================*/
 uint8_t finder_pred_selection_putaway(const FinderCtx *fx)
 {
@@ -174,16 +164,11 @@ uint8_t finder_pred_selection_putaway(const FinderCtx *fx)
  * nothing in the period manuals makes it a place to create work, so the
  * command that would is dark there. Live on the desktop and in every other
  * disk window, exactly as before.
- * MUTANT FINDER_CMD_MUT_NEWFOLDER_IN_TRASH (Rule 6; test-flair-trash-edges):
+ * MUTANT FINDER_CMD_MUT_NEWFOLDER_IN_TRASH (contract; test-flair-trash-edges):
  * the pre-fix ALWAYS. NEVER in a real build. */
 uint8_t finder_pred_new_folder_here(const FinderCtx *fx)
 {
-#if defined(FINDER_CMD_MUT_NEWFOLDER_IN_TRASH)
-    (void)fx;
-    return 1u;
-#else
     return (fx != 0 && fx->front_is_trash == 0u) ? 1u : 0u;
-#endif
 }
 
 static void fcmd_nyi(FinderCtx *fx, const finder_cmd_t *c)
@@ -338,27 +323,15 @@ void finder_dispatch(FinderCtx *fx, uint32_t menu_result, const char *src)
     item    = fcmd_result_item(menu_result);
     c       = finder_cmd_lookup(menu_id, item);
 
-#ifdef FINDER_CMD_MUT_TABLE_BYPASS
-    /* MUTANT (design CMD_TABLE_BYPASS): the keyboard path shortcuts straight
-     * to the handler, so the FINDER-CMD src=key lines never appear and the
-     * predicate is never consulted. Proves the golden bites on the "both input
-     * paths converge on the table" property (F4-4). */
-    if (c != 0 && fcmd_streq(src, "key")) {
-        if (c->handler != 0) c->handler(fx, c);
-        return;
-    }
-#endif
 
     if (c == 0) {
-        /* Rule 2 / F4.4: loud on the trace, never a silent swallow. */
+        /* contract / F4.4: loud on the trace, never a silent swallow. */
         fcmd_line_init(&l);
         fcmd_puts(&l, "FINDER-CMD-UNKNOWN menu=");
         fcmd_puti(&l, menu_id);
         fcmd_puts(&l, " item=");
         fcmd_putu(&l, (uint32_t)item);
-#ifndef FINDER_CMD_MUT_SILENT_UNKNOWN
         fcmd_emit(fx, &l);
-#endif
         /* MUTANT (design CMD_SILENT_UNKNOWN): the emit above is compiled out,
          * so an unrecognized (menu,item) no-ops in total silence. */
         return;
@@ -377,12 +350,6 @@ void finder_dispatch(FinderCtx *fx, uint32_t menu_result, const char *src)
     fcmd_emit(fx, &l);
 
     live = finder_cmd_enabled(c, fx);
-#ifdef FINDER_CMD_MUT_PRED_STUCK_ENABLED
-    /* MUTANT (design PRED_STUCK_ENABLED): every command reads as live, so a
-     * disabled command dispatches into its handler instead of reporting
-     * FINDER-CMD-DISABLED. */
-    live = 1u;
-#endif
     if (!live) {
         fcmd_line_init(&l);
         fcmd_puts(&l, "FINDER-CMD-DISABLED name=");
@@ -396,15 +363,8 @@ void finder_dispatch(FinderCtx *fx, uint32_t menu_result, const char *src)
      * and reports FINDER-NYI (bead initech-tdnl.36 -- before, a bound hook's
      * default arm swallowed the command in silence). Either way the FINDER-CMD
      * line above has ALREADY been emitted. */
-#if !defined(FINDER_CMD_MUT_EXEC_SWALLOWS)
     if (fx->exec != 0 && fx->exec(fx->shell, c->id))
         return;
-#else
-    /* MUTANT (Rule 6; test-menu-handlers H3): the audited root cause -- return
-     * after the bound hook whatever it answered, so an unimplemented command
-     * dies in silence. NEVER in a real build. */
-    if (fx->exec != 0) { (void)fx->exec(fx->shell, c->id); return; }
-#endif
     if (c->handler != 0)
         c->handler(fx, c);
 }

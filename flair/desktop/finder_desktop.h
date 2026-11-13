@@ -8,7 +8,7 @@
  * WHAT THIS IS
  *   The Finder's desktop-side data model and its PURE trackers, plus the ONE
  *   painter that puts icons on the desktop through the WindowMgr underlay seam.
- *   It owns NO storage (all arrays are caller-supplied, Law 3), calls NO serial
+ *   It owns NO storage (all arrays are caller-supplied, contract), calls NO serial
  *   (Layer 3/5 files never do -- kmain emits the markers, the finder_cmd.h
  *   banner rule), touches NO FAT (os/flair must not include os/initechdos headers),
  *   and names NO color (C-8: every tone resolves through flair_look_pixel_depth).
@@ -34,7 +34,7 @@
  *      blitter_fill_rect_clipped; the label glyphs go through a per-pixel walk
  *      that tests the clip exactly like finder_icon.c does. A destination pixel
  *      is written IFF the clip contains it.
- *   5. FIXED CAPACITY, FAIL LOUD (design F1.1; Rule 2). finder_desk_add returns
+ *   5. FIXED CAPACITY, FAIL LOUD (design F1.1; contract). finder_desk_add returns
  *      -1 when the caller-supplied array is full; the caller panics.
  *
  * THE DESKTOP IS FLAT TEAL THIS SLICE. The Platinum desktop PATTERN is a canon
@@ -86,13 +86,13 @@
  *        os/flair/flair_look.h (the ONE policy seam),
  *        os/flair/text.h + spec/assets/geneva9.h (the label font),
  *        os/flair/finder_cmd.h (FinderCtx.selection_count, fed from here).
- *      CLAUDE.md Law 1 (ground truth), Law 2 (hand-authored goldens; the DB
+ *      CLAUDE.md (The constitution) (ground truth), contract (hand-authored goldens; the DB
  *        expected bytes are authored in the oracle, NEVER computed from this
- *        writer -- HER-02), Law 3 (freestanding + dual-compile), Rule 1
- *        (red->green), Rule 2 (fail loud), Rule 6 (mutation-proven), Rule 8
- *        (the DB record layout is locked data), Rule 11 (deterministic --
+ *        writer -- HER-02), contract (freestanding + dual-compile), contract
+ *        (red->green), contract (fail loud), contract (mutation-proven), contract
+ *        (the DB record layout is locked data), contract (deterministic --
  *        the underlay must be byte-reproducible or the solid leg-D whole-frame
- *        identity gate breaks), Rule 12 (ASCII-clean).
+ *        identity gate breaks), contract (ASCII-clean).
  *
  * DUAL-COMPILE (the window.c / finder_icon.c pattern): finder_desktop.c compiles
  * BOTH freestanding for the kernel and hosted for the property suite. No libc,
@@ -171,7 +171,7 @@ void finder_desk_text(const bitmap_t *dst, int x, int y, const char *s,
 #define FINDER_DBLCLICK_SLOP        4   /* max |dh|,|dv| between the two clicks */
 #define FINDER_DRAG_SLOP            3   /* movement below this is still a click */
 
-/* Fixed capacities (design F1.1: fail loud on overflow, Rule 2). 13 + NUL is
+/* Fixed capacities (design F1.1: fail loud on overflow, contract). 13 + NUL is
  * the fat12_format_83 shape ("NAME.EXT" is at most 12 chars; 13 matches
  * FAT12_NAME83_MAX so a later item-icon slice needs no widening). */
 #define FINDER_DESK_NAME_MAX       14
@@ -184,7 +184,7 @@ void finder_desk_text(const bitmap_t *dst, int x, int y, const char *s,
  * origin_dir / surface for the disk-window and Trash-staging slices (tdnl.10 /
  * .11). R3.2 ships ONLY desktop icons, so those fields would be dead weight
  * that the DB codec would have to invent values for. They arrive with the
- * slices that can populate them honestly (Law 1); the DB record layout ALREADY
+ * slices that can populate them honestly (contract); the DB record layout ALREADY
  * reserves dir_start, so adding them is not a format change.
  * ===========================================================================*/
 
@@ -200,7 +200,7 @@ void finder_desk_text(const bitmap_t *dst, int x, int y, const char *s,
  * for a record kind and a window icon can never encode as a plausible-but-wrong
  * DB record. Window icons are never encoded at all -- a disk window persists a
  * kind=4 VIEW record, not per-item positions -- and this numbering makes that a
- * fact of the data, not a fact of the control flow (Rule 2). */
+ * fact of the data, not a fact of the control flow (contract). */
 typedef enum finder_icon_kind {
     FINDER_ICON_NONE   = 0,
     FINDER_ICON_VOLUME = 1,   /* == DESKTOP.DB record kind 1 (volume-pos)      */
@@ -226,7 +226,7 @@ typedef struct finder_desk_icon {
     char     name[FINDER_DESK_NAME_MAX];   /* NUL-terminated label text        */
     /* R3.3 (bead initech-tdnl.10). F1.1's original sketch carried dir_start /
      * slot / origin_dir; R3.2 shipped none of them because a desktop-only slice
-     * could not have populated them honestly (Law 1). THIS is the field the
+     * could not have populated them honestly (contract). THIS is the field the
      * disk-window slice can: for a FOLDER icon it is that folder's OWN first
      * data cluster -- the key its window is opened under and the key its kind=4
      * view record is stored under (design F3.3 "Keyed by dir_start"). It is 0
@@ -237,7 +237,7 @@ typedef struct finder_desk_icon {
 } finder_desk_icon_t;
 
 typedef struct finder_desk {
-    finder_desk_icon_t *icons;   /* CALLER-SUPPLIED array (Law 3)              */
+    finder_desk_icon_t *icons;   /* CALLER-SUPPLIED array (contract)              */
     uint16_t            n;       /* live count                                 */
     uint16_t            cap;     /* capacity of icons[]                        */
     rgn_rect_t          bounds;  /* the usable desktop rect (below both bars)  */
@@ -257,7 +257,7 @@ void finder_desk_init(finder_desk_t *fd, finder_desk_icon_t *storage,
                       uint16_t cap, rgn_rect_t usable);
 
 /* Append one icon. Returns its index, or -1 when the array is FULL (the caller
- * fails loud -- Rule 2 / design F1.1). `name` is copied and NUL-terminated;
+ * fails loud -- contract / design F1.1). `name` is copied and NUL-terminated;
  * NULL means the empty label. */
 int finder_desk_add(finder_desk_t *fd, finder_icon_kind_t kind,
                     const char *name, int16_t x, int16_t y, uint8_t draggable);
@@ -387,7 +387,7 @@ finder_drop_t finder_desk_drag_commit(finder_desk_t *fd, int idx,
 void finder_desk_clamp(const finder_desk_t *fd, int16_t *x, int16_t *y);
 
 /* ===========================================================================
- * 9. THE DESKTOP.DB RECORD CODEC  (design F1.3 -- LOCKED layout, Rule 8)
+ * 9. THE DESKTOP.DB RECORD CODEC  (design F1.3 -- LOCKED layout, contract)
  * ---------------------------------------------------------------------------
  * The FILE lives on INITECHDOS's FAT volume and os/flair may not include os/initechdos
  * headers, so the split is: THIS module owns the BYTES (pure, host-gradable),
@@ -428,7 +428,7 @@ void finder_desk_clamp(const finder_desk_t *fd, int16_t *x, int16_t *y);
  * the cap is their sum. This is a capacity EXTENSION of an already-locked
  * layout, not a format change: the magic, the version, the 8-byte header and
  * the 24-byte record shape are untouched, and a count beyond the cap is still
- * FINDER_DB_ERR_COUNT (fail loud, Rule 2). */
+ * FINDER_DB_ERR_COUNT (fail loud, contract). */
 /* The five record kinds of the LOCKED layout (design F1.3), named so the codec
  * never spells a bare literal. R3.2 wrote 1/2; R3.3 adds 4. 3 and 5 belong to
  * the tdnl.11 file-ops slice: 5 is written since bead initech-34dh (kind=5
@@ -494,8 +494,8 @@ finder_db_status_t finder_desk_db_apply(finder_desk_t *fd, const uint8_t *buf,
  *      view_bits       <- bit0 = list view (always 0 this slice; the List/
  *                         scrollbar wiring is deferred), bits 1..15 reserved 0
  * and the window SIZE stays the deterministic default the open path derives.
- * Widening the record is a deliberate Rule 8 act with its own issue -- silently
- * bumping the format to make one feature fit is exactly what Rule 8 forbids.
+ * Widening the record is a deliberate contract act with its own issue -- silently
+ * bumping the format to make one feature fit is exactly what contract forbids.
  * The reserved view_bits are written and read back verbatim, so the field is
  * already load-bearing for the slice that does add list view.
  * ---------------------------------------------------------------------------*/
@@ -509,7 +509,7 @@ typedef struct finder_view_rec {
 
 /* Serialise the desktop icons (kind 1/2, exactly as finder_desk_db_encode) and
  * then `n_views` kind=4 view records, into ONE image. Record ORDER is icons
- * first, views second, each in array order -- deterministic (Rule 11), so the
+ * first, views second, each in array order -- deterministic (contract), so the
  * same session state always produces the same bytes. Returns the byte count
  * written, or 0 when `cap` is too small or the record count exceeds
  * FINDER_DB_MAX_RECORDS (the caller fails loud). `views` may be NULL iff
@@ -541,7 +541,7 @@ int finder_desk_db_find_view(const uint8_t *buf, uint32_t len,
  *      flags     <- bit0 = 1 when staging had to rename the item
  *                   (TRASH-RENAME); bits 1..7 reserved 0
  *      grid_x/grid_y/view_bits <- 0
- * tdnl.57 (Rule 8): a renamed kind=5 record with a known original name is
+ * tdnl.57 (contract): a renamed kind=5 record with a known original name is
  * immediately followed by kind=6, same dir_start, original name in bytes
  * 4..16, zero coordinates/flags. Unrenamed records are byte-identical.
  * Legacy renamed records without the companion refuse Put Away, never guess.
@@ -557,7 +557,7 @@ typedef struct finder_origin_rec {
 } finder_origin_rec_t;
 
 /* encode_all plus `n_origins` kind=5 records, appended AFTER the view records
- * (icons, views, origins -- the one deterministic order, Rule 11). With
+ * (icons, views, origins -- the one deterministic order, contract). With
  * n_origins == 0 the output is byte-identical to finder_desk_db_encode_all, so
  * every R3.2/R3.3 golden still holds. 0 on a short buffer / over-cap count. */
 uint32_t finder_desk_db_encode_full(const finder_desk_t *fd,
@@ -578,7 +578,7 @@ int finder_desk_db_get_origins(const uint8_t *buf, uint32_t len,
  * ===========================================================================*/
 
 /* Draw every icon whose cell rect meets `clip` (NULL clip == no extra clip).
- * Deterministic: same state + same clip => same pixels, byte for byte (Rule 11;
+ * Deterministic: same state + same clip => same pixels, byte for byte (contract;
  * the solid leg-D whole-frame identity gate depends on it). */
 void finder_desk_paint(const finder_desk_t *fd, const bitmap_t *dst,
                        const region_t *clip);
@@ -611,7 +611,7 @@ void finder_desk_invalidate(WindowMgr *wm, rgn_rect_t old_rect,
  * i.e. exactly the two calls R3.2's open() made, in the same order, producing
  * the same two icons at the same coordinates -- so the boot frame is unchanged
  * by the move (the load-bearing invariant of this slice). The CALLER supplies
- * the storage, as always (Law 3).
+ * the storage, as always (contract).
  *
  * Returns 0 on success, -1 when the storage is unusable or the array is full.
  * ===========================================================================*/

@@ -8,6 +8,7 @@ line() { grep -Fx "$2" "$1" >/dev/null || fail "$3: missing line [$2]"; }
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
 build/factory/keys < factory/session.txt > "$out/keys"
 cp build/image/data.img "$out/qemu-data.img"
+mdel -i "$out/qemu-data.img" ::AUTOEXEC.BAT
 finish=$(printf '\nsmoke-complete\r\n')
 # Raw transcript, fault log, emulator stderr and verdict are retained even green.
 if ! build/factory/qemu_harness --disk "${SMOKE_BOOT:-build/image/boot.img}" \
@@ -46,6 +47,7 @@ grep -F 'triple_fault=0 cpu_reset=2 guest_errors=0' "$out/qemu.report" >/dev/nul
 if grep -Ei 'triple fault|check_exception old: 0x8' "$out/qemu.qemu.log" >/dev/null; then fail 'QEMU fault trace'; fi
 echo 'ok QEMU: no triple fault, guest error or unexpected CPU reset'
 cp build/image/data.img "$out/bochs-data.img"
+mdel -i "$out/bochs-data.img" ::AUTOEXEC.BAT
 if ! build/factory/bochs_harness --disk build/image/boot.img --disk2 "$out/bochs-data.img" \
  --vga-ext none --keys-after SHELL-READY --keys ret,ret,v,e,r,ret,d,i,r,ret,e,c,h,o,spc,b,o,c,h,s,ret \
  --expect bochs --quit-after bochs --timeout-ms 45000 --name bochs --out "$out" \

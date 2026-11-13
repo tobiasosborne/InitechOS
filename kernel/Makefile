@@ -2,7 +2,7 @@ TOP := ..
 COMPONENT := kernel
 include $(TOP)/mk/config.mk
 TARGET_INCLUDES := -Iinclude -I. -I$(OUT)
-SOURCES := main startup console console_pixels idt pic panic int21 devices mcb psp sft config_sys sysinit loader ata block_device fat12 fileio_fat kbd mouse pit rtc irq
+SOURCES := main startup environment console console_pixels idt pic panic int21 devices mcb psp sft config_sys sysinit loader ata block_device fat12 fileio_fat kbd mouse pit rtc irq
 OBJECTS := $(addprefix $(OUT)/,$(addsuffix .o,$(SOURCES))) $(OUT)/kstart.o $(OUT)/isr.o
 include $(TOP)/mk/target.mk
 all: $(OUT)/INITDOS.SYS
@@ -34,3 +34,7 @@ $(TOP)/build/dos/command.o $(TOP)/build/dos/batch.o $(TOP)/build/dos/env.o: | re
 
 # Host test wiring (separate from target build rules).
 include tests.mk
+
+# The product composition also consumes these standalone kernel objects.
+.PHONY: objects
+objects: $(OBJECTS)

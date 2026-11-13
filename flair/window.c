@@ -841,7 +841,6 @@ void DragWindow(WindowMgr *wm, WindowPtr w, int16_t dh, int16_t dv)
     MoveWindow(wm, w, (int16_t)(s.left + dh), (int16_t)(s.top + dv));
 }
 
-#if defined(WINDOW_ENABLE_R1_OPS)
 /* Transactional document-frame change. The old visible footprint is captured
  * before any region changes, reduced by the new structure, then partitioned
  * through the existing D-5 exposure spine. Only after that partition is
@@ -1029,7 +1028,6 @@ int CollapseWindow(WindowMgr *wm, WindowPtr w)
     }
     return w->collapsed != 0;
 }
-#endif /* WINDOW_ENABLE_R1_OPS */
 
 /* ===========================================================================
  * INVALIDATE / VALIDATE.

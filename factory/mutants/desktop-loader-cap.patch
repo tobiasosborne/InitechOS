@@ -1,0 +1,7 @@
+--- a/kernel/loader.c
++++ b/kernel/loader.c
+@@ -1423,3 +1423,3 @@
+-    if (de.file_size == 0u) {
++    if (de.file_size == 0u || de.file_size > 65536u) {
+         return LOADER_ERR_TOO_BIG;
+     }

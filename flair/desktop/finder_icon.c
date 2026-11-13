@@ -12,7 +12,7 @@
  *        os/flair/cursor.c (the per-pixel composite precedent).
  *
  * Artifact C per ADR-0002: freestanding, no allocation, no libc, deterministic,
- * ASCII-only. The mutation knobs are host-oracle builds only (Rule 6) and are
+ * ASCII-only. The mutation knobs are host-oracle builds only (contract) and are
  * never compiled into a real build.
  */
 #include "finder_icon.h"
@@ -24,7 +24,7 @@
  * 16x16 cells packed (os/flair/asset_lz_data.h, generated from the unchanged
  * locked finder_small_icons.h) and unpacks them into BSS on first use; a
  * hosted build indexes the locked table. test-asset-lz proves decode ==
- * locked (Rule 8); the icon-art pixel gates still grade the cells (Law 2). */
+ * locked (contract); the icon-art pixel gates still grade the cells (contract). */
 #if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
 #define ASSET_LZ_SMALL
 #include "asset_lz.h"
@@ -56,25 +56,18 @@ _Static_assert(FINDER_SMALL_COLORS >= DESK_ICON_TONES,
 
 /* The 4-bit nibble of strike pixel (r,c); 0 is clear.
  *
- * Rule-6 knob DESK_ICON_MUT_MASK_IGNORED: a clear nibble is painted as nibble
+ * contract knob DESK_ICON_MUT_MASK_IGNORED: a clear nibble is painted as nibble
  * 1, so the transparent cells get painted and the oracles' sentinel /
- * background checks must go RED. Rule-6 knob DESK_ICON_MUT_ROW_OFF1: read the
+ * background checks must go RED. contract knob DESK_ICON_MUT_ROW_OFF1: read the
  * NEXT strike row, so the image shifts up by one and every cell oracle must
  * go RED. */
 static uint32_t icon_nibble(const FLAIRDeskIcon *icon, int r, int c, int small)
 {
     int dim = small >= 0 ? 16 : DESK_ICON_DIM;
-#if defined(DESK_ICON_MUT_ROW_OFF1)
-    int sr = (r + 1) % dim;
-#else
     int sr = r;
     (void)dim;
-#endif
     uint32_t n = small >= 0 ? finder_small_cell(small, sr * 16 + c) :
         (icon->px[sr][c >> 3] >> (28 - 4 * (c & 7))) & 0xFu;
-#if defined(DESK_ICON_MUT_MASK_IGNORED)
-    if (n == 0u) n = 1u;
-#endif
     return n;
 }
 
@@ -90,7 +83,7 @@ static void icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
     int c;
     int n;
 
-    /* Fail-soft on a NULL/zero destination or strike (Rule 2: never write past
+    /* Fail-soft on a NULL/zero destination or strike (contract: never write past
      * a buffer we were not given). */
     if (dst == (const bitmap_t *)0 || dst->base == (volatile uint8_t *)0 ||
         dst->width == 0u || dst->height == 0u ||
@@ -115,16 +108,11 @@ static void icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
         }
         int k = (int)icon->tone[n];
         if (n == 0 || k <= (int)DESK_IC_CLEAR || k >= (int)DESK_IC__COUNT) continue;
-#if !defined(DESK_ICON_MUT_NO_SELECT)
         if (hilite) k = (int)DESK_IC_SELECTED[k];
-#endif
         tone_on[n] = 1u;
         tone_px[n] = flair_look_pixel_depth(dst->bpp,
                                             (int)FLAIR_PART_ICON_CLUT + k - 1);
     }
-#if defined(DESK_ICON_MUT_NO_SELECT)
-    (void)hilite;   /* MUTANT (Rule 6): selection draws the unselected art */
-#endif
 
     for (r = 0; r < dim; r++) {
         int py = (int)y + r;

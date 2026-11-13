@@ -13,9 +13,17 @@ image: all
 smoke:
 	sh smoke.sh
 	$(MAKE) smoke-programs
+	sh smoke-desktop.sh
 all: $(OUT)/keys
 $(OUT)/keys: keys.c | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+all: $(OUT)/pixels-desktop
+$(OUT)/pixels-desktop: pixels-desktop.c | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+$(OUT)/trace-input-test: trace-input-test.c emu/bochs_trace.h | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+test: $(OUT)/trace-input-test
+	$<
 
 .PHONY: smoke-programs
 smoke-programs:

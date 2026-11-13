@@ -56,3 +56,9 @@ fifteen PROGRAMS and never copies these probes. `make smoke` invokes the
 factory sessions. `make mutants` runs proved host patches; pending patches
 remain explicitly unproved under each core's mutants/pending/ directory.
 See tests/IMPORT.md and tests/MUTANTS-TODO.md for counts and remaining work.
+
+FLAIR is a built-in command that calls the optional public kernel environment
+hook. It returns to the existing interpreter and current batch context when
+the user leaves the desktop; it does not start another COMMAND.COM. Product
+AUTOEXEC.BAT ends with FLAIR. The system link supplies the environment, while
+the standalone DOS kernel reports that it is not installed.

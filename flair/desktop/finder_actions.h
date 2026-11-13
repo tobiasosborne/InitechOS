@@ -1,6 +1,6 @@
 /* Ref: ADR-0014 DEC-14-6/-8/-10; PRD 6.3/6.5. Finder operation bodies
- * run in section COLD. State, event polls, disk drivers and alert machinery
- * remain resident. All cross-boundary symbols are generated imports/stubs. */
+ * run in desktop component. State, event polls, disk drivers and alert machinery
+ * remain resident. All cross-boundary symbols are ordinary C calls. */
 #ifndef INITECH_FINDER_ACTIONS_H
 #define INITECH_FINDER_ACTIONS_H
 #include "boot_info.h"
@@ -19,22 +19,9 @@ typedef struct flair_live_ctx {
     region_t           *comp;       /* compositor visible-region scratch (D-5)   */
     bitmap_t            off;         /* the indexed-8 offscreen (descriptor copy) */
     shell_scene_t      *scene;      /* the whole scene (heap-backed)             */
-#ifdef FLAIR_LIVE_TENANTS
-    flair_heap_t       *master;     /* the function-static FLAIR heap, exposed so
-                                     * the FLAIR_LIVE_TENANTS launch site can carve
-                                     * tenant partitions from it (ADR-0013 Sec 3.6).
-                                     * Behind the guard so the struct layout stays
-                                     * byte-identical for non-tenant builds.       */
-    FlairProcessList   *plist;      /* the resident-app list, armed by the launch
-                                     * site AFTER the tenants exist (NULL until
-                                     * then) so the drag/close dispatches can run
-                                     * the DQ2 content phase (flair_route_updates)
-                                     * instead of destroying tenant-owed damage
-                                     * (initech-gofc). Behind the guard: same
-                                     * layout argument as `master`.               */
-#endif
+    flair_heap_t       *master;     /* static descriptor over the shared heap */
+    FlairProcessList   *plist;      /* valid only while the hook is running */
 } flair_live_ctx_t;
-#ifdef FLAIR_LIVE_TENANTS
 typedef struct finder_surface {
     finder_desk_t        *fd;      /* the icon model this gesture works on     */
     finder_click_track_t *click;   /* that surface's double-click synthesiser  */
@@ -125,5 +112,4 @@ void flair_live_alert_open_icon(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                        unsigned icon);
 void finder_filecopy_run(flair_live_ctx_t *, const boot_info_t *, const char *, const char *, const char *);
 void finder_outcome_run(flair_live_ctx_t *, const boot_info_t *, const finder_cmd_outcome_t *);
-#endif
 #endif
