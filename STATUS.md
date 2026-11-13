@@ -45,7 +45,7 @@ imported yet.
 | `kernel/` | builds and boots, InitechDOS only. Host tests run: 86 gates, 11,214 checks (the legacy totals), 24 seconds, including the FAT differential against mtools and an independent reader. All mutation hooks are out of product source and are patch files: 229 of 268 killed, 39 not yet proven. The product kernel is byte-identical before and after that conversion. |
 | `dos/` | COMMAND.COM (still linked into the kernel image) and fifteen external utilities, built and on the disk. Host tests run: 31 gates, 676 checks, 12 seconds. Mutants: 114 of 160 killed, 46 not yet proven. Known debts in `dos/README.md`: the shell calls kernel internals; the disk utilities use INT 13h/25h/26h directly; FIND ignores file name operands. |
 | `flair/region/` | host-green, mutants converted (8 patches, all killed), compiles for the target. |
-| `flair/` | host-green: 52 test runs, 451,944 checks, 25 seconds; builds `libflair.a` for the target. Everything it needs from the kernel is one explicit interface (`flair_platform_*`, 15 functions; `NOTES-FOR-KERNEL.md`). Gate record layouts are pinned against the SDK in target builds. 243 mutation hooks still to convert. |
+| `flair/` | host-green: 52 test runs, 451,957 checks, 2 seconds warm; builds `libflair.a` (byte-identical across the hook conversion). All mutation hooks are patch files: 207 patches, 191 killed in an 80-second sweep, 16 pending because legacy only killed them in the emulator (each names its legacy gate). The conversion restored four pieces of host coverage the import had dropped. `make status` still says host-green because the audit scans the parked desktop sources and a host-only generator; that is the audit's bug, with the factory owner. |
 | `flair/desktop/` | builds and runs: the Finder, the event pump, tracking, launching, volumes, dialogs, extracted from the legacy `kmain.c` into eight files; the platform binding to the kernel. 17 host suites. `kmain_legacy.c` is down from 8,207 lines to 335 (film scene and text-app hand-off fragments, not built). Parked, not built: film scene, easter eggs, about box. |
 | `system/` | the final link of the product kernel image and the list of what goes on the working volume. |
 | `sdk/` | host-green: self-contained app headers in `sdk/include`, the runtime, one shared fake Toolbox (`sdk/host`), the EXE build rule (`mk/tenant.mk`), ABI tests that pin trap numbers and i386 record layouts. Limits imposed by the OS side are in `sdk/README.md`. |
@@ -66,7 +66,6 @@ Wave 2, one owner per area (branches `wave2/*`):
 |---|---|
 | `mk/`, top Makefile, `factory/`, component Makefiles' build wiring | one producer per output; an honest `make status`; `make cert` (tier 2) |
 | `apps/initechbase` | package `INITBASE.EXE`; run it in the OS with a host-side check; hooks to patches |
-| `flair/` (Toolbox) | 243 mutation hooks to patches |
 | `apps/initechword` + the desktop smoke scripts | `WORD.EXE` on the desktop; per-app smoke journeys |
 | the small apps | Calculator, Note Pad, Scrapbook, InitechText, Control Panels, InitechCalc, InitechPaint built, tested, on the disk |
 
