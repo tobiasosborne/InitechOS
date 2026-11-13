@@ -1,5 +1,5 @@
 /*
- * os/i123/core/i123.h -- Initech 123 core: the worksheet model, the .WK1
+ * apps/initech123/core/i123.h -- Initech 123 core: the worksheet model, the .WK1
  * codec and the cell display rules (THE ARTIFACT; ADR-0002 C).
  *
  * bead: initech-9u8w (I123 P1 -- grid, labels, numbers, .WK1 round-trip).
@@ -167,7 +167,7 @@ uint16_t i123_view_top(const i123_sheet_t *sh);
 /* Whole columns, from `left`, that fit in `chars` characters. */
 uint32_t i123_cols_fitting(const i123_sheet_t *sh, uint16_t left, uint32_t chars);
 
-/* ---- the .WK1 codec (os/i123/fs/wk1.c) ------------------------------------ */
+/* ---- the .WK1 codec (apps/initech123/fs/wk1.c) ------------------------------------ */
 
 /* Replace the sheet's contents with the file in buf[0..len). On error the
  * sheet is left FRESH (never half-loaded) and sh->err_off names the record. */
@@ -176,7 +176,7 @@ int  i123_wk1_read(i123_sheet_t *sh, const uint8_t *buf, uint32_t len);
 int  i123_wk1_write(const i123_sheet_t *sh, uint8_t *out, uint32_t cap,
                     uint32_t *out_len);
 
-/* ---- display (os/i123/core/fmt.c) ----------------------------------------- */
+/* ---- display (apps/initech123/core/fmt.c) ----------------------------------------- */
 
 /* The cell's own text in a column `width` characters wide: exactly `width`
  * characters + NUL in out[]. *spill receives the length of a label's text
@@ -214,7 +214,7 @@ uint32_t i123_sig_text(double x, uint32_t p, char *out, uint32_t cap);
  * when negative (the @STRING form, manual p. 13-56); 0 when too large. */
 uint32_t i123_fixed_text(double x, uint32_t decs, char *out, uint32_t cap);
 
-/* ---- formulas (os/i123/core/formula.c; bead initech-94ah) ----------------
+/* ---- formulas (apps/initech123/core/formula.c; bead initech-94ah) ----------------
  * The RPN bytecode of a FORMULA record (spec/i123/wk1_formula.h). Code is
  * position-dependent: relative references are offsets from (col,row). */
 #define I123_CODE_MAX   1024u   /* compiled code ceiling (corpus max 129)  */

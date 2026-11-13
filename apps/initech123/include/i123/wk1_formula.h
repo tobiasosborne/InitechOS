@@ -8,11 +8,11 @@
  *       Plan: docs/plans/INITECH-123-plan.md Sec 4 (@function inventory),
  *       Sec 5 (oracle strategy), Sec 6 P2.
  *
- * WHY HERE (spec/, not os/i123/core): the token numbers ARE file-format
+ * WHY HERE (spec/, not apps/initech123/core): the token numbers ARE file-format
  * bytes -- a FORMULA record's code (wk1_format.h WK1_OP_FORMULA) is a
  * stream of them -- so they are locked format data beside wk1_format.h,
  * changed only by a deliberate, issue-backed edit. The SEMANTICS of each
- * token (what @MOD returns) live in code, os/i123/core/eval.c, each rule
+ * token (what @MOD returns) live in code, apps/initech123/core/eval.c, each rule
  * citing its source.
  *
  * Ref (Law 1):

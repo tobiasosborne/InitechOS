@@ -1,5 +1,5 @@
 /*
- * os/i123/app/face_a.c -- 123.EXE, Initech 123's Face A: the classic Lotus
+ * apps/initech123/app/face_a.c -- 123.EXE, Initech 123's Face A: the classic Lotus
  * 1-2-3 Release 2.2 worksheet screen, drawn natively in a FLAIR window by a
  * disk-launched application (THE ARTIFACT).
  *
@@ -65,7 +65,7 @@
  * load from APPS/123.MNU to keep the executable under the V1 64 KiB cap.
  * The clock and "(F3)"/"[W12]" descriptors remain deferred.
  *
- * Ref: os/i123/core/i123.h (the model, the display rules -- graded against
+ * Ref: apps/initech123/core/i123.h (the model, the display rules -- graded against
  * the minted screenshots by test-i123-wk1-roundtrip); os/apps/tbx/tbx.h.
  * Freestanding C; x87 doubles (ADR-0009 Amendment DEC-01a). ASCII-clean.
  */

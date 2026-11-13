@@ -1,5 +1,5 @@
 /*
- * os/i123/core/formula.c -- the formula COMPILER (typed text -> the .WK1
+ * apps/initech123/core/formula.c -- the formula COMPILER (typed text -> the .WK1
  * RPN bytecode 123.EXE writes), DECOMPILER (bytecode -> the text the control
  * panel shows) and the structural CHECK of a code stream (THE ARTIFACT).
  *

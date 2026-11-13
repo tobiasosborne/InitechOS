@@ -1,5 +1,5 @@
 /*
- * os/i123/core/recalc.c -- RECALCULATION: natural, columnwise and rowwise
+ * apps/initech123/core/recalc.c -- RECALCULATION: natural, columnwise and rowwise
  * order, the iteration count, circular-reference detection (the CIRC
  * indicator), manual vs automatic, and the typed-entry verb for formulas
  * (THE ARTIFACT).

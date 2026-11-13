@@ -25,7 +25,8 @@ listed in `COMPONENTS` in the top Makefile.
 | `flair/` (the rest) | source moved |
 | `flair/desktop/` | empty; Finder files and the desktop half of `kmain.c` go here |
 | `sdk/` | source moved (`tbx.h`, runtime, linker script) |
-| `apps/*` | source moved; none imported |
+| `apps/initech123/` | **imported**: 18 test programs, about a million checks, 59 real Lotus `.WK1` files, 15 seconds. Target objects compile; the EXE waits for `sdk/`. 41 mutation hooks still to convert (`tests/MUTANTS-TODO.md`). |
+| other `apps/*` | source moved; none imported |
 | `turbo/` | source moved (`compiler/`, `seed/`) |
 | `goldens/`, `factory/` | empty; filled from `attic/` as components claim things |
 
@@ -35,14 +36,13 @@ listed in `COMPONENTS` in the top Makefile.
   to an `A:\>` prompt on QEMU and Bochs, branch `spine/boot-kernel`.
   The loader spike it builds on is proven (branch `reboot/loader-spike`):
   a 300,108-byte kernel boots on both emulators.
-- Pilot import of Initech 123, branch `import/i123`.
 - Import manifest: per-component list of sources, tests, goldens and
   couplings, written from the legacy Makefile.
 - Triage of the 417 legacy issues against `GOLDEN-MASTER.md`.
 
 ## Next
 
-1. Merge the Initech 123 pilot and the spine.
+1. Merge the spine.
 2. The remaining host cores (InitechBase, InitechWord, the seed
    compiler, the Toolbox managers), then the desktop and the apps.
 3. Product work against `GOLDEN-MASTER.md`, starting with the frame's
@@ -60,6 +60,5 @@ listed in `COMPONENTS` in the top Makefile.
 - The tracker still holds the legacy issues. It is reset once the triage
   lands.
 - Codenames are retired (CLAUDE.md, Names). Directories are renamed
-  except the pilot in flight: `apps/i123` becomes `apps/initech123`
-  when it merges. Identifiers and file names (`samir_*`, `pal_milton.c`,
+  to product names. Identifiers and file names (`samir_*`, `pal_milton.c`,
   `SAMIR.EXE`, `tps.pas`) are renamed as each component is imported.

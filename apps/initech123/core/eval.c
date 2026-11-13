@@ -1,5 +1,5 @@
 /*
- * os/i123/core/eval.c -- the formula EVALUATOR and the @function library
+ * apps/initech123/core/eval.c -- the formula EVALUATOR and the @function library
  * (THE ARTIFACT).
  *
  * bead: initech-94ah (I123 P2). See i123.h; token table spec/i123/wk1_formula.h.

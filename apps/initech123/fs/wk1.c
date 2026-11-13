@@ -1,7 +1,7 @@
 /*
- * os/i123/fs/wk1.c -- the .WK1 reader and writer (THE ARTIFACT).
+ * apps/initech123/fs/wk1.c -- the .WK1 reader and writer (THE ARTIFACT).
  *
- * bead: initech-9u8w. See os/i123/core/i123.h for the contract.
+ * bead: initech-9u8w. See apps/initech123/core/i123.h for the contract.
  * Ref:  spec/i123/wk1_format.h (every opcode / length / default used here);
  *       ../lotus123-decomp/specs/file-formats/wk1-format.md Sec 1 (framing),
  *       Sec 1.1 (record order), Sec 4 (cell records), Sec 4.6 (STRING follows

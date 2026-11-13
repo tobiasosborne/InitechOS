@@ -1,5 +1,5 @@
 /*
- * os/i123/core/fmt.c -- how a cell LOOKS: the 1-2-3 R2.2 display formats, the
+ * apps/initech123/core/fmt.c -- how a cell LOOKS: the 1-2-3 R2.2 display formats, the
  * label prefixes, a worksheet row, the control-panel content, the typed-value
  * parser (THE ARTIFACT).
  *

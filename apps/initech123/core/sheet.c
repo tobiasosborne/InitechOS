@@ -1,5 +1,5 @@
 /*
- * os/i123/core/sheet.c -- the Initech 123 worksheet model (THE ARTIFACT).
+ * apps/initech123/core/sheet.c -- the Initech 123 worksheet model (THE ARTIFACT).
  *
  * bead: initech-9u8w. See i123.h for the contract.
  * Ref:  spec/i123/wk1_format.h (template, defaults, the typed-literal rule);
