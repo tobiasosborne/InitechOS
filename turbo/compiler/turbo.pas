@@ -301,6 +301,17 @@ var
   GenFlags: array[1..5] of boolean;
   ArgTemp: array[1..HeaderParamMax] of integer;
 
+  { Native state: pass (0=assembly,1=count,2=emit), PC, text end,
+    BSS base/end, entry, label key, section. No program-sized byte buffer.
+    Native encodings: Intel 80386 PRM 17.2 and instruction tables;
+    layout: seed/rt/seed_dos.ld. See NATIVE.md for the independent oracle. }
+  Native: array[1..8] of integer;
+  NativeLabels: array[1..8192] of integer;
+  NativeRoutines: array[1..SymbolMax] of integer;
+  NativeLineText: string;
+
+procedure NativeLine(); forward;
+
 procedure FailLex(Code, P, L, C, Detail: integer); forward;
 procedure GenFail(L, C, Code: integer); forward;
 function PoolLengthAt(NameOffset: integer): integer; forward;
@@ -642,10 +653,493 @@ begin
   end
 end;
 
+procedure NativeByte(Value: integer);
+var B: integer;
+begin
+  B := Value mod 256;
+  if B < 0 then B := B + 256;
+  if Native[1] = 2 then
+  begin
+    if Length(OutputChunk) = 255 then GenFlush();
+    OutputChunk := OutputChunk + Chr(B)
+  end;
+  Native[2] := Native[2] + 1
+end;
+
+procedure NativeWord(Value: integer);
+var I, B: integer;
+begin
+  I := 0;
+  while I < 4 do
+  begin
+    B := Value mod 256;
+    if B < 0 then B := B + 256;
+    NativeByte(B);
+    { Arithmetic division alone rounds negatives toward zero. }
+    Value := (Value - B) div 256;
+    I := I + 1
+  end
+end;
+
+function NativeNumber(var Text: string; Start: integer): integer;
+var I, N, Sign, Base, D: integer;
+begin
+  I := Start; N := 0; Sign := 1; Base := 10;
+  if I <= Length(Text) then
+    if Text[I] = '-' then begin Sign := -1; I := I + 1 end;
+  if I + 1 <= Length(Text) then
+    if Text[I] = '0' then
+      if Text[I+1] = 'x' then begin Base := 16; I := I + 2 end;
+  while I <= Length(Text) do
+  begin
+    D := Ord(Text[I]) - 48;
+    if Text[I] >= 'A' then D := Ord(Text[I]) - 55;
+    if Text[I] >= 'a' then D := Ord(Text[I]) - 87;
+    if (D < 0) or (D >= Base) then GenFail(TokLine, TokCol, 401)
+    else N := N * Base + D;
+    I := I + 1
+  end;
+  NativeNumber := N * Sign
+end;
+
+procedure NativeHex(var Text: string);
+var I, N, D: integer;
+begin
+  I := 1;
+  while I < Length(Text) do
+  begin
+    D := Ord(Text[I]) - 48;
+    if Text[I] >= 'A' then D := Ord(Text[I]) - 55;
+    N := D * 16;
+    D := Ord(Text[I+1]) - 48;
+    if Text[I+1] >= 'A' then D := Ord(Text[I+1]) - 55;
+    NativeByte(N + D);
+    I := I + 2
+  end
+end;
+
+function NativeRegister(var Text: string): integer;
+begin
+  NativeRegister := -1;
+  if (Text = 'eax') or (Text = 'al') then NativeRegister := 0
+  else if (Text = 'ecx') or (Text = 'cl') then NativeRegister := 1
+  else if (Text = 'edx') or (Text = 'dl') then NativeRegister := 2
+  else if Text = 'ebx' then NativeRegister := 3
+  else if Text = 'esp' then NativeRegister := 4
+  else if Text = 'ebp' then NativeRegister := 5
+  else if Text = 'esi' then NativeRegister := 6
+  else if Text = 'edi' then NativeRegister := 7
+end;
+
+{ Only the fixed backend vocabulary is accepted. No external assembly input. }
+procedure NativeMemory(var Text: string; Reg: integer);
+var Base, Disp, I, Mode: integer;
+    Part: string;
+begin
+  Part := ''; I := 2;
+  while I <= 4 do begin Part := Part + Text[I]; I := I + 1 end;
+  Base := NativeRegister(Part);
+  if Base < 0 then GenFail(TokLine, TokCol, 402);
+  Part := ''; I := 5;
+  while I < Length(Text) do begin Part := Part + Text[I]; I := I + 1 end;
+  Disp := 0;
+  if Length(Part) > 0 then
+  begin
+    I := 1;
+    if Part[1] = '+' then I := 2;
+    Disp := NativeNumber(Part, I)
+  end;
+  Mode := 0;
+  if (Disp <> 0) or (Base = 5) then
+  begin
+    Mode := 1;
+    if (Disp < -128) or (Disp > 127) then Mode := 2
+  end;
+  NativeByte(Mode * 64 + Reg * 8 + Base); { NATIVE_MODRM }
+  if Base = 4 then NativeByte(36);
+  if Mode = 1 then NativeByte(Disp)
+  else if Mode = 2 then NativeWord(Disp)
+end;
+
+{ Generated label numbers are unique across families. Each needs at most two
+  addresses (e.g. else/end). The first 32 slots are the string helper labels. }
+function NativeKey(var Text: string): integer;
+var I, N: integer;
+    Part: string;
+begin
+  N := 0;
+  if Length(Text) > 2 then
+    if Text[2] = 'L' then
+    begin
+      I := Length(Text);
+      while IsDigit(Text[I]) do I := I - 1;
+      N := NativeNumber(Text, I+1) * 2 + 33;
+      Part := ''; I := 1;
+      while I <= Length(Text) do
+      begin
+        if not IsDigit(Text[I]) then Part := Part + Text[I];
+        I := I + 1
+      end;
+      if (Part = '.Lstr_after_') or (Part = '.Lendif_') or
+         (Part = '.Lwhile_end_') or (Part = '.Lfor_end_') or
+         (Part = '.Lbdone_') then N := N + 1
+    end;
+  if Text = '__str_assign' then N := 1
+  else if Text = '__str_concat' then N := 2
+  else if Text = '__str_cmp' then N := 3
+  else if Text = '__str_write' then N := 4
+  else if Text = '.len_ok' then N := 5
+  else if Text = '.n_ok' then N := 6
+  else if Text = '.have_min' then N := 7
+  else if Text = '.cmp_loop' then N := 8
+  else if Text = '.prefix_equal' then N := 9
+  else if Text = '.a_less' then N := 10
+  else if Text = '.a_greater' then N := 11
+  else if Text = '.len_less' then N := 12
+  else if Text = '.len_greater' then N := 13
+  else if Text = '.w_loop' then N := 14
+  else if Text = '.w_done' then N := 15;
+  if (N < 1) or (N > 8192) then GenFail(TokLine, TokCol, 403);
+  NativeKey := N
+end;
+
+function NativeSymbol(var Text: string; First: integer): integer;
+var I, J, Found: integer;
+    Part, Name: string;
+begin
+  Part := ''; I := First;
+  while I <= Length(Text) do begin Part := Part + Text[I]; I := I + 1 end;
+  Found := 0; J := 1;
+  while J <= SymCount do
+  begin
+    if SymScope[J] = 0 then
+    begin
+      PoolGet(SymNameOffset[J], PoolLengthAt(SymNameOffset[J]), Name);
+      if Name = Part then Found := J
+    end;
+    J := J + 1
+  end;
+  if Found = 0 then GenFail(TokLine, TokCol, 404);
+  NativeSymbol := Found
+end;
+
+function NativeAddress(var Text: string): integer;
+var N: integer;
+begin
+  N := 0;
+  if Native[1] = 2 then
+  begin
+    if Text = 'serial_putc' then N := 49
+    else if Text = 'serial_puts' then N := 55
+    else if Text = 'serial_put_int' then N := 74
+    else if Text = 'rtl_file_assign' then N := 171
+    else if Text = 'rtl_file_reset' then N := 215
+    else if Text = 'rtl_file_rewrite' then N := 265
+    else if Text = 'rtl_file_blockread' then N := 317
+    else if Text = 'rtl_file_blockwrite' then N := 357
+    else if Text = 'str_bool_true' then N := Native[3] + 20
+    else if Text = 'str_bool_false' then N := Native[3] + 25
+    else if Text[1] = 'v' then
+      N := Native[4] + SymOffset[NativeSymbol(Text, 3)]
+    else if Text[1] = 'p' then
+      N := NativeRoutines[NativeSymbol(Text, 4)]
+    else
+    begin
+      N := NativeLabels[NativeKey(Text)];
+      if N = 0 then GenFail(TokLine, TokCol, 405)
+    end
+  end;
+  NativeAddress := N
+end;
+
+procedure NativeDefine(var Text: string);
+var N: integer;
+begin
+  if Text = 'pas_main' then Native[6] := Native[2]
+  else if Text[1] = 'p' then
+  begin
+    N := NativeSymbol(Text, 4);
+    if Native[1] = 1 then NativeRoutines[N] := Native[2]
+    else if NativeRoutines[N] <> Native[2] then GenFail(TokLine, TokCol, 406)
+  end
+  else if Text[1] <> 'v' then
+  begin
+    N := NativeKey(Text);
+    if Native[1] = 1 then NativeLabels[N] := Native[2] { NATIVE_FIXUP }
+    else if NativeLabels[N] <> Native[2] then GenFail(TokLine, TokCol, 407)
+  end
+end;
+
+procedure NativeLine();
+var Op, A, B, Part: string;
+    I, R, S, N, Code, Small, Width: integer;
+begin
+  I := 1; Op := ''; A := ''; B := '';
+  { Leading spaces, mnemonic or label, then operands with spaces removed. }
+  R := 0;
+  while I <= Length(NativeLineText) do
+  begin
+    if R = 0 then
+    begin
+      if NativeLineText[I] <> ' ' then
+      begin Op := Op + NativeLineText[I]; R := 1 end
+    end
+    else if R = 1 then
+    begin
+      if NativeLineText[I] = ' ' then R := 2
+      else Op := Op + NativeLineText[I]
+    end
+    else if R = 2 then
+    begin
+      if NativeLineText[I] = ',' then R := 3
+      else if NativeLineText[I] <> ' ' then A := A + NativeLineText[I]
+    end
+    else if NativeLineText[I] <> ' ' then B := B + NativeLineText[I];
+    I := I + 1
+  end;
+  if Length(Op) > 0 then
+  begin
+    if Op[Length(Op)] = ':' then
+    begin
+      Op[0] := Chr(Length(Op)-1);
+      if Native[8] = 3 then NativeDefine(Op);
+      Op := ''
+    end;
+    if Length(Op) > 0 then
+    if Op[1] = 'j' then
+    begin
+      Part := ''; I := 5;
+      while I <= Length(A) do begin Part := Part + A[I]; I := I + 1 end;
+      A := Part
+    end;
+    if Op = 'section' then
+    begin
+      if A = '.text' then Native[8] := 3
+      else if A = '.bss' then Native[8] := 2
+      else if A = '.rodata' then Native[8] := 1
+      else GenFail(TokLine, TokCol, 408)
+    end
+    else if (Op = '') or (Op = 'align') or (Op = 'bits') or
+            (Op = 'global') or (Op = 'extern') then begin end
+    else if Op[1] = ';' then begin end
+    else if Native[8] = 3 then
+    begin
+      R := NativeRegister(A); S := NativeRegister(B);
+      Width := 4;
+      if Length(A) = 2 then Width := 1;
+      if Op = 'db' then
+      begin
+        Part := A;
+        NativeByte(NativeNumber(Part, 1));
+        Part := ''; I := 1;
+        while I <= Length(B) + 1 do
+        begin
+          if I > Length(B) then
+          begin NativeByte(NativeNumber(Part, 1)); Part := '' end
+          else if B[I] = ',' then
+          begin NativeByte(NativeNumber(Part, 1)); Part := '' end
+          else Part := Part + B[I];
+          I := I + 1
+        end
+      end
+      else if (Op = 'jmp') or (Op = 'call') or (Op[1] = 'j') then
+      begin
+        N := NativeAddress(A);
+        if Op = 'jmp' then NativeByte(233)
+        else if Op = 'call' then NativeByte(232)
+        else
+        begin
+          Code := -1;
+          if Op = 'jz' then Code := 132 else if Op = 'jg' then Code := 143
+          else if Op = 'jl' then Code := 140 else if Op = 'ja' then Code := 135
+          else if Op = 'jb' then Code := 130 else if Op = 'jbe' then Code := 134
+          else if Op = 'jae' then Code := 131;
+          if Code < 0 then GenFail(TokLine, TokCol, 409);
+          NativeByte(15); NativeByte(Code)
+        end;
+        NativeWord(N - (Native[2] + 4)) { NATIVE_REL32 }
+      end
+      else if (Op = 'push') or (Op = 'pop') or (Op = 'inc') or (Op = 'dec') then
+      begin
+        if Op = 'push' then Code := 80 else if Op = 'pop' then Code := 88
+        else if Op = 'inc' then Code := 64 else Code := 72;
+        if R >= 0 then NativeByte(Code + R)
+        else if (Op = 'push') and (A = 'dword1') then begin NativeByte(106); NativeByte(1) end
+        else GenFail(TokLine, TokCol, 410)
+      end
+      else if Op = 'leave' then NativeByte(201)
+      else if Op = 'ret' then NativeByte(195)
+      else if Op = 'cdq' then NativeByte(153)
+      else if (Op = 'rep') and (A = 'movsb') then begin NativeByte(243); NativeByte(164) end
+      else if Op = 'neg' then begin NativeByte(247); NativeByte(216) end
+      else if Op = 'idiv' then begin NativeByte(247); NativeByte(249) end
+      else if Op = 'lea' then
+      begin
+        NativeByte(141);
+        if B = '[edi+eax+1]' then begin NativeByte(84); NativeByte(7); NativeByte(1) end
+        else NativeMemory(B, R)
+      end
+      else if Op = 'movzx' then
+      begin
+        NativeByte(15); NativeByte(182);
+        if B = 'al' then NativeByte(192 + R*8)
+        else
+        begin
+          Part := ''; I := 5;
+          while I <= Length(B) do begin Part := Part + B[I]; I := I + 1 end;
+          NativeMemory(Part, R)
+        end
+      end
+      else if (Op = 'sete') or (Op = 'setne') or (Op = 'setl') or
+              (Op = 'setle') or (Op = 'setg') or (Op = 'setge') then
+      begin
+        Code := 148;
+        if Op = 'setne' then Code := 149 else if Op = 'setl' then Code := 156
+        else if Op = 'setle' then Code := 158 else if Op = 'setg' then Code := 159
+        else if Op = 'setge' then Code := 157;
+        NativeByte(15); NativeByte(Code); NativeByte(192)
+      end
+      else if Op = 'mov' then
+      begin
+        if (R >= 0) and (S >= 0) then
+        begin NativeByte(137); NativeByte(192 + S*8 + R) end
+        else if R >= 0 then
+        begin
+          if B[1] = '[' then
+          begin
+            Code := 139; if Width = 1 then Code := 138;
+            NativeByte(Code); NativeMemory(B, R)
+          end
+          else
+          begin
+            Code := 184; if Width = 1 then Code := 176;
+            NativeByte(Code + R);
+            if IsDigit(B[1]) or (B[1] = '-') then N := NativeNumber(B, 1)
+            else N := 262400 + NativeAddress(B);
+            if Width = 1 then NativeByte(N) else NativeWord(N)
+          end
+        end
+        else if S >= 0 then
+        begin
+          Code := 137; if Length(B) = 2 then Code := 136;
+          Part := A;
+          if A[1] <> '[' then
+          begin
+            Part := ''; I := 5;
+            while I <= Length(A) do begin Part := Part + A[I]; I := I + 1 end
+          end;
+          NativeByte(Code); NativeMemory(Part, S)
+        end
+        else
+        begin
+          I := 5; Code := 198;
+          if A[1] = 'd' then begin I := 6; Code := 199 end;
+          Part := '';
+          while I <= Length(A) do begin Part := Part + A[I]; I := I + 1 end;
+          NativeByte(Code); NativeMemory(Part, 0);
+          N := NativeNumber(B, 1);
+          if Code = 198 then NativeByte(N) else NativeWord(N)
+        end
+      end
+      else if (Op = 'add') or (Op = 'sub') or (Op = 'cmp') or (Op = 'and') or
+              (Op = 'or') or (Op = 'xor') or (Op = 'test') or (Op = 'imul') then
+      begin
+        Code := 0;
+        if Op = 'or' then Code := 1 else if Op = 'and' then Code := 4
+        else if Op = 'sub' then Code := 5 else if Op = 'xor' then Code := 6
+        else if Op = 'cmp' then Code := 7;
+        if S >= 0 then
+        begin
+          if Op = 'test' then NativeByte(133)
+          else if Op = 'imul' then begin NativeByte(15); NativeByte(175) end
+          else if Width = 1 then NativeByte(Code*8) else NativeByte(Code*8 + 1);
+          if Op = 'imul' then NativeByte(192 + R*8 + S)
+          else NativeByte(192 + S*8 + R)
+        end
+        else if B[1] = '[' then
+        begin NativeByte(Code*8+3); NativeMemory(B, R) end
+        else
+        begin
+          N := NativeNumber(B, 1);
+          Small := 0;
+          if (N >= -128) and (N <= 127) then Small := 1;
+          if Op = 'imul' then
+          begin
+            NativeByte(105 + Small*2); NativeByte(192 + R*9)
+          end
+          else
+          begin
+            if (R = 0) and (Small = 0) then NativeByte(Code*8+5)
+            else
+            begin
+              NativeByte(129 + Small*2);
+              if R >= 0 then NativeByte(192 + Code*8 + R)
+              else
+              begin
+                Part := ''; I := 6;
+                while I <= Length(A) do begin Part := Part + A[I]; I := I + 1 end;
+                NativeMemory(Part, Code)
+              end
+            end
+          end;
+          if Small = 1 then NativeByte(N) else NativeWord(N)
+        end
+      end
+      else GenFail(TokLine, TokCol, 411)
+    end
+  end;
+  NativeLineText := ''
+end;
+
+
+{ BEGIN NASM RUNTIME TABLE -- tests/runtime-table.c; do not edit. }
+procedure NativeRuntime();
+begin
+  GenText := 'FCBF'; NativeHex(GenText)
+  ;
+  NativeWord(262400 + Native[4]);
+  GenText := 'B9'; NativeHex(GenText)
+  ;
+  NativeWord(262400 + Native[5]);
+  GenText := '29F931C089CAC1E902F3AB89D183E103F3AABCFCFF0700E8'; NativeHex(GenText)
+  ;
+  NativeWord(Native[6] - 39);
+  GenText := 'B8004C0000CD21F4EBFD66BAF803EEC35689C68A0684C0740866BAF803EE46EBF25EC35631F685C07907BE01000000F7'; NativeHex(GenText)
+  ;
+  GenText := 'D8B900000000BB0A00000031D2F7F380C230524185C075F385F67407B02D66BAF803EE5866BAF803EE4975F75EC39090'; NativeHex(GenText)
+  ;
+  GenText := '9090909090909090908B1E83FB057213B8003E0000CD210F821E010000C70600000000C35589E55356578B7508E8D7FF'; NativeHex(GenText)
+  ;
+  GenText := 'FFFF8B5D088B750C0FB60E468D7B04FCF3A4C60700C703000000005F5E5B5DC35589E5535657837D0C010F85D4000000'; NativeHex(GenText)
+  ;
+  GenText := '8B7508E8A1FFFFFF8B75088D5604B8003D0000CD210F82C000000089065F5E5B5DC35589E5535657837D0C010F85A200'; NativeHex(GenText)
+  ;
+  GenText := '00008B7508E86FFFFFFF8B75088D560431C9B8003C0000CD210F828C00000089065F5E5B5DC35589E55356578B4D1085'; NativeHex(GenText)
+  ;
+  GenText := 'C978718B75088B1E8B550CB8003F0000CD2172678B7D1489075F5E5B5DC331C0EB0CB801000000EB05B8020000005589'; NativeHex(GenText)
+  ;
+  GenText := 'E553565789C68B4D1085C9783783FE01750585C97401498B7D088B1F83FE027501438B550CB800400000CD21721D83FE'; NativeHex(GenText)
+  ;
+  GenText := '017507837D10007401408B7D1489075F5E5B5DC3B801000000EB000FB7C050B8'; NativeHex(GenText)
+  ;
+  NativeWord(262400 + Native[3]);
+  GenText := 'E867FEFFFF58E874FEFFFFB00AE854FEFFFFB8014C0000CD21FAF4EBFD'; NativeHex(GenText)
+  ;
+  while Native[2] < 496 do NativeByte(144)
+end;
+{ END NASM RUNTIME TABLE }
+
 procedure GenChar(C: char);
 var
   N: integer;
 begin
+  if Native[1] > 0 then
+  begin
+    if C = Chr(10) then NativeLine()
+    else if Length(NativeLineText) >= 255 then GenFail(TokLine, TokCol, 412)
+    else NativeLineText := NativeLineText + C
+  end
+  else
   if not GenFlags[2] then
   begin
     if Length(OutputChunk) = 255 then GenFlush();
@@ -2344,7 +2838,23 @@ var
   LabelNumber, I: integer;
 begin
   LabelNumber := GenNewLabel();
-  begin GenText := '    jmp '; GenPut(GenText) end;
+  if Native[1] > 0 then
+  begin
+    NativeByte(233);
+    NativeWord(NativeLabels[LabelNumber*2+34] - Native[2] - 4);
+    NativeLabels[LabelNumber*2+33] := Native[2];
+    if ShortForm then NativeByte(Length(Text));
+    I := 1;
+    while I <= Length(Text) do
+    begin NativeByte(Ord(Text[I])); I := I + 1 end;
+    if not ShortForm then NativeByte(0);
+    NativeLabels[LabelNumber*2+34] := Native[2];
+    NativeByte(184);
+    NativeWord(262400 + NativeLabels[LabelNumber*2+33])
+  end
+  else
+  begin
+  begin GenText := '    jmp near '; GenPut(GenText) end;
   begin GenText := '.Lstr_after_'; GenPut(GenText); GenInt(LabelNumber) end;
   GenChar(Chr(10));
   begin GenText := '.Lstr_'; GenPut(GenText); GenInt(LabelNumber) end;
@@ -2367,6 +2877,7 @@ begin
   begin GenText := '    mov eax, '; GenPut(GenText) end;
   begin GenText := '.Lstr_'; GenPut(GenText); GenInt(LabelNumber) end;
   GenChar(Chr(10))
+  end
 end;
 
 procedure GenCoerceChar(var TempBytes: integer);
@@ -2470,7 +2981,7 @@ begin
   begin GenText := '__str_assign:'; GenLine(GenText) end;
   begin GenText := '    movzx eax, byte [esi]'; GenLine(GenText) end;
   begin GenText := '    cmp eax, ecx'; GenLine(GenText) end;
-  begin GenText := '    jbe .len_ok'; GenLine(GenText) end;
+  begin GenText := '    jbe near .len_ok'; GenLine(GenText) end;
   begin GenText := '    mov eax, ecx'; GenLine(GenText) end;
   begin GenText := '.len_ok:'; GenLine(GenText) end;
   begin GenText := '    mov [edi], al'; GenLine(GenText) end;
@@ -2485,7 +2996,7 @@ begin
   begin GenText := '    mov edx, 255'; GenLine(GenText) end;
   begin GenText := '    sub edx, eax'; GenLine(GenText) end;
   begin GenText := '    cmp ecx, edx'; GenLine(GenText) end;
-  begin GenText := '    jbe .n_ok'; GenLine(GenText) end;
+  begin GenText := '    jbe near .n_ok'; GenLine(GenText) end;
   begin GenText := '    mov ecx, edx'; GenLine(GenText) end;
   begin GenText := '.n_ok:'; GenLine(GenText) end;
   begin GenText := '    lea edx, [edi+eax+1]'; GenLine(GenText) end;
@@ -2500,7 +3011,7 @@ begin
   begin GenText := '    movzx edx, byte [edi]'; GenLine(GenText) end;
   begin GenText := '    mov ecx, eax'; GenLine(GenText) end;
   begin GenText := '    cmp edx, ecx'; GenLine(GenText) end;
-  begin GenText := '    jae .have_min'; GenLine(GenText) end;
+  begin GenText := '    jae near .have_min'; GenLine(GenText) end;
   begin GenText := '    mov ecx, edx'; GenLine(GenText) end;
   begin GenText := '.have_min:'; GenLine(GenText) end;
   begin GenText := '    push eax'; GenLine(GenText) end;
@@ -2509,16 +3020,16 @@ begin
   begin GenText := '    inc edi'; GenLine(GenText) end;
   begin GenText := '.cmp_loop:'; GenLine(GenText) end;
   begin GenText := '    test ecx, ecx'; GenLine(GenText) end;
-  begin GenText := '    jz .prefix_equal'; GenLine(GenText) end;
+  begin GenText := '    jz near .prefix_equal'; GenLine(GenText) end;
   begin GenText := '    mov al, [esi]'; GenLine(GenText) end;
   begin GenText := '    mov dl, [edi]'; GenLine(GenText) end;
   begin GenText := '    cmp al, dl'; GenLine(GenText) end;
-  begin GenText := '    jb .a_less'; GenLine(GenText) end;
-  begin GenText := '    ja .a_greater'; GenLine(GenText) end;
+  begin GenText := '    jb near .a_less'; GenLine(GenText) end;
+  begin GenText := '    ja near .a_greater'; GenLine(GenText) end;
   begin GenText := '    inc esi'; GenLine(GenText) end;
   begin GenText := '    inc edi'; GenLine(GenText) end;
   begin GenText := '    dec ecx'; GenLine(GenText) end;
-  begin GenText := '    jmp .cmp_loop'; GenLine(GenText) end;
+  begin GenText := '    jmp near .cmp_loop'; GenLine(GenText) end;
   begin GenText := '.a_less:'; GenLine(GenText) end;
   begin GenText := '    add esp, 8'; GenLine(GenText) end;
   begin GenText := '    mov eax, -1'; GenLine(GenText) end;
@@ -2531,8 +3042,8 @@ begin
   begin GenText := '    pop edx'; GenLine(GenText) end;
   begin GenText := '    pop eax'; GenLine(GenText) end;
   begin GenText := '    cmp eax, edx'; GenLine(GenText) end;
-  begin GenText := '    jb .len_less'; GenLine(GenText) end;
-  begin GenText := '    ja .len_greater'; GenLine(GenText) end;
+  begin GenText := '    jb near .len_less'; GenLine(GenText) end;
+  begin GenText := '    ja near .len_greater'; GenLine(GenText) end;
   begin GenText := '    mov eax, 0'; GenLine(GenText) end;
   begin GenText := '    ret'; GenLine(GenText) end;
   begin GenText := '.len_less:'; GenLine(GenText) end;
@@ -2546,12 +3057,12 @@ begin
   begin GenText := '    inc esi'; GenLine(GenText) end;
   begin GenText := '.w_loop:'; GenLine(GenText) end;
   begin GenText := '    test ecx, ecx'; GenLine(GenText) end;
-  begin GenText := '    jz .w_done'; GenLine(GenText) end;
+  begin GenText := '    jz near .w_done'; GenLine(GenText) end;
   begin GenText := '    mov al, [esi]'; GenLine(GenText) end;
   begin GenText := '    call serial_putc'; GenLine(GenText) end;
   begin GenText := '    inc esi'; GenLine(GenText) end;
   begin GenText := '    dec ecx'; GenLine(GenText) end;
-  begin GenText := '    jmp .w_loop'; GenLine(GenText) end;
+  begin GenText := '    jmp near .w_loop'; GenLine(GenText) end;
   begin GenText := '.w_done:'; GenLine(GenText) end;
   begin GenText := '    ret'; GenLine(GenText) end
 end;
@@ -3896,11 +4407,11 @@ begin
           begin
             LabelNumber := GenNewLabel();
             begin GenText := '    test eax, eax'; GenLine(GenText) end;
-            begin GenText := '    jz '; GenPut(GenText) end;
+            begin GenText := '    jz near '; GenPut(GenText) end;
             begin GenText := '.Lbfalse_'; GenPut(GenText); GenInt(LabelNumber) end;
             GenChar(Chr(10));
             begin GenText := '    mov eax, str_bool_true'; GenLine(GenText) end;
-            begin GenText := '    jmp '; GenPut(GenText) end;
+            begin GenText := '    jmp near '; GenPut(GenText) end;
             begin GenText := '.Lbdone_'; GenPut(GenText); GenInt(LabelNumber) end;
             GenChar(Chr(10));
             begin GenText := '.Lbfalse_'; GenPut(GenText); GenInt(LabelNumber) end;
@@ -3995,7 +4506,7 @@ begin
     if GenFlags[1] then
     begin
       begin GenText := '    test eax, eax'; GenLine(GenText) end;
-      begin GenText := '    jz '; GenPut(GenText) end;
+      begin GenText := '    jz near '; GenPut(GenText) end;
       begin GenText := '.Lelse_'; GenPut(GenText); GenInt(LabelNumber) end;
       GenChar(Chr(10))
     end;
@@ -4004,7 +4515,7 @@ begin
   if not ParseFailed then
     if GenFlags[1] then
     begin
-      begin GenText := '    jmp '; GenPut(GenText) end;
+      begin GenText := '    jmp near '; GenPut(GenText) end;
       begin GenText := '.Lendif_'; GenPut(GenText); GenInt(LabelNumber) end;
       GenChar(Chr(10));
       begin GenText := '.Lelse_'; GenPut(GenText); GenInt(LabelNumber) end;
@@ -4057,7 +4568,7 @@ begin
     if GenFlags[1] then
     begin
       begin GenText := '    test eax, eax'; GenLine(GenText) end;
-      begin GenText := '    jz '; GenPut(GenText) end;
+      begin GenText := '    jz near '; GenPut(GenText) end;
       begin GenText := '.Lwhile_end_'; GenPut(GenText); GenInt(LabelNumber) end;
       GenChar(Chr(10))
     end;
@@ -4066,7 +4577,7 @@ begin
   if not ParseFailed then
     if GenFlags[1] then
     begin
-      begin GenText := '    jmp '; GenPut(GenText) end;
+      begin GenText := '    jmp near '; GenPut(GenText) end;
       begin GenText := '.Lwhile_top_'; GenPut(GenText); GenInt(LabelNumber) end;
       GenChar(Chr(10));
       begin GenText := '.Lwhile_end_'; GenPut(GenText); GenInt(LabelNumber) end;
@@ -4152,8 +4663,8 @@ begin
       GenDesignatorAddress(ControlSym);
       begin GenText := '    mov eax, [eax]'; GenLine(GenText) end;
       begin GenText := '    cmp eax, [esp]'; GenLine(GenText) end;
-      if Direction = 1 then begin GenText := '    jg '; GenPut(GenText) end
-      else begin GenText := '    jl '; GenPut(GenText) end;
+      if Direction = 1 then begin GenText := '    jg near '; GenPut(GenText) end
+      else begin GenText := '    jl near '; GenPut(GenText) end;
       begin GenText := '.Lfor_end_'; GenPut(GenText); GenInt(LabelNumber) end;
       GenChar(Chr(10))
     end;
@@ -4165,7 +4676,7 @@ begin
       GenDesignatorAddress(ControlSym);
       if Direction = 1 then begin GenText := '    add dword [eax], 1'; GenLine(GenText) end
       else begin GenText := '    sub dword [eax], 1'; GenLine(GenText) end;
-      begin GenText := '    jmp '; GenPut(GenText) end;
+      begin GenText := '    jmp near '; GenPut(GenText) end;
       begin GenText := '.Lfor_top_'; GenPut(GenText); GenInt(LabelNumber) end;
       GenChar(Chr(10));
       begin GenText := '.Lfor_end_'; GenPut(GenText); GenInt(LabelNumber) end;
@@ -4216,7 +4727,7 @@ begin
     if GenFlags[1] then
     begin
       begin GenText := '    test eax, eax'; GenLine(GenText) end;
-      begin GenText := '    jz '; GenPut(GenText) end;
+      begin GenText := '    jz near '; GenPut(GenText) end;
       begin GenText := '.Lrepeat_top_'; GenPut(GenText); GenInt(LabelNumber) end;
       GenChar(Chr(10))
     end;
@@ -4958,8 +5469,23 @@ begin
   GenFlags[2] := false;
   GenFlags[3] := false;
   GenFlags[4] := false;
-  Assign(OutputFile, 'TURBOOUT.S');
-  Rewrite(OutputFile, 1);
+  NativeLineText := '';
+  Native[8] := 0;
+  if Native[1] = 0 then
+  begin
+    Assign(OutputFile, 'TURBOOUT.S');
+    Rewrite(OutputFile, 1)
+  end
+  else
+  begin
+    if Native[1] = 2 then
+    begin
+      Assign(OutputFile, 'TURBOOUT.COM');
+      Rewrite(OutputFile, 1)
+    end;
+    Native[2] := 0;
+    NativeRuntime()
+  end;
   begin GenText := '; Generated by Turbo Initech (B9.4).'; GenLine(GenText) end;
   begin GenText := '; Ref: ADR-0007 DEC-04/DEC-05; deterministic stack-machine x86.'; GenLine(GenText) end;
   begin GenText := 'bits 32'; GenLine(GenText) end;
@@ -4993,10 +5519,40 @@ begin
   if not GenFlags[2] then
     if not TypeFailed then
       if not ParseFailed then
-        Writeln('TURBO-GEN-OK bytes=', GenData[2],
-                ' labels=', GenData[3]);
+        if Native[1] = 0 then
+          Writeln('TURBO-GEN-OK bytes=', GenData[2],
+                  ' labels=', GenData[3]);
   GenFlags[1] := false;
   TypeMode := false
+end;
+
+procedure RunNative();
+var I: integer;
+begin
+  I := 1;
+  while I <= 8192 do begin NativeLabels[I] := 0; I := I + 1 end;
+  I := 1;
+  while I <= SymbolMax do begin NativeRoutines[I] := 0; I := I + 1 end;
+  Native[1] := 1;
+  RunCodeGenerator();
+  Native[3] := ((Native[2] + 3) div 4) * 4; { NATIVE_SECTION }
+  Native[4] := Native[3] + 32;
+  Native[5] := Native[4] + GlobalBytes;
+  if not GenFlags[2] then
+  begin
+    Native[1] := 2;
+    RunCodeGenerator();
+    if not GenFlags[2] then
+    begin
+      while Native[2] < Native[3] do NativeByte(0);
+      GenText := '46494C45494F2D4552524F522041583D00000000'; NativeHex(GenText);
+      GenText := '545255450046414C534500'; NativeHex(GenText);
+      GenFlush();
+      if not GenFlags[2] then
+        Writeln('TURBO-NATIVE-OK bytes=', GenData[2], ' end=', 262400 + Native[5])
+    end
+  end;
+  Native[1] := 0
 end;
 
 begin
@@ -5028,6 +5584,9 @@ begin
   else if TypeFailed then
     Writeln('TURBO-GEN-SKIP type-error')
   else
+  begin
     RunCodeGenerator();
+    if not GenFlags[2] then RunNative()
+  end;
   Writeln('TURBO-GEN-END')
 end.

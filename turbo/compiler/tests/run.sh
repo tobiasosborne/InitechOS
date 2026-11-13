@@ -60,6 +60,8 @@ gen*|self-generation)
         test "$(grep -c '^TURBO-GEN-OK bytes=[0-9][0-9]* labels=[0-9][0-9]*$' "$scratch/$pass/bracket-GEN")" -eq 1
         test -s "$scratch/$pass/TURBOOUT.S"
         links "$scratch/$pass"
+        test "$(grep -c '^TURBO-NATIVE-OK ' "$scratch/$pass/normalized")" -eq 1
+        cmp "$scratch/$pass/program.com" "$scratch/$pass/TURBOOUT.COM"
     done
     for artifact in TURBOOUT.S program.o bare.elf dos.elf program.com; do
         cmp "$scratch/a/$artifact" "$scratch/b/$artifact"

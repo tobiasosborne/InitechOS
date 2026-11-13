@@ -23,7 +23,7 @@ SECTIONS
     .text : {
         *(.text._start)
         *(.text*)
-    }
+    } =0x90909090
 
     .rodata : { *(.rodata*) }
     .data   : { *(.data*) }
@@ -35,11 +35,11 @@ SECTIONS
         *(.bss*)
         *(COMMON)
         __bss_end = .;
-    }
+    } =0x90909090
 
     /DISCARD/ : {
         *(.comment)
         *(.note*)
         *(.eh_frame*)
-    }
+    } =0x90909090
 }

@@ -1,0 +1,53 @@
+Uncommitted M1 prototype. NO MILESTONE ACCEPTANCE OR GUEST EXECUTION CLAIM.
+
+Branch: turbo/native
+Scope: only turbo/. No bd, subagents, pushes, kernel/factory changes.
+Baseline make -C turbo test: 44 entries green.
+Prototype make -C turbo/compiler test: 38 entries, 2 failures.
+- 17/17 corpus tests pass, including direct COM vs NASM/ld/objcopy equality.
+- Self-generation reaches and passes the same cmp, then fails arena bound.
+- seed-build fails its unchanged BSS bound: test 108856 -le 73728.
+Independent aggregate cmp: NASM byte equality: 18/18 images.
+Mutants have NOT been added or run; runtime regeneration is NOT wired to tier 0.
+K1 guest execution, K2/K3, M2, M3, M4 and M5 have NOT been attempted.
+
+Sizes:
+  Seed image: 108140 bytes; BSS 108856 bytes; __bss_end 0x750a4.
+  Pascal image: 145123 bytes; BSS 108856 bytes; __bss_end 0x7e11c.
+  Required conventional arena ceiling: 0x6f000.
+  New backend state: 37152 bytes. Removing it all still leaves the Pascal
+  end at 0x750fc, above the arena by 24828 bytes. A smaller label table alone
+  therefore cannot fix this prototype's placement.
+
+Decisions in prototype:
+- Seed remains host C -> NASM; only its global/procedure capacities grow to
+  compile the enlarged Pascal source. No source language features added.
+- Native backend in Pascal interprets the generator's fixed instruction
+  vocabulary, counts and emits in two source passes, streams 255-byte chunks.
+- Inline payloads emit bytes directly. Native label/routine offsets are fixed
+  arrays; forward references resolve on pass two. No program-sized code buffer.
+- Runtime is the explicitly permitted first-step NASM-derived Pascal byte table,
+  with dynamic startup addresses/rel32/rodata address supplied by the compiler.
+- All generated branches explicitly near. Linker text padding explicitly 90h.
+  Existing golden stdout/protocol payloads unchanged; no assembly goldens exist.
+- Intel 80386 Programmer's Reference Manual section 17.2 and opcode tables:
+  https://pdos.csail.mit.edu/6.1810/2017/readings/i386/s17_02.htm
+- No InitechMZ/container or relocation route implemented. M2 must establish that.
+
+Stop condition:
+The requested M1-before-M2 ordering cannot be accepted by the existing hard
+size checks for this prototype. The two existing checks were left red; no
+oracle/size limit was relaxed. Proposed sequencing change: implement M2's
+extended-memory loader/container route as a prerequisite to finishing M1.
+Kernel loader/mz/memory-map sources were inspected read-only; no kernel change
+has been established as necessary. Factory changes have not been investigated.
+
+Files retained here:
+- implementation.patch: all candidate changes, including runtime generator.
+- compiler/: source snapshot, not a completed component.
+- self-native.com and self-nasm.com: byte-identical oversized flat images.
+- seed-dos.elf, self-dos.elf: independent linker symbols for size evidence.
+- test.log, size-failure.log and logs/: full host test evidence.
+
+Product source restored to HEAD and retested after saving this prototype.
+Nothing was committed because no milestone is complete. No push.
