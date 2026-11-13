@@ -1,0 +1,12 @@
+# test: gen_control_deep
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -885,7 +885,7 @@
+   else if Text[1] <> 'v' then
+   begin
+     N := NativeKey(Text);
+-    if Native[1] = 1 then NativeLabels[N] := Native[2] { NATIVE_FIXUP }
++    if Native[1] = 1 then NativeLabels[N] := Native[2] + 1 { NATIVE_FIXUP }
+     else if NativeLabels[N] <> Native[2] then GenFail(TokLine, TokCol, 407)
+   end
+ end;

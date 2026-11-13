@@ -3,7 +3,7 @@
 # not compiler metadata. Reserve includes the gap preceding NOLOAD BSS.
 set -eu
 source=$1 dest=$2
-root=$(CDPATH= cd -- "$(dirname "$0")/../../.." && pwd)
+root=${TOP:-$(CDPATH= cd -- "$(dirname "$0")/../../.." && pwd)}
 mkdir -p "$dest"
 dest=$(CDPATH= cd -- "$dest" && pwd)
 cp "$source" "$dest/program.s"

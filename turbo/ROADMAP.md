@@ -1,9 +1,12 @@
 # Turbo Initech: remaining path to the golden master
 
-The seed is host C; Turbo Initech is Pascal. Both still emit NASM assembly.
+The seed is host C; Turbo Initech is Pascal. The seed emits NASM assembly;
+the Pascal compiler now emits both native formats as well as assembly.
 The compiler source fits the language already: no additional language feature
 is established as necessary for self-hosting. GOLDEN-MASTER.md item 7 remains
-open; there is no IDE or native executable emission yet.
+open; there is no IDE or self-host certificate yet. Native equality is proved
+for 17 flat and 18 extended images against NASM/binutils/mzlink. Runtime table
+regeneration and all five native encoder mutants are green (compiler/NATIVE.md).
 
 The resident compiler now uses extended InitechMZ placement. The independent
 factory/mz reader checks the descriptor, sites and memory plan; the factory
@@ -15,20 +18,15 @@ Pascal compiler. Those runs do not prove the generated code executes.
 
 Remaining milestones, in order:
 
-1. Native emission: adapt fa5cbb08 to produce conventional flat programs and
-   extended containers, recording every absolute address. Compare every corpus
-   program and turbo.pas with NASM/ld/objcopy plus independently derived mzlink
-   relocations. Enforce real placement limits, regenerate any runtime byte table
-   against its assembly source in tier 0, and kill encoder/fixup/layout mutants.
-2. In-OS corpus: QEMU compiles all 17 programs directly to executables and runs
+1. In-OS corpus: QEMU compiles all 17 programs directly to executables and runs
    them against the FPC-checked, hand-authored stdout goldens. Bochs runs a
    subset. Extract file output independently and report compile times.
-3. Self-host: K1 is host seed-built. In the OS K1(S) -> K2, K2(S) -> K3.
+2. Self-host: K1 is host seed-built. In the OS K1(S) -> K2, K2(S) -> K3.
    Extract with mtools, compare whole containers byte for byte, print SHA-256.
    K1==K2 is not the certificate. Keep transcripts under build/.
-4. DDC: independent host FPC(S) -> D1, in-OS D1(S) -> D2. Compare D2 with the
+3. DDC: independent host FPC(S) -> D1, in-OS D1(S) -> D2. Compare D2 with the
    seed path fixed point. Include contaminated-path and changed-source controls.
-5. Minimal blue IDE/finale: edit, safe save, compile diagnostics, run and return,
+4. Minimal blue IDE/finale: edit, safe save, compile diagnostics, run and return,
    then a boot-to-self-reproduction session. All OS calls use INT 21h.
 
 Capacity and semantics remain intentionally bounded: signed integers, booleans,

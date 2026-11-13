@@ -1,38 +1,34 @@
 # Turbo Initech compiler
 
-The resident Pascal compiler, also buildable with Free Pascal for host checks.
-Its four passes reopen a fixed input: lexical dump, syntax trace, semantic
-parse/symbol dump and an AST-free NASM emitter. The output is assembly; host
-NASM and binutils are still required. See ROADMAP.md for remaining work.
+Pascal compiler, also built by Free Pascal on the host for independent bootstrap
+and differential checks. Four initial passes reopen TURBOIN.PAS for lexical,
+syntax, semantic and NASM generation. Native counting/emission then writes
+TURBOOUT.EXE (extended InitechMZ) and, when it fits the conventional arena,
+TURBOOUT.COM. It still writes TURBOOUT.S as an independent factory-oracle input.
+No guest assembler or linker is needed for the native output. See NATIVE.md.
 
-`make` builds the FPC host program and seed-built extended InitechMZ TURBO.COM, plus a bare
-Multiboot link-check artifact (file calls cannot run without InitechDOS).
-Dependencies: seed's host compiler and rt/ startup, file runtime and link scripts;
-otherwise only this component's source/fixtures. No C/private kernel includes.
-FPC flags preserve the legacy -B -O- and source Delphi/B+/H- pins. NASM input
-names are identical in paired scratch directories to keep its FILE symbol
-reproducible. GNU ld uses elf_i386, the inherited scripts and no build ID.
-`make test` runs 38 host entries. FPC is mandatory even for cached artifacts.
-`make mutants` uses mk/mutants.mk and seven component-relative patches; two
-wrong-code mutants need guest execution and remain catalogued. Source comments
-mark their historical loci but do not select deliberately wrong production code.
+`make` builds the host FPC compiler, seed-built extended TURBO.COM and a bare
+Multiboot link-check artifact. Dependencies: seed's compiler and public runtime
+artifacts/scripts, factory/mz's packaging/checking tools, and own sources and
+fixtures. No private kernel header/code is used. FPC -B -O- and Delphi/B+/H-
+are preserved. NASM filenames/order and ELF scripts are fixed for determinism.
 
-LEXER-DUMP.md, PARSER-TRACE.md, SYMBOLS-DUMP.md, CODEGEN.md and CORPUS.md preserve
-the inherited contracts/derivations, with names updated in the rename commit.
-The grammar claimed into tests/reference is documentation derived from our parser;
-it is not an independent oracle. Publication build/replay tools stay with pubs.
-The complete gate classification and deferred smokes are in tests/. No execution
-of generated programs is claimed by host tests. Memory checks package both
-compiler forms through tests/package.sh and the independent factory/mz checker.
-The parent turbo smoke boots the extended compiler on QEMU and Bochs using a
-separate TEST disk and extracts its assembly with mtools. Generated files/logs
-go under build/turbo/compiler, and `make clean` removes them.
+`make test`: 39 host entries, including independent FPC execution references,
+17 flat and 18 extended byte-equality comparisons, runtime-table regeneration,
+and both compiler placements checked against real extended limits. It does
+not execute emitted x86 code. Parent `make -C turbo smoke` boots the actual
+product image with a separate TEST disk, checks generated assembly against
+host output on QEMU and Bochs, and reads files back with mtools.
 
-Placement evidence (M2): seed module 89617, reserve 71707, module headroom
-172527, free high-window bytes after alignment and heap header 1866176.
-Pascal-generated module 113027, reserve 71705, module headroom 149117,
-free bytes 1842768. Stack 65536 and guard 4096 are separate in both cases.
-QEMU/Bochs gen_control_deep assembly compares passed (2s/5s total sessions).
-The inherited unchecked UART helper drops diagnostic bytes on Bochs; the smoke
-uses shell completion and the complete on-disk assembly equality, not those
-lossy diagnostics, as its oracle. Top-level make test and factory/mz test passed.
+`make mutants` uses mk/mutants.mk: seven inherited patches plus five native
+encoder/relocation/layout patches. All five native patches have been killed.
+Two inherited wrong-code cases still need guest execution (tests inventories).
+Generated files/logs remain in build/turbo/compiler; make clean removes them.
+The protocol and corpus derivations are in the local *-DUMP/TRACE, CODEGEN and
+CORPUS documents; tests/reference is parser-derived documentation, not an oracle.
+
+Measured placement: seed module 111645, reserve 174411, module headroom 150499,
+free window after aligned resident and heap header 1741440. Pascal-generated
+module 149219, reserve 174409, module headroom 112925, free window 1703872.
+Both have separate 65536-byte stack and 4096-byte guard. These are mechanical
+layout limits, not a measured worst-case stack-usage claim.

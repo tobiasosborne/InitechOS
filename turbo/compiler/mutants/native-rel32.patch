@@ -1,0 +1,12 @@
+# test: gen_control_deep
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -977,7 +977,7 @@
+           if Code < 0 then GenFail(TokLine, TokCol, 409);
+           NativeByte(15); NativeByte(Code)
+         end;
+-        NativeWord(N - (Native[2] + 4)) { NATIVE_REL32 }
++        NativeWord(N - (Native[2] + 3)) { NATIVE_REL32 }
+       end
+       else if (Op = 'push') or (Op = 'pop') or (Op = 'inc') or (Op = 'dec') then
+       begin

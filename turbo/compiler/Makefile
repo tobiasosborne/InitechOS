@@ -9,7 +9,7 @@ SEED_RT := $(SEED_OUT)/rt
 RT_SRC := $(TOP)/turbo/seed/rt
 PROTOCOLS := $(patsubst fixtures/%.golden,%,$(wildcard fixtures/lex*.golden fixtures/parse*.golden fixtures/type*.golden))
 CORPUS := $(patsubst fixtures/%.pas,%,$(wildcard fixtures/gen*.pas))
-HOST_TESTS := $(PROTOCOLS) self-protocols $(CORPUS) self-generation seed-build
+HOST_TESTS := $(PROTOCOLS) self-protocols $(CORPUS) self-generation seed-build runtime-table
 TESTS ?= $(HOST_TESTS)
 ifneq ($(filter-out $(HOST_TESTS),$(TESTS)),)
 $(error unknown TESTS: $(filter-out $(HOST_TESTS),$(TESTS)))
@@ -39,7 +39,7 @@ test-build: all
 test: test-run
 test-run: test-build
 	@sh $(TOP)/factory/testlib/run-entries.sh $(COMPONENT) "$(OUT)" tests/run.sh $(TESTS)
-export FPC NASM TARGET_LD OBJCOPY SEED_OUT RT_SRC
+export TOP FPC NASM TARGET_LD OBJCOPY SEED_OUT RT_SRC
 include $(TOP)/mk/mutants.mk
 smoke:
 	@echo 'Tier 1 requires the product image; see tests/SMOKES.md' >&2; exit 1

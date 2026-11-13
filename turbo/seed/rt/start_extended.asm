@@ -35,6 +35,9 @@ _start:
     and     ecx, 3
     rep stosb
 
+    ; Preserve ESP and keep startup offsets identical to start_dos.asm.
+    times 5 nop
+
     ; Run on the loader-supplied extended stack.
     ; (c) Run the compiled program body.
     call    pas_main
@@ -59,6 +62,15 @@ _start:
 ; In:  AL = byte. Clobbers: DX. Preserves nothing else of interest.
 global serial_putc
 serial_putc:
+    ; NS16550A LSR bit 5 (THRE): wait before every transmitted byte.
+    ; Authority: PC16550D data sheet, Line Status Register (offset 5).
+    push eax
+    mov dx, COM1 + 5
+.wait:
+    in al, dx
+    test al, 0x20
+    jz .wait
+    pop eax
     mov dx, COM1
     out dx, al
     ret
@@ -73,8 +85,7 @@ serial_puts:
     mov al, [esi]
     test al, al
     jz .done
-    mov dx, COM1
-    out dx, al
+    call serial_putc
     inc esi
     jmp .next
 .done:
@@ -113,14 +124,12 @@ serial_put_int:
     test esi, esi
     jz .emit
     mov al, '-'
-    mov dx, COM1
-    out dx, al
+    call serial_putc
 .emit:
     ; Pop ecx digits, most significant first (they were pushed LS-first).
 .emit_loop:
     pop eax                     ; digit byte in al (high bytes are remainder)
-    mov dx, COM1
-    out dx, al
+    call serial_putc
     dec ecx
     jnz .emit_loop
 

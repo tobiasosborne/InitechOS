@@ -1,0 +1,12 @@
+# test: gen_control_deep
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -5658,7 +5658,7 @@
+   Native[11] := 0;
+   RunCodeGenerator();
+   Native[3] := ((Native[2] + 3) div 4) * 4; { NATIVE_SECTION }
+-  Native[4] := Native[3] + 32;
++  Native[4] := Native[3] + 36;
+   Native[5] := Native[4] + GlobalBytes;
+   Native[12] := ((56 + Native[11]*4 + 15) div 16) * 16;
+   if not GenFlags[2] then

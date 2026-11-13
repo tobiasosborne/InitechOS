@@ -1,0 +1,12 @@
+# test: gen_control_deep
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -775,7 +775,7 @@
+     Mode := 1;
+     if (Disp < -128) or (Disp > 127) then Mode := 2
+   end;
+-  NativeByte(Mode * 64 + Reg * 8 + Base); { NATIVE_MODRM }
++  NativeByte(Mode * 64 + Reg * 8 + Base + 1); { NATIVE_MODRM }
+   if Base = 4 then NativeByte(36);
+   if Mode = 1 then NativeByte(Disp)
+   else if Mode = 2 then NativeWord(Disp)

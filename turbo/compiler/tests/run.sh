@@ -28,6 +28,9 @@ links() {
     "$OBJCOPY" -O binary "$dir/dos.elf" "$dir/program.com"
 }
 case $entry in
+runtime-table)
+    sh tests/runtime.sh "$TOP" "$scratch"
+    ;;
 lex*|parse*|type*)
     case $entry in lex*) phase=LEX ;; parse*) phase=PARSE ;; type*) phase=TYPE ;; esac
     run_compiler "$scratch" "fixtures/$entry.pas"
@@ -60,6 +63,12 @@ gen*|self-generation)
         test "$(grep -c '^TURBO-GEN-OK bytes=[0-9][0-9]* labels=[0-9][0-9]*$' "$scratch/$pass/bracket-GEN")" -eq 1
         test -s "$scratch/$pass/TURBOOUT.S"
         links "$scratch/$pass"
+        sh tests/package.sh "$scratch/$pass/TURBOOUT.S" "$scratch/$pass/extended"
+        cmp "$scratch/$pass/extended/program.exe" "$scratch/$pass/TURBOOUT.EXE"
+        "$TOP/build/factory/mz/mzcheck" "$scratch/$pass/TURBOOUT.EXE"
+        if [ "$entry" != self-generation ]; then
+            cmp "$scratch/$pass/program.com" "$scratch/$pass/TURBOOUT.COM"
+        fi
     done
     for artifact in TURBOOUT.S program.o bare.elf dos.elf program.com; do
         cmp "$scratch/a/$artifact" "$scratch/b/$artifact"
