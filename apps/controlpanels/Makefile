@@ -1,15 +1,11 @@
 TOP := $(abspath ../..)
 COMPONENT := apps/controlpanels
 include $(TOP)/mk/config.mk
-HOST_INCLUDES := -I$(TOP)/factory/testlib -I. -I$(TOP)/sdk/include -I$(TOP)/sdk/host -I$(TOP)/flair/include -I$(TOP)/flair/region/include -I$(TOP)/build/flair/generated -I$(TOP)/flair/include/assets
+HOST_INCLUDES := -I. -Iinclude -I$(TOP)/sdk/include -I$(TOP)/sdk/host -I$(TOP)/flair/include -I$(TOP)/flair/region/include -I$(TOP)/factory/include
 HOST_TESTS := test_cpanels test_route
-# Temporary hosted library/adapter access: remove when FLAIR publishes a hosted
-# Dialog library and cp_dialog_items.h. Exact sources are listed here.
-HOST_INCLUDES += -I$(TOP)/flair -I$(TOP)/flair/tests/render
-HOST_FLAIR := event dialog control window surface blitter text chrome heap flair_look
-HOST_DIALOG := $(addprefix $(TOP)/flair/,$(addsuffix .c,$(HOST_FLAIR))) $(TOP)/flair/region/region.c $(TOP)/flair/tests/render/render.c
-test_cpanels_SRCS := tests/test_cpanels.c core.c $(HOST_DIALOG)
-test_cpanels_LIBS := -lpng
+test_cpanels_SRCS := tests/test_cpanels.c core.c
+test_cpanels_LIBS := $(TOP)/build/flair/host/libdialog.a -lpng
+test_cpanels_DEPS := $(TOP)/build/flair/host/libdialog.a
 test_cpanels_ARGS := $(SYSTEM7_DECOMP)
 test_cpanels_COUNT_PATTERN := ^test_cpanels: ([0-9]+) checks.*$$
 test_route_SRCS := tests/test_route.c core.c
@@ -34,7 +30,10 @@ references:
 test-build: references
 $(TOP)/build/sdk/host/libtbx_host.a:
 	+$(MAKE) -C $(TOP)/sdk OUT=$(TOP)/build/sdk MAKEOVERRIDES= host
-.PHONY: host-dialog-assets
-host-dialog-assets:
-	+$(MAKE) -C $(TOP)/flair OUT=$(TOP)/build/flair MAKEOVERRIDES= all
-$(foreach t,$(HOST_TESTS),$($(t)_C_OBJS)): | host-dialog-assets
+.PHONY: host-dialog boundary-check
+host-dialog:
+	+$(MAKE) -C $(TOP)/flair OUT=$(TOP)/build/flair TESTS= MAKEOVERRIDES= host-dialog
+$(TOP)/build/flair/host/libdialog.a: | host-dialog
+boundary-check: test-build
+	sh tests/boundary.sh "$(TOP)" "$(HOST_CFLAGS) $(HOST_INCLUDES) $(TARGET_CFLAGS) $(TENANT_CPPFLAGS) $(foreach t,$(HOST_TESTS),$($(t)_CFLAGS))" $(foreach t,$(HOST_TESTS),$($(t)_C_OBJS:.o=.d))
+test: boundary-check

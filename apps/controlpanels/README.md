@@ -22,10 +22,12 @@ Stipple, saves, quits, then mtools/cmp checks a literal independent 16-byte
 record and fsck checks the volume. Screendump:
 build/smoke-desktop/patterns.ppm.
 
-Temporary hosted access ends when FLAIR publishes a hosted Dialog library
-and its flat-item adapter cp_dialog_items.h. Exact host-only sources are
-listed in the Makefile: event, dialog, control, window, surface, blitter,
-text, chrome, heap, flair_look, region, and tests/render/render.c. The adapter
-is private today and needed only to preserve the existing real Dialog
-Manager press/release assertions. No target recompiles these sources.
+Host dependencies: SDK host transport; FLAIR's public include/ Dialog API and
+cp_dialog_items.h adapter, region/include/ records, and the owner-built
+build/flair/host/libdialog.a from make -C flair host-dialog. Factory's public
+include/test_assert.h supplies the canonical host assertions. The app neither
+compiles FLAIR sources nor reads its private renderer/adapter headers.
+make test checks its include paths and all own-object header dependencies,
+including host tests. The real Dialog Manager press/release assertions remain
+unchanged and link the public hosted library. No target adds a FLAIR dependency.
 Remaining legacy panel pixel/bar-composition smokes belong to factory.

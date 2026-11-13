@@ -7,7 +7,6 @@
 #include "dialog.h"
 #include "cpanels.h"
 #include "cp_dialog.h"
-/* Temporary: remove when FLAIR publishes its flat-item adapter. */
 #include "cp_dialog_items.h"
 static unsigned checks, failures, writes, applies, clocks, beeps;
 static cp_settings_t saved, applied;

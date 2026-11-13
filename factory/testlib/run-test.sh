@@ -7,7 +7,7 @@ start=$(date +%s)
 rc=0
 timeout -k 1 "$seconds" "$@" > "$bin.run.log" 2>&1 || rc=$?
 # A dependency on the canonical header opts in even if no summary was emitted.
-if [ -z "$pattern" ] && find "$bin.objs" -name '*.d' -exec grep -l '/factory/testlib/test_assert.h' {} + 2>/dev/null | grep -q .; then
+if [ -z "$pattern" ] && find "$bin.objs" -name '*.d' -exec grep -El '/factory/(testlib|include)/test_assert.h' {} + 2>/dev/null | grep -q .; then
     pattern='^INITECH_CHECKS ([0-9]+) failures=[0-9]+$'
 fi
 if [ "$rc" -eq 0 ] && [ -n "$pattern" ]; then

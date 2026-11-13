@@ -1,5 +1,6 @@
-/* Private Dialog Manager adapter, unchanged from legacy-final:spec/cp_dialog.h.
- * The SDK owns only cp_item_t and the gate transport. */
+/* Public flat-item Dialog Manager adapter, from legacy-final:spec/cp_dialog.h.
+ * The SDK owns cp_item_t and the gate transport; FLAIR owns Dialog records.
+ * Host clients link the owner's host-dialog library for control/dialog code. */
 #ifndef INITECH_FLAIR_CP_DIALOG_ITEMS_H
 #define INITECH_FLAIR_CP_DIALOG_ITEMS_H
 #include "dialog.h"

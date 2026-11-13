@@ -6,6 +6,13 @@ into this library. Dependencies: flair/region (region/include/), sdk/include
 (interface records), and, for the host-only real-DOS tests, kernel/include.
 There is no target dependency on kernel headers.
 
+Public hosted Dialog binding: make host-dialog builds host/libdialog.a under
+build/flair, including its private rendering support. Clients use only
+include/dialog.h, include/cp_dialog_items.h and the declared region/SDK records.
+The flat-item adapter is the same one used by the target gate. Control Panels
+links this archive for its real press/release tests; its app never reads FLAIR's
+private renderer or compiles private manager sources.
+
 Managers:
 
 - Surface: bounded pixel writes and depth packing.

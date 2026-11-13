@@ -38,6 +38,20 @@ $(OUT)/tools/boot_logo_gen: tools/boot_logo_gen.c FORCE | $(OUT)
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -MMD -MP -MF $@.d -o $@ $< -lm)
 $(OUT)/tools/mint_finder_small_icons: tools/mint_finder_small_icons.c $(GENERATED) FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -I$(OUT)/generated -Iinclude/assets -MMD -MP -MF $@.d -o $@ $< -lpng)
+
+# Public hosted Dialog binding. Private rendering headers/sources remain here;
+# clients use include/{dialog,cp_dialog_items}.h and this archive only.
+HOST_AR ?= ar
+HOST_DIALOG_SRCS := event.c dialog.c control.c window.c surface.c blitter.c text.c chrome.c heap.c flair_look.c region/region.c tests/render/render.c
+HOST_DIALOG_OBJS := $(addprefix $(OUT)/host-dialog/,$(HOST_DIALOG_SRCS:.c=.o))
+HOST_DIALOG_LIB := $(OUT)/host/libdialog.a
+.PHONY: host-dialog
+host-dialog: $(HOST_DIALOG_LIB)
+$(OUT)/host-dialog/%.o: %.c $(GENERATED) FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $(INCLUDES) -Itests/render -MMD -MP -c $< -o $@)
+$(HOST_DIALOG_LIB): $(HOST_DIALOG_OBJS) FORCE
+	$(call run-command,$(HOST_AR) rcsD $@ $(HOST_DIALOG_OBJS))
+-include $(HOST_DIALOG_OBJS:.o=.d)
 $(OUT)/tools/chicago_pack: $(OUT)/generated/chicago12.h
 $(OUT)/tools/geneva12_pack: $(OUT)/generated/geneva12.h
 $(OUT)/tools/asset_lz: $(OUT)/generated/boot_logo.h

@@ -40,6 +40,7 @@ image-order-test:
 testlib-test:
 	sh testlib/tests/audit.sh
 	sh testlib/tests/mutants.sh
+	sh testlib/tests/assertions.sh
 
 .PHONY: mutants
 mutants:
