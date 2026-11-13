@@ -14,3 +14,9 @@ S2: factory/smoke-desktop.sh now checks Finder startup, pointer movement,
 Special > Exit to InitechDOS (including its confirmation), a real A:\>
 prompt, and a second FLAIR launch. QEMU reports zero faults and two power-on
 CPU resets. Screens: build/smoke-desktop/{desktop,dos,qemu}.ppm.
+
+S3 working-volume.list supplies the APPS directory from imported application
+artifacts. Product AUTOEXEC.BAT ends with FLAIR. The DOS smoke deletes that
+file from its private writable volume copies, retaining the product kernel.
+Finder opens INITECH then APPS; the APPS view contains 123.EXE and 123.MNU.
+The QEMU folder screenshot is build/smoke-s3/apps.ppm.

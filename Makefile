@@ -63,3 +63,7 @@ repro:
 .PHONY: system-build
 system-build: kernel-build
 	$(MAKE) -C system
+.PHONY: desktop-apps
+desktop-apps:
+	$(MAKE) -C apps/initech123
+system-build: desktop-apps

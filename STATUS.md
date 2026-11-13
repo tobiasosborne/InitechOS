@@ -19,7 +19,9 @@ S2 now starts the Finder desktop on QEMU, exits through Special to the
 DOS prompt, and accepts FLAIR again. The desktop session is in
 factory/smoke-desktop.sh; screenshots and fault verdicts are under
 build/smoke-desktop. The DOS smoke remains green on both emulators.
-Next are the APPS disk composition and real application launch.
+S3 adds a data-driven APPS directory with 123.EXE and 123.MNU and product
+AUTOEXEC.BAT ending in FLAIR. Finder disk and folder navigation are checked
+by factory/smoke-desktop.sh. Next is the real application save/readback.
 
 The kernel is 105,848 bytes with one 14-line entry point and no test
 scenarios in it. The loader takes a kernel of any size up to its
