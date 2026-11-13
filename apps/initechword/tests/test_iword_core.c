@@ -1,9 +1,9 @@
 /*
- * harness/proptest/test_iword_core.c -- THE PROPERTY SUITE of InitechWord's
+ * tests/test_iword_core.c -- THE PROPERTY SUITE of InitechWord's
  * document core (factory C; bead initech-l4tj, IWORD P1; plan
  * docs/plans/INITECH-WORD-plan.md Sec 6(c)).
  *
- * The core (os/iword/core) is graded against MODELS written here, never
+ * The core (apps/initechword/core) is graded against MODELS written here, never
  * against itself:
  *   P1 PIECE TABLE  random insert / delete / overwrite sequences applied to
  *                   the piece table AND to a flat byte array; after every
@@ -39,14 +39,14 @@
  *                   on line 2 (MINT02.shots/02_typed.png), "Ln 2"" on line 7
  *                   (MINT01.shots/02_typed.png).
  *
- * Mutants (Rule 6; test-iword-core-mutant, each RED for its named reason):
+ * Mutants (test-iword-core-mutant, each RED for its named reason):
  *   IWORD_MUT_SPLIT_OFF     a split piece's right half starts one byte late
  *                           -> RED-REASON model
  *   IWORD_MUT_REFLOW_STALE  reflow keeps the old soft returns -> RED-REASON reflow
  *   IWORD_MUT_PREV_VAR      the backward walk steps into a variable group
  *                           -> RED-REASON units
  *
- * Deterministic (fixed seeds, Rule 11). ASCII-clean (Rule 12).
+ * Deterministic (fixed seeds, Rule 11). ASCII-clean.
  */
 #include <stdio.h>
 #include <stdlib.h>

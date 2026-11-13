@@ -1,5 +1,5 @@
 /*
- * os/iword/core/codes.c -- InitechWord's codes as first-class entities: the
+ * apps/initechword/core/codes.c -- InitechWord's codes as first-class entities: the
  * attribute pairs (bold / underline / italic, and every other attribute
  * number a document carries), the WordPerfect 5.1 editing rules for them,
  * and the Reveal Codes rendering of a line and of the pane (THE ARTIFACT;
@@ -7,7 +7,7 @@
  *
  * THE MODEL. A code is a unit of the piece table's body like any character
  * (iword.h "UNITS"): the attribute pair is `C3 n C3` ... `C4 n C4` [B Sec 3;
- * spec/iword/wp5_format.h IW_WP5_ATTR_*]. Nothing is stored beside the body:
+ * include/iword/wp5_format.h IW_WP5_ATTR_*]. Nothing is stored beside the body:
  * the attribute state at a position is DERIVED from the codes before it
  * (iw_attr_state), so a document WordPerfect wrote and a document typed here
  * are the same kind of thing, and the .WP5 writer has nothing to translate.
@@ -24,10 +24,10 @@
  * under[und]"); Backspace on [italc] in Reveal Codes deletes [ITALC] too
  * (MINT08 03b_reveal_bs1.png).
  *
- * REVEAL CODES. spec/iword/reveal_codes.h holds every label and the pane
+ * REVEAL CODES. include/iword/reveal_codes.h holds every label and the pane
  * geometry, each transcribed from a real WP 5.1 screen.
  *
- * Freestanding C (no libc). Deterministic (Rule 11). ASCII-clean (Rule 12).
+ * Freestanding C (no libc). Deterministic. ASCII-clean.
  */
 #include "iword.h"
 #include "iword/wp5_format.h"
@@ -123,7 +123,7 @@ uint32_t iw_attr_faces(uint32_t st)
     if (st & abit(IW_WP5_ATTR_ITALIC))    f |= IW_A_ITALIC;
     if (st & abit(IW_WP5_ATTR_UNDERLINE)) f |= IW_A_UNDERLINE;
 #else
-    /* MUTANT (Rule 6; test-iword-face-mutant, test-flair-iword-codes-mutant):
+    /* MUTANT (test-iword-face-mutant, test-flair-iword-codes-mutant):
      * the codes are kept but never drawn -- every face is plain. NEVER real. */
     (void)st;
 #endif
@@ -186,7 +186,7 @@ int iw_ed_attr(iw_ed_t *e, uint8_t n)
     rc = iw_doc_insert(d, e->cur, pair + 3, 3u);
     if (rc != IW_OK) return rc;
 #ifndef IWORD_MUT_TOGGLE_DUP
-    /* MUTANT knob (Rule 6; test-iword-codes-mutant): IWORD_MUT_TOGGLE_DUP
+    /* MUTANT knob (test-iword-codes-mutant): IWORD_MUT_TOGGLE_DUP
      * leaves the old off code where it was -- a duplicate [bold]. */
     if (q != NONE) {
         rc = iw_doc_delete(d, q + IW_WP5_ATTR_LEN, IW_WP5_ATTR_LEN);
@@ -237,7 +237,7 @@ static uint32_t partner(const iw_doc_t *d, uint32_t q)
     }
 }
 
-/* A [L/R Mar], [Just:] or [Ln Spacing:] code (slice 3; spec/iword/
+/* A [L/R Mar], [Just:] or [Ln Spacing:] code (slice 3; include/iword/
  * wp5_format.h "margins and justification", "line spacing"): WP asks before
  * deleting one (MINT23, MINT24, MINT26 05_bs_question). */
 int iw_code_is_format(const iw_doc_t *d, uint32_t pos)
@@ -271,7 +271,7 @@ int iw_ed_kill_code(iw_ed_t *e, uint32_t q)
     if (iw_code_attr(d, q, 0) < 0) return IW_E_PROTECTED;
     p = partner(d, q);
 #ifdef IWORD_MUT_PAIR_HALF
-    /* MUTANT (Rule 6; test-iword-codes-mutant): only the code itself goes --
+    /* MUTANT (test-iword-codes-mutant): only the code itself goes --
      * its partner is stranded. NEVER real. */
     p = NONE;
 #endif
@@ -326,12 +326,12 @@ static uint32_t label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap, 
         for (uint32_t i = 0; i < IW_RV_ATTR_ROWS; i++) {
             if (ATTR_LABEL[i].n != g[1]) continue;
 #ifdef IWORD_MUT_LABEL_ITALC
-            /* MUTANT (Rule 6; test-iword-reveal-codes-mutant): italic shown
+            /* MUTANT (test-iword-reveal-codes-mutant): italic shown
              * with a made-up 5.0-style label. NEVER real. */
             if (g[1] == IW_WP5_ATTR_ITALIC) return put(out, cap, n, c == IW_WP5_ATTR_ON ? "[ITAL]" : "[ital]");
 #endif
 #ifdef IWORD_MUT_LABEL_SM_CAP
-            /* MUTANT (Rule 6; test-iword-reveal-codes-mutant): Small Caps
+            /* MUTANT (test-iword-reveal-codes-mutant): Small Caps
              * labelled as the menu spells it ("Sm Cap" -> [SMCAP]), not as
              * the pane does. NEVER real. */
             if (g[1] == 0x0Fu) return put(out, cap, n, c == IW_WP5_ATTR_ON ? "[SMCAP]" : "[smcap]");
@@ -363,7 +363,7 @@ static uint32_t label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap, 
              * 04_bs_question Center; Full from the menu, MINT22 02) */
             static const char *const J[4] = { IW_RV_JUST_LEFT, IW_RV_JUST_FULL, IW_RV_JUST_CENTER, IW_RV_JUST_RIGHT };
 #ifdef IWORD_MUT_LABEL_JUST
-            /* MUTANT (Rule 6; test-iword-reveal-codes-mutant): every
+            /* MUTANT (test-iword-reveal-codes-mutant): every
              * justification shows as Left. NEVER real. */
             return put(out, cap, n, J[0]);
 #endif
@@ -407,7 +407,7 @@ uint32_t iw_reveal_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t cur, ui
     *cur_off = NONE;
     *cur_len = 0;
 #ifdef IWORD_MUT_BLOCK_LABEL
-    /* MUTANT (Rule 6; test-iword-reveal-codes-mutant): the block's anchor is
+    /* MUTANT (test-iword-reveal-codes-mutant): the block's anchor is
      * not shown. NEVER real. */
     blk = IW_NO_BLOCK;
 #endif
@@ -443,7 +443,7 @@ void iw_reveal_pane(const iw_ed_t *e, uint32_t width, uint32_t nrows,
     if (nrows > IW_RV_PANE_ROWS) nrows = IW_RV_PANE_ROWS;
     iw_ed_where(e, &w);
 #ifdef IWORD_MUT_PANE_ANCHOR
-    /* MUTANT (Rule 6; test-iword-reveal-codes-mutant): two lines above the
+    /* MUTANT (test-iword-reveal-codes-mutant): two lines above the
      * cursor instead of three. NEVER real. */
     pane->first_line = w.line >= 2u ? w.line - 2u : 0u;
 #else

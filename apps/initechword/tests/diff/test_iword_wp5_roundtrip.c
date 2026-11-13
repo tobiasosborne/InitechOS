@@ -1,16 +1,16 @@
 /*
- * harness/diff/wp5_diff/test_iword_wp5_roundtrip.c -- THE ORACLE of
+ * tests/diff/test_iword_wp5_roundtrip.c -- THE ORACLE of
  * InitechWord's .WP5 codec and document core against REAL WordPerfect 5.1
  * (factory C; bead initech-l4tj, IWORD P1; plan docs/plans/INITECH-WORD-
  * plan.md Sec 6(a)).
  *
- * Graded against two INDEPENDENT authorities (Law 2), never against itself:
+ * Graded against two INDEPENDENT authorities, never against itself:
  *   (1) the five documents the real WP.EXE (5.1, 03-09-92) wrote under
  *       DOSBox-X: $WORDPERFECT51_DECOMP/goldens/minted/MINT01..05.WP5, with
  *       the keystrokes that made them (mint/wp*.steps) and their skeletons
  *       transcribed in specs/file-formats/wp5-body-codes.md Sec 7;
  *   (2) the corpus' independent reader $WORDPERFECT51_DECOMP/tools/wp5_ref.py
- *       (it shares no constant with spec/iword/wp5_format.h).
+ *       (it shares no constant with include/iword/wp5_format.h).
  *
  * PARTS
  *   A  every golden: C read (header + every body unit validated) -> load
@@ -35,7 +35,7 @@
  *   D  a synthetic document typed through the editor (three paragraphs,
  *      two of them wrapping) is read by wp5_ref.py: TEXT agrees, zero
  *      trailer errors, and the reader lists its [SRt] / [HRt] codes in order.
- *   E  refusals (Rule 2): bad magic, non-document type, wrong version,
+ *   E  refusals: bad magic, non-document type, wrong version,
  *      encryption, docstart out of range, an unverified code, a broken
  *      mirror, a truncated group -- each refused with its own code.
  *   F  (bead initech-jojk, P2 slice 1) ATTRIBUTE CODES TYPED: the keys of
@@ -47,7 +47,7 @@
  *      with the default prefix are BYTE-IDENTICAL to the files the real WP.EXE
  *      saved -- every body byte and the prefix's byte 0x103, which records
  *      that the cursor was before the end at the save (MINT06 was saved
- *      after Home Home Up; spec/iword/wp5_format.h IW_WP5_PFX_CURSOR_OFF).
+ *      after Home Home Up; include/iword/wp5_format.h IW_WP5_PFX_CURSOR_OFF).
  *   G  (bead initech-jojk, P2 slice 2) the keys of mint/wpMINT09..19.steps
  *      -- tabs, indents and hard pages (MINT09), the tab WP recomputes when
  *      the text before it grows (MINT10), the "Delete [code]? No (Yes)"
@@ -82,7 +82,7 @@
  * mint/work/WP51/MINT0x (the file WP.EXE wrote, untouched). Absent from both
  * places is RED, never a skip.
  *
- * Mutants (Rule 6; test-iword-wp5-roundtrip-mutant):
+ * Mutants (test-iword-wp5-roundtrip-mutant):
  *   IWORD_MUT_DROP_CODE   the writer drops every soft-return code
  *                         -> RED-REASON golden-rewrite
  *   IWORD_MUT_WRAP_EARLY  the wrap ends a line one column short
@@ -102,7 +102,7 @@
  *   IWORD_MUT_SENT_BARE   a sentence leaves its trailing spaces behind
  *
  * Usage: test_iword_wp5_roundtrip <WORDPERFECT51_DECOMP> <scratch-dir>
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean. Deterministic.
  */
 #include <stdio.h>
 #include <stdlib.h>

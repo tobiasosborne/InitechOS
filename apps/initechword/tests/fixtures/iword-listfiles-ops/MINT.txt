@@ -16,7 +16,7 @@ keyboard events from these .steps files and captures DOSBox-X's real surface.
 The corpus's existing decode.py matches each glyph EXACTLY against its own
 DOSBox-X font atlas (no OCR guesses or generated implementation goldens).
 Raw BMPs were converted losslessly to PNG. Reproduce into a NEW directory:
- WORDPERFECT51_DECOMP=/absolute/corpus fixtures/iword-listfiles-ops/mint.sh build/new-ops-mint
+ WORDPERFECT51_DECOMP=/absolute/corpus tests/fixtures/iword-listfiles-ops/mint.sh build/new-ops-mint
 Each case gets fresh WP work files; reusing one leaves WP's crash/recovery files.
 
 02/05: Delete <absolute path>? No (Yes). Only Y confirms.

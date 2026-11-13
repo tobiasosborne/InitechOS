@@ -1,24 +1,23 @@
 /*
- * os/iword/core/listfiles.c -- InitechWord's List Files (F5) rows, composed
+ * apps/initechword/core/listfiles.c -- InitechWord's List Files (F5) rows, composed
  * exactly as the real WordPerfect 5.1 lays them out, at WP's own 80 columns,
  * then fitted to the face's cells by the locked column deletes (THE ARTIFACT;
  * bead initech-qvgd, IWORD P3 remainder).
  *
- * Ref: spec/iword/listfiles.h -- every column, label and order from the real
+ * Ref: include/iword/listfiles.h -- every column, label and order from the real
  *      WP 5.1 mint ../wordperfect51-decomp mint/work/LISTF/mint-results-005.md
  *      (grids LF11_06 list, LF11_09 Look, LF11_01 prompt);
- *      spec/toolbox_gate.h Sec 10a (the 22-byte find record);
+ *      toolbox_gate.h Sec 10a (the 22-byte find record);
  *      DOS 3.3 PRM AH=4Eh (the packed date: bits 15-9 year - 1980, 8-5 month,
  *      4-0 day; time: 15-11 hour, 10-5 minute).
  * The two-digit year is WordPerfect's own arithmetic -- '0' + (year - 1900) / 10,
  * '0' + (year - 1900) % 10 -- so 1992 is "92" and a 2026 clock prints "<6"
  * as the real WP 5.1 does (mint 005 ledger, row 0). Canon, not fixed.
  * Pure: no Toolbox call, no I/O; the face draws what these compose.
- * Freestanding C, ASCII-clean (Rule 12), deterministic (Rule 11).
+ * Freestanding C, ASCII-clean, deterministic.
  */
 #include "iword.h"
 #include "iword/listfiles.h"
-#include "toolbox_gate.h"     /* Sec 10a: the 22-byte find record */
 
 static void put(char *row, uint32_t col, const char *s)
 {
@@ -50,7 +49,7 @@ static void put_right(char *row, uint32_t end, uint32_t v)
     char num[16];
     uint32_t n = iw_lf_group(v, num);
 #ifdef IWORD_MUT_LF_COLUMN
-    /* MUTANT (Rule 6; test-iword-listfiles-mutant, test-flair-iword-listfiles-
+    /* MUTANT (test-iword-listfiles-mutant, test-flair-iword-listfiles-
      * mutant): every right-aligned figure one column right. NEVER real. */
     end++;
 #endif
@@ -89,12 +88,12 @@ static void put_dos_stamp(char *row, uint32_t col, uint16_t date, uint16_t time)
 void iw_lf_rec(const uint8_t *rec, iw_lf_ent_t *e)
 {
     uint32_t i;
-    e->attr = rec[TBX_FIND_REC_ATTR_OFF];
-    e->time = (uint16_t)(rec[TBX_FIND_REC_TIME_OFF] | rec[TBX_FIND_REC_TIME_OFF + 1u] << 8);
-    e->date = (uint16_t)(rec[TBX_FIND_REC_DATE_OFF] | rec[TBX_FIND_REC_DATE_OFF + 1u] << 8);
-    e->size = (uint32_t)rec[TBX_FIND_REC_SIZE_OFF] | (uint32_t)rec[TBX_FIND_REC_SIZE_OFF + 1u] << 8 |
-              (uint32_t)rec[TBX_FIND_REC_SIZE_OFF + 2u] << 16 | (uint32_t)rec[TBX_FIND_REC_SIZE_OFF + 3u] << 24;
-    for (i = 0; i < 12u && rec[TBX_FIND_REC_NAME_OFF + i]; i++) e->name[i] = (char)rec[TBX_FIND_REC_NAME_OFF + i];
+    e->attr = rec[IW_LF_REC_ATTR_OFF];
+    e->time = (uint16_t)(rec[IW_LF_REC_TIME_OFF] | rec[IW_LF_REC_TIME_OFF + 1u] << 8);
+    e->date = (uint16_t)(rec[IW_LF_REC_DATE_OFF] | rec[IW_LF_REC_DATE_OFF + 1u] << 8);
+    e->size = (uint32_t)rec[IW_LF_REC_SIZE_OFF] | (uint32_t)rec[IW_LF_REC_SIZE_OFF + 1u] << 8 |
+              (uint32_t)rec[IW_LF_REC_SIZE_OFF + 2u] << 16 | (uint32_t)rec[IW_LF_REC_SIZE_OFF + 3u] << 24;
+    for (i = 0; i < 12u && rec[IW_LF_REC_NAME_OFF + i]; i++) e->name[i] = (char)rec[IW_LF_REC_NAME_OFF + i];
     e->name[i] = 0;
 }
 
@@ -139,7 +138,7 @@ uint32_t iw_lf_load(const uint8_t *recs, uint32_t nrec, iw_lf_ent_t *out, uint32
     *used = 0; *files = 0;
     for (i = 0; i < nrec && n < cap; i++) {
         iw_lf_ent_t e;
-        iw_lf_rec(recs + i * TBX_FIND_REC_BYTES, &e);
+        iw_lf_rec(recs + i * IW_LF_REC_BYTES, &e);
         if (e.name[0] == '.') continue;          /* "." and "..": slots 0 and 1 */
         if (!(e.attr & IW_LF_ATTR_DIR)) { *used += e.size; (*files)++; }
         /* insertion into the sorted run (stable; n is small) */

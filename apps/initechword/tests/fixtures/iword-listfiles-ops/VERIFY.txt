@@ -105,33 +105,11 @@ Shared save regressions: Word/Text/123 full-disk saves preserve old targets;
 Note Pad and Control Panels persistence also pass. Existing destructive-save,
 occupied-temporary, Note Pad and settings mutants are rejected.
 
-INTEGRATION / PUBLICATIONS - PASS
- test-fixture-volumes
- test-fixture-volumes-mutant
- test-makefile-vars
- test-pubs-iword (final normal invocation, no SKIP_PUBS or omitted prerequisite)
-The publication gate replayed 73 launches / 141 printed screens and found
-362/362 documented shipped items, 0 DRAFT, 0 explicit omissions. List Files
-PDF pages 53-54 (printed 45-46) were rendered and visually checked.
-ASCII source scan, git diff --check and sh -n mint.sh pass.
-record-flair SCRIPT=iword_listfiles_ops was dry-run only: script is in the
-clip block BEFORE record-flair, with literal fixture image prerequisite and
-a unique final-rename marker. The PM records/reproves the clip on main.
+The historical verification also covered shared save regressions and publications.
+Those gates belong to their respective component imports. Byte counts and old
+size-cap accounting are superseded by the restructured build. See tests/IMPORT.md
+for the current host evidence.
 
-BUILD / LIMITS
-WORD.EXE: 54,364 -> 57,516 bytes, +3,152; 8,020 below the 65,536-byte cap.
-The iword gate kernel remains 196,608 bytes (size delta 0). SAMIR.COM was
-not rebuilt or changed; its source is untouched (binary delta unmeasured).
-The MZ builder's normal relocation derivation/cap check passed.
-
-The PM's read-only refusal is intentionally stronger than real WP's
-confirmed read-only Delete/Rename; see MINT.txt's explicit evidence.
-The access-denied wording for that stricter policy is authored DOS feedback.
-Empty-directory Delete is not implemented: these are file operations and
-all directory selections are safe non-operands. Parent-relative '..' paths
-are unsupported. Exact real-WP self-copy/error-key flows, media changes and
-power-loss/media-fault recovery at the inherited mcep delete/rename commit window are not
-certified. Bochs/86Box and actual clip recording were not run in this lane.
-Follow-ups for PM: record/repro iword_listfiles_ops on main; file separate
-scope for directory deletion / commit-window recovery if required. No bd,
-commit, push or main-branch write was performed after reading the lane brief.
+The read-only refusal is intentionally stronger than real WP's confirmed
+read-only Delete/Rename; see MINT.txt's explicit evidence. Empty-directory Delete,
+parent-relative paths and power-loss recovery remain outside this import.

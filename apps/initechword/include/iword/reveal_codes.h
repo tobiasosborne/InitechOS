@@ -1,12 +1,9 @@
 /*
- * spec/iword/reveal_codes.h -- LOCKED spec-data: WordPerfect 5.1's Reveal
+ * include/iword/reveal_codes.h -- LOCKED spec-data: WordPerfect 5.1's Reveal
  * Codes screen (the code labels, the pane geometry, the ruler, the restore
  * message) and the Font menu lines, as InitechWord P2 slice 1 uses them
- * (CLAUDE.md Rule 8).
+ * (format contract).
  *
- * bead: initech-jojk (IWORD P2, slice 1: attribute codes + Reveal Codes).
- *       Epic initech-fdxa. Plan: docs/plans/INITECH-WORD-plan.md Sec 6(d),
- *       Sec 7 P2.
  *
  * EVERY string below is TRANSCRIBED from a screen the real WP.EXE (5.1,
  * 03-09-92) drew under DOSBox-X (../wordperfect51-decomp):
@@ -20,11 +17,11 @@
  * The byte <-> label pairs are the corpus' table (specs/file-formats/wp5-
  * body-codes.md Sec 5) plus the three this bead's mints added ([ITALC]/
  * [italc], [SRt]). A code no shot labels gets IW_RV_UNKNOWN -- an AUTHORED
- * placeholder, never a guessed WordPerfect label (Law 1). A code the shots
+ * placeholder, never a guessed WordPerfect label. A code the shots
  * show WITHOUT a label (0x83 end of center / flush right, R1/R3; the D4/00
  * group before a hard page, R3) gets the empty label.
  *
- * ASCII-clean (Rule 12).
+ * ASCII-clean.
  */
 #ifndef INITECH_SPEC_IWORD_REVEAL_CODES_H
 #define INITECH_SPEC_IWORD_REVEAL_CODES_H
@@ -68,7 +65,7 @@
  * (R1 [BOLD]/[bold] [UND]/[und]; R4 [LARGE]/[large]; R6 [ITALC]/[italc]). */
 /* P2 slice 3 (2026-10-16): all sixteen, each typed from its menu and read
  * off a real Reveal Codes pane (mint/shots_wpMINT28/20..23; the numbers from
- * the saved file mint/work/WP51/MINT28, spec/iword/wp5_format.h
+ * the saved file mint/work/WP51/MINT28, include/iword/wp5_format.h
  * IW_WP5_ATTR_*). */
 #define IW_RV_ATTR_ROWS 16
 #define IW_RV_ATTR_INIT { \
@@ -94,7 +91,7 @@
  * WordPerfect's 25-line screen in Reveal Codes (R1..R8): the document on lines
  * 0..10, the status line on line 11, the ruler on line 12, the CODES PANE on
  * lines 13..22 (10 rows; line 23 stays blank) and the restore message on line
- * 24. CORRECTED in P2 slice 2 (Rule 8, deliberate; bead initech-jojk): slice 1
+ * 24. CORRECTED in P2 slice 2 (deliberate; bead initech-jojk): slice 1
  * had 11 rows, inferred from screens whose 11th row was empty anyway. The
  * first screens with more to show keep line 23 blank: mint/shots_wpMINT09/
  * 05_reveal_top.png (lines 0..9 shown, "Page three.[HRt]" -- line 10 -- not on
@@ -144,7 +141,7 @@
  * Transcribed from mint/shots_wpMINT21/01_format_menu.png and
  * 02_format_line.png (80 x 25 screens: each row is (screen row, column,
  * text); the 9-pixel cells give the columns). WP's screen has 25 rows,
- * Face A's window 24 (os/iword/app/face_a.c): the Format screen drops its
+ * Face A's window 24 (apps/initechword/app/face_a.c): the Format screen drops its
  * blank row 1 and Format: Line its blank row 22 [authored adaptation; no
  * text is lost]. "Selection: 0" is on WP's last row. */
 /* RULE 8, 2026-10-16 (this bead, deliberate): 33 rows listed below, the

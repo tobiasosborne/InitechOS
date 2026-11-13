@@ -13,7 +13,7 @@ OUT=$(CDPATH= cd -- "$OUT" && pwd)
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/iword-listfiles-mint.XXXXXX")
 printf 'Scratch work: %s\n' "$WORK"
 cc -Wall -Wextra -Werror -shared -fPIC $(pkg-config --cflags sdl2) \
- "$ROOT/harness/diff/wp5_diff/wp51_headless.c" -o "$WORK/drive.so" $(pkg-config --libs sdl2) -ldl
+ "$ROOT/tools/wp51_headless.c" -o "$WORK/drive.so" $(pkg-config --libs sdl2) -ldl
 cp -f "$DEC/mint/work/LISTF/lf005.img" "$WORK/base.img"
 SOURCE_DATE_EPOCH=699350400 TZ=UTC mmd -i "$WORK/base.img" ::OPS ::OPS/SUB
 printf 'ALPHA CONTENT\r\n' > "$WORK/ALPHA.TXT"

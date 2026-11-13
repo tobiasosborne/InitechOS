@@ -1,5 +1,5 @@
 /*
- * os/iword/core/piece.c -- InitechWord's piece table and the WordPerfect 5.1
+ * apps/initechword/core/piece.c -- InitechWord's piece table and the WordPerfect 5.1
  * unit walk (THE ARTIFACT; bead initech-l4tj, IWORD P1).
  *
  * THE PIECE TABLE. The document is the concatenation of pieces, each a span
@@ -11,7 +11,7 @@
  * piece). Ref: plan docs/plans/INITECH-WORD-plan.md Sec 4 ("a piece table
  * of paragraphs/runs/codes"; FlairTE's flat 4 KB buffer is too small).
  *
- * THE UNIT WALK. spec/iword/wp5_format.h (cited to ../wordperfect51-decomp
+ * THE UNIT WALK. include/iword/wp5_format.h (cited to ../wordperfect51-decomp
  * specs/file-formats/wp5-body-codes.md Sec 1-4). Only verified units are
  * well-formed; iw_unit_len is the codec's validator. On a loaded document
  * (always well-formed) the walk reads byte classes without re-validating.
@@ -118,7 +118,7 @@ int iw_doc_insert(iw_doc_t *d, uint32_t pos, const uint8_t *s, uint32_t n)
         d->pc[pi + 1u].off = IW_PIECE_ADD | a;
         d->pc[pi + 1u].len = n;
 #ifdef IWORD_MUT_SPLIT_OFF
-        /* MUTANT (Rule 6; test-iword-core-mutant): the right half starts one
+        /* MUTANT (test-iword-core-mutant): the right half starts one
          * byte late -- a byte is lost and the tail is shifted. NEVER real. */
         d->pc[pi + 2u].off = left.off + po + 1u;
         d->pc[pi + 2u].len = left.len - po;
@@ -294,13 +294,13 @@ int iw_unit_kind(const iw_doc_t *d, uint32_t pos)
     if (c == IW_WP5_SRT) return IW_U_SRT;
     if (c == IW_WP5_HPG) return IW_U_HPG;
     if (c == IW_WP5_HSPACE) return IW_U_HSPACE;
-    /* slice 2 (bead initech-jojk; spec/iword/wp5_format.h "tabs, indents and
+    /* slice 2 (bead initech-jojk; include/iword/wp5_format.h "tabs, indents and
      * hard pages"): the codes that take columns or that WP keeps beside one */
     if (c == IW_WP5_C1 && iw_doc_byte(d, pos + 1u) == (int)IW_WP5_C1_TAB) return IW_U_TAB;
     if (c == IW_WP5_INDENT) return IW_U_INDENT;
     if (c == IW_WP5_END_INDENT) return IW_U_HIDDEN;
     if (c == IW_WP5_PAGE_GRP && iw_doc_byte(d, pos + 1u) == (int)IW_WP5_PAGE_SUB) return IW_U_HIDDEN;
-    /* slice 3 (spec/iword/wp5_format.h "margins and justification"): the
+    /* slice 3 (include/iword/wp5_format.h "margins and justification"): the
      * deletable soft return ends a line; D4/05 is WP's unseen record at the
      * start of a centered / right-justified line */
     if (c == IW_WP5_DSRT) return IW_U_DSRT;
@@ -329,7 +329,7 @@ uint32_t iw_unit_prev(const iw_doc_t *d, uint32_t pos)
     }
     if (c >= (int)IW_WP5_VAR_LO) {
 #ifdef IWORD_MUT_PREV_VAR
-        /* MUTANT (Rule 6; test-iword-core-mutant): the backward walk treats
+        /* MUTANT (test-iword-core-mutant): the backward walk treats
          * a variable group's last byte as a one-byte unit. NEVER real. */
         return pos - 1u;
 #else

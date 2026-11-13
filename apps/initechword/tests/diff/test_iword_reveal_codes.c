@@ -1,5 +1,5 @@
 /*
- * harness/diff/wp5_diff/test_iword_reveal_codes.c -- THE REVEAL CODES DUMP
+ * tests/diff/test_iword_reveal_codes.c -- THE REVEAL CODES DUMP
  * ORACLE of InitechWord (factory C; bead initech-jojk, IWORD P2 slices 1 and
  * 2; plan docs/plans/INITECH-WORD-plan.md Sec 6(d): "a diff oracle comparing
  * a serialized Reveal-Codes-mode screen dump (the code-glyph stream, not
@@ -19,7 +19,7 @@
  *     answers to "Delete [L/R Mar:..]?"; [Ln Spacing:..]; where each Home
  *     prefix key leaves the cursor; attributes given to blocks and the
  *     sixteen attribute labels; Move without a block)
- * Nothing here is read from spec/iword/reveal_codes.h (Law 2: an oracle that
+ * Nothing here is read from include/iword/reveal_codes.h (Law 2: an oracle that
  * shares its expected strings with the artifact agrees by construction). The
  * right arrow of "[->Indent]" is CP437 0x1A as the screen shows it.
  *
@@ -36,7 +36,7 @@
  * [Note Num]A footnote.] Cafe-acute and a hard[ ]space.[HRt]") -- footnotes
  * and the extended characters are later slices; its other rows are graded.
  *
- * Mutants (Rule 6; test-iword-reveal-codes-mutant):
+ * Mutants (test-iword-reveal-codes-mutant):
  *   IWORD_MUT_LABEL_ITALC  italic labelled [ITAL]/[ital] -> RED-REASON label
  *   IWORD_MUT_PANE_ANCHOR  two lines above the cursor   -> RED-REASON pane
  *   IWORD_MUT_BLOCK_LABEL  no [Block] at the anchor     -> RED-REASON label
@@ -46,7 +46,7 @@
  *                                                        -> RED-REASON pane
  *
  * Usage: test_iword_reveal_codes <WORDPERFECT51_DECOMP>
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean. Deterministic.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -595,7 +595,7 @@ static int build(const screen_t *sc, iw_ed_t *e)
 {
     iw_doc_init(&e->doc, g_add, CAP, g_pc, 8192u, CAP);
     /* RE-KEYED 2026-10-16 (slice 3, stated): WP's line holds 66 characters
-     * at 1"/1" (MINT22; spec/iword/wp5_format.h WRAP), was 65 */
+     * at 1"/1" (MINT22; include/iword/wp5_format.h WRAP), was 65 */
     iw_ed_init(e, 66u);
     if (sc->doc) {
         iw_wp5_t w;

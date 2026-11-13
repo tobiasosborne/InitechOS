@@ -1,21 +1,18 @@
 /*
- * os/iword/core/iword.h -- InitechWord's document core: a PIECE TABLE over
+ * apps/initechword/core/iword.h -- InitechWord's document core: a PIECE TABLE over
  * an original buffer and an append-only add buffer, the WordPerfect 5.1
  * unit walk, word wrap (reflow) and the line layout Face A draws, plus the
- * .WP5 codec (os/iword/fs/wp5.c) -- THE ARTIFACT (C, ADR-0002).
+ * .WP5 codec (apps/initechword/fs/wp5.c) -- THE ARTIFACT (C, ADR-0002).
  *
- * bead: initech-l4tj (IWORD P1). Epic initech-fdxa. Plan:
- *       docs/plans/INITECH-WORD-plan.md Sec 4 (one core, two faces), Sec 6(a)
- *       and 6(c) (the oracles), Sec 7 P1.
  *
  * THE DOCUMENT IS THE .WP5 BODY. The piece table holds the body bytes
- * exactly as WordPerfect 5.1 stores them (spec/iword/wp5_format.h): text
+ * exactly as WordPerfect 5.1 stores them (include/iword/wp5_format.h): text
  * bytes, the hard return 0x0A, the SOFT RETURN 0x0D that REPLACES the space
  * at a wrap (MINT01 @0x188), and every other function code as an opaque,
  * unbroken UNIT (a fixed group, a variable group, a single code byte). A
  * golden therefore reads and writes back byte-for-byte. The ATTRIBUTE
  * codes (bold / underline / italic / any attribute number) are understood
- * since P2 slice 1 (bead initech-jojk, os/iword/core/codes.c): their state,
+ * since P2 slice 1 (bead initech-jojk, apps/initechword/core/codes.c): their state,
  * WordPerfect's rules for inserting / moving / deleting them, and their
  * Reveal Codes labels. Since P2 slice 2 the tab ([Tab], C1 sub 02), the
  * indent ([->Indent], C2), the hard page with its D4/00 group and the C6 of an
@@ -42,7 +39,7 @@
  * never moves the cursor or any other position.
  *
  * Freestanding C: no libc, no OS calls (the app does all I/O through the
- * Toolbox Gate). Deterministic (Rule 11). ASCII-clean (Rule 12).
+ * Toolbox Gate). Deterministic. ASCII-clean.
  */
 #ifndef INITECH_IWORD_H
 #define INITECH_IWORD_H
@@ -125,7 +122,7 @@ enum {
                          * cursor always rests after it)                     */
 };
 /* Length of the well-formed unit starting at b[pos] (n = bytes available),
- * or 0 when the bytes there are not a VERIFIED unit (spec/iword/
+ * or 0 when the bytes there are not a VERIFIED unit (include/iword/
  * wp5_format.h; a group must mirror). The codec's validator. */
 uint32_t iw_unit_len(const uint8_t *b, uint32_t n, uint32_t pos);
 /* On a (well-formed) document: */
@@ -153,7 +150,7 @@ typedef struct iw_line {
                           * margin an indent earlier in its paragraph set */
     uint16_t margin;     /* the margin the NEXT line starts at (0 after a
                           * hard return / hard page)                     */
-    /* slice 3 (bead initech-jojk; spec/iword/wp5_format.h "margins and
+    /* slice 3 (bead initech-jojk; include/iword/wp5_format.h "margins and
      * justification"): the columns above are RELATIVE to the left margin in
      * effect for the line; these place them on the paper. */
     uint16_t lm;         /* the left margin L (WPU from the paper's edge)  */
@@ -260,7 +257,7 @@ uint32_t iw_ed_lines(const iw_ed_t *e, uint32_t first, uint32_t n, iw_line_t *ou
 
 /* ---- tabs, indents, hard pages (bead initech-jojk, P2 slice 2; edit.c) ---- *
  * WordPerfect 5.1's Tab, F4 (->Indent) and Ctrl-Enter (hard page), each a code
- * at the cursor, the cursor after it (spec/iword/wp5_format.h "tabs, indents
+ * at the cursor, the cursor after it (include/iword/wp5_format.h "tabs, indents
  * and hard pages"; mint/wpMINT09.steps). Columns: a tab or an indent moves to
  * the next stop (every IW_WP5_TAB_EVERY columns); an indent also sets the left
  * margin the rest of its paragraph wraps at.
@@ -285,7 +282,7 @@ uint32_t iw_line_col(const iw_doc_t *d, const iw_line_t *ln, uint32_t pos);
  * MINT12 13_bs_indent). */
 int      iw_ed_answer(iw_ed_t *e, int yes);
 
-/* ---- Block (Alt-F4) and Move (Ctrl-F4) (slice 2; os/iword/core/block.c) ---- *
+/* ---- Block (Alt-F4) and Move (Ctrl-F4) (slice 2; apps/initechword/core/block.c) ---- *
  * The block runs from the anchor to the cursor, [min, max) (MINT12/13). Its
  * COPY is self-contained: an on code for every attribute on where it starts,
  * its bytes, an off code for every attribute on where it ends (MINT14 "RS"
@@ -318,7 +315,7 @@ int      iw_ed_block_attr(iw_ed_t *e, uint8_t attr);
 int      iw_ed_select(iw_ed_t *e, int what);
 
 /* ---- margins and justification (bead initech-jojk, P2 slice 3; edit.c) ---- *
- * Shift-F8 1 7 / Shift-F8 1 3 (spec/iword/wp5_format.h "margins and
+ * Shift-F8 1 7 / Shift-F8 1 3 (include/iword/wp5_format.h "margins and
  * justification"; mint/wpMINT21..24.steps). iw_ed_margins puts a [L/R Mar]
  * code at the cursor -- a HRt first when the cursor is not at the left
  * margin (Reference Manual p. 394; MINT21, MINT23) -- and re-wraps every
@@ -333,7 +330,7 @@ int      iw_ed_select(iw_ed_t *e, int what);
  * deletes the code alone. */
 int      iw_ed_margins(iw_ed_t *e, uint32_t left_wpu, uint32_t right_wpu);
 int      iw_ed_just(iw_ed_t *e, uint32_t just);
-/* Line spacing (Shift-F8 1 6; spec/iword/wp5_format.h "line spacing";
+/* Line spacing (Shift-F8 1 6; include/iword/wp5_format.h "line spacing";
  * mint/wpMINT25/26/30.steps): a [Ln Spacing:] code at the cursor, never a
  * return before it (MINT25 "Mid[Ln Spacing:1]single"); sp 8.8 fixed
  * (IW_WP5_SPACING_ONE = single). Its old value is kept by iw_ed_fixup
@@ -363,9 +360,9 @@ uint32_t iw_ln_y_hundredths(uint32_t y);
 uint32_t iw_pos_hundredths(uint32_t col);
 uint32_t iw_fmt_inches(uint32_t hundredths, char *out);   /* returns length */
 
-/* ---- attribute codes (os/iword/core/codes.c; bead initech-jojk) ----------- *
+/* ---- attribute codes (apps/initechword/core/codes.c; bead initech-jojk) ----------- *
  * An attribute is a PAIR of fixed groups, `C3 n C3` (on) ... `C4 n C4` (off),
- * n the WordPerfect attribute number (spec/iword/wp5_format.h IW_WP5_ATTR_*).
+ * n the WordPerfect attribute number (include/iword/wp5_format.h IW_WP5_ATTR_*).
  * The state at a position is read from the codes before it: attribute n is ON
  * when the last code of n before the position is an ON code. The editor's
  * rules are WordPerfect 5.1's (Reference Manual, Attributes p. 36-37, PDF
@@ -405,7 +402,7 @@ int      iw_ed_normal(iw_ed_t *e);
  * Delete); IW_E_PROTECTED when the unit is not an attribute code. */
 int      iw_ed_kill_code(iw_ed_t *e, uint32_t pos);
 
-/* ---- Reveal Codes (os/iword/core/codes.c; spec/iword/reveal_codes.h) ------- *
+/* ---- Reveal Codes (apps/initechword/core/codes.c; include/iword/reveal_codes.h) ------- *
  * iw_reveal_line: the labels of document line `ln` (text as itself, every
  * code as its Reveal Codes label, the terminator's label last) into out
  * (NUL-terminated, at most cap - 1 chars); returns the length. When `cur`
@@ -429,7 +426,7 @@ typedef struct iw_pane {
 void     iw_reveal_pane(const iw_ed_t *e, uint32_t width, uint32_t nrows,
                         char *rows, uint32_t stride, iw_pane_t *pane);
 
-/* ---- the .WP5 codec (os/iword/fs/wp5.c) ------------------------------------ */
+/* ---- the .WP5 codec (apps/initechword/fs/wp5.c) ------------------------------------ */
 typedef struct iw_wp5 {
     const uint8_t *prefix;   uint32_t prefix_len;   /* header + prefix area */
     const uint8_t *body;     uint32_t body_len;
@@ -439,7 +436,7 @@ typedef struct iw_wp5 {
 int      iw_wp5_read(const uint8_t *file, uint32_t n, iw_wp5_t *out);
 /* prefix + body into out; IW_E_FULL when it does not fit. `cur` is the
  * cursor at the save -- the default prefix records whether it was before the
- * end (spec/iword/wp5_format.h IW_WP5_PFX_CURSOR_OFF; bead initech-jojk
+ * end (include/iword/wp5_format.h IW_WP5_PFX_CURSOR_OFF; bead initech-jojk
  * slice 2) -- or IW_WP5_CUR_KEEP to write the prefix exactly as given. */
 #define IW_WP5_CUR_KEEP 0xFFFFFFFFu
 int      iw_wp5_write(const uint8_t *prefix, uint32_t prefix_len, const iw_doc_t *d, uint32_t cur,
@@ -451,8 +448,8 @@ const uint8_t *iw_wp5_default_prefix(uint32_t *len);
  * most cap bytes). */
 uint32_t iw_wp5_text(const iw_doc_t *d, char *out, uint32_t cap);
 
-/* ---- List Files (os/iword/core/listfiles.c; bead initech-qvgd) -----------
- * Rows composed at WordPerfect's 80 columns (spec/iword/listfiles.h, mint
+/* ---- List Files (apps/initechword/core/listfiles.c; bead initech-qvgd) -----------
+ * Rows composed at WordPerfect's 80 columns (include/iword/listfiles.h, mint
  * 005), then fitted to the face by deleting the locked blank columns. */
 typedef struct iw_lf_ent {
     char     name[13];               /* "NAME.EXT" as FINDFIRST gives it  */

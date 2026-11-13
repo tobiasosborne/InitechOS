@@ -1,6 +1,6 @@
 /* Read-only code-aware Search. Ref: WP 5.1 Reference printed pp. 571-573:
  * case rule, literal code tokens and direction. Unit boundaries / attribute
- * bytes: MINT06/MINT08, spec/iword/wp5_format.h. Never edits document bytes.
+ * bytes: MINT06/MINT08, include/iword/wp5_format.h. Never edits document bytes.
  * This does NOT implement Replace: no replace/undelete byte mint exists. */
 #include "iword.h"
 

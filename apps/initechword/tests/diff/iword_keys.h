@@ -1,5 +1,5 @@
 /*
- * harness/diff/wp5_diff/iword_keys.h -- drive the InitechWord core with the
+ * tests/diff/iword_keys.h -- drive the InitechWord core with the
  * keys of a ../wordperfect51-decomp mint step file (factory C; bead
  * initech-jojk, IWORD P2 slice 2). Shared by test_iword_wp5_roundtrip.c
  * (the typed documents == the files WP.EXE saved) and
@@ -39,7 +39,7 @@
  * iw_ed_fixup runs after every key, as WORD.EXE runs it. Returns 1 when every
  * key was accepted the way the mint saw it (a question asked where WP asked).
  *
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean. Deterministic.
  */
 #ifndef IWORD_KEYS_H
 #define IWORD_KEYS_H

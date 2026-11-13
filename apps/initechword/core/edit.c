@@ -1,5 +1,5 @@
 /*
- * os/iword/core/edit.c -- InitechWord's word wrap, line layout and editor
+ * apps/initechword/core/edit.c -- InitechWord's word wrap, line layout and editor
  * (THE ARTIFACT; bead initech-l4tj, IWORD P1; tabs, indents, hard pages and
  * WordPerfect's bookkeeping: bead initech-jojk, IWORD P2 slice 2).
  *
@@ -7,7 +7,7 @@
  * formats/wp5-body-codes.md Sec 2 -- MINT01.WP5 @0x188 `6c 0d 57`: WP 5.1
  * stores the line end of a wrapped paragraph as the SOFT RETURN 0x0D IN
  * PLACE OF the space it broke at, 65 characters into the line (the 1"/1"
- * default margins at 10 pitch, spec/iword/wp5_format.h IW_WP5_WRAP_COLS).
+ * default margins at 10 pitch, include/iword/wp5_format.h IW_WP5_WRAP_COLS).
  * The rule implemented (stated, [inferred] beyond that one instance): from
  * the line start, if the rest of the paragraph fits the width it is the
  * last line; otherwise the line ends at the LAST space whose preceding text
@@ -35,7 +35,7 @@
  * BOOKKEEPING (iw_ed_fixup). WordPerfect writes -- and REWRITES as the text
  * moves (MINT10) -- the geometry inside its tab / indent / hard-page codes,
  * and two codes it never shows: C6 before the HRt of an indented paragraph,
- * D4/00 before every hard page (spec/iword/wp5_format.h "tabs, indents and
+ * D4/00 before every hard page (include/iword/wp5_format.h "tabs, indents and
  * hard pages"; MINT03, MINT09). iw_ed_fixup does the same after every edit.
  *
  * CURSOR. Always a unit boundary. On a line that ends with a terminator the
@@ -55,7 +55,7 @@
 static uint32_t next_stop(uint32_t c)
 {
 #ifdef IWORD_MUT_TAB_FIXED
-    /* MUTANT (Rule 6; test-iword-codes-mutant, test-iword-wp5-roundtrip-
+    /* MUTANT (test-iword-codes-mutant, test-iword-wp5-roundtrip-
      * mutant): a tab is always five columns wide, not "to the next stop".
      * NEVER real. */
     return c + IW_WP5_TAB_EVERY;
@@ -108,7 +108,7 @@ static int advances(int kind)
 }
 
 /* ---- the format in effect (bead initech-jojk, P2 slice 3) ------------------ *
- * spec/iword/wp5_format.h "margins and justification": the left margin L and
+ * include/iword/wp5_format.h "margins and justification": the left margin L and
  * the right margin position 10200 - R (WPU), the justification, and whether a
  * margin code has been met (until then the caller's `width` rules the wrap,
  * so the P1 / P2 property suites keep their free widths). */
@@ -232,7 +232,7 @@ static int breakable(const iw_doc_t *d, uint32_t q, int kind)
 static int unsoft(iw_doc_t *d, uint32_t p, uint32_t q)
 {
 #ifdef IWORD_MUT_REFLOW_STALE
-    /* MUTANT (Rule 6; test-iword-core-mutant): old soft returns are kept
+    /* MUTANT (test-iword-core-mutant): old soft returns are kept
      * where they were, so a re-wrapped paragraph keeps stale line ends.
      * NEVER real. */
     (void)d; (void)p; (void)q;
@@ -250,11 +250,11 @@ static int unsoft(iw_doc_t *d, uint32_t p, uint32_t q)
 }
 
 #ifdef IWORD_MUT_WRAP_EARLY
-/* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): a line ends one column
+/* MUTANT (test-iword-wp5-roundtrip-mutant): a line ends one column
  * short of the margin. NEVER real. */
 #define LINE_WIDTH(f, w0) (fmt_width((f), (w0)) > 1u ? fmt_width((f), (w0)) - 1u : 1u)
 #elif defined(IWORD_MUT_WRAP_65)
-/* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): slice 1's rule -- a
+/* MUTANT (test-iword-wp5-roundtrip-mutant): slice 1's rule -- a
  * character must END by the right margin (65 at 1"/1"). NEVER real. */
 #define LINE_WIDTH(f, w0) ((f)->set ? fmt_width((f), (w0)) - 1u : ((w0) == IW_WP5_WRAP_COLS ? (w0) - 1u : (w0)))
 #else
@@ -269,7 +269,7 @@ static int reflow_range(iw_doc_t *d, uint32_t p, uint32_t end, fmt_t *f, uint32_
     uint32_t m = 0;
     int rc;
 #ifdef IWORD_MUT_NO_WRAP
-    /* MUTANT (Rule 6; test-flair-iword-mutant): word wrap is off -- no soft
+    /* MUTANT (test-flair-iword-mutant): word wrap is off -- no soft
      * return is ever placed. NEVER real. */
     (void)d; (void)p; (void)end; (void)f; (void)width0; (void)m; (void)rc;
     return IW_OK;
@@ -415,7 +415,7 @@ static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fm
     w = (c > col0 ? c - col0 : 0u) * IW_WP5_WPU_PER_COL;
     ln->x0 = (uint16_t)(lf.lm + IW_WP5_WPU_PER_COL * col0);
 #ifndef IWORD_MUT_NO_CENTER
-    /* (IWORD_MUT_NO_CENTER, Rule 6, test-iword-face-mutant: a centered or
+    /* (IWORD_MUT_NO_CENTER, test-iword-face-mutant: a centered or
      * right-justified line shows at the left margin. NEVER real.) */
     if (lf.just == IW_WP5_JUST_CENTER && lf.rm >= lf.lm + w) ln->x0 = (uint16_t)(lf.lm + (lf.rm - lf.lm - w) / 2u);
     else if (lf.just == IW_WP5_JUST_RIGHT && lf.rm >= lf.lm + w) ln->x0 = (uint16_t)(lf.rm - w);
@@ -657,7 +657,7 @@ static int on_code(iw_ed_t *e, uint32_t q, int del)
     if (iw_code_attr(&e->doc, q, 0) >= 0 || iw_code_is_format(&e->doc, q)) {
         if (e->reveal) return iw_ed_kill_code(e, q);
 #ifdef IWORD_MUT_NO_ASK
-        /* MUTANT (Rule 6; test-iword-codes-mutant): the editing screen keeps
+        /* MUTANT (test-iword-codes-mutant): the editing screen keeps
          * P1's silent step-over -- no question is ever asked. NEVER real. */
         e->cur = del ? iw_unit_next(&e->doc, q) : q;
         return IW_E_PROTECTED;
@@ -719,7 +719,7 @@ int iw_ed_answer(iw_ed_t *e, int yes)
      * F6 Delete y -- both pairs gone, the text joined) */
     if (yes) return iw_ed_kill_code(e, q);
 #ifdef IWORD_MUT_ASK_STAY
-    /* MUTANT (Rule 6; test-iword-codes-mutant): "No" leaves the cursor where
+    /* MUTANT (test-iword-codes-mutant): "No" leaves the cursor where
      * it was. NEVER real. */
     return IW_OK;
 #endif
@@ -804,7 +804,7 @@ void iw_ed_line_start(iw_ed_t *e)
     e->goal = NONE;
     iw_ed_where(e, &wh);
 #ifdef IWORD_MUT_HHH_AFTER
-    /* MUTANT (Rule 6; test-iword-codes-mutant): Home, Home, Home, Left
+    /* MUTANT (test-iword-codes-mutant): Home, Home, Home, Left
      * stops after the codes, as Home, Left does. NEVER real. */
     iw_ed_line_home(e);
     return;
@@ -947,7 +947,7 @@ int iw_ed_hpage(iw_ed_t *e)
     for (i = 0; i < IW_WP5_PAGE_GRP_LEN; i++) g[i] = pg[i];
     g[IW_WP5_PAGE_GRP_LEN] = IW_WP5_HPG;
 #ifdef IWORD_MUT_NO_D4
-    /* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant, test-flair-iword-
+    /* MUTANT (test-iword-wp5-roundtrip-mutant, test-flair-iword-
      * block-mutant): the hard page goes in bare, without its D4/00 group (and
      * iw_ed_fixup does not add one). NEVER real. */
     return insert_code(e, g + IW_WP5_PAGE_GRP_LEN, 1u, 1);
@@ -1072,7 +1072,7 @@ static void u16put(uint8_t *g, uint32_t v)
 }
 
 /* The geometry inside the codes, from the layout and the margins in effect
- * (spec/iword/wp5_format.h; slice 3: tabs, indents and C6 measured from the
+ * (include/iword/wp5_format.h; slice 3: tabs, indents and C6 measured from the
  * line's left margin and right margin position, MINT21 @0x1CF / @0x24E,
  * MINT23 @0x1AE), and each format code's OLD values -- the format in effect
  * before it (MINT24: [Just:Right] old Center -> Full once the [Just:Center]
@@ -1091,7 +1091,7 @@ static int fix_payloads(iw_ed_t *e)
             uint8_t g[10];
             if (k == IW_U_TAB || k == IW_U_INDENT) {
 #ifdef IWORD_MUT_TAB_ABS
-                /* MUTANT (Rule 6; test-iword-codes-mutant, test-iword-wp5-
+                /* MUTANT (test-iword-codes-mutant, test-iword-wp5-
                  * roundtrip-mutant): the stops stay where the 1" margin puts
                  * them whatever the margins. NEVER real. */
                 uint32_t a = IW_WP5_LEFT_WPU + IW_WP5_WPU_PER_COL * next_stop(c), o = 0;
@@ -1117,7 +1117,7 @@ static int fix_payloads(iw_ed_t *e)
                 uint32_t got = iw_doc_read(d, p, h, sizeof h);
                 int fk = fmt_kind(h, got);
 #ifndef IWORD_MUT_OLD_STALE
-                /* (IWORD_MUT_OLD_STALE, Rule 6, test-iword-wp5-roundtrip-
+                /* (IWORD_MUT_OLD_STALE, test-iword-wp5-roundtrip-
                  * mutant: a code keeps the old values it was typed with.
                  * NEVER real.) */
                 if (fk == 1) {
@@ -1146,7 +1146,7 @@ static int fix_payloads(iw_ed_t *e)
 }
 
 /* ---- D4/05: where a centered / right-justified stretch starts (slice 3) ------- *
- * spec/iword/wp5_format.h "LINE POSITION": one at the start of every line
+ * include/iword/wp5_format.h "LINE POSITION": one at the start of every line
  * whose justification is Center or Right, one right after every [Just:] code
  * whose old or new value is one of them, no other; x from the text up to the
  * next one (MINT22, MINT24A). */
@@ -1216,12 +1216,12 @@ static int fix_linepos(iw_ed_t *e)
         for (;;) {                 /* the line, again after every change */
             uint32_t p = w.ln.start, run = w.fin.just;
             /* each change fixes one record; a line needing more than this
-             * means the layout and the rule disagree: fail loud (Rule 2) */
+             * means the layout and the rule disagree: fail loud */
             if (++tries > 64u) return IW_E_CODE;
             int need = cr_just(run), changed = 0;
             rc = IW_OK;
 #ifdef IWORD_MUT_NO_LEAD
-            /* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant, test-iword-
+            /* MUTANT (test-iword-wp5-roundtrip-mutant, test-iword-
              * codes-mutant): WP's D4/05 line records are never written.
              * NEVER real. */
             need = 0;
@@ -1319,7 +1319,7 @@ int iw_ed_margins(iw_ed_t *e, uint32_t left, uint32_t right)
         return IW_E_RANGE;
     if (d->len + 1u + sizeof g > d->max_len) return IW_E_FULL;
 #ifndef IWORD_MUT_MAR_NO_HRT
-    /* (IWORD_MUT_MAR_NO_HRT, Rule 6, test-iword-wp5-roundtrip-mutant: the
+    /* (IWORD_MUT_MAR_NO_HRT, test-iword-wp5-roundtrip-mutant: the
      * code goes in mid-line with no [HRt]. NEVER real.) */
     if (!at_left_margin(e)) {
         uint8_t h = IW_WP5_HRT;
@@ -1371,7 +1371,7 @@ int iw_ed_just(iw_ed_t *e, uint32_t just)
 }
 
 /* ---- line spacing (bead initech-jojk, P2 slice 3) ---------------------------------- *
- * spec/iword/wp5_format.h "line spacing": the code goes in at the cursor
+ * include/iword/wp5_format.h "line spacing": the code goes in at the cursor
  * wherever it is -- no [HRt] / [DSRt] first (MINT25 "Mid[Ln Spacing:1]
  * single"; Reference Manual, Line Spacing p. 345: "WordPerfect only changes
  * the line spacing after the Line Spacing code"). */
@@ -1389,7 +1389,7 @@ int iw_ed_spacing(iw_ed_t *e, uint32_t sp)
     u16at(g + 4, f.sp);
     u16at(g + 6, sp);
 #ifdef IWORD_MUT_SP_HRT
-    /* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): the spacing code is
+    /* MUTANT (test-iword-wp5-roundtrip-mutant): the spacing code is
      * treated like a margin change -- a [HRt] first when the cursor is not
      * at the left margin. NEVER real. */
     if (!at_left_margin(e)) {
@@ -1412,7 +1412,7 @@ int iw_ed_spacing(iw_ed_t *e, uint32_t sp)
 uint32_t iw_spacing_from_hundredths(uint32_t h)
 {
 #ifdef IWORD_MUT_SP_NEAR
-    /* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): rounded to the
+    /* MUTANT (test-iword-wp5-roundtrip-mutant): rounded to the
      * nearest (1.33 -> 340). NEVER real. */
     return (h * IW_WP5_SPACING_ONE + 50u) / 100u;
 #endif
@@ -1422,7 +1422,7 @@ uint32_t iw_spacing_from_hundredths(uint32_t h)
 uint32_t iw_spacing_rows(uint32_t sp)
 {
 #ifdef IWORD_MUT_SP_CEIL
-    /* MUTANT (Rule 6; test-iword-face-mutant): a fractional spacing shows
+    /* MUTANT (test-iword-face-mutant): a fractional spacing shows
      * rounded UP (1.33 as two rows). NEVER real. */
     uint32_t r = (sp + IW_WP5_SPACING_ONE - 1u) / IW_WP5_SPACING_ONE;
 #else
@@ -1462,7 +1462,7 @@ static uint32_t sentence_after(const iw_doc_t *d, uint32_t p, uint32_t pe)
         if (k == IW_U_TEXT && sentence_end_char(iw_doc_byte(d, p)) && (q >= pe || is_space_unit(d, q))) {
             uint32_t n = 0;
 #ifdef IWORD_MUT_SENT_BARE
-            /* MUTANT (Rule 6; test-iword-codes-mutant): the sentence stops at
+            /* MUTANT (test-iword-codes-mutant): the sentence stops at
              * its punctuation, its spaces left behind. NEVER real. */
             n = 3u;
 #endif

@@ -1,9 +1,9 @@
 /*
- * harness/proptest/test_iword_listfiles.c -- the HOST oracle of InitechWord's
+ * tests/test_iword_listfiles.c -- the HOST oracle of InitechWord's
  * List Files (F5) and Look (factory C; bead initech-qvgd, IWORD P3 remainder).
  *
- * WHAT IS UNDER TEST: the real os/iword/app/face_a.c over the real document
- * core and os/iword/core/listfiles.c, driven through tbx_app_event by the
+ * WHAT IS UNDER TEST: the real apps/initechword/app/face_a.c over the real document
+ * core and apps/initechword/core/listfiles.c, driven through tbx_app_event by the
  * recording Toolbox mock of test_iword_face.c, whose FILE_FIND / DISK_FREE /
  * CLOCK answer a FIXED directory: the List Files fixture volume of the real
  * WP 5.1 mint (../wordperfect51-decomp mint/work/LISTF/mkfixture.sh, v3),
@@ -13,7 +13,7 @@
  * from argv[2], a host directory the Makefile fills from the same sources.
  *
  * WHERE THE EXPECTED SCREENS COME FROM (Law 2 -- never from face_a.c or
- * spec/iword/listfiles.h): argv[1], the mint's cell-exact transcriptions
+ * include/iword/listfiles.h): argv[1], the mint's cell-exact transcriptions
  * grids/LF14_*.txt (decode2.py; md5-pinned by the Makefile).
  * THIS file maps WP's 80 x 25 onto the face's 76 x 24 with its OWN statement
  * of the adaptation rule (the face drops the list's last row and WP's blank
@@ -39,8 +39,8 @@
  *          RTC to 1992-03-01T09:00:00 (clock=vm) and kills the run at a 30 s
  *          wall-clock deadline (appl-boot --timeout-ms 30000), so the guest
  *          minute cannot leave 09:00.
- * Mutants (Rule 6): IWORD_MUT_LF_COLUMN (every right-aligned figure one
- * column right), IWORD_MUT_LF_ZERO_DATE (a zero DOS date printed as a stamp). ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * Mutants: IWORD_MUT_LF_COLUMN (every right-aligned figure one
+ * column right), IWORD_MUT_LF_ZERO_DATE (a zero DOS date printed as a stamp). ASCII-clean. Deterministic.
  */
 #define main iword_p12_main
 #include "test_iword_face.c"

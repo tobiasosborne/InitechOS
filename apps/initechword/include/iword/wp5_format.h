@@ -1,9 +1,7 @@
 /*
- * spec/iword/wp5_format.h -- LOCKED spec-data: the WordPerfect 5.1 document
- * container (.WP5) as far as InitechWord P1 uses it (CLAUDE.md Rule 8).
+ * include/iword/wp5_format.h -- LOCKED spec-data: the WordPerfect 5.1 document
+ * container (.WP5) as far as InitechWord P1 uses it (format contract).
  *
- * bead: initech-l4tj (IWORD P1). Epic initech-fdxa. Plan:
- *       docs/plans/INITECH-WORD-plan.md Sec 6(a) / Sec 7 P1.
  *
  * EVERY value below is cited to the sister corpus ../wordperfect51-decomp
  * (WP 5.1 03-09-92, the five documents minted by driving the real WP.EXE
@@ -18,9 +16,9 @@
  * the corpus' independent reader; that reader grades what this header lets
  * the C codec write. Only VERIFIED rows are admitted: a code the corpus
  * marks [oracle-resolves] (C5, C7..CF, the unseen single bytes) is NOT in
- * these tables, so a file that uses one is REFUSED (Rule 2), never guessed.
+ * these tables, so a file that uses one is REFUSED, never guessed.
  *
- * ASCII-clean (Rule 12). No timestamps (Rule 11).
+ * ASCII-clean. No timestamps.
  */
 #ifndef INITECH_SPEC_IWORD_WP5_FORMAT_H
 #define INITECH_SPEC_IWORD_WP5_FORMAT_H
@@ -100,7 +98,7 @@
  * the first data byte of prefix packet 0x06 (index entry at 0x10: type 0x06,
  * len 16, offset 0x103) -- is 0x08 when the cursor was anywhere before the
  * end of the document, 0x00 when it was at the end. CORRECTED in P2 slice 2
- * (Rule 8, deliberate; bead initech-jojk): slice 1 read it as "the body holds
+ * (deliberate; bead initech-jojk): slice 1 read it as "the body holds
  * italic" from MINT06 alone, whose save happened after Home Home Up -- a
  * confound. The slice 2 mints (../wordperfect51-decomp re/mint-results-003.md)
  * separate the two: 0x08 with NO italic in MINT09, 11..14, 16 (cursor at the
@@ -250,7 +248,7 @@
  *      under 1.25", the tab's "y" at 7 = 2100; MINT22 04_typed: centered
  *      "Centered justification line." at 18 = 3420, "Right justified." at
  *      49 = 7080). Pos on the status line is x itself (MINT23 "Pos 1.25"").
- * The screen and the status line are Face A's (os/iword/app/face_a.c). */
+ * The screen and the status line are Face A's (apps/initechword/app/face_a.c). */
 #define IW_WP5_PAPER_WPU       10200u
 #define IW_WP5_MARGIN_LEN      16u
 #define IW_WP5_JUST_SUB        0x06u

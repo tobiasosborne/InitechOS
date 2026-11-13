@@ -1,8 +1,8 @@
 /*
- * os/iword/fs/wp5.c -- the WordPerfect 5.1 document codec of InitechWord
+ * apps/initechword/fs/wp5.c -- the WordPerfect 5.1 document codec of InitechWord
  * (THE ARTIFACT; bead initech-l4tj, IWORD P1).
  *
- * Ref: spec/iword/wp5_format.h, which cites ../wordperfect51-decomp
+ * Ref: include/iword/wp5_format.h, which cites ../wordperfect51-decomp
  *      specs/file-formats/wp5-header-and-prefix.md (the 16-byte header, the
  *      0x147-byte prefix of every minted document, Sec 4 "emit the 327-byte
  *      prefix verbatim, then the body") and wp5-body-codes.md (the units).
@@ -11,7 +11,7 @@
  * (magic, product 1, file type 0x0A, version 0.1, not encrypted, a docstart
  * inside the file) and the body must be a sequence of VERIFIED units, every
  * group's trailer mirroring its header. Anything else is REFUSED with the
- * offset (Rule 2) -- the corpus' [oracle-resolves] codes are not guessed at.
+ * offset -- the corpus' [oracle-resolves] codes are not guessed at.
  * The prefix (header + packets) and the body are returned as spans of the
  * caller's buffer; the app keeps the prefix opaque and writes it back
  * unchanged, so a document WordPerfect wrote comes back byte for byte.
@@ -73,7 +73,7 @@ int iw_wp5_write(const uint8_t *prefix, uint32_t prefix_len, const iw_doc_t *d, 
     n = iw_doc_read(d, 0, out + prefix_len, d->len);
     if (n != d->len) return IW_E_RANGE;
 #ifdef IWORD_MUT_DROP_CODE
-    /* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): the writer drops
+    /* MUTANT (test-iword-wp5-roundtrip-mutant): the writer drops
      * every soft-return code. NEVER real. */
     {
         uint32_t r = prefix_len, w = prefix_len;
@@ -88,11 +88,11 @@ int iw_wp5_write(const uint8_t *prefix, uint32_t prefix_len, const iw_doc_t *d, 
 #endif
 #ifndef IWORD_MUT_CURSOR_FLAG
     /* The prefix records whether the cursor was before the end of the
-     * document at the save (spec/iword/wp5_format.h IW_WP5_PFX_CURSOR_OFF:
+     * document at the save (include/iword/wp5_format.h IW_WP5_PFX_CURSOR_OFF:
      * 0x08 before the end, 0x00 at it; 19 mints), applied to the default
      * prefix only -- a prefix that differs elsewhere is carried opaque, as WP
      * wrote it -- and only when the cursor is known (cur != IW_WP5_CUR_KEEP:
-     * a golden rewritten keeps its own byte). MUTANT knob (Rule 6; test-iword-
+     * a golden rewritten keeps its own byte). MUTANT knob (test-iword-
      * wp5-roundtrip-mutant): IWORD_MUT_CURSOR_FLAG never sets it. */
     if (prefix_len == IW_WP5_DEFAULT_DOCSTART && cur != IW_WP5_CUR_KEEP) {
         int dflt = 1;

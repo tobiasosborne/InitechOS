@@ -1,5 +1,5 @@
 /*
- * os/iword/core/block.c -- InitechWord's Block (Alt-F4) and Move (Ctrl-F4):
+ * apps/initechword/core/block.c -- InitechWord's Block (Alt-F4) and Move (Ctrl-F4):
  * block copy, cut and retrieve over the piece table (THE ARTIFACT; bead
  * initech-jojk, IWORD P2 slice 2).
  *
@@ -36,7 +36,7 @@
  * Every result keeps the attribute codes alternating on, off per attribute
  * (test-iword-codes property C3).
  *
- * Freestanding C (no libc). Deterministic (Rule 11). ASCII-clean (Rule 12).
+ * Freestanding C (no libc). Deterministic. ASCII-clean.
  */
 #include "iword.h"
 #include "iword/wp5_format.h"
@@ -79,7 +79,7 @@ int iw_ed_block_copy(iw_ed_t *e, uint8_t *buf, uint32_t cap, uint32_t *n)
     on_s = iw_attr_state(&e->doc, s);
     on_t = iw_attr_state(&e->doc, t);
 #ifdef IWORD_MUT_COPY_BARE
-    /* MUTANT (Rule 6; test-iword-codes-mutant): the copy is the block's
+    /* MUTANT (test-iword-codes-mutant): the copy is the block's
      * bytes alone, not self-contained. NEVER real. */
     on_s = on_t = 0;
 #endif
@@ -112,7 +112,7 @@ int iw_ed_block_cut(iw_ed_t *e, uint8_t *buf, uint32_t cap, uint32_t *n)
     on_t = iw_attr_state(d, t);
     diff = on_s ^ on_t;
 #ifdef IWORD_MUT_CUT_NO_MEND
-    /* MUTANT (Rule 6; test-iword-codes-mutant): the cut leaves no codes where
+    /* MUTANT (test-iword-codes-mutant): the cut leaves no codes where
      * the block was -- the text after it changes its attributes. NEVER real. */
     diff = 0;
 #endif
@@ -150,7 +150,7 @@ int iw_ed_retrieve(iw_ed_t *e, const uint8_t *buf, uint32_t n)
         int on, a = iw_code_attr(d, p, &on);
         uint32_t q = iw_unit_next(d, p);
 #ifndef IWORD_MUT_RETRIEVE_DUP
-        /* MUTANT knob (Rule 6; test-iword-codes-mutant): IWORD_MUT_RETRIEVE_DUP
+        /* MUTANT knob (test-iword-codes-mutant): IWORD_MUT_RETRIEVE_DUP
          * keeps the redundant codes -- a doubled [BOLD], a stray [bold]. */
         if (a >= 0 && (on ? (st & abit((uint32_t)a)) != 0u : (st & abit((uint32_t)a)) == 0u)) {
             if (d->npc + 1u > d->pc_cap) return IW_E_FULL;
@@ -207,7 +207,7 @@ int iw_ed_block_attr(iw_ed_t *e, uint8_t attr)
     if (rc == IW_OK) rc = iw_doc_insert(d, s, on, sizeof on);
     if (rc != IW_OK) return rc;
 #ifdef IWORD_MUT_BLK_CUR_START
-    /* MUTANT (Rule 6; test-iword-codes-mutant): the cursor always goes
+    /* MUTANT (test-iword-codes-mutant): the cursor always goes
      * after the off code, whichever end of the block it was at. NEVER real. */
     at_end = 1;
 #endif
