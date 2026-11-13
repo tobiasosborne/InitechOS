@@ -42,17 +42,13 @@ imported yet.
 | `apps/initechbase/` | host-green: 75 suites, 44,504 counted checks. Builds 23 target objects and packaging tools without attic dependencies; uses factory/mz. Packaging is blocked by the app's 65,536-byte reserve declaration: 65,616 bytes required. The extended kernel loader already accepts larger reserves; no kernel change is needed. Pair/boot validation and mutation conversion remain with InitechBase (component README and tests inventories). |
 | `apps/initechbase/` | host-green: 75 suites (43 against real dBASE III PLUS captures), 44,504 checks, 37 seconds. Codename removed. Target objects build; packaging `INITBASE.EXE` fails on purpose: the app's own loader reserve is 65,536 bytes and it now needs 65,616 (`README.md`, Known blockers; no kernel change needed). 303 mutation hooks still to convert. |
 | other `apps/*` | source moved; not started. **Frozen** until the vertical slice below works. |
-| `turbo/` | host-green: 44 test programs in 16 seconds (the seed's C tests, 17 Free Pascal differentials, 45 reproducibility comparisons, 7 Pascal mutants as patches). Codename removed (`turbo.pas`, `TURBO.COM`). 20 legacy gates need the booted OS and are listed in `tests/SMOKES.md`. Road to the finale: `turbo/ROADMAP.md`. |
+| `turbo/` | **Self-hosting.** Turbo Initech emits machine code directly (flat programs and extended-memory executables with relocation tables), runs in extended memory, compiles the 17-program corpus inside the OS on QEMU and Bochs with results equal to the Free Pascal goldens, and compiles itself inside the OS to a fixed point: `K2 == K3`, 163,843 bytes, SHA-256 `b37f96ad...3088e3` (`make -C turbo selfhost`, about 2.5 minutes). The independent bootstrap through Free Pascal reaches the same bytes (`make -C turbo ddc`). Tier 0: 45 programs in 20 seconds, 12 encoder mutants killed. Not done: the IDE; the startup runtime is a checked-in byte table derived from NASM (regenerated and compared in tier 0) rather than emitted by the compiler's own encoders; the fixed point is proven on QEMU, not yet on Bochs. |
 | `factory/` | QEMU and Bochs drivers, the image builder, the smoke session, the reproducibility and parity checks. |
 | `goldens/` | empty; corpora are still read from sibling checkouts, unpinned. |
 
 ## In flight
 
 - Import on a branch: the FLAIR Toolbox.
-- Turbo Initech (owner of `turbo/`): extended-memory placement first,
-  then native emission. A prototype emitter already matches the NASM
-  pipeline byte for byte on 18 of 18 images (branch
-  `turbo/native-prototype`).
 - Conventions pass (owner of `mk/`, the top Makefile, `factory/testlib`,
   `goldens/`): target build fragment, per-test timeouts and component
   time budgets, rebuild on flag changes, pinned corpora, the import
