@@ -12,8 +12,11 @@ list=${DESKTOP_JOURNEYS:-factory/desktop-journeys.list}
 # Reject missing/empty entries; list ordering is also the journey ordering.
 journeys=$(sed '/^[[:space:]]*#/d; /^[[:space:]]*$/d' "$list")
 [ -n "$journeys" ] || fail 'empty journey list'
+exits=0
 for dir in $journeys; do
  [ -f "$dir/journey.sh" ] && [ -f "$dir/verify.sh" ] || fail "incomplete journey $dir"
+ count=$(journey_exits=1; . "./$dir/journey.sh"; printf '%s' "$journey_exits")
+ exits=$((exits+count))
 done
 app_entries=$(mdir -b -i build/image/data.img ::APPS/)
 n=0
@@ -46,7 +49,7 @@ for emulator in qemu bochs; do
    --screendump --screendump-after FLAIR-LIVE-READY --screendump-after-count 2
  else
   set -- --rtc-time0 699440400 --allow-reboot --keys "$trace" --expect 'TENANT-EXIT rc=0 via=exit' \
-   --quit-after 'TENANT-EXIT rc=0 via=exit' --quit-after-count "$(printf '%s\n' "$journeys" | wc -l)"
+   --quit-after 'TENANT-EXIT rc=0 via=exit' --quit-after-count "$exits"
  fi
  driver="build/factory/${emulator}_harness"
  [ "$emulator" != bochs ] || driver=build/factory/desktop-bochs
@@ -86,7 +89,7 @@ for emulator in qemu bochs; do
  echo "ok $emulator: video and CPU fault checks"
  n=$((n+1))
 done
-legacy=${LEGACY_TREE:-/home/tobiasosborne/Projects/InitechOS-legacy}
+legacy=${LEGACY_TREE:-$HOME/Projects/InitechOS-legacy}
 cp "$legacy/build/flair_data.img" "$out/legacy-data.img"
 build/factory/qemu_harness --disk "$legacy/build/flair_tenants_interactive.img" \
  --disk2 "$out/legacy-data.img" --expect FLAIR-LIVE-READY --quit-after 'FLAIR-CLOCK 9:00 am' \

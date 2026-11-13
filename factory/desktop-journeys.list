@@ -11,3 +11,10 @@
 # 10. Add the directory below; run make smoke and record elapsed time.
 apps/initech123/tests/smoke
 apps/initechword/tests/smoke
+apps/calculator/tests/smoke
+apps/notepad/tests/smoke
+apps/initechtext/tests/smoke
+apps/initechpaint/tests/smoke
+apps/controlpanels/tests/smoke
+# FILE COPY needs no further input; Bochs waits for its exit as completion.
+apps/initechcalc/tests/smoke

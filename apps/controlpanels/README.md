@@ -20,7 +20,7 @@ are unit/regression. make mutants kills three patches; removing the hooks
 leaves the 8,336-byte EXE identical. make smoke launches on QEMU, chooses
 Stipple, saves, quits, then mtools/cmp checks a literal independent 16-byte
 record and fsck checks the volume. Screendump:
-build/apps/controlpanels/smoke/patterns.ppm.
+build/smoke-desktop/patterns.ppm.
 
 Temporary hosted access ends when FLAIR publishes a hosted Dialog library
 and its flat-item adapter cp_dialog_items.h. Exact host-only sources are

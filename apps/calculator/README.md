@@ -19,7 +19,7 @@ file; include/calcda/calcda_layout.h documents their measurement. make mutants
 kills seven patches, proving that the checks go red; stripping the hooks
 leaves CALCULAT.EXE byte-identical (6,656 bytes). make smoke uses the booted
 product image and grades the window against the independent real-Mac PNG.
-Screendump: build/apps/calculator/smoke/window.ppm.
+Screendump: build/smoke-desktop/calculator.ppm.
 
 Remaining unclaimed legacy Calculator emulator traces and Apple-menu checks
 belong to the desktop/factory owners; the app routing and pixel checker are

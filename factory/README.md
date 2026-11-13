@@ -47,7 +47,7 @@ steps between commands so disk-heavy probes do not overflow the keyboard ring.
 smoke-desktop.sh is the product Finder/application journey on both emulators.
 It checks a worksheet through mtools and the independent Lotus corpus reader,
 retains key PPMs and compares unchanged regions to a live legacy capture.
-red-desktop.sh kills empty-save and restored-file-cap patch mutants in isolated
+red-desktop.sh kills worksheet empty-save, restored-file-cap and Word empty-save patch mutants in isolated
 source/build copies, after a passing baseline and two matching semantic kills.
 `make -C factory mutants` runs it; no production source is patched in place. Missing
 QEMU W progress markers now stop replay rather than continuing input into an

@@ -26,7 +26,8 @@ TARGET_ARTIFACTS := $(TENANT_IMAGE)
 include $(TOP)/mk/import-check.mk
 include $(TOP)/mk/mutants.mk
 smoke: all $(HOST_OUT)/pixels
-	sh tests/smoke/journey.sh
+	+$(MAKE) -C $(TOP) image
+	sh $(TOP)/factory/smoke-desktop.sh
 .PHONY: references
 references:
 	@cd $(SYSTEM7_DECOMP) && sha256sum -c $(CURDIR)/tests/REFERENCES.sha256 > /dev/null

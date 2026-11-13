@@ -2,10 +2,9 @@
 
 CALC.EXE is the frame's small worksheet and separate pie-chart window.
 Dependencies: SDK and Initech 123 public worksheet headers/core. Plain target
-flags, no semantic defines. One marked temporary Makefile block lists the
-seven target/host core sources: sheet, fmt, formula, range, eval, recalc and
-fs/wk1. Publication of the Initech 123 target worksheet archive removes the
-block; the orchestrator switches it at merge. No archive exists on this base.
+flags, no semantic defines. The target links Initech 123's public libi123.a;
+host tests compile its seven worksheet sources (sheet, fmt, formula, range,
+eval, recalc and fs/wk1) for the host architecture.
 
 Frozen legacy-final inventory: a two-column, three-row ledger; A1 entry using
 the Initech 123 cell engine; five grayscale pie sectors whose labels total
@@ -32,5 +31,5 @@ not an independent content oracle. make mutants converts all 12 hooks to
 patches and checks each twice. Removal preserves CALC.EXE (61,008 bytes).
 make smoke runs QEMU and Bochs, enters 73, saves, and checks every saved byte
 with mtools/cmp, untouched original ledger, deleted stage and fsck.fat.
-Screendump: build/apps/initechcalc/smoke/calc.ppm.
+Screendump: build/smoke-desktop/calc.ppm.
 Remaining legacy scene/pixel and FILE COPY failure gates belong to factory.

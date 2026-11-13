@@ -21,6 +21,6 @@ not a period Photoshop differential. make mutants kills both patches;
 removing hooks leaves the 2,960-byte EXE identical. make smoke launches/quits
 on QEMU and checks every pixel in a 260x190 interior canvas region is white
 using the claimed independent C grader. Screendump:
-build/apps/initechpaint/smoke/canvas.ppm.
+build/smoke-desktop/canvas.ppm.
 The grader's optional menu mode uses FLAIR's frozen independent NFNT golden;
 that legacy pulled-menu journey and bar pixel checks remain with factory.

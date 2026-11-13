@@ -60,6 +60,10 @@ dependency-check:
 	@mkdir -p build/dependencies
 	@$(foreach c,$(REGISTERED_COMPONENTS),$(MAKE) --no-print-directory -qp -C $(c) all test > build/dependencies/$(subst /,_,$(c)).make 2>/dev/null || test $$? -eq 1; awk -v root=$(TOP) -v component=$(c) -v components='$(REGISTERED_COMPONENTS) boot factory factory/mz turbo/seed turbo/compiler' -v declared='$(DEPENDS_$(c))' -f factory/testlib/build-deps.awk build/dependencies/$(subst /,_,$(c)).make || exit 1;)
 test-start: dependency-check
+.PHONY: factory-test
+factory-test:
+	+$(MAKE) --no-print-directory -C factory test
+test-start: factory-test
 $(addprefix test-,$(COMPONENTS)): private export INITECH_CORPUS_VERIFIED := 1
 $(addprefix test-,$(COMPONENTS)): test-%: | test-start
 	+@rc=0; $(MAKE) --no-print-directory -C $* test || rc=1; \
@@ -111,8 +115,5 @@ system-build: kernel-build
 .PHONY: desktop-apps
 desktop-apps:
 	$(MAKE) -C apps/initechbase
-	+$(MAKE) sh-desktop-apps
-.PHONY: sh-desktop-apps
-sh-desktop-apps:
 	+sh factory/desktop-build.sh
 system-build: desktop-apps

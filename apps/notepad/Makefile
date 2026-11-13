@@ -48,7 +48,8 @@ endif
 include $(TOP)/mk/import-check.mk
 include $(TOP)/mk/mutants.mk
 smoke: all
-	sh tests/smoke/journey.sh
+	+$(MAKE) -C $(TOP) image
+	sh $(TOP)/factory/smoke-desktop.sh
 $(HOST_OUT)/readback: tests/readback.c FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)
 smoke: $(HOST_OUT)/readback

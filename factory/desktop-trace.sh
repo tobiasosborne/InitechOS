@@ -2,8 +2,11 @@
 # Both frontends stop injection on missing W progress. The journey Bochs
 # frontend adds serial waits over the unchanged common RFB transport.
 inject() { printf '%s,' "$1"; }
-await_marker() {
+expect_marker() {
     printf '%s\n' "$1" >> "$markers"
+}
+await_marker() {
+    expect_marker "$1"
     inject "W$1"
 }
 capture() {
@@ -34,7 +37,9 @@ launch_app() {
     [ -n "$slot" ] || fail "APPS has no $1"
     app_dx=$((slot%4*68)) app_dy=$((slot/4*52))
     move_by "$app_dx" "$app_dy"
-    inject 'l1,l0,l1,l0'
+    # Finder File > Open (finder_menu.c): selecting then invoking the command
+    # avoids depending on emulator event processing fitting a double click.
+    inject 'l1,l0,kctrl-o'
     # Optional second argument is the app registration name when it differs.
     await_marker "FLAIR-DISPATCH app=${2:-${1%.EXE}}"
 }

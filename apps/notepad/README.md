@@ -26,7 +26,7 @@ and after removal are identical: Note Pad 27,456 bytes, Scrapbook 26,976.
 make smoke launches both on QEMU, copies alpha from Note Pad into Scrapbook,
 closes both, extracts both stores with mtools and checks lengths, headers,
 page bytes and an independently implemented checksum, then runs fsck.fat.
-Screendumps: build/apps/notepad/smoke/{notepad,scrapbook}.ppm.
+Screendumps: build/smoke-desktop/{notepad,scrapbook}.ppm.
 
 Inherited diagnostics use DOS AUX INT 21h in addition to the Toolbox gate;
 the SDK lacks a diagnostic-output binding. This is retained behavior, not a
