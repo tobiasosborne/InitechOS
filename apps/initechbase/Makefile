@@ -1,0 +1,123 @@
+TOP := $(abspath ../..)
+COMPONENT := apps/initechbase
+include $(TOP)/mk/config.mk
+
+# TEMPORARY public loader contracts; owned by the kernel/spine importer.
+BORROWED := -I$(TOP)/attic/spec
+LOCAL_INC := -Iinclude
+HOST_INCLUDES := $(LOCAL_INC) -Itests -I$(TOP)/factory/testlib
+include tests/sources.mk
+STANDALONE := $(shell sed 's/ .*//' tests/standalone.cases)
+HOST_TESTS := $(STANDALONE) test_samir_dml test_samir_fns test_samir_w2 \
+ test_samir_ovl test_samir_dbsafe test_samir_datatype test_interp_do_file samir_numeric_format \
+ readers captured-hashes w4-files retained-screens mzlink-io messages-generated
+EXTRA_HOST_TESTS := samir_core_ref core-live
+ifeq ($(THOROUGH),1)
+TESTS := $(HOST_TESTS) core-live
+endif
+TEST_HDRS := $(wildcard include/samir/*.h tests/*.h pal/*.h cmd/*.def) tests/run.sh tests/sources.mk
+SHELL_SUITES := readers captured-hashes w4-files retained-screens mzlink-io messages-generated core-live
+# The fragment registers C entries. Shell entries are added to its run vector
+# after inclusion so no empty compiler command is generated.
+RUN_TESTS := $(if $(TESTS),$(TESTS),$(HOST_TESTS))
+HOST_TESTS := $(filter-out $(SHELL_SUITES),$(HOST_TESTS))
+TESTS := $(filter-out $(SHELL_SUITES),$(RUN_TESTS))
+include $(TOP)/mk/host-test.mk
+HOST_TESTS += $(filter-out core-live,$(SHELL_SUITES))
+TESTS := $(RUN_TESTS)
+HOST_TEST_BINS := $(addprefix $(HOST_OUT)/,$(TESTS))
+test-build: $(HOST_TEST_BINS)
+include $(TOP)/mk/mutants.mk
+
+# Shell suites use the shared reporting protocol and retain independent postchecks.
+define host_test_run
+n=$$((n+1)); \
+if DBASE3_DECOMP="$(DBASE3_DECOMP)" sh tests/run.sh "$(1)" "$(abspath $(HOST_OUT))" > $(HOST_OUT)/$(1).log 2>&1; then \
+ echo "  ok    $(1)"; \
+else \
+ echo "  FAIL  $(1) (log: $(HOST_OUT)/$(1).log)"; \
+ tail -n 18 $(HOST_OUT)/$(1).log; fail=$$((fail+1)); \
+fi;
+endef
+
+# Entry points are POSIX shell; these marker rules override the fragment's
+# compile rule for entries without a C main. The same entries have real deps.
+SHELL_SUITES := readers captured-hashes w4-files retained-screens mzlink-io messages-generated core-live
+$(addprefix $(HOST_OUT)/,$(SHELL_SUITES)):
+	@mkdir -p $(@D); touch $@
+$(HOST_OUT)/messages-generated: $(OUT)/tools/samir_msg_pack
+$(HOST_OUT)/w4-files: $(addprefix $(HOST_OUT)/,$(addsuffix _diff,frm lbl qry scr fmt config prg vue exact)) $(HOST_OUT)/w4_mutate
+$(HOST_OUT)/core-live: $(HOST_OUT)/samir_core_ref $(HOST_OUT)/test_samir_core
+$(HOST_OUT)/w4_mutate: tests/w4_mutate.c | $(HOST_OUT)
+	$(HOSTCC) $(HOST_CFLAGS) -o $@ $<
+$(HOST_OUT)/%_diff: tests/w4_file_diff.c | $(HOST_OUT)
+	$(HOSTCC) $(HOST_CFLAGS) -DKIND='"$*"' -o $@ $<
+test-build: $(HOST_OUT)/mint_clients_dbf $(HOST_OUT)/w2_fixture
+$(HOST_OUT)/mint_clients_dbf: $(mint_clients_dbf_SRCS) $(mint_clients_dbf_OBJS) | $(HOST_OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -o $@ $^
+$(HOST_OUT)/w2_fixture: $(w2_fixture_SRCS) $(w2_fixture_OBJS) | $(HOST_OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -o $@ $^
+
+$(OUT)/host-core/%.o: %.c $(TEST_HDRS)
+	@mkdir -p $(@D)
+	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -MMD -MP -c $< -o $@
+$(OUT)/host-core/dml/%.o: %.c $(TEST_HDRS)
+	@mkdir -p $(@D)
+	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -DFLOW_MEMVAR_ARENA=6000 -MMD -MP -c $< -o $@
+$(OUT)/host-core/lifetime/%.o: %.c $(TEST_HDRS)
+	@mkdir -p $(@D)
+	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -DSAMIR_OVERLAYS -ffunction-sections -fdata-sections -MMD -MP -c $< -o $@
+-include $(shell find $(OUT)/host-core -name '*.d' 2>/dev/null)
+
+.PHONY: corpus
+corpus:
+	@test -d "$(DBASE3_DECOMP)/goldens/dbase-iii-plus-1.1-pristine/files" && test -d "$(DBASE3_DECOMP)/mint/work" || { echo 'FAIL: dBASE corpus missing; set DBASE3_DECOMP to dbase3-decomp' >&2; exit 1; }
+	@command -v python3 >/dev/null || { echo 'FAIL: python3 required for independent dBASE readers' >&2; exit 1; }
+test-run: corpus
+
+TARGET_SRCS := $(wildcard core/*.c cmd/*.c fs/*.c) samir_main.c pal/pal_milton.c boot/softfp.c
+TARGET_OBJS := $(addprefix $(OUT)/target/,$(TARGET_SRCS:.c=.o))
+# Soft-float is a semantic ABI contract, not a size optimisation. Keep all
+# linked TUs coherent. FLOW settings preserve the shipped runtime profile.
+TARGET_PROFILE := -msoft-float -mno-80387 -ffunction-sections -fdata-sections -DSAMIR_OVERLAYS -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000
+all: $(TARGET_OBJS) $(OUT)/target/crt0.o
+.PHONY: package
+package: $(OUT)/SAMIR.EXE $(OUT)/SAMIR.OVL
+$(OUT)/target/pal/pal_milton.o: private TARGET_INC := $(BORROWED)
+$(OUT)/target/%.o: %.c $(MAKEFILE_LIST) $(wildcard include/samir/*.h pal/*.h cmd/*.def)
+	@mkdir -p $(@D)
+	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_PROFILE) $(LOCAL_INC) $(TARGET_INC) -MMD -MP -c $< -o $@
+-include $(TARGET_OBJS:.o=.d)
+$(OUT)/target/crt0.o: boot/samir_crt0.asm
+	@mkdir -p $(@D)
+	$(NASM) -f elf32 $< -o $@
+$(OUT)/tools/%: tools/%.c $(wildcard include/samir/*.h)
+	@mkdir -p $(@D)
+	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) $(BORROWED) -o $@ $<
+$(OUT)/tools/mzlink: $(TOP)/factory/mz/mzlink.c $(wildcard include/samir/*.h)
+	@mkdir -p $(@D)
+	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) $(BORROWED) -o $@ $<
+$(OUT)/target/ibase.ld: boot/samir.ld $(OUT)/tools/samir_memory_ld
+	@$(OUT)/tools/samir_memory_ld > $@
+	@cat $< >> $@
+$(OUT)/SAMIR.elf: $(TARGET_OBJS) $(OUT)/target/crt0.o $(OUT)/target/ibase.ld
+	$(TARGET_LD) $(TARGET_LDFLAGS) --gc-sections -q -Map=$(OUT)/target/link.map --no-warn-rwx-segments -T $(OUT)/target/ibase.ld -o $@ $(OUT)/target/crt0.o $(TARGET_OBJS)
+$(OUT)/SAMIR.EXE $(OUT)/SAMIR.OVL &: $(OUT)/SAMIR.elf $(OUT)/tools/samir_ovl_pack $(OUT)/tools/mzlink
+	$(OUT)/tools/samir_ovl_pack $< --res-bin $(OUT)/resident.bin --res-rel $(OUT)/resident.rel --ovl $(OUT)/SAMIR.OVL --overlay .ovl_file --overlay .ovl_report --overlay .ovl_status --overlay .ovl_set --overlay .ovl_memfile --overlay .ovl_forms --forbid samir_ovl_call --forbid samir_do --forbid samir_repl --forbid run_block --forbid exec_command --forbid fl_trap --forbid fl_escape
+	$(OUT)/tools/mzlink $(OUT)/resident.bin $(OUT)/SAMIR.EXE --reloc-file $(OUT)/resident.rel --header-relocs --samir
+smoke:
+	@echo 'Tier 1 awaits the booted product; see tests/SMOKES.md' >&2; exit 1
+
+$(HOST_OUT)/retained-screens: $(HOST_OUT)/screen_tool $(HOST_OUT)/w4_screen_check
+$(HOST_OUT)/screen_tool: tests/screen_tool.c tests/screen_file.h | $(HOST_OUT)
+	$(HOSTCC) $(HOST_CFLAGS) -o $@ $<
+$(HOST_OUT)/w4_screen_check: tests/w4_screen_check.c tests/screen_file.h | $(HOST_OUT)
+	$(HOSTCC) $(HOST_CFLAGS) -o $@ $<
+
+$(HOST_OUT)/mzlink-io: $(OUT)/tools/mzlink $(HOST_OUT)/mzlink_close_fault
+$(HOST_OUT)/mzlink_close_fault: $(TOP)/factory/mz/mzlink.c tests/mzlink_close_fault.c
+	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) $(BORROWED) -Wl,--wrap=fclose -o $@ $^
+test_samir_ctl_LIBS := -pthread
+.PHONY: pending
+pending: test-build corpus
+	@DBASE3_DECOMP="$(DBASE3_DECOMP)" CASE="$(CASE)" sh tests/run.sh pending "$(abspath $(HOST_OUT))"

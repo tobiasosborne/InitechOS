@@ -1,0 +1,61 @@
+dbf_coerce_fuzz
+test_canon_salami CORPUS tests/canon
+test_canon_y2k CORPUS tests/canon
+test_dbase_roundtrip CORPUS
+test_dbf_fields CORPUS
+test_dbf_header CORPUS
+test_dbf_mutate CORPUS
+test_dbf_read CORPUS
+test_dbf_roundtrip CORPUS
+test_dbt_read CORPUS
+test_dbt_roundtrip CORPUS
+test_interp_decimals CORPUS
+test_interp_flow CORPUS
+test_interp_list CORPUS
+test_interp_nav CORPUS
+test_interp_proc CORPUS
+test_interp_replace CORPUS
+test_interp_set CORPUS
+test_interp_setfmt CORPUS
+test_interp_use CORPUS
+test_ndx_build CORPUS
+test_ndx_incremental CORPUS
+test_ndx_keys CORPUS
+test_ndx_maintain CORPUS
+test_ndx_multilevel
+test_ndx_pack CORPUS
+test_ndx_parse CORPUS
+test_ndx_seek CORPUS
+test_samir_use CORPUS
+test_samir_core
+test_samir_ctl tests/xbase_prog_diff/samirctl-mint
+test_samir_deferred_errors
+test_samir_input
+test_samir_memocells
+test_samir_messages spec/samir/dbase_msg_codes.tsv
+test_samir_ndx_names
+test_samir_ovl_lifetime
+test_samir_pal_contract
+test_samir_pal_host
+test_samir_query CORPUS
+test_samir_repl CORPUS
+test_samir_report CORPUS
+test_samir_rt
+test_samir_say
+test_samir_set_color
+test_samir_softfp
+test_samir_spec spec/samir
+test_samir_status CORPUS
+test_samir_value
+test_use_rw CORPUS
+test_w2_host
+test_xbase_eval
+test_xbase_fn_a
+test_xbase_fn_b
+test_xbase_fn_c
+test_xbase_fn_d CORPUS
+test_xbase_lex
+test_xbase_parse
+test_xbase_transform
+prog_diff CORPUS tests/xbase_prog_diff
+test_samir_view

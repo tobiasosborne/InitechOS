@@ -1,0 +1,90 @@
+#!/bin/sh
+# Private repo-shaped scratch preserves legacy driver paths without sharing writes.
+set -eu
+name=$1
+bins=$2
+src=$(pwd)
+export LC_ALL=C SKIP_DBASE3_DECOMP=0 PYTHONDONTWRITEBYTECODE=1
+work=$bins/work/$name
+rm -rf "$work"
+mkdir -p "$work/build"
+ln -s "$src/tests" "$work/tests"
+ln -s "$src/spec" "$work/spec"
+ln -s "$src/include" "$work/include"
+# Legacy drivers store the source root before chdir and spawn independent readers.
+cd "$work"
+"$bins/mint_clients_dbf" build/CLIENTS.DBF > build/fixture.log
+mkdir -p build/dbsafe build/samir-audit build/samir.audit build/samirfns/golden build/samirdml/golden
+cp -R tests/xbase_prog_diff/fns-mint/. build/samirfns/golden/
+cp -R tests/xbase_prog_diff/mint/. build/samirdml/
+case "$name" in
+ test_samir_dml|test_samir_fns|test_samir_w2)
+  while read -r case_name mode; do "$bins/$name" "$case_name" "$mode"; done < "tests/$name.cases"
+  if [ "$name" = test_samir_dml ]; then
+   for f in GOLD.OUT BASE.DBF NAMES.NDX VALUES.MEM; do cmp "build/samirdml/golden/abbrev/$f" "build/samirdml/golden/abbrfull/$f"; done
+  fi;;
+ test_samir_ovl) "$bins/$name" --pure;;
+ mzlink-io) sh tests/test_mzlink_io.sh "$bins/../tools/mzlink" "$bins/mzlink_close_fault" build/mzlink-io;;
+ pending)
+  case "${CASE:?set CASE to a pending function or set-/verb- case}" in
+   set-*|verb-*) "$bins/test_samir_w2" "$CASE" host;;
+   *) "$bins/test_samir_fns" "$CASE" host;;
+  esac;;
+ retained-screens)
+  ln -s "$bins/screen_tool" build/screen_tool
+  ln -s "$bins/w4_screen_check" build/w4_screen_check
+  sh tests/w4_retained_test.sh;;
+ test_samir_datatype)
+  for c in blankdate overflow dateindex dateindex-blank boundary blankdtoc numericfit valstar datecontract; do "$bins/$name" "$c"; done;;
+ test_samir_dbsafe)
+  for mode in append lifetime safety; do "$bins/$name" "$mode"; done;;
+ test_interp_do_file) sh tests/do_file_test.sh host "$bins/$name";;
+ test_samir_memocells)
+  mkdir -p build/memocells/DRIVE build/memocells/DATA
+  "$bins/w2_fixture" build/memocells
+  cd build/memocells
+  "$bins/$name";;
+ samir_numeric_format) python3 tests/numeric_format_ref.py "$bins/$name" "$DBASE3_DECOMP";;
+ readers)
+  python3 tests/dbf_ref.py --selftest
+  python3 tests/ndx_ref.py --selftest;;
+ captured-hashes)
+  for manifest in use_mint005.md5 report_mint004.md5; do
+   (cd "$DBASE3_DECOMP/mint/work" && md5sum --quiet -c "$src/tests/$manifest")
+  done
+  (cd "$DBASE3_DECOMP/mint/work" && sha256sum --quiet -c "$src/tests/ndx_incremental.sha256")
+  sha256sum --quiet -c tests/list_off_real.sha256
+  for manifest in prog-real.sha256 dml-goldens.sha256 abbrev-goldens.sha256 fns-accepted.sha256 inspection-goldens.sha256; do
+   sha256sum --quiet -c "tests/xbase_prog_diff/$manifest"
+  done
+  (cd tests/xbase_prog_diff/samirctl-mint && md5sum --quiet -c samirctl_mint.md5)
+  for tree in tests/xbase_prog_diff/*-mint/*; do
+   if [ -f "$tree/sha256.txt" ]; then (cd "$tree" && sha256sum --quiet -c sha256.txt); fi
+  done;;
+ w4-files)
+  for kind in frm lbl qry scr fmt config prg vue exact; do ln -s "$bins/${kind}_diff" "build/${kind}_diff"; done
+  ln -s "$bins/w4_mutate" build/w4_mutate
+  sh tests/w4_files_paths_test.sh;;
+ messages-generated)
+  "$bins/../tools/samir_msg_pack" spec/samir/dbase_msg_codes.tsv > build/messages.h
+  cmp include/samir/messages_packed.h build/messages.h;;
+ core-live)
+  command -v dosbox-x >/dev/null
+  root=$work/live
+  mkdir -p "$root/build/samir-core-mint"
+  "$bins/test_samir_core" "$root"
+  "$bins/samir_core_ref" "$root" prepare
+  for f in DBASE.EXE DBASE.OVL DBASE.MSG DBASEINL.OVL; do cp "$DBASE3_DECOMP/mint/work/$f" "$root/build/samir-core-mint/"; done
+  cp "$root/build/core-memo.dbf" "$root/build/samir-core-mint/MEMO.DBF"
+  cp "$root/build/core-memo.dbt" "$root/build/samir-core-mint/MEMO.DBT"
+  SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout -k 5 30 dosbox-x -conf "$root/build/samir-core-mint/ref.conf" -exit > "$root/mint.log" 2>&1
+  "$bins/samir_core_ref" "$root";;
+ *)
+  # The table is repository-owned data, with CORPUS expanded as one argument.
+  line=$(awk -v n="$name" '$1==n {$1=""; print; found=1} END {if(!found) exit 1}' tests/standalone.cases)
+  set --
+  for arg in $line; do
+   case "$arg" in CORPUS) set -- "$@" "$DBASE3_DECOMP";; *) set -- "$@" "$arg";; esac
+  done
+  "$bins/$name" "$@";;
+esac
