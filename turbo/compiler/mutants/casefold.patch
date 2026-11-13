@@ -1,0 +1,12 @@
+# test: lex_basic
+--- a/tps.pas
++++ b/tps.pas
+@@ -794,7 +794,7 @@
+   I := 1;
+   while I <= Length(TokText) do
+   begin
+-    TokText[I] := LowerAscii(TokText[I]); { TPS_LEX_MUT_CASEFOLD }
++    TokText[I] := TokText[I]; { TPS_LEX_MUT_CASEFOLD }
+     I := I + 1
+   end
+ end;

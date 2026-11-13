@@ -1,13 +1,22 @@
-# seed/ — the seed cross-compiler (C)
+# Turbo Initech seed compiler
 
-The from-scratch, single-pass **Pascal compiler written in C**, hosted on
-the modern dev machine and targeting freestanding InitechOS/x86. It exists
-only to bootstrap: it emits `K1`, the first resident compiler binary, so we
-can reach the basin of attraction of the self-host fixed point (PRD §4, §7).
+The host C bootstrap compiler: lexer, recursive-descent parser, AST, semantic
+checker and NASM x86 emitter, with separate bare Multiboot and InitechDOS
+startup/link targets and a thin INT 21h file runtime. It bootstraps the resident
+Pascal compiler; it is not Turbo Initech itself. Dependencies: its own headers
+and host C/POSIX headers only. Runtime dependency: InitechDOS's flat INT 21h ABI.
 
-This is **factory** code, so it is C and only C (CLAUDE.md Law 3, PRD §14).
-It is *not* the in-universe artifact — bugs in the seed are not bugs in the
-OS (CLAUDE.md "Two compilers, never conflated"). The resident compiler that
-self-hosts lives in `os/tps/` and is written in Pascal.
+`make` builds initechc and the three runtime objects. `make test` runs six host
+entries, with the unchanged 97 lexer and 115 parser/type checks, 15-fixture
+reproducibility, file RTL static contracts and independent FPC reference runs.
+Default OUT is build/turbo/seed at the repository root. FPC must be installed;
+there is no skip option. Test C files alone include factory/testlib/test_assert.h,
+which is the existing shared seed-origin harness. Product builds use only -I.
+Host objects are shared between the driver and unit programs for build speed.
 
-Governed by: **PRD §4, §6.7, §7, §14.**
+Behavioural sources remain the source headers, fixture derivations and the
+legacy-final recipes recorded in tests/IMPORT.md. No optimiser/ABI tuning from
+the old monolithic build is needed. The factory uses shared HOST_CFLAGS;
+runtime assembly/link semantics are preserved. This import changes no behaviour.
+`make smoke` fails until the product image is available. `make mutants` reports
+that patch conversion remains pending; see tests/MUTANTS-TODO.md (17 hooks).

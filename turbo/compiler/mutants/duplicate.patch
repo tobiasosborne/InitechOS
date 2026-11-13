@@ -1,0 +1,12 @@
+# test: type_bad_duplicate
+--- a/tps.pas
++++ b/tps.pas
+@@ -1668,7 +1668,7 @@
+   end
+   else
+     Existing := FindLocal(NameOffset, NameLength);
+-  if Existing <> 0 then begin { TPS_TYPE_MUT_DUPOK }
++  if Existing = -1 then begin { TPS_TYPE_MUT_DUPOK }
+     FailType(TeDuplicate, L, C, NameOffset, NameLength, 0, 0)
+   end
+   else if NameIsFileBuiltin(NameOffset, NameLength) then

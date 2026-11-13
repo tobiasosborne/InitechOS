@@ -1,0 +1,6 @@
+# test: lex_basic
+--- a/tps.pas
++++ b/tps.pas
+@@ -72 +72 @@
+-  EscapeQuoteCode = 39; { TPS_LEX_MUT_STRESC }
++  EscapeQuoteCode = 33; { TPS_LEX_MUT_STRESC }
