@@ -26,5 +26,26 @@ grep -F 'triple_fault=0 cpu_reset=2 guest_errors=0' "$out/qemu.report" >/dev/nul
 [ "$(grep -c 'CPU Reset' "$out/qemu.qemu.log")" -eq 2 ] || fail 'QEMU extra reset'
 if grep -Ei 'triple fault|check_exception old: 0x8' "$out/qemu.qemu.log" >/dev/null; then fail 'QEMU fault log'; fi
 echo 'ok QEMU: no CPU fault, triple fault, guest error or unexpected reset'
-# S5 adds the equivalent Bochs session and legacy pixel comparison here.
-echo 'DESKTOP S4: 3 checks, 0 failures (QEMU, 8 MiB)'
+
+cp build/image/data.img "$out/bochs-data.img"
+if ! build/factory/bochs_harness --disk build/image/boot.img --disk2 "$out/bochs-data.img" \
+ --keys-after FLAIR-LIVE-READY --keys "$open_disk,w300,$open_apps,w300,$launch_123,w500,$enter_sum,$save_123,w500,kctrl-q" \
+ --expect 'TENANT-EXIT rc=0 via=exit' --quit-after 'TENANT-EXIT rc=0 via=exit' \
+ --timeout-ms 45000 --name bochs --out "$out" > "$out/bochs.stdout" 2> "$out/bochs.report"; then
+ cat "$out/bochs.report"; fail 'Bochs session';
+fi
+sh factory/readback-worksheet.sh "$out/bochs-data.img" "$out/bochs" || fail 'Bochs worksheet content'
+echo 'ok Bochs: Finder launches 123, entry/save/quit; independent WK1 readback matches'
+grep -F 'triple_fault=0' "$out/bochs.report" >/dev/null || fail 'Bochs fault verdict'
+grep -Fx 'VBE-MODE=0101' "$out/bochs.serial" >/dev/null || fail 'Bochs indexed VBE'
+echo 'ok Bochs: 640x480 indexed VBE, no triple fault'
+
+legacy=${LEGACY_TREE:-/home/tobiasosborne/Projects/InitechOS-legacy}
+cp "$legacy/build/flair_data.img" "$out/legacy-data.img"
+build/factory/qemu_harness --disk "$legacy/build/flair_tenants_interactive.img" \
+ --disk2 "$out/legacy-data.img" --expect FLAIR-LIVE-READY --quit-after "FLAIR-CLOCK 9:00 am" \
+ --screendump --screendump-after "FLAIR-CLOCK 9:00 am" --timeout-ms 15000 \
+ --name legacy --out "$out" > "$out/legacy.stdout" 2> "$out/legacy.report" || fail 'legacy reference capture'
+build/factory/pixels-desktop "$out/legacy.ppm" "$out/desktop.ppm" > "$out/pixels.txt"
+cat "$out/pixels.txt"
+echo 'DESKTOP SMOKE: 5 checks, 0 failures (QEMU + Bochs, 8 MiB)'

@@ -189,6 +189,7 @@ static inline int bochs_trace_parse(const char *s, size_t n, BochsTraceStep *v)
     }
     else if (!strcmp(key, "spc")) v->key = ' ';
     else if (!strcmp(key, "dot")) v->key = '.';
+    else if (!strcmp(key, "slash")) v->key = '/';
     return v->key != 0;
 }
 #endif

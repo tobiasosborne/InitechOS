@@ -12,6 +12,10 @@ image: all
 	sh image/build.sh
 smoke:
 	sh smoke.sh
+	sh smoke-desktop.sh
 all: $(OUT)/keys
 $(OUT)/keys: keys.c | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+all: $(OUT)/pixels-desktop
+$(OUT)/pixels-desktop: pixels-desktop.c | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
