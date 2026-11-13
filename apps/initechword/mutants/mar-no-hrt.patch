@@ -1,0 +1,17 @@
+# test: test_iword_wp5_roundtrip
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -1237,13 +1237,6 @@
+     if (left >= IW_WP5_PAPER_WPU || right >= IW_WP5_PAPER_WPU || left + right + IW_WP5_WPU_PER_COL > IW_WP5_PAPER_WPU)
+         return IW_E_RANGE;
+     if (d->len + 1u + sizeof g > d->max_len) return IW_E_FULL;
+-
+-    if (!at_left_margin(e)) {
+-        uint8_t h = IW_WP5_HRT;
+-        rc = iw_doc_insert(d, e->cur, &h, 1u);
+-        if (rc != IW_OK) return rc;
+-        e->cur++;
+-    }
+     fmt_at(d, e->cur, &f);
+     u16at(g + 4, f.lm);
+     u16at(g + 6, IW_WP5_PAPER_WPU - f.rm);

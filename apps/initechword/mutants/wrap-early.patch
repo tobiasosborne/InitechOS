@@ -1,0 +1,14 @@
+# test: test_iword_wp5_roundtrip
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -234,7 +234,9 @@
+     return IW_OK;
+ }
+ 
+-#define LINE_WIDTH(f, w0) fmt_width((f), (w0))
++/* MUTANT (test-iword-wp5-roundtrip-mutant): a line ends one column
++ * short of the margin. NEVER real. */
++#define LINE_WIDTH(f, w0) (fmt_width((f), (w0)) > 1u ? fmt_width((f), (w0)) - 1u : 1u)
+ 
+ /* Re-wrap the paragraph [p, end) that starts in format *f; *f leaves as the
+  * format at its end. A format code among a line's leading units formats that

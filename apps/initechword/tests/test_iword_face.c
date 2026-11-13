@@ -4,13 +4,13 @@
  *
  * WHAT IS UNDER TEST. The real apps/initechword/app/face_a.c, compiled on the host
  * over the real document core, with the Toolbox Gate replaced by a
- * RECORDING MOCK (the test_i123_quit.c pattern, bead initech-fvnj): the
+ * shared SDK recording Toolbox: the
  * cells the app draws land in a 76 x 24 screen with their colours, EXIT is
- * recorded, the file verbs are served from a host directory. Each LAUNCH is
+ * recorded; file verbs use SDK memory with explicit scratch import/export. Each LAUNCH is
  * a fork()ed child -- a pristine image, as a real launch loads -- and a
  * relaunch reads what an earlier launch saved.
  *
- * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2 -- never from
+ * WHERE THE EXPECTED VALUES COME FROM (CLAUDE.md, The constitution: independent oracles -- never from
  * face_a.c), restated here by hand:
  *   - the screen: ../wordperfect51-decomp/goldens/minted/MINT0x.shots (an
  *     80-column screen; the status line "Doc 1 Pg 1 Ln 1" Pos 1"" starts at
@@ -74,10 +74,10 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 
+#include "face_driver.h"
 #include "../app/face_a.c"   /* the application under test */
 #include "cpanels_record.h"              /* cp_time_t: the TBX_CLOCK mock */
-
-#include "fake_tbx/recording.h"
+#include "face_abi.h"
 
 /* ---- driving the application ------------------------------------------- */
 #define SHIFT ((int32_t)FLAIR_EVT_MOD_SHIFT_KEY)
@@ -149,7 +149,7 @@ static __attribute__((unused)) int cursor_at(int line, int col)
     return 0;
 }
 static long file_size(const char *name)
-{ char hp[300]; FILE *f; long n; host_name(name, hp); f = fopen(hp, "rb"); if (!f) return -1; fseek(f, 0, SEEK_END); n = ftell(f); fclose(f); return n; }
+{ char hp[1024]; FILE *f; long n; host_name(name, hp); f = fopen(hp, "rb"); if (!f) return -1; fseek(f, 0, SEEK_END); n = ftell(f); fclose(f); return n; }
 
 static void launch(const char *name, void (*script)(void))
 {
@@ -158,6 +158,9 @@ static void launch(const char *name, void (*script)(void))
     p = fork();
     if (p < 0) { perror("fork"); exit(2); }
     if (p == 0) {
+        tbx_host_reset();
+        m_clock = (cp_time_t){1992,3,1,9,0,0,0};
+        fixture_import();
         for (int i = 0; i < SCR_H; i++) { memset(m_scr[i], ' ', SCR_W); m_scr[i][SCR_W] = 0; }
         if (tbx_app_main() != 0) { CHECK(0, "F0", "tbx_app_main failed"); _exit(0); }
         ev(updateEvt, 0, 0);
@@ -304,7 +307,7 @@ static void t_dirty_enter_default(void)
 static void t_errors(void)
 {
     FILE *f;
-    char hp[300];
+    char hp[1024];
     fkey(F10, SHIFT);
     tks("nofile\r");
     CHECK(row_is(23, "ERROR: File Not Found"), "F4", "a missing file: ERROR: File Not Found (PDF 572)");
@@ -401,7 +404,7 @@ static void t_codes(void)
     tks("codes\r");
     CHECK(file_size("CODES") == 327 + 49, "F7", "CODES: the prefix + 25 characters + 8 codes (24 bytes)");
     {
-        char hp[300];
+        char hp[1024];
         unsigned char b[400];
         FILE *f;
         size_t k;
@@ -816,7 +819,7 @@ static int status_pg(int pg, const char *ln, const char *pos)
 static void ctrl_home(void) { fkey(HOME, CTRL); }
 static int same_file(const char *a, const char *b)
 {
-    char ha[300], hb[300];
+    char ha[1024], hb[1024];
     FILE *fa, *fb;
     int ca, cb, same = 1;
     host_name(a, ha); host_name(b, hb);
@@ -985,7 +988,7 @@ static void t_small(void)
     tks("big\r");
     CHECK(file_size("BIG") == 4096, "F6", "saved: prefix + the full body");
     {
-        char hp[300];
+        char hp[1024];
         static unsigned char b[8192];
         FILE *f;
         size_t k;

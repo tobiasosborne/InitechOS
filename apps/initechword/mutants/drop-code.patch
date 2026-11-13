@@ -1,0 +1,22 @@
+# test: test_iword_wp5_roundtrip
+--- a/fs/wp5.c
++++ b/fs/wp5.c
+@@ -72,6 +72,18 @@
+     for (i = 0; i < prefix_len; i++) out[i] = prefix[i];
+     n = iw_doc_read(d, 0, out + prefix_len, d->len);
+     if (n != d->len) return IW_E_RANGE;
++    /* MUTANT (test-iword-wp5-roundtrip-mutant): the writer drops
++     * every soft-return code. NEVER real. */
++    {
++        uint32_t r = prefix_len, w = prefix_len;
++        while (r < prefix_len + n) {
++            uint32_t u = iw_unit_len(out, prefix_len + n, r);
++            if (u == 0u) u = 1u;
++            if (!(u == 1u && out[r] == IW_WP5_SRT)) for (i = 0; i < u; i++) out[w++] = out[r + i];
++            r += u;
++        }
++        n = w - prefix_len;
++    }
+ 
+     if (prefix_len == IW_WP5_DEFAULT_DOCSTART && cur != IW_WP5_CUR_KEEP) {
+         int dflt = 1;

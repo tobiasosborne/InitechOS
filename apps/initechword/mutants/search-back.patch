@@ -1,0 +1,11 @@
+# test: test_iword_search
+--- a/core/search.c
++++ b/core/search.c
+@@ -36,6 +36,7 @@
+ {
+     uint32_t p, e;
+     if (!q->len || !iw_is_boundary(d, from)) return IW_E_RANGE;
++    back = 0;
+     p = from;
+     if (back) {
+         while (p) {

@@ -1,0 +1,13 @@
+# test: test_iword_reveal_codes test_iword_wp5_roundtrip
+--- a/core/block.c
++++ b/core/block.c
+@@ -193,6 +193,9 @@
+     rc = iw_doc_insert(d, t, off, sizeof off);
+     if (rc == IW_OK) rc = iw_doc_insert(d, s, on, sizeof on);
+     if (rc != IW_OK) return rc;
++    /* MUTANT (test-iword-codes-mutant): the cursor always goes
++     * after the off code, whichever end of the block it was at. NEVER real. */
++    at_end = 1;
+     e->cur = at_end ? t + 2u * IW_WP5_ATTR_LEN : s + IW_WP5_ATTR_LEN;
+     e->blk = IW_NO_BLOCK;
+     e->goal = NONE;

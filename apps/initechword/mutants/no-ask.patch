@@ -1,0 +1,14 @@
+# test: test_iword_codes
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -620,6 +620,10 @@
+      * Manual p. 394 "you are asked to confirm the deletion") */
+     if (iw_code_attr(&e->doc, q, 0) >= 0 || iw_code_is_format(&e->doc, q)) {
+         if (e->reveal) return iw_ed_kill_code(e, q);
++        /* MUTANT (test-iword-codes-mutant): the editing screen keeps
++         * P1's silent step-over -- no question is ever asked. NEVER real. */
++        e->cur = del ? iw_unit_next(&e->doc, q) : q;
++        return IW_E_PROTECTED;
+         e->ask = q;
+         e->ask_del = (uint8_t)(del != 0);
+         return IW_E_ASK;

@@ -1,0 +1,13 @@
+# test: test_iword_face
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2137,6 +2137,9 @@
+ static void page_key(uint8_t vk)
+ {
+     iw_where_t w;
++    /* MUTANT (test-iword-face-mutant): PgDn does nothing, as before
++     * bead initech-1zk9. NEVER real. */
++    if (vk == VK_PGDN) return;
+     iw_ed_where(&g_ed, &w);
+     if (vk == VK_PGUP) { (void)page_jump(w.page > 1u ? w.page - 1u : 1u); return; }
+     if (page_jump(w.page + 1u) <= w.page) iw_ed_doc_end(&g_ed);

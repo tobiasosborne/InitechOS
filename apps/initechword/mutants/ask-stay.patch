@@ -1,0 +1,13 @@
+# test: test_iword_codes
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -676,6 +676,9 @@
+     /* Yes: the code and its partner (MINT11 "Alpha" F6 Backspace y, "Delta"
+      * F6 Delete y -- both pairs gone, the text joined) */
+     if (yes) return iw_ed_kill_code(e, q);
++    /* MUTANT (test-iword-codes-mutant): "No" leaves the cursor where
++     * it was. NEVER real. */
++    return IW_OK;
+     /* No: over the code -- before it for Backspace ("Gamma" F6 BS n "y" ->
+      * "Gammay[BOLD][bold]"), past it for Delete ("Beta" F6 Del n "x" ->
+      * "Beta[BOLD][bold]x") */

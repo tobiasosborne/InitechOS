@@ -1,0 +1,13 @@
+# test: test_iword_codes
+--- a/core/block.c
++++ b/core/block.c
+@@ -106,6 +106,9 @@
+     on_s = iw_attr_state(d, s);
+     on_t = iw_attr_state(d, t);
+     diff = on_s ^ on_t;
++    /* MUTANT (test-iword-codes-mutant): the cut leaves no codes where
++     * the block was -- the text after it changes its attributes. NEVER real. */
++    diff = 0;
+     k = codes(mend, sizeof mend, 0, diff & on_t, IW_WP5_ATTR_ON);
+     k = codes(mend, sizeof mend, k, diff & ~on_t, IW_WP5_ATTR_OFF);
+     /* all or nothing: a delete (one split) and an insert (two) */

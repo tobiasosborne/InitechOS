@@ -1,0 +1,21 @@
+# test: test_iword_core
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -224,13 +224,10 @@
+ /* Make every SRt in [p, q) a space again. */
+ static int unsoft(iw_doc_t *d, uint32_t p, uint32_t q)
+ {
+-    while (p < q) {
+-        if (iw_unit_kind(d, p) == IW_U_SRT) {
+-            int rc = iw_doc_set(d, p, (uint8_t)' ');
+-            if (rc != IW_OK) return rc;
+-        }
+-        p = iw_unit_next(d, p);
+-    }
++    /* MUTANT (test-iword-core-mutant): old soft returns are kept
++     * where they were, so a re-wrapped paragraph keeps stale line ends.
++     * NEVER real. */
++    (void)d; (void)p; (void)q;
+     return IW_OK;
+ }
+ 

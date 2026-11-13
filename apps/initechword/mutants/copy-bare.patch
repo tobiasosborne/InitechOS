@@ -1,0 +1,13 @@
+# test: test_iword_codes
+--- a/core/block.c
++++ b/core/block.c
+@@ -78,6 +78,9 @@
+     iw_ed_block_span(e, &s, &t);
+     on_s = iw_attr_state(&e->doc, s);
+     on_t = iw_attr_state(&e->doc, t);
++    /* MUTANT (test-iword-codes-mutant): the copy is the block's
++     * bytes alone, not self-contained. NEVER real. */
++    on_s = on_t = 0;
+     k = codes(0, 0, 0, on_s, IW_WP5_ATTR_ON) + (t - s) + codes(0, 0, 0, on_t, IW_WP5_ATTR_OFF);
+     *n = 0;
+     if (k > cap) return IW_E_FULL;

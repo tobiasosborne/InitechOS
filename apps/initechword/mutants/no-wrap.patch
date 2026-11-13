@@ -1,0 +1,14 @@
+# test: test_iword_face
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -243,6 +243,10 @@
+ {
+     uint32_t m = 0;
+     int rc;
++    /* MUTANT (test-flair-iword-mutant): word wrap is off -- no soft
++     * return is ever placed. NEVER real. */
++    (void)d; (void)p; (void)end; (void)f; (void)width0; (void)m; (void)rc;
++    return IW_OK;
+     for (;;) {
+         /* c: the column, from the line's margin m; mq: the margin the
+          * indents before q set -- the next line's, should it break at q;

@@ -1,0 +1,11 @@
+# test: test_iword_fkeys
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2254,6 +2254,7 @@
+     if (mods & FLAIR_EVT_MOD_OPTION_KEY) { m = 2; count++; }
+     if (mods & FLAIR_EVT_MOD_CONTROL_KEY) { m = 3; count++; }
+     if (count > 1) return 1;   /* outside the four rows of the WP template */
++    if (m == 0 && k == 8) return 1; /* named mutant: drop plain F9 */
+     f = &IW_FKEYS[m][k];
+     switch (f->action) {
+     case IW_FK_setup: g_mode = M_SETUP; break;

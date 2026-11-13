@@ -123,7 +123,7 @@
 #define IW_RV_RULER_RIGHT  '}'
 #define IW_RV_RULER_TAB    0x1E
 #define IW_RV_RULER_EVERY  5u
-/* Slice 3 (2026-10-16, RULE 8 stated: the ruler follows the margins at the
+/* Slice 3 (2026-10-16, Capture correction stated: the ruler follows the margins at the
  * cursor). Reference Manual, Margins Left and Right p. 394: "the ruler ...
  * displays the left margin as a left bracket ([) and the right margin as a
  * right bracket (]). If a margin falls on a tab setting, it is displayed as a
@@ -144,7 +144,7 @@
  * Face A's window 24 (apps/initechword/app/face_a.c): the Format screen drops its
  * blank row 1 and Format: Line its blank row 22 [authored adaptation; no
  * text is lost]. "Selection: 0" is on WP's last row. */
-/* RULE 8, 2026-10-16 (this bead, deliberate): 33 rows listed below, the
+/* Capture correction, 2026-10-16 (this bead, deliberate): 33 rows listed below, the
  * count said 34 -- the 34th was a zero row whose NULL text WORD.EXE read
  * on Shift-F8 (caught by test-iword-face F11, the first test to open it). */
 #define IW_FMT_ROWS 33

@@ -1,0 +1,11 @@
+# test: test_iword_setup
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1111,7 +1111,6 @@
+     for (uint32_t i = 0; i < 4; i++) if (g_settings_io[i] != IW_SETTINGS_MAGIC[i]) return;
+     if (g_settings_io[6] > 1 || g_settings_io[7] || unit_name(g_settings_io[4])[0] == '?' ||
+         unit_name(g_settings_io[5])[0] == '?') return;
+-    for (uint32_t i = 0; i < IW_SETTINGS_SIZE; i++) g_settings[i] = g_settings_io[i];
+ }
+ static int settings_save(void)
+ {

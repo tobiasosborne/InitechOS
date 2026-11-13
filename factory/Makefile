@@ -9,7 +9,7 @@ $(OUT)/bochs_harness: emu/bochs.c emu/bochs_main.c emu/bochs.h emu/bochs_trace.h
 $(OUT)/boot_system: image/boot_system.c | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 image: all
-	sh image/build.sh
+	sh desktop-build.sh && sh image/build.sh
 smoke:
 	sh smoke.sh
 	$(MAKE) smoke-programs

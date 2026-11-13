@@ -54,14 +54,7 @@
 /* The next tab stop after column c (the default stops every 0.5"). */
 static uint32_t next_stop(uint32_t c)
 {
-#ifdef IWORD_MUT_TAB_FIXED
-    /* MUTANT (test-iword-codes-mutant, test-iword-wp5-roundtrip-
-     * mutant): a tab is always five columns wide, not "to the next stop".
-     * NEVER real. */
-    return c + IW_WP5_TAB_EVERY;
-#else
     return (c / IW_WP5_TAB_EVERY + 1u) * IW_WP5_TAB_EVERY;
-#endif
 }
 
 /* The column after a unit of `kind` that starts at column c. */
@@ -231,13 +224,6 @@ static int breakable(const iw_doc_t *d, uint32_t q, int kind)
 /* Make every SRt in [p, q) a space again. */
 static int unsoft(iw_doc_t *d, uint32_t p, uint32_t q)
 {
-#ifdef IWORD_MUT_REFLOW_STALE
-    /* MUTANT (test-iword-core-mutant): old soft returns are kept
-     * where they were, so a re-wrapped paragraph keeps stale line ends.
-     * NEVER real. */
-    (void)d; (void)p; (void)q;
-    return IW_OK;
-#else
     while (p < q) {
         if (iw_unit_kind(d, p) == IW_U_SRT) {
             int rc = iw_doc_set(d, p, (uint8_t)' ');
@@ -246,20 +232,9 @@ static int unsoft(iw_doc_t *d, uint32_t p, uint32_t q)
         p = iw_unit_next(d, p);
     }
     return IW_OK;
-#endif
 }
 
-#ifdef IWORD_MUT_WRAP_EARLY
-/* MUTANT (test-iword-wp5-roundtrip-mutant): a line ends one column
- * short of the margin. NEVER real. */
-#define LINE_WIDTH(f, w0) (fmt_width((f), (w0)) > 1u ? fmt_width((f), (w0)) - 1u : 1u)
-#elif defined(IWORD_MUT_WRAP_65)
-/* MUTANT (test-iword-wp5-roundtrip-mutant): slice 1's rule -- a
- * character must END by the right margin (65 at 1"/1"). NEVER real. */
-#define LINE_WIDTH(f, w0) ((f)->set ? fmt_width((f), (w0)) - 1u : ((w0) == IW_WP5_WRAP_COLS ? (w0) - 1u : (w0)))
-#else
 #define LINE_WIDTH(f, w0) fmt_width((f), (w0))
-#endif
 
 /* Re-wrap the paragraph [p, end) that starts in format *f; *f leaves as the
  * format at its end. A format code among a line's leading units formats that
@@ -268,12 +243,6 @@ static int reflow_range(iw_doc_t *d, uint32_t p, uint32_t end, fmt_t *f, uint32_
 {
     uint32_t m = 0;
     int rc;
-#ifdef IWORD_MUT_NO_WRAP
-    /* MUTANT (test-flair-iword-mutant): word wrap is off -- no soft
-     * return is ever placed. NEVER real. */
-    (void)d; (void)p; (void)end; (void)f; (void)width0; (void)m; (void)rc;
-    return IW_OK;
-#endif
     for (;;) {
         /* c: the column, from the line's margin m; mq: the margin the
          * indents before q set -- the next line's, should it break at q;
@@ -414,14 +383,9 @@ static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fm
      * margin position) */
     w = (c > col0 ? c - col0 : 0u) * IW_WP5_WPU_PER_COL;
     ln->x0 = (uint16_t)(lf.lm + IW_WP5_WPU_PER_COL * col0);
-#ifndef IWORD_MUT_NO_CENTER
-    /* (IWORD_MUT_NO_CENTER, test-iword-face-mutant: a centered or
-     * right-justified line shows at the left margin. NEVER real.) */
+
     if (lf.just == IW_WP5_JUST_CENTER && lf.rm >= lf.lm + w) ln->x0 = (uint16_t)(lf.lm + (lf.rm - lf.lm - w) / 2u);
     else if (lf.just == IW_WP5_JUST_RIGHT && lf.rm >= lf.lm + w) ln->x0 = (uint16_t)(lf.rm - w);
-#else
-    (void)w;
-#endif
     *fout = run;
 }
 
@@ -656,12 +620,6 @@ static int on_code(iw_ed_t *e, uint32_t q, int del)
      * Manual p. 394 "you are asked to confirm the deletion") */
     if (iw_code_attr(&e->doc, q, 0) >= 0 || iw_code_is_format(&e->doc, q)) {
         if (e->reveal) return iw_ed_kill_code(e, q);
-#ifdef IWORD_MUT_NO_ASK
-        /* MUTANT (test-iword-codes-mutant): the editing screen keeps
-         * P1's silent step-over -- no question is ever asked. NEVER real. */
-        e->cur = del ? iw_unit_next(&e->doc, q) : q;
-        return IW_E_PROTECTED;
-#endif
         e->ask = q;
         e->ask_del = (uint8_t)(del != 0);
         return IW_E_ASK;
@@ -718,11 +676,6 @@ int iw_ed_answer(iw_ed_t *e, int yes)
     /* Yes: the code and its partner (MINT11 "Alpha" F6 Backspace y, "Delta"
      * F6 Delete y -- both pairs gone, the text joined) */
     if (yes) return iw_ed_kill_code(e, q);
-#ifdef IWORD_MUT_ASK_STAY
-    /* MUTANT (test-iword-codes-mutant): "No" leaves the cursor where
-     * it was. NEVER real. */
-    return IW_OK;
-#endif
     /* No: over the code -- before it for Backspace ("Gamma" F6 BS n "y" ->
      * "Gammay[BOLD][bold]"), past it for Delete ("Beta" F6 Del n "x" ->
      * "Beta[BOLD][bold]x") */
@@ -803,12 +756,6 @@ void iw_ed_line_start(iw_ed_t *e)
     iw_where_t wh;
     e->goal = NONE;
     iw_ed_where(e, &wh);
-#ifdef IWORD_MUT_HHH_AFTER
-    /* MUTANT (test-iword-codes-mutant): Home, Home, Home, Left
-     * stops after the codes, as Home, Left does. NEVER real. */
-    iw_ed_line_home(e);
-    return;
-#endif
     e->cur = after_lead(&e->doc, wh.line_start);
 }
 
@@ -946,12 +893,6 @@ int iw_ed_hpage(iw_ed_t *e)
     uint32_t i;
     for (i = 0; i < IW_WP5_PAGE_GRP_LEN; i++) g[i] = pg[i];
     g[IW_WP5_PAGE_GRP_LEN] = IW_WP5_HPG;
-#ifdef IWORD_MUT_NO_D4
-    /* MUTANT (test-iword-wp5-roundtrip-mutant, test-flair-iword-
-     * block-mutant): the hard page goes in bare, without its D4/00 group (and
-     * iw_ed_fixup does not add one). NEVER real. */
-    return insert_code(e, g + IW_WP5_PAGE_GRP_LEN, 1u, 1);
-#endif
     return insert_code(e, g, sizeof g, 1);
 }
 
@@ -1023,14 +964,12 @@ static int fix_structure(iw_ed_t *e)
                 continue;
             }
         } else if (k == IW_U_HPG) {
-#ifndef IWORD_MUT_NO_D4
-            /* (IWORD_MUT_NO_D4, see iw_ed_hpage: no group is added) */
+
             if (p == 0u || !is_page_grp(d, iw_unit_prev(d, p))) {
                 rc = fix_insert(e, p, pg, sizeof pg);
                 if (rc != IW_OK) return rc;
                 p += sizeof pg;
             }
-#endif
             indent = 0;
             n = iw_unit_next(d, p);
         } else if (k == IW_U_HRT) {
@@ -1090,14 +1029,7 @@ static int fix_payloads(iw_ed_t *e)
             int k = iw_unit_kind(d, p), b0 = iw_doc_byte(d, p);
             uint8_t g[10];
             if (k == IW_U_TAB || k == IW_U_INDENT) {
-#ifdef IWORD_MUT_TAB_ABS
-                /* MUTANT (test-iword-codes-mutant, test-iword-wp5-
-                 * roundtrip-mutant): the stops stay where the 1" margin puts
-                 * them whatever the margins. NEVER real. */
-                uint32_t a = IW_WP5_LEFT_WPU + IW_WP5_WPU_PER_COL * next_stop(c), o = 0;
-#else
                 uint32_t a = w.ln.lm + IW_WP5_WPU_PER_COL * next_stop(c), o = 0;
-#endif
                 if (k == IW_U_TAB) g[o++] = IW_WP5_C1_TAB;
                 else { g[o++] = 0x00; u16put(g + o, IW_WP5_INDENT_STEP); o += 2u; }
                 u16put(g + o, a); o += 2u;
@@ -1116,10 +1048,7 @@ static int fix_payloads(iw_ed_t *e)
                 uint8_t h[IW_WP5_MARGIN_LEN];
                 uint32_t got = iw_doc_read(d, p, h, sizeof h);
                 int fk = fmt_kind(h, got);
-#ifndef IWORD_MUT_OLD_STALE
-                /* (IWORD_MUT_OLD_STALE, test-iword-wp5-roundtrip-
-                 * mutant: a code keeps the old values it was typed with.
-                 * NEVER real.) */
+
                 if (fk == 1) {
                     u16put(g, run.lm);
                     u16put(g + 2, IW_WP5_PAPER_WPU - run.rm);
@@ -1133,7 +1062,6 @@ static int fix_payloads(iw_ed_t *e)
                     u16put(g, run.sp);
                     rc = put_bytes(d, p + IW_WP5_VAR_HDR, g, 2u);
                 }
-#endif
                 fmt_take(h, fk, &run);
             }
             c = advance(k, c);
@@ -1220,12 +1148,6 @@ static int fix_linepos(iw_ed_t *e)
             if (++tries > 64u) return IW_E_CODE;
             int need = cr_just(run), changed = 0;
             rc = IW_OK;
-#ifdef IWORD_MUT_NO_LEAD
-            /* MUTANT (test-iword-wp5-roundtrip-mutant, test-iword-
-             * codes-mutant): WP's D4/05 line records are never written.
-             * NEVER real. */
-            need = 0;
-#endif
             for (;;) {
                 int k = p < w.ln.text_end ? iw_unit_kind(d, p) : -1;
                 if (need) {
@@ -1245,9 +1167,6 @@ static int fix_linepos(iw_ed_t *e)
                     f.just = run;
                     if (fmt_apply(d, p, &f) == 2) {
                         need = cr_just(run) || cr_just(f.just);
-#ifdef IWORD_MUT_NO_LEAD
-                        need = 0;
-#endif
                         run = f.just;
                     }
                 }
@@ -1318,16 +1237,13 @@ int iw_ed_margins(iw_ed_t *e, uint32_t left, uint32_t right)
     if (left >= IW_WP5_PAPER_WPU || right >= IW_WP5_PAPER_WPU || left + right + IW_WP5_WPU_PER_COL > IW_WP5_PAPER_WPU)
         return IW_E_RANGE;
     if (d->len + 1u + sizeof g > d->max_len) return IW_E_FULL;
-#ifndef IWORD_MUT_MAR_NO_HRT
-    /* (IWORD_MUT_MAR_NO_HRT, test-iword-wp5-roundtrip-mutant: the
-     * code goes in mid-line with no [HRt]. NEVER real.) */
+
     if (!at_left_margin(e)) {
         uint8_t h = IW_WP5_HRT;
         rc = iw_doc_insert(d, e->cur, &h, 1u);
         if (rc != IW_OK) return rc;
         e->cur++;
     }
-#endif
     fmt_at(d, e->cur, &f);
     u16at(g + 4, f.lm);
     u16at(g + 6, IW_WP5_PAPER_WPU - f.rm);
@@ -1388,17 +1304,6 @@ int iw_ed_spacing(iw_ed_t *e, uint32_t sp)
     fmt_at(d, e->cur, &f);
     u16at(g + 4, f.sp);
     u16at(g + 6, sp);
-#ifdef IWORD_MUT_SP_HRT
-    /* MUTANT (test-iword-wp5-roundtrip-mutant): the spacing code is
-     * treated like a margin change -- a [HRt] first when the cursor is not
-     * at the left margin. NEVER real. */
-    if (!at_left_margin(e)) {
-        uint8_t h = IW_WP5_HRT;
-        rc = iw_doc_insert(d, e->cur, &h, 1u);
-        if (rc != IW_OK) return rc;
-        e->cur++;
-    }
-#endif
     rc = iw_doc_insert(d, e->cur, g, sizeof g);
     if (rc != IW_OK) return rc;
     e->cur += sizeof g;
@@ -1411,23 +1316,12 @@ int iw_ed_spacing(iw_ed_t *e, uint32_t sp)
  * 2.25 -> 576 exact, MINT25 / MINT30). */
 uint32_t iw_spacing_from_hundredths(uint32_t h)
 {
-#ifdef IWORD_MUT_SP_NEAR
-    /* MUTANT (test-iword-wp5-roundtrip-mutant): rounded to the
-     * nearest (1.33 -> 340). NEVER real. */
-    return (h * IW_WP5_SPACING_ONE + 50u) / 100u;
-#endif
     return (h * IW_WP5_SPACING_ONE + 99u) / 100u;
 }
 
 uint32_t iw_spacing_rows(uint32_t sp)
 {
-#ifdef IWORD_MUT_SP_CEIL
-    /* MUTANT (test-iword-face-mutant): a fractional spacing shows
-     * rounded UP (1.33 as two rows). NEVER real. */
-    uint32_t r = (sp + IW_WP5_SPACING_ONE - 1u) / IW_WP5_SPACING_ONE;
-#else
     uint32_t r = (sp + IW_WP5_SPACING_ONE / 2u) / IW_WP5_SPACING_ONE;
-#endif
     return r ? r : 1u;
 }
 
@@ -1461,11 +1355,6 @@ static uint32_t sentence_after(const iw_doc_t *d, uint32_t p, uint32_t pe)
         uint32_t q = iw_unit_next(d, p);
         if (k == IW_U_TEXT && sentence_end_char(iw_doc_byte(d, p)) && (q >= pe || is_space_unit(d, q))) {
             uint32_t n = 0;
-#ifdef IWORD_MUT_SENT_BARE
-            /* MUTANT (test-iword-codes-mutant): the sentence stops at
-             * its punctuation, its spaces left behind. NEVER real. */
-            n = 3u;
-#endif
             while (q < pe && n < 3u && is_space_unit(d, q)) { q = iw_unit_next(d, q); n++; }
             return q;
         }

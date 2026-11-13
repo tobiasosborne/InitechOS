@@ -1,10 +1,18 @@
-# Deferred emulator gates
+# Emulator coverage
 
-No emulator gate is ported or run by this import. All drive the booted product
-from outside, using keystrokes, serial drawing, disk reads and pixel checks.
-Names are from legacy-final Makefile:32357..32756, the three wp5_diff make
-fragments, spec/flair_iword_traces.mk and harness/bochs_legs.mk. Those recipes
-and trace literals remain in attic for the tier-1 factory importer.
+The ordinary factory desktop smoke now launches WORD.EXE from the Finder on
+QEMU and Bochs, types office reports are ready., applies Bold to reports with
+F6, saves WORD.WP5 through F10, and exits through F7. mtools and the independent
+wp5_ref.py reader require exact text, the Bold on/off pair and a valid complete
+trailer. factory/red-desktop.sh proves an empty save fails that host verifier.
+No target scenario is compiled into the product. See tests/smoke/ and
+factory/DESKTOP-ACCEPTANCE.md for current runs and capture paths.
+
+The following additional legacy gates remain deferred. They are broader than
+this journey, especially the raster/captured-pane checks; host face tests do
+not substitute for pixels. The InitechWord/factory importer owns these remaining
+attic traces and pixel consumers. The list describes historical gate names,
+not runnable new-tree targets.
 
 Each row has both test-flair-iword<suffix> and its -mutant twin:
 

@@ -1,0 +1,11 @@
+# test: test_iword_undo
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -576,6 +576,7 @@
+         }
+         if (dn + g_undo_n[0] <= UNDO_CAP) {
+             int prepend = join && dt == g_undo_at && ds < dt;
++            prepend = 0;
+             if (prepend) {
+                 for (uint32_t i = g_undo_n[0]; i; i--) g_undo[0][i+dn-1] = g_undo[0][i-1];
+                 for (uint32_t i = 0; i < dn; i++) g_undo[0][i] = g_deleted[i];

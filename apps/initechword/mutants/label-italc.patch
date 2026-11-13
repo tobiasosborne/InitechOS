@@ -1,0 +1,13 @@
+# test: test_iword_reveal_codes
+--- a/core/codes.c
++++ b/core/codes.c
+@@ -311,6 +311,9 @@
+     case IW_WP5_ATTR_OFF:
+         for (uint32_t i = 0; i < IW_RV_ATTR_ROWS; i++) {
+             if (ATTR_LABEL[i].n != g[1]) continue;
++            /* MUTANT (test-iword-reveal-codes-mutant): italic shown
++             * with a made-up 5.0-style label. NEVER real. */
++            if (g[1] == IW_WP5_ATTR_ITALIC) return put(out, cap, n, c == IW_WP5_ATTR_ON ? "[ITAL]" : "[ital]");
+             return put(out, cap, n, c == IW_WP5_ATTR_ON ? ATTR_LABEL[i].on : ATTR_LABEL[i].off);
+         }
+         return put(out, cap, n, IW_RV_UNKNOWN);

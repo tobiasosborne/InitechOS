@@ -1,0 +1,15 @@
+# test: test_iword_codes
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -54,7 +54,10 @@
+ /* The next tab stop after column c (the default stops every 0.5"). */
+ static uint32_t next_stop(uint32_t c)
+ {
+-    return (c / IW_WP5_TAB_EVERY + 1u) * IW_WP5_TAB_EVERY;
++    /* MUTANT (test-iword-codes-mutant, test-iword-wp5-roundtrip-
++     * mutant): a tab is always five columns wide, not "to the next stop".
++     * NEVER real. */
++    return c + IW_WP5_TAB_EVERY;
+ }
+ 
+ /* The column after a unit of `kind` that starts at column c. */

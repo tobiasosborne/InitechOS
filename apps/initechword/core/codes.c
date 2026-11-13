@@ -118,15 +118,9 @@ uint32_t iw_attr_step(const iw_doc_t *d, uint32_t pos, uint32_t state)
 uint32_t iw_attr_faces(uint32_t st)
 {
     uint32_t f = 0;
-#ifndef IWORD_MUT_NO_FACE
     if (st & abit(IW_WP5_ATTR_BOLD))      f |= IW_A_BOLD;
     if (st & abit(IW_WP5_ATTR_ITALIC))    f |= IW_A_ITALIC;
     if (st & abit(IW_WP5_ATTR_UNDERLINE)) f |= IW_A_UNDERLINE;
-#else
-    /* MUTANT (test-iword-face-mutant, test-flair-iword-codes-mutant):
-     * the codes are kept but never drawn -- every face is plain. NEVER real. */
-    (void)st;
-#endif
     return f;
 }
 
@@ -185,14 +179,11 @@ int iw_ed_attr(iw_ed_t *e, uint8_t n)
     if (!room(d, 3u, q != NONE ? 1u : 0u)) return IW_E_FULL;
     rc = iw_doc_insert(d, e->cur, pair + 3, 3u);
     if (rc != IW_OK) return rc;
-#ifndef IWORD_MUT_TOGGLE_DUP
-    /* MUTANT knob (test-iword-codes-mutant): IWORD_MUT_TOGGLE_DUP
-     * leaves the old off code where it was -- a duplicate [bold]. */
+
     if (q != NONE) {
         rc = iw_doc_delete(d, q + IW_WP5_ATTR_LEN, IW_WP5_ATTR_LEN);
         if (rc != IW_OK) return rc;
     }
-#endif
     e->cur += IW_WP5_ATTR_LEN;
     e->dirty = 1;
     return IW_OK;
@@ -270,11 +261,6 @@ int iw_ed_kill_code(iw_ed_t *e, uint32_t q)
     }
     if (iw_code_attr(d, q, 0) < 0) return IW_E_PROTECTED;
     p = partner(d, q);
-#ifdef IWORD_MUT_PAIR_HALF
-    /* MUTANT (test-iword-codes-mutant): only the code itself goes --
-     * its partner is stranded. NEVER real. */
-    p = NONE;
-#endif
     if (!room(d, 0u, p != NONE ? 2u : 1u)) return IW_E_FULL;
     if (p != NONE && p > q) {
         rc = iw_doc_delete(d, p, IW_WP5_ATTR_LEN);
@@ -325,17 +311,6 @@ static uint32_t label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap, 
     case IW_WP5_ATTR_OFF:
         for (uint32_t i = 0; i < IW_RV_ATTR_ROWS; i++) {
             if (ATTR_LABEL[i].n != g[1]) continue;
-#ifdef IWORD_MUT_LABEL_ITALC
-            /* MUTANT (test-iword-reveal-codes-mutant): italic shown
-             * with a made-up 5.0-style label. NEVER real. */
-            if (g[1] == IW_WP5_ATTR_ITALIC) return put(out, cap, n, c == IW_WP5_ATTR_ON ? "[ITAL]" : "[ital]");
-#endif
-#ifdef IWORD_MUT_LABEL_SM_CAP
-            /* MUTANT (test-iword-reveal-codes-mutant): Small Caps
-             * labelled as the menu spells it ("Sm Cap" -> [SMCAP]), not as
-             * the pane does. NEVER real. */
-            if (g[1] == 0x0Fu) return put(out, cap, n, c == IW_WP5_ATTR_ON ? "[SMCAP]" : "[smcap]");
-#endif
             return put(out, cap, n, c == IW_WP5_ATTR_ON ? ATTR_LABEL[i].on : ATTR_LABEL[i].off);
         }
         return put(out, cap, n, IW_RV_UNKNOWN);
@@ -362,11 +337,6 @@ static uint32_t label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap, 
              * Left / Center, MINT23 Left, MINT24A 02_reveal Right, MINT24
              * 04_bs_question Center; Full from the menu, MINT22 02) */
             static const char *const J[4] = { IW_RV_JUST_LEFT, IW_RV_JUST_FULL, IW_RV_JUST_CENTER, IW_RV_JUST_RIGHT };
-#ifdef IWORD_MUT_LABEL_JUST
-            /* MUTANT (test-iword-reveal-codes-mutant): every
-             * justification shows as Left. NEVER real. */
-            return put(out, cap, n, J[0]);
-#endif
             if (g[5] < 4u) return put(out, cap, n, J[g[5]]);
         }
         if (g[1] == IW_WP5_SPACING_SUB && got >= IW_WP5_SPACING_LEN && u16at(g, 2) == 8u) {
@@ -406,11 +376,6 @@ uint32_t iw_reveal_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t cur, ui
     uint32_t p = ln->start, n = 0;
     *cur_off = NONE;
     *cur_len = 0;
-#ifdef IWORD_MUT_BLOCK_LABEL
-    /* MUTANT (test-iword-reveal-codes-mutant): the block's anchor is
-     * not shown. NEVER real. */
-    blk = IW_NO_BLOCK;
-#endif
     while (p < ln->end) {
         uint32_t before;
         /* the block's anchor (MINT13 01b_block_reveal "word[Block]s[bold]") */
@@ -442,13 +407,7 @@ void iw_reveal_pane(const iw_ed_t *e, uint32_t width, uint32_t nrows,
     /* WP fills IW_RV_PANE_ROWS rows; any row below stays blank (MINT16) */
     if (nrows > IW_RV_PANE_ROWS) nrows = IW_RV_PANE_ROWS;
     iw_ed_where(e, &w);
-#ifdef IWORD_MUT_PANE_ANCHOR
-    /* MUTANT (test-iword-reveal-codes-mutant): two lines above the
-     * cursor instead of three. NEVER real. */
-    pane->first_line = w.line >= 2u ? w.line - 2u : 0u;
-#else
     pane->first_line = w.line >= IW_RV_PANE_ABOVE ? w.line - IW_RV_PANE_ABOVE : 0u;
-#endif
     pane->cur_row = pane->cur_col = pane->cur_len = 0;
     got = iw_ed_lines(e, pane->first_line, nrows < 32u ? nrows : 32u, lines);
     for (li = 0; li < got && r < nrows; li++) {

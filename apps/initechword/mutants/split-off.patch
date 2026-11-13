@@ -1,0 +1,14 @@
+# test: test_iword_core
+--- a/core/piece.c
++++ b/core/piece.c
+@@ -117,7 +117,9 @@
+         d->pc[pi].len = po;
+         d->pc[pi + 1u].off = IW_PIECE_ADD | a;
+         d->pc[pi + 1u].len = n;
+-        d->pc[pi + 2u].off = left.off + po;
++        /* MUTANT (test-iword-core-mutant): the right half starts one
++         * byte late -- a byte is lost and the tail is shifted. NEVER real. */
++        d->pc[pi + 2u].off = left.off + po + 1u;
+         d->pc[pi + 2u].len = left.len - po;
+     }
+     d->add_len += n;

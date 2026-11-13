@@ -1,0 +1,11 @@
+# test: test_iword_fkeys
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2280,6 +2280,7 @@
+         /* Reference p. 966 note 4: no command is mapped to these keys.
+          * Keep the editing screen/status, rather than inventing a blank
+          * disabled command. */
++        g_gray = f->name; g_mode = M_GRAY;
+         break;
+     default:             g_gray = f->name; g_mode = M_GRAY; break;
+     }

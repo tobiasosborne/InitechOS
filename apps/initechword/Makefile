@@ -6,7 +6,7 @@ CORE := $(wildcard core/*.c) fs/wp5.c
 LOCAL_INC := -Iinclude
 HOST_CORE := $(addprefix $(OUT)/host-core/,$(CORE:.c=.o))
 # The app interface. The face includes nothing else from outside.
-FACE_INC := -I$(TOP)/sdk/include
+FACE_INC := -I$(TOP)/sdk/include -I$(TOP)/sdk/host
 HOST_INCLUDES := $(LOCAL_INC) -I$(TOP)/factory/testlib
 HOST_TESTS := test_iword_core test_iword_codes test_iword_wp5_roundtrip \
  test_iword_reveal_codes test_iword_face test_iword_face_small \
@@ -29,6 +29,8 @@ iword_fkeys_gen_SRCS := tests/tools/iword_fkeys_gen.c
 $(foreach t,$(FACE_TESTS),$(eval test_iword_$(t)_DEPS := app/face_a.c tests/test_iword_face.c tests/run.sh))
 test_iword_search_DEPS += $(OUT)/host/test_iword_search_corpus
 test_iword_fkeys_DEPS += $(OUT)/host/iword_fkeys_gen
+$(foreach t,$(FACE_TESTS),$(eval test_iword_$(t)_LIBS := $(TOP)/build/sdk/host/libtbx_host.a))
+$(foreach t,$(FACE_TESTS),$(eval test_iword_$(t)_DEPS += $(TOP)/build/sdk/host/libtbx_host.a))
 include $(TOP)/mk/host-test.mk
 
 # Keep isolated scratch and multi-command independent post-checks per entry.
@@ -52,17 +54,25 @@ $(OUT)/host-core/%.o: %.c FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -MMD -MP -c $< -o $@)
 -include $(HOST_CORE:.o=.d)
 
-TARGET_SRCS := $(CORE) app/face_a.c
-TARGET_INCLUDES := $(LOCAL_INC)
-$(OUT)/app/face_a.o: TARGET_INCLUDES += $(FACE_INC)
-include $(TOP)/mk/target.mk
+TENANT := word
+TENANT_SRCS := $(CORE) app/face_a.c
+TENANT_EXE := WORD.EXE
+TENANT_CPPFLAGS := $(LOCAL_INC)
+include $(TOP)/mk/tenant.mk
 TARGET_ARTIFACTS := $(OUT)/WORD.EXE
 
 smoke:
-	@echo 'Tier 1 awaits the booted product and sdk tenant rules; see tests/SMOKES.md' >&2; exit 1
-mutants:
-	@echo 'Patch conversion deferred: see tests/MUTANTS-TODO.md' >&2; exit 1
+	+$(MAKE) -C $(TOP) image
+	sh $(TOP)/factory/smoke-desktop.sh
+
+include $(TOP)/mk/mutants.mk
+include $(TOP)/mk/import-check.mk
 
 TEST_BUDGET_S := 30
 CORPORA := WORDPERFECT51_DECOMP
 include $(TOP)/mk/corpus.mk
+
+.PHONY: sdk-host
+sdk-host:
+	+$(MAKE) -C $(TOP)/sdk host
+$(TOP)/build/sdk/host/libtbx_host.a: | sdk-host

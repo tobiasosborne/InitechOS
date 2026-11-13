@@ -1,0 +1,11 @@
+# test: test_iword_listfiles_ops
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1551,7 +1551,6 @@
+          * Normalize EVERY component before either same-file check, or a
+          * replacement Move can copy over itself and delete the only copy. */
+         for (uint32_t i = 0; g_path[i]; i++) {
+-            if (g_path[i] == '.' && (!g_path[i + 1u] || g_path[i + 1u] == '\\')) continue;
+             g_lf_dst[out++] = g_path[i];
+         }
+         g_lf_dst[out] = 0;

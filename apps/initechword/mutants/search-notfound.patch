@@ -1,0 +1,12 @@
+# test: test_iword_search
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2505,7 +2505,7 @@
+         if (iw_search(&g_ed.doc, &q, g_ed.cur, g_search_back, &s, &e) == IW_OK) {
+             g_ed.cur = g_search_back ? s : e; g_ed.goal = 0xFFFFFFFFu; g_mode = M_EDIT;
+         } else {
+-            error("* Not found *", M_EDIT);
++            error("Not found", M_EDIT);
+         }
+         return;
+     }

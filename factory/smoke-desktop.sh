@@ -1,11 +1,12 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
+start=$(date +%s)
 out=${DESKTOP_SMOKE_OUT:-build/smoke-desktop}
 mkdir -p "$out"
 fail() { echo "FAIL desktop: $*" >&2; exit 1; }
 . factory/desktop-trace.sh
-make -s -f factory/desktop-tools.mk
+make -s -f factory/desktop-tools.mk test
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
 list=${DESKTOP_JOURNEYS:-factory/desktop-journeys.list}
 # Reject missing/empty entries; list ordering is also the journey ordering.
@@ -14,6 +15,7 @@ journeys=$(sed '/^[[:space:]]*#/d; /^[[:space:]]*$/d' "$list")
 for dir in $journeys; do
  [ -f "$dir/journey.sh" ] && [ -f "$dir/verify.sh" ] || fail "incomplete journey $dir"
 done
+app_entries=$(mdir -b -i build/image/data.img ::APPS/)
 n=0
 for emulator in qemu bochs; do
  markers=$out/$emulator.markers
@@ -23,6 +25,7 @@ for emulator in qemu bochs; do
   capture desktop
   inject "$open_disk"; await_marker 'FINDER-OPEN-VOLUME'; capture disk
   inject "$open_apps"; await_marker 'FINDER-OPEN-FOLDER name=APPS'; capture apps
+  inject "m22:20" # common pointer anchor: first APPS icon
   for dir in $journeys; do
    # A subshell isolates per-app variables and helper names.
    ( . "./$dir/journey.sh"; journey )
@@ -34,12 +37,15 @@ for emulator in qemu bochs; do
   fi
  )
  trace=${trace%,}
+ # The final exit is already the driver's completion marker. Leaving a W
+ # token after it would correctly trip Bochs's "input after completion" guard.
+ if [ "$emulator" = bochs ]; then trace=${trace%,WTENANT-EXIT rc=0 via=exit}; fi
  cp build/image/data.img "$out/$emulator-data.img"
  if [ "$emulator" = qemu ]; then
   set -- --mouse "$trace" --expect FLAIR-EXIT-TO-DOS --quit-after FLAIR-LIVE-READY --quit-after-count 2 \
    --screendump --screendump-after FLAIR-LIVE-READY --screendump-after-count 2
  else
-  set -- --allow-reboot --keys "$trace" --expect 'TENANT-EXIT rc=0 via=exit' \
+  set -- --rtc-time0 699440400 --allow-reboot --keys "$trace" --expect 'TENANT-EXIT rc=0 via=exit' \
    --quit-after 'TENANT-EXIT rc=0 via=exit' --quit-after-count "$(printf '%s\n' "$journeys" | wc -l)"
  fi
  driver="build/factory/${emulator}_harness"
@@ -89,4 +95,6 @@ build/factory/qemu_harness --disk "$legacy/build/flair_tenants_interactive.img" 
 build/factory/pixels-desktop "$out/legacy.ppm" "$out/desktop.ppm" > "$out/pixels.txt"
 cat "$out/pixels.txt"
 n=$((n+1))
-echo "DESKTOP SMOKE: $n checks, 0 failures (QEMU + Bochs, 8 MiB)"
+elapsed=$(($(date +%s)-start))
+printf '%s\n' "$elapsed" > "$out/elapsed-seconds"
+echo "DESKTOP SMOKE: $n checks, 0 failures (QEMU + Bochs, 8 MiB; ${elapsed}s)"

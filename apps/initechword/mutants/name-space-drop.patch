@@ -1,0 +1,13 @@
+# test: test_iword_face
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1891,6 +1891,9 @@
+      * InitechWord Reference, Filenames: "a name with any other character
+      * ... is refused") and is never quietly saved as BADNAME.WP5 (audit
+      * docs/audits/2026-10-23-iword L015). */
++    /* MUTANT (test-iword-face-mutant): spaces dropped at the
++     * prompt, as before the fix. NEVER real. */
++    if (ch == ' ') return;
+     if (ch >= ' ' && ch <= '~') {
+         if (g_fresh) { g_nlen = 0; g_fresh = 0; }
+         if (g_nlen < sizeof g_name - 1u) { g_name[g_nlen++] = ch; g_name[g_nlen] = 0; }

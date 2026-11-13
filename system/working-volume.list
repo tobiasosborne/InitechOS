@@ -1,3 +1,4 @@
 # Built source                         Working-volume path
 build/apps/initech123/123.EXE           APPS/123.EXE
 build/apps/initech123/123.MNU           APPS/123.MNU
+build/apps/initechword/WORD.EXE          APPS/WORD.EXE

@@ -1,0 +1,27 @@
+# test: test_iword_wp5_roundtrip
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -893,6 +893,10 @@
+     uint32_t i;
+     for (i = 0; i < IW_WP5_PAGE_GRP_LEN; i++) g[i] = pg[i];
+     g[IW_WP5_PAGE_GRP_LEN] = IW_WP5_HPG;
++    /* MUTANT (test-iword-wp5-roundtrip-mutant, test-flair-iword-
++     * block-mutant): the hard page goes in bare, without its D4/00 group (and
++     * iw_ed_fixup does not add one). NEVER real. */
++    return insert_code(e, g + IW_WP5_PAGE_GRP_LEN, 1u, 1);
+     return insert_code(e, g, sizeof g, 1);
+ }
+ 
+@@ -964,12 +968,6 @@
+                 continue;
+             }
+         } else if (k == IW_U_HPG) {
+-
+-            if (p == 0u || !is_page_grp(d, iw_unit_prev(d, p))) {
+-                rc = fix_insert(e, p, pg, sizeof pg);
+-                if (rc != IW_OK) return rc;
+-                p += sizeof pg;
+-            }
+             indent = 0;
+             n = iw_unit_next(d, p);
+         } else if (k == IW_U_HRT) {

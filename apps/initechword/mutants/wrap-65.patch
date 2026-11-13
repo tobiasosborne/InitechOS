@@ -1,0 +1,14 @@
+# test: test_iword_wp5_roundtrip
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -234,7 +234,9 @@
+     return IW_OK;
+ }
+ 
+-#define LINE_WIDTH(f, w0) fmt_width((f), (w0))
++/* MUTANT (test-iword-wp5-roundtrip-mutant): slice 1's rule -- a
++ * character must END by the right margin (65 at 1"/1"). NEVER real. */
++#define LINE_WIDTH(f, w0) ((f)->set ? fmt_width((f), (w0)) - 1u : ((w0) == IW_WP5_WRAP_COLS ? (w0) - 1u : (w0)))
+ 
+ /* Re-wrap the paragraph [p, end) that starts in format *f; *f leaves as the
+  * format at its end. A format code among a line's leading units formats that

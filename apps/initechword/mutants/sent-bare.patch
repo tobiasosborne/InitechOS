@@ -1,0 +1,13 @@
+# test: test_iword_wp5_roundtrip
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -1355,6 +1355,9 @@
+         uint32_t q = iw_unit_next(d, p);
+         if (k == IW_U_TEXT && sentence_end_char(iw_doc_byte(d, p)) && (q >= pe || is_space_unit(d, q))) {
+             uint32_t n = 0;
++            /* MUTANT (test-iword-codes-mutant): the sentence stops at
++             * its punctuation, its spaces left behind. NEVER real. */
++            n = 3u;
+             while (q < pe && n < 3u && is_space_unit(d, q)) { q = iw_unit_next(d, q); n++; }
+             return q;
+         }

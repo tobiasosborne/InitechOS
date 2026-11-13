@@ -1,0 +1,11 @@
+# test: test_iword_replace
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2563,6 +2563,7 @@
+     }
+     if (ch == 'y' || ch == 'Y' || ch == 'n' || ch == 'N' || vk == VK_ENTER) {
+         int yes = ch != 'n' && ch != 'N';
++        yes = 1;
+         g_ed.blk = IW_NO_BLOCK;
+         if (yes) {
+             if (replace_match() != IW_OK) { error("ERROR: Document too large", M_EDIT); return; }

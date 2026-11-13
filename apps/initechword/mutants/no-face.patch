@@ -1,0 +1,16 @@
+# test: test_iword_face
+--- a/core/codes.c
++++ b/core/codes.c
+@@ -118,9 +118,9 @@
+ uint32_t iw_attr_faces(uint32_t st)
+ {
+     uint32_t f = 0;
+-    if (st & abit(IW_WP5_ATTR_BOLD))      f |= IW_A_BOLD;
+-    if (st & abit(IW_WP5_ATTR_ITALIC))    f |= IW_A_ITALIC;
+-    if (st & abit(IW_WP5_ATTR_UNDERLINE)) f |= IW_A_UNDERLINE;
++    /* MUTANT (test-iword-face-mutant, test-flair-iword-codes-mutant):
++     * the codes are kept but never drawn -- every face is plain. NEVER real. */
++    (void)st;
+     return f;
+ }
+ 

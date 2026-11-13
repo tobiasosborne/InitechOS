@@ -19,7 +19,7 @@
  *     answers to "Delete [L/R Mar:..]?"; [Ln Spacing:..]; where each Home
  *     prefix key leaves the cursor; attributes given to blocks and the
  *     sixteen attribute labels; Move without a block)
- * Nothing here is read from include/iword/reveal_codes.h (Law 2: an oracle that
+ * Nothing here is read from include/iword/reveal_codes.h (CLAUDE.md, The constitution: independent oracles: an oracle that
  * shares its expected strings with the artifact agrees by construction). The
  * right arrow of "[->Indent]" is CP437 0x1A as the screen shows it.
  *

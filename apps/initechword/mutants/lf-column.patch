@@ -1,0 +1,13 @@
+# test: test_iword_listfiles
+--- a/core/listfiles.c
++++ b/core/listfiles.c
+@@ -48,6 +48,9 @@
+ {
+     char num[16];
+     uint32_t n = iw_lf_group(v, num);
++    /* MUTANT (test-iword-listfiles-mutant, test-flair-iword-listfiles-
++     * mutant): every right-aligned figure one column right. NEVER real. */
++    end++;
+     if (end + 1u >= n && end < IW_LF_WP_COLS) put(row, end + 1u - n, num);
+ }
+ 

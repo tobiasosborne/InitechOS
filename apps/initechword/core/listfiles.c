@@ -48,11 +48,6 @@ static void put_right(char *row, uint32_t end, uint32_t v)
 {
     char num[16];
     uint32_t n = iw_lf_group(v, num);
-#ifdef IWORD_MUT_LF_COLUMN
-    /* MUTANT (test-iword-listfiles-mutant, test-flair-iword-listfiles-
-     * mutant): every right-aligned figure one column right. NEVER real. */
-    end++;
-#endif
     if (end + 1u >= n && end < IW_LF_WP_COLS) put(row, end + 1u - n, num);
 }
 
@@ -78,9 +73,7 @@ void iw_lf_put_time(char *at, uint32_t hour, uint32_t minute)
  * DESKTOP.DB and TRASH, date and time 0, list with blank date and time). */
 static void put_dos_stamp(char *row, uint32_t col, uint16_t date, uint16_t time)
 {
-#ifndef IWORD_MUT_LF_ZERO_DATE
     if (date == 0u) return;
-#endif
     iw_lf_put_date(row + col, 1980u + (date >> 9), (date >> 5) & 15u, date & 31u);
     iw_lf_put_time(row + col + IW_LF_E_TIME - IW_LF_E_DATE, time >> 11, (time >> 5) & 63u);
 }

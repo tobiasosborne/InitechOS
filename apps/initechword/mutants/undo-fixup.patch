@@ -1,0 +1,11 @@
+# test: test_iword_undo
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2582,7 +2582,6 @@
+         if (g_undo_count) {
+             ensure_room();
+             int rc = iw_ed_retrieve(&g_ed, g_undo[g_undo_sel], g_undo_n[g_undo_sel]);
+-            if (rc == IW_OK) rc = iw_ed_fixup(&g_ed);
+             if (rc != IW_OK) error("ERROR: Document too large", M_EDIT);
+         }
+     } else if ((ch == '2' || vk == VK_UP) && g_undo_sel+1 < g_undo_count) g_undo_sel++;

@@ -1,0 +1,12 @@
+# test: test_iword_undo
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -532,7 +532,7 @@
+         uint32_t anchor = g_ed.blk;
+         iw_ed_block_span(&g_ed, &ds, &dt);
+         int copied = iw_ed_block_copy(&g_ed, g_deleted, UNDO_CAP, &dn);
+-        g_ed.blk = anchor;
++        (void)anchor;
+         if (copied != IW_OK) return IW_E_FULL;
+     }
+     if (dt > ds && !dn) {

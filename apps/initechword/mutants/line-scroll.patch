@@ -1,0 +1,13 @@
+# test: test_iword_face
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -671,6 +671,9 @@
+             uint32_t nr;
+             (void)iw_ed_lines(&g_ed, g_top, 1u, lines);
+             nr = line_rows(&lines[0], 0, &bar);
++            /* MUTANT (test-iword-face-mutant): the window always
++             * starts on a line, never on a blank row. NEVER real. */
++            bar = nr - 1u;
+             if (g_skip + (uint32_t)d <= nr - bar - 1u) { g_skip += (uint32_t)d; d = 0; }
+             else { d -= (int32_t)(nr - g_skip); g_top++; g_skip = 0; }
+         }

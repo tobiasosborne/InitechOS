@@ -155,11 +155,6 @@
  * reference. Freestanding C, ASCII-clean, deterministic.
  */
 #include "tbx.h"
-#ifdef IWORD_MUT_SETUP_SHORT
-/* MUTANT (test-iword-setup-mutant): the save loop stops after ONE write --
- * the loop is the shared atomic save's since initech-mcep. NEVER real. */
-#define TBX_MUT_SAVE_ONE_WRITE
-#endif
 #include "tbx_save.h"   /* initech-mcep: the atomic document save */
 #include "iword/fkeys.h"
 #include "iword.h"
@@ -537,11 +532,7 @@ static int edit(int op, uint8_t ch)
         uint32_t anchor = g_ed.blk;
         iw_ed_block_span(&g_ed, &ds, &dt);
         int copied = iw_ed_block_copy(&g_ed, g_deleted, UNDO_CAP, &dn);
-#ifndef IWORD_MUT_UNDO_BLOCK
         g_ed.blk = anchor;
-#else
-        (void)anchor;
-#endif
         if (copied != IW_OK) return IW_E_FULL;
     }
     if (dt > ds && !dn) {
@@ -574,9 +565,6 @@ static int edit(int op, uint8_t ch)
     if (fx == IW_E_FULL) { compact(); fx = iw_ed_fixup(&g_ed); }
     if (rc == IW_OK && dn && g_ed.doc.len < before) {
         uint32_t limit = 3;
-#ifdef IWORD_MUT_UNDO_LEVEL
-        limit = 2;
-#endif
         int join = g_undo_join && g_undo_count && (ds == g_undo_at || dt == g_undo_at);
         if (!join) {
             if (g_undo_count < limit) g_undo_count++;
@@ -588,9 +576,6 @@ static int edit(int op, uint8_t ch)
         }
         if (dn + g_undo_n[0] <= UNDO_CAP) {
             int prepend = join && dt == g_undo_at && ds < dt;
-#ifdef IWORD_MUT_UNDO_ORDER
-            prepend = 0;
-#endif
             if (prepend) {
                 for (uint32_t i = g_undo_n[0]; i; i--) g_undo[0][i+dn-1] = g_undo[0][i-1];
                 for (uint32_t i = 0; i < dn; i++) g_undo[0][i] = g_deleted[i];
@@ -686,11 +671,6 @@ static void follow(const iw_where_t *w, uint32_t rows)
             uint32_t nr;
             (void)iw_ed_lines(&g_ed, g_top, 1u, lines);
             nr = line_rows(&lines[0], 0, &bar);
-#ifdef IWORD_MUT_LINE_SCROLL
-            /* MUTANT (test-iword-face-mutant): the window always
-             * starts on a line, never on a blank row. NEVER real. */
-            bar = nr - 1u;
-#endif
             if (g_skip + (uint32_t)d <= nr - bar - 1u) { g_skip += (uint32_t)d; d = 0; }
             else { d -= (int32_t)(nr - g_skip); g_top++; g_skip = 0; }
         }
@@ -727,11 +707,6 @@ static void paint_status(const iw_where_t *w, int line)
          * 01_block_on); the Move prompt while a block waits (05_move_prompt) */
         const char *left = g_mode == M_RETRIEVE ? IW_MOVE_RETRIEVE :
                            g_ed.blk != IW_NO_BLOCK ? IW_BLOCK_ON : g_current;
-#ifdef IWORD_MUT_NO_BLOCK_ON
-        /* MUTANT (test-iword-face-mutant): Block on is not shown --
-         * the document's name stays. NEVER real. */
-        if (g_mode == M_EDIT) left = g_current;
-#endif
         for (i = 0; left[i] && i < 40u; i++) s[i] = left[i];
         /* "Doc 1 Pg <p> Ln <ln>" ending at column STATUS_DOC_END */
         scopy(doc, "Doc 1 Pg ");
@@ -785,9 +760,6 @@ static void paint_status(const iw_where_t *w, int line)
         else if (g_mode == M_GRAY) t = g_gray;
         else if (g_mode == M_RCONF) {
             t = "w/Confirm? No (Yes)";
-#ifdef IWORD_MUT_REPLACE_PROMPT
-            t = "Confirm?";
-#endif
         }
         else if (g_mode == M_RASK) t = "Replace? Yes (No)";
         else if (g_mode == M_GOTO) t = "Go to ";      /* goto.steps 13_goto_prompt */
@@ -795,9 +767,6 @@ static void paint_status(const iw_where_t *w, int line)
         else if (g_mode == M_RTEXT) t = "Replace with:";
         else if (g_mode == M_SEARCH || g_mode == M_RSEARCH) {
             t = g_search_back ? "<- Srch:" : "-> Srch:";
-#ifdef IWORD_MUT_SEARCH_PROMPT
-            t = "Search:";
-#endif
         }
         else if (g_mode == M_FONT) t = IW_FONT_MENU;
         else if (g_mode == M_FONTBLK) t = IW_FONT_BLK_MENU;   /* MINT28 07 */
@@ -847,9 +816,6 @@ static void paint_status(const iw_where_t *w, int line)
         if (g_mode == M_GRAY) r.fg = TBX_COLOR_GRAY;
         else {
             r.inv_col = (uint8_t)query_cursor; r.inv_len = 1;
-#ifdef IWORD_MUT_SEARCH_CURSOR
-            r.inv_len = 0;
-#endif
         }
         put_row(line, &r);
     } else put_text_row(line, s);
@@ -1087,9 +1053,6 @@ static void paint(void)
             iw_doc_init(&g_ed.doc, 0, 0, &pc, 1, BANK);
             iw_doc_load(&g_ed.doc, g_preview, saved.doc.len+n);
             g_ed.blk = at; g_ed.cur = at+n;
-#ifdef IWORD_MUT_UNDO_PREVIEW
-            g_ed.blk = IW_NO_BLOCK;
-#endif
         }
         iw_ed_where(&g_ed, &w); paint_doc(&w, EDIT_ROWS); paint_status(&w, LINE_STATUS);
         g_ed = saved;
@@ -1146,21 +1109,14 @@ static void settings_load(void)
     cl = tbx_file_close(h);
     if (n < 0 || pos != IW_SETTINGS_SIZE || cl < 0) return;
     for (uint32_t i = 0; i < 4; i++) if (g_settings_io[i] != IW_SETTINGS_MAGIC[i]) return;
-#ifndef IWORD_MUT_SETUP_VALIDATE
     if (g_settings_io[6] > 1 || g_settings_io[7] || unit_name(g_settings_io[4])[0] == '?' ||
         unit_name(g_settings_io[5])[0] == '?') return;
-#endif
-#ifndef IWORD_MUT_SETUP_LOAD
     for (uint32_t i = 0; i < IW_SETTINGS_SIZE; i++) g_settings[i] = g_settings_io[i];
-#endif
 }
 static int settings_save(void)
 {
     int32_t n;
     for (uint32_t i = 0; i < IW_SETTINGS_SIZE; i++) g_settings_io[i] = g_settings[i];
-#ifdef IWORD_MUT_SETUP_SAVE
-    g_settings_io[4] = 'i';
-#endif
     /* initech-mcep: the atomic save -- a settings write that does not fit
      * keeps the old settings file. */
     n = tbx_file_save(IW_SETTINGS_PATH, g_settings_io, IW_SETTINGS_SIZE);
@@ -1250,11 +1206,6 @@ static void write_file(void)
      * initech-tdnl.91). */
     if (flatten(&n) != IW_OK) { error("ERROR: Document too large", M_EDIT); return; }
     wn = n;
-#ifdef IWORD_MUT_SAVE_NOTHING
-    /* MUTANT (test-flair-iword-mutant): the save writes no byte --
-     * an empty file is left behind. NEVER real. */
-    wn = 0;
-#endif
     /* initech-mcep (audit 2026-10-23-iword L001/L002): the atomic save -- a
      * write that does not fit leaves the last saved version (and a failed new
      * name leaves no file at all). A refused CREATE / DELETE / RENAME is the
@@ -1507,13 +1458,9 @@ static void lf_refresh(void)
     g_lf_sel = sel < lf_slots() ? sel : lf_slots() - 1u;
     /* Real WP shots 32/33: Copy retains the source; Rename follows its
      * new alphabetical position. Delete selects the next remaining entry. */
-#ifndef IWORD_MUT_LF_SELECTION
     if (g_lf_op != '2') for (uint32_t i = 0; i < g_lf_n; i++) {
         if (lf_cat(path, g_lf_dir, g_lf_ent[i].name) && lf_same(path, keep)) { g_lf_sel = i + 2u; break; }
     }
-#else
-    (void)path; (void)keep; /* MUTANT: keep the old slot after the re-sort. */
-#endif
     if (g_lf_sel / 2u >= IW_LF_FACE_LIST_ROWS) g_lf_top = g_lf_sel / 2u - (IW_LF_FACE_LIST_ROWS - 1u);
 }
 
@@ -1522,9 +1469,7 @@ static int lf_protected(const char *path)
     static uint8_t rec[TBX_FIND_REC_BYTES];
     int32_t n = tbx_file_find(path, IW_LF_FIND_ATTR, rec, 1u);
     if (n < 0 && n != TBX_ERR_DOS(2) && n != TBX_ERR_DOS(18)) { lf_error(n); return 1; }
-#ifndef IWORD_MUT_LF_PROTECT
     if (n > 0 && (rec[TBX_FIND_REC_ATTR_OFF] & 0x11u)) { lf_error(TBX_ERR_DOS(5)); return 1; }
-#endif
     return 0;
 }
 
@@ -1541,11 +1486,6 @@ static void lf_perform(void)
          * shared mcep transaction; delete the source ONLY after it commits. */
         rc = g_lf_op == '3' ? tbx_file_rename(g_lf_src, g_lf_dst) : TBX_ERR_DOS(17);
         if (rc == TBX_ERR_DOS(17) || rc == TBX_ERR_DOS(5)) {
-#ifdef IWORD_MUT_LF_TRUNCATE
-            /* MUTANT: the old destructive CREATE-before-copy mistake. */
-            int32_t h = tbx_file_create(g_lf_dst);
-            if (h >= 0) (void)tbx_file_close(h);
-#endif
             rc = tbx_file_copy_save(g_lf_src, g_lf_dst);
             if (rc == TBX_OK && g_lf_op == '3') rc = tbx_file_delete(g_lf_src);
         }
@@ -1560,10 +1500,6 @@ static void lf_begin(char op)
      * Current, Parent or a directory to a file verb. */
     if (!lf_file_path(g_shown)) return;
     scopy(g_lf_src, g_path);
-#ifdef IWORD_MUT_LF_WRONG_PATH
-    /* MUTANT: address the editing document instead of the highlighted file. */
-    scopy(g_lf_src, "WRONG.TXT");
-#endif
     g_lf_op = (uint8_t)op;
     g_lf_full = 0;
     if (op == '2') { lf_question(IW_LF_DELETE, g_lf_src); g_mode = M_LFDELETE; }
@@ -1615,9 +1551,7 @@ static int lf_destination(void)
          * Normalize EVERY component before either same-file check, or a
          * replacement Move can copy over itself and delete the only copy. */
         for (uint32_t i = 0; g_path[i]; i++) {
-#ifndef IWORD_MUT_LF_ALIAS
             if (g_path[i] == '.' && (!g_path[i + 1u] || g_path[i + 1u] == '\\')) continue;
-#endif
             g_lf_dst[out++] = g_path[i];
         }
         g_lf_dst[out] = 0;
@@ -1957,11 +1891,6 @@ static void name_key(char ch, uint8_t vk)
      * InitechWord Reference, Filenames: "a name with any other character
      * ... is refused") and is never quietly saved as BADNAME.WP5 (audit
      * docs/audits/2026-10-23-iword L015). */
-#ifdef IWORD_MUT_NAME_SPACE_DROP
-    /* MUTANT (test-iword-face-mutant): spaces dropped at the
-     * prompt, as before the fix. NEVER real. */
-    if (ch == ' ') return;
-#endif
     if (ch >= ' ' && ch <= '~') {
         if (g_fresh) { g_nlen = 0; g_fresh = 0; }
         if (g_nlen < sizeof g_name - 1u) { g_name[g_nlen++] = ch; g_name[g_nlen] = 0; }
@@ -2208,11 +2137,6 @@ static uint32_t page_jump(uint32_t page)
 static void page_key(uint8_t vk)
 {
     iw_where_t w;
-#ifdef IWORD_MUT_PGDN_IGNORED
-    /* MUTANT (test-iword-face-mutant): PgDn does nothing, as before
-     * bead initech-1zk9. NEVER real. */
-    if (vk == VK_PGDN) return;
-#endif
     iw_ed_where(&g_ed, &w);
     if (vk == VK_PGUP) { (void)page_jump(w.page > 1u ? w.page - 1u : 1u); return; }
     if (page_jump(w.page + 1u) <= w.page) iw_ed_doc_end(&g_ed);
@@ -2330,9 +2254,6 @@ static int function_key(uint8_t vk, int32_t mods)
     if (mods & FLAIR_EVT_MOD_OPTION_KEY) { m = 2; count++; }
     if (mods & FLAIR_EVT_MOD_CONTROL_KEY) { m = 3; count++; }
     if (count > 1) return 1;   /* outside the four rows of the WP template */
-#ifdef IWORD_MUT_FKEY_DROP
-    if (m == 0 && k == 8) return 1; /* named mutant: drop plain F9 */
-#endif
     f = &IW_FKEYS[m][k];
     switch (f->action) {
     case IW_FK_setup: g_mode = M_SETUP; break;
@@ -2359,9 +2280,6 @@ static int function_key(uint8_t vk, int32_t mods)
         /* Reference p. 966 note 4: no command is mapped to these keys.
          * Keep the editing screen/status, rather than inventing a blank
          * disabled command. */
-#ifdef IWORD_MUT_FKEY_UNMAPPED
-        g_gray = f->name; g_mode = M_GRAY;
-#endif
         break;
     default:             g_gray = f->name; g_mode = M_GRAY; break;
     }
@@ -2398,11 +2316,6 @@ static void goto_key(char ch, uint8_t vk, int32_t mods)
         return;
     }
     if (vk == VK_BSPC || ch == 8) { if (g_goto_n) g_goto[--g_goto_n] = 0; return; }
-#ifdef IWORD_MUT_GOTO_TYPES
-    /* MUTANT (test-iword-face-mutant): the digits go into the
-     * document as typing, as before Go To existed. NEVER real. */
-    if (ch >= '0' && ch <= '9') { g_mode = M_EDIT; (void)edit(ED_TYPE, (uint8_t)ch); return; }
-#endif
     if (ch >= '0' && ch <= '9') {
         if (g_goto_n < GOTO_DIGITS) { g_goto[g_goto_n++] = ch; g_goto[g_goto_n] = 0; }
         return;
@@ -2528,7 +2441,6 @@ static int replace_match(void)
             letters++; capitals += c >= 'A' && c <= 'Z';
         }
     }
-#ifndef IWORD_MUT_REPLACE_CASE
     if (lower && letters) {
         int initial = 1;
         for (uint32_t p = 0; p < g_replacement_n; ) {
@@ -2540,26 +2452,15 @@ static int replace_match(void)
             p += n;
         }
     }
-#else
-    (void)lower; (void)letters; (void)capitals; (void)first;
-#endif
     ensure_room();
     /* Refuse BEFORE the delete if an insert cannot fit. The small fixed
      * query cap and P2's room reserve also leave room for code fixup. */
     if (g_ed.doc.len - (g_re-g_rs) + g_replacement_n > g_ed.doc.max_len ||
         g_ed.doc.add_cap - g_ed.doc.add_len < g_replacement_n ||
         g_ed.doc.pc_cap - g_ed.doc.npc < 4u) return IW_E_FULL;
-#ifndef IWORD_MUT_REPLACE_CODE
     (void)iw_doc_delete(&g_ed.doc, g_rs, g_re-g_rs);
-#else
-    if (g_find[0] >= 0xC0) { g_ed.cur = g_re; return IW_OK; }
-    (void)iw_doc_delete(&g_ed.doc, g_rs, g_re-g_rs);
-#endif
     if (g_replacement_n && iw_doc_insert(&g_ed.doc, g_rs, r, g_replacement_n) != IW_OK) return IW_E_FULL;
     g_ed.cur = g_search_back ? g_rs : g_rs + g_replacement_n;
-#ifdef IWORD_MUT_REPLACE_SKIP
-    if (!g_search_back && g_ed.cur < g_ed.doc.len) g_ed.cur = iw_unit_next(&g_ed.doc, g_ed.cur);
-#endif
     g_ed.blk = IW_NO_BLOCK; g_ed.dirty = 1; g_ed.goal = 0xFFFFFFFFu;
     (void)iw_reflow_all(&g_ed.doc, g_ed.width);
     return iw_ed_fixup(&g_ed);
@@ -2584,9 +2485,6 @@ static void search_key(char ch, uint8_t vk, int32_t mods)
     int plain = !(mods & (FLAIR_EVT_MOD_SHIFT_KEY | FLAIR_EVT_MOD_OPTION_KEY | FLAIR_EVT_MOD_CONTROL_KEY));
     query_view(&q, &pc);
     if (vk == VK_F1) {
-#ifdef IWORD_MUT_SEARCH_CANCEL
-        g_ed.cur = 0;
-#endif
         g_mode = M_EDIT; return;
     }
     if (vk == VK_F2 || vk == VK_ESC || ch == 0x1B) {
@@ -2607,11 +2505,7 @@ static void search_key(char ch, uint8_t vk, int32_t mods)
         if (iw_search(&g_ed.doc, &q, g_ed.cur, g_search_back, &s, &e) == IW_OK) {
             g_ed.cur = g_search_back ? s : e; g_ed.goal = 0xFFFFFFFFu; g_mode = M_EDIT;
         } else {
-#ifdef IWORD_MUT_SEARCH_NOTFOUND
-            error("Not found", M_EDIT);
-#else
             error("* Not found *", M_EDIT);
-#endif
         }
         return;
     }
@@ -2669,9 +2563,6 @@ static void replace_key(char ch, uint8_t vk)
     }
     if (ch == 'y' || ch == 'Y' || ch == 'n' || ch == 'N' || vk == VK_ENTER) {
         int yes = ch != 'n' && ch != 'N';
-#ifdef IWORD_MUT_REPLACE_CONFIRM
-        yes = 1;
-#endif
         g_ed.blk = IW_NO_BLOCK;
         if (yes) {
             if (replace_match() != IW_OK) { error("ERROR: Document too large", M_EDIT); return; }
@@ -2684,20 +2575,14 @@ static void undo_key(char ch, uint8_t vk)
 {
     int restore = ch == '1';
     if (vk == VK_F1 || vk == VK_ESC) {
-#ifdef IWORD_MUT_UNDO_CANCEL
-        restore = 1;
-#else
         g_mode = M_EDIT; return;
-#endif
     }
     if (restore) {
         g_mode = M_EDIT;
         if (g_undo_count) {
             ensure_room();
             int rc = iw_ed_retrieve(&g_ed, g_undo[g_undo_sel], g_undo_n[g_undo_sel]);
-#ifndef IWORD_MUT_UNDO_FIXUP
             if (rc == IW_OK) rc = iw_ed_fixup(&g_ed);
-#endif
             if (rc != IW_OK) error("ERROR: Document too large", M_EDIT);
         }
     } else if ((ch == '2' || vk == VK_UP) && g_undo_sel+1 < g_undo_count) g_undo_sel++;
@@ -2730,14 +2615,10 @@ static void key(int32_t message, int32_t mods)
     else prompt_key(ch, vk);
     /* Reference p. 697: ANY cursor motion ends a deletion group, including
      * Search. The motion caused by the deletion itself remains in its group. */
-#ifndef IWORD_MUT_UNDO_MOVEMENT
     if (g_ed.cur != cur_before &&
         !((mode_before == M_EDIT || mode_before == M_GRAY) && (vk == VK_DEL || vk == VK_BSPC || ch == 8)) &&
         !((mode_before == M_DELCODE || mode_before == M_DELBLOCK) && (ch == 'y' || ch == 'Y')) &&
         !(mode_before == M_MOVEBLK && ch == '3')) g_undo_join = 0;
-#else
-    (void)cur_before; (void)mode_before;
-#endif
     paint();
 }
 
