@@ -84,6 +84,7 @@ static int conin_consumed(int c)
 }
 static int conin_poll_pb(void);
 static int conin_get_pb(void);
+static int con_handle_ready(void);
 static int con_control(int c);
 
 /* Debug seam only: spec/hardware.json contracts no parallel printer port.
@@ -1886,7 +1887,7 @@ static void do_ioctl(int_frame_t *f)
             device_header_t *dev = (device_header_t *)e->device;
             if (dev ? (dev->attribute & DEV_ATTR_STDIN) : e->dev_id == SFT_DEV_CON) {
                 int c = conin_poll_pb();
-                status = c >= 0 ? 0xffu : 0u;
+                status = c >= 0 || con_handle_ready() ? 0xffu : 0u;
                 conin_unget(c);
             } else if (dev) {
                 device_request_t pkt = {0};
@@ -3130,6 +3131,7 @@ static void do_rmdir(int_frame_t *f)
 static unsigned g_con_template_len;
 static uint8_t g_con_line[INT21_CON_LINE_MAX + 2u];
 static uint16_t g_con_line_pos, g_con_line_len;
+static int con_handle_ready(void) { return g_con_line_pos < g_con_line_len; }
 
 static void con_handle_read(int_frame_t *f, sft_entry_t *e, uint8_t *buf,
                             uint32_t count)

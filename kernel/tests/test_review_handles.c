@@ -20,6 +20,8 @@ static void reset(void)
 }
 static int queued=-1;
 static int poll_queued(void) { int c=queued; queued=-1; return c; }
+static const char *scripted;
+static int get_scripted(void) { return *scripted ? (unsigned char)*scripted++ : -1; }
 int main(void)
 {
     int21_set_sink(sink_capture); int21_set_break_flag(0);
@@ -109,5 +111,11 @@ int main(void)
     CHECK(!frame_cf(&f) && (f.eax&255)==255,"i1nu4 repeated poll preserves queued byte");
     f=invoke(0x0700,0,0,0);
     CHECK((f.eax&255)=='K',"i1nu4 READ receives queued byte");
+    scripted="xy\r"; int21_set_conin(get_scripted,poll_queued);
+    f=invoke(0x3f00,0,1,buf);
+    CHECK(!frame_cf(&f) && f.eax==1 && *(char *)(uintptr_t)buf=='x',"i1nu4 short CON read stages line remainder");
+    f=invoke(0x4406,0,0,0);
+    CHECK(!frame_cf(&f) && (f.eax&255)==255,"i1nu4 staged CON bytes remain ready with empty keyboard");
+    (void)invoke(0x3f00,0,3,buf);
     return TEST_SUMMARY("review-handles");
 }
