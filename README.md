@@ -3,7 +3,7 @@
 ### Operating Environment &mdash; Version 3.30
 
 **Initech Systems Corporation**
-Part No. 1024-3300-01 &middot; Document Control: STAPLER &middot; Revision G
+Part No. 1024-3300-01 &middot; Document Control: 1024-G &middot; Revision G
 
 > *Controlled Document. Printed copies are uncontrolled. Verify revision
 > before use. This product is licensed, not sold.*
@@ -17,18 +17,18 @@ environment, and the InitechBase&trade; data management system into one unified,
 fully conformant computing platform suitable for the modern automated office.
 
 The product has been engineered in accordance with Initech Corporate Engineering
-Standard PRD-STAPLER and is supplied subject to the Initech Systems Corporation
+Standard ES-1024 and is supplied subject to the Initech Systems Corporation
 Software License Agreement (see [`LICENSE`](LICENSE)).
 
 ## Product configuration
 
-| Module | Designation | Function |
-|---|---|---|
-| **InitechDOS&trade;** | `MILTON` | Operating system services: FAT-compatible file management, program execution, the standard INT 21h application interface, and the `COMMAND.COM` command processor. |
-| **FLAIR&trade;** | `ATKINSON` / `FLAIR` | Graphical operating environment: window, menu, control, event, and dialog management with the standard desktop presentation. |
-| **InitechBase&trade;** | `SAMIR` | Relational data management system. Reads and writes industry-standard `.DBF` data files and `.MDX` index files. |
-| **Turbo Initech&reg;** | `TPS` | Integrated Pascal application development system with resident editor and compiler. |
-| Bundled applications | &mdash; | InitechCalc&trade; spreadsheet, File Manager, InitechPaint&trade;, and the FILE COPY utility. |
+| Module | Function |
+|---|---|
+| **InitechDOS&trade;** | Operating system services: FAT-compatible file management, program execution, the standard INT 21h application interface, and the `COMMAND.COM` command processor. |
+| **FLAIR&trade;** | Graphical operating environment: window, menu, control, event, and dialog management with the standard desktop presentation. |
+| **InitechBase&trade;** | Relational data management system. Reads and writes industry-standard `.DBF` data files and `.NDX` index files. |
+| **Turbo Initech&reg;** | Integrated Pascal application development system with resident editor and compiler. |
+| Bundled applications | InitechCalc&trade; spreadsheet, File Manager, InitechPaint&trade;, and the FILE COPY utility. |
 
 ## System requirements
 
@@ -74,7 +74,7 @@ prompt. Type `WIN` to start the FLAIR graphical operating environment.
 
 ## Conformance
 
-InitechOS conforms to Initech Corporate Engineering Standard PRD-STAPLER and to
+InitechOS conforms to Initech Corporate Engineering Standard ES-1024 and to
 the ratified Architecture Decision Records governing the platform (see
 [`docs/adr/`](docs/adr/)). The application interface is frozen at the Appendix A
 service set; deterministic, reproducible system builds are a controlled

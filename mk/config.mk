@@ -1,6 +1,6 @@
 # mk/config.mk -- shared settings. Include first from every component
 # Makefile, after setting TOP (path to the repo root) and COMPONENT
-# (this component's path from the root, e.g. apps/i123).
+# (this component's path from the root, e.g. apps/initech123).
 #
 # Everything generated goes under $(TOP)/build/<component>/.
 

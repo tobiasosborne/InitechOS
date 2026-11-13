@@ -25,7 +25,7 @@ listed in `COMPONENTS` in the top Makefile.
 | `flair/desktop/` | empty; Finder files and the desktop half of `kmain.c` go here |
 | `sdk/` | source moved (`tbx.h`, runtime, linker script) |
 | `apps/*` | source moved; none imported |
-| `tps/` | source moved (`compiler/`, `seed/`) |
+| `turbo/` | source moved (`compiler/`, `seed/`) |
 | `goldens/`, `factory/` | empty; filled from `attic/` as components claim things |
 
 ## In flight
@@ -56,3 +56,8 @@ listed in `COMPONENTS` in the top Makefile.
   (`mk/config.mk`). They get pinned under `goldens/` later.
 - The tracker still holds the legacy issues. It is reset once the triage
   lands.
+- Codenames are retired (CLAUDE.md, Names). Directories are renamed
+  except the two pilots in flight: `apps/i123` becomes
+  `apps/initech123` and `flair/atkinson` becomes `flair/region` when
+  they merge. Identifiers and file names (`samir_*`, `pal_milton.c`,
+  `SAMIR.EXE`, `tps.pas`) are renamed as each component is imported.

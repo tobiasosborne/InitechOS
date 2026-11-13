@@ -57,6 +57,36 @@ them.
 9. **Local only.** No GitHub CI and no remote automation. Checks run on
    this machine.
 
+## Names
+
+No codenames. A program is called by its product name everywhere: in
+directories, file names, identifiers, messages and documents. The one
+exception is FLAIR, the name of the graphical environment. The legacy
+codenames MILTON, SAMIR, TPS, ATKINSON and STAPLER are retired; when you
+import a component, rename what still carries one.
+
+The product names are inconsistent on purpose, the way a real corporate
+catalogue is. Write each exactly as shown and never normalise them:
+
+| Product | Directory | On disk |
+|---|---|---|
+| InitechOS | the whole | |
+| InitechDOS | `kernel/`, `dos/` | `IO.SYS`, `INITDOS.SYS`, `COMMAND.COM` |
+| FLAIR | `flair/` | |
+| InitechBase | `apps/initechbase/` | `INITBASE.EXE` |
+| Initech 123 | `apps/initech123/` | `123.EXE` |
+| InitechWord | `apps/initechword/` | `WORD.EXE` |
+| InitechCalc | `apps/initechcalc/` | `CALC.EXE` |
+| InitechPaint | `apps/initechpaint/` | `PAINT.EXE` |
+| InitechText | `apps/initechtext/` | `TEXT.EXE` |
+| Turbo Initech | `turbo/` | `TURBO.COM` |
+| FILE COPY | part of FLAIR | |
+| Calculator, Note Pad, Scrapbook, Control Panels | `apps/calculator/`, `apps/notepad/`, `apps/controlpanels/` | `CALCULAT.EXE`, `NOTEPAD.EXE`, `SCRAPBK.EXE`, `CPANELS.EXE` |
+| TPS Report Generator | `dos/` | `TPSREP.COM` |
+
+"TPS" survives only in the TPS Report Generator, which is a product
+about TPS reports, not a codename.
+
 ## How the tree is organised
 
 ```
@@ -67,7 +97,7 @@ flair/         the Toolbox (regions, windows, menus, controls, events ...)
 flair/desktop/ the Finder and the desktop shell
 sdk/           the app interface (tbx.h) with a host fake
 apps/<name>/   one directory per app
-tps/           Turbo Initech and its C seed compiler
+turbo/         Turbo Initech and its C seed compiler
 goldens/       captures from real period software, hash-pinned
 factory/       emulator drivers, image builder, diff tools
 mk/            shared make fragments
