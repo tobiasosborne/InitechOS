@@ -38,7 +38,9 @@ for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
  extra=
  if [ "$emulator" = bochs ]; then
   extra='--vga-ext none --rtc-time0 699440400'
-  sed -i 's/ret/ret,w1000/g' "$dir/keys"
+  # Pace commands, but leave the final completion command terminal. The
+  # driver correctly rejects any trace step after its quit marker is seen.
+  sed -i 's/ret/ret,w1000/g; s/,w1000$//' "$dir/keys"
  fi
  if ! build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" \
     $extra --keys-after SHELL-READY --keys "$(cat "$dir/keys")" \
