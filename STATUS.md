@@ -4,60 +4,49 @@ Rewritten, never appended to. Last rewritten 2026-11-13.
 
 ## Where we are
 
-The reboot started today. The legacy tree is frozen at the tag
-`legacy-final` and runs from `../InitechOS-legacy`. `main` now holds the
-same source in the new layout, with no working build yet: components
-come back one at a time, each with its own Makefile and tests.
-
-Nothing on `main` boots yet. To see the product, use the legacy tree.
+The restructured tree has its first bootable DOS spine on spine/boot-kernel.
+`make image` builds one BIOS boot disk plus its writable A: data disk. The
+chunked loader, InitechDOS, resident COMMAND.COM and fifteen external utilities
+build from component Makefiles. `make smoke` drives the product in QEMU at
+8 MiB with ACPI off and in Bochs with the VGA fallback, checks concrete serial
+output and independently reads the modified FAT disk with mtools. No GUI is
+built into this image. The legacy tree remains read-only at
+/home/tobiasosborne/Projects/InitechOS-legacy, tag legacy-final.
 
 ## Import board
 
-A component is *imported* when `make test` passes inside it and it is
-listed in `COMPONENTS` in the top Makefile.
+An imported tier-0 component still requires its host suite and COMPONENTS
+entry. The spine's booted checks do not claim the pending host-test imports.
 
 | Component | State |
 |---|---|
-| `boot/` | source moved; chunked loader being proven on the legacy tree |
-| `kernel/` | source moved (still contains the shell, the DOS utilities and the desktop glue in `kmain.c`) |
-| `dos/` | empty; to be split out of `kernel/` |
-| `flair/` | source moved |
-| `flair/desktop/` | empty; Finder files and the desktop half of `kmain.c` go here |
-| `sdk/` | source moved (`tbx.h`, runtime, linker script) |
-| `apps/*` | source moved; none imported |
-| `turbo/` | source moved (`compiler/`, `seed/`) |
-| `goldens/`, `factory/` | empty; filled from `attic/` as components claim things |
+| boot/ | sole variable-size loader imported; normal and oversized boots checked |
+| kernel/ | production DOS entry and build; host tests parked under tests/ |
+| dos/ | resident interpreter and all fifteen external utilities built; host suites pending |
+| factory/ | local image builder, QEMU/Bochs drivers, smoke, parity and repro checks |
+| flair/desktop/ | desktop/Finder/COLD quarry parked and not built |
+| flair/, sdk/, apps/*, turbo/ | remaining imports, including pilots, proceed separately |
+| goldens/ | reference captures still to claim from attic and external corpora |
 
-## In flight
+## Verified spine behavior
 
-- Loader spike: chunked kernel load on the legacy tree, branch
-  `reboot/loader-spike`. Everything else about `boot/` waits on it.
-- Import manifest: per-component list of sources, tests, goldens and
-  couplings, written from the legacy Makefile.
-- Triage of the 417 legacy issues against `GOLDEN-MASTER.md`.
+The complete factory/session.txt interactive transcript matches the frozen
+legacy shell. Smoke rejects a deliberately corrupted VER line. Both emulators
+load a kernel over the retired 196608-byte limit and verify the deterministic
+128 KiB blob. Two clean image builds have identical SHA-256 values. The
+specific low-memory refusal is checked independently of kernel entry.
+Evidence, limitations and follow-up work are in factory/ACCEPTANCE.md and the
+component READMEs. This branch is committed locally, not pushed, as requested.
 
 ## Next
 
-1. Pilot imports of two host-only cores to settle the conventions in
-   `mk/`: the region engine and Initech 123.
-2. The spine: `boot/` + `kernel/` + `factory/` to a booting
-   `A:\>` prompt on QEMU and Bochs, as the first product image.
-3. The remaining host cores (InitechBase, InitechWord, the seed
-   compiler, the Toolbox managers), then the desktop and the apps.
-4. Product work against `GOLDEN-MASTER.md`, starting with the frame's
-   ledger and the FILE COPY data-loss bug.
-
-## Notes for this week
-
-- Orchestration: implementation and review go to Sol 6.1 at xhigh by
-  default; Astra for hands-on emulator driving; Opus for hard design;
-  one Muse Wonder Full at a time for an independent opinion.
-- Reference corpora are read from `~/Projects/*-decomp`
-  (`mk/config.mk`). They get pinned under `goldens/` later.
-- The tracker still holds the legacy issues. It is reset once the triage
-  lands.
-- Codenames are retired (CLAUDE.md, Names). Directories are renamed
-  except the two pilots in flight: `apps/i123` becomes
-  `apps/initech123` and `flair/atkinson` becomes `flair/region` when
-  they merge. Identifiers and file names (`samir_*`, `pal_milton.c`,
-  `SAMIR.EXE`, `tps.pas`) are renamed as each component is imported.
+- Import kernel tier-0 tests from kernel/tests/ and their attic fixtures; move
+  shell tests into dos/tests/ and claim utility differential tests.
+- Convert remaining guarded mutation hooks to patches; the exact inventory is
+  kernel/tests/MUTANTS-TODO.md. Untouched tests retain old paths/codenames.
+- Separate COMMAND.COM from kernel internals and resolve utility raw-disk/MCB
+  boundary debt before claiming an INT21-only program boundary.
+- Extract the production desktop from flair/desktop/kmain_legacy.c; do not
+  revive boot personalities, exact-address transients, kernel overlays or COLD.
+- Continue the product master scope: frame ledger and safe FILE COPY, remaining
+  app cores and the Pascal compiler/self-host proof. No remote automation.
