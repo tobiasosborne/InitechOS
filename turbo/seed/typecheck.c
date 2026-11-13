@@ -30,13 +30,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#define TC_MAX_SYMBOLS 256
+#define TC_MAX_SYMBOLS 288
 #define TC_SYM_NAME_CAP 128
 /* B4 (beads initech-63ce): fixed-capacity, fail-loud-on-overflow tables for
  * the routine table and per-routine local scope -- the same "no hashing,
  * insertion-ordered, deterministic" discipline TC_MAX_SYMBOLS already uses
  * (ADR-0007 DEC-04 spirit). */
-#define TC_MAX_PROCS   128
+#define TC_MAX_PROCS   160
 #define TC_MAX_PARAMS   32
 #define TC_MAX_LOCALS   64
 /* B6 (beads initech-rug7): fixed-capacity, fail-loud-on-overflow tables for

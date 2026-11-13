@@ -28,6 +28,9 @@ links() {
     "$OBJCOPY" -O binary "$dir/dos.elf" "$dir/program.com"
 }
 case $entry in
+runtime-table)
+    sh tests/runtime.sh "$TOP" "$scratch"
+    ;;
 lex*|parse*|type*)
     case $entry in lex*) phase=LEX ;; parse*) phase=PARSE ;; type*) phase=TYPE ;; esac
     run_compiler "$scratch" "fixtures/$entry.pas"
@@ -60,6 +63,12 @@ gen*|self-generation)
         test "$(grep -c '^TURBO-GEN-OK bytes=[0-9][0-9]* labels=[0-9][0-9]*$' "$scratch/$pass/bracket-GEN")" -eq 1
         test -s "$scratch/$pass/TURBOOUT.S"
         links "$scratch/$pass"
+        sh tests/package.sh "$scratch/$pass/TURBOOUT.S" "$scratch/$pass/extended"
+        cmp "$scratch/$pass/extended/program.exe" "$scratch/$pass/TURBOOUT.EXE"
+        "$TOP/build/factory/mz/mzcheck" "$scratch/$pass/TURBOOUT.EXE"
+        if [ "$entry" != self-generation ]; then
+            cmp "$scratch/$pass/program.com" "$scratch/$pass/TURBOOUT.COM"
+        fi
     done
     for artifact in TURBOOUT.S program.o bare.elf dos.elf program.com; do
         cmp "$scratch/a/$artifact" "$scratch/b/$artifact"
@@ -67,7 +76,7 @@ gen*|self-generation)
     if [ "$entry" = self-generation ]; then
         nm -n "$scratch/a/dos.elf" > "$scratch/symbols"
         end=$(awk '$3 == "__bss_end" {print $1}' "$scratch/symbols")
-        test -n "$end" && test "$((0x$end))" -lt "$((0x6f000))"
+        sh tests/package.sh "$scratch/a/TURBOOUT.S" "$scratch/extended"
         echo "self assembly=$(wc -c < "$scratch/a/TURBOOUT.S") DOS end=0x$end"
     else
         mkdir -p "$scratch/fpc"
@@ -85,12 +94,11 @@ seed-build)
         'call rtl_file_blockread$' 'call rtl_file_blockwrite$'; do grep -q "$pattern" "$asm"; done
     ! grep -q '^v_sourcewords:' "$asm"
     grep -q "Assign(OutputFile, 'TURBOOUT.S')" turbo.pas
-    nm -n "$out/turbo_seed_dos.elf" > "$scratch/symbols"
+    nm -n "$out/extended/zero.elf" > "$scratch/symbols"
     start=$(awk '$3 == "__bss_start" {print $1}' "$scratch/symbols")
     end=$(awk '$3 == "__bss_end" {print $1}' "$scratch/symbols")
     test -n "$start" && test -n "$end"
-    test "$((0x$end-0x$start))" -le 73728
-    test "$((0x$end))" -lt "$((0x6f000))"
+    sh tests/package.sh "$asm" "$scratch/extended"
     "$SEED_OUT/initechc" --emit-asm -o "$scratch/again.s" turbo.pas
     cmp "$asm" "$scratch/again.s"
     test -s "$out/TURBO.COM" && test -s "$out/turbo_seed_bare.elf"

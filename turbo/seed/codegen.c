@@ -367,7 +367,7 @@
 #define CG_FILE_DWORDS 65
 #define CG_MAX_PARAMS   32
 #define CG_MAX_SCOPE    (CG_MAX_PARAMS + 64) /* params + result + locals */
-#define CG_MAX_PROCS   128
+#define CG_MAX_PROCS   160
 /* B5 (beads initech-54uu): the GLOBAL array table (parallel to CgProc's
  * "collected once, consulted throughout emission" shape). Fixed capacity,
  * fail-loud on overflow (Rule 2) -- same discipline as CG_MAX_PROCS. */

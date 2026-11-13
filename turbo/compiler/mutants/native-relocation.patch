@@ -1,0 +1,12 @@
+# test: gen_control_deep
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -5510,7 +5510,7 @@
+   NativeHalf(23117);
+   NativeHalf(Size mod 512);
+   NativeHalf((Size + 511) div 512);
+-  NativeHalf(Native[11]);
++  NativeHalf(Native[11] - 1);
+   NativeHalf(Native[12] div 16);
+   NativeHalf(0);
+   NativeHalf(65535);
