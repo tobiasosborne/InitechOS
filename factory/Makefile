@@ -12,6 +12,12 @@ image: all
 	sh image/build.sh
 smoke:
 	sh smoke.sh
+	$(MAKE) smoke-programs
 all: $(OUT)/keys
 $(OUT)/keys: keys.c | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+
+.PHONY: smoke-programs
+smoke-programs:
+	$(MAKE) -C $(TOP)/dos smoke-programs
+	sh smoke-programs.sh

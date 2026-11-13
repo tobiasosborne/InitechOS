@@ -35,3 +35,10 @@ The completion-only QEMU path now opens QMP for --quit-after even when there
 are no injected keys or screenshots. This is exercised by the oversized and
 low-memory checks; the legacy wrapper otherwise timed out despite receiving
 the expected serial line.
+
+smoke-programs.sh is the second session, invoked by `make smoke-programs` and
+by `make smoke`. dos/tests-programs.mk assembles normal INT21 probes into
+build/dos/test-programs. A separate mtools-minted data disk carries them; the
+product disks contain none. Both emulators compare literal service results,
+the real-DOS FCB captures and persisted files. Bochs uses its existing wait
+steps between commands so disk-heavy probes do not overflow the keyboard ring.
