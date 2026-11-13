@@ -1,6 +1,6 @@
 /* initech-qvgd, WL-0146 Part 2. Independent UI expectations from WP 5.1
  * Reference pp. 551-553, 697-698. Real corpus bytes enter through search.sh's
- * identical-image MILTON/mtools differential. Expected replacement uses the
+ * original-file/mtools comparison. Expected replacement uses the
  * pre-existing piece-table primitives, never the new replacement routine. */
 #define main p12_first_main
 #include "test_iword_face.c"

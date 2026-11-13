@@ -2,7 +2,7 @@
  * Factory C, initech-7aou. Used only when mint_drive.sh cannot use X11.
  * Interpose SDL_PollEvent to deliver the same .steps keys to DOSBox-X;
  * save its actual 720x400 surface, never synthesize a WP screen.
- * Build/run: fixtures/iword-listfiles-ops/mint.sh. SDL's dummy video/audio
+ * Build/run: tests/fixtures/iword-listfiles-ops/mint.sh. SDL's dummy video/audio
  * drivers need no display server. Nothing is installed into the corpus. */
 #define _GNU_SOURCE
 #include <SDL.h>

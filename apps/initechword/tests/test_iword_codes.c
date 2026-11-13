@@ -1,10 +1,10 @@
 /*
- * harness/proptest/test_iword_codes.c -- THE PROPERTY SUITE of InitechWord's
+ * tests/test_iword_codes.c -- THE PROPERTY SUITE of InitechWord's
  * codes as first-class entities (factory C; bead initech-jojk, IWORD P2
  * slices 1 and 2; plan docs/plans/INITECH-WORD-plan.md Sec 6(c): "a code's
  * insertion/removal never corrupts a neighboring run or code scope").
  *
- * The core (os/iword/core: piece.c + edit.c + codes.c + block.c) is graded
+ * The core (apps/initechword/core: piece.c + edit.c + codes.c + block.c) is graded
  * against a MODEL written here, never against itself. The model is a token
  * list -- a character, a hard return, ON(n), OFF(n), TAB, INDENT, a hard page
  * -- edited by WordPerfect 5.1's rules, restated below from their sources
@@ -38,7 +38,7 @@
  *              "[BOLD]vwxw[bold]yz").
  * THE BYTES the model serializes to are WordPerfect's, with the geometry an
  * INDEPENDENT reference layout computes here (spec rows restated from the
- * mints, not read from spec/iword/wp5_format.h): a tab / indent moves to the
+ * mints, not read from include/iword/wp5_format.h): a tab / indent moves to the
  * next multiple of 5 columns s and stores 1200 + 120 s, 1200 + 120 s,
  * 10 + s (MINT09 @0x148 / @0x17B); an indent's u16 600 (MINT09 @0x190); C6
  * (9000, 1200 + 120 margin) before the HRt of an indented paragraph (MINT09
@@ -64,7 +64,7 @@
  *                 it had (the model, by character identity).
  * A failing session is SHRUNK (one-key deletion to a fixpoint) and printed.
  *
- * Mutants (Rule 6; test-iword-codes-mutant, each RED for its named reason):
+ * Mutants (test-iword-codes-mutant, each RED for its named reason):
  *   IWORD_MUT_TOGGLE_DUP    the second F6 leaves the old [bold] -> codes
  *   IWORD_MUT_PAIR_HALF     Reveal Backspace strands the partner -> codes
  *   IWORD_MUT_NO_ASK        no "Delete [code]?" question        -> codes
@@ -76,7 +76,7 @@
  *   (slice 3, the FORMAT family below: TAB_ABS / NO_LEAD / OLD_STALE /
  *   WRAP_65                                                  -> format)
  *
- * Deterministic (fixed seeds, Rule 11). ASCII-clean (Rule 12).
+ * Deterministic (fixed seeds, Rule 11). ASCII-clean.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -103,7 +103,7 @@ static uint8_t    g_buf[CAP], g_want[CAP];
 
 /* The attribute numbers the keys produce, typed from the minted bytes
  * (MINT01 @0x19B `c3 0c c3` bold, @0x1AA `c3 0e c3` underline; MINT06
- * @0x14F `c3 08 c3` italic), not from spec/iword/wp5_format.h. */
+ * @0x14F `c3 08 c3` italic), not from include/iword/wp5_format.h. */
 #define A_BOLD   0x0C
 #define A_UND    0x0E
 #define A_ITAL   0x08
@@ -245,7 +245,7 @@ static void m_retrieve(void)
     m_cur = at;
 }
 
-/* ---- the reference layout (independent of os/iword/core) --------------------- */
+/* ---- the reference layout (independent of apps/initechword/core) --------------------- */
 #define EVERY 5u
 static uint32_t stop_after(uint32_t c) { return (c / EVERY + 1u) * EVERY; }
 static uint32_t adv_t(uint16_t t, uint32_t c)
@@ -780,7 +780,7 @@ static void fixed(void)
  * Shift-F8 1 3 n) and after EVERY key the body is read back by an
  * INDEPENDENT REFERENCE written here from the slice 3 rows restated from
  * the mints (../wordperfect51-decomp re/mint-results-004.md; not from
- * spec/iword/wp5_format.h):
+ * include/iword/wp5_format.h):
  *   F1 WELL-FORMED  verified units only; the cursor on a unit boundary and
  *                   never right before a D4/05 (the line's text follows it);
  *   F2 OLD VALUES   every [L/R Mar] (D0/01) holds the margins in effect

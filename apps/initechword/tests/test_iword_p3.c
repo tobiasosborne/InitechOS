@@ -1,6 +1,6 @@
 /* Independent WP 5.1 keyboard oracle. Ref: Reference printed pp. 963-966,
  * Template pp. 5-6; Search pp. 571-573. Names transcribed from the Reference,
- * NOT from spec/iword/fkeys.json. Uses the existing recording Toolbox mock.
+ * NOT from include/iword/fkeys.json. Uses the existing recording Toolbox mock.
  * initech-qvgd. Factory C only. */
 #define main iword_p12_main
 #include "test_iword_face.c"

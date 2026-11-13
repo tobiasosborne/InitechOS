@@ -1,8 +1,8 @@
 /*
- * spec/iword/listfiles.h -- LOCKED spec-data (CLAUDE.md Rule 8): InitechWord's
+ * include/iword/listfiles.h -- LOCKED spec-data (format contract): InitechWord's
  * List Files (F5) and Look screens. bead initech-qvgd (IWORD P3 remainder).
  *
- * SOURCE (Law 1): the REAL WordPerfect 5.1 (03-09-92) run under DOSBox-X on a
+ * SOURCE: the REAL WordPerfect 5.1 (03-09-92) run under DOSBox-X on a
  * fixed FAT12 volume -- ../wordperfect51-decomp mint/work/LISTF/
  * mint-results-005.md, its cell-exact transcriptions grids/<session>_<shot>.txt
  * (every glyph matched exactly against DOSBox-X's own font atlas; md5s in
@@ -12,7 +12,7 @@
  *
  * THE WP SCREEN is 80 x 25. Every WP row below is COMPOSED AT ITS WP COLUMNS
  * (IW_LF_WP_COLS wide); the face then shows it in its 76 x 24 cells
- * (os/iword/app/face_a.c SCR_COLS / SCR_LINES) by DELETING the columns the
+ * (apps/initechword/app/face_a.c SCR_COLS / SCR_LINES) by DELETING the columns the
  * IW_LF_DEL_* lists name -- columns that are blank in every row of that kind
  * on the real screen, so no WP cell is lost -- and by dropping the list
  * area's last row (WP rows 3..22 -> face rows 3..21) and the Look body's last
@@ -23,13 +23,23 @@
  * 0-1, the Look header, the selection bar) are BLACK on GRAY as the Reveal
  * Codes ruler and the Block band are; WP's bright white cells are drawn bold;
  * a List Files menu item InitechWord does not perform is drawn in GRAY (the
- * period-grayed convention of spec/iword/fkeys.json) and its key is ignored.
+ * period-grayed convention of include/iword/fkeys.json) and its key is ignored.
  *
- * ASCII-clean (Rule 12): the vertical bar is the CP437 byte 0xB3 written as
+ * ASCII-clean: the vertical bar is the CP437 byte 0xB3 written as
  * an escape, as WP draws it (grids LF11_06 col 40).
  */
 #ifndef IWORD_LISTFILES_H
 #define IWORD_LISTFILES_H
+
+/* Packed directory input to the pure List Files model. Source: DOS 3.3
+ * PRM AH=4Eh DTA tail (offset 15h), toolbox_gate.h Sec 10a. The face-test
+ * bridge statically checks every field against the Toolbox public ABI. */
+#define IW_LF_REC_BYTES      22u
+#define IW_LF_REC_ATTR_OFF   0u
+#define IW_LF_REC_TIME_OFF   1u
+#define IW_LF_REC_DATE_OFF   3u
+#define IW_LF_REC_SIZE_OFF   5u
+#define IW_LF_REC_NAME_OFF   9u
 
 #define IW_LF_WP_COLS        80u
 

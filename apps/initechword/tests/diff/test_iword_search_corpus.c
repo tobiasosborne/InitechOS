@@ -1,5 +1,5 @@
 /* Independent read-only search oracle over REAL WP.EXE documents extracted
- * by both MILTON and mtools from identical FAT images (search.sh).
+ * by mtools and compared with the original corpus bytes (search.sh).
  * Ref: WP 5.1 Reference pp. 571-573; MINT01..32 and mint-results-001..004.
  * No expected match positions come from artifact unit/search helpers. */
 #include <stdio.h>

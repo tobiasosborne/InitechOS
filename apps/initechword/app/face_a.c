@@ -1,17 +1,9 @@
 /*
- * os/iword/app/face_a.c -- WORD.EXE, InitechWord's Face A: the WordPerfect
+ * apps/initechword/app/face_a.c -- WORD.EXE, InitechWord's Face A: the WordPerfect
  * 5.1 editing screen, drawn natively in a FLAIR window by a disk-launched
  * application (THE ARTIFACT).
  *
- * bead: initech-l4tj (IWORD P1, Face A skeleton); initech-jojk (P2 slice 1:
- *       attribute codes + Reveal Codes; slice 2: tabs, indents, hard pages,
- *       Block / Move, the "Delete [code]?" question). Epic initech-fdxa.
- * Plan: docs/plans/INITECH-WORD-plan.md Sec 4 Face A (one native FlairApp
- *       window, the WP 5.1 surface rendered NATIVELY in fixed character
- *       cells; ADR-0013 Sec 4: a native tenant, never a text console) and
- *       Sec 7 P1. Packaging: the C disk-application path Initech 123 opened
- *       (os/apps/tbx, Makefile tenant-exe-rules: an InitechMZ flat-32 .EXE
- *       through the INT 81h Toolbox Gate; WL-0094/WL-0095).
+ * Uses the SDK INT 81h Toolbox gate.
  *
  * THE SCREEN, laid out from the real WordPerfect 5.1 (../wordperfect51-
  * decomp/goldens/minted/MINT0x.shots, an 80 x 25 text screen): the editing
@@ -25,9 +17,9 @@
  * Manual, Caps Lock "Status Line", PDF 74). The window is 76 x 24 cells
  * (FLAIR_SCREEN 640 x 480 less the menu bands and the frame), so 23 lines
  * of text show where the DOS screen shows 24; the 65-column line (1"/1"
- * margins at 10 pitch, spec/iword/wp5_format.h) and the whole status line
+ * margins at 10 pitch, include/iword/wp5_format.h) and the whole status line
  * fit. WordPerfect's blue field is the Toolbox's NAVY with WHITE text
- * (spec/toolbox_gate.h Sec 7 tokens); the cursor is the cell in reverse
+ * (toolbox_gate.h Sec 7 tokens); the cursor is the cell in reverse
  * video (WP's is the hardware underline; a cell API has no underline --
  * authored adaptation). A hard page shows as a row of '=' BELOW its line,
  * a screen row of its own that is no document line (MINT03.shots/
@@ -36,15 +28,15 @@
  *
  * KEYS. Typing, Enter (hard return), Backspace, Delete, the arrows, End (the
  * end of the line) and WP's HOME PREFIX (slice 3, below). Word wrap as
- * WordPerfect stores it (os/iword/core/edit.c).
- * ATTRIBUTE CODES (bead initech-jojk, P2 slice 1; os/iword/core/codes.c):
+ * WordPerfect stores it (apps/initechword/core/edit.c).
+ * ATTRIBUTE CODES (bead initech-jojk, P2 slice 1; apps/initechword/core/codes.c):
  *   F6 Bold, F8 Underline -- "both an on and off code are inserted, with the
  *                   cursor resting just before the off code"; the key again
  *                   moves past it (Reference Manual, Attributes p. 36-37).
  *   Ctrl-F8 Font    the Font menu on the status line, then 1 Size (all
  *                   seven), 2 Appearance (all nine) or 3 Normal; the menu
  *                   lines and the sixteen attribute numbers are the real WP
- *                   5.1's (spec/iword/reveal_codes.h; slice 3, MINT28). Base
+ *                   5.1's (include/iword/reveal_codes.h; slice 3, MINT28). Base
  *                   Font and Print Color (their own screens) return to the
  *                   document.
  *   Alt-F3 Reveal   the split screen: the document, the status line, the
@@ -57,7 +49,7 @@
  *                   code's label; MINT11 01_bs_prompt / 02_del_prompt): y
  *                   deletes the pair, any other key steps over the code.
  * SLICE 2 (bead initech-jojk; the real WP.EXE in ../wordperfect51-decomp
- * mint/wpMINT09..16.steps, re/mint-results-003.md; os/iword/core/block.c):
+ * mint/wpMINT09..16.steps, re/mint-results-003.md; apps/initechword/core/block.c):
  *   Tab, F4         [Tab] / [->Indent]: to the next tab stop; an indent
  *                   holds the rest of its paragraph at that margin (MINT09).
  *   Ctrl-Enter      a hard page: the bar below its line (MINT09).
@@ -90,13 +82,13 @@
  *                   document, Enter / 0 back to Format, Enter / 0 there to
  *                   the document. The other selections are later slices
  *                   (the key is ignored). Each setting goes in as WP puts
- *                   it (os/iword/core/edit.c iw_ed_margins / iw_ed_just).
+ *                   it (apps/initechword/core/edit.c iw_ed_margins / iw_ed_just).
  *   The document sits on the paper as WP shows it: screen column 0 is 1"
  *                   whatever the margins (MINT21 text at column 3 under
  *                   1.3"), a centered / right-justified line where the
  *                   justification puts it (MINT22 04_typed), Pos the paper
  *                   position (MINT23 "Pos 1.25""); the Reveal Codes ruler
- *                   follows the margins at the cursor (spec/iword/
+ *                   follows the margins at the cursor (include/iword/
  *                   reveal_codes.h "the ruler").
  *   6 Line Spacing  a number, Enter (MINT25 01/02, MINT30): [Ln Spacing:]
  *                   at the cursor. A line takes its spacing rounded to the
@@ -160,7 +152,7 @@
  * new document (Exit p. 193 step 4). F1 / Esc at either keeps the document.
  *
  * Messages not in the manual (the size refusals) are authored, no local
- * reference. Freestanding C, ASCII-clean (Rule 12), deterministic (Rule 11).
+ * reference. Freestanding C, ASCII-clean, deterministic.
  */
 #include "tbx.h"
 #ifdef IWORD_MUT_SETUP_SHORT
@@ -169,7 +161,7 @@
 #define TBX_MUT_SAVE_ONE_WRITE
 #endif
 #include "tbx_save.h"   /* initech-mcep: the atomic document save */
-#include "../../../spec/iword/fkeys.h"
+#include "iword/fkeys.h"
 #include "iword.h"
 #include "iword/wp5_format.h"
 #include "iword/reveal_codes.h"
@@ -179,7 +171,7 @@
 
 const char tbx_app_name[] = "WORD";
 
-/* ---- geometry (the 123.EXE window, os/i123/app/face_a.c) ------------------ */
+/* ---- geometry (the 123.EXE window, apps/initech123/app/face_a.c) ------------------ */
 #define WIN_L        0
 #define WIN_T        40
 #define WIN_R        640
@@ -200,7 +192,7 @@ const char tbx_app_name[] = "WORD";
  * it. The group keeps its measured shape and spacing. */
 #define STATUS_DOC_END 66                /* "... Ln 1"" ends at column 66 */
 #define STATUS_POS   68                  /* "Pos" at column 68            */
-/* REVEAL CODES (Alt-F3; spec/iword/reveal_codes.h). WordPerfect's 25-line
+/* REVEAL CODES (Alt-F3; include/iword/reveal_codes.h). WordPerfect's 25-line
  * screen splits into the document (lines 0-10), the status line (11), the
  * ruler (12), the 11-row codes pane (13-23) and "Press Reveal Codes to
  * restore screen" (24). The window has 24 lines, so the document part is one
@@ -242,7 +234,7 @@ const char tbx_app_name[] = "WORD";
 #define VK_PGUP      0x49
 #define VK_PGDN      0x51
 
-/* ---- the menu bar (spec/toolbox_gate.h Sec 9): WP 5.1's File menu
+/* ---- the menu bar (toolbox_gate.h Sec 9): WP 5.1's File menu
  * (Reference Manual, "Select Save from the File menu" p. 564, "Select
  * Retrieve from the File menu" p. 553, "Select Exit from the File menu"
  * p. 193). ^Q on Exit is the FLAIR Quit chord every tenant answers. */
@@ -261,7 +253,7 @@ static const tbx_menubar_t mbar = { menus, 1, 1, 0 };
  * body, the piece table's read-only buffer), the other is scratch -- a file
  * is read into it, a save is flattened into it, and on success it becomes
  * the original (so a save also compacts the piece table). All BSS (the
- * e_minalloc area): file buffers may be BSS (spec/toolbox_gate.h Sec 10). */
+ * e_minalloc area): file buffers may be BSS (toolbox_gate.h Sec 10). */
 #ifndef IWORD_SMALL_BUFFERS
 #define BANK        65536u
 #define ADD_CAP     65536u
@@ -295,7 +287,7 @@ static uint32_t      g_skip;                /* ... and how many of its rows are
  * Toolbox synthesizes: bold 1, italic 2, underline 4), its colours and one
  * reverse-video run (the cursor). A row is drawn only when it differs from
  * what the screen has: the whole row plain in one DRAWCELLS run, then every
- * styled stretch over it in its face (fg | face << 8, spec/toolbox_gate.h
+ * styled stretch over it in its face (fg | face << 8, toolbox_gate.h
  * Sec 7/7a), then the reverse run -- so a row with no codes draws exactly as
  * P1 drew it. */
 typedef struct row {
@@ -412,7 +404,7 @@ static void row_clear(row_t *r)
 
 /* Draw row `line` as `r` unless the screen has it. */
 /* IW_A_GRAY (face-local, never a txFace bit): the cell is drawn GRAY -- a
- * List Files menu item InitechWord does not perform (spec/iword/listfiles.h
+ * List Files menu item InitechWord does not perform (include/iword/listfiles.h
  * IW_LF_ITEMS). g_row_off moves a painter's rows down (the Look body,
  * WP rows 3.. of the Look screen). */
 #define IW_A_GRAY   0x80u
@@ -695,7 +687,7 @@ static void follow(const iw_where_t *w, uint32_t rows)
             (void)iw_ed_lines(&g_ed, g_top, 1u, lines);
             nr = line_rows(&lines[0], 0, &bar);
 #ifdef IWORD_MUT_LINE_SCROLL
-            /* MUTANT (Rule 6; test-iword-face-mutant): the window always
+            /* MUTANT (test-iword-face-mutant): the window always
              * starts on a line, never on a blank row. NEVER real. */
             bar = nr - 1u;
 #endif
@@ -736,7 +728,7 @@ static void paint_status(const iw_where_t *w, int line)
         const char *left = g_mode == M_RETRIEVE ? IW_MOVE_RETRIEVE :
                            g_ed.blk != IW_NO_BLOCK ? IW_BLOCK_ON : g_current;
 #ifdef IWORD_MUT_NO_BLOCK_ON
-        /* MUTANT (Rule 6; test-iword-face-mutant): Block on is not shown --
+        /* MUTANT (test-iword-face-mutant): Block on is not shown --
          * the document's name stays. NEVER real. */
         if (g_mode == M_EDIT) left = g_current;
 #endif
@@ -913,7 +905,7 @@ static void paint_reveal(const iw_where_t *w)
     r.fg = (uint8_t)TBX_COLOR_BLACK;           /* authored: WP's band is red */
     r.bg = (uint8_t)TBX_COLOR_GRAY;
     /* the tab marks every 0.5" from the left margin - 1" (relative tabs),
-     * the margins as braces (on a stop) or brackets (spec/iword/
+     * the margins as braces (on a stop) or brackets (include/iword/
      * reveal_codes.h "the ruler"; MINT21 09_reveal, MINT23 03_reveal_mid) */
     x = w->lm >= 2u * IW_WP5_TAB_STEP_WPU ? w->lm - 2u * IW_WP5_TAB_STEP_WPU : w->lm % IW_WP5_TAB_STEP_WPU;
     for (; IW_SCREEN_COL(x) < SCR_COLS; x += IW_WP5_TAB_STEP_WPU)
@@ -1259,7 +1251,7 @@ static void write_file(void)
     if (flatten(&n) != IW_OK) { error("ERROR: Document too large", M_EDIT); return; }
     wn = n;
 #ifdef IWORD_MUT_SAVE_NOTHING
-    /* MUTANT (Rule 6; test-flair-iword-mutant): the save writes no byte --
+    /* MUTANT (test-flair-iword-mutant): the save writes no byte --
      * an empty file is left behind. NEVER real. */
     wn = 0;
 #endif
@@ -1354,8 +1346,8 @@ static void retrieve_named(void)
 /* ---- List Files (F5) and Look -------------------------------------------------
  * bead initech-qvgd (IWORD P3 remainder). Every screen as the REAL WordPerfect
  * 5.1 drew it on a fixed FAT12 volume (../wordperfect51-decomp mint/work/
- * LISTF/mint-results-005.md; the rows composed by os/iword/core/listfiles.c
- * from spec/iword/listfiles.h, then fitted to the 76 cells):
+ * LISTF/mint-results-005.md; the rows composed by apps/initechword/core/listfiles.c
+ * from include/iword/listfiles.h, then fitted to the 76 cells):
  *   F5            "Dir A:\*.*" + the hint on the status line (LF11_01); the
  *                 default directory is the data volume's root (InitechWord
  *                 has no other). Enter lists it; F1 / Esc back (authored:
@@ -1966,7 +1958,7 @@ static void name_key(char ch, uint8_t vk)
      * ... is refused") and is never quietly saved as BADNAME.WP5 (audit
      * docs/audits/2026-10-23-iword L015). */
 #ifdef IWORD_MUT_NAME_SPACE_DROP
-    /* MUTANT (Rule 6; test-iword-face-mutant): spaces dropped at the
+    /* MUTANT (test-iword-face-mutant): spaces dropped at the
      * prompt, as before the fix. NEVER real. */
     if (ch == ' ') return;
 #endif
@@ -2029,7 +2021,7 @@ static void prompt_key(char ch, uint8_t vk)
     case M_SIZE:
     case M_APPEAR: {
         /* every Size / Appearance attribute, its number from the real WP's
-         * bytes (MINT28; spec/iword/reveal_codes.h IW_SIZE_ATTRS /
+         * bytes (MINT28; include/iword/reveal_codes.h IW_SIZE_ATTRS /
          * IW_APPEAR_ATTRS); with Block on it is given to the block (p. 37) */
         static const uint8_t SZ[7] = IW_SIZE_ATTRS;
         static const uint8_t AP[9] = IW_APPEAR_ATTRS;
@@ -2217,7 +2209,7 @@ static void page_key(uint8_t vk)
 {
     iw_where_t w;
 #ifdef IWORD_MUT_PGDN_IGNORED
-    /* MUTANT (Rule 6; test-iword-face-mutant): PgDn does nothing, as before
+    /* MUTANT (test-iword-face-mutant): PgDn does nothing, as before
      * bead initech-1zk9. NEVER real. */
     if (vk == VK_PGDN) return;
 #endif
@@ -2324,7 +2316,7 @@ static void retrieve_key(char ch, uint8_t vk, int32_t mods)
 }
 
 /* All 48 slots enter here; the table controls dispatch, including aliases.
- * Ref: spec/iword/fkeys.json's local Reference citations. No modified F7
+ * Ref: include/iword/fkeys.json's local Reference citations. No modified F7
  * accidentally falls through to Exit, nor Ctrl/Alt-F10 to Save. */
 static int function_key(uint8_t vk, int32_t mods)
 {
@@ -2407,7 +2399,7 @@ static void goto_key(char ch, uint8_t vk, int32_t mods)
     }
     if (vk == VK_BSPC || ch == 8) { if (g_goto_n) g_goto[--g_goto_n] = 0; return; }
 #ifdef IWORD_MUT_GOTO_TYPES
-    /* MUTANT (Rule 6; test-iword-face-mutant): the digits go into the
+    /* MUTANT (test-iword-face-mutant): the digits go into the
      * document as typing, as before Go To existed. NEVER real. */
     if (ch >= '0' && ch <= '9') { g_mode = M_EDIT; (void)edit(ED_TYPE, (uint8_t)ch); return; }
 #endif
