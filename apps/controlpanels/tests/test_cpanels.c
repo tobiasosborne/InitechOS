@@ -7,9 +7,11 @@
 #include "dialog.h"
 #include "cpanels.h"
 #include "cp_dialog.h"
-static unsigned failures, writes, applies, clocks, beeps;
+/* Temporary: remove when FLAIR publishes its flat-item adapter. */
+#include "cp_dialog_items.h"
+static unsigned checks, failures, writes, applies, clocks, beeps;
 static cp_settings_t saved, applied;
-#define CHECK(rule,c) do { if (!(c)) { printf("FAIL %s line=%d\n",rule,__LINE__); failures++; } } while (0)
+#define CHECK(rule,c) do { checks++; if (!(c)) { printf("FAIL %s line=%d\n",rule,__LINE__); failures++; } } while (0)
 static int save(void *u,const cp_settings_t *s) { (void)u; writes++; saved=*s; return 1; }
 static int apply(void *u,const cp_settings_t *s) { (void)u; applies++; applied=*s; return 1; }
 static int clockset(void *u,const cp_time_t *t) { (void)u; clocks++; return t->hour==13; }
@@ -87,6 +89,7 @@ int main(int argc,char **argv) {
     FILE *f=fopen(path,"rb"); unsigned char pat[66];
     CHECK("PAT_GOLDEN",f && fread(pat,1,66,f)==66); if(f) fclose(f);
     for(unsigned p=1;p<=8;p++) CHECK("PAT_GOLDEN",memcmp(cp_patterns[p-1],pat+2+8*(p-1),8)==0);
+    printf("test_cpanels: %u checks, %u failures\n",checks,failures);
     if(failures) {printf("cpanels: %u failures\n",failures);return 1;}
     puts("cpanels: GREEN (five Dialog Manager routes, OK/Cancel transactions, RTC, binary corruption, eight independent PAT# tiles)");return 0;
 }
