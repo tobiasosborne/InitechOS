@@ -1,0 +1,12 @@
+# test: test_iword_search
+--- a/core/search.c
++++ b/core/search.c
+@@ -9,8 +9,6 @@
+     uint32_t dn = iw_unit_next(d, p) - p, qn = iw_unit_next(q, t) - t;
+     int a = iw_doc_byte(d, p), b = iw_doc_byte(q, t);
+     if (dn != qn) return 0;
+-    /* A lower-case query accepts either case; uppercase is literal. */
+-    if (qn == 1 && b >= 'a' && b <= 'z' && a >= 'A' && a <= 'Z') a += 'a' - 'A';
+     if (a != b) return 0;
+     /* Tab / indent carry their position in the document; the Search token
+      * names the feature, not its screen coordinate (Reference p. 572). */

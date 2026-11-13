@@ -1,0 +1,11 @@
+# test: test_iword_replace
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2461,6 +2461,7 @@
+     (void)iw_doc_delete(&g_ed.doc, g_rs, g_re-g_rs);
+     if (g_replacement_n && iw_doc_insert(&g_ed.doc, g_rs, r, g_replacement_n) != IW_OK) return IW_E_FULL;
+     g_ed.cur = g_search_back ? g_rs : g_rs + g_replacement_n;
++    if (!g_search_back && g_ed.cur < g_ed.doc.len) g_ed.cur = iw_unit_next(&g_ed.doc, g_ed.cur);
+     g_ed.blk = IW_NO_BLOCK; g_ed.dirty = 1; g_ed.goal = 0xFFFFFFFFu;
+     (void)iw_reflow_all(&g_ed.doc, g_ed.width);
+     return iw_ed_fixup(&g_ed);

@@ -1,0 +1,11 @@
+# test: test_iword_listfiles_ops
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1469,7 +1469,6 @@
+     static uint8_t rec[TBX_FIND_REC_BYTES];
+     int32_t n = tbx_file_find(path, IW_LF_FIND_ATTR, rec, 1u);
+     if (n < 0 && n != TBX_ERR_DOS(2) && n != TBX_ERR_DOS(18)) { lf_error(n); return 1; }
+-    if (n > 0 && (rec[TBX_FIND_REC_ATTR_OFF] & 0x11u)) { lf_error(TBX_ERR_DOS(5)); return 1; }
+     return 0;
+ }
+ 

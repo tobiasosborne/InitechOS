@@ -1,0 +1,15 @@
+# test: test_iword_codes
+--- a/core/codes.c
++++ b/core/codes.c
+@@ -179,11 +179,6 @@
+     if (!room(d, 3u, q != NONE ? 1u : 0u)) return IW_E_FULL;
+     rc = iw_doc_insert(d, e->cur, pair + 3, 3u);
+     if (rc != IW_OK) return rc;
+-
+-    if (q != NONE) {
+-        rc = iw_doc_delete(d, q + IW_WP5_ATTR_LEN, IW_WP5_ATTR_LEN);
+-        if (rc != IW_OK) return rc;
+-    }
+     e->cur += IW_WP5_ATTR_LEN;
+     e->dirty = 1;
+     return IW_OK;

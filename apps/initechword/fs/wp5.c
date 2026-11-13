@@ -72,37 +72,13 @@ int iw_wp5_write(const uint8_t *prefix, uint32_t prefix_len, const iw_doc_t *d, 
     for (i = 0; i < prefix_len; i++) out[i] = prefix[i];
     n = iw_doc_read(d, 0, out + prefix_len, d->len);
     if (n != d->len) return IW_E_RANGE;
-#ifdef IWORD_MUT_DROP_CODE
-    /* MUTANT (test-iword-wp5-roundtrip-mutant): the writer drops
-     * every soft-return code. NEVER real. */
-    {
-        uint32_t r = prefix_len, w = prefix_len;
-        while (r < prefix_len + n) {
-            uint32_t u = iw_unit_len(out, prefix_len + n, r);
-            if (u == 0u) u = 1u;
-            if (!(u == 1u && out[r] == IW_WP5_SRT)) for (i = 0; i < u; i++) out[w++] = out[r + i];
-            r += u;
-        }
-        n = w - prefix_len;
-    }
-#endif
-#ifndef IWORD_MUT_CURSOR_FLAG
-    /* The prefix records whether the cursor was before the end of the
-     * document at the save (include/iword/wp5_format.h IW_WP5_PFX_CURSOR_OFF:
-     * 0x08 before the end, 0x00 at it; 19 mints), applied to the default
-     * prefix only -- a prefix that differs elsewhere is carried opaque, as WP
-     * wrote it -- and only when the cursor is known (cur != IW_WP5_CUR_KEEP:
-     * a golden rewritten keeps its own byte). MUTANT knob (test-iword-
-     * wp5-roundtrip-mutant): IWORD_MUT_CURSOR_FLAG never sets it. */
+
     if (prefix_len == IW_WP5_DEFAULT_DOCSTART && cur != IW_WP5_CUR_KEEP) {
         int dflt = 1;
         for (i = 0; i < prefix_len && dflt; i++)
             if (i != IW_WP5_PFX_CURSOR_OFF && prefix[i] != DEFAULT_PREFIX[i]) dflt = 0;
         if (dflt) out[IW_WP5_PFX_CURSOR_OFF] = cur < d->len ? IW_WP5_PFX_NOT_AT_END : 0x00u;
     }
-#else
-    (void)cur;
-#endif
     *out_len = prefix_len + n;
     return IW_OK;
 }

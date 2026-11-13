@@ -117,15 +117,8 @@ int iw_doc_insert(iw_doc_t *d, uint32_t pos, const uint8_t *s, uint32_t n)
         d->pc[pi].len = po;
         d->pc[pi + 1u].off = IW_PIECE_ADD | a;
         d->pc[pi + 1u].len = n;
-#ifdef IWORD_MUT_SPLIT_OFF
-        /* MUTANT (test-iword-core-mutant): the right half starts one
-         * byte late -- a byte is lost and the tail is shifted. NEVER real. */
-        d->pc[pi + 2u].off = left.off + po + 1u;
-        d->pc[pi + 2u].len = left.len - po;
-#else
         d->pc[pi + 2u].off = left.off + po;
         d->pc[pi + 2u].len = left.len - po;
-#endif
     }
     d->add_len += n;
     d->len += n;
@@ -328,16 +321,10 @@ uint32_t iw_unit_prev(const iw_doc_t *d, uint32_t pos)
         return L && L <= pos ? pos - L : 0u;
     }
     if (c >= (int)IW_WP5_VAR_LO) {
-#ifdef IWORD_MUT_PREV_VAR
-        /* MUTANT (test-iword-core-mutant): the backward walk treats
-         * a variable group's last byte as a one-byte unit. NEVER real. */
-        return pos - 1u;
-#else
         /* The mirrored trailer: [size lo][size hi][sub][code] at the end. */
         int lo = iw_doc_byte(d, pos - 4u), hi = iw_doc_byte(d, pos - 3u);
         uint32_t total = IW_WP5_VAR_HDR + ((uint32_t)lo | ((uint32_t)hi << 8));
         return total <= pos ? pos - total : 0u;
-#endif
     }
     return pos - 1u;
 }

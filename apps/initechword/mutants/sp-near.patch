@@ -1,0 +1,13 @@
+# test: test_iword_wp5_roundtrip
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -1316,6 +1316,9 @@
+  * 2.25 -> 576 exact, MINT25 / MINT30). */
+ uint32_t iw_spacing_from_hundredths(uint32_t h)
+ {
++    /* MUTANT (test-iword-wp5-roundtrip-mutant): rounded to the
++     * nearest (1.33 -> 340). NEVER real. */
++    return (h * IW_WP5_SPACING_ONE + 50u) / 100u;
+     return (h * IW_WP5_SPACING_ONE + 99u) / 100u;
+ }
+ 

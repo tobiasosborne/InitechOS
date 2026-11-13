@@ -1,83 +1,100 @@
 # InitechWord
 
-WordPerfect 5.1 document library, .WP5 codec and the FLAIR editing face.
-The core implements a piece table, editing and wrap/layout, attribute codes,
-Reveal Codes, blocks, search and the List Files model. This import preserves
-existing behavior. It adds no word-processing features.
+WordPerfect 5.1 document core, .WP5 codec and FLAIR editing face. Dependencies:
+sdk/include for the INT81 Toolbox interface, sdk/host for host tests only, and
+factory/testlib for assertions. Core/fs compile with only -Iinclude. The face
+has no private OS or graphics dependency. Product behavior preserves the real
+WordPerfect captures and the legacy-final implementation cited in the source.
 
-Public API: include/iword.h; owned format/keyboard/screen/settings contracts:
-include/iword/*.h, with the keyboard source table fkeys.json alongside them.
-Consumers use -Iapps/initechword/include. Core and fs have no OS dependency:
-all seven translation units compile with -Iinclude alone. The face depends on
-sdk/tbx.h and sdk/tbx_save.h and reaches the OS only through the Toolbox gate.
+make builds WORD.EXE through mk/tenant.mk using plain TARGET_CFLAGS. No resource
+file is required. The independent MZ reader validates relocations and BSS:
+57,760 bytes on disk, 51,344-byte module, 493,520-byte BSS (below the OS-side
+512 KiB limit). Drawing data already uses TBX_IN_IMAGE; file buffers stay in
+BSS as allowed by sdk/README.md. No OS change was needed to run this executable.
 
-make compiles eight freestanding i386 objects under build/apps/initechword
-using plain TARGET_CC/TARGET_CFLAGS. WORD.EXE linking awaits SDK tenant rules.
-The shared host-test fragment also builds host test binaries for all, matching
-the Initech 123 import. make test builds/runs 13 host entries, with one status
-line each, a summary and individual logs/scratch under build/apps/initechword/host.
-All legacy host document cases run by default; no THOROUGH subset is needed.
-A clean run takes about 25 seconds. make smoke and make mutants fail with a
-pointer to the deferred inventories, rather than claiming unperformed checks.
+make test runs 13 programs and 22,394 counted checks against the real pinned
+WordPerfect corpus, captured grids and independent models/readers. Execution
+fits the 30-second budget (about 15 seconds, builds excluded). Set
+WORDPERFECT51_DECOMP to wordperfect51-decomp; missing or unpinned inputs fail.
+Required host tools: C compiler, POSIX shell, Python 3 for the existing corpus
+reader, mtools, fsck.fat, md5sum and sha256sum. New factory code is C/make/shell.
+Tests use the shared SDK fake. tests/face_driver.h retains app-state driving,
+recording aliases and explicit scratch import/export boundaries so independent
+saved-byte checks remain unchanged. Captured directory metadata is injected
+locally; List Files faults use the shared fake's errors and transfer limits.
 
-Set WORDPERFECT51_DECOMP to the real WordPerfect 5.1 corpus (default from
-mk/config.mk). Missing/incomplete corpus is an error. Host tools required:
-C compiler, POSIX shell, Python 3 for the corpus's unchanged independent reader,
-mtools, fsck.fat, md5sum and sha256sum. Factory additions are C, make and shell.
-The tests compare real files, captured screen transcriptions and independent
-property models. See tests/IMPORT.md for classification, exact legacy parity,
-retained independent post-checks and the separated InitechDOS FAT differential.
+make smoke drives the actual product on QEMU and Bochs. The app-owned journey
+in tests/smoke types a paragraph, toggles Bold with F6, saves WORD.WP5 using
+F10 and exits with F7. Its independent wp5_ref.py verifier requires exact text,
+Bold on/off around reports, and a complete trailer without errors. The factory
+runs it and the Initech 123 journey in one boot per emulator, then reads files
+with mtools. factory/red-desktop.sh proves that an empty Word save fails this
+host verifier. Screens and serial traces are under build/smoke-desktop/.
 
-Local build extensions: host-core objects avoid recompiling the seven library
-sources for each suite; the shared host_test_run macro is wrapped locally for
-isolated fresh scratch and multi-command checks. Header dependencies cover the
-included face, driver, fake and shared SDK contracts. _DEFAULT_SOURCE enables
-MAP_ANONYMOUS in the existing fork-based driver. IWORD_SMALL_BUFFERS is retained
-only for the four-check compaction test. No target behavior selector or extra
-ABI/size flags are required. The function-key C generator checks the committed
-header against fkeys.json without writing the source tree.
+make mutants applies component-relative zero-fuzz patches via mk/mutants.mk.
+All 73 mutants are killed twice by host tests; none is pending.
+75 conditional sites became 73 patch files (the repeated NO_D4 and NO_LEAD
+sites are each one fault). Product source contains no mutation hooks. The EXE
+before/after SHA-256 is identical:
+9453efb0e90e0ff491cb9cf630c928a70294316f9652329a6432b0b891ea698e.
 
-## Temporary SDK bridge
+## Present depth (frozen feature inventory)
 
-Only app/ and face tests add -I$(TOP)/sdk, -I$(OUT)/borrowed and the explicitly
-temporary -I$(TOP)/attic/spec. Shared toolbox_gate.h, cpanels_record.h,
-cp_dialog.h, event_model.h and grafport.h remain owned by their importers.
-tests/borrow-events.sh is the Initech 123 bridge verbatim: extract the original
-flair_point_t from grafport.h and remove only event_model.h's grafport include.
-The generated header keeps the event definitions and assertions, avoiding the
-unused private imaging/surface dependency. Remove this bridge when SDK exports
-self-contained events. No attic implementation or legacy make fragment is built.
+This is the GOLDEN-MASTER item 6 inventory, not a claim of full WP parity.
+Editing uses a two-bank piece table, wrapping, insertion/overwrite, deletion,
+three undo records, cursor/page/Home/Go To navigation, paired attributes,
+Reveal Codes, stream blocks, move/copy/retrieve, sentence/paragraph/page
+selection, forward/backward code-aware search, case-preserving replacement,
+justification, line spacing and margins. .WP5 preserves captured prefixes and
+formatting streams; save uses the SDK temporary/write/close/rename transaction.
+List Files supports directory navigation, retrieve, Look, delete, move/rename
+and copy, including collision/error handling. Setup persists preferences.
+The native face is an authored 76x24 adaptation of WP's 80x25 screen.
 
-List Files previously pulled toolbox_gate.h into the pure model for six packed
-record constants. Its input contract now lives in include/iword/listfiles.h,
-citing DOS 3.3 AH=4Eh's DTA tail and Toolbox Sec 10a. Every face test statically
-asserts all six constants against the shared ABI. No data layout changed.
+The following 69 visible command labels are inert or unavailable. Count each
+entry point once, including separately drawn Move and Retrieve choices (49
+entries), plus the 20 advertised children of blocked Format groups.
+Sources: include/iword/{fkeys.json,listfiles.h,reveal_codes.h}, app/face_a.c
+(function_key, prompt_key, format_key, setup_key, lf_key, block_key), frozen
+legacy docs/audits/2026-10-23-iword/REPORT.md L040-L084 and TRIAGE.md, and
+attic/triage/triage.md's apps-iword table. No command is fixed in this import.
 
-## Fake Toolbox and follow-ups
+- 23 function-key entries only show a gray command name: F3 Help; F9 End Field;
+  Shift-F3 Switch, Shift-F4 reverse Indent, Shift-F5 Date/Outline, Shift-F6
+  Center, Shift-F7 Print, Shift-F9 Merge Codes; Alt-F1 Thesaurus, Alt-F5 Mark
+  Text, Alt-F6 Flush Right, Alt-F7 Columns/Table, Alt-F8 Style, Alt-F9 Graphics,
+  Alt-F10 Macro; Ctrl-F1 Shell, Ctrl-F2 Spell, Ctrl-F3 Screen, Ctrl-F5 Text
+  In/Out, Ctrl-F6 Tab Align, Ctrl-F7 Footnote, Ctrl-F9 Merge/Sort, Ctrl-F10
+  Macro Define. The six modified F11/F12 slots have no WP command and are
+  deliberately unmapped; they are not counted as visible commands.
+- 5 List Files entries ignore their keys: 4 Print, 5 Short/Long Display,
+  7 Other Directory, 9 Find, N Name Search.
+- 5 Setup entries are gray: Display, Initial Settings, Keyboard Layout,
+  Location of Files, Timed Document Backup.
+- 9 Format entries leave the menu unchanged: Page, Document, Other; Line's
+  Hyphenation, Hyphenation Zone, Height, Numbering, Tab Set, Widow/Orphan.
+- 20 advertised Format children cannot be reached through those groups:
+  Page's Center Page (top to bottom), Force Odd/Even Page, Headers and Footers,
+  Margins Top/Bottom, Page Numbering, Paper Size/Type/Labels, Suppress;
+  Document's Display Pitch, Initial Codes/Font, Redline Method, Summary;
+  Other's Advance, Conditional End of Page, Decimal Characters, Language,
+  Overstrike, Printer Functions, Underline Spaces/Tabs, Border Options,
+  End Centering/Alignment.
+- 2 Font choices return to editing without an operation: Base Font, Print Color.
+- 5 block entries do nothing: Move's Tabular Column and Rectangle; Retrieve's
+  Tabular Column and Rectangle; Append in the block-operation menu.
 
-The extracted fake is tests/fake_tbx/recording.h. A shared SDK host fake must
-record 76x24 cell text, colors, style bits and reverse cursor cells; validate
-cell alignment/style tokens; support window registration/title, fills, menus
-and exits; supply a controllable clock, directory find records and disk free;
-and implement DOS file create/create-new/open/read/write/seek/close/delete/rename
-with short transfers, collision errors and path semantics. The List Files ops
-suite overlays fault-injectable file/find verbs for read-only/full/collision
-cases; preserve that injection seam. Component drivers still need static face
-state, pristine forked launches and shared check counters. Saved documents and
-settings get independent byte/reader checks outside the fake.
+Additional partially working affordances (not included in the 69-label count):
+Original Document Backup records Yes but creates no backup; entry/status units
+are recorded but measurements stay in inches; List Files ignores typed/default
+path changes; Look does not scroll plain text or navigate adjacent documents;
+active-block Save, paragraph extension and code-search lack their block routes;
+Ctrl-arrow and Ctrl-Delete act on units; inline Center/Flush Right codes have
+no layout effect; resize can hide prompts; document clicking/scrollbars have
+no viewport route; Finder power requests do not recognize File > Exit;
+zero-inch margins are silently ignored; real FLAIR Ctrl-M does not reach the
+search soft-return route. These are existing triage items, not new scope.
 
-73 distinct mutation macros at 75 conditional sites remain for patch conversion
-in tests/MUTANTS-TODO.md. tests/SMOKES.md records the unported emulator gates.
-The legacy source's unimplemented/gray commands and authored 80x25 to 76x24
-adaptations remain; full WordPerfect parity is outside this import. Fixture
-minting is manual and excluded from all/test; its C SDL driver and provenance
-are retained with the captures. Pending SDK linking, fake consolidation, corpus
-pinning and mutation/smoke conversion are explicit follow-up work here.
-
-Shared build conventions: command stamps rebuild on tool/flag changes; C
-translation units use -MMD dependencies. TEST_BUDGET_S is 30 seconds for the
-complete tier-0 selection; measured execution fits the default, excluding builds.
-Standalone tests verify their consumed files in goldens/CORPORA.lock; the
-top-level test run verifies the full lock once before parallel execution.
-Target objects use target.mk. WORD.EXE is not yet an all output; that and
-product mutation hooks keep import audit disabled.
+The corpus minting tools/fixtures are manual capture support, excluded from
+all/test. Remaining legacy pixel-heavy emulator gates are listed in
+ tests/SMOKES.md; their future owner is the InitechWord/factory importer.

@@ -1,0 +1,15 @@
+# test: test_iword_codes
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -1029,7 +1029,10 @@
+             int k = iw_unit_kind(d, p), b0 = iw_doc_byte(d, p);
+             uint8_t g[10];
+             if (k == IW_U_TAB || k == IW_U_INDENT) {
+-                uint32_t a = w.ln.lm + IW_WP5_WPU_PER_COL * next_stop(c), o = 0;
++                /* MUTANT (test-iword-codes-mutant, test-iword-wp5-
++                 * roundtrip-mutant): the stops stay where the 1" margin puts
++                 * them whatever the margins. NEVER real. */
++                uint32_t a = IW_WP5_LEFT_WPU + IW_WP5_WPU_PER_COL * next_stop(c), o = 0;
+                 if (k == IW_U_TAB) g[o++] = IW_WP5_C1_TAB;
+                 else { g[o++] = 0x00; u16put(g + o, IW_WP5_INDENT_STEP); o += 2u; }
+                 u16put(g + o, a); o += 2u;

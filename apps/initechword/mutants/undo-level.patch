@@ -1,0 +1,11 @@
+# test: test_iword_undo
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -565,6 +565,7 @@
+     if (fx == IW_E_FULL) { compact(); fx = iw_ed_fixup(&g_ed); }
+     if (rc == IW_OK && dn && g_ed.doc.len < before) {
+         uint32_t limit = 3;
++        limit = 2;
+         int join = g_undo_join && g_undo_count && (ds == g_undo_at || dt == g_undo_at);
+         if (!join) {
+             if (g_undo_count < limit) g_undo_count++;

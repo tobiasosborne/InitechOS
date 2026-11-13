@@ -1,0 +1,22 @@
+# test: test_iword_replace
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2441,17 +2441,7 @@
+             letters++; capitals += c >= 'A' && c <= 'Z';
+         }
+     }
+-    if (lower && letters) {
+-        int initial = 1;
+-        for (uint32_t p = 0; p < g_replacement_n; ) {
+-            uint32_t n = iw_unit_len(r, g_replacement_n, p);
+-            if (n == 1 && r[p] >= 'a' && r[p] <= 'z') {
+-                if (capitals == letters || (initial && first)) r[p] -= 32;
+-                initial = 0;
+-            }
+-            p += n;
+-        }
+-    }
++    (void)lower; (void)letters; (void)capitals; (void)first;
+     ensure_room();
+     /* Refuse BEFORE the delete if an insert cannot fit. The small fixed
+      * query cap and P2's room reserve also leave room for code fixup. */

@@ -104,5 +104,8 @@ system-build: kernel-build
 .PHONY: desktop-apps
 desktop-apps:
 	$(MAKE) -C apps/initechbase
-	$(MAKE) -C apps/initech123
+	+$(MAKE) sh-desktop-apps
+.PHONY: sh-desktop-apps
+sh-desktop-apps:
+	+sh factory/desktop-build.sh
 system-build: desktop-apps

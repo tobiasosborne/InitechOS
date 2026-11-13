@@ -1,0 +1,19 @@
+# test: test_iword_wp5_roundtrip
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -1304,6 +1304,15 @@
+     fmt_at(d, e->cur, &f);
+     u16at(g + 4, f.sp);
+     u16at(g + 6, sp);
++    /* MUTANT (test-iword-wp5-roundtrip-mutant): the spacing code is
++     * treated like a margin change -- a [HRt] first when the cursor is not
++     * at the left margin. NEVER real. */
++    if (!at_left_margin(e)) {
++        uint8_t h = IW_WP5_HRT;
++        rc = iw_doc_insert(d, e->cur, &h, 1u);
++        if (rc != IW_OK) return rc;
++        e->cur++;
++    }
+     rc = iw_doc_insert(d, e->cur, g, sizeof g);
+     if (rc != IW_OK) return rc;
+     e->cur += sizeof g;

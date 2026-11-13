@@ -1,0 +1,17 @@
+# test: test_iword_core
+--- a/core/piece.c
++++ b/core/piece.c
+@@ -321,10 +321,9 @@
+         return L && L <= pos ? pos - L : 0u;
+     }
+     if (c >= (int)IW_WP5_VAR_LO) {
+-        /* The mirrored trailer: [size lo][size hi][sub][code] at the end. */
+-        int lo = iw_doc_byte(d, pos - 4u), hi = iw_doc_byte(d, pos - 3u);
+-        uint32_t total = IW_WP5_VAR_HDR + ((uint32_t)lo | ((uint32_t)hi << 8));
+-        return total <= pos ? pos - total : 0u;
++        /* MUTANT (test-iword-core-mutant): the backward walk treats
++         * a variable group's last byte as a one-byte unit. NEVER real. */
++        return pos - 1u;
+     }
+     return pos - 1u;
+ }

@@ -1,0 +1,13 @@
+# test: test_iword_face
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -707,6 +707,9 @@
+          * 01_block_on); the Move prompt while a block waits (05_move_prompt) */
+         const char *left = g_mode == M_RETRIEVE ? IW_MOVE_RETRIEVE :
+                            g_ed.blk != IW_NO_BLOCK ? IW_BLOCK_ON : g_current;
++        /* MUTANT (test-iword-face-mutant): Block on is not shown --
++         * the document's name stays. NEVER real. */
++        if (g_mode == M_EDIT) left = g_current;
+         for (i = 0; left[i] && i < 40u; i++) s[i] = left[i];
+         /* "Doc 1 Pg <p> Ln <ln>" ending at column STATUS_DOC_END */
+         scopy(doc, "Doc 1 Pg ");

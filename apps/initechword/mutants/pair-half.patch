@@ -1,0 +1,13 @@
+# test: test_iword_codes
+--- a/core/codes.c
++++ b/core/codes.c
+@@ -261,6 +261,9 @@
+     }
+     if (iw_code_attr(d, q, 0) < 0) return IW_E_PROTECTED;
+     p = partner(d, q);
++    /* MUTANT (test-iword-codes-mutant): only the code itself goes --
++     * its partner is stranded. NEVER real. */
++    p = NONE;
+     if (!room(d, 0u, p != NONE ? 2u : 1u)) return IW_E_FULL;
+     if (p != NONE && p > q) {
+         rc = iw_doc_delete(d, p, IW_WP5_ATTR_LEN);

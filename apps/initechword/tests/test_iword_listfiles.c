@@ -12,7 +12,7 @@
  * mint's DOS clock (03/01/1992 09:00, lf_root.conf). The files' bytes come
  * from argv[2], a host directory the Makefile fills from the same sources.
  *
- * WHERE THE EXPECTED SCREENS COME FROM (Law 2 -- never from face_a.c or
+ * WHERE THE EXPECTED SCREENS COME FROM (CLAUDE.md, The constitution: independent oracles -- never from face_a.c or
  * include/iword/listfiles.h): argv[1], the mint's cell-exact transcriptions
  * grids/LF14_*.txt (decode2.py; md5-pinned by the Makefile).
  * THIS file maps WP's 80 x 25 onto the face's 76 x 24 with its OWN statement
@@ -282,6 +282,7 @@ static void grade(int i)
 
 static void listfiles_test(void)
 {
+    m_clock = (cp_time_t){1992,3,1,9,0,0,0};
     m_dirents = k_dir; m_ndirents = (int)(sizeof k_dir / sizeof k_dir[0]);
     m_free = 1313280;                    /* mdir of lf005.img v3 */
     for (int i = 0; i < LF14_KEYS; i++) {

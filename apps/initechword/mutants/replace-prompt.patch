@@ -1,0 +1,11 @@
+# test: test_iword_replace
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -760,6 +760,7 @@
+         else if (g_mode == M_GRAY) t = g_gray;
+         else if (g_mode == M_RCONF) {
+             t = "w/Confirm? No (Yes)";
++            t = "Confirm?";
+         }
+         else if (g_mode == M_RASK) t = "Replace? Yes (No)";
+         else if (g_mode == M_GOTO) t = "Go to ";      /* goto.steps 13_goto_prompt */

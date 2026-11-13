@@ -1,0 +1,22 @@
+# test: test_iword_codes
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -1148,6 +1148,10 @@
+             if (++tries > 64u) return IW_E_CODE;
+             int need = cr_just(run), changed = 0;
+             rc = IW_OK;
++            /* MUTANT (test-iword-wp5-roundtrip-mutant, test-iword-
++             * codes-mutant): WP's D4/05 line records are never written.
++             * NEVER real. */
++            need = 0;
+             for (;;) {
+                 int k = p < w.ln.text_end ? iw_unit_kind(d, p) : -1;
+                 if (need) {
+@@ -1167,6 +1171,7 @@
+                     f.just = run;
+                     if (fmt_apply(d, p, &f) == 2) {
+                         need = cr_just(run) || cr_just(f.just);
++                        need = 0;
+                         run = f.just;
+                     }
+                 }

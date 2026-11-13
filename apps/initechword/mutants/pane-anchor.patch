@@ -1,0 +1,14 @@
+# test: test_iword_reveal_codes
+--- a/core/codes.c
++++ b/core/codes.c
+@@ -407,7 +407,9 @@
+     /* WP fills IW_RV_PANE_ROWS rows; any row below stays blank (MINT16) */
+     if (nrows > IW_RV_PANE_ROWS) nrows = IW_RV_PANE_ROWS;
+     iw_ed_where(e, &w);
+-    pane->first_line = w.line >= IW_RV_PANE_ABOVE ? w.line - IW_RV_PANE_ABOVE : 0u;
++    /* MUTANT (test-iword-reveal-codes-mutant): two lines above the
++     * cursor instead of three. NEVER real. */
++    pane->first_line = w.line >= 2u ? w.line - 2u : 0u;
+     pane->cur_row = pane->cur_col = pane->cur_len = 0;
+     got = iw_ed_lines(e, pane->first_line, nrows < 32u ? nrows : 32u, lines);
+     for (li = 0; li < got && r < nrows; li++) {

@@ -1,0 +1,14 @@
+# test: test_iword_face
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -1321,7 +1321,9 @@
+ 
+ uint32_t iw_spacing_rows(uint32_t sp)
+ {
+-    uint32_t r = (sp + IW_WP5_SPACING_ONE / 2u) / IW_WP5_SPACING_ONE;
++    /* MUTANT (test-iword-face-mutant): a fractional spacing shows
++     * rounded UP (1.33 as two rows). NEVER real. */
++    uint32_t r = (sp + IW_WP5_SPACING_ONE - 1u) / IW_WP5_SPACING_ONE;
+     return r ? r : 1u;
+ }
+ 

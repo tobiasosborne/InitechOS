@@ -1,0 +1,13 @@
+# How to add an app to the desktop smoke:
+# 1. Build the real EXE through mk/tenant.mk and put it on the working volume.
+# 2. Create apps/<app>/tests/smoke/journey.sh (POSIX shell, ASCII).
+# 3. Define journey(); it starts at the first icon in the open APPS folder.
+# 4. Use launch_app NAME.EXE; inject 'kKEY,...' sends ordinary input.
+# 5. Use restore_pointer before quitting, then await_marker 'TENANT-EXIT rc=0 via=exit'.
+# 6. Use capture NAME for a QEMU PPM in the current smoke output directory.
+# 7. Save via the app's own command to a unique file, then quit cleanly.
+# 8. Add verify.sh beside it: args are disk image and output prefix.
+# 9. Verify saved text/data/codes with an independent reader, plus a red run.
+# 10. Add the directory below; run make smoke and record elapsed time.
+apps/initech123/tests/smoke
+apps/initechword/tests/smoke

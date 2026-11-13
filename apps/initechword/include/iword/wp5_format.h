@@ -152,7 +152,7 @@
  *      saved file). Bytes 0..1, 10..27 are the same in all three [constant
  *      as far as minted; their meaning is corpus GAPS F-2/F-3].
  * The payloads above are for the default 1"/1" margins; under other margins
- * see "margins and justification" below (slice 3; RULE 8 2026-10-16: slice 2
+ * see "margins and justification" below (slice 3; Capture correction 2026-10-16: slice 2
  * left them as they were after a margin change). */
 #define IW_WP5_C1              0xC1u
 #define IW_WP5_C1_LEN          9u
@@ -184,7 +184,7 @@
  * Minted for this slice from the real WP.EXE (5.1, 03-09-92) under DOSBox-X
  * (../wordperfect51-decomp tools/mint_drive.sh, mint/wpMINT21..24.steps;
  * documents mint/work/WP51/MINT21, 22, 23, 24A, 24; ledger re/mint-results-
- * 004.md). RULE 8, 2026-10-16 (deliberate, stated): the payload note of the
+ * 004.md). Capture correction, 2026-10-16 (deliberate, stated): the payload note of the
  * tabs block above ("left as they are after a margin change") is replaced by
  * the rows below -- WP measures tabs, indents and C6 from the margins in
  * effect (MINT21, MINT23).
@@ -225,7 +225,7 @@
  *      justified." 59, 7080; MINT24A 63 chars -> 11, 1320; 44 -> 20, 2460).
  *      WP rewrites them as the text changes (MINT24A "xQyz": 40, 4860 after
  *      the Q went in).
- * WRAP (RULE 8, 2026-10-16, deliberate: corrects IW_WP5_WRAP_COLS 65 -> 66
+ * WRAP (Capture correction, 2026-10-16, deliberate: corrects IW_WP5_WRAP_COLS 65 -> 66
  *      below). A character fits on the line when it STARTS at or before the
  *      right margin position: a line holds (10200 - R - L) / 120 + 1
  *      characters -- 66 at 1"/1" (MINT22 @0x147: twelve "wxyz " + "abcdef",
@@ -342,7 +342,7 @@
  * default setting is for a 1" margin on each side of the page" (Margins,
  * Left and Right, p. 394, PDF 411); the default paper is "Standard 8 1/2" x
  * 11"" (Conversion, PDF 154). */
-/* RULE 8, 2026-10-16 (bead initech-jojk slice 3, deliberate): 66, was 65.
+/* Capture correction, 2026-10-16 (bead initech-jojk slice 3, deliberate): 66, was 65.
  * The (8.5 - 1 - 1) * 10 = 65 above counts the columns between the margins;
  * WP also lets a character START on the right margin (MINT22: a 66-character
  * line, see "margins and justification" WRAP). This is the number of

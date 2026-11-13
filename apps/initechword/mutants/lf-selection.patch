@@ -1,0 +1,14 @@
+# test: test_iword_listfiles_ops
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1458,9 +1458,7 @@
+     g_lf_sel = sel < lf_slots() ? sel : lf_slots() - 1u;
+     /* Real WP shots 32/33: Copy retains the source; Rename follows its
+      * new alphabetical position. Delete selects the next remaining entry. */
+-    if (g_lf_op != '2') for (uint32_t i = 0; i < g_lf_n; i++) {
+-        if (lf_cat(path, g_lf_dir, g_lf_ent[i].name) && lf_same(path, keep)) { g_lf_sel = i + 2u; break; }
+-    }
++    (void)path; (void)keep; /* MUTANT: keep the old slot after the re-sort. */
+     if (g_lf_sel / 2u >= IW_LF_FACE_LIST_ROWS) g_lf_top = g_lf_sel / 2u - (IW_LF_FACE_LIST_ROWS - 1u);
+ }
+ 

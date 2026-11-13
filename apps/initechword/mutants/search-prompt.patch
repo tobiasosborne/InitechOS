@@ -1,0 +1,11 @@
+# test: test_iword_search
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -767,6 +767,7 @@
+         else if (g_mode == M_RTEXT) t = "Replace with:";
+         else if (g_mode == M_SEARCH || g_mode == M_RSEARCH) {
+             t = g_search_back ? "<- Srch:" : "-> Srch:";
++            t = "Search:";
+         }
+         else if (g_mode == M_FONT) t = IW_FONT_MENU;
+         else if (g_mode == M_FONTBLK) t = IW_FONT_BLK_MENU;   /* MINT28 07 */

@@ -1,0 +1,11 @@
+# test: test_iword_search
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -816,6 +816,7 @@
+         if (g_mode == M_GRAY) r.fg = TBX_COLOR_GRAY;
+         else {
+             r.inv_col = (uint8_t)query_cursor; r.inv_len = 1;
++            r.inv_len = 0;
+         }
+         put_row(line, &r);
+     } else put_text_row(line, s);

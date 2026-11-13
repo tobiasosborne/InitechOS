@@ -1,0 +1,13 @@
+# test: test_iword_reveal_codes
+--- a/core/codes.c
++++ b/core/codes.c
+@@ -337,6 +337,9 @@
+              * Left / Center, MINT23 Left, MINT24A 02_reveal Right, MINT24
+              * 04_bs_question Center; Full from the menu, MINT22 02) */
+             static const char *const J[4] = { IW_RV_JUST_LEFT, IW_RV_JUST_FULL, IW_RV_JUST_CENTER, IW_RV_JUST_RIGHT };
++            /* MUTANT (test-iword-reveal-codes-mutant): every
++             * justification shows as Left. NEVER real. */
++            return put(out, cap, n, J[0]);
+             if (g[5] < 4u) return put(out, cap, n, J[g[5]]);
+         }
+         if (g[1] == IW_WP5_SPACING_SUB && got >= IW_WP5_SPACING_LEN && u16at(g, 2) == 8u) {

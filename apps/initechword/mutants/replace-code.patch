@@ -1,0 +1,11 @@
+# test: test_iword_replace
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2458,6 +2458,7 @@
+     if (g_ed.doc.len - (g_re-g_rs) + g_replacement_n > g_ed.doc.max_len ||
+         g_ed.doc.add_cap - g_ed.doc.add_len < g_replacement_n ||
+         g_ed.doc.pc_cap - g_ed.doc.npc < 4u) return IW_E_FULL;
++    if (g_find[0] >= 0xC0) { g_ed.cur = g_re; return IW_OK; }
+     (void)iw_doc_delete(&g_ed.doc, g_rs, g_re-g_rs);
+     if (g_replacement_n && iw_doc_insert(&g_ed.doc, g_rs, r, g_replacement_n) != IW_OK) return IW_E_FULL;
+     g_ed.cur = g_search_back ? g_rs : g_rs + g_replacement_n;

@@ -1,0 +1,13 @@
+# test: test_iword_reveal_codes
+--- a/core/codes.c
++++ b/core/codes.c
+@@ -376,6 +376,9 @@
+     uint32_t p = ln->start, n = 0;
+     *cur_off = NONE;
+     *cur_len = 0;
++    /* MUTANT (test-iword-reveal-codes-mutant): the block's anchor is
++     * not shown. NEVER real. */
++    blk = IW_NO_BLOCK;
+     while (p < ln->end) {
+         uint32_t before;
+         /* the block's anchor (MINT13 01b_block_reveal "word[Block]s[bold]") */

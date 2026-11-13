@@ -76,7 +76,7 @@
  *   (slice 3, the FORMAT family below: TAB_ABS / NO_LEAD / OLD_STALE /
  *   WRAP_65                                                  -> format)
  *
- * Deterministic (fixed seeds, Rule 11). ASCII-clean.
+ * Deterministic (fixed seeds; CLAUDE.md, The constitution). ASCII-clean.
  */
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,0 +1,18 @@
+# test: test_iword_wp5_roundtrip
+--- a/fs/wp5.c
++++ b/fs/wp5.c
+@@ -72,13 +72,7 @@
+     for (i = 0; i < prefix_len; i++) out[i] = prefix[i];
+     n = iw_doc_read(d, 0, out + prefix_len, d->len);
+     if (n != d->len) return IW_E_RANGE;
+-
+-    if (prefix_len == IW_WP5_DEFAULT_DOCSTART && cur != IW_WP5_CUR_KEEP) {
+-        int dflt = 1;
+-        for (i = 0; i < prefix_len && dflt; i++)
+-            if (i != IW_WP5_PFX_CURSOR_OFF && prefix[i] != DEFAULT_PREFIX[i]) dflt = 0;
+-        if (dflt) out[IW_WP5_PFX_CURSOR_OFF] = cur < d->len ? IW_WP5_PFX_NOT_AT_END : 0x00u;
+-    }
++    (void)cur;
+     *out_len = prefix_len + n;
+     return IW_OK;
+ }

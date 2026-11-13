@@ -1,0 +1,24 @@
+# test: test_iword_codes
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -1048,20 +1048,6 @@
+                 uint8_t h[IW_WP5_MARGIN_LEN];
+                 uint32_t got = iw_doc_read(d, p, h, sizeof h);
+                 int fk = fmt_kind(h, got);
+-
+-                if (fk == 1) {
+-                    u16put(g, run.lm);
+-                    u16put(g + 2, IW_WP5_PAPER_WPU - run.rm);
+-                    rc = put_bytes(d, p + IW_WP5_VAR_HDR, g, 4u);
+-                } else if (fk == 2) {
+-                    g[0] = (uint8_t)run.just;
+-                    rc = put_bytes(d, p + IW_WP5_VAR_HDR, g, 1u);
+-                } else if (fk == 3) {
+-                    /* MINT26: [Ln Spacing:3] saved with old 1 once the
+-                     * [Ln Spacing:1.33] before it was deleted */
+-                    u16put(g, run.sp);
+-                    rc = put_bytes(d, p + IW_WP5_VAR_HDR, g, 2u);
+-                }
+                 fmt_take(h, fk, &run);
+             }
+             c = advance(k, c);

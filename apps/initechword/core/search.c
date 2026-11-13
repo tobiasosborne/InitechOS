@@ -9,14 +9,8 @@ static int same_unit(const iw_doc_t *d, uint32_t p, const iw_doc_t *q, uint32_t 
     uint32_t dn = iw_unit_next(d, p) - p, qn = iw_unit_next(q, t) - t;
     int a = iw_doc_byte(d, p), b = iw_doc_byte(q, t);
     if (dn != qn) return 0;
-#ifndef IWORD_MUT_SEARCH_CASE
     /* A lower-case query accepts either case; uppercase is literal. */
     if (qn == 1 && b >= 'a' && b <= 'z' && a >= 'A' && a <= 'Z') a += 'a' - 'A';
-#endif
-#ifdef IWORD_MUT_SEARCH_CODE
-    /* Mutant: mistake attribute-off for attribute-on. */
-    if (b == 0xC3 && a == 0xC4) return iw_doc_byte(d, p+1) == iw_doc_byte(q, t+1);
-#endif
     if (a != b) return 0;
     /* Tab / indent carry their position in the document; the Search token
      * names the feature, not its screen coordinate (Reference p. 572). */
@@ -41,13 +35,7 @@ int iw_search(const iw_doc_t *d, const iw_doc_t *q, uint32_t from, int back,
               uint32_t *start, uint32_t *end)
 {
     uint32_t p, e;
-#ifdef IWORD_MUT_SEARCH_WRITE
-    if (d->len) (void)iw_doc_set((iw_doc_t *)d, 0, '!');
-#endif
     if (!q->len || !iw_is_boundary(d, from)) return IW_E_RANGE;
-#ifdef IWORD_MUT_SEARCH_BACK
-    back = 0;
-#endif
     p = from;
     if (back) {
         while (p) {

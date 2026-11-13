@@ -1,0 +1,13 @@
+# test: test_iword_face
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1206,6 +1206,9 @@
+      * initech-tdnl.91). */
+     if (flatten(&n) != IW_OK) { error("ERROR: Document too large", M_EDIT); return; }
+     wn = n;
++    /* MUTANT (test-flair-iword-mutant): the save writes no byte --
++     * an empty file is left behind. NEVER real. */
++    wn = 0;
+     /* initech-mcep (audit 2026-10-23-iword L001/L002): the atomic save -- a
+      * write that does not fit leaves the last saved version (and a failed new
+      * name leaves no file at all). A refused CREATE / DELETE / RENAME is the

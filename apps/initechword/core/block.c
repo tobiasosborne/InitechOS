@@ -78,11 +78,6 @@ int iw_ed_block_copy(iw_ed_t *e, uint8_t *buf, uint32_t cap, uint32_t *n)
     iw_ed_block_span(e, &s, &t);
     on_s = iw_attr_state(&e->doc, s);
     on_t = iw_attr_state(&e->doc, t);
-#ifdef IWORD_MUT_COPY_BARE
-    /* MUTANT (test-iword-codes-mutant): the copy is the block's
-     * bytes alone, not self-contained. NEVER real. */
-    on_s = on_t = 0;
-#endif
     k = codes(0, 0, 0, on_s, IW_WP5_ATTR_ON) + (t - s) + codes(0, 0, 0, on_t, IW_WP5_ATTR_OFF);
     *n = 0;
     if (k > cap) return IW_E_FULL;
@@ -111,11 +106,6 @@ int iw_ed_block_cut(iw_ed_t *e, uint8_t *buf, uint32_t cap, uint32_t *n)
     on_s = iw_attr_state(d, s);
     on_t = iw_attr_state(d, t);
     diff = on_s ^ on_t;
-#ifdef IWORD_MUT_CUT_NO_MEND
-    /* MUTANT (test-iword-codes-mutant): the cut leaves no codes where
-     * the block was -- the text after it changes its attributes. NEVER real. */
-    diff = 0;
-#endif
     k = codes(mend, sizeof mend, 0, diff & on_t, IW_WP5_ATTR_ON);
     k = codes(mend, sizeof mend, k, diff & ~on_t, IW_WP5_ATTR_OFF);
     /* all or nothing: a delete (one split) and an insert (two) */
@@ -149,9 +139,7 @@ int iw_ed_retrieve(iw_ed_t *e, const uint8_t *buf, uint32_t n)
     while (p < d->len) {
         int on, a = iw_code_attr(d, p, &on);
         uint32_t q = iw_unit_next(d, p);
-#ifndef IWORD_MUT_RETRIEVE_DUP
-        /* MUTANT knob (test-iword-codes-mutant): IWORD_MUT_RETRIEVE_DUP
-         * keeps the redundant codes -- a doubled [BOLD], a stray [bold]. */
+
         if (a >= 0 && (on ? (st & abit((uint32_t)a)) != 0u : (st & abit((uint32_t)a)) == 0u)) {
             if (d->npc + 1u > d->pc_cap) return IW_E_FULL;
             rc = iw_doc_delete(d, p, q - p);
@@ -159,7 +147,6 @@ int iw_ed_retrieve(iw_ed_t *e, const uint8_t *buf, uint32_t n)
             if (end > p) end = end >= q ? end - (q - p) : p;
             continue;
         }
-#endif
         if (a >= 0) st = on ? (st | abit((uint32_t)a)) : (st & ~abit((uint32_t)a));
         p = q;
     }
@@ -206,11 +193,6 @@ int iw_ed_block_attr(iw_ed_t *e, uint8_t attr)
     rc = iw_doc_insert(d, t, off, sizeof off);
     if (rc == IW_OK) rc = iw_doc_insert(d, s, on, sizeof on);
     if (rc != IW_OK) return rc;
-#ifdef IWORD_MUT_BLK_CUR_START
-    /* MUTANT (test-iword-codes-mutant): the cursor always goes
-     * after the off code, whichever end of the block it was at. NEVER real. */
-    at_end = 1;
-#endif
     e->cur = at_end ? t + 2u * IW_WP5_ATTR_LEN : s + IW_WP5_ATTR_LEN;
     e->blk = IW_NO_BLOCK;
     e->goal = NONE;

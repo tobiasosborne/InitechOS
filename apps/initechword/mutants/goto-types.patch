@@ -1,0 +1,13 @@
+# test: test_iword_face
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2316,6 +2316,9 @@
+         return;
+     }
+     if (vk == VK_BSPC || ch == 8) { if (g_goto_n) g_goto[--g_goto_n] = 0; return; }
++    /* MUTANT (test-iword-face-mutant): the digits go into the
++     * document as typing, as before Go To existed. NEVER real. */
++    if (ch >= '0' && ch <= '9') { g_mode = M_EDIT; (void)edit(ED_TYPE, (uint8_t)ch); return; }
+     if (ch >= '0' && ch <= '9') {
+         if (g_goto_n < GOTO_DIGITS) { g_goto[g_goto_n++] = ch; g_goto[g_goto_n] = 0; }
+         return;

@@ -1,0 +1,12 @@
+# test: test_iword_listfiles_ops
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1500,6 +1500,8 @@
+      * Current, Parent or a directory to a file verb. */
+     if (!lf_file_path(g_shown)) return;
+     scopy(g_lf_src, g_path);
++    /* MUTANT: address the editing document instead of the highlighted file. */
++    scopy(g_lf_src, "WRONG.TXT");
+     g_lf_op = (uint8_t)op;
+     g_lf_full = 0;
+     if (op == '2') { lf_question(IW_LF_DELETE, g_lf_src); g_mode = M_LFDELETE; }

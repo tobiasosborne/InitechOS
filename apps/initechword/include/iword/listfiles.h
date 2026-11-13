@@ -120,7 +120,7 @@
 #define IW_LF_MENU1_BRIGHT   "B B         B B       B B            B B      B B"
 #define IW_LF_MENU2          "6 Look; 7 Other Directory; 8 Copy; 9 Find; N Name Search: 6"
 #define IW_LF_MENU2_BRIGHT   "B B     B B                B B     B B     B B            B"
-/* The period-gray table (Rule 8 note, initech-qvgd): {key, menu row 1|2,
+/* The period-gray table (capture note, initech-qvgd): {key, menu row 1|2,
  * first col, last col, live}. Unbuilt items are GRAY; their keys ignored. */
 /* initech-7aou PM ruling: WP Reference List Files PDF 364-370 + fixtures/iword-listfiles-ops real WP mint: 2/3/8 live. */
 #define IW_LF_ITEMS { \

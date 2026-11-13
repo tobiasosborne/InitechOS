@@ -1,0 +1,11 @@
+# test: test_iword_listfiles
+--- a/core/listfiles.c
++++ b/core/listfiles.c
+@@ -73,7 +73,6 @@
+  * DESKTOP.DB and TRASH, date and time 0, list with blank date and time). */
+ static void put_dos_stamp(char *row, uint32_t col, uint16_t date, uint16_t time)
+ {
+-    if (date == 0u) return;
+     iw_lf_put_date(row + col, 1980u + (date >> 9), (date >> 5) & 15u, date & 31u);
+     iw_lf_put_time(row + col + IW_LF_E_TIME - IW_LF_E_DATE, time >> 11, (time >> 5) & 63u);
+ }

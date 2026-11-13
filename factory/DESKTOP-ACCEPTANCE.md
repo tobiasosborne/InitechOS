@@ -1,75 +1,94 @@
-# Vertical slice acceptance
+# Desktop journey acceptance
 
-S1 f165d099: product composition (186010 bytes), standalone kernel, DOS smoke
-on QEMU and Bochs, FLAIR reaches the weak not-installed hook. Top make test green.
-Toolbox fix 6c1a628a removes the retired WINDOW_ENABLE_R1_OPS build guard;
-the existing resize/zoom/collapse bodies are unchanged. Full make test green.
-S2 5d43aba3: Finder desktop, cursor, Special > Exit to InitechDOS, prompt and
-FLAIR again on QEMU. IRQ-masked 8042 polling preserves the legacy ordering.
-S3 b749f26d: INITECH -> APPS -> exactly 123.EXE and 123.MNU; the product
-AUTOEXEC.BAT ends with FLAIR. DOS smoke uses a private prompt-starting disk.
-S4 ef6f004e: launch, entry, /File Save, quit, DOS and FLAIR again; independent
-mtools/real-Lotus-corpus reader sees A1=123, B1=1.5 and C1 formula
-@SUM(A1..B1), cache 124.5, relative range RPN and proper EOF, 1461 bytes.
+The factory owns boot, Finder disk/APPS navigation, input transport, serial
+progress waits, fault checks, captures, DOS/FLAIR reentry and the live legacy
+pixel comparison. desktop-journeys.list registers app-owned directories; its
+first ten comment lines describe adding an app. Each directory supplies
+journey.sh and verify.sh. All registered journeys share one product boot and
+one writable disk per emulator; no test personality is linked into the OS.
 
-S5: make smoke includes factory/smoke-desktop.sh in addition to the existing
-DOS session. Desktop checks on QEMU and Bochs are startup, Finder navigation,
-123 entry/save/quit, independent worksheet readback, video and CPU-fault checks.
-The QEMU desktop session also exits to a live A:\> and starts FLAIR again.
-Both run at 8 MiB. Bochs uses the installed pentium CPU and its LGPL VGA BIOS
-with extension=vbe (mode 0101); QEMU uses CPU 486, acpi=off and 640x480x32.
-Screenshots: build/smoke-desktop/{desktop,disk,apps,sum,dos,qemu,legacy}.ppm.
-Serial, reports, QEMU fault logs, copied disks and reader listings remain there.
+The 123 journey preserves the original input and independent Lotus reader:
+A1 integer 123, B1 number 1.5, C1 @SUM(A1..B1), cached 124.5, exact relative
+range RPN, exactly three value records and a proper EOF. The compatibility
+readback-worksheet.sh entry forwards to that app-owned verifier.
 
-factory/red-desktop.sh applies and restores two patch-file mutants. The save
-mutant writes a zero-length worksheet: the session completes but fails with
-FAIL desktop: QEMU worksheet content. Restoring the old file cap gives
-TENANT-LOAD-FAIL name=123.EXE rc=3 and FAIL desktop: QEMU session. The strict
-factory W marker wait stops input on missing progress; it no longer continues
-into a different UI state. Both mutations are killed and sources restored.
-No mutant is compiled into the product by ordinary build flags.
+Both frontends use W marker waits. desktop-bochs.c adds occurrence-counted
+serial waits to the unchanged Bochs RFB driver, via desktop-tools.mk; no shared
+driver or factory/Makefile edit. Every awaited marker and its count is checked
+afterward. QEMU additionally exits to a real A:\> and starts FLAIR again.
+QEMU runs CPU 486, 8 MiB, acpi=off, -d int,guest_errors,cpu_reset; two power-on
+resets and zero errors/exceptions are required. Bochs uses the installed
+pentium CPU at 8 MiB, VBE mode 0101 and requires zero triple faults.
 
-S5 make repro: two clean builds identical, 56.42 seconds wall on this host:
-boot e6a95046c0c5a961ad762c2ea6337a99912a8842f1b98746e1342ee3b7fb8482
-data c8f046cba02b8f0a669e7a26c479896f78b2ed61ba96ce4995f60b5a5ee95b70
-standalone kernel 6828c24d98ef745b4c7d83f9aae4c6fd05f9d2f40461c215385fc0b163686d12
-Product INITDOS.SYS: 268894 bytes; standalone: 106116; boot disk 1507328;
-working disk 1474560. S6 may change these bytes; final measurements follow.
+Original desktop: 29.94 s. Extracted 123-only journey: 31.07 s, both emulators
+green, same four independent legacy pixel regions unchanged. The complete
+original make smoke (DOS, probes, desktop, Turbo Initech) passed in 242.81 s;
+this includes waiting for other engineers' serialized Bochs sessions.
+Raw evidence: build/{baseline-desktop,journeys-123,smoke-baseline}*.{log,time},
+build/journeys-123/{qemu,bochs}.{serial,report} and pixels.txt.
 
-Live legacy comparison is informational. The reference is rebuilt from the
-read-only legacy-final tree, then booted and captured using the same pinned
-RTC. The initial ready-marker comparison found 186 clock pixels because the
-product first clock poll had not run. The final reference waits for its clock
-paint. The disk icon, Trash icon and unobscured desktop pattern already had
-zero pixel differences. Band 2 intentionally shows the Finder; legacy showed
-the Photoshop reference tenant. HELLO and NOTES are absent by product design.
+red-desktop.sh retains the original empty-worksheet and loader-cap controls.
+An empty save completes the UI session but fails the host worksheet reader;
+the loader cap stops QEMU input at the missing launch marker. Production
+sources are restored even on interruption. Red runs are intentionally separate
+from ordinary make smoke.
 
-Deferred attic ownership: additional trace/checker imports belong to the
-desktop; kernel/DOS tests and mutations belong to import/kernel-tests;
-shared build conventions belong to conventions/hardening. No attic input is
-read by any product build introduced here.
+Word now joins the same boot: its F6 Bold pair encloses reports in the exact
+text office reports are ready.; F10 writes WORD.WP5; F7/n/y exits. The real
+WordPerfect corpus reader requires that text, both attribute tokens in order,
+and END offset == filesize with zero trailer errors. The empty-save patch is
+the third red control; it fails specifically at the independent host verifier.
 
-S6 extraction: scene.c 260 lines, input.c 78, tracking.c 716, finder_glue.c
-589, launch.c 91, volumes.c 198, dialogs.c 607, start.c 296. Internal shared
-state/prototypes are component-private. The heap descriptor retains static
-lifetime. Exit restores the prior INT81 IDT gate. The initial scene now builds
-zero windows, rather than creating and hiding two canon specimens. The generic
-shell builder permits zero document windows; legacy nonempty scenes still pass
-the retained shell/drag host oracles. kmain_legacy.c retains 335 unbuilt lines.
+launch_app uses the independent mtools directory listing to locate a named
+EXE in the default four-column Finder grid. It does not infer any expected
+saved data from the product. restore_pointer runs before each app exits, so
+subsequent journeys start from the same anchor. Bochs's final W is supplied
+by its completion-marker/count check, retaining its input-after-completion
+failure. The guest RTC is pinned to 1992-03-01 09:00 UTC on both emulators.
+The frontend regression test covers validation vs live replay, waiting for
+a new occurrence of repeated progress, and invalid input tokens.
 
-Final clean builds (53.55 s):
-boot 3e3d92aa5e1eb8d37b4cccc6797e1fe89568f7c302260c7579ac5a640443126b
-data c8f046cba02b8f0a669e7a26c479896f78b2ed61ba96ce4995f60b5a5ee95b70
-product 74709462e8adb65539d49fad452c13865d4bb4741723e1a7a5a420040b1c0d4b
-standalone 6828c24d98ef745b4c7d83f9aae4c6fd05f9d2f40461c215385fc0b163686d12
-Final product 268670 bytes; standalone 106116; disk sizes unchanged. The repeat
-red sweep after extraction killed both patches in 56.27 seconds and restored
-all sources. Final live comparison: 0/12800 system-menu pixels, 0/3025 disk-icon,
-0/4675 Trash and 0/8360 exposed-background pixels differ. It is informational,
-not a claim that the entire new desktop equals a two-reference-app legacy frame.
+The only shared-file change is one recipe line in factory/Makefile: image
+calls desktop-build.sh before image/build.sh. That mechanism builds every
+registered app's actual artifacts, so a clean image/repro also includes Word
+without adding another application dependency to the top-level Makefile.
 
-Final make test: ALL GREEN, 65.35 seconds wall. Desktop: 17 host suites and
-import/target audit; system: both links and standalone boundary/transport.
-Final make smoke: 61.56 seconds wall, DOS 4 checks/0 failures and desktop
-5 checks/0 failures. QEMU: triple_fault=0 cpu_reset=2 guest_errors=0, no
-check_exception record. Bochs: triple_fault=0, mode 0101.
+Final wave-2 acceptance (local branch wave2/initechword):
+
+- make smoke: green, 131.48 s wall (original: 242.81 s). Both runs include
+  the DOS session, separate probe disk, desktop and native Turbo Initech/FPC
+  comparisons. Bochs lock waiting varies with other engineers' sessions;
+  these raw wall measurements are not an isolated speedup claim.
+- Desktop alone: original 29.94 s; extracted 123-only 31.07 s; both journeys
+  42.95 s standalone, 40 s inside the final full smoke. Each app adds its own
+  input/readback, not another boot. Final desktop: 9 checks, zero failures;
+  the four live legacy pixel comparisons still have zero differing pixels.
+- factory/red-desktop.sh: all three controls rejected, 71.16 s; empty 123
+  save, restored 64 KiB loader cap, empty Word save. Each failed for its
+  named reason, not an unrelated failure; all product patches were restored.
+- make -C apps/initechword test: 13 programs, zero failures. Direct C suite
+  summaries sum to 3147 checks; the three 32-file corpus legs add 19247:
+  22394, unchanged. All face tests link the shared sdk/host fake.
+- make -C apps/initechword mutants: 73 patches, 73 killed twice, zero
+  survivors/errors, 395 s. All 75 original sites are represented; none is
+  pending. The old catalogue's BLK_CUR_START and SENT_BARE catchers needed
+  reveal/roundtrip selections, not weaker assertions. Deep scratch paths
+  exposed a test-only path buffer overflow; checked 1024-byte paths fix it.
+- WORD.EXE SHA-256 before and after removing every product mutation hook and its comments:
+  9453efb0e90e0ff491cb9cf630c928a70294316f9652329a6432b0b891ea698e
+- make status: apps/initechword: imported.
+- make -j16 test: registered 11, run 11; ALL GREEN, 90.19 s wall.
+- make repro: two clean builds identical, 42.84 s wall. Kernel/product/boot
+  hashes remain the original values; working-volume SHA-256 with Word is
+  d5110fbb7de3363b6ea25abfa2b9e60874821c50821acffacd03e7c49d5bbc62.
+- Current Word captures: build/smoke-desktop/word{,-saved}.{ppm,png}.
+  Retained serial/report/disks/readback: build/smoke-desktop/. Exact positive
+  command logs: build/{smoke-final,all-test-final,word-test-final,word-repro,
+  word-mutants-final,status-word}.log; red logs: build/word-red-final.log
+  and build/red-desktop/. Baseline evidence survived the clean repro.
+
+Present depth and 69 unavailable visible labels (49 command entries plus
+20 advertised children of blocked Format groups) are frozen in
+apps/initechword/README.md. Broader legacy pixel-heavy gates remain with the
+InitechWord/factory importer in apps/initechword/tests/SMOKES.md; publication
+artifacts and the kernel FAT differential retain their original owners.

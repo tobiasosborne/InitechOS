@@ -1,0 +1,11 @@
+# test: test_iword_undo
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1053,6 +1053,7 @@
+             iw_doc_init(&g_ed.doc, 0, 0, &pc, 1, BANK);
+             iw_doc_load(&g_ed.doc, g_preview, saved.doc.len+n);
+             g_ed.blk = at; g_ed.cur = at+n;
++            g_ed.blk = IW_NO_BLOCK;
+         }
+         iw_ed_where(&g_ed, &w); paint_doc(&w, EDIT_ROWS); paint_status(&w, LINE_STATUS);
+         g_ed = saved;

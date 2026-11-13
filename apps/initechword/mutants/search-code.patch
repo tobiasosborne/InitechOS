@@ -1,0 +1,12 @@
+# test: test_iword_search
+--- a/core/search.c
++++ b/core/search.c
+@@ -11,6 +11,8 @@
+     if (dn != qn) return 0;
+     /* A lower-case query accepts either case; uppercase is literal. */
+     if (qn == 1 && b >= 'a' && b <= 'z' && a >= 'A' && a <= 'Z') a += 'a' - 'A';
++    /* Mutant: mistake attribute-off for attribute-on. */
++    if (b == 0xC3 && a == 0xC4) return iw_doc_byte(d, p+1) == iw_doc_byte(q, t+1);
+     if (a != b) return 0;
+     /* Tab / indent carry their position in the document; the Search token
+      * names the feature, not its screen coordinate (Reference p. 572). */

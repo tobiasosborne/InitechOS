@@ -1,0 +1,11 @@
+# test: test_iword_search
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2485,6 +2485,7 @@
+     int plain = !(mods & (FLAIR_EVT_MOD_SHIFT_KEY | FLAIR_EVT_MOD_OPTION_KEY | FLAIR_EVT_MOD_CONTROL_KEY));
+     query_view(&q, &pc);
+     if (vk == VK_F1) {
++        g_ed.cur = 0;
+         g_mode = M_EDIT; return;
+     }
+     if (vk == VK_F2 || vk == VK_ESC || ch == 0x1B) {

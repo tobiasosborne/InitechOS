@@ -1,0 +1,14 @@
+# test: test_iword_reveal_codes
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -756,6 +756,10 @@
+     iw_where_t wh;
+     e->goal = NONE;
+     iw_ed_where(e, &wh);
++    /* MUTANT (test-iword-codes-mutant): Home, Home, Home, Left
++     * stops after the codes, as Home, Left does. NEVER real. */
++    iw_ed_line_home(e);
++    return;
+     e->cur = after_lead(&e->doc, wh.line_start);
+ }
+ 

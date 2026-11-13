@@ -1,0 +1,15 @@
+# test: test_iword_undo
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2615,10 +2615,7 @@
+     else prompt_key(ch, vk);
+     /* Reference p. 697: ANY cursor motion ends a deletion group, including
+      * Search. The motion caused by the deletion itself remains in its group. */
+-    if (g_ed.cur != cur_before &&
+-        !((mode_before == M_EDIT || mode_before == M_GRAY) && (vk == VK_DEL || vk == VK_BSPC || ch == 8)) &&
+-        !((mode_before == M_DELCODE || mode_before == M_DELBLOCK) && (ch == 'y' || ch == 'Y')) &&
+-        !(mode_before == M_MOVEBLK && ch == '3')) g_undo_join = 0;
++    (void)cur_before; (void)mode_before;
+     paint();
+ }
+ 

@@ -14,66 +14,30 @@
 #define ENTER VK_ENTER
 
 static const char *grids;
-static int budget = -1, fail_read, fail_close, fail_rename, deletes, creates;
-static int fail_close_handle;
+#define budget (tbx_host.write_budget)
+#define fail_read (tbx_host.file_error[TBX_FILE_READ])
+#define fail_close (tbx_host.fail_close)
+#define fail_close_handle (tbx_host.fail_close_handle)
+#define fail_rename (tbx_host.file_error[TBX_FILE_RENAME])
 static iw_ed_t document_before;
-static int protected_attempts;
-static int ro(const char *p) { size_t n = strlen(p); return n >= 8 && !strcmp(p+n-8,"LOCK.TXT"); }
-static void rec(uint8_t *r, const char *name, const struct stat *s, const char *path)
-{
-    memset(r, 0, TBX_FIND_REC_BYTES);
-    r[0] = S_ISDIR(s->st_mode) ? 0x10 : (ro(path) ? 0x21 : 0x20);
-    uint32_t n = S_ISDIR(s->st_mode) ? 0 : (uint32_t)s->st_size;
-    for (int i=0;i<4;i++) r[5+i] = (uint8_t)(n>>(8*i));
-    strncpy((char *)r+9,name,12);
+static int calls_named(const char *name) {
+    int n=0;for(unsigned i=0;i<tbx_host.nops;i++)if(!strcmp(tbx_host.ops[i].name,name))n++;return n;
 }
-int32_t tbx_file_find(const char *p,uint32_t attr,void *buf,uint32_t max)
-{
-    char hp[300], base[128]; struct stat st; uint32_t n=0; size_t len=strlen(p);
-    (void)attr; m_find_calls++;
-    if (len<3 || strcmp(p+len-3,"*.*")) {
-        host_name(p,hp); if(stat(hp,&st)) return TBX_ERR_DOS(2);
-        const char *leaf=strrchr(p,'\\'); leaf=leaf?leaf+1:p;
-        if(max) rec(buf,leaf,&st,p);
-        return max?1:0;
-    }
-    memcpy(base,p,len-3); base[len-3]=0; host_name(base,hp);
-    DIR *d=opendir(hp); if(!d) return TBX_ERR_DOS(3);
-    struct dirent *e;
-    while(n<max && (e=readdir(d))) {
-        char path[256]; if(strlen(e->d_name)>12)continue; snprintf(path,sizeof path,"%s%.12s",base,e->d_name); host_name(path,hp);
-        if(stat(hp,&st)) continue;
-        rec((uint8_t *)buf+n*TBX_FIND_REC_BYTES,e->d_name,&st,path); n++;
-    }
-    closedir(d); return (int32_t)n;
+#define creates calls_named("tbx_file_create_new")
+#define deletes calls_named("tbx_file_delete")
+static int protected_calls(void) {
+    int n=0;for(unsigned i=0;i<tbx_host.nops;i++) {
+        const tbx_host_op_t *o=&tbx_host.ops[i];
+        if((!strcmp(o->name,"tbx_file_delete")||!strcmp(o->name,"tbx_file_rename"))&&strstr(o->text,"LOCK.TXT"))n++;
+    }return n;
 }
-int32_t tbx_file_create(const char *p)
-{ char hp[300]; host_name(p,hp); creates++; FILE *f=fopen(hp,"w+b"); return f?new_handle(f):TBX_ERR_DOS(5); }
-int32_t tbx_file_create_new(const char *p)
-{ char hp[300]; struct stat s; host_name(p,hp); return !stat(hp,&s)?TBX_ERR_DOS(0x50):tbx_file_create(p); }
-int32_t tbx_file_open(const char *p,uint32_t mode)
-{ char hp[300]; (void)mode; host_name(p,hp); FILE *f=fopen(hp,"rb"); return f?new_handle(f):TBX_ERR_DOS(2); }
-int32_t tbx_file_read(int32_t h,void *b,uint32_t n)
-{ if(fail_read) return TBX_ERR_DOS(5); if(m_read_limit&&n>m_read_limit)n=m_read_limit; return fh(h)?(int32_t)fread(b,1,n,fh(h)):TBX_ERR_BADARG; }
-int32_t tbx_file_write(int32_t h,const void *b,uint32_t n)
-{ if(budget>=0&&n>(uint32_t)budget)n=(uint32_t)budget; if(m_write_limit&&n>m_write_limit)n=m_write_limit;
-  if(!fh(h))return TBX_ERR_BADARG;
-  int32_t rc=(int32_t)fwrite(b,1,n,fh(h)); if(budget>=0)budget-=rc; return rc; }
-int32_t tbx_file_seek(int32_t h,int32_t d,uint32_t o)
-{ FILE *f=fh(h); if(!f||fseek(f,d,o==TBX_FILE_FROM_END?SEEK_END:o==TBX_FILE_FROM_HERE?SEEK_CUR:SEEK_SET))return TBX_ERR_BADARG; return (int32_t)ftell(f); }
-int32_t tbx_file_close(int32_t h)
-{ if(!fh(h))return TBX_ERR_BADARG; fclose(fh(h));m_fh[h-5]=0; if(fail_close&&(!fail_close_handle||h==fail_close_handle)){fail_close=0;return TBX_ERR_DOS(5);}return 0; }
-int32_t tbx_file_delete(const char *p)
-{ char hp[300]; deletes++; if(ro(p)){protected_attempts++;return TBX_ERR_DOS(5);} host_name(p,hp);return remove(hp)?TBX_ERR_DOS(2):0; }
-int32_t tbx_file_rename(const char *a,const char *b)
-{ char ha[300],hb[300];struct stat s; if(ro(a)||ro(b)){protected_attempts++;return TBX_ERR_DOS(5);} if(fail_rename)return TBX_ERR_DOS(5);
-  host_name(a,ha);host_name(b,hb);if(!stat(hb,&s))return TBX_ERR_DOS(5);return rename(ha,hb)?TBX_ERR_DOS(2):0; }
+#define protected_attempts protected_calls()
 
 static void seed(const char *p,const char *s)
-{ char hp[300];host_name(p,hp);FILE *f=fopen(hp,"wb");if(!f){perror(hp);exit(2);}fwrite(s,1,strlen(s),f);fclose(f); }
+{ char hp[1024];host_name(p,hp);FILE *f=fopen(hp,"wb");if(!f){perror(hp);exit(2);}fwrite(s,1,strlen(s),f);fclose(f); }
 static int content(const char *p,const char *s)
-{ char hp[300],b[128];host_name(p,hp);FILE *f=fopen(hp,"rb");if(!f)return 0;size_t n=fread(b,1,sizeof b,f);fclose(f);return n==strlen(s)&&!memcmp(b,s,n); }
-static int exists(const char *p) { char hp[300];struct stat s;host_name(p,hp);return !stat(hp,&s); }
+{ char hp[1024],b[128];host_name(p,hp);FILE *f=fopen(hp,"rb");if(!f)return 0;size_t n=fread(b,1,sizeof b,f);fclose(f);return n==strlen(s)&&!memcmp(b,s,n); }
+static int exists(const char *p) { char hp[1024];struct stat s;host_name(p,hp);return !stat(hp,&s); }
 static int prompt(const char *shot)
 {
     char path[512],line[512];snprintf(path,sizeof path,"%s/%s.txt",grids,shot);FILE *f=fopen(path,"r");
@@ -107,7 +71,7 @@ static void active(void)
 static void open_ops(void)
 { fkey(F5,0);fkey(ENTER,0);fkey(DOWN,0);fkey(ENTER,0);fkey(ENTER,0); }
 static void no_temp(void)
-{ char hp[300];host_name("OPS",hp);DIR *d=opendir(hp);struct dirent *e;while((e=readdir(d)))CHECK(!strstr(e->d_name,".$$"),"ops-rollback","no temporary leaked");closedir(d); }
+{ char hp[1024];host_name("OPS",hp);DIR *d=opendir(hp);struct dirent *e;while((e=readdir(d)))CHECK(!strstr(e->d_name,".$$"),"ops-rollback","no temporary leaked");closedir(d); }
 static void alias_destinations(void)
 {
     /* Ref: fat12.c parse_name83's padded empty extension, REVIEW.md P1.
@@ -181,7 +145,7 @@ static void tests(void)
     active();
     /* More than either editor bank; repeated short transfers must copy ALL
      * bytes. A selected non-document is still an ordinary file operand. */
-    char hp[300];host_name("OPS\\BIG.DAT",hp);FILE *f=fopen(hp,"wb");
+    char hp[1024];host_name("OPS\\BIG.DAT",hp);FILE *f=fopen(hp,"wb");
     CHECK(f!=0,"ops-large","large source created");
     if(f){for(int i=0;i<100123;i++)fputc('A'+i%26,f);fclose(f);}
     open_ops();select_file("BIG.DAT");m_read_limit=37;m_write_limit=19;
@@ -276,9 +240,9 @@ int main(int argc,char **argv)
     if(argc!=3)return 2;
     m_dir=argv[1];grids=argv[2];
     (void)m_dirents;(void)m_ndirents;
-    char hp[300];host_name("OPS",hp);mkdir(hp,0700);host_name("OPS\\SUB",hp);mkdir(hp,0700);
+    char hp[1024];host_name("OPS",hp);mkdir(hp,0700);host_name("OPS\\SUB",hp);mkdir(hp,0700);
     seed("OPS\\ALPHA.TXT","ALPHA CONTENT\r\n");seed("OPS\\BETA.TXT","BETA KEEP\r\n");seed("OPS\\LOCK.TXT","LOCK KEEP\r\n");
-    m_free=1000000;if(tbx_app_main())return 2;paint_all();tests();
+    tbx_host_reset();m_clock=(cp_time_t){1992,3,1,9,0,0,0};m_free=1000000;if(tbx_app_main())return 2;paint_all();tests();
     printf("test-iword-listfiles-ops: %d checks, %d failures\n",counters[0],counters[1]);
     if(counters[1])fprintf(stderr,"RED-REASON listfiles-ops: selected-file prompt or safety contract\n");
     return counters[1]?1:0;

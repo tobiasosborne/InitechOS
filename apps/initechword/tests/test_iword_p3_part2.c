@@ -177,7 +177,7 @@ static void serial_undo(const char *path)
  * Navigation/features: Reference pp. 42, 160, 574-575, 698-700. */
 static void setup_test(void)
 {
-    char path[300]; uint8_t got[12]; FILE *f;
+    char path[1024]; uint8_t got[12]; FILE *f;
     m_read_limit = m_write_limit = 2; /* IBM DOS 3.30 6-137..6-140 */
     reset_face(); fkey(0x3B, SHIFT);
     CHECK(row_is(0, "Setup"), "setup", "Setup heading");
@@ -193,6 +193,7 @@ static void setup_test(void)
         f = fopen(path, "wb"); if (f) { fwrite(got, 1, n, f); fclose(f); }
         snprintf(path, sizeof path, "%s/IWORD.SET", m_dir);
     }
+    tbx_host.nwindows = 0; /* a fresh loader discards the previous windows */
     CHECK(tbx_app_main() == 0, "setup", "relaunch");
     fkey(0x3B, SHIFT); tks("38");
     CHECK(row_is(4, "1 Display and Entry of Numbers for Margins, Tabs, etc.  Centimeters"), "setup", "units survive relaunch");
@@ -201,6 +202,7 @@ static void setup_test(void)
     CHECK(row_is(6, "2 Original Document Backup  Yes"), "setup", "backup option survives relaunch");
     fkey(0x3B, 0); CHECK(g_mode == M_EDIT, "setup", "Cancel returns to document");
     f = fopen(path, "wb"); if (f) { fwrite("IWS1xx\1\0", 1, 8, f); fclose(f); }
+    tbx_host.nwindows = 0; /* a fresh loader discards the previous windows */
     CHECK(tbx_app_main() == 0, "setup", "invalid settings relaunch");
     fkey(0x3B, SHIFT); tks("38");
     CHECK(row_is(4, "1 Display and Entry of Numbers for Margins, Tabs, etc.  Inches"), "setup", "invalid record uses defaults");

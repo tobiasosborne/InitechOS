@@ -1,0 +1,18 @@
+# test: test_iword_codes
+--- a/core/block.c
++++ b/core/block.c
+@@ -139,14 +139,6 @@
+     while (p < d->len) {
+         int on, a = iw_code_attr(d, p, &on);
+         uint32_t q = iw_unit_next(d, p);
+-
+-        if (a >= 0 && (on ? (st & abit((uint32_t)a)) != 0u : (st & abit((uint32_t)a)) == 0u)) {
+-            if (d->npc + 1u > d->pc_cap) return IW_E_FULL;
+-            rc = iw_doc_delete(d, p, q - p);
+-            if (rc != IW_OK) return rc;
+-            if (end > p) end = end >= q ? end - (q - p) : p;
+-            continue;
+-        }
+         if (a >= 0) st = on ? (st | abit((uint32_t)a)) : (st & ~abit((uint32_t)a));
+         p = q;
+     }

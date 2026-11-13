@@ -1,0 +1,14 @@
+# test: test_iword_face
+--- a/core/edit.c
++++ b/core/edit.c
+@@ -383,9 +383,7 @@
+      * margin position) */
+     w = (c > col0 ? c - col0 : 0u) * IW_WP5_WPU_PER_COL;
+     ln->x0 = (uint16_t)(lf.lm + IW_WP5_WPU_PER_COL * col0);
+-
+-    if (lf.just == IW_WP5_JUST_CENTER && lf.rm >= lf.lm + w) ln->x0 = (uint16_t)(lf.lm + (lf.rm - lf.lm - w) / 2u);
+-    else if (lf.just == IW_WP5_JUST_RIGHT && lf.rm >= lf.lm + w) ln->x0 = (uint16_t)(lf.rm - w);
++    (void)w;
+     *fout = run;
+ }
+ 

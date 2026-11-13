@@ -1,0 +1,11 @@
+# test: test_iword_setup
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1117,6 +1117,7 @@
+ {
+     int32_t n;
+     for (uint32_t i = 0; i < IW_SETTINGS_SIZE; i++) g_settings_io[i] = g_settings[i];
++    g_settings_io[4] = 'i';
+     /* initech-mcep: the atomic save -- a settings write that does not fit
+      * keeps the old settings file. */
+     n = tbx_file_save(IW_SETTINGS_PATH, g_settings_io, IW_SETTINGS_SIZE);
