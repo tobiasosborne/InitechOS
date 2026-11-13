@@ -36,7 +36,17 @@ stage() {
     tail -n 8 "$work/$name.log"
 }
 clean_test() { make clean && make -j"${CERT_JOBS:-16}" test; }
-image_smoke() { make image && make smoke; }
+image_smoke() {
+    rc=0
+    make image && make smoke || rc=$?
+    # Repro removes build/. Preserve the transcripts needed to diagnose even
+    # an intermittent smoke failure before the next stage starts cleaning.
+    mkdir -p "$work/smoke"
+    for dir in build/smoke build/smoke-programs build/smoke-desktop build/turbo/smoke build/apps/initechbase/smoke; do
+        [ ! -d "$dir" ] || cp -R "$dir" "$work/smoke/$(printf '%s' "$dir" | tr / _)"
+    done
+    return "$rc"
+}
 selfhost_ddc() { make -C turbo selfhost && make -C turbo ddc; }
 board() {
     make status > "$work/board.txt" 2>&1 || return
