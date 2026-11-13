@@ -1,4 +1,4 @@
-/* Rule 2 probes: only SIGABRT counts, never a null dereference or a hang.
+/* CLAUDE.md, The constitution: probes: only SIGABRT counts, never a null dereference or a hang.
  * Ref: test_region.c's forked invariant probes; factory only. */
 #ifndef INITECH_EXPECT_ABORT_H
 #define INITECH_EXPECT_ABORT_H
