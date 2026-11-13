@@ -12,10 +12,9 @@ int main(int argc,char **argv)
 {
     if(argc!=2)return 2;
     FILE *ref=fopen(argv[1],"rb");if(!ref)return 2;
-    unsigned char expected[154];
+    unsigned char expected[896];
     if(fread(expected,1,sizeof expected,ref)!=sizeof expected || fgetc(ref)!=EOF)return 2;
     fclose(ref);
-    static const unsigned masks[]={0,1,2,4,6,8,0x0a,0x0e,0x16,0x1e,0x3f};
     static const uint8_t attrs[]={0x20,0x22,0x24,0x26,0x10,8,0x16};
     static const char names[][9]={"A0      ","A1      ","A2      ","A3      ","A4      ","A5      ","A6      "};
     bind_standard_process(); int21_set_sink(sink_capture); mock_reset_dir();
@@ -27,10 +26,10 @@ int main(int argc,char **argv)
     }
     int_frame_t f=fresh_frame(); f.eax=0x1a00;f.edx=(uint32_t)(uintptr_t)alloc_low(64);int21_dispatch(&f);
     unsigned at=0;
-    for(unsigned m=0;m<11;m++)for(unsigned i=0;i<7;i++)for(unsigned wild=0;wild<2;wild++) {
+    for(unsigned mask=0;mask<64;mask++)for(unsigned i=0;i<7;i++)for(unsigned wild=0;wild<2;wild++) {
         char path[20];snprintf(path,sizeof path,"A%u%s",i,wild?".*":"");
-        f=fresh_frame();f.eax=0x4e00;f.ecx=masks[m];f.edx=low_dup(path);int21_dispatch(&f);
-        if(frame_cf(&f)!=expected[at])fprintf(stderr,"search33 mask=%02x attr=%02x wild=%u expectedCF=%u gotCF=%d\n",masks[m],attrs[i],wild,expected[at],frame_cf(&f));
+        f=fresh_frame();f.eax=0x4e00;f.ecx=mask;f.edx=low_dup(path);int21_dispatch(&f);
+        if(frame_cf(&f)!=expected[at])fprintf(stderr,"search33 mask=%02x attr=%02x wild=%u expectedCF=%u gotCF=%d\n",mask,attrs[i],wild,expected[at],frame_cf(&f));
         CHECK(frame_cf(&f)==expected[at],"g8x3 exact/wild result vs genuine DOS 3.30 capture");at++;
     }
     return TEST_SUMMARY("search33");

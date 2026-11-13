@@ -3660,12 +3660,13 @@ static uint16_t find_scan(int_frame_t *f)
         }
         g_find.next_index++;
 
-        /* Genuine DOS 3.30: tests/fixtures/search33 matrix. 08h alone
-         * searches only labels; mixed masks admit ordinary entries too.
+        /* Genuine DOS 3.30: tests/fixtures/search33 matrix. Mask 08h after
+         * ignoring read-only/archive bits searches only labels; mixed
+         * H/S/directory masks admit ordinary entries too.
          * Every H/S/directory/label bit on the entry must be requested. */
         uint8_t special = (uint8_t)(de.attribute & 0x1eu);
         if ((special & (uint8_t)~g_find.search_attr) != 0u ||
-            (g_find.search_attr == 8u && !(special & DIR_ATTR_VOLLABEL))) {
+            ((g_find.search_attr & 0x1eu) == 8u && !(special & DIR_ATTR_VOLLABEL))) {
             continue;
         }
 
