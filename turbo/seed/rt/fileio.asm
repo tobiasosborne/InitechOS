@@ -2,7 +2,7 @@
 ;
 ; beads: initech-ogxv. Ref: ADR-0007 DEC-05;
 ; spec/int21h_calling_convention.json; live dispatcher functions in
-; os/milton/int21.c (do_creat/do_open/do_close/do_read/do_write).
+; kernel/int21.c (do_creat/do_open/do_close/do_read/do_write).
 ;
 ; This is a SEPARATE hand-assembled object following seed/rt/start.asm's
 ; convention. It is linked only into programs whose typechecked AST uses a
@@ -17,7 +17,7 @@
 ;
 ; INT-21h flat ABI (DEC-04a): AH=function, EDX=flat pointer, ECX=count,
 ; EBX=handle, EAX=result, CF=error with AX=error code. ANY CF error prints a
-; deterministic serial diagnostic and exits via AH=4Ch (Rule 2).
+; deterministic serial diagnostic and exits via AH=4Ch (CLAUDE.md, The constitution).
 
 bits 32
 

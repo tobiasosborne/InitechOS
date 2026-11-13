@@ -6,7 +6,7 @@
  *        8 KiB of the file and be 4-byte aligned); PRD Sec 6.7 / Sec 8.
  *        Adapted from harness/emu/fixtures/multiboot.ld (the seed keeps its
  *        OWN copy under seed/rt/ rather than editing the harness fixtures).
- *        CLAUDE.md Rule 11 (reproducible: no timestamps/host paths) / Rule 12.
+ *        CLAUDE.md, The constitution (reproducible builds; no host paths).
  *
  * QEMU's `-kernel` multiboot loader lands the image in 32-bit protected mode
  * with A20 on and flat segments. We link at 1 MiB (0x100000), the

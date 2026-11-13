@@ -1,6 +1,9 @@
 # Host test helpers
 
-Factory-only code; never linked into the product. Behavioral requirements are
+Factory-only code; never linked into the product. Public component-facing
+assertions live in factory/include/test_assert.h; testlib/test_assert.h is a
+compatibility forwarding header for existing clients. Both paths require a
+positive reported check count. Behavioral requirements are
 CLAUDE.md, The constitution and How the tree is organised, and the conventions
 hardening task. test_assert.h is the canonical CHECK / TEST_HARNESS /
 TEST_SUMMARY API; component copies should be deleted. TEST_SUMMARY retains the
@@ -58,6 +61,16 @@ run-mutants.sh runs one passing baseline per exact selection, zero-fuzz patches,
 requires compilation, then the same failing test set twice. Success deletes
 scratch; failure preserves it and prints its location. Empty selections fail.
 The seeded region generators/shrinker remain private to the region engine.
+
+The outer sweep uses per-invocation worker records and verifies every process
+exit and count summary against the owned patch inventory. Discovery, missing
+records/logs, malformed or partial counts, survivors and errors are all red.
+mutants/extra.list declares root-relative patches reused by an integration
+grader. Pending-only targets are invoked, not silently replaced with success;
+unimplemented targets fail. Pending patches remain explicitly unproved, and
+certificate summaries mark successful active checks with pending coverage as
+PASS_PENDING. The testlib fixtures include killed-worker and false-summary
+controls against the actual sweep.
 
 Adoption for in-flight owners (no edits to their branches here):
 

@@ -1,27 +1,27 @@
 ; start_dos.asm -- InitechDOS-load runtime for the seed cross-compiler's output.
 ;
 ; beads: initech-ogxv (B8 -- the fileio.pas ON-InitechDOS oracle leg).
-; Ref:   os/samir/boot/samir_crt0.asm + samir.ld (THE PRECEDENT: the flat .COM
+; Ref:   kernel/loader.c and seed_dos.ld (the flat .COM
 ;        entry stub -- first byte of the image IS the entry point at
 ;        PROGRAM_IMAGE 0x40100, loader JMPs with ESP = PROGRAM_STACK_TOP;
 ;        zero NOLOAD .bss at entry; exit via INT 21h AH=4Ch);
-;        spec/memory_map.h (PROGRAM_IMAGE / PROGRAM_STACK_TOP);
+;        kernel/include/memory_map.h (PROGRAM_IMAGE / PROGRAM_STACK_TOP);
 ;        seed/rt/start.asm (the FROZEN bare-metal runtime per ADR-0007 DEC-05
 ;        -- this file is a SEPARATE runtime TARGET, not an edit to it: the
 ;        serial helpers below are duplicated VERBATIM from start.asm so the
 ;        compiled program body links unchanged against either runtime).
-;        CLAUDE.md Law 1 (cite) / Rule 2 (fail loud) / Rule 11 / Rule 12.
+;        CLAUDE.md, The constitution (sources, explicit failures, reproducibility).
 ;
 ; Difference from start.asm (bare-metal Multiboot):
 ;   - NO multiboot header (COMMAND.COM EXECs this as a flat .COM; the loader
 ;     inspects no header -- the first byte is the entry).
 ;   - .bss is zeroed here (a flat .COM carries no .bss bytes and the loader
-;     does not zero it -- the samir_crt0 DEC-05 rationale verbatim).
+;     does not zero it -- the flat-runtime DEC-05 rationale).
 ;   - Exit is INT 21h AH=4Ch (terminate, unwind to the kernel shell), never
 ;     isa-debug-exit/hlt: the desktop/shell must keep running after the
-;     program ends (the samir-boot precedent).
+;     program ends (the InitechDOS process contract).
 ;   - The stack: the loader already set ESP = PROGRAM_STACK_TOP; set it again
-;     defensively (samir_crt0's belt-and-braces rule) instead of the private
+;     defensively (the flat-runtime entry contract) instead of the private
 ;     16 KiB bare-metal stack.
 
 bits 32
@@ -38,7 +38,7 @@ COM1 equ 0x3F8
 PROGRAM_STACK_TOP   equ 0x0007FFFC
 
 ; INT 21h AH=4Ch -- DOS terminate-with-return-code (the loader's exit hook
-; unwinds to the kernel; os/milton/loader.c).
+; unwinds to the kernel; kernel/loader.c).
 DOS_INT             equ 0x21
 DOS_FN_EXIT         equ 0x4C
 
@@ -58,7 +58,7 @@ _start:
     and     ecx, 3
     rep stosb
 
-    ; (b) Defensive ESP (the loader already did this; fail-safe, Rule 2).
+    ; (b) Defensive ESP (the loader already did this; fail-safe entry).
     mov     esp, PROGRAM_STACK_TOP
 
     ; (c) Run the compiled program body.

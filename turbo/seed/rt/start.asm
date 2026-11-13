@@ -5,8 +5,8 @@
 ;        signal, PRD Sec 8); Multiboot1 spec (header magic 0x1BADB002).
 ;        Adapted from harness/emu/fixtures/serial_hello.asm (the proven
 ;        multiboot1 + load-at-1MiB + COM1-0x3F8 pattern this environment
-;        expects). CLAUDE.md Law 1 (cite) / Rule 2 (fail loud) / Rule 12
-;        (ASCII-only) / Rule 11 (no timestamps/nondeterminism).
+;        expects). CLAUDE.md, The constitution: cite sources, report failures,
+;        keep ASCII source and reproducible bytes.
 ;
 ; QEMU's `-kernel` multiboot loader enters here in 32-bit protected mode,
 ; A20 on, flat segments -- no MBR/A20/GDT boot needed (that is M1).

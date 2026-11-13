@@ -1,5 +1,12 @@
 # Desktop journey acceptance
 
+Historical measurements below describe wave2/initechword before integration.
+Current mechanics are described in factory/README.md. Integration retains
+72 Word-owned patches; its shared short-write fault belongs to the SDK.
+The shared Bochs loop now binds the RFB pump during frontend serial waits,
+and factory tier 0 checks that transport progress. The top-level desktop-apps
+prerequisite builds the full journey registry before assembling the image.
+
 The factory owns boot, Finder disk/APPS navigation, input transport, serial
 progress waits, fault checks, captures, DOS/FLAIR reentry and the live legacy
 pixel comparison. desktop-journeys.list registers app-owned directories; its
@@ -13,8 +20,8 @@ range RPN, exactly three value records and a proper EOF. The compatibility
 readback-worksheet.sh entry forwards to that app-owned verifier.
 
 Both frontends use W marker waits. desktop-bochs.c adds occurrence-counted
-serial waits to the unchanged Bochs RFB driver, via desktop-tools.mk; no shared
-driver or factory/Makefile edit. Every awaited marker and its count is checked
+serial waits through the Bochs RFB driver, via desktop-tools.mk. The shared
+loop supplies its RFB pump while those waits run. Every marker and count is checked
 afterward. QEMU additionally exits to a real A:\> and starts FLAIR again.
 QEMU runs CPU 486, 8 MiB, acpi=off, -d int,guest_errors,cpu_reset; two power-on
 resets and zero errors/exceptions are required. Bochs uses the installed
@@ -48,12 +55,12 @@ failure. The guest RTC is pinned to 1992-03-01 09:00 UTC on both emulators.
 The frontend regression test covers validation vs live replay, waiting for
 a new occurrence of repeated progress, and invalid input tokens.
 
-The only shared-file change is one recipe line in factory/Makefile: image
-calls desktop-build.sh before image/build.sh. That mechanism builds every
+The top-level desktop-apps prerequisite calls desktop-build.sh before image
+assembly. That mechanism builds every
 registered app's actual artifacts, so a clean image/repro also includes Word
 without adding another application dependency to the top-level Makefile.
 
-Final wave-2 acceptance (local branch wave2/initechword):
+Historical Word-branch acceptance (local branch wave2/initechword):
 
 - make smoke: green, 131.48 s wall (original: 242.81 s). Both runs include
   the DOS session, separate probe disk, desktop and native Turbo Initech/FPC

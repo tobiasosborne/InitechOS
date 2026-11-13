@@ -36,7 +36,7 @@
  * `path` and `buf` must be static module/BSS storage (tbx.h Sec 10 rule); the
  * temporary name is built in this header's own BSS buffer.
  *
- * Freestanding, ASCII-only, deterministic (Laws 1-3, Rules 11/12). Included
+ * Freestanding, ASCII-only, deterministic (CLAUDE.md, The constitution). Included
  * by each saving tenant (and compiled verbatim by its host oracle); unused
  * in a tenant that never saves. */
 #ifndef INITECH_TBX_SAVE_H

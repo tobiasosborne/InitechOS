@@ -64,7 +64,7 @@
  *   runtime), not a claim resting on any particular test input; the
  *   Makefile's test-seed-codegen target greps gen_binop's SOURCE for the
  *   absence of any jump mnemonic as a mechanical check of this invariant
- *   (Rule 6 spirit: prove it, don't just assert it in a comment). A
+ *   (mutation coverage: prove it, don't just assert it in a comment). A
  *   dynamic, input-dependent proof (an operand that traps under
  *   short-circuit misuse) is not expressible in this subset until
  *   procedures/functions exist (B4, ADR-0007 DEC-07 B-chain) -- see
@@ -80,7 +80,7 @@
  *   `idiv` needs no sign-correction because the x86 instruction's native
  *   trunc-toward-zero quotient / dividend-signed remainder IS Turbo Pascal's
  *   div/mod, so this codegen was correct by construction the whole time --
- *   the gap Rule 6 flagged was test coverage, not a latent bug (confirmed by
+ *   the earlier gap was test coverage, not a latent bug (confirmed by
  *   running the fixture: differential golden green, no codegen change
  *   needed).
  *
@@ -149,7 +149,7 @@
  * `jz` branches off it. There is no separate "condition compilation" path;
  * control flow is a thin, uniform layer on top of the B1 boolean.
  *
- * MUTATION HOOK (Rule 6; beads initech-80iw): SEED_MUT_CODEGEN_BRANCH_INVERT
+ * PATCH MUTATION COVERAGE (beads initech-80iw): SEED_MUT_CODEGEN_BRANCH_INVERT
  * flips every guard's `jz` to `jnz` (see guard_jump_mnemonic below), which
  * inverts if/while decisions (an if's then/else swap; a while that should
  * stop keeps looping and vice versa). test-seed-control-mutant asserts this
@@ -185,13 +185,13 @@
  *   serial_put_int (that would print the char's decimal ORD) and never the
  *   TRUE/FALSE boolean path.
  *
- *   MUTATION HOOK (Rule 6; beads initech-7mo3): SEED_MUT_CODEGEN_CHR_OFF1
+ *   PATCH MUTATION COVERAGE (beads initech-7mo3): SEED_MUT_CODEGEN_CHR_OFF1
  *   makes chr(i) compute (i & 0xFF) + 1 instead of i & 0xFF (see gen_expr's
  *   OP_CHR case). test-seed-char-mutant asserts this makes char.pas's
  *   exact-serial golden go RED.
  * ============================================================================
  *
- * MUTATION HOOK (Rule 6; bead initech-3yv, ADR-0007 FO-5/DEC-06): SEED_MUT_NONDET
+ * PATCH MUTATION COVERAGE (bead initech-3yv, ADR-0007 FO-5/DEC-06): SEED_MUT_NONDET
  * injects GENUINE process-to-process nondeterminism into the emitted .rodata
  * (see codegen_emit) -- an unreferenced byte-array symbol whose 4 bytes
  * encode getpid(2) of the compiling initechc process. This is not a
@@ -267,7 +267,7 @@
  * back correctly every time (no staleness). At a call site, a var-parameter
  * ARGUMENT contributes an ADDRESS (cg_gen_addr_of), not a value.
  *
- * MUTATION HOOKS (Rule 6; ADR-0007 DEC-07's per-family obligation for B4):
+ * PATCH MUTATION COVERAGE (ADR-0007 DEC-07's per-family obligation for B4):
  *   SEED_MUT_CODEGEN_FRAME_OFF4  -- shifts every local/result slot 4 bytes
  *       too shallow (cg_local_offset), so slot 0 lands on the saved-ebp word
  *       [ebp+0]; a function writing its result then corrupts its own frame
@@ -1561,7 +1561,7 @@ static void gen_write(Cg *cg, const AstNode *n, int *str_idx)
 }
 
 /*
- * SEED_MUT_CODEGEN_BRANCH_INVERT (Rule 6; beads initech-80iw, ADR-0007
+ * SEED_MUT_CODEGEN_BRANCH_INVERT (patch coverage; beads initech-80iw, ADR-0007
  * DEC-07's per-family mutation obligation). Compile with
  * -DSEED_MUT_CODEGEN_BRANCH_INVERT to flip every if/while guard's `jz` to
  * `jnz`: an if's then/else branches swap, and a while loop that should stop
