@@ -1,62 +1,5 @@
-/*
- * os/flair/shell.c -- the FLAIR DESKTOP SHELL (THE ARTIFACT, FLAIR Layer 5).
- *
- * beads: initech-k8o5.12 (M4 Manager set + two stacked menu bars + modal FILE
- *        COPY layer + desktop shell) and initech-859 (Desktop shell: reproduce
- *        the frame chrome -- the M4 gate). See shell.h for the full contract.
- *
- * Ref:   ADR-0004 D-1 (5-layer stack incl. Layer 5 DESKTOP SHELL), D-2 (one
- *        surface module; NO second pixel path -- the shell composes EXISTING
- *        Managers and never touches base[] directly), D-3 (the Managers; the
- *        Photoshop bar canon), D-5 (z-order: back to front). PRD Sec 1 / 6.3 /
- *        6.5 / Appendix A (the frame). spec/assets/menu_canon.h (FROZEN canon).
- *        CLAUDE.md (The constitution), contract (fail loud), contract (deterministic),
- *        contract (ASCII-clean -- no non-ASCII incl. comments; 'Sec' not the
- *        section sign).
- *
- * THE Z-ORDER (shell_render paints back to front; ADR-0004 D-5):
- *   1. seafoam desktop + window chrome  (desktop_paint_all)
- *   2. the TWO STACKED MENU BARS        (DrawMenuBar; above the windows)
- *   3. the modal FILE COPY DIALOG       (DrawDialog; LAST -- occludes the rest)
- *
- * ERA AXIS: window and menu chrome use the Mac OS 8 Platinum (DEC-10) BASE.
- * Both stacked bars share menu.c's Platinum face; the second bar retains the
- * locked no-Apple Photoshop title layout (bead initech-sjvq).
- *
- * THE SECOND-BAR OFFSET-BITMAP TRICK (ADR-0004 D-2 -- still the ONE surface
- * module): DrawMenuBar (os/flair/menu.c) hardcodes the bar at rows [0, 20) of
- * the port's bitmap. To stack the SECOND (Photoshop) bar at rows [20, 40) of the
- * real offscreen WITHOUT a second pixel path, the shell builds a sub-bitmap VIEW
- * whose `base` points at the start of row FLAIR_MENUBAR_H of the same offscreen
- * (base + MENUBAR_H * pitch) and whose height is reduced by FLAIR_MENUBAR_H.
- * DrawMenuBar then paints rows [0, 20) of the VIEW == rows [20, 40) of the real
- * offscreen, all through surface_fill_span / surface_blit -- the SAME ONE writer.
- * This is the period-authentic offset-bitmap technique (a GrafPort over a
- * sub-rectangle of the screen), not a new pixel path.
- *
- * NAMED MUTATION SWITCHES (contract): test_shell.c compiles this file with named
- * mutants to prove the M4 gate bites. The default build defines none.
- *
- *   SHELL_MUTATE_ONE_MENUBAR -- shell_render draws ONLY the first (retained
- *     System-7)
- *     menu bar and SKIPS the second (Photoshop) bar. The "two stacked menu bars"
- *     chimera (the canon tell) collapses to one -> the Photoshop-bar band reads
- *     as bare desktop and the byte-exact canon-string assertion fails: the M4
- *     STRUCTURAL gate (both bars present) goes RED. The "forgot the chimera" bug.
- *
- *   SHELL_MUTATE_NO_MODAL -- shell_render SKIPS the modal FILE COPY layer even
- *     when the scene's modal is up. The comedic centerpiece vanishes -> the
- *     "Saving tables to disk..." text + the centered dBoxProc box are absent and
- *     the windows behind show through: the M4 gate (modal present + occluding)
- *     goes RED. The "forgot the modal" bug.
- *
- *   SHELL_MUTATE_MODAL_BEHIND -- shell_render draws the modal FIRST (before the
- *     windows + bars) instead of LAST, so the document windows + menu bars paint
- *     OVER it. The modal is occluded instead of occluding -> the z-order
- *     assertion (the modal is ON TOP) goes RED. The "wrong z-order" bug.
- *
- * ASCII-clean (contract). No timestamps / no nondeterminism (contract).
- */
+/* Desktop composition. Single-bar policy: operator 2026-11-13;
+ * CLAUDE.md, Hazards that are still true; GOLDEN-MASTER item 3. */
 #include <stdint.h>
 
 #include "shell.h"
@@ -66,7 +9,6 @@
 #include "window.h"             /* WindowMgr_init, NewWindow (-Ios/flair)      */
 #include "surface.h"            /* bitmap_t (-Ios/flair)                       */
 #include "region_algebra.h"     /* region_t, rgn_rect_t (-Ispec)              */
-#include "menu_canon.h"         /* FLAIR_CANON_PHOTOSHOP_* (-Ispec/assets)     */
 
 /* ---------------------------------------------------------------------------
  * Fail-loud (dual: abort hosted / deterministic hang in-kernel), mirroring the
@@ -83,8 +25,7 @@
 /* ---------------------------------------------------------------------------
  * Build a GrafPort over `dst` (whole-bitmap port; the menu bar draws at the top
  * FLAIR_MENUBAR_H rows). visRgn/clipRgn are NULL == no additional clip (the bar
- * spans the full width; the surface module enforces the bitmap bounds). This is
- * the port the FIRST retained System-7 bar draws into.
+ * spans the full width; the surface module enforces the bitmap bounds).
  * ------------------------------------------------------------------------- */
 static void make_bar_port(GrafPort *port, const bitmap_t *dst)
 {
@@ -107,21 +48,7 @@ static void make_bar_port(GrafPort *port, const bitmap_t *dst)
     port->grafProcs = (QDProcs *)0;
 }
 
-/* ---------------------------------------------------------------------------
- * Build an OFFSET sub-bitmap VIEW of `dst` starting at row `y_top` (the second-
- * bar trick; ADR-0004 D-2 -- still the ONE surface module). The view shares the
- * SAME pitch/bpp/width as `dst`; its base points at base + y_top*pitch and its
- * height is dst->height - y_top. DrawMenuBar into a port over this view paints
- * rows [0, MENUBAR_H) of the view == rows [y_top, y_top+MENUBAR_H) of `dst`.
- * ------------------------------------------------------------------------- */
-/* EXPORTED (shell.h) -- initech-4w15: the live app-switch pump (os/initechdos/
- * kmain.c) reuses this SAME technique to target the SECOND bar's band for the
- * foreground-tenant menu swap, instead of duplicating the offset-view math in
- * kmain.c (ADR-0004 D-2 "one surface module" spirit -- one place computes
- * "where is row Y of a sub-band", not two). No longer `static`/`unused`: it
- * now has an external caller in every build (not just the SHELL_MUTATE_ONE_
- * MENUBAR-less hosted test build), so the -Werror unused-function guard that
- * motivated the attribute no longer applies. See shell.h for the contract. */
+/* Build a bounded sub-bitmap view sharing the destination's pixels. */
 void make_offset_view(bitmap_t *view, const bitmap_t *dst, uint32_t y_top)
 {
     if (view == 0 || dst == 0 || y_top >= dst->height)
@@ -142,8 +69,7 @@ void shell_build_scene(shell_scene_t *s,
                        region_t  *desktop_update,
                        region_t  *scratch_a, region_t *scratch_b,
                        region_t  *scratch_c, region_t *comp_scratch,
-                       MenuInfo  *sys_menus, int n_sys_menus,
-                       MenuInfo  *ps_menus,
+                       const MenuBar *desktop_bar,
                        DialogRecord  *dlg,
                        DialogItem    *dlg_items,
                        ControlRecord *dlg_progress,
@@ -152,10 +78,6 @@ void shell_build_scene(shell_scene_t *s,
                        region_t  *overlay_rgn,
                        int show_modal)
 {
-    /* uskw: validate before installing any windows or narrowing the count.
-     * Ref: shell.h caller-provided MenuInfo array; contract. */
-    if (n_sys_menus < 0 || n_sys_menus > UINT16_MAX)
-        SHELL_PANIC("shell_build_scene: n_sys_menus out of range");
     if (s == (shell_scene_t *)0) {
         SHELL_PANIC("shell_build_scene: NULL scene");
         return;
@@ -180,8 +102,8 @@ void shell_build_scene(shell_scene_t *s,
         SHELL_PANIC("shell_build_scene: compositor scratch unattached");
         return;
     }
-    if (sys_menus == (MenuInfo *)0 || ps_menus == (MenuInfo *)0) {
-        SHELL_PANIC("shell_build_scene: NULL menu array");
+    if (desktop_bar == (const MenuBar *)0) {
+        SHELL_PANIC("shell_build_scene: NULL desktop menu");
         return;
     }
     if (dlg == (DialogRecord *)0 || dlg_items == (DialogItem *)0 ||
@@ -233,22 +155,8 @@ void shell_build_scene(shell_scene_t *s,
         SetWTitle(&s->wm, &w->rec, win_titles[i]);
     }
 
-    /* --- The TOP Platinum system menu bar (Apple glyph + caller menus). */
-    s->bar_sys.menus     = sys_menus;
-    s->bar_sys.n_menus   = (uint16_t)((n_sys_menus < 0) ? 0 : n_sys_menus);
-    s->bar_sys.has_apple = 1;   /* retained bar carries the Apple-menu slot */
-
-    /* --- The Photoshop-EXACT bar: the titles are SET from the FROZEN canon
-     * (menu_canon.h; AM-4 -- NOT re-authored). The caller supplies the MenuInfo
-     * array (>= 8) so each menu has an item list; the shell stamps the canon
-     * title into each MenuInfo.title (the chimera tell, element 9). */
-    for (int mi = 0; mi < FLAIR_CANON_PHOTOSHOP_MENU_COUNT; mi++) {
-        ps_menus[mi].title  = FLAIR_CANON_PHOTOSHOP_MENU_ITEMS[mi];
-        ps_menus[mi].menuID = (int16_t)(256 + mi); /* distinct from sys bar IDs  */
-    }
-    s->bar_photoshop.menus     = ps_menus;
-    s->bar_photoshop.n_menus   = (uint16_t)FLAIR_CANON_PHOTOSHOP_MENU_COUNT;
-    s->bar_photoshop.has_apple = 0;   /* the Photoshop bar has no Apple slot     */
+    s->desktop_bar = desktop_bar;
+    (void)shell_front_menubar(s, desktop_bar);
 
     /* --- The modal FILE COPY dialog (standalone -- NOT in the WindowMgr z-order;
      * it is drawn LAST, over everything). FileCopyDialog stamps the canon string
@@ -259,7 +167,7 @@ void shell_build_scene(shell_scene_t *s,
     s->modal_up = show_modal ? 1 : 0;
 
     /* --- The always-on-top OVERLAY occluder (beads initech-pipa; ADR-0005 region
-     * spine). The two menu bars + (iff the modal is up) the modal FILE COPY box
+     * spine). The menu bar + (iff the modal is up) the modal FILE COPY box
      * are painted OUTSIDE the WindowMgr z-order (by shell_render) and so are NOT
      * damage-tracked participants. Build their union into the caller's region and
      * install it as wm.overlay_rgn: window.c fronts_union then treats these pixels
@@ -269,7 +177,7 @@ void shell_build_scene(shell_scene_t *s,
      *
      * The modal rect is the dialog's ACTUAL strucRgn bbox (what DrawDialog fills;
      * contract -- the overlay must match what is drawn), which FileCopyDialog set
-     * above. The bars span rows [0, SHELL_MENUBARS_H) full width. NULL overlay ==
+     * above. The bar spans rows [0, SHELL_MENUBAR_H) full width. NULL overlay ==
      * disabled (the fold is a no-op; the M4 host gate). */
     s->overlay_rgn = overlay_rgn;
     shell_sync_overlay(s);
@@ -297,10 +205,10 @@ void shell_sync_overlay(shell_scene_t *s)
         }
         rgn_rect_t ov[2];
         uint16_t nov = 0;
-        /* The two stacked menu bars: rows [0, SHELL_MENUBARS_H) x full width. */
-        ov[nov].top    = (int16_t)SHELL_MENUBAR1_TOP;
+        /* The single menu bar: rows [0, SHELL_MENUBAR_H) x full width. */
+        ov[nov].top    = (int16_t)SHELL_MENUBAR_TOP;
         ov[nov].left   = 0;
-        ov[nov].bottom = (int16_t)SHELL_MENUBARS_H;
+        ov[nov].bottom = (int16_t)SHELL_MENUBAR_H;
         ov[nov].right  = (int16_t)SHELL_SCREEN_W;
         nov++;
         /* The modal FILE COPY box (its dBoxProc bounds fill opaquely), iff up. */
@@ -323,6 +231,15 @@ void shell_sync_overlay(shell_scene_t *s)
 /* ===========================================================================
  * shell_render -- composite the whole scene onto `dst`, back to front (D-5).
  * ===========================================================================*/
+const MenuBar *shell_front_menubar(shell_scene_t *s, const MenuBar *foreground)
+{
+    const MenuBar *owner = foreground ? foreground : s->desktop_bar;
+    s->bar = *owner;
+    s->bar.has_apple = 1;
+    MenuClock_attach(&s->bar);
+    return &s->bar;
+}
+
 void shell_render(shell_scene_t *s, const bitmap_t *dst)
 {
     shell_render_with_menubar(s, dst, (const MenuBar *)0);
@@ -331,9 +248,8 @@ void shell_render(shell_scene_t *s, const bitmap_t *dst)
 void shell_render_with_menubar(shell_scene_t *s, const bitmap_t *dst,
                                const MenuBar *foreground)
 {
-    (void)foreground; /* also built with the one-menubar mutation */
-    if (dst != 0 && dst->height < SHELL_MENUBARS_H)
-        SHELL_PANIC("shell_render: both menu bars must fit (mqsn)");
+    if (dst != 0 && dst->height < SHELL_MENUBAR_H)
+        SHELL_PANIC("shell_render: menu bar must fit (mqsn)");
     if (s == (shell_scene_t *)0 || !s->_built) {
         SHELL_PANIC("shell_render: NULL/unbuilt scene");
         return;
@@ -355,26 +271,12 @@ void shell_render_with_menubar(shell_scene_t *s, const bitmap_t *dst,
      * back to front by the compositor (desktop.c). This is the bottom layer. */
     desktop_paint_all(&s->wm, dst, s->comp_scratch);
 
-    /* 2. The TWO STACKED MENU BARS (the chimera), above the windows. Both via
-     * DrawMenuBar (os/flair/menu.c) -- the ONE surface module. The retained bar
-     * draws into a whole-bitmap port (rows [0, MENUBAR_H)); the Photoshop bar
-     * draws into an OFFSET sub-bitmap view starting at row MENUBAR_H, so it lands
-     * at rows [MENUBAR_H, 2*MENUBAR_H) of the real offscreen. */
+    /* The front program owns the titles in the single top menu bar. */
     {
-        /* Bar 1: retained System-7 bar at rows [0, MENUBAR_H). */
-        GrafPort p1;
-        make_bar_port(&p1, dst);
-        DrawMenuBar(&p1, &s->bar_sys, -1, (const region_t *)0);
-
-        /* Bar 2: the Photoshop-EXACT canon bar at rows [MENUBAR_H, 2*MENUBAR_H),
-         * via an offset sub-bitmap view (the second-bar trick; D-2 ONE surface).
-         * Skipped by the SHELL_MUTATE_ONE_MENUBAR mutant (the chimera collapses). */
-        bitmap_t view2;
-        make_offset_view(&view2, dst, (uint32_t)SHELL_MENUBAR2_TOP);
-        GrafPort p2;
-        make_bar_port(&p2, &view2);
-        DrawMenuBar(&p2, foreground ? foreground : &s->bar_photoshop,
-                     -1, (const region_t *)0);
+        GrafPort port;
+        make_bar_port(&port, dst);
+        DrawMenuBar(&port, shell_front_menubar(s, foreground), -1,
+                    (const region_t *)0);
     }
 
     /* 3. The modal FILE COPY DIALOG on top -- drawn LAST so it occludes the

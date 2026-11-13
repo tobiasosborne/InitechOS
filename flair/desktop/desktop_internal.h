@@ -28,7 +28,6 @@
 #include "region_algebra.h"
 #include "region.h"
 #include "shell.h"
-#include "shell_menus.h"
 #include "desktop.h"
 #include "flair_look.h"
 #include "chrome.h"
@@ -91,7 +90,6 @@ extern unsigned g_vga_dac_shift;
 extern uint8_t g_volume_sector[512];
 extern int g_desktop_exit;
 void vga_set_dac(uint8_t i,uint8_t r,uint8_t g,uint8_t b);
-extern const char *const fd_sys_titles[4];
 void flair_desktop_oom(const char *what);
 region_t *flair_desktop_alloc_region(flair_heap_t *h, const char *what);
 void flair_boot_screen_row(void *ctx, int y, const uint8_t *row);

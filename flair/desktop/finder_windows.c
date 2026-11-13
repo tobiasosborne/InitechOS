@@ -1753,9 +1753,8 @@ static int finder_shell_open(FlairApp *self, const FlairLaunchParams *lp)
         finder_click_reset(&sh->windows[i].click);
 
     self->userData = (void *)sh;
-    /* No window at launch: a disk window opens ONLY on a double-click. So
-     * self->windows stays NULL, FlairProcess_launch skips its SelectWindow, and
-     * the boot foreground + every locked band-2 gate are exactly as before. */
+    /* No window at launch: a disk window opens only on a double-click.
+     * self->windows stays NULL; the Finder owns the sole top menu bar. */
     return 0;
 }
 

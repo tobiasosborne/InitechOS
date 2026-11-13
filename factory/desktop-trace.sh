@@ -1,7 +1,7 @@
 # Production geometry from legacy-final flair_exit_dos_traces.mk and
 # flair_i123_{traces,file_traces}.mk. The new disk has APPS first and 123.EXE
 # first within it. No scenario code is linked into the product.
-open_disk='m100:-88,m100:-88,m80:0,l1,l0,l1,l0'
+open_disk='m100:-98,m100:-98,m80:0,l1,l0,l1,l0'
 open_apps='m-100:8,m-100:8,m-100:8,m-100:8,m-100:8,m-44:-2,l1,l0,l1,l0'
 launch_123='m22:20,l1,l0,l1,l0'
 # A1=123, B1=1.5, C1=@SUM(A1..B1), then /File Save SLICE.

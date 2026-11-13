@@ -19,7 +19,8 @@ void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *bi)
     }
     if (tbx_take_mbar_redraw() && g_ten_barport != (GrafPort *)0 &&
         g_ten_plist != (FlairProcessList *)0) {
-        DrawMenuBar(g_ten_barport, flair_live_tenant_bar(ctx, g_ten_plist), -1,
+        DrawMenuBar(g_ten_barport, shell_front_menubar(ctx->scene,
+                    flair_live_tenant_bar(ctx, g_ten_plist)), -1,
                     (const region_t *)0);
         flair_desktop_present(bi, &ctx->off);
     }
@@ -37,7 +38,8 @@ void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *bi)
     }
     flair_live_repaint(ctx);
     if (g_ten_barport != (GrafPort *)0)
-        DrawMenuBar(g_ten_barport, flair_live_tenant_bar(ctx, ctx->plist), -1,
+        DrawMenuBar(g_ten_barport, shell_front_menubar(ctx->scene,
+                    flair_live_tenant_bar(ctx, ctx->plist)), -1,
                     (const region_t *)0);
     flair_desktop_present(bi, &ctx->off);
 }

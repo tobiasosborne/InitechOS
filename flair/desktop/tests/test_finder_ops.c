@@ -301,6 +301,13 @@ static void scene_init(scene_t *s)
 
     (void)finder_win_open(&s->sh, 0u, CL_APPS, "APPS", 0u, &slot, &single);  /* 0 */
     (void)finder_win_open(&s->sh, 0u, CL_ROOT, "", 1u, &slot, &single);      /* 1 */
+    /* Keep this operations fixture at its documented literal frames. Default
+     * placement moved up 20px by the operator's single-bar ruling and is
+     * graded independently in test_finder_windows. */
+    MoveWindow(&s->wm, &s->sh.windows[0].rec, 20, 60);
+    MoveWindow(&s->wm, &s->sh.windows[1].rec, 40, 80);
+    finder_win_sync_geometry(&s->sh.windows[0]);
+    finder_win_sync_geometry(&s->sh.windows[1]);
 }
 
 static int idx_of(const finder_desk_t *fd, const char *n)
@@ -769,8 +776,8 @@ static void leg_trash_window(void)
           strcmp(tw->view.icons[0].name, "README.TXT") == 0 &&
           tw->view.icons[0].kind == FINDER_ICON_FILE,
           "O13 the Trash window lists exactly the staged README.TXT");
-    CHECK(tw->view.icons[0].x == 84 && tw->view.icons[0].y == 126,
-          "O13 ... in cell 0 of the slot-2 content, sprite (84,126)");
+    CHECK(tw->view.icons[0].x == 84 && tw->view.icons[0].y == 106,
+          "O13 ... in slot-2 cell (84,106), 20px reclaimed by the ruling");
     CHECK(rw->view.n == 1u && idx_of(&rw->view, "TRASH") < 0 &&
           idx_of(&rw->view, "DESKTOP.DB") < 0,
           "O13 the root window still lists neither TRASH nor DESKTOP.DB");
@@ -1018,11 +1025,12 @@ static void leg_follow(void)
     /* zoom, then restore */
     (void)ZoomWindow(&S.wm, &rw->rec);
     v = finder_win_view(&S.sh, ROOT);
-    CHECK(finder_desk_hit(v, 96 + 16, 66 + 16) == 1 && v->icons[1].x == 96 && v->icons[1].y == 66,
-          "O9 zoom: APPS follows the zoomed content to (96,66)");
+    /* Operator 2026-11-13: zoom top 40 -> 20; content/icon rows follow. */
+    CHECK(finder_desk_hit(v, 96 + 16, 46 + 16) == 1 && v->icons[1].x == 96 && v->icons[1].y == 46,
+          "O9 zoom: APPS follows the zoomed content to (96,46)");
     memset(S.px, 0xEE, sizeof S.px);
     finder_win_paint(rw, &S.bm, NULL);
-    CHECK(pix(96 + 0, 66 + 16) == 0, "O9 zoom: APPS is PAINTED at (96,66)");
+    CHECK(pix(96 + 0, 46 + 16) == 0, "O9 zoom: APPS is PAINTED at (96,46)");
     (void)ZoomWindow(&S.wm, &rw->rec);
     v = finder_win_view(&S.sh, ROOT);
     CHECK(finder_desk_hit(v, 248, 182) == 1 && v->icons[1].x == 232,

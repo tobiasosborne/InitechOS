@@ -11,10 +11,6 @@ int g_desktop_exit;
 void vga_set_dac(uint8_t i,uint8_t r,uint8_t g,uint8_t b)
 { outb(0x3c8,i);outb(0x3c9,r>>g_vga_dac_shift);outb(0x3c9,g>>g_vga_dac_shift);outb(0x3c9,b>>g_vga_dac_shift); }
 
-const char *const fd_sys_titles[4] = {
-    "File", "Edit", "View", "Special"
-};
-
 void flair_desktop_oom(const char *what)
 {
     serial_puts("PANIC flair-desktop: flair_alloc returned NULL for ");
@@ -169,38 +165,6 @@ void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
     region_t *sc = flair_desktop_alloc_region(&heap, "wm.scratch_c");
     region_t *comp = flair_desktop_alloc_region(&heap, "wm.comp_scratch");
     shell_window_store *wins = 0;
-    MenuInfo *sys_menus =
-        (MenuInfo *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
-                                (uint32_t)(sizeof(MenuInfo) * 4));
-    MenuItem *sys_items =
-        (MenuItem *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
-                            (uint32_t)(sizeof(MenuItem) * 4 * 2));
-    if (!sys_menus || !sys_items) { flair_desktop_oom("sys menus/items"); }
-    for (int mi = 0; mi < 4; mi++) {
-        MenuItem *it = &sys_items[mi * 2];
-        it[0] = SHELL_SYS_MENU_ITEMS[0];
-        it[1] = SHELL_SYS_MENU_ITEMS[1];
-        sys_menus[mi].menuID = (int16_t)(128 + mi);
-        sys_menus[mi].title = fd_sys_titles[mi];
-        sys_menus[mi].items = it;
-        sys_menus[mi].n_items = 2;
-        sys_menus[mi].menuWidth = 0;
-    }
-    MenuInfo *ps_menus =
-        (MenuInfo *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
-            (uint32_t)(sizeof(MenuInfo) * FLAIR_CANON_PHOTOSHOP_MENU_COUNT));
-    MenuItem *ps_items =
-        (MenuItem *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
-            (uint32_t)(sizeof(MenuItem) * FLAIR_CANON_PHOTOSHOP_MENU_COUNT * 2));
-    if (!ps_menus || !ps_items) { flair_desktop_oom("photoshop menus/items"); }
-    for (int mi = 0; mi < FLAIR_CANON_PHOTOSHOP_MENU_COUNT; mi++) {
-        MenuItem *it = &ps_items[mi * 2];
-        it[0]=(MenuItem){ "New",0,'N',0,1,0 };it[1]=(MenuItem){ "Open",0,'O',0,1,0 };
-        ps_menus[mi].title = (const char *)0;
-        ps_menus[mi].items = it;
-        ps_menus[mi].n_items = 2;
-        ps_menus[mi].menuWidth = 0;
-    }
     DialogRecord *dlg =
         (DialogRecord *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
                                     (uint32_t)sizeof(DialogRecord));
@@ -231,8 +195,7 @@ void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
                       frame,
                       wins, 0, 0, 0,
                       desk, sa, sb, sc, comp,
-                      sys_menus, 4,
-                      ps_menus,
+                      finder_menu_bar(),
                       dlg, dlg_items, dlg_progress,
                       dlg_struc, dlg_cont, dlg_upd,
                       overlay,

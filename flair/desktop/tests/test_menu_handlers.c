@@ -16,10 +16,6 @@
  *      AND the all-zero one -- resolves to a command-table row whose command
  *      the shell's execution table implements (finder_shell_implements, the
  *      SAME table fw_exec dispatches through).
- *   H2 every row of the shell-owned band-1 bar (os/flair/shell_menus.h) that is
- *      enabled is on the STATED exception list -- today only "Quit" (see that
- *      header: graying it would loosen test-flair-menu). Nothing in the pump
- *      executes a band-1 selection, so any other enabled row is a fake.
  *   H3 the fallback really fires: a command the shell does not implement,
  *      dispatched with the hook bound, prints FINDER-NYI (never silence).
  *   H4 the positive list: the commands the bar CAN light are exactly the ones
@@ -34,7 +30,6 @@
  *
  * MUTANTS (Rule 6; -D on the implementation TUs):
  *   FINDER_MENU_MUT_STUB_ENABLED  -- Get Info lit by a selection again (H1 RED)
- *   SHELL_MENUS_MUT_ABOUT_LIVE    -- band-1 About enabled again (H2 RED)
  *   FINDER_CMD_MUT_EXEC_SWALLOWS  -- dispatch returns after the hook whatever
  *                                    it says, the audited root cause (H3 RED)
  *   FINDER_WIN_MUT_EXIT_DOS_UNWIRED -- the Special > Exit to InitechDOS row
@@ -50,7 +45,7 @@
  *
  * Ref: os/flair/finder_cmd.h (FinderCtx.exec returns handled),
  *      os/flair/finder_windows.h (finder_shell_implements),
- *      os/flair/finder_menu.c (the rule's banner), os/flair/shell_menus.h.
+ *      os/flair/finder_menu.c (the rule's banner).
  * ASCII-clean (Rule 12).
  */
 #include <stdint.h>
@@ -61,7 +56,6 @@
 #include "finder_menu.h"
 #include "finder_cmd.h"
 #include "finder_windows.h"
-#include "shell_menus.h"
 #include "test_assert.h"
 
 TEST_HARNESS();
@@ -167,21 +161,6 @@ static void leg_finder_bar(void)
     }
 }
 
-static void leg_shell_bar(void)
-{
-    char what[160];
-    for (int k = 0; k < SHELL_SYS_MENU_ITEMS_N; k++) {
-        const MenuItem *it = &SHELL_SYS_MENU_ITEMS[k];
-        if (it->is_divider || !it->enabled) continue;
-        snprintf(what, sizeof what,
-                 "H2 band-1 enabled row \"%s\" is on the STATED exception list "
-                 "(no band-1 selection is executed)", it->text);
-        CHECK(strcmp(it->text, "Quit") == 0, what);
-    }
-    CHECK(strcmp(SHELL_SYS_MENU_ITEMS[0].text, "About") == 0 &&
-          SHELL_SYS_MENU_ITEMS[0].enabled == 0u,
-          "H2 band-1 About is drawn disabled until R4.1 (F15)");
-}
 
 /* H3: the FINDER-NYI fallback. A zeroed shell is a valid hook target (fw_exec
  * only needs a non-NULL cookie to look the command up). */
@@ -271,7 +250,6 @@ static void leg_exit_dos(void)
 int main(void)
 {
     leg_finder_bar();
-    leg_shell_bar();
     leg_fallback();
     leg_exit_dos();
     return TEST_SUMMARY("test-menu-handlers");
