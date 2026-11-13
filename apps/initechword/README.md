@@ -34,9 +34,12 @@ with mtools. factory/red-desktop.sh proves that an empty Word save fails this
 host verifier. Screens and serial traces are under build/smoke-desktop/.
 
 make mutants applies component-relative zero-fuzz patches via mk/mutants.mk.
-All 73 mutants are killed twice by host tests; none is pending.
-75 conditional sites became 73 patch files (the repeated NO_D4 and NO_LEAD
-sites are each one fault). Product source contains no mutation hooks. The EXE
+The 72 app-owned mutants are killed twice by host tests; none is pending.
+The shared save-loop short-write fault is owned by sdk/mutants/save_one_write.patch,
+which kills the actual helper twice. The former setup-short patch only defined
+its retired macro after SDK hook removal and was therefore a no-op. Setup's
+host test still forces two-byte transfers and checks all eight settings bytes.
+Product source contains no mutation hooks. The EXE
 before/after SHA-256 is identical:
 9453efb0e90e0ff491cb9cf630c928a70294316f9652329a6432b0b891ea698e.
 
