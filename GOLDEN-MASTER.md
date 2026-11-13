@@ -112,3 +112,7 @@ legacy tree to find more is not.
 - The wider app-platform bar: Print Manager, CopyBits modes, GWorlds,
   several disk apps resident at once.
 - Games and further easter eggs.
+- A lost-media documentary about the recovery, in the manner of the
+  video essays on vanished software: the fire, what survived, the
+  reconstruction, footage of the machine running (operator's idea,
+  2026-11-13).
