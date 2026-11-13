@@ -67,7 +67,7 @@ gen*|self-generation)
     if [ "$entry" = self-generation ]; then
         nm -n "$scratch/a/dos.elf" > "$scratch/symbols"
         end=$(awk '$3 == "__bss_end" {print $1}' "$scratch/symbols")
-        test -n "$end" && test "$((0x$end))" -lt "$((0x6f000))"
+        sh tests/package.sh "$scratch/a/TURBOOUT.S" "$scratch/extended"
         echo "self assembly=$(wc -c < "$scratch/a/TURBOOUT.S") DOS end=0x$end"
     else
         mkdir -p "$scratch/fpc"
@@ -85,12 +85,11 @@ seed-build)
         'call rtl_file_blockread$' 'call rtl_file_blockwrite$'; do grep -q "$pattern" "$asm"; done
     ! grep -q '^v_sourcewords:' "$asm"
     grep -q "Assign(OutputFile, 'TURBOOUT.S')" turbo.pas
-    nm -n "$out/turbo_seed_dos.elf" > "$scratch/symbols"
+    nm -n "$out/extended/zero.elf" > "$scratch/symbols"
     start=$(awk '$3 == "__bss_start" {print $1}' "$scratch/symbols")
     end=$(awk '$3 == "__bss_end" {print $1}' "$scratch/symbols")
     test -n "$start" && test -n "$end"
-    test "$((0x$end-0x$start))" -le 73728
-    test "$((0x$end))" -lt "$((0x6f000))"
+    sh tests/package.sh "$asm" "$scratch/extended"
     "$SEED_OUT/initechc" --emit-asm -o "$scratch/again.s" turbo.pas
     cmp "$asm" "$scratch/again.s"
     test -s "$out/TURBO.COM" && test -s "$out/turbo_seed_bare.elf"

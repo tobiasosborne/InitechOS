@@ -30,8 +30,10 @@ $(OUT)/turbo_seed_dos.elf: $(OUT)/turbo_seed.o $(wildcard $(RT_SRC)/*) | seed-to
 	@$(TARGET_LD) $(TARGET_LDFLAGS) -T $(RT_SRC)/seed_dos.ld -o $@ $(SEED_RT)/start_dos.o $(SEED_RT)/fileio.o $<
 $(OUT)/turbo_seed_bare.elf: $(OUT)/turbo_seed.o $(wildcard $(RT_SRC)/*) | seed-tools
 	@$(TARGET_LD) $(TARGET_LDFLAGS) -T $(RT_SRC)/seed.ld -o $@ $(SEED_RT)/start.o $(SEED_RT)/fileio.o $<
-$(OUT)/TURBO.COM: $(OUT)/turbo_seed_dos.elf
-	@$(OBJCOPY) -O binary $< $@
+$(OUT)/TURBO.COM: $(OUT)/turbo_seed.s $(wildcard $(RT_SRC)/*) tests/package.sh | seed-tools
+	+@$(MAKE) --no-print-directory -C $(TOP)/factory/mz all
+	@sh tests/package.sh $(OUT)/turbo_seed.s $(OUT)/extended
+	@cp $(OUT)/extended/program.exe $@
 all: tools $(OUT)/turbo_fpc $(OUT)/TURBO.COM $(OUT)/turbo_seed_bare.elf
 test-build: all
 test: test-run

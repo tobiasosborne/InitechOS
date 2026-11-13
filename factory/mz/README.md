@@ -24,9 +24,16 @@ checks header/trailer table extents and overlap/duplicate sites, and can
 compare the payload with the original flat binary and a supplied BSS length.
 
 Usage: mzcheck EXE [raw-module bss-bytes]. The optional operands assert exact
-payload preservation and paragraph-rounded BSS. Generic extended containers
-are still emitted by mzlink but are not tenant ABI and are not accepted by
-mzcheck. mk/tenant.mk uses header relocations to avoid a u16 trailer-offset
+payload preservation and paragraph-rounded BSS. Extended containers use tag 0x5849 and a 24-byte v1 descriptor at 0x20.
+The checker independently enforces the 262144-byte module maximum, fixed
+65536-byte stack and 4096-byte guard, reserve alignment within [600000,7ef000),
+minalloc/maxalloc and rounded usable heap after its 16-byte header. Relocation
+sites must lie in the module and cannot overlap; pointer values may reach the
+reserved tail endpoint used by startup. Optional bss-bytes asserts the exact
+extended reserve (legacy still asserts rounded e_minalloc). Tests include
+two hand-encoded valid extended controls and 19 malformed controls, each
+required to fail for its named reason. The pre-extension checker was observed
+red on the valid extended control (header/tag), before these checks passed. mk/tenant.mk uses header relocations to avoid a u16 trailer-offset
 limit for large modules; it prints size without enforcing OS loader policy.
 
 No emulator is involved. Product launch tests belong to the booted desktop.

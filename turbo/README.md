@@ -1,32 +1,32 @@
 # Turbo Initech
 
-Two compilers with separate roles: `seed/` is the host C cross-compiler;
-`compiler/` is the Pascal compiler that runs on InitechDOS. The seed emits
-assembly, not a resident compiler by itself. Host NASM, ld and objcopy finish
-that bootstrap. The Pascal compiler currently emits assembly too.
+Two compilers: `seed/` is the C host bootstrap; `compiler/turbo.pas` is the
+Pascal compiler. Both currently emit assembly. NASM, ld and objcopy finish
+programs on the host. No native emission or self-host certificate is claimed.
 
-`make` builds both, including the resident compiler COM and the host FPC build.
-`make test` composes the two tier-0 suites (6 seed entries + 38 compiler entries).
-Only `turbo` is registered in the top-level COMPONENTS list. Each child also
-has independent all/test/clean/smoke/mutants entrypoints and writes under
-`build/turbo/<child>/`. FPC absence fails even with cached artifacts. NASM and
-GNU binutils are also required. Shared settings come from mk/config.mk;
-factory/testlib/run-entries.sh provides the shared status/summary convention
-for shell and Pascal tests that do not fit host-test.mk's C-only link rules.
-Factory code added by this import is make and POSIX shell.
+`make` builds the seed, the FPC host compiler and resident `TURBO.COM`.
+Despite its name, TURBO.COM is an extended InitechMZ container: a flat 32-bit
+module linked at zero, relocated to 0x600000 by the content-dispatch loader.
+Startup retains the loader's separate 64 KiB stack. Descriptor reserve covers
+BSS including alignment; files and exit use INT 21h, diagnostics use the
+inherited serial helpers. No kernel private headers or code are included.
 
-Dependencies: seed uses only C host headers and its own headers; the resident
-compiler uses its own source and the seed's public build artifacts/runtime.
-The resident runtime calls INT 21h for files/exit, with the inherited serial
-output helpers for diagnostics. No kernel private header is included. There
-is no product change in this import beyond the separately committed rename.
+`make test` composes 6 seed and 38 compiler host entries, including 17 FPC
+execution references and deterministic assembly/link checks. The seed-built
+and Pascal-generated compiler are packaged with factory/mz/mzlink and checked
+by the independent mzcheck against the actual extended limits: 262144 module
+bytes, resident+reserve before 0x7ef000, native heap header, separate guard
+and stack. These replace the obsolete conventional compiler placement gates;
+small conventional programs still use their original runtime/link script.
 
-The protocol goldens are hand-derived contracts, not captures minted by
-running our implementation under FPC. The 17 execution goldens are also
-hand-computed, independently checked by compiling/running each fixture with
-FPC. Tier 0 does not execute either compiler's generated x86 code. Determinism,
-assembly/link success and layout checks are labelled separately from execution
-oracles. See compiler/tests/IMPORT.md and seed/tests/IMPORT.md for every legacy
-gate, deferred emulator work and red controls. ROADMAP.md measures the remaining
-work against GOLDEN-MASTER.md item 7. `selfhost` and `ddc` fail explicitly until
-the real in-OS proofs exist. Smoke also fails explicitly pending the image.
+`make smoke` builds the product image, boots it on QEMU and Bochs with 8 MiB,
+and runs the packaged compiler from a separate TEST data disk. mtools extracts
+its assembly and cmp compares it with the host Pascal compiler's output for
+that source. No test material is placed on the product boot disk. Logs and
+images remain in build/turbo/smoke. This proves compilation to assembly, not
+execution of that assembly's program. Emulator work never runs in tier 0.
+
+FPC, NASM, GNU binutils and mtools are required; missing tools fail. The source
+semantics and independently authored corpus/protocol goldens are unchanged.
+`make mutants` runs component patch mutants. `selfhost` and `ddc` explicitly
+fail until the in-OS native compilation proofs exist. See ROADMAP.md.
