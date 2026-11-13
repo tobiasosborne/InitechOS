@@ -8,30 +8,24 @@
  * test-flair-paint's. */
 #include <stdio.h>
 #include <string.h>
-#include "../../os/apps/paint/paint.c"
+#include "../paint.c"
+#include "tbx_host.h"
 #include "calc_ledger.h"
 
-static unsigned checks, failures, windows, exits, fills;
-static const tbx_menubar_t *bar;
-static char title[64];
+static unsigned checks, failures;
+#define m_windows tbx_host.nwindows
+#define exits tbx_host.exit_calls
+#define bar tbx_host.bar
+#define m_title tbx_host.windows[0].title
 #define CHECK(c, s) do { checks++; if (!(c)) { failures++; \
     fprintf(stderr, "FAIL paint routing: %s\n", s); } } while (0)
 
-int32_t tbx_register(void) { return TBX_OK; }
-int32_t tbx_new_window(int32_t l, int32_t t, int32_t r, int32_t b, int32_t g)
-{ (void)l; (void)t; (void)r; (void)b; CHECK(g == TBX_GOAWAY_CLOSE, "canvas close box ends Paint"); return (int32_t)++windows; }
-int32_t tbx_set_wtitle(int32_t w, const char *s)
-{ (void)w; snprintf(title, sizeof title, "%s", s); return TBX_OK; }
-int32_t tbx_set_mbar(const tbx_menubar_t *b) { bar = b; return TBX_OK; }
-int32_t tbx_fill_rect(int32_t w, int32_t l, int32_t t, int32_t r, int32_t b, uint32_t c)
-{ (void)w; (void)l; (void)t; (void)r; (void)b; CHECK(c == TBX_COLOR_WHITE, "the canvas is white"); fills++; return TBX_OK; }
-int32_t tbx_exit(int32_t rc) { CHECK(rc == 0, "exit status 0"); exits++; return TBX_OK; }
-
 int main(void)
 {
+    tbx_host_reset();
     char joined[128] = "";
     CHECK(tbx_app_main() == 0, "Paint launches");
-    CHECK(windows == 1 && !strcmp(title, "Untitled-1"), "one blank document window");
+    CHECK(m_windows == 1 && !strcmp(m_title, "Untitled-1"), "one blank document window");
     CHECK(bar != NULL && bar->n_menus == 8 && bar->has_apple == 0,
           "BAR_SHAPE eight menus, no Apple slot (the frame's bar has none)");
     if (bar) for (uint16_t m = 0; m < bar->n_menus; m++) {
@@ -53,6 +47,11 @@ int main(void)
     {
         tbx_event_t upd = { updateEvt, 1, 0, 0, 0, 0 };
         tbx_app_event(&upd);
+        unsigned fills=0;
+        CHECK(tbx_host.windows[0].goaway==TBX_GOAWAY_CLOSE,"canvas close ends Paint");
+        for(unsigned i=0;i<tbx_host.nops;i++)if(!strcmp(tbx_host.ops[i].name,"tbx_fill_rect")) {
+            fills++;CHECK(tbx_host.ops[i].a[5]==0,"canvas is white");
+        }
         CHECK(fills == 1, "updateEvt paints the canvas");
         tbx_event_t other = { TBX_EVT_MENU, TBX_MENU_WORD(129, 2), 0, 0, 0, 0 };
         tbx_app_event(&other);

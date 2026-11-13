@@ -9,3 +9,4 @@ build/apps/controlpanels/CPANELS.EXE  APPS/CPANELS.EXE
 build/apps/initechcalc/CALC.EXE       APPS/CALC.EXE
 build/apps/initechcalc/LEDGER.TXT     APPS/LEDGER.TXT
 build/apps/initechcalc/MICHAEL.CFG     APPS/MICHAEL.CFG
+build/apps/initechpaint/PAINT.EXE     APPS/PAINT.EXE
