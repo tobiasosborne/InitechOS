@@ -29,7 +29,13 @@ static int_frame_t call(unsigned ax, unsigned bx, unsigned cx, uintptr_t dx)
 static unsigned ok(unsigned ax,unsigned bx,unsigned cx,uintptr_t dx,const char *rule)
 { int_frame_t f=call(ax,bx,cx,dx); if(f.eflags&1) fprintf(stderr,"INT21 %04X error=%u path=%s\n",ax,f.eax&65535,path); need(!(f.eflags&1),rule); return f.eax; }
 static unsigned open_path(const char *s)
-{ strcpy(path,s); return ok(0x3d00,0,0,(uintptr_t)path,"PATH open"); }
+{
+    strcpy(path,s); unsigned h=ok(0x3d00,0,0,(uintptr_t)path,"PATH open");
+    int_frame_t f=call(0x4400,h,0,0);
+    unsigned drive=(s[0]=='C'||s[0]=='c')?2:s[0]=='A'||s[0]=='a'?0:int21_current_drive();
+    need(!(f.eflags&1) && (f.edx&0xbf)==drive,"i1nu4 IOCTL file drive identity");
+    return h;
+}
 static void cd(const char *s)
 { strcpy(path,s); ok(0x3b00,0,0,(uintptr_t)path,"CWD chdir"); }
 static void select_drive(unsigned d)

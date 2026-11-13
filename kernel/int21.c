@@ -1822,11 +1822,15 @@ static void do_ioctl(int_frame_t *f)
 
         /* Character device (our only one is CON) vs disk file: the bit15
          * (ISDEV) fork. DX carries the locked device-info word for the kind. */
-        uint16_t con_word = (uint16_t)INT21_DEVINFO_CON;
         if (e->kind == SFT_KIND_DEVICE) {
-            set_dx(f, con_word);
+            uint16_t identity = e->device
+                ? ((device_header_t *)e->device)->attribute & 0x0fu
+                : e->dev_id == SFT_DEV_CON ? 3u : 0u;
+            uint16_t word = identity == 3u ? INT21_DEVINFO_CON
+                : (uint16_t)((INT21_DEVINFO_CON & ~0x1fu) | identity);
+            set_dx(f, word);
         } else {
-            set_dx(f, (uint16_t)INT21_DEVINFO_FILE);
+            set_dx(f, (uint16_t)(INT21_DEVINFO_FILE | e->drive));
         }
         cf_clear(f);
         return;
@@ -1879,7 +1883,20 @@ static void do_ioctl(int_frame_t *f)
         }
         uint8_t status;
         if (e->kind == SFT_KIND_DEVICE) {
-            status = 0xFFu;                 /* CON keyboard: always ready */
+            device_header_t *dev = (device_header_t *)e->device;
+            if (dev ? (dev->attribute & DEV_ATTR_STDIN) : e->dev_id == SFT_DEV_CON) {
+                int c = conin_poll_pb();
+                status = c >= 0 ? 0xffu : 0u;
+                conin_unget(c);
+            } else if (dev) {
+                device_request_t pkt = {0};
+                pkt.command = DEVCMD_INSTATUS;
+                devices_request(dev, &pkt, g_devio_bound ? &g_devio : 0);
+                if (pkt.status & DEVST_ERROR) {
+                    set_ax(f, INT21_ERR_ACCESS_DENIED); cf_set(f); return;
+                }
+                status = (pkt.status & DEVST_BUSY) ? 0u : 0xffu;
+            } else status = 0u; /* no input service bound to AUX/PRN */
         } else {
             /* RBIL: AL=0x00 if EOF (files); 0xFF if not at EOF. */
             status = (e->file_offset >= e->dir_entry.file_size) ? 0x00u : 0xFFu;

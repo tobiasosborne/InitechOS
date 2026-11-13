@@ -18,6 +18,8 @@ static void reset(void)
     bind_standard_process(); mock_reset_dir(); int21_cwd_reset();
     int21_set_file_backend(&g_mock_backend);
 }
+static int queued=-1;
+static int poll_queued(void) { int c=queued; queued=-1; return c; }
 int main(void)
 {
     int21_set_sink(sink_capture); int21_set_break_flag(0);
@@ -88,5 +90,24 @@ int main(void)
         CHECK(!frame_cf(&f) && f.eax==3 && !memcmp((void *)(uintptr_t)buf,"abc",3),
               "eico5 created handle reads same literal bytes");
     }
+    /* Encyclopedia 4400h: bit7 and low device-identity bits, reserved bits
+     * intentionally excluded. 4406h must not consume keyboard typeahead. */
+    reset(); devices_init(); int21_set_devices(devices_head(),0);
+    const char *devs[]={"CON","NUL","AUX","PRN"};
+    const unsigned masks[]={0x83,0x84,0x80,0x80};
+    for(unsigned i=0;i<4;i++) {
+        f=invoke(0x3d00,0,0,low_dup(devs[i])); h=f.eax;
+        f=invoke(0x4400,h,0,0);
+        CHECK(!frame_cf(&f) && (f.edx&0x8f)==masks[i],"i1nu4 resolved device identity");
+    }
+    int21_set_break_flag(0); int21_conin_handoff(); int21_set_conin(0,poll_queued);
+    f=invoke(0x4406,0,0,0);
+    CHECK(!frame_cf(&f) && (f.eax&255)==0,"i1nu4 empty CON is not ready");
+    queued='K'; f=invoke(0x4406,0,0,0);
+    CHECK(!frame_cf(&f) && (f.eax&255)==255,"i1nu4 queued CON is ready");
+    f=invoke(0x4406,0,0,0);
+    CHECK(!frame_cf(&f) && (f.eax&255)==255,"i1nu4 repeated poll preserves queued byte");
+    f=invoke(0x0700,0,0,0);
+    CHECK((f.eax&255)=='K',"i1nu4 READ receives queued byte");
     return TEST_SUMMARY("review-handles");
 }
