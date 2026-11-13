@@ -28,6 +28,15 @@ links() {
     "$OBJCOPY" -O binary "$dir/dos.elf" "$dir/program.com"
 }
 case $entry in
+isolated-seed)
+    # CLAUDE.md, Every component is self-contained: an isolated compiler OUT
+    # must not redirect its seed prerequisite away from the requested SEED_OUT.
+    make --no-print-directory seed-tools TOP="$TOP" OUT="$scratch/compiler" \
+        SEED_OUT="$scratch/seed" TESTS= MAKEOVERRIDES=
+    test -x "$scratch/seed/initechc"
+    for object in start start_dos fileio; do test -s "$scratch/seed/rt/$object.o"; done
+    test ! -e "$scratch/compiler/initechc"
+    ;;
 runtime-table)
     sh tests/runtime.sh "$TOP" "$scratch"
     ;;

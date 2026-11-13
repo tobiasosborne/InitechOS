@@ -13,10 +13,14 @@ artifacts/scripts, factory/mz's packaging/checking tools, and own sources and
 fixtures. No private kernel header/code is used. The hosted bootstrap uses
 FPC -B -O2; independent corpus execution references still use -O-. Delphi/B+/H-
 semantics are preserved. NASM filenames/order and ELF scripts are fixed for determinism.
-All 39 entries remain: hosted execution fell from 16s to 13s on the integration
-machine. The 30s suite budget and 20s entry timeout are unchanged.
+All original 39 entries remain: hosted execution fell from 16s to 13s on the
+integration machine. The added isolated-seed entry checks that a fresh seed
+prerequisite is built into the requested SEED_OUT even with a different compiler
+OUT. Recursive seed builds explicitly select their own output directory; cached
+tools must not hide a missing prerequisite. The 30s suite budget and 20s entry
+timeout are unchanged.
 
-`make test`: 39 host entries, including independent FPC execution references,
+`make test`: 40 host entries, including independent FPC execution references,
 17 flat and 18 extended byte-equality comparisons, runtime-table regeneration,
 and both compiler placements checked against real extended limits. It does
 not execute emitted x86 code. Parent `make -C turbo smoke` boots the actual
