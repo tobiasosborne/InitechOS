@@ -41,14 +41,9 @@
 #ifndef GDI_REF_WINE_SHIM_H
 #define GDI_REF_WINE_SHIM_H
 
-/* The including TU (gdi_ref_wine.c) must have formed WINE_REGION_C as a SINGLE
- * string literal pointing at the wine server/region.c, derived from the build's
- * -DWIN31_DECOMP=<base> (passed UNQUOTED so the whole path stringizes into one
- * literal -- adjacent string literals are NOT accepted in a #include directive).
- * The including TU also gates this header behind __has_include(WINE_REGION_C),
- * so reaching here means the file exists. */
+/* The including TU supplies the vendored path. Missing source is a hard error. */
 #ifndef WINE_REGION_C
-#error "gdi_ref_wine_shim.h requires WINE_REGION_C (a single string literal) -- form it from -DWIN31_DECOMP in the including TU"
+#error "gdi_ref_wine_shim.h requires the vendored WINE_REGION_C"
 #endif
 
 #include <stdlib.h>   /* malloc / realloc / free  (the wine engine's allocator) */

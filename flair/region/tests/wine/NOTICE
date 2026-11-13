@@ -1,0 +1,7 @@
+Unmodified Wine server region.c, request.h and user.h from
+https://gitlab.winehq.org/wine/wine (via win31-decomp/oracles/wine).
+Source capture: win31-decomp HEAD 27312fd6a311f22d5bc907d3db0703123574418e.
+LGPL version 2.1 or later; copyright and additional X Consortium notices
+remain in the files. COPYING.LIB is the accompanying licence text.
+These files are independent test oracles, never product code.
+Hashes are in goldens/CORPORA.lock. No external Wine checkout is needed.

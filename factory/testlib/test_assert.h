@@ -1,18 +1,9 @@
-/*
- * test_assert.h -- shared host assertion harness, originally from the seed.
- * A test binary must exit nonzero if any check fails.
- *
- * No external framework (CLAUDE.md "no extra runtimes", Law 3). Each test
- * file defines a `static int g_checks` / `static int g_fails` pair via the
- * TEST_HARNESS() macro and calls CHECK(cond, msg). main() returns
- * test_summary(name) which prints a count line and yields a process exit code.
- *
- * ASCII-clean (CLAUDE.md Rule 12). No timestamps (Rule 11).
- */
+/* Canonical host assertion API. Ref: CLAUDE.md, The constitution / oracle. */
 #ifndef SEED_TEST_ASSERT_H
 #define SEED_TEST_ASSERT_H
 
 #include <stdio.h>
+#include <string.h>
 
 /* Place once at file scope in each test_*.c. */
 #define TEST_HARNESS() \
@@ -45,6 +36,7 @@
 /* Call from main(): print a summary, return 0 if all green else 1. */
 #define TEST_SUMMARY(name)                                                 \
     (printf("%s: %d checks, %d failures\n", (name), g_checks, g_fails),    \
+     printf("INITECH_CHECKS %d failures=%d\n", g_checks, g_fails), \
      (g_fails == 0) ? 0 : 1)
 
 #endif /* SEED_TEST_ASSERT_H */
