@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")/../.."
 mkdir -p build/image
-sh factory/image/mk_boot_system.sh build/image/boot.img build/boot/mbr.bin build/boot/stage2.bin build/boot/IO.SYS build/kernel/INITDOS.SYS build/factory/boot_system
+sh factory/image/mk_boot_system.sh build/image/boot.img build/boot/mbr.bin build/boot/stage2.bin build/boot/IO.SYS build/system/INITDOS.SYS build/factory/boot_system
 work=$(mktemp -d build/image/mint.XXXXXX)
 trap 'rm -rf "$work"' EXIT HUP INT TERM
 export SOURCE_DATE_EPOCH=315532800 TZ=UTC LC_ALL=C MTOOLS_SKIP_CHECK=1

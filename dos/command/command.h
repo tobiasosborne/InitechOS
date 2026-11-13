@@ -61,6 +61,7 @@ typedef enum cmd_kind {
     CMD_RD,          /* RD/RMDIR   -- remove an empty subdirectory (AH=3Ah)      */
     CMD_CLS,         /* CLS        -- clear the screen                           */
     CMD_VER,         /* VER        -- print the InitechDOS version line          */
+    CMD_FLAIR,       /* FLAIR -- enter the optional graphical environment */
     CMD_ECHO,        /* ECHO <text>-- print the text                            */
     CMD_BREAK,       /* BREAK [ON|OFF] -- report/set CTRL-BREAK state (AH=33h)   */
     CMD_EXIT,        /* EXIT       -- leave the REPL                             */

@@ -50,7 +50,7 @@ kernel-build: dos-build
 	$(MAKE) -C kernel
 factory-build:
 	$(MAKE) -C factory
-image: boot-build kernel-build factory-build
+image: boot-build system-build factory-build
 	$(MAKE) -C factory image
 smoke: image
 	$(MAKE) -C factory smoke
@@ -60,3 +60,6 @@ run-bochs: image
 	INITECH_TEST_RAM_MB=8 build/factory/bochs_harness --disk build/image/boot.img --disk2 build/image/data.img --serial-stdout --timeout-ms 3600000 --out build/factory
 repro:
 	sh factory/repro.sh
+.PHONY: system-build
+system-build: kernel-build
+	$(MAKE) -C system

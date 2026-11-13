@@ -1,3 +1,4 @@
+#include "environment.h"
 /* command.c -- InitechDOS COMMAND.COM-alike interactive shell (the A:\> REPL).
  *
  * beads: initech-7pc. M2 capstone (PRD Sec 6.1). See command.h for the full
@@ -83,6 +84,7 @@ cmd_kind_t cmd_classify(const char *upper_command)
 #endif
         { "CLS",   CMD_CLS  },
         { "VER",   CMD_VER  },
+        { "FLAIR", CMD_FLAIR },
         { "ECHO",  CMD_ECHO },
         { "BREAK", CMD_BREAK },  /* BREAK [ON|OFF] -- CTRL-BREAK state (AH=33h; DEC-16) */
         { "EXIT",  CMD_EXIT },
@@ -3862,6 +3864,9 @@ static int dispatch_line(const char *line)
             break;
         case CMD_CLS:
             builtin_cls();
+            break;
+        case CMD_FLAIR:
+            kernel_graphical_environment();
             break;
         case CMD_VER:
             builtin_ver();

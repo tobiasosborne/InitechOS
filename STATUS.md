@@ -13,7 +13,10 @@ a scripted DOS session (VER, DIR, directories, COPY, REN, DEL, a batch
 file, SORT, MORE, FIND, CHKDSK), reads the written files back on the
 host with mtools and checks for CPU faults, in about 30 seconds.
 `make test` runs every component's host tests. There is no desktop on
-`main` yet; for the GUI, use the legacy tree.
+`main` yet; for the GUI, use the legacy tree. On slice/desktop, S1 adds the
+system composition, public hardware headers, platform binding and FLAIR command;
+the command reaches the weak not-installed hook. The DOS smoke is green on
+both emulators. Finder/pump extraction is next.
 
 The kernel is 105,848 bytes with one 14-line entry point and no test
 scenarios in it. The loader takes a kernel of any size up to its

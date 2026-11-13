@@ -1,16 +1,12 @@
-# FLAIR desktop (parked)
+# FLAIR desktop
 
-Finder, shell, Apple menu, film arrangement, power notices and easter eggs,
-with their host tests. These files are not built by the Toolbox component.
-The spine's desktop half of kmain (kmain_legacy.c), tbx_gate.asm and support
-files are parked alongside the Toolbox import's Finder/shell/film sources.
-Both sets survive unbuilt. Follow ../NOTES-FOR-KERNEL.md to bind libflair.a
-and build/flair/region/target/region.o to the bootable kernel.
+The first build milestone links the platform adapter, desktop painter and
+cdecl INT 81h entry with the Toolbox. The Finder and live pump are still
+parked in kmain_legacy.c pending extraction. The default DOS FLAIR hook reports
+that the graphical environment is not installed and returns to the caller.
 
-finder_ops_cold.c and finder_windows_cold.c are size-split halves, not separate
-managers. Rejoin each with its matching .c when importing the desktop; the old
-kernel size cap and COLD placement are retired. No halves are rejoined here.
-
-Drag/compositor and menu-handler tests are parked here because they link the
-desktop implementation. Their Toolbox dependencies remain imported separately.
-Assets and the render harness are now in ../include/assets and ../tests/render.
+Dependencies: flair/include and assets, flair/region/include, sdk/include,
+kernel/include. The adapter implements the fifteen flair_platform functions
+specified in ../NOTES-FOR-KERNEL.md. Files use a shadow PSP and restore the
+caller's PSP and CWD; tenant allocation stays owned by the Toolbox heap.
+The assembly already passes cdecl arguments on the stack and cleans them.
