@@ -3,7 +3,7 @@ INITECH_IMPORT_CHECK_INCLUDED := 1
 # Opt in after target.mk: include $(TOP)/mk/import-check.mk
 # TARGET_ARTIFACTS lists real outputs reachable from all; default TARGET_LIB.
 TARGET_ARTIFACTS ?= $(TARGET_LIB)
-IMPORT_MUT_PATTERN ?= _MUT_
+IMPORT_MUT_PATTERN ?= _(MUT|MUTATE|MUTANT)_
 .PHONY: import-check
 import-check:
 	@mkdir -p $(OUT)

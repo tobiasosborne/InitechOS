@@ -47,7 +47,7 @@ target.mk. For an executable, supply link rules and set TARGET_ARTIFACTS to
 that executable instead. `include $(TOP)/mk/import-check.mk` after target.mk
 adds all and the audit to test. The audit scans included makefiles and include
 flags for attic, product sources (excluding tests/ and mutants/) for
-IMPORT_MUT_PATTERN (default _MUT_) and escaping includes, and the actual make
+IMPORT_MUT_PATTERN (default _(MUT|MUTATE|MUTANT)_) and escaping includes, and the actual make
 graph for artifact reachability from all. It supplements, not replaces, the
 host oracle. `make status` reruns the component test target and builds/audits every registered
 component; logs explain failures. Undeclared artifacts are conservatively red.
@@ -112,3 +112,6 @@ Do not add a separate mkdir recipe before run-command. corpus.mk verifies a
 component's CORPORA selection unless the top-level preflight already ran.
 run-entries.sh also bounds inherited shell/Pascal suites (20s per entry, 30s
 per component by default); the entry interface remains unchanged.
+
+The audit recognizes InitechBase's inherited MUTATE/MUTANT spellings as well
+as MUT hooks. None is converted by this conventions pass.
