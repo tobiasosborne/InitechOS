@@ -1,0 +1,14 @@
+--- a/calc.c
++++ b/calc.c
+@@ -126,11 +126,6 @@
+             (void)tbx_fill_rect(chart,70+begin,75+y,70+x,76+y,shades[s]);
+         }
+     }
+-    for(int i=0;i<5;i++) {
+-        i123_number_text((double)calc_slice(i),line,sizeof line);
+-        unsigned n=length(line); line[n]='%'; line[n+1]=0;
+-        text(chart,120,20+22*i,line);
+-    }
+     i123_number_text((double)calc_pie_sum(),line,sizeof line);
+     unsigned n=length(line); line[n]='%'; line[n+1]=0;
+     text(chart,120,134,line);

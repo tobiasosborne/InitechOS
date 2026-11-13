@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -159,8 +159,6 @@
+     if(i123_parse_value(entry,entered,&x)==I123_OK) (void)i123_set_number(&g_sheet,c,r,x);
+     else (void)i123_set_label(&g_sheet,c,r,'\'',entry,entered);
+     entered=0; entry[0]=0;
+-    g_dirty=1;  /* a committed edit is unsaved work */
+-    g_edited=1; /* ...and the model now differs from the shipped ledger for good */
+ }
+ /* Serialise the model in the shipped LEDGER.TXT layout (label to column 17,
+  * then the amount; CR LF), from the SAME cell text the window paints. A clean

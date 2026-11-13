@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -200,7 +200,7 @@
+     if(g_edited) {   /* an edited sheet ALWAYS saves the model, even after a save */
+         unsigned n=serialise(); int32_t h;
+         copy_stage=0;
+-        for(unsigned i=0;i<sizeof stage_names/sizeof stage_names[0]&&!copy_stage;i++) if(!exists(stage_names[i])) copy_stage=stage_names[i];
++        copy_stage=stage_names[0];
+         if(!copy_stage) { g_quit_after_save=0; notice(); return; }   /* never destroy a stranger's file */
+         h=tbx_file_create(copy_stage);
+         if(h<0) { g_quit_after_save=0; notice(); return; }

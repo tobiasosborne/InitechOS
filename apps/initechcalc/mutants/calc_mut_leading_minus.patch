@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -61,7 +61,7 @@
+ static void calc_format(double x,char *out)
+ {
+     char number[80]; i123_number_text(x<0?-x:x,number,sizeof number);
+-    if(x<0) { copy(out,number); unsigned n=length(out); out[n]='-'; out[n+1]=0; }
++    if(x<0) { out[0]='-'; copy(out+1,number); }
+     else copy(out,number);
+ }
+ static void text(int32_t w,int x,int y,const char *s)

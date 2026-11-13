@@ -8,65 +8,49 @@
  * (test-flair-file-copy: ppm_flair_file_copy_check + the FAT differential). */
 #include <stdio.h>
 #include <string.h>
-#include "../../os/apps/calc/calc.c"
+#include "../calc.c"
+#include "tbx_host.h"
 
-static unsigned checks, failures, windows, alerts, exits, copies;
-static const tbx_menubar_t *bar;
-static char caption[160], src[160], dst[160];
-#define CHECK(c, s) do { checks++; if (!(c)) { failures++; \
-    fprintf(stderr, "FAIL file-copy routing: %s\n", s); } } while (0)
-
-int32_t tbx_register(void) { return TBX_OK; }
-int32_t tbx_new_window(int32_t l, int32_t t, int32_t r, int32_t b, int32_t g)
-{ (void)l; (void)t; (void)r; (void)b; (void)g; return (int32_t)++windows; }
-int32_t tbx_set_wtitle(int32_t w, const char *s)
-{ (void)w; (void)s; return TBX_OK; }
-int32_t tbx_set_mbar(const tbx_menubar_t *b) { bar = b; return TBX_OK; }
-int32_t tbx_draw_menubar(void) { return TBX_OK; }
-int32_t tbx_draw_text(int32_t w, int32_t x, int32_t y, const char *s,
-                      uint32_t f, uint32_t b)
-{ (void)w; (void)x; (void)y; (void)s; (void)f; (void)b; return TBX_OK; }
-int32_t tbx_fill_rect(int32_t w, int32_t l, int32_t t, int32_t r, int32_t b,
-                      uint32_t c)
-{ (void)w; (void)l; (void)t; (void)r; (void)b; (void)c; return TBX_OK; }
-int32_t tbx_exit(int32_t rc) { (void)rc; exits++; return TBX_OK; }
-static char alert_text[200];
-static unsigned alert_buttons;
-int32_t tbx_alert(const char *text, const char *def,
-                  const char *cancel, const char *other)
-{
-    (void)def; alerts++; alert_buttons = 1u + (cancel != 0) + (other != 0);
-    snprintf(alert_text, sizeof alert_text, "%s", text);
-    return TBX_OK;
+static unsigned checks, failures;
+#define windows tbx_host.nwindows
+#define alerts tbx_host.alerts
+#define exits tbx_host.exit_calls
+#define bar tbx_host.bar
+#define caption tbx_host.copy_caption
+#define src tbx_host.copy_src
+#define dst tbx_host.copy_dst
+#define alert_text tbx_host.alert_text
+#define alert_buttons (1+!!tbx_host.alert_btn[1][0]+!!tbx_host.alert_btn[2][0])
+#define CHECK(c, s) do { checks++; if (!(c)) { failures++; fprintf(stderr,"FAIL file-copy routing: %s\n",s); } } while(0)
+static unsigned calls(const char *name) { unsigned n=0;for(unsigned i=0;i<tbx_host.nops;i++)if(!strcmp(tbx_host.ops[i].name,name))n++;return n; }
+#define copies calls("tbx_file_copy")
+#define stage_deletes calls("tbx_file_delete")
+static char stage_name[128],stage_data[2048];
+static int stranger_changed(void) {
+ const tbx_host_file_t *f=tbx_host_file("APPS\\TABLES.TMP");
+ return !f || f->size!=8 || memcmp(f->data,"stranger",8);
 }
-/* initech-qxft: a one-file data volume. tables_exists models APPS\TABLES.TXT. */
-static int tables_exists, stage_open, tmp_exists, tmp_clobbered;
-static char stage_name[80], stage_data[1024];
-static unsigned stage_len, stage_deletes;
-int32_t tbx_file_open(const char *p, uint32_t m)
-{ (void)m; if (tmp_exists && !strcmp(p, "APPS\\TABLES.TMP")) return 8;
-  return (tables_exists && !strcmp(p, "APPS\\TABLES.TXT")) ? 7 : -1; }
-int32_t tbx_file_create(const char *p)
-{ if (tmp_exists && !strcmp(p, "APPS\\TABLES.TMP")) tmp_clobbered = 1; /* CREATE truncates */
-  snprintf(stage_name, sizeof stage_name, "%s", p); stage_len = 0; stage_open = 1; return 9; }
-int32_t tbx_file_write(int32_t h, const void *b, uint32_t n)
-{
-    if (h != 9 || stage_len + n >= sizeof stage_data) return -1;
-    memcpy(stage_data + stage_len, b, n); stage_len += n; stage_data[stage_len] = 0; return (int32_t)n;
+#define tmp_clobbered stranger_changed()
+/* Explicit completion fixture: OS copies bytes before sending FILECOPY done. */
+static void deliver(const tbx_event_t *e) {
+ if(e->what==TBX_EVT_FILECOPY && e->message>=0) {
+  const tbx_host_file_t *f=tbx_host_file(src);
+  if(f) tbx_host_put_file(dst,f->data,f->size);
+ }
+ tbx_app_event(e);
+ if(src[0] && strcmp(src,"APPS\\LEDGER.TXT")) {
+  const tbx_host_file_t *f=tbx_host_file(src);
+  if(f && f->size<sizeof stage_data) {
+   snprintf(stage_name,sizeof stage_name,"%s",src);
+   memcpy(stage_data,f->data,f->size);stage_data[f->size]=0;
+  }
+ }
 }
-int32_t tbx_file_close(int32_t h) { (void)h; stage_open = 0; return 0; }
-int32_t tbx_file_delete(const char *p) { if (tmp_exists && !strcmp(p, "APPS\\TABLES.TMP")) tmp_clobbered = 1; if (!strcmp(p, stage_name)) stage_deletes++; return 0; }
-int32_t tbx_file_copy(const char *c, const char *s, const char *d)
-{
-    copies++;
-    snprintf(caption, sizeof caption, "%s", c ? c : "");
-    snprintf(src, sizeof src, "%s", s ? s : "");
-    snprintf(dst, sizeof dst, "%s", d ? d : "");
-    return TBX_OK;
-}
+#define tbx_app_event deliver
 
 int main(void)
 {
+    tbx_host_reset();
     const tbx_menuitem_t *save = NULL;
     int16_t menu_id = 0;
     uint16_t item = 0;
@@ -123,7 +107,7 @@ int main(void)
         CHECK(strstr(stage_data, "Film Costs") == NULL, "SAVE_EDIT the replaced label is gone from the saved file");
         CHECK(strstr(stage_data, "570- format      570-\r\n") && strstr(stage_data, "TOTAL            $112,276.87\r\n"),
               "SAVE_EDIT the untouched PRD rows (570-, the 116% total line) are saved");
-        { tbx_event_t done = { (int32_t)TBX_EVT_FILECOPY, 50, 0, 0, 0, 0 }; tbx_app_event(&done); tables_exists = 1; }
+        { tbx_event_t done = { (int32_t)TBX_EVT_FILECOPY, 50, 0, 0, 0, 0 }; tbx_app_event(&done); /* completion installed TABLES.TXT */ }
         CHECK(stage_deletes == 1, "STAGE_CLEANED the stage file is deleted after the copy");
         /* L009: a second Save onto the existing TABLES.TXT asks before replacing. */
         alerts = 0; c0 = copies;
@@ -164,7 +148,7 @@ int main(void)
               "SAVE_REPEAT a second Save with no new edit still saves the edited model, not the stale ledger");
         tbx_app_event(&done);
         /* A stranger's APPS\TABLES.TMP must survive. */
-        tmp_exists = 1; tmp_clobbered = 0; c0 = copies; stage_name[0] = 0;
+        tbx_host_put_file("APPS\\TABLES.TMP","stranger",8); c0 = copies; stage_name[0] = 0;
         tbx_app_event(&sv); tbx_app_event(&yes);
         CHECK(copies == c0 + 1 && !tmp_clobbered && strcmp(src, "APPS\\TABLES.TMP") != 0,
               "STAGE_CLOBBER an existing APPS\\TABLES.TMP is neither truncated nor used as the stage");

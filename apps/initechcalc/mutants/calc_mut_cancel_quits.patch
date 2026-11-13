@@ -1,0 +1,10 @@
+--- a/calc.c
++++ b/calc.c
+@@ -238,6 +238,7 @@
+     int k=g_ask; g_ask=ASK_NONE;
+     if(k==ASK_QUIT) {
+         if(item==(int32_t)TBX_ALERT_OTHER) { (void)tbx_exit(0); return; }
++        if(item==(int32_t)TBX_ALERT_CANCEL) { (void)tbx_exit(0); return; }
+         if(item==(int32_t)TBX_ALERT_DEFAULT) { g_quit_after_save=1; begin_save(); }
+     } else if(k==ASK_REPLACE) {
+         if(item==(int32_t)TBX_ALERT_DEFAULT) do_save(); else g_quit_after_save=0;

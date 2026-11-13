@@ -5,7 +5,7 @@
  * The unlocated -570 specimen is separate from the unknown ledger amounts.
  * Uses the existing Toolbox text, Window/Menu/Event Managers and i123 sparse
  * cell/edit/number engine. No kernel app, second spreadsheet or event loop.
- * C artifact, freestanding, ASCII, deterministic (CLAUDE Laws 1-4). */
+ * C artifact, freestanding, ASCII, deterministic (CLAUDE CLAUDE.md, The constitution). */
 #include "tbx.h"
 #include "i123.h"
 #include "i123/wk1_format.h"
@@ -21,11 +21,7 @@ static const tbx_menuitem_t file_items[]={
  * handle API, to a new file on the data volume (spec/toolbox_gate.h Sec 12).
  * Paths are authored product policy (APPS holds the volume's data files; the
  * root listing is locked). */
-#ifdef CALC_MUT_CAPTION
-static const char copy_caption[]="Saving tables to disk"; /* NAMED MUTANT */
-#else
 static const char copy_caption[]=CALC_COPY_CAPTION;
-#endif
 static const char copy_src[]="APPS\\LEDGER.TXT";
 static const char copy_dst[]="APPS\\TABLES.TXT";
 /* initech-qxft (audit 2026-10-23-das L006/L007/L009). Ref: Macintosh Human
@@ -57,9 +53,6 @@ static unsigned length(const char *s) { unsigned n=0; while(s[n]) n++; return n;
 static void copy(char *d,const char *s) { do { *d++=*s; } while(*s++); }
 static int calc_slice(int i)
 {
-#ifdef CALC_MUT_PIE100
-    if(i==0) return calc_pie_slices[0]-16;
-#endif
     return calc_pie_slices[i];
 }
 static int calc_pie_sum(void) { int n=0; for(int i=0;i<5;i++) n+=calc_slice(i); return n; }
@@ -68,13 +61,8 @@ static int calc_pie_sum(void) { int n=0; for(int i=0;i<5;i++) n+=calc_slice(i); 
 static void calc_format(double x,char *out)
 {
     char number[80]; i123_number_text(x<0?-x:x,number,sizeof number);
-#ifdef CALC_MUT_LEADING_MINUS
-    if(x<0) { out[0]='-'; copy(out+1,number); }
-    else copy(out,number);
-#else
     if(x<0) { copy(out,number); unsigned n=length(out); out[n]='-'; out[n+1]=0; }
     else copy(out,number);
-#endif
 }
 static void text(int32_t w,int x,int y,const char *s)
 { (void)tbx_draw_text(w,x,y,s,TBX_COLOR_BLACK|TBX_TEXT_GENEVA9,TBX_COLOR_WHITE); }
@@ -126,14 +114,9 @@ static void paint_chart(void)
 {
     /* Authored palette policy over Sec7 role tokens: neighbours, including
      * last/first at the east seam, have different shades (five visible slices). */
-#ifdef CALC_MUT_MERGE_SLICES
-    static const uint32_t shades[]={TBX_COLOR_BLACK,TBX_COLOR_GRAY,TBX_COLOR_NAVY,TBX_COLOR_GRAY,TBX_COLOR_BLACK};
-#else
     static const uint32_t shades[]={TBX_COLOR_BLACK,TBX_COLOR_GRAY,TBX_COLOR_NAVY,TBX_COLOR_BLACK,TBX_COLOR_GRAY};
-#endif
     (void)shades;
     (void)tbx_fill_rect(chart,0,0,208,217,TBX_COLOR_WHITE);
-#ifndef CALC_MUT_NO_PIE
     for(int y=-48;y<=48;y++) {
         int x=-48;
         while(x<=48) {
@@ -143,14 +126,11 @@ static void paint_chart(void)
             (void)tbx_fill_rect(chart,70+begin,75+y,70+x,76+y,shades[s]);
         }
     }
-#endif
-#ifndef CALC_MUT_NO_LABELS
     for(int i=0;i<5;i++) {
         i123_number_text((double)calc_slice(i),line,sizeof line);
         unsigned n=length(line); line[n]='%'; line[n+1]=0;
         text(chart,120,20+22*i,line);
     }
-#endif
     i123_number_text((double)calc_pie_sum(),line,sizeof line);
     unsigned n=length(line); line[n]='%'; line[n+1]=0;
     text(chart,120,134,line);
@@ -179,10 +159,8 @@ static void commit(void)
     if(i123_parse_value(entry,entered,&x)==I123_OK) (void)i123_set_number(&g_sheet,c,r,x);
     else (void)i123_set_label(&g_sheet,c,r,'\'',entry,entered);
     entered=0; entry[0]=0;
-#ifndef CALC_MUT_NEVER_DIRTY
     g_dirty=1;  /* a committed edit is unsaved work */
     g_edited=1; /* ...and the model now differs from the shipped ledger for good */
-#endif
 }
 /* Serialise the model in the shipped LEDGER.TXT layout (label to column 17,
  * then the amount; CR LF), from the SAME cell text the window paints. A clean
@@ -219,20 +197,10 @@ static int exists(const char *path)
 static void do_save(void)
 {
     const char *from=copy_src;
-#ifdef CALC_MUT_ONE_FLAG
-    if(g_dirty) {
-#elif !defined(CALC_MUT_SAVE_STALE)
     if(g_edited) {   /* an edited sheet ALWAYS saves the model, even after a save */
-#else
-    if(0) {
-#endif
         unsigned n=serialise(); int32_t h;
         copy_stage=0;
-#ifdef CALC_MUT_STAGE_CLOBBER
-        copy_stage=stage_names[0];
-#else
         for(unsigned i=0;i<sizeof stage_names/sizeof stage_names[0]&&!copy_stage;i++) if(!exists(stage_names[i])) copy_stage=stage_names[i];
-#endif
         if(!copy_stage) { g_quit_after_save=0; notice(); return; }   /* never destroy a stranger's file */
         h=tbx_file_create(copy_stage);
         if(h<0) { g_quit_after_save=0; notice(); return; }
@@ -247,13 +215,11 @@ static void begin_save(void)
 {
     if(g_copying||g_ask) return;
     commit();   /* an entry being typed is part of the work */
-#ifndef CALC_MUT_REPLACE_SILENT
     if(exists(copy_dst)) {
         g_ask=ASK_REPLACE;
         if(tbx_alert(replace_text,"Yes","No",0)!=TBX_OK) { g_ask=ASK_NONE; g_quit_after_save=0; } /* fail safe: never replace unasked */
         return;
     }
-#endif
     do_save();
 }
 /* THE ONE EXIT GUARD: File > Quit, Ctrl-Q, the close box, and the Finder's
@@ -272,9 +238,6 @@ static void answer(int32_t item)
     int k=g_ask; g_ask=ASK_NONE;
     if(k==ASK_QUIT) {
         if(item==(int32_t)TBX_ALERT_OTHER) { (void)tbx_exit(0); return; }
-#ifdef CALC_MUT_CANCEL_QUITS
-        if(item==(int32_t)TBX_ALERT_CANCEL) { (void)tbx_exit(0); return; }
-#endif
         if(item==(int32_t)TBX_ALERT_DEFAULT) { g_quit_after_save=1; begin_save(); }
     } else if(k==ASK_REPLACE) {
         if(item==(int32_t)TBX_ALERT_DEFAULT) do_save(); else g_quit_after_save=0;

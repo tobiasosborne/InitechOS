@@ -21,6 +21,7 @@ override COMPONENTS += apps/calculator
 override COMPONENTS += apps/notepad
 override COMPONENTS += apps/initechtext
 override COMPONENTS += apps/controlpanels
+override COMPONENTS += apps/initechcalc
 override COMPONENTS += turbo
 override COMPONENTS += system
 override REGISTERED_COMPONENTS := $(COMPONENTS)

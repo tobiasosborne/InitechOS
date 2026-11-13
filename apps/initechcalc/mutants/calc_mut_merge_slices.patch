@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -114,7 +114,7 @@
+ {
+     /* Authored palette policy over Sec7 role tokens: neighbours, including
+      * last/first at the east seam, have different shades (five visible slices). */
+-    static const uint32_t shades[]={TBX_COLOR_BLACK,TBX_COLOR_GRAY,TBX_COLOR_NAVY,TBX_COLOR_BLACK,TBX_COLOR_GRAY};
++    static const uint32_t shades[]={TBX_COLOR_BLACK,TBX_COLOR_GRAY,TBX_COLOR_NAVY,TBX_COLOR_GRAY,TBX_COLOR_BLACK};
+     (void)shades;
+     (void)tbx_fill_rect(chart,0,0,208,217,TBX_COLOR_WHITE);
+     for(int y=-48;y<=48;y++) {

@@ -4,10 +4,16 @@
  * explicitly product policy in spec/flair_calc_traces.mk, not a frame crop. */
 #include <stdio.h>
 #include <string.h>
-#include "../../os/apps/calc/calc.c"
+#include "../calc.c"
+#include "tbx_host.h"
 
-static int failures, checks, nw, exits, draws[3], total, negative;
-static const tbx_menubar_t *installed;
+static int failures, checks, draws[3], total, negative;
+#define nw tbx_host.nwindows
+#define exits tbx_host.exit_calls
+#define installed tbx_host.bar
+#define alerts tbx_host.alerts
+#define alert_text tbx_host.alert_text
+#define alert_buttons (1+!!tbx_host.alert_btn[1][0]+!!tbx_host.alert_btn[2][0])
 static uint32_t chart_pixels[217][208];
 static int percent_labels[5];
 static int contour_changes(void)
@@ -24,49 +30,33 @@ static int contour_changes(void)
     return n;
 }
 #define CHECK(c,s) do { checks++; if (!(c)) { failures++; fprintf(stderr,"FAIL %s\n",s); } } while(0)
-int32_t tbx_register(void) { return 0; }
-int32_t tbx_new_window(int32_t l,int32_t t,int32_t r,int32_t b,int32_t g)
-{ (void)l;(void)t;(void)r;(void)b; CHECK(g==TBX_GOAWAY_ASK,"close asks tenant"); return ++nw; }
-int32_t tbx_set_wtitle(int32_t w,const char *s)
-{ CHECK((w==1&&!strcmp(s,"InitechCalc"))||(w==2&&!strcmp(s,"Pie Chart")),"window titles"); return 0; }
-int32_t tbx_set_mbar(const tbx_menubar_t *b) { installed=b; return 0; }
-int32_t tbx_draw_menubar(void) { return 0; }
-int32_t tbx_fill_rect(int32_t w,int32_t l,int32_t t,int32_t r,int32_t b,uint32_t c)
-{
-    CHECK(w==1||w==2,"fill token");
-    if(w==2) for(int y=t;y<b&&y<217;y++) for(int x=l;x<r&&x<208;x++)
-        if(y>=0&&x>=0) chart_pixels[y][x]=c;
-    return 0;
+/* Rasterize recorded calls only; no private Toolbox transport. */
+static void event(int what,int msg) {
+    tbx_event_t e={what,msg,0,0,0,0}; tbx_host.nops=0; tbx_app_event(&e);
+    for(unsigned i=0;i<tbx_host.nops;i++) {
+        const tbx_host_op_t *o=&tbx_host.ops[i];
+        int w=o->a[0];
+        if(!strcmp(o->name,"tbx_fill_rect")) {
+            CHECK(w==1||w==2,"fill token");
+            if(w==2) for(int y=o->a[2];y<o->a[4]&&y<217;y++)
+                for(int x=o->a[1];x<o->a[3]&&x<208;x++)
+                    if(y>=0&&x>=0) chart_pixels[y][x]=(uint32_t)o->a[5];
+        }
+        if(!strcmp(o->name,"tbx_draw_text")) {
+            CHECK(w==1||w==2,"text token");if(w==1||w==2)draws[w]++;
+            CHECK(o->a[3]==65537,"Geneva 9 token");
+            if(!strcmp(o->text,"$112,276.87"))total++;
+            if(!strcmp(o->text,"570-"))negative++;
+            const char *pct[]={"40%","35%","18%","14%","9%"};
+            if(w==2)for(int k=0;k<5;k++)if(!strcmp(o->text,pct[k]))percent_labels[k]++;
+        }
+    }
 }
-int32_t tbx_draw_text(int32_t w,int32_t x,int32_t y,const char *s,uint32_t f,uint32_t b)
-{
-    (void)x;(void)y;(void)b;
-    CHECK(w==1||w==2,"text token");
-    if(w==1||w==2) draws[w]++;
-    CHECK(f==65537u,"Geneva 9 token");
-    if(!strcmp(s,"$112,276.87")) total++;
-    if(!strcmp(s,"570-")) negative++;
-    static const char *pct[]={"40%","35%","18%","14%","9%"};
-    if(w==2) for(int i=0;i<5;i++) if(!strcmp(s,pct[i])) percent_labels[i]++;
-    return 0;
-}
-int32_t tbx_exit(int32_t r) { CHECK(r==0,"exit status"); exits++; return 0; }
-int32_t tbx_file_copy(const char *c,const char *s,const char *d) { (void)c; (void)s; (void)d; return 0; } /* bf2: routed in test_calc_file_copy.c */
-/* initech-qxft: the exit guard's alert and the (absent) data volume. */
-static int alerts, alert_buttons; static char alert_text[160];
-int32_t tbx_alert(const char *t,const char *d,const char *c,const char *o)
-{ alerts++; alert_buttons=1+(c!=0)+(o!=0); snprintf(alert_text,sizeof alert_text,"%s",t); (void)d; return 0; }
-int32_t tbx_file_open(const char *p,uint32_t m) { (void)p;(void)m; return -1; }
-int32_t tbx_file_create(const char *p) { (void)p; return -1; }
-int32_t tbx_file_write(int32_t h,const void *b,uint32_t n) { (void)h;(void)b;(void)n; return -1; }
-int32_t tbx_file_close(int32_t h) { (void)h; return 0; }
-int32_t tbx_file_delete(const char *p) { (void)p; return 0; }
-static void event(int what,int msg)
-{ tbx_event_t e={what,msg,0,0,0,0}; tbx_app_event(&e); }
 static void content(int c,int r,char *s)
 { i123_cell_content(&g_sheet,i123_find(&g_sheet,(uint16_t)c,(uint16_t)r),s,80); }
 int main(void)
 {
+    tbx_host_reset();
     char s[80]; static const char *labels[]={"'Film Costs","'Matte Cutters","'Exacto Blades"};
     CHECK(tbx_app_main()==0,"launch");
     CHECK(!strcmp(tbx_app_name,"CALC"),"registered identity");
@@ -74,6 +64,8 @@ int main(void)
     CHECK(!strcmp(CALC_COPY_CAPTION,"Saving tables to disk..."),"PRD copy caption locked data");
     CHECK(!strcmp(CALC_COPY_RATE_FILE,"michael_bolton.conf"),"PRD configuration filename locked data");
     CHECK(!strcmp(CALC_COPY_RATE_KEY,"PROGRESS_BAR_RATE"),"PRD progress key locked data");
+    CHECK(tbx_host.windows[0].goaway==2 && tbx_host.windows[1].goaway==2,"close asks tenant");
+    CHECK(!strcmp(tbx_host.windows[0].title,"InitechCalc") && !strcmp(tbx_host.windows[1].title,"Pie Chart"),"window titles");
     CHECK(nw==2,"ledger and chart are separate windows");
     for(int i=0;i<3;i++) { content(0,i,s); CHECK(!strcmp(s,labels[i]),"PRD ledger label");
         content(1,i,s); CHECK(!strcmp(s,"'TODO_FRAME"),"unknown amount stays TODO_FRAME"); }
