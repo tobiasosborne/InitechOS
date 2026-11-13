@@ -39,3 +39,12 @@ Stdout is compared with the independent goldens and FPC reference executions;
 mtools checks the on-disk payloads. Guest DOS GET TIME brackets each compile
 at its documented 1-second resolution. Tests use a separate 8 MiB FAT12 TEST
 volume (8 sectors/cluster); the inherited executable loader does not bind FAT16.
+
+`make -C turbo selfhost` is the in-OS K2==K3 certificate, not K1==K2. The
+current fixed point is 163843 bytes, SHA-256
+b37f96ad78cc49bc3e4334b0e6c2551228e3a8dd1dcf5f89a5726d128c3088e3.
+The two compilations use fresh boots with identical source/disk input names.
+Guest times were 68s/83s; mzcheck accepts both. A deliberately changed byte
+makes the comparator red with its offset and container region. Full evidence
+and source identity remain under build/turbo/selfhost. No stack/CPU fault or
+host assembler/linker participates in either compilation.

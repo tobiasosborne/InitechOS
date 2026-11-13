@@ -3,8 +3,8 @@
 Two compilers: `seed/` is the C host bootstrap; `compiler/turbo.pas` is the
 Pascal compiler. The seed emits assembly for the host bootstrap. The Pascal
 compiler emits assembly plus native flat COM and extended InitechMZ executables;
-no host assembler/linker is needed to finish those native programs. A self-host
-certificate is still pending.
+no host assembler/linker is needed to finish those native programs. The in-OS self-host certificate
+is K2 == K3; DDC remains pending.
 
 `make` builds the seed, the FPC host compiler and resident `TURBO.COM`.
 Despite its name, TURBO.COM is an extended InitechMZ container: a flat 32-bit
@@ -35,5 +35,11 @@ FPC, NASM, GNU binutils and mtools are required; missing tools fail. The source
 semantics and independently authored corpus/protocol goldens are unchanged.
 Runtime is a checked-in NASM byte table with a tier-0 regeneration comparison;
 see compiler/NATIVE.md. Five encoder/fixup/relocation/layout mutants are killed.
-`make mutants` runs component patch mutants. `selfhost` and `ddc` explicitly
-fail until the in-OS native compilation proofs exist. See ROADMAP.md.
+`make selfhost` builds K1 on the host, then uses two fresh QEMU boots and TEST
+disks for K1(S) -> K2 and K2(S) -> K3. Both are extracted with mtools and
+compared as whole containers; SHA-256 and a corruption control are printed.
+Each boot has identical source/input names. Separate boots respect the factory
+driver's fixed 120-second serial gate; no driver was changed. Transcripts,
+source hash, images and artifacts remain under build/turbo/selfhost.
+`make mutants` runs component patch mutants. DDC explicitly fails until the
+independent bootstrap proof exists. See ROADMAP.md.
