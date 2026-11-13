@@ -6,7 +6,7 @@ Rewritten, never appended to. Last rewritten 2026-11-13.
 
 The reboot started today. The legacy tree is frozen at the tag
 `legacy-final` and runs from `../InitechOS-legacy`. `main` now holds the
-same source in the new layout, with no working build yet: components
+source in the new layout, with component builds returning one at a time: components
 come back one at a time, each with its own Makefile and tests.
 
 Nothing on `main` boots yet. To see the product, use the legacy tree.
@@ -22,8 +22,8 @@ listed in `COMPONENTS` in the top Makefile.
 | `kernel/` | source moved (still contains the shell, the DOS utilities and the desktop glue in `kmain.c`) |
 | `dos/` | empty; to be split out of `kernel/` |
 | `flair/region/` | **imported**: 2 oracle programs in about a second; 8 mutants killed |
-| `flair/` (the rest) | source moved |
-| `flair/desktop/` | empty; Finder files and the desktop half of `kmain.c` go here |
+| `flair/` (Toolbox) | **imported on local `import/flair`**: 51 host sources / 52 invocations, 451,944 numbered checks plus table/storage comparisons; clean host run 24.57 seconds. 19 target modules archive as `build/flair/libflair.a`. Platform interface is explicit; target binding and smokes await the spine/desktop. |
+| `flair/desktop/` | Finder/shell/film/power/easter-egg sources and their tests parked, unbuilt. Kernel engineer still supplies the desktop half of `kmain.c` and its support files. |
 | `sdk/` | source moved (`tbx.h`, runtime, linker script) |
 | `apps/initech123/` | **imported**: 18 test programs, about a million checks, 59 real Lotus `.WK1` files, 15 seconds. Target objects compile; the EXE waits for `sdk/`. 41 mutation hooks still to convert (`tests/MUTANTS-TODO.md`). |
 | other `apps/*` | source moved; none imported |
@@ -36,6 +36,7 @@ listed in `COMPONENTS` in the top Makefile.
   to an `A:\>` prompt on QEMU and Bochs, branch `spine/boot-kernel`.
   The loader spike it builds on is proven (branch `reboot/loader-spike`):
   a 300,108-byte kernel boots on both emulators.
+- Toolbox import is local-only on `import/flair`; inventories and integration debts are in `flair/tests/IMPORT.md`, `SMOKES.md`, `MUTANTS-TODO.md` and `flair/NOTES-FOR-KERNEL.md`. No emulator claim: no booted image exists in this checkout.
 - Import manifest: per-component list of sources, tests, goldens and
   couplings, written from the legacy Makefile.
 - Triage of the 417 legacy issues against `GOLDEN-MASTER.md`.
