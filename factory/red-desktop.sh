@@ -7,6 +7,12 @@ mkdir -p build/factory/mutants
 work=$(mktemp -d "$root/build/factory/mutants/run.XXXXXX")
 start=$(date +%s)
 killed=0 survived=0 errors=0
+# These three faults affect only 123 loading/saving and Word saving. Keep
+# the complete product image, but select their two independent app journeys;
+# ordinary make smoke still runs every app on both emulators.
+journeys=$work/journeys.list
+printf 'apps/initech123/tests/smoke\napps/initechword/tests/smoke\n' > "$journeys"
+export DESKTOP_JOURNEYS=$journeys
 snapshot() {
  mkdir -p "$1"
  tar -cf - --exclude=./build --exclude=./.git --exclude=./attic . | tar -xf - -C "$1"
