@@ -28,7 +28,9 @@ only in the checker. Expectations are independent PRD literals. Formatting
 and .WK1 behavior come from Initech 123, whose own Lotus differential is the
 oracle for that core. The JSON generator is a serialization regression,
 not an independent content oracle. make mutants converts all 12 hooks to
-patches and checks each twice. Removal preserves CALC.EXE (61,008 bytes).
+patches and checks each twice. Hook removal preserved the pre-integration
+CALC.EXE (61,008 bytes); linking the public worksheet archive at integration
+produces 55,408 bytes because unused archive members are not pulled in.
 make smoke runs QEMU and Bochs, enters 73, saves, and checks every saved byte
 with mtools/cmp, untouched original ledger, deleted stage and fsck.fat.
 Screendump: build/smoke-desktop/calc.ppm.
