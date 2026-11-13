@@ -5,7 +5,7 @@ cd "$(dirname "$0")/../.."
 mkdir -p build/image
 sh factory/image/mk_boot_system.sh build/image/boot.img build/boot/mbr.bin build/boot/stage2.bin build/boot/IO.SYS "${SYSTEM_IMAGE:-build/system/INITDOS.SYS}" build/factory/boot_system
 work=$(mktemp -d build/image/mint.XXXXXX)
-trap 'rm -rf "$work"' EXIT HUP INT TERM
+trap 'rm -rf "$work"; rm -f "$work.img"' EXIT HUP INT TERM
 export SOURCE_DATE_EPOCH=315532800 TZ=UTC LC_ALL=C MTOOLS_SKIP_CHECK=1
 dd if=/dev/zero of="$work/data.img" bs=512 count=2880 status=none
 mformat -i "$work/data.img" -f 1440 -N 0x494e4933 -v INITECH ::
@@ -26,9 +26,6 @@ while read -r source destination rest; do
  cp "$source" "$work/$destination"
 done < system/working-volume.list
 find "$work" -exec touch -d '@315532800' {} +
-for f in "$work"/*; do
- [ "$f" = "$work/data.img" ] && continue
- touch -d '@315532800' "$f"
- mcopy -s -m -i "$work/data.img" "$f" ::
-done
-mv "$work/data.img" build/image/data.img
+mv "$work/data.img" "$work.img"
+sh factory/image/copy-tree.sh "$work" "$work.img"
+mv "$work.img" build/image/data.img

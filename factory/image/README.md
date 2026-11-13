@@ -9,10 +9,13 @@ Layout is the legacy-final shell image, not a redesigned installer:
 - data.img: IDE primary slave, 2880 sectors, unpartitioned FAT12, mounted as A:.
   It holds CONFIG.SYS, COMMAND.COM, HELLO.TXT and all external .COM utilities.
   AUTOEXEC.BAT, if supplied on A:, is run by the permanent interpreter. The
-  shipped image omits it, preserving the date/time prompts. PATH starts with
+  shipped image runs FLAIR from it. PATH starts with
   the shell's legacy defaults; utilities resolve from A:'s root.
 - File dates are fixed at 1980-01-01, volume serials fixed, source copy order
-  lexical. Host source paths and build dates never enter disk bytes. The
+  lexical at every depth. copy-tree.sh creates directories and inserts files
+  explicitly: mcopy -s uses host readdir order, even under LC_ALL=C. The
+  order regression compares literal FAT entries and whole disk bytes for
+  opposite host insertion orders. Host source paths and build dates never enter disk bytes. The
   independent mtools reader validates the guest-written files in smoke.
 
 References: legacy Makefile tracer_boot.img, tools/mk_boot_system.sh,
