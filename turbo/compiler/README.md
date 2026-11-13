@@ -10,8 +10,11 @@ No guest assembler or linker is needed for the native output. See NATIVE.md.
 `make` builds the host FPC compiler, seed-built extended TURBO.COM and a bare
 Multiboot link-check artifact. Dependencies: seed's compiler and public runtime
 artifacts/scripts, factory/mz's packaging/checking tools, and own sources and
-fixtures. No private kernel header/code is used. FPC -B -O- and Delphi/B+/H-
-are preserved. NASM filenames/order and ELF scripts are fixed for determinism.
+fixtures. No private kernel header/code is used. The hosted bootstrap uses
+FPC -B -O2; independent corpus execution references still use -O-. Delphi/B+/H-
+semantics are preserved. NASM filenames/order and ELF scripts are fixed for determinism.
+All 39 entries remain: hosted execution fell from 16s to 13s on the integration
+machine. The 30s suite budget and 20s entry timeout are unchanged.
 
 `make test`: 39 host entries, including independent FPC execution references,
 17 flat and 18 extended byte-equality comparisons, runtime-table regeneration,

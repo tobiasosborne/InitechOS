@@ -21,7 +21,7 @@ tools:
 seed-tools:
 	+@$(MAKE) --no-print-directory -C $(TOP)/turbo/seed all TESTS=
 $(OUT)/turbo_fpc: turbo.pas $(MAKEFILE_LIST) | $(OUT) tools
-	@$(FPC) -B -O- -v0 -FU$(OUT) -FE$(OUT) -o$@ $< > $(OUT)/fpc-build.log 2>&1 || { cat $(OUT)/fpc-build.log; exit 1; }
+	@$(FPC) -B -O2 -v0 -FU$(OUT) -FE$(OUT) -o$@ $< > $(OUT)/fpc-build.log 2>&1 || { cat $(OUT)/fpc-build.log; exit 1; }
 $(OUT)/turbo_seed.s: turbo.pas $(wildcard $(TOP)/turbo/seed/*.[ch]) $(MAKEFILE_LIST) | $(OUT) seed-tools
 	@$(SEED_BIN) --emit-asm -o $@ $<
 $(OUT)/turbo_seed.o: $(OUT)/turbo_seed.s

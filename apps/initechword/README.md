@@ -14,7 +14,9 @@ BSS as allowed by sdk/README.md. No OS change was needed to run this executable.
 
 make test runs 13 programs and 22,394 counted checks against the real pinned
 WordPerfect corpus, captured grids and independent models/readers. Execution
-fits the 30-second budget (about 15 seconds, builds excluded). Set
+fits the 30-second budget. Hosted code uses -O2, keeping every property
+session: 13s before versus 10s after on the integration machine (codes 8s
+versus 6s); target flags and timeout/budget limits are unchanged. Set
 WORDPERFECT51_DECOMP to wordperfect51-decomp; missing or unpinned inputs fail.
 Required host tools: C compiler, POSIX shell, Python 3 for the existing corpus
 reader, mtools, fsck.fat, md5sum and sha256sum. New factory code is C/make/shell.

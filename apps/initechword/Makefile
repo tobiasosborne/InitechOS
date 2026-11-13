@@ -1,6 +1,8 @@
 TOP := $(abspath ../..)
 COMPONENT := apps/initechword
 include $(TOP)/mk/config.mk
+# Keep all property sessions; optimize the hosted editor and reference models.
+HOST_CFLAGS += -O2
 
 CORE := $(wildcard core/*.c) fs/wp5.c
 LOCAL_INC := -Iinclude
