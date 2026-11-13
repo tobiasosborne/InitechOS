@@ -1,7 +1,7 @@
 TOP := ..
 COMPONENT := system
 include $(TOP)/mk/config.mk
-KERNEL := $(shell $(MAKE) --no-print-directory -s -C $(TOP)/kernel object-list)
+KERNEL := $(shell MAKEFLAGS= $(MAKE) --no-print-directory -s -C $(TOP)/kernel object-list BIG_KERNEL=$(BIG_KERNEL))
 COMMAND := $(addprefix $(TOP)/build/dos/,command-resident.o batch.o env.o)
 all: $(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS
 .PHONY: components

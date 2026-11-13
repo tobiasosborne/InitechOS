@@ -5,7 +5,7 @@ INITECH_IMPORT_CHECK_INCLUDED := 1
 TARGET_ARTIFACTS ?= $(TARGET_LIB)
 IMPORT_MUT_PATTERN ?= _(MUT|MUTATE|MUTANT)_
 .PHONY: import-check
-import-check:
+import-check: all
 	@mkdir -p $(OUT)
 	@$(MAKE) -qp all > $(OUT)/import.make 2>/dev/null || test $$? -eq 1
 	@sh $(TOP)/factory/testlib/import-check.sh $(call shquote,$(IMPORT_MUT_PATTERN)) \

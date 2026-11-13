@@ -30,6 +30,10 @@ while read -r component; do
           echo "$component: 0 mutants, 0 killed, 0 survived, 0 errors" > "$out/mutants/$key.log"
       else
           make --no-print-directory -C "$component" mutants > "$out/mutants/$key.log" 2>&1 || rc=$?
+          if ! grep -q 'mutants, .*killed, .*survived' "$out/mutants/$key.log"; then
+              echo "FAIL $component: mutation target reported no counts" >> "$out/mutants/$key.log"
+              rc=1
+          fi
       fi
       echo "$rc" > "$out/mutants/$key.rc"
     ) &
