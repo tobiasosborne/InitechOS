@@ -1,0 +1,12 @@
+# test: type_bad_assignment
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -3757,7 +3757,7 @@
+                    PendingIdentOffset, PendingIdentLength, 0, 0)
+       end
+       else
+-      if ValueType <> TargetType then begin { TURBO_TYPE_MUT_ASSIGN }
++      if ValueType = TyUnknown then begin { TURBO_TYPE_MUT_ASSIGN }
+         FailType(TeAssignMismatch, PendingIdentLine, PendingIdentCol,
+                  PendingIdentOffset, PendingIdentLength, TargetType, ValueType)
+       end

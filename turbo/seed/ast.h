@@ -270,7 +270,7 @@ typedef enum {
      *   DECISION (report): multi-dimensional arrays (`array[1..3,1..3] of
      *   T` or arrays-of-arrays) are NOT implemented. ADR-0007 DEC-02 asks
      *   only for "static arrays (array[lo..hi] of T)" -- one dimension --
-     *   and docs/plans/TPS-M7-subset-plan.md's B6 note ("arrays-of-arrays
+     *   and legacy Pascal subset plan's B6 note ("arrays-of-arrays
      *   arrive implicitly via records-of-arrays if needed") places any
      *   nested-container need at B6 (records), not here. This seed's own
      *   bootstrap needs (symbol tables, source buffers -- the bead's own

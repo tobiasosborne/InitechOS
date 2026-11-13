@@ -1,4 +1,4 @@
-TPS-TYPE-BEGIN
+TURBO-TYPE-BEGIN
 SCOPE global bytes=312
 SYM kind=const name=lo type=integer value=-1
 SYM kind=const name=hi type=integer value=2
@@ -26,5 +26,5 @@ SCOPE routine name=isready frame=8
 SYM kind=value-param name=v type=integer offset=8 size=4
 SYM kind=result name=isready type=boolean offset=-4 size=4
 SYM kind=local name=temp type=integer offset=-8 size=4
-TPS-TYPE-OK
-TPS-TYPE-END
+TURBO-TYPE-OK
+TURBO-TYPE-END

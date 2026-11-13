@@ -1,4 +1,4 @@
-TPS-PARSE-BEGIN
+TURBO-PARSE-BEGIN
 ENTER program L1
 ENTER section-const L2
 ENTER const-decl L3
@@ -647,5 +647,5 @@ EXIT ident-statement L41
 EXIT statement L41
 EXIT block L41
 EXIT program L42
-TPS-PARSE-OK
-TPS-PARSE-END
+TURBO-PARSE-OK
+TURBO-PARSE-END

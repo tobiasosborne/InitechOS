@@ -3,7 +3,12 @@
 
 # Components that have been imported into the new tree, in dependency
 # order. Add a component here when its `make test` is green.
-COMPONENTS := flair/region apps/initech123 apps/initechword
+# One per line so that parallel imports merge without conflicts.
+COMPONENTS :=
+COMPONENTS += flair/region
+COMPONENTS += apps/initech123
+COMPONENTS += apps/initechword
+COMPONENTS += turbo
 
 .DEFAULT_GOAL := help
 .PHONY: help all test smoke image cert clean

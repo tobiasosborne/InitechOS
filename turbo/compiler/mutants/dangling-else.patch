@@ -1,0 +1,12 @@
+# test: parse_rich
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -4013,7 +4013,7 @@
+     end;
+   if not ParseFailed then
+   begin
+-    if TokKind = TkElse then begin { TURBO_PARSE_MUT_ELSE }
++    if (TokKind = TkElse) and (ParseIfDepth = 1) then begin { TURBO_PARSE_MUT_ELSE }
+       TraceEnter(PrElseClause);
+       NextToken();
+       ParseStatement();

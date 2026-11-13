@@ -1,0 +1,12 @@
+# test: gen_tiny
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -4039,7 +4039,7 @@
+   LabelNumber := 0;
+   if GenFlags[1] then
+   begin
+-    LabelNumber := GenNewLabel(); { TURBO_GEN_MUT_LABELS }
++    LabelNumber := GenData[3]; { TURBO_GEN_MUT_LABELS }
+     begin GenText := '.Lwhile_top_'; GenPut(GenText); GenInt(LabelNumber) end;
+     begin GenText := ':'; GenPut(GenText) end;
+     GenChar(Chr(10))

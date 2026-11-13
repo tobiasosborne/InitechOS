@@ -1,6 +1,6 @@
 { record.pas -- B6: records + field access (incl. array-of-record),
   deterministic layout (beads initech-rug7, B6 of
-  docs/plans/TPS-M7-subset-plan.md; ADR-0007 DEC-02 "records (record ... end),
+  legacy Pascal subset plan; ADR-0007 DEC-02 "records (record ... end),
   field access, arrays of records, with a deterministic field layout").
 
   DEEP-BUG LOCUS (the committee's own framing, beads initech-rug7): field-

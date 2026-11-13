@@ -1,7 +1,7 @@
 {$MODE DELPHI}{$B+}{$H-}
 { array.pas -- B5: static arrays (array[lo..hi] of T) + indexed access as
   both l-value and r-value (beads initech-54uu, B5 of
-  docs/plans/TPS-M7-subset-plan.md; ADR-0007 DEC-02 "static arrays
+  legacy Pascal subset plan; ADR-0007 DEC-02 "static arrays
   (array[lo..hi] of T), indexed as both l-value and r-value").
 
   Golden provenance: HAND-COMPUTED from Pascal semantics (ISO 7185 / Turbo

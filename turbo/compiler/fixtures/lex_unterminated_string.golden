@@ -1,4 +1,4 @@
-TPS-LEX-BEGIN
+TURBO-LEX-BEGIN
 KW program
-TPS-LEX-ERROR pos=9 line=1 col=9 unterminated string
-TPS-LEX-END
+TURBO-LEX-ERROR pos=9 line=1 col=9 unterminated string
+TURBO-LEX-END

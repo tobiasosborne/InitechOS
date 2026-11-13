@@ -1,7 +1,7 @@
 /*
  * typecheck.h -- minimal static type checker for the seed Pascal subset.
  *
- * beads: initech-f0uc (B1 of docs/plans/TPS-M7-subset-plan.md)
+ * beads: initech-f0uc (B1 of legacy Pascal subset plan)
  * Ref:   ADR-0007 DEC-02 (the subset table; integer/boolean scalars),
  *        DEC-03 (complete boolean evaluation), CLAUDE.md Law 1 / Rule 2 /
  *        Rule 12. PRD Sec 6.7 (Turbo Initech: same language as the seed).

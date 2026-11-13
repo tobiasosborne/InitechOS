@@ -1,0 +1,12 @@
+# test: lex_basic
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -794,7 +794,7 @@
+   I := 1;
+   while I <= Length(TokText) do
+   begin
+-    TokText[I] := LowerAscii(TokText[I]); { TURBO_LEX_MUT_CASEFOLD }
++    TokText[I] := TokText[I]; { TURBO_LEX_MUT_CASEFOLD }
+     I := I + 1
+   end
+ end;

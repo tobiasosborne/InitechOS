@@ -1,7 +1,7 @@
 {$MODE DELPHI}{$B+}{$H-}
 { bool.pas -- relational operators (= <> < <= > >=), boolean type, and/or/not
   under COMPLETE evaluation (beads initech-f0uc, B1 of
-  docs/plans/TPS-M7-subset-plan.md; ADR-0007 DEC-02/DEC-03).
+  legacy Pascal subset plan; ADR-0007 DEC-02/DEC-03).
 
   Golden provenance: HAND-COMPUTED from the Pascal definitions (ISO 7185 /
   Turbo Pascal), per the negative_divmod.pas precedent -- not FPC-minted.

@@ -11,7 +11,7 @@
 ## 1. Purpose and authority
 
 This document controls the deterministic text surface emitted by
-`os/tps/tps.pas` after a clean syntax parse and semantic check. The dump is an
+`turbo/compiler/turbo.pas` after a clean syntax parse and semantic check. The dump is an
 oracle, not a serialization format. B9.4 may consume the documented layout
 decisions, but shall not parse this text at run time.
 
@@ -31,25 +31,25 @@ resolution (`seed/typecheck.c:248-358`), declaration/routine collection
 A clean run emits exactly one region of this form:
 
 ```text
-TPS-TYPE-BEGIN
+TURBO-TYPE-BEGIN
 SCOPE global bytes=<decimal>
 <global rows in declaration order>
 <routine scopes in routine declaration order>
-TPS-TYPE-OK
-TPS-TYPE-END
+TURBO-TYPE-OK
+TURBO-TYPE-END
 ```
 
 A semantic failure emits exactly one located first-error line and no partial
 symbol dump:
 
 ```text
-TPS-TYPE-BEGIN
-TPS-TYPE-ERROR line=<decimal> col=<decimal> <deterministic detail>
-TPS-TYPE-END
+TURBO-TYPE-BEGIN
+TURBO-TYPE-ERROR line=<decimal> col=<decimal> <deterministic detail>
+TURBO-TYPE-END
 ```
 
 If lexing or the preceding syntax-only parse fails, the type region contains
-one `TPS-TYPE-SKIP lexer-error` or `TPS-TYPE-SKIP parser-error` line. The lexer
+one `TURBO-TYPE-SKIP lexer-error` or `TURBO-TYPE-SKIP parser-error` line. The lexer
 and parser brackets are unchanged from `LEXER-DUMP.md` and `PARSER-TRACE.md`.
 
 ## 3. Ordering and spelling
@@ -127,10 +127,10 @@ absence of `v_sourcewords`; no lexer/parser golden or bracket output is re-keyed
 
 ## 7. Deliberate phase divergence
 
-The seed parses an AST, collects tables, and then checks bodies. TPS has no AST
+The seed parses an AST, collects tables, and then checks bodies. Turbo Initech has no AST
 by design. It reopens the source and performs one forward semantic parse after
 the unchanged syntax-trace pass. The semantic compatibility rules match the
-seed, but a TPS call to a routine declared later requires an explicit prior
+seed, but a Turbo Initech call to a routine declared later requires an explicit prior
 `forward`; the seed's precollection can see that later header. This divergence
 is architectural and recorded, not an invented language rule.
 

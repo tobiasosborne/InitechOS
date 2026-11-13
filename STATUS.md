@@ -40,14 +40,13 @@ imported yet.
 | `apps/initech123/` | host-green: 18 test programs, about a million checks, 59 real Lotus `.WK1` files, 15 seconds. Target objects compile; the EXE waits for `sdk/`. 41 mutation hooks still to convert (`tests/MUTANTS-TODO.md`). |
 | `apps/initechword/` | host-green: 13 test programs, 22,394 checks, 25 seconds. Target objects compile; the EXE waits for `sdk/`. 75 mutation hooks still to convert. Borrows shared headers from `attic/spec`. |
 | other `apps/*` | source moved; not started. **Frozen** until the vertical slice below works. |
-| `turbo/` | source moved (`compiler/`, `seed/`) |
+| `turbo/` | host-green: 44 test programs in 16 seconds (the seed's C tests, 17 Free Pascal differentials, 45 reproducibility comparisons, 7 Pascal mutants as patches). Codename removed (`turbo.pas`, `TURBO.COM`). 20 legacy gates need the booted OS and are listed in `tests/SMOKES.md`. Road to the finale: `turbo/ROADMAP.md`. |
 | `factory/` | QEMU and Bochs drivers, the image builder, the smoke session, the reproducibility and parity checks. |
 | `goldens/` | empty; corpora are still read from sibling checkouts, unpinned. |
 
 ## In flight
 
-- Imports on branches: InitechBase, Turbo Initech, the SDK, the FLAIR
-  Toolbox.
+- Imports on branches: InitechBase, the SDK, the FLAIR Toolbox.
 - Conventions pass (owner of `mk/`, the top Makefile, `factory/testlib`,
   `goldens/`): target build fragment, per-test timeouts and component
   time budgets, rebuild on flag changes, pinned corpora, the import

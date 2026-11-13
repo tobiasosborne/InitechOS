@@ -11,3 +11,6 @@ Factory-only code; none of this is linked into the product.
 Components add this directory to their test include paths and list these
 headers as test prerequisites. Product compile paths do not include it.
 The seeded region generators and shrinker remain private to the region engine.
+- `run-entries.sh`: shared one-line status/summary runner for shell/Pascal
+  component suites; takes component, output directory, local runner and entries.
+  Keeps full per-entry logs under the component output directory.

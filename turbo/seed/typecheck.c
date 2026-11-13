@@ -1,7 +1,7 @@
 /*
  * typecheck.c -- minimal static type checker for the seed Pascal subset.
  *
- * beads: initech-f0uc (B1 of docs/plans/TPS-M7-subset-plan.md)
+ * beads: initech-f0uc (B1 of legacy Pascal subset plan)
  * Ref:   see typecheck.h for the full rule set and the DECISION note on
  *        checking strictness (ADR-0007 is silent on this; this module is
  *        the "minimal sound checking" the bead asked for). CLAUDE.md Law 1
