@@ -21,6 +21,12 @@ start:
     int 0x21
     mov [pair+1],al
 
+    ; A real Ctrl-N followed by Enter ends any mutant-induced printer echo
+    ; before the verdict. The captured pair above is already immutable.
+    mov eax,0x0a00
+    mov edx,cleanup
+    int 0x21
+
     mov eax,0x3c00
     xor ecx,ecx
     mov edx,name
@@ -68,3 +74,5 @@ io_error: db 'CONPAIR-IO-FAIL',13,10,'$'
 done: db 'CONPAIR-DONE',13,10,'$'
 name: db 'PAIR.BIN',0
 pair: times 2 db 0ffh
+cleanup: db 8,0
+    times 9 db 0

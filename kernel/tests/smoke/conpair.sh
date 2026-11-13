@@ -25,8 +25,10 @@ for emu in qemu bochs; do
         else key=r; printf '\000\023' > "$work/expected.bin"; fi
         # Fallback bytes make the old Ctrl-P/Ctrl-S interpretation produce an
         # explicit wrong pair instead of relying on a timeout as the red proof.
-        if ! "build/factory/${emu}_harness" --disk "$boot" --disk2 "$work/data.img" \
-            --keys-after CONPAIR-READY --keys "alt-$key,w300,z,w300,y" \
+        # Ctrl-N/Enter then cleans up printer echo in the negative control,
+        # after the pair was captured, so even that mutant prints a verdict.
+        if ! timeout 40 "build/factory/${emu}_harness" --disk "$boot" --disk2 "$work/data.img" \
+            --keys-after CONPAIR-READY --keys "alt-$key,z,y,ctrl-n,ret" \
             --expect CONPAIR-DONE --quit-after CONPAIR-DONE --timeout-ms 20000 \
             --name run --out "$work" > "$work/stdout" 2> "$work/report"; then
             cat "$work/report"; echo "RED CONPAIR $emu 00/$scan transport/completion"; failures=$((failures+1))
