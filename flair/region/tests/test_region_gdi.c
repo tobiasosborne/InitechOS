@@ -6,11 +6,11 @@
  * Ref:   spec/region_algebra.h Sec 7b -- the GDI/HRGN heritage facade
  *        (CombineRgn / GetRgnBox / PtInRegion / RectInRegion + RGN_* modes +
  *        region-type codes) over the ONE neutral region_op (constraint C-7).
- * Ref:   os/flair/atkinson/region.c -- the facade under test.
+ * Ref:   flair/region/region.c -- the facade under test.
  * Ref:   ../win31-decomp/oracles/wine/server/region.c -- THE INDEPENDENT GOLDEN
  *        (the wine banded-rect engine), compiled host-only under gdi_ref_ via
  *        gdi_ref_wine_shim.h. A different heritage's representation; NOT a
- *        re-derivation of ATKINSON's inversion-list algorithm -> a genuine
+ *        re-derivation of the region engine's inversion-list algorithm -> a genuine
  *        non-by-construction Law-2 golden (AM-1 Sec 2.3 / Sec 7.2).
  * Ref:   CLAUDE.md Law 1 (ground truth), Law 2 (the oracle is the truth, graded
  *        against an INDEPENDENT golden), Law 3 (no host-only factory code leaks
@@ -22,7 +22,7 @@
  *         region_equal(CombineRgn(A,B,RGN_*), QuickDrawOp(A,B)) for AND/OR/DIFF/
  *         XOR/COPY. Both facades call the SAME region_op, so this only proves
  *         they AGREE -- it cannot catch a wrong VALUE (that is L2's job).
- *   L2 -- the INDEPENDENT golden: build the SAME rect set into BOTH the ATKINSON
+ *   L2 -- the INDEPENDENT golden: build the SAME rect set into BOTH the region engine
  *         region AND a gdi_ref_ wine region; for all four CombineRgn modes + COPY
  *         compare BIT-EXACT on the RASTERIZED pixel sets over a bounded grid
  *         (memcmp), plus GetRgnBox complexity, PtInRegion, and RectInRegion
@@ -41,7 +41,7 @@
 #include <string.h>
 
 #include "region_algebra.h"   /* the LOCKED spec (-Ispec)                       */
-#include "region.h"           /* the ATKINSON facade under test (-Ios/flair/...) */
+#include "region.h"           /* the region engine facade under test (-Ios/flair/...) */
 #include "test_assert.h"      /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)        */
 
 /* ---------------------------------------------------------------------------
@@ -86,7 +86,7 @@ static int bm_equal(const bitmap_t *A, const bitmap_t *B)
     return memcmp(A->px, B->px, sizeof A->px) == 0;
 }
 
-/* Rasterize an ATKINSON region straight off its rows/x-lists (independent of
+/* Rasterize an the region engine region straight off its rows/x-lists (independent of
  * region_contains_point -- same approach as test_region.c). */
 static void rasterize_atk(const region_t *r, bitmap_t *out)
 {
@@ -107,7 +107,7 @@ static void rasterize_atk(const region_t *r, bitmap_t *out)
 }
 
 /* ===========================================================================
- * ATKINSON region storage: a host arena per region (the engine never mallocs;
+ * the region engine region storage: a host arena per region (the engine never mallocs;
  * the CALLER supplies rows[]/x_pool -- exactly the test_region.c idiom).
  * ===========================================================================*/
 typedef struct rgn_store {
@@ -146,7 +146,7 @@ static int rnd(int lo, int hi)
 enum { MAX_RECTS = 5 };
 typedef struct rectset {
     int  n;
-    int  it[MAX_RECTS][4];   /* [top, left, bottom, right] (ATKINSON field order) */
+    int  it[MAX_RECTS][4];   /* [top, left, bottom, right] (the region engine field order) */
 } rectset_t;
 
 static void gen_rectset(rectset_t *s)
@@ -159,7 +159,7 @@ static void gen_rectset(rectset_t *s)
     }
 }
 
-/* Build the union-of-rects into an ATKINSON region (general path). */
+/* Build the union-of-rects into an the region engine region (general path). */
 static void rectset_to_atk(const rectset_t *s, rgn_store_t *out)
 {
     rgn_rect_t rc[MAX_RECTS];
@@ -234,7 +234,7 @@ static int expected_complexity(const bitmap_t *b)
 /* ===========================================================================
  * The wine (gdi_ref_) side, through the OPAQUE interface (gdi_ref_wine.h).
  *
- * COORDINATE-CONVENTION BRIDGE (Law 1 honesty): ATKINSON rgn_rect_t is
+ * COORDINATE-CONVENTION BRIDGE (Law 1 honesty): the region engine rgn_rect_t is
  * (top,left,bottom,right); the wine rectangle is (left,top,right,bottom). Same
  * half-open span semantics, DIFFERENT field order -- bridged explicitly here at
  * every boundary so a transposed coordinate cannot masquerade as a region
@@ -242,7 +242,7 @@ static int expected_complexity(const bitmap_t *b)
  * ===========================================================================*/
 
 /* wine union-of-rects: union each rect into the accumulator -- mirrors how
- * region_from_rects builds the ATKINSON side, but through the wholly-independent
+ * region_from_rects builds the region engine side, but through the wholly-independent
  * wine band engine. Returns an owned handle (free with gdi_ref_wine_free). */
 static gdi_ref_rgn wine_from_rectset(const rectset_t *s)
 {
@@ -250,7 +250,7 @@ static gdi_ref_rgn wine_from_rectset(const rectset_t *s)
     gdi_ref_rgn one = gdi_ref_wine_create();
     if (!acc || !one) { gdi_ref_wine_free(acc); gdi_ref_wine_free(one); return 0; }
     for (int i = 0; i < s->n; i++) {
-        /* ATKINSON [top,left,bottom,right] -> wine (left,top,right,bottom) */
+        /* the region engine [top,left,bottom,right] -> wine (left,top,right,bottom) */
         gdi_ref_wine_set_rect(one, s->it[i][1], s->it[i][0],
                                    s->it[i][3], s->it[i][2]);
         gdi_ref_wine_union(acc, acc, one);
@@ -295,7 +295,7 @@ int main(void)
     printf("test-region-gdi: dual-heritage conformance oracle "
            "(cross-family and Wine differential)\n");
 
-    /* ---- generation sanity: an ATKINSON region built from a rectset must
+    /* ---- generation sanity: an the region engine region built from a rectset must
      *      rasterize EXACTLY to the rectset's directly-painted bitmap (an
      *      independent paint), and the pixel-op helper bm_op must agree with the
      *      rasterized facade output for RGN_OR -- guards the L1/L2 substrate. */
@@ -320,7 +320,7 @@ int main(void)
             bm_op(&bSet, &bA, &bB, RGN_OR);
             if (!bm_equal(&bO, &bSet)) op_bad = 1;
         }
-        CHECK(!gen_bad, "substrate: ATKINSON region from rectset rasterizes to "
+        CHECK(!gen_bad, "substrate: the region engine region from rectset rasterizes to "
                         "the directly-painted bitmap");
         CHECK(!op_bad,  "substrate: rasterize(CombineRgn(A,B,RGN_OR)) == "
                         "raster(A) OR_set raster(B)");
@@ -398,7 +398,7 @@ int main(void)
 
             for (int m = 0; m < 5; m++) {
                 int mode = MODES[m];
-                /* ATKINSON GDI facade result */
+                /* the region engine GDI facade result */
                 store_attach(&GDI);
                 int atk_cplx = CombineRgn(&GDI.r, &SA.r, &SB.r, mode);
                 bitmap_t atk_bm; rasterize_atk(&GDI.r, &atk_bm);
@@ -411,7 +411,7 @@ int main(void)
                 if (!bm_equal(&atk_bm, &win_bm)) {
                     if (!l2_modes_bad) { l2_modes_bad = 1; bad_mode = mode; }
                 }
-                /* (b) complexity + extents: ATKINSON's GetRgnBox return vs the
+                /* (b) complexity + extents: the region engine's GetRgnBox return vs the
                  *     pixel-truth derived from the INDEPENDENT wine raster (wine
                  *     carries no complexity code; its union extents can be loose,
                  *     so we grade against the pixel-tight box of the wine raster). */
@@ -450,7 +450,7 @@ int main(void)
                     rgn_rect_t arc = { (int16_t)top, (int16_t)left,
                                        (int16_t)bot, (int16_t)right };
                     int atk_rir  = RectInRegion(&GDI.r, arc) ? 1 : 0;
-                    /* ATKINSON (t,l,b,r) -> wine (l,t,r,b) */
+                    /* the region engine (t,l,b,r) -> wine (l,t,r,b) */
                     int wine_rir = gdi_ref_wine_rect_in(WA, left, top, right, bot);
                     if (atk_rir != wine_rir) l2_rir_bad = 1;
                 }

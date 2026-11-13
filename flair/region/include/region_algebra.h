@@ -1,8 +1,8 @@
 /*
- * spec/region_algebra.h -- ATKINSON region engine: the LOCKED contract.
+ * spec/region_algebra.h -- region engine: the LOCKED contract.
  *
  * LOCKED spec-data (CLAUDE.md Rule 8; PRD Sec 6.2 -- "the load-bearing math").
- * ATKINSON is the SINGLE scanline-inversion-list Boolean set engine that is the
+ * the region engine is the SINGLE scanline-inversion-list Boolean set engine that is the
  * shared spine behind BOTH the System-7 QuickDraw Rgn family AND the Win-3.1 GDI
  * HRGN family: clipping, window overlap, visRgn/clipRgn, the update/damage model,
  * and the GDI region calls all reduce to ONE region algebra. BOTH heritages clip
@@ -10,14 +10,14 @@
  * AM-1, AM-1/AM-2). The two heritage names -- QuickDraw (UnionRgn/SectRgn/...)
  * and GDI (CombineRgn RGN_OR/RGN_AND/...) -- are strict PEER facades over the one
  * neutral primitive (Sec 7 = QuickDraw facade, Sec 7b = GDI facade). This header
- * is the contract BOTH the engine (os/flair/atkinson, the .c sources) and its
+ * is the contract BOTH the engine (flair/region, the .c sources) and its
  * property suite (harness/proptest/test_region.c) include. The region's INTERNAL
  * byte format is OUR clean-room design (DEC-04a-R1 / ADR-0005); it is NOT a port
  * of QuickDraw's proprietary, unpublished region body NOR of the GDI HRGN body --
  * only the public op NAMES, mode codes, and Rect field order are carried, from
  * both heritages, for period authenticity.
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. ATKINSON remains a
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. the region engine remains a
  * neutral engine; the System 7 QuickDraw and Win 3.1 GDI names below are peer
  * retained-heritage facades, not competing base-era claims (BC-10.10).
  *
@@ -31,7 +31,7 @@
  *     oracle is the HOMOMORPHISM property:
  *       rasterize(A OP B) == rasterize(A) OP_set rasterize(B)   (bit-exact),
  *     plus normalize-idempotence and the algebra identities.
- *   docs/adr/ADR-0005-ATKINSON-Region-Engine.md (pending) -- the clean-room
+ *   docs/adr/ADR-0005-the region engine-Region-Engine.md (pending) -- the clean-room
  *     inversion-list decision; the 5 normal-form invariants; the homomorphism
  *     suite as the ENTIRE correctness signal (no external golden -- QuickDraw's
  *     region body format is proprietary/unpublished).
@@ -338,7 +338,7 @@ _Static_assert(RGN_ROW_X_MAX == 640u,
                "(initech-44ab; see Sec 5 two-bounds note)");
 
 /* ===========================================================================
- * 6. THE ENGINE API  (os/flair/atkinson .c sources -- authored in a later stage)
+ * 6. THE ENGINE API  (flair/region .c sources -- authored in a later stage)
  * ---------------------------------------------------------------------------
  * These are the INTERNAL primitives (region_* names). The verbatim-QuickDraw
  * wrappers in section 7 are thin shims over region_op / these. Prototypes only;
@@ -360,7 +360,7 @@ _Static_assert(RGN_ROW_X_MAX == 640u,
  * kernel's _kernel_end < PROGRAM_BASE link window): hosted builds carry two
  * static slots; freestanding kernels allocate two rgn_ws_slot_t blocks from
  * the FLAIR heap (FLAIR_CLASS_REGION, ADR-0004 DEC-03) and bind them via the
- * freestanding-only region_engine_bind_ws (declared in os/flair/atkinson/
+ * freestanding-only region_engine_bind_ws (declared in flair/region/
  * region.h with the slot type -- engine plumbing, not algebra contract).
  * kstart.asm does NOT zero .bss, so neither the guard flag nor the slot
  * pointers can be assumed 0 at boot: the kernel MUST bind, then call this

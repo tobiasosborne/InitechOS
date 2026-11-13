@@ -2,7 +2,7 @@
  * harness/proptest/gdi_ref_wine.h -- the host-only INDEPENDENT-GOLDEN interface.
  *
  * The L2 leg of test-region-gdi (ADR-0005 Amendment AM-1 Sec 7.2) grades the
- * ATKINSON GDI facade against the REAL wine banded-rect region engine. To keep
+ * the region engine GDI facade against the REAL wine banded-rect region engine. To keep
  * the wine engine's `struct region` from colliding with FLAIR's `struct region`
  * (region_t) inside the oracle translation unit, the wine engine is compiled in
  * its OWN translation unit (gdi_ref_wine.c, which #includes the unmodified wine
@@ -11,7 +11,7 @@
  * type clash, and the wine code stays gdi_ref_-namespaced + host-only (Law 3).
  *
  * The wine rectangle field order is (left, top, right, bottom); the accessors
- * below hand back l/t/r/b explicitly so the oracle bridges to ATKINSON's
+ * below hand back l/t/r/b explicitly so the oracle bridges to the region engine's
  * (top,left,bottom,right) rgn_rect_t at one well-marked seam (Law 1 honesty).
  *
  * GDI_REF_WINE_AVAILABLE is 1 iff the wine TU found and compiled the wine source
@@ -47,7 +47,7 @@ int gdi_ref_wine_subtract (gdi_ref_rgn dst, gdi_ref_rgn s1, gdi_ref_rgn s2);
 int gdi_ref_wine_xor      (gdi_ref_rgn dst, gdi_ref_rgn s1, gdi_ref_rgn s2);
 int gdi_ref_wine_copy     (gdi_ref_rgn dst, gdi_ref_rgn s1);
 
-/* Queries (the wine authorities the oracle grades ATKINSON against). */
+/* Queries (the wine authorities the oracle grades the region engine against). */
 int  gdi_ref_wine_num_rects(gdi_ref_rgn r);
 /* Fetch band-rect i as (l,t,r,b). Returns 1 if i is in range, else 0. */
 int  gdi_ref_wine_get_rect (gdi_ref_rgn r, int i, int *l, int *t, int *rr, int *b);

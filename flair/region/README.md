@@ -1,4 +1,4 @@
-# ATKINSON
+# The region engine
 
 The FLAIR region engine: caller-backed scanline inversion lists, normal form,
 Boolean set operations, constructors and queries. Pure C; dependencies: none
@@ -10,7 +10,7 @@ and `include/region.h` (working-set storage and initialization). Other
 components use this include directory. The engine compiles separately with
 only `-I. -Iinclude`; factory include paths apply only to test sources.
 
-Run `make` to build host artifacts under `build/flair/atkinson/`, `make test`
+Run `make` to build host artifacts under `build/flair/region/`, `make test`
 for tier 0, and `make mutants` for the mutation sweep. Both suites retain their
 full legacy iteration counts (4000 pairs per Boolean property, 150 high-count
 stress pairs, 3000 pairs per GDI leg); no reduced default is necessary. The
@@ -58,7 +58,7 @@ except the ASan scratch-overrun selection.
 Client integration suites (blitter, text clipping/styles, window, interaction,
 drag, process and desktop) remain in attic for their owning components; they
 link other product code and are not standalone region-engine gates.
-`attic/tools/ppm_region_count.c` counts image pixels, not ATKINSON regions.
+`attic/tools/ppm_region_count.c` counts image pixels, not engine regions.
 
 ## Patch mutants
 
@@ -73,7 +73,7 @@ TESTS. `no-xmerge-cap.patch` selects the optional `region-asan` program;
 `make test TESTS=region-asan` runs its unmodified baseline directly. ASan uses
 non-PIE host executables to avoid randomized shadow-memory collisions.
 
-The runner copies the component under `build/flair/atkinson/mutants/run.*`,
+The runner copies the component under `build/flair/region/mutants/run.*`,
 using the original TOP for shared make fragments and test helpers. Each exact
 test selection must pass unmodified, its patch must apply, and its mutated
 programs must build before a runtime failure counts as a kill. A survivor,

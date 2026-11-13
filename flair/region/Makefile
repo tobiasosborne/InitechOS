@@ -1,5 +1,5 @@
 TOP := ../..
-COMPONENT := flair/atkinson
+COMPONENT := flair/region
 include $(TOP)/mk/config.mk
 
 HOST_TESTS := region region-gdi

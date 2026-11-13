@@ -1,5 +1,5 @@
 /*
- * flair/atkinson/region.c -- the ATKINSON region engine (the artifact).
+ * flair/region/region.c -- the region engine (the artifact).
  *
  * beads: initech-jmo (rep + normalize-on-construction) / initech-b5g (scanline
  *        merge + derived ops + complement + queries).

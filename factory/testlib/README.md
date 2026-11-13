@@ -10,4 +10,4 @@ Factory-only code; none of this is linked into the product.
 
 Components add this directory to their test include paths and list these
 headers as test prerequisites. Product compile paths do not include it.
-The seeded region generators and shrinker remain private to ATKINSON.
+The seeded region generators and shrinker remain private to the region engine.

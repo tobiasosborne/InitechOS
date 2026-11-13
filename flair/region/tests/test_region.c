@@ -1,4 +1,4 @@
-/* test_region.c -- the ATKINSON region engine's property suite (the ORACLE).
+/* test_region.c -- the region engine's property suite (the ORACLE).
  *
  * beads: initech-6dy ("C property suite: homomorphism + identities + shrinker,
  *        mutation-proven"); engine reps initech-jmo / initech-b5g.
@@ -48,7 +48,7 @@
 #include <time.h>
 
 #include "region_algebra.h"   /* the LOCKED spec (-Ispec)            */
-#include "region.h"           /* the engine constructors (-Ios/flair/atkinson) */
+#include "region.h"           /* the engine constructors (-Iflair/region) */
 #include "test_assert.h"      /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed) */
 
 TEST_HARNESS();

@@ -21,7 +21,8 @@ listed in `COMPONENTS` in the top Makefile.
 | `boot/` | source moved; chunked loader being proven on the legacy tree |
 | `kernel/` | source moved (still contains the shell, the DOS utilities and the desktop glue in `kmain.c`) |
 | `dos/` | empty; to be split out of `kernel/` |
-| `flair/` | source moved |
+| `flair/region/` | **imported**: 2 oracle programs in about a second; 8 mutants killed |
+| `flair/` (the rest) | source moved |
 | `flair/desktop/` | empty; Finder files and the desktop half of `kmain.c` go here |
 | `sdk/` | source moved (`tbx.h`, runtime, linker script) |
 | `apps/*` | source moved; none imported |
@@ -30,21 +31,21 @@ listed in `COMPONENTS` in the top Makefile.
 
 ## In flight
 
-- Loader spike: chunked kernel load on the legacy tree, branch
-  `reboot/loader-spike`. Everything else about `boot/` waits on it.
+- Spine: `boot/` + an InitechDOS-only `kernel/` + `dos/` + `factory/`
+  to an `A:\>` prompt on QEMU and Bochs, branch `spine/boot-kernel`.
+  The loader spike it builds on is proven (branch `reboot/loader-spike`):
+  a 300,108-byte kernel boots on both emulators.
+- Pilot import of Initech 123, branch `import/i123`.
 - Import manifest: per-component list of sources, tests, goldens and
   couplings, written from the legacy Makefile.
 - Triage of the 417 legacy issues against `GOLDEN-MASTER.md`.
 
 ## Next
 
-1. Pilot imports of two host-only cores to settle the conventions in
-   `mk/`: the region engine and Initech 123.
-2. The spine: `boot/` + `kernel/` + `factory/` to a booting
-   `A:\>` prompt on QEMU and Bochs, as the first product image.
-3. The remaining host cores (InitechBase, InitechWord, the seed
+1. Merge the Initech 123 pilot and the spine.
+2. The remaining host cores (InitechBase, InitechWord, the seed
    compiler, the Toolbox managers), then the desktop and the apps.
-4. Product work against `GOLDEN-MASTER.md`, starting with the frame's
+3. Product work against `GOLDEN-MASTER.md`, starting with the frame's
    ledger and the FILE COPY data-loss bug.
 
 ## Notes for this week
@@ -52,12 +53,13 @@ listed in `COMPONENTS` in the top Makefile.
 - Orchestration: implementation and review go to Sol 6.1 at xhigh by
   default; Astra for hands-on emulator driving; Opus for hard design;
   one Muse Wonder Full at a time for an independent opinion.
+- 8 MiB is the minimum machine. In QEMU that is `-m 8 -machine
+  acpi=off`; plain `-m 8` loses memory to ACPI tables and is refused.
 - Reference corpora are read from `~/Projects/*-decomp`
   (`mk/config.mk`). They get pinned under `goldens/` later.
 - The tracker still holds the legacy issues. It is reset once the triage
   lands.
 - Codenames are retired (CLAUDE.md, Names). Directories are renamed
-  except the two pilots in flight: `apps/i123` becomes
-  `apps/initech123` and `flair/atkinson` becomes `flair/region` when
-  they merge. Identifiers and file names (`samir_*`, `pal_milton.c`,
+  except the pilot in flight: `apps/i123` becomes `apps/initech123`
+  when it merges. Identifiers and file names (`samir_*`, `pal_milton.c`,
   `SAMIR.EXE`, `tps.pas`) are renamed as each component is imported.

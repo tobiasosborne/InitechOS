@@ -1,5 +1,5 @@
 /*
- * os/flair/atkinson/region.h -- the ATKINSON region engine (the artifact).
+ * flair/region/region.h -- the region engine (the artifact).
  *
  * beads: initech-jmo (rep + normalize-on-construction) / initech-b5g (scanline
  *        merge + derived ops + complement + queries).
@@ -25,8 +25,8 @@
  *
  * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
  */
-#ifndef INITECH_OS_FLAIR_ATKINSON_REGION_H
-#define INITECH_OS_FLAIR_ATKINSON_REGION_H
+#ifndef INITECH_FLAIR_REGION_H
+#define INITECH_FLAIR_REGION_H
 
 #include "region_algebra.h"   /* the LOCKED contract -- the whole public API */
 
@@ -64,4 +64,4 @@ void region_engine_bind_ws(rgn_ws_slot_t *slot_a, rgn_ws_slot_t *slot_b);
 void region_engine_probe_nested_acquire(region_t *scratch);
 #endif
 
-#endif /* INITECH_OS_FLAIR_ATKINSON_REGION_H */
+#endif /* INITECH_FLAIR_REGION_H */

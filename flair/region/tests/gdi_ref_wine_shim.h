@@ -7,11 +7,11 @@
  *
  * WHY THIS IS A GENUINE INDEPENDENT GOLDEN (Law 2; AM-1 Sec 2.3): we compile the
  * ACTUAL wine code UNCHANGED -- a banded-rect region representation from a
- * DIFFERENT heritage (X11/GDI lineage), NOT a re-derivation of ATKINSON's
+ * DIFFERENT heritage (X11/GDI lineage), NOT a re-derivation of the region engine's
  * inversion-list algorithm. The wine engine reaches the same SET via a wholly
  * different data structure and band-callback control flow (the 6-arg static
  * region_op at server/region.c:208, vs FLAIR's 4-arg region_op). Grading the
- * ATKINSON GDI facade against it cannot agree "by construction" -- the two
+ * the region engine GDI facade against it cannot agree "by construction" -- the two
  * engines share no code. This shim supplies ONLY the host-side glue the wine
  * file needs (struct rectangle, mem_alloc->malloc, set_error->no-op, NTSTATUS
  * stubs, the rect helpers); it does NOT touch the region algorithm.
@@ -68,7 +68,7 @@
  * ------------------------------------------------------------------------- */
 
 /* The wine rectangle: field order (left, top, right, bottom) -- DISTINCT from
- * ATKINSON's rgn_rect_t (top, left, bottom, right). The oracle bridges the two
+ * the region engine's rgn_rect_t (top, left, bottom, right). The oracle bridges the two
  * field orders explicitly at every boundary (Law 1: the documented trap). */
 struct rectangle { int left, top, right, bottom; };
 
