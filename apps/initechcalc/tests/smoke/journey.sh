@@ -11,7 +11,7 @@ for emu in ${EMULATORS:-qemu bochs}; do
   trace="WFLAIR-CLOCK 9:00 am,$open_disk,WFINDER-OPEN-VOLUME,$open_apps,WFINDER-OPEN-FOLDER,kc,ka,kl,kc,kdot,ke,kx,ke,kctrl-o,WFLAIR-DISPATCH app=CALC,k7,k3,kret,D$out/calc.ppm,kctrl-s,WTENANT-FILECOPY-DONE,w500,kctrl-q"
   set -- --mouse "$trace"
  else
-  set -- --keys "$open_disk,w300,$open_apps,w300,kc,ka,kl,kc,kdot,ke,kx,ke,kctrl-o,w500,k7,k3,kret,kctrl-s,w12000,kctrl-q"
+  set -- --keys "$open_disk,w1000,$open_apps,w1000,kc,ka,kl,kc,kdot,ke,kx,ke,kctrl-o,w1000,k7,k3,kret,kctrl-q,w1000,kret"
  fi
  timeout 60s build/factory/${emu}_harness --disk build/image/boot.img --disk2 "$out/$emu-data.img" \
   --keys-after FLAIR-LIVE-READY "$@" --expect 'TENANT-EXIT rc=0 via=exit' \
