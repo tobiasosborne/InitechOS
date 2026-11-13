@@ -107,16 +107,6 @@ static void fcmd_emit(const FinderCtx *fx, const fcmd_line_t *l)
     fx->trace(fx->trace_user, l->buf);
 }
 
-#ifdef FINDER_CMD_MUT_TABLE_BYPASS
-/* Libc-free equality, used ONLY by the TABLE_BYPASS mutant to recognize the
- * keyboard source. The correct build never needs to inspect `src`. */
-static int fcmd_streq(const char *a, const char *b)
-{
-    if (a == 0 || b == 0) return 0;
-    while (*a != '\0' && *a == *b) { a++; b++; }
-    return (*a == '\0' && *b == '\0');
-}
-#endif
 
 /* ===========================================================================
  * THE PREDICATES  (design F4.4)
@@ -178,12 +168,7 @@ uint8_t finder_pred_selection_putaway(const FinderCtx *fx)
  * the pre-fix ALWAYS. NEVER in a real build. */
 uint8_t finder_pred_new_folder_here(const FinderCtx *fx)
 {
-#if defined(FINDER_CMD_MUT_NEWFOLDER_IN_TRASH)
-    (void)fx;
-    return 1u;
-#else
     return (fx != 0 && fx->front_is_trash == 0u) ? 1u : 0u;
-#endif
 }
 
 static void fcmd_nyi(FinderCtx *fx, const finder_cmd_t *c)
@@ -338,16 +323,6 @@ void finder_dispatch(FinderCtx *fx, uint32_t menu_result, const char *src)
     item    = fcmd_result_item(menu_result);
     c       = finder_cmd_lookup(menu_id, item);
 
-#ifdef FINDER_CMD_MUT_TABLE_BYPASS
-    /* MUTANT (design CMD_TABLE_BYPASS): the keyboard path shortcuts straight
-     * to the handler, so the FINDER-CMD src=key lines never appear and the
-     * predicate is never consulted. Proves the golden bites on the "both input
-     * paths converge on the table" property (F4-4). */
-    if (c != 0 && fcmd_streq(src, "key")) {
-        if (c->handler != 0) c->handler(fx, c);
-        return;
-    }
-#endif
 
     if (c == 0) {
         /* Rule 2 / F4.4: loud on the trace, never a silent swallow. */
@@ -356,9 +331,7 @@ void finder_dispatch(FinderCtx *fx, uint32_t menu_result, const char *src)
         fcmd_puti(&l, menu_id);
         fcmd_puts(&l, " item=");
         fcmd_putu(&l, (uint32_t)item);
-#ifndef FINDER_CMD_MUT_SILENT_UNKNOWN
         fcmd_emit(fx, &l);
-#endif
         /* MUTANT (design CMD_SILENT_UNKNOWN): the emit above is compiled out,
          * so an unrecognized (menu,item) no-ops in total silence. */
         return;
@@ -377,12 +350,6 @@ void finder_dispatch(FinderCtx *fx, uint32_t menu_result, const char *src)
     fcmd_emit(fx, &l);
 
     live = finder_cmd_enabled(c, fx);
-#ifdef FINDER_CMD_MUT_PRED_STUCK_ENABLED
-    /* MUTANT (design PRED_STUCK_ENABLED): every command reads as live, so a
-     * disabled command dispatches into its handler instead of reporting
-     * FINDER-CMD-DISABLED. */
-    live = 1u;
-#endif
     if (!live) {
         fcmd_line_init(&l);
         fcmd_puts(&l, "FINDER-CMD-DISABLED name=");
@@ -396,15 +363,8 @@ void finder_dispatch(FinderCtx *fx, uint32_t menu_result, const char *src)
      * and reports FINDER-NYI (bead initech-tdnl.36 -- before, a bound hook's
      * default arm swallowed the command in silence). Either way the FINDER-CMD
      * line above has ALREADY been emitted. */
-#if !defined(FINDER_CMD_MUT_EXEC_SWALLOWS)
     if (fx->exec != 0 && fx->exec(fx->shell, c->id))
         return;
-#else
-    /* MUTANT (Rule 6; test-menu-handlers H3): the audited root cause -- return
-     * after the bound hook whatever it answered, so an unimplemented command
-     * dies in silence. NEVER in a real build. */
-    if (fx->exec != 0) { (void)fx->exec(fx->shell, c->id); return; }
-#endif
     if (c->handler != 0)
         c->handler(fx, c);
 }

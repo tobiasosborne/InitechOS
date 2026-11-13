@@ -2,7 +2,7 @@ TOP := ../..
 COMPONENT := flair/desktop
 include $(TOP)/mk/config.mk
 INCLUDES := -I. -I../include -I../include/assets -I../region/include -I$(TOP)/sdk/include -I$(TOP)/kernel/include -I$(TOP)/build/flair/generated
-SOURCES := platform desktop
+SOURCES := platform desktop pump finder_actions finder_cmd finder_desktop finder_icon finder_menu finder_ops finder_windows desktop_db shell apple_menu power about_box kmain_cold
 OBJECTS := $(addprefix $(OUT)/,$(addsuffix .o,$(SOURCES))) $(OUT)/tbx_gate.o
 all: $(OUT)/libdesktop.a
 $(OUT)/%.o: %.c $(MAKEFILE_LIST) | $(OUT)

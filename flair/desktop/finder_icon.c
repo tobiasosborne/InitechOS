@@ -64,17 +64,10 @@ _Static_assert(FINDER_SMALL_COLORS >= DESK_ICON_TONES,
 static uint32_t icon_nibble(const FLAIRDeskIcon *icon, int r, int c, int small)
 {
     int dim = small >= 0 ? 16 : DESK_ICON_DIM;
-#if defined(DESK_ICON_MUT_ROW_OFF1)
-    int sr = (r + 1) % dim;
-#else
     int sr = r;
     (void)dim;
-#endif
     uint32_t n = small >= 0 ? finder_small_cell(small, sr * 16 + c) :
         (icon->px[sr][c >> 3] >> (28 - 4 * (c & 7))) & 0xFu;
-#if defined(DESK_ICON_MUT_MASK_IGNORED)
-    if (n == 0u) n = 1u;
-#endif
     return n;
 }
 
@@ -115,16 +108,11 @@ static void icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
         }
         int k = (int)icon->tone[n];
         if (n == 0 || k <= (int)DESK_IC_CLEAR || k >= (int)DESK_IC__COUNT) continue;
-#if !defined(DESK_ICON_MUT_NO_SELECT)
         if (hilite) k = (int)DESK_IC_SELECTED[k];
-#endif
         tone_on[n] = 1u;
         tone_px[n] = flair_look_pixel_depth(dst->bpp,
                                             (int)FLAIR_PART_ICON_CLUT + k - 1);
     }
-#if defined(DESK_ICON_MUT_NO_SELECT)
-    (void)hilite;   /* MUTANT (Rule 6): selection draws the unselected art */
-#endif
 
     for (r = 0; r < dim; r++) {
         int py = (int)y + r;

@@ -70,7 +70,6 @@ desktop_db_validation_t desktop_db_validate(const void *data, uint32_t len,
 static int db_space(const fat12_volume_t *vol,const void *fat,uint32_t fat_len,
                      void *sector_buf,uint32_t len)
 {
-#ifndef DB_MUT_PHANTOM
     dir_entry_t old;
     uint32_t bytes=(uint32_t)vol->bpb.bytes_per_sector*vol->bpb.sectors_per_cluster;
     uint32_t need=(len+bytes-1u)/bytes, free=0u;
@@ -91,10 +90,6 @@ static int db_space(const fat12_volume_t *vol,const void *fat,uint32_t fat_len,
         if(!next) free++;
     }
     return free>=need?FAT12_OK:FAT12_ERR_NO_SPACE;
-#else
-    (void)vol;(void)fat;(void)fat_len;(void)sector_buf;(void)len;
-    return FAT12_OK;
-#endif
 }
 
 static int desktop_db_write_default(const fat12_volume_t *vol, void *fat,

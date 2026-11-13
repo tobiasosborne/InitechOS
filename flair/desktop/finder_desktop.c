@@ -148,16 +148,8 @@ static const FLAIRDeskIcon *fd_strike(uint8_t kind, uint8_t trash_full)
     if (kind == (uint8_t)FINDER_ICON_VOLUME) return FD_STRIKE_VOLUME;
     /* bead initech-6k12: the Trash draws FULL while \TRASH holds anything
      * (finder_desk_t.trash_full, kept by finder_shell_recount_trash). */
-#if defined(FINDER_DESK_MUT_TRASH_NEVER_FULL)
-    /* MUTANT (Rule 6; tdnl.74 / test-flair-trash-full-mutant): the painter
-     * ignores the staged-contents count and always draws the EMPTY can -- the
-     * audit H04 symptom. NEVER in a real build. */
-    (void)trash_full;
-    if (kind == (uint8_t)FINDER_ICON_TRASH) return FD_STRIKE_TRASH;
-#else
     if (kind == (uint8_t)FINDER_ICON_TRASH)
         return trash_full ? FD_STRIKE_TRASH_FULL : FD_STRIKE_TRASH;
-#endif
     if (kind == (uint8_t)FINDER_ICON_FOLDER) return FD_STRIKE_FOLDER;
     if (kind == (uint8_t)FINDER_ICON_FILE)   return FD_STRIKE_DOC;
     if (kind == (uint8_t)FINDER_ICON_APP)    return FD_STRIKE_APP;
@@ -381,17 +373,8 @@ rgn_rect_t finder_band_rect(int16_t h0, int16_t v0, int16_t h1, int16_t v1)
     rgn_rect_t r;
     r.left = fd_min16(h0, h1);
     r.top  = fd_min16(v0, v1);
-#if defined(FINDER_DESK_MUT_MARQUEE_OFFBYONE)
-    /* MUTANT (Rule 6): drop the half-open +1, so the band excludes its own
-     * right/bottom edge pixel. An icon whose left/top edge is exactly under the
-     * release point is then MISSED and the hand-authored selected sets go RED.
-     * NEVER in a real build. */
-    r.right  = fd_max16(h0, h1);
-    r.bottom = fd_max16(v0, v1);
-#else
     r.right  = (int16_t)(fd_max16(h0, h1) + 1);
     r.bottom = (int16_t)(fd_max16(v0, v1) + 1);
-#endif
     return r;
 }
 
@@ -435,12 +418,6 @@ finder_click_kind_t finder_click_classify(finder_click_track_t *t,
 
     if (t == (finder_click_track_t *)0) return FINDER_CLICK_SINGLE;
 
-#if defined(FINDER_DESK_MUT_DBLTICK_OFF)
-    /* MUTANT (Rule 6): the interval test never succeeds, so a double-click is
-     * delivered as two singles -- the hand-authored event stream goes RED (and
-     * live, a volume never opens). NEVER in a real build. */
-    (void)h; (void)v; (void)fd_abs;
-#else
     if (t->armed && target >= 0 && target == t->last_target &&
         when >= t->last_when &&
         (when - t->last_when) <= (uint32_t)flair_double_click_ticks &&
@@ -448,7 +425,6 @@ finder_click_kind_t finder_click_classify(finder_click_track_t *t,
         fd_abs((int)v - (int)t->last_v) <= FINDER_DBLCLICK_SLOP) {
         is_double = 1;
     }
-#endif
 
     if (is_double) {
         /* A double DISARMS: click 3 of a triple starts a fresh pair. */
@@ -884,20 +860,10 @@ void finder_desk_paint(const finder_desk_t *fd, const bitmap_t *dst,
          * 8.1 selection function, same mask (finder_icon_draw_hilite; the
          * Finder darkens a selected icon: ../system7-decomp/re/
          * mint-results-008.md Sec 3, s8_icons_*_sel.png). */
-#if defined(FINDER_DESK_MUT_NO_HILITE)
-        /* MUTANT (Rule 6): the drop-target highlight is never drawn, so a
-         * dragged icon over a folder / the Trash shows NO destination
-         * feedback and the captured selected-state pixels go RED. */
-        if (ic->selected && !ic->hilite)
-            finder_icon_draw_hilite(dst, ic->x, ic->y, strike, clip);
-        else
-            finder_icon_draw(dst, ic->x, ic->y, strike, clip);
-#else
         if (ic->hilite || ic->selected)
             finder_icon_draw_hilite(dst, ic->x, ic->y, strike, clip);
         else
             finder_icon_draw(dst, ic->x, ic->y, strike, clip);
-#endif
 
         /* The label band. Selection INVERTS it (design F1.1: "selected icons
          * draw with the label inverted -- black label band, white text"); the
@@ -924,17 +890,8 @@ static void fd_underlay_cb(void *user, const bitmap_t *dst, const region_t *clip
 void finder_desk_install_underlay(finder_desk_t *fd, WindowMgr *wm)
 {
     if (wm == (WindowMgr *)0 || fd == (finder_desk_t *)0) return;
-#if defined(FINDER_DESK_MUT_NO_UNDERLAY)
-    /* MUTANT (Rule 6): never install the hook. desktop.c then fills bare
-     * desktop and NOTHING draws the icons, so the composed-desktop render leg
-     * (icons present inside the desktop-owned clip) goes RED. This is the
-     * "second compositor / forgot the seam" bug. NEVER in a real build. */
-    (void)fd;
-    (void)fd_underlay_cb;
-#else
     wm->desktop_underlay      = fd_underlay_cb;
     wm->desktop_underlay_user = (void *)fd;
-#endif
 }
 
 void finder_desk_invalidate(WindowMgr *wm, rgn_rect_t old_rect,

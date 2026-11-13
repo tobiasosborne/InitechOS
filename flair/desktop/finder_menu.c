@@ -127,15 +127,7 @@ static MenuItem finder_file_items[] = {
      * NEW_FOLDER_HERE -- dark with the Trash window front (bead initech-vnl4,
      * audit 2026-10-23 desktop L008). */
     FM_ITEM("New Folder",   'N', 1),              /* FCMD_NEW_FOLDER  not Trash */
-#ifndef FINDER_MENU_MUT_CMDCHAR_DUP
     FM_ITEM("Open",         'O', FM_PRED_REST),   /* FCMD_OPEN  openable (.38) */
-#else
-    /* MUTANT FINDER_MENU_MUT_CMDCHAR_DUP (Rule 6): Open steals New Folder's
-     * command key. Two items with cmdChar 'N' can be enabled at once, which is
-     * exactly the structural property the oracle forbids. NEVER in a real
-     * build. */
-    FM_ITEM("Open",         'N', FM_PRED_REST),
-#endif
     FM_ITEM("Print",          0, 0),              /* inert V1 decoration       */
     FM_ITEM("Close Window", 'W', FM_PRED_REST),   /* FCMD_CLOSE_WINDOW  front  */
     FM_DIV,
@@ -197,14 +189,7 @@ static MenuItem finder_view_items[] = {
  *   (grayed) | div | Exit to InitechDOS (FUNCTIONAL, bead initech-3p1a)
  * ===========================================================================*/
 static MenuItem finder_special_items[] = {
-#ifndef FINDER_MENU_MUT_DEAD_ITEM
     FM_ITEM("Clean Up",     0, FM_PRED_REST),     /* CLEANUP  front win        */
-#else
-    /* MUTANT FINDER_MENU_MUT_DEAD_ITEM (Rule 6): the row is present and draws,
-     * but its enable byte is 0 forever, so it can never be chosen. NEVER in a
-     * real build. */
-    FM_ITEM("Clean Up",     0, 0),
-#endif
     FM_ITEM("Empty Trash",  0, FM_PRED_REST),     /* TRASH_NONEMPTY (6k12)     */
     FM_DIV,
     FM_ITEM("Erase Disk",   0, 0),
@@ -286,18 +271,11 @@ static const fm_pred_row_t FINDER_MENU_PREDS[] = {
     { FINDER_MENU_IX_VIEW, 6u, finder_pred_front_is_diskwin },
     { FINDER_MENU_IX_VIEW,   10u, finder_pred_front_is_diskwin   }, /* CleanUp  */
     { FINDER_MENU_IX_VIEW,   11u, finder_pred_front_is_diskwin   }  /* Arrange  */
-#if !defined(FINDER_MENU_MUT_DEAD_ITEM)
     , { FINDER_MENU_IX_SPECIAL, 0u, finder_pred_front_is_diskwin } /* CleanUp  */
-#endif
     /* bead initech-6k12: Empty Trash is IMPLEMENTED (the shell counts, the
      * kernel confirms, finder_shell_empty_trash purges) and lit exactly while
      * \TRASH holds something (F4.2 Special row 2). */
     , { FINDER_MENU_IX_SPECIAL, 1u, finder_pred_trash_nonempty   } /* Empty #2 */
-#if defined(FINDER_MENU_MUT_STUB_ENABLED)
-    /* MUTANT (Rule 6; bead initech-tdnl.36): the pre-fix Get Info row -- lit
-     * by any selection though nothing implements it. NEVER in a real build. */
-    , { FINDER_MENU_IX_FILE,  5u, finder_pred_has_selection      }  /* Info #6 */
-#endif
 };
 
 static const uint16_t FINDER_MENU_PREDS_N =
@@ -336,17 +314,6 @@ void finder_menu_refresh_enables(const FinderCtx *fx)
          * the const on a pointer to genuinely-mutable storage is defined, and
          * it keeps the Menu Manager's read-only view intact for everyone else. */
         MenuItem *items = (MenuItem *)finder_menus[r->menu_ix].items;
-#ifndef FINDER_MENU_MUT_ENABLE_STUCK
         items[r->item_ix].enabled = (uint8_t)(r->pred(fx) ? 1u : 0u);
-#else
-        /* MUTANT FINDER_MENU_MUT_ENABLE_STUCK (Rule 6; design F4.4
-         * PRED_STUCK_ENABLED applied to the resource half): every
-         * predicate-driven row reads LIVE, so the bar never grays -- Open with
-         * no selection, Close Window with no window, Empty Trash on an empty
-         * Trash all look selectable and MenuKey hands them out. NEVER in a
-         * real build. */
-        (void)fx;
-        items[r->item_ix].enabled = 1u;
-#endif
     }
 }

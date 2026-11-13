@@ -619,3 +619,21 @@ void startup(void)
  int21_set_conin(int21_conin_get_kbd,int21_conin_poll_kbd);
  serial_puts("CONIN-LIVE\n");
 }
+
+/* Restore the DOS surface after an optional graphical environment returns. */
+void desktop_console_restore(void)
+{
+    boot_info_t b=*boot_info();
+    if (b.lfb_bpp==8) {
+        uint8_t shift=b.lfb_dac_bits==8?0:2;
+        const uint8_t rgb[6]={0x6f,0xa0,0x8e,0xc0,0xc0,0xc0};
+        for(unsigned i=0;i<2;i++) {
+            outb(0x3c8,i?CONSOLE_FG_IDX:CONSOLE_BG_IDX);
+            for(unsigned j=0;j<3;j++) outb(0x3c9,rgb[i*3+j]>>shift);
+        }
+    }
+    if (!g_int21_con || console_init(g_int21_con,&b)!=CONSOLE_OK) {
+        serial_puts("PANIC console restore\nHALTED\n");
+        for(;;) __asm__ volatile("cli; hlt");
+    }
+}

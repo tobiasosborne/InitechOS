@@ -235,14 +235,7 @@ void desktop_paint_all(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
      * meaningless stale footprint and teal-stomp whatever window chrome currently
      * sits there without repainting it (that call's window loop only repaints
      * windows with a non-empty updateRgn). */
-#ifndef DESKTOP_MUTATE_NO_PAINTALL_CLEAR
     region_set_empty(wm->desktop_update);
-#else
-    /* MUTANT (Rule 6; the O-5 gate's own mutant target): do NOT clear -- restores
-     * the initech-jmc5/-qi8v erasure so the new BACKGROUND-FOOTPRINT oracle tier
-     * (tools/ppm_flair_appswitch_check.c) is proven to bite. NEVER in a real
-     * build. */
-#endif
 }
 
 void desktop_paint_damage(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
@@ -261,21 +254,10 @@ void desktop_paint_damage(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
 
     /* 1. Repaint the bare desktop where the moved window vacated it -- seafoam
      * clipped to the desktop update region (ONLY the damaged background pixels). */
-#if defined(DRAG_MUTATE_SKIP_EXPOSED)
-    /* MUTANT: skip the vacated-area fill. The hole keeps its stale old chrome ->
-     * frame1 != the from-scratch reference at the vacated pixels: (a)/(c) RED. */
-    (void)bg;
-#elif defined(DRAG_MUTATE_NO_CLIP)
-    /* MUTANT: fill the WHOLE desktop frame with NO clip -- stomps every stationary
-     * window's pixels with seafoam, changing pixels OUTSIDE the computed damage
-     * union: (b) [no over-repaint] RED (and (a) RED). */
-    desktop_fill(dst, wm->desktop_frame, bg, (const region_t *)0);
-#else
     if (!region_is_empty(wm->desktop_update)) {
         rgn_rect_t dbb = region_get_bbox(wm->desktop_update);
         desktop_fill(dst, dbb, bg, wm->desktop_update);
     }
-#endif
 
     /* 1b. THE DESKTOP UNDERLAY (beads initech-tdnl.9; design F2.3 seam 1 /
      * F2-4): immediately after the base fill, clipped to EXACTLY the desktop
@@ -301,18 +283,9 @@ void desktop_paint_damage(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
         if (region_is_empty(scratch)) {
             continue;
         }
-#if defined(DRAG_MUTATE_NO_CLIP)
-        /* MUTANT: paint the window over its FULL structure with no clip at all
-         * (visRgn == clipRgn == the whole frame is faked by passing the window's
-         * own struc region as both, ignoring updateRgn) -- over-repaints the whole
-         * window every step, compounding the over-repaint the whole-frame fill
-         * already triggers: (b) RED. */
-        paint_window_chrome(wm, dst, w, w->strucRgn, w->strucRgn);
-#else
         /* Effective clip = visible(W) INTERSECT updateRgn: visRgn = visible(W),
          * clipRgn = updateRgn. The chrome drawer intersects them (D-1/D-2). */
         paint_window_chrome(wm, dst, w, scratch, w->updateRgn);
-#endif
     }
 
     /* 3. Clear ONLY the desktop-background damage -- this painter fully serviced
@@ -336,15 +309,5 @@ void desktop_validate_all(WindowMgr *wm)
     for (WindowPtr w = wm->front; w != NULL; w = w->nextWindow) {
         WindowMgr_validate(w);
     }
-#ifndef DESKTOP_MUTATE_NO_PAINTALL_CLEAR
     region_set_empty(wm->desktop_update);
-#else
-    /* MUTANT (Rule 6; shared knob with desktop_paint_all above): the stale-
-     * desktop_update mutation must defeat BOTH books-closing paths -- the
-     * paint_all tail reset AND this explicit validate -- or the second one
-     * masks it and the TIER-C oracle grades a mutant that cannot occur (the
-     * winh x ojxn double-backstop lesson, WL-0068). Window validation stays
-     * LIVE either way: the mutation models ONLY the jmc5/qi8v stale-desktop
-     * footprint. NEVER in a real build. */
-#endif
 }

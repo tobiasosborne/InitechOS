@@ -17,24 +17,6 @@ int finder_fat_mkdir(void *fs_user, const char *name83,
     (void)fs_user;
     if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MKDIR;
 
-#if defined(KMAIN_MUT_MKDIR_CUT)
-    {
-        uint16_t c, v = 1u;
-        (void)name83;
-        (void)parent_dir_start;
-        for (c = 2u; c < (uint16_t)(g_finder_vol->total_clusters + 2u); c++)
-            if (fat12_next_cluster(g_finder_vol, g_finder_fat,
-                                   g_finder_fat_len, c, &v) == FAT12_OK &&
-                v == 0u) break;
-        if (v != 0u ||
-            fat12_set_entry(g_finder_fat, g_finder_fat_len, c,
-                            FAT12_EOC_VALUE) != FAT12_OK ||
-            fat12_flush_fats(g_finder_vol, g_finder_fat,
-                             g_finder_fat_len) != FAT12_OK)
-            return (int)FINDER_WIN_ERR_MKDIR;
-        return (int)FINDER_WIN_OK;
-    }
-#endif
     rc = fat12_mkdir(g_finder_vol, g_finder_fat, g_finder_fat_len,
                      name83, parent_dir_start,
                      g_finder_dirbuf, g_finder_clusbuf);
@@ -281,19 +263,11 @@ int finder_surface_drop(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                 (int16_t)(s->fd->icons[idx].x + dh),
                                 (int16_t)(s->fd->icons[idx].y + dv), &r);
         } else if (rrc == FAT12_ERR_NO_SPACE || rrc == FAT12_ERR_DIR_FULL) {
-#if !defined(KMAIN_MUT_NO_DELETE_NOW)
             if (dirty) finder_desk_repaint(ctx, bi);
             finder_zoom_back(ctx, bi, out_rect,
                              finder_desk_cell_rect(s->fd, idx));
             finder_delete_now(ctx, bi, s, idx);
             return 1;
-#else
-            /* MUTANT KMAIN_MUT_NO_DELETE_NOW (Rule 6; test-flair-trash-
-             * edges): the pre-fix dead end -- "could not be moved" and
-             * nothing else. NEVER in a real build. */
-            (void)finder_delete_now;
-            r.status = status = FINDER_WIN_ERR_MOVE;
-#endif
         } else {
             r.status = status = FINDER_WIN_ERR_STORAGE;  /* not "no room" */
         }
@@ -410,11 +384,6 @@ int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
          * Keep even the locked notice's text in its resident buffer. */
         text[k] = g_finder_trash_confirm_lines[k];
     }
-#ifdef KMAIN_MUT_LOCKED_NOTICE
-    /* Keep the marker and protected disk: only the independent pixel oracle
-     * may certify that the notice was actually visible (Rule 6 / Law 2). */
-    draw = !locked;
-#endif
     /* tdnl.87: the Empty Trash confirm is the captured CAUTION alert; the
      * locked-file notice has no capture, so it keeps no icon. */
     flair_live_alert_open_icon(ctx, bi, text, n, labels, locked ? 1 : 2, draw,
@@ -755,12 +724,10 @@ void finder_outcome_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
             serial_puts(" n=");
             serial_puti((int32_t)launch);
             serial_putc('\n');
-#ifndef KMAIN_MUT_OPEN_NO_LAUNCH
             /* MUTANT KMAIN_MUT_OPEN_NO_LAUNCH (Rule 6): the command runs and
              * is reported, the verb is never called -- Open "works" on serial
              * and launches nothing (test-flair-finder-open-mutant). */
             flair_live_launch_app(ctx, bi, l83, ldir);
-#endif
         }
         return;
     }

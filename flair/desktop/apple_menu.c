@@ -29,13 +29,9 @@ const MenuInfo *apple_menu_build(apple_installed_fn installed, void *user)
     set_item(&g_items[n], APPLE_MENU_ABOUT_TEXT, 0u); g_row_da[n++] = -1;
     set_item(&g_items[n], "-", 1u);                   g_row_da[n++] = -1;
     for (int i = 0; i < APPLE_MENU_DA_COUNT; i++) {
-#if !defined(APPLE_MENU_MUT_LIST_ALL)
         if (installed == (apple_installed_fn)0 ||
             !installed(user, g_das[i].dir83, g_das[i].file83))
             continue;                         /* F4-3: omit, never gray */
-#else
-        (void)installed; (void)user;
-#endif
         set_item(&g_items[n], g_das[i].title, 0u);
         g_row_da[n++] = i;
     }

@@ -9,3 +9,8 @@ S1 verification: the QEMU and Bochs DOS smoke passes (8 MiB); the composed
 image is 186010 loaded bytes. A working disk with AUTOEXEC.BAT containing
 FLAIR followed by ECHO hook-complete reports FLAIR is not installed and
 reaches hook-complete. This is the weak-hook milestone, not a desktop claim.
+
+S2: factory/smoke-desktop.sh now checks Finder startup, pointer movement,
+Special > Exit to InitechDOS (including its confirmation), a real A:\>
+prompt, and a second FLAIR launch. QEMU reports zero faults and two power-on
+CPU resets. Screens: build/smoke-desktop/{desktop,dos,qemu}.ppm.

@@ -94,11 +94,7 @@ static int fw_name_compare(const char *a, const char *b)
 /* Arrange and list ordering share the SAME stable rank rule (tdnl.67). */
 static int fw_rank_before(int comparison, int candidate, int index)
 {
-#if defined(FINDER_VIEW_MUT_SORT_UNSTABLE)
-    return comparison < 0 || (comparison == 0 && candidate > index);
-#else
     return comparison < 0 || (comparison == 0 && candidate < index);
-#endif
 }
 
 static uint32_t fw_len(const char *s)
@@ -199,19 +195,11 @@ finder_icon_kind_t finder_win_kind_of(const char *name83, uint8_t attribute)
 
 int finder_win_skip_entry(uint8_t attribute)
 {
-#if defined(FINDER_WIN_MUT_VOLLABEL_SHOWN)
-    /* MUTANT (design F1.1): the volume-label skip is compiled out, so the
-     * volume's name leaks into the listing as an extra document icon and the
-     * hand-authored expected listing goes RED. NEVER in a real build. */
-    (void)attribute;
-    return 0;
-#else
     /* The FAT layer deliberately passes volume-label entries through
      * (fat12.h :: fat12_read_root_dir); skipping them is the FINDER's job. A
      * VFAT long-name slot (attr == 0x0F) is already filtered by that layer, and
      * it would test TRUE here anyway -- both are correct outcomes. */
     return ((attribute & (uint8_t)FINDER_ATTR_VOLLABEL) != 0u) ? 1 : 0;
-#endif
 }
 
 /* tdnl.44 pure preparation; finder_windows.h documents the source boundary.
@@ -288,9 +276,6 @@ int finder_win_list_column(rgn_rect_t header, const int16_t widths[4],
     left = (int32_t)header.left - scroll_x;
     for (int i = 0; i < column; i++) left += widths[i];
     right = left + widths[column];
-#if defined(FINDER_VIEW_MUT_SIZE_COLUMN_OFFBYONE)
-    if (column == 2) left++;
-#endif
     if (left < header.left) left = header.left;
     if (right > header.right) right = header.right;
     if (left >= right) return 0;
@@ -304,9 +289,6 @@ uint16_t finder_win_list_header(uint16_t bits, rgn_rect_t header,
                                  const int16_t widths[4], int16_t scroll_x,
                                  int16_t x, int16_t y)
 {
-#if defined(FINDER_VIEW_MUT_HEADER_IGNORED)
-    return bits;
-#endif
     if ((bits & 1u) == 0u) return bits; /* design F1.3 bit0 = list */
     for (int col = 0; col < FINDER_VIEW_COLUMNS; col++) {
         rgn_rect_t r;
@@ -449,9 +431,6 @@ static __attribute__((noinline)) void fw_paint_list(finder_window_t *w,const bit
         /* Native16 app/doc/folder cells: paired-background mask recovery,
          * independent PNG gate; same icon blitter and colour policy seam. */
         int icon_x=w->icons[i].x;
-#if defined(FINDER_VIEW_MUT_SMALL_ICON_SHIFT)
-        icon_x++;
-#endif
         finder_desk_small_icon(dst,(int16_t)icon_x,w->icons[i].y,w->icons[i].kind,clip);
         char size[16],date[32];
         if(w->icons[i].kind==FINDER_ICON_FOLDER){size[0]='-';size[1]='-';size[2]=0;}
@@ -476,9 +455,6 @@ static __attribute__((noinline)) void fw_paint_list(finder_window_t *w,const bit
         for(int col=0;col<4;col++) {
             int width=fw_list_widths[col], pressed=col==scol;
             int face=pressed?FLAIR_PART_PLAT_WIDGET_EDGE:FLAIR_PART_PLAT_FRAME_FACE;
-#if defined(FINDER_VIEW_MUT_HEADER_FACE)
-            if(pressed)face=FLAIR_PART_PLAT_FRAME_FACE;
-#endif
             rgn_rect_t r;
             if(finder_win_list_column(c,fw_list_widths,w->applied_sx,col,&r)) {
                 /* Exact capture bevel as20 rectangular runs instead of a
@@ -629,19 +605,11 @@ finder_win_status_t finder_win_next_folder_name(
 
 int finder_win_find(const finder_shell_t *sh, uint16_t dir_start)
 {
-#if defined(FINDER_WIN_MUT_SINGLETON_DUP)
-    /* MUTANT (design F5.2 "SPATIAL_DUP"): the lookup always misses, so opening
-     * an already-open folder builds a SECOND window for the same directory and
-     * the singleton property goes RED. NEVER in a real build. */
-    (void)sh; (void)dir_start;
-    return -1;
-#else
     if (sh == (const finder_shell_t *)0) return -1;
     for (int i = 0; i < sh->window_cap; i++)
         if (sh->windows[i].open && sh->windows[i].dir_start == dir_start)
             return i;
     return -1;
-#endif
 }
 
 int finder_win_slot_of(const finder_shell_t *sh, const WindowRecord *w)
@@ -706,28 +674,16 @@ static int fw_enum_cb(const finder_dirent_t *e, void *user)
      * icon of the APPS window was ".", and double-clicking it "opened" APPS
      * again -- R3.3's host mock carried no dot entries, so it never bit. The
      * root directory has none, so every root listing is unchanged. */
-#ifndef FINDER_WIN_MUT_DOTS_SHOWN
     if (e->name83 != (const char *)0 && e->name83[0] == '.' &&
         (e->name83[1] == '\0' ||
          (e->name83[1] == '.' && e->name83[2] == '\0')))
         return 0;
-#else
-    /* MUTANT FINDER_WIN_MUT_DOTS_SHOWN (Rule 6; test-finder-windows-mutant):
-     * the pre-tdnl.14 listing -- "." and ".." appear as folder icons, so L6's
-     * subdirectory listing goes RED. NEVER in a real build. */
-#endif
 
     /* The Finder's own \TRASH and \DESKTOP.DB are never items (beads
      * initech-tdnl.56/.73/.75; finder_windows.h "THE FINDER'S OWN
      * BOOKKEEPING"). Skipped HERE, before the cap and the grid, so nothing
      * downstream can count, select, arrange or target them. */
-#ifndef FINDER_WIN_MUT_SERVICE_SHOWN
     if (finder_win_is_service(ec->w->dir_start, e->name83)) return 0;
-#else
-    /* MUTANT FINDER_WIN_MUT_SERVICE_SHOWN (Rule 6; test-finder-windows-mutant,
-     * test-flair-finder-service-mutant): the pre-tdnl.56 listing -- TRASH and
-     * DESKTOP.DB are ordinary root icons. NEVER in a real build. */
-#endif
 
     ec->count++;
     if (ec->count_only) return 0;
@@ -763,14 +719,6 @@ int finder_win_sync_geometry(finder_window_t *w)
     if (w == (finder_window_t *)0 || !w->open ||
         w->rec.contRgn == (region_t *)0)
         return 0;
-#if defined(FINDER_WIN_MUT_ABS_COORDS)
-    (void)fw_sync_list; /* keep the existing mutant's dead helper warning-free */
-    /* MUTANT (Rule 6; audit F01): the pre-tdnl.34 behaviour -- the model keeps
-     * the ABSOLUTE coordinates it was laid out in at open, whatever the Window
-     * Manager does to the window afterwards. test-finder-ops leg O9 and the
-     * test-flair-finder-follow emu gate go RED. NEVER in a real build. */
-    return 0;
-#else
     rgn_rect_t c;
     int old_ox, old_oy, new_ox, new_oy, dx, dy, ret = 0;
     WindowScroll *ws = (w->scroll.owner == &w->rec) ? &w->scroll
@@ -811,17 +759,8 @@ int finder_win_sync_geometry(finder_window_t *w)
             ret |= FINDER_SYNC_SCROLL;
     }
 
-#if defined(FINDER_WIN_MUT_SCROLL_PAINT_ONLY)
-    /* MUTANT (Rule 6; Sec 10c): the scroll offset is NOT applied to the model
-     * -- only finder_win_paint draws the icons shifted. The view LOOKS
-     * scrolled, but hit-testing, selection and drops read the unscrolled
-     * cells. NEVER in a real build. */
-    new_ox = (int)c.left - (int)w->applied_sx;
-    new_oy = (int)c.top  - (int)w->applied_sy;
-#else
     new_ox = (int)c.left - (ws != (WindowScroll *)0 ? ws->axis[WSCROLL_H].value : 0);
     new_oy = (int)c.top  - (ws != (WindowScroll *)0 ? ws->axis[WSCROLL_V].value : 0);
-#endif
     dx = new_ox - old_ox;
     dy = new_oy - old_oy;
     if (dx != 0 || dy != 0) {
@@ -838,7 +777,6 @@ int finder_win_sync_geometry(finder_window_t *w)
     w->applied_sx = (int16_t)((int)c.left - new_ox);
     w->applied_sy = (int16_t)((int)c.top  - new_oy);
     return ret;
-#endif
 }
 
 rgn_rect_t finder_win_doc_rect(const finder_window_t *w)
@@ -921,9 +859,6 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
     ec.w = w; ec.count_only = 1u;
     rc = sh->fs.enumerate(sh->fs.user, w->dir_start, fw_enum_cb, &ec);
     if (rc < 0) return FINDER_WIN_ERR_ENUM;
-#ifdef FINDER_MUT_ICON64
-    if (ec.count > 64u) ec.count = 64u;
-#endif
     if (ec.count > 65535u) return FINDER_WIN_ERR_MEMORY;
     {
         finder_win_status_t reserve=finder_win_reserve_icons(sh,slot,(uint16_t)ec.count);
@@ -988,9 +923,6 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
 
     for (slot = 0; slot < sh->window_cap; slot++)
         if (!sh->windows[slot].open) break;
-#ifdef FINDER_MUT_WINDOW4
-    if (slot >= 4) return FINDER_WIN_ERR_FULL;
-#endif
     if (slot >= sh->window_cap) return FINDER_WIN_ERR_FULL;
 
     w = &sh->windows[slot];
@@ -1085,11 +1017,6 @@ finder_win_status_t finder_win_open_trash(finder_shell_t *sh, int *out_slot,
         return FINDER_WIN_ERR_NULL;
     td = sh->fs.trash_dir(sh->fs.user);
     if (td < 0) return FINDER_WIN_ERR_NOTRASH;          /* fail loud, Rule 2 */
-#if defined(FINDER_WIN_MUT_TRASH_ROOT)
-    /* MUTANT (Rule 6): the wrong cluster -- the window lists the volume ROOT,
-     * not the staged items. NEVER in a real build. */
-    td = 0;
-#endif
     st = finder_win_open(sh, 0u /* \TRASH lives in the root */, (uint16_t)td,
                          FINDER_SVC_TRASH_NAME, 0u, &slot, &single);
     if (st != FINDER_WIN_OK) return st;
@@ -1138,18 +1065,12 @@ finder_win_status_t finder_win_check_live(finder_shell_t *sh, int slot)
     if (!fw_slot_ok(sh, slot)) return FINDER_WIN_ERR_NULL;
     w = &sh->windows[slot];
     if (w->is_root || w->dir_start == 0u) return FINDER_WIN_OK;
-#if defined(FINDER_WIN_MUT_VIEW_UNCHECKED)
-    /* MUTANT (Rule 6): a cluster number is trusted as an identity. NEVER in a
-     * real build. */
-    return FINDER_WIN_OK;
-#else
     if (!sh->have_fs ||
         sh->fs.dir_ident == (int (*)(void *, uint16_t, uint16_t, const char *))0)
         return FINDER_WIN_ERR_NULL;
     return (sh->fs.dir_ident(sh->fs.user, w->dir_start, w->parent,
                              w->name83) == (int)FINDER_WIN_OK)
          ? FINDER_WIN_OK : FINDER_WIN_ERR_STALE;
-#endif
 }
 
 finder_win_status_t finder_win_new_folder(finder_shell_t *sh, int slot,
@@ -1216,17 +1137,10 @@ int finder_win_cleanup(finder_shell_t *sh, int slot)
     (void)finder_win_sync_geometry(w);   /* snap onto the CURRENT grid (tdnl.34) */
     n = (int)w->view.n;
 
-#if defined(FINDER_WIN_MUT_CLEANUP_UNSORTED)
-    /* MUTANT (design F3.3 "plain row-major"): cells are handed out in REVERSE
-     * record order, so the snapped positions are a mirror of the correct ones
-     * and the hand-authored expected coordinates go RED. NEVER in a real build. */
-    for (int i = 0; i < n; i++) moved += fw_snap(w, i, n - 1 - i);
-#else
     /* Row-major from the top-left, in RECORD order, selected-items-first
      * deliberately NOT applied (design F3.3: "selected-items-first is NOT
      * period -- plain row-major"). */
     for (int i = 0; i < n; i++) moved += fw_snap(w, i, i);
-#endif
     return moved;
 }
 
@@ -1298,24 +1212,7 @@ void finder_win_paint(finder_window_t *w, const bitmap_t *dst,
     /* The icons, through the ONE painter (finder_desktop.c). The window's view
      * is an ordinary finder_desk_t whose bounds are this content rect, so the
      * painter needs no window concept at all. */
-#if defined(FINDER_WIN_MUT_SCROLL_PAINT_ONLY)
-    {
-        /* The mutant's paint-time shift (see finder_win_sync_geometry). */
-        int dx = (int)w->applied_sx - (int)w->scroll.axis[WSCROLL_H].value;
-        int dy = (int)w->applied_sy - (int)w->scroll.axis[WSCROLL_V].value;
-        for (int i = 0; i < (int)w->view.n; i++) {
-            w->view.icons[i].x = (int16_t)(w->view.icons[i].x + dx);
-            w->view.icons[i].y = (int16_t)(w->view.icons[i].y + dy);
-        }
-        finder_desk_paint(&w->view, dst, clip);
-        for (int i = 0; i < (int)w->view.n; i++) {
-            w->view.icons[i].x = (int16_t)(w->view.icons[i].x - dx);
-            w->view.icons[i].y = (int16_t)(w->view.icons[i].y - dy);
-        }
-    }
-#else
     finder_desk_paint(&w->view, dst, clip);
-#endif
 }
 
 /* ===========================================================================
@@ -1419,11 +1316,7 @@ int finder_shell_save_view(finder_shell_t *sh, int slot)
     if (frame.top < 0) frame.top = 0;
     return finder_shell_note_view(sh, w->dir_start, w->name83,
                                   (uint16_t)frame.left, (uint16_t)frame.top,
-#if defined(FINDER_VIEW_MUT_SAVE_ICONS)
-                                  0u); /* Rule 6: discard per-folder mode. */
-#else
                                   w->view_bits);
-#endif
 }
 
 /* ===========================================================================
@@ -1584,18 +1477,13 @@ static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
         opened++;
         sh->last.moved = (int16_t)opened;
         if (st != FINDER_WIN_OK) return;
-#ifdef FINDER_MUT_OPEN_ONE
-        break;
-#endif
         }
-#ifndef FINDER_MUT_OPEN_NO_APP
         /* MUTANT FINDER_MUT_OPEN_NO_APP (Rule 6): Open is lit for the
          * application but names no launch -- the L004 defect, half-fixed. */
         else if (ic->kind == (uint8_t)FINDER_ICON_APP) {
             if (app == (const finder_desk_icon_t *)0) app = ic;
             apps++;
         }
-#endif
     }
     if (!opened && !apps) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, slot); return; }
     if (!opened) fw_outcome(sh, id, FINDER_WIN_OK, slot);
@@ -1635,15 +1523,9 @@ int finder_win_arrange_by_name(finder_shell_t *sh, int slot)
         int rank = 0;
         for (int j = 0; j < n; j++) {
             if (j == i) continue;
-#if defined(FINDER_WIN_MUT_ARRANGE_NOOP)
-            /* MUTANT (Rule 6; audit G10): rank by LISTING order, i.e. the
-             * pre-fix "Arrange does not reorder" -- a plain Clean Up. */
-            if (j < i) rank++;
-#else
             if (fw_rank_before(fw_name_compare(w->view.icons[j].name,
                                               w->view.icons[i].name), j, i))
                 rank++;
-#endif
         }
         moved += fw_snap(w, i, rank);
     }
@@ -1682,12 +1564,6 @@ static void fw_do_empty_trash(finder_shell_t *sh, finder_cmd_id id, int slot)
     fw_outcome(sh, id, (sh->trash_items != 0u) ? FINDER_WIN_OK
                                                 : FINDER_WIN_ERR_NULL, -1);
     sh->last.moved = (int16_t)sh->trash_items;
-#if defined(FINDER_WIN_MUT_EMPTY_NO_CONFIRM)
-    /* MUTANT (Rule 6): the purge runs at DISPATCH, before any confirm.
-     * NEVER in a real build. */
-    (void)finder_shell_empty_trash(sh, (uint16_t *)0, (uint16_t *)0,
-                                   (uint8_t *)0);
-#endif
 }
 
 /* Special > Restart / Shut Down (bead initech-tdnl.78): PUT EVERYTHING AWAY.
@@ -1711,10 +1587,8 @@ static void fw_do_power(finder_shell_t *sh, finder_cmd_id id, int slot)
     int noted = 0;
 
     (void)slot;
-#if !defined(FINDER_WIN_MUT_POWER_NO_SAVE)
     for (int i = 0; i < sh->window_cap; i++)
         if (sh->windows[i].open) noted += finder_shell_save_view(sh, i);
-#endif
     fw_outcome(sh, id, FINDER_WIN_OK, -1);
     sh->last.moved = (int16_t)noted;
 }
@@ -1749,14 +1623,12 @@ static const struct { finder_cmd_id id; fw_cmd_fn fn; } FW_EXEC_TABLE[] = {
     { FCMD_EMPTY_TRASH,     fw_do_empty_trash },
     { FCMD_RESTART,         fw_do_power      },
     { FCMD_SHUTDOWN,        fw_do_power      },
-#if !defined(FINDER_WIN_MUT_EXIT_DOS_UNWIRED)
     /* bead initech-3p1a: Exit to InitechDOS puts everything away exactly like
      * Restart / Shut Down; the kernel then confirms, commits DESKTOP.DB and
      * hands the console to COMMAND.COM.
      * MUTANT FINDER_WIN_MUT_EXIT_DOS_UNWIRED (Rule 6; test-menu-handlers H5):
      * the row stays lit but this table loses it. NEVER in a real build. */
     { FCMD_EXIT_DOS,        fw_do_power      }
-#endif
 };
 #define FW_EXEC_N ((int)(sizeof FW_EXEC_TABLE / sizeof FW_EXEC_TABLE[0]))
 
@@ -1819,11 +1691,9 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
         for (int i = 0; i < (int)v->n; i++)
             if (v->icons[i].selected &&
                 (v->icons[i].kind == (uint8_t)FINDER_ICON_FOLDER
-#ifndef FINDER_MUT_OPEN_APP_DARK
                  /* MUTANT FINDER_MUT_OPEN_APP_DARK (Rule 6): the L004 defect
                   * itself -- an application never lights File > Open. */
                  || v->icons[i].kind == (uint8_t)FINDER_ICON_APP
-#endif
                 ))
                 sh->ctx->selection_openable = 1u;
         if(sh->windows[slot].is_trash)
@@ -1896,7 +1766,6 @@ static int finder_shell_open(FlairApp *self, const FlairLaunchParams *lp)
  * original Macintosh Event Manager's tick unit was 1/60 second. */
 static void fw_key(finder_shell_t *sh, const EventRecord *ev)
 {
-#ifndef FINDER_MUT_NO_KEYS
     int slot = finder_win_front_slot(sh), old = -1, chosen = -1;
     int vk = (int)((ev->message >> 8) & 255u);
     char ch = (char)(ev->message & 255u);
@@ -1947,9 +1816,6 @@ static void fw_key(finder_shell_t *sh, const EventRecord *ev)
     }
     finder_win_invalidate_all(sh,slot);
     finder_shell_sync_ctx(sh);
-#else
-    (void)sh; (void)ev;
-#endif
 }
 
 static void finder_shell_event(FlairApp *self, const EventRecord *ev)
@@ -2014,6 +1880,419 @@ finder_desk_t *finder_shell_desk(finder_shell_t *sh)
     return &sh->desk;
 }
 
-#ifndef FINDER_OVL_RESIDENT
-#include "finder_windows_cold.c"
-#endif
+/* Ref: ADR-0014 DEC-14-8/-10; finder_windows.h section 12; PRD 6.5.
+ * Destructive operations and their alert text, section COLD. Window painting,
+ * event handling, enumeration callbacks and state remain resident. */
+#include "finder_windows_private.h"
+#include "chicago12.h"
+/* 1 when `name83` is an item of `dir` (case-insensitive 8.3). */
+static int fw_has_item(finder_shell_t *sh, uint16_t dir, const char *name83)
+{
+    fw_item_t it;
+    for (int n = 0; fw_item(sh, dir, n, &it) > 0; n++)
+        if (fw_ieq(it.name, name83)) return 1;
+    return 0;
+}
+
+/* RETIRE every view of directory `dir`, which the purge has just REMOVED
+ * (Sec 12; bead initech-uios, audit L002): DisposeWindow through the Window
+ * Manager (no view state saved -- the folder is gone), the icon model and its
+ * selection cleared, the slot flagged in purge_closed; and the kind=4 view
+ * record keyed by the dead cluster dropped, so a folder later allocated into
+ * that cluster inherits nothing. Returns 1 when a view record was dropped. */
+/* The open window slots over directory `dir`, as a bit set. */
+static unsigned fw_slots_of(const finder_shell_t *sh, uint16_t dir)
+{
+    unsigned m = 0u;
+    for (int i = 0; i < sh->window_cap; i++)
+        if (sh->windows[i].open && sh->windows[i].dir_start == dir)
+            m |= 1u << i;
+    return m;
+}
+
+static int fw_retire_dir(finder_shell_t *sh, uint16_t dir)
+{
+    uint16_t kept = 0u;
+    int dropped;
+
+    for (int i = 0; i < sh->window_cap; i++) {
+        finder_window_t *w = &sh->windows[i];
+        if (!w->open || w->is_root || w->dir_start != dir) continue;
+        DisposeWindow(sh->wm, &w->rec);
+        w->open   = 0u;
+        w->view.n = 0u;
+        finder_click_reset(&w->click);
+        sh->purge_closed |= 1u << i;
+    }
+    for (uint16_t i = 0u; i < sh->n_views; i++)
+        if (sh->views[i].dir_start != dir) sh->views[kept++] = sh->views[i];
+    dropped = (kept != sh->n_views);
+    sh->n_views = kept;
+    return dropped;
+}
+
+/* THE DEPTH-FIRST PURGE of everything UNDER directory `root` (Sec 12). Shared
+ * verbatim by Empty Trash (root = \TRASH) and by Delete Now (root = the folder
+ * being deleted; bead initech-vnl4), so the two destructive paths cannot drift:
+ * the same locked-descendant refusal, the same depth limit, the same retirement
+ * of every view of a removed folder. `root` itself is never removed here. */
+typedef struct fw_purge {
+    uint16_t purged, refused;
+    int      locked, views_dropped;
+    unsigned touched;               /* surviving views whose listing changed */
+} fw_purge_t;
+
+static void fw_purge_tree(finder_shell_t *sh, uint16_t root, fw_purge_t *p)
+{
+    struct {
+        uint16_t dir, skip;
+        char     name[FINDER_DESK_NAME_MAX];   /* this folder's name in its parent */
+    } st[FINDER_TRASH_DEPTH];
+    int d = 0, rc;
+    fw_item_t it;
+
+    /* DEPTH-FIRST. Each level remembers how many leading items it had to
+     * REFUSE (`skip`), so the walk always takes the first item it has not
+     * given up on: delete it, or descend into it; an emptied level is
+     * removed from its parent on the way back up. Every step deletes an
+     * entry, refuses one (skip grows), descends or ascends, so it ends. */
+    st[0].dir  = root;
+    st[0].skip = 0u;
+    for (;;) {
+        rc = fw_item(sh, st[d].dir, (int)st[d].skip, &it);
+        if (rc <= 0) {
+            if (d == 0) break;
+            /* The level is as empty as it will get: remove the folder. */
+            rc = sh->fs.rmdir(sh->fs.user, st[d].name, st[d - 1].dir);
+            d--;
+            if (rc == (int)FINDER_WIN_OK) {
+                p->purged = (uint16_t)(p->purged + 1u);
+                p->touched |= fw_slots_of(sh, st[d].dir);
+                /* The folder is GONE: so is every view of it (audit L002). */
+                p->views_dropped |= fw_retire_dir(sh, st[d + 1].dir);
+            } else {
+                p->refused = (uint16_t)(p->refused + 1u);
+                st[d].skip = (uint16_t)(st[d].skip + 1u);
+            }
+            continue;
+        }
+        /* Recheck each live entry, including descendants locked after staging.
+         * Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf pp. 88, 112.
+         * L118: protection has its own result, retained origins and feedback. */
+        if ((it.attr & FINDER_ATTR_READONLY) != 0u) {
+            p->locked = 1;
+            p->refused = (uint16_t)(p->refused + 1u);
+            st[d].skip = (uint16_t)(st[d].skip + 1u);
+            continue;
+        }
+        if ((it.attr & (uint8_t)FINDER_ATTR_DIRECTORY) != 0u) {
+            if (d + 1 >= FINDER_TRASH_DEPTH) {          /* too deep: refuse loud */
+                p->refused = (uint16_t)(p->refused + 1u);
+                st[d].skip = (uint16_t)(st[d].skip + 1u);
+                continue;
+            }
+            d++;
+            st[d].dir  = it.cl;
+            st[d].skip = 0u;
+            fw_copy83(st[d].name, it.name);
+            continue;
+        }
+        if (sh->fs.unlink(sh->fs.user, it.name, st[d].dir) == (int)FINDER_WIN_OK) {
+            p->purged = (uint16_t)(p->purged + 1u);
+            p->touched |= fw_slots_of(sh, st[d].dir);
+        } else {
+            p->refused = (uint16_t)(p->refused + 1u);
+            st[d].skip = (uint16_t)(st[d].skip + 1u);
+        }
+    }
+
+}
+
+finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
+                                             uint16_t *out_purged,
+                                             uint16_t *out_refused,
+                                             uint8_t *out_db_dirty)
+{
+    uint16_t kept = 0u;
+    int td;
+    fw_purge_t p;
+
+    if (out_purged != (uint16_t *)0)   *out_purged = 0u;
+    if (out_refused != (uint16_t *)0)  *out_refused = 0u;
+    if (out_db_dirty != (uint8_t *)0)  *out_db_dirty = 0u;
+    if (sh != (finder_shell_t *)0) sh->purge_closed = 0u;
+    if (!fw_trash_ok(sh) ||
+        sh->fs.unlink == (int (*)(void *, const char *, uint16_t))0 ||
+        sh->fs.rmdir == (int (*)(void *, const char *, uint16_t))0)
+        return FINDER_WIN_ERR_NULL;
+    td = sh->fs.trash_dir(sh->fs.user);
+    if (td < 0) return FINDER_WIN_ERR_NOTRASH;
+
+    fw_zero(&p, (uint32_t)sizeof p);
+    fw_purge_tree(sh, (uint16_t)td, &p);
+
+    /* The kind=5 origins of purged items are stale; a refused item keeps its
+     * own (it is still in \TRASH and can still be put back). */
+    for (uint16_t i = 0u; i < sh->n_origins; i++)
+        if (fw_has_item(sh, (uint16_t)td, sh->origins[i].name83))
+            sh->origins[kept++] = sh->origins[i];
+    if ((kept != sh->n_origins || p.views_dropped) && out_db_dirty != (uint8_t *)0)
+        *out_db_dirty = 1u;
+    sh->n_origins = kept;
+
+    /* An open Trash window shows what is left -- and so does every SURVIVING
+     * folder window the walk deleted something out of (a partial purge: the
+     * folder stayed for a locked descendant, its removed children must not
+     * stay on as icons naming freed clusters). A retired slot is closed and
+     * no longer matches. */
+    p.touched |= fw_slots_of(sh, (uint16_t)td);
+    for (int i = 0; i < sh->window_cap; i++)
+        if ((p.touched & (1u << i)) != 0u && sh->windows[i].open &&
+            finder_win_populate(sh, i) == FINDER_WIN_OK)
+            finder_win_invalidate_all(sh, i);
+    (void)finder_shell_recount_trash(sh);
+    if (sh->purge_closed != 0u) {
+        /* No selection, open-predicate or group head may still name a
+         * retired slot (the command context is recomputed from the live
+         * windows only). */
+        fw_refresh_group_head(sh);
+        finder_shell_sync_ctx(sh);
+    }
+    if (out_purged != (uint16_t *)0)  *out_purged = p.purged;
+    if (out_refused != (uint16_t *)0) *out_refused = p.refused;
+    return p.locked ? FINDER_WIN_ERR_LOCKED : FINDER_WIN_OK;
+}
+
+/* DELETE NOW (bead initech-vnl4; audit docs/audits/2026-10-23-desktop
+ * REPORT.md L001, P1): a volume that is FULL and has no \TRASH cannot stage
+ * anything -- staging needs the Trash directory, and making it needs a free
+ * cluster -- so without this verb the Finder offers no way at all to free
+ * space. The period guidance for a full disk is "You can remove items from
+ * the disk to free up more space" (Apple_Macintosh_System_Software_Users_
+ * Guide_V6.0.pdf printed p. 262); the kernel asks first (the CAUTION alert,
+ * "remove ... permanently", the Empty Trash confirm's own words, Sec 12) and
+ * calls this ONLY on OK. Removes item `idx` of window `slot` IN PLACE: a
+ * document by unlink, a folder by the SAME depth-first walk Empty Trash uses
+ * (fw_purge_tree) and then rmdir. A locked item, or a locked descendant,
+ * refuses FINDER_WIN_ERR_LOCKED and the folder stays (pp. 88, 112: unlock
+ * before discarding). The window, and any view the walk touched, is
+ * re-listed; every view of a removed folder is retired (audit L002). */
+finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
+                                             int idx, uint16_t *out_purged,
+                                             uint8_t *out_db_dirty)
+{
+    finder_window_t *w;
+    fw_item_t it;
+    fw_purge_t p;
+    finder_win_status_t st;
+    char name[FINDER_DESK_NAME_MAX];
+    uint16_t dir;
+    int n, rc, found = 0;
+
+    if (out_purged != (uint16_t *)0)   *out_purged = 0u;
+    if (out_db_dirty != (uint8_t *)0)  *out_db_dirty = 0u;
+    if (!fw_slot_ok(sh, slot) || !sh->have_fs ||
+        sh->fs.enumerate == (int (*)(void *, uint16_t, finder_enum_cb, void *))0 ||
+        sh->fs.unlink == (int (*)(void *, const char *, uint16_t))0 ||
+        sh->fs.rmdir == (int (*)(void *, const char *, uint16_t))0)
+        return FINDER_WIN_ERR_NULL;
+    w = &sh->windows[slot];
+    if (idx < 0 || idx >= (int)w->view.n) return FINDER_WIN_ERR_NULL;
+    sh->purge_closed = 0u;
+    /* The view must still BE its folder (Sec 10d). */
+    st = finder_win_check_live(sh, slot);
+    if (st != FINDER_WIN_OK) return st;
+    dir = w->dir_start;
+    fw_copy83(name, w->view.icons[idx].name);
+    if (finder_win_is_service(dir, name)) return FINDER_WIN_ERR_SERVICE;
+    /* The DISK says what the item is, not the icon (it may predate a lock). */
+    for (n = 0; (rc = fw_item(sh, dir, n, &it)) > 0; n++)
+        if (fw_ieq(it.name, name)) { found = 1; break; }
+    if (rc < 0) return FINDER_WIN_ERR_ENUM;
+    if (!found) return FINDER_WIN_ERR_MOVE;
+    if ((it.attr & FINDER_ATTR_READONLY) != 0u) return FINDER_WIN_ERR_LOCKED;
+
+    fw_zero(&p, (uint32_t)sizeof p);
+    if ((it.attr & (uint8_t)FINDER_ATTR_DIRECTORY) != 0u) {
+        /* Rule 6, test-finder-ops O18: skipping the walk cannot delete a tree. */
+        fw_purge_tree(sh, it.cl, &p);
+        if (!p.locked && p.refused == 0u) {
+            if (sh->fs.rmdir(sh->fs.user, name, dir) == (int)FINDER_WIN_OK) {
+                p.purged = (uint16_t)(p.purged + 1u);
+                /* O18 also grades this root retirement, outside the walk. */
+                p.views_dropped |= fw_retire_dir(sh, it.cl);
+            } else {
+                p.refused = (uint16_t)(p.refused + 1u);
+            }
+        }
+    } else if (sh->fs.unlink(sh->fs.user, name, dir) == (int)FINDER_WIN_OK) {
+        p.purged = (uint16_t)(p.purged + 1u);
+    } else {
+        p.refused = (uint16_t)(p.refused + 1u);
+    }
+
+    p.touched |= fw_slots_of(sh, dir);
+    for (int i = 0; i < sh->window_cap; i++)
+        if ((p.touched & (1u << i)) != 0u && sh->windows[i].open &&
+            finder_win_populate(sh, i) == FINDER_WIN_OK)
+            finder_win_invalidate_all(sh, i);
+    if (sh->purge_closed != 0u) {
+        fw_refresh_group_head(sh);
+        finder_shell_sync_ctx(sh);
+    }
+    if (out_purged != (uint16_t *)0)  *out_purged = p.purged;
+    if (out_db_dirty != (uint8_t *)0) *out_db_dirty = (uint8_t)(p.views_dropped ? 1u : 0u);
+    if (p.locked) return FINDER_WIN_ERR_LOCKED;
+    return (p.refused != 0u) ? FINDER_WIN_ERR_MOVE : FINDER_WIN_OK;
+}
+
+/* libc-free decimal (Law 3); returns the digit count written. */
+static int fw_utoa(char *dst, uint32_t v)
+{
+    char tmp[10];
+    int n = 0, k = 0;
+    do { tmp[n++] = (char)('0' + (v % 10u)); v /= 10u; } while (v != 0u);
+    while (n > 0) dst[k++] = tmp[--n];
+    return k;
+}
+
+static int fw_cat(char *dst, int at, const char *s)
+{
+    while (*s != '\0' && at < 200) dst[at++] = *s++;
+    return at;
+}
+
+static int fw_alert_wrap(const char *msg,
+                         char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
+
+int finder_trash_alert_text(uint16_t items, uint32_t bytes,
+                            char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    char msg[208];
+    int  n = 0;
+    int  one = (items == 1u);
+
+    /* The corpus wording (Sec 12), "Trash" for "Wastebasket"; the SINGULAR
+     * agreement ("1 item, which uses ... this item") is authored, no local
+     * reference shows it. */
+    n = fw_cat(msg, n, "The Trash contains ");
+    n += fw_utoa(msg + n, items);
+    n = fw_cat(msg, n, one ? " item, which uses " : " items, which use ");
+    n += fw_utoa(msg + n, (bytes + 1023u) / 1024u);
+    n = fw_cat(msg, n, one ? "K of disk space. Are you sure you want to remove "
+                             "this item permanently?"
+                           : "K of disk space. Are you sure you want to remove "
+                             "these items permanently?");
+    msg[n] = '\0';
+    return fw_alert_wrap(msg, out);
+}
+
+/* Special > Exit to InitechDOS (bead initech-3p1a): the operator's wording
+ * (2026-10-16), the SAME wrap. */
+int finder_exit_dos_alert_text(char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    return fw_alert_wrap("Are you sure you want to exit to InitechDOS?", out);
+}
+
+/* Delete Now (bead initech-vnl4, audit 2026-10-23 desktop L001): the confirm
+ * a full volume with no \TRASH puts up instead of a dead-end refusal. The
+ * question is the Empty Trash confirm's own ("Are you sure you want to remove
+ * ... permanently?", Sec 12); the first sentence, naming why the Trash cannot
+ * take the item, is authored -- no local Finder string exists for it. */
+int finder_delete_now_alert_text(const char *name,
+                                 char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    char msg[208];
+    int  n = 0;
+
+    n = fw_cat(msg, n, "There is no room on the disk for the Trash. Are you sure you want to remove ");
+    n = fw_cat(msg, n, name != (const char *)0 ? name : "");
+    n = fw_cat(msg, n, " permanently?");
+    msg[n] = '\0';
+    return fw_alert_wrap(msg, out);
+}
+
+/* tdnl.61/.63/.62/.66/.72/.57. Wording is the bead/operator wording,
+ * NOT claimed as extracted native strings: no corresponding alert text is
+ * captured locally. Chrome reuses the independently graded Dialog Manager. */
+int finder_error_alert_text(finder_win_status_t st, const char *name,
+                            char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    const char *msg;
+    char replace[208];
+    switch(st) {
+    case FINDER_WIN_ERR_DISKFULL:
+        msg="The disk is full."; break;
+    case FINDER_WIN_ERR_FULL:
+        msg="The folder could not be opened because there is not enough memory to open another window."; break;
+    case FINDER_WIN_ERR_MEMORY:
+        msg="The folder could not be opened because there is not enough memory to display its contents."; break;
+    case FINDER_WIN_ERR_ENUM:
+        msg="The folder could not be opened because its contents could not be read."; break;
+    case FINDER_WIN_ERR_STORAGE:
+        msg="The disk could not be updated."; break;
+    case FINDER_WIN_ERR_LAUNCH:
+    case FINDER_WIN_ERR_CRASH:
+        msg=st==FINDER_WIN_ERR_CRASH ? "The application has unexpectedly quit." :
+            "The application could not be opened."; break;
+    case FINDER_WIN_ERR_EXISTS: {
+        int n=fw_cat(replace,0,"An item named ");
+        n=fw_cat(replace,n,name?name:"");
+        n=fw_cat(replace,n," already exists in this location. Do you want to replace it with the one you're moving?");
+        replace[n]='\0'; msg=replace; break;
+    }
+    case FINDER_WIN_ERR_CYCLE:
+        msg="A folder cannot be moved inside itself."; break;
+    case FINDER_WIN_ERR_SERVICE:
+        msg="This item is used by the Finder and cannot be moved."; break;
+    case FINDER_WIN_ERR_SAMEDIR:
+        msg="The item is already in this folder."; break;
+    case FINDER_WIN_ERR_NOTRASH:
+        /* bead initech-vnl4 (audit 2026-10-23 desktop L007): opening the
+         * Trash on a volume with no \TRASH (it could not be made: the disk
+         * is full) names the operation that failed, never the generic "could
+         * not be moved" -- no move was asked for. Wording authored (no local
+         * Finder string for it); the System 6 guide's own advice for a full
+         * disk is "remove items from the disk to free up more space"
+         * (Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf printed
+         * p. 262), which the Delete Now route (finder_shell_delete_item)
+         * makes possible.
+         * MUTANT FINDER_MUT_NOTRASH_GENERIC (Rule 6): the pre-fix fall-through
+         * to the move wording. NEVER in a real build. */
+        msg="The Trash could not be opened because there is no room for it on the disk."; break;
+    default: msg="The item could not be moved. The disk may be full or the folder may no longer be available."; break;
+    }
+    return fw_alert_wrap(msg,out);
+}
+
+/* GREEDY WORD WRAP of an alert message into FINDER_ALERT_TEXT_W columns
+ * (shared by every Finder alert). */
+static int fw_alert_wrap(const char *msg,
+                         char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    int line = 0, i = 0;
+
+    for (int l = 0; l < FINDER_ALERT_LINES; l++) out[l][0] = '\0';
+    /* GREEDY WORD WRAP on Chicago 12 advances: a word joins the line when
+     * the line plus a space plus the word still fits FINDER_ALERT_TEXT_W. */
+    while (msg[i] != '\0' && line < FINDER_ALERT_LINES) {
+        int j = i, ww = 0, len = 0, lw = 0;
+        char *o = out[line];
+        while (o[len] != '\0') { lw += chicago12_advance((unsigned char)o[len]); len++; }
+        while (msg[j] != '\0' && msg[j] != ' ') ww += chicago12_advance((unsigned char)msg[j++]);
+        if (len != 0 && lw + chicago12_advance(' ') + ww > FINDER_ALERT_TEXT_W) {
+            line++;                               /* the word opens a new line */
+            continue;
+        }
+        if (len != 0) o[len++] = ' ';
+        while (i < j && len < FINDER_ALERT_LINE_MAX - 1) o[len++] = msg[i++];
+        o[len] = '\0';
+        i = j;
+        while (msg[i] == ' ') i++;
+    }
+    return (line < FINDER_ALERT_LINES) ? line + 1 : FINDER_ALERT_LINES;
+}
+
+/* ===========================================================================
+ * THE COMMAND EXECUTION HOOK  (finder_cmd.h FinderCtx.exec)
+ * ===========================================================================*/

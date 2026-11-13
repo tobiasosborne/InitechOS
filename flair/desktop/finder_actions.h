@@ -19,7 +19,6 @@ typedef struct flair_live_ctx {
     region_t           *comp;       /* compositor visible-region scratch (D-5)   */
     bitmap_t            off;         /* the indexed-8 offscreen (descriptor copy) */
     shell_scene_t      *scene;      /* the whole scene (heap-backed)             */
-#ifdef FLAIR_LIVE_TENANTS
     flair_heap_t       *master;     /* the function-static FLAIR heap, exposed so
                                      * the FLAIR_LIVE_TENANTS launch site can carve
                                      * tenant partitions from it (ADR-0013 Sec 3.6).
@@ -32,9 +31,7 @@ typedef struct flair_live_ctx {
                                      * instead of destroying tenant-owed damage
                                      * (initech-gofc). Behind the guard: same
                                      * layout argument as `master`.               */
-#endif
 } flair_live_ctx_t;
-#ifdef FLAIR_LIVE_TENANTS
 typedef struct finder_surface {
     finder_desk_t        *fd;      /* the icon model this gesture works on     */
     finder_click_track_t *click;   /* that surface's double-click synthesiser  */
@@ -125,5 +122,4 @@ void flair_live_alert_open_icon(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                        unsigned icon);
 void finder_filecopy_run(flair_live_ctx_t *, const boot_info_t *, const char *, const char *, const char *);
 void finder_outcome_run(flair_live_ctx_t *, const boot_info_t *, const finder_cmd_outcome_t *);
-#endif
 #endif

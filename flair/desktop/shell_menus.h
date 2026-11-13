@@ -35,13 +35,7 @@
 
 static const MenuItem SHELL_SYS_MENU_ITEMS[SHELL_SYS_MENU_ITEMS_N]
     __attribute__((unused)) = {
-#if !defined(SHELL_MENUS_MUT_ABOUT_LIVE)
     { "About", 0, 0,   0, 0, 0 },   /* grayed until R4.1 (tdnl.15)          */
-#else
-    /* MUTANT (Rule 6; test-menu-handlers): the pre-fix live About -- enabled,
-     * no handler. NEVER in a real build. */
-    { "About", 0, 0,   0, 1, 0 },
-#endif
     { "Quit",  0, 'Q', 0, 1, 0 }    /* the stated exception (banner)        */
 };
 
