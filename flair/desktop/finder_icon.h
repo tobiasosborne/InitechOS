@@ -36,9 +36,9 @@
  *      tone decode); os/flair/flair_look.h (the policy seam);
  *      os/flair/surface.h (the ONE pixel writer); spec/region_algebra.h
  *      (region_contains_point -- clip membership).
- *      CLAUDE.md Law 2 (mechanical oracle), Law 3 (freestanding + dual-compile),
- *      Rule 2 (bounds-checked, never write past the buffer), Rule 6
- *      (mutation-proven), Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ *      CLAUDE.md (The constitution) (mechanical oracle), contract (freestanding + dual-compile),
+ *      contract (bounds-checked, never write past the buffer), contract
+ *      (mutation-proven), contract (deterministic), contract (ASCII-clean).
  *
  * DUAL-COMPILE (the cursor.c / blitter.c pattern): finder_icon.c compiles BOTH
  * freestanding for the kernel and hosted for the property suite

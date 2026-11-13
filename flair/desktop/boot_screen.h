@@ -12,8 +12,8 @@
  *      geometry), spec/assets/chicago12.h via os/flair/text.h (the title
  *      font), docs/pubs/
  *      DESIGN-REFERENCE.md Sec 7.0 (the logo face colours).
- *      CLAUDE.md Law 1 (every coordinate below is a measured capture pixel),
- *      Law 3 (freestanding C; no host state), Rule 11, Rule 12 (ASCII).
+ *      CLAUDE.md (The constitution) (every coordinate below is a measured capture pixel),
+ *      contract (freestanding C; no host state), contract, contract (ASCII).
  *
  * PURE: boot_screen_render() computes the 640x480 screen as palette INDICES,
  * one row at a time, top to bottom, and hands each row to a sink. The kernel
@@ -36,7 +36,7 @@
  * stream packed (os/flair/asset_lz_data.h, generated from the unchanged
  * locked boot_logo.h) and unpacks it into BSS when the panel is rendered;
  * a hosted build (test-boot-screen) reads the locked table. test-asset-lz
- * proves decode == locked (Rule 8). */
+ * proves decode == locked (contract). */
 #if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
 #define ASSET_LZ_LOGO
 #include "asset_lz.h"        /* -Ios/flair */
@@ -171,13 +171,9 @@ static void boot_screen_render(boot_screen_sink_fn sink, void *ctx)
             while (x < BOOT_LOGO_W) {
                 int code = *rle >> 6, len = (*rle & 63) + 1;
                 rle++;
-#ifndef FLAIR_BOOT_MUT_NO_LOGO
                 if (code != BOOT_LOGO_CODE_CLEAR)
                     boot_screen_fill(row, BOOT_LOGO_X + x, BOOT_LOGO_X + x + len - 1,
                                      role_idx[code]);
-#else
-                (void)code; (void)role_idx;
-#endif
                 x += len;
             }
         }

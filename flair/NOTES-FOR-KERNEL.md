@@ -1,3 +1,10 @@
+# Integration status
+
+The vertical slice implements this contract in flair/desktop/platform.c and
+links it through system/. The desktop owns the INT81 stub, input hooks and pump;
+the standalone kernel remains DOS-only. These original binding notes remain
+the service/lifetime reference. The former loader file cap is removed.
+
 # Kernel and desktop binding notes
 
 The target archive has no kernel includes. Implement flair/include/flair_platform.h
@@ -84,4 +91,4 @@ The gate stores the DOS DTA as opaque bytes (SDK payload offset plus length);
 the host real-DOS binding pins those values to kernel/include/find_data.h.
 Kernel headers are confined to the host DOS test. Both borrowing scripts and
 the old app GrafPort compatibility view have been removed. Apps use only SDK
-headers. The loader's >64 KiB policy remains a vertical-slice integration task.
+headers. The vertical slice removes the loader's former file cap.

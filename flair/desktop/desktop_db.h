@@ -70,7 +70,7 @@ int desktop_db_bootstrap(const fat12_volume_t *vol, void *fat,
 
 /* Read the whole root DESKTOP.DB into `out` (`cap` bytes). Returns FAT12_OK
  * with *out_len set, FAT12_ERR_NOT_FOUND when the file is absent, or
- * FAT12_ERR_BUFFER when the file is larger than `cap` (never overflow, Rule 2).
+ * FAT12_ERR_BUFFER when the file is larger than `cap` (never overflow, contract).
  * The caller validates the bytes; a corrupt blob is a REGEN, not a panic. */
 int desktop_db_read(const fat12_volume_t *vol, const void *fat,
                     uint32_t fat_len, void *sector_buf, void *cluster_buf,

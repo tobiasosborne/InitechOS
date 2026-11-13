@@ -64,11 +64,10 @@ There are no changes to existing mk/*.mk; tenant.mk is a new fragment.
 
 ## Limits imposed by the OS side today
 
-- kernel/loader.c:loader_load_tenant rejects the complete directory file size
-  above TBX_TENANT_IMAGE_MAX (64 KiB), before allocation or file reading. It
-  is an explicit loader policy, not an unavoidable staging-area limitation.
-  A heap block holds PSP + rounded file + BSS. This policy must be lifted in
-  the OS before the plain-flags 123.EXE built here can launch.
+- kernel/loader.c:loader_load_tenant allocates PSP + rounded complete file +
+  BSS through the Toolbox heap callback. The former 64 KiB file policy is
+  removed; checked 32-bit allocation arithmetic and heap capacity bound it.
+  Load failure preserves caller-owned allocation cleanup.
 - The same function rejects e_minalloc BSS above TBX_TENANT_BSS_MAX (512 KiB).
   e_minalloc itself is a 16-bit paragraph count (format maximum 1,048,560 B).
   The runtime records the module length separately from BSS and relocation

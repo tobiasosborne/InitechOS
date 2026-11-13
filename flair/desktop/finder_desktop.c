@@ -13,7 +13,7 @@
  *
  * Artifact C per ADR-0002: freestanding, no allocation outside the caller's
  * arenas, no libc, deterministic, ASCII-only. The three mutation knobs are
- * host-oracle builds only (Rule 6) and are never compiled into a real build.
+ * host-oracle builds only (contract) and are never compiled into a real build.
  */
 #include "finder_desktop.h"
 #include "event.h"
@@ -27,7 +27,7 @@
  * unchanged locked headers above by tools/asset_lz.c) and unpacks them into
  * BSS on first use; a hosted build keeps reading the locked tables directly.
  * test-asset-lz proves decode == locked, byte for byte (the round-4
- * chicago_packed.h precedent, Rule 8). The painter sees the same bytes. */
+ * chicago_packed.h precedent, contract). The painter sees the same bytes. */
 #if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
 #define ASSET_LZ_DESK
 #include "asset_lz.h"
@@ -88,7 +88,7 @@ static const FLAIRDeskIcon *fd_strike_at(unsigned i)
 #endif
 
 /* ===========================================================================
- * Small helpers (no libc, Law 3).
+ * Small helpers (no libc, contract).
  * ===========================================================================*/
 
 static int16_t fd_min16(int16_t a, int16_t b) { return a < b ? a : b; }
@@ -142,7 +142,7 @@ static int fd_valid(const finder_desk_t *fd, int idx)
  * functions of numbers, and a surface is just a different `bounds`). One
  * painter therefore needs one kind->strike map, and this is it. Unknown kinds
  * return NULL and finder_desk_paint SKIPS them -- fail-safe, never a garbage
- * blit (Rule 2). */
+ * blit (contract). */
 static const FLAIRDeskIcon *fd_strike(uint8_t kind, uint8_t trash_full)
 {
     if (kind == (uint8_t)FINDER_ICON_VOLUME) return FD_STRIKE_VOLUME;
@@ -185,7 +185,7 @@ int finder_desk_add(finder_desk_t *fd, finder_icon_kind_t kind,
         return -1;
     }
     if (fd->n >= fd->cap) {
-        return -1;              /* FULL -- the caller fails loud (Rule 2)      */
+        return -1;              /* FULL -- the caller fails loud (contract)      */
     }
     idx = (int)fd->n;
     ic  = &fd->icons[idx];
@@ -621,7 +621,7 @@ uint32_t finder_desk_db_encode_full(const finder_desk_t *fd,
     fd_put_le16(buf + 6, (uint16_t)total);
 
     /* Icons first, in record order (which IS z order), then the view records --
-     * the ONE deterministic ordering (Rule 11). */
+     * the ONE deterministic ordering (contract). */
     off = FINDER_DB_HEADER_SIZE;
     for (int i = 0; i < (int)fd->n; i++) {
         const finder_desk_icon_t *ic = &fd->icons[i];

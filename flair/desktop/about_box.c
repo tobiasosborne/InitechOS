@@ -1,4 +1,4 @@
-/* about_box.c -- About This Computer, section COLD of C:\FLAIR.OVL (ADR-0014
+/* about_box.c -- About This Computer, desktop component of libdesktop.a (ADR-0014
  * DEC-14-10 lane 1; moved verbatim from kmain.c flair_live_about).
  *
  * About This Computer: the shipped banner's name/version (BANNER_LINE1,
@@ -12,7 +12,7 @@
  * APPLE-ABOUT closed (unchanged bytes; the gates key on them). */
 #include "about_box.h"
 #include "int21.h"
-#include "kmain_cold.h"
+#include "about_format.h"
 
 void flair_about_box(struct flair_live_ctx *ctx, const boot_info_t *bi,
                      const char *banner)
@@ -22,7 +22,7 @@ void flair_about_box(struct flair_live_ctx *ctx, const boot_info_t *bi,
     const char *text[3];
     uint32_t mem_k = 1024u + bi->ext_mem_kb, arena = 0u, largest = 0u;
     int bound = int21_mcb_stats(&arena, &largest);
-    kmain_about_lines(l2,l3,mem_k,largest,bound);
+    about_format_lines(l2,l3,mem_k,largest,bound);
     text[0] = banner;
     text[1] = l2;
     text[2] = l3;

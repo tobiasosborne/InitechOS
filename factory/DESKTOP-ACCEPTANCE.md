@@ -39,7 +39,7 @@ working disk 1474560. S6 may change these bytes; final measurements follow.
 Live legacy comparison is informational. The reference is rebuilt from the
 read-only legacy-final tree, then booted and captured using the same pinned
 RTC. The initial ready-marker comparison found 186 clock pixels because the
-legacy first clock poll had not run. The final reference waits for its clock
+product first clock poll had not run. The final reference waits for its clock
 paint. The disk icon, Trash icon and unobscured desktop pattern already had
 zero pixel differences. Band 2 intentionally shows the Finder; legacy showed
 the Photoshop reference tenant. HELLO and NOTES are absent by product design.
@@ -48,3 +48,28 @@ Deferred attic ownership: additional trace/checker imports belong to the
 desktop; kernel/DOS tests and mutations belong to import/kernel-tests;
 shared build conventions belong to conventions/hardening. No attic input is
 read by any product build introduced here.
+
+S6 extraction: scene.c 260 lines, input.c 78, tracking.c 716, finder_glue.c
+589, launch.c 91, volumes.c 198, dialogs.c 607, start.c 296. Internal shared
+state/prototypes are component-private. The heap descriptor retains static
+lifetime. Exit restores the prior INT81 IDT gate. The initial scene now builds
+zero windows, rather than creating and hiding two canon specimens. The generic
+shell builder permits zero document windows; legacy nonempty scenes still pass
+the retained shell/drag host oracles. kmain_legacy.c retains 335 unbuilt lines.
+
+Final clean builds (53.55 s):
+boot 3e3d92aa5e1eb8d37b4cccc6797e1fe89568f7c302260c7579ac5a640443126b
+data c8f046cba02b8f0a669e7a26c479896f78b2ed61ba96ce4995f60b5a5ee95b70
+product 74709462e8adb65539d49fad452c13865d4bb4741723e1a7a5a420040b1c0d4b
+standalone 6828c24d98ef745b4c7d83f9aae4c6fd05f9d2f40461c215385fc0b163686d12
+Final product 268670 bytes; standalone 106116; disk sizes unchanged. The repeat
+red sweep after extraction killed both patches in 56.27 seconds and restored
+all sources. Final live comparison: 0/12800 system-menu pixels, 0/3025 disk-icon,
+0/4675 Trash and 0/8360 exposed-background pixels differ. It is informational,
+not a claim that the entire new desktop equals a two-reference-app legacy frame.
+
+Final make test: ALL GREEN, 65.35 seconds wall. Desktop: 17 host suites and
+import/target audit; system: both links and standalone boundary/transport.
+Final make smoke: 61.56 seconds wall, DOS 4 checks/0 failures and desktop
+5 checks/0 failures. QEMU: triple_fault=0 cpu_reset=2 guest_errors=0, no
+check_exception record. Bochs: triple_fault=0, mode 0101.

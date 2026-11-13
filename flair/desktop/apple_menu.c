@@ -2,7 +2,7 @@
  * os/flair/apple_menu.c -- the system Apple menu (THE ARTIFACT; beads
  * initech-tdnl.47 / initech-tdnl.17). See apple_menu.h; the rows' ground
  * truth is spec/apple_menu_items.h. Freestanding, no malloc.
- * ASCII-clean (Rule 12).
+ * ASCII-clean (contract).
  */
 #include "apple_menu.h"
 #include "apple_menu_items.h"

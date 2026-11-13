@@ -30,14 +30,14 @@
  * documented in spec/flair_tenants_demo.h (the NOTES block, lines 59-67) and in
  * os/flair/shell.c. The Apple-slot entries carry menu id 0 (F4.4).
  *
- * THE APPLE MENU IS DATA HERE, NOT A BAR MENU -- AND SAY WHY (Law 1 honesty):
+ * THE APPLE MENU IS DATA HERE, NOT A BAR MENU -- AND SAY WHY (contract honesty):
  *   menu.h's MenuBar has an `has_apple` FLAG that draws the Apple glyph in a
  *   fixed FLAIR_MENU_APPLE_W slot at the far left; MenuBar_hit returns -1 for
  *   any x inside that slot (menu.h Sec 5), so the Menu Manager has no route
  *   from an Apple-slot click to a pull-down. Putting the Apple menu into
  *   bar->menus[] instead would lay it out as an ORDINARY TITLED menu -- it
  *   would draw its title text after the glyph slot and shift File/Edit/View/
- *   Special/Help right by its slot width, which is a Law-4 regression, not a
+ *   Special/Help right by its slot width, which is a contract regression, not a
  *   feature. So the Apple menu ships as a standalone MenuInfo the resource
  *   exports (finder_menu_apple), the finder_cmd table already carries its rows
  *   (menu_id 0), and the Apple-slot hit/drop seam in menu.c is left for the
@@ -78,14 +78,14 @@
  *      os/flair/finder_cmd.h Sec 4 (the exported predicates -- ONE source of
  *        truth for graying, per F4.4).
  *      spec/flair_tenants_demo.h (the occupied menu-id ranges).
- *      CLAUDE.md Law 1, Law 2 (the oracle hand-authors the expected structure;
- *        this file is never read back into it), Law 3 (freestanding artifact,
- *        dual-compile), Law 4, Rule 8, Rule 11, Rule 12 (ASCII-clean).
+ *      CLAUDE.md (The constitution), contract (the oracle hand-authors the expected structure;
+ *        this file is never read back into it), contract (freestanding artifact,
+ *        dual-compile), contract, contract, contract, contract (ASCII-clean).
  *
  * ARTIFACT code: freestanding C (ADR-0002). No libc, no malloc. Compiles BOTH
  * under the kernel flags AND hosted for harness/proptest/test_finder_menu.c.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean (contract). No timestamps / no nondeterminism (contract).
  */
 #ifndef INITECH_OS_FLAIR_FINDER_MENU_H
 #define INITECH_OS_FLAIR_FINDER_MENU_H
@@ -172,7 +172,7 @@ MenuInfo *finder_menu_apple(void);
  *     Shut Down -- bead initech-tdnl.78).
  * A NULL fx evaluates every predicate against NULL, which the finder_cmd
  * predicates answer with 0 (finder_cmd.c) -- i.e. "no context, nothing live",
- * which is the safe direction (Rule 2).
+ * which is the safe direction (contract).
  */
 void finder_menu_refresh_enables(const FinderCtx *fx);
 

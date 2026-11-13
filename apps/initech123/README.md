@@ -18,7 +18,8 @@ I123_MENU_DISK define retains external APPS/123.MNU loading. The resource comes
 from the existing C test_i123_menu_tree --resource generator and is checked
 against real 123.RI and the captured tree by the host suite. Two target links
 derive relocations; an independent factory/mz reader validates the EXE and BSS.
-The resulting EXE exceeds the OS loader's current 64 KiB file cap; see sdk/README.
+The vertical slice launches this plain-flags EXE through the Finder and verifies
+a saved worksheet on QEMU and Bochs; the loader's former file cap is removed.
 
 `make test` runs the same 18 host entries through mk/config.mk and
 mk/host-test.mk, with the single sdk/host library for all Toolbox calls. Logs

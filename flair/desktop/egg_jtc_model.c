@@ -10,7 +10,7 @@ static const char *cell(unsigned i)
     /* Packed strings (egg_jtc_model.h): skip i terminated strings. */
     const char *p = (const char *)egg_jtc_data + JTC_WORDS * 2;
 #ifdef EGG_MUT_CELL_WALK
-    i++;   /* MUTANT (Rule 6; test-egg-jtc-cell-mutant): one string too far */
+    i++;   /* MUTANT (contract; test-egg-jtc-cell-mutant): one string too far */
 #endif
     while (i--) while (*p++) { }
     return p;

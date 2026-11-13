@@ -40,7 +40,7 @@ static const uint8_t FSD_ICON[128] = {
     0x81, 0xFF, 0xFF, 0xFF, 0x81, 0xFF, 0xFF, 0xFF,
     0x81, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 };
-static __attribute__((cold,noinline)) int finder_shutdown_screen(flair_live_ctx_t *ctx, const boot_info_t *bi)
+static  int finder_shutdown_screen(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     static const char *const text[3] = {
         "It is now safe to switch off your computer.",
@@ -110,7 +110,7 @@ static void finder_restart_now(void)
     serial_puts("\nHALTED\n");
     kernel_halt();
 }
-static __attribute__((cold,noinline)) int finder_power_ask_apps(flair_live_ctx_t *ctx, const boot_info_t *bi)
+static  int finder_power_ask_apps(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     const char *still;
     int r;

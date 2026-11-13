@@ -14,7 +14,7 @@
  * test_finder_ops.c.
  * ADR-0014 lane 2: this resident model keeps drag resolution, highlighting,
  * boot-time origin loading and the enumeration callback. Operation bodies
- * live in finder_ops_cold.c; resident callers resolve to generated stubs.
+ * live in finder_ops.c; resident callers resolve to ordinary C calls.
  */
 #include "finder_ops_private.h"
 
@@ -188,8 +188,8 @@ int fo_entry_cb(const finder_dirent_t *e, void *u)
     return 1;
 }
 /* Ref: ADR-0014 DEC-14-8/-10; finder_ops.h refusal ladder and origins.
- * User-initiated move, Replace, Put Away and Trash rename bodies, section COLD.
- * Host suites include this same source; production reaches generated stubs. */
+ * User-initiated move, Replace, Put Away and Trash rename bodies, desktop component.
+ * Host suites include this same source; production reaches ordinary C calls. */
 #include "finder_ops_private.h"
 static void fo_copy83(char *dst, const char *src)
 {
@@ -227,19 +227,19 @@ static int fo_slot_ok(const finder_shell_t *sh, int slot)
            slot >= 0 && slot < sh->window_cap && sh->windows[slot].open;
 }
 
-static char fo_cold_upper(char c)
+static char fo_action_upper(char c)
 {
     return (c >= 'a' && c <= 'z') ? (char)(c - 'a' + 'A') : c;
 }
 
-static int fo_cold_ieq(const char *a, const char *b)
+static int fo_action_ieq(const char *a, const char *b)
 {
     if (a == (const char *)0 || b == (const char *)0) return 0;
-    while (*a != '\0' && fo_cold_upper(*a) == fo_cold_upper(*b)) { a++; b++; }
-    return fo_cold_upper(*a) == fo_cold_upper(*b);
+    while (*a != '\0' && fo_action_upper(*a) == fo_action_upper(*b)) { a++; b++; }
+    return fo_action_upper(*a) == fo_action_upper(*b);
 }
 
-static void fo_cold_to_view(const finder_window_t *fw, int16_t h, int16_t v,
+static void fo_action_to_view(const finder_window_t *fw, int16_t h, int16_t v,
                        int16_t *vh, int16_t *vv)
 {
     rgn_rect_t c = region_get_bbox(fw->rec.contRgn);
@@ -281,7 +281,7 @@ static finder_win_status_t fo_refuse(finder_move_result_t *out,
  * (review of bead initech-vnl4: Put Away now removes in place, where it used
  * to re-enumerate). Each icon carries its own `selected`, so the selection
  * shifts with it.
- * MUTANT FINDER_OPS_MUT_REMOVE_NO_META (Rule 6; test-finder-ops O16): the icons
+ * MUTANT FINDER_OPS_MUT_REMOVE_NO_META (contract; test-finder-ops O16): the icons
  * shift, the metadata does not. NEVER in a real build. */
 static void fo_remove_icon(finder_window_t *w, int idx)
 {
@@ -317,7 +317,7 @@ static void fo_origin_add(finder_shell_t *sh, finder_move_result_t *out)
 {
     finder_origin_rec_t *o;
     if ((uint32_t)sh->n_origins >= FINDER_DB_MAX_ORIGINS) {
-        out->origin_lost = 1u;           /* staged; the kernel says so (Rule 2)*/
+        out->origin_lost = 1u;           /* staged; the kernel says so (contract)*/
         return;
     }
     o = &sh->origins[sh->n_origins];
@@ -334,7 +334,7 @@ static void fo_origin_drop(finder_shell_t *sh, const char *name,
                            finder_move_result_t *out)
 {
     for (uint16_t i = 0u; i < sh->n_origins; i++) {
-        if (!fo_cold_ieq(sh->origins[i].name83, name)) continue;
+        if (!fo_action_ieq(sh->origins[i].name83, name)) continue;
         for (uint16_t k = i; (uint16_t)(k + 1u) < sh->n_origins; k++)
             sh->origins[k] = sh->origins[k + 1u];
         sh->n_origins = (uint16_t)(sh->n_origins - 1u);
@@ -444,7 +444,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
             (int)FINDER_WIN_OK || as[0] == '\0')
             return fo_refuse(out, FINDER_WIN_ERR_MOVE);
         fo_copy83(out->as, as);
-        out->renamed = fo_cold_ieq(out->as, ic.name) ? 0u : 1u;
+        out->renamed = fo_action_ieq(out->as, ic.name) ? 0u : 1u;
     }
 
     /* tdnl.61: reserve the destination view BEFORE committing storage. */
@@ -483,7 +483,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
             /* Dropped on the window body: it lands WHERE IT WAS DROPPED,
              * measured relative to that window's content and held inside it
              * by the same clamp a same-window drop uses. */
-            fo_cold_to_view(dw, gx, gy, &x, &y);
+            fo_action_to_view(dw, gx, gy, &x, &y);
             finder_desk_clamp(&dw->view, &x, &y);
         } else {
             /* Dropped on a folder ICON (or the volume / Trash) whose window
@@ -550,7 +550,7 @@ finder_win_status_t finder_ops_replace(finder_shell_t *sh,int slot,int idx,
     fo_copy83(backup.name,name);
     rc=sh->fs.trash_name(sh->fs.user,name,(uint16_t)td,backup.as);
     if(rc!=FINDER_WIN_OK) return fo_refuse(out,(finder_win_status_t)rc);
-    backup.renamed=(uint8_t)!fo_cold_ieq(backup.name,backup.as);
+    backup.renamed=(uint8_t)!fo_action_ieq(backup.name,backup.as);
     tw=finder_win_find(sh,(uint16_t)td);dw=finder_win_find(sh,t->dir);
     if(tw>=0) {
         st=finder_win_reserve_icons(sh,tw,(uint16_t)(sh->windows[tw].view.n+1u));
@@ -589,7 +589,7 @@ finder_win_status_t finder_ops_put_away(finder_shell_t *sh,int slot,int idx)
     w=&sh->windows[slot];
     if(idx<0 || idx>=w->view.n || !w->is_trash) return FINDER_WIN_ERR_MOVE;
     for(int i=0;i<sh->n_origins;i++)
-        if(fo_cold_ieq(sh->origins[i].name83,w->view.icons[idx].name)) {found=i;break;}
+        if(fo_action_ieq(sh->origins[i].name83,w->view.icons[idx].name)) {found=i;break;}
     if(found<0) return FINDER_WIN_ERR_MOVE;
     origin=sh->origins[found];
     if(!origin.original83[0]) return FINDER_WIN_ERR_MOVE;

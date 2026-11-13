@@ -13,7 +13,8 @@ Two power-on CPU Reset records are required; any additional reset, triple
 fault cascade or guest error fails. Full logs and stderr survive success.
 Bochs retains the legacy BIOS/RFB driver and key pacing, 8 MiB and its installed
 pentium CPU model (this distro's Bochs build does not offer a 486 model).
-Its VBE extension is disabled explicitly in smoke to require VGA13 fallback.
+The DOS session disables its VBE extension to require VGA13 fallback; the
+desktop session uses the normal LGPL BIOS with extension=vbe and mode 0101.
 Run logs/config/transcripts are in build/smoke. The Bochs driver serializes
 host access to its fixed RFB port. run-bochs is a serial-emitting harness run;
 interactive graphical operation is available with the generated bochsrc.
@@ -35,3 +36,11 @@ The completion-only QEMU path now opens QMP for --quit-after even when there
 are no injected keys or screenshots. This is exercised by the oversized and
 low-memory checks; the legacy wrapper otherwise timed out despite receiving
 the expected serial line.
+
+smoke-desktop.sh is the product Finder/application journey on both emulators.
+It checks a worksheet through mtools and the independent Lotus corpus reader,
+retains key PPMs and compares unchanged regions to a live legacy capture.
+red-desktop.sh kills empty-save and restored-file-cap patch mutants. Missing
+QEMU W progress markers now stop replay rather than continuing input into an
+unexpected UI. trace-input-test.c pins the slash/chord RFB transport values.
+The image list is system/working-volume.list; AUTOEXEC.BAT ends with FLAIR.

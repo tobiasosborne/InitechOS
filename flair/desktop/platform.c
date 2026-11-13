@@ -1,5 +1,5 @@
-/* Test binding to the existing real InitechDOS implementation. Kernel internals
- * are confined to this host-only adapter, never a Toolbox include path. */
+/* Target binding to the real InitechDOS public contracts. File-session logic
+ * follows the host-verified adapter in flair/tests/platform_dos.c. */
 #include "flair_platform.h"
 void *memcpy(void *dst, const void *src, size_t n);
 #include "int21.h"
@@ -47,6 +47,7 @@ int flair_platform_memory(uint32_t *t,uint32_t *f,uint32_t *l) { return int21_mc
 #include "loader.h"
 #include "io.h"
 #include "desktop.h"
+#include "panic.h"
 extern int tbx_tenant_call(uint32_t fn, uint32_t psp);
 extern void tbx_tenant_abort(void);
 extern void serial_puts(const char *s);
@@ -74,7 +75,7 @@ void flair_platform_speaker(unsigned hz)
 void flair_platform_serial(const char *s) { serial_puts(s); }
 _Noreturn void flair_platform_panic(const char *s)
 {
-    (void)s;
+    panic_show_reason(PANIC_REASON_NONE, s);
     for (;;) __asm__ volatile("cli; hlt");
 }
 void *memcpy(void *dst, const void *src, size_t n)

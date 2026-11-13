@@ -6,7 +6,7 @@ trap 'rm -rf "$work"' EXIT HUP INT TERM
 for pass in 1 2; do
  make clean > "$work/clean-$pass.log"
  make image > "$work/build-$pass.log" 2>&1
- sha256sum build/image/boot.img build/image/data.img build/kernel/INITDOS.SYS > "$work/hash-$pass"
+ sha256sum build/image/boot.img build/image/data.img build/kernel/INITDOS.SYS build/system/INITDOS.SYS > "$work/hash-$pass"
 done
 cmp "$work/hash-1" "$work/hash-2"
 mkdir -p build/repro

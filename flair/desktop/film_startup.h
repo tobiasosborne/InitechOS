@@ -1,11 +1,11 @@
-/* Audit DAS L001/B08; CLAUDE Rule 2. Required media/asset refusal remains
+/* Audit DAS L001/B08; CLAUDE contract. Required media/asset refusal remains
  * terminal, but a mount/read/format failure must never claim heap exhaustion.
  * tbx_launch maps only LOADER_ERR_NOMEM to TBX_ERR_NOMEM; other loader details
  * remain in TENANT-LOAD-FAIL's serial rc (tbxgate.c). */
 #ifndef INITECH_FILM_STARTUP_H
 #define INITECH_FILM_STARTUP_H
-#include "../../kernel/panic_screen.h"
-#include "../../kernel/fat12.h"
+#include "panic_screen.h"
+#include "fat12.h"
 #include "toolbox_gate.h"
 static inline panic_reason_t film_startup_reason(int volume, int apps, int load)
 {

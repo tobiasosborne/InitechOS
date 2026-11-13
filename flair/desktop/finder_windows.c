@@ -15,7 +15,7 @@
  * Artifact C per ADR-0002: freestanding, no allocation outside the tenant's
  * arenas, no libc, deterministic, ASCII-only.
  *
- * MUTANT KNOBS (Rule 6; -D on this TU only, from the Makefile, never a real
+ * MUTANT KNOBS (contract; -D on this TU only, from the Makefile, never a real
  * build). Each perturbs the IMPLEMENTATION, never the oracle's hand-authored
  * expectations:
  *   FINDER_WIN_MUT_SINGLETON_DUP    -- the spatial-singleton lookup always
@@ -41,7 +41,7 @@
  */
 #include "finder_windows_private.h"
 /* ADR-0014 lane 2: destructive operations and alert wording are in
- * finder_windows_cold.c. Window/event/model code and callbacks stay here. */
+ * finder_windows.c. Window/event/model code and callbacks stay here. */
 #include "finder_ops.h"
 
 #include "flair_look.h"         /* flair_look_pixel_depth -- the ONE seam      */
@@ -59,11 +59,11 @@
  * says so on serial. The one genuine invariant violation -- the tenant's
  * records arena being too small for the shell -- is reported by returning 1
  * from open(), which FlairProcess_launch turns into a launch failure and kmain
- * turns into a loud halt (Rule 2, at the layer that owns the console).
+ * turns into a loud halt (contract, at the layer that owns the console).
  * ------------------------------------------------------------------------- */
 
 /* ===========================================================================
- * Small libc-free helpers (Law 3).
+ * Small libc-free helpers (contract).
  * ===========================================================================*/
 
 void fw_zero(void *dst, uint32_t n)
@@ -543,7 +543,7 @@ void finder_win_grid_origin(rgn_rect_t c, int i, int16_t *out_x, int16_t *out_y)
  * in use, bit k (2 <= k <= 99) == FINDER_NEWFOLDER_STEM + two digits of k is in
  * use. Lowest free wins; the ladder starts at the un-suffixed name and then
  * counts from 02, so a directory with no NEWFOL* entries always gets
- * "NEWFOLD" -- the same name, every time, on every machine (Rule 11).
+ * "NEWFOLD" -- the same name, every time, on every machine (contract).
  * ------------------------------------------------------------------------- */
 typedef struct fw_taken {
     uint8_t bits[FINDER_NEWFOLDER_MAX_N + 1];   /* index 0 and 2..99 are live  */
@@ -586,7 +586,7 @@ static finder_win_status_t fw_taken_next(const fw_taken_t *t, char *out)
         out[stem + 2u] = '\0';
         return FINDER_WIN_OK;
     }
-    return FINDER_WIN_ERR_NAMES;                 /* fail loud (Rule 2)          */
+    return FINDER_WIN_ERR_NAMES;                 /* fail loud (contract)          */
 }
 
 finder_win_status_t finder_win_next_folder_name(
@@ -689,7 +689,7 @@ static int fw_enum_cb(const finder_dirent_t *e, void *user)
     if (ec->count_only) return 0;
     if (ec->w->view.n >= ec->w->view.cap) {
         /* The cap bit. Keep counting so the caller can report HOW MANY entries
-         * the window is not showing -- a silent truncation is the bug (Rule 2). */
+         * the window is not showing -- a silent truncation is the bug (contract). */
         ec->dropped = (uint16_t)(ec->dropped + 1u);
         return 0;
     }
@@ -948,7 +948,7 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
     /* The WindowRecord is REUSED storage (carved once at launch), so zero it and
      * re-attach the regions before every build -- a stale region pointer or a
      * stale hilite byte from the previous tenant of this slot would be exactly
-     * the kind of quietly-wrong state Rule 2 exists to prevent. */
+     * the kind of quietly-wrong state contract exists to prevent. */
     fw_zero(&w->rec, (uint32_t)sizeof w->rec);
     fw_rgn_attach(&w->rs);
     fw_rgn_attach(&w->rc);
@@ -989,7 +989,7 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
     st = finder_win_populate(sh, slot);
     if (st != FINDER_WIN_OK) {
         /* Enumeration failed: tear the window straight back down rather than
-         * leaving an empty one claiming to show a directory (Rule 2). */
+         * leaving an empty one claiming to show a directory (contract). */
         DisposeWindow(sh->wm, &w->rec);
         if (w->icons) flair_free(sh->icon_heap, FLAIR_CLASS_GENERAL, w->icons);
         w->icons = 0; w->view.icons = 0; w->view.cap = 0u;
@@ -1016,7 +1016,7 @@ finder_win_status_t finder_win_open_trash(finder_shell_t *sh, int *out_slot,
         sh->fs.trash_dir == (int (*)(void *))0)
         return FINDER_WIN_ERR_NULL;
     td = sh->fs.trash_dir(sh->fs.user);
-    if (td < 0) return FINDER_WIN_ERR_NOTRASH;          /* fail loud, Rule 2 */
+    if (td < 0) return FINDER_WIN_ERR_NOTRASH;          /* fail loud, contract */
     st = finder_win_open(sh, 0u /* \TRASH lives in the root */, (uint16_t)td,
                          FINDER_SVC_TRASH_NAME, 0u, &slot, &single);
     if (st != FINDER_WIN_OK) return st;
@@ -1478,7 +1478,7 @@ static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
         sh->last.moved = (int16_t)opened;
         if (st != FINDER_WIN_OK) return;
         }
-        /* MUTANT FINDER_MUT_OPEN_NO_APP (Rule 6): Open is lit for the
+        /* MUTANT FINDER_MUT_OPEN_NO_APP (contract): Open is lit for the
          * application but names no launch -- the L004 defect, half-fixed. */
         else if (ic->kind == (uint8_t)FINDER_ICON_APP) {
             if (app == (const finder_desk_icon_t *)0) app = ic;
@@ -1507,7 +1507,7 @@ static void fw_do_select_all(finder_shell_t *sh, finder_cmd_id id, int slot)
 /* View > Arrange (by Name) (bead initech-tdnl.67, audit G10): the icons are
  * re-laid on the row-major grid in NAME order -- case-insensitive, the way
  * FAT 8.3 names compare (fw_upper), ties by listing order so the result is a
- * pure function of the listing (Rule 11). The icon ARRAY is not reordered
+ * pure function of the listing (contract). The icon ARRAY is not reordered
  * (stored indices -- the click tracker, a lit drop target -- stay valid);
  * each icon is snapped to the cell of its RANK. */
 int finder_win_arrange_by_name(finder_shell_t *sh, int slot)
@@ -1580,7 +1580,7 @@ static void fw_do_empty_trash(finder_shell_t *sh, finder_cmd_id id, int slot)
  * ("The Trash is not emptied until you choose Empty Trash from the Special
  * menu", Apple_Whats_New_In_System_7_Z030-3935-A.pdf PDF p. 23), and neither
  * do we.
- * MUTANT FINDER_WIN_MUT_POWER_NO_SAVE (Rule 6; test-finder-ops O15): nothing
+ * MUTANT FINDER_WIN_MUT_POWER_NO_SAVE (contract; test-finder-ops O15): nothing
  * is noted. NEVER in a real build. */
 static void fw_do_power(finder_shell_t *sh, finder_cmd_id id, int slot)
 {
@@ -1626,7 +1626,7 @@ static const struct { finder_cmd_id id; fw_cmd_fn fn; } FW_EXEC_TABLE[] = {
     /* bead initech-3p1a: Exit to InitechDOS puts everything away exactly like
      * Restart / Shut Down; the kernel then confirms, commits DESKTOP.DB and
      * hands the console to COMMAND.COM.
-     * MUTANT FINDER_WIN_MUT_EXIT_DOS_UNWIRED (Rule 6; test-menu-handlers H5):
+     * MUTANT FINDER_WIN_MUT_EXIT_DOS_UNWIRED (contract; test-menu-handlers H5):
      * the row stays lit but this table loses it. NEVER in a real build. */
     { FCMD_EXIT_DOS,        fw_do_power      }
 };
@@ -1691,7 +1691,7 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
         for (int i = 0; i < (int)v->n; i++)
             if (v->icons[i].selected &&
                 (v->icons[i].kind == (uint8_t)FINDER_ICON_FOLDER
-                 /* MUTANT FINDER_MUT_OPEN_APP_DARK (Rule 6): the L004 defect
+                 /* MUTANT FINDER_MUT_OPEN_APP_DARK (contract): the L004 defect
                   * itself -- an application never lights File > Open. */
                  || v->icons[i].kind == (uint8_t)FINDER_ICON_APP
                 ))
@@ -1881,7 +1881,7 @@ finder_desk_t *finder_shell_desk(finder_shell_t *sh)
 }
 
 /* Ref: ADR-0014 DEC-14-8/-10; finder_windows.h section 12; PRD 6.5.
- * Destructive operations and their alert text, section COLD. Window painting,
+ * Destructive operations and their alert text, desktop component. Window painting,
  * event handling, enumeration callbacks and state remain resident. */
 #include "finder_windows_private.h"
 #include "chicago12.h"
@@ -2114,7 +2114,7 @@ finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
 
     fw_zero(&p, (uint32_t)sizeof p);
     if ((it.attr & (uint8_t)FINDER_ATTR_DIRECTORY) != 0u) {
-        /* Rule 6, test-finder-ops O18: skipping the walk cannot delete a tree. */
+        /* contract, test-finder-ops O18: skipping the walk cannot delete a tree. */
         fw_purge_tree(sh, it.cl, &p);
         if (!p.locked && p.refused == 0u) {
             if (sh->fs.rmdir(sh->fs.user, name, dir) == (int)FINDER_WIN_OK) {
@@ -2146,7 +2146,7 @@ finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
     return (p.refused != 0u) ? FINDER_WIN_ERR_MOVE : FINDER_WIN_OK;
 }
 
-/* libc-free decimal (Law 3); returns the digit count written. */
+/* libc-free decimal (contract); returns the digit count written. */
 static int fw_utoa(char *dst, uint32_t v)
 {
     char tmp[10];
@@ -2257,7 +2257,7 @@ int finder_error_alert_text(finder_win_status_t st, const char *name,
          * (Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf printed
          * p. 262), which the Delete Now route (finder_shell_delete_item)
          * makes possible.
-         * MUTANT FINDER_MUT_NOTRASH_GENERIC (Rule 6): the pre-fix fall-through
+         * MUTANT FINDER_MUT_NOTRASH_GENERIC (contract): the pre-fix fall-through
          * to the move wording. NEVER in a real build. */
         msg="The Trash could not be opened because there is no room for it on the disk."; break;
     default: msg="The item could not be moved. The disk may be full or the folder may no longer be available."; break;

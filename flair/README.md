@@ -1,7 +1,7 @@
 # FLAIR Toolbox
 
 The reusable graphics and application managers. The Finder and desktop shell
-are parked, unbuilt, in desktop/. No application or desktop policy is linked
+are built independently in desktop/ and linked by system/. No application or desktop policy is linked
 into this library. Dependencies: flair/region (region/include/), sdk/include
 (interface records), and, for the host-only real-DOS tests, kernel/include.
 There is no target dependency on kernel headers.
@@ -88,8 +88,8 @@ The target never sees kernel include paths. Move the host adapter into the
 kernel's host binding when that binding is published. The diagnostic catalog
 in tests/platform is a frozen legacy fixture, not product code or an oracle.
 
-Other debts: target platform binding and INT 81h assembly remain with the kernel
-integrator; desktop not built; 202 distinct conditional mutant macros await
+Other debts: the target platform binding and INT 81h assembly are integrated in
+desktop/; 202 distinct conditional mutant macros await
 conversion to patches (243 guard locations, tests/MUTANTS-TODO.md); disabled and
 pressed CDEF capture gaps remain explicit. make mutants and make smoke fail
 loudly with the relevant inventory. tests/SMOKES.md indexes 250 deferred emulator

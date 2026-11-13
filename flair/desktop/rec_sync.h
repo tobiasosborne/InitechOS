@@ -44,7 +44,7 @@
  * While blocked, a FRAME request whose settle is already met is served again at
  * once (the same frozen state); otherwise it, or a HOLD, resumes the guest with
  * the request pending. COM2 presence is probed once (scratch register): an image
- * booted without the pipe never blocks. Rule 2: a malformed byte is shouted on
+ * booted without the pipe never blocks. contract: a malformed byte is shouted on
  * serial (and makes record-flair RED). */
 #ifdef FLAIR_RECORD_SYNC
 #define REC_SYNC_COM2      0x2F8u   /* COM2 RBR (DLAB=0)            */

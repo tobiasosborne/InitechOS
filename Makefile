@@ -7,11 +7,13 @@
 COMPONENTS :=
 COMPONENTS += flair/region
 COMPONENTS += flair
+COMPONENTS += flair/desktop
 COMPONENTS += sdk
 COMPONENTS += apps/initech123
 COMPONENTS += apps/initechword
 COMPONENTS += apps/initechbase
 COMPONENTS += turbo
+COMPONENTS += system
 
 .DEFAULT_GOAL := help
 .PHONY: help all test smoke image cert clean

@@ -10,8 +10,8 @@
 ;        os/milton/isr.asm int21_entry (the uniform int_frame_t this stub builds
 ;          byte-for-byte: dummy err 0, vector sentinel, gs/fs/es/ds, pushad).
 ;
-; Linked ONLY into the FLAIRTENANTS kernels (every other kernel image is
-; byte-identical). ASCII-clean (Rule 12); no nondeterminism (Rule 11).
+; Linked into the desktop component by system/. All C entries and calls use
+; default cdecl: arguments on the stack, caller cleanup, callee-save registers.
 
 bits 32
 section .text

@@ -19,3 +19,7 @@ $(OUT)/keys: keys.c | $(OUT)
 all: $(OUT)/pixels-desktop
 $(OUT)/pixels-desktop: pixels-desktop.c | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+$(OUT)/trace-input-test: trace-input-test.c emu/bochs_trace.h | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+test: $(OUT)/trace-input-test
+	$<

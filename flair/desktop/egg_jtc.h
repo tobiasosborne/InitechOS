@@ -6,7 +6,7 @@
 /* Resident vtable (kmain.c): stub addresses only, never overlay addresses
  * (ADR-0014 DEC-14-6.2). */
 extern const FlairAppProcs egg_jtc_procs;
-/* The overlaid entry points (os/flair/egg_jtc.c, section COLD of FLAIR.OVL).
+/* The overlaid entry points (os/flair/egg_jtc.c, desktop component of FLAIR.OVL).
  * The resident kernel resolves these names to its GENERATED stubs. */
 int egg_jtc_open(FlairApp *self, const FlairLaunchParams *lp);
 void egg_jtc_event(FlairApp *self, const EventRecord *e);

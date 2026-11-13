@@ -27,3 +27,14 @@ and starts it again. mtools extracts the file and the independent Lotus corpus
 reader verifies all three cells, formula RPN and cache 124.5. Captures include
 sum.ppm. The kernel file cap is removed with overflow guards on PSP + rounded
 file + BSS; the supplied heap carve retains the normal NOMEM result.
+
+Final interface: kernel/ has a weak environment entry and a public console
+restore function; dos/command/ calls it for FLAIR. The desktop strong entry
+returns to that caller. On-disk apps use only INT81 through sdk/. Kernel input,
+loader and framebuffer types used by the binding are public in kernel/include/.
+
+make test builds both links, checks a strong environment entry in the product
+and a weak one with no GUI symbols in the standalone DOS image, verifies archive
+inputs, and runs the factory transport parser check. make smoke delegates to
+the complete product session. Product sources use no overlay, section GC,
+regparm, callee-pop ABI or LTO. make mutants fails with its actual pending work.

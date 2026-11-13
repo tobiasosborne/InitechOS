@@ -92,7 +92,7 @@
  *   FINDER-MOVE-REFUSED reason=<r> name=<n>        the ladder said no
  *   FINDER-WIN-DRAG-REVERT win=<slot> name=<n>     dropped on no target
  *
- * MUTANT KNOBS (Rule 6; -D on finder_ops.c only, never a real build):
+ * MUTANT KNOBS (contract; -D on finder_ops.c only, never a real build):
  *   FINDER_OPS_MUT_TRASH_NO_STAGE -- the Trash path DELETES (binding.unlink)
  *                                    instead of staging (design F1.4's named
  *                                    TRASH_NO_STAGE).
@@ -116,8 +116,8 @@
  *      os/initechdos/fat12.h :: fat12_move_dirent / fat12_trash_suffix_name (the
  *        backend the kernel binding wires); bead initech-tdnl.11 NOTES (error
  *        numbers SAME_DIR=-17 / CYCLE=-18 confirmed).
- *      CLAUDE.md Law 1, Law 2, Law 3 (freestanding, dual-compile), Rule 2,
- *        Rule 6, Rule 8, Rule 11, Rule 12.
+ *      CLAUDE.md (The constitution), contract, contract (freestanding, dual-compile), contract,
+ *        contract, contract, contract, contract.
  */
 #ifndef INITECH_OS_FLAIR_FINDER_OPS_H
 #define INITECH_OS_FLAIR_FINDER_OPS_H

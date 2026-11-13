@@ -5,7 +5,7 @@
  * beads: initech-tdnl.50 (audit 2026-10-03 F15), initech-tdnl.36 (the rule).
  *
  * Band 1 is the static System-7 bar of the canon chimera frame (shell.h Sec 1
- * "TWO STACKED MENU BARS"); its titles are the frame's and stay (Law 4: the
+ * "TWO STACKED MENU BARS"); its titles are the frame's and stay (contract: the
  * chimera bar is part of the canon frame). Each title drops the same two-row
  * list, authored HERE so the live kernel (os/initechdos/kmain.c copies it into
  * every band-1 MenuInfo) and the handler guard
@@ -24,7 +24,7 @@
  *            foreground tenant) is follow-up work for the operator to rule on.
  *
  * Field order is menu.h Sec 3: text, mark, cmdChar, style, enabled, is_divider.
- * ASCII-clean (Rule 12).
+ * ASCII-clean (contract).
  */
 #ifndef INITECH_OS_FLAIR_SHELL_MENUS_H
 #define INITECH_OS_FLAIR_SHELL_MENUS_H

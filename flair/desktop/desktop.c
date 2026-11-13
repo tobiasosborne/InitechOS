@@ -12,7 +12,7 @@
  *        os/flair/window.h, os/flair/blitter.h, os/flair/chrome.h,
  *        os/flair/surface.h, os/flair/flair_look.h (the C-8 policy seam),
  *        spec/grafport.h, spec/region_algebra.h.
- *        CLAUDE.md Law 2/3/4, Rule 2/3/11/12.
+ *        CLAUDE.md (The constitution), contract.
  *
  * C-8 (ADR-0004-AMENDMENT-DEC-09 Sec 3.1/5.1): desktop.c is MECHANISM
  * (compositor / repaint geometry).  It names NO color: the desktop background
@@ -21,14 +21,14 @@
  * seam (the compositor fills a bitmap_t with no GrafPort).  ZERO 0xRRGGBB
  * literal, ZERO INITECH_*_RGB, ZERO index->RGB switch below the cut-line.
  *
- * STORAGE (Law 3): mallocs nothing. The per-window visible region is held in a
+ * STORAGE (contract): mallocs nothing. The per-window visible region is held in a
  * CALLER-SUPPLIED, attached scratch region (distinct from the manager's three
  * internal scratch regions, which ComputeVisible uses, and from every window's own
  * regions). The aliasing rule (region_op out distinct from inputs) is respected:
  * ComputeVisible writes `scratch` using the manager scratch internally; the
  * compositor then only READS `scratch` (as the port visRgn) -- no further op.
  *
- * MUTATION SWITCHES (Rule 6): test_drag.c compiles this file with two named
+ * MUTATION SWITCHES (contract): test_drag.c compiles this file with two named
  * mutants to prove the drag gate bites. The default build defines neither.
  *
  *   DRAG_MUTATE_SKIP_EXPOSED -- in desktop_paint_damage, SKIP filling the desktop's
@@ -173,7 +173,7 @@ static void paint_window_chrome(const WindowMgr *wm, const bitmap_t *dst,
  * the FRONT (head) so a front window's chrome lands on top. Each window is clipped
  * to its OWN visible region, so order is not strictly required for correctness, but
  * back-to-front is the authentic painter's-algorithm order. Recursion depth is the
- * (small, bounded) window count; no malloc (Law 3).
+ * (small, bounded) window count; no malloc (contract).
  *
  * The chrome is clipped to visible(W): we pass `scratch` (which holds visible(W))
  * as BOTH the port's visRgn AND clipRgn; their intersection is visible(W) itself,

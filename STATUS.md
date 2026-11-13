@@ -4,120 +4,92 @@ Rewritten, never appended to. Last rewritten 2026-11-13.
 
 ## Where we are
 
-The reboot started on 2026-11-13. The legacy tree is frozen at the tag
-`legacy-final` and runs from `../InitechOS-legacy`.
+The first vertical slice works on branch slice/desktop. The product boots
+InitechDOS, AUTOEXEC.BAT starts FLAIR, the Finder opens INITECH then APPS and
+launches the real 123.EXE. The application accepts two numbers and a formula,
+saves through its own /File Save, and quits. Special > Exit to InitechDOS
+returns to A:\>; typing FLAIR starts the desktop again. The same product
+kernel runs the DOS smoke on a private working disk without AUTOEXEC.BAT.
 
-`main` boots. `make image` builds the product disk set from clean in
-about 7 seconds; `make smoke` boots it on QEMU and Bochs at 8 MiB, runs
-a scripted DOS session (VER, DIR, directories, COPY, REN, DEL, a batch
-file, SORT, MORE, FIND, CHKDSK), reads the written files back on the
-host with mtools and checks for CPU faults, in about 30 seconds.
-`make test` runs every component's host tests. There is no desktop on
-`main` yet; for the GUI, use the legacy tree. On slice/desktop, S1 adds the
-system composition, public hardware headers, platform binding and FLAIR command;
-S2 now starts the Finder desktop on QEMU, exits through Special to the
-DOS prompt, and accepts FLAIR again. The desktop session is in
-factory/smoke-desktop.sh; screenshots and fault verdicts are under
-build/smoke-desktop. The DOS smoke remains green on both emulators.
-S3 adds a data-driven APPS directory with 123.EXE and 123.MNU and product
-AUTOEXEC.BAT ending in FLAIR. Finder disk and folder navigation are checked
-by factory/smoke-desktop.sh. S4 launches 123.EXE, enters A1=123 B1=1.5 C1=@SUM(A1..B1), saves and
-quits. The independent Lotus reader verifies all values and cache=124.5
-after mtools extracts SLICE.WK1. The complete QEMU exit/restart session
-passes. S5 passes the desktop session on Bochs too. Both independent saved-file
-readbacks pass; save-empty and loader-cap mutants are killed and restored.
-Two clean builds reproduce the image hashes. Final housekeeping is in progress.
+QEMU (486, 8 MiB, acpi=off) and Bochs (installed pentium, 8 MiB, VBE 0101)
+both save SLICE.WK1. mtools extracts it and the independent Lotus corpus
+reader verifies A1=123, B1=1.5, C1=@SUM(A1..B1), cached=124.5. The QEMU
+session also verifies exit/restart and no CPU exception, guest error, triple
+fault or extra reset. factory/smoke-desktop.sh is part of make smoke.
 
-The kernel is 105,848 bytes with one 14-line entry point and no test
-scenarios in it. The loader takes a kernel of any size up to its
-512 KiB window (`make -C boot bigkernel-check` proves it with a
-237,112-byte kernel on both emulators).
-
-## Import board
-
-*Host-green*: its host tests pass and it is listed in `COMPONENTS`.
-*Imported* (CLAUDE.md): also its real artifact builds for the target, no
-deliberately wrong code is left in product source, and its build reads
-nothing from `attic/`. Only `flair/region` is close; none is fully
-imported yet.
-
-| Component | State |
-|---|---|
-| `boot/` | builds and boots; chunked loader; oversized-kernel check. No host tests (none in legacy). |
-| `kernel/` | builds and boots, InitechDOS only. Host tests parked in `kernel/tests/`, not yet running. Mutation hooks listed in `kernel/tests/MUTANTS-TODO.md`. |
-| `dos/` | COMMAND.COM (still linked into the kernel image) and fifteen external utilities, built and on the disk. Known debts in `dos/README.md`: the shell calls kernel internals; the disk utilities use INT 13h/25h/26h directly. |
-| `flair/region/` | host-green, mutants converted (8 patches, all killed), compiles for the target. |
-| `flair/` | host-green: 52 test runs, 451,944 checks, 25 seconds; builds `libflair.a` for the target. Everything it needs from the kernel is one explicit interface (`flair_platform_*`, 15 functions; `NOTES-FOR-KERNEL.md`). Gate record layouts are pinned against the SDK in target builds. 243 mutation hooks still to convert. |
-| `flair/desktop/` | parked, not built: the legacy `kmain.c` (as `kmain_legacy.c`) and the Finder/desktop pieces that were in the kernel. |
-| `sdk/` | host-green: self-contained app headers in `sdk/include`, the runtime, one shared fake Toolbox (`sdk/host`), the EXE build rule (`mk/tenant.mk`), ABI tests that pin trap numbers and i386 record layouts. Limits imposed by the OS side are in `sdk/README.md`. |
-| `apps/initech123/` | host-green: 18 test programs, about a million checks, 59 real Lotus `.WK1` files, 15 seconds. Builds the real `123.EXE` (73,552 bytes, validated by an independent reader) on the shared fake. 41 mutation hooks still to convert (`tests/MUTANTS-TODO.md`). |
-| `apps/initechword/` | host-green: 13 test programs, 22,394 checks, 25 seconds. Target objects compile against `sdk/include`; not yet on `mk/tenant.mk` or the shared fake. 75 mutation hooks still to convert. |
-| `apps/initechbase/` | host-green: 75 suites, 44,504 counted checks. Builds 23 target objects and packaging tools without attic dependencies; uses factory/mz. Packaging is blocked by the app's 65,536-byte reserve declaration: 65,616 bytes required. The extended kernel loader already accepts larger reserves; no kernel change is needed. Pair/boot validation and mutation conversion remain with InitechBase (component README and tests inventories). |
-| `apps/initechbase/` | host-green: 75 suites (43 against real dBASE III PLUS captures), 44,504 checks, 37 seconds. Codename removed. Target objects build; packaging `INITBASE.EXE` fails on purpose: the app's own loader reserve is 65,536 bytes and it now needs 65,616 (`README.md`, Known blockers; no kernel change needed). 303 mutation hooks still to convert. |
-| other `apps/*` | source moved; not started. **Frozen** until the vertical slice below works. |
-| `turbo/` | host-green: 44 test programs in 16 seconds (the seed's C tests, 17 Free Pascal differentials, 45 reproducibility comparisons, 7 Pascal mutants as patches). Codename removed (`turbo.pas`, `TURBO.COM`). 20 legacy gates need the booted OS and are listed in `tests/SMOKES.md`. Road to the finale: `turbo/ROADMAP.md`. |
-| `factory/` | QEMU and Bochs drivers, the image builder, the smoke session, the reproducibility and parity checks. |
-| `goldens/` | empty; corpora are still read from sibling checkouts, unpinned. |
-
-## In flight
-
-- Import on a branch: the FLAIR Toolbox.
-- Turbo Initech (owner of `turbo/`): extended-memory placement first,
-  then native emission. A prototype emitter already matches the NASM
-  pipeline byte for byte on 18 of 18 images (branch
-  `turbo/native-prototype`).
-- Conventions pass (owner of `mk/`, the top Makefile, `factory/testlib`,
-  `goldens/`): target build fragment, per-test timeouts and component
-  time budgets, rebuild on flag changes, pinned corpora, the import
-  checks.
-- Kernel and DOS host tests (owner of `kernel/`, `dos/`).
+The original kmain quarry is 335 lines, down from 8207. Only unbuilt film
+scene, hidden-mat activation and text-application handoff fragments remain.
+There are no reference tenants, kernel variants, overlays or COMMAND transient
+in the product link. The remaining hidden-mat/film work belongs to the desktop
+and real InitechCalc integration, not to a new boot personality.
 
 ## The vertical slice comes first
 
-Host-green components prove nothing about the product until one app
-runs on the new tree end to end. Before any further app is imported:
-the spine boots, the Toolbox and the desktop come up on it, and Initech
-123 is launched from the Finder, saves a worksheet, and the file is read
-back on the host, on QEMU and on Bochs. That run is the template for
-every other app.
+S1-S6 are complete. Final make test is ALL GREEN (65.35 s); make smoke
+passes its four DOS checks and five desktop checks (61.56 s).
+Factory desktop acceptance and red evidence: factory/DESKTOP-ACCEPTANCE.md.
+The two required patch mutants both fail and are restored: empty save fails
+the host WK1 readback; old loader cap fails the missing-launch session.
 
-Known blocker for the slice: the OS-side loader refuses app files over
-64 KiB (`loader_load_tenant`), and `123.EXE` built with plain flags is
-73,552 bytes. That cap is policy from the old size regime and is lifted
-as part of the slice.
+flair/desktop implements all 15 flair_platform services using public kernel
+headers. kernel/ keeps a weak optional environment entry, console restoration
+and the ordinary DOS services; dos/command adds FLAIR. system/ owns the final
+link. The file loader's 64 KiB policy had no physical buffer behind it: the
+complete PSP/file/BSS allocation now has checked 32-bit arithmetic and is
+limited by the supplied Toolbox heap carve, with its normal NOMEM result.
+The existing e_minalloc format and 512 KiB BSS policy remain.
 
-## Next
+Product INITDOS.SYS is 268670 bytes; standalone DOS kernel is 106116. The
+boot disk is 1507328 and working disk 1474560 bytes. Two final clean builds
+match (53.55 s wall):
 
-1. The vertical slice: Toolbox + desktop on the booting kernel, Initech
-   123 launched, saved and read back.
-2. The remaining host cores (InitechBase, InitechWord, the seed
-   compiler, the Toolbox managers), then the desktop and the apps.
-3. Product work against `GOLDEN-MASTER.md`, starting with the frame's
-   ledger and the FILE COPY data-loss bug.
+- boot: 3e3d92aa5e1eb8d37b4cccc6797e1fe89568f7c302260c7579ac5a640443126b
+- data: c8f046cba02b8f0a669e7a26c479896f78b2ed61ba96ce4995f60b5a5ee95b70
+- product: 74709462e8adb65539d49fad452c13865d4bb4741723e1a7a5a420040b1c0d4b
+- standalone: 6828c24d98ef745b4c7d83f9aae4c6fd05f9d2f40461c215385fc0b163686d12
 
-## Notes for this week
+Desktop host tests run 17 retained suites plus a target/import audit. system/
+checks both links, symbol ownership and factory input transport. Both are
+registered in top-level COMPONENTS. The live legacy comparison reports zero
+pixel differences for the system menu bar, disk icon, Trash icon and exposed
+desktop background when both first clock paints have completed. Band 2 is
+now the Finder and the HELLO/NOTES specimens are absent, as intended.
 
-- Disk layout today (inherited): IDE master is the boot volume (C:),
-  IDE slave is the working volume (A:) with CONFIG.SYS, the utilities
-  and a COMMAND.COM stub. A single installable disk is still to design.
-- Bochs here has no 486 model and runs its Pentium model; QEMU runs
-  `-cpu 486`.
-- Open question for the operator: Python is used by some inherited
-  tests as an independent reader of foreign file formats, which the
-  constitution's "C, make and POSIX shell" does not allow as written.
-- Orchestration: implementation and review go to Sol 6.1 at xhigh by
-  default; Astra for hands-on emulator driving; Opus for hard design;
-  one Muse Wonder Full at a time for an independent opinion.
-- 8 MiB is the minimum machine. In QEMU that is `-m 8 -machine
-  acpi=off`; plain `-m 8` loses memory to ACPI tables and is refused.
-- Reference corpora are read from `~/Projects/*-decomp`
-  (`mk/config.mk`). They get pinned under `goldens/` later.
-- The tracker was reset from the triage (`attic/triage/`): 119 issues
-  are golden-master work (label `gm`, `comp:<component>`,
-  `sev:<severity>`; data loss is P0), 17 need checking against the
-  running product (`verify`), 164 are Release 2 (deferred), 117 were
-  closed as obsolete. `bd ready` now shows only golden-master work.
-- The per-component import manifest is in `attic/manifest/`.
-- Codenames are retired (CLAUDE.md, Names). Directories are renamed
-  to product names. Identifiers and file names (`samir_*`, `pal_milton.c`,
-  `SAMIR.EXE`, `tps.pas`) are renamed as each component is imported.
+## Import board
+
+| Component | State |
+|---|---|
+| boot/ | Builds and boots; oversized-kernel proof remains. |
+| kernel/, dos/ | Product DOS smoke green on both emulators. Host/mutation import owned by import/kernel-tests; existing disabled hooks are not part of this slice. |
+| flair/region | Host-green, target builds; eight patch mutants imported. |
+| flair/ | Host-green, target Toolbox linked into product. Its remaining mutation conversion is separate. |
+| flair/desktop | Target and 17 host suites green; product session on QEMU/Bochs. Additional parked tests and mutation patches are inventoried in its README and tests/MUTANTS-TODO.md. |
+| system/ | Product composition and standalone-boundary checks. |
+| sdk/ | Host-green and exercised through real INT81 by 123.EXE. |
+| apps/initech123 | Host-green and real Finder launch/save/readback on both emulators. |
+| apps/initechword | Host-green; app target packaging remains with its owner. |
+| apps/initechbase | Host-green, target objects build. Its own reserve declaration blocks packaging; separate from the removed file cap. |
+| turbo/ | Host-green; native/self-hosting work remains with its owner. |
+| other apps | Source moved; resume imports using this vertical-slice session as the template. |
+| factory/ | Product image, DOS+desktop smoke, red checks and clean-build reproducibility. |
+| goldens/ | Corpus pinning belongs to conventions/hardening. |
+
+## In flight and remaining ownership
+
+- conventions/hardening owns shared mk/, top-level conventions, test budgets
+  and corpus pinning. The slice edits no mk/*.mk file.
+- import/kernel-tests owns kernel/DOS host tests and disabled-hook conversion.
+  Hardware headers were moved unchanged to kernel/include/ by this slice;
+  rebase tests' private-header paths accordingly. Existing resident interpreter
+  coupling and utility INT13/25/26 access remain documented kernel/DOS debts.
+- Desktop owner claims remaining attic GUI traces/checkers, film/InitechCalc
+  harness, hidden-mat data packer and extra icon/clock/menu tests. The quarry
+  and README name what is parked. Removed mutation knobs with existing tests
+  are listed for conversion; make mutants still fails explicitly.
+- Legacy-final remains read-only at /home/tobiasosborne/Projects/InitechOS-legacy.
+  Its two desktop disk images are built locally for the live pixel comparison.
+- Existing independent WK1 oracle uses Python from the Lotus corpus, as do
+  Initech 123 host tests. No new Python factory implementation was introduced.
+- Disk layout remains IDE master boot C:, IDE slave working A:. A single
+  installable disk and the manuals' install instructions remain delivery work.
+- No bd operations, delegation, remote automation or pushes in this slice.

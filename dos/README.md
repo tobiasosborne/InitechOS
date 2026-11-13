@@ -48,3 +48,9 @@ when importing their legacy target dependencies. Claim utility host tests and
 real-DOS fixtures from attic/harness/diff with git mv, adjust include paths,
 use mk/host-test.mk, and retain existing host seams (COMMAND_FILE_HOST,
 COMMAND_BATCH_HOST etc.). `make smoke` uses the outside factory session.
+
+FLAIR is a built-in command that calls the optional public kernel environment
+hook. It returns to the existing interpreter and current batch context when
+the user leaves the desktop; it does not start another COMMAND.COM. Product
+AUTOEXEC.BAT ends with FLAIR. The system link supplies the environment, while
+the standalone DOS kernel reports that it is not installed.

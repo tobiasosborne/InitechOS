@@ -581,7 +581,7 @@ void finder_outcome_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
         } else if (o->status == FINDER_WIN_ERR_DIRFULL) {
             /* The fixed root cannot grow (design F3.1). The period ALERT is the
              * tdnl.11 slice; until then this is loud on serial and NEVER
-             * silent (Rule 2). */
+             * silent (contract). */
             serial_puts("FINDER-DIR-FULL parent=");
             serial_putu((uint32_t)o->parent);
             serial_putc('\n');
@@ -724,7 +724,7 @@ void finder_outcome_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
             serial_puts(" n=");
             serial_puti((int32_t)launch);
             serial_putc('\n');
-            /* MUTANT KMAIN_MUT_OPEN_NO_LAUNCH (Rule 6): the command runs and
+            /* MUTANT KMAIN_MUT_OPEN_NO_LAUNCH (contract): the command runs and
              * is reported, the verb is never called -- Open "works" on serial
              * and launches nothing (test-flair-finder-open-mutant). */
             flair_live_launch_app(ctx, bi, l83, ldir);
@@ -770,7 +770,7 @@ void finder_desk_persist(void)
                                      (uint32_t)sizeof g_finder_db_buf);
     if (len == 0u) {
         /* The buffer is sized from the SAME fixed cap the record array is, so a
-         * zero here is a programming error, not a disk condition (Rule 2). */
+         * zero here is a programming error, not a disk condition (contract). */
         serial_puts("PANIC finder-desktop: DESKTOP.DB encode overflow\nHALTED\n");
         for (;;) { __asm__ __volatile__("cli; hlt"); }
     }

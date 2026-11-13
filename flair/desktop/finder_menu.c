@@ -12,9 +12,9 @@
  * item k+1 there. The two transcriptions are INDEPENDENT and the host oracle
  * (harness/proptest/test_finder_menu.c) grades a THIRD, hand-authored one
  * against both -- a real differential, never agreement by construction
- * (Law 2 / HER-02).
+ * (contract / HER-02).
  *
- * MUTANT KNOBS (Rule 6; -D on this TU only, from the Makefile):
+ * MUTANT KNOBS (contract; -D on this TU only, from the Makefile):
  *   FINDER_MENU_MUT_ENABLE_STUCK -- refresh writes 1 for every predicate-driven
  *                                   item instead of the predicate's answer, so
  *                                   nothing ever grays. The truth table goes
@@ -64,12 +64,12 @@
  *      os/flair/menu.h Sec 3 (MenuItem field order: text, mark, cmdChar,
  *        style, enabled, is_divider).
  *      os/flair/finder_cmd.h Sec 4 (the exported predicates).
- *      CLAUDE.md Law 1, Law 2, Law 3, Rule 8, Rule 11, Rule 12.
+ *      CLAUDE.md (The constitution), contract, contract, contract, contract, contract.
  *
- * FREESTANDING (Law 3): includes only finder_menu.h (menu.h + finder_cmd.h).
+ * FREESTANDING (contract): includes only finder_menu.h (menu.h + finder_cmd.h).
  * No libc, no malloc, no static initialiser that is not a constant expression.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean (contract). No timestamps / no nondeterminism (contract).
  */
 #include "finder_menu.h"
 #include "finder_windows.h" /* kind=4 view policy, no renderer dependency */
@@ -209,7 +209,7 @@ static MenuItem finder_special_items[] = {
  * HELP  (516, rightmost)  -- F4.2: About Help (grayed V1) | Show Balloons
  *   (grayed). BOTH rows are inert decoration in V1; neither carries a
  *   finder_cmd row, so a route to either would be FINDER-CMD-UNKNOWN -- which
- *   is the fail-loud posture, not a silent swallow (Rule 2).
+ *   is the fail-loud posture, not a silent swallow (contract).
  * ===========================================================================*/
 static MenuItem finder_help_items[] = {
     FM_ITEM("About Help",    0, 0),

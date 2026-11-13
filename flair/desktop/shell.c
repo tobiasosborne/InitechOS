@@ -10,8 +10,8 @@
  *        Managers and never touches base[] directly), D-3 (the Managers; the
  *        Photoshop bar canon), D-5 (z-order: back to front). PRD Sec 1 / 6.3 /
  *        6.5 / Appendix A (the frame). spec/assets/menu_canon.h (FROZEN canon).
- *        CLAUDE.md Law 2/3/4, Rule 2 (fail loud), Rule 11 (deterministic),
- *        Rule 12 (ASCII-clean -- no non-ASCII incl. comments; 'Sec' not the
+ *        CLAUDE.md (The constitution), contract (fail loud), contract (deterministic),
+ *        contract (ASCII-clean -- no non-ASCII incl. comments; 'Sec' not the
  *        section sign).
  *
  * THE Z-ORDER (shell_render paints back to front; ADR-0004 D-5):
@@ -34,7 +34,7 @@
  * This is the period-authentic offset-bitmap technique (a GrafPort over a
  * sub-rectangle of the screen), not a new pixel path.
  *
- * NAMED MUTATION SWITCHES (Rule 6): test_shell.c compiles this file with named
+ * NAMED MUTATION SWITCHES (contract): test_shell.c compiles this file with named
  * mutants to prove the M4 gate bites. The default build defines none.
  *
  *   SHELL_MUTATE_ONE_MENUBAR -- shell_render draws ONLY the first (retained
@@ -55,7 +55,7 @@
  *     OVER it. The modal is occluded instead of occluding -> the z-order
  *     assertion (the modal is ON TOP) goes RED. The "wrong z-order" bug.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean (contract). No timestamps / no nondeterminism (contract).
  */
 #include <stdint.h>
 
@@ -153,19 +153,19 @@ void shell_build_scene(shell_scene_t *s,
                        int show_modal)
 {
     /* uskw: validate before installing any windows or narrowing the count.
-     * Ref: shell.h caller-provided MenuInfo array; Rule 2. */
+     * Ref: shell.h caller-provided MenuInfo array; contract. */
     if (n_sys_menus < 0 || n_sys_menus > UINT16_MAX)
         SHELL_PANIC("shell_build_scene: n_sys_menus out of range");
     if (s == (shell_scene_t *)0) {
         SHELL_PANIC("shell_build_scene: NULL scene");
         return;
     }
-    if (windows == (shell_window_store *)0 || win_bounds == (const rgn_rect_t *)0 ||
-        win_titles == (const char * const *)0) {
+    if (n_windows > 0 && (windows == (shell_window_store *)0 ||
+        win_bounds == (const rgn_rect_t *)0 || win_titles == (const char * const *)0)) {
         SHELL_PANIC("shell_build_scene: NULL window storage");
         return;
     }
-    if (n_windows < 1 || n_windows > SHELL_MAX_WINDOWS) {
+    if (n_windows < 0 || n_windows > SHELL_MAX_WINDOWS) {
         SHELL_PANIC("shell_build_scene: n_windows out of range");
         return;
     }
@@ -252,7 +252,7 @@ void shell_build_scene(shell_scene_t *s,
 
     /* --- The modal FILE COPY dialog (standalone -- NOT in the WindowMgr z-order;
      * it is drawn LAST, over everything). FileCopyDialog stamps the canon string
-     * + the progress bar (dialog.h FLAIR_CANON_FILECOPY_MSG; Law 4). */
+     * + the progress bar (dialog.h FLAIR_CANON_FILECOPY_MSG; contract). */
     s->dlg = dlg;
     (void)FileCopyDialog(dlg, dlg_items, dlg_progress,
                          dlg_struc, dlg_cont, dlg_update);
@@ -268,7 +268,7 @@ void shell_build_scene(shell_scene_t *s,
      * (defect a) -- BOTH close in the ONE shared occlusion primitive.
      *
      * The modal rect is the dialog's ACTUAL strucRgn bbox (what DrawDialog fills;
-     * Law 1 -- the overlay must match what is drawn), which FileCopyDialog set
+     * contract -- the overlay must match what is drawn), which FileCopyDialog set
      * above. The bars span rows [0, SHELL_MENUBARS_H) full width. NULL overlay ==
      * disabled (the fold is a no-op; the M4 host gate). */
     s->overlay_rgn = overlay_rgn;
